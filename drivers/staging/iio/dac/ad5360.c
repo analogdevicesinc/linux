@@ -317,15 +317,20 @@ static int ad5360_write_raw(struct iio_dev *indio_dev,
 	struct ad5360_state *st = iio_priv(indio_dev);
 	int max_val = (1 << chan->scan_type.realbits);
 	unsigned int ofs_index;
+	unsigned int shift;
 
 	switch (mask) {
 	case 0:
 		if (val >= max_val || val < 0)
 			return -EINVAL;
 
-		return ad5360_write(indio_dev, AD5360_CMD_WRITE_DATA,
-				 chan->address, val, chan->scan_type.shift);
+		if (iio_buffer_enabled(indio_dev))
+			shift = 0;
+		else
+			shift = chan->scan_type.shift;
 
+		return ad5360_write(indio_dev, AD5360_CMD_WRITE_DATA,
+				 chan->address, val, shift);
 	case IIO_CHAN_INFO_CALIBBIAS:
 		if (val >= max_val || val < 0)
 			return -EINVAL;
@@ -504,14 +509,23 @@ static int __devinit ad5360_probe(struct spi_device *spi)
 		goto error_free_reg;
 	}
 
+	ret = iio_triggered_buffer_setup(indio_dev, &iio_kfifo_allocate, NULL,
+			&iio_simple_trigger_handler, NULL);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to setup buffer: %d\n", ret);
+		goto error_disable_reg;
+	}
+
 	ret = iio_device_register(indio_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to register iio device: %d\n", ret);
-		goto error_disable_reg;
+		goto error_cleanup_buffer;
 	}
 
 	return 0;
 
+error_cleanup_buffer:
+	iio_triggered_buffer_cleanup(indio_dev);
 error_disable_reg:
 	regulator_bulk_disable(st->chip_info->num_vrefs, st->vref_reg);
 error_free_reg:
@@ -530,6 +544,7 @@ static int __devexit ad5360_remove(struct spi_device *spi)
 	struct ad5360_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
+	iio_triggered_buffer_cleanup(indio_dev);
 
 	kfree(indio_dev->channels);
 

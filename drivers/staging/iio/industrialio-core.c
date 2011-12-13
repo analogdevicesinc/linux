@@ -23,6 +23,8 @@
 #include <linux/slab.h>
 #include <linux/anon_inodes.h>
 #include <linux/debugfs.h>
+
+#include "buffer.h"
 #include "iio.h"
 #include "iio_core.h"
 #include "iio_core_trigger.h"
@@ -847,7 +849,16 @@ static long iio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	return -EINVAL;
 }
 
-static const struct file_operations iio_buffer_fileops = {
+static const struct file_operations iio_buffer_none_fileops = {
+	.release = iio_chrdev_release,
+	.open = iio_chrdev_open,
+	.owner = THIS_MODULE,
+	.llseek = noop_llseek,
+	.unlocked_ioctl = iio_ioctl,
+	.compat_ioctl = iio_ioctl,
+};
+
+static const struct file_operations iio_buffer_in_fileops = {
 	.read = iio_buffer_read_first_n_outer_addr,
 	.release = iio_chrdev_release,
 	.open = iio_chrdev_open,
@@ -858,10 +869,23 @@ static const struct file_operations iio_buffer_fileops = {
 	.compat_ioctl = iio_ioctl,
 };
 
+
 static const struct iio_buffer_setup_ops noop_ring_setup_ops;
+
+static const struct file_operations iio_buffer_out_fileops = {
+	.write = iio_buffer_chrdev_write,
+	.release = iio_chrdev_release,
+	.open = iio_chrdev_open,
+	.poll = iio_buffer_poll_addr,
+	.owner = THIS_MODULE,
+	.llseek = noop_llseek,
+	.unlocked_ioctl = iio_ioctl,
+	.compat_ioctl = iio_ioctl,
+};
 
 int iio_device_register(struct iio_dev *indio_dev)
 {
+	const struct file_operations *fops;
 	int ret;
 
 	/* configure elements for the chrdev */
@@ -888,14 +912,23 @@ int iio_device_register(struct iio_dev *indio_dev)
 	if (indio_dev->modes & INDIO_BUFFER_TRIGGERED)
 		iio_device_register_trigger_consumer(indio_dev);
 
+
 	if ((indio_dev->modes & INDIO_ALL_BUFFER_MODES) &&
 		indio_dev->setup_ops == NULL)
 		indio_dev->setup_ops = &noop_ring_setup_ops;
+	if (indio_dev->buffer) {
+		if (indio_dev->buffer->direction == IIO_BUFFER_DIRECTION_IN)
+			fops = &iio_buffer_in_fileops;
+		else
+			fops = &iio_buffer_out_fileops;
+	} else {
+		fops = &iio_buffer_none_fileops;
+	}
 
 	ret = device_add(&indio_dev->dev);
 	if (ret < 0)
 		goto error_unreg_eventset;
-	cdev_init(&indio_dev->chrdev, &iio_buffer_fileops);
+	cdev_init(&indio_dev->chrdev, fops);
 	indio_dev->chrdev.owner = indio_dev->info->driver_module;
 	ret = cdev_add(&indio_dev->chrdev, indio_dev->dev.devt, 1);
 	if (ret < 0)

@@ -116,9 +116,37 @@ static int iio_read_first_n_kfifo(struct iio_buffer *r,
 	return copied;
 }
 
+static int iio_remove_from_kfifo(struct iio_buffer *r,
+			      u8 *data)
+{
+	int ret;
+	struct iio_kfifo *kf = iio_to_kfifo(r);
+
+	if (kfifo_size(&kf->kf) < r->bytes_per_datum)
+		return -EBUSY;
+
+	ret = kfifo_out(&kf->kf, data, r->bytes_per_datum);
+	if (ret != r->bytes_per_datum)
+		return -EBUSY;
+	return 0;
+}
+
+static int iio_write_kfifo(struct iio_buffer *r,
+			   size_t n, char __user *buf)
+{
+	int ret, copied;
+	struct iio_kfifo *kf = iio_to_kfifo(r);
+
+	ret = kfifo_from_user(&kf->kf, buf, n, &copied);
+
+	return copied;
+}
+
 static const struct iio_buffer_access_funcs kfifo_access_funcs = {
 	.store_to = &iio_store_to_kfifo,
+	.remove_from = &iio_remove_from_kfifo,
 	.read_first_n = &iio_read_first_n_kfifo,
+	.write = &iio_write_kfifo,
 	.request_update = &iio_request_update_kfifo,
 	.get_bytes_per_datum = &iio_get_bytes_per_datum_kfifo,
 	.set_bytes_per_datum = &iio_set_bytes_per_datum_kfifo,
