@@ -359,6 +359,13 @@ config SPI_TXX9
 	help
 	  SPI driver for Toshiba TXx9 MIPS SoCs
 
+config SPI_XCOMM
+	tristate "SPI-I2C-bridge driver for the ADI Xcomm board"
+	depends on I2C
+	select SPI_BITBANG
+	help
+	  Support for the SPI-I2C-bridge IC found on the ADI Xcomm board.
+
 config SPI_XILINX
 	tristate "Xilinx SPI controller common module"
 	depends on HAS_IOMEM && EXPERIMENTAL
