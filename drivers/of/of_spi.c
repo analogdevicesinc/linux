@@ -97,3 +97,31 @@ void of_register_spi_devices(struct spi_master *master)
 	}
 }
 EXPORT_SYMBOL(of_register_spi_devices);
+
+static int __spi_master_of_match(struct device *dev, void *data)
+{
+	struct device_node *of_node = data;
+	return dev->of_node == of_node;
+}
+
+/**
+ * spi_of_node_to_master - look up master associated with of_node
+ * @of_node: pointer to the device tree node.
+ * Context: can sleep
+ *
+ * Returns a pointer to the relevant spi_master, or NULL if there is
+ * no such master registered.
+ */
+struct spi_master *spi_of_node_to_master(struct device_node *of_node)
+{
+	struct device *dev;
+	struct spi_master *master = NULL;
+
+	dev = class_find_device(&spi_master_class, NULL, of_node,
+				__spi_master_of_match);
+	if (dev)
+		master = container_of(dev, struct spi_master, dev);
+
+	return master;
+}
+EXPORT_SYMBOL_GPL(spi_of_node_to_master);

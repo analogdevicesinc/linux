@@ -805,4 +805,6 @@ spi_unregister_device(struct spi_device *spi)
 extern const struct spi_device_id *
 spi_get_device_id(const struct spi_device *sdev);
 
+extern struct class spi_master_class;
+
 #endif /* __LINUX_SPI_H */

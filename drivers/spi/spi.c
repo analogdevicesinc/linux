@@ -515,12 +515,12 @@ static void spi_master_release(struct device *dev)
 	kfree(master);
 }
 
-static struct class spi_master_class = {
+struct class spi_master_class = {
 	.name		= "spi_master",
 	.owner		= THIS_MODULE,
 	.dev_release	= spi_master_release,
 };
-
+EXPORT_SYMBOL_GPL(spi_master_class);
 
 /**
  * spi_alloc_master - allocate SPI master controller
