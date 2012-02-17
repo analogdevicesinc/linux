@@ -1,7 +1,10 @@
 #
-# Direct Digital Synthesis drivers
+# Frequency
+#	Direct Digital Synthesis drivers (DDS)
+#	Clock Distribution device drivers
+#	Phase Locked Loop device drivers (PLL)
 #
-menu "Direct Digital Synthesis"
+menu "Frequency DDS/PLL"
 
 config AD5930
 	tristate "Analog Devices ad5930/5932 driver"
