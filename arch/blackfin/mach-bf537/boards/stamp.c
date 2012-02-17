@@ -1418,9 +1418,18 @@ static struct spi_board_info bfin_spi_board_info[] __initdata = {
 		.mode = SPI_MODE_3,
 	},
 #endif
+//#if defined(CONFIG_AD525X_DPOT) || defined(CONFIG_AD525X_DPOT_MODULE)
+	{
+		.modalias = "ad5160",
+		.max_speed_hz = 5000000,     /* max spi clock (SCK) speed in HZ */
+		.bus_num = 0,
+		.chip_select = 1, //GPIO_PF10 + MAX_CTRL_CS,
+		.mode = SPI_MODE_0,
+	},
+//#endif
 };
 
-#if defined(CONFIG_SPI_BFIN5XX) || defined(CONFIG_SPI_BFIN5XX_MODULE)
+//#if defined(CONFIG_SPI_BFIN5XX) || defined(CONFIG_SPI_BFIN5XX_MODULE)
 /* SPI controller data */
 static struct bfin5xx_spi_master bfin_spi0_info = {
 	.num_chipselect = MAX_CTRL_CS + MAX_BLACKFIN_GPIOS,
@@ -1456,7 +1465,7 @@ static struct platform_device bfin_spi0_device = {
 		.platform_data = &bfin_spi0_info, /* Passed to driver */
 	},
 };
-#endif  /* spi master and devices */
+//#endif  /* spi master and devices */
 
 #if defined(CONFIG_SPI_BFIN_SPORT) || defined(CONFIG_SPI_BFIN_SPORT_MODULE)
 
@@ -2781,9 +2790,9 @@ static struct platform_device *stamp_devices[] __initdata = {
 	&net2272_bfin_device,
 #endif
 
-#if defined(CONFIG_SPI_BFIN5XX) || defined(CONFIG_SPI_BFIN5XX_MODULE)
+//#if defined(CONFIG_SPI_BFIN5XX) || defined(CONFIG_SPI_BFIN5XX_MODULE)
 	&bfin_spi0_device,
-#endif
+//#endif
 
 #if defined(CONFIG_SPI_BFIN_SPORT) || defined(CONFIG_SPI_BFIN_SPORT_MODULE)
 	&bfin_sport_spi0_device,
