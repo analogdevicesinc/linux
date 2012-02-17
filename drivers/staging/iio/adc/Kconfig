@@ -169,6 +169,19 @@ config AD7280
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7280a
 
+config CF_AD9467
+	tristate "Analog Devices AD9467 AD9643 High-Speed ADC driver"
+	select IIO_BUFFER
+	help
+	  Say yes here to build support for Analog Devices AD9467 and AD9643,
+	  High-Speed LVDS analog to digital converters (ADC).
+	  FPGA interface HDL is available here:
+	  http://wiki.analog.com/resources/fpga/xilinx/fmc/ad9467
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cf_ad9467.
+
 config MAX1363
 	tristate "Maxim max1363 ADC driver"
 	depends on I2C
