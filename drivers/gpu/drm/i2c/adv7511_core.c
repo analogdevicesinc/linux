@@ -7,9 +7,10 @@
  */
 
 #include <linux/device.h>
-#include <linux/gpio/consumer.h>
+#include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
+#include <linux/of_gpio.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 
@@ -19,34 +20,6 @@
 #include <drm/drm_encoder_slave.h>
 
 #include "adv7511.h"
-
-struct adv7511 {
-	struct i2c_client *i2c_main;
-	struct i2c_client *i2c_edid;
-
-	struct regmap *regmap;
-	struct regmap *packet_memory_regmap;
-	enum drm_connector_status status;
-	bool powered;
-
-	unsigned int f_tmds;
-
-	unsigned int current_edid_segment;
-	uint8_t edid_buf[256];
-	bool edid_read;
-
-	wait_queue_head_t wq;
-	struct drm_encoder *encoder;
-
-	bool embedded_sync;
-	enum adv7511_sync_polarity vsync_polarity;
-	enum adv7511_sync_polarity hsync_polarity;
-	bool rgb;
-
-	struct edid *edid;
-
-	struct gpio_desc *gpio_pd;
-};
 
 static struct adv7511 *encoder_to_adv7511(struct drm_encoder *encoder)
 {
@@ -194,7 +167,7 @@ static void adv7511_set_colormap(struct adv7511 *adv7511, bool enable,
 			   ADV7511_CSC_UPDATE_MODE, 0);
 }
 
-static int adv7511_packet_enable(struct adv7511 *adv7511, unsigned int packet)
+int adv7511_packet_enable(struct adv7511 *adv7511, unsigned int packet)
 {
 	if (packet & 0xff)
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_PACKET_ENABLE0,
@@ -209,7 +182,7 @@ static int adv7511_packet_enable(struct adv7511 *adv7511, unsigned int packet)
 	return 0;
 }
 
-static int adv7511_packet_disable(struct adv7511 *adv7511, unsigned int packet)
+int adv7511_packet_disable(struct adv7511 *adv7511, unsigned int packet)
 {
 	if (packet & 0xff)
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_PACKET_ENABLE0,
@@ -222,6 +195,65 @@ static int adv7511_packet_disable(struct adv7511 *adv7511, unsigned int packet)
 	}
 
 	return 0;
+}
+
+static void _adv7511_set_config(struct adv7511 *adv7511,
+	struct adv7511_video_config *config)
+{
+	bool output_format_422, output_format_ycbcr;
+	unsigned int mode;
+	uint8_t infoframe[17];
+
+	if (config->hdmi_mode) {
+		mode = ADV7511_HDMI_CFG_MODE_HDMI;
+
+		switch (config->avi_infoframe.colorspace) {
+		case HDMI_COLORSPACE_YUV444:
+			output_format_422 = false;
+			output_format_ycbcr = true;
+			break;
+		case HDMI_COLORSPACE_YUV422:
+			output_format_422 = true;
+			output_format_ycbcr = true;
+			break;
+		default:
+			output_format_422 = false;
+			output_format_ycbcr = false;
+			break;
+		}
+	} else {
+		mode = ADV7511_HDMI_CFG_MODE_DVI;
+		output_format_422 = false;
+		output_format_ycbcr = false;
+	}
+
+	adv7511_packet_disable(adv7511, ADV7511_PACKET_ENABLE_AVI_INFOFRAME);
+
+	adv7511_set_colormap(adv7511, config->csc_enable,
+			     config->csc_coefficents,
+			     config->csc_scaling_factor);
+
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_VIDEO_INPUT_CFG1, 0x81,
+			   (output_format_422 << 7) | output_format_ycbcr);
+
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_HDCP_HDMI_CFG,
+			   ADV7511_HDMI_CFG_MODE_MASK, mode);
+
+	hdmi_avi_infoframe_pack(&config->avi_infoframe, infoframe,
+				sizeof(infoframe));
+
+	/* The AVI infoframe id is not configurable */
+	regmap_bulk_write(adv7511->regmap, ADV7511_REG_AVI_INFOFRAME_VERSION,
+			  infoframe + 1, sizeof(infoframe) - 1);
+
+	adv7511_packet_enable(adv7511, ADV7511_PACKET_ENABLE_AVI_INFOFRAME);
+}
+
+static void adv7511_set_config(struct drm_encoder *encoder, void *c)
+{
+	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
+
+	_adv7511_set_config(adv7511, c);
 }
 
 /* Coefficients for adv7511 color space conversion */
@@ -236,9 +268,6 @@ static void adv7511_set_config_csc(struct adv7511 *adv7511,
 				   bool rgb)
 {
 	struct adv7511_video_config config;
-	bool output_format_422, output_format_ycbcr;
-	unsigned int mode;
-	uint8_t infoframe[17];
 
 	if (adv7511->edid)
 		config.hdmi_mode = drm_detect_hdmi_monitor(adv7511->edid);
@@ -268,144 +297,53 @@ static void adv7511_set_config_csc(struct adv7511 *adv7511,
 		}
 	}
 
-	if (config.hdmi_mode) {
-		mode = ADV7511_HDMI_CFG_MODE_HDMI;
-
-		switch (config.avi_infoframe.colorspace) {
-		case HDMI_COLORSPACE_YUV444:
-			output_format_422 = false;
-			output_format_ycbcr = true;
-			break;
-		case HDMI_COLORSPACE_YUV422:
-			output_format_422 = true;
-			output_format_ycbcr = true;
-			break;
-		default:
-			output_format_422 = false;
-			output_format_ycbcr = false;
-			break;
-		}
-	} else {
-		mode = ADV7511_HDMI_CFG_MODE_DVI;
-		output_format_422 = false;
-		output_format_ycbcr = false;
-	}
-
-	adv7511_packet_disable(adv7511, ADV7511_PACKET_ENABLE_AVI_INFOFRAME);
-
-	adv7511_set_colormap(adv7511, config.csc_enable,
-			     config.csc_coefficents,
-			     config.csc_scaling_factor);
-
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_VIDEO_INPUT_CFG1, 0x81,
-			   (output_format_422 << 7) | output_format_ycbcr);
-
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_HDCP_HDMI_CFG,
-			   ADV7511_HDMI_CFG_MODE_MASK, mode);
-
-	hdmi_avi_infoframe_pack(&config.avi_infoframe, infoframe,
-				sizeof(infoframe));
-
-	/* The AVI infoframe id is not configurable */
-	regmap_bulk_write(adv7511->regmap, ADV7511_REG_AVI_INFOFRAME_VERSION,
-			  infoframe + 1, sizeof(infoframe) - 1);
-
-	adv7511_packet_enable(adv7511, ADV7511_PACKET_ENABLE_AVI_INFOFRAME);
+	_adv7511_set_config(adv7511, &config);
 }
 
 static void adv7511_set_link_config(struct adv7511 *adv7511,
 				    const struct adv7511_link_config *config)
 {
-	/*
-	 * The input style values documented in the datasheet don't match the
-	 * hardware register field values :-(
-	 */
-	static const unsigned int input_styles[4] = { 0, 2, 1, 3 };
+	enum adv7511_input_sync_pulse sync_pulse;
 
-	unsigned int clock_delay;
-	unsigned int color_depth;
-	unsigned int input_id;
-
-	clock_delay = (config->clock_delay + 1200) / 400;
-	color_depth = config->input_color_depth == 8 ? 3
-		    : (config->input_color_depth == 10 ? 1 : 2);
-
-	/* TODO Support input ID 6 */
-	if (config->input_colorspace != HDMI_COLORSPACE_YUV422)
-		input_id = config->input_clock == ADV7511_INPUT_CLOCK_DDR
-			 ? 5 : 0;
-	else if (config->input_clock == ADV7511_INPUT_CLOCK_DDR)
-		input_id = config->embedded_sync ? 8 : 7;
-	else if (config->input_clock == ADV7511_INPUT_CLOCK_2X)
-		input_id = config->embedded_sync ? 4 : 3;
-	else
-		input_id = config->embedded_sync ? 2 : 1;
-
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_I2C_FREQ_ID_CFG, 0xf,
-			   input_id);
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_VIDEO_INPUT_CFG1, 0x7e,
-			   (color_depth << 4) |
-			   (input_styles[config->input_style] << 2));
-	regmap_write(adv7511->regmap, ADV7511_REG_VIDEO_INPUT_CFG2,
-		     config->input_justification << 3);
-	regmap_write(adv7511->regmap, ADV7511_REG_TIMING_GEN_SEQ,
-		     config->sync_pulse << 2);
-
-	regmap_write(adv7511->regmap, 0xba, clock_delay << 5);
-
-	adv7511->embedded_sync = config->embedded_sync;
-	adv7511->hsync_polarity = config->hsync_polarity;
-	adv7511->vsync_polarity = config->vsync_polarity;
-	adv7511->rgb = config->input_colorspace == HDMI_COLORSPACE_RGB;
-}
-
-static void adv7511_power_on(struct adv7511 *adv7511)
-{
-	adv7511->current_edid_segment = -1;
-
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
-			   ADV7511_POWER_POWER_DOWN, 0);
-	if (adv7511->i2c_main->irq) {
-		/*
-		 * Documentation says the INT_ENABLE registers are reset in
-		 * POWER_DOWN mode. My 7511w preserved the bits, however.
-		 * Still, let's be safe and stick to the documentation.
-		 */
-		regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE(0),
-			     ADV7511_INT0_EDID_READY);
-		regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE(1),
-			     ADV7511_INT1_DDC_ERROR);
+	switch (config->id) {
+	case ADV7511_INPUT_ID_12_15_16BIT_RGB444_YCbCr444:
+		sync_pulse = ADV7511_INPUT_SYNC_PULSE_NONE;
+		break;
+	default:
+		sync_pulse = config->sync_pulse;
+		break;
 	}
 
-	/*
-	 * Per spec it is allowed to pulse the HPD signal to indicate that the
-	 * EDID information has changed. Some monitors do this when they wakeup
-	 * from standby or are enabled. When the HPD goes low the adv7511 is
-	 * reset and the outputs are disabled which might cause the monitor to
-	 * go to standby again. To avoid this we ignore the HPD pin for the
-	 * first few seconds after enabling the output.
-	 */
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
-			   ADV7511_REG_POWER2_HPD_SRC_MASK,
-			   ADV7511_REG_POWER2_HPD_SRC_NONE);
+	switch (config->id) {
+	case ADV7511_INPUT_ID_16_20_24BIT_YCbCr422_EMBEDDED_SYNC:
+	case ADV7511_INPUT_ID_8_10_12BIT_YCbCr422_EMBEDDED_SYNC:
+		adv7511->embedded_sync = true;
+		break;
+	default:
+		adv7511->embedded_sync = false;
+		break;
+	}
 
-	/*
-	 * Most of the registers are reset during power down or when HPD is low.
-	 */
-	regcache_sync(adv7511->regmap);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_I2C_FREQ_ID_CFG, 0xf,
+			   config->id);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_VIDEO_INPUT_CFG1, 0x7e,
+			   (config->input_color_depth << 4) |
+			   (config->input_style << 2));
+	regmap_write(adv7511->regmap, ADV7511_REG_VIDEO_INPUT_CFG2,
+		     (config->reverse_bitorder << 6) |
+		     (config->input_justification << 3));
+	regmap_write(adv7511->regmap, ADV7511_REG_TIMING_GEN_SEQ,
+		     (sync_pulse << 2) | (config->timing_gen_seq << 1));
 
-	adv7511->powered = true;
-}
+	regmap_write(adv7511->regmap, 0xba, (config->clock_delay << 5));
 
-static void adv7511_power_off(struct adv7511 *adv7511)
-{
-	/* TODO: setup additional power down modes */
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
-			   ADV7511_POWER_POWER_DOWN,
-			   ADV7511_POWER_POWER_DOWN);
-	regcache_mark_dirty(adv7511->regmap);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_TMDS_CLOCK_INV, 0x08,
+			   config->tmds_clock_inversion << 3);
 
-	adv7511->powered = false;
+	adv7511->hsync_polarity = config->hsync_polarity;
+	adv7511->vsync_polarity = config->vsync_polarity;
+	adv7511->auto_csc_config = config->auto_csc_config;
+	adv7511->rgb = config->rgb;
 }
 
 /* -----------------------------------------------------------------------------
@@ -430,70 +368,68 @@ static bool adv7511_hpd(struct adv7511 *adv7511)
 	return false;
 }
 
-static int adv7511_irq_process(struct adv7511 *adv7511)
+static irqreturn_t adv7511_irq_handler(int irq, void *devid)
+{
+	struct adv7511 *adv7511 = devid;
+
+	if (adv7511_hpd(adv7511) && adv7511->encoder)
+		drm_helper_hpd_irq_event(adv7511->encoder->dev);
+
+	wake_up_all(&adv7511->wq);
+
+	return IRQ_HANDLED;
+}
+
+static unsigned int adv7511_is_interrupt_pending(struct adv7511 *adv7511,
+						 unsigned int irq)
 {
 	unsigned int irq0, irq1;
+	unsigned int pending;
 	int ret;
 
 	ret = regmap_read(adv7511->regmap, ADV7511_REG_INT(0), &irq0);
 	if (ret < 0)
-		return ret;
-
+		return 0;
 	ret = regmap_read(adv7511->regmap, ADV7511_REG_INT(1), &irq1);
 	if (ret < 0)
-		return ret;
+		return 0;
 
-	regmap_write(adv7511->regmap, ADV7511_REG_INT(0), irq0);
-	regmap_write(adv7511->regmap, ADV7511_REG_INT(1), irq1);
+	pending = (irq1 << 8) | irq0;
 
-	if (irq0 & ADV7511_INT0_HPD && adv7511->encoder)
-		drm_helper_hpd_irq_event(adv7511->encoder->dev);
-
-	if (irq0 & ADV7511_INT0_EDID_READY || irq1 & ADV7511_INT1_DDC_ERROR) {
-		adv7511->edid_read = true;
-
-		if (adv7511->i2c_main->irq)
-			wake_up_all(&adv7511->wq);
-	}
-
-	return 0;
+	return pending & irq;
 }
 
-static irqreturn_t adv7511_irq_handler(int irq, void *devid)
+static int adv7511_wait_for_interrupt(struct adv7511 *adv7511, int irq,
+				      int timeout)
 {
-	struct adv7511 *adv7511 = devid;
+	unsigned int pending;
 	int ret;
 
-	ret = adv7511_irq_process(adv7511);
-	return ret < 0 ? IRQ_NONE : IRQ_HANDLED;
+	if (adv7511->i2c_main->irq) {
+		ret = wait_event_interruptible_timeout(adv7511->wq,
+				adv7511_is_interrupt_pending(adv7511, irq),
+				msecs_to_jiffies(timeout));
+		if (ret <= 0)
+			return 0;
+		pending = adv7511_is_interrupt_pending(adv7511, irq);
+	} else {
+		if (timeout < 25)
+			timeout = 25;
+		do {
+			pending = adv7511_is_interrupt_pending(adv7511, irq);
+			if (pending)
+				break;
+			msleep(25);
+			timeout -= 25;
+		} while (timeout >= 25);
+	}
+
+	return pending;
 }
 
 /* -----------------------------------------------------------------------------
  * EDID retrieval
  */
-
-static int adv7511_wait_for_edid(struct adv7511 *adv7511, int timeout)
-{
-	int ret;
-
-	if (adv7511->i2c_main->irq) {
-		ret = wait_event_interruptible_timeout(adv7511->wq,
-				adv7511->edid_read, msecs_to_jiffies(timeout));
-	} else {
-		for (; timeout > 0; timeout -= 25) {
-			ret = adv7511_irq_process(adv7511);
-			if (ret < 0)
-				break;
-
-			if (adv7511->edid_read)
-				break;
-
-			msleep(25);
-		}
-	}
-
-	return adv7511->edid_read ? 0 : -EIO;
-}
 
 static int adv7511_get_edid_block(void *data, u8 *buf, unsigned int block,
 				  size_t len)
@@ -516,13 +452,19 @@ static int adv7511_get_edid_block(void *data, u8 *buf, unsigned int block,
 			return ret;
 
 		if (status != 2) {
-			adv7511->edid_read = false;
 			regmap_write(adv7511->regmap, ADV7511_REG_EDID_SEGMENT,
 				     block);
-			ret = adv7511_wait_for_edid(adv7511, 200);
-			if (ret < 0)
-				return ret;
+			ret = adv7511_wait_for_interrupt(adv7511,
+					ADV7511_INT0_EDID_READY |
+					ADV7511_INT1_DDC_ERROR, 200);
+
+			if (!(ret & ADV7511_INT0_EDID_READY))
+				return -EIO;
+			mdelay(10);
 		}
+
+		regmap_write(adv7511->regmap, ADV7511_REG_INT(0),
+			     ADV7511_INT0_EDID_READY | ADV7511_INT1_DDC_ERROR);
 
 		/* Break this apart, hopefully more I2C controllers will
 		 * support 64 byte transfers than 256 byte transfers
@@ -574,13 +516,15 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 	unsigned int count;
 
 	/* Reading the EDID only works if the device is powered */
-	if (!adv7511->powered) {
+	if (adv7511->dpms_mode != DRM_MODE_DPMS_ON) {
+		regmap_write(adv7511->regmap, ADV7511_REG_INT(0),
+			     ADV7511_INT0_EDID_READY | ADV7511_INT1_DDC_ERROR);
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 				   ADV7511_POWER_POWER_DOWN, 0);
 		if (adv7511->i2c_main->irq) {
-			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE(0),
+			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE1,
 				     ADV7511_INT0_EDID_READY);
-			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE(1),
+			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE2,
 				     ADV7511_INT1_DDC_ERROR);
 		}
 		adv7511->current_edid_segment = -1;
@@ -588,7 +532,7 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 
 	edid = drm_do_get_edid(connector, adv7511_get_edid_block, adv7511);
 
-	if (!adv7511->powered)
+	if (adv7511->dpms_mode != DRM_MODE_DPMS_ON)
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 				   ADV7511_POWER_POWER_DOWN,
 				   ADV7511_POWER_POWER_DOWN);
@@ -601,7 +545,8 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 	drm_connector_update_edid_property(connector, edid);
 	count = drm_add_edid_modes(connector, edid);
 
-	adv7511_set_config_csc(adv7511, connector, adv7511->rgb);
+	if (adv7511->auto_csc_config)
+		adv7511_set_config_csc(adv7511, connector, adv7511->rgb);
 
 	return count;
 }
@@ -610,10 +555,54 @@ static void adv7511_encoder_dpms(struct drm_encoder *encoder, int mode)
 {
 	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
 
-	if (mode == DRM_MODE_DPMS_ON)
-		adv7511_power_on(adv7511);
-	else
-		adv7511_power_off(adv7511);
+	switch (mode) {
+	case DRM_MODE_DPMS_ON:
+		adv7511->current_edid_segment = -1;
+
+		regmap_write(adv7511->regmap, ADV7511_REG_INT(0),
+			     ADV7511_INT0_EDID_READY | ADV7511_INT1_DDC_ERROR);
+		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
+				   ADV7511_POWER_POWER_DOWN, 0);
+		if (adv7511->i2c_main->irq) {
+			/*
+			 * Documentation says the INT_ENABLE registers are reset in
+			 * POWER_DOWN mode. My 7511w preserved the bits, however.
+			 * Still, let's be safe and stick to the documentation.
+			 */
+			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE1,
+					 ADV7511_INT0_EDID_READY);
+			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE2,
+					 ADV7511_INT1_DDC_ERROR);
+		}
+
+		/*
+		 * Per spec it is allowed to pulse the HPD signal to indicate
+		 * that the EDID information has changed. Some monitors do this
+		 * when they wakeup from standby or are enabled. When the HPD 
+		 * goes low the adv7511 is reset and the outputs are disabled
+		 * which might cause the monitor to go to standby again. To
+		 * avoid this we ignore the HPD pin for the first few seconds
+		 * after enabeling the output.
+		 */
+		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
+				   ADV7511_REG_POWER2_HPD_SRC_MASK,
+				   ADV7511_REG_POWER2_HPD_SRC_NONE);
+		/* Most of the registers are reset during power down or
+		 * when HPD is low
+		 */
+		regcache_sync(adv7511->regmap);
+
+		break;
+	default:
+		/* TODO: setup additional power down modes */
+		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
+				   ADV7511_POWER_POWER_DOWN,
+				   ADV7511_POWER_POWER_DOWN);
+		regcache_mark_dirty(adv7511->regmap);
+		break;
+	}
+
+	adv7511->dpms_mode = mode;
 }
 
 static enum drm_connector_status
@@ -641,9 +630,10 @@ adv7511_encoder_detect(struct drm_encoder *encoder,
 	 * there is a pending HPD interrupt and the cable is connected there was
 	 * at least one transition from disconnected to connected and the chip
 	 * has to be reinitialized. */
-	if (status == connector_status_connected && hpd && adv7511->powered) {
+	if (status == connector_status_connected && hpd &&
+	    adv7511->dpms_mode == DRM_MODE_DPMS_ON) {
 		regcache_mark_dirty(adv7511->regmap);
-		adv7511_power_on(adv7511);
+		adv7511_encoder_dpms(encoder, adv7511->dpms_mode);
 		adv7511_get_modes(encoder, connector);
 		if (adv7511->status == connector_status_connected)
 			status = connector_status_disconnected;
@@ -656,15 +646,6 @@ adv7511_encoder_detect(struct drm_encoder *encoder,
 
 	adv7511->status = status;
 	return status;
-}
-
-static int adv7511_encoder_mode_valid(struct drm_encoder *encoder,
-				      struct drm_display_mode *mode)
-{
-	if (mode->clock > 165000)
-		return MODE_CLOCK_HIGH;
-
-	return MODE_OK;
 }
 
 static void adv7511_encoder_mode_set(struct drm_encoder *encoder,
@@ -763,24 +744,142 @@ static void adv7511_encoder_mode_set(struct drm_encoder *encoder,
 }
 
 static const struct drm_encoder_slave_funcs adv7511_encoder_funcs = {
+	.set_config = adv7511_set_config,
 	.dpms = adv7511_encoder_dpms,
-	.mode_valid = adv7511_encoder_mode_valid,
 	.mode_set = adv7511_encoder_mode_set,
 	.detect = adv7511_encoder_detect,
 	.get_modes = adv7511_get_modes,
 };
 
+/*
+	adi,input-id -
+		0x00:
+		0x01:
+		0x02:
+		0x03:
+		0x04:
+		0x05:
+	adi,sync-pulse - Selects the sync pulse
+		0x00: Use the DE signal as sync pulse
+		0x01: Use the HSYNC signal as sync pulse
+		0x02: Use the VSYNC signal as sync pulse
+		0x03: No external sync pulse
+	adi,bit-justification -
+		0x00: Evently
+		0x01: Right
+		0x02: Left
+	adi,up-conversion -
+		0x00: zero-order up conversion
+		0x01: first-order up conversion
+	adi,timing-generation-sequence -
+		0x00: Sync adjustment first, then DE generation
+		0x01: DE generation first then sync adjustment
+	adi,vsync-polarity - Polarity of the vsync signal
+		0x00: Passthrough
+		0x01: Active low
+		0x02: Active high
+	adi,hsync-polarity - Polarity of the hsync signal
+		0x00: Passthrough
+		0x01: Active low
+		0x02: Active high
+	adi,reverse-bitorder - If set the bitorder is reveresed
+	adi,tmds-clock-inversion - If set use tdms clock inversion
+	adi,clock-delay - Clock delay for the video data clock
+		0x00: -1200 ps
+		0x01:  -800 ps
+		0x02:  -400 ps
+		0x03: no dealy
+		0x04:   400 ps
+		0x05:   800 ps
+		0x06:  1200 ps
+		0x07:  1600 ps
+	adi,input-style - Specifies the input style used
+		0x02: Use input style 1
+		0x01: Use input style 2
+		0x03: Use Input style 3
+	adi,input-color-depth - Selects the input format color depth
+		0x03: 8-bit per channel
+		0x01: 10-bit per channel
+		0x02: 12-bit per channel
+*/
+
 /* -----------------------------------------------------------------------------
  * Probe & remove
  */
 
+static int adv7511_parse_dt_legacy(struct device_node *np,
+			    struct adv7511_link_config *config)
+{
+	int ret;
+
+	ret = of_property_read_u32(np, "adi,input-id", &config->id);
+	if (ret < 0)
+		return ret;
+
+	config->sync_pulse = ADV7511_INPUT_SYNC_PULSE_NONE;
+	of_property_read_u32(np, "adi,sync-pulse", &config->sync_pulse);
+
+	ret = of_property_read_u32(np, "adi,bit-justification",
+				   &config->input_justification);
+	if (ret < 0)
+		return ret;
+
+	config->up_conversion = ADV7511_UP_CONVERSION_ZERO_ORDER;
+	of_property_read_u32(np, "adi,up-conversion", &config->up_conversion);
+
+	ret = of_property_read_u32(np, "adi,timing-generation-sequence",
+				   &config->timing_gen_seq);
+	if (ret < 0)
+		return ret;
+
+	ret = of_property_read_u32(np, "adi,vsync-polarity",
+				   &config->vsync_polarity);
+	if (ret < 0)
+		return ret;
+
+	ret = of_property_read_u32(np, "adi,hsync-polarity",
+				   &config->hsync_polarity);
+	if (ret < 0)
+		return ret;
+
+	config->reverse_bitorder = of_property_read_bool(np,
+		"adi,reverse-bitorder");
+	config->tmds_clock_inversion = of_property_read_bool(np,
+		"adi,tmds-clock-inversion");
+
+	ret = of_property_read_u32(np, "adi,clock-delay",
+				   &config->clock_delay);
+	if (ret)
+		return ret;
+
+	ret = of_property_read_u32(np, "adi,input-style",
+				   &config->input_style);
+	if (ret)
+		return ret;
+
+	ret = of_property_read_u32(np, "adi,input-color-depth",
+				   &config->input_color_depth);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static int adv7511_parse_dt(struct device_node *np,
 			    struct adv7511_link_config *config)
 {
+	static const unsigned int input_styles[4] = { 0, 2, 1, 3 };
+	enum hdmi_colorspace input_colorspace;
+	unsigned int input_clock;
+	bool embedded_sync;
+	int clock_delay = 0;
 	const char *str;
 	int ret;
 
 	memset(config, 0, sizeof(*config));
+
+	if (of_property_read_bool(np, "adi,input-color-depth"))
+		return adv7511_parse_dt_legacy(np, config);
 
 	of_property_read_u32(np, "adi,input-depth", &config->input_color_depth);
 	if (config->input_color_depth != 8 && config->input_color_depth != 10 &&
@@ -792,11 +891,11 @@ static int adv7511_parse_dt(struct device_node *np,
 		return ret;
 
 	if (!strcmp(str, "rgb"))
-		config->input_colorspace = HDMI_COLORSPACE_RGB;
+		input_colorspace = HDMI_COLORSPACE_RGB;
 	else if (!strcmp(str, "yuv422"))
-		config->input_colorspace = HDMI_COLORSPACE_YUV422;
+		input_colorspace = HDMI_COLORSPACE_YUV422;
 	else if (!strcmp(str, "yuv444"))
-		config->input_colorspace = HDMI_COLORSPACE_YUV444;
+		input_colorspace = HDMI_COLORSPACE_YUV444;
 	else
 		return -EINVAL;
 
@@ -805,16 +904,16 @@ static int adv7511_parse_dt(struct device_node *np,
 		return ret;
 
 	if (!strcmp(str, "1x"))
-		config->input_clock = ADV7511_INPUT_CLOCK_1X;
+		input_clock = ADV7511_INPUT_CLOCK_1X;
 	else if (!strcmp(str, "2x"))
-		config->input_clock = ADV7511_INPUT_CLOCK_2X;
+		input_clock = ADV7511_INPUT_CLOCK_2X;
 	else if (!strcmp(str, "ddr"))
-		config->input_clock = ADV7511_INPUT_CLOCK_DDR;
+		input_clock = ADV7511_INPUT_CLOCK_DDR;
 	else
 		return -EINVAL;
 
-	if (config->input_colorspace == HDMI_COLORSPACE_YUV422 ||
-	    config->input_clock != ADV7511_INPUT_CLOCK_1X) {
+	if (input_colorspace == HDMI_COLORSPACE_YUV422 ||
+	    input_clock != ADV7511_INPUT_CLOCK_1X) {
 		ret = of_property_read_u32(np, "adi,input-style",
 					   &config->input_style);
 		if (ret)
@@ -839,22 +938,39 @@ static int adv7511_parse_dt(struct device_node *np,
 				ADV7511_INPUT_JUSTIFICATION_RIGHT;
 		else
 			return -EINVAL;
-
 	} else {
 		config->input_style = 1;
 		config->input_justification = ADV7511_INPUT_JUSTIFICATION_LEFT;
 	}
 
-	of_property_read_u32(np, "adi,clock-delay", &config->clock_delay);
-	if (config->clock_delay < -1200 || config->clock_delay > 1600)
+	of_property_read_u32(np, "adi,clock-delay", &clock_delay);
+	if (clock_delay < -1200 || clock_delay > 1600)
 		return -EINVAL;
 
-	config->embedded_sync = of_property_read_bool(np, "adi,embedded-sync");
+	embedded_sync = of_property_read_bool(np, "adi,embedded-sync");
+
+	/* TODO Support input ID 6 */
+	if (input_colorspace != HDMI_COLORSPACE_YUV422)
+		config->id = input_clock == ADV7511_INPUT_CLOCK_DDR
+			 ? 5 : 0;
+	else if (input_clock == ADV7511_INPUT_CLOCK_DDR)
+		config->id = embedded_sync ? 8 : 7;
+	else if (input_clock == ADV7511_INPUT_CLOCK_2X)
+		config->id = embedded_sync ? 4 : 3;
+	else
+		config->id = embedded_sync ? 2 : 1;
 
 	/* Hardcode the sync pulse configurations for now. */
 	config->sync_pulse = ADV7511_INPUT_SYNC_PULSE_NONE;
 	config->vsync_polarity = ADV7511_SYNC_POLARITY_PASSTHROUGH;
 	config->hsync_polarity = ADV7511_SYNC_POLARITY_PASSTHROUGH;
+	config->rgb = input_colorspace == HDMI_COLORSPACE_RGB;
+	config->auto_csc_config = true;
+
+	config->clock_delay = (clock_delay + 1200) / 400;
+	config->input_color_depth = config->input_color_depth == 8 ? 3
+		    : (config->input_color_depth == 10 ? 1 : 2);
+	config->input_style = input_styles[config->input_style];
 
 	return 0;
 }
@@ -878,7 +994,7 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	if (!adv7511)
 		return -ENOMEM;
 
-	adv7511->powered = false;
+	adv7511->dpms_mode = DRM_MODE_DPMS_OFF;
 	adv7511->status = connector_status_disconnected;
 
 	ret = adv7511_parse_dt(dev->of_node, &link_config);
@@ -890,6 +1006,8 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	 * inactive to wake up the encoder.
 	 */
 	adv7511->gpio_pd = devm_gpiod_get_optional(dev, "pd", GPIOD_OUT_HIGH);
+	if (adv7511->gpio_pd == NULL)
+		adv7511->gpio_pd = devm_gpiod_get_optional(dev, NULL, GPIOD_OUT_HIGH);
 	if (IS_ERR(adv7511->gpio_pd))
 		return PTR_ERR(adv7511->gpio_pd);
 
@@ -920,6 +1038,7 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 
 	adv7511->i2c_main = i2c;
 	adv7511->i2c_edid = i2c_new_dummy(i2c->adapter, edid_i2c_addr >> 1);
+	adv7511->i2c_packet = i2c_new_dummy(i2c->adapter, packet_i2c_addr >> 1);
 	if (!adv7511->i2c_edid)
 		return -ENOMEM;
 
@@ -932,17 +1051,28 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 						adv7511);
 		if (ret)
 			goto err_i2c_unregister_device;
+
+	} else {
+		regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE0, 0x00);
+		regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE1, 0x00);
+		regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE2, 0x00);
 	}
 
 	/* CEC is unused for now */
 	regmap_write(adv7511->regmap, ADV7511_REG_CEC_CTRL,
 		     ADV7511_CEC_CTRL_POWER_DOWN);
 
-	adv7511_power_off(adv7511);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
+			   ADV7511_POWER_POWER_DOWN, ADV7511_POWER_POWER_DOWN);
+
+	adv7511->current_edid_segment = -1;
 
 	i2c_set_clientdata(i2c, adv7511);
+	adv7511_audio_init(dev);
 
 	adv7511_set_link_config(adv7511, &link_config);
+
+	regcache_mark_dirty(adv7511->regmap);
 
 	return 0;
 
