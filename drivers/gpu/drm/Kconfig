@@ -159,6 +159,15 @@ config DRM_SAVAGE
 	  Choose this option if you have a Savage3D/4/SuperSavage/Pro/Twister
 	  chipset. If M is selected the module will be called savage.
 
+config DRM_ENCODER_ADV7511
+	tristate "AV7511 encoder"
+	depends on I2C && DRM
+	select REGMAP_I2C
+	select DRM_KMS_HELPER
+	select FB_SYS_FILLRECT
+	select FB_SYS_COPYAREA
+	select FB_SYS_IMAGEBLIT
+
 source "drivers/gpu/drm/exynos/Kconfig"
 
 source "drivers/gpu/drm/vmwgfx/Kconfig"
