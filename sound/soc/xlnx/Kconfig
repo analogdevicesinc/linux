@@ -1,0 +1,4 @@
+config SND_SOC_XILINX
+	tristate "SoC Audio for Xilinx based boards"
+	depends on SND_SOC && (MICROBLAZE || ARCH_ZYNQ)
+	select SND_SOC_DMAENGINE_PCM
