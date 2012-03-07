@@ -1231,7 +1231,7 @@ static struct dma_async_tx_descriptor *xilinx_vdma_prep_slave_sg(
 	struct xilinx_dma_chan *chan;
 	struct xilinx_dma_desc_sw *first = NULL, *prev = NULL, *new = NULL;
 	struct xilinx_dma_desc_hw *hw = NULL, *prev_hw = NULL;
-	int i;
+	unsigned int i, j;
 	struct scatterlist *sg;
 	dma_addr_t dma_src;
 
@@ -1244,7 +1244,7 @@ static struct dma_async_tx_descriptor *xilinx_vdma_prep_slave_sg(
 		return NULL;
 
 	/* Enforce one sg entry for one frame */
-	if (sg_len != chan->num_frms) {
+	if (chan->num_frms % sg_len != 0) {
 		dev_err(chan->dev, "number of entries %d not the "
 		    "same as num stores %d\n", sg_len, chan->num_frms);
 
@@ -1258,56 +1258,58 @@ static struct dma_async_tx_descriptor *xilinx_vdma_prep_slave_sg(
 		     chan->config.stride);
 	}
 
-	/* Build transactions using information in the scatter gather list
-	 */
-	for_each_sg(sgl, sg, sg_len, i) {
-
-		/* Allocate the link descriptor from DMA pool */
-		new = xilinx_dma_alloc_descriptor(chan);
-		if (!new) {
-			dev_err(chan->dev, "No free memory for "
-			    "link descriptor\n");
-			goto fail;
-		}
-
-		/*
-		 * Calculate the maximum number of bytes to transfer,
-		 * making sure it is less than the hw limit
+	for (j = 0; j < chan->num_frms / sg_len; ++j) {
+		/* Build transactions using information in the scatter gather list
 		 */
-		hw = &(new->hw);
+		for_each_sg(sgl, sg, sg_len, i) {
 
-		dma_src = sg_dma_address(sg);
-		if (chan->has_SG) {
-			hw->buf_addr = dma_src;
+			/* Allocate the link descriptor from DMA pool */
+			new = xilinx_dma_alloc_descriptor(chan);
+			if (!new) {
+				dev_err(chan->dev, "No free memory for "
+					"link descriptor\n");
+				goto fail;
+			}
 
-			/* Fill in the descriptor */
-			hw->addr_vsize = chan->config.vsize;
-			hw->hsize = chan->config.hsize;
-			hw->control = (chan->config.frm_dly <<
-					XILINX_VDMA_FRMDLY_SHIFT) |
-					chan->config.stride;
-		} else {
-			/* Update the registers */
-			DMA_OUT(&(chan->addr_regs->buf_addr[i]), dma_src);
+			/*
+			 * Calculate the maximum number of bytes to transfer,
+			 * making sure it is less than the hw limit
+			 */
+			hw = &(new->hw);
+
+			dma_src = sg_dma_address(sg);
+			if (chan->has_SG) {
+				hw->buf_addr = dma_src;
+
+				/* Fill in the descriptor */
+				hw->addr_vsize = chan->config.vsize;
+				hw->hsize = chan->config.hsize;
+				hw->control = (chan->config.frm_dly <<
+						XILINX_VDMA_FRMDLY_SHIFT) |
+						chan->config.stride;
+			} else {
+				/* Update the registers */
+				DMA_OUT(&(chan->addr_regs->buf_addr[j * sg_len + i]), dma_src);
+			}
+
+			/* If this is not the first descriptor, chain the
+			 * current descriptor after the previous descriptor
+			 */
+			if (!first) {
+				first = new;
+			} else {
+				prev_hw = &(prev->hw);
+				prev_hw->next_desc = new->async_tx.phys;
+			}
+
+			new->async_tx.cookie = 0;
+			async_tx_ack(&new->async_tx);
+
+			prev = new;
+
+			/* Insert the link descriptor into the list */
+			list_add_tail(&new->node, &first->tx_list);
 		}
-
-		/* If this is not the first descriptor, chain the
-		 * current descriptor after the previous descriptor
-		 */
-		if (!first) {
-			first = new;
-		} else {
-			prev_hw = &(prev->hw);
-			prev_hw->next_desc = new->async_tx.phys;
-		}
-
-		new->async_tx.cookie = 0;
-		async_tx_ack(&new->async_tx);
-
-		prev = new;
-
-		/* Insert the link descriptor into the list */
-		list_add_tail(&new->node, &first->tx_list);
 	}
 
 	/* Link the last BD with the first BD */
