@@ -367,6 +367,22 @@ static inline const char *dma_chan_name(struct dma_chan *chan)
 void dma_chan_cleanup(struct kref *kref);
 
 /**
+ * dma_chan_generate_cookie - generate a new cookie
+ * @chan: channel for which to generate the cookie
+ *
+ * Note: The caller has to make sure that the function is not called
+ * concurrently.
+ */
+static inline dma_cookie_t dma_chan_generate_cookie(struct dma_chan *chan)
+{
+	chan->cookie++;
+	if (chan->cookie < DMA_MIN_COOKIE)
+		chan->cookie = DMA_MIN_COOKIE;
+
+	return chan->cookie;
+}
+
+/**
  * typedef dma_filter_fn - callback filter for dma_request_channel
  * @chan: channel to be reviewed
  * @filter_param: opaque parameter passed through dma_request_channel
