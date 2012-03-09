@@ -77,5 +77,19 @@ config AD9951
 	  Say yes here to build support for Analog Devices DDS chip
 	  ad9951, provides direct access via sysfs.
 
+config AD9122_CF
+	tristate "Analog Devices AD9122 DDS driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices DDS chip
+	  AD9122, provides direct access via sysfs.
+
+config AD9122_CF_DAC
+	tristate "Analog Devices AD9122 DAC"
+	depends on AD9122_CF
+	help
+	  Say yes here to build support for Analog Devices AD9122 DAC chip
+	  ad9122, provides direct access via sysfs.
+
 endmenu
 endmenu

@@ -10,3 +10,5 @@ obj-$(CONFIG_AD9850) += ad9850.o
 obj-$(CONFIG_AD9852) += ad9852.o
 obj-$(CONFIG_AD9910) += ad9910.o
 obj-$(CONFIG_AD9951) += ad9951.o
+obj-$(CONFIG_AD9122_CF) += cf_ad9122.o
+obj-$(CONFIG_AD9122_CF_DAC) += ad9122.o
