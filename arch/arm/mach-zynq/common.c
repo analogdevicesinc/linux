@@ -92,13 +92,12 @@ struct map_desc io_desc[] __initdata = {
 		.pfn		= __phys_to_pfn(SCU_PERIPH_PHYS),
 		.length		= SZ_8K,
 		.type		= MT_DEVICE,
-	}, 
-
+	},
 #ifdef CONFIG_DEBUG_LL
 	{
-		.virtual	= UART1_VIRT,
-		.pfn		= __phys_to_pfn(UART1_PHYS),
-		.length		= SZ_4K,
+		.virtual	= LL_UART_VADDR,
+		.pfn		= __phys_to_pfn(LL_UART_PADDR),
+		.length		= SZ_8K,
 		.type		= MT_DEVICE,
 	},
 #endif
