@@ -31,6 +31,7 @@
 
 #define XSLCR_LOCK			0x4   /* SLCR lock register */
 #define XSLCR_UNLOCK			0x8   /* SCLR unlock register */
+#define XSLCR_IO_PLL_CTRL_OFFSET	0x108 /* AMBA Peripheral Clk Control */
 #define XSLCR_APER_CLK_CTRL_OFFSET	0x12C /* AMBA Peripheral Clk Control */
 #define XSLCR_USB0_CLK_CTRL_OFFSET	0x130 /* USB 0 ULPI Clock Control */
 #define XSLCR_USB1_CLK_CTRL_OFFSET	0x134 /* USB 1 ULPI Clock Control */
@@ -44,6 +45,10 @@
 #define XSLCR_UART_CLK_CTRL_OFFSET	0x154 /* UART Reference Clock Control */
 #define XSLCR_SPI_CLK_CTRL_OFFSET	0x158 /* SPI Reference Clock Control */
 #define XSLCR_CAN_CLK_CTRL_OFFSET	0x15C /* CAN Reference Clock Control */
+#define XSLCR_FPGA0_CLK_CTRL_OFFSET	0x170 /* FPGA0 Reference Clock Control */
+#define XSLCR_FPGA1_CLK_CTRL_OFFSET	0x180 /* FPGA1 Reference Clock Control */
+#define XSLCR_FPGA2_CLK_CTRL_OFFSET	0x190 /* FPGA2 Reference Clock Control */
+#define XSLCR_FPGA3_CLK_CTRL_OFFSET	0x1a0 /* FPGA3 Reference Clock Control */
 #define XSLCR_PSS_RST_CTRL_OFFSET	0x200 /* PSS Software Reset Control */
 #define XSLCR_DDR_RST_CTRL_OFFSET	0x204 /* DDR Software Reset Control */
 #define XSLCR_AMBA_RST_CTRL_OFFSET	0x208 /* AMBA Software Reset Control */
@@ -2448,6 +2453,11 @@ static int __init xslcr_probe(struct platform_device *pdev)
 
 	/* unlock the SLCR so that registers can be changed */
 	xslcr_writereg(slcr->regs + XSLCR_UNLOCK, 0xDF0D);
+
+	xslcr_writereg(slcr->regs + XSLCR_FPGA0_CLK_CTRL_OFFSET, 0x100a00);
+	xslcr_writereg(slcr->regs + XSLCR_FPGA1_CLK_CTRL_OFFSET, 0x100500);
+	xslcr_writereg(slcr->regs + XSLCR_FPGA2_CLK_CTRL_OFFSET, 0x100700);
+	xslcr_writereg(slcr->regs + XSLCR_FPGA3_CLK_CTRL_OFFSET, 0x102900);
 
 	dev_info(&pdev->dev, "at 0x%08X mapped to 0x%08X\n", res.start,
 		 (u32 __force)slcr->regs);
