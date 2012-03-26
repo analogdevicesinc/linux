@@ -205,6 +205,7 @@ static void __init board_zc702_init(void)
 		ARRAY_SIZE(xilinx_spipss_0_boardinfo));
 #endif
 
+#if 0
 #if	defined(CONFIG_I2C_XILINX_PS) && defined(CONFIG_I2C_MUX_PCA954x)
 	i2c_register_board_info(0, pca954x_i2c_devices,
 				ARRAY_SIZE(pca954x_i2c_devices));
@@ -230,6 +231,7 @@ static void __init board_zc702_init(void)
 #endif
 
 
+#endif
 #endif
 }
 
