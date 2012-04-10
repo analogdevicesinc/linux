@@ -67,6 +67,7 @@
 #define XSLCR_DEVC_RST_CTRL_OFFSET	0x23C /* Dev Cfg SW Reset Control */
 #define XSLCR_FPGA_RST_CTRL_OFFSET	0x240 /* FPGA Software Reset Control */
 #define XSLCR_MIO_PIN_00_OFFSET		0x700 /* MIO PIN0 control register */
+#define XSLCR_MIO_PIN(x)		(0x700 + (x) * 4) /* MIO PIN0 control register */
 #define XSLCR_LVL_SHFTR_EN_OFFSET	0x900 /* Level Shifters Enable */
 
 /* Bit masks for AMBA Peripheral Clock Control register */
@@ -2385,7 +2386,7 @@ next_periph:
  *
  * Return: 0 on success, negative error otherwise.
  **/
-static int __init xslcr_probe(struct platform_device *pdev)
+static int __devinit xslcr_probe(struct platform_device *pdev)
 {
 	struct resource res;
 	int ret;
@@ -2458,6 +2459,8 @@ static int __init xslcr_probe(struct platform_device *pdev)
 	xslcr_writereg(slcr->regs + XSLCR_FPGA1_CLK_CTRL_OFFSET, 0x100500);
 	xslcr_writereg(slcr->regs + XSLCR_FPGA2_CLK_CTRL_OFFSET, 0x100700);
 	xslcr_writereg(slcr->regs + XSLCR_FPGA3_CLK_CTRL_OFFSET, 0x102900);
+	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(50), 0x200);
+	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(51), 0x200);
 
 	dev_info(&pdev->dev, "at 0x%08X mapped to 0x%08X\n", res.start,
 		 (u32 __force)slcr->regs);
