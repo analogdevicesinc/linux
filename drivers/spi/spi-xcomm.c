@@ -22,6 +22,8 @@
 #define SPI_XCOMM_CMD_UPDATE_CONFIG	0x03
 #define SPI_XCOMM_CMD_WRITE		0x04
 
+unsigned bus_num = 0;
+
 struct spi_xcomm {
 	struct spi_bitbang bitbang; /* keep this one here !!! */
 	struct i2c_client *i2c;
@@ -194,6 +196,7 @@ static int __devinit spi_xcomm_probe(struct i2c_client *i2c,
 	master->cleanup = spi_bitbang_cleanup;
 
 	spi_xcomm->bitbang.master = spi_master_get(master);
+	spi_xcomm->bitbang.master->bus_num = bus_num++;
 	spi_xcomm->bitbang.chipselect = spi_xcomm_chipselect;
 
 	spi_xcomm->bitbang.setup_transfer = spi_xcomm_setup_transfer;
@@ -208,7 +211,7 @@ static int __devinit spi_xcomm_probe(struct i2c_client *i2c,
 	if (ret < 0)
 		spi_master_put(master);
 
-//	i2c_master_send(i2c, buf, 1);
+	i2c_master_send(i2c, buf, 1);
 
 	return ret;
 }
