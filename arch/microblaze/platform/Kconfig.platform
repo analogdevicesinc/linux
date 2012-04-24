@@ -16,7 +16,24 @@ config PLATFORM_GENERIC
 	help
 	  Choose this option for the Generic platform.
 
+config PLATFORM_ML605_ADIXCOMM
+	bool "Analog Devices XCOMM on Xilinx ML605"
+	help
+	  Choose this option for the XCOMM ML605 platform.
+
+config PLATFORM_KC705_ADIXCOMM
+	bool "Analog Devices XCOMM on Xilinx KC705"
+	help
+	  Choose this option for the XCOMM KC705 platform.
+
 endchoice
+
+config ADIXCOMM_SYNC
+	bool "XCOMM Sync Clocks"
+	depends on PLATFORM_KC705_ADIXCOMM || PLATFORM_ML605_ADIXCOMM
+	default n
+	help
+	  Choose this option for the XCOMM platform to sync clocks.
 
 config SELFMOD
 	bool "Use self modified code for intc/timer"
@@ -59,8 +76,7 @@ config OPT_LIB_ASM
 	  Allows turn on optimalized library function (memcpy and memmove).
 	  Function are written in asm code.
 
-if PLATFORM_GENERIC=y
-	source "arch/microblaze/platform/generic/Kconfig.auto"
-endif
+
+source "arch/microblaze/platform/generic/Kconfig.auto"
 
 endmenu
