@@ -20,6 +20,8 @@
 #define AD9467_PCORE_DMA_STAT		0x10
 #define AD9467_PCORE_ADC_STAT		0x14
 #define AD9467_PCORE_PN_ERR_CTRL	0x24
+#define AD9467_PCORE_IDENT		0x28
+
 
 /* AD9467_PCORE_SPI_CTRL */
 #define AD9647_SPI_START		(1 << 25)
@@ -50,6 +52,9 @@
 /* AD9467_PCORE_PN_ERR_CTRL */
 #define AD9467_PN23_EN			(1 << 0)
 #define AD9467_PN9_EN			(0 << 0)
+
+/* AD9467_PCORE_IDENT */
+#define AD9467_PCORE_IDENT_SLAVE	0x1
 
 /*
  * ADI High-Speed ADC common spi interface registers

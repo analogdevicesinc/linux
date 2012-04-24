@@ -370,7 +370,7 @@ static int __devinit aim_of_probe(struct platform_device *op)
 	struct of_phandle_args dma_spec;
 	dma_cap_mask_t mask;
 	resource_size_t remap_size, phys_addr;
-	unsigned def_mode;
+	unsigned def_mode, dco_delay;
 	int ret;
 
 	dev_info(dev, "Device Tree Probing \'%s\'\n",
@@ -490,6 +490,13 @@ static int __devinit aim_of_probe(struct platform_device *op)
 
 	aim_spi_write(st, ADC_REG_OUTPUT_MODE, def_mode);
 	aim_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
+
+	ret = of_property_read_u32(op->dev.of_node,
+				   "dco-output-delay",
+				   &dco_delay);
+	if (!ret) {
+		aim_spi_write(st, ADC_REG_OUTPUT_DELAY, dco_delay);
+	}
 	aim_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 
 	aim_configure_ring(indio_dev);
@@ -504,10 +511,12 @@ static int __devinit aim_of_probe(struct platform_device *op)
 		goto failed4;
 
 	dev_info(dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p,"
-		 " DMA-%d probed ADC %s\n",
+		 " DMA-%d probed ADC %s as %s\n",
 		 aim_read(st, AD9467_PCORE_VERSION),
 		 (unsigned long long)phys_addr, st->regs,
-		 st->rx_chan->chan_id, st->chip_info->name);
+		 st->rx_chan->chan_id, st->chip_info->name,
+		 (aim_read(st, AD9467_PCORE_IDENT) &
+		AD9467_PCORE_IDENT_SLAVE) ? "SLAVE" : "MASTER");
 
 	if (iio_get_debugfs_dentry(indio_dev))
 		debugfs_create_file("pseudorandom_err_check", 0644,
