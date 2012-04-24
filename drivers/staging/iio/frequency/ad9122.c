@@ -13,14 +13,16 @@
 #include <linux/spi/spi.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/io.h>
 
 #include "../iio.h"
-
 #include "cf_ad9122.h"
 
 #define CHIPID_AD9122 0x8
 
 static const unsigned char ad9122_reg_defaults[][2] = {
+	{0x00, 0x00},
+	{0x00, 0x20},
 	{0x00, 0x00},
 	{0x01, 0x10},
 	{0x03, 0x80},
@@ -63,6 +65,7 @@ static const unsigned char ad9122_reg_defaults[][2] = {
 	{0x46, 0x00},
 	{0x47, 0x00},
 	{0x48, 0x02},
+	{0x18, 0x02},
 };
 
 static int ad9122_read(struct spi_device *spi, unsigned reg)
@@ -101,25 +104,26 @@ static int ad9122_setup(struct spi_device *spi, unsigned mode)
 	for (i = 0; i < ARRAY_SIZE(ad9122_reg_defaults); i++)
 			ad9122_write(spi, ad9122_reg_defaults[i][0],
 					     ad9122_reg_defaults[i][1]);
-
-	ad9122_write(spi, 0x18, 0x2);
 	i = 255;
 	do {
+		mdelay(1);
 		ret = ad9122_read(spi, 0x18);
 		if (ret < 0)
 			return ret;
 
-	} while (i-- && (ret & 0x2));
+	} while (i-- && ((ret & (1 << 2) == 0)));
 
 	ad9122_write(spi, 0x18, 0x0);
+	ad9122_write(spi, 0x10, 0x88);
 
 	i = 255;
 	do {
-		ret = ad9122_read(spi, 0x18);
+		mdelay(1);
+		ret = ad9122_read(spi, 0x12);
 		if (ret < 0)
 			return ret;
 
-	} while (i-- && !(ret & 0x2));
+	} while (i-- && ((ret & (1 << 6)) == 0));
 
 	return 0;
 }
