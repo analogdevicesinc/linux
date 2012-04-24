@@ -49,9 +49,17 @@
 #define AD9122_DDS_2B_OUTPUT_CTRL	0x14
 #define AD9122_DDS_MEM_CTRL		0x18
 #define AD9122_DDS_SCALE		0x20
+#define AD9122_DDS_FRAME		0x24
+#define AD9122_DDS_PCORE_IDENT		0x48
 
-#define AD9122_DDS_CTRL_DDS_CLK_EN	(1 << 8)
+#define AD9122_DDS_CTRL_DDS_CLK_EN_V1	(1 << 8)
+#define AD9122_DDS_CTRL_DDS_CLK_EN_V2	(1 << 0)
 
+/* AD9122_DDS_FRAME */
+#define AD9122_DDS_FRAME_SYNC		0x1
+
+/* AD9122_DDS_PCORE_IDENT */
+#define AD9122_DDS_PCORE_IDENT_SLAVE	0x1
 
 /* AD9122 internal registers */
 
@@ -64,12 +72,6 @@
 #define AD9122_I_DAC_FS_ADJ	0x41
 #define AD9122_Q_DAC_FS_ADJ	0x45
 #define AD9122_I_AUX_DAC	0x43
-
-
-/* IO accessors
- */
-#define AD9122_DDS_OUT(addr, val)  (iowrite32(val, addr))
-#define AD9122_DDS_IN(addr)  (ioread32(addr))
 
 enum {
 	ID_AD9122,
@@ -91,6 +93,7 @@ struct ad9122_dds_state {
 	unsigned int			flags;
 	const struct ad9122_dds_chip_info	*chip_info;
 	unsigned long			dac_clk;
+	unsigned			vers_id;
 };
 
 struct ad9122_converter {
@@ -111,6 +114,22 @@ static inline struct ad9122_converter *to_converter(struct device *dev)
 
 	return ERR_PTR(-ENODEV);
 };
+
+/*
+ * IO accessors
+ */
+
+static inline void dds_write(struct ad9122_dds_state *st,
+			     unsigned reg, unsigned val)
+{
+	iowrite32(val, st->regs + reg);
+}
+
+static inline unsigned int dds_read(struct ad9122_dds_state *st, unsigned reg)
+{
+	return ioread32(st->regs + reg);
+}
+
 
 #if defined(CF_AD9122_WAVDATA)
 static u32 ad9122_ia_data[] = {

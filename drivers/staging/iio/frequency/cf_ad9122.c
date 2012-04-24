@@ -39,13 +39,23 @@ struct dds_spidev {
 	struct device *dev_spi;
 };
 
+static void ad9122_dds_sync_frame(struct ad9122_dds_state *st) {
+	dds_write(st, AD9122_DDS_FRAME, 0);
+	dds_write(st, AD9122_DDS_FRAME, AD9122_DDS_FRAME_SYNC);
+}
+
+static void ad9122_dds_stop(struct ad9122_dds_state *st) {
+	dds_write(st, AD9122_DDS_CTRL, (st->vers_id > 1) ?
+	AD9122_DDS_CTRL_DDS_CLK_EN_V2 : AD9122_DDS_CTRL_DDS_CLK_EN_V1);
+}
+
 static u32 ad9122_ddsx(u32 phase, u32 sin_clk, u32 dac_clk) {
 
 	u32 p_offset;
 	u32 p_incr;
 
-	p_offset = (phase * 0xffff)/360;
-	p_incr = (sin_clk * 0xffff)/dac_clk;
+	p_offset = (phase * 0xffff) / 360;
+	p_incr = ((sin_clk * 0xffff) / dac_clk) | 1;
 
 	return((p_offset << 16) | p_incr);
 }
@@ -59,10 +69,10 @@ static void ad9122_dds_mem_init(struct ad9122_dds_state *st) {
 
 	for (i = 0; i < ARRAY_SIZE(ad9122_ia_data); i++) {
 		data = (sample << 24) | (addr << 16);
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_MEM_CTRL, ((0 << 26) | data | ad9122_ia_data[i]));
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_MEM_CTRL, ((1 << 26) | data | ad9122_ib_data[i]));
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_MEM_CTRL, ((2 << 26) | data | ad9122_qa_data[i]));
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_MEM_CTRL, ((3 << 26) | data | ad9122_qb_data[i]));
+		dds_write(st, AD9122_DDS_MEM_CTRL, ((0 << 26) | data | ad9122_ia_data[i]));
+		dds_write(st, AD9122_DDS_MEM_CTRL, ((1 << 26) | data | ad9122_ib_data[i]));
+		dds_write(st, AD9122_DDS_MEM_CTRL, ((2 << 26) | data | ad9122_qa_data[i]));
+		dds_write(st, AD9122_DDS_MEM_CTRL, ((3 << 26) | data | ad9122_qb_data[i]));
 		sample++;
 		if (sample >= 3) {
 		 	addr++;
@@ -90,14 +100,22 @@ static int ad9122_dds_read_raw(struct iio_dev *indio_dev,
 		if (!chan->output) {
 			return -EINVAL;
 		}
-		reg = AD9122_DDS_IN(st->regs + AD9122_DDS_CTRL);
-		if (reg & (1 << (chan->channel * 2)))
-			*val = 1;
-		else
-			*val = 0;
+		reg = dds_read(st, AD9122_DDS_CTRL);
+		if (st->vers_id > 1) {
+			if (reg & 0x2)
+				*val = 1;
+			else
+				*val = 0;
+
+		} else {
+			if (reg & (1 << (chan->channel * 2)))
+				*val = 1;
+			else
+				*val = 0;
+		}
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		reg = AD9122_DDS_IN(st->regs + AD9122_DDS_SCALE);
+		reg = dds_read(st, AD9122_DDS_SCALE);
 		reg = (reg >> (chan->channel * 4)) & 0xF;
 		if (!reg) {
 			*val = 1;
@@ -112,13 +130,13 @@ static int ad9122_dds_read_raw(struct iio_dev *indio_dev,
 			*val = st->dac_clk;
 			return IIO_VAL_INT;
 		}
-		reg = AD9122_DDS_IN(st->regs + chan->address);
+		reg = dds_read(st, chan->address);
 		val64 = (u64)(reg & 0xFFFF) * (u64)st->dac_clk;
 		do_div(val64, 0xFFFF);
 		*val = val64;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
-		reg = AD9122_DDS_IN(st->regs + chan->address);
+		reg = dds_read(st, chan->address);
 		val64 = (u64)(reg >> 16) * 360000ULL;
 		do_div(val64, 0xFFFF);
 		*val = val64;
@@ -138,19 +156,27 @@ static int ad9122_dds_write_raw(struct iio_dev *indio_dev,
 	unsigned reg, ctrl_reg;
 	int i;
 
-	ctrl_reg = AD9122_DDS_IN(st->regs + AD9122_DDS_CTRL);
+	ctrl_reg = dds_read(st, AD9122_DDS_CTRL);
 
 	switch (mask) {
 	case 0:
 		if (!chan->output) {
 			return -EINVAL;
 		}
-		if (val)
-			ctrl_reg |= 1 << (chan->channel * 2);
-		else
-			ctrl_reg &= ~(1 << (chan->channel * 2));
 
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_CTRL, ctrl_reg);
+		if (st->vers_id > 1) {
+			if (val)
+				ctrl_reg |= 0x3;
+			else
+				ctrl_reg &= ~(0x2);
+		} else {
+			if (val)
+				ctrl_reg |= 1 << (chan->channel * 2);
+			else
+				ctrl_reg &= ~(1 << (chan->channel * 2));
+		}
+
+		dds_write(st, AD9122_DDS_CTRL, ctrl_reg);
 		break;
 	case IIO_CHAN_INFO_SCALE:
 		if (val == 1) {
@@ -160,14 +186,13 @@ static int ad9122_dds_write_raw(struct iio_dev *indio_dev,
 				if (val2 == (1000000 >> i))
 					break;
 		}
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_CTRL, 0);
-		reg = AD9122_DDS_IN(st->regs + AD9122_DDS_SCALE);
+		ad9122_dds_stop(st);
+		reg = dds_read(st, AD9122_DDS_SCALE);
 
 		reg &= ~(0xF << (chan->channel * 4));
 		reg |= (i << (chan->channel * 4));
-		printk("%s: %d REG = 0x%X\n",__func__,__LINE__, reg);
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_SCALE, reg);
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_CTRL, ctrl_reg);
+		dds_write(st, AD9122_DDS_SCALE, reg);
+		dds_write(st, AD9122_DDS_CTRL, ctrl_reg);
 		break;
 	case IIO_CHAN_INFO_FREQUENCY:
 		if (!chan->output) {
@@ -176,30 +201,32 @@ static int ad9122_dds_write_raw(struct iio_dev *indio_dev,
 		}
 		if (val > (st->dac_clk / 2))
 			return -EINVAL;
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_CTRL, 0);
-		reg = AD9122_DDS_IN(st->regs + chan->address);
+		ad9122_dds_stop(st);
+		reg = dds_read(st, chan->address);
 		reg &= 0xFFFF0000;
 		val64 = (u64) val * 0xFFFFULL;
 		do_div(val64, st->dac_clk);
-		reg |= val64 & 0xFFFF;
-		AD9122_DDS_OUT(st->regs + chan->address, reg);
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_CTRL, ctrl_reg);
+		reg |= (val64 & 0xFFFF) | 1;
+		dds_write(st, chan->address, reg);
+		dds_write(st, AD9122_DDS_CTRL, ctrl_reg);
 		break;
 	case IIO_CHAN_INFO_PHASE:
 		if (val < 0 || val > 360000)
 			return -EINVAL;
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_CTRL, 0);
-		reg = AD9122_DDS_IN(st->regs + chan->address);
+		ad9122_dds_stop(st);
+		reg = dds_read(st, chan->address);
 		reg &= 0x0000FFFF;
 		val64 = (u64) val * 0xFFFFULL;
 		do_div(val64, 360000);
 		reg |= val64 << 16;
-		AD9122_DDS_OUT(st->regs + chan->address, reg);
-		AD9122_DDS_OUT(st->regs + AD9122_DDS_CTRL, ctrl_reg);
+		dds_write(st, chan->address, reg);
+		dds_write(st, AD9122_DDS_CTRL, ctrl_reg);
 		break;
 	default:
 		return -EINVAL;
 	}
+
+	ad9122_dds_sync_frame(st);
 
 	return 0;
 }
@@ -303,6 +330,17 @@ static int dds_attach_spi_client(struct device *dev, void *data)
 
 	return 0;
 }
+
+/* Match table for of_platform binding */
+static const struct of_device_id ad9122_dds_of_match[] __devinitconst = {
+	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", .data = (void*) 1},
+	{ .compatible = "xlnx,cf-ad9739a-core-1.00.a", .data = (void*) 1},
+	{ .compatible = "xlnx,cf-ad9122x2-core-1.00.a", .data = (void*) 1},
+	{ .compatible = "xlnx,cf-ad9122-core-2.00.a", .data = (void*) 2},
+{ /* end of list */ },
+};
+MODULE_DEVICE_TABLE(of, ad9122_dds_of_match);
+
 /**
  * ad9122_dds_of_probe - probe method for the AIM device.
  * @of_dev:	pointer to OF device structure
@@ -322,6 +360,9 @@ static int __devinit ad9122_dds_of_probe(struct platform_device *op)
 	struct dds_spidev dds_spidev;
 	struct ad9122_converter *conv;
 	int ret;
+
+	const struct of_device_id *of_id =
+			of_match_device(ad9122_dds_of_match, &op->dev);
 
 	dev_info(dev, "Device Tree Probing \'%s\'\n",
 			op->dev.of_node->name);
@@ -353,6 +394,12 @@ static int __devinit ad9122_dds_of_probe(struct platform_device *op)
 	st->dev_spi = dds_spidev.dev_spi;
 
 	dev_set_drvdata(dev, indio_dev);
+
+	if (of_id && of_id->data)
+		st->vers_id = (unsigned) of_id->data;
+	else
+		goto failed1;
+
 
 	/* Get iospace for the device */
 	ret = of_address_to_resource(op->dev.of_node, 0, &st->r_mem);
@@ -404,22 +451,29 @@ static int __devinit ad9122_dds_of_probe(struct platform_device *op)
 
 	ad9122_dds_mem_init(st);
 
-	AD9122_DDS_OUT(st->regs + 0x04, 0x0);
-	AD9122_DDS_OUT(st->regs + 0x20, 0x1111); /* divide by 4 */
-	AD9122_DDS_OUT(st->regs + 0x08, ad9122_ddsx(90, 40, 492));
-	AD9122_DDS_OUT(st->regs + 0x0c, ad9122_ddsx(90, 40, 492));
-	AD9122_DDS_OUT(st->regs + 0x10, ad9122_ddsx( 0, 40, 492));
-	AD9122_DDS_OUT(st->regs + 0x14, ad9122_ddsx( 0, 40, 492));
-	AD9122_DDS_OUT(st->regs + 0x04, 0x1ff); /* clk, dds enable & ddsx select */
+	dds_write(st, AD9122_DDS_CTRL, 0x0);
+	dds_write(st, 0x20, 0x1111); /* divide by 4 */
+	dds_write(st, 0x08, ad9122_ddsx(90, 40, 492));
+	dds_write(st, 0x0c, ad9122_ddsx(90, 40, 492));
+	dds_write(st, 0x10, ad9122_ddsx( 0, 40, 492));
+	dds_write(st, 0x14, ad9122_ddsx( 0, 40, 492));
+	if (st->vers_id > 1)
+		dds_write(st, AD9122_DDS_CTRL, 0x3); /* clk, dds enable & ddsx select */
+	else
+		dds_write(st, AD9122_DDS_CTRL, 0x1ff); /* clk, dds enable & ddsx select */
+
+	ad9122_dds_sync_frame(st);
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto failed3;
 
-	dev_info(dev, "Analog Devices AD9122_DDS (0x%X) at 0x%08llX mapped"
+	dev_info(dev, "Analog Devices AD9122_DDS %s (0x%X) at 0x%08llX mapped"
 		" to 0x%p, probed DDS %s\n",
-		AD9122_DDS_IN(st->regs + AD9122_DDS_VERSION_ID),
-		(unsigned long long)phys_addr, st->regs, st->chip_info->name);
+		(dds_read(st, AD9122_DDS_PCORE_IDENT) &
+		AD9122_DDS_PCORE_IDENT_SLAVE) ? "SLAVE" : "MASTER",
+		dds_read(st, AD9122_DDS_VERSION_ID),
+		 (unsigned long long)phys_addr, st->regs, st->chip_info->name);
 
 	return 0;		/* success */
 
@@ -461,14 +515,6 @@ static int __devexit ad9122_dds_of_remove(struct platform_device *op)
 
 	return 0;
 }
-
-/* Match table for of_platform binding */
-static const struct of_device_id ad9122_dds_of_match[] __devinitconst = {
-	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", },
-	{ .compatible = "xlnx,cf-ad9739a-core-1.00.a", },
-{ /* end of list */ },
-};
-MODULE_DEVICE_TABLE(of, ad9122_dds_of_match);
 
 static struct platform_driver ad9122_dds_of_driver = {
 	.driver = {
