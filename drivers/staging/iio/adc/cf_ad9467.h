@@ -133,10 +133,14 @@ struct aim_state {
 	void __iomem			*regs;
 	void				*buf_virt;
 	dma_addr_t			buf_phys;
+	int				compl_stat;
 	unsigned			spi_ssel;
 	unsigned			ring_lenght;
+	unsigned			rcount;
+	unsigned			fftcount;
 	unsigned			bytes_per_datum;
 	unsigned			id;
+
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.

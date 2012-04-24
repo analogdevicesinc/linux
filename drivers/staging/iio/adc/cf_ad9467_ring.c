@@ -18,6 +18,7 @@
 #include "../buffer.h"
 #include "../ring_hw.h"
 #include "cf_ad9467.h"
+#include "cf_fft_core.h"
 
 static int aim_read_first_n_hw_rb(struct iio_buffer *r,
 				      size_t count, char __user *buf)
@@ -25,74 +26,46 @@ static int aim_read_first_n_hw_rb(struct iio_buffer *r,
 	struct iio_hw_buffer *hw_ring = iio_to_hw_buf(r);
 	struct iio_dev *indio_dev = hw_ring->private;
 	struct aim_state *st = iio_priv(indio_dev);
-	struct dma_async_tx_descriptor *desc;
-	dma_cookie_t cookie;
-	unsigned rcount;
 	int ret;
+	unsigned stat;
 
 	mutex_lock(&st->lock);
-	if (count == 0) {
-		ret = -EINVAL;
-		goto error_ret;
-	}
-
-	if (count % 8)
-		rcount = (count + 8) & 0xFFFFFFF8;
-	else
-		rcount = count;
-
-	st->buf_virt = dma_alloc_coherent(indio_dev->dev.parent,
-					  PAGE_ALIGN(rcount), &st->buf_phys,
-					  GFP_KERNEL);
-	if (st->buf_virt == NULL) {
-		ret = -ENOMEM;
-		goto error_ret;
-	}
-
-	desc = dmaengine_prep_slave_single(st->rx_chan, st->buf_phys, rcount,
-					   DMA_FROM_DEVICE, DMA_PREP_INTERRUPT);
-	if (!desc) {
-		dev_err(indio_dev->dev.parent,
-			"Failed to allocate a dma descriptor\n");
-		ret = -ENOMEM;
-		goto error_free;
-	}
-
-	desc->callback = (dma_async_tx_callback) complete;
-	desc->callback_param = &st->dma_complete;
-
-	cookie = dmaengine_submit(desc);
-	if (cookie < 0) {
-		dev_err(indio_dev->dev.parent,
-			"Failed to submit a dma transfer\n");
-		ret = cookie;
-		goto error_free;
-	}
-
-	dma_async_issue_pending(st->rx_chan);
-
-	aim_write(st, AD9467_PCORE_DMA_CTRL, 0);
-	aim_read(st, AD9467_PCORE_DMA_STAT);
-	aim_write(st, AD9467_PCORE_DMA_CTRL,
-		  AD9647_DMA_CAP_EN | AD9647_DMA_CNT((rcount / 8) - 1));
 
 	ret = wait_for_completion_interruptible_timeout(&st->dma_complete,
-							2 * HZ);
-	if (ret == 0) {
+							4 * HZ);
+	if (st->compl_stat < 0) {
+		ret = st->compl_stat;
+		goto error_ret;
+	} else if (ret == 0) {
 		ret = -ETIMEDOUT;
-		goto error_free;
+		dev_err(indio_dev->dev.parent,
+			"timeout: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
+			aim_read(st, AD9467_PCORE_DMA_STAT),
+			aim_read(st, AD9467_PCORE_ADC_STAT));
+		goto error_ret;
 	} else if (ret < 0) {
-		goto error_free;
+		goto error_ret;
 	}
 
-	if (copy_to_user(buf, st->buf_virt, count))
+#if defined(CONFIG_CF_FFT)
+	if (st->fftcount) {
+		ret = fft_calculate(st->buf_phys, st->buf_phys + st->fftcount, st->fftcount / 4);
+	}
+#endif
+	if (copy_to_user(buf, st->buf_virt + st->fftcount, count))
 		ret = -EFAULT;
 
-error_free:
-	dma_free_coherent(indio_dev->dev.parent, PAGE_ALIGN(rcount),
-			  st->buf_virt, st->buf_phys);
-	r->stufftoread = 0;
+	stat = aim_read(st, AD9467_PCORE_ADC_STAT);
+
+	if (stat)
+		dev_warn(indio_dev->dev.parent,
+			"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
+			aim_read(st, AD9467_PCORE_DMA_STAT),
+			stat);
+
 error_ret:
+	r->stufftoread = 0;
+
 	mutex_unlock(&st->lock);
 
 	return ret ? ret : count;
@@ -168,6 +141,105 @@ static const struct iio_buffer_access_funcs aim_ring_access_funcs = {
 	.get_bytes_per_datum = &aim_ring_get_bytes_per_datum,
 };
 
+static int __aim_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
+{
+	struct aim_state *st = iio_priv(indio_dev);
+	struct dma_async_tx_descriptor *desc;
+	dma_cookie_t cookie;
+	int ret = 0;
+
+	if (!state) {
+		if (!completion_done(&st->dma_complete)) {
+			st->compl_stat = -EPERM;
+			dmaengine_terminate_all(st->rx_chan);
+			complete(&st->dma_complete);
+		}
+
+		dma_free_coherent(indio_dev->dev.parent,
+				  PAGE_ALIGN(st->rcount + st->fftcount),
+				  st->buf_virt, st->buf_phys);
+		return 0;
+	}
+
+	st->compl_stat = 0;
+
+	if (st->ring_lenght == 0) {
+		ret = -EINVAL;
+		goto error_ret;
+	}
+
+	if (st->ring_lenght % 8)
+		st->rcount = (st->ring_lenght + 8) & 0xFFFFFFF8;
+	else
+		st->rcount = st->ring_lenght;
+
+#if defined(CONFIG_CF_FFT)
+	st->fftcount = st->rcount;
+#else
+	st->fftcount = 0;
+#endif
+
+	st->buf_virt = dma_alloc_coherent(indio_dev->dev.parent,
+					  PAGE_ALIGN(st->rcount + st->fftcount), &st->buf_phys,
+					  GFP_KERNEL);
+	if (st->buf_virt == NULL) {
+		ret = -ENOMEM;
+		goto error_ret;
+	}
+
+	desc = dmaengine_prep_slave_single(st->rx_chan, st->buf_phys, st->rcount,
+					   DMA_FROM_DEVICE, DMA_PREP_INTERRUPT);
+	if (!desc) {
+		dev_err(indio_dev->dev.parent,
+			"Failed to allocate a dma descriptor\n");
+		ret = -ENOMEM;
+		goto error_free;
+	}
+
+	desc->callback = (dma_async_tx_callback) complete;
+	desc->callback_param = &st->dma_complete;
+
+	cookie = dmaengine_submit(desc);
+	if (cookie < 0) {
+		dev_err(indio_dev->dev.parent,
+			"Failed to submit a dma transfer\n");
+		ret = cookie;
+		goto error_free;
+	}
+
+	dma_async_issue_pending(st->rx_chan);
+
+	aim_write(st, AD9467_PCORE_DMA_CTRL, 0);
+	aim_write(st, AD9467_PCORE_ADC_STAT, 0xFF);
+	aim_read(st, AD9467_PCORE_DMA_STAT);
+	aim_write(st, AD9467_PCORE_DMA_CTRL,
+		  AD9647_DMA_CAP_EN | AD9647_DMA_CNT((st->rcount / 8) - 1));
+
+	return 0;
+
+error_free:
+	dma_free_coherent(indio_dev->dev.parent, PAGE_ALIGN(st->rcount),
+			  st->buf_virt, st->buf_phys);
+error_ret:
+
+	return ret;
+}
+
+static int aim_hw_ring_preenable(struct iio_dev *indio_dev)
+{
+	return __aim_hw_ring_state_set(indio_dev, 1);
+}
+
+static int aim_hw_ring_postdisable(struct iio_dev *indio_dev)
+{
+	return __aim_hw_ring_state_set(indio_dev, 0);
+}
+
+static const struct iio_buffer_setup_ops aim_ring_setup_ops = {
+	.preenable = &aim_hw_ring_preenable,
+	.postdisable = &aim_hw_ring_postdisable,
+};
+
 int aim_configure_ring(struct iio_dev *indio_dev)
 {
 	indio_dev->buffer = aim_rb_allocate(indio_dev);
@@ -176,6 +248,7 @@ int aim_configure_ring(struct iio_dev *indio_dev)
 
 	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
 	indio_dev->buffer->access = &aim_ring_access_funcs;
+	indio_dev->setup_ops = &aim_ring_setup_ops;
 
 	return 0;
 }
