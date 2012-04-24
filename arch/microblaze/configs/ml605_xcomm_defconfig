@@ -157,8 +157,12 @@ CONFIG_INLINE_WRITE_UNLOCK_IRQ=y
 #
 # Platform options
 #
-CONFIG_PLATFORM_GENERIC=y
-# CONFIG_OPT_LIB_FUNCTION is not set
+# CONFIG_PLATFORM_GENERIC is not set
+CONFIG_PLATFORM_ML605_ADIXCOMM=y
+# CONFIG_PLATFORM_KC705_ADIXCOMM is not set
+# CONFIG_ADIXCOMM_SYNC is not set
+CONFIG_OPT_LIB_FUNCTION=y
+# CONFIG_OPT_LIB_ASM is not set
 
 #
 # Definitions for MICROBLAZE0
@@ -696,7 +700,7 @@ CONFIG_SPI_XCOMM=y
 #
 # SPI Protocol Masters
 #
-CONFIG_SPI_SPIDEV=y
+# CONFIG_SPI_SPIDEV is not set
 # CONFIG_SPI_TLE62X0 is not set
 
 #
@@ -938,6 +942,7 @@ CONFIG_AD8366=y
 # Clock Generator/Distribution
 #
 CONFIG_AD9523=y
+CONFIG_AD9548=y
 
 #
 # Direct Digital Synthesis
