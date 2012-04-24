@@ -31,6 +31,7 @@ obj-$(CONFIG_AD7298) += ad7298.o
 
 cf_ad9467-y := cf_ad9467_core.o cf_ad9467_ring.o
 obj-$(CONFIG_CF_AD9467) += cf_ad9467.o
+obj-$(CONFIG_CF_FFT) += cf_fft_core.o
 
 obj-$(CONFIG_AD7291) += ad7291.o
 obj-$(CONFIG_AD7780) += ad7780.o
