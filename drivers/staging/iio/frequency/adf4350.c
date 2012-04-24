@@ -396,7 +396,6 @@ static int __devinit adf4350_probe(struct spi_device *spi)
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = (pdata->name[0] != 0) ? pdata->name : spi_get_device_id(spi)->name;
 
-	printk("%s: %d::: %s %s\n",__func__,__LINE__, pdata->name, spi_get_device_id(spi)->name);
 	indio_dev->info = &adf4350_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
