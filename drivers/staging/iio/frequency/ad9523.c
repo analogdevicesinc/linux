@@ -551,6 +551,7 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	struct ad9523_state *st = iio_priv(indio_dev);
 	struct ad9523_platform_data *pdata = st->pdata;
 	struct ad9523_channel_spec	*chan;
+	unsigned active_mask = 0;
 	int ret, i;
 
 	ret = ad9523_write(indio_dev, AD9523_SERIAL_PORT_CONFIG,
@@ -599,7 +600,7 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 		AD_IF(osc_in_diff_en, AD9523_PLL1_OSC_IN_DIFF_EN) |
 		AD_IF(osc_in_cmos_neg_inp_en, AD9523_PLL1_OSC_IN_CMOS_NEG_INP_EN) |
 		AD_IF(refa_diff_rcv_en, AD9523_PLL1_REFA_DIFF_RCV_EN) |
-		AD_IF(refa_diff_rcv_en, AD9523_PLL1_REFB_DIFF_RCV_EN));
+		AD_IF(refb_diff_rcv_en, AD9523_PLL1_REFB_DIFF_RCV_EN));
 	if (ret < 0)
 		return ret;
 
@@ -687,7 +688,8 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 
 	for (i = 0; i < pdata->num_channels; i++) {
 		chan = &pdata->channels[i];
-		if (chan->channel_num < 14) {
+		if (chan->channel_num <= AD9523_NUM_CHAN) {
+			active_mask |= (1 << chan->channel_num);
 			ret = ad9523_write(indio_dev,
 				AD9523_CHANNEL_CLOCK_DIST(chan->channel_num),
 				AD9523_CLOCK_DIST_DRIVER_MODE(chan->driver_mode) |
@@ -715,6 +717,13 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 
 		}
 	}
+
+	for (i = 0; i <= AD9523_NUM_CHAN; i++)
+		if (!(active_mask & (1 << i)))
+			ad9523_write(indio_dev,
+				     AD9523_CHANNEL_CLOCK_DIST(i),
+				     AD9523_CLOCK_DIST_DRIVER_MODE(TRISTATE) |
+				     AD9523_CLOCK_DIST_PWR_DOWN_EN);
 
 	ret = ad9523_write(indio_dev, AD9523_POWER_DOWN_CTRL, 0);
 	if (ret < 0)
@@ -761,7 +770,8 @@ static int __devinit ad9523_probe(struct spi_device *spi)
 	st->pdata = pdata;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
+	indio_dev->name = (pdata->name[0] != 0) ? pdata->name :
+			  spi_get_device_id(spi)->name;
 	indio_dev->info = &ad9523_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->ad9523_channels;
@@ -774,6 +784,8 @@ static int __devinit ad9523_probe(struct spi_device *spi)
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto error_disable_reg;
+
+	dev_info(&spi->dev, "probed %s\n", indio_dev->name);
 
 	return 0;
 

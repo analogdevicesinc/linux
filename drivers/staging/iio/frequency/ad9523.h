@@ -240,6 +240,7 @@ enum driver_mode {
 /* AD9523_EEPROM_CTRL2 */
 #define AD9523_EEPROM_CTRL2_REG2EEPROM			(1 << 0)
 
+#define AD9523_NUM_CHAN					13
 
 struct ad9523_channel_spec {
 	unsigned	channel_num;
@@ -311,6 +312,8 @@ struct ad9523_platform_data {
 	/* Output Channel Configuration */
 	int num_channels;
 	struct ad9523_channel_spec	*channels;
+
+	char		name[SPI_NAME_SIZE];
 };
 
 #endif /* IIO_PLL_AD9523_H_ */
