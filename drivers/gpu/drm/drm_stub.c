@@ -37,7 +37,7 @@
 #include "drmP.h"
 #include "drm_core.h"
 
-unsigned int drm_debug = 0;	/* 1 to enable debug output */
+unsigned int drm_debug = 0xff;	/* 1 to enable debug output */
 EXPORT_SYMBOL(drm_debug);
 
 unsigned int drm_vblank_offdelay = 5000;    /* Default to 5000 msecs. */
