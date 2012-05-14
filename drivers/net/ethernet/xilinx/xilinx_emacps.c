@@ -840,6 +840,11 @@ static int xemacps_mii_probe(struct net_device *ndev)
 					xemacps_adjust_link,
 					0,
 					PHY_INTERFACE_MODE_RGMII_ID);
+
+		if (!phydev) {
+			printk(KERN_ERR "%s: no PHY found\n", ndev->name);
+			return -1;
+		}
 	}
 #else
 	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
