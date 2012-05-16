@@ -120,6 +120,9 @@ struct ehci_hcd {			/* one per controller */
 
 #ifdef CONFIG_USB_XUSBPS_OTG
 	void (*start_hnp)(struct ehci_hcd *ehci);
+#ifdef CONFIG_XILINX_ZED
+	struct otg_transceiver	*ulpi;
+#endif
 #endif
 
 	/* per-HC memory pools (could be per-bus, but ...) */

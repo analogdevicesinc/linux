@@ -817,6 +817,13 @@ static int ehci_run (struct usb_hcd *hcd)
 	/* Modifying FIFO Burst Threshold value from 2 to 8 */
 	temp = readl(non_ehci + 0x164);
 	ehci_writel(ehci, 0x00080000, non_ehci + 0x164);
+#if CONFIG_XILINX_ZED
+	if (ehci->ulpi) {
+		struct otg_transceiver *otg = ehci->ulpi;
+
+		otg_set_vbus(otg, 1);
+	}
+#endif
 #endif
 	/* GRR this is run-once init(), being done every time the HC starts.
 	 * So long as they're part of class devices, we can't do it init()
