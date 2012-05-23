@@ -486,7 +486,6 @@ static int xilinx_dma_wait_status(struct xilinx_dma_chan *chan, uint32_t mask,
 
 	do {
 		status = DMA_IN(&chan->regs->cr);
-		printk("status: %x, mask: %x, value: %x\n", status, mask, value);
 		if ((status & mask) == value)
 			break;
 	} while (--timeout);
@@ -580,10 +579,6 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 		dev_info(chan->dev, "DMA controller still busy\n");
 		goto out_unlock;
 	}
-
-	ret = xilinx_dma_wait_idle(chan);
-	if (ret)
-		xilinx_dma_reset(chan);
 
 
 	/* If hardware is idle, then all descriptors on active list are
@@ -944,6 +939,7 @@ static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
 			hw = t->descs[j].hw;
 			hw->buf_addr = dma_src;
 			hw->control = num_bytes;
+			sg_used += num_bytes;
 			j++;
 		}
 	}
