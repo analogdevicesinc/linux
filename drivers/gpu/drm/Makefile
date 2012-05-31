@@ -15,6 +15,7 @@ drm-y       :=	drm_auth.o drm_buffer.o drm_bufs.o drm_cache.o \
 		drm_trace_points.o drm_global.o drm_usb.o
 
 drm-$(CONFIG_COMPAT) += drm_ioc32.o
+drm-$(CONFIG_DRM_GEM_CMA_HELPER) += drm_gem_cma_helper.o
 
 drm_kms_helper-y := drm_fb_helper.o drm_crtc_helper.o drm_dp_i2c_helper.o
 
