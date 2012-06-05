@@ -73,6 +73,8 @@
 #define EDID_QUIRK_DETAILED_USE_MAXIMUM_SIZE	(1 << 4)
 /* use +hsync +vsync for detailed mode */
 #define EDID_QUIRK_DETAILED_SYNC_PP		(1 << 6)
+/* No or broken YCrCb input support */
+#define EDID_QUIRK_NO_YCRCB		(1 << 7)
 /* Force reduced-blanking timings for detailed modes */
 #define EDID_QUIRK_FORCE_REDUCED_BLANKING	(1 << 7)
 /* Force 8bpc */
@@ -149,6 +151,9 @@ static const struct edid_quirk {
 	/* Samsung SyncMaster 22[5-6]BW */
 	{ "SAM", 596, EDID_QUIRK_PREFER_LARGE_60 },
 	{ "SAM", 638, EDID_QUIRK_PREFER_LARGE_60 },
+
+	/* Denon AVR */
+	{ "DON", 25, EDID_QUIRK_NO_YCRCB },
 
 	/* Sony PVM-2541A does up to 12 bpc, but only reports max 8 bpc */
 	{ "SNY", 0x2541, EDID_QUIRK_FORCE_12BPC },
@@ -5367,6 +5372,11 @@ int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 
 	if (quirks & EDID_QUIRK_FORCE_6BPC)
 		connector->display_info.bpc = 6;
+
+	if (quirks & EDID_QUIRK_NO_YCRCB) {
+		connector->display_info.color_formats &=
+			~(DRM_COLOR_FORMAT_YCRCB444 | DRM_COLOR_FORMAT_YCRCB422);
+	}
 
 	if (quirks & EDID_QUIRK_FORCE_8BPC)
 		connector->display_info.bpc = 8;
