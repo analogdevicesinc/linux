@@ -66,6 +66,8 @@
 #define EDID_QUIRK_FIRST_DETAILED_PREFERRED	(1 << 5)
 /* use +hsync +vsync for detailed mode */
 #define EDID_QUIRK_DETAILED_SYNC_PP		(1 << 6)
+/* No or broken YCrCb input support */
+#define EDID_QUIRK_NO_YCRCB		(1 << 7)
 
 struct detailed_mode_closure {
 	struct drm_connector *connector;
@@ -120,6 +122,9 @@ static struct edid_quirk {
 	/* Samsung SyncMaster 22[5-6]BW */
 	{ "SAM", 596, EDID_QUIRK_PREFER_LARGE_60 },
 	{ "SAM", 638, EDID_QUIRK_PREFER_LARGE_60 },
+
+	/* Denon AVR */
+	{ "DON", 25, EDID_QUIRK_NO_YCRCB },
 };
 
 /*** DDC fetch and block validation ***/
@@ -1770,6 +1775,11 @@ int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 		edid_fixup_preferred(connector, quirks);
 
 	drm_add_display_info(edid, &connector->display_info);
+
+	if (quirks & EDID_QUIRK_NO_YCRCB) {
+		connector->display_info.color_formats &=
+			~(DRM_COLOR_FORMAT_YCRCB444 | DRM_COLOR_FORMAT_YCRCB422);
+	}
 
 	return num_modes;
 }
