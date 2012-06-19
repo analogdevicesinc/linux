@@ -27,12 +27,16 @@ static int aim_read_first_n_hw_rb(struct iio_buffer *r,
 	struct iio_dev *indio_dev = hw_ring->private;
 	struct aim_state *st = iio_priv(indio_dev);
 	int ret;
-	unsigned stat;
+	unsigned stat, dma_stat;
 
 	mutex_lock(&st->lock);
 
 	ret = wait_for_completion_interruptible_timeout(&st->dma_complete,
 							4 * HZ);
+
+	stat = aim_read(st, AD9467_PCORE_ADC_STAT);
+	dma_stat = aim_read(st, AD9467_PCORE_DMA_STAT);
+
 	if (st->compl_stat < 0) {
 		ret = st->compl_stat;
 		goto error_ret;
@@ -40,8 +44,7 @@ static int aim_read_first_n_hw_rb(struct iio_buffer *r,
 		ret = -ETIMEDOUT;
 		dev_err(indio_dev->dev.parent,
 			"timeout: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
-			aim_read(st, AD9467_PCORE_DMA_STAT),
-			aim_read(st, AD9467_PCORE_ADC_STAT));
+			dma_stat, stat);
 		goto error_ret;
 	} else if (ret < 0) {
 		goto error_ret;
@@ -55,20 +58,17 @@ static int aim_read_first_n_hw_rb(struct iio_buffer *r,
 	if (copy_to_user(buf, st->buf_virt + st->fftcount, count))
 		ret = -EFAULT;
 
-	stat = aim_read(st, AD9467_PCORE_ADC_STAT);
-
-	if (stat)
+	if ((stat & AD9467_PCORE_ADC_STAT_OVR) || dma_stat)
 		dev_warn(indio_dev->dev.parent,
 			"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
-			aim_read(st, AD9467_PCORE_DMA_STAT),
-			stat);
+			dma_stat, stat);
 
 error_ret:
 	r->stufftoread = 0;
 
 	mutex_unlock(&st->lock);
 
-	return ret ? ret : count;
+	return ret < 0 ? ret : count;
 }
 
 static int aim_ring_get_length(struct iio_buffer *r)
@@ -206,12 +206,12 @@ static int __aim_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 		ret = cookie;
 		goto error_free;
 	}
-
+	INIT_COMPLETION(st->dma_complete);
 	dma_async_issue_pending(st->rx_chan);
 
 	aim_write(st, AD9467_PCORE_DMA_CTRL, 0);
 	aim_write(st, AD9467_PCORE_ADC_STAT, 0xFF);
-	aim_read(st, AD9467_PCORE_DMA_STAT);
+	aim_write(st, AD9467_PCORE_DMA_STAT, 0xFF);
 	aim_write(st, AD9467_PCORE_DMA_CTRL,
 		  AD9647_DMA_CAP_EN | AD9647_DMA_CNT((st->rcount / 8) - 1));
 
