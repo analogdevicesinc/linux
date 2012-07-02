@@ -937,6 +937,14 @@ static struct bfin5xx_spi_chip spi_ad7476_chip_info = {
 #endif
 
 static struct spi_board_info bfin_spi_board_info[] __initdata = {
+	{
+		.modalias = "adas1000",
+		.max_speed_hz = 1000000,
+		.bus_num = 0,
+		.chip_select = GPIO_PF10 + MAX_CTRL_CS,
+		.mode = SPI_MODE_0,
+		.irq = IRQ_PF4,
+	},
 #if defined(CONFIG_MTD_M25P80) \
 	|| defined(CONFIG_MTD_M25P80_MODULE)
 	{
