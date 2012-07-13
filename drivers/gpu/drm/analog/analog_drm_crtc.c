@@ -1,23 +1,24 @@
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_gem_cma_helper.h>
 #include <linux/dmaengine.h>
 #include <linux/amba/xilinx_dma.h>
 
 #include "analog_drm_crtc.h"
-#include "analog_drm_fbdev.h"
 #include "analog_drm_drv.h"
 #include "analog_drm_encoder.h"
-#include "analog_drm_gem.h"
-
-#define to_analog_crtc(x)	container_of(x, struct analog_drm_crtc,\
-				drm_crtc)
 
 struct analog_drm_crtc {
-	struct drm_crtc			drm_crtc;
-	struct dma_chan 		*dma;
+	struct drm_crtc drm_crtc;
+	struct dma_chan *dma;
 	struct xilinx_dma_config dma_config;
 	int mode;
 };
+
+static inline struct analog_drm_crtc *to_analog_crtc(struct drm_crtc *crtc)
+{
+	return container_of(crtc, struct analog_drm_crtc, drm_crtc);
+}
 
 static int analog_drm_crtc_update(struct drm_crtc *crtc)
 {
@@ -25,14 +26,14 @@ static int analog_drm_crtc_update(struct drm_crtc *crtc)
 	struct drm_display_mode *mode = &crtc->mode;
 	struct drm_framebuffer *fb = crtc->fb;
 	struct dma_async_tx_descriptor *desc;
-	struct analog_drm_gem_obj *obj;
+	struct drm_gem_cma_object *obj;
 	size_t offset;
 
 	if (!mode || !fb)
 		return -EINVAL;
 
 	if (analog_crtc->mode == DRM_MODE_DPMS_ON) {
-		obj = analog_drm_fb_get_gem_obj(fb);
+		obj = drm_fb_cma_get_gem_obj(fb, 0);
 		if (!obj)
 			return -EINVAL;
 
@@ -46,7 +47,8 @@ static int analog_drm_crtc_update(struct drm_crtc *crtc)
 		offset = crtc->x * fb->bits_per_pixel / 8 + crtc->y * fb->pitches[0];
 
 		desc = dmaengine_prep_slave_single(analog_crtc->dma,
-					obj->dma_addr + offset, mode->vdisplay * fb->pitches[0],
+					obj->paddr + offset,
+					mode->vdisplay * fb->pitches[0],
 					DMA_MEM_TO_DEV, 0);
 		if (!desc) {
 			pr_err("Failed to prepare DMA descriptor\n");
@@ -112,7 +114,6 @@ static int analog_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 
 static void analog_drm_crtc_load_lut(struct drm_crtc *crtc)
 {
-	/* drm framework doesn't check NULL */
 }
 
 static struct drm_crtc_helper_funcs analog_crtc_helper_funcs = {
@@ -130,6 +131,7 @@ static void analog_drm_crtc_destroy(struct drm_crtc *crtc)
 	struct analog_drm_crtc *analog_crtc = to_analog_crtc(crtc);
 
 	drm_crtc_cleanup(crtc);
+	dma_release_channel(analog_crtc->dma);
 	kfree(analog_crtc);
 }
 
@@ -165,7 +167,8 @@ struct drm_crtc *analog_drm_crtc_create(struct drm_device *dev)
 	dma_cap_set(DMA_SLAVE, mask);
 	dma_cap_set(DMA_PRIVATE, mask);
 
-	analog_crtc->dma = dma_request_channel(mask, xlnx_pcm_filter, &p->dma_params);
+	analog_crtc->dma = dma_request_channel(mask, xlnx_pcm_filter,
+						&p->dma_params);
 
 	drm_crtc_init(dev, crtc, &analog_crtc_funcs);
 	drm_crtc_helper_add(crtc, &analog_crtc_helper_funcs);

@@ -2,6 +2,7 @@
 #define _ANALOG_DRM_DRV_H_
 
 #include <drm/drm.h>
+#include <drm/drm_fb_cma_helper.h>
 #include <linux/of.h>
 
 struct xlnx_pcm_dma_params {
@@ -9,11 +10,10 @@ struct xlnx_pcm_dma_params {
 	int chan_id;
 };
 
-struct analog_drm_fbdev;
 struct analog_drm_encoder;
 
 struct analog_drm_private {
-	struct analog_drm_fbdev *fbdev;
+	struct drm_fbdev_cma *fbdev;
 	struct drm_crtc *crtc;
 	struct analog_drm_encoder *encoder;
 	struct i2c_adapter *ddc_adapter;

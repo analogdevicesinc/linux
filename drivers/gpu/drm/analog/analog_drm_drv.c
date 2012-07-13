@@ -8,12 +8,11 @@
 #include <drm/drmP.h>
 #include <drm/drm.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_gem_cma_helper.h>
 
 #include "analog_drm_drv.h"
 #include "analog_drm_crtc.h"
 #include "analog_drm_encoder.h"
-#include "analog_drm_fbdev.h"
-#include "analog_drm_gem.h"
 
 #define DRIVER_NAME	"analog_drm"
 #define DRIVER_DESC	"ANALOG DRM"
@@ -25,6 +24,28 @@ static struct platform_device *analog_drm_pdev;
 static struct i2c_adapter *slave_adapter;
 static struct i2c_adapter *ddc_adapter;
 
+static void analog_drm_output_poll_changed(struct drm_device *dev)
+{
+	struct analog_drm_private *private = dev->dev_private;
+	drm_fbdev_cma_hotplug_event(private->fbdev);
+}
+
+static struct drm_mode_config_funcs analog_drm_mode_config_funcs = {
+	.fb_create = drm_fb_cma_create,
+	.output_poll_changed = analog_drm_output_poll_changed,
+};
+
+static void analog_drm_mode_config_init(struct drm_device *dev)
+{
+	dev->mode_config.min_width = 0;
+	dev->mode_config.min_height = 0;
+
+	dev->mode_config.max_width = 4096;
+	dev->mode_config.max_height = 4096;
+
+	dev->mode_config.funcs = &analog_drm_mode_config_funcs;
+}
+
 static int analog_drm_load(struct drm_device *dev, unsigned long flags)
 {
 	struct analog_drm_private *private;
@@ -32,11 +53,10 @@ static int analog_drm_load(struct drm_device *dev, unsigned long flags)
 	struct device_node *of_node;
 	int ret;
 
-	ret = of_parse_phandle_with_args(analog_drm_pdev->dev.of_node, "dma-request", "#dma-cells",
-					 0, &dma_spec);
-	if (ret) {
+	ret = of_parse_phandle_with_args(analog_drm_pdev->dev.of_node, "dma-request",
+			"#dma-cells", 0, &dma_spec);
+	if (ret)
 		return ret;
-	}
 
 	private = kzalloc(sizeof(struct analog_drm_private), GFP_KERNEL);
 	if (!private)
@@ -68,9 +88,10 @@ static int analog_drm_load(struct drm_device *dev, unsigned long flags)
 	private->slave_adapter = slave_adapter;
 
 	analog_drm_encoder_create(dev);
-	ret = analog_drm_fbdev_init(dev);
-	if (ret) {
+	private->fbdev = drm_fbdev_cma_init(dev, 32, 1, 1);
+	if (IS_ERR(private->fbdev)) {
 		DRM_ERROR("failed to initialize drm fbdev\n");
+		ret = PTR_ERR(private->fbdev);
 		goto err_drm_device;
 	}
 
@@ -87,10 +108,16 @@ err_crtc:
 
 static int analog_drm_unload(struct drm_device *dev)
 {
-	analog_drm_fbdev_fini(dev);
+	struct analog_drm_private *private = dev->dev_private;
+
+	drm_fbdev_cma_fini(private->fbdev);
 	/*analog_drm_device_unregister(dev);*/
 	drm_kms_helper_poll_fini(dev);
 	drm_mode_config_cleanup(dev);
+
+	iounmap(private->base);
+	iounmap(private->base_clock);
+
 	kfree(dev->dev_private);
 
 	return 0;
@@ -98,19 +125,14 @@ static int analog_drm_unload(struct drm_device *dev)
 
 static void analog_drm_lastclose(struct drm_device *dev)
 {
-	analog_drm_fbdev_restore_mode(dev);
+	struct analog_drm_private *private = dev->dev_private;
+	drm_fbdev_cma_restore_mode(private->fbdev);
 }
-
-static struct vm_operations_struct analog_drm_gem_vm_ops = {
-	.fault = analog_drm_gem_fault,
-	.open = drm_gem_vm_open,
-	.close = drm_gem_vm_close,
-};
 
 static const struct file_operations analog_drm_driver_fops = {
 	.owner		= THIS_MODULE,
 	.open		= drm_open,
-	.mmap		= analog_drm_gem_mmap,
+	.mmap		= drm_gem_cma_mmap,
 	.poll		= drm_poll,
 	.read		= drm_read,
 	.unlocked_ioctl	= drm_ioctl,
@@ -123,11 +145,11 @@ static struct drm_driver analog_drm_driver = {
 	.load			= analog_drm_load,
 	.unload			= analog_drm_unload,
 	.lastclose		= analog_drm_lastclose,
-	.gem_free_object	= analog_drm_gem_free_object,
-	.gem_vm_ops		= &analog_drm_gem_vm_ops,
-	.dumb_create		= analog_drm_gem_dumb_create,
-	.dumb_map_offset	= analog_drm_gem_dumb_map_offset,
-	.dumb_destroy		= analog_drm_gem_dumb_destroy,
+	.gem_free_object	= drm_gem_cma_free_object,
+	.gem_vm_ops		= &drm_gem_cma_vm_ops,
+	.dumb_create		= drm_gem_cma_dumb_create,
+	.dumb_map_offset	= drm_gem_cma_dumb_map_offset,
+	.dumb_destroy		= drm_gem_cma_dumb_destroy,
 	.fops = &analog_drm_driver_fops,
 	.name	= DRIVER_NAME,
 	.desc	= DRIVER_DESC,
