@@ -140,6 +140,7 @@
 							#size-cells = <0>;
 							compatible = "ad9643";
 							reg = <1>;
+							spi-3wire;
 							spi-max-frequency = <10000000>;
 						};
 					
