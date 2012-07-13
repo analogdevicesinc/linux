@@ -3,6 +3,8 @@
 # Makefile for IIO ADC drivers
 #
 
+cf_axi_adc_drv-y := cf_axi_adc_core.o cf_axi_adc_ring_stream.o
+
 # When adding new entries keep the list in alphabetical order
 obj-$(CONFIG_AD_SIGMA_DELTA) += ad_sigma_delta.o
 obj-$(CONFIG_AD7091R5) += ad7091r5.o ad7091r-base.o
@@ -17,6 +19,7 @@ obj-$(CONFIG_AD7791) += ad7791.o
 obj-$(CONFIG_AD7793) += ad7793.o
 obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD799X) += ad799x.o
+obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_ASPEED_ADC) += aspeed_adc.o
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_AT91_SAMA5D2_ADC) += at91-sama5d2_adc.o
@@ -25,6 +28,7 @@ obj-$(CONFIG_AXP288_ADC) += axp288_adc.o
 obj-$(CONFIG_BCM_IPROC_ADC) += bcm_iproc_adc.o
 obj-$(CONFIG_BERLIN2_ADC) += berlin2-adc.o
 obj-$(CONFIG_CC10001_ADC) += cc10001_adc.o
+obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc_drv.o
 obj-$(CONFIG_CPCAP_ADC) += cpcap-adc.o
 obj-$(CONFIG_DA9150_GPADC) += da9150-gpadc.o
 obj-$(CONFIG_DLN2_ADC) += dln2-adc.o
