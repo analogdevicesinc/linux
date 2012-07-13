@@ -20,6 +20,36 @@ config AD9523
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad9523.
 
+config AD9548
+	tristate "Analog Devices AD9548 Network Clock Generator/Synchronizer"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices AD9548
+	  Quad/Octal Input Network Clock Generator/Synchronizer.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad9548.
+
+endmenu
+
+menu "Direct Digital Synthesis"
+
+config CF_AXI_DDS
+	tristate "Analog Devices CoreFPGA AXI DDS driver"
+	depends on SPI
+	depends on COMMON_CLK
+	select IIO_BUFFER_DMAENGINE
+	help
+	  Say yes here to build support for Analog Devices DDS chip
+	  AD9122, provides direct access via sysfs.
+
+config CF_AXI_DDS_AD9122
+	tristate "Analog Devices AD9122 DAC"
+	depends on CF_AXI_DDS
+	help
+	  Say yes here to build support for Analog Devices AD9122 DAC chip
+	  ad9122, provides direct access via sysfs.
+
 endmenu
 
 #
