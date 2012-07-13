@@ -184,8 +184,6 @@ config DRM_ENCODER_ADV7511
 	select FB_SYS_COPYAREA
 	select FB_SYS_IMAGEBLIT
 
-source "drivers/gpu/drm/analog/Kconfig"
-
 source "drivers/gpu/drm/exynos/Kconfig"
 
 source "drivers/gpu/drm/vmwgfx/Kconfig"

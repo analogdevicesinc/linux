@@ -1,3 +1,11 @@
+/**
+ * Analog Devices ADV7511 HDMI transmitter driver
+ *
+ * Copyright 2012 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2.
+ */
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -15,12 +23,8 @@
 
 #include "adv7511.h"
 
-static const DECLARE_TLV_DB_SCALE(adv7511_levelshift_tlv, 0, 100, 0);
-
 static const struct snd_kcontrol_new adv7511_controls[] = {
 	SOC_SINGLE("Master Playback Switch", 0, 0, 0, 0),
-	SOC_SINGLE_TLV("Master Playback Volume", 0, 0, 45, 0,
-		adv7511_levelshift_tlv),
 };
 
 static const struct snd_soc_dapm_widget adv7511_dapm_widgets[] = {
@@ -122,10 +126,12 @@ static int adv7511_hw_params(struct snd_pcm_substream *substream,
 	adv7511->f_audio = params_rate(params);
 
 	adv7511_update_cts_n(adv7511);
-
-	regmap_update_bits(adv7511->regmap, 0x14, 0x0f, len);
-	regmap_update_bits(adv7511->regmap, 0x15, 0xf0, rate << 4);
-
+/*
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CFG3,
+	    ADV7511_REG_AUDIO_CFG3_LEN_MASK, len);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CFG4,
+	    ADV7511_REG_AUDIO_CFG4_RATE_MASK, rate << 4);
+*/
 	return 0;
 }
 
@@ -171,7 +177,6 @@ static int adv7511_set_dai_fmt(struct snd_soc_dai *codec_dai,
 		return -EINVAL;
 	}
 
-	/* clock inversion */
 	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
 	case SND_SOC_DAIFMT_NB_NF:
 		invert_clock = 0;
@@ -183,9 +188,9 @@ static int adv7511_set_dai_fmt(struct snd_soc_dai *codec_dai,
 		return -EINVAL;
 	}
 
-	regmap_update_bits(adv7511->regmap, 0x0a, 0x70, audio_source << 4);
-	regmap_update_bits(adv7511->regmap, 0x0b, BIT(6), invert_clock << 6);
-	regmap_update_bits(adv7511->regmap, 0x0c, 0x03, i2s_format);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_SOURCE, 0x70, audio_source << 4);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CONFIG, BIT(6), invert_clock << 6);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_I2S_CONFIG, 0x03, i2s_format);
 
 	adv7511->audio_source = audio_source;
 
@@ -203,7 +208,7 @@ static int adv7511_set_bias_level(struct snd_soc_codec *codec,
 		case ADV7511_AUDIO_SOURCE_I2S:
 			break;
 		case ADV7511_AUDIO_SOURCE_SPDIF:
-			regmap_update_bits(adv7511->regmap, 0x0b, BIT(7), BIT(7));
+			regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CONFIG, BIT(7), BIT(7));
 			break;
 		}
 		break;
@@ -219,7 +224,7 @@ static int adv7511_set_bias_level(struct snd_soc_codec *codec,
 		}
 		break;
 	case SND_SOC_BIAS_STANDBY:
-		regmap_update_bits(adv7511->regmap, 0x0b, BIT(7), 0);
+		regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CONFIG, BIT(7), 0);
 		break;
 	case SND_SOC_BIAS_OFF:
 		break;
@@ -256,15 +261,12 @@ static struct snd_soc_dai_driver adv7511_dai = {
 
 static int adv7511_suspend(struct snd_soc_codec *codec)
 {
-	adv7511_set_bias_level(codec, SND_SOC_BIAS_OFF);
-	return 0;
+	return adv7511_set_bias_level(codec, SND_SOC_BIAS_OFF);
 }
 
 static int adv7511_resume(struct snd_soc_codec *codec)
 {
-	adv7511_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
-
-	return 0;
+	return adv7511_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 }
 
 static int adv7511_probe(struct snd_soc_codec *codec)
@@ -279,9 +281,7 @@ static int adv7511_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 
-	adv7511_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
-
-	return 0;
+	return adv7511_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 }
 
 static int adv7511_remove(struct snd_soc_codec *codec)
@@ -297,9 +297,6 @@ static struct snd_soc_codec_driver adv7511_codec_driver = {
 	.resume		    = adv7511_resume,
 	.set_bias_level	    = adv7511_set_bias_level,
 
-/*
-	.controls	    = adv7511_controls,
-	.num_controls	    = ARRAY_SIZE(adv7511_controls),*/
 	.dapm_widgets	    = adv7511_dapm_widgets,
 	.num_dapm_widgets   = ARRAY_SIZE(adv7511_dapm_widgets),
 	.dapm_routes	    = adv7511_routes,
