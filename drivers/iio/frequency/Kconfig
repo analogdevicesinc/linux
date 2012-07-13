@@ -1,0 +1,69 @@
+#
+# Frequency
+#	Direct Digital Synthesis drivers (DDS)
+#	Clock Distribution device drivers
+#	Phase-Locked Loop (PLL) frequency synthesizers
+#
+
+menu "Frequency Synthesizers DDS/PLL"
+
+menu "Clock Generator/Distribution"
+
+config AD9523
+	tristate "Analog Devices AD9523 Low Jitter Clock Generator"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices AD9523 Low Jitter
+	  Clock Generator. The driver provides direct access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad9523.
+
+config AD9548
+	tristate "Analog Devices AD9548 Network Clock Generator/Synchronizer"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices AD9548
+	  Quad/Octal Input Network Clock Generator/Synchronizer.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad9548.
+
+endmenu
+
+menu "Direct Digital Synthesis"
+
+config CF_AXI_DDS
+	tristate "Analog Devices CoreFPGA AXI DDS driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices DDS chip
+	  AD9122, provides direct access via sysfs.
+
+config CF_AXI_DDS_AD9122
+	tristate "Analog Devices AD9122 DAC"
+	depends on CF_AXI_DDS
+	help
+	  Say yes here to build support for Analog Devices AD9122 DAC chip
+	  ad9122, provides direct access via sysfs.
+
+endmenu
+
+#
+# Phase-Locked Loop (PLL) frequency synthesizers
+#
+
+menu "Phase-Locked Loop (PLL) frequency synthesizers"
+
+config ADF4350
+	tristate "Analog Devices ADF4350/ADF4351 Wideband Synthesizers"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices  ADF4350/ADF4351
+	  Wideband Synthesizers. The driver provides direct access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adf4350.
+
+endmenu
+endmenu
