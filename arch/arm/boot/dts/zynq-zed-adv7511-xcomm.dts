@@ -114,6 +114,19 @@
 					reg = <0>;
 					spi-max-frequency = <10000000>;
 				};
+				adc0_ad9467: ad9467@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "ad9643";
+					reg = <1>;
+					spi-3wire;
+					spi-max-frequency = <10000000>;
+				};
+
+			};
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
 			};
 		};
 
@@ -238,9 +251,7 @@
 			compatible = "xlnx,cf-ad9643-core-1.00.a";
 			reg = < 0x79020000 0x10000 >;
 			dma-request = <&axi_dma_1 0>;
-			spibus-connected = <&spi_xcomm0>;
-			spibus-slaveselect-connected = <0x1>;
-			dco-output-delay = <0x8c>;
+			spibus-connected = <&adc0_ad9467>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
 			xlnx,num-reg = <0x1>;
@@ -254,6 +265,7 @@
 			compatible = "xlnx,cf-ad9122-core-2.00.a";
 			reg = < 0x74200000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
+			dac-sample-frequency = <491520000>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
 			xlnx,num-reg = <0x1>;
