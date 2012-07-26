@@ -13,6 +13,7 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
+#include <linux/gpio.h>
 #include <asm/unaligned.h>
 
 #define SPI_XCOMM_SETTINGS_LEN_OFFSET		10
@@ -28,12 +29,17 @@
 
 #define SPI_XCOMM_CMD_UPDATE_CONFIG	0x03
 #define SPI_XCOMM_CMD_WRITE		0x04
+#define SPI_XCOMM_CMD_GPIO_SET		0x05
 
 #define SPI_XCOMM_CLOCK 48000000
 
 struct spi_xcomm {
 	struct i2c_client *i2c;
-
+#ifdef CONFIG_GPIOLIB
+	struct gpio_chip gc;
+	struct mutex mutex;
+	bool gpio_state;
+#endif
 	uint16_t settings;
 	uint16_t chipselect;
 
@@ -41,6 +47,74 @@ struct spi_xcomm {
 
 	uint8_t buf[63];
 };
+
+#ifdef CONFIG_GPIOLIB
+static void spi_xcomm_gpio_set_value(struct gpio_chip *chip,
+				  unsigned gpio, int value)
+{
+	struct spi_xcomm *spi_xcomm = container_of(chip, struct spi_xcomm, gc);
+	unsigned char buf[2];
+
+	mutex_lock(&spi_xcomm->mutex);
+	spi_xcomm->gpio_state = !!value;
+	buf[0] = SPI_XCOMM_CMD_GPIO_SET;
+	buf[1] = !!value;
+	i2c_master_send(spi_xcomm->i2c, buf, 2);
+	mutex_unlock(&spi_xcomm->mutex);
+}
+
+static int spi_xcomm_gpio_get_value(struct gpio_chip *chip, unsigned gpio)
+{
+	struct spi_xcomm *spi_xcomm = container_of(chip, struct spi_xcomm, gc);
+	int ret;
+
+	mutex_lock(&spi_xcomm->mutex);
+	ret = spi_xcomm->gpio_state;
+	mutex_unlock(&spi_xcomm->mutex);
+
+	return ret;
+}
+
+static int spi_xcomm_gpio_direction_output(struct gpio_chip *chip,
+					unsigned gpio, int level)
+{
+	spi_xcomm_gpio_set_value(chip, gpio, level);
+	return 0;
+}
+
+static int spi_xcomm_gpio_add(struct spi_xcomm *spi_xcomm)
+{
+	mutex_init(&spi_xcomm->mutex);
+
+	spi_xcomm->gc.direction_output = spi_xcomm_gpio_direction_output;
+	spi_xcomm->gc.get = spi_xcomm_gpio_get_value;
+	spi_xcomm->gc.set = spi_xcomm_gpio_set_value;
+	spi_xcomm->gc.can_sleep = 1;
+	spi_xcomm->gc.base = -1;
+	spi_xcomm->gc.ngpio = 1;
+	spi_xcomm->gc.label = "SPI-XCOMM-GPIO";
+	spi_xcomm->gc.owner = THIS_MODULE;
+	spi_xcomm->gc.dev = &spi_xcomm->i2c->dev;
+
+	return gpiochip_add(&spi_xcomm->gc);
+}
+
+static void spi_xcomm_gpio_remove(struct spi_xcomm *spi_xcomm)
+{
+	int ret = gpiochip_remove(&spi_xcomm->gc);
+	if (ret)
+		dev_err(&spi_xcomm->i2c->dev, "failed to remove gpio\n");
+}
+#else
+static inline int spi_xcomm_gpio_add(struct spi_xcomm *spi_xcomm)
+{
+	return 0;
+}
+
+static inline void spi_xcomm_gpio_remove(struct spi_xcomm *spi_xcomm)
+{
+}
+#endif
 
 static int spi_xcomm_sync_config(struct spi_xcomm *spi_xcomm, unsigned int len)
 {
@@ -240,20 +314,24 @@ static int __devinit spi_xcomm_probe(struct i2c_client *i2c,
 	i2c_set_clientdata(i2c, master);
 
 	ret = spi_register_master(master);
-	if (ret < 0)
+	if (ret < 0) {
 		spi_master_put(master);
+		return ret;
+	}
 
 	/* Let the LED blink */
 	spi_xcomm->buf[0] = 0x2;
 	i2c_master_send(i2c, spi_xcomm->buf, 1);
 
-	return ret;
+	return spi_xcomm_gpio_add(spi_xcomm);
 }
 
 static int __devexit spi_xcomm_remove(struct i2c_client *i2c)
 {
 	struct spi_master *master = i2c_get_clientdata(i2c);
+	struct spi_xcomm *spi_xcomm = spi_master_get_devdata(master);
 
+	spi_xcomm_gpio_remove(spi_xcomm);
 	spi_unregister_master(master);
 
 	return 0;
