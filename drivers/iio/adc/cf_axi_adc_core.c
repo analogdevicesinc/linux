@@ -86,6 +86,14 @@ static int axiadc_testmode_set(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static void axiadc_toggle_scale_offset_en(struct axiadc_state *st)
+{
+	unsigned val = axiadc_read(st, AXIADC_PCORE_ADC_CTRL);
+	val &= ~AXIADC_SCALE_OFFSET_EN;
+	axiadc_write(st, AXIADC_PCORE_ADC_CTRL, val);
+	axiadc_write(st, AXIADC_PCORE_ADC_CTRL, val | AXIADC_SCALE_OFFSET_EN);
+}
+
 static int axiadc_debugfs_open(struct inode *inode, struct file *file)
 {
 	if (inode->i_private)
@@ -157,6 +165,11 @@ static int axiadc_dco_calibrate(struct iio_dev *indio_dev)
 			start = -1;
 			cnt = 0;
 		}
+	}
+
+	if (cnt > max_cnt) {
+		max_cnt = cnt;
+		max_start = start;
 	}
 
 	dco = max_start + (max_cnt / 2);
@@ -290,7 +303,8 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int i;
-	unsigned vref_val;
+	unsigned vref_val, tmp;
+	unsigned long long llval;
 
 	switch (m) {
 	case IIO_CHAN_INFO_SCALE:
@@ -306,7 +320,34 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		*val2 = st->chip_info->scale_table[i][0];
 
 		return IIO_VAL_INT_PLUS_MICRO;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		tmp = axiadc_read(st, (chan->channel == 0) ?
+			AXIADC_PCORE_CA_OFFS_SCALE :
+			AXIADC_PCORE_CB_OFFS_SCALE);
+
+		tmp = AXIADC_SCALE(tmp);
+		if (tmp & 0x8000)
+			*val = 1;
+		else
+			*val = 0;
+
+		tmp &= ~0x8000;
+
+		llval = tmp * 1000000ULL;
+		do_div(llval, 0x8000);
+		*val2 = llval;
+
+		return IIO_VAL_INT_PLUS_MICRO;
+
+	case IIO_CHAN_INFO_CALIBBIAS:
+		tmp = axiadc_read(st, (chan->channel == 0) ? AXIADC_PCORE_CA_OFFS_SCALE : AXIADC_PCORE_CB_OFFS_SCALE);
+		tmp >>= 16;
+		*val = sign_extend32(tmp, 14);
+
+		return IIO_VAL_INT;
 	}
+
+
 	return -EINVAL;
 }
 
@@ -318,6 +359,8 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			       long mask)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
+	unsigned fract, tmp;
+	unsigned long long llval;
 	int i;
 
 	switch (mask) {
@@ -335,6 +378,38 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			}
 
 		return -EINVAL;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		if (val == 0)
+			fract = 0;
+		else if (val == 1)
+			fract = 0x8000;
+		else
+			return -EINVAL;
+
+		llval = (unsigned long long)val2 * 0x8000UL;
+		do_div(llval, 1000000);
+		fract |= llval;
+		tmp = axiadc_read(st, (chan->channel == 0) ? AXIADC_PCORE_CA_OFFS_SCALE : AXIADC_PCORE_CB_OFFS_SCALE);
+		tmp &= ~AXIADC_SCALE(~0);
+		tmp |= AXIADC_SCALE(fract);
+		axiadc_write(st, (chan->channel == 0) ?
+			AXIADC_PCORE_CA_OFFS_SCALE :
+			AXIADC_PCORE_CB_OFFS_SCALE, tmp);
+		axiadc_toggle_scale_offset_en(st);
+
+		return 0;
+
+	case IIO_CHAN_INFO_CALIBBIAS:
+		tmp = axiadc_read(st, (chan->channel == 0) ? AXIADC_PCORE_CA_OFFS_SCALE : AXIADC_PCORE_CB_OFFS_SCALE);
+		tmp &= ~AXIADC_OFFSET(~0);
+		tmp |= AXIADC_OFFSET((short)val);
+
+		axiadc_write(st, (chan->channel == 0) ?
+			AXIADC_PCORE_CA_OFFS_SCALE :
+			AXIADC_PCORE_CB_OFFS_SCALE, tmp);
+		axiadc_toggle_scale_offset_en(st);
+		return 0;
+
 	default:
 		return -EINVAL;
 	}
@@ -462,7 +537,9 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT,			\
+	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT | 		\
+			IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
+			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT,		\
 	  .ext_info = axiadc_ext_info,			\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
@@ -472,7 +549,9 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	  .indexed = 1,							\
 	  .channel = _chan,						\
 	  .extend_name  = "frequency_domain",				\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT,			\
+	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT | 		\
+			IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
+			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT,		\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
@@ -552,7 +631,6 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 	struct axiadc_spidev axiadc_spidev;
 	dma_cap_mask_t mask;
 	resource_size_t remap_size, phys_addr;
-	unsigned def_mode;
 	int ret;
 
 	dev_info(dev, "Device Tree Probing \'%s\'\n",
@@ -638,11 +716,19 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 	case CHIPID_AD9467:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9467];
 		st->adc_def_output_mode = AD9467_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		axiadc_write(st, AXIADC_PCORE_ADC_CTRL, AXIADC_SCALE_OFFSET_EN);
+		axiadc_write(st, AXIADC_PCORE_CA_OFFS_SCALE,
+			     AXIADC_OFFSET(0) | AXIADC_SCALE(0x8000));
 		break;
 	case CHIPID_AD9643:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9643];
 		st->adc_def_output_mode = AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		axiadc_write(st, AXIADC_PCORE_ADC_CTRL, AXIADC_SIGNEXTEND);
+		axiadc_write(st, AXIADC_PCORE_ADC_CTRL, AXIADC_SIGNEXTEND | AXIADC_SCALE_OFFSET_EN);
+		axiadc_write(st, AXIADC_PCORE_CA_OFFS_SCALE,
+			     AXIADC_OFFSET(0) | AXIADC_SCALE(0x8000));
+		axiadc_write(st, AXIADC_PCORE_CB_OFFS_SCALE,
+			     AXIADC_OFFSET(0) | AXIADC_SCALE(0x8000));
+
 		break;
 	default:
 		dev_err(dev, "Unrecognized CHIP_ID 0x%X\n", st->id);
