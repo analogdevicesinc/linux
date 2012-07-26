@@ -20,18 +20,8 @@
 #define AXIADC_PCORE_PN_ERR_CTRL	0x24
 #define AXIADC_PCORE_ADC_CTRL		0x2C
 #define AXIADC_PCORE_IDENT		0x30
-
-/* AXIADC_PCORE_SPI_CTRL */
-#define AXIADC_SPI_START		(1 << 25)
-#define AXIADC_SPI_SEL(x)		(((x) & 0x1) << 24)
-#define AXIADC_SPI_READ			(1 << 23)
-#define AXIADC_SPI_WRITE		(0 << 23)
-#define AXIADC_SPI_ADDR(x)		(((x) & 0x1FFF) << 8)
-#define AXIADC_SPI_DATA(x)		(((x) & 0xFF) << 0)
-
-/* AXIADC_PCORE_SPI_RDSTAT */
-#define AXIADC_SPI_IDLE			(1 << 8)
-#define AXIADC_SPI_READVAL(x)		((x) & 0xFF)
+#define AXIADC_PCORE_CA_OFFS_SCALE	0x40
+#define AXIADC_PCORE_CB_OFFS_SCALE	0x44
 
 /* AXIADC_PCORE_DMA_CTRL */
 #define AXIADC_DMA_CAP_EN		(1 << 16)
@@ -60,11 +50,18 @@
 #define AXIADC_PN9_EN			(AXIADC_PN9_0_EN | AXIADC_PN9_1_EN)
 
 /* AXIADC_PCORE_ADC_CTRL */
+#define AXIADC_INPUT_FMT_OFFSET_BIN	(1 << 3)
+#define AXIADC_INPUT_FMT_TWOS_COMPL	(0 << 3)
+#define AXIADC_SCALE_OFFSET_EN		(1 << 2)
 #define AXIADC_SIGNEXTEND		(1 << 1)
 #define AXIADC_STATUS_EN		(1 << 0)
 
 /* AXIADC_PCORE_IDENT */
 #define AXIADC_PCORE_IDENT_SLAVE	0x1
+
+/* AXIADC_PCORE_C[A|B]_OFFS_SCALE */
+#define AXIADC_OFFSET(x)		(((x) & 0xFFFF) << 16)
+#define AXIADC_SCALE(x)			((x) & 0xFFFF)
 
 /*
  * ADI High-Speed ADC common spi interface registers
