@@ -1,86 +1,80 @@
+/*
+ * Analog Devices AD-FMCOMMS1-EBZ board I2C-SPI bridge driver
+ *
+ * Copyright 2012 Analog Devices Inc.
+ * Author: Lars-Peter Clausen <lars@metafoo.de>
+ *
+ * Licensed under the GPL-2 or later.
+ */
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
-
-
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi_bitbang.h>
+#include <asm/unaligned.h>
 
+#define SPI_XCOMM_SETTINGS_LEN_OFFSET		10
 #define SPI_XCOMM_SETTINGS_3WIRE		BIT(6)
-#define SPI_XCOMM_SETTINGS_CS_HIGH	BIT(5)
-#define SPI_XCOMM_SETTINGS_SAMPLE_END	BIT(4)
-#define SPI_XCOMM_SETTINGS_CPHA		BIT(3)
-#define SPI_XCOMM_SETTINGS_CPOL		BIT(2)
-#define SPI_XCOMM_SETTINGS_CLOCK_DIV_MASK 0x3
-#define SPI_XCOMM_SETTINGS_CLOCK_DIV_64	0x2
-#define SPI_XCOMM_SETTINGS_CLOCK_DIV_16	0x1
-#define SPI_XCOMM_SETTINGS_CLOCK_DIV_4	0x0
+#define SPI_XCOMM_SETTINGS_CS_HIGH		BIT(5)
+#define SPI_XCOMM_SETTINGS_SAMPLE_END		BIT(4)
+#define SPI_XCOMM_SETTINGS_CPHA			BIT(3)
+#define SPI_XCOMM_SETTINGS_CPOL			BIT(2)
+#define SPI_XCOMM_SETTINGS_CLOCK_DIV_MASK	0x3
+#define SPI_XCOMM_SETTINGS_CLOCK_DIV_64		0x2
+#define SPI_XCOMM_SETTINGS_CLOCK_DIV_16		0x1
+#define SPI_XCOMM_SETTINGS_CLOCK_DIV_4		0x0
 
 #define SPI_XCOMM_CMD_UPDATE_CONFIG	0x03
 #define SPI_XCOMM_CMD_WRITE		0x04
 
-unsigned bus_num = 0;
+#define SPI_XCOMM_CLOCK 48000000
 
 struct spi_xcomm {
-	struct spi_bitbang bitbang; /* keep this one here !!! */
 	struct i2c_client *i2c;
+
 	uint16_t settings;
 	uint16_t chipselect;
 
-	unsigned int clock;
 	unsigned int current_speed;
+
+	uint8_t buf[63];
 };
 
-static int spi_xcomm_sync_config(struct spi_xcomm *spi_xcomm)
+static int spi_xcomm_sync_config(struct spi_xcomm *spi_xcomm, unsigned int len)
 {
-	uint8_t buf[5];
+	uint16_t settings;
+	uint8_t *buf = spi_xcomm->buf;
+
+	settings = spi_xcomm->settings;
+	settings |= len << SPI_XCOMM_SETTINGS_LEN_OFFSET;
 
 	buf[0] = SPI_XCOMM_CMD_UPDATE_CONFIG;
-	buf[1] = spi_xcomm->settings >> 8;
-	buf[2] = spi_xcomm->settings & 0xff;
-	buf[3] = spi_xcomm->chipselect >> 8;
-	buf[4] = spi_xcomm->chipselect & 0xff;
+	put_unaligned_be16(settings, &buf[1]);
+	put_unaligned_be16(spi_xcomm->chipselect, &buf[3]);
 
 	return i2c_master_send(spi_xcomm->i2c, buf, 5);
 }
 
-
-
-static void spi_xcomm_chipselect(struct spi_device *spi, int is_active)
+static void spi_xcomm_chipselect(struct spi_xcomm *spi_xcomm,
+	struct spi_device *spi, int is_active)
 {
-	struct spi_xcomm *spi_xcomm = spi_master_get_devdata(spi->master);
 	unsigned long cs = spi->chip_select;
 	uint16_t chipselect = spi_xcomm->chipselect;
-	uint16_t settings = spi_xcomm->settings;
-//	static int cs = 0;
 
-	if (is_active) {
-		settings &= ~BIT(5);
+	if (is_active)
 		chipselect |= BIT(cs);
-	} else {
-		settings |= BIT(5);
+	else
 		chipselect &= ~BIT(cs);
-	}
 
-	if (chipselect != spi_xcomm->chipselect || settings != spi_xcomm->settings) {
-		spi_xcomm->chipselect = chipselect;
-		spi_xcomm->settings = settings;
-		spi_xcomm_sync_config(spi_xcomm);
-	}
-
-// 	if (!is_active) {
-// 		printk("cs: %d\n", cs);
-// 		cs = (cs + 1) % 16;
-// 	}
+	spi_xcomm->chipselect = chipselect;
 }
-static int spi_xcomm_setup_transfer(struct spi_device *spi,
-				   struct spi_transfer *t)
+
+static int spi_xcomm_setup_transfer(struct spi_xcomm *spi_xcomm,
+	struct spi_device *spi, struct spi_transfer *t, unsigned int *settings)
 {
-	struct spi_xcomm *spi_xcomm = spi_master_get_devdata(spi->master);
-	unsigned int settings = spi_xcomm->settings;
 	unsigned int speed;
 
 	if ((t->bits_per_word && t->bits_per_word != 8) || t->len > 62)
@@ -89,81 +83,131 @@ static int spi_xcomm_setup_transfer(struct spi_device *spi,
 	speed = t->speed_hz ? t->speed_hz : spi->max_speed_hz;
 
 	if (speed != spi_xcomm->current_speed) {
-		unsigned int divider = spi_xcomm->clock / speed;
-		if (divider >= 64 || 1)
-			settings |= SPI_XCOMM_SETTINGS_CLOCK_DIV_64;
+		unsigned int divider = DIV_ROUND_UP(SPI_XCOMM_CLOCK, speed);
+		if (divider >= 64)
+			*settings |= SPI_XCOMM_SETTINGS_CLOCK_DIV_64;
 		else if (divider >= 16)
-			settings |= SPI_XCOMM_SETTINGS_CLOCK_DIV_16;
+			*settings |= SPI_XCOMM_SETTINGS_CLOCK_DIV_16;
 		else
-			settings |= SPI_XCOMM_SETTINGS_CLOCK_DIV_4;
+			*settings |= SPI_XCOMM_SETTINGS_CLOCK_DIV_4;
 
 		spi_xcomm->current_speed = speed;
 	}
 
 	if (spi->mode & SPI_CPOL)
-		settings |= SPI_XCOMM_SETTINGS_CPOL;
+		*settings |= SPI_XCOMM_SETTINGS_CPOL;
 	else
-		settings &= ~SPI_XCOMM_SETTINGS_CPOL;
+		*settings &= ~SPI_XCOMM_SETTINGS_CPOL;
 
-	if (!(spi->mode & SPI_CPHA))
-		settings |= SPI_XCOMM_SETTINGS_CPHA;
+	if (spi->mode & SPI_CPHA)
+		*settings &= ~SPI_XCOMM_SETTINGS_CPHA;
 	else
-		settings &= ~SPI_XCOMM_SETTINGS_CPHA;
+		*settings |= SPI_XCOMM_SETTINGS_CPHA;
 
 	if (spi->mode & SPI_3WIRE)
-		settings |= SPI_XCOMM_SETTINGS_3WIRE;
+		*settings |= SPI_XCOMM_SETTINGS_3WIRE;
 	else
-		settings &= ~SPI_XCOMM_SETTINGS_3WIRE;
-
-	if (settings != spi_xcomm->settings) {
-		spi_xcomm->settings = settings;
-		spi_xcomm_sync_config(spi_xcomm);
-	}
+		*settings &= ~SPI_XCOMM_SETTINGS_3WIRE;
 
 	return 0;
 }
 
-static int spi_xcomm_txrx_bufs(struct spi_device *spi, struct spi_transfer *t, bool is_last)
+static int spi_xcomm_txrx_bufs(struct spi_xcomm *spi_xcomm,
+	struct spi_device *spi, struct spi_transfer *t)
 {
-	struct spi_xcomm *spi_xcomm = spi_master_get_devdata(spi->master);
 	int ret;
-	unsigned int settings = spi_xcomm->settings;
-
-	if (is_last)
-		settings |= BIT(5);
-	else
-		settings &= ~BIT(5);
 
 	if (t->tx_buf) {
-		uint8_t buf[63];
-		if (settings != spi_xcomm->settings) {
-			spi_xcomm->settings = settings;
-			spi_xcomm_sync_config(spi_xcomm);
-		}
-		buf[0] = SPI_XCOMM_CMD_WRITE;
-		memcpy(buf + 1, t->tx_buf, t->len);
+		spi_xcomm->buf[0] = SPI_XCOMM_CMD_WRITE;
+		memcpy(spi_xcomm->buf + 1, t->tx_buf, t->len);
 
-		ret = i2c_master_send(spi_xcomm->i2c, buf, t->len + 1);
+		ret = i2c_master_send(spi_xcomm->i2c, spi_xcomm->buf, t->len + 1);
 		if (ret < 0)
 			return ret;
 		else if (ret != t->len + 1)
 			return -EIO;
 	} else if (t->rx_buf) {
-		uint8_t rx_buf[t->len + 1];
-		spi_xcomm->settings = settings & ~(0x3f << 10);
-		spi_xcomm->settings |= /*(t->len == 1 ? 2 :*/ t->len/*)*/ << 10;
-		spi_xcomm_sync_config(spi_xcomm);
-		spi_xcomm->settings &= ~(0x3f << 10);
-
-		ret = i2c_master_recv(spi_xcomm->i2c, rx_buf, /*t->len == 1 ? 2 : */t->len);
+		ret = i2c_master_recv(spi_xcomm->i2c, t->rx_buf, t->len);
 		if (ret < 0)
 			return ret;
-		else if (ret != /*(t->len == 1 ? 2 : */t->len/*)*/)
+		else if (ret != t->len)
 			return -EIO;
-		memcpy(t->rx_buf, rx_buf, t->len);
 	}
-//	msleep(3);
+
 	return t->len;
+}
+
+static int spi_xcomm_transfer_one(struct spi_master *master,
+	struct spi_message *msg)
+{
+	struct spi_xcomm *spi_xcomm = spi_master_get_devdata(master);
+	unsigned int settings = spi_xcomm->settings;
+	struct spi_device *spi = msg->spi;
+	unsigned cs_change = 0;
+	struct spi_transfer *t;
+	bool is_first = true;
+	int status = 0;
+	bool is_last;
+
+	is_first = true;
+
+	spi_xcomm_chipselect(spi_xcomm, spi, true);
+
+	list_for_each_entry(t, &msg->transfers, transfer_list) {
+
+		if (!t->tx_buf && !t->rx_buf && t->len) {
+			status = -EINVAL;
+			break;
+		}
+
+		status = spi_xcomm_setup_transfer(spi_xcomm, spi, t, &settings);
+		if (status < 0)
+			break;
+
+		is_last = list_is_last(&t->transfer_list, &msg->transfers);
+		cs_change = t->cs_change;
+
+		if (cs_change ^ is_last)
+			settings |= BIT(5);
+		else
+			settings &= ~BIT(5);
+
+		if (t->rx_buf) {
+			spi_xcomm->settings = settings;
+			status = spi_xcomm_sync_config(spi_xcomm, t->len);
+			if (status < 0)
+				break;
+		} else if (settings != spi_xcomm->settings || is_first) {
+			spi_xcomm->settings = settings;
+			status = spi_xcomm_sync_config(spi_xcomm, 0);
+			if (status < 0)
+				break;
+		}
+
+		if (t->len) {
+			status = spi_xcomm_txrx_bufs(spi_xcomm, spi, t);
+
+			if (status < 0)
+				break;
+
+			if (status > 0)
+				msg->actual_length += status;
+		}
+		status = 0;
+
+		if (t->delay_usecs)
+			udelay(t->delay_usecs);
+
+		is_first = false;
+	}
+
+	if (status != 0 || !cs_change)
+		spi_xcomm_chipselect(spi_xcomm, spi, false);
+
+	msg->status = status;
+	spi_finalize_current_message(master);
+
+	return status;
 }
 
 static int spi_xcomm_setup(struct spi_device *spi)
@@ -177,58 +221,49 @@ static int spi_xcomm_setup(struct spi_device *spi)
 static int __devinit spi_xcomm_probe(struct i2c_client *i2c,
 	const struct i2c_device_id *id)
 {
-	uint8_t buf[] = {0x2};
-	int ret;
-	struct spi_master *master;
+	static unsigned int bus_num;
 	struct spi_xcomm *spi_xcomm;
+	struct spi_master *master;
+	int ret;
 
 	master = spi_alloc_master(&i2c->dev, sizeof(*spi_xcomm));
 	if (!master)
 		return -ENOMEM;
 
 	spi_xcomm = spi_master_get_devdata(master);
-	i2c_set_clientdata(i2c, spi_xcomm);
 	spi_xcomm->i2c = i2c;
-	master->dev.of_node = i2c->dev.of_node;
 
 	master->num_chipselect = 16;
-	master->setup = spi_xcomm_setup;
-	master->cleanup = spi_bitbang_cleanup;
-
-	spi_xcomm->bitbang.master = spi_master_get(master);
-	spi_xcomm->bitbang.master->bus_num = bus_num++;
-	spi_xcomm->bitbang.chipselect = spi_xcomm_chipselect;
-
-	spi_xcomm->bitbang.setup_transfer = spi_xcomm_setup_transfer;
-	spi_xcomm->bitbang.txrx_bufs = spi_xcomm_txrx_bufs;
-	master->flags = SPI_MASTER_HALF_DUPLEX;
-
 	master->mode_bits = SPI_CPHA | SPI_CPOL | SPI_3WIRE;
+	master->flags = SPI_MASTER_HALF_DUPLEX;
+	master->setup = spi_xcomm_setup;
+	master->transfer_one_message = spi_xcomm_transfer_one;
+	master->bus_num = bus_num++;
+	master->dev.of_node = i2c->dev.of_node;
+	i2c_set_clientdata(i2c, master);
 
-	spi_xcomm->clock = 48000000;
-
-	ret = spi_bitbang_start(&spi_xcomm->bitbang);
+	ret = spi_register_master(master);
 	if (ret < 0)
 		spi_master_put(master);
 
-	i2c_master_send(i2c, buf, 1);
+	/* Let the LED blink */
+	spi_xcomm->buf[0] = 0x2;
+	i2c_master_send(i2c, spi_xcomm->buf, 1);
 
 	return ret;
 }
 
 static int __devexit spi_xcomm_remove(struct i2c_client *i2c)
 {
-	struct spi_xcomm *spi_xcomm = i2c_get_clientdata(i2c);
-	int ret;
+	struct spi_master *master = i2c_get_clientdata(i2c);
 
-	ret = spi_bitbang_stop(&spi_xcomm->bitbang);
-	spi_master_put(spi_xcomm->bitbang.master);
+	spi_unregister_master(master);
 
-	return ret;
+	return 0;
 }
 
 static const struct i2c_device_id spi_xcomm_ids[] = {
-	{ "spi-xcomm", 0 },
+	{ "spi-xcomm" },
 	{ },
 };
 
@@ -241,18 +276,8 @@ static struct i2c_driver spi_xcomm_driver = {
 	.probe		= spi_xcomm_probe,
 	.remove		= __devexit_p(spi_xcomm_remove),
 };
-/*module_i2c_driver(spi_xcomm_driver);*/
-
-static int __init spi_xcomm_init(void)
-{
-	return i2c_add_driver(&spi_xcomm_driver);
-}
-module_init(spi_xcomm_init);
-
-static void __exit spi_xcomm_exit(void)
-{
-	i2c_del_driver(&spi_xcomm_driver);
-}
-module_exit(spi_xcomm_exit);
+module_i2c_driver(spi_xcomm_driver);
 
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_DESCRIPTION("Analog Devices AD-FMCOMMS1-EBZ board I2C-SPI bridge driver");

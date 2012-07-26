@@ -362,7 +362,6 @@ config SPI_TXX9
 config SPI_XCOMM
 	tristate "SPI-I2C-bridge driver for the ADI Xcomm board"
 	depends on I2C
-	select SPI_BITBANG
 	help
 	  Support for the SPI-I2C-bridge IC found on the ADI Xcomm board.
 
