@@ -41,37 +41,32 @@
 *    [ 3: 0]:  dds scale 1a
 * ***************************************************************************/
 
-#define CF_AXI_DDS_DDS_VERSION_ID		0x00
-#define CF_AXI_DDS_DDS_CTRL			0x04
-#define CF_AXI_DDS_DDS_1A_OUTPUT_CTRL	0x08
-#define CF_AXI_DDS_DDS_1B_OUTPUT_CTRL	0x0C
-#define CF_AXI_DDS_DDS_2A_OUTPUT_CTRL	0x10
-#define CF_AXI_DDS_DDS_2B_OUTPUT_CTRL	0x14
-#define CF_AXI_DDS_DDS_MEM_CTRL		0x18
-#define CF_AXI_DDS_DDS_SCALE		0x20
-#define CF_AXI_DDS_DDS_FRAME		0x24
-#define CF_AXI_DDS_DDS_PCORE_IDENT		0x48
+#define CF_AXI_DDS_VERSION_ID		0x00
+#define CF_AXI_DDS_CTRL			0x04
+#define CF_AXI_DDS_1A_OUTPUT_CTRL	0x08
+#define CF_AXI_DDS_1B_OUTPUT_CTRL	0x0C
+#define CF_AXI_DDS_2A_OUTPUT_CTRL	0x10
+#define CF_AXI_DDS_2B_OUTPUT_CTRL	0x14
+#define CF_AXI_DDS_MEM_CTRL		0x18
+#define CF_AXI_DDS_SCALE		0x20
+#define CF_AXI_DDS_FRAME		0x24
+#define CF_AXI_DDS_PCORE_IDENT		0x30
+#define CF_AXI_DDS_PAT_DATA1		0x40
+#define CF_AXI_DDS_PAT_DATA2		0x44
 
-#define CF_AXI_DDS_DDS_CTRL_DDS_CLK_EN_V1	(1 << 8)
-#define CF_AXI_DDS_DDS_CTRL_DDS_CLK_EN_V2	(1 << 0)
+/* CF_AXI_DDS_CTRL */
+#define CF_AXI_DDS_CTRL_PATTERN_EN	(1 << 4)
+#define CF_AXI_DDS_CTRL_INTERPOLATE	(1 << 3)
+#define CF_AXI_DDS_CTRL_DDS_SEL		(1 << 2)
+#define CF_AXI_DDS_CTRL_DATA_EN		(1 << 1)
+#define CF_AXI_DDS_CTRL_DDS_CLK_EN_V1	(1 << 8)
+#define CF_AXI_DDS_CTRL_DDS_CLK_EN_V2	(1 << 0)
 
-/* CF_AXI_DDS_DDS_FRAME */
-#define CF_AXI_DDS_DDS_FRAME_SYNC		0x1
+/* CF_AXI_DDS_FRAME */
+#define CF_AXI_DDS_FRAME_SYNC		0x1
 
-/* CF_AXI_DDS_DDS_PCORE_IDENT */
-#define CF_AXI_DDS_DDS_PCORE_IDENT_SLAVE	0x1
-
-/* AD9122 internal registers */
-
-#define AD9122_I_PHASE_ADJ	0x39
-#define AD9122_Q_PHASE_ADJ	0x3B
-
-#define AD9122_I_DAC_OFFS	0x3D
-#define AD9122_Q_DAC_OFFS	0x3F
-
-#define AD9122_I_DAC_FS_ADJ	0x41
-#define AD9122_Q_DAC_FS_ADJ	0x45
-#define AD9122_I_AUX_DAC	0x43
+/* CF_AXI_DDS_PCORE_IDENT */
+#define CF_AXI_DDS_PCORE_IDENT_SLAVE	0x1
 
 enum {
 	ID_AD9122,
