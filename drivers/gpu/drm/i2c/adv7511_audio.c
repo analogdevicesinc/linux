@@ -45,7 +45,7 @@ static void adv7511_calc_cts_n(unsigned int f_tmds, unsigned int fs,
 		break;
 	}
 
-	*cts = (f_tmds * *n) / (128 * fs);
+	*cts = ((f_tmds * *n) / (128 * fs)) * 1000;
 }
 
 static int adv7511_update_cts_n(struct adv7511 *adv7511)
@@ -59,9 +59,9 @@ static int adv7511_update_cts_n(struct adv7511 *adv7511)
 	regmap_write(adv7511->regmap, ADV7511_REG_N1, (n >> 8) & 0xff);
 	regmap_write(adv7511->regmap, ADV7511_REG_N2, n & 0xff);
 
-	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL0, (n >> 16) & 0xf);
-	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL1, (n >> 8) & 0xff);
-	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL2, n & 0xff);
+	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL0, (cts >> 16) & 0xf);
+	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL1, (cts >> 8) & 0xff);
+	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL2, cts & 0xff);
 
 	return 0;
 }
