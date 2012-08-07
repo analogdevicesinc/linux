@@ -46,6 +46,11 @@ struct axi_spdif {
 #define AXI_SPDIF_CTRL_RATIO_OFFSET 8
 #define AXI_SPDIF_CTRL_RATIO_MASK (0xff << 8)
 
+#define AXI_SPDIF_FREQ_44100	(0x0 << 6)
+#define AXI_SPDIF_FREQ_48000	(0x1 << 6)
+#define AXI_SPDIF_FREQ_32000	(0x2 << 6)
+#define AXI_SPDIF_FREQ_NA	(0x3 << 6)
+
 static struct debugfs_reg32 axi_spdif_debugfs_regs[] = {
     { "Control", AXI_SPDIF_REG_CTRL },
     { "Status", AXI_SPDIF_REG_STAT },
@@ -94,13 +99,29 @@ static int axi_spdif_hw_params(struct snd_pcm_substream *substream,
 {
 	struct axi_spdif *spdif = snd_soc_dai_get_drvdata(dai);
 	uint32_t ctrl = axi_spdif_read(spdif, AXI_SPDIF_REG_CTRL);
-	unsigned int ratio;
+	unsigned int ratio, stat;
+
+	switch (params_rate(params)) {
+	case 32000:
+		stat = AXI_SPDIF_FREQ_32000;
+		break;
+	case 44100:
+		stat = AXI_SPDIF_FREQ_44100;
+		break;
+	case 48000:
+		stat = AXI_SPDIF_FREQ_48000;
+		break;
+	default:
+		stat = AXI_SPDIF_FREQ_NA;
+		break;
+	}
 
 	ratio = DIV_ROUND_CLOSEST(spdif->clock, (params_rate(params) * 64 * 2)) - 1;
 
 	ctrl &= ~AXI_SPDIF_CTRL_RATIO_MASK;
 	ctrl |= ratio << AXI_SPDIF_CTRL_RATIO_OFFSET;
 
+	axi_spdif_write(spdif, AXI_SPDIF_REG_STAT, stat);
 	axi_spdif_write(spdif, AXI_SPDIF_REG_CTRL, ctrl);
 
 	return 0;
