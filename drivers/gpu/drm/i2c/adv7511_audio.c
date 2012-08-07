@@ -126,21 +126,14 @@ static int adv7511_hw_params(struct snd_pcm_substream *substream,
 	adv7511->f_audio = params_rate(params);
 
 	adv7511_update_cts_n(adv7511);
-/*
+
 	regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CFG3,
-	    ADV7511_REG_AUDIO_CFG3_LEN_MASK, len);
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CFG4,
-	    ADV7511_REG_AUDIO_CFG4_RATE_MASK, rate << 4);
-*/
+	    ADV7511_AUDIO_CFG3_LEN_MASK, len);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_I2C_FREQ_ID_CFG,
+	    ADV7511_I2C_FREQ_ID_CFG_RATE_MASK, rate << 4);
+
 	return 0;
 }
-
-#define ADV7511_AUDIO_SOURCE_I2S 0
-#define ADV7511_AUDIO_SOURCE_SPDIF 1
-
-#define ADV7511_I2S_FORMAT_I2S 0
-#define ADV7511_I2S_FORMAT_RIGHT_J 1
-#define ADV7511_I2S_FORMAT_LEFT_J 2
 
 static int adv7511_set_dai_fmt(struct snd_soc_dai *codec_dai,
 		unsigned int fmt)
