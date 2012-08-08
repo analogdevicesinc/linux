@@ -723,6 +723,7 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 	case CHIPID_AD9643:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9643];
 		st->adc_def_output_mode = AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE, OUTPUT_EVEN_ODD_MODE_EN);
 		axiadc_write(st, AXIADC_PCORE_ADC_CTRL, AXIADC_SIGNEXTEND | AXIADC_SCALE_OFFSET_EN);
 		axiadc_write(st, AXIADC_PCORE_CA_OFFS_SCALE,
 			     AXIADC_OFFSET(0) | AXIADC_SCALE(0x8000));
@@ -735,6 +736,8 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		ret = -ENODEV;
 		goto failed3;
 	}
+
+	axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE, OUTPUT_EVEN_ODD_MODE_EN);
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
