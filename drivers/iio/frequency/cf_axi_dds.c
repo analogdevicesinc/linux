@@ -364,8 +364,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	default:
 		return -EINVAL;
 	}
-
-	cf_axi_dds_sync_frame(st);
+//	cf_axi_dds_sync_frame(st);
 
 	return 0;
 }
@@ -407,10 +406,10 @@ static ssize_t ad9122_dds_store(struct device *dev,
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	struct cf_axi_dds_converter *conv = to_converter(st->dev_spi);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-	unsigned long readin;
+	long readin;
 	int ret;
 
-	ret = kstrtoul(buf, 10, &readin);
+	ret = kstrtol(buf, 10, &readin);
 	if (ret)
 		return ret;
 
@@ -419,13 +418,20 @@ static ssize_t ad9122_dds_store(struct device *dev,
 	switch ((u32)this_attr->address) {
 	case AD9122_REG_I_DAC_OFFSET_MSB:
 	case AD9122_REG_Q_DAC_OFFSET_MSB:
-		if (readin > 0xFFFF) {
+		if (readin < 0 || readin > 0xFFFF) {
+			ret = -EINVAL;
+			goto out;
+		}
+		break;
+	case AD9122_REG_I_PHA_ADJ_MSB:
+	case AD9122_REG_Q_PHA_ADJ_MSB:
+		if (readin < -512 || readin > 511) {
 			ret = -EINVAL;
 			goto out;
 		}
 		break;
 	default:
-		if (readin > 0x3FF) {
+		if (readin < 0 || readin > 0x3FF) {
 			ret = -EINVAL;
 			goto out;
 		}
@@ -468,40 +474,46 @@ static ssize_t ad9122_dds_show(struct device *dev,
 		goto out;
 	val |= ret & 0xFF;
 
-	ret = sprintf(buf, "%d\n", val);
+	switch ((u32)this_attr->address) {
+	case AD9122_REG_I_PHA_ADJ_MSB:
+	case AD9122_REG_Q_PHA_ADJ_MSB:
+		val = sign_extend32(val, 9);
+		break;
+	}
 
+	ret = sprintf(buf, "%d\n", val);
 out:
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
 }
 
-static IIO_DEVICE_ATTR(i_phase_adj, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage0_phase, S_IRUGO | S_IWUSR,
  			ad9122_dds_show,
  			ad9122_dds_store,
  			AD9122_REG_I_PHA_ADJ_MSB);
 
-static IIO_DEVICE_ATTR(q_phase_adj, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage1_phase, S_IRUGO | S_IWUSR,
  			ad9122_dds_show,
  			ad9122_dds_store,
  			AD9122_REG_Q_PHA_ADJ_MSB);
 
-static IIO_DEVICE_ATTR(i_dac_offset, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage0_calibbias, S_IRUGO | S_IWUSR,
  			ad9122_dds_show,
  			ad9122_dds_store,
  			AD9122_REG_I_DAC_OFFSET_MSB);
 
-static IIO_DEVICE_ATTR(q_dac_offset, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage1_calibbias, S_IRUGO | S_IWUSR,
  			ad9122_dds_show,
  			ad9122_dds_store,
  			AD9122_REG_Q_DAC_OFFSET_MSB);
 
-static IIO_DEVICE_ATTR(i_dac_fs_adj, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage0_calibscale, S_IRUGO | S_IWUSR,
  			ad9122_dds_show,
  			ad9122_dds_store,
  			AD9122_REG_I_DAC_CTRL);
 
-static IIO_DEVICE_ATTR(q_dac_fs_adj, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage1_calibscale, S_IRUGO | S_IWUSR,
  			ad9122_dds_show,
  			ad9122_dds_store,
  			AD9122_REG_Q_DAC_CTRL);
@@ -511,13 +523,14 @@ static IIO_DEVICE_ATTR(q_dac_fs_adj, S_IRUGO | S_IWUSR,
 static IIO_CONST_ATTR(out_altvoltage_scale_available,
 		"1.000000 0.500000 0.250000 0.125000 ...");
 
+
 static struct attribute *cf_axi_dds_attributes[] = {
-	&iio_dev_attr_i_phase_adj.dev_attr.attr,
-	&iio_dev_attr_q_phase_adj.dev_attr.attr,
-	&iio_dev_attr_i_dac_offset.dev_attr.attr,
-	&iio_dev_attr_q_dac_offset.dev_attr.attr,
-	&iio_dev_attr_i_dac_fs_adj.dev_attr.attr,
-	&iio_dev_attr_q_dac_fs_adj.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_phase.dev_attr.attr, /* I */
+	&iio_dev_attr_out_voltage0_calibscale.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_calibbias.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_phase.dev_attr.attr, /* Q */
+	&iio_dev_attr_out_voltage1_calibscale.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_calibbias.dev_attr.attr,
 	&iio_const_attr_out_altvoltage_scale_available.dev_attr.attr,
 	NULL,
 };
