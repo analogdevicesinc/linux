@@ -149,6 +149,10 @@
 						compatible = "at24,24c02";
 						reg = <0x50>;
 					};		
+					eeprom@55 {
+						compatible = "at24,24c02";
+						reg = <0x55>;
+					};
 				};
 			};
 
@@ -251,7 +255,7 @@
 		} ;
 
 		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
-			compatible = "xlnx,cf-ad9643-core-1.00.a";
+			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x79020000 0x10000 >;
 			dma-request = <&axi_dma_1 0>;
 			spibus-connected = <&adc0_ad9467>;
@@ -299,7 +303,7 @@
 		} ;
 
 		cf_ad9122_core_0: cf-ad9122-core-lpc@74200000 {
-			compatible = "xlnx,cf-ad9122-core-2.00.a";
+			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
 			reg = < 0x74200000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
 			dac-sample-frequency = <491520000>;

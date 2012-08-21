@@ -45,9 +45,9 @@
 			interrupts = <0 10 0>,<0 11 0>,<0 12 0>;
 			interrupt-parent = <&gic>;
 /*			clock-frequency = <111111111>;*/
-			clock-frequency-timer0 = <133000000>;
-			clock-frequency-timer1 = <133000000>;
-			clock-frequency-timer2 = <133000000>;
+			clock-frequency-timer0 = <111111111>;
+			clock-frequency-timer1 = <111111111>;
+			clock-frequency-timer2 = <111111111>;
 		};
 
 		swdt@f8005000 {
@@ -128,6 +128,10 @@
 				compatible = "at24,24c02";
 				reg = <0x50>;
 			};
+			eeprom@55 {
+				compatible = "at24,24c02";
+				reg = <0x55>;
+			};
 		};
 
 		sdhci@e0100000 {
@@ -185,7 +189,7 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 59 0x4>;
+				interrupts = <0 55 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -248,7 +252,7 @@
 		} ;
 
 		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
-			compatible = "xlnx,cf-ad9643-core-1.00.a";
+			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x79020000 0x10000 >;
 			dma-request = <&axi_dma_1 0>;
 			spibus-connected = <&adc0_ad9467>;
@@ -262,7 +266,7 @@
 		} ;
 
 		cf_ad9122_core_0: cf-ad9122-core-lpc@74200000 {
-			compatible = "xlnx,cf-ad9122-core-2.00.a";
+			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
 			reg = < 0x74200000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
 			dac-sample-frequency = <491520000>;
