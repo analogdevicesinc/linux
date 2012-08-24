@@ -59,7 +59,7 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 	if (copy_to_user(buf, st->buf_virt + st->fftcount, count))
 		ret = -EFAULT;
 
-	if ((stat & (AXIADC_PCORE_ADC_STAT_OVR0 | AXIADC_PCORE_ADC_STAT_OVR1))
+	if ((stat & (AXIADC_PCORE_ADC_STAT_OVR0 | ((st->id == CHIPID_AD9467) ? 0 : AXIADC_PCORE_ADC_STAT_OVR1)))
 		|| dma_stat)
 		dev_warn(indio_dev->dev.parent,
 			"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
