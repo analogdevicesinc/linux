@@ -215,6 +215,14 @@ config ATMEL_SSC
 
 	  If unsure, say N.
 
+config XLNX_LCD
+	tristate "Device driver for Xilinx Character LCD"
+	depends on PPC_OF || MICROBLAZE
+	---help---
+	  This option enables device driver support for an Char LCD via GPIO
+
+	  If unsure, say N.
+
 config ENCLOSURE_SERVICES
 	tristate "Enclosure Services"
 	default n
