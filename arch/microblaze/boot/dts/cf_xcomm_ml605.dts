@@ -613,6 +613,23 @@
 			xlnx,tri-default-2 = <0xffffffff>;
 		} ;
 
+		axi_gpio_0: gpio@40000000 {
+			compatible = "xlnx,axi-xlnx-lcd-1.00.a";
+			reg = < 0x40000000 0x10000 >;
+			xlnx,all-inputs = <0x0>;
+			xlnx,all-inputs-2 = <0x0>;
+			xlnx,dout-default = <0x0>;
+			xlnx,dout-default-2 = <0x0>;
+			xlnx,family = "virtex6";
+			xlnx,gpio-width = <0x7>;
+			xlnx,gpio2-width = <0x20>;
+			xlnx,instance = "axi_gpio_0";
+			xlnx,interrupt-present = <0x1>;
+			xlnx,is-dual = <0x0>;
+			xlnx,tri-default = <0xffffffff>;
+			xlnx,tri-default-2 = <0xffffffff>;
+		} ;
+
 		axi_dac_4d_2c_0: cf-ad9122-core-lpc@7a020000 {
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
 			reg = < 0x7a020000 0x10000 >;
