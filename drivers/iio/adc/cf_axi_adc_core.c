@@ -102,7 +102,7 @@ static int axiadc_debugfs_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int axiadc_dco_calibrate(struct iio_dev *indio_dev)
+static int axiadc_dco_calibrate_2c(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int dco, ret, cnt, start, max_start, max_cnt;
@@ -191,6 +191,90 @@ static int axiadc_dco_calibrate(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static int axiadc_dco_calibrate_1c(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	int dco, ret, cnt, start, max_start, max_cnt;
+	unsigned stat;
+	unsigned char err_field[33];
+
+	axiadc_testmode_set(indio_dev, 0x1, TESTMODE_PN9_SEQ);
+
+	axiadc_write(st, AXIADC_PCORE_PN_ERR_CTRL, AXIADC_PN9_0_EN);
+
+	for(dco = 0; dco <= 32; dco++) {
+		ret = 0;
+		axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
+			      dco > 0 ? ((dco - 1) | 0x80) : 0);
+		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		axiadc_write(st, AXIADC_PCORE_ADC_STAT, AXIADC_PCORE_ADC_STAT_MASK);
+
+		cnt = 4;
+
+		do {
+			mdelay(8);
+			stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
+			if ((cnt-- < 0) | (stat & AXIADC_PCORE_ADC_STAT_PN_ERR)) {
+				ret = -EIO;
+				break;
+			}
+		} while (stat & AXIADC_PCORE_ADC_STAT_PN_OOS);
+
+		cnt = 4;
+
+		if (!ret)
+			do {
+				mdelay(4);
+				stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
+				if (stat & AXIADC_PCORE_ADC_STAT_PN_ERR) {
+					ret = -EIO;
+					break;
+				}
+			} while (cnt--);
+
+		err_field[dco] = !!ret;
+	}
+
+	for(dco = 0, cnt = 0, max_cnt = 0, start = -1, max_start = 0;
+		dco <= 32; dco++) {
+		if (err_field[dco] == 0) {
+			if (start == -1)
+				start = dco;
+			cnt++;
+		} else {
+			if (cnt > max_cnt) {
+				max_cnt = cnt;
+				max_start = start;
+			}
+			start = -1;
+			cnt = 0;
+		}
+	}
+
+	if (cnt > max_cnt) {
+		max_cnt = cnt;
+		max_start = start;
+	}
+
+	dco = max_start + (max_cnt / 2);
+
+	axiadc_testmode_set(indio_dev, 0x3, TESTMODE_OFF);
+	axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
+		      dco > 0 ? ((dco - 1) | 0x80) : 0);
+	axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+
+#ifdef DCO_DEBUG
+	for(cnt = 0; cnt <= 32; cnt++)
+		if (cnt == dco)
+			printk("|");
+		else
+			printk("%c", err_field[cnt] ? '-' : 'o');
+	printk(" DCO 0x%X\n", dco > 0 ? ((dco - 1) | 0x80) : 0);
+#endif
+
+	return 0;
+}
+
 static ssize_t axiadc_debugfs_pncheck_read(struct file *file, char __user *userbuf,
 			      size_t count, loff_t *ppos)
 {
@@ -204,9 +288,9 @@ static ssize_t axiadc_debugfs_pncheck_read(struct file *file, char __user *userb
 
 	switch (st->id) {
 	case CHIPID_AD9467:
-		len = sprintf(buf, "%s %s\n", (stat & AXIADC_PCORE_ADC_STAT_PN_OOS0) ?
+		len = sprintf(buf, "%s %s\n", (stat & AXIADC_PCORE_ADC_STAT_PN_OOS) ?
 			"Out of Sync :" : "In Sync :",
-			(stat & AXIADC_PCORE_ADC_STAT_PN_ERR0) ?
+			(stat & AXIADC_PCORE_ADC_STAT_PN_ERR) ?
 			"PN Error" : "No Error");
 		break;
 	case CHIPID_AD9643:
@@ -247,7 +331,8 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 	else if (sysfs_streq(p, "PN23"))
 		mode = TESTMODE_PN23_SEQ;
 	else if (sysfs_streq(p, "CALIB"))
-		axiadc_dco_calibrate(indio_dev);
+		(st->id == CHIPID_AD9467) ? axiadc_dco_calibrate_1c(indio_dev) :
+			axiadc_dco_calibrate_2c(indio_dev);
 	else
 		mode = TESTMODE_OFF;
 
@@ -719,6 +804,10 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		axiadc_write(st, AXIADC_PCORE_ADC_CTRL, AXIADC_SCALE_OFFSET_EN);
 		axiadc_write(st, AXIADC_PCORE_CA_OFFS_SCALE,
 			     AXIADC_OFFSET(0) | AXIADC_SCALE(0x8000));
+		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
+		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
+		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		axiadc_dco_calibrate_1c(indio_dev);
 		break;
 	case CHIPID_AD9643:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9643];
@@ -729,6 +818,10 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 			     AXIADC_OFFSET(0) | AXIADC_SCALE(0x8000));
 		axiadc_write(st, AXIADC_PCORE_CB_OFFS_SCALE,
 			     AXIADC_OFFSET(0) | AXIADC_SCALE(0x8000));
+		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
+		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
+		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		axiadc_dco_calibrate_2c(indio_dev);
 
 		break;
 	default:
@@ -736,8 +829,6 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		ret = -ENODEV;
 		goto failed3;
 	}
-
-	axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE, OUTPUT_EVEN_ODD_MODE_EN);
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
@@ -749,16 +840,11 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 
 	init_completion(&st->dma_complete);
 
-	axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
-	axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
-	axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-
-	axiadc_dco_calibrate(indio_dev);
-
 	axiadc_configure_ring(indio_dev);
+
 	ret = iio_buffer_register(indio_dev,
 				  st->chip_info->channel,
-				  ARRAY_SIZE(st->chip_info->channel));
+				  st->chip_info->num_channels);
 	if (ret)
 		goto failed4;
 
@@ -840,6 +926,7 @@ static const struct of_device_id axiadc_of_match[] __devinitconst = {
 	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", },
 	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
 	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
+	{ .compatible =	"xlnx,axi-adc-1c-1.00.a", },
 { /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
