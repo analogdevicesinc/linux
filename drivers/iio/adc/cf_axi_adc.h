@@ -129,6 +129,8 @@
 
 #include <linux/spi/spi.h>
 
+#define AXIADC_MAX_DMA_SIZE		(4 * 1024 * 1024) /* Randomly picked */
+
 enum {
 	ID_AD9467,
 	ID_AD9643,

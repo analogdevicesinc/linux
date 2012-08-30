@@ -94,8 +94,6 @@ static int axiadc_ring_set_length(struct iio_buffer *r, int lenght)
 
 static int axiadc_ring_get_bytes_per_datum(struct iio_buffer *r)
 {
-	struct iio_hw_buffer *hw_ring = iio_to_hw_buf(r);
-
 	return r->bytes_per_datum;
 }
 
@@ -157,14 +155,10 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 			complete(&st->dma_complete);
 		}
 
-		dma_free_coherent(indio_dev->dev.parent,
-				  PAGE_ALIGN(st->rcount + st->fftcount),
-				  st->buf_virt, st->buf_phys);
 		return 0;
 	}
 
 	st->compl_stat = 0;
-
 	if (st->ring_lenght == 0) {
 		ret = -EINVAL;
 		goto error_ret;
@@ -184,11 +178,8 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	st->fftcount = 0;
 #endif
 
-	st->buf_virt = dma_alloc_coherent(indio_dev->dev.parent,
-					  PAGE_ALIGN(st->rcount + st->fftcount), &st->buf_phys,
-					  GFP_KERNEL);
-	if (st->buf_virt == NULL) {
-		ret = -ENOMEM;
+	if (PAGE_ALIGN(st->rcount + st->fftcount) > AXIADC_MAX_DMA_SIZE) {
+		ret = -EINVAL;
 		goto error_ret;
 	}
 
@@ -198,7 +189,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 		dev_err(indio_dev->dev.parent,
 			"Failed to allocate a dma descriptor\n");
 		ret = -ENOMEM;
-		goto error_free;
+		goto error_ret;
 	}
 
 	desc->callback = (dma_async_tx_callback) complete;
@@ -209,7 +200,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 		dev_err(indio_dev->dev.parent,
 			"Failed to submit a dma transfer\n");
 		ret = cookie;
-		goto error_free;
+		goto error_ret;
 	}
 	INIT_COMPLETION(st->dma_complete);
 	dma_async_issue_pending(st->rx_chan);
@@ -222,9 +213,6 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 
 	return 0;
 
-error_free:
-	dma_free_coherent(indio_dev->dev.parent, PAGE_ALIGN(st->rcount),
-			  st->buf_virt, st->buf_phys);
 error_ret:
 	return ret;
 }
@@ -246,6 +234,7 @@ static const struct iio_buffer_setup_ops axiadc_ring_setup_ops = {
 
 int axiadc_configure_ring(struct iio_dev *indio_dev)
 {
+	struct axiadc_state *st = iio_priv(indio_dev);
 	indio_dev->buffer = axiadc_rb_allocate(indio_dev);
 	if (indio_dev->buffer == NULL)
 		return -ENOMEM;
@@ -254,10 +243,23 @@ int axiadc_configure_ring(struct iio_dev *indio_dev)
 	indio_dev->buffer->access = &axiadc_ring_access_funcs;
 	indio_dev->setup_ops = &axiadc_ring_setup_ops;
 
+	st->buf_virt = dma_alloc_coherent(indio_dev->dev.parent,
+					  PAGE_ALIGN(AXIADC_MAX_DMA_SIZE), &st->buf_phys,
+					  GFP_KERNEL);
+	if (st->buf_virt == NULL) {
+		dev_err(indio_dev->dev.parent,
+			"Failed to allocate a dma memory\n");
+		return -ENOMEM;
+	}
+
 	return 0;
 }
 
 void axiadc_unconfigure_ring(struct iio_dev *indio_dev)
 {
+	struct axiadc_state *st = iio_priv(indio_dev);
+
+	dma_free_coherent(indio_dev->dev.parent, PAGE_ALIGN(AXIADC_MAX_DMA_SIZE),
+			  st->buf_virt, st->buf_phys);
 	axiadc_rb_free(indio_dev->buffer);
 }
