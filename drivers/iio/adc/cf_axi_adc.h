@@ -127,6 +127,14 @@
 #define AD9643_REG_VREF_MASK		0x1F
 #define AD9643_DEF_OUTPUT_MODE		0x00
 
+/*
+ * Analog Devices AD9250 Dual 14-Bit, 170/250 MSPS ADC, JESD204B
+ */
+
+#define CHIPID_AD9250			0xB9
+#define AD9250_REG_VREF_MASK		0x1F
+#define AD9250_DEF_OUTPUT_MODE		0x00
+
 #include <linux/spi/spi.h>
 
 #define AXIADC_MAX_DMA_SIZE		(4 * 1024 * 1024) /* Randomly picked */
@@ -134,6 +142,7 @@
 enum {
 	ID_AD9467,
 	ID_AD9643,
+	ID_AD9250,
 };
 
 struct axiadc_chip_info {
