@@ -661,6 +661,18 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[2] = AIM_CHAN_FD(0, 2, 14, 'u'),
 		.channel[3] = AIM_CHAN_FD(1, 3, 14, 'u'),
 	},
+	[ID_AD9250] = {
+		.name = "AD9250",
+		.scale_table = ad9643_scale_table,
+		.num_scales = ARRAY_SIZE(ad9643_scale_table),
+		.num_channels = 4,
+		.available_scan_masks[0] = BIT(0) | BIT(1),
+		.available_scan_masks[1] = BIT(2) | BIT(3),
+		.channel[0] = AIM_CHAN(0, 0, 14, 'u'),
+		.channel[1] = AIM_CHAN(1, 1, 14, 'u'),
+		.channel[2] = AIM_CHAN_FD(0, 2, 14, 'u'),
+		.channel[3] = AIM_CHAN_FD(1, 3, 14, 'u'),
+	},
 };
 
 static const struct iio_info axiadc_info = {
@@ -824,6 +836,12 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		axiadc_dco_calibrate_2c(indio_dev);
 
 		break;
+	case CHIPID_AD9250:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9250];
+		st->adc_def_output_mode = AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_OFFSET_BINARY;
+		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
+		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		break;
 	default:
 		dev_err(dev, "Unrecognized CHIP_ID 0x%X\n", st->id);
 		ret = -ENODEV;
@@ -847,6 +865,8 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 				  st->chip_info->num_channels);
 	if (ret)
 		goto failed4;
+
+	*indio_dev->buffer->scan_mask = st->chip_info->available_scan_masks[0];
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
@@ -927,6 +947,7 @@ static const struct of_device_id axiadc_of_match[] __devinitconst = {
 	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
 	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
 	{ .compatible =	"xlnx,axi-adc-1c-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9250-1.00.a", },
 { /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);

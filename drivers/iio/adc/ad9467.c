@@ -51,9 +51,44 @@ static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 
 		return 0;
 	}
+
+	if (val != ad9467_spi_read(spi, reg))
+		dev_err(&spi->dev, "Verify REG 0x%X Failed (0x%X)\n", reg, ad9467_spi_read(spi, reg));
+
+
 	return -ENODEV;
 }
 
+static int __devinit ad9250_setup(struct spi_device *spi)
+{
+	int ret;
+
+	msleep(500);
+
+	ret = ad9467_spi_write(spi, 0x18, 0x0f); // max vref
+	ret |= ad9467_spi_write(spi, 0x64, 0xf0); // did
+	ret |= ad9467_spi_write(spi, 0x80, 0x0f); // powerdown
+	ret |= ad9467_spi_write(spi, 0x5f, 0x15); // char repl & ilas
+	ret |= ad9467_spi_write(spi, 0x09, 0x01); // clock control
+	ret |= ad9467_spi_write(spi, 0x82, 0x02); // lane b = 0, lane a = 2
+	ret |= ad9467_spi_write(spi, 0x83, 0x31); // lane c = 1, lane d = 3
+	ret |= ad9467_spi_write(spi, 0x6e, 0x81); // scr, 2-lane
+	ret |= ad9467_spi_write(spi, 0x70, 0x1f); // no. of frames per multi frame
+	ret |= ad9467_spi_write(spi, 0x5e, 0x22); // m=2, l=2
+	ret |= ad9467_spi_write(spi, 0x5f, 0x14); // char repl & ilas
+	ret |= ad9467_spi_write(spi, 0x80, 0x09); // powerdown
+	ret |= ad9467_spi_write(spi, 0x3a, 0x10); // sysref ctrl
+	ret |= ad9467_spi_write(spi, 0x14, 0x00); // offset binary
+	ret |= ad9467_spi_write(spi, 0x0d, 0x00); // test patterns
+	ret |= ad9467_spi_write(spi, 0xff, 0x01);
+	ret |= ad9467_spi_write(spi, 0xff, 0x00);
+
+	dev_info(&spi->dev, "PLL STATUS 0x%X\n", ad9467_spi_read(spi, 0x0A));
+
+	msleep(500);
+
+	return ret;
+}
 
 static int __devinit ad9467_probe(struct spi_device *spi)
 {
@@ -71,6 +106,15 @@ static int __devinit ad9467_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
  		ret = -ENODEV;
  		goto out;
+	}
+
+	if (conv->id == CHIPID_AD9250) {
+		ret = ad9250_setup(spi);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize\n");
+			ret = -EIO;
+			goto out;
+		}
 	}
 
 	conv->write = ad9467_spi_write;
@@ -95,6 +139,7 @@ static int ad9467_remove(struct spi_device *spi)
 static const struct spi_device_id ad9467_id[] = {
 	{"ad9467", CHIPID_AD9467},
 	{"ad9643", CHIPID_AD9643},
+	{"ad9250", CHIPID_AD9250},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9467_id);
