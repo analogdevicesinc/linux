@@ -73,12 +73,30 @@ struct cf_axi_dds_sed {
 	unsigned short q1;
 };
 
-static struct cf_axi_dds_sed dac_sed_pattern[2] = {
+static struct cf_axi_dds_sed dac_sed_pattern[5] = {
 	{
 		.i0 = 0x5555,
 		.q0 = 0xAAAA,
 		.i1 = 0xAAAA,
 		.q1 = 0x5555,
+	},
+	{
+		.i0 = 0,
+		.q0 = 0,
+		.i1 = 0xFFFF,
+		.q1 = 0xFFFF,
+	},
+	{
+		.i0 = 0,
+		.q0 = 0,
+		.i1 = 0,
+		.q1 = 0,
+	},
+	{
+		.i0 = 0xFFFF,
+		.q0 = 0xFFFF,
+		.i1 = 0xFFFF,
+		.q1 = 0xFFFF,
 	},
 	{
 		.i0 = 0x1248,
@@ -119,7 +137,7 @@ static int cf_axi_dds_find_dci(unsigned long *err_field, unsigned entries)
 	}
 
 
-	ret = max_start + (max_cnt / 2);
+	ret = max_start + ((max_cnt - 1) / 2);
 
 	str[ret] = '|';
 
@@ -135,8 +153,12 @@ static int cf_axi_dds_tune_dci(struct cf_axi_dds_state *st)
 	int i = 0, dci;
 	unsigned long err_bfield = 0;
 
-	for (dci = 0; dci < 4; dci++)
+	for (dci = 0; dci < 4; dci++) {
+		conv->write(conv->spi, AD9122_REG_DCI_DELAY, dci);
 		for (i = 0; i < ARRAY_SIZE(dac_sed_pattern); i++) {
+
+			conv->write(conv->spi, AD9122_REG_SED_CTRL, 0);
+
 			dds_write(st, CF_AXI_DDS_PAT_DATA1,
 				  (dac_sed_pattern[i].i1 << 16) |
 				  dac_sed_pattern[i].i0);
@@ -149,8 +171,6 @@ static int cf_axi_dds_tune_dci(struct cf_axi_dds_state *st)
 				 CF_AXI_DDS_CTRL_PATTERN_EN);
 			dds_write(st, CF_AXI_DDS_CTRL, CF_AXI_DDS_CTRL_DDS_CLK_EN_V2 |
 				 CF_AXI_DDS_CTRL_PATTERN_EN | CF_AXI_DDS_CTRL_DATA_EN);
-
-			conv->write(conv->spi, AD9122_REG_DCI_DELAY, dci);
 
 			conv->write(conv->spi, AD9122_REG_COMPARE_I0_LSBS,
 				dac_sed_pattern[i].i0 & 0xFF);
@@ -175,10 +195,16 @@ static int cf_axi_dds_tune_dci(struct cf_axi_dds_state *st)
 
 			conv->write(conv->spi, AD9122_REG_SED_CTRL,
 				    AD9122_SED_CTRL_SED_COMPARE_EN);
+
+ 			conv->write(conv->spi, AD9122_REG_EVENT_FLAG_2,
+ 				    AD9122_EVENT_FLAG_2_AED_COMPARE_PASS |
+				    AD9122_EVENT_FLAG_2_AED_COMPARE_FAIL |
+				    AD9122_EVENT_FLAG_2_SED_COMPARE_FAIL);
+
 			conv->write(conv->spi, AD9122_REG_SED_CTRL,
 				    AD9122_SED_CTRL_SED_COMPARE_EN);
 
-			msleep(50);
+			msleep(100);
 			reg = conv->read(conv->spi, AD9122_REG_SED_CTRL);
 			err_mask = conv->read(conv->spi, AD9122_REG_SED_I_LSBS);
 			err_mask |= conv->read(conv->spi, AD9122_REG_SED_I_MSBS);
@@ -188,6 +214,7 @@ static int cf_axi_dds_tune_dci(struct cf_axi_dds_state *st)
 			if (err_mask || (reg & AD9122_SED_CTRL_SAMPLE_ERR_DETECTED))
 				set_bit(dci, &err_bfield);
 		}
+	}
 
 	conv->write(conv->spi, AD9122_REG_DCI_DELAY,
 		    cf_axi_dds_find_dci(&err_bfield, 4));
