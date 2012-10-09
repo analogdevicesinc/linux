@@ -38,4 +38,8 @@ config CF_AXI_ADC
 config CF_AXI_FFT
 	tristate "Generic FFT driver"
 
+config AXI_JESD204B
+	tristate "Generic AXI JESD204B configuration driver"
+
+
 endmenu
