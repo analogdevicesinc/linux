@@ -51,10 +51,11 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	dws->regs = devm_ioremap_resource(&pdev->dev, mem);
-	if (IS_ERR(dws->regs)) {
-		dev_err(&pdev->dev, "SPI region map failed\n");
-		return PTR_ERR(dws->regs);
+	dws->regs = ioremap_nocache(mem->start, resource_size(mem));
+	dws->paddr = mem->start;
+	if (!dws->regs) {
+		dev_err(&pdev->dev, "SPI region already mapped\n");
+		return -ENOMEM;
 	}
 
 	dws->irq = platform_get_irq(pdev, 0);
@@ -101,6 +102,11 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 			}
 		}
 	}
+#ifdef CONFIG_SPI_DW_PL330_DMA
+	ret = dw_spi_pl330_init(dws);
+	if (ret)
+		goto out;
+#endif
 
 	ret = dw_spi_add_host(&pdev->dev, dws);
 	if (ret)

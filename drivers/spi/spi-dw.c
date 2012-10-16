@@ -233,6 +233,43 @@ static void *next_transfer(struct dw_spi *dws)
  */
 static int map_dma_buffers(struct dw_spi *dws)
 {
+#ifdef CONFIG_SPI_DW_PL330_DMA
+	if (!dws->dma_inited
+		|| !dws->cur_chip->enable_dma
+		|| !dws->dma_ops)
+		return 0;
+
+	if (dws->cur_msg->is_dma_mapped) {
+		if (dws->cur_transfer->tx_dma)
+			dws->tx_dma = dws->cur_transfer->tx_dma;
+
+		if (dws->cur_transfer->rx_dma)
+			dws->rx_dma = dws->cur_transfer->rx_dma;
+	} else {
+		if (dws->cur_transfer->tx_buf != NULL) {
+			dws->tx_dma = dma_map_single(dws->master->dev,
+					(void *)dws->cur_transfer->tx_buf,
+					dws->cur_transfer->len,
+					DMA_TO_DEVICE);
+			if (dma_mapping_error(dws->master->dev, dws->tx_dma)) {
+				dev_err(&dws->master->dev, "dma_map_single Tx failed\n");
+				return 0;
+			}
+		}
+
+		if (dws->cur_transfer->rx_buf != NULL) {
+			dws->rx_dma = dma_map_single(dws->master->_dev,
+					dws->cur_transfer->rx_buf,
+					dws->cur_transfer->len, DMA_FROM_DEVICE);
+			if (dma_mapping_error(dws->master->dev, dws->rx_dma)) {
+				dev_err(&dws->master->dev, "dma_map_single Rx failed\n");
+				dma_unmap_single(dws->master->dev, dws->tx_dma,
+						dws->cur_transfer->len, DMA_TO_DEVICE);
+				return 0;
+			}
+		}
+	}
+#else
 	if (!dws->cur_msg->is_dma_mapped
 		|| !dws->dma_inited
 		|| !dws->cur_chip->enable_dma
@@ -244,6 +281,7 @@ static int map_dma_buffers(struct dw_spi *dws)
 
 	if (dws->cur_transfer->rx_dma)
 		dws->rx_dma = dws->cur_transfer->rx_dma;
+#endif
 
 	return 1;
 }
@@ -284,6 +322,15 @@ void dw_spi_xfer_done(struct dw_spi *dws)
 {
 	/* Update total byte transferred return count actual bytes read */
 	dws->cur_msg->actual_length += dws->len;
+
+	if (dws->dma_mapped) {
+		if (!dws->cur_msg->is_dma_mapped) {
+			dma_unmap_single(&dws->master->dev, dws->rx_dma,
+						dws->cur_transfer->len, DMA_FROM_DEVICE);
+			dma_unmap_single(&dws->master->dev, dws->tx_dma,
+						dws->cur_transfer->len, DMA_TO_DEVICE);
+		}
+	}
 
 	/* Move to next transfer */
 	dws->cur_msg->state = next_transfer(dws);
