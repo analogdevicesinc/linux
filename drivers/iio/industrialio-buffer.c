@@ -161,6 +161,23 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 }
 
 /**
+ * iio_buffer_read_first_n_outer() - chrdev read for buffer access
+ *
+ * This function relies on all buffer implementations having an
+ * iio_buffer as their first element.
+ **/
+ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
+				      size_t n, loff_t *f_ps)
+{
+	struct iio_dev *indio_dev = filp->private_data;
+	struct iio_buffer *rb = indio_dev->buffer;
+
+	if (!rb || !rb->access->write)
+		return -EINVAL;
+	return rb->access->write(rb, n, buf);
+}
+
+/**
  * iio_buffer_poll() - poll the buffer to find out if it has data
  * @filp:	File structure pointer for device access
  * @wait:	Poll table structure pointer for which the driver adds
