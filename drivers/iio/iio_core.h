@@ -44,6 +44,8 @@ __poll_t iio_buffer_poll(struct file *filp,
 			     struct poll_table_struct *wait);
 ssize_t iio_buffer_read_outer(struct file *filp, char __user *buf,
 			      size_t n, loff_t *f_ps);
+ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
+				size_t n, loff_t *f_ps);
 
 int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev);
 void iio_buffer_free_sysfs_and_mask(struct iio_dev *indio_dev);
@@ -56,6 +58,7 @@ void iio_buffer_wakeup_poll(struct iio_dev *indio_dev);
 
 #else
 
+#define iio_buffer_chrdev_write NULL
 #define iio_buffer_poll_addr NULL
 #define iio_buffer_read_outer_addr NULL
 
