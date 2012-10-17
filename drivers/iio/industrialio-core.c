@@ -1740,8 +1740,20 @@ static int iio_check_unique_scan_index(struct iio_dev *indio_dev)
 
 static const struct iio_buffer_setup_ops noop_ring_setup_ops;
 
+static const struct file_operations iio_buffer_out_fileops = {
+	.write = iio_buffer_chrdev_write,
+	.release = iio_chrdev_release,
+	.open = iio_chrdev_open,
+	.poll = iio_buffer_poll_addr,
+	.owner = THIS_MODULE,
+	.llseek = noop_llseek,
+	.unlocked_ioctl = iio_ioctl,
+	.compat_ioctl = iio_ioctl,
+};
+
 int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 {
+	const struct file_operations *fops;
 	int ret;
 
 	if (!indio_dev->info)
@@ -1790,7 +1802,16 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 		indio_dev->setup_ops == NULL)
 		indio_dev->setup_ops = &noop_ring_setup_ops;
 
-	cdev_init(&indio_dev->chrdev, &iio_buffer_fileops);
+	if (indio_dev->buffer) {
+		if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
+			fops = &iio_buffer_in_fileops;
+		else
+			fops = &iio_buffer_out_fileops;
+	} else {
+		fops = &iio_buffer_none_fileops;
+	}
+
+	cdev_init(&indio_dev->chrdev, fops);
 
 	indio_dev->chrdev.owner = this_mod;
 
