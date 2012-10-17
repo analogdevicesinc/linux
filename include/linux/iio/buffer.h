@@ -58,6 +58,7 @@ struct iio_buffer_access_funcs {
 			    char __user *buf);
 	size_t (*data_available)(struct iio_buffer *buffer);
 
+	int (*write)(struct iio_buffer *buffer, size_t n, const char __user *buf);
 	int (*request_update)(struct iio_buffer *buffer);
 
 	int (*set_bytes_per_datum)(struct iio_buffer *buffer, size_t bpd);
@@ -71,6 +72,12 @@ struct iio_buffer_access_funcs {
 	unsigned int modes;
 	unsigned int flags;
 };
+
+enum iio_buffer_direction {
+	IIO_BUFFER_DIRECTION_IN,
+	IIO_BUFFER_DIRECTION_OUT,
+};
+
 
 /**
  * struct iio_buffer - general buffer structure
@@ -110,6 +117,7 @@ struct iio_buffer {
 	bool					stufftoread;
 	const struct attribute			**attrs;
 	struct list_head			demux_list;
+	enum iio_buffer_direction		direction;
 	void					*demux_bounce;
 	struct list_head			buffer_list;
 	struct kref				ref;
