@@ -41,6 +41,7 @@ struct iio_buffer_access_funcs {
 			    size_t n,
 			    char __user *buf);
 
+	int (*write)(struct iio_buffer *buffer, size_t n, const char __user *buf);
 	int (*request_update)(struct iio_buffer *buffer);
 
 	int (*get_bytes_per_datum)(struct iio_buffer *buffer);
@@ -48,6 +49,12 @@ struct iio_buffer_access_funcs {
 	int (*get_length)(struct iio_buffer *buffer);
 	int (*set_length)(struct iio_buffer *buffer, int length);
 };
+
+enum iio_buffer_direction {
+	IIO_BUFFER_DIRECTION_IN,
+	IIO_BUFFER_DIRECTION_OUT,
+};
+
 
 /**
  * struct iio_buffer - general buffer structure
@@ -81,6 +88,7 @@ struct iio_buffer {
 	const struct attribute_group *attrs;
 	struct list_head			demux_list;
 	unsigned char				*demux_bounce;
+	enum iio_buffer_direction		direction;
 };
 
 /**

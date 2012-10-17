@@ -43,7 +43,8 @@ unsigned int iio_buffer_poll(struct file *filp,
 			     struct poll_table_struct *wait);
 ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 				      size_t n, loff_t *f_ps);
-
+ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
+				      size_t n, loff_t *f_ps);
 
 #define iio_buffer_poll_addr (&iio_buffer_poll)
 #define iio_buffer_read_first_n_outer_addr (&iio_buffer_read_first_n_outer)
