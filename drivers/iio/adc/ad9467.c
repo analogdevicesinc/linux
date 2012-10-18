@@ -49,12 +49,12 @@ static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 		if (ret < 0)
 			return ret;
 
+		if ((reg == ADC_REG_TRANSFER) && (val == TRANSFER_SYNC) &&
+			(spi_get_device_id(spi)->driver_data == CHIPID_AD9265))
+			ad9467_spi_write(spi, ADC_REG_TRANSFER, 0);
+
 		return 0;
 	}
-
-	if (val != ad9467_spi_read(spi, reg))
-		dev_err(&spi->dev, "Verify REG 0x%X Failed (0x%X)\n", reg, ad9467_spi_read(spi, reg));
-
 
 	return -ENODEV;
 }
@@ -63,19 +63,19 @@ static int __devinit ad9250_setup(struct spi_device *spi)
 {
 	int ret;
 
-	msleep(500);
+	msleep(10);
 
 	ret = ad9467_spi_write(spi, 0x18, 0x0f); // max vref
 	ret |= ad9467_spi_write(spi, 0x64, 0xf0); // did
 	ret |= ad9467_spi_write(spi, 0x80, 0x0f); // powerdown
-	ret |= ad9467_spi_write(spi, 0x5f, 0x15); // char repl & ilas
+	ret |= ad9467_spi_write(spi, 0x5f, 0x17); // char repl & ilas
 	ret |= ad9467_spi_write(spi, 0x09, 0x01); // clock control
 	ret |= ad9467_spi_write(spi, 0x82, 0x02); // lane b = 0, lane a = 2
 	ret |= ad9467_spi_write(spi, 0x83, 0x31); // lane c = 1, lane d = 3
 	ret |= ad9467_spi_write(spi, 0x6e, 0x81); // scr, 2-lane
 	ret |= ad9467_spi_write(spi, 0x70, 0x1f); // no. of frames per multi frame
 	ret |= ad9467_spi_write(spi, 0x5e, 0x22); // m=2, l=2
-	ret |= ad9467_spi_write(spi, 0x5f, 0x14); // char repl & ilas
+	ret |= ad9467_spi_write(spi, 0x5f, 0x16); // char repl & ilas
 	ret |= ad9467_spi_write(spi, 0x80, 0x09); // powerdown
 	ret |= ad9467_spi_write(spi, 0x3a, 0x10); // sysref ctrl
 	ret |= ad9467_spi_write(spi, 0x14, 0x00); // offset binary
@@ -140,6 +140,7 @@ static const struct spi_device_id ad9467_id[] = {
 	{"ad9467", CHIPID_AD9467},
 	{"ad9643", CHIPID_AD9643},
 	{"ad9250", CHIPID_AD9250},
+	{"ad9265", CHIPID_AD9265},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9467_id);
