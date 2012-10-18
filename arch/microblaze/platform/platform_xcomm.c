@@ -18,7 +18,7 @@
 #endif
 
 #if defined(CONFIG_AD9523) || defined(CONFIG_AD9523_MODULE)
-#include "../../../../drivers/staging/iio/frequency/ad9523.h"
+#include <linux/iio/frequency/ad9523.h>
 
 struct ad9523_channel_spec ad9523_channels[] = {
 	{	/* ZD output */
@@ -34,7 +34,7 @@ struct ad9523_channel_spec ad9523_channels[] = {
 		.output_dis = false,
 	},
 	{	/* DAC CLK */
-		.channel_num = 1,
+		.channel_num = 12,
 		.extended_name = "DAC_CLK",
 		.divider_output_invert_en = false,
 		.sync_ignore_en = false,
@@ -54,7 +54,7 @@ struct ad9523_channel_spec ad9523_channels[] = {
 		.channel_divider = 4,
 	},
 	{	/* DAC REF CLK */
-		.channel_num = 4,
+		.channel_num = 10,
 		.extended_name = "DAC_REF_CLK",
 		.divider_output_invert_en = false,
 		.sync_ignore_en = false,
@@ -84,7 +84,7 @@ struct ad9523_channel_spec ad9523_channels[] = {
 		.channel_divider = 2,
 	},
 	{	/* ADC SYNC */
-		.channel_num = 8,
+		.channel_num = 7,
 		.extended_name = "ADC_SYNC_CLK",
 		.divider_output_invert_en = false,
 		.sync_ignore_en = false,
@@ -110,8 +110,8 @@ struct ad9523_platform_data ad9523_pdata_lpc = {
 	.vcxo_freq = 122880000,
 
 	/* Single-Ended Input Configuration */
-	.refa_diff_rcv_en = true,
-	.refb_diff_rcv_en = false,
+	.refa_diff_rcv_en = false,
+	.refb_diff_rcv_en = true,
 	.zd_in_diff_en = true,
 	.osc_in_diff_en = false,
 	.osc_in_cmos_neg_inp_en = true,
@@ -120,20 +120,12 @@ struct ad9523_platform_data ad9523_pdata_lpc = {
 	.refb_r_div = 0,
 	.pll1_feedback_div = 4,
 	.pll1_charge_pump_current_nA = 2000,
-#if defined(CONFIG_ADIXCOMM_SYNC)
 	.zero_delay_mode_internal_en = false,
-#else
-	.zero_delay_mode_internal_en = true,
-#endif
 	.osc_in_feedback_en = false,
-	.refb_cmos_neg_inp_en = true,
+	.refa_cmos_neg_inp_en = true,
 	.pll1_loop_filter_rzero = 3,
 
-#if defined(CONFIG_ADIXCOMM_SYNC)
-	.ref_mode = 3, /* 3 ?*/
-#else
-	.ref_mode = 1, /* 3 ?*/
-#endif
+	.ref_mode = SELECT_REFB, // REVERT_TO_REFA, /* 3 ?*/
 
 	.pll2_charge_pump_current_nA = 420000,
 	.pll2_ndiv_a_cnt = 0,
@@ -158,8 +150,8 @@ struct ad9523_platform_data ad9523_pdata_hpc = {
 	.vcxo_freq = 122880000,
 
 	/* Single-Ended Input Configuration */
-	.refa_diff_rcv_en = true,
-	.refb_diff_rcv_en = false,
+	.refa_diff_rcv_en = false,
+	.refb_diff_rcv_en = true,
 	.zd_in_diff_en = true,
 	.osc_in_diff_en = false,
 	.osc_in_cmos_neg_inp_en = true,
@@ -168,20 +160,12 @@ struct ad9523_platform_data ad9523_pdata_hpc = {
 	.refb_r_div = 0,
 	.pll1_feedback_div = 4,
 	.pll1_charge_pump_current_nA = 2000,
-#if defined(CONFIG_ADIXCOMM_SYNC)
 	.zero_delay_mode_internal_en = false,
-#else
-	.zero_delay_mode_internal_en = true,
-#endif
 	.osc_in_feedback_en = false,
-	.refb_cmos_neg_inp_en = true,
+	.refa_cmos_neg_inp_en = true,
 	.pll1_loop_filter_rzero = 3,
 
-#if defined(CONFIG_ADIXCOMM_SYNC)
-	.ref_mode = 3, /* 3 ?*/
-#else
-	.ref_mode = 1, /* 3 ?*/
-#endif
+	.ref_mode = SELECT_REFB, // REVERT_TO_REFA, /* 3 ?*/
 
 	.pll2_charge_pump_current_nA = 420000,
 	.pll2_ndiv_a_cnt = 0,
@@ -204,7 +188,7 @@ struct ad9523_platform_data ad9523_pdata_hpc = {
 #endif
 
 #if defined(CONFIG_ADF4350) || defined(CONFIG_ADF4350_MODULE)
-#include "../../../../drivers/staging/iio/frequency/adf4350.h"
+#include <linux/iio/frequency/adf4350.h>
 static struct adf4350_platform_data adf4350_tx_pdata_lpc = {
 	.name = "adf4351-tx-lpc",
 	.clkin = 122880000,
@@ -290,7 +274,7 @@ static struct spi_board_info xcomm_spi_board_info[] __initdata = {
 #endif
 #if defined(CONFIG_AD9523) || defined(CONFIG_AD9523_MODULE)
 	{
-		.modalias = "ad9523",
+		.modalias = "ad9523-1",
 		.max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
 		.bus_num = SPIBUS_NUM_LPC,
 		.chip_select = 3,	/* GPIO controlled SSEL */
@@ -298,7 +282,7 @@ static struct spi_board_info xcomm_spi_board_info[] __initdata = {
 		.mode = SPI_MODE_0 | SPI_3WIRE,
 	},
 	{
-		.modalias = "ad9523",
+		.modalias = "ad9523-1",
 		.max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
 		.bus_num = SPIBUS_NUM_HPC,
 		.chip_select = 3,	/* GPIO controlled SSEL */
