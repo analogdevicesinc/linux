@@ -8,6 +8,13 @@ config AD_SIGMA_DELTA
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
 
+config ADAS1000
+	tristate "Analog Devices ADAS1000 ECG driver"
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+      Say yes here to build support for the Analog Devices ADAS1000 ECG.
+
 config AD7266
 	tristate "Analog Devices AD7265/AD7266 ADC driver"
 	depends on SPI_MASTER
