@@ -18,6 +18,7 @@
 #include <linux/wait.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 #include <linux/spi/spi.h>
 #include <asm/div64.h>
 
@@ -40,12 +41,25 @@ struct dds_spidev {
 	struct device *dev_spi;
 };
 
+struct axi_dds_dma_params {
+	struct device_node *of_node;
+	int chan_id;
+};
+
+static bool cf_axi_dds_dma_filter(struct dma_chan *chan, void *param)
+{
+	struct axi_dds_dma_params *p = param;
+
+	return chan->device->dev->of_node == p->of_node &&
+		chan->chan_id == p->chan_id;
+}
+
 static void cf_axi_dds_sync_frame(struct cf_axi_dds_state *st) {
 	dds_write(st, CF_AXI_DDS_FRAME, 0);
 	dds_write(st, CF_AXI_DDS_FRAME, CF_AXI_DDS_FRAME_SYNC);
 }
 
-static void cf_axi_dds_stop(struct cf_axi_dds_state *st) {
+void cf_axi_dds_stop(struct cf_axi_dds_state *st) {
 	dds_write(st, CF_AXI_DDS_CTRL, (st->vers_id > 1) ?
 	CF_AXI_DDS_CTRL_DDS_CLK_EN_V2 : CF_AXI_DDS_CTRL_DDS_CLK_EN_V1);
 }
@@ -232,12 +246,12 @@ static void cf_axi_dds_mem_init(struct cf_axi_dds_state *st)
 	sample = 0;
 	addr = 0;
 
-	for (i = 0; i < ARRAY_SIZE(cf_axi_dds_ia_data); i++) {
+	for (i = 0; i < ARRAY_SIZE(cf_axi_dds_i_data); i++) {
 		data = (sample << 24) | (addr << 16);
-		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((0 << 26) | data | cf_axi_dds_ia_data[i]));
-		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((1 << 26) | data | cf_axi_dds_ib_data[i]));
-		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((2 << 26) | data | cf_axi_dds_qa_data[i]));
-		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((3 << 26) | data | cf_axi_dds_qb_data[i]));
+		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((0 << 26) | data | cf_axi_dds_i_data[i]));
+		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((1 << 26) | data | cf_axi_dds_i_data[i]));
+		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((2 << 26) | data | cf_axi_dds_q_data[i]));
+		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((3 << 26) | data | cf_axi_dds_q_data[i]));
 		sample++;
 		if (sample >= 3) {
 		 	addr++;
@@ -587,6 +601,16 @@ static const struct attribute_group cf_axi_dds_attribute_group = {
 	  .extend_name = _extend_name,					\
 	  }
 
+#define CF_AXI_DDS_CHAN_BUF(_chan)					\
+	{ .type = IIO_ALTVOLTAGE,					\
+	  .indexed = 1,							\
+	  .channel = _chan,						\
+	  .info_mask = 0,						\
+	  .output = 1,							\
+	  .scan_index = _chan,						\
+	  .scan_type = IIO_ST('s', 16, 16, 0),				\
+}
+
 static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD9122] = {
 		.name = "AD9122",
@@ -595,6 +619,8 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.channel[2] = CF_AXI_DDS_CHAN(2, CF_AXI_DDS_2A_OUTPUT_CTRL, "2A"),
 		.channel[3] = CF_AXI_DDS_CHAN(3, CF_AXI_DDS_2B_OUTPUT_CTRL, "2B"),
 		.channel[4] = CF_AXI_DDS_CHAN_CLK_IN(0, "DAC_CLK"),
+		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
+		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
 	},
 	[ID_AD9739A] = {
 		.name = "AD9739A",
@@ -603,6 +629,8 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.channel[2] = CF_AXI_DDS_CHAN(2, CF_AXI_DDS_2A_OUTPUT_CTRL, "2A"),
 		.channel[3] = CF_AXI_DDS_CHAN(3, CF_AXI_DDS_2B_OUTPUT_CTRL, "2B"),
 		.channel[4] = CF_AXI_DDS_CHAN_CLK_IN(0, "DAC_CLK"),
+		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
+		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
 	},
 };
 
@@ -644,6 +672,9 @@ static int __devinit cf_axi_dds_of_probe(struct platform_device *op)
 	resource_size_t remap_size, phys_addr;
 	struct dds_spidev dds_spidev;
 	struct cf_axi_dds_converter *conv;
+	struct axi_dds_dma_params dma_params;
+	struct of_phandle_args dma_spec;
+	dma_cap_mask_t mask;
 	int ret;
 
 	const struct of_device_id *of_id =
@@ -760,6 +791,33 @@ static int __devinit cf_axi_dds_of_probe(struct platform_device *op)
 
 	cf_axi_dds_sync_frame(st);
 
+	ret = of_parse_phandle_with_args(op->dev.of_node, "dma-request",
+					 "#dma-cells", 0, &dma_spec);
+	if (ret) {
+		dev_warn(dev, "Couldn't parse dma-request\n");
+		goto skip_writebuf;
+	}
+
+	dma_params.of_node = dma_spec.np;
+	dma_params.chan_id = dma_spec.args[0];
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
+
+	st->tx_chan = dma_request_channel(mask, cf_axi_dds_dma_filter, &dma_params);
+	if (!st->tx_chan) {
+		dev_err(dev, "failed to find vdma device\n");
+		goto failed3;
+	}
+
+	cf_axi_dds_configure_buffer(indio_dev);
+
+	ret = iio_buffer_register(indio_dev,
+				  st->chip_info->buf_channel, 2);
+	if (ret)
+		goto failed3;
+
+skip_writebuf:
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto failed3;
@@ -797,6 +855,11 @@ static int __devexit cf_axi_dds_of_remove(struct platform_device *op)
 	module_put(st->dev_spi->driver->owner);
 	iounmap(st->regs);
 	release_mem_region(st->r_mem.start, resource_size(&st->r_mem));
+
+	if (st->tx_chan == NULL) {
+		cf_axi_dds_unconfigure_buffer(indio_dev);
+		dma_release_channel(st->tx_chan);
+	}
 
 	iio_device_free(indio_dev);
 	dev_set_drvdata(dev, NULL);
