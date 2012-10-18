@@ -365,14 +365,22 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL) {
-		ret = axiadc_spi_write(st, reg, writeval);
-		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
+			axiadc_write(st, reg & 0xFFFF, writeval);
+			ret = 0;
+		} else {
+			ret = axiadc_spi_write(st, reg, writeval);
+			axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		}
 	} else {
-		ret = axiadc_spi_read(st, reg);
-		if (ret < 0)
-			return ret;
-		*readval = ret;
-
+		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
+			*readval = axiadc_read(st, reg & 0xFFFF);
+		} else {
+			ret = axiadc_spi_read(st, reg);
+			if (ret < 0)
+				return ret;
+			*readval = ret;
+		}
 		ret = 0;
 	}
 	mutex_unlock(&indio_dev->mlock);
@@ -388,14 +396,31 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int i;
-	unsigned vref_val, tmp;
+	unsigned vref_val, tmp, mask;
 	unsigned long long llval;
 
 	switch (m) {
 	case IIO_CHAN_INFO_SCALE:
-		vref_val = axiadc_spi_read(st, ADC_REG_VREF) &
-			(st->id == CHIPID_AD9643 ? AD9643_REG_VREF_MASK :
-			AD9467_REG_VREF_MASK);
+		vref_val = axiadc_spi_read(st, ADC_REG_VREF);
+
+		switch (st->id) {
+		case CHIPID_AD9467:
+			mask = AD9467_REG_VREF_MASK;
+			break;
+		case CHIPID_AD9643:
+			mask = AD9643_REG_VREF_MASK;
+			break;
+		case CHIPID_AD9250:
+			mask = AD9250_REG_VREF_MASK;
+			break;
+		case CHIPID_AD9265:
+			mask = AD9265_REG_VREF_MASK;
+			break;
+		default:
+			mask = 0xFFFF;
+		}
+
+		vref_val &= mask;
 
 		for (i = 0; i < st->chip_info->num_scales; i++)
 			if (vref_val == st->chip_info->scale_table[i][1])
@@ -528,6 +553,10 @@ static const struct attribute_group axiadc_attribute_group = {
 	.attrs = axiadc_attributes,
 };
 
+static const int ad9265_scale_table[][2] = {
+	{19073, 0x00}, {22888, 0x40}, {26703, 0x80}, {30518, 0xC0},
+};
+
 static const int ad9467_scale_table[][2] = {
 	{30517, 0}, {32043, 6}, {33569, 7},
 	{35095, 8}, {36621, 9}, {38146, 10},
@@ -640,6 +669,24 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
+#define AIM_CHAN_NOCALIB(_chan, _si, _bits, _sign)			\
+	{ .type = IIO_VOLTAGE,						\
+	  .indexed = 1,							\
+	  .channel = _chan,						\
+	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT,	 		\
+	  .ext_info = axiadc_ext_info,			\
+	  .scan_index = _si,						\
+	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+
+#define AIM_CHAN_FD_NOCALIB(_chan, _si, _bits, _sign)			\
+	{ .type = IIO_VOLTAGE,						\
+	  .indexed = 1,							\
+	  .channel = _chan,						\
+	  .extend_name  = "frequency_domain",				\
+	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT,	 		\
+	  .scan_index = _si,						\
+	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD9467] = {
 		.name = "AD9467",
@@ -668,10 +715,18 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.num_channels = 4,
 		.available_scan_masks[0] = BIT(0) | BIT(1),
 		.available_scan_masks[1] = BIT(2) | BIT(3),
-		.channel[0] = AIM_CHAN(0, 0, 14, 'u'),
-		.channel[1] = AIM_CHAN(1, 1, 14, 'u'),
-		.channel[2] = AIM_CHAN_FD(0, 2, 14, 'u'),
-		.channel[3] = AIM_CHAN_FD(1, 3, 14, 'u'),
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'u'),
+		.channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'u'),
+		.channel[2] = AIM_CHAN_FD_NOCALIB(0, 2, 14, 'u'),
+		.channel[3] = AIM_CHAN_FD_NOCALIB(1, 3, 14, 'u'),
+	},
+	[ID_AD9265] = {
+		.name = "AD9265",
+		.scale_table = ad9265_scale_table,
+		.num_scales = ARRAY_SIZE(ad9265_scale_table),
+		.num_channels = 1,
+		.available_scan_masks[0] = BIT(0),
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 's'),
 	},
 };
 
@@ -842,6 +897,14 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 		break;
+	case CHIPID_AD9265:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9265];
+		st->adc_def_output_mode = AD9265_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
+		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
+		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		axiadc_dco_calibrate_1c(indio_dev);
+		break;
 	default:
 		dev_err(dev, "Unrecognized CHIP_ID 0x%X\n", st->id);
 		ret = -ENODEV;
@@ -948,6 +1011,7 @@ static const struct of_device_id axiadc_of_match[] __devinitconst = {
 	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
 	{ .compatible =	"xlnx,axi-adc-1c-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9250-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9265-1.00.a", },
 { /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
