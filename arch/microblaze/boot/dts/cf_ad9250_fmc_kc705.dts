@@ -285,21 +285,6 @@
 			xlnx,tri-default = <0xffffffff>;
 		} ;
 
-		/* util_jesdbufx2_0 mode */
-
-		axi_gpio_1: gpio@40000008 {
-			compatible = "xlnx,axi-gpio-1.01.b", "xlnx,xps-gpio-1.00.a";
-			reg = < 0x40000008 0x8 >;
-			xlnx,all-inputs = <0x0>;
-			xlnx,dout-default = <0x1>; /* set mode ??? */
-			xlnx,family = "kintex7";
-			xlnx,gpio-width = <0x1>;
-			xlnx,instance = "axi_gpio_0";
-			xlnx,interrupt-present = <0x0>;
-			xlnx,is-dual = <0x0>;
-			xlnx,tri-default = <0xfffffffe>;
-		} ;
-
 		/* axi_gpio_1_ad8372_ctrl */
 
 		axi_gpio_2: gpio@40040000 {
@@ -338,9 +323,13 @@
 			xlnx,kind-of-intr = <0x30>;
 			xlnx,num-intr-inputs = <0x6>;
 		} ;
-		axi_jesd204b_rx2_0: axi-jesd204b-rx2@77a20000 {
-			compatible = "xlnx,axi-jesd204b-rx2-1.00.a";
+		axi_jesd204b_rx4_0: axi-jesd204b-rx4@77a20000 {
+			compatible = "xlnx,axi-jesd204b-rx4-1.00.a";
 			reg = < 0x77a20000 0x10000 >;
+			jesd,lanesync_en;
+			jesd,scramble_en;
+			jesd,frames-per-multiframe = <32>;
+			jesd,bytes-per-frame = <2>;
 			xlnx,cf-buftype = <0x1>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "kintex7";
@@ -351,19 +340,7 @@
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
 		} ;
-		axi_jesd204b_rx2_1: axi-jesd204b-rx2@77a00000 {
-			compatible = "xlnx,axi-jesd204b-rx2-1.00.a";
-			reg = < 0x77a00000 0x10000 >;
-			xlnx,cf-buftype = <0x0>;
-			xlnx,dphase-timeout = <0x8>;
-			xlnx,family = "kintex7";
-			xlnx,num-mem = <0x1>;
-			xlnx,num-reg = <0x1>;
-			xlnx,s-axi-min-size = <0x1ff>;
-			xlnx,slv-awidth = <0x20>;
-			xlnx,slv-dwidth = <0x20>;
-			xlnx,use-wstrb = <0x0>;
-		} ;
+
 		axi_spi_0: spi@40a00000 {
 			compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
 			interrupt-parent = <&axi_intc_0>;

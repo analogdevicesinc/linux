@@ -54,6 +54,7 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 	struct jesd204b_state *st;
 	struct resource r_mem; /* IO mem resources */
 	resource_size_t remap_size, phys_addr;
+	unsigned frmcnt, bytecnt;
 	int ret;
 
 	dev_info(dev, "Device Tree Probing \'%s\'\n",
@@ -92,12 +93,29 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
+	jesd204b_write(st, AXI_JESD204B_REG_TEST_MODE,
+		       AXI_JESD204B_REG_TEST_MODE_JESD_RESET |
+		       AXI_JESD204B_REG_TEST_MODE_GTX_RESET);
+
+	ret = of_property_read_u32(op->dev.of_node,
+				   "jesd,frames-per-multiframe", &frmcnt);
+	if (ret)
+		goto failed2;
+
+	ret = of_property_read_u32(op->dev.of_node,
+				   "jesd,bytes-per-frame", &bytecnt);
+	if (ret)
+		goto failed2;
+
 	jesd204b_write(st, AXI_JESD204B_REG_CTRL,
-		       AXI_JESD204B_CTRL_SCR_EN |
-		       AXI_JESD204B_CTRL_LANESYNC_EN);
+		       (of_property_read_bool(op->dev.of_node, "jesd,scramble_en") ?
+		       AXI_JESD204B_CTRL_SCR_EN : 0) |
+		       (of_property_read_bool(op->dev.of_node, "jesd,lanesync_en") ?
+		       AXI_JESD204B_CTRL_LANESYNC_EN : 0));
+
 	jesd204b_write(st, AXI_JESD204B_REG_FRMCTRL,
-		       AXI_JESD204B_FRMCTRL_FRMCNT(0x1F) |
-		       AXI_JESD204B_FRMCTRL_BYTECNT(1));
+		       AXI_JESD204B_FRMCTRL_FRMCNT(frmcnt - 1) |
+		       AXI_JESD204B_FRMCTRL_BYTECNT(bytecnt - 1));
 
 	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
 		 jesd204b_read(st, AXI_JESD204B_REG_VERSION),
@@ -144,7 +162,8 @@ static int __devexit jesd204b_of_remove(struct platform_device *op)
 /* Match table for of_platform binding */
 static const struct of_device_id jesd204b_of_match[] __devinitconst = {
 	{ .compatible = "xlnx,axi-jesd204b-rx2-1.00.a", },
-	{ /* end of list */ },
+	{ .compatible = "xlnx,axi-jesd204b-rx4-1.00.a", },
+{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, jesd204b_of_match);
 

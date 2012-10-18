@@ -27,7 +27,7 @@
  * 0x05   0x14   [ 3: 2]  test_mode             Test mode (?)
  *               [ 1: 0]  lane_sel              Select lanes (0, 1, 2 or 3) for reporting
  * ---------------------------------------------------------------------------
- * The following registers are based on lane_sel 
+ * The following registers are based on lane_sel
  * ---------------------------------------------------------------------------
  * 0x06   0x18   [31: 0]  bufcnt                Buffer count (latency)
  * 0x07   0x1c   [31: 0]  init_data0            ILS Data 0
@@ -50,7 +50,7 @@
 #define AXI_JESD204B_REG_FRMCTRL	0x0C
 #define AXI_JESD204B_REG_BUFDELAY	0x10
 #define AXI_JESD204B_REG_TEST_MODE	0x14
-#define AXI_JESD204B_REG_BUFCNT		0x18  
+#define AXI_JESD204B_REG_BUFCNT		0x18
 #define AXI_JESD204B_REG_INIT_DATA0	0x1C
 #define AXI_JESD204B_REG_INIT_DATA1	0x20
 #define AXI_JESD204B_REG_INIT_DATA2	0x24
@@ -76,5 +76,12 @@
 
 /* AXI_JESD204B_REG_BUFDELAY */
 #define AXI_JESD204B_BUFDELAY(x)	((x) << 0)
+
+/* AXI_JESD204B_REG_TEST_MODE */
+#define AXI_JESD204B_REG_TEST_MODE_LS(x)	((x) << 0)
+#define AXI_JESD204B_REG_TEST_MODE_EN(x)	((x) << 2)
+#define AXI_JESD204B_REG_TEST_MODE_JESD_RESET	(1 << 4)
+#define AXI_JESD204B_REG_TEST_MODE_GTX_RESET	(1 << 5)
+
 
 #endif /* ADI_JESD204B_H_ */
