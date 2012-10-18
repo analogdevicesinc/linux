@@ -931,6 +931,9 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 
 	*indio_dev->buffer->scan_mask = st->chip_info->available_scan_masks[0];
 
+	axiadc_write(st, AXIADC_PCORE_DMA_CHAN_SEL,
+		     st->chip_info->available_scan_masks[0]);
+
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto failed4;
