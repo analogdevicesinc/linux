@@ -49,7 +49,7 @@ static void adv7511_calc_cts_n(unsigned int f_tmds, unsigned int fs,
 		break;
 	}
 
-	*cts = (f_tmds * *n) / (128 * fs);
+	*cts = ((f_tmds * *n) / (128 * fs)) * 1000;
 }
 
 static int adv7511_update_cts_n(struct adv7511 *adv7511)
@@ -63,9 +63,9 @@ static int adv7511_update_cts_n(struct adv7511 *adv7511)
 	regmap_write(adv7511->regmap, ADV7511_REG_N1, (n >> 8) & 0xff);
 	regmap_write(adv7511->regmap, ADV7511_REG_N2, n & 0xff);
 
-	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL0, (n >> 16) & 0xf);
-	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL1, (n >> 8) & 0xff);
-	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL2, n & 0xff);
+	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL0, (cts >> 16) & 0xf);
+	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL1, (cts >> 8) & 0xff);
+	regmap_write(adv7511->regmap, ADV7511_REG_CTS_MANUAL2, cts & 0xff);
 
 	return 0;
 }
@@ -126,21 +126,14 @@ static int adv7511_hw_params(struct snd_pcm_substream *substream,
 	adv7511->f_audio = params_rate(params);
 
 	adv7511_update_cts_n(adv7511);
-/*
+
 	regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CFG3,
-	    ADV7511_REG_AUDIO_CFG3_LEN_MASK, len);
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_AUDIO_CFG4,
-	    ADV7511_REG_AUDIO_CFG4_RATE_MASK, rate << 4);
-*/
+	    ADV7511_AUDIO_CFG3_LEN_MASK, len);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_I2C_FREQ_ID_CFG,
+	    ADV7511_I2C_FREQ_ID_CFG_RATE_MASK, rate << 4);
+
 	return 0;
 }
-
-#define ADV7511_AUDIO_SOURCE_I2S 0
-#define ADV7511_AUDIO_SOURCE_SPDIF 1
-
-#define ADV7511_I2S_FORMAT_I2S 0
-#define ADV7511_I2S_FORMAT_RIGHT_J 1
-#define ADV7511_I2S_FORMAT_LEFT_J 2
 
 static int adv7511_set_dai_fmt(struct snd_soc_dai *codec_dai,
 		unsigned int fmt)

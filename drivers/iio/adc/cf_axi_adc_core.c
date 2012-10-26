@@ -912,6 +912,8 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		goto failed3;
 	}
 
+	axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE, OUTPUT_EVEN_ODD_MODE_EN);
+
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->channels = st->chip_info->channel;
