@@ -187,9 +187,26 @@
 			reg = <0x43020000 0x1000>;
 			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
-			dma-channel@43000000 {
+			dma-channel@43020000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
 				interrupts = <0 55 0x4>;
+				xlnx,datawidth = <0x40>;
+				xlnx,genlock-mode = <0x0>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
+		axi_vdma_1: axivdma@43000000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-vdma";
+			reg = <0x43000000 0x1000>;
+			xlnx,include-sg = <0x0>;
+			xlnx,num-fstores = <0x3>;
+			dma-channel@43000000 {
+				compatible = "xlnx,axi-vdma-mm2s-channel";
+				interrupts = <0 57 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -269,6 +286,7 @@
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
 			reg = < 0x74200000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
+			dma-request = <&axi_vdma_1 0>;
 			dac-sample-frequency = <491520000>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
