@@ -83,7 +83,7 @@ static int xlnx_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 	return snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
 		SNDRV_DMA_TYPE_DEV,
-		card->dev, 8 * 1024 * 1024,
+		card->dev, 1 * 1024 * 1024,
 		xlnx_pcm_hardware.buffer_bytes_max);
 }
 
