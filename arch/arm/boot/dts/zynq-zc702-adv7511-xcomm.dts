@@ -252,7 +252,7 @@
 
 		adv7511_hdmi_snd: adv7511_hdmi_snd {
 			compatible = "adv7511-hdmi-snd";
-			audio-codec = <&i2c_adv7511>;
+			audio-codec-adapter = <&i2c_adv7511>;
 			cpu-dai = <&axi_spdif_tx_0>;
 			pcm = <&xilinx_pcm_audio>;
 		};
