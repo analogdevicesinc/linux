@@ -343,13 +343,11 @@ static int adv7511_get_edid_block(void *data, unsigned char *buf,
 		ret = regmap_read(adv7511->regmap, ADV7511_REG_DDC_STATUS, &status);
 		if (ret < 0)
 			return ret;
-		printk("edid status: %x\n", status);
 
 		if (status != 2) {
 			regmap_write(adv7511->regmap, ADV7511_REG_EDID_SEGMENT, block);
 			ret = adv7511_wait_for_interrupt(adv7511, ADV7511_INT0_EDID_READY |
 					ADV7511_INT1_DDC_ERROR, 200);
-			printk("edid ret: %x\n", ret);
 
 			if (!(ret & ADV7511_INT0_EDID_READY))
 				return -EIO;
@@ -374,7 +372,6 @@ static int adv7511_get_edid_block(void *data, unsigned char *buf,
 
 		for (i = 0; i < 4; ++i) {
 			ret = i2c_transfer(adv7511->i2c_edid->adapter, xfer, ARRAY_SIZE(xfer));
-			printk("i2c ret: %d\n", ret);
 			if (ret < 0)
 				return ret;
 			else if (ret != 2)
@@ -483,8 +480,6 @@ static enum drm_connector_status adv7511_encoder_detect(struct drm_encoder *enco
 		status = connector_status_disconnected;
 
 	hpd = adv7511_hpd(adv7511);
-
-	printk("detect: %x %d %d %d\n", val, status, hpd, adv7511->dpms_mode);
 
 	/* The chip resets itself when the cable is disconnected, so in case there is
 	 * a pending HPD interrupt and the cable is connected there was at least on
