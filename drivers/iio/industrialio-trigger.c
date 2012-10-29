@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
 #include <linux/iio/trigger.h>
 #include "iio_core.h"
 #include "iio_core_trigger.h"
@@ -45,25 +46,31 @@ static ssize_t iio_trigger_read_name(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
-	struct iio_trigger *trig = to_iio_trigger(dev);
+	struct iio_trigger *trig = dev_get_drvdata(dev);
 	return sprintf(buf, "%s\n", trig->name);
 }
 
 static DEVICE_ATTR(name, S_IRUGO, iio_trigger_read_name, NULL);
 
-static struct attribute *iio_trig_dev_attrs[] = {
-	&dev_attr_name.attr,
-	NULL,
-};
+/**
+ * iio_trigger_register_sysfs() - create a device for this trigger
+ * @trig_info:	the trigger
+ *
+ * Also adds any control attribute registered by the trigger driver
+ **/
+static int iio_trigger_register_sysfs(struct iio_trigger *trig_info)
+{
+	return sysfs_add_file_to_group(&trig_info->dev.kobj,
+				       &dev_attr_name.attr,
+				       NULL);
+}
 
-static struct attribute_group iio_trig_attr_group = {
-	.attrs	= iio_trig_dev_attrs,
-};
-
-static const struct attribute_group *iio_trig_attr_groups[] = {
-	&iio_trig_attr_group,
-	NULL
-};
+static void iio_trigger_unregister_sysfs(struct iio_trigger *trig_info)
+{
+	sysfs_remove_file_from_group(&trig_info->dev.kobj,
+					   &dev_attr_name.attr,
+					   NULL);
+}
 
 int iio_trigger_register(struct iio_trigger *trig_info)
 {
@@ -82,6 +89,10 @@ int iio_trigger_register(struct iio_trigger *trig_info)
 	if (ret)
 		goto error_unregister_id;
 
+	ret = iio_trigger_register_sysfs(trig_info);
+	if (ret)
+		goto error_device_del;
+
 	/* Add to list of available triggers held by the IIO core */
 	mutex_lock(&iio_trigger_list_lock);
 	list_add_tail(&trig_info->list, &iio_trigger_list);
@@ -89,6 +100,8 @@ int iio_trigger_register(struct iio_trigger *trig_info)
 
 	return 0;
 
+error_device_del:
+	device_del(&trig_info->dev);
 error_unregister_id:
 	ida_simple_remove(&iio_trigger_ida, trig_info->id);
 error_ret:
@@ -102,6 +115,7 @@ void iio_trigger_unregister(struct iio_trigger *trig_info)
 	list_del(&trig_info->list);
 	mutex_unlock(&iio_trigger_list_lock);
 
+	iio_trigger_unregister_sysfs(trig_info);
 	ida_simple_remove(&iio_trigger_ida, trig_info->id);
 	/* Possible issue in here */
 	device_unregister(&trig_info->dev);
@@ -221,7 +235,7 @@ static int iio_trigger_attach_poll_func(struct iio_trigger *trig,
 	return ret;
 }
 
-static int iio_trigger_detach_poll_func(struct iio_trigger *trig,
+static int iio_trigger_dettach_poll_func(struct iio_trigger *trig,
 					 struct iio_poll_func *pf)
 {
 	int ret = 0;
@@ -393,7 +407,6 @@ static void iio_trig_release(struct device *device)
 
 static struct device_type iio_trig_type = {
 	.release = iio_trig_release,
-	.groups = iio_trig_attr_groups,
 };
 
 static void iio_trig_subirqmask(struct irq_data *d)
@@ -424,6 +437,7 @@ struct iio_trigger *iio_trigger_alloc(const char *fmt, ...)
 		trig->dev.type = &iio_trig_type;
 		trig->dev.bus = &iio_bus_type;
 		device_initialize(&trig->dev);
+		dev_set_drvdata(&trig->dev, (void *)trig);
 
 		mutex_init(&trig->pool_lock);
 		trig->subirq_base
@@ -490,7 +504,52 @@ EXPORT_SYMBOL(iio_triggered_buffer_postenable);
 
 int iio_triggered_buffer_predisable(struct iio_dev *indio_dev)
 {
-	return iio_trigger_detach_poll_func(indio_dev->trig,
+	return iio_trigger_dettach_poll_func(indio_dev->trig,
 					     indio_dev->pollfunc);
 }
 EXPORT_SYMBOL(iio_triggered_buffer_predisable);
+
+int iio_simple_trigger_handler(int irq, void *devid)
+{
+	struct iio_poll_func *pf = devid;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct iio_buffer *buffer = indio_dev->buffer;
+	const struct iio_chan_spec *ch;
+	unsigned int val;
+	u8 sample[100];
+	u8 *p = sample;
+	int ret;
+	int i;
+
+	ret = iio_buffer_remove_sample(buffer, sample);
+	if (ret < 0)
+		return IRQ_HANDLED;
+
+	for_each_set_bit(i,
+		indio_dev->active_scan_mask,
+		indio_dev->masklength) {
+		ch = iio_find_channel_from_si(indio_dev, i);
+
+		p = PTR_ALIGN(p, ch->scan_type.storagebits / 8);
+
+		switch (ch->scan_type.storagebits) {
+		case 32:
+			val = *((u32 *)p);
+			break;
+		case 16:
+			val = *((u16 *)p);
+			break;
+		case 8:
+			val = *((u8 *)p);
+			break;
+		default:
+			dev_err(&indio_dev->dev, "Unsupported storage size\n");
+			return IRQ_HANDLED;
+		}
+		indio_dev->info->write_raw(indio_dev, ch, val, 0, 0);
+
+		p += ch->scan_type.storagebits / 8;
+	}
+
+	return IRQ_HANDLED;
+}

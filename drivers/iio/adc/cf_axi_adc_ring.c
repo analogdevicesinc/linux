@@ -148,6 +148,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	dma_cookie_t cookie;
 	int ret = 0;
 
+
 	if (!state) {
 		if (!completion_done(&st->dma_complete)) {
 			st->compl_stat = -EPERM;

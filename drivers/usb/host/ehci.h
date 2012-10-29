@@ -117,11 +117,13 @@ struct ehci_hcd {			/* one per controller */
 			the change-suspend feature turned on */
 	unsigned long		suspended_ports;	/* which ports are
 			suspended */
+	unsigned long		resuming_ports;		/* which ports have
+			started to resume */
 
 #ifdef CONFIG_USB_XUSBPS_OTG
 	void (*start_hnp)(struct ehci_hcd *ehci);
 #ifdef CONFIG_XILINX_ZED
-	struct otg_transceiver	*ulpi;
+	struct usb_otg	*ulpi;
 #endif
 #endif
 
@@ -183,7 +185,7 @@ struct ehci_hcd {			/* one per controller */
 	/*
 	 * OTG controllers and transceivers need software interaction
 	 */
-	struct otg_transceiver	*transceiver;
+	struct usb_phy	*transceiver;
 };
 
 /* convert between an HCD pointer and the corresponding EHCI_HCD */

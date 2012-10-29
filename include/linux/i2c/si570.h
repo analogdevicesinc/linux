@@ -15,10 +15,17 @@
 #define __LINUX_SI570_H
 
 #include <linux/types.h>
+#include <linux/device.h>
+#include <linux/i2c.h>
 
 struct si570_platform_data {
 	u64 factory_fout;		/* Factory default output frequency */
 	unsigned long initial_fout;	/* Requested initial frequency */
 };
+
+int get_frequency_si570(struct device *dev, unsigned long *freq);
+int set_frequency_si570(struct device *dev, unsigned long freq);
+int reset_si570(struct device *dev, int id);
+struct i2c_client *get_i2c_client_si570(void);
 
 #endif /* __LINUX_SI570_H */

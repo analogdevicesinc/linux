@@ -2,6 +2,7 @@
  * SPI init/core code
  *
  * Copyright (C) 2005 David Brownell
+ * Copyright (C) 2008 Secret Lab Technologies Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,15 +20,16 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/kmod.h>
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/cache.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
+#include <linux/of_irq.h>
 #include <linux/slab.h>
 #include <linux/mod_devicetable.h>
 #include <linux/spi/spi.h>
-#include <linux/of_spi.h>
 #include <linux/pm_runtime.h>
 #include <linux/export.h>
 #include <linux/sched.h>
@@ -484,7 +486,7 @@ static void spi_match_master_to_boardinfo(struct spi_master *master,
  * The board info passed can safely be __initdata ... but be careful of
  * any embedded pointers (platform_data, etc), they're copied as-is.
  */
-int __init
+int __devinit
 spi_register_board_info(struct spi_board_info const *info, unsigned n)
 {
 	struct boardinfo *bi;
@@ -533,6 +535,7 @@ static void spi_pump_messages(struct kthread_work *work)
 		if (master->busy && master->unprepare_transfer_hardware) {
 			ret = master->unprepare_transfer_hardware(master);
 			if (ret) {
+				spin_unlock_irqrestore(&master->queue_lock, flags);
 				dev_err(&master->dev,
 					"failed to unprepare transfer hardware\n");
 				return;
@@ -795,8 +798,6 @@ err_init_queue:
 	return ret;
 }
 
-/*-------------------------------------------------------------------------*/
-
 static void spi_master_release(struct device *dev)
 {
 	struct spi_master *master;
@@ -812,6 +813,124 @@ struct class spi_master_class = {
 };
 EXPORT_SYMBOL_GPL(spi_master_class);
 
+/*-------------------------------------------------------------------------*/
+
+#if defined(CONFIG_OF) && !defined(CONFIG_SPARC)
+/**
+ * of_register_spi_devices() - Register child devices onto the SPI bus
+ * @master:	Pointer to spi_master device
+ *
+ * Registers an spi_device for each child node of master node which has a 'reg'
+ * property.
+ */
+static void of_register_spi_devices(struct spi_master *master)
+{
+	struct spi_device *spi;
+	struct device_node *nc;
+	const __be32 *prop;
+	int rc;
+	int len;
+
+	if (!master->dev.of_node)
+		return;
+
+	for_each_child_of_node(master->dev.of_node, nc) {
+		/* Alloc an spi_device */
+		spi = spi_alloc_device(master);
+		if (!spi) {
+			dev_err(&master->dev, "spi_device alloc error for %s\n",
+				nc->full_name);
+			spi_dev_put(spi);
+			continue;
+		}
+
+		/* Select device driver */
+		if (of_modalias_node(nc, spi->modalias,
+				     sizeof(spi->modalias)) < 0) {
+			dev_err(&master->dev, "cannot find modalias for %s\n",
+				nc->full_name);
+			spi_dev_put(spi);
+			continue;
+		}
+
+		/* Device address */
+		prop = of_get_property(nc, "reg", &len);
+		if (!prop || len < sizeof(*prop)) {
+			dev_err(&master->dev, "%s has no 'reg' property\n",
+				nc->full_name);
+			spi_dev_put(spi);
+			continue;
+		}
+		spi->chip_select = be32_to_cpup(prop);
+
+		/* Mode (clock phase/polarity/etc.) */
+		if (of_find_property(nc, "spi-cpha", NULL))
+			spi->mode |= SPI_CPHA;
+		if (of_find_property(nc, "spi-cpol", NULL))
+			spi->mode |= SPI_CPOL;
+		if (of_find_property(nc, "spi-cs-high", NULL))
+			spi->mode |= SPI_CS_HIGH;
+
+		/* Device speed */
+		prop = of_get_property(nc, "spi-max-frequency", &len);
+		if (!prop || len < sizeof(*prop)) {
+			dev_err(&master->dev, "%s has no 'spi-max-frequency' property\n",
+				nc->full_name);
+			spi_dev_put(spi);
+			continue;
+		}
+		spi->max_speed_hz = be32_to_cpup(prop);
+
+		/* IRQ */
+		spi->irq = irq_of_parse_and_map(nc, 0);
+
+		/* Store a pointer to the node in the device structure */
+		of_node_get(nc);
+		spi->dev.of_node = nc;
+
+		/* Register the new device */
+		request_module(spi->modalias);
+		rc = spi_add_device(spi);
+		if (rc) {
+			dev_err(&master->dev, "spi_device register error %s\n",
+				nc->full_name);
+			spi_dev_put(spi);
+		}
+
+	}
+}
+
+static int __spi_master_of_match(struct device *dev, void *data)
+{
+	struct device_node *of_node = data;
+	return dev->of_node == of_node;
+}
+
+/**
+ * spi_of_node_to_master - look up master associated with of_node
+ * @of_node: pointer to the device tree node.
+ * Context: can sleep
+ *
+ * Returns a pointer to the relevant spi_master, or NULL if there is
+ * no such master registered.
+ */
+struct spi_master *spi_of_node_to_master(struct device_node *of_node)
+{
+	struct device *dev;
+	struct spi_master *master = NULL;
+
+	dev = class_find_device(&spi_master_class, NULL, of_node,
+				__spi_master_of_match);
+	if (dev)
+		master = container_of(dev, struct spi_master, dev);
+
+	return master;
+}
+EXPORT_SYMBOL_GPL(spi_of_node_to_master);
+
+#else
+static void of_register_spi_devices(struct spi_master *master) { }
+#endif
 
 /**
  * spi_alloc_master - allocate SPI master controller
@@ -830,7 +949,8 @@ EXPORT_SYMBOL_GPL(spi_master_class);
  *
  * The caller is responsible for assigning the bus number and initializing
  * the master's methods before calling spi_register_master(); and (after errors
- * adding the device) calling spi_master_put() to prevent a memory leak.
+ * adding the device) calling spi_master_put() and kfree() to prevent a memory
+ * leak.
  */
 struct spi_master *spi_alloc_master(struct device *dev, unsigned size)
 {
@@ -844,6 +964,8 @@ struct spi_master *spi_alloc_master(struct device *dev, unsigned size)
 		return NULL;
 
 	device_initialize(&master->dev);
+	master->bus_num = -1;
+	master->num_chipselect = 1;
 	master->dev.class = &spi_master_class;
 	master->dev.parent = get_device(dev);
 	spi_master_set_devdata(master, &master[1]);
@@ -928,8 +1050,6 @@ int spi_register_master(struct spi_master *master)
 	list_for_each_entry(bi, &board_list, list)
 		spi_match_master_to_boardinfo(master, &bi->board_info);
 	mutex_unlock(&board_lock);
-
-	status = 0;
 
 	/* Register devices from the device tree */
 	of_register_spi_devices(master);

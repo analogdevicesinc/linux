@@ -16,8 +16,8 @@
 #include <linux/module.h>
 #include <asm/div64.h>
 
-#include "../iio.h"
-#include "../sysfs.h"
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 #include "dds.h"
 
 #include "ad9832.h"
@@ -77,7 +77,7 @@ static ssize_t ad9832_write(struct device *dev,
 		const char *buf,
 		size_t len)
 {
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad9832_state *st = iio_priv(indio_dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	int ret;
@@ -221,7 +221,7 @@ static int __devinit ad9832_probe(struct spi_device *spi)
 			goto error_put_reg;
 	}
 
-	indio_dev = iio_allocate_device(sizeof(*st));
+	indio_dev = iio_device_alloc(sizeof(*st));
 	if (indio_dev == NULL) {
 		ret = -ENOMEM;
 		goto error_disable_reg;
@@ -313,7 +313,7 @@ static int __devinit ad9832_probe(struct spi_device *spi)
 	return 0;
 
 error_free_device:
-	iio_free_device(indio_dev);
+	iio_device_free(indio_dev);
 error_disable_reg:
 	if (!IS_ERR(reg))
 		regulator_disable(reg);
@@ -334,7 +334,7 @@ static int __devexit ad9832_remove(struct spi_device *spi)
 		regulator_disable(st->reg);
 		regulator_put(st->reg);
 	}
-	iio_free_device(indio_dev);
+	iio_device_free(indio_dev);
 
 	return 0;
 }

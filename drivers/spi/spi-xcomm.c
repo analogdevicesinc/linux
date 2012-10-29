@@ -207,6 +207,9 @@ static int spi_xcomm_transfer_one(struct spi_master *master,
 	msg->status = status;
 	spi_finalize_current_message(master);
 
+	if (status != 0)
+		printk("status: %d\n", status);
+
 	return status;
 }
 

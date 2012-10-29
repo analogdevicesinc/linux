@@ -20,13 +20,13 @@
 #include <linux/spi/eeprom.h>
 #include <linux/platform_device.h>
 #include <linux/device.h>
-#include <linux/spi/spi.h>
 #include <linux/mtd/physmap.h>
 #include <linux/spi/flash.h>
 #include <linux/xilinx_devices.h>
 #include <linux/i2c/pca954x.h>
 #include <linux/i2c/pca953x.h>
 #include <linux/i2c/si570.h>
+#include <linux/gpio.h>
 
 #include <mach/slcr.h>
 
@@ -37,6 +37,7 @@
 #include "common.h"
 
 #define IRQ_SPI1		81
+#define USB_RST_GPIO	7
 
 #ifdef CONFIG_SPI_SPIDEV
 
@@ -398,6 +399,17 @@ static void __init board_zc702_init(void)
 	 */
 	xilinx_init_machine();
 
+	/* Reset USB by toggling MIO7 */
+	if (gpio_request(USB_RST_GPIO, "USB Reset"))
+		printk(KERN_ERR "ERROR requesting GPIO, USB not reset!");
+
+	if (gpio_direction_output(USB_RST_GPIO, 1))
+		printk(KERN_ERR "ERROR setting GPIO direction, USB not reset!");
+
+	gpio_set_value(USB_RST_GPIO, 1);
+	gpio_set_value(USB_RST_GPIO, 0);
+	gpio_set_value(USB_RST_GPIO, 1);
+
 #if 	defined(CONFIG_SPI_SPIDEV) || defined(CONFIG_MTD_M25P80)
 	spi_register_board_info(&xilinx_spipss_0_boardinfo[0],
 		ARRAY_SIZE(xilinx_spipss_0_boardinfo));
@@ -435,10 +447,11 @@ static void __init board_zc702_init(void)
 
 static const char *xilinx_dt_match[] = {
 	"xlnx,zynq-zc702",
+	"xlnx,zynq-zc706",
 	NULL
 };
 
-MACHINE_START(XILINX, "Xilinx Zynq Platform")
+MACHINE_START(XILINX_EP107, "Xilinx Zynq Platform")
 	.map_io		= xilinx_map_io,
 	.init_irq	= xilinx_irq_init,
 	.handle_irq	= gic_handle_irq,

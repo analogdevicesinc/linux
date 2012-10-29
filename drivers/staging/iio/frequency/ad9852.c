@@ -16,8 +16,8 @@
 #include <linux/sysfs.h>
 #include <linux/module.h>
 
-#include "../iio.h"
-#include "../sysfs.h"
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 
 #define DRV_NAME "ad9852"
 
@@ -71,7 +71,7 @@ static ssize_t ad9852_set_parameter(struct device *dev,
 	struct spi_transfer xfer;
 	int ret;
 	struct ad9852_config *config = (struct ad9852_config *)buf;
-	struct iio_dev *idev = dev_get_drvdata(dev);
+	struct iio_dev *idev = dev_to_iio_dev(dev);
 	struct ad9852_state *st = iio_priv(idev);
 
 	xfer.len = 3;
@@ -232,7 +232,7 @@ static int __devinit ad9852_probe(struct spi_device *spi)
 	struct iio_dev *idev;
 	int ret = 0;
 
-	idev = iio_allocate_device(sizeof(*st));
+	idev = iio_device_alloc(sizeof(*st));
 	if (idev == NULL) {
 		ret = -ENOMEM;
 		goto error_ret;
@@ -258,7 +258,7 @@ static int __devinit ad9852_probe(struct spi_device *spi)
 	return 0;
 
 error_free_dev:
-	iio_free_device(idev);
+	iio_device_free(idev);
 
 error_ret:
 	return ret;
@@ -267,7 +267,7 @@ error_ret:
 static int __devexit ad9852_remove(struct spi_device *spi)
 {
 	iio_device_unregister(spi_get_drvdata(spi));
-	iio_free_device(spi_get_drvdata(spi));
+	iio_device_free(spi_get_drvdata(spi));
 
 	return 0;
 }

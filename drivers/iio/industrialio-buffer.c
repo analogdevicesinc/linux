@@ -302,14 +302,11 @@ int iio_buffer_register(struct iio_dev *indio_dev,
 	if (channels) {
 		/* new magic */
 		for (i = 0; i < num_channels; i++) {
-			if (channels[i].scan_index < 0)
-				continue;
-
 			/* Establish necessary mask length */
 			if (channels[i].scan_index >
 			    (int)indio_dev->masklength - 1)
 				indio_dev->masklength
-					= channels[i].scan_index + 1;
+					= indio_dev->channels[i].scan_index + 1;
 
 			ret = iio_buffer_add_channel_sysfs(indio_dev,
 							 &channels[i]);
@@ -573,10 +570,6 @@ int iio_sw_buffer_preenable(struct iio_dev *indio_dev)
 					    buffer->scan_mask);
 	else
 		indio_dev->active_scan_mask = buffer->scan_mask;
-
-	if (indio_dev->active_scan_mask == NULL)
-		return -EINVAL;
-
 	iio_update_demux(indio_dev);
 
 	if (indio_dev->info->update_scan_mode)

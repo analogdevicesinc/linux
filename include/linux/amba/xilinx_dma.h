@@ -53,7 +53,7 @@
  * If used to set interrupt coalescing and delay counter only for
  * Xilinx VDMA, hsize must be -1 */
 struct xilinx_dma_config {
-	enum dma_data_direction direction; /* Channel direction */
+	enum dma_transfer_direction direction; /* Channel direction */
 	int vsize;                         /* Vertical size */
 	int hsize;                         /* Horizontal size */
 	int stride;                        /* Stride */
@@ -67,6 +67,7 @@ struct xilinx_dma_config {
 	int delay;                         /* Delay counter */
 	int disable_intr;                  /* Whether use interrupts */
 	int reset;			   /* Reset Channel */
+	int ext_fsync;			   /* External Frame Sync */
 };
 
 /* Platform data definition until ARM supports device tree */

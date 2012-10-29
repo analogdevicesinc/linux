@@ -29,10 +29,6 @@ ad7298-y := ad7298_core.o
 ad7298-$(CONFIG_IIO_BUFFER) += ad7298_ring.o
 obj-$(CONFIG_AD7298) += ad7298.o
 
-cf_ad9467-y := cf_ad9467_core.o cf_ad9467_ring.o
-obj-$(CONFIG_CF_AD9467) += cf_ad9467.o
-obj-$(CONFIG_CF_FFT) += cf_fft_core.o
-
 obj-$(CONFIG_AD7291) += ad7291.o
 obj-$(CONFIG_AD7780) += ad7780.o
 obj-$(CONFIG_AD7793) += ad7793.o
@@ -42,3 +38,4 @@ obj-$(CONFIG_ADT7310) += adt7310.o
 obj-$(CONFIG_ADT7410) += adt7410.o
 obj-$(CONFIG_AD7280) += ad7280a.o
 obj-$(CONFIG_LPC32XX_ADC) += lpc32xx_adc.o
+obj-$(CONFIG_SPEAR_ADC) += spear_adc.o

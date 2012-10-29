@@ -254,7 +254,7 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
  *	driver is finished with this message, it must call
  *	spi_finalize_current_message() so the subsystem can issue the next
  *	transfer
- * @prepare_transfer_hardware: there are currently no more messages on the
+ * @unprepare_transfer_hardware: there are currently no more messages on the
  *	queue so the subsystem notifies the driver that it may relax the
  *	hardware by issuing this call
  *
@@ -600,7 +600,7 @@ static inline struct spi_message *spi_message_alloc(unsigned ntrans, gfp_t flags
 			+ ntrans * sizeof(struct spi_transfer),
 			flags);
 	if (m) {
-		int i;
+		unsigned i;
 		struct spi_transfer *t = (struct spi_transfer *)(m + 1);
 
 		INIT_LIST_HEAD(&m->transfers);
@@ -855,7 +855,5 @@ spi_unregister_device(struct spi_device *spi)
 
 extern const struct spi_device_id *
 spi_get_device_id(const struct spi_device *sdev);
-
-extern struct class spi_master_class;
 
 #endif /* __LINUX_SPI_H */

@@ -20,11 +20,7 @@
  *    it is fixed. The speed cannot be changed to 10 Mbps or 1000 Mbps. However
  *    for Zynq there is no such issue and it can work at all 3 speeds after
  *    autonegotiation.
- * 3. The SLCR clock divisors are hard coded for Zynq board for the time being.
- *    The assumption is IO PLL output is 1000 MHz. However, this will not
- *    be the case always. Ideally the divisors need to be calculated at
- *    runtime depending upon the IO PLL output frequency. Hence this
- *    needs to be revsited.
+ * 3. The SLCR clock divisors are hard coded for PEEP board.
  */
 
 #include <linux/module.h>
@@ -49,6 +45,10 @@
 #include <linux/clocksource.h>
 #include <linux/timecompare.h>
 #include <linux/net_tstamp.h>
+#include <linux/pm_runtime.h>
+#ifdef CONFIG_COMMON_CLK
+#include <linux/clk.h>
+#endif
 #ifdef CONFIG_OF
 #include <linux/of_address.h>
 #include <linux/of_mdio.h>
@@ -286,8 +286,6 @@ MDC_DIV_64, MDC_DIV_96, MDC_DIV_128, MDC_DIV_224 };
 #define XEMACPS_NWCFG_1000_MASK        0x00000400 /* Gigbit mode */
 #define XEMACPS_NWCFG_EXTADDRMATCHEN_MASK 0x00000200
 /* External address match enable */
-#define XEMACPS_NWCFG_1536RXEN_MASK    0x00000100 /* Enable 1536 byte
-						frames reception */
 #define XEMACPS_NWCFG_UCASTHASHEN_MASK 0x00000080 /* Receive unicast hash
 						frames */
 #define XEMACPS_NWCFG_MCASTHASHEN_MASK 0x00000040 /* Receive multicast hash
@@ -424,7 +422,6 @@ MDC_DIV_64, MDC_DIV_96, MDC_DIV_128, MDC_DIV_224 };
 #define XEMACPS_TXBUF_USED_MASK  0x80000000 /* Used bit. */
 #define XEMACPS_TXBUF_WRAP_MASK  0x40000000 /* Wrap bit, last descriptor */
 #define XEMACPS_TXBUF_RETRY_MASK 0x20000000 /* Retry limit exceeded */
-#define XEMACPS_TXBUF_URUN_MASK  0x10000000 /* Transmit underrun occurred */
 #define XEMACPS_TXBUF_EXH_MASK   0x08000000 /* Buffers exhausted */
 #define XEMACPS_TXBUF_LAC_MASK   0x04000000 /* Late collision. */
 #define XEMACPS_TXBUF_NOCRC_MASK 0x00010000 /* No CRC */
@@ -560,6 +557,11 @@ struct xemacps_bdring {
 /* Our private device data. */
 struct net_local {
 	void   __iomem         *baseaddr;
+#ifdef CONFIG_COMMON_CLK
+	struct clk		*devclk;
+	struct clk		*aperclk;
+	struct notifier_block	clk_rate_change_nb;
+#endif
 	struct xemacps_bdring tx_ring;
 	struct xemacps_bdring rx_ring;
 #ifdef CONFIG_OF
@@ -598,17 +600,23 @@ struct net_local {
 #ifdef CONFIG_OF
 	unsigned int	       enetnum;
 	unsigned int 	       board_type;
+#ifndef CONFIG_COMMON_CLK
 	unsigned int 	       slcr_div0_1000Mbps;
 	unsigned int 	       slcr_div1_1000Mbps;
 	unsigned int 	       slcr_div0_100Mbps;
 	unsigned int 	       slcr_div1_100Mbps;
 	unsigned int 	       slcr_div0_10Mbps;
 	unsigned int 	       slcr_div1_10Mbps;
+#endif
 #ifdef CONFIG_XILINX_PS_EMAC_HWTSTAMP
 	unsigned int 	       ptpenetclk;
 #endif
 #endif
 };
+#ifdef CONFIG_COMMON_CLK
+#define to_net_local(_nb)	container_of(_nb, struct net_local,\
+		clk_rate_change_nb)
+#endif
 
 static struct net_device_ops netdev_ops;
 
@@ -745,10 +753,15 @@ static void xemacps_adjust_link(struct net_device *ndev)
 	unsigned long flags;
 	int status_change = 0;
 	u32 regval;
+#ifdef CONFIG_COMMON_CLK
+	long rate;
+#else
 	u32 regval1;
 	u32 slcroffset;
+#endif
 
 	spin_lock_irqsave(&lp->lock, flags);
+#ifndef CONFIG_COMMON_CLK
 	if (lp->enetnum == 0) {
 		regval1 = xslcr_read(XSLCR_EMAC0_CLK_CTRL_OFFSET);
 		regval1 &= XEMACPS_SLCR_DIV_MASK;
@@ -758,6 +771,7 @@ static void xemacps_adjust_link(struct net_device *ndev)
 		regval1 &= XEMACPS_SLCR_DIV_MASK;
 		slcroffset = XSLCR_EMAC1_CLK_CTRL_OFFSET;
 	}
+#endif
 
 	if (phydev->link) {
 		if ((lp->speed != phydev->speed) ||
@@ -771,24 +785,47 @@ static void xemacps_adjust_link(struct net_device *ndev)
 
 			if (phydev->speed == SPEED_1000) {
 				regval |= XEMACPS_NWCFG_1000_MASK;
+#ifdef CONFIG_COMMON_CLK
+				rate = clk_round_rate(lp->devclk, 125000000);
+				pr_info("Set GEM clk to %ld Hz\n", rate);
+				if (clk_set_rate(lp->devclk, rate))
+					pr_err("Unable to set new clock rate.\n");
+#else
 				regval1 |= ((lp->slcr_div1_1000Mbps) << 20);
 				regval1 |= ((lp->slcr_div0_1000Mbps) << 8);
 				xslcr_write(slcroffset, regval1);
-			} else
+#endif
+			} else {
 				regval &= ~XEMACPS_NWCFG_1000_MASK;
+			}
 
 			if (phydev->speed == SPEED_100) {
 				regval |= XEMACPS_NWCFG_100_MASK;
+#ifdef CONFIG_COMMON_CLK
+				rate = clk_round_rate(lp->devclk, 25000000);
+				pr_info("Set GEM clk to %ld Hz\n", rate);
+				if (clk_set_rate(lp->devclk, rate))
+					pr_err("Unable to set new clock rate.\n");
+#else
 				regval1 |= ((lp->slcr_div1_100Mbps) << 20);
 				regval1 |= ((lp->slcr_div0_100Mbps) << 8);
 				xslcr_write(slcroffset, regval1);
-			} else
+#endif
+			} else {
 				regval &= ~XEMACPS_NWCFG_100_MASK;
+			}
 
 			if (phydev->speed == SPEED_10) {
+#ifdef CONFIG_COMMON_CLK
+				rate = clk_round_rate(lp->devclk, 2500000);
+				pr_info("Set GEM clk to %ld Hz\n", rate);
+				if (clk_set_rate(lp->devclk, rate))
+					pr_err("Unable to set new clock rate.\n");
+#else
 				regval1 |= ((lp->slcr_div1_10Mbps) << 20);
 				regval1 |= ((lp->slcr_div0_10Mbps) << 8);
 				xslcr_write(slcroffset, regval1);
+#endif
 			}
 
 			xemacps_write(lp->baseaddr, XEMACPS_NWCFG_OFFSET,
@@ -819,6 +856,36 @@ static void xemacps_adjust_link(struct net_device *ndev)
 	}
 }
 
+#ifdef CONFIG_COMMON_CLK
+static int xemacps_clk_notifier_cb(struct notifier_block *nb, unsigned long
+		event, void *data)
+{
+	struct clk_notifier_data *ndata = data;
+	struct net_local *nl = to_net_local(nb);
+
+	switch (event) {
+	case PRE_RATE_CHANGE:
+		/* if a rate change is announced we need to check whether we can
+		 * maintain the current frequency by changing the clock
+		 * dividers.
+		 * I don't see how this can be done using the current fmwk!?
+		 * For now we always allow the rate change. Otherwise we would
+		 * even prevent ourself to change the rate.
+		 */
+		return NOTIFY_OK;
+	case POST_RATE_CHANGE:
+		/* not sure this will work. actually i'm sure it does not. this
+		 * callback is not allowed to call back into COMMON_CLK, what
+		 * adjust_link() does...*/
+		/*xemacps_adjust_link(nl->ndev); would likely lock up kernel */
+		return NOTIFY_OK;
+	case ABORT_RATE_CHANGE:
+	default:
+		return NOTIFY_DONE;
+	}
+}
+#endif
+
 /**
  * xemacps_mii_probe - probe mii bus, find the right bus_id to register
  * phy callback function.
@@ -846,6 +913,10 @@ static int xemacps_mii_probe(struct net_device *ndev)
 			return -1;
 		}
 	}
+	if (!phydev) {
+		printk(KERN_ERR "%s: no PHY found\n", ndev->name);
+		return -1;
+	}
 #else
 	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
 		if (lp->mii_bus->phy_map[phy_addr]) {
@@ -864,17 +935,15 @@ static int xemacps_mii_probe(struct net_device *ndev)
 
 	if (IS_ERR(phydev)) {
 		printk(KERN_ERR "%s: can not connect phy\n", ndev->name);
-		return -1;
+		return -2;
 	}
 #endif
 #ifdef DEBUG
 	printk(KERN_INFO "GEM: phydev %p, phydev->phy_id 0x%x, phydev->addr 0x%x\n",
 		phydev, phydev->phy_id, phydev->addr);
 #endif
-	phydev->supported |= PHY_GBIT_FEATURES;
-	phydev->supported |= SUPPORTED_Pause;
-	phydev->supported |= SUPPORTED_Asym_Pause;
-
+	phydev->supported &= (PHY_GBIT_FEATURES | SUPPORTED_Pause |
+							SUPPORTED_Asym_Pause);
 	phydev->advertising = phydev->supported;
 
 	lp->link    = 0;
@@ -1206,10 +1275,12 @@ u32 xemacps_bdringfromhwtx(struct xemacps_bdring *ringptr, unsigned bdlimit,
 		/* Read the status */
 		bdstr = xemacps_read(curbdptr, XEMACPS_BD_STAT_OFFSET);
 
-		if ((sop == 0) && (bdstr & XEMACPS_TXBUF_USED_MASK))
-			sop = 1;
-		else
-			break;
+		if (sop == 0) {
+				if (bdstr & XEMACPS_TXBUF_USED_MASK)
+					sop = 1;
+				else
+					break;
+		}
 
 		if (sop == 1) {
 			bdcount++;
@@ -1636,13 +1707,13 @@ static int xemacps_rx_poll(struct napi_struct *napi, int budget)
 }
 
 /**
- * xemacps_tx_poll - tasklet poll routine
+ * xemacps_tx_poll - tx isr handler routine
  * @data: pointer to network interface device structure
  **/
 static void xemacps_tx_poll(struct net_device *ndev)
 {
 	struct net_local *lp = netdev_priv(ndev);
-	u32 regval, len = 0;
+	u32 regval, bdlen = 0;
 	struct xemacps_bd *bdptr, *bdptrfree;
 	struct ring_info *rp;
 	struct sk_buff *skb;
@@ -1658,8 +1729,8 @@ static void xemacps_tx_poll(struct net_device *ndev)
 	 */
 	if (regval & (XEMACPS_TXSR_URUN_MASK | XEMACPS_TXSR_RXOVR_MASK |
 		XEMACPS_TXSR_HRESPNOK_MASK | XEMACPS_TXSR_COL1000_MASK |
-		XEMACPS_TXSR_BUFEXH_MASK | XEMACPS_TXSR_COL100_MASK)) {
-		printk(KERN_ERR "%s: TX error 0x%x, resetting buffers?\n",
+		XEMACPS_TXSR_BUFEXH_MASK)) {
+		printk(KERN_ERR "%s: TX ERROR 0x%x\n",
 			ndev->name, regval);
 		lp->stats.tx_errors++;
 	}
@@ -1677,18 +1748,16 @@ static void xemacps_tx_poll(struct net_device *ndev)
 	bdptrfree = bdptr;
 
 	while (numbd) {
-		rmb();
 		regval  = xemacps_read(bdptr, XEMACPS_BD_STAT_OFFSET);
+		rmb();
+		bdlen = regval & XEMACPS_TXBUF_LEN_MASK;
 		bdidx = XEMACPS_BD_TO_INDEX(&lp->tx_ring, bdptr);
 		rp = &lp->tx_skb[bdidx];
 		skb = rp->skb;
 
 		BUG_ON(skb == NULL);
 
-		len += skb->len;
-		rmb();
-
-		#ifdef CONFIG_XILINX_PS_EMAC_HWTSTAMP
+#ifdef CONFIG_XILINX_PS_EMAC_HWTSTAMP
 		if ((lp->hwtstamp_config.tx_type == HWTSTAMP_TX_ON) &&
 			(ntohs(skb->protocol) == 0x800)) {
 			unsigned ip_proto, dest_port, msg_type;
@@ -1705,7 +1774,7 @@ static void xemacps_tx_poll(struct net_device *ndev)
 				xemacps_tx_hwtstamp(lp, skb, msg_type & 0x2);
 			}
 		}
-		#endif /* CONFIG_XILINX_PS_EMAC_HWTSTAMP */
+#endif /* CONFIG_XILINX_PS_EMAC_HWTSTAMP */
 
 		dma_unmap_single(&lp->pdev->dev, rp->mapping, skb->len,
 			DMA_TO_DEVICE);
@@ -1721,11 +1790,10 @@ static void xemacps_tx_poll(struct net_device *ndev)
 		if (regval & XEMACPS_TXBUF_LAST_MASK) {
 			if (!(regval & XEMACPS_TXBUF_ERR_MASK)) {
 				lp->stats.tx_packets++;
-				lp->stats.tx_bytes += len;
+				lp->stats.tx_bytes += bdlen;
 			} else {
 				lp->stats.tx_errors++;
 			}
-			len = 0;
 		}
 
 		/* Preserve used and wrap bits; clear everything else. */
@@ -1759,6 +1827,7 @@ static irqreturn_t xemacps_interrupt(int irq, void *dev_id)
 	u32 regisr;
 
 	regisr = xemacps_read(lp->baseaddr, XEMACPS_ISR_OFFSET);
+	rmb();
 
 	if (unlikely(!regisr))
 		return IRQ_NONE;
@@ -1766,8 +1835,6 @@ static irqreturn_t xemacps_interrupt(int irq, void *dev_id)
 	spin_lock(&lp->lock);
 
 	while (regisr) {
-		/* acknowledge interrupt and clear it */
-		xemacps_write(lp->baseaddr, XEMACPS_ISR_OFFSET, regisr);
 
 		/* Log errors here. ISR status is cleared;
 		 * this must be recorded here.
@@ -1797,7 +1864,11 @@ static irqreturn_t xemacps_interrupt(int irq, void *dev_id)
 		(XEMACPS_IXR_TXCOMPL_MASK | XEMACPS_IXR_TX_ERR_MASK))
 			xemacps_tx_poll(ndev);
 
+		/* acknowledge interrupt and clear it */
+		xemacps_write(lp->baseaddr, XEMACPS_ISR_OFFSET, regisr);
+		wmb();
 		regisr = xemacps_read(lp->baseaddr, XEMACPS_ISR_OFFSET);
+		rmb();
 	}
 	spin_unlock(&lp->lock);
 
@@ -2062,7 +2133,8 @@ static void xemacps_init_hw(struct net_local *lp)
 	regval |= XEMACPS_NWCFG_FCSREM_MASK;
 	regval |= XEMACPS_NWCFG_PAUSEEN_MASK;
 	regval |= XEMACPS_NWCFG_100_MASK;
-	regval |= XEMACPS_NWCFG_1536RXEN_MASK;
+	regval |= XEMACPS_NWCFG_HDRXEN_MASK;
+
 #ifdef CONFIG_OF
 	if (lp->board_type == BOARD_TYPE_ZYNQ)
 		regval |= (MDC_DIV_224 << XEMACPS_NWCFG_MDC_SHIFT_MASK);
@@ -2142,20 +2214,31 @@ static int xemacps_open(struct net_device *ndev)
 		return rc;
 	}
 
+	rc = pm_runtime_get(&lp->pdev->dev);
+	if (rc < 0) {
+		pr_err("%s pm_runtime_get() failed, rc %d\n", ndev->name, rc);
+		goto err_free_rings;
+	}
+
 	rc = xemacps_setup_ring(lp);
 	if (rc) {
 		printk(KERN_ERR "%s Unable to setup BD rings, rc %d\n",
 		ndev->name, rc);
-		return rc;
+		goto err_pm_put;
 	}
+
 	xemacps_init_hw(lp);
 	napi_enable(&lp->napi);
-	if (xemacps_mii_probe(ndev) != 0) {
+	rc = xemacps_mii_probe(ndev);
+	if (rc != 0) {
 		printk(KERN_ERR "%s mii_probe fail.\n", lp->mii_bus->name);
-		mdiobus_unregister(lp->mii_bus);
-		kfree(lp->mii_bus->irq);
-		mdiobus_free(lp->mii_bus);
-		return -ENXIO;
+		if (rc == (-2)) {
+			mdiobus_unregister(lp->mii_bus);
+			kfree(lp->mii_bus->irq);
+			mdiobus_free(lp->mii_bus);
+		}
+		rc = -ENXIO;
+		goto err_pm_put;
 	}
 
 	netif_carrier_on(ndev);
@@ -2163,6 +2246,13 @@ static int xemacps_open(struct net_device *ndev)
 	netif_start_queue(ndev);
 
 	return 0;
+
+err_pm_put:
+	pm_runtime_put(&lp->pdev->dev);
+err_free_rings:
+	xemacps_descriptor_free(lp);
+
+	return rc;
 }
 
 /**
@@ -2190,6 +2280,8 @@ static int xemacps_close(struct net_device *ndev)
 		phy_disconnect(lp->phy_dev);
 	xemacps_descriptor_free(lp);
 
+	pm_runtime_put(&lp->pdev->dev);
+
 	return 0;
 }
 
@@ -2200,30 +2292,45 @@ static int xemacps_close(struct net_device *ndev)
  **/
 static void xemacps_tx_timeout(struct net_device *ndev)
 {
-	unsigned long flags;
 	struct net_local *lp = netdev_priv(ndev);
 	int rc;
 
 	printk(KERN_ERR "%s transmit timeout %lu ms, reseting...\n",
 		ndev->name, TX_TIMEOUT * 1000UL / HZ);
-	lp->stats.tx_errors++;
-
-	spin_lock_irqsave(&lp->lock, flags);
-
 	netif_stop_queue(ndev);
+
+	spin_lock(&lp->lock);
 	napi_disable(&lp->napi);
 	xemacps_reset_hw(lp);
-	xemacps_clean_rings(lp);
-	rc  = xemacps_setup_ring(lp);
-	if (rc)
-		printk(KERN_ERR "%s Unable to setup BD or rings, rc %d\n",
+	xemacps_descriptor_free(lp);
+	if (lp->phy_dev)
+		phy_stop(lp->phy_dev);
+	rc = xemacps_descriptor_init(lp);
+	if (rc) {
+		printk(KERN_ERR "%s Unable to allocate DMA memory, rc %d\n",
 		ndev->name, rc);
-	xemacps_init_hw(lp);
-	ndev->trans_start = jiffies;
-	napi_enable(&lp->napi);
-	netif_wake_queue(ndev);
+		spin_unlock(&lp->lock);
+		return;
+	}
 
-	spin_unlock_irqrestore(&lp->lock, flags);
+	rc = xemacps_setup_ring(lp);
+	if (rc) {
+		printk(KERN_ERR "%s Unable to setup BD rings, rc %d\n",
+		ndev->name, rc);
+		spin_unlock(&lp->lock);
+		return;
+	}
+	xemacps_init_hw(lp);
+
+	lp->link    = 0;
+	lp->speed   = 0;
+	lp->duplex  = -1;
+	if (lp->phy_dev)
+		phy_start(lp->phy_dev);
+	napi_enable(&lp->napi);
+
+	spin_unlock(&lp->lock);
+	netif_start_queue(ndev);
 }
 
 /**
@@ -2613,77 +2720,6 @@ xemacps_get_ringparam(struct net_device *ndev, struct ethtool_ringparam *erp)
 	erp->tx_pending = lp->tx_ring.hwcnt;
 }
 
-#if 0
-
-/**
- * xemacps_get_rx_csum - get device rxcsum status
- * Usage: Issue "ethtool -k ethX" under linux prompt
- * @ndev: network device
- * return 0 csum off, else csum on
- **/
-static u32
-xemacps_get_rx_csum(struct net_device *ndev)
-{
-	struct net_local *lp = netdev_priv(ndev);
-
-	return (lp->ip_summed & CHECKSUM_UNNECESSARY) != 0;
-}
-
-/**
- * xemacps_set_rx_csum - set device rx csum enable/disable
- * Usage: Issue "ethtool -K ethX rx on|off" under linux prompt
- * @ndev: network device
- * @data: 0 to disable, other to enable
- * return 0 on success, negative value if error
- * note : If there is no need to turn on/off checksum engine e.g always on,
- * xemacps_set_rx_csum can be removed.
- **/
-static int
-xemacps_set_rx_csum(struct net_device *ndev, u32 data)
-{
-	struct net_local *lp = netdev_priv(ndev);
-
-	if (data)
-		lp->ip_summed = CHECKSUM_UNNECESSARY;
-	else
-		lp->ip_summed = CHECKSUM_NONE;
-
-	return 0;
-}
-
-/**
- * xemacps_get_tx_csum - get device txcsum status
- * Usage: Issue "ethtool -k ethX" under linux prompt
- * @ndev: network device
- * return 0 csum off, 1 csum on
- **/
-static u32
-xemacps_get_tx_csum(struct net_device *ndev)
-{
-	return (ndev->features & NETIF_F_IP_CSUM) != 0;
-}
-
-/**
- * xemacps_set_tx_csum - set device tx csum enable/disable
- * Usage: Issue "ethtool -K ethX tx on|off" under linux prompt
- * @ndev: network device
- * @data: 0 to disable, other to enable
- * return 0 on success, negative value if error
- * note : If there is no need to turn on/off checksum engine e.g always on,
- * xemacps_set_tx_csum can be removed.
- **/
-static int
-xemacps_set_tx_csum(struct net_device *ndev, u32 data)
-{
-	if (data)
-		ndev->features |= NETIF_F_IP_CSUM;
-	else
-		ndev->features &= ~NETIF_F_IP_CSUM;
-	return 0;
-}
-
-#endif
-
 /**
  * xemacps_get_wol - get device wake on lan status
  * Usage: Issue "ethtool ethX" under linux prompt
@@ -2977,7 +3013,7 @@ static int xemacps_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
  * @pdev: Pointer to platform device structure
  *
  * Return 0 on success, negative value if error
- **/
+ */
 static int __init xemacps_probe(struct platform_device *pdev)
 {
 	struct resource *r_mem = NULL;
@@ -3052,9 +3088,9 @@ static int __init xemacps_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_OF
-	if (ndev->irq == 54) {
+	if (ndev->irq == 54)
 		lp->enetnum = 0;
-	} else
+	else
 		lp->enetnum = 1;
 
 	np = of_get_next_parent(lp->pdev->dev.of_node);
@@ -3064,65 +3100,97 @@ static int __init xemacps_probe(struct platform_device *pdev)
 	if (prop != NULL) {
 		if ((strcmp((const char *)prop, "xlnx,zynq-ep107")) == 0)
 			lp->board_type = BOARD_TYPE_PEEP;
-		 else
+		else
 			lp->board_type = BOARD_TYPE_ZYNQ;
-	} else
+	} else {
 		lp->board_type = BOARD_TYPE_ZYNQ;
+	}
 	if (lp->board_type == BOARD_TYPE_ZYNQ) {
+#ifdef CONFIG_COMMON_CLK
+		if (lp->enetnum == 0)
+			lp->aperclk = clk_get_sys("GEM0_APER", NULL);
+		else
+			lp->aperclk = clk_get_sys("GEM1_APER", NULL);
+		if (IS_ERR(lp->aperclk)) {
+			pr_err("Xilinx EMACPS APER clock not found.\n");
+			rc = PTR_ERR(lp->aperclk);
+			goto err_out_unregister_netdev;
+		}
+		if (lp->enetnum == 0)
+			lp->devclk = clk_get_sys("GEM0", NULL);
+		else
+			lp->devclk = clk_get_sys("GEM1", NULL);
+		if (IS_ERR(lp->devclk)) {
+			pr_err("Xilinx EMACPS device clock not found.\n");
+			rc = PTR_ERR(lp->devclk);
+			goto err_out_clk_put_aper;
+		}
+
+		rc = clk_prepare_enable(lp->aperclk);
+		if (rc) {
+			pr_err("Unable to enable EMACPS APER clock.\n");
+			goto err_out_clk_put;
+		}
+		rc = clk_prepare_enable(lp->devclk);
+		if (rc) {
+			pr_err("Unable to enable EMACPS device clock.\n");
+			goto err_out_clk_dis_aper;
+		}
+
+		lp->clk_rate_change_nb.notifier_call = xemacps_clk_notifier_cb;
+		lp->clk_rate_change_nb.next = NULL;
+		if (clk_notifier_register(lp->devclk, &lp->clk_rate_change_nb))
+			pr_warn("Unable to register clock notifier.\n");
+#else
 		prop = of_get_property(lp->pdev->dev.of_node,
 					"xlnx,slcr-div0-1000Mbps", NULL);
-		if (prop) {
+		if (prop)
 			lp->slcr_div0_1000Mbps = (u32)be32_to_cpup(prop);
-		} else {
+		else
 			lp->slcr_div0_1000Mbps = XEMACPS_DFLT_SLCR_DIV0_1000;
-		}
 		prop = of_get_property(lp->pdev->dev.of_node,
 					"xlnx,slcr-div1-1000Mbps", NULL);
-		if (prop) {
+		if (prop)
 			lp->slcr_div1_1000Mbps = (u32)be32_to_cpup(prop);
-		} else {
+		else
 			lp->slcr_div1_1000Mbps = XEMACPS_DFLT_SLCR_DIV1_1000;
-		}
 		prop = of_get_property(lp->pdev->dev.of_node,
 					"xlnx,slcr-div0-100Mbps", NULL);
-		if (prop) {
+		if (prop)
 			lp->slcr_div0_100Mbps = (u32)be32_to_cpup(prop);
-		} else {
+		else
 			lp->slcr_div0_100Mbps = XEMACPS_DFLT_SLCR_DIV0_100;
-		}
 		prop = of_get_property(lp->pdev->dev.of_node,
 					"xlnx,slcr-div1-100Mbps", NULL);
-		if (prop) {
+		if (prop)
 			lp->slcr_div1_100Mbps = (u32)be32_to_cpup(prop);
-		} else {
+		else
 			lp->slcr_div1_100Mbps = XEMACPS_DFLT_SLCR_DIV1_100;
-		}
 		prop = of_get_property(lp->pdev->dev.of_node,
 					"xlnx,slcr-div0-10Mbps", NULL);
-		if (prop) {
+		if (prop)
 			lp->slcr_div0_10Mbps = (u32)be32_to_cpup(prop);
-		} else {
+		else
 			lp->slcr_div0_10Mbps = XEMACPS_DFLT_SLCR_DIV0_10;
-		}
 		prop = of_get_property(lp->pdev->dev.of_node,
 					"xlnx,slcr-div1-10Mbps", NULL);
-		if (prop) {
+		if (prop)
 			lp->slcr_div1_10Mbps = (u32)be32_to_cpup(prop);
-		} else {
+		else
 			lp->slcr_div1_10Mbps = XEMACPS_DFLT_SLCR_DIV1_10;
-		}
+#endif
 	}
 #ifdef CONFIG_XILINX_PS_EMAC_HWTSTAMP
 	if (lp->board_type == BOARD_TYPE_ZYNQ) {
 		prop = of_get_property(lp->pdev->dev.of_node,
 					"xlnx,ptp-enet-clock", NULL);
-		if (prop) {
+		if (prop)
 			lp->ptpenetclk = (u32)be32_to_cpup(prop);
-		} else {
+		else
 			lp->ptpenetclk = 133333328;
-		}
-	} else
+	} else {
 		lp->ptpenetclk = PEEP_TSU_CLK;
+	}
 #endif
 
 	lp->phy_node = of_parse_phandle(lp->pdev->dev.of_node,
@@ -3138,20 +3206,34 @@ static int __init xemacps_probe(struct platform_device *pdev)
 	regval = XEMACPS_NWCTRL_MDEN_MASK;
 	xemacps_write(lp->baseaddr, XEMACPS_NWCTRL_OFFSET, regval);
 
-	if (xemacps_mii_init(lp) != 0) {
+	rc = xemacps_mii_init(lp);
+	if (rc) {
 		printk(KERN_ERR "%s: error in xemacps_mii_init\n", ndev->name);
-		goto err_out_unregister_netdev;
+		goto err_out_unregister_clk_notifier;
 	}
 
 	xemacps_update_hwaddr(lp);
 
 	platform_set_drvdata(pdev, ndev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 
 	printk(KERN_INFO "%s, pdev->id %d, baseaddr 0x%08lx, irq %d\n",
 		ndev->name, pdev->id, ndev->base_addr, ndev->irq);
 
 	return 0;
 
+err_out_unregister_clk_notifier:
+#ifdef CONFIG_COMMON_CLK
+	clk_notifier_unregister(lp->devclk, &lp->clk_rate_change_nb);
+	clk_disable_unprepare(lp->devclk);
+err_out_clk_dis_aper:
+	clk_disable_unprepare(lp->aperclk);
+err_out_clk_put:
+	clk_put(lp->devclk);
+err_out_clk_put_aper:
+	clk_put(lp->aperclk);
+#endif
 err_out_unregister_netdev:
 	unregister_netdev(ndev);
 err_out_free_irq:
@@ -3170,7 +3252,7 @@ err_out:
  * @pdev: Pointer to the platform device structure
  *
  * return: 0 on success
- **/
+ */
 static int __exit xemacps_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
@@ -3189,23 +3271,41 @@ static int __exit xemacps_remove(struct platform_device *pdev)
 		iounmap(lp->baseaddr);
 		free_netdev(ndev);
 		platform_set_drvdata(pdev, NULL);
+
+#ifdef CONFIG_COMMON_CLK
+		/* clock prototyping */
+		clk_notifier_unregister(lp->devclk, &lp->clk_rate_change_nb);
+		clk_disable_unprepare(lp->devclk);
+		clk_put(lp->devclk);
+		clk_disable_unprepare(lp->aperclk);
+		clk_put(lp->aperclk);
+#endif
 	}
 
 	return 0;
 }
 
+#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 /**
  * xemacps_suspend - Suspend event
- * @pdev: Pointer to platform device structure
- * @state: State of the device
+ * @device: Pointer to device structure
  *
  * Return 0
- **/
-static int xemacps_suspend(struct platform_device *pdev, pm_message_t state)
+ */
+static int xemacps_suspend(struct device *device)
 {
+	struct platform_device *pdev = container_of(device,
+			struct platform_device, dev);
 	struct net_device *ndev = platform_get_drvdata(pdev);
-
+#ifdef CONFIG_COMMON_CLK
+	struct net_local *lp = netdev_priv(ndev);
+#endif
 	netif_device_detach(ndev);
+#ifdef CONFIG_COMMON_CLK
+	clk_disable(lp->devclk);
+	clk_disable(lp->aperclk);
+#endif
 	return 0;
 }
 
@@ -3214,14 +3314,63 @@ static int xemacps_suspend(struct platform_device *pdev, pm_message_t state)
  * @pdev: Pointer to platform device structure
  *
  * Return 0
- **/
-static int xemacps_resume(struct platform_device *pdev)
+ */
+static int xemacps_resume(struct device *device)
 {
+	struct platform_device *pdev = container_of(device,
+			struct platform_device, dev);
 	struct net_device *ndev = platform_get_drvdata(pdev);
+#ifdef CONFIG_COMMON_CLK
+	struct net_local *lp = netdev_priv(ndev);
 
+	clk_enable(lp->aperclk);
+	clk_enable(lp->devclk);
+#endif
 	netif_device_attach(ndev);
 	return 0;
 }
+#endif /* ! CONFIG_PM_SLEEP */
+
+#if defined(CONFIG_PM_RUNTIME) && defined(CONFIG_COMMON_CLK)
+static int xemacps_runtime_idle(struct device *dev)
+{
+	return pm_schedule_suspend(dev, 1);
+}
+
+static int xemacps_runtime_resume(struct device *device)
+{
+	struct platform_device *pdev = container_of(device,
+			struct platform_device, dev);
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct net_local *lp = netdev_priv(ndev);
+
+	clk_enable(lp->aperclk);
+	clk_enable(lp->devclk);
+	return 0;
+}
+
+static int xemacps_runtime_suspend(struct device *device)
+{
+	struct platform_device *pdev = container_of(device,
+			struct platform_device, dev);
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct net_local *lp = netdev_priv(ndev);
+
+	clk_disable(lp->devclk);
+	clk_disable(lp->aperclk);
+	return 0;
+}
+#endif /* ! CONFIG_COMMON_CLK && ! CONFIG_PM_RUNTIME */
+
+static const struct dev_pm_ops xemacps_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(xemacps_suspend, xemacps_resume)
+	SET_RUNTIME_PM_OPS(xemacps_runtime_suspend, xemacps_runtime_resume,
+			xemacps_runtime_idle)
+};
+#define XEMACPS_PM	(&xemacps_dev_pm_ops)
+#else /* ! CONFIG_PM */
+#define XEMACPS_PM	NULL
+#endif /* ! CONFIG_PM */
 
 static struct net_device_ops netdev_ops = {
 	.ndo_open		= xemacps_open,
@@ -3235,7 +3384,6 @@ static struct net_device_ops netdev_ops = {
 	.ndo_get_stats		= xemacps_get_stats,
 };
 
-
 #ifdef CONFIG_OF
 static struct of_device_id xemacps_of_match[] __devinitdata = {
 	{ .compatible = "xlnx,ps7-ethernet-1.00.a", },
@@ -3246,24 +3394,22 @@ MODULE_DEVICE_TABLE(of, xemacps_of_match);
 #define xemacps_of_match NULL
 #endif /* CONFIG_OF */
 
-
 static struct platform_driver xemacps_driver = {
 	.probe   = xemacps_probe,
 	.remove  = __exit_p(xemacps_remove),
-	.suspend = xemacps_suspend,
-	.resume  = xemacps_resume,
 	.driver  = {
 		.name  = DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = xemacps_of_match,
+		.pm = XEMACPS_PM,
 	},
 };
 
 /**
  * xemacps_init - Initial driver registration call
  *
- * Retunrs whether the driver registration was successful or not.
- **/
+ * Returns whether the driver registration was successful or not.
+ */
 static int __init xemacps_init(void)
 {
     /*

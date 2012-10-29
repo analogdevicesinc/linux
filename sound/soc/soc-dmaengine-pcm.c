@@ -69,8 +69,16 @@ void *snd_dmaengine_pcm_get_data(struct snd_pcm_substream *substream)
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_get_data);
 
+struct dma_chan *snd_dmaengine_pcm_get_chan(struct snd_pcm_substream *substream)
+{
+	struct dmaengine_pcm_runtime_data *prtd = substream_to_prtd(substream);
+
+	return prtd->dma_chan;
+}
+EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_get_chan);
+
 /**
- * snd_soc_hwparams_to_dma_slave_config - Convert hw_params to dma_slave_config
+ * snd_hwparams_to_dma_slave_config - Convert hw_params to dma_slave_config
  * @substream: PCM substream
  * @params: hw_params
  * @slave_config: DMA slave config
@@ -78,7 +86,7 @@ EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_get_data);
  * This function can be used to initialize a dma_slave_config from a substream
  * and hw_params in a dmaengine based PCM driver implementation.
  */
-int snd_soc_hwparams_to_dma_slave_config(const struct snd_pcm_substream *substream,
+int snd_hwparams_to_dma_slave_config(const struct snd_pcm_substream *substream,
 	const struct snd_pcm_hw_params *params,
 	struct dma_slave_config *slave_config)
 {
@@ -111,7 +119,7 @@ int snd_soc_hwparams_to_dma_slave_config(const struct snd_pcm_substream *substre
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(snd_soc_hwparams_to_dma_slave_config);
+EXPORT_SYMBOL_GPL(snd_hwparams_to_dma_slave_config);
 
 static void dmaengine_pcm_dma_complete(void *arg)
 {
@@ -135,8 +143,7 @@ static int dmaengine_pcm_prepare_and_submit(struct snd_pcm_substream *substream)
 	direction = snd_pcm_substream_to_dma_direction(substream);
 
 	prtd->pos = 0;
-
-	desc = chan->device->device_prep_dma_cyclic(chan,
+	desc = dmaengine_prep_dma_cyclic(chan,
 		substream->runtime->dma_addr,
 		snd_pcm_lib_buffer_bytes(substream),
 		snd_pcm_lib_period_bytes(substream), direction);

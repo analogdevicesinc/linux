@@ -23,12 +23,13 @@
 #include <linux/slab.h>
 #include <linux/anon_inodes.h>
 #include <linux/debugfs.h>
+
 #include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
 #include "iio_core.h"
 #include "iio_core_trigger.h"
 #include <linux/iio/sysfs.h>
 #include <linux/iio/events.h>
-#include <linux/iio/buffer.h>
 
 /* IDA to assign each registered device a unique id*/
 static DEFINE_IDA(iio_ida);
@@ -71,8 +72,6 @@ static const char * const iio_modifier_names[] = {
 	[IIO_MOD_X] = "x",
 	[IIO_MOD_Y] = "y",
 	[IIO_MOD_Z] = "z",
-	[IIO_MOD_ROOT_SUM_SQUARED_X_Y] = "sqrt(x^2+y^2)",
-	[IIO_MOD_SUM_SQUARED_X_Y_Z] = "x^2+y^2+z^2",
 	[IIO_MOD_LIGHT_BOTH] = "both",
 	[IIO_MOD_LIGHT_IR] = "ir",
 };
@@ -152,7 +151,7 @@ static void __exit iio_exit(void)
 	if (iio_devt)
 		unregister_chrdev_region(iio_devt, IIO_DEV_MAX);
 	bus_unregister(&iio_bus_type);
-	debugfs_remove(iio_debugfs_dentry);
+	debugfs_remove_recursive(iio_debugfs_dentry);
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -237,6 +236,9 @@ static int iio_device_register_debugfs(struct iio_dev *indio_dev)
 	indio_dev->debugfs_dentry =
 		debugfs_create_dir(dev_name(&indio_dev->dev),
 				   iio_debugfs_dentry);
+	if (IS_ERR(indio_dev->debugfs_dentry))
+		return PTR_ERR(indio_dev->debugfs_dentry);
+
 	if (indio_dev->debugfs_dentry == NULL) {
 		dev_warn(indio_dev->dev.parent,
 			 "Failed to create debugfs directory\n");
@@ -291,69 +293,6 @@ static ssize_t iio_write_channel_ext_info(struct device *dev,
 	return ext_info->write(indio_dev, ext_info->private,
 			       this_attr->c, buf, len);
 }
-
-ssize_t iio_enum_available_read(struct iio_dev *indio_dev,
-	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
-{
-	const struct iio_enum *e = (const struct iio_enum *)priv;
-	unsigned int i;
-	size_t len = 0;
-
-	if (!e->num_items)
-		return 0;
-
-	for (i = 0; i < e->num_items; ++i)
-		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ", e->items[i]);
-
-	/* replace last space with a newline */
-	buf[len - 1] = '\n';
-
-	return len;
-}
-EXPORT_SYMBOL_GPL(iio_enum_available_read);
-
-ssize_t iio_enum_read(struct iio_dev *indio_dev,
-	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
-{
-	const struct iio_enum *e = (const struct iio_enum *)priv;
-	int i;
-
-	if (!e->get)
-		return -EINVAL;
-
-	i = e->get(indio_dev, chan);
-	if (i < 0)
-		return i;
-	else if (i >= e->num_items)
-		return -EINVAL;
-
-	return sprintf(buf, "%s\n", e->items[i]);
-}
-EXPORT_SYMBOL_GPL(iio_enum_read);
-
-ssize_t iio_enum_write(struct iio_dev *indio_dev,
-	uintptr_t priv, const struct iio_chan_spec *chan, const char *buf,
-	size_t len)
-{
-	const struct iio_enum *e = (const struct iio_enum *)priv;
-	unsigned int i;
-	int ret;
-
-	if (!e->set)
-		return -EINVAL;
-
-	for (i = 0; i < e->num_items; i++) {
-		if (sysfs_streq(buf, e->items[i]))
-			break;
-	}
-
-	if (i == e->num_items)
-		return -EINVAL;
-
-	ret = e->set(indio_dev, chan, i);
-	return ret ? ret : len;
-}
-EXPORT_SYMBOL_GPL(iio_enum_write);
 
 static ssize_t iio_read_channel_info(struct device *dev,
 				     struct device_attribute *attr,
@@ -897,6 +836,15 @@ static long iio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	return -EINVAL;
 }
 
+static const struct file_operations iio_buffer_none_fileops = {
+	.release = iio_chrdev_release,
+	.open = iio_chrdev_open,
+	.owner = THIS_MODULE,
+	.llseek = noop_llseek,
+	.unlocked_ioctl = iio_ioctl,
+	.compat_ioctl = iio_ioctl,
+};
+
 static const struct file_operations iio_buffer_in_fileops = {
 	.read = iio_buffer_read_first_n_outer_addr,
 	.release = iio_chrdev_release,
@@ -908,14 +856,7 @@ static const struct file_operations iio_buffer_in_fileops = {
 	.compat_ioctl = iio_ioctl,
 };
 
-static const struct file_operations iio_buffer_none_fileops = {
-	.release = iio_chrdev_release,
-	.open = iio_chrdev_open,
-	.owner = THIS_MODULE,
-	.llseek = noop_llseek,
-	.unlocked_ioctl = iio_ioctl,
-	.compat_ioctl = iio_ioctl,
-};
+static const struct iio_buffer_setup_ops noop_ring_setup_ops;
 
 static const struct file_operations iio_buffer_out_fileops = {
 	.write = iio_buffer_chrdev_write,
@@ -927,8 +868,6 @@ static const struct file_operations iio_buffer_out_fileops = {
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = iio_ioctl,
 };
-
-static const struct iio_buffer_setup_ops noop_ring_setup_ops;
 
 int iio_device_register(struct iio_dev *indio_dev)
 {
@@ -962,7 +901,6 @@ int iio_device_register(struct iio_dev *indio_dev)
 	if ((indio_dev->modes & INDIO_ALL_BUFFER_MODES) &&
 		indio_dev->setup_ops == NULL)
 		indio_dev->setup_ops = &noop_ring_setup_ops;
-
 	if (indio_dev->buffer) {
 		if (indio_dev->buffer->direction == IIO_BUFFER_DIRECTION_IN)
 			fops = &iio_buffer_in_fileops;
@@ -975,7 +913,6 @@ int iio_device_register(struct iio_dev *indio_dev)
 	ret = device_add(&indio_dev->dev);
 	if (ret < 0)
 		goto error_unreg_eventset;
-
 	cdev_init(&indio_dev->chrdev, fops);
 	indio_dev->chrdev.owner = indio_dev->info->driver_module;
 	ret = cdev_add(&indio_dev->chrdev, indio_dev->dev.devt, 1);
