@@ -191,7 +191,7 @@
 			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40440000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = < 0 54 0x4 >;
+				interrupts = < 0 56 0x4 >;
 				xlnx,datawidth = <0x20>;
 				xlnx,include-dre = <0x0>;
 			};
@@ -213,7 +213,7 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 55 0x4>;
+				interrupts = <0 57 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -230,7 +230,7 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 57 0x4>;
+				interrupts = <0 59 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -265,7 +265,7 @@
 			reg = < 0x40420000 0x10000 >;
 			dma-channel@40420000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = < 0 56 0x4 >;
+				interrupts = < 0 58 0x4 >;
 				xlnx,datawidth = <0x40>;
 				xlnx,include-dre = <0x0>;
 			} ;
@@ -276,40 +276,6 @@
 			reg = < 0x79020000 0x10000 >;
 			dma-request = <&axi_dma_1 0>;
 			spibus-connected = <&adc0_ad9467>;
-			xlnx,dphase-timeout = <0x8>;
-			xlnx,num-mem = <0x1>;
-			xlnx,num-reg = <0x1>;
-			xlnx,s-axi-min-size = <0x1ff>;
-			xlnx,slv-awidth = <0x20>;
-			xlnx,slv-dwidth = <0x20>;
-			xlnx,use-wstrb = <0x0>;
-		} ;
-
-		axi_dma_2: axidma@40400000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			reg = < 0x40400000 0x10000 >;
-			dma-channel@40400000 {
-				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = < 0 58 0x4 >;
-				xlnx,datawidth = <0x20>;
-				xlnx,include-dre = <0x0>;
-			} ;
-			dma-channel@40400030 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = < 0 59 0x4 >;
-				xlnx,datawidth = <0x20>;
-				xlnx,include-dre = <0x0>;
-			} ;
-		} ;
-
-		cf_fft_core_0: cf-fft-core@7de00000 {
-			compatible = "xlnx,cf-fft-core-1.00.a";
-			reg = < 0x7de00000 0x10000 >;
-			dma-request = <&axi_dma_2 0
-					&axi_dma_2 1>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
 			xlnx,num-reg = <0x1>;
