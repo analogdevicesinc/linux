@@ -100,3 +100,7 @@ static struct platform_driver hdmi_card_driver = {
 	.remove = __devexit_p(adv7511_hdmi_remove),
 };
 module_platform_driver(hdmi_card_driver);
+
+MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_DESCRIPTION("ADV7511 HDMI sound driver");
+MODULE_LICENSE("GPL");

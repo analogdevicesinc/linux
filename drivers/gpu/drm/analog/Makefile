@@ -4,4 +4,4 @@
 
 analogdrm-y := analog_drm_encoder.o analog_drm_crtc.o analog_drm_drv.o
 
-obj-y += analogdrm.o
+obj-$(CONFIG_DRM_ANALOG) += analogdrm.o

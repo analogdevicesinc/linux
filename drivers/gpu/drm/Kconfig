@@ -54,7 +54,7 @@ config DRM_TTM
 	  uses it.
 
 config DRM_GEM_CMA_HELPER
-	tristate
+	bool	
 	depends on DRM
 	help
 	  Choose this if you need the GEM CMA helper functions
@@ -199,10 +199,6 @@ config DRM_ENCODER_ADV7511
 	tristate "AV7511 encoder"
 	depends on I2C && DRM
 	select REGMAP_I2C
-	select DRM_KMS_HELPER
-	select FB_SYS_FILLRECT
-	select FB_SYS_COPYAREA
-	select FB_SYS_IMAGEBLIT
 
 source "drivers/gpu/drm/analog/Kconfig"
 

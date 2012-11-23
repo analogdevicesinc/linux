@@ -239,3 +239,7 @@ static struct platform_driver adv7511_encoder_driver = {
 	.remove = __devexit_p(analog_drm_platform_remove),
 };
 module_platform_driver(adv7511_encoder_driver);
+
+MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_DESCRIPTION("DRM support for Analog Devices FPGA platforms");
+MODULE_LICENSE("GPL");

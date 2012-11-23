@@ -704,3 +704,7 @@ static void __exit adv7511_exit(void)
 	drm_i2c_encoder_unregister(&adv7511_driver);
 }
 module_exit(adv7511_exit);
+
+MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_DESCRIPTION("ADV7511 HDMI transmitter driver");
+MODULE_LICENSE("GPL");
