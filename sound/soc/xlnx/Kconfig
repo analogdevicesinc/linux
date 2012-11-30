@@ -15,3 +15,9 @@ config SND_SOC_ADV7511_HDMI
 	tristate "ADV7511 HDMI transmitter sound support"
 	depends on SND_SOC_XILINX
 	select SND_SOC_AXI_SPDIF
+
+config SND_SOC_ZED_ADAU1761
+	tristate "ZED board sound support"
+	depends on SND_SOC_XILINX
+	select SND_SOC_ADI_AXI_I2S
+	select SND_SOC_ADAU1761
