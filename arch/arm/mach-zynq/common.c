@@ -24,7 +24,6 @@
 #include <linux/of_platform.h>
 #include <linux/of.h>
 #include <linux/memblock.h>
-#include <linux/dma-mapping.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -100,7 +99,6 @@ struct map_desc io_desc[] __initdata = {
 void __init xilinx_map_io(void)
 {
 	iotable_init(io_desc, ARRAY_SIZE(io_desc));
-	init_consistent_dma_size(40 << 20);
 }
 
 /**
