@@ -708,6 +708,12 @@ config SPI_XCOMM
 	  Support for the SPI-I2C bridge found on the Analog Devices
 	  AD-FMCOMMS1-EBZ board.
 
+config SPI_AD9250FMC
+	tristate "Analog Devices AD9250-FMC-250EBZ SPI-SPI-bridge driver"
+	help
+	  Support for the SPI-SPI bridge CPLD found on the Analog Devices
+	  AD9250-FMC-250EBZ and 4DSP FMC176 and FMX230 FMC cards.
+
 config SPI_XILINX
 	tristate "Xilinx SPI controller common module"
 	depends on HAS_IOMEM
