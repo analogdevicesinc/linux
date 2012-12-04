@@ -127,8 +127,7 @@ static int axiadc_dco_calibrate_2c(struct iio_dev *indio_dev)
 		do {
 			mdelay(8);
 			stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-			if ((cnt-- < 0) | (stat & (AXIADC_PCORE_ADC_STAT_PN_ERR0 |
-				AXIADC_PCORE_ADC_STAT_PN_ERR1))) {
+			if (cnt-- < 0) {
 				ret = -EIO;
 				break;
 			}
@@ -214,7 +213,7 @@ static int axiadc_dco_calibrate_1c(struct iio_dev *indio_dev)
 		do {
 			mdelay(8);
 			stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-			if ((cnt-- < 0) | (stat & AXIADC_PCORE_ADC_STAT_PN_ERR)) {
+			if (cnt-- < 0) {
 				ret = -EIO;
 				break;
 			}
