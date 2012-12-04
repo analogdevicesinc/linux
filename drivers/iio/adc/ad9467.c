@@ -18,6 +18,9 @@
 #include <linux/iio/iio.h>
 #include "cf_axi_adc.h"
 
+#include <linux/clk.h>
+#include <linux/clkdev.h>
+
 static int ad9467_spi_read(struct spi_device *spi, unsigned reg)
 {
 	unsigned char buf[3];
@@ -62,8 +65,7 @@ static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 static int ad9250_setup(struct spi_device *spi)
 {
 	int ret;
-
-	msleep(10);
+	unsigned pll_stat;
 
 	ret = ad9467_spi_write(spi, 0x18, 0x0f); // max vref
 	ret |= ad9467_spi_write(spi, 0x64, 0xf0); // did
@@ -83,9 +85,11 @@ static int ad9250_setup(struct spi_device *spi)
 	ret |= ad9467_spi_write(spi, 0xff, 0x01);
 	ret |= ad9467_spi_write(spi, 0xff, 0x00);
 
-	dev_info(&spi->dev, "PLL STATUS 0x%X\n", ad9467_spi_read(spi, 0x0A));
+	pll_stat	 = ad9467_spi_read(spi, 0x0A);
 
-	msleep(500);
+	dev_info(&spi->dev, "PLL %s, JESD204B Link %s\n",
+		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED",
+		 pll_stat & 0x01 ? "Ready" : "Fail");
 
 	return ret;
 }
@@ -93,13 +97,34 @@ static int ad9250_setup(struct spi_device *spi)
 static int ad9467_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv;
+	struct clk *clk = NULL;
 	int ret;
+
+	if (spi_get_device_id(spi)->driver_data == CHIPID_AD9250) {
+		clk = clk_get(&spi->dev, NULL);
+		if (IS_ERR(clk)) {
+			return -EPROBE_DEFER;
+		}
+
+		ret = clk_prepare(clk);
+		if (ret < 0)
+			return ret;
+
+		ret = clk_enable(clk);
+		if (ret < 0) {
+			clk_unprepare(clk);
+			return ret;
+		}
+	}
 
 	conv = kzalloc(sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
 
 	spi->mode = SPI_MODE_0 | SPI_3WIRE;
+
+	if (clk)
+		conv->clk = clk;
 
 	conv->id = ad9467_spi_read(spi, ADC_REG_CHIP_ID);
 	if (conv->id != spi_get_device_id(spi)->driver_data) {
@@ -126,11 +151,24 @@ static int ad9467_probe(struct spi_device *spi)
 
 out:
 	kfree(conv);
+	if (clk) {
+		clk_disable(clk);
+		clk_unprepare(clk);
+		clk_put(clk);
+	}
+
 	return ret;
 }
 
 static int ad9467_remove(struct spi_device *spi)
 {
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
+
+	if (conv->clk) {
+		clk_disable(conv->clk);
+		clk_unprepare(conv->clk);
+		clk_put(conv->clk);
+	}
 	spi_set_drvdata(spi, NULL);
 
 	return 0;

@@ -200,7 +200,8 @@ struct axiadc_state {
 };
 
 struct axiadc_converter {
-	struct spi_device 		*spi;
+	struct spi_device 	*spi;
+	struct clk 		*clk;
 	unsigned			id;
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
