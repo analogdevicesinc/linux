@@ -133,12 +133,13 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 	struct dma_async_tx_descriptor *desc;
 	unsigned tmp_reg, x;
 
+#if 0
 	tmp_reg = dds_read(st, CF_AXI_DDS_DMA_STAT);
 	if (tmp_reg & (CF_AXI_DDS_DMA_STAT_OVF | CF_AXI_DDS_DMA_STAT_UNF))
 		dev_warn(indio_dev->dev.parent, "VDMA Status: %s %s\n",
 			 (tmp_reg & CF_AXI_DDS_DMA_STAT_OVF) ? "overflow" : "",
 			 (tmp_reg & CF_AXI_DDS_DMA_STAT_OVF) ? "underflow" : "");
-
+#endif
 	tmp_reg = dds_read(st, CF_AXI_DDS_CTRL);
 
 	if (!state) {
@@ -155,7 +156,8 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 
 	tmp_reg = CF_AXI_DDS_CTRL_DDS_SEL |
 		CF_AXI_DDS_CTRL_DATA_EN |
-		CF_AXI_DDS_CTRL_DDS_CLK_EN_V2;
+		CF_AXI_DDS_CTRL_DDS_CLK_EN_V2 |
+		st->ddr_dds_interp_en;
 
 
 	x = DIV_ROUND_UP(st->txcount, (VDMA_MAX_VSIZE + 1) * 8);
