@@ -30,7 +30,6 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
 
-#define CF_AXI_DDS_WAVDATA
 #include "cf_axi_dds.h"
 #include "ad9122.h"
 
@@ -238,28 +237,6 @@ static int cf_axi_dds_tune_dci(struct cf_axi_dds_state *st)
 	return 0;
 }
 
-static void cf_axi_dds_mem_init(struct cf_axi_dds_state *st)
-{
-
-	u32 i, sample, addr, data;
-
-	sample = 0;
-	addr = 0;
-
-	for (i = 0; i < ARRAY_SIZE(cf_axi_dds_i_data); i++) {
-		data = (sample << 24) | (addr << 16);
-		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((0 << 26) | data | cf_axi_dds_i_data[i]));
-		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((1 << 26) | data | cf_axi_dds_i_data[i]));
-		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((2 << 26) | data | cf_axi_dds_q_data[i]));
-		dds_write(st, CF_AXI_DDS_MEM_CTRL, ((3 << 26) | data | cf_axi_dds_q_data[i]));
-		sample++;
-		if (sample >= 3) {
-		 	addr++;
-		 	sample = 0;
-		}
-	}
-}
-
 static const int cf_axi_dds_scale_table[16] = {
 	10000, 5000, 2500, 1250, 625, 313, 156,
 };
@@ -421,18 +398,28 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 	if (IS_ERR(conv))
 		return PTR_ERR(conv);
 
-	if (reg > 0xFF)
+	if ((reg & ~DEBUGFS_DRA_PCORE_REG_MAGIC) > 0xFF)
 		return -EINVAL;
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL) {
-		ret = conv->write(conv->spi, reg, writeval & 0xFF);
+		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
+			dds_write(st, reg & 0xFFFF, writeval);
+			ret = 0;
+		} else {
+			ret = conv->write(conv->spi, reg, writeval & 0xFF);
+		}
 	} else {
-		ret = conv->read(conv->spi, reg);
-		if (ret < 0)
-			return ret;
+		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
+			ret = dds_read(st, reg & 0xFFFF);
+		} else {
+			ret = conv->read(conv->spi, reg);
+			if (ret < 0)
+				return ret;
+		}
 		*readval = ret;
 		ret = 0;
+
 	}
 	mutex_unlock(&indio_dev->mlock);
 
@@ -529,6 +516,52 @@ out:
 	return ret;
 }
 
+static ssize_t ad9122_dds_interpolation_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	long readin;
+	int ret;
+
+	ret = kstrtol(buf, 10, &readin);
+	if (ret)
+		return ret;
+
+	mutex_lock(&indio_dev->mlock);
+
+	switch (readin) {
+	case 1:
+		st->ddr_dds_interp_en = 0;
+		break;
+	case 3:
+		st->ddr_dds_interp_en = CF_AXI_DDS_CTRL_INTERPOLATE;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret ? ret : len;
+}
+
+static ssize_t ad9122_dds_interpolation_show(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	int ret = 0;
+
+	mutex_lock(&indio_dev->mlock);
+	ret = sprintf(buf, "%d\n", st->ddr_dds_interp_en ? 3 : 1);
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
 static IIO_DEVICE_ATTR(out_voltage0_phase, S_IRUGO | S_IWUSR,
  			ad9122_dds_show,
  			ad9122_dds_store,
@@ -559,11 +592,17 @@ static IIO_DEVICE_ATTR(out_voltage1_calibscale, S_IRUGO | S_IWUSR,
  			ad9122_dds_store,
  			AD9122_REG_Q_DAC_CTRL);
 
+static IIO_DEVICE_ATTR(out_altvoltage_interpolation, S_IRUGO | S_IWUSR,
+			ad9122_dds_interpolation_show,
+			ad9122_dds_interpolation_store,
+			0);
 
 
 static IIO_CONST_ATTR(out_altvoltage_scale_available,
 		"1.000000 0.500000 0.250000 0.125000 ...");
 
+static IIO_CONST_ATTR(out_altvoltage_interpolation_available,
+		"1 3");
 
 static struct attribute *cf_axi_dds_attributes[] = {
 	&iio_dev_attr_out_voltage0_phase.dev_attr.attr, /* I */
@@ -573,6 +612,8 @@ static struct attribute *cf_axi_dds_attributes[] = {
 	&iio_dev_attr_out_voltage1_calibscale.dev_attr.attr,
 	&iio_dev_attr_out_voltage1_calibbias.dev_attr.attr,
 	&iio_const_attr_out_altvoltage_scale_available.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage_interpolation.dev_attr.attr,
+	&iio_const_attr_out_altvoltage_interpolation_available.dev_attr.attr,
 	NULL,
 };
 
@@ -770,7 +811,7 @@ static int __devinit cf_axi_dds_of_probe(struct platform_device *op)
 
 	cf_axi_dds_tune_dci(st);
 
-	cf_axi_dds_mem_init(st);
+	dds_write(st, CF_AXI_DDS_INTERPOL_CTRL, 0x2aaa5555); /* Lin. Interp. */
 
 	dds_write(st, CF_AXI_DDS_CTRL, 0x0);
 	dds_write(st, CF_AXI_DDS_SCALE, 0x1111); /* divide by 4 */
