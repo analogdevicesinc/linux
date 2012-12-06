@@ -26,11 +26,14 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 
+#include <linux/clk.h>
+
 #include "cf_axi_jesd204b.h"
 
 struct jesd204b_state {
-	struct device 			*dev;
-	void __iomem			*regs;
+	struct device 		*dev;
+	void __iomem		*regs;
+	struct clk 		*clk;
 };
 
 /*
@@ -53,12 +56,18 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 	struct device *dev = &op->dev;
 	struct jesd204b_state *st;
 	struct resource r_mem; /* IO mem resources */
+	struct clk *clk;
 	resource_size_t remap_size, phys_addr;
 	unsigned frmcnt, bytecnt;
 	int ret;
 
 	dev_info(dev, "Device Tree Probing \'%s\'\n",
 		 op->dev.of_node->name);
+
+	clk = clk_get(&op->dev, NULL);
+	if (IS_ERR(clk)) {
+		return -EPROBE_DEFER;
+	}
 
 	st = devm_kzalloc(&op->dev, sizeof(*st), GFP_KERNEL);
 	if (!st) {
@@ -67,13 +76,22 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 	}
 
 	st->dev = dev;
+	st->clk = clk;
 	dev_set_drvdata(dev, st);
+
+	ret = clk_prepare(clk);
+	if (ret < 0)
+		return ret;
+
+	ret = clk_enable(clk);
+	if (ret < 0)
+		goto err_clk_unprepare;
 
 	/* Get iospace for the device */
 	ret = of_address_to_resource(op->dev.of_node, 0, &r_mem);
 	if (ret) {
 		dev_err(dev, "invalid address\n");
-		return ret;
+		goto err_clk_disable;
 	}
 
 	phys_addr = r_mem.start;
@@ -82,7 +100,7 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 		dev_err(dev, "Couldn't lock memory region at 0x%08llX\n",
 			(unsigned long long)phys_addr);
 		ret = -EBUSY;
-		goto failed1;
+		goto err_clk_disable;
 	}
 
 	st->regs = ioremap(phys_addr, remap_size);
@@ -90,7 +108,7 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 		dev_err(dev, "Couldn't ioremap memory at 0x%08llX\n",
 			(unsigned long long)phys_addr);
 		ret = -EFAULT;
-		goto failed2;
+		goto err_release_mem_region;
 	}
 
 	jesd204b_write(st, AXI_JESD204B_REG_TEST_MODE,
@@ -100,12 +118,12 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 	ret = of_property_read_u32(op->dev.of_node,
 				   "jesd,frames-per-multiframe", &frmcnt);
 	if (ret)
-		goto failed2;
+		goto err_release_mem_region;
 
 	ret = of_property_read_u32(op->dev.of_node,
 				   "jesd,bytes-per-frame", &bytecnt);
 	if (ret)
-		goto failed2;
+		goto err_release_mem_region;
 
 	jesd204b_write(st, AXI_JESD204B_REG_CTRL,
 		       (of_property_read_bool(op->dev.of_node, "jesd,scramble_en") ?
@@ -123,9 +141,13 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 
 	return 0;
 
-failed2:
+err_release_mem_region:
 	release_mem_region(phys_addr, remap_size);
-failed1:
+err_clk_disable:
+	clk_disable(clk);
+err_clk_unprepare:
+	clk_unprepare(clk);
+	clk_put(clk);
 	dev_set_drvdata(dev, NULL);
 
 	return ret;
@@ -145,7 +167,6 @@ static int __devexit jesd204b_of_remove(struct platform_device *op)
 	struct resource r_mem; /* IO mem resources */
 	struct jesd204b_state *st = dev_get_drvdata(dev);
 
-
 	iounmap(st->regs);
 
 	/* Get iospace of the device */
@@ -153,6 +174,10 @@ static int __devexit jesd204b_of_remove(struct platform_device *op)
 		dev_err(dev, "invalid address\n");
 	else
 		release_mem_region(r_mem.start, resource_size(&r_mem));
+
+	clk_disable(st->clk);
+	clk_unprepare(st->clk);
+	clk_put(st->clk);
 
 	dev_set_drvdata(dev, NULL);
 
@@ -180,5 +205,5 @@ static struct platform_driver jesd204b_of_driver = {
 module_platform_driver(jesd204b_of_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
-MODULE_DESCRIPTION("Analog Devices CF FFT");
+MODULE_DESCRIPTION("Analog Devices AXI-JESD204B Interface Module");
 MODULE_LICENSE("GPL v2");

@@ -116,7 +116,6 @@ CONFIG_SLAB=y
 # CONFIG_PROFILING is not set
 CONFIG_HAVE_OPROFILE=y
 CONFIG_HAVE_DMA_ATTRS=y
-CONFIG_HAVE_CLK=y
 CONFIG_HAVE_DMA_API_DEBUG=y
 
 #
@@ -467,7 +466,6 @@ CONFIG_OF_MTD=y
 CONFIG_AD525X_DPOT=y
 CONFIG_AD525X_DPOT_I2C=y
 CONFIG_AD525X_DPOT_SPI=y
-# CONFIG_ATMEL_PWM is not set
 # CONFIG_ICS932S401 is not set
 CONFIG_XLNX_LCD=y
 # CONFIG_ENCLOSURE_SERVICES is not set
@@ -677,7 +675,6 @@ CONFIG_I2C_CHARDEV=y
 #
 # I2C system bus drivers (mostly embedded / system-on-chip)
 #
-# CONFIG_I2C_DESIGNWARE_PLATFORM is not set
 # CONFIG_I2C_GPIO is not set
 # CONFIG_I2C_OCORES is not set
 # CONFIG_I2C_PCA_PLATFORM is not set
@@ -710,9 +707,8 @@ CONFIG_SPI_BITBANG=y
 # CONFIG_SPI_GPIO is not set
 # CONFIG_SPI_OC_TINY is not set
 # CONFIG_SPI_PXA2XX_PCI is not set
-CONFIG_SPI_XCOMM=y
-# CONFIG_SPI_AD9250FMC is not set
-# CONFIG_SPI_XILINX is not set
+# CONFIG_SPI_XCOMM is not set
+CONFIG_SPI_XILINX=y
 # CONFIG_SPI_DESIGNWARE is not set
 
 #
@@ -871,7 +867,6 @@ CONFIG_DMADEVICES=y
 # DMA Devices
 #
 CONFIG_XILINX_DMA=y
-# CONFIG_DW_DMAC is not set
 # CONFIG_TIMB_DMA is not set
 CONFIG_DMA_ENGINE=y
 
@@ -1027,14 +1022,6 @@ CONFIG_IIO_SW_RING=y
 # CONFIG_PHONE is not set
 # CONFIG_IPACK_BUS is not set
 # CONFIG_WIMAX_GDM72XX is not set
-CONFIG_CLKDEV_LOOKUP=y
-CONFIG_HAVE_CLK_PREPARE=y
-CONFIG_COMMON_CLK=y
-
-#
-# Common Clock Framework
-#
-# CONFIG_COMMON_CLK_DEBUG is not set
 
 #
 # Hardware Spinlock drivers
@@ -1064,12 +1051,12 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 # CONFIG_AD7266 is not set
 CONFIG_CF_AXI_ADC=y
 CONFIG_CF_AXI_FFT=y
-# CONFIG_AXI_JESD204B is not set
+CONFIG_AXI_JESD204B=y
 
 #
 # Amplifiers
 #
-CONFIG_AD8366=y
+# CONFIG_AD8366 is not set
 
 #
 # Light sensors
@@ -1083,9 +1070,8 @@ CONFIG_AD8366=y
 #
 # Clock Generator/Distribution
 #
-CONFIG_AD9523=y
-CONFIG_AD9548=y
-# CONFIG_AD9517 is not set
+# CONFIG_AD9523 is not set
+# CONFIG_AD9548 is not set
 
 #
 # Direct Digital Synthesis
@@ -1096,7 +1082,7 @@ CONFIG_CF_AXI_DDS_AD9122=y
 #
 # Phase-Locked Loop (PLL) frequency synthesizers
 #
-CONFIG_ADF4350=y
+# CONFIG_ADF4350 is not set
 
 #
 # Digital to analog converters
