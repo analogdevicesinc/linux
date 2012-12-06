@@ -180,7 +180,7 @@ struct ehci_hcd {			/* one per controller */
 	 */
 	void (*start_hnp)(struct ehci_hcd *ehci);
 #ifdef CONFIG_XILINX_ZED_USB_OTG
-	struct otg_transceiver	*ulpi;
+	struct usb_phy	*ulpi;
 #endif
 #endif
 
