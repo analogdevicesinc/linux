@@ -15,6 +15,11 @@
 #ifndef __MACH_IRQS_H
 #define __MACH_IRQS_H
 
-#define NR_IRQS		128
+#define IRQ_XILINX_MSI_0       128
+/*
+ * IRQs 128-256 - PCIe
+ * IRQs 256-512 - gpio
+ */
+#define NR_IRQS		512
 
 #endif

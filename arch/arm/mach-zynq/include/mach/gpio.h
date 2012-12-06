@@ -18,14 +18,9 @@
 #define __ASM_ARCH_GPIO_H
 
 
-#define ARCH_NR_GPIOS		512
-#define XGPIOPS_IRQBASE		128
+#define ARCH_NR_GPIOS		256
+#define XGPIOPS_IRQBASE		256
 
-struct xgpio_platform_data {
-        unsigned int            state;
-        unsigned int            dir;
-	unsigned int            width;
-};
 
 extern int gpio_direction_input(unsigned gpio);
 extern int gpio_direction_output(unsigned gpio, int value);
@@ -59,8 +54,5 @@ static inline unsigned int irq_to_gpio(unsigned int irq)
 {
 	return irq - XGPIOPS_IRQBASE;
 }
-
-void xgpiodf_set_bypass_mode(struct gpio_chip *chip, unsigned int pin);
-void xgpiodf_set_normal_mode(struct gpio_chip *chip, unsigned int pin);
 
 #endif /* __ASM_ARCH_GPIO_H */
