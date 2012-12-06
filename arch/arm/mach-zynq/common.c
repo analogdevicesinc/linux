@@ -27,6 +27,7 @@
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
+#include <asm/mach/time.h>
 #include <asm/mach-types.h>
 #include <asm/page.h>
 #include <asm/hardware/gic.h>
@@ -37,13 +38,12 @@
 #include <mach/pdev.h>
 #include "common.h"
 
-
 static struct of_device_id zynq_of_bus_ids[] __initdata = {
 	{ .compatible = "simple-bus", },
 	{}
 };
 
-static const struct of_device_id xilinx_dt_irq_match[] __initconst = {
+static const struct of_device_id zynq_dt_irq_match[] __initconst = {
 	{ .compatible = "arm,cortex-a9-gic", .data = gic_of_init },
 	{ }
 };
@@ -51,37 +51,22 @@ static const struct of_device_id xilinx_dt_irq_match[] __initconst = {
 /* The minimum devices needed to be mapped before the VM system is up and
  * running include the GIC, UART and Timer Counter.
  */
-struct map_desc io_desc[] __initdata = {
+static struct map_desc io_desc[] __initdata = {
 	{
 		.virtual	= SCU_PERIPH_VIRT,
 		.pfn		= __phys_to_pfn(SCU_PERIPH_PHYS),
 		.length		= SZ_8K,
 		.type		= MT_DEVICE,
 	},
+
 #ifdef CONFIG_DEBUG_LL
 	{
 		.virtual	= LL_UART_VADDR,
 		.pfn		= __phys_to_pfn(LL_UART_PADDR),
-		.length		= SZ_8K,
+		.length		= SZ_4K,
 		.type		= MT_DEVICE,
 	},
 #endif
-
-	/* create a mapping for the OCM  (256K) leaving a hole for the
-	 * interrupt vectors which are handled in the kernel
-	 */
-	{
-		.virtual	= OCM_LOW_VIRT,
-		.pfn		= __phys_to_pfn(OCM_LOW_PHYS),
-		.length		= (192 * SZ_1K),
-		.type		= MT_DEVICE_CACHED,
-	},
-	{
-		.virtual	= OCM_HIGH_VIRT,
-		.pfn		= __phys_to_pfn(OCM_HIGH_PHYS),
-		.length		= (60 * SZ_1K),
-		.type		= MT_DEVICE,
-	},
 
 	/* SLCR space for clock stuff for now */
 	{
@@ -92,6 +77,17 @@ struct map_desc io_desc[] __initdata = {
 	},
 };
 
+static void __init xilinx_zynq_timer_init(void)
+{
+	xttcpss_timer_init();
+}
+
+/*
+ * Instantiate and initialize the system timer structure
+ */
+struct sys_timer xttcpss_sys_timer = {
+	.init		= xilinx_zynq_timer_init,
+};
 
 /**
  * xilinx_map_io() - Create memory mappings needed for early I/O.
@@ -118,6 +114,11 @@ void __init xilinx_memory_init()
 }
 
 #ifdef CONFIG_CPU_FREQ
+#define CPUFREQ_MIN_FREQ_HZ	200000000
+static unsigned int freq_divs[] __initdata = {
+	2, 3
+};
+
 /**
  * xilinx_opp_init() - Register OPPs
  *
@@ -131,6 +132,7 @@ static void __init xilinx_opp_init(void)
 	int ret = 0;
 	long freq;
 	struct clk *cpuclk = clk_get_sys("CPU_6OR4X_CLK", NULL);
+	int i;
 
 	if (IS_ERR(pdev)) {
 		pr_warn("Xilinx OOP init: No device. DVFS not available.");
@@ -144,36 +146,16 @@ static void __init xilinx_opp_init(void)
 	}
 
 	/* frequency/voltage operating points. For now use f only */
-	/* We need some conditionals to enable the max frequencies for the right
-	 * parts only. */
-	/* -3E(?) max f = 1GHz */
-	freq = clk_round_rate(cpuclk, 1000000000);
-	if (abs(1000000000 - freq) < 50000000)
-		ret |= opp_add(dev, freq, 0);
-	/* -3 parts max f = 800 MHz */
-	freq = clk_round_rate(cpuclk, 800000000);
-	if (abs(800000000 - freq) < 10000000)
-		ret |= opp_add(dev, freq, 0);
-	freq = clk_round_rate(cpuclk, 666666667);
-	if (abs(666666667 - freq) < 10000000)
-		ret |= opp_add(dev, freq, 0);
-	freq = clk_round_rate(cpuclk, 555555556);
-	if (abs(555555556 - freq) < 10000000)
-		ret |= opp_add(dev, freq, 0);
-	freq = clk_round_rate(cpuclk, 444444444);
-	if (abs(444444444 - freq) < 10000000)
-		ret |= opp_add(dev, freq, 0);
-	freq = clk_round_rate(cpuclk, 333333333);
-	if (abs(333333333 - freq) < 10000000)
-		ret |= opp_add(dev, freq, 0);
-	freq = clk_round_rate(cpuclk, 222222222);
-	if (abs(222222222 - freq) < 10000000)
-		ret |= opp_add(dev, freq, 0);
-	freq = clk_round_rate(cpuclk, 111111111);
-	if (abs(111111111 - freq) < 10000000)
-		ret |= opp_add(dev, freq, 0);
-	freq = clk_round_rate(cpuclk, 50000000);
-	if (abs(50000000 - freq) < 5000000)
+	freq = clk_get_rate(cpuclk);
+	ret |= opp_add(dev, freq, 0);
+	for (i = 0; i < ARRAY_SIZE(freq_divs); i++) {
+		long tmp = clk_round_rate(cpuclk, freq / freq_divs[i]);
+		if (tmp >= CPUFREQ_MIN_FREQ_HZ)
+			ret |= opp_add(dev, tmp, 0);
+	}
+	freq = clk_round_rate(cpuclk, CPUFREQ_MIN_FREQ_HZ);
+	if (freq >= CPUFREQ_MIN_FREQ_HZ && IS_ERR(opp_find_freq_exact(dev, freq,
+				1)))
 		ret |= opp_add(dev, freq, 0);
 
 	if (ret)
@@ -202,7 +184,7 @@ early_initcall(xilinx_l2c_init);
  */
 void __init xilinx_irq_init(void)
 {
-	of_irq_init(xilinx_dt_irq_match);
+	of_irq_init(zynq_dt_irq_match);
 	/* This is probably the ugliest hack possible but this is why:
 	 * Clock init needs to be done before timer init, so the timer can use
 	 * COMMON_CLK. All __initcall types are called after time_init().

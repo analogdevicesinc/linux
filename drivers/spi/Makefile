@@ -1,4 +1,4 @@
-
+#
 # Makefile for kernel SPI drivers.
 #
 
@@ -26,6 +26,7 @@ obj-$(CONFIG_SPI_DW_MMIO)		+= spi-dw-mmio.o
 obj-$(CONFIG_SPI_DW_PCI)		+= spi-dw-midpci.o
 spi-dw-midpci-objs			:= spi-dw-pci.o spi-dw-mid.o
 obj-$(CONFIG_SPI_EP93XX)		+= spi-ep93xx.o
+obj-$(CONFIG_SPI_FALCON)		+= spi-falcon.o
 obj-$(CONFIG_SPI_FSL_LIB)		+= spi-fsl-lib.o
 obj-$(CONFIG_SPI_FSL_ESPI)		+= spi-fsl-espi.o
 obj-$(CONFIG_SPI_FSL_SPI)		+= spi-fsl-spi.o
@@ -65,4 +66,3 @@ obj-$(CONFIG_SPI_XCOMM)		+= spi-xcomm.o
 obj-$(CONFIG_SPI_XILINX)		+= spi-xilinx.o
 obj-$(CONFIG_SPI_XILINX_PS_SPI)		+= spi-xilinx-ps.o
 obj-$(CONFIG_SPI_XILINX_PS_QSPI)	+= spi-xilinx-qps.o
-

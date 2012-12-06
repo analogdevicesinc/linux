@@ -166,7 +166,7 @@ static int adf4350_set_freq(struct adf4350_state *st, unsigned long long freq)
 				r_cnt = adf4350_tune_r_cnt(st, r_cnt);
 				st->r1_mod = st->fpfd / chspc;
 				if (r_cnt > ADF4350_MAX_R_CNT) {
-					/* dtry higher spacing values */
+					/* try higher spacing values */
 					chspc++;
 					r_cnt = 0;
 				}

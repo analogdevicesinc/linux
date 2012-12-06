@@ -9,10 +9,10 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x00000000 0x40000000>; 
+		reg = <0x00000000 0x40000000>;
 	};
 	chosen {
-		bootargs = "console=ttyPS0,115200 root=/dev/ram rw ip=:::::eth0:dhcp earlyprintk"; 
+		bootargs = "console=ttyPS0,115200 root=/dev/ram rw ip=:::::eth0:dhcp earlyprintk";
 		linux,stdout-path = "/amba@0/uart@E0001000";
 	};
 
@@ -56,7 +56,7 @@
 		timer@0xf8001000 {
 			compatible = "xlnx,ps7-ttc-1.00.a";
 			reg = <0xf8001000 0x1000>;
-			interrupts = <0 10 4>,<0 11 4>,<0 12 4>; 
+			interrupts = <0 10 4>,<0 11 4>,<0 12 4>;
 			interrupt-parent = <&gic>;
 			clock-frequency-timer0 = <111111111>;
 			clock-frequency-timer1 = <111111111>;
@@ -104,11 +104,14 @@
 			xlnx,slcr-div1-10Mbps = <50>;
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
-
-			phy0: phy@7 {
-				compatible = "marvell,88e1116r";
-				device_type = "ethernet-phy";
-				reg = <0x7>;
+			mdio {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				phy0: phy@7 {
+					compatible = "marvell,88e1116r";
+					device_type = "ethernet-phy";
+					reg = <7>;
+				};
 			};
 		};
 
@@ -120,9 +123,77 @@
 			bus-id = <0>;
 			input-clk = <111111111>;
 			i2c-clk = <100000>;
-			
+
 			#address-cells = <1>;
 			#size-cells = <0>;
+                        i2cswitch@74 {
+                                compatible = "nxp,pca9548";
+                                #address-cells = <1>;
+                                #size-cells = <0>;
+                                reg = <0x74>;
+
+				i2c@0 {
+                                        #address-cells = <1>;
+                                        #size-cells = <0>;
+                                        reg = <0>;
+                                        osc@5d {
+                                                compatible = "si570";
+                                                reg = <0x5d>;
+						factory-fout = <156250000>;
+						initial-fout = <148500000>;
+                                        };
+				};
+
+				i2c@2 {
+                                        #address-cells = <1>;
+                                        #size-cells = <0>;
+                                        reg = <2>;
+                                        eeprom@54 {
+                                                compatible = "at,24c08";
+                                                reg = <0x54>;
+                                        };
+                                };
+
+				i2c@3 {
+                                        #address-cells = <1>;
+                                        #size-cells = <0>;
+                                        reg = <3>;
+                                        gpio@21 {
+                                                compatible = "ti,tca6416";
+                                                reg = <0x21>;
+						gpio-controller;
+						#gpio-cells = <2>;
+                                        };
+				};
+
+				i2c@4 {
+                                        #address-cells = <1>;
+                                        #size-cells = <0>;
+                                        reg = <4>;
+                                        rtc@54 {
+                                                compatible = "nxp,pcf8563";
+                                                reg = <0x51>;
+                                        };
+				};
+
+				i2c@7 {
+                                        #address-cells = <1>;
+                                        #size-cells = <0>;
+                                        reg = <7>;
+                                        hwmon@52{
+                                                compatible = "pmbus,ucd9248";
+                                                reg = <52>;
+                                        };
+                                        hwmon@53{
+                                                compatible = "pmbus,ucd9248";
+                                                reg = <53>;
+                                        };
+                                        hwmon@54{
+                                                compatible = "pmbus,ucd9248";
+                                                reg = <54>;
+					};
+				};
+			};
 		};
 
 		sdhci@e0100000 {

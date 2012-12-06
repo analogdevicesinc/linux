@@ -17,19 +17,19 @@
  */
 
 
-#include <linux/module.h>
+#include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/platform_device.h>
-#include <linux/spi/spi.h>
 #include <linux/io.h>
-#include <linux/spinlock.h>
-#include <linux/workqueue.h>
-#include <linux/delay.h>
-#include <linux/xilinx_devices.h>
+#include <linux/module.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
-#include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/spi/spi.h>
+#include <linux/spinlock.h>
+#include <linux/workqueue.h>
+#include <linux/xilinx_devices.h>
 
 /*
  * Name of this driver
@@ -105,7 +105,9 @@
  * @queue:		Head of the queue
  * @queue_state:	Queue status
  * @regs:		Virtual address of the SPI controller registers
- * @input_clk_hz:	Input clock frequency of the SPI controller in Hz
+ * @devclk		Pointer to the peripheral clock
+ * @aperclk		Pointer to the APER clock
+ * @clk_rate_change_nb	Notifier block for clock frequency change callback
  * @irq:		IRQ number
  * @speed_hz:		Current SPI bus clock speed in Hz
  * @trans_queue_lock:	Lock used for accessing transfer queue
@@ -122,7 +124,9 @@ struct xspips {
 	struct list_head queue;
 	int queue_state;
 	void __iomem *regs;
-	u32 input_clk_hz;
+	struct clk *devclk;
+	struct clk *aperclk;
+	struct notifier_block clk_rate_change_nb;
 	u32 irq;
 	u32 speed_hz;
 	spinlock_t trans_queue_lock;
@@ -181,9 +185,10 @@ static void xspips_chipselect(struct spi_device *spi, int is_on)
 		ctrl_reg &= ~XSPIPS_CR_SSCTRL_MASK;
 		ctrl_reg |= (((~(0x0001 << spi->chip_select)) << 10) &
 				XSPIPS_CR_SSCTRL_MASK);
-	} else
+	} else {
 		/* Deselect the slave */
 		ctrl_reg |= XSPIPS_CR_SSCTRL_MASK;
+	}
 
 	xspips_write(xspi->regs + XSPIPS_CR_OFFSET, ctrl_reg);
 
@@ -248,15 +253,15 @@ static int xspips_setup_transfer(struct spi_device *spi,
 	/* Set the clock frequency */
 	if (xspi->speed_hz != req_hz) {
 		baud_rate_val = 0;
-		while ((baud_rate_val < 8)  &&
-			(xspi->input_clk_hz / (2 << baud_rate_val)) > req_hz) {
-				baud_rate_val++;
-		}
+		while ((baud_rate_val < 8) && (clk_get_rate(xspi->devclk) /
+					(2 << baud_rate_val)) > req_hz)
+			baud_rate_val++;
 
 		ctrl_reg &= 0xFFFFFFC7;
 		ctrl_reg |= (baud_rate_val << 3);
 
-		xspi->speed_hz = (xspi->input_clk_hz / (2 << baud_rate_val));
+		xspi->speed_hz =
+			(clk_get_rate(xspi->devclk) / (2 << baud_rate_val));
 	}
 
 	xspips_write(xspi->regs + XSPIPS_CR_OFFSET, ctrl_reg);
@@ -630,6 +635,25 @@ static inline int xspips_destroy_queue(struct xspips *xspi)
 	return 0;
 }
 
+static int xspips_clk_notifier_cb(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	switch (event) {
+	case PRE_RATE_CHANGE:
+		/* if a rate change is announced we need to check whether we can
+		 * maintain the current frequency by changing the clock
+		 * dividers. And we may have to suspend operation and return
+		 * after the rate change or its abort
+		 */
+		return NOTIFY_OK;
+	case POST_RATE_CHANGE:
+		return NOTIFY_OK;
+	case ABORT_RATE_CHANGE:
+	default:
+		return NOTIFY_DONE;
+	}
+}
+
 /**
  * xspips_probe - Probe method for the SPI driver
  * @dev:	Pointer to the platform_device structure
@@ -644,13 +668,9 @@ static int __devinit xspips_probe(struct platform_device *dev)
 	struct spi_master *master;
 	struct xspips *xspi;
 	struct resource *r;
-#ifdef CONFIG_OF
 	const unsigned int *prop;
-#else
-	struct xspi_platform_data *platform_info;
-#endif
 
-	master = spi_alloc_master(&dev->dev, sizeof(struct xspips));
+	master = spi_alloc_master(&dev->dev, sizeof(*xspi));
 	if (master == NULL)
 		return -ENOMEM;
 
@@ -658,14 +678,6 @@ static int __devinit xspips_probe(struct platform_device *dev)
 	master->dev.of_node = dev->dev.of_node;
 	platform_set_drvdata(dev, master);
 
-#ifndef CONFIG_OF
-	platform_info = dev->dev.platform_data;
-	if (platform_info == NULL) {
-		ret = -ENODEV;
-		dev_err(&dev->dev, "platform data not available\n");
-		goto put_master;
-	}
-#endif
 	r = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (r == NULL) {
 		ret = -ENODEV;
@@ -701,50 +713,72 @@ static int __devinit xspips_probe(struct platform_device *dev)
 		goto unmap_io;
 	}
 
+	if (xspi->irq == 58)
+		xspi->aperclk = clk_get_sys("SPI0_APER", NULL);
+	else
+		xspi->aperclk = clk_get_sys("SPI1_APER", NULL);
+
+	if (IS_ERR(xspi->aperclk)) {
+		dev_err(&dev->dev, "APER clock not found.\n");
+		ret = PTR_ERR(xspi->aperclk);
+		goto free_irq;
+	}
+
+	if (xspi->irq == 58)
+		xspi->devclk = clk_get_sys("SPI0", NULL);
+	else
+		xspi->devclk = clk_get_sys("SPI1", NULL);
+
+	if (IS_ERR(xspi->devclk)) {
+		dev_err(&dev->dev, "Device clock not found.\n");
+		ret = PTR_ERR(xspi->devclk);
+		goto clk_put_aper;
+	}
+
+	ret = clk_prepare_enable(xspi->aperclk);
+	if (ret) {
+		dev_err(&dev->dev, "Unable to enable APER clock.\n");
+		goto clk_put;
+	}
+
+	ret = clk_prepare_enable(xspi->devclk);
+	if (ret) {
+		dev_err(&dev->dev, "Unable to enable device clock.\n");
+		goto clk_dis_aper;
+	}
+
+	xspi->clk_rate_change_nb.notifier_call = xspips_clk_notifier_cb;
+	xspi->clk_rate_change_nb.next = NULL;
+	if (clk_notifier_register(xspi->devclk, &xspi->clk_rate_change_nb))
+		dev_warn(&dev->dev, "Unable to register clock notifier.\n");
+
 	/* SPI controller initializations */
 	xspips_init_hw(xspi->regs);
 
 	init_completion(&xspi->done);
 
-#ifdef CONFIG_OF
 	prop = of_get_property(dev->dev.of_node, "bus-num", NULL);
-	if (prop)
+	if (prop) {
 		master->bus_num = be32_to_cpup(prop);
-	else {
+	} else {
 		ret = -ENXIO;
 		dev_err(&dev->dev, "couldn't determine bus-num\n");
-		goto free_irq;
+		goto clk_notif_unreg;
 	}
 
 	prop = of_get_property(dev->dev.of_node, "num-chip-select", NULL);
-	if (prop)
+	if (prop) {
 		master->num_chipselect = be32_to_cpup(prop);
-	else {
+	} else {
 		ret = -ENXIO;
 		dev_err(&dev->dev, "couldn't determine num-chip-select\n");
-		goto free_irq;
+		goto clk_notif_unreg;
 	}
-#else
-	master->bus_num = platform_info->bus_num;
-	master->num_chipselect = platform_info->num_chipselect;
-#endif
 	master->setup = xspips_setup;
 	master->transfer = xspips_transfer;
 
-#ifdef CONFIG_OF
-	prop = of_get_property(dev->dev.of_node, "speed-hz", NULL);
-	if (prop) {
-		xspi->input_clk_hz = be32_to_cpup(prop);
-		xspi->speed_hz = xspi->input_clk_hz / 2;
-	} else {
-		ret = -ENXIO;
-		dev_err(&dev->dev, "couldn't determine speed-hz\n");
-		goto free_irq;
-	}
-#else
-	xspi->input_clk_hz = platform_info->speed_hz;
-	xspi->speed_hz = platform_info->speed_hz / 2;
-#endif
+	xspi->speed_hz = clk_get_rate(xspi->devclk) / 2;
+
 	xspi->dev_busy = 0;
 
 	INIT_LIST_HEAD(&xspi->queue);
@@ -760,7 +794,7 @@ static int __devinit xspips_probe(struct platform_device *dev)
 	if (!xspi->workqueue) {
 		ret = -ENOMEM;
 		dev_err(&dev->dev, "problem initializing queue\n");
-		goto free_irq;
+		goto clk_notif_unreg;
 	}
 
 	ret = xspips_start_queue(xspi);
@@ -782,6 +816,15 @@ static int __devinit xspips_probe(struct platform_device *dev)
 
 remove_queue:
 	(void)xspips_destroy_queue(xspi);
+clk_notif_unreg:
+	clk_notifier_unregister(xspi->devclk, &xspi->clk_rate_change_nb);
+	clk_disable_unprepare(xspi->devclk);
+clk_dis_aper:
+	clk_disable_unprepare(xspi->aperclk);
+clk_put:
+	clk_put(xspi->devclk);
+clk_put_aper:
+	clk_put(xspi->aperclk);
 free_irq:
 	free_irq(xspi->irq, xspi);
 unmap_io:
@@ -791,6 +834,7 @@ release_mem:
 put_master:
 	platform_set_drvdata(dev, NULL);
 	spi_master_put(master);
+	kfree(master);
 	return ret;
 }
 
@@ -833,12 +877,20 @@ static int __devexit xspips_remove(struct platform_device *dev)
 	/* Prevent double remove */
 	platform_set_drvdata(dev, NULL);
 
+	clk_notifier_unregister(xspi->devclk, &xspi->clk_rate_change_nb);
+	clk_disable_unprepare(xspi->devclk);
+	clk_disable_unprepare(xspi->aperclk);
+	clk_put(xspi->devclk);
+	clk_put(xspi->aperclk);
+
+	kfree(master);
+
 	dev_dbg(&dev->dev, "remove succeeded\n");
 	return 0;
 
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 /**
  * xspips_suspend - Suspend method for the SPI driver
  * @dev:	Address of the platform_device structure
@@ -848,9 +900,11 @@ static int __devexit xspips_remove(struct platform_device *dev)
  *
  * returns:	0 on success and error value on error
  **/
-static int xspips_suspend(struct platform_device *dev, pm_message_t msg)
+static int xspips_suspend(struct device *_dev)
 {
-	struct spi_master *master = platform_get_drvdata(dev);
+	struct platform_device *pdev = container_of(_dev,
+			struct platform_device, dev);
+	struct spi_master *master = platform_get_drvdata(pdev);
 	struct xspips *xspi = spi_master_get_devdata(master);
 	int ret = 0;
 
@@ -860,7 +914,10 @@ static int xspips_suspend(struct platform_device *dev, pm_message_t msg)
 
 	xspips_write(xspi->regs + XSPIPS_ER_OFFSET, ~XSPIPS_ER_ENABLE_MASK);
 
-	dev_dbg(&dev->dev, "suspend succeeded\n");
+	clk_disable(xspi->devclk);
+	clk_disable(xspi->aperclk);
+
+	dev_dbg(&pdev->dev, "suspend succeeded\n");
 	return 0;
 }
 
@@ -872,40 +929,57 @@ static int xspips_suspend(struct platform_device *dev, pm_message_t msg)
  *
  * returns:	0 on success and error value on error
  **/
-static int xspips_resume(struct platform_device *dev)
+static int xspips_resume(struct device *_dev)
 {
-	struct spi_master *master = platform_get_drvdata(dev);
+	struct platform_device *pdev = container_of(_dev,
+			struct platform_device, dev);
+	struct spi_master *master = platform_get_drvdata(pdev);
 	struct xspips *xspi = spi_master_get_devdata(master);
 	int ret = 0;
+
+	ret = clk_enable(xspi->aperclk);
+	if (ret) {
+		dev_err(_dev, "Cannot enable APER clock.\n");
+		return ret;
+	}
+
+	ret = clk_enable(xspi->devclk);
+	if (ret) {
+		dev_err(_dev, "Cannot enable device clock.\n");
+		clk_disable(xspi->aperclk);
+		return ret;
+	}
 
 	xspips_init_hw(xspi->regs);
 
 	ret = xspips_start_queue(xspi);
 	if (ret != 0) {
-		dev_err(&dev->dev, "problem starting queue (%d)\n", ret);
+		dev_err(&pdev->dev, "problem starting queue (%d)\n", ret);
 		return ret;
 	}
 
-	dev_dbg(&dev->dev, "resume succeeded\n");
+	dev_dbg(&pdev->dev, "resume succeeded\n");
 	return 0;
 }
-#else
-#define xspips_suspend NULL
-#define xspips_resume  NULL
-#endif /* CONFIG_PM */
+
+static const struct dev_pm_ops xspips_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(xspips_suspend, xspips_resume)
+};
+#define XSPIPS_PM	(&xspips_dev_pm_ops)
+
+#else /* ! CONFIG_PM_SLEEP */
+#define XSPIPS_PM	NULL
+#endif /* ! CONFIG_PM_SLEEP */
+
 
 /* Work with hotplug and coldplug */
 MODULE_ALIAS("platform:" XSPIPS_NAME);
 
-#ifdef CONFIG_OF
 static struct of_device_id xspips_of_match[] __devinitdata = {
 	{ .compatible = "xlnx,ps7-spi-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xspips_of_match);
-#else
-#define xspips_of_match NULL
-#endif /* CONFIG_OF */
 
 /*
  * xspips_driver - This structure defines the SPI subsystem platform driver
@@ -913,12 +987,11 @@ MODULE_DEVICE_TABLE(of, xspips_of_match);
 static struct platform_driver xspips_driver = {
 	.probe	= xspips_probe,
 	.remove	= __devexit_p(xspips_remove),
-	.suspend = xspips_suspend,
-	.resume = xspips_resume,
 	.driver = {
 		.name = XSPIPS_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = xspips_of_match,
+		.pm = XSPIPS_PM,
 	},
 };
 

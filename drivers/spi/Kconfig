@@ -125,7 +125,7 @@ config SPI_BUTTERFLY
 
 config SPI_COLDFIRE_QSPI
 	tristate "Freescale Coldfire QSPI controller"
-	depends on (M520x || M523x || M5249 || M527x || M528x || M532x)
+	depends on (M520x || M523x || M5249 || M525x || M527x || M528x || M532x)
 	help
 	  This enables support for the Coldfire QSPI controller in master
 	  mode.
@@ -143,6 +143,15 @@ config SPI_EP93XX
 	help
 	  This enables using the Cirrus EP93xx SPI controller in master
 	  mode.
+
+config SPI_FALCON
+	tristate "Falcon SPI controller support"
+	depends on SOC_FALCON
+	help
+	  The external bus unit (EBU) found on the FALC-ON SoC has SPI
+	  emulation that is designed for serial flash access. This driver
+	  has only been tested with m25p80 type chips. The hardware has no
+	  support for other types of SPI peripherals.
 
 config SPI_GPIO
 	tristate "GPIO-based bitbanging SPI Master"
@@ -357,7 +366,7 @@ config SPI_STMP3XXX
 
 config SPI_TEGRA
 	tristate "Nvidia Tegra SPI controller"
-	depends on ARCH_TEGRA && TEGRA_SYSTEM_DMA
+	depends on ARCH_TEGRA && (TEGRA_SYSTEM_DMA || TEGRA20_APB_DMA)
 	help
 	  SPI driver for NVidia Tegra SoCs
 
@@ -385,10 +394,11 @@ config SPI_TXX9
 	  SPI driver for Toshiba TXx9 MIPS SoCs
 
 config SPI_XCOMM
-	tristate "SPI-I2C-bridge driver for the ADI Xcomm board"
+	tristate "Analog Devices AD-FMCOMMS1-EBZ SPI-I2C-bridge driver"
 	depends on I2C
 	help
-	  Support for the SPI-I2C-bridge IC found on the ADI Xcomm board.
+	  Support for the SPI-I2C bridge found on the Analog Devices
+	  AD-FMCOMMS1-EBZ board.
 
 config SPI_XILINX
 	tristate "Xilinx SPI controller common module"
@@ -403,12 +413,14 @@ config SPI_XILINX
 
 config SPI_XILINX_PS_QSPI
 	tristate "Xilinx PS QSPI controller"
+	depends on ARCH_ZYNQ
 	depends on SPI_MASTER && EXPERIMENTAL
 	help
 	  This selects the PS Quad SPI controller master driver from the Xilinx.
 
 config SPI_XILINX_PS_SPI
 	tristate "Xilinx PS SPI controller"
+	depends on ARCH_ZYNQ
 	depends on SPI_MASTER && EXPERIMENTAL
 	help
 	  This selects the PS SPI controller master driver from the Xilinx.

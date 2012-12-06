@@ -24,10 +24,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
-#ifdef CONFIG_COMMON_CLK
 #include <linux/err.h>
 #include <linux/clk.h>
-#endif
 
 #define DRIVER_NAME "xgpiops"
 
@@ -84,9 +82,7 @@ static unsigned int xgpiops_pin_table[] = {
 struct xgpiops {
 	struct gpio_chip chip;
 	void __iomem *base_addr;
-#ifdef CONFIG_COMMON_CLK
 	struct clk *clk;
-#endif
 	spinlock_t gpio_lock;
 };
 
@@ -306,7 +302,7 @@ static void xgpiops_irq_unmask(struct irq_data *irq_data)
 
 /**
  * xgpiops_set_irq_type - Set the irq type for a gpio pin
- * @irq_data:	irq data containing irq number of gpio pin 
+ * @irq_data:	irq data containing irq number of gpio pin
  * @type:	interrupt type that is to be set for the gpio pin
  *
  * This function gets the gpio pin number and its bank from the gpio pin number
@@ -426,20 +422,21 @@ void xgpiops_irqhandler(unsigned int irq, struct irq_desc *desc)
 						      &irq_desc[gpio_irq]);
 		}
 		/* shift to first virtual irq of next bank */
-		gpio_irq = (int)irq_get_handler_data(irq) + 
+		gpio_irq = (int)irq_get_handler_data(irq) +
 				(xgpiops_pin_table[bank_num] + 1);
 	}
 	chip->irq_unmask(irq_data);
 }
 
-#if defined(CONFIG_PM) && defined(CONFIG_COMMON_CLK)
+#ifdef CONFIG_PM_SLEEP
 static int xgpiops_suspend(struct device *_dev)
 {
 	struct platform_device *pdev = container_of(_dev,
 			struct platform_device, dev);
 	struct xgpiops *gpio = platform_get_drvdata(pdev);
 
-	clk_disable(gpio->clk);
+	if (!pm_runtime_suspended(_dev))
+		clk_disable(gpio->clk);
 	return 0;
 }
 
@@ -449,10 +446,36 @@ static int xgpiops_resume(struct device *_dev)
 			struct platform_device, dev);
 	struct xgpiops *gpio = platform_get_drvdata(pdev);
 
-	return clk_enable(gpio->clk);
+	if (!pm_runtime_suspended(_dev))
+		return clk_enable(gpio->clk);
+
+	return 0;
 }
+#endif
 
 #ifdef CONFIG_PM_RUNTIME
+static int xgpiops_runtime_suspend(struct device *_dev)
+{
+	struct platform_device *pdev = container_of(_dev,
+			struct platform_device, dev);
+	struct xgpiops *gpio = platform_get_drvdata(pdev);
+
+	clk_disable(gpio->clk);
+
+	return 0;
+}
+
+static int xgpiops_runtime_resume(struct device *_dev)
+{
+	struct platform_device *pdev = container_of(_dev,
+			struct platform_device, dev);
+	struct xgpiops *gpio = platform_get_drvdata(pdev);
+
+	return clk_enable(gpio->clk);
+
+	return 0;
+}
+
 static int xgpiops_idle(struct device *dev)
 {
 	return pm_schedule_suspend(dev, 1);
@@ -462,7 +485,7 @@ static int xgpiops_request(struct gpio_chip *chip, unsigned offset)
 {
 	int ret;
 
-	ret = pm_runtime_get(chip->dev);
+	ret = pm_runtime_get_sync(chip->dev);
 
 	/*
 	 * If the device is already active pm_runtime_get() will return 1 on
@@ -473,24 +496,25 @@ static int xgpiops_request(struct gpio_chip *chip, unsigned offset)
 
 static void xgpiops_free(struct gpio_chip *chip, unsigned offset)
 {
-	pm_runtime_put(chip->dev);
+	pm_runtime_put_sync(chip->dev);
 }
 
-static UNIVERSAL_DEV_PM_OPS(xgpiops_dev_pm_ops, xgpiops_suspend, xgpiops_resume,
-		xgpiops_idle);
 #else /* ! CONFIG_PM_RUNTIME */
-static SIMPLE_DEV_PM_OPS(xgpiops_dev_pm_ops, xgpiops_suspend, xgpiops_resume);
 #define xgpiops_request	NULL
 #define xgpiops_free	NULL
 #endif /* ! CONFIG_PM_RUNTIME */
 
+#if defined(CONFIG_PM_RUNTIME) || defined(CONFIG_PM_SLEEP)
+static const struct dev_pm_ops xgpiops_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(xgpiops_suspend, xgpiops_resume)
+	SET_RUNTIME_PM_OPS(xgpiops_runtime_suspend, xgpiops_runtime_resume,
+			xgpiops_idle)
+};
 #define XGPIOPS_PM	(&xgpiops_dev_pm_ops)
 
-#else /*! CONFIG_PM && ! CONFIG_COMMON_CLK */
+#else /*! CONFIG_PM_RUNTIME || ! CONFIG_PM_SLEEP */
 #define XGPIOPS_PM	NULL
-#define xgpiops_request	NULL
-#define xgpiops_free	NULL
-#endif /*! CONFIG_PM && ! CONFIG_COMMON_CLK */
+#endif /*! CONFIG_PM_RUNTIME */
 
 /**
  * xgpiops_probe - Initialization method for a xgpiops device
@@ -502,7 +526,7 @@ static SIMPLE_DEV_PM_OPS(xgpiops_dev_pm_ops, xgpiops_suspend, xgpiops_resume);
  * Note: Interrupts are disabled for all the banks during initialization.
  * Returns 0 on success, negative error otherwise.
  */
-static int __init xgpiops_probe(struct platform_device *pdev)
+static int __devinit xgpiops_probe(struct platform_device *pdev)
 {
 	int ret;
 	unsigned int irq_num;
@@ -574,20 +598,18 @@ static int __init xgpiops_probe(struct platform_device *pdev)
 			 (unsigned long)gpio->base_addr);
 	}
 
-#ifdef CONFIG_COMMON_CLK
 	/* Enable GPIO clock */
 	gpio->clk = clk_get_sys("GPIO_APER", NULL);
 	if (IS_ERR(gpio->clk)) {
-		pr_err("Xilinx GPIOPS clock not found.\n");
+		dev_err(&pdev->dev, "Clock not found.\n");
 		ret = PTR_ERR(gpio->clk);
 		goto err_chip_remove;
 	}
 	ret = clk_prepare_enable(gpio->clk);
 	if (ret) {
-		pr_err("Xilinx GPIOPS unable to enable clock.\n");
+		dev_err(&pdev->dev, "Unable to enable clock.\n");
 		goto err_clk_put;
 	}
-#endif
 
 	/* disable interrupts for all banks */
 	for (bank_num = 0; bank_num < 4; bank_num++) {
@@ -610,17 +632,15 @@ static int __init xgpiops_probe(struct platform_device *pdev)
 	irq_set_handler_data(irq_num, (void *)(XGPIOPS_IRQBASE));
 	irq_set_chained_handler(irq_num, xgpiops_irqhandler);
 
-	pm_runtime_set_active(&pdev->dev);
+	clk_disable(gpio->clk);
 	pm_runtime_enable(&pdev->dev);
 
 	return 0;
 
-#ifdef CONFIG_COMMON_CLK
 err_clk_put:
 	clk_put(gpio->clk);
 err_chip_remove:
 	gpiochip_remove(chip);
-#endif
 err_iounmap:
 	iounmap(gpio->base_addr);
 err_release_region:
@@ -634,31 +654,25 @@ err_free_gpio:
 
 static int xgpiops_remove(struct platform_device *pdev)
 {
-#ifdef CONFIG_COMMON_CLK
 	struct xgpiops *gpio = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(gpio->clk);
 	clk_put(gpio->clk);
-#endif
 	return 0;
 }
 
-#ifdef CONFIG_OF
 static struct of_device_id xgpiops_of_match[] __devinitdata = {
 	{ .compatible = "xlnx,ps7-gpio-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xgpiops_of_match);
-#endif
 
 static struct platform_driver xgpiops_driver = {
 	.driver	= {
 		.name	= DRIVER_NAME,
 		.owner	= THIS_MODULE,
 		.pm	= XGPIOPS_PM,
-#ifdef CONFIG_OF
 		.of_match_table = xgpiops_of_match,
-#endif
 	},
 	.probe		= xgpiops_probe,
 	.remove		= xgpiops_remove,

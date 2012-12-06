@@ -24,12 +24,12 @@
 #include <linux/clockchips.h>
 #include <linux/io.h>
 #include <linux/of.h>
-#include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of_address.h>
+
 #include <linux/clk.h>
 #include <linux/err.h>
 
-#include <asm/mach/time.h>
 #include <asm/smp_twd.h>
 
 #include <mach/zynq_soc.h>
@@ -131,8 +131,7 @@ static irqreturn_t xttcpss_clock_event_interrupt(int irq, void *dev_id)
 	struct xttcpss_timer *timer = dev_id;
 
 	/* Acknowledge the interrupt and call event handler */
-	__raw_writel(__raw_readl(timer->base_addr + XTTCPSS_ISR_OFFSET),
-			timer->base_addr + XTTCPSS_ISR_OFFSET);
+	__raw_readl(timer->base_addr + XTTCPSS_ISR_OFFSET);
 
 	evt->event_handler(evt);
 
@@ -159,7 +158,7 @@ static void __init xttcpss_timer_hardware_init(void)
 	 */
 	__raw_writel(0x0, timers[XTTCPSS_CLOCKSOURCE].base_addr +
 				XTTCPSS_IER_OFFSET);
-	__raw_writel(CLK_CNTRL_PRESCALE, 
+	__raw_writel(CLK_CNTRL_PRESCALE,
 			timers[XTTCPSS_CLOCKSOURCE].base_addr +
 			XTTCPSS_CLK_CNTRL_OFFSET);
 	__raw_writel(0x10, timers[XTTCPSS_CLOCKSOURCE].base_addr +
@@ -171,8 +170,8 @@ static void __init xttcpss_timer_hardware_init(void)
 	 */
 	__raw_writel(0x23, timers[XTTCPSS_CLOCKEVENT].base_addr +
 			XTTCPSS_CNT_CNTRL_OFFSET);
-	__raw_writel(CLK_CNTRL_PRESCALE, 
-			timers[XTTCPSS_CLOCKEVENT].base_addr + 
+	__raw_writel(CLK_CNTRL_PRESCALE,
+			timers[XTTCPSS_CLOCKEVENT].base_addr +
 			XTTCPSS_CLK_CNTRL_OFFSET);
 	__raw_writel(0x1, timers[XTTCPSS_CLOCKEVENT].base_addr +
 			XTTCPSS_IER_OFFSET);
@@ -326,7 +325,7 @@ static int xttcpss_timer_rate_change_cb(struct notifier_block *nb,
  * Initializes the timer hardware and register the clock source and clock event
  * timers with Linux kernal timer framework
  */
-static void __init xttcpss_timer_init(void)
+void __init xttcpss_timer_init(void)
 {
 	u32 irq;
 	struct device_node *timer = NULL;
@@ -340,7 +339,7 @@ static void __init xttcpss_timer_init(void)
 	struct clk *clk;
 
 	/* Get the 1st Triple Timer Counter (TTC) block from the device tree
-	 * and use it, but if missing use some defaults for now to help the 
+	 * and use it, but if missing use some defaults for now to help the
 	 * transition, note that the event timer uses the interrupt and it's the
 	 * 2nd TTC hence the +1 for the interrupt and the irq_of_parse_and_map(,1)
 	 */
@@ -352,7 +351,7 @@ static void __init xttcpss_timer_init(void)
 	        WARN_ON(!irq);
 
 		/* For now, let's play nice and not crash the kernel if the device
-		   tree was not updated to have all the timer irqs, this can be 
+		   tree was not updated to have all the timer irqs, this can be
 		   removed at a later date when old device trees are gone.
 		*/
 		if (irq == NO_IRQ) {
@@ -433,15 +432,7 @@ static void __init xttcpss_timer_init(void)
 	xttcpss_clockevent.cpumask = cpumask_of(0);
 	clockevents_config_and_register(&xttcpss_clockevent,
 			timers[XTTCPSS_CLOCKEVENT].frequency, 1, 0xfffe);
-
 #ifdef CONFIG_HAVE_ARM_TWD
 	twd_local_timer_of_register();
 #endif
 }
-
-/*
- * Instantiate and initialize the system timer structure
- */
-struct sys_timer xttcpss_sys_timer = {
-	.init		= xttcpss_timer_init,
-};

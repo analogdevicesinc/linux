@@ -23,7 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/xilinx_devices.h>
 #include <linux/usb/otg.h>
-#ifdef CONFIG_XILINX_ZED
+#ifdef CONFIG_XILINX_ZED_USB_OTG
 #include <linux/usb/ulpi.h>
 #endif
 #include <linux/usb/xilinx_usbps_otg.h>
@@ -43,8 +43,7 @@ static int ehci_xusbps_reinit(struct ehci_hcd *ehci);
 static int ehci_xusbps_update_device(struct usb_hcd *hcd, struct usb_device
 		*udev)
 {
-	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
-	struct xusbps_otg *xotg = xceiv_to_xotg(ehci->transceiver);
+	struct xusbps_otg *xotg = xceiv_to_xotg(hcd->phy);
 
 	if (udev->portnum == hcd->self.otg_port) {
 		/* HNP test device */
@@ -63,6 +62,7 @@ static int ehci_xusbps_update_device(struct usb_hcd *hcd, struct usb_device
 static void ehci_xusbps_start_hnp(struct ehci_hcd *ehci)
 {
 	const unsigned	port = ehci_to_hcd(ehci)->self.otg_port - 1;
+	struct usb_hcd *hcd = ehci_to_hcd(ehci);
 	unsigned long	flags;
 	u32 portsc;
 
@@ -72,14 +72,14 @@ static void ehci_xusbps_start_hnp(struct ehci_hcd *ehci)
 	ehci_writel(ehci, portsc, &ehci->regs->port_status[port]);
 	local_irq_restore(flags);
 
-	otg_start_hnp(ehci->transceiver->otg);
+	otg_start_hnp(hcd->phy->otg);
 }
 
 static int ehci_xusbps_otg_start_host(struct usb_phy *otg)
 {
 	struct usb_hcd		*hcd = bus_to_hcd(otg->otg->host);
 	struct xusbps_otg *xotg =
-			xceiv_to_xotg(hcd_to_ehci(hcd)->transceiver);
+			xceiv_to_xotg(hcd->phy);
 
 	usb_add_hcd(hcd, xotg->irq, IRQF_SHARED | IRQF_DISABLED);
 	return 0;
@@ -168,8 +168,8 @@ static int usb_hcd_xusbps_probe(const struct hc_driver *driver,
 #ifdef CONFIG_USB_XUSBPS_OTG
 	ehci = hcd_to_ehci(hcd);
 	if (pdata->otg) {
-#ifdef CONFIG_XILINX_ZED
-		pr_info ("usb_hcd_xusbps_probe: Have OTG assigned.\n");
+#ifdef CONFIG_XILINX_ZED_USB_OTG
+		pr_info ("%s: Have OTG assigned.\n", __func__);
 
 		retval = usb_phy_init(pdata->otg);
 		if (retval) {
@@ -177,30 +177,27 @@ static int usb_hcd_xusbps_probe(const struct hc_driver *driver,
 			return ENODEV;
 		}
 #endif
-
-		ehci->transceiver = pdata->otg;
-		retval = otg_set_host(ehci->transceiver->otg,
+		hcd->phy = pdata->otg;
+		retval = otg_set_host(hcd->phy->otg,
 				&ehci_to_hcd(ehci)->self);
 		if (retval)
 			return retval;
-		xotg = xceiv_to_xotg(ehci->transceiver);
+		xotg = xceiv_to_xotg(hcd->phy);
 		ehci->start_hnp = ehci_xusbps_start_hnp;
 		xotg->start_host = ehci_xusbps_otg_start_host;
 		xotg->stop_host = ehci_xusbps_otg_stop_host;
 		/* inform otg driver about host driver */
 		xusbps_update_transceiver();
 	} else {
-#ifdef CONFIG_XILINX_ZED
-		pr_info ("usb_hcd_xusbps_probe: No OTG assigned!\n");
-		if (!pdata->otg) {
-			pdata->otg = otg_ulpi_create (&ulpi_viewport_access_ops,
-				ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
-			if (pdata->otg) {
-				pdata->otg->io_priv = hcd->regs + XUSBPS_SOC_USB_ULPIVP;
-				ehci->ulpi = pdata->otg->otg;
-			}
+#ifdef CONFIG_XILINX_ZED_USB_OTG
+		pr_info ("%s: No OTG assigned!\n", __func__);
+		pdata->otg = otg_ulpi_create(&ulpi_viewport_access_ops,
+			ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
+		if (pdata->otg) {
+			pdata->otg->io_priv = hcd->regs + XUSBPS_SOC_USB_ULPIVP;
+			ehci->ulpi = pdata->otg;
 		}
-		pr_info ("usb_hcd_xusbps_probe: OTG now assigned!\n");
+		pr_info ("%s: OTG now assigned!\n", __func__);
 #endif
 
 		retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
@@ -302,10 +299,12 @@ static void ehci_xusbps_usb_setup(struct ehci_hcd *ehci)
 /* called after powerup, by probe or system-pm "wakeup" */
 static int ehci_xusbps_reinit(struct ehci_hcd *ehci)
 {
+	struct usb_hcd *hcd = ehci_to_hcd(ehci);
+
 	ehci_xusbps_usb_setup(ehci);
 #ifdef CONFIG_USB_XUSBPS_OTG
 	/* Don't turn off port power in OTG mode */
-	if (!ehci->transceiver)
+	if (!hcd->phy)
 #endif
 		ehci_port_power(ehci, 0);
 

@@ -37,20 +37,18 @@
  *
  */
 
-#include <linux/export.h>
-#include <linux/module.h>
-#include <linux/io.h>
-#include <linux/i2c.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/err.h>
+#include <linux/export.h>
+#include <linux/i2c.h>
 #include <linux/interrupt.h>
-#include <linux/xilinx_devices.h>
+#include <linux/io.h>
+#include <linux/module.h>
+#include <linux/of_i2c.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <linux/of_i2c.h>
-#include <linux/err.h>
-#ifdef CONFIG_COMMON_CLK
-#include <linux/clk.h>
-#endif
+#include <linux/xilinx_devices.h>
 
 /*
  * Register Map
@@ -141,17 +139,13 @@ struct xi2cps {
 	unsigned int input_clk;
 	unsigned int i2c_clk;
 	unsigned int bus_hold_flag;
-#ifdef CONFIG_COMMON_CLK
 	struct clk	*clk;
 	struct notifier_block	clk_rate_change_nb;
-#endif
 };
 
-#ifdef CONFIG_COMMON_CLK
 #define to_xi2cps(_nb)	container_of(_nb, struct xi2cps,\
 		clk_rate_change_nb)
 #define MAX_F_ERR 10000
-#endif
 
 /**
  * xi2cps_isr - Interrupt handler for the I2C device
@@ -187,6 +181,10 @@ static irqreturn_t xi2cps_isr(int irq, void *ptr)
 		 * Calculate received bytes and update the receive count.
 		 */
 		if ((id->recv_count) > XI2CPS_FIFO_DEPTH) {
+			/* FIXME: snapshotting this value is a race condition as
+			 * the hardware is still recieving bytes at this time.
+			 * The number of bytes recieved (N) is read here ....
+			 */
 			bytes_to_recv = (XI2CPS_FIFO_DEPTH + 1) -
 				xi2cps_readreg(XI2CPS_XFER_SIZE_OFFSET);
 			id->recv_count -= bytes_to_recv;
@@ -196,18 +194,28 @@ static irqreturn_t xi2cps_isr(int irq, void *ptr)
 		 * count is less than FIFO size then clear hold bit if there
 		 * are no further messages to be processed
 		 */
-			if (id->recv_count > XI2CPS_FIFO_DEPTH)
+			/* ... but supposed one more byte is read by the
+			 * hardware by this time ....
+			 */
+			if (id->recv_count > XI2CPS_FIFO_DEPTH) {
 				xi2cps_writereg(XI2CPS_FIFO_DEPTH + 1,
 						XI2CPS_XFER_SIZE_OFFSET);
-			else {
+			} else {
+				/* Then the number bytes still to recv (M) is
+				 * updated based on old value of tx XFER_SIZE.
+				 * Hardware will recieve a total of N + M or
+				 * N + M + 1 bytes depending on whether or not
+				 * the hardware gets an extra byte between the
+				 * snapshot and here.
+				 */
 				xi2cps_writereg(id->recv_count,
 						XI2CPS_XFER_SIZE_OFFSET);
 				if (id->bus_hold_flag == 0)
 					/* Clear the hold bus bit */
 					xi2cps_writereg(
-					(xi2cps_readreg(XI2CPS_CR_OFFSET) &
-					(~XI2CPS_CR_HOLD_BUS_MASK)),
-					XI2CPS_CR_OFFSET);
+					     (xi2cps_readreg(XI2CPS_CR_OFFSET) &
+					     (~XI2CPS_CR_HOLD_BUS_MASK)),
+					     XI2CPS_CR_OFFSET);
 			}
 			/* Process the data received */
 			while (bytes_to_recv) {
@@ -280,7 +288,7 @@ static irqreturn_t xi2cps_isr(int irq, void *ptr)
 			while (xi2cps_readreg(XI2CPS_SR_OFFSET)
 							& 0x00000020) {
 				*(id->p_recv_buf)++ =
-				xi2cps_readreg(XI2CPS_DATA_OFFSET);
+					xi2cps_readreg(XI2CPS_DATA_OFFSET);
 				id->recv_count--;
 			}
 			complete(&id->xfer_done);
@@ -335,10 +343,10 @@ static void xi2cps_mrecv(struct xi2cps *id)
 	 * receive if it is less than FIFO depth and FIFO depth + 1 if
 	 * it is more. Enable the interrupts.
 	 */
-	if (id->recv_count > XI2CPS_FIFO_DEPTH)
+	if (id->recv_count > XI2CPS_FIFO_DEPTH) {
 		xi2cps_writereg(XI2CPS_FIFO_DEPTH + 1,
 				XI2CPS_XFER_SIZE_OFFSET);
-	else {
+	} else {
 		xi2cps_writereg(id->recv_count, XI2CPS_XFER_SIZE_OFFSET);
 
 	/*
@@ -348,11 +356,11 @@ static void xi2cps_mrecv(struct xi2cps *id)
 		((id->p_msg->flags & I2C_M_RECV_LEN) != I2C_M_RECV_LEN)) {
 			/* Clear the hold bus bit */
 			ctrl_reg = xi2cps_readreg(XI2CPS_CR_OFFSET);
-			if ((ctrl_reg & XI2CPS_CR_HOLD_BUS_MASK)
-				== XI2CPS_CR_HOLD_BUS_MASK)
+			if ((ctrl_reg & XI2CPS_CR_HOLD_BUS_MASK) ==
+					XI2CPS_CR_HOLD_BUS_MASK)
 				xi2cps_writereg(
-				(ctrl_reg & (~XI2CPS_CR_HOLD_BUS_MASK)),
-				XI2CPS_CR_OFFSET);
+					(ctrl_reg & (~XI2CPS_CR_HOLD_BUS_MASK)),
+					XI2CPS_CR_OFFSET);
 		}
 	}
 	xi2cps_writereg(XI2CPS_ENABLED_INTR, XI2CPS_IER_OFFSET);
@@ -420,11 +428,11 @@ static void xi2cps_msend(struct xi2cps *id)
 	if (id->bus_hold_flag == 0 && id->send_count == 0) {
 		/* Clear the hold bus bit */
 		ctrl_reg = xi2cps_readreg(XI2CPS_CR_OFFSET);
-		if ((ctrl_reg & XI2CPS_CR_HOLD_BUS_MASK)
-			== XI2CPS_CR_HOLD_BUS_MASK)
+		if ((ctrl_reg & XI2CPS_CR_HOLD_BUS_MASK) ==
+				XI2CPS_CR_HOLD_BUS_MASK)
 			xi2cps_writereg(
-			(ctrl_reg & (~XI2CPS_CR_HOLD_BUS_MASK)),
-			XI2CPS_CR_OFFSET);
+				(ctrl_reg & (~XI2CPS_CR_HOLD_BUS_MASK)),
+				XI2CPS_CR_OFFSET);
 	}
 	xi2cps_writereg(XI2CPS_ENABLED_INTR, XI2CPS_IER_OFFSET);
 }
@@ -475,8 +483,9 @@ static int xi2cps_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 		id->bus_hold_flag = 1;
 		xi2cps_writereg((xi2cps_readreg(XI2CPS_CR_OFFSET) |
 				XI2CPS_CR_HOLD_BUS_MASK), XI2CPS_CR_OFFSET);
-	} else
+	} else {
 		id->bus_hold_flag = 0;
+	}
 
 	/* Process the msg one by one */
 	for (count = 0; count < num; count++, msgs++) {
@@ -490,10 +499,10 @@ retry:
 		init_completion(&id->xfer_done);
 
 		/* Check for the TEN Bit mode on each msg */
-		if (msgs->flags & I2C_M_TEN)
+		if (msgs->flags & I2C_M_TEN) {
 			xi2cps_writereg((xi2cps_readreg(XI2CPS_CR_OFFSET) &
 					(~0x00000004)), XI2CPS_CR_OFFSET);
-		else {
+		} else {
 			if ((xi2cps_readreg(XI2CPS_CR_OFFSET) & 0x00000004)
 								== 0)
 				xi2cps_writereg(
@@ -545,8 +554,8 @@ retry:
  */
 static u32 xi2cps_func(struct i2c_adapter *adap)
 {
-	return I2C_FUNC_I2C | I2C_FUNC_10BIT_ADDR | \
-		(I2C_FUNC_SMBUS_EMUL & ~I2C_FUNC_SMBUS_QUICK) | \
+	return I2C_FUNC_I2C | I2C_FUNC_10BIT_ADDR |
+		(I2C_FUNC_SMBUS_EMUL & ~I2C_FUNC_SMBUS_QUICK) |
 		I2C_FUNC_SMBUS_BLOCK_DATA;
 }
 
@@ -593,8 +602,7 @@ static int xi2cps_calc_divs(unsigned int *f, unsigned int input_clk,
 	templimit = (input_clk % (22 * fscl)) ? (temp + 1) : temp;
 	*err = fscl;
 
-	for ( ; temp < templimit+1; temp++)
-	{
+	for ( ; temp < templimit+1; temp++) {
 		last_error = fscl;
 		calc_div_a = 0;
 		calc_div_b = 0;
@@ -675,7 +683,6 @@ static int xi2cps_setclk(unsigned int fscl, struct xi2cps *id)
 	return 0;
 }
 
-#ifdef CONFIG_COMMON_CLK
 /**
  * xi2cps_clk_notifier_cb - Clock rate change callback
  * @nb:		Pointer to notifier block
@@ -729,7 +736,6 @@ static int xi2cps_clk_notifier_cb(struct notifier_block *nb, unsigned long
 		return NOTIFY_DONE;
 	}
 }
-#endif
 
 /************************/
 /* Platform bus binding */
@@ -750,11 +756,7 @@ static int __devinit xi2cps_probe(struct platform_device *pdev)
 	struct resource *r_mem = NULL;
 	struct xi2cps *id;
 	int ret = 0;
-#ifdef CONFIG_OF
 	const unsigned int *prop;
-#else
-	struct xi2cps_platform_data *pdata;
-#endif
 	/*
 	 * Allocate memory for xi2cps structure.
 	 * Initialize the structure to zero and set the platform data.
@@ -769,9 +771,6 @@ static int __devinit xi2cps_probe(struct platform_device *pdev)
 	}
 	memset((void *)id, 0, sizeof(*id));
 	platform_set_drvdata(pdev, id);
-#ifndef CONFIG_OF
-	pdata = pdev->dev.platform_data;
-#endif
 
 	r_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!r_mem) {
@@ -795,19 +794,15 @@ static int __devinit xi2cps_probe(struct platform_device *pdev)
 		goto err_unmap;
 	}
 
-#ifdef CONFIG_OF
 	prop = of_get_property(pdev->dev.of_node, "bus-id", NULL);
-	if (prop)
+	if (prop) {
 		id->adap.nr = be32_to_cpup(prop);
-	else {
+	} else {
 		ret = -ENXIO;
 		dev_err(&pdev->dev, "couldn't determine bus-id\n");
 		goto err_unmap ;
 	}
 	id->adap.dev.of_node = pdev->dev.of_node;
-#else
-	id->adap.nr = pdev->id;
-#endif
 	id->adap.algo = (struct i2c_algorithm *) &xi2cps_algo;
 	id->adap.timeout = 0x1F;	/* Default timeout value */
 	id->adap.retries = 3;		/* Default retry value. */
@@ -817,37 +812,25 @@ static int __devinit xi2cps_probe(struct platform_device *pdev)
 		 "XILINX I2C at %08lx", (unsigned long)r_mem->start);
 
 	id->cur_timeout = id->adap.timeout;
-#ifdef CONFIG_OF
-#ifdef CONFIG_COMMON_CLK
 	if (id->irq == 80)
 		id->clk = clk_get_sys("I2C1_APER", NULL);
 	else
 		id->clk = clk_get_sys("I2C0_APER", NULL);
 	if (IS_ERR(id->clk)) {
-		pr_err("Xilinx I2CPS clock not found.\n");
+		dev_err(&pdev->dev, "Clock not found.\n");
 		ret = PTR_ERR(id->clk);
 		goto err_unmap;
 	}
 	ret = clk_prepare_enable(id->clk);
 	if (ret) {
-		pr_err("Xilinx I2CPS unable to enable clock.\n");
+		dev_err(&pdev->dev, "Unable to enable clock.\n");
 		goto err_clk_put;
 	}
 	id->clk_rate_change_nb.notifier_call = xi2cps_clk_notifier_cb;
 	id->clk_rate_change_nb.next = NULL;
 	if (clk_notifier_register(id->clk, &id->clk_rate_change_nb))
-		pr_warn("Unable to register clock notifier.\n");
+		dev_warn(&pdev->dev, "Unable to register clock notifier.\n");
 	id->input_clk = (unsigned int)clk_get_rate(id->clk);
-#else /* ! CONFIG_COMMON_CLK */
-	prop = of_get_property(pdev->dev.of_node, "input-clk", NULL);
-	if (prop) {
-		id->input_clk = be32_to_cpup(prop);
-	} else {
-		ret = -ENXIO;
-		dev_err(&pdev->dev, "couldn't determine input-clk\n");
-		goto err_unmap ;
-	}
-#endif /* ! CONFIG_COMMON_CLK */
 
 	prop = of_get_property(pdev->dev.of_node, "i2c-clk", NULL);
 	if (prop) {
@@ -857,10 +840,6 @@ static int __devinit xi2cps_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "couldn't determine i2c-clk\n");
 		goto err_clk_dis;
 	}
-#else
-	id->input_clk = pdata->input_clk;
-	id->i2c_clk = pdata->i2c_clk;
-#endif
 
 	/*
 	 * Set Master Mode,Normal addressing mode (7 bit address),
@@ -890,10 +869,7 @@ static int __devinit xi2cps_probe(struct platform_device *pdev)
 		goto err_free_irq;
 	}
 
-
-#ifdef CONFIG_OF
 	of_i2c_register_devices(&id->adap);
-#endif
 
 	dev_info(&pdev->dev, "%d kHz mmio %08lx irq %d\n",
 		 id->i2c_clk/1000, (unsigned long)r_mem->start, id->irq);
@@ -903,11 +879,9 @@ static int __devinit xi2cps_probe(struct platform_device *pdev)
 err_free_irq:
 	free_irq(id->irq, id);
 err_clk_dis:
-#ifdef CONFIG_COMMON_CLK
 	clk_disable_unprepare(id->clk);
 err_clk_put:
 	clk_put(id->clk);
-#endif
 err_unmap:
 	iounmap(id->membase);
 err_free_mem:
@@ -930,60 +904,34 @@ static int __devexit xi2cps_remove(struct platform_device *pdev)
 	i2c_del_adapter(&id->adap);
 	free_irq(id->irq, id);
 	iounmap(id->membase);
-#ifdef CONFIG_COMMON_CLK
 	clk_notifier_unregister(id->clk, &id->clk_rate_change_nb);
 	clk_disable_unprepare(id->clk);
 	clk_put(id->clk);
-#endif
 	kfree(id);
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }
 
-#ifdef CONFIG_OF
 static struct of_device_id xi2cps_of_match[] __devinitdata = {
 	{ .compatible = "xlnx,ps7-i2c-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xi2cps_of_match);
-#endif
 
 static struct platform_driver xi2cps_drv = {
 	.driver = {
 		.name  = DRIVER_NAME,
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
 		.of_match_table = xi2cps_of_match,
-#endif
 	},
 	.probe  = xi2cps_probe,
 	.remove = __devexit_p(xi2cps_remove),
 };
 
-/**
- * xi2cps_init - Initial driver registration function
- *
- * Returns zero on success, otherwise negative error.
- */
-static int __init xi2cps_init(void)
-{
-	return platform_driver_register(&xi2cps_drv);
-}
-
-/**
- * xi2cps_exit - Driver Un-registration function
- */
-static void __exit xi2cps_exit(void)
-{
-	platform_driver_unregister(&xi2cps_drv);
-}
-
-module_init(xi2cps_init);
-module_exit(xi2cps_exit);
+module_platform_driver(xi2cps_drv);
 
 MODULE_AUTHOR("Xilinx, Inc.");
 MODULE_DESCRIPTION("Xilinx PS I2C bus driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" DRIVER_NAME);
-

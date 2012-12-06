@@ -17,18 +17,19 @@
  */
 
 
-#include <linux/module.h>
+#include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/platform_device.h>
-#include <linux/spi/spi.h>
 #include <linux/io.h>
-#include <linux/spinlock.h>
-#include <linux/workqueue.h>
-#include <linux/delay.h>
-#include <linux/xilinx_devices.h>
+#include <linux/module.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
+#include <linux/spi/spi.h>
+#include <linux/spinlock.h>
+#include <linux/workqueue.h>
+#include <linux/xilinx_devices.h>
 
 /*
  * Name of this driver
@@ -133,7 +134,9 @@
  * @queue:		Head of the queue
  * @queue_state:	Queue status
  * @regs:		Virtual address of the QSPI controller registers
- * @input_clk_hz:	Input clock frequency of the QSPI controller in Hz
+ * @devclk		Pointer to the peripheral clock
+ * @aperclk		Pointer to the APER clock
+ * @clk_rate_change_nb	Notifier block for clock frequency change callback
  * @irq:		IRQ number
  * @speed_hz:		Current QSPI bus clock speed in Hz
  * @trans_queue_lock:	Lock used for accessing transfer queue
@@ -153,7 +156,9 @@ struct xqspips {
 	struct list_head queue;
 	u8 queue_state;
 	void __iomem *regs;
-	u32 input_clk_hz;
+	struct clk *devclk;
+	struct clk *aperclk;
+	struct notifier_block clk_rate_change_nb;
 	u32 irq;
 	u32 speed_hz;
 	spinlock_t trans_queue_lock;
@@ -293,9 +298,8 @@ static void xqspips_copy_read_data(struct xqspips *xqspi, u32 data, u8 size)
 		}
 	}
 	xqspi->bytes_to_receive -= size;
-	if (xqspi->bytes_to_receive < 0) {
+	if (xqspi->bytes_to_receive < 0)
 		xqspi->bytes_to_receive = 0;
-	}
 }
 
 /**
@@ -334,13 +338,13 @@ static void xqspips_copy_write_data(struct xqspips *xqspi, u32 *data, u8 size)
 			/* This will never execute */
 			break;
 		}
-	} else
+	} else {
 		*data = 0;
+	}
 
 	xqspi->bytes_to_transfer -= size;
-	if (xqspi->bytes_to_transfer < 0) {
+	if (xqspi->bytes_to_transfer < 0)
 		xqspi->bytes_to_transfer = 0;
-	}
 }
 
 /**
@@ -363,9 +367,10 @@ static void xqspips_chipselect(struct spi_device *qspi, int is_on)
 		config_reg &= ~XQSPIPS_CONFIG_SSCTRL_MASK;
 		config_reg |= (((~(0x0001 << qspi->chip_select)) << 10) &
 				XQSPIPS_CONFIG_SSCTRL_MASK);
-	} else
+	} else {
 		/* Deselect the slave */
 		config_reg |= XQSPIPS_CONFIG_SSCTRL_MASK;
+	}
 
 	xqspips_write(xqspi->regs + XQSPIPS_CONFIG_OFFSET, config_reg);
 
@@ -394,24 +399,17 @@ static int xqspips_setup_transfer(struct spi_device *qspi,
 		struct spi_transfer *transfer)
 {
 	struct xqspips *xqspi = spi_master_get_devdata(qspi->master);
-	u8 bits_per_word;
 	u32 config_reg;
 	u32 req_hz;
 	u32 baud_rate_val = 0;
 	unsigned long flags;
 
-	bits_per_word = (transfer) ?
-			transfer->bits_per_word : qspi->bits_per_word;
 	req_hz = (transfer) ? transfer->speed_hz : qspi->max_speed_hz;
 
 	if (qspi->mode & ~MODEBITS) {
 		dev_err(&qspi->dev, "%s, unsupported mode bits %x\n",
 			__func__, qspi->mode & ~MODEBITS);
 		return -EINVAL;
-	}
-
-	if (bits_per_word != 32) {
-		bits_per_word = 32;
 	}
 
 	spin_lock_irqsave(&xqspi->config_reg_lock, flags);
@@ -430,9 +428,9 @@ static int xqspips_setup_transfer(struct spi_device *qspi,
 	if (xqspi->speed_hz != req_hz) {
 		baud_rate_val = 0;
 		while ((baud_rate_val < 8)  &&
-			(xqspi->input_clk_hz / (2 << baud_rate_val)) > req_hz) {
+			(clk_get_rate(xqspi->devclk) / (2 << baud_rate_val)) >
+			req_hz)
 				baud_rate_val++;
-		}
 		config_reg &= 0xFFFFFFC7;
 		config_reg |= (baud_rate_val << 3);
 		xqspi->speed_hz = req_hz;
@@ -483,12 +481,11 @@ static void xqspips_fill_tx_fifo(struct xqspips *xqspi)
 
 	while ((!(xqspips_read(xqspi->regs + XQSPIPS_STATUS_OFFSET) &
 		XQSPIPS_IXR_TXFULL_MASK)) && (xqspi->bytes_to_transfer > 0)) {
-		if (xqspi->bytes_to_transfer < 4) {
+		if (xqspi->bytes_to_transfer < 4)
 			xqspips_copy_write_data(xqspi, &data,
 				xqspi->bytes_to_transfer);
-		} else {
+		else
 			xqspips_copy_write_data(xqspi, &data, 4);
-		}
 
 		xqspips_write(xqspi->regs + XQSPIPS_TXD_00_00_OFFSET, data);
 	}
@@ -554,12 +551,12 @@ static irqreturn_t xqspips_irq(int irq, void *dev_id)
 		} else {
 			/* If transfer and receive is completed then only send
 			 * complete signal */
-			if (xqspi->bytes_to_receive)
+			if (xqspi->bytes_to_receive) {
 				/* There is still some data to be received.
 				   Enable Rx not empty interrupt */
 				xqspips_write(xqspi->regs + XQSPIPS_IEN_OFFSET,
 						XQSPIPS_IXR_RXNEMTY_MASK);
-			else {
+			} else {
 				xqspips_write(xqspi->regs + XQSPIPS_IDIS_OFFSET,
 						XQSPIPS_IXR_RXNEMTY_MASK);
 				complete(&xqspi->done);
@@ -581,7 +578,7 @@ static irqreturn_t xqspips_irq(int irq, void *dev_id)
  *
  * returns:	Number of bytes transferred in the last transfer
  **/
-static int xqspips_start_transfer(struct spi_device *qspi,
+static int __devinit xqspips_start_transfer(struct spi_device *qspi,
 			struct spi_transfer *transfer)
 {
 	struct xqspips *xqspi = spi_master_get_devdata(qspi->master);
@@ -680,7 +677,7 @@ xfer_data:
  * xqspips_work_queue - Get the request from queue to perform transfers
  * @work:	Pointer to the work_struct structure
  **/
-static void xqspips_work_queue(struct work_struct *work)
+static void __devinit xqspips_work_queue(struct work_struct *work)
 {
 	struct xqspips *xqspi = container_of(work, struct xqspips, work);
 	unsigned long flags;
@@ -712,8 +709,7 @@ static void xqspips_work_queue(struct work_struct *work)
 
 		list_for_each_entry(transfer, &msg->transfers, transfer_list) {
 			if (transfer->bits_per_word || transfer->speed_hz) {
-				status =
-					xqspips_setup_transfer(qspi, transfer);
+				status = xqspips_setup_transfer(qspi, transfer);
 				if (status < 0)
 					break;
 			}
@@ -734,8 +730,7 @@ static void xqspips_work_queue(struct work_struct *work)
 
 			/* Request the transfer */
 			if (transfer->len) {
-				status =
-					xqspips_start_transfer(qspi, transfer);
+				status = xqspips_start_transfer(qspi, transfer);
 				xqspi->is_inst = 0;
 			}
 
@@ -796,10 +791,6 @@ xqspips_transfer(struct spi_device *qspi, struct spi_message *message)
 
 	/* Check each transfer's parameters */
 	list_for_each_entry(transfer, &message->transfers, transfer_list) {
-		u8 bits_per_word =
-			transfer->bits_per_word ? : qspi->bits_per_word;
-
-		bits_per_word = bits_per_word ? : 32;
 		if (!transfer->tx_buf && !transfer->rx_buf && transfer->len)
 			return -EINVAL;
 		/* QSPI controller supports only 32 bit transfers whereas higher
@@ -898,6 +889,105 @@ static inline int xqspips_destroy_queue(struct xqspips *xqspi)
 	return 0;
 }
 
+static int xqspips_clk_notifier_cb(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	switch (event) {
+	case PRE_RATE_CHANGE:
+		/* if a rate change is announced we need to check whether we can
+		 * maintain the current frequency by changing the clock
+		 * dividers. And we may have to suspend operation and return
+		 * after the rate change or its abort
+		 */
+		return NOTIFY_OK;
+	case POST_RATE_CHANGE:
+		return NOTIFY_OK;
+	case ABORT_RATE_CHANGE:
+	default:
+		return NOTIFY_DONE;
+	}
+}
+
+#ifdef CONFIG_PM_SLEEP
+/**
+ * xqspips_suspend - Suspend method for the QSPI driver
+ * @_dev:	Address of the platform_device structure
+ *
+ * This function stops the QSPI driver queue and disables the QSPI controller
+ *
+ * returns:	0 on success and error value on error
+ **/
+static int xqspips_suspend(struct device *_dev)
+{
+	struct platform_device *pdev = container_of(_dev,
+			struct platform_device, dev);
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct xqspips *xqspi = spi_master_get_devdata(master);
+	int ret = 0;
+
+	ret = xqspips_stop_queue(xqspi);
+	if (ret != 0)
+		return ret;
+
+	xqspips_write(xqspi->regs + XQSPIPS_ENABLE_OFFSET,
+			~XQSPIPS_ENABLE_ENABLE_MASK);
+
+	clk_disable(xqspi->devclk);
+	clk_disable(xqspi->aperclk);
+
+	dev_dbg(&pdev->dev, "suspend succeeded\n");
+	return 0;
+}
+
+/**
+ * xqspips_resume - Resume method for the QSPI driver
+ * @dev:	Address of the platform_device structure
+ *
+ * The function starts the QSPI driver queue and initializes the QSPI controller
+ *
+ * returns:	0 on success and error value on error
+ **/
+static int xqspips_resume(struct device *_dev)
+{
+	struct platform_device *pdev = container_of(_dev,
+			struct platform_device, dev);
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct xqspips *xqspi = spi_master_get_devdata(master);
+	int ret = 0;
+
+	ret = clk_enable(xqspi->aperclk);
+	if (ret) {
+		dev_err(_dev, "Cannot enable APER clock.\n");
+		return ret;
+	}
+
+	ret = clk_enable(xqspi->devclk);
+	if (ret) {
+		dev_err(_dev, "Cannot enable device clock.\n");
+		clk_disable(xqspi->aperclk);
+		return ret;
+	}
+
+	xqspips_init_hw(xqspi->regs, xqspi->is_dual);
+
+	ret = xqspips_start_queue(xqspi);
+	if (ret != 0) {
+		dev_err(&pdev->dev, "problem starting queue (%d)\n", ret);
+		return ret;
+	}
+
+	dev_dbg(&pdev->dev, "resume succeeded\n");
+	return 0;
+}
+static const struct dev_pm_ops xqspips_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(xqspips_suspend, xqspips_resume)
+};
+#define XQSPIPS_PM	(&xqspips_dev_pm_ops)
+
+#else /* ! CONFIG_PM_SLEEP */
+#define XQSPIPS_PM	NULL
+#endif /* ! CONFIG_PM_SLEEP */
+
 /**
  * xqspips_probe - Probe method for the QSPI driver
  * @dev:	Pointer to the platform_device structure
@@ -912,28 +1002,15 @@ static int __devinit xqspips_probe(struct platform_device *dev)
 	struct spi_master *master;
 	struct xqspips *xqspi;
 	struct resource *r;
-#ifdef CONFIG_OF
 	const unsigned int *prop;
-#else
-	struct xspi_platform_data *platform_info;
-#endif
 
-	master = spi_alloc_master(&dev->dev, sizeof(struct xqspips));
+	master = spi_alloc_master(&dev->dev, sizeof(*xqspi));
 	if (master == NULL)
 		return -ENOMEM;
 
 	xqspi = spi_master_get_devdata(master);
 	master->dev.of_node = dev->dev.of_node;
 	platform_set_drvdata(dev, master);
-
-#ifndef CONFIG_OF
-	platform_info = dev->dev.platform_data;
-	if (platform_info == NULL) {
-		ret = -ENODEV;
-		dev_err(&dev->dev, "platform data not available\n");
-		goto put_master;
-	}
-#endif
 
 	r = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (r == NULL) {
@@ -942,8 +1019,7 @@ static int __devinit xqspips_probe(struct platform_device *dev)
 		goto put_master;
 	}
 
-	if (!request_mem_region(r->start,
-			r->end - r->start + 1, dev->name)) {
+	if (!request_mem_region(r->start, r->end - r->start + 1, dev->name)) {
 		ret = -ENXIO;
 		dev_err(&dev->dev, "request_mem_region failed\n");
 		goto put_master;
@@ -970,61 +1046,73 @@ static int __devinit xqspips_probe(struct platform_device *dev)
 		goto unmap_io;
 	}
 
-#ifdef CONFIG_OF
 	prop = of_get_property(dev->dev.of_node, "is-dual", NULL);
 	if (prop)
 		xqspi->is_dual = be32_to_cpup(prop);
-	else {
+	else
 		dev_warn(&dev->dev, "couldn't determine configuration info "
 			 "about dual memories. defaulting to single memory\n");
+
+	xqspi->aperclk = clk_get_sys("LQSPI_APER", NULL);
+	if (IS_ERR(xqspi->aperclk)) {
+		dev_err(&dev->dev, "APER clock not found.\n");
+		ret = PTR_ERR(xqspi->aperclk);
+		goto free_irq;
 	}
-#endif
+
+	xqspi->devclk = clk_get_sys("LQSPI", NULL);
+	if (IS_ERR(xqspi->devclk)) {
+		dev_err(&dev->dev, "Device clock not found.\n");
+		ret = PTR_ERR(xqspi->devclk);
+		goto clk_put_aper;
+	}
+
+	ret = clk_prepare_enable(xqspi->aperclk);
+	if (ret) {
+		dev_err(&dev->dev, "Unable to enable APER clock.\n");
+		goto clk_put;
+	}
+
+	ret = clk_prepare_enable(xqspi->devclk);
+	if (ret) {
+		dev_err(&dev->dev, "Unable to enable device clock.\n");
+		goto clk_dis_aper;
+	}
+
+	xqspi->clk_rate_change_nb.notifier_call = xqspips_clk_notifier_cb;
+	xqspi->clk_rate_change_nb.next = NULL;
+	if (clk_notifier_register(xqspi->devclk, &xqspi->clk_rate_change_nb))
+		dev_warn(&dev->dev, "Unable to register clock notifier.\n");
+
 
 	/* QSPI controller initializations */
 	xqspips_init_hw(xqspi->regs, xqspi->is_dual);
 
 	init_completion(&xqspi->done);
 
-#ifdef CONFIG_OF
 	prop = of_get_property(dev->dev.of_node, "bus-num", NULL);
-	if (prop)
+	if (prop) {
 		master->bus_num = be32_to_cpup(prop);
-	else {
+	} else {
 		ret = -ENXIO;
 		dev_err(&dev->dev, "couldn't determine bus-num\n");
-		goto free_irq;
+		goto clk_unreg_notif;
 	}
 
 	prop = of_get_property(dev->dev.of_node, "num-chip-select", NULL);
-	if (prop)
+	if (prop) {
 		master->num_chipselect = be32_to_cpup(prop);
-	else {
+	} else {
 		ret = -ENXIO;
 		dev_err(&dev->dev, "couldn't determine num-chip-select\n");
-		goto free_irq;
+		goto clk_unreg_notif;
 	}
-#else
-	master->bus_num = platform_info->bus_num;
-	master->num_chipselect = platform_info->num_chipselect;
-#endif
 
 	master->setup = xqspips_setup;
 	master->transfer = xqspips_transfer;
 
-#ifdef CONFIG_OF
-	prop = of_get_property(dev->dev.of_node, "speed-hz", NULL);
-	if (prop) {
-		xqspi->input_clk_hz = be32_to_cpup(prop);
-		xqspi->speed_hz = xqspi->input_clk_hz / 2;
-	} else {
-		ret = -ENXIO;
-		dev_err(&dev->dev, "couldn't determine speed-hz\n");
-		goto free_irq;
-	}
-#else
-	xqspi->input_clk_hz = platform_info->speed_hz;
-	xqspi->speed_hz = platform_info->speed_hz / 2;
-#endif
+	xqspi->speed_hz = clk_get_rate(xqspi->devclk) / 2;
+
 	xqspi->dev_busy = 0;
 
 	INIT_LIST_HEAD(&xqspi->queue);
@@ -1040,7 +1128,7 @@ static int __devinit xqspips_probe(struct platform_device *dev)
 	if (!xqspi->workqueue) {
 		ret = -ENOMEM;
 		dev_err(&dev->dev, "problem initializing queue\n");
-		goto free_irq;
+		goto clk_unreg_notif;
 	}
 
 	ret = xqspips_start_queue(xqspi);
@@ -1062,6 +1150,15 @@ static int __devinit xqspips_probe(struct platform_device *dev)
 
 remove_queue:
 	(void)xqspips_destroy_queue(xqspi);
+clk_unreg_notif:
+	clk_notifier_unregister(xqspi->devclk, &xqspi->clk_rate_change_nb);
+	clk_disable_unprepare(xqspi->devclk);
+clk_dis_aper:
+	clk_disable_unprepare(xqspi->aperclk);
+clk_put:
+	clk_put(xqspi->devclk);
+clk_put_aper:
+	clk_put(xqspi->aperclk);
 free_irq:
 	free_irq(xqspi->irq, xqspi);
 unmap_io:
@@ -1071,6 +1168,7 @@ release_mem:
 put_master:
 	platform_set_drvdata(dev, NULL);
 	spi_master_put(master);
+	kfree(master);
 	return ret;
 }
 
@@ -1111,6 +1209,14 @@ static int __devexit xqspips_remove(struct platform_device *dev)
 	spi_unregister_master(master);
 	spi_master_put(master);
 
+	clk_notifier_unregister(xqspi->devclk, &xqspi->clk_rate_change_nb);
+	clk_disable_unprepare(xqspi->devclk);
+	clk_disable_unprepare(xqspi->aperclk);
+	clk_put(xqspi->devclk);
+	clk_put(xqspi->aperclk);
+
+	kfree(master);
+
 	/* Prevent double remove */
 	platform_set_drvdata(dev, NULL);
 
@@ -1121,13 +1227,11 @@ static int __devexit xqspips_remove(struct platform_device *dev)
 /* Work with hotplug and coldplug */
 MODULE_ALIAS("platform:" DRIVER_NAME);
 
-#ifdef CONFIG_OF
 static struct of_device_id xqspips_of_match[] __devinitdata = {
 	{ .compatible = "xlnx,ps7-qspi-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xqspips_of_match);
-#endif
 
 /*
  * xqspips_driver - This structure defines the QSPI platform driver
@@ -1135,14 +1239,11 @@ MODULE_DEVICE_TABLE(of, xqspips_of_match);
 static struct platform_driver xqspips_driver = {
 	.probe	= xqspips_probe,
 	.remove	= __devexit_p(xqspips_remove),
-	.suspend = NULL,
-	.resume = NULL,
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
 		.of_match_table = xqspips_of_match,
-#endif
+		.pm = XQSPIPS_PM,
 	},
 };
 

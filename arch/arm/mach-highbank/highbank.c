@@ -15,6 +15,7 @@
  */
 #include <linux/clk.h>
 #include <linux/clkdev.h>
+#include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
@@ -23,6 +24,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/smp.h>
+#include <linux/amba/bus.h>
 
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
@@ -105,6 +107,11 @@ static void __init highbank_init_irq(void)
 #endif
 }
 
+static struct clk_lookup lookup = {
+	.dev_id = "sp804",
+	.con_id = NULL,
+};
+
 static void __init highbank_timer_init(void)
 {
 	int irq;
@@ -122,6 +129,8 @@ static void __init highbank_timer_init(void)
 	irq = irq_of_parse_and_map(np, 0);
 
 	highbank_clocks_init();
+	lookup.clk = of_clk_get(np, 0);
+	clkdev_add(&lookup);
 
 	sp804_clocksource_and_sched_clock_init(timer_base + 0x20, "timer1");
 	sp804_clockevents_init(timer_base, irq, "timer0");
@@ -142,9 +151,59 @@ static void highbank_power_off(void)
 		cpu_do_idle();
 }
 
+static int highbank_platform_notifier(struct notifier_block *nb,
+				  unsigned long event, void *__dev)
+{
+	struct resource *res;
+	int reg = -1;
+	struct device *dev = __dev;
+
+	if (event != BUS_NOTIFY_ADD_DEVICE)
+		return NOTIFY_DONE;
+
+	if (of_device_is_compatible(dev->of_node, "calxeda,hb-ahci"))
+		reg = 0xc;
+	else if (of_device_is_compatible(dev->of_node, "calxeda,hb-sdhci"))
+		reg = 0x18;
+	else if (of_device_is_compatible(dev->of_node, "arm,pl330"))
+		reg = 0x20;
+	else if (of_device_is_compatible(dev->of_node, "calxeda,hb-xgmac")) {
+		res = platform_get_resource(to_platform_device(dev),
+					    IORESOURCE_MEM, 0);
+		if (res) {
+			if (res->start == 0xfff50000)
+				reg = 0;
+			else if (res->start == 0xfff51000)
+				reg = 4;
+		}
+	}
+
+	if (reg < 0)
+		return NOTIFY_DONE;
+
+	if (of_property_read_bool(dev->of_node, "dma-coherent")) {
+		writel(0xff31, sregs_base + reg);
+		set_dma_ops(dev, &arm_coherent_dma_ops);
+	} else
+		writel(0, sregs_base + reg);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block highbank_amba_nb = {
+	.notifier_call = highbank_platform_notifier,
+};
+
+static struct notifier_block highbank_platform_nb = {
+	.notifier_call = highbank_platform_notifier,
+};
+
 static void __init highbank_init(void)
 {
 	pm_power_off = highbank_power_off;
+
+	bus_register_notifier(&platform_bus_type, &highbank_platform_nb);
+	bus_register_notifier(&amba_bustype, &highbank_amba_nb);
 
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 }

@@ -57,7 +57,7 @@ static int __devinit adv7511_hdmi_probe(struct platform_device *pdev)
 
 	card->dev = &pdev->dev;
 
-	hdmi_dai_link.cpu_dai_of_node = of_parse_phandle(of_node, "cpu-dai", 0);
+	hdmi_dai_link.cpu_of_node = of_parse_phandle(of_node, "cpu-dai", 0);
 	hdmi_dai_link.platform_of_node = of_parse_phandle(of_node, "pcm", 0);
 
 	adapter_node = of_parse_phandle(of_node, "audio-codec-adapter", 0);
@@ -67,7 +67,7 @@ static int __devinit adv7511_hdmi_probe(struct platform_device *pdev)
 			"adv7511.%d-0039", i2c_adapter_id(adapter));
 	}
 
-	if (/*!hdmi_dai_link.codec_of_node || */!hdmi_dai_link.cpu_dai_of_node ||
+	if (/*!hdmi_dai_link.codec_of_node || */!hdmi_dai_link.cpu_of_node ||
 		!hdmi_dai_link.platform_of_node)
 		return -ENXIO;
 
