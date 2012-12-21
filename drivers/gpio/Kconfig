@@ -156,6 +156,12 @@ config GPIO_DWAPB
 	  Say Y or M here to build support for the Synopsys DesignWare APB
 	  GPIO block.
 
+config GPIO_ALTERA
+       tristate "Altera GPIO"
+       depends on OF_GPIO
+       help
+         Say yes here to support the Altera PIO device.
+
 config GPIO_IT8761E
 	tristate "IT8761E GPIO support"
 	depends on X86  # unconditional access to IO space.
