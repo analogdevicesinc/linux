@@ -56,6 +56,15 @@ static void __init socfpga_scu_map_io(void)
 	iotable_init(&scu_io_desc, 1);
 }
 
+static void __init enable_periphs(void)
+{
+	/* Release all peripherals from reset.*/
+	__raw_writel(0, rst_manager_base_addr + SOCFPGA_RSTMGR_MODPERRST);
+
+	/* Release all FPGA bridges from reset.*/
+	__raw_writel(0, rst_manager_base_addr + SOCFPGA_RSTMGR_BRGMODRST);
+}
+
 static void __init socfpga_map_io(void)
 {
 	socfpga_scu_map_io();
@@ -102,6 +111,8 @@ static void __init socfpga_cyclone5_init(void)
 {
 	l2x0_of_init(0, ~0UL);
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+
+	enable_periphs();
 }
 
 static const char *altera_dt_match[] = {
