@@ -14,4 +14,5 @@ obj-$(CONFIG_ARCH_INTEGRATOR)	+= versatile/
 obj-$(CONFIG_ARCH_ZYNQ)		+= zynq/
 
 # Chip specific
+obj-$(CONFIG_COMMON_CLK_AXI_CLKGEN) += clk-axi-clkgen.o
 obj-$(CONFIG_COMMON_CLK_WM831X) += clk-wm831x.o

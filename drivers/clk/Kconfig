@@ -40,4 +40,12 @@ config COMMON_CLK_WM831X
           Supports the clocking subsystem of the WM831x/2x series of
 	  PMICs from Wolfson Microlectronics.
 
+config COMMON_CLK_AXI_CLKGEN
+	tristate "AXI clkgen driver"
+	depends on ARCH_ZYNQ || MICROBLAZE
+	help
+	---help---
+	  Support for the Analog Device axi-clkgen pcore clock generator for Xilinx
+	  FPGAs. It is commonly used in Analog Devices reference designs.
+
 endmenu
