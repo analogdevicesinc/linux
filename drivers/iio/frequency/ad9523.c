@@ -15,6 +15,7 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/of.h>
 
 #include <linux/clk.h>
 #include <linux/clkdev.h>
@@ -1162,8 +1163,150 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 			return PTR_ERR(clk);
 	}
 
-	return 0;
+	return of_clk_add_provider(st->spi->dev.of_node,
+				   of_clk_src_onecell_get, &st->clk_data);
 }
+
+#ifdef CONFIG_OF
+static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node, *chan_np;
+	struct ad9523_platform_data *pdata;
+	struct ad9523_channel_spec *chan;
+	unsigned int tmp, cnt = 0;
+	const char *str;
+	int ret;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return ERR_PTR(-ENOMEM);
+
+	tmp = 0;
+	of_property_read_u32(np, "adi,vcxo-freq", &tmp);
+	pdata->vcxo_freq = tmp;
+
+	/* Differential/ Single-Ended Input Configuration */
+	pdata->refa_diff_rcv_en = of_property_read_bool(np, "adi,refa-diff-rcv-enable");
+	pdata->refb_diff_rcv_en = of_property_read_bool(np, "adi,refb-diff-rcv-enable");
+	pdata->zd_in_diff_en = of_property_read_bool(np, "adi,zd-in-diff-enable");
+	pdata->osc_in_diff_en = of_property_read_bool(np, "adi,osc-in-diff-enable");
+
+	/*
+	 * Valid if differential input disabled
+	 * if false defaults to pos input
+	 */
+	pdata->refa_cmos_neg_inp_en =
+		of_property_read_bool(np, "adi,refa-cmos-neg-inp-enable");
+	pdata->refb_cmos_neg_inp_en =
+		of_property_read_bool(np, "adi,refb-cmos-neg-inp-enable");
+	pdata->zd_in_cmos_neg_inp_en =
+		of_property_read_bool(np, "adi,zd-in-cmos-neg-inp-enable");
+	pdata->osc_in_cmos_neg_inp_en =
+		of_property_read_bool(np, "adi,osc-in-cmos-neg-inp-enable");
+
+	/* PLL1 Setting */
+	tmp = 1;
+	of_property_read_u32(np, "adi,refa-r-div", &tmp);
+	pdata->refa_r_div = tmp;
+	tmp = 1;
+	of_property_read_u32(np, "adi,refb-r-div", &tmp);
+	pdata->refb_r_div = tmp;
+	of_property_read_u32(np, "adi,pll1-feedback-div", &tmp);
+	pdata->pll1_feedback_div = tmp;
+	of_property_read_u32(np, "adi,pll1-charge-pump-current-nA", &tmp);
+	pdata->pll1_charge_pump_current_nA = tmp;
+	of_property_read_u32(np, "adi,pll1-loopfilter-rzero", &tmp);
+	pdata->pll1_loop_filter_rzero = tmp;
+
+	pdata->zero_delay_mode_internal_en =
+		of_property_read_bool(np, "adi,zero-delay-mode-internal-enable");
+	pdata->osc_in_feedback_en =
+		of_property_read_bool(np, "adi,osc-in-feedback-enable");
+
+	/* Reference */
+	of_property_read_u32(np, "adi,ref-mode", &tmp);
+	pdata->ref_mode = tmp;
+
+	/* PLL2 Setting */
+	of_property_read_u32(np, "adi,pll2-charge-pump-current-nA",
+			     &pdata->pll2_charge_pump_current_nA);
+
+	of_property_read_u32(np, "adi,pll2-ndiv-a-cnt", &tmp);
+	pdata->pll2_ndiv_a_cnt = tmp;
+	of_property_read_u32(np, "adi,pll2-ndiv-b-cnt", &tmp);
+	pdata->pll2_ndiv_b_cnt = tmp;
+
+	pdata->pll2_freq_doubler_en =
+		of_property_read_bool(np, "adi,pll2-freq-doubler-enable");
+
+	of_property_read_u32(np, "adi,pll2-r2-div", &tmp);
+	pdata->pll2_r2_div = tmp;
+	of_property_read_u32(np, "adi,pll2-vco-diff-m1", &tmp);
+	pdata->pll2_vco_diff_m1 = tmp;
+	of_property_read_u32(np, "adi,pll2-vco-diff-m2", &tmp);
+	pdata->pll2_vco_diff_m2 = tmp;
+
+	/* Loop Filter PLL2 */
+
+	of_property_read_u32(np, "adi,rpole2", &tmp);
+	pdata->rpole2 = tmp;
+	of_property_read_u32(np, "adi,rzero", &tmp);
+	pdata->rzero = tmp;
+	of_property_read_u32(np, "adi,cpole1", &tmp);
+	pdata->cpole1 = tmp;
+
+	pdata->rzero_bypass_en = of_property_read_bool(np, "adi,rzero-bypass-enable");
+
+	/* Output Channel Configuration */
+
+	strncpy(&pdata->name[0], np->name, SPI_NAME_SIZE - 1);
+
+	for_each_child_of_node(np, chan_np)
+		cnt++;
+
+	pdata->num_channels = cnt;
+	pdata->channels = devm_kzalloc(dev, sizeof(*chan) * cnt, GFP_KERNEL);
+	if (!pdata->channels)
+		return ERR_PTR(-ENOMEM);
+
+	cnt = 0;
+	for_each_child_of_node(np, chan_np) {
+		of_property_read_u32(chan_np, "reg",
+				     &pdata->channels[cnt].channel_num);
+		pdata->channels[cnt].divider_output_invert_en =
+			of_property_read_bool(chan_np, "adi,divider-output-invert-enable");
+		pdata->channels[cnt].sync_ignore_en =
+			of_property_read_bool(chan_np, "adi,sync-ignore-enable");
+		pdata->channels[cnt].low_power_mode_en =
+			of_property_read_bool(chan_np, "adi,low-power-mode-enable");
+		pdata->channels[cnt].use_alt_clock_src =
+			of_property_read_bool(chan_np, "adi,use-alt-clock-src");
+		pdata->channels[cnt].output_dis =
+			of_property_read_bool(chan_np, "adi,output-dis");
+
+		of_property_read_u32(chan_np, "adi,driver-mode", &tmp);
+		pdata->channels[cnt].driver_mode = tmp;
+		of_property_read_u32(chan_np, "adi,divider-phase", &tmp);
+		pdata->channels[cnt].divider_phase = tmp;
+		of_property_read_u32(chan_np, "adi,channel-divider", &tmp);
+		pdata->channels[cnt].channel_divider = tmp;
+		ret = of_property_read_string(chan_np, "adi,extended-name", &str);
+		if (ret >= 0)
+			strlcpy(pdata->channels[cnt].extended_name,
+				str, sizeof(pdata->channels[cnt].extended_name));
+
+		cnt++;
+	}
+
+	return pdata;
+}
+#else
+static
+struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
 
 static void ad9523_reg_disable(void *data)
 {
@@ -1174,10 +1317,18 @@ static void ad9523_reg_disable(void *data)
 
 static int ad9523_probe(struct spi_device *spi)
 {
-	struct ad9523_platform_data *pdata = spi->dev.platform_data;
+	struct ad9523_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct ad9523_state *st;
 	int ret;
+
+	if (spi->dev.of_node) {
+		pdata = ad9523_parse_dt(&spi->dev);
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+	} else {
+		pdata = spi->dev.platform_data;
+	}
 
 	if (!pdata) {
 		dev_err(&spi->dev, "no platform data?\n");
