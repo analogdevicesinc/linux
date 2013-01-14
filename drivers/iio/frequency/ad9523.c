@@ -16,6 +16,7 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/of.h>
 
 #include <linux/clk.h>
 #include <linux/clkdev.h>
@@ -1116,12 +1117,160 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node, *chan_np;
+	struct ad9523_platform_data *pdata;
+	struct ad9523_channel_spec *chan;
+	unsigned int tmp, cnt = 0;
+	const char *str;
+	int ret;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+
+	of_property_read_u32(np, "vcxo-freq", &pdata->vcxo_freq);
+
+	/* Differential/ Single-Ended Input Configuration */
+	pdata->refa_diff_rcv_en = of_property_read_bool(np, "refa-diff-rcv-en");
+	pdata->refb_diff_rcv_en = of_property_read_bool(np, "refb-diff-rcv-en");
+	pdata->zd_in_diff_en = of_property_read_bool(np, "zd-in-diff-en");
+	pdata->osc_in_diff_en = of_property_read_bool(np, "osc-in-diff-en");
+
+	/*
+	 * Valid if differential input disabled
+	 * if false defaults to pos input
+	 */
+	pdata->refa_cmos_neg_inp_en =
+		of_property_read_bool(np, "refa-cmos-neg-inp-en");
+	pdata->refb_cmos_neg_inp_en =
+		of_property_read_bool(np, "refb-cmos-neg-inp-en");
+	pdata->zd_in_cmos_neg_inp_en =
+		of_property_read_bool(np, "zd-in-cmos-neg-inp-en");
+	pdata->osc_in_cmos_neg_inp_en =
+		of_property_read_bool(np, "osc-in-cmos-neg-inp-en");
+
+	/* PLL1 Setting */
+	of_property_read_u32(np, "refa-r-div", &tmp);
+	pdata->refa_r_div = tmp;
+	of_property_read_u32(np, "refb-r-div", &tmp);
+	pdata->refb_r_div = tmp;
+	of_property_read_u32(np, "pll1-feedback-div", &tmp);
+	pdata->pll1_feedback_div = tmp;
+	of_property_read_u32(np, "pll1-charge-pump-current-nA", &tmp);
+	pdata->pll1_charge_pump_current_nA = tmp;
+	of_property_read_u32(np, "pll1-loopfilter-rzero", &tmp);
+	pdata->pll1_loop_filter_rzero = tmp;
+
+	pdata->zero_delay_mode_internal_en =
+		of_property_read_bool(np, "zero-delay-mode-internal-en");
+	pdata->osc_in_feedback_en =
+		of_property_read_bool(np, "osc-in-feedback-en");
+
+	/* Reference */
+	of_property_read_u32(np, "ref-mode", &tmp);
+	pdata->ref_mode = tmp;
+
+	/* PLL2 Setting */
+	of_property_read_u32(np, "pll2-charge-pump-current-nA",
+			     &pdata->pll2_charge_pump_current_nA);
+
+	of_property_read_u32(np, "pll2-ndiv-a-cnt", &tmp);
+	pdata->pll2_ndiv_a_cnt = tmp;
+	of_property_read_u32(np, "pll2-ndiv-b-cnt", &tmp);
+	pdata->pll2_ndiv_b_cnt = tmp;
+
+	pdata->pll2_freq_doubler_en =
+		of_property_read_bool(np, "pll2-freq-doubler-en");
+
+	of_property_read_u32(np, "pll2-r2-div", &tmp);
+	pdata->pll2_r2_div = tmp;
+	of_property_read_u32(np, "pll2-vco-diff-m1", &tmp);
+	pdata->pll2_vco_diff_m1 = tmp;
+	of_property_read_u32(np, "pll2-vco-diff-m2", &tmp);
+	pdata->pll2_vco_diff_m2 = tmp;
+
+	/* Loop Filter PLL2 */
+
+	of_property_read_u32(np, "rpole2", &tmp);
+	pdata->rpole2 = tmp;
+	of_property_read_u32(np, "rzero", &tmp);
+	pdata->rzero = tmp;
+	of_property_read_u32(np, "cpole1", &tmp);
+	pdata->cpole1 = tmp;
+
+	pdata->rzero_bypass_en = of_property_read_bool(np, "rzero-bypass-en");
+
+	/* Output Channel Configuration */
+
+	ret = of_property_read_string(np, "name", &str);
+	if (ret >= 0)
+		strncpy(&pdata->name, str, SPI_NAME_SIZE - 1);
+
+	for_each_child_of_node(np, chan_np)
+		cnt++;
+
+	pdata->num_channels = cnt;
+	pdata->channels = devm_kzalloc(dev, sizeof(*chan) * cnt, GFP_KERNEL);
+	if (!pdata->channels) {
+		dev_err(dev, "could not allocate memory\n");
+		return NULL;
+	}
+
+	cnt = 0;
+	for_each_child_of_node(np, chan_np) {
+		of_property_read_u32(chan_np, "reg",
+				     &pdata->channels[cnt].channel_num);
+		pdata->channels[cnt].divider_output_invert_en =
+			of_property_read_bool(chan_np, "divider-output-invert-en");
+		pdata->channels[cnt].sync_ignore_en =
+			of_property_read_bool(chan_np, "sync-ignore-en");
+		pdata->channels[cnt].low_power_mode_en =
+			of_property_read_bool(chan_np, "low-power-mode-en");
+		pdata->channels[cnt].use_alt_clock_src =
+			of_property_read_bool(chan_np, "use-alt-clock-src");
+		pdata->channels[cnt].output_dis =
+			of_property_read_bool(chan_np, "output-dis");
+
+		of_property_read_u32(chan_np, "driver-mode", &tmp);
+		pdata->channels[cnt].driver_mode = tmp;
+		of_property_read_u32(chan_np, "divider-phase", &tmp);
+		pdata->channels[cnt].divider_phase = tmp;
+		of_property_read_u32(chan_np, "channel-divider", &tmp);
+		pdata->channels[cnt].channel_divider = tmp;
+		ret = of_property_read_string(chan_np, "extended-name", &str);
+		if (ret >= 0)
+			strncpy(&pdata->channels[cnt].extended_name,
+				str, SPI_NAME_SIZE - 1);
+
+		cnt++;
+	}
+
+	return pdata;
+}
+#else
+static
+struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int ad9523_probe(struct spi_device *spi)
 {
-	struct ad9523_platform_data *pdata = spi->dev.platform_data;
+	struct ad9523_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct ad9523_state *st;
 	int ret;
+
+	if (spi->dev.of_node)
+		pdata = ad9523_parse_dt(&spi->dev);
+	else
+		pdata = spi->dev.platform_data;
 
 	if (!pdata) {
 		dev_err(&spi->dev, "no platform data?\n");
