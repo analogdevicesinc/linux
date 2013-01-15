@@ -49,6 +49,7 @@ obj-$(CONFIG_RESET_CONTROLLER)	+= reset/
 # default.
 obj-y				+= tty/
 obj-y				+= char/
+obj-$(CONFIG_FPGA)		+= fpga/
 
 # iommu/ comes before gpu as gpu are using iommu controllers
 obj-$(CONFIG_IOMMU_SUPPORT)	+= iommu/
