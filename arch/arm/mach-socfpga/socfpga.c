@@ -93,7 +93,8 @@ static const char *altera_dt_match[] = {
 };
 
 DT_MACHINE_START(SOCFPGA, "Altera SOCFPGA")
-	.l2c_aux_val	= 0,
+	.l2c_aux_val	= L310_AUX_CTRL_DATA_PREFETCH |
+			L310_AUX_CTRL_INSTR_PREFETCH,
 	.l2c_aux_mask	= ~0,
 	.init_irq	= socfpga_init_irq,
 	.restart	= socfpga_cyclone5_restart,
