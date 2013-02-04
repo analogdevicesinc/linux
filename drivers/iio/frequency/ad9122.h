@@ -279,4 +279,10 @@
 #define AD9122_DIE_REV_2				0x3
 
 #define CHIPID_AD9122 0x8
+
+#define AD9122_HB23_INTERP(x)			(((x) << 1) | ((x) << 4))
+#define AD9122_HB1_INTERP(x)			((x) << 1)
+
+#define AD9122_MAX_DAC_RATE			1230000000UL
+
 #endif /* IIO_FREQUENCY_AD9122_H_ */

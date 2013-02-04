@@ -53,9 +53,31 @@ static bool cf_axi_dds_dma_filter(struct dma_chan *chan, void *param)
 		chan->chan_id == p->chan_id;
 }
 
-static void cf_axi_dds_sync_frame(struct cf_axi_dds_state *st) {
+static void cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	struct cf_axi_dds_converter *conv = to_converter(st->dev_spi);
+	unsigned stat;
+	static int retry = 0;
+
+	mdelay(10); /* Wait until clocks are stable */
+
 	dds_write(st, CF_AXI_DDS_FRAME, 0);
 	dds_write(st, CF_AXI_DDS_FRAME, CF_AXI_DDS_FRAME_SYNC);
+
+	/* Check FIFO status */
+	stat = conv->read(conv->spi, AD9122_REG_FIFO_STATUS_1);
+	if (stat & (AD9122_FIFO_STATUS_1_FIFO_WARNING_1 |
+		AD9122_FIFO_STATUS_1_FIFO_WARNING_2)) {
+		if (retry > 3) {
+			dev_warn(indio_dev->dev.parent, "FRAME/FIFO Reset Retry cnt\n");
+			return;
+		}
+
+		cf_axi_dds_sync_frame(indio_dev);
+	}
+
+	retry = 0;
 }
 
 void cf_axi_dds_stop(struct cf_axi_dds_state *st) {
@@ -162,9 +184,14 @@ static int cf_axi_dds_find_dci(unsigned long *err_field, unsigned entries)
 static int cf_axi_dds_tune_dci(struct cf_axi_dds_state *st)
 {
 	struct cf_axi_dds_converter *conv = to_converter(st->dev_spi);
-	unsigned reg, err_mask;
+	unsigned reg, err_mask, pwr;
 	int i = 0, dci;
 	unsigned long err_bfield = 0;
+
+	pwr = conv->read(conv->spi, AD9122_REG_POWER_CTRL);
+	conv->write(conv->spi, AD9122_REG_POWER_CTRL, pwr |
+			AD9122_POWER_CTRL_PD_I_DAC |
+			AD9122_POWER_CTRL_PD_Q_DAC);
 
 	for (dci = 0; dci < 4; dci++) {
 		conv->write(conv->spi, AD9122_REG_DCI_DELAY, dci);
@@ -232,6 +259,8 @@ static int cf_axi_dds_tune_dci(struct cf_axi_dds_state *st)
 	conv->write(conv->spi, AD9122_REG_DCI_DELAY,
 		    cf_axi_dds_find_dci(&err_bfield, 4));
 	conv->write(conv->spi, AD9122_REG_SED_CTRL, 0);
+	conv->write(conv->spi, AD9122_REG_POWER_CTRL, pwr);
+
 	dds_write(st, CF_AXI_DDS_CTRL, 0);
 
 	return 0;
@@ -248,6 +277,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	struct cf_axi_dds_converter *conv = to_converter(st->dev_spi);
 	unsigned long long val64;
 	unsigned reg;
 
@@ -282,10 +312,6 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		}
 		return IIO_VAL_INT_PLUS_MICRO;
 	case IIO_CHAN_INFO_FREQUENCY:
-		if (!chan->output) {
-			*val = st->dac_clk;
-			return IIO_VAL_INT;
-		}
 		reg = dds_read(st, chan->address);
 		val64 = (u64)(reg & 0xFFFF) * (u64)st->dac_clk;
 		do_div(val64, 0xFFFF);
@@ -297,6 +323,13 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		do_div(val64, 0xFFFF);
 		*val = val64;
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!conv->get_data_clk)
+			return -ENODEV;
+
+		*val = st->dac_clk = conv->get_data_clk(conv);
+		return IIO_VAL_INT;
+
 	}
 	return -EINVAL;
 }
@@ -308,9 +341,10 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			       long mask)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	struct cf_axi_dds_converter *conv = to_converter(st->dev_spi);
 	unsigned long long val64;
 	unsigned reg, ctrl_reg;
-	int i;
+	int i, ret;
 
 	ctrl_reg = dds_read(st, CF_AXI_DDS_CTRL);
 
@@ -378,6 +412,26 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		reg |= val64 << 16;
 		dds_write(st, chan->address, reg);
 		dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
+		break;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!conv->set_data_clk)
+			return -ENODEV;
+
+		cf_axi_dds_stop(st);
+		ret = conv->set_data_clk(conv, val);
+		if (ret < 0) {
+			dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
+			return ret;
+		}
+
+		if (val != st->dac_clk) {
+			cf_axi_dds_tune_dci(st);
+		}
+
+		st->dac_clk = conv->get_data_clk(conv);
+		dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
+		cf_axi_dds_sync_frame(indio_dev);
+
 		break;
 	default:
 		return -EINVAL;
@@ -522,25 +576,40 @@ static ssize_t ad9122_dds_interpolation_store(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct cf_axi_dds_converter *conv = to_converter(st->dev_spi);
 	long readin;
+	unsigned ctrl_reg;
 	int ret;
 
 	ret = kstrtol(buf, 10, &readin);
 	if (ret)
 		return ret;
 
+	if (!conv->set_interpol)
+		return -ENODEV;
+
 	mutex_lock(&indio_dev->mlock);
 
-	switch (readin) {
-	case 1:
-		st->ddr_dds_interp_en = 0;
+	ctrl_reg = dds_read(st, CF_AXI_DDS_CTRL);
+	cf_axi_dds_stop(st);
+
+	switch ((u32)this_attr->address) {
+	case 0:
+
+		ret = conv->set_interpol(conv, readin,
+					conv->fcenter_shift, 0);
 		break;
-	case 3:
-		st->ddr_dds_interp_en = CF_AXI_DDS_CTRL_INTERPOLATE;
+	case 1:
+		ret = conv->set_interpol(conv, conv->interp_factor,
+					readin, 0);
 		break;
 	default:
 		ret = -EINVAL;
 	}
+
+	dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
+	cf_axi_dds_sync_frame(indio_dev);
 
 	mutex_unlock(&indio_dev->mlock);
 
@@ -553,10 +622,21 @@ static ssize_t ad9122_dds_interpolation_show(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct cf_axi_dds_converter *conv = to_converter(st->dev_spi);
 	int ret = 0;
 
 	mutex_lock(&indio_dev->mlock);
-	ret = sprintf(buf, "%d\n", st->ddr_dds_interp_en ? 3 : 1);
+	switch ((u32)this_attr->address) {
+	case 0:
+		ret = sprintf(buf, "%d\n", conv->interp_factor);
+		break;
+	case 1:
+		ret = sprintf(buf, "%d\n", conv->fcenter_shift);
+		break;
+	default:
+		ret = -EINVAL;
+	}
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
@@ -597,12 +677,16 @@ static IIO_DEVICE_ATTR(out_altvoltage_interpolation, S_IRUGO | S_IWUSR,
 			ad9122_dds_interpolation_store,
 			0);
 
+static IIO_DEVICE_ATTR(out_altvoltage_interpolation_center_shift, S_IRUGO | S_IWUSR,
+			ad9122_dds_interpolation_show,
+			ad9122_dds_interpolation_store,
+			1);
 
 static IIO_CONST_ATTR(out_altvoltage_scale_available,
 		"1.000000 0.500000 0.250000 0.125000 ...");
 
 static IIO_CONST_ATTR(out_altvoltage_interpolation_available,
-		"1 3");
+		"1 2 4 8");
 
 static struct attribute *cf_axi_dds_attributes[] = {
 	&iio_dev_attr_out_voltage0_phase.dev_attr.attr, /* I */
@@ -613,6 +697,7 @@ static struct attribute *cf_axi_dds_attributes[] = {
 	&iio_dev_attr_out_voltage1_calibbias.dev_attr.attr,
 	&iio_const_attr_out_altvoltage_scale_available.dev_attr.attr,
 	&iio_dev_attr_out_altvoltage_interpolation.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage_interpolation_center_shift.dev_attr.attr,
 	&iio_const_attr_out_altvoltage_interpolation_available.dev_attr.attr,
 	NULL,
 };
@@ -628,17 +713,10 @@ static const struct attribute_group cf_axi_dds_attribute_group = {
 	  .info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |			\
 		       IIO_CHAN_INFO_SCALE_SEPARATE_BIT |		\
 	  	       IIO_CHAN_INFO_PHASE_SEPARATE_BIT |		\
-		       IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT,		\
+		       IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT |		\
+		       IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
 	  .address = _address,						\
 	  .output = 1,							\
-	  .extend_name = _extend_name,					\
-	  }
-
-#define CF_AXI_DDS_CHAN_CLK_IN(_chan, _extend_name)			\
-	{ .type = IIO_ALTVOLTAGE,					\
-	  .indexed = 1,							\
-	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT,		\
 	  .extend_name = _extend_name,					\
 	  }
 
@@ -659,7 +737,6 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.channel[1] = CF_AXI_DDS_CHAN(1, CF_AXI_DDS_1B_OUTPUT_CTRL, "1B"),
 		.channel[2] = CF_AXI_DDS_CHAN(2, CF_AXI_DDS_2A_OUTPUT_CTRL, "2A"),
 		.channel[3] = CF_AXI_DDS_CHAN(3, CF_AXI_DDS_2B_OUTPUT_CTRL, "2B"),
-		.channel[4] = CF_AXI_DDS_CHAN_CLK_IN(0, "DAC_CLK"),
 		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
 		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
 	},
@@ -669,7 +746,6 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.channel[1] = CF_AXI_DDS_CHAN(1, CF_AXI_DDS_1B_OUTPUT_CTRL, "1B"),
 		.channel[2] = CF_AXI_DDS_CHAN(2, CF_AXI_DDS_2A_OUTPUT_CTRL, "2A"),
 		.channel[3] = CF_AXI_DDS_CHAN(3, CF_AXI_DDS_2B_OUTPUT_CTRL, "2B"),
-		.channel[4] = CF_AXI_DDS_CHAN_CLK_IN(0, "DAC_CLK"),
 		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
 		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
 	},
@@ -782,31 +858,20 @@ static int __devinit cf_axi_dds_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
-	ret = of_property_read_u32(op->dev.of_node,
-				   "dac-sample-frequency",
-				   &st->dac_clk);
-	if (ret)
-		st->dac_clk = 491520000;
-
 	conv = to_converter(st->dev_spi);
 	if (IS_ERR(conv)) {
 		ret = PTR_ERR(conv);
 		goto failed3;
 	}
 
-	ret = conv->setup(conv->spi, 0);
-	if (ret) {
-		dev_err(&op->dev, "failed to setup spi device\n");
-		goto failed3;
-	}
-
+	st->dac_clk = conv->get_data_clk(conv);
 	st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->channels = st->chip_info->channel;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->num_channels = 5;
+	indio_dev->num_channels = 4;
 	indio_dev->info = &cf_axi_dds_info;
 
 	cf_axi_dds_tune_dci(st);
@@ -820,9 +885,9 @@ static int __devinit cf_axi_dds_of_probe(struct platform_device *op)
 	dds_write(st, CF_AXI_DDS_1B_OUTPUT_CTRL,
 		  cf_axi_dds_calc(90000, 40000000, st->dac_clk));
 	dds_write(st, CF_AXI_DDS_2A_OUTPUT_CTRL,
-		  cf_axi_dds_calc( 0, 40000000, st->dac_clk));
+		  cf_axi_dds_calc(0, 40000000, st->dac_clk));
 	dds_write(st, CF_AXI_DDS_2B_OUTPUT_CTRL,
-		  cf_axi_dds_calc( 0, 40000000, st->dac_clk));
+		  cf_axi_dds_calc(0, 40000000, st->dac_clk));
 
 	if (st->vers_id > 1)
 		dds_write(st, CF_AXI_DDS_CTRL, CF_AXI_DDS_CTRL_DATA_EN |
@@ -830,7 +895,7 @@ static int __devinit cf_axi_dds_of_probe(struct platform_device *op)
 	else
 		dds_write(st, CF_AXI_DDS_CTRL, 0x1ff); /* clk, dds enable & ddsx select */
 
-	cf_axi_dds_sync_frame(st);
+	cf_axi_dds_sync_frame(indio_dev);
 
 	ret = of_parse_phandle_with_args(op->dev.of_node, "dma-request",
 					 "#dma-cells", 0, &dma_spec);

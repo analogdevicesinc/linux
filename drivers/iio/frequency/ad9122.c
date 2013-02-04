@@ -1,7 +1,7 @@
 /*
  * AD9122 SPI DAC driver for AXI DDS PCORE/COREFPGA Module
  *
- * Copyright 2012 Analog Devices Inc.
+ * Copyright 2012-2013 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -14,10 +14,14 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/clk.h>
 
 #include <linux/iio/iio.h>
 #include "ad9122.h"
 #include "cf_axi_dds.h"
+
+const char clk_names[CLK_NUM][10] = {"data_clk", "dac_clk", "ref_clk"};
 
 static const unsigned char ad9122_reg_defaults[][2] = {
 	{AD9122_REG_COMM, 0x00},
@@ -105,13 +109,12 @@ static int ad9122_write(struct spi_device *spi,
 	return 0;
 }
 
-static int ad9122_setup(struct spi_device *spi, unsigned mode)
-{
-	int ret, timeout, i;
 
-	for (i = 0; i < ARRAY_SIZE(ad9122_reg_defaults); i++)
-			ad9122_write(spi, ad9122_reg_defaults[i][0],
-					     ad9122_reg_defaults[i][1]);
+static int ad9122_sync(struct cf_axi_dds_converter *conv)
+{
+	struct spi_device *spi = conv->spi;
+	int ret, timeout;
+
 	timeout = 255;
 	do {
 		mdelay(1);
@@ -138,16 +141,174 @@ static int ad9122_setup(struct spi_device *spi, unsigned mode)
 	return 0;
 }
 
-static int __devinit ad9122_probe(struct spi_device *spi)
+static int ad9122_setup(struct cf_axi_dds_converter *conv, unsigned mode)
 {
-	struct cf_axi_dds_converter *conv;
-	unsigned id;
+	struct spi_device *spi = conv->spi;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ad9122_reg_defaults); i++)
+			ad9122_write(spi, ad9122_reg_defaults[i][0],
+					     ad9122_reg_defaults[i][1]);
+
+	return ad9122_sync(conv);
+}
+
+
+static int ad9122_get_clks(struct cf_axi_dds_converter *conv)
+{
+	struct clk *clk;
+	int i, ret;
+
+	for (i = 0; i < CLK_NUM; i++) {
+		clk = clk_get(&conv->spi->dev, &clk_names[i][0]);
+		if (IS_ERR(clk)) {
+			return -EPROBE_DEFER;
+		}
+
+		ret = clk_prepare(clk);
+		if (ret < 0)
+			return ret;
+
+		ret = clk_enable(clk);
+		if (ret < 0) {
+			clk_unprepare(clk);
+			return ret;
+		}
+		conv->clk[i] = clk;
+	}
+	return 0;
+}
+
+static unsigned long ad9122_get_data_clk(struct cf_axi_dds_converter *conv)
+{
+	return clk_get_rate(conv->clk[CLK_DATA]);
+}
+
+static int ad9122_set_data_clk(struct cf_axi_dds_converter *conv, unsigned long freq)
+{
+	unsigned long efreq, dac_freq;
 	int ret;
 
-	conv = kzalloc(sizeof(*conv), GFP_KERNEL);
+	efreq = clk_round_rate(conv->clk[CLK_DATA], freq);
+	if (efreq != freq) {
+		dev_err(&conv->spi->dev, "CLK_DATA: Requested Rate Mismatch %lu != %lu\n",
+			freq, efreq);
+		return -EINVAL;
+	}
+
+	dac_freq = freq * conv->interp_factor;
+	if (dac_freq > AD9122_MAX_DAC_RATE) {
+		dev_err(&conv->spi->dev, "CLK_DAC: Requested Rate exceeds maximum %lu (%lu)\n",
+			dac_freq, AD9122_MAX_DAC_RATE);
+		return -EINVAL;
+	}
+
+	efreq = clk_round_rate(conv->clk[CLK_DAC], dac_freq);
+	if (efreq != dac_freq) {
+		dev_err(&conv->spi->dev, "CLK_DAC: Requested Rate Mismatch %lu != %lu\n",
+			freq, efreq);
+		return -EINVAL;
+	}
+
+	ret = clk_set_rate(conv->clk[CLK_DATA], freq);
+	if (ret < 0)
+		return ret;
+
+	ret = clk_set_rate(conv->clk[CLK_DAC], dac_freq);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static unsigned int ad9122_validate_interp_factor(unsigned fact)
+{
+	switch (fact) {
+		case 1:
+		case 2:
+		case 4:
+		case 8:
+			return fact;
+		default:
+			return 1;
+	}
+}
+
+static int ad9122_set_interpol(struct cf_axi_dds_converter *conv, unsigned interp,
+			       unsigned fcent_shift, unsigned long data_rate)
+{
+	unsigned char hb1, hb2, hb3, tmp;
+	int ret, cached;
+
+	hb1 = AD9122_HB1_CTRL_BYPASS_HB1;
+	hb2 = AD9122_HB2_CTRL_BYPASS_HB2;
+	hb3 = AD9122_HB3_CTRL_BYPASS_HB3;
+
+	switch (interp) {
+		case 1:
+			break;
+		case 2:
+			if (fcent_shift > 3)
+				return -EINVAL;
+			hb1 = AD9122_HB1_INTERP(fcent_shift);
+			break;
+		case 4:
+			if (fcent_shift > 7)
+				return -EINVAL;
+			hb1 = AD9122_HB1_INTERP(fcent_shift % 4);
+			hb2 = AD9122_HB23_INTERP(fcent_shift);
+			break;
+		case 8:
+			if (fcent_shift > 15)
+				return -EINVAL;
+			hb1 = AD9122_HB1_INTERP(fcent_shift % 4);
+			hb2 = AD9122_HB23_INTERP(fcent_shift % 8);
+			hb3 = AD9122_HB23_INTERP(fcent_shift / 2);
+			break;
+		default:
+			return -EINVAL;
+	}
+
+	cached = conv->interp_factor;
+	conv->interp_factor = interp;
+	ret = ad9122_set_data_clk(conv, data_rate ?
+				 data_rate : ad9122_get_data_clk(conv));
+
+	if (ret < 0) {
+		conv->interp_factor = cached;
+
+		return ret;
+	}
+
+	tmp = ad9122_read(conv->spi, AD9122_REG_DATAPATH_CTRL);
+	switch (hb1) {
+		case AD9122_HB1_INTERP(1):
+		case AD9122_HB1_INTERP(3):
+			tmp &= ~AD9122_DATAPATH_CTRL_BYPASS_PREMOD;
+			break;
+		default:
+			tmp |= AD9122_DATAPATH_CTRL_BYPASS_PREMOD;
+	}
+
+	ad9122_write(conv->spi, AD9122_REG_DATAPATH_CTRL, tmp);
+	ad9122_write(conv->spi, AD9122_REG_HB1_CTRL, hb1);
+	ad9122_write(conv->spi, AD9122_REG_HB2_CTRL, hb2);
+	ad9122_write(conv->spi, AD9122_REG_HB3_CTRL, hb3);
+	conv->fcenter_shift = fcent_shift;
+
+	return 0;
+}
+
+static int __devinit ad9122_probe(struct spi_device *spi)
+{
+	struct device_node *np = spi->dev.of_node;
+	struct cf_axi_dds_converter *conv;
+	unsigned id, rate, datapath_ctrl;
+	int ret;
+
+	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
-
 
 	id = ad9122_read(spi, AD9122_REG_CHIP_ID);
 	if (id != CHIPID_AD9122) {
@@ -159,23 +320,56 @@ static int __devinit ad9122_probe(struct spi_device *spi)
 	conv->write = ad9122_write;
 	conv->read = ad9122_read;
 	conv->setup = ad9122_setup;
+	conv->get_data_clk = ad9122_get_data_clk;
+	conv->set_data_clk = ad9122_set_data_clk;
+	conv->set_interpol = ad9122_set_interpol;
+
 	conv->spi = spi;
 	conv->id = ID_AD9122;
+
+	ret = ad9122_get_clks(conv);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to get clocks\n");
+		goto out;
+	}
+
+	ret = ad9122_setup(conv, 0);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to setup device\n");
+		goto out;
+	}
+
+	of_property_read_u32(np, "dac-interp-factor", &conv->interp_factor);
+	conv->interp_factor = ad9122_validate_interp_factor(conv->interp_factor);
+	of_property_read_u32(np, "dac-fcenter-shift", &conv->fcenter_shift);
+
+	datapath_ctrl = AD9122_DATAPATH_CTRL_BYPASS_PREMOD |
+			AD9122_DATAPATH_CTRL_BYPASS_NCO;
+
+	if (!of_property_read_bool(np, "dac-invsinc-en"))
+	    datapath_ctrl |= AD9122_DATAPATH_CTRL_BYPASS_INV_SINC;
+
+	ad9122_write(spi, AD9122_REG_DATAPATH_CTRL, datapath_ctrl);
+
+	ret = of_property_read_u32(np, "dac-data-rate", &rate);
+	if (ret)
+		rate = 0;
+
+	ret = ad9122_set_interpol(conv, conv->interp_factor,
+				  conv->fcenter_shift, rate);
+	if (ret)
+		goto out;
+
 	spi_set_drvdata(spi, conv);
 
 	return 0;
 out:
-	kfree(conv);
 	return ret;
 }
 
 static int ad9122_remove(struct spi_device *spi)
 {
-	struct cf_axi_dds_converter *conv = spi_get_drvdata(spi);
-
 	spi_set_drvdata(spi, NULL);
-	kfree(conv);
-
 	return 0;
 }
 
