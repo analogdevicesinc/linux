@@ -1,7 +1,7 @@
 /*
  * AD9517 SPI Clock Generator with integrated VCO
  *
- * Copyright 2012 Analog Devices Inc.
+ * Copyright 2013 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -151,6 +151,7 @@ struct ad9517_state {
 	struct spi_device *spi;
 	unsigned char regs[AD9517_TRANSFER];
 	struct ad9517_outputs output[NUM_OUTPUTS];
+	struct clk_onecell_data clk_data;
 	unsigned long refin_freq;
 	unsigned long clkin_freq;
 	char *div0123_clk_parent_name;
@@ -538,27 +539,94 @@ struct clk *ad9517_clk_register(struct ad9517_state *st, unsigned num)
 
 	/* register the clock */
 	clk = clk_register(&st->spi->dev, &output->hw);
-
-	if (!IS_ERR(clk))
-		of_clk_add_provider(st->spi->dev.of_node,
-				    of_clk_src_simple_get, clk);
+	st->clk_data.clks[num] = clk;
 
 	return clk;
 }
 
+static int ad9517_reg_access(struct iio_dev *indio_dev,
+			      unsigned reg, unsigned writeval,
+			      unsigned *readval)
+{
+	struct ad9517_state *st = iio_priv(indio_dev);
+	int ret;
+
+	mutex_lock(&indio_dev->mlock);
+	if (readval == NULL) {
+		ret = ad9517_write(st->spi, reg, writeval);
+	} else {
+		ret = ad9517_read(st->spi, reg);
+		if (ret < 0)
+			goto out_unlock;
+		*readval = ret;
+		ret = 0;
+	}
+
+out_unlock:
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
+static int ad9517_read_raw(struct iio_dev *indio_dev,
+			   struct iio_chan_spec const *chan,
+			   int *val,
+			   int *val2,
+			   long m)
+{
+	struct ad9517_state *st = iio_priv(indio_dev);
+
+	switch (m) {
+	case IIO_CHAN_INFO_RAW:
+		*val = st->output[chan->channel].is_enabled;
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_FREQUENCY:
+		*val = st->output[chan->channel].freq;
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+};
+
+static const struct iio_info ad9517_info = {
+	.read_raw = &ad9517_read_raw,
+	.debugfs_reg_access = &ad9517_reg_access,
+	.driver_module = THIS_MODULE,
+};
+
+#define AD9517_CHAN(_chan)					\
+	{ .type = IIO_ALTVOLTAGE,				\
+	  .indexed = 1,						\
+	  .channel = _chan,					\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | 	\
+			BIT(IIO_CHAN_INFO_FREQUENCY),		\
+	  .output = 1}
+
+static const struct iio_chan_spec ad9517_chan[NUM_OUTPUTS] = {
+	AD9517_CHAN(OUT_0),
+	AD9517_CHAN(OUT_1),
+	AD9517_CHAN(OUT_2),
+	AD9517_CHAN(OUT_3),
+	AD9517_CHAN(OUT_4),
+	AD9517_CHAN(OUT_5),
+	AD9517_CHAN(OUT_6),
+	AD9517_CHAN(OUT_7),
+};
+
 static int __devinit ad9517_probe(struct spi_device *spi)
 {
 	struct ad9517_platform_data *pdata = spi->dev.platform_data;
+	struct iio_dev *indio_dev;
 	int out, ret, conf;
 	const struct firmware *fw;
 	struct ad9517_state *st;
 	struct clk *clk, *ref_clk, *clkin;
 
-	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
-	if (!st) {
-		dev_err(&spi->dev, "Not enough memory for device\n");
+	indio_dev = iio_device_alloc(sizeof(*st));
+	if (indio_dev == NULL)
 		return -ENOMEM;
-	}
+
+	st = iio_priv(indio_dev);
 
 	conf = AD9517_LONG_INSTR |
 		(spi->mode & SPI_3WIRE ? 0 : AD9517_SDO_ACTIVE);
@@ -627,6 +695,16 @@ static int __devinit ad9517_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
+	st->clk_data.clks = devm_kzalloc(&st->spi->dev,
+					 sizeof(*st->clk_data.clks) *
+					 NUM_OUTPUTS, GFP_KERNEL);
+	if (!st->clk_data.clks) {
+		dev_err(&st->spi->dev, "could not allocate memory\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	st->clk_data.clk_num = NUM_OUTPUTS;
+
 	for (out = 0; out < NUM_OUTPUTS; out++) {
 		st->output[out].is_enabled =
 			!(st->regs[output_pwrdwn_lut[out][PWRDWN_REG]] &
@@ -636,15 +714,36 @@ static int __devinit ad9517_probe(struct spi_device *spi)
 			return PTR_ERR(clk);
 	}
 
-	spi_set_drvdata(spi, NULL);
+	of_clk_add_provider(st->spi->dev.of_node,
+			    of_clk_src_onecell_get, &st->clk_data);
+
+	indio_dev->dev.parent = &spi->dev;
+	indio_dev->name = spi_get_device_id(spi)->name;
+	indio_dev->info = &ad9517_info;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = ad9517_chan;
+	indio_dev->num_channels = NUM_OUTPUTS;
+
+	ret = iio_device_register(indio_dev);
+	if (ret)
+		goto out;
+
+
 	dev_info(&spi->dev, "probed\n");
+	return 0;
 
 out:
-	return 0;
+	spi_set_drvdata(spi, NULL);
+	return ret;
 }
 
 static int ad9517_remove(struct spi_device *spi)
 {
+	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+
+	iio_device_unregister(indio_dev);
+	iio_device_free(indio_dev);
+
 	spi_set_drvdata(spi, NULL);
 
 	return 0;
