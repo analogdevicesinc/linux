@@ -16,6 +16,10 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 
+#include <linux/clk.h>
+#include <linux/clkdev.h>
+#include <linux/clk-provider.h>
+
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/frequency/ad9523.h>
@@ -263,14 +267,26 @@ enum {
 	AD9523_NUM_CLK_SRC,
 };
 
+struct ad9523_outputs {
+	struct clk_hw hw;
+	struct iio_dev *indio_dev;
+	unsigned num;
+	bool is_enabled;
+};
+
+#define to_ad9523_clk_output(_hw) container_of(_hw, struct ad9523_outputs, hw)
+
 struct ad9523_state {
 	struct spi_device		*spi;
 	struct regulator		*reg;
 	struct ad9523_platform_data	*pdata;
+	struct ad9523_outputs		output[AD9523_NUM_CHAN];
 	struct iio_chan_spec		ad9523_channels[AD9523_NUM_CHAN];
 	struct gpio_desc		*pwrdown_gpio;
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*sync_gpio;
+	struct clk_onecell_data		clk_data;
+	struct clk 			*clks[AD9523_NUM_CHAN];
 
 	unsigned long		vcxo_freq;
 	unsigned long		vco_freq;
@@ -378,7 +394,7 @@ static int ad9523_vco_out_map(struct iio_dev *indio_dev,
 		mask = AD9523_PLL1_OUTP_CH_CTRL_VCXO_SRC_SEL_CH0 << ch;
 		if (out) {
 			ret |= mask;
-			out = 2;
+			out = AD9523_VCXO;
 		} else {
 			ret &= ~mask;
 		}
@@ -686,6 +702,9 @@ static int ad9523_write_raw(struct iio_dev *indio_dev,
 			reg &= ~AD9523_CLK_DIST_PWR_DOWN_EN;
 		else
 			reg |= AD9523_CLK_DIST_PWR_DOWN_EN;
+
+		st->output[chan->channel].is_enabled = !!val;
+
 		break;
 	case IIO_CHAN_INFO_FREQUENCY:
 		if (val <= 0) {
@@ -778,6 +797,134 @@ static const struct iio_info ad9523_info = {
 	.debugfs_reg_access = &ad9523_reg_access,
 	.attrs = &ad9523_attribute_group,
 };
+
+static long ad9523_get_clk_attr(struct clk_hw *hw, long mask)
+{
+	struct iio_dev *indio_dev = to_ad9523_clk_output(hw)->indio_dev;
+	int val, ret;
+	struct iio_chan_spec chan;
+
+	chan.channel = to_ad9523_clk_output(hw)->num;
+
+	ret = ad9523_read_raw(indio_dev, &chan, &val, NULL, mask);
+
+	if (ret == IIO_VAL_INT)
+		return val;
+
+	return ret;
+}
+
+static unsigned long ad9523_clk_recalc_rate(struct clk_hw *hw,
+		unsigned long parent_rate)
+{
+	return ad9523_get_clk_attr(hw, IIO_CHAN_INFO_FREQUENCY);
+}
+
+static int ad9523_clk_is_enabled(struct clk_hw *hw)
+{
+	return to_ad9523_clk_output(hw)->is_enabled;
+}
+
+static long ad9523_set_clk_attr(struct clk_hw *hw, long mask, unsigned long val)
+{
+	struct iio_dev *indio_dev = to_ad9523_clk_output(hw)->indio_dev;
+	struct iio_chan_spec chan;
+
+	chan.channel = to_ad9523_clk_output(hw)->num;
+
+	return ad9523_write_raw(indio_dev, &chan, val, 0, mask);
+}
+
+static int ad9523_clk_prepare(struct clk_hw *hw)
+{
+	return ad9523_set_clk_attr(hw, IIO_CHAN_INFO_RAW, 1);
+}
+
+static void ad9523_clk_unprepare(struct clk_hw *hw)
+{
+	ad9523_set_clk_attr(hw, IIO_CHAN_INFO_RAW, 0);
+}
+
+static long ad9523_clk_round_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long *prate)
+{
+	struct iio_dev *indio_dev = to_ad9523_clk_output(hw)->indio_dev;
+	struct ad9523_state *st = iio_priv(indio_dev);
+	unsigned long clk, tmp1, tmp2;
+
+	if (!rate)
+		return 0;
+
+	switch (to_ad9523_clk_output(hw)->num) {
+	case 0 ... 3:
+		if (rate == st->vco_out_freq[AD9523_VCXO])
+			clk = st->vco_out_freq[AD9523_VCXO];
+		else
+			clk = st->vco_out_freq[AD9523_VCO1];
+		break;
+	case 4 ... 9:
+		tmp1 = st->vco_out_freq[AD9523_VCO1] / rate;
+		tmp2 = st->vco_out_freq[AD9523_VCO2] / rate;
+		tmp1 *= rate;
+		tmp2 *= rate;
+		if (abs(tmp1 - rate) > abs(tmp2 - rate))
+			clk = st->vco_out_freq[AD9523_VCO2];
+		else
+			clk = st->vco_out_freq[AD9523_VCO1];
+		break;
+	default:
+		clk = st->vco_out_freq[AD9523_VCO1];
+		/* Ch 10..14: No action required, return success */
+	}
+
+		tmp1 = clk / rate;
+		tmp1 = clamp(tmp1, 1UL, 1024UL);
+
+	return clk / tmp1;
+}
+
+static int ad9523_clk_set_rate(struct clk_hw *hw, unsigned long rate,
+			       unsigned long prate)
+{
+	return ad9523_set_clk_attr(hw, IIO_CHAN_INFO_FREQUENCY, rate);
+}
+
+static const struct clk_ops ad9523_clk_ops = {
+	.recalc_rate = ad9523_clk_recalc_rate,
+	.is_enabled = ad9523_clk_is_enabled,
+	.prepare = ad9523_clk_prepare,
+	.unprepare = ad9523_clk_unprepare,
+	.set_rate = ad9523_clk_set_rate,
+	.round_rate = ad9523_clk_round_rate,
+};
+
+static struct clk *ad9523_clk_register(struct iio_dev *indio_dev, unsigned num,
+				bool is_enabled)
+{
+	struct ad9523_state *st = iio_priv(indio_dev);
+	struct clk_init_data init;
+	struct ad9523_outputs *output = &st->output[num];
+	struct clk *clk;
+	char name[SPI_NAME_SIZE + 8];
+
+	sprintf(name, "%s_out%d", indio_dev->name, num);
+
+	init.name = name;
+	init.ops = &ad9523_clk_ops;
+
+	init.num_parents = 0;
+	init.flags = 0;
+	output->hw.init = &init;
+	output->indio_dev = indio_dev;
+	output->num = num;
+	output->is_enabled = is_enabled;
+
+	/* register the clock */
+	clk = clk_register(&st->spi->dev, &output->hw);
+	st->clk_data.clks[num] = clk;
+
+	return clk;
+}
 
 static int ad9523_setup(struct iio_dev *indio_dev)
 {
@@ -934,6 +1081,9 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
+	st->clk_data.clks = st->clks;
+	st->clk_data.clk_num = AD9523_NUM_CHAN;
+
 	for (i = 0; i < pdata->num_channels; i++) {
 		chan = &pdata->channels[i];
 		if (chan->channel_num < AD9523_NUM_CHAN) {
@@ -993,6 +1143,23 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	ret = ad9523_io_update(indio_dev);
 	if (ret < 0)
 		return ret;
+
+	ret = ad9523_sync(indio_dev);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < pdata->num_channels; i++) {
+		struct clk *clk;
+
+		chan = &pdata->channels[i];
+		if (chan->channel_num >= AD9523_NUM_CHAN)
+			continue;
+
+		clk = ad9523_clk_register(indio_dev, chan->channel_num,
+					  !chan->output_dis);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
+	}
 
 	return 0;
 }
