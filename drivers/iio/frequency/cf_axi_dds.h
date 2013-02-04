@@ -79,13 +79,28 @@ struct cf_axi_dds_state {
 	unsigned 		ddr_dds_interp_en;
 };
 
+enum {
+	CLK_DATA,
+	CLK_DAC,
+	CLK_REF,
+	CLK_NUM,
+};
+
 struct cf_axi_dds_converter {
-	struct spi_device 		*spi;
-	unsigned			id;
+	struct spi_device 	*spi;
+	struct clk 	*clk[CLK_NUM];
+	unsigned		id;
+	unsigned		interp_factor;
+	unsigned		fcenter_shift;
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);
-	int		(*setup)(struct spi_device *spi, unsigned mode);
+	int		(*setup)(struct cf_axi_dds_converter *conv, unsigned mode);
+	unsigned long	(*get_data_clk)(struct cf_axi_dds_converter *conv);
+	int		(*set_data_clk)(struct cf_axi_dds_converter *conv, unsigned long freq);
+	int 		(*set_interpol)(struct cf_axi_dds_converter *conv, unsigned interp,
+			       unsigned fcent_shift, unsigned long data_rate);
+
 };
 
 static inline struct cf_axi_dds_converter *to_converter(struct device *dev)
