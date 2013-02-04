@@ -67,7 +67,7 @@ static int ad9250_setup(struct spi_device *spi)
 	int ret;
 	unsigned pll_stat;
 
-	ret = ad9467_spi_write(spi, 0x18, 0x0f); // max vref
+	ret = ad9467_spi_write(spi, 0x18, 0x00); // default vref
 	ret |= ad9467_spi_write(spi, 0x64, 0xf0); // did
 	ret |= ad9467_spi_write(spi, 0x80, 0x0f); // powerdown
 	ret |= ad9467_spi_write(spi, 0x5f, 0x17); // char repl & ilas
