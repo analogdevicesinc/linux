@@ -186,6 +186,8 @@ static int __devexit jesd204b_of_remove(struct platform_device *op)
 
 /* Match table for of_platform binding */
 static const struct of_device_id jesd204b_of_match[] __devinitconst = {
+	{ .compatible = "xlnx,axi-jesd204b-rx2-1.01.a", },
+	{ .compatible = "xlnx,axi-jesd204b-rx4-1.01.a", },
 	{ .compatible = "xlnx,axi-jesd204b-rx2-1.00.a", },
 	{ .compatible = "xlnx,axi-jesd204b-rx4-1.00.a", },
 { /* end of list */ },
