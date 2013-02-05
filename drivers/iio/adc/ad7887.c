@@ -1,7 +1,7 @@
 /*
- * AD7887 SPI ADC driver
+ * AD7887, AD7888 SPI ADC driver
  *
- * Copyright 2010-2011 Analog Devices Inc.
+ * Copyright 2010-2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -28,80 +28,96 @@
 
 #define AD7887_REF_DIS		BIT(5)	/* on-chip reference disable */
 #define AD7887_DUAL		BIT(4)	/* dual-channel mode */
-#define AD7887_CH_AIN1		BIT(3)	/* convert on channel 1, DUAL=1 */
-#define AD7887_CH_AIN0		0	/* convert on channel 0, DUAL=0,1 */
-#define AD7887_PM_MODE1		0	/* CS based shutdown */
-#define AD7887_PM_MODE2		1	/* full on */
-#define AD7887_PM_MODE3		2	/* auto shutdown after conversion */
-#define AD7887_PM_MODE4		3	/* standby mode */
+#define AD7887_CH(x)		((x) << 3)
+#define AD7887_PM_MODE1		(0)	 /* CS based shutdown */
+#define AD7887_PM_MODE2		(1)	 /* full on */
+#define AD7887_PM_MODE3		(2)	 /* auto shutdown after conversion */
+#define AD7887_PM_MODE4		(3)	 /* standby mode */
 
-enum ad7887_channels {
-	AD7887_CH0,
-	AD7887_CH0_CH1,
-	AD7887_CH1,
-};
+#define AD7888_REF_DIS		(1 << 2) /* on-chip reference disable */
 
 /**
  * struct ad7887_chip_info - chip specifc information
  * @int_vref_mv:	the internal reference voltage
+ * @ref_dis_mask:
  * @channel:		channel specification
  */
 struct ad7887_chip_info {
 	u16				int_vref_mv;
-	struct iio_chan_spec		channel[3];
+	bool				shared_vref;
+	unsigned int			ref_dis_mask;
+	const struct iio_chan_spec	*channels;
+	unsigned int			num_channels;
 };
 
 struct ad7887_state {
 	struct spi_device		*spi;
 	const struct ad7887_chip_info	*chip_info;
 	struct regulator		*reg;
-	struct spi_transfer		xfer[4];
-	struct spi_message		msg[3];
-	struct spi_message		*ring_msg;
-	unsigned char			tx_cmd_buf[4];
-
-	/*
-	 * DMA (thus cache coherency maintenance) requires the
-	 * transfer buffers to live in their own cache lines.
-	 * Buffer needs to be large enough to hold two 16 bit samples and a
-	 * 64 bit aligned 64 bit timestamp.
-	 */
-	unsigned char data[ALIGN(4, sizeof(s64)) + sizeof(s64)]
-		____cacheline_aligned;
+	struct spi_transfer		*xfers;
+	struct spi_message		message;
+	uint8_t				mode;
+	 __be16				*data;
 };
 
 enum ad7887_supported_device_ids {
-	ID_AD7887
+	ID_AD7887,
+	ID_AD7888,
 };
 
-static int ad7887_ring_preenable(struct iio_dev *indio_dev)
+static int ad7887_update_scan_mode(struct iio_dev *indio_dev,
+	const unsigned long *active_scan_mask)
 {
 	struct ad7887_state *st = iio_priv(indio_dev);
+	unsigned int n, i, ch;
+	__be16 *tx, *rx;
 
-	/* We know this is a single long so can 'cheat' */
-	switch (*indio_dev->active_scan_mask) {
-	case (1 << 0):
-		st->ring_msg = &st->msg[AD7887_CH0];
-		break;
-	case (1 << 1):
-		st->ring_msg = &st->msg[AD7887_CH1];
-		/* Dummy read: push CH1 setting down to hardware */
-		spi_sync(st->spi, st->ring_msg);
-		break;
-	case ((1 << 1) | (1 << 0)):
-		st->ring_msg = &st->msg[AD7887_CH0_CH1];
-		break;
+	n = bitmap_weight(active_scan_mask, indio_dev->masklength);
+
+	kfree(st->data);
+	st->data = kzalloc(sizeof(*tx) * n + indio_dev->scan_bytes, GFP_KERNEL);
+	if (!st->data)
+		return -ENOMEM;
+
+	kfree(st->xfers);
+	st->xfers = kcalloc(sizeof(*st->xfers), n, GFP_KERNEL);
+	if (!st->xfers)
+		return -ENOMEM;
+
+	tx = st->data;
+	rx = st->data + n;
+
+	spi_message_init(&st->message);
+
+	i = 0;
+	for_each_set_bit(ch, active_scan_mask, indio_dev->masklength) {
+		st->xfers[i].tx_buf = &tx[i];
+		st->xfers[i].rx_buf = &rx[i];
+		st->xfers[i].len = sizeof(*tx);
+		if (i != n - 1)
+			st->xfers[i].cs_change = 1;
+		if (i == 0)
+			tx[n - 1] = cpu_to_be16((st->mode | AD7887_CH(ch)) << 8);
+		else
+			tx[i - 1] = cpu_to_be16((st->mode | AD7887_CH(ch)) << 8);
+		spi_message_add_tail(&st->xfers[i], &st->message);
+		i++;
 	}
 
 	return 0;
 }
 
-static int ad7887_ring_postdisable(struct iio_dev *indio_dev)
+static int ad7887_ring_preenable(struct iio_dev *indio_dev)
 {
 	struct ad7887_state *st = iio_priv(indio_dev);
+	unsigned int i;
 
-	/* dummy read: restore default CH0 settin */
-	return spi_sync(st->spi, &st->msg[AD7887_CH0]);
+	/*
+	 * Select the first channel for sampling. The command for selecting the
+	 * first channel is stored in the last tx buffer element.
+	 */
+	i = bitmap_weight(indio_dev->active_scan_mask, indio_dev->masklength) - 1;
+	return spi_write(st->spi, &st->data[i], sizeof(*st->data));
 }
 
 /**
@@ -117,7 +133,7 @@ static irqreturn_t ad7887_trigger_handler(int irq, void *p)
 	struct ad7887_state *st = iio_priv(indio_dev);
 	int b_sent;
 
-	b_sent = spi_sync(st->spi, st->ring_msg);
+	b_sent = spi_sync(st->spi, &st->message);
 	if (b_sent)
 		goto done;
 
@@ -133,16 +149,38 @@ static const struct iio_buffer_setup_ops ad7887_ring_setup_ops = {
 	.preenable = &ad7887_ring_preenable,
 	.postenable = &iio_triggered_buffer_postenable,
 	.predisable = &iio_triggered_buffer_predisable,
-	.postdisable = &ad7887_ring_postdisable,
 };
 
 static int ad7887_scan_direct(struct ad7887_state *st, unsigned ch)
 {
-	int ret = spi_sync(st->spi, &st->msg[ch]);
+	struct spi_transfer t[] = {
+		{
+			.len	    = sizeof(*st->data),
+			.cs_change  = 1,
+		},
+		{
+			.len	    = sizeof(*st->data),
+		}
+	};
+	int ret;
+
+	if (!st->data) {
+		st->data = kmalloc(sizeof(*st->data) * 2, GFP_KERNEL);
+		if (!st->data)
+			return -ENOMEM;
+	}
+
+	t[0].tx_buf = &st->data[0];
+	t[1].tx_buf = &st->data[0];
+	t[1].rx_buf = &st->data[1];
+
+	st->data[0] = cpu_to_be16((st->mode | AD7887_CH(ch)) << 8);
+
+	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
 	if (ret)
 		return ret;
 
-	return (st->data[(ch * 2)] << 8) | st->data[(ch * 2) + 1];
+	return be16_to_cpu(st->data[1]);
 }
 
 static int ad7887_read_raw(struct iio_dev *indio_dev,
@@ -184,51 +222,58 @@ static int ad7887_read_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+#define AD7887_CHANNEL(x) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = (x), \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
+	.address = (x), \
+	.scan_index = (x), \
+	.scan_type = { \
+		.sign = 'u', \
+		.realbits = 12, \
+		.storagebits = 16, \
+		.shift = 0, \
+		.endianness = IIO_BE, \
+	}, \
+}
+
+static const struct iio_chan_spec ad7888_channels[] = {
+    IIO_CHAN_SOFT_TIMESTAMP(8),
+    AD7887_CHANNEL(0),
+    AD7887_CHANNEL(1),
+    AD7887_CHANNEL(2),
+    AD7887_CHANNEL(3),
+    AD7887_CHANNEL(4),
+    AD7887_CHANNEL(5),
+    AD7887_CHANNEL(6),
+    AD7887_CHANNEL(7),
+};
 
 static const struct ad7887_chip_info ad7887_chip_info_tbl[] = {
 	/*
 	 * More devices added in future
 	 */
 	[ID_AD7887] = {
-		.channel[0] = {
-			.type = IIO_VOLTAGE,
-			.indexed = 1,
-			.channel = 1,
-			.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-			.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
-			.address = 1,
-			.scan_index = 1,
-			.scan_type = {
-				.sign = 'u',
-				.realbits = 12,
-				.storagebits = 16,
-				.shift = 0,
-				.endianness = IIO_BE,
-			},
-		},
-		.channel[1] = {
-			.type = IIO_VOLTAGE,
-			.indexed = 1,
-			.channel = 0,
-			.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-			.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
-			.address = 0,
-			.scan_index = 0,
-			.scan_type = {
-				.sign = 'u',
-				.realbits = 12,
-				.storagebits = 16,
-				.shift = 0,
-				.endianness = IIO_BE,
-			},
-		},
-		.channel[2] = IIO_CHAN_SOFT_TIMESTAMP(2),
+		.channels = ad7888_channels,
+		.num_channels = 3,
 		.int_vref_mv = 2500,
+		.shared_vref = true,
+		.ref_dis_mask = AD7887_REF_DIS,
+	},
+	[ID_AD7888] = {
+		.channels = ad7888_channels,
+		.num_channels = ARRAY_SIZE(ad7888_channels),
+		.int_vref_mv = 2500,
+		.shared_vref = false,
+		.ref_dis_mask = AD7888_REF_DIS,
 	},
 };
 
 static const struct iio_info ad7887_info = {
 	.read_raw = &ad7887_read_raw,
+	.update_scan_mode = &ad7887_update_scan_mode,
 };
 
 static int ad7887_probe(struct spi_device *spi)
@@ -236,7 +281,6 @@ static int ad7887_probe(struct spi_device *spi)
 	struct ad7887_platform_data *pdata = spi->dev.platform_data;
 	struct ad7887_state *st;
 	struct iio_dev *indio_dev;
-	uint8_t mode;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -267,51 +311,17 @@ static int ad7887_probe(struct spi_device *spi)
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->info = &ad7887_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = st->chip_info->channels;
+	indio_dev->num_channels = st->chip_info->num_channels;
 
-	/* Setup default message */
-
-	mode = AD7887_PM_MODE4;
+	st->mode = AD7887_PM_MODE4;
 	if (!pdata || !pdata->use_onchip_ref)
-		mode |= AD7887_REF_DIS;
-	if (pdata && pdata->en_dual)
-		mode |= AD7887_DUAL;
-
-	st->tx_cmd_buf[0] = AD7887_CH_AIN0 | mode;
-
-	st->xfer[0].rx_buf = &st->data[0];
-	st->xfer[0].tx_buf = &st->tx_cmd_buf[0];
-	st->xfer[0].len = 2;
-
-	spi_message_init(&st->msg[AD7887_CH0]);
-	spi_message_add_tail(&st->xfer[0], &st->msg[AD7887_CH0]);
-
-	if (pdata && pdata->en_dual) {
-		st->tx_cmd_buf[2] = AD7887_CH_AIN1 | mode;
-
-		st->xfer[1].rx_buf = &st->data[0];
-		st->xfer[1].tx_buf = &st->tx_cmd_buf[2];
-		st->xfer[1].len = 2;
-
-		st->xfer[2].rx_buf = &st->data[2];
-		st->xfer[2].tx_buf = &st->tx_cmd_buf[0];
-		st->xfer[2].len = 2;
-
-		spi_message_init(&st->msg[AD7887_CH0_CH1]);
-		spi_message_add_tail(&st->xfer[1], &st->msg[AD7887_CH0_CH1]);
-		spi_message_add_tail(&st->xfer[2], &st->msg[AD7887_CH0_CH1]);
-
-		st->xfer[3].rx_buf = &st->data[2];
-		st->xfer[3].tx_buf = &st->tx_cmd_buf[2];
-		st->xfer[3].len = 2;
-
-		spi_message_init(&st->msg[AD7887_CH1]);
-		spi_message_add_tail(&st->xfer[3], &st->msg[AD7887_CH1]);
-
-		indio_dev->channels = st->chip_info->channel;
-		indio_dev->num_channels = 3;
-	} else {
-		indio_dev->channels = &st->chip_info->channel[1];
-		indio_dev->num_channels = 2;
+		st->mode |= st->chip_info->ref_dis_mask;
+	if (st->chip_info->shared_vref) {
+		if (pdata && pdata->en_dual)
+			st->mode |= AD7887_DUAL;
+		else
+			indio_dev->num_channels--;
 	}
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
@@ -342,12 +352,15 @@ static int ad7887_remove(struct spi_device *spi)
 	iio_triggered_buffer_cleanup(indio_dev);
 	if (st->reg)
 		regulator_disable(st->reg);
+	kfree(st->xfers);
+	kfree(st->data);
 
 	return 0;
 }
 
 static const struct spi_device_id ad7887_id[] = {
 	{"ad7887", ID_AD7887},
+	{"ad7888", ID_AD7888},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7887_id);
@@ -363,5 +376,5 @@ static struct spi_driver ad7887_driver = {
 module_spi_driver(ad7887_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
-MODULE_DESCRIPTION("Analog Devices AD7887 ADC");
+MODULE_DESCRIPTION("Analog Devices AD7887/AD7888 ADC");
 MODULE_LICENSE("GPL v2");
