@@ -774,7 +774,6 @@ static const struct iio_info ad9523_info = {
 static long ad9523_get_clk_attr(struct clk_hw *hw, long mask)
 {
 	struct iio_dev *indio_dev = to_ad9523_clk_output(hw)->indio_dev;
-	struct ad9523_state *st = iio_priv(indio_dev);
 	int val, ret;
 	struct iio_chan_spec chan;
 
@@ -802,7 +801,6 @@ static int ad9523_clk_is_enabled(struct clk_hw *hw)
 static long ad9523_set_clk_attr(struct clk_hw *hw, long mask, unsigned long val)
 {
 	struct iio_dev *indio_dev = to_ad9523_clk_output(hw)->indio_dev;
-	struct ad9523_state *st = iio_priv(indio_dev);
 	struct iio_chan_spec chan;
 
 	chan.channel = to_ad9523_clk_output(hw)->num;
@@ -821,7 +819,7 @@ static void ad9523_clk_unprepare(struct clk_hw *hw)
 }
 
 static long ad9523_clk_round_rate(struct clk_hw *hw, unsigned long rate,
-				  unsigned long prate)
+				  unsigned long *prate)
 {
 	struct iio_dev *indio_dev = to_ad9523_clk_output(hw)->indio_dev;
 	struct ad9523_state *st = iio_priv(indio_dev);
@@ -853,7 +851,7 @@ static long ad9523_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	}
 
 		tmp1 = clk / rate;
-		tmp1 = clamp(tmp1, 1, 1024);
+		tmp1 = clamp(tmp1, 1UL, 1024UL);
 
 	return clk / tmp1;
 }
@@ -879,15 +877,15 @@ struct clk *ad9523_clk_register(struct iio_dev *indio_dev, unsigned num)
 	struct clk_init_data init;
 	struct ad9523_outputs *output = &st->output[num];
 	struct clk *clk;
-	char name[8];
+	char name[SPI_NAME_SIZE + 8];
 
-	sprintf(name, "out%d", num);
+	sprintf(name, "%s_out%d", indio_dev->name, num);
+
 	init.name = name;
 	init.ops = &ad9523_clk_ops;
 
 	init.num_parents = 0;
 	init.flags = CLK_IS_ROOT;
-
 	output->hw.init = &init;
 	output->indio_dev = indio_dev;
 	output->num = num;
