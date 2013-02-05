@@ -23,10 +23,13 @@
 #define AXIADC_PCORE_IDENT		0x30
 #define AXIADC_PCORE_CA_OFFS_SCALE	0x40
 #define AXIADC_PCORE_CB_OFFS_SCALE	0x44
+#define AXIADC_PCORE_USRL_DECIM		0x48
+#define AXIADC_PCORE_USRL_DTYPE		0x4C
 
 /* AXIADC_PCORE_DMA_CHAN_SEL */
 #define AXIADC_PCORE_DMA_CHAN_SEL0	(1 << 0)
 #define AXIADC_PCORE_DMA_CHAN_SEL1	(1 << 1)
+#define AXIADC_PCORE_DMA_CHAN_USRL_SEL	(1 << 2)
 
 /* AXIADC_PCORE_DMA_CTRL */
 #define AXIADC_DMA_CAP_EN		(1 << 16)
@@ -73,6 +76,15 @@
 /* AXIADC_PCORE_C[A|B]_OFFS_SCALE */
 #define AXIADC_OFFSET(x)		(((x) & 0xFFFF) << 16)
 #define AXIADC_SCALE(x)			((x) & 0xFFFF)
+
+/* AXIADC_PCORE_USRL_DECIM Custom User Logic Decimation (M/N) */
+
+#define AXIADC_PCORE_USRL_DECIM_NUM(x)		((x) >> 16)
+#define AXIADC_PCORE_USRL_DECIM_DEN(x)		((x) & 0xFFFF)
+
+/* AXIADC_PCORE_USRL_DTYPE Custom User Logic Data Type */
+#define AXIADC_PCORE_USRL_DTYPE_NORM		(1 << 0)
+
 
 /*
  * ADI High-Speed ADC common spi interface registers
@@ -165,7 +177,7 @@ enum {
 struct axiadc_chip_info {
 	char				name[8];
 	unsigned			num_channels;
-	unsigned long			available_scan_masks[2];
+	unsigned long			available_scan_masks[4];
 	const int			(*scale_table)[2];
 	int				num_scales;
 	struct iio_chan_spec		channel[4];
