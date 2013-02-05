@@ -18,7 +18,6 @@
 #include <linux/iio/buffer.h>
 #include "../../staging/iio/ring_hw.h"
 #include "cf_axi_adc.h"
-#include "cf_axi_fft_core.h"
 
 static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 				      size_t count, char __user *buf)
@@ -50,13 +49,7 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 		goto error_ret;
 	}
 
-#if defined(CONFIG_CF_AXI_FFT)
-	if (st->fftcount) {
-		ret = fft_calculate(st->buf_phys, st->buf_phys + st->fftcount,
-				    st->fftcount / 4, *r->scan_mask >> 2);
-	}
-#endif
-	if (copy_to_user(buf, st->buf_virt + st->fftcount, count))
+	if (copy_to_user(buf, st->buf_virt, count))
 		ret = -EFAULT;
 
 	if ((stat & (AXIADC_PCORE_ADC_STAT_OVR0 | ((st->id == CHIPID_AD9467) ? 0 : AXIADC_PCORE_ADC_STAT_OVR1)))
@@ -170,16 +163,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	else
 		st->rcount = st->ring_lenght;
 
-#if defined(CONFIG_CF_AXI_FFT)
-	if (*buffer->scan_mask & 0xC)
-		st->fftcount = st->rcount;
-	else
-		st->fftcount = 0;
-#else
-	st->fftcount = 0;
-#endif
-
-	if (PAGE_ALIGN(st->rcount + st->fftcount) > AXIADC_MAX_DMA_SIZE) {
+	if (PAGE_ALIGN(st->rcount) > AXIADC_MAX_DMA_SIZE) {
 		ret = -EINVAL;
 		goto error_ret;
 	}
