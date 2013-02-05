@@ -657,32 +657,12 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
-#define AIM_CHAN_FD(_chan, _si, _bits, _sign)			\
-	{ .type = IIO_VOLTAGE,						\
-	  .indexed = 1,							\
-	  .channel = _chan,						\
-	  .extend_name  = "frequency_domain",				\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT | 		\
-			IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT,		\
-	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
-
 #define AIM_CHAN_NOCALIB(_chan, _si, _bits, _sign)			\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
 	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT,	 		\
 	  .ext_info = axiadc_ext_info,			\
-	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
-
-#define AIM_CHAN_FD_NOCALIB(_chan, _si, _bits, _sign)			\
-	{ .type = IIO_VOLTAGE,						\
-	  .indexed = 1,							\
-	  .channel = _chan,						\
-	  .extend_name  = "frequency_domain",				\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT,	 		\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
@@ -699,25 +679,21 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.name = "AD9643",
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
-		.num_channels = 4,
+		.num_channels = 2,
 		.available_scan_masks[0] = BIT(0) | BIT(1),
 		.available_scan_masks[1] = BIT(2) | BIT(3),
 		.channel[0] = AIM_CHAN(0, 0, 14, 'u'),
 		.channel[1] = AIM_CHAN(1, 1, 14, 'u'),
-		.channel[2] = AIM_CHAN_FD(0, 2, 14, 'u'),
-		.channel[3] = AIM_CHAN_FD(1, 3, 14, 'u'),
 	},
 	[ID_AD9250] = {
 		.name = "AD9250",
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
-		.num_channels = 4,
+		.num_channels = 2,
 		.available_scan_masks[0] = BIT(0) | BIT(1),
 		.available_scan_masks[1] = BIT(2) | BIT(3),
 		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'u'),
 		.channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'u'),
-		.channel[2] = AIM_CHAN_FD_NOCALIB(0, 2, 14, 'u'),
-		.channel[3] = AIM_CHAN_FD_NOCALIB(1, 3, 14, 'u'),
 	},
 	[ID_AD9265] = {
 		.name = "AD9265",
@@ -916,6 +892,8 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->available_scan_masks = st->chip_info->available_scan_masks;
+	indio_dev->masklength = indio_dev->num_channels;
+
 	indio_dev->info = &axiadc_info;
 
 	init_completion(&st->dma_complete);
