@@ -1133,7 +1133,9 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 		return NULL;
 	}
 
-	of_property_read_u32(np, "vcxo-freq", &pdata->vcxo_freq);
+	tmp = 0;
+	of_property_read_u32(np, "vcxo-freq", &tmp);
+	pdata->vcxo_freq = tmp;
 
 	/* Differential/ Single-Ended Input Configuration */
 	pdata->refa_diff_rcv_en = of_property_read_bool(np, "refa-diff-rcv-en");
@@ -1209,7 +1211,7 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 
 	ret = of_property_read_string(np, "name", &str);
 	if (ret >= 0)
-		strncpy(&pdata->name, str, SPI_NAME_SIZE - 1);
+		strncpy(&pdata->name[0], str, SPI_NAME_SIZE - 1);
 
 	for_each_child_of_node(np, chan_np)
 		cnt++;
@@ -1244,7 +1246,7 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 		pdata->channels[cnt].channel_divider = tmp;
 		ret = of_property_read_string(chan_np, "extended-name", &str);
 		if (ret >= 0)
-			strncpy(&pdata->channels[cnt].extended_name,
+			strncpy(&pdata->channels[cnt].extended_name[0],
 				str, SPI_NAME_SIZE - 1);
 
 		cnt++;
