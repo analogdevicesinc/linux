@@ -1,7 +1,7 @@
 /*
  * AD9467 SPI DAC driver for DDS PCORE/COREFPGA Module
  *
- * Copyright 2012 Analog Devices Inc.
+ * Copyright 2012-2013 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -100,21 +100,19 @@ static int ad9467_probe(struct spi_device *spi)
 	struct clk *clk = NULL;
 	int ret;
 
-	if (spi_get_device_id(spi)->driver_data == CHIPID_AD9250) {
-		clk = clk_get(&spi->dev, NULL);
-		if (IS_ERR(clk)) {
-			return -EPROBE_DEFER;
-		}
+	clk = clk_get(&spi->dev, NULL);
+	if (IS_ERR(clk)) {
+		return -EPROBE_DEFER;
+	}
 
-		ret = clk_prepare(clk);
-		if (ret < 0)
-			return ret;
+	ret = clk_prepare(clk);
+	if (ret < 0)
+		return ret;
 
-		ret = clk_enable(clk);
-		if (ret < 0) {
-			clk_unprepare(clk);
-			return ret;
-		}
+	ret = clk_enable(clk);
+	if (ret < 0) {
+		clk_unprepare(clk);
+		return ret;
 	}
 
 	conv = kzalloc(sizeof(*conv), GFP_KERNEL);
