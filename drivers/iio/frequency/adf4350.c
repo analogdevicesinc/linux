@@ -17,6 +17,7 @@
 #include <linux/gcd.h>
 #include <linux/gpio.h>
 #include <asm/div64.h>
+#include <linux/clk.h>
 #include <linux/of.h>
 
 #include <linux/iio/iio.h>
@@ -34,6 +35,7 @@ struct adf4350_state {
 	struct spi_device		*spi;
 	struct regulator		*reg;
 	struct adf4350_platform_data	*pdata;
+	struct clk 			*clk;
 	unsigned long			clkin;
 	unsigned long			chspc; /* Channel Spacing */
 	unsigned long			fpfd; /* Phase Frequency Detector */
@@ -44,7 +46,7 @@ struct adf4350_state {
 	unsigned			r4_rf_div_sel;
 	unsigned long			regs[6];
 	unsigned long			regs_hw[6];
-
+	unsigned long long		freq_req;
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
@@ -53,7 +55,6 @@ struct adf4350_state {
 };
 
 static struct adf4350_platform_data default_pdata = {
-	.clkin = 122880000,
 	.channel_spacing = 10000,
 	.r2_user_settings = ADF4350_REG2_PD_POLARITY_POS |
 			    ADF4350_REG2_CHARGE_PUMP_CURR_uA(2500),
@@ -236,6 +237,7 @@ static int adf4350_set_freq(struct adf4350_state *st, unsigned long long freq)
 		ADF4350_REG4_MUTE_TILL_LOCK_EN));
 
 	st->regs[ADF4350_REG5] = ADF4350_REG5_LD_PIN_MODE_DIGITAL;
+	st->freq_req = freq;
 
 	return adf4350_sync_config(st);
 }
@@ -247,6 +249,7 @@ static ssize_t adf4350_write(struct iio_dev *indio_dev,
 {
 	struct adf4350_state *st = iio_priv(indio_dev);
 	unsigned long long readin;
+	unsigned long tmp;
 	int ret;
 
 	ret = kstrtoull(buf, 10, &readin);
@@ -259,10 +262,23 @@ static ssize_t adf4350_write(struct iio_dev *indio_dev,
 		ret = adf4350_set_freq(st, readin);
 		break;
 	case ADF4350_FREQ_REFIN:
-		if (readin > ADF4350_MAX_FREQ_REFIN)
+		if (readin > ADF4350_MAX_FREQ_REFIN) {
 			ret = -EINVAL;
-		else
-			st->clkin = readin;
+			break;
+		}
+
+		if (st->clk) {
+			tmp = clk_round_rate(st->clk, readin);
+			if (tmp != readin) {
+				ret = -EINVAL;
+				break;
+			}
+			ret = clk_set_rate(st->clk, tmp);
+			if (ret < 0)
+				break;
+		}
+		st->clkin = readin;
+		ret = adf4350_set_freq(st, st->freq_req);
 		break;
 	case ADF4350_FREQ_RESOLUTION:
 		if (readin == 0)
@@ -309,6 +325,9 @@ static ssize_t adf4350_read(struct iio_dev *indio_dev,
 			}
 		break;
 	case ADF4350_FREQ_REFIN:
+		if (st->clk) {
+			st->clkin = clk_get_rate(st->clk);
+		}
 		val = st->clkin;
 		break;
 	case ADF4350_FREQ_RESOLUTION:
@@ -477,6 +496,7 @@ static int __devinit adf4350_probe(struct spi_device *spi)
 	struct adf4350_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct adf4350_state *st;
+	struct clk *clk = NULL;
 	int ret;
 
 	if (spi->dev.of_node) {
@@ -492,6 +512,24 @@ static int __devinit adf4350_probe(struct spi_device *spi)
 
 		pdata = &default_pdata;
 	}
+
+	if (!pdata->clkin) {
+		clk = clk_get(&spi->dev, "clkin");
+		if (IS_ERR(clk)) {
+			return -EPROBE_DEFER;
+		}
+
+		ret = clk_prepare(clk);
+		if (ret < 0)
+			return ret;
+
+		ret = clk_enable(clk);
+		if (ret < 0) {
+			clk_unprepare(clk);
+			return ret;
+		}
+	}
+
 
 	indio_dev = iio_device_alloc(sizeof(*st));
 	if (indio_dev == NULL)
@@ -520,7 +558,12 @@ static int __devinit adf4350_probe(struct spi_device *spi)
 	indio_dev->num_channels = 1;
 
 	st->chspc = pdata->channel_spacing;
-	st->clkin = pdata->clkin;
+	if (clk) {
+		st->clk = clk;
+		st->clkin = clk_get_rate(clk);
+	} else {
+		st->clkin = pdata->clkin;
+	}
 
 	st->min_out_freq = spi_get_device_id(spi)->driver_data == 4351 ?
 		ADF4351_MIN_OUT_FREQ : ADF4350_MIN_OUT_FREQ;
