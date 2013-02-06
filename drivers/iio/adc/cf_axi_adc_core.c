@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/clk.h>
 
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -102,25 +103,40 @@ static int axiadc_debugfs_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int axiadc_dco_calibrate_2c(struct iio_dev *indio_dev)
+static int axiadc_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	int dco, ret, cnt, start, max_start, max_cnt;
-	unsigned stat;
-	unsigned char err_field[33];
+	int dco, cnt, start, max_start, max_cnt;
+	unsigned stat, err, inv_range = 0, tm_mask, oos_mask, err_mask;
+	unsigned char err_field[66];
 
-	axiadc_testmode_set(indio_dev, 0x2, TESTMODE_PN23_SEQ);
+restart:
+	axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE, OUTPUT_EVEN_ODD_MODE_EN |
+			(inv_range ? INVERT_DCO_CLK : 0));
+
+	if (chan == 2) {
+		axiadc_testmode_set(indio_dev, 0x2, TESTMODE_PN23_SEQ);
+		tm_mask = AXIADC_PN23_1_EN | AXIADC_PN9_0_EN;
+		oos_mask = AXIADC_PCORE_ADC_STAT_PN_OOS0 |
+			 AXIADC_PCORE_ADC_STAT_PN_OOS1;
+		err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR0 |
+					AXIADC_PCORE_ADC_STAT_PN_ERR1;
+	} else {
+		tm_mask = AXIADC_PN9_0_EN;
+		oos_mask = AXIADC_PCORE_ADC_STAT_PN_OOS;
+		err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR;
+	}
+
 	axiadc_testmode_set(indio_dev, 0x1, TESTMODE_PN9_SEQ);
-
-	axiadc_write(st, AXIADC_PCORE_PN_ERR_CTRL, AXIADC_PN23_1_EN |
-		  AXIADC_PN9_0_EN);
+	axiadc_write(st, AXIADC_PCORE_PN_ERR_CTRL, tm_mask);
 
 	for(dco = 0; dco <= 32; dco++) {
-		ret = 0;
+		err = 0;
 		axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
 			      dco > 0 ? ((dco - 1) | 0x80) : 0);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-		axiadc_write(st, AXIADC_PCORE_ADC_STAT, AXIADC_PCORE_ADC_STAT_MASK);
+		axiadc_write(st, AXIADC_PCORE_ADC_STAT,
+			     AXIADC_PCORE_ADC_STAT_MASK);
 
 		cnt = 4;
 
@@ -128,30 +144,28 @@ static int axiadc_dco_calibrate_2c(struct iio_dev *indio_dev)
 			mdelay(8);
 			stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
 			if (cnt-- < 0) {
-				ret = -EIO;
+				err = 1;
 				break;
 			}
-		} while (stat & (AXIADC_PCORE_ADC_STAT_PN_OOS0 |
-			 AXIADC_PCORE_ADC_STAT_PN_OOS1));
+		} while (stat & oos_mask);
 
 		cnt = 4;
 
-		if (!ret)
+		if (!err)
 			do {
 				mdelay(4);
 				stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-				if (stat & (AXIADC_PCORE_ADC_STAT_PN_ERR0 |
-					AXIADC_PCORE_ADC_STAT_PN_ERR1)) {
-					ret = -EIO;
+				if (stat & err_mask) {
+					err = 1;
 					break;
 				}
 			} while (cnt--);
 
-		err_field[dco] = !!ret;
+		err_field[dco + (inv_range * 33)] = err;
 	}
 
 	for(dco = 0, cnt = 0, max_cnt = 0, start = -1, max_start = 0;
-		dco <= 32; dco++) {
+		dco <= (32 + (inv_range * 33)); dco++) {
 		if (err_field[dco] == 0) {
 			if (start == -1)
 				start = dco;
@@ -171,105 +185,40 @@ static int axiadc_dco_calibrate_2c(struct iio_dev *indio_dev)
 		max_start = start;
 	}
 
+	if ((inv_range == 0) && ((max_cnt < 3) || (err_field[32] == 0))) {
+		inv_range = 1;
+		goto restart;
+	}
+
 	dco = max_start + (max_cnt / 2);
+
+#ifdef DCO_DEBUG
+	for(cnt = 0; cnt <= (32  + (inv_range * 33)); cnt++)
+		if (cnt == dco)
+			printk("|");
+		else
+			printk("%c", err_field[cnt] ? '-' : 'o');
+#endif
+	if (dco > 32) {
+		dco -= 33;
+		axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE,
+				 OUTPUT_EVEN_ODD_MODE_EN | INVERT_DCO_CLK);
+		err = 1;
+	} else {
+		axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE,
+				 OUTPUT_EVEN_ODD_MODE_EN);
+		err = 0;
+	}
+
+#ifdef DCO_DEBUG
+	printk(" %s DCO 0x%X CLK %lu Hz\n", err ? "INVERT" : "",
+	       dco > 0 ? ((dco - 1) | 0x80) : 0, st->adc_clk);
+#endif
 
 	axiadc_testmode_set(indio_dev, 0x3, TESTMODE_OFF);
 	axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
 		      dco > 0 ? ((dco - 1) | 0x80) : 0);
 	axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-
-#ifdef DCO_DEBUG
-	for(cnt = 0; cnt <= 32; cnt++)
-		if (cnt == dco)
-			printk("|");
-		else
-			printk("%c", err_field[cnt] ? '-' : 'o');
-	printk(" DCO 0x%X\n", dco > 0 ? ((dco - 1) | 0x80) : 0);
-#endif
-
-	return 0;
-}
-
-static int axiadc_dco_calibrate_1c(struct iio_dev *indio_dev)
-{
-	struct axiadc_state *st = iio_priv(indio_dev);
-	int dco, ret, cnt, start, max_start, max_cnt;
-	unsigned stat;
-	unsigned char err_field[33];
-
-	axiadc_testmode_set(indio_dev, 0x1, TESTMODE_PN9_SEQ);
-
-	axiadc_write(st, AXIADC_PCORE_PN_ERR_CTRL, AXIADC_PN9_0_EN);
-
-	for(dco = 0; dco <= 32; dco++) {
-		ret = 0;
-		axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
-			      dco > 0 ? ((dco - 1) | 0x80) : 0);
-		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-		axiadc_write(st, AXIADC_PCORE_ADC_STAT, AXIADC_PCORE_ADC_STAT_MASK);
-
-		cnt = 4;
-
-		do {
-			mdelay(8);
-			stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-			if (cnt-- < 0) {
-				ret = -EIO;
-				break;
-			}
-		} while (stat & AXIADC_PCORE_ADC_STAT_PN_OOS);
-
-		cnt = 4;
-
-		if (!ret)
-			do {
-				mdelay(4);
-				stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-				if (stat & AXIADC_PCORE_ADC_STAT_PN_ERR) {
-					ret = -EIO;
-					break;
-				}
-			} while (cnt--);
-
-		err_field[dco] = !!ret;
-	}
-
-	for(dco = 0, cnt = 0, max_cnt = 0, start = -1, max_start = 0;
-		dco <= 32; dco++) {
-		if (err_field[dco] == 0) {
-			if (start == -1)
-				start = dco;
-			cnt++;
-		} else {
-			if (cnt > max_cnt) {
-				max_cnt = cnt;
-				max_start = start;
-			}
-			start = -1;
-			cnt = 0;
-		}
-	}
-
-	if (cnt > max_cnt) {
-		max_cnt = cnt;
-		max_start = start;
-	}
-
-	dco = max_start + (max_cnt / 2);
-
-	axiadc_testmode_set(indio_dev, 0x3, TESTMODE_OFF);
-	axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
-		      dco > 0 ? ((dco - 1) | 0x80) : 0);
-	axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-
-#ifdef DCO_DEBUG
-	for(cnt = 0; cnt <= 32; cnt++)
-		if (cnt == dco)
-			printk("|");
-		else
-			printk("%c", err_field[cnt] ? '-' : 'o');
-	printk(" DCO 0x%X\n", dco > 0 ? ((dco - 1) | 0x80) : 0);
-#endif
 
 	return 0;
 }
@@ -330,8 +279,7 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 	else if (sysfs_streq(p, "PN23"))
 		mode = TESTMODE_PN23_SEQ;
 	else if (sysfs_streq(p, "CALIB"))
-		(st->id == CHIPID_AD9467) ? axiadc_dco_calibrate_1c(indio_dev) :
-			axiadc_dco_calibrate_2c(indio_dev);
+		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
 	else
 		mode = TESTMODE_OFF;
 
@@ -394,6 +342,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	int i;
 	unsigned vref_val, tmp, mask;
 	unsigned long long llval;
@@ -454,12 +403,16 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		*val = sign_extend32(tmp, 14);
 
 		return IIO_VAL_INT;
-	}
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!conv->clk)
+			return -ENODEV;
 
+		*val = st->adc_clk = clk_get_rate(conv->clk);
+		return IIO_VAL_INT;
+	}
 
 	return -EINVAL;
 }
-
 
 static int axiadc_write_raw(struct iio_dev *indio_dev,
 			       struct iio_chan_spec const *chan,
@@ -468,9 +421,10 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			       long mask)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	unsigned fract, tmp;
 	unsigned long long llval;
-	int i;
+	int i, ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
@@ -518,7 +472,28 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			AXIADC_PCORE_CB_OFFS_SCALE, tmp);
 		axiadc_toggle_scale_offset_en(st);
 		return 0;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!conv->clk)
+			return -ENODEV;
 
+		tmp = clk_round_rate(conv->clk, val);
+		if (tmp != val) {
+			dev_warn(&conv->spi->dev,
+				"Requested Rate Mismatch %d != %u\n", val, tmp);
+			return -EINVAL;
+		}
+
+		ret = clk_set_rate(conv->clk, tmp);
+		if (ret < 0)
+			return ret;
+
+		if (st->id != CHIPID_AD9250 && st->adc_clk != tmp) {
+			st->adc_clk = tmp;
+			ret = axiadc_dco_calibrate(indio_dev,
+						   st->chip_info->num_channels);
+		}
+
+		return 0;
 	default:
 		return -EINVAL;
 	}
@@ -652,8 +627,9 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	  .channel = _chan,						\
 	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT | 		\
 			IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT,		\
-	  .ext_info = axiadc_ext_info,			\
+			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT |		\
+			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
+			.ext_info = axiadc_ext_info,			\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
@@ -661,7 +637,8 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT,	 		\
+	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT |	 		\
+			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
 	  .ext_info = axiadc_ext_info,			\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
@@ -836,6 +813,9 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
+	if (to_converter(st->dev_spi)->clk)
+		st->adc_clk = clk_get_rate(to_converter(st->dev_spi)->clk);
+
 	/* Probe device */
 	st->id = axiadc_spi_read(st, ADC_REG_CHIP_ID);
 
@@ -849,7 +829,7 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-		axiadc_dco_calibrate_1c(indio_dev);
+		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
 		break;
 	case CHIPID_AD9643:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9643];
@@ -863,7 +843,7 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-		axiadc_dco_calibrate_2c(indio_dev);
+		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
 
 		break;
 	case CHIPID_AD9250:
@@ -878,7 +858,7 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-		axiadc_dco_calibrate_1c(indio_dev);
+		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
 		break;
 	default:
 		dev_err(dev, "Unrecognized CHIP_ID 0x%X\n", st->id);
