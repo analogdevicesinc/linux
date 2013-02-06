@@ -115,6 +115,8 @@
 
 /* ADC_REG_OUTPUT_PHASE */
 #define OUTPUT_EVEN_ODD_MODE_EN		0x20
+#define INVERT_DCO_CLK			0x80
+
 
 /*
  * Analog Devices AD9467 16-Bit, 200/250 MSPS ADC
@@ -182,10 +184,11 @@ struct axiadc_state {
 	unsigned			adc_def_output_mode;
 	unsigned			ring_lenght;
 	unsigned			rcount;
-	unsigned			fftcount;
 //	unsigned			bytes_per_datum;
 	unsigned			id;
-	unsigned char			testmode[2];
+	unsigned char		testmode[2];
+	unsigned long 		adc_clk;
+
 };
 
 struct axiadc_converter {
