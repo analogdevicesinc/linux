@@ -107,7 +107,7 @@ static int axiadc_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int dco, cnt, start, max_start, max_cnt;
-	unsigned stat, err, inv_range = 0, tm_mask, oos_mask, err_mask;
+	unsigned stat, inv_range = 0, tm_mask, err_mask;
 	unsigned char err_field[66];
 
 restart:
@@ -117,51 +117,28 @@ restart:
 	if (chan == 2) {
 		axiadc_testmode_set(indio_dev, 0x2, TESTMODE_PN23_SEQ);
 		tm_mask = AXIADC_PN23_1_EN | AXIADC_PN9_0_EN;
-		oos_mask = AXIADC_PCORE_ADC_STAT_PN_OOS0 |
-			 AXIADC_PCORE_ADC_STAT_PN_OOS1;
 		err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR0 |
-					AXIADC_PCORE_ADC_STAT_PN_ERR1;
+			AXIADC_PCORE_ADC_STAT_PN_ERR1 |
+			AXIADC_PCORE_ADC_STAT_PN_OOS0 |
+			AXIADC_PCORE_ADC_STAT_PN_OOS1;
 	} else {
 		tm_mask = AXIADC_PN9_0_EN;
-		oos_mask = AXIADC_PCORE_ADC_STAT_PN_OOS;
-		err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR;
+		err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR | AXIADC_PCORE_ADC_STAT_PN_OOS;
 	}
 
 	axiadc_testmode_set(indio_dev, 0x1, TESTMODE_PN9_SEQ);
 	axiadc_write(st, AXIADC_PCORE_PN_ERR_CTRL, tm_mask);
 
 	for(dco = 0; dco <= 32; dco++) {
-		err = 0;
 		axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
 			      dco > 0 ? ((dco - 1) | 0x80) : 0);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 		axiadc_write(st, AXIADC_PCORE_ADC_STAT,
 			     AXIADC_PCORE_ADC_STAT_MASK);
 
-		cnt = 4;
-
-		do {
-			mdelay(8);
-			stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-			if (cnt-- < 0) {
-				err = 1;
-				break;
-			}
-		} while (stat & oos_mask);
-
-		cnt = 4;
-
-		if (!err)
-			do {
-				mdelay(4);
-				stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-				if (stat & err_mask) {
-					err = 1;
-					break;
-				}
-			} while (cnt--);
-
-		err_field[dco + (inv_range * 33)] = err;
+		mdelay(1);
+		stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
+		err_field[dco + (inv_range * 33)] = !!(stat & err_mask);
 	}
 
 	for(dco = 0, cnt = 0, max_cnt = 0, start = -1, max_start = 0;
@@ -203,15 +180,15 @@ restart:
 		dco -= 33;
 		axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE,
 				 OUTPUT_EVEN_ODD_MODE_EN | INVERT_DCO_CLK);
-		err = 1;
+		cnt = 1;
 	} else {
 		axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE,
 				 OUTPUT_EVEN_ODD_MODE_EN);
-		err = 0;
+		cnt = 0;
 	}
 
 #ifdef DCO_DEBUG
-	printk(" %s DCO 0x%X CLK %lu Hz\n", err ? "INVERT" : "",
+	printk(" %s DCO 0x%X CLK %lu Hz\n", cnt ? "INVERT" : "",
 	       dco > 0 ? ((dco - 1) | 0x80) : 0, st->adc_clk);
 #endif
 
