@@ -69,7 +69,7 @@ static void cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 	stat = conv->read(conv->spi, AD9122_REG_FIFO_STATUS_1);
 	if (stat & (AD9122_FIFO_STATUS_1_FIFO_WARNING_1 |
 		AD9122_FIFO_STATUS_1_FIFO_WARNING_2)) {
-		if (retry > 3) {
+		if (retry++ > 3) {
 			dev_warn(indio_dev->dev.parent, "FRAME/FIFO Reset Retry cnt\n");
 			return;
 		}
