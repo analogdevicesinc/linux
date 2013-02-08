@@ -107,8 +107,18 @@ static int axiadc_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int dco, cnt, start, max_start, max_cnt;
-	unsigned stat, inv_range = 0, tm_mask, err_mask;
+	unsigned stat, inv_range = 0, tm_mask, err_mask, dco_en = 0;
 	unsigned char err_field[66];
+
+	switch (st->id) {
+	case CHIPID_AD9250:
+		return 0;
+	case CHIPID_AD9265:
+		dco_en = 0;
+		break;
+	default:
+		dco_en = DCO_DELAY_ENABLE;
+	}
 
 restart:
 	axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE, OUTPUT_EVEN_ODD_MODE_EN |
@@ -131,7 +141,7 @@ restart:
 
 	for(dco = 0; dco <= 32; dco++) {
 		axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
-			      dco > 0 ? ((dco - 1) | 0x80) : 0);
+			      dco > 0 ? ((dco - 1) | dco_en) : 0);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 		axiadc_write(st, AXIADC_PCORE_ADC_STAT,
 			     AXIADC_PCORE_ADC_STAT_MASK);
@@ -189,12 +199,12 @@ restart:
 
 #ifdef DCO_DEBUG
 	printk(" %s DCO 0x%X CLK %lu Hz\n", cnt ? "INVERT" : "",
-	       dco > 0 ? ((dco - 1) | 0x80) : 0, st->adc_clk);
+	       dco > 0 ? ((dco - 1) | dco_en) : 0, st->adc_clk);
 #endif
 
 	axiadc_testmode_set(indio_dev, 0x3, TESTMODE_OFF);
 	axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
-		      dco > 0 ? ((dco - 1) | 0x80) : 0);
+		      dco > 0 ? ((dco - 1) | dco_en) : 0);
 	axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 
 	return 0;
