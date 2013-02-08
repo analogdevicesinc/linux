@@ -117,6 +117,9 @@
 #define OUTPUT_EVEN_ODD_MODE_EN		0x20
 #define INVERT_DCO_CLK			0x80
 
+/* ADC_REG_OUTPUT_DELAY */
+#define DCO_DELAY_ENABLE 		0x80
+
 
 /*
  * Analog Devices AD9467 16-Bit, 200/250 MSPS ADC
