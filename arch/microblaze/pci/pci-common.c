@@ -287,7 +287,7 @@ static struct resource *__pci_mmap_make_offset(struct pci_dev *dev,
 	unsigned long io_offset = 0;
 	int i, res_bit;
 
-	if (hose == 0)
+	if (!hose)
 		return NULL;		/* should never happen */
 
 	/* If memory, add on the PCI bridge address offset */
@@ -661,12 +661,8 @@ void __devinit pci_process_bridge_OF_ranges(struct pci_controller *hose,
 {
 	const u32 *ranges;
 	int rlen;
-#ifdef CONFIG_XILINX_AXIPCIE
-	/* The address cells of PCIe node */
-	int pna = be32_to_cpup(of_get_property(dev, "#address-cells", NULL));
-#else
+	/* The address cells of PCIe parent node */
 	int pna = of_n_addr_cells(dev);
-#endif
 	int np = pna + 5;
 	int memno = 0, isa_hole = -1;
 	u32 pci_space;
@@ -686,7 +682,7 @@ void __devinit pci_process_bridge_OF_ranges(struct pci_controller *hose,
 	pr_debug("Parsing ranges property...\n");
 	while ((rlen -= np * 4) >= 0) {
 		/* Read next ranges element */
-		pci_space = ranges[0];
+		pci_space = be32_to_cpup(ranges);
 		pci_addr = of_read_number(ranges + 1, 2);
 		cpu_addr = of_translate_address(dev, ranges + 3);
 		size = of_read_number(ranges + pna + 3, 2);
@@ -708,7 +704,7 @@ void __devinit pci_process_bridge_OF_ranges(struct pci_controller *hose,
 		/* Now consume following elements while they are contiguous */
 		for (; rlen >= np * sizeof(u32);
 		     ranges += np, rlen -= np * 4) {
-			if (ranges[0] != pci_space)
+			if (be32_to_cpup(ranges) != pci_space)
 				break;
 			pci_next = of_read_number(ranges + 1, 2);
 			cpu_next = of_translate_address(dev, ranges + 3);
@@ -827,8 +823,6 @@ void __devinit pci_process_bridge_OF_ranges(struct pci_controller *hose,
 /* Decide whether to display the domain number in /proc */
 int pci_proc_domain(struct pci_bus *bus)
 {
-	struct pci_controller *hose = pci_bus_to_host(bus);
-
 	return 0;
 }
 
@@ -1134,7 +1128,7 @@ static int __init reparent_resources(struct resource *parent,
  *	    as well.
  */
 
-void pcibios_allocate_bus_resources(struct pci_bus *bus)
+static void pcibios_allocate_bus_resources(struct pci_bus *bus)
 {
 	struct pci_bus *b;
 	int i;
@@ -1189,7 +1183,7 @@ void pcibios_allocate_bus_resources(struct pci_bus *bus)
 		}
 		printk(KERN_WARNING "PCI: Cannot allocate resource region "
 		       "%d of PCI bridge %d, will remap\n", i, bus->number);
-clear_resource:
+
 		res->start = res->end = 0;
 		res->flags = 0;
 	}
@@ -1447,7 +1441,8 @@ static void __devinit pcibios_setup_phb_resources(struct pci_controller *hose, s
 		res->end = res->start + IO_SPACE_LIMIT;
 		res->flags = IORESOURCE_IO;
 	}
-	pci_add_resource_offset(resources, res, hose->io_base_virt - _IO_BASE);
+	pci_add_resource_offset(resources, res,
+		(__force resource_size_t)(hose->io_base_virt - _IO_BASE));
 
 	pr_debug("PCI: PHB IO resource    = %016llx-%016llx [%lx]\n",
 		 (unsigned long long)res->start,

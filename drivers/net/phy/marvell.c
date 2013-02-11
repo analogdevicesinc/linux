@@ -351,13 +351,6 @@ static int m88e1318_config_aneg(struct phy_device *phydev)
 }
 
 static int m88e1510_config_aneg(struct phy_device *phydev)
-/*
-   Initialization for the 88E151x PHY.  Note that the user can run an
-   additional initialization sequence on a PHY for an embedded system 
-   after running the default configuration as defined for the 88E1318 PHY.
-   This additional initialization sequence is used for the Xilinx Zynq-based
-   ZED board.
-*/
 {
 	int err;
 

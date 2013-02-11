@@ -4,8 +4,8 @@
  * Rate is adjustable by reprogramming the feedback divider.
  * PLLs can be bypassed. When the bypass bit is set the PLL_OUT = PS_CLK
  *
- * The bypass functionality is modelled as mux. The parent clock is the same in
- * both cases, but only in one case the input clock is multiplied by fbdiv.
+ * The PLL is bypassed when its enable count reaches zero, and brought up
+ * when a clock consumer enables the PLL
  * Bypassing the PLL also shuts it down.
  *
  * Functions to set a new rate are provided, though they are only compile
@@ -28,6 +28,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <mach/clk.h>
 
 /**
  * struct zynq_pll
@@ -137,29 +138,22 @@ static int zynq_pll_get_pll_params(unsigned int fbdiv, u32 *rpll_cp,
 	case 23:
 		lock_cnt = 425;
 		break;
-	case 24:
-	case 25:
+	case 24 ... 25:
 		lock_cnt = 400;
 		break;
 	case 26:
 		lock_cnt = 375;
 		break;
-	case 27:
-	case 28:
+	case 27 ... 28:
 		lock_cnt = 350;
 		break;
-	case 29:
-	case 30:
+	case 29 ... 30:
 		lock_cnt = 325;
 		break;
-	case 31:
-	case 32:
-	case 33:
+	case 31 ... 33:
 		lock_cnt = 300;
 		break;
-	case 34:
-	case 35:
-	case 36:
+	case 34 ... 36:
 		lock_cnt = 275;
 		break;
 	default:
@@ -273,6 +267,9 @@ static unsigned long zynq_pll_recalc_rate(struct clk_hw *hw, unsigned long
 	struct zynq_pll *clk = to_zynq_pll(hw);
 	u32 fbdiv;
 
+	if (clk->bypassed)
+		return parent_rate;
+
 	/* makes probably sense to redundantly save fbdiv in the struct
 	 * zynq_pll to save the IO access. */
 	fbdiv = (readl(clk->pllctrl) & PLLCTRL_FBDIV_MASK) >>
@@ -282,77 +279,88 @@ static unsigned long zynq_pll_recalc_rate(struct clk_hw *hw, unsigned long
 }
 
 /**
- * zynq_pll_set_parent() - Reparent clock
+ * zynq_pll_enable - Enable clock
  * @hw:		Handle between common and hardware-specific interfaces
- * @index:	Index of new parent.
- * Returns 0 on success, negative errno otherwise.
+ * Returns 0 on success
  */
-static int zynq_pll_set_parent(struct clk_hw *hw, u8 index)
+static int zynq_pll_enable(struct clk_hw *hw)
 {
 	unsigned long flags = 0;
 	u32 reg;
 	struct zynq_pll *clk = to_zynq_pll(hw);
 
-	/*
-	 * We assume bypassing is a preparation for sleep mode, thus not only
-	 * set the bypass bit, but also power down the whole PLL.
-	 * For this reason, removing the bypass must do the power up sequence
-	 */
-	switch (index) {
-	case 0:
-		/* Power up PLL and wait for lock before removing bypass */
-		spin_lock_irqsave(clk->lock, flags);
+	if (!clk->bypassed)
+		return 0;
 
-		reg = readl(clk->pllctrl);
-		reg &= ~(PLLCTRL_RESET_MASK | PLLCTRL_PWRDWN_MASK);
-		writel(reg, clk->pllctrl);
-		while (readl(clk->pllstatus) & (1 << clk->lockbit)) ;
+	pr_info("PLL: Enable\n");
 
-		reg = readl(clk->pllctrl);
-		reg &= ~PLLCTRL_BYPASS_MASK;
-		writel(reg, clk->pllctrl);
+	/* Power up PLL and wait for lock before removing bypass */
+	spin_lock_irqsave(clk->lock, flags);
 
-		spin_unlock_irqrestore(clk->lock, flags);
+	reg = readl(clk->pllctrl);
+	reg &= ~(PLLCTRL_RESET_MASK | PLLCTRL_PWRDWN_MASK);
+	writel(reg, clk->pllctrl);
+	while (readl(clk->pllstatus) & (1 << clk->lockbit))
+		;
 
-		clk->bypassed = 0;
-		break;
-	case 1:
-		/* Set bypass bit and shut down PLL */
-		spin_lock_irqsave(clk->lock, flags);
+	reg = readl(clk->pllctrl);
+	reg &= ~PLLCTRL_BYPASS_MASK;
+	writel(reg, clk->pllctrl);
 
-		reg = readl(clk->pllctrl);
-		reg |= PLLCTRL_BYPASS_MASK;
-		writel(reg, clk->pllctrl);
-		reg |= PLLCTRL_RESET_MASK | PLLCTRL_PWRDWN_MASK;
-		writel(reg, clk->pllctrl);
+	spin_unlock_irqrestore(clk->lock, flags);
 
-		spin_unlock_irqrestore(clk->lock, flags);
-
-		clk->bypassed = 1;
-		break;
-	default:
-		/* Is this correct error code? */
-		return -EINVAL;
-	}
+	clk->bypassed = 0;
 
 	return 0;
 }
 
 /**
- * zynq_pll_get_parent() - Reparent clock
+ * zynq_pll_disable - Disable clock
  * @hw:		Handle between common and hardware-specific interfaces
- * Returns the index of the current clock parent.
+ * Returns 0 on success
  */
-static u8 zynq_pll_get_parent(struct clk_hw *hw)
+static void zynq_pll_disable(struct clk_hw *hw)
 {
+	unsigned long flags = 0;
+	u32 reg;
 	struct zynq_pll *clk = to_zynq_pll(hw);
 
-	return clk->bypassed;
+	if (clk->bypassed)
+		return;
+
+	pr_info("PLL: Bypass\n");
+
+	/* Set bypass bit and shut down PLL */
+	spin_lock_irqsave(clk->lock, flags);
+
+	reg = readl(clk->pllctrl);
+	reg |= PLLCTRL_BYPASS_MASK;
+	writel(reg, clk->pllctrl);
+	reg |= PLLCTRL_RESET_MASK | PLLCTRL_PWRDWN_MASK;
+	writel(reg, clk->pllctrl);
+
+	spin_unlock_irqrestore(clk->lock, flags);
+
+	clk->bypassed = 1;
 }
 
-const struct clk_ops zynq_pll_ops = {
-	.set_parent = zynq_pll_set_parent,
-	.get_parent = zynq_pll_get_parent,
+/**
+ * zynq_pll_is_enabled - Check if a clock is enabled
+ * @hw:		Handle between common and hardware-specific interfaces
+ * Returns 1 if the clock is enabled, 0 otherwise.
+ *
+ * Not sure this is a good idea, but since disabled means bypassed for
+ * this clock implementation we say we are always enabled.
+ */
+static int zynq_pll_is_enabled(struct clk_hw *hw)
+{
+	return 1;
+}
+
+static const struct clk_ops zynq_pll_ops = {
+	.enable = zynq_pll_enable,
+	.disable = zynq_pll_disable,
+	.is_enabled = zynq_pll_is_enabled,
 	.set_rate = zynq_pll_set_rate,
 	.round_rate = zynq_pll_round_rate,
 	.recalc_rate = zynq_pll_recalc_rate
@@ -366,32 +374,38 @@ const struct clk_ops zynq_pll_ops = {
  * @pllstatus:	Pointer to PLL status register
  * @lockbit:	Indicates the associated PLL_LOCKED bit in the PLL status
  *		register.
- * @lock:	Register lock
  * Returns clk_register() return value or errpointer.
  */
 struct clk *clk_register_zynq_pll(const char *name, void __iomem *pllctrl,
-		void __iomem *pllcfg, void __iomem *pllstatus, u8 lockbit,
-		spinlock_t *lock)
+		void __iomem *pllcfg, void __iomem *pllstatus, u8 lockbit)
 {
 	struct zynq_pll *clk;
-	const char *pnames[] = {"PS_CLK", "PS_CLK"};
+	const char *pnames[] = {"PS_CLK"};
+	spinlock_t *lock;
 	struct clk_init_data initd = {
 		.name = name,
 		.ops = &zynq_pll_ops,
 		.parent_names = pnames,
-		.num_parents = 2,
+		.num_parents = 1,
 		.flags = 0
 	};
 
 	clk = kmalloc(sizeof(*clk), GFP_KERNEL);
-	clk->hw.init = &initd;
-
 	if (!clk) {
-		pr_err("%s: could not allocate Zynq PLL clk\n", __func__);
+		pr_err("%s: Could not allocate Zynq PLL clk.\n", __func__);
 		return ERR_PTR(-ENOMEM);
 	}
 
+	lock = kmalloc(sizeof(*lock), GFP_KERNEL);
+	if (!lock) {
+		pr_err("%s: Could not allocate lock.\n", __func__);
+		kfree(clk);
+		return ERR_PTR(-ENOMEM);
+	}
+	spin_lock_init(lock);
+
 	/* Populate the struct */
+	clk->hw.init = &initd;
 	clk->pllctrl = pllctrl;
 	clk->pllcfg = pllcfg;
 	clk->pllstatus = pllstatus;

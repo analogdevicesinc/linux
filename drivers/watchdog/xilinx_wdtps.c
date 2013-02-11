@@ -14,22 +14,22 @@
  * 02139, USA.
  */
 
+#include <linux/clk.h>
 #include <linux/export.h>
-#include <linux/module.h>
-#include <linux/io.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/io.h>
+#include <linux/irq.h>
 #include <linux/kernel.h>
+#include <linux/miscdevice.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
 #include <linux/reboot.h>
+#include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/watchdog.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/miscdevice.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
-#include <linux/of.h>
 
 #define XWDTPS_DEFAULT_TIMEOUT	10
 /* Supports 1 - 516 sec */
@@ -59,10 +59,10 @@ MODULE_PARM_DESC(nowayout,
 struct xwdtps {
 	void __iomem		*regs;		/* Base address */
 	unsigned long		busy;		/* Device Status */
-	int				rst;			/* Reset flag */
-	u32 			clock;
+	int			rst;		/* Reset flag */
+	struct clk		*clk;
 	u32 			prescalar;
-	u32				ctrl_clksel;
+	u32			ctrl_clksel;
 	spinlock_t		io_lock;
 };
 static struct xwdtps *wdt;
@@ -73,14 +73,12 @@ static struct xwdtps *wdt;
  */
 static struct watchdog_info xwdtps_info = {
 	.identity	= "xwdtps watchdog",
-	.options	= WDIOF_SETTIMEOUT |
-					WDIOF_KEEPALIVEPING |
-					WDIOF_MAGICCLOSE,
+	.options	= WDIOF_SETTIMEOUT | WDIOF_KEEPALIVEPING |
+				WDIOF_MAGICCLOSE,
 };
 
 /* Write access to Registers */
-#define xwdtps_writereg(val, offset) \
-				__raw_writel(val, (wdt->regs) + offset)
+#define xwdtps_writereg(val, offset) __raw_writel(val, (wdt->regs) + offset)
 
 /*************************Register Map**************************************/
 
@@ -105,7 +103,6 @@ static struct watchdog_info xwdtps_info = {
  * the register.
  */
 #define XWDTPS_CCR_CRV_MASK	0x00003FFC /* Counter reset value */
-
 
 /**
  * xwdtps_stop -  Stop the watchdog.
@@ -153,12 +150,13 @@ static int xwdtps_start(struct watchdog_device *wdd)
 {
 	unsigned int data = 0;
 	unsigned short count;
+	unsigned long clock_f = clk_get_rate(wdt->clk);
 
 	/*
 	 * 0x1000	- Counter Value Divide, to obtain the value of counter
 	 *		  reset to write to control register.
 	 */
-	count = (wdd->timeout * ((wdt->clock) / (wdt->prescalar))) / 0x1000 + 1;
+	count = (wdd->timeout * (clock_f / (wdt->prescalar))) / 0x1000 + 1;
 
 	/* Check for boundary conditions of counter value */
 	if (count > 0xFFF)
@@ -170,9 +168,7 @@ static int xwdtps_start(struct watchdog_device *wdd)
 	/* Shift the count value to correct bit positions */
 	count = (count << 2) & XWDTPS_CCR_CRV_MASK;
 
-	/*
-	 * 0x00920000 - Counter register key value.
-	 */
+	/* 0x00920000 - Counter register key value. */
 	data = (count | 0x00920000 | (wdt->ctrl_clksel));
 	xwdtps_writereg(data, XWDTPS_CCR_OFFSET);
 	data = XWDTPS_ZMR_WDEN_MASK | XWDTPS_ZMR_RSTLEN_16 | \
@@ -196,10 +192,10 @@ static int xwdtps_start(struct watchdog_device *wdd)
  * xwdtps_settimeout -  Set a new timeout value for the watchdog device.
  *
  * @new_time: new timeout value that needs to be set.
+ * Returns 0 on success.
  *
  * Update the watchdog_device timeout with new value which is used when
  * xwdtps_start is called.
- * Returns 0 on success.
  */
 static int xwdtps_settimeout(struct watchdog_device *wdd, unsigned int new_time)
 {
@@ -212,10 +208,10 @@ static int xwdtps_settimeout(struct watchdog_device *wdd, unsigned int new_time)
  *
  * @irq: interrupt number
  * @dev_id: pointer to a platform device structure
+ * Returns IRQ_HANDLED
  *
  * The handler is invoked when the watchdog times out and a
  * reset on timeout has not been enabled.
- * Returns IRQ_HANDLED
  */
 static irqreturn_t xwdtps_irq_handler(int irq, void *dev_id)
 {
@@ -248,19 +244,18 @@ static struct watchdog_device xwdtps_device = {
  * @this: handle to notifier block.
  * @code: turn off indicator.
  * @unused: unused.
+ * Returns NOTIFY_DONE.
  *
  * This notifier is invoked whenever the system reboot or shutdown occur
  * because we need to disable the WDT before system goes down as WDT might
  * reset on the next boot.
- * Returns NOTIFY_DONE.
  */
 static int xwdtps_notify_sys(struct notifier_block *this, unsigned long code,
 			      void *unused)
 {
-	if (code == SYS_DOWN || code == SYS_HALT) {
+	if (code == SYS_DOWN || code == SYS_HALT)
 		/* Stop the watchdog */
 		xwdtps_stop(&xwdtps_device);
-	}
 	return NOTIFY_DONE;
 }
 
@@ -274,9 +269,9 @@ static struct notifier_block xwdtps_notifier = {
  * xwdtps_probe -  Probe call for the device.
  *
  * @pdev: handle to the platform device structure.
+ * Returns 0 on success, negative error otherwise.
  *
  * It does all the memory allocation and registration for the device.
- * Returns 0 on success, negative error otherwise.
  */
 static int __devinit xwdtps_probe(struct platform_device *pdev)
 {
@@ -284,11 +279,12 @@ static int __devinit xwdtps_probe(struct platform_device *pdev)
 	int res;
 	const void *prop;
 	int irq;
+	unsigned long clock_f;
 
 	/* Check whether WDT is in use, just for safety */
 	if (wdt) {
-		dev_err(&pdev->dev, "Device Busy, only 1 xwdtps instance \
-			supported.\n");
+		dev_err(&pdev->dev,
+			    "Device Busy, only 1 xwdtps instance supported.\n");
 		return -EBUSY;
 	}
 
@@ -300,7 +296,7 @@ static int __devinit xwdtps_probe(struct platform_device *pdev)
 	}
 
 	/* Allocate an instance of the xwdtps structure */
-	wdt = kzalloc(sizeof(struct xwdtps), GFP_KERNEL);
+	wdt = kzalloc(sizeof(*wdt), GFP_KERNEL);
 	if (!wdt) {
 		dev_err(&pdev->dev, "No memory for wdt structure\n");
 		return -ENOMEM;
@@ -327,38 +323,50 @@ static int __devinit xwdtps_probe(struct platform_device *pdev)
 	irq = platform_get_irq(pdev, 0);
 	if (!wdt->rst && irq >= 0) {
 		res = request_irq(irq, xwdtps_irq_handler, 0, pdev->name, pdev);
-		if (res != 0) {
-			dev_err(&pdev->dev, "cannot register interrupt handler err=%d\n",
-				res);
-			goto err_irq;
+		if (res) {
+			dev_err(&pdev->dev,
+				   "cannot register interrupt handler err=%d\n",
+				   res);
+			goto err_notifier;
 		}
 	}
 
 	/* Initialize the members of xwdtps structure */
 	xwdtps_device.parent = &pdev->dev;
 	prop = of_get_property(pdev->dev.of_node, "timeout", NULL);
-	if (prop)
+	if (prop) {
 		xwdtps_device.timeout = be32_to_cpup(prop);
-	else if (wdt_timeout < XWDTPS_MAX_TIMEOUT &&
+	} else if (wdt_timeout < XWDTPS_MAX_TIMEOUT &&
 			wdt_timeout > XWDTPS_MIN_TIMEOUT) {
 		xwdtps_device.timeout = wdt_timeout;
 	} else {
-		pr_info("xwdtps: timeout value limited to 1 - %d sec, using default=%d\n",
-			XWDTPS_MAX_TIMEOUT, XWDTPS_DEFAULT_TIMEOUT);
+		dev_info(&pdev->dev,
+			    "timeout limited to 1 - %d sec, using default=%d\n",
+			    XWDTPS_MAX_TIMEOUT, XWDTPS_DEFAULT_TIMEOUT);
 		xwdtps_device.timeout = XWDTPS_DEFAULT_TIMEOUT;
 	}
 
 	watchdog_set_nowayout(&xwdtps_device, nowayout);
 	watchdog_set_drvdata(&xwdtps_device, &wdt);
-	prop = of_get_property(pdev->dev.of_node, "clock-frequency", NULL);
-	if (prop != NULL) {
-		wdt->clock = (u32)be32_to_cpup(prop);
+
+	wdt->clk = clk_get_sys("CPU_1X_CLK", NULL);
+	if (IS_ERR(wdt->clk)) {
+		dev_err(&pdev->dev, "input clock not found\n");
+		res = PTR_ERR(wdt->clk);
+		goto err_irq;
 	}
 
-	if (wdt->clock <= 10000000) {/* For PEEP */
+	res = clk_prepare_enable(wdt->clk);
+	if (res) {
+		dev_err(&pdev->dev, "unable to enable clock\n");
+		goto err_clk_put;
+	}
+
+	clock_f = clk_get_rate(wdt->clk);
+	if (clock_f <= 10000000) {/* For PEEP */
 		wdt->prescalar = 64;
 		wdt->ctrl_clksel = 1;
-	} else if (wdt->clock <= 75000000) {
+	} else if (clock_f <= 75000000) {
 		wdt->prescalar = 256;
 		wdt->ctrl_clksel = 2;
 	} else { /* For Zynq */
@@ -374,22 +382,25 @@ static int __devinit xwdtps_probe(struct platform_device *pdev)
 	res = watchdog_register_device(&xwdtps_device);
 	if (res) {
 		dev_err(&pdev->dev, "Failed to register wdt device\n");
-		goto err_notifier;
+		goto err_clk_disable;
 	}
 	platform_set_drvdata(pdev, wdt);
 
-	dev_info(&pdev->dev, "Xilinx Watchdog Timer at 0x%p with timeout %ds%s\n",
+	dev_info(&pdev->dev, "Xilinx Watchdog Timer at %p with timeout %ds%s\n",
 		wdt->regs, xwdtps_device.timeout, nowayout ? ", nowayout" : "");
 
 	return 0;
 
+err_clk_disable:
+	clk_disable_unprepare(wdt->clk);
+err_clk_put:
+	clk_put(wdt->clk);
+err_irq:
+	free_irq(irq, pdev);
 err_notifier:
 	unregister_reboot_notifier(&xwdtps_notifier);
 err_iounmap:
 	iounmap(wdt->regs);
-err_irq:
-	irq = platform_get_irq(pdev, 0);
-	free_irq(irq, pdev);
 err_free:
 	kfree(wdt);
 	wdt = NULL;
@@ -400,10 +411,10 @@ err_free:
  * xwdtps_remove -  Probe call for the device.
  *
  * @pdev: handle to the platform device structure.
+ * Returns 0 on success, otherwise negative error.
  *
  * Unregister the device after releasing the resources.
  * Stop is allowed only when nowayout is disabled.
- * Returns 0 on success, otherwise negative error.
  */
 static int __exit xwdtps_remove(struct platform_device *pdev)
 {
@@ -417,6 +428,8 @@ static int __exit xwdtps_remove(struct platform_device *pdev)
 		irq = platform_get_irq(pdev, 0);
 		free_irq(irq, pdev);
 		iounmap(wdt->regs);
+		clk_disable_unprepare(wdt->clk);
+		clk_put(wdt->clk);
 		kfree(wdt);
 		wdt = NULL;
 		platform_set_drvdata(pdev, NULL);
@@ -437,73 +450,75 @@ static void xwdtps_shutdown(struct platform_device *pdev)
 {
 	/* Stop the device */
 	xwdtps_stop(&xwdtps_device);
+	clk_disable_unprepare(wdt->clk);
+	clk_put(wdt->clk);
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 /**
  * xwdtps_suspend -  Stop the device.
  *
- * @pdev: handle to the platform structure.
- * @message: message to the device.
- *
+ * @dev: handle to the device structure.
  * Returns 0 always.
  */
-static int xwdtps_suspend(struct platform_device *pdev, pm_message_t message)
+static int xwdtps_suspend(struct device *dev)
 {
 	/* Stop the device */
 	xwdtps_stop(&xwdtps_device);
+	clk_disable(wdt->clk);
 	return 0;
 }
 
 /**
  * xwdtps_resume -  Resume the device.
  *
- * @pdev: handle to the platform structure.
- *
- * Returns 0 always.
+ * @dev: handle to the device structure.
+ * Returns 0 on success, errno otherwise.
  */
-static int xwdtps_resume(struct platform_device *pdev)
+static int xwdtps_resume(struct device *dev)
 {
+	int ret;
+
+	ret = clk_enable(wdt->clk);
+	if (ret) {
+		dev_err(dev, "unable to enable clock\n");
+		return ret;
+	}
 	/* Start the device */
 	xwdtps_start(&xwdtps_device);
 	return 0;
 }
-#else
-#define xwdtps_suspend NULL
-#define xwdtps_resume	NULL
 #endif
 
-#ifdef CONFIG_OF
+static SIMPLE_DEV_PM_OPS(xwdtps_pm_ops, xwdtps_suspend, xwdtps_resume);
+
 static struct of_device_id xwdtps_of_match[] __devinitdata = {
 	{ .compatible = "xlnx,ps7-wdt-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xwdtps_of_match);
-#endif
 
 /* Driver Structure */
 static struct platform_driver xwdtps_driver = {
 	.probe		= xwdtps_probe,
 	.remove		= __exit_p(xwdtps_remove),
 	.shutdown	= xwdtps_shutdown,
-	.suspend	= xwdtps_suspend,
-	.resume		= xwdtps_resume,
 	.driver		= {
 		.name	= "xwdtps",
 		.owner	= THIS_MODULE,
-#ifdef CONFIG_OF
 		.of_match_table = xwdtps_of_match,
-#endif
+		.pm	= &xwdtps_pm_ops,
 	},
 };
 
 /**
  * xwdtps_init -  Register the WDT.
  *
+ * Returns 0 on success, otherwise negative error.
+ *
  * If using noway out, the use count will be incremented.
  * This will prevent unloading the module. An attempt to
  * unload the module will result in a warning from the kernel.
- * Returns 0 on success, otherwise negative error.
  */
 static int __init xwdtps_init(void)
 {

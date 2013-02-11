@@ -29,9 +29,10 @@
 		linux,stdout-path = &uart0;
 	};
 
-	soc {
-		compatible = "xlnx,zynq";
-		clock-frequency = <121154004>;
+	pmu {
+		compatible = "arm,cortex-a9-pmu";
+		interrupts = <0 5 4>, <0 6 4>;
+		interrupt-parent = <&gic>;
 	};
 
 	amba {
@@ -55,7 +56,6 @@
 			reg = <0xf8f02000 0x1000>;
 			arm,data-latency = <3 2 2>;
 			arm,tag-latency = <3 2 2>;
-			interrupts = <0 34 4>;
 		};
 
 		timer0: timer@0xf8001000 {
@@ -63,21 +63,29 @@
 			reg = <0xF8001000 0x1000>;
 			interrupts = <0 10 0>,<0 11 0>,<0 12 0>;
 			interrupt-parent = <&gic>;
-			clock-frequency-timer0 = <2500000>;
-			clock-frequency-timer1 = <2500000>;
-			clock-frequency-timer2 = <2500000>;
 		};
 
 		slcr: slcr@f8000000 {
-			compatible = "xlnx,ps7-slcr-1.00.a";
+			compatible = "xlnx,zynq-slcr";
 			reg = <0xF8000000 0x1000>;
+
+			clocks {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				ps_clk: ps_clk {
+					#clock-cells = <0>;
+					compatible = "fixed-clock";
+					clock-frequency = <121154004>;
+					clock-output-names = "PS_CLK";
+				};
+			};
 		};
 
 		wdt0: swdt@f8005000 {
 			device_type = "watchdog";
 			compatible = "xlnx,ps7-wdt-1.00.a";
 			reg = <0xF8005000 0x100>;
-			clock-frequency = <2500000>;
 			reset = <0>;
 			timeout = <10>;
 		};

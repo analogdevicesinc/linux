@@ -26,7 +26,6 @@
 #include <linux/platform_device.h>
 #include <asm/smp_plat.h>
 #include <asm/cpu.h>
-#include <mach/pdev.h>
 
 #ifdef CONFIG_SMP
 struct lpj_info {
@@ -68,7 +67,6 @@ static int zynq_target(struct cpufreq_policy *policy,
 	unsigned int i;
 	int ret = 0;
 	struct cpufreq_freqs freqs;
-	unsigned long freq, volt = 0, volt_old = 0;
 
 	if (!freq_table) {
 		dev_err(mpu_dev, "%s: cpu%d: no freq table!\n", __func__,
@@ -102,11 +100,8 @@ static int zynq_target(struct cpufreq_policy *policy,
 		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 	}
 
-	freq = freqs.new * 1000;
-
-	dev_dbg(mpu_dev, "cpufreq-zynq: %u MHz, %ld mV --> %u MHz, %ld mV\n",
-		freqs.old / 1000, volt_old ? volt_old / 1000 : -1,
-		freqs.new / 1000, volt ? volt / 1000 : -1);
+	dev_dbg(mpu_dev, "cpufreq-zynq: %u MHz --> %u MHz\n",
+			freqs.old / 1000, freqs.new / 1000);
 
 	ret = clk_set_rate(cpuclk, freqs.new * 1000);
 
@@ -216,6 +211,7 @@ fail_ck:
 
 static int zynq_cpu_exit(struct cpufreq_policy *policy)
 {
+	freq_table_free();
 	clk_put(cpuclk);
 	return 0;
 }
@@ -238,13 +234,13 @@ static struct cpufreq_driver zynq_cpufreq_driver = {
 
 static int __init zynq_cpufreq_init(void)
 {
-	struct platform_device *pdev = xilinx_get_pdev_by_name("zynq-dvfs");
+	struct device *dev = get_cpu_device(0);
 
-	if (IS_ERR(pdev)) {
-		pr_warn("Xilinx: cpufreq: Device not found.");
+	if (!dev) {
+		pr_warn("%s: Error: device not found.", __func__);
 		return -EINVAL;
 	}
-	mpu_dev = &pdev->dev;
+	mpu_dev = dev;
 	return cpufreq_register_driver(&zynq_cpufreq_driver);
 }
 

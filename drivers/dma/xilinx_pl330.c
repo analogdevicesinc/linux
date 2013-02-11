@@ -94,25 +94,12 @@
 #include <linux/io.h>
 #include <asm/dma.h>
 #include <asm/mach/dma.h>
-#include <mach/pl330.h>
-
-#ifndef NO_IRQ
-#define NO_IRQ ((unsigned int)(-1))
-#endif
+#include "xilinx_pl330.h"
 
 #define DRIVER_NAME         "pl330"
-#define DRIVER_DESCRIPTION  "pl330 driver"
-#define DRIVER_VERSION      "1.00a"
 
 #define PL330_OPTIMIZE_ICACHE
 #define PL330_DEFAULT_BURST_SIZE 4
-
-#undef PDEBUG
-#ifdef PL330_DEBUG
-#	define PDEBUG(fmt, args...) printk(KERN_INFO fmt, ## args)
-#else
-#	define PDEBUG(fmt, args...)
-#endif
 
 #ifndef PL330_MAX_WAIT
 #define PL330_MAX_WAIT 40000
@@ -233,10 +220,8 @@ static struct pl330_driver_data driver_data;
  * read and write macros for register IO.
  */
 
-#define pl330_readreg(base, offset) \
-	__raw_readl((void __iomem *)((u32)(base) + (u32)(offset)))
-#define pl330_writereg(data, base, offset) \
-	__raw_writel(data, (void __iomem *)((u32)(base) + (u32)(offset)))
+#define pl330_readreg(base, offset) __raw_readl(base + offset)
+#define pl330_writereg(data, base, offset) __raw_writel(data, base + offset)
 
 
 /*
@@ -387,7 +372,7 @@ static struct pl330_driver_data driver_data;
  *
  * Returns the number of bytes for this instruction which is 1.
  */
-inline int pl330_instr_dmaend(char *dma_prog)
+static inline int pl330_instr_dmaend(char *dma_prog)
 {
 	/*
 	 * DMAEND encoding:
@@ -416,11 +401,11 @@ inline int pl330_instr_dmaend(char *dma_prog)
  *
  * Returns the number of bytes for this instruction which is 6.
  */
-inline int pl330_instr_dmago(char *dma_prog, unsigned int cn,
+static inline int pl330_instr_dmago(char *dma_prog, unsigned int cn,
 			     u32 imm, unsigned int ns)
 {
-	PDEBUG("entering pl330_instru_dmago(%#x, %d, %#x, %d)\n",
-	       (unsigned int)dma_prog, cn, imm, ns);
+	pr_debug("entering pl330_instru_dmago(%#x, %d, %#x, %d)\n",
+			(unsigned int)dma_prog, cn, imm, ns);
 	/*
 	 * DMAGO encoding:
 	 * 15 14 13 12 11 10 09 08 07 06 05 04 03 02 01 00
@@ -447,7 +432,7 @@ inline int pl330_instr_dmago(char *dma_prog, unsigned int cn,
  *
  * Returns the number of bytes for this instruction which is 1.
  */
-inline int pl330_instr_dmald(char *dma_prog)
+static inline int pl330_instr_dmald(char *dma_prog)
 {
 	/*
 	 * DMALD encoding
@@ -472,7 +457,7 @@ inline int pl330_instr_dmald(char *dma_prog)
  *
  * Returns the number of bytes for this instruction which is 2.
  */
-inline int pl330_instr_dmalp(char *dma_prog, unsigned lc,
+static inline int pl330_instr_dmalp(char *dma_prog, unsigned lc,
 			     unsigned loop_iterations)
 {
 	/*
@@ -496,7 +481,8 @@ inline int pl330_instr_dmalp(char *dma_prog, unsigned lc,
  *
  * Returns the number of bytes for this instruction which is 2.
  */
-inline int pl330_instr_dmalpend(char *dma_prog, char *body_start, unsigned lc)
+static inline int pl330_instr_dmalpend(char *dma_prog, char *body_start,
+				       unsigned lc)
 {
 	/*
 	 * DMALPEND encoding
@@ -531,7 +517,7 @@ inline int pl330_instr_dmalpend(char *dma_prog, char *body_start, unsigned lc)
  *
  * Returns the number of bytes for this instruction which is 6.
  */
-inline int pl330_instr_dmamov(char *dma_prog, unsigned rd, u32 imm)
+static inline int pl330_instr_dmamov(char *dma_prog, unsigned rd, u32 imm)
 {
 	/*
 	 * DMAMOV encoding
@@ -558,7 +544,7 @@ inline int pl330_instr_dmamov(char *dma_prog, unsigned rd, u32 imm)
  *
  * Returns the number of bytes for this instruction which is 1.
  */
-inline int pl330_instr_dmanop(char *dma_prog)
+static inline int pl330_instr_dmanop(char *dma_prog)
 {
 	/*
 	 * DMANOP encoding
@@ -577,7 +563,7 @@ inline int pl330_instr_dmanop(char *dma_prog)
  *
  * Returns the number of bytes for this instruction which is 1.
  */
-inline int pl330_instr_dmarmb(char *dma_prog)
+static inline int pl330_instr_dmarmb(char *dma_prog)
 {
 	/*
 	 * DMARMB encoding
@@ -597,7 +583,7 @@ inline int pl330_instr_dmarmb(char *dma_prog)
  *
  * Returns the number of bytes for this instruction which is 2.
  */
-inline int pl330_instr_dmasev(char *dma_prog, unsigned event_number)
+static inline int pl330_instr_dmasev(char *dma_prog, unsigned event_number)
 {
 	/*
 	 * DMASEV encoding
@@ -619,7 +605,7 @@ inline int pl330_instr_dmasev(char *dma_prog, unsigned event_number)
  *
  * Returns the number of bytes for this instruction which is 1.
  */
-inline int pl330_instr_dmast(char *dma_prog)
+static inline int pl330_instr_dmast(char *dma_prog)
 {
 	/*
 	 * DMAST encoding
@@ -641,7 +627,7 @@ inline int pl330_instr_dmast(char *dma_prog)
  *
  * Returns the number of bytes for this instruction which is 1.
  */
-inline int pl330_instr_dmawmb(char *dma_prog)
+static inline int pl330_instr_dmawmb(char *dma_prog)
 {
 	/*
 	 * DMAWMB encoding
@@ -660,7 +646,7 @@ inline int pl330_instr_dmawmb(char *dma_prog)
  *
  * Returns the endian swap size bit encoding for the CCR.
  */
-inline unsigned pl330_to_endian_swap_size_bits(unsigned endian_swap_size)
+static inline unsigned pl330_to_endian_swap_size_bits(unsigned endian_swap_size)
 {
 	switch (endian_swap_size) {
 	case 0:
@@ -689,7 +675,7 @@ inline unsigned pl330_to_endian_swap_size_bits(unsigned endian_swap_size)
  *
  * Returns the burst size bit encoding for the CCR.
  */
-inline unsigned pl330_to_burst_size_bits(unsigned burst_size)
+static inline unsigned pl330_to_burst_size_bits(unsigned burst_size)
 {
 	if (burst_size == 1)
 		return 0;
@@ -723,7 +709,7 @@ inline unsigned pl330_to_burst_size_bits(unsigned burst_size)
  *
  * Returns the 32-bit CCR value.
  */
-u32 pl330_to_ccr_value(struct pl330_bus_des *src_bus_des,
+static u32 pl330_to_ccr_value(struct pl330_bus_des *src_bus_des,
 		       unsigned src_inc,
 		       struct pl330_bus_des *dst_bus_des,
 		       unsigned dst_inc,
@@ -774,13 +760,13 @@ u32 pl330_to_ccr_value(struct pl330_bus_des *src_bus_des,
 		| (src_burst_size << 1)
 		| (src_inc_bit);
 
-	PDEBUG("CCR: es %x\n", es);
-	PDEBUG("CCR: dca %x, dpr %x, dbl %x, dbs %x, di %x\n",
-	       dst_cache_ctrl, dst_prot_ctrl,
-	       dst_burst_len, dst_burst_size, dst_inc_bit);
-	PDEBUG("CCR: sca %x, spr %x, sbl %x, sbs %x, si %x\n",
-	       src_cache_ctrl, src_prot_ctrl,
-	       src_burst_len,  src_burst_size, src_inc_bit);
+	pr_debug("CCR: es %x\n", es);
+	pr_debug("CCR: dca %x, dpr %x, dbl %x, dbs %x, di %x\n",
+			dst_cache_ctrl, dst_prot_ctrl, dst_burst_len,
+			dst_burst_size, dst_inc_bit);
+	pr_debug("CCR: sca %x, spr %x, sbl %x, sbs %x, si %x\n", src_cache_ctrl,
+			src_prot_ctrl, src_burst_len,
+			src_burst_size, src_inc_bit);
 
 	return ccr_value;
 }
@@ -798,7 +784,7 @@ u32 pl330_to_ccr_value(struct pl330_bus_des *src_bus_des,
  *	the loop counter.
  * Returns the number of bytes the loop has.
  */
-int pl330_construct_single_loop(char *dma_prog_start,
+static int pl330_construct_single_loop(char *dma_prog_start,
 				int cache_length,
 				char *dma_prog_loop_start,
 				int loop_count)
@@ -808,7 +794,7 @@ int pl330_construct_single_loop(char *dma_prog_start,
 	int num_nops;
 	char *dma_prog_buf = dma_prog_loop_start;
 
-	PDEBUG("Contructing single loop: loop count %d\n", loop_count);
+	pr_debug("Contructing single loop: loop count %d\n", loop_count);
 
 	dma_prog_buf += pl330_instr_dmalp(dma_prog_buf, 0, loop_count);
 
@@ -857,7 +843,7 @@ int pl330_construct_single_loop(char *dma_prog_start,
  * @loop_count_inner: The inner loop count. Loop count - 1 will be used to
  *	initialize the loop counter.
  */
-int pl330_construct_nested_loop(char *dma_prog_start,
+static int pl330_construct_nested_loop(char *dma_prog_start,
 				int cache_length,
 				char *dma_prog_loop_start,
 				unsigned int loop_count_outer,
@@ -869,8 +855,8 @@ int pl330_construct_nested_loop(char *dma_prog_start,
 	char *inner_loop_start;
 	char *dma_prog_buf = dma_prog_loop_start;
 
-	PDEBUG("Contructing nested loop outer %d, inner %d\n",
-	       loop_count_outer, loop_count_inner);
+	pr_debug("Contructing nested loop outer %d, inner %d\n",
+			loop_count_outer, loop_count_inner);
 
 	dma_prog_buf += pl330_instr_dmalp(dma_prog_buf, 1, loop_count_outer);
 	inner_loop_start = dma_prog_buf;
@@ -1002,7 +988,7 @@ int pl330_build_dma_prog(unsigned int channel,
  *	definition for details.
  * Returns the number of bytes for the program.
  */
-int pl330_build_dma_prog(struct prog_build_args *build_args)
+static int pl330_build_dma_prog(struct prog_build_args *build_args)
 {
 	/*
 	 * unpack arguments
@@ -1078,8 +1064,7 @@ int pl330_build_dma_prog(struct prog_build_args *build_args)
 						   PL330_MOV_CCR,
 						   ccr_value);
 
-		PDEBUG("unaligned head count %d\n",
-		       unaligned_count);
+		pr_debug("unaligned head count %d\n", unaligned_count);
 		for (i = 0; i < unaligned_count; i++) {
 			dma_prog_buf += pl330_instr_dmald(dma_prog_buf);
 			dma_prog_buf += pl330_instr_dmast(dma_prog_buf);
@@ -1109,17 +1094,15 @@ int pl330_build_dma_prog(struct prog_build_args *build_args)
 	if (loop_count > 256) {
 		loop_count1 = loop_count / 256;
 		if (loop_count1 > 256) {
-			printk(KERN_ERR
-			       "DMA operation cannot fit in a 2-level loop "
-			       "for channel %d, please reduce the DMA length "
-			       "or increase the burst size or length",
-			       channel);
+			pr_err("DMA operation cannot fit in a 2-level loop ");
+			pr_cont("for channel %d, please reduce the ", channel);
+			pr_cont("DMA length or increase the burst size or ");
+			pr_cont("length");
 			BUG();
-			return 0;
 		}
 		loop_residue = loop_count % 256;
 
-		PDEBUG("loop count %d is greater than 256\n", loop_count);
+		pr_debug("loop count %d is greater than 256\n", loop_count);
 		if (loop_count1 > 1)
 			dma_prog_buf +=
 				pl330_construct_nested_loop(dma_prog_start,
@@ -1141,7 +1124,7 @@ int pl330_build_dma_prog(struct prog_build_args *build_args)
 	}
 
 	if (loop_count > 0) {
-		PDEBUG("now loop count is %d\n", loop_count);
+		pr_debug("now loop count is %d\n", loop_count);
 		dma_prog_buf += pl330_construct_single_loop(dma_prog_start,
 							    cache_length,
 							    dma_prog_buf,
@@ -1154,7 +1137,7 @@ int pl330_build_dma_prog(struct prog_build_args *build_args)
 		tail_bytes = tail_bytes % mem_bus_des->burst_size;
 
 		if (tail_words) {
-			PDEBUG("tail words is %d\n", tail_words);
+			pr_debug("tail words is %d\n", tail_words);
 			/*
 			 * if we can transfer the tail in words, we will
 			 * transfer words as much as possible
@@ -1207,7 +1190,7 @@ int pl330_build_dma_prog(struct prog_build_args *build_args)
 						   PL330_MOV_CCR,
 						   ccr_value);
 
-			PDEBUG("tail bytes is %d\n", tail_bytes);
+			pr_debug("tail bytes is %d\n", tail_bytes);
 			dma_prog_buf +=
 				pl330_construct_single_loop(dma_prog_start,
 							    cache_length,
@@ -1235,7 +1218,7 @@ int pl330_build_dma_prog(struct prog_build_args *build_args)
  *
  * Returns 0 on success, -1 on time out
  */
-int pl330_exec_dmakill(unsigned int dev_id,
+static int pl330_exec_dmakill(unsigned int dev_id,
 		       void __iomem *base,
 		       unsigned int dev_chan,
 		       unsigned int thread)
@@ -1254,9 +1237,8 @@ int pl330_exec_dmakill(unsigned int dev_id,
 
 	if (wait_count >= PL330_MAX_WAIT) {
 		/* wait time out */
-		printk(KERN_ERR
-		       "PL330 device %d debug status busy time out\n",
-		       dev_id);
+		pr_err("PL330 device %d debug status busy time out\n",
+				dev_id);
 
 		return -1;
 	}
@@ -1276,7 +1258,7 @@ int pl330_exec_dmakill(unsigned int dev_id,
  *	struct.
  * @pdev_id: Device id.
  */
-void pl330_init_channel_static_data(unsigned int pdev_id)
+static void pl330_init_channel_static_data(unsigned int pdev_id)
 {
 	unsigned int i;
 	struct pl330_device_data *dev_data = driver_data.device_data + pdev_id;
@@ -1312,12 +1294,12 @@ static irqreturn_t pl330_done_isr(int irq, void *dev)
 
 	struct pl330_device_data *device_data =
 		driver_data.device_data + dev_id;
-	struct dma_struct *dma_chan = driver_data.dma_chan + channel;
+	struct dma_struct *dma_info = driver_data.dma_chan + channel;
 	struct pl330_channel_data *channel_data =
 		driver_data.channel_data + channel;
 
-	PDEBUG("Entering PL330 Done irq on channel %d\n",
-	       channel_static_data->channel);
+	pr_debug("Entering PL330 Done irq on channel %d\n",
+			channel_static_data->channel);
 	/*
 	 * clear channel interrupt status
 	 */
@@ -1329,17 +1311,17 @@ static irqreturn_t pl330_done_isr(int irq, void *dev)
 	 * Clear the count and active flag, and invoke the done callback.
 	 */
 
-	dma_chan->count = 0;
+	dma_info->count = 0;
 
-	dma_chan->active = 0;
+	dma_info->active = 0;
 
-	if (dma_chan->lock && channel_data->done_callback) {
+	if (dma_info->lock && channel_data->done_callback) {
 		channel_data->done_callback(channel,
 					    channel_data->done_callback_data);
 	}
 
-	PDEBUG("Handled PL330 Done irq on channel %d\n",
-	       channel_static_data->channel);
+	pr_debug("Handled PL330 Done irq on channel %d\n",
+			channel_static_data->channel);
 
 	return IRQ_HANDLED;
 }
@@ -1357,7 +1339,7 @@ static irqreturn_t pl330_fault_isr(int irq, void *dev)
 		(struct pl330_device_data *)dev;
 	void __iomem *base = device_data->base;
 	struct pl330_channel_data *channel_data;
-	struct dma_struct *dma_chan;
+	struct dma_struct *dma_info;
 
 	unsigned int dev_id = device_data->dev_id;
 	unsigned int dev_chan;
@@ -1372,7 +1354,7 @@ static irqreturn_t pl330_fault_isr(int irq, void *dev)
 
 	unsigned long spin_flags;
 
-	PDEBUG("Handling PL330 Fault irq on device %d\n", dev_id);
+	pr_debug("Handling PL330 Fault irq on device %d\n", dev_id);
 
 	fsm = pl330_readreg(base, PL330_FSM_OFFSET) & 0x01;
 	fsc = pl330_readreg(base, PL330_FSC_OFFSET) & 0xFF;
@@ -1385,9 +1367,8 @@ static irqreturn_t pl330_fault_isr(int irq, void *dev)
 		fault_type = pl330_readreg(base, PL330_FTM_OFFSET);
 		pc = pl330_readreg(base, PL330_DPC_OFFSET);
 
-		printk(KERN_ERR
-		       "PL330 device %d fault with type: %x at PC %x\n",
-		       device_data->dev_id, fault_type, pc);
+		pr_err("PL330 device %d fault with type: %x at PC %x\n",
+				device_data->dev_id, fault_type, pc);
 
 		/* kill the DMA manager thread */
 		spin_lock_irqsave(&device_data->lock, spin_flags);
@@ -1400,19 +1381,18 @@ static irqreturn_t pl330_fault_isr(int irq, void *dev)
 	 */
 	for (dev_chan = 0; dev_chan < device_data->channels; dev_chan++) {
 		if (fsc & (0x01 << dev_chan)) {
-			PDEBUG("pl330_fault_isr: channel %d device %d\n",
-			       dev_chan, device_data->dev_id);
+			pr_debug("pl330_fault_isr: channel %d device %d\n",
+					dev_chan, device_data->dev_id);
 			fault_type =
 				pl330_readreg(base,
 					      PL330_FTCn_OFFSET(dev_chan));
 			pc = pl330_readreg(base, PL330_CPCn_OFFSET(dev_chan));
-			PDEBUG("pl330_fault_isr: fault type %#x pc %#x\n",
-			       fault_type, pc);
+			pr_debug("pl330_fault_isr: fault type %#x pc %#x\n",
+					fault_type, pc);
 
 			/* kill the channel thread */
-			PDEBUG("pl330_fault_isr: "
-			       "killing channel %d for device %d\n",
-			       dev_chan, device_data->dev_id);
+			pr_debug("pl330_fault_isr: killing channel ch:%d id:%d",
+				dev_chan, device_data->dev_id);
 			spin_lock_irqsave(&device_data->lock, spin_flags);
 			pl330_exec_dmakill(dev_id, base, dev_chan, 1);
 			spin_unlock_irqrestore(&device_data->lock, spin_flags);
@@ -1422,13 +1402,13 @@ static irqreturn_t pl330_fault_isr(int irq, void *dev)
 			 * fault callback.
 			 */
 			channel = device_data->starting_channel + dev_chan;
-			dma_chan = driver_data.dma_chan + channel;
+			dma_info = driver_data.dma_chan + channel;
 			channel_data = driver_data.channel_data + channel;
 
-			dma_chan->active = 0;
+			dma_info->active = 0;
 
 			data = channel_data->fault_callback_data;
-			if (dma_chan->lock && channel_data->fault_callback)
+			if (dma_info->lock && channel_data->fault_callback)
 				channel_data->fault_callback(channel,
 							     fault_type,
 							     pc,
@@ -1448,7 +1428,7 @@ static irqreturn_t pl330_fault_isr(int irq, void *dev)
  *
  * Returns 0 on success, otherwise on failure
  */
-int pl330_request_irq(unsigned int dev_id)
+static int pl330_request_irq(unsigned int dev_id)
 {
 	unsigned int irq;
 	unsigned int irq2;
@@ -1459,7 +1439,7 @@ int pl330_request_irq(unsigned int dev_id)
 
 	int status;
 
-	PDEBUG("PL330 requesting irq for device %d\n", dev_id);
+	pr_debug("PL330 requesting irq for device %d\n", dev_id);
 
 	channel_static_data = driver_data.channel_static_data
 		+ device_data->starting_channel;
@@ -1471,11 +1451,11 @@ int pl330_request_irq(unsigned int dev_id)
 			     IRQF_DISABLED, DRIVER_NAME, device_data);
 
 	if (status) {
-		printk(KERN_ERR "PL330 request fault irq %d failed %d\n",
-		       irq, status);
+		pr_err("PL330 request fault irq %d failed %d\n",
+				irq, status);
 		return -1;
 	} else {
-		PDEBUG("PL330 request fault irq %d successful\n", irq);
+		pr_debug("PL330 request fault irq %d successful\n", irq);
 	}
 
 
@@ -1488,14 +1468,13 @@ int pl330_request_irq(unsigned int dev_id)
 				     channel_static_data);
 
 		if (status) {
-			printk(KERN_ERR
-			       "PL330 request done irq %d failed %d\n",
-			       irq, status);
+			pr_err("PL330 request done irq %d failed %d\n",
+					irq, status);
 			goto req_done_irq_failed;
 		} else {
 			channel_static_data->irq = irq;
 
-			PDEBUG("PL330 request done irq %d successful\n", irq);
+			pr_debug("PL330 request done irq %d successful\n", irq);
 		}
 
 		channel_static_data++;
@@ -1510,14 +1489,13 @@ int pl330_request_irq(unsigned int dev_id)
 				     channel_static_data);
 
 		if (status) {
-			printk(KERN_ERR
-			       "PL330 request done irq %d failed %d\n",
-			       irq, status);
+			pr_err("PL330 request done irq %d failed %d\n",
+					irq, status);
 			goto req_done_irq1_failed;
 		} else {
 			channel_static_data->irq = irq;
 
-			PDEBUG("PL330 request done irq %d successful\n", irq);
+			pr_debug("PL330 request done irq %d successful\n", irq);
 		}
 
 		channel_static_data++;
@@ -1546,7 +1524,7 @@ int pl330_request_irq(unsigned int dev_id)
  * pl330_free_irq - Free the requested interrupt for the device
  * @dev_id: device id.
  */
-void pl330_free_irq(unsigned int dev_id)
+static void pl330_free_irq(unsigned int dev_id)
 {
 	unsigned int irq;
 	int i;
@@ -1555,7 +1533,7 @@ void pl330_free_irq(unsigned int dev_id)
 	struct pl330_device_data *device_data =
 		driver_data.device_data + dev_id;
 
-	PDEBUG("PL330 freeing irq for device %d\n", dev_id);
+	pr_debug("PL330 freeing irq for device %d\n", dev_id);
 
 	channel_static_data = driver_data.channel_static_data
 		+ device_data->starting_channel;
@@ -1574,8 +1552,6 @@ void pl330_free_irq(unsigned int dev_id)
 
 	/* free the fault irq */
 	free_irq(irq, device_data);
-
-	return;
 }
 
 /**
@@ -1583,7 +1559,7 @@ void pl330_free_irq(unsigned int dev_id)
  * @dev_id: Device id
  * @pdev: Instance of platform_device struct.
  */
-void pl330_init_device_data(unsigned int dev_id,
+static void pl330_init_device_data(unsigned int dev_id,
 			    struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1603,16 +1579,17 @@ void pl330_init_device_data(unsigned int dev_id,
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		printk(KERN_ERR "get_resource for MEM resource for dev %d "
-		       "failed\n", dev_id);
+		dev_err(&pdev->dev,
+			    "get_resource for MEM resource for dev %d failed\n",
+			    dev_id);
 		return;
 	} else {
-		PDEBUG("pl330 device %d actual base is %x\n",
-		       dev_id, (unsigned int)res->start);
+		pr_debug("pl330 device %d actual base is %x\n",
+				dev_id, (unsigned int)res->start);
 	}
 
 	if (!request_mem_region(res->start, 0x1000, "pl330")) {
-		printk(KERN_ERR "memory request failue for base %x\n",
+		dev_err(&pdev->dev, "memory request failue for base %x\n",
 		       (unsigned int)res->start);
 		return;
 	}
@@ -1620,28 +1597,28 @@ void pl330_init_device_data(unsigned int dev_id,
 	spin_lock_init(&device_data->lock);
 
 	device_data->base = ioremap(res->start, SZ_4K);
-	PDEBUG("pl330 dev %d ioremap to %#x\n",
-	       dev_id, (unsigned int)device_data->base);
-	if (device_data->base == 0) {
-		printk(KERN_ERR "ioremap failure for base %#x\n",
-		       (unsigned int)res->start);
+	pr_debug("pl330 dev %d ioremap to %#x\n", dev_id,
+			(__force u32)device_data->base);
+	if (!device_data->base) {
+		dev_err(&pdev->dev, "ioremap failure for base %#x\n",
+				(unsigned int)res->start);
 		release_mem_region(res->start, SZ_4K);
 		return;
 	}
-	PDEBUG("virt_to_bus(base) is %#08x\n",
-	       (u32)virt_to_bus(device_data->base));
-	PDEBUG("page_to_phys(base) is %#08x\n",
-	       (u32)page_to_phys(virt_to_page(device_data->base)));
+	pr_debug("virt_to_bus(base) is %#08lx\n",
+			virt_to_bus((__force void *)device_data->base));
+	pr_debug("page_to_phys(base) is %#08x\n",
+			page_to_phys(virt_to_page(device_data->base)));
 
 	for (pid = 0, i = 0; i < 4; i++)
 		pid |= (pl330_readreg(device_data->base, 0xFE0 + i * 4) & 0xFF)
 			<< (i * 8);
-	PDEBUG("Periperal ID is %#08x\n", pid);
+	pr_debug("Periperal ID is %#08x\n", pid);
 
 	for (cid = 0, i = 0; i < 4; i++)
 		cid |= (pl330_readreg(device_data->base, 0xFF0 + i * 4) & 0xFF)
 			<< (i * 8);
-	PDEBUG("PrimeCell ID is %#08x\n", cid);
+	pr_debug("PrimeCell ID is %#08x\n", cid);
 
 	/* store the PL330 id. The device id starts from zero.
 	 * The last one is MAX_DMA_DEVICES - 1
@@ -1655,29 +1632,31 @@ void pl330_init_device_data(unsigned int dev_id,
 	pl330_config = (struct pl330_platform_config *)dev->platform_data;
 	device_data->channels = pl330_config->channels;
 	device_data->starting_channel = pl330_config->starting_channel;
-	PDEBUG("pl330 device %d starting channel %d, channels %d\n",
-	       dev_id,
-	       device_data->starting_channel,
-	       device_data->channels);
+	pr_debug("pl330 device %d starting channel %d, channels %d\n", dev_id,
+			device_data->starting_channel, device_data->channels);
 
 	/* now get the irq configurations */
 
 	/* The 1st IRQ resource is for fault irq */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res)
-		printk(KERN_ERR "get_resource for IRQ resource for dev %d "
-		       "failed\n", dev_id);
+	if (!res) {
+		dev_err(&pdev->dev,
+			    "get_resource for IRQ resource for dev %d failed\n",
+			    dev_id);
+		return;
+	}
 
 	if (res->start != res->end)
-		printk(KERN_ERR "the first IRQ resource for dev %d should "
+		dev_err(&pdev->dev, "the first IRQ resource for dev %d should "
 		       "be a single IRQ for FAULT\n", dev_id);
 	device_data->fault_irq = res->start;
 
 	/* The 2nd IRQ resource is for 1st half of channel IRQ */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
 	if (!res) {
-		printk(KERN_ERR "get_resource for IRQ resource %d for dev %d "
-		       "failed\n", 1, dev_id);
+		dev_err(&pdev->dev,
+			 "get_resource for IRQ resource %d for dev %d failed\n",
+			 1, dev_id);
 
 		device_data->starting_irq = 0;
 		device_data->ending_irq = 0;
@@ -1686,16 +1665,16 @@ void pl330_init_device_data(unsigned int dev_id,
 		device_data->ending_irq = res->end;
 	}
 
-	PDEBUG("pl330 device %d 1st half starting irq %d, ending irq %d\n",
-	       dev_id,
-	       device_data->starting_irq,
-	       device_data->ending_irq);
+	pr_debug("pl330 device %d 1st half starting irq %d, ending irq %d\n",
+			dev_id, device_data->starting_irq,
+			device_data->ending_irq);
 
 	/* The 3rd IRQ resource is for 2nd half of channel IRQ */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 2);
 	if (!res) {
-		printk(KERN_ERR "get_resource for IRQ resource %d for dev %d "
-		       "failed\n", 2, dev_id);
+		dev_err(&pdev->dev,
+			 "get_resource for IRQ resource %d for dev %d failed\n",
+			 2, dev_id);
 		device_data->starting_irq1 = 0;
 		device_data->ending_irq1 = 0;
 	} else {
@@ -1703,10 +1682,9 @@ void pl330_init_device_data(unsigned int dev_id,
 		device_data->ending_irq1 = res->end;
 	}
 
-	PDEBUG("pl330 device %d 2nd half starting irq %d, ending irq %d\n",
-	       dev_id,
-	       device_data->starting_irq1,
-	       device_data->ending_irq1);
+	pr_debug("pl330 device %d 2nd half starting irq %d, ending irq %d\n",
+			dev_id, device_data->starting_irq1,
+			device_data->ending_irq1);
 
 #ifdef PL330_OPTIMIZE_ICACHE
 	/*
@@ -1741,7 +1719,7 @@ static int pl330_setspeed_dma(unsigned int channel,
 			      struct dma_struct *indexed_dma_chan,
 			      int cycle_ns)
 {
-	PDEBUG("PL330::pl330_setspeed_dma(), doing nothing\n");
+	pr_debug("PL330::pl330_setspeed_dma(), doing nothing\n");
 	return 0;
 }
 
@@ -1784,7 +1762,7 @@ static int pl330_request_dma(unsigned int channel, dma_t *indexed_dma_chan)
 	struct pl330_channel_data *channel_data =
 		driver_data.channel_data + channel;
 
-	PDEBUG("PL330::pl330_request_dma() ...\n");
+	pr_debug("PL330::pl330_request_dma() ...\n");
 
 	memset(channel_data, 0, sizeof(struct pl330_channel_data));
 
@@ -1819,8 +1797,6 @@ static void pl330_free_dma(unsigned int channel, dma_t *indexed_dma_chan)
 		channel_data->dma_prog_buf = NULL;
 		channel_data->dma_prog_phy = 0;
 	}
-
-	return;
 }
 
 /**
@@ -1830,25 +1806,22 @@ static void pl330_free_dma(unsigned int channel, dma_t *indexed_dma_chan)
 #ifdef PL330_DEBUG
 static void print_pl330_bus_des(struct pl330_bus_des *bus_des)
 {
-
 	if (!bus_des) {
-		PDEBUG("NULL\n");
+		pr_debug("NULL\n");
 		return;
 	}
 
-	PDEBUG("  .burst_size = %d\n", bus_des->burst_size);
-	PDEBUG("  .burst_len = %d\n", bus_des->burst_len);
-	PDEBUG("  .prot_ctrl = %d\n", bus_des->prot_ctrl);
-	PDEBUG("  .cache_ctrl = %d\n", bus_des->cache_ctrl);
-
-	return;
+	pr_debug("  .burst_size = %d\n", bus_des->burst_size);
+	pr_debug("  .burst_len = %d\n", bus_des->burst_len);
+	pr_debug("  .prot_ctrl = %d\n", bus_des->prot_ctrl);
+	pr_debug("  .cache_ctrl = %d\n", bus_des->cache_ctrl);
 }
 #else
 #	define print_pl330_bus_des(bus_des)
 #endif
 
 /**
- * pl33_exec_dmago - Execute the DMAGO to start a channel.
+ * pl330_exec_dmago - Execute the DMAGO to start a channel.
  * @dev_id: PL330 device ID indicating which PL330, the ID starts at 0.
  * @base: PL330 device base address
  * @dev_chan: Channel number for the device
@@ -1856,7 +1829,7 @@ static void print_pl330_bus_des(struct pl330_bus_des *bus_des)
  *
  * Returns 0 on success, -1 on time out
  */
-int pl330_exec_dmago(unsigned int dev_id,
+static int pl330_exec_dmago(unsigned int dev_id,
 		      void __iomem *base,
 		      unsigned int dev_chan,
 		      u32 dma_prog)
@@ -1867,35 +1840,33 @@ int pl330_exec_dmago(unsigned int dev_id,
 
 	int wait_count;
 
-	PDEBUG("pl330_exec_dmago: entering\n");
+	pr_debug("pl330_exec_dmago: entering\n");
 
 	pl330_instr_dmago(dma_go_prog, dev_chan, dma_prog, 0);
 
 	dbginst0 = PL330_DBGINST0(*(dma_go_prog + 1), *dma_go_prog, 0, 0);
 	dbginst1 = (u32)dma_prog;
 
-	PDEBUG("inside pl330_exec_dmago: base %x, dev_chan %d, dma_prog %x\n",
-	       (u32)base, dev_chan, dma_prog);
+	pr_debug("inside pl330_exec_dmago: base %x, dev_chan %d, dma_prog %x\n",
+			(__force u32)base, dev_chan, dma_prog);
 
 	/* wait while debug status is busy */
 	wait_count = 0;
 	while (pl330_readreg(base, PL330_DBGSTATUS_OFFSET)
 	       & PL330_DBGSTATUS_BUSY
 	       && wait_count < PL330_MAX_WAIT) {
-		PDEBUG("dbgstatus %x\n",
-		       pl330_readreg(base, PL330_DBGSTATUS_OFFSET));
+		pr_debug("dbgstatus %x\n",
+				pl330_readreg(base, PL330_DBGSTATUS_OFFSET));
 
 		wait_count++;
 	}
 
 	if (wait_count >= PL330_MAX_WAIT) {
-		printk(KERN_ERR
-		       "PL330 device %d debug status busy time out\n",
-		       dev_id);
+		pr_err("PL330 device %d debug status busy time out\n", dev_id);
 		return -1;
 	}
 
-	PDEBUG("dbgstatus idle\n");
+	pr_debug("dbgstatus idle\n");
 
 	/* write debug instruction 0 */
 	pl330_writereg(dbginst0, base, PL330_DBGINST0_OFFSET);
@@ -1908,21 +1879,18 @@ int pl330_exec_dmago(unsigned int dev_id,
 	while ((pl330_readreg(base, PL330_DS_OFFSET) & PL330_DS_DMA_STATUS)
 	       != PL330_DS_DMA_STATUS_STOPPED
 	       && wait_count <= PL330_MAX_WAIT) {
-		PDEBUG("ds %x\n",
-		       pl330_readreg(base, PL330_DS_OFFSET));
+		pr_debug("ds %x\n", pl330_readreg(base, PL330_DS_OFFSET));
 		wait_count++;
 	}
 
 	if (wait_count >= PL330_MAX_WAIT) {
-		printk(KERN_ERR
-		       "PL330 device %d debug status busy time out\n",
-		       dev_id);
+		pr_err("PL330 device %d debug status busy time out\n", dev_id);
 		return -1;
 	}
 
 	/* run the command in dbginst0 and dbginst1 */
 	pl330_writereg(0, base, PL330_DBGCMD_OFFSET);
-	PDEBUG("pl330_exec_dmago done\n");
+	pr_debug("pl330_exec_dmago done\n");
 
 	return 0;
 }
@@ -1974,18 +1942,15 @@ static void pl330_enable_dma(unsigned int channel,
 	client_data = driver_data.channel_data[channel].client_data;
 
 	if (!client_data) {
-		printk(KERN_ERR
-		       "client data is not set for DMA channel %d\n",
-		       channel);
+		pr_err("client data is not set for DMA channel %d\n", channel);
 		BUG();
-		return;
 	}
 
 	/*
 	 * find out which one is source which one is destination
 	 */
 	if (dma->dma_mode == DMA_MODE_READ) {
-		PDEBUG("dma_mode is DMA_MODE_READ\n");
+		pr_debug("dma_mode is DMA_MODE_READ\n");
 
 		src_bus_des = &client_data->dev_bus_des;
 		dst_bus_des = &client_data->mem_bus_des;
@@ -1996,7 +1961,7 @@ static void pl330_enable_dma(unsigned int channel,
 		src_inc = channel_data->incr_dev_addr;
 		dst_inc = 1;
 	} else if (dma->dma_mode == DMA_MODE_WRITE) {
-		PDEBUG("dma_mode is DMA_MODE_WRITE\n");
+		pr_debug("dma_mode is DMA_MODE_WRITE\n");
 
 		src_bus_des = &client_data->mem_bus_des;
 		dst_bus_des = &client_data->dev_bus_des;
@@ -2006,35 +1971,30 @@ static void pl330_enable_dma(unsigned int channel,
 		src_inc = 1;
 		dst_inc = channel_data->incr_dev_addr;
 	} else {
-		printk(KERN_ERR "Error: mode %x is not supported\n",
-		       dma->dma_mode);
-
+		pr_err("Error: mode %x is not supported\n", dma->dma_mode);
 		return;
 	}
 
 	if (dma->count == 0) {
-		printk(KERN_ERR "Error: DMA count for channel %d is zero",
-		       channel);
+		pr_err("Error: DMA count for channel %d is zero", channel);
 		return;
 	}
 
 	/* print some debugging messages */
-	PDEBUG("count is %ld\n", dma->count);
+	pr_debug("count is %ld\n", dma->count);
 
-	PDEBUG("dev_addr = %x\n",  (unsigned int)client_data->dev_addr);
+	pr_debug("dev_addr = %x\n", (unsigned int)client_data->dev_addr);
 
-	PDEBUG("dev_bus_des = {\n");
+	pr_debug("dev_bus_des = {\n");
 	print_pl330_bus_des(&client_data->dev_bus_des);
-	PDEBUG("}\n");
+	pr_debug("}\n");
 
-	PDEBUG("mem_bus_des = {\n");
+	pr_debug("mem_bus_des = {\n");
 	print_pl330_bus_des(&client_data->mem_bus_des);
-	PDEBUG("}\n");
+	pr_debug("}\n");
 
-	PDEBUG("endian_swap_size = %d\n",
-	       client_data->endian_swap_size);
-	PDEBUG("incr_dev_addr = %d\n",
-	       channel_data->incr_dev_addr);
+	pr_debug("endian_swap_size = %d\n", client_data->endian_swap_size);
+	pr_debug("incr_dev_addr = %d\n", channel_data->incr_dev_addr);
 
 	dma_prog = channel_data->dma_program;
 
@@ -2045,7 +2005,7 @@ static void pl330_enable_dma(unsigned int channel,
 		 * if the DMA program is not set by a user,
 		 * construct the dma program
 		 */
-		PDEBUG("constructing DMA program\n");
+		pr_debug("constructing DMA program\n");
 		if (!channel_data->dma_prog_buf) {
 			/* allocate the dma prog buffer */
 			channel_data->dma_prog_buf =
@@ -2054,10 +2014,9 @@ static void pl330_enable_dma(unsigned int channel,
 						   &channel_data->dma_prog_phy,
 						   GFP_KERNEL);
 		}
-		PDEBUG("channel %d DMA program: vir %#08x, phy %#08x\n",
-		       channel,
-		       (u32)channel_data->dma_prog_buf,
-		       (u32)channel_data->dma_prog_phy);
+		pr_debug("channel %d DMA program: vir %#08x, phy %#08x\n",
+				channel, (u32)channel_data->dma_prog_buf,
+				(u32)channel_data->dma_prog_phy);
 
 		dma_prog_buf = (char *)channel_data->dma_prog_buf;
 
@@ -2087,21 +2046,21 @@ static void pl330_enable_dma(unsigned int channel,
 
 		channel_data->dma_prog_len = dma_prog_bytes;
 
-		PDEBUG("DMA program constructed\n");
+		pr_debug("DMA program constructed\n");
 	} else {
-		PDEBUG("channel %d user defined DMA program %#08x\n",
-		       channel, (u32)dma_prog);
+		pr_debug("channel %d user defined DMA program %#08x\n", channel,
+				(u32)dma_prog);
 	}
 
-	PDEBUG("enable_dma: spin_lock_irqsave\n");
+	pr_debug("enable_dma: spin_lock_irqsave\n");
 	spin_lock_irqsave(&device_data->lock, spin_flags);
 
 	/* enable the interrupt */
-	PDEBUG("enable_dma: enabling interrupt\n");
+	pr_debug("enable_dma: enabling interrupt\n");
 	inten = pl330_readreg(device_data->base, PL330_INTEN_OFFSET);
 	inten |= 0x01 << dev_chan; /* set the correpsonding bit */
 	pl330_writereg(inten, device_data->base, PL330_INTEN_OFFSET);
-	PDEBUG("pl330 interrupt enabled for channel %d\n", channel);
+	pr_debug("pl330 interrupt enabled for channel %d\n", channel);
 
 	pl330_exec_dmago(device_data->dev_id,
 			 device_data->base,
@@ -2109,8 +2068,6 @@ static void pl330_enable_dma(unsigned int channel,
 			 dma_prog);
 
 	spin_unlock_irqrestore(&device_data->lock, spin_flags);
-
-	return;
 }
 
 /**
@@ -2155,8 +2112,6 @@ static void pl330_disable_dma(unsigned int channel,
 	spin_unlock_irqrestore(&device_data->lock, spin_flags);
 
 	dma->count = 0;
-
-	return;
 }
 
 /*
@@ -2172,7 +2127,7 @@ static struct dma_ops pl330_ops = {
 	.type        = "PL330",
 };
 
-void pl330_set_default_burst_size(unsigned int dev_id)
+static void pl330_set_default_burst_size(unsigned int dev_id)
 {
 #ifndef PL330_DEFAULT_BURST_SIZE
 	u32 crdn = pl330_readreg(driver_data.device_data[dev_id].base,
@@ -2220,13 +2175,74 @@ static void pl330_release_io(struct platform_device *pdev, int dev_id)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
-		printk(KERN_ERR "get_resource for MEM resource for dev %d "
-		       "failed\n", dev_id);
+		dev_err(&pdev->dev,
+			    "get_resource for MEM resource for dev %d failed\n",
+			    dev_id);
 
 	if (res)
 		release_mem_region(res->start, SZ_4K);
 
 }
+
+
+#define DMAC0_BASE		(0xF8003000)
+#define IRQ_DMAC0_ABORT		45
+#define IRQ_DMAC0		46
+#define IRQ_DMAC3		72
+
+static struct resource dmac0[] = {
+	{
+		.start = DMAC0_BASE,
+		.end = DMAC0_BASE + 0xFFF,
+		.flags = IORESOURCE_MEM,
+	}, {
+		.start = IRQ_DMAC0_ABORT,
+		.end = IRQ_DMAC0_ABORT,
+		.flags = IORESOURCE_IRQ,
+	}, {
+		.start = IRQ_DMAC0,
+		.end = IRQ_DMAC0 + 3,
+		.flags = IORESOURCE_IRQ,
+	}, {
+		.start = IRQ_DMAC3,
+		.end = IRQ_DMAC3 + 3,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct pl330_platform_config dmac_config0 = {
+	.channels = 8,
+	.starting_channel = 0,
+};
+
+static u64 dma_mask = 0xFFFFFFFFUL;
+
+static struct platform_device dmac_device0 = {
+	.name = "pl330",
+	.id = 0,
+	.dev = {
+		.platform_data = &dmac_config0,
+		.dma_mask = &dma_mask,
+		.coherent_dma_mask = 0xFFFFFFFF,
+	},
+	.resource = dmac0,
+	.num_resources = ARRAY_SIZE(dmac0),
+};
+
+
+#ifdef CONFIG_XILINX_TEST
+static struct platform_device xilinx_dma_test = {
+	.name = "pl330_test",
+	.id = 0,
+	.dev = {
+		.platform_data = NULL,
+		.dma_mask = &dma_mask,
+		.coherent_dma_mask = 0xFFFFFFFF,
+	},
+	.resource = NULL,
+	.num_resources = 0,
+};
+#endif
 
 /**
  * pl330_platform_probe - Platform driver probe
@@ -2237,13 +2253,14 @@ static void pl330_release_io(struct platform_device *pdev, int dev_id)
 static int __devinit pl330_platform_probe(struct platform_device *pdev)
 {
 	int pdev_id;
+	int ret = 0;
 
 	if (!pdev) {
 		dev_err(&pdev->dev, "pl330 probe called with NULL param.\n");
 		return -ENODEV;
 	}
 
-	PDEBUG("pl330 driver probing dev_id %d\n", pdev->id);
+	pr_debug("pl330 driver probing dev_id %d\n", pdev->id);
 
 	pdev_id = 0;
 	if (pdev->id < 0) {
@@ -2270,9 +2287,16 @@ static int __devinit pl330_platform_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	printk(KERN_INFO "pl330 dev %d probe success\n", pdev->id);
+	dev_info(&pdev->dev, "pl330 dev %d probe success\n", pdev->id);
 
-	return 0;
+#ifdef CONFIG_XILINX_TEST
+	ret = platform_device_register(&xilinx_dma_test);
+	if (ret)
+		pr_info("Unable to register platform device '%s': %d\n",
+			xilinx_dma_test.name, ret);
+#endif
+
+	return ret;
 }
 
 
@@ -2291,7 +2315,7 @@ static int pl330_platform_remove(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	PDEBUG("pl330 driver removing %d\n", pdev->id);
+	pr_debug("pl330 driver removing %d\n", pdev->id);
 
 	pdev_id = 0;
 	if (pdev->id < 0) {
@@ -2330,7 +2354,7 @@ static void pl330_driver_init(void)
 {
 	unsigned int i;
 
-	PDEBUG("inside pl330_driver_init, dma_chan is %x\n",
+	pr_debug("inside pl330_driver_init, dma_chan is %x\n",
 	       (unsigned int)dma_chan);
 
 	driver_data.dma_chan = dma_chan;
@@ -2352,7 +2376,7 @@ static void pl330_driver_init(void)
  * @user_bus_des: User bus descriptor
  * @default_bus_des: Default bus decriptor, this is the returned value
  */
-void setup_default_bus_des(unsigned int default_burst_size,
+static void setup_default_bus_des(unsigned int default_burst_size,
 			   struct pl330_bus_des *user_bus_des,
 			   struct pl330_bus_des *default_bus_des)
 {
@@ -2393,14 +2417,14 @@ int set_pl330_client_data(unsigned int channel,
 		return -EINVAL;
 
 	if (!dma->lock) {
-		printk(KERN_ERR "trying to set pl330_client_data on a "
-		       "free channel %d\n", channel);
+		pr_err("trying to set pl330_client_data on a free channel %d\n",
+				channel);
 		return -EINVAL;
 	}
 
 	if (dma->active) {
-		printk(KERN_ERR "trying to set pl330_client_data on an active "
-		       "channel %d\n", channel);
+		pr_err("trying to set pl330_client_data on an active channel ");
+		pr_cont("%d\n", channel);
 		return -EBUSY;
 	}
 
@@ -2434,13 +2458,11 @@ int set_pl330_client_data(unsigned int channel,
 
 	if (dev_bus_des->burst_size * dev_bus_des->burst_len
 	    != mem_bus_des->burst_size * mem_bus_des->burst_len) {
-		printk(KERN_ERR
-		       "DMA channel %d has unmatched burst for device"
-		       " and memory, device burst %d bytes,"
-		       " memory busrt %d bytes\n",
-		       channel,
-		       dev_bus_des->burst_size * dev_bus_des->burst_len,
-		       mem_bus_des->burst_size * mem_bus_des->burst_len);
+		pr_err("DMA channel %d has unmatched burst for ", channel);
+		pr_cont("device and memory, device burst %d bytes, ",
+			      dev_bus_des->burst_size * dev_bus_des->burst_len);
+		pr_cont("memory burst %d bytes\n",
+			      mem_bus_des->burst_size * mem_bus_des->burst_len);
 		return -EINVAL;
 	}
 
@@ -2468,14 +2490,14 @@ int set_pl330_dma_prog_addr(unsigned int channel,
 		return -EINVAL;
 
 	if (!dma->lock) {
-		printk(KERN_ERR "trying to set pl330_dma_program on a free "
-		       "channel %d\n", channel);
+		pr_err("trying to set pl330_dma_program on a free channel %d\n",
+				channel);
 		return -EINVAL;
 	}
 
 	if (dma->active) {
-		printk(KERN_ERR "trying to set pl330_dma_program on an active "
-		       "channel %d\n", channel);
+		pr_err("trying to set pl330_dma_program on an active channel ");
+		pr_cont("%d\n", channel);
 		return -EBUSY;
 	}
 
@@ -2503,8 +2525,8 @@ char *get_pl330_dma_program(unsigned int channel,
 		return NULL;
 
 	if (!dma->lock) {
-		printk(KERN_ERR "trying to set pl330_dma_program on a free "
-		       "channel %d\n", channel);
+		pr_err("trying to set pl330_dma_program on a free channel %d\n",
+				channel);
 		return NULL;
 	}
 
@@ -2537,14 +2559,14 @@ int set_pl330_done_callback(unsigned int channel,
 		return -EINVAL;
 
 	if (!dma->lock) {
-		printk(KERN_ERR "Trying to pl330_done_callback on a free "
-		       "channel (%d)\n", channel);
+		pr_err("Trying to pl330_done_callback on a free channel (%d)\n",
+				channel);
 		return -EINVAL;
 	}
 
 	if (dma->active) {
-		printk(KERN_ERR "Trying to set pl330_done_callback on an "
-		       "active channel (%d)\n", channel);
+		pr_err("Trying to set pl330_done_callback on an active ");
+		pr_cont("channel (%d)\n", channel);
 		return -EBUSY;
 	}
 
@@ -2579,14 +2601,14 @@ int set_pl330_fault_callback(unsigned int channel,
 		return -EINVAL;
 
 	if (!dma->lock) {
-		printk(KERN_ERR "trying to set pl330_fault_callback on "
-		       "a free channel %d\n", channel);
+		pr_err("trying to set pl330_fault_callback on a free channel ");
+		pr_cont("%d\n", channel);
 		return -EINVAL;
 	}
 
 	if (dma->active) {
-		printk(KERN_ERR "trying to set pl330_fault_callback on "
-		       "an active channel %d\n", channel);
+		pr_err("trying to set pl330_fault_callback on an active ");
+		pr_cont("channel %d\n", channel);
 		return -EBUSY;
 	}
 
@@ -2618,14 +2640,14 @@ int set_pl330_incr_dev_addr(unsigned int channel,
 		return -EINVAL;
 
 	if (!dma->lock) {
-		printk(KERN_ERR "trying to set pl330_fault_callback on "
-		       "a free channel %d\n", channel);
+		pr_err("trying to set pl330_fault_callback on a free channel ");
+		pr_cont("%d\n", channel);
 		return -EINVAL;
 	}
 
 	if (dma->active) {
-		printk(KERN_ERR "trying to set pl330_fault_callback on "
-		       "an active channel %d\n", channel);
+		pr_err("trying to set pl330_fault_callback on an active ");
+		pr_cont("channel %d\n", channel);
 		return -EBUSY;
 	}
 
@@ -2691,12 +2713,17 @@ EXPORT_SYMBOL(get_pl330_da_reg);
  */
 static int __init pl330_init(void)
 {
-	int status;
+	int status, ret;
+
+	ret = platform_device_register(&dmac_device0);
+	if (ret)
+		pr_info("Unable to register platform device '%s': %d\n",
+			dmac_device0.name, ret);
 
 	pl330_driver_init();
 
 	status = platform_driver_register(&pl330_platform_driver);
-	PDEBUG("platform_driver_register: %d\n", status);
+	pr_debug("platform_driver_register: %d\n", status);
 	return status;
 }
 module_init(pl330_init);
@@ -2711,13 +2738,12 @@ static void __exit pl330_exit(void)
 	 * unregister dma_driver_ops first
 	 */
 	platform_driver_unregister(&pl330_platform_driver);
-	PDEBUG("platform_driver_unregister\n");
+	pr_debug("platform_driver_unregister\n");
 }
 module_exit(pl330_exit);
 
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
+MODULE_DESCRIPTION("pl330 driver");
 MODULE_AUTHOR("Xilinx, Inc.");
-MODULE_VERSION(DRIVER_VERSION);
-
+MODULE_VERSION("1.00a");

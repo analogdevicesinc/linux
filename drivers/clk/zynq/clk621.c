@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <mach/clk.h>
 
 /**
  * struct zynq_clk621
@@ -113,7 +114,7 @@ static int zynq_clk621_set_rate(struct clk_hw *hw, unsigned long rate,
 	return -EINVAL;
 }
 
-static struct clk_ops zynq_clk621_ops = {
+static const struct clk_ops zynq_clk621_ops = {
 	.set_rate = zynq_clk621_set_rate,
 	.round_rate = zynq_clk621_round_rate,
 	.recalc_rate = zynq_clk621_recalc_rate
@@ -148,14 +149,13 @@ struct clk *clk_register_zynq_clk621(const char *name,
 	};
 
 	clk = kmalloc(sizeof(*clk), GFP_KERNEL);
-	clk->hw.init = &initd;
-
 	if (!clk) {
 		pr_err("%s: could not allocate Zynq clk\n", __func__);
 		return ERR_PTR(-ENOMEM);
 	}
 
 	/* Populate the struct */
+	clk->hw.init = &initd;
 	clk->clkctrl = clkctrl;
 	clk->clk621 = clk621;
 	clk->basediv = basediv;

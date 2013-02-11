@@ -166,6 +166,7 @@ struct otg_hsm {
 
 struct xusbps_otg {
 	struct usb_phy		otg;
+	struct usb_phy		*ulpi;
 
 	struct otg_hsm		hsm;
 
@@ -174,6 +175,10 @@ struct xusbps_otg {
 
 	/* irq */
 	int			irq;
+
+	/* clk */
+	struct clk		*clk;
+	struct notifier_block	clk_rate_change_nb;
 
 	/* atomic notifier for interrupt context */
 	struct atomic_notifier_head	otg_notifier;

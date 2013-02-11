@@ -29,7 +29,6 @@
 #include <linux/spi/spi.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
-#include <linux/xilinx_devices.h>
 
 /*
  * Name of this driver
@@ -86,6 +85,19 @@
  * This register is used to enable or disable the QSPI controller
  */
 #define XQSPIPS_ENABLE_ENABLE_MASK	0x00000001 /* QSPI Enable Bit Mask */
+
+/*
+ * QSPI Linear Configuration Register
+ *
+ * It is named Linear Configuration but it controls other modes when not in
+ * linear mode also.
+ */
+#define XQSPIPS_LCFG_TWO_MEM_MASK	0x40000000 /* QSPI Enable Bit Mask */
+#define XQSPIPS_LCFG_SEP_BUS_MASK	0x20000000 /* QSPI Enable Bit Mask */
+
+#define XQSPIPS_LCFG_DUMMY_SHIFT	8
+
+#define XQSPIPS_FAST_READ_QOUT_CODE	0x6B	/* read instruction code */
 
 /*
  * The modebits configurable by the driver to make the SPI support different
@@ -255,7 +267,10 @@ static void xqspips_init_hw(void __iomem *regs_base, int is_dual)
 	if (is_dual == 1)
 		/* Enable two memories on seperate buses */
 		xqspips_write(regs_base + XQSPIPS_LINEAR_CFG_OFFSET,
-			      0x6400016B);
+			(XQSPIPS_LCFG_TWO_MEM_MASK |
+			 XQSPIPS_LCFG_SEP_BUS_MASK |
+			 (1 << XQSPIPS_LCFG_DUMMY_SHIFT) |
+			 XQSPIPS_FAST_READ_QOUT_CODE));
 
 	xqspips_write(regs_base + XQSPIPS_ENABLE_OFFSET,
 			XQSPIPS_ENABLE_ENABLE_MASK);
@@ -403,6 +418,7 @@ static int xqspips_setup_transfer(struct spi_device *qspi,
 	u32 req_hz;
 	u32 baud_rate_val = 0;
 	unsigned long flags;
+	int update_baud = 0;
 
 	req_hz = (transfer) ? transfer->speed_hz : qspi->max_speed_hz;
 
@@ -410,6 +426,16 @@ static int xqspips_setup_transfer(struct spi_device *qspi,
 		dev_err(&qspi->dev, "%s, unsupported mode bits %x\n",
 			__func__, qspi->mode & ~MODEBITS);
 		return -EINVAL;
+	}
+
+	/* Set the clock frequency */
+	if (xqspi->speed_hz != req_hz) {
+		while ((baud_rate_val < 8)  &&
+			(clk_get_rate(xqspi->devclk) / (2 << baud_rate_val)) >
+			req_hz)
+				baud_rate_val++;
+		xqspi->speed_hz = req_hz;
+		update_baud = 1;
 	}
 
 	spin_lock_irqsave(&xqspi->config_reg_lock, flags);
@@ -424,16 +450,9 @@ static int xqspips_setup_transfer(struct spi_device *qspi,
 	if (qspi->mode & SPI_CPOL)
 		config_reg |= XQSPIPS_CONFIG_CPOL_MASK;
 
-	/* Set the clock frequency */
-	if (xqspi->speed_hz != req_hz) {
-		baud_rate_val = 0;
-		while ((baud_rate_val < 8)  &&
-			(clk_get_rate(xqspi->devclk) / (2 << baud_rate_val)) >
-			req_hz)
-				baud_rate_val++;
+	if (update_baud) {
 		config_reg &= 0xFFFFFFC7;
 		config_reg |= (baud_rate_val << 3);
-		xqspi->speed_hz = req_hz;
 	}
 
 	xqspips_write(xqspi->regs + XQSPIPS_CONFIG_OFFSET, config_reg);

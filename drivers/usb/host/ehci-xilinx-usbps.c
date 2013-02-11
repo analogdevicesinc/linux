@@ -16,6 +16,7 @@
  * Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <linux/clk.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/delay.h>
@@ -23,9 +24,6 @@
 #include <linux/platform_device.h>
 #include <linux/xilinx_devices.h>
 #include <linux/usb/otg.h>
-#ifdef CONFIG_XILINX_ZED_USB_OTG
-#include <linux/usb/ulpi.h>
-#endif
 #include <linux/usb/xilinx_usbps_otg.h>
 
 #include "ehci-xilinx-usbps.h"
@@ -94,6 +92,25 @@ static int ehci_xusbps_otg_stop_host(struct usb_phy *otg)
 }
 #endif
 
+static int xusbps_ehci_clk_notifier_cb(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+
+	switch (event) {
+	case PRE_RATE_CHANGE:
+		/* if a rate change is announced we need to check whether we can
+		 * maintain the current frequency by changing the clock
+		 * dividers.
+		 */
+		/* fall through */
+	case POST_RATE_CHANGE:
+		return NOTIFY_OK;
+	case ABORT_RATE_CHANGE:
+	default:
+		return NOTIFY_DONE;
+	}
+}
+
 /* configure so an HC device and id are always provided */
 /* always called with process context; sleeping is OK */
 
@@ -113,10 +130,6 @@ static int usb_hcd_xusbps_probe(const struct hc_driver *driver,
 	struct usb_hcd *hcd;
 	int irq;
 	int retval;
-#ifdef CONFIG_USB_XUSBPS_OTG
-	struct xusbps_otg *xotg;
-	struct ehci_hcd *ehci;
-#endif
 
 	pr_debug("initializing XUSBPS-SOC USB Controller\n");
 
@@ -155,69 +168,78 @@ static int usb_hcd_xusbps_probe(const struct hc_driver *driver,
 		goto err2;
 	}
 
-	if (pdata->otg)
-		hcd->self.otg_port = 1;
+	if (pdata->irq == 53)
+		pdata->clk = clk_get_sys("USB0_APER", NULL);
+	else
+		pdata->clk = clk_get_sys("USB1_APER", NULL);
+	if (IS_ERR(pdata->clk)) {
+		dev_err(&pdev->dev, "APER clock not found.\n");
+		retval = PTR_ERR(pdata->clk);
+		goto err2;
+	}
+
+	retval = clk_prepare_enable(pdata->clk);
+	if (retval) {
+		dev_err(&pdev->dev, "Unable to enable APER clock.\n");
+		goto err_out_clk_put;
+	}
+
+	pdata->clk_rate_change_nb.notifier_call = xusbps_ehci_clk_notifier_cb;
+	pdata->clk_rate_change_nb.next = NULL;
+	if (clk_notifier_register(pdata->clk, &pdata->clk_rate_change_nb))
+		dev_warn(&pdev->dev, "Unable to register clock notifier.\n");
+
+
 	/*
 	 * do platform specific init: check the clock, grab/config pins, etc.
 	 */
 	if (pdata->init && pdata->init(pdev)) {
 		retval = -ENODEV;
-		goto err2;
+		goto err_out_clk_unreg_notif;
 	}
 
 #ifdef CONFIG_USB_XUSBPS_OTG
-	ehci = hcd_to_ehci(hcd);
 	if (pdata->otg) {
-#ifdef CONFIG_XILINX_ZED_USB_OTG
-		pr_info ("%s: Have OTG assigned.\n", __func__);
+		struct xusbps_otg *xotg;
+		struct ehci_hcd *ehci = hcd_to_ehci(hcd);
 
-		retval = usb_phy_init(pdata->otg);
-		if (retval) {
-			dev_err(&pdev->dev, "Unable to init transceiver, probably missing\n");
-			return ENODEV;
-		}
-#endif
+		hcd->self.otg_port = 1;
 		hcd->phy = pdata->otg;
 		retval = otg_set_host(hcd->phy->otg,
 				&ehci_to_hcd(ehci)->self);
 		if (retval)
-			return retval;
+			goto err_out_clk_unreg_notif;
 		xotg = xceiv_to_xotg(hcd->phy);
 		ehci->start_hnp = ehci_xusbps_start_hnp;
 		xotg->start_host = ehci_xusbps_otg_start_host;
 		xotg->stop_host = ehci_xusbps_otg_stop_host;
 		/* inform otg driver about host driver */
 		xusbps_update_transceiver();
-
-		retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
-		if (retval != 0)
-			goto err2;
-
-		usb_remove_hcd(hcd);
 	} else {
-#ifdef CONFIG_XILINX_ZED_USB_OTG
-		pr_info ("%s: No OTG assigned!\n", __func__);
-		pdata->otg = otg_ulpi_create(&ulpi_viewport_access_ops,
-			ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
-		if (pdata->otg) {
-			pdata->otg->io_priv = hcd->regs + XUSBPS_SOC_USB_ULPIVP;
-			ehci->ulpi = pdata->otg;
-		}
-		pr_info ("%s: OTG now assigned!\n", __func__);
-#endif
-
 		retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
-		if (retval != 0)
-			goto err2;
+		if (retval)
+			goto err_out_clk_unreg_notif;
+
+		/*
+		 * Enable vbus on ULPI - zedboard requirement
+		 * to get host mode to work
+		 */
+		if (pdata->ulpi)
+			otg_set_vbus(pdata->ulpi->otg, 1);
 	}
 #else
 	/* Don't need to set host mode here. It will be done by tdi_reset() */
 	retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
-	if (retval != 0)
-		goto err2;
+	if (retval)
+		goto err_out_clk_unreg_notif;
 #endif
 	return retval;
 
+err_out_clk_unreg_notif:
+	clk_notifier_unregister(pdata->clk, &pdata->clk_rate_change_nb);
+	clk_disable_unprepare(pdata->clk);
+err_out_clk_put:
+	clk_put(pdata->clk);
 err2:
 	usb_put_hcd(hcd);
 err1:
@@ -253,6 +275,9 @@ static void usb_hcd_xusbps_remove(struct usb_hcd *hcd,
 	if (pdata->exit)
 		pdata->exit(pdev);
 	usb_put_hcd(hcd);
+	clk_notifier_unregister(pdata->clk, &pdata->clk_rate_change_nb);
+	clk_disable_unprepare(pdata->clk);
+	clk_put(pdata->clk);
 }
 
 static void ehci_xusbps_setup_phy(struct ehci_hcd *ehci,
@@ -361,14 +386,24 @@ static int ehci_xusbps_setup(struct usb_hcd *hcd)
 	return retval;
 }
 
-#ifdef CONFIG_PM
+static void ehci_xusbps_shutdown(struct usb_hcd *hcd)
+{
+	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
 
+	if (ehci->regs)
+		ehci_shutdown(hcd);
+}
+
+#ifdef CONFIG_PM_SLEEP
 static int ehci_xusbps_drv_suspend(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct xusbps_usb2_platform_data *pdata = dev->platform_data;
 
 	ehci_prepare_ports_for_controller_suspend(hcd_to_ehci(hcd),
 			device_may_wakeup(dev));
+
+	clk_disable(pdata->clk);
 
 	return 0;
 }
@@ -377,6 +412,14 @@ static int ehci_xusbps_drv_resume(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+	struct xusbps_usb2_platform_data *pdata = dev->platform_data;
+	int ret;
+
+	ret = clk_enable(pdata->clk);
+	if (ret) {
+		dev_err(dev, "cannot enable clock. resume failed\n");
+		return ret;
+	}
 
 	ehci_prepare_ports_for_controller_resume(ehci);
 
@@ -388,24 +431,15 @@ static int ehci_xusbps_drv_resume(struct device *dev)
 	return 0;
 }
 
-static int ehci_xusbps_drv_restore(struct device *dev)
-{
-	struct usb_hcd *hcd = dev_get_drvdata(dev);
-
-	usb_root_hub_lost_power(hcd->self.root_hub);
-	return 0;
-}
-
-static struct dev_pm_ops ehci_xusbps_pm_ops = {
-	.suspend = ehci_xusbps_drv_suspend,
-	.resume = ehci_xusbps_drv_resume,
-	.restore = ehci_xusbps_drv_restore,
+static const struct dev_pm_ops ehci_xusbps_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(ehci_xusbps_drv_suspend, ehci_xusbps_drv_resume)
 };
+#define EHCI_XUSBPS_PM_OPS	(&ehci_xusbps_pm_ops)
 
-#define EHCI_XUSBPS_PM_OPS		(&ehci_xusbps_pm_ops)
-#else
-#define EHCI_XUSBPS_PM_OPS		NULL
-#endif /* CONFIG_PM */
+#else /* ! CONFIG_PM_SLEEP */
+#define EHCI_XUSBPS_PM_OPS	NULL
+#endif /* ! CONFIG_PM_SLEEP */
+
 
 static const struct hc_driver ehci_xusbps_hc_driver = {
 	.description = hcd_name,
@@ -424,7 +458,7 @@ static const struct hc_driver ehci_xusbps_hc_driver = {
 	.reset = ehci_xusbps_setup,
 	.start = ehci_run,
 	.stop = ehci_stop,
-	.shutdown = ehci_shutdown,
+	.shutdown = ehci_xusbps_shutdown,
 
 	/*
 	 * managing i/o requests and associated device resources

@@ -16,9 +16,10 @@
 		linux,stdout-path = "/amba@0/uart@E0001000";
 	};
 
-	soc {
-		compatible = "xlnx,zynq";
-		clock-frequency = <33333333>;
+	pmu {
+		compatible = "arm,cortex-a9-pmu";
+		interrupts = <0 5 4>, <0 6 4>;
+		interrupt-parent = <&gic>;
 	};
 
 	amba@0 {
@@ -42,7 +43,6 @@
 			reg = <0xf8f02000 0x1000>;
 			arm,data-latency = <3 2 2>;
 			arm,tag-latency = <2 2 2>;
-			interrupts = <0 34 4>;
 		};
 
 		uart@e0001000 {
@@ -53,14 +53,28 @@
 			clock = <50000000>;
 		};
 
+		slcr: slcr@f8000000 {
+			compatible = "xlnx,zynq-slcr";
+			reg = <0xF8000000 0x1000>;
+
+			clocks {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				ps_clk: ps_clk {
+					#clock-cells = <0>;
+					compatible = "fixed-clock";
+					clock-frequency = <33333333>;
+					clock-output-names = "PS_CLK";
+				};
+			};
+		};
+
 		timer@0xf8001000 {
 			compatible = "xlnx,ps7-ttc-1.00.a";
 			reg = <0xf8001000 0x1000>;
 			interrupts = <0 10 4>,<0 11 4>,<0 12 4>;
 			interrupt-parent = <&gic>;
-			clock-frequency-timer0 = <111111111>;
-			clock-frequency-timer1 = <111111111>;
-			clock-frequency-timer2 = <111111111>;
 		};
 
 		timer@f8f00600 {
@@ -74,7 +88,6 @@
 			device_type = "watchdog";
 			compatible = "xlnx,ps7-wdt-1.00.a";
 			reg = <0xf8005000 0x100>;
-			clock-frequency = <111111111>;
 			interrupts = <0 9 4>;
 			interrupt-parent = <&gic>;
 			reset = <0>;
@@ -233,38 +246,30 @@
 			#size-cells = <0>;
 			is-dual = <0>;
 			flash@0 {
-			compatible = "n25q128";
-			reg = <0x0>;
-			spi-max-frequency = <50000000>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			partition@qspi-fsbl {
-				label = "qspi-fsbl";
-				reg = <0x0 0x80000>;
+				compatible = "n25q128";
+				reg = <0x0>;
+				spi-max-frequency = <50000000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				partition@qspi-fsbl-uboot {
+					label = "qspi-fsbl-uboot";
+					reg = <0x0 0x100000>;
 				};
-			partition@qspi-u-boot {
-				label = "qspi-u-boot";
-				reg = <0x80000 0x80000>;
+				partition@qspi-linux {
+					label = "qspi-linux";
+					reg = <0x100000 0x500000>;
 				};
-			partition@qspi-linux {
-				label = "qspi-linux";
-				reg = <0x100000 0x500000>;
+				partition@qspi-device-tree {
+					label = "qspi-device-tree";
+					reg = <0x600000 0x20000>;
 				};
-			partition@qspi-device-tree {
-				label = "qspi-device-tree";
-				reg = <0x600000 0x20000>;
+				partition@qspi-rootfs {
+					label = "qspi-rootfs";
+					reg = <0x620000 0x5E0000>;
 				};
-			partition@qspi-user {
-				label = "qspi-user";
-				reg = <0x620000 0xE0000>;
-				};
-			partition@qspi-scratch {
-				label = "qspi-scratch";
-				reg = <0x700000 0x100000>;
-				};
-			partition@qspi-rootfs {
-				label = "qspi-rootfs";
-				reg = <0x800000 0x800000>;
+				partition@qspi-bitstream {
+					label = "qspi-bitstream";
+					reg = <0xC00000 0x400000>;
 				};
 			};
 		};

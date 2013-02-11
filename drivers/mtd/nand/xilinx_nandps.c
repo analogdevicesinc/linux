@@ -49,12 +49,11 @@
 
 /* Register definitions */
 /* ECC register offset */
-#define XSMCPS_ECC_IF1_OFFSET		0x400   /* Interface 1 ECC register */
-#define XSMCPS_ECC_STATUS_OFFSET(addr)	(0x000 + addr) /* ECC status register */
-#define XSMCPS_ECC_MEMCFG_OFFSET(addr)	(0x004 + addr) /* ECC mem config reg */
-#define XSMCPS_ECC_MEMCMD1_OFFSET(addr)(0x008 + addr) /*ECC mem cmd1 reg*/
-#define XSMCPS_ECC_MEMCMD2_OFFSET(addr)(0x00C + addr) /*ECC mem cmd2 reg*/
-#define XSMCPS_ECC_VALUE0_OFFSET(addr)	(0x018 + addr) /* ECC value 0 reg */
+#define XSMCPS_ECC_STATUS_OFFSET	0x400 /* ECC status register */
+#define XSMCPS_ECC_MEMCFG_OFFSET	0x404 /* ECC mem config reg */
+#define XSMCPS_ECC_MEMCMD1_OFFSET	0x408 /* ECC mem cmd1 reg */
+#define XSMCPS_ECC_MEMCMD2_OFFSET	0x40C /* ECC mem cmd2 reg */
+#define XSMCPS_ECC_VALUE0_OFFSET	0x418 /* ECC value 0 reg */
 
 /*
  * The NAND flash driver defines
@@ -122,7 +121,6 @@
  * ECC block registers bit position and bit mask
  */
 #define XNANDPS_ECC_BUSY	(1 << 6)	/* ECC block is busy */
-#define XNANDPS_ECC_MASK	0x00FFFFFF	/* ECC value mask */
 
 /*
  * ONFI Get/Set features command
@@ -138,12 +136,6 @@
 #define xnandps_read32(addr)		__raw_readl(addr)
 #define xnandps_write32(addr, val)	__raw_writel((val), (addr))
 
-
-struct xnand_platform_data {
-	unsigned int            options;
-	struct mtd_partition    *parts;
-	int			nr_parts;
-};
 
 /**
  * struct xnandps_command_format - Defines NAND flash command format
@@ -182,7 +174,7 @@ struct xnandps_info {
 /*
  * The NAND flash operations command format
  */
-static struct xnandps_command_format xnandps_commands[] __devinitdata = {
+static const struct xnandps_command_format xnandps_commands[] = {
 	{NAND_CMD_READ0, NAND_CMD_READSTART, 5, XNANDPS_CMD_PHASE},
 	{NAND_CMD_RNDOUT, NAND_CMD_RNDOUTSTART, 2, XNANDPS_CMD_PHASE},
 	{NAND_CMD_READID, NAND_CMD_NONE, 1, NAND_CMD_NONE},
@@ -289,16 +281,12 @@ static void xnandps_init_nand_flash(void __iomem *smc_regs, int option)
 	xnandps_write32(smc_regs + XSMCPS_MC_DIRECT_CMD, XNANDPS_DIRECT_CMD);
 
 	/* Wait till the ECC operation is complete */
-	while ( (xnandps_read32(smc_regs + XSMCPS_ECC_STATUS_OFFSET(
-			XSMCPS_ECC_IF1_OFFSET))) & XNANDPS_ECC_BUSY)
-			;
+	while (xnandps_read32(smc_regs + XSMCPS_ECC_STATUS_OFFSET) &
+			XNANDPS_ECC_BUSY)
+		;
 	/* Set the command1 and command2 register */
-	xnandps_write32(smc_regs +
-		(XSMCPS_ECC_MEMCMD1_OFFSET(XSMCPS_ECC_IF1_OFFSET)),
-		XNANDPS_ECC_CMD1);
-	xnandps_write32(smc_regs +
-		(XSMCPS_ECC_MEMCMD2_OFFSET(XSMCPS_ECC_IF1_OFFSET)),
-		XNANDPS_ECC_CMD2);
+	xnandps_write32(smc_regs + XSMCPS_ECC_MEMCMD1_OFFSET, XNANDPS_ECC_CMD1);
+	xnandps_write32(smc_regs + XSMCPS_ECC_MEMCMD2_OFFSET, XNANDPS_ECC_CMD2);
 }
 
 /**
@@ -324,14 +312,13 @@ xnandps_calculate_hwecc(struct mtd_info *mtd, const u8 *data, u8 *ecc_code)
 	/* Wait till the ECC operation is complete */
 	do {
 		ecc_status = xnandps_read32(xnand->smc_regs +
-			XSMCPS_ECC_STATUS_OFFSET(XSMCPS_ECC_IF1_OFFSET));
+			XSMCPS_ECC_STATUS_OFFSET);
 	} while (ecc_status & XNANDPS_ECC_BUSY);
 
 	for (ecc_reg = 0; ecc_reg < 4; ecc_reg++) {
 		/* Read ECC value for each block */
-		ecc_value = (xnandps_read32(xnand->smc_regs +
-			(XSMCPS_ECC_VALUE0_OFFSET(XSMCPS_ECC_IF1_OFFSET) +
-			(ecc_reg*4))));
+		ecc_value = xnandps_read32(xnand->smc_regs +
+				XSMCPS_ECC_VALUE0_OFFSET + (ecc_reg * 4));
 		ecc_status = (ecc_value >> 24) & 0xFF;
 		/* ECC value valid */
 		if (ecc_status & 0x40) {
@@ -358,7 +345,7 @@ xnandps_calculate_hwecc(struct mtd_info *mtd, const u8 *data, u8 *ecc_code)
  * onehot is if and only if onebit is set.
  *
  **/
-int onehot(unsigned short value)
+static int onehot(unsigned short value)
 {
 	return ((value & (value-1)) == 0);
 }
@@ -376,7 +363,7 @@ int onehot(unsigned short value)
  *		1 if single bit error found and corrected.
  *		-1 if multiple ECC errors found.
  **/
-int xnandps_correct_data(struct mtd_info *mtd, unsigned char *buf,
+static int xnandps_correct_data(struct mtd_info *mtd, unsigned char *buf,
 			unsigned char *read_ecc, unsigned char *calc_ecc)
 {
 	unsigned char bit_addr;
@@ -537,8 +524,8 @@ static void xnandps_write_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
  *
  * This functions writes data and hardware generated ECC values in to the page.
  */
-void xnandps_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
-		const uint8_t *buf,  int oob_required)
+static void xnandps_write_page_hwecc(struct mtd_info *mtd,
+		struct nand_chip *chip, const uint8_t *buf,  int oob_required)
 {
 	int i, eccsize = chip->ecc.size;
 	int eccsteps = chip->ecc.steps;
@@ -613,7 +600,7 @@ static void xnandps_write_page_swecc(struct mtd_info *mtd,
 }
 
 /**
- * nand_read_page_hwecc - Hardware ECC based page read function
+ * xnandps_read_page_hwecc - Hardware ECC based page read function
  * @mtd:	Pointer to the mtd info structure
  * @chip:	Pointer to the NAND chip info structure
  * @buf:	Pointer to the buffer to store read data
@@ -624,7 +611,7 @@ static void xnandps_write_page_swecc(struct mtd_info *mtd,
  *
  * returns:	0 always and updates ECC operation status in to MTD structure
  */
-int xnandps_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
+static int xnandps_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 		uint8_t *buf, int oob_required, int page)
 {
 	int i, stat, eccsize = chip->ecc.size;
@@ -754,7 +741,7 @@ static void xnandps_cmd_function(struct mtd_info *mtd, unsigned int command,
 			    int column, int page_addr)
 {
 	struct nand_chip *chip = mtd->priv;
-	struct xnandps_command_format *curr_cmd = NULL;
+	const struct xnandps_command_format *curr_cmd = NULL;
 	struct xnandps_info *xnand =
 		container_of(mtd, struct xnandps_info, mtd);
 	void __iomem *cmd_addr;
@@ -886,7 +873,7 @@ static void xnandps_cmd_function(struct mtd_info *mtd, unsigned int command,
  * @len:        number of bytes to read
  *
  */
-void xnandps_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
+static void xnandps_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 {
 	int i;
 	struct nand_chip *chip = mtd->priv;
@@ -904,7 +891,7 @@ void xnandps_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
  * @len:        number of bytes to write
  *
  */
-void xnandps_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
+static void xnandps_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
 {
 	int i;
 	struct nand_chip *chip = mtd->priv;
@@ -1139,10 +1126,9 @@ static int __devinit xnandps_probe(struct platform_device *pdev)
 	if (ondie_ecc_enabled) {
 		/* bypass the controller ECC block */
 		ecc_cfg = xnandps_read32(xnand->smc_regs +
-			XSMCPS_ECC_MEMCFG_OFFSET(XSMCPS_ECC_IF1_OFFSET));
+			XSMCPS_ECC_MEMCFG_OFFSET);
 		ecc_cfg &= ~0xc;
-		xnandps_write32(xnand->smc_regs +
-			(XSMCPS_ECC_MEMCFG_OFFSET(XSMCPS_ECC_IF1_OFFSET)),
+		xnandps_write32(xnand->smc_regs + XSMCPS_ECC_MEMCFG_OFFSET,
 			ecc_cfg);
 
 		/* The software ECC routines won't work with the
@@ -1183,21 +1169,21 @@ static int __devinit xnandps_probe(struct platform_device *pdev)
 			ecc_page_size = 0x1;
 			/* Set the ECC memory config register */
 			xnandps_write32(xnand->smc_regs +
-			(XSMCPS_ECC_MEMCFG_OFFSET(XSMCPS_ECC_IF1_OFFSET)),
+			XSMCPS_ECC_MEMCFG_OFFSET,
 			(XNANDPS_ECC_CONFIG | ecc_page_size));
 			break;
 		case 1024:
 			ecc_page_size = 0x2;
 			/* Set the ECC memory config register */
 			xnandps_write32(xnand->smc_regs +
-			(XSMCPS_ECC_MEMCFG_OFFSET(XSMCPS_ECC_IF1_OFFSET)),
+			XSMCPS_ECC_MEMCFG_OFFSET,
 			(XNANDPS_ECC_CONFIG | ecc_page_size));
 			break;
 		case 2048:
 			ecc_page_size = 0x3;
 			/* Set the ECC memory config register */
 			xnandps_write32(xnand->smc_regs +
-			(XSMCPS_ECC_MEMCFG_OFFSET(XSMCPS_ECC_IF1_OFFSET)),
+			XSMCPS_ECC_MEMCFG_OFFSET,
 			(XNANDPS_ECC_CONFIG | ecc_page_size));
 			break;
 		default:

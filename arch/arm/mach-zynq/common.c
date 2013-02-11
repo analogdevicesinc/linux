@@ -16,6 +16,7 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
@@ -35,13 +36,7 @@
 
 #include <mach/zynq_soc.h>
 #include <mach/clk.h>
-#include <mach/pdev.h>
 #include "common.h"
-
-static struct of_device_id zynq_of_bus_ids[] __initdata = {
-	{ .compatible = "simple-bus", },
-	{}
-};
 
 static const struct of_device_id zynq_dt_irq_match[] __initconst = {
 	{ .compatible = "arm,cortex-a9-gic", .data = gic_of_init },
@@ -63,7 +58,7 @@ static struct map_desc io_desc[] __initdata = {
 	{
 		.virtual	= LL_UART_VADDR,
 		.pfn		= __phys_to_pfn(LL_UART_PADDR),
-		.length		= SZ_4K,
+		.length		= UART_SIZE,
 		.type		= MT_DEVICE,
 	},
 #endif
@@ -79,20 +74,22 @@ static struct map_desc io_desc[] __initdata = {
 
 static void __init xilinx_zynq_timer_init(void)
 {
+	zynq_clock_init();
+
 	xttcpss_timer_init();
 }
 
 /*
  * Instantiate and initialize the system timer structure
  */
-struct sys_timer xttcpss_sys_timer = {
+static struct sys_timer xttcpss_sys_timer = {
 	.init		= xilinx_zynq_timer_init,
 };
 
 /**
  * xilinx_map_io() - Create memory mappings needed for early I/O.
  */
-void __init xilinx_map_io(void)
+static void __init xilinx_map_io(void)
 {
 	iotable_init(io_desc, ARRAY_SIZE(io_desc));
 }
@@ -103,9 +100,9 @@ void __init xilinx_map_io(void)
  * We need to stop things allocating the low memory as DMA can't work in
  * the 1st 512K of memory.  Using reserve vs remove is not totally clear yet.
  */
-void __init xilinx_memory_init()
+static void __init xilinx_memory_init(void)
 {
-#if (CONFIG_PHYS_OFFSET == 0)
+#if defined(CONFIG_PHYS_OFFSET) && (CONFIG_PHYS_OFFSET == 0)
 	/* Reserve the 0-0x4000 addresses (before page tables and kernel)
 	 * which can't be used for DMA
 	 */
@@ -125,24 +122,23 @@ static unsigned int freq_divs[] __initdata = {
  * Registering frequency/voltage operating points for voltage and frequency
  * scaling. Currently we only support frequency scaling.
  */
-static void __init xilinx_opp_init(void)
+static int __init xilinx_opp_init(void)
 {
-	struct platform_device *pdev = xilinx_get_pdev_by_name("zynq-dvfs");
-	struct device *dev;
-	int ret = 0;
 	long freq;
+	unsigned int i;
+	struct device *dev = get_cpu_device(0);
+	int ret = 0;
 	struct clk *cpuclk = clk_get_sys("CPU_6OR4X_CLK", NULL);
-	int i;
 
-	if (IS_ERR(pdev)) {
-		pr_warn("Xilinx OOP init: No device. DVFS not available.");
-		return;
+	if (!dev) {
+		pr_warn("%s: no cpu device. DVFS not available.", __func__);
+		return -ENODEV;
 	}
-	dev = &pdev->dev;
 
 	if (IS_ERR(cpuclk)) {
-		pr_warn("Xilinx OOP init: CPU clock not found. DVFS not available.");
-		return;
+		pr_warn("%s: CPU clock not found. DVFS not available.",
+				__func__);
+		return PTR_ERR(cpuclk);
 	}
 
 	/* frequency/voltage operating points. For now use f only */
@@ -159,10 +155,11 @@ static void __init xilinx_opp_init(void)
 		ret |= opp_add(dev, freq, 0);
 
 	if (ret)
-		pr_warn("Error adding OPPs.");
+		pr_warn("%s: Error adding OPPs.", __func__);
+
+	return ret;
 }
-#else
-static void __init xilinx_opp_init(void) {}
+device_initcall(xilinx_opp_init);
 #endif
 
 #ifdef CONFIG_CACHE_L2X0
@@ -182,23 +179,56 @@ early_initcall(xilinx_l2c_init);
 /**
  * xilinx_irq_init() - Interrupt controller initialization for the GIC.
  */
-void __init xilinx_irq_init(void)
+static void __init xilinx_irq_init(void)
 {
 	of_irq_init(zynq_dt_irq_match);
-	/* This is probably the ugliest hack possible but this is why:
-	 * Clock init needs to be done before timer init, so the timer can use
-	 * COMMON_CLK. All __initcall types are called after time_init().
-	 * Putting it in here is ugly but works. */
-	zynq_clock_init();
 }
+
+#ifdef CONFIG_XILINX_L1_PREFETCH
+static void __init xilinx_data_prefetch_enable(void *info)
+{
+	/*
+	 * Enable prefetching in aux control register. L2 prefetch must
+	 * only be enabled if the slave supports it (PL310 does)
+	 */
+	asm volatile ("mrc   p15, 0, r1, c1, c0, 1\n"
+		      "orr   r1, r1, #6\n"
+		      "mcr   p15, 0, r1, c1, c0, 1\n"
+		      : : : "r1");
+}
+
+static void __init xilinx_init_late(void)
+{
+	on_each_cpu(xilinx_data_prefetch_enable, NULL, 0);
+}
+#else
+#define xilinx_init_late	NULL
+#endif
 
 /**
  * xilinx_init_machine() - System specific initialization, intended to be
  *			   called from board specific initialization.
  */
-void __init xilinx_init_machine(void)
+static void __init xilinx_init_machine(void)
 {
-	of_platform_bus_probe(NULL, zynq_of_bus_ids, NULL);
-	platform_device_init();
-	xilinx_opp_init();
+	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 }
+
+static const char * const xilinx_dt_match[] = {
+	"xlnx,zynq-zc702",
+	"xlnx,zynq-zc706",
+	"xlnx,zynq-zc770",
+	NULL
+};
+
+MACHINE_START(XILINX_EP107, "Xilinx Zynq Platform")
+	.map_io		= xilinx_map_io,
+	.init_irq	= xilinx_irq_init,
+	.handle_irq	= gic_handle_irq,
+	.init_machine	= xilinx_init_machine,
+	.init_late	= xilinx_init_late,
+	.timer		= &xttcpss_sys_timer,
+	.dt_compat	= xilinx_dt_match,
+	.reserve	= xilinx_memory_init,
+	.restart	= xilinx_system_reset,
+MACHINE_END
