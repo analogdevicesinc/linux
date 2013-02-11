@@ -1,0 +1,10 @@
+config DRM_ADI_AXI_HDMI
+	tristate "DRM Support for Analog Devices HDMI FPGA platforms"
+	depends on DRM
+	default	n
+	select DRM_GEM_DMA_HELPER
+	select DRM_KMS_HELPER
+	select XILINX_VDMA
+	select DRM_TTM_HELPER
+	select DRM_FBDEV_EMULATION
+	select VT_HW_CONSOLE_BINDING if FRAMEBUFFER_CONSOLE
