@@ -168,7 +168,6 @@ enum {
 struct axiadc_chip_info {
 	char				name[8];
 	unsigned			num_channels;
-	unsigned long			available_scan_masks[2];
 	const int			(*scale_table)[2];
 	int				num_scales;
 	struct iio_chan_spec		channel[4];
@@ -184,10 +183,10 @@ struct axiadc_state {
 	void				*buf_virt;
 	dma_addr_t			buf_phys;
 	int				compl_stat;
+	bool				have_user_logic;
 	unsigned			adc_def_output_mode;
 	unsigned			ring_lenght;
 	unsigned			rcount;
-//	unsigned			bytes_per_datum;
 	unsigned			id;
 	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
