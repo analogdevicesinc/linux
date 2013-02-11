@@ -90,6 +90,12 @@ static int axiadc_ring_get_bytes_per_datum(struct iio_buffer *r)
 	return r->bytes_per_datum;
 }
 
+static int axiadc_ring_set_bytes_per_datum(struct iio_buffer *r, size_t bpd)
+{
+	r->bytes_per_datum = bpd;
+	return 0;
+}
+
 static IIO_BUFFER_ENABLE_ATTR;
 static IIO_BUFFER_LENGTH_ATTR;
 
@@ -131,16 +137,15 @@ static const struct iio_buffer_access_funcs axiadc_ring_access_funcs = {
 	.get_length = &axiadc_ring_get_length,
 	.set_length = &axiadc_ring_set_length,
 	.get_bytes_per_datum = &axiadc_ring_get_bytes_per_datum,
+	.set_bytes_per_datum = &axiadc_ring_set_bytes_per_datum,
 };
 
 static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct iio_buffer *buffer = indio_dev->buffer;
 	struct dma_async_tx_descriptor *desc;
 	dma_cookie_t cookie;
 	int ret = 0;
-
 
 	if (!state) {
 		if (!completion_done(&st->dma_complete)) {
@@ -204,6 +209,10 @@ error_ret:
 
 static int axiadc_hw_ring_preenable(struct iio_dev *indio_dev)
 {
+	int ret = iio_sw_buffer_preenable(indio_dev);
+	if (ret < 0)
+		return ret;
+
 	return __axiadc_hw_ring_state_set(indio_dev, 1);
 }
 
@@ -212,9 +221,27 @@ static int axiadc_hw_ring_postdisable(struct iio_dev *indio_dev)
 	return __axiadc_hw_ring_state_set(indio_dev, 0);
 }
 
+static bool axiadc_hw_ring_validate_scan_mask(struct iio_dev *indio_dev,
+				   const unsigned long *scan_mask)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	unsigned mask;
+
+	if (st->have_user_logic == false)
+		return true;
+
+	mask = (1UL << st->chip_info->num_channels) - 1;
+
+	if ((*scan_mask & mask) && (*scan_mask & ~mask))
+		return false;
+
+	return true;
+}
+
 static const struct iio_buffer_setup_ops axiadc_ring_setup_ops = {
 	.preenable = &axiadc_hw_ring_preenable,
 	.postdisable = &axiadc_hw_ring_postdisable,
+	.validate_scan_mask = &axiadc_hw_ring_validate_scan_mask,
 };
 
 int axiadc_configure_ring(struct iio_dev *indio_dev)
