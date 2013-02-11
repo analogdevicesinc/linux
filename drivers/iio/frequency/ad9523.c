@@ -272,6 +272,7 @@ struct ad9523_outputs {
 	struct clk_hw hw;
 	struct iio_dev *indio_dev;
 	unsigned num;
+	bool is_enabled;
 };
 
 #define to_ad9523_clk_output(_hw) container_of(_hw, struct ad9523_outputs, hw)
@@ -696,6 +697,9 @@ static int ad9523_write_raw(struct iio_dev *indio_dev,
 			reg &= ~AD9523_CLK_DIST_PWR_DOWN_EN;
 		else
 			reg |= AD9523_CLK_DIST_PWR_DOWN_EN;
+
+		st->output[chan->channel].is_enabled = !!val;
+
 		break;
 	case IIO_CHAN_INFO_FREQUENCY:
 		if (val <= 0) {
@@ -789,7 +793,7 @@ static unsigned long ad9523_clk_recalc_rate(struct clk_hw *hw,
 
 static int ad9523_clk_is_enabled(struct clk_hw *hw)
 {
-	return ad9523_get_clk_attr(hw, IIO_CHAN_INFO_RAW);
+	return to_ad9523_clk_output(hw)->is_enabled;
 }
 
 static long ad9523_set_clk_attr(struct clk_hw *hw, long mask, unsigned long val)
@@ -865,7 +869,8 @@ const struct clk_ops ad9523_clk_ops = {
 	.round_rate = ad9523_clk_round_rate,
 };
 
-struct clk *ad9523_clk_register(struct iio_dev *indio_dev, unsigned num)
+struct clk *ad9523_clk_register(struct iio_dev *indio_dev, unsigned num,
+				bool is_enabled)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
 	struct clk_init_data init;
@@ -883,6 +888,7 @@ struct clk *ad9523_clk_register(struct iio_dev *indio_dev, unsigned num)
 	output->hw.init = &init;
 	output->indio_dev = indio_dev;
 	output->num = num;
+	output->is_enabled = is_enabled;
 
 	/* register the clock */
 	clk = clk_register(&st->spi->dev, &output->hw);
@@ -1086,7 +1092,8 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 				IIO_CHAN_INFO_PHASE_SEPARATE_BIT |
 				IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT;
 
-			clk = ad9523_clk_register(indio_dev, chan->channel_num);
+			clk = ad9523_clk_register(indio_dev, chan->channel_num,
+						  !chan->output_dis);
 			if (IS_ERR(clk))
 				return PTR_ERR(clk);
 		}
