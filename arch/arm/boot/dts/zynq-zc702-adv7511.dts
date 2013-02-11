@@ -155,6 +155,23 @@
 					#size-cells = <0>;
 					#address-cells = <1>;
 					reg = <1>;
+
+					adv7511: adv7511@39 {
+						compatible = "adi,adv7511";
+						reg = <0x39>;
+
+						adi,input-style = <0x02>;
+						adi,input-id = <0x01>;
+						adi,input-color-depth = <0x3>;
+						adi,sync-pulse = <0x03>;
+						adi,bit-justification = <0x01>;
+						adi,up-conversion = <0x00>;
+						adi,timing-generation-sequence = <0x00>;
+						adi,vsync-polarity = <0x02>;
+						adi,hsync-polarity = <0x02>;
+						adi,tdms-clock-inversion;
+						adi,clock-delay = <0x03>;
+					};
 				};
 
 				i2c@4 {
@@ -243,12 +260,25 @@
 			};
 		};
 
-		cf_adv7x11_core_0: cf-adv7x11-core@6c000000 {
-			compatible = "adi,cf-adv7x11-core-1.00.a";
-			reg = <0x6c000000 0x10000
-				   0x66000000 0x10000>;
-			slave_adapter = <&i2c_adv7511>;
+		fpga_clock: fpga_clock {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency  = <200000000>;
+		};
+
+		hdmi_clock: axi-clkgen@66000000 {
+			compatible = "adi,axi-clkgen-1.00.a";
+			reg = <0x66000000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&fpga_clock>;
+		};
+
+		axi_hdmi@6c000000 {
+			compatible = "adi,axi-hdmi-1.00.a";
+			reg = <0x6c000000 0x10000>;
+			encoder-slave = <&adv7511>;
 			dma-request = <&axi_vdma_0 0>;
+			clocks = <&hdmi_clock>;
 		};
 
 		xilinx_pcm_audio: xilinx_pcm_audio {

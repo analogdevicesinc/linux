@@ -23,15 +23,13 @@
 
 #include "adv7511.h"
 
-static const struct snd_kcontrol_new adv7511_controls[] = {
-	SOC_SINGLE("Master Playback Switch", 0, 0, 0, 0),
-};
-
 static const struct snd_soc_dapm_widget adv7511_dapm_widgets[] = {
+	SND_SOC_DAPM_OUTPUT("TDMS"),	
+	SND_SOC_DAPM_AIF_IN("AIFIN", "Playback", 0, SND_SOC_NOPM, 0, 0),
 };
 
 static const struct snd_soc_dapm_route adv7511_routes[] = {
-	{ "TMDS", NULL, "DAI IN" },
+	{ "TMDS", NULL, "AIFIN" },
 };
 
 static void adv7511_calc_cts_n(unsigned int f_tmds, unsigned int fs,
@@ -264,10 +262,8 @@ static int adv7511_resume(struct snd_soc_codec *codec)
 
 static int adv7511_probe(struct snd_soc_codec *codec)
 {
-	struct adv7511 *adv7511 = snd_soc_codec_get_drvdata(codec);
 	int ret;
 
-	codec->control_data = adv7511->regmap;
 	ret = snd_soc_codec_set_cache_io(codec, 0, 0, SND_SOC_REGMAP);
 	if (ret < 0) {
 		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);

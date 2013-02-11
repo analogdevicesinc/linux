@@ -198,10 +198,11 @@ config DRM_SAVAGE
 
 config DRM_ENCODER_ADV7511
 	tristate "AV7511 encoder"
-	depends on I2C && DRM
+	depends on DRM && I2C
 	select REGMAP_I2C
+	select HDMI
 
-source "drivers/gpu/drm/analog/Kconfig"
+source "drivers/gpu/drm/adi_axi_hdmi/Kconfig"
 
 source "drivers/gpu/drm/exynos/Kconfig"
 
