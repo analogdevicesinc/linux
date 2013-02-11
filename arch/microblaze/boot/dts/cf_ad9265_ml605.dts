@@ -44,6 +44,16 @@
 	chosen {
 		bootargs = "console=ttyS0 root=/dev/ram";
 	} ;
+
+	clocks {
+		ad9265_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <125000000>;
+			clock-output-names = "clkin";
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#cpus = <0x1>;
@@ -272,6 +282,10 @@
 			xlnx,sda-inertial-delay = <0x5>;
 			xlnx,sda-level = <0x1>;
 			xlnx,ten-bit-adr = <0x0>;
+			eeprom@51 {
+				compatible = "at24,24c02";
+				reg = <0x51>;
+			};
 		} ;
 		axi_intc_0: interrupt-controller@41200000 {
 			#interrupt-cells = <0x2>;
@@ -298,6 +312,8 @@
 				compatible = "ad9265";
 				reg = <0>;
 				spi-max-frequency = <10000000>;
+				clocks = <&ad9265_clk 0>;
+				clock-names = "clkin";
 			};
 		} ;
 		axi_timer_0: timer@41c00000 {
