@@ -33,6 +33,7 @@ struct axi_hdmi_private {
 	struct clk *hdmi_clock;
 
 	struct xlnx_pcm_dma_params dma_params;
+	bool is_rgb;
 };
 
 #endif
