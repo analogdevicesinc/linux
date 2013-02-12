@@ -266,16 +266,22 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 		hdmi_avi_infoframe_init(&config.avi_infoframe);
 
 		config.avi_infoframe.scan_mode = HDMI_SCAN_MODE_UNDERSCAN;
-		config.csc_scaling_factor = ADV7511_CSC_SCALING_4;
-		config.csc_coefficents = adv7511_csc_ycbcr_to_rgb;
 
-		if ((connector->display_info.color_formats & DRM_COLOR_FORMAT_YCRCB422) &&
-			config.hdmi_mode) {
-			config.csc_enable = false;
-			config.avi_infoframe.colorspace = HDMI_COLORSPACE_YUV422;
+		if (private->is_rgb) {
+				config.csc_enable = false;
+				config.avi_infoframe.colorspace = HDMI_COLORSPACE_RGB;
 		} else {
-			config.csc_enable = true;
-			config.avi_infoframe.colorspace = HDMI_COLORSPACE_RGB;
+			config.csc_scaling_factor = ADV7511_CSC_SCALING_4;
+			config.csc_coefficents = adv7511_csc_ycbcr_to_rgb;
+
+			if ((connector->display_info.color_formats & DRM_COLOR_FORMAT_YCRCB422) &&
+				config.hdmi_mode) {
+				config.csc_enable = false;
+				config.avi_infoframe.colorspace = HDMI_COLORSPACE_YUV422;
+			} else {
+				config.csc_enable = true;
+				config.avi_infoframe.colorspace = HDMI_COLORSPACE_RGB;
+			}
 		}
 
 		sfuncs->set_config(encoder, &config);
