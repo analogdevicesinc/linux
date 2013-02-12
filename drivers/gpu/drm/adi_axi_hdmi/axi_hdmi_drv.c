@@ -169,6 +169,8 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	slave_node = of_parse_phandle(pdev->dev.of_node, "encoder-slave", 0);
 	if (!slave_node)
 		return -EINVAL;
+
+	private->is_rgb = of_property_read_bool(pdev->dev.of_node, "adi,is-rgb");
 	
 	private->encoder_slave = of_find_i2c_device_by_node(slave_node);
 	of_node_put(slave_node);
