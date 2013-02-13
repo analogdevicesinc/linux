@@ -1,0 +1,618 @@
+/dts-v1/;
+
+/ {
+	model = "Xilinx Zynq ZC706";
+	compatible = "xlnx,zynq-zc706";
+	#address-cells = <0x1>;
+	#size-cells = <0x1>;
+	interrupt-parent = <0x1>;
+
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x40000000>;
+	};
+	chosen {
+		bootargs = "console=ttyPS0,115200 root=/dev/mmcblk0p2 rw earlyprintk rootfstype=ext4 rootwait devtmpfs.mount=0";
+		linux,stdout-path = "/amba@0/uart@E0001000";
+	};
+
+	pmu {
+		compatible = "arm,cortex-a9-pmu";
+		interrupts = <0 5 4>, <0 6 4>;
+		interrupt-parent = <&gic>;
+	};
+
+	amba@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		gic: intc@f8f01000 {
+			interrupt-controller;
+			compatible = "arm,cortex-a9-gic";
+			#interrupt-cells = <3>;
+			reg = <0xf8f01000 0x1000>,
+			      <0xf8f00100 0x0100>;
+		};
+
+		pl310@f8f02000 {
+			compatible = "arm,pl310-cache";
+			cache-unified;
+			cache-level = <2>;
+			reg = <0xf8f02000 0x1000>;
+			arm,data-latency = <3 2 2>;
+			arm,tag-latency = <2 2 2>;
+		};
+
+		uart@e0001000 {
+			compatible = "xlnx,ps7-uart-1.00.a";
+			reg = <0xe0001000 0x1000>;
+			interrupts = <0 50 4>;
+			interrupt-parent = <&gic>;
+			clock = <50000000>;
+		};
+
+		slcr: slcr@f8000000 {
+			compatible = "xlnx,zynq-slcr";
+			reg = <0xF8000000 0x1000>;
+
+			clocks {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				ps_clk: ps_clk {
+					#clock-cells = <0>;
+					compatible = "fixed-clock";
+					clock-frequency = <33333333>;
+					clock-output-names = "PS_CLK";
+				};
+			};
+		};
+
+		timer@0xf8001000 {
+			compatible = "xlnx,ps7-ttc-1.00.a";
+			reg = <0xf8001000 0x1000>;
+			interrupts = <0 10 4>,<0 11 4>,<0 12 4>;
+			interrupt-parent = <&gic>;
+		};
+
+		timer@f8f00600 {
+			compatible = "arm,cortex-a9-twd-timer";
+			reg = <0xf8f00600 0x20>;
+			interrupts = <1 13 0x301>;
+			interrupt-parent = <&gic>;
+		};
+
+		swdt@f8005000 {
+			device_type = "watchdog";
+			compatible = "xlnx,ps7-wdt-1.00.a";
+			reg = <0xf8005000 0x100>;
+			reset = <0>;
+			timeout = <10>;
+		};
+
+		scuwdt@f8f00620 {
+			device_type = "watchdog";
+			compatible = "arm,mpcore_wdt";
+			reg = <0xf8f00620 0x20>;
+			clock-frequency = <333333333>;
+			reset = <1>;
+		};
+
+		eth@e000b000 {
+			compatible = "xlnx,ps7-ethernet-1.00.a";
+			reg = <0xe000b000 0x1000>;
+			interrupts = <0 22 4>;
+			interrupt-parent = <&gic>;
+			phy-handle = <&phy0>;
+			xlnx,ptp-enet-clock = <111111111>;
+			xlnx,slcr-div0-1000Mbps = <8>;
+			xlnx,slcr-div0-100Mbps = <8>;
+			xlnx,slcr-div0-10Mbps = <8>;
+			xlnx,slcr-div1-1000Mbps = <1>;
+			xlnx,slcr-div1-100Mbps = <5>;
+			xlnx,slcr-div1-10Mbps = <50>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			mdio {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				phy0: phy@7 {
+					compatible = "marvell,88e1116r";
+					device_type = "ethernet-phy";
+					reg = <7>;
+				};
+			};
+		};
+/*
+		i2c0: i2c@e0004000 {
+			compatible = "xlnx,ps7-i2c-1.00.a";
+			reg = <0xE0004000 0x1000>;
+			interrupts = <0 25 4>;
+			interrupt-parent = <&gic>;
+			bus-id = <0>;
+			input-clk = <111111111>;
+			i2c-clk = <100000>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+*/
+		i2c0: i2c@0 {
+			compatible = "i2c-gpio";
+			gpios = <&gpio 51 0 &gpio 50 0>;
+			i2c-gpio,delay-us = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+
+			i2cswitch@74 {
+				compatible = "nxp,pca9548";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x74>;
+
+				i2c@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+					osc@5d {
+						compatible = "si570";
+						reg = <0x5d>;
+						factory-fout = <156250000>;
+						initial-fout = <148500000>;
+					};
+				};
+
+				i2c_adv7511: i2c@1 {
+				    #address-cells = <1>;
+				    #size-cells = <0>;
+				    reg = <1>;
+
+				    adv7511: adv7511 {
+						compatible = "adi,adv7511";
+						reg = <0x39>;
+
+						adi,input-id = <0x00>;
+						adi,input-style = <0x01>;
+						adi,bit-justification = <0x00>;
+						adi,input-color-depth = <0x3>;
+						adi,sync-pulse = <0x03>;
+						adi,up-conversion = <0x00>;
+						adi,timing-generation-sequence = <0x00>;
+						adi,vsync-polarity = <0x02>;
+						adi,hsync-polarity = <0x02>;
+						adi,tdms-clock-inversion;
+						adi,clock-delay = <0x03>;
+				    };
+				};
+
+				i2c@2 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <2>;
+					eeprom@54 {
+						compatible = "at,24c08";
+						reg = <0x54>;
+					};
+				};
+
+				i2c@3 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <3>;
+					gpio@21 {
+						compatible = "ti,tca6416";
+						reg = <0x21>;
+						gpio-controller;
+						#gpio-cells = <2>;
+					};
+				};
+
+				i2c@4 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <4>;
+					rtc@54 {
+						compatible = "nxp,pcf8563";
+						reg = <0x51>;
+					};
+				};
+
+				i2c@6 {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <6>;
+					spi_xcomm0: spi_xcomm0@58 {
+						#size-cells = <0>;
+						#address-cells = <1>;
+						compatible = "spi-xcomm";
+						reg = <0x58>;
+						clksync0_ad9548: ad9548-lpc@6 {
+							#address-cells = <1>;
+							#size-cells = <0>;
+							compatible = "ad9548";
+							reg = <2>;
+							spi-3wire;
+							spi-max-frequency = <10000000>;
+						};
+						clk0_ad9523: ad9523-lpc@3 {
+							#address-cells = <1>;
+							#size-cells = <0>;
+							#clock-cells = <1>;
+							compatible = "ad9523-1";
+							reg = <3>;
+							spi-max-frequency = <10000000>;
+							spi-3wire;
+							clock-output-names = "ad9523-lpc_out0", "ad9523-lpc_out1", "ad9523-lpc_out2", "ad9523-lpc_out3", "ad9523-lpc_out4", "ad9523-lpc_out5", "ad9523-lpc_out6", "ad9523-lpc_out7", "ad9523-lpc_out8", "ad9523-lpc_out9", "ad9523-lpc_out10", "ad9523-lpc_out11", "ad9523-lpc_out12", "ad9523-lpc_out13";
+							vcxo-freq = <122880000>;
+							refb-diff-rcv-en;
+							zd-in-diff-en;
+							osc-in-cmos-neg-inp-en;
+							refa-r-div = <0>;
+							refb-r-div = <0>;
+							pll1-feedback-div = <4>;
+							pll1-charge-pump-current-nA = <2000>;
+							refa-cmos-neg-inp-en;
+							pll1-loop-filter-rzero = <3>;
+							ref-mode = <3>;
+							pll2-charge-pump-current-nA = <420000>;
+							pll2-ndiv-a-cnt = <0>;
+							pll2-ndiv-b-cnt = <3>;
+							pll2-freq-doubler-en;
+							pll2-r2-div = <1>;
+							pll2-vco-diff-m1 = <3>;
+							pll2-vco-diff-m2 = <3>;
+							rpole2 = <0>;
+							rzero = <2>;
+							cpole1 = <2>;
+							name = "ad9523-lpc";
+		
+							ad9523_0_c0:channel@0 {
+								reg = <0>;
+								extended-name = "ZD_OUTPUT";
+								driver-mode = <2>;
+								divider-phase = <0>;
+								channel-divider = <8>;
+							};
+							ad9523_0_c12:channel@12 {
+								reg = <12>;
+								extended-name = "DAC_CLK";
+								driver-mode = <1>;
+								divider-phase = <0>;
+								channel-divider = <2>;
+							};
+							ad9523_0_c2:channel@2 {
+								reg = <2>;
+								extended-name = "ADC_CLK";
+								driver-mode = <3>;
+								divider-phase = <0>;
+								channel-divider = <4>;
+							};
+							ad9523_0_c10:channel@10 {
+								reg = <10>;
+								extended-name = "DAC_REF_CLK";
+								driver-mode = <2>;
+								divider-phase = <0>;
+								channel-divider = <16>;
+							};
+							ad9523_0_c5:channel@5 {
+								reg = <5>;
+								extended-name = "TX_LO_REF_CLK";
+								driver-mode = <8>; /* HiZ on - */
+								divider-phase = <0>;
+								channel-divider = <8>;
+							};
+							ad9523_0_c6:channel@6 {
+								reg = <6>;
+								extended-name = "DAC_DCO_CLK";
+								driver-mode = <3>;
+								divider-phase = <0>;
+								channel-divider = <2>;
+							};
+							ad9523_0_c7:channel@7 {
+								reg = <7>;
+								extended-name = "ADC_SYNC_CLK";
+								driver-mode = <8>; /* HiZ on - */
+								divider-phase = <1>;
+								channel-divider = <32>;
+							};
+							ad9523_0_c9:channel@9 {
+								reg = <9>;
+								extended-name = "RX_LO_REF_CLK";
+								driver-mode = <8>; /* HiZ on - */
+								divider-phase = <0>;
+								channel-divider = <8>;
+							};
+						};
+						adc0_ad9467: ad9467@1 {
+							#address-cells = <1>;
+							#size-cells = <0>;
+							compatible = "ad9643";
+							reg = <1>;
+							spi-max-frequency = <10000000>;
+							spi-3wire;
+							clocks = <&clk0_ad9523 2>;
+							clock-names = "clkin";
+						};
+						dac0_ad9122: ad9122@0 {
+							#address-cells = <1>;
+							#size-cells = <0>;
+							compatible = "ad9122";
+							reg = <0>;
+							spi-max-frequency = <10000000>;
+							clocks = <&clk0_ad9523 6>, <&clk0_ad9523 12>, <&clk0_ad9523 10>;
+							clock-names = "data_clk", "dac_clk", "ref_clk";
+							dac-fcenter-shift = <0>;
+							dac-interp-factor = <1>;
+							dac-data-rate = <491520000>;
+						};
+		
+						vga0_ad8366: ad8366-lpc@6 {
+							#address-cells = <1>;
+							#size-cells = <0>;
+							compatible = "ad8366";
+							reg = <6>;
+							spi-3wire;
+							spi-max-frequency = <10000000>;
+						};
+		
+						lo_pll0_rx_adf4351: adf4351-rx-lpc@4 {
+							#address-cells = <1>;
+							#size-cells = <0>;
+							compatible = "adf4351";
+							reg = <4>;
+							spi-max-frequency = <10000000>;
+							clocks = <&clk0_ad9523 9>;
+							clock-names = "clkin";
+							adf4350-channel-spacing = <10000>;
+							adf4350-power-up-frequency = <2400000000>;
+							adf4350-reg2-pd-polarity-pos-en;
+							adf4350-reg2-charge-pump-curr-ua = <2500>;
+							adf4350-reg4-output-pwr = <3>;
+							adf4350-reg4-mute-till-lock-en;
+						};
+		
+						lo_pll0_tx_adf4351: adf4351-tx-lpc@5 {
+							#address-cells = <1>;
+							#size-cells = <0>;
+							compatible = "adf4351";
+							reg = <5>;
+							spi-max-frequency = <10000000>;
+							clocks = <&clk0_ad9523 5>;
+							clock-names = "clkin";
+							adf4350-channel-spacing = <10000>;
+							adf4350-power-up-frequency = <2400000000>;
+							adf4350-reg2-pd-polarity-pos-en;
+							adf4350-reg2-charge-pump-curr-ua = <2500>;
+							adf4350-reg4-output-pwr = <3>;
+							adf4350-reg4-mute-till-lock-en;
+						};
+					
+					};
+					eeprom@50 {
+						compatible = "at24,24c02";
+						reg = <0x50>;
+					};		
+					eeprom@55 {
+						compatible = "at24,24c02";
+						reg = <0x55>;
+					};
+				};
+			};
+		};
+
+		sdhci@e0100000 {
+			compatible = "xlnx,ps7-sdhci-1.00.a";
+			reg = <0xe0100000 0x1000>;
+			xlnx,has-cd = <0x1>;
+			interrupts = <0 24 4>;
+			interrupt-parent = <&gic>;
+			clock-frequency = <33333000>;
+		};
+
+		usb@e0002000 {
+			compatible = "xlnx,ps7-usb-1.00.a";
+			reg = <0xe0002000 0x1000>;
+			interrupts = <0 21 4>;
+			interrupt-parent = <&gic>;
+			dr_mode = "host";
+			phy_type = "ulpi";
+		};
+
+		gpio: gpio@e000a000 {
+			compatible = "xlnx,ps7-gpio-1.00.a";
+			reg = <0xe000a000 0x1000>;
+			interrupts = <0 20 4>;
+			interrupt-parent = <&gic>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		qspi0: spi@e000d000 {
+			compatible = "xlnx,ps7-qspi-1.00.a";
+			reg = <0xE000D000 0x1000>;
+			interrupts = <0 19 4>;
+			interrupt-parent = <&gic>;
+			speed-hz = <200000000>;
+			bus-num = <1>;
+			num-chip-select = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			is-dual = <1>;
+			flash@0 {
+				compatible = "n25q128";
+				reg = <0x0>;
+				spi-max-frequency = <30000000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				partition@qspi-fsbl-uboot {
+					label = "qspi-fsbl-uboot";
+					reg = <0x0 0x100000>;
+				};
+				partition@qspi-linux {
+					label = "qspi-linux";
+					reg = <0x100000 0x500000>;
+				};
+				partition@qspi-device-tree {
+					label = "qspi-device-tree";
+					reg = <0x600000 0x20000>;
+				};
+				partition@qspi-rootfs {
+					label = "qspi-rootfs";
+					reg = <0x620000 0x5E0000>;
+				};
+				partition@qspi-bitstream {
+					label = "qspi-bitstream";
+					reg = <0xC00000 0x1400000>;
+				};
+			};
+		};
+
+		devcfg@f8007000 {
+			compatible = "xlnx,ps7-dev-cfg-1.00.a";
+			reg = <0xf8007000 0x100>;
+			interrupts = <0 8 4>;
+			interrupt-parent = <&gic>;
+		};
+
+		xadc@f8007100 {
+			compatible = "xlnx,ps7-xadc-1.00.a";
+			reg = <0xf8007100 0x20>;
+			interrupts = <0 7 4>;
+			interrupt-parent = <&gic>;
+		};
+
+		axi_dma_0: axidma@40440000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-dma";
+			reg = < 0x40440000 0x1000 >;
+			xlnx,sg-include-stscntrl-strm = <0x0>;
+			dma-channel@40440000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				interrupts = < 0 58 0x4 >;
+				xlnx,datawidth = <0x20>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
+		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
+			compatible = "adi,axi-spdif-tx-1.00.a";
+			reg = < 0x75c00000 0x1000 >;
+			clock-frequency = <12288000>;
+		};
+
+		axi_vdma_0: axivdma@43020000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-vdma";
+			reg = <0x43020000 0x1000>;
+			xlnx,include-sg = <0x0>;
+			xlnx,num-fstores = <0x3>;
+			dma-channel@43020000 {
+				compatible = "xlnx,axi-vdma-mm2s-channel";
+				interrupts = <0 59 0x4>;
+				xlnx,datawidth = <0x40>;
+				xlnx,genlock-mode = <0x0>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
+		fpga_clock: fpga_clock {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency  = <200000000>;
+		};
+
+		hdmi_clock: axi-clkgen@79000000 {
+			compatible = "adi,axi-clkgen-1.00.a";
+			reg = <0x79000000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&fpga_clock>;
+		};
+
+		axi_hdmi@70e00000 {
+			compatible = "adi,axi-hdmi-1.00.a";
+			reg = <0x70e00000 0x10000>;
+			encoder-slave = <&adv7511>;
+			dma-request = <&axi_vdma_0 0>;
+			clocks = <&hdmi_clock>;
+			adi,is-rgb;
+		};
+
+		xilinx_pcm_audio: xilinx_pcm_audio {
+			compatible = "xilinx-pcm-audio";
+			dma-request = <&axi_dma_0 0>;
+		};
+
+		adv7511_hdmi_snd: adv7511_hdmi_snd {
+			compatible = "adv7511-hdmi-snd";
+			audio-codec-adapter = <&i2c_adv7511>;
+			cpu-dai = <&axi_spdif_tx_0>;
+			pcm = <&xilinx_pcm_audio>;
+		};
+
+		axi_dma_1: axidma@40420000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-dma";
+			reg = < 0x40420000 0x10000 >;
+			dma-channel@40420000 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = < 0 58 0x4 >;
+				xlnx,datawidth = <0x40>;
+				xlnx,include-dre = <0x0>;
+			} ;
+		} ;
+
+		axi_vdma_1: axivdma@43000000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-vdma";
+			reg = <0x43000000 0x1000>;
+			xlnx,include-sg = <0x0>;
+			xlnx,num-fstores = <0x3>;
+			dma-channel@43000000 {
+				compatible = "xlnx,axi-vdma-mm2s-channel";
+				interrupts = <0 59 0x4>;
+				xlnx,datawidth = <0x40>;
+				xlnx,genlock-mode = <0x0>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
+		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
+			compatible = "xlnx,axi-adc-2c-1.00.a";
+			reg = < 0x79020000 0x10000 >;
+			dma-request = <&axi_dma_1 0>;
+			spibus-connected = <&adc0_ad9467>;
+			xlnx,dphase-timeout = <0x8>;
+			xlnx,num-mem = <0x1>;
+			xlnx,num-reg = <0x1>;
+			xlnx,s-axi-min-size = <0x1ff>;
+			xlnx,slv-awidth = <0x20>;
+			xlnx,slv-dwidth = <0x20>;
+			xlnx,use-wstrb = <0x0>;
+		} ;
+
+		cf_ad9122_core_0: cf-ad9122-core-lpc@74200000 {
+			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
+			reg = < 0x74200000 0x10000 >;
+			spibus-connected = <&dac0_ad9122>;
+			dma-request = <&axi_vdma_1 0>;
+			dac-sample-frequency = <491520000>;
+			xlnx,dphase-timeout = <0x8>;
+			xlnx,num-mem = <0x1>;
+			xlnx,num-reg = <0x1>;
+			xlnx,s-axi-min-size = <0x1ff>;
+			xlnx,slv-awidth = <0x20>;
+			xlnx,slv-dwidth = <0x20>;
+			xlnx,use-wstrb = <0x0>;
+		} ;
+	};
+};
