@@ -28,8 +28,8 @@ struct spi_bitbang {
 	/* txrx_bufs() may handle dma mapping for transfers that don't
 	 * already have one (transfer.{tx,rx}_dma is zero), or use PIO
 	 */
-//	int	(*txrx_bufs)(struct spi_device *spi, struct spi_transfer *t);
-	int	(*txrx_bufs)(struct spi_device *spi, struct spi_transfer *t, bool is_last);
+	int	(*txrx_bufs)(struct spi_device *spi, struct spi_transfer *t);
+
 	/* txrx_word[SPI_MODE_*]() just looks like a shift register */
 	u32	(*txrx_word[4])(struct spi_device *spi,
 			unsigned nsecs,

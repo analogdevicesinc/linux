@@ -330,8 +330,7 @@ static void bitbang_work(struct work_struct *work)
 				 */
 				if (!m->is_dma_mapped)
 					t->rx_dma = t->tx_dma = 0;
-				status = bitbang->txrx_bufs(spi, t, t->transfer_list.next == &m->transfers);
-//				status = bitbang->txrx_bufs(spi, t);
+				status = bitbang->txrx_bufs(spi, t);
 			}
 			if (status > 0)
 				m->actual_length += status;
