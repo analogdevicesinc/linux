@@ -16,7 +16,6 @@ obj-$(CONFIG_IIO_ST_HWMON) += iio_hwmon.o
 obj-y += accel/
 obj-y += adc/
 obj-y += addac/
-obj-y += amplifiers/
 obj-y += cdc/
 obj-y += frequency/
 obj-y += gyro/
