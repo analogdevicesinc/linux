@@ -220,7 +220,6 @@ static int spi_xcomm_setup(struct spi_device *spi)
 static int __devinit spi_xcomm_probe(struct i2c_client *i2c,
 	const struct i2c_device_id *id)
 {
-	static unsigned int bus_num;
 	struct spi_xcomm *spi_xcomm;
 	struct spi_master *master;
 	int ret;
@@ -237,7 +236,6 @@ static int __devinit spi_xcomm_probe(struct i2c_client *i2c,
 	master->flags = SPI_MASTER_HALF_DUPLEX;
 	master->setup = spi_xcomm_setup;
 	master->transfer_one_message = spi_xcomm_transfer_one;
-	master->bus_num = bus_num++;
 	master->dev.of_node = i2c->dev.of_node;
 	i2c_set_clientdata(i2c, master);
 
