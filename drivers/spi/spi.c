@@ -233,8 +233,21 @@ EXPORT_SYMBOL_GPL(spi_bus_type);
 static int spi_drv_probe(struct device *dev)
 {
 	const struct spi_driver		*sdrv = to_spi_driver(dev->driver);
+	struct spi_device		*spi = to_spi_device(dev);
+	int				status;
 
-	return sdrv->probe(to_spi_device(dev));
+	/* Drivers may modify this initial i/o setup, but will
+	 * normally rely on the device being setup.  Devices
+	 * using SPI_CS_HIGH can't coexist well otherwise...
+	 */
+	status = spi_setup(spi);
+	if (status < 0) {
+		dev_err(dev, "can't setup %s, status %d\n",
+				dev_name(&spi->dev), status);
+		return status;
+	}
+
+	return sdrv->probe(spi);
 }
 
 static int spi_drv_remove(struct device *dev)
@@ -343,7 +356,6 @@ EXPORT_SYMBOL_GPL(spi_alloc_device);
  */
 int spi_add_device(struct spi_device *spi)
 {
-	static DEFINE_MUTEX(spi_add_lock);
 	struct device *dev = spi->master->dev.parent;
 	struct device *d;
 	int status;
@@ -360,33 +372,6 @@ int spi_add_device(struct spi_device *spi)
 	dev_set_name(&spi->dev, "%s.%u", dev_name(&spi->master->dev),
 			spi->chip_select);
 
-
-	/* We need to make sure there's no other device with this
-	 * chipselect **BEFORE** we call setup(), else we'll trash
-	 * its configuration.  Lock against concurrent add() calls.
-	 */
-	mutex_lock(&spi_add_lock);
-
-	d = bus_find_device_by_name(&spi_bus_type, NULL, dev_name(&spi->dev));
-	if (d != NULL) {
-		dev_err(dev, "chipselect %d already in use\n",
-				spi->chip_select);
-		put_device(d);
-		status = -EBUSY;
-		goto done;
-	}
-
-	/* Drivers may modify this initial i/o setup, but will
-	 * normally rely on the device being setup.  Devices
-	 * using SPI_CS_HIGH can't coexist well otherwise...
-	 */
-	status = spi_setup(spi);
-	if (status < 0) {
-		dev_err(dev, "can't setup %s, status %d\n",
-				dev_name(&spi->dev), status);
-		goto done;
-	}
-
 	/* Device may be bound to an active driver when this returns */
 	status = device_add(&spi->dev);
 	if (status < 0)
@@ -395,8 +380,6 @@ int spi_add_device(struct spi_device *spi)
 	else
 		dev_dbg(dev, "registered child %s\n", dev_name(&spi->dev));
 
-done:
-	mutex_unlock(&spi_add_lock);
 	return status;
 }
 EXPORT_SYMBOL_GPL(spi_add_device);
