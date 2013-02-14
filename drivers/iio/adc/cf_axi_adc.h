@@ -158,6 +158,10 @@
 
 #include <linux/spi/spi.h>
 
+#define AXIADC_MAX_PCORE_TSIZE		(524288)
+#define AXIADC_MAX_DMA_SIZE		(1 * 1024 * 1024) /* Randomly picked */
+
+
 enum {
 	ID_AD9467,
 	ID_AD9643,
@@ -170,6 +174,7 @@ struct axiadc_chip_info {
 	unsigned			num_channels;
 	const int			(*scale_table)[2];
 	int				num_scales;
+	unsigned long			max_rate;
 	struct iio_chan_spec		channel[4];
 };
 
@@ -182,6 +187,7 @@ struct axiadc_state {
 	void __iomem			*regs;
 	void				*buf_virt;
 	dma_addr_t			buf_phys;
+	size_t				read_offs;
 	int				compl_stat;
 	bool				have_user_logic;
 	unsigned			adc_def_output_mode;
