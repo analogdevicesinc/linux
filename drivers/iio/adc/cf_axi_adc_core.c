@@ -418,6 +418,7 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	unsigned fract, tmp;
 	unsigned long long llval;
+	long r_clk;
 	int i, ret;
 
 	switch (mask) {
@@ -473,19 +474,19 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		if (chan->extend_name)
 			return -ENODEV;
 
-		tmp = clk_round_rate(conv->clk, val);
-		if (tmp != val) {
+		r_clk = clk_round_rate(conv->clk, val);
+		if (r_clk < 0 || r_clk > st->chip_info->max_rate) {
 			dev_warn(&conv->spi->dev,
-				"Requested Rate Mismatch %d != %u\n", val, tmp);
+				"Error setting ADC sample rate %ld", r_clk);
 			return -EINVAL;
 		}
 
-		ret = clk_set_rate(conv->clk, tmp);
+		ret = clk_set_rate(conv->clk, r_clk);
 		if (ret < 0)
 			return ret;
 
-		if (st->adc_clk != tmp) {
-			st->adc_clk = tmp;
+		if (st->adc_clk != r_clk) {
+			st->adc_clk = r_clk;
 			ret = axiadc_dco_calibrate(indio_dev,
 						   st->chip_info->num_channels);
 		}
@@ -680,6 +681,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD9467] = {
 		.name = "AD9467",
+		.max_rate = 250000000,
 		.scale_table = ad9467_scale_table,
 		.num_scales = ARRAY_SIZE(ad9467_scale_table),
 		.num_channels = 1,
@@ -688,6 +690,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 	[ID_AD9643] = {
 		.name = "AD9643",
+		.max_rate = 250000000,
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
 		.num_channels = 2,
@@ -698,6 +701,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 	[ID_AD9250] = {
 		.name = "AD9250",
+		.max_rate = 250000000,
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
 		.num_channels = 2,
@@ -709,6 +713,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 	[ID_AD9265] = {
 		.name = "AD9265",
+		.max_rate = 125000000,
 		.scale_table = ad9265_scale_table,
 		.num_scales = ARRAY_SIZE(ad9265_scale_table),
 		.num_channels = 1,

@@ -25,42 +25,46 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 	struct iio_hw_buffer *hw_ring = iio_to_hw_buf(r);
 	struct iio_dev *indio_dev = hw_ring->private;
 	struct axiadc_state *st = iio_priv(indio_dev);
-	int ret;
+	int ret = 0;
 	unsigned stat, dma_stat;
 
 	mutex_lock(&st->lock);
 
-	ret = wait_for_completion_interruptible_timeout(&st->dma_complete,
-							4 * HZ);
+	if (!st->read_offs) {
+		ret = wait_for_completion_interruptible_timeout(&st->dma_complete,
+								4 * HZ);
+		stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
+		dma_stat = axiadc_read(st, AXIADC_PCORE_DMA_STAT);
 
-	stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-	dma_stat = axiadc_read(st, AXIADC_PCORE_DMA_STAT);
+		if (st->compl_stat < 0) {
+			ret = st->compl_stat;
+			goto error_ret;
+		} else if (ret == 0) {
+			ret = -ETIMEDOUT;
+			dev_err(indio_dev->dev.parent,
+				"timeout: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
+				dma_stat, stat);
+			goto error_ret;
+		} else if (ret < 0) {
+			goto error_ret;
+		}
 
-	if (st->compl_stat < 0) {
-		ret = st->compl_stat;
-		goto error_ret;
-	} else if (ret == 0) {
-		ret = -ETIMEDOUT;
-		dev_err(indio_dev->dev.parent,
-			"timeout: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
-			dma_stat, stat);
-		goto error_ret;
-	} else if (ret < 0) {
-		goto error_ret;
+		if ((stat & (AXIADC_PCORE_ADC_STAT_OVR0 | ((st->id == CHIPID_AD9467) ? 0 : AXIADC_PCORE_ADC_STAT_OVR1)))
+			|| dma_stat)
+			dev_warn(indio_dev->dev.parent,
+				"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
+				dma_stat, stat);
 	}
 
-	if (copy_to_user(buf, st->buf_virt, count))
+	count = min(count, st->ring_lenght - st->read_offs);
+
+	if (copy_to_user(buf, st->buf_virt + st->read_offs, count))
 		ret = -EFAULT;
 
-	if ((stat & (AXIADC_PCORE_ADC_STAT_OVR0 | ((st->id == CHIPID_AD9467) ? 0 : AXIADC_PCORE_ADC_STAT_OVR1)))
-		|| dma_stat)
-		dev_warn(indio_dev->dev.parent,
-			"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
-			dma_stat, stat);
+	st->read_offs += count;
 
 error_ret:
-	r->stufftoread = 0;
-
+	r->stufftoread = count != 0;
 	mutex_unlock(&st->lock);
 
 	return ret < 0 ? ret : count;
@@ -168,7 +172,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	else
 		st->rcount = st->ring_length;
 
-	if (PAGE_ALIGN(st->rcount) > AXIADC_MAX_DMA_SIZE) {
+	if (st->rcount > AXIADC_MAX_PCORE_TSIZE) {
 		ret = -EINVAL;
 		goto error_ret;
 	}
@@ -193,6 +197,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 		goto error_ret;
 	}
 	INIT_COMPLETION(st->dma_complete);
+	st->read_offs = 0;
 	dma_async_issue_pending(st->rx_chan);
 
 	axiadc_write(st, AXIADC_PCORE_DMA_CTRL, 0);
@@ -237,6 +242,7 @@ static bool axiadc_hw_ring_validate_scan_mask(struct iio_dev *indio_dev,
 
 	return true;
 }
+
 
 static const struct iio_buffer_setup_ops axiadc_ring_setup_ops = {
 	.preenable = &axiadc_hw_ring_preenable,
