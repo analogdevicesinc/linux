@@ -74,7 +74,7 @@ struct cf_axi_dds_state {
 	unsigned int			flags;
 	u32				dac_clk;
 	unsigned			vers_id;
-	unsigned			buffer_lenght;
+	unsigned			buffer_length;
 	unsigned			txcount;
 	unsigned 		ddr_dds_interp_en;
 };

@@ -46,7 +46,7 @@ static int cf_axi_dds_write_buffer(struct iio_buffer *r,
 		ret = -EFAULT;
 
 	st->txcount = count;
-	st->buffer_lenght = count / 4;
+	st->buffer_length = count / 4;
 
 	if (iio_buffer_enabled(indio_dev)) {
 		dmaengine_terminate_all(st->tx_chan);
@@ -66,15 +66,15 @@ static int cf_axi_dds_buffer_get_length(struct iio_buffer *r)
 	struct iio_dev *indio_dev = hw_buffer->private;
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 
-	return st->buffer_lenght;
+	return st->buffer_length;
 }
 
-static int cf_axi_dds_buffer_set_length(struct iio_buffer *r, int lenght)
+static int cf_axi_dds_buffer_set_length(struct iio_buffer *r, int length)
 {
 	struct iio_hw_buffer *hw_buffer = iio_to_hw_buf(r);
 	struct cf_axi_dds_state *st = iio_priv(hw_buffer->private);
 
-	st->buffer_lenght = lenght;
+	st->buffer_length = length;
 
 	return 0;
 }
