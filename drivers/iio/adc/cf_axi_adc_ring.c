@@ -72,15 +72,15 @@ static int axiadc_ring_get_length(struct iio_buffer *r)
 	struct iio_dev *indio_dev = hw_ring->private;
 	struct axiadc_state *st = iio_priv(indio_dev);
 
-	return st->ring_lenght;
+	return st->ring_length;
 }
 
-static int axiadc_ring_set_length(struct iio_buffer *r, int lenght)
+static int axiadc_ring_set_length(struct iio_buffer *r, int length)
 {
 	struct iio_hw_buffer *hw_ring = iio_to_hw_buf(r);
 	struct axiadc_state *st = iio_priv(hw_ring->private);
 
-	st->ring_lenght = lenght;
+	st->ring_length = length;
 
 	return 0;
 }
@@ -158,15 +158,15 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	}
 
 	st->compl_stat = 0;
-	if (st->ring_lenght == 0) {
+	if (st->ring_length == 0) {
 		ret = -EINVAL;
 		goto error_ret;
 	}
 
-	if (st->ring_lenght % 8)
-		st->rcount = (st->ring_lenght + 8) & 0xFFFFFFF8;
+	if (st->ring_length % 8)
+		st->rcount = (st->ring_length + 8) & 0xFFFFFFF8;
 	else
-		st->rcount = st->ring_lenght;
+		st->rcount = st->ring_length;
 
 	if (PAGE_ALIGN(st->rcount) > AXIADC_MAX_DMA_SIZE) {
 		ret = -EINVAL;

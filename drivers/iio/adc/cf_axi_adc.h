@@ -199,7 +199,7 @@ struct axiadc_state {
 	int				compl_stat;
 	bool				have_user_logic;
 	unsigned			adc_def_output_mode;
-	unsigned			ring_lenght;
+	unsigned			ring_length;
 	unsigned			rcount;
 	unsigned			id;
 	unsigned char		testmode[2];
