@@ -333,15 +333,10 @@ static int ad9122_get_clks(struct cf_axi_converter *conv)
 			return -EPROBE_DEFER;
 		}
 
-		ret = clk_prepare(clk);
+		ret = clk_prepare_enable(clk);
 		if (ret < 0)
 			return ret;
 
-		ret = clk_enable(clk);
-		if (ret < 0) {
-			clk_unprepare(clk);
-			return ret;
-		}
 		conv->clk[i] = clk;
 	}
 	return 0;
@@ -394,31 +389,35 @@ static void ad9122_update_avail_fcent_modes(struct cf_axi_converter *conv,
 
 static int ad9122_set_data_clk(struct cf_axi_converter *conv, unsigned long freq)
 {
-	unsigned long efreq, dac_freq;
+	unsigned long dac_freq;
+	long dat_freq, r_dac_freq;
 	int ret;
 
-	efreq = clk_round_rate(conv->clk[CLK_DATA], freq);
-	if (efreq != freq) {
-		dev_err(&conv->spi->dev, "CLK_DATA: Requested Rate Mismatch %lu != %lu\n",
-			freq, efreq);
+	dat_freq = clk_round_rate(conv->clk[CLK_DATA], freq);
+	if (dat_freq < 0 || dat_freq > AD9122_MAX_DAC_RATE) {
+		dev_err(&conv->spi->dev,
+			"CLK_DATA: Error or requested rate exceeds maximum %ld (%lu)",
+			dat_freq, AD9122_MAX_DAC_RATE);
 		return -EINVAL;
 	}
 
-	dac_freq = freq * conv->interp_factor;
+	dac_freq = dat_freq * conv->interp_factor;
 	if (dac_freq > AD9122_MAX_DAC_RATE) {
-		dev_err(&conv->spi->dev, "CLK_DAC: Requested Rate exceeds maximum %lu (%lu)\n",
+		dev_err(&conv->spi->dev,
+			"CLK_DAC: Requested Rate exceeds maximum %lu (%lu)",
 			dac_freq, AD9122_MAX_DAC_RATE);
 		return -EINVAL;
 	}
 
-	efreq = clk_round_rate(conv->clk[CLK_DAC], dac_freq);
-	if (efreq != dac_freq) {
-		dev_err(&conv->spi->dev, "CLK_DAC: Requested Rate Mismatch %lu != %lu\n",
-			freq, efreq);
+	r_dac_freq = clk_round_rate(conv->clk[CLK_DAC], dac_freq);
+	if (r_dac_freq != dac_freq) {
+		dev_err(&conv->spi->dev,
+			"CLK_DAC: Requested Rate exceeds mismatch %ld (%lu)",
+			r_dac_freq, dac_freq);
 		return -EINVAL;
 	}
 
-	ret = clk_set_rate(conv->clk[CLK_DATA], freq);
+	ret = clk_set_rate(conv->clk[CLK_DATA], dat_freq);
 	if (ret < 0)
 		return ret;
 
