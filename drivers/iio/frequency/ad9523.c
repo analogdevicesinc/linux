@@ -715,7 +715,8 @@ static int ad9523_write_raw(struct iio_dev *indio_dev,
 		ret = ad9523_set_clock_provider(indio_dev, chan->channel, val);
 		if (ret < 0)
 			goto out;
-		tmp = st->vco_out_freq[st->vco_out_map[chan->channel]] / val;
+		tmp = DIV_ROUND_CLOSEST(st->vco_out_freq[st->vco_out_map[
+				chan->channel]], val);
 		tmp = clamp(tmp, 1, 1024);
 		reg &= ~(0x3FF << 8);
 		reg |= AD9523_CLK_DIST_DIV(tmp);
@@ -854,7 +855,7 @@ static long ad9523_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 		/* Ch 10..14: No action required, return success */
 	}
 
-		tmp1 = clk / rate;
+		tmp1 = DIV_ROUND_CLOSEST(clk, rate);
 		tmp1 = clamp(tmp1, 1UL, 1024UL);
 
 	return clk / tmp1;
