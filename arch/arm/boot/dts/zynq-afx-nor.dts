@@ -57,18 +57,40 @@
 		slcr: slcr@f8000000 {
 			compatible = "xlnx,zynq-slcr";
 			reg = <0xF8000000 0x1000>;
-
 			clocks {
 				#address-cells = <1>;
 				#size-cells = <0>;
-
+				armpll: armpll {
+					#clock-cells = <0>;
+					clock-output-names = "armpll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <0>;
+					reg = < 0x100 0x110 0x10c >;
+				} ;
+				ddrpll: ddrpll {
+					#clock-cells = <0>;
+					clock-output-names = "ddrpll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <1>;
+					reg = < 0x104 0x114 0x10c >;
+				} ;
+				iopll: iopll {
+					#clock-cells = <0>;
+					clock-output-names = "iopll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <2>;
+					reg = < 0x108 0x118 0x10c >;
+				} ;
 				ps_clk: ps_clk {
 					#clock-cells = <0>;
-					compatible = "fixed-clock";
 					clock-frequency = <33333333>;
-					clock-output-names = "PS_CLK";
-				};
-			};
+					clock-output-names = "ps_clk";
+					compatible = "fixed-clock";
+				} ;
+			} ;
 		};
 
 		timer@0xf8001000 {
@@ -78,39 +100,47 @@
 			interrupt-parent = <&gic>;
 		};
 
-		nor: nor@e2000000 {
-			compatible = "cfi-flash";
-			bank-width = <1>;
-			reg = <0xE2000000 0x2000000>; /* 32MB */
+		smc@0xe000e000 {
+			compatible = "xlnx,ps7-smc";
+			reg = <0xe000e000 0x1000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			partition@0 {
-				label = "nor-fsbl";
-				reg = <0x0 0x80000>; /* 512K */
-			};
-			partition@1 {
-				label = "nor-u-boot";
-				reg = <0x80000 0x80000>; /* 512K */
-			};
-			partition@2 {
-				label = "nor-linux";
-				reg = <0x100000 0x500000>; /* 5MB */
-			};
-			partition@3 {
-				label = "nor-device-tree";
-				reg = <0x600000 0x20000>; /* 128K */
-			};
-			partition@4 {
-				label = "nor-user";
-				reg = <0x620000 0x8E0000>; /* 8875K */
-			};
-			partition@5 {
-				label = "nor-scratch";
-				reg = <0xF00000 0x100000>; /* 1MB */
-			};
-			partition@6 {
-				label = "nor-rootfs";
-				reg = <0x1000000 0x1000000>; /* 16MB */
+			ranges;
+
+			nor: nor@e2000000 {
+				compatible = "cfi-flash";
+				bank-width = <1>;
+				reg = <0xE2000000 0x2000000>; /* 32MB */
+				#address-cells = <1>;
+				#size-cells = <1>;
+				partition@0 {
+					label = "nor-fsbl";
+					reg = <0x0 0x80000>; /* 512K */
+				};
+				partition@1 {
+					label = "nor-u-boot";
+					reg = <0x80000 0x80000>; /* 512K */
+				};
+				partition@2 {
+					label = "nor-linux";
+					reg = <0x100000 0x500000>; /* 5MB */
+				};
+				partition@3 {
+					label = "nor-device-tree";
+					reg = <0x600000 0x20000>; /* 128K */
+				};
+				partition@4 {
+					label = "nor-user";
+					reg = <0x620000 0x8E0000>; /* 8875K */
+				};
+				partition@5 {
+					label = "nor-scratch";
+					reg = <0xF00000 0x100000>; /* 1MB */
+				};
+				partition@6 {
+					label = "nor-rootfs";
+					reg = <0x1000000 0x1000000>; /* 16MB */
+				};
 			};
 		};
 	};

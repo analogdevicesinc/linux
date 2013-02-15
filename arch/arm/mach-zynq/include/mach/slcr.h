@@ -15,9 +15,10 @@
 #ifndef __MACH_SLCR_H__
 #define __MACH_SLCR_H__
 
-extern void xslcr_write(u32 offset, u32 val);
+extern void xslcr_write(u32 val, u32 offset);
 extern u32 xslcr_read(u32 offset);
 
+extern int xslcr_init(void);
 extern void xslcr_system_reset(void);
 
 extern void xslcr_init_preload_fpga(void);

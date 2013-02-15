@@ -11,10 +11,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MACH_CLK__H__
-#define __MACH_CLK__H__
+#ifndef __LINUX_CLK_ZYNQ_H_
+#define __LINUX_CLK_ZYNQ_H_
 
-void zynq_clock_init(void);
+void __init zynq_clock_init(void __iomem *slcr);
 
 struct clk *clk_register_zynq_gd1m(const char *name,
 		void __iomem *clkctrl, const char **pnames,
@@ -27,9 +27,6 @@ struct clk *clk_register_zynq_d2m(const char *name,
 struct clk *clk_register_zynq_d1m(const char *name,
 		void __iomem *clkctrl, const char **pnames, u8 num_parents,
 		spinlock_t *lock);
-
-struct clk *clk_register_zynq_pll(const char *name, void __iomem *pllctrl,
-		void __iomem *pllcfg, void __iomem *pllstatus, u8 lockbit);
 
 struct clk *clk_register_zynq_clk621(const char *name,
 		void __iomem *clkctrl, void __iomem *clk621,

@@ -57,18 +57,40 @@
 		slcr: slcr@f8000000 {
 			compatible = "xlnx,zynq-slcr";
 			reg = <0xF8000000 0x1000>;
-
 			clocks {
 				#address-cells = <1>;
 				#size-cells = <0>;
-
+				armpll: armpll {
+					#clock-cells = <0>;
+					clock-output-names = "armpll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <0>;
+					reg = < 0x100 0x110 0x10c >;
+				} ;
+				ddrpll: ddrpll {
+					#clock-cells = <0>;
+					clock-output-names = "ddrpll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <1>;
+					reg = < 0x104 0x114 0x10c >;
+				} ;
+				iopll: iopll {
+					#clock-cells = <0>;
+					clock-output-names = "iopll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <2>;
+					reg = < 0x108 0x118 0x10c >;
+				} ;
 				ps_clk: ps_clk {
 					#clock-cells = <0>;
-					compatible = "fixed-clock";
 					clock-frequency = <33333333>;
-					clock-output-names = "PS_CLK";
-				};
-			};
+					clock-output-names = "ps_clk";
+					compatible = "fixed-clock";
+				} ;
+			} ;
 		};
 
 		timer@0xf8001000 {
@@ -78,36 +100,44 @@
 			interrupt-parent = <&gic>;
 		};
 
-		nand@e1000000 {
-			compatible = "xlnx,ps7-nand-1.00.a";
-			reg = <0xe1000000 0x1000000 0xe000e000 0x1000>;
-			xlnx,nand-width = <16>;
-			#address-cells = <0x1>;
-			#size-cells = <0x1>;
+		smc@0xe000e000 {
+			compatible = "xlnx,ps7-smc";
+			reg = <0xe000e000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
 
-			partition@0 {
-				label = "nand-fsbl-uboot-bit";
-				reg = <0x0 0x500000>;
+			nand@e1000000 {
+				compatible = "xlnx,ps7-nand-1.00.a";
+				reg = <0xe1000000 0x1000000>;
+				xlnx,nand-width = <16>;
+				#address-cells = <0x1>;
+				#size-cells = <0x1>;
+
+				partition@0 {
+					label = "nand-fsbl-uboot-bit";
+					reg = <0x0 0x500000>;
+					};
+
+				partition@1 {
+					label = "nand-linux";
+					reg = <0x500000 0x300000>;
 				};
 
-			partition@1 {
-				label = "nand-linux";
-				reg = <0x500000 0x300000>;
-			};
+				partition@2 {
+					label = "nand-devicetree";
+					reg = <0x800000 0x100000>;
+				};
 
-			partition@2 {
-				label = "nand-devicetree";
-				reg = <0x800000 0x100000>;
-			};
+				partition@3 {
+					label = "nand-ramdisk";
+					reg = <0x900000 0x400000>;
+				};
 
-			partition@3 {
-				label = "nand-ramdisk";
-				reg = <0x900000 0x400000>;
-			};
-
-			partition@4 {
-				label = "nand-scratch";
-				reg = <0xd00000 0x200000>;
+				partition@4 {
+					label = "nand-scratch";
+					reg = <0xd00000 0x200000>;
+				};
 			};
 		};
 

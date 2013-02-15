@@ -21,11 +21,13 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of_address.h>
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <mach/slcr.h>
+#include <linux/clk/zynq.h>
 
 #define DRIVER_NAME "xslcr"
 
@@ -163,6 +165,8 @@
 
 #define xslcr_writereg(offset, val)	__raw_writel(val, offset)
 #define xslcr_readreg(offset)		__raw_readl(offset)
+
+void __iomem *zynq_slcr_base;
 
 /**
  * struct xslcr - slcr device data.
@@ -1622,7 +1626,7 @@ void xslcr_system_reset(void)
  * @offset:	Register offset in SLCR block
  * @val:	Value to write to the register
  **/
-void xslcr_write(u32 offset, u32 val)
+void xslcr_write(u32 val, u32 offset)
 {
 	xslcr_writereg(slcr->regs + offset, val);
 }
@@ -1648,13 +1652,13 @@ void xslcr_init_preload_fpga(void)
 {
 
 	/* Assert FPGA top level output resets */
-	xslcr_write(XSLCR_FPGA_RST_CTRL_OFFSET, 0xF);
+	xslcr_write(0xF, XSLCR_FPGA_RST_CTRL_OFFSET);
 
 	/* Disable level shifters */
-	xslcr_write(XSLCR_LVL_SHFTR_EN_OFFSET, 0x0);
+	xslcr_write(0, XSLCR_LVL_SHFTR_EN_OFFSET);
 
 	/* Enable output level shifters */
-	xslcr_write(XSLCR_LVL_SHFTR_EN_OFFSET, 0xA);
+	xslcr_write(0xA, XSLCR_LVL_SHFTR_EN_OFFSET);
 }
 EXPORT_SYMBOL(xslcr_init_preload_fpga);
 
@@ -1665,10 +1669,10 @@ void xslcr_init_postload_fpga(void)
 {
 
 	/* Enable level shifters */
-	xslcr_write(XSLCR_LVL_SHFTR_EN_OFFSET, 0xF);
+	xslcr_write(0xf, XSLCR_LVL_SHFTR_EN_OFFSET);
 
 	/* Deassert AXI interface resets */
-	xslcr_write(XSLCR_FPGA_RST_CTRL_OFFSET, 0x0);
+	xslcr_write(0, XSLCR_FPGA_RST_CTRL_OFFSET);
 }
 EXPORT_SYMBOL(xslcr_init_postload_fpga);
 
@@ -2401,49 +2405,13 @@ next_periph:
  **/
 static int __devinit xslcr_probe(struct platform_device *pdev)
 {
-	struct resource res;
 	int ret;
-
-	res.start = 0xF8000000;
-	res.end = 0xF8000FFF;
-
-	if (slcr) {
-		dev_err(&pdev->dev, "Device Busy, only 1 slcr instance "
-			"supported.\n");
-		return -EBUSY;
-	}
-
-	if (!request_mem_region(res.start,
-					res.end - res.start + 1,
-					DRIVER_NAME)) {
-		dev_err(&pdev->dev, "Couldn't lock memory region at %Lx\n",
-			(unsigned long long)res.start);
-		return -EBUSY;
-	}
-
-	slcr = kzalloc(sizeof(struct xslcr), GFP_KERNEL);
-	if (!slcr) {
-		ret = -ENOMEM;
-		dev_err(&pdev->dev, "Unable to allocate memory for driver "
-			"data\n");
-		goto err_release;
-	}
-
-	slcr->regs = ioremap(res.start, (res.end - res.start + 1));
-	if (!slcr->regs) {
-		ret = -ENOMEM;
-		dev_err(&pdev->dev, "Unable to map I/O memory\n");
-		goto err_free;
-	}
-
-	/* init periph_status based on the data from MIO control registers */
-	xslcr_get_mio_status();
 
 	spin_lock_init(&slcr->io_lock);
 
 	ret = class_register(&xslcr_mio_class);
 	if (ret < 0)
-		goto err_iounmap;
+		return ret;
 
 	ret = xslcr_create_devices(pdev, &xslcr_mio_class, mio_periph_name,
 				   ARRAY_SIZE(mio_periph_name));
@@ -2465,18 +2433,6 @@ static int __devinit xslcr_probe(struct platform_device *pdev)
 		goto err_rst_class;
 	}
 
-	/* unlock the SLCR so that registers can be changed */
-	xslcr_writereg(slcr->regs + XSLCR_UNLOCK, 0xDF0D);
-
-	xslcr_writereg(slcr->regs + XSLCR_FPGA0_CLK_CTRL_OFFSET, 0x100a00);
-	xslcr_writereg(slcr->regs + XSLCR_FPGA1_CLK_CTRL_OFFSET, 0x100500);
-	xslcr_writereg(slcr->regs + XSLCR_FPGA2_CLK_CTRL_OFFSET, 0x100500);
-	xslcr_writereg(slcr->regs + XSLCR_FPGA3_CLK_CTRL_OFFSET, 0x102100);
-	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(50), 0x200);
-	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(51), 0x200);
-
-	dev_info(&pdev->dev, "at 0x%08X mapped to 0x%08X\n", res.start,
-		 (u32 __force)slcr->regs);
 	platform_set_drvdata(pdev, slcr);
 
 	return 0;
@@ -2487,84 +2443,86 @@ err_rst_class:
 err_mio_class:
 	xslcr_remove_devices(&xslcr_mio_class, mio_periph_name,
 			     ARRAY_SIZE(mio_periph_name));
-err_iounmap:
-	iounmap(slcr->regs);
-err_free:
-	kfree(slcr);
-err_release:
-	release_mem_region(res.start, (res.end - res.start + 1));
 
 	return ret;
 }
 
-/**
- * xslcr_remove -  Remove call for the device.
- *
- * @pdev:	handle to the platform device structure.
- *
- * Unregister the device after releasing the resources.
- * Returns 0 on success, otherwise negative error.
- **/
-static int __devexit xslcr_remove(struct platform_device *pdev)
-{
-	struct xslcr *id = platform_get_drvdata(pdev);
-	struct resource *res;
-
-	device_remove_file(&pdev->dev, &dev_attr_mio_pin_status);
-
-	xslcr_remove_devices(&xslcr_reset_class, reset_periph_name,
-			     ARRAY_SIZE(reset_periph_name));
-	xslcr_remove_devices(&xslcr_mio_class, mio_periph_name,
-			     ARRAY_SIZE(mio_periph_name));
-
-	iounmap(id->regs);
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "Unable to locate mmio resource\n");
-		return -ENODEV;
-	}
-	release_mem_region(res->start, resource_size(res));
-
-	kfree(id);
-	platform_set_drvdata(pdev, NULL);
-
-	return 0;
-}
+static struct of_device_id slcr_of_match[] __devinitdata = {
+	{ .compatible = "xlnx,zynq-slcr", },
+	{ /* end of list */ },
+};
+MODULE_DEVICE_TABLE(of, slcr_of_match);
 
 /* Driver Structure */
 static struct platform_driver xslcr_driver = {
 	.probe		= xslcr_probe,
-	.remove		= __devexit_p(xslcr_remove),
 	.driver		= {
 		.name	= DRIVER_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = slcr_of_match,
 	},
 };
 
-static struct platform_device xslcr_device = {
-	.name = "xslcr",
-	.dev.platform_data = NULL,
-};
-
 /**
- * xslcr_init -  Register the SLCR.
+ * xslcr_arch_init -  Register the SLCR
  *
  * Returns 0 on success, otherwise negative error.
  */
-static int __init xslcr_init(void)
+static int __init xslcr_arch_init(void)
 {
-	platform_device_register(&xslcr_device);
 	return platform_driver_register(&xslcr_driver);
 }
-arch_initcall(xslcr_init);
+module_init(xslcr_arch_init);
 
 /**
- * xslcr_exit -  Unregister the SLCR.
+ * xslcr_init()
+ * Returns 0 on success, negative errno otherwise.
+ *
+ * Called early during boot from platform code to remap SLCR area.
  */
-static void __exit xslcr_exit(void)
+int __init xslcr_init(void)
 {
-	platform_driver_unregister(&xslcr_driver);
+	struct device_node *np;
+
+	np = of_find_compatible_node(NULL, NULL, "xlnx,zynq-slcr");
+	if (!np) {
+		pr_err("%s: no slcr node found\n", __func__);
+		BUG();
+	}
+
+	slcr = kzalloc(sizeof(*slcr), GFP_KERNEL);
+	if (!slcr) {
+		pr_err("%s: Unable to allocate memory for driver data\n",
+				__func__);
+		BUG();
+	}
+
+	slcr->regs = of_iomap(np, 0);
+	if (!slcr->regs) {
+		pr_err("%s: Unable to map I/O memory\n", __func__);
+		BUG();
+	}
+
+	zynq_slcr_base = slcr->regs;
+
+	/* init periph_status based on the data from MIO control registers */
+	xslcr_get_mio_status();
+
+	/* unlock the SLCR so that registers can be changed */
+	xslcr_writereg(slcr->regs + XSLCR_UNLOCK, 0xDF0D);
+
+	xslcr_writereg(slcr->regs + XSLCR_FPGA0_CLK_CTRL_OFFSET, 0x100a00);
+	xslcr_writereg(slcr->regs + XSLCR_FPGA1_CLK_CTRL_OFFSET, 0x100500);
+	xslcr_writereg(slcr->regs + XSLCR_FPGA2_CLK_CTRL_OFFSET, 0x100500);
+	xslcr_writereg(slcr->regs + XSLCR_FPGA3_CLK_CTRL_OFFSET, 0x102100);
+	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(50), 0x200);
+	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(51), 0x200);
+
+	pr_info("%s mapped to %p\n", DRIVER_NAME, slcr->regs);
+
+	zynq_clock_init(slcr->regs);
+
+	of_node_put(np);
+
+	return 0;
 }
-
-

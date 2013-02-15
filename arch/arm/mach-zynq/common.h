@@ -19,7 +19,7 @@
 
 #include <mach/slcr.h>
 
-void __init xttcpss_timer_init(void);
+void __init xttcps_timer_init_old(void);
 void platform_device_init(void);
 
 int __cpuinit zynq_cpun_start(u32 address, int cpu);
@@ -31,5 +31,7 @@ static inline void xilinx_system_reset(char mode, const char *cmd)
 
 /* multiplatform use core.h for this purpose */
 extern void secondary_startup(void);
+
+extern void __iomem *scu_base;
 
 #endif
