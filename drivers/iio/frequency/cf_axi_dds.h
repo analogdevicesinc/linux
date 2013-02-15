@@ -92,15 +92,18 @@ struct cf_axi_dds_converter {
 	unsigned		id;
 	unsigned		interp_factor;
 	unsigned		fcenter_shift;
+	unsigned long 	intp_modes[5];
+	unsigned long 	cs_modes[17];
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);
 	int		(*setup)(struct cf_axi_dds_converter *conv, unsigned mode);
 	unsigned long	(*get_data_clk)(struct cf_axi_dds_converter *conv);
 	int		(*set_data_clk)(struct cf_axi_dds_converter *conv, unsigned long freq);
-	int 		(*set_interpol)(struct cf_axi_dds_converter *conv, unsigned interp,
-			       unsigned fcent_shift, unsigned long data_rate);
-
+	unsigned long	(*get_interpol)(struct cf_axi_dds_converter *conv);
+	int		(*set_interpol)(struct cf_axi_dds_converter *conv, unsigned long freq);
+	unsigned long	(*get_interpol_fcent)(struct cf_axi_dds_converter *conv);
+	int		(*set_interpol_fcent)(struct cf_axi_dds_converter *conv, unsigned long freq);
 };
 
 static inline struct cf_axi_dds_converter *to_converter(struct device *dev)
