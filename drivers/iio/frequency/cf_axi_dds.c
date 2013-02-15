@@ -586,7 +586,7 @@ static ssize_t ad9122_dds_interpolation_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	if (!conv->set_interpol)
+	if (!conv->set_interpol || !conv->set_interpol_fcent)
 		return -ENODEV;
 
 	mutex_lock(&indio_dev->mlock);
@@ -596,13 +596,10 @@ static ssize_t ad9122_dds_interpolation_store(struct device *dev,
 
 	switch ((u32)this_attr->address) {
 	case 0:
-
-		ret = conv->set_interpol(conv, readin,
-					conv->fcenter_shift, 0);
+		ret = conv->set_interpol(conv, readin);
 		break;
 	case 1:
-		ret = conv->set_interpol(conv, conv->interp_factor,
-					readin, 0);
+		ret = conv->set_interpol_fcent(conv, readin);
 		break;
 	default:
 		ret = -EINVAL;
@@ -624,15 +621,28 @@ static ssize_t ad9122_dds_interpolation_show(struct device *dev,
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct cf_axi_dds_converter *conv = to_converter(st->dev_spi);
-	int ret = 0;
+	int i, ret = 0;
+
 
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address) {
 	case 0:
-		ret = sprintf(buf, "%d\n", conv->interp_factor);
+		ret = sprintf(buf, "%d\n", conv->get_interpol(conv));
 		break;
 	case 1:
-		ret = sprintf(buf, "%d\n", conv->fcenter_shift);
+		ret = sprintf(buf, "%d\n", conv->get_interpol_fcent(conv));
+		break;
+	case 2:
+		for (i = 0; conv->intp_modes[i] != 0; i++)
+			ret += sprintf(buf + ret, "%ld ", conv->intp_modes[i]);
+
+		ret += sprintf(buf + ret, "\n");
+		break;
+	case 3:
+		for (i = 0; conv->cs_modes[i] != -1; i++)
+			ret += sprintf(buf + ret, "%ld ", conv->cs_modes[i]);
+
+		ret += sprintf(buf + ret, "\n");
 		break;
 	default:
 		ret = -EINVAL;
@@ -672,21 +682,28 @@ static IIO_DEVICE_ATTR(out_voltage1_calibscale, S_IRUGO | S_IWUSR,
  			ad9122_dds_store,
  			AD9122_REG_Q_DAC_CTRL);
 
-static IIO_DEVICE_ATTR(out_altvoltage_interpolation, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_altvoltage_interpolation_frequency, S_IRUGO | S_IWUSR,
 			ad9122_dds_interpolation_show,
 			ad9122_dds_interpolation_store,
 			0);
 
-static IIO_DEVICE_ATTR(out_altvoltage_interpolation_center_shift, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_altvoltage_interpolation_frequency_available, S_IRUGO,
+			ad9122_dds_interpolation_show,
+			NULL,
+			2);
+
+static IIO_DEVICE_ATTR(out_altvoltage_interpolation_center_shift_frequency, S_IRUGO | S_IWUSR,
 			ad9122_dds_interpolation_show,
 			ad9122_dds_interpolation_store,
 			1);
 
+static IIO_DEVICE_ATTR(out_altvoltage_interpolation_center_shift_frequency_available, S_IRUGO,
+			ad9122_dds_interpolation_show,
+			NULL,
+			3);
+
 static IIO_CONST_ATTR(out_altvoltage_scale_available,
 		"1.000000 0.500000 0.250000 0.125000 ...");
-
-static IIO_CONST_ATTR(out_altvoltage_interpolation_available,
-		"1 2 4 8");
 
 static struct attribute *cf_axi_dds_attributes[] = {
 	&iio_dev_attr_out_voltage0_phase.dev_attr.attr, /* I */
@@ -696,9 +713,10 @@ static struct attribute *cf_axi_dds_attributes[] = {
 	&iio_dev_attr_out_voltage1_calibscale.dev_attr.attr,
 	&iio_dev_attr_out_voltage1_calibbias.dev_attr.attr,
 	&iio_const_attr_out_altvoltage_scale_available.dev_attr.attr,
-	&iio_dev_attr_out_altvoltage_interpolation.dev_attr.attr,
-	&iio_dev_attr_out_altvoltage_interpolation_center_shift.dev_attr.attr,
-	&iio_const_attr_out_altvoltage_interpolation_available.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage_interpolation_frequency.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage_interpolation_center_shift_frequency.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage_interpolation_frequency_available.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage_interpolation_center_shift_frequency_available.dev_attr.attr,
 	NULL,
 };
 
