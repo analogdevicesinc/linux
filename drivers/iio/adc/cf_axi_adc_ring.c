@@ -56,7 +56,7 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 				dma_stat, stat);
 	}
 
-	count = min(count, st->ring_lenght - st->read_offs);
+	count = min(count, st->ring_length - st->read_offs);
 
 	if (copy_to_user(buf, st->buf_virt + st->read_offs, count))
 		ret = -EFAULT;
