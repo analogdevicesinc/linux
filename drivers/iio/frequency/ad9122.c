@@ -165,15 +165,10 @@ static int ad9122_get_clks(struct cf_axi_dds_converter *conv)
 			return -EPROBE_DEFER;
 		}
 
-		ret = clk_prepare(clk);
+		ret = clk_prepare_enable(clk);
 		if (ret < 0)
 			return ret;
 
-		ret = clk_enable(clk);
-		if (ret < 0) {
-			clk_unprepare(clk);
-			return ret;
-		}
 		conv->clk[i] = clk;
 	}
 	return 0;
@@ -184,39 +179,86 @@ static unsigned long ad9122_get_data_clk(struct cf_axi_dds_converter *conv)
 	return clk_get_rate(conv->clk[CLK_DATA]);
 }
 
+static void ad9122_update_avail_intp_modes(struct cf_axi_dds_converter *conv,
+					 unsigned long dat_freq)
+{
+	unsigned long dac_freq;
+	long r_dac_freq;
+	int intp, i;
+
+	for (i = 0, intp = 1; intp <= 8; intp *= 2) {
+		dac_freq = dat_freq * intp;
+		if (dac_freq > AD9122_MAX_DAC_RATE) {
+			break;
+		}
+		r_dac_freq = clk_round_rate(conv->clk[CLK_DAC], dac_freq);
+		if (r_dac_freq != dac_freq)
+			continue;
+		else
+			conv->intp_modes[i++] = dac_freq;
+	}
+
+	conv->intp_modes[i] = 0;
+}
+
+static void ad9122_update_avail_fcent_modes(struct cf_axi_dds_converter *conv,
+					  unsigned long dat_freq)
+{
+	int i;
+
+	if (conv->interp_factor == 1) {
+		conv->cs_modes[0] = 0;
+		conv->cs_modes[1] = -1;
+		return;
+	}
+
+	for (i = 0; i < (conv->interp_factor * 2); i++) {
+		conv->cs_modes[i] = (dat_freq * i) / 2;
+	}
+
+	conv->cs_modes[i] = -1;
+}
+
 static int ad9122_set_data_clk(struct cf_axi_dds_converter *conv, unsigned long freq)
 {
-	unsigned long efreq, dac_freq;
+	unsigned long dac_freq;
+	long dat_freq, r_dac_freq;
 	int ret;
 
-	efreq = clk_round_rate(conv->clk[CLK_DATA], freq);
-	if (efreq != freq) {
-		dev_err(&conv->spi->dev, "CLK_DATA: Requested Rate Mismatch %lu != %lu\n",
-			freq, efreq);
+	dat_freq = clk_round_rate(conv->clk[CLK_DATA], freq);
+	if (dat_freq < 0 || dat_freq > AD9122_MAX_DAC_RATE) {
+		dev_err(&conv->spi->dev,
+			"CLK_DATA: Error or requested rate exceeds maximum %ld (%lu)",
+			dat_freq, AD9122_MAX_DAC_RATE);
 		return -EINVAL;
 	}
 
-	dac_freq = freq * conv->interp_factor;
+	dac_freq = dat_freq * conv->interp_factor;
 	if (dac_freq > AD9122_MAX_DAC_RATE) {
-		dev_err(&conv->spi->dev, "CLK_DAC: Requested Rate exceeds maximum %lu (%lu)\n",
+		dev_err(&conv->spi->dev,
+			"CLK_DAC: Requested Rate exceeds maximum %lu (%lu)",
 			dac_freq, AD9122_MAX_DAC_RATE);
 		return -EINVAL;
 	}
 
-	efreq = clk_round_rate(conv->clk[CLK_DAC], dac_freq);
-	if (efreq != dac_freq) {
-		dev_err(&conv->spi->dev, "CLK_DAC: Requested Rate Mismatch %lu != %lu\n",
-			freq, efreq);
+	r_dac_freq = clk_round_rate(conv->clk[CLK_DAC], dac_freq);
+	if (r_dac_freq != dac_freq) {
+		dev_err(&conv->spi->dev,
+			"CLK_DAC: Requested Rate exceeds mismatch %ld (%lu)",
+			r_dac_freq, dac_freq);
 		return -EINVAL;
 	}
 
-	ret = clk_set_rate(conv->clk[CLK_DATA], freq);
+	ret = clk_set_rate(conv->clk[CLK_DATA], dat_freq);
 	if (ret < 0)
 		return ret;
 
 	ret = clk_set_rate(conv->clk[CLK_DAC], dac_freq);
 	if (ret < 0)
 		return ret;
+
+	ad9122_update_avail_fcent_modes(conv, dat_freq);
+	ad9122_update_avail_intp_modes(conv, dat_freq);
 
 	return 0;
 }
@@ -234,7 +276,7 @@ static unsigned int ad9122_validate_interp_factor(unsigned fact)
 	}
 }
 
-static int ad9122_set_interpol(struct cf_axi_dds_converter *conv, unsigned interp,
+static int __ad9122_set_interpol(struct cf_axi_dds_converter *conv, unsigned interp,
 			       unsigned fcent_shift, unsigned long data_rate)
 {
 	unsigned char hb1, hb2, hb3, tmp;
@@ -299,6 +341,34 @@ static int ad9122_set_interpol(struct cf_axi_dds_converter *conv, unsigned inter
 	return 0;
 }
 
+static int ad9122_set_interpol_freq(struct cf_axi_dds_converter *conv,
+				   unsigned long freq)
+{
+
+	return __ad9122_set_interpol(conv, freq / ad9122_get_data_clk(conv),
+			       conv->fcenter_shift, 0);
+}
+
+static int ad9122_set_interpol_fcent_freq(struct cf_axi_dds_converter *conv,
+					 unsigned long freq)
+{
+
+	return __ad9122_set_interpol(conv, conv->interp_factor,
+		(freq * 2) / ad9122_get_data_clk(conv), 0);
+}
+
+static unsigned long ad9122_get_interpol_freq(struct cf_axi_dds_converter *conv)
+{
+	return ad9122_get_data_clk(conv) * conv->interp_factor;
+}
+
+static unsigned long
+ad9122_get_interpol_fcent_freq(struct cf_axi_dds_converter *conv)
+{
+	return (ad9122_get_data_clk(conv) * conv->fcenter_shift) / 2;
+}
+
+
 static int __devinit ad9122_probe(struct spi_device *spi)
 {
 	struct device_node *np = spi->dev.of_node;
@@ -322,7 +392,10 @@ static int __devinit ad9122_probe(struct spi_device *spi)
 	conv->setup = ad9122_setup;
 	conv->get_data_clk = ad9122_get_data_clk;
 	conv->set_data_clk = ad9122_set_data_clk;
-	conv->set_interpol = ad9122_set_interpol;
+	conv->set_interpol = ad9122_set_interpol_freq;
+	conv->get_interpol = ad9122_get_interpol_freq;
+	conv->set_interpol_fcent = ad9122_set_interpol_fcent_freq;
+	conv->get_interpol_fcent = ad9122_get_interpol_fcent_freq;
 
 	conv->spi = spi;
 	conv->id = ID_AD9122;
@@ -355,7 +428,7 @@ static int __devinit ad9122_probe(struct spi_device *spi)
 	if (ret)
 		rate = 0;
 
-	ret = ad9122_set_interpol(conv, conv->interp_factor,
+	ret = __ad9122_set_interpol(conv, conv->interp_factor,
 				  conv->fcenter_shift, rate);
 	if (ret)
 		goto out;
