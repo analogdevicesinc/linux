@@ -209,6 +209,6 @@ static struct platform_driver adv7511_encoder_driver = {
 };
 module_platform_driver(adv7511_encoder_driver);
 
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("");
