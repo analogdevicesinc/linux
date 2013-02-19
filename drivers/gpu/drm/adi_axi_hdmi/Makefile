@@ -4,4 +4,4 @@
 
 adi_axi_hdmi-y := axi_hdmi_encoder.o axi_hdmi_crtc.o axi_hdmi_drv.o
 
-obj-y += adi_axi_hdmi.o
+obj-$(CONFIG_DRM_ADI_AXI_HDMI) += adi_axi_hdmi.o
