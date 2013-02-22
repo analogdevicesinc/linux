@@ -851,6 +851,7 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 
 	st->rx_chan = dma_request_channel(mask, axiadc_dma_filter, &dma_params);
 	if (!st->rx_chan) {
+		ret = -EPROBE_DEFER;
 		dev_err(dev, "failed to find rx dma device\n");
 		goto failed2;
 	}
