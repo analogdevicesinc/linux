@@ -36,6 +36,12 @@ extern void __iomem *socfpga_scu_base_addr;
 
 extern void socfpga_init_clocks(void);
 extern void socfpga_sysmgr_init(void);
+/*MPU Module Reset Register */
+#define RSTMGR_MPUMODRST_CPU0	0x1	/*CPU0 Reset*/
+#define RSTMGR_MPUMODRST_CPU1	0x2	/*CPU1 Reset*/
+#define RSTMGR_MPUMODRST_WDS		0x4	/*Watchdog Reset*/
+#define RSTMGR_MPUMODRST_SCUPER	0x8	/*SCU and periphs reset*/
+#define RSTMGR_MPUMODRST_L2		0x10	/*L2 Cache reset*/
 
 extern void __iomem *sys_manager_base_addr;
 extern void __iomem *rst_manager_base_addr;
