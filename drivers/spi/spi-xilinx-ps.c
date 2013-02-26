@@ -655,6 +655,7 @@ static int xspips_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct xspips *xspi;
 	struct resource *res;
+	unsigned long aper_clk_rate;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*xspi));
 	if (master == NULL)
@@ -732,6 +733,10 @@ static int xspips_probe(struct platform_device *pdev)
 	master->setup = xspips_setup;
 	master->transfer = xspips_transfer;
 	master->mode_bits = SPI_CPOL | SPI_CPHA;
+
+	aper_clk_rate = clk_get_rate(xspi->aperclk);
+	if (aper_clk_rate > clk_get_rate(xspi->devclk))
+		clk_set_rate(xspi->devclk, aper_clk_rate);
 
 	xspi->speed_hz = clk_get_rate(xspi->devclk) / 2;
 
