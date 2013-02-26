@@ -1681,8 +1681,9 @@ static void xemacps_resetrx_for_no_rxdata(unsigned long data)
 	struct net_local *lp = (struct net_local *)data;
 	unsigned long regctrl;
 	unsigned long tempcntr;
+	unsigned long flags;
 
-	spin_lock(&lp->lock);
+	spin_lock_irqsave(&lp->lock, flags);
 	tempcntr = xemacps_read(lp->baseaddr, XEMACPS_RXCNT_OFFSET);
 	if ((!tempcntr) && (!(lp->lastrxfrmscntr))) {
 		regctrl = xemacps_read(lp->baseaddr,
@@ -1695,7 +1696,7 @@ static void xemacps_resetrx_for_no_rxdata(unsigned long data)
 		xemacps_write(lp->baseaddr, XEMACPS_NWCTRL_OFFSET, regctrl);
 	}
 	lp->lastrxfrmscntr = tempcntr;
-	spin_unlock(&lp->lock);
+	spin_unlock_irqrestore(&lp->lock, flags);
 }
 
 /**
@@ -1890,13 +1891,14 @@ static int xemacps_close(struct net_device *ndev)
 static void xemacps_tx_timeout(struct net_device *ndev)
 {
 	struct net_local *lp = netdev_priv(ndev);
+	unsigned long flags;
 	int rc;
 
 	dev_err(&lp->pdev->dev, "transmit timeout %lu ms, reseting...\n",
 		TX_TIMEOUT * 1000UL / HZ);
 	netif_stop_queue(ndev);
 
-	spin_lock(&lp->lock);
+	spin_lock_irqsave(&lp->lock, flags);
 	napi_disable(&lp->napi);
 	xemacps_reset_hw(lp);
 	xemacps_descriptor_free(lp);
@@ -1919,7 +1921,7 @@ static void xemacps_tx_timeout(struct net_device *ndev)
 		phy_start(lp->phy_dev);
 	napi_enable(&lp->napi);
 
-	spin_unlock(&lp->lock);
+	spin_unlock_irqrestore(&lp->lock, flags);
 	netif_start_queue(ndev);
 }
 
