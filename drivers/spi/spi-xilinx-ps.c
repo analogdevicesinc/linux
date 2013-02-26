@@ -393,6 +393,7 @@ static int xspips_start_transfer(struct spi_device *spi,
 	struct xspips *xspi = spi_master_get_devdata(spi->master);
 	u32 ctrl_reg;
 	unsigned long flags;
+	int ret;
 
 	xspi->txbuf = transfer->tx_buf;
 	xspi->rxbuf = transfer->rx_buf;
@@ -412,7 +413,9 @@ static int xspips_start_transfer(struct spi_device *spi,
 
 	spin_unlock_irqrestore(&xspi->ctrl_reg_lock, flags);
 
-	wait_for_completion(&xspi->done);
+	ret = wait_for_completion_timeout(&xspi->done, 5 * HZ);
+	if (ret == 0)
+		return -EIO;
 
 	return (transfer->len) - (xspi->remaining_bytes);
 }
