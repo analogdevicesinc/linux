@@ -48,6 +48,6 @@ extern char secondary_trampoline, secondary_trampoline_end;
 
 extern unsigned long cpu1start_addr;
 
-#define SOCFPGA_SCU_VIRT_BASE   0xfffec000
+#define SOCFPGA_SCU_VIRT_BASE   0xfee00000
 
 #endif
