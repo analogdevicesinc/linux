@@ -182,6 +182,16 @@ static const char * const iio_ev_dir_text[] = {
 	[IIO_EV_DIR_FALLING] = "falling"
 };
 
+static enum iio_event_direction iio_ev_attr_dir(struct iio_dev_attr *attr)
+{
+    return attr->address % IIO_EV_DIR_MAX;
+}
+
+static enum iio_event_type iio_ev_attr_type(struct iio_dev_attr *attr)
+{
+    return attr->address / IIO_EV_DIR_MAX;
+}
+
 static ssize_t iio_ev_state_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf,
@@ -196,8 +206,9 @@ static ssize_t iio_ev_state_store(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	ret = indio_dev->info->write_event_config(indio_dev,
-						  this_attr->address,
+	ret = indio_dev->info->write_event_config(indio_dev, this_attr->c,
+						  iio_ev_attr_type(this_attr),
+						  iio_ev_attr_dir(this_attr),
 						  val);
 	return (ret < 0) ? ret : len;
 }
@@ -208,9 +219,11 @@ static ssize_t iio_ev_state_show(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-	int val = indio_dev->info->read_event_config(indio_dev,
-						     this_attr->address);
+	int val;
 
+	val = indio_dev->info->read_event_config(indio_dev, this_attr->c,
+						 iio_ev_attr_type(this_attr),
+						 iio_ev_attr_dir(this_attr));
 	if (val < 0)
 		return val;
 	else
@@ -225,8 +238,10 @@ static ssize_t iio_ev_value_show(struct device *dev,
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	int val, ret;
 
-	ret = indio_dev->info->read_event_value(indio_dev,
-						this_attr->address, &val);
+	ret = indio_dev->info->read_event_value(indio_dev, this_attr->c,
+						iio_ev_attr_type(this_attr),
+						iio_ev_attr_dir(this_attr),
+						&val);
 	if (ret < 0)
 		return ret;
 
@@ -250,7 +265,9 @@ static ssize_t iio_ev_value_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	ret = indio_dev->info->write_event_value(indio_dev, this_attr->address,
+	ret = indio_dev->info->write_event_value(indio_dev, this_attr->c,
+						 iio_ev_attr_type(this_attr),
+						 iio_ev_attr_dir(this_attr),
 						 val);
 	if (ret < 0)
 		return ret;
@@ -262,7 +279,6 @@ static int iio_device_add_event_sysfs(struct iio_dev *indio_dev,
 				      struct iio_chan_spec const *chan)
 {
 	int ret = 0, i, attrcount = 0;
-	u64 mask = 0;
 	char *postfix;
 	if (!chan->event_mask)
 		return 0;
@@ -275,29 +291,12 @@ static int iio_device_add_event_sysfs(struct iio_dev *indio_dev,
 			ret = -ENOMEM;
 			goto error_ret;
 		}
-		if (chan->modified)
-			mask = IIO_MOD_EVENT_CODE(chan->type, 0, chan->channel,
-						  i/IIO_EV_DIR_MAX,
-						  i%IIO_EV_DIR_MAX);
-		else if (chan->differential)
-			mask = IIO_EVENT_CODE(chan->type,
-					      0, 0,
-					      i%IIO_EV_DIR_MAX,
-					      i/IIO_EV_DIR_MAX,
-					      0,
-					      chan->channel,
-					      chan->channel2);
-		else
-			mask = IIO_UNMOD_EVENT_CODE(chan->type,
-						    chan->channel,
-						    i/IIO_EV_DIR_MAX,
-						    i%IIO_EV_DIR_MAX);
 
 		ret = __iio_add_chan_devattr(postfix,
 					     chan,
 					     &iio_ev_state_show,
 					     iio_ev_state_store,
-					     mask,
+					     i,
 					     0,
 					     &indio_dev->dev,
 					     &indio_dev->event_interface->
@@ -316,7 +315,7 @@ static int iio_device_add_event_sysfs(struct iio_dev *indio_dev,
 		ret = __iio_add_chan_devattr(postfix, chan,
 					     iio_ev_value_show,
 					     iio_ev_value_store,
-					     mask,
+					     i,
 					     0,
 					     &indio_dev->dev,
 					     &indio_dev->event_interface->

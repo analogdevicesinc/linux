@@ -557,12 +557,14 @@ static const struct iio_chan_spec tsl2563_channels[] = {
 };
 
 static int tsl2563_read_thresh(struct iio_dev *indio_dev,
-			       u64 event_code,
+			       const struct iio_chan_spec *chan,
+			       enum iio_event_type type,
+			       enum iio_event_direction dir,
 			       int *val)
 {
 	struct tsl2563_chip *chip = iio_priv(indio_dev);
 
-	switch (IIO_EVENT_CODE_EXTRACT_DIR(event_code)) {
+	switch (dir) {
 	case IIO_EV_DIR_RISING:
 		*val = chip->high_thres;
 		break;
@@ -577,14 +579,16 @@ static int tsl2563_read_thresh(struct iio_dev *indio_dev,
 }
 
 static int tsl2563_write_thresh(struct iio_dev *indio_dev,
-				  u64 event_code,
-				  int val)
+				const struct iio_chan_spec *chan,
+				enum iio_event_type type,
+				enum iio_event_direction dir,
+				int val)
 {
 	struct tsl2563_chip *chip = iio_priv(indio_dev);
 	int ret;
 	u8 address;
 
-	if (IIO_EVENT_CODE_EXTRACT_DIR(event_code) == IIO_EV_DIR_RISING)
+	if (dir == IIO_EV_DIR_RISING)
 		address = TSL2563_REG_HIGHLOW;
 	else
 		address = TSL2563_REG_LOWLOW;
@@ -596,7 +600,7 @@ static int tsl2563_write_thresh(struct iio_dev *indio_dev,
 	ret = i2c_smbus_write_byte_data(chip->client,
 					TSL2563_CMD | (address + 1),
 					(val >> 8) & 0xFF);
-	if (IIO_EVENT_CODE_EXTRACT_DIR(event_code) == IIO_EV_DIR_RISING)
+	if (dir == IIO_EV_DIR_RISING)
 		chip->high_thres = val;
 	else
 		chip->low_thres = val;
@@ -625,7 +629,9 @@ static irqreturn_t tsl2563_event_handler(int irq, void *private)
 }
 
 static int tsl2563_write_interrupt_config(struct iio_dev *indio_dev,
-					  u64 event_code,
+					  const struct iio_chan_spec *chan,
+					  enum iio_event_type type,
+					  enum iio_event_direction dir,
 					  int state)
 {
 	struct tsl2563_chip *chip = iio_priv(indio_dev);
@@ -667,7 +673,9 @@ out:
 }
 
 static int tsl2563_read_interrupt_config(struct iio_dev *indio_dev,
-					 u64 event_code)
+					 const struct iio_chan_spec *chan,
+					 enum iio_event_type type,
+					 enum iio_event_direction dir)
 {
 	struct tsl2563_chip *chip = iio_priv(indio_dev);
 	int ret;

@@ -364,15 +364,15 @@ static int ad5421_write_raw(struct iio_dev *indio_dev,
 }
 
 static int ad5421_write_event_config(struct iio_dev *indio_dev,
-	u64 event_code, int state)
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, int state)
 {
 	struct ad5421_state *st = iio_priv(indio_dev);
 	unsigned int mask;
 
-	switch (IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(event_code)) {
+	switch (chan->type) {
 	case IIO_CURRENT:
-		if (IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			IIO_EV_DIR_RISING)
+		if (dir == IIO_EV_DIR_RISING)
 			mask = AD5421_FAULT_OVER_CURRENT;
 		else
 			mask = AD5421_FAULT_UNDER_CURRENT;
@@ -395,15 +395,15 @@ static int ad5421_write_event_config(struct iio_dev *indio_dev,
 }
 
 static int ad5421_read_event_config(struct iio_dev *indio_dev,
-	u64 event_code)
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir)
 {
 	struct ad5421_state *st = iio_priv(indio_dev);
 	unsigned int mask;
 
-	switch (IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(event_code)) {
+	switch (chan->type) {
 	case IIO_CURRENT:
-		if (IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			IIO_EV_DIR_RISING)
+		if (dir == IIO_EV_DIR_RISING)
 			mask = AD5421_FAULT_OVER_CURRENT;
 		else
 			mask = AD5421_FAULT_UNDER_CURRENT;
@@ -418,12 +418,13 @@ static int ad5421_read_event_config(struct iio_dev *indio_dev,
 	return (bool)(st->fault_mask & mask);
 }
 
-static int ad5421_read_event_value(struct iio_dev *indio_dev, u64 event_code,
-	int *val)
+static int ad5421_read_event_value(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, int *val)
 {
 	int ret;
 
-	switch (IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(event_code)) {
+	switch (chan->type) {
 	case IIO_CURRENT:
 		ret = ad5421_read(indio_dev, AD5421_REG_DAC_DATA);
 		if (ret < 0)
