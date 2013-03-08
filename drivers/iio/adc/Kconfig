@@ -41,5 +41,11 @@ config CF_AXI_FFT
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
 
+config XILINX_XADC
+	tristate "Xilinx XADC driver"
+	depends on OF
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+
 
 endmenu

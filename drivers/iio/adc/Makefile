@@ -12,3 +12,4 @@ obj-$(CONFIG_CF_AXI_FFT) += cf_axi_fft_core.o
 obj-$(CONFIG_AXI_JESD204B) += cf_axi_jesd204b.o
 
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
+obj-$(CONFIG_XILINX_XADC) += xilinx-xadc.o xilinx-xadc-events.o
