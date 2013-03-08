@@ -70,6 +70,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_SPDIF
 	select SND_SOC_SSM2518 if I2C
 	select SND_SOC_SSM2602 if SND_SOC_I2C_AND_SPI
+	select SND_SOC_SSM4567_I2C if I2C
+	select SND_SOC_SSM4567_TDMC if SND_SOC_TDMC
 	select SND_SOC_STA32X if I2C
 	select SND_SOC_STA529 if I2C
 	select SND_SOC_STAC9766 if SND_SOC_AC97_BUS
@@ -355,6 +357,19 @@ config SND_SOC_SSM2518
 
 config SND_SOC_SSM2602
 	tristate
+
+config SND_SOC_SSM4567
+	tristate
+
+config SND_SOC_SSM4567_I2C
+	tristate "SSM4567 I2C support"
+	depends on I2C
+	select SND_SOC_SSM4567
+
+config SND_SOC_SSM4567_TDMC
+	tristate "SSM4567 TDMC support"
+	depends on SND_SOC_TDMC
+	select SND_SOC_SSM4567
 
 config SND_SOC_STA32X
 	tristate
