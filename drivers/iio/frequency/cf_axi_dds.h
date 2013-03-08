@@ -61,18 +61,19 @@ struct cf_axi_dds_chip_info {
 
 struct cf_axi_dds_state {
 	struct list_head		list;
-	struct device 			*dev_spi;
+	struct device 		*dev_spi;
 	struct resource 		r_mem; /* IO mem resources */
 	const struct cf_axi_dds_chip_info	*chip_info;
-	void				*buf_virt;
-	dma_addr_t			buf_phys;
-	struct dma_chan			*tx_chan;
-	struct xilinx_dma_config 	dma_config;
-	u16				int_vref_mv;
-	int irq;
-	void __iomem			*regs;
-	unsigned int			flags;
-	u32				dac_clk;
+	struct iio_info		iio_info;
+	void			*buf_virt;
+	dma_addr_t		buf_phys;
+	struct dma_chan		*tx_chan;
+	struct xilinx_dma_config	dma_config;
+	u16			int_vref_mv;
+	int 			irq;
+	void __iomem		*regs;
+	unsigned int		flags;
+	u32			dac_clk;
 	unsigned			vers_id;
 	unsigned			buffer_lenght;
 	unsigned			txcount;
@@ -86,7 +87,7 @@ enum {
 	CLK_NUM,
 };
 
-struct cf_axi_dds_converter {
+struct cf_axi_converter {
 	struct spi_device 	*spi;
 	struct clk 	*clk[CLK_NUM];
 	unsigned		id;
@@ -97,18 +98,31 @@ struct cf_axi_dds_converter {
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);
-	int		(*setup)(struct cf_axi_dds_converter *conv, unsigned mode);
-	unsigned long	(*get_data_clk)(struct cf_axi_dds_converter *conv);
-	int		(*set_data_clk)(struct cf_axi_dds_converter *conv, unsigned long freq);
-	unsigned long	(*get_interpol)(struct cf_axi_dds_converter *conv);
-	int		(*set_interpol)(struct cf_axi_dds_converter *conv, unsigned long freq);
-	unsigned long	(*get_interpol_fcent)(struct cf_axi_dds_converter *conv);
-	int		(*set_interpol_fcent)(struct cf_axi_dds_converter *conv, unsigned long freq);
+	int		(*setup)(struct cf_axi_converter *conv);
+	int		(*get_fifo_status)(struct cf_axi_converter *conv);
+	unsigned long	(*get_data_clk)(struct cf_axi_converter *conv);
+
+	int (*read_raw)(struct iio_dev *indio_dev,
+			struct iio_chan_spec const *chan,
+			int *val,
+			int *val2,
+			long mask);
+
+	int (*write_raw)(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan,
+			 int val,
+			 int val2,
+			 long mask);
+	const struct attribute_group	*attrs;
+	struct iio_dev 	*indio_dev;
+	void		(*pcore_set_sed_pattern)(struct iio_dev *indio_dev,
+						 unsigned pat1, unsigned pat2);
+	void		(*pcore_sync)(struct iio_dev *indio_dev);
 };
 
-static inline struct cf_axi_dds_converter *to_converter(struct device *dev)
+static inline struct cf_axi_converter *to_converter(struct device *dev)
 {
-	struct cf_axi_dds_converter *conv = spi_get_drvdata(to_spi_device(dev));
+	struct cf_axi_converter *conv = spi_get_drvdata(to_spi_device(dev));
 
 	if (conv)
 		return conv;
