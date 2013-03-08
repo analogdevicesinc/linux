@@ -66,26 +66,23 @@ static int __devinit ad9250_setup(struct spi_device *spi)
 {
 	int ret;
 	unsigned pll_stat;
+	static int sel = 0;
 
-	ret = ad9467_spi_write(spi, 0x18, 0x00); // default vref
-	ret |= ad9467_spi_write(spi, 0x64, 0xf0); // did
-	ret |= ad9467_spi_write(spi, 0x80, 0x0f); // powerdown
-	ret |= ad9467_spi_write(spi, 0x5f, 0x17); // char repl & ilas
-	ret |= ad9467_spi_write(spi, 0x09, 0x01); // clock control
-	ret |= ad9467_spi_write(spi, 0x82, 0x02); // lane b = 0, lane a = 2
-	ret |= ad9467_spi_write(spi, 0x83, 0x31); // lane c = 1, lane d = 3
+	ret = ad9467_spi_write(spi, 0x5f, (0x16 | 0x1)); // trail bits, ilas normal & pd
+	ret |= ad9467_spi_write(spi, 0x5e, 0x22); // m=2, l=2
+	ret |= ad9467_spi_write(spi, 0x66, sel++); // lane id
+	ret |= ad9467_spi_write(spi, 0x67, sel++); // lane id
 	ret |= ad9467_spi_write(spi, 0x6e, 0x81); // scr, 2-lane
 	ret |= ad9467_spi_write(spi, 0x70, 0x1f); // no. of frames per multi frame
-	ret |= ad9467_spi_write(spi, 0x5e, 0x22); // m=2, l=2
-	ret |= ad9467_spi_write(spi, 0x5f, 0x16); // char repl & ilas
-	ret |= ad9467_spi_write(spi, 0x80, 0x09); // powerdown
-	ret |= ad9467_spi_write(spi, 0x3a, 0x10); // sysref ctrl
+	ret |= ad9467_spi_write(spi, 0x3a, 0x1e); // sysref enabled
+	ret |= ad9467_spi_write(spi, 0x5f, (0x16 | 0x0)); // enable
 	ret |= ad9467_spi_write(spi, 0x14, 0x00); // offset binary
 	ret |= ad9467_spi_write(spi, 0x0d, 0x00); // test patterns
+
 	ret |= ad9467_spi_write(spi, 0xff, 0x01);
 	ret |= ad9467_spi_write(spi, 0xff, 0x00);
 
-	pll_stat	 = ad9467_spi_read(spi, 0x0A);
+	pll_stat = ad9467_spi_read(spi, 0x0A);
 
 	dev_info(&spi->dev, "PLL %s, JESD204B Link %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED",
