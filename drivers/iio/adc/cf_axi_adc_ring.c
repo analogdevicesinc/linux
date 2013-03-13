@@ -172,7 +172,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	else
 		st->rcount = st->ring_length;
 
-	if (st->rcount > AXIADC_MAX_PCORE_TSIZE) {
+	if (st->rcount > st->max_count) {
 		ret = -EINVAL;
 		goto error_ret;
 	}
@@ -203,8 +203,15 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	axiadc_write(st, AXIADC_PCORE_DMA_CTRL, 0);
 	axiadc_write(st, AXIADC_PCORE_ADC_STAT, 0xFF);
 	axiadc_write(st, AXIADC_PCORE_DMA_STAT, 0xFF);
-	axiadc_write(st, AXIADC_PCORE_DMA_CTRL,
-		  AXIADC_DMA_CAP_EN | AXIADC_DMA_CNT((st->rcount / 8) - 1));
+
+	if (st->pcore_version > AXIADC_PCORE_VERSION_IS(1, 0, 'a'))
+		axiadc_write(st, AXIADC_PCORE_DMA_CTRL,
+			AXIADC_DMA_CAP_EN |
+			AXIADC_DMA_CNT((st->rcount / 8) - 1));
+	else
+		axiadc_write(st, AXIADC_PCORE_DMA_CTRL,
+			AXIADC_DMA_CAP_EN_V10A |
+			AXIADC_DMA_CNT_V10A((st->rcount / 8) - 1));
 
 	return 0;
 
@@ -218,7 +225,7 @@ static int axiadc_hw_ring_preenable(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	return __axiadc_hw_ring_state_set(indio_dev, 1);
+return __axiadc_hw_ring_state_set(indio_dev, 1);
 }
 
 static int axiadc_hw_ring_postdisable(struct iio_dev *indio_dev)
@@ -232,7 +239,7 @@ static bool axiadc_hw_ring_validate_scan_mask(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 	unsigned mask;
 
-	if (st->have_user_logic == false)
+	if (!st->have_user_logic)
 		return true;
 
 	mask = (1UL << st->chip_info->num_channels) - 1;

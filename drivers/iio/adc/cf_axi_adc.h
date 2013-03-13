@@ -25,15 +25,23 @@
 #define AXIADC_PCORE_CB_OFFS_SCALE	0x44
 #define AXIADC_PCORE_USRL_DECIM		0x48
 #define AXIADC_PCORE_USRL_DTYPE		0x4C
+#define AXIADC_PCORE_USRL_MAXCH		0x50
+
+/* AXIADC_PCORE_VERSION */
+#define AXIADC_PCORE_VERSION_IS(x,y,z)	((x) << 16 | (y) << 8 | (z))
 
 /* AXIADC_PCORE_DMA_CHAN_SEL */
-#define AXIADC_PCORE_DMA_CHAN_SEL0	(1 << 0)
-#define AXIADC_PCORE_DMA_CHAN_SEL1	(1 << 1)
-#define AXIADC_PCORE_DMA_CHAN_USRL_SEL	(1 << 2)
+#define AXIADC_PCORE_DMA_CHAN_SEL0		(1 << 0)
+#define AXIADC_PCORE_DMA_CHAN_SEL1		(1 << 1)
+#define AXIADC_PCORE_DMA_CHAN_USRL_SEL(x)	((x) << 2)
 
 /* AXIADC_PCORE_DMA_CTRL */
-#define AXIADC_DMA_CAP_EN		(1 << 16)
-#define AXIADC_DMA_CNT(x)		(((x) & 0xFFFF) << 0)
+#define AXIADC_DMA_CAP_EN_V10A		(1 << 16)
+#define AXIADC_DMA_CNT_V10A(x)		(((x) & 0xFFFF) << 0)
+
+#define AXIADC_DMA_CAP_EN		(1 << 31)
+#define AXIADC_DMA_CAP_STREAM		(1 << 30)
+#define AXIADC_DMA_CNT(x)		(((x) & 0x3FFFFFF) << 0)
 
 /* AXIADC_PCORE_DMA_STAT */
 #define AXIADC_DMA_STAT_BUSY		(1 << 0) /* W1C */
@@ -171,7 +179,7 @@
 #include <linux/spi/spi.h>
 
 #define AXIADC_MAX_PCORE_TSIZE		(524288)
-#define AXIADC_MAX_DMA_SIZE		(1 * 1024 * 1024) /* Randomly picked */
+#define AXIADC_MAX_DMA_SIZE		(4 * 1024 * 1024) /* Randomly picked */
 
 
 enum {
@@ -187,7 +195,7 @@ struct axiadc_chip_info {
 	const int			(*scale_table)[2];
 	int				num_scales;
 	unsigned long			max_rate;
-	struct iio_chan_spec		channel[4];
+	struct iio_chan_spec		channel[17];
 };
 
 struct axiadc_state {
@@ -201,11 +209,13 @@ struct axiadc_state {
 	dma_addr_t			buf_phys;
 	size_t				read_offs;
 	int				compl_stat;
-	bool				have_user_logic;
+	unsigned				have_user_logic;
 	unsigned			adc_def_output_mode;
 	unsigned			ring_length;
 	unsigned			rcount;
+	unsigned			max_count;
 	unsigned			id;
+	unsigned			pcore_version;
 	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
 
