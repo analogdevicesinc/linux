@@ -1,7 +1,7 @@
 /*
  * DDS PCORE/COREFPGA Module
  *
- * Copyright 2012 Analog Devices Inc.
+ * Copyright 2012-2013 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -131,7 +131,7 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	struct dma_async_tx_descriptor *desc;
-	unsigned tmp_reg, x;
+	unsigned tmp_reg, x, cnt;
 
 #if 0
 	tmp_reg = dds_read(st, CF_AXI_DDS_DMA_STAT);
@@ -159,27 +159,29 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 		CF_AXI_DDS_CTRL_DDS_CLK_EN_V2 |
 		st->ddr_dds_interp_en;
 
-
-	x = DIV_ROUND_UP(st->txcount, (VDMA_MAX_VSIZE + 1) * 8);
+	cnt = st->txcount;
+	x = 1;
 
 	do {
-		if (st->txcount % (x * 8))
-			x++;
-		else
-			break;
-	} while (x <= 8192);
+		if (cnt > VDMA_MAX_HSIZE)
+			cnt /= ++x;
 
-	if (x == 8192) {
+		if ((cnt <= VDMA_MAX_HSIZE) && ((cnt % 8) == 0))
+			break;
+	} while (x < VDMA_MAX_VSIZE);
+
+	if (x > VDMA_MAX_VSIZE || cnt * x != st->txcount || ((cnt % 8) != 0))
 		return -EINVAL;
-	}
 
 	cf_axi_dds_stop(st);
 
-	st->dma_config.vsize = st->txcount / (x * 8);
-	st->dma_config.stride = st->dma_config.hsize = x * 8;
+	st->dma_config.vsize = x;
+	st->dma_config.stride = st->dma_config.hsize = cnt;
 
 	dmaengine_device_control(st->tx_chan, DMA_SLAVE_CONFIG,
 		(unsigned long)&st->dma_config);
+
+	dds_write(st, CF_AXI_DDS_DMA_FRAMECNT, st->txcount / 8);
 
 	desc = dmaengine_prep_slave_single(st->tx_chan,
 		st->buf_phys,
