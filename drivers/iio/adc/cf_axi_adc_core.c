@@ -403,8 +403,18 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		*val = st->adc_clk = clk_get_rate(conv->clk);
 
 		if (chan->extend_name) {
+			unsigned chan_sel, cached_chan_sel;
+			cached_chan_sel = chan_sel = axiadc_read(st,
+					AXIADC_PCORE_DMA_CHAN_SEL);
+			chan_sel &= ~AXIADC_PCORE_DMA_CHAN_USRL_SEL(0xF);
+			chan_sel |= AXIADC_PCORE_DMA_CHAN_USRL_SEL(
+				chan->channel - st->chip_info->num_channels);
+			axiadc_write(st, AXIADC_PCORE_DMA_CHAN_SEL, chan_sel);
 			tmp = axiadc_read(st, AXIADC_PCORE_USRL_DECIM);
-			llval = AXIADC_PCORE_USRL_DECIM_NUM(tmp) * (unsigned long long)st->adc_clk;
+			axiadc_write(st, AXIADC_PCORE_DMA_CHAN_SEL,
+				     cached_chan_sel);
+			llval = AXIADC_PCORE_USRL_DECIM_NUM(tmp) *
+				(unsigned long long)st->adc_clk;
 			do_div(llval, AXIADC_PCORE_USRL_DECIM_DEN(tmp));
 			*val = llval;
 		}
@@ -506,7 +516,7 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 static ssize_t axiadc_show_scale_available(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int i, len = 0;
 
@@ -569,9 +579,8 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 		mask = *scan_mask;
 
 		if (st->have_user_logic)
-			if (*scan_mask & (BIT(2) | BIT(3)))
-				mask = (*scan_mask >> 2) |
-					AXIADC_PCORE_DMA_CHAN_USRL_SEL;
+			mask = (*scan_mask & (BIT(0) | BIT(1))) |
+			AXIADC_PCORE_DMA_CHAN_USRL_SEL(ffs(*scan_mask >> 2));
 
 		axiadc_write(st, AXIADC_PCORE_DMA_CHAN_SEL, mask);
 	};
@@ -669,7 +678,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
+	  .info_mask = IIO_CHAN_INFO_SAMP_FREQ_SEPARATE_BIT,		\
 	  .extend_name = "user_logic",					\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
@@ -693,6 +702,20 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.num_channels = 1,
 		.channel[0] = AIM_CHAN(0, 0, 16, 's'),
 		.channel[1] = AIM_CHAN_UL(1, 1, 16, 's'),
+		.channel[2] = AIM_CHAN_UL(2, 2, 16, 's'),
+		.channel[3] = AIM_CHAN_UL(3, 3, 16, 's'),
+		.channel[4] = AIM_CHAN_UL(4, 4, 16, 's'),
+		.channel[5] = AIM_CHAN_UL(5, 5, 16, 's'),
+		.channel[6] = AIM_CHAN_UL(6, 6, 16, 's'),
+		.channel[7] = AIM_CHAN_UL(7, 7, 16, 's'),
+		.channel[8] = AIM_CHAN_UL(8, 8, 16, 's'),
+		.channel[9] = AIM_CHAN_UL(9, 9, 16, 's'),
+		.channel[10] = AIM_CHAN_UL(10, 10, 16, 's'),
+		.channel[11] = AIM_CHAN_UL(11, 11, 16, 's'),
+		.channel[12] = AIM_CHAN_UL(12, 12, 16, 's'),
+		.channel[13] = AIM_CHAN_UL(13, 13, 16, 's'),
+		.channel[14] = AIM_CHAN_UL(14, 14, 16, 's'),
+		.channel[15] = AIM_CHAN_UL(15, 15, 16, 's'),
 	},
 	[ID_AD9643] = {
 		.name = "AD9643",
@@ -704,6 +727,19 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[1] = AIM_CHAN(1, 1, 14, 'u'),
 		.channel[2] = AIM_CHAN_UL(2, 2, 14, 'u'),
 		.channel[3] = AIM_CHAN_UL(3, 3, 14, 'u'),
+		.channel[4] = AIM_CHAN_UL(4, 4, 14, 'u'),
+		.channel[5] = AIM_CHAN_UL(5, 5, 14, 'u'),
+		.channel[6] = AIM_CHAN_UL(6, 6, 14, 'u'),
+		.channel[7] = AIM_CHAN_UL(7, 7, 14, 'u'),
+		.channel[8] = AIM_CHAN_UL(8, 8, 14, 'u'),
+		.channel[9] = AIM_CHAN_UL(9, 9, 14, 'u'),
+		.channel[10] = AIM_CHAN_UL(10, 10, 14, 'u'),
+		.channel[11] = AIM_CHAN_UL(11, 11, 14, 'u'),
+		.channel[12] = AIM_CHAN_UL(12, 12, 14, 'u'),
+		.channel[13] = AIM_CHAN_UL(13, 13, 14, 'u'),
+		.channel[14] = AIM_CHAN_UL(14, 14, 14, 'u'),
+		.channel[15] = AIM_CHAN_UL(15, 15, 14, 'u'),
+		.channel[16] = AIM_CHAN_UL(16, 16, 14, 'u'),
 	},
 	[ID_AD9250] = {
 		.name = "AD9250",
@@ -715,7 +751,19 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'u'),
 		.channel[2] = AIM_CHAN_UL(2, 2, 14, 'u'),
 		.channel[3] = AIM_CHAN_UL(3, 3, 14, 'u'),
-
+		.channel[4] = AIM_CHAN_UL(4, 4, 14, 'u'),
+		.channel[5] = AIM_CHAN_UL(5, 5, 14, 'u'),
+		.channel[6] = AIM_CHAN_UL(6, 6, 14, 'u'),
+		.channel[7] = AIM_CHAN_UL(7, 7, 14, 'u'),
+		.channel[8] = AIM_CHAN_UL(8, 8, 14, 'u'),
+		.channel[9] = AIM_CHAN_UL(9, 9, 14, 'u'),
+		.channel[10] = AIM_CHAN_UL(10, 10, 14, 'u'),
+		.channel[11] = AIM_CHAN_UL(11, 11, 14, 'u'),
+		.channel[12] = AIM_CHAN_UL(12, 12, 14, 'u'),
+		.channel[13] = AIM_CHAN_UL(13, 13, 14, 'u'),
+		.channel[14] = AIM_CHAN_UL(14, 14, 14, 'u'),
+		.channel[15] = AIM_CHAN_UL(15, 15, 14, 'u'),
+		.channel[16] = AIM_CHAN_UL(16, 16, 14, 'u'),
 	},
 	[ID_AD9265] = {
 		.name = "AD9265",
@@ -725,6 +773,20 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.num_channels = 1,
 		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 's'),
 		.channel[1] = AIM_CHAN_UL(1, 1, 16, 's'),
+		.channel[2] = AIM_CHAN_UL(2, 2, 16, 's'),
+		.channel[3] = AIM_CHAN_UL(3, 3, 16, 's'),
+		.channel[4] = AIM_CHAN_UL(4, 4, 16, 's'),
+		.channel[5] = AIM_CHAN_UL(5, 5, 16, 's'),
+		.channel[6] = AIM_CHAN_UL(6, 6, 16, 's'),
+		.channel[7] = AIM_CHAN_UL(7, 7, 16, 's'),
+		.channel[8] = AIM_CHAN_UL(8, 8, 16, 's'),
+		.channel[9] = AIM_CHAN_UL(9, 9, 16, 's'),
+		.channel[10] = AIM_CHAN_UL(10, 10, 16, 's'),
+		.channel[11] = AIM_CHAN_UL(11, 11, 16, 's'),
+		.channel[12] = AIM_CHAN_UL(12, 12, 16, 's'),
+		.channel[13] = AIM_CHAN_UL(13, 13, 16, 's'),
+		.channel[14] = AIM_CHAN_UL(14, 14, 16, 's'),
+		.channel[15] = AIM_CHAN_UL(15, 15, 16, 's'),
 	},
 };
 
@@ -914,25 +976,21 @@ static int axiadc_of_probe(struct platform_device *op)
 		goto failed3;
 	}
 
-	st->have_user_logic = !!AXIADC_PCORE_USRL_DECIM_NUM(axiadc_read(st,
-				AXIADC_PCORE_USRL_DECIM));
+	st->pcore_version = axiadc_read(st, AXIADC_PCORE_VERSION);
 
-	if (st->have_user_logic) {
-		chan_inc = axiadc_read(st, AXIADC_PCORE_USRL_DTYPE);
+	if (st->pcore_version > AXIADC_PCORE_VERSION_IS(1, 0, 'a'))
+		st->max_count = AXIADC_MAX_DMA_SIZE;
+	else
+		st->max_count = AXIADC_MAX_PCORE_TSIZE;
 
-		if (chan_inc & AXIADC_PCORE_USRL_DTYPE_NORM)
-			chan_inc = 1;
-		else
-			chan_inc = st->chip_info->num_channels;
-	} else {
-		chan_inc = 0;
-	}
+
+	st->have_user_logic = axiadc_read(st, AXIADC_PCORE_USRL_MAXCH);
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->channels = st->chip_info->channel;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->num_channels = st->chip_info->num_channels + chan_inc;
+	indio_dev->num_channels = st->chip_info->num_channels + st->have_user_logic;
 	indio_dev->masklength = indio_dev->num_channels;
 
 	indio_dev->info = &axiadc_info;
@@ -955,7 +1013,7 @@ static int axiadc_of_probe(struct platform_device *op)
 
 	dev_info(dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p,"
 		 " DMA-%d probed ADC %s as %s\n",
-		 axiadc_read(st, AXIADC_PCORE_VERSION),
+		 st->pcore_version,
 		 (unsigned long long)phys_addr, st->regs,
 		 st->rx_chan->chan_id, st->chip_info->name,
 		 (axiadc_read(st, AXIADC_PCORE_IDENT) &
