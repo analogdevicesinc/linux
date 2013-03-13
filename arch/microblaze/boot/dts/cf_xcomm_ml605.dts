@@ -164,7 +164,7 @@
 			compatible = "xlnx,axi-ethernetlite-1.01.b", "xlnx,xps-ethernetlite-1.00.a";
 			device_type = "network";
 			interrupt-parent = <&axi_intc_0>;
-			interrupts = < 9 0 >;
+			interrupts = < 10 0 >;
 			local-mac-address = [ 00 0a 35 ac a4 00 ];
 			phy-handle = <&phy0>;
 			reg = < 0x40e00000 0x10000 >;
@@ -198,7 +198,7 @@
 			current-speed = <57600>;
 			device_type = "serial";
 			interrupt-parent = <&axi_intc_0>;
-			interrupts = < 10 0 >;
+			interrupts = < 11 0 >;
 			port-number = <0>;
 			reg = < 0x40600000 0x10000 >;
 			xlnx,baudrate = <0xe100>;
@@ -213,7 +213,7 @@
 		axi_iic_0: i2c@40820000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&axi_intc_0>;
-			interrupts = < 5 2 >;
+			interrupts = < 6 2 >;
 			reg = < 0x40820000 0x10000 >;
 			xlnx,family = "virtex6";
 			xlnx,gpo-width = <0x1>;
@@ -406,7 +406,7 @@
 		axi_iic_1: i2c@40800000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&axi_intc_0>;
-			interrupts = < 4 2 >;
+			interrupts = < 5 2 >;
 			reg = < 0x40800000 0x10000 >;
 			xlnx,family = "virtex6";
 			xlnx,gpo-width = <0x1>;
@@ -613,6 +613,25 @@
 			xlnx,tri-default-2 = <0xffffffff>;
 		} ;
 
+		axi_gpio_1: gpio@40040000 {
+			compatible = "xlnx,axi-gpio-1.01.b", "xlnx,xps-gpio-1.00.a";
+			interrupt-parent = <&axi_intc_0>;
+			interrupts = < 0 2 >;
+			reg = < 0x40040000 0x10000 >;
+			xlnx,all-inputs = <0x0>;
+			xlnx,all-inputs-2 = <0x0>;
+			xlnx,dout-default = <0x0>;
+			xlnx,dout-default-2 = <0x0>;
+			xlnx,family = "virtex6";
+			xlnx,gpio-width = <0xd>;
+			xlnx,gpio2-width = <0xd>;
+			xlnx,instance = "axi_gpio_1";
+			xlnx,interrupt-present = <0x1>;
+			xlnx,is-dual = <0x1>;
+			xlnx,tri-default = <0xffffffff>;
+			xlnx,tri-default-2 = <0xffffffff>;
+		} ;
+
 		axi_dac_4d_2c_0: cf-ad9122-core-lpc@7a020000 {
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
 			reg = < 0x7a020000 0x10000 >;
@@ -685,11 +704,11 @@
 			compatible = "xlnx,axi-dma";
 			ranges = < 0x41e40000 0x41e40000 0x10000 >;
 			reg = < 0x41e40000 0x10000 >;
-//			xlnx,sg-include-stscntrl-strm = <0x0>;
+			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@41e40030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 7 2 >;
+				interrupts = < 8 2 >;
 				xlnx,datawidth = <0x40>;
 				xlnx,include-dre = <0x0>;
 			} ;
@@ -701,11 +720,11 @@
 			compatible = "xlnx,axi-dma";
 			ranges = < 0x41e20000 0x41e20000 0x10000 >;
 			reg = < 0x41e20000 0x10000 >;
-//			xlnx,sg-include-stscntrl-strm = <0x0>;
+			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@41e20030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 6 2 >;
+				interrupts = < 7 2 >;
 				xlnx,datawidth = <0x40>;
 				xlnx,include-dre = <0x0>;
 			} ;
@@ -715,9 +734,10 @@
 			compatible = "xlnx,axi-intc-1.02.a", "xlnx,xps-intc-1.00.a";
 			interrupt-controller ;
 			reg = < 0x41200000 0x10000 >;
-			xlnx,kind-of-intr = <0x600>;
-			xlnx,num-intr-inputs = <0xb>;
+			xlnx,kind-of-intr = <0xc00>;
+			xlnx,num-intr-inputs = <0xc>;
 		} ;
+
 		axi_dma_2: axidma@41e00000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -729,14 +749,14 @@
 			dma-channel@41e00000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
 				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 1 2 >;
+				interrupts = < 2 2 >;
 				xlnx,datawidth = <0x20>;
 				xlnx,include-dre = <0x0>;
 			} ;
 			dma-channel@41e00030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 0 2 >;
+				interrupts = < 1 2 >;
 				xlnx,datawidth = <0x20>;
 				xlnx,include-dre = <0x0>;
 			} ;
@@ -759,7 +779,7 @@
 			clock-frequency = <100000000>;
 			compatible = "xlnx,axi-timer-1.03.a", "xlnx,xps-timer-1.00.a";
 			interrupt-parent = <&axi_intc_0>;
-			interrupts = < 8 2 >;
+			interrupts = < 9 2 >;
 			reg = < 0x41c00000 0x10000 >;
 			xlnx,count-width = <0x20>;
 			xlnx,family = "virtex6";
@@ -782,7 +802,7 @@
 			dma-channel@7e220000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
 				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 3 2 >;
+				interrupts = < 4 2 >;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -800,7 +820,7 @@
 			dma-channel@7e200000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
 				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 2 2 >;
+				interrupts = < 3 2 >;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
