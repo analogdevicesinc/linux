@@ -33,6 +33,11 @@
 
 extern void socfpga_secondary_startup(void);
 extern void __iomem *socfpga_scu_base_addr;
+#define SOCFPGA_SYSID_DEFAULT		0x1
+#define SOCFPGA_REVISION_DEFAULT	0x1
+
+/* Sysid register map */
+#define SYSID_ID_REG			0x0
 
 extern void socfpga_init_clocks(void);
 extern void socfpga_sysmgr_init(void);
