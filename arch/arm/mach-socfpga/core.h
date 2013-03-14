@@ -34,6 +34,12 @@
 
 #define RSTMGR_MPUMODRST_CPU1		0x2     /* CPU1 Reset */
 
+#define SOCFPGA_SYSID_DEFAULT		0x1
+#define SOCFPGA_REVISION_DEFAULT	0x1
+
+/* Sysid register map */
+#define SYSID_ID_REG			0x0
+
 extern void socfpga_init_clocks(void);
 extern void socfpga_sysmgr_init(void);
 
