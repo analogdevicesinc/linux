@@ -374,7 +374,7 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 
 
 	st->size = AXI_JESD204B_ES_HSIZE * AXI_JESD204B_ES_VSIZE *
-		sizeof(unsigned int);
+		sizeof(unsigned long long);
 	st->prescale = 0;
 	st->buf_virt = dma_alloc_coherent(dev, PAGE_ALIGN(st->size),
 					  &st->buf_phys, GFP_KERNEL);
