@@ -45,6 +45,8 @@ struct jesd204b_state {
 	int			prescale;
 	struct work_struct 	work;
 	struct completion       complete;
+	unsigned long		flags;
+
 };
 
 /*
@@ -127,12 +129,15 @@ static void jesd204b_work_func(struct work_struct *work)
 {
 	struct jesd204b_state *st =
 		container_of(work, struct jesd204b_state, work);
+	int ret;
 
-	int ret = jesd204b_es(st, st->lane);
+	set_bit(0, &st->flags);
+		ret = jesd204b_es(st, st->lane);
 	if (ret)
 		dev_warn(st->dev, "Eye Scan failed (%d)\n", ret);
 
 	complete_all(&st->complete);
+	clear_bit(0, &st->flags);
 }
 
 static ssize_t
@@ -169,7 +174,7 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 	int ret;
 	unsigned val;
 
-	if (!completion_done(&st->complete))
+	if (test_bit(0, &st->flags) && !completion_done(&st->complete))
 		return -EBUSY;
 
 	jesd204b_set_lane(st, lane);

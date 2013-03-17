@@ -146,8 +146,8 @@
 #define AXI_JESD204B_INIT1_M(x)		(((x) >> 5) & 0xFF) /* Converters per Device */
 #define AXI_JESD204B_INIT1_N(x)		(((x) >> 13) & 0x1F) /* Converter Resolution */
 #define AXI_JESD204B_INIT1_CS(x)		(((x) >> 18) & 0x3) /* Control Bits per Sample */
-#define AXI_JESD204B_INIT1_S(x)		(((x) >> 20) & 0x1F) /* Samples per Converter per Frame Cycle */
-#define AXI_JESD204B_INIT1_ND(x)		(((x) >> 25) & 0x1F) /* Total Bits per Sample */
+#define AXI_JESD204B_INIT1_ND(x)		(((x) >> 20) & 0x1F) /* Total Bits per Sample */
+#define AXI_JESD204B_INIT1_S(x)		(((x) >> 25) & 0x1F) /* Samples per Converter per Frame Cycle */
 #define AXI_JESD204B_INIT1_HD(x)		(((x) >> 30) & 0x1) /* High Density Format */
 
 /* AXI_JESD204B_REG_INIT_DATA2 */
