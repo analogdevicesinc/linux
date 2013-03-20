@@ -26,13 +26,31 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
+#include <asm/pmu.h>
 
 #include "core.h"
+#include "socfpga_cti.h"
 
 void __iomem *socfpga_scu_base_addr = ((void __iomem *)(SOCFPGA_SCU_VIRT_BASE));
 void __iomem *sys_manager_base_addr;
 void __iomem *rst_manager_base_addr;
 unsigned long socfpga_cpu1start_addr;
+
+#ifdef CONFIG_HW_PERF_EVENTS
+static struct arm_pmu_platdata socfpga_pmu_platdata = {
+	.handle_irq = socfpga_pmu_handler,
+	.init = socfpga_init_cti,
+	.start = socfpga_start_cti,
+	.stop = socfpga_stop_cti,
+};
+#endif
+
+static const struct of_dev_auxdata socfpga_auxdata_lookup[] __initconst = {
+#ifdef CONFIG_HW_PERF_EVENTS
+	OF_DEV_AUXDATA("arm,cortex-a9-pmu", 0, "arm-pmu", &socfpga_pmu_platdata),
+#endif
+	{ /* sentinel */ }
+};
 
 static struct map_desc scu_io_desc __initdata = {
 	.virtual	= SOCFPGA_SCU_VIRT_BASE,
@@ -170,6 +188,8 @@ static void socfpga_cyclone5_restart(enum reboot_mode mode, const char *cmd)
 
 static void __init socfpga_cyclone5_init(void)
 {
+	of_platform_populate(NULL, of_default_bus_match_table,
+				socfpga_auxdata_lookup, NULL);
 	enable_periphs();
 	socfpga_soc_device_init();
 }

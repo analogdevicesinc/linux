@@ -679,6 +679,24 @@
 			};
 		};
 
+		pmu {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "arm,cortex-a9-pmu";
+			interrupts = <0 176 4>, <0 177 4>;
+			ranges;
+
+			cti0: cti0@ff118000 {
+				compatible = "arm,coresight-cti";
+				reg = <0xff118000 0x100>;
+			};
+
+			cti1: cti1@ff119000 {
+				compatible = "arm,coresight-cti";
+				reg = <0xff119000 0x100>;
+			};
+		};
+
 		spi0: spi@fff00000 {
 			compatible = "snps,dw-spi-mmio";
 			#address-cells = <1>;
