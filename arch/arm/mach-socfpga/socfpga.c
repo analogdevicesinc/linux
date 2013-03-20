@@ -25,13 +25,31 @@
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
+#include <asm/pmu.h>
 
 #include "core.h"
+#include "socfpga_cti.h"
 
 void __iomem *socfpga_scu_base_addr = ((void __iomem *)(SOCFPGA_SCU_VIRT_BASE));
 void __iomem *sys_manager_base_addr;
 void __iomem *rst_manager_base_addr;
 unsigned long cpu1start_addr;
+
+#ifdef CONFIG_HW_PERF_EVENTS
+static struct arm_pmu_platdata socfpga_pmu_platdata = {
+	.handle_irq = socfpga_pmu_handler,
+	.init = socfpga_init_cti,
+	.start = socfpga_start_cti,
+	.stop = socfpga_stop_cti,
+};
+#endif
+
+static const struct of_dev_auxdata socfpga_auxdata_lookup[] __initconst = {
+#ifdef CONFIG_HW_PERF_EVENTS
+	OF_DEV_AUXDATA("arm,cortex-a9-pmu", 0, "arm-pmu", &socfpga_pmu_platdata),
+#endif
+	{ /* sentinel */ }
+};
 
 static struct map_desc scu_io_desc __initdata = {
 	.virtual	= SOCFPGA_SCU_VIRT_BASE,
