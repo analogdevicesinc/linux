@@ -136,18 +136,18 @@
 #define AXI_JESD204B_INIT0_DID(x)	(((x) >> 0) & 0xFF) /* DID Device ID */
 #define AXI_JESD204B_INIT0_BID(x)	(((x) >> 8) & 0xFF) /* BID Bank ID */
 #define AXI_JESD204B_INIT0_LID(x)	(((x) >> 13) & 0x1F) /* LID Lane ID */
-#define AXI_JESD204B_INIT0_L(x)		(((x) >> 18) & 0x1F) /* Number of Lanes per Device*/
+#define AXI_JESD204B_INIT0_L(x)		((((x) >> 18) & 0x1F) + 1) /* Number of Lanes per Device*/
 #define AXI_JESD204B_INIT0_SCR(x)	(((x) >> 23) & 0x1) /* SCR Scrambling Enabled */
-#define AXI_JESD204B_INIT0_F(x)		(((x) >> 24) & 0xFF) /* Octets per Frame */
+#define AXI_JESD204B_INIT0_F(x)		((((x) >> 24) & 0xFF) + 1) /* Octets per Frame */
 
 /* AXI_JESD204B_REG_INIT_DATA1 */
 
-#define AXI_JESD204B_INIT1_K(x)		(((x) >> 0) & 0x1F) /* Frames per Multiframe */
-#define AXI_JESD204B_INIT1_M(x)		(((x) >> 5) & 0xFF) /* Converters per Device */
-#define AXI_JESD204B_INIT1_N(x)		(((x) >> 13) & 0x1F) /* Converter Resolution */
+#define AXI_JESD204B_INIT1_K(x)		((((x) >> 0) & 0x1F) + 1) /* Frames per Multiframe */
+#define AXI_JESD204B_INIT1_M(x)		((((x) >> 5) & 0xFF) + 1) /* Converters per Device */
+#define AXI_JESD204B_INIT1_N(x)		((((x) >> 13) & 0x1F) + 1) /* Converter Resolution */
 #define AXI_JESD204B_INIT1_CS(x)		(((x) >> 18) & 0x3) /* Control Bits per Sample */
-#define AXI_JESD204B_INIT1_ND(x)		(((x) >> 20) & 0x1F) /* Total Bits per Sample */
-#define AXI_JESD204B_INIT1_S(x)		(((x) >> 25) & 0x1F) /* Samples per Converter per Frame Cycle */
+#define AXI_JESD204B_INIT1_ND(x)		((((x) >> 20) & 0x1F) + 1) /* Total Bits per Sample */
+#define AXI_JESD204B_INIT1_S(x)		((((x) >> 25) & 0x1F) + 1) /* Samples per Converter per Frame Cycle */
 #define AXI_JESD204B_INIT1_HD(x)		(((x) >> 30) & 0x1) /* High Density Format */
 
 /* AXI_JESD204B_REG_INIT_DATA2 */
