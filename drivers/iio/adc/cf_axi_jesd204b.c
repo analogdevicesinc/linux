@@ -46,7 +46,7 @@ struct jesd204b_state {
 	struct work_struct 	work;
 	struct completion       complete;
 	unsigned long		flags;
-
+	unsigned long		rate;
 };
 
 /*
@@ -223,6 +223,8 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 	ret += sprintf(buf + ret, "BUFCNT: 0x%X\n",
 		       jesd204b_read(st, AXI_JESD204B_REG_BUFCNT));
 
+	ret += sprintf(buf + ret, "FC: %lu\n", st->rate);
+
 	return ret;
 }
 
@@ -322,6 +324,8 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 	ret = clk_prepare_enable(clk);
 	if (ret < 0)
 		return ret;
+
+	st->rate = clk_get_rate(clk);
 
 	/* Get iospace for the device */
 	ret = of_address_to_resource(op->dev.of_node, 0, &r_mem);

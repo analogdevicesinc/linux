@@ -192,17 +192,12 @@ static int ad9122_find_dci(unsigned long *err_field, unsigned entries)
 
 static int ad9122_tune_dci(struct cf_axi_converter *conv)
 {
-	unsigned reg, err_mask, pwr;
+	unsigned reg, err_mask;
 	int i = 0, dci;
 	unsigned long err_bfield = 0;
 
 	if (!conv->pcore_set_sed_pattern)
 		return -ENODEV;
-
-	pwr = ad9122_read(conv->spi, AD9122_REG_POWER_CTRL);
-	ad9122_write(conv->spi, AD9122_REG_POWER_CTRL, pwr |
-			AD9122_POWER_CTRL_PD_I_DAC |
-			AD9122_POWER_CTRL_PD_Q_DAC);
 
 	for (dci = 0; dci < 4; dci++) {
 		ad9122_write(conv->spi, AD9122_REG_DCI_DELAY, dci);
@@ -255,13 +250,13 @@ static int ad9122_tune_dci(struct cf_axi_converter *conv)
 
 			if (err_mask || (reg & AD9122_SED_CTRL_SAMPLE_ERR_DETECTED))
 				set_bit(dci, &err_bfield);
+
 		}
 	}
 
 	ad9122_write(conv->spi, AD9122_REG_DCI_DELAY,
 		    ad9122_find_dci(&err_bfield, 4));
 	ad9122_write(conv->spi, AD9122_REG_SED_CTRL, 0);
-	ad9122_write(conv->spi, AD9122_REG_POWER_CTRL, pwr);
 
 	return 0;
 }
