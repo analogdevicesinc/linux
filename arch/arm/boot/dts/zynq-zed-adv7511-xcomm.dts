@@ -378,10 +378,11 @@
 		usb@e0002000 {
 			compatible = "xlnx,ps7-usb-1.00.a";
 			reg = <0xe0002000 0x1000>;
-			interrupts = <0 21 0>;
+			interrupts = <0 21 4>;
 			interrupt-parent = <&gic>;
 			dr_mode = "host";
 			phy_type = "ulpi";
+			xlnx,usb-reset = <0xffffffff>;
 		};
 
 		devcfg@f8007000 {
@@ -485,7 +486,7 @@
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-dma";
 			reg = < 0x40420000 0x10000 >;
-//			xlnx,sg-include-stscntrl-strm = <0x0>;
+			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40420000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupts = < 0 58 0x4 >;
