@@ -153,6 +153,7 @@ static int ad9122_write(struct spi_device *spi,
 static int ad9122_find_dci(unsigned long *err_field, unsigned entries)
 {
 	int dci, cnt, start, max_start, max_cnt;
+	bool valid = false;
 	char str[33];
 	int ret;
 
@@ -163,6 +164,7 @@ static int ad9122_find_dci(unsigned long *err_field, unsigned entries)
 				start = dci;
 			cnt++;
 			str[dci] = 'o';
+			valid = true;
 		} else {
 			if (cnt > max_cnt) {
 				max_cnt = cnt;
@@ -187,12 +189,15 @@ static int ad9122_find_dci(unsigned long *err_field, unsigned entries)
 
 	printk("%s DCI %d\n",str, ret);
 
+	if (!valid)
+		return -EIO;
+
 	return ret;
 }
 
 static int ad9122_tune_dci(struct cf_axi_converter *conv)
 {
-	unsigned reg, err_mask;
+	unsigned reg;
 	int i = 0, dci;
 	unsigned long err_bfield = 0;
 
@@ -239,26 +244,34 @@ static int ad9122_tune_dci(struct cf_axi_converter *conv)
 				    AD9122_EVENT_FLAG_2_SED_COMPARE_FAIL);
 
 			ad9122_write(conv->spi, AD9122_REG_SED_CTRL,
-				    AD9122_SED_CTRL_SED_COMPARE_EN);
+				AD9122_SED_CTRL_SED_COMPARE_EN |
+				AD9122_SED_CTRL_AUTOCLEAR_EN);
 
 			msleep(100);
+
 			reg = ad9122_read(conv->spi, AD9122_REG_SED_CTRL);
-			err_mask = ad9122_read(conv->spi, AD9122_REG_SED_I_LSBS);
-			err_mask |= ad9122_read(conv->spi, AD9122_REG_SED_I_MSBS);
-			err_mask |= ad9122_read(conv->spi, AD9122_REG_SED_Q_LSBS);
-			err_mask |= ad9122_read(conv->spi, AD9122_REG_SED_Q_MSBS);
 
-			if (err_mask || (reg & AD9122_SED_CTRL_SAMPLE_ERR_DETECTED))
+			if(!(reg & (AD9122_SED_CTRL_SAMPLE_ERR_DETECTED | AD9122_SED_CTRL_COMPARE_PASS)))
+			{
+				return -1;
+			}
+
+			if (reg & AD9122_SED_CTRL_SAMPLE_ERR_DETECTED)
 				set_bit(dci, &err_bfield);
-
 		}
 	}
 
-	ad9122_write(conv->spi, AD9122_REG_DCI_DELAY,
-		    ad9122_find_dci(&err_bfield, 4));
+	dci = ad9122_find_dci(&err_bfield, 4);
+	if (dci < 0) {
+		dev_err(&conv->spi->dev, "Failed DCI calibration");
+		ad9122_write(conv->spi, AD9122_REG_DCI_DELAY, 0);
+	}  else {
+		ad9122_write(conv->spi, AD9122_REG_DCI_DELAY, dci);
+	}
+
 	ad9122_write(conv->spi, AD9122_REG_SED_CTRL, 0);
 
-	return 0;
+	return dci;
 }
 
 static int ad9122_get_fifo_status(struct cf_axi_converter *conv)
