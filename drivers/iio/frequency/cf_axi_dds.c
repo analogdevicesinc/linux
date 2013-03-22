@@ -498,7 +498,9 @@ static int __devinit cf_axi_dds_of_probe(struct platform_device *op)
 	conv->indio_dev = indio_dev;
 	conv->pcore_sync = cf_axi_dds_sync_frame;
 	conv->pcore_set_sed_pattern = cf_axi_dds_set_sed_pattern;
-	conv->setup(conv);
+	ret = conv->setup(conv);
+	if (ret < 0)
+		goto failed3;
 
 	st->dac_clk = conv->get_data_clk(conv);
 	st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
