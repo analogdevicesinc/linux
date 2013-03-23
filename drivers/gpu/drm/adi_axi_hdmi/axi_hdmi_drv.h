@@ -39,7 +39,8 @@ struct axi_hdmi_private {
 	struct clk *hdmi_clock;
 	bool clk_enabled;
 
-	struct xlnx_pcm_dma_params dma_params;
+	struct dma_chan *dma;
+
 	bool is_rgb;
 	enum axi_hdmi_version version;
 };
