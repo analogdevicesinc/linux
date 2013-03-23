@@ -14,6 +14,7 @@
 #include <linux/i2c.h>
 #include <linux/of_address.h>
 #include <linux/of_i2c.h>
+#include <linux/of_dma.h>
 #include <linux/clk.h>
 
 #include <drm/drmP.h>
@@ -155,18 +156,8 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	const struct of_device_id *id;
 	struct device_node *np = pdev->dev.of_node;
 	struct axi_hdmi_private *private;
-	struct of_phandle_args dma_spec;
 	struct device_node *slave_node;
 	struct resource *res;
-	int ret;
-
-	if (!np)
-		return -EINVAL;
-
-	ret = of_parse_phandle_with_args(np, "dma-request", "#dma-cells", 0,
-		&dma_spec);
-	if (ret)
-		return ret;
 
 	private = devm_kzalloc(&pdev->dev, sizeof(*private), GFP_KERNEL);
 	if (!private)
@@ -200,8 +191,9 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	if (!private->encoder_slave || !private->encoder_slave->dev.driver)
 		return -EPROBE_DEFER;
 
-	private->dma_params.of_node = dma_spec.np;
-	private->dma_params.chan_id = dma_spec.args[0];
+	private->dma = of_dma_request_slave_channel(pdev->dev.of_node, "video");
+	if (private->dma == NULL)
+		return -EPROBE_DEFER;
 
 	platform_set_drvdata(pdev, private);
 
@@ -210,7 +202,9 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 
 static int axi_hdmi_platform_remove(struct platform_device *pdev)
 {
+	struct axi_hdmi_private *private = platform_get_drvdata(pdev);
 	drm_platform_exit(&axi_hdmi_driver, pdev);
+	dma_release_channel(private->dma);
 	return 0;
 }
 
