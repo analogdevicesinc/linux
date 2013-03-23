@@ -382,7 +382,8 @@
 			compatible = "adi,axi-hdmi-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
-			dma-request = <&axi_vdma_0 0>;
+			dmas = <&axi_vdma_0 0>;
+			dma-names = "video";
 			clocks = <&hdmi_clock>;
 			adi,is-rgb;
 		};
