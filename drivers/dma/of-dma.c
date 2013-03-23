@@ -265,3 +265,50 @@ struct dma_chan *of_dma_simple_xlate(struct of_phandle_args *dma_spec,
 			&dma_spec->args[0]);
 }
 EXPORT_SYMBOL_GPL(of_dma_simple_xlate);
+
+struct of_dma_filter_by_chan_id_args {
+	struct dma_device *dev;
+	unsigned int chan_id;
+};
+
+static bool of_dma_filter_by_chan_id(struct dma_chan *chan, void *params)
+{
+	struct of_dma_filter_by_chan_id_args *args = params;
+
+	return chan->device == args->dev && chan->chan_id == args->chan_id;
+}
+
+/**
+ * of_dma_xlate_by_chan_id - Translate dt property to DMA channel by channel id
+ * @dma_spec:	pointer to DMA specifier as found in the device tree
+ * @of_dma:	pointer to DMA controller data
+ *
+ * This function can be used as the of xlate callback for DMA driver which want
+ * to match the channel based on the channel id. When using this xlate function
+ * the #dma-cells propety of the DMA controller dt node needs to be set to 1.
+ * The data parameter of of_dma_controller_register must be a pointer to the
+ * dma_device struct the function should match uppon.
+ *
+ * Returns pointer to appropriate dma channel on success or NULL on error.
+ */
+struct dma_chan *of_dma_xlate_by_chan_id(struct of_phandle_args *dma_spec,
+					 struct of_dma *ofdma)
+{
+	struct of_dma_filter_by_chan_id_args args;
+	dma_cap_mask_t cap;
+
+	args.dev = ofdma->of_dma_data;
+	if (!args.dev)
+		return NULL;
+
+	if (dma_spec->args_count != 1)
+		return NULL;
+
+	dma_cap_zero(cap);
+	dma_cap_set(DMA_SLAVE, cap);
+
+	args.chan_id = dma_spec->args[0];
+
+	return dma_request_channel(cap, of_dma_filter_by_chan_id, &args);
+}
+EXPORT_SYMBOL_GPL(of_dma_xlate_by_chan_id);
