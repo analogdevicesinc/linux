@@ -138,7 +138,6 @@ static void axi_hdmi_crtc_destroy(struct drm_crtc *crtc)
 	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
 
 	drm_crtc_cleanup(crtc);
-	dma_release_channel(axi_hdmi_crtc->dma);
 	kfree(axi_hdmi_crtc);
 }
 
@@ -147,21 +146,11 @@ static struct drm_crtc_funcs axi_hdmi_crtc_funcs = {
 	.destroy	= axi_hdmi_crtc_destroy,
 };
 
-static bool xlnx_pcm_filter(struct dma_chan *chan, void *param)
-{
-	struct xlnx_pcm_dma_params *p = param;
-
-	return chan->device->dev->of_node == p->of_node &&
-		chan->chan_id == p->chan_id;
-}
-
 struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
 {
 	struct axi_hdmi_private *p = dev->dev_private;
 	struct axi_hdmi_crtc *axi_hdmi_crtc;
 	struct drm_crtc *crtc;
-
-	dma_cap_mask_t mask;
 
 	axi_hdmi_crtc = kzalloc(sizeof(*axi_hdmi_crtc), GFP_KERNEL);
 	if (!axi_hdmi_crtc) {
@@ -171,16 +160,7 @@ struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
 
 	crtc = &axi_hdmi_crtc->drm_crtc;
 
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE, mask);
-	dma_cap_set(DMA_PRIVATE, mask);
-
-	axi_hdmi_crtc->dma = dma_request_channel(mask, xlnx_pcm_filter,
-						&p->dma_params);
-	if (!axi_hdmi_crtc->dma) {
-		kfree(axi_hdmi_crtc);
-		return ERR_PTR(-EINVAL);
-	}
+	axi_hdmi_crtc->dma = p->dma;
 
 	drm_crtc_init(dev, crtc, &axi_hdmi_crtc_funcs);
 	drm_crtc_helper_add(crtc, &axi_hdmi_crtc_helper_funcs);
