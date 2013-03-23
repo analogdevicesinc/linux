@@ -40,6 +40,7 @@
 #include <linux/amba/xilinx_dma.h>
 #include <linux/debugfs.h>
 #include <linux/sched.h>
+#include <linux/of_dma.h>
 
 #include "dmaengine.h"
 
@@ -1537,6 +1538,11 @@ static int xilinx_dma_of_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_chan;
 
+	ret = of_dma_controller_register(pdev->dev.of_node,
+			of_dma_xlate_by_chan_id, &xdev->common);
+	if (ret)
+		goto err_unregister_device;
+
 	for (i = 0; i < XILINX_DMA_MAX_CHANS_PER_DEVICE; i++) {
 		if (xdev->chan[i]) {
 			chan = xdev->chan[i];
@@ -1548,6 +1554,8 @@ static int xilinx_dma_of_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_unregister_device:
+	dma_async_device_unregister(&xdev->common);
 err_free_chan:
 	for (i = 0; i < XILINX_DMA_MAX_CHANS_PER_DEVICE; i++) {
 		if (xdev->chan[i])
@@ -1562,6 +1570,7 @@ static int xilinx_dma_of_remove(struct platform_device *pdev)
 	struct xilinx_dma_device *xdev = platform_get_drvdata(pdev);
 	int i;
 
+	of_dma_controller_free(pdev->dev.of_node);
 	dma_async_device_unregister(&xdev->common);
 
 	for (i = 0; i < XILINX_DMA_MAX_CHANS_PER_DEVICE; i++) {
