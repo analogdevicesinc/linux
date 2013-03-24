@@ -204,7 +204,7 @@ EXPORT_SYMBOL_GPL(fft_calculate);
  * It returns 0, if the driver is bound to the AIM device, or a negative
  * value if there is an error.
  */
-static int __devinit fft_of_probe(struct platform_device *op)
+static int fft_of_probe(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct fft_state *st;
@@ -320,7 +320,7 @@ failed1:
  * if the driver module is being unloaded. It frees any resources allocated to
  * the device.
  */
-static int __devexit fft_of_remove(struct platform_device *op)
+static int fft_of_remove(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct resource r_mem; /* IO mem resources */
@@ -344,7 +344,7 @@ static int __devexit fft_of_remove(struct platform_device *op)
 }
 
 /* Match table for of_platform binding */
-static const struct of_device_id fft_of_match[] __devinitconst = {
+static const struct of_device_id fft_of_match[] = {
 	{ .compatible = "xlnx,cf-fft-core-1.00.a", },
 	{ .compatible = "xlnx,axi-fft-1.00.a", },
 	{ /* end of list */ },
@@ -358,7 +358,7 @@ static struct platform_driver fft_of_driver = {
 		.of_match_table = fft_of_match,
 	},
 	.probe		= fft_of_probe,
-	.remove		= __devexit_p(fft_of_remove),
+	.remove		= fft_of_remove,
 };
 
 module_platform_driver(fft_of_driver);

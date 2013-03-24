@@ -771,7 +771,7 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
  * It returns 0, if the driver is bound to the AIM device, or a negative
  * value if there is an error.
  */
-static int __devinit axiadc_of_probe(struct platform_device *op)
+static int axiadc_of_probe(struct platform_device *op)
 {
 	struct iio_dev *indio_dev;
 	struct device *dev = &op->dev;
@@ -991,7 +991,7 @@ failed1:
  * if the driver module is being unloaded. It frees any resources allocated to
  * the device.
  */
-static int __devexit axiadc_of_remove(struct platform_device *op)
+static int axiadc_of_remove(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct resource r_mem; /* IO mem resources */
@@ -1023,7 +1023,7 @@ static int __devexit axiadc_of_remove(struct platform_device *op)
 }
 
 /* Match table for of_platform binding */
-static const struct of_device_id axiadc_of_match[] __devinitconst = {
+static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", },
 	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
 	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
@@ -1041,7 +1041,7 @@ static struct platform_driver axiadc_of_driver = {
 		.of_match_table = axiadc_of_match,
 	},
 	.probe		= axiadc_of_probe,
-	.remove		= __devexit_p(axiadc_of_remove),
+	.remove		= axiadc_of_remove,
 };
 
 module_platform_driver(axiadc_of_driver);
