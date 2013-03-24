@@ -828,7 +828,7 @@ static int ad9122_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int __devinit ad9122_probe(struct spi_device *spi)
+static int ad9122_probe(struct spi_device *spi)
 {
 	struct device_node *np = spi->dev.of_node;
 	struct cf_axi_converter *conv;
@@ -915,7 +915,7 @@ static struct spi_driver ad9122_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= ad9122_probe,
-	.remove		= __devexit_p(ad9122_remove),
+	.remove		= ad9122_remove,
 	.id_table	= ad9122_id,
 };
 module_spi_driver(ad9122_driver);
