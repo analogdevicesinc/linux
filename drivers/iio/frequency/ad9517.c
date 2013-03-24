@@ -613,7 +613,7 @@ static const struct iio_chan_spec ad9517_chan[NUM_OUTPUTS] = {
 	AD9517_CHAN(OUT_7),
 };
 
-static int __devinit ad9517_probe(struct spi_device *spi)
+static int ad9517_probe(struct spi_device *spi)
 {
 	struct ad9517_platform_data *pdata = spi->dev.platform_data;
 	struct iio_dev *indio_dev;
@@ -765,7 +765,7 @@ static struct spi_driver ad9517_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= ad9517_probe,
-	.remove		= __devexit_p(ad9517_remove),
+	.remove		= ad9517_remove,
 	.id_table	= ad9517_id,
 };
 module_spi_driver(ad9517_driver);
