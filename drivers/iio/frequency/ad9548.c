@@ -216,7 +216,7 @@ static int ad9548_write(struct spi_device *spi,
 	return 0;
 }
 
-static int __devinit ad9548_probe(struct spi_device *spi)
+static int ad9548_probe(struct spi_device *spi)
 {
 	int i, ret, timeout;
 
@@ -277,7 +277,7 @@ static struct spi_driver ad9548_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= ad9548_probe,
-	.remove		= __devexit_p(ad9548_remove),
+	.remove		= ad9548_remove,
 	.id_table	= ad9548_id,
 };
 module_spi_driver(ad9548_driver);

@@ -172,7 +172,7 @@ static struct snd_soc_dai_driver axi_spdif_dai = {
 	.ops = &axi_spdif_dai_ops,
 };
 
-static int __devinit axi_spdif_probe(struct platform_device *pdev)
+static int axi_spdif_probe(struct platform_device *pdev)
 {
 	struct axi_spdif *spdif;
 	struct resource *res;
@@ -211,14 +211,14 @@ static int __devinit axi_spdif_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit axi_spdif_dev_remove(struct platform_device *pdev)
+static int axi_spdif_dev_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_dai(&pdev->dev);
 
 	return 0;
 }
 
-static const struct of_device_id axi_spdif_of_match[] __devinitconst = {
+static const struct of_device_id axi_spdif_of_match[] = {
 	{ .compatible = "adi,axi-spdif-tx-1.00.a", },
 	{},
 };
@@ -231,7 +231,7 @@ static struct platform_driver axi_spdif_driver = {
 		.of_match_table = axi_spdif_of_match,
 	},
 	.probe = axi_spdif_probe,
-	.remove = __devexit_p(axi_spdif_dev_remove),
+	.remove = axi_spdif_dev_remove,
 };
 module_platform_driver(axi_spdif_driver);
 

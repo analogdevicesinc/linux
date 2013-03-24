@@ -293,7 +293,7 @@ static ssize_t jesd204b_set_prescale(struct device *dev,
 static DEVICE_ATTR(prescale, S_IWUSR, NULL, jesd204b_set_prescale);
 
 
-static int __devinit jesd204b_of_probe(struct platform_device *op)
+static int jesd204b_of_probe(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct jesd204b_state *st;
@@ -430,7 +430,7 @@ err_clk_disable:
  * if the driver module is being unloaded. It frees any resources allocated to
  * the device.
  */
-static int __devexit jesd204b_of_remove(struct platform_device *op)
+static int jesd204b_of_remove(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct resource r_mem; /* IO mem resources */
@@ -453,7 +453,7 @@ static int __devexit jesd204b_of_remove(struct platform_device *op)
 }
 
 /* Match table for of_platform binding */
-static const struct of_device_id jesd204b_of_match[] __devinitconst = {
+static const struct of_device_id jesd204b_of_match[] = {
 	{ .compatible = "xlnx,axi-jesd204b-rx2-1.01.a", },
 	{ .compatible = "xlnx,axi-jesd204b-rx4-1.01.a", },
 	{ .compatible = "xlnx,axi-jesd204b-rx2-1.00.a", },
@@ -469,7 +469,7 @@ static struct platform_driver jesd204b_of_driver = {
 		.of_match_table = jesd204b_of_match,
 	},
 	.probe		= jesd204b_of_probe,
-	.remove		= __devexit_p(jesd204b_of_remove),
+	.remove		= jesd204b_of_remove,
 };
 
 module_platform_driver(jesd204b_of_driver);

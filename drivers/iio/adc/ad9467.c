@@ -62,7 +62,7 @@ static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 	return -ENODEV;
 }
 
-static int __devinit ad9250_setup(struct spi_device *spi)
+static int ad9250_setup(struct spi_device *spi)
 {
 	int ret;
 	unsigned pll_stat;
@@ -91,7 +91,7 @@ static int __devinit ad9250_setup(struct spi_device *spi)
 	return ret;
 }
 
-static int __devinit ad9467_probe(struct spi_device *spi)
+static int ad9467_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv;
 	struct clk *clk = NULL;
@@ -168,7 +168,7 @@ static struct spi_driver ad9467_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= ad9467_probe,
-	.remove		= __devexit_p(ad9467_remove),
+	.remove		= ad9467_remove,
 	.id_table	= ad9467_id,
 };
 module_spi_driver(ad9467_driver);

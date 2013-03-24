@@ -101,7 +101,7 @@ static void spi_ad9250_work(struct work_struct *work)
 		spi_master_put(master);
 }
 
-static int __devinit spi_ad9250_probe(struct spi_device *spi)
+static int spi_ad9250_probe(struct spi_device *spi)
 {
 	struct spi_ad9250 *spi_ad9250;
 	struct spi_master *master;
@@ -130,7 +130,7 @@ static int __devinit spi_ad9250_probe(struct spi_device *spi)
 	return 0;
 }
 
-static int __devexit spi_ad9250_remove(struct spi_device *spi)
+static int spi_ad9250_remove(struct spi_device *spi)
 {
 	struct spi_master *master = spi_get_drvdata(spi);
 
@@ -153,7 +153,7 @@ static struct spi_driver spi_ad9250_driver = {
 	},
 	.id_table	= spi_ad9250_ids,
 	.probe		= spi_ad9250_probe,
-	.remove		= __devexit_p(spi_ad9250_remove),
+	.remove		= spi_ad9250_remove,
 };
 module_spi_driver(spi_ad9250_driver);
 

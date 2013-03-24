@@ -401,7 +401,7 @@ static int dds_attach_spi_client(struct device *dev, void *data)
 }
 
 /* Match table for of_platform binding */
-static const struct of_device_id cf_axi_dds_of_match[] __devinitconst = {
+static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", .data = (void*) 1},
 	{ .compatible = "xlnx,cf-ad9739a-core-1.00.a", .data = (void*) 1},
 	{ .compatible = "xlnx,cf-ad9122x2-core-1.00.a", .data = (void*) 1},
@@ -411,7 +411,7 @@ static const struct of_device_id cf_axi_dds_of_match[] __devinitconst = {
 };
 MODULE_DEVICE_TABLE(of, cf_axi_dds_of_match);
 
-static int __devinit cf_axi_dds_of_probe(struct platform_device *op)
+static int cf_axi_dds_of_probe(struct platform_device *op)
 {
 	struct cf_axi_dds_state *st;
 	struct iio_dev *indio_dev;
@@ -589,7 +589,7 @@ failed1:
 	return ret;
 }
 
-static int __devexit cf_axi_dds_of_remove(struct platform_device *op)
+static int cf_axi_dds_of_remove(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
@@ -619,7 +619,7 @@ static struct platform_driver cf_axi_dds_of_driver = {
 		.of_match_table = cf_axi_dds_of_match,
 	},
 	.probe		= cf_axi_dds_of_probe,
-	.remove		= __devexit_p(cf_axi_dds_of_remove),
+	.remove		= cf_axi_dds_of_remove,
 };
 
 module_platform_driver(cf_axi_dds_of_driver);

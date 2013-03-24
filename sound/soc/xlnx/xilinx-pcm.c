@@ -117,7 +117,7 @@ static struct snd_soc_platform_driver xlnx_pcm_soc_platform = {
 	.ops		= &xlnx_pcm_ops,
 };
 
-static int __devinit xlnx_pcm_soc_platform_probe(struct platform_device *pdev)
+static int xlnx_pcm_soc_platform_probe(struct platform_device *pdev)
 {
 	struct xlnx_pcm_dma_params *params;
 	struct of_phandle_args dma_spec;
@@ -140,13 +140,13 @@ static int __devinit xlnx_pcm_soc_platform_probe(struct platform_device *pdev)
 	return snd_soc_register_platform(&pdev->dev, &xlnx_pcm_soc_platform);
 }
 
-static int __devexit xlnx_pcm_soc_platform_remove(struct platform_device *pdev)
+static int xlnx_pcm_soc_platform_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
 }
 
-static const struct of_device_id xilinx_pcm_of_match[] __devinitconst = {
+static const struct of_device_id xilinx_pcm_of_match[] = {
 	{ .compatible = "xilinx-pcm-audio", },
 	{},
 };
@@ -159,7 +159,7 @@ static struct platform_driver xlnx_pcm_driver = {
 			.of_match_table = xilinx_pcm_of_match,
 	},
 	.probe = xlnx_pcm_soc_platform_probe,
-	.remove = __devexit_p(xlnx_pcm_soc_platform_remove),
+	.remove = xlnx_pcm_soc_platform_remove,
 };
 module_platform_driver(xlnx_pcm_driver);
 
