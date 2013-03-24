@@ -45,6 +45,8 @@ struct jesd204b_state {
 	int			prescale;
 	struct work_struct 	work;
 	struct completion       complete;
+	unsigned long		flags;
+	unsigned long		rate;
 };
 
 /*
@@ -127,12 +129,15 @@ static void jesd204b_work_func(struct work_struct *work)
 {
 	struct jesd204b_state *st =
 		container_of(work, struct jesd204b_state, work);
+	int ret;
 
-	int ret = jesd204b_es(st, st->lane);
+	set_bit(0, &st->flags);
+		ret = jesd204b_es(st, st->lane);
 	if (ret)
 		dev_warn(st->dev, "Eye Scan failed (%d)\n", ret);
 
 	complete_all(&st->complete);
+	clear_bit(0, &st->flags);
 }
 
 static ssize_t
@@ -169,7 +174,7 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 	int ret;
 	unsigned val;
 
-	if (!completion_done(&st->complete))
+	if (test_bit(0, &st->flags) && !completion_done(&st->complete))
 		return -EBUSY;
 
 	jesd204b_set_lane(st, lane);
@@ -217,6 +222,8 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 		       jesd204b_read(st, AXI_JESD204B_REG_TEST_ERRCNT));
 	ret += sprintf(buf + ret, "BUFCNT: 0x%X\n",
 		       jesd204b_read(st, AXI_JESD204B_REG_BUFCNT));
+
+	ret += sprintf(buf + ret, "FC: %lu\n", st->rate);
 
 	return ret;
 }
@@ -318,6 +325,8 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 	if (ret < 0)
 		return ret;
 
+	st->rate = clk_get_rate(clk);
+
 	/* Get iospace for the device */
 	ret = of_address_to_resource(op->dev.of_node, 0, &r_mem);
 	if (ret) {
@@ -374,7 +383,7 @@ static int __devinit jesd204b_of_probe(struct platform_device *op)
 
 
 	st->size = AXI_JESD204B_ES_HSIZE * AXI_JESD204B_ES_VSIZE *
-		sizeof(unsigned int);
+		sizeof(unsigned long long);
 	st->prescale = 0;
 	st->buf_virt = dma_alloc_coherent(dev, PAGE_ALIGN(st->size),
 					  &st->buf_phys, GFP_KERNEL);

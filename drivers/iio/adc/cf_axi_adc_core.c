@@ -107,7 +107,7 @@ static int axiadc_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int dco, cnt, start, max_start, max_cnt;
-	unsigned stat, inv_range = 0, tm_mask, err_mask, dco_en = 0;
+	unsigned stat, inv_range = 0, tm_mask, err_mask, dco_en = 0, do_inv;
 	unsigned char err_field[66];
 
 	switch (st->id) {
@@ -120,62 +120,68 @@ static int axiadc_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 		dco_en = DCO_DELAY_ENABLE;
 	}
 
-restart:
-	axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE, OUTPUT_EVEN_ODD_MODE_EN |
-			(inv_range ? INVERT_DCO_CLK : 0));
+	do {
+		axiadc_spi_write(st, ADC_REG_OUTPUT_PHASE, OUTPUT_EVEN_ODD_MODE_EN |
+				(inv_range ? INVERT_DCO_CLK : 0));
 
-	if (chan == 2) {
-		axiadc_testmode_set(indio_dev, 0x2, TESTMODE_PN23_SEQ);
-		tm_mask = AXIADC_PN23_1_EN | AXIADC_PN9_0_EN;
-		err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR0 |
-			AXIADC_PCORE_ADC_STAT_PN_ERR1 |
-			AXIADC_PCORE_ADC_STAT_PN_OOS0 |
-			AXIADC_PCORE_ADC_STAT_PN_OOS1;
-	} else {
-		tm_mask = AXIADC_PN9_0_EN;
-		err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR | AXIADC_PCORE_ADC_STAT_PN_OOS;
-	}
-
-	axiadc_testmode_set(indio_dev, 0x1, TESTMODE_PN9_SEQ);
-	axiadc_write(st, AXIADC_PCORE_PN_ERR_CTRL, tm_mask);
-
-	for(dco = 0; dco <= 32; dco++) {
-		axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
-			      dco > 0 ? ((dco - 1) | dco_en) : 0);
-		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-		axiadc_write(st, AXIADC_PCORE_ADC_STAT,
-			     AXIADC_PCORE_ADC_STAT_MASK);
-
-		mdelay(1);
-		stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-		err_field[dco + (inv_range * 33)] = !!(stat & err_mask);
-	}
-
-	for(dco = 0, cnt = 0, max_cnt = 0, start = -1, max_start = 0;
-		dco <= (32 + (inv_range * 33)); dco++) {
-		if (err_field[dco] == 0) {
-			if (start == -1)
-				start = dco;
-			cnt++;
+		if (chan == 2) {
+			axiadc_testmode_set(indio_dev, 0x2, TESTMODE_PN23_SEQ);
+			tm_mask = AXIADC_PN23_1_EN | AXIADC_PN9_0_EN;
+			err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR0 |
+				AXIADC_PCORE_ADC_STAT_PN_ERR1 |
+				AXIADC_PCORE_ADC_STAT_PN_OOS0 |
+				AXIADC_PCORE_ADC_STAT_PN_OOS1;
 		} else {
-			if (cnt > max_cnt) {
-				max_cnt = cnt;
-				max_start = start;
-			}
-			start = -1;
-			cnt = 0;
+			tm_mask = AXIADC_PN9_0_EN;
+			err_mask = AXIADC_PCORE_ADC_STAT_PN_ERR |
+				AXIADC_PCORE_ADC_STAT_PN_OOS;
 		}
-	}
 
-	if (cnt > max_cnt) {
-		max_cnt = cnt;
-		max_start = start;
-	}
+		axiadc_testmode_set(indio_dev, 0x1, TESTMODE_PN9_SEQ);
+		axiadc_write(st, AXIADC_PCORE_PN_ERR_CTRL, tm_mask);
 
-	if ((inv_range == 0) && ((max_cnt < 3) || (err_field[32] == 0))) {
-		inv_range = 1;
-		goto restart;
-	}
+		for(dco = 0; dco <= 32; dco++) {
+			axiadc_spi_write(st, ADC_REG_OUTPUT_DELAY,
+				dco > 0 ? ((dco - 1) | dco_en) : 0);
+			axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+			axiadc_write(st, AXIADC_PCORE_ADC_STAT,
+				AXIADC_PCORE_ADC_STAT_MASK);
+
+			mdelay(1);
+			stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
+			err_field[dco + (inv_range * 33)] = !!(stat & err_mask);
+		}
+
+		for(dco = 0, cnt = 0, max_cnt = 0, start = -1, max_start = 0;
+			dco <= (32 + (inv_range * 33)); dco++) {
+			if (err_field[dco] == 0) {
+				if (start == -1)
+					start = dco;
+				cnt++;
+			} else {
+				if (cnt > max_cnt) {
+					max_cnt = cnt;
+					max_start = start;
+				}
+				start = -1;
+				cnt = 0;
+			}
+		}
+
+		if (cnt > max_cnt) {
+			max_cnt = cnt;
+			max_start = start;
+		}
+
+		if ((inv_range == 0) &&
+			((max_cnt < 3) || (err_field[32] == 0))) {
+			do_inv = 1;
+			inv_range = 1;
+		} else {
+			do_inv = 0;
+		}
+
+	} while (do_inv);
 
 	dco = max_start + (max_cnt / 2);
 
@@ -839,7 +845,6 @@ static int __devinit axiadc_of_probe(struct platform_device *op)
 	struct axiadc_spidev axiadc_spidev;
 	dma_cap_mask_t mask;
 	resource_size_t remap_size, phys_addr;
-	unsigned chan_inc;
 	int ret;
 
 	dev_info(dev, "Device Tree Probing \'%s\'\n",

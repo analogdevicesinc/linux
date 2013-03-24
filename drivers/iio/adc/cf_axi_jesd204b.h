@@ -43,13 +43,13 @@
  *
  * The eye scan data mode supports two fromats-
  *   If mode is set (0x1), data consists of both sample and error counts.
- *      data[31:16] = sample_count; and
- *      data[15: 0] = error_count;
- *   If mode is set (0x0), data consists only the error count and is filled as an RGB value
- *      data[31:24] = 0x00;
- *      data[23: 8] = error_count; and
- *      data[ 7: 0] = 0x00;
- *   This allows direct color coding, zero errors will be black.
+ *      data[63:48] = sample_count_ut1;
+ *      data[47:32] = sample_count_ut0;
+ *      data[31:16] = error_count_ut1;
+ *      data[15: 0] = error_count_ut0;
+ *   If mode is set (0x0), data consists of accumulated sample and error counts
+ *      data[48:32] = sample_count;
+ *      data[16: 0] = error_count; // least significant dword
  * ---------------------------------------------------------------------------
  * 0x11   0x44   [20:16]  prescale_step         Prescale step
  *               [12: 8]  prescale_max          Prescale maximum
@@ -136,18 +136,18 @@
 #define AXI_JESD204B_INIT0_DID(x)	(((x) >> 0) & 0xFF) /* DID Device ID */
 #define AXI_JESD204B_INIT0_BID(x)	(((x) >> 8) & 0xFF) /* BID Bank ID */
 #define AXI_JESD204B_INIT0_LID(x)	(((x) >> 13) & 0x1F) /* LID Lane ID */
-#define AXI_JESD204B_INIT0_L(x)		(((x) >> 18) & 0x1F) /* Number of Lanes per Device*/
+#define AXI_JESD204B_INIT0_L(x)		((((x) >> 18) & 0x1F) + 1) /* Number of Lanes per Device*/
 #define AXI_JESD204B_INIT0_SCR(x)	(((x) >> 23) & 0x1) /* SCR Scrambling Enabled */
-#define AXI_JESD204B_INIT0_F(x)		(((x) >> 24) & 0xFF) /* Octets per Frame */
+#define AXI_JESD204B_INIT0_F(x)		((((x) >> 24) & 0xFF) + 1) /* Octets per Frame */
 
 /* AXI_JESD204B_REG_INIT_DATA1 */
 
-#define AXI_JESD204B_INIT1_K(x)		(((x) >> 0) & 0x1F) /* Frames per Multiframe */
-#define AXI_JESD204B_INIT1_M(x)		(((x) >> 5) & 0xFF) /* Converters per Device */
-#define AXI_JESD204B_INIT1_N(x)		(((x) >> 13) & 0x1F) /* Converter Resolution */
+#define AXI_JESD204B_INIT1_K(x)		((((x) >> 0) & 0x1F) + 1) /* Frames per Multiframe */
+#define AXI_JESD204B_INIT1_M(x)		((((x) >> 5) & 0xFF) + 1) /* Converters per Device */
+#define AXI_JESD204B_INIT1_N(x)		((((x) >> 13) & 0x1F) + 1) /* Converter Resolution */
 #define AXI_JESD204B_INIT1_CS(x)		(((x) >> 18) & 0x3) /* Control Bits per Sample */
-#define AXI_JESD204B_INIT1_S(x)		(((x) >> 20) & 0x1F) /* Samples per Converter per Frame Cycle */
-#define AXI_JESD204B_INIT1_ND(x)		(((x) >> 25) & 0x1F) /* Total Bits per Sample */
+#define AXI_JESD204B_INIT1_ND(x)		((((x) >> 20) & 0x1F) + 1) /* Total Bits per Sample */
+#define AXI_JESD204B_INIT1_S(x)		((((x) >> 25) & 0x1F) + 1) /* Samples per Converter per Frame Cycle */
 #define AXI_JESD204B_INIT1_HD(x)		(((x) >> 30) & 0x1) /* High Density Format */
 
 /* AXI_JESD204B_REG_INIT_DATA2 */
@@ -166,7 +166,7 @@
 /* AXI_JESD204B_REG_ES_CTRL */
 #define AXI_JESD204B_REG_ES_CTRL_START		(1 << 0)
 #define AXI_JESD204B_REG_ES_CTRL_NORM		(1 << 1)
-#define AXI_JESD204B_REG_ES_CTRL_RGB		(0 << 1)
+#define AXI_JESD204B_REG_ES_CTRL_COMB		(0 << 1)
 
 /* AXI_JESD204B_REG_ES_PRESCALE */
 #define AXI_JESD204B_REG_ES_PRESCALE_STEP(x)	(((x) & 0x1F) << 16)
