@@ -21,8 +21,8 @@ static void xadc_handle_event(struct iio_dev *indio_dev, unsigned int event)
 	uint16_t val;
 	int ret;
 
-	/* Critical temperature error, we don't handle this yet */
-	if (event == 3)
+	/* Temperature threshold error, we don't handle this yet */
+	if (event == 0)
 		return;
 
 	if (event < 4)
@@ -35,7 +35,7 @@ static void xadc_handle_event(struct iio_dev *indio_dev, unsigned int event)
 	else
 		chan = &indio_dev->channels[event];
 
-	if (event != 0) {
+	if (event != 3) {
 		ret = _xadc_read_reg(xadc, chan->address, &val);
 		if (ret)
 			return;
@@ -90,7 +90,7 @@ static unsigned xadc_get_threshold_offset(const struct iio_chan_spec *chan,
 	unsigned int offset;
 
 	if (chan->type == IIO_TEMP) {
-		offset = 0;
+		offset = 3;
 	} else {
 		if (chan->channel < 2)
 			offset = chan->channel + 1;
