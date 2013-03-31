@@ -1181,8 +1181,6 @@ static int dapm_supply_check_power(struct snd_soc_dapm_widget *w)
 			return 1;
 	}
 
-	dapm_clear_walk(w->dapm);
-
 	return 0;
 }
 
