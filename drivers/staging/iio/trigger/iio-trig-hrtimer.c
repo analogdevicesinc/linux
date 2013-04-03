@@ -163,10 +163,17 @@ static int __devexit iio_trig_hrtimer_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id trigger_of_match[] = {
+	{ .compatible = "iio-trigger-hrtimer", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, trigger_of_match);
+
 static struct platform_driver iio_trig_hrtimer_driver = {
 	.driver = {
 		.name = "iio-trigger-hrtimer",
-		.owner = THIS_MODULE
+		.owner = THIS_MODULE,
+		.of_match_table = trigger_of_match
 	},
 	.probe = iio_trig_hrtimer_probe,
 	.remove = __devexit_p(iio_trig_hrtimer_remove),
