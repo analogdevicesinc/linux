@@ -181,7 +181,8 @@ static const char *altera_dt_match[] = {
 
 DT_MACHINE_START(SOCFPGA, "Altera SOCFPGA")
 	.l2c_aux_val	= L310_AUX_CTRL_DATA_PREFETCH |
-			L310_AUX_CTRL_INSTR_PREFETCH,
+			L310_AUX_CTRL_INSTR_PREFETCH |
+			L2C_AUX_CTRL_SHARED_OVERRIDE,
 	.l2c_aux_mask	= ~0,
 	.smp		= smp_ops(socfpga_smp_ops),
 	.map_io		= socfpga_map_io,
