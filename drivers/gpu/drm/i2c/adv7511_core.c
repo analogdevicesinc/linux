@@ -496,10 +496,19 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 	drm_mode_connector_update_edid_property(connector, edid);
 	count = drm_add_edid_modes(connector, edid);
 
-	connector->display_info.raw_edid = (char *)edid;
+	kfree(adv7511->edid);
+	adv7511->edid = edid;
 
 	return count;
 }
+
+struct edid *adv7511_get_edid(struct drm_encoder *encoder)
+{
+	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
+
+	return kmemdup(adv7511->edid, sizeof(*adv7511->edid), GFP_KERNEL);
+}
+EXPORT_SYMBOL_GPL(adv7511_get_edid);
 
 static void adv7511_encoder_dpms(struct drm_encoder *encoder, int mode)
 {
@@ -888,6 +897,7 @@ static int adv7511_remove(struct i2c_client *i2c)
 
 	if (i2c->irq)
 		free_irq(i2c->irq, adv7511);
+	kfree(adv7511->edid);
 
 	return 0;
 }
