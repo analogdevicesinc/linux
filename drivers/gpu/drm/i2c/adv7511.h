@@ -440,6 +440,10 @@ struct adv7511 {
 	bool embedded_sync;
 	enum adv7511_sync_polarity vsync_polarity;
 	enum adv7511_sync_polarity hsync_polarity;
+
+	struct edid *edid;
 };
+
+struct edid *adv7511_get_edid(struct drm_encoder *encoder);
 
 #endif
