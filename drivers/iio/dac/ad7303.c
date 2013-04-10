@@ -179,7 +179,7 @@ static const struct iio_chan_spec_ext_info ad7303_ext_info[] = {
 	.output = 1,					\
 	.channel = (chan),				\
 	.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |	\
-		IIO_CHAN_INFO_SCALE_SEPARATE_BIT,	\
+		IIO_CHAN_INFO_SCALE_SHARED_BIT,	\
 	.address = (chan),				\
 	.scan_type = IIO_ST('u', 8, 8, 0),		\
 	.ext_info = ad7303_ext_info,			\
