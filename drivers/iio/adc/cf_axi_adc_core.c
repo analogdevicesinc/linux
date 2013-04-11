@@ -570,20 +570,13 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	if (indio_dev->num_channels == 1)
 		return 0;
 
-	switch (st->id) {
-	case CHIPID_AD9250:
-		if (*scan_mask != (BIT(0) | BIT(1)))
-			return -EINVAL;
-		break;
-	default:
-		mask = *scan_mask;
+	mask = *scan_mask;
 
-		if (st->have_user_logic)
-			mask = (*scan_mask & (BIT(0) | BIT(1))) |
-			AXIADC_PCORE_DMA_CHAN_USRL_SEL(ffs(*scan_mask >> 2));
+	if (st->have_user_logic)
+		mask = (*scan_mask & (BIT(0) | BIT(1))) |
+		AXIADC_PCORE_DMA_CHAN_USRL_SEL(ffs(*scan_mask >> 2));
 
-		axiadc_write(st, AXIADC_PCORE_DMA_CHAN_SEL, mask);
-	};
+	axiadc_write(st, AXIADC_PCORE_DMA_CHAN_SEL, mask);
 
 	return 0;
 }
