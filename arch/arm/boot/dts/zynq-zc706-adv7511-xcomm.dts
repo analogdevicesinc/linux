@@ -161,13 +161,24 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 */
+
+/*
 		i2c0: i2c@0 {
 			compatible = "i2c-gpio";
 			gpios = <&gpio 51 0 &gpio 50 0>;
 			i2c-gpio,delay-us = <3>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+*/
 
+		i2c0: i2c@0 {
+			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 52 4 >;
+			reg = < 0x41600000 0x10000 >;
+			bus-id = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 
 			i2cswitch@74 {
 				compatible = "nxp,pca9548";
@@ -290,7 +301,7 @@
 							rzero = <2>;
 							cpole1 = <2>;
 							name = "ad9523-lpc";
-		
+
 							ad9523_0_c0:channel@0 {
 								reg = <0>;
 								extended-name = "ZD_OUTPUT";
@@ -370,7 +381,7 @@
 							dac-interp-factor = <1>;
 							dac-data-rate = <491520000>;
 						};
-		
+
 						vga0_ad8366: ad8366-lpc@6 {
 							#address-cells = <1>;
 							#size-cells = <0>;
@@ -379,7 +390,7 @@
 							spi-3wire;
 							spi-max-frequency = <10000000>;
 						};
-		
+
 						lo_pll0_rx_adf4351: adf4351-rx-lpc@4 {
 							#address-cells = <1>;
 							#size-cells = <0>;
@@ -395,7 +406,7 @@
 							adf4350-reg4-output-pwr = <3>;
 							adf4350-reg4-mute-till-lock-en;
 						};
-		
+
 						lo_pll0_tx_adf4351: adf4351-tx-lpc@5 {
 							#address-cells = <1>;
 							#size-cells = <0>;
@@ -411,12 +422,12 @@
 							adf4350-reg4-output-pwr = <3>;
 							adf4350-reg4-mute-till-lock-en;
 						};
-					
+
 					};
 					eeprom@50 {
 						compatible = "at24,24c02";
 						reg = <0x50>;
-					};		
+					};
 					eeprom@55 {
 						compatible = "at24,24c02";
 						reg = <0x55>;
@@ -584,6 +595,7 @@
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-dma";
 			reg = < 0x40420000 0x10000 >;
+			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40420000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupts = < 0 58 0x4 >;

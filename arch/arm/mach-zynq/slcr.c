@@ -2515,8 +2515,8 @@ int __init xslcr_init(void)
 	xslcr_writereg(slcr->regs + XSLCR_FPGA1_CLK_CTRL_OFFSET, 0x100500);
 	xslcr_writereg(slcr->regs + XSLCR_FPGA2_CLK_CTRL_OFFSET, 0x100500);
 	xslcr_writereg(slcr->regs + XSLCR_FPGA3_CLK_CTRL_OFFSET, 0x102100);
-	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(50), 0x200);
-	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(51), 0x200);
+//	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(50), 0x200);
+//	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(51), 0x200);
 
 	pr_info("%s mapped to %p\n", DRIVER_NAME, slcr->regs);
 

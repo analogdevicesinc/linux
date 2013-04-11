@@ -122,6 +122,49 @@
 			reset = <1>;
 		};
 
+		ps7_qspi_0: ps7-qspi@e000d000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus-num = <0>;
+			compatible = "xlnx,ps7-qspi-1.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 19 4 >;
+			is-dual = <0>;
+			num-chip-select = <1>;
+			reg = < 0xe000d000 0x1000 >;
+			speed-hz = <200000000>;
+			xlnx,fb-clk = <0x1>;
+			xlnx,qspi-clk-freq-hz = <0xbebc200>;
+			xlnx,qspi-mode = <0x0>;
+			primary_flash: ps7-qspi@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "st,m25p80";
+				reg = < 0x0 >;
+				spi-max-frequency = <50000000>;
+				partition@0x00000000 {
+					label = "boot";
+					reg = <0x00000000 0x00500000>;
+				};
+				partition@0x00500000 {
+					label = "bootenv";
+					reg = <0x00500000 0x00020000>;
+				};
+				partition@0x00520000 {
+					label = "config";
+					reg = <0x00520000 0x00020000>;
+				};
+				partition@0x00540000 {
+					label = "image";
+					reg = <0x00540000 0x00a80000>;
+				};
+				partition@0x00fc0000 {
+					label = "spare";
+					reg = <0x00fc0000 0x00000000>;
+				};
+			} ;
+		} ;
+
 		eth@e000b000 {
 			compatible = "xlnx,ps7-ethernet-1.00.a";
 			reg = <0xe000b000 0x1000>;
@@ -130,6 +173,19 @@
 			phy-handle = <&phy0>;
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
+
+			xlnx,enet-clk-freq-hz = <0x17d7840>;
+			xlnx,enet-reset = "MIO 11";
+			xlnx,enet-slcr-1000mbps-div0 = <0x8>;
+			xlnx,enet-slcr-1000mbps-div1 = <0x1>;
+			xlnx,enet-slcr-100mbps-div0 = <0x8>;
+			xlnx,enet-slcr-100mbps-div1 = <0x5>;
+			xlnx,enet-slcr-10mbps-div0 = <0x8>;
+			xlnx,enet-slcr-10mbps-div1 = <0x32>;
+			xlnx,eth-mode = <0x1>;
+			xlnx,has-mdio = <0x1>;
+			xlnx,ptp-enet-clock = <111111115>;
+
 
 			phy0: phy@7 {
 				compatible = "marvell,88e1116r";
@@ -147,21 +203,31 @@
 			#gpio-cells = <2>;
 		};
 
+
 /*
-		i2c0: i2c@e0004000 {
-			compatible = "xlnx,ps7-i2c-1.00.a";
-			reg = <0xe0004000 0x1000>;
-			interrupts = <0 25 0>;
-			interrupt-parent = <&gic>;
-			bus-id = <0>;
-			input-clk = <111111111>;
-			i2c-clk = <100000>;
+               i2c0: i2c@e0004000 {
+                       compatible = "xlnx,ps7-i2c-1.00.a";
+                       reg = <0xe0004000 0x1000>;
+                       interrupts = <0 25 0>;
+                       interrupt-parent = <&gic>;
+                       bus-id = <0>;
+                       input-clk = <111111111>;
+                       i2c-clk = <100000>;
+*/
+
+/*
+                i2c0: i2c@0 {
+                       compatible = "i2c-gpio";
+                       gpios = <&gpio 51 0 &gpio 50 0>;
+                       i2c-gpio,delay-us = <5>;
 */
 
 		i2c0: i2c@0 {
-			compatible = "i2c-gpio";
-			gpios = <&gpio 51 0 &gpio 50 0>;
-			i2c-gpio,delay-us = <5>;
+			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 59 4 >;
+			reg = < 0x41600000 0x10000 >;
+			bus-id = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -191,6 +257,7 @@
 						adi,tdms-clock-inversion;
 						adi,clock-delay = <0x03>;
 					};
+
 				};
 
 				i2c@4 {
@@ -327,8 +394,10 @@
 							clocks = <&clk0_ad9523 6>, <&clk0_ad9523 12>, <&clk0_ad9523 10>;
 							clock-names = "data_clk", "dac_clk", "ref_clk";
 							dac-fcenter-shift = <0>;
-							dac-interp-factor = <1>;
-							dac-data-rate = <491520000>;
+							dac-interp-factor = <2>;
+							/*dac-data-rate = <491520000>;*/
+							dac-data-rate = <245760000>;
+
 						};
 
 						vga0_ad8366: ad8366-lpc@6 {
@@ -379,7 +448,7 @@
 					};
 					eeprom@55 {
 						compatible = "at24,24c02";
-						reg = <0x55>;
+						reg = <0x54>;
 					};
 				};
 			};
@@ -420,11 +489,12 @@
 			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40440000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = < 0 56 0x4 >;
+				interrupts = < 0 55 0x4 >;
 				xlnx,datawidth = <0x20>;
 				xlnx,include-dre = <0x0>;
 			};
 		};
+
 
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
@@ -442,7 +512,7 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 57 0x4>;
+				interrupts = <0 56 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -459,7 +529,7 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 59 0x4>;
+				interrupts = <0 58 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -492,6 +562,7 @@
 			dma-request = <&axi_dma_0 0>;
 		};
 
+
 		adv7511_hdmi_snd: adv7511_hdmi_snd {
 			compatible = "adv7511-hdmi-snd";
 			audio-codec-adapter = <&i2c_adv7511>;
@@ -508,7 +579,7 @@
 			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40420000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = < 0 58 0x4 >;
+				interrupts = < 0 57 0x4 >;
 				xlnx,datawidth = <0x40>;
 				xlnx,include-dre = <0x0>;
 			} ;
