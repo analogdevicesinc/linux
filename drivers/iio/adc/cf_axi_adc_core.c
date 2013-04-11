@@ -723,23 +723,23 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
 		.num_channels = 2,
-		.channel[0] = AIM_CHAN(0, 0, 14, 'u'),
-		.channel[1] = AIM_CHAN(1, 1, 14, 'u'),
-		.channel[2] = AIM_CHAN_UL(2, 2, 14, 'u'),
-		.channel[3] = AIM_CHAN_UL(3, 3, 14, 'u'),
-		.channel[4] = AIM_CHAN_UL(4, 4, 14, 'u'),
-		.channel[5] = AIM_CHAN_UL(5, 5, 14, 'u'),
-		.channel[6] = AIM_CHAN_UL(6, 6, 14, 'u'),
-		.channel[7] = AIM_CHAN_UL(7, 7, 14, 'u'),
-		.channel[8] = AIM_CHAN_UL(8, 8, 14, 'u'),
-		.channel[9] = AIM_CHAN_UL(9, 9, 14, 'u'),
-		.channel[10] = AIM_CHAN_UL(10, 10, 14, 'u'),
-		.channel[11] = AIM_CHAN_UL(11, 11, 14, 'u'),
-		.channel[12] = AIM_CHAN_UL(12, 12, 14, 'u'),
-		.channel[13] = AIM_CHAN_UL(13, 13, 14, 'u'),
-		.channel[14] = AIM_CHAN_UL(14, 14, 14, 'u'),
-		.channel[15] = AIM_CHAN_UL(15, 15, 14, 'u'),
-		.channel[16] = AIM_CHAN_UL(16, 16, 14, 'u'),
+		.channel[0] = AIM_CHAN(0, 0, 14, 's'),
+		.channel[1] = AIM_CHAN(1, 1, 14, 's'),
+		.channel[2] = AIM_CHAN_UL(2, 2, 14, 's'),
+		.channel[3] = AIM_CHAN_UL(3, 3, 14, 's'),
+		.channel[4] = AIM_CHAN_UL(4, 4, 14, 's'),
+		.channel[5] = AIM_CHAN_UL(5, 5, 14, 's'),
+		.channel[6] = AIM_CHAN_UL(6, 6, 14, 's'),
+		.channel[7] = AIM_CHAN_UL(7, 7, 14, 's'),
+		.channel[8] = AIM_CHAN_UL(8, 8, 14, 's'),
+		.channel[9] = AIM_CHAN_UL(9, 9, 14, 's'),
+		.channel[10] = AIM_CHAN_UL(10, 10, 14, 's'),
+		.channel[11] = AIM_CHAN_UL(11, 11, 14, 's'),
+		.channel[12] = AIM_CHAN_UL(12, 12, 14, 's'),
+		.channel[13] = AIM_CHAN_UL(13, 13, 14, 's'),
+		.channel[14] = AIM_CHAN_UL(14, 14, 14, 's'),
+		.channel[15] = AIM_CHAN_UL(15, 15, 14, 's'),
+		.channel[16] = AIM_CHAN_UL(16, 16, 14, 's'),
 	},
 	[ID_AD9250] = {
 		.name = "AD9250",
@@ -834,7 +834,7 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
  * It returns 0, if the driver is bound to the AIM device, or a negative
  * value if there is an error.
  */
-static int __devinit axiadc_of_probe(struct platform_device *op)
+static int axiadc_of_probe(struct platform_device *op)
 {
 	struct iio_dev *indio_dev;
 	struct device *dev = &op->dev;
@@ -1050,7 +1050,7 @@ failed1:
  * if the driver module is being unloaded. It frees any resources allocated to
  * the device.
  */
-static int __devexit axiadc_of_remove(struct platform_device *op)
+static int axiadc_of_remove(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct resource r_mem; /* IO mem resources */
@@ -1082,7 +1082,7 @@ static int __devexit axiadc_of_remove(struct platform_device *op)
 }
 
 /* Match table for of_platform binding */
-static const struct of_device_id axiadc_of_match[] __devinitconst = {
+static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", },
 	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
 	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
@@ -1100,7 +1100,7 @@ static struct platform_driver axiadc_of_driver = {
 		.of_match_table = axiadc_of_match,
 	},
 	.probe		= axiadc_of_probe,
-	.remove		= __devexit_p(axiadc_of_remove),
+	.remove		= axiadc_of_remove,
 };
 
 module_platform_driver(axiadc_of_driver);

@@ -45,7 +45,7 @@ static struct snd_soc_card hdmi_card = {
 };
 
 
-static int __devinit adv7511_hdmi_probe(struct platform_device *pdev)
+static int adv7511_hdmi_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &hdmi_card;
 	struct device_node *of_node = pdev->dev.of_node;
@@ -74,7 +74,7 @@ static int __devinit adv7511_hdmi_probe(struct platform_device *pdev)
 	return snd_soc_register_card(card);
 }
 
-static int __devexit adv7511_hdmi_remove(struct platform_device *pdev)
+static int adv7511_hdmi_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
@@ -83,7 +83,7 @@ static int __devexit adv7511_hdmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id adv7511_hdmi_of_match[] __devinitconst = {
+static const struct of_device_id adv7511_hdmi_of_match[] = {
 	{ .compatible = "adv7511-hdmi-snd", },
 	{},
 };
@@ -97,7 +97,7 @@ static struct platform_driver hdmi_card_driver = {
 		.pm = &snd_soc_pm_ops,
 	},
 	.probe = adv7511_hdmi_probe,
-	.remove = __devexit_p(adv7511_hdmi_remove),
+	.remove = adv7511_hdmi_remove,
 };
 module_platform_driver(hdmi_card_driver);
 

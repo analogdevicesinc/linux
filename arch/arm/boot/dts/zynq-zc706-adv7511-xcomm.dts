@@ -452,6 +452,7 @@
 			interrupt-parent = <&gic>;
 			dr_mode = "host";
 			phy_type = "ulpi";
+			xlnx,usb-reset = <0xffffffff>;
 		};
 
 		gpio: gpio@e000a000 {
