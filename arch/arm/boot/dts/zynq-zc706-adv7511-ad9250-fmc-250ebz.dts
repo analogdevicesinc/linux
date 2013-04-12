@@ -176,13 +176,23 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 */
+/*
 		i2c0: i2c@0 {
 			compatible = "i2c-gpio";
 			gpios = <&gpio 51 0 &gpio 50 0>;
 			i2c-gpio,delay-us = <3>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+*/
 
+		i2c0: i2c@0 {
+			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 52 4 >;
+			reg = < 0x41600000 0x10000 >;
+			bus-id = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 
 			i2cswitch@74 {
 				compatible = "nxp,pca9548";
