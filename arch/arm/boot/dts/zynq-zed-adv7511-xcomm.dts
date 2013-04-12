@@ -310,8 +310,9 @@
 					clocks = <&clk0_ad9523 6>, <&clk0_ad9523 12>, <&clk0_ad9523 10>;
 					clock-names = "data_clk", "dac_clk", "ref_clk";
 					dac-fcenter-shift = <0>;
-					dac-interp-factor = <1>;
-					dac-data-rate = <491520000>;
+					dac-interp-factor = <2>;
+					/*dac-data-rate = <491520000>;*/
+					dac-data-rate = <245760000>;
 				};
 
 				vga0_ad8366: ad8366-lpc@6 {
@@ -494,7 +495,7 @@
 				xlnx,include-dre = <0x0>;
 			} ;
 		} ;
-	
+
 		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x79020000 0x10000 >;
