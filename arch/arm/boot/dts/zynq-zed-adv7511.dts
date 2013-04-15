@@ -285,5 +285,62 @@
 			cpu-dai = <&axi_spdif_tx_0>;
 			pcm = <&xilinx_pcm_audio>;
 		};
+
+		adc_vref: fixedregulator@0 {
+			compatible = "regulator-fixed";
+			regulator-name = "fixed-supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-boot-on;
+		};
+
+		axi_spi_0: spi@42000000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 53 4 >;
+			reg = < 0x42000000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,fifo-exist = <0x1>;
+			xlnx,instance = "axi_spi_0";
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,num-transfer-bits = <0x8>;
+			xlnx,sck-ratio = <0x20>;
+			ad7476@0 {
+				compatible = "adi,ad7476a";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				spi-cpha;
+				spi-cpol;
+				vcc-supply = <&adc_vref>;
+			};
+
+		} ;
+
+		axi_spi_1: spi@42040000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 52 4 >;
+			reg = < 0x42040000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,fifo-exist = <0x1>;
+			xlnx,instance = "axi_spi_1";
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,num-transfer-bits = <0x8>;
+			xlnx,sck-ratio = <0x20>;
+			ad7303@0 {
+				compatible = "adi,ad7303";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				Vdd-supply = <&adc_vref>;
+			};
+		} ;
+
+		trigger: trigger@0 {
+			compatible = "iio-trigger-hrtimer";
+		} ;
 	};
 };
