@@ -252,6 +252,7 @@ static const struct iio_chan_spec_ext_info ad7303_ext_info[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
 	.address = (chan),					\
+	.scan_index = (chan),					\
 	.scan_type = {						\
 		.sign = 'u',					\
 		.realbits = 8,					\
@@ -322,9 +323,10 @@ static int ad7303_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = ad7303_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ad7303_channels);
+	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 
 	ret = iio_triggered_buffer_setup(indio_dev, NULL,
-		&ad7303_trigger_handler, NULL, IIO_BUFFER_DIRECTION_OUT);
+		&ad7303_trigger_handler, NULL);
 	if (ret)
 		goto err_disable_vref_reg;
 
