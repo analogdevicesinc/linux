@@ -127,13 +127,22 @@ static struct iio_trigger *iio_trigger_find_by_name(const char *name,
 
 void iio_trigger_poll(struct iio_trigger *trig, s64 time)
 {
+	unsigned int num_consumers; 
 	int i;
-	if (!trig->use_count)
-		for (i = 0; i < CONFIG_IIO_CONSUMERS_PER_TRIGGER; i++)
-			if (trig->subirqs[i].enabled) {
-				trig->use_count++;
+
+	if (!atomic_read(&trig->use_count)) {
+		num_consumers = 0;
+		for (i = 0; i < CONFIG_IIO_CONSUMERS_PER_TRIGGER; i++) {
+			if (trig->subirqs[i].enabled)
+				num_consumers++;
+		}
+		atomic_set(&trig->use_count, num_consumers);
+	
+		for (i = 0; i < CONFIG_IIO_CONSUMERS_PER_TRIGGER; i++) {
+			if (trig->subirqs[i].enabled)
 				generic_handle_irq(trig->subirq_base + i);
-			}
+		}
+	}
 }
 EXPORT_SYMBOL(iio_trigger_poll);
 
@@ -146,20 +155,29 @@ EXPORT_SYMBOL(iio_trigger_generic_data_rdy_poll);
 
 void iio_trigger_poll_chained(struct iio_trigger *trig, s64 time)
 {
+	unsigned int num_consumers; 
 	int i;
-	if (!trig->use_count)
-		for (i = 0; i < CONFIG_IIO_CONSUMERS_PER_TRIGGER; i++)
-			if (trig->subirqs[i].enabled) {
-				trig->use_count++;
-				handle_nested_irq(trig->subirq_base + i);
-			}
+
+	if (!atomic_read(&trig->use_count)) {
+		num_consumers = 0;
+		for (i = 0; i < CONFIG_IIO_CONSUMERS_PER_TRIGGER; i++) {
+			if (trig->subirqs[i].enabled)
+				num_consumers++;
+		}
+		atomic_set(&trig->use_count, num_consumers);
+	
+		for (i = 0; i < CONFIG_IIO_CONSUMERS_PER_TRIGGER; i++) {
+			if (trig->subirqs[i].enabled)
+				generic_handle_irq(trig->subirq_base + i);
+		}
+	}
 }
 EXPORT_SYMBOL(iio_trigger_poll_chained);
 
 void iio_trigger_notify_done(struct iio_trigger *trig)
 {
-	trig->use_count--;
-	if (trig->use_count == 0 && trig->ops && trig->ops->try_reenable)
+	if (atomic_dec_and_test(&trig->use_count) && trig->ops &&
+		trig->ops->try_reenable)
 		if (trig->ops->try_reenable(trig))
 			/* Missed and interrupt so launch new poll now */
 			iio_trigger_poll(trig, 0);
