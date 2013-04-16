@@ -530,9 +530,15 @@ static int __ad9122_set_interpol(struct cf_axi_converter *conv, unsigned interp,
 static int ad9122_set_interpol_freq(struct cf_axi_converter *conv,
 				   unsigned long freq)
 {
+	unsigned long dat_freq;
+	int ret;
 
-	return __ad9122_set_interpol(conv, freq / ad9122_get_data_clk(conv),
+	dat_freq = ad9122_get_data_clk(conv);
+	ret =  __ad9122_set_interpol(conv, freq / dat_freq,
 			       conv->fcenter_shift, 0);
+
+	ad9122_update_avail_fcent_modes(conv, dat_freq);
+	return ret;
 }
 
 static int ad9122_set_interpol_fcent_freq(struct cf_axi_converter *conv,
@@ -650,7 +656,6 @@ static ssize_t ad9122_interpolation_store(struct device *dev,
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	long readin;
-	unsigned pwr;
 	int ret;
 
 	ret = kstrtol(buf, 10, &readin);
@@ -658,11 +663,6 @@ static ssize_t ad9122_interpolation_store(struct device *dev,
 		return ret;
 
 	mutex_lock(&indio_dev->mlock);
-
-	pwr = ad9122_read(conv->spi, AD9122_REG_POWER_CTRL);
-	ad9122_write(conv->spi, AD9122_REG_POWER_CTRL, pwr |
-			AD9122_POWER_CTRL_PD_I_DAC |
-			AD9122_POWER_CTRL_PD_Q_DAC);
 
 	switch ((u32)this_attr->address) {
 	case 0:
@@ -677,7 +677,7 @@ static ssize_t ad9122_interpolation_store(struct device *dev,
 
 	if (conv->pcore_sync)
 		conv->pcore_sync(indio_dev);
-	ad9122_write(conv->spi, AD9122_REG_POWER_CTRL, pwr);
+
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret ? ret : len;
