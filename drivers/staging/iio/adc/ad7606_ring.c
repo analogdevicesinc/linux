@@ -99,7 +99,7 @@ int ad7606_register_ring_funcs_and_init(struct iio_dev *indio_dev)
 
 	return iio_triggered_buffer_setup(indio_dev,
 		&ad7606_trigger_handler_th_bh, &ad7606_trigger_handler_th_bh,
-		NULL);
+		NULL, IIO_BUFFER_DIRECTION_IN);
 }
 
 void ad7606_ring_cleanup(struct iio_dev *indio_dev)

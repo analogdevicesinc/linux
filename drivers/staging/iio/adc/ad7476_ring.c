@@ -55,7 +55,7 @@ done:
 int ad7476_register_ring_funcs_and_init(struct iio_dev *indio_dev)
 {
 	return iio_triggered_buffer_setup(indio_dev, NULL,
-			&ad7476_trigger_handler, NULL);
+			&ad7476_trigger_handler, NULL, IIO_BUFFER_DIRECTION_IN);
 }
 
 void ad7476_ring_cleanup(struct iio_dev *indio_dev)

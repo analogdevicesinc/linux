@@ -408,7 +408,7 @@ static const struct iio_buffer_setup_ops ad7793_ring_setup_ops = {
 static int ad7793_register_ring_funcs_and_init(struct iio_dev *indio_dev)
 {
 	return iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-			&ad7793_trigger_handler, &ad7793_ring_setup_ops);
+			&ad7793_trigger_handler, &ad7793_ring_setup_ops, IIO_BUFFER_DIRECTION_IN);
 }
 
 static void ad7793_ring_cleanup(struct iio_dev *indio_dev)
