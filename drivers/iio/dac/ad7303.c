@@ -82,7 +82,7 @@ static irqreturn_t ad7303_trigger_handler(int irq, void *p)
 		indio_dev->masklength) {
 		st->dac_cache[i] = sample[j];
 		val = AD7303_CMD_UPDATE_INPUT |
-			(i < AD7303_CFG_ADDR_OFFSET) |
+			(i << AD7303_CFG_ADDR_OFFSET) |
 			st->config | sample[j];
 		if (j == st->num_transfers - 1)
 			val |= AD7303_CMD_LDAC;
