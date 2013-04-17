@@ -713,12 +713,14 @@ static IIO_CONST_ATTR_TEMP_OFFSET("-214.6");
  * sca3000_read_thresh() - query of a threshold
  **/
 static int sca3000_read_thresh(struct iio_dev *indio_dev,
-			       u64 e,
+			       const struct iio_chan_spec *chan,
+			       enum iio_event_type type,
+			       enum iio_event_direction dir,
 			       int *val)
 {
 	int ret, i;
 	struct sca3000_state *st = iio_priv(indio_dev);
-	int num = IIO_EVENT_CODE_EXTRACT_MODIFIER(e);
+	int num = chan->channel2;
 	mutex_lock(&st->lock);
 	ret = sca3000_read_ctrl_reg(st, sca3000_addresses[num][1]);
 	mutex_unlock(&st->lock);
@@ -741,11 +743,13 @@ static int sca3000_read_thresh(struct iio_dev *indio_dev,
  * sca3000_write_thresh() control of threshold
  **/
 static int sca3000_write_thresh(struct iio_dev *indio_dev,
-				u64 e,
+				const struct iio_chan_spec *chan,
+				enum iio_event_type type,
+				enum iio_event_direction dir,
 				int val)
 {
 	struct sca3000_state *st = iio_priv(indio_dev);
-	int num = IIO_EVENT_CODE_EXTRACT_MODIFIER(e);
+	int num = chan->channel2;
 	int ret;
 	int i;
 	u8 nonlinear = 0;
@@ -876,12 +880,14 @@ done:
  * sca3000_read_event_config() what events are enabled
  **/
 static int sca3000_read_event_config(struct iio_dev *indio_dev,
-				     u64 e)
+				     const struct iio_chan_spec *chan,
+				     enum iio_event_type type,
+				     enum iio_event_direction dir)
 {
 	struct sca3000_state *st = iio_priv(indio_dev);
 	int ret;
 	u8 protect_mask = 0x03;
-	int num = IIO_EVENT_CODE_EXTRACT_MODIFIER(e);
+	int num = chan->channel2;
 
 	/* read current value of mode register */
 	mutex_lock(&st->lock);
@@ -979,13 +985,15 @@ error_ret:
  * this mode is disabled.  Currently normal mode is assumed.
  **/
 static int sca3000_write_event_config(struct iio_dev *indio_dev,
-				      u64 e,
+				      const struct iio_chan_spec *chan,
+				      enum iio_event_type type,
+				      enum iio_event_direction dir,
 				      int state)
 {
 	struct sca3000_state *st = iio_priv(indio_dev);
 	int ret, ctrlval;
 	u8 protect_mask = 0x03;
-	int num = IIO_EVENT_CODE_EXTRACT_MODIFIER(e);
+	int num = chan->channel2;
 
 	mutex_lock(&st->lock);
 	/* First read the motion detector config to find out if

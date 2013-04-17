@@ -247,7 +247,9 @@ error_ret_mutex:
 }
 
 static int ad799x_read_event_config(struct iio_dev *indio_dev,
-				    u64 event_code)
+				    const struct iio_chan_spec *chan,
+				    enum iio_event_type type,
+				    enum iio_event_direction dir)
 {
 	return 1;
 }
@@ -260,14 +262,15 @@ static const u8 ad799x_threshold_addresses[][2] = {
 };
 
 static int ad799x_write_event_value(struct iio_dev *indio_dev,
-				    u64 event_code,
+				    const struct iio_chan_spec *chan,
+				    enum iio_event_type type,
+				    enum iio_event_direction dir,
 				    int val)
 {
 	int ret;
 	struct ad799x_state *st = iio_priv(indio_dev);
-	int direction = !!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			   IIO_EV_DIR_FALLING);
-	int number = IIO_EVENT_CODE_EXTRACT_CHAN(event_code);
+	int direction = dir == IIO_EV_DIR_FALLING;
+	int number = chan->channel;
 
 	mutex_lock(&indio_dev->mlock);
 	ret = ad799x_i2c_write16(st,
@@ -279,14 +282,15 @@ static int ad799x_write_event_value(struct iio_dev *indio_dev,
 }
 
 static int ad799x_read_event_value(struct iio_dev *indio_dev,
-				    u64 event_code,
+				    const struct iio_chan_spec *chan,
+				    enum iio_event_type type,
+				    enum iio_event_direction dir,
 				    int *val)
 {
 	int ret;
 	struct ad799x_state *st = iio_priv(indio_dev);
-	int direction = !!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			   IIO_EV_DIR_FALLING);
-	int number = IIO_EVENT_CODE_EXTRACT_CHAN(event_code);
+	int direction = dir == IIO_EV_DIR_FALLING;
+	int number = chan->channel;
 	u16 valin;
 
 	mutex_lock(&indio_dev->mlock);

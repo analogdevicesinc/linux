@@ -123,14 +123,14 @@ static int ad7150_read_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int ad7150_read_event_config(struct iio_dev *indio_dev, u64 event_code)
+static int ad7150_read_event_config(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir)
 {
 	int ret;
 	u8 threshtype;
 	bool adaptive;
 	struct ad7150_chip_info *chip = iio_priv(indio_dev);
-	int rising = !!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			IIO_EV_DIR_RISING);
 
 	ret = i2c_smbus_read_byte_data(chip->client, AD7150_CFG);
 	if (ret < 0)
@@ -139,42 +139,48 @@ static int ad7150_read_event_config(struct iio_dev *indio_dev, u64 event_code)
 	threshtype = (ret >> 5) & 0x03;
 	adaptive = !!(ret & 0x80);
 
-	switch (IIO_EVENT_CODE_EXTRACT_TYPE(event_code)) {
+	switch (type) {
 	case IIO_EV_TYPE_MAG_ADAPTIVE:
-		if (rising)
+		if (dir == IIO_EV_DIR_RISING)
 			return adaptive && (threshtype == 0x1);
 		else
 			return adaptive && (threshtype == 0x0);
 	case IIO_EV_TYPE_THRESH_ADAPTIVE:
-		if (rising)
+		if (dir == IIO_EV_DIR_RISING)
 			return adaptive && (threshtype == 0x3);
 		else
 			return adaptive && (threshtype == 0x2);
 
 	case IIO_EV_TYPE_THRESH:
-		if (rising)
+		if (dir == IIO_EV_DIR_RISING)
 			return !adaptive && (threshtype == 0x1);
 		else
 			return !adaptive && (threshtype == 0x0);
+
+	default:
+		break;
 	};
 	return -EINVAL;
 }
 
 /* lock should be held */
-static int ad7150_write_event_params(struct iio_dev *indio_dev, u64 event_code)
+static int ad7150_write_event_params(struct iio_dev *indio_dev,
+	 unsigned int chan, enum iio_event_type type,
+	 enum iio_event_direction dir)
 {
 	int ret;
 	u16 value;
 	u8 sens, timeout;
 	struct ad7150_chip_info *chip = iio_priv(indio_dev);
-	int chan = IIO_EVENT_CODE_EXTRACT_CHAN(event_code);
-	int rising = !!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			IIO_EV_DIR_RISING);
+	int rising = (dir == IIO_EV_DIR_RISING);
+	u64 event_code;
+
+	event_code = IIO_UNMOD_EVENT_CODE(IIO_CAPACITANCE, chan, type, dir);
 
 	if (event_code != chip->current_event)
 		return 0;
 
-	switch (IIO_EVENT_CODE_EXTRACT_TYPE(event_code)) {
+	switch (type) {
 		/* Note completely different from the adaptive versions */
 	case IIO_EV_TYPE_THRESH:
 		value = chip->threshold[rising][chan];
@@ -211,18 +217,20 @@ static int ad7150_write_event_params(struct iio_dev *indio_dev, u64 event_code)
 }
 
 static int ad7150_write_event_config(struct iio_dev *indio_dev,
-				     u64 event_code, int state)
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, int state)
 {
 	u8 thresh_type, cfg, adaptive;
 	int ret;
 	struct ad7150_chip_info *chip = iio_priv(indio_dev);
-	int rising = !!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			IIO_EV_DIR_RISING);
+	int rising = (dir == IIO_EV_DIR_RISING);
+	u64 event_code;
 
 	/* Something must always be turned on */
 	if (state == 0)
 		return -EINVAL;
 
+	event_code = IIO_UNMOD_EVENT_CODE(chan->type, chan->channel, type, dir);
 	if (event_code == chip->current_event)
 		return 0;
 	mutex_lock(&chip->state_lock);
@@ -232,7 +240,7 @@ static int ad7150_write_event_config(struct iio_dev *indio_dev,
 
 	cfg = ret & ~((0x03 << 5) | (0x1 << 7));
 
-	switch (IIO_EVENT_CODE_EXTRACT_TYPE(event_code)) {
+	switch (type) {
 	case IIO_EV_TYPE_MAG_ADAPTIVE:
 		adaptive = 1;
 		if (rising)
@@ -268,7 +276,7 @@ static int ad7150_write_event_config(struct iio_dev *indio_dev,
 	chip->current_event = event_code;
 
 	/* update control attributes */
-	ret = ad7150_write_event_params(indio_dev, event_code);
+	ret = ad7150_write_event_params(indio_dev, chan->channel, type, dir);
 error_ret:
 	mutex_unlock(&chip->state_lock);
 
@@ -276,26 +284,26 @@ error_ret:
 }
 
 static int ad7150_read_event_value(struct iio_dev *indio_dev,
-				   u64 event_code,
+				   const struct iio_chan_spec *chan,
+				   enum iio_event_type type,
+				   enum iio_event_direction dir,
 				   int *val)
 {
-	int chan = IIO_EVENT_CODE_EXTRACT_CHAN(event_code);
 	struct ad7150_chip_info *chip = iio_priv(indio_dev);
-	int rising = !!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			IIO_EV_DIR_RISING);
+	int rising = (dir == IIO_EV_DIR_RISING);
 
 	/* Complex register sharing going on here */
-	switch (IIO_EVENT_CODE_EXTRACT_TYPE(event_code)) {
+	switch (type) {
 	case IIO_EV_TYPE_MAG_ADAPTIVE:
-		*val = chip->mag_sensitivity[rising][chan];
+		*val = chip->mag_sensitivity[rising][chan->channel];
 		return 0;
 
 	case IIO_EV_TYPE_THRESH_ADAPTIVE:
-		*val = chip->thresh_sensitivity[rising][chan];
+		*val = chip->thresh_sensitivity[rising][chan->channel];
 		return 0;
 
 	case IIO_EV_TYPE_THRESH:
-		*val = chip->threshold[rising][chan];
+		*val = chip->threshold[rising][chan->channel];
 		return 0;
 
 	default:
@@ -304,25 +312,25 @@ static int ad7150_read_event_value(struct iio_dev *indio_dev,
 }
 
 static int ad7150_write_event_value(struct iio_dev *indio_dev,
-				   u64 event_code,
+				   const struct iio_chan_spec *chan,
+				   enum iio_event_type type,
+				   enum iio_event_direction dir,
 				   int val)
 {
 	int ret;
 	struct ad7150_chip_info *chip = iio_priv(indio_dev);
-	int chan = IIO_EVENT_CODE_EXTRACT_CHAN(event_code);
-	int rising = !!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
-			IIO_EV_DIR_RISING);
+	int rising = (dir == IIO_EV_DIR_RISING);
 
 	mutex_lock(&chip->state_lock);
-	switch (IIO_EVENT_CODE_EXTRACT_TYPE(event_code)) {
+	switch (type) {
 	case IIO_EV_TYPE_MAG_ADAPTIVE:
-		chip->mag_sensitivity[rising][chan] = val;
+		chip->mag_sensitivity[rising][chan->channel] = val;
 		break;
 	case IIO_EV_TYPE_THRESH_ADAPTIVE:
-		chip->thresh_sensitivity[rising][chan] = val;
+		chip->thresh_sensitivity[rising][chan->channel] = val;
 		break;
 	case IIO_EV_TYPE_THRESH:
-		chip->threshold[rising][chan] = val;
+		chip->threshold[rising][chan->channel] = val;
 		break;
 	default:
 		ret = -EINVAL;
@@ -330,7 +338,7 @@ static int ad7150_write_event_value(struct iio_dev *indio_dev,
 	};
 
 	/* write back if active */
-	ret = ad7150_write_event_params(indio_dev, event_code);
+	ret = ad7150_write_event_params(indio_dev, chan->channel, type, dir);
 
 error_ret:
 	mutex_unlock(&chip->state_lock);
@@ -374,17 +382,22 @@ static ssize_t ad7150_store_timeout(struct device *dev,
 	struct ad7150_chip_info *chip = iio_priv(indio_dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	int chan = IIO_EVENT_CODE_EXTRACT_CHAN(this_attr->address);
-	int rising = !!(IIO_EVENT_CODE_EXTRACT_DIR(this_attr->address) ==
-			IIO_EV_DIR_RISING);
+	enum iio_event_direction dir;
+	enum iio_event_type type;
+	int rising;
 	u8 data;
 	int ret;
+
+	type = IIO_EVENT_CODE_EXTRACT_TYPE(this_attr->address);
+	dir = IIO_EVENT_CODE_EXTRACT_DIR(this_attr->address);
+	rising = (dir == IIO_EV_DIR_RISING);
 
 	ret = kstrtou8(buf, 10, &data);
 	if (ret < 0)
 		return ret;
 
 	mutex_lock(&chip->state_lock);
-	switch (IIO_EVENT_CODE_EXTRACT_TYPE(this_attr->address)) {
+	switch (type) {
 	case IIO_EV_TYPE_MAG_ADAPTIVE:
 		chip->mag_timeout[rising][chan] = data;
 		break;
@@ -396,7 +409,7 @@ static ssize_t ad7150_store_timeout(struct device *dev,
 		goto error_ret;
 	};
 
-	ret = ad7150_write_event_params(indio_dev, this_attr->address);
+	ret = ad7150_write_event_params(indio_dev, chan, type, dir);
 error_ret:
 	mutex_unlock(&chip->state_lock);
 
