@@ -124,7 +124,7 @@ static int ad7303_write(struct ad7303_state *st, unsigned int chan,
 		(chan << AD7303_CFG_ADDR_OFFSET) |
 		st->config | val);
 
-	return spi_write(st->spi, &st->data[0], sizeof(st->data));
+	return spi_write(st->spi, &st->data[0], sizeof(st->data[0]));
 }
 
 static ssize_t ad7303_read_dac_powerdown(struct iio_dev *indio_dev,
