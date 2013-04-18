@@ -26,8 +26,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-#include <mach/slcr.h>
 #include <linux/clk/zynq.h>
+#include "common.h"
 
 #define DRIVER_NAME "xslcr"
 
@@ -2403,7 +2403,7 @@ next_periph:
  *
  * Return: 0 on success, negative error otherwise.
  **/
-static int __devinit xslcr_probe(struct platform_device *pdev)
+static int xslcr_probe(struct platform_device *pdev)
 {
 	int ret;
 
@@ -2447,7 +2447,7 @@ err_mio_class:
 	return ret;
 }
 
-static struct of_device_id slcr_of_match[] __devinitdata = {
+static struct of_device_id slcr_of_match[] = {
 	{ .compatible = "xlnx,zynq-slcr", },
 	{ /* end of list */ },
 };

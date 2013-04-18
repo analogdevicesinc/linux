@@ -558,6 +558,7 @@ void __init zynq_clock_init(void __iomem *slcr_base)
 			CLK_IGNORE_UNUSED, SLCR_ARM_CLK_CTRL, 27, 0,
 			&armclk_lock);
 	zynq_clkdev_add(NULL, "CPU_1X_CLK", clk);
+	clk_register_clkdev(clk, "apb_pclk", NULL);
 	clk_prepare(clk);
 	clk_enable(clk);
 	/* DDR clocks */

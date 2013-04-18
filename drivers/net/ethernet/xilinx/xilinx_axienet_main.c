@@ -48,7 +48,7 @@
 #define AXIENET_REGS_N		32
 
 /* Match table for of_platform binding */
-static struct of_device_id axienet_of_match[] __devinitdata = {
+static struct of_device_id axienet_of_match[] = {
 	{ .compatible = "xlnx,axi-ethernet-1.00.a", },
 	{ .compatible = "xlnx,axi-ethernet-1.01.a", },
 	{ .compatible = "xlnx,axi-ethernet-2.01.a", },
@@ -716,6 +716,8 @@ static int axienet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	cur_p->app4 = (unsigned long)skb;
 
 	tail_p = lp->tx_bd_p + sizeof(*lp->tx_bd_v) * lp->tx_bd_tail;
+	wmb();
+
 	/* Start the transfer */
 	axienet_dma_out32(lp, XAXIDMA_TX_TDESC_OFFSET, tail_p);
 	++lp->tx_bd_tail;
@@ -744,6 +746,7 @@ static void axienet_recv(struct net_device *ndev)
 	struct sk_buff *skb, *new_skb;
 	struct axidma_bd *cur_p;
 
+	rmb();
 	cur_p = &lp->rx_bd_v[lp->rx_bd_ci];
 
 	while ((cur_p->status & XAXIDMA_BD_STS_COMPLETE_MASK)) {
@@ -902,6 +905,8 @@ out:
 	return IRQ_HANDLED;
 }
 
+static void axienet_dma_err_handler(unsigned long data);
+
 /**
  * axienet_open - Driver open routine.
  * @ndev:	Pointer to net_device structure
@@ -940,15 +945,26 @@ static int axienet_open(struct net_device *ndev)
 		return ret;
 
 	if (lp->phy_node) {
-		lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
+		if (lp->phy_type == XAE_PHY_TYPE_GMII) {
+			lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
 					     axienet_adjust_link, 0,
 					     PHY_INTERFACE_MODE_GMII);
+		} else if (lp->phy_type == XAE_PHY_TYPE_RGMII_2_0) {
+			lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
+					     axienet_adjust_link, 0,
+					     PHY_INTERFACE_MODE_RGMII_ID);
+		}
+
 		if (!lp->phy_dev) {
 			dev_err(lp->dev, "of_phy_connect() failed\n");
 			return -ENODEV;
 		}
 		phy_start(lp->phy_dev);
 	}
+
+	/* Enable tasklets for Axi DMA error handling */
+	tasklet_init(&lp->dma_err_tasklet, axienet_dma_err_handler,
+		     (unsigned long) lp);
 
 	/* Enable interrupts for Axi DMA Tx */
 	ret = request_irq(lp->tx_irq, axienet_tx_irq, 0, ndev->name, ndev);
@@ -958,8 +974,7 @@ static int axienet_open(struct net_device *ndev)
 	ret = request_irq(lp->rx_irq, axienet_rx_irq, 0, ndev->name, ndev);
 	if (ret)
 		goto err_rx_irq;
-	/* Enable tasklets for Axi DMA error handling */
-	tasklet_enable(&lp->dma_err_tasklet);
+
 	return 0;
 
 err_rx_irq:
@@ -968,6 +983,7 @@ err_tx_irq:
 	if (lp->phy_dev)
 		phy_disconnect(lp->phy_dev);
 	lp->phy_dev = NULL;
+	tasklet_kill(&lp->dma_err_tasklet);
 	dev_err(lp->dev, "request_irq() failed\n");
 	return ret;
 }
@@ -998,7 +1014,7 @@ static int axienet_stop(struct net_device *ndev)
 	axienet_setoptions(ndev, lp->options &
 			   ~(XAE_OPTION_TXEN | XAE_OPTION_RXEN));
 
-	tasklet_disable(&lp->dma_err_tasklet);
+	tasklet_kill(&lp->dma_err_tasklet);
 
 	free_irq(lp->tx_irq, ndev);
 	free_irq(lp->rx_irq, ndev);
@@ -1499,7 +1515,7 @@ static void axienet_dma_err_handler(unsigned long data)
  * device. Parses through device tree and populates fields of
  * axienet_local. It registers the Ethernet device.
  */
-static int __devinit axienet_of_probe(struct platform_device *op)
+static int axienet_of_probe(struct platform_device *op)
 {
 	__be32 *p;
 	int size, ret = 0;
@@ -1638,10 +1654,6 @@ static int __devinit axienet_of_probe(struct platform_device *op)
 		goto err_iounmap_2;
 	}
 
-	tasklet_init(&lp->dma_err_tasklet, axienet_dma_err_handler,
-		     (unsigned long) lp);
-	tasklet_disable(&lp->dma_err_tasklet);
-
 	return 0;
 
 err_iounmap_2:
@@ -1655,7 +1667,7 @@ nodev:
 	return ret;
 }
 
-static int __devexit axienet_of_remove(struct platform_device *op)
+static int axienet_of_remove(struct platform_device *op)
 {
 	struct net_device *ndev = dev_get_drvdata(&op->dev);
 	struct axienet_local *lp = netdev_priv(ndev);
@@ -1679,7 +1691,7 @@ static int __devexit axienet_of_remove(struct platform_device *op)
 
 static struct platform_driver axienet_of_driver = {
 	.probe = axienet_of_probe,
-	.remove = __devexit_p(axienet_of_remove),
+	.remove = axienet_of_remove,
 	.driver = {
 		 .owner = THIS_MODULE,
 		 .name = "xilinx_axienet",

@@ -552,8 +552,7 @@ static irqreturn_t xadc_trigger_handler(int irq, void *p)
 		j++;
 	}
 
-	iio_push_to_buffer(indio_dev->buffer, (uint8_t *)xadc->data,
-		pf->timestamp);
+	iio_push_to_buffers(indio_dev, (uint8_t *)xadc->data);
 
 out:
 	iio_trigger_notify_done(indio_dev->trig);

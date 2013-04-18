@@ -112,11 +112,19 @@ struct drm_framebuffer *drm_fb_cma_create(struct drm_device *dev,
 	struct drm_fb_cma *fb_cma;
 	struct drm_gem_cma_object *objs[4];
 	struct drm_gem_object *obj;
-	unsigned int min_size;
+	unsigned int hsub;
+	unsigned int vsub;
 	int ret;
 	int i;
 
+	hsub = drm_format_horz_chroma_subsampling(mode_cmd->pixel_format);
+	vsub = drm_format_vert_chroma_subsampling(mode_cmd->pixel_format);
+
 	for (i = 0; i < drm_format_num_planes(mode_cmd->pixel_format); i++) {
+		unsigned int width = mode_cmd->width / (i ? hsub : 1);
+		unsigned int height = mode_cmd->height / (i ? vsub : 1);
+		unsigned int min_size;
+
 		obj = drm_gem_object_lookup(dev, file_priv, mode_cmd->handles[i]);
 		if (!obj) {
 			dev_err(dev->dev, "Failed to lookup GEM object\n");
@@ -124,7 +132,9 @@ struct drm_framebuffer *drm_fb_cma_create(struct drm_device *dev,
 			goto err_gem_object_unreference;
 		}
 
-		min_size = mode_cmd->height * mode_cmd->pitches[i];
+		min_size = (height - 1) * mode_cmd->pitches[i]
+			 + width * drm_format_plane_cpp(mode_cmd->pixel_format, i)
+			 + mode_cmd->offsets[i];
 
 		if (obj->size < min_size) {
 			drm_gem_object_unreference_unlocked(obj);
@@ -196,7 +206,7 @@ static int drm_fbdev_cma_create(struct drm_fb_helper *helper,
 	size_t size;
 	int ret;
 
-	DRM_DEBUG_KMS("surface width(%d), height(%d) and bpp(%d\n",
+	DRM_DEBUG_KMS("surface width(%d), height(%d) and bpp(%d)\n",
 			sizes->surface_width, sizes->surface_height,
 			sizes->surface_bpp);
 
@@ -210,7 +220,7 @@ static int drm_fbdev_cma_create(struct drm_fb_helper *helper,
 
 	size = mode_cmd.pitches[0] * mode_cmd.height;
 	obj = drm_gem_cma_create(dev, size);
-	if (!obj)
+	if (IS_ERR(obj))
 		return -ENOMEM;
 
 	fbi = framebuffer_alloc(0, dev->dev);
@@ -394,5 +404,3 @@ void drm_fbdev_cma_hotplug_event(struct drm_fbdev_cma *fbdev_cma)
 		drm_fb_helper_hotplug_event(&fbdev_cma->fb_helper);
 }
 EXPORT_SYMBOL_GPL(drm_fbdev_cma_hotplug_event);
-
-MODULE_LICENSE("GPL");

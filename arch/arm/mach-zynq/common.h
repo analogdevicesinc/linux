@@ -17,21 +17,42 @@
 #ifndef __MACH_ZYNQ_COMMON_H__
 #define __MACH_ZYNQ_COMMON_H__
 
-#include <mach/slcr.h>
-
 void __init xttcps_timer_init_old(void);
+void __init xttcpss_timer_init(void);
 void platform_device_init(void);
 
-int __cpuinit zynq_cpun_start(u32 address, int cpu);
+extern int __cpuinit zynq_cpun_start(u32 address, int cpu);
 
-static inline void xilinx_system_reset(char mode, const char *cmd)
-{
-	xslcr_system_reset();
-}
+extern void xslcr_write(u32 val, u32 offset);
+extern u32 xslcr_read(u32 offset);
+
+extern int xslcr_init(void);
+extern void xslcr_system_reset(void);
+
+extern void xslcr_init_preload_fpga(void);
+extern void xslcr_init_postload_fpga(void);
 
 /* multiplatform use core.h for this purpose */
 extern void secondary_startup(void);
 
+extern void __iomem *zynq_slcr_base;
 extern void __iomem *scu_base;
+
+#ifdef CONFIG_SUSPEND
+int zynq_pm_late_init(void);
+#else
+static inline int zynq_pm_late_init(void)
+{
+	return 0;
+}
+#endif
+
+extern unsigned int zynq_sys_suspend_sz;
+int zynq_sys_suspend(void __iomem *ddrc_base, void __iomem *slcr_base);
+
+extern void platform_cpu_die(unsigned int cpu);
+extern struct smp_operations zynq_smp_ops;
+
+#define IRQ_XILINX_MSI_0       128
 
 #endif

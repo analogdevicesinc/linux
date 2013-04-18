@@ -171,6 +171,7 @@
 			interrupts = <0 22 0>;
 			interrupt-parent = <&gic>;
 			phy-handle = <&phy0>;
+			phy-mode = "rgmii-id";
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 
