@@ -108,7 +108,7 @@ static const struct iio_trigger_ops iio_hrtimer_trigger_ops = {
 	.set_trigger_state = iio_trig_hrtimer_set_state,
 };
 
-static int __devinit iio_trig_hrtimer_probe(struct platform_device *pdev)
+static int iio_trig_hrtimer_probe(struct platform_device *pdev)
 {
 	struct iio_hrtimer_trig_info *trig_info;
 	struct iio_trigger *trig;
@@ -151,7 +151,7 @@ err_free_trigger:
 	return ret;
 }
 
-static int __devexit iio_trig_hrtimer_remove(struct platform_device *pdev)
+static int iio_trig_hrtimer_remove(struct platform_device *pdev)
 {
 	struct iio_hrtimer_trig_info *trig_info = platform_get_drvdata(pdev);
 	struct iio_trigger *trig = trig_info->trigger;
@@ -176,7 +176,7 @@ static struct platform_driver iio_trig_hrtimer_driver = {
 		.of_match_table = trigger_of_match
 	},
 	.probe = iio_trig_hrtimer_probe,
-	.remove = __devexit_p(iio_trig_hrtimer_remove),
+	.remove = iio_trig_hrtimer_remove,
 };
 module_platform_driver(iio_trig_hrtimer_driver);
 
