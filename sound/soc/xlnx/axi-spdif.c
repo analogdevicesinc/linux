@@ -29,6 +29,7 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/initval.h>
+#include <sound/dmaengine_pcm.h>
 
 struct axi_spdif {
 	void __iomem *base;
@@ -36,6 +37,7 @@ struct axi_spdif {
 	unsigned int clock;
 
 	struct debugfs_regset32 regset;
+	struct snd_dmaengine_dai_dma_data dma_data;
 };
 
 #define AXI_SPDIF_REG_CTRL 0x0
@@ -126,6 +128,16 @@ static int axi_spdif_hw_params(struct snd_pcm_substream *substream,
 
 	return 0;
 }
+
+static int axi_spdif_dai_probe(struct snd_soc_dai *dai)
+{
+	struct axi_spdif *spdif = snd_soc_dai_get_drvdata(dai);
+
+	dai->playback_dma_data = &spdif->dma_data;
+
+	return 0;
+}
+
 /*
 static int axi_spdif_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
@@ -163,6 +175,7 @@ static const struct snd_soc_dai_ops axi_spdif_dai_ops = {
 };
 
 static struct snd_soc_dai_driver axi_spdif_dai = {
+	.probe = axi_spdif_dai_probe,
 	.playback = {
 		.channels_min = 2,
 		.channels_max = 2,
@@ -208,11 +221,12 @@ static int axi_spdif_probe(struct platform_device *pdev)
 
 	axi_spdif_write(spdif, AXI_SPDIF_REG_CTRL, AXI_SPDIF_CTRL_TXEN);
 
-	return 0;
+	return snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
 }
 
 static int axi_spdif_dev_remove(struct platform_device *pdev)
 {
+	snd_dmaengine_pcm_unregister(&pdev->dev);
 	snd_soc_unregister_dai(&pdev->dev);
 
 	return 0;
