@@ -23,6 +23,7 @@
 
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_dma.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/log2.h>
@@ -73,12 +74,6 @@ struct fft_state {
 	int				compl_stat;
 };
 
-struct fft_dma_params {
-	struct device_node *of_node;
-	enum dma_transfer_direction direction;
-	int chan_id;
-};
-
 struct fft_state *fft_state_glob;
 
 /*
@@ -93,14 +88,6 @@ static inline void fft_write(struct fft_state *st, unsigned reg, unsigned val)
 static inline unsigned int fft_read(struct fft_state *st, unsigned reg)
 {
 	return ioread32(st->regs + reg);
-}
-
-static bool fft_dma_filter(struct dma_chan *chan, void *param)
-{
-	struct fft_dma_params *p = param;
-
-	return chan->device->dev->of_node == p->of_node &&
-		chan->chan_id == p->chan_id;
 }
 
 int fft_calculate(dma_addr_t src, dma_addr_t dest, unsigned int size, unsigned irsel)
@@ -209,9 +196,6 @@ static int fft_of_probe(struct platform_device *op)
 	struct device *dev = &op->dev;
 	struct fft_state *st;
 	struct resource r_mem; /* IO mem resources */
-	struct fft_dma_params dma_params;
-	struct of_phandle_args dma_spec;
-	dma_cap_mask_t mask;
 	resource_size_t remap_size, phys_addr;
 	int ret;
 
@@ -252,41 +236,13 @@ static int fft_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
-	/* Get dma channel for the device */
-	ret = of_parse_phandle_with_args(op->dev.of_node, "dma-request",
-					 "#dma-cells", 0, &dma_spec);
-	if (ret) {
-		dev_err(dev, "Couldn't parse dma-request\n");
-		goto failed2;
-	}
-
-	dma_params.of_node = dma_spec.np;
-	dma_params.chan_id = dma_spec.args[0];
-
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
-
-	st->tx_chan = dma_request_channel(mask, fft_dma_filter, &dma_params);
+	st->tx_chan = of_dma_request_slave_channel(op->dev.of_node, "tx");
 	if (!st->tx_chan) {
 		dev_err(dev, "failed to find tx dma device\n");
 		goto failed2;
 	}
 
-	/* Get dma channel for the device */
-	ret = of_parse_phandle_with_args(op->dev.of_node, "dma-request",
-					 "#dma-cells", 1, &dma_spec);
-	if (ret) {
-		dev_err(dev, "Couldn't parse dma-request\n");
-		goto failed2;
-	}
-
-	dma_params.of_node = dma_spec.np;
-	dma_params.chan_id = dma_spec.args[0];
-
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
-
-	st->rx_chan = dma_request_channel(mask, fft_dma_filter, &dma_params);
+	st->rx_chan = of_dma_request_slave_channel(op->dev.of_node, "rx");
 	if (!st->rx_chan) {
 		dev_err(dev, "failed to find rx dma device\n");
 		goto failed2;
