@@ -24,6 +24,7 @@
 
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_dma.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 
@@ -791,19 +792,6 @@ static const struct iio_info axiadc_info = {
 	.update_scan_mode = &axiadc_update_scan_mode,
 };
 
-struct axiadc_dma_params {
-	struct device_node *of_node;
-	int chan_id;
-};
-
-static bool axiadc_dma_filter(struct dma_chan *chan, void *param)
-{
-	struct axiadc_dma_params *p = param;
-
-	return chan->device->dev->of_node == p->of_node &&
-		chan->chan_id == p->chan_id;
-}
-
 static int axiadc_attach_spi_client(struct device *dev, void *data)
 {
 	struct axiadc_spidev *axiadc_spidev = data;
@@ -832,10 +820,7 @@ static int axiadc_of_probe(struct platform_device *op)
 	struct device *dev = &op->dev;
 	struct axiadc_state *st;
 	struct resource r_mem; /* IO mem resources */
-	struct axiadc_dma_params dma_params;
-	struct of_phandle_args dma_spec;
 	struct axiadc_spidev axiadc_spidev;
-	dma_cap_mask_t mask;
 	resource_size_t remap_size, phys_addr;
 	int ret;
 
@@ -895,21 +880,8 @@ static int axiadc_of_probe(struct platform_device *op)
 		ret = -EFAULT;
 		goto failed2;
 	}
-	/* Get dma channel for the device */
-	ret = of_parse_phandle_with_args(op->dev.of_node, "dma-request",
-					 "#dma-cells", 0, &dma_spec);
-	if (ret) {
-		dev_err(dev, "Couldn't parse dma-request\n");
-		goto failed2;
-	}
 
-	dma_params.of_node = dma_spec.np;
-	dma_params.chan_id = dma_spec.args[0];
-
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
-
-	st->rx_chan = dma_request_channel(mask, axiadc_dma_filter, &dma_params);
+	st->rx_chan = of_dma_request_slave_channel(op->dev.of_node, "rx");
 	if (!st->rx_chan) {
 		ret = -EPROBE_DEFER;
 		dev_err(dev, "failed to find rx dma device\n");
