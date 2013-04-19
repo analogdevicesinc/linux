@@ -514,7 +514,8 @@ struct edid *adv7511_get_edid(struct drm_encoder *encoder)
 	if (!adv7511->edid)
 		return NULL;
 
-	return kmemdup(adv7511->edid, sizeof(*adv7511->edid), GFP_KERNEL);
+	return kmemdup(adv7511->edid, sizeof(*adv7511->edid) +
+		adv7511->edid->extensions * 128, GFP_KERNEL);
 }
 EXPORT_SYMBOL_GPL(adv7511_get_edid);
 
