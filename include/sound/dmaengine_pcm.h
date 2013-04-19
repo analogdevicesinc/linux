@@ -68,6 +68,7 @@ struct snd_dmaengine_dai_dma_data {
 	u32 maxburst;
 	unsigned int slave_id;
 	void *filter_data;
+	unsigned int fifo_size;
 };
 
 void snd_dmaengine_pcm_set_config_from_dai_data(
