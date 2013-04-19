@@ -74,6 +74,7 @@ enum dma_transaction_type {
 	DMA_SLAVE,
 	DMA_CYCLIC,
 	DMA_INTERLEAVE,
+	DMA_PAUSE_RESUME,
 /* last transaction type for creation of the capabilities mask */
 	DMA_TX_TYPE_END,
 };
