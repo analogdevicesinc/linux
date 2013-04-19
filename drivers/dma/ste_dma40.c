@@ -2713,6 +2713,7 @@ static int __init d40_dmaengine_init(struct d40_base *base,
 	dma_cap_zero(base->dma_slave.cap_mask);
 	dma_cap_set(DMA_SLAVE, base->dma_slave.cap_mask);
 	dma_cap_set(DMA_CYCLIC, base->dma_slave.cap_mask);
+	dma_cap_set(DMA_PAUSE_RESUME, base->dma_slave.cap_mask);
 
 	d40_ops_init(base, &base->dma_slave);
 

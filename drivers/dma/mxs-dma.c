@@ -710,6 +710,7 @@ static int __init mxs_dma_probe(struct platform_device *pdev)
 
 	dma_cap_set(DMA_SLAVE, mxs_dma->dma_device.cap_mask);
 	dma_cap_set(DMA_CYCLIC, mxs_dma->dma_device.cap_mask);
+	dma_cap_set(DMA_PAUSE_RESUME, mxs_dma->dma_device.cap_mask);
 
 	INIT_LIST_HEAD(&mxs_dma->dma_device.channels);
 

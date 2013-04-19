@@ -1607,6 +1607,7 @@ static int __init ipu_idmac_init(struct ipu *ipu)
 
 	dma_cap_set(DMA_SLAVE, dma->cap_mask);
 	dma_cap_set(DMA_PRIVATE, dma->cap_mask);
+	dma_cap_set(DMA_PAUSE_RESUME, dma->cap_mask);
 
 	/* Compulsory common fields */
 	dma->dev				= ipu->dev;

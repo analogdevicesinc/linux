@@ -619,6 +619,7 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 	dma_cap_set(DMA_CYCLIC, dma->cap_mask);
 	dma_cap_set(DMA_INTERLEAVE, dma->cap_mask);
 	dma_cap_set(DMA_PRIVATE, dma->cap_mask);
+	dma_cap_set(DMA_PAUSE_RESUME,, dma->cap_mask);
 
 	for (i = 0; i < dma->chancnt; i++) {
 		schan = &sdma->channels[i];

@@ -571,6 +571,7 @@ static int mmp_tdma_probe(struct platform_device *pdev)
 
 	dma_cap_set(DMA_SLAVE, tdev->device.cap_mask);
 	dma_cap_set(DMA_CYCLIC, tdev->device.cap_mask);
+	dma_cap_set(DMA_PAUSE_RESUME, tdev->device.cap_mask);
 	tdev->device.dev = &pdev->dev;
 	tdev->device.device_alloc_chan_resources =
 					mmp_tdma_alloc_chan_resources;
