@@ -627,8 +627,8 @@
 		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x79020000 0x10000 >;
-			dma-request = <&axi_dma_1 0>;
-			spibus-connected = <&adc0_ad9467>;
+			dmas = <&axi_dma_1 0>;
+			dma-names = "rx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
 			xlnx,num-reg = <0x1>;
@@ -642,7 +642,8 @@
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
 			reg = < 0x74200000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
-			dma-request = <&axi_vdma_1 0>;
+			dmas = <&axi_vdma_1 0>;
+			dma-names = "tx";
 			dac-sample-frequency = <491520000>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;

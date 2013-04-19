@@ -23,6 +23,7 @@
 #include <asm/div64.h>
 
 #include <linux/of_device.h>
+#include <linux/of_dma.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 
@@ -39,19 +40,6 @@ struct dds_spidev {
 	struct device_node *of_nspi;
 	struct device *dev_spi;
 };
-
-struct axi_dds_dma_params {
-	struct device_node *of_node;
-	int chan_id;
-};
-
-static bool cf_axi_dds_dma_filter(struct dma_chan *chan, void *param)
-{
-	struct axi_dds_dma_params *p = param;
-
-	return chan->device->dev->of_node == p->of_node &&
-		chan->chan_id == p->chan_id;
-}
 
 static void cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 {
@@ -602,9 +590,6 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	resource_size_t remap_size, phys_addr;
 	struct dds_spidev dds_spidev;
 	struct cf_axi_converter *conv;
-	struct axi_dds_dma_params dma_params;
-	struct of_phandle_args dma_spec;
-	dma_cap_mask_t mask;
 	int ret;
 
 	const struct of_device_id *of_id =
@@ -719,20 +704,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 
 	cf_axi_dds_sync_frame(indio_dev);
 
-	ret = of_parse_phandle_with_args(op->dev.of_node, "dma-request",
-					 "#dma-cells", 0, &dma_spec);
-	if (ret) {
-		dev_warn(dev, "Couldn't parse dma-request\n");
-		goto skip_writebuf;
-	}
-
-	dma_params.of_node = dma_spec.np;
-	dma_params.chan_id = dma_spec.args[0];
-
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
-
-	st->tx_chan = dma_request_channel(mask, cf_axi_dds_dma_filter, &dma_params);
+	st->tx_chan = of_dma_request_slave_channel(op->dev.of_node, "tx");
 	if (!st->tx_chan) {
 		dev_err(dev, "failed to find vdma device\n");
 		goto failed3;
