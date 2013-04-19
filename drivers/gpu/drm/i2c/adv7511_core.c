@@ -495,6 +495,7 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 				ADV7511_POWER_POWER_DOWN, ADV7511_POWER_POWER_DOWN);
 
+	adv7511->edid = edid;
 	if (!edid)
 		return 0;
 
@@ -502,7 +503,6 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 	count = drm_add_edid_modes(connector, edid);
 
 	kfree(adv7511->edid);
-	adv7511->edid = edid;
 
 	return count;
 }
@@ -510,6 +510,9 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 struct edid *adv7511_get_edid(struct drm_encoder *encoder)
 {
 	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
+
+	if (!adv7511->edid)
+		return NULL;
 
 	return kmemdup(adv7511->edid, sizeof(*adv7511->edid), GFP_KERNEL);
 }
