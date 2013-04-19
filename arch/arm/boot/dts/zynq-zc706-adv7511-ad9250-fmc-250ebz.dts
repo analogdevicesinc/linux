@@ -451,6 +451,8 @@
 
 		axi_spi_0: spi@42000000 {
 			compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupt-parent = <&gic>;
 			interrupts = < 0 56 4 >;
 			reg = < 0x42000000 0x10000 >;
