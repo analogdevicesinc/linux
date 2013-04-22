@@ -405,6 +405,7 @@
 				compatible = "xlnx,axi-dma-mm2s-channel";
 				interrupts = < 0 56 0x4 >;
 				xlnx,datawidth = <0x20>;
+				xlnx,sg-length-width = <14>;
 				xlnx,include-dre = <0x0>;
 			};
 		};
@@ -494,6 +495,7 @@
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupts = < 0 58 0x4 >;
 				xlnx,datawidth = <0x40>;
+				xlnx,sg-length-width = <23>;
 				xlnx,include-dre = <0x0>;
 			} ;
 		} ;
