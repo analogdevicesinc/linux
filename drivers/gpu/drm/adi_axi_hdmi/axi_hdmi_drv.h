@@ -34,6 +34,7 @@ struct axi_hdmi_private {
 
 	struct xlnx_pcm_dma_params dma_params;
 	bool is_rgb;
+	bool embedded_sync;
 };
 
 #endif

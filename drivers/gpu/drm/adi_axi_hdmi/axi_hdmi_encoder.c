@@ -32,6 +32,9 @@
 #define AXI_HDMI_REG_STATUS		0x10
 #define AXI_HDMI_REG_COLOR_PATTERN	0x1c
 
+#define AXI_HDMI_REG_ES_HTIMING		0x08
+#define AXI_HDMI_REG_ES_VTIMING		0x0C
+
 #define AXI_HDMI_CTRL_ENABLE		BIT(0)
 #define AXI_HDMI_CTRL_CSC_BYPASS	BIT(1)
 #define AXI_HDMI_CTRL_TPG_ENABLE	BIT(2)
@@ -320,22 +323,28 @@ static void axi_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 		sfuncs->mode_set(encoder, mode, adjusted_mode);
 
 	htotal = mode->htotal;
-	hactive = mode->hdisplay;
 	vtotal = mode->vtotal;
-	vactive = mode->vdisplay;
 
-	hactive = mode->hsync_end - mode->hsync_start;
-	vactive = mode->vsync_end - mode->vsync_start;
+	if (private->embedded_sync) {
+		vactive = mode->vdisplay;
+		hactive = mode->hdisplay;
 
-	h_de_min =  htotal - mode->hsync_start;
-	h_de_max =  h_de_min + mode->hdisplay;
-	v_de_min =  vtotal - mode->vsync_start;
-	v_de_max =  v_de_min + mode->vdisplay;
+		iowrite32((hactive << 16) | htotal, private->base + AXI_HDMI_REG_ES_HTIMING);
+		iowrite32((vactive << 16) | vtotal, private->base + AXI_HDMI_REG_ES_VTIMING);
+	} else {
+		hactive = mode->hsync_end - mode->hsync_start;
+		vactive = mode->vsync_end - mode->vsync_start;
 
-	iowrite32((hactive << 16) | htotal, private->base + AXI_HDMI_REG_HTIMING1);
-	iowrite32((h_de_min << 16) | h_de_max, private->base + AXI_HDMI_REG_HTIMING2);
-	iowrite32((vactive << 16) | vtotal, private->base + AXI_HDMI_REG_VTIMING1);
-	iowrite32((v_de_min << 16) | v_de_max, private->base + AXI_HDMI_REG_VTIMING2);
+		h_de_min =  htotal - mode->hsync_start;
+		h_de_max =  h_de_min + mode->hdisplay;
+		v_de_min =  vtotal - mode->vsync_start;
+		v_de_max =  v_de_min + mode->vdisplay;
+
+		iowrite32((hactive << 16) | htotal, private->base + AXI_HDMI_REG_HTIMING1);
+		iowrite32((h_de_min << 16) | h_de_max, private->base + AXI_HDMI_REG_HTIMING2);
+		iowrite32((vactive << 16) | vtotal, private->base + AXI_HDMI_REG_VTIMING1);
+		iowrite32((v_de_min << 16) | v_de_max, private->base + AXI_HDMI_REG_VTIMING2);
+	}
 
 	clk_set_rate(private->hdmi_clock, mode->clock * 1000);
 }
