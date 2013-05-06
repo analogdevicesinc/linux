@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/firmware.h>
+#include <linux/of.h>
 
 #include <linux/clk.h>
 #include <linux/clkdev.h>
@@ -833,6 +834,8 @@ static int ad9517_reg_access(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL) {
 		ret = ad9517_write(st->spi, reg, writeval);
+		/* Update all registers */
+		ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
 	} else {
 		ret = ad9517_read(st->spi, reg);
 		if (ret < 0)
@@ -962,7 +965,15 @@ static int ad9517_probe(struct spi_device *spi)
 	}
 
 	if (!pdata) {
-		ret = request_firmware(&fw, FIRMWARE, &spi->dev);
+		const char *name;
+		if (spi->dev.of_node) {
+			if (of_property_read_string(spi->dev.of_node, "firmware", &name))
+				name = FIRMWARE;
+		} else {
+			name = FIRMWARE;
+		}
+
+		ret = request_firmware(&fw, name, &spi->dev);
 		if (ret) {
 			dev_err(&spi->dev,
 				"request_firmware() failed with %i\n", ret);
