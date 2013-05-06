@@ -290,6 +290,8 @@ struct ad9523_state {
 	unsigned long		vco_out_freq[AD9523_NUM_CLK_SRC];
 	unsigned char		vco_out_map[AD9523_NUM_CHAN_ALT_CLK_SRC];
 
+	struct mutex		lock;
+
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
@@ -516,6 +518,7 @@ static ssize_t ad9523_store(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct ad9523_state *st = iio_priv(indio_dev);
 	bool state;
 	int ret;
 
@@ -526,7 +529,7 @@ static ssize_t ad9523_store(struct device *dev,
 	if (!state)
 		return 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 	case AD9523_SYNC:
 		ret = ad9523_sync(indio_dev);
@@ -537,7 +540,7 @@ static ssize_t ad9523_store(struct device *dev,
 	default:
 		ret = -ENODEV;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
 }
@@ -548,15 +551,16 @@ static ssize_t ad9523_show(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct ad9523_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	ret = ad9523_read(indio_dev, AD9523_READBACK_0);
 	if (ret >= 0) {
 		ret = sprintf(buf, "%d\n", !!(ret & (1 <<
 			(u32)this_attr->address)));
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -639,9 +643,9 @@ static int ad9523_read_raw(struct iio_dev *indio_dev,
 	unsigned int code;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	ret = ad9523_read(indio_dev, AD9523_CHANNEL_CLOCK_DIST(chan->channel));
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	if (ret < 0)
 		return ret;
@@ -675,7 +679,7 @@ static int ad9523_write_raw(struct iio_dev *indio_dev,
 	unsigned int reg;
 	int ret, tmp, code;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	ret = ad9523_read(indio_dev, AD9523_CHANNEL_CLOCK_DIST(chan->channel));
 	if (ret < 0)
 		goto out;
@@ -725,7 +729,7 @@ static int ad9523_write_raw(struct iio_dev *indio_dev,
 
 	ad9523_io_update(indio_dev);
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 	return ret;
 }
 
@@ -733,9 +737,10 @@ static int ad9523_reg_access(struct iio_dev *indio_dev,
 			      unsigned int reg, unsigned int writeval,
 			      unsigned int *readval)
 {
+	struct ad9523_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (readval == NULL) {
 		ret = ad9523_write(indio_dev, reg | AD9523_R1B, writeval);
 		ad9523_io_update(indio_dev);
@@ -748,7 +753,7 @@ static int ad9523_reg_access(struct iio_dev *indio_dev,
 	}
 
 out_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -1274,6 +1279,8 @@ static int ad9523_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+
+	mutex_init(&st->lock);
 
 	st->reg = devm_regulator_get(&spi->dev, "vcc");
 	if (!IS_ERR(st->reg)) {
