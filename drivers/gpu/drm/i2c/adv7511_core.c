@@ -624,11 +624,11 @@ static void adv7511_encoder_mode_set(struct drm_encoder *encoder,
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(0),
 			(hsync_offset >> 2) & 0xff);
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(1),
-			((hsync_offset & 0x3) << 2) | (hsync_len >> 4));
+			((hsync_offset & 0x3) << 6) | ((hsync_len >> 4) & 0x3f));
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(2),
-			((hsync_len & 0xf) << 4) | (vsync_offset >> 6));
+			((hsync_len & 0xf) << 4) | ((vsync_offset >> 6) & 0xf));
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(3),
-			((vsync_offset & 0x3f) << 2) | (vsync_len >> 8));
+			((vsync_offset & 0x3f) << 2) | ((vsync_len >> 8) & 0x3));
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(4),
 			vsync_len & 0xff);
 
