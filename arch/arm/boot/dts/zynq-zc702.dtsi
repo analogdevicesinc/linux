@@ -1,0 +1,30 @@
+/include/ "zynq.dtsi"
+
+/ {
+	model = "Xilinx Zynq ZC702";
+	compatible = "xlnx,zynq-zc702";
+	#address-cells = <0x1>;
+	#size-cells = <0x1>;
+	interrupt-parent = <0x1>;
+
+	memory {
+		device_type = "memory";
+		reg = <0x000000000 0x40000000>;
+	};
+
+	chosen {
+//		bootargs = "console=ttyPS0,115200 root=/dev/ram rw initrd=0x1100000,33M ip=:::::eth0:dhcp earlyprintk";
+		bootargs = "console=ttyPS0,115200 root=/dev/mmcblk0p2 rw earlyprintk rootfstype=ext4 rootwait devtmpfs.mount=0";
+		linux,stdout-path = "/amba@0/uart@E0001000";
+	};
+};
+
+&eth {
+	phy-handle = <&phy0>;
+
+	phy0: phy@7 {
+		compatible = "marvell,88e1116r";
+		device_type = "ethernet-phy";
+		reg = <0x7>;
+	};
+};

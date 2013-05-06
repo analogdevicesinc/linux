@@ -90,8 +90,13 @@ static void adv7511_set_colormap(struct adv7511 *adv7511, bool enable,
 		}
 	}
 
-	regmap_update_bits(adv7511->regmap, ADV7511_REG_CSC_UPPER(0),
-		0xe0, (enable << 7) | (scaling_factor << 5));
+	if (enable) {
+		regmap_update_bits(adv7511->regmap, ADV7511_REG_CSC_UPPER(0),
+			0xe0, 0x80 | (scaling_factor << 5));
+	} else {
+		regmap_update_bits(adv7511->regmap, ADV7511_REG_CSC_UPPER(0),
+			0x80, 0x00);
+	}
 
 	regmap_update_bits(adv7511->regmap, ADV7511_REG_CSC_UPPER(1),
 		ADV7511_CSC_UPDATE_MODE, 0);
@@ -490,6 +495,7 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 				ADV7511_POWER_POWER_DOWN, ADV7511_POWER_POWER_DOWN);
 
+	adv7511->edid = edid;
 	if (!edid)
 		return 0;
 
@@ -497,7 +503,6 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 	count = drm_add_edid_modes(connector, edid);
 
 	kfree(adv7511->edid);
-	adv7511->edid = edid;
 
 	return count;
 }
@@ -506,7 +511,11 @@ struct edid *adv7511_get_edid(struct drm_encoder *encoder)
 {
 	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
 
-	return kmemdup(adv7511->edid, sizeof(*adv7511->edid), GFP_KERNEL);
+	if (!adv7511->edid)
+		return NULL;
+
+	return kmemdup(adv7511->edid, sizeof(*adv7511->edid) +
+		adv7511->edid->extensions * 128, GFP_KERNEL);
 }
 EXPORT_SYMBOL_GPL(adv7511_get_edid);
 
@@ -607,16 +616,19 @@ static void adv7511_encoder_mode_set(struct drm_encoder *encoder,
 		hsync_len = adj_mode->crtc_hsync_end - adj_mode->crtc_hsync_start;
 		vsync_len = adj_mode->crtc_vsync_end - adj_mode->crtc_vsync_start;
 
+		/* The hardware vsync generator has a off-by-one bug */
+		vsync_offset += 1;
+
 		regmap_write(adv7511->regmap, ADV7511_REG_HSYNC_PLACEMENT_MSB,
 			((hsync_offset >> 10) & 0x7) << 5);
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(0),
 			(hsync_offset >> 2) & 0xff);
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(1),
-			((hsync_offset & 0x3) << 2) | (hsync_len >> 4));
+			((hsync_offset & 0x3) << 6) | ((hsync_len >> 4) & 0x3f));
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(2),
-			((hsync_len & 0xf) << 4) | (vsync_offset >> 6));
+			((hsync_len & 0xf) << 4) | ((vsync_offset >> 6) & 0xf));
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(3),
-			((vsync_offset & 0x3f) << 2) | (vsync_len >> 8));
+			((vsync_offset & 0x3f) << 2) | ((vsync_len >> 8) & 0x3));
 		regmap_write(adv7511->regmap, ADV7511_REG_SYNC_DECODER(4),
 			vsync_len & 0xff);
 

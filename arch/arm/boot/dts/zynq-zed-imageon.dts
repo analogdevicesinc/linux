@@ -1,92 +1,48 @@
 /dts-v1/;
 
-/include/ "zynq-zc706.dtsi"
+/include/ "zynq-zed.dtsi"
 
 / {
-	fpag-axi@0 {
+	fpga_axi: fpga-axi@0 {
 		compatible = "simple-bus";
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
 		ranges;
 
-		i2c0: i2c@0 {
-			compatible = "i2c-gpio";
-			gpios = <&gpio 51 0 &gpio 50 0>;
-			i2c-gpio,delay-us = <2>;
-			#address-cells = <1>;
+		axi_iic_0: i2c@41600000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 55 0x4 >;
+			reg = < 0x41600000 0x10000 >;
+
 			#size-cells = <0>;
+			#address-cells = <1>;
 
-
-			i2cswitch@74 {
-				compatible = "nxp,pca9548";
+			mux@70 {
+				compatible = "pca9548";
+				reg = <0x70>;
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x74>;
-
-				i2c@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <0>;
-					osc@5d {
-						compatible = "si570";
-						reg = <0x5d>;
-						factory-fout = <156250000>;
-						initial-fout = <148500000>;
-					};
-				};
-
 				i2c_adv7511: i2c@1 {
-				    #address-cells = <1>;
-				    #size-cells = <0>;
-				    reg = <1>;
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <1>;
 
-				    adv7511: adv7511 {
+					adv7511: adv7511@39 {
 						compatible = "adi,adv7511";
 						reg = <0x39>;
 
-						adi,input-id = <0x00>;
-						adi,input-style = <0x01>;
-						adi,bit-justification = <0x00>;
+						adi,input-style = <0x02>;
+						adi,input-id = <0x02>;
 						adi,input-color-depth = <0x3>;
 						adi,sync-pulse = <0x03>;
+						adi,bit-justification = <0x02>;
 						adi,up-conversion = <0x00>;
 						adi,timing-generation-sequence = <0x00>;
 						adi,vsync-polarity = <0x02>;
 						adi,hsync-polarity = <0x02>;
 						adi,tdms-clock-inversion;
 						adi,clock-delay = <0x03>;
-				    };
-				};
-
-				i2c@2 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <2>;
-					eeprom@54 {
-						compatible = "at,24c08";
-						reg = <0x54>;
-					};
-				};
-
-				i2c@3 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <3>;
-					gpio@21 {
-						compatible = "ti,tca6416";
-						reg = <0x21>;
-						gpio-controller;
-						#gpio-cells = <2>;
-					};
-				};
-
-				i2c@4 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <4>;
-					rtc@54 {
-						compatible = "nxp,pcf8563";
-						reg = <0x51>;
 					};
 				};
 			};
@@ -101,7 +57,7 @@
 			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40400000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = < 0 58 0x4 >;
+				interrupts = < 0 57 0x4 >;
 				xlnx,datawidth = <0x20>;
 				xlnx,include-dre = <0x0>;
 			};
@@ -149,7 +105,7 @@
 			encoder-slave = <&adv7511>;
 			dma-request = <&axi_vdma_0 0>;
 			clocks = <&hdmi_clock>;
-			adi,is-rgb;
+			adi,embedded-sync;
 		};
 
 		xilinx_pcm_audio: xilinx_pcm_audio {
@@ -163,6 +119,5 @@
 			cpu-dai = <&axi_spdif_tx_0>;
 			pcm = <&xilinx_pcm_audio>;
 		};
-
 	};
 };

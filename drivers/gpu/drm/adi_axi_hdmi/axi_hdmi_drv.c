@@ -142,14 +142,18 @@ static struct drm_driver axi_hdmi_driver = {
 
 static int axi_hdmi_platform_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
 	struct axi_hdmi_private *private;
 	struct of_phandle_args dma_spec;
 	struct device_node *slave_node;
 	struct resource *res;
 	int ret;
 
-	ret = of_parse_phandle_with_args(pdev->dev.of_node, "dma-request",
-			"#dma-cells", 0, &dma_spec);
+	if (!np)
+		return -EINVAL;
+
+	ret = of_parse_phandle_with_args(np, "dma-request", "#dma-cells", 0,
+		&dma_spec);
 	if (ret)
 		return ret;
 
@@ -166,11 +170,12 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	if (IS_ERR(private->hdmi_clock))
 		return -EPROBE_DEFER;
 
-	slave_node = of_parse_phandle(pdev->dev.of_node, "encoder-slave", 0);
+	slave_node = of_parse_phandle(np, "encoder-slave", 0);
 	if (!slave_node)
 		return -EINVAL;
 
-	private->is_rgb = of_property_read_bool(pdev->dev.of_node, "adi,is-rgb");
+	private->is_rgb = of_property_read_bool(np, "adi,is-rgb");
+	private->embedded_sync = of_property_read_bool(np, "adi,embedded-sync");
 	
 	private->encoder_slave = of_find_i2c_device_by_node(slave_node);
 	of_node_put(slave_node);
