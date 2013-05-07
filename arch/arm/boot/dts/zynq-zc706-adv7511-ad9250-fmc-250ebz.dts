@@ -106,6 +106,42 @@
 					};
 				};
 
+				i2c@5 { /* HPC IIC */
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <5>;
+
+					ad7291@2f {
+						compatible = "ad7291";
+						reg = <0x2f>;
+					};
+
+					eeprom@50 {
+						compatible = "at24,24c02";
+						reg = <0x50>;
+					};
+
+					eeprom@54 {
+						compatible = "at24,24c02";
+						reg = <0x54>;
+					};
+				};
+
+				i2c@6 { /* LPC IIC */
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <6>;
+					eeprom@50 {
+						compatible = "at24,24c02";
+						reg = <0x50>;
+					};
+
+					eeprom@54 {
+						compatible = "at24,24c02";
+						reg = <0x54>;
+					};
+				};
+
 			};
 		};
 
