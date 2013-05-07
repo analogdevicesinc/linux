@@ -106,7 +106,6 @@ static int spi_ad9250_probe(struct spi_device *spi)
 {
 	struct spi_ad9250 *spi_ad9250;
 	struct spi_master *master;
-	static int bus_num = 0;
 
 	master = spi_alloc_master(&spi->dev, sizeof(*spi_ad9250));
 	if (!master)
@@ -115,7 +114,6 @@ static int spi_ad9250_probe(struct spi_device *spi)
 	spi_ad9250 = spi_master_get_devdata(master);
 	spi_ad9250->spi = spi;
 	master->num_chipselect = FMC_NUM_SLAVES;
-	master->bus_num = bus_num++;
 	master->mode_bits = SPI_CPHA | SPI_CPOL | SPI_3WIRE;
 	master->setup = spi_ad9250_setup;
 	master->transfer_one_message = spi_ad9250_transfer_one;
