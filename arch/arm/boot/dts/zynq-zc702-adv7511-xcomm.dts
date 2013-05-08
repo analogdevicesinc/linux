@@ -12,7 +12,7 @@
 		i2c0: i2c@0 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = < 0 59 4 >;
+			interrupts = < 0 52 4 >;
 			reg = < 0x41600000 0x10000 >;
 			bus-id = <0>;
 			#address-cells = <1>;
@@ -75,7 +75,7 @@
 			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40440000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = < 0 55 0x4 >;
+				interrupts = < 0 56 0x4 >;
 				xlnx,datawidth = <0x20>;
 				xlnx,sg-length-width = <14>;
 				xlnx,include-dre = <0x0>;
@@ -92,7 +92,7 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 56 0x4>;
+				interrupts = <0 57 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -109,7 +109,7 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 58 0x4>;
+				interrupts = <0 59 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -161,7 +161,7 @@
 			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40420000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = < 0 57 0x4 >;
+				interrupts = < 0 58 0x4 >;
 				xlnx,sg-length-width = <23>;
 				xlnx,datawidth = <0x40>;
 				xlnx,include-dre = <0x0>;
