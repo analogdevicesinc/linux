@@ -491,7 +491,7 @@ struct adf4350_platform_data *adf4350_parse_dt(struct device *dev)
 }
 #endif
 
-static int __devinit adf4350_probe(struct spi_device *spi)
+static int adf4350_probe(struct spi_device *spi)
 {
 	struct adf4350_platform_data *pdata;
 	struct iio_dev *indio_dev;
@@ -608,7 +608,7 @@ error_put_reg:
 	return ret;
 }
 
-static int __devexit adf4350_remove(struct spi_device *spi)
+static int adf4350_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct adf4350_state *st = iio_priv(indio_dev);
@@ -644,7 +644,7 @@ static struct spi_driver adf4350_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= adf4350_probe,
-	.remove		= __devexit_p(adf4350_remove),
+	.remove		= adf4350_remove,
 	.id_table	= adf4350_id,
 };
 module_spi_driver(adf4350_driver);

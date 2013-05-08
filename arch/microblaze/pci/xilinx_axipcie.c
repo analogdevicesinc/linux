@@ -41,7 +41,7 @@
 static struct xilinx_axipcie_port *xilinx_axipcie_ports;
 static unsigned int xilinx_axipcie_port_count;
 
-static struct of_device_id xilinx_axipcie_match[] __devinitdata = {
+static const struct of_device_id xilinx_axipcie_match[] = {
 	{ .compatible = "xlnx,axi-pcie-1.05.a" ,},
 	{}
 };
@@ -51,6 +51,16 @@ static int last_bus_on_record;
 #ifdef CONFIG_PCI_MSI
 unsigned long msg_addr;
 #endif
+
+/* Macros */
+#define is_link_up(base_address)	\
+	((in_le32(((u8 *)base_address) + AXIPCIE_REG_PSCR) &	\
+	AXIPCIE_REG_PSCR_LNKUP) ? 1 : 0)
+
+#define bridge_enable(base_address)	\
+	out_le32((((u8 *)base_address) + AXIPCIE_REG_RPSC),	\
+		(in_le32(((u8 *)base_address) + AXIPCIE_REG_RPSC) |	\
+		AXIPCIE_REG_RPSC_BEN))
 
 /**
  * xilinx_get_axipcie_ip_config_info - Read info from device tree
@@ -62,7 +72,7 @@ unsigned long msg_addr;
  *
  * @note: Read related info from device tree
  */
-int __devinit xilinx_get_axipcie_ip_config_info(struct device_node *dev,
+int xilinx_get_axipcie_ip_config_info(struct device_node *dev,
 		struct xilinx_axipcie_node *ip_config_info)
 {
 	u32 *ip_setup_parameter;
@@ -169,7 +179,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_ANY_ID, PCI_ANY_ID, fixup_xilinx_axipcie_bridge);
  */
 static int xilinx_init_axipcie_port(struct xilinx_axipcie_port *port)
 {
-	u32 val = 0;
 	void __iomem *base_addr_remap = NULL;
 
 	/* base_addr_remap = ioremap(port->reg_base, PORT_REG_SIZE); */
@@ -195,16 +204,11 @@ static int xilinx_init_axipcie_port(struct xilinx_axipcie_port *port)
 							msg_addr);
 #endif
 
-	/* make sure link is up */
-	val = in_le32(((u8 *)port->base_addr_remap) + AXIPCIE_REG_PSCR);
-
-	if (!(val & AXIPCIE_REG_PSCR_LNKUP)) {
-		printk(KERN_ERR "PCIE: Link is Down\n");
-		iounmap(base_addr_remap);
-		return -ENODEV;
-	}
-
-	port->link = 1;
+	port->link = is_link_up(port->base_addr_remap);
+	if (!port->link)
+		pr_info("LINK IS DOWN\n");
+	else
+		pr_info("LINK IS UP\n");
 
 	/* Disable all interrupts*/
 	out_le32((((u8 *)port->base_addr_remap) + AXIPCIE_REG_IMR),
@@ -219,9 +223,7 @@ static int xilinx_init_axipcie_port(struct xilinx_axipcie_port *port)
 
 	/* Bridge enable must be done after enumeration,
 		but there is no callback defined */
-	val = in_le32(((u8 *)port->base_addr_remap) + AXIPCIE_REG_RPSC);
-	val |= AXIPCIE_REG_RPSC_BEN;
-	out_le32((((u8 *)port->base_addr_remap) + AXIPCIE_REG_RPSC), val);
+	bridge_enable(port->base_addr_remap);
 
 	return 0;
 }
@@ -263,6 +265,9 @@ static int xilinx_axipcie_verify_config(struct xilinx_axipcie_port *port,
 		return PCIBIOS_DEVICE_NOT_FOUND;
 
 	/* Check if we have a link */
+	if (!port->link)
+		port->link = is_link_up(port->base_addr_remap);
+
 	if ((bus->number != port->hose->first_busno) && !port->link)
 		return PCIBIOS_DEVICE_NOT_FOUND;
 
@@ -409,7 +414,7 @@ static struct pci_ops xlnx_pcie_pci_ops = {
  *
  * @note: None
  */
-void __devinit xilinx_set_bridge_resource(struct xilinx_axipcie_port *port)
+void xilinx_set_bridge_resource(struct xilinx_axipcie_port *port)
 {
 	const u32 *ranges;
 	int rlen;
@@ -792,6 +797,24 @@ static int __init xilinx_probe_axipcie_node(struct device_node *np)
 }
 
 /**
+ * pcibios_set_master - Architecture specific function
+ * @dev: A pointer to device pcie device struct
+ *
+ * @return: Error / no error
+ * @note: Enables Bridge Enable bit during the rescan process
+ */
+void pcibios_set_master(struct pci_dev *dev)
+{
+	struct pci_controller *hose =
+			(struct pci_controller *) dev->bus->sysdata;
+	struct xilinx_axipcie_port *port =
+			&xilinx_axipcie_ports[hose->indirect_type];
+
+	if (port->link)
+		bridge_enable(port->base_addr_remap);
+}
+
+/**
  * xilinx_find_axipcie_nodes - Entry function
  * void
  *
@@ -801,7 +824,7 @@ static int __init xilinx_probe_axipcie_node(struct device_node *np)
 static int __init xilinx_find_axipcie_nodes(void)
 {
 	struct device_node *np;
-	struct of_device_id *matches = xilinx_axipcie_match;
+	const struct of_device_id *matches = xilinx_axipcie_match;
 	int error = 0;
 
 	printk(KERN_INFO "Initialising Xilinx PCI Express root"

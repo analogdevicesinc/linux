@@ -40,6 +40,7 @@
 #include <linux/amba/xilinx_dma.h>
 #include <linux/debugfs.h>
 #include <linux/sched.h>
+#include <linux/of_dma.h>
 
 #include "dmaengine.h"
 
@@ -1304,6 +1305,18 @@ static void xilinx_dma_chan_remove(struct xilinx_dma_chan *chan)
 	kfree(chan);
 }
 
+static int xilinx_dma_device_slave_sg_limits(struct dma_chan *dchan,
+		enum dma_slave_buswidth addr_width,
+		u32 maxburst, struct dma_slave_sg_limits *limits)
+{
+	struct xilinx_dma_chan *chan = to_xilinx_chan(dchan);
+
+	limits->max_seg_len = chan->max_len;
+	limits->max_seg_nr = 0;
+
+	return 0;
+}
+
 /*
  * Probing channels
  *
@@ -1333,11 +1346,11 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 	chan->feature = feature;
 	chan->has_DRE = 0;
 	chan->has_SG = 0;
-	chan->max_len = XILINX_DMA_MAX_TRANS_LEN;
 
 	of_property_read_u32(node, "xlnx,include-dre", &chan->has_DRE);
 	of_property_read_u32(node, "xlnx,genlock-mode", &chan->genlock);
 	of_property_read_u32(node, "xlnx,datawidth", &width);
+
 
 	if (width > 0) {
 		width >>= 3; /* convert bits to bytes */
@@ -1348,6 +1361,11 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev,
 
 		chan->feature |= width - 1;
 	}
+
+	if (of_property_read_u32(node, "xlnx,sg-length-width", &width) == 0)
+		chan->max_len = (1 << width) - 1;
+	else
+		chan->max_len = XILINX_DMA_MAX_TRANS_LEN;
 
 	chan->has_SG = (xdev->feature & XILINX_DMA_FTR_HAS_SG) >>
 				XILINX_DMA_FTR_HAS_SG_SHIFT;
@@ -1518,6 +1536,7 @@ static int xilinx_dma_of_probe(struct platform_device *pdev)
 	xdev->common.device_free_chan_resources =
 				xilinx_dma_free_chan_resources;
 	xdev->common.device_tx_status = xilinx_tx_status;
+	xdev->common.device_slave_sg_limits = xilinx_dma_device_slave_sg_limits;
 	xdev->common.dev = &pdev->dev;
 
 	for_each_child_of_node(node, child) {
@@ -1537,6 +1556,11 @@ static int xilinx_dma_of_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_chan;
 
+	ret = of_dma_controller_register(pdev->dev.of_node,
+			of_dma_xlate_by_chan_id, &xdev->common);
+	if (ret)
+		goto err_unregister_device;
+
 	for (i = 0; i < XILINX_DMA_MAX_CHANS_PER_DEVICE; i++) {
 		if (xdev->chan[i]) {
 			chan = xdev->chan[i];
@@ -1548,6 +1572,8 @@ static int xilinx_dma_of_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_unregister_device:
+	dma_async_device_unregister(&xdev->common);
 err_free_chan:
 	for (i = 0; i < XILINX_DMA_MAX_CHANS_PER_DEVICE; i++) {
 		if (xdev->chan[i])
@@ -1562,6 +1588,7 @@ static int xilinx_dma_of_remove(struct platform_device *pdev)
 	struct xilinx_dma_device *xdev = platform_get_drvdata(pdev);
 	int i;
 
+	of_dma_controller_free(pdev->dev.of_node);
 	dma_async_device_unregister(&xdev->common);
 
 	for (i = 0; i < XILINX_DMA_MAX_CHANS_PER_DEVICE; i++) {

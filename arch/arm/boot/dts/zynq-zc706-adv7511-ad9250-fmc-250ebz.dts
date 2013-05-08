@@ -149,7 +149,8 @@
 			compatible = "adi,axi-hdmi-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
-			dma-request = <&axi_vdma_0 0>;
+			dmas = <&axi_vdma_0 0>;
+			dma-names = "video";
 			clocks = <&hdmi_clock>;
 			adi,is-rgb;
 		};
@@ -264,7 +265,8 @@
 		axi_ad9250_0: cf-ad9250-1@79020000 {
 			compatible = "xlnx,axi-ad9250-1.00.a";
 			reg = < 0x79020000 0x10000 >;
-			dma-request = <&axi_dma_0 0>;
+			dmas = <&axi_dma_0 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc0_ad9250>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "zynq";
@@ -279,7 +281,8 @@
 		axi_ad9250_1: cf-ad9250-2@79000000 {
 			compatible = "xlnx,axi-ad9250-1.00.a";
 			reg = < 0x79000000 0x10000 >;
-			dma-request = <&axi_dma_1 0>;
+			dmas = <&axi_dma_1 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc1_ad9250>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "zynq";

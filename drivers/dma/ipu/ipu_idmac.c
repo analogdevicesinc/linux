@@ -22,8 +22,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/module.h>
-
-#include <mach/ipu.h>
+#include <linux/dma/ipu-dma.h>
 
 #include "../dmaengine.h"
 #include "ipu_intern.h"
@@ -1608,6 +1607,7 @@ static int __init ipu_idmac_init(struct ipu *ipu)
 
 	dma_cap_set(DMA_SLAVE, dma->cap_mask);
 	dma_cap_set(DMA_PRIVATE, dma->cap_mask);
+	dma_cap_set(DMA_PAUSE_RESUME, dma->cap_mask);
 
 	/* Compulsory common fields */
 	dma->dev				= ipu->dev;

@@ -229,6 +229,7 @@ static int xspips_setup_transfer(struct spi_device *spi,
 
 	spin_lock_irqsave(&xspi->ctrl_reg_lock, flags);
 
+	xspips_write(xspi->regs + XSPIPS_ER_OFFSET, ~XSPIPS_ER_ENABLE_MASK);
 	ctrl_reg = xspips_read(xspi->regs + XSPIPS_CR_OFFSET);
 
 	/* Set the SPI clock phase and clock polarity */
@@ -253,6 +254,7 @@ static int xspips_setup_transfer(struct spi_device *spi,
 	}
 
 	xspips_write(xspi->regs + XSPIPS_CR_OFFSET, ctrl_reg);
+	xspips_write(xspi->regs + XSPIPS_ER_OFFSET, XSPIPS_ER_ENABLE_MASK);
 
 	spin_unlock_irqrestore(&xspi->ctrl_reg_lock, flags);
 
@@ -650,7 +652,7 @@ static int xspips_clk_notifier_cb(struct notifier_block *nb,
  *
  * returns:	0 on success and error value on error
  **/
-static int __devinit xspips_probe(struct platform_device *dev)
+static int xspips_probe(struct platform_device *dev)
 {
 	int ret = 0;
 	struct spi_master *master;
@@ -842,7 +844,7 @@ put_master:
  *
  * returns:	0 on success and error value on error
  **/
-static int __devexit xspips_remove(struct platform_device *dev)
+static int xspips_remove(struct platform_device *dev)
 {
 	struct spi_master *master = platform_get_drvdata(dev);
 	struct xspips *xspi = spi_master_get_devdata(master);
@@ -969,7 +971,7 @@ static const struct dev_pm_ops xspips_dev_pm_ops = {
 /* Work with hotplug and coldplug */
 MODULE_ALIAS("platform:" XSPIPS_NAME);
 
-static struct of_device_id xspips_of_match[] __devinitdata = {
+static struct of_device_id xspips_of_match[] = {
 	{ .compatible = "xlnx,ps7-spi-1.00.a", },
 	{ /* end of table */}
 };
@@ -980,7 +982,7 @@ MODULE_DEVICE_TABLE(of, xspips_of_match);
  */
 static struct platform_driver xspips_driver = {
 	.probe	= xspips_probe,
-	.remove	= __devexit_p(xspips_remove),
+	.remove	= xspips_remove,
 	.driver = {
 		.name = XSPIPS_NAME,
 		.owner = THIS_MODULE,

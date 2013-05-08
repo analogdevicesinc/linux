@@ -1868,6 +1868,7 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 
 	/* Initialize memcpy engine */
 	dma_cap_set(DMA_MEMCPY, pl08x->memcpy.cap_mask);
+	dma_cap_set(DMA_PAUSE_RESUME, pl08x->slave.cap_mask);
 	pl08x->memcpy.dev = &adev->dev;
 	pl08x->memcpy.device_alloc_chan_resources = pl08x_alloc_chan_resources;
 	pl08x->memcpy.device_free_chan_resources = pl08x_free_chan_resources;
@@ -1879,6 +1880,7 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 
 	/* Initialize slave engine */
 	dma_cap_set(DMA_SLAVE, pl08x->slave.cap_mask);
+	dma_cap_set(DMA_PAUSE_RESUME, pl08x->slave.cap_mask);
 	pl08x->slave.dev = &adev->dev;
 	pl08x->slave.device_alloc_chan_resources = pl08x_alloc_chan_resources;
 	pl08x->slave.device_free_chan_resources = pl08x_free_chan_resources;
@@ -1892,6 +1894,7 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 	pl08x->pd = dev_get_platdata(&adev->dev);
 	if (!pl08x->pd) {
 		dev_err(&adev->dev, "no platform data supplied\n");
+		ret = -EINVAL;
 		goto out_no_platdata;
 	}
 
@@ -1943,6 +1946,7 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 		dev_err(&adev->dev, "%s failed to allocate "
 			"physical channel holders\n",
 			__func__);
+		ret = -ENOMEM;
 		goto out_no_phychans;
 	}
 

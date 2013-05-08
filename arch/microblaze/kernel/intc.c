@@ -99,7 +99,7 @@ unsigned int get_irq(void)
 	return irq;
 }
 
-int xintc_map(struct irq_domain *d, unsigned int irq, irq_hw_number_t hw)
+static int xintc_map(struct irq_domain *d, unsigned int irq, irq_hw_number_t hw)
 {
 	u32 intr_mask = (u32)d->host_data;
 
@@ -172,4 +172,6 @@ void __init init_IRQ(void)
 	 * and commits this patch.  ~~gcl */
 	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
 							(void *)intr_mask);
+
+	irq_set_default_host(root_domain);
 }

@@ -78,7 +78,7 @@ static DEFINE_SPINLOCK(xsmcps_lock);
  *
  * Must be called with xsmcps_lock held.
  */
-static int __devinit xsmcps_set_buswidth(unsigned int bw)
+static int xsmcps_set_buswidth(unsigned int bw)
 {
 	u32 reg;
 
@@ -108,7 +108,7 @@ static int __devinit xsmcps_set_buswidth(unsigned int bw)
  *
  * Must be called with xsmcps_lock held.
  */
-static void __devinit xsmcps_set_cycles(u32 t0, u32 t1, u32 t2, u32 t3, u32
+static void xsmcps_set_cycles(u32 t0, u32 t1, u32 t2, u32 t3, u32
 		t4, u32 t5, u32 t6)
 {
 	t0 &= 0xf;
@@ -350,7 +350,7 @@ static SIMPLE_DEV_PM_OPS(xsmcps_dev_pm_ops, xsmcps_suspend, xsmcps_resume);
  * @pdev	Pointer to the platform_device struct
  * @nand_node	Pointer to the xnandps device_node struct
  */
-static void __devinit xsmcps_init_nand_interface(struct platform_device *pdev,
+static void xsmcps_init_nand_interface(struct platform_device *pdev,
 		struct device_node *nand_node)
 {
 	u32 t_rc, t_wc, t_rea, t_wp, t_clr, t_ar, t_rr;
@@ -364,40 +364,64 @@ static void __devinit xsmcps_init_nand_interface(struct platform_device *pdev,
 				"xlnx,nand-width not in device tree, using 8");
 		bw = 8;
 	}
-	err = of_property_read_u32(nand_node, "t_rc", &t_rc);
+	/* nand-cycle-<X> property is refer to the NAND flash timing
+	 * mapping between dts and the NAND flash AC timing
+	 *  X  : AC timing name
+	 *  t0 : t_rc
+	 *  t1 : t_wc
+	 *  t2 : t_rea
+	 *  t3 : t_wp
+	 *  t4 : t_clr
+	 *  t5 : t_ar
+	 *  t6 : t_rr
+	 */
+	err = of_property_read_u32(nand_node, "xlnx,nand-cycle-t0", &t_rc);
 	if (err) {
-		dev_warn(&pdev->dev, "t_rc not in device tree, using 4");
-		t_rc = 4;
+		dev_warn(&pdev->dev, "xlnx,nand-cycle-t0 not in device tree");
+		goto default_nand_timing;
 	}
-	err = of_property_read_u32(nand_node, "t_wc", &t_wc);
+	err = of_property_read_u32(nand_node, "xlnx,nand-cycle-t1", &t_wc);
 	if (err) {
-		dev_warn(&pdev->dev, "t_wc not in device tree, using 4");
-		t_wc = 4;
+		dev_warn(&pdev->dev, "xlnx,nand-cycle-t1 not in device tree");
+		goto default_nand_timing;
 	}
-	err = of_property_read_u32(nand_node, "t_rea", &t_rea);
+	err = of_property_read_u32(nand_node, "xlnx,nand-cycle-t2", &t_rea);
 	if (err) {
-		dev_warn(&pdev->dev, "t_rea not in device tree, using 1");
+		dev_warn(&pdev->dev, "xlnx,nand-cycle-t2 not in device tree");
+		goto default_nand_timing;
+	}
+	err = of_property_read_u32(nand_node, "xlnx,nand-cycle-t3", &t_wp);
+	if (err) {
+		dev_warn(&pdev->dev, "xlnx,nand-cycle-t3 not in device tree");
+		goto default_nand_timing;
+	}
+	err = of_property_read_u32(nand_node, "xlnx,nand-cycle-t4", &t_clr);
+	if (err) {
+		dev_warn(&pdev->dev, "xlnx,nand-cycle-t4 not in device tree");
+		goto default_nand_timing;
+	}
+	err = of_property_read_u32(nand_node, "xlnx,nand-cycle-t5", &t_ar);
+	if (err) {
+		dev_warn(&pdev->dev, "xlnx,nand-cycle-t5 not in device tree");
+		goto default_nand_timing;
+	}
+	err = of_property_read_u32(nand_node, "xlnx,nand-cycle-t6", &t_rr);
+	if (err) {
+		dev_warn(&pdev->dev, "xlnx,nand-cycle-t6 not in device tree");
+		goto default_nand_timing;
+	}
+
+default_nand_timing:
+	if (err) {
+		/* set default NAND flash timing property */
+		dev_warn(&pdev->dev, "Using default timing for");
+		dev_warn(&pdev->dev, "2Gb Numonyx MT29F2G08ABAEAWP NAND flash");
+		dev_warn(&pdev->dev, "t_wp, t_clr, t_ar are set to 4");
+		dev_warn(&pdev->dev, "t_rc, t_wc, t_rr are set to 2");
+		dev_warn(&pdev->dev, "t_rea is set to 1");
+		t_rc = t_wc = t_rr = 4;
 		t_rea = 1;
-	}
-	err = of_property_read_u32(nand_node, "t_wp", &t_wp);
-	if (err) {
-		dev_warn(&pdev->dev, "t_wp not in device tree, using 2");
-		t_wp = 2;
-	}
-	err = of_property_read_u32(nand_node, "t_clr", &t_clr);
-	if (err) {
-		dev_warn(&pdev->dev, "t_clr not in device tree, using 2");
-		t_clr = 2;
-	}
-	err = of_property_read_u32(nand_node, "t_ar", &t_ar);
-	if (err) {
-		dev_warn(&pdev->dev, "t_ar not in device tree, using 2");
-		t_ar = 2;
-	}
-	err = of_property_read_u32(nand_node, "t_rr", &t_rr);
-	if (err) {
-		dev_warn(&pdev->dev, "t_rr not in device tree, using 4");
-		t_rr = 4;
+		t_wp = t_clr = t_ar = 2;
 	}
 
 	spin_lock_irqsave(&xsmcps_lock, flags);
@@ -435,7 +459,7 @@ const struct of_device_id matches_nand[] = {
 	{}
 };
 
-static int __devinit xsmcps_probe(struct platform_device *pdev)
+static int xsmcps_probe(struct platform_device *pdev)
 {
 	struct xsmcps_data *xsmcps;
 	struct device_node *child;
@@ -561,7 +585,7 @@ out_free:
 	return err;
 }
 
-static int __devexit xsmcps_remove(struct platform_device *pdev)
+static int xsmcps_remove(struct platform_device *pdev)
 {
 	struct xsmcps_data *xsmcps = platform_get_drvdata(pdev);
 
@@ -579,7 +603,7 @@ static int __devexit xsmcps_remove(struct platform_device *pdev)
 }
 
 /* Match table for device tree binding */
-static const struct of_device_id xsmcps_of_match[] __devinitconst = {
+static const struct of_device_id xsmcps_of_match[] = {
 	{.compatible = "xlnx,ps7-smc"},
 	{ },
 };
@@ -587,7 +611,7 @@ MODULE_DEVICE_TABLE(of, xsmcps_of_match);
 
 static struct platform_driver xsmcps_driver = {
 	.probe		= xsmcps_probe,
-	.remove		= __devexit_p(xsmcps_remove),
+	.remove		= xsmcps_remove,
 	.driver		= {
 		.name	= "xsmcps",
 		.owner	= THIS_MODULE,

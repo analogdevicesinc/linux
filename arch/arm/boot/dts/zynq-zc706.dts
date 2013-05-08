@@ -9,7 +9,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x00000000 0x10000000>;
+		reg = <0x00000000 0x40000000>;
 	};
 	chosen {
 		bootargs = "console=ttyPS0,115200 root=/dev/ram rw ip=:::::eth0:dhcp earlyprintk";
@@ -45,6 +45,17 @@
 			arm,tag-latency = <2 2 2>;
 		};
 
+		ps7_ddrc_0: ps7-ddrc@f8006000 {
+			compatible = "xlnx,ps7-ddrc-1.00.a", "xlnx,ps7-ddrc";
+			reg = < 0xf8006000 0x1000 >;
+			xlnx,has-ecc = <0x0>;
+		} ;
+
+		ps7_ocm_0: ps7-ocm@0xfffc0000 {
+			compatible = "xlnx,ps7-ocm";
+			reg = <0xfffc0000 0x40000>; /* 256k */
+		};
+
 		uart@e0001000 {
 			compatible = "xlnx,ps7-uart-1.00.a";
 			reg = <0xe0001000 0x1000>;
@@ -60,12 +71,35 @@
 			clocks {
 				#address-cells = <1>;
 				#size-cells = <0>;
-
+				armpll: armpll {
+					#clock-cells = <0>;
+					clock-output-names = "armpll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <0>;
+					reg = < 0x100 0x110 0x10c >;
+				} ;
+				ddrpll: ddrpll {
+					#clock-cells = <0>;
+					clock-output-names = "ddrpll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <1>;
+					reg = < 0x104 0x114 0x10c >;
+				} ;
+				iopll: iopll {
+					#clock-cells = <0>;
+					clock-output-names = "iopll";
+					clocks = <&ps_clk>;
+					compatible = "xlnx,zynq-pll";
+					lockbit = <2>;
+					reg = < 0x108 0x118 0x10c >;
+				} ;
 				ps_clk: ps_clk {
 					#clock-cells = <0>;
 					compatible = "fixed-clock";
 					clock-frequency = <33333333>;
-					clock-output-names = "PS_CLK";
+					clock-output-names = "ps_clk";
 				};
 			};
 		};
@@ -106,6 +140,7 @@
 			interrupts = <0 22 4>;
 			interrupt-parent = <&gic>;
 			phy-handle = <&phy0>;
+			phy-mode = "rgmii-id";
 			xlnx,ptp-enet-clock = <111111111>;
 			xlnx,slcr-div0-1000Mbps = <8>;
 			xlnx,slcr-div0-100Mbps = <8>;
@@ -267,5 +302,15 @@
 			interrupts = <0 7 4>;
 			interrupt-parent = <&gic>;
 		};
+		ps7_dma_s: ps7-dma@f8003000 {
+			#dma-cells = <1>;
+			#dma-channels = <8>;
+			#dma-requests = <4>;
+			arm,primecell-periphid = <0x41330>;
+			compatible = "xlnx,ps7-dma-1.00.a", "arm,primecell", "arm,pl330";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 13 4 0 14 4 0 15 4 0 16 4 0 17 4 0 40 4 0 41 4 0 42 4 0 43 4 >;
+			reg = < 0xf8003000 0x1000 >;
+		} ;
 	};
 };

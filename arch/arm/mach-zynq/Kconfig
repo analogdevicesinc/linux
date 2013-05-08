@@ -1,3 +1,24 @@
+config ARCH_ZYNQ
+	bool "Xilinx Zynq ARM Cortex A9 Platform" if ARCH_MULTI_V7
+	select ARM_AMBA
+	select ARM_GIC
+	select COMMON_CLK
+	select CPU_V7
+	select GENERIC_CLOCKEVENTS
+	select ICST
+	select MIGHT_HAVE_CACHE_L2X0
+	select USE_OF
+	select SPARSE_IRQ
+	select HAVE_SMP
+	select CACHE_L2X0
+	select ARCH_REQUIRE_GPIOLIB
+	select COMMON_CLK
+	select ARCH_HAS_CPUFREQ
+	select ARCH_HAS_OPP
+	select MIGHT_HAVE_PCI
+	help
+	  Support for Xilinx Zynq ARM Cortex A9 Platform
+
 if ARCH_ZYNQ
 
 menu "Xilinx Specific Options"
@@ -41,13 +62,6 @@ config XILINX_ZED
 
 config DMA_ENGINE
 	def_bool y
-
-config XILINX_TEST
-	bool "Testing On Kernel Boot"
-	default n
-	help
-	  Select if you want kernel tests to run on boot.  The tests may take
-	  several minutes on kernel boot.
 
 config XILINX_AXIPCIE
 	bool "Xilinx AXI PCIe host bridge support"

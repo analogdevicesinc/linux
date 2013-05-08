@@ -110,14 +110,9 @@
 				compatible = "xlnx,axi-dma-mm2s-channel";
 				interrupts = < 0 56 0x4 >;
 				xlnx,datawidth = <0x20>;
+				xlnx,sg-length-width = <14>;
 				xlnx,include-dre = <0x0>;
 			};
-		};
-
-		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
-			compatible = "adi,axi-spdif-tx-1.00.a";
-			reg = < 0x75c00000 0x1000 >;
-			clock-frequency = <12288000>;
 		};
 
 		axi_vdma_0: axivdma@43020000 {
@@ -154,21 +149,24 @@
 			compatible = "adi,axi-hdmi-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
-			dma-request = <&axi_vdma_0 0>;
+			dmas = <&axi_vdma_0 0>;
+			dma-names = "video";
 			clocks = <&hdmi_clock>;
 			adi,is-rgb;
 		};
 
-		xilinx_pcm_audio: xilinx_pcm_audio {
-			compatible = "xilinx-pcm-audio";
-			dma-request = <&axi_dma_0 0>;
+		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
+			compatible = "adi,axi-spdif-tx-1.00.a";
+			reg = < 0x75c00000 0x1000 >;
+			dmas = <&axi_dma_0 0>;
+			dma-names = "tx";
+			clock-frequency = <12288000>;
 		};
 
 		adv7511_hdmi_snd: adv7511_hdmi_snd {
 			compatible = "adv7511-hdmi-snd";
 			audio-codec-adapter = <&i2c_adv7511>;
 			cpu-dai = <&axi_spdif_tx_0>;
-			pcm = <&xilinx_pcm_audio>;
 		};
 
 		axi_dma_1: axidma@40420000 {
@@ -182,6 +180,7 @@
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupts = < 0 58 0x4 >;
 				xlnx,datawidth = <0x40>;
+				xlnx,sg-length-width = <23>;
 				xlnx,include-dre = <0x0>;
 			} ;
 		} ;
@@ -206,8 +205,8 @@
 		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x79020000 0x10000 >;
-			dma-request = <&axi_dma_1 0>;
-			spibus-connected = <&adc0_ad9467>;
+			dmas = <&axi_dma_1 0>;
+			dma-names = "rx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
 			xlnx,num-reg = <0x1>;
@@ -221,7 +220,8 @@
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
 			reg = < 0x74200000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
-			dma-request = <&axi_vdma_1 0>;
+			dmas = <&axi_vdma_1 0>;
+			dma-names = "tx";
 			dac-sample-frequency = <491520000>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
