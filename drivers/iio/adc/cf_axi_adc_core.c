@@ -740,23 +740,23 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
 		.num_channels = 2,
-		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'u'),
-		.channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'u'),
-		.channel[2] = AIM_CHAN_UL(2, 2, 14, 'u'),
-		.channel[3] = AIM_CHAN_UL(3, 3, 14, 'u'),
-		.channel[4] = AIM_CHAN_UL(4, 4, 14, 'u'),
-		.channel[5] = AIM_CHAN_UL(5, 5, 14, 'u'),
-		.channel[6] = AIM_CHAN_UL(6, 6, 14, 'u'),
-		.channel[7] = AIM_CHAN_UL(7, 7, 14, 'u'),
-		.channel[8] = AIM_CHAN_UL(8, 8, 14, 'u'),
-		.channel[9] = AIM_CHAN_UL(9, 9, 14, 'u'),
-		.channel[10] = AIM_CHAN_UL(10, 10, 14, 'u'),
-		.channel[11] = AIM_CHAN_UL(11, 11, 14, 'u'),
-		.channel[12] = AIM_CHAN_UL(12, 12, 14, 'u'),
-		.channel[13] = AIM_CHAN_UL(13, 13, 14, 'u'),
-		.channel[14] = AIM_CHAN_UL(14, 14, 14, 'u'),
-		.channel[15] = AIM_CHAN_UL(15, 15, 14, 'u'),
-		.channel[16] = AIM_CHAN_UL(16, 16, 14, 'u'),
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 's'),
+		.channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 's'),
+		.channel[2] = AIM_CHAN_UL(2, 2, 14, 's'),
+		.channel[3] = AIM_CHAN_UL(3, 3, 14, 's'),
+		.channel[4] = AIM_CHAN_UL(4, 4, 14, 's'),
+		.channel[5] = AIM_CHAN_UL(5, 5, 14, 's'),
+		.channel[6] = AIM_CHAN_UL(6, 6, 14, 's'),
+		.channel[7] = AIM_CHAN_UL(7, 7, 14, 's'),
+		.channel[8] = AIM_CHAN_UL(8, 8, 14, 's'),
+		.channel[9] = AIM_CHAN_UL(9, 9, 14, 's'),
+		.channel[10] = AIM_CHAN_UL(10, 10, 14, 's'),
+		.channel[11] = AIM_CHAN_UL(11, 11, 14, 's'),
+		.channel[12] = AIM_CHAN_UL(12, 12, 14, 's'),
+		.channel[13] = AIM_CHAN_UL(13, 13, 14, 's'),
+		.channel[14] = AIM_CHAN_UL(14, 14, 14, 's'),
+		.channel[15] = AIM_CHAN_UL(15, 15, 14, 's'),
+		.channel[16] = AIM_CHAN_UL(16, 16, 14, 's'),
 	},
 	[ID_AD9265] = {
 		.name = "AD9265",
@@ -952,7 +952,8 @@ static int axiadc_of_probe(struct platform_device *op)
 		break;
 	case CHIPID_AD9250:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9250];
-		st->adc_def_output_mode = AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_OFFSET_BINARY;
+		st->adc_def_output_mode = AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		axiadc_write(st, AD9250_AXIADC_PCORE_DATA_SEL, AXIADC_SIGNEXTEND);
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 		break;
