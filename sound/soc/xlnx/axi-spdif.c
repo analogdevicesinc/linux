@@ -40,8 +40,9 @@ struct axi_spdif {
 	struct snd_dmaengine_dai_dma_data dma_data;
 };
 
-#define AXI_SPDIF_REG_CTRL 0x0
-#define AXI_SPDIF_REG_STAT 0x4
+#define AXI_SPDIF_REG_CTRL	0x0
+#define AXI_SPDIF_REG_STAT	0x4
+#define AXI_SPDIF_REG_TX_FIFO	0xc
 
 #define AXI_SPDIF_CTRL_TXDATA BIT(1)
 #define AXI_SPDIF_CTRL_TXEN BIT(0)
@@ -201,6 +202,10 @@ static int axi_spdif_probe(struct platform_device *pdev)
 	spdif->base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!spdif->base)
 		return -EBUSY;
+
+	spdif->dma_data.addr = res->start + AXI_SPDIF_REG_TX_FIFO;
+	spdif->dma_data.addr_width = 4;
+	spdif->dma_data.maxburst = 1;
 
 	platform_set_drvdata(pdev, spdif);
 
