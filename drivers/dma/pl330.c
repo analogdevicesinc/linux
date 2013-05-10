@@ -2923,6 +2923,16 @@ static irqreturn_t pl330_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 }
 
+static int pl330_device_slave_sg_limits(struct dma_chan *dchan,
+		enum dma_slave_buswidth addr_width,
+		u32 maxburst, struct dma_slave_sg_limits *limits)
+{
+	limits->max_seg_len = 1 << 24;
+	limits->max_seg_nr = 0;
+
+	return 0;
+}
+
 static int
 pl330_probe(struct amba_device *adev, const struct amba_id *id)
 {
@@ -3032,6 +3042,7 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	pd->device_prep_slave_sg = pl330_prep_slave_sg;
 	pd->device_control = pl330_control;
 	pd->device_issue_pending = pl330_issue_pending;
+	pd->device_slave_sg_limits = pl330_device_slave_sg_limits;
 
 	ret = dma_async_device_register(pd);
 	if (ret) {
