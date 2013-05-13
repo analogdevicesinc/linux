@@ -157,6 +157,15 @@
 #define AD9250_DEF_OUTPUT_MODE		0x00
 
 /*
+ * Analog Devices AD9683 14-Bit, 170/250 MSPS ADC, JESD204B
+ */
+
+#define CHIPID_AD9683			0xC3
+#define AD9683_DEF_OUTPUT_MODE		0x00
+#define AD9250_AXIADC_PCORE_DATA_SEL	0x28
+#define AD9250_AXIADC_PCORE_DATA_SEL_F	(1 << 0)
+
+/*
  * Analog Devices AD9265 16-Bit, 125/105/80 MSPS ADC
  */
 
@@ -178,6 +187,7 @@ enum {
 	ID_AD9643,
 	ID_AD9250,
 	ID_AD9265,
+	ID_AD9683,
 };
 
 struct axiadc_chip_info {
