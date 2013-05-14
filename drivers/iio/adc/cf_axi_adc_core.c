@@ -956,7 +956,7 @@ static int axiadc_of_probe(struct platform_device *op)
 	case CHIPID_AD9683:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9683];
 		st->adc_def_output_mode = AD9683_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		axiadc_write(st, AD9250_AXIADC_PCORE_DATA_SEL, AXIADC_SIGNEXTEND);
+		axiadc_write(st, AD9683_AXIADC_PCORE_DATA_SEL, AD9683_SIGNEXTEND);
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 		break;
