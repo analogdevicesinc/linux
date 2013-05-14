@@ -43,6 +43,7 @@ struct jesd204b_state {
 	unsigned			size;
 	int			lane;
 	int			prescale;
+	unsigned			vers_id;
 	struct work_struct 	work;
 	struct completion       complete;
 	unsigned long		flags;
@@ -292,6 +293,16 @@ static ssize_t jesd204b_set_prescale(struct device *dev,
 }
 static DEVICE_ATTR(prescale, S_IWUSR, NULL, jesd204b_set_prescale);
 
+/* Match table for of_platform binding */
+static const struct of_device_id jesd204b_of_match[] = {
+	{ .compatible = "xlnx,axi-jesd204b-rx2-1.01.a", .data = (void*) 2},
+	{ .compatible = "xlnx,axi-jesd204b-rx4-1.01.a", .data = (void*) 4},
+	{ .compatible = "xlnx,axi-jesd204b-rx2-1.00.a", .data = (void*) 2},
+	{ .compatible = "xlnx,axi-jesd204b-rx4-1.00.a", .data = (void*) 4},
+	{ .compatible = "xlnx,axi-jesd204b-rx1-1.00.a", .data = (void*) 1},
+	{ /* end of list */ },
+};
+MODULE_DEVICE_TABLE(of, jesd204b_of_match);
 
 static int jesd204b_of_probe(struct platform_device *op)
 {
@@ -302,6 +313,9 @@ static int jesd204b_of_probe(struct platform_device *op)
 	resource_size_t remap_size, phys_addr;
 	unsigned frmcnt, bytecnt;
 	int ret;
+
+	const struct of_device_id *of_id =
+			of_match_device(jesd204b_of_match, &op->dev);
 
 	dev_info(dev, "Device Tree Probing \'%s\'\n",
 		 op->dev.of_node->name);
@@ -326,6 +340,9 @@ static int jesd204b_of_probe(struct platform_device *op)
 		return ret;
 
 	st->rate = clk_get_rate(clk);
+
+	if (of_id && of_id->data)
+		st->vers_id = (unsigned) of_id->data;
 
 	/* Get iospace for the device */
 	ret = of_address_to_resource(op->dev.of_node, 0, &r_mem);
@@ -377,6 +394,7 @@ static int jesd204b_of_probe(struct platform_device *op)
 		       AXI_JESD204B_FRMCTRL_FRMCNT(frmcnt - 1) |
 		       AXI_JESD204B_FRMCTRL_BYTECNT(bytecnt - 1));
 
+
 	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
 		 jesd204b_read(st, AXI_JESD204B_REG_VERSION),
 		 (unsigned long long)phys_addr, st->regs);
@@ -402,10 +420,22 @@ static int jesd204b_of_probe(struct platform_device *op)
 
 	device_create_file(dev, &dev_attr_enable);
 	device_create_file(dev, &dev_attr_prescale);
-	device_create_file(dev, &dev_attr_lane0_info);
-	device_create_file(dev, &dev_attr_lane1_info);
-	device_create_file(dev, &dev_attr_lane2_info);
-	device_create_file(dev, &dev_attr_lane3_info);
+
+	switch (st->vers_id) {
+	case 1:
+		device_create_file(dev, &dev_attr_lane0_info);
+		break;
+	case 2:
+		device_create_file(dev, &dev_attr_lane0_info);
+		device_create_file(dev, &dev_attr_lane1_info);
+		break;
+	default:
+		device_create_file(dev, &dev_attr_lane0_info);
+		device_create_file(dev, &dev_attr_lane1_info);
+		device_create_file(dev, &dev_attr_lane2_info);
+		device_create_file(dev, &dev_attr_lane3_info);
+		break;
+	}
 
 	INIT_WORK(&st->work, jesd204b_work_func);
 	init_completion(&st->complete);
@@ -451,16 +481,6 @@ static int jesd204b_of_remove(struct platform_device *op)
 
 	return 0;
 }
-
-/* Match table for of_platform binding */
-static const struct of_device_id jesd204b_of_match[] = {
-	{ .compatible = "xlnx,axi-jesd204b-rx2-1.01.a", },
-	{ .compatible = "xlnx,axi-jesd204b-rx4-1.01.a", },
-	{ .compatible = "xlnx,axi-jesd204b-rx2-1.00.a", },
-	{ .compatible = "xlnx,axi-jesd204b-rx4-1.00.a", },
-{ /* end of list */ },
-};
-MODULE_DEVICE_TABLE(of, jesd204b_of_match);
 
 static struct platform_driver jesd204b_of_driver = {
 	.driver = {
