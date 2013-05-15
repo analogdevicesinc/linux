@@ -134,7 +134,7 @@
 			};
 		};
 
-		axi_vdma_0: axivdma@43020000 {
+		axi_vdma_0: axivdma@43000000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#dma-cells = <1>;
