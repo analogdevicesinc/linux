@@ -30,8 +30,13 @@
 
 #include "cf_axi_jesd204b.h"
 
-#define AXI_JESD204B_ES_HSIZE	129
-#define AXI_JESD204B_ES_VSIZE	255
+#define AXI_JESD204B_ES_HSIZE_FULL 	65
+#define AXI_JESD204B_ES_HSIZE_HALF 	129
+#define AXI_JESD204B_ES_HSIZE_QRTR 	257
+#define AXI_JESD204B_ES_HSIZE_OCT 	513
+#define AXI_JESD204B_ES_HSIZE_HEX 	1025
+
+#define AXI_JESD204B_ES_VSIZE		255
 
 struct jesd204b_state {
 	struct device 		*dev;
@@ -48,6 +53,7 @@ struct jesd204b_state {
 	struct completion       complete;
 	unsigned long		flags;
 	unsigned long		rate;
+	unsigned			es_hsize;
 };
 
 /*
@@ -71,8 +77,8 @@ static int jesd204b_set_lane(struct jesd204b_state *st, unsigned lane)
 	unsigned stat;
 
 	stat = jesd204b_read(st, AXI_JESD204B_REG_TEST_MODE);
-	stat &= ~0x3;
-	stat |= lane & 0x3;
+	stat &= ~0x7;
+	stat |= lane & 0x7;
 	jesd204b_write(st, AXI_JESD204B_REG_TEST_MODE, stat);
 
 	return 0;
@@ -92,17 +98,17 @@ static int jesd204b_es(struct jesd204b_state *st, unsigned lane)
 	jesd204b_write(st, AXI_JESD204B_REG_ES_VOFFSET,
 		AXI_JESD204B_REG_ES_VOFFSET_STEP(1) |
 		AXI_JESD204B_REG_ES_VOFFSET_MAX(AXI_JESD204B_ES_VSIZE / 2) |
-		AXI_JESD204B_REG_ES_VOFFSET_MIN(-1 * AXI_JESD204B_ES_VSIZE / 2));
+		AXI_JESD204B_REG_ES_VOFFSET_MIN(-1 * (AXI_JESD204B_ES_VSIZE / 2)));
 
 	jesd204b_write(st, AXI_JESD204B_REG_ES_HOFFSET,
-		AXI_JESD204B_REG_ES_HOFFSET_MAX(AXI_JESD204B_ES_HSIZE / 2) |
-		AXI_JESD204B_REG_ES_HOFFSET_MIN(-1 * AXI_JESD204B_ES_HSIZE / 2));
+		AXI_JESD204B_REG_ES_HOFFSET_MAX(st->es_hsize / 2) |
+		AXI_JESD204B_REG_ES_HOFFSET_MIN(-1 * (st->es_hsize / 2)));
 
 	jesd204b_write(st, AXI_JESD204B_REG_ES_HMAXMIN,
-		AXI_JESD204B_REG_ES_HMAXMIN_MAX(AXI_JESD204B_ES_HSIZE) |
+		AXI_JESD204B_REG_ES_HMAXMIN_MAX(st->es_hsize) |
 		AXI_JESD204B_REG_ES_HMAXMIN_MIN(0));
 
-	jesd204b_write(st, AXI_JESD204B_REG_ES_HSIZE, AXI_JESD204B_ES_HSIZE + 1);
+	jesd204b_write(st, AXI_JESD204B_REG_ES_HSIZE, st->es_hsize + 1);
 	jesd204b_write(st, AXI_JESD204B_REG_ES_HOFFSET_STP, 1);
 
 	jesd204b_write(st, AXI_JESD204B_REG_ES_START_ADDR, st->buf_phys);
@@ -225,41 +231,28 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 		       jesd204b_read(st, AXI_JESD204B_REG_BUFCNT));
 
 	ret += sprintf(buf + ret, "FC: %lu\n", st->rate);
+	ret += sprintf(buf + ret, "x%d,y%d CDRDW: %d\n", st->es_hsize, AXI_JESD204B_ES_VSIZE, 40);
 
 	return ret;
 }
 
-static ssize_t jesd204b_lane0_info_read(struct device *dev,
-			struct device_attribute *attr,
-			char *buf)
-{
-	return jesd204b_laneinfo_read(dev, attr, buf, 0);
-}
-static DEVICE_ATTR(lane0_info, S_IRUSR, jesd204b_lane0_info_read, NULL);
+#define JESD_LANE(_x) 						 \
+static ssize_t jesd204b_lane##_x##_info_read(struct device *dev,	\
+			struct device_attribute *attr,		\
+			char *buf)				\
+{								\
+	return jesd204b_laneinfo_read(dev, attr, buf, _x);	\
+}								\
+static DEVICE_ATTR(lane##_x##_info, S_IRUSR, jesd204b_lane##_x##_info_read, NULL);
 
-static ssize_t jesd204b_lane1_info_read(struct device *dev,
-			struct device_attribute *attr,
-			char *buf)
-{
-	return jesd204b_laneinfo_read(dev, attr, buf, 1);
-}
-static DEVICE_ATTR(lane1_info, S_IRUSR, jesd204b_lane1_info_read, NULL);
-
-static ssize_t jesd204b_lane2_info_read(struct device *dev,
-			struct device_attribute *attr,
-			char *buf)
-{
-	return jesd204b_laneinfo_read(dev, attr, buf, 2);
-}
-static DEVICE_ATTR(lane2_info, S_IRUSR, jesd204b_lane2_info_read, NULL);
-
-static ssize_t jesd204b_lane3_info_read(struct device *dev,
-			struct device_attribute *attr,
-			char *buf)
-{
-	return jesd204b_laneinfo_read(dev, attr, buf, 3);
-}
-static DEVICE_ATTR(lane3_info, S_IRUSR, jesd204b_lane3_info_read, NULL);
+JESD_LANE(0);
+JESD_LANE(1);
+JESD_LANE(2);
+JESD_LANE(3);
+JESD_LANE(4);
+JESD_LANE(5);
+JESD_LANE(6);
+JESD_LANE(7);
 
 static ssize_t jesd204b_enable(struct device *dev,
 					 struct device_attribute *attr,
@@ -300,6 +293,7 @@ static const struct of_device_id jesd204b_of_match[] = {
 	{ .compatible = "xlnx,axi-jesd204b-rx2-1.00.a", .data = (void*) 2},
 	{ .compatible = "xlnx,axi-jesd204b-rx4-1.00.a", .data = (void*) 4},
 	{ .compatible = "xlnx,axi-jesd204b-rx1-1.00.a", .data = (void*) 1},
+	{ .compatible = "xlnx,axi-jesd204b-rx8-1.00.a", .data = (void*) 8},
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, jesd204b_of_match);
@@ -399,8 +393,17 @@ static int jesd204b_of_probe(struct platform_device *op)
 		 jesd204b_read(st, AXI_JESD204B_REG_VERSION),
 		 (unsigned long long)phys_addr, st->regs);
 
+	/* TEMP workaround - this needs to come from DRP: RXOUT_DIV */
+	switch (st->vers_id) {
+	case 8:
+		st->es_hsize = AXI_JESD204B_ES_HSIZE_FULL;
+		break;
+	default:
+		st->es_hsize = AXI_JESD204B_ES_HSIZE_HALF;
+		break;
+	}
 
-	st->size = AXI_JESD204B_ES_HSIZE * AXI_JESD204B_ES_VSIZE *
+	st->size = st->es_hsize * AXI_JESD204B_ES_VSIZE *
 		sizeof(unsigned long long);
 	st->prescale = 0;
 	st->buf_virt = dma_alloc_coherent(dev, PAGE_ALIGN(st->size),
@@ -429,11 +432,24 @@ static int jesd204b_of_probe(struct platform_device *op)
 		device_create_file(dev, &dev_attr_lane0_info);
 		device_create_file(dev, &dev_attr_lane1_info);
 		break;
-	default:
+	case 4:
 		device_create_file(dev, &dev_attr_lane0_info);
 		device_create_file(dev, &dev_attr_lane1_info);
 		device_create_file(dev, &dev_attr_lane2_info);
 		device_create_file(dev, &dev_attr_lane3_info);
+		break;
+	case 8:
+		device_create_file(dev, &dev_attr_lane0_info);
+		device_create_file(dev, &dev_attr_lane1_info);
+		device_create_file(dev, &dev_attr_lane2_info);
+		device_create_file(dev, &dev_attr_lane3_info);
+		device_create_file(dev, &dev_attr_lane4_info);
+		device_create_file(dev, &dev_attr_lane5_info);
+		device_create_file(dev, &dev_attr_lane6_info);
+		device_create_file(dev, &dev_attr_lane7_info);
+		break;
+	default:
+
 		break;
 	}
 
