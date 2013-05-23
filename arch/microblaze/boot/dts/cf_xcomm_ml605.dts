@@ -365,12 +365,12 @@
 					spi-max-frequency = <10000000>;
 					clocks = <&clk0_ad9523 9>;
 					clock-names = "clkin";
-					adf4350-channel-spacing = <10000>;
-					adf4350-power-up-frequency = <2400000000>;
-					adf4350-reg2-pd-polarity-pos-en;
-					adf4350-reg2-charge-pump-curr-ua = <2500>;
-					adf4350-reg4-output-pwr = <3>;
-					adf4350-reg4-mute-till-lock-en;
+					adi,channel-spacing = <10000>;
+					adi,power-up-frequency = <2400000000>;
+					adi,reg2-pd-polarity-pos-en;
+					adi,reg2-charge-pump-curr-ua = <2500>;
+					adi,reg4-output-pwr = <3>;
+					adi,reg4-mute-till-lock-en;
 				};
 
 				lo_pll0_tx_adf4351: adf4351-tx-lpc@5 {
@@ -381,12 +381,12 @@
 					spi-max-frequency = <10000000>;
 					clocks = <&clk0_ad9523 5>;
 					clock-names = "clkin";
-					adf4350-channel-spacing = <10000>;
-					adf4350-power-up-frequency = <2400000000>;
-					adf4350-reg2-pd-polarity-pos-en;
-					adf4350-reg2-charge-pump-curr-ua = <2500>;
-					adf4350-reg4-output-pwr = <3>;
-					adf4350-reg4-mute-till-lock-en;
+					adi,channel-spacing = <10000>;
+					adi,power-up-frequency = <2400000000>;
+					adi,reg2-pd-polarity-pos-en;
+					adi,reg2-charge-pump-curr-ua = <2500>;
+					adi,reg4-output-pwr = <3>;
+					adi,reg4-mute-till-lock-en;
 				};
 
 			};
