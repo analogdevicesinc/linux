@@ -1,0 +1,84 @@
+Analog Devices ADF4350/ADF4351 device driver
+
+Required properties:
+	- compatible: Should be one of
+		* "adi,adf4350": When using the ADF4350 device
+		* "adi,adf4351": When using the ADF4351 device
+	- reg: SPI chip select numbert for the device
+	- spi-max-frequency: Max SPI frequency to use (< 20000000)
+	- clocks: From common clock binding. Clock is phandle to clock for
+		ADF435x Reference Clock (CLKIN).
+
+Optional properties:
+	- adi,channel-spacing: Channel spacing in Hz (influences MODULUS).
+	- adi,power-up-frequency:	If set in Hz the PLL tunes to
+			the desired frequency on probe.
+	- adi,ref-div-factor: If set the driver skips dynamic calculation
+			and uses this default value instead.
+	- adi,ref-doubler-en: Enables reference doubler.
+	- adi,ref-div2-en: Enables reference divider.
+	- adi,gpio-lock-detect:	If set with a valid GPIO number, pll lock state
+			is tested upon read.
+	- adi,reg2-pd-polarity-pos-en: Enables positive phase
+			detector polarity. Default = negative.
+	- adi,reg2-ldp-6ns-en: Enables 6ns lock detect precision.
+			Default = 10ns.
+	- adi,reg2-ldf-int-n-en: Enables lock detect for integer-N mode.
+			Default = factional-N mode.
+	- adi,reg2-charge-pump-curr-ua: Charge pump current in mA.
+			Default = 2500mA.
+	- adi,reg2-muxout: On chip multiplexer output selection.
+			Valid values for the multiplexer output are:
+			0: Three-State Output (default)
+			1: DVDD
+			2: DGND
+			3: R-Counter output
+			4: N-Divider output
+			5: Analog lock detect
+			6: Digital lock detect
+	- adi,reg2-noise-mode: Enables low noise mode. Default = Low spur mode.
+	- adi,reg3-csr-en: Enables cycle slip reduction.
+	- adi,reg3-charge-cancellation-en: Enabled charge pump
+			charge cancellation for integer-N modes.
+	- adi,reg3-anti-backlash-3ns-en: Enables 3ns antibacklash pulse width
+			 for integer-N modes.
+	- adi,reg3-band-sel-clock-mode-high-en: Enables faster band selection logic.
+	- adi,reg3-12bit-clkdiv: Clock divider value used when
+			adi,reg3-12bit-clkdiv-mode != 0
+	- adi,reg3-12bit-clkdiv-mode:
+			Valid values for the clkdiv mode are:
+			0: Clock divider off (default)
+			1: Fast lock enable
+			2: Phase resync enable
+	- adi,reg4-aux-output-en: Enables auxiliary RF output.
+	- adi,reg4-aux-output-fund-en: Selects fundamental VCO output on the
+			auxiliary RF output. Default = Output of RF dividers.
+	- adi,reg4-mute-till-lock-en: Enables Mute-Till-Lock-Detect function.
+	- adi,reg4-output-pwr: Output power selection.
+			Valid values for the power mode are:
+			0: -4dBM (default)
+			1: -1dBM
+			2: +2dBM
+			3: +5dBM
+	- adi,reg4-aux-output-pwr: Auxiliary output power selection.
+			Valid values for the power mode are:
+			0: -4dBM (default)
+			1: -1dBM
+			2: +2dBM
+			3: +5dBM
+
+
+Example:
+		lo_pll0_rx_adf4351: adf4351-rx-lpc@4 {
+			compatible = "adi,adf4351";
+			reg = <4>;
+			spi-max-frequency = <10000000>;
+			clocks = <&clk0_ad9523 9>;
+			clock-names = "clkin";
+			adi,channel-spacing = <10000>;
+			adi,power-up-frequency = <2400000000>;
+			adi,reg2-pd-polarity-pos-en;
+			adi,reg2-charge-pump-curr-ua = <2500>;
+			adi,reg4-output-pwr = <3>;
+			adi,reg4-mute-till-lock-en;
+		};
