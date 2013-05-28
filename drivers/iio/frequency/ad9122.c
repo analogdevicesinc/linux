@@ -278,11 +278,15 @@ static int ad9122_get_fifo_status(struct cf_axi_converter *conv)
 {
 	unsigned stat;
 
+	stat = ad9122_read(conv->spi, AD9122_REG_SYNC_STATUS_1);
+	if (!(stat & AD9122_SYNC_STATUS_1_SYNC_LOCKED))
+		return -1;
+
 	stat = ad9122_read(conv->spi, AD9122_REG_FIFO_STATUS_1);
 	if (stat & (AD9122_FIFO_STATUS_1_FIFO_WARNING_1 |
-		AD9122_FIFO_STATUS_1_FIFO_WARNING_2)) {
+		AD9122_FIFO_STATUS_1_FIFO_WARNING_2))
 		return -1;
-	}
+
 	return 0;
 }
 
@@ -398,7 +402,7 @@ static void ad9122_update_avail_fcent_modes(struct cf_axi_converter *conv,
 static int ad9122_set_data_clk(struct cf_axi_converter *conv, unsigned long freq)
 {
 	unsigned long dac_freq;
-	long dat_freq, r_dac_freq;
+	long dat_freq, r_dac_freq, r_ref_freq;
 	int ret;
 
 	dat_freq = clk_round_rate(conv->clk[CLK_DATA], freq);
@@ -425,7 +429,19 @@ static int ad9122_set_data_clk(struct cf_axi_converter *conv, unsigned long freq
 		return -EINVAL;
 	}
 
+	r_ref_freq = clk_round_rate(conv->clk[CLK_REF], dat_freq / 8);
+	if (r_ref_freq != (dat_freq / 8)) {
+		dev_err(&conv->spi->dev,
+			"CLK_REF: Requested Rate exceeds mismatch %ld (%lu)",
+			r_ref_freq, (dat_freq / 8));
+		return -EINVAL;
+	}
+
 	ret = clk_set_rate(conv->clk[CLK_DATA], dat_freq);
+	if (ret < 0)
+		return ret;
+
+	ret = clk_set_rate(conv->clk[CLK_REF], r_ref_freq);
 	if (ret < 0)
 		return ret;
 
