@@ -164,7 +164,7 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 
 	do {
 		if (cnt > VDMA_MAX_HSIZE)
-			cnt /= ++x;
+			cnt = st->txcount / ++x;
 
 		if ((cnt <= VDMA_MAX_HSIZE) && ((cnt % 8) == 0))
 			break;
