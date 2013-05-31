@@ -797,7 +797,7 @@
 			compatible = "xlnx,axi-vdma";
 			ranges = < 0x7e220000 0x7e220000 0x10000 >;
 			reg = < 0x7e220000 0x10000 >;
-//			xlnx,include-sg = <0x0>;
+			/*xlnx,include-sg = <0x0>;*/
 			xlnx,num-fstores = <0x3>;
 			dma-channel@7e220000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
