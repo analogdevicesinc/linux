@@ -13,6 +13,90 @@
 
 /* PCORE CoreFPGA register map */
 
+#ifdef CONFIG_AXIADC_V2
+#define AXIADC_PCORE_VERSION		0x00
+#define AXIADC_PCORE_DMA_CHAN_SEL	0x00
+#define AXIADC_PCORE_DMA_CTRL		0x04
+#define AXIADC_PCORE_DMA_STAT		0x08
+#define AXIADC_PCORE_ADC_STAT		0x10
+#define AXIADC_PCORE_PN_ERR_CTRL		0x0C
+#define AXIADC_PCORE_ADC_CTRL		0x2C
+#define AXIADC_PCORE_IDENT		0x30
+#define AXIADC_PCORE_CA_OFFS_SCALE	0x40
+#define AXIADC_PCORE_CB_OFFS_SCALE	0x44
+#define AXIADC_PCORE_USRL_DECIM		0x48
+#define AXIADC_PCORE_USRL_DTYPE		0x4C
+#define AXIADC_PCORE_USRL_MAXCH		0x50
+
+/* AXIADC_PCORE_VERSION */
+#define AXIADC_PCORE_VERSION_IS(x,y,z)	((x) << 16 | (y) << 8 | (z))
+
+/* AXIADC_PCORE_DMA_CHAN_SEL */
+#define AXIADC_PCORE_DMA_CHAN_SEL0		(1 << 0)
+#define AXIADC_PCORE_DMA_CHAN_SEL1		(1 << 1)
+#define AXIADC_PCORE_DMA_CHAN_USRL_SEL(x)	((x) << 2)
+
+/* AXIADC_PCORE_DMA_CTRL */
+#define AXIADC_DMA_CAP_EN_V10A		(1 << 31)
+#define AXIADC_DMA_CNT_V10A(x)		(((x) & 0x3FFFFFF) << 0)
+
+#define AXIADC_DMA_CAP_EN		(1 << 31)
+#define AXIADC_DMA_CAP_STREAM		(1 << 30)
+#define AXIADC_DMA_CNT(x)		(((x) & 0x3FFFFFF) << 0)
+
+/* AXIADC_PCORE_DMA_STAT */
+#define AXIADC_DMA_STAT_BUSY		(1 << 0) /* W1C */
+#define AXIADC_DMA_STAT_OVF		(1 << 1) /* W1C */
+#define AXIADC_DMA_STAT_UNF		(1 << 2) /* W1C */
+
+/* AXIADC_PCORE_ADC_STAT */
+#define AXIADC_PCORE_ADC_STAT_OVR0	(1 << 0) /* W1C */
+#define AXIADC_PCORE_ADC_STAT_OVR1	(1 << 1) /* W1C */
+
+#define AXIADC_PCORE_ADC_STAT_PN_OOS0	(1 << 0) /* W1C */
+#define AXIADC_PCORE_ADC_STAT_PN_OOS1	(1 << 1) /* W1C */
+#define AXIADC_PCORE_ADC_STAT_PN_ERR0	(1 << 16) /* W1C */
+#define AXIADC_PCORE_ADC_STAT_PN_ERR1	(1 << 17) /* W1C */
+#define AXIADC_PCORE_ADC_STAT_MASK	0xFFFFFFFF
+
+/* AXIADC_PCORE_ADC_STAT */
+#define AXIADC_PCORE_ADC_STAT_OVR	(1 << 0) /* W1C */
+#define AXIADC_PCORE_ADC_STAT_PN_OOS	(1 << 1) /* W1C */
+#define AXIADC_PCORE_ADC_STAT_PN_ERR	(1 << 2) /* W1C */
+#define AXIADC_PCORE_ADC_1C_STAT_MASK	0x7
+
+/* AXIADC_PCORE_PN_ERR_CTRL */
+#define AXIADC_PN23_1_EN		(1 << 1)
+#define AXIADC_PN23_0_EN		(1 << 0)
+#define AXIADC_PN9_1_EN			(0 << 1)
+#define AXIADC_PN9_0_EN			(0 << 0)
+#define AXIADC_PN23_EN			(AXIADC_PN23_0_EN | AXIADC_PN23_1_EN)
+#define AXIADC_PN9_EN			(AXIADC_PN9_0_EN | AXIADC_PN9_1_EN)
+
+/* AXIADC_PCORE_ADC_CTRL */
+#define AXIADC_INPUT_FMT_OFFSET_BIN	(1 << 3)
+#define AXIADC_INPUT_FMT_TWOS_COMPL	(0 << 3)
+#define AXIADC_SCALE_OFFSET_EN		(1 << 2)
+#define AXIADC_SIGNEXTEND		(1 << 1)
+#define AXIADC_STATUS_EN		(1 << 0)
+
+/* AXIADC_PCORE_IDENT */
+#define AXIADC_PCORE_IDENT_SLAVE	0x1
+
+/* AXIADC_PCORE_C[A|B]_OFFS_SCALE */
+#define AXIADC_OFFSET(x)		(((x) & 0xFFFF) << 16)
+#define AXIADC_SCALE(x)			((x) & 0xFFFF)
+
+/* AXIADC_PCORE_USRL_DECIM Custom User Logic Decimation (M/N) */
+
+#define AXIADC_PCORE_USRL_DECIM_NUM(x)		((x) >> 16)
+#define AXIADC_PCORE_USRL_DECIM_DEN(x)		((x) & 0xFFFF)
+
+/* AXIADC_PCORE_USRL_DTYPE Custom User Logic Data Type */
+#define AXIADC_PCORE_USRL_DTYPE_NORM		(1 << 0)
+
+#else
+
 #define AXIADC_PCORE_VERSION		0x00
 #define AXIADC_PCORE_DMA_CHAN_SEL	0x04
 #define AXIADC_PCORE_DMA_CTRL		0x0C
@@ -85,6 +169,15 @@
 #define AXIADC_OFFSET(x)		(((x) & 0xFFFF) << 16)
 #define AXIADC_SCALE(x)			((x) & 0xFFFF)
 
+/* AXIADC_PCORE_USRL_DECIM Custom User Logic Decimation (M/N) */
+
+#define AXIADC_PCORE_USRL_DECIM_NUM(x)		((x) >> 16)
+#define AXIADC_PCORE_USRL_DECIM_DEN(x)		((x) & 0xFFFF)
+
+/* AXIADC_PCORE_USRL_DTYPE Custom User Logic Data Type */
+#define AXIADC_PCORE_USRL_DTYPE_NORM		(1 << 0)
+
+#endif
 /*
  * ADI High-Speed ADC common spi interface registers
  * See Application-Note AN-877
@@ -166,12 +259,30 @@
 #define AD9683_SIGNEXTEND		(1 << 0)
 
 /*
+ * Analog Devices AD9625 12-Bit, 2500 MSPS ADC, JESD204B
+ */
+
+#define CHIPID_AD9625			0x41
+#define AD9625_DEF_OUTPUT_MODE		0x00
+#define AD9625_AXIADC_PCORE_DATA_SEL	0x24
+#define AD9625_SIGNEXTEND		(1 << 0)
+
+/*
  * Analog Devices AD9265 16-Bit, 125/105/80 MSPS ADC
  */
 
 #define CHIPID_AD9265			0x64
 #define AD9265_DEF_OUTPUT_MODE		0x40
 #define AD9265_REG_VREF_MASK		0xC0
+
+/*
+ * Analog Devices AD9434 12-Bit, 370/500 MSPS ADC
+ */
+
+#define CHIPID_AD9434			0x6A
+#define AD9434_DEF_OUTPUT_MODE		0x00
+#define AD9434_REG_VREF_MASK		0xC0
+
 
 /* debugfs direct register access */
 #define DEBUGFS_DRA_PCORE_REG_MAGIC	0x80000000
@@ -188,6 +299,8 @@ enum {
 	ID_AD9250,
 	ID_AD9265,
 	ID_AD9683,
+	ID_AD9625,
+	ID_AD9434,
 };
 
 struct axiadc_chip_info {
@@ -219,7 +332,7 @@ struct axiadc_state {
 	unsigned			pcore_version;
 	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
-
+	unsigned			dma_align;
 };
 
 struct ad9361_rf_phy;
