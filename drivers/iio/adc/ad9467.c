@@ -91,6 +91,37 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 	return ret;
 }
 
+static int ad9625_setup(struct spi_device *spi)
+{
+	unsigned pll_stat;
+	int ret;
+
+	ret = ad9467_spi_write(spi, 0x000, 0x3c);
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	ret |= ad9467_spi_write(spi, 0x000, 0x18);
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	ret |= ad9467_spi_write(spi, 0x008, 0x00);
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	ret |= ad9467_spi_write(spi, 0x05f, 0x15);
+	ret |= ad9467_spi_write(spi, 0x080, 0x00);
+	ret |= ad9467_spi_write(spi, 0x120, 0x11);
+	ret |= ad9467_spi_write(spi, 0x00d, 0x00);
+	ret |= ad9467_spi_write(spi, 0x014, 0x00);
+	ret |= ad9467_spi_write(spi, 0x05f, 0x14);
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	ret |= ad9467_spi_write(spi, 0xff, 0x00);
+
+	mdelay(10);
+
+	pll_stat = ad9467_spi_read(spi, 0x0A);
+
+	dev_info(&spi->dev, "PLL %s, JESD204B Link %s\n",
+		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED",
+		 pll_stat & 0x01 ? "Ready" : "Fail");
+
+	return ret;
+}
+
 static int ad9467_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv;
@@ -139,6 +170,15 @@ static int ad9467_probe(struct spi_device *spi)
 		}
 	}
 
+	if (conv->id == CHIPID_AD9625) {
+		ret = ad9625_setup(spi);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize\n");
+			ret = -EIO;
+			goto out;
+		}
+	}
+
 	conv->write = ad9467_spi_write;
 	conv->read = ad9467_spi_read;
 	conv->spi = spi;
@@ -168,6 +208,8 @@ static const struct spi_device_id ad9467_id[] = {
 	{"ad9250", CHIPID_AD9250},
 	{"ad9265", CHIPID_AD9265},
 	{"ad9683", CHIPID_AD9683},
+	{"ad9434", CHIPID_AD9434},
+	{"ad9625", CHIPID_AD9625},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9467_id);
