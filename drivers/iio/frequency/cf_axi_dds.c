@@ -53,7 +53,7 @@ static bool cf_axi_dds_dma_filter(struct dma_chan *chan, void *param)
 		chan->chan_id == p->chan_id;
 }
 
-static void cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
+static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
@@ -70,12 +70,13 @@ static void cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 	if (stat) {
 		if (retry++ > 10) {
 			dev_warn(indio_dev->dev.parent, "FRAME/FIFO Reset Retry cnt\n");
-			return;
+			return -EIO;
 		}
 		cf_axi_dds_sync_frame(indio_dev);
 	}
 
 	retry = 0;
+	return 0;
 }
 
 static void cf_axi_dds_set_sed_pattern(struct iio_dev *indio_dev, unsigned pat1, unsigned pat2)
@@ -116,167 +117,6 @@ static u32 cf_axi_dds_calc(u32 phase, u32 freq, u32 dac_clk) {
 static const int cf_axi_dds_scale_table[16] = {
 	10000, 5000, 2500, 1250, 625, 313, 156,
 };
-
-// static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
-// 			   struct iio_chan_spec const *chan,
-// 			   int *val,
-// 			   int *val2,
-// 			   long m)
-// {
-// 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-// 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-// 	unsigned long long val64;
-// 	unsigned reg;
-//
-// 	switch (m) {
-// 	case 0:
-// 		if (!chan->output) {
-// 			return -EINVAL;
-// 		}
-// 		reg = dds_read(st, CF_AXI_DDS_CTRL);
-// 		if (st->vers_id > 1) {
-// 			if (reg & CF_AXI_DDS_CTRL_DATA_EN)
-// 				*val = 1;
-// 			else
-// 				*val = 0;
-//
-// 		} else {
-// 			if (reg & (1 << (chan->channel * 2)))
-// 				*val = 1;
-// 			else
-// 				*val = 0;
-// 		}
-// 		return IIO_VAL_INT;
-// 	case IIO_CHAN_INFO_SCALE:
-// 		reg = dds_read(st, CF_AXI_DDS_SCALE);
-// 		reg = (reg >> (chan->channel * 4)) & 0xF;
-// 		if (!reg) {
-// 			*val = 1;
-// 			*val2 = 0;
-// 		} else {
-// 			*val = 0;
-// 			*val2 = 1000000 >> reg;
-// 		}
-// 		return IIO_VAL_INT_PLUS_MICRO;
-// 	case IIO_CHAN_INFO_FREQUENCY:
-// 		reg = dds_read(st, chan->address);
-// 		val64 = (u64)(reg & 0xFFFF) * (u64)st->dac_clk;
-// 		do_div(val64, 0xFFFF);
-// 		*val = val64;
-// 		return IIO_VAL_INT;
-// 	case IIO_CHAN_INFO_PHASE:
-// 		reg = dds_read(st, chan->address);
-// 		val64 = (u64)(reg >> 16) * 360000ULL;
-// 		do_div(val64, 0xFFFF);
-// 		*val = val64;
-// 		return IIO_VAL_INT;
-// 	case IIO_CHAN_INFO_SAMP_FREQ:
-// 		if (!conv->get_data_clk)
-// 			return -ENODEV;
-//
-// 		*val = st->dac_clk = conv->get_data_clk(conv);
-// 		return IIO_VAL_INT;
-//
-// 	}
-// 	return -EINVAL;
-// }
-//
-// static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
-// 			       struct iio_chan_spec const *chan,
-// 			       int val,
-// 			       int val2,
-// 			       long mask)
-// {
-// 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-// 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-// 	unsigned long long val64;
-// 	unsigned reg, ctrl_reg;
-// 	int i, ret;
-//
-// 	ctrl_reg = dds_read(st, CF_AXI_DDS_CTRL);
-//
-// 	switch (mask) {
-// 	case 0:
-// 		if (!chan->output) {
-// 			return -EINVAL;
-// 		}
-//
-// 		if (st->vers_id > 1) {
-// 			if (val)
-// 				ctrl_reg |= (CF_AXI_DDS_CTRL_DATA_EN |
-// 					    CF_AXI_DDS_CTRL_DDS_CLK_EN_V2);
-// 			else
-// 				ctrl_reg &= ~(CF_AXI_DDS_CTRL_DATA_EN);
-// 		} else {
-// 			if (val)
-// 				ctrl_reg |= 1 << (chan->channel * 2);
-// 			else
-// 				ctrl_reg &= ~(1 << (chan->channel * 2));
-// 		}
-//
-// 		dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
-// 		break;
-// 	case IIO_CHAN_INFO_SCALE:
-// 		if (val == 1) {
-// 			i = 0;
-// 		} else {
-// 			for (i = 1; i < 16; i++)
-// 				if (val2 == (1000000 >> i))
-// 					break;
-// 		}
-// 		cf_axi_dds_stop(st);
-// 		reg = dds_read(st, CF_AXI_DDS_SCALE);
-//
-// 		reg &= ~(0xF << (chan->channel * 4));
-// 		reg |= (i << (chan->channel * 4));
-// 		dds_write(st, CF_AXI_DDS_SCALE, reg);
-// 		dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
-// 		break;
-// 	case IIO_CHAN_INFO_FREQUENCY:
-// 		if (!chan->output) {
-// 			st->dac_clk = val;
-// 			break;
-// 		}
-// 		if (val > (st->dac_clk / 2))
-// 			return -EINVAL;
-// 		cf_axi_dds_stop(st);
-// 		reg = dds_read(st, chan->address);
-// 		reg &= 0xFFFF0000;
-// 		val64 = (u64) val * 0xFFFFULL;
-// 		do_div(val64, st->dac_clk);
-// 		reg |= (val64 & 0xFFFF) | 1;
-// 		dds_write(st, chan->address, reg);
-// 		dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
-// 		break;
-// 	case IIO_CHAN_INFO_PHASE:
-// 		if (val < 0 || val > 360000)
-// 			return -EINVAL;
-// 		cf_axi_dds_stop(st);
-// 		reg = dds_read(st, chan->address);
-// 		reg &= 0x0000FFFF;
-// 		val64 = (u64) val * 0xFFFFULL;
-// 		do_div(val64, 360000);
-// 		reg |= val64 << 16;
-// 		dds_write(st, chan->address, reg);
-// 		dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
-// 		break;
-// 	case IIO_CHAN_INFO_SAMP_FREQ:
-// 		if (!conv->write_raw)
-// 			return -ENODEV;
-//
-// 		cf_axi_dds_stop(st);
-// 		ret = conv->write_raw(indio_dev, chan, val, val2, mask);
-// 		st->dac_clk = conv->get_data_clk(conv);
-// 		dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
-// 		cf_axi_dds_sync_frame(indio_dev);
-//
-// 		break;
-// 	default:
-// 		return -EINVAL;
-// 	}
-//
-// 	return 0;
-// }
 
 static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
@@ -447,11 +287,10 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			break;
 		}
 		cf_axi_dds_stop(st);
-		ret = conv->write_raw(indio_dev, chan, val, val2, mask);
+		conv->write_raw(indio_dev, chan, val, val2, mask);
 		st->dac_clk = conv->get_data_clk(conv);
 		dds_write(st, CF_AXI_DDS_CTRL, ctrl_reg);
-		cf_axi_dds_sync_frame(indio_dev);
-
+		ret = cf_axi_dds_sync_frame(indio_dev);
 		break;
 	default:
 		ret = -EINVAL;

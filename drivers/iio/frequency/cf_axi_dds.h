@@ -120,7 +120,7 @@ struct cf_axi_converter {
 	struct iio_dev 	*indio_dev;
 	void		(*pcore_set_sed_pattern)(struct iio_dev *indio_dev,
 						 unsigned pat1, unsigned pat2);
-	void		(*pcore_sync)(struct iio_dev *indio_dev);
+	int		(*pcore_sync)(struct iio_dev *indio_dev);
 };
 
 static inline struct cf_axi_converter *to_converter(struct device *dev)
