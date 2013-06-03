@@ -19,6 +19,7 @@
 #include <asm/div64.h>
 #include <linux/clk.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -35,7 +36,7 @@ struct adf4350_state {
 	struct spi_device		*spi;
 	struct regulator		*reg;
 	struct adf4350_platform_data	*pdata;
-	struct clk 			*clk;
+	struct clk			*clk;
 	unsigned long			clkin;
 	unsigned long			chspc; /* Channel Spacing */
 	unsigned long			fpfd; /* Phase Frequency Detector */
@@ -325,9 +326,9 @@ static ssize_t adf4350_read(struct iio_dev *indio_dev,
 			}
 		break;
 	case ADF4350_FREQ_REFIN:
-		if (st->clk) {
+		if (st->clk)
 			st->clkin = clk_get_rate(st->clk);
-		}
+
 		val = st->clkin;
 		break;
 	case ADF4350_FREQ_RESOLUTION:
@@ -401,78 +402,85 @@ static struct adf4350_platform_data *adf4350_parse_dt(struct device *dev)
 	pdata->power_up_frequency = tmp;
 
 	tmp = 0;
-	of_property_read_u32(np, "adi,ref-div-factor", &tmp);
+	of_property_read_u32(np, "adi,reference-div-factor", &tmp);
 	pdata->ref_div_factor = tmp;
 
-	ret = of_property_read_u32(np, "adi,gpio-lock-detect", &pdata->gpio_lock_detect);
+	ret = of_get_gpio(np, 0);
 	if (ret < 0)
 		pdata->gpio_lock_detect = -1;
+	else
+		pdata->gpio_lock_detect = ret;
 
-	pdata->ref_doubler_en = of_property_read_bool(np, "adi,ref-doubler-en");
-	pdata->ref_div2_en = of_property_read_bool(np, "adi,ref-div2-en");
+	pdata->ref_doubler_en = of_property_read_bool(np,
+			"adi,reference-doubler-enable");
+	pdata->ref_div2_en = of_property_read_bool(np,
+			"adi,reference-div2-enable");
 
 	/* r2_user_settings */
-	pdata->r2_user_settings =
-		of_property_read_bool(np, "adi,reg2-pd-polarity-pos-en") ?
-					ADF4350_REG2_PD_POLARITY_POS : 0;
-	pdata->r2_user_settings |=
-		of_property_read_bool(np, "adi,reg2-ldp-6ns-en") ?
-					ADF4350_REG2_LDP_6ns : 0;
-	pdata->r2_user_settings |=
-		of_property_read_bool(np, "adi,reg2-ldf-int-n-en") ?
-					ADF4350_REG2_LDF_INT_N : 0;
+	pdata->r2_user_settings = of_property_read_bool(np,
+			"adi,phase-detector-polarity-positive-enable") ?
+			ADF4350_REG2_PD_POLARITY_POS : 0;
+	pdata->r2_user_settings |= of_property_read_bool(np,
+			"adi,lock-detect-precision-6ns-enable") ?
+			ADF4350_REG2_LDP_6ns : 0;
+	pdata->r2_user_settings |= of_property_read_bool(np,
+			"adi,lock-detect-function-integer-n-enable") ?
+			ADF4350_REG2_LDF_INT_N : 0;
+
 	tmp = 2500;
-	of_property_read_u32(np, "adi,reg2-charge-pump-curr-ua", &tmp);
+	of_property_read_u32(np, "adi,charge-pump-current", &tmp);
 	pdata->r2_user_settings |= ADF4350_REG2_CHARGE_PUMP_CURR_uA(tmp);
 
 	tmp = 0;
-	of_property_read_u32(np, "adi,reg2-muxout", &tmp);
+	of_property_read_u32(np, "adi,muxout-select", &tmp);
 	pdata->r2_user_settings |= ADF4350_REG2_MUXOUT(tmp);
 
-	tmp = 0;
-	of_property_read_u32(np, "adi,reg2-noise-mode", &tmp);
-	pdata->r2_user_settings |= ADF4350_REG2_NOISE_MODE(tmp);
+	pdata->r2_user_settings |= of_property_read_bool(np,
+			"adi,low-spur-mode-enable") ?
+			ADF4350_REG2_NOISE_MODE(0x3) : 0;
 
 	/* r3_user_settings */
 
-	pdata->r3_user_settings =
-		of_property_read_bool(np, "adi,reg3-csr-en") ?
-					ADF4350_REG3_12BIT_CSR_EN : 0;
-	pdata->r3_user_settings |=
-		of_property_read_bool(np, "adi,reg3-charge-cancellation-en") ?
-					ADF4351_REG3_CHARGE_CANCELLATION_EN : 0;
-	pdata->r3_user_settings |=
-		of_property_read_bool(np, "adi,reg3-anti-backlash-3ns-en") ?
-					ADF4351_REG3_ANTI_BACKLASH_3ns_EN : 0;
-	pdata->r3_user_settings |=
-		of_property_read_bool(np, "adi,reg3-band-sel-clock-mode-high-en") ?
-					ADF4351_REG3_BAND_SEL_CLOCK_MODE_HIGH : 0;
+	pdata->r3_user_settings = of_property_read_bool(np,
+			"adi,cycle-slip-reduction-enable") ?
+			ADF4350_REG3_12BIT_CSR_EN : 0;
+	pdata->r3_user_settings |= of_property_read_bool(np,
+			"adi,charge-cancellation-enable") ?
+			ADF4351_REG3_CHARGE_CANCELLATION_EN : 0;
+
+	pdata->r3_user_settings |= of_property_read_bool(np,
+			"adi,anti-backlash-3ns-enable") ?
+			ADF4351_REG3_ANTI_BACKLASH_3ns_EN : 0;
+	pdata->r3_user_settings |= of_property_read_bool(np,
+			"adi,band-select-clock-mode-high-enable") ?
+			ADF4351_REG3_BAND_SEL_CLOCK_MODE_HIGH : 0;
 
 	tmp = 0;
-	of_property_read_u32(np, "adi,reg3-12bit-clkdiv", &tmp);
+	of_property_read_u32(np, "adi,12bit-clk-divider", &tmp);
 	pdata->r3_user_settings |= ADF4350_REG3_12BIT_CLKDIV(tmp);
 
 	tmp = 0;
-	of_property_read_u32(np, "adi,reg3-12bit-clkdiv-mode", &tmp);
+	of_property_read_u32(np, "adi,clk-divider-mode", &tmp);
 	pdata->r3_user_settings |= ADF4350_REG3_12BIT_CLKDIV_MODE(tmp);
 
 	/* r4_user_settings */
 
-	pdata->r4_user_settings =
-		of_property_read_bool(np, "adi,reg4-aux-output-en") ?
-					ADF4350_REG4_AUX_OUTPUT_EN : 0;
-	pdata->r4_user_settings |=
-		of_property_read_bool(np, "adi,reg4-aux-output-fund-en") ?
-					ADF4350_REG4_AUX_OUTPUT_FUND : 0;
-	pdata->r4_user_settings |=
-		of_property_read_bool(np, "adi,reg4-mute-till-lock-en") ?
-					ADF4350_REG4_MUTE_TILL_LOCK_EN : 0;
+	pdata->r4_user_settings = of_property_read_bool(np,
+			"adi,aux-output-enable") ?
+			ADF4350_REG4_AUX_OUTPUT_EN : 0;
+	pdata->r4_user_settings |= of_property_read_bool(np,
+			"adi,aux-output-fundamental-enable") ?
+			ADF4350_REG4_AUX_OUTPUT_FUND : 0;
+	pdata->r4_user_settings |= of_property_read_bool(np,
+			"adi,mute-till-lock-enable") ?
+			ADF4350_REG4_MUTE_TILL_LOCK_EN : 0;
+
 	tmp = 0;
-	of_property_read_u32(np, "adi,reg4-output-pwr", &tmp);
+	of_property_read_u32(np, "adi,output-power", &tmp);
 	pdata->r4_user_settings |= ADF4350_REG4_OUTPUT_PWR(tmp);
 
 	tmp = 0;
-	of_property_read_u32(np, "adi,reg4-aux-output-pwr", &tmp);
+	of_property_read_u32(np, "adi,aux-output-power", &tmp);
 	pdata->r4_user_settings |= ADF4350_REG4_AUX_OUTPUT_PWR(tmp);
 
 	return pdata;
@@ -485,7 +493,7 @@ struct adf4350_platform_data *adf4350_parse_dt(struct device *dev)
 }
 #endif
 
-static int __devinit adf4350_probe(struct spi_device *spi)
+static int adf4350_probe(struct spi_device *spi)
 {
 	struct adf4350_platform_data *pdata;
 	struct iio_dev *indio_dev;
@@ -495,8 +503,8 @@ static int __devinit adf4350_probe(struct spi_device *spi)
 
 	if (spi->dev.of_node) {
 		pdata = adf4350_parse_dt(&spi->dev);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
+		if (pdata == NULL)
+			return -EINVAL;
 	} else {
 		pdata = spi->dev.platform_data;
 	}
@@ -508,9 +516,8 @@ static int __devinit adf4350_probe(struct spi_device *spi)
 
 	if (!pdata->clkin) {
 		clk = clk_get(&spi->dev, "clkin");
-		if (IS_ERR(clk)) {
+		if (IS_ERR(clk))
 			return -EPROBE_DEFER;
-		}
 
 		ret = clk_prepare_enable(clk);
 		if (ret < 0)
@@ -596,7 +603,7 @@ error_put_reg:
 	return ret;
 }
 
-static int __devexit adf4350_remove(struct spi_device *spi)
+static int adf4350_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct adf4350_state *st = iio_priv(indio_dev);
@@ -635,7 +642,7 @@ static struct spi_driver adf4350_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= adf4350_probe,
-	.remove		= __devexit_p(adf4350_remove),
+	.remove		= adf4350_remove,
 	.id_table	= adf4350_id,
 };
 module_spi_driver(adf4350_driver);

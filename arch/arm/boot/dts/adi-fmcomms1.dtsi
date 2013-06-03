@@ -147,10 +147,10 @@
 			clock-names = "clkin";
 			adi,channel-spacing = <10000>;
 			adi,power-up-frequency = <2400000000>;
-			adi,reg2-pd-polarity-pos-en;
-			adi,reg2-charge-pump-curr-ua = <2500>;
-			adi,reg4-output-pwr = <3>;
-			adi,reg4-mute-till-lock-en;
+			adi,phase-detector-polarity-positive-enable;
+			adi,charge-pump-current = <2500>;
+			adi,output-power = <3>;
+			adi,mute-till-lock-enable;
 		};
 
 		lo_pll0_tx_adf4351: adf4351-tx-lpc@5 {
@@ -163,10 +163,10 @@
 			clock-names = "clkin";
 			adi,channel-spacing = <10000>;
 			adi,power-up-frequency = <2400000000>;
-			adi,reg2-pd-polarity-pos-en;
-			adi,reg2-charge-pump-curr-ua = <2500>;
-			adi,reg4-output-pwr = <3>;
-			adi,reg4-mute-till-lock-en;
+			adi,phase-detector-polarity-positive-enable;
+			adi,charge-pump-current = <2500>;
+			adi,output-power = <3>;
+			adi,mute-till-lock-enable;
 		};
 
 	};
