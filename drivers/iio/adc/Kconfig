@@ -38,6 +38,10 @@ config CF_AXI_ADC
 config CF_AXI_FFT
 	tristate "Generic FFT driver"
 
+config AXIADC_V2
+	depends on CF_AXI_ADC
+	tristate "Temp Register Layout Flavour"
+
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
 

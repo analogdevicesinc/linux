@@ -48,12 +48,19 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 		} else if (ret < 0) {
 			goto error_ret;
 		}
-
+#ifdef CONFIG_AXIADC_V2
+		if (dma_stat)
+			dev_warn(indio_dev->dev.parent,
+				"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
+				dma_stat, stat);
+#else
 		if ((stat & (AXIADC_PCORE_ADC_STAT_OVR0 | ((st->id == CHIPID_AD9467) ? 0 : AXIADC_PCORE_ADC_STAT_OVR1)))
 			|| dma_stat)
 			dev_warn(indio_dev->dev.parent,
 				"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
 				dma_stat, stat);
+
+#endif
 	}
 
 	count = min(count, st->ring_length - st->read_offs);
@@ -167,10 +174,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 		goto error_ret;
 	}
 
-	if (st->ring_length % 8)
-		st->rcount = (st->ring_length + 8) & 0xFFFFFFF8;
-	else
-		st->rcount = st->ring_length;
+	st->rcount = ALIGN(st->ring_length, st->dma_align);
 
 	if (st->rcount > st->max_count) {
 		ret = -EINVAL;
@@ -201,17 +205,17 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	dma_async_issue_pending(st->rx_chan);
 
 	axiadc_write(st, AXIADC_PCORE_DMA_CTRL, 0);
-	axiadc_write(st, AXIADC_PCORE_ADC_STAT, 0xFF);
-	axiadc_write(st, AXIADC_PCORE_DMA_STAT, 0xFF);
+	axiadc_write(st, AXIADC_PCORE_ADC_STAT, 0xFFFFFFFF);
+	axiadc_write(st, AXIADC_PCORE_DMA_STAT, 0xFFFFFFFF);
 
 	if (st->pcore_version > AXIADC_PCORE_VERSION_IS(1, 0, 'a'))
 		axiadc_write(st, AXIADC_PCORE_DMA_CTRL,
 			AXIADC_DMA_CAP_EN |
-			AXIADC_DMA_CNT((st->rcount / 8) - 1));
+			AXIADC_DMA_CNT((st->rcount / st->dma_align) - 1));
 	else
 		axiadc_write(st, AXIADC_PCORE_DMA_CTRL,
 			AXIADC_DMA_CAP_EN_V10A |
-			AXIADC_DMA_CNT_V10A((st->rcount / 8) - 1));
+			AXIADC_DMA_CNT_V10A((st->rcount / st->dma_align) - 1));
 
 	return 0;
 
