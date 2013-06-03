@@ -246,84 +246,85 @@
 					spi-max-frequency = <10000000>;
 					spi-3wire;
 					clock-output-names = "ad9523-lpc_out0", "ad9523-lpc_out1", "ad9523-lpc_out2", "ad9523-lpc_out3", "ad9523-lpc_out4", "ad9523-lpc_out5", "ad9523-lpc_out6", "ad9523-lpc_out7", "ad9523-lpc_out8", "ad9523-lpc_out9", "ad9523-lpc_out10", "ad9523-lpc_out11", "ad9523-lpc_out12", "ad9523-lpc_out13";
-					vcxo-freq = <122880000>;
-					refb-diff-rcv-en;
-					zd-in-diff-en;
-					osc-in-cmos-neg-inp-en;
-					refa-r-div = <0>;
-					refb-r-div = <0>;
-					pll1-feedback-div = <4>;
-					pll1-charge-pump-current-nA = <2000>;
-					refa-cmos-neg-inp-en;
-					pll1-loop-filter-rzero = <3>;
-					ref-mode = <3>;
-					pll2-charge-pump-current-nA = <420000>;
-					pll2-ndiv-a-cnt = <0>;
-					pll2-ndiv-b-cnt = <3>;
-					pll2-freq-doubler-en;
-					pll2-r2-div = <1>;
-					pll2-vco-diff-m1 = <3>;
-					pll2-vco-diff-m2 = <3>;
-					rpole2 = <0>;
-					rzero = <2>;
-					cpole1 = <2>;
-					name = "ad9523-lpc";
+					adi,vcxo-freq = <122880000>;
+					adi,refb-diff-rcv-enable;
+					adi,zd-in-diff-enable;
+					adi,osc-in-cmos-neg-inp-enable;
+					adi,refa-r-div = <0>;
+					adi,refb-r-div = <0>;
+					adi,pll1-feedback-div = <4>;
+					adi,pll1-charge-pump-current-nA = <2000>;
+					adi,refa-cmos-neg-inp-enable;
+					adi,pll1-loop-filter-rzero = <3>;
+					adi,ref-mode = <3>;
+					adi,pll2-charge-pump-current-nA = <420000>;
+					adi,pll2-ndiv-a-cnt = <0>;
+					adi,pll2-ndiv-b-cnt = <3>;
+					adi,pll2-freq-doubler-enable;
+					adi,pll2-r2-div = <1>;
+					adi,pll2-vco-diff-m1 = <3>;
+					adi,pll2-vco-diff-m2 = <3>;
+					adi,rpole2 = <0>;
+					adi,rzero = <2>;
+					adi,cpole1 = <2>;
 
 					ad9523_0_c0:channel@0 {
 						reg = <0>;
-						extended-name = "ZD_OUTPUT";
-						driver-mode = <2>;
-						divider-phase = <0>;
-						channel-divider = <8>;
+						adi,extended-name = "ZD_OUTPUT";
+						adi,driver-mode = <2>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <8>;
 					};
 					ad9523_0_c12:channel@12 {
 						reg = <12>;
-						extended-name = "DAC_CLK";
-						driver-mode = <1>;
-						divider-phase = <0>;
-						channel-divider = <2>;
+						adi,extended-name = "DAC_CLK";
+						adi,driver-mode = <1>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <2>;
 					};
 					ad9523_0_c2:channel@2 {
 						reg = <2>;
-						extended-name = "ADC_CLK";
-						driver-mode = <3>;
-						divider-phase = <0>;
-						channel-divider = <4>;
+						adi,extended-name = "ADC_CLK";
+						adi,driver-mode = <3>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <4>;
 					};
 					ad9523_0_c10:channel@10 {
 						reg = <10>;
-						extended-name = "DAC_REF_CLK";
-						driver-mode = <2>;
-						divider-phase = <0>;
-						channel-divider = <16>;
+						adi,extended-name = "DAC_REF_CLK";
+						adi,driver-mode = <2>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <16>;
 					};
 					ad9523_0_c5:channel@5 {
 						reg = <5>;
-						extended-name = "TX_LO_REF_CLK";
-						driver-mode = <8>; /* HiZ on - */
-						divider-phase = <0>;
-						channel-divider = <8>;
+						adi,extended-name = "TX_LO_REF_CLK";
+						adi,driver-mode = <8>; /* HiZ on - */
+						adi,divider-phase = <0>;
+						adi,channel-divider = <8>;
+						adi,sync-ignore-enable;
 					};
 					ad9523_0_c6:channel@6 {
 						reg = <6>;
-						extended-name = "DAC_DCO_CLK";
-						driver-mode = <3>;
-						divider-phase = <0>;
-						channel-divider = <2>;
+						adi,extended-name = "DAC_DCO_CLK";
+						adi,driver-mode = <3>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <2>;
 					};
 					ad9523_0_c7:channel@7 {
 						reg = <7>;
-						extended-name = "ADC_SYNC_CLK";
-						driver-mode = <8>; /* HiZ on - */
-						divider-phase = <1>;
-						channel-divider = <32>;
+						adi,extended-name = "ADC_SYNC_CLK";
+						adi,driver-mode = <8>; /* HiZ on - */
+						adi,divider-phase = <1>;
+						adi,channel-divider = <32>;
 					};
 					ad9523_0_c9:channel@9 {
 						reg = <9>;
-						extended-name = "RX_LO_REF_CLK";
-						driver-mode = <8>; /* HiZ on - */
-						divider-phase = <0>;
-						channel-divider = <8>;
+						adi,extended-name = "RX_LO_REF_CLK";
+						adi,driver-mode = <8>; /* HiZ on - */
+						adi,divider-phase = <0>;
+						adi,channel-divider = <8>;
+						adi,sync-ignore-enable;ad9
 					};
 				};
 				adc0_ad9467: ad9467@1 {
@@ -439,84 +440,85 @@
 					spi-max-frequency = <10000000>;
 					spi-3wire;
 					clock-output-names = "ad9523-hpc_out0", "ad9523-hpc_out1", "ad9523-hpc_out2", "ad9523-hpc_out3", "ad9523-hpc_out4", "ad9523-hpc_out5", "ad9523-hpc_out6", "ad9523-hpc_out7", "ad9523-hpc_out8", "ad9523-hpc_out9", "ad9523-hpc_out10", "ad9523-hpc_out11", "ad9523-hpc_out12", "ad9523-hpc_out13";
-					vcxo-freq = <122880000>;
-					refb-diff-rcv-en;
-					zd-in-diff-en;
-					osc-in-cmos-neg-inp-en;
-					refa-r-div = <0>;
-					refb-r-div = <0>;
-					pll1-feedback-div = <4>;
-					pll1-charge-pump-current-nA = <2000>;
-					refa-cmos-neg-inp-en;
-					pll1-loop-filter-rzero = <3>;
-					ref-mode = <3>;
-					pll2-charge-pump-current-nA = <420000>;
-					pll2-ndiv-a-cnt = <0>;
-					pll2-ndiv-b-cnt = <3>;
-					pll2-freq-doubler-en;
-					pll2-r2-div = <1>;
-					pll2-vco-diff-m1 = <3>;
-					pll2-vco-diff-m2 = <3>;
-					rpole2 = <0>;
-					rzero = <2>;
-					cpole1 = <2>;
-					name = "ad9523-hpc";
+					adi,vcxo-freq = <122880000>;
+					adi,refb-diff-rcv-enable;
+					adi,zd-in-diff-enable;
+					adi,osc-in-cmos-neg-inp-enable;
+					adi,refa-r-div = <0>;
+					adi,refb-r-div = <0>;
+					adi,pll1-feedback-div = <4>;
+					adi,pll1-charge-pump-current-nA = <2000>;
+					adi,refa-cmos-neg-inp-enable;
+					adi,pll1-loop-filter-rzero = <3>;
+					adi,ref-mode = <3>;
+					adi,pll2-charge-pump-current-nA = <420000>;
+					adi,pll2-ndiv-a-cnt = <0>;
+					adi,pll2-ndiv-b-cnt = <3>;
+					adi,pll2-freq-doubler-enable;
+					adi,pll2-r2-div = <1>;
+					adi,pll2-vco-diff-m1 = <3>;
+					adi,pll2-vco-diff-m2 = <3>;
+					adi,rpole2 = <0>;
+					adi,rzero = <2>;
+					adi,cpole1 = <2>;
 
 					ad9523_1_c0:channel@0 {
 						reg = <0>;
-						extended-name = "ZD_OUTPUT";
-						driver-mode = <2>;
-						divider-phase = <0>;
-						channel-divider = <8>;
+						adi,extended-name = "ZD_OUTPUT";
+						adi,driver-mode = <2>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <8>;
 					};
 					ad9523_1_c12:channel@12 {
 						reg = <12>;
-						extended-name = "DAC_CLK";
-						driver-mode = <1>;
-						divider-phase = <0>;
-						channel-divider = <2>;
+						adi,extended-name = "DAC_CLK";
+						adi,driver-mode = <1>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <2>;
 					};
 					ad9523_1_c2:channel@2 {
 						reg = <2>;
-						extended-name = "ADC_CLK";
-						driver-mode = <3>;
-						divider-phase = <0>;
-						channel-divider = <4>;
+						adi,extended-name = "ADC_CLK";
+						adi,driver-mode = <3>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <4>;
 					};
 					ad9523_1_c10:channel@10 {
 						reg = <10>;
-						extended-name = "DAC_REF_CLK";
-						driver-mode = <2>;
-						divider-phase = <0>;
-						channel-divider = <16>;
+						adi,extended-name = "DAC_REF_CLK";
+						adi,driver-mode = <2>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <16>;
 					};
 					ad9523_1_c5:channel@5 {
 						reg = <5>;
-						extended-name = "TX_LO_REF_CLK";
-						driver-mode = <8>; /* HiZ on - */
-						divider-phase = <0>;
-						channel-divider = <8>;
+						adi,extended-name = "TX_LO_REF_CLK";
+						adi,driver-mode = <8>; /* HiZ on - */
+						adi,divider-phase = <0>;
+						adi,channel-divider = <8>;
+						adi,sync-ignore-enable;
 					};
 					ad9523_1_c6:channel@6 {
 						reg = <6>;
-						extended-name = "DAC_DCO_CLK";
-						driver-mode = <3>;
-						divider-phase = <0>;
-						channel-divider = <2>;
+						adi,extended-name = "DAC_DCO_CLK";
+						adi,driver-mode = <3>;
+						adi,divider-phase = <0>;
+						adi,channel-divider = <2>;
 					};
 					ad9523_1_c7:channel@7 {
 						reg = <7>;
-						extended-name = "ADC_SYNC_CLK";
-						driver-mode = <8>; /* HiZ on - */
-						divider-phase = <1>;
-						channel-divider = <32>;
+						adi,extended-name = "ADC_SYNC_CLK";
+						adi,driver-mode = <8>; /* HiZ on - */
+						adi,divider-phase = <1>;
+						adi,channel-divider = <32>;
 					};
 					ad9523_1_c9:channel@9 {
 						reg = <9>;
-						extended-name = "RX_LO_REF_CLK";
-						driver-mode = <8>; /* HiZ on - */
-						divider-phase = <0>;
-						channel-divider = <8>;
+						adi,extended-name = "RX_LO_REF_CLK";
+						adi,driver-mode = <8>; /* HiZ on - */
+						adi,divider-phase = <0>;
+						adi,channel-divider = <8>;
+						adi,sync-ignore-enable;ad9
 					};
 				};
 				adc1_ad9467: ad9467@1 {
