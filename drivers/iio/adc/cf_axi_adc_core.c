@@ -114,6 +114,9 @@ static int axiadc_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	switch (st->id) {
 	case CHIPID_AD9250:
 	case CHIPID_AD9683:
+	case CHIPID_AD9625:
+		return 0;
+	case CHIPID_AD9434: /* TODO */
 		return 0;
 	case CHIPID_AD9265:
 		dco_en = 0;
@@ -355,6 +358,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 			break;
 		case CHIPID_AD9250:
 		case CHIPID_AD9683:
+		case CHIPID_AD9625:
 			mask = AD9250_REG_VREF_MASK;
 			break;
 		case CHIPID_AD9265:
@@ -564,6 +568,14 @@ static const int ad9643_scale_table[][2] = {
 	{21332, 0x10},
 };
 
+static const int ad9434_scale_table[][2] = { /* TODO */
+	{31738, 0x0}, {31403, 0x0}, {31067, 0x0}, {30731, 0x0}, {30396, 0x0},
+	{30060, 0x0}, {29724, 0x0}, {29388, 0x0}, {29053, 0x0}, {28717, 0x0},
+	{28381, 0x0}, {28046, 0x0}, {27710, 0x0}, {27374, 0x0}, {27039, 0x0},
+	{26703, 0x0}, {26367, 0x0}, {26031, 0x0}, {25696, 0x0}, {25360, 0x0},
+	{25360, 0x0},
+};
+
 static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	const unsigned long *scan_mask)
 {
@@ -692,7 +704,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD9467] = {
 		.name = "AD9467",
-		.max_rate = 250000000,
+		.max_rate = 250000000UL,
 		.scale_table = ad9467_scale_table,
 		.num_scales = ARRAY_SIZE(ad9467_scale_table),
 		.num_channels = 1,
@@ -715,7 +727,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 	[ID_AD9643] = {
 		.name = "AD9643",
-		.max_rate = 250000000,
+		.max_rate = 250000000UL,
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
 		.num_channels = 2,
@@ -739,7 +751,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 	[ID_AD9250] = {
 		.name = "AD9250",
-		.max_rate = 250000000,
+		.max_rate = 250000000UL,
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
 		.num_channels = 2,
@@ -763,7 +775,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 	[ID_AD9683] = {
 		.name = "AD9683",
-		.max_rate = 250000000,
+		.max_rate = 250000000UL,
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
 		.num_channels = 1,
@@ -784,13 +796,59 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[14] = AIM_CHAN_UL(14, 14, 14, 's'),
 		.channel[15] = AIM_CHAN_UL(15, 15, 14, 's'),
 	},
+	[ID_AD9625] = {
+		.name = "AD9625",
+		.max_rate = 2500000000UL,
+		.scale_table = ad9643_scale_table,
+		.num_scales = ARRAY_SIZE(ad9643_scale_table),
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 's'),
+		.channel[1] = AIM_CHAN_UL(1, 1, 12, 's'),
+		.channel[2] = AIM_CHAN_UL(2, 2, 12, 's'),
+		.channel[3] = AIM_CHAN_UL(3, 3, 12, 's'),
+		.channel[4] = AIM_CHAN_UL(4, 4, 12, 's'),
+		.channel[5] = AIM_CHAN_UL(5, 5, 12, 's'),
+		.channel[6] = AIM_CHAN_UL(6, 6, 12, 's'),
+		.channel[7] = AIM_CHAN_UL(7, 7, 12, 's'),
+		.channel[8] = AIM_CHAN_UL(8, 8, 12, 's'),
+		.channel[9] = AIM_CHAN_UL(9, 9, 12, 's'),
+		.channel[10] = AIM_CHAN_UL(10, 10, 12, 's'),
+		.channel[11] = AIM_CHAN_UL(11, 11, 12, 's'),
+		.channel[12] = AIM_CHAN_UL(12, 12, 12, 's'),
+		.channel[13] = AIM_CHAN_UL(13, 13, 12, 's'),
+		.channel[14] = AIM_CHAN_UL(14, 14, 12, 's'),
+		.channel[15] = AIM_CHAN_UL(15, 15, 12, 's'),
+	},
 	[ID_AD9265] = {
 		.name = "AD9265",
-		.max_rate = 125000000,
+		.max_rate = 125000000UL,
 		.scale_table = ad9265_scale_table,
 		.num_scales = ARRAY_SIZE(ad9265_scale_table),
 		.num_channels = 1,
 		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 's'),
+		.channel[1] = AIM_CHAN_UL(1, 1, 16, 's'),
+		.channel[2] = AIM_CHAN_UL(2, 2, 16, 's'),
+		.channel[3] = AIM_CHAN_UL(3, 3, 16, 's'),
+		.channel[4] = AIM_CHAN_UL(4, 4, 16, 's'),
+		.channel[5] = AIM_CHAN_UL(5, 5, 16, 's'),
+		.channel[6] = AIM_CHAN_UL(6, 6, 16, 's'),
+		.channel[7] = AIM_CHAN_UL(7, 7, 16, 's'),
+		.channel[8] = AIM_CHAN_UL(8, 8, 16, 's'),
+		.channel[9] = AIM_CHAN_UL(9, 9, 16, 's'),
+		.channel[10] = AIM_CHAN_UL(10, 10, 16, 's'),
+		.channel[11] = AIM_CHAN_UL(11, 11, 16, 's'),
+		.channel[12] = AIM_CHAN_UL(12, 12, 16, 's'),
+		.channel[13] = AIM_CHAN_UL(13, 13, 16, 's'),
+		.channel[14] = AIM_CHAN_UL(14, 14, 16, 's'),
+		.channel[15] = AIM_CHAN_UL(15, 15, 16, 's'),
+	},
+	[ID_AD9434] = {
+		.name = "AD9434",
+		.max_rate = 500000000UL,
+		.scale_table = ad9434_scale_table,
+		.num_scales = ARRAY_SIZE(ad9434_scale_table),
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 's'),
 		.channel[1] = AIM_CHAN_UL(1, 1, 16, 's'),
 		.channel[2] = AIM_CHAN_UL(2, 2, 16, 's'),
 		.channel[3] = AIM_CHAN_UL(3, 3, 16, 's'),
@@ -930,6 +988,7 @@ static int axiadc_of_probe(struct platform_device *op)
 		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
+		st->dma_align = 8;
 		break;
 	case CHIPID_AD9643:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9643];
@@ -944,7 +1003,7 @@ static int axiadc_of_probe(struct platform_device *op)
 		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
-
+		st->dma_align = 8;
 		break;
 	case CHIPID_AD9250:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9250];
@@ -952,6 +1011,7 @@ static int axiadc_of_probe(struct platform_device *op)
 		axiadc_write(st, AD9250_AXIADC_PCORE_DATA_SEL, AXIADC_SIGNEXTEND);
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		st->dma_align = 8;
 		break;
 	case CHIPID_AD9683:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9683];
@@ -959,6 +1019,15 @@ static int axiadc_of_probe(struct platform_device *op)
 		axiadc_write(st, AD9683_AXIADC_PCORE_DATA_SEL, AD9683_SIGNEXTEND);
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		st->dma_align = 8;
+		break;
+	case CHIPID_AD9625:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9625];
+		st->adc_def_output_mode = AD9625_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		axiadc_write(st, AD9625_AXIADC_PCORE_DATA_SEL, AD9625_SIGNEXTEND);
+		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
+		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		st->dma_align = 32;
 		break;
 	case CHIPID_AD9265:
 		st->chip_info = &axiadc_chip_info_tbl[ID_AD9265];
@@ -967,6 +1036,16 @@ static int axiadc_of_probe(struct platform_device *op)
 		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
 		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
 		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
+		st->dma_align = 8;
+		break;
+	case CHIPID_AD9434:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9434];
+		st->adc_def_output_mode = AD9434_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
+		axiadc_spi_write(st, ADC_REG_TEST_IO, TESTMODE_OFF);
+		axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
+		st->dma_align = 8;
 		break;
 	default:
 		dev_err(dev, "Unrecognized CHIP_ID 0x%X\n", st->id);
@@ -1087,7 +1166,9 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible =	"xlnx,axi-ad9250-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9265-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9683-1.00.a", },
-{ /* end of list */ },
+	{ .compatible =	"xlnx,axi-ad9625-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9434-1.00.a", },
+	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
 
