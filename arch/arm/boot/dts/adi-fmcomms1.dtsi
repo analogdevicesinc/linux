@@ -23,20 +23,20 @@
 			spi-3wire;
 			clock-output-names = "ad9523-lpc_out0", "ad9523-lpc_out1", "ad9523-lpc_out2", "ad9523-lpc_out3", "ad9523-lpc_out4", "ad9523-lpc_out5", "ad9523-lpc_out6", "ad9523-lpc_out7", "ad9523-lpc_out8", "ad9523-lpc_out9", "ad9523-lpc_out10", "ad9523-lpc_out11", "ad9523-lpc_out12", "ad9523-lpc_out13";
 			adi,vcxo-freq = <122880000>;
-			adi,refb-diff-rcv-en;
-			adi,zd-in-diff-en;
-			adi,osc-in-cmos-neg-inp-en;
+			adi,refb-diff-rcv-enable;
+			adi,zd-in-diff-enable;
+			adi,osc-in-cmos-neg-inp-enable;
 			adi,refa-r-div = <0>;
 			adi,refb-r-div = <0>;
 			adi,pll1-feedback-div = <4>;
 			adi,pll1-charge-pump-current-nA = <2000>;
-			adi,refa-cmos-neg-inp-en;
+			adi,refa-cmos-neg-inp-enable;
 			adi,pll1-loop-filter-rzero = <3>;
 			adi,ref-mode = <3>;
 			adi,pll2-charge-pump-current-nA = <420000>;
 			adi,pll2-ndiv-a-cnt = <0>;
 			adi,pll2-ndiv-b-cnt = <3>;
-			adi,pll2-freq-doubler-en;
+			adi,pll2-freq-doubler-enable;
 			adi,pll2-r2-div = <1>;
 			adi,pll2-vco-diff-m1 = <3>;
 			adi,pll2-vco-diff-m2 = <3>;
@@ -78,7 +78,7 @@
 				adi,driver-mode = <8>; /* HiZ on - */
 				adi,divider-phase = <0>;
 				adi,channel-divider = <8>;
-				adi,sync-ignore-en;
+				adi,sync-ignore-enable;
 			};
 			ad9523_0_c6:channel@6 {
 				reg = <6>;
@@ -100,7 +100,7 @@
 				adi,driver-mode = <8>; /* HiZ on - */
 				adi,divider-phase = <0>;
 				adi,channel-divider = <8>;
-				adi,sync-ignore-en;
+				adi,sync-ignore-enable;
 			};
 		};
 
