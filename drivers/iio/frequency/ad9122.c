@@ -691,8 +691,8 @@ static ssize_t ad9122_interpolation_store(struct device *dev,
 		ret = -EINVAL;
 	}
 
-	if (conv->pcore_sync)
-		conv->pcore_sync(indio_dev);
+	if (!ret && conv->pcore_sync)
+		ret = conv->pcore_sync(indio_dev);
 
 	mutex_unlock(&indio_dev->mlock);
 
