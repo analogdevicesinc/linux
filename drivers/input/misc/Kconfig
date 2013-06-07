@@ -590,6 +590,18 @@ config INPUT_ADXL34X_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called adxl34x-spi.
 
+config INPUT_ADXL362
+	tristate "Analog Devices ADXL362 Three-Axis Digital Accelerometer"
+	depends on SPI
+	help
+	  Say Y here if you have a Accelerometer interface using the
+	  ADXL362 controller, and your board-specific initialization
+	  code includes that in its table of devices.
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adxl362.
+
 config INPUT_CMA3000
 	tristate "VTI CMA3000 Tri-axis accelerometer"
 	help

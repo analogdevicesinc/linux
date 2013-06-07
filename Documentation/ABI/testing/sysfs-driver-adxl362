@@ -1,0 +1,14 @@
+What:		/sys/bus/spi/devices/<busnum>-<devaddr>/rate
+Date:		June 2012
+Contact:	Michael Hennerich <hennerich@blackfin.uclinux.org>
+Description:	Sets the output data rate (ODR) in Hz. Valid values are in the
+		range of 12..400.
+		Reading returns the current output data rate in Hz.
+
+What:		/sys/bus/spi/devices/<busnum>-<devaddr>/autosleep
+Date:		June 2012
+Contact:	Michael Hennerich <hennerich@blackfin.uclinux.org>
+Description:	Writing '1' puts the device in autosleep mode. Which will cause
+		the device to autonomously enter an low power mode mode when
+		inactivity is detected.
+		Reading returns '1' for autosleep or '0' for normal operation.
