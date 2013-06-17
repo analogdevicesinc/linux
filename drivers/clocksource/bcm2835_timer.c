@@ -16,7 +16,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <linux/bcm2835_timer.h>
 #include <linux/bitops.h>
 #include <linux/clockchips.h>
 #include <linux/clocksource.h>
@@ -96,22 +95,12 @@ static irqreturn_t bcm2835_time_interrupt(int irq, void *dev_id)
 	}
 }
 
-static struct of_device_id bcm2835_time_match[] __initconst = {
-	{ .compatible = "brcm,bcm2835-system-timer" },
-	{}
-};
-
-static void __init bcm2835_time_init(void)
+static void __init bcm2835_timer_init(struct device_node *node)
 {
-	struct device_node *node;
 	void __iomem *base;
 	u32 freq;
 	int irq;
 	struct bcm2835_timer *timer;
-
-	node = of_find_matching_node(NULL, bcm2835_time_match);
-	if (!node)
-		panic("No bcm2835 timer node");
 
 	base = of_iomap(node, 0);
 	if (!base)
@@ -155,7 +144,5 @@ static void __init bcm2835_time_init(void)
 
 	pr_info("bcm2835: system timer (irq = %d)\n", irq);
 }
-
-struct sys_timer bcm2835_timer = {
-	.init = bcm2835_time_init,
-};
+CLOCKSOURCE_OF_DECLARE(bcm2835, "brcm,bcm2835-system-timer",
+			bcm2835_timer_init);

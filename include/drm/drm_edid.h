@@ -247,6 +247,8 @@ struct edid {
 struct drm_encoder;
 struct drm_connector;
 struct drm_display_mode;
+struct hdmi_avi_infoframe;
+
 void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid);
 int drm_av_sync_delay(struct drm_connector *connector,
 		      struct drm_display_mode *mode);
@@ -256,5 +258,9 @@ int drm_load_edid_firmware(struct drm_connector *connector);
 
 struct edid *drm_do_get_edid(struct drm_connector *connector,
 	int (*get_edid_block)(void *, unsigned char *buf, int, int), void *data);
+
+int
+drm_hdmi_avi_infoframe_from_display_mode(struct hdmi_avi_infoframe *frame,
+					 const struct drm_display_mode *mode);
 
 #endif /* __DRM_EDID_H__ */

@@ -3,11 +3,15 @@
  * Written by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
  */
 
-#include <asm/page.h>
+#ifdef CONFIG_ARCH_ZYNQ
+# define LOAD_OFFSET	CONFIG_PAGE_OFFSET
+#endif
+
 #include <asm-generic/vmlinux.lds.h>
 #include <asm/cache.h>
 #include <asm/thread_info.h>
 #include <asm/memory.h>
+#include <asm/page.h>
 
 #define PROC_INFO							\
 	. = ALIGN(4);							\
@@ -19,7 +23,11 @@
 	ALIGN_FUNCTION();						\
 	VMLINUX_SYMBOL(__idmap_text_start) = .;				\
 	*(.idmap.text)							\
-	VMLINUX_SYMBOL(__idmap_text_end) = .;
+	VMLINUX_SYMBOL(__idmap_text_end) = .;				\
+	ALIGN_FUNCTION();						\
+	VMLINUX_SYMBOL(__hyp_idmap_text_start) = .;			\
+	*(.hyp.idmap.text)						\
+	VMLINUX_SYMBOL(__hyp_idmap_text_end) = .;
 
 #ifdef CONFIG_HOTPLUG_CPU
 #define ARM_CPU_DISCARD(x)
@@ -86,11 +94,7 @@ SECTIONS
 	arm_start = . ;
 #else
 	. = PAGE_OFFSET + TEXT_OFFSET;
-#ifdef CONFIG_PHYS_OFFSET
-	arm_start = CONFIG_PHYS_OFFSET + TEXT_OFFSET;
-#else
 	arm_start = TEXT_OFFSET;
-#endif
 #endif
 	.head.text : AT(ADDR(.head.text) - LOAD_OFFSET) {
 		_text = .;

@@ -1,7 +1,7 @@
 #ifndef __ASM_SPINLOCK_H
 #define __ASM_SPINLOCK_H
 
-#if __LINUX_ARM_ARCH__ < 6 || defined(CONFIG_CPU_DCACHE_DISABLE)
+#if __LINUX_ARM_ARCH__ < 6
 #error SMP not supported on pre-ARMv6 CPUs
 #endif
 
@@ -119,22 +119,8 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 
 static inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
-	unsigned long tmp;
-	u32 slock;
-
 	smp_mb();
-
-	__asm__ __volatile__(
-"	mov	%1, #1\n"
-"1:	ldrex	%0, [%2]\n"
-"	uadd16	%0, %0, %1\n"
-"	strex	%1, %0, [%2]\n"
-"	teq	%1, #0\n"
-"	bne	1b"
-	: "=&r" (slock), "=&r" (tmp)
-	: "r" (&lock->slock)
-	: "cc");
-
+	lock->tickets.owner++;
 	dsb_sev();
 }
 

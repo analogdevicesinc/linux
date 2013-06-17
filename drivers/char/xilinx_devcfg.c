@@ -1,7 +1,7 @@
 /*
- * Xilinx Device Config driver
+ * Xilinx Zynq Device Config driver
  *
- * Copyright (c) 2011 Xilinx Inc.
+ * Copyright (c) 2011 - 2013 Xilinx Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -37,9 +37,6 @@ extern void xslcr_init_preload_fpga(void);
 extern void xslcr_init_postload_fpga(void);
 
 #define DRIVER_NAME "xdevcfg"
-
-#define XDEVCFG_MAJOR 259
-#define XDEVCFG_MINOR 0
 #define XDEVCFG_DEVICES 1
 
 /* An array, which is set to true when the device is registered. */
@@ -56,13 +53,13 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 #define XDCFG_DMA_SRC_LEN_OFFSET	0x20 /* DMA Source Transfer Length */
 #define XDCFG_DMA_DEST_LEN_OFFSET	0x24 /* DMA Destination Transfer */
 #define XDCFG_UNLOCK_OFFSET		0x34 /* Unlock Register */
+#define XDCFG_MCTRL_OFFSET		0x80 /* Misc. Control Register */
 
 /* Control Register Bit definitions */
 #define XDCFG_CTRL_PCFG_PROG_B_MASK	0x40000000 /* Program signal to
 						    *  Reset FPGA */
 #define XDCFG_CTRL_PCAP_PR_MASK		0x08000000 /* Enable PCAP for PR */
 #define XDCFG_CTRL_PCAP_MODE_MASK	0x04000000 /* Enable PCAP */
-#define XDCFG_CTRL_USER_MODE_MASK	0x00008000 /* ROM/user mode selection */
 #define XDCFG_CTRL_PCFG_AES_EN_MASK	0x00000E00 /* AES Enable Mask */
 #define XDCFG_CTRL_SEU_EN_MASK		0x00000100 /* SEU Enable Mask */
 #define XDCFG_CTRL_SPNIDEN_MASK		0x00000040 /* Secure Non Invasive
@@ -84,6 +81,9 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 						    *  including: DAP_En,
 						    *  DBGEN,NIDEN, SPNIEN */
 
+/* Miscellaneous Control Register bit definitions */
+#define XDCFG_MCTRL_PCAP_LPBK_MASK	0x00000010 /* Internal PCAP loopback */
+
 /* Status register bit definitions */
 #define XDCFG_STATUS_PCFG_INIT_MASK	0x00000010 /* FPGA init status */
 
@@ -95,16 +95,28 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 /* Miscellaneous constant values */
 #define XDCFG_DMA_INVALID_ADDRESS	0xFFFFFFFF  /* Invalid DMA address */
 
+static const char * const fclk_name[] = {
+	"FPGA0",
+	"FPGA1",
+	"FPGA2",
+	"FPGA3"
+};
+#define NUMFCLKS ARRAY_SIZE(fclk_name)
+
 /**
  * struct xdevcfg_drvdata - Device Configuration driver structure
  *
  * @dev: Pointer to the device structure
  * @cdev: Instance of the cdev structure
  * @devt: Pointer to the dev_t structure
+ * @class: Pointer to device class
+ * @fclk_class: Pointer to fclk device class
  * @dma_done: The dma_done status bit for the DMA command completion
  * @error_status: The error status captured during the DMA transfer
  * @irq: Interrupt number
  * @clk: Peripheral clock for devcfg
+ * @fclk: Array holding references to the FPGA clocks
+ * @fclk_exported: Flag inidcating whether an FPGA clock is exported
  * @is_open: The status bit to indicate whether the device is opened
  * @sem: Instance for the mutex
  * @lock: Instance of spinlock
@@ -115,8 +127,12 @@ struct xdevcfg_drvdata {
 	struct device *dev;
 	struct cdev cdev;
 	dev_t devt;
+	struct class *class;
+	struct class *fclk_class;
 	int irq;
 	struct clk *clk;
+	struct clk *fclk[NUMFCLKS];
+	u8 fclk_exported[NUMFCLKS];
 	volatile bool dma_done;
 	volatile int error_status;
 	bool is_open;
@@ -125,6 +141,18 @@ struct xdevcfg_drvdata {
 	void __iomem *base_address;
 	int ep107;
 	bool is_partial_bitstream;
+};
+
+/**
+ * struct fclk_data - FPGA clock data
+ * @clk: Pointer to clock
+ * @enable: Flag indicating enable status of the clock
+ * @rate_rnd: Rate to be rounded for round rate operation
+ */
+struct fclk_data {
+	struct clk *clk;
+	int enabled;
+	unsigned long rate_rnd;
 };
 
 /* Register read/write access routines */
@@ -1505,6 +1533,293 @@ static const struct attribute_group xdevcfg_attr_group = {
 	.attrs = (struct attribute **) xdevcfg_attrs,
 };
 
+static ssize_t fclk_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fclk_data *pdata = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pdata->enabled);
+}
+
+static ssize_t fclk_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned long enable;
+	int ret;
+	struct fclk_data *pdata = dev_get_drvdata(dev);
+
+	ret = kstrtoul(buf, 0, &enable);
+	if (ret)
+		return -EINVAL;
+
+	enable = !!enable;
+	if (enable == pdata->enabled)
+		return count;
+
+	if (enable)
+		ret = clk_enable(pdata->clk);
+	else
+		clk_disable(pdata->clk);
+
+	if (ret)
+		return ret;
+
+	pdata->enabled = enable;
+	return count;
+}
+
+static DEVICE_ATTR(enable, 0644, fclk_enable_show, fclk_enable_store);
+
+static ssize_t fclk_set_rate_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fclk_data *pdata = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", clk_get_rate(pdata->clk));
+}
+
+static ssize_t fclk_set_rate_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	unsigned long rate;
+	struct fclk_data *pdata = dev_get_drvdata(dev);
+
+	ret = kstrtoul(buf, 0, &rate);
+	if (ret)
+		return -EINVAL;
+
+	rate = clk_round_rate(pdata->clk, rate);
+	ret = clk_set_rate(pdata->clk, rate);
+
+	return ret ? ret : count;
+}
+
+static DEVICE_ATTR(set_rate, 0644, fclk_set_rate_show, fclk_set_rate_store);
+
+static ssize_t fclk_round_rate_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fclk_data *pdata = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%lu => %lu\n", pdata->rate_rnd,
+			clk_round_rate(pdata->clk, pdata->rate_rnd));
+}
+
+static ssize_t fclk_round_rate_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	unsigned long rate;
+	struct fclk_data *pdata = dev_get_drvdata(dev);
+
+	ret = kstrtoul(buf, 0, &rate);
+	if (ret)
+		return -EINVAL;
+
+	pdata->rate_rnd = rate;
+
+	return count;
+}
+
+static DEVICE_ATTR(round_rate, 0644, fclk_round_rate_show,
+		fclk_round_rate_store);
+
+static const struct attribute *fclk_ctrl_attrs[] = {
+	&dev_attr_enable.attr,
+	&dev_attr_set_rate.attr,
+	&dev_attr_round_rate.attr,
+	NULL,
+};
+
+static const struct attribute_group fclk_ctrl_attr_grp = {
+	.attrs = (struct attribute **)fclk_ctrl_attrs,
+};
+
+static ssize_t xdevcfg_fclk_export_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int i, ret;
+	struct device *subdev;
+	struct fclk_data *fdata;
+	struct xdevcfg_drvdata *drvdata = dev_get_drvdata(dev);
+
+	for (i = 0; i < NUMFCLKS; i++) {
+		if (!strncmp(buf, fclk_name[i], strlen(fclk_name[i])))
+			break;
+	}
+
+	if (i < NUMFCLKS && !drvdata->fclk_exported[i]) {
+		drvdata->fclk_exported[i] = 1;
+		subdev = device_create(drvdata->fclk_class, dev, MKDEV(0, 0),
+				NULL, fclk_name[i]);
+		if (IS_ERR(subdev))
+			return PTR_ERR(subdev);
+		ret = clk_prepare(drvdata->fclk[i]);
+		if (ret)
+			return ret;
+		fdata = kzalloc(sizeof(*fdata), GFP_KERNEL);
+		if (!fdata) {
+			ret = -ENOMEM;
+			goto err_unprepare;
+		}
+		fdata->clk = drvdata->fclk[i];
+		dev_set_drvdata(subdev, fdata);
+		ret = sysfs_create_group(&subdev->kobj, &fclk_ctrl_attr_grp);
+		if (ret)
+			goto err_free;
+	} else {
+		return -EINVAL;
+	}
+
+	return size;
+
+err_free:
+	kfree(fdata);
+err_unprepare:
+	clk_unprepare(drvdata->fclk[i]);
+
+	return ret;
+}
+
+static ssize_t xdevcfg_fclk_export_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int i;
+	ssize_t count = 0;
+	struct xdevcfg_drvdata *drvdata = dev_get_drvdata(dev);
+
+	for (i = 0; i < NUMFCLKS; i++) {
+		if (!drvdata->fclk_exported[i])
+			count += scnprintf(buf + count, PAGE_SIZE - count,
+					"%s\n", fclk_name[i]);
+	}
+	return count;
+}
+
+static DEVICE_ATTR(fclk_export, 0644, xdevcfg_fclk_export_show,
+		xdevcfg_fclk_export_store);
+
+static int match_fclk(struct device *dev, const void *data)
+{
+	struct fclk_data *fdata = dev_get_drvdata(dev);
+
+	return fdata->clk == data;
+}
+
+static ssize_t xdevcfg_fclk_unexport_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int i;
+	struct xdevcfg_drvdata *drvdata = dev_get_drvdata(dev);
+
+	for (i = 0; i < NUMFCLKS; i++) {
+		if (!strncmp(buf, fclk_name[i], strlen(fclk_name[i])))
+			break;
+	}
+
+	if (i < NUMFCLKS && drvdata->fclk_exported[i]) {
+		struct fclk_data *fdata;
+		struct device *subdev;
+
+		drvdata->fclk_exported[i] = 0;
+		subdev = class_find_device(drvdata->fclk_class, NULL,
+				drvdata->fclk[i], match_fclk);
+		fdata = dev_get_drvdata(subdev);
+		if (fdata->enabled)
+			clk_disable(fdata->clk);
+		clk_unprepare(fdata->clk);
+		kfree(fdata);
+		device_unregister(subdev);
+		put_device(subdev);
+	} else {
+		return -EINVAL;
+	}
+
+	return size;
+}
+
+static ssize_t xdevcfg_fclk_unexport_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int i;
+	ssize_t count = 0;
+	struct xdevcfg_drvdata *drvdata = dev_get_drvdata(dev);
+
+	for (i = 0; i < NUMFCLKS; i++) {
+		if (drvdata->fclk_exported[i])
+			count += scnprintf(buf + count, PAGE_SIZE - count,
+					"%s\n", fclk_name[i]);
+	}
+	return count;
+}
+
+static DEVICE_ATTR(fclk_unexport, 0644, xdevcfg_fclk_unexport_show,
+		xdevcfg_fclk_unexport_store);
+
+static const struct attribute *fclk_exp_attrs[] = {
+	&dev_attr_fclk_export.attr,
+	&dev_attr_fclk_unexport.attr,
+	NULL,
+};
+
+static const struct attribute_group fclk_exp_attr_grp = {
+	.attrs = (struct attribute **)fclk_exp_attrs,
+};
+
+static void xdevcfg_fclk_init(struct device *dev)
+{
+	int i;
+	struct xdevcfg_drvdata *drvdata = dev_get_drvdata(dev);
+
+	for (i = 0; i < NUMFCLKS; i++) {
+		drvdata->fclk[i] = clk_get_sys(fclk_name[i], NULL);
+		if (IS_ERR(drvdata->fclk[i])) {
+			dev_warn(dev, "fclk not found\n");
+			return;
+		}
+	}
+
+	drvdata->fclk_class = class_create(THIS_MODULE, "fclk");
+	if (IS_ERR(drvdata->fclk_class)) {
+		dev_warn(dev, "failed to create fclk class\n");
+		return;
+	}
+	sysfs_create_group(&dev->kobj, &fclk_exp_attr_grp);
+
+	return;
+}
+
+static void xdevcfg_fclk_remove(struct device *dev)
+{
+	int i;
+	struct xdevcfg_drvdata *drvdata = dev_get_drvdata(dev);
+
+	for (i = 0; i < NUMFCLKS; i++) {
+		if (drvdata->fclk_exported[i]) {
+			struct fclk_data *fdata;
+			struct device *subdev;
+
+			drvdata->fclk_exported[i] = 0;
+			subdev = class_find_device(drvdata->fclk_class, NULL,
+					drvdata->fclk[i], match_fclk);
+			fdata = dev_get_drvdata(subdev);
+			if (fdata->enabled)
+				clk_disable(fdata->clk);
+			clk_unprepare(fdata->clk);
+			kfree(fdata);
+			device_unregister(subdev);
+			put_device(subdev);
+
+		}
+	}
+
+	class_destroy(drvdata->fclk_class);
+	sysfs_remove_group(&dev->kobj, &fclk_exp_attr_grp);
+
+	return;
+}
+
 /**
  * xdevcfg_drv_probe -  Probe call for the device.
  *
@@ -1523,6 +1838,7 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 	struct device_node *np;
 	const void *prop;
 	int size;
+	struct device *dev;
 
 	regs_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!regs_res) {
@@ -1536,9 +1852,7 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	devt = MKDEV(XDEVCFG_MAJOR, XDEVCFG_MINOR);
-
-	retval = register_chrdev_region(devt, XDEVCFG_DEVICES, DRIVER_NAME);
+	retval = alloc_chrdev_region(&devt, 0, XDEVCFG_DEVICES, DRIVER_NAME);
 	if (retval < 0)
 		return retval;
 
@@ -1636,9 +1950,13 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 				(XDCFG_CTRL_PCFG_PROG_B_MASK |
 				XDCFG_CTRL_PCAP_PR_MASK |
 				XDCFG_CTRL_PCAP_MODE_MASK |
-				XDCFG_CTRL_USER_MODE_MASK |
 				ctrlreg));
 
+	/* Ensure internal PCAP loopback is disabled */
+	ctrlreg = xdevcfg_readreg(drvdata->base_address + XDCFG_MCTRL_OFFSET);
+	xdevcfg_writereg(drvdata->base_address + XDCFG_MCTRL_OFFSET,
+				(~XDCFG_MCTRL_PCAP_LPBK_MASK &
+				ctrlreg));
 
 	cdev_init(&drvdata->cdev, &xdevcfg_fops);
 	drvdata->cdev.owner = THIS_MODULE;
@@ -1648,18 +1966,37 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 		goto failed6;
 	}
 
+	drvdata->class = class_create(THIS_MODULE, DRIVER_NAME);
+	if (IS_ERR(drvdata->class)) {
+		dev_err(&pdev->dev, "failed to create class\n");
+		goto failed6;
+	}
+
+	dev = device_create(drvdata->class, &pdev->dev, devt, drvdata,
+			DRIVER_NAME);
+	if (IS_ERR(dev)) {
+			dev_err(&pdev->dev, "unable to create device\n");
+			goto failed7;
+	}
+
 	/* create sysfs files for the device */
 	retval = sysfs_create_group(&(pdev->dev.kobj), &xdevcfg_attr_group);
 	if (retval) {
 		dev_err(&pdev->dev, "Failed to create sysfs attr group\n");
 		cdev_del(&drvdata->cdev);
-		goto failed6;
+		goto failed8;
 	}
+
+	xdevcfg_fclk_init(&pdev->dev);
 
 	clk_disable(drvdata->clk);
 
 	return 0;		/* Success */
 
+failed8:
+	device_destroy(drvdata->class, drvdata->devt);
+failed7:
+	class_destroy(drvdata->class);
 failed6:
 	clk_disable_unprepare(drvdata->clk);
 failed5:
@@ -1704,6 +2041,9 @@ static int xdevcfg_drv_remove(struct platform_device *pdev)
 
 	free_irq(drvdata->irq, drvdata);
 
+	xdevcfg_fclk_remove(&pdev->dev);
+	device_destroy(drvdata->class, drvdata->devt);
+	class_destroy(drvdata->class);
 	cdev_del(&drvdata->cdev);
 	iounmap(drvdata->base_address);
 	release_mem_region(res->start, res->end - res->start + 1);

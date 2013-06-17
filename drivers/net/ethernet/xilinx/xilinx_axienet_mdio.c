@@ -132,7 +132,8 @@ int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
 	struct mii_bus *bus;
 	struct resource res;
 	struct device_node *np1;
-	struct device_node *npp = 0; /* the ethernet controller device node */
+	/* the ethernet controller device node */
+	struct device_node *npp = NULL;
 
 	/* clk_div can be calculated by deriving it from the equation:
 	 * fMDIO = fHOST / ((1 + clk_div) * 2)
@@ -173,8 +174,9 @@ int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
 		property_p = (uint32_t *)of_get_property(npp,
 						"clock-frequency", NULL);
 		if (!property_p) {
-			dev_warn(lp->dev, "Could not find clock ethernet " \
-						      "controller property.");
+			dev_warn(lp->dev,
+				"Could not find clock ethernet "
+				"controller property.");
 			dev_warn(lp->dev,
 				 "Setting MDIO clock divisor to default %d\n",
 							DEFAULT_CLOCK_DIVISOR);
@@ -187,12 +189,14 @@ int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
 			/* If there is any remainder from the division of
 			 * fHOST / (MAX_MDIO_FREQ * 2), then we need to add 1
 			 * to the clock divisor or we will surely be
-			 * above 2.5 MHz */
+			 * above 2.5 MHz
+			 */
 			if (host_clock % (MAX_MDIO_FREQ * 2))
 				clk_div++;
-			dev_dbg(lp->dev, "Setting MDIO clock divisor to %u " \
-						"based on %u Hz host clock.\n",
-						clk_div, host_clock);
+			dev_dbg(lp->dev,
+				"Setting MDIO clock divisor to %u "
+				"based on %u Hz host clock.\n",
+				clk_div, host_clock);
 		}
 	}
 

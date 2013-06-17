@@ -29,15 +29,13 @@
 #include <linux/interrupt.h>
 #include <linux/of_irq.h>
 #include <linux/smp.h>
-#include <asm/hardware/gic.h>
+#include <linux/irqchip/arm-gic.h>
 #include <asm/outercache.h>
 #include <asm/cacheflush.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
 
 #include "remoteproc_internal.h"
-
-extern int __cpuinit zynq_cpun_start(u32 address, int cpu);
 
 /* Module parameter */
 static char *firmware;
@@ -135,7 +133,7 @@ static int mb_remoteproc_probe(struct platform_device *pdev)
 	struct resource *res; /* IO mem resources */
 	int ret = 0;
 	struct irq_list *tmp;
-	int count;
+	int count = 0;
 	struct mb_rproc_pdata *local;
 
 
@@ -175,9 +173,12 @@ static int mb_remoteproc_probe(struct platform_device *pdev)
 	/* Init list for IRQs - it can be long list */
 	INIT_LIST_HEAD(&local->mylist.list);
 
-	count = of_irq_count(pdev->dev.of_node);
 	/* Alloc IRQ based on DTS to be sure that no other driver will use it */
-	while (count--) {
+	do {
+		res = platform_get_resource(pdev, IORESOURCE_IRQ, count++);
+		if (!res)
+			break;
+
 		tmp = kzalloc(sizeof(struct irq_list), GFP_KERNEL);
 		if (!tmp) {
 			dev_err(&pdev->dev, "Unable to alloc irq list\n");
@@ -185,7 +186,7 @@ static int mb_remoteproc_probe(struct platform_device *pdev)
 			goto irq_fault;
 		}
 
-		tmp->irq = irq_of_parse_and_map(pdev->dev.of_node, count);
+		tmp->irq = res->start;
 
 		dev_info(&pdev->dev, "%d: Alloc irq: %d\n", count, tmp->irq);
 
@@ -200,8 +201,7 @@ static int mb_remoteproc_probe(struct platform_device *pdev)
 		}
 
 		list_add(&(tmp->list), &(local->mylist.list));
-	}
-
+	} while (res);
 
 	of_prop = of_get_property(pdev->dev.of_node, "reset-gpio", NULL);
 	if (!of_prop) {

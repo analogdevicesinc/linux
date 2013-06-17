@@ -34,6 +34,8 @@ ifeq ($(CONFIG_ARM_VIRT_EXT),y)
 OBJS		+= hyp-stub.o
 endif
 
+GCOV_PROFILE		:= n
+
 #
 # Architecture dependencies
 #
@@ -120,7 +122,7 @@ ORIG_CFLAGS := $(KBUILD_CFLAGS)
 KBUILD_CFLAGS = $(subst -pg, , $(ORIG_CFLAGS))
 endif
 
-ccflags-y := -fpic -fno-builtin -I$(obj)
+ccflags-y := -fpic -mno-single-pic-base -fno-builtin -I$(obj)
 asflags-y := -Wa,-march=all -DZIMAGE
 
 # Supply kernel BSS size to the decompressor via a linker symbol.

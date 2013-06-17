@@ -58,7 +58,7 @@
 		};
 
 		uart@e0001000 {
-			compatible = "xlnx,ps7-uart-1.00.a";
+			compatible = "xlnx,ps7-uart-1.00.a", "xlnx,xuartps";
 			reg = <0xe0001000 0x1000>;
 			interrupts = <0 50 4>;
 			interrupt-parent = <&gic>;
@@ -105,7 +105,7 @@
 		};
 
 		timer@0xf8001000 {
-			compatible = "xlnx,ps7-ttc-1.00.a";
+			compatible = "xlnx,ps7-ttc-1.00.a", "cdns,ttc";
 			reg = <0xf8001000 0x1000>;
 			interrupts = <0 10 4>,<0 11 4>,<0 12 4>;
 			interrupt-parent = <&gic>;
@@ -483,7 +483,7 @@
 				interrupt-parent = <&gic>;
 				interrupts = <0 58 4>;
 				xlnx,datawidth = <0x08>;
-				xlnx,genlock-mode = <0x0>;
+				xlnx,genlock-mode = <0x1>;
 				xlnx,include-dre = <0x1>;
 				xlnx,device-id = <0x0>;
 			};
@@ -504,7 +504,7 @@
 				interrupt-parent = <&gic>;
 				interrupts = <0 57 4>;
 				xlnx,datawidth = <0x08>;
-				xlnx,genlock-mode = <0x0>;
+				xlnx,genlock-mode = <0x1>;
 				xlnx,include-dre = <0x1>;
 				xlnx,device-id = <0x1>;
 			};
@@ -513,7 +513,7 @@
 				interrupt-parent = <&gic>;
 				interrupts = <0 56 4>;
 				xlnx,datawidth = <0x08>;
-				xlnx,genlock-mode = <0x0>;
+				xlnx,genlock-mode = <0x1>;
 				xlnx,include-dre = <0x1>;
 				xlnx,device-id = <0x1>;
 			};
@@ -574,14 +574,14 @@
 			//0-EXT; 1-ZynqPS; 2-logiCLK; 3-SI570
 			pixel-clock-source = <3>;
 			pixel-data-invert = <0>;
-			pixel-clock-active-high = <0>;
+			pixel-clock-active-high = <1>;
 			pixel-component-format = "ARGB";
 			pixel-component-layer = <0>,<1>,<2>;
 			active-layer = <0>;
 			videomode = "1920x1080";
 			edid {
 				preffered-videomode = <1>;
-				display-data = <1>;
+				display-data = <0>;
 			};
 		};
 

@@ -480,11 +480,9 @@ MDC_DIV_64, MDC_DIV_96, MDC_DIV_128, MDC_DIV_224 };
 #endif
 
 #define xemacps_read(base, reg)						\
-	__raw_readl((void __iomem *)((base) + (reg)))
+	__raw_readl(((void __iomem *)(base)) + (reg))
 #define xemacps_write(base, reg, val)					\
-	__raw_writel((val), (void __iomem *)((base) + (reg)))
-
-
+	__raw_writel((val), ((void __iomem *)(base)) + (reg))
 
 struct ring_info {
 	struct sk_buff *skb;
@@ -802,11 +800,10 @@ static int xemacps_mii_probe(struct net_device *ndev)
 					&xemacps_adjust_link,
 					0,
 					lp->phy_interface);
-		if (!phydev) {
-			dev_err(&lp->pdev->dev, "%s: no PHY found\n",
-			ndev->name);
-			return -1;
-		}
+	}
+	if (!phydev) {
+		dev_err(&lp->pdev->dev, "%s: no PHY found\n", ndev->name);
+		return -1;
 	}
 
 	dev_dbg(&lp->pdev->dev,
@@ -1109,7 +1106,20 @@ static int xemacps_rx(struct net_local *lp, int budget)
 	cur_p = &lp->rx_bd[lp->rx_bd_ci];
 	regval = cur_p->addr;
 	rmb();
-	while (regval & XEMACPS_RXBUF_NEW_MASK) {
+	while (numbdfree < budget) {
+		if (!(regval & XEMACPS_RXBUF_NEW_MASK))
+			break;
+
+		new_skb = netdev_alloc_skb(lp->ndev, XEMACPS_RX_BUF_SIZE);
+		if (new_skb == NULL) {
+			dev_err(&lp->ndev->dev, "no memory for new sk_buff\n");
+			break;
+		}
+		/* Get dma handle of skb->data */
+		new_skb_baddr = (u32) dma_map_single(lp->ndev->dev.parent,
+					new_skb->data,
+					XEMACPS_RX_BUF_SIZE,
+					DMA_FROM_DEVICE);
 
 		/* the packet length */
 		len = cur_p->ctrl & XEMACPS_RXBUF_LEN_MASK;
@@ -1154,17 +1164,6 @@ static int xemacps_rx(struct net_local *lp, int budget)
 		packets++;
 		netif_receive_skb(skb);
 
-		new_skb = netdev_alloc_skb(lp->ndev, XEMACPS_RX_BUF_SIZE);
-		if (new_skb == NULL) {
-			dev_err(&lp->ndev->dev, "no memory for new sk_buff\n");
-			lp->rx_skb[lp->rx_bd_ci].skb = NULL;
-			return 0;
-		}
-		/* Get dma handle of skb->data */
-		new_skb_baddr = (u32) dma_map_single(lp->ndev->dev.parent,
-					new_skb->data,
-					XEMACPS_RX_BUF_SIZE,
-					DMA_FROM_DEVICE);
 		cur_p->addr = (cur_p->addr & ~XEMACPS_RXBUF_ADD_MASK)
 					| (new_skb_baddr);
 		lp->rx_skb[lp->rx_bd_ci].skb = new_skb;
@@ -1181,8 +1180,6 @@ static int xemacps_rx(struct net_local *lp, int budget)
 		regval = cur_p->addr;
 		rmb();
 		numbdfree++;
-		if (numbdfree == budget)
-			break;
 	}
 	wmb();
 	lp->stats.rx_packets += packets;
@@ -1199,32 +1196,38 @@ static int xemacps_rx_poll(struct napi_struct *napi, int budget)
 {
 	struct net_local *lp = container_of(napi, struct net_local, napi);
 	int work_done = 0;
-	int temp_work_done;
 	u32 regval;
 
 	spin_lock(&lp->rx_lock);
-	while (work_done < budget) {
+	while (1) {
 		regval = xemacps_read(lp->baseaddr, XEMACPS_RXSR_OFFSET);
 		xemacps_write(lp->baseaddr, XEMACPS_RXSR_OFFSET, regval);
 		if (regval & XEMACPS_RXSR_HRESPNOK_MASK)
 			dev_err(&lp->pdev->dev, "RX error 0x%x\n", regval);
-		temp_work_done = xemacps_rx(lp, budget - work_done);
-		work_done += temp_work_done;
-		if (temp_work_done <= 0)
+
+		work_done += xemacps_rx(lp, budget - work_done);
+		if (work_done >= budget)
 			break;
-	}
 
-	if (work_done >= budget) {
-		spin_unlock(&lp->rx_lock);
-		return work_done;
-	}
+		napi_complete(napi);
+		/* We disabled RX interrupts in interrupt service
+		 * routine, now it is time to enable it back.
+		 */
+		xemacps_write(lp->baseaddr,
+			XEMACPS_IER_OFFSET, XEMACPS_IXR_FRAMERX_MASK);
 
-	napi_complete(napi);
-	/* We disabled RX interrupts in interrupt service
-	 * routine, now it is time to enable it back.
-	 */
-	xemacps_write(lp->baseaddr,
-		XEMACPS_IER_OFFSET, XEMACPS_IXR_FRAMERX_MASK);
+		/* If a packet has come in between the last check of the BD
+		 * list and unmasking the interrupts, we may have missed the
+		 * interrupt, so reschedule here.
+		 */
+		if ((lp->rx_bd[lp->rx_bd_ci].addr & XEMACPS_RXBUF_NEW_MASK)
+		&&  napi_reschedule(napi)) {
+			xemacps_write(lp->baseaddr,
+				XEMACPS_IDR_OFFSET, XEMACPS_IXR_FRAMERX_MASK);
+			continue;
+		}
+		break;
+	}
 	spin_unlock(&lp->rx_lock);
 	return work_done;
 }
@@ -1245,8 +1248,10 @@ static void xemacps_tx_poll(unsigned long data)
 	struct xemacps_bd *cur_p;
 	u32 cur_i;
 	u32 numbdstofree;
+	u32 numbdsinhw;
 	struct ring_info *rp;
 	struct sk_buff *skb;
+	unsigned long flags;
 
 	spin_lock(&lp->tx_lock);
 	regval = xemacps_read(lp->baseaddr, XEMACPS_TXSR_OFFSET);
@@ -1255,16 +1260,10 @@ static void xemacps_tx_poll(unsigned long data)
 	if (regval & (XEMACPS_TXSR_HRESPNOK_MASK | XEMACPS_TXSR_BUFEXH_MASK))
 		dev_err(&lp->pdev->dev, "TX error 0x%x\n", regval);
 
-	/* This may happen when a buffer becomes complete
-	 * between reading the ISR and scanning the descriptors.
-	 * Nothing to worry about.
-	 */
-	if (!(regval & XEMACPS_TXSR_TXCOMPL_MASK))
-		goto tx_poll_out;
-
 	cur_i = lp->tx_bd_ci;
 	cur_p = &lp->tx_bd[cur_i];
-	while (bdcount < XEMACPS_SEND_BD_CNT) {
+	numbdsinhw = XEMACPS_SEND_BD_CNT - lp->tx_bd_freecnt;
+	while (bdcount < numbdsinhw) {
 		if (sop == 0) {
 			if (cur_p->ctrl & XEMACPS_TXBUF_USED_MASK)
 				sop = 1;
@@ -1272,15 +1271,14 @@ static void xemacps_tx_poll(unsigned long data)
 				break;
 		}
 
-		if (sop == 1) {
-			bdcount++;
-			bdpartialcount++;
-		}
+		bdcount++;
+		bdpartialcount++;
+
 		/* hardware has processed this BD so check the "last" bit.
 		 * If it is clear, then there are more BDs for the current
 		 * packet. Keep a count of these partial packet BDs.
 		 */
-		if ((sop == 1) && (cur_p->ctrl & XEMACPS_TXBUF_LAST_MASK)) {
+		if (cur_p->ctrl & XEMACPS_TXBUF_LAST_MASK) {
 			sop = 0;
 			bdpartialcount = 0;
 		}
@@ -1291,6 +1289,10 @@ static void xemacps_tx_poll(unsigned long data)
 	}
 	numbdstofree = bdcount - bdpartialcount;
 	lp->tx_bd_freecnt += numbdstofree;
+	numbdsinhw -= numbdstofree;
+	if (!numbdstofree)
+		goto tx_poll_out;
+
 	cur_p = &lp->tx_bd[lp->tx_bd_ci];
 	while (numbdstofree) {
 		rp = &lp->tx_skb[lp->tx_bd_ci];
@@ -1342,9 +1344,17 @@ static void xemacps_tx_poll(unsigned long data)
 	}
 	wmb();
 
+	if (numbdsinhw) {
+		spin_lock_irqsave(&lp->nwctrlreg_lock, flags);
+		regval = xemacps_read(lp->baseaddr, XEMACPS_NWCTRL_OFFSET);
+		regval |= XEMACPS_NWCTRL_STARTTX_MASK;
+		xemacps_write(lp->baseaddr, XEMACPS_NWCTRL_OFFSET, regval);
+		spin_unlock_irqrestore(&lp->nwctrlreg_lock, flags);
+	}
+
+	netif_wake_queue(ndev);
+
 tx_poll_out:
-	if (netif_queue_stopped(ndev))
-		netif_start_queue(ndev);
 	spin_unlock(&lp->tx_lock);
 }
 
@@ -1904,9 +1914,9 @@ static void xemacps_reinit_for_txtimeout(struct work_struct *data)
 	int rc;
 
 	netif_stop_queue(lp->ndev);
-	spin_lock_bh(&lp->tx_lock);
 	napi_disable(&lp->napi);
 	tasklet_disable(&lp->tx_bdreclaim_tasklet);
+	spin_lock_bh(&lp->tx_lock);
 	xemacps_reset_hw(lp);
 	spin_unlock_bh(&lp->tx_lock);
 
@@ -1926,11 +1936,14 @@ static void xemacps_reinit_for_txtimeout(struct work_struct *data)
 	lp->link    = 0;
 	lp->speed   = 0;
 	lp->duplex  = -1;
+
 	if (lp->phy_dev)
 		phy_start(lp->phy_dev);
+
 	napi_enable(&lp->napi);
 	tasklet_enable(&lp->tx_bdreclaim_tasklet);
-	netif_start_queue(lp->ndev);
+	lp->ndev->trans_start = jiffies;
+	netif_wake_queue(lp->ndev);
 }
 
 /**
@@ -2616,19 +2629,11 @@ static int xemacps_probe(struct platform_device *pdev)
 
 	ndev->irq = platform_get_irq(pdev, 0);
 
-	rc = request_irq(ndev->irq, xemacps_interrupt, 0,
-		ndev->name, ndev);
-	if (rc) {
-		dev_err(&lp->pdev->dev, "Unable to request IRQ %p, error %d\n",
-				r_irq, rc);
-		goto err_out_iounmap;
-	}
-
 	ndev->netdev_ops = &netdev_ops;
 	ndev->watchdog_timeo = TX_TIMEOUT;
 	ndev->ethtool_ops = &xemacps_ethtool_ops;
 	ndev->base_addr = r_mem->start;
-	ndev->features = NETIF_F_IP_CSUM | NETIF_F_FRAGLIST | NETIF_F_SG;
+	ndev->features = NETIF_F_IP_CSUM | NETIF_F_SG;
 	netif_napi_add(ndev, &lp->napi, xemacps_rx_poll, XEMACPS_NAPI_WEIGHT);
 
 	lp->ip_summed = CHECKSUM_UNNECESSARY;
@@ -2636,7 +2641,7 @@ static int xemacps_probe(struct platform_device *pdev)
 	rc = register_netdev(ndev);
 	if (rc) {
 		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
-		goto err_out_free_irq;
+		goto err_out_iounmap;
 	}
 
 	if (ndev->irq == 54)
@@ -2730,6 +2735,14 @@ static int xemacps_probe(struct platform_device *pdev)
 	dev_info(&lp->pdev->dev, "pdev->id %d, baseaddr 0x%08lx, irq %d\n",
 		pdev->id, ndev->base_addr, ndev->irq);
 
+	rc = request_irq(ndev->irq, xemacps_interrupt, 0,
+		ndev->name, ndev);
+	if (rc) {
+		dev_err(&lp->pdev->dev, "Unable to request IRQ %p, error %d\n",
+				r_irq, rc);
+		goto err_out_unregister_clk_notifier;
+	}
+
 	return 0;
 
 err_out_unregister_clk_notifier:
@@ -2743,8 +2756,6 @@ err_out_clk_put_aper:
 	clk_put(lp->aperclk);
 err_out_unregister_netdev:
 	unregister_netdev(ndev);
-err_out_free_irq:
-	free_irq(ndev->irq, ndev);
 err_out_iounmap:
 	iounmap(lp->baseaddr);
 err_out_free_netdev:
@@ -2767,8 +2778,6 @@ static int __exit xemacps_remove(struct platform_device *pdev)
 
 	if (ndev) {
 		lp = netdev_priv(ndev);
-		if (lp->phy_dev)
-			phy_disconnect(lp->phy_dev);
 
 		mdiobus_unregister(lp->mii_bus);
 		kfree(lp->mii_bus->irq);

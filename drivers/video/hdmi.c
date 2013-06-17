@@ -33,9 +33,6 @@ static void hdmi_infoframe_checksum(void *buffer, size_t size)
  */
 int hdmi_avi_infoframe_init(struct hdmi_avi_infoframe *frame)
 {
-	if (!frame)
-		return -EINVAL;
-
 	memset(frame, 0, sizeof(*frame));
 
 	frame->type = HDMI_INFOFRAME_TYPE_AVI;
@@ -66,10 +63,7 @@ ssize_t hdmi_avi_infoframe_pack(struct hdmi_avi_infoframe *frame, void *buffer,
 	u8 *ptr = buffer;
 	size_t length;
 
-	if (!frame || !buffer)
-		return -EINVAL;
-
-	length = 4 + frame->length;
+	length = HDMI_INFOFRAME_HEADER_SIZE + frame->length;
 
 	if (size < length)
 		return -ENOSPC;
@@ -80,42 +74,46 @@ ssize_t hdmi_avi_infoframe_pack(struct hdmi_avi_infoframe *frame, void *buffer,
 	ptr[1] = frame->version;
 	ptr[2] = frame->length;
 	ptr[3] = 0; /* checksum */
-	ptr[4] = ((frame->colorspace & 0x3) << 5) | (frame->scan_mode & 0x3);
+
+	/* start infoframe payload */
+	ptr += HDMI_INFOFRAME_HEADER_SIZE;
+
+	ptr[0] = ((frame->colorspace & 0x3) << 5) | (frame->scan_mode & 0x3);
 
 	if (frame->active_info_valid)
-		ptr[4] |= BIT(4);
+		ptr[0] |= BIT(4);
 
 	if (frame->horizontal_bar_valid)
-		ptr[4] |= BIT(3);
+		ptr[0] |= BIT(3);
 
 	if (frame->vertical_bar_valid)
-		ptr[4] |= BIT(2);
+		ptr[0] |= BIT(2);
 
-	ptr[5] = ((frame->colorimetry & 0x3) << 6) |
+	ptr[1] = ((frame->colorimetry & 0x3) << 6) |
 		 ((frame->picture_aspect & 0x3) << 4) |
 		 (frame->active_aspect & 0xf);
 
-	ptr[6] = ((frame->extended_colorimetry & 0x7) << 4) |
+	ptr[2] = ((frame->extended_colorimetry & 0x7) << 4) |
 		 ((frame->quantization_range & 0x3) << 2) |
 		 (frame->nups & 0x3);
 
 	if (frame->itc)
-		ptr[6] |= BIT(7);
+		ptr[2] |= BIT(7);
 
-	ptr[7] = frame->video_code & 0x7f;
+	ptr[3] = frame->video_code & 0x7f;
 
-	ptr[8] = ((frame->ycc_quantization_range & 0x3) << 6) |
+	ptr[4] = ((frame->ycc_quantization_range & 0x3) << 6) |
 		 ((frame->content_type & 0x3) << 4) |
 		 (frame->pixel_repeat & 0xf);
 
-	ptr[9] = frame->top_bar & 0xff;
-	ptr[10] = (frame->top_bar >> 8) & 0xff;
-	ptr[11] = frame->bottom_bar & 0xff;
-	ptr[12] = (frame->bottom_bar >> 8) & 0xff;
-	ptr[13] = frame->left_bar & 0xff;
-	ptr[14] = (frame->left_bar >> 8) & 0xff;
-	ptr[15] = frame->right_bar & 0xff;
-	ptr[16] = (frame->right_bar >> 8) & 0xff;
+	ptr[5] = frame->top_bar & 0xff;
+	ptr[6] = (frame->top_bar >> 8) & 0xff;
+	ptr[7] = frame->bottom_bar & 0xff;
+	ptr[8] = (frame->bottom_bar >> 8) & 0xff;
+	ptr[9] = frame->left_bar & 0xff;
+	ptr[10] = (frame->left_bar >> 8) & 0xff;
+	ptr[11] = frame->right_bar & 0xff;
+	ptr[12] = (frame->right_bar >> 8) & 0xff;
 
 	hdmi_infoframe_checksum(buffer, length);
 
@@ -134,9 +132,6 @@ EXPORT_SYMBOL(hdmi_avi_infoframe_pack);
 int hdmi_spd_infoframe_init(struct hdmi_spd_infoframe *frame,
 			    const char *vendor, const char *product)
 {
-	if (!frame)
-		return -EINVAL;
-
 	memset(frame, 0, sizeof(*frame));
 
 	frame->type = HDMI_INFOFRAME_TYPE_SPD;
@@ -168,12 +163,9 @@ ssize_t hdmi_spd_infoframe_pack(struct hdmi_spd_infoframe *frame, void *buffer,
 				size_t size)
 {
 	u8 *ptr = buffer;
-	size_t length, i;
+	size_t length;
 
-	if (!frame || !buffer)
-		return -EINVAL;
-
-	length = 4 + frame->length;
+	length = HDMI_INFOFRAME_HEADER_SIZE + frame->length;
 
 	if (size < length)
 		return -ENOSPC;
@@ -185,13 +177,13 @@ ssize_t hdmi_spd_infoframe_pack(struct hdmi_spd_infoframe *frame, void *buffer,
 	ptr[2] = frame->length;
 	ptr[3] = 0; /* checksum */
 
-	for (i = 0; i < sizeof(frame->vendor); i++)
-		ptr[4 + i] = frame->vendor[i];
+	/* start infoframe payload */
+	ptr += HDMI_INFOFRAME_HEADER_SIZE;
 
-	for (i = 0; i < sizeof(frame->product); i++)
-		ptr[12 + i] = frame->product[i];
+	memcpy(ptr, frame->vendor, sizeof(frame->vendor));
+	memcpy(ptr + 8, frame->product, sizeof(frame->product));
 
-	ptr[26] = frame->sdi;
+	ptr[24] = frame->sdi;
 
 	hdmi_infoframe_checksum(buffer, length);
 
@@ -207,9 +199,6 @@ EXPORT_SYMBOL(hdmi_spd_infoframe_pack);
  */
 int hdmi_audio_infoframe_init(struct hdmi_audio_infoframe *frame)
 {
-	if (!frame)
-		return -EINVAL;
-
 	memset(frame, 0, sizeof(*frame));
 
 	frame->type = HDMI_INFOFRAME_TYPE_AUDIO;
@@ -241,10 +230,7 @@ ssize_t hdmi_audio_infoframe_pack(struct hdmi_audio_infoframe *frame,
 	u8 *ptr = buffer;
 	size_t length;
 
-	if (!frame || !buffer)
-		return -EINVAL;
-
-	length = 4 + frame->length;
+	length = HDMI_INFOFRAME_HEADER_SIZE + frame->length;
 
 	if (size < length)
 		return -ENOSPC;
@@ -261,15 +247,18 @@ ssize_t hdmi_audio_infoframe_pack(struct hdmi_audio_infoframe *frame,
 	ptr[2] = frame->length;
 	ptr[3] = 0; /* checksum */
 
-	ptr[4] = ((frame->coding_type & 0xf) << 4) | (channels & 0x7);
-	ptr[5] = ((frame->sample_frequency & 0x7) << 2) |
+	/* start infoframe payload */
+	ptr += HDMI_INFOFRAME_HEADER_SIZE;
+
+	ptr[0] = ((frame->coding_type & 0xf) << 4) | (channels & 0x7);
+	ptr[1] = ((frame->sample_frequency & 0x7) << 2) |
 		 (frame->sample_size & 0x3);
-	ptr[6] = 0;
-	ptr[7] = frame->channel_allocation;
-	ptr[8] = (frame->level_shift_value & 0xf) << 3;
+	ptr[2] = frame->coding_type_ext & 0x1f;
+	ptr[3] = frame->channel_allocation;
+	ptr[4] = (frame->level_shift_value & 0xf) << 3;
 
 	if (frame->downmix_inhibit)
-		ptr[8] |= BIT(7);
+		ptr[4] |= BIT(7);
 
 	hdmi_infoframe_checksum(buffer, length);
 
@@ -298,10 +287,7 @@ ssize_t hdmi_vendor_infoframe_pack(struct hdmi_vendor_infoframe *frame,
 	u8 *ptr = buffer;
 	size_t length;
 
-	if (!frame || !buffer)
-		return -EINVAL;
-
-	length = 4 + frame->length;
+	length = HDMI_INFOFRAME_HEADER_SIZE + frame->length;
 
 	if (size < length)
 		return -ENOSPC;
@@ -313,7 +299,7 @@ ssize_t hdmi_vendor_infoframe_pack(struct hdmi_vendor_infoframe *frame,
 	ptr[2] = frame->length;
 	ptr[3] = 0; /* checksum */
 
-	memcpy(&ptr[4], frame->data, frame->length);
+	memcpy(&ptr[HDMI_INFOFRAME_HEADER_SIZE], frame->data, frame->length);
 
 	hdmi_infoframe_checksum(buffer, length);
 

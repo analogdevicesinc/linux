@@ -18,9 +18,10 @@ enum hdmi_infoframe_type {
 	HDMI_INFOFRAME_TYPE_AUDIO = 0x84,
 };
 
-#define HDMI_AVI_INFOFRAME_SIZE   13
-#define HDMI_SPD_INFOFRAME_SIZE   25
-#define HDMI_AUDIO_INFOFRAME_SIZE 10
+#define HDMI_INFOFRAME_HEADER_SIZE  4
+#define HDMI_AVI_INFOFRAME_SIZE    13
+#define HDMI_SPD_INFOFRAME_SIZE    25
+#define HDMI_AUDIO_INFOFRAME_SIZE  10
 
 enum hdmi_colorspace {
 	HDMI_COLORSPACE_RGB,
@@ -136,7 +137,9 @@ enum hdmi_spd_sdi {
 	HDMI_SPD_SDI_GAME,
 	HDMI_SPD_SDI_PC,
 	HDMI_SPD_SDI_BD,
-	HDMI_SPD_SDI_SCD,
+	HDMI_SPD_SDI_SACD,
+	HDMI_SPD_SDI_HDDVD,
+	HDMI_SPD_SDI_PMP,
 };
 
 struct hdmi_spd_infoframe {
@@ -155,20 +158,20 @@ ssize_t hdmi_spd_infoframe_pack(struct hdmi_spd_infoframe *frame, void *buffer,
 
 enum hdmi_audio_coding_type {
 	HDMI_AUDIO_CODING_TYPE_STREAM,
-	HDMI_AUDIO_CODING_TYPE_IEC_60958,
+	HDMI_AUDIO_CODING_TYPE_PCM,
 	HDMI_AUDIO_CODING_TYPE_AC3,
 	HDMI_AUDIO_CODING_TYPE_MPEG1,
 	HDMI_AUDIO_CODING_TYPE_MP3,
 	HDMI_AUDIO_CODING_TYPE_MPEG2,
-	HDMI_AUDIO_CODING_TYPE_AAC,
+	HDMI_AUDIO_CODING_TYPE_AAC_LC,
 	HDMI_AUDIO_CODING_TYPE_DTS,
 	HDMI_AUDIO_CODING_TYPE_ATRAC,
-	HDMI_AUDIO_CODING_TYPE_ONE_BIT_AUDIO,
-	HDMI_AUDIO_CODING_TYPE_DOLBY_DIGITAL_PLUS,
+	HDMI_AUDIO_CODING_TYPE_DSD,
+	HDMI_AUDIO_CODING_TYPE_EAC3,
 	HDMI_AUDIO_CODING_TYPE_DTS_HD,
-	HDMI_AUDIO_CODING_TYPE_MAT_MLP,
+	HDMI_AUDIO_CODING_TYPE_MLP,
 	HDMI_AUDIO_CODING_TYPE_DST,
-	HDMI_AUDIO_CODING_TYPE_WMPRO,
+	HDMI_AUDIO_CODING_TYPE_WMA_PRO,
 };
 
 enum hdmi_audio_sample_size {
@@ -189,6 +192,13 @@ enum hdmi_audio_sample_frequency {
 	HDMI_AUDIO_SAMPLE_FREQUENCY_192000,
 };
 
+enum hdmi_audio_coding_type_ext {
+	HDMI_AUDIO_CODING_TYPE_EXT_STREAM,
+	HDMI_AUDIO_CODING_TYPE_EXT_HE_AAC,
+	HDMI_AUDIO_CODING_TYPE_EXT_HE_AAC_V2,
+	HDMI_AUDIO_CODING_TYPE_EXT_MPEG_SURROUND,
+};
+
 struct hdmi_audio_infoframe {
 	enum hdmi_infoframe_type type;
 	unsigned char version;
@@ -197,6 +207,7 @@ struct hdmi_audio_infoframe {
 	enum hdmi_audio_coding_type coding_type;
 	enum hdmi_audio_sample_size sample_size;
 	enum hdmi_audio_sample_frequency sample_frequency;
+	enum hdmi_audio_coding_type_ext coding_type_ext;
 	unsigned char channel_allocation;
 	unsigned char level_shift_value;
 	bool downmix_inhibit;
