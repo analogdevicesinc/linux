@@ -62,17 +62,17 @@ static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 	return -ENODEV;
 }
 
-static int ad9250_setup(struct spi_device *spi)
+static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 {
 	int ret;
 	unsigned pll_stat;
 	static int sel = 0;
 
 	ret = ad9467_spi_write(spi, 0x5f, (0x16 | 0x1)); // trail bits, ilas normal & pd
-	ret |= ad9467_spi_write(spi, 0x5e, 0x22); // m=2, l=2
+	ret |= ad9467_spi_write(spi, 0x5e, m << 4 | l); // m=2, l=2
 	ret |= ad9467_spi_write(spi, 0x66, sel++); // lane id
 	ret |= ad9467_spi_write(spi, 0x67, sel++); // lane id
-	ret |= ad9467_spi_write(spi, 0x6e, 0x81); // scr, 2-lane
+	ret |= ad9467_spi_write(spi, 0x6e, 0x80 | (l - 1)); // scr, 2-lane
 	ret |= ad9467_spi_write(spi, 0x70, 0x1f); // no. of frames per multi frame
 	ret |= ad9467_spi_write(spi, 0x3a, 0x1e); // sysref enabled
 	ret |= ad9467_spi_write(spi, 0x5f, (0x16 | 0x0)); // enable
@@ -81,6 +81,37 @@ static int ad9250_setup(struct spi_device *spi)
 
 	ret |= ad9467_spi_write(spi, 0xff, 0x01);
 	ret |= ad9467_spi_write(spi, 0xff, 0x00);
+
+	pll_stat = ad9467_spi_read(spi, 0x0A);
+
+	dev_info(&spi->dev, "PLL %s, JESD204B Link %s\n",
+		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED",
+		 pll_stat & 0x01 ? "Ready" : "Fail");
+
+	return ret;
+}
+
+static int ad9625_setup(struct spi_device *spi)
+{
+	unsigned pll_stat;
+	int ret;
+
+	ret = ad9467_spi_write(spi, 0x000, 0x3c);
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	ret |= ad9467_spi_write(spi, 0x000, 0x18);
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	ret |= ad9467_spi_write(spi, 0x008, 0x00);
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	ret |= ad9467_spi_write(spi, 0x05f, 0x15);
+	ret |= ad9467_spi_write(spi, 0x080, 0x00);
+	ret |= ad9467_spi_write(spi, 0x120, 0x11);
+	ret |= ad9467_spi_write(spi, 0x00d, 0x00);
+	ret |= ad9467_spi_write(spi, 0x014, 0x00);
+	ret |= ad9467_spi_write(spi, 0x05f, 0x14);
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	ret |= ad9467_spi_write(spi, 0xff, 0x00);
+
+	mdelay(10);
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
@@ -122,7 +153,25 @@ static int ad9467_probe(struct spi_device *spi)
 	}
 
 	if (conv->id == CHIPID_AD9250) {
-		ret = ad9250_setup(spi);
+		ret = ad9250_setup(spi, 2, 2);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize\n");
+			ret = -EIO;
+			goto out;
+		}
+	}
+
+	if (conv->id == CHIPID_AD9683) {
+		ret = ad9250_setup(spi, 1, 1);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize\n");
+			ret = -EIO;
+			goto out;
+		}
+	}
+
+	if (conv->id == CHIPID_AD9625) {
+		ret = ad9625_setup(spi);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize\n");
 			ret = -EIO;
@@ -158,6 +207,9 @@ static const struct spi_device_id ad9467_id[] = {
 	{"ad9643", CHIPID_AD9643},
 	{"ad9250", CHIPID_AD9250},
 	{"ad9265", CHIPID_AD9265},
+	{"ad9683", CHIPID_AD9683},
+	{"ad9434", CHIPID_AD9434},
+	{"ad9625", CHIPID_AD9625},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9467_id);
