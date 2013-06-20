@@ -2129,13 +2129,6 @@ int __init zynq_slcr_init(void)
 	/* unlock the SLCR so that registers can be changed */
 	xslcr_writereg(slcr->regs + XSLCR_UNLOCK, 0xDF0D);
 
-	xslcr_writereg(slcr->regs + XSLCR_FPGA0_CLK_CTRL_OFFSET, 0x100a00);
-	xslcr_writereg(slcr->regs + XSLCR_FPGA1_CLK_CTRL_OFFSET, 0x100500);
-	xslcr_writereg(slcr->regs + XSLCR_FPGA2_CLK_CTRL_OFFSET, 0x100500);
-	xslcr_writereg(slcr->regs + XSLCR_FPGA3_CLK_CTRL_OFFSET, 0x102100);
-//	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(50), 0x200);
-//	xslcr_writereg(slcr->regs + XSLCR_MIO_PIN(51), 0x200);
-
 	pr_info("%s mapped to %p\n", DRIVER_NAME, slcr->regs);
 
 	zynq_clock_init(slcr->regs);
