@@ -24,7 +24,7 @@
 #include "adv7511.h"
 
 static const struct snd_soc_dapm_widget adv7511_dapm_widgets[] = {
-	SND_SOC_DAPM_OUTPUT("TDMS"),	
+	SND_SOC_DAPM_OUTPUT("TMDS"),	
 	SND_SOC_DAPM_AIF_IN("AIFIN", "Playback", 0, SND_SOC_NOPM, 0, 0),
 };
 
