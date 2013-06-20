@@ -25,6 +25,14 @@
 
 static char adv7511_codec_name[] = "adv7511.2-0039";
 
+static const struct snd_soc_dapm_widget adv7511_hdmi_dapm_widgets[] = {
+	SND_SOC_DAPM_SPK("Speaker", NULL),
+};
+
+static const struct snd_soc_dapm_route adv7511_hdmi_dapm_routes[] = {
+	{ "Speaker", NULL, "TMDS" },
+};
+
 static struct snd_soc_dai_link hdmi_dai_link = {
 	.name = "HDMI",
 	.stream_name = "HDMI",
@@ -42,8 +50,11 @@ static struct snd_soc_card hdmi_card = {
 	.owner = THIS_MODULE,
 	.dai_link = &hdmi_dai_link,
 	.num_links = 1,
+	.dapm_widgets = adv7511_hdmi_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(adv7511_hdmi_dapm_widgets),
+	.dapm_routes = adv7511_hdmi_dapm_routes,
+	.num_dapm_routes = ARRAY_SIZE(adv7511_hdmi_dapm_routes),
 };
-
 
 static int adv7511_hdmi_probe(struct platform_device *pdev)
 {
