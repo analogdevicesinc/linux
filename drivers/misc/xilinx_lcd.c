@@ -175,7 +175,7 @@ static const struct attribute_group xlnx_lcd_attr_group = {
 	.attrs = xlnx_lcd_attributes,
 };
 
-static int __devinit xlnx_lcd_of_probe(struct platform_device *op)
+static int xlnx_lcd_of_probe(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct resource r_mem;	/* IO mem resources */
@@ -234,7 +234,7 @@ failed1:
 	return ret;
 }
 
-static int __devexit xlnx_lcd_of_remove(struct platform_device *op)
+static int xlnx_lcd_of_remove(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct resource r_mem;	/* IO mem resources */
@@ -256,7 +256,7 @@ static int __devexit xlnx_lcd_of_remove(struct platform_device *op)
 }
 
 /* Match table for of_platform binding */
-static const struct of_device_id xlnx_lcd_of_match[] __devinitconst = {
+static const struct of_device_id xlnx_lcd_of_match[] = {
 	{.compatible = "xlnx,axi-xlnx-lcd-1.00.a",},
 	{ /* end of list */ },
 };
@@ -270,7 +270,7 @@ static struct platform_driver xlnx_lcd_of_driver = {
 		   .of_match_table = xlnx_lcd_of_match,
 		   },
 	.probe = xlnx_lcd_of_probe,
-	.remove = __devexit_p(xlnx_lcd_of_remove),
+	.remove = xlnx_lcd_of_remove,
 };
 
 module_platform_driver(xlnx_lcd_of_driver);
