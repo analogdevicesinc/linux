@@ -324,7 +324,7 @@
 						adi,driver-mode = <8>; /* HiZ on - */
 						adi,divider-phase = <0>;
 						adi,channel-divider = <8>;
-						adi,sync-ignore-enable;ad9
+						adi,sync-ignore-enable;
 					};
 				};
 				adc0_ad9467: ad9467@1 {
@@ -518,7 +518,7 @@
 						adi,driver-mode = <8>; /* HiZ on - */
 						adi,divider-phase = <0>;
 						adi,channel-divider = <8>;
-						adi,sync-ignore-enable;ad9
+						adi,sync-ignore-enable;
 					};
 				};
 				adc1_ad9467: ad9467@1 {
