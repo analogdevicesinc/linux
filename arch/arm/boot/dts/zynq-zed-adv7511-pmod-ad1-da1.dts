@@ -55,6 +55,8 @@
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = < 0x75c00000 0x1000 >;
 			clock-frequency = <12288000>;
+			dmas = <&axi_dma_0 0>;
+			dma-names = "tx";
 		};
 
 		axi_vdma_0: axivdma@43000000 {
@@ -91,20 +93,15 @@
 			compatible = "adi,axi-hdmi-1.00.a";
 			reg = <0x6c000000 0x10000>;
 			encoder-slave = <&adv7511>;
-			dma-request = <&axi_vdma_0 0>;
+			dmas = <&axi_vdma_0 0>;
+			dma-names = "video";
 			clocks = <&hdmi_clock>;
-		};
-
-		xilinx_pcm_audio: xilinx_pcm_audio {
-			compatible = "xilinx-pcm-audio";
-			dma-request = <&axi_dma_0 0>;
 		};
 
 		adv7511_hdmi_snd: adv7511_hdmi_snd {
 			compatible = "adv7511-hdmi-snd";
 			audio-codec-adapter = <&axi_iic_0>;
 			cpu-dai = <&axi_spdif_tx_0>;
-			pcm = <&xilinx_pcm_audio>;
 		};
 
 		adc_vref: fixedregulator@0 {

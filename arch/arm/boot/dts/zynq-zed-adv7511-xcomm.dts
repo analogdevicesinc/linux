@@ -169,7 +169,6 @@
 			spibus-connected = <&dac0_ad9122>;
 			dmas = <&axi_vdma_1 0>;
 			dma-names = "tx";
-			dma-request = <&axi_vdma_1 0>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
 			xlnx,num-reg = <0x1>;
