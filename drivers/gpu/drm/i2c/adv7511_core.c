@@ -10,6 +10,8 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/regmap.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 
 #include "adv7511.h"
 
@@ -753,8 +755,7 @@ static const struct regmap_config adv7511_regmap_config = {
 */
 
 
-static int adv7511_parse_dt(struct adv7511 *adv7511,
-	struct device_node *np, struct adv7511_link_config *config)
+static int adv7511_parse_dt(struct device_node *np, struct adv7511_link_config *config)
 {
 	int ret;
 	u32 val;
@@ -816,6 +817,10 @@ static int adv7511_parse_dt(struct adv7511 *adv7511,
 		return ret;
 	config->input_color_depth = val;
 
+	config->gpio_pd = of_get_gpio(np, 0);
+	if (config->gpio_pd == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
 	return 0;
 }
 
@@ -832,7 +837,7 @@ static int adv7511_probe(struct i2c_client *i2c,
 	int ret;
 
 	if (i2c->dev.of_node) {
-		ret = adv7511_parse_dt(adv7511, i2c->dev.of_node, &link_config);
+		ret = adv7511_parse_dt(i2c->dev.of_node, &link_config);
 		if (ret)
 			return ret;
 	} else {
@@ -844,6 +849,17 @@ static int adv7511_probe(struct i2c_client *i2c,
 	adv7511 = devm_kzalloc(&i2c->dev, sizeof(*adv7511), GFP_KERNEL);
 	if (!adv7511)
 		return -ENOMEM;
+
+	adv7511->gpio_pd = link_config.gpio_pd;
+
+	if (gpio_is_valid(adv7511->gpio_pd)) {
+		ret = devm_gpio_request_one(&i2c->dev, adv7511->gpio_pd,
+				GPIOF_OUT_INIT_HIGH, "PD");
+		if (ret)
+			return ret;
+		mdelay(5);
+		gpio_set_value_cansleep(adv7511->gpio_pd, 0);
+	}
 
 	adv7511->regmap = devm_regmap_init_i2c(i2c, &adv7511_regmap_config);
 	if (IS_ERR(adv7511->regmap))
