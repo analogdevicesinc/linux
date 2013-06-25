@@ -9,7 +9,7 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		axi_iic_0: i2c@41600000 {
+		i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
 			interrupts = < 0 56 0x4 >;
@@ -107,7 +107,7 @@
 
 		adv7511_hdmi_snd: adv7511_hdmi_snd {
 			compatible = "adv7511-hdmi-snd";
-			audio-codec-adapter = <&axi_iic_0>;
+			audio-codec = <&adv7511>;
 			cpu-dai = <&axi_spdif_tx_0>;
 		};
 
