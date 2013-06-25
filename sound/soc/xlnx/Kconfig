@@ -4,6 +4,7 @@ config SND_SOC_XILINX
 	select SND_SOC_GENERIC_DMAENGINE_PCM
 
 config SND_SOC_AXI_SPDIF
+	select REGMAP_MMIO
 	tristate
 
 config SND_SOC_ADI_AXI_I2S

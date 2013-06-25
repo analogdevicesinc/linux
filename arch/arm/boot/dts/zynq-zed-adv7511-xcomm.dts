@@ -99,7 +99,7 @@
 		fpga_clock: fpga_clock {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
-			clock-frequency  = <200000000>;
+			clock-frequency = <200000000>;
 		};
 
 		hdmi_clock: axi-clkgen@79000000 {
@@ -118,12 +118,19 @@
 			clocks = <&hdmi_clock>;
 		};
 
+		audio_clock: audio_clock {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <12288000>;
+		};
+
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = < 0x75c00000 0x1000 >;
 			dmas = <&axi_dma_0 0>;
 			dma-names = "tx";
-			clock-frequency = <12288000>;
+			clocks = <&fpga_clock &audio_clock>;
+			clock-names = "axi", "spdif";
 		};
 
 		adv7511_hdmi_snd: adv7511_hdmi_snd {
