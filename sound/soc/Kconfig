@@ -34,6 +34,7 @@ config SND_SOC_GENERIC_DMAENGINE_PCM
 	select SND_SOC_DMAENGINE_PCM
 
 # All the supported SoCs
+source "sound/soc/adi/Kconfig"
 source "sound/soc/atmel/Kconfig"
 source "sound/soc/au1x/Kconfig"
 source "sound/soc/blackfin/Kconfig"
@@ -54,7 +55,6 @@ source "sound/soc/sh/Kconfig"
 source "sound/soc/tegra/Kconfig"
 source "sound/soc/txx9/Kconfig"
 source "sound/soc/ux500/Kconfig"
-source "sound/soc/xlnx/Kconfig"
 
 # Supported codecs
 source "sound/soc/codecs/Kconfig"
