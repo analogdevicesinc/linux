@@ -247,7 +247,8 @@ static int axi_i2s_probe(struct platform_device *pdev)
 
 	regmap_write(i2s->regmap, AXI_I2S_REG_RESET, AXI_I2S_RESET_GLOBAL);
 
-	ret = snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
+	ret = snd_dmaengine_pcm_register(&pdev->dev, NULL,
+		SND_DMAENGINE_PCM_FLAG_NO_RESIDUE);
 	if (ret)
 		snd_soc_unregister_dai(&pdev->dev);
 

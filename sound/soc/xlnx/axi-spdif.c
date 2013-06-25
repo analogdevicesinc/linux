@@ -232,7 +232,8 @@ static int axi_spdif_probe(struct platform_device *pdev)
 
 	regmap_write(spdif->regmap, AXI_SPDIF_REG_CTRL, AXI_SPDIF_CTRL_TXEN);
 
-	return snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
+	return snd_dmaengine_pcm_register(&pdev->dev, NULL,
+		SND_DMAENGINE_PCM_FLAG_NO_RESIDUE);
 }
 
 static int axi_spdif_dev_remove(struct platform_device *pdev)
