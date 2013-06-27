@@ -26,6 +26,10 @@
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 
+MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:drm-kms-cma-helper");
+
 #define DEFAULT_FBDEFIO_DELAY_MS 50
 
 struct drm_fb_cma {
