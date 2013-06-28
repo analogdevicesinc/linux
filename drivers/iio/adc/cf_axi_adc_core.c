@@ -518,7 +518,7 @@ static int axiadc_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
-	st->rx_chan = of_dma_request_slave_channel(op->dev.of_node, "rx");
+	st->rx_chan = dma_request_slave_channel(&op->dev, "rx");
 	if (!st->rx_chan) {
 		ret = -EPROBE_DEFER;
 		dev_err(dev, "failed to find rx dma device\n");
