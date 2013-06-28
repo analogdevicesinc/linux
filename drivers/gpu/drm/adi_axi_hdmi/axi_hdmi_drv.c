@@ -191,7 +191,7 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	if (!private->encoder_slave || !private->encoder_slave->dev.driver)
 		return -EPROBE_DEFER;
 
-	private->dma = of_dma_request_slave_channel(pdev->dev.of_node, "video");
+	private->dma = dma_request_slave_channel(&pdev->dev, "video");
 	if (private->dma == NULL)
 		return -EPROBE_DEFER;
 
