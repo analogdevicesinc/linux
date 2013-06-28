@@ -38,6 +38,7 @@
 #define	OPCODE_WREN		0x06	/* Write enable */
 #define	OPCODE_RDSR		0x05	/* Read status register */
 #define	OPCODE_WRSR		0x01	/* Write status register 1 byte */
+#define	OPCODE_RFSR		0x70  /* read flag status register */
 #define	OPCODE_NORM_READ	0x03	/* Read data bytes (low frequency) */
 #define	OPCODE_FAST_READ	0x0b	/* Read data bytes (high frequency) */
 #define	OPCODE_DUAL_READ        0x3b    /* Read data bytes (Dual SPI) */
@@ -93,6 +94,15 @@
 
 /* Configuration Register bits. */
 #define CR_QUAD_EN_SPAN		0x2     /* Spansion Quad I/O */
+/* Flag Status Register bits */
+#define	FSR_READY         (1 << 7)
+#define	FSR_ERASE_SUSPEND (1 << 6)
+#define	FSR_ERASE_ERROR   (1 << 5)
+#define	FSR_PGM_ERROR     (1 << 4)
+#define	FSR_VPP_INVALID   (1 << 3)
+#define	FSR_PGM_SUSPEND   (1 << 2)
+#define	FSR_PROTECT_ERROR (1 << 1)
+#define	FSR_4BYTE_ADDR    (1 << 0)
 
 /* Define max times to check status register before we give up. */
 #define	MAX_READY_WAIT_JIFFIES	(40 * HZ)	/* M25P16 specs 40s max chip erase */
@@ -120,6 +130,8 @@ struct m25p {
 	u8			program_opcode;
 	u8			*command;
 	enum read_type		flash_read;
+	bool			fast_read;
+	int (*wait_till_ready)(struct m25p *flash);
 };
 
 static inline struct m25p *mtd_to_m25p(struct mtd_info *mtd)
@@ -176,6 +188,28 @@ static int read_cr(struct m25p *flash)
 }
 
 /*
+ * Read the flagstatus register, returning its value in the location
+ * Return the status register value.
+ * Returns negative if error occurred.
+ */
+static int read_fsr(struct m25p *flash)
+{
+	ssize_t retval;
+	u8 code = OPCODE_RFSR;
+	u8 val;
+
+	retval = spi_write_then_read(flash->spi, &code, 1, &val, 1);
+
+	if (retval < 0) {
+		dev_err(&flash->spi->dev, "error %d reading SR\n",
+				(int) retval);
+		return retval;
+	}
+
+	return val;
+}
+
+/*
  * Write status register 1 byte
  * Returns negative if error occurred.
  */
@@ -185,6 +219,39 @@ static int write_sr(struct m25p *flash, u8 val)
 	flash->command[1] = val;
 
 	return spi_write(flash->spi, flash->command, 2);
+}
+
+/*
+ * Write volatile config register
+ * Returns negative if error occurred.
+ */
+static int write_vcr(struct m25p *flash, u8 val)
+{
+	flash->command[0] = OPCODE_WVCR;
+	flash->command[1] = val;
+
+	return spi_write(flash->spi, flash->command, 2);
+}
+
+/*
+ * Read volatile config register
+ * Returns negative if error occurred.
+ */
+static int read_vcr(struct m25p *flash)
+{
+	ssize_t retval;
+	u8 code = OPCODE_RVCR;
+	u8 val;
+
+	retval = spi_write_then_read(flash->spi, &code, 1, &val, 1);
+
+	if (retval < 0) {
+		dev_err(&flash->spi->dev, "error %d reading VCR\n",
+				(int) retval);
+		return retval;
+	}
+
+	return val;
 }
 
 /*
@@ -244,7 +311,7 @@ static inline int set_4byte(struct m25p *flash, u32 jedec_id, int enable)
  * Service routine to read status register until ready, or timeout occurs.
  * Returns non-zero if error.
  */
-static int wait_till_ready(struct m25p *flash)
+static int _wait_till_ready(struct m25p *flash)
 {
 	unsigned long deadline;
 	int sr;
@@ -291,7 +358,7 @@ static int macronix_quad_enable(struct m25p *flash)
 
 	spi_write(flash->spi, &cmd, 2);
 
-	if (wait_till_ready(flash))
+	if (flash->wait_till_ready(flash))
 		return 1;
 
 	ret = read_sr(flash);
@@ -352,6 +419,38 @@ static int set_quad_mode(struct m25p *flash, u32 jedec_id)
 }
 
 /*
+ * Service routine to read flag status register until ready, or timeout occurs.
+ * Returns non-zero if error.
+ */
+static int _wait_till_fsr_ready(struct m25p *flash)
+{
+	unsigned long deadline;
+	int fsr;
+	int sr;
+
+	deadline = jiffies + MAX_READY_WAIT_JIFFIES;
+
+	do {
+		sr = read_sr(flash);
+		if (sr < 0)
+			break;
+		/* only check fsr if sr not busy */
+		if (!(sr & SR_WIP)) {
+			fsr = read_fsr(flash);
+			if (fsr < 0)
+				break;
+			if (fsr & FSR_READY)
+				return 0;
+		}
+
+		cond_resched();
+
+	} while (!time_after_eq(jiffies, deadline));
+
+	return 1;
+}
+
+/*
  * Erase the whole flash memory
  *
  * Returns 0 if successful, non-zero otherwise.
@@ -362,7 +461,7 @@ static int erase_chip(struct m25p *flash)
 			(long long)(flash->mtd.size >> 10));
 
 	/* Wait until finished previous write command. */
-	if (wait_till_ready(flash))
+	if (flash->wait_till_ready(flash))
 		return 1;
 
 	/* Send write enable, then erase commands. */
@@ -372,6 +471,8 @@ static int erase_chip(struct m25p *flash)
 	flash->command[0] = OPCODE_CHIP_ERASE;
 
 	spi_write(flash->spi, flash->command, 1);
+
+	flash->wait_till_ready(flash);
 
 	return 0;
 }
@@ -402,7 +503,7 @@ static int erase_sector(struct m25p *flash, u32 offset)
 			__func__, flash->mtd.erasesize / 1024, offset);
 
 	/* Wait until finished previous write command. */
-	if (wait_till_ready(flash))
+	if (flash->wait_till_ready(flash))
 		return 1;
 
 	/* Send write enable, then erase commands. */
@@ -413,6 +514,8 @@ static int erase_sector(struct m25p *flash, u32 offset)
 	m25p_addr2cmd(flash, offset, flash->command);
 
 	spi_write(flash->spi, flash->command, m25p_cmdsz(flash));
+
+	flash->wait_till_ready(flash);
 
 	return 0;
 }
@@ -550,7 +653,7 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	mutex_lock(&flash->lock);
 
 	/* Wait till previous write/erase is done. */
-	if (wait_till_ready(flash)) {
+	if (flash->wait_till_ready(flash)) {
 		/* REVISIT status return?? */
 		mutex_unlock(&flash->lock);
 		return 1;
@@ -599,7 +702,7 @@ static int m25p80_write(struct mtd_info *mtd, loff_t to, size_t len,
 	mutex_lock(&flash->lock);
 
 	/* Wait until finished previous write command. */
-	if (wait_till_ready(flash)) {
+	if (flash->wait_till_ready(flash)) {
 		mutex_unlock(&flash->lock);
 		return 1;
 	}
@@ -642,7 +745,7 @@ static int m25p80_write(struct mtd_info *mtd, loff_t to, size_t len,
 			t[1].tx_buf = buf + i;
 			t[1].len = page_size;
 
-			wait_till_ready(flash);
+			flash->wait_till_ready(flash);
 
 			write_enable(flash);
 
@@ -651,6 +754,8 @@ static int m25p80_write(struct mtd_info *mtd, loff_t to, size_t len,
 			*retlen += m.actual_length - m25p_cmdsz(flash);
 		}
 	}
+
+	flash->wait_till_ready(flash);
 
 	mutex_unlock(&flash->lock);
 
@@ -682,7 +787,7 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 	mutex_lock(&flash->lock);
 
 	/* Wait until finished previous write command. */
-	ret = wait_till_ready(flash);
+	ret = flash->wait_till_ready(flash);
 	if (ret)
 		goto time_out;
 
@@ -697,7 +802,7 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		/* write one byte. */
 		t[1].len = 1;
 		spi_sync(flash->spi, &m);
-		ret = wait_till_ready(flash);
+		ret = flash->wait_till_ready(flash);
 		if (ret)
 			goto time_out;
 		*retlen += m.actual_length - m25p_cmdsz(flash);
@@ -716,7 +821,7 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		t[1].tx_buf = buf + actual;
 
 		spi_sync(flash->spi, &m);
-		ret = wait_till_ready(flash);
+		ret = flash->wait_till_ready(flash);
 		if (ret)
 			goto time_out;
 		*retlen += m.actual_length - cmd_sz;
@@ -724,7 +829,7 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		to += 2;
 	}
 	write_disable(flash);
-	ret = wait_till_ready(flash);
+	ret = flash->wait_till_ready(flash);
 	if (ret)
 		goto time_out;
 
@@ -738,7 +843,7 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		t[1].tx_buf = buf + actual;
 
 		spi_sync(flash->spi, &m);
-		ret = wait_till_ready(flash);
+		ret = flash->wait_till_ready(flash);
 		if (ret)
 			goto time_out;
 		*retlen += m.actual_length - m25p_cmdsz(flash);
@@ -759,7 +864,7 @@ static int m25p80_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 
 	mutex_lock(&flash->lock);
 	/* Wait until finished previous command */
-	if (wait_till_ready(flash)) {
+	if (flash->wait_till_ready(flash)) {
 		res = 1;
 		goto err;
 	}
@@ -804,7 +909,7 @@ static int m25p80_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 
 	mutex_lock(&flash->lock);
 	/* Wait until finished previous command */
-	if (wait_till_ready(flash)) {
+	if (flash->wait_till_ready(flash)) {
 		res = 1;
 		goto err;
 	}
@@ -871,6 +976,7 @@ struct flash_info {
 #define	SECT_4K_PMC	0x10		/* OPCODE_BE_4K_PMC works uniformly */
 #define	M25P80_DUAL_READ	0x20    /* Flash supports Dual Read */
 #define	M25P80_QUAD_READ	0x40    /* Flash supports Quad Read */
+#define USE_FSR		0x04	/* use flag status register */
 };
 
 #define INFO(_jedec_id, _ext_id, _sector_size, _n_sectors, _flags)	\
@@ -961,6 +1067,7 @@ static const struct spi_device_id m25p_ids[] = {
 	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024,  256, 0) },
 	{ "n25q256a",    INFO(0x20ba19, 0, 64 * 1024,  512, SECT_4K) },
 	{ "n25q512a",    INFO(0x20bb20, 0, 64 * 1024, 1024, SECT_4K) },
+	{ "n25q00",   INFO(0x20ba21, 0, 64 * 1024, 2048, USE_FSR) },
 
 	/* PMC */
 	{ "pm25lv512",   INFO(0,        0, 32 * 1024,    2, SECT_4K_PMC) },
@@ -1226,6 +1333,12 @@ static int m25p_probe(struct spi_device *spi)
 	if (info->flags & M25P_NO_ERASE)
 		flash->mtd.flags |= MTD_NO_ERASE;
 
+	if (info->flags & USE_FSR)
+		flash->wait_till_ready = &_wait_till_fsr_ready;
+	else
+		flash->wait_till_ready = &_wait_till_ready;
+
+
 	ppdata.of_node = spi->dev.of_node;
 	flash->mtd.dev.parent = &spi->dev;
 	flash->page_size = info->page_size;
@@ -1308,6 +1421,18 @@ static int m25p_probe(struct spi_device *spi)
 			set_4byte(flash, info->jedec_id, 1);
 	} else {
 		flash->addr_width = 3;
+	}
+
+	/* set up the VCR for 8 dummy cycles (instead of the default 15) */
+#define N25Q00_JEDEC_ID (0x20ba21)
+	if (info->jedec_id == N25Q00_JEDEC_ID) {
+		int vcr = read_vcr(flash);
+		if (vcr >= 0) {
+			vcr &= ~(VCR_DUMMY_CLK_CYCLES_MASK | VCR_XIP_MASK);
+			vcr |= (8 << VCR_DUMMY_CLK_CYCLES_SHIFT);
+			write_enable(flash);
+			write_vcr(flash, vcr);
+		}
 	}
 
 	spi->addr_width = flash->addr_width;
