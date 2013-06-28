@@ -543,7 +543,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 
 	cf_axi_dds_sync_frame(indio_dev);
 
-	st->tx_chan = of_dma_request_slave_channel(op->dev.of_node, "tx");
+	st->tx_chan = dma_request_slave_channel(&op->dev, "tx");
 	if (!st->tx_chan) {
 		dev_err(dev, "failed to find vdma device\n");
 		goto failed3;
