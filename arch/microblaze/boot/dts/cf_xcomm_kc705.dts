@@ -212,7 +212,8 @@
 		axi_adc_2c_0: cf-ad9643-core-lpc@73020000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x73020000 0x10000 >;
-			dma-request = <&axi_dma_0 0>;
+			dmas = <&axi_dma_0 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc0_ad9467>;
 			xlnx,cf-buftype = <0x0>;
 			xlnx,dphase-timeout = <0x8>;
@@ -228,7 +229,8 @@
 		axi_adc_2c_1: cf-ad9643-core-hpc@73000000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x73000000 0x10000 >;
-			dma-request = <&axi_dma_1 0>;
+			dmas = <&axi_dma_1 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc1_ad9467>;
 			xlnx,cf-buftype = <0x0>;
 			xlnx,dphase-timeout = <0x8>;
@@ -246,7 +248,8 @@
 			reg = < 0x73060000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
 			dac-sample-frequency = <491520000>;
-			dma-request = <&axi_vdma_0 0>;
+			dmas = <&axi_vdma_0 0>;
+			dma-names = "tx";
 			xlnx,cf-buftype = <0x0>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "kintex7";
@@ -262,7 +265,8 @@
 			reg = < 0x73040000 0x10000 >;
 			dac-sample-frequency = <491520000>;
 			spibus-connected = <&dac1_ad9122>;
-			dma-request = <&axi_vdma_1 0>;
+			dmas = <&axi_vdma_1 0>;
+			dma-names = "tx";
 			xlnx,cf-buftype = <0x0>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "kintex7";
@@ -308,8 +312,9 @@
 		axi_fft_0: axi-fft@7a200000 {
 			compatible = "xlnx,axi-fft-1.00.a";
 			reg = < 0x7a200000 0x10000 >;
-			dma-request = <&axi_dma_2 0
+			dmas = <&axi_dma_2 0
 					&axi_dma_2 1>;
+			dma-names = "rx", "tx";
 			xlnx,cf-size-sel = <0x0>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "kintex7";

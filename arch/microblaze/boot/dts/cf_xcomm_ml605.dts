@@ -639,7 +639,8 @@
 			reg = < 0x7a020000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
 			dac-sample-frequency = <491520000>;
-			dma-request = <&axi_vdma_0 0>;
+			dmas = <&axi_vdma_0 0>;
+			dma-names = "tx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "virtex6";
 			xlnx,num-mem = <0x1>;
@@ -654,7 +655,8 @@
 			reg = < 0x7a000000 0x10000 >;
 			dac-sample-frequency = <491520000>;
 			spibus-connected = <&dac1_ad9122>;
-			dma-request = <&axi_vdma_1 0>;
+			dmas = <&axi_vdma_1 0>;
+			dma-names = "tx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "virtex6";
 			xlnx,num-mem = <0x1>;
@@ -668,7 +670,8 @@
 		axi_adc_2c_0: cf-ad9643-core-lpc@7c820000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x7c820000 0x10000 >;
-			dma-request = <&axi_dma_0 0>;
+			dmas = <&axi_dma_0 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc0_ad9467>;
 //			spibus-slaveselect-connected = <0x1>;
 			dco-output-delay = <0x8c>;
@@ -685,7 +688,8 @@
 		axi_adc_2c_1: cf-ad9643-core-hpc@7c800000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
 			reg = < 0x7c800000 0x10000 >;
-			dma-request = <&axi_dma_1 0>;
+			dmas = <&axi_dma_1 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc1_ad9467>;
 //			spibus-slaveselect-connected = <0x1>;
 			dco-output-delay = <0x89>;
@@ -766,8 +770,9 @@
 		axi_fft_0: axi-fft@7ee00000 {
 			compatible = "xlnx,axi-fft-1.00.a";
 			reg = < 0x7ee00000 0x10000 >;
-			dma-request = <&axi_dma_2 0
+			dmas = <&axi_dma_2 0
 					&axi_dma_2 1>;
+			dma-names = "rx", "tx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "virtex6";
 			xlnx,num-mem = <0x1>;
