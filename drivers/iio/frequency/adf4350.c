@@ -237,7 +237,8 @@ static int adf4350_set_freq(struct adf4350_state *st, unsigned long long freq)
 		ADF4350_REG4_AUX_OUTPUT_FUND |
 		ADF4350_REG4_MUTE_TILL_LOCK_EN));
 
-	st->regs[ADF4350_REG5] = ADF4350_REG5_LD_PIN_MODE_DIGITAL;
+	st->regs[ADF4350_REG5] = ADF4350_REG5_LD_PIN_MODE_DIGITAL |
+		BIT(19) | BIT(20);
 	st->freq_req = freq;
 
 	return adf4350_sync_config(st);
