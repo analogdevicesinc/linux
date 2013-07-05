@@ -23,8 +23,6 @@
 #include <sound/pcm.h>
 #include <sound/soc.h>
 
-static char adv7511_codec_name[] = "adv7511.2-0039";
-
 static const struct snd_soc_dapm_widget adv7511_hdmi_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Speaker", NULL),
 };
@@ -37,8 +35,8 @@ static struct snd_soc_dai_link hdmi_dai_link = {
 	.name = "HDMI",
 	.stream_name = "HDMI",
 /*	.cpu_dai_name = "75c00000.axi-spdif-tx",
-	.platform_name = "xilinx_pcm_audio.2",*/
-	.codec_name = adv7511_codec_name,
+	.platform_name = "xilinx_pcm_audio.2",
+	.codec_name = adv7511_codec_name,*/
 	.codec_dai_name = "adv7511",
 	.dai_fmt = SND_SOC_DAIFMT_SPDIF |
 			SND_SOC_DAIFMT_NB_NF |
@@ -60,26 +58,17 @@ static int adv7511_hdmi_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &hdmi_card;
 	struct device_node *of_node = pdev->dev.of_node;
-	struct device_node *adapter_node;
-	struct i2c_adapter *adapter;
 
 	if (!of_node)
 		return -ENXIO;
 
 	card->dev = &pdev->dev;
 
+	hdmi_dai_link.codec_of_node = of_parse_phandle(of_node, "audio-codec", 0);
 	hdmi_dai_link.cpu_of_node = of_parse_phandle(of_node, "cpu-dai", 0);
 	hdmi_dai_link.platform_of_node = hdmi_dai_link.cpu_of_node;
 
-	adapter_node = of_parse_phandle(of_node, "audio-codec-adapter", 0);
-	adapter = of_find_i2c_adapter_by_node(adapter_node);
-	if (adapter) {
-		snprintf(adv7511_codec_name, sizeof(adv7511_codec_name),
-			"adv7511.%d-0039", i2c_adapter_id(adapter));
-	}
-
-	if (/*!hdmi_dai_link.codec_of_node || */!hdmi_dai_link.cpu_of_node ||
-		!hdmi_dai_link.platform_of_node)
+	if (!hdmi_dai_link.codec_of_node || !hdmi_dai_link.cpu_of_node)
 		return -ENXIO;
 
 	return snd_soc_register_card(card);

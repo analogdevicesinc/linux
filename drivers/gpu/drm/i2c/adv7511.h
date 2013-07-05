@@ -348,6 +348,7 @@ enum adv7511_up_conversion {
  * @hsync_polartity:		hsync input signal configuration
  * @timing_gen_seq:		Selects the order in which sync DE generation
  *				and sync adjustment are performt.
+ * @gpio_pd:			GPIO controlling the PD (powerdown) pin
  **/
 struct adv7511_link_config {
 	enum adv7511_input_id id;
@@ -363,6 +364,8 @@ struct adv7511_link_config {
 
 	enum adv7511_sync_polarity vsync_polarity;
 	enum adv7511_sync_polarity hsync_polarity;
+
+	int gpio_pd;
 };
 
 /**
@@ -442,6 +445,8 @@ struct adv7511 {
 	enum adv7511_sync_polarity hsync_polarity;
 
 	struct edid *edid;
+
+	int gpio_pd;
 };
 
 struct edid *adv7511_get_edid(struct drm_encoder *encoder);

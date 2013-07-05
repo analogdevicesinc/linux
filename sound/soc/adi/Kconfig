@@ -1,0 +1,23 @@
+config SND_SOC_ADI
+	tristate "SoC Audio for ADI reference designs"
+	depends on SND_SOC && (MICROBLAZE || ARCH_ZYNQ)
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+
+config SND_SOC_AXI_SPDIF
+	select REGMAP_MMIO
+	tristate
+
+config SND_SOC_ADI_AXI_I2S
+	select REGMAP_MMIO
+	tristate
+
+config SND_SOC_ADV7511_HDMI
+	tristate "ADV7511 HDMI transmitter sound support"
+	depends on SND_SOC_ADI
+	select SND_SOC_AXI_SPDIF
+
+config SND_SOC_ZED_ADAU1761
+	tristate "ZED board sound support"
+	depends on SND_SOC_ADI
+	select SND_SOC_ADI_AXI_I2S
+	select SND_SOC_ADAU1761

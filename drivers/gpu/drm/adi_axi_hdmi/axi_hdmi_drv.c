@@ -171,7 +171,7 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	private->encoder_slave = of_find_i2c_device_by_node(slave_node);
 	of_node_put(slave_node);
 
-	if (!private->encoder_slave)
+	if (!private->encoder_slave || !private->encoder_slave->dev.driver)
 		return -EPROBE_DEFER;
 
 	private->dma = of_dma_request_slave_channel(pdev->dev.of_node, "video");

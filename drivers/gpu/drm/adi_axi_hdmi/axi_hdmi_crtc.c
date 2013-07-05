@@ -43,6 +43,8 @@ static int axi_hdmi_crtc_update(struct drm_crtc *crtc)
 	if (!mode || !fb)
 		return -EINVAL;
 
+	dmaengine_terminate_all(axi_hdmi_crtc->dma);
+
 	if (axi_hdmi_crtc->mode == DRM_MODE_DPMS_ON) {
 		obj = drm_fb_cma_get_gem_obj(fb, 0);
 		if (!obj)
@@ -68,8 +70,6 @@ static int axi_hdmi_crtc_update(struct drm_crtc *crtc)
 			dmaengine_submit(desc);
 			dma_async_issue_pending(axi_hdmi_crtc->dma);
 		}
-	} else {
-		dmaengine_terminate_all(axi_hdmi_crtc->dma);
 	}
 
 	return 0;

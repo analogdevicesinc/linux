@@ -9,10 +9,10 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		axi_iic_0: i2c@41600000 {
+		i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = < 0 56 0x4 >;
+			interrupts = < 0 58 0x4 >;
 			reg = < 0x41600000 0x10000 >;
 
 			#size-cells = <0>;
@@ -34,22 +34,10 @@
 				adi,tdms-clock-inversion;
 				adi,clock-delay = <0x03>;
 			};
-		};
 
-		axi_dma_0: axidma@40400000 {
-			compatible = "xlnx,axi-dma";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			#dma-channels = <1>;
-			reg = < 0x40400000 0x1000 >;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
-			dma-channel@40400000 {
-				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = < 0 58 0x4 >;
-				xlnx,datawidth = <0x20>;
-				xlnx,sg-length-width = <20>;
-				xlnx,include-dre = <0x0>;
+			adau1761: adau1761@3b {
+				compatible = "adi,adau1761";
+				reg = <0x3b>;
 			};
 		};
 
@@ -74,7 +62,7 @@
 		fpga_clock: fpga_clock {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
-			clock-frequency  = <200000000>;
+			clock-frequency = <200000000>;
 		};
 
 		hdmi_clock: axi-clkgen@66000000 {
@@ -93,18 +81,40 @@
 			clocks = <&hdmi_clock>;
 		};
 
+		audio_clock: audio_clock {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <12288000>;
+		};
+
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = < 0x75c00000 0x1000 >;
-			dmas = <&axi_dma_0 0>;
+			dmas = <&ps7_dma 0>;
 			dma-names = "tx";
-			clock-frequency = <12288000>;
+			clocks = <&fpga_clock &audio_clock>;
+			clock-names = "axi", "spdif";
 		};
 
 		adv7511_hdmi_snd: adv7511_hdmi_snd {
 			compatible = "adv7511-hdmi-snd";
-			audio-codec-adapter = <&axi_iic_0>;
+			audio-codec = <&adv7511>;
 			cpu-dai = <&axi_spdif_tx_0>;
+		};
+
+		axi_i2s_0: axi-i2s@0x77600000 {
+			compatible = "adi,axi-i2s-1.00.a";
+			reg = <0x77600000 0x1000>;
+			dmas = <&ps7_dma 1 &ps7_dma 2>;
+			dma-names = "tx", "rx";
+			clocks = <&fpga_clock &audio_clock>;
+			clock-names = "axi", "i2s";
+		};
+
+		zed_sound {
+			compatible = "digilent,zed-sound";
+			audio-codec = <&adau1761>;
+			cpu-dai = <&axi_i2s_0>;
 		};
 	};
 
