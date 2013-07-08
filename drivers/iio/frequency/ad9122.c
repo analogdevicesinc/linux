@@ -220,9 +220,10 @@ static int ad9122_tune_dci(struct cf_axi_converter *conv)
 
 			ad9122_write(conv->spi, AD9122_REG_SED_CTRL, 0);
 
-			conv->pcore_set_sed_pattern(conv->indio_dev,
-				(dac_sed_pattern[i].i1 << 16) | dac_sed_pattern[i].i0,
-				(dac_sed_pattern[i].q1 << 16) | dac_sed_pattern[i].q0);
+			conv->pcore_set_sed_pattern(conv->indio_dev, 0,
+				dac_sed_pattern[i].i0, dac_sed_pattern[i].i1);
+			conv->pcore_set_sed_pattern(conv->indio_dev, 1,
+				dac_sed_pattern[i].q0, dac_sed_pattern[i].q1);
 
 			ad9122_write(conv->spi, AD9122_REG_COMPARE_I0_LSBS,
 				dac_sed_pattern[i].i0 & 0xFF);
