@@ -1,0 +1,15 @@
+Altera FPGA To SDRAM Bridge Driver
+
+Required properties:
+- compatible		: Should contain "altr,socfpga-fpga2sdram-bridge"
+
+Optional properties:
+- bridge-enable		: 0 if driver should disable bridge at startup
+			  1 if driver should enable bridge at startup
+			  Default is to leave bridge in current state.
+
+Example:
+	fpga2sdram_br {
+		compatible = "altr,socfpga-fpga2sdram-bridge";
+		bridge-enable = <0>;
+	};
