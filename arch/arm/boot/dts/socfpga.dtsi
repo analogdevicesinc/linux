@@ -507,6 +507,29 @@
 			status = "disabled";
 		};
 
+		hps_0_fpgamgr: fpgamgr@0xff706000 {
+			compatible = "altr,fpga-mgr-1.0", "altr,fpga-mgr";
+			transport = "mmio";
+			reg = <0xFF706000 0x1000
+			0xFFB90000 0x1000>;
+			interrupts = <0 175 4>;
+		};
+
+		hps_fpgabridge0: fpgabridge@0 {
+			compatible = "altr,socfpga-hps2fpga-bridge";
+			label = "hps2fpga";
+		};
+
+		hps_fpgabridge1: fpgabridge@1 {
+			compatible = "altr,socfpga-lwhps2fpga-bridge";
+			label = "lwhps2fpga";
+		};
+
+		hps_fpgabridge2: fpgabridge@2 {
+			compatible = "altr,socfpga-fpga2hps-bridge";
+			label = "fpga2hps";
+		};
+
 		i2c0: i2c@ffc04000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -697,6 +720,16 @@
 			};
 		};
 
+		sdrctl@0xffc25000 {
+			compatible = "altr,sdr-ctl", "syscon";
+			reg = <0xffc25000 0x1000>;
+		};
+
+		l3regs@0xff800000 {
+			compatible = "altr,l3regs", "syscon";
+			reg = <0xff800000 0x1000>;
+		};
+
 		spi0: spi@fff00000 {
 			compatible = "snps,dw-spi-mmio";
 			#address-cells = <1>;
@@ -805,7 +838,7 @@
 
 		rst: rstmgr@ffd05000 {
 			#reset-cells = <1>;
-			compatible = "altr,rst-mgr";
+			compatible = "altr,rst-mgr", "syscon";
 			reg = <0xffd05000 0x1000>;
 		};
 
@@ -856,14 +889,6 @@
 		sysmgr: sysmgr@ffd08000 {
 			compatible = "altr,sys-mgr", "syscon";
 			reg = <0xffd08000 0x4000>;
-		};
-
-		hps_0_fpgamgr: fpgamgr@0xff706000 {
-			compatible = "altr,fpga-mgr-1.0", "altr,fpga-mgr";
-			transport = "mmio";
-			reg = <0xFF706000 0x1000
-			       0xFFB90000 0x1000>;
-			interrupts = <0 175 4>;
 		};
 	};
 };
