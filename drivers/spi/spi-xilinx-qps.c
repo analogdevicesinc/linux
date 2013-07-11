@@ -92,8 +92,9 @@
  * It is named Linear Configuration but it controls other modes when not in
  * linear mode also.
  */
-#define XQSPIPS_LCFG_TWO_MEM_MASK	0x40000000 /* QSPI Enable Bit Mask */
-#define XQSPIPS_LCFG_SEP_BUS_MASK	0x20000000 /* QSPI Enable Bit Mask */
+#define XQSPIPS_LCFG_TWO_MEM_MASK	0x40000000 /* LQSPI Two memories Mask */
+#define XQSPIPS_LCFG_SEP_BUS_MASK	0x20000000 /* LQSPI Separate bus Mask */
+#define XQSPIPS_LCFG_U_PAGE_MASK	0x10000000 /* LQSPI Upper Page Mask */
 
 #define XQSPIPS_LCFG_DUMMY_SHIFT	8
 
@@ -121,9 +122,14 @@
 #define	XQSPIPS_FLASH_OPCODE_WRDS	0x04	/* Write disable */
 #define	XQSPIPS_FLASH_OPCODE_RDSR1	0x05	/* Read status register 1 */
 #define	XQSPIPS_FLASH_OPCODE_WREN	0x06	/* Write enable */
+#define	XQSPIPS_FLASH_OPCODE_BRRD	0x16	/* Bank Register Read */
+#define	XQSPIPS_FLASH_OPCODE_BRWR	0x17	/* Bank Register Write */
+#define	XQSPIPS_FLASH_OPCODE_EXTADRD	0xC8	/* Micron - Bank Reg Read */
+#define	XQSPIPS_FLASH_OPCODE_EXTADWR	0xC5	/* Micron - Bank Reg Write */
 #define	XQSPIPS_FLASH_OPCODE_FAST_READ	0x0B	/* Fast read data bytes */
 #define	XQSPIPS_FLASH_OPCODE_BE_4K	0x20	/* Erase 4KiB block */
 #define	XQSPIPS_FLASH_OPCODE_RDSR2	0x35	/* Read status register 2 */
+#define	XQSPIPS_FLASH_OPCODE_RDFSR	0x70	/* Read flag status register */
 #define	XQSPIPS_FLASH_OPCODE_DUAL_READ	0x3B	/* Dual read data bytes */
 #define	XQSPIPS_FLASH_OPCODE_BE_32K	0x52	/* Erase 32KiB block */
 #define	XQSPIPS_FLASH_OPCODE_QUAD_READ	0x6B	/* Quad read data bytes */
@@ -136,8 +142,8 @@
 /*
  * Macros for the QSPI controller read/write
  */
-#define xqspips_read(addr)		__raw_readl(addr)
-#define xqspips_write(addr, val)	__raw_writel((val), (addr))
+#define xqspips_read(addr)		readl(addr)
+#define xqspips_write(addr, val)	writel((val), (addr))
 
 /**
  * struct xqspips - Defines qspi driver instance
@@ -182,7 +188,7 @@ struct xqspips {
 	u8 dev_busy;
 	struct completion done;
 	bool is_inst;
-	bool is_dual;
+	u32 is_dual;
 };
 
 /**
@@ -206,6 +212,7 @@ static struct xqspips_inst_format flash_inst[] = {
 	{ XQSPIPS_FLASH_OPCODE_RDSR1, 1, XQSPIPS_TXD_00_01_OFFSET },
 	{ XQSPIPS_FLASH_OPCODE_RDSR2, 1, XQSPIPS_TXD_00_01_OFFSET },
 	{ XQSPIPS_FLASH_OPCODE_WRSR, 1, XQSPIPS_TXD_00_01_OFFSET },
+	{ XQSPIPS_FLASH_OPCODE_RDFSR, 1, XQSPIPS_TXD_00_01_OFFSET },
 	{ XQSPIPS_FLASH_OPCODE_PP, 4, XQSPIPS_TXD_00_00_OFFSET },
 	{ XQSPIPS_FLASH_OPCODE_SE, 4, XQSPIPS_TXD_00_00_OFFSET },
 	{ XQSPIPS_FLASH_OPCODE_BE_32K, 4, XQSPIPS_TXD_00_00_OFFSET },
@@ -218,6 +225,10 @@ static struct xqspips_inst_format flash_inst[] = {
 	{ XQSPIPS_FLASH_OPCODE_FAST_READ, 1, XQSPIPS_TXD_00_01_OFFSET },
 	{ XQSPIPS_FLASH_OPCODE_DUAL_READ, 1, XQSPIPS_TXD_00_01_OFFSET },
 	{ XQSPIPS_FLASH_OPCODE_QUAD_READ, 1, XQSPIPS_TXD_00_01_OFFSET },
+	{ XQSPIPS_FLASH_OPCODE_BRRD, 1, XQSPIPS_TXD_00_01_OFFSET },
+	{ XQSPIPS_FLASH_OPCODE_BRWR, 2, XQSPIPS_TXD_00_10_OFFSET },
+	{ XQSPIPS_FLASH_OPCODE_EXTADRD, 1, XQSPIPS_TXD_00_01_OFFSET },
+	{ XQSPIPS_FLASH_OPCODE_EXTADWR, 2, XQSPIPS_TXD_00_10_OFFSET },
 	/* Add all the instructions supported by the flash device */
 };
 
@@ -271,7 +282,13 @@ static void xqspips_init_hw(void __iomem *regs_base, int is_dual)
 			 XQSPIPS_LCFG_SEP_BUS_MASK |
 			 (1 << XQSPIPS_LCFG_DUMMY_SHIFT) |
 			 XQSPIPS_FAST_READ_QOUT_CODE));
-
+#ifdef CONFIG_SPI_XILINX_PS_QSPI_DUAL_STACKED
+	/* Enable two memories on shared bus */
+	xqspips_write(regs_base + XQSPIPS_LINEAR_CFG_OFFSET,
+		 (XQSPIPS_LCFG_TWO_MEM_MASK |
+		 (1 << XQSPIPS_LCFG_DUMMY_SHIFT) |
+		 XQSPIPS_FAST_READ_QOUT_CODE));
+#endif
 	xqspips_write(regs_base + XQSPIPS_ENABLE_OFFSET,
 			XQSPIPS_ENABLE_ENABLE_MASK);
 }
@@ -284,33 +301,11 @@ static void xqspips_init_hw(void __iomem *regs_base, int is_dual)
  **/
 static void xqspips_copy_read_data(struct xqspips *xqspi, u32 data, u8 size)
 {
-	u8 byte3;
-
 	if (xqspi->rxbuf) {
-		switch (size) {
-		case 1:
-			*((u8 *)xqspi->rxbuf) = data;
-			xqspi->rxbuf += 1;
-			break;
-		case 2:
-			*((u16 *)xqspi->rxbuf) = data;
-			xqspi->rxbuf += 2;
-			break;
-		case 3:
-			*((u16 *)xqspi->rxbuf) = data;
-			xqspi->rxbuf += 2;
-			byte3 = (u8)(data >> 16);
-			*((u8 *)xqspi->rxbuf) = byte3;
-			xqspi->rxbuf += 1;
-			break;
-		case 4:
-			(*(u32 *)xqspi->rxbuf) = data;
-			xqspi->rxbuf += 4;
-			break;
-		default:
-			/* This will never execute */
-			break;
-		}
+		data >>= (4 - size) * 8;
+		data = le32_to_cpu(data);
+		memcpy((u8 *)xqspi->rxbuf, &data, size);
+		xqspi->rxbuf += size;
 	}
 	xqspi->bytes_to_receive -= size;
 	if (xqspi->bytes_to_receive < 0)
@@ -502,13 +497,8 @@ static void xqspips_fill_tx_fifo(struct xqspips *xqspi)
 	u32 data = 0;
 
 	while ((!(xqspips_read(xqspi->regs + XQSPIPS_STATUS_OFFSET) &
-		XQSPIPS_IXR_TXFULL_MASK)) && (xqspi->bytes_to_transfer > 0)) {
-		if (xqspi->bytes_to_transfer < 4)
-			xqspips_copy_write_data(xqspi, &data,
-				xqspi->bytes_to_transfer);
-		else
-			xqspips_copy_write_data(xqspi, &data, 4);
-
+		XQSPIPS_IXR_TXFULL_MASK)) && (xqspi->bytes_to_transfer >= 4)) {
+		xqspips_copy_write_data(xqspi, &data, 4);
 		xqspips_write(xqspi->regs + XQSPIPS_TXD_00_00_OFFSET, data);
 	}
 }
@@ -528,6 +518,8 @@ static irqreturn_t xqspips_irq(int irq, void *dev_id)
 {
 	struct xqspips *xqspi = dev_id;
 	u32 intr_status;
+	u8 offset[3] =	{XQSPIPS_TXD_00_01_OFFSET, XQSPIPS_TXD_00_10_OFFSET,
+		XQSPIPS_TXD_00_11_OFFSET};
 
 	intr_status = xqspips_read(xqspi->regs + XQSPIPS_STATUS_OFFSET);
 	xqspips_write(xqspi->regs + XQSPIPS_STATUS_OFFSET , intr_status);
@@ -540,15 +532,15 @@ static irqreturn_t xqspips_irq(int irq, void *dev_id)
 		   the THRESHOLD value set to 1, so this bit indicates Tx FIFO
 		   is empty */
 		u32 config_reg;
+		u32 data;
 
 		/* Read out the data from the RX FIFO */
 		while (xqspips_read(xqspi->regs + XQSPIPS_STATUS_OFFSET) &
 			XQSPIPS_IXR_RXNEMTY_MASK) {
-			u32 data;
 
 			data = xqspips_read(xqspi->regs + XQSPIPS_RXD_OFFSET);
 
-			if (xqspi->bytes_to_receive < 4)
+			if (xqspi->bytes_to_receive < 4 && !xqspi->is_dual)
 				xqspips_copy_read_data(xqspi, data,
 					xqspi->bytes_to_receive);
 			else
@@ -556,9 +548,21 @@ static irqreturn_t xqspips_irq(int irq, void *dev_id)
 		}
 
 		if (xqspi->bytes_to_transfer) {
-			/* There is more data to send */
-			xqspips_fill_tx_fifo(xqspi);
-
+			if (xqspi->bytes_to_transfer >= 4) {
+				/* There is more data to send */
+				xqspips_fill_tx_fifo(xqspi);
+			} else {
+				int tmp;
+				tmp = xqspi->bytes_to_transfer;
+				xqspips_copy_write_data(xqspi, &data,
+					xqspi->bytes_to_transfer);
+				if (xqspi->is_dual)
+					xqspips_write(xqspi->regs +
+						XQSPIPS_TXD_00_00_OFFSET, data);
+				else
+					xqspips_write(xqspi->regs +
+						offset[tmp - 1], data);
+			}
 			xqspips_write(xqspi->regs + XQSPIPS_IEN_OFFSET,
 					XQSPIPS_IXR_ALL_MASK);
 
@@ -619,6 +623,7 @@ static int xqspips_start_transfer(struct spi_device *qspi,
 	if (xqspi->txbuf)
 		instruction = *(u8 *)xqspi->txbuf;
 
+	INIT_COMPLETION(xqspi->done);
 	if (instruction && xqspi->is_inst) {
 		for (index = 0 ; index < ARRAY_SIZE(flash_inst); index++)
 			if (instruction == flash_inst[index].opcode)
@@ -631,31 +636,6 @@ static int xqspips_start_transfer(struct spi_device *qspi,
 
 		curr_inst = &flash_inst[index];
 
-		/* In case of dual memories, convert 25 bit address to 24 bit
-		 * address before transmitting to the 2 memories
-		 */
-		if ((xqspi->is_dual == 1) &&
-		    ((instruction == XQSPIPS_FLASH_OPCODE_PP) ||
-		     (instruction == XQSPIPS_FLASH_OPCODE_SE) ||
-		     (instruction == XQSPIPS_FLASH_OPCODE_BE_32K) ||
-		     (instruction == XQSPIPS_FLASH_OPCODE_BE_4K) ||
-		     (instruction == XQSPIPS_FLASH_OPCODE_BE) ||
-		     (instruction == XQSPIPS_FLASH_OPCODE_NORM_READ) ||
-		     (instruction == XQSPIPS_FLASH_OPCODE_FAST_READ) ||
-		     (instruction == XQSPIPS_FLASH_OPCODE_DUAL_READ) ||
-		     (instruction == XQSPIPS_FLASH_OPCODE_QUAD_READ))) {
-
-			u8 *ptr = (u8 *) (xqspi->txbuf);
-			data = ((u32) ptr[1] << 24) | ((u32) ptr[2] << 16) |
-				((u32) ptr[3] << 8) | ((u32) ptr[4]);
-			data = data >> 1;
-			ptr[1] = (u8) (data >> 16);
-			ptr[2] = (u8) (data >> 8);
-			ptr[3] = (u8) (data);
-			xqspi->bytes_to_transfer -= 1;
-			xqspi->bytes_to_receive -= 1;
-		}
-
 		/* Get the instruction */
 		data = 0;
 		xqspips_copy_write_data(xqspi, &data,
@@ -667,20 +647,21 @@ static int xqspips_start_transfer(struct spi_device *qspi,
 		 * delayed if the user tries to write when write FIFO is full
 		 */
 		xqspips_write(xqspi->regs + curr_inst->offset, data);
+		goto xfer_start;
 	}
 
 xfer_data:
-	INIT_COMPLETION(xqspi->done);
 	/* In case of Fast, Dual and Quad reads, transmit the instruction first.
 	 * Address and dummy byte will be transmitted in interrupt handler,
 	 * after instruction is transmitted */
-	if (((xqspi->is_inst == 0) && (xqspi->bytes_to_transfer)) ||
-	     ((xqspi->bytes_to_transfer) &&
+	if (((xqspi->is_inst == 0) && (xqspi->bytes_to_transfer >= 4)) ||
+	     ((xqspi->bytes_to_transfer >= 4) &&
 	      (instruction != XQSPIPS_FLASH_OPCODE_FAST_READ) &&
 	      (instruction != XQSPIPS_FLASH_OPCODE_DUAL_READ) &&
 	      (instruction != XQSPIPS_FLASH_OPCODE_QUAD_READ)))
 		xqspips_fill_tx_fifo(xqspi);
 
+xfer_start:
 	xqspips_write(xqspi->regs + XQSPIPS_IEN_OFFSET,
 			XQSPIPS_IXR_ALL_MASK);
 	/* Start the transfer by enabling manual start bit */
@@ -703,6 +684,9 @@ static void xqspips_work_queue(struct work_struct *work)
 {
 	struct xqspips *xqspi = container_of(work, struct xqspips, work);
 	unsigned long flags;
+#ifdef CONFIG_SPI_XILINX_PS_QSPI_DUAL_STACKED
+	u32 lqspi_cfg_reg;
+#endif
 
 	spin_lock_irqsave(&xqspi->trans_queue_lock, flags);
 	xqspi->dev_busy = 1;
@@ -728,6 +712,18 @@ static void xqspips_work_queue(struct work_struct *work)
 		list_del_init(&msg->queue);
 		spin_unlock_irqrestore(&xqspi->trans_queue_lock, flags);
 		qspi = msg->spi;
+
+#ifdef CONFIG_SPI_XILINX_PS_QSPI_DUAL_STACKED
+		lqspi_cfg_reg = xqspips_read(xqspi->regs +
+					XQSPIPS_LINEAR_CFG_OFFSET);
+		if (qspi->master->flags & SPI_MASTER_U_PAGE)
+			lqspi_cfg_reg |= XQSPIPS_LCFG_U_PAGE_MASK;
+		else {
+			lqspi_cfg_reg &= ~XQSPIPS_LCFG_U_PAGE_MASK;
+			xqspips_write(xqspi->regs + XQSPIPS_LINEAR_CFG_OFFSET,
+					lqspi_cfg_reg);
+		}
+#endif
 
 		list_for_each_entry(transfer, &msg->transfers, transfer_list) {
 			if (transfer->bits_per_word || transfer->speed_hz) {
@@ -1068,10 +1064,7 @@ static int xqspips_probe(struct platform_device *dev)
 		goto unmap_io;
 	}
 
-	prop = of_get_property(dev->dev.of_node, "is-dual", NULL);
-	if (prop)
-		xqspi->is_dual = be32_to_cpup(prop);
-	else
+	if (of_property_read_u32(dev->dev.of_node, "is-dual", &xqspi->is_dual))
 		dev_warn(&dev->dev, "couldn't determine configuration info "
 			 "about dual memories. defaulting to single memory\n");
 
