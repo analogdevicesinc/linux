@@ -33,24 +33,6 @@
 
 #define XSLCR_LOCK			0x4   /* SLCR lock register */
 #define XSLCR_UNLOCK			0x8   /* SCLR unlock register */
-#define XSLCR_IO_PLL_CTRL_OFFSET	0x108 /* AMBA Peripheral Clk Control */
-#define XSLCR_APER_CLK_CTRL_OFFSET	0x12C /* AMBA Peripheral Clk Control */
-#define XSLCR_USB0_CLK_CTRL_OFFSET	0x130 /* USB 0 ULPI Clock Control */
-#define XSLCR_USB1_CLK_CTRL_OFFSET	0x134 /* USB 1 ULPI Clock Control */
-#define XSLCR_EMAC0_RCLK_CTRL_OFFSET	0x138 /* EMAC0 RX Clock Control */
-#define XSLCR_EMAC1_RCLK_CTRL_OFFSET	0x13C /* EMAC1 RX Clock Control */
-#define XSLCR_EMAC0_CLK_CTRL_OFFSET	0x140 /* EMAC0 Reference Clk Control */
-#define XSLCR_EMAC1_CLK_CTRL_OFFSET	0x144 /* EMAC1 Reference Clk Control */
-#define XSLCR_SMC_CLK_CTRL_OFFSET	0x148 /* SMC Reference Clock Control */
-#define XSLCR_QSPI_CLK_CTRL_OFFSET	0x14C /* QSPI Reference Clock Control */
-#define XSLCR_SDIO_CLK_CTRL_OFFSET	0x150 /* SDIO Reference Clock Control */
-#define XSLCR_UART_CLK_CTRL_OFFSET	0x154 /* UART Reference Clock Control */
-#define XSLCR_SPI_CLK_CTRL_OFFSET	0x158 /* SPI Reference Clock Control */
-#define XSLCR_CAN_CLK_CTRL_OFFSET	0x15C /* CAN Reference Clock Control */
-#define XSLCR_FPGA0_CLK_CTRL_OFFSET	0x170 /* FPGA0 Reference Clock Control */
-#define XSLCR_FPGA1_CLK_CTRL_OFFSET	0x180 /* FPGA1 Reference Clock Control */
-#define XSLCR_FPGA2_CLK_CTRL_OFFSET	0x190 /* FPGA2 Reference Clock Control */
-#define XSLCR_FPGA3_CLK_CTRL_OFFSET	0x1a0 /* FPGA3 Reference Clock Control */
 #define XSLCR_PSS_RST_CTRL_OFFSET	0x200 /* PSS Software Reset Control */
 #define XSLCR_DDR_RST_CTRL_OFFSET	0x204 /* DDR Software Reset Control */
 #define XSLCR_AMBA_RST_CTRL_OFFSET	0x208 /* AMBA Software Reset Control */
@@ -71,7 +53,6 @@
 #define XSLCR_A9_CPU_RST_CTRL		0x244 /* CPU Software Reset Control */
 #define XSLCR_REBOOT_STATUS		0x258 /* PS Reboot Status */
 #define XSLCR_MIO_PIN_00_OFFSET		0x700 /* MIO PIN0 control register */
-#define XSLCR_MIO_PIN(x)		(0x700 + (x) * 4) /* MIO PIN0 control register */
 #define XSLCR_LVL_SHFTR_EN_OFFSET	0x900 /* Level Shifters Enable */
 
 #define XSLCR_MIO_L0_SHIFT		1
