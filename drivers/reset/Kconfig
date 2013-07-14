@@ -56,6 +56,7 @@ config RESET_LANTIQ
 
 config RESET_GPIO
 	tristate "GPIO reset controller support"
+	default y
 	depends on GPIOLIB && OF
 	help
 	  This driver provides support for reset lines that are controlled
