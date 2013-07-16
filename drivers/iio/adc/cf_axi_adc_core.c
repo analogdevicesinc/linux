@@ -233,8 +233,18 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 
 	case IIO_CHAN_INFO_CALIBBIAS:
 		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
-		tmp = ADI_TO_DCFILT_OFFSET(tmp);
-		*val = sign_extend32(tmp, 14);
+		*val = ADI_TO_DCFILT_OFFSET(tmp);
+
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY:
+		/*
+		 * approx: F_cut = C * Fsample / (2 * pi)
+		 */
+
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
+		llval = ADI_TO_DCFILT_COEFF(tmp) * (unsigned long long)conv->adc_clk;
+		do_div(llval, 102944); /* 2 * pi * 0x4000 */
+		*val = llval;
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -253,7 +263,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 			do_div(llval, ADI_TO_USR_DECIMATION_N(tmp));
 			*val = llval;
 		}
-
+		return IIO_VAL_INT;
 	default:
 		return conv->read_raw(indio_dev, chan, val, val2, m);
 
@@ -313,6 +323,30 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(chan->channel), tmp);
 
 		axiadc_toggle_scale_offset_en(st);
+
+		return 0;
+
+	case IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY:
+		/* C = 1 – e^(-2 * pi * F_cut / Fsample)
+		 * approx: C = 2 * pi * F_cut / Fsample
+		 */
+
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(chan->channel));
+
+		if (val == 0 && val2 == 0) {
+			tmp &= ~ADI_DCFILT_ENB;
+			axiadc_write(st, ADI_REG_CHAN_CNTRL(chan->channel), tmp);
+			return 0;
+		}
+
+		tmp |= ADI_DCFILT_ENB;
+
+		llval = 102944ULL * val; /* 2 * pi * 0x4000 * val */
+		do_div(llval, conv->adc_clk);
+
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(chan->channel),
+			     ADI_DCFILT_COEFF(clamp_t(unsigned short, llval, 1, 0x4000)));
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(chan->channel), tmp);
 
 		return 0;
 
