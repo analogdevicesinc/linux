@@ -394,6 +394,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 			IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
 			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT |		\
 			IIO_CHAN_INFO_CALIBPHASE_SEPARATE_BIT |		\
+			IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY_SEPARATE_BIT |		\
 			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
 			.ext_info = axiadc_ext_info,			\
 	  .scan_index = _si,						\
