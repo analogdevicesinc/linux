@@ -836,11 +836,19 @@ static void __clk_recalc_rates(struct clk *clk, unsigned long msg)
 unsigned long clk_get_rate(struct clk *clk)
 {
 	unsigned long rate;
+	struct clk *_clk, *recalc_clk = NULL;
 
 	mutex_lock(&prepare_lock);
 
-	if (clk && (clk->flags & CLK_GET_RATE_NOCACHE))
-		__clk_recalc_rates(clk, 0);
+	_clk = clk;
+	while (_clk) {
+		if (_clk->flags & CLK_GET_RATE_NOCACHE)
+			recalc_clk = _clk;
+		_clk = _clk->parent;	
+	}
+
+	if (recalc_clk)
+		__clk_recalc_rates(recalc_clk, 0);
 
 	rate = __clk_get_rate(clk);
 	mutex_unlock(&prepare_lock);
