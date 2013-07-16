@@ -71,7 +71,7 @@ static int axiadc_testmode_set(struct iio_dev *indio_dev,
 		break;
 	default:
 		axiadc_write(st, AXIADC_PCORE_ADC_CTRL,
-		  (st->id == CHIPID_AD9643) ? AXIADC_SIGNEXTEND : 0);
+		  (st->id == CHIPID_AD9643 || st->id == CHIPID_AD9250) ? AXIADC_SIGNEXTEND : 0);
 		axiadc_spi_write(st, ADC_REG_OUTPUT_MODE, st->adc_def_output_mode);
 	};
 
@@ -240,6 +240,7 @@ static ssize_t axiadc_debugfs_pncheck_read(struct file *file, char __user *userb
 			"PN Error" : "No Error");
 		break;
 	case CHIPID_AD9643:
+	case CHIPID_AD9250:
 		len = sprintf(buf, "CH0 %s %s\nCH1 %s %s\n", (stat & AXIADC_PCORE_ADC_STAT_PN_OOS0) ?
 			"Out of Sync :" : "In Sync :",
 			(stat & AXIADC_PCORE_ADC_STAT_PN_ERR0) ?
