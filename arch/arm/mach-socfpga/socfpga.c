@@ -88,6 +88,12 @@ static void __init socfpga_soc_device_init(void)
 	return;
 }
 
+static void __init enable_periphs(void)
+{
+	/* Release all peripherals from reset.*/
+	__raw_writel(0, rst_manager_base_addr + SOCFPGA_RSTMGR_MODPERRST);
+}
+
 void __init socfpga_sysmgr_init(void)
 {
 	struct device_node *np;
