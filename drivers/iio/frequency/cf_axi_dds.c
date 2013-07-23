@@ -95,7 +95,7 @@ static u32 cf_axi_dds_calc(u32 phase, u32 freq, u32 dac_clk) {
 	do_div(val64, dac_clk);
 	val = ((val64 & 0xFFFF) | 1);
 
-	val64 = (u64) phase * 0xFFFFULL;
+	val64 = (u64) phase * 0x10000ULL + (360000 / 2);
 	do_div(val64, 360000);
 	val |= val64 << 16;
 
@@ -162,8 +162,8 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		reg = dds_read(st, chan->address);
-		val64 = (u64)(reg >> 16) * 360000ULL;
-		do_div(val64, 0xFFFF);
+		val64 = (u64)(reg >> 16) * 360000ULL + (0x10000 / 2);
+		do_div(val64, 0x10000);
 		*val = val64;
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
@@ -260,10 +260,14 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 			break;
 		}
+
+		if (val == 360000)
+			val = 0;
+
 		cf_axi_dds_stop(st);
 		reg = dds_read(st, chan->address);
 		reg &= 0x0000FFFF;
-		val64 = (u64) val * 0xFFFFULL;
+		val64 = (u64) reg * 0x10000ULL + (360000 / 2);
 		do_div(val64, 360000);
 		reg |= val64 << 16;
 		dds_write(st, chan->address, reg);
