@@ -44,7 +44,7 @@
 	chosen {
 		bootargs = "console=ttyS0 root=/dev/ram";
 	} ;
-	
+
 	clocks {
 		ad9517_ref_clk: clock@0 {
 			#clock-cells = <0>;
@@ -58,8 +58,8 @@
 			clock-frequency = <250000000>;
 			clock-output-names = "clkin";
 		};
-	};	
-	
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#cpus = <0x1>;
@@ -285,7 +285,7 @@
 					clocks = <&ad9517_ref_clk>, <&ad9517_clkin>;
 					clock-names = "refclk", "clkin";
 					clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
-					
+
 				};
 				adc0_ad9250: ad9250@0 {
 					#address-cells = <1>;
@@ -295,7 +295,7 @@
 					spi-max-frequency = <10000000>;
 					clocks = <&clk_ad9517>;
 					clock-names = "out0";
-					
+
 				};
 				adc1_ad9250: ad9250@1 {
 					#address-cells = <1>;
@@ -305,7 +305,7 @@
 					spi-max-frequency = <10000000>;
 					clocks = <&clk_ad9517>;
 					clock-names = "out1";
-					
+
 				};
 			};
 		};
@@ -325,7 +325,8 @@
 		axi_ad9250_0: cf-ad9250-1@7c820000 {
 			compatible = "xlnx,axi-ad9250-1.00.a";
 			reg = < 0x7c820000 0x10000 >;
-			dma-request = <&axi_dma_0 0>;
+			dmas = <&axi_dma_0 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc0_ad9250>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "kintex7";
@@ -339,7 +340,8 @@
 		axi_ad9250_1: cf-ad9250-2@7c800000 {
 			compatible = "xlnx,axi-ad9250-1.00.a";
 			reg = < 0x7c800000 0x10000 >;
-			dma-request = <&axi_dma_1 0>;
+			dmas = <&axi_dma_1 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc1_ad9250>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "kintex7";
@@ -392,7 +394,7 @@
 			xlnx,use-wstrb = <0x0>;
 			clocks = <&clk_ad9517>;
 			clock-names = "out0";
-			
+
 		} ;
 		axi_timer_0: timer@41c00000 {
 			clock-frequency = <100000000>;
