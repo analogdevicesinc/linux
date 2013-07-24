@@ -36,6 +36,7 @@ static void register_algs(struct caam_drv_private_jr *jrpriv,
 	if (++active_devs != 1)
 		goto algs_unlock;
 
+	caam_sm_startup(dev);
 	caam_algapi_init(dev);
 	caam_algapi_hash_init(dev);
 	caam_pkc_init(dev);
@@ -47,7 +48,7 @@ algs_unlock:
 	mutex_unlock(&algs_lock);
 }
 
-static void unregister_algs(void)
+static void unregister_algs(struct device *dev)
 {
 	mutex_lock(&algs_lock);
 
@@ -59,6 +60,7 @@ static void unregister_algs(void)
 	caam_pkc_exit();
 	caam_algapi_hash_exit();
 	caam_algapi_exit();
+	caam_sm_shutdown(dev);
 
 algs_unlock:
 	mutex_unlock(&algs_lock);
@@ -204,7 +206,7 @@ static void caam_jr_remove(struct platform_device *pdev)
 	}
 
 	/* Unregister JR-based RNG & crypto algorithms */
-	unregister_algs();
+	unregister_algs(jrdev->parent);
 
 	/* Remove the node from Physical JobR list maintained by driver */
 	spin_lock(&driver_data.jr_alloc_lock);

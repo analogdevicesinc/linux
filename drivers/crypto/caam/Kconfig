@@ -179,6 +179,38 @@ config CRYPTO_DEV_FSL_CAAM_RNG_TEST
 	  This test is several minutes long and executes
 	  just before the RNG is registered with the hw_random API.
 
+config CRYPTO_DEV_FSL_CAAM_SM
+	bool "CAAM Secure Memory / Keystore API"
+	default y
+	help
+	  Enables use of a prototype kernel-level Keystore API with CAAM
+	  Secure Memory for insertion/extraction of bus-protected secrets.
+
+config CRYPTO_DEV_FSL_CAAM_SM_SLOTSIZE
+	int "Size of each keystore slot in Secure Memory"
+	depends on CRYPTO_DEV_FSL_CAAM_SM
+	range 5 9
+	default 7
+	help
+	  Select size of allocation units to divide Secure Memory pages into
+	  (the size of a "slot" as referenced inside the API code).
+	  Established as powers of two.
+	  Examples:
+		5 => 32 bytes
+		6 => 64 bytes
+		7 => 128 bytes
+		8 => 256 bytes
+		9 => 512 bytes
+
+config CRYPTO_DEV_FSL_CAAM_SM_TEST
+	tristate "CAAM Secure Memory - Keystore Test/Example"
+	depends on CRYPTO_DEV_FSL_CAAM_SM
+	depends on m
+	help
+	  Example thread to exercise the Keystore API and to verify that
+	  stored and recovered secrets can be used for general purpose
+	  encryption/decryption.
+
 endif # CRYPTO_DEV_FSL_CAAM_JR
 
 endif # CRYPTO_DEV_FSL_CAAM
