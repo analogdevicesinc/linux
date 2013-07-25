@@ -473,6 +473,12 @@ config SRAM
 config SRAM_EXEC
 	bool
 
+config ALTERA_HWMUTEX
+	tristate "Altera Hardware Mutex"
+	help
+	  This option enables device driver support for Altera Hardware Mutex.
+	  Say Y here if you want to use the Altera hardware mutex support.
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
