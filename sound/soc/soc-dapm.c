@@ -291,6 +291,7 @@ static void dapm_reset(struct snd_soc_card *card)
 	memset(&card->dapm_stats, 0, sizeof(card->dapm_stats));
 
 	list_for_each_entry(w, &card->widgets, list) {
+		w->new_power = w->power;
 		w->power_checked = false;
 		w->inputs = -1;
 		w->outputs = -1;
@@ -1338,7 +1339,7 @@ static void dapm_seq_check_event(struct snd_soc_card *card,
 		return;
 	}
 
-	if (w->power != power)
+	if (w->new_power != power)
 		return;
 
 	if (w->event && (w->event_flags & event)) {
@@ -1367,6 +1368,7 @@ static void dapm_seq_run_coalesced(struct snd_soc_card *card,
 
 	list_for_each_entry(w, pending, power_list) {
 		BUG_ON(reg != w->reg);
+		w->power = w->new_power;
 
 		mask |= w->mask << w->shift;
 		if (w->power)
@@ -1674,8 +1676,6 @@ static void dapm_widget_set_power(struct snd_soc_dapm_widget *w, bool power,
 		dapm_seq_insert(w, up_list, true);
 	else
 		dapm_seq_insert(w, down_list, false);
-
-	w->power = power;
 }
 
 static void dapm_power_one_widget(struct snd_soc_dapm_widget *w,
@@ -1750,7 +1750,7 @@ static int dapm_power_widgets(struct snd_soc_card *card, int event)
 			break;
 		}
 
-		if (w->power) {
+		if (w->new_power) {
 			d = w->dapm;
 
 			/* Supplies and micbiases only bring the
