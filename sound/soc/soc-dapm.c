@@ -173,6 +173,7 @@ static inline struct snd_soc_dapm_widget *dapm_cnew_widget(
 }
 
 struct dapm_kcontrol_data {
+	unsigned int value;
 	struct snd_soc_dapm_widget_list wlist;
 };
 
@@ -229,6 +230,26 @@ static int dapm_kcontrol_add_widget(struct snd_kcontrol *kcontrol,
 	kcontrol->private_data = data;
 
 	return 0;
+}
+
+static unsigned int dapm_kcontrol_get_value(const struct snd_kcontrol *kcontrol)
+{
+	struct dapm_kcontrol_data *data = snd_kcontrol_chip(kcontrol);
+
+	return data->value;
+}
+
+static bool dapm_kcontrol_set_value(const struct snd_kcontrol *kcontrol,
+	unsigned int value)
+{
+	struct dapm_kcontrol_data *data = snd_kcontrol_chip(kcontrol);
+
+	if (data->value == value)
+		return false;
+
+	data->value = value;
+
+	return true;
 }
 
 /**
@@ -2784,9 +2805,7 @@ EXPORT_SYMBOL_GPL(snd_soc_dapm_get_enum_double);
 int snd_soc_dapm_put_enum_double(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist = dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
-	struct snd_soc_codec *codec = widget->codec;
+	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
 	struct snd_soc_card *card = codec->card;
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val, mux, change;
@@ -2809,8 +2828,6 @@ int snd_soc_dapm_put_enum_double(struct snd_kcontrol *kcontrol,
 
 	change = snd_soc_test_bits(codec, e->reg, mask, val);
 	if (change) {
-		widget->value = val;
-
 		update.kcontrol = kcontrol;
 		update.reg = e->reg;
 		update.mask = mask;
@@ -2837,11 +2854,7 @@ EXPORT_SYMBOL_GPL(snd_soc_dapm_put_enum_double);
 int snd_soc_dapm_get_enum_virt(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist = dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
-
-	ucontrol->value.enumerated.item[0] = widget->value;
-
+	ucontrol->value.enumerated.item[0] = dapm_kcontrol_get_value(kcontrol);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dapm_get_enum_virt);
@@ -2856,10 +2869,9 @@ EXPORT_SYMBOL_GPL(snd_soc_dapm_get_enum_virt);
 int snd_soc_dapm_put_enum_virt(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist = dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
-	struct snd_soc_codec *codec = widget->codec;
+	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
 	struct snd_soc_card *card = codec->card;
+	unsigned int value;
 	struct soc_enum *e =
 		(struct soc_enum *)kcontrol->private_value;
 	int change;
@@ -2869,11 +2881,10 @@ int snd_soc_dapm_put_enum_virt(struct snd_kcontrol *kcontrol,
 
 	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
 
-	change = widget->value != ucontrol->value.enumerated.item[0];
-	if (change) {
-		widget->value = ucontrol->value.enumerated.item[0];
-		soc_dapm_mux_update_power(card, kcontrol, widget->value, e);
-	}
+	value = ucontrol->value.enumerated.item[0];
+	change = dapm_kcontrol_set_value(kcontrol, value);
+	if (change)
+		soc_dapm_mux_update_power(card, kcontrol, value, e);
 
 	mutex_unlock(&card->dapm_mutex);
 	return change;
@@ -2936,9 +2947,7 @@ EXPORT_SYMBOL_GPL(snd_soc_dapm_get_value_enum_double);
 int snd_soc_dapm_put_value_enum_double(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist = dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
-	struct snd_soc_codec *codec = widget->codec;
+	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
 	struct snd_soc_card *card = codec->card;
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val, mux, change;
@@ -2961,8 +2970,6 @@ int snd_soc_dapm_put_value_enum_double(struct snd_kcontrol *kcontrol,
 
 	change = snd_soc_test_bits(codec, e->reg, mask, val);
 	if (change) {
-		widget->value = val;
-
 		update.kcontrol = kcontrol;
 		update.reg = e->reg;
 		update.mask = mask;
