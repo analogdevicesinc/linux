@@ -104,19 +104,20 @@
 			regulator-boot-on;
 		};
 
-		axi_spi_0: spi@42000000 {
+		ps7_spi_0: ps7-spi@e0006000 {
+			bus-num = <1>;
+			compatible = "xlnx,ps7-spi-1.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 26 4 >;
+			num-chip-select = <4>;
+			reg = < 0xe0006000 0x1000 >;
+			speed-hz = <100000000>;
+			xlnx,has-ss0 = <0x1>;
+			xlnx,has-ss1 = <0x1>;
+			xlnx,has-ss2 = <0x1>;
+			xlnx,spi-clk-freq-hz = <100000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
-			interrupt-parent = <&gic>;
-			interrupts = <0 57 4>;
-			reg = <0x42000000 0x10000>;
-			xlnx,family = "zynq";
-			xlnx,fifo-exist = <0x1>;
-			xlnx,instance = "axi_spi_0";
-			xlnx,num-ss-bits = <0x1>;
-			xlnx,num-transfer-bits = <0x8>;
-			xlnx,sck-ratio = <0x20>;
 			ad7476@0 {
 				compatible = "adi,ad7476a";
 				reg = <0>;
@@ -125,22 +126,22 @@
 				spi-cpol;
 				vcc-supply = <&adc_vref>;
 			};
-
 		};
-
-		axi_spi_1: spi@42040000 {
+		
+		ps7_spi_1: ps7-spi@e0007000 {
+			bus-num = <2>;
+			compatible = "xlnx,ps7-spi-1.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 49 4 >;
+			num-chip-select = <4>;
+			reg = < 0xe0007000 0x1000 >;
+			speed-hz = <100000000>;
+			xlnx,has-ss0 = <0x1>;
+			xlnx,has-ss1 = <0x1>;
+			xlnx,has-ss2 = <0x1>;
+			xlnx,spi-clk-freq-hz = <100000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
-			interrupt-parent = <&gic>;
-			interrupts = <0 56 4>;
-			reg = <0x42040000 0x10000>;
-			xlnx,family = "zynq";
-			xlnx,fifo-exist = <0x1>;
-			xlnx,instance = "axi_spi_1";
-			xlnx,num-ss-bits = <0x1>;
-			xlnx,num-transfer-bits = <0x8>;
-			xlnx,sck-ratio = <0x20>;
 			ad7303@0 {
 				compatible = "adi,ad7303";
 				reg = <0>;
