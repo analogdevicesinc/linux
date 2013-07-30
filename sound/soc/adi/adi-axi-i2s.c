@@ -65,7 +65,7 @@ static int axi_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 	struct snd_soc_dai *dai)
 {
 	struct axi_i2s *i2s = snd_soc_dai_get_drvdata(dai);
-	unsigned int mask, val;
+	unsigned int mask, val, reset;
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		mask = AXI_I2S_CTRL_RX_EN;
@@ -76,6 +76,13 @@ static int axi_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+			reset = AXI_I2S_RESET_RX_FIFO;
+		else
+			reset = AXI_I2S_RESET_TX_FIFO;
+
+		regmap_write(i2s->regmap, AXI_I2S_REG_RESET, reset);
+
 		val = mask;
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -119,15 +126,7 @@ static int axi_i2s_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
 	struct axi_i2s *i2s = snd_soc_dai_get_drvdata(dai);
-	uint32_t mask;
 	int ret;
-
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		mask = AXI_I2S_RESET_RX_FIFO;
-	else
-		mask = AXI_I2S_RESET_TX_FIFO;
-
-	regmap_write(i2s->regmap, AXI_I2S_REG_RESET, mask);
 
 	ret = snd_pcm_hw_constraint_ratnums(substream->runtime, 0,
 			   SNDRV_PCM_HW_PARAM_RATE,
