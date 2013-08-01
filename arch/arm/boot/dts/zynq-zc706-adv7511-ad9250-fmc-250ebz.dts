@@ -166,17 +166,11 @@
 			};
 		};
 
-		fpga_clock: fpga_clock {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <200000000>;
-		};
-
 		hdmi_clock: axi-clkgen@79000000 {
 			compatible = "adi,axi-clkgen-1.00.a";
 			reg = <0x79060000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&fpga_clock>;
+			clocks = <&clkc 17>;
 		};
 
 		axi_hdmi@70e00000 {

@@ -28,16 +28,16 @@ struct clk;
  * PRE_RATE_CHANGE - called immediately before the clk rate is changed,
  *     to indicate that the rate change will proceed.  Drivers must
  *     immediately terminate any operations that will be affected by the
- *     rate change.  Callbacks may either return NOTIFY_DONE or
- *     NOTIFY_STOP.
+ *     rate change.  Callbacks may either return NOTIFY_DONE, NOTIFY_OK,
+ *     NOTIFY_STOP or NOTIFY_BAD.
  *
  * ABORT_RATE_CHANGE: called if the rate change failed for some reason
  *     after PRE_RATE_CHANGE.  In this case, all registered notifiers on
  *     the clk will be called with ABORT_RATE_CHANGE. Callbacks must
- *     always return NOTIFY_DONE.
+ *     always return NOTIFY_DONE or NOTIFY_OK.
  *
  * POST_RATE_CHANGE - called after the clk rate change has successfully
- *     completed.  Callbacks must always return NOTIFY_DONE.
+ *     completed.  Callbacks must always return NOTIFY_DONE or NOTIFY_OK.
  *
  */
 #define PRE_RATE_CHANGE			BIT(0)
@@ -224,13 +224,23 @@ void devm_clk_put(struct device *dev, struct clk *clk);
 
 
 /**
- * clk_round_rate - adjust a rate to the exact rate a clock can provide
+ * clk_round_rate - round a rate to the exact rate a clock can provide not
+ *		    exceeding @rate
  * @clk: clock source
  * @rate: desired clock rate in Hz
  *
- * Returns rounded clock rate in Hz, or negative errno.
+ * Returns rounded clock rate in Hz, or parent rate
  */
 long clk_round_rate(struct clk *clk, unsigned long rate);
+
+/**
+ * clk_round_rate_nearest - round a rate to the exact rate a clock can provide
+ * @clk: the clk for which we are rounding a rate
+ * @rate: the rate which is to be rounded
+ *
+ * Returns rounded clock rate in Hz, or parent rate
+ */
+long clk_round_rate_nearest(struct clk *clk, unsigned long rate);
 
 /**
  * clk_set_rate - set the clock rate for a clock source
