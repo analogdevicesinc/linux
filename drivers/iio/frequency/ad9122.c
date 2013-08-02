@@ -29,7 +29,7 @@ static const unsigned char ad9122_reg_defaults[][2] = {
 	{AD9122_REG_COMM, 0x00},
 	{AD9122_REG_COMM, AD9122_COMM_RESET},
 	{AD9122_REG_COMM, 0x00},
-	{AD9122_REG_POWER_CTRL, AD9122_POWER_CTRL_PD_AUX_ADC},
+	{AD9122_REG_POWER_CTRL, 0x00},
 	{AD9122_REG_DATA_FORMAT, AD9122_DATA_FORMAT_BINARY},
 	{AD9122_REG_INTERRUPT_EN_1, 0x00},
 	{AD9122_REG_INTERRUPT_EN_2, 0x00},
@@ -149,6 +149,15 @@ static int ad9122_write(struct spi_device *spi,
 		return ret;
 
 	return 0;
+}
+
+static int ad9122_get_temperature_code(struct cf_axi_converter *conv)
+{
+	unsigned tmp;
+
+	tmp = ad9122_read(conv->spi, AD9122_REG_DIE_TEMP_LSB) & 0xFF;
+	tmp |= (ad9122_read(conv->spi, AD9122_REG_DIE_TEMP_MSB) & 0xFF) << 8;
+	return tmp;
 }
 
 static int ad9122_find_dci(unsigned long *err_field, unsigned entries)
@@ -789,13 +798,23 @@ static int ad9122_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	unsigned tmp;
 
 	switch (m) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 
 		*val = ad9122_get_data_clk(conv);
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_PROCESSED:
+		if (!conv->temp_calib_code)
+			return -EINVAL;
 
+		tmp = ad9122_get_temperature_code(conv);
+
+		*val = ((tmp - conv->temp_calib_code) * 77
+			+ conv->temp_calib * 10 + 10000) / 10;
+
+		return IIO_VAL_INT;
 	}
 	return -EINVAL;
 }
@@ -821,6 +840,14 @@ static int ad9122_write_raw(struct iio_dev *indio_dev,
 		if (val != rate) {
 			ad9122_tune_dci(conv);
 		}
+		break;
+	case IIO_CHAN_INFO_PROCESSED:
+		/*
+		 * Writing in_temp0_input with the device temperature in milli
+		 * degrees Celsius triggers the calibration.
+		 */
+		conv->temp_calib_code = ad9122_get_temperature_code(conv);
+		conv->temp_calib = val;
 		break;
 	default:
 		return -EINVAL;
