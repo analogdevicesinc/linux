@@ -176,7 +176,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	default:
-		ret = -EINVAL;
+		ret = conv->read_raw(indio_dev, chan, val, val2, m);
 	}
 
 	mutex_unlock(&indio_dev->mlock);
@@ -285,7 +285,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		ret = cf_axi_dds_sync_frame(indio_dev);
 		break;
 	default:
-		ret = -EINVAL;
+		ret = conv->write_raw(indio_dev, chan, val, val2, mask);
 	}
 
 	mutex_unlock(&indio_dev->mlock);
@@ -381,6 +381,13 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.channel[1] = CF_AXI_DDS_CHAN(1, CF_AXI_DDS_1B_OUTPUT_CTRL, "1B"),
 		.channel[2] = CF_AXI_DDS_CHAN(2, CF_AXI_DDS_2A_OUTPUT_CTRL, "2A"),
 		.channel[3] = CF_AXI_DDS_CHAN(3, CF_AXI_DDS_2B_OUTPUT_CTRL, "2B"),
+		.channel[4] = {
+			.type = IIO_TEMP,
+			.indexed = 1,
+			.channel = 0,
+			.info_mask = IIO_CHAN_INFO_PROCESSED_SEPARATE_BIT,
+		},
+		.num_channels = 5,
 		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
 		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
 	},
@@ -390,6 +397,7 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.channel[1] = CF_AXI_DDS_CHAN(1, CF_AXI_DDS_1B_OUTPUT_CTRL, "1B"),
 		.channel[2] = CF_AXI_DDS_CHAN(2, CF_AXI_DDS_2A_OUTPUT_CTRL, "2A"),
 		.channel[3] = CF_AXI_DDS_CHAN(3, CF_AXI_DDS_2B_OUTPUT_CTRL, "2B"),
+		.num_channels = 4,
 		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
 		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
 	},
@@ -520,7 +528,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->channels = st->chip_info->channel;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->num_channels = 4;
+	indio_dev->num_channels = st->chip_info->num_channels;
 
 	st->iio_info = cf_axi_dds_info;
 	st->iio_info.attrs = conv->attrs;
