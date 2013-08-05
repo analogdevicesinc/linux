@@ -267,7 +267,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		cf_axi_dds_stop(st);
 		reg = dds_read(st, chan->address);
 		reg &= 0x0000FFFF;
-		val64 = (u64) reg * 0x10000ULL + (360000 / 2);
+		val64 = (u64) val * 0x10000ULL + (360000 / 2);
 		do_div(val64, 360000);
 		reg |= val64 << 16;
 		dds_write(st, chan->address, reg);
