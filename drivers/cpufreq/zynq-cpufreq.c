@@ -19,6 +19,7 @@
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/clk/zynq.h>
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/module.h>
@@ -58,6 +59,11 @@ static int zynq_target(struct cpufreq_policy *policy,
 	int ret = 0;
 	struct cpufreq_freqs freqs;
 
+#ifdef CONFIG_SUSPEND
+	if (zynq_clk_suspended)
+		return -EPERM;
+#endif
+
 	if (!freq_table) {
 		dev_err(mpu_dev, "%s: cpu%d: no freq table!\n", __func__,
 				policy->cpu);
@@ -85,10 +91,7 @@ static int zynq_target(struct cpufreq_policy *policy,
 		return ret;
 
 	/* notifiers */
-	for_each_cpu(i, policy->cpus) {
-		freqs.cpu = i;
-		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-	}
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
 
 	dev_dbg(mpu_dev, "cpufreq-zynq: %u MHz --> %u MHz\n",
 			freqs.old / 1000, freqs.new / 1000);
@@ -98,10 +101,7 @@ static int zynq_target(struct cpufreq_policy *policy,
 	freqs.new = zynq_getspeed(policy->cpu);
 
 	/* notifiers */
-	for_each_cpu(i, policy->cpus) {
-		freqs.cpu = i;
-		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
-	}
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 
 	return ret;
 }
@@ -116,9 +116,9 @@ static int __cpuinit zynq_cpu_init(struct cpufreq_policy *policy)
 {
 	int result = 0;
 
-	cpuclk = clk_get_sys("CPU_6OR4X_CLK", NULL);
+	cpuclk = clk_get(NULL, "cpufreq_clk");
 	if (IS_ERR(cpuclk)) {
-		pr_warn("Xilinx: cpufreq: Clock not found.");
+		pr_warn("Xilinx: cpufreq: cpufreq_clk clock not found.");
 		return PTR_ERR(cpuclk);
 	}
 

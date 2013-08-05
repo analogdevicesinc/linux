@@ -216,7 +216,7 @@ static irqreturn_t xuartps_isr(int irq, void *dev_id)
 
 	/* drop byte with parity error if IGNPAR specified */
 	if (isrstatus & port->ignore_status_mask & XUARTPS_IXR_PARITY)
-		isrstatus &= ~(XUARTPS_IXR_RXTRIG | XUARTPS_IXR_TOUT);
+		isrstatus &= ~XUARTPS_IXR_TOUT;
 
 	isrstatus &= port->read_status_mask;
 	isrstatus &= ~port->ignore_status_mask;
@@ -422,11 +422,16 @@ static unsigned int xuartps_set_baud_rate(struct uart_port *port,
 static int xuartps_clk_notifier_cb(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
-	struct clk_notifier_data *ndata = data;
+	u32 ctrl_reg;
 	struct uart_port *port;
+	int locked = 0;
+	struct clk_notifier_data *ndata = data;
+	unsigned long flags = 0;
 	struct xuartps *xuartps = to_xuartps(nb);
 
 	port = xuartps->port;
+	if (port->suspended)
+		return NOTIFY_OK;
 
 	switch (event) {
 	case PRE_RATE_CHANGE:
@@ -440,41 +445,49 @@ static int xuartps_clk_notifier_cb(struct notifier_block *nb,
 		if (!xuartps_calc_baud_divs(ndata->new_rate, xuartps->baud,
 					&bdiv, &cd, &div8))
 			return NOTIFY_BAD;
-		return NOTIFY_OK;
-	}
-	case POST_RATE_CHANGE:
-		/* Set clk dividers to generate correct baud with new clock
-		 * frequency. */
-	{
-		u32 ctrl_reg;
-		unsigned long flags = 0;
 
 		spin_lock_irqsave(&xuartps->port->lock, flags);
-
-		port->uartclk = ndata->new_rate;
-		/* Empty the receive FIFO 1st before making changes */
-		while ((xuartps_readl(XUARTPS_SR_OFFSET) &
-			 XUARTPS_SR_RXEMPTY) != XUARTPS_SR_RXEMPTY)
-			xuartps_readl(XUARTPS_FIFO_OFFSET);
 
 		/* Disable the TX and RX to set baud rate */
 		xuartps_writel(xuartps_readl(XUARTPS_CR_OFFSET) |
 				(XUARTPS_CR_TX_DIS | XUARTPS_CR_RX_DIS),
 				XUARTPS_CR_OFFSET);
 
+		spin_unlock_irqrestore(&xuartps->port->lock, flags);
+
+		return NOTIFY_OK;
+	}
+	case POST_RATE_CHANGE:
+		/* Set clk dividers to generate correct baud with new clock
+		 * frequency. */
+
+		spin_lock_irqsave(&xuartps->port->lock, flags);
+
+		locked = 1;
+		port->uartclk = ndata->new_rate;
+
 		xuartps->baud = xuartps_set_baud_rate(xuartps->port,
 				xuartps->baud);
+		/* fall through */
+	case ABORT_RATE_CHANGE:
+		if (!locked)
+			spin_lock_irqsave(&xuartps->port->lock, flags);
 
 		/* Set TX/RX Reset */
 		xuartps_writel(xuartps_readl(XUARTPS_CR_OFFSET) |
 				(XUARTPS_CR_TXRST | XUARTPS_CR_RXRST),
 				XUARTPS_CR_OFFSET);
 
+		while (xuartps_readl(XUARTPS_CR_OFFSET) &
+				(XUARTPS_CR_TXRST | XUARTPS_CR_RXRST))
+			cpu_relax();
+
 		/*
 		 * Clear the RX disable and TX disable bits and then set the TX
 		 * enable bit and RX enable bit to enable the transmitter and
 		 * receiver.
 		 */
+		xuartps_writel(rx_timeout, XUARTPS_RXTOUT_OFFSET);
 		ctrl_reg = xuartps_readl(XUARTPS_CR_OFFSET);
 		xuartps_writel(
 			(ctrl_reg & ~(XUARTPS_CR_TX_DIS | XUARTPS_CR_RX_DIS)) |
@@ -482,9 +495,7 @@ static int xuartps_clk_notifier_cb(struct notifier_block *nb,
 			XUARTPS_CR_OFFSET);
 
 		spin_unlock_irqrestore(&xuartps->port->lock, flags);
-		return NOTIFY_OK;
-	}
-	case ABORT_RATE_CHANGE:
+
 		return NOTIFY_OK;
 	default:
 		return NOTIFY_DONE;
@@ -798,9 +809,6 @@ static int xuartps_startup(struct uart_port *port)
 	xuartps_writel(XUARTPS_IXR_TXEMPTY | XUARTPS_IXR_PARITY |
 		XUARTPS_IXR_FRAMING | XUARTPS_IXR_OVERRUN |
 		XUARTPS_IXR_RXTRIG | XUARTPS_IXR_TOUT, XUARTPS_IER_OFFSET);
-	xuartps_writel(~(XUARTPS_IXR_TXEMPTY | XUARTPS_IXR_PARITY |
-		XUARTPS_IXR_FRAMING | XUARTPS_IXR_OVERRUN |
-		XUARTPS_IXR_RXTRIG | XUARTPS_IXR_TOUT), XUARTPS_IDR_OFFSET);
 
 	spin_unlock_irqrestore(&port->lock, flags);
 
@@ -1253,21 +1261,15 @@ static int xuartps_probe(struct platform_device *pdev)
 	else
 		xuartps->uartnum = 1;
 
-	if (xuartps->uartnum)
-		xuartps->aperclk = clk_get_sys("UART1_APER", NULL);
-	else
-		xuartps->aperclk = clk_get_sys("UART0_APER", NULL);
+	xuartps->aperclk = clk_get(&pdev->dev, "aper_clk");
 	if (IS_ERR(xuartps->aperclk)) {
-		dev_err(&pdev->dev, "APER clock not found.\n");
+		dev_err(&pdev->dev, "aper_clk clock not found.\n");
 		ret = PTR_ERR(xuartps->aperclk);
 		goto err_out_free;
 	}
-	if (xuartps->uartnum)
-		xuartps->devclk = clk_get_sys("UART1", NULL);
-	else
-		xuartps->devclk = clk_get_sys("UART0", NULL);
+	xuartps->devclk = clk_get(&pdev->dev, "ref_clk");
 	if (IS_ERR(xuartps->devclk)) {
-		dev_err(&pdev->dev, "Device clock not found.\n");
+		dev_err(&pdev->dev, "ref_clk clock not found.\n");
 		ret = PTR_ERR(xuartps->devclk);
 		goto err_out_clk_put_aper;
 	}
@@ -1306,12 +1308,11 @@ static int xuartps_probe(struct platform_device *pdev)
 		port->uartclk = clk;
 		port->private_data = xuartps;
 		xuartps->port = port;
-		dev_set_drvdata(&pdev->dev, port);
+		platform_set_drvdata(pdev, port);
 		rc = uart_add_one_port(&xuartps_uart_driver, port);
 		if (rc) {
 			dev_err(&pdev->dev,
 				"uart_add_one_port() failed; err=%i\n", rc);
-			dev_set_drvdata(&pdev->dev, NULL);
 			port->private_data = NULL;
 			xuartps->port = NULL;
 			ret = rc;
@@ -1342,7 +1343,7 @@ err_out_free:
  **/
 static int xuartps_remove(struct platform_device *pdev)
 {
-	struct uart_port *port = dev_get_drvdata(&pdev->dev);
+	struct uart_port *port = platform_get_drvdata(pdev);
 	int rc = 0;
 	struct xuartps *xuartps;
 
@@ -1354,7 +1355,6 @@ static int xuartps_remove(struct platform_device *pdev)
 		xuartps->port = NULL;
 		port->private_data = NULL;
 		rc = uart_remove_one_port(&xuartps_uart_driver, port);
-		dev_set_drvdata(&pdev->dev, NULL);
 		port->mapbase = 0;
 		clk_disable_unprepare(xuartps->devclk);
 		clk_put(xuartps->devclk);
@@ -1397,6 +1397,19 @@ static int xuartps_suspend(struct device *device)
 
 		clk_disable(xuartps->devclk);
 		clk_disable(xuartps->aperclk);
+	} else {
+		unsigned long flags = 0;
+
+		spin_lock_irqsave(&port->lock, flags);
+		/* Empty the receive FIFO 1st before making changes */
+		while (!(xuartps_readl(XUARTPS_SR_OFFSET) & XUARTPS_SR_RXEMPTY))
+			xuartps_readl(XUARTPS_FIFO_OFFSET);
+		dmb();
+		/* set RX trigger level to 1 */
+		xuartps_writel(1, XUARTPS_RXWM_OFFSET);
+		/* disable RX timeout interrups */
+		xuartps_writel(XUARTPS_IXR_TOUT, XUARTPS_IDR_OFFSET);
+		spin_unlock_irqrestore(&port->lock, flags);
 	}
 
 	return 0;
@@ -1437,7 +1450,12 @@ static int xuartps_resume(struct device *device)
 		xuartps_writel(xuartps_readl(XUARTPS_CR_OFFSET) |
 				(XUARTPS_CR_TXRST | XUARTPS_CR_RXRST),
 				XUARTPS_CR_OFFSET);
+		while (xuartps_readl(XUARTPS_CR_OFFSET) &
+				(XUARTPS_CR_TXRST | XUARTPS_CR_RXRST))
+			cpu_relax();
 
+		/* restore rx timeout value */
+		xuartps_writel(rx_timeout, XUARTPS_RXTOUT_OFFSET);
 		/* Enable Tx/Rx */
 		ctrl_reg = xuartps_readl(XUARTPS_CR_OFFSET);
 		xuartps_writel(
@@ -1445,6 +1463,13 @@ static int xuartps_resume(struct device *device)
 			(XUARTPS_CR_TX_EN | XUARTPS_CR_RX_EN),
 			XUARTPS_CR_OFFSET);
 
+		spin_unlock_irqrestore(&port->lock, flags);
+	} else {
+		spin_lock_irqsave(&port->lock, flags);
+		/* restore original rx trigger level */
+		xuartps_writel(rx_trigger_level, XUARTPS_RXWM_OFFSET);
+		/* enable RX timeout interrupt */
+		xuartps_writel(XUARTPS_IXR_TOUT, XUARTPS_IER_OFFSET);
 		spin_unlock_irqrestore(&port->lock, flags);
 	}
 

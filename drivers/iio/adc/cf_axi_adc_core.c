@@ -671,23 +671,24 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{ },
 };
 
-#define AIM_CHAN(_chan, _si, _bits, _sign)			\
+#define AIM_CHAN(_chan, _si, _bits, _sign)				\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT | 		\
-			IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_CALIBBIAS) |		\
+			BIT(IIO_CHAN_INFO_CALIBSCALE) |			\
+			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
 			.ext_info = axiadc_ext_info,			\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
+			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
-#define AIM_CHAN_UL(_chan, _si, _bits, _sign)			\
+#define AIM_CHAN_UL(_chan, _si, _bits, _sign)				\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SAMP_FREQ_SEPARATE_BIT,		\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),		\
 	  .extend_name = "user_logic",					\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
@@ -696,9 +697,9 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT |	 		\
-			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
-	  .ext_info = axiadc_ext_info,			\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
+			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
+	  .ext_info = axiadc_ext_info,					\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 

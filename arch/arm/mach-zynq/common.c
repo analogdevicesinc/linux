@@ -29,6 +29,7 @@
 #include <linux/of.h>
 #include <linux/memblock.h>
 #include <linux/irqchip.h>
+#include <linux/irqchip/arm-gic.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -65,6 +66,17 @@ static unsigned int freq_divs[] __initdata = {
 	2, 3
 };
 
+static long __init xilinx_calc_opp_freq(struct clk *clk, long rate)
+{
+	long rate_nearest = clk_round_rate_nearest(clk, rate);
+	long rate_round = clk_round_rate(clk, rate_nearest / 1000 * 1000);
+
+	if (rate_round != rate_nearest)
+		rate_nearest += 1000;
+
+	return rate_nearest;
+}
+
 /**
  * zynq_opp_init() - Register OPPs
  *
@@ -77,7 +89,7 @@ static int __init zynq_opp_init(void)
 	unsigned int i;
 	struct device *dev = get_cpu_device(0);
 	int ret = 0;
-	struct clk *cpuclk = clk_get_sys("CPU_6OR4X_CLK", NULL);
+	struct clk *cpuclk = clk_get(NULL, "cpufreq_clk");
 
 	if (!dev) {
 		pr_warn("%s: no cpu device. DVFS not available.", __func__);
@@ -92,13 +104,13 @@ static int __init zynq_opp_init(void)
 
 	/* frequency/voltage operating points. For now use f only */
 	freq = clk_get_rate(cpuclk);
-	ret |= opp_add(dev, freq, 0);
+	ret |= opp_add(dev, xilinx_calc_opp_freq(cpuclk, freq), 0);
 	for (i = 0; i < ARRAY_SIZE(freq_divs); i++) {
-		long tmp = clk_round_rate(cpuclk, freq / freq_divs[i]);
+		long tmp = xilinx_calc_opp_freq(cpuclk, freq / freq_divs[i]);
 		if (tmp >= CPUFREQ_MIN_FREQ_HZ)
 			ret |= opp_add(dev, tmp, 0);
 	}
-	freq = clk_round_rate(cpuclk, CPUFREQ_MIN_FREQ_HZ);
+	freq = xilinx_calc_opp_freq(cpuclk, CPUFREQ_MIN_FREQ_HZ);
 	if (freq >= CPUFREQ_MIN_FREQ_HZ && IS_ERR(opp_find_freq_exact(dev, freq,
 				1)))
 		ret |= opp_add(dev, freq, 0);
@@ -191,14 +203,18 @@ static void __init zynq_map_io(void)
 	zynq_scu_map_io();
 }
 
+static void __init zynq_irq_init(void)
+{
+	gic_arch_extn.flags = IRQCHIP_SKIP_SET_WAKE | IRQCHIP_MASK_ON_SUSPEND;
+	irqchip_init();
+}
+
 static void zynq_system_reset(char mode, const char *cmd)
 {
 	zynq_slcr_system_reset();
 }
 
 static const char * const zynq_dt_match[] = {
-	"xlnx,zynq-zc702",
-	"xlnx,zynq-zc706",
 	"xlnx,zynq-zc770",
 	"xlnx,zynq-7000",
 	NULL
@@ -207,7 +223,7 @@ static const char * const zynq_dt_match[] = {
 MACHINE_START(XILINX_EP107, "Xilinx Zynq Platform")
 	.smp		= smp_ops(zynq_smp_ops),
 	.map_io		= zynq_map_io,
-	.init_irq	= irqchip_init,
+	.init_irq	= zynq_irq_init,
 	.init_machine	= zynq_init_machine,
 	.init_late	= zynq_init_late,
 	.init_time	= zynq_timer_init,
