@@ -274,7 +274,7 @@ struct axiadc_chip_info {
 	int				num_scales;
 	int				max_testmode;
 	unsigned long			max_rate;
-	struct iio_chan_spec		channel[2];
+	struct iio_chan_spec		channel[4];
 };
 
 struct axiadc_state {
@@ -301,9 +301,12 @@ struct axiadc_state {
 	struct iio_chan_spec	channels[16];
 };
 
+struct ad9361_rf_phy;
+
 struct axiadc_converter {
 	struct spi_device 	*spi;
 	struct clk 		*clk;
+	struct ad9361_rf_phy *phy;
 	unsigned			id;
 	unsigned			adc_output_mode;
 	unsigned 		testmode[2];
@@ -332,6 +335,8 @@ struct axiadc_converter {
 
 	int (*post_setup)(struct iio_dev *indio_dev);
 };
+
+
 
 static inline struct axiadc_converter *to_converter(struct device *dev)
 {

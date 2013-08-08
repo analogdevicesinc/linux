@@ -49,7 +49,7 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 			goto error_ret;
 		}
 
-		if ((stat & ADI_MUX_OVER_RANGE) || !(stat & ADI_STATUS) || dma_stat)
+		if ((stat & ADI_MUX_OVER_RANGE) /*|| !(stat & ADI_STATUS)*/ || dma_stat)
 			dev_warn(indio_dev->dev.parent,
 				"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
 				dma_stat, stat);
