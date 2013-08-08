@@ -199,15 +199,20 @@ struct axiadc_state {
 
 };
 
+struct ad9361_rf_phy;
+
 struct axiadc_converter {
 	struct spi_device 	*spi;
 	struct clk 		*clk;
+	struct ad9361_rf_phy *phy;
 	unsigned			id;
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);
 	int		(*setup)(struct spi_device *spi, unsigned mode);
 };
+
+
 
 static inline struct axiadc_converter *to_converter(struct device *dev)
 {
