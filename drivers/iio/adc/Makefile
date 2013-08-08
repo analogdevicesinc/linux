@@ -92,3 +92,6 @@ obj-$(CONFIG_VIPERBOARD_ADC) += viperboard_adc.o
 xilinx-xadc-y := xilinx-xadc-core.o xilinx-xadc-events.o
 obj-$(CONFIG_XILINX_XADC) += xilinx-xadc.o
 obj-$(CONFIG_XILINX_AMS) += xilinx-ams.o
+
+ad9361_drv-y := ad9361.o
+obj-$(CONFIG_AD9361) += ad9361_drv.o
