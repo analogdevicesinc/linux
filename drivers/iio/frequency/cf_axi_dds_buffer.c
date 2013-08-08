@@ -172,7 +172,7 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 	if (x > VDMA_MAX_VSIZE || cnt * x != st->txcount || ((cnt % 8) != 0))
 		return -EINVAL;
 
-	cf_axi_dds_stop(st);
+	dds_write(st, ADI_REG_CNTRL_1, 0);
 
 	st->dma_config.vsize = x;
 	st->dma_config.stride = st->dma_config.hsize = cnt;
