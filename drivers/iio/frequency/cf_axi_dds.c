@@ -53,14 +53,17 @@ static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 	dds_write(st, ADI_REG_FRAME, 0);
 	dds_write(st, ADI_REG_FRAME, ADI_FRAME);
 
-	/* Check FIFO status */
-	stat = conv->get_fifo_status(conv);
-	if (stat) {
-		if (retry++ > 10) {
-			dev_warn(indio_dev->dev.parent, "FRAME/FIFO Reset Retry cnt\n");
-			return -EIO;
+	if (conv->get_fifo_status) {
+		/* Check FIFO status */
+		stat = conv->get_fifo_status(conv);
+		if (stat) {
+			if (retry++ > 10) {
+				dev_warn(indio_dev->dev.parent,
+					 "FRAME/FIFO Reset Retry cnt\n");
+				return -EIO;
+			}
+			cf_axi_dds_sync_frame(indio_dev);
 		}
-		cf_axi_dds_sync_frame(indio_dev);
 	}
 
 	retry = 0;
@@ -84,7 +87,7 @@ static void cf_axi_dds_set_sed_pattern(struct iio_dev *indio_dev, unsigned chan,
 	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
 }
 
-void cf_axi_dds_stop(struct cf_axi_dds_state *st) {
+static void cf_axi_dds_stop(struct cf_axi_dds_state *st) {
 	dds_write(st, ADI_REG_CNTRL_1, 0);
 }
 
@@ -107,10 +110,6 @@ static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
 
 	return 0;
 }
-
-static const int cf_axi_dds_scale_table[16] = {
-	10000, 5000, 2500, 1250, 625, 313, 156,
-};
 
 static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
