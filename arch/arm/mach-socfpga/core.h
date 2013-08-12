@@ -33,20 +33,21 @@
 
 extern void socfpga_secondary_startup(void);
 extern void __iomem *socfpga_scu_base_addr;
-#define SOCFPGA_SYSID_DEFAULT		0x1
-#define SOCFPGA_REVISION_DEFAULT	0x1
 
-/* Sysid register map */
-#define SYSID_ID_REG			0x0
-
-extern void socfpga_init_clocks(void);
-extern void socfpga_sysmgr_init(void);
 /*MPU Module Reset Register */
 #define RSTMGR_MPUMODRST_CPU0	0x1	/*CPU0 Reset*/
 #define RSTMGR_MPUMODRST_CPU1	0x2	/*CPU1 Reset*/
 #define RSTMGR_MPUMODRST_WDS		0x4	/*Watchdog Reset*/
 #define RSTMGR_MPUMODRST_SCUPER	0x8	/*SCU and periphs reset*/
 #define RSTMGR_MPUMODRST_L2		0x10	/*L2 Cache reset*/
+#define SOCFPGA_ID_DEFAULT		0x1
+#define SOCFPGA_REVISION_DEFAULT	0x1
+
+#define SYSMGR_SILICON_ID1_OFFSET 0x0
+#define SYSMGR_SILICON_ID1_REV_SHIFT 0
+#define SYSMGR_SILICON_ID1_REV_MASK 0x0000FFFF
+#define SYSMGR_SILICON_ID1_ID_SHIFT 16
+#define SYSMGR_SILICON_ID1_ID_MASK 0xFFFF0000
 
 extern void __iomem *sys_manager_base_addr;
 extern void __iomem *rst_manager_base_addr;
