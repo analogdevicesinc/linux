@@ -473,12 +473,6 @@ config SRAM
 config SRAM_EXEC
 	bool
 
-config ALTERA_HWMUTEX
-	tristate "Altera Hardware Mutex"
-	help
-	  This option enables device driver support for Altera Hardware Mutex.
-	  Say Y here if you want to use the Altera hardware mutex support.
-
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
@@ -511,6 +505,11 @@ config PCI_ENDPOINT_TEST
 	---help---
            Enable this configuration option to enable the host side test driver
            for PCI Endpoint.
+
+config ALTERA_SYSID
+	tristate "Altera System ID"
+	help
+	This enables Altera System ID soft core driver.
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
