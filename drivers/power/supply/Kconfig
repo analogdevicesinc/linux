@@ -401,6 +401,14 @@ config CHARGER_ISP1704
 	  Say Y to enable support for USB Charger Detection with
 	  ISP1707/ISP1704 USB transceivers.
 
+config SABRESD_MAX8903
+       tristate "Sabresd Board Battery DC-DC Charger for USB and Adapter Power"
+       depends on TOUCHSCREEN_MAX11801
+       help
+         Say Y to enable support for the MAX8903 DC-DC charger and sysfs on
+         sabresd board.The driver supports controlling charger and battery
+         based on the status of charger connections with interrupt handlers.
+
 config CHARGER_MAX8903
 	tristate "MAX8903 Battery DC-DC Charger for USB and Adapter Power"
 	help
