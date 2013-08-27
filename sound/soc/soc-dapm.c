@@ -351,10 +351,7 @@ static void dapm_set_path_status(struct snd_soc_dapm_widget *w,
 		unsigned int mask = (1 << fls(max)) - 1;
 		unsigned int invert = mc->invert;
 
-		if (reg >= 0)
-			val = soc_widget_read(w, reg);
-		else
-			val = 0;
+		val = soc_widget_read(w, reg);
 		val = (val >> shift) & mask;
 		if (invert)
 			val = max - val;
@@ -2739,79 +2736,6 @@ int snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dapm_put_volsw);
-
-/**
- * snd_soc_dapm_get_volsw_virt - virtual dapm mixer get callback
- * @kcontrol: mixer control
- * @ucontrol: control element information
- *
- * Callback to get the value of a virtual dapm mixer control.
- *
- * Returns 0 for success.
- */
-int snd_soc_dapm_get_volsw_virt(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
-	struct soc_mixer_control *mc =
-		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int shift = mc->shift;
-	unsigned int mask = (1 << fls(mc->max)) - 1;
-
-	ucontrol->value.integer.value[0] = (widget->value >> shift) & mask;
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(snd_soc_dapm_get_volsw_virt);
-
-/**
- * snd_soc_dapm_put_volsw_virt - virtual dapm mixer set callback
- * @kcontrol: mixer control
- * @ucontrol: control element information
- *
- * Callback to set the value of a virutal dapm mixer control.
- *
- * Returns 0 for success.
- */
-int snd_soc_dapm_put_volsw_virt(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
-	struct snd_soc_card *card = widget->codec->card;
-	struct soc_mixer_control *mc =
-		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int mask = (1 << fls(mc->max)) - 1;
-	unsigned int shift = mc->shift;
-	unsigned int val, connect;
-	int wi;
-
-	val = ucontrol->value.integer.value[0] & mask;
-
-	mask = mask << shift;
-	val = val << shift;
-
-	if (val)
-		connect = 1;
-	else
-		connect = 0;
-
-	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
-
-	if (val != (widget->value & mask)) {
-		widget->value &= ~mask;
-		widget->value |= val;
-		for (wi = 0; wi < wlist->num_widgets; wi++) {
-			widget = wlist->widgets[wi];
-			soc_dapm_mixer_update_power(widget, kcontrol, connect);
-		}
-	}
-
-	mutex_unlock(&card->dapm_mutex);
-	return 0;
-}
-EXPORT_SYMBOL_GPL(snd_soc_dapm_put_volsw_virt);
 
 /**
  * snd_soc_dapm_get_enum_double - dapm enumerated double mixer get callback
