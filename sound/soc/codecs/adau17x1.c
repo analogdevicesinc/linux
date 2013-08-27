@@ -154,12 +154,11 @@ static const char * const adau17x1_dac_mux_text[] = {
 int adau17x1_dsp_mux_enum_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_dapm_widget *w = wlist->widgets[0];
-	struct adau *adau = snd_soc_codec_get_drvdata(w->codec);
+	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
+	struct adau *adau = snd_soc_codec_get_drvdata(codec);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	unsigned int val, change;
 	struct snd_soc_dapm_update update;
+	unsigned int val, change;
 
 	if (ucontrol->value.enumerated.item[0] >= e->max)
 		return -EINVAL;
@@ -169,33 +168,41 @@ int adau17x1_dsp_mux_enum_put(struct snd_kcontrol *kcontrol,
 		switch (e->reg) {
 		case ADAU17X1_SERIAL_INPUT_ROUTE:
 			val = (adau->tdm_dac_slot * 2) + 1;
+			adau->dsp_playback_bypass = true;
 			break;
 		case ADAU17X1_SERIAL_OUTPUT_ROUTE:
-			val = (adau->tdm_dac_slot * 2) + 1;
+			val = (adau->tdm_adc_slot * 2) + 1;
+			adau->dsp_capture_bypass = true;
 			break;
 		default:
-			val = 0;
-			break;
+			return -EINVAL;
 		}
 		break;
 	default:
 		val = 0;
+
+		switch (e->reg) {
+		case ADAU17X1_SERIAL_INPUT_ROUTE:
+			adau->dsp_playback_bypass = false;
+			break;
+		case ADAU17X1_SERIAL_OUTPUT_ROUTE:
+			adau->dsp_capture_bypass = false;
+			break;
+		default:
+			return -EINVAL;
+		}
 		break;
 	}
 
-	change = snd_soc_test_bits(w->codec, e->reg, 0xff, val);
+	change = snd_soc_test_bits(codec, e->reg, 0xff, val);
 	if (change) {
 		update.kcontrol = kcontrol;
-		update.widget = w;
 		update.reg = e->reg;
 		update.mask = 0xff;
 		update.val = val;
-		w->dapm->update = &update;
 
-		snd_soc_dapm_mux_update_power(w, kcontrol,
-				ucontrol->value.enumerated.item[0], e);
-
-		w->dapm->update = NULL;
+		snd_soc_dapm_mux_update_power(&codec->dapm, kcontrol,
+				ucontrol->value.enumerated.item[0], e, &update);
 	}
 
 	return change;
@@ -205,12 +212,11 @@ EXPORT_SYMBOL_GPL(adau17x1_dsp_mux_enum_put);
 int adau17x1_dsp_mux_enum_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val;
 
-	val = snd_soc_read(widget->codec, e->reg);
+	val = snd_soc_read(codec, e->reg);
 	ucontrol->value.enumerated.item[0] = val == 0;
 
 	return 0;
@@ -829,7 +835,6 @@ int adau17x1_add_routes(struct snd_soc_codec *codec)
 	}
 	return ret;
 }
-EXPORT_SYMBOL_GPL(adau17x1_add_routes);
 
 #if IS_ENABLED(CONFIG_SPI_MASTER)
 static void adau17x1_spi_mode(struct device *dev)
