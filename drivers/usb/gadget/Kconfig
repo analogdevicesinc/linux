@@ -343,6 +343,12 @@ config USB_CONFIGFS_MASS_STORAGE
 	  device (in much the same way as the "loop" device driver),
 	  specified as a module parameter or sysfs option.
 
+config FSL_UTP
+        bool "UTP over Storage Gadget"
+        depends on USB_CONFIGFS_MASS_STORAGE
+        help
+          Freescale's extension to MSC protocol
+
 config USB_CONFIGFS_F_LB_SS
 	bool "Loopback and sourcesink function (for testing)"
 	depends on USB_CONFIGFS
