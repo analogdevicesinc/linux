@@ -1,0 +1,48 @@
+/ {
+	clocks {
+		ad9361_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <40000000>;
+			clock-output-names = "ad9361_ext_refclk";
+		};
+	};
+};
+
+&axi_spi_0 {
+	adc0_ad9361: ad9361@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "ad9361";
+		reg = <0>;
+		spi-cpha;
+		spi-max-frequency = <1000000>;
+		clocks = <&ad9361_clkin 0>;
+		clock-names = "ad9361_ext_refclk";
+		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+
+		adi,pp-tx-swap-enable;
+		adi,pp-rx-swap-enable;
+		adi,rx-frame-pulse-mode-enable;
+		adi,lvds-mode-enable;
+		adi,lvds-bias-mV = <150>;
+		adi,lvds-rx-onchip-termination-enable;
+		adi,rx-data-delay = <0>;
+		adi,tx-fb-clock-delay = <7>;
+		adi,rf-bandwidth-hz = <18000000>;
+		adi,2rx-2tx-mode-enable;
+		adi,frequency-division-duplex-mode-enable;
+		//adi,split-gain-table-mode-enable;
+		adi,rx-rf-port-input-select = <0>; /* (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced */
+		adi,tx-rf-port-input-select = <0>; /* TX1A, TX2A */
+		adi,rx-synthesizer-frequency-hz = /bits/ 64 <2000000000>;
+		adi,tx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
+		adi,dcxo-coarse-and-fine-tune = <8 4096>;
+		/*				BBPLL     ADC        R2CLK     R1CLK    CLKRF    RSAMPL  */
+		adi,rx-path-clock-frequencies = <983040000 245760000 122880000 61440000 30720000 30720000>;
+		/*				BBPLL     DAC        T2CLK     T1CLK    CLKTF    TSAMPL  */
+		adi,tx-path-clock-frequencies = <983040000 122880000 122880000 61440000 30720000 30720000>;
+	};
+};
+
