@@ -16,6 +16,7 @@
 #include <linux/err.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
+#include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -174,7 +175,8 @@ static struct ad7192_state *ad_sigma_delta_to_ad7192(struct ad_sigma_delta *sd)
 	return container_of(sd, struct ad7192_state, sd);
 }
 
-static int ad7192_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
+static int ad7192_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
+	unsigned int channel)
 {
 	struct ad7192_state *st = ad_sigma_delta_to_ad7192(sd);
 
@@ -625,16 +627,50 @@ static const struct iio_chan_spec ad7193_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(14),
 };
 
+static int ad7192_parse_dt(struct device_node *np,
+               struct ad7192_platform_data *pdata)
+{
+	of_property_read_u16(np, "adi,reference-voltage-mv", &pdata->vref_mv);
+	of_property_read_u8(np, "adi,clock-source-select", &pdata->clock_source_sel);
+	of_property_read_u32(np, "adi,external-clock-Hz", &pdata->ext_clk_hz);
+	pdata->refin2_en = of_property_read_bool(np, "adi,refin2-pins-enable");
+	pdata->rej60_en = of_property_read_bool(np, "adi,rejection-60-Hz-enable");
+	pdata->sinc3_en = of_property_read_bool(np, "adi,sinc3-filter-enable");
+	pdata->chop_en = of_property_read_bool(np, "adi,chop-enable");
+	pdata->buf_en = of_property_read_bool(np, "adi,buffer-enable");
+	pdata->unipolar_en = of_property_read_bool(np, "adi,unipolar-enable");
+	pdata->burnout_curr_en = of_property_read_bool(np, "adi,burnout-currents-enable");
+
+	return 0;
+}
+
 static int ad7192_probe(struct spi_device *spi)
 {
-	const struct ad7192_platform_data *pdata = dev_get_platdata(&spi->dev);
+	struct ad7192_platform_data *pdata;
 	struct ad7192_state *st;
 	struct iio_dev *indio_dev;
 	int ret, voltage_uv = 0;
 
+	pdata = devm_kzalloc(&spi->dev, sizeof(struct ad7192_platform_data),
+				GFP_KERNEL);
 	if (!pdata) {
-		dev_err(&spi->dev, "no platform data?\n");
-		return -ENODEV;
+		return -ENOMEM;
+	}
+	if(spi->dev.platform_data) {
+		pdata = spi->dev.platform_data;
+	}
+	else {
+		if (spi->dev.of_node) {
+			ret = ad7192_parse_dt(spi->dev.of_node, pdata);
+			if (ret) {
+				dev_err(&spi->dev, "no platform data?\n");
+				return -ENODEV;
+			}
+		}
+		else {
+			dev_err(&spi->dev, "no platform data?\n");
+			return -ENODEV;
+		}
 	}
 
 	if (!spi->irq) {
