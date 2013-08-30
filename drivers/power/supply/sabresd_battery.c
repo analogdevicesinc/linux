@@ -622,17 +622,20 @@ static struct max8903_pdata *max8903_of_populate_pdata(
 		return NULL;
 	}
 
-	if (of_property_read_u32(of_node, "offset-charger",
-		&offset_charger))
-		dev_err(dev, "Not setting offset-charger in dts!\n");
+	/* no need check offset without adc converter */
+	if (!pdata->feature_flag) {
+		if (of_property_read_u32(of_node, "offset-charger",
+					 &offset_charger))
+			dev_err(dev, "Not setting offset-charger in dts!\n");
 
-	if (of_property_read_u32(of_node, "offset-discharger",
-		&offset_discharger))
-		dev_err(dev, "Not setting offset-discharger in dts!\n");
+		if (of_property_read_u32(of_node, "offset-discharger",
+					 &offset_discharger))
+			dev_err(dev, "Not setting offset-discharger in dts!\n");
 
-	if (of_property_read_u32(of_node, "offset-usb-charger",
-		&offset_usb_charger))
-		dev_err(dev, "Not setting offset-usb-charger in dts!\n");
+		if (of_property_read_u32(of_node, "offset-usb-charger",
+					 &offset_usb_charger))
+			dev_err(dev, "Not setting offset-usb-charger in dts!\n");
+	}
 
 	return pdata;
 }
