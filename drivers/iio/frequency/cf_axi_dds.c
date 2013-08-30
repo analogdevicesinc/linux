@@ -101,7 +101,7 @@ static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
 	do_div(val64, st->dac_clk);
 	val = ADI_DDS_INCR(val64) | 1;
 
-	val64 = (u64) phase * 0xFFFFULL;
+	val64 = (u64) phase * 0x10000ULL + (360000 / 2);
 	do_div(val64, 360000);
 	val |= ADI_DDS_INIT(val64);
 
@@ -154,9 +154,9 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
-		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
-		val64 = (u64)ADI_TO_DDS_INIT(reg) * 360000ULL;
-		do_div(val64, 0xFFFF);
+		reg = dds_read(st, chan->address);
+		val64 = (u64)(reg >> 16) * 360000ULL + (0x10000 / 2);
+		do_div(val64, 0x10000);
 		*val = val64;
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
@@ -169,7 +169,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	default:
-		ret = -EINVAL;
+		ret = conv->read_raw(indio_dev, chan, val, val2, m);
 	}
 
 	mutex_unlock(&indio_dev->mlock);
@@ -241,10 +241,14 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 			break;
 		}
+
+		if (val == 360000)
+			val = 0;
+
 		cf_axi_dds_stop(st);
-		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
-		reg &= ~ADI_DDS_INIT(~0);
-		val64 = (u64) val * 0xFFFFULL;
+		reg = dds_read(st, chan->address);
+		reg &= 0x0000FFFF;
+		val64 = (u64) val * 0x10000ULL + (360000 / 2);
 		do_div(val64, 360000);
 		reg |= ADI_DDS_INIT(val64);
 		dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel), reg);
@@ -262,7 +266,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		ret = cf_axi_dds_sync_frame(indio_dev);
 		break;
 	default:
-		ret = -EINVAL;
+		ret = conv->write_raw(indio_dev, chan, val, val2, mask);
 	}
 
 	mutex_unlock(&indio_dev->mlock);
@@ -330,11 +334,11 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	{ .type = IIO_ALTVOLTAGE,					\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |			\
-		       IIO_CHAN_INFO_SCALE_SEPARATE_BIT |		\
-	  	       IIO_CHAN_INFO_PHASE_SEPARATE_BIT |		\
-		       IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT |		\
-		       IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
+		       BIT(IIO_CHAN_INFO_SCALE) |			\
+	  	       BIT(IIO_CHAN_INFO_PHASE) |			\
+		       BIT(IIO_CHAN_INFO_FREQUENCY),			\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	  .address = _address,						\
 	  .output = 1,							\
 	  .extend_name = _extend_name,					\
@@ -358,9 +362,15 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.channel[1] = CF_AXI_DDS_CHAN(1, 0, "1B"),
 		.channel[2] = CF_AXI_DDS_CHAN(2, 0, "2A"),
 		.channel[3] = CF_AXI_DDS_CHAN(3, 0, "2B"),
+		.channel[4] = {
+			.type = IIO_TEMP,
+			.indexed = 1,
+			.channel = 0,
+			.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+		},
 		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
 		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
-		.num_channels = 4,
+		.num_channels = 5,
 		.num_buf_channels = 2,
 	},
 	[ID_AD9739A] = {
@@ -524,7 +534,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 
 	cf_axi_dds_sync_frame(indio_dev);
 
-	st->tx_chan = of_dma_request_slave_channel(op->dev.of_node, "tx");
+	st->tx_chan = dma_request_slave_channel(&op->dev, "tx");
 	if (!st->tx_chan) {
 		dev_err(dev, "failed to find vdma device\n");
 		goto failed3;

@@ -971,7 +971,8 @@ static int xemaclite_open(struct net_device *dev)
 		phy_write(lp->phy_dev, MII_CTRL1000, 0);
 
 		/* Advertise only 10 and 100mbps full/half duplex speeds */
-		phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL);
+		phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL |
+			  ADVERTISE_CSMA);
 
 		/* Restart auto negotiation */
 		bmcr = phy_read(lp->phy_dev, MII_BMCR);
@@ -1278,7 +1279,6 @@ static int xemaclite_of_remove(struct platform_device *of_dev)
 	release_mem_region(ndev->mem_start, ndev->mem_end-ndev->mem_start + 1);
 
 	xemaclite_remove_ndev(ndev);
-	dev_set_drvdata(dev, NULL);
 
 	return 0;
 }

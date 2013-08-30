@@ -93,8 +93,8 @@ static const struct reg_default adau1761_reg_defaults[] = {
 	{ ADAU17X1_DAC_CONTROL0,		0x00 },
 	{ ADAU17X1_DAC_CONTROL1,		0x00 },
 	{ ADAU17X1_DAC_CONTROL2,		0x00 },
-	{ ADAU17X1_SERIAL_PORT_PAD,		0x00 },
-	{ ADAU17X1_CONTROL_PORT_PAD0,		0x00 },
+	{ ADAU17X1_SERIAL_PORT_PAD,		0xaa },
+	{ ADAU17X1_CONTROL_PORT_PAD0,		0xaa },
 	{ ADAU17X1_CONTROL_PORT_PAD1,		0x00 },
 	{ ADAU17X1_DSP_SAMPLING_RATE,		0x01 },
 	{ ADAU17X1_SERIAL_INPUT_ROUTE,		0x00 },
@@ -138,7 +138,7 @@ static const SOC_VALUE_ENUM_SINGLE_DECL(adau1761_capture_bias_enum,
 		adau1761_bias_select_values);
 
 static const struct snd_kcontrol_new adau1761_jack_detect_controls[] = {
-	SOC_SINGLE("Jack Detect Switch", 4, 1, 0, ADAU1761_DIGMIC_JACKDETECT),
+	SOC_SINGLE("Jack Detect Switch", ADAU1761_DIGMIC_JACKDETECT, 4, 1, 0),
 };
 
 static const struct snd_kcontrol_new adau1761_differential_mode_controls[] = {
@@ -191,8 +191,10 @@ static const struct snd_kcontrol_new adau1761_mono_controls[] = {
 };
 
 static const struct snd_kcontrol_new adau1761_left_mixer_controls[] = {
-	SOC_DAPM_SINGLE_VIRT("Left DAC Switch", 0, 1),
-	SOC_DAPM_SINGLE_VIRT("Right DAC Switch", 1, 1),
+	SOC_DAPM_SINGLE_AUTODISABLE("Left DAC Switch",
+		ADAU1761_PLAY_MIXER_LEFT0, 5, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("Right DAC Switch",
+		ADAU1761_PLAY_MIXER_LEFT0, 6, 1, 0),
 	SOC_DAPM_SINGLE_TLV("Aux Bypass Volume",
 		ADAU1761_PLAY_MIXER_LEFT0, 1, 8, 0, adau1761_sidetone_tlv),
 	SOC_DAPM_SINGLE_TLV("Right Bypass Volume",
@@ -202,8 +204,10 @@ static const struct snd_kcontrol_new adau1761_left_mixer_controls[] = {
 };
 
 static const struct snd_kcontrol_new adau1761_right_mixer_controls[] = {
-	SOC_DAPM_SINGLE_VIRT("Left DAC Switch", 0, 1),
-	SOC_DAPM_SINGLE_VIRT("Right DAC Switch", 1, 1),
+	SOC_DAPM_SINGLE_AUTODISABLE("Left DAC Switch",
+		ADAU1761_PLAY_MIXER_RIGHT0, 5, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("Right DAC Switch",
+		ADAU1761_PLAY_MIXER_RIGHT0, 6, 1, 0),
 	SOC_DAPM_SINGLE_TLV("Aux Bypass Volume",
 		ADAU1761_PLAY_MIXER_RIGHT0, 1, 8, 0, adau1761_sidetone_tlv),
 	SOC_DAPM_SINGLE_TLV("Right Bypass Volume",
@@ -256,23 +260,10 @@ static const struct snd_soc_dapm_widget adau1x61_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("Right Input Mixer", ADAU1761_REC_MIXER_RIGHT0, 0, 0,
 		NULL, 0),
 
-	/* To avoid clicks and pops the DAC outputs need to be muted when DACs
-	 * are disabled. This is why we insert these extra widgets here. The
-	 * virtual DAC switches of the playback mixers control whether they get
-	 * enabled when the DACs are active. */
-	SND_SOC_DAPM_MIXER("Left Playback Mixer Left DAC Mute",
-		ADAU1761_PLAY_MIXER_LEFT0, 5, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("Left Playback Mixer Right DAC Mute",
-		ADAU1761_PLAY_MIXER_LEFT0, 6, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("Right Playback Mixer Left DAC Mute",
-		ADAU1761_PLAY_MIXER_RIGHT0, 5, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("Right Playback Mixer Right DAC Mute",
-		ADAU1761_PLAY_MIXER_RIGHT0, 6, 0, NULL, 0),
-
-	SOC_MIXER_ARRAY("Left Playback Mixer", ADAU1761_PLAY_MIXER_LEFT0,
-		0, 0, adau1761_left_mixer_controls),
-	SOC_MIXER_ARRAY("Right Playback Mixer", ADAU1761_PLAY_MIXER_RIGHT0,
-		0, 0, adau1761_right_mixer_controls),
+	SOC_MIXER_ARRAY("Left Playback Mixer",
+		ADAU1761_PLAY_MIXER_LEFT0, 0, 0, adau1761_left_mixer_controls),
+	SOC_MIXER_ARRAY("Right Playback Mixer",
+		ADAU1761_PLAY_MIXER_RIGHT0, 0, 0, adau1761_right_mixer_controls),
 	SOC_MIXER_ARRAY("Left LR Playback Mixer", ADAU1761_PLAY_LR_MIXER_LEFT,
 		0, 0, adau1761_left_lr_mixer_controls),
 	SOC_MIXER_ARRAY("Right LR Playback Mixer", ADAU1761_PLAY_LR_MIXER_RIGHT,
@@ -324,20 +315,11 @@ static const struct snd_soc_dapm_route adau1x61_dapm_routes[] = {
 	{ "Left LR Playback Mixer", NULL, "Left Playback Enable"},
 	{ "Right LR Playback Mixer", NULL, "Right Playback Enable"},
 
-	{ "Left Playback Mixer Left DAC Mute", NULL, "Left DAC" },
-	{ "Left Playback Mixer Right DAC Mute", NULL, "Right DAC" },
-	{ "Right Playback Mixer Left DAC Mute", NULL, "Left DAC" },
-	{ "Right Playback Mixer Right DAC Mute", NULL, "Right DAC" },
+	{ "Left Playback Mixer", "Left DAC Switch", "Left DAC" },
+	{ "Left Playback Mixer", "Right DAC Switch", "Right DAC" },
 
-	{ "Left Playback Mixer", "Left DAC Switch",
-		"Left Playback Mixer Left DAC Mute" },
-	{ "Left Playback Mixer", "Right DAC Switch",
-		"Left Playback Mixer Right DAC Mute" },
-
-	{ "Right Playback Mixer", "Left DAC Switch",
-		"Right Playback Mixer Left DAC Mute" },
-	{ "Right Playback Mixer", "Right DAC Switch",
-		"Right Playback Mixer Right DAC Mute" },
+	{ "Right Playback Mixer", "Left DAC Switch", "Left DAC" },
+	{ "Right Playback Mixer", "Right DAC Switch", "Right DAC" },
 
 	{ "Left LR Playback Mixer", "Left Volume", "Left Playback Mixer" },
 	{ "Left LR Playback Mixer", "Right Volume", "Right Playback Mixer" },

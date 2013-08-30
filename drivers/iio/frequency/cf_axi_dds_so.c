@@ -302,11 +302,11 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	{ .type = IIO_ALTVOLTAGE,					\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |			\
-		       IIO_CHAN_INFO_SCALE_SEPARATE_BIT |		\
-	  	       IIO_CHAN_INFO_PHASE_SEPARATE_BIT |		\
-		       IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT |		\
-		       IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
+		       BIT(IIO_CHAN_INFO_SCALE) |			\
+	  	       BIT(IIO_CHAN_INFO_PHASE) |			\
+		       BIT(IIO_CHAN_INFO_FREQUENCY),			\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	  .address = _address,						\
 	  .output = 1,							\
 	  .extend_name = _extend_name,					\

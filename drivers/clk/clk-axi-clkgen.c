@@ -1,7 +1,7 @@
 /*
  * AXI clkgen driver
  *
- * Copyright 2012-2013 Analog Device Inc.
+ * Copyright 2012-2013 Analog Devices Inc.
  *  Author: Lars-Peter Clausen <lars@metafoo.de>
  *
  * Licensed under the GPL-2.
@@ -98,7 +98,7 @@ static void axi_clkgen_calc_params(unsigned long fin, unsigned long fout,
 	fin /= 1000;
 	fout /= 1000;
 
-	best_f = UINT_MAX;
+	best_f = ULONG_MAX;
 	*best_d = 0;
 	*best_m = 0;
 	*best_dout = 0;
@@ -270,19 +270,20 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct clk *clk;
 
-	axi_clkgen = devm_kzalloc(&pdev->dev, sizeof(*axi_clkgen),
-			GFP_KERNEL);
+	axi_clkgen = devm_kzalloc(&pdev->dev, sizeof(*axi_clkgen), GFP_KERNEL);
 	if (!axi_clkgen)
 		return -ENOMEM;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	axi_clkgen->base = devm_request_and_ioremap(&pdev->dev, mem);
-	if (!axi_clkgen->base)
-		return -ENXIO;
+	axi_clkgen->base = devm_ioremap_resource(&pdev->dev, mem);
+	if (IS_ERR(axi_clkgen->base))
+		return PTR_ERR(axi_clkgen->base);
 
 	parent_name = of_clk_get_parent_name(pdev->dev.of_node, 0);
-	clk_name = pdev->dev.of_node->name;
+	if (!parent_name)
+		return -EINVAL;
 
+	clk_name = pdev->dev.of_node->name;
 	of_property_read_string(pdev->dev.of_node, "clock-output-names",
 		&clk_name);
 
@@ -297,9 +298,8 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
-	of_clk_add_provider(pdev->dev.of_node, of_clk_src_simple_get, clk);
-
-	return 0;
+	return of_clk_add_provider(pdev->dev.of_node, of_clk_src_simple_get,
+				    clk);
 }
 
 static int axi_clkgen_remove(struct platform_device *pdev)
@@ -328,4 +328,4 @@ module_platform_driver(axi_clkgen_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
-MODULE_DESCRIPTION("Driver for the Analog Devices AXI clkgen pcore clock generator");
+MODULE_DESCRIPTION("Driver for the Analog Devices' AXI clkgen pcore clock generator");

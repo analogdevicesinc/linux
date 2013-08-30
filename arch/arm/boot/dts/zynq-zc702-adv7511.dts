@@ -9,10 +9,12 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		i2c0: i2c@0 {
-			compatible = "i2c-gpio";
-			gpios = <&gpio 51 0 &gpio 50 0>;
-			i2c-gpio,delay-us = <2>;
+		i2c@41600000 {
+			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = <0 58 4>;
+			reg = <0x41600000 0x10000>;
+			bus-id = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -57,22 +59,6 @@
 
 		};
 
-		axi_dma_0: axidma@40400000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			reg = < 0x40400000 0x1000 >;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
-			dma-channel@40400000 {
-				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = < 0 58 0x4 >;
-				xlnx,datawidth = <0x20>;
-				xlnx,sg-length-width = <20>;
-				xlnx,include-dre = <0x0>;
-			};
-		};
-
 		axi_vdma_0: axivdma@43000000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -90,22 +76,16 @@
 			};
 		};
 
-		fpga_clock: fpga_clock {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <200000000>;
-		};
-
-		hdmi_clock: axi-clkgen@66000000 {
+		hdmi_clock: axi-clkgen@79000000 {
 			compatible = "adi,axi-clkgen-1.00.a";
-			reg = <0x66000000 0x10000>;
+			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&fpga_clock>;
+			clocks = <&clkc 17>;
 		};
 
-		axi_hdmi@6c000000 {
+		axi_hdmi@70e00000 {
 			compatible = "adi,axi-hdmi-1.00.a";
-			reg = <0x6c000000 0x10000>;
+			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
 			dmas = <&axi_vdma_0 0>;
 			dma-names = "video";
@@ -120,10 +100,10 @@
 
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
-			reg = < 0x75c00000 0x1000 >;
-			dmas = <&axi_dma_0 0>;
+			reg = <0x75c00000 0x1000>;
+			dmas = <&ps7_dma 0>;
 			dma-names = "tx";
-			clocks = <&fpga_clock &audio_clock>;
+			clocks = <&clkc 15 &audio_clock>;
 			clock-names = "axi", "spdif";
 		};
 

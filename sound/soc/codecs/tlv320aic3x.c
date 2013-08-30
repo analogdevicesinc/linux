@@ -140,8 +140,7 @@ static const u8 aic3x_reg[AIC3X_CACHEREGNUM] = {
 static int snd_soc_dapm_put_volsw_aic3x(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	unsigned int reg = mc->reg;
@@ -149,10 +148,9 @@ static int snd_soc_dapm_put_volsw_aic3x(struct snd_kcontrol *kcontrol,
 	int max = mc->max;
 	unsigned int mask = (1 << fls(max)) - 1;
 	unsigned int invert = mc->invert;
-	unsigned short val, val_mask;
-	int ret;
-	struct snd_soc_dapm_path *path;
-	int found = 0;
+	unsigned short val;
+	struct snd_soc_dapm_update update;
+	int connect, change;
 
 	val = (ucontrol->value.integer.value[0] & mask);
 
@@ -160,42 +158,26 @@ static int snd_soc_dapm_put_volsw_aic3x(struct snd_kcontrol *kcontrol,
 	if (val)
 		val = mask;
 
+	connect = !!val;
+
 	if (invert)
 		val = mask - val;
-	val_mask = mask << shift;
-	val = val << shift;
 
-	mutex_lock(&widget->codec->mutex);
+	mask <<= shift;
+	val <<= shift;
 
-	if (snd_soc_test_bits(widget->codec, reg, val_mask, val)) {
-		/* find dapm widget path assoc with kcontrol */
-		list_for_each_entry(path, &widget->dapm->card->paths, list) {
-			if (path->kcontrol != kcontrol)
-				continue;
+	change = snd_soc_test_bits(codec, val, mask, reg);
+	if (change) {
+		update.kcontrol = kcontrol;
+		update.reg = reg;
+		update.mask = mask;
+		update.val = val;
 
-			/* found, now check type */
-			found = 1;
-			if (val)
-				/* new connection */
-				path->connect = invert ? 0 : 1;
-			else
-				/* old connection must be powered down */
-				path->connect = invert ? 1 : 0;
-
-			dapm_mark_dirty(path->source, "tlv320aic3x source");
-			dapm_mark_dirty(path->sink, "tlv320aic3x sink");
-
-			break;
-		}
-
-		if (found)
-			snd_soc_dapm_sync(widget->dapm);
+		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
+			&update);
 	}
 
-	ret = snd_soc_update_bits(widget->codec, reg, val_mask, val);
-
-	mutex_unlock(&widget->codec->mutex);
-	return ret;
+	return change;
 }
 
 /*

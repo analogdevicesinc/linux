@@ -2,10 +2,6 @@
 
 / {
 	model = "Xilinx Zynq ZC702";
-	compatible = "xlnx,zynq-zc702";
-	#address-cells = <0x1>;
-	#size-cells = <0x1>;
-	interrupt-parent = <0x1>;
 
 	memory {
 		device_type = "memory";
@@ -16,6 +12,104 @@
 //		bootargs = "console=ttyPS0,115200 root=/dev/ram rw initrd=0x1100000,33M ip=:::::eth0:dhcp earlyprintk";
 		bootargs = "console=ttyPS0,115200 root=/dev/mmcblk0p2 rw earlyprintk rootfstype=ext4 rootwait devtmpfs.mount=0";
 		linux,stdout-path = "/amba@0/uart@E0001000";
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		ds12 {
+			label = "ds12:green";
+			gpios = <&gpio 8 0>;
+		};
+
+		ds15 {
+			label = "ds15:green";
+			gpios = <&gpio 58 0>;
+		};
+
+		ds16 {
+			label = "ds16:green";
+			gpios = <&gpio 59 0>;
+		};
+
+		ds17 {
+			label = "ds17:green";
+			gpios = <&gpio 60 0>;
+		};
+
+		ds18 {
+			label = "ds18:green";
+			gpios = <&gpio 61 0>;
+		};
+
+		ds19 {
+			label = "ds19:green";
+			gpios = <&gpio 62 0>;
+		};
+
+		ds20 {
+			label = "ds20:green";
+			gpios = <&gpio 63 0>;
+		};
+
+		ds21 {
+			label = "ds21:green";
+			gpios = <&gpio 64 0>;
+		};
+
+		ds22 {
+			label = "ds22:green";
+			gpios = <&gpio 65 0>;
+		};
+
+		ds23 {
+			label = "ds23:green";
+			gpios = <&gpio 10 0>;
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+
+		sw5 {
+			label = "Left";
+			linux,code = <105>; // Left
+			gpios = <&gpio 54 0>;
+		};
+
+		sw7 {
+			label = "Right";
+			linux,code = <106>; // Right
+			gpios = <&gpio 55 0>;
+		};
+
+		sw15_0 {
+			label = "SW15_0";
+			linux,code = <0>; // SW_LID
+			linux,input-type = <0x5>; // EV_SW
+			gpios = <&gpio 56 0>;
+		};
+
+		sw15_1 {
+			label = "SW15_1";
+			linux,code = <1>; // SW_TABLET_MODE
+			linux,input-type = <0x5>; // EV_SW
+			gpios = <&gpio 57 0>;
+		};
+
+		sw13 {
+			label = "Select";
+			linux,code = <28>; // Enter
+			gpios = <&gpio 14 0>;
+		};
+
+		sw14 {
+			label = "SW14";
+			linux,code = <1>; // Esc
+			gpios = <&gpio 12 0>;
+		};
 	};
 };
 

@@ -9,11 +9,11 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		axi_iic_0: i2c@41600000 {
+		i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = < 0 57 0x4 >;
-			reg = < 0x41600000 0x10000 >;
+			interrupts = <0 58 0x4>;
+			reg = <0x41600000 0x10000>;
 
 			#size-cells = <0>;
 			#address-cells = <1>;
@@ -80,17 +80,11 @@
 			};
 		};
 
-		fpga_clock: fpga_clock {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <200000000>;
-		};
-
 		hdmi_clock: axi-clkgen@79000000 {
 			compatible = "adi,axi-clkgen-1.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&fpga_clock>;
+			clocks = <&clkc 17>;
 		};
 
 		axi_hdmi@70e00000 {
@@ -114,7 +108,7 @@
 			reg = <0x75c00000 0x1000>;
 			dmas = <&ps7_dma 0>;
 			dma-names = "tx";
-			clocks = <&fpga_clock &audio_clock>;
+			clocks = <&clkc 15 &audio_clock>;
 			clock-names = "axi", "spdif";
 		};
 
