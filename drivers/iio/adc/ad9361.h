@@ -48,7 +48,7 @@
 #define CONTROL_OUTPUT_POINTER		0x035
 #define CONTROL_OUTPUT_ENABLE		0x036
 #define PRODUCT_ID                      0x037
-#define PRODUCT_ID_MASK 0x08
+#define PRODUCT_ID_MASK 0xF8
 #define PRODUCT_ID_9361 0x08
 #define REV_MASK	0x07
 
