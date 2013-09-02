@@ -24,20 +24,17 @@
 
 #include "../i2c/adv7511.h"
 
-#define AXI_HDMI_REG_CTRL		0x04
-#define AXI_HDMI_REG_HTIMING1		0x08
-#define AXI_HDMI_REG_HTIMING2		0x0C
-#define AXI_HDMI_REG_VTIMING1		0x10
-#define AXI_HDMI_REG_VTIMING2		0x14
-#define AXI_HDMI_REG_STATUS		0x10
-#define AXI_HDMI_REG_COLOR_PATTERN	0x1c
+#define AXI_HDMI_LEGACY_REG_CTRL		0x04
+#define AXI_HDMI_LEGACY_REG_HTIMING1		0x08
+#define AXI_HDMI_LEGACY_REG_HTIMING2		0x0C
+#define AXI_HDMI_LEGACY_REG_VTIMING1		0x10
+#define AXI_HDMI_LEGACY_REG_VTIMING2		0x14
+#define AXI_HDMI_LEGACY_REG_STATUS		0x10
 
-#define AXI_HDMI_REG_ES_HTIMING		0x08
-#define AXI_HDMI_REG_ES_VTIMING		0x0C
+#define AXI_HDMI_LEGACY_ES_REG_HTIMING		0x08
+#define AXI_HDMI_LEGACY_ES_REG_VTIMING		0x0c
 
-#define AXI_HDMI_CTRL_ENABLE		BIT(0)
-#define AXI_HDMI_CTRL_CSC_BYPASS	BIT(1)
-#define AXI_HDMI_CTRL_TPG_ENABLE	BIT(2)
+#define AXI_HDMI_LEGACY_CTRL_ENABLE		BIT(0)
 
 #define AXI_HDMI_STATUS_VMDA_UNDERFLOW	BIT(4)
 #define AXI_HDMI_STATUS_VMDA_OVERFLOW	BIT(3)
@@ -47,14 +44,44 @@
 
 #define AXI_HDMI_COLOR_PATTERN_ENABLE	BIT(24)
 
+#define AXI_HDMI_REG_RESET		0x040
+#define AXI_HDMI_REG_CTRL		0x044
+#define AXI_HDMI_REG_SOURCE_SEL		0x048
+#define AXI_HDMI_REG_COLORPATTERN	0x04c
+#define AXI_HDMI_REG_STATUS		0x05c
+#define AXI_HDMI_REG_VDMA_STATUS	0x060
+#define AXI_HDMI_REG_TPM_STATUS		0x064
+#define AXI_HDMI_REG_HTIMING1		0x400
+#define AXI_HDMI_REG_HTIMING2		0x404
+#define AXI_HDMI_REG_HTIMING3		0x408
+#define AXI_HDMI_REG_VTIMING1		0x440
+#define AXI_HDMI_REG_VTIMING2		0x444
+#define AXI_HDMI_REG_VTIMING3		0x448
+
+#define AXI_HDMI_RESET_ENABLE		BIT(0)
+
+#define AXI_HDMI_CTRL_FULL_RANGE	BIT(1)
+#define AXI_HDMI_CTRL_CSC_BYPASS	BIT(0)
+
+#define AXI_HDMI_SOURCE_SEL_COLORPATTERN	0x3
+#define AXI_HDMI_SOURCE_SEL_TESTPATTERN		0x2
+#define AXI_HDMI_SOURCE_SEL_NORMAL		0x1
+#define AXI_HDMI_SOURCE_SEL_NONE		0x0
+
 static const struct debugfs_reg32 axi_hdmi_encoder_debugfs_regs[] = {
+	{ "Reset", AXI_HDMI_REG_RESET },
 	{ "Control", AXI_HDMI_REG_CTRL },
+	{ "Source select", AXI_HDMI_REG_SOURCE_SEL },
+	{ "Colorpattern", AXI_HDMI_REG_COLORPATTERN },
+	{ "Status", AXI_HDMI_REG_STATUS },
+	{ "VDMA status", AXI_HDMI_REG_VDMA_STATUS },
+	{ "TPM status", AXI_HDMI_REG_TPM_STATUS },
 	{ "HTiming1", AXI_HDMI_REG_HTIMING1 },
 	{ "HTiming2", AXI_HDMI_REG_HTIMING2 },
+	{ "HTiming3", AXI_HDMI_REG_HTIMING3 },
 	{ "VTiming1", AXI_HDMI_REG_VTIMING1 },
 	{ "VTiming2", AXI_HDMI_REG_VTIMING2 },
-	{ "Status", AXI_HDMI_REG_STATUS },
-	{ "Colorpattern", AXI_HDMI_REG_COLOR_PATTERN },
+	{ "VTiming3", AXI_HDMI_REG_VTIMING3 },
 };
 
 static const uint16_t adv7511_csc_ycbcr_to_rgb[] = {
@@ -100,72 +127,50 @@ get_slave_funcs(struct drm_encoder *enc)
 static int axi_hdmi_debugfs_cp_get(void *data, u64 *val)
 {
 	struct axi_hdmi_private *private = data;
-	*val = ioread32(private->base + AXI_HDMI_REG_COLOR_PATTERN);
+	*val = readl(private->base + AXI_HDMI_REG_COLORPATTERN);
 	return 0;
 }
 
 static int axi_hdmi_debugfs_cp_set(void *data, u64 val)
 {
 	struct axi_hdmi_private *private = data;
-	uint32_t cp;
 
-	cp = ioread32(private->base + AXI_HDMI_REG_COLOR_PATTERN);
-	cp &= ~0xffffff;
-	cp |= val & 0xffffff;
-
-	iowrite32(0x0000000, private->base + AXI_HDMI_REG_COLOR_PATTERN);
-	iowrite32(cp, private->base + AXI_HDMI_REG_COLOR_PATTERN);
+	writel(val, private->base + AXI_HDMI_REG_COLORPATTERN);
 
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(axi_hdmi_cp_fops, axi_hdmi_debugfs_cp_get,
 	axi_hdmi_debugfs_cp_set, "0x%06llx\n");
 
-enum axi_hdmi_debug_mode {
-	AXI_HDMI_MODE_NORMAL,
-	AXI_HDMI_MODE_TESTPATTERN,
-	AXI_HDMI_MODE_COLORPATTERN,
-	AXI_HDMI_MODE_CSC_BYPASS,
-};
-
 static const char * const axi_hdmi_mode_text[] = {
-	[AXI_HDMI_MODE_NORMAL] = "normal",
-	[AXI_HDMI_MODE_TESTPATTERN] = "testpattern",
-	[AXI_HDMI_MODE_COLORPATTERN] = "colorpattern",
-	[AXI_HDMI_MODE_CSC_BYPASS] = "cscbypass"
+	[AXI_HDMI_SOURCE_SEL_NONE] = "none",
+	[AXI_HDMI_SOURCE_SEL_NORMAL] = "normal",
+	[AXI_HDMI_SOURCE_SEL_TESTPATTERN] = "testpattern",
+	[AXI_HDMI_SOURCE_SEL_COLORPATTERN] = "colorpattern",
 };
 
 static ssize_t axi_hdmi_read_mode(struct file *file, char __user *userbuf,
 	size_t count, loff_t *ppos)
 {
 	struct axi_hdmi_private *private = file->private_data;
-	enum axi_hdmi_debug_mode current_mode;
-	uint32_t ctrl, cp;
+	uint32_t src;
 	const char *fmt;
 	size_t len = 0;
 	char buf[50];
 	int i;
 
-	ctrl = ioread32(private->base + AXI_HDMI_REG_CTRL);
-	cp = ioread32(private->base + AXI_HDMI_REG_COLOR_PATTERN);
+	src = readl(private->base + AXI_HDMI_REG_SOURCE_SEL);
 
-	if (cp & AXI_HDMI_COLOR_PATTERN_ENABLE)
-		current_mode = AXI_HDMI_MODE_COLORPATTERN;
-	else if (ctrl & AXI_HDMI_CTRL_TPG_ENABLE)
-		current_mode = AXI_HDMI_MODE_TESTPATTERN;
-	else if (ctrl & AXI_HDMI_CTRL_CSC_BYPASS)
-		current_mode = AXI_HDMI_MODE_CSC_BYPASS;
-	else
-		current_mode = AXI_HDMI_MODE_NORMAL;
-	
 	for (i = 0; i < ARRAY_SIZE(axi_hdmi_mode_text); i++) {
-		if (current_mode == i)
-			fmt = "[%s]%c";
+		if (src == i)
+			fmt = "[%s] ";
 		else
-			fmt = "%s%c";
-		len += scnprintf(buf + len, sizeof(buf), fmt, axi_hdmi_mode_text[i],
-			i == ARRAY_SIZE(axi_hdmi_mode_text) - 1 ? '\n' : ' ');
+			fmt = "%s ";
+		len += scnprintf(buf + len, sizeof(buf) - len, fmt,
+				axi_hdmi_mode_text[i]);
 	}
+
+	buf[len - 1] = '\n';
 
 	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
 }
@@ -174,7 +179,6 @@ static ssize_t axi_hdmi_set_mode(struct file *file, const char __user *userbuf,
 	size_t count, loff_t *ppos)
 {
 	struct axi_hdmi_private *private = file->private_data;
-	uint32_t ctrl, cp;
 	char buf[20];
 	unsigned int i;
 
@@ -192,29 +196,7 @@ static ssize_t axi_hdmi_set_mode(struct file *file, const char __user *userbuf,
 	if (i == ARRAY_SIZE(axi_hdmi_mode_text))
 		return -EINVAL;
 
-	ctrl = ioread32(private->base + AXI_HDMI_REG_CTRL);
-	cp = ioread32(private->base + AXI_HDMI_REG_COLOR_PATTERN);
-
-	cp &= ~AXI_HDMI_COLOR_PATTERN_ENABLE;
-	ctrl &= ~(AXI_HDMI_CTRL_CSC_BYPASS | AXI_HDMI_CTRL_TPG_ENABLE);
-
-	switch (i) {
-	case AXI_HDMI_MODE_NORMAL:
-		break;
-	case AXI_HDMI_MODE_TESTPATTERN:
-		ctrl |= AXI_HDMI_CTRL_TPG_ENABLE;
-		break;
-	case AXI_HDMI_MODE_COLORPATTERN:
-		cp |= AXI_HDMI_COLOR_PATTERN_ENABLE;
-		break;
-	case AXI_HDMI_MODE_CSC_BYPASS:
-		ctrl |= AXI_HDMI_CTRL_CSC_BYPASS;
-		break;
-	}
-
-	iowrite32(0, private->base + AXI_HDMI_REG_CTRL);
-	iowrite32(ctrl, private->base + AXI_HDMI_REG_CTRL);
-	iowrite32(cp, private->base + AXI_HDMI_REG_COLOR_PATTERN);
+	writel(i, private->base + AXI_HDMI_REG_SOURCE_SEL);
 
 	return count;
 }
@@ -228,6 +210,9 @@ static const struct file_operations axi_hdmi_mode_fops = {
 static void axi_hdmi_debugfs_init(struct axi_hdmi_encoder *encoder)
 {
 	struct axi_hdmi_private *priv = encoder->encoder.base.dev->dev_private;
+
+	if (priv->version != AXI_HDMI)
+		return;
 
 	encoder->regset.base = priv->base;
 	encoder->regset.regs = axi_hdmi_encoder_debugfs_regs;
@@ -257,7 +242,14 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 
 	switch (mode) {
 	case DRM_MODE_DPMS_ON:
-		iowrite32(AXI_HDMI_CTRL_ENABLE, private->base + AXI_HDMI_REG_CTRL);
+		if (!private->clk_enabled) {
+			clk_prepare_enable(private->hdmi_clock);
+			private->clk_enabled = true;
+		}
+		if (private->version == AXI_HDMI)
+			writel(AXI_HDMI_RESET_ENABLE, private->base + AXI_HDMI_REG_RESET);
+		else
+			writel(AXI_HDMI_LEGACY_CTRL_ENABLE, private->base + AXI_HDMI_LEGACY_REG_CTRL);
 		edid = adv7511_get_edid(encoder);
 		if (edid) {
 			config.hdmi_mode = drm_detect_hdmi_monitor(edid);
@@ -290,7 +282,14 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 		sfuncs->set_config(encoder, &config);
 		break;
 	default:
-		iowrite32(0, private->base + AXI_HDMI_REG_CTRL);
+		if (private->version == AXI_HDMI)
+			writel(0, private->base + AXI_HDMI_REG_RESET);
+		else
+			writel(0, private->base + AXI_HDMI_LEGACY_REG_CTRL);
+		if (private->clk_enabled) {
+			clk_disable_unprepare(private->hdmi_clock);
+			private->clk_enabled = false;
+		}
 		break;
 	}
 
@@ -316,34 +315,50 @@ static void axi_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 	struct axi_hdmi_private *private = encoder->dev->dev_private;
 	unsigned int h_de_min, h_de_max;
 	unsigned int v_de_min, v_de_max;
-	unsigned int htotal, hactive;
-	unsigned int vtotal, vactive;
+	unsigned int val;
 
 	if (sfuncs && sfuncs->mode_set)
 		sfuncs->mode_set(encoder, mode, adjusted_mode);
 
-	htotal = mode->htotal;
-	vtotal = mode->vtotal;
+	h_de_min = mode->htotal - mode->hsync_start;
+	h_de_max = h_de_min + mode->hdisplay;
+	v_de_min = mode->vtotal - mode->vsync_start;
+	v_de_max = v_de_min + mode->vdisplay;
+	
+	switch (private->version) {
+	case AXI_HDMI:
+		val = (mode->hdisplay << 16) | mode->htotal;
+		writel(val,  private->base + AXI_HDMI_REG_HTIMING1);
+		val = mode->hsync_end - mode->hsync_start;
+		writel(val,  private->base + AXI_HDMI_REG_HTIMING2);
+		val = (h_de_max << 16) | h_de_min;
+		writel(val,  private->base + AXI_HDMI_REG_HTIMING3);
 
-	if (private->embedded_sync) {
-		vactive = mode->vdisplay;
-		hactive = mode->hdisplay;
-
-		iowrite32((hactive << 16) | htotal, private->base + AXI_HDMI_REG_ES_HTIMING);
-		iowrite32((vactive << 16) | vtotal, private->base + AXI_HDMI_REG_ES_VTIMING);
-	} else {
-		hactive = mode->hsync_end - mode->hsync_start;
-		vactive = mode->vsync_end - mode->vsync_start;
-
-		h_de_min =  htotal - mode->hsync_start;
-		h_de_max =  h_de_min + mode->hdisplay;
-		v_de_min =  vtotal - mode->vsync_start;
-		v_de_max =  v_de_min + mode->vdisplay;
-
-		iowrite32((hactive << 16) | htotal, private->base + AXI_HDMI_REG_HTIMING1);
-		iowrite32((h_de_min << 16) | h_de_max, private->base + AXI_HDMI_REG_HTIMING2);
-		iowrite32((vactive << 16) | vtotal, private->base + AXI_HDMI_REG_VTIMING1);
-		iowrite32((v_de_min << 16) | v_de_max, private->base + AXI_HDMI_REG_VTIMING2);
+		val = (mode->vdisplay << 16) | mode->vtotal;
+		writel(val,  private->base + AXI_HDMI_REG_VTIMING1);
+		val = mode->vsync_end - mode->vsync_start;
+		writel(val,  private->base + AXI_HDMI_REG_VTIMING2);
+		val = (v_de_max << 16) | v_de_min;
+		writel(val,  private->base + AXI_HDMI_REG_VTIMING3);
+		break;
+	case AXI_HDMI_LEGACY_ES:
+		val = (mode->hdisplay << 16) | mode->htotal;
+		writel(val, private->base + AXI_HDMI_LEGACY_ES_REG_HTIMING);
+		val = (mode->vdisplay << 16) | mode->vtotal;
+		writel(val, private->base + AXI_HDMI_LEGACY_ES_REG_VTIMING);
+		break;
+	case AXI_HDMI_LEGACY:
+		val = (mode->hsync_end - mode->hsync_start) << 16 | mode->htotal;
+		writel(val, private->base + AXI_HDMI_LEGACY_REG_HTIMING1);
+		val = (h_de_min << 16) | h_de_max;
+		writel(val, private->base + AXI_HDMI_LEGACY_REG_HTIMING2);
+		val = (mode->vsync_end - mode->vsync_start) << 16 | mode->vtotal;
+		writel(val, private->base + AXI_HDMI_LEGACY_REG_VTIMING1);
+		val = (v_de_min << 16) | v_de_max;
+		writel(val, private->base + AXI_HDMI_LEGACY_REG_VTIMING2);
+		break;
+	default:
+		break;
 	}
 
 	clk_set_rate(private->hdmi_clock, mode->clock * 1000);
@@ -420,6 +435,9 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 
 	axi_hdmi_connector_init(dev, connector, encoder);
 	axi_hdmi_debugfs_init(axi_hdmi_encoder);
+
+	if (priv->version == AXI_HDMI)
+		writel(AXI_HDMI_SOURCE_SEL_NORMAL, priv->base + AXI_HDMI_REG_SOURCE_SEL);
 
 	return encoder;
 }
