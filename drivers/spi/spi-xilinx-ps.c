@@ -120,6 +120,7 @@ struct xspips {
 	void __iomem *regs;
 	struct clk *devclk;
 	struct clk *aperclk;
+	unsigned int clk_rate;
 	struct notifier_block clk_rate_change_nb;
 	int irq;
 	u32 speed_hz;
@@ -242,7 +243,7 @@ static int xspips_setup_transfer(struct spi_device *spi,
 	/* Set the clock frequency */
 	if (xspi->speed_hz != req_hz) {
 		baud_rate_val = 0;
-		while ((baud_rate_val < 8) && (clk_get_rate(xspi->devclk) /
+		while ((baud_rate_val < 8) && (xspi->clk_rate /
 					(2 << baud_rate_val)) > req_hz)
 			baud_rate_val++;
 
@@ -250,7 +251,7 @@ static int xspips_setup_transfer(struct spi_device *spi,
 		ctrl_reg |= (baud_rate_val << 3);
 
 		xspi->speed_hz =
-			(clk_get_rate(xspi->devclk) / (2 << baud_rate_val));
+			(xspi->clk_rate / (2 << baud_rate_val));
 	}
 
 	xspips_write(xspi->regs + XSPIPS_CR_OFFSET, ctrl_reg);
@@ -742,6 +743,7 @@ static int xspips_probe(struct platform_device *pdev)
 		clk_set_rate(xspi->devclk, aper_clk_rate);
 
 	xspi->speed_hz = clk_get_rate(xspi->devclk) / 2;
+	xspi->clk_rate = clk_get_rate(xspi->devclk);
 
 	xspi->dev_busy = 0;
 
