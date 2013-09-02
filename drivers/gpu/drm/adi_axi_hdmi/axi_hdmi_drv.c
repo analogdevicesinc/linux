@@ -140,8 +140,21 @@ static struct drm_driver axi_hdmi_driver = {
 	.minor			= DRIVER_MINOR,
 };
 
+static const struct of_device_id adv7511_encoder_of_match[] = {
+	{
+		.compatible = "adi,axi-hdmi-tx-1.00.a",
+		.data = (const void *)AXI_HDMI
+	}, {
+		.compatible = "adi,axi-hdmi-1.00.a",
+		.data = (const void *)AXI_HDMI_LEGACY
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, adv7511_encoder_of_match);
+
 static int axi_hdmi_platform_probe(struct platform_device *pdev)
 {
+	const struct of_device_id *id;
 	struct device_node *np = pdev->dev.of_node;
 	struct axi_hdmi_private *private;
 	struct of_phandle_args dma_spec;
@@ -175,7 +188,13 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	private->is_rgb = of_property_read_bool(np, "adi,is-rgb");
-	private->embedded_sync = of_property_read_bool(np, "adi,embedded-sync");
+
+	id = of_match_node(adv7511_encoder_of_match, np);
+	private->version = (unsigned long)id->data;
+
+	if (private->version == AXI_HDMI_LEGACY &&
+		of_property_read_bool(np, "adi,embedded-sync"))
+		private->version = AXI_HDMI_LEGACY_ES;
 	
 	private->encoder_slave = of_find_i2c_device_by_node(slave_node);
 	of_node_put(slave_node);
@@ -196,12 +215,6 @@ static int axi_hdmi_platform_remove(struct platform_device *pdev)
 	drm_platform_exit(&axi_hdmi_driver, pdev);
 	return 0;
 }
-
-static const struct of_device_id adv7511_encoder_of_match[] = {
-	{ .compatible = "adi,axi-hdmi-1.00.a", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, adv7511_encoder_of_match);
 
 static struct platform_driver adv7511_encoder_driver = {
 	.driver = {
