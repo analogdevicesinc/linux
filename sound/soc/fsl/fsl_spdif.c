@@ -20,6 +20,8 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
+#include <linux/busfreq-imx.h>
 
 #include <sound/asoundef.h>
 #include <sound/dmaengine_pcm.h>
@@ -454,6 +456,8 @@ static int fsl_spdif_startup(struct snd_pcm_substream *substream,
 	int i;
 	int ret;
 
+	pm_runtime_get_sync(cpu_dai->dev);
+
 	/* Reset module and interrupts only for first initialization */
 	if (!cpu_dai->active) {
 		ret = clk_prepare_enable(spdif_priv->coreclk);
@@ -551,6 +555,8 @@ static void fsl_spdif_shutdown(struct snd_pcm_substream *substream,
 			clk_disable_unprepare(spdif_priv->spbaclk);
 		clk_disable_unprepare(spdif_priv->coreclk);
 	}
+
+	pm_runtime_put_sync(cpu_dai->dev);
 }
 
 static int fsl_spdif_hw_params(struct snd_pcm_substream *substream,
@@ -1296,6 +1302,8 @@ static int fsl_spdif_probe(struct platform_device *pdev)
 	spdif_priv->dma_params_tx.addr = res->start + REG_SPDIF_STL;
 	spdif_priv->dma_params_rx.addr = res->start + REG_SPDIF_SRL;
 
+	pm_runtime_enable(&pdev->dev);
+
 	/* Register with ASoC */
 	dev_set_drvdata(&pdev->dev, spdif_priv);
 
@@ -1344,8 +1352,24 @@ static int fsl_spdif_resume(struct device *dev)
 }
 #endif /* CONFIG_PM_SLEEP */
 
+#ifdef CONFIG_PM
+static int fsl_spdif_runtime_resume(struct device *dev)
+{
+	request_bus_freq(BUS_FREQ_HIGH);
+	return 0;
+}
+
+static int fsl_spdif_runtime_suspend(struct device *dev)
+{
+	release_bus_freq(BUS_FREQ_HIGH);
+	return 0;
+}
+#endif
+
 static const struct dev_pm_ops fsl_spdif_pm = {
 	SET_SYSTEM_SLEEP_PM_OPS(fsl_spdif_suspend, fsl_spdif_resume)
+	SET_RUNTIME_PM_OPS(fsl_spdif_runtime_suspend, fsl_spdif_runtime_resume,
+			   NULL)
 };
 
 static const struct of_device_id fsl_spdif_dt_ids[] = {
