@@ -135,14 +135,14 @@
 		};
 
 		hdmi_clock: axi-clkgen@79000000 {
-			compatible = "adi,axi-clkgen-1.00.a";
+			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
 			clocks = <&clkc 17>;
 		};
 
 		axi_hdmi@70e00000 {
-			compatible = "adi,axi-hdmi-1.00.a";
+			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
 			dmas = <&axi_vdma_0 0>;
