@@ -96,10 +96,10 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 #define XDCFG_DMA_INVALID_ADDRESS	0xFFFFFFFF  /* Invalid DMA address */
 
 static const char * const fclk_name[] = {
-	"FPGA0",
-	"FPGA1",
-	"FPGA2",
-	"FPGA3"
+	"fclk0",
+	"fclk1",
+	"fclk2",
+	"fclk3"
 };
 #define NUMFCLKS ARRAY_SIZE(fclk_name)
 
@@ -1773,7 +1773,7 @@ static void xdevcfg_fclk_init(struct device *dev)
 	struct xdevcfg_drvdata *drvdata = dev_get_drvdata(dev);
 
 	for (i = 0; i < NUMFCLKS; i++) {
-		drvdata->fclk[i] = clk_get_sys(fclk_name[i], NULL);
+		drvdata->fclk[i] = clk_get(dev, fclk_name[i]);
 		if (IS_ERR(drvdata->fclk[i])) {
 			dev_warn(dev, "fclk not found\n");
 			return;
@@ -1864,7 +1864,7 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 		goto failed0;
 	}
 
-	dev_set_drvdata(&pdev->dev, drvdata);
+	platform_set_drvdata(pdev, drvdata);
 
 	if (!request_mem_region(regs_res->start,
 				regs_res->end - regs_res->start + 1,
@@ -1887,7 +1887,7 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 
 	drvdata->irq = irq_res->start;
 
-	retval = request_irq(irq_res->start, xdevcfg_irq, IRQF_DISABLED,
+	retval = request_irq(irq_res->start, xdevcfg_irq, 0,
 					DRIVER_NAME, drvdata);
 	if (retval) {
 		dev_err(&pdev->dev, "No IRQ available");
@@ -1904,7 +1904,7 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 		 drvdata->base_address,
 		 (unsigned long long) (regs_res->end - regs_res->start + 1));
 
-	drvdata->clk = clk_get_sys("PCAP", NULL);
+	drvdata->clk = clk_get(&pdev->dev, "ref_clk");
 	if (IS_ERR(drvdata->clk)) {
 		dev_err(&pdev->dev, "input clock not found\n");
 		retval = PTR_ERR(drvdata->clk);
@@ -2030,7 +2030,7 @@ static int xdevcfg_drv_remove(struct platform_device *pdev)
 	struct xdevcfg_drvdata *drvdata;
 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	drvdata = dev_get_drvdata(&pdev->dev);
+	drvdata = platform_get_drvdata(pdev);
 
 	if (!drvdata)
 		return -ENODEV;
@@ -2050,7 +2050,6 @@ static int xdevcfg_drv_remove(struct platform_device *pdev)
 	clk_unprepare(drvdata->clk);
 	clk_put(drvdata->clk);
 	kfree(drvdata);
-	dev_set_drvdata(&pdev->dev, NULL);
 
 	return 0;		/* Success */
 }

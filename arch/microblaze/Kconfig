@@ -27,8 +27,9 @@ config MICROBLAZE
 	select GENERIC_ATOMIC64
 	select GENERIC_CLOCKEVENTS
 	select COMMON_CLK
+	select GENERIC_IDLE_POLL_SETUP
 	select MODULES_USE_ELF_RELA
-	select CLONE_BACKWARDS
+	select CLONE_BACKWARDS3
 
 config SWAP
 	def_bool n
@@ -37,9 +38,6 @@ config RWSEM_GENERIC_SPINLOCK
 	def_bool y
 
 config ZONE_DMA
-	def_bool y
-
-config ARCH_POPULATES_NODE_MAP
 	def_bool y
 
 config RWSEM_XCHGADD_ALGORITHM
@@ -56,9 +54,6 @@ config GENERIC_HWEIGHT
 
 config GENERIC_CALIBRATE_DELAY
 	def_bool y
-
-config GENERIC_GPIO
-	bool
 
 config GENERIC_CSUM
 	def_bool y

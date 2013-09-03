@@ -402,7 +402,7 @@ static int axiadc_channel_setup(struct iio_dev *indio_dev,
 		st->channels[cnt].indexed = 1,
 		st->channels[cnt].channel = cnt;
 		st->channels[cnt].scan_index = cnt;
-		st->channels[cnt].info_mask = IIO_CHAN_INFO_SAMP_FREQ_SEPARATE_BIT;
+		st->channels[cnt].info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ);
 		st->channels[cnt].extend_name = "user_logic";
 		st->channels[cnt].scan_type.sign = (usr_ctrl & ADI_USR_DATATYPE_SIGNED) ? 's' : 'u';
 		st->channels[cnt].scan_type.realbits = ADI_TO_USR_DATATYPE_BITS(usr_ctrl);

@@ -153,9 +153,8 @@ struct cf_axi_dds_chip_info {
 	char 				name[8];
 	struct iio_chan_spec		channel[9];
 	struct iio_chan_spec		buf_channel[2];
-	unsigned 			num_channels;
-	unsigned 			num_buf_channels;
-
+	unsigned			num_channels;
+	unsigned			num_buf_channels;
 };
 
 #include <linux/amba/xilinx_dma.h>
@@ -200,6 +199,8 @@ struct cf_axi_converter {
 	unsigned		fcenter_shift;
 	unsigned long 	intp_modes[5];
 	unsigned long 	cs_modes[17];
+	int		temp_calib;
+	unsigned		temp_calib_code;
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);

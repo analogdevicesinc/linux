@@ -2,11 +2,6 @@
 
 / {
 	model = "Xilinx Zynq ZED";
-	compatible = "xlnx,zynq-zc702";
-	#address-cells = <0x1>;
-	#size-cells = <0x1>;
-	interrupt-parent = <0x1>;
-
 	memory {
 		device_type = "memory";
 		reg = <0x000000000 0x20000000>;

@@ -28,7 +28,7 @@
 
 #include "ehci-xilinx-usbps.h"
 
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 /********************************************************************
  * OTG related functions
  ********************************************************************/
@@ -79,7 +79,7 @@ static int ehci_xusbps_otg_start_host(struct usb_phy *otg)
 	struct xusbps_otg *xotg =
 			xceiv_to_xotg(hcd->phy);
 
-	usb_add_hcd(hcd, xotg->irq, IRQF_SHARED | IRQF_DISABLED);
+	usb_add_hcd(hcd, xotg->irq, IRQF_SHARED);
 	return 0;
 }
 
@@ -168,16 +168,6 @@ static int usb_hcd_xusbps_probe(const struct hc_driver *driver,
 		goto err2;
 	}
 
-	if (pdata->irq == 53)
-		pdata->clk = clk_get_sys("USB0_APER", NULL);
-	else
-		pdata->clk = clk_get_sys("USB1_APER", NULL);
-	if (IS_ERR(pdata->clk)) {
-		dev_err(&pdev->dev, "APER clock not found.\n");
-		retval = PTR_ERR(pdata->clk);
-		goto err2;
-	}
-
 	retval = clk_prepare_enable(pdata->clk);
 	if (retval) {
 		dev_err(&pdev->dev, "Unable to enable APER clock.\n");
@@ -198,7 +188,7 @@ static int usb_hcd_xusbps_probe(const struct hc_driver *driver,
 		goto err_out_clk_unreg_notif;
 	}
 
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	if (pdata->otg) {
 		struct xusbps_otg *xotg;
 		struct ehci_hcd *ehci = hcd_to_ehci(hcd);
@@ -216,7 +206,7 @@ static int usb_hcd_xusbps_probe(const struct hc_driver *driver,
 		/* inform otg driver about host driver */
 		xusbps_update_transceiver();
 	} else {
-		retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
+		retval = usb_add_hcd(hcd, irq, IRQF_SHARED);
 		if (retval)
 			goto err_out_clk_unreg_notif;
 
@@ -229,7 +219,7 @@ static int usb_hcd_xusbps_probe(const struct hc_driver *driver,
 	}
 #else
 	/* Don't need to set host mode here. It will be done by tdi_reset() */
-	retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
+	retval = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (retval)
 		goto err_out_clk_unreg_notif;
 #endif
@@ -352,10 +342,12 @@ static void ehci_port_power (struct ehci_hcd *ehci, int is_on)
 /* called after powerup, by probe or system-pm "wakeup" */
 static int ehci_xusbps_reinit(struct ehci_hcd *ehci)
 {
+#ifdef CONFIG_USB_ZYNQ_PHY
 	struct usb_hcd *hcd = ehci_to_hcd(ehci);
+#endif
 
 	ehci_xusbps_usb_setup(ehci);
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	/* Don't turn off port power in OTG mode */
 	if (!hcd->phy)
 #endif
@@ -506,7 +498,7 @@ static const struct hc_driver ehci_xusbps_hc_driver = {
 	.port_handed_over = ehci_port_handed_over,
 
 	.clear_tt_buffer_complete = ehci_clear_tt_buffer_complete,
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	.update_device = ehci_xusbps_update_device,
 #endif
 };

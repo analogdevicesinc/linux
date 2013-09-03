@@ -1,0 +1,217 @@
+/dts-v1/;
+
+/include/ "zynq-zed.dtsi"
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		i2c@41620000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 58 0x4 >;
+			reg = < 0x41620000 0x10000 >;
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			adv7511: adv7511@39 {
+				compatible = "adi,adv7511";
+				reg = <0x39>;
+
+				adi,input-style = <0x02>;
+				adi,input-id = <0x01>;
+				adi,input-color-depth = <0x3>;
+				adi,sync-pulse = <0x03>;
+				adi,bit-justification = <0x01>;
+				adi,up-conversion = <0x00>;
+				adi,timing-generation-sequence = <0x00>;
+				adi,vsync-polarity = <0x02>;
+				adi,hsync-polarity = <0x02>;
+				adi,tdms-clock-inversion;
+				adi,clock-delay = <0x03>;
+			};
+		};
+
+		i2c_1: i2c@41600000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 55 0x4 >;
+			reg = < 0x41600000 0x10000 >;
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+		};
+
+		axi_spi_0: spi@42000000 {
+			compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&gic>;
+			interrupts = < 0 54 4 >;
+			reg = < 0x42040000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,fifo-exist = <0x1>;
+			xlnx,instance = "axi_spi_0";
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,num-transfer-bits = <0x8>;
+			xlnx,sck-ratio = <0x10>;
+
+
+		} ;
+
+		axi_vdma_0: axivdma@43020000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-vdma";
+			reg = <0x43020000 0x1000>;
+			xlnx,include-sg = <0x0>;
+			xlnx,num-fstores = <0x3>;
+			dma-channel@43020000 {
+				compatible = "xlnx,axi-vdma-mm2s-channel";
+				interrupts = <0 57 0x4>;
+				xlnx,datawidth = <0x40>;
+				xlnx,genlock-mode = <0x0>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
+		axi_vdma_1: axivdma@43000000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-vdma";
+			reg = <0x43000000 0x1000>;
+			/*xlnx,include-sg = <0x0>;*/
+			xlnx,num-fstores = <0x3>;
+			dma-channel@43000000 {
+				compatible = "xlnx,axi-vdma-mm2s-channel";
+				interrupts = <0 59 0x4>;
+				xlnx,datawidth = <0x40>;
+				xlnx,genlock-mode = <0x0>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
+/*
+		fpga_clock: fpga_clock {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <200000000>;
+		};
+
+		hdmi_clock: axi-clkgen@79000000 {
+			compatible = "adi,axi-clkgen-1.00.a";
+			reg = <0x79000000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&fpga_clock>;
+		};
+
+		axi_hdmi@70e00000 {
+			compatible = "adi,axi-hdmi-1.00.a";
+			reg = <0x70e00000 0x10000>;
+			encoder-slave = <&adv7511>;
+			dmas = <&axi_vdma_0 0>;
+			dma-names = "video";
+			clocks = <&hdmi_clock>;
+		};
+*/
+		axi_dma_1: axidma@40420000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-dma";
+			reg = < 0x40420000 0x10000 >;
+			xlnx,sg-include-stscntrl-strm = <0x0>;
+			dma-channel@40420000 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = < 0 56 0x4 >;
+				xlnx,datawidth = <0x40>;
+				xlnx,sg-length-width = <23>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
+		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
+			compatible = "xlnx,axi-adc-2c-1.00.a";
+			reg = < 0x79020000 0x1000 >;
+			dmas = <&axi_dma_1 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_ad9361>;
+			xlnx,dphase-timeout = <0x8>;
+			xlnx,num-mem = <0x1>;
+			xlnx,num-reg = <0x1>;
+			xlnx,s-axi-min-size = <0x1ff>;
+			xlnx,slv-awidth = <0x20>;
+			xlnx,slv-dwidth = <0x20>;
+			xlnx,use-wstrb = <0x0>;
+		} ;
+
+		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@74200000 {
+			compatible = "xlnx,axi-ad9361-dds-1.00.a";
+			reg = < 0x74200000 0x1000 >;
+			clocks = <&adc0_ad9361 13>;
+			clock-names = "sampl_clk";
+			dmas = <&axi_vdma_1 0>;
+			dma-names = "tx";
+			dac-sample-frequency = <491520000>;
+			xlnx,dphase-timeout = <0x8>;
+			xlnx,num-mem = <0x1>;
+			xlnx,num-reg = <0x1>;
+			xlnx,s-axi-min-size = <0x1ff>;
+			xlnx,slv-awidth = <0x20>;
+			xlnx,slv-dwidth = <0x20>;
+			xlnx,use-wstrb = <0x0>;
+		} ;
+
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		ld0 {
+			label = "ld0:red";
+			gpios = <&gpio 73 0>;
+		};
+
+		ld1 {
+			label = "ld1:red";
+			gpios = <&gpio 74 0>;
+		};
+
+		ld2 {
+			label = "ld2:red";
+			gpios = <&gpio 75 0>;
+		};
+
+		ld3 {
+			label = "ld3:red";
+			gpios = <&gpio 76 0>;
+		};
+
+		ld4 {
+			label = "ld4:red";
+			gpios = <&gpio 77 0>;
+		};
+
+		ld5 {
+			label = "ld5:red";
+			gpios = <&gpio 78 0>;
+		};
+
+		ld6 {
+			label = "ld6:red";
+			gpios = <&gpio 79 0>;
+		};
+
+		ld7 {
+			label = "ld7:red";
+			gpios = <&gpio 80 0>;
+		};
+	};
+};
+
+/include/ "adi-fmcomms2.dtsi"

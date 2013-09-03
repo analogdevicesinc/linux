@@ -285,13 +285,6 @@ static int xadc_ps7_setup(struct platform_device *pdev,
 	unsigned int tck_div;
 	u32 igap;
 
-#if 1 /* TODO: Remove this for upstream */
-	xadc->clk = clk_get_sys("PCAP", NULL);
-	if (IS_ERR(xadc->clk))
-		return PTR_ERR(xadc->clk);
-	clk_prepare_enable(xadc->clk);
-#endif
-
 	xadc_ps7_parse_dt(xadc, pdev->dev.of_node, &tck_div, &igap);
 
 	xadc_ps7_write_reg(xadc, XADCPS7_REG_CTL, XADCPS7_CTL_RESET);
@@ -391,13 +384,6 @@ static int xadc_axi_setup(struct platform_device *pdev,
 	struct iio_dev *indio_dev, int irq)
 {
 	struct xadc *xadc = iio_priv(indio_dev);
-
-#if 1 /* TODO: Remove this for upstream */
-	xadc->clk = clk_get_sys("FPGA0", NULL);
-	if (IS_ERR(xadc->clk))
-		return PTR_ERR(xadc->clk);
-	clk_prepare_enable(xadc->clk);
-#endif
 
 	xadc_axi_write_reg(xadc, XADC_AXI_REG_RESET, XADC_AXI_RESET_MAGIC);
 	xadc_axi_write_reg(xadc, XADC_AXI_REG_GIER, XADC_AXI_GIER_ENABLE);
@@ -562,7 +548,7 @@ out:
 
 static int xadc_trigger_set_state(struct iio_trigger *trigger, bool state)
 {
-	struct xadc *xadc = trigger->private_data;
+	struct xadc *xadc = iio_trigger_get_drvdata(trigger);
 	unsigned long flags;
 	unsigned int convst;
 	unsigned int val;
@@ -624,7 +610,7 @@ static struct iio_trigger *xadc_alloc_trigger(struct iio_dev *indio_dev,
 
 	trig->dev.parent = indio_dev->dev.parent;
 	trig->ops = &xadc_trigger_ops;
-	trig->private_data = iio_priv(indio_dev);
+	iio_trigger_set_drvdata(trig, iio_priv(indio_dev));
 
 	ret = iio_trigger_register(trig);
 	if (ret)
@@ -885,9 +871,9 @@ static const struct attribute_group xadc_attribute_group = {
 	.indexed = 1, \
 	.channel = (_chan), \
 	.address = (_addr), \
-	.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT | \
-		IIO_CHAN_INFO_SCALE_SEPARATE_BIT | \
-		IIO_CHAN_INFO_OFFSET_SEPARATE_BIT, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+		BIT(IIO_CHAN_INFO_SCALE) | \
+		BIT(IIO_CHAN_INFO_OFFSET), \
 	.event_mask = IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING), \
 	.scan_index = (_scan_index), \
 	.scan_type = { \
@@ -904,8 +890,8 @@ static const struct attribute_group xadc_attribute_group = {
 	.indexed = 1, \
 	.channel = (_chan), \
 	.address = (_addr), \
-	.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT | \
-		IIO_CHAN_INFO_SCALE_SEPARATE_BIT, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+		BIT(IIO_CHAN_INFO_SCALE), \
 	.event_mask = !(_alarm) ? 0 : \
 		(IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING) | \
 		IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_FALLING)), \
@@ -1125,14 +1111,12 @@ static int xadc_probe(struct platform_device *pdev)
 			goto err_free_convst_trigger;
 	}
 
-#if 0 /* TODO: Add this for upstream */
 	xadc->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(xadc->clk)) {
 		ret = PTR_ERR(xadc->clk);
-		goto err_fre_samplerate_trigger;
+		goto err_free_samplerate_trigger;
 	}
 	clk_prepare_enable(xadc->clk);
-#endif
 
 	ret = xadc->ops->setup(pdev, indio_dev, irq);
 	if (ret)

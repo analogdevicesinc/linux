@@ -18,11 +18,11 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		i2c0: i2c@0 {
+		i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = < 0 55 4 >;
-			reg = < 0x41600000 0x10000 >;
+			interrupts = <0 58 4>;
+			reg = <0x41600000 0x10000>;
 			bus-id = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -45,7 +45,7 @@
 					};
 				};
 
-				i2c_adv7511: i2c@1 {
+				i2c@1 {
 				    #address-cells = <1>;
 				    #size-cells = <0>;
 				    reg = <1>;
@@ -139,30 +139,24 @@
 			#size-cells = <1>;
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-vdma";
-			ranges = < 0x43000000 0x43000000 0x10000 >;
-			reg = < 0x43000000 0x10000 >;
+			ranges = <0x43000000 0x43000000 0x10000>;
+			reg = <0x43000000 0x10000>;
 			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 57 0x4>;
+				interrupts = <0 59 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
 			};
 		};
 
-		fpga_clock: fpga_clock {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <200000000>;
-		};
-
 		hdmi_clock: axi-clkgen@79020000 {
 			compatible = "adi,axi-clkgen-1.00.a";
-			reg = < 0x79020000 0x10000 >;
+			reg = <0x79020000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&fpga_clock>;
+			clocks = <&clkc 17>;
 		};
 
 		axi_hdmi@70e00000 {
@@ -180,35 +174,35 @@
 			#size-cells = <1>;
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-dma";
-			reg = < 0x40400000 0x10000 >;
+			reg = <0x40400000 0x10000>;
 //			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@41e20030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&gic>;
-				interrupts = < 0 59 4 >;
+				interrupts = <0 57 4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,include-dre = <0x0>;
-			} ;
-		} ;
+			};
+		};
 
 		axi_jesd204b_rx1_0: axi-jesd204b-rx1@6f400000 {
 			compatible = "xlnx,axi-jesd204b-rx1-1.00.a";
-			reg = < 0x6f400000 0x10000 >;
+			reg = <0x6f400000 0x10000>;
 			jesd,lanesync_en;
 			jesd,scramble_en;
 			jesd,frames-per-multiframe = <32>;
 			jesd,bytes-per-frame = <2>;
 			clocks = <&ad9683_clkin 0>;
 			clock-names = "clkin";
-		} ;
+		};
 
 		axi_spi_0: spi@42000000 {
 			compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupt-parent = <&gic>;
-			interrupts = < 0 58 4 >;
-			reg = < 0x42000000 0x10000 >;
+			interrupts = <0 56 4>;
+			reg = <0x42000000 0x10000>;
 			xlnx,family = "zynq";
 			xlnx,fifo-exist = <0x1>;
 			xlnx,instance = "axi_spi_0";
@@ -225,11 +219,11 @@
 				clocks = <&ad9683_clkin 0>;
 				clock-names = "clkin";
 			};
-		} ;
+		};
 
 		axi_ad9863: cf-ad9683@79000000 {
 			compatible = "xlnx,axi-ad9683-1.00.a";
-			reg = < 0x79000000 0x10000 >;
+			reg = <0x79000000 0x10000>;
 			dmas = <&axi_dma_0 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9683>;
@@ -241,7 +235,7 @@
 			xlnx,slv-awidth = <0x20>;
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
-		} ;
+		};
 
 	};
 };

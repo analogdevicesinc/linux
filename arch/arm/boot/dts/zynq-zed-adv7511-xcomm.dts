@@ -9,11 +9,11 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		i2c@41620000 {
+		i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = < 0 54 0x4 >;
-			reg = < 0x41620000 0x10000 >;
+			interrupts = <0 58 0x4>;
+			reg = <0x41600000 0x10000>;
 
 			#size-cells = <0>;
 			#address-cells = <1>;
@@ -34,32 +34,21 @@
 				adi,tdms-clock-inversion;
 				adi,clock-delay = <0x03>;
 			};
+
+			adau1761: adau1761@3b {
+				compatible = "adi,adau1761";
+				reg = <0x3b>;
+			};
 		};
 
-		xcomm_i2c: i2c@41600000 {
+		xcomm_i2c: i2c@41620000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = < 0 53 0x4 >;
-			reg = < 0x41600000 0x10000 >;
+			interrupts = <0 55 0x4>;
+			reg = <0x41620000 0x10000>;
 
 			#size-cells = <0>;
 			#address-cells = <1>;
-		};
-
-		axi_dma_0: axidma@40440000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			reg = < 0x40440000 0x1000 >;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
-			dma-channel@40440000 {
-				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = < 0 56 0x4 >;
-				xlnx,datawidth = <0x20>;
-				xlnx,sg-length-width = <14>;
-				xlnx,include-dre = <0x0>;
-			};
 		};
 
 		axi_vdma_0: axivdma@43020000 {
@@ -72,23 +61,6 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43020000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 57 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
-			};
-		};
-
-		axi_vdma_1: axivdma@43000000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-vdma";
-			reg = <0x43000000 0x1000>;
-			/*xlnx,include-sg = <0x0>;*/
-			xlnx,num-fstores = <0x3>;
-			dma-channel@43000000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
 				interrupts = <0 59 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
@@ -96,17 +68,11 @@
 			};
 		};
 
-		fpga_clock: fpga_clock {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <200000000>;
-		};
-
 		hdmi_clock: axi-clkgen@79000000 {
 			compatible = "adi,axi-clkgen-1.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&fpga_clock>;
+			clocks = <&clkc 17>;
 		};
 
 		axi_hdmi@70e00000 {
@@ -126,10 +92,10 @@
 
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
-			reg = < 0x75c00000 0x1000 >;
-			dmas = <&axi_dma_0 0>;
+			reg = <0x75c00000 0x1000>;
+			dmas = <&ps7_dma 0>;
 			dma-names = "tx";
-			clocks = <&fpga_clock &audio_clock>;
+			clocks = <&clkc 15 &audio_clock>;
 			clock-names = "axi", "spdif";
 		};
 
@@ -139,16 +105,48 @@
 			cpu-dai = <&axi_spdif_tx_0>;
 		};
 
+		axi_i2s_0: axi-i2s@0x77600000 {
+			compatible = "adi,axi-i2s-1.00.a";
+			reg = <0x77600000 0x1000>;
+			dmas = <&ps7_dma 1 &ps7_dma 2>;
+			dma-names = "tx", "rx";
+			clocks = <&clkc 15 &audio_clock>;
+			clock-names = "axi", "i2s";
+		};
+
+		zed_sound {
+			compatible = "digilent,zed-sound";
+			audio-codec = <&adau1761>;
+			cpu-dai = <&axi_i2s_0>;
+		};
+
+		axi_vdma_1: axivdma@43000000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-vdma";
+			reg = <0x43000000 0x1000>;
+			/*xlnx,include-sg = <0x0>;*/
+			xlnx,num-fstores = <0x3>;
+			dma-channel@43000000 {
+				compatible = "xlnx,axi-vdma-mm2s-channel";
+				interrupts = <0 57 0x4>;
+				xlnx,datawidth = <0x40>;
+				xlnx,genlock-mode = <0x0>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
 		axi_dma_1: axidma@40420000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-dma";
-			reg = < 0x40420000 0x10000 >;
+			reg = <0x40420000 0x10000>;
 			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@40420000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = < 0 58 0x4 >;
+				interrupts = <0 56 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,sg-length-width = <23>;
 				xlnx,include-dre = <0x0>;
@@ -157,7 +155,7 @@
 
 		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
-			reg = < 0x79020000 0x10000 >;
+			reg = <0x79020000 0x10000 >;
 			dmas = <&axi_dma_1 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9467>;
@@ -172,7 +170,7 @@
 
 		cf_ad9122_core_0: cf-ad9122-core-lpc@74200000 {
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
-			reg = < 0x74200000 0x10000 >;
+			reg = <0x74200000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
 			dmas = <&axi_vdma_1 0>;
 			dma-names = "tx";

@@ -5,6 +5,7 @@
  *
  * Licensed under the GPL-2.
  */
+
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -146,7 +147,7 @@ struct ad9361_rf_phy {
 	u8			tx_fir_ntaps;
 	u8			rx_fir_dec;
 	u8			rx_fir_ntaps;
-	u8			agc_mode[2]
+	u8			agc_mode[2];
 };
 
 struct refclk_scale {
@@ -608,7 +609,6 @@ static int ad9361_get_full_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 		struct rf_rx_gain *rx_gain)
 {
 	struct spi_device *spi = phy->spi;
-	struct device *dev = &phy->spi->dev;
 	u32 val;
 	enum rx_gain_table_name tbl;
 	struct rx_gain_info *gain_info;
@@ -1597,7 +1597,7 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	struct spi_device *spi = phy->spi;
 	unsigned long clktf, clkrf;
 	int txnco_word, rxnco_word;
-	unsigned char rx_phase;
+	unsigned char rx_phase = 0;
 	const unsigned char (*tab)[3];
 	unsigned index_max, i , lpf_tia_mask;
 	/*
@@ -2081,7 +2081,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
 {
-	unsigned long clktf, adc_rate, dac_rate;
+	unsigned long clktf, adc_rate, dac_rate = 0;
 	unsigned long long bbpll_rate;
 	int i, index_rx = -1, index_tx = -1;
 	unsigned div, fir_intdec;
@@ -2717,10 +2717,11 @@ static void ad9361_work_func(struct work_struct *work)
 {
 	struct ad9361_rf_phy *phy =
 		container_of(work, struct ad9361_rf_phy, work);
+	int ret;
 
 	dev_dbg(&phy->spi->dev, "%s:", __func__);
 
-	int ret = ad9361_do_calib_run(phy, TX_QUAD_CAL);
+	ret = ad9361_do_calib_run(phy, TX_QUAD_CAL);
 	if (ret < 0)
 		dev_err(&phy->spi->dev,
 			"%s: TX QUAD cal failed", __func__);
@@ -3506,11 +3507,11 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask =  IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBPHASE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
-			/*.ext_info = axiadc_ext_info,*/			\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
+			BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
+			BIT(IIO_CHAN_INFO_CALIBPHASE),			\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	/*.ext_info = axiadc_ext_info,*/			\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
@@ -4246,29 +4247,29 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.indexed = 1,
 	.output = 1,
 	.channel = 0,
-	.info_mask = IIO_CHAN_INFO_HARDWAREGAIN_SEPARATE_BIT |
-		IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,
+	.info_mask_separate = (IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 }, {	/* TX2 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
 	.output = 1,
 	.channel = 1,
-	.info_mask = IIO_CHAN_INFO_HARDWAREGAIN_SEPARATE_BIT |
-		IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,
+	.info_mask_separate = (IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 }, {	/* RX1 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
 	.channel = 0,
-	.info_mask = IIO_CHAN_INFO_HARDWAREGAIN_SEPARATE_BIT |
-		IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,
+	.info_mask_separate = (IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
 
 }, {	/* RX2 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
 	.channel = 1,
-	.info_mask = IIO_CHAN_INFO_HARDWAREGAIN_SEPARATE_BIT |
-		IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,
+	.info_mask_separate = (IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
 }};
 
@@ -4476,7 +4477,7 @@ static int ad9361_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct ad9361_rf_phy *phy;
 	struct clk *clk = NULL;
-	int ret;
+	int ret, rev;
 
 	dev_info(&spi->dev, "%s : enter", __func__);
 
@@ -4511,6 +4512,16 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ad9361_spi_write(spi, SPI_CONFIGURATION, 0x81); /* RESET */
 	ad9361_spi_write(spi, SPI_CONFIGURATION, 0x0);
+
+	ret = ad9361_spi_read(spi, PRODUCT_ID);
+	if ((ret & PRODUCT_ID_MASK) != PRODUCT_ID_9361) {
+		dev_err(&spi->dev, "%s : Unsupported PRODUCT_ID 0x%X",
+			__func__, ret);
+		ret = -ENODEV;
+		goto out;
+	}
+
+	rev = ret & REV_MASK;
 
 	INIT_WORK(&phy->work, ad9361_work_func);
 	init_completion(&phy->complete);
@@ -4550,7 +4561,8 @@ static int ad9361_probe(struct spi_device *spi)
 	if (ret < 0)
 		goto out1;
 
-	dev_info(&spi->dev, "%s : AD9361 successfully initialized", __func__);
+	dev_info(&spi->dev, "%s : AD9361 Rev %d successfully initialized",
+		 __func__, rev);
 
 	return 0;
 
