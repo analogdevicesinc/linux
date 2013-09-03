@@ -80,6 +80,7 @@
 #define XCAN_SR_NORMAL_MASK		0x00000008 /* Normal mode */
 #define XCAN_SR_LBACK_MASK		0x00000002 /* Loop back mode */
 #define XCAN_SR_CONFIG_MASK		0x00000001 /* Configuration mode */
+#define XCAN_IXR_TXFEMP_MASK		0x00004000 /* TX FIFO Empty */
 #define XCAN_IXR_WKUP_MASK		0x00000800 /* Wake up interrupt */
 #define XCAN_IXR_SLP_MASK		0x00000400 /* Sleep interrupt */
 #define XCAN_IXR_BSOFF_MASK		0x00000200 /* Bus off interrupt */
@@ -101,6 +102,7 @@
 #define XCAN_BTR_TS2_SHIFT		4  /* Time segment 2 */
 #define XCAN_IDR_ID1_SHIFT		21 /* Standard Messg Identifier */
 #define XCAN_IDR_ID2_SHIFT		1  /* Extended Message Identifier */
+#define XCAN_DLCR_DLC_SHIFT		28 /* Data length code */
 
 /* CAN frame length constants */
 #define XCAN_ECHO_SKB_MAX		64
@@ -396,6 +398,31 @@ static int xcan_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	} else if (priv->waiting_ech_skb_num == priv->xcan_echo_skb_max) {
 		netdev_err(ndev, "waiting:0x%08x, max:0x%08x\n",
 			priv->waiting_ech_skb_num, priv->xcan_echo_skb_max);
+		/* Theoretically, if TX interrupts get lost, we might end here
+		 * without ever recovering.Check if TX FIFO is empty recover
+		 * in this case
+		 */
+		priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_TXFEMP_MASK);
+		netdev_err(ndev, "Trying to recover...\n");
+		if (priv->read_reg(priv, XCAN_ISR_OFFSET) &
+				XCAN_IXR_TXFEMP_MASK) {
+			spin_lock_irqsave(&priv->ech_skb_lock, flags);
+			while (priv->waiting_ech_skb_num > 0) {
+				spin_unlock_irqrestore(&priv->ech_skb_lock,
+				flags);
+				can_get_echo_skb(ndev,
+				priv->waiting_ech_skb_index);
+				priv->waiting_ech_skb_index =
+					(priv->waiting_ech_skb_index + 1) %
+					priv->xcan_echo_skb_max;
+				spin_lock_irqsave(&priv->ech_skb_lock, flags);
+				priv->waiting_ech_skb_num--;
+			}
+			spin_unlock_irqrestore(&priv->ech_skb_lock, flags);
+			netdev_err(ndev, "...recovered!\n");
+		} else {
+			netdev_err(ndev, "...could not recover (yet)!\n");
+		}
 		return NETDEV_TX_BUSY;
 	}
 
@@ -410,10 +437,11 @@ static int xcan_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			id |= XCAN_IDR_SRR_MASK;
 	} else {
 		/* Extended CAN ID formact */
-		id = ((cf->can_id & CAN_EFF_MASK) << XCAN_IDR_ID1_SHIFT) &
-				XCAN_IDR_ID1_MASK;
-		id |= ((cf->can_id & XCAN_IDR_ID2_MASK) << XCAN_IDR_ID2_SHIFT) &
-			0xFFFFFFFF;
+		id = ((cf->can_id & CAN_EFF_MASK) << XCAN_IDR_ID2_SHIFT) &
+			XCAN_IDR_ID2_MASK;
+		id |= (((cf->can_id & CAN_EFF_MASK) >>
+			(CAN_EFF_ID_BITS-CAN_SFF_ID_BITS)) <<
+			XCAN_IDR_ID1_SHIFT) & XCAN_IDR_ID1_MASK;
 
 		/* The substibute remote TX request bit should be "1"
 		 * for extended frames as in the Xilinx CAN datasheet
@@ -425,7 +453,7 @@ static int xcan_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			id |= XCAN_IDR_RTR_MASK;
 	}
 
-	dlc = (cf->can_dlc & 0xf) << 28;
+	dlc = (cf->can_dlc & 0xf) << XCAN_DLCR_DLC_SHIFT;
 
 	tmp_dw1 = le32_to_cpup((u32 *)(cf->data));
 	data1 = htonl(tmp_dw1);
@@ -473,10 +501,7 @@ static void xcan_rx(struct net_device *ndev)
 	struct net_device_stats *stats = &ndev->stats;
 	struct can_frame *cf;
 	struct sk_buff *skb;
-	u32 id_xcan;
-	u32 dlc;
-	u8 da_u8[8];
-	int i;
+	u32 id_xcan, dlc, tmp_dw1, tmp_dw2, data1, data2 = 0;
 
 	skb = alloc_can_skb(ndev, &cf);
 	if (!skb)
@@ -485,35 +510,41 @@ static void xcan_rx(struct net_device *ndev)
 	/* Read a frame from Xilinx zynq CANPS */
 	id_xcan = priv->read_reg(priv, XCAN_RXFIFO_ID_OFFSET);
 	dlc = priv->read_reg(priv, XCAN_RXFIFO_DLC_OFFSET) & XCAN_DLCR_DLC_MASK;
-
-	*((u32 *)(da_u8)) = priv->read_reg(priv, XCAN_RXFIFO_DW1_OFFSET);
-	*((u32 *)(da_u8 + 4)) = priv->read_reg(priv, XCAN_RXFIFO_DW2_OFFSET);
+	tmp_dw1 = priv->read_reg(priv, XCAN_RXFIFO_DW1_OFFSET);
+	tmp_dw2 = priv->read_reg(priv, XCAN_RXFIFO_DW2_OFFSET);
 	netdev_dbg(ndev, "rx:id=0x%08x,dlc=0x%08x,d1=0x%08x,d2=0x%08x\n",
-		id_xcan, dlc, *((u32 *)da_u8), *((u32 *)(da_u8 + 4)));
+		id_xcan, dlc, tmp_dw1, tmp_dw2);
 
 	/* Change Xilinx CAN data length format to socketCAN data format */
-	cf->can_dlc = (u8)(dlc & XCAN_DLCR_DLC_MASK);
+	cf->can_dlc = get_can_dlc((dlc & XCAN_DLCR_DLC_MASK) >>
+				XCAN_DLCR_DLC_SHIFT);
 
 	/* Change Xilinx CAN ID format to socketCAN ID format */
-	if (id_xcan | XCAN_IDR_IDE_MASK) {
+	if (id_xcan & XCAN_IDR_IDE_MASK) {
 		/* The received frame is an Extended format frame */
 		cf->can_id = (id_xcan & XCAN_IDR_ID1_MASK) >> 3;
 		cf->can_id |= (id_xcan & XCAN_IDR_ID2_MASK) >>
 				XCAN_IDR_ID2_SHIFT;
 		cf->can_id |= CAN_EFF_FLAG;
-		if (id_xcan | XCAN_IDR_RTR_MASK)
+		if (id_xcan & XCAN_IDR_RTR_MASK)
 			cf->can_id |= CAN_RTR_FLAG;
 	} else {
 		/* The received frame is a standard format frame */
 		cf->can_id = (id_xcan & XCAN_IDR_ID1_MASK) >>
 				XCAN_IDR_ID1_SHIFT;
-		if (id_xcan | XCAN_IDR_RTR_MASK)
+		if (id_xcan & XCAN_IDR_RTR_MASK)
 			cf->can_id |= CAN_RTR_FLAG;
 	}
 
 	/* Change Xilinx CAN data format to socketCAN data format */
-	for (i = 0; i < cf->can_dlc; i++)
-		cf->data[i] = da_u8[i];
+	data1 = cpu_to_le32((u32 *)tmp_dw1);
+	*(u32 *)(cf->data) = ntohl(data1);
+	if (cf->can_dlc > 4) {
+		data2 = cpu_to_le32((u32 *)tmp_dw2);
+		*(u32 *)(cf->data+4) = ntohl(data2);
+	} else {
+		*(u32 *)(cf->data+4) = 0;
+	}
 	stats->rx_bytes += cf->can_dlc;
 
 	can_led_event(ndev, CAN_LED_EVENT_RX);
@@ -612,11 +643,9 @@ static void xcan_err_interrupt(struct net_device *ndev, u32 isr)
 				CAN_ERR_PROT_LOC_CRC_DEL;
 	}
 
-	for (i = 0; i < XCAN_FRAME_MAX_DATA_LEN; i++)
-		if (cf->data[i] != 0)
+	for (i = 0; i < XCAN_FRAME_MAX_DATA_LEN; )
+		if (cf->data[i++] != 0)
 			cf->can_dlc = i;
-	cf->can_dlc++;
-
 	netif_rx(skb);
 
 	stats->rx_packets++;
@@ -798,7 +827,6 @@ static int xcan_close(struct net_device *ndev)
 	if (set_reset_mode(ndev) < 0)
 		netdev_err(ndev, "mode resetting failed failed!\n");
 
-	free_irq(ndev->irq, (void *)ndev);
 	close_candev(ndev);
 
 	priv->open_time = 0;
@@ -872,9 +900,9 @@ static int xcan_suspend(struct device *_dev)
  */
 static int xcan_resume(struct device *dev)
 {
-	struct platformdevice *pdev = container_of(dev,
-			struct platformdevice, dev);
-	struct netdevice *ndev = platform_get_drvdata(pdev);
+	struct platform_device *pdev = container_of(dev,
+			struct platform_device, dev);
+	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct xcan_priv *priv = netdev_priv(ndev);
 	int ret;
 
@@ -894,7 +922,7 @@ static int xcan_resume(struct device *dev)
 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 
 	if (netif_running(ndev)) {
-		netifdevice_attach(ndev);
+		netif_device_attach(ndev);
 		netif_start_queue(ndev);
 	}
 

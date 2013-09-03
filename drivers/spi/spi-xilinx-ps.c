@@ -393,6 +393,7 @@ static int xspips_start_transfer(struct spi_device *spi,
 	struct xspips *xspi = spi_master_get_devdata(spi->master);
 	u32 ctrl_reg;
 	unsigned long flags;
+	int ret;
 
 	xspi->txbuf = transfer->tx_buf;
 	xspi->rxbuf = transfer->rx_buf;
@@ -412,7 +413,9 @@ static int xspips_start_transfer(struct spi_device *spi,
 
 	spin_unlock_irqrestore(&xspi->ctrl_reg_lock, flags);
 
-	wait_for_completion(&xspi->done);
+	ret = wait_for_completion_timeout(&xspi->done, 5 * HZ);
+	if (ret == 0)
+		return -EIO;
 
 	return (transfer->len) - (xspi->remaining_bytes);
 }
@@ -655,6 +658,7 @@ static int xspips_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct xspips *xspi;
 	struct resource *res;
+	unsigned long aper_clk_rate;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*xspi));
 	if (master == NULL)
@@ -732,6 +736,10 @@ static int xspips_probe(struct platform_device *pdev)
 	master->setup = xspips_setup;
 	master->transfer = xspips_transfer;
 	master->mode_bits = SPI_CPOL | SPI_CPHA;
+
+	aper_clk_rate = clk_get_rate(xspi->aperclk);
+	if (aper_clk_rate > clk_get_rate(xspi->devclk))
+		clk_set_rate(xspi->devclk, aper_clk_rate);
 
 	xspi->speed_hz = clk_get_rate(xspi->devclk) / 2;
 
