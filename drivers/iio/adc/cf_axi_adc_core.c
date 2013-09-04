@@ -241,6 +241,12 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		 * approx: F_cut = C * Fsample / (2 * pi)
 		 */
 
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(chan->channel));
+		if (!(tmp & ADI_DCFILT_ENB)) {
+			*val = 0;
+			return IIO_VAL_INT;
+		}
+
 		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
 		llval = ADI_TO_DCFILT_COEFF(tmp) * (unsigned long long)conv->adc_clk;
 		do_div(llval, 102944); /* 2 * pi * 0x4000 */
@@ -536,7 +542,6 @@ static int axiadc_of_probe(struct platform_device *op)
 	st->max_count = AXIADC_MAX_DMA_SIZE;
 
 	st->dma_align = ADI_DMA_BUSWIDTH(axiadc_read(st, ADI_REG_DMA_BUSWIDTH));
-
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
