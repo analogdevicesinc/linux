@@ -497,14 +497,13 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 				ADV7511_POWER_POWER_DOWN, ADV7511_POWER_POWER_DOWN);
 
+	kfree(adv7511->edid);
 	adv7511->edid = edid;
 	if (!edid)
 		return 0;
 
 	drm_mode_connector_update_edid_property(connector, edid);
 	count = drm_add_edid_modes(connector, edid);
-
-	kfree(adv7511->edid);
 
 	return count;
 }
