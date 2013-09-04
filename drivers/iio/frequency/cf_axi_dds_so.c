@@ -435,7 +435,6 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	st->iio_info = cf_axi_dds_info;
 	indio_dev->info = &st->iio_info;
 
-
 	dds_write(st, ADI_REG_RSTN, 0x0);
 	dds_write(st, ADI_REG_RSTN, ADI_RSTN);
 
@@ -452,7 +451,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 		cf_axi_dds_default_setup(st, 3, 0, 1000000, 4);
 	}
 
-	if (st->chip_info->num_channels == 8) {
+	if (st->chip_info->num_channels >= 8) {
 		cf_axi_dds_default_setup(st, 4, 90000, 1000000, 4);
 		cf_axi_dds_default_setup(st, 5, 90000, 1000000, 4);
 		cf_axi_dds_default_setup(st, 6, 0, 1000000, 4);
