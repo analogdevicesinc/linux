@@ -669,10 +669,14 @@ static int ad9467_post_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	for (i = 0; i < conv->chip_info->num_channels; i++)
+	for (i = 0; i < conv->chip_info->num_channels; i++) {
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
+			     (i & 1) ? 0x00004000 : 0x40000000);
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(i),
 			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 			     ADI_IQCOR_ENB | ADI_ENABLE);
+	}
+
 
 	return 0;
 }
