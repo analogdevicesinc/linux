@@ -527,7 +527,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	cf_axi_dds_default_setup(st, 0, 90000, 40000000, 2);
 	cf_axi_dds_default_setup(st, 1, 90000, 40000000, 2);
 
-	if (st->chip_info->num_channels == 4) {
+	if (st->chip_info->num_channels >= 4) {
 		cf_axi_dds_default_setup(st, 2, 0, 40000000, 2);
 		cf_axi_dds_default_setup(st, 3, 0, 40000000, 2);
 	}
