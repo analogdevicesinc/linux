@@ -25,6 +25,7 @@
 
 #define ADI_REG_RSTN			0x0040
 #define ADI_RSTN				(1 << 0)
+#define ADI_MMCM_RSTN 			(1 << 1)
 
 #define ADI_REG_CNTRL			0x0044
 #define ADI_R1_MODE			(1 << 2)
