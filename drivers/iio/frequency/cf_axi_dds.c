@@ -154,8 +154,8 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
-		reg = dds_read(st, chan->address);
-		val64 = (u64)(reg >> 16) * 360000ULL + (0x10000 / 2);
+		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
+		val64 = (u64)ADI_TO_DDS_INIT(reg) * 360000ULL + (0x10000 / 2);
 		do_div(val64, 0x10000);
 		*val = val64;
 		mutex_unlock(&indio_dev->mlock);
@@ -245,9 +245,9 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		if (val == 360000)
 			val = 0;
 
-		cf_axi_dds_stop(st);
-		reg = dds_read(st, chan->address);
-		reg &= 0x0000FFFF;
+		dds_write(st, ADI_REG_CNTRL_1, 0);
+		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
+		reg &= ~ADI_DDS_INIT(~0);
 		val64 = (u64) val * 0x10000ULL + (360000 / 2);
 		do_div(val64, 360000);
 		reg |= ADI_DDS_INIT(val64);
