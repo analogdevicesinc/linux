@@ -513,7 +513,9 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	indio_dev->info = &st->iio_info;
 
 	dds_write(st, ADI_REG_RSTN, 0x0);
-	dds_write(st, ADI_REG_RSTN, ADI_RSTN);
+	dds_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
+
+	dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(1));
 
 	ret = conv->setup(conv);
 	if (ret < 0)
