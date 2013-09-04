@@ -9,7 +9,7 @@
 	};
 };
 
-&axi_spi_0 {
+&fmc_spi {
 	adc0_ad9361: ad9361@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -46,3 +46,14 @@
 	};
 };
 
+&fmc_i2c {
+	ad7291@2f {
+		compatible = "adi,ad7291";
+		reg = <0x2f>;
+	};
+
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+};
