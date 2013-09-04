@@ -56,102 +56,90 @@ static int axiadc_spi_write(struct axiadc_state *st, unsigned reg, unsigned val)
 
 static void axiadc_toggle_scale_offset_en(struct axiadc_state *st)
 {
-// 	unsigned val = axiadc_read(st, AXIADC_PCORE_ADC_CTRL);
-// 	val &= ~AXIADC_SCALE_OFFSET_EN;
-// 	axiadc_write(st, AXIADC_PCORE_ADC_CTRL, val);
-// 	axiadc_write(st, AXIADC_PCORE_ADC_CTRL, val | AXIADC_SCALE_OFFSET_EN);
+	return;
 }
 
-// static int axiadc_debugfs_open(struct inode *inode, struct file *file)
-// {
-// 	if (inode->i_private)
-// 		file->private_data = inode->i_private;
-//
-// 	return 0;
-// }
-//
-//
-//
-// static ssize_t axiadc_debugfs_pncheck_read(struct file *file, char __user *userbuf,
-// 			      size_t count, loff_t *ppos)
-// {
-// 	struct iio_dev *indio_dev = file->private_data;
-// 	struct axiadc_state *st = iio_priv(indio_dev);
-// 	char buf[80];
-// 	ssize_t len;
-// 	unsigned stat;
-//
-// 	stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-//
-// 	switch (st->id) {
-// 	case CHIPID_AD9467:
-// 		len = sprintf(buf, "%s %s\n", (stat & AXIADC_PCORE_ADC_STAT_PN_OOS) ?
-// 			"Out of Sync :" : "In Sync :",
-// 			(stat & AXIADC_PCORE_ADC_STAT_PN_ERR) ?
-// 			"PN Error" : "No Error");
-// 		break;
-// 	case CHIPID_AD9643:
-// 		len = sprintf(buf, "CH0 %s %s\nCH1 %s %s\n", (stat & AXIADC_PCORE_ADC_STAT_PN_OOS0) ?
-// 			"Out of Sync :" : "In Sync :",
-// 			(stat & AXIADC_PCORE_ADC_STAT_PN_ERR0) ?
-// 			"PN Error" : "No Error",
-// 			(stat & AXIADC_PCORE_ADC_STAT_PN_OOS1) ?
-// 			"Out of Sync :" : "In Sync :",
-// 			(stat & AXIADC_PCORE_ADC_STAT_PN_ERR1) ?
-// 			"PN Error" : "No Error");
-// 		break;
-// 	default:
-// 		len = 0;
-// 	}
-//
-// 	axiadc_write(st, AXIADC_PCORE_ADC_STAT, AXIADC_PCORE_ADC_STAT_MASK);
-//
-// 	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
-// }
-//
-// static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
-// 		     const char __user *userbuf, size_t count, loff_t *ppos)
-// {
-// 	struct iio_dev *indio_dev = file->private_data;
-// 	struct axiadc_state *st = iio_priv(indio_dev);
-// 	unsigned mode = TESTMODE_OFF;
-// 	char buf[80], *p = buf;
-//
-// 	count = min_t(size_t, count, (sizeof(buf)-1));
-// 	if (copy_from_user(p, userbuf, count))
-// 		return -EFAULT;
-//
-// 	p[count] = 0;
-//
-// 	if (sysfs_streq(p, "PN9"))
-// 		mode = TESTMODE_PN9_SEQ;
-// 	else if (sysfs_streq(p, "PN23"))
-// 		mode = TESTMODE_PN23_SEQ;
-// 	else if (sysfs_streq(p, "CALIB"))
-// 		axiadc_dco_calibrate(indio_dev, st->chip_info->num_channels);
-// 	else
-// 		mode = TESTMODE_OFF;
-//
-// 	mutex_lock(&indio_dev->mlock);
-// 	axiadc_testmode_set(indio_dev, 0, mode);
-// 	axiadc_testmode_set(indio_dev, 1, mode);
-//
-// // 	axiadc_write(st, AXIADC_PCORE_PN_ERR_CTRL, (mode == TESTMODE_PN23_SEQ) ?
-// // 		  AXIADC_PN23_EN : AXIADC_PN9_EN);
-//
-// 	mdelay(1); /* FIXME */
-//
-// 	axiadc_write(st, AXIADC_PCORE_ADC_STAT, AXIADC_PCORE_ADC_STAT_MASK);
-// 	mutex_unlock(&indio_dev->mlock);
-//
-// 	return count;
-// }
-//
-// static const struct file_operations axiadc_debugfs_pncheck_fops = {
-// 	.open = axiadc_debugfs_open,
-// 	.read = axiadc_debugfs_pncheck_read,
-// 	.write = axiadc_debugfs_pncheck_write,
-// };
+static int axiadc_debugfs_open(struct inode *inode, struct file *file)
+{
+	if (inode->i_private)
+		file->private_data = inode->i_private;
+
+	return 0;
+}
+
+static ssize_t axiadc_debugfs_pncheck_read(struct file *file, char __user *userbuf,
+			      size_t count, loff_t *ppos)
+{
+	struct iio_dev *indio_dev = file->private_data;
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	char buf[1024];
+	ssize_t len = 0;
+	unsigned stat, type, i;
+
+	for (i = 0; i < conv->chip_info->num_channels; i++) {
+		stat = axiadc_read(st, ADI_REG_CHAN_STATUS(i));
+		type = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
+		len += sprintf(buf + len, "CH%d : %s : %s %s\n", i,
+			(type & ADI_PN23_TYPE) ? "PN23" : "PN9",
+			(stat & ADI_PN_OOS) ? "Out of Sync :" : "In Sync :",
+			(stat & (ADI_PN_ERR | ADI_PN_OOS)) ? "PN Error" : "OK");
+		axiadc_write(st, ADI_REG_CHAN_STATUS(i), ~0);
+		if (len > 974)
+			return -ENOMEM;
+	}
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
+		     const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	struct iio_dev *indio_dev = file->private_data;
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	unsigned type, i, mode = TESTMODE_OFF;
+	char buf[80], *p = buf;
+
+	count = min_t(size_t, count, (sizeof(buf)-1));
+	if (copy_from_user(p, userbuf, count))
+		return -EFAULT;
+
+	p[count] = 0;
+
+	if (sysfs_streq(p, "PN9"))
+		mode = TESTMODE_PN9_SEQ;
+	else if (sysfs_streq(p, "PN23"))
+		mode = TESTMODE_PN23_SEQ;
+	else
+		mode = TESTMODE_OFF;
+
+	mutex_lock(&indio_dev->mlock);
+
+	for (i = 0; i < conv->chip_info->num_channels; i++) {
+		if (conv->testmode_set)
+			conv->testmode_set(indio_dev, i, mode);
+
+		type = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
+		if (mode == TESTMODE_PN9_SEQ)
+			type &= ~ADI_PN23_TYPE;
+		else
+			type |= ADI_PN23_TYPE;
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(i), type);
+		axiadc_write(st, ADI_REG_CHAN_STATUS(i), ~0);
+	}
+
+	mdelay(1); /* FIXME */
+	mutex_unlock(&indio_dev->mlock);
+
+	return count;
+}
+
+static const struct file_operations axiadc_debugfs_pncheck_fops = {
+	.open = axiadc_debugfs_open,
+	.read = axiadc_debugfs_pncheck_read,
+	.write = axiadc_debugfs_pncheck_write,
+};
 
 static int axiadc_reg_access(struct iio_dev *indio_dev,
 			      unsigned reg, unsigned writeval,
@@ -390,7 +378,7 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 }
 
 static int axiadc_channel_setup(struct iio_dev *indio_dev,
-				struct iio_chan_spec *adc_channels,
+				const struct iio_chan_spec *adc_channels,
 				unsigned adc_chan_num)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -579,16 +567,15 @@ static int axiadc_of_probe(struct platform_device *op)
 		 st->rx_chan->chan_id, conv->chip_info->name,
 		 axiadc_read(st, ADI_REG_ID) ? "SLAVE" : "MASTER");
 
-// 	if (iio_get_debugfs_dentry(indio_dev))
-// 		debugfs_create_file("pseudorandom_err_check", 0644,
-// 					iio_get_debugfs_dentry(indio_dev),
-// 					indio_dev, &axiadc_debugfs_pncheck_fops);
+	if (iio_get_debugfs_dentry(indio_dev))
+		debugfs_create_file("pseudorandom_err_check", 0644,
+					iio_get_debugfs_dentry(indio_dev),
+					indio_dev, &axiadc_debugfs_pncheck_fops);
 
 	return 0;
 
 failed4:
 	axiadc_unconfigure_ring(indio_dev);
-failed3:
 	dma_release_channel(st->rx_chan);
 failed2:
 	release_mem_region(phys_addr, remap_size);

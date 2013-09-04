@@ -332,6 +332,8 @@ struct axiadc_converter {
 			 long mask);
 
 	int (*post_setup)(struct iio_dev *indio_dev);
+	int (*testmode_set)(struct iio_dev *indio_dev, unsigned chan,
+			unsigned mode);
 };
 
 
