@@ -436,8 +436,11 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 	axi_hdmi_connector_init(dev, connector, encoder);
 	axi_hdmi_debugfs_init(axi_hdmi_encoder);
 
-	if (priv->version == AXI_HDMI)
+	if (priv->version == AXI_HDMI) {
 		writel(AXI_HDMI_SOURCE_SEL_NORMAL, priv->base + AXI_HDMI_REG_SOURCE_SEL);
+		if (priv->is_rgb)
+				writel(AXI_HDMI_CTRL_CSC_BYPASS, priv->base + AXI_HDMI_REG_CTRL);
+	}
 
 	return encoder;
 }
