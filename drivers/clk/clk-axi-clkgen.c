@@ -288,8 +288,8 @@ static int axi_clkgen_v2_mmcm_read(struct axi_clkgen *axi_clkgen,
 	reg_val = AXI_CLKGEN_V2_DRP_CNTRL_SEL | AXI_CLKGEN_V2_DRP_CNTRL_READ;
 	reg_val |= (reg << 16);
 
-	axi_clkgen_write(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_CNTRL, 0x00);
 	axi_clkgen_write(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_CNTRL, reg_val);
+
 	do {
 	    axi_clkgen_read(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_STATUS, val);
 	} while ((*val & AXI_CLKGEN_V2_DRP_STATUS_BUSY) && --timeout);
@@ -324,7 +324,6 @@ static int axi_clkgen_v2_mmcm_write(struct axi_clkgen *axi_clkgen,
 
 	reg_val |= AXI_CLKGEN_V2_DRP_CNTRL_SEL | (reg << 16) | (val & mask);
 
-	axi_clkgen_write(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_CNTRL, 0x00);
 	axi_clkgen_write(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_CNTRL, reg_val);
 
 	return 0;
