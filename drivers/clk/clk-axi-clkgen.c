@@ -275,17 +275,15 @@ static const struct axi_clkgen_mmcm_ops axi_clkgen_v1_mmcm_ops = {
 static int axi_clkgen_v2_mmcm_read(struct axi_clkgen *axi_clkgen,
 	unsigned int reg, unsigned int *val)
 {
-	unsigned int timeout = 1000000;
+	unsigned int timeout = 10000;
 	unsigned int reg_val;
 
 	do {
 	    axi_clkgen_read(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_STATUS, &reg_val);
 	} while ((reg_val & AXI_CLKGEN_V2_DRP_STATUS_BUSY) && --timeout);
 
-	if (timeout == 0) {
-		printk("timeout1 reading %d: %x\n", reg, *val);
+	if (timeout == 0)
 		return -EIO;
-	}
 	
 	reg_val = AXI_CLKGEN_V2_DRP_CNTRL_SEL | AXI_CLKGEN_V2_DRP_CNTRL_READ;
 	reg_val |= (reg << 16);
@@ -296,10 +294,8 @@ static int axi_clkgen_v2_mmcm_read(struct axi_clkgen *axi_clkgen,
 	    axi_clkgen_read(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_STATUS, val);
 	} while ((*val & AXI_CLKGEN_V2_DRP_STATUS_BUSY) && --timeout);
 
-	if (timeout == 0) {
-		printk("timeout2 reading %d: %x\n", reg, *val);
+	if (timeout == 0)
 		return -EIO;
-	}
 
 	*val &= 0xffff;
 
@@ -309,17 +305,15 @@ static int axi_clkgen_v2_mmcm_read(struct axi_clkgen *axi_clkgen,
 static int axi_clkgen_v2_mmcm_write(struct axi_clkgen *axi_clkgen,
 	unsigned int reg, unsigned int val, unsigned int mask)
 {
+	unsigned int timeout = 10000;
 	unsigned int reg_val;
-	unsigned int timeout = 1000000;
 
 	do {
 	    axi_clkgen_read(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_STATUS, &reg_val);
 	} while ((reg_val & AXI_CLKGEN_V2_DRP_STATUS_BUSY) && --timeout);
 
-	if (timeout == 0) {
-		printk("timeout writing %d: %x\n", reg, reg_val);
+	if (timeout == 0)
 		return -EIO;
-	}
 
 	if (mask != 0xffff) {
 		axi_clkgen_v2_mmcm_read(axi_clkgen, reg, &reg_val);
