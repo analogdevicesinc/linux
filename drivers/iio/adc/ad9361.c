@@ -82,6 +82,95 @@ enum {
 	ID_AD9361,
 };
 
+struct rf_gain_ctrl {
+	u32 ant;
+	u8 mode;
+};
+
+
+enum rf_gain_ctrl_mode {
+	RF_GAIN_MGC,
+	RF_GAIN_FASTATTACK_AGC,
+	RF_GAIN_SLOWATTACK_AGC,
+	RF_GAIN_HYBRID_AGC
+};
+
+struct gain_control {
+	enum rf_gain_ctrl_mode rx1_mode;
+	enum rf_gain_ctrl_mode rx2_mode;
+
+	/* Common */
+	u8 adc_ovr_sample_size; /* 1..8 Sum x samples, AGC_CONFIG_3 */
+	u8 adc_small_overload_thresh; /* 0..255, 0x105 */
+	u8 adc_large_overload_thresh; /* 0..255, 0x104 */
+
+	u16 lmt_overload_high_thresh; /* 16..800 mV, 0x107 */
+	u16 lmt_overload_low_thresh; /* 16..800 mV, 0x108 */
+	u8 analog_settling_time; /* 0..31, Peak overload wait time */
+	u16 dec_pow_measuremnt_duration; /* Samples, 0x15C */
+	s8 low_power_thresh; /* -64..0 dBFS, 0x114 */
+
+	bool dig_gain_en; /* should be turned off, since ADI GT doesn't use dig gain */
+	u8 max_dig_gain; /* 0..31 */
+
+	/* MGC */
+	bool mgc_rx1_ctrl_inp_en; /* Enables Pin control on RX1 default SPI ctrl */
+	bool mgc_rx2_ctrl_inp_en; /* Enables Pin control on RX2 default SPI ctrl */
+
+	u8 mgc_inc_gain_step; /* 1..8 */
+	u8 mgc_dec_gain_step; /* 1..8 */
+	u8 mgc_split_table_ctrl_inp_gain_mode; /* 0=AGC determine this, 1=only in LPF, 2=only in LMT */
+
+	/* AGC */
+	u8 agc_attack_delay_us; /* 0..31 us */
+	u8 agc_settling_delay;	/* 0..31, 0x111 */
+
+	s8 agc_outer_thresh_high;
+	u8 agc_outer_thresh_high_dec_steps;
+	s8 agc_inner_thresh_high;
+	u8 agc_inner_thresh_high_dec_steps;
+	s8 agc_inner_thresh_low;
+	u8 agc_inner_thresh_low_inc_steps;
+	s8 agc_outer_thresh_low;
+	u8 agc_outer_thresh_low_inc_steps;
+
+	u8 adc_small_overload_exceed_counter; /* 0..15, 0x122 */
+	u8 adc_large_overload_exceed_counter; /* 0..15, 0x122 */
+	u8 adc_large_overload_inc_steps; /* 0..15, 0x106 */
+
+	bool adc_lmt_small_overload_prevent_gain_inc; /* 0x120 */
+
+	u8 lmt_overload_large_exceed_counter; /* 0..15, 0x121 */
+	u8 lmt_overload_small_exceed_counter; /* 0..15, 0x121 */
+	u8 lmt_overload_large_inc_steps; /* 0..7, 0x121 */
+
+	u8 dig_saturation_exceed_counter; /* 0..15, 0x128 */
+	u8 dig_gain_step_size; /* 1..8, 0x100 */
+	bool sync_for_gain_counter_en; /* 0x128:4 !Hybrid */
+
+	u32 gain_update_counter; /* 0..262144, 0x124, 0x125 CLKRF samples*/
+	bool immed_gain_change_if_large_adc_overload; /* 0x123:3 */
+	bool immed_gain_change_if_large_lmt_overload; /* 0x123:7 */
+
+};
+
+enum rssi_restart_mode {
+	AGC_IN_FAST_ATTACK_MODE_LOCKS_THE_GAIN,
+	EN_AGC_PIN_IS_PULLED_HIGH,
+	ENTERS_RX_MODE,
+	GAIN_CHANGE_OCCURS,
+	SPI_WRITE_TO_REGISTER,
+	GAIN_CHANGE_OCCURS_OR_EN_AGC_PIN_PULLED_HIGH,
+};
+
+struct rssi_control {
+	enum rssi_restart_mode restart_mode;
+	bool rssi_unit_is_rx_samples;	/* default unit is time */
+	u32 rssi_delay;
+	u32 rssi_wait;
+	u32 rssi_duration;
+};
+
 struct rx_gain_info {
 	enum rx_gain_table_type tbl_type;
 	int starting_gain_db;
@@ -89,6 +178,20 @@ struct rx_gain_info {
 	int gain_step_db;
 	int max_idx;
 	int idx_step_offset;
+};
+
+struct port_control {
+	u8			pp_conf[3];
+	u8			rx_clk_data_delay;
+	u8			tx_clk_data_delay;
+	u8			digital_io_ctrl;
+	u8			lvds_bias_ctrl;
+	u8			lvds_invert[2];
+};
+
+struct ctrl_outs_control {
+	u8			index;
+	u8			en_mask;
 };
 
 struct ad9361_phy_platform_data {
@@ -108,13 +211,12 @@ struct ad9361_phy_platform_data {
 	unsigned long long	tx_synth_freq;
 	unsigned			rf_bandwidth_Hz;
 	int			tx_atten;
-	u8			pp_conf[3];
-	u8			rx_clk_data_delay;
-	u8			tx_clk_data_delay;
-	u8			digital_io_ctrl;
-	u8			lvds_bias_ctrl;
-	u8			lvds_invert[2];
 
+
+	struct gain_control	gain_ctrl;
+	struct rssi_control	rssi_ctrl;
+	struct port_control	port_ctrl;
+	struct ctrl_outs_control	ctrl_outs_ctrl;
 };
 
 struct ad9361_rf_phy {
@@ -389,7 +491,7 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, unsigned long long freq)
 		return 0;
 
 	ad9361_spi_writef(spi, AGC_CONFIG_2,
-			       FULL_GAIN_TBL, !phy->pdata->split_gt);
+			       AGC_USE_FULL_GAIN_TABLE, !phy->pdata->split_gt);
 
 	if (phy->pdata->split_gt) {
 		tab = &split_gain_table[band][0];
@@ -985,15 +1087,15 @@ int ad9361_init_gain_tables(struct ad9361_rf_phy *phy)
 	 */
 	rx_gain = &phy->rx_gain[TBL_200_1300_MHZ];
 	ad9361_init_gain_info(rx_gain, RXGAIN_FULL_TBL, 1, 77, 1,
-		RXGAIN_FULL_TBL_MAX_IDX, 0);
+		SIZE_FULL_TABLE, 0);
 
 	rx_gain = &phy->rx_gain[TBL_1300_4000_MHZ];
 	ad9361_init_gain_info(rx_gain, RXGAIN_FULL_TBL, -4, 71, 1,
-		RXGAIN_FULL_TBL_MAX_IDX, 1);
+		SIZE_FULL_TABLE, 1);
 
 	rx_gain = &phy->rx_gain[TBL_4000_6000_MHZ];
 	ad9361_init_gain_info(rx_gain, RXGAIN_FULL_TBL, -10, 62, 1,
-		RXGAIN_FULL_TBL_MAX_IDX, 4);
+		SIZE_FULL_TABLE, 4);
 
 	return 0;
 }
@@ -1085,59 +1187,8 @@ out:
 static int ad9361_read_rssi(struct ad9361_rf_phy *phy, struct rf_rssi *rssi)
 {
 	struct spi_device *spi = phy->spi;
-	struct device *dev = &phy->spi->dev;
-	u32 weight[4], total_dur, val, temp;
-	u32 subframe_size[4] = {SUBFRAME_SIZE_5MHZ,
-				SUBFRAME_SIZE_10MHZ,
-				SUBFRAME_SIZE_15MHZ,
-				SUBFRAME_SIZE_20MHZ};
-	u8 dur_buf[4] = {0}, i, j, index;
 	u8 reg_val_buf[6];
 	int rc;
-
-	if (rssi->duration > 1) {
-		dev_err(dev, "RSSI measurement duration > 1ms not supported\n");
-		rc = -EINVAL;
-		goto out;
-	}
-
-// 	val = ad9361_spi_read(spi, RSSI_CONFIG_REG);
-// 	val &= RSSI_MEAS_MODE_MASK;
-// 	val |= RSSI_GAIN_CHANGE_EN_AGC_MODE;
-// 	rc = ad9361_spi_write(spi, RSSI_CONFIG_REG, val);
-
-// 	if (rc) {
-// 		dev_err(dev, "Unable to read/write rssi config reg\n");
-// 		goto out;
-// 	}
-//
-// 	index = clamp(DIV_ROUND_CLOSEST(phy->current_bw_Hz, 5000000UL), 0, 3);
-//
-// 	temp = subframe_size[index] * rssi->duration;
-// 	for (i = 0, j = 0; temp != 0 && j < 4; i++) {
-// 		if (temp & 0x01)
-// 			dur_buf[j++] = i;
-// 		temp = temp >> 1;
-// 	}
-//
-// 	total_dur = (1 << dur_buf[0]) + (1 << dur_buf[1]) +
-// 			(1 << dur_buf[2]) + (1 << dur_buf[3]);
-// 	weight[0] = RSSI_MAX_WEIGHT * (1 << dur_buf[0]) / total_dur;
-// 	weight[1] = RSSI_MAX_WEIGHT * (1 << dur_buf[1]) / total_dur;
-// 	weight[2] = RSSI_MAX_WEIGHT * (1 << dur_buf[2]) / total_dur;
-// 	weight[3] = RSSI_MAX_WEIGHT * (1 << dur_buf[3]) / total_dur;
-// 	rc = ad9361_spi_write(spi, RSSI_MEAS_DUR_10_REG,
-// 			((dur_buf[1] << 4) | dur_buf[0])) ||
-// 		ad9361_spi_write(spi, RSSI_MEAS_DUR_32_REG,
-// 			((dur_buf[3] << 4) | dur_buf[2])) ||
-// 		ad9361_spi_write(spi, RSSI_WEIGHT0_REG, weight[0]) ||
-// 		ad9361_spi_write(spi, RSSI_WEIGHT1_REG, weight[1]) ||
-// 		ad9361_spi_write(spi, RSSI_WEIGHT2_REG, weight[2]) ||
-// 		ad9361_spi_write(spi, RSSI_WEIGHT3_REG, weight[3]);
-// 	if (rc) {
-// 		dev_err(dev, "Unable to write rssi measurement duration\n");
-// 		goto out;
-// 	}
 
 	rc = ad9361_spi_readm(spi, PREAMBLE_LSB,
 			reg_val_buf, ARRAY_SIZE(reg_val_buf));
@@ -1162,7 +1213,6 @@ static int ad9361_read_rssi(struct ad9361_rf_phy *phy, struct rf_rssi *rssi)
 
 	rssi->multiplier = RSSI_MULTIPLIER;
 
-out:
 	return rc;
 }
 
@@ -1509,6 +1559,7 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 {
 	unsigned offs = tx ? 0x40 : 0;
 	unsigned vco_cal_cnt;
+	int ret;
 
 	dev_dbg(&phy->spi->dev, "%s : ref_clk_hz %lu : is_tx %d",
 		__func__, ref_clk_hz, tx);
@@ -1543,7 +1594,10 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 
 	ad9361_spi_write(phy->spi, RX_CP_CONFIG + offs, 0x04);
 
-	return ad9361_check_cal_done(phy, RX_CAL_STATUS + offs, BIT(7), 1);
+	ret = ad9361_check_cal_done(phy, RX_CAL_STATUS + offs, BIT(7), 1);
+	ad9361_spi_write(phy->spi, RX_CP_CONFIG + offs, 0x0);
+
+	return ret;
 }
 
 /* BASEBAND DC OFFSET CALIBRATION */
@@ -1706,7 +1760,7 @@ static int ad9361_tracking_control(struct ad9361_rf_phy *phy, bool bbdc_track,
 		__func__, bbdc_track, rfdc_track, rxquad_track);
 
 	ad9361_spi_write(spi, CALIBRATION_CONFIG_2, 0x75);
-	ad9361_spi_write(spi, CALIBRATION_CONFIG_3, 0x15);
+	ad9361_spi_write(spi, CALIBRATION_CONFIG_3, 0x95);
 
 	ad9361_spi_writef(spi, RF_DC_OFFSET_CONFIG_2, 0x07, 0x3); /* Gain change + Rx exit */
 	ad9361_spi_writef(spi, RF_DC_OFFSET_CONFIG_2, 0x20, bbdc_track);
@@ -1790,53 +1844,202 @@ static int ad9361_pp_port_setup(struct ad9361_rf_phy *phy, bool restore_c3)
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
 	if (!pd->fdd)
-		pd->pp_conf[2] |= 0x08;
+		pd->port_ctrl.pp_conf[2] |= 0x08;
 
 	if (restore_c3) {
 		return ad9361_spi_write(spi, PARALLEL_PORT_CONFIG3,
-					pd->pp_conf[2]);
+					pd->port_ctrl.pp_conf[2]);
 	}
 
-	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG1, pd->pp_conf[0]);
-	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG2, pd->pp_conf[1]);
-	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG3, pd->pp_conf[2]);
-	ad9361_spi_write(spi, RX_CLOCK_DATA_DELAY, pd->rx_clk_data_delay);
-	ad9361_spi_write(spi, TX_CLOCK_DATA_DELAY, pd->tx_clk_data_delay);
+	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG1, pd->port_ctrl.pp_conf[0]);
+	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG2, pd->port_ctrl.pp_conf[1]);
+	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG3, pd->port_ctrl.pp_conf[2]);
+	ad9361_spi_write(spi, RX_CLOCK_DATA_DELAY, pd->port_ctrl.rx_clk_data_delay);
+	ad9361_spi_write(spi, TX_CLOCK_DATA_DELAY, pd->port_ctrl.tx_clk_data_delay);
 
-	ad9361_spi_write(spi, LVDS_BIAS_CONTROL, pd->lvds_bias_ctrl);
-//	ad9361_spi_write(spi, DIGITAL_IO_CONTROL, pd->digital_io_ctrl);
-	ad9361_spi_write(spi, LVDS_INVERT_CONTROL1, pd->lvds_invert[0]);
-	ad9361_spi_write(spi, LVDS_INVERT_CONTROL2, pd->lvds_invert[1]);
+	ad9361_spi_write(spi, LVDS_BIAS_CONTROL, pd->port_ctrl.lvds_bias_ctrl);
+//	ad9361_spi_write(spi, DIGITAL_IO_CONTROL, pd->port_ctrl.digital_io_ctrl);
+	ad9361_spi_write(spi, LVDS_INVERT_CONTROL1, pd->port_ctrl.lvds_invert[0]);
+	ad9361_spi_write(spi, LVDS_INVERT_CONTROL2, pd->port_ctrl.lvds_invert[1]);
 
 	return 0;
 }
 
-static int ad9361_mgc_setup(struct ad9361_rf_phy *phy)
+static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 {
 	struct spi_device *spi = phy->spi;
-	/* FIXME later */
+	unsigned reg, tmp1, tmp2;
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	ad9361_spi_write(spi, 0x0fa, 0xe0); // Gain Control Mode Select
-	ad9361_spi_write(spi, 0x0fb, 0x08); // Table, Digital Gain, Man Gain Ctrl
-	ad9361_spi_write(spi, 0x0fc, 0x23); // Incr Step Size, ADC Overrange Size
-	ad9361_spi_write(spi, 0x0fd, 0x4c); // Max Full/LMT Gain Table Index
-	ad9361_spi_write(spi, 0x0fe, 0x44); // Decr Step Size, Peak Overload Time
-	ad9361_spi_write(spi, 0x100, 0x6f); // Max Digital Gain
-	ad9361_spi_write(spi, 0x104, 0x2f); // ADC Small Overload Threshold
-	ad9361_spi_write(spi, 0x105, 0x3a); // ADC Large Overload Threshold
-	ad9361_spi_write(spi, 0x107, 0x31); // Large LMT Overload Threshold
-	ad9361_spi_write(spi, 0x108, 0x39); // Small LMT Overload Threshold
-	ad9361_spi_write(spi, 0x109, 0x4c); // Rx1 Full/LMT Gain Index
-	ad9361_spi_write(spi, 0x10a, 0x58); // Rx1 LPF Gain Index
-	ad9361_spi_write(spi, 0x10b, 0x00); // Rx1 Digital Gain Index
-	ad9361_spi_write(spi, 0x10c, 0x4c); // Rx2 Full/LMT Gain Index
-	ad9361_spi_write(spi, 0x10d, 0x18); // Rx2 LPF Gain Index
-	ad9361_spi_write(spi, 0x10e, 0x00); // Rx2 Digital Gain Index
-	ad9361_spi_write(spi, 0x114, 0x30); // Low Power Threshold
-	ad9361_spi_write(spi, 0x11a, 0x27); // Initial LMT Gain Limit
-	ad9361_spi_write(spi, 0x081, 0x00); // Tx Symbol Gain Control
+	reg = DEC_PWR_GAIN_LOCK_EXIT | DEC_PWR_LOCK_LEVEL | DEC_PWR_LOW_PWR;
+
+	if (ctrl->rx1_mode == RF_GAIN_HYBRID_AGC ||
+		ctrl->rx2_mode == RF_GAIN_HYBRID_AGC)
+		reg |= SLOW_ATTACK_HYBRID_MODE;
+
+	reg |= RX1_GAIN_CTRL(ctrl->rx1_mode) | RX2_GAIN_CTRL(ctrl->rx2_mode);
+
+	ad9361_spi_write(spi, AGC_CONFIG_1, reg); // Gain Control Mode Select
+
+	/* AGC_USE_FULL_GAIN_TABLE handled in ad9361_load_gt() */
+	ad9361_spi_writef(spi, AGC_CONFIG_2, MAN_GAIN_CTRL_RX1,
+			  ctrl->mgc_rx1_ctrl_inp_en);
+	ad9361_spi_writef(spi, AGC_CONFIG_2, MAN_GAIN_CTRL_RX2,
+			  ctrl->mgc_rx2_ctrl_inp_en);
+	ad9361_spi_writef(spi, AGC_CONFIG_2, DIG_GAIN_EN,
+			  ctrl->dig_gain_en);
+
+	ctrl->adc_ovr_sample_size = clamp(ctrl->adc_ovr_sample_size, 1U, 8U);
+	reg = ADC_OVERRANGE_SAMPLE_SIZE(ctrl->adc_ovr_sample_size - 1);
+
+	if (phy->pdata->split_gt &&
+		(ctrl->mgc_rx1_ctrl_inp_en || ctrl->mgc_rx2_ctrl_inp_en)) {
+		switch (ctrl->mgc_split_table_ctrl_inp_gain_mode) {
+		case 1:
+			reg &= ~INCDEC_LMT_GAIN;
+			break;
+		case 2:
+			reg |= INCDEC_LMT_GAIN;
+			break;
+		default:
+		case 0:
+			reg |= USE_AGC_FOR_LMTLPG_GAIN;
+			break;
+		}
+	}
+
+	ctrl->mgc_inc_gain_step = clamp(ctrl->mgc_inc_gain_step, 1U, 8U);
+	reg |= MANUAL_INCR_STEP_SIZE(ctrl->mgc_inc_gain_step - 1);
+	ad9361_spi_write(spi, AGC_CONFIG_3, reg); // Incr Step Size, ADC Overrange Size
+
+	if (phy->pdata->split_gt) {
+		reg = SIZE_SPLIT_TABLE - 1;
+	} else {
+		reg = SIZE_FULL_TABLE - 1;
+	}
+	ad9361_spi_write(spi, MAX_LMT_FULL_GAIN, reg); // Max Full/LMT Gain Table Index
+	ad9361_spi_write(spi, RX1_MANUAL_LMT_FULL_GAIN, reg); // Rx1 Full/LMT Gain Index
+	ad9361_spi_write(spi, RX2_MANUAL_LMT_FULL_GAIN, reg); // Rx2 Full/LMT Gain Index
+
+	ctrl->analog_settling_time = clamp(ctrl->analog_settling_time, 0U, 31U);
+	ctrl->mgc_dec_gain_step = clamp(ctrl->mgc_dec_gain_step, 1U, 8U);
+	reg = PEAK_OVERLOAD_WAIT_TIME(ctrl->analog_settling_time);
+	reg |= MANUAL_DECR_STEP_SIZE(ctrl->mgc_dec_gain_step);
+	ad9361_spi_write(spi, PEAK_WAIT_TIME, reg); // Decr Step Size, Peak Overload Time
+
+	if (ctrl->dig_gain_en) {
+		ad9361_spi_writef(spi, DIGITAL_GAIN, MAX_DIGITAL_GAIN_MASK,
+			  ctrl->max_dig_gain); // Max Digital Gain
+		ad9361_spi_writef(spi, DIGITAL_GAIN, MAX_DIGITAL_GAIN_STEP_MASK,
+			  ctrl->dig_gain_step_size); // Max Digital Gain
+
+	}
+
+	if (ctrl->adc_large_overload_thresh >= ctrl->adc_small_overload_thresh) {
+		ad9361_spi_write(spi, ADC_SMALL_OVERLOAD_THRES,
+				 ctrl->adc_small_overload_thresh); // ADC Small Overload Threshold
+		ad9361_spi_write(spi, ADC_LARGE_OVERLOAD_THRES,
+				 ctrl->adc_large_overload_thresh); // ADC Large Overload Threshold
+	} else {
+		ad9361_spi_write(spi, ADC_SMALL_OVERLOAD_THRES,
+				 ctrl->adc_large_overload_thresh); // ADC Small Overload Threshold
+		ad9361_spi_write(spi, ADC_LARGE_OVERLOAD_THRES,
+				 ctrl->adc_small_overload_thresh); // ADC Large Overload Threshold
+	}
+
+	reg = (ctrl->lmt_overload_high_thresh / 16) - 1;
+	reg = clamp(reg, 0U, 63U);
+	ad9361_spi_write(spi, LMT_LARGE_OVERLOAD_THRES, reg);
+	reg = (ctrl->lmt_overload_low_thresh / 16) - 1;
+	reg = clamp(reg, 0U, 63U);
+	ad9361_spi_writef(spi, LMT_SMALL_OVERLOAD_THRES,
+			  LMT_SMALL_OVERLOAD_THRES_MASK, reg);
+
+	if (phy->pdata->split_gt) {
+		/* REVIST */
+		ad9361_spi_write(spi, RX1_MANUAL_LPF_GAIN, 0x58); // Rx1 LPF Gain Index
+		ad9361_spi_write(spi, RX2_MANUAL_LPF_GAIN, 0x18); // Rx2 LPF Gain Index
+		ad9361_spi_write(spi, FAST_INI_LMT_GAIN_LIMIT, 0x27); // Initial LMT Gain Limit
+	}
+
+	ad9361_spi_write(spi, RX1_MANUAL_DIG_FORCE_GAIN, 0x00); // Rx1 Digital Gain Index
+	ad9361_spi_write(spi, RX2_MANUAL_DIG_FORCE_GAIN, 0x00); // Rx2 Digital Gain Index
+
+	reg = clamp(abs(ctrl->low_power_thresh), 0U, 64U) * 2;
+	ad9361_spi_write(spi, FAST_LOW_POWER_THRES, reg); // Low Power Threshold
+	ad9361_spi_write(spi, TX_SYMBOL_ATTEN_CONFIG, 0x00); // Tx Symbol Gain Control
+
+	reg = ilog2(ctrl->dec_pow_measuremnt_duration / 16);
+	ad9361_spi_writef(spi, DEC_POWER_MEAS_DURATION,
+			  DEC_POWER_MEAS_DURATION_MASK, reg); // Power Measurement Duration
+
+	/* AGC */
+
+	reg = clamp(ctrl->agc_attack_delay_us, 0U, 31U);
+	ad9361_spi_writef(spi, AGC_ATTACK_DELAY,
+			  AGC_ATTACK_DELAY_MASK, reg);
+
+	reg = clamp(ctrl->agc_settling_delay, 0U, 31U);
+	ad9361_spi_writef(spi, FAST_CONFIG_2_DELAY,
+			  FAST_CONFIG_2_DELAY_MASK, reg);
+
+	reg = clamp(ctrl->agc_attack_delay_us, 0U, 31U);
+	ad9361_spi_writef(spi, AGC_LOCK_LEVEL,
+			  AGC_LOCK_LEVEL_MASK, reg);
+
+	tmp1 = reg = clamp(abs(ctrl->agc_inner_thresh_high), 0U, 127U);
+	ad9361_spi_writef(spi, AGC_LOCK_LEVEL,
+			  AGC_LOCK_LEVEL_MASK, reg);
+
+	tmp2 = reg = clamp(abs(ctrl->agc_inner_thresh_low), 0U, 127U);
+	reg |= (ctrl->adc_lmt_small_overload_prevent_gain_inc ?
+		ADC_LMT_S_OVR_PREVENT_GAIN_INC : 0);
+	ad9361_spi_writef(spi, SLOW_AGC_INNER_LOW_THRES,
+			  SLOW_AGC_INNER_LOW_THRES_MASK, reg);
+
+	reg = AGC_OUTER_HIGH_THRESH(tmp1 - abs(ctrl->agc_outer_thresh_high)) |
+		AGC_OUTER_LOW_THRESH(abs(ctrl->agc_outer_thresh_low) - tmp2);
+	ad9361_spi_write(spi, SLOW_OUTER_POWER_THRES, reg);
+
+	reg = AGC_OUTER_HIGH_THRESH_EX_STP(ctrl->agc_outer_thresh_high_dec_steps) |
+		AGC_OUTER_LOW_THRESH_EX_STP(ctrl->agc_outer_thresh_low_inc_steps);
+	ad9361_spi_write(spi, SLOW_GAIN_STEP_2, reg);
+
+	reg = ((ctrl->immed_gain_change_if_large_adc_overload) ?
+		IMMED_GAIN_CHANGE_ADC_OVER : 0) |
+		((ctrl->immed_gain_change_if_large_lmt_overload) ?
+		IMMED_GAIN_CHANGE_LMT_OVER : 0) |
+		AGC_INNER_HIGH_THRESH_EX_STP(ctrl->agc_inner_thresh_high_dec_steps) |
+		AGC_INNER_LOW_THRESH_EX_STP(ctrl->agc_inner_thresh_low_inc_steps);
+	ad9361_spi_write(spi, SLOW_GAIN_STEP_1, reg);
+
+	reg = LARGE_ADC_OVERL_EX_CNTR(ctrl->adc_large_overload_exceed_counter) |
+		SMALL_ADC_OVERL_EX_CNTR(ctrl->adc_small_overload_exceed_counter);
+	ad9361_spi_write(spi, SLOW_ADC_OVERLOAD_COUNTER, reg);
+
+	ad9361_spi_writef(spi, GAIN_STEP_CONFIG_2, LARGE_LPF_GAIN_STEP(~0),
+			 LARGE_LPF_GAIN_STEP(ctrl->adc_large_overload_inc_steps));
+
+	reg = LARGE_LMT_OVERL_EX_CNTR(ctrl->lmt_overload_large_exceed_counter) |
+		SMALL_LMT_OVERL_EX_CNTR(ctrl->lmt_overload_small_exceed_counter);
+	ad9361_spi_write(spi, SLOW_LMT_OVERLOAD_COUNTER, reg);
+
+	ad9361_spi_writef(spi, GAIN_STEP_CONFIG_1,
+			LMT_OVERLOAD_LARGE_INC_SIZE_MASK,
+			ctrl->lmt_overload_large_inc_steps);
+
+	reg = DIGITAL_SAT_EX_COUNTER(ctrl->dig_saturation_exceed_counter) |
+		(ctrl->sync_for_gain_counter_en ? SYNC_FOR_GAIN_COUNTER_EN : 0) |
+		(ctrl->gain_update_counter > 131070 ? DOUBLE_GAIN_COUNTER : 0);
+	ad9361_spi_write(spi, SLOW_DIGITAL_SAT_COUNTER, reg);
+
+	tmp1 = (ctrl->gain_update_counter > 131070) ?
+		ctrl->gain_update_counter / 4 :
+		ctrl->gain_update_counter / 2;
+
+	ad9361_spi_write(spi, SLOW_GAIN_UPDATE_COUNTER1, tmp1 & 0xFF);
+	ad9361_spi_write(spi, SLOW_GAIN_UPDATE_COUNTER2, tmp1 >> 8);
 
 	return 0;
 }
@@ -1888,17 +2091,15 @@ static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy)
   // Setup Control Outs
   //************************************************************
 
-static int ad9361_ctrl_outs_setup(struct ad9361_rf_phy *phy)
+static int ad9361_ctrl_outs_setup(struct ad9361_rf_phy *phy,
+				  struct ctrl_outs_control *ctrl)
 {
 	struct spi_device *spi = phy->spi;
-	/* FIXME later */
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	ad9361_spi_write(spi, 0x035, 0x00); // Ctrl Out index
-	ad9361_spi_write(spi, 0x036, 0xff); // Ctrl Out [7:0] output enable
-
-	return 0;
+	ad9361_spi_write(spi, CONTROL_OUTPUT_POINTER, ctrl->index); // Ctrl Out index
+	return ad9361_spi_write(spi, CONTROL_OUTPUT_ENABLE, ctrl->en_mask); // Ctrl Out [7:0] output enable
 }
   //************************************************************
   // Setup GPO
@@ -1925,22 +2126,82 @@ static int ad9361_gpo_setup(struct ad9361_rf_phy *phy)
 	return 0;
 }
 
-static int ad9361_rssi_setup(struct ad9361_rf_phy *phy)
+static int ad9361_rssi_setup(struct ad9361_rf_phy *phy,
+			     struct rssi_control *ctrl,
+			     bool is_update)
 {
 	struct spi_device *spi = phy->spi;
-	/* FIXME later */
+	u32 total_weight, weight[4], total_dur = 0, temp;
+	u8 dur_buf[4] = {0};
+	int val, ret, i, j = 0;
+	u32 rssi_delay;
+	u32 rssi_wait;
+	u32 rssi_duration;
+	unsigned long rate;
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
-	ad9361_spi_write(spi, 0x150, 0x0e); // RSSI Measurement Duration 0, 1
-	ad9361_spi_write(spi, 0x151, 0x00); // RSSI Measurement Duration 2, 3
-	ad9361_spi_write(spi, 0x152, 0xff); // RSSI Weighted Multiplier 0
-	ad9361_spi_write(spi, 0x153, 0x00); // RSSI Weighted Multiplier 1
-	ad9361_spi_write(spi, 0x154, 0x00); // RSSI Weighted Multiplier 2
-	ad9361_spi_write(spi, 0x155, 0x00); // RSSI Weighted Multiplier 3
-	ad9361_spi_write(spi, 0x156, 0x00); // RSSI Delay
-	ad9361_spi_write(spi, 0x157, 0x00); // RSSI Wait
-	ad9361_spi_write(spi, 0x158, 0x0d); // RSSI Mode Select
-	ad9361_spi_write(spi, 0x15c, 0x67); // Power Measurement Duration
+
+	if (ctrl->rssi_unit_is_rx_samples) {
+		if (is_update)
+			return 0; /* no update required */
+
+		rssi_delay = ctrl->rssi_delay;
+		rssi_wait = ctrl->rssi_wait;
+		rssi_duration = ctrl->rssi_duration;
+	} else {
+		/* update sample# based on RX rate */
+		rate = DIV_ROUND_CLOSEST(clk_get_rate(phy->clks[RX_SAMPL_CLK]), 1000);
+		/* units are in us */
+		rssi_delay = DIV_ROUND_CLOSEST(ctrl->rssi_delay * rate, 1000);
+		rssi_wait = DIV_ROUND_CLOSEST(ctrl->rssi_wait * rate, 1000);
+		rssi_duration = DIV_ROUND_CLOSEST(ctrl->rssi_duration * rate, 1000);
+	}
+
+	if (ctrl->restart_mode == EN_AGC_PIN_IS_PULLED_HIGH)
+		rssi_delay = 0;
+
+	rssi_delay = clamp(rssi_delay / 8, 0U, 255U);
+	rssi_wait = clamp(rssi_wait / 4, 0U, 255U);
+
+	do {
+		for (i = 14; rssi_duration > 0 && i >= 0 ; i--) {
+			val = 1 << i;
+			if (rssi_duration >= val) {
+				dur_buf[j++] = i;
+				total_dur += val;
+				rssi_duration -= val;
+				break;
+			}
+		}
+
+	} while (j < 4 && rssi_duration > 0);
+
+	for (i = 0, total_weight = 0; i < 4; i++)
+		total_weight += weight[i] =
+			DIV_ROUND_CLOSEST(RSSI_MAX_WEIGHT *
+				(1 << dur_buf[i]), total_dur);
+
+	/* total of all weights must be 0xFF */
+	val = total_weight - 0xFF;
+	weight[j - 1] -= val;
+
+	ad9361_spi_write(spi, MEASURE_DURATION_0_1, (dur_buf[1] << 4) | dur_buf[0]); // RSSI Measurement Duration 0, 1
+	ad9361_spi_write(spi, MEASURE_DURATION_2_3, (dur_buf[3] << 4) | dur_buf[2]); // RSSI Measurement Duration 2, 3
+	ad9361_spi_write(spi, WEIGHT_0, weight[0]); // RSSI Weighted Multiplier 0
+	ad9361_spi_write(spi, WEIGHT_1, weight[1]); // RSSI Weighted Multiplier 1
+	ad9361_spi_write(spi, WEIGHT_2, weight[2]); // RSSI Weighted Multiplier 2
+	ad9361_spi_write(spi, WEIGHT_3, weight[3]); // RSSI Weighted Multiplier 3
+	ad9361_spi_write(spi, RSSI_DELAY, rssi_delay); // RSSI Delay
+	ad9361_spi_write(spi, RSSI_WAIT_TIME, rssi_wait); // RSSI Wait
+
+	temp = RSSI_MODE_SEL(ctrl->restart_mode);
+	if (ctrl->restart_mode == SPI_WRITE_TO_REGISTER)
+		temp |= START_RSSI_MEAS;
+
+	ret = ad9361_spi_write(spi, RSSI_CONFIG, temp); // RSSI Mode Select
+
+	if (ret < 0)
+		dev_err(&phy->spi->dev, "Unable to write rssi config\n");
 
 	return 0;
 }
@@ -2279,7 +2540,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	ret = ad9361_auxadc_setup(phy);
 	if (ret < 0)
 		return ret;
-	ret = ad9361_ctrl_outs_setup(phy);
+	ret = ad9361_ctrl_outs_setup(phy, &phy->pdata->ctrl_outs_ctrl);
 	if (ret < 0)
 		return ret;
 	ret = ad9361_gpo_setup(phy);
@@ -2324,7 +2585,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9361_mgc_setup(phy);
+	ret = ad9361_gc_setup(phy, &phy->pdata->gain_ctrl);
 	if (ret < 0)
 		return ret;
 
@@ -2390,7 +2651,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9361_rssi_setup(phy);
+	ret = ad9361_rssi_setup(phy, &phy->pdata->rssi_ctrl, false);
 	if (ret < 0)
 		return ret;
 
@@ -4037,8 +4298,8 @@ static int ad9361_get_agc_mode(struct iio_dev *indio_dev,
 
 
 static const char * const ad9361_agc_modes[] =
-// 	{"manual", "fast_attack", "slow_attack", "hybrid"};
-	{"manual"};
+ 	{"manual", "fast_attack", "slow_attack", "hybrid"};
+//	{"manual"};
 
 static const struct iio_enum ad9361_agc_modes_available = {
 	.items = ad9361_agc_modes,
@@ -4311,6 +4572,40 @@ static const struct ad9361_dport_config ad9361_dport_config[] = {
 	{3, 0, "adi,full-duplex-swap-bits-enable"},
 };
 
+static int __ad9361_of_get_u32(struct device_node *np, const char *propname,
+			     u32 defval, void *out_value, unsigned size)
+{
+	int ret;
+	u32 tmp = defval;
+
+	ret = of_property_read_u32(np, propname, &tmp);
+	if (!ret) {
+		switch (size){
+		case 1:
+			*(u8*)out_value = tmp;
+			break;
+		case 2:
+			*(u16*)out_value = tmp;
+			break;
+		case 4:
+			*(u32*)out_value = tmp;
+			break;
+		default:
+			ret = -EINVAL;
+		}
+	}
+	return ret;
+
+}
+#define ad9361_of_get_u32(dnp, name, def, outp) \
+	__ad9361_of_get_u32(dnp, name, def, outp, sizeof(outp))
+
+static void ad9361_of_get_bool(struct device_node *np, const char *propname,
+			     bool *out_value)
+{
+	*out_value = of_property_read_bool(np, propname);
+}
+
 static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
@@ -4337,35 +4632,33 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 			"adi,ensm-enable-txnrx-control-enable");
 
 	for (i = 0; i < ARRAY_SIZE(ad9361_dport_config); i++)
-		pdata->pp_conf[ad9361_dport_config[i].reg - 1] |=
+		pdata->port_ctrl.pp_conf[ad9361_dport_config[i].reg - 1] |=
 			(of_property_read_bool(np, ad9361_dport_config[i].name)
 			<< ad9361_dport_config[i].offset);
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,delay-rx-data", &tmp);
-	pdata->pp_conf[1] |= (tmp & 0x3);
+	pdata->port_ctrl.pp_conf[1] |= (tmp & 0x3);
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,rx-data-clock-delay", &tmp);
-	pdata->rx_clk_data_delay = (tmp & 0xF) << 4;
+	pdata->port_ctrl.rx_clk_data_delay = (tmp & 0xF) << 4;
 	tmp = 0;
 	of_property_read_u32(np, "adi,rx-data-delay", &tmp);
-	pdata->rx_clk_data_delay |= (tmp & 0xF);
+	pdata->port_ctrl.rx_clk_data_delay |= (tmp & 0xF);
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,tx-fb-clock-delay", &tmp);
-	pdata->tx_clk_data_delay = (tmp & 0xF) << 4;
+	pdata->port_ctrl.tx_clk_data_delay = (tmp & 0xF) << 4;
 	tmp = 0;
 	of_property_read_u32(np, "adi,tx-data-delay", &tmp);
-	pdata->tx_clk_data_delay |= (tmp & 0xF);
-
+	pdata->port_ctrl.tx_clk_data_delay |= (tmp & 0xF);
 
 	tmp = 75;
 	of_property_read_u32(np, "adi,lvds-bias-mV", &tmp);
-	pdata->lvds_bias_ctrl = (tmp / 75) & 0x7;
-	pdata->lvds_bias_ctrl |= (of_property_read_bool(np,
+	pdata->port_ctrl.lvds_bias_ctrl = (tmp / 75) & 0x7;
+	pdata->port_ctrl.lvds_bias_ctrl |= (of_property_read_bool(np,
 			"adi,lvds-rx-onchip-termination-enable") << 5);
-
 
 	pdata->rx2tx2 = of_property_read_bool(np, "adi,2rx-2tx-mode-enable");
 
@@ -4406,7 +4699,6 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 	pdata->dcxo_coarse = array[0];
 	pdata->dcxo_fine = array[1];
 
-
 	ret = of_property_read_u32_array(np, "adi,rx-path-clock-frequencies",
 			      pdata->rx_path_clks, ARRAY_SIZE(pdata->rx_path_clks));
 	if (ret < 0)
@@ -4424,6 +4716,109 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 	tmp = 10000; /* -10 dB */
 	of_property_read_u32(np, "adi,tx-attenuation-mdB", &tmp);
 	pdata->tx_atten = tmp;
+
+	/* Gain Control */
+
+	ad9361_of_get_u32(np, "adi,gc-rx1-mode", 0, &pdata->gain_ctrl.rx1_mode);
+	ad9361_of_get_u32(np, "adi,gc-rx2-mode", 0, &pdata->gain_ctrl.rx2_mode);
+	ad9361_of_get_u32(np, "adi,gc-adc-ovr-sample-size", 4,
+			  &pdata->gain_ctrl.adc_ovr_sample_size);
+	ad9361_of_get_u32(np, "adi,gc-adc-small-overload-thresh", 47,
+			  &pdata->gain_ctrl.adc_small_overload_thresh);
+	ad9361_of_get_u32(np, "adi,gc-adc-large-overload-thresh", 58,
+			  &pdata->gain_ctrl.adc_large_overload_thresh);
+	ad9361_of_get_u32(np, "adi,gc-lmt-overload-high-thresh", 800,
+			  &pdata->gain_ctrl.lmt_overload_high_thresh);
+	ad9361_of_get_u32(np, "adi,gc-lmt-overload-low-thresh", 704,
+			  &pdata->gain_ctrl.lmt_overload_low_thresh);
+	ad9361_of_get_u32(np, "adi,gc-analog-settling-time", 2,
+			  &pdata->gain_ctrl.analog_settling_time);
+	ad9361_of_get_u32(np, "adi,gc-dec-pow-measurement-duration", 8192,
+			  &pdata->gain_ctrl.dec_pow_measuremnt_duration);
+	ad9361_of_get_u32(np, "adi,gc-low-power-thresh", 24,
+			  &pdata->gain_ctrl.low_power_thresh);
+	ad9361_of_get_bool(np, "adi,gc-dig-gain-enable",
+			  &pdata->gain_ctrl.dig_gain_en);
+	ad9361_of_get_u32(np, "adi,gc-max-dig-gain", 15,
+			  &pdata->gain_ctrl.max_dig_gain);
+
+	ad9361_of_get_bool(np, "adi,mgc-rx1-ctrl-inp-enable",
+			   &pdata->gain_ctrl.mgc_rx1_ctrl_inp_en);
+	ad9361_of_get_bool(np, "adi,mgc-rx2-ctrl-inp-enable",
+			   &pdata->gain_ctrl.mgc_rx1_ctrl_inp_en);
+	ad9361_of_get_u32(np, "adi,mgc-inc-gain-step", 2,
+			  &pdata->gain_ctrl.mgc_inc_gain_step);
+	ad9361_of_get_u32(np, "adi,mgc-dec-gain-step", 2,
+			  &pdata->gain_ctrl.mgc_dec_gain_step);
+	ad9361_of_get_u32(np, "adi,mgc-split-table-ctrl-inp-gain-mode", 0,
+			  &pdata->gain_ctrl.mgc_split_table_ctrl_inp_gain_mode);
+	ad9361_of_get_u32(np, "adi,agc-attack-delay-us", 10,
+			  &pdata->gain_ctrl.agc_attack_delay_us);
+	ad9361_of_get_u32(np, "adi,agc-settling-delay", 10,
+			  &pdata->gain_ctrl.agc_settling_delay);
+	ad9361_of_get_u32(np, "adi,agc-outer-thresh-high", 5,
+			  &pdata->gain_ctrl.agc_outer_thresh_high);
+	ad9361_of_get_u32(np, "adi,agc-outer-thresh-high-dec-steps", 2,
+			  &pdata->gain_ctrl.agc_outer_thresh_high_dec_steps);
+	ad9361_of_get_u32(np, "adi,agc-inner-thresh-high", 10,
+			  &pdata->gain_ctrl.agc_inner_thresh_high);
+	ad9361_of_get_u32(np, "adi,agc-inner-thresh-high-dec-steps", 1,
+			  &pdata->gain_ctrl.agc_inner_thresh_high_dec_steps);
+	ad9361_of_get_u32(np, "adi,agc-inner-thresh-low", 12,
+			  &pdata->gain_ctrl.agc_inner_thresh_low);
+	ad9361_of_get_u32(np, "adi,agc-inner-thresh-low-inc-steps", 1,
+			  &pdata->gain_ctrl.agc_inner_thresh_low_inc_steps);
+	ad9361_of_get_u32(np, "adi,agc-outer-thresh-low", 18,
+			  &pdata->gain_ctrl.agc_outer_thresh_low);
+	ad9361_of_get_u32(np, "adi,agc-outer-thresh-low-inc-steps", 2,
+			  &pdata->gain_ctrl.agc_outer_thresh_low_inc_steps);
+	ad9361_of_get_u32(np, "adi,agc-adc-small-overload-exceed-counter", 10,
+			  &pdata->gain_ctrl.adc_small_overload_exceed_counter);
+	ad9361_of_get_u32(np, "adi,agc-adc-large-overload-exceed-counter", 10,
+			  &pdata->gain_ctrl.adc_large_overload_exceed_counter);
+	ad9361_of_get_u32(np, "adi,agc-adc-large-overload-inc-steps", 2,
+			  &pdata->gain_ctrl.adc_large_overload_inc_steps);
+	ad9361_of_get_bool(np, "adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable",
+			   &pdata->gain_ctrl.adc_lmt_small_overload_prevent_gain_inc);
+	ad9361_of_get_u32(np, "adi,agc-lmt-overload-large-exceed-counter", 10,
+			  &pdata->gain_ctrl.lmt_overload_large_exceed_counter);
+	ad9361_of_get_u32(np, "adi,agc-lmt-overload-small-exceed-counter", 10,
+			  &pdata->gain_ctrl.lmt_overload_small_exceed_counter);
+	ad9361_of_get_u32(np, "adi,agc-lmt-overload-large-inc-steps", 2,
+			  &pdata->gain_ctrl.lmt_overload_large_inc_steps);
+	ad9361_of_get_u32(np, "adi,agc-dig-saturation-exceed-counter", 3,
+			  &pdata->gain_ctrl.dig_saturation_exceed_counter);
+	ad9361_of_get_u32(np, "adi,agc-dig-gain-step-size", 4,
+			  &pdata->gain_ctrl.dig_gain_step_size);
+	ad9361_of_get_bool(np, "adi,agc-sync-for-gain-counter-enable",
+			   &pdata->gain_ctrl.sync_for_gain_counter_en);
+	ad9361_of_get_u32(np, "adi,agc-gain-update-counter", 15360,
+			  &pdata->gain_ctrl.gain_update_counter);
+	ad9361_of_get_bool(np, "adi,agc-immed-gain-change-if-large-adc-overload-enable",
+			   &pdata->gain_ctrl.immed_gain_change_if_large_adc_overload);
+	ad9361_of_get_bool(np, "adi,agc-immed-gain-change-if-large-lmt-overload-enable",
+			   &pdata->gain_ctrl.immed_gain_change_if_large_lmt_overload);
+
+	/* RSSI Control */
+
+	ad9361_of_get_u32(np, "adi,rssi-restart-mode", 3,
+			  &pdata->rssi_ctrl.restart_mode);
+	ad9361_of_get_bool(np, "adi,rssi-unit-is-rx-samples-enable",
+			   &pdata->rssi_ctrl.rssi_unit_is_rx_samples);
+	ad9361_of_get_u32(np, "adi,rssi-delay", 1,
+			  &pdata->rssi_ctrl.rssi_delay);
+	ad9361_of_get_u32(np, "adi,rssi-wait", 1,
+			  &pdata->rssi_ctrl.rssi_wait);
+	ad9361_of_get_u32(np, "adi,rssi-duration", 1000,
+			  &pdata->rssi_ctrl.rssi_duration);
+
+	/* Control Outs Control */
+
+	ad9361_of_get_u32(np, "adi,ctrl-outs-index", 0,
+			  &pdata->ctrl_outs_ctrl.index);
+	ad9361_of_get_u32(np, "adi,ctrl-outs-enable-mask", 0xFF,
+			  &pdata->ctrl_outs_ctrl.en_mask);
+
 
 // 	ret = of_get_gpio(np, 0);
 // 	if (ret < 0)
