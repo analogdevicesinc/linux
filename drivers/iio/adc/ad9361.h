@@ -38,7 +38,9 @@
 #define AUX_ADC_CLOCK_DIVIDER		0x01C
 #define AUX_ADC_CONFIG			0x01D
 
-#define AGC_ATTACK_DELAY		0x022
+#define AGC_ATTACK_DELAY			0x022
+#define AGC_ATTACK_DELAY_MASK		0x3F
+
 #define AUX_DAC_ENABLE_CONTROL		0x023
 #define RX_LOAD_SYNTH_DELAY		0x024
 #define TX_LOAD_SYNTH_DELAY		0x025
@@ -89,6 +91,8 @@
 #define TX_ATTEN_OFFSET			0x077
 #define TX2_DIG_ATTENUATION		0x07C
 
+#define TX_SYMBOL_ATTEN_CONFIG		0x081
+
 #define QUAD_CAL_NCO_FREQ_PHASE		0x0A0
 #define QUAD_CAL_CONTROL		0x0A1
 #define KEXP_1				0x0A2
@@ -124,27 +128,63 @@
 #define RX_FIR_GAIN			0x0F6
 
 #define AGC_CONFIG_1			0x0FA
+#define RX1_GAIN_CTRL(x)			(((x) & 0x3) << 0)
+#define RX2_GAIN_CTRL(x)			(((x) & 0x3) << 2)
+#define SLOW_ATTACK_HYBRID_MODE		(1 << 4)
+#define DEC_PWR_GAIN_LOCK_EXIT		(1 << 5)
+#define DEC_PWR_LOCK_LEVEL		(1 << 6)
+#define DEC_PWR_LOW_PWR			(1 << 7)
+
 #define AGC_CONFIG_2			0x0FB
+#define MAN_GAIN_CTRL_RX1		(1 << 0)
+#define MAN_GAIN_CTRL_RX2		(1 << 1)
+#define DIG_GAIN_EN			(1 << 2)
+#define AGC_USE_FULL_GAIN_TABLE		(1 << 3)
+#define AGC_GAIN_UNLOCK_CTRL		(1 << 6)
+#define AGC_SOFT_RESET			(1 << 7)
+
+
 #define AGC_CONFIG_3			0x0FC
+#define ADC_OVERRANGE_SAMPLE_SIZE(x)	(((x) & 0x7) << 0)
+#define USE_AGC_FOR_LMTLPG_GAIN		(1 << 3)
+#define INCDEC_LMT_GAIN			(1 << 4)
+#define MANUAL_INCR_STEP_SIZE(x)		(((x) & 0x7) << 5)
+
 #define MAX_LMT_FULL_GAIN		0x0FD
 #define	PEAK_WAIT_TIME			0x0FE
+#define MANUAL_DECR_STEP_SIZE(x)		(((x) & 0x7) << 5)
+#define PEAK_OVERLOAD_WAIT_TIME(x)	(((x) & 0x1F) << 0)
+
 #define	DIGITAL_GAIN			0x100
+#define MAX_DIGITAL_GAIN_STEP_MASK	0xE0
+#define MAX_DIGITAL_GAIN_MASK		0x1F
+
 #define	AGC_LOCK_LEVEL			0x101
+#define	AGC_LOCK_LEVEL_MASK		0x7F
+
 #define	ADC_NOISE_COR_FACTOR		0x102
 #define	GAIN_STEP_CONFIG_1		0x103
-#define	ADC_SMALL_OVERLOAD_THRES	0x104
-#define	ADC_LARGE_OVERLOAD_THRES	0x105
+#define LMT_OVERLOAD_LARGE_INC_SIZE_MASK	0x1C
+
+#define	ADC_SMALL_OVERLOAD_THRES		0x104
+#define	ADC_LARGE_OVERLOAD_THRES		0x105
 #define	GAIN_STEP_CONFIG_2		0x106
-#define	LMT_SMALL_OVERLOAD_THRES	0x107
-#define	LMT_LARGE_OVERLOAD_THRES	0x108
-#define RX1_MANUAL_LMT_FULL_GAIN	0x109
+#define LARGE_LPF_GAIN_STEP(x)		(((x) & 0xF) << 0)
+
+#define	LMT_SMALL_OVERLOAD_THRES		0x107
+#define	LMT_SMALL_OVERLOAD_THRES_MASK	0x3F
+
+#define	LMT_LARGE_OVERLOAD_THRES		0x108
+#define RX1_MANUAL_LMT_FULL_GAIN		0x109
 #define RX1_MANUAL_LPF_GAIN		0x10A
 #define RX1_MANUAL_DIG_FORCE_GAIN	0x10B
-#define RX2_MANUAL_LMT_FULL_GAIN	0x10C
+#define RX2_MANUAL_LMT_FULL_GAIN		0x10C
 #define RX2_MANUAL_LPF_GAIN		0x10D
 #define RX2_MANUAL_DIG_FORCE_GAIN	0x10E
 #define FAST_CONFIG_1			0x110
 #define FAST_CONFIG_2_DELAY		0x111
+#define FAST_CONFIG_2_DELAY_MASK		0x1F
+
 #define FAST_ENERGY_LOST_THRES		0x112
 #define FAST_STRONG_SIGNAL_THRES	0x113
 #define FAST_LOW_POWER_THRES		0x114
@@ -156,15 +196,41 @@
 #define FAST_INI_LMT_GAIN_LIMIT		0x11A
 #define FAST_INCREMENT_TIME		0x11B
 
-#define SLOW_AGC_INNER_LOW_THRES	0x120
+#define SLOW_AGC_INNER_LOW_THRES		0x120
+#define SLOW_AGC_INNER_LOW_THRES_MASK	0x7F
+#define ADC_LMT_S_OVR_PREVENT_GAIN_INC	(1 << 7)
+
 #define SLOW_LMT_OVERLOAD_COUNTER	0x121
+#define LARGE_LMT_OVERL_EX_CNTR(x)	(((x) & 0xF) << 4)
+#define SMALL_LMT_OVERL_EX_CNTR(x)	(((x) & 0xF) << 0)
 #define SLOW_ADC_OVERLOAD_COUNTER	0x122
+#define LARGE_ADC_OVERL_EX_CNTR(x)	(((x) & 0xF) << 4)
+#define SMALL_ADC_OVERL_EX_CNTR(x)	(((x) & 0xF) << 0)
+
+
 #define SLOW_GAIN_STEP_1		0x123
+#define AGC_INNER_HIGH_THRESH_EX_STP(x)	(((x) & 0x7) << 4)
+#define AGC_INNER_LOW_THRESH_EX_STP(x)	(((x) & 0x7) << 0)
+#define IMMED_GAIN_CHANGE_ADC_OVER	(1 << 3)
+#define IMMED_GAIN_CHANGE_LMT_OVER	(1 << 7)
+
+
 #define SLOW_GAIN_UPDATE_COUNTER1	0x124
 #define SLOW_GAIN_UPDATE_COUNTER2	0x125
-#define SLOW_DIGITAL_SAT_COUNTER	0x128
+
+#define SLOW_DIGITAL_SAT_COUNTER		0x128
+#define DIGITAL_SAT_EX_COUNTER(x)	(((x) & 0xF) << 0)
+#define SYNC_FOR_GAIN_COUNTER_EN		(1 << 4)
+#define DOUBLE_GAIN_COUNTER		(1 << 5)
+
 #define SLOW_OUTER_POWER_THRES		0x129
+#define AGC_OUTER_HIGH_THRESH(x)		(((x) & 0xF) << 4)
+#define AGC_OUTER_LOW_THRESH(x)		(((x) & 0xF) << 0)
+
+
 #define SLOW_GAIN_STEP_2		0x12A
+#define AGC_OUTER_HIGH_THRESH_EX_STP(x)	(((x) & 0xF) << 4)
+#define AGC_OUTER_LOW_THRESH_EX_STP(x)	(((x) & 0xF) << 0)
 
 #define EXT_LNA_HIGH_GAIN		0x12C
 #define EXT_LNA_LOW_GAIN		0x12D
@@ -192,7 +258,11 @@
 #define RSSI_DELAY			0x156
 #define RSSI_WAIT_TIME			0x157
 #define RSSI_CONFIG			0x158
+
+#define RSSI_MODE_SEL(x)			(((x) & 0x7) << 2)
+#define START_RSSI_MEAS			(1 << 5)
 #define DEC_POWER_MEAS_DURATION		0x15C
+#define DEC_POWER_MEAS_DURATION_MASK	0xF
 
 #define CALIBRATION_CONFIG_1		0x169
 #define CALIBRATION_CONFIG_2		0x16A
@@ -336,9 +406,6 @@
 
 #define RX_VCO_DIV			(0xF << 0)
 #define TX_VCO_DIV			(0xF << 4)
-
-#define FULL_GAIN_TBL			0x08
-#define DIGITAL_GAIN_EN			0x04
 
 #define MAX_MBYTE_SPI			8
 
@@ -579,20 +646,6 @@ struct SynthLUT {
 	unsigned char LF_C3;
 	unsigned char LF_R3;
 };
-
-struct rf_gain_ctrl {
-	u32 ant;
-	u8 mode;
-};
-
-
-enum rf_gain_ctrl_mode {
-	RF_GAIN_MGC,
-	RF_GAIN_FASTATTACK_AGC,
-	RF_GAIN_SLOWATTACK_AGC,
-	RF_GAIN_HYBRID_AGC
-};
-
 
 enum {
 	LUT_FTDD_40,
