@@ -43,6 +43,7 @@ struct iio_buffer_access_funcs {
 	int (*read_first_n)(struct iio_buffer *buffer,
 			    size_t n,
 			    char __user *buf);
+	bool (*data_available)(struct iio_buffer *buffer);
 	int (*remove_from)(struct iio_buffer *buffer, u8 *data);
 	int (*write)(struct iio_buffer *buffer, size_t n, const char __user *buf);
 
