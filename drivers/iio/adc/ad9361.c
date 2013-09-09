@@ -87,7 +87,6 @@ struct rf_gain_ctrl {
 	u8 mode;
 };
 
-
 enum rf_gain_ctrl_mode {
 	RF_GAIN_MGC,
 	RF_GAIN_FASTATTACK_AGC,
@@ -108,7 +107,7 @@ struct gain_control {
 	u16 lmt_overload_low_thresh; /* 16..800 mV, 0x108 */
 	u8 analog_settling_time; /* 0..31, Peak overload wait time */
 	u16 dec_pow_measuremnt_duration; /* Samples, 0x15C */
-	s8 low_power_thresh; /* -64..0 dBFS, 0x114 */
+	u8 low_power_thresh; /* -64..0 dBFS, 0x114 */
 
 	bool dig_gain_en; /* should be turned off, since ADI GT doesn't use dig gain */
 	u8 max_dig_gain; /* 0..31 */
@@ -125,13 +124,13 @@ struct gain_control {
 	u8 agc_attack_delay_us; /* 0..31 us */
 	u8 agc_settling_delay;	/* 0..31, 0x111 */
 
-	s8 agc_outer_thresh_high;
+	u8 agc_outer_thresh_high;
 	u8 agc_outer_thresh_high_dec_steps;
-	s8 agc_inner_thresh_high;
+	u8 agc_inner_thresh_high;
 	u8 agc_inner_thresh_high_dec_steps;
-	s8 agc_inner_thresh_low;
+	u8 agc_inner_thresh_low;
 	u8 agc_inner_thresh_low_inc_steps;
-	s8 agc_outer_thresh_low;
+	u8 agc_outer_thresh_low;
 	u8 agc_outer_thresh_low_inc_steps;
 
 	u8 adc_small_overload_exceed_counter; /* 0..15, 0x122 */
@@ -1880,6 +1879,9 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 
 	reg |= RX1_GAIN_CTRL(ctrl->rx1_mode) | RX2_GAIN_CTRL(ctrl->rx2_mode);
 
+	phy->agc_mode[0] = ctrl->rx1_mode;
+	phy->agc_mode[1] = ctrl->rx2_mode;
+
 	ad9361_spi_write(spi, AGC_CONFIG_1, reg); // Gain Control Mode Select
 
 	/* AGC_USE_FULL_GAIN_TABLE handled in ad9361_load_gt() */
@@ -1966,7 +1968,7 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 	ad9361_spi_write(spi, RX1_MANUAL_DIG_FORCE_GAIN, 0x00); // Rx1 Digital Gain Index
 	ad9361_spi_write(spi, RX2_MANUAL_DIG_FORCE_GAIN, 0x00); // Rx2 Digital Gain Index
 
-	reg = clamp(abs(ctrl->low_power_thresh), 0U, 64U) * 2;
+	reg = clamp(ctrl->low_power_thresh, 0U, 64U) * 2;
 	ad9361_spi_write(spi, FAST_LOW_POWER_THRES, reg); // Low Power Threshold
 	ad9361_spi_write(spi, TX_SYMBOL_ATTEN_CONFIG, 0x00); // Tx Symbol Gain Control
 
@@ -1988,18 +1990,18 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 	ad9361_spi_writef(spi, AGC_LOCK_LEVEL,
 			  AGC_LOCK_LEVEL_MASK, reg);
 
-	tmp1 = reg = clamp(abs(ctrl->agc_inner_thresh_high), 0U, 127U);
+	tmp1 = reg = clamp(ctrl->agc_inner_thresh_high, 0U, 127U);
 	ad9361_spi_writef(spi, AGC_LOCK_LEVEL,
 			  AGC_LOCK_LEVEL_MASK, reg);
 
-	tmp2 = reg = clamp(abs(ctrl->agc_inner_thresh_low), 0U, 127U);
+	tmp2 = reg = clamp(ctrl->agc_inner_thresh_low, 0U, 127U);
 	reg |= (ctrl->adc_lmt_small_overload_prevent_gain_inc ?
 		ADC_LMT_S_OVR_PREVENT_GAIN_INC : 0);
 	ad9361_spi_writef(spi, SLOW_AGC_INNER_LOW_THRES,
 			  SLOW_AGC_INNER_LOW_THRES_MASK, reg);
 
-	reg = AGC_OUTER_HIGH_THRESH(tmp1 - abs(ctrl->agc_outer_thresh_high)) |
-		AGC_OUTER_LOW_THRESH(abs(ctrl->agc_outer_thresh_low) - tmp2);
+	reg = AGC_OUTER_HIGH_THRESH(tmp1 - ctrl->agc_outer_thresh_high) |
+		AGC_OUTER_LOW_THRESH(ctrl->agc_outer_thresh_low - tmp2);
 	ad9361_spi_write(spi, SLOW_OUTER_POWER_THRES, reg);
 
 	reg = AGC_OUTER_HIGH_THRESH_EX_STP(ctrl->agc_outer_thresh_high_dec_steps) |
@@ -2043,7 +2045,6 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 
 	return 0;
 }
-
 
   //************************************************************
   // Setup AuxDAC
@@ -3866,12 +3867,13 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	int i;
 
-	for (i = 0; i < conv->chip_info->num_channels; i++)
+	for (i = 0; i < conv->chip_info->num_channels; i++) {
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
 			     (i & 1) ? 0x00004000 : 0x40000000);
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(i),
 			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 			     ADI_ENABLE);
+	}
 
 	return 0;
 }
@@ -4282,10 +4284,12 @@ static int ad9361_set_agc_mode(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, unsigned int mode)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+	struct rf_gain_ctrl gc = {0};
 
-	phy->agc_mode[chan->channel] = mode;
+	gc.ant = chan->channel + 1;
+	gc.mode = phy->agc_mode[chan->channel] = mode;
 
-	return 0;
+	return ad9361_set_gain_ctrl_mode(phy, &gc);
 }
 
 static int ad9361_get_agc_mode(struct iio_dev *indio_dev,
@@ -4390,7 +4394,7 @@ static const struct iio_chan_spec_ext_info ad9361_phy_rx_ext_info[] = {
 	 * in Hz. Using scale is a bit ugly.
 	 */
 	IIO_ENUM_AVAILABLE("gain_control_mode", &ad9361_agc_modes_available),
-	IIO_ENUM("gain_control_mode",true, &ad9361_agc_modes_available),
+	IIO_ENUM("gain_control_mode", false, &ad9361_agc_modes_available),
 	_AD9361_EXT_RX_INFO("rssi", 1),
 	{ },
 };
