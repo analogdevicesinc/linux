@@ -44,11 +44,32 @@
 		adi,2rx-2tx-mode-enable;
 		adi,frequency-division-duplex-mode-enable;
 		//adi,split-gain-table-mode-enable; /* Not yet tested */
+
+		/* adi,rx-rf-port-input-select:
+		 * 0 = (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced
+		 * 1 = (RX1B_N &  RX1B_P) and (RX2B_N & RX2B_P) enabled; balanced
+		 * 2 = (RX1C_N &  RX1C_P) and (RX2C_N & RX2C_P) enabled; balanced
+		 *
+		 * 3 = RX1A_N and RX2A_N enabled; unbalanced
+		 * 4 = RX1A_P and RX2A_P enabled; unbalanced
+		 * 5 = RX1B_N and RX2B_N enabled; unbalanced
+		 * 6 = RX1B_P and RX2B_P enabled; unbalanced
+		 * 7 = RX1C_N and RX2C_N enabled; unbalanced
+		 * 8 = RX1C_P and RX2C_P enabled; unbalanced
+		 */
+
 		adi,rx-rf-port-input-select = <0>; /* (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced */
+
+		/* adi,tx-rf-port-input-select:
+		 * 0	TX1A, TX2A
+		 * 1	TX1B, TX2B
+		 */
+
 		adi,tx-rf-port-input-select = <0>; /* TX1A, TX2A */
 
-		adi,rf-bandwidth-hz = <18000000>;
-		adi,rx-synthesizer-frequency-hz = /bits/ 64 <2000000000>;
+		adi,rf-rx-bandwidth-hz = <18000000>;
+		adi,rf-tx-bandwidth-hz = <18000000>;
+		adi,rx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
 		adi,tx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
 
 		/*				BBPLL     ADC        R2CLK     R1CLK    CLKRF    RSAMPL  */
@@ -65,8 +86,8 @@
 		 * 3 = RF_GAIN_HYBRID_AGC
 		 */
 
-		adi,gc-rx1-mode = <0>;
-		adi,gc-rx2-mode = <0>;
+		adi,gc-rx1-mode = <2>;
+		adi,gc-rx2-mode = <2>;
 		adi,gc-adc-ovr-sample-size = <4>; /* sum 4 samples */
 		adi,gc-adc-small-overload-thresh = <47>; /* sum of squares */
 		adi,gc-adc-large-overload-thresh = <58>; /* sum of squares */
@@ -98,13 +119,13 @@
 
 		adi,agc-attack-delay-us = <10>; /* us */
 		adi,agc-settling-delay = <10>; /* 0..31 Samples */
-		adi,agc-outer-thresh-high = <5>; /* -dBFS,
+		adi,agc-outer-thresh-high = <5>; /* -dBFS */
 		adi,agc-outer-thresh-high-dec-steps = <2>; /* 0..15 */
-		adi,agc-inner-thresh-high = <10>;
+		adi,agc-inner-thresh-high = <10>; /* -dBFS */
 		adi,agc-inner-thresh-high-dec-steps = <1>; /* 0..7 */
-		adi,agc-inner-thresh-low = <12>;
+		adi,agc-inner-thresh-low = <12>; /* -dBFS */
 		adi,agc-inner-thresh-low-inc-steps = <1>; /* 0..7 */
-		adi,agc-outer-thresh-low = <18>;
+		adi,agc-outer-thresh-low = <18>; /* -dBFS */
 		adi,agc-outer-thresh-low-inc-steps = <2>; /* 0..15 */
 
 		adi,agc-adc-small-overload-exceed-counter = <10>; /* 0..15 */
