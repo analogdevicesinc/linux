@@ -817,12 +817,10 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		}
 	}
 
-	val = ad9361_spi_read(spi, AGC_CONFIG_2);
-
-	if (val & FULL_GAIN_TBL)
-		rc = ad9361_get_full_table_gain(phy, idx_reg, rx_gain);
-	else
+	if (phy->pdata->split_gt)
 		rc = ad9361_get_split_table_gain(phy, idx_reg, rx_gain);
+	else
+		rc = ad9361_get_full_table_gain(phy, idx_reg, rx_gain);
 
 out:
 	return rc;
@@ -982,12 +980,9 @@ static int set_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 	}
 
 	ad9361_spi_writef(spi, idx_reg, FULL_TBL_IDX_MASK, rx_gain->lmt_index);
-
 	ad9361_spi_writef(spi, idx_reg + 1, LPF_IDX_MASK, rx_gain->lpf_gain);
 
-	val = ad9361_spi_read(spi, AGC_CONFIG_2);
-
-	if (val & DIG_GAIN_EN) {
+	if (phy->pdata->gain_ctrl.dig_gain_en) {
 		ad9361_spi_writef(spi, idx_reg + 2, DIGITAL_IDX_MASK, rx_gain->digital_gain);
 
 	} else if (rx_gain->digital_gain > 0) {
@@ -1074,11 +1069,10 @@ static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
 	/* RX must be enabled while changing Gain */
 	ad9361_ensm_force_state(phy, ensm_state);
 
-	val = ad9361_spi_read(spi, AGC_CONFIG_2);
-	if (val & AGC_USE_FULL_GAIN_TABLE)
-		rc = set_full_table_gain(phy, idx_reg, rx_gain);
-	else
+	if (phy->pdata->split_gt)
 		rc = set_split_table_gain(phy, idx_reg, rx_gain);
+	else
+		rc = set_full_table_gain(phy, idx_reg, rx_gain);
 
 	/* Restore is done intentionally before checking rc, because
 	 * we need to restore PHY to previous state even if write failed
@@ -1222,8 +1216,6 @@ static int ad9361_read_rssi(struct ad9361_rf_phy *phy, struct rf_rssi *rssi)
 
 	rc = ad9361_spi_readm(spi, PREAMBLE_LSB,
 			reg_val_buf, ARRAY_SIZE(reg_val_buf));
-
-
 	if (rssi->ant == 1) {
 		rssi->symbol = RSSI_RESOLUTION *
 				((reg_val_buf[5] << LSB_SHIFT) +
