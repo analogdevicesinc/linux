@@ -205,16 +205,16 @@ struct ad9361_phy_platform_data {
 	bool 			use_extclk;
 	bool			ensm_pin_level_mode;
 	bool			ensm_pin_ctrl;
-	unsigned			dcxo_coarse;
-	unsigned			dcxo_fine;
-	unsigned			rf_rx_input_sel;
-	unsigned			rf_tx_output_sel;
+	u32			dcxo_coarse;
+	u32			dcxo_fine;
+	u32			rf_rx_input_sel;
+	u32			rf_tx_output_sel;
 	unsigned long		rx_path_clks[6];
 	unsigned long		tx_path_clks[6];
-	unsigned long long	rx_synth_freq;
-	unsigned long long	tx_synth_freq;
-	unsigned			rf_rx_bandwidth_Hz;
-	unsigned			rf_tx_bandwidth_Hz;
+	u64			rx_synth_freq;
+	u64			tx_synth_freq;
+	u32			rf_rx_bandwidth_Hz;
+	u32			rf_tx_bandwidth_Hz;
 	int			tx_atten;
 	int 			gpio_resetb;
 
@@ -242,15 +242,15 @@ struct ad9361_rf_phy {
 	bool 			ensm_pin_ctl_en;
 
 	bool			auto_cal_en;
-	unsigned long long 	last_rx_quad_cal_freq;
-	unsigned long long 	last_tx_quad_cal_freq;
+	u64			last_rx_quad_cal_freq;
+	u64			last_tx_quad_cal_freq;
 	unsigned long		flags;
 	unsigned long		cal_threshold_freq;
-	unsigned			current_rx_bw_Hz;
-	unsigned			current_tx_bw_Hz;
-	unsigned 		rxbbf_div;
-	unsigned			ensm_conf1;
-	unsigned			rate_governor;
+	u32			current_rx_bw_Hz;
+	u32			current_tx_bw_Hz;
+	u32			rxbbf_div;
+	u32			ensm_conf1;
+	u32			rate_governor;
 	bool			bypass_rx_fir;
 	bool			bypass_tx_fir;
 	u8			tx_fir_int;
@@ -261,12 +261,12 @@ struct ad9361_rf_phy {
 };
 
 struct refclk_scale {
-	struct clk_hw	hw;
-	struct spi_device *spi;
-	struct ad9361_rf_phy *phy;
-	unsigned int	mult;
-	unsigned int	div;
-	enum ad9361_clocks source;
+	struct clk_hw		hw;
+	struct spi_device	*spi;
+	struct ad9361_rf_phy	*phy;
+	u32			mult;
+	u32			div;
+	enum ad9361_clocks 	source;
 };
 
 struct rf_rx_gain {
@@ -301,10 +301,10 @@ static int ad9361_reset(struct ad9361_rf_phy *phy)
 	return -ENODEV;
 }
 
-static int ad9361_spi_readm(struct spi_device *spi, unsigned reg,
-			   unsigned char *rbuf, unsigned num)
+static int ad9361_spi_readm(struct spi_device *spi, u32 reg,
+			   u8 *rbuf, u32 num)
 {
-	unsigned char buf[2];
+	u8 buf[2];
 	int ret;
 	u16 cmd;
 
@@ -331,9 +331,9 @@ static int ad9361_spi_readm(struct spi_device *spi, unsigned reg,
 	return 0;
 }
 
-static int ad9361_spi_read(struct spi_device *spi, unsigned reg)
+static int ad9361_spi_read(struct spi_device *spi, u32 reg)
 {
-	unsigned char buf;
+	u8 buf;
 	int ret;
 
 	ret = ad9361_spi_readm(spi, reg, &buf, 1);
@@ -343,10 +343,10 @@ static int ad9361_spi_read(struct spi_device *spi, unsigned reg)
 	return buf;
 }
 
-static int __ad9361_spi_readf(struct spi_device *spi, unsigned reg,
-				 unsigned mask, unsigned offset)
+static int __ad9361_spi_readf(struct spi_device *spi, u32 reg,
+				 u32 mask, u32 offset)
 {
-	unsigned char buf;
+	u8 buf;
 	int ret;
 
 	if (!mask)
@@ -366,9 +366,9 @@ static int __ad9361_spi_readf(struct spi_device *spi, unsigned reg,
 	__ad9361_spi_readf(spi, reg, mask, __ffs(mask))
 
 static int ad9361_spi_write(struct spi_device *spi,
-			 unsigned reg, unsigned val)
+			 u32 reg, u32 val)
 {
-	unsigned char buf[3];
+	u8 buf[3];
 	int ret;
 	u16 cmd;
 
@@ -388,10 +388,10 @@ static int ad9361_spi_write(struct spi_device *spi,
 	return 0;
 }
 
-static int __ad9361_spi_writef(struct spi_device *spi, unsigned reg,
-				 unsigned mask, unsigned offset, unsigned val)
+static int __ad9361_spi_writef(struct spi_device *spi, u32 reg,
+				 u32 mask, u32 offset, u32 val)
 {
-	unsigned char buf;
+	u8 buf;
 	int ret;
 
 	if (!mask)
@@ -411,9 +411,9 @@ static int __ad9361_spi_writef(struct spi_device *spi, unsigned reg,
 	__ad9361_spi_writef(spi,reg, mask, __ffs(mask), val)
 
 static int ad9361_spi_writem(struct spi_device *spi,
-			 unsigned reg, unsigned char *tbuf, unsigned num)
+			 u32 reg, u8 *tbuf, u32 num)
 {
-	unsigned char buf[10];
+	u8 buf[10];
 	int ret;
 	u16 cmd;
 
@@ -441,11 +441,11 @@ static int ad9361_spi_writem(struct spi_device *spi,
 	return 0;
 }
 
-static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, unsigned reg,
-				 unsigned mask, bool done_state)
+static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, u32 reg,
+				 u32 mask, bool done_state)
 {
-	unsigned timeout = 500;
-	unsigned state;
+	u32 timeout = 500;
+	u32 state;
 
 	do {
 		state = ad9361_spi_readf(phy->spi, reg, mask);
@@ -460,7 +460,7 @@ static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, unsigned reg,
 	return -ETIMEDOUT;
 }
 
-static int ad9361_run_calibration(struct ad9361_rf_phy *phy, unsigned mask)
+static int ad9361_run_calibration(struct ad9361_rf_phy *phy, u32 mask)
 {
 	int ret = ad9361_spi_write(phy->spi, CALIBRATION_CONTROL, mask);
 	if (ret < 0)
@@ -471,7 +471,7 @@ static int ad9361_run_calibration(struct ad9361_rf_phy *phy, unsigned mask)
 	return ad9361_check_cal_done(phy, CALIBRATION_CONTROL, mask, 0);
 }
 
-enum rx_gain_table_name ad9361_gt_tableindex(unsigned long long freq)
+enum rx_gain_table_name ad9361_gt_tableindex(u64 freq)
 {
 	if (freq <= 1300000000ULL)
 		return TBL_200_1300_MHZ;
@@ -484,21 +484,21 @@ enum rx_gain_table_name ad9361_gt_tableindex(unsigned long long freq)
 
 /* PLL operates between 47 .. 6000 MHz which is > 2^32 */
 
-unsigned long ad9361_to_clk(unsigned long long freq)
+unsigned long ad9361_to_clk(u64 freq)
 {
 	return (unsigned long)(freq >> 1);
 }
 
-unsigned long long ad9361_from_clk(unsigned long freq)
+u64 ad9361_from_clk(unsigned long freq)
 {
-	return ((unsigned long long)freq << 1);
+	return ((u64)freq << 1);
 }
 
-static int ad9361_load_gt(struct ad9361_rf_phy *phy, unsigned long long freq)
+static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq)
 {
 	struct spi_device *spi = phy->spi;
-	const unsigned char (*tab)[3];
-	unsigned band, index_max, i;
+	const u8 (*tab)[3];
+	u32 band, index_max, i;
 
 	dev_dbg(&phy->spi->dev, "%s: frequency %llu", __func__, freq);
 
@@ -544,8 +544,8 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, unsigned long long freq)
 	return 0;
 }
 
-static int ad9361_setup_ext_lna(struct ad9361_rf_phy *phy, unsigned gain_mdB,
-				unsigned bypass_loss_mdB)
+static int ad9361_setup_ext_lna(struct ad9361_rf_phy *phy, u32 gain_mdB,
+				u32 bypass_loss_mdB)
 {
 	ad9361_spi_write(phy->spi, EXT_LNA_HIGH_GAIN, (gain_mdB / 500) & 0x3F);
 
@@ -579,10 +579,10 @@ static int ad9361_load_mixer_gm_subtable(struct ad9361_rf_phy *phy)
 	return 0;
 }
 
-static int ad9361_set_tx_atten(struct ad9361_rf_phy *phy, unsigned atten_mdb,
+static int ad9361_set_tx_atten(struct ad9361_rf_phy *phy, u32 atten_mdb,
 			       bool tx1, bool tx2)
 {
-	unsigned char buf[2];
+	u8 buf[2];
 	int ret = 0;
 
 	dev_dbg(&phy->spi->dev, "%s : attenuation %u mdB tx1=%d tx2=%d",
@@ -608,11 +608,11 @@ static int ad9361_set_tx_atten(struct ad9361_rf_phy *phy, unsigned atten_mdb,
 	return ret;
 }
 
-static int ad9361_get_tx_atten(struct ad9361_rf_phy *phy, unsigned tx_num)
+static int ad9361_get_tx_atten(struct ad9361_rf_phy *phy, u32 tx_num)
 {
-	unsigned char buf[2];
+	u8 buf[2];
 	int ret = 0;
-	unsigned code;
+	u32 code;
 
 	ret = ad9361_spi_readm(phy->spi,
 			       (tx_num == 1) ? TX1_ATTEN_1 : TX2_ATTEN_1,
@@ -628,7 +628,7 @@ static int ad9361_get_tx_atten(struct ad9361_rf_phy *phy, unsigned tx_num)
 	return code;
 }
 
-unsigned ad9361_rfvco_tableindex(unsigned long freq)
+u32 ad9361_rfvco_tableindex(unsigned long freq)
 {
 	if (freq < 50000000UL)
 		return LUT_FTDD_40;
@@ -640,13 +640,13 @@ unsigned ad9361_rfvco_tableindex(unsigned long freq)
 }
 
 static int ad9361_rfpll_vco_init(struct ad9361_rf_phy *phy,
-				 bool tx, unsigned long long vco_freq,
+				 bool tx, u64 vco_freq,
 				 unsigned long ref_clk)
 {
 	struct spi_device *spi = phy->spi;
 	const struct SynthLUT (*tab);
 	int i = 0;
-	unsigned range, offs = 0;
+	u32 range, offs = 0;
 
 	range = ad9361_rfvco_tableindex(ref_clk);
 
@@ -765,7 +765,7 @@ static int ad9361_get_full_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 	return rc;
 }
 static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
-		unsigned rx_id, struct rf_rx_gain *rx_gain)
+		u32 rx_id, struct rf_rx_gain *rx_gain)
 {
 	struct device *dev = &phy->spi->dev;
 	struct spi_device *spi = phy->spi;
@@ -1036,7 +1036,7 @@ out:
 }
 
 static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
-		unsigned rx_id, struct rf_rx_gain *rx_gain)
+		u32 rx_id, struct rf_rx_gain *rx_gain)
 {
 	struct spi_device *spi = phy->spi;
 	struct device *dev = &phy->spi->dev;
@@ -1152,7 +1152,7 @@ int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 	struct device *dev = &phy->spi->dev;
 	int rc = 0;
 	u32 gain_ctl_shift, mode;
-	unsigned char val;
+	u8 val;
 
 	rc = ad9361_spi_readm(spi, REG_AGC_CONF1, &val, 1);
 	if (rc) {
@@ -1253,14 +1253,14 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
 	unsigned long scale_snr_1e3, maxsnr, sqrt_inv_rc_tconst_1e3, tmp_1e3,
 		scaled_adc_clk_1e6, inv_scaled_adc_clk_1e3, sqrt_term_1e3,
 		min_sqrt_term_1e3, bb_bw_Hz;
-	unsigned long long tmp, invrc_tconst_1e6;
-	unsigned char data[40];
-	unsigned i;
+	u64 tmp, invrc_tconst_1e6;
+	u8 data[40];
+	u32 i;
 	int ret;
 
-	unsigned char c3_msb = ad9361_spi_read(phy->spi, RX_BBF_C3_MSB);
-	unsigned char c3_lsb = ad9361_spi_read(phy->spi, RX_BBF_C3_LSB);
-	unsigned char r2346 = ad9361_spi_read(phy->spi, RX_BBF_R2346);
+	u8 c3_msb = ad9361_spi_read(phy->spi, RX_BBF_C3_MSB);
+	u8 c3_lsb = ad9361_spi_read(phy->spi, RX_BBF_C3_LSB);
+	u8 r2346 = ad9361_spi_read(phy->spi, RX_BBF_R2346);
 
 	/*
 	 * BBBW = (BBPLL / RxTuneDiv) * ln(2) / (1.4 * 2PI )
@@ -1302,15 +1302,15 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
 	if (invrc_tconst_1e6 > ULONG_MAX)
 		dev_err(&phy->spi->dev, "invrc_tconst_1e6 > ULONG_MAX");
 
-	sqrt_inv_rc_tconst_1e3 = int_sqrt((unsigned int)invrc_tconst_1e6);
+	sqrt_inv_rc_tconst_1e3 = int_sqrt((u32)invrc_tconst_1e6);
 	maxsnr = 640/160;
 	scaled_adc_clk_1e6 = DIV_ROUND_CLOSEST(adc_sampl_freq_Hz, 640);
 	inv_scaled_adc_clk_1e3 = DIV_ROUND_CLOSEST(640000000,
 			DIV_ROUND_CLOSEST(adc_sampl_freq_Hz, 1000));
-	tmp_1e3 = DIV_ROUND_CLOSEST(980000 + 20 * max_t(unsigned, 1000U,
+	tmp_1e3 = DIV_ROUND_CLOSEST(980000 + 20 * max_t(u32, 1000U,
 			DIV_ROUND_CLOSEST(inv_scaled_adc_clk_1e3, maxsnr)), 1000);
 	sqrt_term_1e3 = int_sqrt(scaled_adc_clk_1e6);
-	min_sqrt_term_1e3 = min_t(unsigned, 1000U,
+	min_sqrt_term_1e3 = min_t(u32, 1000U,
 			int_sqrt(maxsnr * scaled_adc_clk_1e6));
 
 
@@ -1333,53 +1333,53 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
 	tmp = -50000000 + 8ULL * scale_snr_1e3 * sqrt_inv_rc_tconst_1e3 *
 		min_sqrt_term_1e3;
 	do_div(tmp, 100000000UL);
-	data[7] = min_t(unsigned long long, 124U, tmp);
+	data[7] = min_t(u64, 124U, tmp);
 
 	tmp = (invrc_tconst_1e6 >> 1) + 20 * inv_scaled_adc_clk_1e3 *
 		data[7] / 80 * 1000ULL;
 	do_div(tmp, invrc_tconst_1e6);
-	data[8] = min_t(unsigned long long, 255U, tmp);
+	data[8] = min_t(u64, 255U, tmp);
 
 	tmp = (-500000 + 77ULL * sqrt_inv_rc_tconst_1e3 * min_sqrt_term_1e3);
 	do_div(tmp, 1000000UL);
-	data[10] = min_t(unsigned long long, 127U, tmp);
+	data[10] = min_t(u64, 127U, tmp);
 
-	data[9] = min_t(unsigned, 127U, ((800 * data[10]) / 1000));
+	data[9] = min_t(u32, 127U, ((800 * data[10]) / 1000));
 	tmp = ((invrc_tconst_1e6 >> 1) + (20 * inv_scaled_adc_clk_1e3 *
 		data[10] * 1000ULL));
 	do_div(tmp, invrc_tconst_1e6 * 77);
-	data[11] = min_t(unsigned long long, 255U, tmp);
-	data[12] = min_t(unsigned, 127U, (-500000 + 80 * sqrt_inv_rc_tconst_1e3 *
+	data[11] = min_t(u64, 255U, tmp);
+	data[12] = min_t(u32, 127U, (-500000 + 80 * sqrt_inv_rc_tconst_1e3 *
 		min_sqrt_term_1e3) / 1000000UL);
 
 	tmp = -3*(long)(invrc_tconst_1e6 >> 1) + inv_scaled_adc_clk_1e3 *
 		data[12] * (1000ULL * 20 / 80);
 	do_div(tmp, invrc_tconst_1e6);
-	data[13] = min_t(unsigned long long, 255, tmp);
+	data[13] = min_t(u64, 255, tmp);
 
 	data[14] = 21 * (inv_scaled_adc_clk_1e3 / 10000);
-	data[15] = min_t(unsigned, 127U, (500 + 1025 * data[7]) / 1000);
-	data[16] = min_t(unsigned, 127U, (data[15] * tmp_1e3) / 1000);
+	data[15] = min_t(u32, 127U, (500 + 1025 * data[7]) / 1000);
+	data[16] = min_t(u32, 127U, (data[15] * tmp_1e3) / 1000);
 	data[17] = data[15];
-	data[18] = min_t(unsigned, 127U, (500 + 975 * data[10]) / 1000);
-	data[19] = min_t(unsigned, 127U, (data[18] * tmp_1e3) / 1000);
+	data[18] = min_t(u32, 127U, (500 + 975 * data[10]) / 1000);
+	data[19] = min_t(u32, 127U, (data[18] * tmp_1e3) / 1000);
 	data[20] = data[18];
-	data[21] = min_t(unsigned, 127U, (500 + 975 * data[12]) / 1000);
-	data[22] = min_t(unsigned, 127, (data[21] * tmp_1e3) / 1000);
+	data[21] = min_t(u32, 127U, (500 + 975 * data[12]) / 1000);
+	data[22] = min_t(u32, 127, (data[21] * tmp_1e3) / 1000);
 	data[23] = data[21];
 	data[24] = 0x2E;
-	data[25] = (128 + min_t(unsigned, 63000U, DIV_ROUND_CLOSEST(63 *
+	data[25] = (128 + min_t(u32, 63000U, DIV_ROUND_CLOSEST(63 *
 		scaled_adc_clk_1e6, 1000)) / 1000);
-	data[26] = min_t(unsigned, 63U,63 * scaled_adc_clk_1e6 / 1000000 *
+	data[26] = min_t(u32, 63U,63 * scaled_adc_clk_1e6 / 1000000 *
 		(920 + 80 * inv_scaled_adc_clk_1e3 / 1000) / 1000);
-	data[27] = min_t(unsigned, 63,(32 * sqrt_term_1e3) / 1000);
+	data[27] = min_t(u32, 63,(32 * sqrt_term_1e3) / 1000);
 	data[28] = data[25];
 	data[29] = data[26];
 	data[30] = data[27];
 	data[31] = data[25];
 	data[32] = data[26];
-	data[33] = min_t(unsigned, 63U, 63 * sqrt_term_1e3 / 1000);
-	data[34] = min_t(unsigned, 127U, 64 * sqrt_term_1e3 / 1000);
+	data[33] = min_t(u32, 63U, 63 * sqrt_term_1e3 / 1000);
+	data[34] = min_t(u32, 127U, 64 * sqrt_term_1e3 / 1000);
 	data[35] = 0x40;
 	data[36] = 0x40;
 	data[37] = 0x2C;
@@ -1398,12 +1398,12 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
 static int ad9361_rx_tia_calib(struct ad9361_rf_phy *phy, unsigned long bb_bw_Hz)
 {
 	unsigned long Cbbf, R2346;
-	unsigned long long CTIA_fF;
+	u64 CTIA_fF;
 
-	unsigned char reg1EB = ad9361_spi_read(phy->spi, RX_BBF_C3_MSB);
-	unsigned char reg1EC = ad9361_spi_read(phy->spi, RX_BBF_C3_LSB);
-	unsigned char reg1E6 = ad9361_spi_read(phy->spi, RX_BBF_R2346);
-	unsigned char reg1DB, reg1DF, reg1DD, reg1DC, reg1DE, temp;
+	u8 reg1EB = ad9361_spi_read(phy->spi, RX_BBF_C3_MSB);
+	u8 reg1EC = ad9361_spi_read(phy->spi, RX_BBF_C3_LSB);
+	u8 reg1E6 = ad9361_spi_read(phy->spi, RX_BBF_R2346);
+	u8 reg1DB, reg1DF, reg1DD, reg1DC, reg1DE, temp;
 
 	dev_dbg(&phy->spi->dev, "%s : bb_bw_Hz %lu",
 		__func__, bb_bw_Hz);
@@ -1453,7 +1453,7 @@ static int ad9361_rx_bb_analog_filter_calib(struct ad9361_rf_phy *phy,
 					    unsigned long bbpll_freq)
 {
 	unsigned long target;
-	unsigned char tmp;
+	u8 tmp;
 	int ret;
 
 	dev_dbg(&phy->spi->dev, "%s : rx_bb_bw %lu bbpll_freq %lu",
@@ -1473,7 +1473,7 @@ static int ad9361_rx_bb_analog_filter_calib(struct ad9361_rf_phy *phy,
 	ad9361_spi_write(phy->spi, RX_BBBW_MHZ, rx_bb_bw / 1000000UL);
 
 	tmp = DIV_ROUND_CLOSEST((rx_bb_bw % 1000000UL) * 128, 1000000UL);
-	ad9361_spi_write(phy->spi, RX_BBBW_KHZ, min_t(unsigned char, 127, tmp));
+	ad9361_spi_write(phy->spi, RX_BBBW_KHZ, min_t(u8, 127, tmp));
 
 	ad9361_spi_write(phy->spi,RX_MIX_LO_CM, 0x3F); /* Set Rx Mix LO CM */
 	ad9361_spi_write(phy->spi,RX_MIX_GM_CONFIG, 0x03); /* Set GM common mode */
@@ -1533,9 +1533,9 @@ static int ad9361_tx_bb_analog_filter_calib(struct ad9361_rf_phy *phy,
 static int ad9361_tx_bb_second_filter_calib(struct ad9361_rf_phy *phy,
 					   unsigned long tx_rf_bw)
 {
-	unsigned long long cap;
+	u64 cap;
 	unsigned long corner, res, div;
-	unsigned reg_conf, reg_res;
+	u32 reg_conf, reg_res;
 	int ret, i;
 
 	dev_dbg(&phy->spi->dev, "%s : tx_rf_bw %lu",
@@ -1596,8 +1596,8 @@ static int ad9361_tx_bb_second_filter_calib(struct ad9361_rf_phy *phy,
 static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 					   unsigned long ref_clk_hz, bool tx)
 {
-	unsigned offs = tx ? 0x40 : 0;
-	unsigned vco_cal_cnt;
+	u32 offs = tx ? 0x40 : 0;
+	u32 vco_cal_cnt;
 	int ret;
 
 	dev_dbg(&phy->spi->dev, "%s : ref_clk_hz %lu : is_tx %d",
@@ -1655,7 +1655,7 @@ static int ad9361_bb_dc_offset_calib(struct ad9361_rf_phy *phy)
 /* RF DC OFFSET CALIBRATION */
 
 static int ad9361_rf_dc_offset_calib(struct ad9361_rf_phy *phy,
-				     unsigned long long rx_freq)
+				     u64 rx_freq)
 {
 	struct spi_device *spi = phy->spi;
 
@@ -1690,9 +1690,9 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	struct spi_device *spi = phy->spi;
 	unsigned long clktf, clkrf;
 	int txnco_word, rxnco_word;
-	unsigned char rx_phase = 0;
-	const unsigned char (*tab)[3];
-	unsigned index_max, i , lpf_tia_mask;
+	u8 rx_phase = 0;
+	const u8 (*tab)[3];
+	u32 index_max, i , lpf_tia_mask;
 	/*
 	 * Find NCO frequency that matches this equation:
 	 * BW / 4 = Rx NCO freq = Tx NCO freq:
@@ -1827,7 +1827,7 @@ static int ad9361_set_ref_clk_cycles(struct ad9361_rf_phy *phy,
 }
 
 static int ad9361_set_dcxo_tune(struct ad9361_rf_phy *phy,
-				    unsigned coarse, unsigned fine)
+				    u32 coarse, u32 fine)
 {
 	dev_dbg(&phy->spi->dev, "%s : coarse %u fine %u",
 		__func__, coarse, fine);
@@ -1851,9 +1851,9 @@ static int ad9361_set_dcxo_tune(struct ad9361_rf_phy *phy,
  */
 
 static int ad9361_rf_port_setup(struct ad9361_rf_phy *phy,
-				    unsigned rx_inputs, unsigned txb)
+				    u32 rx_inputs, u32 txb)
 {
-	unsigned val;
+	u32 val;
 
 	if (rx_inputs > 8)
 		return -EINVAL;
@@ -1907,7 +1907,7 @@ static int ad9361_pp_port_setup(struct ad9361_rf_phy *phy, bool restore_c3)
 static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 {
 	struct spi_device *spi = phy->spi;
-	unsigned reg, tmp1, tmp2;
+	u32 reg, tmp1, tmp2;
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
@@ -2376,14 +2376,14 @@ static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *
 
 static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long tx_sample_rate,
-				      unsigned int low_power,
+				      u32 low_power,
 				      unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
 {
 	unsigned long clktf, adc_rate, dac_rate = 0;
-	unsigned long long bbpll_rate;
+	u64 bbpll_rate;
 	int i, index_rx = -1, index_tx = -1;
-	unsigned div, fir_intdec;
+	u32 div, fir_intdec;
 	const char clk_dividers[][4] = {
 		{12,3,2,2},
 		{8,2,2,2},
@@ -2447,7 +2447,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 	div = MAX_BBPLL_DIV;
 
 	do {
-		bbpll_rate = (unsigned long long)adc_rate * div;
+		bbpll_rate = (u64)adc_rate * div;
 		div >>= 1;
 
 	} while ((bbpll_rate > MAX_BBPLL_FREQ) && (div >= MIN_BBPLL_DIV));
@@ -2476,8 +2476,8 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	struct spi_device *spi = phy->spi;
 	struct ad9361_phy_platform_data *pd = phy->pdata;
 	int ret;
-	unsigned real_rx_bandwidth = pd->rf_rx_bandwidth_Hz / 2;
-	unsigned real_tx_bandwidth = pd->rf_tx_bandwidth_Hz / 2;
+	u32 real_rx_bandwidth = pd->rf_rx_bandwidth_Hz / 2;
+	u32 real_tx_bandwidth = pd->rf_tx_bandwidth_Hz / 2;
 
 	dev_dbg(dev, "%s", __func__);
 
@@ -2715,7 +2715,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 
 }
 
-static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, unsigned cal)
+static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal)
 {
 	int ret;
 
@@ -2748,11 +2748,11 @@ static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, unsigned cal)
 }
 
 static int ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
-				     unsigned rf_rx_bw, unsigned rf_tx_bw)
+				     u32 rf_rx_bw, u32 rf_tx_bw)
 {
 	unsigned long bbpll_freq;
-	unsigned real_rx_bandwidth = rf_rx_bw / 2;
-	unsigned real_tx_bandwidth = rf_tx_bw / 2;
+	u32 real_rx_bandwidth = rf_rx_bw / 2;
+	u32 real_tx_bandwidth = rf_tx_bw / 2;
 	int ret;
 
 	bbpll_freq = clk_get_rate(phy->clks[BBPLL_CLK]);
@@ -2809,10 +2809,10 @@ static int ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
 
 static int ad9361_load_fir_filter_coef(struct ad9361_rf_phy *phy,
 				       enum fir_dest dest, int gain_dB,
-				       unsigned ntaps, short *coef)
+				       u32 ntaps, short *coef)
 {
 	struct spi_device *spi = phy->spi;
-	unsigned val, offs = 0, fir_conf = 0;
+	u32 val, offs = 0, fir_conf = 0;
 
 	dev_dbg(&phy->spi->dev, "%s: TAPS %d, gain %d, dest %d",
 		__func__, ntaps, gain_dB, dest);
@@ -2861,7 +2861,7 @@ static int ad9361_load_fir_filter_coef(struct ad9361_rf_phy *phy,
 }
 
 static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
-				 char *data, unsigned size)
+				 char *data, u32 size)
 {
 	char *line;
 	int i = 0, ret, tmp;
@@ -2938,7 +2938,7 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 	struct device *dev = &phy->spi->dev;
 	int ret;
 	unsigned long rx[6], tx[6];
-	unsigned max;
+	u32 max;
 
 	dev_dbg(dev, "%s: TX FIR EN=%d/TAPS%d/INT%d, RX FIR EN=%d/TAPS%d/DEC%d",
 		__func__, !phy->bypass_tx_fir, phy->tx_fir_ntaps, phy->tx_fir_int,
@@ -3049,7 +3049,7 @@ static void ad9361_work_func(struct work_struct *work)
 
 #define to_clk_priv(_hw) container_of(_hw, struct refclk_scale, hw)
 
-static inline int ad9361_set_muldiv(struct refclk_scale *priv, unsigned mul, unsigned div)
+static inline int ad9361_set_muldiv(struct refclk_scale *priv, u32 mul, u32 div)
 {
 	priv->mult = mul;
 	priv->div = div;
@@ -3060,7 +3060,7 @@ static int ad9361_get_clk_scaler(struct clk_hw *hw)
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
 	struct spi_device *spi = clk_priv->spi;
-	unsigned tmp, tmp1;
+	u32 tmp, tmp1;
 
 	switch (clk_priv->source) {
 	case BB_REFCLK:
@@ -3164,7 +3164,7 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
 	struct spi_device *spi = clk_priv->spi;
-	unsigned tmp;
+	u32 tmp;
 	int ret;
 
 	switch (clk_priv->source) {
@@ -3293,7 +3293,7 @@ static unsigned long ad9361_clk_factor_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
-	unsigned long long int rate;
+	u64 rate;
 
 	ad9361_get_clk_scaler(hw);
 	rate = (parent_rate * clk_priv->mult) / clk_priv->div;
@@ -3356,9 +3356,9 @@ static unsigned long ad9361_bbpll_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
-	unsigned long long int rate;
+	u64 rate;
 	unsigned long fract, integer;
-	unsigned char buf[4];
+	u8 buf[4];
 
 	ad9361_spi_readm(clk_priv->spi, INT_BB_FREQ_WORD, &buf[0],
 			       INT_BB_FREQ_WORD - FRAC_BB_FREQ_WORD_1 + 1);
@@ -3366,9 +3366,9 @@ static unsigned long ad9361_bbpll_recalc_rate(struct clk_hw *hw,
 	fract = (buf[3] << 16) | (buf[2] << 8) | buf[1];
 	integer = buf[0];
 
-	rate = ((unsigned long long int)parent_rate * fract);
+	rate = ((u64)parent_rate * fract);
 	do_div(rate, BBPLL_MODULUS);
-	rate += (unsigned long long int)parent_rate * integer;
+	rate += (u64)parent_rate * integer;
 
 	return (unsigned long)rate;
 }
@@ -3376,8 +3376,8 @@ static unsigned long ad9361_bbpll_recalc_rate(struct clk_hw *hw,
 static long ad9361_bbpll_round_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long *prate)
 {
-	unsigned long long tmp;
-	unsigned fract, integer;
+	u64 tmp;
+	u32 fract, integer;
 
 	if (rate > MAX_BBPLL_FREQ)
 		return MAX_BBPLL_FREQ;
@@ -3392,7 +3392,7 @@ static long ad9361_bbpll_round_rate(struct clk_hw *hw, unsigned long rate,
 	integer = rate;
 	fract = tmp;
 
-	tmp = *prate * (unsigned long long)fract;
+	tmp = *prate * (u64)fract;
 	do_div(tmp, BBPLL_MODULUS);
 	tmp += *prate * integer;
 
@@ -3404,10 +3404,10 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
 	struct spi_device *spi = clk_priv->spi;
-	unsigned long long tmp;
-	unsigned fract, integer;
+	u64 tmp;
+	u32 fract, integer;
 	int icp_val;
-	unsigned char lf_defaults[3] = {0x35, 0x5B, 0xE8};
+	u8 lf_defaults[3] = {0x35, 0x5B, 0xE8};
 
 	dev_dbg(&spi->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
@@ -3420,7 +3420,7 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	do_div(tmp, parent_rate * 32UL + (tmp >> 1));
 
 	/* 25uA/LSB, Offset 25uA */
-	icp_val = DIV_ROUND_CLOSEST((unsigned)tmp, 25U) - 1;
+	icp_val = DIV_ROUND_CLOSEST((u32)tmp, 25U) - 1;
 
 	icp_val = clamp(icp_val, 1, 64);
 
@@ -3435,7 +3435,7 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	/* Calculate and set BBPLL frequency word */
 	tmp = do_div(rate, parent_rate);
-	tmp = tmp *(unsigned long long) BBPLL_MODULUS + (parent_rate >> 1);
+	tmp = tmp *(u64) BBPLL_MODULUS + (parent_rate >> 1);
 	do_div(tmp, parent_rate);
 
 	integer = rate;
@@ -3466,11 +3466,11 @@ struct clk_ops bbpll_clk_ops = {
  * RFPLL
  */
 
-static unsigned long long ad9361_calc_rfpll_freq(unsigned long long parent_rate,
-				   unsigned long long integer,
-				   unsigned long long fract, unsigned vco_div)
+static u64 ad9361_calc_rfpll_freq(u64 parent_rate,
+				   u64 integer,
+				   u64 fract, u32 vco_div)
 {
-	unsigned long long rate;
+	u64 rate;
 
 	rate = parent_rate * fract;
 	do_div(rate, RFPLL_MODULUS);
@@ -3479,11 +3479,11 @@ static unsigned long long ad9361_calc_rfpll_freq(unsigned long long parent_rate,
 	return rate >> (vco_div + 1);
 }
 
-static int ad9361_calc_rfpll_divder(unsigned long long freq,
-			     unsigned long long parent_rate, unsigned *integer,
-			     unsigned *fract, int *vco_div, unsigned long long *vco_freq)
+static int ad9361_calc_rfpll_divder(u64 freq,
+			     u64 parent_rate, u32 *integer,
+			     u32 *fract, int *vco_div, u64 *vco_freq)
 {
-	unsigned long long tmp;
+	u64 tmp;
 	int div;
 
 	if (freq > MAX_CARRIER_FREQ_HZ || freq < MIN_CARRIER_FREQ_HZ)
@@ -3512,8 +3512,8 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
 	unsigned long fract, integer;
-	unsigned char buf[5];
-	unsigned reg, div_mask, vco_div;
+	u8 buf[5];
+	u32 reg, div_mask, vco_div;
 
 	switch (clk_priv->source) {
 	case RX_RFPLL:
@@ -3543,8 +3543,8 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 static long ad9361_rfpll_round_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long *prate)
 {
-	unsigned long long vco;
-	unsigned fract, integer;
+	u64 vco;
+	u32 fract, integer;
 	int vco_div, ret;
 
 	ret = ad9361_calc_rfpll_divder(ad9361_from_clk(rate), *prate, &integer, &fract, &vco_div, &vco);
@@ -3559,9 +3559,9 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
 	struct ad9361_rf_phy *phy = clk_priv->phy;
-	unsigned long long vco;
-	unsigned char buf[5];
-	unsigned reg, div_mask, lock_reg, fract, integer;
+	u64 vco;
+	u8 buf[5];
+	u32 reg, div_mask, lock_reg, fract, integer;
 	int vco_div, ret;
 
 	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
@@ -3631,7 +3631,7 @@ struct clk_ops rfpll_clk_ops = {
 
 static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy, const char *name,
 		const char *parent_name, unsigned long flags,
-		unsigned source)
+		u32 source)
 {
 	struct refclk_scale *clk_priv;
 	struct clk_init_data init;
@@ -3992,7 +3992,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	long readin;
 	int ret = 0;
-	unsigned val;
+	u32 val;
 	bool res;
 
 	mutex_lock(&indio_dev->mlock);
@@ -4243,8 +4243,8 @@ static const struct attribute_group ad9361_phy_attribute_group = {
 
 
 static int ad9361_phy_reg_access(struct iio_dev *indio_dev,
-			      unsigned reg, unsigned writeval,
-			      unsigned *readval)
+			      u32 reg, u32 writeval,
+			      u32 *readval)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
@@ -4267,7 +4267,7 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 				    const char *buf, size_t len)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
-	unsigned long long readin;
+	u64 readin;
 	unsigned long tmp;
 	int ret = 0;
 
@@ -4305,7 +4305,7 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 				   char *buf)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
-	unsigned long long val;
+	u64 val;
 	int ret = 0;
 
 	mutex_lock(&indio_dev->mlock);
@@ -4344,7 +4344,7 @@ static const struct iio_chan_spec_ext_info ad9361_phy_ext_info[] = {
 };
 
 static int ad9361_set_agc_mode(struct iio_dev *indio_dev,
-	const struct iio_chan_spec *chan, unsigned int mode)
+	const struct iio_chan_spec *chan, u32 mode)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	struct rf_gain_ctrl gc = {0};
@@ -4381,7 +4381,7 @@ static ssize_t ad9361_phy_rx_write(struct iio_dev *indio_dev,
 				    const char *buf, size_t len)
 {
 //	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
-	unsigned long long readin;
+	u64 readin;
 	int ret = 0;
 
 	ret = kstrtoull(buf, 10, &readin);
@@ -4500,7 +4500,7 @@ static int ad9361_phy_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
-	unsigned code;
+	u32 code;
 	unsigned long rx[6], tx[6];
 	int ret;
 
@@ -4627,7 +4627,7 @@ static const struct ad9361_dport_config ad9361_dport_config[] = {
 };
 
 static int __ad9361_of_get_u32(struct device_node *np, const char *propname,
-			     u32 defval, void *out_value, unsigned size)
+			     u32 defval, void *out_value, u32 size)
 {
 	int ret;
 	u32 tmp = defval;
@@ -4665,8 +4665,8 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
 	struct ad9361_phy_platform_data *pdata;
-	unsigned int tmp;
-	unsigned long long tmpl;
+	u32 tmp;
+	u64 tmpl;
 	u32 array[6] = {0};
 	int ret, i;
 

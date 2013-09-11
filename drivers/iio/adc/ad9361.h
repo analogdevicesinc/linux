@@ -632,19 +632,19 @@
 #define FIR_NUM_TAPS(x)		(((x) & 0x7) << 5)
 
 struct SynthLUT {
-	unsigned short VCO_MHz;
-	unsigned char VCO_Output_Level;
-	unsigned char VCO_Varactor;
-	unsigned char VCO_Bias_Ref;
-	unsigned char VCO_Bias_Tcf;
-	unsigned char VCO_Cal_Offset;
-	unsigned char VCO_Varactor_Reference;
-	unsigned char Charge_Pump_Current;
-	unsigned char LF_C2;
-	unsigned char LF_C1;
-	unsigned char LF_R1;
-	unsigned char LF_C3;
-	unsigned char LF_R3;
+	u16 VCO_MHz;
+	u8 VCO_Output_Level;
+	u8 VCO_Varactor;
+	u8 VCO_Bias_Ref;
+	u8 VCO_Bias_Tcf;
+	u8 VCO_Cal_Offset;
+	u8 VCO_Varactor_Reference;
+	u8 Charge_Pump_Current;
+	u8 LF_C2;
+	u8 LF_C1;
+	u8 LF_R1;
+	u8 LF_C3;
+	u8 LF_R3;
 };
 
 enum {
@@ -1012,7 +1012,7 @@ struct SynthLUT SynthLUT_TDD[LUT_FTDD_ENT][SYNTH_LUT_SIZE] = {
 
 #define SIZE_FULL_TABLE		77
 
-const unsigned char full_gain_table[RXGAIN_TBLS_END][SIZE_FULL_TABLE][3] =
+const u8 full_gain_table[RXGAIN_TBLS_END][SIZE_FULL_TABLE][3] =
 {{  /* 800 MHz */
 	{0x00, 0x00, 0x20}, {0x00, 0x00, 0x00}, {0x00, 0x00, 0x00},
 	{0x00, 0x01, 0x00}, {0x00, 0x02, 0x00}, {0x00, 0x03, 0x00},
@@ -1098,7 +1098,7 @@ const unsigned char full_gain_table[RXGAIN_TBLS_END][SIZE_FULL_TABLE][3] =
 
 #define SIZE_SPLIT_TABLE		41
 
-const unsigned char split_gain_table[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE][3] =
+const u8 split_gain_table[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE][3] =
 {{  /* 800 MHz */
 	{0x00, 0x18, 0x20}, {0x01, 0x18, 0x20}, {0x02, 0x18, 0x20},
 	{0x03, 0x18, 0x20}, {0x04, 0x18, 0x20}, {0x05, 0x18, 0x20},
@@ -1149,15 +1149,15 @@ const unsigned char split_gain_table[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE][3] =
 
 /* Mixer GM Sub-table */
 
-const unsigned char gm_st_gain[16]= {0x78, 0x74, 0x70, 0x6C, 0x68, 0x64, 0x60,
+const u8 gm_st_gain[16]= {0x78, 0x74, 0x70, 0x6C, 0x68, 0x64, 0x60,
 			 0x5C, 0x58, 0x54, 0x50, 0x4C, 0x48, 0x30, 0x18, 0x0};
-const unsigned char gm_st_ctrl[16]= {0x0, 0xD, 0x15, 0x1B, 0x21, 0x25, 0x29,
+const u8 gm_st_ctrl[16]= {0x0, 0xD, 0x15, 0x1B, 0x21, 0x25, 0x29,
 			 0x2C, 0x2F, 0x31, 0x33, 0x34, 0x35, 0x3A, 0x3D, 0x3E};
 
 
-const char lna_table[] = {6, 17, 19, 25};
-const char tia_table[] = {-6, 0};
-const char mixer_table[] = {0, 5, 11, 16,
+const s8 lna_table[] = {6, 17, 19, 25};
+const s8 tia_table[] = {-6, 0};
+const s8 mixer_table[] = {0, 5, 11, 16,
 			17, 18, 19, 20,
 			21, 22, 23, 24,
 			25, 26,	27, 28};
