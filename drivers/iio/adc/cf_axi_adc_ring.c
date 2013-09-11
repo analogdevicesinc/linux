@@ -144,7 +144,7 @@ static inline void axiadc_rb_free(struct iio_buffer *r)
 }
 
 static const struct iio_buffer_access_funcs axiadc_ring_access_funcs = {
-	.read_first_n = &axiadc_read_first_n_hw_rb,
+	.read = &axiadc_read_first_n_hw_rb,
 	.get_length = &axiadc_ring_get_length,
 	.set_length = &axiadc_ring_set_length,
 	.get_bytes_per_datum = &axiadc_ring_get_bytes_per_datum,

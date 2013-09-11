@@ -68,7 +68,7 @@ error_ret:
 }
 
 /**
- * sca3000_read_first_n_hw_rb() - main ring access, pulls data from ring
+ * sca3000_read_user_hw_rb() - main ring access, pulls data from ring
  * @r:			the ring
  * @count:		number of samples to try and pull
  * @data:		output the actual samples pulled from the hw ring
@@ -77,7 +77,7 @@ error_ret:
  * can only be inferred approximately from ring buffer events such as 50% full
  * and knowledge of when buffer was last emptied.  This is left to userspace.
  **/
-static int sca3000_read_first_n_hw_rb(struct iio_buffer *r,
+static int sca3000_read_user_hw_rb(struct iio_buffer *r,
 				      size_t count, char __user *buf)
 {
 	struct iio_hw_buffer *hw_ring = iio_to_hw_buf(r);
@@ -271,7 +271,7 @@ static void sca3000_ring_release(struct iio_buffer *r)
 }
 
 static const struct iio_buffer_access_funcs sca3000_ring_access_funcs = {
-	.read_first_n = &sca3000_read_first_n_hw_rb,
+	.read = &sca3000_read_user_hw_rb,
 	.get_length = &sca3000_ring_get_length,
 	.get_bytes_per_datum = &sca3000_ring_get_bytes_per_datum,
 	.release = sca3000_ring_release,

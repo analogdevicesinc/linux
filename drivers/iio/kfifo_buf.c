@@ -113,8 +113,7 @@ static int iio_store_to_kfifo(struct iio_buffer *r,
 	return 0;
 }
 
-static int iio_read_first_n_kfifo(struct iio_buffer *r,
-			   size_t n, char __user *buf)
+static int iio_read_kfifo(struct iio_buffer *r, size_t n, char __user *buf)
 {
 	int ret, copied;
 	struct iio_kfifo *kf = iio_to_kfifo(r);
@@ -182,7 +181,7 @@ static void iio_kfifo_buffer_release(struct iio_buffer *buffer)
 
 static const struct iio_buffer_access_funcs kfifo_access_funcs = {
 	.store_to = &iio_store_to_kfifo,
-	.read_first_n = &iio_read_first_n_kfifo,
+	.read = &iio_read_kfifo,
 	.data_available = iio_kfifo_buf_data_available,
 	.remove_from = iio_remove_from_kfifo,
 	.write = iio_write_kfifo,

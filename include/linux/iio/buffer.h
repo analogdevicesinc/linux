@@ -20,7 +20,7 @@ struct iio_buffer;
 /**
  * struct iio_buffer_access_funcs - access functions for buffers.
  * @store_to:		actually store stuff to the buffer
- * @read_first_n:	try to get a specified number of bytes (must exist)
+ * @read:		try to get a specified number of elements (must exist)
  * @request_update:	if a parameter change has been marked, update underlying
  *			storage.
  * @get_bytes_per_datum:get current bytes per datum
@@ -40,9 +40,7 @@ struct iio_buffer;
  **/
 struct iio_buffer_access_funcs {
 	int (*store_to)(struct iio_buffer *buffer, const void *data);
-	int (*read_first_n)(struct iio_buffer *buffer,
-			    size_t n,
-			    char __user *buf);
+	int (*read)(struct iio_buffer *buffer, size_t n, char __user *buf);
 	bool (*data_available)(struct iio_buffer *buffer);
 	int (*remove_from)(struct iio_buffer *buffer, u8 *data);
 	int (*write)(struct iio_buffer *buffer, size_t n, const char __user *buf);

@@ -61,7 +61,7 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 	if (!indio_dev->info)
 		return -ENODEV;
 
-	if (!rb || !rb->access->read_first_n)
+	if (!rb || !rb->access->read)
 		return -EINVAL;
 
 	do {
@@ -78,7 +78,7 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 				return -ENODEV;
 		}
 
-		ret = rb->access->read_first_n(rb, n, buf);
+		ret = rb->access->read(rb, n, buf);
 		if (ret == 0 && (filp->f_flags & O_NONBLOCK))
 			ret = -EAGAIN;
 	 } while (ret == 0);
