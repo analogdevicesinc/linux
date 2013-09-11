@@ -50,11 +50,8 @@
 #define ENSM_CONFIG_2_RX_SYNTH_RDY	(1 << 1)
 #define ENSM_CONFIG_2_TX_SYNTH_RDY	(1 << 0)
 
-
-
-
 #define CALIBRATION_CONTROL		0x016
-#define STATE				0x017
+#define DEV_STATE			0x017
 
 #define AUX_DAC1_CONFIG			0x01A
 #define AUX_DAC2_CONFIG			0x01B
@@ -405,16 +402,16 @@
 #define TX_LO_GEN_POWER_MODE		0x2A1
 
 #define BANDGAP_CONFIG0          	0x2A6
-#define BANDGAP_CONFIG1         	0x2A8
+#define BANDGAP_CONFIG1         		0x2A8
 #define REF_DIVIDE_CONFIG_1		0x2AB
 #define REF_DIVIDE_CONFIG_2		0x2AC
 
-#define GAIN_RX_1       		0x2B0
+#define GAIN_RX_1       			0x2B0
 #define LPF_GAIN_RX_1     		0x2B1
 #define DIG_GAIN_RX_1       		0x2B2
 #define FAST_ATTACK_STATE     		0x2B3
 #define SLOW_LOOP_STATE    		0x2B4
-#define GAIN_RX_2       		0x2B5
+#define GAIN_RX_2       			0x2B5
 #define LPF_GAIN_RX_2       	 	0x2B6
 #define DIG_GAIN_RX_2     		0x2B7
 
@@ -448,15 +445,6 @@
 #define MASK_VCO_VARACTOR_CONTROL1	0x0F
 #define MASK_CP_CURRENT			0x3F
 #define MASK_LOOP_FILTER3		0x0F
-
-/* Calibration status Registers */
-#define REG_CH1_OVERFLOW	0x05E
-#define REG_RX_CAL_STATUS	0x244
-#define REG_TX_CAL_STATUS	0x284
-#define REG_CALIBRATION_CONTROL	0x016
-#define REG_CALIBRATION_CONFIG1	0x169
-#define REG_RX_CP_CONFIG	0x23D
-#define REG_TX_CP_CONFIG	0x27D
 
 #define VAL_CAL_CONF1_TRACKOFF	0xC0
 
@@ -512,16 +500,7 @@
 #define RSSI_MAX_WEIGHT		255
 #define RSSI_MEAS_MODE_MASK	0xE2
 #define RSSI_GAIN_CHANGE_EN_AGC_MODE	0x14
-/* RSSI delay reg value is decremented by RX sample rate divided by 8*/
-#define RSSI_DELAY_5MHZ		(256 / 8)
-#define RSSI_DELAY_10MHZ	(512 / 8)
-#define RSSI_DELAY_15MHZ	(768 / 8)
-#define RSSI_DELAY_20MHZ	(1024 / 8)
 
-#define SUBFRAME_SIZE_5MHZ	7680
-#define SUBFRAME_SIZE_10MHZ	15360
-#define SUBFRAME_SIZE_15MHZ	23040
-#define SUBFRAME_SIZE_20MHZ	30720
 
 /* For 9 bit RSSI symbol/preamble value RSSI is equivalent to 0.25dB/LSB.
  * Since we can not do floating pt operations in kernel, we multiply
@@ -545,12 +524,6 @@
 /* Gain Index read back registers. They are
  * applicable for both AGC and MGC
  */
-#define REG_RX1_FULL_TBL_IDX		0x2B0
-#define REG_RX1_LPF_GAIN_IDX		0x2B1
-#define REG_RX1_DIG_GAIN_IDX		0x2B2
-#define REG_RX2_FULL_TBL_IDX		0x2B5
-#define REG_RX2_LPF_GAIN_IDX		0x2B6
-#define REG_RX2_DIG_GAIN_IDX		0x2B7
 #define FULL_TBL_IDX_MASK		0x7f
 #define LPF_IDX_MASK			0x1f
 #define DIGITAL_IDX_MASK		0x1f
@@ -558,10 +531,6 @@
 #define MAX_LPF_GAIN			24
 #define MAX_DIG_GAIN			31
 
-#define REG_GAIN_TBL_ADDR		0x130
-#define REG_GAIN_TBL_READ_DATA1		0x134
-#define REG_GAIN_TBL_READ_DATA2		0x135
-#define REG_GAIN_TBL_READ_DATA3		0x136
 #define LNA_GAIN_MASK			0x60
 #define MIXER_GAIN_MASK			0x1F
 #define TIA_GAIN_MASK			0x20
@@ -570,7 +539,6 @@
 #define TIA_SHIFT			5
 
 /*Fast attack state register*/
-#define REG_FAST_ATK_STATE		0x2B3
 #define FAST_ATK_MASK			0x7
 #define RX1_FAST_ATK_SHIFT		0
 #define RX2_FAST_ATK_SHIFT		4
@@ -604,7 +572,6 @@
 
 
 /*ENSM config1 register*/
-#define REG_ENSM_CONF1			0x014
 #define ENSM_CONF1_TO_ALERT		(1 << 0)
 #define ENSM_CONF1_AUTO_GAIN_LOCK	(1 << 1)
 #define ENSM_CONF1_FORCE_ALERT		(1 << 2)
@@ -615,7 +582,6 @@
 #define ENSM_CONF_RX_EN_CAL		(1 << 7)
 
 /*ENSM state - Read only*/
-#define REG_DEV_STATE			0x017
 #define ENSM_STATE_SHIFT		0x0
 #define ENSM_STATE_MASK			0x0f
 
