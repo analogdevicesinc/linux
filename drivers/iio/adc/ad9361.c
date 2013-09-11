@@ -710,21 +710,21 @@ static int ad9361_get_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 	int rc = 0;
 
 	rx_gain->lmt_index = ad9361_spi_readf(spi, idx_reg, FULL_TBL_IDX_MASK);
-	tbl_addr = ad9361_spi_read(spi, REG_GAIN_TBL_ADDR);
+	tbl_addr = ad9361_spi_read(spi, GAIN_TABLE_ADDRESS);
 
-	ad9361_spi_write(spi, REG_GAIN_TBL_ADDR, rx_gain->lmt_index);
+	ad9361_spi_write(spi, GAIN_TABLE_ADDRESS, rx_gain->lmt_index);
 
-	val = ad9361_spi_read(spi, REG_GAIN_TBL_READ_DATA1);
+	val = ad9361_spi_read(spi, GAIN_TABLE_READ_DATA1);
 	lna_index = (val & LNA_GAIN_MASK) >> LNA_SHIFT;
 	mixer_index = (val & MIXER_GAIN_MASK) >> MIXER_SHIFT;
 
-	tia_index = ad9361_spi_readf(spi, REG_GAIN_TBL_READ_DATA2, TIA_GAIN_MASK);
+	tia_index = ad9361_spi_readf(spi, GAIN_TABLE_READ_DATA2, TIA_GAIN_MASK);
 
 	rx_gain->lmt_gain = lna_table[lna_index] +
 				mixer_table[mixer_index] +
 				tia_table[tia_index];
 
-	ad9361_spi_write(spi, REG_GAIN_TBL_ADDR, tbl_addr);
+	ad9361_spi_write(spi, GAIN_TABLE_ADDRESS, tbl_addr);
 
 	/* Read LPF Index */
 	rx_gain->lpf_gain = ad9361_spi_readf(spi, idx_reg + 1, LPF_IDX_MASK);
@@ -776,13 +776,13 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 
 	if (rx_id == 1) {
 		gain_ctl_shift = RX1_GAIN_CTL_SHIFT;
-		idx_reg = REG_RX1_FULL_TBL_IDX;
+		idx_reg = GAIN_RX_1;
 		rx_enable_mask = RX1_EN;
 		fast_atk_shift = RX1_FAST_ATK_SHIFT;
 
 	} else if (rx_id == 2) {
 		gain_ctl_shift = RX2_GAIN_CTL_SHIFT;
-		idx_reg = REG_RX2_FULL_TBL_IDX;
+		idx_reg = GAIN_RX_2;
 		rx_enable_mask = RX2_EN;
 		fast_atk_shift = RX2_FAST_ATK_SHIFT;
 	} else {
@@ -791,7 +791,7 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		goto out;
 	}
 
-	val = ad9361_spi_readf(spi, REG_RXEN_N_FILTER_CTRL, rx_enable_mask);
+	val = ad9361_spi_readf(spi, RX_ENABLE_FILTER, rx_enable_mask);
 
 	if (!val) {
 		dev_err(dev, "Rx%d is not enabled\n", rx_gain->ant);
@@ -799,7 +799,7 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		goto out;
 	}
 
-	val = ad9361_spi_read(spi, REG_AGC_CONF1);
+	val = ad9361_spi_read(spi, AGC_CONFIG_1);
 
 	val = (val >> gain_ctl_shift) & RX_GAIN_CTL_MASK;
 
@@ -807,7 +807,7 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		/* In fast attack mode check whether Fast attack state machine
 		 * has locked gain, if not then we can not read gain.
 		 */
-		val = ad9361_spi_read(spi, REG_FAST_ATK_STATE);
+		val = ad9361_spi_read(spi, FAST_ATTACK_STATE);
 		val = (val >> fast_atk_shift) & FAST_ATK_MASK;
 		if (val != FAST_ATK_GAIN_LOCKED) {
 			dev_err(dev, "Failed to read gain, state m/c at %x\n",
@@ -817,7 +817,7 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		}
 	}
 
-	val = ad9361_spi_read(spi, REG_AGC_CONF2);
+	val = ad9361_spi_read(spi, AGC_CONFIG_2);
 
 	if (val & FULL_GAIN_TBL)
 		rc = ad9361_get_full_table_gain(phy, idx_reg, rx_gain);
@@ -836,7 +836,7 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	int rc;
 	u32 val;
 
-	dev_ensm_state = ad9361_spi_readf(spi, REG_DEV_STATE, ENSM_STATE_MASK);
+	dev_ensm_state = ad9361_spi_readf(spi, DEV_STATE, ENSM_STATE_MASK);
 
 	phy->prev_ensm_state = dev_ensm_state;
 
@@ -849,7 +849,7 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	dev_dbg(dev, "Device is in %x state, forcing to %x\n", dev_ensm_state,
 			ensm_state);
 
-	val = ad9361_spi_read(spi, REG_ENSM_CONF1);
+	val = ad9361_spi_read(spi, ENSM_CONFIG_1);
 
 
 	/* Enable control through SPI writes, and take out from
@@ -886,7 +886,7 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 		goto out;
 	}
 
-	rc = ad9361_spi_write(spi, REG_ENSM_CONF1, val);
+	rc = ad9361_spi_write(spi, ENSM_CONFIG_1, val);
 	if (rc)
 		dev_err(dev, "Failed to restore state\n");
 
@@ -902,7 +902,7 @@ static void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 	int rc;
 	u32 val;
 
-	val = ad9361_spi_read(spi, REG_ENSM_CONF1);
+	val = ad9361_spi_read(spi, ENSM_CONFIG_1);
 
 
 	/* We are restoring state only, so clear State bits first
@@ -934,17 +934,17 @@ static void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 		goto out;
 	}
 
-	rc = ad9361_spi_write(spi, REG_ENSM_CONF1, val);
+	rc = ad9361_spi_write(spi, ENSM_CONFIG_1, val);
 	if (rc) {
-		dev_err(dev, "Failed to write REG_ENSM_CONF1");
+		dev_err(dev, "Failed to write ENSM_CONFIG_1");
 		goto out;
 	}
 
 	if (phy->ensm_pin_ctl_en) {
 		val |= ENSM_CONF1_ENSM_PIN_CTL_EN;
-		rc = ad9361_spi_write(spi, REG_ENSM_CONF1, val);
+		rc = ad9361_spi_write(spi, ENSM_CONFIG_1, val);
 		if (rc)
-			dev_err(dev, "Failed to write REG_ENSM_CONF1");
+			dev_err(dev, "Failed to write ENSM_CONFIG_1");
 	}
 
 out:
@@ -985,9 +985,9 @@ static int set_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 
 	ad9361_spi_writef(spi, idx_reg + 1, LPF_IDX_MASK, rx_gain->lpf_gain);
 
-	val = ad9361_spi_read(spi, REG_AGC_CONF2);
+	val = ad9361_spi_read(spi, AGC_CONFIG_2);
 
-	if (val & DIGITAL_GAIN_EN) {
+	if (val & DIG_GAIN_EN) {
 		ad9361_spi_writef(spi, idx_reg + 2, DIGITAL_IDX_MASK, rx_gain->digital_gain);
 
 	} else if (rx_gain->digital_gain > 0) {
@@ -1046,11 +1046,11 @@ static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
 
 	if (rx_id == 1) {
 		gain_ctl_shift = RX1_GAIN_CTL_SHIFT;
-		idx_reg = REG_RX1_MGC_FULL_TBL_IDX;
+		idx_reg = RX1_MANUAL_LMT_FULL_GAIN;
 
 	} else if (rx_id == 2) {
 		gain_ctl_shift = RX2_GAIN_CTL_SHIFT;
-		idx_reg = REG_RX2_MGC_FULL_TBL_IDX;
+		idx_reg = RX2_MANUAL_LMT_FULL_GAIN;
 	} else {
 		dev_err(dev, "Unknown Rx path %d\n", rx_id);
 		rc = -EINVAL;
@@ -1058,11 +1058,11 @@ static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
 
 	}
 
-	val = ad9361_spi_read(spi, REG_AGC_CONF1);
+	val = ad9361_spi_read(spi, AGC_CONFIG_1);
 	val = (val >> gain_ctl_shift) & RX_GAIN_CTL_MASK;
 
 	if (val != RX_GAIN_CTL_MGC) {
-		dev_err(dev, "Rx gain can be set in MGC mode only\n");
+		dev_dbg(dev, "Rx gain can be set in MGC mode only\n");
 		goto out;
 	}
 
@@ -1074,8 +1074,8 @@ static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
 	/* RX must be enabled while changing Gain */
 	ad9361_ensm_force_state(phy, ensm_state);
 
-	val = ad9361_spi_read(spi, REG_AGC_CONF2);
-	if (val & FULL_GAIN_TBL)
+	val = ad9361_spi_read(spi, AGC_CONFIG_2);
+	if (val & AGC_USE_FULL_GAIN_TABLE)
 		rc = set_full_table_gain(phy, idx_reg, rx_gain);
 	else
 		rc = set_split_table_gain(phy, idx_reg, rx_gain);
@@ -1154,10 +1154,10 @@ int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 	u32 gain_ctl_shift, mode;
 	u8 val;
 
-	rc = ad9361_spi_readm(spi, REG_AGC_CONF1, &val, 1);
+	rc = ad9361_spi_readm(spi, AGC_CONFIG_1, &val, 1);
 	if (rc) {
 		dev_err(dev, "Unable to read AGC config1 register: %x\n",
-				REG_AGC_CONF1);
+			AGC_CONFIG_1);
 		goto out;
 	}
 
@@ -1202,10 +1202,10 @@ int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 	else
 		val &= ~SLOW_ATK_HYBD_BIT_EN;
 
-	rc = ad9361_spi_write(spi, REG_AGC_CONF1, val);
+	rc = ad9361_spi_write(spi, AGC_CONFIG_1, val);
 	if (rc) {
 		dev_err(dev, "Unable to write AGC config1 register: %x\n",
-				REG_AGC_CONF1);
+				AGC_CONFIG_1);
 		goto out;
 	}
 
@@ -2306,7 +2306,7 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 		goto out;
 	}
 
-	rc = ad9361_spi_write(spi, REG_ENSM_CONF1, val);
+	rc = ad9361_spi_write(spi, ENSM_CONFIG_1, val);
 	if (rc)
 		dev_err(dev, "Failed to restore state\n");
 
@@ -2708,7 +2708,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	phy->curr_ensm_state = ad9361_spi_readf(spi, REG_DEV_STATE, ENSM_STATE_MASK);
+	phy->curr_ensm_state = ad9361_spi_readf(spi, DEV_STATE, ENSM_STATE_MASK);
 	ad9361_ensm_set_state(phy, pd->fdd ? ENSM_STATE_FDD : ENSM_STATE_RX);
 
 	phy->current_rx_bw_Hz = pd->rf_rx_bandwidth_Hz;
@@ -4122,7 +4122,7 @@ static ssize_t ad9361_phy_show(struct device *dev,
 	case AD9361_ENSM_MODE:
 		ret = sprintf(buf, "%s\n",
 			      ad9361_ensm_states[ad9361_spi_readf
-			      (phy->spi, REG_DEV_STATE, ENSM_STATE_MASK)]);
+			      (phy->spi, DEV_STATE, ENSM_STATE_MASK)]);
 		break;
 	case AD9361_ENSM_MODE_AVAIL:
 		ret = sprintf(buf, "%s\n", phy->pdata->fdd ?
