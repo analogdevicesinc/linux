@@ -248,6 +248,7 @@ struct ad9361_rf_phy {
 	unsigned long		cal_threshold_freq;
 	unsigned			current_rx_bw_Hz;
 	unsigned			current_tx_bw_Hz;
+	unsigned 		rxbbf_div;
 	unsigned			ensm_conf1;
 	unsigned			rate_governor;
 	bool			bypass_rx_fir;
@@ -1245,13 +1246,13 @@ static int ad9361_read_rssi(struct ad9361_rf_phy *phy, struct rf_rssi *rssi)
 	return rc;
 }
 
-static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bb_bw_Hz,
+static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_freq,
 			 unsigned long adc_sampl_freq_Hz)
 {
 
 	unsigned long scale_snr_1e3, maxsnr, sqrt_inv_rc_tconst_1e3, tmp_1e3,
 		scaled_adc_clk_1e6, inv_scaled_adc_clk_1e3, sqrt_term_1e3,
-		min_sqrt_term_1e3;
+		min_sqrt_term_1e3, bb_bw_Hz;
 	unsigned long long tmp, invrc_tconst_1e6;
 	unsigned char data[40];
 	unsigned i;
@@ -1260,6 +1261,15 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bb_bw_Hz
 	unsigned char c3_msb = ad9361_spi_read(phy->spi, RX_BBF_C3_MSB);
 	unsigned char c3_lsb = ad9361_spi_read(phy->spi, RX_BBF_C3_LSB);
 	unsigned char r2346 = ad9361_spi_read(phy->spi, RX_BBF_R2346);
+
+	/*
+	 * BBBW = (BBPLL / RxTuneDiv) * ln(2) / (1.4 * 2PI )
+	 * We assume ad9361_rx_bb_analog_filter_calib() is always run prior
+	 */
+
+	tmp = bbpll_freq * 10000ULL;
+	do_div(tmp, 126906UL * phy->rxbbf_div);
+	bb_bw_Hz = tmp;
 
 	dev_dbg(&phy->spi->dev, "%s : BBBW %lu : ADCfreq %lu",
 		__func__, bb_bw_Hz, adc_sampl_freq_Hz);
@@ -1442,7 +1452,7 @@ static int ad9361_rx_bb_analog_filter_calib(struct ad9361_rf_phy *phy,
 					    unsigned long rx_bb_bw,
 					    unsigned long bbpll_freq)
 {
-	unsigned long target, rxbbf_div;
+	unsigned long target;
 	unsigned char tmp;
 	int ret;
 
@@ -1452,12 +1462,12 @@ static int ad9361_rx_bb_analog_filter_calib(struct ad9361_rf_phy *phy,
 	rx_bb_bw = clamp(rx_bb_bw, 200000UL, 28000000UL);
 
 	/* 1.4 * BBBW * 2PI / ln(2) */
-	target =  126906 * (rx_bb_bw / 10000UL);
-	rxbbf_div = min_t(unsigned long, 511UL, DIV_ROUND_UP(bbpll_freq, target));
+	target =  126906UL * (rx_bb_bw / 10000UL);
+	phy->rxbbf_div = min_t(unsigned long, 511UL, DIV_ROUND_UP(bbpll_freq, target));
 
 	/* Set RX baseband filter divide value */
-	ad9361_spi_write(phy->spi, RX_BBF_TUNE_DIVIDE, rxbbf_div);
-	ad9361_spi_writef(phy->spi, RX_BBF_TUNE_CONFIG, BIT(0), rxbbf_div >> 8);
+	ad9361_spi_write(phy->spi, RX_BBF_TUNE_DIVIDE, phy->rxbbf_div);
+	ad9361_spi_writef(phy->spi, RX_BBF_TUNE_CONFIG, BIT(0), phy->rxbbf_div >> 8);
 
 	/* Write the BBBW into registers 0x1FB and 0x1FC */
 	ad9361_spi_write(phy->spi, RX_BBBW_MHZ, rx_bb_bw / 1000000UL);
@@ -2461,7 +2471,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 
 static int ad9361_setup(struct ad9361_rf_phy *phy)
 {
-	unsigned long refin_Hz, ref_freq;
+	unsigned long refin_Hz, ref_freq, bbpll_freq;
 	struct device *dev = &phy->spi->dev;
 	struct spi_device *spi = phy->spi;
 	struct ad9361_phy_platform_data *pd = phy->pdata;
@@ -2624,15 +2634,17 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
+	bbpll_freq = clk_get_rate(phy->clks[BBPLL_CLK]);
+
 	ret = ad9361_rx_bb_analog_filter_calib(phy,
 				real_rx_bandwidth,
-				clk_get_rate(phy->clks[BBPLL_CLK]));
+				bbpll_freq);
 	if (ret < 0)
 		return ret;
 
 	ret = ad9361_tx_bb_analog_filter_calib(phy,
 				real_tx_bandwidth,
-				clk_get_rate(phy->clks[BBPLL_CLK]));
+				bbpll_freq);
 	if (ret < 0)
 		return ret;
 
@@ -2645,7 +2657,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 
 	ret = ad9361_rx_adc_setup(phy,
-				real_rx_bandwidth,
+				bbpll_freq,
 				clk_get_rate(phy->clks[ADC_CLK]));
 	if (ret < 0)
 		return ret;
@@ -2773,7 +2785,7 @@ static int ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
 		return ret;
 
 	ret = ad9361_rx_adc_setup(phy,
-				real_rx_bandwidth,
+				bbpll_freq,
 				clk_get_rate(phy->clks[ADC_CLK]));
 	if (ret < 0)
 		return ret;
@@ -4713,8 +4725,10 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 // 	pdata->ensm_pin_ctl_en = of_property_read_bool(np,
 // 			"adi,ensm-state-pincontrol-enable");
 
-	ad9361_of_get_u32(np, "adi,rx-rf-port-input-select", 0, &pdata->rf_rx_input_sel);
-	ad9361_of_get_u32(np, "adi,tx-rf-port-input-select", 0, &pdata->rf_tx_output_sel);
+	ad9361_of_get_u32(np, "adi,rx-rf-port-input-select", 0,
+			  &pdata->rf_rx_input_sel);
+	ad9361_of_get_u32(np, "adi,tx-rf-port-input-select", 0,
+			  &pdata->rf_tx_output_sel);
 
 	tmpl = 2400000000ULL;
 	of_property_read_u64(np, "adi,rx-synthesizer-frequency-hz", &tmpl);
@@ -4737,12 +4751,12 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 	pdata->dcxo_fine = array[1];
 
 	ret = of_property_read_u32_array(np, "adi,rx-path-clock-frequencies",
-			      pdata->rx_path_clks, ARRAY_SIZE(pdata->rx_path_clks));
+			pdata->rx_path_clks, ARRAY_SIZE(pdata->rx_path_clks));
 	if (ret < 0)
 		return NULL;
 
 	ret = of_property_read_u32_array(np, "adi,tx-path-clock-frequencies",
-			      pdata->tx_path_clks, ARRAY_SIZE(pdata->tx_path_clks));
+			pdata->tx_path_clks, ARRAY_SIZE(pdata->tx_path_clks));
 	if (ret < 0)
 		return NULL;
 
