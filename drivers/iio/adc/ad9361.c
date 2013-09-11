@@ -1627,9 +1627,11 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 	if (!phy->pdata->fdd)
 		ad9361_spi_write(phy->spi, PARALLEL_PORT_CONFIG3, 0x10);
 
-	ad9361_spi_write(phy->spi, ENSM_CONFIG_2, 0x04);
-	ad9361_spi_write(phy->spi, ENSM_CONFIG_1, 0x05);
-	ad9361_spi_write(phy->spi, ENSM_MODE, 0x01);
+	ad9361_spi_write(phy->spi, ENSM_CONFIG_2, ENSM_CONFIG_2_DUAL_SYNTH_MODE);
+	ad9361_spi_write(phy->spi, ENSM_CONFIG_1,
+			ENSM_CONFIG_1_FORCE_ALERT |
+			ENSM_CONFIG_1_TO_ALERT);
+	ad9361_spi_write(phy->spi, ENSM_MODE, ENSM_MODE_FDD);
 
 	ad9361_spi_write(phy->spi, RX_CP_CONFIG + offs, 0x04);
 
@@ -1662,7 +1664,11 @@ static int ad9361_rf_dc_offset_calib(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : rx_freq %llu",
 		__func__, rx_freq);
 
-	ad9361_spi_write(spi, ENSM_CONFIG_1, 0x15);
+	ad9361_spi_write(spi, ENSM_CONFIG_1,
+			ENSM_CONFIG_1_ENSM_PINCTRL_EN |
+			ENSM_CONFIG_1_FORCE_ALERT |
+			ENSM_CONFIG_1_TO_ALERT);
+
 	ad9361_spi_write(spi, WAIT_COUNT, 0x20);
 
 	if(rx_freq <= 4000000000ULL) {
@@ -2685,14 +2691,14 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 
 	ad9361_pp_port_setup(phy, true);
 
-	ad9361_spi_write(phy->spi, ENSM_MODE, pd->fdd ? 0x01 : 0x00);
+	ad9361_spi_write(phy->spi, ENSM_MODE, pd->fdd ? ENSM_MODE_FDD : 0x00);
 
 	if (pd->fdd)
-		ad9361_spi_write(phy->spi, ENSM_CONFIG_2, 0x04 |
-			(pd->ensm_pin_ctrl ? 0x80 : 0)); /* Dual Synth */
-	 else
 		ad9361_spi_write(phy->spi, ENSM_CONFIG_2,
-				 (pd->ensm_pin_ctrl ? 0x08 : 0)); /* single Synth */
+			ENSM_CONFIG_2_DUAL_SYNTH_MODE |
+			(pd->ensm_pin_ctrl ? ENSM_CONFIG_2_FDD_EXT_CTRL : 0)); /* Dual Synth */
+	 else    /* For now in TDD always use Dual Synth */
+		ad9361_spi_write(phy->spi, ENSM_CONFIG_2, ENSM_CONFIG_2_DUAL_SYNTH_MODE);
 
 	ret = ad9361_set_tx_atten(phy, pd->tx_atten, true, true);
 	if (ret < 0)
@@ -2702,9 +2708,8 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ad9361_ensm_set_state(phy, ENSM_STATE_FDD);
-
-//	ad9361_spi_write(spi, ENSM_CONFIG_1, 0x60); // Ctrl Out index
+	phy->curr_ensm_state = ad9361_spi_readf(spi, REG_DEV_STATE, ENSM_STATE_MASK);
+	ad9361_ensm_set_state(phy, pd->fdd ? ENSM_STATE_FDD : ENSM_STATE_RX);
 
 	phy->current_rx_bw_Hz = pd->rf_rx_bandwidth_Hz;
 	phy->current_tx_bw_Hz = pd->rf_tx_bandwidth_Hz;
