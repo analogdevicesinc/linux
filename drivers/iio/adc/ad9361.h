@@ -21,12 +21,22 @@
 #define CLK_ENABLE			0x009
 #define BBPLL				0x00A
 
+#define TEMP_SENSE_OFFSET		0x00B
 #define TEMP_SENSE_1			0x00C
+
 #define TEMP_SENSE_2			0x00D
+#define TEMP_SENSE_2_PERIODIC_EN		(1 << 0)
+#define TEMP_SENSE_2_TIME_INTERVAL(x)	((x) << 1)
+
+#define TEMP_SENSE_DATA			0x00E
+
+#define TEMP_SENSE_CONFIG		0x00F
+#define TEMP_SENSE_CONFIG_DECIM(x)	(((x) & 0x7) << 0)
 
 #define PARALLEL_PORT_CONFIG1		0x010
 #define PARALLEL_PORT_CONFIG2		0x011
 #define PARALLEL_PORT_CONFIG3		0x012
+
 #define ENSM_MODE			0x013
 #define ENSM_MODE_FDD			(1 << 0)
 
@@ -55,8 +65,15 @@
 
 #define AUX_DAC1_CONFIG			0x01A
 #define AUX_DAC2_CONFIG			0x01B
+
 #define AUX_ADC_CLOCK_DIVIDER		0x01C
+
 #define AUX_ADC_CONFIG			0x01D
+#define AUX_ADC_CONFIG_PD		(1 << 0)
+#define AUX_ADC_CONFIG_DECIM(x)		(((x) & 0x7) << 1)
+
+#define AUX_ADC_WORD_MSB			0x01E
+#define AUX_ADC_WORD_LSB			0x01F
 
 #define AGC_ATTACK_DELAY			0x022
 #define AGC_ATTACK_DELAY_MASK		0x3F
