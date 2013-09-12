@@ -198,6 +198,15 @@ struct elna_control {
 	bool			elna_2_control_en; /* GPO1 */
 };
 
+struct auxadc_control {
+	s8			offset;
+	u8			temp_time_inteval_ms;
+	u32			temp_sensor_decimation;
+	bool			periodic_temp_measuremnt;
+	u32			auxadc_clock_rate;
+	u32			auxadc_decimation;
+};
+
 struct ad9361_phy_platform_data {
 	bool			rx2tx2;
 	bool			fdd;
@@ -223,6 +232,7 @@ struct ad9361_phy_platform_data {
 	struct port_control	port_ctrl;
 	struct ctrl_outs_control	ctrl_outs_ctrl;
 	struct elna_control	elna_ctrl;
+	struct auxadc_control	auxadc_ctrl;
 };
 
 struct ad9361_rf_phy {
@@ -954,7 +964,6 @@ static int set_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 {
 	struct device *dev = &phy->spi->dev;
 	struct spi_device *spi = phy->spi;
-	u32 val;
 	int rc = 0;
 
 	if ((rx_gain->lmt_index > MAX_LMT_INDEX) ||
@@ -2107,22 +2116,46 @@ static int ad9361_auxdac_setup(struct ad9361_rf_phy *phy)
   //************************************************************
   // Setup AuxADC
   //************************************************************
-static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy)
+
+static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy,
+			       struct auxadc_control *ctrl,
+			       unsigned long bbpll_freq)
 {
 	struct spi_device *spi = phy->spi;
-	/* FIXME later */
+	u32 val;
+
+	/* FIXME this function needs to be called whenever BBPLL changes */
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	ad9361_spi_write(spi, 0x00b, 0x00); // Temp Sensor Setup (Offset)
-	ad9361_spi_write(spi, 0x00c, 0x00); // Temp Sensor Setup (Temp Window)
-	ad9361_spi_write(spi, 0x00d, 0x03); // Temp Sensor Setup (Periodic Measure)
-	ad9361_spi_write(spi, 0x00f, 0x04); // Temp Sensor Setup (Decimation)
-	ad9361_spi_write(spi, 0x01c, 0x10); // AuxADC Setup (Clock Div)
-	ad9361_spi_write(spi, 0x01d, 0x01); // AuxADC Setup (Decimation/Enable)
+	val = DIV_ROUND_CLOSEST(ctrl->temp_time_inteval_ms *
+		(bbpll_freq / 1000UL), (1 << 29));
+
+	ad9361_spi_write(spi, TEMP_SENSE_OFFSET, ctrl->offset);
+	ad9361_spi_write(spi, TEMP_SENSE_1, 0x00);
+	ad9361_spi_write(spi, TEMP_SENSE_2,
+			 TEMP_SENSE_2_TIME_INTERVAL(val) |
+			 (ctrl->periodic_temp_measuremnt ?
+			 TEMP_SENSE_2_PERIODIC_EN : 0));
+	ad9361_spi_write(spi, TEMP_SENSE_CONFIG,
+			 TEMP_SENSE_CONFIG_DECIM(
+			 ilog2(ctrl->temp_sensor_decimation) - 8));
+	ad9361_spi_write(spi, AUX_ADC_CLOCK_DIVIDER,
+			 bbpll_freq / ctrl->auxadc_clock_rate);
+	ad9361_spi_write(spi, AUX_ADC_CONFIG,
+			 AUX_ADC_CONFIG_DECIM(
+			ilog2(ctrl->auxadc_decimation) - 8));
 
 	return 0;
 }
+
+static int ad9361_get_temp(struct ad9361_rf_phy *phy)
+{
+	u32 val = ad9361_spi_read(phy->spi, TEMP_SENSE_DATA);
+
+	return DIV_ROUND_CLOSEST(val * 1000, 1140);
+}
+
   //************************************************************
   // Setup Control Outs
   //************************************************************
@@ -2185,7 +2218,7 @@ static int ad9361_rssi_setup(struct ad9361_rf_phy *phy,
 		rssi_wait = ctrl->rssi_wait;
 		rssi_duration = ctrl->rssi_duration;
 	} else {
-		/* update sample# based on RX rate */
+		/* update sample based on RX rate */
 		rate = DIV_ROUND_CLOSEST(clk_get_rate(phy->clks[RX_SAMPL_CLK]), 1000);
 		/* units are in us */
 		rssi_delay = DIV_ROUND_CLOSEST(ctrl->rssi_delay * rate, 1000);
@@ -2575,12 +2608,17 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	ret = ad9361_auxdac_setup(phy);
 	if (ret < 0)
 		return ret;
-	ret = ad9361_auxadc_setup(phy);
+
+	bbpll_freq = clk_get_rate(phy->clks[BBPLL_CLK]);
+
+	ret = ad9361_auxadc_setup(phy, &pd->auxadc_ctrl, bbpll_freq);
 	if (ret < 0)
 		return ret;
+
 	ret = ad9361_ctrl_outs_setup(phy, &pd->ctrl_outs_ctrl);
 	if (ret < 0)
 		return ret;
+
 	ret = ad9361_gpo_setup(phy);
 	if (ret < 0)
 		return ret;
@@ -2631,8 +2669,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	ret = ad9361_gc_setup(phy, &pd->gain_ctrl);
 	if (ret < 0)
 		return ret;
-
-	bbpll_freq = clk_get_rate(phy->clks[BBPLL_CLK]);
 
 	ret = ad9361_rx_bb_analog_filter_calib(phy,
 				real_rx_bandwidth,
@@ -4482,6 +4518,10 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 			*val = (int)clk_get_rate(phy->clks[RX_SAMPL_CLK]);
 		ret = IIO_VAL_INT;
 		break;
+	case IIO_CHAN_INFO_PROCESSED:
+		*val = ad9361_get_temp(phy);
+		ret = IIO_VAL_INT;
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -4585,6 +4625,11 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
+}, {
+	.type = IIO_TEMP,
+	.indexed = 1,
+	.channel = 0,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
 }};
 
 static const struct iio_info ad9361_phy_info = {
@@ -4882,6 +4927,21 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 	else
 		pdata->gpio_resetb = ret;
 
+	/* AuxADC Temp Sense Control */
+
+	ad9361_of_get_u32(np, "adi,temp-sense-measurement-interval-ms", 1000,
+			  &pdata->auxadc_ctrl.temp_time_inteval_ms);
+	ad9361_of_get_u32(np, "adi,temp-sense-offset-signed", 0xBD,
+			  &pdata->auxadc_ctrl.offset); /* signed */
+	ad9361_of_get_bool(np, "adi,temp-sense-periodic-measurement-enable",
+			   &pdata->auxadc_ctrl.periodic_temp_measuremnt);
+	ad9361_of_get_u32(np, "adi,temp-sense-decimation", 256,
+			  &pdata->auxadc_ctrl.temp_sensor_decimation);
+	ad9361_of_get_u32(np, "adi,aux-adc-rate", 40000000UL,
+			  &pdata->auxadc_ctrl.auxadc_clock_rate);
+	ad9361_of_get_u32(np, "adi,aux-adc-decimation", 256,
+			  &pdata->auxadc_ctrl.auxadc_decimation);
+
 	return pdata;
 }
 #else
@@ -5057,7 +5117,8 @@ static int ad9361_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad9361_id[] = {
-	{"ad9361", PRODUCT_ID_9361},
+	{"ad9361", PRODUCT_ID_9361}, /* 2RX2TX */
+	{"ad9364", PRODUCT_ID_9361}, /* 1RX1TX */
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9361_id);
