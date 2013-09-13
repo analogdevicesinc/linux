@@ -364,6 +364,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	resource_size_t remap_size, phys_addr;
 	struct clk *clk = NULL;
 	int ret;
+	u32 ctrl_2, rate;
 
 	const struct of_device_id *of_id =
 			of_match_device(cf_axi_dds_of_match, &op->dev);
@@ -435,13 +436,23 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	st->iio_info = cf_axi_dds_info;
 	indio_dev->info = &st->iio_info;
 
+	ctrl_2 = (of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-parity-enable") ? ADI_PAR_ENB : 0) |
+			(of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-parity-type-odd") ? ADI_PAR_TYPE : 0) |
+			(of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-1-rf-channel") ? ADI_R1_MODE : 0);
+
+	rate = 3;
+	of_property_read_u32(op->dev.of_node, "adi,axi-dds-rate", &rate);
+
 	dds_write(st, ADI_REG_RSTN, 0x0);
 	dds_write(st, ADI_REG_RSTN, ADI_RSTN);
 
-	dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(3));
+	dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(rate));
 
 	dds_write(st, ADI_REG_CNTRL_1, 0);
-	dds_write(st, ADI_REG_CNTRL_2,  ADI_DATA_SEL(DATA_SEL_DDS));
+	dds_write(st, ADI_REG_CNTRL_2,  ctrl_2 | ADI_DATA_SEL(DATA_SEL_DDS));
 
 	cf_axi_dds_default_setup(st, 0, 90000, 1000000, 4);
 	cf_axi_dds_default_setup(st, 1, 90000, 1000000, 4);
