@@ -3948,6 +3948,9 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	int i;
 
+	axiadc_write(st, ADI_REG_CNTRL,
+		     (conv->phy->pdata->rx2tx2) ? 0 : ADI_R1_MODE);
+
 	for (i = 0; i < conv->chip_info->num_channels; i++) {
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
 			     (i & 1) ? 0x00004000 : 0x40000000);
@@ -3970,7 +3973,7 @@ static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 		return -ENOMEM;
 
 	conv->id = ad9361_spi_read(spi, PRODUCT_ID) & PRODUCT_ID_MASK;
-	if (conv->id != spi_get_device_id(spi)->driver_data) {
+	if (conv->id != PRODUCT_ID_9361) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
   		ret = -ENODEV;
   		goto out;
@@ -4999,7 +5002,6 @@ static int ad9361_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-
 	indio_dev = iio_device_alloc(sizeof(*phy));
 	if (indio_dev == NULL)
 		return -ENOMEM;
@@ -5048,10 +5050,15 @@ static int ad9361_probe(struct spi_device *spi)
 
 	rev = ret & REV_MASK;
 
+	if (spi_get_device_id(spi)->driver_data == 9643)
+		phy->pdata->rx2tx2 = false;
+
 	INIT_WORK(&phy->work, ad9361_work_func);
 	init_completion(&phy->complete);
 
-	register_clocks(phy);
+	ret = register_clocks(phy);
+	if (ret < 0)
+		goto out;
 
 	ad9361_init_gain_tables(phy);
 
@@ -5117,8 +5124,8 @@ static int ad9361_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad9361_id[] = {
-	{"ad9361", PRODUCT_ID_9361}, /* 2RX2TX */
-	{"ad9364", PRODUCT_ID_9361}, /* 1RX1TX */
+	{"ad9361", 9361}, /* 2RX2TX */
+	{"ad9364", 9364}, /* 1RX1TX */
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9361_id);
