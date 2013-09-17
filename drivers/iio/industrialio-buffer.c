@@ -1197,3 +1197,159 @@ void iio_buffer_put(struct iio_buffer *buffer)
 		kref_put(&buffer->ref, iio_buffer_release);
 }
 EXPORT_SYMBOL_GPL(iio_buffer_put);
+
+static int iio_buffer_query_block(struct iio_buffer *buffer,
+	struct iio_buffer_block __user *user_block)
+{
+	struct iio_buffer_block block;
+	int ret;
+
+	if (!buffer->access->query_block)
+		return -ENOSYS;
+
+	if (copy_from_user(&block, user_block, sizeof(block)))
+		return -EFAULT;
+
+	ret = buffer->access->query_block(buffer, &block);
+	if (ret)
+		return ret;
+
+	if (copy_to_user(user_block, &block, sizeof(block)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int iio_buffer_dequeue_block(struct iio_dev *indio_dev,
+	struct iio_buffer_block __user *user_block, bool non_blocking)
+{
+	struct iio_buffer *buffer = indio_dev->buffer;
+	struct iio_buffer_block block;
+	int ret;
+
+	if (!buffer->access->dequeue_block)
+		return -ENOSYS;
+
+	do {
+		if (!iio_buffer_data_available(buffer)) {
+			if (non_blocking)
+				return -EAGAIN;
+
+			ret = wait_event_interruptible(buffer->pollq,
+					iio_buffer_data_available(buffer) ||
+					indio_dev->info == NULL);
+			if (ret)
+				return ret;
+			if (indio_dev->info == NULL)
+				return -ENODEV;
+		}
+
+		ret = buffer->access->dequeue_block(buffer, &block);
+		if (ret == -EAGAIN && non_blocking)
+			ret = 0;
+	 } while (ret);
+
+	 if (ret)
+		return ret;
+
+	if (copy_to_user(user_block, &block, sizeof(block)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int iio_buffer_enqueue_block(struct iio_buffer *buffer,
+	struct iio_buffer_block __user *user_block)
+{
+	struct iio_buffer_block block;
+
+	if (!buffer->access->enqueue_block)
+		return -ENOSYS;
+
+	if (copy_from_user(&block, user_block, sizeof(block)))
+		return -EFAULT;
+
+	return buffer->access->enqueue_block(buffer, &block);
+}
+
+static int iio_buffer_alloc_blocks(struct iio_buffer *buffer,
+	struct iio_buffer_block_alloc_req __user *user_req)
+{
+	struct iio_buffer_block_alloc_req req;
+	int ret;
+
+	if (!buffer->access->alloc_blocks)
+		return -ENOSYS;
+
+	if (copy_from_user(&req, user_req, sizeof(req)))
+		return -EFAULT;
+
+	ret = buffer->access->alloc_blocks(buffer, &req);
+	if (ret)
+		return ret;
+
+	if (copy_to_user(user_req, &req, sizeof(req)))
+		return -EFAULT;
+
+	return 0;
+}
+
+void iio_buffer_free_blocks(struct iio_buffer *buffer)
+{
+	if (buffer->access->free_blocks)
+		buffer->access->free_blocks(buffer);
+}
+
+long iio_buffer_ioctl(struct iio_dev *indio_dev, struct file *filep,
+		unsigned int cmd, unsigned long arg)
+{
+	bool non_blocking = filep->f_flags & O_NONBLOCK;
+	struct iio_buffer *buffer = indio_dev->buffer;
+
+	if (!buffer || !buffer->access)
+		return -ENODEV;
+
+	switch (cmd) {
+	case IIO_BLOCK_ALLOC_IOCTL:
+		return iio_buffer_alloc_blocks(buffer,
+			(struct iio_buffer_block_alloc_req __user *)arg);
+	case IIO_BLOCK_FREE_IOCTL:
+		iio_buffer_free_blocks(buffer);
+		return 0;
+	case IIO_BLOCK_QUERY_IOCTL:
+		return iio_buffer_query_block(buffer,
+			(struct iio_buffer_block __user *)arg);
+	case IIO_BLOCK_ENQUEUE_IOCTL:
+		return iio_buffer_enqueue_block(buffer,
+			(struct iio_buffer_block __user *)arg);
+	case IIO_BLOCK_DEQUEUE_IOCTL:
+		return iio_buffer_dequeue_block(indio_dev,
+			(struct iio_buffer_block __user *)arg, non_blocking);
+	}
+	return -EINVAL;
+}
+
+int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma)
+{
+	struct iio_dev *indio_dev = filep->private_data;
+
+	if (!indio_dev->buffer || !indio_dev->buffer->access ||
+		!indio_dev->buffer->access->mmap)
+		return -ENODEV;
+
+	if (!(vma->vm_flags & VM_SHARED))
+		return -EINVAL;
+
+	switch (indio_dev->direction) {
+	case IIO_DEVICE_DIRECTION_IN:
+		if (!(vma->vm_flags & VM_READ))
+			return -EINVAL;
+		break;
+	case IIO_DEVICE_DIRECTION_OUT:
+		if (!(vma->vm_flags & VM_WRITE))
+			return -EINVAL;
+		break;
+	}
+
+	return indio_dev->buffer->access->mmap(indio_dev->buffer, vma);
+}

@@ -15,6 +15,33 @@
 
 #ifdef CONFIG_IIO_BUFFER
 
+#define IIO_BLOCK_ALLOC_IOCTL	_IOWR('i', 0xa0, struct iio_buffer_block_alloc_req)
+#define IIO_BLOCK_FREE_IOCTL	_IO('i', 0xa1)
+#define IIO_BLOCK_QUERY_IOCTL	_IOWR('i', 0xa2, struct iio_buffer_block)
+#define IIO_BLOCK_ENQUEUE_IOCTL	_IOWR('i', 0xa3, struct iio_buffer_block)
+#define IIO_BLOCK_DEQUEUE_IOCTL	_IOWR('i', 0xa4, struct iio_buffer_block)
+
+struct iio_buffer_block_alloc_req {
+	__u32 type;
+	__u32 size;
+	__u32 count;
+	__u32 id;
+};
+
+#define IIO_BUFFER_BLOCK_FLAG_TIMESTAMP_VALID (1 << 0)
+
+struct iio_buffer_block {
+	__u32 id;
+	__u32 size;
+	__u32 bytes_used;
+	__u32 type;
+	__u32 flags;
+	union {
+		__u32 offset;
+	} data;
+	__u64 timestamp;
+};
+
 struct iio_buffer;
 
 /**
@@ -58,6 +85,18 @@ struct iio_buffer_access_funcs {
 
 	int (*enable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
 	int (*disable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
+
+	int (*alloc_blocks)(struct iio_buffer *buffer,
+		struct iio_buffer_block_alloc_req *req);
+	int (*free_blocks)(struct iio_buffer *buffer);
+	int (*enqueue_block)(struct iio_buffer *buffer,
+		struct iio_buffer_block *block);
+	int (*dequeue_block)(struct iio_buffer *buffer,
+		struct iio_buffer_block *block);
+	int (*query_block)(struct iio_buffer *buffer,
+		struct iio_buffer_block *block);
+	int (*mmap)(struct iio_buffer *buffer,
+		struct vm_area_struct *vma);
 };
 
 /**
