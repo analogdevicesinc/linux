@@ -51,10 +51,14 @@ ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
 #define iio_buffer_poll_addr (&iio_buffer_poll)
 #define iio_buffer_read_first_n_outer_addr (&iio_buffer_read_first_n_outer)
 
+void iio_disable_all_buffers(struct iio_dev *indio_dev);
+
 #else
 
 #define iio_buffer_poll_addr NULL
 #define iio_buffer_read_first_n_outer_addr NULL
+
+static inline void iio_disable_all_buffers(struct iio_dev *indio_dev) {}
 
 #endif
 
