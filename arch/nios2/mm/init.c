@@ -86,7 +86,6 @@ void __init paging_init(void)
 
 void __init mem_init(void)
 {
-	unsigned int codek = 0, datak = 0;
 	unsigned long end_mem   = memory_end; /* this must not include
 						kernel stack at top */
 
@@ -100,19 +99,10 @@ void __init mem_init(void)
 #else
 	max_mapnr = (((unsigned long)high_memory) - PAGE_OFFSET) >> PAGE_SHIFT;
 #endif /* CONFIG_MMU */
-	num_physpages = max_mapnr;
-	pr_debug("We have %ld pages of RAM\n", num_physpages);
 
 	/* this will put all memory onto the freelists */
-	totalram_pages = free_all_bootmem();
-
-	codek = (_etext - _stext) >> 10;
-	datak = (_end - _etext) >> 10;
-
-	pr_info("Memory available: %luk/%luk RAM (%dk kernel code, %dk data)\n",
-		nr_free_pages() << (PAGE_SHIFT - 10),
-		(unsigned long)((_end - _stext) >> 10),
-		codek, datak);
+	free_all_bootmem();
+	mem_init_print_info(NULL);
 }
 
 #ifdef CONFIG_MMU
@@ -125,13 +115,13 @@ void __init mmu_init(void)
 #ifdef CONFIG_BLK_DEV_INITRD
 void __init free_initrd_mem(unsigned long start, unsigned long end)
 {
-	free_reserved_area(start, end, 0, "initrd");
+	free_reserved_area((void*)start, (void*)end, -1, "initrd");
 }
 #endif
 
 void __init_refok free_initmem(void)
 {
-	free_initmem_default(0);
+	free_initmem_default(-1);
 }
 
 #ifdef CONFIG_MMU
