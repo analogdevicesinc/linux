@@ -6,6 +6,8 @@
  * Licensed under the GPL-2.
  */
 #define DEBUG
+#define _DEBUG
+
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -200,7 +202,7 @@ struct elna_control {
 
 struct auxadc_control {
 	s8			offset;
-	u8			temp_time_inteval_ms;
+	u32			temp_time_inteval_ms;
 	u32			temp_sensor_decimation;
 	bool			periodic_temp_measuremnt;
 	u32			auxadc_clock_rate;
@@ -472,13 +474,13 @@ static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, u32 reg,
 
 static int ad9361_run_calibration(struct ad9361_rf_phy *phy, u32 mask)
 {
-	int ret = ad9361_spi_write(phy->spi, CALIBRATION_CONTROL, mask);
+	int ret = ad9361_spi_write(phy->spi, REG_CALIBRATION_CTRL, mask);
 	if (ret < 0)
 		return ret;
 
 	dev_dbg(&phy->spi->dev, "%s: CAL Mask 0x%X", __func__, mask);
 
-	return ad9361_check_cal_done(phy, CALIBRATION_CONTROL, mask, 0);
+	return ad9361_check_cal_done(phy, REG_CALIBRATION_CTRL, mask, 0);
 }
 
 enum rx_gain_table_name ad9361_gt_tableindex(u64 freq)
@@ -504,7 +506,7 @@ u64 ad9361_from_clk(unsigned long freq)
 	return ((u64)freq << 1);
 }
 
-static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq)
+static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
 {
 	struct spi_device *spi = phy->spi;
 	const u8 (*tab)[3];
@@ -521,8 +523,8 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq)
 	if (phy->current_table == band)
 		return 0;
 
-	ad9361_spi_writef(spi, AGC_CONFIG_2,
-			       AGC_USE_FULL_GAIN_TABLE, !phy->pdata->split_gt);
+	ad9361_spi_writef(spi, REG_AGC_CONFIG_2,
+			  AGC_USE_FULL_GAIN_TABLE, !phy->pdata->split_gt);
 
 	if (phy->pdata->split_gt) {
 		tab = &split_gain_table[band][0];
@@ -532,22 +534,27 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq)
 		index_max = SIZE_FULL_TABLE;
 	}
 
-	ad9361_spi_write(spi, GAIN_TABLE_CONFIG, 0x1A); /* Start Gain Table Clock */
+	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, START_GAIN_TABLE_CLOCK |
+			RECEIVER_SELECT(dest)); /* Start Gain Table Clock */
 
 	for (i = 0; i < index_max; i++) {
-		ad9361_spi_write(spi, GAIN_TABLE_ADDRESS, i); /* Gain Table Index */
-		ad9361_spi_write(spi, GAIN_TABLE_WRITE_DATA1, tab[i][0]); /* Ext LNA, Int LNA, & Mixer Gain Word */
-		ad9361_spi_write(spi, GAIN_TABLE_WRITE_DATA2, tab[i][1]); /* TIA & LPF Word */
-		ad9361_spi_write(spi, GAIN_TABLE_WRITE_DATA3, tab[i][2]); /* DC Cal bit & Dig Gain Word */
-		ad9361_spi_write(spi, GAIN_TABLE_CONFIG, 0x1E); /* Gain Table Index */
-		ad9361_spi_write(spi, GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay 3 ADCCLK/16 cycles */
-		ad9361_spi_write(spi, GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, i); /* Gain Table Index */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA1, tab[i][0]); /* Ext LNA, Int LNA, & Mixer Gain Word */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA2, tab[i][1]); /* TIA & LPF Word */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA3, tab[i][2]); /* DC Cal bit & Dig Gain Word */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG,
+				START_GAIN_TABLE_CLOCK |
+				WRITE_GAIN_TABLE |
+				RECEIVER_SELECT(dest)); /* Gain Table Index */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay 3 ADCCLK/16 cycles */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
 	}
 
-	ad9361_spi_write(spi, GAIN_TABLE_CONFIG, 0x1A); /* Clear Write Bit */
-	ad9361_spi_write(spi, GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
-	ad9361_spi_write(spi, GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
-	ad9361_spi_write(spi, GAIN_TABLE_CONFIG, 0); /* Stop Gain Table Clock */
+	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, START_GAIN_TABLE_CLOCK |
+			RECEIVER_SELECT(dest)); /* Clear Write Bit */
+	ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
+	ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
+	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, 0); /* Stop Gain Table Clock */
 
 	phy->current_table = band;
 
@@ -557,10 +564,11 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq)
 static int ad9361_setup_ext_lna(struct ad9361_rf_phy *phy, u32 gain_mdB,
 				u32 bypass_loss_mdB)
 {
-	ad9361_spi_write(phy->spi, EXT_LNA_HIGH_GAIN, (gain_mdB / 500) & 0x3F);
+	ad9361_spi_write(phy->spi, REG_EXT_LNA_HIGH_GAIN,
+			EXT_LNA_HIGH_GAIN(gain_mdB / 500));
 
-	return ad9361_spi_write(phy->spi, EXT_LNA_LOW_GAIN,
-				(bypass_loss_mdB / 500) & 0x3F);
+	return ad9361_spi_write(phy->spi, REG_EXT_LNA_LOW_GAIN,
+			EXT_LNA_LOW_GAIN(bypass_loss_mdB / 500));
 }
 
 static int ad9361_load_mixer_gm_subtable(struct ad9361_rf_phy *phy)
@@ -569,22 +577,24 @@ static int ad9361_load_mixer_gm_subtable(struct ad9361_rf_phy *phy)
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	ad9361_spi_write(phy->spi, GM_SUB_TABLE_CONFIG, 0x2); /* Start Clock */
+	ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_CONFIG,
+			 START_GM_SUB_TABLE_CLOCK); /* Start Clock */
 
 	for (i = 0, addr = ARRAY_SIZE(gm_st_ctrl); i < ARRAY_SIZE(gm_st_ctrl); i++) {
-		ad9361_spi_write(phy->spi, GAIN_TABLE_ADDRESS, --addr); /* Gain Table Index */
-		ad9361_spi_write(phy->spi, GM_SUB_TABLE_BIAS_WRITE, 0); /* Bias */
-		ad9361_spi_write(phy->spi, GM_SUB_TABLE_GAIN, gm_st_gain[i]); /* Gain */
-		ad9361_spi_write(phy->spi, GM_SUB_TABLE_CTL_WRITE, gm_st_ctrl[i]); /* Control */
-		ad9361_spi_write(phy->spi, GM_SUB_TABLE_CONFIG, 0x6); /* Write Words */
-		ad9361_spi_write(phy->spi, GM_SUB_TABLE_GAIN_READ, 0); /* Dummy Delay */
-		ad9361_spi_write(phy->spi, GM_SUB_TABLE_GAIN_READ, 0); /* Dummy Delay */
+		ad9361_spi_write(phy->spi, REG_GAIN_TABLE_ADDRESS, --addr); /* Gain Table Index */
+		ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_BIAS_WRITE, 0); /* Bias */
+		ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_GAIN_WRITE, gm_st_gain[i]); /* Gain */
+		ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_CTRL_WRITE, gm_st_ctrl[i]); /* Control */
+		ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_CONFIG,
+				 WRITE_GM_SUB_TABLE | START_GM_SUB_TABLE_CLOCK); /* Write Words */
+		ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_GAIN_READ, 0); /* Dummy Delay */
+		ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_GAIN_READ, 0); /* Dummy Delay */
 	}
 
-	ad9361_spi_write(phy->spi, GM_SUB_TABLE_CONFIG, 0x2); /* Clear Write */
-	ad9361_spi_write(phy->spi, GM_SUB_TABLE_GAIN_READ, 0); /* Dummy Delay */
-	ad9361_spi_write(phy->spi, GM_SUB_TABLE_GAIN_READ, 0); /* Dummy Delay */
-	ad9361_spi_write(phy->spi, GM_SUB_TABLE_CONFIG, 0); /* Stop Clock */
+	ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_CONFIG, START_GM_SUB_TABLE_CLOCK); /* Clear Write */
+	ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_GAIN_READ, 0); /* Dummy Delay */
+	ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_GAIN_READ, 0); /* Dummy Delay */
+	ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_CONFIG, 0); /* Stop Clock */
 
 	return 0;
 }
@@ -607,13 +617,13 @@ static int ad9361_set_tx_atten(struct ad9361_rf_phy *phy, u32 atten_mdb,
 	buf[1] = atten_mdb & 0xFF;
 
 	if (tx1)
-		ret = ad9361_spi_writem(phy->spi, TX1_ATTEN_1, buf, 2);
+		ret = ad9361_spi_writem(phy->spi, REG_TX1_ATTEN_1, buf, 2);
 
 	if (tx2)
-		ret = ad9361_spi_writem(phy->spi, TX2_ATTEN_1, buf, 2);
+		ret = ad9361_spi_writem(phy->spi, REG_TX2_ATTEN_1, buf, 2);
 
-	ad9361_spi_writef(phy->spi, TX2_DIG_ATTENUATION, 0x40, 1);
-
+	ad9361_spi_writef(phy->spi, REG_TX2_DIG_ATTEN,
+			  IMMEDIATELY_UPDATE_TPC_ATTEN, 1);
 
 	return ret;
 }
@@ -624,9 +634,8 @@ static int ad9361_get_tx_atten(struct ad9361_rf_phy *phy, u32 tx_num)
 	int ret = 0;
 	u32 code;
 
-	ret = ad9361_spi_readm(phy->spi,
-			       (tx_num == 1) ? TX1_ATTEN_1 : TX2_ATTEN_1,
-			       buf, 2);
+	ret = ad9361_spi_readm(phy->spi, (tx_num == 1) ?
+			REG_TX1_ATTEN_1 : REG_TX2_ATTEN_1, buf, 2);
 
 	if (ret < 0)
 		return ret;
@@ -673,7 +682,7 @@ static int ad9361_rfpll_vco_init(struct ad9361_rf_phy *phy,
 	}
 
 	if (tx)
-		offs = TX_VCO_OUTPUT - RX_VCO_OUTPUT;
+		offs = REG_TX_VCO_OUTPUT - REG_RX_VCO_OUTPUT;
 
 	while (i < SYNTH_LUT_SIZE && tab[i].VCO_MHz > vco_freq)
 		i++;
@@ -681,33 +690,38 @@ static int ad9361_rfpll_vco_init(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : freq %d MHz : index %d",
 		__func__, tab[i].VCO_MHz, i);
 
-	ad9361_spi_writef(spi, RX_VCO_OUTPUT + offs, 0x40, 1);
 
-	ad9361_spi_writef(spi, RX_VCO_OUTPUT + offs,
-			       MASK_VCO_OUTPUT, tab[i].VCO_Output_Level);
-	ad9361_spi_writef(spi, RX_ALC_VARACTOR + offs,
-			       MASK_VCO_VARACTOR, tab[i].VCO_Varactor);
-	ad9361_spi_writef(spi, RX_VCO_BIAS_1 + offs,
-			       MASK_VCO_BIAS_REF, tab[i].VCO_Bias_Ref);
-	ad9361_spi_writef(spi, RX_VCO_BIAS_1 + offs,
-			       MASK_VCO_BIAS_TCF, tab[i].VCO_Bias_Tcf);
-	ad9361_spi_writef(spi, RX_FORCE_VCO_TUNE_1 + offs,
-			       MASK_FORCE_VCO_TUNE1, tab[i].VCO_Cal_Offset);
-	ad9361_spi_writef(spi, RX_VCO_VARACTOR_CONTROL_1 + offs,
-			       MASK_VCO_VARACTOR_CONTROL1,
-			       tab[i].VCO_Varactor_Reference);
+	ad9361_spi_write(spi, REG_RX_VCO_OUTPUT + offs,
+			       VCO_OUTPUT_LEVEL(tab[i].VCO_Output_Level) |
+			       PORB_VCO_LOGIC);
+	ad9361_spi_writef(spi, REG_RX_ALC_VARACTOR + offs,
+			       VCO_VARACTOR(~0), tab[i].VCO_Varactor);
+	ad9361_spi_write(spi, REG_RX_VCO_BIAS_1 + offs,
+			       VCO_BIAS_REF(tab[i].VCO_Bias_Ref) |
+			       VCO_BIAS_TCF(tab[i].VCO_Bias_Tcf));
 
-	ad9361_spi_writef(spi, RX_VCO_CAL_REF, 0x07, 0);
-	ad9361_spi_writef(spi, RX_VCO_VARACTOR_CONTROL_0, 0x7F, 0x70);
+	ad9361_spi_write(spi, REG_RX_FORCE_VCO_TUNE_1 + offs,
+			       VCO_CAL_OFFSET(tab[i].VCO_Cal_Offset));
+	ad9361_spi_write(spi, REG_RX_VCO_VARACTOR_CTRL_1 + offs,
+			       VCO_VARACTOR_REFERENCE(
+			       tab[i].VCO_Varactor_Reference));
 
-	ad9361_spi_writef(spi, RX_CP_CURRENT + offs, MASK_CP_CURRENT,
+	ad9361_spi_write(spi, REG_RX_VCO_CAL_REF, VCO_CAL_REF_TCF(0));
+
+	ad9361_spi_write(spi, REG_RX_VCO_VARACTOR_CTRL_0,
+				VCO_VARACTOR_OFFSET(0) |
+				VCO_VARACTOR_REFERENCE_TCF(7));
+
+	ad9361_spi_writef(spi, REG_RX_CP_CURRENT + offs, CHARGE_PUMP_CURRENT(~0),
 			       tab[i].Charge_Pump_Current);
-	ad9361_spi_write(spi, RX_LOOP_FILTER_1 + offs,
-			 (tab[i].LF_C2 << 4) | tab[i].LF_C1);
-	ad9361_spi_write(spi, RX_LOOP_FILTER_2 + offs,
-			 (tab[i].LF_R1 << 4) | tab[i].LF_C3);
-	ad9361_spi_writef(spi, RX_LOOP_FILTER_3 + offs,
-			       MASK_LOOP_FILTER3, tab[i].LF_R3);
+	ad9361_spi_write(spi, REG_RX_LOOP_FILTER_1 + offs,
+			 LOOP_FILTER_C2(tab[i].LF_C2) |
+			 LOOP_FILTER_C1(tab[i].LF_C1));
+	ad9361_spi_write(spi, REG_RX_LOOP_FILTER_2 + offs,
+			 LOOP_FILTER_R1(tab[i].LF_R1) |
+			 LOOP_FILTER_C3(tab[i].LF_C3));
+	ad9361_spi_write(spi, REG_RX_LOOP_FILTER_3 + offs,
+			 LOOP_FILTER_R3(tab[i].LF_R3));
 
 	return 0;
 }
@@ -719,28 +733,30 @@ static int ad9361_get_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 	u32 val, tbl_addr, lna_index, tia_index, mixer_index;
 	int rc = 0;
 
-	rx_gain->lmt_index = ad9361_spi_readf(spi, idx_reg, FULL_TBL_IDX_MASK);
-	tbl_addr = ad9361_spi_read(spi, GAIN_TABLE_ADDRESS);
+	rx_gain->lmt_index = ad9361_spi_readf(spi, idx_reg,
+					     FULL_TABLE_GAIN_INDEX(~0));
+	tbl_addr = ad9361_spi_read(spi, REG_GAIN_TABLE_ADDRESS);
 
-	ad9361_spi_write(spi, GAIN_TABLE_ADDRESS, rx_gain->lmt_index);
+	ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, rx_gain->lmt_index);
 
-	val = ad9361_spi_read(spi, GAIN_TABLE_READ_DATA1);
-	lna_index = (val & LNA_GAIN_MASK) >> LNA_SHIFT;
-	mixer_index = (val & MIXER_GAIN_MASK) >> MIXER_SHIFT;
+	val = ad9361_spi_read(spi, REG_GAIN_TABLE_READ_DATA1);
+	lna_index = TO_LNA_GAIN(val);
+	mixer_index = TO_MIXER_GM_GAIN(val);
 
-	tia_index = ad9361_spi_readf(spi, GAIN_TABLE_READ_DATA2, TIA_GAIN_MASK);
+	tia_index = ad9361_spi_readf(spi, REG_GAIN_TABLE_READ_DATA2, TIA_GAIN);
 
 	rx_gain->lmt_gain = lna_table[lna_index] +
 				mixer_table[mixer_index] +
 				tia_table[tia_index];
 
-	ad9361_spi_write(spi, GAIN_TABLE_ADDRESS, tbl_addr);
+	ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, tbl_addr);
 
 	/* Read LPF Index */
-	rx_gain->lpf_gain = ad9361_spi_readf(spi, idx_reg + 1, LPF_IDX_MASK);
+	rx_gain->lpf_gain = ad9361_spi_readf(spi, idx_reg + 1, LPF_GAIN_RX(~0));
 
 	/* Read Digital Gain */
-	rx_gain->digital_gain = ad9361_spi_readf(spi, idx_reg + 2, DIGITAL_IDX_MASK);
+	rx_gain->digital_gain = ad9361_spi_readf(spi, idx_reg + 2,
+						DIGITAL_GAIN_RX(~0));
 
 	rx_gain->gain_db = rx_gain->lmt_gain + rx_gain->lpf_gain +
 				rx_gain->digital_gain;
@@ -759,7 +775,7 @@ static int ad9361_get_full_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 	tbl = ad9361_gt_tableindex(
 		ad9361_from_clk(clk_get_rate(phy->clks[RX_RFPLL])));
 
-	val = ad9361_spi_readf(spi, idx_reg, FULL_TBL_IDX_MASK);
+	val = ad9361_spi_readf(spi, idx_reg, FULL_TABLE_GAIN_INDEX(~0));
 
 	gain_info = &phy->rx_gain[tbl];
 	if (val > gain_info->idx_step_offset) {
@@ -785,15 +801,15 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 	int rc = 0;
 
 	if (rx_id == 1) {
-		gain_ctl_shift = RX1_GAIN_CTL_SHIFT;
-		idx_reg = GAIN_RX_1;
-		rx_enable_mask = RX1_EN;
+		gain_ctl_shift = RX1_GAIN_CTRL_SHIFT;
+		idx_reg = REG_GAIN_RX1;
+		rx_enable_mask = RX_CHANNEL_ENABLE(RX_1);
 		fast_atk_shift = RX1_FAST_ATK_SHIFT;
 
 	} else if (rx_id == 2) {
-		gain_ctl_shift = RX2_GAIN_CTL_SHIFT;
-		idx_reg = GAIN_RX_2;
-		rx_enable_mask = RX2_EN;
+		gain_ctl_shift = RX2_GAIN_CTRL_SHIFT;
+		idx_reg = REG_GAIN_RX2;
+		rx_enable_mask = RX_CHANNEL_ENABLE(RX_2);
 		fast_atk_shift = RX2_FAST_ATK_SHIFT;
 	} else {
 		dev_err(dev, "Unknown Rx path %d\n", rx_id);
@@ -801,7 +817,7 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		goto out;
 	}
 
-	val = ad9361_spi_readf(spi, RX_ENABLE_FILTER, rx_enable_mask);
+	val = ad9361_spi_readf(spi, REG_RX_ENABLE_FILTER_CTRL, rx_enable_mask);
 
 	if (!val) {
 		dev_err(dev, "Rx%d is not enabled\n", rx_gain->ant);
@@ -809,7 +825,7 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		goto out;
 	}
 
-	val = ad9361_spi_read(spi, AGC_CONFIG_1);
+	val = ad9361_spi_read(spi, REG_AGC_CONFIG_1);
 
 	val = (val >> gain_ctl_shift) & RX_GAIN_CTL_MASK;
 
@@ -817,7 +833,7 @@ static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		/* In fast attack mode check whether Fast attack state machine
 		 * has locked gain, if not then we can not read gain.
 		 */
-		val = ad9361_spi_read(spi, FAST_ATTACK_STATE);
+		val = ad9361_spi_read(spi, REG_FAST_ATTACK_STATE);
 		val = (val >> fast_atk_shift) & FAST_ATK_MASK;
 		if (val != FAST_ATK_GAIN_LOCKED) {
 			dev_err(dev, "Failed to read gain, state m/c at %x\n",
@@ -844,7 +860,7 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	int rc;
 	u32 val;
 
-	dev_ensm_state = ad9361_spi_readf(spi, DEV_STATE, ENSM_STATE_MASK);
+	dev_ensm_state = ad9361_spi_readf(spi, REG_STATE, ENSM_STATE(~0));
 
 	phy->prev_ensm_state = dev_ensm_state;
 
@@ -857,36 +873,35 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	dev_dbg(dev, "Device is in %x state, forcing to %x\n", dev_ensm_state,
 			ensm_state);
 
-	val = ad9361_spi_read(spi, ENSM_CONFIG_1);
-
+	val = ad9361_spi_read(spi, REG_ENSM_CONFIG_1);
 
 	/* Enable control through SPI writes, and take out from
 	 * Alert
 	 */
-	if (val & ENSM_CONF1_ENSM_PIN_CTL_EN) {
-		val &= ~ENSM_CONF1_ENSM_PIN_CTL_EN;
+	if (val & ENABLE_ENSM_PIN_CTRL) {
+		val &= ~ENABLE_ENSM_PIN_CTRL;
 		phy->ensm_pin_ctl_en = 1;
 	} else {
 		phy->ensm_pin_ctl_en = 0;
 	}
 
 	if (dev_ensm_state & dev_ensm_state)
-		val &= ~(ENSM_CONF1_TO_ALERT);
+		val &= ~(TO_ALERT);
 
 	switch (ensm_state) {
 
 	case ENSM_STATE_TX:
-		val |= ENSM_CONF1_FORCE_TX_ON;
+		val |= FORCE_TX_ON;
 		break;
 	case ENSM_STATE_RX:
-		val |= ENSM_CONF1_FORCE_RX_ON;
+		val |= FORCE_RX_ON;
 		break;
 	case ENSM_STATE_FDD:
-		val |= (ENSM_CONF1_FORCE_TX_ON | ENSM_CONF1_FORCE_RX_ON);
+		val |= (FORCE_TX_ON | FORCE_RX_ON);
 		break;
 	case ENSM_STATE_ALERT:
-		val &= ~(ENSM_CONF1_FORCE_TX_ON | ENSM_CONF1_FORCE_RX_ON);
-		val |= ENSM_CONF1_TO_ALERT | ENSM_CONF1_FORCE_ALERT;
+		val &= ~(FORCE_TX_ON | FORCE_RX_ON);
+		val |= TO_ALERT | FORCE_ALERT_STATE;
 		break;
 	default:
 		dev_err(dev, "No handling for forcing %d ensm state\n",
@@ -894,7 +909,7 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 		goto out;
 	}
 
-	rc = ad9361_spi_write(spi, ENSM_CONFIG_1, val);
+	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
 	if (rc)
 		dev_err(dev, "Failed to restore state\n");
 
@@ -910,28 +925,27 @@ static void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 	int rc;
 	u32 val;
 
-	val = ad9361_spi_read(spi, ENSM_CONFIG_1);
-
+	val = ad9361_spi_read(spi, REG_ENSM_CONFIG_1);
 
 	/* We are restoring state only, so clear State bits first
 	 * which might have set while forcing a particular state
 	 */
-	val &= ~(ENSM_CONF1_FORCE_TX_ON | ENSM_CONF1_FORCE_RX_ON |
-			ENSM_CONF1_TO_ALERT | ENSM_CONF1_FORCE_ALERT);
+	val &= ~(FORCE_TX_ON | FORCE_RX_ON |
+			TO_ALERT | FORCE_ALERT_STATE);
 
 	switch (phy->prev_ensm_state) {
 
 	case ENSM_STATE_TX:
-		val |= ENSM_CONF1_FORCE_TX_ON;
+		val |= FORCE_TX_ON;
 		break;
 	case ENSM_STATE_RX:
-		val |= ENSM_CONF1_FORCE_RX_ON;
+		val |= FORCE_RX_ON;
 		break;
 	case ENSM_STATE_FDD:
-		val |= (ENSM_CONF1_FORCE_TX_ON | ENSM_CONF1_FORCE_RX_ON);
+		val |= (FORCE_TX_ON | FORCE_RX_ON);
 		break;
 	case ENSM_STATE_ALERT:
-		val |= ENSM_CONF1_TO_ALERT;
+		val |= TO_ALERT;
 		break;
 	case ENSM_STATE_INVALID:
 		dev_dbg(dev, "No need to restore, ENSM state wasn't saved\n");
@@ -942,15 +956,15 @@ static void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 		goto out;
 	}
 
-	rc = ad9361_spi_write(spi, ENSM_CONFIG_1, val);
+	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
 	if (rc) {
 		dev_err(dev, "Failed to write ENSM_CONFIG_1");
 		goto out;
 	}
 
 	if (phy->ensm_pin_ctl_en) {
-		val |= ENSM_CONF1_ENSM_PIN_CTL_EN;
-		rc = ad9361_spi_write(spi, ENSM_CONFIG_1, val);
+		val |= ENABLE_ENSM_PIN_CTRL;
+		rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
 		if (rc)
 			dev_err(dev, "Failed to write ENSM_CONFIG_1");
 	}
@@ -988,11 +1002,11 @@ static int set_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 		goto out;
 	}
 
-	ad9361_spi_writef(spi, idx_reg, FULL_TBL_IDX_MASK, rx_gain->lmt_index);
-	ad9361_spi_writef(spi, idx_reg + 1, LPF_IDX_MASK, rx_gain->lpf_gain);
+	ad9361_spi_writef(spi, idx_reg, RX_FULL_TBL_IDX_MASK, rx_gain->lmt_index);
+	ad9361_spi_writef(spi, idx_reg + 1, RX_LPF_IDX_MASK, rx_gain->lpf_gain);
 
 	if (phy->pdata->gain_ctrl.dig_gain_en) {
-		ad9361_spi_writef(spi, idx_reg + 2, DIGITAL_IDX_MASK, rx_gain->digital_gain);
+		ad9361_spi_writef(spi, idx_reg + 2, RX_DIGITAL_IDX_MASK, rx_gain->digital_gain);
 
 	} else if (rx_gain->digital_gain > 0) {
 		dev_err(dev, "Digital gain is disabled and cannot be set");
@@ -1033,7 +1047,7 @@ static int set_full_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 
 	val = ((rx_gain->gain_db - gain_info->starting_gain_db) /
 		gain_info->gain_step_db) + gain_info->idx_step_offset;
-	ad9361_spi_writef(spi, idx_reg, FULL_TBL_IDX_MASK, val);
+	ad9361_spi_writef(spi, idx_reg, RX_FULL_TBL_IDX_MASK, val);
 
 out:
 	return rc;
@@ -1049,12 +1063,12 @@ static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
 	int rc = 0;
 
 	if (rx_id == 1) {
-		gain_ctl_shift = RX1_GAIN_CTL_SHIFT;
-		idx_reg = RX1_MANUAL_LMT_FULL_GAIN;
+		gain_ctl_shift = RX1_GAIN_CTRL_SHIFT;
+		idx_reg = REG_RX1_MANUAL_LMT_FULL_GAIN;
 
 	} else if (rx_id == 2) {
-		gain_ctl_shift = RX2_GAIN_CTL_SHIFT;
-		idx_reg = RX2_MANUAL_LMT_FULL_GAIN;
+		gain_ctl_shift = RX2_GAIN_CTRL_SHIFT;
+		idx_reg = REG_RX2_MANUAL_LMT_FULL_GAIN;
 	} else {
 		dev_err(dev, "Unknown Rx path %d\n", rx_id);
 		rc = -EINVAL;
@@ -1062,7 +1076,7 @@ static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
 
 	}
 
-	val = ad9361_spi_read(spi, AGC_CONFIG_1);
+	val = ad9361_spi_read(spi, REG_AGC_CONFIG_1);
 	val = (val >> gain_ctl_shift) & RX_GAIN_CTL_MASK;
 
 	if (val != RX_GAIN_CTL_MGC) {
@@ -1135,16 +1149,14 @@ int ad9361_init_gain_tables(struct ad9361_rf_phy *phy)
 
 int ad9361_en_dis_tx(struct ad9361_rf_phy *phy, u32 tx_if, u32 enable)
 {
-	return ad9361_spi_writef(phy->spi, TX_ENABLE_REG,
-			  (tx_if == 1) ? TX1_ENABLE_MASK : TX2_ENABLE_MASK,
-			  enable);
+	return ad9361_spi_writef(phy->spi, REG_TX_ENABLE_FILTER_CTRL,
+			TX_CHANNEL_ENABLE(tx_if), enable);
 }
 
 int ad9361_en_dis_rx(struct ad9361_rf_phy *phy, u32 rx_if, u32 enable)
 {
-	return ad9361_spi_writef(phy->spi, RX_ENABLE_REG,
-			  (rx_if == 1) ? RX1_ENABLE_MASK : RX2_ENABLE_MASK,
-			  enable);
+	return ad9361_spi_writef(phy->spi, REG_RX_ENABLE_FILTER_CTRL,
+			  RX_CHANNEL_ENABLE(rx_if), enable);
 }
 
 
@@ -1157,10 +1169,10 @@ int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 	u32 gain_ctl_shift, mode;
 	u8 val;
 
-	rc = ad9361_spi_readm(spi, AGC_CONFIG_1, &val, 1);
+	rc = ad9361_spi_readm(spi, REG_AGC_CONFIG_1, &val, 1);
 	if (rc) {
 		dev_err(dev, "Unable to read AGC config1 register: %x\n",
-			AGC_CONFIG_1);
+			REG_AGC_CONFIG_1);
 		goto out;
 	}
 
@@ -1183,9 +1195,9 @@ int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 	}
 
 	if (gain_ctrl->ant == 1) {
-		gain_ctl_shift = RX1_GAIN_CTL_SHIFT;
+		gain_ctl_shift = RX1_GAIN_CTRL_SHIFT;
 	} else if (gain_ctrl->ant == 2) {
-		gain_ctl_shift = RX2_GAIN_CTL_SHIFT;
+		gain_ctl_shift = RX2_GAIN_CTRL_SHIFT;
 	} else {
 		dev_err(dev, "Unknown Rx path %d\n", gain_ctrl->ant);
 		rc = -EINVAL;
@@ -1201,14 +1213,14 @@ int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 	val &= ~(RX_GAIN_CTL_MASK << gain_ctl_shift);
 	val |= mode << gain_ctl_shift;
 	if (mode == RX_GAIN_CTL_AGC_SLOW_ATK_HYBD)
-		val |= SLOW_ATK_HYBD_BIT_EN;
+		val |= SLOW_ATTACK_HYBRID_MODE;
 	else
-		val &= ~SLOW_ATK_HYBD_BIT_EN;
+		val &= ~SLOW_ATTACK_HYBRID_MODE;
 
-	rc = ad9361_spi_write(spi, AGC_CONFIG_1, val);
+	rc = ad9361_spi_write(spi, REG_AGC_CONFIG_1, val);
 	if (rc) {
 		dev_err(dev, "Unable to write AGC config1 register: %x\n",
-				AGC_CONFIG_1);
+				REG_AGC_CONFIG_1);
 		goto out;
 	}
 
@@ -1223,21 +1235,21 @@ static int ad9361_read_rssi(struct ad9361_rf_phy *phy, struct rf_rssi *rssi)
 	u8 reg_val_buf[6];
 	int rc;
 
-	rc = ad9361_spi_readm(spi, PREAMBLE_LSB,
+	rc = ad9361_spi_readm(spi, REG_PREAMBLE_LSB,
 			reg_val_buf, ARRAY_SIZE(reg_val_buf));
 	if (rssi->ant == 1) {
 		rssi->symbol = RSSI_RESOLUTION *
-				((reg_val_buf[5] << LSB_SHIFT) +
+				((reg_val_buf[5] << RSSI_LSB_SHIFT) +
 				 (reg_val_buf[1] & RSSI_LSB_MASK1));
 		rssi->preamble = RSSI_RESOLUTION *
-				((reg_val_buf[4] << LSB_SHIFT) +
+				((reg_val_buf[4] << RSSI_LSB_SHIFT) +
 				 (reg_val_buf[0] & RSSI_LSB_MASK1));
 	} else if (rssi->ant == 2) {
 		rssi->symbol = RSSI_RESOLUTION *
-				((reg_val_buf[3] << LSB_SHIFT) +
+				((reg_val_buf[3] << RSSI_LSB_SHIFT) +
 				 ((reg_val_buf[1] & RSSI_LSB_MASK2) >> 1));
 		rssi->preamble = RSSI_RESOLUTION *
-				((reg_val_buf[2] << LSB_SHIFT) +
+				((reg_val_buf[2] << RSSI_LSB_SHIFT) +
 				 ((reg_val_buf[0] & RSSI_LSB_MASK2) >> 1));
 	} else
 		rc = -EFAULT;
@@ -1259,9 +1271,9 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
 	u32 i;
 	int ret;
 
-	u8 c3_msb = ad9361_spi_read(phy->spi, RX_BBF_C3_MSB);
-	u8 c3_lsb = ad9361_spi_read(phy->spi, RX_BBF_C3_LSB);
-	u8 r2346 = ad9361_spi_read(phy->spi, RX_BBF_R2346);
+	u8 c3_msb = ad9361_spi_read(phy->spi, REG_RX_BBF_C3_MSB);
+	u8 c3_lsb = ad9361_spi_read(phy->spi, REG_RX_BBF_C3_LSB);
+	u8 r2346 = ad9361_spi_read(phy->spi, REG_RX_BBF_R2346);
 
 	/*
 	 * BBBW = (BBPLL / RxTuneDiv) * ln(2) / (1.4 * 2PI )
@@ -1288,7 +1300,7 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
  	if (bb_bw_Hz >= 18000000) {
 		invrc_tconst_1e6 = (160975ULL * r2346 *
 			(160 * c3_msb + 10 * c3_lsb + 140) *
-			(bb_bw_Hz)  * (1000 + (10 * (bb_bw_Hz - 18000000) / 1000000)));
+			(bb_bw_Hz) * (1000 + (10 * (bb_bw_Hz - 18000000) / 1000000)));
 
 		do_div(invrc_tconst_1e6, 1000UL);
 
@@ -1314,14 +1326,12 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
 	min_sqrt_term_1e3 = min_t(u32, 1000U,
 			int_sqrt(maxsnr * scaled_adc_clk_1e6));
 
-
 	dev_dbg(&phy->spi->dev, "invrc_tconst_1e6 %llu, sqrt_inv_rc_tconst_1e3 %lu\n",
 		invrc_tconst_1e6, sqrt_inv_rc_tconst_1e3);
 	dev_dbg(&phy->spi->dev, "scaled_adc_clk_1e6 %lu, inv_scaled_adc_clk_1e3 %lu\n",
 		scaled_adc_clk_1e6, inv_scaled_adc_clk_1e3);
 	dev_dbg(&phy->spi->dev, "tmp_1e3 %lu, sqrt_term_1e3 %lu, min_sqrt_term_1e3 %lu\n",
 		tmp_1e3, sqrt_term_1e3, min_sqrt_term_1e3);
-
 
 	data[0] = 0;
 	data[1] = 0;
@@ -1401,9 +1411,9 @@ static int ad9361_rx_tia_calib(struct ad9361_rf_phy *phy, unsigned long bb_bw_Hz
 	unsigned long Cbbf, R2346;
 	u64 CTIA_fF;
 
-	u8 reg1EB = ad9361_spi_read(phy->spi, RX_BBF_C3_MSB);
-	u8 reg1EC = ad9361_spi_read(phy->spi, RX_BBF_C3_LSB);
-	u8 reg1E6 = ad9361_spi_read(phy->spi, RX_BBF_R2346);
+	u8 reg1EB = ad9361_spi_read(phy->spi, REG_RX_BBF_C3_MSB);
+	u8 reg1EC = ad9361_spi_read(phy->spi, REG_RX_BBF_C3_LSB);
+	u8 reg1E6 = ad9361_spi_read(phy->spi, REG_RX_BBF_R2346);
 	u8 reg1DB, reg1DF, reg1DD, reg1DC, reg1DE, temp;
 
 	dev_dbg(&phy->spi->dev, "%s : bb_bw_Hz %lu",
@@ -1412,7 +1422,7 @@ static int ad9361_rx_tia_calib(struct ad9361_rf_phy *phy, unsigned long bb_bw_Hz
 	bb_bw_Hz = clamp(bb_bw_Hz, 200000UL, 20000000UL);
 
 	Cbbf = (reg1EB * 160) + (reg1EC * 10) + 140; /* fF */
-	R2346 = 18300 * (reg1E6 & 0x7);
+	R2346 = 18300 * RX_BBF_R2346(reg1E6);
 
 	CTIA_fF = Cbbf * R2346 * 560ULL;
 	do_div(CTIA_fF, 3500000UL);
@@ -1438,11 +1448,11 @@ static int ad9361_rx_tia_calib(struct ad9361_rf_phy *phy, unsigned long bb_bw_Hz
 		reg1DF = 0;
 	}
 
-	ad9361_spi_write(phy->spi, RX_TIA_CONFIG, reg1DB);
-	ad9361_spi_write(phy->spi, TIA1_C_LSB, reg1DC);
-	ad9361_spi_write(phy->spi, TIA1_C_MSB, reg1DD);
-	ad9361_spi_write(phy->spi, TIA2_C_LSB, reg1DE);
-	ad9361_spi_write(phy->spi, TIA2_C_MSB, reg1DF);
+	ad9361_spi_write(phy->spi, REG_RX_TIA_CONFIG, reg1DB);
+	ad9361_spi_write(phy->spi, REG_TIA1_C_LSB, reg1DC);
+	ad9361_spi_write(phy->spi, REG_TIA1_C_MSB, reg1DD);
+	ad9361_spi_write(phy->spi, REG_TIA2_C_LSB, reg1DE);
+	ad9361_spi_write(phy->spi, REG_TIA2_C_MSB, reg1DF);
 
 	return 0;
 }
@@ -1467,29 +1477,31 @@ static int ad9361_rx_bb_analog_filter_calib(struct ad9361_rf_phy *phy,
 	phy->rxbbf_div = min_t(unsigned long, 511UL, DIV_ROUND_UP(bbpll_freq, target));
 
 	/* Set RX baseband filter divide value */
-	ad9361_spi_write(phy->spi, RX_BBF_TUNE_DIVIDE, phy->rxbbf_div);
-	ad9361_spi_writef(phy->spi, RX_BBF_TUNE_CONFIG, BIT(0), phy->rxbbf_div >> 8);
+	ad9361_spi_write(phy->spi, REG_RX_BBF_TUNE_DIVIDE, phy->rxbbf_div);
+	ad9361_spi_writef(phy->spi, REG_RX_BBF_TUNE_CONFIG, BIT(0), phy->rxbbf_div >> 8);
 
 	/* Write the BBBW into registers 0x1FB and 0x1FC */
-	ad9361_spi_write(phy->spi, RX_BBBW_MHZ, rx_bb_bw / 1000000UL);
+	ad9361_spi_write(phy->spi, REG_RX_BBBW_MHZ, rx_bb_bw / 1000000UL);
 
 	tmp = DIV_ROUND_CLOSEST((rx_bb_bw % 1000000UL) * 128, 1000000UL);
-	ad9361_spi_write(phy->spi, RX_BBBW_KHZ, min_t(u8, 127, tmp));
+	ad9361_spi_write(phy->spi, REG_RX_BBBW_KHZ, min_t(u8, 127, tmp));
 
-	ad9361_spi_write(phy->spi,RX_MIX_LO_CM, 0x3F); /* Set Rx Mix LO CM */
-	ad9361_spi_write(phy->spi,RX_MIX_GM_CONFIG, 0x03); /* Set GM common mode */
+	ad9361_spi_write(phy->spi, REG_RX_MIX_LO_CM, RX_MIX_LO_CM(0x3F)); /* Set Rx Mix LO CM */
+	ad9361_spi_write(phy->spi, REG_RX_MIX_GM_CONFIG, RX_MIX_GM_PLOAD(3)); /* Set GM common mode */
 
 	/* Enable the RX BBF tune circuit by writing 0x1E2=0x02 and 0x1E3=0x02 */
-	ad9361_spi_write(phy->spi,RX1_TUNE_CONTROL, 0x02);
-	ad9361_spi_write(phy->spi,RX2_TUNE_CONTROL, 0x02);
+	ad9361_spi_write(phy->spi, REG_RX1_TUNE_CTRL, RX1_TUNE_RESAMPLE);
+	ad9361_spi_write(phy->spi, REG_RX2_TUNE_CTRL, RX2_TUNE_RESAMPLE);
 
 	/* Start the RX Baseband Filter calibration in register 0x016[7] */
 	/* Calibration is complete when register 0x016[7] self clears */
 	ret = ad9361_run_calibration(phy, RX_BB_TUNE_CAL);
 
 	/* Disable the RX baseband filter tune circuit, write 0x1E2=3, 0x1E3=3 */
-	ad9361_spi_write(phy->spi,RX1_TUNE_CONTROL, 0x03);
-	ad9361_spi_write(phy->spi,RX2_TUNE_CONTROL, 0x03);
+	ad9361_spi_write(phy->spi, REG_RX1_TUNE_CTRL,
+			RX1_TUNE_RESAMPLE | RX1_PD_TUNE);
+	ad9361_spi_write(phy->spi, REG_RX2_TUNE_CTRL,
+			RX2_TUNE_RESAMPLE | RX2_PD_TUNE);
 
 	return ret;
 }
@@ -1513,18 +1525,20 @@ static int ad9361_tx_bb_analog_filter_calib(struct ad9361_rf_phy *phy,
 	txbbf_div = min_t(unsigned long, 511UL, DIV_ROUND_UP(bbpll_freq, target));
 
 	/* Set TX baseband filter divide value */
-	ad9361_spi_write(phy->spi, TX_BBF_TUNE_DIVIDER, txbbf_div);
-	ad9361_spi_writef(phy->spi, TX_BBF_TUNE_MODE, BIT(0), txbbf_div >> 8);
+	ad9361_spi_write(phy->spi, REG_TX_BBF_TUNE_DIVIDER, txbbf_div);
+	ad9361_spi_writef(phy->spi, REG_TX_BBF_TUNE_MODE,
+			  TX_BBF_TUNE_DIVIDER, txbbf_div >> 8);
 
 	/* Enable the TX baseband filter tune circuit by setting 0x0CA=0x22. */
-	ad9361_spi_write(phy->spi,TX_TUNE_CONTROL, 0x22);
+	ad9361_spi_write(phy->spi, REG_TX_TUNE_CTRL, TUNER_RESAMPLE | TUNE_CTRL(1));
 
 	/* Start the TX Baseband Filter calibration in register 0x016[6] */
 	/* Calibration is complete when register 0x016[] self clears */
 	ret = ad9361_run_calibration(phy, TX_BB_TUNE_CAL);
 
 	/* Disable the TX baseband filter tune circuit by writing 0x0CA=0x26. */
-	ad9361_spi_write(phy->spi, TX_TUNE_CONTROL, 0x26);
+	ad9361_spi_write(phy->spi, REG_TX_TUNE_CTRL,
+			 TUNER_RESAMPLE | TUNE_CTRL(1) | PD_TUNE);
 
 	return ret;
 }
@@ -1585,9 +1599,9 @@ static int ad9361_tx_bb_second_filter_calib(struct ad9361_rf_phy *phy,
 		reg_res = 0x01;
 	}
 
-	ret = ad9361_spi_write(phy->spi, CONFIG0, reg_conf);
-	ret |= ad9361_spi_write(phy->spi, RESISTOR, reg_res);
-	ret |= ad9361_spi_write(phy->spi, CAPACITOR, (u8)cap);
+	ret = ad9361_spi_write(phy->spi, REG_CONFIG0, reg_conf);
+	ret |= ad9361_spi_write(phy->spi, REG_RESISTOR, reg_res);
+	ret |= ad9361_spi_write(phy->spi, REG_CAPACITOR, (u8)cap);
 
 	return ret;
 }
@@ -1604,12 +1618,11 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : ref_clk_hz %lu : is_tx %d",
 		__func__, ref_clk_hz, tx);
 
-	ad9361_spi_write(phy->spi, RX_LO_GEN_POWER_MODE + offs, 0x00);
-	ad9361_spi_write(phy->spi, RX_VCO_LDO + offs, 0x0B);
-	ad9361_spi_write(phy->spi, RX_VCO_PD_OVERRIDES + offs, 0x02);
-	ad9361_spi_write(phy->spi, RX_VCO_BIAS_2 + offs, 0x0D);
-	ad9361_spi_write(phy->spi, RX_CP_CURRENT + offs, 0x80);
-	ad9361_spi_write(phy->spi, RX_CP_CONFIG + offs, 0x00);
+	ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE + offs, 0x00);
+	ad9361_spi_write(phy->spi, REG_RX_VCO_LDO + offs, 0x0B);
+	ad9361_spi_write(phy->spi, REG_RX_VCO_PD_OVERRIDES + offs, 0x02);
+	ad9361_spi_write(phy->spi, REG_RX_CP_CURRENT + offs, 0x80);
+	ad9361_spi_write(phy->spi, REG_RX_CP_CONFIG + offs, 0x00);
 
 	/* see Table 70 Example Calibration Times for RF VCO Cal */
 	if (phy->pdata->fdd) {
@@ -1621,23 +1634,24 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 			vco_cal_cnt = 0x82;
 	}
 
-	ad9361_spi_write(phy->spi, RX_VCO_CAL + offs, vco_cal_cnt);
+	ad9361_spi_write(phy->spi, REG_RX_VCO_CAL + offs, vco_cal_cnt);
 
 	/* Enable FDD mode during calibrations */
 
 	if (!phy->pdata->fdd)
-		ad9361_spi_write(phy->spi, PARALLEL_PORT_CONFIG3, 0x10);
+		ad9361_spi_write(phy->spi, REG_PARALLEL_PORT_CONF_3, LVDS_MODE);
 
-	ad9361_spi_write(phy->spi, ENSM_CONFIG_2, ENSM_CONFIG_2_DUAL_SYNTH_MODE);
-	ad9361_spi_write(phy->spi, ENSM_CONFIG_1,
-			ENSM_CONFIG_1_FORCE_ALERT |
-			ENSM_CONFIG_1_TO_ALERT);
-	ad9361_spi_write(phy->spi, ENSM_MODE, ENSM_MODE_FDD);
+	ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2, DUAL_SYNTH_MODE);
+	ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_1,
+			FORCE_ALERT_STATE |
+			TO_ALERT);
+	ad9361_spi_write(phy->spi, REG_ENSM_MODE, FDD_MODE);
 
-	ad9361_spi_write(phy->spi, RX_CP_CONFIG + offs, 0x04);
+	ad9361_spi_write(phy->spi, REG_RX_CP_CONFIG + offs, CP_CAL_ENABLE);
 
-	ret = ad9361_check_cal_done(phy, RX_CAL_STATUS + offs, BIT(7), 1);
-	ad9361_spi_write(phy->spi, RX_CP_CONFIG + offs, 0x0);
+	ret = ad9361_check_cal_done(phy, REG_RX_CAL_STATUS + offs,
+				    CP_CAL_VALID, 1);
+	ad9361_spi_write(phy->spi, REG_RX_CP_CONFIG + offs, 0x0);
 
 	return ret;
 }
@@ -1647,13 +1661,12 @@ static int ad9361_bb_dc_offset_calib(struct ad9361_rf_phy *phy)
 {
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	ad9361_spi_write(phy->spi, BB_DC_OFFSET_COUNT, 0x3F);
-	ad9361_spi_write(phy->spi, BB_DC_OFFSET_SHIFT, 0x0F);
-	ad9361_spi_write(phy->spi, BB_DC_OFFSET_ATTEN, 0x01);
+	ad9361_spi_write(phy->spi, REG_BB_DC_OFFSET_COUNT, 0x3F);
+	ad9361_spi_write(phy->spi, REG_BB_DC_OFFSET_SHIFT, BB_DC_M_SHIFT(0xF));
+	ad9361_spi_write(phy->spi, REG_BB_DC_OFFSET_ATTEN, BB_DC_OFFSET_ATTEN(1));
 
 	return ad9361_run_calibration(phy, BBDC_CAL);
 }
-
 
 /* RF DC OFFSET CALIBRATION */
 
@@ -1665,25 +1678,34 @@ static int ad9361_rf_dc_offset_calib(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : rx_freq %llu",
 		__func__, rx_freq);
 
-	ad9361_spi_write(spi, ENSM_CONFIG_1,
-			ENSM_CONFIG_1_ENSM_PINCTRL_EN |
-			ENSM_CONFIG_1_FORCE_ALERT |
-			ENSM_CONFIG_1_TO_ALERT);
+	ad9361_spi_write(spi, REG_ENSM_CONFIG_1,
+			ENABLE_ENSM_PIN_CTRL |
+			FORCE_ALERT_STATE |
+			TO_ALERT);
 
-	ad9361_spi_write(spi, WAIT_COUNT, 0x20);
+	ad9361_spi_write(spi, REG_WAIT_COUNT, 0x20);
 
 	if(rx_freq <= 4000000000ULL) {
-		ad9361_spi_write(spi, RF_DC_OFFSET_COUNT, 0x32);
-		ad9361_spi_write(spi, RF_DC_OFFSET_CONFIG_1, 0x24);
-		ad9361_spi_write(spi, RF_DC_OFFSET_ATTEN, 0x05);
+		ad9361_spi_write(spi, REG_RF_DC_OFFSET_COUNT, 0x32);
+		ad9361_spi_write(spi, REG_RF_DC_OFFSET_CONFIG_1,
+				 RF_DC_CALIBRATION_COUNT(4) | DAC_FS(2));
+		ad9361_spi_write(spi, REG_RF_DC_OFFSET_ATTEN,
+				 RF_DC_OFFSET_ATTEN(5));
 	} else {
-		ad9361_spi_write(spi, RF_DC_OFFSET_COUNT, 0x28);
-		ad9361_spi_write(spi, RF_DC_OFFSET_CONFIG_1, 0x34);
-		ad9361_spi_write(spi, RF_DC_OFFSET_ATTEN, 0x06);
+		ad9361_spi_write(spi, REG_RF_DC_OFFSET_COUNT, 0x28);
+		ad9361_spi_write(spi, REG_RF_DC_OFFSET_CONFIG_1,
+				 RF_DC_CALIBRATION_COUNT(4) | DAC_FS(3));
+		ad9361_spi_write(spi, REG_RF_DC_OFFSET_ATTEN,
+				 RF_DC_OFFSET_ATTEN(6));
 	}
 
-	ad9361_spi_write(spi, RF_DC_OFFSET_CONFIG_2, 0x83);
-	ad9361_spi_write(spi, RF_TX_PDET_COUNT2, 0x30);
+	ad9361_spi_write(spi, REG_DC_OFFSET_CONFIG2,
+			 USE_WAIT_COUNTER_FOR_RF_DC_INIT_CAL |
+			 DC_OFFSET_UPDATE(3));
+
+	ad9361_spi_write(spi, REG_INVERT_BITS,
+			 INVERT_RX1_RF_DC_CGOUT_WORD |
+			 INVERT_RX2_RF_DC_CGOUT_WORD);
 
 	return ad9361_run_calibration(phy, RFDC_CAL);
 }
@@ -1749,7 +1771,8 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 			rx_phase = 0x1F;
 			break;
 		case 1:
-			if (ad9361_spi_readf(spi, TX_ENABLE_FILTER, 0x3F) == 0x22)
+			if (ad9361_spi_readf(spi,
+				REG_TX_ENABLE_FILTER_CTRL, 0x3F) == 0x22)
 				rx_phase = 0x15; 	/* REVISIT */
 			else
 				rx_phase = 0x1A;
@@ -1758,13 +1781,18 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	} else
 		dev_err(dev, "Error in %s line %d\n", __func__, __LINE__);
 
-	ad9361_spi_write(spi, QUAD_CAL_NCO_FREQ_PHASE, (rxnco_word << 5) | rx_phase);
-	ad9361_spi_writef(spi, KEXP_2, 0xC0, txnco_word);
-	ad9361_spi_write(spi, QUAD_CAL_CONTROL, 0x7B);
-	ad9361_spi_write(spi, QUAD_CAL_COUNT, 0xFF);
-	ad9361_spi_write(spi, KEXP_1, 0x7F);
-	ad9361_spi_write(spi, MAG_FTEST_THRESH, 0x01);
-	ad9361_spi_write(spi, MAG_FTEST_THRESH_2, 0x01);
+	ad9361_spi_write(spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
+			 RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(rx_phase));
+	ad9361_spi_writef(spi, REG_KEXP_2, TX_NCO_FREQ(~0), txnco_word);
+
+	ad9361_spi_write(spi, REG_QUAD_CAL_CTRL,
+			 SETTLE_MAIN_ENABLE | DC_OFFSET_ENABLE |
+			 GAIN_ENABLE | PHASE_ENABLE | M_DECIM(3));
+	ad9361_spi_write(spi, REG_QUAD_CAL_COUNT, 0xFF);
+	ad9361_spi_write(spi, REG_KEXP_1, KEXP_TX(1) | KEXP_TX_COMP(3) |
+			 KEXP_DC_I(3) | KEXP_DC_Q(3));
+	ad9361_spi_write(spi, REG_MAG_FTEST_THRESH, 0x01);
+	ad9361_spi_write(spi, REG_MAG_FTEST_THRESH_2, 0x01);
 
 	if (phy->pdata->split_gt) {
 		tab = &split_gain_table[phy->current_table][0];
@@ -1778,15 +1806,15 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 
 	for (i = 0; i < index_max; i++)
 		if ((tab[i][1] & lpf_tia_mask) == 0x20) {
-			ad9361_spi_write(spi, TX_QUAD_FULL_LMT_GAIN, i);
+			ad9361_spi_write(spi, REG_TX_QUAD_FULL_LMT_GAIN, i);
 			break;
 		}
 
 	if (i >= index_max)
 		dev_err(dev, "failed to find suitable LPF TIA value in gain table\n");
 
-	ad9361_spi_write(spi, SETTLE_COUNT, 0xF0);
-	ad9361_spi_write(spi, TX_QUAD_LPF_GAIN, 0x00);
+	ad9361_spi_write(spi, REG_QUAD_SETTLE_COUNT, 0xF0);
+	ad9361_spi_write(spi, REG_TX_QUAD_LPF_GAIN, 0x00);
 
 	return ad9361_run_calibration(phy, TX_QUAD_CAL);
 }
@@ -1801,22 +1829,31 @@ static int ad9361_tracking_control(struct ad9361_rf_phy *phy, bool bbdc_track,
 				   bool rfdc_track, bool rxquad_track)
 {
 	struct spi_device *spi = phy->spi;
+	u32 qtrack = 0;
 
 	dev_dbg(&spi->dev, "%s : bbdc_track=%d, rfdc_track=%d, rxquad_track=%d",
 		__func__, bbdc_track, rfdc_track, rxquad_track);
 
-	ad9361_spi_write(spi, CALIBRATION_CONFIG_2, 0x75);
-	ad9361_spi_write(spi, CALIBRATION_CONFIG_3, 0x95);
+	ad9361_spi_write(spi, REG_CALIBRATION_CONFIG_2,
+			 CALIBRATION_CONFIG2_DFLT  | K_EXP_PHASE(0x15));
+	ad9361_spi_write(spi, REG_CALIBRATION_CONFIG_3,
+			 PREVENT_POS_LOOP_GAIN | K_EXP_AMPLITUDE(0x15));
 
-	ad9361_spi_writef(spi, RF_DC_OFFSET_CONFIG_2, 0x07, 0x3); /* Gain change + Rx exit */
-	ad9361_spi_writef(spi, RF_DC_OFFSET_CONFIG_2, 0x20, bbdc_track);
-	ad9361_spi_writef(spi, RF_DC_OFFSET_CONFIG_2, 0x08, rfdc_track);
-	ad9361_spi_writef(spi, CALIBRATION_CONFIG_1, 0x01, rxquad_track);
+	ad9361_spi_writef(spi, REG_DC_OFFSET_CONFIG2,
+			  DC_OFFSET_UPDATE(~0), 0x5); /* Gain change + Rx exit */
+	ad9361_spi_writef(spi, REG_DC_OFFSET_CONFIG2,
+			  ENABLE_BB_DC_OFFSET_TRACKING, bbdc_track);
+	ad9361_spi_writef(spi, REG_DC_OFFSET_CONFIG2,
+			  ENABLE_RF_OFFSET_TRACKING, rfdc_track);
 
-	if (phy->pdata->rx2tx2)
-		ad9361_spi_writef(spi, CALIBRATION_CONFIG_1, 0x02, rxquad_track);
+	if (rxquad_track)
+		qtrack = ENABLE_TRACKING_MODE_CH1 |
+			(phy->pdata->rx2tx2 ? ENABLE_TRACKING_MODE_CH2 : 0);
 
-	ad9361_spi_writef(spi, CALIBRATION_CONFIG_1, 0x0C, 0x3);
+	ad9361_spi_write(spi, REG_CALIBRATION_CONFIG_1,
+			 ENABLE_PHASE_CORR | ENABLE_GAIN_CORR |
+			 FREE_RUN_MODE | ENABLE_CORR_WORD_DECIMATION |
+			 qtrack);
 
 	return 0;
 }
@@ -1829,8 +1866,8 @@ static int ad9361_set_ref_clk_cycles(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : ref_clk_hz %lu",
 		__func__, ref_clk_hz);
 
-	return ad9361_spi_write(phy->spi, REFERENCE_CLOCK_CYCLES,
-				(ref_clk_hz / 1000000UL) - 1);
+	return ad9361_spi_write(phy->spi, REG_REFERENCE_CLOCK_CYCLES,
+		REFERENCE_CLOCK_CYCLES_PER_US((ref_clk_hz / 1000000UL) - 1));
 }
 
 static int ad9361_set_dcxo_tune(struct ad9361_rf_phy *phy,
@@ -1839,9 +1876,12 @@ static int ad9361_set_dcxo_tune(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : coarse %u fine %u",
 		__func__, coarse, fine);
 
-	ad9361_spi_write(phy->spi, DCXO_COARSE_TUNE, coarse);
-	ad9361_spi_write(phy->spi, DCXO_FINE_TUNE_LOW, fine << 3);
-	return ad9361_spi_write(phy->spi, DCXO_FINE_TUNE_HIGH,fine >> 5);
+	ad9361_spi_write(phy->spi, REG_DCXO_COARSE_TUNE,
+			DCXO_TUNE_COARSE(coarse));
+	ad9361_spi_write(phy->spi, REG_DCXO_FINE_TUNE_LOW,
+			DCXO_TUNE_FINE_LOW(fine));
+	return ad9361_spi_write(phy->spi, REG_DCXO_FINE_TUNE_HIGH,
+			DCXO_TUNE_FINE_HIGH(fine));
 }
 
 /* val
@@ -1871,12 +1911,12 @@ static int ad9361_rf_port_setup(struct ad9361_rf_phy *phy,
 		val = 1 <<  (rx_inputs - 3);
 
 	if (txb)
-		val |= BIT(6); /* Select TX1B, TX2B */
+		val |= TX_OUTPUT; /* Select TX1B, TX2B */
 
 	dev_dbg(&phy->spi->dev, "%s : INPUT_SELECT 0x%X",
 		__func__, val);
 
-	return ad9361_spi_write(phy->spi, INPUT_SELECT, val);
+	return ad9361_spi_write(phy->spi, REG_INPUT_SELECT, val);
 }
 
 /*
@@ -1889,24 +1929,24 @@ static int ad9361_pp_port_setup(struct ad9361_rf_phy *phy, bool restore_c3)
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	if (!pd->fdd)
-		pd->port_ctrl.pp_conf[2] |= 0x08;
+	if (!pd->fdd) /* REVISIT */
+		pd->port_ctrl.pp_conf[2] |= HALF_DUPLEX_MODE;
 
 	if (restore_c3) {
-		return ad9361_spi_write(spi, PARALLEL_PORT_CONFIG3,
+		return ad9361_spi_write(spi, REG_PARALLEL_PORT_CONF_3,
 					pd->port_ctrl.pp_conf[2]);
 	}
 
-	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG1, pd->port_ctrl.pp_conf[0]);
-	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG2, pd->port_ctrl.pp_conf[1]);
-	ad9361_spi_write(spi, PARALLEL_PORT_CONFIG3, pd->port_ctrl.pp_conf[2]);
-	ad9361_spi_write(spi, RX_CLOCK_DATA_DELAY, pd->port_ctrl.rx_clk_data_delay);
-	ad9361_spi_write(spi, TX_CLOCK_DATA_DELAY, pd->port_ctrl.tx_clk_data_delay);
+	ad9361_spi_write(spi, REG_PARALLEL_PORT_CONF_1, pd->port_ctrl.pp_conf[0]);
+	ad9361_spi_write(spi, REG_PARALLEL_PORT_CONF_2, pd->port_ctrl.pp_conf[1]);
+	ad9361_spi_write(spi, REG_PARALLEL_PORT_CONF_3, pd->port_ctrl.pp_conf[2]);
+	ad9361_spi_write(spi, REG_RX_CLOCK_DATA_DELAY, pd->port_ctrl.rx_clk_data_delay);
+	ad9361_spi_write(spi, REG_TX_CLOCK_DATA_DELAY, pd->port_ctrl.tx_clk_data_delay);
 
-	ad9361_spi_write(spi, LVDS_BIAS_CONTROL, pd->port_ctrl.lvds_bias_ctrl);
-//	ad9361_spi_write(spi, DIGITAL_IO_CONTROL, pd->port_ctrl.digital_io_ctrl);
-	ad9361_spi_write(spi, LVDS_INVERT_CONTROL1, pd->port_ctrl.lvds_invert[0]);
-	ad9361_spi_write(spi, LVDS_INVERT_CONTROL2, pd->port_ctrl.lvds_invert[1]);
+	ad9361_spi_write(spi, REG_LVDS_BIAS_CTRL, pd->port_ctrl.lvds_bias_ctrl);
+//	ad9361_spi_write(spi, REG_DIGITAL_IO_CTRL, pd->port_ctrl.digital_io_ctrl);
+	ad9361_spi_write(spi, REG_LVDS_INVERT_CTRL1, pd->port_ctrl.lvds_invert[0]);
+	ad9361_spi_write(spi, REG_LVDS_INVERT_CTRL2, pd->port_ctrl.lvds_invert[1]);
 
 	return 0;
 }
@@ -1918,25 +1958,27 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	reg = DEC_PWR_GAIN_LOCK_EXIT | DEC_PWR_LOCK_LEVEL | DEC_PWR_LOW_PWR;
+	reg = DEC_PWR_FOR_GAIN_LOCK_EXIT | DEC_PWR_FOR_LOCK_LEVEL |
+		DEC_PWR_FOR_LOW_PWR;
 
 	if (ctrl->rx1_mode == RF_GAIN_HYBRID_AGC ||
 		ctrl->rx2_mode == RF_GAIN_HYBRID_AGC)
 		reg |= SLOW_ATTACK_HYBRID_MODE;
 
-	reg |= RX1_GAIN_CTRL(ctrl->rx1_mode) | RX2_GAIN_CTRL(ctrl->rx2_mode);
+	reg |= RX1_GAIN_CTRL_SETUP(ctrl->rx1_mode) |
+		RX2_GAIN_CTRL_SETUP(ctrl->rx2_mode);
 
 	phy->agc_mode[0] = ctrl->rx1_mode;
 	phy->agc_mode[1] = ctrl->rx2_mode;
 
-	ad9361_spi_write(spi, AGC_CONFIG_1, reg); // Gain Control Mode Select
+	ad9361_spi_write(spi, REG_AGC_CONFIG_1, reg); // Gain Control Mode Select
 
 	/* AGC_USE_FULL_GAIN_TABLE handled in ad9361_load_gt() */
-	ad9361_spi_writef(spi, AGC_CONFIG_2, MAN_GAIN_CTRL_RX1,
+	ad9361_spi_writef(spi, REG_AGC_CONFIG_2, MAN_GAIN_CTRL_RX1,
 			  ctrl->mgc_rx1_ctrl_inp_en);
-	ad9361_spi_writef(spi, AGC_CONFIG_2, MAN_GAIN_CTRL_RX2,
+	ad9361_spi_writef(spi, REG_AGC_CONFIG_2, MAN_GAIN_CTRL_RX2,
 			  ctrl->mgc_rx2_ctrl_inp_en);
-	ad9361_spi_writef(spi, AGC_CONFIG_2, DIG_GAIN_EN,
+	ad9361_spi_writef(spi, REG_AGC_CONFIG_2, DIG_GAIN_EN,
 			  ctrl->dig_gain_en);
 
 	ctrl->adc_ovr_sample_size = clamp_t(u8, ctrl->adc_ovr_sample_size, 1U, 8U);
@@ -1953,138 +1995,135 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 			break;
 		default:
 		case 0:
-			reg |= USE_AGC_FOR_LMTLPG_GAIN;
+			reg |= USE_AGC_FOR_LMTLPF_GAIN;
 			break;
 		}
 	}
 
 	ctrl->mgc_inc_gain_step = clamp_t(u8, ctrl->mgc_inc_gain_step, 1U, 8U);
 	reg |= MANUAL_INCR_STEP_SIZE(ctrl->mgc_inc_gain_step - 1);
-	ad9361_spi_write(spi, AGC_CONFIG_3, reg); // Incr Step Size, ADC Overrange Size
+	ad9361_spi_write(spi, REG_AGC_CONFIG_3, reg); // Incr Step Size, ADC Overrange Size
 
 	if (phy->pdata->split_gt) {
 		reg = SIZE_SPLIT_TABLE - 1;
 	} else {
 		reg = SIZE_FULL_TABLE - 1;
 	}
-	ad9361_spi_write(spi, MAX_LMT_FULL_GAIN, reg); // Max Full/LMT Gain Table Index
-	ad9361_spi_write(spi, RX1_MANUAL_LMT_FULL_GAIN, reg); // Rx1 Full/LMT Gain Index
-	ad9361_spi_write(spi, RX2_MANUAL_LMT_FULL_GAIN, reg); // Rx2 Full/LMT Gain Index
+	ad9361_spi_write(spi, REG_MAX_LMT_FULL_GAIN, reg); // Max Full/LMT Gain Table Index
+	ad9361_spi_write(spi, REG_RX1_MANUAL_LMT_FULL_GAIN, reg); // Rx1 Full/LMT Gain Index
+	ad9361_spi_write(spi, REG_RX2_MANUAL_LMT_FULL_GAIN, reg); // Rx2 Full/LMT Gain Index
 
 	ctrl->analog_settling_time = clamp_t(u8, ctrl->analog_settling_time, 0U, 31U);
 	ctrl->mgc_dec_gain_step = clamp_t(u8, ctrl->mgc_dec_gain_step, 1U, 8U);
 	reg = PEAK_OVERLOAD_WAIT_TIME(ctrl->analog_settling_time);
-	reg |= MANUAL_DECR_STEP_SIZE(ctrl->mgc_dec_gain_step);
-	ad9361_spi_write(spi, PEAK_WAIT_TIME, reg); // Decr Step Size, Peak Overload Time
+	reg |= MANUAL_CTRL_IN_DECR_GAIN_STP_SIZE(ctrl->mgc_dec_gain_step);
+	ad9361_spi_write(spi, REG_PEAK_WAIT_TIME, reg); // Decr Step Size, Peak Overload Time
 
-	if (ctrl->dig_gain_en) {
-		ad9361_spi_writef(spi, DIGITAL_GAIN, MAX_DIGITAL_GAIN_MASK,
-			  ctrl->max_dig_gain); // Max Digital Gain
-		ad9361_spi_writef(spi, DIGITAL_GAIN, MAX_DIGITAL_GAIN_STEP_MASK,
-			  ctrl->dig_gain_step_size); // Max Digital Gain
-
-	}
+	if (ctrl->dig_gain_en)
+		ad9361_spi_write(spi, REG_DIGITAL_GAIN,
+				MAXIMUM_DIGITAL_GAIN(ctrl->max_dig_gain) |
+				DIG_GAIN_STP_SIZE(ctrl->dig_gain_step_size));
 
 	if (ctrl->adc_large_overload_thresh >= ctrl->adc_small_overload_thresh) {
-		ad9361_spi_write(spi, ADC_SMALL_OVERLOAD_THRES,
+		ad9361_spi_write(spi, REG_ADC_SMALL_OVERLOAD_THRESH,
 				 ctrl->adc_small_overload_thresh); // ADC Small Overload Threshold
-		ad9361_spi_write(spi, ADC_LARGE_OVERLOAD_THRES,
+		ad9361_spi_write(spi, REG_ADC_LARGE_OVERLOAD_THRESH,
 				 ctrl->adc_large_overload_thresh); // ADC Large Overload Threshold
 	} else {
-		ad9361_spi_write(spi, ADC_SMALL_OVERLOAD_THRES,
+		ad9361_spi_write(spi, REG_ADC_SMALL_OVERLOAD_THRESH,
 				 ctrl->adc_large_overload_thresh); // ADC Small Overload Threshold
-		ad9361_spi_write(spi, ADC_LARGE_OVERLOAD_THRES,
+		ad9361_spi_write(spi, REG_ADC_LARGE_OVERLOAD_THRESH,
 				 ctrl->adc_small_overload_thresh); // ADC Large Overload Threshold
 	}
 
 	reg = (ctrl->lmt_overload_high_thresh / 16) - 1;
 	reg = clamp(reg, 0U, 63U);
-	ad9361_spi_write(spi, LMT_LARGE_OVERLOAD_THRES, reg);
+	ad9361_spi_write(spi, REG_LARGE_LMT_OVERLOAD_THRESH, reg);
 	reg = (ctrl->lmt_overload_low_thresh / 16) - 1;
 	reg = clamp(reg, 0U, 63U);
-	ad9361_spi_writef(spi, LMT_SMALL_OVERLOAD_THRES,
-			  LMT_SMALL_OVERLOAD_THRES_MASK, reg);
+	ad9361_spi_writef(spi, REG_SMALL_LMT_OVERLOAD_THRESH,
+			  SMALL_LMT_OVERLOAD_THRESH(~0), reg);
 
 	if (phy->pdata->split_gt) {
 		/* REVIST */
-		ad9361_spi_write(spi, RX1_MANUAL_LPF_GAIN, 0x58); // Rx1 LPF Gain Index
-		ad9361_spi_write(spi, RX2_MANUAL_LPF_GAIN, 0x18); // Rx2 LPF Gain Index
-		ad9361_spi_write(spi, FAST_INI_LMT_GAIN_LIMIT, 0x27); // Initial LMT Gain Limit
+		ad9361_spi_write(spi, REG_RX1_MANUAL_LPF_GAIN, 0x58); // Rx1 LPF Gain Index
+		ad9361_spi_write(spi, REG_RX2_MANUAL_LPF_GAIN, 0x18); // Rx2 LPF Gain Index
+		ad9361_spi_write(spi, REG_FAST_INITIAL_LMT_GAIN_LIMIT, 0x27); // Initial LMT Gain Limit
 	}
 
-	ad9361_spi_write(spi, RX1_MANUAL_DIG_FORCE_GAIN, 0x00); // Rx1 Digital Gain Index
-	ad9361_spi_write(spi, RX2_MANUAL_DIG_FORCE_GAIN, 0x00); // Rx2 Digital Gain Index
+	ad9361_spi_write(spi, REG_RX1_MANUAL_DIGITALFORCED_GAIN, 0x00); // Rx1 Digital Gain Index
+	ad9361_spi_write(spi, REG_RX2_MANUAL_DIGITALFORCED_GAIN, 0x00); // Rx2 Digital Gain Index
 
 	reg = clamp_t(u8, ctrl->low_power_thresh, 0U, 64U) * 2;
-	ad9361_spi_write(spi, FAST_LOW_POWER_THRES, reg); // Low Power Threshold
-	ad9361_spi_write(spi, TX_SYMBOL_ATTEN_CONFIG, 0x00); // Tx Symbol Gain Control
+	ad9361_spi_write(spi, REG_FAST_LOW_POWER_THRESH, reg); // Low Power Threshold
+	ad9361_spi_write(spi, REG_TX_SYMBOL_ATTEN_CONFIG, 0x00); // Tx Symbol Gain Control
 
 	reg = ilog2(ctrl->dec_pow_measuremnt_duration / 16);
-	ad9361_spi_writef(spi, DEC_POWER_MEAS_DURATION,
-			  DEC_POWER_MEAS_DURATION_MASK, reg); // Power Measurement Duration
+	ad9361_spi_writef(spi, REG_DEC_POWER_MEASURE_DURATION_0,
+			  DEC_POWER_MEASUREMENT_DURATION(~0), reg); // Power Measurement Duration
 
 	/* AGC */
 
 	reg = clamp_t(u8, ctrl->agc_attack_delay_us, 0U, 31U);
-	ad9361_spi_writef(spi, AGC_ATTACK_DELAY,
-			  AGC_ATTACK_DELAY_MASK, reg);
+	ad9361_spi_writef(spi, REG_AGC_ATTACK_DELAY,
+			  AGC_ATTACK_DELAY(~0), reg);
 
 	reg = clamp_t(u8, ctrl->agc_settling_delay, 0U, 31U);
-	ad9361_spi_writef(spi, FAST_CONFIG_2_DELAY,
-			  FAST_CONFIG_2_DELAY_MASK, reg);
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+			  SETTLING_DELAY(~0), reg);
 
 	tmp1 = reg = clamp_t(u8, ctrl->agc_inner_thresh_high, 0U, 127U);
-	ad9361_spi_writef(spi, AGC_LOCK_LEVEL,
-			  AGC_LOCK_LEVEL_MASK, reg);
+	ad9361_spi_writef(spi, REG_AGC_LOCK_LEVEL,
+			  AGC_LOCK_LEVEL_FAST_AGC_INNER_HIGH_THRESH_SLOW(~0),
+			  reg);
 
 	tmp2 = reg = clamp_t(u8, ctrl->agc_inner_thresh_low, 0U, 127U);
 	reg |= (ctrl->adc_lmt_small_overload_prevent_gain_inc ?
-		ADC_LMT_S_OVR_PREVENT_GAIN_INC : 0);
-	ad9361_spi_writef(spi, SLOW_AGC_INNER_LOW_THRES,
-			  SLOW_AGC_INNER_LOW_THRES_MASK, reg);
+		PREVENT_GAIN_INC : 0);
+	ad9361_spi_write(spi, REG_AGC_INNER_LOW_THRESH, reg);
 
 	reg = AGC_OUTER_HIGH_THRESH(tmp1 - ctrl->agc_outer_thresh_high) |
 		AGC_OUTER_LOW_THRESH(ctrl->agc_outer_thresh_low - tmp2);
-	ad9361_spi_write(spi, SLOW_OUTER_POWER_THRES, reg);
+	ad9361_spi_write(spi, REG_OUTER_POWER_THRESHS, reg);
 
-	reg = AGC_OUTER_HIGH_THRESH_EX_STP(ctrl->agc_outer_thresh_high_dec_steps) |
-		AGC_OUTER_LOW_THRESH_EX_STP(ctrl->agc_outer_thresh_low_inc_steps);
-	ad9361_spi_write(spi, SLOW_GAIN_STEP_2, reg);
+	reg = AGC_OUTER_HIGH_THRESH_EXED_STP_SIZE(ctrl->agc_outer_thresh_high_dec_steps) |
+		AGC_OUTER_LOW_THRESH_EXED_STP_SIZE(ctrl->agc_outer_thresh_low_inc_steps);
+	ad9361_spi_write(spi, REG_GAIN_STP_2, reg);
 
 	reg = ((ctrl->immed_gain_change_if_large_adc_overload) ?
-		IMMED_GAIN_CHANGE_ADC_OVER : 0) |
+		IMMED_GAIN_CHANGE_IF_LG_ADC_OVERLOAD : 0) |
 		((ctrl->immed_gain_change_if_large_lmt_overload) ?
-		IMMED_GAIN_CHANGE_LMT_OVER : 0) |
-		AGC_INNER_HIGH_THRESH_EX_STP(ctrl->agc_inner_thresh_high_dec_steps) |
-		AGC_INNER_LOW_THRESH_EX_STP(ctrl->agc_inner_thresh_low_inc_steps);
-	ad9361_spi_write(spi, SLOW_GAIN_STEP_1, reg);
+		IMMED_GAIN_CHANGE_IF_LG_LMT_OVERLOAD : 0) |
+		AGC_INNER_HIGH_THRESH_EXED_STP_SIZE(ctrl->agc_inner_thresh_high_dec_steps) |
+		AGC_INNER_LOW_THRESH_EXED_STP_SIZE(ctrl->agc_inner_thresh_low_inc_steps);
+	ad9361_spi_write(spi, REG_GAIN_STP1, reg);
 
-	reg = LARGE_ADC_OVERL_EX_CNTR(ctrl->adc_large_overload_exceed_counter) |
-		SMALL_ADC_OVERL_EX_CNTR(ctrl->adc_small_overload_exceed_counter);
-	ad9361_spi_write(spi, SLOW_ADC_OVERLOAD_COUNTER, reg);
+	reg = LARGE_ADC_OVERLOAD_EXED_COUNTER(ctrl->adc_large_overload_exceed_counter) |
+		SMALL_ADC_OVERLOAD_EXED_COUNTER(ctrl->adc_small_overload_exceed_counter);
+	ad9361_spi_write(spi, REG_ADC_OVERLOAD_COUNTERS, reg);
 
-	ad9361_spi_writef(spi, GAIN_STEP_CONFIG_2, LARGE_LPF_GAIN_STEP(~0),
+	ad9361_spi_writef(spi, REG_GAIN_STP_CONFIG_2, LARGE_LPF_GAIN_STEP(~0),
 			 LARGE_LPF_GAIN_STEP(ctrl->adc_large_overload_inc_steps));
 
-	reg = LARGE_LMT_OVERL_EX_CNTR(ctrl->lmt_overload_large_exceed_counter) |
-		SMALL_LMT_OVERL_EX_CNTR(ctrl->lmt_overload_small_exceed_counter);
-	ad9361_spi_write(spi, SLOW_LMT_OVERLOAD_COUNTER, reg);
+	reg = LARGE_LMT_OVERLOAD_EXED_COUNTER(ctrl->lmt_overload_large_exceed_counter) |
+		SMALL_LMT_OVERLOAD_EXED_COUNTER(ctrl->lmt_overload_small_exceed_counter);
+	ad9361_spi_write(spi, REG_LMT_OVERLOAD_COUNTERS, reg);
 
-	ad9361_spi_writef(spi, GAIN_STEP_CONFIG_1,
-			LMT_OVERLOAD_LARGE_INC_SIZE_MASK,
+	ad9361_spi_writef(spi, REG_GAIN_STP_CONFIG1,
+			DEC_STP_SIZE_FOR_LARGE_LMT_OVERLOAD(~0),
 			ctrl->lmt_overload_large_inc_steps);
 
-	reg = DIGITAL_SAT_EX_COUNTER(ctrl->dig_saturation_exceed_counter) |
-		(ctrl->sync_for_gain_counter_en ? SYNC_FOR_GAIN_COUNTER_EN : 0) |
+	reg = DIG_SATURATION_EXED_COUNTER(ctrl->dig_saturation_exceed_counter) |
+		(ctrl->sync_for_gain_counter_en ? ENABLE_SYNC_FOR_GAIN_COUNTER : 0) |
 		(ctrl->gain_update_counter > 131070 ? DOUBLE_GAIN_COUNTER : 0);
-	ad9361_spi_write(spi, SLOW_DIGITAL_SAT_COUNTER, reg);
+	ad9361_spi_write(spi, REG_DIGITAL_SAT_COUNTER, reg);
 
 	tmp1 = (ctrl->gain_update_counter > 131070) ?
 		ctrl->gain_update_counter / 4 :
 		ctrl->gain_update_counter / 2;
 
-	ad9361_spi_write(spi, SLOW_GAIN_UPDATE_COUNTER1, tmp1 & 0xFF);
-	ad9361_spi_write(spi, SLOW_GAIN_UPDATE_COUNTER2, tmp1 >> 8);
+	ad9361_spi_write(spi, REG_GAIN_UPDATE_COUNTER1, tmp1 & 0xFF);
+	ad9361_spi_write(spi, REG_GAIN_UPDATE_COUNTER2, tmp1 >> 8);
 
 	return 0;
 }
@@ -2131,19 +2170,19 @@ static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy,
 	val = DIV_ROUND_CLOSEST(ctrl->temp_time_inteval_ms *
 		(bbpll_freq / 1000UL), (1 << 29));
 
-	ad9361_spi_write(spi, TEMP_SENSE_OFFSET, ctrl->offset);
-	ad9361_spi_write(spi, TEMP_SENSE_1, 0x00);
-	ad9361_spi_write(spi, TEMP_SENSE_2,
-			 TEMP_SENSE_2_TIME_INTERVAL(val) |
+	ad9361_spi_write(spi, REG_TEMP_OFFSET, ctrl->offset);
+	ad9361_spi_write(spi, REG_START_TEMP_READING, 0x00);
+	ad9361_spi_write(spi, REG_TEMP_SENSE2,
+			 MEASUREMENT_TIME_INTERVAL(val) |
 			 (ctrl->periodic_temp_measuremnt ?
-			 TEMP_SENSE_2_PERIODIC_EN : 0));
-	ad9361_spi_write(spi, TEMP_SENSE_CONFIG,
-			 TEMP_SENSE_CONFIG_DECIM(
+			 TEMP_SENSE_PERIODIC_ENABLE : 0));
+	ad9361_spi_write(spi, REG_TEMP_SENSOR_CONFIG,
+			 TEMP_SENSOR_DECIMATION(
 			 ilog2(ctrl->temp_sensor_decimation) - 8));
-	ad9361_spi_write(spi, AUX_ADC_CLOCK_DIVIDER,
+	ad9361_spi_write(spi, REG_AUXADC_CLOCK_DIVIDER,
 			 bbpll_freq / ctrl->auxadc_clock_rate);
-	ad9361_spi_write(spi, AUX_ADC_CONFIG,
-			 AUX_ADC_CONFIG_DECIM(
+	ad9361_spi_write(spi, REG_AUXADC_CONFIG,
+			 AUX_ADC_DECIMATION(
 			ilog2(ctrl->auxadc_decimation) - 8));
 
 	return 0;
@@ -2151,7 +2190,7 @@ static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy,
 
 static int ad9361_get_temp(struct ad9361_rf_phy *phy)
 {
-	u32 val = ad9361_spi_read(phy->spi, TEMP_SENSE_DATA);
+	u32 val = ad9361_spi_read(phy->spi, REG_TEMPERATURE);
 
 	return DIV_ROUND_CLOSEST(val * 1000, 1140);
 }
@@ -2167,8 +2206,8 @@ static int ad9361_ctrl_outs_setup(struct ad9361_rf_phy *phy,
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	ad9361_spi_write(spi, CONTROL_OUTPUT_POINTER, ctrl->index); // Ctrl Out index
-	return ad9361_spi_write(spi, CONTROL_OUTPUT_ENABLE, ctrl->en_mask); // Ctrl Out [7:0] output enable
+	ad9361_spi_write(spi, REG_CTRL_OUTPUT_POINTER, ctrl->index); // Ctrl Out index
+	return ad9361_spi_write(spi, REG_CTRL_OUTPUT_ENABLE, ctrl->en_mask); // Ctrl Out [7:0] output enable
 }
   //************************************************************
   // Setup GPO
@@ -2181,16 +2220,16 @@ static int ad9361_gpo_setup(struct ad9361_rf_phy *phy)
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	ad9361_spi_write(spi,0x020, 0x00); // GPO Auto Enable Setup in RX and TX
-	ad9361_spi_write(spi,0x027, 0x03); // GPO Manual and GPO auto value in ALERT
-	ad9361_spi_write(spi,0x028, 0x00); // GPO_0 RX Delay
-	ad9361_spi_write(spi,0x029, 0x00); // GPO_1 RX Delay
-	ad9361_spi_write(spi,0x02a, 0x00); // GPO_2 RX Delay
-	ad9361_spi_write(spi,0x02b, 0x00); // GPO_3 RX Delay
-	ad9361_spi_write(spi,0x02c, 0x00); // GPO_0 TX Delay
-	ad9361_spi_write(spi,0x02d, 0x00); // GPO_1 TX Delay
-	ad9361_spi_write(spi,0x02e, 0x00); // GPO_2 TX Delay
-	ad9361_spi_write(spi,0x02f, 0x00); // GPO_3 TX Delay
+	ad9361_spi_write(spi, 0x020, 0x00); // GPO Auto Enable Setup in RX and TX
+	ad9361_spi_write(spi, 0x027, 0x03); // GPO Manual and GPO auto value in ALERT
+	ad9361_spi_write(spi, 0x028, 0x00); // GPO_0 RX Delay
+	ad9361_spi_write(spi, 0x029, 0x00); // GPO_1 RX Delay
+	ad9361_spi_write(spi, 0x02a, 0x00); // GPO_2 RX Delay
+	ad9361_spi_write(spi, 0x02b, 0x00); // GPO_3 RX Delay
+	ad9361_spi_write(spi, 0x02c, 0x00); // GPO_0 TX Delay
+	ad9361_spi_write(spi, 0x02d, 0x00); // GPO_1 TX Delay
+	ad9361_spi_write(spi, 0x02e, 0x00); // GPO_2 TX Delay
+	ad9361_spi_write(spi, 0x02f, 0x00); // GPO_3 TX Delay
 
 	return 0;
 }
@@ -2219,11 +2258,13 @@ static int ad9361_rssi_setup(struct ad9361_rf_phy *phy,
 		rssi_duration = ctrl->rssi_duration;
 	} else {
 		/* update sample based on RX rate */
-		rate = DIV_ROUND_CLOSEST(clk_get_rate(phy->clks[RX_SAMPL_CLK]), 1000);
+		rate = DIV_ROUND_CLOSEST(
+			clk_get_rate(phy->clks[RX_SAMPL_CLK]), 1000);
 		/* units are in us */
 		rssi_delay = DIV_ROUND_CLOSEST(ctrl->rssi_delay * rate, 1000);
 		rssi_wait = DIV_ROUND_CLOSEST(ctrl->rssi_wait * rate, 1000);
-		rssi_duration = DIV_ROUND_CLOSEST(ctrl->rssi_duration * rate, 1000);
+		rssi_duration = DIV_ROUND_CLOSEST(
+			ctrl->rssi_duration * rate, 1000);
 	}
 
 	if (ctrl->restart_mode == EN_AGC_PIN_IS_PULLED_HIGH)
@@ -2254,20 +2295,22 @@ static int ad9361_rssi_setup(struct ad9361_rf_phy *phy,
 	val = total_weight - 0xFF;
 	weight[j - 1] -= val;
 
-	ad9361_spi_write(spi, MEASURE_DURATION_0_1, (dur_buf[1] << 4) | dur_buf[0]); // RSSI Measurement Duration 0, 1
-	ad9361_spi_write(spi, MEASURE_DURATION_2_3, (dur_buf[3] << 4) | dur_buf[2]); // RSSI Measurement Duration 2, 3
-	ad9361_spi_write(spi, WEIGHT_0, weight[0]); // RSSI Weighted Multiplier 0
-	ad9361_spi_write(spi, WEIGHT_1, weight[1]); // RSSI Weighted Multiplier 1
-	ad9361_spi_write(spi, WEIGHT_2, weight[2]); // RSSI Weighted Multiplier 2
-	ad9361_spi_write(spi, WEIGHT_3, weight[3]); // RSSI Weighted Multiplier 3
-	ad9361_spi_write(spi, RSSI_DELAY, rssi_delay); // RSSI Delay
-	ad9361_spi_write(spi, RSSI_WAIT_TIME, rssi_wait); // RSSI Wait
+	ad9361_spi_write(spi, REG_MEASURE_DURATION_01,
+			 (dur_buf[1] << 4) | dur_buf[0]); // RSSI Measurement Duration 0, 1
+	ad9361_spi_write(spi, REG_MEASURE_DURATION_23,
+			 (dur_buf[3] << 4) | dur_buf[2]); // RSSI Measurement Duration 2, 3
+	ad9361_spi_write(spi, REG_RSSI_WEIGHT_0, weight[0]); // RSSI Weighted Multiplier 0
+	ad9361_spi_write(spi, REG_RSSI_WEIGHT_1, weight[1]); // RSSI Weighted Multiplier 1
+	ad9361_spi_write(spi, REG_RSSI_WEIGHT_2, weight[2]); // RSSI Weighted Multiplier 2
+	ad9361_spi_write(spi, REG_RSSI_WEIGHT_3, weight[3]); // RSSI Weighted Multiplier 3
+	ad9361_spi_write(spi, REG_RSSI_DELAY, rssi_delay); // RSSI Delay
+	ad9361_spi_write(spi, REG_RSSI_WAIT_TIME, rssi_wait); // RSSI Wait
 
-	temp = RSSI_MODE_SEL(ctrl->restart_mode);
+	temp = RSSI_MODE_SELECT(ctrl->restart_mode);
 	if (ctrl->restart_mode == SPI_WRITE_TO_REGISTER)
 		temp |= START_RSSI_MEAS;
 
-	ret = ad9361_spi_write(spi, RSSI_CONFIG, temp); // RSSI Mode Select
+	ret = ad9361_spi_write(spi, REG_RSSI_CONFIG, temp); // RSSI Mode Select
 
 	if (ret < 0)
 		dev_err(&phy->spi->dev, "Unable to write rssi config\n");
@@ -2295,27 +2338,27 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 
 	switch (ensm_state) {
 	case ENSM_STATE_TX:
-		val |= ENSM_CONF1_FORCE_TX_ON;
+		val |= FORCE_TX_ON;
 		if (phy->pdata->fdd)
 			rc = -EINVAL;
 		else if (phy->curr_ensm_state != ENSM_STATE_ALERT)
 			rc = -EINVAL;
 		break;
 	case ENSM_STATE_RX:
-		val |= ENSM_CONF1_FORCE_RX_ON;
+		val |= FORCE_RX_ON;
 		if (phy->pdata->fdd)
 			rc = -EINVAL;
 		else if (phy->curr_ensm_state != ENSM_STATE_ALERT)
 			rc = -EINVAL;
 		break;
 	case ENSM_STATE_FDD:
-		val |= (ENSM_CONF1_FORCE_TX_ON | ENSM_CONF1_FORCE_RX_ON);
+		val |= (FORCE_TX_ON | FORCE_RX_ON);
 		if (!phy->pdata->fdd)
 			rc = -EINVAL;
 		break;
 	case ENSM_STATE_ALERT:
-		val &= ~(ENSM_CONF1_FORCE_TX_ON | ENSM_CONF1_FORCE_RX_ON);
-		val |= ENSM_CONF1_TO_ALERT | ENSM_CONF1_FORCE_ALERT;
+		val &= ~(FORCE_TX_ON | FORCE_RX_ON);
+		val |= TO_ALERT | FORCE_ALERT_STATE;
 		break;
 	case ENSM_STATE_SLEEP_WAIT:
 		break;
@@ -2331,7 +2374,7 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 		goto out;
 	}
 
-	rc = ad9361_spi_write(spi, ENSM_CONFIG_1, val);
+	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
 	if (rc)
 		dev_err(dev, "Failed to restore state\n");
 
@@ -2403,7 +2446,6 @@ static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *
 
 	return 0;
 }
-
 
 static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long tx_sample_rate,
@@ -2513,16 +2555,16 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	dev_dbg(dev, "%s", __func__);
 
 	phy->ensm_conf1 =
-		(pd->ensm_pin_level_mode ? ENSM_CONF1_LEVEL_MODE : 0) |
-		(pd->ensm_pin_ctrl ? ENSM_CONF1_ENSM_PIN_CTL_EN : 0) |
-		ENSM_CONF1_TO_ALERT;
+		(pd->ensm_pin_level_mode ? LEVEL_MODE : 0) |
+		(pd->ensm_pin_ctrl ? ENABLE_ENSM_PIN_CTRL : 0) |
+		TO_ALERT;
 
-	ad9361_spi_write(spi, SPI_CONFIGURATION, 0x81); /* RESET */
-	ad9361_spi_write(spi, SPI_CONFIGURATION, 0x0);
+	ad9361_spi_write(spi, REG_SPI_CONF, SOFT_RESET | _SOFT_RESET); /* RESET */
+	ad9361_spi_write(spi, REG_SPI_CONF, 0x0);
 
-	ad9361_spi_write(spi, CONTROL_REGISTER, 0x01);
-	ad9361_spi_write(spi, BANDGAP_CONFIG0, 0x0E); /* Enable Master Bias */
-	ad9361_spi_write(spi, BANDGAP_CONFIG1, 0x0E); /* Set Bandgap Trim */
+	ad9361_spi_write(spi, REG_CTRL, CTRL_ENABLE);
+	ad9361_spi_write(spi, REG_BANDGAP_CONFIG0, MASTER_BIAS_TRIM(0x0E)); /* Enable Master Bias */
+	ad9361_spi_write(spi, REG_BANDGAP_CONFIG1, BANDGAP_TEMP_TRIM(0x0E)); /* Set Bandgap Trim */
 
 	ad9361_set_dcxo_tune(phy, pd->dcxo_coarse, pd->dcxo_fine);
 
@@ -2563,11 +2605,15 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 	}
 
-	ad9361_spi_writef(spi, REF_DIVIDE_CONFIG_1, 0x02, 1);
-	ad9361_spi_writef(spi, REF_DIVIDE_CONFIG_2, 0x00, 3); /* FB DELAY */
-	ad9361_spi_writef(spi, REF_DIVIDE_CONFIG_2, 0x60, 3); /* FB DELAY */
+	ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_1, RX_REF_RESET_BAR, 1);
+	ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_2,
+			  TX_REF_DOUBLER_FB_DELAY(~0), 3); /* FB DELAY */
+	ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_2,
+			  RX_REF_DOUBLER_FB_DELAY(~0), 3); /* FB DELAY */
 
-	ad9361_spi_write(spi, CLK_ENABLE, pd->use_extclk ? 0x17 : 0x7); /* Enable Clocks */
+	ad9361_spi_write(spi, REG_CLOCK_ENABLE,
+			DIGITAL_POWER_UP | CLOCK_ENABLE_DFLT | BBPLL_ENABLE |
+			(pd->use_extclk ? XO_BYPASS : 0)); /* Enable Clocks */
 
 	ret = clk_set_rate(phy->clks[BB_REFCLK], ref_freq);
 	if (ret < 0) {
@@ -2719,14 +2765,14 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 
 	ad9361_pp_port_setup(phy, true);
 
-	ad9361_spi_write(phy->spi, ENSM_MODE, pd->fdd ? ENSM_MODE_FDD : 0x00);
+	ad9361_spi_write(phy->spi, REG_ENSM_MODE, pd->fdd ? FDD_MODE : 0x00);
 
 	if (pd->fdd)
-		ad9361_spi_write(phy->spi, ENSM_CONFIG_2,
-			ENSM_CONFIG_2_DUAL_SYNTH_MODE |
-			(pd->ensm_pin_ctrl ? ENSM_CONFIG_2_FDD_EXT_CTRL : 0)); /* Dual Synth */
+		ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
+			DUAL_SYNTH_MODE |
+			(pd->ensm_pin_ctrl ? FDD_EXTERNAL_CTRL_ENABLE : 0)); /* Dual Synth */
 	 else    /* For now in TDD always use Dual Synth */
-		ad9361_spi_write(phy->spi, ENSM_CONFIG_2, ENSM_CONFIG_2_DUAL_SYNTH_MODE);
+		ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2, DUAL_SYNTH_MODE);
 
 	ret = ad9361_set_tx_atten(phy, pd->tx_atten, true, true);
 	if (ret < 0)
@@ -2736,7 +2782,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	phy->curr_ensm_state = ad9361_spi_readf(spi, DEV_STATE, ENSM_STATE_MASK);
+	phy->curr_ensm_state = ad9361_spi_readf(spi, REG_STATE, ENSM_STATE(~0));
 	ad9361_ensm_set_state(phy, pd->fdd ? ENSM_STATE_FDD : ENSM_STATE_RX);
 
 	phy->current_rx_bw_Hz = pd->rf_rx_bandwidth_Hz;
@@ -2860,8 +2906,8 @@ static int ad9361_load_fir_filter_coef(struct ad9361_rf_phy *phy,
 
 	if (dest & FIR_IS_RX) {
 		val = 3 - (gain_dB + 12) / 6;
-		ad9361_spi_write(spi, RX_FIR_GAIN, val & 0x3);
-		offs = RX_FIR_COEFF_ADDR - TX_FIR_COEFF_ADDR;
+		ad9361_spi_write(spi, REG_RX_FILTER_GAIN, val & 0x3);
+		offs = REG_RX_FILTER_COEF_ADDR - REG_TX_FILTER_COEF_ADDR;
 		phy->rx_fir_ntaps = ntaps;
 	} else {
 		if (gain_dB == -6)
@@ -2873,22 +2919,22 @@ static int ad9361_load_fir_filter_coef(struct ad9361_rf_phy *phy,
 
 	fir_conf |= FIR_NUM_TAPS(val) | FIR_SELECT(dest) | FIR_START_CLK;
 
-	ad9361_spi_write(spi, TX_FIR_CONFIG + offs, fir_conf);
+	ad9361_spi_write(spi, REG_TX_FILTER_CONF + offs, fir_conf);
 
 	for (val = 0; val < ntaps; val++) {
-		ad9361_spi_write(spi, TX_FIR_COEFF_ADDR + offs, val);
-		ad9361_spi_write(spi, TX_FIR_COEFF_WRDATA_LOW + offs,
+		ad9361_spi_write(spi, REG_TX_FILTER_COEF_ADDR + offs, val);
+		ad9361_spi_write(spi, REG_TX_FILTER_COEF_WRITE_DATA_1 + offs,
 				 coef[val] & 0xFF);
-		ad9361_spi_write(spi, TX_FIR_COEFF_WRDATA_HIGH + offs,
+		ad9361_spi_write(spi, REG_TX_FILTER_COEF_WRITE_DATA_2 + offs,
 				 coef[val] >> 8);
-		ad9361_spi_write(spi, TX_FIR_CONFIG + offs, fir_conf | FIR_WRITE);
-		ad9361_spi_write(spi, TX_FIR_COEFF_RDDATA_HIGH + offs, 0);
-		ad9361_spi_write(spi, TX_FIR_COEFF_RDDATA_HIGH + offs, 0);
+		ad9361_spi_write(spi, REG_TX_FILTER_CONF + offs, fir_conf | FIR_WRITE);
+		ad9361_spi_write(spi, REG_TX_FILTER_COEF_READ_DATA_2 + offs, 0);
+		ad9361_spi_write(spi, REG_TX_FILTER_COEF_READ_DATA_2 + offs, 0);
 	}
 
-	ad9361_spi_write(spi, TX_FIR_CONFIG + offs, fir_conf);
+	ad9361_spi_write(spi, REG_TX_FILTER_CONF + offs, fir_conf);
 	fir_conf &= ~FIR_START_CLK;
-	ad9361_spi_write(spi, TX_FIR_CONFIG + offs, fir_conf);
+	ad9361_spi_write(spi, REG_TX_FILTER_CONF + offs, fir_conf);
 
 	return 0;
 }
@@ -3048,11 +3094,13 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 	 */
 
 	if (phy->rx_fir_dec == 1) {
-		ad9361_spi_writef(phy->spi, RX_ENABLE_FILTER, TX_RX_FIR, !phy->bypass_rx_fir);
+		ad9361_spi_writef(phy->spi, REG_RX_ENABLE_FILTER_CTRL,
+			RX_FIR_ENABLE_DECIMATION(~0), !phy->bypass_rx_fir);
 	}
 
 	if (phy->tx_fir_int == 1) {
-		ad9361_spi_writef(phy->spi, TX_ENABLE_FILTER, TX_RX_FIR, !phy->bypass_tx_fir);
+		ad9361_spi_writef(phy->spi, REG_TX_ENABLE_FILTER_CTRL,
+			TX_FIR_ENABLE_INTERPOLATION(~0), !phy->bypass_tx_fir);
 	}
 
 	return ad9361_update_rf_bandwidth(phy, phy->current_rx_bw_Hz,
@@ -3097,31 +3145,36 @@ static int ad9361_get_clk_scaler(struct clk_hw *hw)
 
 	switch (clk_priv->source) {
 	case BB_REFCLK:
-		tmp = ad9361_spi_read(spi, CLOCK_CONTROL);
+		tmp = ad9361_spi_read(spi, REG_CLOCK_CTRL);
 		tmp &= 0x3;
 		break;
 	case RX_REFCLK:
-		tmp = ad9361_spi_readf(spi, REF_DIVIDE_CONFIG_1, BIT(0));
-		tmp1 = ad9361_spi_readf(spi, REF_DIVIDE_CONFIG_2, BIT(7));
+		tmp = ad9361_spi_readf(spi, REG_REF_DIVIDE_CONFIG_1,
+					RX_REF_DIVIDER_MSB);
+		tmp1 = ad9361_spi_readf(spi, REG_REF_DIVIDE_CONFIG_2,
+					RX_REF_DIVIDER_LSB);
 		tmp = (tmp << 1) | tmp1;
 		break;
 	case TX_REFCLK:
-		tmp = ad9361_spi_readf(spi, REF_DIVIDE_CONFIG_2, 0x0C);
+		tmp = ad9361_spi_readf(spi, REG_REF_DIVIDE_CONFIG_2,
+				       TX_REF_DIVIDER(~0));
 		break;
 	case ADC_CLK:
-		tmp = ad9361_spi_read(spi, BBPLL);
+		tmp = ad9361_spi_read(spi, REG_BBPLL);
 		return ad9361_set_muldiv(clk_priv, 1, 1 << (tmp & 0x7));
 	case R2_CLK:
-		tmp = ad9361_spi_readf(spi, RX_ENABLE_FILTER, THB3_DEC3);
+		tmp = ad9361_spi_readf(spi, REG_RX_ENABLE_FILTER_CTRL,
+				       DEC3_ENABLE_DECIMATION(~0));
 		return ad9361_set_muldiv(clk_priv, 1, tmp + 1);
 	case R1_CLK:
-		tmp = ad9361_spi_readf(spi, RX_ENABLE_FILTER, THB2_DEC2);
+		tmp = ad9361_spi_readf(spi, REG_RX_ENABLE_FILTER_CTRL, RHB2_EN);
 		return ad9361_set_muldiv(clk_priv, 1, tmp + 1);
 	case CLKRF_CLK:
-		tmp = ad9361_spi_readf(spi, RX_ENABLE_FILTER, THB1_DEC1);
+		tmp = ad9361_spi_readf(spi, REG_RX_ENABLE_FILTER_CTRL, RHB1_EN);
 		return ad9361_set_muldiv(clk_priv, 1, tmp + 1);
 	case RX_SAMPL_CLK:
-		tmp = ad9361_spi_readf(spi, RX_ENABLE_FILTER, TX_RX_FIR);
+		tmp = ad9361_spi_readf(spi, REG_RX_ENABLE_FILTER_CTRL,
+				       RX_FIR_ENABLE_DECIMATION(~0));
 
 		if (!tmp)
 			tmp = 1; /* bypass filter */
@@ -3130,19 +3183,21 @@ static int ad9361_get_clk_scaler(struct clk_hw *hw)
 
 		return ad9361_set_muldiv(clk_priv, 1, tmp);
 	case DAC_CLK:
-		tmp = ad9361_spi_readf(spi, BBPLL, BIT(3));
+		tmp = ad9361_spi_readf(spi, REG_BBPLL, BIT(3));
 		return ad9361_set_muldiv(clk_priv, 1, tmp + 1);
 	case T2_CLK:
-		tmp = ad9361_spi_readf(spi, TX_ENABLE_FILTER, THB3_DEC3);
+		tmp = ad9361_spi_readf(spi, REG_TX_ENABLE_FILTER_CTRL,
+				       THB3_ENABLE_INTERP(~0));
 		return ad9361_set_muldiv(clk_priv, 1, tmp + 1);
 	case T1_CLK:
-		tmp = ad9361_spi_readf(spi, TX_ENABLE_FILTER, THB2_DEC2);
+		tmp = ad9361_spi_readf(spi, REG_TX_ENABLE_FILTER_CTRL, THB2_EN);
 		return ad9361_set_muldiv(clk_priv, 1, tmp + 1);
 	case CLKTF_CLK:
-		tmp = ad9361_spi_readf(spi, TX_ENABLE_FILTER, THB1_DEC1);
+		tmp = ad9361_spi_readf(spi, REG_TX_ENABLE_FILTER_CTRL, THB1_EN);
 		return ad9361_set_muldiv(clk_priv, 1, tmp + 1);
 	case TX_SAMPL_CLK:
-		tmp = ad9361_spi_readf(spi, TX_ENABLE_FILTER, TX_RX_FIR);
+		tmp = ad9361_spi_readf(spi, REG_TX_ENABLE_FILTER_CTRL,
+				       TX_FIR_ENABLE_INTERPOLATION(~0));
 
 		if (!tmp)
 			tmp = 1; /* bypass filter */
@@ -3206,7 +3261,7 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 		if (ret < 0)
 			return ret;
 		if (set)
-			return ad9361_spi_writef(spi, CLOCK_CONTROL, 0x3, ret);
+			return ad9361_spi_writef(spi, REG_CLOCK_CTRL, 0x3, ret);
 		break;
 
 	case RX_REFCLK:
@@ -3215,10 +3270,10 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 			return ret;
 		if (set) {
 			tmp = ret;
-			ret = ad9361_spi_writef(spi, REF_DIVIDE_CONFIG_1,
-						BIT(0), tmp >> 1);
-			ret |= ad9361_spi_writef(spi, REF_DIVIDE_CONFIG_2,
-						 BIT(7), tmp & 1);
+			ret = ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_1,
+						RX_REF_DIVIDER_MSB, tmp >> 1);
+			ret |= ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_2,
+						 RX_REF_DIVIDER_LSB, tmp & 1);
 			return ret;
 		}
 		break;
@@ -3227,7 +3282,7 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 		if (ret < 0)
 			return ret;
 		if (set)
-			return ad9361_spi_writef(spi, REF_DIVIDE_CONFIG_2,
+			return ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_2,
 						0x0C, ret);
 		break;
 	case ADC_CLK:
@@ -3236,28 +3291,29 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 			return -EINVAL;
 
 		if (set)
-			return ad9361_spi_writef(spi, BBPLL, 0x7, tmp);
+			return ad9361_spi_writef(spi, REG_BBPLL, 0x7, tmp);
 		break;
 	case R2_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 3 || clk_priv->div < 1)
 			return -EINVAL;
 		if (set)
-			return ad9361_spi_writef(spi, RX_ENABLE_FILTER,
-						 THB3_DEC3, clk_priv->div - 1);
+			return ad9361_spi_writef(spi, REG_RX_ENABLE_FILTER_CTRL,
+						 DEC3_ENABLE_DECIMATION(~0),
+						 clk_priv->div - 1);
 		break;
 	case R1_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 2 || clk_priv->div < 1)
 			return -EINVAL;
 		if (set)
-			return ad9361_spi_writef(spi, RX_ENABLE_FILTER,
-						 THB2_DEC2, clk_priv->div - 1);
+			return ad9361_spi_writef(spi, REG_RX_ENABLE_FILTER_CTRL,
+						 RHB2_EN, clk_priv->div - 1);
 		break;
 	case CLKRF_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 2 || clk_priv->div < 1)
 			return -EINVAL;
 		if (set)
-			return ad9361_spi_writef(spi, RX_ENABLE_FILTER,
-						 THB1_DEC1, clk_priv->div - 1);
+			return ad9361_spi_writef(spi, REG_RX_ENABLE_FILTER_CTRL,
+						 RHB1_EN, clk_priv->div - 1);
 		break;
 	case RX_SAMPL_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 4 ||
@@ -3270,36 +3326,37 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 			tmp = ilog2(clk_priv->div) + 1;
 
 		if (set)
-			return ad9361_spi_writef(spi, RX_ENABLE_FILTER,
-						 TX_RX_FIR, tmp);
+			return ad9361_spi_writef(spi, REG_RX_ENABLE_FILTER_CTRL,
+						 RX_FIR_ENABLE_DECIMATION(~0), tmp);
 		break;
 	case DAC_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 2 || clk_priv->div < 1)
 			return -EINVAL;
 		if (set)
-			return ad9361_spi_writef(spi, BBPLL,
+			return ad9361_spi_writef(spi, REG_BBPLL,
 						 BIT(3), clk_priv->div - 1);
 		break;
 	case T2_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 3 || clk_priv->div < 1)
 			return -EINVAL;
 		if (set)
-			return ad9361_spi_writef(spi, TX_ENABLE_FILTER,
-						 THB3_DEC3, clk_priv->div - 1);
+			return ad9361_spi_writef(spi, REG_TX_ENABLE_FILTER_CTRL,
+						 THB3_ENABLE_INTERP(~0),
+						 clk_priv->div - 1);
 		break;
 	case T1_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 2 || clk_priv->div < 1)
 			return -EINVAL;
 		if (set)
-			return ad9361_spi_writef(spi, TX_ENABLE_FILTER,
-						 THB2_DEC2, clk_priv->div - 1);
+			return ad9361_spi_writef(spi, REG_TX_ENABLE_FILTER_CTRL,
+						 THB2_EN, clk_priv->div - 1);
 		break;
 	case CLKTF_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 2 || clk_priv->div < 1)
 			return -EINVAL;
 		if (set)
-			return ad9361_spi_writef(spi, TX_ENABLE_FILTER,
-						 THB1_DEC1, clk_priv->div - 1);
+			return ad9361_spi_writef(spi, REG_TX_ENABLE_FILTER_CTRL,
+						 THB1_EN, clk_priv->div - 1);
 		break;
 	case TX_SAMPL_CLK:
 		if (clk_priv->mult != 1 || clk_priv->div > 4 ||
@@ -3312,8 +3369,8 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 			tmp = ilog2(clk_priv->div) + 1;
 
 		if (set)
-			return ad9361_spi_writef(spi, TX_ENABLE_FILTER,
-						 TX_RX_FIR, tmp);
+			return ad9361_spi_writef(spi, REG_TX_ENABLE_FILTER_CTRL,
+					TX_FIR_ENABLE_INTERPOLATION(~0), tmp);
 		break;
 	default:
 		return -EINVAL;
@@ -3393,8 +3450,8 @@ static unsigned long ad9361_bbpll_recalc_rate(struct clk_hw *hw,
 	unsigned long fract, integer;
 	u8 buf[4];
 
-	ad9361_spi_readm(clk_priv->spi, INT_BB_FREQ_WORD, &buf[0],
-			       INT_BB_FREQ_WORD - FRAC_BB_FREQ_WORD_1 + 1);
+	ad9361_spi_readm(clk_priv->spi, REG_INTEGER_BB_FREQ_WORD, &buf[0],
+			       REG_INTEGER_BB_FREQ_WORD - REG_FRACT_BB_FREQ_WORD_1 + 1);
 
 	fract = (buf[3] << 16) | (buf[2] << 8) | buf[1];
 	integer = buf[0];
@@ -3457,14 +3514,15 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	icp_val = clamp(icp_val, 1, 64);
 
-	ad9361_spi_write(spi, CP_CURRENT, icp_val);
-	ad9361_spi_writem(spi, LOOP_FILTER_3, lf_defaults,
+	ad9361_spi_write(spi, REG_CP_CURRENT, icp_val);
+	ad9361_spi_writem(spi, REG_LOOP_FILTER_3, lf_defaults,
 			  ARRAY_SIZE(lf_defaults));
 
 	/* Allow calibration to occur and set cal count to 1024 for max accuracy */
-	ad9361_spi_write(spi, VCO_CONTROL, 0xE0);
+	ad9361_spi_write(spi, REG_VCO_CTRL,
+			 FREQ_CAL_ENABLE | FREQ_CAL_COUNT_LENGTH(3));
 	/* Set calibration clock to REFCLK/4 for more accuracy */
-	ad9361_spi_write(spi, SDM_CONTROL, 0x10);
+	ad9361_spi_write(spi, REG_SDM_CTRL, 0x10);
 
 	/* Calculate and set BBPLL frequency word */
 	tmp = do_div(rate, parent_rate);
@@ -3474,19 +3532,20 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	integer = rate;
 	fract = tmp;
 
-	ad9361_spi_write(spi, INT_BB_FREQ_WORD, integer);
-	ad9361_spi_write(spi, FRAC_BB_FREQ_WORD_3, fract);
-	ad9361_spi_write(spi, FRAC_BB_FREQ_WORD_2, fract >> 8);
-	ad9361_spi_write(spi, FRAC_BB_FREQ_WORD_1, fract >> 16);
+	ad9361_spi_write(spi, REG_INTEGER_BB_FREQ_WORD, integer);
+	ad9361_spi_write(spi, REG_FRACT_BB_FREQ_WORD_3, fract);
+	ad9361_spi_write(spi, REG_FRACT_BB_FREQ_WORD_2, fract >> 8);
+	ad9361_spi_write(spi, REG_FRACT_BB_FREQ_WORD_1, fract >> 16);
 
-	ad9361_spi_write(spi, SDM_CONTROL_1, 0x05); /* Start BBPLL Calibration */
-	ad9361_spi_write(spi, SDM_CONTROL_1, 0x01); /* Clear BBPLL start calibration bit */
+	ad9361_spi_write(spi, REG_SDM_CTRL_1, INIT_BB_FO_CAL | BBPLL_RESET_BAR); /* Start BBPLL Calibration */
+	ad9361_spi_write(spi, REG_SDM_CTRL_1, BBPLL_RESET_BAR); /* Clear BBPLL start calibration bit */
 
-	ad9361_spi_write(spi, VCO_PROGRAM_1, 0x86); /* Increase BBPLL KV and phase margin */
-	ad9361_spi_write(spi, VCO_PROGRAM_2, 0x01); /* Increase BBPLL KV and phase margin */
-	ad9361_spi_write(spi, VCO_PROGRAM_2, 0x05); /* Increase BBPLL KV and phase margin */
+	ad9361_spi_write(spi, REG_VCO_PROGRAM_1, 0x86); /* Increase BBPLL KV and phase margin */
+	ad9361_spi_write(spi, REG_VCO_PROGRAM_2, 0x01); /* Increase BBPLL KV and phase margin */
+	ad9361_spi_write(spi, REG_VCO_PROGRAM_2, 0x05); /* Increase BBPLL KV and phase margin */
 
-	return ad9361_check_cal_done(clk_priv->phy, CH1_OVERFLOW, BIT(7), 1);
+	return ad9361_check_cal_done(clk_priv->phy, REG_CH_1_OVERFLOW,
+				     BBPLL_LOCK, 1);
 }
 
 struct clk_ops bbpll_clk_ops = {
@@ -3550,12 +3609,12 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 
 	switch (clk_priv->source) {
 	case RX_RFPLL:
-		reg = RX_FRACTIONAL_BYTE_2;
-		div_mask = RX_VCO_DIV;
+		reg = REG_RX_FRACT_BYTE_2;
+		div_mask = RX_VCO_DIVIDER(~0);
 		break;
 	case TX_RFPLL:
-		reg = TX_FRACTIONAL_BYTE_2;
-		div_mask = TX_VCO_DIV;
+		reg = REG_TX_FRACT_BYTE_2;
+		div_mask = TX_VCO_DIVIDER(~0);
 		break;
 	default:
 		return -EINVAL;
@@ -3563,8 +3622,7 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 
 	ad9361_spi_readm(clk_priv->spi, reg, &buf[0], ARRAY_SIZE(buf));
 
-	vco_div = ad9361_spi_readf(clk_priv->spi,
-					RFPLL_DIVIDERS, div_mask);
+	vco_div = ad9361_spi_readf(clk_priv->spi, REG_RFPLL_DIVIDERS, div_mask);
 
 	fract = (buf[0] << 16) | (buf[1] << 8) | buf[2];
 	integer = buf[3] << 8 | buf[4];
@@ -3607,21 +3665,21 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	switch (clk_priv->source) {
 	case RX_RFPLL:
-		reg = RX_FRACTIONAL_BYTE_2;
-		lock_reg = RX_CP_OVERRANGE_VCOLOCK;
-		div_mask = RX_VCO_DIV;
+		reg = REG_RX_FRACT_BYTE_2;
+		lock_reg = REG_RX_CP_OVERRANGE_VCO_LOCK;
+		div_mask = RX_VCO_DIVIDER(~0);
 		break;
 	case TX_RFPLL:
-		reg = TX_FRACTIONAL_BYTE_2;
-		lock_reg = TX_CP_OVERRANGE_VCOLOCK;
-		div_mask = TX_VCO_DIV;
+		reg = REG_TX_FRACT_BYTE_2;
+		lock_reg = REG_TX_CP_OVERRANGE_VCO_LOCK;
+		div_mask = TX_VCO_DIVIDER(~0);
 		break;
 	default:
 		return -EINVAL;
 
 	}
 
-	ad9361_rfpll_vco_init(phy, div_mask == TX_VCO_DIV,
+	ad9361_rfpll_vco_init(phy, div_mask == TX_VCO_DIVIDER(~0),
 			      vco, parent_rate);
 
 	buf[0] = fract >> 16;
@@ -3631,11 +3689,11 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	buf[4] = integer & 0xFF;
 
 	ad9361_spi_writem(clk_priv->spi, reg, buf, 5);
-	ad9361_spi_writef(clk_priv->spi, RFPLL_DIVIDERS, div_mask, vco_div);
+	ad9361_spi_writef(clk_priv->spi, REG_RFPLL_DIVIDERS, div_mask, vco_div);
 
 	/* Load Gain Table */
 	if (clk_priv->source == RX_RFPLL) {
-		ret = ad9361_load_gt(phy, ad9361_from_clk(rate));
+		ret = ad9361_load_gt(phy, ad9361_from_clk(rate), GT_RX1 + GT_RX2);
 		if (ret < 0)
 			return ret;
 	}
@@ -3972,7 +4030,7 @@ static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 	if (conv == NULL)
 		return -ENOMEM;
 
-	conv->id = ad9361_spi_read(spi, PRODUCT_ID) & PRODUCT_ID_MASK;
+	conv->id = ad9361_spi_read(spi, REG_PRODUCT_ID) & PRODUCT_ID_MASK;
 	if (conv->id != PRODUCT_ID_9361) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
   		ret = -ENODEV;
@@ -4153,7 +4211,7 @@ static ssize_t ad9361_phy_show(struct device *dev,
 	case AD9361_ENSM_MODE:
 		ret = sprintf(buf, "%s\n",
 			      ad9361_ensm_states[ad9361_spi_readf
-			      (phy->spi, DEV_STATE, ENSM_STATE_MASK)]);
+			      (phy->spi, REG_STATE, ENSM_STATE(~0))]);
 		break;
 	case AD9361_ENSM_MODE_AVAIL:
 		ret = sprintf(buf, "%s\n", phy->pdata->fdd ?
@@ -4462,7 +4520,8 @@ static ssize_t ad9361_phy_rx_read(struct iio_dev *indio_dev,
 
 	mutex_unlock(&indio_dev->mlock);
 
-	return ret < 0 ? ret : sprintf(buf, "-%u.%02u dB\n", val/100, val%100);
+	return ret < 0 ? ret : sprintf(buf, "-%u.%02u dB\n",
+			val / rssi.multiplier, val % rssi.multiplier);
 }
 
 #define _AD9361_EXT_RX_INFO(_name, _ident) { \
@@ -5036,11 +5095,11 @@ static int ad9361_probe(struct spi_device *spi)
 	phy->rate_governor = 1;
 
 	if (ad9361_reset(phy)) {
-		ad9361_spi_write(spi, SPI_CONFIGURATION, 0x81); /* RESET */
-		ad9361_spi_write(spi, SPI_CONFIGURATION, 0x0);
+		ad9361_spi_write(spi, REG_SPI_CONF, SOFT_RESET | _SOFT_RESET); /* RESET */
+		ad9361_spi_write(spi, REG_SPI_CONF, 0x0);
 	}
 
-	ret = ad9361_spi_read(spi, PRODUCT_ID);
+	ret = ad9361_spi_read(spi, REG_PRODUCT_ID);
 	if ((ret & PRODUCT_ID_MASK) != PRODUCT_ID_9361) {
 		dev_err(&spi->dev, "%s : Unsupported PRODUCT_ID 0x%X",
 			__func__, ret);
