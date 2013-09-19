@@ -584,6 +584,22 @@ void iio_disable_all_buffers(struct iio_dev *indio_dev)
 		kfree(indio_dev->active_scan_mask);
 }
 
+static int iio_buffer_enable(struct iio_buffer *buffer,
+	struct iio_dev *indio_dev)
+{
+	if (!buffer->access->enable)
+		return 0;
+	return buffer->access->enable(buffer, indio_dev);
+}
+
+static int iio_buffer_disable(struct iio_buffer *buffer,
+	struct iio_dev *indio_dev)
+{
+	if (!buffer->access->disable)
+		return 0;
+	return buffer->access->disable(buffer, indio_dev);
+}
+
 static void iio_buffer_update_bytes_per_datum(struct iio_dev *indio_dev,
 	struct iio_buffer *buffer)
 {
@@ -615,6 +631,13 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 			if (ret)
 				goto error_ret;
 		}
+
+		list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+			ret = iio_buffer_disable(buffer, indio_dev);
+			if (ret)
+				goto error_ret;
+		}
+
 		indio_dev->currentmode = INDIO_DIRECT_MODE;
 		if (indio_dev->setup_ops->postdisable) {
 			ret = indio_dev->setup_ops->postdisable(indio_dev);
@@ -667,6 +690,7 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 			 * Roll back.
 			 * Note can only occur when adding a buffer.
 			 */
+			iio_buffer_disable(insert_buffer, indio_dev);
 			iio_buffer_deactivate(insert_buffer);
 			if (old_mask) {
 				indio_dev->active_scan_mask = old_mask;
@@ -710,6 +734,10 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 				goto error_run_postdisable;
 			}
 		}
+
+		ret = iio_buffer_enable(buffer, indio_dev);
+		if (ret)
+			goto error_run_postdisable;
 	}
 	if (indio_dev->info->update_scan_mode) {
 		ret = indio_dev->info
@@ -756,6 +784,7 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 	return success;
 
 error_disable_all_buffers:
+	iio_buffer_disable(buffer, indio_dev);
 	indio_dev->currentmode = INDIO_DIRECT_MODE;
 error_run_postdisable:
 	if (indio_dev->setup_ops->postdisable)

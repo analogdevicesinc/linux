@@ -55,6 +55,9 @@ struct iio_buffer_access_funcs {
 	int (*set_length)(struct iio_buffer *buffer, int length);
 
 	void (*release)(struct iio_buffer *buffer);
+
+	int (*enable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
+	int (*disable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
 };
 
 /**
