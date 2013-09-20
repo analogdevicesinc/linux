@@ -2743,8 +2743,18 @@
 #define DAC_TEST_ENABLE			     (1 << 7) /* DAC Test Enable */
 #define DAC_TEST_WORD(x)		     (((x) & 0x7F) << 0) /* DAC test Word <22:16> */
 
+/*
+ *	SPI Comm Helpers
+ */
+#define AD_READ		(0 << 15)
+#define AD_WRITE		(1 << 15)
+#define AD_CNT(x)	((((x) - 1) & 0x7) << 12)
+#define AD_ADDR(x)	((x) & 0x3FF)
 
-/* AD9361 Limits */
+
+/*
+ *	AD9361 Limits
+ */
 
 #define RSSI_MULTIPLIER			100
 #define RSSI_RESOLUTION			((int) (0.25 * RSSI_MULTIPLIER))
@@ -2772,6 +2782,225 @@
 #define MAX_CARRIER_FREQ_HZ		6000000000
 #define MIN_CARRIER_FREQ_HZ		47000000
 
+/*
+ *	Driver
+ */
+
+
+
+enum rx_gain_table_type {
+	RXGAIN_FULL_TBL,
+	RXGAIN_SPLIT_TBL,
+};
+
+enum rx_gain_table_name {
+	TBL_200_1300_MHZ,
+	TBL_1300_4000_MHZ,
+	TBL_4000_6000_MHZ,
+	RXGAIN_TBLS_END,
+};
+
+enum fir_dest {
+	FIR_TX1 = 0x01,
+	FIR_TX2 = 0x02,
+	FIR_TX1_TX2 = 0x03,
+	FIR_RX1 = 0x81,
+	FIR_RX2 = 0x82,
+	FIR_RX1_RX2 = 0x83,
+	FIR_IS_RX = 0x80,
+};
+
+struct rf_gain_ctrl {
+	u32 ant;
+	u8 mode;
+};
+
+enum rf_gain_ctrl_mode {
+	RF_GAIN_MGC,
+	RF_GAIN_FASTATTACK_AGC,
+	RF_GAIN_SLOWATTACK_AGC,
+	RF_GAIN_HYBRID_AGC
+};
+
+struct gain_control {
+	enum rf_gain_ctrl_mode rx1_mode;
+	enum rf_gain_ctrl_mode rx2_mode;
+
+	/* Common */
+	u8 adc_ovr_sample_size; /* 1..8 Sum x samples, AGC_CONFIG_3 */
+	u8 adc_small_overload_thresh; /* 0..255, 0x105 */
+	u8 adc_large_overload_thresh; /* 0..255, 0x104 */
+
+	u16 lmt_overload_high_thresh; /* 16..800 mV, 0x107 */
+	u16 lmt_overload_low_thresh; /* 16..800 mV, 0x108 */
+	u8 analog_settling_time; /* 0..31, Peak overload wait time */
+	u16 dec_pow_measuremnt_duration; /* Samples, 0x15C */
+	u8 low_power_thresh; /* -64..0 dBFS, 0x114 */
+
+	bool dig_gain_en; /* should be turned off, since ADI GT doesn't use dig gain */
+	u8 max_dig_gain; /* 0..31 */
+
+	/* MGC */
+	bool mgc_rx1_ctrl_inp_en; /* Enables Pin control on RX1 default SPI ctrl */
+	bool mgc_rx2_ctrl_inp_en; /* Enables Pin control on RX2 default SPI ctrl */
+
+	u8 mgc_inc_gain_step; /* 1..8 */
+	u8 mgc_dec_gain_step; /* 1..8 */
+	u8 mgc_split_table_ctrl_inp_gain_mode; /* 0=AGC determine this, 1=only in LPF, 2=only in LMT */
+
+	/* AGC */
+	u8 agc_attack_delay_us; /* 0..31 us */
+	u8 agc_settling_delay;	/* 0..31, 0x111 */
+
+	u8 agc_outer_thresh_high;
+	u8 agc_outer_thresh_high_dec_steps;
+	u8 agc_inner_thresh_high;
+	u8 agc_inner_thresh_high_dec_steps;
+	u8 agc_inner_thresh_low;
+	u8 agc_inner_thresh_low_inc_steps;
+	u8 agc_outer_thresh_low;
+	u8 agc_outer_thresh_low_inc_steps;
+
+	u8 adc_small_overload_exceed_counter; /* 0..15, 0x122 */
+	u8 adc_large_overload_exceed_counter; /* 0..15, 0x122 */
+	u8 adc_large_overload_inc_steps; /* 0..15, 0x106 */
+
+	bool adc_lmt_small_overload_prevent_gain_inc; /* 0x120 */
+
+	u8 lmt_overload_large_exceed_counter; /* 0..15, 0x121 */
+	u8 lmt_overload_small_exceed_counter; /* 0..15, 0x121 */
+	u8 lmt_overload_large_inc_steps; /* 0..7, 0x121 */
+
+	u8 dig_saturation_exceed_counter; /* 0..15, 0x128 */
+	u8 dig_gain_step_size; /* 1..8, 0x100 */
+	bool sync_for_gain_counter_en; /* 0x128:4 !Hybrid */
+
+	u32 gain_update_counter; /* 0..262144, 0x124, 0x125 CLKRF samples*/
+	bool immed_gain_change_if_large_adc_overload; /* 0x123:3 */
+	bool immed_gain_change_if_large_lmt_overload; /* 0x123:7 */
+
+};
+
+enum rssi_restart_mode {
+	AGC_IN_FAST_ATTACK_MODE_LOCKS_THE_GAIN,
+	EN_AGC_PIN_IS_PULLED_HIGH,
+	ENTERS_RX_MODE,
+	GAIN_CHANGE_OCCURS,
+	SPI_WRITE_TO_REGISTER,
+	GAIN_CHANGE_OCCURS_OR_EN_AGC_PIN_PULLED_HIGH,
+};
+
+struct rssi_control {
+	enum rssi_restart_mode restart_mode;
+	bool rssi_unit_is_rx_samples;	/* default unit is time */
+	u32 rssi_delay;
+	u32 rssi_wait;
+	u32 rssi_duration;
+};
+
+struct rx_gain_info {
+	enum rx_gain_table_type tbl_type;
+	int starting_gain_db;
+	int max_gain_db;
+	int gain_step_db;
+	int max_idx;
+	int idx_step_offset;
+};
+
+struct port_control {
+	u8			pp_conf[3];
+	u8			rx_clk_data_delay;
+	u8			tx_clk_data_delay;
+	u8			digital_io_ctrl;
+	u8			lvds_bias_ctrl;
+	u8			lvds_invert[2];
+};
+
+struct ctrl_outs_control {
+	u8			index;
+	u8			en_mask;
+};
+
+struct elna_control {
+	u16			gain_mdB;
+	u16			bypass_loss_mdB;
+	bool			elna_1_control_en; /* GPO0 */
+	bool			elna_2_control_en; /* GPO1 */
+};
+
+struct auxadc_control {
+	s8			offset;
+	u32			temp_time_inteval_ms;
+	u32			temp_sensor_decimation;
+	bool			periodic_temp_measuremnt;
+	u32			auxadc_clock_rate;
+	u32			auxadc_decimation;
+};
+
+enum ad9361_pdata_rx_freq {
+	BBPLL_FREQ,
+	ADC_FREQ,
+	R2_FREQ,
+	R1_FREQ,
+	CLKRF_FREQ,
+	RX_SAMPL_FREQ,
+	NUM_RX_CLOCKS,
+};
+
+enum ad9361_pdata_tx_freq {
+	IGNORE,
+	DAC_FREQ,
+	T2_FREQ,
+	T1_FREQ,
+	CLKTF_FREQ,
+	TX_SAMPL_FREQ,
+	NUM_TX_CLOCKS,
+};
+
+struct ad9361_phy_platform_data {
+	bool			rx2tx2;
+	bool			fdd;
+	bool			split_gt;
+	bool 			use_extclk;
+	bool			ensm_pin_level_mode;
+	bool			ensm_pin_ctrl;
+	bool			debug_mode;
+	u32			dcxo_coarse;
+	u32			dcxo_fine;
+	u32			rf_rx_input_sel;
+	u32			rf_tx_output_sel;
+	unsigned long		rx_path_clks[NUM_RX_CLOCKS];
+	unsigned long		tx_path_clks[NUM_TX_CLOCKS];
+	u64			rx_synth_freq;
+	u64			tx_synth_freq;
+	u32			rf_rx_bandwidth_Hz;
+	u32			rf_tx_bandwidth_Hz;
+	int			tx_atten;
+	int 			gpio_resetb;
+
+	struct gain_control	gain_ctrl;
+	struct rssi_control	rssi_ctrl;
+	struct port_control	port_ctrl;
+	struct ctrl_outs_control	ctrl_outs_ctrl;
+	struct elna_control	elna_ctrl;
+	struct auxadc_control	auxadc_ctrl;
+};
+
+struct rf_rx_gain {
+	u32 ant;		/* Antenna number to read gain */
+	s32 gain_db;		/* gain value in dB */
+	u32 lmt_index;	/* LNA-MIXER-TIA gain index */
+	u32 lmt_gain;		/* LNA-MIXER-TIA gain in dB */
+	u32 lpf_gain;		/* Low pass filter gain in dB */
+	u32 digital_gain;	/* Digital gain in dB */
+};
+struct rf_rssi {
+	u32 ant;		/* Antenna number for which RSSI is reported */
+	u32 symbol;		/* Runtime RSSI */
+	u32 preamble;		/* Initial RSSI */
+	s32 multiplier;	/* Multiplier to convert reported RSSI */
+	u8 duration;		/* Duration to be considered for measuring */
+};
 
 struct SynthLUT {
 	u16 VCO_MHz;
@@ -2794,28 +3023,6 @@ enum {
 	LUT_FTDD_60,
 	LUT_FTDD_80,
 	LUT_FTDD_ENT,
-};
-
-enum rx_gain_table_type {
-	RXGAIN_FULL_TBL,
-	RXGAIN_SPLIT_TBL,
-};
-
-enum rx_gain_table_name {
-	TBL_200_1300_MHZ,
-	TBL_1300_4000_MHZ,
-	TBL_4000_6000_MHZ,
-	RXGAIN_TBLS_END,
-};
-
-enum fir_dest {
-	FIR_TX1 = 0x01,
-	FIR_TX2 = 0x02,
-	FIR_TX1_TX2 = 0x03,
-	FIR_RX1 = 0x81,
-	FIR_RX2 = 0x82,
-	FIR_RX1_RX2 = 0x83,
-	FIR_IS_RX = 0x80,
 };
 
 #define SYNTH_LUT_SIZE	53
