@@ -43,7 +43,7 @@
 
 		adi,2rx-2tx-mode-enable;
 		adi,frequency-division-duplex-mode-enable;
-		adi,split-gain-table-mode-enable;
+		//adi,split-gain-table-mode-enable;
 
 		/* adi,rx-rf-port-input-select:
 		 * 0 = (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced
