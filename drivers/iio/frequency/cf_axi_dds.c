@@ -368,7 +368,6 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	{ .type = IIO_ALTVOLTAGE,					\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = 0,						\
 	  .output = 1,							\
 	  .scan_index = _chan,						\
 	  .scan_type = IIO_ST('s', 16, 16, 0),				\
