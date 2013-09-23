@@ -1879,9 +1879,9 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 	ad9361_spi_writef(spi, REG_AGC_ATTACK_DELAY,
 			  AGC_ATTACK_DELAY(~0), reg);
 
+	/* For Fast AGC upper bits may be used */
 	reg = clamp_t(u8, ctrl->agc_settling_delay, 0U, 31U);
-	ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
-			  SETTLING_DELAY(~0), reg);
+	ad9361_spi_write(spi, REG_FAST_CONFIG_2_SETTLING_DELAY, reg);
 
 	tmp1 = reg = clamp_t(u8, ctrl->agc_inner_thresh_high, 0U, 127U);
 	ad9361_spi_writef(spi, REG_AGC_LOCK_LEVEL,
@@ -4784,7 +4784,7 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 			  &pdata->gain_ctrl.lmt_overload_high_thresh);
 	ad9361_of_get_u32(np, "adi,gc-lmt-overload-low-thresh", 704,
 			  &pdata->gain_ctrl.lmt_overload_low_thresh);
-	ad9361_of_get_u32(np, "adi,gc-analog-settling-time", 2,
+	ad9361_of_get_u32(np, "adi,gc-analog-settling-time", 8,
 			  &pdata->gain_ctrl.analog_settling_time);
 	ad9361_of_get_u32(np, "adi,gc-dec-pow-measurement-duration", 8192,
 			  &pdata->gain_ctrl.dec_pow_measuremnt_duration);
@@ -4845,7 +4845,7 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 			  &pdata->gain_ctrl.dig_gain_step_size);
 	ad9361_of_get_bool(np, "adi,agc-sync-for-gain-counter-enable",
 			   &pdata->gain_ctrl.sync_for_gain_counter_en);
-	ad9361_of_get_u32(np, "adi,agc-gain-update-counter", 15360,
+	ad9361_of_get_u32(np, "adi,agc-gain-update-counter", 30698,
 			  &pdata->gain_ctrl.gain_update_counter);
 	ad9361_of_get_bool(np, "adi,agc-immed-gain-change-if-large-adc-overload-enable",
 			   &pdata->gain_ctrl.immed_gain_change_if_large_adc_overload);

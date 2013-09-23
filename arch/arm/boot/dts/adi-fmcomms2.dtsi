@@ -93,7 +93,7 @@
 		adi,gc-adc-large-overload-thresh = <58>; /* sum of squares */
 		adi,gc-lmt-overload-high-thresh = <800>; /* mV */
 		adi,gc-lmt-overload-low-thresh = <704>; /* mV */
-		adi,gc-analog-settling-time = <2>; /* Rx Sample Periods */
+		adi,gc-analog-settling-time = <8>; /* Rx Sample Periods */
 		adi,gc-dec-pow-measurement-duration = <8192>; /* 0..524288 Samples */
 		adi,gc-low-power-thresh = <24>; /* 0..-64 dBFS vals are set pos */
 		//adi,gc-dig-gain-enable;
@@ -139,7 +139,7 @@
 		//adi,agc-dig-gain-step-size = <4>; /* 1..8 */
 
 		//adi,agc-sync-for-gain-counter-enable;
-		adi,agc-gain-update-counter = <15360>;  /* 0..262140 Samples */
+		adi,agc-gain-update-counter = <30698>;  /* 0..262140 CLKRF Samples */
 		//adi,agc-immed-gain-change-if-large-adc-overload-enable;
 		//adi,agc-immed-gain-change-if-large-lmt-overload-enable;
 
