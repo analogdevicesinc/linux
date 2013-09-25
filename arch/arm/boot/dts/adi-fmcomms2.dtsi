@@ -26,6 +26,8 @@
 		clock-names = "ad9361_ext_refclk";
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 
+
+		adi,debug-mode-enable;
 		/* Digital Interface Control */
 
 		adi,pp-tx-swap-enable;
@@ -36,6 +38,8 @@
 		adi,lvds-rx-onchip-termination-enable;
 		adi,rx-data-delay = <4>;
 		adi,tx-fb-clock-delay = <7>;
+
+		//adi,fdd-rx-rate-2tx-enable;
 
 		adi,dcxo-coarse-and-fine-tune = <8 4096>;
 

@@ -223,7 +223,10 @@
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
 			compatible = "xlnx,axi-ad9361-dds-1.00.a";
 			reg = <0x79024000 0x1000>;
-//			spibus-connected = <&dac0_ad9122>;
+
+//			adi,axi-dds-rate = <1>; /* use 1 for 1RX1TX mode */
+//			adi,axi-dds-1-rf-channel;
+
 			clocks = <&adc0_ad9361 13>;
 			clock-names = "sampl_clk";
 			dmas = <&axi_vdma_1 0>;
