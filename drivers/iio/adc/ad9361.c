@@ -83,6 +83,7 @@ struct ad9361_rf_phy {
 	u32			rate_governor;
 	bool			bypass_rx_fir;
 	bool			bypass_tx_fir;
+	bool			rx_eq_2tx;
 	u8			tx_fir_int;
 	u8			tx_fir_ntaps;
 	u8			rx_fir_dec;
@@ -954,12 +955,18 @@ int ad9361_init_gain_tables(struct ad9361_rf_phy *phy)
 
 int ad9361_en_dis_tx(struct ad9361_rf_phy *phy, u32 tx_if, u32 enable)
 {
+	if (tx_if == 2 && !phy->pdata->rx2tx2)
+		return -EINVAL;
+
 	return ad9361_spi_writef(phy->spi, REG_TX_ENABLE_FILTER_CTRL,
 			TX_CHANNEL_ENABLE(tx_if), enable);
 }
 
 int ad9361_en_dis_rx(struct ad9361_rf_phy *phy, u32 rx_if, u32 enable)
 {
+	if (rx_if == 2 && !phy->pdata->rx2tx2)
+		return -EINVAL;
+
 	return ad9361_spi_writef(phy->spi, REG_RX_ENABLE_FILTER_CTRL,
 			  RX_CHANNEL_ENABLE(rx_if), enable);
 }
@@ -2264,10 +2271,10 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
 {
-	unsigned long clktf, adc_rate, dac_rate = 0;
+	unsigned long clktf, clkrf, adc_rate = 0, dac_rate = 0, tmp;
 	u64 bbpll_rate;
 	int i, index_rx = -1, index_tx = -1;
-	u32 div, fir_intdec;
+	u32 div, tx_intdec, rx_intdec;
 	const char clk_dividers[][4] = {
 		{12,3,2,2},
 		{8,2,2,2},
@@ -2278,49 +2285,51 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 		{1,1,1,1},
 	};
 
-	if (phy->bypass_rx_fir && phy->bypass_tx_fir) {
-		fir_intdec = 1;
-	} else if ((phy->bypass_rx_fir != phy->bypass_tx_fir) &&
-		((phy->tx_fir_int == phy->rx_fir_dec) == 1)) {
-		fir_intdec = 1;
-	} else if (phy->tx_fir_int != phy->rx_fir_dec) {
-		dev_err(&phy->spi->dev,
-			"%s: TRX FIR decimation / interpolation mismatch %d,%d",
-			__func__, phy->rx_fir_dec, phy->tx_fir_int);
-		return -EINVAL;
-	} else {
-		fir_intdec = phy->tx_fir_int;
-	}
 
-	dev_dbg(&phy->spi->dev, "%s: requested rate %lu FIR dec/int %d mode %s",
-		__func__, tx_sample_rate, fir_intdec,
+	if (phy->bypass_rx_fir)
+		rx_intdec = 1;
+	else
+		rx_intdec = phy->rx_fir_dec;
+
+	if (phy->bypass_tx_fir)
+		tx_intdec = 1;
+	else
+		tx_intdec = phy->tx_fir_int;
+
+
+	dev_dbg(&phy->spi->dev, "%s: requested rate %lu TXFIR int %d RXFIR dec %d mode %s",
+		__func__, tx_sample_rate, tx_intdec, rx_intdec,
 		low_power ? "Medium PWR" : "Highest OSR");
 
-	if (tx_sample_rate > 56000000UL) /* FIXME */
+	if (tx_sample_rate > (phy->pdata->rx2tx2 ? 61440000UL : 122880000UL))
 		return -EINVAL;
 
-	clktf = tx_sample_rate * fir_intdec;
+	clktf = tx_sample_rate * tx_intdec;
+	clkrf = tx_sample_rate * rx_intdec * (phy->rx_eq_2tx ? 2 : 1);
 
-	for (i = !!low_power; i < 7; i++) {
-		adc_rate = clktf * clk_dividers[i][0];
+	for (i = low_power; i < 7; i++) {
+		adc_rate = clkrf * clk_dividers[i][0];
+		dac_rate = clktf * clk_dividers[i][0];
 		if ((adc_rate <= MAX_ADC_CLK) && (adc_rate >= MIN_ADC_CLK)) {
+			tmp = adc_rate / dac_rate;
 			if (adc_rate <= MAX_DAC_CLK) {
-				index_rx = index_tx = i;
+				index_rx = i;
+				index_tx = i - ((tmp == 1) ? 0 : tmp);
 				dac_rate = adc_rate; /* ADC_CLK */
 				break;
 			} else {
 				dac_rate = adc_rate / 2;  /* ADC_CLK/2 */
-				index_tx = i + 2;
+				index_tx = i + 2 - ((tmp == 1) ? 0 : tmp);
 				index_rx = i;
 				break;
 			}
 		}
 	}
 
-	if ((index_tx < 0 || index_tx > 6) && low_power == 0) {
-		ad9361_calculate_rf_clock_chain(phy, tx_sample_rate,
-			1, rx_path_clks, tx_path_clks);
-	} else if (index_tx < 0 || index_tx > 6) {
+	if ((index_tx < 0 || index_tx > 6 || index_rx < 0 || index_rx > 6) && low_power < 7) {
+		return ad9361_calculate_rf_clock_chain(phy, tx_sample_rate,
+			++low_power, rx_path_clks, tx_path_clks);
+	} else if ((index_tx < 0 || index_tx > 6 || index_rx < 0 || index_rx > 6)) {
 		dev_err(&phy->spi->dev, "%s: Failed to find suitable dividers: %s",
 		__func__, (adc_rate < MIN_ADC_CLK) ? "ADC clock below limit" : "BBPLL rate above limit");
 
@@ -2341,19 +2350,24 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 	rx_path_clks[R2_FREQ] = rx_path_clks[ADC_FREQ] / clk_dividers[index_rx][1];
 	rx_path_clks[R1_FREQ] = rx_path_clks[R2_FREQ] / clk_dividers[index_rx][2];
 	rx_path_clks[CLKRF_FREQ] = rx_path_clks[R1_FREQ] / clk_dividers[index_rx][3];
-	rx_path_clks[RX_SAMPL_FREQ] = rx_path_clks[CLKRF_FREQ] / 	fir_intdec;
+	rx_path_clks[RX_SAMPL_FREQ] = rx_path_clks[CLKRF_FREQ] / 	rx_intdec;
 
 	tx_path_clks[BBPLL_FREQ] = bbpll_rate;
 	tx_path_clks[DAC_FREQ] = dac_rate;
 	tx_path_clks[T2_FREQ] = tx_path_clks[DAC_FREQ] / clk_dividers[index_tx][1];
 	tx_path_clks[T1_FREQ] =tx_path_clks[T2_FREQ] / clk_dividers[index_tx][2];
 	tx_path_clks[CLKTF_FREQ] = tx_path_clks[T1_FREQ] / clk_dividers[index_tx][3];
-	tx_path_clks[TX_SAMPL_FREQ] = tx_path_clks[CLKTF_FREQ] / 	fir_intdec;
+	tx_path_clks[TX_SAMPL_FREQ] = tx_path_clks[CLKTF_FREQ] / 	tx_intdec;
 
 	dev_dbg(&phy->spi->dev, "%s: %lu %lu %lu %lu %lu %lu",
 		__func__, rx_path_clks[BBPLL_FREQ], rx_path_clks[ADC_FREQ],
 		rx_path_clks[R2_FREQ], rx_path_clks[R1_FREQ],
 		rx_path_clks[CLKRF_FREQ], rx_path_clks[RX_SAMPL_FREQ]);
+
+	dev_dbg(&phy->spi->dev, "%s: %lu %lu %lu %lu %lu %lu",
+		__func__, tx_path_clks[BBPLL_FREQ], tx_path_clks[ADC_FREQ],
+		tx_path_clks[R2_FREQ], tx_path_clks[R1_FREQ],
+		tx_path_clks[CLKRF_FREQ], tx_path_clks[RX_SAMPL_FREQ]);
 
 	return 0;
 }
@@ -2369,6 +2383,9 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	u32 real_tx_bandwidth = pd->rf_tx_bandwidth_Hz / 2;
 
 	dev_dbg(dev, "%s", __func__);
+
+	if (pd->port_ctrl.pp_conf[2] & FDD_RX_RATE_2TX_RATE)
+		phy->rx_eq_2tx = true;
 
 	phy->ensm_conf1 =
 		(pd->ensm_pin_level_mode ? LEVEL_MODE : 0) |
@@ -3594,7 +3611,7 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy, const char *na
 
 static int register_clocks(struct ad9361_rf_phy *phy)
 {
-	u32 flags;
+	u32 flags = 0;
 
 	phy->clk_data.clks = devm_kzalloc(&phy->spi->dev,
 					 sizeof(*phy->clk_data.clks) *
@@ -3903,6 +3920,7 @@ enum ad9361_iio_dev_attr {
 	AD9361_TRX_RATE_GOV_AVAIL,
 	AD9361_FIR_RX_ENABLE,
 	AD9361_FIR_TX_ENABLE,
+	AD9361_FIR_TRX_ENABLE,
 	AD9361_BBDC_OFFS_ENABLE,
 	AD9361_RFDC_OFFS_ENABLE,
 	AD9361_QUAD_ENABLE,
@@ -3918,7 +3936,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 	long readin;
 	int ret = 0;
 	u32 val;
-	bool res, tmp;
+	bool res;
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -3969,23 +3987,36 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		else
 			ret = -EINVAL;
 		break;
+	case AD9361_FIR_TRX_ENABLE:
+		ret = strtobool(buf, &res);
+		if (ret < 0)
+			break;
+
+		if ((phy->bypass_rx_fir == phy->bypass_tx_fir) == !res)
+			break;
+
+		phy->bypass_rx_fir = phy->bypass_tx_fir = !res;
+
+		ret = ad9361_validate_enable_fir(phy);
+		if (ret < 0) {
+			phy->bypass_rx_fir = true;
+			phy->bypass_tx_fir = true;
+		}
+
+		break;
 	case AD9361_FIR_RX_ENABLE:
 		ret = strtobool(buf, &res);
 		if (ret < 0)
 			break;
 
-		phy->bypass_rx_fir = !res;
+		if(phy->bypass_rx_fir == !res)
+			break;
 
-		tmp = phy->bypass_tx_fir; /* REVIST */
-		if ((phy->tx_fir_int == phy->tx_fir_int) &&
-			(phy->tx_fir_int > 1) && !phy->bypass_rx_fir) {
-			phy->bypass_tx_fir = false;
-		}
+		phy->bypass_rx_fir = !res;
 
 		ret = ad9361_validate_enable_fir(phy);
 		if (ret < 0) {
 			phy->bypass_rx_fir = true;
-			phy->bypass_tx_fir = tmp;
 		}
 
 		break;
@@ -3994,18 +4025,14 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		if (ret < 0)
 			break;
 
-		phy->bypass_tx_fir = !res;
+		if(phy->bypass_tx_fir == !res)
+			break;
 
-		tmp = phy->bypass_rx_fir; /* REVIST */
-		if ((phy->tx_fir_int == phy->tx_fir_int) &&
-			(phy->tx_fir_int > 1) && !phy->bypass_tx_fir) {
-			phy->bypass_rx_fir = false;
-		}
+		phy->bypass_tx_fir = !res;
 
 		ret = ad9361_validate_enable_fir(phy);
 		if (ret < 0) {
 			phy->bypass_tx_fir = true;
-			phy->bypass_rx_fir = tmp;
 		}
 
 
@@ -4111,6 +4138,9 @@ static ssize_t ad9361_phy_show(struct device *dev,
 	case AD9361_FIR_TX_ENABLE:
 		ret = sprintf(buf, "%d\n", !phy->bypass_tx_fir);
 		break;
+	case AD9361_FIR_TRX_ENABLE:
+		ret = sprintf(buf, "%d\n", !phy->bypass_tx_fir && !phy->bypass_rx_fir);
+		break;
 	case AD9361_CALIB_MODE_AVAIL:
 		ret = sprintf(buf, "auto manual tx_quad rf_dc_offs rx_quad\n");
 		break;
@@ -4194,6 +4224,11 @@ static IIO_DEVICE_ATTR(out_voltage_filter_fir_en, S_IRUGO | S_IWUSR,
 			ad9361_phy_store,
 			AD9361_FIR_TX_ENABLE);
 
+static IIO_DEVICE_ATTR(in_out_voltage_filter_fir_en, S_IRUGO | S_IWUSR,
+			ad9361_phy_show,
+			ad9361_phy_store,
+			AD9361_FIR_TRX_ENABLE);
+
 static IIO_DEVICE_ATTR(in_voltage_bb_dc_offset_tracking_en, S_IRUGO | S_IWUSR,
 			ad9361_phy_show,
 			ad9361_phy_store,
@@ -4212,6 +4247,7 @@ static IIO_DEVICE_ATTR(in_voltage_quadrature_tracking_en, S_IRUGO | S_IWUSR,
 static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_in_voltage_filter_fir_en.dev_attr.attr,
 	&iio_dev_attr_out_voltage_filter_fir_en.dev_attr.attr,
+	&iio_dev_attr_in_out_voltage_filter_fir_en.dev_attr.attr,
 	&iio_dev_attr_in_voltage_rf_bandwidth.dev_attr.attr,
 	&iio_dev_attr_out_voltage_rf_bandwidth.dev_attr.attr,
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
@@ -4521,6 +4557,10 @@ static int ad9361_phy_write_raw(struct iio_dev *indio_dev,
 		break;
 
 	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (phy->rx_eq_2tx && (chan->output == 0)) {
+			ret = 0;
+			break;
+		}
 
 		ret = ad9361_calculate_rf_clock_chain(phy, val,
 			phy->rate_governor, rx, tx);
@@ -4541,7 +4581,12 @@ out:
 }
 
 static const struct iio_chan_spec ad9361_phy_chan[] = {
-{	/* RX LO */
+{
+	.type = IIO_TEMP,
+	.indexed = 1,
+	.channel = 0,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+}, {	/* RX LO */
 	.type = IIO_ALTVOLTAGE,
 	.indexed = 1,
 	.output = 1,
@@ -4562,13 +4607,6 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.channel = 0,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-}, {	/* TX2 */
-	.type = IIO_VOLTAGE,
-	.indexed = 1,
-	.output = 1,
-	.channel = 1,
-	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 }, {	/* RX1 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
@@ -4577,6 +4615,13 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
 
+}, {	/* TX2 */
+	.type = IIO_VOLTAGE,
+	.indexed = 1,
+	.output = 1,
+	.channel = 1,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 }, {	/* RX2 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
@@ -4584,11 +4629,6 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
-}, {
-	.type = IIO_TEMP,
-	.indexed = 1,
-	.channel = 0,
-	.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
 }};
 
 static const struct iio_info ad9361_phy_info = {
@@ -5044,7 +5084,8 @@ static int ad9361_probe(struct spi_device *spi)
 	indio_dev->info = &ad9361_phy_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = ad9361_phy_chan;
-	indio_dev->num_channels = ARRAY_SIZE(ad9361_phy_chan);
+	indio_dev->num_channels = ARRAY_SIZE(ad9361_phy_chan) -
+		(phy->pdata->rx2tx2 ? 0 : 2);
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0)
