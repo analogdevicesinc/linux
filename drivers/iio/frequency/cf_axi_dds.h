@@ -153,7 +153,7 @@ enum {
 struct cf_axi_dds_chip_info {
 	char 				name[8];
 	struct iio_chan_spec		channel[9];
-	struct iio_chan_spec		buf_channel[2];
+	struct iio_chan_spec		buf_channel[4];
 	unsigned			num_channels;
 	unsigned			num_buf_channels;
 };
