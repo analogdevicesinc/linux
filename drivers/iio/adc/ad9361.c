@@ -1591,7 +1591,8 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 			break;
 		}
 	} else
-		dev_err(dev, "Error in %s line %d\n", __func__, __LINE__);
+		dev_err(dev, "Error in %s line %d clkrf %lu clktf %lu\n",
+			__func__, __LINE__, clkrf, clktf);
 
 	ad9361_spi_write(spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
 			 RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(rx_phase));
@@ -3348,8 +3349,8 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * Setup Loop Filter and CP Current
 	 * Scale is 150uA @ (1280MHz BBPLL, 40MHz REFCLK)
 	 */
-	tmp = rate * 150ULL;
-	do_div(tmp, parent_rate * 32UL + (tmp >> 1));
+	tmp = (rate >> 7) * 150ULL;
+	do_div(tmp, (parent_rate >> 7) * 32UL + (tmp >> 1));
 
 	/* 25uA/LSB, Offset 25uA */
 	icp_val = DIV_ROUND_CLOSEST((u32)tmp, 25U) - 1;
