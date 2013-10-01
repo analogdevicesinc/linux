@@ -1525,13 +1525,13 @@ static int ad9361_rf_dc_offset_calib(struct ad9361_rf_phy *phy,
 /* TX QUADRATURE CALIBRATION */
 
 static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
-					   unsigned long bw)
+				unsigned long bw, int rx_phase)
 {
 	struct device *dev = &phy->spi->dev;
 	struct spi_device *spi = phy->spi;
 	unsigned long clktf, clkrf;
 	int txnco_word, rxnco_word;
-	u8 rx_phase = 0;
+	u8 __rx_phase = 0;
 	const u8 (*tab)[3];
 	u32 index_max, i , lpf_tia_mask;
 	/*
@@ -1556,7 +1556,7 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	rxnco_word = txnco_word;
 
 	if (clkrf == (2 * clktf)) {
-		rx_phase = 0x0E;
+		__rx_phase = 0x0E;
 		switch (txnco_word) {
 		case 0:
 			txnco_word++;
@@ -1570,32 +1570,36 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 			break;
 		case 3:
 			rxnco_word-=2;	/* REVISIT */
-			rx_phase = 0x08;
+			__rx_phase = 0x08;
 			break;
 		}
 	} else if (clkrf == clktf) {
 		switch (txnco_word) {
 		case 0:
 		case 3:
-			rx_phase = 0x15;
+			__rx_phase = 0x15;
 			break;
 		case 2:
-			rx_phase = 0x1F;
+			__rx_phase = 0x1F;
 			break;
 		case 1:
 			if (ad9361_spi_readf(spi,
 				REG_TX_ENABLE_FILTER_CTRL, 0x3F) == 0x22)
-				rx_phase = 0x15; 	/* REVISIT */
+				__rx_phase = 0x15; 	/* REVISIT */
 			else
-				rx_phase = 0x1A;
+				__rx_phase = 0x1A;
 			break;
 		}
 	} else
 		dev_err(dev, "Error in %s line %d clkrf %lu clktf %lu\n",
 			__func__, __LINE__, clkrf, clktf);
 
+
+	if (rx_phase >= 0)
+		__rx_phase = rx_phase;
+
 	ad9361_spi_write(spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
-			 RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(rx_phase));
+			 RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(__rx_phase));
 	ad9361_spi_writef(spi, REG_KEXP_2, TX_NCO_FREQ(~0), txnco_word);
 
 	ad9361_spi_write(spi, REG_QUAD_CAL_CTRL,
@@ -2585,7 +2589,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9361_tx_quad_calib(phy, real_tx_bandwidth);
+	ret = ad9361_tx_quad_calib(phy, real_tx_bandwidth, -1);
 	if (ret < 0)
 		return ret;
 
@@ -2628,7 +2632,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 
 }
 
-static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal)
+static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal, int arg)
 {
 	int ret;
 
@@ -2640,7 +2644,7 @@ static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal)
 
 	switch (cal) {
 	case TX_QUAD_CAL:
-		ret = ad9361_tx_quad_calib(phy, phy->current_tx_bw_Hz / 2);
+		ret = ad9361_tx_quad_calib(phy, phy->current_tx_bw_Hz / 2, arg);
 		break;
 	case RX_QUAD_CAL:
 		ret = ad9361_rx_quad_calib(phy, phy->current_rx_bw_Hz / 2);
@@ -2704,7 +2708,7 @@ static int ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
 	if (ret < 0)
 		return ret;
 
-	ret = ad9361_tx_quad_calib(phy, real_tx_bandwidth);
+	ret = ad9361_tx_quad_calib(phy, real_tx_bandwidth, -1);
 	if (ret < 0)
 		return ret;
 
@@ -2958,7 +2962,7 @@ static void ad9361_work_func(struct work_struct *work)
 
 	dev_dbg(&phy->spi->dev, "%s:", __func__);
 
-	ret = ad9361_do_calib_run(phy, TX_QUAD_CAL);
+	ret = ad9361_do_calib_run(phy, TX_QUAD_CAL, -1);
 	if (ret < 0)
 		dev_err(&phy->spi->dev,
 			"%s: TX QUAD cal failed", __func__);
@@ -3935,7 +3939,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	long readin;
-	int ret = 0;
+	int ret = 0, arg = -1;
 	u32 val;
 	bool res;
 
@@ -4046,15 +4050,18 @@ static ssize_t ad9361_phy_store(struct device *dev,
 			phy->auto_cal_en = false;
 		else if (sysfs_streq(buf, "rx_quad"))
 			val = RX_QUAD_CAL;
-		else if (sysfs_streq(buf, "tx_quad"))
+		else if (!strncmp(buf, "tx_quad", 7)) {
+			ret = sscanf(buf, "tx_quad %u", &arg);
+			if (ret != 1)
+				arg = -1;
 			val = TX_QUAD_CAL;
-		else if (sysfs_streq(buf, "rf_dc_offs"))
+		} else if (sysfs_streq(buf, "rf_dc_offs"))
 			val = RFDC_CAL;
 		else
 			break;
 
 		if (val)
-			ret = ad9361_do_calib_run(phy, val);
+			ret = ad9361_do_calib_run(phy, val, arg);
 
 		break;
 	case AD9361_BBDC_OFFS_ENABLE:
