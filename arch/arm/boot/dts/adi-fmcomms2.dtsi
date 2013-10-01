@@ -41,7 +41,7 @@
 
 		//adi,fdd-rx-rate-2tx-enable;
 
-		adi,dcxo-coarse-and-fine-tune = <8 4096>;
+		adi,dcxo-coarse-and-fine-tune = <7 3424>;
 
 		/* Mode Setup */
 
