@@ -158,6 +158,8 @@
 		ad_mc_controller_0: ad-mc-controller@6da00000 {
 			compatible = "xlnx,axi-ad-mc-controller-1.00.a";
 			reg = < 0x6da00000 0x10000 >;
+			dmas = <&axi_dma_2 0>;
+			dma-names = "ad-mc-controller-dma";
 		};
 	};
 };
