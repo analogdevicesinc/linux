@@ -521,6 +521,29 @@ failed1:
 
 static int motor_controller_of_remove(struct platform_device *op)
 {
+	struct device *dev = &op->dev;
+	struct resource r_mem; /* IO mem resources */
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct axiadc_state *st = iio_priv(indio_dev);
+
+	iio_device_unregister(indio_dev);
+	iio_buffer_unregister(indio_dev);
+	axiadc_unconfigure_ring(indio_dev);
+
+	dma_release_channel(st->rx_chan);
+
+	iounmap(st->regs);
+
+	/* Get iospace of the device */
+	if (of_address_to_resource(op->dev.of_node, 0, &r_mem))
+		dev_err(dev, "invalid address\n");
+	else
+		release_mem_region(r_mem.start, resource_size(&r_mem));
+
+	iio_device_free(indio_dev);
+
+	dev_set_drvdata(dev, NULL);
+
 	return 0;
 }
 
