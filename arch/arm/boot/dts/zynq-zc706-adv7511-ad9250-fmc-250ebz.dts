@@ -220,6 +220,7 @@
 			reg = <0x6f400000 0x10000>;
 			jesd,lanesync_en;
 			jesd,scramble_en;
+			jesd,sysref_en;
 			jesd,frames-per-multiframe = <32>;
 			jesd,bytes-per-frame = <2>;
 			xlnx,cf-buftype = <0x0>;
