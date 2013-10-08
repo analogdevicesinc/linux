@@ -43,6 +43,9 @@
 
 static DEFINE_MUTEX(dma_list_mutex);
 static LIST_HEAD(dma_device_list);
+/* IO accessors */
+#define DMA_OUT(addr, val)      (iowrite32(val, addr))
+#define DMA_IN(addr)            (ioread32(addr))
 
 static int unpin_user_pages(struct scatterlist *sglist, unsigned int cnt);
 /* Driver functions */
@@ -62,35 +65,38 @@ static void xdma_clean_bd(struct xdma_desc_hw *bd)
 
 static int dma_is_running(struct xdma_chan *chan)
 {
-	return !(chan->regs->sr & XDMA_SR_HALTED_MASK) &&
-		(chan->regs->cr & XDMA_CR_RUNSTOP_MASK);
+	return !(DMA_IN(&chan->regs->sr) & XDMA_SR_HALTED_MASK) &&
+		(DMA_IN(&chan->regs->cr) & XDMA_CR_RUNSTOP_MASK);
 }
 
 static int dma_is_idle(struct xdma_chan *chan)
 {
-	return chan->regs->sr & XDMA_SR_IDLE_MASK;
+	return DMA_IN(&chan->regs->sr) & XDMA_SR_IDLE_MASK;
 }
 
 static void dma_halt(struct xdma_chan *chan)
 {
-	chan->regs->cr &= ~XDMA_CR_RUNSTOP_MASK;
+	DMA_OUT(&chan->regs->cr,
+		(DMA_IN(&chan->regs->cr)  & ~XDMA_CR_RUNSTOP_MASK));
 }
 
 static void dma_start(struct xdma_chan *chan)
 {
-	chan->regs->cr |= XDMA_CR_RUNSTOP_MASK;
+	DMA_OUT(&chan->regs->cr,
+		(DMA_IN(&chan->regs->cr) | XDMA_CR_RUNSTOP_MASK));
 }
 
 static int dma_init(struct xdma_chan *chan)
 {
 	int loop = XDMA_RESET_LOOP;
 
-	chan->regs->cr |= XDMA_CR_RESET_MASK;
+	DMA_OUT(&chan->regs->cr,
+		(DMA_IN(&chan->regs->cr) | XDMA_CR_RESET_MASK));
 
 	/* Wait for the hardware to finish reset
 	 */
 	while (loop) {
-		if (!(chan->regs->cr & XDMA_CR_RESET_MASK))
+		if (!(DMA_IN(&chan->regs->cr) & XDMA_CR_RESET_MASK))
 			break;
 
 		loop -= 1;
@@ -257,10 +263,10 @@ static void dump_cur_bd(struct xdma_chan *chan)
 {
 	u32 index;
 
-	index = (((u32)chan->regs->cdr) - chan->bd_phys_addr) /
+	index = (((u32)DMA_IN(&chan->regs->cdr)) - chan->bd_phys_addr) /
 			sizeof(struct xdma_desc_hw);
 
-	dev_err(chan->dev, "cur bd @ %08x\n",   (u32)chan->regs->cdr);
+	dev_err(chan->dev, "cur bd @ %08x\n",   (u32)DMA_IN(&chan->regs->cdr));
 	dev_err(chan->dev, "  buf  = 0x%08x\n", chan->bds[index]->src_addr);
 	dev_err(chan->dev, "  ctrl = 0x%08x\n", chan->bds[index]->control);
 	dev_err(chan->dev, "  sts  = 0x%08x\n", chan->bds[index]->status);
@@ -272,20 +278,20 @@ static irqreturn_t xdma_rx_intr_handler(int irq, void *data)
 	struct xdma_chan *chan = data;
 	u32 stat;
 
-	stat = chan->regs->sr;
+	stat = DMA_IN(&chan->regs->sr);
 
 	if (!(stat & XDMA_XR_IRQ_ALL_MASK)) {
 		return IRQ_NONE;
 	}
 
 	/* Ack the interrupts */
-	chan->regs->sr = stat & XDMA_XR_IRQ_ALL_MASK;
+	DMA_OUT(&chan->regs->sr, (stat & XDMA_XR_IRQ_ALL_MASK));
 
 	if (stat & XDMA_XR_IRQ_ERROR_MASK) {
 		dev_err(chan->dev, "Channel %s has errors %x, cdr %x tdr %x\n",
 			chan->name, (unsigned int)stat,
-			(unsigned int)chan->regs->cdr,
-			(unsigned int)chan->regs->tdr);
+			(unsigned int)DMA_IN(&chan->regs->cdr),
+			(unsigned int)DMA_IN(&chan->regs->tdr));
 
 		dump_cur_bd(chan);
 
@@ -305,20 +311,20 @@ static irqreturn_t xdma_tx_intr_handler(int irq, void *data)
 	struct xdma_chan *chan = data;
 	u32 stat;
 
-	stat = chan->regs->sr;
+	stat = DMA_IN(&chan->regs->sr);
 
 	if (!(stat & XDMA_XR_IRQ_ALL_MASK)) {
 		return IRQ_NONE;
 	}
 
 	/* Ack the interrupts */
-	chan->regs->sr = stat & XDMA_XR_IRQ_ALL_MASK;
+	DMA_OUT(&chan->regs->sr, (stat & XDMA_XR_IRQ_ALL_MASK));
 
 	if (stat & XDMA_XR_IRQ_ERROR_MASK) {
 		dev_err(chan->dev, "Channel %s has errors %x, cdr %x tdr %x\n",
 			chan->name, (unsigned int)stat,
-			(unsigned int)chan->regs->cdr,
-			(unsigned int)chan->regs->tdr);
+			(unsigned int)DMA_IN(&chan->regs->cdr),
+			(unsigned int)DMA_IN(&chan->regs->tdr));
 
 		dump_cur_bd(chan);
 
@@ -347,6 +353,7 @@ static void xdma_start_transfer(struct xdma_chan *chan,
 {
 	dma_addr_t cur_phys;
 	dma_addr_t tail_phys;
+	u32 regval;
 
 	if (chan->err)
 		return;
@@ -358,21 +365,23 @@ static void xdma_start_transfer(struct xdma_chan *chan,
 	/* If hardware is busy, move the tail & return */
 	if (dma_is_running(chan) || dma_is_idle(chan)) {
 		/* Update tail ptr register and start the transfer */
-		chan->regs->tdr = tail_phys;
+		DMA_OUT(&chan->regs->tdr, tail_phys);
 		xlnk_record_event(XLNK_ET_KERNEL_AFTER_DMA_KICKOFF);
 		return;
 	}
 
-	chan->regs->cdr = cur_phys;
+	DMA_OUT(&chan->regs->cdr, cur_phys);
 
 	dma_start(chan);
 
 	/* Enable interrupts */
-	chan->regs->cr |=
-		chan->poll_mode ? XDMA_XR_IRQ_ERROR_MASK : XDMA_XR_IRQ_ALL_MASK;
+	regval = DMA_IN(&chan->regs->cr);
+	regval |= (chan->poll_mode ? XDMA_XR_IRQ_ERROR_MASK
+					: XDMA_XR_IRQ_ALL_MASK);
+	DMA_OUT(&chan->regs->cr, regval);
 
 	/* Update tail ptr register and start the transfer */
-	chan->regs->tdr = tail_phys;
+	DMA_OUT(&chan->regs->tdr, tail_phys);
 	xlnk_record_event(XLNK_ET_KERNEL_AFTER_DMA_KICKOFF);
 }
 
@@ -559,7 +568,7 @@ static unsigned int sgl_merge(struct scatterlist *sgl, unsigned int sgl_len,
 {
 	struct scatterlist *sghead, *sgend, *sgnext, *sg_merged_head;
 	unsigned int sg_visited_cnt = 0, sg_merged_num = 0;
-	unsigned int dma_len = 0, i = 0;
+	unsigned int dma_len = 0;
 
 	*sgl_merged = sglist_array;
 	sg_merged_head = *sgl_merged;
@@ -771,6 +780,7 @@ int xdma_submit(struct xdma_chan *chan,
 	unsigned int sgcnt, sgcnt_dma;
 	enum dma_data_direction dmadir;
 	int status;
+	void *kaddr;
 	DEFINE_DMA_ATTRS(attrs);
 
 
@@ -798,6 +808,12 @@ int xdma_submit(struct xdma_chan *chan,
 
 		sglist_dma = sglist;
 		sgcnt_dma = sgcnt;
+		if (user_flags & CF_FLAG_CACHE_FLUSH_INVALIDATE) {
+			kaddr = phys_to_virt((phys_addr_t)userbuf);
+			dmac_map_area(kaddr, size, DMA_TO_DEVICE);
+			outer_clean_range((phys_addr_t)userbuf,
+						(u32)userbuf + size);
+		}
 	} else {
 		/* pin user pages is monitored separately */
 		xlnk_record_event(XLNK_ET_KERNEL_BEFORE_PIN_USER_PAGE);
@@ -870,6 +886,8 @@ EXPORT_SYMBOL(xdma_submit);
 int xdma_wait(struct xdma_head *dmahead, unsigned int user_flags)
 {
 	struct xdma_chan *chan = dmahead->chan;
+	void *kaddr, *paddr;
+	int size;
 	DEFINE_DMA_ATTRS(attrs);
 	xlnk_record_event(XLNK_ET_KERNEL_ENTER_DMA_WAIT);
 
@@ -889,6 +907,14 @@ int xdma_wait(struct xdma_head *dmahead, unsigned int user_flags)
 		xlnk_record_event(XLNK_ET_KERNEL_AFTER_DMA_UNMAP_SG);
 
 		unpin_user_pages(dmahead->sglist, dmahead->sgcnt);
+	} else {
+		if (user_flags & CF_FLAG_CACHE_FLUSH_INVALIDATE) {
+			paddr = dmahead->userbuf;
+			size = dmahead->size;
+			kaddr = phys_to_virt((phys_addr_t)paddr);
+			outer_inv_range((phys_addr_t)paddr, (u32)paddr + size);
+			dmac_unmap_area(kaddr, size, DMA_FROM_DEVICE);
+		}
 	}
 	xlnk_record_event(XLNK_ET_KERNEL_LEAVE_DMA_WAIT);
 	return 0;
@@ -899,8 +925,8 @@ int xdma_getconfig(struct xdma_chan *chan,
 				unsigned char *irq_thresh,
 				unsigned char *irq_delay)
 {
-	*irq_thresh = (chan->regs->cr >> XDMA_COALESCE_SHIFT) & 0xff;
-	*irq_delay = (chan->regs->cr >> XDMA_DELAY_SHIFT) & 0xff;
+	*irq_thresh = (DMA_IN(&chan->regs->cr) >> XDMA_COALESCE_SHIFT) & 0xff;
+	*irq_delay = (DMA_IN(&chan->regs->cr) >> XDMA_DELAY_SHIFT) & 0xff;
 	return 0;
 }
 EXPORT_SYMBOL(xdma_getconfig);
@@ -914,13 +940,13 @@ int xdma_setconfig(struct xdma_chan *chan,
 	if (dma_is_running(chan))
 		return -EBUSY;
 
-	val = chan->regs->cr;
+	val = DMA_IN(&chan->regs->cr);
 	val &= ~((0xff << XDMA_COALESCE_SHIFT) |
 				(0xff << XDMA_DELAY_SHIFT));
 	val |= ((irq_thresh << XDMA_COALESCE_SHIFT) |
 				(irq_delay << XDMA_DELAY_SHIFT));
 
-	chan->regs->cr = val;
+	DMA_OUT(&chan->regs->cr, val);
 	return 0;
 }
 EXPORT_SYMBOL(xdma_setconfig);
@@ -960,10 +986,10 @@ static int xdma_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
-	dev_info(&pdev->dev, "AXIDMA device %d physical base address=0x%08x\n",
-		 pdev->id, (unsigned int)res->start);
-	dev_info(&pdev->dev, "AXIDMA device %d remapped to 0x%08x\n",
-		 pdev->id, (unsigned int)xdev->regs);
+	dev_info(&pdev->dev, "AXIDMA device %d physical base address=%pa\n",
+		 pdev->id, &res->start);
+	dev_info(&pdev->dev, "AXIDMA device %d remapped to %pa\n",
+		 pdev->id, &xdev->regs);
 
 	/* Allocate the channels */
 
@@ -982,8 +1008,7 @@ static int xdma_probe(struct platform_device *pdev)
 
 		/* Initialize channel parameters */
 		chan->id = i;
-		chan->regs = (void __iomem *)
-				((u32)xdev->regs + dma_chan_reg_offset);
+		chan->regs = xdev->regs + dma_chan_reg_offset;
 		/* chan->regs = xdev->regs; */
 		chan->dev = xdev->dev;
 		chan->max_len = XDMA_MAX_TRANS_LEN;
@@ -1075,19 +1100,9 @@ static int xdma_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void xdma_shutdown(struct platform_device *pdev)
-{
-	int i;
-	struct xdma_device *xdev = platform_get_drvdata(pdev);
-
-	for (i = 0; i < XDMA_MAX_CHANS_PER_DEVICE; i++)
-		dma_halt(xdev->chan[i]);
-}
-
 static struct platform_driver xdma_driver = {
 	.probe = xdma_probe,
 	.remove = xdma_remove,
-	.shutdown = xdma_shutdown,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "xilinx-axidma",

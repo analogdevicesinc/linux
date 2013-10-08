@@ -10,32 +10,23 @@
  * is licensed "as is" without any warranty of any kind, whether express
  * or implied.
  */
-#include <linux/module.h>
-#include <linux/kernel.h>
+
+#include <linux/amba/xilinx_dma.h>
 #include <linux/cdev.h>
-#include <linux/slab.h>
+#include <linux/dmaengine.h>
+#include <linux/dma-mapping.h>
 #include <linux/fcntl.h>
-#include <linux/sysctl.h>
 #include <linux/fs.h>
+#include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
-#include <linux/io.h>
+#include <linux/slab.h>
+#include <linux/sysctl.h>
 #include <linux/uaccess.h>
-#include <linux/dma-mapping.h>
-#include <linux/dmaengine.h>
-#include <linux/amba/xilinx_dma.h>
 #include "xvdma.h"
-
-#define XVDMA_IOCTL_BASE	'W'
-#define XVDMA_GET_NUM_DEVICES	_IO(XVDMA_IOCTL_BASE, 0)
-#define XVDMA_GET_DEV_INFO	_IO(XVDMA_IOCTL_BASE, 1)
-#define XVDMA_DEVICE_CONTROL	_IO(XVDMA_IOCTL_BASE, 2)
-#define XVDMA_PREP_BUF		_IO(XVDMA_IOCTL_BASE, 3)
-#define XVDMA_START_TRANSFER	_IO(XVDMA_IOCTL_BASE, 4)
-#define XVDMA_STOP_TRANSFER	_IO(XVDMA_IOCTL_BASE, 5)
-
-#define XVDMA_DEVICE_ID_SHIFT	28
 
 
 struct xvdma_dev *xvdma_dev_info[MAX_DEVICES + 1];
@@ -285,7 +276,7 @@ void xvdma_device_control(struct xvdma_chan_cfg *chan_cfg)
 void xvdma_add_dev_info(struct dma_chan *tx_chan,
 				struct dma_chan *rx_chan)
 {
-	static u32 i ;
+	static u32 i;
 
 	xvdma_dev_info[i] = (struct xvdma_dev *)
 		kzalloc(sizeof(struct xvdma_dev), GFP_KERNEL);
@@ -356,12 +347,10 @@ static int xvdma_probe(struct platform_device *pdev)
 
 	devt = MKDEV(XVDMA_MAJOR, XVDMA_MINOR);
 
-	drvdata = kzalloc(sizeof(struct xvdma_drvdata), GFP_KERNEL);
-	if (!drvdata) {
-		dev_err(dev, "Couldn't allocate device private record\n");
-		retval = -ENOMEM;
-		goto failed0;
-	}
+	drvdata = devm_kzalloc(&pdev->dev, sizeof(struct xvdma_drvdata),
+				GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
 	dev_set_drvdata(dev, (void *)drvdata);
 
 	drvdata->dev = dev;
@@ -372,18 +361,13 @@ static int xvdma_probe(struct platform_device *pdev)
 	retval = cdev_add(&drvdata->cdev, devt, 1);
 	if (retval) {
 		dev_err(dev, "cdev_add() failed\n");
-		goto failed1;
+		return retval;
 	}
 
 	xvdma_scan_channels();
 	dev_info(dev, "Xilinx VDMA probe successful\n");
 	dev_info(dev, "Devices Scanned %d\n", num_devices);
 	return 0;
-
-failed1:
-	kfree(drvdata);
-failed0:
-	return retval;
 }
 
 static int xvdma_remove(struct platform_device *op)
@@ -397,8 +381,6 @@ static int xvdma_remove(struct platform_device *op)
 
 	xvdma_release_channels();
 	cdev_del(&drvdata->cdev);
-	kfree(drvdata);
-	dev_set_drvdata(dev, NULL);
 	return 0;
 }
 
@@ -438,3 +420,7 @@ static void __exit xvdma_exit(void)
 
 late_initcall(xvdma_init);
 module_exit(xvdma_exit);
+
+MODULE_AUTHOR("Xilinx Inc.");
+MODULE_DESCRIPTION("Xilinx AXI VDMA client driver");
+MODULE_LICENSE("GPL v2");
