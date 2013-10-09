@@ -3430,7 +3430,7 @@ static int ad9361_calc_rfpll_divder(u64 freq,
 
 	div = -1;
 
-	while (freq < MIN_VCO_FREQ_HZ) {
+	while (freq <= MIN_VCO_FREQ_HZ) {
 		freq <<= 1;
 		div++;
 	}
