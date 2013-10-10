@@ -1094,8 +1094,9 @@ int iio_device_register(struct iio_dev *indio_dev)
 	if ((indio_dev->modes & INDIO_ALL_BUFFER_MODES) &&
 		indio_dev->setup_ops == NULL)
 		indio_dev->setup_ops = &noop_ring_setup_ops;
+
 	if (indio_dev->buffer) {
-		if (indio_dev->buffer->direction == IIO_BUFFER_DIRECTION_IN)
+		if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
 			fops = &iio_buffer_in_fileops;
 		else
 			fops = &iio_buffer_out_fileops;

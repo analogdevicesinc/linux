@@ -42,8 +42,10 @@ struct iio_buffer_access_funcs {
 	int (*store_to)(struct iio_buffer *buffer, const void *data);
 	int (*read)(struct iio_buffer *buffer, size_t n, char __user *buf);
 	bool (*data_available)(struct iio_buffer *buffer);
-	int (*remove_from)(struct iio_buffer *buffer, u8 *data);
-	int (*write)(struct iio_buffer *buffer, size_t n, const char __user *buf);
+	int (*remove_from)(struct iio_buffer *buffer, void *data);
+	int (*write)(struct iio_buffer *buffer, size_t n,
+		const char __user *buf);
+	bool (*space_available)(struct iio_buffer *buffer);
 
 	int (*request_update)(struct iio_buffer *buffer);
 
@@ -53,12 +55,6 @@ struct iio_buffer_access_funcs {
 	int (*set_length)(struct iio_buffer *buffer, int length);
 
 	void (*release)(struct iio_buffer *buffer);
-};
-
-enum iio_buffer_direction
-{
-	IIO_BUFFER_DIRECTION_IN,
-	IIO_BUFFER_DIRECTION_OUT,
 };
 
 /**
@@ -95,7 +91,6 @@ struct iio_buffer {
 	const struct attribute_group *attrs;
 	struct list_head			demux_list;
 	void					*demux_bounce;
-	enum iio_buffer_direction		direction;
 	struct list_head			buffer_list;
 	struct kref				ref;
 };

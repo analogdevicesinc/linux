@@ -81,7 +81,7 @@ out:
 int ad799x_register_ring_funcs_and_init(struct iio_dev *indio_dev)
 {
 	return iio_triggered_buffer_setup(indio_dev, NULL,
-		&ad799x_trigger_handler, NULL, IIO_BUFFER_DIRECTION_IN);
+		&ad799x_trigger_handler, NULL);
 }
 
 void ad799x_ring_cleanup(struct iio_dev *indio_dev)

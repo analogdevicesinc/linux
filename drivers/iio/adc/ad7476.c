@@ -252,7 +252,7 @@ static int ad7476_probe(struct spi_device *spi)
 	spi_message_add_tail(&st->xfer, &st->msg);
 
 	ret = iio_triggered_buffer_setup(indio_dev, NULL,
-			&ad7476_trigger_handler, NULL, IIO_BUFFER_DIRECTION_IN);
+			&ad7476_trigger_handler, NULL);
 	if (ret)
 		goto error_disable_reg;
 

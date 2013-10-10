@@ -44,8 +44,7 @@ static const struct iio_buffer_setup_ops iio_triggered_buffer_setup_ops = {
 int iio_triggered_buffer_setup(struct iio_dev *indio_dev,
 	irqreturn_t (*pollfunc_bh)(int irq, void *p),
 	irqreturn_t (*pollfunc_th)(int irq, void *p),
-	const struct iio_buffer_setup_ops *setup_ops,
-	enum iio_buffer_direction direction)
+	const struct iio_buffer_setup_ops *setup_ops)
 {
 	struct iio_buffer *buffer;
 	int ret;
@@ -78,7 +77,6 @@ int iio_triggered_buffer_setup(struct iio_dev *indio_dev,
 
 	/* Flag that polled ring buffering is possible */
 	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
-	indio_dev->buffer->direction = direction;
 
 	ret = iio_buffer_register(indio_dev,
 				  indio_dev->channels,

@@ -971,8 +971,8 @@ static int mxs_lradc_probe(struct platform_device *pdev)
 
 	ret = iio_triggered_buffer_setup(iio, &iio_pollfunc_store_time,
 				&mxs_lradc_trigger_handler,
-				&mxs_lradc_buffer_ops,
-				IIO_BUFFER_DIRECTION_IN);
+				&mxs_lradc_buffer_ops
+				);
 	if (ret)
 		goto err_addr;
 

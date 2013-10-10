@@ -317,8 +317,8 @@ static int ad7887_probe(struct spi_device *spi)
 	}
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-			&ad7887_trigger_handler, &ad7887_ring_setup_ops,
-			IIO_BUFFER_DIRECTION_IN);
+			&ad7887_trigger_handler, &ad7887_ring_setup_ops
+			);
 	if (ret)
 		goto error_disable_reg;
 

@@ -227,7 +227,7 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 		return -ENOMEM;
 
 	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
-	indio_dev->buffer->direction = IIO_BUFFER_DIRECTION_OUT;
+	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 	indio_dev->buffer->access = &cf_axi_dds_buffer_access_funcs;
 	indio_dev->setup_ops = &cf_axi_dds_buffer_setup_ops;
 

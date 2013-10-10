@@ -321,7 +321,7 @@ static int ad7923_probe(struct spi_device *spi)
 		goto error_put_reg;
 
 	ret = iio_triggered_buffer_setup(indio_dev, NULL,
-			&ad7923_trigger_handler, NULL);
+			&ad7923_trigger_handler);
 	if (ret)
 		goto error_disable_reg;
 

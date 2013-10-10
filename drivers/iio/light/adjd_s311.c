@@ -310,7 +310,7 @@ static int adjd_s311_probe(struct i2c_client *client,
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	err = iio_triggered_buffer_setup(indio_dev, NULL,
-		adjd_s311_trigger_handler, NULL, IIO_BUFFER_DIRECTION_IN);
+		adjd_s311_trigger_handler, NULL);
 	if (err < 0)
 		goto exit_free_device;
 

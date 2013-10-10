@@ -321,7 +321,7 @@ static void at91_adc_trigger_remove(struct iio_dev *idev)
 static int at91_adc_buffer_init(struct iio_dev *idev)
 {
 	return iio_triggered_buffer_setup(idev, &iio_pollfunc_store_time,
-		&at91_adc_trigger_handler, NULL, IIO_BUFFER_DIRECTION_IN);
+		&at91_adc_trigger_handler, NULL);
 }
 
 static void at91_adc_buffer_remove(struct iio_dev *idev)

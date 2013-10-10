@@ -1206,7 +1206,7 @@ static int xadc_probe(struct platform_device *pdev)
 	if (xadc->ops->flags & XADC_FLAGS_BUFFERED) {
 		ret = iio_triggered_buffer_setup(indio_dev,
 			&iio_pollfunc_store_time, &xadc_trigger_handler,
-			&xadc_buffer_ops, 0);
+			&xadc_buffer_ops);
 		if (ret)
 			goto err_device_free;
 

@@ -471,7 +471,7 @@ static int ad7266_probe(struct spi_device *spi)
 	spi_message_add_tail(&st->single_xfer[2], &st->single_msg);
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-		&ad7266_trigger_handler, &iio_triggered_buffer_setup_ops, IIO_BUFFER_DIRECTION_IN);
+		&ad7266_trigger_handler, &iio_triggered_buffer_setup_ops);
 	if (ret)
 		goto error_free_gpios;
 
