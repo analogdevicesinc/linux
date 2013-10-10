@@ -111,9 +111,12 @@ ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
 				return -EAGAIN;
 
 			ret = wait_event_interruptible(rb->pollq,
-					iio_buffer_space_available(rb));
+					iio_buffer_space_available(rb) ||
+					indio_dev->info == NULL);
 			if (ret)
 				return ret;
+			if (indio_dev->info == NULL)
+				return -ENODEV;
 		}
 
 		ret = rb->access->write(rb, n, buf);
