@@ -20,6 +20,8 @@
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
+#include <linux/sched.h>
+#include <linux/dma-mapping.h>
 #include <linux/sched/signal.h>
 
 #include <linux/iio/iio.h>
@@ -160,21 +162,41 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 	return ret;
 }
 
-/**
- * iio_buffer_read_first_n_outer() - chrdev read for buffer access
- *
- * This function relies on all buffer implementations having an
- * iio_buffer as their first element.
- **/
+static bool iio_buffer_space_available(struct iio_buffer *buf)
+{
+	if (buf->access->space_available)
+		return buf->access->space_available(buf);
+
+	return false;
+}
+
 ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
 				      size_t n, loff_t *f_ps)
 {
 	struct iio_dev *indio_dev = filp->private_data;
 	struct iio_buffer *rb = indio_dev->buffer;
+	int ret;
 
 	if (!rb || !rb->access->write)
 		return -EINVAL;
-	return rb->access->write(rb, n, buf);
+
+	do {
+		if (!iio_buffer_space_available(rb)) {
+			if (filp->f_flags & O_NONBLOCK)
+				return -EAGAIN;
+
+			ret = wait_event_interruptible(rb->pollq,
+					iio_buffer_space_available(rb));
+			if (ret)
+				return ret;
+		}
+
+		ret = rb->access->write(rb, n, buf);
+		if (ret == 0 && (filp->f_flags & O_NONBLOCK))
+			ret = -EAGAIN;
+	} while (ret == 0);
+
+	return ret;
 }
 
 /**
@@ -196,8 +218,18 @@ __poll_t iio_buffer_poll(struct file *filp,
 		return 0;
 
 	poll_wait(filp, &rb->pollq, wait);
-	if (iio_buffer_ready(indio_dev, rb, rb->watermark, 0))
-		return EPOLLIN | EPOLLRDNORM;
+
+	switch (indio_dev->direction) {
+	case IIO_DEVICE_DIRECTION_IN:
+		if (iio_buffer_ready(indio_dev, rb, rb->watermark, 0))
+			return EPOLLIN | EPOLLRDNORM;
+		break;
+	case IIO_DEVICE_DIRECTION_OUT:
+		if (iio_buffer_space_available(rb))
+			return EPOLLOUT | EPOLLWRNORM;
+	}
+
+	/* need a way of knowing if there may be enough data... */
 	return 0;
 }
 
@@ -973,7 +1005,8 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 	indio_dev->scan_timestamp = config->scan_timestamp;
 	indio_dev->scan_bytes = config->scan_bytes;
 
-	iio_update_demux(indio_dev);
+	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
+		iio_update_demux(indio_dev);
 
 	/* Wind up again */
 	if (indio_dev->setup_ops->preenable) {
@@ -1141,6 +1174,11 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 
 	mutex_lock(&indio_dev->info_exist_lock);
 	mutex_lock(&indio_dev->mlock);
+
+	if (indio_dev->direction == IIO_DEVICE_DIRECTION_OUT) {
+		ret = -EINVAL;
+		goto out_unlock;
+	}
 
 	if (insert_buffer && iio_buffer_is_active(insert_buffer))
 		insert_buffer = NULL;
