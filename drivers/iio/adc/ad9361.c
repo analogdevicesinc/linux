@@ -4498,8 +4498,10 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
 			ret = ad9361_get_tx_atten(phy, chan->channel + 1);
-			if (ret < 0)
-				return -EINVAL;
+			if (ret < 0) {
+				ret = -EINVAL;
+				goto out_unlock;
+			}
 
 			*val = -1 * (ret / 1000);
 			*val2 = (ret % 1000) * 1000;
@@ -4528,6 +4530,8 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 	default:
 		ret = -EINVAL;
 	}
+
+out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
