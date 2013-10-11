@@ -321,12 +321,14 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 		} else {
 			ret = conv->read(conv->spi, reg);
 			if (ret < 0)
-				return ret;
+				goto out_unlock;
 		}
 		*readval = ret;
 		ret = 0;
 
 	}
+
+out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
