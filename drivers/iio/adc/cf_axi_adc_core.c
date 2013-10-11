@@ -163,11 +163,12 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 		} else {
 			ret = axiadc_spi_read(st, reg);
 			if (ret < 0)
-				return ret;
+				goto out_unlock;
 			*readval = ret;
 		}
 		ret = 0;
 	}
+out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
