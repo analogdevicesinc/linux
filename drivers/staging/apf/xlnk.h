@@ -1,7 +1,7 @@
 #ifndef _XLNK_OS_H
 #define _XLNK_OS_H
 
-#include <stddef.h>
+#include <linux/stddef.h>
 
 #define XLNK_FLAG_COHERENT		0x00000001
 #define XLNK_FLAG_KERNEL_BUFFER		0x00000002
@@ -15,7 +15,6 @@
 
 extern void xlnk_record_event(u32 event_id);
 
-typedef unsigned long xlnk_handle_t;
 
 enum xlnk_dma_direction {
 	XLNK_DMA_BI = 0,
@@ -24,11 +23,11 @@ enum xlnk_dma_direction {
 	XLNK_DMA_NONE = 3,
 };
 
-typedef union {
+union xlnk_args {
 	struct {
 		unsigned int len;
-		unsigned int *idptr;
-		unsigned int *phyaddrptr;
+		unsigned int __user *idptr;
+		unsigned int __user *phyaddrptr;
 		unsigned int cacheable;
 	} allocbuf;
 	struct {
@@ -37,19 +36,19 @@ typedef union {
 	} freebuf;
 	struct {
 		char name[64]; /* max length of 64 */
-		xlnk_handle_t dmachan; /* return value */
+		u32 dmachan; /* return value */
 		unsigned int bd_space_phys_addr;/*for bd chain used by dmachan*/
 		unsigned int bd_space_size; /* bd chain size in bytes */
 	} dmarequest;
 #define XLNK_MAX_APPWORDS 5
 	struct {
-		xlnk_handle_t dmachan;
+		u32 dmachan;
 		void *buf;      /* buffer base address */
 		void *buf2;	/* used to point src_buf in cdma case */
 		unsigned int buf_offset; /* used on kernel allocated buffers */
 		unsigned int len;
 		unsigned int bufflag; /* zero all the time so far */
-		xlnk_handle_t sglist; /* ignored */
+		u32 sglist; /* ignored */
 		unsigned int sgcnt; /* ignored */
 		enum xlnk_dma_direction dmadir;
 		unsigned int nappwords_i; /* n appwords passed to BD */
@@ -57,17 +56,17 @@ typedef union {
 		unsigned int nappwords_o; /* n appwords passed from BD */
 		/* appwords array we only accept 5 max */
 		unsigned int flag;
-		xlnk_handle_t dmahandle; /* return value */
+		u32 dmahandle; /* return value */
 		unsigned int last_bd_index; /*index of last bd used by request*/
 	} dmasubmit;
 	struct {
-		xlnk_handle_t dmahandle;
+		u32 dmahandle;
 		unsigned int nappwords; /* n appwords read from BD */
 		unsigned int appwords[XLNK_MAX_APPWORDS];
 		/* appwords array we only accept 5 max */
 	} dmawait;
 	struct {
-		xlnk_handle_t dmachan;
+		u32 dmachan;
 	} dmarelease;
 	struct {
 		unsigned long base;
@@ -111,7 +110,7 @@ typedef union {
 		int size;
 		int action;
 	} cachecontrol;
-} xlnk_args;
+};
 
 
 #endif
