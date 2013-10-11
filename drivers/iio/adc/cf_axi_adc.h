@@ -291,9 +291,8 @@ struct axiadc_state {
 	int				compl_stat;
 	unsigned				max_usr_channel;
 	unsigned			adc_def_output_mode;
-	unsigned			ring_length;
-	unsigned			rcount;
 	unsigned			max_count;
+	struct list_head		block_list;
 	unsigned			id;
 	unsigned			pcore_version;
 	unsigned char		testmode[2];
