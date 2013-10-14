@@ -2266,7 +2266,7 @@ static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *
 
 static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long tx_sample_rate,
-				      u32 low_power,
+				      u32 rate_gov,
 				      unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
 {
@@ -2298,7 +2298,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 
 	dev_dbg(&phy->spi->dev, "%s: requested rate %lu TXFIR int %d RXFIR dec %d mode %s",
 		__func__, tx_sample_rate, tx_intdec, rx_intdec,
-		low_power ? "Medium PWR" : "Highest OSR");
+		rate_gov ? "Nominal" : "Highest OSR");
 
 	if (tx_sample_rate > (phy->pdata->rx2tx2 ? 61440000UL : 122880000UL))
 		return -EINVAL;
@@ -2306,7 +2306,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 	clktf = tx_sample_rate * tx_intdec;
 	clkrf = tx_sample_rate * rx_intdec * (phy->rx_eq_2tx ? 2 : 1);
 
-	for (i = low_power; i < 7; i++) {
+	for (i = rate_gov; i < 7; i++) {
 		adc_rate = clkrf * clk_dividers[i][0];
 		dac_rate = clktf * clk_dividers[i][0];
 		if ((adc_rate <= MAX_ADC_CLK) && (adc_rate >= MIN_ADC_CLK)) {
@@ -2325,9 +2325,9 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 		}
 	}
 
-	if ((index_tx < 0 || index_tx > 6 || index_rx < 0 || index_rx > 6) && low_power < 7) {
+	if ((index_tx < 0 || index_tx > 6 || index_rx < 0 || index_rx > 6) && rate_gov < 7) {
 		return ad9361_calculate_rf_clock_chain(phy, tx_sample_rate,
-			++low_power, rx_path_clks, tx_path_clks);
+			++rate_gov, rx_path_clks, tx_path_clks);
 	} else if ((index_tx < 0 || index_tx > 6 || index_rx < 0 || index_rx > 6)) {
 		dev_err(&phy->spi->dev, "%s: Failed to find suitable dividers: %s",
 		__func__, (adc_rate < MIN_ADC_CLK) ? "ADC clock below limit" : "BBPLL rate above limit");
@@ -3985,7 +3985,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 	case AD9361_TRX_RATE_GOV:
 		if (sysfs_streq(buf, "highest_osr"))
 			phy->rate_governor = 0;
-		else if (sysfs_streq(buf, "low_power"))
+		else if (sysfs_streq(buf, "nominal"))
 			phy->rate_governor = 1;
 		else
 			ret = -EINVAL;
@@ -4131,10 +4131,10 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		break;
 	case AD9361_TRX_RATE_GOV:
 		ret = sprintf(buf, "%s\n", phy->rate_governor ?
-				 "low_power" : "highest_osr");
+				 "nominal" : "highest_osr");
 		break;
 	case AD9361_TRX_RATE_GOV_AVAIL:
-		ret = sprintf(buf, "%s\n", "low_power highest_osr");
+		ret = sprintf(buf, "%s\n", "nominal highest_osr");
 		break;
 	case AD9361_FIR_RX_ENABLE:
 		ret = sprintf(buf, "%d\n", !phy->bypass_rx_fir);
