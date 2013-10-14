@@ -254,7 +254,7 @@
 			clocks = <&clkc 12>, <&clkc 15>, <&clkc 16>, <&clkc 17>, <&clkc 18>;
 			clock-names = "ref_clk", "fclk0", "fclk1", "fclk2", "fclk3";
 		};
-	
+
 		xadc@f8007100 {
 			compatible = "xlnx,ps7-xadc-1.00.a";
 			reg = <0xf8007100 0x20>;

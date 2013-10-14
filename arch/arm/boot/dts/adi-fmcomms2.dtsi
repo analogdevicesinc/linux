@@ -19,7 +19,7 @@
 		/* SPI Setup */
 		reg = <0>;
 		spi-cpha;
-		spi-max-frequency = <1000000>;
+		spi-max-frequency = <10000000>;
 
 		/* Clocks */
 		clocks = <&ad9361_clkin 0>;
@@ -41,7 +41,8 @@
 
 		//adi,fdd-rx-rate-2tx-enable;
 
-		adi,dcxo-coarse-and-fine-tune = <7 3424>;
+		adi,dcxo-coarse-and-fine-tune = <8 5920>;
+		//adi,xo-disable-use-ext-refclk-enable;
 
 		/* Mode Setup */
 
@@ -74,7 +75,7 @@
 		adi,rf-rx-bandwidth-hz = <18000000>;
 		adi,rf-tx-bandwidth-hz = <18000000>;
 		adi,rx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
-		adi,tx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
+		adi,tx-synthesizer-frequency-hz = /bits/ 64 <2450000000>;
 
 		/*				BBPLL     ADC        R2CLK     R1CLK    CLKRF    RSAMPL  */
 		adi,rx-path-clock-frequencies = <983040000 245760000 122880000 61440000 30720000 30720000>;
