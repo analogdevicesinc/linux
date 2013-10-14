@@ -2413,30 +2413,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	else
 		return -EINVAL;
 
-	ret = clk_set_rate(phy->clks[RX_REFCLK], ref_freq);
-	if (ret < 0) {
-		dev_err(dev, "Failed to set RX Synth ref clock rate (%d)\n", ret);
-		return ret;
-	}
-
-	ret = clk_set_rate(phy->clks[TX_REFCLK], ref_freq);
-	if (ret < 0) {
-		dev_err(dev, "Failed to set TX Synth ref clock rate (%d)\n", ret);
-		return ret;
-	}
-
- 	ret = clk_prepare_enable(phy->clks[RX_REFCLK]);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable RX Synth ref clock (%d)\n", ret);
-		return ret;
-	}
-
- 	ret = clk_prepare_enable(phy->clks[TX_REFCLK]);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable TX Synth ref clock (%d)\n", ret);
-		return ret;
-	}
-
 	ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_1, RX_REF_RESET_BAR, 1);
 	ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_2, TX_REF_RESET_BAR, 1);
 	ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_2,
@@ -2455,17 +2431,17 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 	}
 
+	ret = ad9361_set_trx_clock_chain(phy, pd->rx_path_clks,
+				   pd->tx_path_clks);
+	if (ret < 0)
+		return ret;
+
 	ret = clk_prepare_enable(phy->clks[BB_REFCLK]);
 	if (ret < 0) {
 		dev_err(dev, "Failed to enable BB ref clock rate (%d)\n",
 			ret);
 		return ret;
 	}
-
-	ret = ad9361_set_trx_clock_chain(phy, pd->rx_path_clks,
-				   pd->tx_path_clks);
-	if (ret < 0)
-		return ret;
 
 	ad9361_en_dis_tx(phy, 1, TX_ENABLE);
 	ad9361_en_dis_rx(phy, 1, RX_ENABLE);
@@ -2511,6 +2487,18 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
+	ret = clk_set_rate(phy->clks[RX_REFCLK], ref_freq);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set RX Synth ref clock rate (%d)\n", ret);
+		return ret;
+	}
+
+	ret = clk_set_rate(phy->clks[TX_REFCLK], ref_freq);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set TX Synth ref clock rate (%d)\n", ret);
+		return ret;
+	}
+
 	ret = ad9361_txrx_synth_cp_calib(phy, ref_freq, false); /* RXCP */
 	if (ret < 0)
 		return ret;
@@ -2526,6 +2514,12 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 	}
 
+	ret = clk_prepare_enable(phy->clks[RX_REFCLK]);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable RX Synth ref clock (%d)\n", ret);
+		return ret;
+	}
+
 	ret = clk_prepare_enable(phy->clks[RX_RFPLL]);
 	if (ret < 0)
 		return ret;
@@ -2534,6 +2528,12 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0) {
 		dev_err(dev, "Failed to set TX Synth rate (%d)\n",
 			ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(phy->clks[TX_REFCLK]);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable TX Synth ref clock (%d)\n", ret);
 		return ret;
 	}
 
@@ -3122,7 +3122,7 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 			return ret;
 		if (set)
 			return ad9361_spi_writef(spi, REG_REF_DIVIDE_CONFIG_2,
-						0x0C, ret);
+						TX_REF_DIVIDER(~0), ret);
 		break;
 	case ADC_CLK:
 		tmp = ilog2((u8)clk_priv->div);
@@ -3243,6 +3243,11 @@ static long ad9361_clk_factor_round_rate(struct clk_hw *hw, unsigned long rate,
 	} else {
 		clk_priv->div = DIV_ROUND_CLOSEST(*prate, rate);
 		clk_priv->mult = 1;
+		if (!clk_priv->div) {
+			dev_err(&clk_priv->spi->dev, "%s: divide by zero",
+			__func__);
+			clk_priv->div = 1;
+		}
 	}
 
 	ret = ad9361_set_clk_scaler(hw, false);
@@ -3266,6 +3271,11 @@ static int ad9361_clk_factor_set_rate(struct clk_hw *hw, unsigned long rate,
 	} else {
 		clk_priv->div = DIV_ROUND_CLOSEST(parent_rate, rate);
 		clk_priv->mult = 1;
+		if (!clk_priv->div) {
+			dev_err(&clk_priv->spi->dev, "%s: divide by zero",
+			__func__);
+			clk_priv->div = 1;
+		}
 	}
 
 	return ad9361_set_clk_scaler(hw, true);
