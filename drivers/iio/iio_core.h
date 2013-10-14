@@ -30,7 +30,7 @@ int __iio_add_chan_devattr(const char *postfix,
 						const char *buf,
 						size_t len),
 			   u64 mask,
-			   bool generic,
+			   enum iio_shared_by shared_by,
 			   struct device *dev,
 			   struct list_head *attr_list);
 
@@ -51,10 +51,14 @@ ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
 #define iio_buffer_poll_addr (&iio_buffer_poll)
 #define iio_buffer_read_first_n_outer_addr (&iio_buffer_read_first_n_outer)
 
+void iio_disable_all_buffers(struct iio_dev *indio_dev);
+
 #else
 
 #define iio_buffer_poll_addr NULL
 #define iio_buffer_read_first_n_outer_addr NULL
+
+static inline void iio_disable_all_buffers(struct iio_dev *indio_dev) {}
 
 #endif
 

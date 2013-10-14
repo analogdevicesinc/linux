@@ -126,21 +126,20 @@ struct xdma_desc_hw {
 } __aligned(64);
 
 /* shared by all Xilinx DMA engines */
-/* FIXME use proper readl/writel functions instead of volatile */
 struct xdma_regs {
-	volatile u32 cr;        /* 0x00 Control Register */
-	volatile u32 sr;        /* 0x04 Status Register */
-	volatile u32 cdr;       /* 0x08 Current Descriptor Register */
-	volatile u32 pad1;
-	volatile u32 tdr;       /* 0x10 Tail Descriptor Register */
-	volatile u32 pad2;
-	volatile u32 src;       /* 0x18 Source Address Register (cdma) */
-	volatile u32 pad3;
-	volatile u32 dst;       /* 0x20 Destination Address Register (cdma) */
-	volatile u32 pad4;
-	volatile u32 btt_ref;   /* 0x28 Bytes To Transfer (cdma) or
+	u32 cr;        /* 0x00 Control Register */
+	u32 sr;        /* 0x04 Status Register */
+	u32 cdr;       /* 0x08 Current Descriptor Register */
+	u32 pad1;
+	u32 tdr;       /* 0x10 Tail Descriptor Register */
+	u32 pad2;
+	u32 src;       /* 0x18 Source Address Register (cdma) */
+	u32 pad3;
+	u32 dst;       /* 0x20 Destination Address Register (cdma) */
+	u32 pad4;
+	u32 btt_ref;   /* 0x28 Bytes To Transfer (cdma) or
 					park_ref (vdma) */
-	volatile u32 version;   /* 0x2c version (vdma) */
+	u32 version;   /* 0x2c version (vdma) */
 };
 
 /* Per DMA specific operations should be embedded in the channel structure */
@@ -188,37 +187,6 @@ struct xdma_head {
 	unsigned int userflag;
 	u32 last_bd_index;
 };
-
-typedef union {
-	struct {
-		char name[64];
-		unsigned long dmachan;
-	} dmarequest;
-	struct {
-		unsigned long dmachan;
-	} dmarelease;
-	struct {
-		void *buf;
-		unsigned int len;
-		unsigned long dmachan;
-		unsigned long dmahandle; /* return value */
-		unsigned int nappwords_i; /* n appwords passed to BD */
-		unsigned int appwords_i[XDMA_MAX_APPWORDS];
-		unsigned int nappwords_o; /* n appwords passed from BD */
-		unsigned int user_flags;
-	} dmasubmit;
-	struct {
-		unsigned long dmahandle;
-		unsigned int nappwords_o; /* n appwords read from BD */
-		unsigned int appwords_o[XDMA_MAX_APPWORDS];
-		unsigned int user_flags;
-	} dmawait;
-	struct {
-		unsigned long dmachan;
-		unsigned char irq_thresh;
-		unsigned char irq_delay;
-	} dmaconfig;
-} xdma_args;
 
 struct xdma_chan *xdma_request_channel(char *name);
 void xdma_release_channel(struct xdma_chan *chan);

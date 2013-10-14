@@ -302,12 +302,14 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 		} else {
 			ret = conv->read(conv->spi, reg);
 			if (ret < 0)
-				return ret;
+				goto out_unlock;
 		}
 		*readval = ret;
 		ret = 0;
 
 	}
+
+out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
@@ -349,7 +351,6 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	{ .type = IIO_ALTVOLTAGE,					\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = 0,						\
 	  .output = 1,							\
 	  .scan_index = _chan,						\
 	  .scan_type = IIO_ST('s', 16, 16, 0),				\

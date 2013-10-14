@@ -835,6 +835,7 @@ int adau17x1_add_routes(struct snd_soc_codec *codec)
 	}
 	return ret;
 }
+EXPORT_SYMBOL_GPL(adau17x1_add_routes);
 
 #if IS_ENABLED(CONFIG_SPI_MASTER)
 static void adau17x1_spi_mode(struct device *dev)

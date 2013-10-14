@@ -1252,7 +1252,7 @@ axienet_ethtools_get_pauseparam(struct net_device *ndev,
  * axienet_ethtools_set_pauseparam - Set device pause parameter(flow control)
  *				     settings.
  * @ndev:	Pointer to net_device structure
- * @epauseparam:Pointer to ethtool_pauseparam structure
+ * @epauseparm:Pointer to ethtool_pauseparam structure
  *
  * This implements ethtool command for enabling flow control on Rx and Tx
  * paths. Issue "ethtool -A ethX tx on|off" under linux prompt to execute this
@@ -1505,9 +1505,8 @@ static void axienet_dma_err_handler(unsigned long data)
 }
 
 /**
- * axienet_of_probe - Axi Ethernet probe function.
- * @op:		Pointer to platform device structure.
- * @match:	Pointer to device id structure
+ * axienet_probe - Axi Ethernet probe function.
+ * @pdev:		Pointer to platform device structure.
  *
  * returns: 0, on success
  *	    Non-zero error value on failure.
@@ -1517,23 +1516,24 @@ static void axienet_dma_err_handler(unsigned long data)
  * device. Parses through device tree and populates fields of
  * axienet_local. It registers the Ethernet device.
  */
-static int axienet_of_probe(struct platform_device *op)
+static int axienet_probe(struct platform_device *pdev)
 {
-	__be32 *p;
-	int size, ret = 0;
+	int ret;
 	struct device_node *np;
 	struct axienet_local *lp;
 	struct net_device *ndev;
-	const void *addr;
+	u8 mac_addr[6];
+	struct resource *ethres, dmares;
+	u32 value;
 
 	ndev = alloc_etherdev(sizeof(*lp));
 	if (!ndev)
 		return -ENOMEM;
 
 	ether_setup(ndev);
-	platform_set_drvdata(op, ndev);
+	platform_set_drvdata(pdev, ndev);
 
-	SET_NETDEV_DEV(ndev, &op->dev);
+	SET_NETDEV_DEV(ndev, &pdev->dev);
 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
 	ndev->features = NETIF_F_FRAGLIST;
 	ndev->netdev_ops = &axienet_netdev_ops;
@@ -1541,21 +1541,25 @@ static int axienet_of_probe(struct platform_device *op)
 
 	lp = netdev_priv(ndev);
 	lp->ndev = ndev;
-	lp->dev = &op->dev;
+	lp->dev = &pdev->dev;
 	lp->options = XAE_OPTION_DEFAULTS;
 	/* Map device registers */
-	lp->regs = of_iomap(op->dev.of_node, 0);
+	ethres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	lp->regs = devm_ioremap_resource(&pdev->dev, ethres);
 	if (!lp->regs) {
-		dev_err(&op->dev, "could not map Axi Ethernet regs.\n");
-		goto nodev;
+		dev_err(&pdev->dev, "could not map Axi Ethernet regs.\n");
+		ret = -ENOMEM;
+		goto free_netdev;
 	}
+
 	/* Setup checksum offload, but default to off if not specified */
 	lp->features = 0;
 
-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,txcsum", NULL);
-	dev_info(&op->dev, "TX_CSUM %d\n", be32_to_cpup(p));
-	if (p) {
-		switch (be32_to_cpup(p)) {
+	ret = of_property_read_u32(pdev->dev.of_node, "xlnx,txcsum", &value);
+	if (!ret) {
+		dev_info(&pdev->dev, "TX_CSUM %d\n", value);
+
+		switch (value) {
 		case 1:
 			lp->csum_offload_on_tx_path =
 				XAE_FEATURE_PARTIAL_TX_CSUM;
@@ -1574,10 +1578,11 @@ static int axienet_of_probe(struct platform_device *op)
 			lp->csum_offload_on_tx_path = XAE_NO_CSUM_OFFLOAD;
 		}
 	}
-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,rxcsum", NULL);
-	dev_info(&op->dev, "RX_CSUM %d\n", be32_to_cpup(p));
-	if (p) {
-		switch (be32_to_cpup(p)) {
+	ret = of_property_read_u32(pdev->dev.of_node, "xlnx,rxcsum", &value);
+	if (!ret) {
+		dev_info(&pdev->dev, "RX_CSUM %d\n", value);
+
+		switch (value) {
 		case 1:
 			lp->csum_offload_on_rx_path =
 				XAE_FEATURE_PARTIAL_RX_CSUM;
@@ -1598,79 +1603,74 @@ static int axienet_of_probe(struct platform_device *op)
 	 * Here we check for memory allocated for Rx/Tx in the hardware from
 	 * the device-tree and accordingly set flags.
 	 */
-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,rxmem", NULL);
-	if (p)
-		lp->rxmem = be32_to_cpup(p);
-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,temac-type",
-				       NULL);
-	if (p)
-		lp->temac_type = be32_to_cpup(p);
-	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,phy-type", NULL);
-	if (p)
-		lp->phy_type = be32_to_cpup(p);
+	of_property_read_u32(pdev->dev.of_node, "xlnx,rxmem", &lp->rxmem);
+	of_property_read_u32(pdev->dev.of_node, "xlnx,temac-type",
+					&lp->temac_type);
+	of_property_read_u32(pdev->dev.of_node, "xlnx,phy-type", &lp->phy_type);
 
 	/* Find the DMA node, map the DMA registers, and decode the DMA IRQs */
-	np = of_parse_phandle(op->dev.of_node, "axistream-connected", 0);
-	if (!np) {
-		dev_err(&op->dev, "could not find DMA node\n");
-		goto err_iounmap;
+	np = of_parse_phandle(pdev->dev.of_node, "axistream-connected", 0);
+	if (IS_ERR(np)) {
+		dev_err(&pdev->dev, "could not find DMA node\n");
+		ret = PTR_ERR(np);
+		goto free_netdev;
 	}
-	lp->dma_regs = of_iomap(np, 0);
-	if (lp->dma_regs) {
-		dev_dbg(&op->dev, "MEM base: %p\n", lp->dma_regs);
-	} else {
-		dev_err(&op->dev, "unable to map DMA registers\n");
-		of_node_put(np);
+	ret = of_address_to_resource(np, 0, &dmares);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to get DMA resource\n");
+		goto free_netdev;
+	}
+	lp->dma_regs = devm_ioremap_resource(&pdev->dev, &dmares);
+	if (!lp->dma_regs) {
+		dev_err(&pdev->dev, "could not map DMA regs\n");
+		ret = -ENOMEM;
+		goto free_netdev;
 	}
 	lp->rx_irq = irq_of_parse_and_map(np, 1);
 	lp->tx_irq = irq_of_parse_and_map(np, 0);
 	of_node_put(np);
 	if ((lp->rx_irq <= 0) || (lp->tx_irq <= 0)) {
-		dev_err(&op->dev, "could not determine irqs\n");
+		dev_err(&pdev->dev, "could not determine irqs\n");
 		ret = -ENOMEM;
-		goto err_iounmap_2;
+		goto free_netdev;
 	}
 
 	/* Retrieve the MAC address */
-	addr = of_get_property(op->dev.of_node, "local-mac-address", &size);
-	if ((!addr) || (size != 6)) {
-		dev_err(&op->dev, "could not find MAC address\n");
-		ret = -ENODEV;
-		goto err_iounmap_2;
+	ret = of_property_read_u8_array(pdev->dev.of_node,
+			"local-mac-address", mac_addr, 6);
+	if (ret) {
+		dev_err(&pdev->dev, "could not find MAC address\n");
+		goto free_netdev;
 	}
-	axienet_set_mac_address(ndev, (void *) addr);
+	axienet_set_mac_address(ndev, (void *) mac_addr);
 
 	lp->coalesce_count_rx = XAXIDMA_DFT_RX_THRESHOLD;
 	lp->coalesce_count_tx = XAXIDMA_DFT_TX_THRESHOLD;
 
-	lp->phy_node = of_parse_phandle(op->dev.of_node, "phy-handle", 0);
-	if (lp->phy_node)
-		ret = axienet_mdio_setup(lp, op->dev.of_node);
-	if (ret)
-		dev_warn(&op->dev, "error registering MDIO bus\n");
+	lp->phy_node = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
+	if (lp->phy_node) {
+		ret = axienet_mdio_setup(lp, pdev->dev.of_node);
+		if (ret)
+			dev_warn(&pdev->dev, "error registering MDIO bus\n");
+	}
 
 	ret = register_netdev(lp->ndev);
 	if (ret) {
 		dev_err(lp->dev, "register_netdev() error (%i)\n", ret);
-		goto err_iounmap_2;
+		goto free_netdev;
 	}
 
 	return 0;
 
-err_iounmap_2:
-	if (lp->dma_regs)
-		iounmap(lp->dma_regs);
-err_iounmap:
-	iounmap(lp->regs);
-nodev:
+free_netdev:
 	free_netdev(ndev);
-	ndev = NULL;
+
 	return ret;
 }
 
-static int axienet_of_remove(struct platform_device *op)
+static int axienet_remove(struct platform_device *pdev)
 {
-	struct net_device *ndev = platform_get_drvdata(op);
+	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct axienet_local *lp = netdev_priv(ndev);
 
 	axienet_mdio_teardown(lp);
@@ -1680,17 +1680,14 @@ static int axienet_of_remove(struct platform_device *op)
 		of_node_put(lp->phy_node);
 	lp->phy_node = NULL;
 
-	iounmap(lp->regs);
-	if (lp->dma_regs)
-		iounmap(lp->dma_regs);
 	free_netdev(ndev);
 
 	return 0;
 }
 
-static struct platform_driver axienet_of_driver = {
-	.probe = axienet_of_probe,
-	.remove = axienet_of_remove,
+static struct platform_driver axienet_driver = {
+	.probe = axienet_probe,
+	.remove = axienet_remove,
 	.driver = {
 		 .owner = THIS_MODULE,
 		 .name = "xilinx_axienet",
@@ -1698,7 +1695,7 @@ static struct platform_driver axienet_of_driver = {
 	},
 };
 
-module_platform_driver(axienet_of_driver);
+module_platform_driver(axienet_driver);
 
 MODULE_DESCRIPTION("Xilinx Axi Ethernet driver");
 MODULE_AUTHOR("Xilinx");
