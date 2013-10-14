@@ -72,7 +72,6 @@ struct ad9361_rf_phy {
 	bool 			ensm_pin_ctl_en;
 
 	bool			auto_cal_en;
-	u64			last_rx_quad_cal_freq;
 	u64			last_tx_quad_cal_freq;
 	unsigned long		flags;
 	unsigned long		cal_threshold_freq;
@@ -1636,12 +1635,6 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	return ad9361_run_calibration(phy, TX_QUAD_CAL);
 }
 
-static int ad9361_rx_quad_calib(struct ad9361_rf_phy *phy,
-					   unsigned long bw)
-{
-	return -EINVAL; /* TODO */
-}
-
 static int ad9361_tracking_control(struct ad9361_rf_phy *phy, bool bbdc_track,
 				   bool rfdc_track, bool rxquad_track)
 {
@@ -2645,9 +2638,6 @@ static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal, int arg)
 	switch (cal) {
 	case TX_QUAD_CAL:
 		ret = ad9361_tx_quad_calib(phy, phy->current_tx_bw_Hz / 2, arg);
-		break;
-	case RX_QUAD_CAL:
-		ret = ad9361_rx_quad_calib(phy, phy->current_rx_bw_Hz / 2);
 		break;
 	case RFDC_CAL:
 		ret = ad9361_rf_dc_offset_calib(phy,
@@ -4048,8 +4038,6 @@ static ssize_t ad9361_phy_store(struct device *dev,
 			phy->auto_cal_en = true;
 		else if (sysfs_streq(buf, "manual"))
 			phy->auto_cal_en = false;
-		else if (sysfs_streq(buf, "rx_quad"))
-			val = RX_QUAD_CAL;
 		else if (!strncmp(buf, "tx_quad", 7)) {
 			ret = sscanf(buf, "tx_quad %u", &arg);
 			if (ret != 1)
@@ -4150,7 +4138,7 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		ret = sprintf(buf, "%d\n", !phy->bypass_tx_fir && !phy->bypass_rx_fir);
 		break;
 	case AD9361_CALIB_MODE_AVAIL:
-		ret = sprintf(buf, "auto manual tx_quad rf_dc_offs rx_quad\n");
+		ret = sprintf(buf, "auto manual tx_quad rf_dc_offs\n");
 		break;
 	case AD9361_CALIB_MODE:
 		ret = sprintf(buf, "%s\n", phy->auto_cal_en ? "auto" : "manual");
