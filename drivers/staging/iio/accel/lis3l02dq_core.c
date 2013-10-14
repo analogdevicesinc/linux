@@ -190,18 +190,14 @@ static u8 lis3l02dq_axis_map[3][3] = {
 };
 
 static int lis3l02dq_read_thresh(struct iio_dev *indio_dev,
-				 const struct iio_chan_spec *chan,
-				 enum iio_event_type type,
-				 enum iio_event_direction dir,
+				 u64 e,
 				 int *val)
 {
 	return lis3l02dq_read_reg_s16(indio_dev, LIS3L02DQ_REG_THS_L_ADDR, val);
 }
 
 static int lis3l02dq_write_thresh(struct iio_dev *indio_dev,
-				  const struct iio_chan_spec *chan,
-				  enum iio_event_type type,
-				  enum iio_event_direction dir,
+				  u64 event_code,
 				  int val)
 {
 	u16 value = val;
@@ -537,14 +533,14 @@ static const struct iio_chan_spec lis3l02dq_channels[] = {
 
 
 static int lis3l02dq_read_event_config(struct iio_dev *indio_dev,
-				       const struct iio_chan_spec *chan,
-				       enum iio_event_type type,
-				       enum iio_event_direction dir)
+					   u64 event_code)
 {
 
 	u8 val;
 	int ret;
-	u8 mask = (1 << (chan->channel2*2 + (dir == IIO_EV_DIR_RISING)));
+	u8 mask = (1 << (IIO_EVENT_CODE_EXTRACT_MODIFIER(event_code)*2 +
+			 (IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
+			  IIO_EV_DIR_RISING)));
 	ret = lis3l02dq_spi_read_reg_8(indio_dev,
 				       LIS3L02DQ_REG_WAKE_UP_CFG_ADDR,
 				       &val);
@@ -589,16 +585,16 @@ error_ret:
 }
 
 static int lis3l02dq_write_event_config(struct iio_dev *indio_dev,
-					const struct iio_chan_spec *chan,
-					enum iio_event_type type,
-					enum iio_event_direction dir,
+					u64 event_code,
 					int state)
 {
 	int ret = 0;
 	u8 val, control;
 	u8 currentlyset;
 	bool changed = false;
-	u8 mask = (1 << (chan->channel2*2 + (dir == IIO_EV_DIR_RISING)));
+	u8 mask = (1 << (IIO_EVENT_CODE_EXTRACT_MODIFIER(event_code)*2 +
+			 (IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
+			  IIO_EV_DIR_RISING)));
 
 	mutex_lock(&indio_dev->mlock);
 	/* read current control */

@@ -310,25 +310,17 @@ struct iio_info {
 			 long mask);
 
 	int (*read_event_config)(struct iio_dev *indio_dev,
-				 const struct iio_chan_spec *chan,
-				 enum iio_event_type type,
-				 enum iio_event_direction dir);
+				 u64 event_code);
 
 	int (*write_event_config)(struct iio_dev *indio_dev,
-				  const struct iio_chan_spec *chan,
-				  enum iio_event_type type,
-				  enum iio_event_direction dir,
+				  u64 event_code,
 				  int state);
 
 	int (*read_event_value)(struct iio_dev *indio_dev,
-				const struct iio_chan_spec *chan,
-				enum iio_event_type type,
-				enum iio_event_direction dir,
+				u64 event_code,
 				int *val);
 	int (*write_event_value)(struct iio_dev *indio_dev,
-				 const struct iio_chan_spec *chan,
-				 enum iio_event_type type,
-				 enum iio_event_direction dir,
+				 u64 event_code,
 				 int val);
 	int (*validate_trigger)(struct iio_dev *indio_dev,
 				struct iio_trigger *trig);

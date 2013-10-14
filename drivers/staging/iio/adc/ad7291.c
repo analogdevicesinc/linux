@@ -309,9 +309,7 @@ static u8 ad7291_limit_regs[9][2] = {
 };
 
 static int ad7291_read_event_value(struct iio_dev *indio_dev,
-				   const struct iio_chan_spec *chan,
-				   enum iio_event_type type,
-				   enum iio_event_direction dir,
+				   u64 event_code,
 				   int *val)
 {
 	struct ad7291_chip_info *chip = iio_priv(indio_dev);
@@ -321,9 +319,11 @@ static int ad7291_read_event_value(struct iio_dev *indio_dev,
 	u16 uval;
 	s16 signval;
 
-	switch (chan->type) {
+	switch (IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(event_code)) {
 	case IIO_VOLTAGE:
-		reg = ad7291_limit_regs[chan->channel][dir != IIO_EV_DIR_RISING];
+		reg = ad7291_limit_regs[IIO_EVENT_CODE_EXTRACT_CHAN(event_code)]
+			[!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
+			   IIO_EV_DIR_RISING)];
 
 		ret = ad7291_i2c_read(chip, reg, &uval);
 		if (ret < 0)
@@ -332,7 +332,9 @@ static int ad7291_read_event_value(struct iio_dev *indio_dev,
 		return 0;
 
 	case IIO_TEMP:
-		reg = ad7291_limit_regs[8][dir != IIO_EV_DIR_RISING];
+		reg = ad7291_limit_regs[8]
+			[!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
+			   IIO_EV_DIR_RISING)];
 
 		ret = ad7291_i2c_read(chip, reg, &signval);
 		if (ret < 0)
@@ -346,25 +348,27 @@ static int ad7291_read_event_value(struct iio_dev *indio_dev,
 }
 
 static int ad7291_write_event_value(struct iio_dev *indio_dev,
-				    const struct iio_chan_spec *chan,
-				    enum iio_event_type type,
-				    enum iio_event_direction dir,
+				    u64 event_code,
 				    int val)
 {
 	struct ad7291_chip_info *chip = iio_priv(indio_dev);
 	u8 reg;
 	s16 signval;
 
-	switch (chan->type) {
+	switch (IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(event_code)) {
 	case IIO_VOLTAGE:
 		if (val > AD7291_VALUE_MASK || val < 0)
 			return -EINVAL;
-		reg = ad7291_limit_regs[chan->channel][dir != IIO_EV_DIR_RISING];
+		reg = ad7291_limit_regs[IIO_EVENT_CODE_EXTRACT_CHAN(event_code)]
+			[!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
+			   IIO_EV_DIR_RISING)];
 		return ad7291_i2c_write(chip, reg, val);
 	case IIO_TEMP:
 		if (val > 2047 || val < -2048)
 			return -EINVAL;
-		reg = ad7291_limit_regs[8][dir != IIO_EV_DIR_RISING];
+		reg = ad7291_limit_regs[8]
+			[!(IIO_EVENT_CODE_EXTRACT_DIR(event_code) ==
+			   IIO_EV_DIR_RISING)];
 		signval = val;
 		return ad7291_i2c_write(chip, reg, *(u16 *)&signval);
 	default:
@@ -373,17 +377,16 @@ static int ad7291_write_event_value(struct iio_dev *indio_dev,
 }
 
 static int ad7291_read_event_config(struct iio_dev *indio_dev,
-				    const struct iio_chan_spec *chan,
-				    enum iio_event_type type,
-				    enum iio_event_direction dir)
+				    u64 event_code)
 {
 	struct ad7291_chip_info *chip = iio_priv(indio_dev);
 	/* To be enabled the channel must simply be on. If any are enabled
 	   we are in continuous sampling mode */
 
-	switch (chan->type) {
+	switch (IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(event_code)) {
 	case IIO_VOLTAGE:
-		if (chip->c_mask & (1 << (15 - chan->channel)))
+		if (chip->c_mask &
+		    (1 << (15 - IIO_EVENT_CODE_EXTRACT_CHAN(event_code))))
 			return 1;
 		else
 			return 0;
@@ -397,14 +400,11 @@ static int ad7291_read_event_config(struct iio_dev *indio_dev,
 }
 
 static int ad7291_write_event_config(struct iio_dev *indio_dev,
-				     const struct iio_chan_spec *chan,
-				     enum iio_event_type type,
-				     enum iio_event_direction dir,
+				     u64 event_code,
 				     int state)
 {
 	int ret = 0;
 	struct ad7291_chip_info *chip = iio_priv(indio_dev);
-	unsigned int mask;
 	u16 regval;
 
 	mutex_lock(&chip->state_lock);
@@ -415,14 +415,16 @@ static int ad7291_write_event_config(struct iio_dev *indio_dev,
 	 * Possible to disable temp as well but that makes single read tricky.
 	 */
 
-	mask = BIT(15 - chan->channel);
-
-	switch (chan->type) {
+	switch (IIO_EVENT_CODE_EXTRACT_TYPE(event_code)) {
 	case IIO_VOLTAGE:
-		if ((!state) && (chip->c_mask & mask))
-			chip->c_mask &= ~mask;
-		else if (state && (!(chip->c_mask & mask)))
-			chip->c_mask |= mask;
+		if ((!state) && (chip->c_mask & (1 << (15 -
+				IIO_EVENT_CODE_EXTRACT_CHAN(event_code)))))
+			chip->c_mask &= ~(1 << (15 - IIO_EVENT_CODE_EXTRACT_CHAN
+							(event_code)));
+		else if (state && (!(chip->c_mask & (1 << (15 -
+				IIO_EVENT_CODE_EXTRACT_CHAN(event_code))))))
+			chip->c_mask |= (1 << (15 - IIO_EVENT_CODE_EXTRACT_CHAN
+							(event_code)));
 		else
 			break;
 
