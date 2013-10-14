@@ -4784,15 +4784,12 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 
 	ret = of_property_read_u32_array(np, "adi,dcxo-coarse-and-fine-tune",
 			      array, 2);
-	if (ret < 0) {
-		if (ret == -EINVAL)
-			pdata->use_extclk = true;
-		else
-			return NULL;
-	}
 
-	pdata->dcxo_coarse = array[0];
-	pdata->dcxo_fine = array[1];
+	pdata->dcxo_coarse = (ret < 0) ? 8 : array[0];
+	pdata->dcxo_fine = (ret < 0) ? 5920 : array[1];
+
+	ad9361_of_get_bool(np, "adi,xo-disable-use-ext-refclk-enable",
+			   &pdata->use_extclk);
 
 	ret = of_property_read_u32_array(np, "adi,rx-path-clock-frequencies",
 			pdata->rx_path_clks, ARRAY_SIZE(pdata->rx_path_clks));
