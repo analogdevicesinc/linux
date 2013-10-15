@@ -21,6 +21,7 @@
 
 #define ADI_REG_RSTN		0x0040
 #define ADI_RSTN			(1 << 0)
+#define ADI_MMCM_RSTN 		(1 << 1)
 
 #define ADI_REG_CNTRL_1		0x0044
 #define ADI_ENABLE		(1 << 0)
@@ -152,10 +153,9 @@ enum {
 struct cf_axi_dds_chip_info {
 	char 				name[8];
 	struct iio_chan_spec		channel[9];
-	struct iio_chan_spec		buf_channel[2];
-	unsigned 			num_channels;
-	unsigned 			num_buf_channels;
-
+	struct iio_chan_spec		buf_channel[4];
+	unsigned			num_channels;
+	unsigned			num_buf_channels;
 };
 
 #include <linux/amba/xilinx_dma.h>
@@ -200,6 +200,8 @@ struct cf_axi_converter {
 	unsigned		fcenter_shift;
 	unsigned long 	intp_modes[5];
 	unsigned long 	cs_modes[17];
+	int		temp_calib;
+	unsigned		temp_calib_code;
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);

@@ -26,6 +26,7 @@
 #include <linux/scatterlist.h>
 #include <linux/of.h>
 #include <linux/of_dma.h>
+#include <linux/err.h>
 
 #include "dmaengine.h"
 #define PL330_MAX_CHAN		8
@@ -548,6 +549,8 @@ struct dma_pl330_chan {
 
 	/* List of to be xfered descriptors */
 	struct list_head work_list;
+	/* List of completed descriptors */
+	struct list_head completed_list;
 
 	/* Pointer to the DMAC that manages this channel,
 	 * NULL if the channel is available to be acquired.
@@ -586,8 +589,6 @@ struct dma_pl330_dmac {
 
 	/* Peripheral channels connected to this DMAC */
 	struct dma_pl330_chan *peripherals; /* keep at end */
-
-	u32 dma_channels;
 };
 
 struct dma_pl330_desc {
@@ -2223,66 +2224,6 @@ to_desc(struct dma_async_tx_descriptor *tx)
 	return container_of(tx, struct dma_pl330_desc, txd);
 }
 
-static inline void free_desc_list(struct list_head *list)
-{
-	struct dma_pl330_dmac *pdmac;
-	struct dma_pl330_desc *desc;
-	struct dma_pl330_chan *pch = NULL;
-	unsigned long flags;
-
-	/* Finish off the work list */
-	list_for_each_entry(desc, list, node) {
-		dma_async_tx_callback callback;
-		void *param;
-
-		/* All desc in a list belong to same channel */
-		pch = desc->pchan;
-		callback = desc->txd.callback;
-		param = desc->txd.callback_param;
-
-		if (callback)
-			callback(param);
-
-		desc->pchan = NULL;
-	}
-
-	/* pch will be unset if list was empty */
-	if (!pch)
-		return;
-
-	pdmac = pch->dmac;
-
-	spin_lock_irqsave(&pdmac->pool_lock, flags);
-	list_splice_tail_init(list, &pdmac->desc_pool);
-	spin_unlock_irqrestore(&pdmac->pool_lock, flags);
-}
-
-static inline void handle_cyclic_desc_list(struct list_head *list)
-{
-	struct dma_pl330_desc *desc;
-	struct dma_pl330_chan *pch = NULL;
-	unsigned long flags;
-
-	list_for_each_entry(desc, list, node) {
-		dma_async_tx_callback callback;
-
-		/* Change status to reload it */
-		desc->status = PREP;
-		pch = desc->pchan;
-		callback = desc->txd.callback;
-		if (callback)
-			callback(desc->txd.callback_param);
-	}
-
-	/* pch will be unset if list was empty */
-	if (!pch)
-		return;
-
-	spin_lock_irqsave(&pch->lock, flags);
-	list_splice_tail_init(list, &pch->work_list);
-	spin_unlock_irqrestore(&pch->lock, flags);
-}
-
 static inline void fill_queue(struct dma_pl330_chan *pch)
 {
 	struct dma_pl330_desc *desc;
@@ -2316,7 +2257,6 @@ static void pl330_tasklet(unsigned long data)
 	struct dma_pl330_chan *pch = (struct dma_pl330_chan *)data;
 	struct dma_pl330_desc *desc, *_dt;
 	unsigned long flags;
-	LIST_HEAD(list);
 
 	spin_lock_irqsave(&pch->lock, flags);
 
@@ -2325,7 +2265,7 @@ static void pl330_tasklet(unsigned long data)
 		if (desc->status == DONE) {
 			if (!pch->cyclic)
 				dma_cookie_complete(&desc->txd);
-			list_move_tail(&desc->node, &list);
+			list_move_tail(&desc->node, &pch->completed_list);
 		}
 
 	/* Try to submit a req imm. next to the last completed cookie */
@@ -2334,12 +2274,31 @@ static void pl330_tasklet(unsigned long data)
 	/* Make sure the PL330 Channel thread is active */
 	pl330_chan_ctrl(pch->pl330_chid, PL330_OP_START);
 
-	spin_unlock_irqrestore(&pch->lock, flags);
+	while (!list_empty(&pch->completed_list)) {
+		dma_async_tx_callback callback;
+		void *callback_param;
 
-	if (pch->cyclic)
-		handle_cyclic_desc_list(&list);
-	else
-		free_desc_list(&list);
+		desc = list_first_entry(&pch->completed_list,
+					struct dma_pl330_desc, node);
+
+		callback = desc->txd.callback;
+		callback_param = desc->txd.callback_param;
+
+		if (pch->cyclic) {
+			desc->status = PREP;
+			list_move_tail(&desc->node, &pch->work_list);
+		} else {
+			desc->status = FREE;
+			list_move_tail(&desc->node, &pch->dmac->desc_pool);
+		}
+
+		if (callback) {
+			spin_unlock_irqrestore(&pch->lock, flags);
+			callback(callback_param);
+			spin_lock_irqsave(&pch->lock, flags);
+		}
+	}
+	spin_unlock_irqrestore(&pch->lock, flags);
 }
 
 static void dma_pl330_rqcb(void *token, enum pl330_op_err err)
@@ -2434,7 +2393,7 @@ static int pl330_alloc_chan_resources(struct dma_chan *chan)
 static int pl330_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd, unsigned long arg)
 {
 	struct dma_pl330_chan *pch = to_pchan(chan);
-	struct dma_pl330_desc *desc, *_dt;
+	struct dma_pl330_desc *desc;
 	unsigned long flags;
 	struct dma_pl330_dmac *pdmac = pch->dmac;
 	struct dma_slave_config *slave_config;
@@ -2448,12 +2407,18 @@ static int pl330_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd, unsigned 
 		pl330_chan_ctrl(pch->pl330_chid, PL330_OP_FLUSH);
 
 		/* Mark all desc done */
-		list_for_each_entry_safe(desc, _dt, &pch->work_list , node) {
-			desc->status = DONE;
-			list_move_tail(&desc->node, &list);
+		list_for_each_entry(desc, &pch->work_list , node) {
+			desc->status = FREE;
+			dma_cookie_complete(&desc->txd);
 		}
 
-		list_splice_tail_init(&list, &pdmac->desc_pool);
+		list_for_each_entry(desc, &pch->completed_list , node) {
+			desc->status = FREE;
+			dma_cookie_complete(&desc->txd);
+		}
+
+		list_splice_tail_init(&pch->work_list, &pdmac->desc_pool);
+		list_splice_tail_init(&pch->completed_list, &pdmac->desc_pool);
 		spin_unlock_irqrestore(&pch->lock, flags);
 		break;
 	case DMA_SLAVE_CONFIG:
@@ -2946,6 +2911,7 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	struct resource *res;
 	int i, ret, irq;
 	int num_chan;
+	u32 dma_channels;
 
 	pdat = adev->dev.platform_data;
 
@@ -2962,27 +2928,27 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	pi->mcbufsz = pdat ? pdat->mcbuf_sz : 0;
 
 	res = &adev->res;
-	pi->base = devm_request_and_ioremap(&adev->dev, res);
-	if (!pi->base)
-		return -ENXIO;
+	pi->base = devm_ioremap_resource(&adev->dev, res);
+	if (IS_ERR(pi->base))
+		return PTR_ERR(pi->base);
 
 	amba_set_drvdata(adev, pdmac);
 
 	of_property_read_u32(adev->dev.of_node,
-			     "#dma-channels", &pdmac->dma_channels);
+			     "#dma-channels", &dma_channels);
 
 	/* irq 0 is abort IRQ */
-	for (i = 1; i <= pdmac->dma_channels ; i++) {
+	for (i = 1; i <= dma_channels ; i++) {
 		irq = adev->irq[i];
-		ret = request_irq(irq, pl330_irq_handler, 0,
+		ret = devm_request_irq(&adev->dev, irq, pl330_irq_handler, 0,
 				dev_name(&adev->dev), pi);
 		if (ret)
-			goto probe_err1;
+			return ret;
 	}
 
 	ret = pl330_add(pi);
 	if (ret)
-		goto probe_err1;
+		return ret;
 
 	INIT_LIST_HEAD(&pdmac->desc_pool);
 	spin_lock_init(&pdmac->pool_lock);
@@ -3015,6 +2981,7 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 			pch->chan.private = adev->dev.of_node;
 
 		INIT_LIST_HEAD(&pch->work_list);
+		INIT_LIST_HEAD(&pch->completed_list);
 		spin_lock_init(&pch->lock);
 		pch->pl330_chid = NULL;
 		pch->chan.device = pd;
@@ -3086,9 +3053,6 @@ probe_err3:
 	}
 probe_err2:
 	pl330_del(pi);
-probe_err1:
-	for (i = 1; i <= pdmac->dma_channels ; i++)
-		free_irq(adev->irq[i], pi);
 
 	return ret;
 }
@@ -3098,7 +3062,6 @@ static int pl330_remove(struct amba_device *adev)
 	struct dma_pl330_dmac *pdmac = amba_get_drvdata(adev);
 	struct dma_pl330_chan *pch, *_p;
 	struct pl330_info *pi;
-	int i;
 
 	if (!pdmac)
 		return 0;
@@ -3124,9 +3087,6 @@ static int pl330_remove(struct amba_device *adev)
 	pi = &pdmac->pif;
 
 	pl330_del(pi);
-
-	for (i = 1; i <= pdmac->dma_channels ; i++)
-		free_irq(adev->irq[i], pi);
 
 	return 0;
 }

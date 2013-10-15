@@ -96,10 +96,10 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 #define XDCFG_DMA_INVALID_ADDRESS	0xFFFFFFFF  /* Invalid DMA address */
 
 static const char * const fclk_name[] = {
-	"FPGA0",
-	"FPGA1",
-	"FPGA2",
-	"FPGA3"
+	"fclk0",
+	"fclk1",
+	"fclk2",
+	"fclk3"
 };
 #define NUMFCLKS ARRAY_SIZE(fclk_name)
 
@@ -141,6 +141,9 @@ struct xdevcfg_drvdata {
 	void __iomem *base_address;
 	int ep107;
 	bool is_partial_bitstream;
+	bool endian_swap;
+	char residue_buf[3];
+	int residue_len;
 };
 
 /**
@@ -239,13 +242,15 @@ static ssize_t
 xdevcfg_write(struct file *file, const char __user *buf, size_t count,
 		loff_t *ppos)
 {
-	u32 *kbuf;
+	char *kbuf;
 	int status;
 	unsigned long timeout;
 	u32 intr_reg;
 	dma_addr_t dma_addr;
 	u32 transfer_length = 0;
 	struct xdevcfg_drvdata *drvdata = file->private_data;
+	size_t user_count = count;
+	int i;
 
 	status = clk_enable(drvdata->clk);
 	if (status)
@@ -256,16 +261,60 @@ xdevcfg_write(struct file *file, const char __user *buf, size_t count,
 	if (status)
 		goto err_clk;
 
-	kbuf = dma_alloc_coherent(drvdata->dev, count, &dma_addr, GFP_KERNEL);
+	kbuf = dma_alloc_coherent(drvdata->dev, count + drvdata->residue_len,
+				  &dma_addr, GFP_KERNEL);
 	if (!kbuf) {
 		status = -ENOMEM;
 		goto err_unlock;
 	}
 
-	if (copy_from_user(kbuf, buf, count)) {
+	/* Collect stragglers from last time (0 to 3 bytes) */
+	memcpy(kbuf, drvdata->residue_buf, drvdata->residue_len);
+
+	/* Fetch user data, appending to stragglers */
+	if (copy_from_user(kbuf + drvdata->residue_len, buf, count)) {
 		status = -EFAULT;
 		goto error;
 	}
+
+	/* Include stragglers in total bytes to be handled */
+	count += drvdata->residue_len;
+
+	/* First block contains a header */
+	if (*ppos == 0 && count > 4) {
+		/* Look for sync word */
+		for (i = 0; i < count - 4; i++) {
+			if (memcmp(kbuf + i, "\x66\x55\x99\xAA", 4) == 0) {
+				printk("Found normal sync word\n");
+				drvdata->endian_swap = 0;
+				break;
+			}
+			if (memcmp(kbuf + i, "\xAA\x99\x55\x66", 4) == 0) {
+				printk("Found swapped sync word\n");
+				drvdata->endian_swap = 1;
+				break;
+			}
+		}
+		/* Remove the header, aligning the data on word boundary */
+		if (i != count - 4) {
+			count -= i;
+			memmove(kbuf, kbuf + i, count);
+		}
+	}
+
+	/* Save stragglers for next time */
+	drvdata->residue_len = count % 4;
+	count -= drvdata->residue_len;
+	memcpy(drvdata->residue_buf, kbuf + count, drvdata->residue_len);
+
+	/* Fixup endianess of the data */
+	if (drvdata->endian_swap) {
+		for (i = 0; i < count; i += 4) {
+			u32 *p = (u32 *)&kbuf[i];
+			*p = swab32(*p);
+		}
+	}
+
 	/* Enable DMA and error interrupts */
 	xdevcfg_writereg(drvdata->base_address + XDCFG_INT_STS_OFFSET,
 				XDCFG_IXR_ALL_MASK);
@@ -322,7 +371,8 @@ xdevcfg_write(struct file *file, const char __user *buf, size_t count,
 		goto error;
 	}
 
-	status = count;
+	*ppos += user_count;
+	status = user_count;
 
 error:
 	dma_free_coherent(drvdata->dev, count, kbuf, dma_addr);
@@ -457,6 +507,8 @@ static int xdevcfg_open(struct inode *inode, struct file *file)
 
 	file->private_data = drvdata;
 	drvdata->is_open = 1;
+	drvdata->endian_swap = 0;
+	drvdata->residue_len= 0;
 
 	/*
 	 * If is_partial_bitstream is set, then PROG_B is not asserted
@@ -498,6 +550,10 @@ static int xdevcfg_release(struct inode *inode, struct file *file)
 
 	if (!drvdata->is_partial_bitstream)
 		xslcr_init_postload_fpga();
+
+	if (drvdata->residue_len)
+		printk("Did not transfer last %d bytes\n",
+			drvdata->residue_len);
 
 	drvdata->is_open = 0;
 
@@ -1773,7 +1829,7 @@ static void xdevcfg_fclk_init(struct device *dev)
 	struct xdevcfg_drvdata *drvdata = dev_get_drvdata(dev);
 
 	for (i = 0; i < NUMFCLKS; i++) {
-		drvdata->fclk[i] = clk_get_sys(fclk_name[i], NULL);
+		drvdata->fclk[i] = clk_get(dev, fclk_name[i]);
 		if (IS_ERR(drvdata->fclk[i])) {
 			dev_warn(dev, "fclk not found\n");
 			return;
@@ -1830,7 +1886,7 @@ static void xdevcfg_fclk_remove(struct device *dev)
  */
 static int xdevcfg_drv_probe(struct platform_device *pdev)
 {
-	struct resource *regs_res, *irq_res;
+	struct resource *res;
 	struct xdevcfg_drvdata *drvdata;
 	dev_t devt;
 	int retval;
@@ -1840,81 +1896,48 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 	int size;
 	struct device *dev;
 
-	regs_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!regs_res) {
-		dev_err(&pdev->dev, "Invalid address\n");
-		return -ENODEV;
-	}
-	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-
-	if (!irq_res) {
-		dev_err(&pdev->dev, "No IRQ found\n\n");
-		return -ENODEV;
-	}
-
-	retval = alloc_chrdev_region(&devt, 0, XDEVCFG_DEVICES, DRIVER_NAME);
-	if (retval < 0)
-		return retval;
-
-	drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
+	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata) {
 		dev_err(&pdev->dev,
 				"Couldn't allocate device private record\n");
-		retval = -ENOMEM;
-		goto failed0;
+		return -ENOMEM;
 	}
 
-	dev_set_drvdata(&pdev->dev, drvdata);
-
-	if (!request_mem_region(regs_res->start,
-				regs_res->end - regs_res->start + 1,
-				DRIVER_NAME)) {
-		dev_err(&pdev->dev, "Couldn't lock memory region at %Lx\n",
-			(unsigned long long)regs_res->start);
-		retval = -EBUSY;
-		goto failed1;
-	}
-
-	drvdata->devt = devt;
-	drvdata->base_address = ioremap(regs_res->start,
-				(regs_res->end - regs_res->start + 1));
-	if (!drvdata->base_address) {
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	drvdata->base_address = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(drvdata->base_address)) {
 		dev_err(&pdev->dev, "ioremap() failed\n");
-		goto failed2;
+		return PTR_ERR(drvdata->base_address);
 	}
 
-	spin_lock_init(&drvdata->lock);
-
-	drvdata->irq = irq_res->start;
-
-	retval = request_irq(irq_res->start, xdevcfg_irq, IRQF_DISABLED,
-					DRIVER_NAME, drvdata);
+	drvdata->irq = platform_get_irq(pdev, 0);
+	retval = devm_request_irq(&pdev->dev, drvdata->irq, &xdevcfg_irq,
+				0, dev_name(&pdev->dev), drvdata);
 	if (retval) {
 		dev_err(&pdev->dev, "No IRQ available");
-		retval = -EBUSY;
-		goto failed3;
+		return retval;
 	}
+
+	platform_set_drvdata(pdev, drvdata);
+	spin_lock_init(&drvdata->lock);
 	mutex_init(&drvdata->sem);
 	drvdata->is_open = 0;
 	drvdata->is_partial_bitstream = 0;
 	drvdata->dma_done = 0;
 	drvdata->error_status = 0;
-	dev_info(&pdev->dev, "ioremap %llx to %p with size %llx\n",
-		 (unsigned long long) regs_res->start,
-		 drvdata->base_address,
-		 (unsigned long long) (regs_res->end - regs_res->start + 1));
+	dev_info(&pdev->dev, "ioremap %pa to %p\n",
+		 &res->start, drvdata->base_address);
 
-	drvdata->clk = clk_get_sys("PCAP", NULL);
+	drvdata->clk = devm_clk_get(&pdev->dev, "ref_clk");
 	if (IS_ERR(drvdata->clk)) {
 		dev_err(&pdev->dev, "input clock not found\n");
-		retval = PTR_ERR(drvdata->clk);
-		goto failed4;
+		return PTR_ERR(drvdata->clk);
 	}
 
 	retval = clk_prepare_enable(drvdata->clk);
 	if (retval) {
 		dev_err(&pdev->dev, "unable to enable clock\n");
-		goto failed5;
+		return retval;
 	}
 
 	/*
@@ -1958,6 +1981,13 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 				(~XDCFG_MCTRL_PCAP_LPBK_MASK &
 				ctrlreg));
 
+
+	retval = alloc_chrdev_region(&devt, 0, XDEVCFG_DEVICES, DRIVER_NAME);
+	if (retval < 0)
+		goto failed5;
+
+	drvdata->devt = devt;
+
 	cdev_init(&drvdata->cdev, &xdevcfg_fops);
 	drvdata->cdev.owner = THIS_MODULE;
 	retval = cdev_add(&drvdata->cdev, devt, 1);
@@ -1998,21 +2028,10 @@ failed8:
 failed7:
 	class_destroy(drvdata->class);
 failed6:
-	clk_disable_unprepare(drvdata->clk);
-failed5:
-	clk_put(drvdata->clk);
-failed4:
-	free_irq(irq_res->start, drvdata);
-failed3:
-	iounmap(drvdata->base_address);
-failed2:
-	release_mem_region(regs_res->start,
-				regs_res->end - regs_res->start + 1);
-failed1:
-	kfree(drvdata);
-failed0:
 	/* Unregister char driver */
 	unregister_chrdev_region(devt, XDEVCFG_DEVICES);
+failed5:
+	clk_disable_unprepare(drvdata->clk);
 
 	return retval;
 }
@@ -2028,9 +2047,8 @@ failed0:
 static int xdevcfg_drv_remove(struct platform_device *pdev)
 {
 	struct xdevcfg_drvdata *drvdata;
-	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	drvdata = dev_get_drvdata(&pdev->dev);
+	drvdata = platform_get_drvdata(pdev);
 
 	if (!drvdata)
 		return -ENODEV;
@@ -2039,18 +2057,11 @@ static int xdevcfg_drv_remove(struct platform_device *pdev)
 
 	sysfs_remove_group(&pdev->dev.kobj, &xdevcfg_attr_group);
 
-	free_irq(drvdata->irq, drvdata);
-
 	xdevcfg_fclk_remove(&pdev->dev);
 	device_destroy(drvdata->class, drvdata->devt);
 	class_destroy(drvdata->class);
 	cdev_del(&drvdata->cdev);
-	iounmap(drvdata->base_address);
-	release_mem_region(res->start, res->end - res->start + 1);
 	clk_unprepare(drvdata->clk);
-	clk_put(drvdata->clk);
-	kfree(drvdata);
-	dev_set_drvdata(&pdev->dev, NULL);
 
 	return 0;		/* Success */
 }

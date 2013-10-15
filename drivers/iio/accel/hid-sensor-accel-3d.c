@@ -60,28 +60,28 @@ static const struct iio_chan_spec accel_3d_channels[] = {
 		.type = IIO_ACCEL,
 		.modified = 1,
 		.channel2 = IIO_MOD_X,
-		.info_mask = IIO_CHAN_INFO_OFFSET_SHARED_BIT |
-		IIO_CHAN_INFO_SCALE_SHARED_BIT |
-		IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT |
-		IIO_CHAN_INFO_HYSTERESIS_SHARED_BIT,
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_OFFSET) |
+		BIT(IIO_CHAN_INFO_SCALE) |
+		BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+		BIT(IIO_CHAN_INFO_HYSTERESIS),
 		.scan_index = CHANNEL_SCAN_INDEX_X,
 	}, {
 		.type = IIO_ACCEL,
 		.modified = 1,
 		.channel2 = IIO_MOD_Y,
-		.info_mask = IIO_CHAN_INFO_OFFSET_SHARED_BIT |
-		IIO_CHAN_INFO_SCALE_SHARED_BIT |
-		IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT |
-		IIO_CHAN_INFO_HYSTERESIS_SHARED_BIT,
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_OFFSET) |
+		BIT(IIO_CHAN_INFO_SCALE) |
+		BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+		BIT(IIO_CHAN_INFO_HYSTERESIS),
 		.scan_index = CHANNEL_SCAN_INDEX_Y,
 	}, {
 		.type = IIO_ACCEL,
 		.modified = 1,
 		.channel2 = IIO_MOD_Z,
-		.info_mask = IIO_CHAN_INFO_OFFSET_SHARED_BIT |
-		IIO_CHAN_INFO_SCALE_SHARED_BIT |
-		IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT |
-		IIO_CHAN_INFO_HYSTERESIS_SHARED_BIT,
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_OFFSET) |
+		BIT(IIO_CHAN_INFO_SCALE) |
+		BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+		BIT(IIO_CHAN_INFO_HYSTERESIS),
 		.scan_index = CHANNEL_SCAN_INDEX_Z,
 	}
 };
@@ -194,10 +194,11 @@ static const struct iio_info accel_3d_info = {
 };
 
 /* Function to push data to buffer */
-static void hid_sensor_push_data(struct iio_dev *indio_dev, u8 *data, int len)
+static void hid_sensor_push_data(struct iio_dev *indio_dev, const void *data,
+	int len)
 {
 	dev_dbg(&indio_dev->dev, "hid_sensor_push_data\n");
-	iio_push_to_buffers(indio_dev, (u8 *)data);
+	iio_push_to_buffers(indio_dev, data);
 }
 
 /* Callback handler to send event after all samples are received and captured */
@@ -212,7 +213,7 @@ static int accel_3d_proc_event(struct hid_sensor_hub_device *hsdev,
 				accel_state->common_attributes.data_ready);
 	if (accel_state->common_attributes.data_ready)
 		hid_sensor_push_data(indio_dev,
-				(u8 *)accel_state->accel_val,
+				accel_state->accel_val,
 				sizeof(accel_state->accel_val));
 
 	return 0;

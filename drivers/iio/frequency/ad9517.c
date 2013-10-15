@@ -597,12 +597,12 @@ static const struct iio_info ad9517_info = {
 	.driver_module = THIS_MODULE,
 };
 
-#define AD9517_CHAN(_chan)						\
-	{ .type = IIO_ALTVOLTAGE,					\
-	  .indexed = 1,							\
-	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT | 			\
-			IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT,		\
+#define AD9517_CHAN(_chan)					\
+	{ .type = IIO_ALTVOLTAGE,				\
+	  .indexed = 1,						\
+	  .channel = _chan,					\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | 	\
+			BIT(IIO_CHAN_INFO_FREQUENCY),		\
 	  .output = 1}
 
 static const struct iio_chan_spec ad9517_chan[NUM_OUTPUTS] = {

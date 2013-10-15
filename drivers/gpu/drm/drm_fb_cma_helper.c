@@ -25,6 +25,10 @@
 #include <drm/drm_fb_cma_helper.h>
 #include <linux/module.h>
 
+MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:drm-kms-cma-helper");
+
 struct drm_fb_cma {
 	struct drm_framebuffer		fb;
 	struct drm_gem_cma_object	*obj[4];

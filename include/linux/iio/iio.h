@@ -40,85 +40,12 @@ enum iio_chan_info_enum {
 	IIO_CHAN_INFO_HYSTERESIS,
 };
 
-#define IIO_CHAN_INFO_SHARED_BIT(type) BIT(type*2)
-#define IIO_CHAN_INFO_SEPARATE_BIT(type) BIT(type*2 + 1)
-#define IIO_CHAN_INFO_BITS(type) (IIO_CHAN_INFO_SHARED_BIT(type) | \
-				    IIO_CHAN_INFO_SEPARATE_BIT(type))
-
-#define IIO_CHAN_INFO_RAW_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_RAW)
-#define IIO_CHAN_INFO_PROCESSED_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_PROCESSED)
-#define IIO_CHAN_INFO_SCALE_SEPARATE_BIT		\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_SCALE)
-#define IIO_CHAN_INFO_SCALE_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_SCALE)
-#define IIO_CHAN_INFO_OFFSET_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_OFFSET)
-#define IIO_CHAN_INFO_OFFSET_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_OFFSET)
-#define IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_CALIBSCALE)
-#define IIO_CHAN_INFO_CALIBSCALE_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_CALIBSCALE)
-#define IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_CALIBBIAS)
-#define IIO_CHAN_INFO_CALIBBIAS_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_CALIBBIAS)
-#define IIO_CHAN_INFO_CALIBPHASE_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_CALIBPHASE)
-#define IIO_CHAN_INFO_CALIPHASE_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_CALIBPHASE)
-#define IIO_CHAN_INFO_PEAK_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_PEAK)
-#define IIO_CHAN_INFO_PEAK_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_PEAK)
-#define IIO_CHAN_INFO_PEAKSCALE_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_PEAKSCALE)
-#define IIO_CHAN_INFO_PEAKSCALE_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_PEAKSCALE)
-#define IIO_CHAN_INFO_QUADRATURE_CORRECTION_RAW_SEPARATE_BIT	\
-	IIO_CHAN_INFO_SEPARATE_BIT(				\
-		IIO_CHAN_INFO_QUADRATURE_CORRECTION_RAW)
-#define IIO_CHAN_INFO_QUADRATURE_CORRECTION_RAW_SHARED_BIT	\
-	IIO_CHAN_INFO_SHARED_BIT(				\
-		IIO_CHAN_INFO_QUADRATURE_CORRECTION_RAW)
-#define IIO_CHAN_INFO_AVERAGE_RAW_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_AVERAGE_RAW)
-#define IIO_CHAN_INFO_AVERAGE_RAW_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_AVERAGE_RAW)
-#define IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY_SHARED_BIT \
-	IIO_CHAN_INFO_SHARED_BIT(			       \
-		IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY)
-#define IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY_SEPARATE_BIT \
-	IIO_CHAN_INFO_SEPARATE_BIT(			       \
-		IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY)
-#define IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY_SHARED_BIT \
-	IIO_CHAN_INFO_SHARED_BIT(			       \
-		IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY)
-#define IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY_SEPARATE_BIT \
-	IIO_CHAN_INFO_SEPARATE_BIT(			       \
-		IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY)
-#define IIO_CHAN_INFO_SAMP_FREQ_SEPARATE_BIT		\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_SAMP_FREQ)
-#define IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_SAMP_FREQ)
-#define IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_FREQUENCY)
-#define IIO_CHAN_INFO_FREQUENCY_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_FREQUENCY)
-#define IIO_CHAN_INFO_PHASE_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_PHASE)
-#define IIO_CHAN_INFO_PHASE_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_PHASE)
-#define IIO_CHAN_INFO_HARDWAREGAIN_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_HARDWAREGAIN)
-#define IIO_CHAN_INFO_HARDWAREGAIN_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_HARDWAREGAIN)
-#define IIO_CHAN_INFO_HYSTERESIS_SEPARATE_BIT			\
-	IIO_CHAN_INFO_SEPARATE_BIT(IIO_CHAN_INFO_HYSTERESIS)
-#define IIO_CHAN_INFO_HYSTERESIS_SHARED_BIT			\
-	IIO_CHAN_INFO_SHARED_BIT(IIO_CHAN_INFO_HYSTERESIS)
+enum iio_shared_by {
+	IIO_SEPARATE,
+	IIO_SHARED_BY_TYPE,
+	IIO_SHARED_BY_DIR,
+	IIO_SHARED_BY_ALL
+};
 
 enum iio_endian {
 	IIO_CPU,
@@ -139,7 +66,7 @@ struct iio_dev;
  */
 struct iio_chan_spec_ext_info {
 	const char *name;
-	bool shared;
+	enum iio_shared_by shared;
 	ssize_t (*read)(struct iio_dev *, uintptr_t private,
 			struct iio_chan_spec const *, char *buf);
 	ssize_t (*write)(struct iio_dev *, uintptr_t private,
@@ -207,7 +134,7 @@ ssize_t iio_enum_write(struct iio_dev *indio_dev,
 #define IIO_ENUM_AVAILABLE(_name, _e) \
 { \
 	.name = (_name "_available"), \
-	.shared = true, \
+	.shared = IIO_SHARED_BY_TYPE, \
 	.read = iio_enum_available_read, \
 	.private = (uintptr_t)(_e), \
 }
@@ -228,8 +155,14 @@ ssize_t iio_enum_write(struct iio_dev *indio_dev,
  *			shift:		Shift right by this before masking out
  *					realbits.
  *			endianness:	little or big endian
- * @info_mask:		What information is to be exported about this channel.
- *			This includes calibbias, scale etc.
+ * @info_mask_separate: What information is to be exported that is specific to
+ *			this channel.
+ * @info_mask_shared_by_type: What information is to be exported that is shared
+ *			by all channels of the same type.
+ * @info_mask_shared_by_dir: What information is to be exported that is shared
+ *			by all channels of the same direction.
+ * @info_mask_shared_by_all: What information is to be exported that is shared
+ *			by all channels.
  * @event_mask:		What events can this channel produce.
  * @ext_info:		Array of extended info attributes for this channel.
  *			The array is NULL terminated, the last element should
@@ -264,7 +197,10 @@ struct iio_chan_spec {
 		u8	shift;
 		enum iio_endian endianness;
 	} scan_type;
-	long			info_mask;
+	long			info_mask_separate;
+	long			info_mask_shared_by_type;
+	long			info_mask_shared_by_dir;
+	long			info_mask_shared_by_all;
 	long			event_mask;
 	const struct iio_chan_spec_ext_info *ext_info;
 	const char		*extend_name;
@@ -287,7 +223,10 @@ struct iio_chan_spec {
 static inline bool iio_channel_has_info(const struct iio_chan_spec *chan,
 	enum iio_chan_info_enum type)
 {
-	return chan->info_mask & IIO_CHAN_INFO_BITS(type);
+	return (chan->info_mask_separate & BIT(type)) |
+		(chan->info_mask_shared_by_type & BIT(type)) |
+		(chan->info_mask_shared_by_dir & BIT(type)) |
+		(chan->info_mask_shared_by_all & BIT(type));
 }
 
 #define IIO_ST(si, rb, sb, sh)						\

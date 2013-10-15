@@ -186,7 +186,7 @@ static irqreturn_t adjd_s311_trigger_handler(int irq, void *p)
 	if (indio_dev->scan_timestamp)
 		*(s64 *)((u8 *)data->buffer + ALIGN(len, sizeof(s64)))
 			= time_ns;
-	iio_push_to_buffers(indio_dev, (u8 *)data->buffer);
+	iio_push_to_buffers(indio_dev, data->buffer);
 
 done:
 	iio_trigger_notify_done(indio_dev->trig);
@@ -207,8 +207,8 @@ static const struct iio_chan_spec_ext_info adjd_s311_ext_info[] = {
 	.type = IIO_INTENSITY, \
 	.modified = 1, \
 	.address = (IDX_##_color), \
-	.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT | \
-		IIO_CHAN_INFO_HARDWAREGAIN_SEPARATE_BIT, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+		BIT(IIO_CHAN_INFO_HARDWAREGAIN), \
 	.channel2 = (IIO_MOD_LIGHT_##_color), \
 	.scan_index = (_scan_idx), \
 	.scan_type = IIO_ST('u', 10, 16, 0), \

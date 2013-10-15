@@ -247,8 +247,10 @@ static struct iio_chan_spec_ext_info ad5380_ext_info[] = {
 		.name = "powerdown",
 		.read = ad5380_read_dac_powerdown,
 		.write = ad5380_write_dac_powerdown,
+		.shared = IIO_SEPARATE,
 	},
-	IIO_ENUM("powerdown_mode", true, &ad5380_powerdown_mode_enum),
+	IIO_ENUM("powerdown_mode", IIO_SHARED_BY_TYPE,
+		 &ad5380_powerdown_mode_enum),
 	IIO_ENUM_AVAILABLE("powerdown_mode", &ad5380_powerdown_mode_enum),
 	{ },
 };
@@ -257,10 +259,10 @@ static struct iio_chan_spec_ext_info ad5380_ext_info[] = {
 	.type = IIO_VOLTAGE,					\
 	.indexed = 1,						\
 	.output = 1,						\
-	.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |		\
-		IIO_CHAN_INFO_SCALE_SHARED_BIT |		\
-		IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
-		IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT,		\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
+		BIT(IIO_CHAN_INFO_CALIBSCALE) |			\
+		BIT(IIO_CHAN_INFO_CALIBBIAS),			\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
 	.scan_type = IIO_ST('u', (_bits), 16, 14 - (_bits)),	\
 	.ext_info = ad5380_ext_info,				\
 }

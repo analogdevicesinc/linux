@@ -391,7 +391,7 @@ static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
 		break;
 	}
 
-	iio_push_to_buffers(indio_dev, (uint8_t *)data);
+	iio_push_to_buffers(indio_dev, data);
 
 	iio_trigger_notify_done(indio_dev->trig);
 	sigma_delta->irq_dis = false;
@@ -470,7 +470,7 @@ static int ad_sd_probe_trigger(struct iio_dev *indio_dev)
 		disable_irq_nosync(sigma_delta->spi->irq);
 	}
 	sigma_delta->trig->dev.parent = &sigma_delta->spi->dev;
-	sigma_delta->trig->private_data = sigma_delta;
+	iio_trigger_set_drvdata(sigma_delta->trig, sigma_delta);
 
 	ret = iio_trigger_register(sigma_delta->trig);
 	if (ret)

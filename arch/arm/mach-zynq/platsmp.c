@@ -34,27 +34,12 @@
  */
 static int ncores;
 
-/* Secondary CPU kernel startup is a 2 step process. The primary CPU
- * starts the secondary CPU by giving it the address of the kernel and
- * then sending it an event to wake it up. The secondary CPU then
- * starts the kernel and tells the primary CPU it's up and running.
- */
-static void __cpuinit zynq_secondary_init(unsigned int cpu)
-{
-	/*
-	 * if any interrupts are already enabled for the primary
-	 * core (e.g. timer irq), then they will not have been enabled
-	 * for us: do so
-	 */
-	gic_secondary_init(0);
-}
-
 int __cpuinit zynq_cpun_start(u32 address, int cpu)
 {
 	u32 trampoline_code_size = &zynq_secondary_trampoline_end -
 						&zynq_secondary_trampoline;
 
-	if (cpu > ncores) {
+	if (cpu >= ncores) {
 		pr_warn("CPU No. is not available in the system\n");
 		return -1;
 	}
@@ -110,7 +95,7 @@ EXPORT_SYMBOL(zynq_cpun_start);
 static int __cpuinit zynq_boot_secondary(unsigned int cpu,
 						struct task_struct *idle)
 {
-	return zynq_cpun_start(virt_to_phys(secondary_startup), cpu);
+	return zynq_cpun_start(virt_to_phys(zynq_secondary_startup), cpu);
 }
 
 /*
@@ -152,7 +137,6 @@ static int zynq_cpu_kill(unsigned cpu)
 struct smp_operations zynq_smp_ops __initdata = {
 	.smp_init_cpus		= zynq_smp_init_cpus,
 	.smp_prepare_cpus	= zynq_smp_prepare_cpus,
-	.smp_secondary_init	= zynq_secondary_init,
 	.smp_boot_secondary	= zynq_boot_secondary,
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_die		= zynq_platform_cpu_die,

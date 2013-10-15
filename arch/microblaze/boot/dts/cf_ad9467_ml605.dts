@@ -222,7 +222,8 @@
 		axi_adc_1c_0: cf-ad9467@73000000 {
 			compatible = "xlnx,axi-adc-1c-1.00.a";
 			reg = < 0x73000000 0x10000 >;
-			dma-request = <&axi_dma_0 0>;
+			dmas = <&axi_dma_0 0>;
+			dma-names = "rx";
 			spibus-connected = <&adc0_ad9467>;
 			xlnx,cf-buftype = <0x0>;
 			xlnx,dphase-timeout = <0x8>;

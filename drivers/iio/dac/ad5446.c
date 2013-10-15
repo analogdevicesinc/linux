@@ -132,8 +132,9 @@ static const struct iio_chan_spec_ext_info ad5446_ext_info_powerdown[] = {
 		.name = "powerdown",
 		.read = ad5446_read_dac_powerdown,
 		.write = ad5446_write_dac_powerdown,
+		.shared = IIO_SEPARATE,
 	},
-	IIO_ENUM("powerdown_mode", false, &ad5446_powerdown_mode_enum),
+	IIO_ENUM("powerdown_mode", IIO_SEPARATE, &ad5446_powerdown_mode_enum),
 	IIO_ENUM_AVAILABLE("powerdown_mode", &ad5446_powerdown_mode_enum),
 	{ },
 };
@@ -143,8 +144,8 @@ static const struct iio_chan_spec_ext_info ad5446_ext_info_powerdown[] = {
 	.indexed = 1, \
 	.output = 1, \
 	.channel = 0, \
-	.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT | \
-	IIO_CHAN_INFO_SCALE_SHARED_BIT,	\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
 	.scan_type = IIO_ST('u', (bits), (storage), (shift)), \
 	.ext_info = (ext), \
 }

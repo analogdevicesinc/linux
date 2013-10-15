@@ -5,11 +5,13 @@ config ARCH_ZYNQ
 	select COMMON_CLK
 	select CPU_V7
 	select GENERIC_CLOCKEVENTS
+	select HAVE_ARM_SCU if SMP
+	select HAVE_ARM_TWD if LOCAL_TIMERS
 	select ICST
 	select MIGHT_HAVE_CACHE_L2X0
 	select USE_OF
-	select SPARSE_IRQ
 	select HAVE_SMP
+	select SPARSE_IRQ
 	select CACHE_L2X0
 	select ARCH_REQUIRE_GPIOLIB
 	select COMMON_CLK
@@ -39,18 +41,6 @@ config XILINX_L2_PREFETCH
 	  This option turns on L2 cache prefetching to get the best performance
 	  in many cases. This may not always be the best performance depending on
 	  the usage.
-
-config XILINX_ZED
-	bool "Using USB OTG on the Digilent ZED board"
-	default n
-	depends on USB_SUPPORT
-	select USB_ULPI if USB_SUPPORT
-	select USB_ULPI_VIEWPORT if USB_SUPPORT
-	help
-	  Select this option if using the USB OTG port on the Digilent ZED board
-	  as a USB on-the-go port. This option is necessary to properly
-	  initialize the TUSB1210 USB PHY used on the ZED board as an
-	  on-the-go USB port that can supply power to a USB slave device. 
 
 config DMA_ENGINE
 	def_bool y

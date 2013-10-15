@@ -93,6 +93,25 @@ static int ad9467_testmode_set(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int ad9467_test_and_outputmode_set(struct iio_dev *indio_dev,
+			     unsigned chan, unsigned mode)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int ret;
+
+	if (mode == TESTMODE_OFF)
+		ret = ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_MODE,
+				       conv->adc_output_mode);
+	else
+		ret = ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_MODE,
+			conv->adc_output_mode & ~OUTPUT_MODE_TWOS_COMPLEMENT);
+
+	if (ret < 0)
+		return ret;
+
+	return ad9467_testmode_set(indio_dev, chan, mode);
+}
+
 static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -115,8 +134,6 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	default:
 		dco_en = DCO_DELAY_ENABLE;
 	}
-
-
 
 	ret = ad9467_outputmode_set(conv->spi,
 			conv->adc_output_mode & ~OUTPUT_MODE_TWOS_COMPLEMENT);
@@ -230,25 +247,6 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	return 0;
 }
 
-// static ssize_t ad9467_show_scale_available(struct device *dev,
-// 			struct device_attribute *attr, char *buf)
-// {
-// 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-// 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-// 	int i, len = 0;
-//
-// 	for (i = 0; i < conv->chip_info->num_scales; i++)
-// 		len += sprintf(buf + len, "0.%06u ",
-// 			       conv->chip_info->scale_table[i][0]);
-//
-// 	len += sprintf(buf + len, "\n");
-//
-// 	return len;
-// }
-//
-// static IIO_DEVICE_ATTR(in_voltage_scale_available, S_IRUGO,
-// 		       ad9467_show_scale_available, NULL, 0);
-
 static int ad9265_scale_table[][2] = {
 	{1250, 0x00}, {1500, 0x40}, {1750, 0x80}, {2000, 0xC0},
 };
@@ -290,8 +288,8 @@ static void ad9467_convert_scale_table(struct axiadc_converter *conv)
 static const char testmodes[][16] = {
 	[TESTMODE_OFF]			= "off",
 	[TESTMODE_MIDSCALE_SHORT]	= "midscale_short",
-	[TESTMODE_POS_FULLSCALE]	= "pos_fullscale",
-	[TESTMODE_NEG_FULLSCALE]	= "neg_fullscale",
+	[TESTMODE_POS_FULLSCALE]		= "pos_fullscale",
+	[TESTMODE_NEG_FULLSCALE]		= "neg_fullscale",
 	[TESTMODE_ALT_CHECKERBOARD]	= "checkerboard",
 	[TESTMODE_PN23_SEQ]		= "pn_long",
 	[TESTMODE_PN9_SEQ]		= "pn_short",
@@ -386,17 +384,17 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{ },
 };
 
-#define AIM_CHAN(_chan, _si, _bits, _sign)			\
+#define AIM_CHAN(_chan, _si, _bits, _sign)				\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT | 		\
-			IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBPHASE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
-			.ext_info = axiadc_ext_info,			\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
+			BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
+			BIT(IIO_CHAN_INFO_CALIBPHASE) |			\
+			BIT(IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY), \
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) | 	\
+			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
+	  .ext_info = axiadc_ext_info,					\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
@@ -406,8 +404,8 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT |	 		\
-			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) | 	\
+			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
 	  .ext_info = axiadc_ext_info,			\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
@@ -540,7 +538,6 @@ static int ad9625_setup(struct spi_device *spi)
 	return ret;
 }
 static struct attribute *ad9467_attributes[] = {
-//	&iio_dev_attr_in_voltage_scale_available.dev_attr.attr,
 	NULL,
 };
 
@@ -672,10 +669,14 @@ static int ad9467_post_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	for (i = 0; i < conv->chip_info->num_channels; i++)
+	for (i = 0; i < conv->chip_info->num_channels; i++) {
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
+			     (i & 1) ? 0x00004000 : 0x40000000);
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(i),
 			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 			     ADI_IQCOR_ENB | ADI_ENABLE);
+	}
+
 
 	return 0;
 }
@@ -787,6 +788,7 @@ static int ad9467_probe(struct spi_device *spi)
 	conv->write_raw = ad9467_write_raw;
 	conv->read_raw = ad9467_read_raw;
 	conv->post_setup = ad9467_post_setup;
+	conv->testmode_set = ad9467_test_and_outputmode_set;
 	conv->attrs = &ad9467_attribute_group;
 	conv->spi = spi;
 

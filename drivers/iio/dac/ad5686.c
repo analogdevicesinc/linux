@@ -265,8 +265,9 @@ static const struct iio_chan_spec_ext_info ad5686_ext_info[] = {
 		.name = "powerdown",
 		.read = ad5686_read_dac_powerdown,
 		.write = ad5686_write_dac_powerdown,
+		.shared = IIO_SEPARATE,
 	},
-	IIO_ENUM("powerdown_mode", false, &ad5686_powerdown_mode_enum),
+	IIO_ENUM("powerdown_mode", IIO_SEPARATE, &ad5686_powerdown_mode_enum),
 	IIO_ENUM_AVAILABLE("powerdown_mode", &ad5686_powerdown_mode_enum),
 	{ },
 };
@@ -276,9 +277,9 @@ static const struct iio_chan_spec_ext_info ad5686_ext_info[] = {
 		.indexed = 1,					\
 		.output = 1,					\
 		.channel = chan,				\
-		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |	\
-		IIO_CHAN_INFO_SCALE_SHARED_BIT,			\
-		.address = AD5686_ADDR_DAC(chan),			\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
+		.address = AD5686_ADDR_DAC(chan),		\
 		.scan_type = IIO_ST('u', bits, 16, shift),	\
 		.ext_info = ad5686_ext_info,			\
 }

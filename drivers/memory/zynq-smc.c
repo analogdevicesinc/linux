@@ -170,7 +170,7 @@ u32 xsmcps_get_ecc_val(int ecc_reg)
 	unsigned long flags;
 
 	ecc_reg &= 3;
-	addr = XSMCPS_ECC_VALUE0_OFFS | (ecc_reg << 2);
+	addr = XSMCPS_ECC_VALUE0_OFFS + (ecc_reg << 2);
 
 	spin_lock_irqsave(&xsmcps_lock, flags);
 
@@ -474,16 +474,16 @@ static int xsmcps_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	xsmcps->aperclk = clk_get_sys("SMC_APER", NULL);
+	xsmcps->aperclk = clk_get(&pdev->dev, "aper_clk");
 	if (IS_ERR(xsmcps->aperclk)) {
-		dev_err(&pdev->dev, "APER clock not found.\n");
+		dev_err(&pdev->dev, "aper_clk clock not found.\n");
 		err = PTR_ERR(xsmcps->aperclk);
 		goto out_free;
 	}
 
-	xsmcps->devclk = clk_get_sys("SMC", NULL);
+	xsmcps->devclk = clk_get(&pdev->dev, "ref_clk");
 	if (IS_ERR(xsmcps->devclk)) {
-		dev_err(&pdev->dev, "Device clock not found.\n");
+		dev_err(&pdev->dev, "ref_clk clock not found.\n");
 		err = PTR_ERR(xsmcps->devclk);
 		goto out_clk_put_aper;
 	}

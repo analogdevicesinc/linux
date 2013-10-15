@@ -287,10 +287,9 @@ static void dmaengine_pcm_request_chan_of(struct dmaengine_pcm *pcm,
 		pcm->chan[0] = dma_request_slave_channel(dev, "rx-tx");
 		pcm->chan[1] = pcm->chan[0];
 	} else {
-		for (i = SNDRV_PCM_STREAM_PLAYBACK; i <= SNDRV_PCM_STREAM_CAPTURE; i++) {
+		for (i = SNDRV_PCM_STREAM_PLAYBACK; i <= SNDRV_PCM_STREAM_CAPTURE; i++)
 			pcm->chan[i] = dma_request_slave_channel(dev,
 					dmaengine_pcm_dma_channel_names[i]);
-		}
 	}
 }
 

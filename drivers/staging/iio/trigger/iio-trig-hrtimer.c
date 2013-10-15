@@ -39,7 +39,7 @@ static enum hrtimer_restart iio_trig_hrtimer_trig(struct hrtimer *timer)
 
 static int iio_trig_hrtimer_set_state(struct iio_trigger *trig, bool state)
 {
-	struct iio_hrtimer_trig_info *trig_info = trig->private_data;
+	struct iio_hrtimer_trig_info *trig_info = iio_trigger_get_drvdata(trig);
 
 	if (trig_info->frequency == 0)
 		return -EINVAL;
@@ -58,7 +58,7 @@ static ssize_t iio_trig_hrtimer_read_freq(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	struct iio_trigger *trig = to_iio_trigger(dev);
-	struct iio_hrtimer_trig_info *trig_info = trig->private_data;
+	struct iio_hrtimer_trig_info *trig_info = iio_trigger_get_drvdata(trig);
 
 	return sprintf(buf, "%u\n", trig_info->frequency);
 }
@@ -67,7 +67,7 @@ static ssize_t iio_trig_hrtimer_write_freq(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t len)
 {
 	struct iio_trigger *trig = to_iio_trigger(dev);
-	struct iio_hrtimer_trig_info *trig_info = trig->private_data;
+	struct iio_hrtimer_trig_info *trig_info = iio_trigger_get_drvdata(trig);
 	unsigned long val;
 	int ret;
 
@@ -130,7 +130,7 @@ static int iio_trig_hrtimer_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	trig_info->trigger = trig;
-	trig->private_data = trig_info;
+	iio_trigger_set_drvdata(trig, trig_info);
 	trig->ops = &iio_hrtimer_trigger_ops;
 	trig->dev.groups = iio_trig_hrtimer_attr_groups;
 	trig->dev.parent = &pdev->dev;

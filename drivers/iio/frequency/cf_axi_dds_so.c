@@ -302,11 +302,11 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	{ .type = IIO_ALTVOLTAGE,					\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |			\
-		       IIO_CHAN_INFO_SCALE_SEPARATE_BIT |		\
-	  	       IIO_CHAN_INFO_PHASE_SEPARATE_BIT |		\
-		       IIO_CHAN_INFO_FREQUENCY_SEPARATE_BIT |		\
-		       IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
+		       BIT(IIO_CHAN_INFO_SCALE) |			\
+	  	       BIT(IIO_CHAN_INFO_PHASE) |			\
+		       BIT(IIO_CHAN_INFO_FREQUENCY),			\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	  .address = _address,						\
 	  .output = 1,							\
 	  .extend_name = _extend_name,					\
@@ -317,7 +317,6 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	{ .type = IIO_ALTVOLTAGE,					\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = 0,						\
 	  .output = 1,							\
 	  .scan_index = _chan,						\
 	  .scan_type = IIO_ST('s', 16, 16, 0),				\
@@ -364,6 +363,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	resource_size_t remap_size, phys_addr;
 	struct clk *clk = NULL;
 	int ret;
+	u32 ctrl_2, rate;
 
 	const struct of_device_id *of_id =
 			of_match_device(cf_axi_dds_of_match, &op->dev);
@@ -435,14 +435,23 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	st->iio_info = cf_axi_dds_info;
 	indio_dev->info = &st->iio_info;
 
+	ctrl_2 = (of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-parity-enable") ? ADI_PAR_ENB : 0) |
+			(of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-parity-type-odd") ? ADI_PAR_TYPE : 0) |
+			(of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-1-rf-channel") ? ADI_R1_MODE : 0);
+
+	rate = 3;
+	of_property_read_u32(op->dev.of_node, "adi,axi-dds-rate", &rate);
 
 	dds_write(st, ADI_REG_RSTN, 0x0);
 	dds_write(st, ADI_REG_RSTN, ADI_RSTN);
 
-	dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(3));
+	dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(rate));
 
 	dds_write(st, ADI_REG_CNTRL_1, 0);
-	dds_write(st, ADI_REG_CNTRL_2,  ADI_DATA_SEL(DATA_SEL_DDS));
+	dds_write(st, ADI_REG_CNTRL_2,  ctrl_2 | ADI_DATA_SEL(DATA_SEL_DDS));
 
 	cf_axi_dds_default_setup(st, 0, 90000, 1000000, 4);
 	cf_axi_dds_default_setup(st, 1, 90000, 1000000, 4);
@@ -452,7 +461,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 		cf_axi_dds_default_setup(st, 3, 0, 1000000, 4);
 	}
 
-	if (st->chip_info->num_channels == 8) {
+	if (st->chip_info->num_channels >= 8) {
 		cf_axi_dds_default_setup(st, 4, 90000, 1000000, 4);
 		cf_axi_dds_default_setup(st, 5, 90000, 1000000, 4);
 		cf_axi_dds_default_setup(st, 6, 0, 1000000, 4);

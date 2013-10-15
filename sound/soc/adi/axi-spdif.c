@@ -14,7 +14,6 @@
  */
 
 #include <linux/init.h>
-#include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -30,17 +29,6 @@
 #include <sound/initval.h>
 #include <sound/dmaengine_pcm.h>
 
-struct axi_spdif {
-	struct regmap *regmap;
-	struct clk *clk;
-	struct clk *clk_spdif;
-
-	struct snd_dmaengine_dai_dma_data dma_data;
-
-	struct snd_ratnum ratnum;
-	struct snd_pcm_hw_constraint_ratnums rate_constraints;
-};
-
 #define AXI_SPDIF_REG_CTRL	0x0
 #define AXI_SPDIF_REG_STAT	0x4
 #define AXI_SPDIF_REG_TX_FIFO	0xc
@@ -54,6 +42,17 @@ struct axi_spdif {
 #define AXI_SPDIF_FREQ_48000	(0x1 << 6)
 #define AXI_SPDIF_FREQ_32000	(0x2 << 6)
 #define AXI_SPDIF_FREQ_NA	(0x3 << 6)
+
+struct axi_spdif {
+	struct regmap *regmap;
+	struct clk *clk;
+	struct clk *clk_spdif;
+
+	struct snd_dmaengine_dai_dma_data dma_data;
+
+	struct snd_ratnum ratnum;
+	struct snd_pcm_hw_constraint_ratnums rate_constraints;
+};
 
 static int axi_spdif_trigger(struct snd_pcm_substream *substream, int cmd,
 	struct snd_soc_dai *dai)
@@ -104,7 +103,8 @@ static int axi_spdif_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
-	clkdiv = DIV_ROUND_CLOSEST(clk_get_rate(spdif->clk_spdif), rate * 64 * 2) - 1;
+	clkdiv = DIV_ROUND_CLOSEST(clk_get_rate(spdif->clk_spdif),
+			rate * 64 * 2) - 1;
 	clkdiv <<= AXI_SPDIF_CTRL_CLKDIV_OFFSET;
 
 	regmap_write(spdif->regmap, AXI_SPDIF_REG_STAT, stat);
@@ -129,16 +129,20 @@ static int axi_spdif_startup(struct snd_pcm_substream *substream,
 	struct axi_spdif *spdif = snd_soc_dai_get_drvdata(dai);
 	int ret;
 
-	regmap_update_bits(spdif->regmap, AXI_SPDIF_REG_CTRL,
-		AXI_SPDIF_CTRL_TXEN, AXI_SPDIF_CTRL_TXEN);
-
 	ret = snd_pcm_hw_constraint_ratnums(substream->runtime, 0,
 			   SNDRV_PCM_HW_PARAM_RATE,
 			   &spdif->rate_constraints);
 	if (ret)
 		return ret;
 
-	return clk_prepare_enable(spdif->clk_spdif);
+	ret = clk_prepare_enable(spdif->clk_spdif);
+	if (ret)
+		return ret;
+
+	regmap_update_bits(spdif->regmap, AXI_SPDIF_REG_CTRL,
+		AXI_SPDIF_CTRL_TXEN, AXI_SPDIF_CTRL_TXEN);
+
+	return 0;
 }
 
 static void axi_spdif_shutdown(struct snd_pcm_substream *substream,
@@ -170,6 +174,10 @@ static struct snd_soc_dai_driver axi_spdif_dai = {
 	.ops = &axi_spdif_dai_ops,
 };
 
+static const struct snd_soc_component_driver axi_spdif_component = {
+	.name		= "axi-spdif",
+};
+
 static const struct regmap_config axi_spdif_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
@@ -187,6 +195,8 @@ static int axi_spdif_probe(struct platform_device *pdev)
 	spdif = devm_kzalloc(&pdev->dev, sizeof(*spdif), GFP_KERNEL);
 	if (!spdif)
 		return -ENOMEM;
+
+	platform_set_drvdata(pdev, spdif);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_request_and_ioremap(&pdev->dev, res);
@@ -208,7 +218,7 @@ static int axi_spdif_probe(struct platform_device *pdev)
 
 	ret = clk_prepare_enable(spdif->clk);
 	if (ret)
-	    return ret;
+		return ret;
 
 	spdif->dma_data.addr = res->start + AXI_SPDIF_REG_TX_FIFO;
 	spdif->dma_data.addr_width = 4;
@@ -222,24 +232,27 @@ static int axi_spdif_probe(struct platform_device *pdev)
 	spdif->rate_constraints.rats = &spdif->ratnum;
 	spdif->rate_constraints.nrats = 1;
 
-	platform_set_drvdata(pdev, spdif);
-
-	ret = snd_soc_register_dai(&pdev->dev, &axi_spdif_dai);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to register DAI\n");
+	ret = snd_soc_register_component(&pdev->dev, &axi_spdif_component,
+					 &axi_spdif_dai, 1);
+	if (ret)
 		return ret;
-	}
 
-	regmap_write(spdif->regmap, AXI_SPDIF_REG_CTRL, AXI_SPDIF_CTRL_TXEN);
+	ret = snd_dmaengine_pcm_register(&pdev->dev, NULL,
+			SND_DMAENGINE_PCM_FLAG_NO_RESIDUE);
+	if (ret)
+		snd_soc_unregister_component(&pdev->dev);
 
-	return snd_dmaengine_pcm_register(&pdev->dev, NULL,
-		SND_DMAENGINE_PCM_FLAG_NO_RESIDUE);
+	return ret;
 }
 
 static int axi_spdif_dev_remove(struct platform_device *pdev)
 {
+	struct axi_spdif *spdif = platform_get_drvdata(pdev);
+
+	clk_disable_unprepare(spdif->clk);
+
 	snd_dmaengine_pcm_unregister(&pdev->dev);
-	snd_soc_unregister_dai(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 
 	return 0;
 }

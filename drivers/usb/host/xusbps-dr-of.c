@@ -117,7 +117,6 @@ static struct platform_device * xusbps_device_register(
 
 	pdev->dev.coherent_dma_mask = ofdev->dev.coherent_dma_mask;
 	pdev->dev.dma_mask = &dma_mask;
-	pdev->dev.of_node = ofdev->dev.of_node;
 
 	retval = platform_device_add_data(pdev, pdata, sizeof(*pdata));
 	if (retval)
@@ -162,31 +161,18 @@ static int xusbps_dr_of_probe(struct platform_device *ofdev)
 	memset(pdata, 0, sizeof(data));
 
 	res = platform_get_resource(ofdev, IORESOURCE_IRQ, 0);
-	if (!res) {
+	if (IS_ERR(res)) {
 		dev_err(&ofdev->dev,
 			"IRQ not found\n");
-		return -ENODEV;
+		return PTR_ERR(res);
 	}
 	pdata->irq = res->start;
 
 	res = platform_get_resource(ofdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&ofdev->dev,
-			"Register base not found");
-		return -ENODEV;
-	}
-
-	if (!request_mem_region(res->start, res->end - res->start + 1,
-						ofdev->name)) {
-		dev_err(&ofdev->dev, "Controller already in use\n");
-		return -EBUSY;
-	}
-
-	pdata->regs = ioremap(res->start, res->end - res->start + 1);
-	if (!pdata->regs) {
+	pdata->regs = devm_ioremap_resource(&ofdev->dev, res);
+	if (IS_ERR(pdata->regs)) {
 		dev_err(&ofdev->dev, "unable to iomap registers\n");
-		release_mem_region(res->start, resource_size(res));
-		return -EFAULT;
+		return PTR_ERR(pdata->regs);
 	}
 
 	dev_data = get_dr_mode_data(np);
@@ -195,28 +181,24 @@ static int xusbps_dr_of_probe(struct platform_device *ofdev)
 	prop = of_get_property(np, "phy_type", NULL);
 	pdata->phy_mode = determine_usb_phy(prop);
 
-	hdata = kmalloc(sizeof(*hdata), GFP_KERNEL);
-	if (!hdata) {
-		dev_err(&ofdev->dev, "cannot allocate memory\n");
+	hdata = devm_kzalloc(&ofdev->dev, sizeof(*hdata), GFP_KERNEL);
+	if (!hdata)
 		return -ENOMEM;
-	}
 	platform_set_drvdata(ofdev, hdata);
 
-	if (pdata->irq == 53)
-		hdata->clk = clk_get_sys("USB0_APER", NULL);
-	else
-		hdata->clk = clk_get_sys("USB1_APER", NULL);
+	hdata->clk = devm_clk_get(&ofdev->dev, NULL);
 	if (IS_ERR(hdata->clk)) {
-		dev_err(&ofdev->dev, "APER clock not found.\n");
-		ret = PTR_ERR(hdata->clk);
-		goto err_free;
+		dev_err(&ofdev->dev, "input clock not found.\n");
+		return PTR_ERR(hdata->clk);
 	}
 
 	ret = clk_prepare_enable(hdata->clk);
 	if (ret) {
 		dev_err(&ofdev->dev, "Unable to enable APER clock.\n");
-		goto err_out_clk_put;
+		return ret;
 	}
+
+	pdata->clk = hdata->clk;
 
 	/* If ULPI phy type, set it up */
 	if (pdata->phy_mode == XUSBPS_USB2_PHY_ULPI) {
@@ -255,10 +237,6 @@ static int xusbps_dr_of_probe(struct platform_device *ofdev)
 
 err_out_clk_disable:
 	clk_disable_unprepare(hdata->clk);
-err_out_clk_put:
-	clk_put(hdata->clk);
-err_free:
-	kfree(hdata);
 
 	return ret;
 }
@@ -271,16 +249,10 @@ static int __unregister_subdev(struct device *dev, void *d)
 
 static int xusbps_dr_of_remove(struct platform_device *ofdev)
 {
-	struct resource *res;
 	struct xusbps_host_data *hdata = platform_get_drvdata(ofdev);
-
-	res = platform_get_resource(ofdev, IORESOURCE_MEM, 0);
-	release_mem_region(res->start, resource_size(res));
 
 	device_for_each_child(&ofdev->dev, NULL, __unregister_subdev);
 	clk_disable_unprepare(hdata->clk);
-	clk_put(hdata->clk);
-	kfree(hdata);
 	return 0;
 }
 
@@ -329,7 +301,30 @@ static struct platform_driver xusbps_dr_driver = {
 	.remove	= xusbps_dr_of_remove,
 };
 
+#ifdef CONFIG_USB_ZYNQ_PHY
+extern struct platform_driver xusbps_otg_driver;
+
+static int __init xusbps_dr_init(void)
+{
+	int retval;
+
+	/* Register otg driver first */
+	retval = platform_driver_register(&xusbps_otg_driver);
+	if (retval != 0)
+		return retval;
+
+	return platform_driver_register(&xusbps_dr_driver);
+}
+module_init(xusbps_dr_init);
+
+static void __exit xusbps_dr_exit(void)
+{
+	platform_driver_unregister(&xusbps_dr_driver);
+}
+module_exit(xusbps_dr_exit);
+#else
 module_platform_driver(xusbps_dr_driver);
+#endif
 
 MODULE_DESCRIPTION("XUSBPS DR OF devices driver");
 MODULE_AUTHOR("Xilinx");

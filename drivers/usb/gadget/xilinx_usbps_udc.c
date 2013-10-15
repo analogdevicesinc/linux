@@ -396,15 +396,6 @@ static int xusbps_udc_clk_init(struct platform_device *pdev)
 	struct xusbps_usb2_platform_data *pdata = pdev->dev.platform_data;
 	int rc;
 
-	if (pdata->irq == 53)
-		pdata->clk = clk_get_sys("USB0_APER", NULL);
-	else
-		pdata->clk = clk_get_sys("USB1_APER", NULL);
-	if (IS_ERR(pdata->clk)) {
-		dev_err(&pdev->dev, "APER clock not found.\n");
-		return PTR_ERR(pdata->clk);
-	}
-
 	rc = clk_prepare_enable(pdata->clk);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to enable APER clock.\n");
@@ -429,7 +420,6 @@ static void xusbps_udc_clk_release(struct platform_device *pdev)
 	struct xusbps_usb2_platform_data *pdata = pdev->dev.platform_data;
 
 	clk_disable_unprepare(pdata->clk);
-	clk_put(pdata->clk);
 }
 
 
@@ -631,7 +621,7 @@ static void dr_controller_run(struct xusbps_udc *udc)
 {
 	u32 temp;
 
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	if (gadget_is_otg(&udc->gadget)) {
 		/* Enable DR irq reg except suspend interrupt */
 		temp = USB_INTR_INT_EN | USB_INTR_ERR_INT_EN
@@ -1570,7 +1560,7 @@ static int reset_queues(struct xusbps_udc *udc)
 	return 0;
 }
 
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 /*----------------------------------------------------------------
  * OTG Related changes
  *--------------------------------------------------------------*/
@@ -1640,7 +1630,7 @@ static int xusbps_udc_start(struct usb_gadget *g,
 	udc_controller->gadget.dev.driver = &driver->driver;
 	spin_unlock_irqrestore(&udc_controller->lock, flags);
 
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	if (gadget_is_otg(&udc_controller->gadget)) {
 		retval = otg_set_peripheral(udc_controller->transceiver->otg,
 				&udc_controller->gadget);
@@ -1719,7 +1709,7 @@ static int xusbps_udc_stop(struct usb_gadget *g,
 		nuke(loop_ep, -ESHUTDOWN);
 	spin_unlock_irqrestore(&udc_controller->lock, flags);
 
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	if (gadget_is_otg(&udc_controller->gadget)) {
 		udc_controller->xotg->start_peripheral = NULL;
 		udc_controller->xotg->stop_peripheral = NULL;
@@ -1939,7 +1929,7 @@ static void setup_received_irq(struct xusbps_udc *udc,
 				break;
 			else if (setup->bRequest == USB_DEVICE_B_HNP_ENABLE) {
 				udc->gadget.b_hnp_enable = 1;
-#ifdef	CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 				if (!udc->xotg->otg.otg->default_a)
 					udc->xotg->hsm.b_hnp_enable = 1;
 #endif
@@ -2232,7 +2222,7 @@ static void suspend_irq(struct xusbps_udc *udc)
 	udc->resume_state = udc->usb_state;
 	udc->usb_state = USB_STATE_SUSPENDED;
 
-#ifdef	CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	if (gadget_is_otg(&udc->gadget)) {
 		if (udc->xotg->otg.otg->default_a) {
 			udc->xotg->hsm.b_bus_suspend = 1;
@@ -2327,14 +2317,14 @@ static irqreturn_t xusbps_udc_irq(int irq, void *_udc)
 	u32 irq_src, otg_sts;
 	irqreturn_t status = IRQ_NONE;
 	unsigned long flags;
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	unsigned long temp;
 #endif
 
 	/* Disable ISR for OTG host mode */
 	if (udc->stopped)
 		return IRQ_NONE;
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	if (gadget_is_otg(&udc->gadget)) {
 		/* A-device */
 		if (udc->transceiver->otg->default_a &&
@@ -2407,7 +2397,7 @@ static irqreturn_t xusbps_udc_irq(int irq, void *_udc)
 	/* Reset Received */
 	if (irq_src & USB_STS_RESET) {
 		reset_irq(udc);
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 		if (gadget_is_otg(&udc->gadget)) {
 			/* Clear any previous suspend status bit */
 			temp = xusbps_readl(&dr_regs->usbsts);
@@ -2447,60 +2437,43 @@ static irqreturn_t xusbps_udc_irq(int irq, void *_udc)
 
 static const char proc_filename[] = "driver/xusbps_udc";
 
-static int xusbps_proc_read(char *page, char **start, off_t off, int count,
-		int *eof, void *_dev)
+static int xusbps_proc_read(struct seq_file *m, void *v)
 {
-	char *buf = page;
-	char *next = buf;
-	unsigned size = count;
 	unsigned long flags;
-	int t, i;
+	int i;
 	u32 tmp_reg;
 	struct xusbps_ep *ep = NULL;
 	struct xusbps_req *req;
-
 	struct xusbps_udc *udc = udc_controller;
-	if (off != 0)
-		return 0;
 
 	spin_lock_irqsave(&udc->lock, flags);
 
 	/* ------basic driver information ---- */
-	t = scnprintf(next, size,
-			DRIVER_DESC "\n"
+	seq_printf(m, DRIVER_DESC "\n"
 			"%s version: %s\n"
 			"Gadget driver: %s\n\n",
 			driver_name, DRIVER_VERSION,
 			udc->driver ? udc->driver->driver.name : "(none)");
-	size -= t;
-	next += t;
 
 	/* ------ DR Registers ----- */
 	tmp_reg = xusbps_readl(&dr_regs->usbcmd);
-	t = scnprintf(next, size,
-			"USBCMD reg:\n"
+	seq_printf(m, "USBCMD reg:\n"
 			"SetupTW: %d\n"
 			"Run/Stop: %s\n\n",
 			(tmp_reg & USB_CMD_SUTW) ? 1 : 0,
 			(tmp_reg & USB_CMD_RUN_STOP) ? "Run" : "Stop");
-	size -= t;
-	next += t;
 
 	tmp_reg = xusbps_readl(&dr_regs->usbsts);
-	t = scnprintf(next, size,
-			"USB Status Reg:\n"
+	seq_printf(m, "USB Status Reg:\n"
 			"Dr Suspend: %d Reset Received: %d System Error: %s "
 			"USB Error Interrupt: %s\n\n",
 			(tmp_reg & USB_STS_SUSPEND) ? 1 : 0,
 			(tmp_reg & USB_STS_RESET) ? 1 : 0,
 			(tmp_reg & USB_STS_SYS_ERR) ? "Err" : "Normal",
 			(tmp_reg & USB_STS_ERR) ? "Err detected" : "No err");
-	size -= t;
-	next += t;
 
 	tmp_reg = xusbps_readl(&dr_regs->usbintr);
-	t = scnprintf(next, size,
-			"USB Intrrupt Enable Reg:\n"
+	seq_printf(m, "USB Intrrupt Enable Reg:\n"
 			"Sleep Enable: %d SOF Received Enable: %d "
 			"Reset Enable: %d\n"
 			"System Error Enable: %d "
@@ -2513,34 +2486,22 @@ static int xusbps_proc_read(char *page, char **start, off_t off, int count,
 			(tmp_reg & USB_INTR_PTC_DETECT_EN) ? 1 : 0,
 			(tmp_reg & USB_INTR_ERR_INT_EN) ? 1 : 0,
 			(tmp_reg & USB_INTR_INT_EN) ? 1 : 0);
-	size -= t;
-	next += t;
 
 	tmp_reg = xusbps_readl(&dr_regs->frindex);
-	t = scnprintf(next, size,
-			"USB Frame Index Reg: Frame Number is 0x%x\n\n",
+	seq_printf(m, "USB Frame Index Reg: Frame Number is 0x%x\n\n",
 			(tmp_reg & USB_FRINDEX_MASKS));
-	size -= t;
-	next += t;
 
 	tmp_reg = xusbps_readl(&dr_regs->deviceaddr);
-	t = scnprintf(next, size,
-			"USB Device Address Reg: Device Addr is 0x%x\n\n",
+	seq_printf(m, "USB Device Address Reg: Device Addr is 0x%x\n\n",
 			(tmp_reg & USB_DEVICE_ADDRESS_MASK));
-	size -= t;
-	next += t;
 
 	tmp_reg = xusbps_readl(&dr_regs->endpointlistaddr);
-	t = scnprintf(next, size,
-			"USB Endpoint List Address Reg: "
+	seq_printf(m, "USB Endpoint List Address Reg: "
 			"Device Addr is 0x%x\n\n",
 			(tmp_reg & USB_EP_LIST_ADDRESS_MASK));
-	size -= t;
-	next += t;
 
 	tmp_reg = xusbps_readl(&dr_regs->portsc1);
-	t = scnprintf(next, size,
-		"USB Port Status&Control Reg:\n"
+	seq_printf(m, "USB Port Status&Control Reg:\n"
 		"Port Transceiver Type : %s Port Speed: %s\n"
 		"PHY Low Power Suspend: %s Port Reset: %s "
 		"Port Suspend Mode: %s\n"
@@ -2578,20 +2539,15 @@ static int xusbps_proc_read(char *page, char **start, off_t off, int count,
 		(tmp_reg & PORTSCX_PORT_RESET) ? "In Reset" :
 		"Not in Reset",
 		(tmp_reg & PORTSCX_PORT_SUSPEND) ? "In " : "Not in",
-		(tmp_reg & PORTSCX_OVER_CURRENT_CHG) ? "Dected" :
-		"No",
+		(tmp_reg & PORTSCX_OVER_CURRENT_CHG) ? "Dected" : "No",
 		(tmp_reg & PORTSCX_PORT_EN_DIS_CHANGE) ? "Disable" :
 		"Not change",
-		(tmp_reg & PORTSCX_PORT_ENABLE) ? "Enable" :
-		"Not correct",
+		(tmp_reg & PORTSCX_PORT_ENABLE) ? "Enable" : "Not correct",
 		(tmp_reg & PORTSCX_CURRENT_CONNECT_STATUS) ?
 		"Attached" : "Not-Att");
-	size -= t;
-	next += t;
 
 	tmp_reg = xusbps_readl(&dr_regs->usbmode);
-	t = scnprintf(next, size,
-			"USB Mode Reg: Controller Mode is: %s\n\n", ({
+	seq_printf(m, "USB Mode Reg: Controller Mode is: %s\n\n", ({
 				char *s;
 				switch (tmp_reg & USB_MODE_CTRL_MODE_HOST) {
 				case USB_MODE_CTRL_MODE_IDLE:
@@ -2605,75 +2561,52 @@ static int xusbps_proc_read(char *page, char **start, off_t off, int count,
 				}
 				s;
 			}));
-	size -= t;
-	next += t;
 
 	tmp_reg = xusbps_readl(&dr_regs->endptsetupstat);
-	t = scnprintf(next, size,
-			"Endpoint Setup Status Reg: SETUP on ep 0x%x\n\n",
+	seq_printf(m, "Endpoint Setup Status Reg: SETUP on ep 0x%x\n\n",
 			(tmp_reg & EP_SETUP_STATUS_MASK));
-	size -= t;
-	next += t;
 
 	for (i = 0; i < udc->max_ep / 2; i++) {
 		tmp_reg = xusbps_readl(&dr_regs->endptctrl[i]);
-		t = scnprintf(next, size, "EP Ctrl Reg [0x%x]: = [0x%x]\n",
+		seq_printf(m, "EP Ctrl Reg [0x%x]: = [0x%x]\n",
 				i, tmp_reg);
-		size -= t;
-		next += t;
 	}
 	tmp_reg = xusbps_readl(&dr_regs->endpointprime);
-	t = scnprintf(next, size, "EP Prime Reg = [0x%x]\n\n", tmp_reg);
-	size -= t;
-	next += t;
+	seq_printf(m, "EP Prime Reg = [0x%x]\n\n", tmp_reg);
 
 	/* ------xusbps_udc, xusbps_ep, xusbps_request structure information
 	 * ----- */
 	ep = &udc->eps[0];
-	t = scnprintf(next, size, "For %s Maxpkt is 0x%x index is 0x%x\n",
+	seq_printf(m, "For %s Maxpkt is 0x%x index is 0x%x\n",
 			ep->ep.name, ep_maxpacket(ep), ep_index(ep));
-	size -= t;
-	next += t;
 
 	if (list_empty(&ep->queue)) {
-		t = scnprintf(next, size, "its req queue is empty\n\n");
-		size -= t;
-		next += t;
+		seq_puts(m, "its req queue is empty\n\n");
 	} else {
 		list_for_each_entry(req, &ep->queue, queue) {
-			t = scnprintf(next, size,
+			seq_printf(m,
 				"req %p actual 0x%x length 0x%x buf %p\n",
 				&req->req, req->req.actual,
 				req->req.length, req->req.buf);
-			size -= t;
-			next += t;
 		}
 	}
 	/* other gadget->eplist ep */
 	list_for_each_entry(ep, &udc->gadget.ep_list, ep.ep_list) {
 		if (ep->ep.desc) {
-			t = scnprintf(next, size,
-					"\nFor %s Maxpkt is 0x%x "
+			seq_printf(m, "\nFor %s Maxpkt is 0x%x "
 					"index is 0x%x\n",
 					ep->ep.name, ep_maxpacket(ep),
 					ep_index(ep));
-			size -= t;
-			next += t;
 
 			if (list_empty(&ep->queue)) {
-				t = scnprintf(next, size,
-						"its req queue is empty\n\n");
-				size -= t;
-				next += t;
+				seq_puts(m, "its req queue is empty\n\n");
 			} else {
 				list_for_each_entry(req, &ep->queue, queue) {
-					t = scnprintf(next, size,
+					seq_printf(m,
 						"req %p actual 0x%x length "
 						"0x%x  buf %p\n",
 						&req->req, req->req.actual,
 						req->req.length, req->req.buf);
-					size -= t;
-					next += t;
 					} /* end for each_entry of ep req */
 				}	/* end for else */
 			}	/* end for if(ep->queue) */
@@ -2681,12 +2614,26 @@ static int xusbps_proc_read(char *page, char **start, off_t off, int count,
 
 	spin_unlock_irqrestore(&udc->lock, flags);
 
-	*eof = 1;
-	return count - size;
+	return 0;
 }
 
-#define create_proc_file()	create_proc_read_entry(proc_filename, \
-				0, NULL, xusbps_proc_read, NULL)
+/*
+ * seq_file wrappers for procfile show routines.
+ */
+static int xusbps_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, xusbps_proc_read, NULL);
+}
+
+static const struct file_operations proc_xusbps_fops = {
+	.open		= xusbps_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+#define create_proc_file()	proc_create(proc_filename, \
+					0, NULL, &proc_xusbps_fops)
 
 #define remove_proc_file()	remove_proc_entry(proc_filename, NULL)
 
@@ -2834,7 +2781,7 @@ static int xusbps_udc_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_kfree;
 	}
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	if (pdata->otg) {
 		udc_controller->transceiver = pdata->otg;
 		udc_controller->xotg =
@@ -2863,8 +2810,8 @@ static int xusbps_udc_probe(struct platform_device *pdev)
 		goto err_iounmap;
 	}
 
-	ret = request_irq(udc_controller->irq, xusbps_udc_irq, IRQF_SHARED,
-			driver_name, udc_controller);
+	ret = devm_request_irq(&pdev->dev, udc_controller->irq, xusbps_udc_irq,
+				IRQF_SHARED, driver_name, udc_controller);
 	if (ret != 0) {
 		dev_err(&pdev->dev, "cannot request irq %d err %d\n",
 				udc_controller->irq, ret);
@@ -2875,12 +2822,12 @@ static int xusbps_udc_probe(struct platform_device *pdev)
 	if (struct_udc_setup(udc_controller, pdev)) {
 		dev_err(&pdev->dev, "Can't initialize udc data structure\n");
 		ret = -ENOMEM;
-		goto err_free_irq;
+		goto err_iounmap;
 	}
 
 	/* initialize usb hw reg except for regs for EP,
 	 * leave usbintr reg untouched */
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	if (!pdata->otg)
 		dr_controller_setup(udc_controller);
 #else
@@ -2893,7 +2840,7 @@ static int xusbps_udc_probe(struct platform_device *pdev)
 	udc_controller->gadget.ep0 = &udc_controller->eps[0].ep;
 	INIT_LIST_HEAD(&udc_controller->gadget.ep_list);
 	udc_controller->gadget.name = driver_name;
-#ifdef CONFIG_USB_XUSBPS_OTG
+#ifdef CONFIG_USB_ZYNQ_PHY
 	udc_controller->gadget.is_otg = (pdata->otg != NULL);
 #endif
 
@@ -2901,9 +2848,6 @@ static int xusbps_udc_probe(struct platform_device *pdev)
 	dev_set_name(&udc_controller->gadget.dev, "gadget");
 	udc_controller->gadget.dev.release = xusbps_udc_release;
 	udc_controller->gadget.dev.parent = &pdev->dev;
-	ret = device_register(&udc_controller->gadget.dev);
-	if (ret < 0)
-		goto err_free_irq;
 
 	/* setup QH and epctrl for ep0 */
 	ep0_setup(udc_controller);
@@ -2951,8 +2895,6 @@ err_del_udc:
 	dma_pool_destroy(udc_controller->td_pool);
 err_unregister:
 	device_unregister(&udc_controller->gadget.dev);
-err_free_irq:
-	free_irq(udc_controller->irq, udc_controller);
 err_iounmap:
 	xusbps_udc_clk_release(pdev);
 err_kfree:

@@ -150,7 +150,7 @@ static irqreturn_t lis3l02dq_trigger_handler(int irq, void *p)
 	if (indio_dev->scan_timestamp)
 		*(s64 *)((u8 *)data + ALIGN(len, sizeof(s64)))
 			= pf->timestamp;
-	iio_push_to_buffers(indio_dev, (u8 *)data);
+	iio_push_to_buffers(indio_dev, data);
 
 	kfree(data);
 done:
@@ -228,7 +228,7 @@ error_ret:
 static int lis3l02dq_data_rdy_trigger_set_state(struct iio_trigger *trig,
 						bool state)
 {
-	struct iio_dev *indio_dev = trig->private_data;
+	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
 	int ret = 0;
 	u8 t;
 
@@ -252,7 +252,7 @@ static int lis3l02dq_data_rdy_trigger_set_state(struct iio_trigger *trig,
  */
 static int lis3l02dq_trig_try_reen(struct iio_trigger *trig)
 {
-	struct iio_dev *indio_dev = trig->private_data;
+	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
 	struct lis3l02dq_state *st = iio_priv(indio_dev);
 	int i;
 
@@ -290,7 +290,7 @@ int lis3l02dq_probe_trigger(struct iio_dev *indio_dev)
 
 	st->trig->dev.parent = &st->us->dev;
 	st->trig->ops = &lis3l02dq_trigger_ops;
-	st->trig->private_data = indio_dev;
+	iio_trigger_set_drvdata(st->trig, indio_dev);
 	ret = iio_trigger_register(st->trig);
 	if (ret)
 		goto error_free_trig;
