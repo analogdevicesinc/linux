@@ -27,7 +27,7 @@
 		i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = <0 58 4>;
+			interrupts = <0 52 4>;
 			reg = <0x41600000 0x10000>;
 			bus-id = <0>;
 			#address-cells = <1>;
@@ -152,21 +152,21 @@
 			compatible = "xlnx,axi-vdma";
 //			reg = <0x43020000 0x1000>;
 
-			ranges = <0x43040000 0x43040000 0x10000>;
-			reg = <0x43040000 0x10000>;
+			ranges = <0x43000000 0x43000000 0x10000>;
+			reg = <0x43000000 0x10000>;
 
 			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43020000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 59 4>;
+				interrupts = <0 57 4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
 			};
 		};
 
-		hdmi_clock: axi-clkgen@79000000 {
+		hdmi_clock: axi-clkgen@79060000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79060000 0x10000>;
 			#clock-cells = <0>;
@@ -193,7 +193,7 @@
 			dma-channel@41e20030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&gic>;
-				interrupts = <0 57 4>;
+				interrupts = <0 59 4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,include-dre = <0x0>;
 			};
@@ -209,7 +209,7 @@
 			dma-channel@41e00030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&gic>;
-				interrupts = <0 56 4>;
+				interrupts = <0 58 4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,include-dre = <0x0>;
 			};
@@ -241,7 +241,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupt-parent = <&gic>;
-			interrupts = <0 55 4>;
+			interrupts = <0 56 4>;
 			reg = <0x42000000 0x10000>;
 			xlnx,family = "zynq";
 			xlnx,fifo-exist = <0x1>;
