@@ -4106,7 +4106,6 @@ static ssize_t ad9361_phy_show(struct device *dev,
 	int ret = 0;
 	unsigned long clk[6];
 
-
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address) {
 	case AD9361_RF_RX_BANDWIDTH:
@@ -4463,7 +4462,7 @@ static ssize_t ad9361_phy_rx_read(struct iio_dev *indio_dev,
 
 	mutex_unlock(&indio_dev->mlock);
 
-	return ret < 0 ? ret : sprintf(buf, "-%u.%02u dB\n",
+	return ret < 0 ? ret : sprintf(buf, "%u.%02u dB\n",
 			val / rssi.multiplier, val % rssi.multiplier);
 }
 
