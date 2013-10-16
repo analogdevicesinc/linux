@@ -145,19 +145,15 @@
 			};
 		};
 
-		axi_vdma_0: axivdma@43020000 {
+		axi_vdma_1: axivdma@43040000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-vdma";
-//			reg = <0x43020000 0x1000>;
-
-			ranges = <0x43000000 0x43000000 0x10000>;
-			reg = <0x43000000 0x10000>;
-
+			reg = <0x43040000 0x10000>;
 			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
-			dma-channel@43020000 {
+			dma-channel@43040000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
 				interrupts = <0 57 4>;
 				xlnx,datawidth = <0x40>;
@@ -170,14 +166,14 @@
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79060000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&clkc 17>;
+			clocks = <&clkc 16>;
 		};
 
 		axi_hdmi@70e00000 {
 			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
-			dmas = <&axi_vdma_0 0>;
+			dmas = <&axi_vdma_1 0>;
 			dma-names = "video";
 			clocks = <&hdmi_clock>;
 			adi,is-rgb;
@@ -189,7 +185,7 @@
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-dma";
 			reg = <0x40420000 0x10000>;
-//			xlnx,sg-include-stscntrl-strm = <0x0>;
+			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@41e20030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&gic>;
@@ -205,7 +201,7 @@
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-dma";
 			reg = <0x40400000 0x10000>;
-//			xlnx,sg-include-stscntrl-strm = <0x0>;
+			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@41e00030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&gic>;
