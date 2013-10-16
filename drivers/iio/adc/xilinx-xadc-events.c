@@ -30,13 +30,15 @@ static void xadc_handle_event(struct iio_dev *indio_dev, unsigned int event)
 	else
 		offset = event + 4;
 
-	if (event > 2)
-		chan = &indio_dev->channels[event - 1];
-	else
+	if (event < 3)
 		chan = &indio_dev->channels[event];
+	else if (event == 3)
+		chan = &indio_dev->channels[0];
+	else
+		chan = &indio_dev->channels[event - 1];
 
 	if (event != 3) {
-		ret = _xadc_read_reg(xadc, chan->address, &val);
+		ret = xadc_read_reg(xadc, chan->address, &val);
 		if (ret)
 			return;
 
@@ -110,12 +112,22 @@ static int xadc_write_event_threshold(struct xadc *xadc,
 {
 	int ret;
 
+	if (offset == 3) {
+		/*
+		 * According to the datasheet we need to set the lower 4 bits to
+		 * 0x3, otherwise 125 degree celsius will be used as the threshold.
+		 */
+		val = (val & ~0xf) | 0x3;
+	}
+
 	ret = _xadc_write_reg(xadc, XADC_REG_THRESHOLD(offset), val);
 	if (ret)
 		return ret;
 
-	if (chan->type == IIO_TEMP) /* Special case, no hysteresis support yet */
-		ret = _xadc_write_reg(xadc, XADC_REG_THRESHOLD(offset + 4), val);
+	if (chan->type == IIO_TEMP) {
+		ret = _xadc_write_reg(xadc, XADC_REG_THRESHOLD(offset + 4),
+			xadc->threshold[offset + 4]);
+	}
 	return ret;
 }
 
@@ -136,7 +148,7 @@ int xadc_write_event_config(struct iio_dev *indio_dev,
 	unsigned int offset = xadc_get_threshold_offset(chan, type, dir);
 	struct xadc *xadc = iio_priv(indio_dev);
 	unsigned int alarm;
-	uint16_t val, cfg;
+	uint16_t val, cfg, old_cfg;
 	int ret;
 
 	mutex_lock(&xadc->mutex);
@@ -166,17 +178,19 @@ int xadc_write_event_config(struct iio_dev *indio_dev,
 		xadc->threshold_state &= ~BIT(offset);
 
 	alarm = xadc_get_active_alarms(xadc);
+
 	xadc->ops->update_alarm(xadc, alarm);
 
 	ret = _xadc_read_reg(xadc, XADC_REG_CONF1, &cfg);
 	if (ret)
 		goto err_out;
+	old_cfg = cfg;
 	cfg |= XADC_CONF1_ALARM_MASK;
-	cfg &= ~((alarm & 0xf0) << 4);
-	cfg &= ~((alarm & 0x04) >> 2);
-	cfg &= ~((alarm & 0x03) << 1);
-	cfg &= ~(alarm & 0x08);
-	ret = _xadc_write_reg(xadc, XADC_REG_CONF1, cfg);
+	cfg &= ~((alarm & 0xf0) << 4); /* bram, pint, paux, ddr */
+	cfg &= ~((alarm & 0x08) >> 3); /* ot */
+	cfg &= ~((alarm & 0x07) << 1); /* temp, vccint, vccaux */
+	if (old_cfg != cfg)
+		ret = _xadc_write_reg(xadc, XADC_REG_CONF1, cfg);
 
 err_out:
 	mutex_unlock(&xadc->mutex);
@@ -186,19 +200,30 @@ err_out:
 
 int xadc_read_event_value(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, enum iio_event_type type,
-	enum iio_event_direction dir, int *val)
+	enum iio_event_direction dir, enum iio_event_info info,
+	int *val, int *val2)
 {
 	unsigned int offset = xadc_get_threshold_offset(chan, type, dir);
 	struct xadc *xadc = iio_priv(indio_dev);
 
-	*val = xadc->threshold[offset] >> 4;
+	switch (info) {
+	case IIO_EV_INFO_VALUE:
+		*val = xadc->threshold[offset] >> 4;
+		break;
+	case IIO_EV_INFO_HYSTERESIS:
+		*val = xadc->temp_hysteresis >> 4;
+		break;
+	default:
+		return -EINVAL;
+	}
 
-	return 0;
+	return IIO_VAL_INT;
 }
 
 int xadc_write_event_value(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, enum iio_event_type type,
-	enum iio_event_direction dir, int val)
+	enum iio_event_direction dir, enum iio_event_info info,
+	int val, int val2)
 {
 	unsigned int offset = xadc_get_threshold_offset(chan, type, dir);
 	struct xadc *xadc = iio_priv(indio_dev);
@@ -206,12 +231,33 @@ int xadc_write_event_value(struct iio_dev *indio_dev,
 
 	val <<= 4;
 
+	if (val < 0 || val > 0xffff)
+		return -EINVAL;
+
 	mutex_lock(&xadc->mutex);
-	xadc->threshold[offset] = val;
+
+	switch (info) {
+	case IIO_EV_INFO_VALUE:
+		xadc->threshold[offset] = val;
+		break;
+	case IIO_EV_INFO_HYSTERESIS:
+		xadc->temp_hysteresis = val;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (chan->type == IIO_TEMP) {
+		if (xadc->threshold[offset] < xadc->temp_hysteresis) {
+			xadc->threshold[offset + 4] = 0;
+		} else {
+			xadc->threshold[offset + 4] = xadc->threshold[offset] -
+					xadc->temp_hysteresis;
+		}
+	}
 
 	if (xadc->threshold_state & BIT(offset))
 		ret = xadc_write_event_threshold(xadc, chan, offset, val);
-
 	mutex_unlock(&xadc->mutex);
 
 	return ret;

@@ -20,6 +20,7 @@
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
+#include <linux/sched.h>
 
 #include <linux/iio/iio.h>
 #include "iio_core.h"
@@ -47,6 +48,9 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 {
 	struct iio_dev *indio_dev = filp->private_data;
 	struct iio_buffer *rb = indio_dev->buffer;
+
+	if (!indio_dev->info)
+		return -ENODEV;
 
 	if (!rb || !rb->access->read_first_n)
 		return -EINVAL;
@@ -79,6 +83,9 @@ unsigned int iio_buffer_poll(struct file *filp,
 	struct iio_dev *indio_dev = filp->private_data;
 	struct iio_buffer *rb = indio_dev->buffer;
 
+	if (!indio_dev->info)
+		return -ENODEV;
+
 	poll_wait(filp, &rb->pollq, wait);
 	if (rb->stufftoread)
 		return POLLIN | POLLRDNORM;
@@ -86,11 +93,27 @@ unsigned int iio_buffer_poll(struct file *filp,
 	return 0;
 }
 
+/**
+ * iio_buffer_wakeup_poll - Wakes up the buffer waitqueue
+ * @indio_dev: The IIO device
+ *
+ * Wakes up the event waitqueue used for poll(). Should usually
+ * be called when the device is unregistered.
+ */
+void iio_buffer_wakeup_poll(struct iio_dev *indio_dev)
+{
+	if (!indio_dev->buffer)
+		return;
+
+	wake_up(&indio_dev->buffer->pollq);
+}
+
 void iio_buffer_init(struct iio_buffer *buffer)
 {
 	INIT_LIST_HEAD(&buffer->demux_list);
 	INIT_LIST_HEAD(&buffer->buffer_list);
 	init_waitqueue_head(&buffer->pollq);
+	kref_init(&buffer->ref);
 }
 EXPORT_SYMBOL(iio_buffer_init);
 
@@ -268,23 +291,6 @@ error_ret:
 	return ret;
 }
 
-static void iio_buffer_remove_and_free_scan_dev_attr(struct iio_dev *indio_dev,
-						     struct iio_dev_attr *p)
-{
-	kfree(p->dev_attr.attr.name);
-	kfree(p);
-}
-
-static void __iio_buffer_attr_cleanup(struct iio_dev *indio_dev)
-{
-	struct iio_dev_attr *p, *n;
-	struct iio_buffer *buffer = indio_dev->buffer;
-
-	list_for_each_entry_safe(p, n,
-				 &buffer->scan_el_dev_attr_list, l)
-		iio_buffer_remove_and_free_scan_dev_attr(indio_dev, p);
-}
-
 static const char * const iio_scan_elements_group_name = "scan_elements";
 
 int iio_buffer_register(struct iio_dev *indio_dev,
@@ -361,7 +367,7 @@ int iio_buffer_register(struct iio_dev *indio_dev,
 error_free_scan_mask:
 	kfree(buffer->scan_mask);
 error_cleanup_dynamic:
-	__iio_buffer_attr_cleanup(indio_dev);
+	iio_free_chan_devattr_list(&buffer->scan_el_dev_attr_list);
 
 	return ret;
 }
@@ -371,7 +377,7 @@ void iio_buffer_unregister(struct iio_dev *indio_dev)
 {
 	kfree(indio_dev->buffer->scan_mask);
 	kfree(indio_dev->buffer->scan_el_group.attrs);
-	__iio_buffer_attr_cleanup(indio_dev);
+	iio_free_chan_devattr_list(&indio_dev->buffer->scan_el_dev_attr_list);
 }
 EXPORT_SYMBOL(iio_buffer_unregister);
 
@@ -471,6 +477,19 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 	return bytes;
 }
 
+static void iio_buffer_activate(struct iio_dev *indio_dev,
+	struct iio_buffer *buffer)
+{
+	iio_buffer_get(buffer);
+	list_add(&buffer->buffer_list, &indio_dev->buffer_list);
+}
+
+static void iio_buffer_deactivate(struct iio_buffer *buffer)
+{
+	list_del_init(&buffer->buffer_list);
+	iio_buffer_put(buffer);
+}
+
 void iio_disable_all_buffers(struct iio_dev *indio_dev)
 {
 	struct iio_buffer *buffer, *_buffer;
@@ -483,14 +502,31 @@ void iio_disable_all_buffers(struct iio_dev *indio_dev)
 
 	list_for_each_entry_safe(buffer, _buffer,
 			&indio_dev->buffer_list, buffer_list)
-		list_del_init(&buffer->buffer_list);
+		iio_buffer_deactivate(buffer);
 
 	indio_dev->currentmode = INDIO_DIRECT_MODE;
 	if (indio_dev->setup_ops->postdisable)
 		indio_dev->setup_ops->postdisable(indio_dev);
+
+	if (indio_dev->available_scan_masks == NULL)
+		kfree(indio_dev->active_scan_mask);
 }
 
-int iio_update_buffers(struct iio_dev *indio_dev,
+static void iio_buffer_update_bytes_per_datum(struct iio_dev *indio_dev,
+	struct iio_buffer *buffer)
+{
+	unsigned int bytes;
+
+	if (!buffer->access->set_bytes_per_datum)
+		return;
+
+	bytes = iio_compute_scan_bytes(indio_dev, buffer->scan_mask,
+		buffer->scan_timestamp);
+
+	buffer->access->set_bytes_per_datum(buffer, bytes);
+}
+
+static int __iio_update_buffers(struct iio_dev *indio_dev,
 		       struct iio_buffer *insert_buffer,
 		       struct iio_buffer *remove_buffer)
 {
@@ -520,9 +556,9 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 		indio_dev->active_scan_mask = NULL;
 
 	if (remove_buffer)
-		list_del_init(&remove_buffer->buffer_list);
+		iio_buffer_deactivate(remove_buffer);
 	if (insert_buffer)
-		list_add(&insert_buffer->buffer_list, &indio_dev->buffer_list);
+		iio_buffer_activate(indio_dev, insert_buffer);
 
 	/* If no buffers in list, we are done */
 	if (list_empty(&indio_dev->buffer_list)) {
@@ -557,7 +593,7 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 			 * Roll back.
 			 * Note can only occur when adding a buffer.
 			 */
-			list_del_init(&insert_buffer->buffer_list);
+			iio_buffer_deactivate(insert_buffer);
 			if (old_mask) {
 				indio_dev->active_scan_mask = old_mask;
 				success = -EINVAL;
@@ -588,7 +624,8 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 		iio_compute_scan_bytes(indio_dev,
 				       indio_dev->active_scan_mask,
 				       indio_dev->scan_timestamp);
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list)
+	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+		iio_buffer_update_bytes_per_datum(indio_dev, buffer);
 		if (buffer->access->request_update) {
 			ret = buffer->access->request_update(buffer);
 			if (ret) {
@@ -598,6 +635,7 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 				goto error_run_postdisable;
 			}
 		}
+	}
 	if (indio_dev->info->update_scan_mode) {
 		ret = indio_dev->info
 			->update_scan_mode(indio_dev,
@@ -650,10 +688,47 @@ error_run_postdisable:
 error_remove_inserted:
 
 	if (insert_buffer)
-		list_del_init(&insert_buffer->buffer_list);
+		iio_buffer_deactivate(insert_buffer);
 	indio_dev->active_scan_mask = old_mask;
 	kfree(compound_mask);
 error_ret:
+
+	return ret;
+}
+
+int iio_update_buffers(struct iio_dev *indio_dev,
+		       struct iio_buffer *insert_buffer,
+		       struct iio_buffer *remove_buffer)
+{
+	int ret;
+
+	if (insert_buffer == remove_buffer)
+		return 0;
+
+	mutex_lock(&indio_dev->info_exist_lock);
+	mutex_lock(&indio_dev->mlock);
+
+	if (insert_buffer && iio_buffer_is_active(insert_buffer))
+		insert_buffer = NULL;
+
+	if (remove_buffer && !iio_buffer_is_active(remove_buffer))
+		remove_buffer = NULL;
+
+	if (!insert_buffer && !remove_buffer) {
+		ret = 0;
+		goto out_unlock;
+	}
+
+	if (indio_dev->info == NULL) {
+		ret = -ENODEV;
+		goto out_unlock;
+	}
+
+	ret = __iio_update_buffers(indio_dev, insert_buffer, remove_buffer);
+
+out_unlock:
+	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&indio_dev->info_exist_lock);
 
 	return ret;
 }
@@ -682,10 +757,10 @@ ssize_t iio_buffer_store_enable(struct device *dev,
 		goto done;
 
 	if (requested_state)
-		ret = iio_update_buffers(indio_dev,
+		ret = __iio_update_buffers(indio_dev,
 					 indio_dev->buffer, NULL);
 	else
-		ret = iio_update_buffers(indio_dev,
+		ret = __iio_update_buffers(indio_dev,
 					 NULL, indio_dev->buffer);
 
 	if (ret < 0)
@@ -971,3 +1046,45 @@ error_clear_mux_table:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(iio_update_demux);
+
+/**
+ * iio_buffer_release() - Free a buffer's resources
+ * @ref: Pointer to the kref embedded in the iio_buffer struct
+ *
+ * This function is called when the last reference to the buffer has been
+ * dropped. It will typically free all resources allocated by the buffer. Do not
+ * call this function manually, always use iio_buffer_put() when done using a
+ * buffer.
+ */
+static void iio_buffer_release(struct kref *ref)
+{
+	struct iio_buffer *buffer = container_of(ref, struct iio_buffer, ref);
+
+	buffer->access->release(buffer);
+}
+
+/**
+ * iio_buffer_get() - Grab a reference to the buffer
+ * @buffer: The buffer to grab a reference for, may be NULL
+ *
+ * Returns the pointer to the buffer that was passed into the function.
+ */
+struct iio_buffer *iio_buffer_get(struct iio_buffer *buffer)
+{
+	if (buffer)
+		kref_get(&buffer->ref);
+
+	return buffer;
+}
+EXPORT_SYMBOL_GPL(iio_buffer_get);
+
+/**
+ * iio_buffer_put() - Release the reference to the buffer
+ * @buffer: The buffer to release the reference for, may be NULL
+ */
+void iio_buffer_put(struct iio_buffer *buffer)
+{
+	if (buffer)
+		kref_put(&buffer->ref, iio_buffer_release);
+}
+EXPORT_SYMBOL_GPL(iio_buffer_put);

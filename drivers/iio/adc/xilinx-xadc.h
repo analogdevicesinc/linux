@@ -29,10 +29,12 @@ int xadc_write_event_config(struct iio_dev *indio_dev,
 	enum iio_event_direction dir, int state);
 int xadc_read_event_value(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, enum iio_event_type type,
-	enum iio_event_direction dir, int *val);
+	enum iio_event_direction dir, enum iio_event_info info,
+	int *val, int *val2);
 int xadc_write_event_value(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, enum iio_event_type type,
-	enum iio_event_direction dir, int val);
+	enum iio_event_direction dir, enum iio_event_info info,
+	int val, int val2);
 
 enum xadc_external_mux_mode {
 	XADC_EXTERNAL_MUX_NONE,
@@ -48,6 +50,7 @@ struct xadc {
 
 	uint16_t threshold[16];
 	unsigned int threshold_state;
+	unsigned int temp_hysteresis;
 
 	uint16_t *data;
 
@@ -58,6 +61,9 @@ struct xadc {
 	enum xadc_external_mux_mode external_mux_mode;
 
 	unsigned int ps7_alarm;
+	unsigned int ps7_masked_alarm;
+	unsigned int ps7_intmask;
+	struct delayed_work ps7_unmask_work;
 
 	struct mutex mutex;
 	struct spinlock lock;

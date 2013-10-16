@@ -686,23 +686,19 @@ static IIO_CONST_ATTR(sampling_frequency_available,
 		"133000 665000 33300 16600 8300 4200 2000 1000");
 
 static int max1363_read_thresh(struct iio_dev *indio_dev,
-			       const struct iio_chan_spec *chan,
-			       enum iio_event_type type,
-			       enum iio_event_direction dir,
+			       u64 event_code,
 			       int *val)
 {
 	struct max1363_state *st = iio_priv(indio_dev);
-	if (dir == IIO_EV_DIR_FALLING)
-		*val = st->thresh_low[chan->channel];
+	if (IIO_EVENT_CODE_EXTRACT_DIR(event_code) == IIO_EV_DIR_FALLING)
+		*val = st->thresh_low[IIO_EVENT_CODE_EXTRACT_CHAN(event_code)];
 	else
-		*val = st->thresh_high[chan->channel];
+		*val = st->thresh_high[IIO_EVENT_CODE_EXTRACT_CHAN(event_code)];
 	return 0;
 }
 
 static int max1363_write_thresh(struct iio_dev *indio_dev,
-				const struct iio_chan_spec *chan,
-				enum iio_event_type type,
-				enum iio_event_direction dir,
+				u64 event_code,
 				int val)
 {
 	struct max1363_state *st = iio_priv(indio_dev);
@@ -718,15 +714,13 @@ static int max1363_write_thresh(struct iio_dev *indio_dev,
 		break;
 	}
 
-	switch (dir) {
+	switch (IIO_EVENT_CODE_EXTRACT_DIR(event_code)) {
 	case IIO_EV_DIR_FALLING:
-		st->thresh_low[chan->channel] = val;
+		st->thresh_low[IIO_EVENT_CODE_EXTRACT_CHAN(event_code)] = val;
 		break;
 	case IIO_EV_DIR_RISING:
-		st->thresh_high[chan->channel] = val;
+		st->thresh_high[IIO_EVENT_CODE_EXTRACT_CHAN(event_code)] = val;
 		break;
-	default:
-		return -EINVAL;
 	}
 
 	return 0;
@@ -771,16 +765,14 @@ static irqreturn_t max1363_event_handler(int irq, void *private)
 }
 
 static int max1363_read_event_config(struct iio_dev *indio_dev,
-				     const struct iio_chan_spec *chan,
-				     enum iio_event_type type,
-				     enum iio_event_direction dir)
+				     u64 event_code)
 {
 	struct max1363_state *st = iio_priv(indio_dev);
 	int val;
-	int number = chan->channel;
+	int number = IIO_EVENT_CODE_EXTRACT_CHAN(event_code);
 
 	mutex_lock(&indio_dev->mlock);
-	if (dir == IIO_EV_DIR_FALLING)
+	if (IIO_EVENT_CODE_EXTRACT_DIR(event_code) == IIO_EV_DIR_FALLING)
 		val = (1 << number) & st->mask_low;
 	else
 		val = (1 << number) & st->mask_high;
@@ -925,19 +917,17 @@ error_ret:
 }
 
 static int max1363_write_event_config(struct iio_dev *indio_dev,
-				      const struct iio_chan_spec *chan,
-				      enum iio_event_type type,
-				      enum iio_event_direction dir,
+				      u64 event_code,
 				      int state)
 {
 	int ret = 0;
 	struct max1363_state *st = iio_priv(indio_dev);
 	u16 unifiedmask;
-	int number = chan->channel;
+	int number = IIO_EVENT_CODE_EXTRACT_CHAN(event_code);
 
 	mutex_lock(&indio_dev->mlock);
 	unifiedmask = st->mask_low | st->mask_high;
-	if (dir == IIO_EV_DIR_FALLING) {
+	if (IIO_EVENT_CODE_EXTRACT_DIR(event_code) == IIO_EV_DIR_FALLING) {
 
 		if (state == 0)
 			st->mask_low &= ~(1 << number);

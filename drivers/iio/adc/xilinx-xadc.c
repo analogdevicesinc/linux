@@ -29,6 +29,8 @@
 
 #include "xilinx-xadc.h"
 
+static const unsigned int XADCPS7_UNMASK_TIMEOUT = 500;
+
 /* PS7 register definitions */
 #define XADCPS7_REG_CFG		0x00
 #define XADCPS7_REG_INTSTS	0x04
@@ -117,13 +119,38 @@ static void xadc_ps7_write_fifo(struct xadc *xadc, uint32_t *cmd,
 		xadc_ps7_write_reg(xadc, XADCPS7_REG_CFIFO, cmd[i]);
 }
 
+static void xadc_ps7_drain_fifo(struct xadc *xadc)
+{
+	uint32_t status, tmp;
+
+	xadc_ps7_read_reg(xadc, XADCPS7_REG_STATUS, &status);
+
+	while (!(status & XADCPS7_STATUS_DFIFOE)) {
+		xadc_ps7_read_reg(xadc, XADCPS7_REG_DFIFO, &tmp);
+		xadc_ps7_read_reg(xadc, XADCPS7_REG_STATUS, &status);
+	}
+}
+
+static void xadc_ps7_update_intmsk(struct xadc *xadc, unsigned int mask,
+	unsigned int val)
+{
+	xadc->ps7_intmask &= ~mask;
+	xadc->ps7_intmask |= val;
+
+	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTMSK,
+		xadc->ps7_intmask | xadc->ps7_masked_alarm);
+}
+
 static int xadc_ps7_write_adc_reg(struct xadc *xadc, unsigned int reg,
 	uint16_t val)
 {
 	uint32_t cmd[1];
 	uint32_t tmp;
-	uint32_t mask;
 	int ret;
+
+	spin_lock_irq(&xadc->lock);
+	xadc_ps7_update_intmsk(xadc, XADCPS7_INT_DFIFO_GTH,
+			XADCPS7_INT_DFIFO_GTH);
 
 	INIT_COMPLETION(xadc->completion);
 
@@ -134,10 +161,7 @@ static int xadc_ps7_write_adc_reg(struct xadc *xadc, unsigned int reg,
 	tmp |= 0 << XADCPS7_CFG_DFIFOTH_OFFSET;
 	xadc_ps7_write_reg(xadc, XADCPS7_REG_CFG, tmp);
 
-	spin_lock_irq(&xadc->lock);
-	xadc_ps7_read_reg(xadc, XADCPS7_REG_INTMSK, &mask);
-	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTMSK,
-			mask & ~XADCPS7_INT_DFIFO_GTH);
+	xadc_ps7_update_intmsk(xadc, XADCPS7_INT_DFIFO_GTH, 0);
 	spin_unlock_irq(&xadc->lock);
 
 	ret = wait_for_completion_interruptible_timeout(&xadc->completion, HZ);
@@ -155,12 +179,16 @@ static int xadc_ps7_read_adc_reg(struct xadc *xadc, unsigned int reg,
 	uint16_t *val)
 {
 	uint32_t cmd[2];
-	uint32_t resp, tmp, mask;
+	uint32_t resp, tmp;
 	int ret;
 
 	cmd[0] = XADCPS7_CMD(XADCPS7_CMD_READ, reg, 0);
 	cmd[1] = XADCPS7_CMD(XADCPS7_CMD_NOP, 0, 0);
 
+	spin_lock_irq(&xadc->lock);
+	xadc_ps7_update_intmsk(xadc, XADCPS7_INT_DFIFO_GTH,
+			XADCPS7_INT_DFIFO_GTH);
+	xadc_ps7_drain_fifo(xadc);
 	INIT_COMPLETION(xadc->completion);
 
 	xadc_ps7_write_fifo(xadc, cmd, ARRAY_SIZE(cmd));
@@ -169,12 +197,8 @@ static int xadc_ps7_read_adc_reg(struct xadc *xadc, unsigned int reg,
 	tmp |= 1 << XADCPS7_CFG_DFIFOTH_OFFSET;
 	xadc_ps7_write_reg(xadc, XADCPS7_REG_CFG, tmp);
 
-	spin_lock_irq(&xadc->lock);
-	xadc_ps7_read_reg(xadc, XADCPS7_REG_INTMSK, &mask);
-	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTMSK,
-			mask & ~XADCPS7_INT_DFIFO_GTH);
+	xadc_ps7_update_intmsk(xadc, XADCPS7_INT_DFIFO_GTH, 0);
 	spin_unlock_irq(&xadc->lock);
-
 	ret = wait_for_completion_interruptible_timeout(&xadc->completion, HZ);
 	if (ret == 0)
 		ret = -EIO;
@@ -189,21 +213,69 @@ static int xadc_ps7_read_adc_reg(struct xadc *xadc, unsigned int reg,
 	return 0;
 }
 
+static unsigned int xadc_ps7_transform_alarm(unsigned int alarm)
+{
+	return ((alarm & 0x80) >> 4) |
+		((alarm & 0x78) << 1) |
+		(alarm & 0x07);
+}
+
+/**
+ * The PS7 threshold interrupts are level sensitive. Since we can't make the
+ * threshold condition go way from within the interrupt handler, this means as
+ * soon as a threshold condition is present we would enter the interrupt handler
+ * again and again. To work around this we mask all active thresholds interrupts
+ * in the interrupt handler and start a timer. In this timer we poll the
+ * interrupt status and only if the interrupt is inactive we unmask it again.
+ */
+static void xadc_ps7_unmask_worker(struct work_struct *work)
+{
+	struct xadc *xadc = container_of(work, struct xadc, ps7_unmask_work.work);
+	unsigned int misc_sts, unmask;
+
+	xadc_ps7_read_reg(xadc, XADCPS7_REG_STATUS, &misc_sts);
+
+	misc_sts &= XADCPS7_INT_ALARM_MASK;
+
+	spin_lock_irq(&xadc->lock);
+
+	/* Clear those bits which are not active anymore */
+	unmask = (xadc->ps7_masked_alarm ^ misc_sts) & xadc->ps7_masked_alarm;
+	xadc->ps7_masked_alarm &= misc_sts;
+
+	/* Also clear those which are masked out anyway */
+	xadc->ps7_masked_alarm &= ~xadc->ps7_intmask;
+
+	/* Clear the interrupts before we unmask them */
+	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTSTS, unmask);
+
+	xadc_ps7_update_intmsk(xadc, 0, 0);
+
+	spin_unlock_irq(&xadc->lock);
+
+	/* if still pending some alarm re-trigger the timer */
+	if (xadc->ps7_masked_alarm) {
+		schedule_delayed_work(&xadc->ps7_unmask_work,
+				msecs_to_jiffies(XADCPS7_UNMASK_TIMEOUT));
+	}
+}
+
 static irqreturn_t xadc_ps7_threaded_interrupt_handler(int irq, void *devid)
 {
 	struct iio_dev *indio_dev = devid;
 	struct xadc *xadc = iio_priv(indio_dev);
-	unsigned int alarm, status;
+	unsigned int alarm;
 
 	spin_lock_irq(&xadc->lock);
-	status = xadc->ps7_alarm;
+	alarm = xadc->ps7_alarm;
 	xadc->ps7_alarm = 0;
 	spin_unlock_irq(&xadc->lock);
 
-	alarm = ((status & 0x80) >> 4);
-	alarm |= ((status & 0x78) << 1);
-	alarm |= (status & 0x07);
-	xadc_handle_events(indio_dev, alarm);
+	xadc_handle_events(indio_dev, xadc_ps7_transform_alarm(alarm));
+
+	/* unmask the required interrupts in timer. */
+	schedule_delayed_work(&xadc->ps7_unmask_work,
+			msecs_to_jiffies(XADCPS7_UNMASK_TIMEOUT));
 
 	return IRQ_HANDLED;
 }
@@ -212,32 +284,40 @@ static irqreturn_t xadc_ps7_interrupt_handler(int irq, void *devid)
 {
 	struct iio_dev *indio_dev = devid;
 	struct xadc *xadc = iio_priv(indio_dev);
-	uint32_t status, mask;
+	irqreturn_t ret = IRQ_HANDLED;
+	uint32_t status;
 
 	xadc_ps7_read_reg(xadc, XADCPS7_REG_INTSTS, &status);
-	xadc_ps7_read_reg(xadc, XADCPS7_REG_INTMSK, &mask);
 
-	status &= ~mask;
+	status &= ~(xadc->ps7_intmask | xadc->ps7_masked_alarm);
 
 	if (!status)
 		return IRQ_NONE;
 
+	spin_lock(&xadc->lock);
+
 	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTSTS, status);
 
 	if (status & XADCPS7_INT_DFIFO_GTH) {
-		xadc_ps7_write_reg(xadc, XADCPS7_REG_INTMSK, mask |
-				XADCPS7_INT_DFIFO_GTH);
+		xadc_ps7_update_intmsk(xadc, XADCPS7_INT_DFIFO_GTH,
+			XADCPS7_INT_DFIFO_GTH);
 		complete(&xadc->completion);
 	}
 
-	if (status & XADCPS7_INT_ALARM_MASK) {
-		spin_lock(&xadc->lock);
-		xadc->ps7_alarm |= status & XADCPS7_INT_ALARM_MASK;
-		spin_unlock(&xadc->lock);
-	    return IRQ_WAKE_THREAD;
+	status &= XADCPS7_INT_ALARM_MASK;
+	if (status) {
+		xadc->ps7_alarm |= status;
+		xadc->ps7_masked_alarm |= status;
+		/*
+		 * mask the current event interrupt,
+		 * unmask it when the interrupt is no more active.
+		 */
+		xadc_ps7_update_intmsk(xadc, 0, 0);
+		ret = IRQ_WAKE_THREAD;
 	}
+	spin_unlock(&xadc->lock);
 
-	return IRQ_HANDLED;
+	return ret;
 }
 
 #define XADCPS7_TCK_RATE_MAX 50000000
@@ -285,12 +365,14 @@ static int xadc_ps7_setup(struct platform_device *pdev,
 	unsigned int tck_div;
 	u32 igap;
 
+	xadc->ps7_intmask = ~0;
+
 	xadc_ps7_parse_dt(xadc, pdev->dev.of_node, &tck_div, &igap);
 
 	xadc_ps7_write_reg(xadc, XADCPS7_REG_CTL, XADCPS7_CTL_RESET);
 	xadc_ps7_write_reg(xadc, XADCPS7_REG_CTL, 0);
 	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTSTS, ~0);
-	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTMSK, ~0);
+	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTMSK, xadc->ps7_intmask);
 	xadc_ps7_write_reg(xadc, XADCPS7_REG_CFG, XADCPS7_CFG_ENABLE |
 			XADCPS7_CFG_REDGE | XADCPS7_CFG_WEDGE |
 			tck_div | XADCPS7_CFG_IGAP(igap));
@@ -326,16 +408,20 @@ static unsigned long xadc_ps7_get_dclk_rate(struct xadc *xadc)
 static void xadc_ps7_update_alarm(struct xadc *xadc, unsigned int alarm)
 {
 	unsigned long flags;
-	uint32_t val;
+	uint32_t status;
 
 	/* Move OT to bit 7 */
 	alarm = ((alarm & 0x08) << 4) | ((alarm & 0xf0) >> 1) | (alarm & 0x07);
 
 	spin_lock_irqsave(&xadc->lock, flags);
-	xadc_ps7_read_reg(xadc, XADCPS7_REG_INTMSK, &val);
-	val |= XADCPS7_INT_ALARM_MASK;
-	val &= ~(alarm << XADCPS7_INT_ALARM_OFFSET);
-	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTMSK, val);
+
+	/* Clear previous interrupts if any. Just sanity, can remove later on. */
+	xadc_ps7_read_reg(xadc, XADCPS7_REG_INTSTS, &status);
+	xadc_ps7_write_reg(xadc, XADCPS7_REG_INTSTS, status & alarm);
+
+	xadc_ps7_update_intmsk(xadc, XADCPS7_INT_ALARM_MASK,
+		~alarm & XADCPS7_INT_ALARM_MASK);
+
 	spin_unlock_irqrestore(&xadc->lock, flags);
 }
 
@@ -534,11 +620,11 @@ static irqreturn_t xadc_trigger_handler(int irq, void *p)
 	for_each_set_bit(i, indio_dev->active_scan_mask,
 		indio_dev->masklength) {
 		chan = xadc_scan_index_to_channel(i);
-		_xadc_read_reg(xadc, chan, &xadc->data[j]);
+		xadc_read_reg(xadc, chan, &xadc->data[j]);
 		j++;
 	}
 
-	iio_push_to_buffers(indio_dev, (uint8_t *)xadc->data);
+	iio_push_to_buffers(indio_dev, xadc->data);
 
 out:
 	iio_trigger_notify_done(indio_dev->trig);
@@ -866,6 +952,27 @@ static const struct attribute_group xadc_attribute_group = {
 	.attrs = xadc_attributes,
 };
 
+static const struct iio_event_spec xadc_temp_events[] = {
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_RISING,
+		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
+				BIT(IIO_EV_INFO_HYSTERESIS),
+	},
+};
+
+static const struct iio_event_spec xadc_voltage_events[] = {
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_RISING,
+		.mask_separate = BIT(IIO_EV_INFO_VALUE),
+	}, {
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_FALLING,
+		.mask_separate = BIT(IIO_EV_INFO_VALUE),
+	},
+};
+
 #define XADC_CHAN_TEMP(_chan, _scan_index, _addr) { \
 	.type = IIO_TEMP, \
 	.indexed = 1, \
@@ -874,7 +981,8 @@ static const struct attribute_group xadc_attribute_group = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
 		BIT(IIO_CHAN_INFO_SCALE) | \
 		BIT(IIO_CHAN_INFO_OFFSET), \
-	.event_mask = IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING), \
+	.event_spec = xadc_temp_events, \
+	.num_event_specs = ARRAY_SIZE(xadc_temp_events), \
 	.scan_index = (_scan_index), \
 	.scan_type = { \
 		.sign = 'u', \
@@ -892,9 +1000,8 @@ static const struct attribute_group xadc_attribute_group = {
 	.address = (_addr), \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
 		BIT(IIO_CHAN_INFO_SCALE), \
-	.event_mask = !(_alarm) ? 0 : \
-		(IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING) | \
-		IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_FALLING)), \
+	.event_spec = (_alarm) ? xadc_voltage_events : NULL, \
+	.num_event_specs = (_alarm) ? ARRAY_SIZE(xadc_voltage_events) : 0, \
 	.scan_index = (_scan_index), \
 	.scan_type = { \
 		.sign = 'u', \
@@ -937,10 +1044,10 @@ static const struct iio_chan_spec xadc_channels[] = {
 
 static const struct iio_info xadc_info = {
 	.read_raw = &xadc_read_raw,
-	.read_event_config = &xadc_read_event_config,
-	.write_event_config = &xadc_write_event_config,
-	.read_event_value = &xadc_read_event_value,
-	.write_event_value = &xadc_write_event_value,
+	.read_event_config_new = &xadc_read_event_config,
+	.write_event_config_new = &xadc_write_event_config,
+	.read_event_value_new = &xadc_read_event_value,
+	.write_event_value_new = &xadc_write_event_value,
 	.update_scan_mode = &xadc_update_scan_mode,
 	.attrs = &xadc_attribute_group,
 	.driver_module = THIS_MODULE,
@@ -1077,6 +1184,7 @@ static int xadc_probe(struct platform_device *pdev)
 	init_completion(&xadc->completion);
 	mutex_init(&xadc->mutex);
 	spin_lock_init(&xadc->lock);
+	INIT_DELAYED_WORK(&xadc->ps7_unmask_work, xadc_ps7_unmask_worker);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	xadc->base = devm_request_and_ioremap(&pdev->dev, mem);
@@ -1098,7 +1206,7 @@ static int xadc_probe(struct platform_device *pdev)
 	if (xadc->ops->flags & XADC_FLAGS_BUFFERED) {
 		ret = iio_triggered_buffer_setup(indio_dev,
 			&iio_pollfunc_store_time, &xadc_trigger_handler,
-			&xadc_buffer_ops, IIO_BUFFER_DIRECTION_IN);
+			&xadc_buffer_ops, 0);
 		if (ret)
 			goto err_device_free;
 
@@ -1148,12 +1256,25 @@ static int xadc_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_irq;
 
-	/* Go to non-buffered mode */
-	xadc_postdisable(indio_dev);
-
 	/* Disable all alarms */
 	xadc_update_reg(xadc, XADC_REG_CONF1, XADC_CONF1_ALARM_MASK,
 		XADC_CONF1_ALARM_MASK);
+
+	/* Set thresholds to min/max */
+	for (i = 0; i < 16; i++) {
+		/*
+		 * Set max voltage threshold and both temperature thresholds to
+		 * 0xffff, min voltage threshold to 0.
+		 */
+		if (i % 8 < 4 || i == 7)
+			xadc->threshold[i] = 0xffff;
+		else
+			xadc->threshold[i] = 0;
+		xadc_write_reg(xadc, XADC_REG_THRESHOLD(i), xadc->threshold[i]);
+	}
+
+	/* Go to non-buffered mode */
+	xadc_postdisable(indio_dev);
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
@@ -1197,6 +1318,7 @@ static int xadc_remove(struct platform_device *pdev)
 	}
 	free_irq(irq, indio_dev);
 	clk_disable_unprepare(xadc->clk);
+	cancel_delayed_work(&xadc->ps7_unmask_work);
 	kfree(xadc->data);
 	kfree(indio_dev->channels);
 	iio_device_free(indio_dev);

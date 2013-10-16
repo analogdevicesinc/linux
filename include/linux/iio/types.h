@@ -62,6 +62,12 @@ enum iio_event_type {
 	IIO_EV_TYPE_MAG_ADAPTIVE,
 };
 
+enum iio_event_info {
+	IIO_EV_INFO_ENABLE,
+	IIO_EV_INFO_VALUE,
+	IIO_EV_INFO_HYSTERESIS,
+};
+
 enum iio_event_direction {
 	IIO_EV_DIR_EITHER,
 	IIO_EV_DIR_RISING,

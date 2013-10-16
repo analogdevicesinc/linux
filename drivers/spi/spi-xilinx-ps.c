@@ -737,7 +737,7 @@ static int xspips_probe(struct platform_device *pdev)
 	master->transfer = xspips_transfer;
 	master->mode_bits = SPI_CPOL | SPI_CPHA;
 
-	aper_clk_rate = clk_get_rate(xspi->aperclk);
+	aper_clk_rate = clk_get_rate(xspi->aperclk) / 2 * 3;
 	if (aper_clk_rate > clk_get_rate(xspi->devclk))
 		clk_set_rate(xspi->devclk, aper_clk_rate);
 

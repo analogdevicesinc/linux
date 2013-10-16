@@ -30,6 +30,7 @@
 #include "iio_core_trigger.h"
 #include <linux/iio/sysfs.h>
 #include <linux/iio/events.h>
+#include <linux/iio/buffer.h>
 
 /* IDA to assign each registered device a unique id */
 static DEFINE_IDA(iio_ida);
@@ -369,22 +370,20 @@ ssize_t iio_enum_write(struct iio_dev *indio_dev,
 }
 EXPORT_SYMBOL_GPL(iio_enum_write);
 
-static ssize_t iio_read_channel_info(struct device *dev,
-				     struct device_attribute *attr,
-				     char *buf)
+/**
+ * iio_format_value() - Formats a IIO value into its string representation
+ * @buf: The buffer to which the formated value gets written
+ * @type: One of the IIO_VAL_... constants. This decides how the val and val2
+ *        parameters are formatted.
+ * @val: First part of the value, exact meaning depends on the type parameter.
+ * @val2: Second part of the value, exact meaning depends on the type parameter.
+ */
+ssize_t iio_format_value(char *buf, unsigned int type, int val, int val2)
 {
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	unsigned long long tmp;
-	int val, val2;
 	bool scale_db = false;
-	int ret = indio_dev->info->read_raw(indio_dev, this_attr->c,
-					    &val, &val2, this_attr->address);
 
-	if (ret < 0)
-		return ret;
-
-	switch (ret) {
+	switch (type) {
 	case IIO_VAL_INT:
 		return sprintf(buf, "%d\n", val);
 	case IIO_VAL_INT_PLUS_MICRO_DB:
@@ -414,6 +413,22 @@ static ssize_t iio_read_channel_info(struct device *dev,
 	default:
 		return 0;
 	}
+}
+
+static ssize_t iio_read_channel_info(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	int val, val2;
+	int ret = indio_dev->info->read_raw(indio_dev, this_attr->c,
+					    &val, &val2, this_attr->address);
+
+	if (ret < 0)
+		return ret;
+
+	return iio_format_value(buf, ret, val, val2);
 }
 
 /**
@@ -800,11 +815,22 @@ static int iio_device_add_channel_sysfs(struct iio_dev *indio_dev,
 	return attrcount;
 }
 
-static void iio_device_remove_and_free_read_attr(struct iio_dev *indio_dev,
-						 struct iio_dev_attr *p)
+/**
+ * iio_free_chan_devattr_list() - Free a list of IIO device attributes
+ * @attr_list: List of IIO device attributes
+ *
+ * This function frees the memory allocated for each of the IIO device
+ * attributes in the list. Note: if you want to reuse the list after calling
+ * this function you have to reinitialize it using INIT_LIST_HEAD().
+ */
+void iio_free_chan_devattr_list(struct list_head *attr_list)
 {
-	kfree(p->dev_attr.attr.name);
-	kfree(p);
+	struct iio_dev_attr *p, *n;
+
+	list_for_each_entry_safe(p, n, attr_list, l) {
+		kfree(p->dev_attr.attr.name);
+		kfree(p);
+	}
 }
 
 static ssize_t iio_show_dev_name(struct device *dev,
@@ -820,7 +846,7 @@ static DEVICE_ATTR(name, S_IRUGO, iio_show_dev_name, NULL);
 static int iio_device_register_sysfs(struct iio_dev *indio_dev)
 {
 	int i, ret = 0, attrcount, attrn, attrcount_orig = 0;
-	struct iio_dev_attr *p, *n;
+	struct iio_dev_attr *p;
 	struct attribute **attr;
 
 	/* First count elements in any existing group */
@@ -873,11 +899,7 @@ static int iio_device_register_sysfs(struct iio_dev *indio_dev)
 	return 0;
 
 error_clear_attrs:
-	list_for_each_entry_safe(p, n,
-				 &indio_dev->channel_attr_list, l) {
-		list_del(&p->l);
-		iio_device_remove_and_free_read_attr(indio_dev, p);
-	}
+	iio_free_chan_devattr_list(&indio_dev->channel_attr_list);
 
 	return ret;
 }
@@ -885,12 +907,7 @@ error_clear_attrs:
 static void iio_device_unregister_sysfs(struct iio_dev *indio_dev)
 {
 
-	struct iio_dev_attr *p, *n;
-
-	list_for_each_entry_safe(p, n, &indio_dev->channel_attr_list, l) {
-		list_del(&p->l);
-		iio_device_remove_and_free_read_attr(indio_dev, p);
-	}
+	iio_free_chan_devattr_list(&indio_dev->channel_attr_list);
 	kfree(indio_dev->chan_attr_group.attrs);
 }
 
@@ -901,6 +918,8 @@ static void iio_dev_release(struct device *device)
 		iio_device_unregister_trigger_consumer(indio_dev);
 	iio_device_unregister_eventset(indio_dev);
 	iio_device_unregister_sysfs(indio_dev);
+
+	iio_buffer_put(indio_dev->buffer);
 
 	ida_simple_remove(&iio_ida, indio_dev->id);
 	kfree(indio_dev);
@@ -996,6 +1015,9 @@ static long iio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct iio_dev *indio_dev = filp->private_data;
 	int __user *ip = (int __user *)arg;
 	int fd;
+
+	if (!indio_dev->info)
+		return -ENODEV;
 
 	if (cmd == IIO_GET_EVENT_FD_IOCTL) {
 		fd = iio_event_getfd(indio_dev);
@@ -1122,6 +1144,10 @@ void iio_device_unregister(struct iio_dev *indio_dev)
 	iio_disable_all_buffers(indio_dev);
 
 	indio_dev->info = NULL;
+
+	iio_device_wakeup_eventset(indio_dev);
+	iio_buffer_wakeup_poll(indio_dev);
+
 	mutex_unlock(&indio_dev->info_exist_lock);
 }
 EXPORT_SYMBOL(iio_device_unregister);
