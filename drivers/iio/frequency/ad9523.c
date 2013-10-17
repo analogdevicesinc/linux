@@ -869,7 +869,7 @@ static int ad9523_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	return ad9523_set_clk_attr(hw, IIO_CHAN_INFO_FREQUENCY, rate);
 }
 
-const struct clk_ops ad9523_clk_ops = {
+static const struct clk_ops ad9523_clk_ops = {
 	.recalc_rate = ad9523_clk_recalc_rate,
 	.is_enabled = ad9523_clk_is_enabled,
 	.prepare = ad9523_clk_prepare,
@@ -878,7 +878,7 @@ const struct clk_ops ad9523_clk_ops = {
 	.round_rate = ad9523_clk_round_rate,
 };
 
-struct clk *ad9523_clk_register(struct iio_dev *indio_dev, unsigned num,
+static struct clk *ad9523_clk_register(struct iio_dev *indio_dev, unsigned num,
 				bool is_enabled)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
