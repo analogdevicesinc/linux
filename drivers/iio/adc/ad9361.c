@@ -115,8 +115,10 @@ struct refclk_scale {
 	enum ad9361_clocks 	source;
 };
 
-const char ad9361_ensm_states[][10] = { "sleep", "", "", "", "", "alert", "tx", "tx flush",
-	"rx", "rx_flush", "fdd", "fdd_flush"};
+static const char *ad9361_ensm_states[] = {
+	"sleep", "", "", "", "", "alert", "tx", "tx flush",
+	"rx", "rx_flush", "fdd", "fdd_flush"
+};
 
 static int ad9361_spi_readm(struct spi_device *spi, u32 reg,
 			   u8 *rbuf, u32 num)
@@ -312,7 +314,7 @@ static int ad9361_run_calibration(struct ad9361_rf_phy *phy, u32 mask)
 	return ad9361_check_cal_done(phy, REG_CALIBRATION_CTRL, mask, 0);
 }
 
-enum rx_gain_table_name ad9361_gt_tableindex(u64 freq)
+static enum rx_gain_table_name ad9361_gt_tableindex(u64 freq)
 {
 	if (freq <= 1300000000ULL)
 		return TBL_200_1300_MHZ;
@@ -325,12 +327,12 @@ enum rx_gain_table_name ad9361_gt_tableindex(u64 freq)
 
 /* PLL operates between 47 .. 6000 MHz which is > 2^32 */
 
-unsigned long ad9361_to_clk(u64 freq)
+static unsigned long ad9361_to_clk(u64 freq)
 {
 	return (unsigned long)(freq >> 1);
 }
 
-u64 ad9361_from_clk(unsigned long freq)
+static u64 ad9361_from_clk(unsigned long freq)
 {
 	return ((u64)freq << 1);
 }
@@ -480,7 +482,7 @@ static int ad9361_get_tx_atten(struct ad9361_rf_phy *phy, u32 tx_num)
 	return code;
 }
 
-u32 ad9361_rfvco_tableindex(unsigned long freq)
+static u32 ad9361_rfvco_tableindex(unsigned long freq)
 {
 	if (freq < 50000000UL)
 		return LUT_FTDD_40;
@@ -944,7 +946,7 @@ out:
 
 }
 
-void ad9361_init_gain_info(struct rx_gain_info *rx_gain,
+static void ad9361_init_gain_info(struct rx_gain_info *rx_gain,
 	enum rx_gain_table_type type, int starting_gain,
 	int max_gain, int gain_step, int max_idx, int idx_offset)
 {
@@ -956,7 +958,7 @@ void ad9361_init_gain_info(struct rx_gain_info *rx_gain,
 	rx_gain->idx_step_offset = idx_offset;
 }
 
-int ad9361_init_gain_tables(struct ad9361_rf_phy *phy)
+static int ad9361_init_gain_tables(struct ad9361_rf_phy *phy)
 {
 	struct rx_gain_info *rx_gain;
 
@@ -979,7 +981,7 @@ int ad9361_init_gain_tables(struct ad9361_rf_phy *phy)
 	return 0;
 }
 
-int ad9361_en_dis_tx(struct ad9361_rf_phy *phy, u32 tx_if, u32 enable)
+static int ad9361_en_dis_tx(struct ad9361_rf_phy *phy, u32 tx_if, u32 enable)
 {
 	if (tx_if == 2 && !phy->pdata->rx2tx2)
 		return -EINVAL;
@@ -988,7 +990,7 @@ int ad9361_en_dis_tx(struct ad9361_rf_phy *phy, u32 tx_if, u32 enable)
 			TX_CHANNEL_ENABLE(tx_if), enable);
 }
 
-int ad9361_en_dis_rx(struct ad9361_rf_phy *phy, u32 rx_if, u32 enable)
+static int ad9361_en_dis_rx(struct ad9361_rf_phy *phy, u32 rx_if, u32 enable)
 {
 	if (rx_if == 2 && !phy->pdata->rx2tx2)
 		return -EINVAL;
@@ -998,7 +1000,7 @@ int ad9361_en_dis_rx(struct ad9361_rf_phy *phy, u32 rx_if, u32 enable)
 }
 
 
-int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
+static int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 		struct rf_gain_ctrl *gain_ctrl)
 {
 	struct spi_device *spi = phy->spi;
@@ -3345,7 +3347,7 @@ static int ad9361_clk_factor_set_rate(struct clk_hw *hw, unsigned long rate,
 	return ad9361_set_clk_scaler(hw, true);
 }
 
-struct clk_ops refclk_scale_ops = {
+static const struct clk_ops refclk_scale_ops = {
 	.round_rate = ad9361_clk_factor_round_rate,
 	.set_rate = ad9361_clk_factor_set_rate,
 	.recalc_rate = ad9361_clk_factor_recalc_rate,
@@ -3461,7 +3463,7 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 				     BBPLL_LOCK, 1);
 }
 
-struct clk_ops bbpll_clk_ops = {
+static const struct clk_ops bbpll_clk_ops = {
 	.round_rate = ad9361_bbpll_round_rate,
 	.set_rate = ad9361_bbpll_set_rate,
 	.recalc_rate = ad9361_bbpll_recalc_rate,
@@ -3623,7 +3625,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	return ad9361_check_cal_done(phy, lock_reg, BIT(1), 1);
 }
 
-struct clk_ops rfpll_clk_ops = {
+static const struct clk_ops rfpll_clk_ops = {
 	.round_rate = ad9361_rfpll_round_rate,
 	.set_rate = ad9361_rfpll_set_rate,
 	.recalc_rate = ad9361_rfpll_recalc_rate,
@@ -4992,6 +4994,8 @@ static struct ad9361_phy_platform_data
 {
 	struct device_node *np = dev->of_node;
 	struct ad9361_phy_platform_data *pdata;
+	u32 tx_path_clks[NUM_TX_CLOCKS];
+	u32 rx_path_clks[NUM_RX_CLOCKS];
 	u32 tmp;
 	u64 tmpl;
 	u32 array[6] = {0};
@@ -5078,14 +5082,20 @@ static struct ad9361_phy_platform_data
 			   &pdata->use_extclk);
 
 	ret = of_property_read_u32_array(np, "adi,rx-path-clock-frequencies",
-			pdata->rx_path_clks, ARRAY_SIZE(pdata->rx_path_clks));
+			rx_path_clks, ARRAY_SIZE(rx_path_clks));
 	if (ret < 0)
 		return NULL;
 
+	for (i = 0; i < ARRAY_SIZE(rx_path_clks); i++)
+		pdata->rx_path_clks[i] = rx_path_clks[i];
+
 	ret = of_property_read_u32_array(np, "adi,tx-path-clock-frequencies",
-			pdata->tx_path_clks, ARRAY_SIZE(pdata->tx_path_clks));
+			tx_path_clks, ARRAY_SIZE(tx_path_clks));
 	if (ret < 0)
 		return NULL;
+
+	for (i = 0; i < ARRAY_SIZE(tx_path_clks); i++)
+		pdata->tx_path_clks[i] = tx_path_clks[i];
 
 	ad9361_of_get_u32(iodev, np, "adi,rf-rx-bandwidth-hz", 18000000UL,
 			  &pdata->rf_rx_bandwidth_Hz);
