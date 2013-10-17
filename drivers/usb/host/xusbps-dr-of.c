@@ -29,6 +29,8 @@
 #include <linux/string.h>
 #include <linux/clk.h>
 #include <linux/usb/ulpi.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 
 #include "ehci-xilinx-usbps.h"
 
@@ -155,6 +157,7 @@ static int xusbps_dr_of_probe(struct platform_device *ofdev)
 	static unsigned int idx;
 	struct resource *res;
 	int i, phy_init;
+	int reset_gpio;
 	int ret;
 
 	pdata = &data;
@@ -202,6 +205,18 @@ static int xusbps_dr_of_probe(struct platform_device *ofdev)
 
 	/* If ULPI phy type, set it up */
 	if (pdata->phy_mode == XUSBPS_USB2_PHY_ULPI) {
+		reset_gpio = of_get_named_gpio(np, "xlnx,phy-reset-gpio", 0);
+		if (gpio_is_valid(reset_gpio)) {
+			ret = devm_gpio_request_one(&ofdev->dev, reset_gpio,
+					GPIOF_INIT_LOW, "ulpi resetb");
+			if (ret) {
+				dev_err(&ofdev->dev, "Failed to request ULPI reset gpio: %d\n", ret);
+				goto err_out_clk_disable;
+			}
+			msleep(5);
+			gpio_set_value(reset_gpio, 1);
+			msleep(1);
+		}
 		pdata->ulpi = otg_ulpi_create(&ulpi_viewport_access_ops,
 			ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
 		if (pdata->ulpi) {

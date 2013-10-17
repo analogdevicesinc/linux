@@ -25,3 +25,7 @@
 		marvell,reg-init=<3 16 0xff00 0x1e 3 17 0xfff0 0x0a>;
 	};
 };
+
+&usb {
+	xlnx,phy-reset-gpio = <&gpio 85 0>;
+};
