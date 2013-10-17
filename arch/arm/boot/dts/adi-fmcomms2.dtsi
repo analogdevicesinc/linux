@@ -27,7 +27,7 @@
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 
 
-		adi,debug-mode-enable;
+		//adi,debug-mode-enable;
 		/* Digital Interface Control */
 
 		adi,pp-tx-swap-enable;
@@ -47,8 +47,13 @@
 		/* Mode Setup */
 
 		adi,2rx-2tx-mode-enable;
-		adi,frequency-division-duplex-mode-enable;
 		//adi,split-gain-table-mode-enable;
+
+		/* ENSM Mode */
+		adi,frequency-division-duplex-mode-enable;
+		//adi,ensm-pin-pulse-mode-enable;
+		//adi,ensm-enable-txnrx-control-enable;
+
 
 		/* adi,rx-rf-port-input-select:
 		 * 0 = (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced
@@ -71,6 +76,8 @@
 		 */
 
 		adi,tx-rf-port-input-select = <0>; /* TX1A, TX2A */
+		//adi,update-tx-gain-in-alert-enable;
+		adi,tx-attenuation-mdB = <10000>;
 
 		adi,rf-rx-bandwidth-hz = <18000000>;
 		adi,rf-tx-bandwidth-hz = <18000000>;
