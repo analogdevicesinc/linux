@@ -2962,9 +2962,11 @@ struct ad9361_phy_platform_data {
 	bool			fdd;
 	bool			split_gt;
 	bool 			use_extclk;
-	bool			ensm_pin_level_mode;
+	bool			ensm_pin_pulse_mode;
 	bool			ensm_pin_ctrl;
 	bool			debug_mode;
+	bool			tdd_use_fdd_tables;
+	bool			tdd_use_dual_synth;
 	u32			dcxo_coarse;
 	u32			dcxo_fine;
 	u32			rf_rx_input_sel;
@@ -2976,6 +2978,7 @@ struct ad9361_phy_platform_data {
 	u32			rf_rx_bandwidth_Hz;
 	u32			rf_tx_bandwidth_Hz;
 	int			tx_atten;
+	bool			update_tx_gain_via_alert;
 	int 			gpio_resetb;
 
 	struct gain_control	gain_ctrl;
