@@ -267,7 +267,7 @@ static int ad9517_parse_pdata(struct ad9517_state *st,
 	int i;
 	unsigned addr;
 
-	if (!pdata->num_regs | (pdata->num_regs > AD9517_TRANSFER))
+	if (!pdata->num_regs || (pdata->num_regs > AD9517_TRANSFER))
 		return -EINVAL;
 
 	for (i = 0; i < pdata->num_regs; i++) {
@@ -825,7 +825,7 @@ static void ad9517_clk_unprepare(struct clk_hw *hw)
 	ad9517_out_enable(st, to_ad9517_clk_output(hw)->num, 0);
 }
 
-const struct clk_ops ad9517_clk_ops = {
+static const struct clk_ops ad9517_clk_ops = {
 	.recalc_rate = ad9517_recalc_rate,
 	.is_enabled = ad9517_is_enabled,
 	.set_rate = ad9517_clk_set_rate,
@@ -834,7 +834,7 @@ const struct clk_ops ad9517_clk_ops = {
 	.unprepare = ad9517_clk_unprepare,
 };
 
-struct clk *ad9517_clk_register(struct ad9517_state *st, unsigned num)
+static struct clk *ad9517_clk_register(struct ad9517_state *st, unsigned num)
 {
 	struct clk_init_data init;
 	struct ad9517_outputs *output = &st->output[num];
