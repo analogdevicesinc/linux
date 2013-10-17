@@ -252,5 +252,5 @@
 /include/ "adi-fmcomms2.dtsi"
 
 &adc0_ad9361 {
-	gpios = <&gpio 99 0>;
+	gpios = <&gpio 100 0>;
 };
