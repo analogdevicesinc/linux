@@ -23,7 +23,7 @@
 #include "ad9122.h"
 #include "cf_axi_dds.h"
 
-const char clk_names[CLK_NUM][10] = {"data_clk", "dac_clk", "ref_clk"};
+static const char clk_names[CLK_NUM][10] = {"data_clk", "dac_clk", "ref_clk"};
 
 static const unsigned char ad9122_reg_defaults[][2] = {
 	{AD9122_REG_COMM, 0x00},
