@@ -49,7 +49,7 @@ static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 	return 0;
 }
 
-void cf_axi_dds_stop(struct cf_axi_dds_state *st) {
+static void cf_axi_dds_stop(struct cf_axi_dds_state *st) {
 	dds_write(st, ADI_REG_CNTRL_1, 0);
 }
 
