@@ -31,6 +31,13 @@ SECTIONS
 {
 	. = CONFIG_MEM_BASE | CONFIG_KERNEL_REGION_BASE;
 
+	.got : {
+		*(.got.plt)
+		*(.igot.plt)
+		*(.got)
+		*(.igot)
+	}
+
 	_text = .;
 	_stext = .;
 	HEAD_TEXT_SECTION
