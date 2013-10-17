@@ -2778,9 +2778,9 @@
 #define RFPLL_MODULUS			8388593UL
 #define BBPLL_MODULUS			2088960UL
 
-#define MIN_VCO_FREQ_HZ			6000000000
-#define MAX_CARRIER_FREQ_HZ		6000000000
-#define MIN_CARRIER_FREQ_HZ		47000000
+#define MIN_VCO_FREQ_HZ			6000000000ULL
+#define MAX_CARRIER_FREQ_HZ		6000000000ULL
+#define MIN_CARRIER_FREQ_HZ		47000000ULL
 
 /*
  *	Driver
@@ -3030,7 +3030,7 @@ enum {
 
 #define SYNTH_LUT_SIZE	53
 
-const struct SynthLUT SynthLUT_FDD[LUT_FTDD_ENT][SYNTH_LUT_SIZE] = {
+static const struct SynthLUT SynthLUT_FDD[LUT_FTDD_ENT][SYNTH_LUT_SIZE] = {
 {
 	{12605, 10, 0, 4, 0, 15, 8, 8, 12, 3, 14, 15, 11}, /* 40 MHz */
 	{12245, 10, 0, 4, 0, 15, 8, 9, 12, 3, 14, 15, 11},
@@ -3195,7 +3195,7 @@ const struct SynthLUT SynthLUT_FDD[LUT_FTDD_ENT][SYNTH_LUT_SIZE] = {
 	{5997, 10, 3, 7, 3, 15, 12, 20, 13, 4, 13, 15, 9},
 }};
 
-struct SynthLUT SynthLUT_TDD[LUT_FTDD_ENT][SYNTH_LUT_SIZE] = {
+static struct SynthLUT SynthLUT_TDD[LUT_FTDD_ENT][SYNTH_LUT_SIZE] = {
 {
 	{12605, 13, 0, 4, 0, 14, 0, 10, 12, 3, 14, 15, 11},   /* 40 MHz */
 	{12245, 13, 0, 4, 0, 13, 0, 10, 12, 3, 14, 15, 11},
@@ -3364,7 +3364,7 @@ struct SynthLUT SynthLUT_TDD[LUT_FTDD_ENT][SYNTH_LUT_SIZE] = {
 
 #define SIZE_FULL_TABLE		77
 
-const u8 full_gain_table[RXGAIN_TBLS_END][SIZE_FULL_TABLE][3] =
+static const u8 full_gain_table[RXGAIN_TBLS_END][SIZE_FULL_TABLE][3] =
 {{  /* 800 MHz */
 	{0x00, 0x00, 0x20}, {0x00, 0x00, 0x00}, {0x00, 0x00, 0x00},
 	{0x00, 0x01, 0x00}, {0x00, 0x02, 0x00}, {0x00, 0x03, 0x00},
@@ -3450,7 +3450,7 @@ const u8 full_gain_table[RXGAIN_TBLS_END][SIZE_FULL_TABLE][3] =
 
 #define SIZE_SPLIT_TABLE		41
 
-const u8 split_gain_table[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE][3] =
+static const u8 split_gain_table[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE][3] =
 {{  /* 800 MHz */
 	{0x00, 0x18, 0x20}, {0x01, 0x18, 0x20}, {0x02, 0x18, 0x20},
 	{0x03, 0x18, 0x20}, {0x04, 0x18, 0x20}, {0x05, 0x18, 0x20},
@@ -3501,15 +3501,15 @@ const u8 split_gain_table[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE][3] =
 
 /* Mixer GM Sub-table */
 
-const u8 gm_st_gain[16]= {0x78, 0x74, 0x70, 0x6C, 0x68, 0x64, 0x60,
+static const u8 gm_st_gain[16]= {0x78, 0x74, 0x70, 0x6C, 0x68, 0x64, 0x60,
 			 0x5C, 0x58, 0x54, 0x50, 0x4C, 0x48, 0x30, 0x18, 0x0};
-const u8 gm_st_ctrl[16]= {0x0, 0xD, 0x15, 0x1B, 0x21, 0x25, 0x29,
+static const u8 gm_st_ctrl[16]= {0x0, 0xD, 0x15, 0x1B, 0x21, 0x25, 0x29,
 			 0x2C, 0x2F, 0x31, 0x33, 0x34, 0x35, 0x3A, 0x3D, 0x3E};
 
 
-const s8 lna_table[] = {6, 17, 19, 25};
-const s8 tia_table[] = {-6, 0};
-const s8 mixer_table[] = {0, 5, 11, 16,
+static const s8 lna_table[] = {6, 17, 19, 25};
+static const s8 tia_table[] = {-6, 0};
+static const s8 mixer_table[] = {0, 5, 11, 16,
 			17, 18, 19, 20,
 			21, 22, 23, 24,
 			25, 26,	27, 28};
