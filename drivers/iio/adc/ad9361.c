@@ -136,7 +136,7 @@ static int ad9361_spi_readm(struct spi_device *spi, u32 reg,
 
 	ret = spi_write_then_read(spi, &buf[0], 2, rbuf, num);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Read Error $d", ret);
+		dev_err(&spi->dev, "Read Error %d", ret);
 		return ret;
 	}
 #ifdef _DEBUG
@@ -199,7 +199,7 @@ static int ad9361_spi_write(struct spi_device *spi,
 
 	ret = spi_write_then_read(spi, buf, 3, NULL, 0);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Write Error $d", ret);
+		dev_err(&spi->dev, "Write Error %d", ret);
 		return ret;
 	}
 
@@ -250,7 +250,7 @@ static int ad9361_spi_writem(struct spi_device *spi,
 
 	ret = spi_write_then_read(spi, buf, num + 2, NULL, 0);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Write Error $d", ret);
+		dev_err(&spi->dev, "Write Error %d", ret);
 		return ret;
 	}
 
