@@ -3939,6 +3939,8 @@ enum ad9361_iio_dev_attr {
 	AD9361_BBDC_OFFS_ENABLE,
 	AD9361_RFDC_OFFS_ENABLE,
 	AD9361_QUAD_ENABLE,
+	AD9361_DCXO_TUNE_COARSE,
+	AD9361_DCXO_TUNE_FINE,
 };
 
 static ssize_t ad9361_phy_store(struct device *dev,
@@ -4093,6 +4095,23 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		ret = ad9361_tracking_control(phy, phy->bbdc_track_en,
 				phy->rfdc_track_en, phy->quad_track_en);
 		break;
+
+	case AD9361_DCXO_TUNE_COARSE:
+		ret = kstrtol(buf, 10, &readin);
+		if (ret)
+			break;
+		phy->pdata->dcxo_coarse = clamp_t(u32, (u32)readin, 0 , 63U);
+		ret = ad9361_set_dcxo_tune(phy, phy->pdata->dcxo_coarse,
+					   phy->pdata->dcxo_fine);
+		break;
+	case AD9361_DCXO_TUNE_FINE:
+		ret = kstrtol(buf, 10, &readin);
+		if (ret)
+			break;
+		phy->pdata->dcxo_fine = clamp_t(u32, (u32)readin, 0 , 8191U);
+		ret = ad9361_set_dcxo_tune(phy, phy->pdata->dcxo_coarse,
+					   phy->pdata->dcxo_fine);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -4170,6 +4189,12 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		break;
 	case AD9361_QUAD_ENABLE:
 		ret = sprintf(buf, "%d\n", phy->quad_track_en);
+		break;
+	case AD9361_DCXO_TUNE_COARSE:
+		ret = sprintf(buf, "%d\n", phy->pdata->dcxo_coarse);
+		break;
+	case AD9361_DCXO_TUNE_FINE:
+		ret = sprintf(buf, "%d\n", phy->pdata->dcxo_fine);
 		break;
 	default:
 		ret = -EINVAL;
@@ -4259,6 +4284,16 @@ static IIO_DEVICE_ATTR(in_voltage_quadrature_tracking_en, S_IRUGO | S_IWUSR,
 			ad9361_phy_store,
 			AD9361_QUAD_ENABLE);
 
+static IIO_DEVICE_ATTR(dcxo_tune_coarse, S_IRUGO | S_IWUSR,
+			ad9361_phy_show,
+			ad9361_phy_store,
+			AD9361_DCXO_TUNE_COARSE);
+
+static IIO_DEVICE_ATTR(dcxo_tune_fine, S_IRUGO | S_IWUSR,
+			ad9361_phy_show,
+			ad9361_phy_store,
+			AD9361_DCXO_TUNE_FINE);
+
 static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_in_voltage_filter_fir_en.dev_attr.attr,
 	&iio_dev_attr_out_voltage_filter_fir_en.dev_attr.attr,
@@ -4276,6 +4311,8 @@ static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_in_voltage_bb_dc_offset_tracking_en.dev_attr.attr,
 	&iio_dev_attr_in_voltage_rf_dc_offset_tracking_en.dev_attr.attr,
 	&iio_dev_attr_in_voltage_quadrature_tracking_en.dev_attr.attr,
+	&iio_dev_attr_dcxo_tune_coarse.dev_attr.attr,
+	&iio_dev_attr_dcxo_tune_fine.dev_attr.attr,
 	NULL,
 };
 
