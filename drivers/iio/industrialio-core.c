@@ -1002,7 +1002,10 @@ static int iio_chrdev_release(struct inode *inode, struct file *filp)
 {
 	struct iio_dev *indio_dev = container_of(inode->i_cdev,
 						struct iio_dev, chrdev);
+
 	clear_bit(IIO_BUSY_BIT_POS, &indio_dev->flags);
+	if (indio_dev->buffer)
+		iio_buffer_free_blocks(indio_dev->buffer);
 	iio_device_put(indio_dev);
 
 	return 0;
@@ -1019,11 +1022,15 @@ static long iio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (!indio_dev->info)
 		return -ENODEV;
 
-	if (cmd == IIO_GET_EVENT_FD_IOCTL) {
+	switch (cmd) {
+	case IIO_GET_EVENT_FD_IOCTL:
 		fd = iio_event_getfd(indio_dev);
 		if (copy_to_user(ip, &fd, sizeof(fd)))
 			return -EFAULT;
 		return 0;
+	default:
+		if (indio_dev->buffer)
+			return iio_buffer_ioctl(indio_dev, filp, cmd, arg);
 	}
 	return -EINVAL;
 }
@@ -1046,6 +1053,7 @@ static const struct file_operations iio_buffer_in_fileops = {
 	.llseek = noop_llseek,
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = iio_ioctl,
+	.mmap = iio_buffer_mmap,
 };
 
 static const struct iio_buffer_setup_ops noop_ring_setup_ops;
@@ -1059,6 +1067,7 @@ static const struct file_operations iio_buffer_out_fileops = {
 	.llseek = noop_llseek,
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = iio_ioctl,
+	.mmap = iio_buffer_mmap,
 };
 
 int iio_device_register(struct iio_dev *indio_dev)
@@ -1097,8 +1106,9 @@ int iio_device_register(struct iio_dev *indio_dev)
 	if ((indio_dev->modes & INDIO_ALL_BUFFER_MODES) &&
 		indio_dev->setup_ops == NULL)
 		indio_dev->setup_ops = &noop_ring_setup_ops;
+
 	if (indio_dev->buffer) {
-		if (indio_dev->buffer->direction == IIO_BUFFER_DIRECTION_IN)
+		if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
 			fops = &iio_buffer_in_fileops;
 		else
 			fops = &iio_buffer_out_fileops;

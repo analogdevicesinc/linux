@@ -329,7 +329,7 @@ static int hid_gyro_3d_probe(struct platform_device *pdev)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-		NULL, NULL, IIO_BUFFER_DIRECTION_IN);
+		NULL, NULL);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to initialize trigger buffer\n");
 		goto error_free_dev_mem;

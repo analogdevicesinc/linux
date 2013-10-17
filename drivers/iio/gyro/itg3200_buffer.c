@@ -69,7 +69,7 @@ error_ret:
 int itg3200_buffer_configure(struct iio_dev *indio_dev)
 {
 	return iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-		itg3200_trigger_handler, NULL);
+		itg3200_trigger_handler);
 }
 
 void itg3200_buffer_unconfigure(struct iio_dev *indio_dev)

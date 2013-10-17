@@ -140,7 +140,7 @@ int adis_setup_buffer_and_trigger(struct adis *adis, struct iio_dev *indio_dev,
 		trigger_handler = adis_trigger_handler;
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-		trigger_handler, NULL, IIO_BUFFER_DIRECTION_IN);
+		trigger_handler, NULL);
 	if (ret)
 		return ret;
 

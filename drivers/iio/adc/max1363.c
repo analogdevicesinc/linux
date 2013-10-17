@@ -1560,7 +1560,7 @@ static int max1363_probe(struct i2c_client *client,
 		goto error_disable_reg;
 
 	ret = iio_triggered_buffer_setup(indio_dev, NULL,
-		&max1363_trigger_handler, &max1363_buffered_setup_ops);
+		&max1363_trigger_handler);
 	if (ret)
 		goto error_disable_reg;
 

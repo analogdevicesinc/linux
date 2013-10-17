@@ -279,6 +279,11 @@ static inline s64 iio_get_time_ns(void)
 	return timespec_to_ns(&ts);
 }
 
+enum iio_device_direction {
+	IIO_DEVICE_DIRECTION_IN,
+	IIO_DEVICE_DIRECTION_OUT,
+};
+
 /* Device operating modes */
 #define INDIO_DIRECT_MODE		0x01
 #define INDIO_BUFFER_TRIGGERED		0x02
@@ -457,6 +462,7 @@ struct iio_dev {
 
 	struct iio_event_interface	*event_interface;
 
+	enum iio_device_direction	direction;
 	struct iio_buffer		*buffer;
 	struct list_head		buffer_list;
 	int				scan_bytes;

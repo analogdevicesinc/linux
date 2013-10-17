@@ -507,8 +507,8 @@ int ad_sd_setup_buffer_and_trigger(struct iio_dev *indio_dev)
 	int ret;
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-			&ad_sd_trigger_handler, &ad_sd_buffer_setup_ops,
-			IIO_BUFFER_DIRECTION_IN);
+			&ad_sd_trigger_handler, &ad_sd_buffer_setup_ops
+			);
 	if (ret)
 		return ret;
 

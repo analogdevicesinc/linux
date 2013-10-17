@@ -71,3 +71,7 @@
 		reg = <0x7>;
 	};
 };
+
+&usb {
+	xlnx,phy-reset-gpio = <&gpio 7 0>;
+};
