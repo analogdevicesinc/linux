@@ -15,6 +15,8 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/string.h>
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
@@ -55,16 +57,28 @@ enum {
 	ID_AD9361,
 };
 
+struct ad9361_rf_phy phy;
+
+struct ad9361_debugfs_entry {
+	struct ad9361_rf_phy *phy;
+	const char *propname;
+	void *out_value;
+	u8 size;
+	u8 cmd;
+};
+
 struct ad9361_rf_phy {
 	struct spi_device 	*spi;
 	struct clk 		*clk_refin;
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
+	struct ad9361_debugfs_entry debugfs_entry[100];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
 	struct completion       complete;
+	u32 			ad9361_debugfs_entry_index;
 	u8 			prev_ensm_state;
 	u8			curr_ensm_state;
 	struct rx_gain_info rx_gain[RXGAIN_TBLS_END];
@@ -103,21 +117,6 @@ struct refclk_scale {
 
 const char ad9361_ensm_states[][10] = { "sleep", "", "", "", "", "alert", "tx", "tx flush",
 	"rx", "rx_flush", "fdd", "fdd_flush"};
-
-
-static int ad9361_reset(struct ad9361_rf_phy *phy)
-{
-	if (gpio_is_valid(phy->pdata->gpio_resetb)) {
-		gpio_set_value(phy->pdata->gpio_resetb, 0);
-		udelay(2);
-		gpio_set_value(phy->pdata->gpio_resetb, 1);
-		udelay(10);
-
-		return 0;
-	}
-
-	return -ENODEV;
-}
 
 static int ad9361_spi_readm(struct spi_device *spi, u32 reg,
 			   u8 *rbuf, u32 num)
@@ -262,6 +261,25 @@ static int ad9361_spi_writem(struct spi_device *spi,
 #endif
 
 	return 0;
+}
+
+static int ad9361_reset(struct ad9361_rf_phy *phy)
+{
+	if (gpio_is_valid(phy->pdata->gpio_resetb)) {
+		gpio_set_value(phy->pdata->gpio_resetb, 0);
+		mdelay(1);
+		gpio_set_value(phy->pdata->gpio_resetb, 1);
+		mdelay(1);
+		dev_dbg(&phy->spi->dev, "%s: by GPIO", __func__);
+		return 0;
+	} else {
+		ad9361_spi_write(phy->spi, REG_SPI_CONF, SOFT_RESET | _SOFT_RESET); /* RESET */
+		ad9361_spi_write(phy->spi, REG_SPI_CONF, 0x0);
+		dev_dbg(&phy->spi->dev, "%s: by SPI", __func__);
+		return 0;
+	}
+
+	return -ENODEV;
 }
 
 static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, u32 reg,
@@ -699,7 +717,7 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 		phy->ensm_pin_ctl_en = 0;
 	}
 
-	if (dev_ensm_state & dev_ensm_state)
+	if (dev_ensm_state)
 		val &= ~(TO_ALERT);
 
 	switch (ensm_state) {
@@ -2402,6 +2420,30 @@ static int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctr
 	return ret;
 }
 
+static void ad9361_clear_state(struct ad9361_rf_phy *phy)
+{
+	phy->current_table = RXGAIN_TBLS_END;
+	phy->bypass_tx_fir = true;
+	phy->bypass_rx_fir = true;
+	phy->rate_governor = 1;
+	phy->rfdc_track_en = true;
+	phy->bbdc_track_en = true;
+	phy->quad_track_en = true;
+	phy->prev_ensm_state = 0;
+	phy->curr_ensm_state = 0;
+	phy->auto_cal_en = 0;
+	phy->last_tx_quad_cal_freq = 0;
+	phy->flags = 0;
+	phy->current_rx_bw_Hz = 0;
+	phy->current_tx_bw_Hz = 0;
+	phy->rxbbf_div = 0;
+	phy->tx_fir_int = 0;
+	phy->tx_fir_ntaps = 0;
+	phy->rx_fir_dec = 0;
+	phy->rx_fir_ntaps = 0;
+	phy->ensm_pin_ctl_en = 0;
+}
+
 static int ad9361_setup(struct ad9361_rf_phy *phy)
 {
 	unsigned long refin_Hz, ref_freq, bbpll_freq;
@@ -3634,9 +3676,30 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy, const char *na
 	return clk;
 }
 
+
+static int ad9361_clks_disable_unprepare(struct ad9361_rf_phy *phy)
+{
+	int i;
+
+	for (i = TX_RFPLL; i >= 0; i--)
+		clk_disable_unprepare(phy->clks[i]);
+
+	return 0;
+}
+
+static int ad9361_clks_resync(struct ad9361_rf_phy *phy)
+{
+	int i;
+
+	for (i = TX_RFPLL; i >= 0; i--)
+		clk_get_rate(phy->clks[i]);
+
+	return 0;
+}
+
 static int register_clocks(struct ad9361_rf_phy *phy)
 {
-	u32 flags = 0;
+	u32 flags = CLK_GET_RATE_NOCACHE;
 
 	phy->clk_data.clks = devm_kzalloc(&phy->spi->dev,
 					 sizeof(*phy->clk_data.clks) *
@@ -3645,9 +3708,6 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 		dev_err(&phy->spi->dev, "could not allocate memory\n");
 		return -ENOMEM;
 	}
-
-	if (phy->pdata->debug_mode)
-		flags = CLK_GET_RATE_NOCACHE;
 
 	phy->clk_data.clk_num = NUM_AD9361_CLKS;
 
@@ -4117,7 +4177,11 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		ret = kstrtol(buf, 10, &readin);
 		if (ret)
 			break;
-		phy->pdata->dcxo_coarse = clamp_t(u32, (u32)readin, 0 , 63U);
+		val = clamp_t(u32, (u32)readin, 0 , 63U);
+		if (val == phy->pdata->dcxo_coarse)
+			break;
+
+		phy->pdata->dcxo_coarse = val;
 		ret = ad9361_set_dcxo_tune(phy, phy->pdata->dcxo_coarse,
 					   phy->pdata->dcxo_fine);
 		break;
@@ -4125,7 +4189,11 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		ret = kstrtol(buf, 10, &readin);
 		if (ret)
 			break;
-		phy->pdata->dcxo_fine = clamp_t(u32, (u32)readin, 0 , 8191U);
+		val = clamp_t(u32, (u32)readin, 0 , 8191U);
+		if (val == phy->pdata->dcxo_fine)
+			break;
+
+		phy->pdata->dcxo_fine = val;
 		ret = ad9361_set_dcxo_tune(phy, phy->pdata->dcxo_coarse,
 					   phy->pdata->dcxo_fine);
 		break;
@@ -4714,6 +4782,127 @@ static const struct iio_info ad9361_phy_info = {
 };
 
 #ifdef CONFIG_OF
+
+
+
+static ssize_t ad9361_debugfs_read(struct file *file, char __user *userbuf,
+			      size_t count, loff_t *ppos)
+{
+	struct ad9361_debugfs_entry *entry = file->private_data;
+	char buf[20];
+	u32 val = 0;
+	ssize_t len;
+	int ret;
+
+	if (entry->out_value) {
+		switch (entry->size){
+		case 1:
+			val = *(u8*)entry->out_value;
+			break;
+		case 2:
+			val = *(u16*)entry->out_value;
+			break;
+		case 4:
+			val = *(u32*)entry->out_value;
+			break;
+		case 5:
+			val = *(bool*)entry->out_value;
+			break;
+		default:
+			ret = -EINVAL;
+		}
+	} else
+		return -EFAULT;
+
+	len = snprintf(buf, sizeof(buf), "%u\n", val);
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+static ssize_t ad9361_debugfs_write(struct file *file,
+		     const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	struct ad9361_debugfs_entry *entry = file->private_data;
+	unsigned val;
+	char buf[80];
+	int ret;
+
+	count = min_t(size_t, count, (sizeof(buf)-1));
+	if (copy_from_user(buf, userbuf, count))
+		return -EFAULT;
+
+	buf[count] = 0;
+
+	ret = sscanf(buf, "%i", &val);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (entry->cmd && val == 1) {
+		mutex_lock(&entry->phy->indio_dev->mlock);
+		ad9361_reset(entry->phy);
+		ad9361_clks_resync(entry->phy);
+		//ad9361_clks_disable_unprepare(entry->phy);
+		ad9361_clear_state(entry->phy);
+		ret = ad9361_setup(entry->phy);
+		mutex_unlock(&entry->phy->indio_dev->mlock);
+
+		return count;
+	}
+
+	if (entry->out_value) {
+		switch (entry->size){
+		case 1:
+			*(u8*)entry->out_value = val;
+			break;
+		case 2:
+			*(u16*)entry->out_value = val;
+			break;
+		case 4:
+			*(u32*)entry->out_value = val;
+			break;
+		case 5:
+			*(bool*)entry->out_value = val;
+			break;
+		default:
+			ret = -EINVAL;
+		}
+	}
+
+	return count;
+}
+
+static const struct file_operations ad9361_debugfs_reg_fops = {
+	.open = simple_open,
+	.read = ad9361_debugfs_read,
+	.write = ad9361_debugfs_write,
+};
+
+static int ad9361_register_debugfs(struct iio_dev *indio_dev)
+{
+	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+	struct dentry *d;
+	int i;
+
+	if (!iio_get_debugfs_dentry(indio_dev))
+		return -ENODEV;
+
+
+	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
+		(struct ad9361_debugfs_entry) {
+		.propname = "initialize",
+		.phy = phy,
+		.cmd = 1,
+	};
+
+	for (i = 0; i < phy->ad9361_debugfs_entry_index; i++)
+		d = debugfs_create_file(
+			phy->debugfs_entry[i].propname, 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->debugfs_entry[i],
+			&ad9361_debugfs_reg_fops);
+	return 0;
+}
+
 struct ad9361_dport_config {
 	u8 reg;
 	u8 offset;
@@ -4741,11 +4930,15 @@ static const struct ad9361_dport_config ad9361_dport_config[] = {
 	{3, 0, "adi,full-duplex-swap-bits-enable"},
 };
 
-static int __ad9361_of_get_u32(struct device_node *np, const char *propname,
+
+
+static int __ad9361_of_get_u32(struct iio_dev *indio_dev,
+			     struct device_node *np, const char *propname,
 			     u32 defval, void *out_value, u32 size)
 {
-	int ret;
+	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	u32 tmp = defval;
+	int ret;
 
 	ret = of_property_read_u32(np, propname, &tmp);
 
@@ -4765,18 +4958,37 @@ static int __ad9361_of_get_u32(struct device_node *np, const char *propname,
 		}
 	}
 
+	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
+		(struct ad9361_debugfs_entry) {
+		.out_value = out_value,
+		.propname = propname,
+		.size = size,
+		.phy = phy,
+	};
+
 	return ret;
 }
-#define ad9361_of_get_u32(dnp, name, def, outp) \
-	__ad9361_of_get_u32(dnp, name, def, outp, sizeof(*outp))
+#define ad9361_of_get_u32(iodev, dnp, name, def, outp) \
+	__ad9361_of_get_u32(iodev, dnp, name, def, outp, sizeof(*outp))
 
-static void ad9361_of_get_bool(struct device_node *np, const char *propname,
-			     bool *out_value)
+static void ad9361_of_get_bool(struct iio_dev *indio_dev, struct device_node *np,
+			       const char *propname, bool *out_value)
 {
+	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	*out_value = of_property_read_bool(np, propname);
+
+	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
+		(struct ad9361_debugfs_entry) {
+		.out_value = out_value,
+		.propname = propname,
+		.phy = phy,
+		.size = 5,
+	};
+
 }
 
-static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
+static struct ad9361_phy_platform_data
+	*ad9361_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 {
 	struct device_node *np = dev->of_node;
 	struct ad9361_phy_platform_data *pdata;
@@ -4791,22 +5003,22 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 		return NULL;
 	}
 
-	ad9361_of_get_bool(np, "adi,frequency-division-duplex-mode-enable",
+	ad9361_of_get_bool(iodev, np, "adi,frequency-division-duplex-mode-enable",
 			   &pdata->fdd);
 
-	ad9361_of_get_bool(np, "adi,ensm-enable-pin-pulse-mode-enable",
+	ad9361_of_get_bool(iodev, np, "adi,ensm-enable-pin-pulse-mode-enable",
 			   &pdata->ensm_pin_pulse_mode);
 
-	ad9361_of_get_bool(np, "adi,ensm-enable-txnrx-control-enable",
+	ad9361_of_get_bool(iodev, np, "adi,ensm-enable-txnrx-control-enable",
 			   &pdata->ensm_pin_ctrl);
 
-	ad9361_of_get_bool(np, "adi,debug-mode-enable",
+	ad9361_of_get_bool(iodev, np, "adi,debug-mode-enable",
 			   &pdata->debug_mode);
 
-	ad9361_of_get_bool(np, "adi,tdd-use-fdd-vco-tables-enable",
+	ad9361_of_get_bool(iodev, np, "adi,tdd-use-fdd-vco-tables-enable",
 			   &pdata->tdd_use_fdd_tables);
 
-	ad9361_of_get_bool(np, "adi,tdd-use-dual-synth-mode-enable",
+	ad9361_of_get_bool(iodev, np, "adi,tdd-use-dual-synth-mode-enable",
 			   &pdata->tdd_use_dual_synth);
 
 	for (i = 0; i < ARRAY_SIZE(ad9361_dport_config); i++)
@@ -4838,14 +5050,14 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 	pdata->port_ctrl.lvds_bias_ctrl |= (of_property_read_bool(np,
 			"adi,lvds-rx-onchip-termination-enable") << 5);
 
-	ad9361_of_get_bool(np, "adi,2rx-2tx-mode-enable", &pdata->rx2tx2);
+	ad9361_of_get_bool(iodev, np, "adi,2rx-2tx-mode-enable", &pdata->rx2tx2);
 
-	ad9361_of_get_bool(np, "adi,split-gain-table-mode-enable",
+	ad9361_of_get_bool(iodev, np, "adi,split-gain-table-mode-enable",
 			   &pdata->split_gt);
 
-	ad9361_of_get_u32(np, "adi,rx-rf-port-input-select", 0,
+	ad9361_of_get_u32(iodev, np, "adi,rx-rf-port-input-select", 0,
 			  &pdata->rf_rx_input_sel);
-	ad9361_of_get_u32(np, "adi,tx-rf-port-input-select", 0,
+	ad9361_of_get_u32(iodev, np, "adi,tx-rf-port-input-select", 0,
 			  &pdata->rf_tx_output_sel);
 
 	tmpl = 2400000000ULL;
@@ -4862,7 +5074,7 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 	pdata->dcxo_coarse = (ret < 0) ? 8 : array[0];
 	pdata->dcxo_fine = (ret < 0) ? 5920 : array[1];
 
-	ad9361_of_get_bool(np, "adi,xo-disable-use-ext-refclk-enable",
+	ad9361_of_get_bool(iodev, np, "adi,xo-disable-use-ext-refclk-enable",
 			   &pdata->use_extclk);
 
 	ret = of_property_read_u32_array(np, "adi,rx-path-clock-frequencies",
@@ -4875,126 +5087,126 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 	if (ret < 0)
 		return NULL;
 
-	ad9361_of_get_u32(np, "adi,rf-rx-bandwidth-hz", 18000000UL,
+	ad9361_of_get_u32(iodev, np, "adi,rf-rx-bandwidth-hz", 18000000UL,
 			  &pdata->rf_rx_bandwidth_Hz);
-	ad9361_of_get_u32(np, "adi,rf-tx-bandwidth-hz", 18000000UL,
+	ad9361_of_get_u32(iodev, np, "adi,rf-tx-bandwidth-hz", 18000000UL,
 			  &pdata->rf_tx_bandwidth_Hz);
-	ad9361_of_get_u32(np, "adi,tx-attenuation-mdB", 10000, &pdata->tx_atten);
+	ad9361_of_get_u32(iodev, np, "adi,tx-attenuation-mdB", 10000, &pdata->tx_atten);
 
-	ad9361_of_get_bool(np, "adi,update-tx-gain-in-alert-enable",
+	ad9361_of_get_bool(iodev, np, "adi,update-tx-gain-in-alert-enable",
 			   &pdata->update_tx_gain_via_alert);
 
 	/* Gain Control */
 
-	ad9361_of_get_u32(np, "adi,gc-rx1-mode", 0, &pdata->gain_ctrl.rx1_mode);
-	ad9361_of_get_u32(np, "adi,gc-rx2-mode", 0, &pdata->gain_ctrl.rx2_mode);
-	ad9361_of_get_u32(np, "adi,gc-adc-ovr-sample-size", 4,
+	ad9361_of_get_u32(iodev, np, "adi,gc-rx1-mode", 0, &pdata->gain_ctrl.rx1_mode);
+	ad9361_of_get_u32(iodev, np, "adi,gc-rx2-mode", 0, &pdata->gain_ctrl.rx2_mode);
+	ad9361_of_get_u32(iodev, np, "adi,gc-adc-ovr-sample-size", 4,
 			  &pdata->gain_ctrl.adc_ovr_sample_size);
-	ad9361_of_get_u32(np, "adi,gc-adc-small-overload-thresh", 47,
+	ad9361_of_get_u32(iodev, np, "adi,gc-adc-small-overload-thresh", 47,
 			  &pdata->gain_ctrl.adc_small_overload_thresh);
-	ad9361_of_get_u32(np, "adi,gc-adc-large-overload-thresh", 58,
+	ad9361_of_get_u32(iodev, np, "adi,gc-adc-large-overload-thresh", 58,
 			  &pdata->gain_ctrl.adc_large_overload_thresh);
-	ad9361_of_get_u32(np, "adi,gc-lmt-overload-high-thresh", 800,
+	ad9361_of_get_u32(iodev, np, "adi,gc-lmt-overload-high-thresh", 800,
 			  &pdata->gain_ctrl.lmt_overload_high_thresh);
-	ad9361_of_get_u32(np, "adi,gc-lmt-overload-low-thresh", 704,
+	ad9361_of_get_u32(iodev, np, "adi,gc-lmt-overload-low-thresh", 704,
 			  &pdata->gain_ctrl.lmt_overload_low_thresh);
-	ad9361_of_get_u32(np, "adi,gc-analog-settling-time", 8,
+	ad9361_of_get_u32(iodev, np, "adi,gc-analog-settling-time", 8,
 			  &pdata->gain_ctrl.analog_settling_time);
-	ad9361_of_get_u32(np, "adi,gc-dec-pow-measurement-duration", 8192,
+	ad9361_of_get_u32(iodev, np, "adi,gc-dec-pow-measurement-duration", 8192,
 			  &pdata->gain_ctrl.dec_pow_measuremnt_duration);
-	ad9361_of_get_u32(np, "adi,gc-low-power-thresh", 24,
+	ad9361_of_get_u32(iodev, np, "adi,gc-low-power-thresh", 24,
 			  &pdata->gain_ctrl.low_power_thresh);
-	ad9361_of_get_bool(np, "adi,gc-dig-gain-enable",
+	ad9361_of_get_bool(iodev, np, "adi,gc-dig-gain-enable",
 			  &pdata->gain_ctrl.dig_gain_en);
-	ad9361_of_get_u32(np, "adi,gc-max-dig-gain", 15,
+	ad9361_of_get_u32(iodev, np, "adi,gc-max-dig-gain", 15,
 			  &pdata->gain_ctrl.max_dig_gain);
 
-	ad9361_of_get_bool(np, "adi,mgc-rx1-ctrl-inp-enable",
+	ad9361_of_get_bool(iodev, np, "adi,mgc-rx1-ctrl-inp-enable",
 			   &pdata->gain_ctrl.mgc_rx1_ctrl_inp_en);
-	ad9361_of_get_bool(np, "adi,mgc-rx2-ctrl-inp-enable",
+	ad9361_of_get_bool(iodev, np, "adi,mgc-rx2-ctrl-inp-enable",
 			   &pdata->gain_ctrl.mgc_rx1_ctrl_inp_en);
-	ad9361_of_get_u32(np, "adi,mgc-inc-gain-step", 2,
+	ad9361_of_get_u32(iodev, np, "adi,mgc-inc-gain-step", 2,
 			  &pdata->gain_ctrl.mgc_inc_gain_step);
-	ad9361_of_get_u32(np, "adi,mgc-dec-gain-step", 2,
+	ad9361_of_get_u32(iodev, np, "adi,mgc-dec-gain-step", 2,
 			  &pdata->gain_ctrl.mgc_dec_gain_step);
-	ad9361_of_get_u32(np, "adi,mgc-split-table-ctrl-inp-gain-mode", 0,
+	ad9361_of_get_u32(iodev, np, "adi,mgc-split-table-ctrl-inp-gain-mode", 0,
 			  &pdata->gain_ctrl.mgc_split_table_ctrl_inp_gain_mode);
-	ad9361_of_get_u32(np, "adi,agc-attack-delay-us", 10,
+	ad9361_of_get_u32(iodev, np, "adi,agc-attack-delay-us", 10,
 			  &pdata->gain_ctrl.agc_attack_delay_us);
-	ad9361_of_get_u32(np, "adi,agc-settling-delay", 10,
+	ad9361_of_get_u32(iodev, np, "adi,agc-settling-delay", 10,
 			  &pdata->gain_ctrl.agc_settling_delay);
-	ad9361_of_get_u32(np, "adi,agc-outer-thresh-high", 5,
+	ad9361_of_get_u32(iodev, np, "adi,agc-outer-thresh-high", 5,
 			  &pdata->gain_ctrl.agc_outer_thresh_high);
-	ad9361_of_get_u32(np, "adi,agc-outer-thresh-high-dec-steps", 2,
+	ad9361_of_get_u32(iodev, np, "adi,agc-outer-thresh-high-dec-steps", 2,
 			  &pdata->gain_ctrl.agc_outer_thresh_high_dec_steps);
-	ad9361_of_get_u32(np, "adi,agc-inner-thresh-high", 10,
+	ad9361_of_get_u32(iodev, np, "adi,agc-inner-thresh-high", 10,
 			  &pdata->gain_ctrl.agc_inner_thresh_high);
-	ad9361_of_get_u32(np, "adi,agc-inner-thresh-high-dec-steps", 1,
+	ad9361_of_get_u32(iodev, np, "adi,agc-inner-thresh-high-dec-steps", 1,
 			  &pdata->gain_ctrl.agc_inner_thresh_high_dec_steps);
-	ad9361_of_get_u32(np, "adi,agc-inner-thresh-low", 12,
+	ad9361_of_get_u32(iodev, np, "adi,agc-inner-thresh-low", 12,
 			  &pdata->gain_ctrl.agc_inner_thresh_low);
-	ad9361_of_get_u32(np, "adi,agc-inner-thresh-low-inc-steps", 1,
+	ad9361_of_get_u32(iodev, np, "adi,agc-inner-thresh-low-inc-steps", 1,
 			  &pdata->gain_ctrl.agc_inner_thresh_low_inc_steps);
-	ad9361_of_get_u32(np, "adi,agc-outer-thresh-low", 18,
+	ad9361_of_get_u32(iodev, np, "adi,agc-outer-thresh-low", 18,
 			  &pdata->gain_ctrl.agc_outer_thresh_low);
-	ad9361_of_get_u32(np, "adi,agc-outer-thresh-low-inc-steps", 2,
+	ad9361_of_get_u32(iodev, np, "adi,agc-outer-thresh-low-inc-steps", 2,
 			  &pdata->gain_ctrl.agc_outer_thresh_low_inc_steps);
-	ad9361_of_get_u32(np, "adi,agc-adc-small-overload-exceed-counter", 10,
+	ad9361_of_get_u32(iodev, np, "adi,agc-adc-small-overload-exceed-counter", 10,
 			  &pdata->gain_ctrl.adc_small_overload_exceed_counter);
-	ad9361_of_get_u32(np, "adi,agc-adc-large-overload-exceed-counter", 10,
+	ad9361_of_get_u32(iodev, np, "adi,agc-adc-large-overload-exceed-counter", 10,
 			  &pdata->gain_ctrl.adc_large_overload_exceed_counter);
-	ad9361_of_get_u32(np, "adi,agc-adc-large-overload-inc-steps", 2,
+	ad9361_of_get_u32(iodev, np, "adi,agc-adc-large-overload-inc-steps", 2,
 			  &pdata->gain_ctrl.adc_large_overload_inc_steps);
-	ad9361_of_get_bool(np, "adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable",
+	ad9361_of_get_bool(iodev, np, "adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable",
 			   &pdata->gain_ctrl.adc_lmt_small_overload_prevent_gain_inc);
-	ad9361_of_get_u32(np, "adi,agc-lmt-overload-large-exceed-counter", 10,
+	ad9361_of_get_u32(iodev, np, "adi,agc-lmt-overload-large-exceed-counter", 10,
 			  &pdata->gain_ctrl.lmt_overload_large_exceed_counter);
-	ad9361_of_get_u32(np, "adi,agc-lmt-overload-small-exceed-counter", 10,
+	ad9361_of_get_u32(iodev, np, "adi,agc-lmt-overload-small-exceed-counter", 10,
 			  &pdata->gain_ctrl.lmt_overload_small_exceed_counter);
-	ad9361_of_get_u32(np, "adi,agc-lmt-overload-large-inc-steps", 2,
+	ad9361_of_get_u32(iodev, np, "adi,agc-lmt-overload-large-inc-steps", 2,
 			  &pdata->gain_ctrl.lmt_overload_large_inc_steps);
-	ad9361_of_get_u32(np, "adi,agc-dig-saturation-exceed-counter", 3,
+	ad9361_of_get_u32(iodev, np, "adi,agc-dig-saturation-exceed-counter", 3,
 			  &pdata->gain_ctrl.dig_saturation_exceed_counter);
-	ad9361_of_get_u32(np, "adi,agc-dig-gain-step-size", 4,
+	ad9361_of_get_u32(iodev, np, "adi,agc-dig-gain-step-size", 4,
 			  &pdata->gain_ctrl.dig_gain_step_size);
-	ad9361_of_get_bool(np, "adi,agc-sync-for-gain-counter-enable",
+	ad9361_of_get_bool(iodev, np, "adi,agc-sync-for-gain-counter-enable",
 			   &pdata->gain_ctrl.sync_for_gain_counter_en);
-	ad9361_of_get_u32(np, "adi,agc-gain-update-counter", 30698,
+	ad9361_of_get_u32(iodev, np, "adi,agc-gain-update-counter", 30698,
 			  &pdata->gain_ctrl.gain_update_counter);
-	ad9361_of_get_bool(np, "adi,agc-immed-gain-change-if-large-adc-overload-enable",
+	ad9361_of_get_bool(iodev, np, "adi,agc-immed-gain-change-if-large-adc-overload-enable",
 			   &pdata->gain_ctrl.immed_gain_change_if_large_adc_overload);
-	ad9361_of_get_bool(np, "adi,agc-immed-gain-change-if-large-lmt-overload-enable",
+	ad9361_of_get_bool(iodev, np, "adi,agc-immed-gain-change-if-large-lmt-overload-enable",
 			   &pdata->gain_ctrl.immed_gain_change_if_large_lmt_overload);
 
 	/* RSSI Control */
 
-	ad9361_of_get_u32(np, "adi,rssi-restart-mode", 3,
+	ad9361_of_get_u32(iodev, np, "adi,rssi-restart-mode", 3,
 			  &pdata->rssi_ctrl.restart_mode);
-	ad9361_of_get_bool(np, "adi,rssi-unit-is-rx-samples-enable",
+	ad9361_of_get_bool(iodev, np, "adi,rssi-unit-is-rx-samples-enable",
 			   &pdata->rssi_ctrl.rssi_unit_is_rx_samples);
-	ad9361_of_get_u32(np, "adi,rssi-delay", 1,
+	ad9361_of_get_u32(iodev, np, "adi,rssi-delay", 1,
 			  &pdata->rssi_ctrl.rssi_delay);
-	ad9361_of_get_u32(np, "adi,rssi-wait", 1,
+	ad9361_of_get_u32(iodev, np, "adi,rssi-wait", 1,
 			  &pdata->rssi_ctrl.rssi_wait);
-	ad9361_of_get_u32(np, "adi,rssi-duration", 1000,
+	ad9361_of_get_u32(iodev, np, "adi,rssi-duration", 1000,
 			  &pdata->rssi_ctrl.rssi_duration);
 
 	/* Control Outs Control */
 
-	ad9361_of_get_u32(np, "adi,ctrl-outs-index", 0,
+	ad9361_of_get_u32(iodev, np, "adi,ctrl-outs-index", 0,
 			  &pdata->ctrl_outs_ctrl.index);
-	ad9361_of_get_u32(np, "adi,ctrl-outs-enable-mask", 0xFF,
+	ad9361_of_get_u32(iodev, np, "adi,ctrl-outs-enable-mask", 0xFF,
 			  &pdata->ctrl_outs_ctrl.en_mask);
 
 	/* eLNA Control */
 
-	ad9361_of_get_u32(np, "adi,elna-gain-mdB", 0,
+	ad9361_of_get_u32(iodev, np, "adi,elna-gain-mdB", 0,
 			  &pdata->elna_ctrl.gain_mdB);
-	ad9361_of_get_u32(np, "adi,ctrl-bypass-loss-mdB", 0,
+	ad9361_of_get_u32(iodev, np, "adi,ctrl-bypass-loss-mdB", 0,
 			  &pdata->elna_ctrl.bypass_loss_mdB);
-	ad9361_of_get_bool(np, "adi,elna-rx1-gpo0-control-enable",
+	ad9361_of_get_bool(iodev, np, "adi,elna-rx1-gpo0-control-enable",
 			   &pdata->elna_ctrl.elna_1_control_en);
-	ad9361_of_get_bool(np, "adi,elna-rx2-gpo1-control-enable",
+	ad9361_of_get_bool(iodev, np, "adi,elna-rx2-gpo1-control-enable",
 			   &pdata->elna_ctrl.elna_2_control_en);
 
 	ret = of_get_gpio(np, 0);
@@ -5005,17 +5217,17 @@ static struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
 
 	/* AuxADC Temp Sense Control */
 
-	ad9361_of_get_u32(np, "adi,temp-sense-measurement-interval-ms", 1000,
+	ad9361_of_get_u32(iodev, np, "adi,temp-sense-measurement-interval-ms", 1000,
 			  &pdata->auxadc_ctrl.temp_time_inteval_ms);
-	ad9361_of_get_u32(np, "adi,temp-sense-offset-signed", 0xBD,
+	ad9361_of_get_u32(iodev, np, "adi,temp-sense-offset-signed", 0xBD,
 			  &pdata->auxadc_ctrl.offset); /* signed */
-	ad9361_of_get_bool(np, "adi,temp-sense-periodic-measurement-enable",
+	ad9361_of_get_bool(iodev, np, "adi,temp-sense-periodic-measurement-enable",
 			   &pdata->auxadc_ctrl.periodic_temp_measuremnt);
-	ad9361_of_get_u32(np, "adi,temp-sense-decimation", 256,
+	ad9361_of_get_u32(iodev, np, "adi,temp-sense-decimation", 256,
 			  &pdata->auxadc_ctrl.temp_sensor_decimation);
-	ad9361_of_get_u32(np, "adi,aux-adc-rate", 40000000UL,
+	ad9361_of_get_u32(iodev, np, "adi,aux-adc-rate", 40000000UL,
 			  &pdata->auxadc_ctrl.auxadc_clock_rate);
-	ad9361_of_get_u32(np, "adi,aux-adc-decimation", 256,
+	ad9361_of_get_u32(iodev, np, "adi,aux-adc-decimation", 256,
 			  &pdata->auxadc_ctrl.auxadc_decimation);
 
 	return pdata;
@@ -5082,7 +5294,7 @@ static int ad9361_probe(struct spi_device *spi)
 	phy = iio_priv(indio_dev);
 	phy->indio_dev = indio_dev;
 
-	phy->pdata = ad9361_phy_parse_dt(&spi->dev);
+	phy->pdata = ad9361_phy_parse_dt(indio_dev, &spi->dev);
 	if (phy->pdata == NULL)
 		return -EINVAL;
 
@@ -5111,11 +5323,7 @@ static int ad9361_probe(struct spi_device *spi)
 	phy->bbdc_track_en = true;
 	phy->quad_track_en = true;
 
-
-	if (ad9361_reset(phy)) {
-		ad9361_spi_write(spi, REG_SPI_CONF, SOFT_RESET | _SOFT_RESET); /* RESET */
-		ad9361_spi_write(spi, REG_SPI_CONF, 0x0);
-	}
+	ad9361_reset(phy);
 
 	ret = ad9361_spi_read(spi, REG_PRODUCT_ID);
 	if ((ret & PRODUCT_ID_MASK) != PRODUCT_ID_9361) {
@@ -5168,6 +5376,10 @@ static int ad9361_probe(struct spi_device *spi)
 	if (ret < 0)
 		goto out1;
 	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin);
+	if (ret < 0)
+		goto out1;
+
+	ret = ad9361_register_debugfs(indio_dev);
 	if (ret < 0)
 		goto out1;
 
