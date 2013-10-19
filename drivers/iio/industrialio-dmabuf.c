@@ -49,8 +49,8 @@ static void iio_buffer_block_release(struct kref *kref)
 	dma_free_coherent(block->queue->dev, PAGE_ALIGN(block->block.size),
 					block->vaddr, block->phys_addr);
 
-	kfree(block);
 	iio_buffer_put(&block->queue->buffer);
+	kfree(block);
 }
 
 static void iio_buffer_block_get(struct iio_dma_buffer_block *block)
