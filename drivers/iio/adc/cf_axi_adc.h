@@ -298,6 +298,9 @@ struct axiadc_state {
 	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
 	unsigned			dma_align;
+	bool				streaming_dma;
+	unsigned int			ring_length;
+	unsigned int			rcount;
 	struct iio_chan_spec	channels[16];
 };
 
@@ -371,5 +374,7 @@ static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 
 int axiadc_configure_ring(struct iio_dev *indio_dev);
 void axiadc_unconfigure_ring(struct iio_dev *indio_dev);
+int axiadc_configure_ring_stream(struct iio_dev *indio_dev);
+void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev);
 
 #endif /* ADI_AXI_ADC_H_ */

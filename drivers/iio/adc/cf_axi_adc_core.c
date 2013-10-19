@@ -521,6 +521,9 @@ static int axiadc_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
+	st->streaming_dma = of_property_read_bool(op->dev.of_node,
+			"adi,streaming-dma");
+
 	conv = to_converter(st->dev_spi);
 	iio_device_set_drvdata(indio_dev, conv);
 
@@ -548,7 +551,10 @@ static int axiadc_of_probe(struct platform_device *op)
 
 	init_completion(&st->dma_complete);
 
-	axiadc_configure_ring(indio_dev);
+	if (st->streaming_dma)
+		axiadc_configure_ring_stream(indio_dev);
+	else
+		axiadc_configure_ring(indio_dev);
 
 	ret = iio_buffer_register(indio_dev,
 				  indio_dev->channels,
@@ -577,7 +583,10 @@ static int axiadc_of_probe(struct platform_device *op)
 	return 0;
 
 failed4:
-	axiadc_unconfigure_ring(indio_dev);
+	if (st->streaming_dma)
+		axiadc_unconfigure_ring_stream(indio_dev);
+	else
+		axiadc_unconfigure_ring(indio_dev);
 	dma_release_channel(st->rx_chan);
 failed2:
 	release_mem_region(phys_addr, remap_size);
@@ -607,7 +616,10 @@ static int axiadc_of_remove(struct platform_device *op)
 
 	iio_device_unregister(indio_dev);
 	iio_buffer_unregister(indio_dev);
-	axiadc_unconfigure_ring(indio_dev);
+	if (st->streaming_dma)
+		axiadc_unconfigure_ring_stream(indio_dev);
+	else
+		axiadc_unconfigure_ring(indio_dev);
 
 	dma_release_channel(st->rx_chan);
 

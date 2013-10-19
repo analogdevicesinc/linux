@@ -218,6 +218,7 @@
 			xlnx,slv-awidth = <0x20>;
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
+			adi,streaming-dma;
 		};
 
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
