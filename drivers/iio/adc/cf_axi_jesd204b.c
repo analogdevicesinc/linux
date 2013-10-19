@@ -325,7 +325,7 @@ static int jesd204b_of_probe(struct platform_device *op)
 	dev_info(dev, "Device Tree Probing \'%s\'\n",
 		 op->dev.of_node->name);
 
-	clk = clk_get(&op->dev, NULL);
+	clk = devm_clk_get(&op->dev, NULL);
 	if (IS_ERR(clk)) {
 		return -EPROBE_DEFER;
 	}
@@ -501,7 +501,6 @@ err_release_mem_region:
 	release_mem_region(phys_addr, remap_size);
 err_clk_disable:
 	clk_disable_unprepare(clk);
-	clk_put(clk);
 	dev_set_drvdata(dev, NULL);
 
 	return ret;
@@ -530,7 +529,6 @@ static int jesd204b_of_remove(struct platform_device *op)
 		release_mem_region(r_mem.start, resource_size(&r_mem));
 
 	clk_disable_unprepare(st->clk);
-	clk_put(st->clk);
 
 	dev_set_drvdata(dev, NULL);
 
