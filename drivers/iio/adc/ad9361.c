@@ -714,9 +714,9 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	 */
 	if (val & ENABLE_ENSM_PIN_CTRL) {
 		val &= ~ENABLE_ENSM_PIN_CTRL;
-		phy->ensm_pin_ctl_en = 1;
+		phy->ensm_pin_ctl_en = true;
 	} else {
-		phy->ensm_pin_ctl_en = 0;
+		phy->ensm_pin_ctl_en = false;
 	}
 
 	if (dev_ensm_state)
@@ -2433,7 +2433,7 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	phy->quad_track_en = true;
 	phy->prev_ensm_state = 0;
 	phy->curr_ensm_state = 0;
-	phy->auto_cal_en = 0;
+	phy->auto_cal_en = false;
 	phy->last_tx_quad_cal_freq = 0;
 	phy->flags = 0;
 	phy->current_rx_bw_Hz = 0;
@@ -2443,7 +2443,7 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	phy->tx_fir_ntaps = 0;
 	phy->rx_fir_dec = 0;
 	phy->rx_fir_ntaps = 0;
-	phy->ensm_pin_ctl_en = 0;
+	phy->ensm_pin_ctl_en = false;
 }
 
 static int ad9361_setup(struct ad9361_rf_phy *phy)
