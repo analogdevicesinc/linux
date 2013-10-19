@@ -59,14 +59,6 @@ static void axiadc_toggle_scale_offset_en(struct axiadc_state *st)
 	return;
 }
 
-static int axiadc_debugfs_open(struct inode *inode, struct file *file)
-{
-	if (inode->i_private)
-		file->private_data = inode->i_private;
-
-	return 0;
-}
-
 static ssize_t axiadc_debugfs_pncheck_read(struct file *file, char __user *userbuf,
 			      size_t count, loff_t *ppos)
 {
@@ -136,7 +128,7 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 }
 
 static const struct file_operations axiadc_debugfs_pncheck_fops = {
-	.open = axiadc_debugfs_open,
+	.open = simple_open,
 	.read = axiadc_debugfs_pncheck_read,
 	.write = axiadc_debugfs_pncheck_write,
 };
