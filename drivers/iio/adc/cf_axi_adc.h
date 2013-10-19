@@ -269,7 +269,7 @@ enum {
 };
 
 struct axiadc_chip_info {
-	char				name[8];
+	char				*name;
 	unsigned			num_channels;
 	int			(*scale_table)[2];
 	int				num_scales;
