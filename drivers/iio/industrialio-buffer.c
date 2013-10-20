@@ -92,7 +92,7 @@ static bool iio_buffer_space_available(struct iio_buffer *buf)
 	if (buf->access->space_available)
 		return buf->access->space_available(buf);
 
-	return false;
+	return true;
 }
 
 ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
