@@ -5097,6 +5097,8 @@ static struct ad9361_phy_platform_data
 	for (i = 0; i < ARRAY_SIZE(tx_path_clks); i++)
 		pdata->tx_path_clks[i] = tx_path_clks[i];
 
+	ad9361_of_get_u32(iodev, np, "adi,rf-rx-bandwidth-hz", 18000000UL,
+			  &pdata->rf_rx_bandwidth_Hz);
 	ad9361_of_get_u32(iodev, np, "adi,rf-tx-bandwidth-hz", 18000000UL,
 			  &pdata->rf_tx_bandwidth_Hz);
 	ad9361_of_get_u32(iodev, np, "adi,tx-attenuation-mdB", 10000, &pdata->tx_atten);
