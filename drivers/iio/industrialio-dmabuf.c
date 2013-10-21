@@ -16,6 +16,7 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/dma-buffer.h>
 #include <linux/dma-mapping.h>
+#include <linux/sizes.h>
 
 struct iio_dma_buffer_queue {
 	struct iio_buffer buffer;
