@@ -4841,6 +4841,7 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 
 	if (entry->cmd && val == 1) {
 		mutex_lock(&entry->phy->indio_dev->mlock);
+		clk_set_rate(entry->phy->clks[TX_SAMPL_CLK], 1);
 		ad9361_reset(entry->phy);
 		ad9361_clks_resync(entry->phy);
 		//ad9361_clks_disable_unprepare(entry->phy);
