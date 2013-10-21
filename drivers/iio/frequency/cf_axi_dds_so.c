@@ -60,14 +60,17 @@ static int cf_axi_dds_rate_change(struct notifier_block *nb,
 	struct clk_notifier_data *cnd = data;
 	struct cf_axi_dds_state *st =
 		container_of(nb, struct cf_axi_dds_state, clk_nb);
-	unsigned ctrl_reg, reg, i;
+	unsigned reg, i;
 	unsigned long long val64;
+
+	/* Temp Workaround: stop PCORE while we reset the sink */
+	if (flags == PRE_RATE_CHANGE && cnd->new_rate == -EINVAL)
+		cf_axi_dds_stop(st);
 
 	st->dac_clk = cnd->new_rate;
 
 	if (flags == POST_RATE_CHANGE) {
 		st->dac_clk = cnd->new_rate;
-		ctrl_reg = dds_read(st, ADI_REG_CNTRL_1);
 		cf_axi_dds_stop(st);
 
 		for (i = 0; i < st->chip_info->num_channels; i++) {
@@ -78,7 +81,7 @@ static int cf_axi_dds_rate_change(struct notifier_block *nb,
 			reg |= ADI_DDS_INCR(val64) | 1;
 			dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i), reg);
 		}
-		dds_write(st, ADI_REG_CNTRL_1, ctrl_reg);
+		dds_write(st, ADI_REG_CNTRL_1, st->enable ? ADI_ENABLE : 0);
 		cf_axi_dds_sync_frame(st->indio_dev);
 	}
 
@@ -194,6 +197,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		else
 			ctrl_reg &= ~ADI_ENABLE;
 
+		st->enable = !!val;
 		dds_write(st, ADI_REG_CNTRL_1, ctrl_reg);
 		break;
 	case IIO_CHAN_INFO_SCALE:
@@ -469,6 +473,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 
 	}
 
+	st->enable = true;
 	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
 
 	cf_axi_dds_sync_frame(indio_dev);

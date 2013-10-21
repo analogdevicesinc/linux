@@ -182,6 +182,7 @@ struct cf_axi_dds_state {
 	unsigned			txcount;
 	unsigned 		ddr_dds_interp_en;
 	unsigned			cached_freq[8];
+	bool			enable;
 	struct notifier_block   clk_nb;
 };
 
