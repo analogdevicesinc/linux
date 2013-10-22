@@ -4918,7 +4918,7 @@ static const struct ad9361_dport_config ad9361_dport_config[] = {
 	{1, 5, "adi,tx-channel-swap-enable"},
 	{1, 4, "adi,rx-channel-swap-enable"},
 	{1, 3, "adi,rx-frame-pulse-mode-enable"},
-//	{1, 2, "adi,2t2r-timing-enable"},
+	{1, 2, "adi,2t2r-timing-enable"},
 	{1, 1, "adi,invert-data-bus-enable"},
 	{1, 0, "adi,invert-data-clk-enable"},
 	{2, 7, "adi,fdd-alt-word-order-enable"},
@@ -5213,7 +5213,7 @@ static struct ad9361_phy_platform_data
 
 	ad9361_of_get_u32(iodev, np, "adi,elna-gain-mdB", 0,
 			  &pdata->elna_ctrl.gain_mdB);
-	ad9361_of_get_u32(iodev, np, "adi,ctrl-bypass-loss-mdB", 0,
+	ad9361_of_get_u32(iodev, np, "adi,elna-bypass-loss-mdB", 0,
 			  &pdata->elna_ctrl.bypass_loss_mdB);
 	ad9361_of_get_bool(iodev, np, "adi,elna-rx1-gpo0-control-enable",
 			   &pdata->elna_ctrl.elna_1_control_en);
