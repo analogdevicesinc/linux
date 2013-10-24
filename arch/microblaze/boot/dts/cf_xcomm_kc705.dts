@@ -243,9 +243,9 @@
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
 		} ;
-		axi_dac_4d_2c_0: cf-ad9122-core-lpc@73060000 {
+		axi_dac_4d_2c_0: cf-ad9122-core-lpc@73064000 {
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
-			reg = < 0x73060000 0x10000 >;
+			reg = < 0x73064000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
 			dac-sample-frequency = <491520000>;
 			dmas = <&axi_vdma_0 0>;
@@ -260,9 +260,9 @@
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
 		} ;
-		axi_dac_4d_2c_1: cf-ad9122-core-hpc@73040000 {
+		axi_dac_4d_2c_1: cf-ad9122-core-hpc@73044000 {
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
-			reg = < 0x73040000 0x10000 >;
+			reg = < 0x73044000 0x10000 >;
 			dac-sample-frequency = <491520000>;
 			spibus-connected = <&dac1_ad9122>;
 			dmas = <&axi_vdma_1 0>;
