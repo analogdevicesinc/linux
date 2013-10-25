@@ -135,7 +135,7 @@ static ssize_t motor_controller_show(struct device *dev,
 		break;
 	case MC_PWM:
 		reg_val = motor_controller_read(st, MC_REG_PWM_OPEN);
-		ret = sprintf(buf, "0x%x\n", reg_val);
+		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_KI:
 		reg_val = motor_controller_read(st, MC_REG_KI);
@@ -244,7 +244,7 @@ static ssize_t motor_controller_store(struct device *dev,
 		motor_controller_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_PWM:
-		ret = kstrtou32(buf, 16, &reg_val);
+		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
 		motor_controller_write(st, MC_REG_PWM_OPEN, reg_val);
