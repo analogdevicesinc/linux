@@ -738,7 +738,6 @@ static int ad9467_probe(struct spi_device *spi)
 		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
 		break;
 	case CHIPID_AD9683:
-
 		ret = ad9250_setup(spi, 1, 1);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize\n");
@@ -750,11 +749,6 @@ static int ad9467_probe(struct spi_device *spi)
 		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
 		break;
 	case CHIPID_AD9625:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9625];
-		conv->adc_output_mode = AD9625_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9265:
 		ret = ad9625_setup(spi);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize\n");
@@ -762,6 +756,11 @@ static int ad9467_probe(struct spi_device *spi)
 			goto out;
 		}
 
+		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9625];
+		conv->adc_output_mode = AD9625_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
+		break;
+	case CHIPID_AD9265:
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9265];
 		conv->adc_output_mode = AD9265_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
 		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
