@@ -185,7 +185,7 @@
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-dma";
 			reg = <0x40420000 0x10000>;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
+			//xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@41e20030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&gic>;
@@ -201,7 +201,7 @@
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-dma";
 			reg = <0x40400000 0x10000>;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
+			//xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@41e00030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupt-parent = <&gic>;

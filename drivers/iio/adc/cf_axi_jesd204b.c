@@ -86,6 +86,7 @@ static int jesd204b_es(struct jesd204b_state *st, unsigned lane)
 
 	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_CNTRL,
 		AXI_JESD204B_EYESCAN_STOP);
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_CNTRL, 0);
 
 	jesd204b_set_lane(st, lane);
 
@@ -411,7 +412,7 @@ static int jesd204b_of_probe(struct platform_device *op)
 	jesd204b_write(st, AXI_JESD204B_REG_RSTN,
 		       AXI_JESD204B_GT_RSTN |
 		       AXI_JESD204B_IP_RSTN |
-		       AXI_JESD204B_RSTN);
+		       AXI_JESD204B_RSTN | AXI_JESD204B_DRP_RSTN);
 
 	jesd204b_write(st, AXI_JESD204B_REG_SYSREF,
 		       AXI_JESD204B_SYSREF |
@@ -420,13 +421,11 @@ static int jesd204b_of_probe(struct platform_device *op)
 	jesd204b_write(st, AXI_JESD204B_REG_SYNC,
 		       AXI_JESD204B_SYNC);
 
-	mdelay(1);
+	mdelay(10);
 
-	if (!jesd204b_read(st, AXI_JESD204B_REG_RX_STATUS));
+	if (!jesd204b_read(st, AXI_JESD204B_REG_RX_STATUS))
 		dev_warn(dev, "JESD Link/Lane Errors");
 
-	jesd204b_write(st, AXI_JESD204B_REG_RSTN,
-		       AXI_JESD204B_GT_RSTN);
 
 	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
 		 jesd204b_read(st, ADI_REG_VERSION),
