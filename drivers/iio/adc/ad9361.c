@@ -402,6 +402,17 @@ static int ad9361_setup_ext_lna(struct ad9361_rf_phy *phy, u32 gain_mdB,
 			EXT_LNA_LOW_GAIN(bypass_loss_mdB / 500));
 }
 
+static int ad9361_clkout_control(struct ad9361_rf_phy *phy,
+				enum ad9361_clkout mode)
+{
+	if (mode == CLKOUT_DISABLE)
+		return ad9361_spi_writef(phy->spi, REG_BBPLL, CLKOUT_ENABLE, 0);
+
+	return ad9361_spi_writef(phy->spi, REG_BBPLL,
+				 CLKOUT_ENABLE | CLKOUT_SELECT(~0),
+				 ((mode - 1) << 1) | 0x1);
+}
+
 static int ad9361_load_mixer_gm_subtable(struct ad9361_rf_phy *phy)
 {
 	int i, addr;
@@ -2672,6 +2683,10 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 
 	ret = ad9361_rssi_setup(phy, &pd->rssi_ctrl, false);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_clkout_control(phy, pd->ad9361_clkout_mode);
 	if (ret < 0)
 		return ret;
 
@@ -5076,6 +5091,9 @@ static struct ad9361_phy_platform_data
 
 	ad9361_of_get_bool(iodev, np, "adi,xo-disable-use-ext-refclk-enable",
 			   &pdata->use_extclk);
+
+	ad9361_of_get_u32(iodev, np, "adi,clk-output-mode-select", CLKOUT_DISABLE,
+			  &pdata->ad9361_clkout_mode);
 
 	ret = of_property_read_u32_array(np, "adi,rx-path-clock-frequencies",
 			rx_path_clks, ARRAY_SIZE(rx_path_clks));
