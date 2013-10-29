@@ -171,6 +171,8 @@
 #define AXI_JESD204B_EYESCAN_DMAERR		(1 << 1)
 #define AXI_JESD204B_EYESCAN_STATUS		(1 << 0)
 
+#define AXI_JESD204B_REG_EYESCAN_RATE 		0x00E4
+
 /* AXI_JESD204B_REG_INIT_DATA0 */
 #define AXI_JESD204B_INIT0_DID(x)	(((x) >> 0) & 0xFF) /* DID Device ID */
 #define AXI_JESD204B_INIT0_BID(x)	(((x) >> 8) & 0xFF) /* BID Bank ID */

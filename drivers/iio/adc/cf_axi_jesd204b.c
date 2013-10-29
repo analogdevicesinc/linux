@@ -77,6 +77,8 @@ static int jesd204b_set_lane(struct jesd204b_state *st, unsigned lane)
 	jesd204b_write(st, AXI_JESD204B_REG_RX_LANESEL,
 		       AXI_JESD204B_RX_LANESEL(lane));
 
+	jesd204b_read(st, AXI_JESD204B_REG_RX_LANESEL);
+
 	return 0;
 }
 
@@ -376,13 +378,17 @@ static int jesd204b_of_probe(struct platform_device *op)
 
 	ret = of_property_read_u32(op->dev.of_node,
 				   "jesd,frames-per-multiframe", &frmcnt);
-	if (ret)
-		goto err_release_mem_region;
+	if (ret) {
+		dev_err(dev, "Failed to read required dt property\n");
+		goto err_iounmap;
+	}
 
 	ret = of_property_read_u32(op->dev.of_node,
 				   "jesd,bytes-per-frame", &bytecnt);
-	if (ret)
-		goto err_release_mem_region;
+	if (ret) {
+		dev_err(dev, "Failed to read required dt property\n");
+		goto err_iounmap;
+	}
 
 	jesd204b_write(st, AXI_JESD204B_REG_RX_CNTRL_1,
 		       (of_property_read_bool(op->dev.of_node,
@@ -419,26 +425,35 @@ static int jesd204b_of_probe(struct platform_device *op)
 		       AXI_JESD204B_IP_SYSREF);
 
 	jesd204b_write(st, AXI_JESD204B_REG_SYNC,
-		       AXI_JESD204B_SYNC);
+		       AXI_JESD204B_SYNC | 0x2);
 
 	mdelay(10);
 
 	if (!jesd204b_read(st, AXI_JESD204B_REG_RX_STATUS))
 		dev_warn(dev, "JESD Link/Lane Errors");
 
+	st->es_hsize = jesd204b_read(st, AXI_JESD204B_REG_EYESCAN_RATE);
 
-	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
-		 jesd204b_read(st, ADI_REG_VERSION),
-		 (unsigned long long)phys_addr, st->regs);
-
-	/* TEMP workaround - this needs to come from DRP: RXOUT_DIV */
-	switch (st->vers_id) {
-	case 8:
+	switch (st->es_hsize) {
+	case 0x1:
 		st->es_hsize = AXI_JESD204B_ES_HSIZE_FULL;
 		break;
-	default:
+	case 0x2:
 		st->es_hsize = AXI_JESD204B_ES_HSIZE_HALF;
 		break;
+	case 0x4:
+		st->es_hsize = AXI_JESD204B_ES_HSIZE_QRTR;
+		break;
+	case 0x8:
+		st->es_hsize = AXI_JESD204B_ES_HSIZE_OCT;
+		break;
+	case 0x10:
+		st->es_hsize = AXI_JESD204B_ES_HSIZE_HEX;
+		break;
+	default:
+		ret = -EINVAL;
+		dev_err(dev, "Failed get EYESCAN_RATE/RXOUT_DIV\n");
+		goto err_iounmap;
 	}
 
 	st->size = st->es_hsize * AXI_JESD204B_ES_VSIZE *
@@ -446,6 +461,12 @@ static int jesd204b_of_probe(struct platform_device *op)
 	st->prescale = 0;
 	st->buf_virt = dma_alloc_coherent(dev, PAGE_ALIGN(st->size),
 					  &st->buf_phys, GFP_KERNEL);
+
+	if (st->buf_virt == NULL) {
+		dev_err(dev, "Not enough dma memory for device\n");
+		ret = -ENOMEM;
+		goto err_iounmap;
+	}
 
 	memset(st->buf_virt, 0, PAGE_ALIGN(st->size));
 
@@ -456,8 +477,10 @@ static int jesd204b_of_probe(struct platform_device *op)
 	st->bin.size = st->size;
 
 	ret = sysfs_create_bin_file(&op->dev.kobj, &st->bin);
-	if (ret)
-		goto err_release_mem_region;
+	if (ret) {
+		dev_err(dev, "Failed to create sysfs bin file\n");
+		goto err_dma_free;
+	}
 
 	device_create_file(dev, &dev_attr_enable);
 	device_create_file(dev, &dev_attr_prescale);
@@ -494,12 +517,22 @@ static int jesd204b_of_probe(struct platform_device *op)
 	INIT_WORK(&st->work, jesd204b_work_func);
 	init_completion(&st->complete);
 
+	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
+		 jesd204b_read(st, ADI_REG_VERSION),
+		 (unsigned long long)phys_addr, st->regs);
+
 	return 0;
 
+err_dma_free:
+	dma_free_coherent(&op->dev, PAGE_ALIGN(st->size),
+			  st->buf_virt, st->buf_phys);
+err_iounmap:
+	iounmap(st->regs);
 err_release_mem_region:
 	release_mem_region(phys_addr, remap_size);
 err_clk_disable:
 	clk_disable_unprepare(clk);
+	clk_put(clk);
 	dev_set_drvdata(dev, NULL);
 
 	return ret;
@@ -527,8 +560,11 @@ static int jesd204b_of_remove(struct platform_device *op)
 	else
 		release_mem_region(r_mem.start, resource_size(&r_mem));
 
-	clk_disable_unprepare(st->clk);
+	dma_free_coherent(&op->dev, PAGE_ALIGN(st->size),
+			  st->buf_virt, st->buf_phys);
 
+	clk_disable_unprepare(st->clk);
+	clk_put(st->clk);
 	dev_set_drvdata(dev, NULL);
 
 	return 0;
