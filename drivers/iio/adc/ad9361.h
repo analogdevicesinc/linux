@@ -2282,7 +2282,7 @@
  */
 #define CP_OVRG_HIGH			     (1 << 7) /* CP Ovrg High */
 #define CP_OVRG_LOW			     (1 << 6) /* CP Ovrg Low */
-#define LOCK				     (1 << 1) /* Lock */
+#define VCO_LOCK				     (1 << 1) /* Lock */
 
 /*
  *	REG_RX_VCO_LDO
@@ -2508,7 +2508,7 @@
  */
 #define CP_OVRG_HIGH			     (1 << 7) /* CP Ovrg High */
 #define CP_OVRG_LOW			     (1 << 6) /* CP Ovrg Low */
-#define LOCK				     (1 << 1) /* Lock */
+#define VCO_LOCK				     (1 << 1) /* Lock */
 
 /*
  *	REG_TX_VCO_LDO
@@ -2977,6 +2977,7 @@ struct ad9361_phy_platform_data {
 	bool			debug_mode;
 	bool			tdd_use_fdd_tables;
 	bool			tdd_use_dual_synth;
+	bool			tdd_skip_vco_cal;
 	u32			dcxo_coarse;
 	u32			dcxo_fine;
 	u32			rf_rx_input_sel;
