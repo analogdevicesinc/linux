@@ -5,7 +5,7 @@
  *
  * Licensed under the GPL-2.
  */
-#define DEBUG
+//#define DEBUG
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -639,6 +639,7 @@ static int ad9361_get_full_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 
 	return rc;
 }
+
 static int ad9361_get_rx_gain(struct ad9361_rf_phy *phy,
 		u32 rx_id, struct rf_rx_gain *rx_gain)
 {
@@ -1702,6 +1703,16 @@ static int ad9361_tracking_control(struct ad9361_rf_phy *phy, bool bbdc_track,
 	return 0;
 }
 
+static int ad9361_trx_vco_cal_control(struct ad9361_rf_phy *phy,
+				      bool rx, bool enable)
+{
+	dev_dbg(&phy->spi->dev, "%s : state %d",
+		__func__, enable);
+
+	return ad9361_spi_writef(phy->spi,
+				 rx ? REG_RX_PFD_CONFIG : REG_TX_PFD_CONFIG,
+				 BYPASS_LD_SYNTH, !enable);
+}
 
 /* REFERENCE CLOCK DELAY UNIT COUNTER REGISTER */
 static int ad9361_set_ref_clk_cycles(struct ad9361_rf_phy *phy,
@@ -2467,6 +2478,9 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	u32 real_tx_bandwidth = pd->rf_tx_bandwidth_Hz / 2;
 
 	dev_dbg(dev, "%s", __func__);
+
+	if (pd->fdd)
+		pd->tdd_skip_vco_cal = false;
 
 	if (pd->port_ctrl.pp_conf[2] & FDD_RX_RATE_2TX_RATE)
 		phy->rx_eq_2tx = true;
@@ -3636,7 +3650,18 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 			phy->last_tx_quad_cal_freq = ad9361_from_clk(rate);
 		}
 
-	return ad9361_check_cal_done(phy, lock_reg, BIT(1), 1);
+	/* Option to skip VCO cal in TDD mode when moving from TX/RX to Alert */
+	if (phy->pdata->tdd_skip_vco_cal)
+		ad9361_trx_vco_cal_control(phy, clk_priv->source == RX_RFPLL,
+					   true);
+
+	ret = ad9361_check_cal_done(phy, lock_reg, VCO_LOCK, 1);
+
+	if (phy->pdata->tdd_skip_vco_cal)
+		ad9361_trx_vco_cal_control(phy, clk_priv->source == RX_RFPLL,
+					   false);
+
+	return ret;
 }
 
 static const struct clk_ops rfpll_clk_ops = {
@@ -5039,6 +5064,9 @@ static struct ad9361_phy_platform_data
 
 	ad9361_of_get_bool(iodev, np, "adi,tdd-use-dual-synth-mode-enable",
 			   &pdata->tdd_use_dual_synth);
+
+	ad9361_of_get_bool(iodev, np, "adi,tdd-skip-vco-cal-enable",
+			   &pdata->tdd_skip_vco_cal);
 
 	for (i = 0; i < ARRAY_SIZE(ad9361_dport_config); i++)
 		pdata->port_ctrl.pp_conf[ad9361_dport_config[i].reg - 1] |=
