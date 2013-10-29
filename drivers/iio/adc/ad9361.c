@@ -1714,6 +1714,21 @@ static int ad9361_trx_vco_cal_control(struct ad9361_rf_phy *phy,
 				 BYPASS_LD_SYNTH, !enable);
 }
 
+static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
+				      bool rx, bool enable)
+{
+	unsigned val = enable ? ~0 : 0;
+
+	dev_dbg(&phy->spi->dev, "%s : state %d",
+		__func__, enable);
+	if (rx)
+		return ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE,
+					RX_LO_GEN_POWER_MODE(val));
+	else
+		return ad9361_spi_write(phy->spi, REG_TX_LO_GEN_POWER_MODE,
+					TX_LO_GEN_POWER_MODE(val));
+}
+
 /* REFERENCE CLOCK DELAY UNIT COUNTER REGISTER */
 static int ad9361_set_ref_clk_cycles(struct ad9361_rf_phy *phy,
 				    unsigned long ref_clk_hz)
@@ -2598,39 +2613,47 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ret = clk_set_rate(phy->clks[RX_RFPLL], ad9361_to_clk(pd->rx_synth_freq));
-	if (ret < 0) {
-		dev_err(dev, "Failed to set RX Synth rate (%d)\n",
-			ret);
-		return ret;
+	if (pd->use_ext_rx_lo) {
+		ad9361_trx_ext_lo_control(phy, true, pd->use_ext_rx_lo);
+	} else {
+		ret = clk_set_rate(phy->clks[RX_RFPLL], ad9361_to_clk(pd->rx_synth_freq));
+		if (ret < 0) {
+			dev_err(dev, "Failed to set RX Synth rate (%d)\n",
+				ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(phy->clks[RX_REFCLK]);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable RX Synth ref clock (%d)\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(phy->clks[RX_RFPLL]);
+		if (ret < 0)
+			return ret;
 	}
 
-	ret = clk_prepare_enable(phy->clks[RX_REFCLK]);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable RX Synth ref clock (%d)\n", ret);
-		return ret;
+	if (pd->use_ext_tx_lo) {
+		ad9361_trx_ext_lo_control(phy, false, pd->use_ext_tx_lo);
+	} else {
+		ret = clk_set_rate(phy->clks[TX_RFPLL], ad9361_to_clk(pd->tx_synth_freq));
+		if (ret < 0) {
+			dev_err(dev, "Failed to set TX Synth rate (%d)\n",
+				ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(phy->clks[TX_REFCLK]);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable TX Synth ref clock (%d)\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(phy->clks[TX_RFPLL]);
+		if (ret < 0)
+			return ret;
 	}
-
-	ret = clk_prepare_enable(phy->clks[RX_RFPLL]);
-	if (ret < 0)
-		return ret;
-
-	ret = clk_set_rate(phy->clks[TX_RFPLL], ad9361_to_clk(pd->tx_synth_freq));
-	if (ret < 0) {
-		dev_err(dev, "Failed to set TX Synth rate (%d)\n",
-			ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(phy->clks[TX_REFCLK]);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable TX Synth ref clock (%d)\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(phy->clks[TX_RFPLL]);
-	if (ret < 0)
-		return ret;
 
 	ret = ad9361_load_mixer_gm_subtable(phy);
 	if (ret < 0)
@@ -4483,11 +4506,19 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 	switch (chan->channel) {
 	case 0:
+		if (phy->pdata->use_ext_rx_lo) {
+			ret = -EINVAL;
+			break;
+		}
 		tmp = clk_set_rate(phy->clks[RX_RFPLL],
 				   ad9361_to_clk(readin));
 		break;
 
 	case 1:
+		if (phy->pdata->use_ext_tx_lo) {
+			ret = -EINVAL;
+			break;
+		}
 		tmp = clk_set_rate(phy->clks[TX_RFPLL],
 				   ad9361_to_clk(readin));
 		if (test_bit(0, &phy->flags))
@@ -4516,11 +4547,17 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 	switch (chan->channel) {
 	case 0:
-		val = ad9361_from_clk(clk_get_rate(phy->clks[RX_RFPLL]));
+		if (phy->pdata->use_ext_rx_lo)
+			val = 0;
+		else
+			val = ad9361_from_clk(clk_get_rate(phy->clks[RX_RFPLL]));
 		break;
 
 	case 1:
-		val = ad9361_from_clk(clk_get_rate(phy->clks[TX_RFPLL]));
+		if (phy->pdata->use_ext_tx_lo)
+			val = 0;
+		else
+			val = ad9361_from_clk(clk_get_rate(phy->clks[TX_RFPLL]));
 		break;
 
 	default:
@@ -5114,6 +5151,11 @@ static struct ad9361_phy_platform_data
 	tmpl = 2440000000ULL;
  	of_property_read_u64(np, "adi,tx-synthesizer-frequency-hz", &tmpl);
 	pdata->tx_synth_freq = tmpl;
+
+	ad9361_of_get_bool(iodev, np, "adi,external-tx-lo-enable",
+			   &pdata->use_ext_tx_lo);
+	ad9361_of_get_bool(iodev, np, "adi,external-rx-lo-enable",
+			   &pdata->use_ext_rx_lo);
 
 	ret = of_property_read_u32_array(np, "adi,dcxo-coarse-and-fine-tune",
 			      array, 2);
