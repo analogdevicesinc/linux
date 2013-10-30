@@ -4001,16 +4001,22 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	int i;
+	short offset;
 
 	axiadc_write(st, ADI_REG_CNTRL,
 		     (conv->phy->pdata->rx2tx2) ? 0 : ADI_R1_MODE);
 
+	/* In LVDS mode DC tracking seems to be slightly off by 1 LSB */
+	offset = conv->phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE ? 1 : 0;
+
 	for (i = 0; i < conv->chip_info->num_channels; i++) {
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(i),
+			     ADI_DCFILT_OFFSET(offset));
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
 			     (i & 1) ? 0x00004000 : 0x40000000);
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(i),
 			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
-			     ADI_ENABLE);
+			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
 
 	return 0;
