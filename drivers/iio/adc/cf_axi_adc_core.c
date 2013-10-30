@@ -214,7 +214,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 
 	case IIO_CHAN_INFO_CALIBBIAS:
 		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
-		*val = ADI_TO_DCFILT_OFFSET(tmp);
+		*val = (short)ADI_TO_DCFILT_OFFSET(tmp);
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY:
