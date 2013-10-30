@@ -2211,6 +2211,17 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state,
 	dev_dbg(dev, "Device is in %x state, moving to %x\n", phy->curr_ensm_state,
 			ensm_state);
 
+
+	if (phy->curr_ensm_state == ENSM_STATE_SLEEP) {
+		ad9361_spi_write(spi, REG_CLOCK_ENABLE,
+			DIGITAL_POWER_UP | CLOCK_ENABLE_DFLT | BBPLL_ENABLE |
+			(phy->pdata->use_extclk ? XO_BYPASS : 0)); /* Enable Clocks */
+		udelay(20);
+		ad9361_spi_write(spi, REG_ENSM_CONFIG_1, TO_ALERT | FORCE_ALERT_STATE);
+		ad9361_trx_vco_cal_control(phy, true, true); /* Disable VCO Cal */
+		ad9361_trx_vco_cal_control(phy, false, true);
+	}
+
 	val = (phy->pdata->ensm_pin_pulse_mode ? 0 : LEVEL_MODE) |
 		(pinctrl ? ENABLE_ENSM_PIN_CTRL : 0) |
 		TO_ALERT;
@@ -2241,6 +2252,20 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state,
 		break;
 	case ENSM_STATE_SLEEP_WAIT:
 		break;
+	case ENSM_STATE_SLEEP:
+		ad9361_trx_vco_cal_control(phy, true, false); /* Disable VCO Cal */
+		ad9361_trx_vco_cal_control(phy, false, false);
+		ad9361_spi_write(spi, REG_ENSM_CONFIG_1, 0); /* Clear To Alert */
+		ad9361_spi_write(spi, REG_ENSM_CONFIG_1,
+				 phy->pdata->fdd ? FORCE_TX_ON : FORCE_RX_ON);
+		/* Delay Flush Time 384 ADC clock cycles */
+		udelay(384000000UL / clk_get_rate(phy->clks[ADC_CLK]));
+		ad9361_spi_write(spi, REG_ENSM_CONFIG_1, 0); /* Move to Wait*/
+		udelay(1); /* Wait for ENSM settle */
+		ad9361_spi_write(spi, REG_CLOCK_ENABLE, 0); /* Turn off all clocks */
+		phy->curr_ensm_state = ensm_state;
+		return 0;
+
 	default:
 		dev_err(dev, "No handling for forcing %d ensm state\n",
 		ensm_state);
@@ -4091,6 +4116,10 @@ static ssize_t ad9361_phy_store(struct device *dev,
 	u32 val;
 	bool res;
 
+	if (phy->curr_ensm_state == ENSM_STATE_SLEEP &&
+		this_attr->address != AD9361_ENSM_MODE)
+		return -EINVAL;
+
 	mutex_lock(&indio_dev->mlock);
 
 	switch ((u32)this_attr->address) {
@@ -4127,8 +4156,10 @@ static ssize_t ad9361_phy_store(struct device *dev,
 			val = ENSM_STATE_ALERT;
 		else if (sysfs_streq(buf, "fdd"))
 			val = ENSM_STATE_FDD;
-		else if (sysfs_streq(buf, "sleep"))
+		else if (sysfs_streq(buf, "wait"))
 			val = ENSM_STATE_SLEEP_WAIT;
+		else if (sysfs_streq(buf, "sleep"))
+			val = ENSM_STATE_SLEEP;
 		else if (sysfs_streq(buf, "pinctrl")) {
 			res = true;
 			val = ENSM_STATE_SLEEP_WAIT;
@@ -4297,8 +4328,8 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		break;
 	case AD9361_ENSM_MODE_AVAIL:
 		ret = sprintf(buf, "%s\n", phy->pdata->fdd ?
-				"sleep alert fdd pinctrl" :
-				"sleep alert rx tx pinctrl");
+				"sleep wait alert fdd pinctrl" :
+				"sleep wait alert rx tx pinctrl");
 		break;
 	case AD9361_TX_PATH_FREQ:
 		ad9361_get_trx_clock_chain(phy, NULL, clk);
@@ -4500,6 +4531,9 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	u64 readin;
 	unsigned long tmp;
 	int ret = 0;
+
+	if (phy->curr_ensm_state == ENSM_STATE_SLEEP)
+		return -EINVAL;
 
 	ret = kstrtoull(buf, 10, &readin);
 	if (ret)
@@ -4757,6 +4791,8 @@ static int ad9361_phy_write_raw(struct iio_dev *indio_dev,
 	unsigned long rx[6], tx[6];
 	int ret;
 
+	if (phy->curr_ensm_state == ENSM_STATE_SLEEP)
+		return -EINVAL;
 
 	mutex_lock(&indio_dev->mlock);
 	switch (mask) {
