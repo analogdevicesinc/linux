@@ -1951,7 +1951,8 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 
 	/* For Fast AGC upper bits may be used */
 	reg = clamp_t(u8, ctrl->agc_settling_delay, 0U, 31U);
-	ad9361_spi_write(spi, REG_FAST_CONFIG_2_SETTLING_DELAY, reg);
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+			 SETTLING_DELAY(~0), reg);
 
 	tmp1 = reg = clamp_t(u8, ctrl->agc_inner_thresh_high, 0U, 127U);
 	ad9361_spi_writef(spi, REG_AGC_LOCK_LEVEL,
@@ -2009,6 +2010,46 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 	return 0;
 }
 
+static int ad9361_gc_update(struct ad9361_rf_phy *phy)
+{
+	struct spi_device *spi = phy->spi;
+	unsigned long clkrf;
+	u32 reg;
+	int ret;
+
+	clkrf = clk_get_rate(phy->clks[CLKRF_CLK]);
+
+	/*
+	 * AGC Attack Delay (us)=ceiling(300/ClkRF)
+	 */
+	reg = DIV_ROUND_UP(300000000UL, clkrf);
+	reg = clamp_t(u8, reg, 0U, 31U);
+	ret = ad9361_spi_writef(spi, REG_AGC_ATTACK_DELAY,
+			  AGC_ATTACK_DELAY(~0), reg);
+
+	/*
+	 * Peak Overload Wait Time (ClkRF cycles)=ceiling(0.1*clkRF+1)
+	 */
+
+	reg = DIV_ROUND_UP(clkrf, 10000000UL) + 1;
+	reg = clamp_t(u8, reg, 0U, 31U);
+	ret |= ad9361_spi_writef(spi, REG_PEAK_WAIT_TIME,
+			  PEAK_OVERLOAD_WAIT_TIME(~0), reg);
+
+	/*
+	 * Settling Delay in 0x111.  Applies to all gain control modes:
+	 * 0x111[D4:D0]= ceiling((0.2*clkRF+14)/2)
+	 */
+
+	reg = DIV_ROUND_UP(2 * clkrf, 10000000UL) + 14;
+	reg = DIV_ROUND_UP(reg, 2);
+	reg = clamp_t(u8, reg, 0U, 31U);
+	ret |= ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+			 SETTLING_DELAY(~0), reg);
+
+	return ret;
+}
+
   //************************************************************
   // Setup AuxDAC
   //************************************************************
@@ -2043,8 +2084,6 @@ static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy,
 {
 	struct spi_device *spi = phy->spi;
 	u32 val;
-
-	/* FIXME this function needs to be called whenever BBPLL changes */
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
@@ -2199,6 +2238,18 @@ static int ad9361_rssi_setup(struct ad9361_rf_phy *phy,
 	return 0;
 }
 
+static int ad9361_bb_clk_change_handler(struct ad9361_rf_phy *phy)
+{
+	int ret;
+
+	ret = ad9361_gc_update(phy);
+	ret |= ad9361_rssi_setup(phy, &phy->pdata->rssi_ctrl, true);
+	ret |= ad9361_auxadc_setup(phy, &phy->pdata->auxadc_ctrl,
+				   clk_get_rate(phy->clks[BBPLL_CLK]));
+
+	return ret;
+}
+
 static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state,
 				 bool pinctrl)
 {
@@ -2325,7 +2376,7 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 			return ret;
 		}
 	}
-	return 0;
+	return ad9361_bb_clk_change_handler(phy);
 }
 
 static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *rx_path_clks,
