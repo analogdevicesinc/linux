@@ -53,16 +53,30 @@ enum ad9361_clocks {
 	NUM_AD9361_CLKS,
 };
 
+enum debugfs_cmd {
+	DBGFS_NONE,
+	DBGFS_INIT,
+	DBGFS_LOOPBACK,
+	DBGFS_BIST_PRBS,
+	DBGFS_BIST_TONE,
+};
+
+enum ad9361_bist_mode {
+	BIST_DISABLE,
+	BIST_INJ_TX,
+	BIST_INJ_RX,
+};
+
 enum {
 	ID_AD9361,
 };
 
 struct ad9361_rf_phy phy;
-
 struct ad9361_debugfs_entry {
 	struct ad9361_rf_phy *phy;
 	const char *propname;
 	void *out_value;
+	u32 val;
 	u8 size;
 	u8 cmd;
 };
@@ -282,6 +296,86 @@ static int ad9361_reset(struct ad9361_rf_phy *phy)
 	}
 
 	return -ENODEV;
+}
+
+static int ad9361_bist_loopback(struct ad9361_rf_phy *phy, bool enable)
+{
+	u32 sp_hd, reg;
+
+	dev_dbg(&phy->spi->dev, "%s: enable %d", __func__, enable);
+
+	reg = ad9361_spi_read(phy->spi, REG_OBSERVE_CONFIG);
+
+	if (!enable) {
+		reg &= ~(DATA_PORT_SP_HD_LOOP_TEST_OE |
+			DATA_PORT_LOOP_TEST_ENABLE);
+		return ad9361_spi_write(phy->spi, REG_OBSERVE_CONFIG, reg);
+	}
+
+	sp_hd = ad9361_spi_read(phy->spi, REG_PARALLEL_PORT_CONF_3);
+	if ((sp_hd & SINGLE_PORT_MODE) && (sp_hd & HALF_DUPLEX_MODE))
+		reg |= DATA_PORT_SP_HD_LOOP_TEST_OE;
+	else
+		reg &= ~DATA_PORT_SP_HD_LOOP_TEST_OE;
+
+	reg |= DATA_PORT_LOOP_TEST_ENABLE;
+
+	return ad9361_spi_write(phy->spi, REG_OBSERVE_CONFIG, reg);
+}
+
+static int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
+{
+	u32 reg;
+
+	dev_dbg(&phy->spi->dev, "%s: mode %d", __func__, mode);
+
+	switch (mode) {
+	case BIST_DISABLE:
+		reg = 0;
+		break;
+	case BIST_INJ_TX:
+		reg = BIST_CTRL_POINT(0) | BIST_ENABLE;
+		break;
+	case BIST_INJ_RX:
+		reg = BIST_CTRL_POINT(2) | BIST_ENABLE;
+		break;
+	};
+
+	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
+}
+
+static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
+			    enum ad9361_bist_mode mode, u32 freq_Hz,
+			    u32 level_dB, u32 mask)
+{
+	unsigned long clk = 0;
+	u32 reg, reg1, reg_mask;
+
+	dev_dbg(&phy->spi->dev, "%s: mode %d", __func__, mode);
+
+	switch (mode) {
+	case BIST_DISABLE:
+		reg = 0;
+		break;
+	case BIST_INJ_TX:
+		clk = clk_get_rate(phy->clks[TX_SAMPL_CLK]);
+		reg = BIST_CTRL_POINT(0) | BIST_ENABLE;
+		break;
+	case BIST_INJ_RX:
+		clk = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+		reg = BIST_CTRL_POINT(2) | BIST_ENABLE;
+		break;
+	};
+
+	reg |= TONE_PRBS;
+	reg |= TONE_LEVEL(level_dB / 3);
+	if (clk)
+		reg |= TONE_FREQ(DIV_ROUND_CLOSEST(freq_Hz * 32, clk) - 1);
+
+	reg1 = (mask & reg_mask);
+	ad9361_spi_write(phy->spi, REG_BIST_AND_DATA_PORT_TEST_CONFIG, reg1);
+
+	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
 }
 
 static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, u32 reg,
@@ -3047,7 +3141,6 @@ static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
 	return size;
 }
 
-
 static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 {
 	struct device *dev = &phy->spi->dev;
@@ -4954,9 +5047,6 @@ static const struct iio_info ad9361_phy_info = {
 };
 
 #ifdef CONFIG_OF
-
-
-
 static ssize_t ad9361_debugfs_read(struct file *file, char __user *userbuf,
 			      size_t count, loff_t *ppos)
 {
@@ -4983,6 +5073,8 @@ static ssize_t ad9361_debugfs_read(struct file *file, char __user *userbuf,
 		default:
 			ret = -EINVAL;
 		}
+	} else if (entry->cmd) {
+		val = entry->val;
 	} else
 		return -EFAULT;
 
@@ -4995,7 +5087,8 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		     const char __user *userbuf, size_t count, loff_t *ppos)
 {
 	struct ad9361_debugfs_entry *entry = file->private_data;
-	unsigned val;
+	struct ad9361_rf_phy *phy = entry->phy;
+	u32 val, val2, val3, val4;
 	char buf[80];
 	int ret;
 
@@ -5005,22 +5098,56 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 
 	buf[count] = 0;
 
-	ret = sscanf(buf, "%i", &val);
-	if (ret != 1)
+	ret = sscanf(buf, "%i %i %i %i", &val, &val2, &val3, &val4);
+	if (ret < 1)
 		return -EINVAL;
 
-	if (entry->cmd && val == 1) {
-		mutex_lock(&entry->phy->indio_dev->mlock);
-		clk_set_rate(entry->phy->clks[TX_SAMPL_CLK], 1);
-		ad9361_reset(entry->phy);
-		ad9361_clks_resync(entry->phy);
-		//ad9361_clks_disable_unprepare(entry->phy);
-		ad9361_clear_state(entry->phy);
-		ret = ad9361_setup(entry->phy);
-		mutex_unlock(&entry->phy->indio_dev->mlock);
+
+	switch (entry->cmd) {
+	case DBGFS_INIT:
+		if (!(ret == 1 && val == 1))
+			return -EINVAL;
+		mutex_lock(&phy->indio_dev->mlock);
+		clk_set_rate(phy->clks[TX_SAMPL_CLK], 1);
+		ad9361_reset(phy);
+		ad9361_clks_resync(phy);
+		//ad9361_clks_disable_unprepare(phy);
+		ad9361_clear_state(phy);
+		ret = ad9361_setup(phy);
+		mutex_unlock(&phy->indio_dev->mlock);
 
 		return count;
+	case DBGFS_LOOPBACK:
+		if (ret != 1)
+			return -EINVAL;
+		ret = ad9361_bist_loopback(phy, val);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_PRBS:
+		if (ret != 1)
+			return -EINVAL;
+		ret = ad9361_bist_prbs(phy, val);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_TONE:
+		if (ret != 4)
+			return -EINVAL;
+		ret = ad9361_bist_tone(phy, val, val2, val3, val4);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
+	default:
+		break;
 	}
+
 
 	if (entry->out_value) {
 		switch (entry->size){
@@ -5064,7 +5191,28 @@ static int ad9361_register_debugfs(struct iio_dev *indio_dev)
 		(struct ad9361_debugfs_entry) {
 		.propname = "initialize",
 		.phy = phy,
-		.cmd = 1,
+		.cmd = DBGFS_INIT,
+	};
+
+	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
+		(struct ad9361_debugfs_entry) {
+		.propname = "loopback",
+		.phy = phy,
+		.cmd = DBGFS_LOOPBACK,
+	};
+
+	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
+		(struct ad9361_debugfs_entry) {
+		.propname = "bist_prbs",
+		.phy = phy,
+		.cmd = DBGFS_BIST_PRBS,
+	};
+
+	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
+		(struct ad9361_debugfs_entry) {
+		.propname = "bist_tone",
+		.phy = phy,
+		.cmd = DBGFS_BIST_TONE,
 	};
 
 	for (i = 0; i < phy->ad9361_debugfs_entry_index; i++)
