@@ -22,19 +22,19 @@
 #define MC_REG_VERSION			0x00
 #define MC_REG_ID			0x04
 #define MC_REG_SCRATCH			0x08
-#define MC_REG_START_SPEED		0x0C
+#define MC_REG_ENCODER_ZERO_OFFSET	0x0C
 #define MC_REG_CONTROL			0x10
-#define MC_REG_REFERENCE_SPEED		0x14
-#define MC_REG_KP			0x18
-#define MC_REG_KI			0x1C
-#define MC_REG_KD			0x20
-#define MC_REG_KP1			0x24
-#define MC_REG_KI1			0x28
-#define MC_REG_KD1			0x2C
+#define MC_REG_COMMAND			0x14
+#define MC_REG_VELOCITY_P_GAIN		0x18
+#define MC_REG_VELOCITY_I_GAIN		0x1C
+#define MC_REG_CURRENT_P_GAIN		0x20
+#define MC_REG_CURRENT_I_GAIN		0x24
+#define MC_REG_OPEN_LOOP_BIAS		0x28
+#define MC_REG_OPEN_LOOP_SCALAR		0x2C
 #define MC_REG_PWM_OPEN			0x30
 #define MC_REG_PWM_BREAK		0x34
 #define MC_REG_STATUS			0x38
-#define MC_REG_ERR			0x3C
+#define MC_REG_ERROR			0x3C
 
 #define MC_CONTROL_RUN(x)		(((x) & 0x1) << 0)
 #define MC_CONTROL_RESET_OVR_CURR(x)	(((x) & 0x1) << 1)
@@ -42,7 +42,7 @@
 #define MC_CONTROL_DELTA(x)		(((x) & 0x1) << 4)
 #define MC_CONTROL_SENSORS(x)		(((x) & 0x3) << 8)
 #define MC_CONTROL_MATLAB(x)		(((x) & 0x1) << 12)
-#define MC_CONTROL_CALIB_ADC(x)		(((x) & 0x1) << 16)
+#define MC_CONTROL_CONTROLLER_MODE(x)	(((x) & 0x3) << 16)
 
 const char motor_controller_sensors[3][8] = {"hall", "bemf", "resolver"};
 
@@ -74,21 +74,26 @@ static int motor_controller_reg_access(struct iio_dev *indio_dev,
 }
 
 enum motor_controller_iio_dev_attr {
+	MC_ENCODER_ZERO_OFFSET,
 	MC_RUN,
 	MC_RESET_OVR_CURR,
 	MC_BREAK,
 	MC_DELTA,
 	MC_SENSORS_AVAIL,
 	MC_SENSORS,
-	MC_PWM,
-	MC_KP,
-	MC_KI,
-	MC_KD,
-	MC_REF_SPEED,
 	MC_MATLAB,
-	MC_CALIB_ADC,
+	MC_CONTROLLER_MODE,
+	MC_VELOCITY_P_GAIN,
+	MC_VELOCITY_I_GAIN,
+	MC_CURRENT_P_GAIN,
+	MC_CURRENT_I_GAIN,
+	MC_OPEN_LOOP_BIAS,
+	MC_OPEN_LOOP_SCALAR,
+	MC_COMMAND,
+	MC_PWM,
 	MC_PWM_BREAK,
 	MC_STATUS,
+	MC_ERROR,
 };
 
 static ssize_t motor_controller_show(struct device *dev,
@@ -105,6 +110,10 @@ static ssize_t motor_controller_show(struct device *dev,
 
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address) {
+	case MC_ENCODER_ZERO_OFFSET:
+		reg_val = motor_controller_read(st, MC_REG_ENCODER_ZERO_OFFSET);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
 	case MC_RUN:
 		reg_val = motor_controller_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_RUN(-1));
@@ -133,35 +142,47 @@ static ssize_t motor_controller_show(struct device *dev,
 		setting2 = (reg_val & MC_CONTROL_SENSORS(-1)) >> 8;
 		ret = sprintf(buf, "%s\n", motor_controller_sensors[setting2]);
 		break;
-	case MC_PWM:
-		reg_val = motor_controller_read(st, MC_REG_PWM_OPEN);
-		ret = sprintf(buf, "%d\n", reg_val);
-		break;
-	case MC_KI:
-		reg_val = motor_controller_read(st, MC_REG_KI);
-		ret = sprintf(buf, "%d\n", reg_val);
-		break;
-	case MC_KD:
-		reg_val = motor_controller_read(st, MC_REG_KD);
-		ret = sprintf(buf, "%d\n", reg_val);
-		break;
-	case MC_KP:
-		reg_val = motor_controller_read(st, MC_REG_KP);
-		ret = sprintf(buf, "%d\n", reg_val);
-		break;
-	case MC_REF_SPEED:
-		reg_val = motor_controller_read(st, MC_REG_REFERENCE_SPEED);
-		ret = sprintf(buf, "%d\n", reg_val);
-		break;
 	case MC_MATLAB:
 		reg_val = motor_controller_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_MATLAB(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
-	case MC_CALIB_ADC:
+	case MC_CONTROLLER_MODE:
 		reg_val = motor_controller_read(st, MC_REG_CONTROL);
-		setting = (reg_val & MC_CONTROL_CALIB_ADC(-1));
-		ret = sprintf(buf, "%u\n", setting);
+		setting2 = (reg_val & MC_CONTROL_CONTROLLER_MODE(-1)) >> 16;
+		ret = sprintf(buf, "%u\n", setting2);
+		break;
+	case MC_VELOCITY_P_GAIN:
+		reg_val = motor_controller_read(st, MC_REG_VELOCITY_P_GAIN);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
+	case MC_VELOCITY_I_GAIN:
+		reg_val = motor_controller_read(st, MC_REG_VELOCITY_I_GAIN);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
+	case MC_CURRENT_P_GAIN:
+		reg_val = motor_controller_read(st, MC_REG_CURRENT_P_GAIN);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
+	case MC_CURRENT_I_GAIN:
+		reg_val = motor_controller_read(st, MC_REG_CURRENT_I_GAIN);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
+	case MC_OPEN_LOOP_BIAS:
+		reg_val = motor_controller_read(st, MC_REG_OPEN_LOOP_BIAS);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
+	case MC_OPEN_LOOP_SCALAR:
+		reg_val = motor_controller_read(st, MC_REG_OPEN_LOOP_SCALAR);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
+	case MC_COMMAND:
+		reg_val = motor_controller_read(st, MC_REG_COMMAND);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
+	case MC_PWM:
+		reg_val = motor_controller_read(st, MC_REG_PWM_OPEN);
+		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_PWM_BREAK:
 		reg_val = motor_controller_read(st, MC_REG_PWM_BREAK);
@@ -169,6 +190,10 @@ static ssize_t motor_controller_show(struct device *dev,
 		break;
 	case MC_STATUS:
 		reg_val = motor_controller_read(st, MC_REG_STATUS);
+		ret = sprintf(buf, "%d\n", reg_val);
+		break;
+	case MC_ERROR:
+		reg_val = motor_controller_read(st, MC_REG_ERROR);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	default:
@@ -193,6 +218,12 @@ static ssize_t motor_controller_store(struct device *dev,
 
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address) {
+	case MC_ENCODER_ZERO_OFFSET:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_ENCODER_ZERO_OFFSET, reg_val);
+		break;
 	case MC_RUN:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
@@ -243,36 +274,6 @@ static ssize_t motor_controller_store(struct device *dev,
 		reg_val |= MC_CONTROL_SENSORS(setting2);
 		motor_controller_write(st, MC_REG_CONTROL, reg_val);
 		break;
-	case MC_PWM:
-		ret = kstrtou32(buf, 10, &reg_val);
-		if (ret < 0)
-			break;
-		motor_controller_write(st, MC_REG_PWM_OPEN, reg_val);
-		break;
-	case MC_KI:
-		ret = kstrtou32(buf, 10, &reg_val);
-		if (ret < 0)
-			break;
-		motor_controller_write(st, MC_REG_KI, reg_val);
-		break;
-	case MC_KP:
-		ret = kstrtou32(buf, 10, &reg_val);
-		if (ret < 0)
-			break;
-		motor_controller_write(st, MC_REG_KP, reg_val);
-		break;
-	case MC_KD:
-		ret = kstrtou32(buf, 10, &reg_val);
-		if (ret < 0)
-			break;
-		motor_controller_write(st, MC_REG_KD, reg_val);
-		break;
-	case MC_REF_SPEED:
-		ret = kstrtou32(buf, 10, &reg_val);
-		if (ret < 0)
-			break;
-		motor_controller_write(st, MC_REG_REFERENCE_SPEED, reg_val);
-		break;
 	case MC_MATLAB:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
@@ -282,14 +283,62 @@ static ssize_t motor_controller_store(struct device *dev,
 		reg_val |= MC_CONTROL_MATLAB(setting);
 		motor_controller_write(st, MC_REG_CONTROL, reg_val);
 		break;
-	case MC_CALIB_ADC:
-		ret = strtobool(buf, &setting);
+	case MC_CONTROLLER_MODE:
+		ret = kstrtou32(buf, 10, &setting2);
 		if (ret < 0)
 			break;
 		reg_val = motor_controller_read(st, MC_REG_CONTROL);
-		reg_val &= ~MC_CONTROL_CALIB_ADC(-1);
-		reg_val |= MC_CONTROL_CALIB_ADC(setting);
+		reg_val &= ~MC_CONTROL_CONTROLLER_MODE(-1);
+		reg_val |= MC_CONTROL_CONTROLLER_MODE(setting2);
 		motor_controller_write(st, MC_REG_CONTROL, reg_val);
+		break;
+	case MC_VELOCITY_P_GAIN:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_VELOCITY_P_GAIN, reg_val);
+		break;
+	case MC_VELOCITY_I_GAIN:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_VELOCITY_I_GAIN, reg_val);
+		break;
+	case MC_CURRENT_P_GAIN:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_CURRENT_P_GAIN, reg_val);
+		break;
+	case MC_CURRENT_I_GAIN:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_CURRENT_I_GAIN, reg_val);
+		break;
+	case MC_OPEN_LOOP_BIAS:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_OPEN_LOOP_BIAS, reg_val);
+		break;
+	case MC_OPEN_LOOP_SCALAR:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_OPEN_LOOP_SCALAR, reg_val);
+		break;
+	case MC_COMMAND:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_COMMAND, reg_val);
+		break;
+	case MC_PWM:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_PWM_OPEN, reg_val);
 		break;
 	case MC_PWM_BREAK:
 		ret = kstrtou32(buf, 10, &reg_val);
@@ -303,6 +352,12 @@ static ssize_t motor_controller_store(struct device *dev,
 			break;
 		motor_controller_write(st, MC_REG_STATUS, reg_val);
 		break;
+	case MC_ERROR:
+		ret = kstrtou32(buf, 10, &reg_val);
+		if (ret < 0)
+			break;
+		motor_controller_write(st, MC_REG_ERROR, reg_val);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -310,6 +365,11 @@ static ssize_t motor_controller_store(struct device *dev,
 
 	return ret ? ret : len;
 }
+
+static IIO_DEVICE_ATTR(motor_controller_encoder_zero_offset, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_ENCODER_ZERO_OFFSET);
 
 static IIO_DEVICE_ATTR(motor_controller_run, S_IRUGO | S_IWUSR,
 			motor_controller_show,
@@ -341,40 +401,55 @@ static IIO_DEVICE_ATTR(motor_controller_sensors, S_IRUGO | S_IWUSR,
 			motor_controller_store,
 			MC_SENSORS);
 
-static IIO_DEVICE_ATTR(motor_controller_pwm, S_IRUGO | S_IWUSR,
-			motor_controller_show,
-			motor_controller_store,
-			MC_PWM);
-
-static IIO_DEVICE_ATTR(motor_controller_ki, S_IRUGO | S_IWUSR,
-			motor_controller_show,
-			motor_controller_store,
-			MC_KI);
-
-static IIO_DEVICE_ATTR(motor_controller_kd, S_IRUGO | S_IWUSR,
-			motor_controller_show,
-			motor_controller_store,
-			MC_KD);
-
-static IIO_DEVICE_ATTR(motor_controller_kp, S_IRUGO | S_IWUSR,
-			motor_controller_show,
-			motor_controller_store,
-			MC_KP);
-
-static IIO_DEVICE_ATTR(motor_controller_ref_speed, S_IRUGO | S_IWUSR,
-			motor_controller_show,
-			motor_controller_store,
-			MC_REF_SPEED);
-
 static IIO_DEVICE_ATTR(motor_controller_matlab, S_IRUGO | S_IWUSR,
 			motor_controller_show,
 			motor_controller_store,
 			MC_MATLAB);
 
-static IIO_DEVICE_ATTR(motor_controller_calibrate_adc, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(motor_controller_controller_mode, S_IRUGO | S_IWUSR,
 			motor_controller_show,
 			motor_controller_store,
-			MC_CALIB_ADC);
+			MC_CONTROLLER_MODE);
+
+static IIO_DEVICE_ATTR(motor_controller_velocity_p_gain, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_VELOCITY_P_GAIN);
+
+static IIO_DEVICE_ATTR(motor_controller_velocity_i_gain, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_VELOCITY_I_GAIN);
+
+static IIO_DEVICE_ATTR(motor_controller_current_p_gain, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_CURRENT_P_GAIN);
+
+static IIO_DEVICE_ATTR(motor_controller_current_i_gain, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_CURRENT_I_GAIN);
+
+static IIO_DEVICE_ATTR(motor_controller_open_loop_bias, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_OPEN_LOOP_BIAS);
+
+static IIO_DEVICE_ATTR(motor_controller_open_loop_scalar, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_OPEN_LOOP_SCALAR);
+
+static IIO_DEVICE_ATTR(motor_controller_command, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_COMMAND);
+
+static IIO_DEVICE_ATTR(motor_controller_pwm, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_PWM);
 
 static IIO_DEVICE_ATTR(motor_controller_pwm_break, S_IRUGO | S_IWUSR,
 			motor_controller_show,
@@ -386,22 +461,32 @@ static IIO_DEVICE_ATTR(motor_controller_status, S_IRUGO | S_IWUSR,
 			motor_controller_store,
 			MC_STATUS);
 
+static IIO_DEVICE_ATTR(motor_controller_error, S_IRUGO | S_IWUSR,
+			motor_controller_show,
+			motor_controller_store,
+			MC_ERROR);
+
 static struct attribute *motor_controller_attributes[] = {
+	&iio_dev_attr_motor_controller_encoder_zero_offset.dev_attr.attr,
 	&iio_dev_attr_motor_controller_run.dev_attr.attr,
 	&iio_dev_attr_motor_controller_reset_overcurrent.dev_attr.attr,
 	&iio_dev_attr_motor_controller_break.dev_attr.attr,
 	&iio_dev_attr_motor_controller_delta.dev_attr.attr,
 	&iio_dev_attr_motor_controller_sensors_available.dev_attr.attr,
 	&iio_dev_attr_motor_controller_sensors.dev_attr.attr,
-	&iio_dev_attr_motor_controller_pwm.dev_attr.attr,
-	&iio_dev_attr_motor_controller_ki.dev_attr.attr,
-	&iio_dev_attr_motor_controller_kd.dev_attr.attr,
-	&iio_dev_attr_motor_controller_kp.dev_attr.attr,
-	&iio_dev_attr_motor_controller_ref_speed.dev_attr.attr,
 	&iio_dev_attr_motor_controller_matlab.dev_attr.attr,
-	&iio_dev_attr_motor_controller_calibrate_adc.dev_attr.attr,
+	&iio_dev_attr_motor_controller_controller_mode.dev_attr.attr,
+	&iio_dev_attr_motor_controller_velocity_p_gain.dev_attr.attr,
+	&iio_dev_attr_motor_controller_velocity_i_gain.dev_attr.attr,
+	&iio_dev_attr_motor_controller_current_p_gain.dev_attr.attr,
+	&iio_dev_attr_motor_controller_current_i_gain.dev_attr.attr,
+	&iio_dev_attr_motor_controller_open_loop_bias.dev_attr.attr,
+	&iio_dev_attr_motor_controller_open_loop_scalar.dev_attr.attr,
+	&iio_dev_attr_motor_controller_command.dev_attr.attr,
+	&iio_dev_attr_motor_controller_pwm.dev_attr.attr,
 	&iio_dev_attr_motor_controller_pwm_break.dev_attr.attr,
 	&iio_dev_attr_motor_controller_status.dev_attr.attr,
+	&iio_dev_attr_motor_controller_error.dev_attr.attr,
 	NULL,
 };
 
