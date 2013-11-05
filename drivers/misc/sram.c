@@ -33,7 +33,7 @@
 
 #include "sram.h"
 
-#define SRAM_GRANULARITY	32
+#define SRAM_GRANULARITY	4096
 
 static ssize_t sram_read(struct file *filp, struct kobject *kobj,
 			 struct bin_attribute *attr,
