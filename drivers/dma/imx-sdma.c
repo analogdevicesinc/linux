@@ -527,6 +527,7 @@ struct sdma_engine {
 	void __iomem			*regs;
 	struct sdma_context_data	*context;
 	dma_addr_t			context_phys;
+	dma_addr_t			ccb_phys;
 	struct dma_device		dma_device;
 	struct clk			*clk_ipg;
 	struct clk			*clk_ahb;
@@ -2115,9 +2116,7 @@ static int sdma_get_firmware(struct sdma_engine *sdma,
 
 static int sdma_init(struct sdma_engine *sdma)
 {
-	int i, ret;
-	dma_addr_t ccb_phys;
-	int ccbsize;
+	int i, ret, ccbsize;
 
 	ret = clk_enable(sdma->clk_ipg);
 	if (ret)
@@ -2134,14 +2133,14 @@ static int sdma_init(struct sdma_engine *sdma)
 	writel_relaxed(0, sdma->regs + SDMA_H_C0PTR);
 
 	ccbsize = MAX_DMA_CHANNELS * (sizeof(struct sdma_channel_control)
-		  + sizeof(struct sdma_context_data));
+		+ sizeof(struct sdma_context_data));
 
 	if (sdma->iram_pool)
-		sdma->channel_control = gen_pool_dma_alloc(sdma->iram_pool, ccbsize, &ccb_phys);
+		sdma->channel_control = gen_pool_dma_alloc(sdma->iram_pool,
+							   ccbsize, &sdma->ccb_phys);
 	else
-		sdma->channel_control = dma_alloc_coherent(sdma->dev, ccbsize, &ccb_phys,
-							   GFP_KERNEL);
-
+		sdma->channel_control = dma_alloc_coherent(sdma->dev, ccbsize,
+						&sdma->ccb_phys, GFP_KERNEL);
 	if (!sdma->channel_control) {
 		ret = -ENOMEM;
 		goto err_dma_alloc;
@@ -2149,7 +2148,7 @@ static int sdma_init(struct sdma_engine *sdma)
 
 	sdma->context = (void *)sdma->channel_control +
 		MAX_DMA_CHANNELS * sizeof(struct sdma_channel_control);
-	sdma->context_phys = ccb_phys +
+	sdma->context_phys = sdma->ccb_phys +
 		MAX_DMA_CHANNELS * sizeof(struct sdma_channel_control);
 
 	/* disable all channels */
@@ -2175,7 +2174,7 @@ static int sdma_init(struct sdma_engine *sdma)
 	else
 		writel_relaxed(0, sdma->regs + SDMA_H_CONFIG);
 
-	writel_relaxed(ccb_phys, sdma->regs + SDMA_H_C0PTR);
+	writel_relaxed(sdma->ccb_phys, sdma->regs + SDMA_H_C0PTR);
 
 	/* Initializes channel's priorities */
 	sdma_set_channel_priority(&sdma->channel[0], 7);
