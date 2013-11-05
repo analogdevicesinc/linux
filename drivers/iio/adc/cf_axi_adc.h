@@ -97,6 +97,7 @@
 /* ADC CHANNEL */
 
 #define ADI_REG_CHAN_CNTRL(c)		(0x0400 + (c) * 0x40)
+#define ADI_PN_SEL			(1 << 10)
 #define ADI_IQCOR_ENB			(1 << 9)
 #define ADI_DCFILT_ENB			(1 << 8)
 #define ADI_FORMAT_SIGNEXT		(1 << 6)
