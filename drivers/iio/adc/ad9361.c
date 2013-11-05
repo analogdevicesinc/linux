@@ -325,7 +325,7 @@ static int ad9361_bist_loopback(struct ad9361_rf_phy *phy, bool enable)
 
 static int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
 {
-	u32 reg;
+	u32 reg = 0;
 
 	dev_dbg(&phy->spi->dev, "%s: mode %d", __func__, mode);
 
@@ -349,7 +349,7 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 			    u32 level_dB, u32 mask)
 {
 	unsigned long clk = 0;
-	u32 reg, reg1, reg_mask;
+	u32 reg = 0, reg1, reg_mask;
 
 	dev_dbg(&phy->spi->dev, "%s: mode %d", __func__, mode);
 
@@ -371,6 +371,9 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 	reg |= TONE_LEVEL(level_dB / 3);
 	if (clk)
 		reg |= TONE_FREQ(DIV_ROUND_CLOSEST(freq_Hz * 32, clk) - 1);
+
+	reg_mask = BIST_MASK_CHANNEL_1_I_DATA | BIST_MASK_CHANNEL_1_Q_DATA |
+		BIST_MASK_CHANNEL_2_I_DATA | BIST_MASK_CHANNEL_2_Q_DATA;
 
 	reg1 = (mask & reg_mask);
 	ad9361_spi_write(phy->spi, REG_BIST_AND_DATA_PORT_TEST_CONFIG, reg1);
