@@ -123,6 +123,10 @@ enum {
 #define ADI_DDS_PATT_1(x)		(((x) & 0xFFFF) << 0)
 #define ADI_TO_DDS_PATT_1(x)		(((x) >> 0) & 0xFFFF)
 
+#define ADI_REG_CHAN_CNTRL_6(c)		(0x0414 + (c) * 0x40)
+#define ADI_DAC_LB_ENB  			(1 << 1)
+#define ADI_DAC_PN_ENB 			(1 << 0)
+
 #define ADI_REG_USR_CNTRL_3(c)		(0x0420 + (c) * 0x40)
 #define ADI_USR_DATATYPE_BE		(1 << 25)
 #define ADI_USR_DATATYPE_SIGNED		(1 << 24)
