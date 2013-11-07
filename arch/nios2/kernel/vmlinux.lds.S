@@ -31,13 +31,6 @@ SECTIONS
 {
 	. = CONFIG_MEM_BASE | CONFIG_KERNEL_REGION_BASE;
 
-	.got : {
-		*(.got.plt)
-		*(.igot.plt)
-		*(.got)
-		*(.igot)
-	}
-
 	_text = .;
 	_stext = .;
 	HEAD_TEXT_SECTION
@@ -49,6 +42,13 @@ SECTIONS
 		KPROBES_TEXT
 	} =0
 	_etext = .;
+
+	.got : {
+		*(.got.plt)
+		*(.igot.plt)
+		*(.got)
+		*(.igot)
+	}
 
 	EXCEPTION_TABLE(L1_CACHE_BYTES)
 
