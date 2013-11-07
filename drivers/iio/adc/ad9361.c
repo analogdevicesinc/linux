@@ -5576,6 +5576,8 @@ static struct ad9361_phy_platform_data
 
 	/* eLNA Control */
 
+	ad9361_of_get_u32(iodev, np, "adi,elna-settling-delay-ns", 0,
+			  &pdata->elna_ctrl.settling_delay_ns);
 	ad9361_of_get_u32(iodev, np, "adi,elna-gain-mdB", 0,
 			  &pdata->elna_ctrl.gain_mdB);
 	ad9361_of_get_u32(iodev, np, "adi,elna-bypass-loss-mdB", 0,
