@@ -367,7 +367,8 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 			.type = IIO_TEMP,
 			.indexed = 1,
 			.channel = 0,
-			.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+			.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
+					      BIT(IIO_CHAN_INFO_CALIBBIAS),
 		},
 		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
 		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
