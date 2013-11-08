@@ -822,6 +822,9 @@ static int ad9122_read_raw(struct iio_dev *indio_dev,
 
 		*val = ad9122_get_data_clk(conv);
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		*val = conv->temp_calib_code;
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		if (!conv->temp_calib_code)
 			return -EINVAL;
@@ -858,6 +861,9 @@ static int ad9122_write_raw(struct iio_dev *indio_dev,
 			ad9122_tune_dci(conv);
 		}
 		break;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		conv->temp_calib_code = val;
+		break;
 	case IIO_CHAN_INFO_PROCESSED:
 		/*
 		 * Writing in_temp0_input with the device temperature in milli
@@ -877,7 +883,7 @@ static int ad9122_probe(struct spi_device *spi)
 {
 	struct device_node *np = spi->dev.of_node;
 	struct cf_axi_converter *conv;
-	unsigned id, rate, datapath_ctrl;
+	unsigned id, rate, datapath_ctrl, tmp;
 	int ret;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
@@ -936,6 +942,10 @@ static int ad9122_probe(struct spi_device *spi)
 				  conv->fcenter_shift, rate);
 	if (ret)
 		goto out;
+
+	tmp = 25000;
+	of_property_read_u32(np, "temp-sensor-calibration-temperature-mdeg", &tmp);
+	conv->temp_calib = tmp;
 
 	spi_set_drvdata(spi, conv);
 
