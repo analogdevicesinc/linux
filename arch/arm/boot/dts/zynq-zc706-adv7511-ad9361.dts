@@ -207,7 +207,7 @@
 
 		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
 			compatible = "xlnx,axi-adc-2c-1.00.a";
-			reg = <0x79020000 0x1000>;
+			reg = <0x79020000 0x6000>;
 			dmas = <&axi_dma_1 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9361>;

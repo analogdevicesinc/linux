@@ -408,12 +408,6 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 
 	phys_addr = st->r_mem.start;
 	remap_size = resource_size(&st->r_mem);
-	if (!request_mem_region(phys_addr, remap_size, DRIVER_NAME)) {
-		dev_err(dev, "Couldn't lock memory region at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EBUSY;
-		goto failed1;
-	}
 
 	/* Fill in configuration data and add them to the list */
 	st->regs = ioremap(phys_addr, remap_size);
