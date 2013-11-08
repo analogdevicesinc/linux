@@ -203,7 +203,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 
 		tmp &= ~0xC000;
 
-		llval = tmp * 1000000ULL;
+		llval = tmp * 1000000ULL + (0x4000 / 2);
 		do_div(llval, 0x4000);
 		if (*val == 0)
 			*val2 = llval * sign;
@@ -293,8 +293,8 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 
-		llval = (unsigned long long)val2 * 0x4000UL;
-		do_div(llval, 1000000);
+		llval = (unsigned long long)val2 * 0x4000UL + (1000000UL / 2);
+		do_div(llval, 1000000UL);
 		fract |= llval;
 
 		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(chan->channel));
