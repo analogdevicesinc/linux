@@ -79,6 +79,9 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long cause,
 	if (in_atomic() || !mm)
 		goto bad_area_nosemaphore;
 
+	if (user_mode(regs))
+		flags |= FAULT_FLAG_USER;
+
 	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, address);
 	if (!vma)
@@ -110,9 +113,9 @@ good_area:
 			goto bad_area;
 		break;
 	case EXC_W_PROTECTION_FAULT:
-		flags = FAULT_FLAG_WRITE;
 		if (!(vma->vm_flags & VM_WRITE))
 			goto bad_area;
+		flags = FAULT_FLAG_WRITE;
 		break;
 	}
 
