@@ -180,7 +180,7 @@ static int adc_of_probe(struct platform_device *op)
 		ret = strcmp(adc_name, "ad7980");
 		if(ret == 0)
 		{
-			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 16, 0, 'u'); 
+			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 32, 16, 'u'); 
 			indio_dev->num_channels = 1;
 			indio_dev->masklength = 1;		  
 			break;	 
