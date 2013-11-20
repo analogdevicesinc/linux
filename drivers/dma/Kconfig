@@ -334,6 +334,10 @@ config K3_DMA
 	  Support the DMA engine for Hisilicon K3 platform
 	  devices.
 
+config DMA_AXI_DMAC
+	tristate "AXI DMAC driver"
+	select DMA_VIRTUAL_CHANNELS
+
 config DMA_ENGINE
 	bool
 
