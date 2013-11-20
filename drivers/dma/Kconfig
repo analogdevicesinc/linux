@@ -328,6 +328,10 @@ config MMP_PDMA
 	help
 	  Support the MMP PDMA engine for PXA and MMP platfrom.
 
+config DMA_AXI_DMAC
+	tristate "AXI DMAC driver"
+	select DMA_VIRTUAL_CHANNELS
+
 config DMA_ENGINE
 	bool
 
