@@ -104,7 +104,7 @@ static int uio_pdrv_genirq_irqcontrol(struct uio_info *dev_info, s32 irq_on)
 
 static int uio_pdrv_genirq_probe(struct platform_device *pdev)
 {
-	struct uio_info *uioinfo = pdev->dev.platform_data;
+	struct uio_info *uioinfo = dev_get_platdata(&pdev->dev);
 	struct uio_pdrv_genirq_platdata *priv;
 	struct uio_mem *uiomem;
 	int ret = -EINVAL;
@@ -272,7 +272,7 @@ static struct of_device_id uio_of_genirq_match[] = {
 	{ /* Sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, uio_of_genirq_match);
-module_param_string(of_id, uio_of_genirq_match[1].compatible, 128, 0);
+module_param_string(of_id, uio_of_genirq_match[0].compatible, 128, 0);
 MODULE_PARM_DESC(of_id, "Openfirmware id of the device to be handled by uio");
 #endif
 

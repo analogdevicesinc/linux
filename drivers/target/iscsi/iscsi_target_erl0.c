@@ -2,9 +2,7 @@
  * This file contains error recovery level zero functions used by
  * the iSCSI Target driver.
  *
- * \u00a9 Copyright 2007-2011 RisingTide Systems LLC.
- *
- * Licensed to the Linux Foundation under the General Public License (GPL) version 2.
+ * (c) Copyright 2007-2013 Datera, Inc.
  *
  * Author: Nicholas A. Bellinger <nab@linux-iscsi.org>
  *
@@ -746,13 +744,12 @@ int iscsit_check_post_dataout(
 		if (!conn->sess->sess_ops->ErrorRecoveryLevel) {
 			pr_err("Unable to recover from DataOUT CRC"
 				" failure while ERL=0, closing session.\n");
-			iscsit_add_reject_from_cmd(ISCSI_REASON_DATA_DIGEST_ERROR,
-					1, 0, buf, cmd);
+			iscsit_reject_cmd(cmd, ISCSI_REASON_DATA_DIGEST_ERROR,
+					  buf);
 			return DATAOUT_CANNOT_RECOVER;
 		}
 
-		iscsit_add_reject_from_cmd(ISCSI_REASON_DATA_DIGEST_ERROR,
-				0, 0, buf, cmd);
+		iscsit_reject_cmd(cmd, ISCSI_REASON_DATA_DIGEST_ERROR, buf);
 		return iscsit_dataout_post_crc_failed(cmd, buf);
 	}
 }
@@ -909,6 +906,7 @@ void iscsit_cause_connection_reinstatement(struct iscsi_conn *conn, int sleep)
 	wait_for_completion(&conn->conn_wait_comp);
 	complete(&conn->conn_post_wait_comp);
 }
+EXPORT_SYMBOL(iscsit_cause_connection_reinstatement);
 
 void iscsit_fall_back_to_erl0(struct iscsi_session *sess)
 {

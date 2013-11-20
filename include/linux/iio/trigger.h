@@ -62,7 +62,7 @@ struct iio_trigger {
 
 	struct list_head		list;
 	struct list_head		alloc_list;
-	atomic_t	    		use_count;
+	atomic_t			use_count;
 
 	struct irq_chip			subirq_chip;
 	int				subirq_base;

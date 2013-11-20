@@ -224,13 +224,13 @@ MDC_DIV_64, MDC_DIV_96, MDC_DIV_128, MDC_DIV_224 };
 						Seconds */
 #define XEMACPS_PTPERXNS_OFFSET		0x000001EC /* PTP Event Frame Received
 						Nanoseconds */
-#define XEMACPS_PTPPTXS_OFFSET		0x000001E0 /* PTP Peer Frame
+#define XEMACPS_PTPPTXS_OFFSET		0x000001F0 /* PTP Peer Frame
 						Transmitted Seconds */
-#define XEMACPS_PTPPTXNS_OFFSET		0x000001E4 /* PTP Peer Frame
+#define XEMACPS_PTPPTXNS_OFFSET		0x000001F4 /* PTP Peer Frame
 						Transmitted Nanoseconds */
-#define XEMACPS_PTPPRXS_OFFSET		0x000001E8 /* PTP Peer Frame Received
+#define XEMACPS_PTPPRXS_OFFSET		0x000001F8 /* PTP Peer Frame Received
 						Seconds */
-#define XEMACPS_PTPPRXNS_OFFSET		0x000001EC /* PTP Peer Frame Received
+#define XEMACPS_PTPPRXNS_OFFSET		0x000001FC /* PTP Peer Frame Received
 						Nanoseconds */
 
 /* network control register bit definitions */
@@ -1830,6 +1830,7 @@ static int xemacps_open(struct net_device *ndev)
 		goto err_free_rings;
 	}
 
+	napi_enable(&lp->napi);
 	xemacps_init_hw(lp);
 	rc = xemacps_mii_probe(ndev);
 	if (rc != 0) {
@@ -1849,7 +1850,6 @@ static int xemacps_open(struct net_device *ndev)
 	mod_timer(&(lp->gen_purpose_timer),
 		jiffies + msecs_to_jiffies(XEAMCPS_GEN_PURPOSE_TIMER_LOAD));
 
-	napi_enable(&lp->napi);
 	netif_carrier_on(ndev);
 	netif_start_queue(ndev);
 	tasklet_enable(&lp->tx_bdreclaim_tasklet);
@@ -2615,7 +2615,6 @@ static int xemacps_probe(struct platform_device *pdev)
 
 	lp->baseaddr = devm_ioremap_resource(&pdev->dev, r_mem);
 	if (IS_ERR(lp->baseaddr)) {
-		dev_err(&pdev->dev, "failed to map baseaddress.\n");
 		rc = PTR_ERR(lp->baseaddr);
 		goto err_out_free_netdev;
 	}

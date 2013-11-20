@@ -38,6 +38,14 @@
 
 #include "twl6040.h"
 
+enum twl6040_dai_id {
+	TWL6040_DAI_LEGACY = 0,
+	TWL6040_DAI_UL,
+	TWL6040_DAI_DL1,
+	TWL6040_DAI_DL2,
+	TWL6040_DAI_VIB,
+};
+
 #define TWL6040_RATES		SNDRV_PCM_RATE_8000_96000
 #define TWL6040_FORMATS	(SNDRV_PCM_FMTBIT_S32_LE)
 
@@ -67,6 +75,8 @@ struct twl6040_data {
 	int pll_power_mode;
 	int hs_power_mode;
 	int hs_power_mode_locked;
+	bool dl1_unmuted;
+	bool dl2_unmuted;
 	unsigned int clk_in;
 	unsigned int sysclk;
 	struct twl6040_jack_data hs_jack;
@@ -220,6 +230,25 @@ static int twl6040_read_reg_volatile(struct snd_soc_codec *codec,
 	return value;
 }
 
+static bool twl6040_is_path_unmuted(struct snd_soc_codec *codec,
+				    unsigned int reg)
+{
+	struct twl6040_data *priv = snd_soc_codec_get_drvdata(codec);
+
+	switch (reg) {
+	case TWL6040_REG_HSLCTL:
+	case TWL6040_REG_HSRCTL:
+	case TWL6040_REG_EARCTL:
+		/* DL1 path */
+		return priv->dl1_unmuted;
+	case TWL6040_REG_HFLCTL:
+	case TWL6040_REG_HFRCTL:
+		return priv->dl2_unmuted;
+	default:
+		return 1;
+	};
+}
+
 /*
  * write to the twl6040 register space
  */
@@ -232,7 +261,8 @@ static int twl6040_write(struct snd_soc_codec *codec,
 		return -EIO;
 
 	twl6040_write_reg_cache(codec, reg, value);
-	if (likely(reg < TWL6040_REG_SW_SHADOW))
+	if (likely(reg < TWL6040_REG_SW_SHADOW) &&
+	    twl6040_is_path_unmuted(codec, reg))
 		return twl6040_reg_write(twl6040, reg, value);
 	else
 		return 0;
@@ -399,7 +429,8 @@ static irqreturn_t twl6040_audio_handler(int irq, void *data)
 	struct snd_soc_codec *codec = data;
 	struct twl6040_data *priv = snd_soc_codec_get_drvdata(codec);
 
-	schedule_delayed_work(&priv->hs_jack.work, msecs_to_jiffies(200));
+	queue_delayed_work(system_power_efficient_wq,
+			   &priv->hs_jack.work, msecs_to_jiffies(200));
 
 	return IRQ_HANDLED;
 }
@@ -1024,16 +1055,84 @@ static int twl6040_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	return 0;
 }
 
+static void twl6040_mute_path(struct snd_soc_codec *codec, enum twl6040_dai_id id,
+			     int mute)
+{
+	struct twl6040 *twl6040 = codec->control_data;
+	struct twl6040_data *priv = snd_soc_codec_get_drvdata(codec);
+	int hslctl, hsrctl, earctl;
+	int hflctl, hfrctl;
+
+	switch (id) {
+	case TWL6040_DAI_DL1:
+		hslctl = twl6040_read_reg_cache(codec, TWL6040_REG_HSLCTL);
+		hsrctl = twl6040_read_reg_cache(codec, TWL6040_REG_HSRCTL);
+		earctl = twl6040_read_reg_cache(codec, TWL6040_REG_EARCTL);
+
+		if (mute) {
+			/* Power down drivers and DACs */
+			earctl &= ~0x01;
+			hslctl &= ~(TWL6040_HSDRVENA | TWL6040_HSDACENA);
+			hsrctl &= ~(TWL6040_HSDRVENA | TWL6040_HSDACENA);
+
+		}
+
+		twl6040_reg_write(twl6040, TWL6040_REG_EARCTL, earctl);
+		twl6040_reg_write(twl6040, TWL6040_REG_HSLCTL, hslctl);
+		twl6040_reg_write(twl6040, TWL6040_REG_HSRCTL, hsrctl);
+		priv->dl1_unmuted = !mute;
+		break;
+	case TWL6040_DAI_DL2:
+		hflctl = twl6040_read_reg_cache(codec, TWL6040_REG_HFLCTL);
+		hfrctl = twl6040_read_reg_cache(codec, TWL6040_REG_HFRCTL);
+
+		if (mute) {
+			/* Power down drivers and DACs */
+			hflctl &= ~(TWL6040_HFDACENA | TWL6040_HFPGAENA |
+				    TWL6040_HFDRVENA);
+			hfrctl &= ~(TWL6040_HFDACENA | TWL6040_HFPGAENA |
+				    TWL6040_HFDRVENA);
+		}
+
+		twl6040_reg_write(twl6040, TWL6040_REG_HFLCTL, hflctl);
+		twl6040_reg_write(twl6040, TWL6040_REG_HFRCTL, hfrctl);
+		priv->dl2_unmuted = !mute;
+		break;
+	default:
+		break;
+	};
+}
+
+static int twl6040_digital_mute(struct snd_soc_dai *dai, int mute)
+{
+	switch (dai->id) {
+	case TWL6040_DAI_LEGACY:
+		twl6040_mute_path(dai->codec, TWL6040_DAI_DL1, mute);
+		twl6040_mute_path(dai->codec, TWL6040_DAI_DL2, mute);
+		break;
+	case TWL6040_DAI_DL1:
+	case TWL6040_DAI_DL2:
+		twl6040_mute_path(dai->codec, dai->id, mute);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static const struct snd_soc_dai_ops twl6040_dai_ops = {
 	.startup	= twl6040_startup,
 	.hw_params	= twl6040_hw_params,
 	.prepare	= twl6040_prepare,
 	.set_sysclk	= twl6040_set_dai_sysclk,
+	.digital_mute	= twl6040_digital_mute,
 };
 
 static struct snd_soc_dai_driver twl6040_dai[] = {
 {
 	.name = "twl6040-legacy",
+	.id = TWL6040_DAI_LEGACY,
 	.playback = {
 		.stream_name = "Legacy Playback",
 		.channels_min = 1,
@@ -1052,6 +1151,7 @@ static struct snd_soc_dai_driver twl6040_dai[] = {
 },
 {
 	.name = "twl6040-ul",
+	.id = TWL6040_DAI_UL,
 	.capture = {
 		.stream_name = "Capture",
 		.channels_min = 1,
@@ -1063,6 +1163,7 @@ static struct snd_soc_dai_driver twl6040_dai[] = {
 },
 {
 	.name = "twl6040-dl1",
+	.id = TWL6040_DAI_DL1,
 	.playback = {
 		.stream_name = "Headset Playback",
 		.channels_min = 1,
@@ -1074,6 +1175,7 @@ static struct snd_soc_dai_driver twl6040_dai[] = {
 },
 {
 	.name = "twl6040-dl2",
+	.id = TWL6040_DAI_DL2,
 	.playback = {
 		.stream_name = "Handsfree Playback",
 		.channels_min = 1,
@@ -1085,6 +1187,7 @@ static struct snd_soc_dai_driver twl6040_dai[] = {
 },
 {
 	.name = "twl6040-vib",
+	.id = TWL6040_DAI_VIB,
 	.playback = {
 		.stream_name = "Vibra Playback",
 		.channels_min = 1,
@@ -1141,7 +1244,7 @@ static int twl6040_probe(struct snd_soc_codec *codec)
 
 	mutex_init(&priv->mutex);
 
-	ret = devm_request_threaded_irq(codec->dev, priv->plug_irq, NULL,
+	ret = request_threaded_irq(priv->plug_irq, NULL,
 					twl6040_audio_handler, IRQF_NO_SUSPEND,
 					"twl6040_irq_plug", codec);
 	if (ret) {
@@ -1157,6 +1260,9 @@ static int twl6040_probe(struct snd_soc_codec *codec)
 
 static int twl6040_remove(struct snd_soc_codec *codec)
 {
+	struct twl6040_data *priv = snd_soc_codec_get_drvdata(codec);
+
+	free_irq(priv->plug_irq, codec);
 	twl6040_set_bias_level(codec, SND_SOC_BIAS_OFF);
 
 	return 0;

@@ -41,7 +41,6 @@
 #include <linux/i2c-xiic.h>
 #include <linux/io.h>
 #include <linux/slab.h>
-#include <linux/of_i2c.h>
 
 #define DRIVER_NAME "xiic-i2c"
 
@@ -681,7 +680,7 @@ static int xiic_i2c_probe(struct platform_device *pdev)
 	int ret, irq;
 	u8 i;
 
-	i2c = devm_kzalloc(&pdev->dev, sizeof(struct xiic_i2c), GFP_KERNEL);
+	i2c = devm_kzalloc(&pdev->dev, sizeof(*i2c), GFP_KERNEL);
 	if (!i2c)
 		return -ENOMEM;
 
@@ -702,7 +701,7 @@ static int xiic_i2c_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	pdata = (struct xiic_i2c_platform_data *) pdev->dev.platform_data;
+	pdata = (struct xiic_i2c_platform_data *)dev_get_platdata(&pdev->dev);
 
 	/* hook up driver to tree */
 	platform_set_drvdata(pdev, i2c);
@@ -728,8 +727,6 @@ static int xiic_i2c_probe(struct platform_device *pdev)
 		for (i = 0; i < pdata->num_devices; i++)
 			i2c_new_device(&i2c->adap, pdata->devices + i);
 	}
-
-	of_i2c_register_devices(&i2c->adap);
 
 	return 0;
 }

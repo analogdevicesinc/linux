@@ -486,7 +486,7 @@ static int btmrvl_sdio_download_fw_w_helper(struct btmrvl_sdio_card *card)
 			if (firmwarelen - offset < txlen)
 				txlen = firmwarelen - offset;
 
-			tx_blocks = (txlen + blksz_dl - 1) / blksz_dl;
+			tx_blocks = DIV_ROUND_UP(txlen, blksz_dl);
 
 			memcpy(fwbuf, &firmware[offset], txlen);
 		}
@@ -554,6 +554,7 @@ static int btmrvl_sdio_card_to_host(struct btmrvl_private *priv)
 	skb = bt_skb_alloc(num_blocks * blksz + BTSDIO_DMA_ALIGN, GFP_ATOMIC);
 	if (skb == NULL) {
 		BT_ERR("No free skb");
+		ret = -ENOMEM;
 		goto exit;
 	}
 
@@ -872,7 +873,7 @@ static int btmrvl_sdio_host_to_card(struct btmrvl_private *priv,
 	}
 
 	blksz = SDIO_BLOCK_SIZE;
-	buf_block_len = (nb + blksz - 1) / blksz;
+	buf_block_len = DIV_ROUND_UP(nb, blksz);
 
 	sdio_claim_host(card->func);
 

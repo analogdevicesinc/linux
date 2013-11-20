@@ -173,11 +173,13 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <0>;
-					osc@5d {
-						compatible = "si570";
+					si570: clock-generator@5d {
+						#clock-cells = <0>;
+						compatible = "silabs,si570";
+						temperature-stability = <50>;
 						reg = <0x5d>;
 						factory-fout = <156250000>;
-						initial-fout = <148500000>;
+						clock-frequency = <148500000>;
 					};
 				};
 
@@ -321,7 +323,7 @@
 		} ;
 		ps7_sd_0: ps7-sdio@e0100000 {
 			clock-frequency = <50000000>;
-			clock-names = "ref_clk", "aper_clk";
+			clock-names = "clk_xin", "clk_ahb";
 			clocks = <&clkc 21>, <&clkc 32>;
 			compatible = "xlnx,ps7-sdio-1.00.a", "generic-sdhci", "arasan,sdhci";
 			interrupt-parent = <&ps7_scugic_0>;

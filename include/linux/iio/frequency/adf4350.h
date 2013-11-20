@@ -1,7 +1,7 @@
 /*
  * ADF4350/ADF4351 SPI PLL driver
  *
- * Copyright 2012 Analog Devices Inc.
+ * Copyright 2012-2013 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */

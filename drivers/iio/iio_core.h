@@ -73,6 +73,8 @@ static inline long iio_buffer_ioctl(struct iio_dev *indio_dev,
 	struct file *filp, unsigned int cmd, unsigned long arg) {}
 static inline void iio_buffer_free_blocks(struct iio_buffer *buffer) {}
 
+static inline void iio_disable_all_buffers(struct iio_dev *indio_dev) {}
+
 #endif
 
 int iio_device_register_eventset(struct iio_dev *indio_dev);

@@ -59,7 +59,7 @@ qla2x00_poll(struct rsp_que *rsp)
 	unsigned long flags;
 	struct qla_hw_data *ha = rsp->hw;
 	local_irq_save(flags);
-	if (IS_QLA82XX(ha))
+	if (IS_P3P_TYPE(ha))
 		qla82xx_poll(0, rsp);
 	else
 		ha->isp_ops->intr_handler(0, rsp);
@@ -83,7 +83,7 @@ static inline void
 host_to_adap(uint8_t *src, uint8_t *dst, uint32_t bsize)
 {
 	uint32_t *isrc = (uint32_t *) src;
-	uint32_t *odest = (uint32_t *) dst;
+	__le32 *odest = (__le32 *) dst;
 	uint32_t iter = bsize >> 2;
 
 	for (; iter ; iter--)

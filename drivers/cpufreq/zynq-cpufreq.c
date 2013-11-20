@@ -13,6 +13,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <linux/kernel.h>
 #include <linux/cpufreq.h>
 #include <linux/delay.h>
@@ -66,12 +67,12 @@ static int zynq_target(struct cpufreq_policy *policy,
 
 	if (!freq_table) {
 		dev_err(mpu_dev, "%s: cpu%d: no freq table!\n", __func__,
-				policy->cpu);
+			policy->cpu);
 		return -EINVAL;
 	}
 
 	ret = cpufreq_frequency_table_target(policy, freq_table, target_freq,
-			relation, &i);
+					     relation, &i);
 	if (ret) {
 		dev_dbg(mpu_dev, "%s: cpu%d: no freq match for %d(ret=%d)\n",
 			__func__, policy->cpu, target_freq, ret);
@@ -94,7 +95,7 @@ static int zynq_target(struct cpufreq_policy *policy,
 	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
 
 	dev_dbg(mpu_dev, "cpufreq-zynq: %u MHz --> %u MHz\n",
-			freqs.old / 1000, freqs.new / 1000);
+		freqs.old / 1000, freqs.new / 1000);
 
 	ret = clk_set_rate(cpuclk, freqs.new * 1000);
 
@@ -116,16 +117,14 @@ static int __cpuinit zynq_cpu_init(struct cpufreq_policy *policy)
 {
 	int result = 0;
 
-	cpuclk = clk_get(NULL, "cpufreq_clk");
+	cpuclk = devm_clk_get(mpu_dev, "cpufreq_clk");
 	if (IS_ERR(cpuclk)) {
-		pr_warn("Xilinx: cpufreq: cpufreq_clk clock not found.");
+		dev_err(mpu_dev, "cpufreq_clk clock not found.");
 		return PTR_ERR(cpuclk);
 	}
 
-	if (policy->cpu >= num_possible_cpus()) {
-		result = -EINVAL;
-		goto fail_ck;
-	}
+	if (policy->cpu >= num_possible_cpus())
+		return -EINVAL;
 
 	policy->cur = policy->min = policy->max = zynq_getspeed(policy->cpu);
 
@@ -134,15 +133,17 @@ static int __cpuinit zynq_cpu_init(struct cpufreq_policy *policy)
 
 	if (result) {
 		dev_err(mpu_dev, "%s: cpu%d: failed creating freq table[%d]\n",
-				__func__, policy->cpu, result);
-		goto fail_ck;
+			__func__, policy->cpu, result);
+		return result;
 	}
 
 	atomic_inc(&freq_table_users);
 
 	result = cpufreq_frequency_table_cpuinfo(policy, freq_table);
-	if (result)
-		goto fail_table;
+	if (result) {
+		freq_table_free();
+		return result;
+	}
 
 	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
 
@@ -166,18 +167,11 @@ static int __cpuinit zynq_cpu_init(struct cpufreq_policy *policy)
 	policy->cpuinfo.transition_latency = 300 * 1000;
 
 	return 0;
-
-fail_table:
-	freq_table_free();
-fail_ck:
-	clk_put(cpuclk);
-	return result;
 }
 
 static int zynq_cpu_exit(struct cpufreq_policy *policy)
 {
 	freq_table_free();
-	clk_put(cpuclk);
 	return 0;
 }
 

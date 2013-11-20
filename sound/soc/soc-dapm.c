@@ -229,6 +229,8 @@ static int dapm_kcontrol_data_alloc(struct snd_soc_dapm_widget *widget,
 			template.id = snd_soc_dapm_kcontrol;
 			template.name = kcontrol->id.name;
 
+			data->value = template.on_val;
+
 			data->widget = snd_soc_dapm_new_control(widget->dapm,
 				&template);
 			if (!data->widget) {
@@ -1947,7 +1949,7 @@ static ssize_t dapm_widget_power_read_file(struct file *file,
 				w->active ? "active" : "inactive");
 
 	list_for_each_entry(p, &w->sources, list_sink) {
-		if (p->connected && !p->connected(w, p->sink))
+		if (p->connected && !p->connected(w, p->source))
 			continue;
 
 		if (p->connect)
@@ -3493,6 +3495,7 @@ int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 		if (!w) {
 			dev_err(dapm->dev, "ASoC: Failed to create %s widget\n",
 				dai->driver->playback.stream_name);
+			return -ENOMEM;
 		}
 
 		w->priv = dai;
@@ -3511,6 +3514,7 @@ int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 		if (!w) {
 			dev_err(dapm->dev, "ASoC: Failed to create %s widget\n",
 				dai->driver->capture.stream_name);
+			return -ENOMEM;
 		}
 
 		w->priv = dai;

@@ -102,6 +102,11 @@ struct l2tp_session {
 	u32			nr;		/* session NR state (receive) */
 	u32			ns;		/* session NR state (send) */
 	struct sk_buff_head	reorder_q;	/* receive reorder queue */
+	u32			nr_max;		/* max NR. Depends on tunnel */
+	u32			nr_window_size;	/* NR window size */
+	u32			nr_oos;		/* NR of last OOS packet */
+	int			nr_oos_count;	/* For OOS recovery */
+	int			nr_oos_count_max;
 	struct hlist_node	hlist;		/* Hash list node */
 	atomic_t		ref_count;
 
@@ -189,6 +194,9 @@ struct l2tp_tunnel {
 	struct sock		*sock;		/* Parent socket */
 	int			fd;		/* Parent fd, if tunnel socket
 						 * was created by userspace */
+#if IS_ENABLED(CONFIG_IPV6)
+	bool			v4mapped;
+#endif
 
 	struct work_struct	del_work;
 

@@ -998,7 +998,7 @@ static ssize_t xtg_pram_mmap(struct file *filp, struct kobject *kobj,
 static struct bin_attribute xtg_pram_attr = {
 	.attr =	{
 		.name = "parameter_ram",
-		.mode = 0644,
+		.mode = S_IRUGO | S_IWUSR,
 	},
 	.size = XTG_PARAM_RAM_SIZE,
 	.read = xtg_pram_read,
@@ -1095,7 +1095,7 @@ static ssize_t xtg_cram_mmap(struct file *filp, struct kobject *kobj,
 static struct bin_attribute xtg_cram_attr = {
 	.attr =	{
 		.name = "command_ram",
-		.mode = 0644,
+		.mode = S_IRUGO | S_IWUSR,
 	},
 	.size = XTG_COMMAND_RAM_SIZE,
 	.read = xtg_cram_read,
@@ -1155,7 +1155,7 @@ static ssize_t xtg_mram_mmap(struct file *filp, struct kobject *kobj,
 static struct bin_attribute xtg_mram_attr = {
 	.attr =	{
 		.name = "master_ram",
-		.mode = 0644,
+		.mode = S_IRUGO | S_IWUSR,
 	},
 	.size = XTG_MASTER_RAM_SIZE,
 	.read = xtg_mram_read,
@@ -1290,7 +1290,7 @@ static int xtg_probe(struct platform_device *pdev)
 	struct resource *res;
 	int err, irq, var;
 
-	tg = devm_kzalloc(&pdev->dev, sizeof(struct xtg_dev_info), GFP_KERNEL);
+	tg = devm_kzalloc(&pdev->dev, sizeof(*tg), GFP_KERNEL);
 	if (!tg)
 		return -ENOMEM;
 
@@ -1301,10 +1301,9 @@ static int xtg_probe(struct platform_device *pdev)
 	/* Map the registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	tg->regs = devm_ioremap_resource(&pdev->dev, res);
-	if (!tg->regs) {
-		dev_err(&pdev->dev, "unable to iomap registers\n");
-		return -ENOMEM;
-	}
+	if (IS_ERR(tg->regs))
+		return PTR_ERR(tg->regs);
+
 
 	/* Save physical base address */
 	tg->phys_base_addr = res->start;
