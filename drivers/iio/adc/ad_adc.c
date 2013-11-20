@@ -195,7 +195,13 @@ static int adc_of_probe(struct platform_device *op)
 
 	init_completion(&st->dma_complete);
 
-	axiadc_configure_ring(indio_dev);
+	st->streaming_dma = of_property_read_bool(op->dev.of_node,
+                        "adi,streaming-dma");
+
+	if (st->streaming_dma)
+			axiadc_configure_ring_stream(indio_dev);
+	else
+			axiadc_configure_ring(indio_dev);
 
 	ret = iio_buffer_register(indio_dev,
 				  indio_dev->channels,
@@ -212,7 +218,10 @@ static int adc_of_probe(struct platform_device *op)
 	return 0;
 
 failed2:
-	axiadc_unconfigure_ring(indio_dev);
+	if (st->streaming_dma)
+		axiadc_unconfigure_ring_stream(indio_dev);
+	else
+		axiadc_unconfigure_ring(indio_dev);
 	dma_release_channel(st->rx_chan);
 failed1:
 	release_mem_region(phys_addr, remap_size);
