@@ -121,6 +121,16 @@ config VIDEO_S3C_CAMIF
 	  To compile this driver as a module, choose M here: the module
 	  will be called s3c-camif.
 
+config VIDEO_AXI_HDMI_RX
+	tristate "AXI-HDMI-RX support"
+	depends on MEDIA_SUPPORT && VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API
+	select I2C_ALGOBIT
+	select VIDEO_ADV7604
+	select VIDEOBUF2_DMA_CONTIG
+	---help---
+	  To compile this driver as a module, choose M here: the
+	  module will be called axi-hdmi-rx.
+
 source "drivers/media/platform/soc_camera/Kconfig"
 source "drivers/media/platform/exynos4-is/Kconfig"
 source "drivers/media/platform/s5p-tv/Kconfig"
