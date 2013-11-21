@@ -5,6 +5,7 @@
 
 # Place here, alphabetically sorted by directory
 # (e. g. LC_ALL=C sort Makefile)
+obj-y += adi/
 obj-y += allegro-dvt/
 obj-y += amlogic/
 obj-y += amphion/
