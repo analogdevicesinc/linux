@@ -122,6 +122,26 @@ config VIDEO_STM32_DCMI
 	  To compile this driver as a module, choose M here: the module
 	  will be called stm32-dcmi.
 
+config VIDEO_AXI_HDMI_RX
+	tristate "AXI-HDMI-RX support"
+	depends on MEDIA_SUPPORT && VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API
+	select I2C_ALGOBIT
+	select VIDEO_ADV7604
+	select VIDEOBUF2_DMA_CONTIG
+	---help---
+	  To compile this driver as a module, choose M here: the
+	  module will be called axi-hdmi-rx.
+
+config VIDEO_IMAGEON_BRIDGE
+	tristate "IMAGEON-BRIDGE support"
+	depends on MEDIA_SUPPORT && VIDEO_V4L2 && I2C && VIDEO_V4L2_SUBDEV_API
+	select I2C_ALGOBIT
+	select VIDEO_ADV7511
+	select VIDEO_ADV7604
+	---help---
+	  To compile this driver as a module, choose M here: the
+	  module will be called imageon-bridge.
+
 config VIDEO_RENESAS_CEU
 	tristate "Renesas Capture Engine Unit (CEU) driver"
 	depends on VIDEO_DEV && VIDEO_V4L2
