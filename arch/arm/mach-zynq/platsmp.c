@@ -30,11 +30,11 @@
 /*
  * Store number of cores in the system
  * Because of scu_get_core_count() must be in __init section and can't
- * be called from zynq_cpun_start() because it is in __cpuinit section.
+ * be called from zynq_cpun_start() because it is not in __init section.
  */
 static int ncores;
 
-int __cpuinit zynq_cpun_start(u32 address, int cpu)
+int zynq_cpun_start(u32 address, int cpu)
 {
 	u32 trampoline_code_size = &zynq_secondary_trampoline_end -
 						&zynq_secondary_trampoline;
@@ -92,7 +92,7 @@ int __cpuinit zynq_cpun_start(u32 address, int cpu)
 }
 EXPORT_SYMBOL(zynq_cpun_start);
 
-static int __cpuinit zynq_boot_secondary(unsigned int cpu,
+static int zynq_boot_secondary(unsigned int cpu,
 						struct task_struct *idle)
 {
 	return zynq_cpun_start(virt_to_phys(zynq_secondary_startup), cpu);
@@ -114,15 +114,6 @@ static void __init zynq_smp_init_cpus(void)
 
 static void __init zynq_smp_prepare_cpus(unsigned int max_cpus)
 {
-	int i;
-
-	/*
-	 * Initialise the present map, which describes the set of CPUs
-	 * actually populated at the present time.
-	 */
-	for (i = 0; i < max_cpus; i++)
-		set_cpu_present(i, true);
-
 	scu_enable(zynq_scu_base);
 }
 

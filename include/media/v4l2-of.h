@@ -53,7 +53,6 @@ struct v4l2_of_bus_parallel {
  * @port: identifier (value of reg property) of a port this endpoint belongs to
  * @id: identifier (value of reg property) of this endpoint
  * @local_node: pointer to device_node of this endpoint
- * @remote: phandle to remote endpoint node
  * @bus_type: bus type
  * @bus: bus configuration data structure
  * @head: list head for this structure
@@ -62,7 +61,6 @@ struct v4l2_of_endpoint {
 	unsigned int port;
 	unsigned int id;
 	const struct device_node *local_node;
-	const __be32 *remote;
 	enum v4l2_mbus_type bus_type;
 	union {
 		struct v4l2_of_bus_parallel parallel;
@@ -71,9 +69,26 @@ struct v4l2_of_endpoint {
 	struct list_head head;
 };
 
+/**
+ * struct v4l2_of_link - a link between two endpoints
+ * @local_node: pointer to device_node of this endpoint
+ * @local_port: identifier of the port this endpoint belongs to
+ * @remote_node: pointer to device_node of the remote endpoint
+ * @remote_port: identifier of the port the remote endpoint belongs to
+ */
+struct v4l2_of_link {
+	struct device_node *local_node;
+	unsigned int local_port;
+	struct device_node *remote_node;
+	unsigned int remote_port;
+};
+
 #ifdef CONFIG_OF
-void v4l2_of_parse_endpoint(const struct device_node *node,
-				struct v4l2_of_endpoint *link);
+int v4l2_of_parse_endpoint(const struct device_node *node,
+			   struct v4l2_of_endpoint *endpoint);
+int v4l2_of_parse_link(const struct device_node *node,
+		       struct v4l2_of_link *link);
+void v4l2_of_put_link(struct v4l2_of_link *link);
 struct device_node *v4l2_of_get_next_endpoint(const struct device_node *parent,
 					struct device_node *previous);
 struct device_node *v4l2_of_get_remote_port_parent(
@@ -85,6 +100,16 @@ static inline int v4l2_of_parse_endpoint(const struct device_node *node,
 					struct v4l2_of_endpoint *link)
 {
 	return -ENOSYS;
+}
+
+static inline int v4l2_of_parse_link(const struct device_node *node,
+				     struct v4l2_of_link *link)
+{
+	return -ENOSYS;
+}
+
+static inline void v4l2_of_put_link(struct v4l2_of_link *link)
+{
 }
 
 static inline struct device_node *v4l2_of_get_next_endpoint(

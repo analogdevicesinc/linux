@@ -6,7 +6,7 @@ config ARCH_ZYNQ
 	select CPU_V7
 	select GENERIC_CLOCKEVENTS
 	select HAVE_ARM_SCU if SMP
-	select HAVE_ARM_TWD if LOCAL_TIMERS
+	select HAVE_ARM_TWD if SMP
 	select ICST
 	select MIGHT_HAVE_CACHE_L2X0
 	select USE_OF
@@ -14,7 +14,6 @@ config ARCH_ZYNQ
 	select SPARSE_IRQ
 	select CACHE_L2X0
 	select ARCH_REQUIRE_GPIOLIB
-	select COMMON_CLK
 	select ARCH_HAS_CPUFREQ
 	select ARCH_HAS_OPP
 	select MIGHT_HAVE_PCI
@@ -41,9 +40,6 @@ config XILINX_L2_PREFETCH
 	  This option turns on L2 cache prefetching to get the best performance
 	  in many cases. This may not always be the best performance depending on
 	  the usage.
-
-config DMA_ENGINE
-	def_bool y
 
 config XILINX_AXIPCIE
 	bool "Xilinx AXI PCIe host bridge support"

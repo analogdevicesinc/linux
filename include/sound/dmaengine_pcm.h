@@ -61,6 +61,7 @@ struct dma_chan *snd_dmaengine_pcm_get_chan(struct snd_pcm_substream *substream)
  * @slave_id: Slave requester id for the DMA channel.
  * @filter_data: Custom DMA channel filter data, this will usually be used when
  * requesting the DMA channel.
+ * @fifo_size: FIFO size of the DAI controller in bytes
  */
 struct snd_dmaengine_dai_dma_data {
 	dma_addr_t addr;

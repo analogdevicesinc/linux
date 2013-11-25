@@ -224,13 +224,13 @@ MDC_DIV_64, MDC_DIV_96, MDC_DIV_128, MDC_DIV_224 };
 						Seconds */
 #define XEMACPS_PTPERXNS_OFFSET		0x000001EC /* PTP Event Frame Received
 						Nanoseconds */
-#define XEMACPS_PTPPTXS_OFFSET		0x000001E0 /* PTP Peer Frame
+#define XEMACPS_PTPPTXS_OFFSET		0x000001F0 /* PTP Peer Frame
 						Transmitted Seconds */
-#define XEMACPS_PTPPTXNS_OFFSET		0x000001E4 /* PTP Peer Frame
+#define XEMACPS_PTPPTXNS_OFFSET		0x000001F4 /* PTP Peer Frame
 						Transmitted Nanoseconds */
-#define XEMACPS_PTPPRXS_OFFSET		0x000001E8 /* PTP Peer Frame Received
+#define XEMACPS_PTPPRXS_OFFSET		0x000001F8 /* PTP Peer Frame Received
 						Seconds */
-#define XEMACPS_PTPPRXNS_OFFSET		0x000001EC /* PTP Peer Frame Received
+#define XEMACPS_PTPPRXNS_OFFSET		0x000001FC /* PTP Peer Frame Received
 						Nanoseconds */
 
 /* network control register bit definitions */
@@ -688,18 +688,15 @@ static void xemacps_adjust_link(struct net_device *ndev)
 				gmii2rgmii_reg |= XEMACPS_GMII2RGMII_SPEED1000;
 				xemacps_set_freq(lp->devclk, 125000000,
 						&lp->pdev->dev);
-			}
-			else if (phydev->speed == SPEED_100) {
+			} else if (phydev->speed == SPEED_100) {
 				regval |= XEMACPS_NWCFG_100_MASK;
 				gmii2rgmii_reg |= XEMACPS_GMII2RGMII_SPEED100;
 				xemacps_set_freq(lp->devclk, 25000000,
 						&lp->pdev->dev);
-			}
-			else if (phydev->speed == SPEED_10) {
+			} else if (phydev->speed == SPEED_10) {
 				xemacps_set_freq(lp->devclk, 2500000,
 						&lp->pdev->dev);
-			}
-			else {
+			} else {
 				dev_err(&lp->pdev->dev,
 					"%s: unknown PHY speed %d\n",
 					__func__, phydev->speed);
@@ -1830,6 +1827,7 @@ static int xemacps_open(struct net_device *ndev)
 		goto err_free_rings;
 	}
 
+	napi_enable(&lp->napi);
 	xemacps_init_hw(lp);
 	rc = xemacps_mii_probe(ndev);
 	if (rc != 0) {
@@ -1849,7 +1847,6 @@ static int xemacps_open(struct net_device *ndev)
 	mod_timer(&(lp->gen_purpose_timer),
 		jiffies + msecs_to_jiffies(XEAMCPS_GEN_PURPOSE_TIMER_LOAD));
 
-	napi_enable(&lp->napi);
 	netif_carrier_on(ndev);
 	netif_start_queue(ndev);
 	tasklet_enable(&lp->tx_bdreclaim_tasklet);
@@ -1983,6 +1980,26 @@ static int xemacps_set_mac_address(struct net_device *ndev, void *addr)
 }
 
 /**
+ * xemacps_clear_csum - Clear the csum field for  transport protocols
+ * @skb: socket buffer
+ * @ndev: network interface device structure
+ * return 0 on success, other value if error
+ **/
+static int xemacps_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+{
+	/* Only run for packets requiring a checksum. */
+	if (skb->ip_summed != CHECKSUM_PARTIAL)
+		return 0;
+
+	if (unlikely(skb_cow_head(skb, 0)))
+		return -1;
+
+	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
+
+	return 0;
+}
+
+/**
  * xemacps_start_xmit - transmit a packet (called by kernel)
  * @skb: socket buffer
  * @ndev: network interface device structure
@@ -2008,6 +2025,12 @@ static int xemacps_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		netif_stop_queue(ndev); /* stop send queue */
 		spin_unlock_bh(&lp->tx_lock);
 		return NETDEV_TX_BUSY;
+	}
+
+	if (xemacps_clear_csum(skb, ndev)) {
+		spin_unlock_bh(&lp->tx_lock);
+		kfree(skb);
+		return NETDEV_TX_OK;
 	}
 
 	bd_tail = lp->tx_bd_tail;
@@ -2589,7 +2612,6 @@ static int xemacps_probe(struct platform_device *pdev)
 
 	lp->baseaddr = devm_ioremap_resource(&pdev->dev, r_mem);
 	if (IS_ERR(lp->baseaddr)) {
-		dev_err(&pdev->dev, "failed to map baseaddress.\n");
 		rc = PTR_ERR(lp->baseaddr);
 		goto err_out_free_netdev;
 	}
@@ -2718,7 +2740,7 @@ err_out_unregister_netdev:
 	unregister_netdev(ndev);
 err_out_free_netdev:
 	free_netdev(ndev);
-	platform_set_drvdata(pdev, NULL);
+
 	return rc;
 }
 

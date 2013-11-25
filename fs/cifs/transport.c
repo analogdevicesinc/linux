@@ -410,8 +410,13 @@ static int
 wait_for_free_request(struct TCP_Server_Info *server, const int timeout,
 		      const int optype)
 {
-	return wait_for_free_credits(server, timeout,
-				server->ops->get_credits_field(server, optype));
+	int *val;
+
+	val = server->ops->get_credits_field(server, optype);
+	/* Since an echo is already inflight, no need to wait to send another */
+	if (*val <= 0 && optype == CIFS_ECHO_OP)
+		return -EAGAIN;
+	return wait_for_free_credits(server, timeout, val);
 }
 
 static int allocate_mid(struct cifs_ses *ses, struct smb_hdr *in_buf,
@@ -447,7 +452,7 @@ wait_for_response(struct TCP_Server_Info *server, struct mid_q_entry *midQ)
 {
 	int error;
 
-	error = wait_event_freezekillable(server->response_q,
+	error = wait_event_freezekillable_unsafe(server->response_q,
 				    midQ->mid_state != MID_REQUEST_SUBMITTED);
 	if (error < 0)
 		return -ERESTARTSYS;
@@ -463,7 +468,7 @@ cifs_setup_async_request(struct TCP_Server_Info *server, struct smb_rqst *rqst)
 	struct mid_q_entry *mid;
 
 	/* enable signing if server requires it */
-	if (server->sec_mode & (SECMODE_SIGN_REQUIRED | SECMODE_SIGN_ENABLED))
+	if (server->sign)
 		hdr->Flags2 |= SMBFLG2_SECURITY_SIGNATURE;
 
 	mid = AllocMidQEntry(hdr, server);
@@ -612,7 +617,7 @@ cifs_check_receive(struct mid_q_entry *mid, struct TCP_Server_Info *server,
 	dump_smb(mid->resp_buf, min_t(u32, 92, len));
 
 	/* convert the length into a more usable form */
-	if (server->sec_mode & (SECMODE_SIGN_REQUIRED | SECMODE_SIGN_ENABLED)) {
+	if (server->sign) {
 		struct kvec iov;
 		int rc = 0;
 		struct smb_rqst rqst = { .rq_iov = &iov,

@@ -1,0 +1,203 @@
+/*
+ * Arasan Secure Digital Host Controller Interface.
+ * Copyright (C) 2011 - 2012 Michal Simek <monstr@monstr.eu>
+ * Copyright (c) 2012 Wind River Systems, Inc.
+ * Copyright (C) 2013 Xilinx Inc.
+ *
+ * Based on sdhci-of-esdhc.c
+ *
+ * Copyright (c) 2007 Freescale Semiconductor, Inc.
+ * Copyright (c) 2009 MontaVista Software, Inc.
+ *
+ * Authors: Xiaobo Xie <X.Xie@freescale.com>
+ *	    Anton Vorontsov <avorontsov@ru.mvista.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
+ */
+
+#include <linux/module.h>
+#include "sdhci-pltfm.h"
+
+/**
+ * struct sdhci_arasan_data
+ * @clk_xin:	Pointer to the SD clock
+ * @clk_ahb:	Pointer to the AHB clock
+ */
+struct sdhci_arasan_data {
+	struct clk	*clk_xin;
+	struct clk	*clk_ahb;
+};
+
+static unsigned int arasan_get_max_clock(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+
+	return pltfm_host->clock;
+}
+
+static struct sdhci_ops sdhci_arasan_ops = {
+	.get_max_clock = arasan_get_max_clock,
+};
+
+static struct sdhci_pltfm_data sdhci_arasan_pdata = {
+	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
+		SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK,
+	.ops = &sdhci_arasan_ops,
+};
+
+#ifdef CONFIG_PM_SLEEP
+/**
+ * sdhci_arasan_suspend - Suspend method for the driver
+ * @dev:	Address of the device structure
+ * Returns 0 on success and error value on error
+ *
+ * Put the device in a low power state.
+ */
+static int sdhci_arasan_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sdhci_host *host = platform_get_drvdata(pdev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_arasan_data *sdhci_arasan = pltfm_host->priv;
+	int ret;
+
+	ret = sdhci_suspend_host(host);
+	if (ret)
+		return ret;
+
+	clk_disable(sdhci_arasan->clk_xin);
+	clk_disable(sdhci_arasan->clk_ahb);
+
+	return 0;
+}
+
+/**
+ * sdhci_arasan_resume - Resume method for the driver
+ * @dev:	Address of the device structure
+ * Returns 0 on success and error value on error
+ *
+ * Resume operation after suspend
+ */
+static int sdhci_arasan_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sdhci_host *host = platform_get_drvdata(pdev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_arasan_data *sdhci_arasan = pltfm_host->priv;
+	int ret;
+
+	ret = clk_enable(sdhci_arasan->clk_ahb);
+	if (ret) {
+		dev_err(dev, "Cannot enable AHB clock.\n");
+		return ret;
+	}
+
+	ret = clk_enable(sdhci_arasan->clk_xin);
+	if (ret) {
+		dev_err(dev, "Cannot enable SD clock.\n");
+		clk_disable(sdhci_arasan->clk_ahb);
+		return ret;
+	}
+
+	return sdhci_resume_host(host);
+}
+#endif /* ! CONFIG_PM_SLEEP */
+
+static SIMPLE_DEV_PM_OPS(sdhci_arasan_dev_pm_ops, sdhci_arasan_suspend,
+			 sdhci_arasan_resume);
+
+static int sdhci_arasan_probe(struct platform_device *pdev)
+{
+	int ret;
+	struct sdhci_host *host;
+	struct sdhci_pltfm_host *pltfm_host;
+	struct sdhci_arasan_data *sdhci_arasan;
+
+	sdhci_arasan = devm_kzalloc(&pdev->dev, sizeof(*sdhci_arasan),
+			GFP_KERNEL);
+	if (!sdhci_arasan)
+		return -ENOMEM;
+
+	sdhci_arasan->clk_ahb = devm_clk_get(&pdev->dev, "clk_ahb");
+	if (IS_ERR(sdhci_arasan->clk_ahb)) {
+		dev_err(&pdev->dev, "clk_ahb clock not found.\n");
+		return PTR_ERR(sdhci_arasan->clk_ahb);
+	}
+
+	sdhci_arasan->clk_xin = devm_clk_get(&pdev->dev, "clk_xin");
+	if (IS_ERR(sdhci_arasan->clk_xin)) {
+		dev_err(&pdev->dev, "clk_xin clock not found.\n");
+		return PTR_ERR(sdhci_arasan->clk_xin);
+	}
+
+	ret = clk_prepare_enable(sdhci_arasan->clk_ahb);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to enable AHB clock.\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(sdhci_arasan->clk_xin);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to enable SD clock.\n");
+		goto clk_dis_ahb;
+	}
+
+	ret = sdhci_pltfm_register(pdev, &sdhci_arasan_pdata, 0);
+	if (ret) {
+		dev_err(&pdev->dev, "Platform registration failed\n");
+		goto clk_disable_all;
+	}
+
+	host = platform_get_drvdata(pdev);
+	pltfm_host = sdhci_priv(host);
+	pltfm_host->priv = sdhci_arasan;
+
+	return 0;
+
+clk_disable_all:
+	clk_disable_unprepare(sdhci_arasan->clk_xin);
+clk_dis_ahb:
+	clk_disable_unprepare(sdhci_arasan->clk_ahb);
+
+	return ret;
+}
+
+static int sdhci_arasan_remove(struct platform_device *pdev)
+{
+	struct sdhci_host *host = platform_get_drvdata(pdev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_arasan_data *sdhci_arasan = pltfm_host->priv;
+
+	clk_disable_unprepare(sdhci_arasan->clk_xin);
+	clk_disable_unprepare(sdhci_arasan->clk_ahb);
+
+	return sdhci_pltfm_unregister(pdev);
+}
+
+static const struct of_device_id sdhci_arasan_of_match[] = {
+	{ .compatible = "arasan,sdhci" },
+	{ .compatible = "xlnx,ps7-sdhci-1.00.a" },
+	{ .compatible = "generic-sdhci" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, sdhci_arasan_of_match);
+
+static struct platform_driver sdhci_arasan_driver = {
+	.driver = {
+		.name = "sdhci-arasan",
+		.owner = THIS_MODULE,
+		.of_match_table = sdhci_arasan_of_match,
+		.pm = &sdhci_arasan_dev_pm_ops,
+	},
+	.probe = sdhci_arasan_probe,
+	.remove = sdhci_arasan_remove,
+};
+
+module_platform_driver(sdhci_arasan_driver);
+
+MODULE_DESCRIPTION("Driver for the Arasan SDHCI Controller");
+MODULE_AUTHOR("Michal Simek <monstr@monstr.eu>, Vlad Lungu <vlad.lungu@windriver.com>");
+MODULE_LICENSE("GPL");

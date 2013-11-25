@@ -128,10 +128,8 @@ static const u8 aic3x_reg[AIC3X_CACHEREGNUM] = {
 };
 
 #define SOC_DAPM_SINGLE_AIC3X(xname, reg, shift, mask, invert) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_volsw, \
-	.get = snd_soc_dapm_get_volsw, .put = snd_soc_dapm_put_volsw_aic3x, \
-	.private_value =  SOC_SINGLE_VALUE(reg, shift, mask, invert) }
+	SOC_SINGLE_EXT(xname, reg, shift, mask, invert, \
+		snd_soc_dapm_get_volsw, snd_soc_dapm_put_volsw_aic3x)
 
 /*
  * All input lines are connected when !0xf and disconnected with 0xf bit field,
@@ -676,6 +674,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	/* Left Input */
 	{"Left Line1L Mux", "single-ended", "LINE1L"},
 	{"Left Line1L Mux", "differential", "LINE1L"},
+	{"Left Line1R Mux", "single-ended", "LINE1R"},
+	{"Left Line1R Mux", "differential", "LINE1R"},
 
 	{"Left Line2L Mux", "single-ended", "LINE2L"},
 	{"Left Line2L Mux", "differential", "LINE2L"},
@@ -692,6 +692,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	/* Right Input */
 	{"Right Line1R Mux", "single-ended", "LINE1R"},
 	{"Right Line1R Mux", "differential", "LINE1R"},
+	{"Right Line1L Mux", "single-ended", "LINE1L"},
+	{"Right Line1L Mux", "differential", "LINE1L"},
 
 	{"Right Line2R Mux", "single-ended", "LINE2R"},
 	{"Right Line2R Mux", "differential", "LINE2R"},
@@ -1476,6 +1478,7 @@ static const struct i2c_device_id aic3x_i2c_id[] = {
 	{ "tlv320aic3x", AIC3X_MODEL_3X },
 	{ "tlv320aic33", AIC3X_MODEL_33 },
 	{ "tlv320aic3007", AIC3X_MODEL_3007 },
+	{ "tlv320aic3106", AIC3X_MODEL_3X },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, aic3x_i2c_id);
@@ -1566,6 +1569,9 @@ static int aic3x_i2c_remove(struct i2c_client *client)
 #if defined(CONFIG_OF)
 static const struct of_device_id tlv320aic3x_of_match[] = {
 	{ .compatible = "ti,tlv320aic3x", },
+	{ .compatible = "ti,tlv320aic33" },
+	{ .compatible = "ti,tlv320aic3007" },
+	{ .compatible = "ti,tlv320aic3106" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, tlv320aic3x_of_match);

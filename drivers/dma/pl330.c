@@ -157,7 +157,6 @@ enum pl330_reqtype {
 #define PERIPH_REV_R0P0		0
 #define PERIPH_REV_R1P0		1
 #define PERIPH_REV_R1P1		2
-#define PCELL_ID		0xff0
 
 #define CR0_PERIPH_REQ_SET	(1 << 0)
 #define CR0_BOOT_EN_SET		(1 << 1)
@@ -192,8 +191,6 @@ enum pl330_reqtype {
 #define REVISION		0x0
 #define INTEG_CFG		0x0
 #define PERIPH_ID_VAL		((PART << 0) | (DESIGNER << 12))
-
-#define PCELL_ID_VAL		0xb105f00d
 
 #define PL330_STATE_STOPPED		(1 << 0)
 #define PL330_STATE_EXECUTING		(1 << 1)
@@ -292,7 +289,6 @@ static unsigned cmd_line;
 /* Populated by the PL330 core driver for DMA API driver's info */
 struct pl330_config {
 	u32	periph_id;
-	u32	pcell_id;
 #define DMAC_MODE_NS	(1 << 0)
 	unsigned int	mode;
 	unsigned int	data_bus_width:10; /* In number of bits */
@@ -505,7 +501,7 @@ struct pl330_dmac {
 	/* Maximum possible events/irqs */
 	int			events[32];
 	/* BUS address of MicroCode buffer */
-	u32			mcode_bus;
+	dma_addr_t		mcode_bus;
 	/* CPU address of MicroCode buffer */
 	void			*mcode_cpu;
 	/* List of all Channel threads */
@@ -582,6 +578,9 @@ struct dma_pl330_dmac {
 	/* DMA-Engine Device */
 	struct dma_device ddma;
 
+	/* Holds info about sg limitations */
+	struct device_dma_parameters dma_parms;
+
 	/* Pool of descriptors available for the DMAC's channels */
 	struct list_head desc_pool;
 	/* To protect desc_pool manipulation */
@@ -650,19 +649,6 @@ static inline bool _manager_ns(struct pl330_thread *thrd)
 	struct pl330_dmac *pl330 = thrd->dmac;
 
 	return (pl330->pinfo->pcfg.mode & DMAC_MODE_NS) ? true : false;
-}
-
-static inline u32 get_id(struct pl330_info *pi, u32 off)
-{
-	void __iomem *regs = pi->base;
-	u32 id = 0;
-
-	id |= (readb(regs + off + 0x0) << 0);
-	id |= (readb(regs + off + 0x4) << 8);
-	id |= (readb(regs + off + 0x8) << 16);
-	id |= (readb(regs + off + 0xc) << 24);
-
-	return id;
 }
 
 static inline u32 get_revision(u32 periph_id)
@@ -1990,9 +1976,6 @@ static void read_dmac_config(struct pl330_info *pi)
 	pi->pcfg.num_events = val;
 
 	pi->pcfg.irq_ns = readl(regs + CR3);
-
-	pi->pcfg.periph_id = get_id(pi, PERIPH_ID);
-	pi->pcfg.pcell_id = get_id(pi, PCELL_ID);
 }
 
 static inline void _reset_thread(struct pl330_thread *thrd)
@@ -2102,10 +2085,8 @@ static int pl330_add(struct pl330_info *pi)
 	regs = pi->base;
 
 	/* Check if we can handle this DMAC */
-	if ((get_id(pi, PERIPH_ID) & 0xfffff) != PERIPH_ID_VAL
-	   || get_id(pi, PCELL_ID) != PCELL_ID_VAL) {
-		dev_err(pi->dev, "PERIPH_ID 0x%x, PCELL_ID 0x%x !\n",
-			get_id(pi, PERIPH_ID), get_id(pi, PCELL_ID));
+	if ((pi->pcfg.periph_id & 0xfffff) != PERIPH_ID_VAL) {
+		dev_err(pi->dev, "PERIPH_ID 0x%x !\n", pi->pcfg.periph_id);
 		return -EINVAL;
 	}
 
@@ -2453,9 +2434,9 @@ static void pl330_free_chan_resources(struct dma_chan *chan)
 	struct dma_pl330_chan *pch = to_pchan(chan);
 	unsigned long flags;
 
-	spin_lock_irqsave(&pch->lock, flags);
-
 	tasklet_kill(&pch->task);
+
+	spin_lock_irqsave(&pch->lock, flags);
 
 	pl330_release_channel(pch->pl330_chid);
 	pch->pl330_chid = NULL;
@@ -2692,11 +2673,7 @@ static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
 	if (len % period_len != 0)
 		return NULL;
 
-	switch (direction) {
-	case DMA_MEM_TO_DEV:
-	case DMA_DEV_TO_MEM:
-		break;
-	default:
+	if (!is_slave_direction(direction)) {
 		dev_err(pch->dmac->pif.dev, "%s:%d Invalid dma direction\n",
 		__func__, __LINE__);
 		return NULL;
@@ -2808,6 +2785,28 @@ pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
 	return &desc->txd;
 }
 
+static void __pl330_giveback_desc(struct dma_pl330_dmac *pdmac,
+				  struct dma_pl330_desc *first)
+{
+	unsigned long flags;
+	struct dma_pl330_desc *desc;
+
+	if (!first)
+		return;
+
+	spin_lock_irqsave(&pdmac->pool_lock, flags);
+
+	while (!list_empty(&first->node)) {
+		desc = list_entry(first->node.next,
+				struct dma_pl330_desc, node);
+		list_move_tail(&desc->node, &pdmac->desc_pool);
+	}
+
+	list_move_tail(&first->node, &pdmac->desc_pool);
+
+	spin_unlock_irqrestore(&pdmac->pool_lock, flags);
+}
+
 static struct dma_async_tx_descriptor *
 pl330_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		unsigned int sg_len, enum dma_transfer_direction direction,
@@ -2816,7 +2815,6 @@ pl330_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	struct dma_pl330_desc *first, *desc = NULL;
 	struct dma_pl330_chan *pch = to_pchan(chan);
 	struct scatterlist *sg;
-	unsigned long flags;
 	int i;
 	dma_addr_t addr;
 
@@ -2836,20 +2834,7 @@ pl330_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 			dev_err(pch->dmac->pif.dev,
 				"%s:%d Unable to fetch desc\n",
 				__func__, __LINE__);
-			if (!first)
-				return NULL;
-
-			spin_lock_irqsave(&pdmac->pool_lock, flags);
-
-			while (!list_empty(&first->node)) {
-				desc = list_entry(first->node.next,
-						struct dma_pl330_desc, node);
-				list_move_tail(&desc->node, &pdmac->desc_pool);
-			}
-
-			list_move_tail(&first->node, &pdmac->desc_pool);
-
-			spin_unlock_irqrestore(&pdmac->pool_lock, flags);
+			__pl330_giveback_desc(pdmac, first);
 
 			return NULL;
 		}
@@ -2890,12 +2875,21 @@ static irqreturn_t pl330_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 }
 
-static int pl330_device_slave_sg_limits(struct dma_chan *dchan,
-		enum dma_slave_buswidth addr_width,
-		u32 maxburst, struct dma_slave_sg_limits *limits)
+#define PL330_DMA_BUSWIDTHS \
+	BIT(DMA_SLAVE_BUSWIDTH_UNDEFINED) | \
+	BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | \
+	BIT(DMA_SLAVE_BUSWIDTH_2_BYTES) | \
+	BIT(DMA_SLAVE_BUSWIDTH_4_BYTES) | \
+	BIT(DMA_SLAVE_BUSWIDTH_8_BYTES)
+
+static int pl330_dma_device_slave_caps(struct dma_chan *dchan,
+	struct dma_slave_caps *caps)
 {
-	limits->max_seg_len = 1 << 24;
-	limits->max_seg_nr = 0;
+	caps->src_addr_widths = PL330_DMA_BUSWIDTHS;
+	caps->dstn_addr_widths = PL330_DMA_BUSWIDTHS;
+	caps->directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV);
+	caps->cmd_pause = false;
+	caps->cmd_terminate = true;
 
 	return 0;
 }
@@ -2911,9 +2905,8 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	struct resource *res;
 	int i, ret, irq;
 	int num_chan;
-	u32 dma_channels;
 
-	pdat = adev->dev.platform_data;
+	pdat = dev_get_platdata(&adev->dev);
 
 	/* Allocate a new DMAC and its Channels */
 	pdmac = devm_kzalloc(&adev->dev, sizeof(*pdmac), GFP_KERNEL);
@@ -2934,18 +2927,20 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 
 	amba_set_drvdata(adev, pdmac);
 
-	of_property_read_u32(adev->dev.of_node,
-			     "#dma-channels", &dma_channels);
-
-	/* irq 0 is abort IRQ */
-	for (i = 1; i <= dma_channels ; i++) {
+	for (i = 0; i <= AMBA_NR_IRQS; i++) {
 		irq = adev->irq[i];
-		ret = devm_request_irq(&adev->dev, irq, pl330_irq_handler, 0,
-				dev_name(&adev->dev), pi);
-		if (ret)
-			return ret;
+		if (irq) {
+			ret = devm_request_irq(&adev->dev, irq,
+					       pl330_irq_handler, 0,
+					       dev_name(&adev->dev), pi);
+			if (ret)
+				return ret;
+		} else {
+			break;
+		}
 	}
 
+	pi->pcfg.periph_id = adev->periphid;
 	ret = pl330_add(pi);
 	if (ret)
 		return ret;
@@ -3011,7 +3006,7 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	pd->device_prep_slave_sg = pl330_prep_slave_sg;
 	pd->device_control = pl330_control;
 	pd->device_issue_pending = pl330_issue_pending;
-	pd->device_slave_sg_limits = pl330_device_slave_sg_limits;
+	pd->device_slave_caps = pl330_dma_device_slave_caps;
 
 	ret = dma_async_device_register(pd);
 	if (ret) {
@@ -3027,6 +3022,17 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 			"unable to register DMA to the generic DT DMA helpers\n");
 		}
 	}
+
+	adev->dev.dma_parms = &pdmac->dma_parms;
+
+	/*
+	 * This is the limit for transfers with a buswidth of 1, larger
+	 * buswidths will have larger limits.
+	 */
+	ret = dma_set_max_seg_size(&adev->dev, 1900800);
+	if (ret)
+		dev_err(&adev->dev, "unable to set the seg size\n");
+
 
 	dev_info(&adev->dev,
 		"Loaded driver for PL330 DMAC-%d\n", adev->periphid);

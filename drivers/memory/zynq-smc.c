@@ -56,15 +56,14 @@
 				 (1 << 24)) /* Read col change end cmd valid */
 /**
  * struct xsmcps_data
- * @devclk		Pointer to the peripheral clock
- * @aperclk		Pointer to the APER clock
- * @clk_rate_change_nb	Notifier block for clock frequency change callback
+ * @devclk:		Pointer to the peripheral clock
+ * @aperclk:		Pointer to the APER clock
+ * @clk_rate_change_nb:	Notifier block for clock frequency change callback
  */
 struct xsmcps_data {
 	struct clk		*devclk;
 	struct clk		*aperclk;
 	struct notifier_block	clk_rate_change_nb;
-	struct resource		*res;
 };
 
 /* SMC virtual register base */
@@ -73,7 +72,7 @@ static DEFINE_SPINLOCK(xsmcps_lock);
 
 /**
  * xsmcps_set_buswidth - Set memory buswidth
- * @bw	Memory buswidth (8 | 16)
+ * @bw:	Memory buswidth (8 | 16)
  * Returns 0 on success or negative errno.
  *
  * Must be called with xsmcps_lock held.
@@ -96,20 +95,20 @@ static int xsmcps_set_buswidth(unsigned int bw)
 
 /**
  * xsmcps_set_cycles - Set memory timing parameters
- * @t0	t_rc		read cycle time
- * @t1	t_wc		write cycle time
- * @t2	t_rea/t_ceoe	output enable assertion delay
- * @t3	t_wp		write enable deassertion delay
- * @t4	t_clr/t_pc	page cycle time
- * @t5	t_ar/t_ta	ID read time/turnaround time
- * @t6	t_rr		busy to RE timing
+ * @t0:	t_rc		read cycle time
+ * @t1:	t_wc		write cycle time
+ * @t2:	t_rea/t_ceoe	output enable assertion delay
+ * @t3:	t_wp		write enable deassertion delay
+ * @t4:	t_clr/t_pc	page cycle time
+ * @t5:	t_ar/t_ta	ID read time/turnaround time
+ * @t6:	t_rr		busy to RE timing
  *
  * Sets NAND chip specific timing parameters.
  *
  * Must be called with xsmcps_lock held.
  */
 static void xsmcps_set_cycles(u32 t0, u32 t1, u32 t2, u32 t3, u32
-		t4, u32 t5, u32 t6)
+			      t4, u32 t5, u32 t6)
 {
 	t0 &= 0xf;
 	t1 = (t1 & 0xf) << 4;
@@ -133,7 +132,7 @@ static void xsmcps_set_cycles(u32 t0, u32 t1, u32 t2, u32 t3, u32
 static int xsmcps_ecc_is_busy_noirq(void)
 {
 	return !!(readl(xsmcps_base + XSMCPS_ECC_STATUS_OFFS) &
-			XSMCPS_ECC_STATUS_BUSY);
+		  XSMCPS_ECC_STATUS_BUSY);
 }
 
 /**
@@ -157,7 +156,7 @@ EXPORT_SYMBOL_GPL(xsmcps_ecc_is_busy);
 
 /**
  * xsmcps_get_ecc_val - Read ecc_valueN registers
- * @ecc_reg	Index of the ecc_value reg (0..3)
+ * @ecc_reg:	Index of the ecc_value reg (0..3)
  * Returns the content of the requested ecc_value register.
  *
  * There are four valid ecc_value registers. The argument is truncated to stay
@@ -165,8 +164,7 @@ EXPORT_SYMBOL_GPL(xsmcps_ecc_is_busy);
  */
 u32 xsmcps_get_ecc_val(int ecc_reg)
 {
-	u32 reg;
-	u32 addr;
+	u32 addr, reg;
 	unsigned long flags;
 
 	ecc_reg &= 3;
@@ -221,7 +219,7 @@ EXPORT_SYMBOL_GPL(xsmcps_clr_nand_int);
 
 /**
  * xsmcps_set_ecc_mode - Set SMC ECC mode
- * @mode	ECC mode (BYPASS, APB, MEM)
+ * @mode:	ECC mode (BYPASS, APB, MEM)
  * Returns 0 on success or negative errno.
  */
 int xsmcps_set_ecc_mode(enum xsmcps_ecc_mode mode)
@@ -253,13 +251,12 @@ EXPORT_SYMBOL_GPL(xsmcps_set_ecc_mode);
 
 /**
  * xsmcps_set_ecc_pg_size - Set SMC ECC page size
- * @pg_sz	ECC page size
+ * @pg_sz:	ECC page size
  * Returns 0 on success or negative errno.
  */
 int xsmcps_set_ecc_pg_size(unsigned int pg_sz)
 {
-	u32 reg;
-	u32 sz;
+	u32 reg, sz;
 	unsigned long flags;
 
 	switch (pg_sz) {
@@ -293,9 +290,8 @@ int xsmcps_set_ecc_pg_size(unsigned int pg_sz)
 EXPORT_SYMBOL_GPL(xsmcps_set_ecc_pg_size);
 
 static int xsmcps_clk_notifier_cb(struct notifier_block *nb,
-		unsigned long event, void *data)
+				  unsigned long event, void *data)
 {
-
 	switch (event) {
 	case PRE_RATE_CHANGE:
 		/*
@@ -347,11 +343,11 @@ static SIMPLE_DEV_PM_OPS(xsmcps_dev_pm_ops, xsmcps_suspend, xsmcps_resume);
 
 /**
  * xsmcps_init_nand_interface - Initialize the NAND interface
- * @pdev	Pointer to the platform_device struct
- * @nand_node	Pointer to the xnandps device_node struct
+ * @pdev:	Pointer to the platform_device struct
+ * @nand_node:	Pointer to the xnandps device_node struct
  */
 static void xsmcps_init_nand_interface(struct platform_device *pdev,
-		struct device_node *nand_node)
+				       struct device_node *nand_node)
 {
 	u32 t_rc, t_wc, t_rea, t_wp, t_clr, t_ar, t_rr;
 	unsigned int bw;
@@ -361,7 +357,7 @@ static void xsmcps_init_nand_interface(struct platform_device *pdev,
 	err = of_property_read_u32(nand_node, "xlnx,nand-width", &bw);
 	if (err) {
 		dev_warn(&pdev->dev,
-				"xlnx,nand-width not in device tree, using 8");
+			 "xlnx,nand-width not in device tree, using 8");
 		bw = 8;
 	}
 	/* nand-cycle-<X> property is refer to the NAND flash timing
@@ -450,12 +446,13 @@ default_nand_timing:
 	spin_unlock_irqrestore(&xsmcps_lock, flags);
 }
 
-const struct of_device_id matches_nor[] = {
-	{.compatible = "cfi-flash"},
+static const struct of_device_id matches_nor[] = {
+	{ .compatible = "cfi-flash" },
 	{}
 };
-const struct of_device_id matches_nand[] = {
-	{.compatible = "xlnx,ps7-nand-1.00.a"},
+
+static const struct of_device_id matches_nand[] = {
+	{ .compatible = "xlnx,ps7-nand-1.00.a" },
 	{}
 };
 
@@ -463,35 +460,38 @@ static int xsmcps_probe(struct platform_device *pdev)
 {
 	struct xsmcps_data *xsmcps;
 	struct device_node *child;
+	struct resource *res;
 	unsigned long flags;
 	int err;
 	struct device_node *of_node = pdev->dev.of_node;
 	const struct of_device_id *matches = NULL;
 
-	xsmcps = kzalloc(sizeof(*xsmcps), GFP_KERNEL);
-	if (!xsmcps) {
-		dev_err(&pdev->dev, "unable to allocate memory\n");
+	xsmcps = devm_kzalloc(&pdev->dev, sizeof(*xsmcps), GFP_KERNEL);
+	if (!xsmcps)
 		return -ENOMEM;
-	}
 
-	xsmcps->aperclk = clk_get(&pdev->dev, "aper_clk");
+	/* Get the NAND controller virtual address */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	xsmcps_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(xsmcps_base))
+		return PTR_ERR(xsmcps_base);
+
+	xsmcps->aperclk = devm_clk_get(&pdev->dev, "aper_clk");
 	if (IS_ERR(xsmcps->aperclk)) {
 		dev_err(&pdev->dev, "aper_clk clock not found.\n");
-		err = PTR_ERR(xsmcps->aperclk);
-		goto out_free;
+		return PTR_ERR(xsmcps->aperclk);
 	}
 
-	xsmcps->devclk = clk_get(&pdev->dev, "ref_clk");
+	xsmcps->devclk = devm_clk_get(&pdev->dev, "ref_clk");
 	if (IS_ERR(xsmcps->devclk)) {
 		dev_err(&pdev->dev, "ref_clk clock not found.\n");
-		err = PTR_ERR(xsmcps->devclk);
-		goto out_clk_put_aper;
+		return PTR_ERR(xsmcps->devclk);
 	}
 
 	err = clk_prepare_enable(xsmcps->aperclk);
 	if (err) {
 		dev_err(&pdev->dev, "Unable to enable APER clock.\n");
-		goto out_clk_put;
+		return err;
 	}
 
 	err = clk_prepare_enable(xsmcps->devclk);
@@ -506,27 +506,6 @@ static int xsmcps_probe(struct platform_device *pdev)
 	if (clk_notifier_register(xsmcps->devclk, &xsmcps->clk_rate_change_nb))
 		dev_warn(&pdev->dev, "Unable to register clock notifier.\n");
 
-	/* Get the NAND controller virtual address */
-	xsmcps->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!xsmcps->res) {
-		err = -ENODEV;
-		dev_err(&pdev->dev, "platform_get_resource failed\n");
-		goto out_clk_disable;
-	}
-	xsmcps->res = request_mem_region(xsmcps->res->start,
-			resource_size(xsmcps->res), pdev->name);
-	if (!xsmcps->res) {
-		err = -ENOMEM;
-		dev_err(&pdev->dev, "request_mem_region failed\n");
-		goto out_clk_disable;
-	}
-
-	xsmcps_base = ioremap(xsmcps->res->start, resource_size(xsmcps->res));
-	if (!xsmcps_base) {
-		err = -EIO;
-		dev_err(&pdev->dev, "ioremap failed\n");
-		goto out_release_mem_region;
-	}
 
 	/* clear interrupts */
 	spin_lock_irqsave(&xsmcps_lock, flags);
@@ -544,19 +523,19 @@ static int xsmcps_probe(struct platform_device *pdev)
 			} else {
 				dev_err(&pdev->dev,
 					"incompatible configuration\n");
-				goto out_release_mem_region;
+				goto out_clk_disable;
 			}
 		}
 
 		if (of_match_node(matches_nor, child)) {
-			static int counts = 0;
+			static int counts;
 			if (!matches) {
 				matches = matches_nor;
 			} else {
 				if (matches != matches_nor || counts > 1) {
 					dev_err(&pdev->dev,
 						"incompatible configuration\n");
-					goto out_release_mem_region;
+					goto out_clk_disable;
 				}
 			}
 			counts++;
@@ -568,19 +547,10 @@ static int xsmcps_probe(struct platform_device *pdev)
 
 	return 0;
 
-out_release_mem_region:
-	release_mem_region(xsmcps->res->start, resource_size(xsmcps->res));
-	kfree(xsmcps->res);
 out_clk_disable:
 	clk_disable_unprepare(xsmcps->devclk);
 out_clk_dis_aper:
 	clk_disable_unprepare(xsmcps->aperclk);
-out_clk_put:
-	clk_put(xsmcps->devclk);
-out_clk_put_aper:
-	clk_put(xsmcps->aperclk);
-out_free:
-	kfree(xsmcps);
 
 	return err;
 }
@@ -590,21 +560,15 @@ static int xsmcps_remove(struct platform_device *pdev)
 	struct xsmcps_data *xsmcps = platform_get_drvdata(pdev);
 
 	clk_notifier_unregister(xsmcps->devclk, &xsmcps->clk_rate_change_nb);
-	release_mem_region(xsmcps->res->start, resource_size(xsmcps->res));
-	kfree(xsmcps->res);
-	iounmap(xsmcps_base);
 	clk_disable_unprepare(xsmcps->devclk);
 	clk_disable_unprepare(xsmcps->aperclk);
-	clk_put(xsmcps->devclk);
-	clk_put(xsmcps->aperclk);
-	kfree(xsmcps);
 
 	return 0;
 }
 
 /* Match table for device tree binding */
 static const struct of_device_id xsmcps_of_match[] = {
-	{.compatible = "xlnx,ps7-smc"},
+	{ .compatible = "xlnx,ps7-smc" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, xsmcps_of_match);

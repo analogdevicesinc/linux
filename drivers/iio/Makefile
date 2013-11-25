@@ -22,3 +22,6 @@ obj-y += frequency/
 obj-y += imu/
 obj-y += light/
 obj-y += magnetometer/
+obj-y += pressure/
+obj-y += temperature/
+obj-y += trigger/

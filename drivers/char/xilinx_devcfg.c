@@ -33,8 +33,8 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 
-extern void xslcr_init_preload_fpga(void);
-extern void xslcr_init_postload_fpga(void);
+extern void zynq_slcr_init_preload_fpga(void);
+extern void zynq_slcr_init_postload_fpga(void);
 
 #define DRIVER_NAME "xdevcfg"
 #define XDEVCFG_DEVICES 1
@@ -512,11 +512,11 @@ static int xdevcfg_open(struct inode *inode, struct file *file)
 
 	/*
 	 * If is_partial_bitstream is set, then PROG_B is not asserted
-	 * (xdevcfg_reset_pl function) and also xslcr_init_preload_fpga and
-	 * xslcr_init_postload_fpga functions are not invoked.
+	 * (xdevcfg_reset_pl function) and also zynq_slcr_init_preload_fpga and
+	 * zynq_slcr_init_postload_fpga functions are not invoked.
 	 */
 	if (!drvdata->is_partial_bitstream)
-		xslcr_init_preload_fpga();
+		zynq_slcr_init_preload_fpga();
 
 	/*
 	 * Only do the reset of the PL for Zynq as it causes problems on the
@@ -549,7 +549,7 @@ static int xdevcfg_release(struct inode *inode, struct file *file)
 	struct xdevcfg_drvdata *drvdata = file->private_data;
 
 	if (!drvdata->is_partial_bitstream)
-		xslcr_init_postload_fpga();
+		zynq_slcr_init_postload_fpga();
 
 	if (drvdata->residue_len)
 		printk("Did not transfer last %d bytes\n",
@@ -1512,7 +1512,7 @@ static DEVICE_ATTR(prog_done, 0644, xdevcfg_show_prog_done_status,
  * xdevcfg_set_is_partial_bitstream() - This function sets the
  * is_partial_bitstream variable. If is_partial_bitstream is set,
  * then PROG_B is not asserted (xdevcfg_reset_pl) and also
- * xslcr_init_preload_fpga and xslcr_init_postload_fpga functions
+ * zynq_slcr_init_preload_fpga and zynq_slcr_init_postload_fpga functions
  * are not invoked.
  * @dev:	Pointer to the device structure.
  * @attr:	Pointer to the device attribute structure.
@@ -1897,18 +1897,13 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 	struct device *dev;
 
 	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_KERNEL);
-	if (!drvdata) {
-		dev_err(&pdev->dev,
-				"Couldn't allocate device private record\n");
+	if (!drvdata)
 		return -ENOMEM;
-	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	drvdata->base_address = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(drvdata->base_address)) {
-		dev_err(&pdev->dev, "ioremap() failed\n");
+	if (IS_ERR(drvdata->base_address))
 		return PTR_ERR(drvdata->base_address);
-	}
 
 	drvdata->irq = platform_get_irq(pdev, 0);
 	retval = devm_request_irq(&pdev->dev, drvdata->irq, &xdevcfg_irq,

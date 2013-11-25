@@ -286,9 +286,6 @@ config HAVE_PERF_USER_STACK_DUMP
 config HAVE_ARCH_JUMP_LABEL
 	bool
 
-config HAVE_ARCH_MUTEX_CPU_RELAX
-	bool
-
 config HAVE_RCU_TABLE_FREE
 	bool
 
@@ -363,6 +360,9 @@ config HAVE_IRQ_TIME_ACCOUNTING
 	  support irq time accounting and then call enable_sched_clock_irqtime().
 
 config HAVE_ARCH_TRANSPARENT_HUGEPAGE
+	bool
+
+config HAVE_ARCH_SOFT_DIRTY
 	bool
 
 config HAVE_MOD_ARCH_SPECIFIC

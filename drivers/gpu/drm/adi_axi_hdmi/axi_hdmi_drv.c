@@ -13,7 +13,6 @@
 #include <linux/of.h>
 #include <linux/i2c.h>
 #include <linux/of_address.h>
-#include <linux/of_i2c.h>
 #include <linux/of_dma.h>
 #include <linux/clk.h>
 
@@ -132,7 +131,7 @@ static struct drm_driver axi_hdmi_driver = {
 	.gem_vm_ops		= &drm_gem_cma_vm_ops,
 	.dumb_create		= drm_gem_cma_dumb_create,
 	.dumb_map_offset	= drm_gem_cma_dumb_map_offset,
-	.dumb_destroy		= drm_gem_cma_dumb_destroy,
+	.dumb_destroy		= drm_gem_dumb_destroy,
 	.fops			= &axi_hdmi_driver_fops,
 	.name			= DRIVER_NAME,
 	.desc			= DRIVER_DESC,
