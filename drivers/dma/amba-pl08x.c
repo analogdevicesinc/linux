@@ -2064,7 +2064,6 @@ static int pl08x_probe(struct amba_device *adev, const struct amba_id *id)
 
 	/* Initialize memcpy engine */
 	dma_cap_set(DMA_MEMCPY, pl08x->memcpy.cap_mask);
-	dma_cap_set(DMA_PAUSE_RESUME, pl08x->slave.cap_mask);
 	pl08x->memcpy.dev = &adev->dev;
 	pl08x->memcpy.device_alloc_chan_resources = pl08x_alloc_chan_resources;
 	pl08x->memcpy.device_free_chan_resources = pl08x_free_chan_resources;

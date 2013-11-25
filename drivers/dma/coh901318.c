@@ -2711,7 +2711,6 @@ static int __init coh901318_probe(struct platform_device *pdev)
 
 	dma_cap_zero(base->dma_slave.cap_mask);
 	dma_cap_set(DMA_SLAVE, base->dma_slave.cap_mask);
-	dma_cap_set(DMA_PAUSE_RESUME, base->dma_slave.cap_mask);
 
 	base->dma_slave.device_alloc_chan_resources = coh901318_alloc_chan_resources;
 	base->dma_slave.device_free_chan_resources = coh901318_free_chan_resources;
@@ -2732,7 +2731,6 @@ static int __init coh901318_probe(struct platform_device *pdev)
 
 	dma_cap_zero(base->dma_memcpy.cap_mask);
 	dma_cap_set(DMA_MEMCPY, base->dma_memcpy.cap_mask);
-	dma_cap_set(DMA_PAUSE_RESUME, base->dma_memcpy.cap_mask);
 
 	base->dma_memcpy.device_alloc_chan_resources = coh901318_alloc_chan_resources;
 	base->dma_memcpy.device_free_chan_resources = coh901318_free_chan_resources;
