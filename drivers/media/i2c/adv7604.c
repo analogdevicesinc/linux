@@ -2229,8 +2229,32 @@ static int adv7604_probe(struct i2c_client *client,
 	state->restart_stdi_once = true;
 	state->prev_input_status = ~0;
 
-	/* platform data */
-	if (!pdata) {
+	if (client->dev.platform_data) {
+		pdata = client->dev.platform_data;
+	} else if (client->dev.of_node ) {
+		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+		*pdata = (struct adv7604_platform_data) {
+			.disable_pwrdnb = 1,
+			.op_ch_sel = ADV7604_OP_CH_SEL_RGB,
+			.blank_data = 1,
+			.op_656_range = 1,
+			.rgb_out = 0,
+			.alt_data_sat = 1,
+			.op_format_sel = ADV7604_OP_FORMAT_SEL_SDR_ITU656_16,
+			.int1_config = ADV7604_INT1_CONFIG_OPEN_DRAIN,
+			.connector_hdmi = 1,
+			.insert_av_codes = 1,
+			.i2c_cec = 0x40,
+			.i2c_infoframe = 0x3e,
+			.i2c_afe = 0x26,
+			.i2c_repeater = 0x32,
+			.i2c_edid = 0x36,
+			.i2c_hdmi = 0x34,
+			.i2c_cp = 0x22,
+		};
+	} else {
 		v4l_err(client, "No platform data!\n");
 		return -ENODEV;
 	}
