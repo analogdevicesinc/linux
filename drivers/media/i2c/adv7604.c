@@ -2089,12 +2089,17 @@ static int adv7604_probe(struct i2c_client *client,
 
 	err = adv7604_core_init(sd);
 	if (err)
-		goto err_entity;
+		goto err_entity_cleanup;
 	v4l2_info(sd, "%s found @ 0x%x (%s)\n", client->name,
 			client->addr << 1, client->adapter->name);
+
+	err = v4l2_async_register_subdev(sd);
+	if (err)
+		goto err_entity_cleanup;
+
 	return 0;
 
-err_entity:
+err_entity_cleanup:
 	media_entity_cleanup(&sd->entity);
 err_work_queues:
 	cancel_delayed_work(&state->delayed_work_enable_hotplug);
@@ -2115,6 +2120,7 @@ static int adv7604_remove(struct i2c_client *client)
 
 	cancel_delayed_work(&state->delayed_work_enable_hotplug);
 	destroy_workqueue(state->work_queues);
+	v4l2_async_unregister_subdev(sd);
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&sd->entity);
 	adv7604_unregister_clients(to_state(sd));
