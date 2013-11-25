@@ -373,18 +373,6 @@ struct dma_slave_config {
 	unsigned int slave_id;
 };
 
-/* struct dma_slave_sg_limits - expose SG transfer limits of a channel
- *
- * @max_seg_nr: maximum number of SG segments supported on a SG/SLAVE
- *	    channel (0 for no maximum or not a SG/SLAVE channel)
- * @max_seg_len: maximum length of SG segments supported on a SG/SLAVE
- *	     channel (0 for no maximum or not a SG/SLAVE channel)
- */
-struct dma_slave_sg_limits {
-	u32 max_seg_nr;
-	u32 max_seg_len;
-};
-
 /* struct dma_slave_caps - expose capabilities of a slave channel only
  *
  * @src_addr_widths: bit mask of src addr widths the channel supports
@@ -566,7 +554,6 @@ struct dma_tx_state {
  *	struct with auxiliary transfer status information, otherwise the call
  *	will just return a simple status code
  * @device_issue_pending: push pending transactions to hardware
- * @device_slave_sg_limits: return the slave SG capabilities
  * @device_slave_caps: return the slave channel capabilities
  */
 struct dma_device {
@@ -633,9 +620,6 @@ struct dma_device {
 					    dma_cookie_t cookie,
 					    struct dma_tx_state *txstate);
 	void (*device_issue_pending)(struct dma_chan *chan);
-	int (*device_slave_sg_limits)(struct dma_chan *chan,
-		enum dma_slave_buswidth addr_width,
-		u32 maxburst, struct dma_slave_sg_limits *limits);
 	int (*device_slave_caps)(struct dma_chan *chan, struct dma_slave_caps *caps);
 };
 
@@ -1011,30 +995,6 @@ dma_set_tx_state(struct dma_tx_state *st, dma_cookie_t last, dma_cookie_t used, 
 		st->used = used;
 		st->residue = residue;
 	}
-}
-
-/**
- * dma_get_slave_sg_limits - get DMAC SG transfer capabilities
- * @chan: target DMA channel
- * @addr_width: address width of the DMA transfer
- * @maxburst: maximum DMA transfer burst size
- *
- * Get SG transfer capabilities for a specified channel. If the dmaengine
- * driver does not implement SG transfer capabilities then NULL is
- * returned.
- */
-static inline int dma_get_slave_sg_limits(struct dma_chan *chan,
-		       enum dma_slave_buswidth addr_width,
-		       u32 maxburst,
-			   struct dma_slave_sg_limits *limits)
-{
-	if (chan->device->device_slave_sg_limits)
-		return chan->device->device_slave_sg_limits(chan,
-							  addr_width,
-							  maxburst,
-							  limits);
-
-	return -ENOSYS;
 }
 
 #ifdef CONFIG_DMA_ENGINE
