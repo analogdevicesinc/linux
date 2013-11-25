@@ -30,6 +30,7 @@ config MICROBLAZE
 	select MODULES_USE_ELF_RELA
 	select CLONE_BACKWARDS3
 	select CLKSRC_OF
+	select BUILDTIME_EXTABLE_SORT
 
 config SWAP
 	def_bool n
@@ -82,11 +83,6 @@ source "kernel/Kconfig.hz"
 config MMU
 	bool "MMU support"
 	default n
-
-config NO_MMU
-	bool
-	depends on !MMU
-	default y
 
 comment "Boot options"
 
@@ -250,10 +246,6 @@ config MICROBLAZE_64K_PAGES
 	bool "64k page size"
 
 endchoice
-
-config KERNEL_PAD
-	hex "Kernel PAD for unpacking" if ADVANCED_OPTIONS
-	default "0x80000" if MMU
 
 endmenu
 

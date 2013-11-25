@@ -1,7 +1,7 @@
 /*
  * Xilinx PS UART driver
  *
- * 2011 (c) Xilinx Inc.
+ * 2011 - 2013 (C) Xilinx Inc.
  *
  * This program is free software; you can redistribute it
  * and/or modify it under the terms of the GNU General Public
@@ -164,7 +164,6 @@ MODULE_PARM_DESC (rx_timeout, "Rx timeout, 1-255");
 #define XUARTPS_SR_RXTRIG	0x00000001 /* Rx Trigger */
 
 struct xuartps {
-	int			uartnum;
 	struct uart_port	*port;
 	unsigned int		baud;
 	struct clk		*devclk;
@@ -1230,11 +1229,10 @@ static struct uart_driver xuartps_uart_driver = {
  **/
 static int xuartps_probe(struct platform_device *pdev)
 {
-	int rc;
 	struct uart_port *port;
 	struct resource *res, *res2;
 	unsigned int clk = 0;
-	int ret = 0;
+	int ret;
 	int id = 0;
 
 	struct xuartps *xuartps;
@@ -1256,10 +1254,6 @@ static int xuartps_probe(struct platform_device *pdev)
 
 	port = xuartps_get_port(id);
 	xuartps = devm_kzalloc(&pdev->dev, sizeof(*xuartps), GFP_KERNEL);
-	if (res2->start == 59)
-		xuartps->uartnum = 0;
-	else
-		xuartps->uartnum = 1;
 
 	xuartps->aperclk = devm_clk_get(&pdev->dev, "aper_clk");
 	if (IS_ERR(xuartps->aperclk)) {
@@ -1307,13 +1301,12 @@ static int xuartps_probe(struct platform_device *pdev)
 		port->private_data = xuartps;
 		xuartps->port = port;
 		platform_set_drvdata(pdev, port);
-		rc = uart_add_one_port(&xuartps_uart_driver, port);
-		if (rc) {
+		ret = uart_add_one_port(&xuartps_uart_driver, port);
+		if (ret) {
 			dev_err(&pdev->dev,
-				"uart_add_one_port() failed; err=%i\n", rc);
+				"uart_add_one_port() failed; err=%i\n", ret);
 			port->private_data = NULL;
 			xuartps->port = NULL;
-			ret = rc;
 			goto err_out_clk_dis;
 		}
 		return 0;
