@@ -1382,7 +1382,7 @@
 /*
  *	REG_RX1_MANUAL_LMT_FULL_GAIN
  */
-#define POWER_MEAS_IN_STATE_5_MSB	     (1 << 7) /* Power Meas in State 5<3> */
+#define POWER_MEAS_IN_STATE_5_MSB	     (1 << 7) /* Power Meas in State 5 <3> */
 #define RX1_MANUAL_FULL_TABLE_LMT_TABLE_GAIN_INDEX(x) (((x) & 0x7F) << 0) /* Rx1 Manual Full table/LMT table Gain Index<6:0> */
 #define RX_FULL_TBL_IDX_MASK		     RX1_MANUAL_FULL_TABLE_LMT_TABLE_GAIN_INDEX(~0)
 
@@ -2823,6 +2823,13 @@ enum rf_gain_ctrl_mode {
 	RF_GAIN_HYBRID_AGC
 };
 
+enum f_agc_target_gain_index_type {
+	MAX_GAIN,
+	SET_GAIN,
+	OPTIMIZED_GAIN,
+	NO_GAIN_CHANGE,
+};
+
 struct gain_control {
 	enum rf_gain_ctrl_mode rx1_mode;
 	enum rf_gain_ctrl_mode rx2_mode;
@@ -2878,7 +2885,47 @@ struct gain_control {
 	bool immed_gain_change_if_large_adc_overload; /* 0x123:3 */
 	bool immed_gain_change_if_large_lmt_overload; /* 0x123:7 */
 
+	/*
+	 * Fast AGC
+	 */
+	u32 f_agc_state_wait_time_ns; /* 0x117 0..31 RX samples -> time_ns */
+	/* Fast AGC - Low Power */
+	bool f_agc_allow_agc_gain_increase; /* 0x110:1 */
+	u8 f_agc_lp_thresh_increment_time; /* 0x11B RX samples */
+	u8 f_agc_lp_thresh_increment_steps; /* 0x117 1..8 */
+
+	/* Fast AGC - Lock Level */
+	u8 f_agc_lock_level; /* 0x101 0..-127 dBFS */
+	bool f_agc_lock_level_lmt_gain_increase_en; /* 0x111:6 */
+	u8 f_agc_lock_level_gain_increase_upper_limit; /* 0x118 0..63 */
+	/* Fast AGC - Peak Detectors and Final Settling */
+	u8 f_agc_lpf_final_settling_steps; /* 0x112:6 0..3 (Post Lock Level Step)*/
+	u8 f_agc_lmt_final_settling_steps; /* 0x113:6 0..3 (Post Lock Level Step)*/
+	u8 f_agc_final_overrange_count; /* 0x116:5 0..7 */
+	/* Fast AGC - Final Power Test */
+	bool f_agc_gain_increase_after_gain_lock_en; /* 0x110:7  */
+	/* Fast AGC - Unlocking the Gain */
+	/* 0 = MAX Gain, 1 = Set Gain, 2 = Optimized Gain */
+	enum f_agc_target_gain_index_type f_agc_gain_index_type_after_exit_rx_mode; /* 0x110:[4,2]  */
+	bool f_agc_use_last_lock_level_for_set_gain_en; /* 0x111:7 */
+	u8 f_agc_optimized_gain_offset;	/*0x116 0..15 steps */
+	bool f_agc_rst_gla_stronger_sig_thresh_exceeded_en; /* 0x110:~6 */
+	u8 f_agc_rst_gla_stronger_sig_thresh_above_ll;	/*0x113 0..63 dbFS */
+	bool f_agc_rst_gla_engergy_lost_sig_thresh_exceeded_en; /* 0x110:6 */
+	bool f_agc_rst_gla_engergy_lost_goto_optim_gain_en; /* 0x110:6 */
+	u8 f_agc_rst_gla_engergy_lost_sig_thresh_below_ll; /* 0x112:6 */
+	u8 f_agc_energy_lost_stronger_sig_gain_lock_exit_cnt; /* 0x119 0..63 RX samples */
+	bool f_agc_rst_gla_large_adc_overload_en; /*0x110:~1 and 0x114:~7 */
+	bool f_agc_rst_gla_large_lmt_overload_en; /*0x110:~1 */
+	bool f_agc_rst_gla_en_agc_pulled_high_en;
+	/* 0 = Max Gain, 1 = Set Gain, 2 = Optimized Gain, 3 = No Gain Change */
+
+	enum f_agc_target_gain_index_type f_agc_rst_gla_if_en_agc_pulled_high_mode; /* 0x0FB, 0x111 */
+	u8 f_agc_power_measurement_duration_in_state5; /* 0x109, 0x10a RX samples 0..524288*/
+
 };
+
+
 
 enum rssi_restart_mode {
 	AGC_IN_FAST_ATTACK_MODE_LOCKS_THE_GAIN,
