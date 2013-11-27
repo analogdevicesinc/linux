@@ -87,6 +87,11 @@
 		interrupt-parent = <&gpc>;
 		ranges;
 
+		caam_sm: caam-sm@00100000 {
+			compatible = "fsl,imx6q-caam-sm";
+			reg = <0x00100000 0x3fff>;
+		};
+
 		dma_apbh: dma-apbh@00110000 {
 			compatible = "fsl,imx6q-dma-apbh", "fsl,imx28-dma-apbh";
 			reg = <0x00110000 0x2000>;
@@ -98,6 +103,12 @@
 			#dma-cells = <1>;
 			dma-channels = <4>;
 			clocks = <&clks IMX6QDL_CLK_APBH_DMA>;
+		};
+
+		irq_sec_vio: caam_secvio {
+			compatible = "fsl,imx6q-caam-secvio";
+			interrupts = <0 20 0x04>;
+			secvio_src = <0x8000001d>;
 		};
 
 		gpmi: gpmi-nand@00112000 {
@@ -826,6 +837,11 @@
 				clocks = <&clks IMX6QDL_CLK_USBPHY2>;
 				phy-3p0-supply = <&anatop_reg_3p0>;
 				fsl,anatop = <&anatop>;
+			};
+
+			caam_snvs: caam-snvs@020cc000 {
+				compatible = "fsl,imx6q-caam-snvs";
+				reg = <0x020cc000 0x4000>;
 			};
 
 			snvs: snvs@020cc000 {

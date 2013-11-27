@@ -69,12 +69,18 @@ struct caam_drv_private {
 	struct device *qidev;
 #endif
 
+	struct device *smdev;
+	struct device *secviodev;
+
 	/* Physical-presence section */
 	struct caam_ctrl __iomem *ctrl; /* controller region */
 	struct caam_deco __iomem *deco; /* DECO/CCB views */
 	struct caam_assurance __iomem *assure;
 	struct caam_queue_if __iomem *qi; /* QI control region */
 	struct caam_job_ring __iomem *jr[4];	/* JobR's register space */
+	struct snvs_full __iomem *snvs;	/* SNVS HP+LP register space */
+	dma_addr_t __iomem *sm_base;	/* Secure memory storage base */
+	u32 sm_size;
 
 	/*
 	 * Detected geometry block. Filled in from device tree if powerpc,
