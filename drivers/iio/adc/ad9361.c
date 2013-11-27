@@ -88,7 +88,7 @@ struct ad9361_rf_phy {
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[100];
+	struct ad9361_debugfs_entry debugfs_entry[120];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -2042,6 +2042,16 @@ static int ad9361_gc_update(struct ad9361_rf_phy *phy)
 	ret |= ad9361_spi_write(spi, REG_GAIN_UPDATE_COUNTER1, reg & 0xFF);
 	ret |= ad9361_spi_write(spi, REG_GAIN_UPDATE_COUNTER2, reg >> 8);
 
+	/*
+	 * Fast AGC State Wait Time - Energy Detect Count
+	 */
+
+	reg = DIV_ROUND_CLOSEST(phy->pdata->gain_ctrl.f_agc_state_wait_time_ns *
+				1000, clkrf / 1000UL);
+	reg = clamp_t(u32, reg, 0U, 31U);
+	ret |= ad9361_spi_writef(spi, REG_FAST_ENERGY_DETECT_COUNT,
+			  ENERGY_DETECT_COUNT(~0),  reg);
+
 	return ret;
 }
 
@@ -2207,6 +2217,167 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 		(ctrl->sync_for_gain_counter_en ?
 		ENABLE_SYNC_FOR_GAIN_COUNTER : 0);
 	ad9361_spi_write(spi, REG_DIGITAL_SAT_COUNTER, reg);
+
+	/*
+	 * Fast AGC
+	 */
+
+	/* Fast AGC - Low Power */
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+			ENABLE_INCR_GAIN,
+			ctrl->f_agc_allow_agc_gain_increase);
+
+	ad9361_spi_write(spi, REG_FAST_INCREMENT_TIME,
+			 ctrl->f_agc_lp_thresh_increment_time);
+
+	reg = ctrl->f_agc_lp_thresh_increment_steps - 1;
+	reg = clamp_t(u32, reg, 0U, 7U);
+	ad9361_spi_writef(spi, REG_FAST_ENERGY_DETECT_COUNT,
+			  INCREMENT_GAIN_STP_LPFLMT(~0),  reg);
+
+	/* Fast AGC - Lock Level */
+	/* Dual use see also agc_inner_thresh_high */
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+			ENABLE_LMT_GAIN_INC_FOR_LOCK_LEVEL,
+			ctrl->f_agc_lock_level_lmt_gain_increase_en);
+
+	reg = ctrl->f_agc_lock_level_gain_increase_upper_limit;
+	reg = clamp_t(u32, reg, 0U, 63U);
+	ad9361_spi_writef(spi, REG_FAST_AGCLL_UPPER_LIMIT,
+			  AGCLL_MAX_INCREASE(~0),  reg);
+
+	/* Fast AGC - Peak Detectors and Final Settling */
+	reg = ctrl->f_agc_lpf_final_settling_steps;
+	reg = clamp_t(u32, reg, 0U, 3U);
+	ad9361_spi_writef(spi, REG_FAST_ENERGY_LOST_THRESH,
+			  POST_LOCK_LEVEL_STP_SIZE_FOR_LPF_TABLE_FULL_TABLE(~0),
+			  reg);
+
+	reg = ctrl->f_agc_lmt_final_settling_steps;
+	reg = clamp_t(u32, reg, 0U, 3U);
+	ad9361_spi_writef(spi, REG_FAST_STRONGER_SIGNAL_THRESH,
+			  POST_LOCK_LEVEL_STP_FOR_LMT_TABLE(~0),  reg);
+
+	reg = ctrl->f_agc_final_overrange_count;
+	reg = clamp_t(u32, reg, 0U, 7U);
+	ad9361_spi_writef(spi, REG_FAST_FINAL_OVER_RANGE_AND_OPT_GAIN,
+			  FINAL_OVER_RANGE_COUNT(~0),  reg);
+
+	/* Fast AGC - Final Power Test */
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+			ENABLE_GAIN_INC_AFTER_GAIN_LOCK,
+			ctrl->f_agc_gain_increase_after_gain_lock_en);
+
+	/* Fast AGC - Unlocking the Gain */
+	/* 0 = MAX Gain, 1 = Optimized Gain, 2 = Set Gain */
+
+	reg = ctrl->f_agc_gain_index_type_after_exit_rx_mode;
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+			GOTO_SET_GAIN_IF_EXIT_RX_STATE, reg == SET_GAIN);
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+			GOTO_OPTIMIZED_GAIN_IF_EXIT_RX_STATE,
+			reg == OPTIMIZED_GAIN);
+
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+			USE_LAST_LOCK_LEVEL_FOR_SET_GAIN,
+			ctrl->f_agc_use_last_lock_level_for_set_gain_en);
+
+	reg = ctrl->f_agc_optimized_gain_offset;
+	reg = clamp_t(u32, reg, 0U, 15U);
+	ad9361_spi_writef(spi, REG_FAST_FINAL_OVER_RANGE_AND_OPT_GAIN,
+			  OPTIMIZE_GAIN_OFFSET(~0),  reg);
+
+	tmp1 = !ctrl->f_agc_rst_gla_stronger_sig_thresh_exceeded_en ||
+		!ctrl->f_agc_rst_gla_engergy_lost_sig_thresh_exceeded_en ||
+		!ctrl->f_agc_rst_gla_large_adc_overload_en ||
+		!ctrl->f_agc_rst_gla_large_lmt_overload_en ||
+		ctrl->f_agc_rst_gla_en_agc_pulled_high_en;
+
+	ad9361_spi_writef(spi, REG_AGC_CONFIG_2,
+			AGC_GAIN_UNLOCK_CTRL, tmp1);
+
+	reg = !ctrl->f_agc_rst_gla_stronger_sig_thresh_exceeded_en;
+	ad9361_spi_writef(spi, REG_FAST_STRONG_SIGNAL_FREEZE,
+			DONT_UNLOCK_GAIN_IF_STRONGER_SIGNAL, reg);
+
+	reg = ctrl->f_agc_rst_gla_stronger_sig_thresh_above_ll;
+	reg = clamp_t(u32, reg, 0U, 63U);
+	ad9361_spi_writef(spi, REG_FAST_STRONGER_SIGNAL_THRESH,
+			  STRONGER_SIGNAL_THRESH(~0),  reg);
+
+	reg = ctrl->f_agc_rst_gla_engergy_lost_goto_optim_gain_en;
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+			GOTO_OPT_GAIN_IF_ENERGY_LOST_OR_EN_AGC_HIGH, reg);
+
+	reg = !ctrl->f_agc_rst_gla_engergy_lost_sig_thresh_exceeded_en;
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+			DONT_UNLOCK_GAIN_IF_ENERGY_LOST, reg);
+
+	reg = ctrl->f_agc_energy_lost_stronger_sig_gain_lock_exit_cnt;
+	reg = clamp_t(u32, reg, 0U, 63U);
+	ad9361_spi_writef(spi, REG_FAST_GAIN_LOCK_EXIT_COUNT,
+			  GAIN_LOCK_EXIT_COUNT(~0),  reg);
+
+	reg = !ctrl->f_agc_rst_gla_large_adc_overload_en ||
+		!ctrl->f_agc_rst_gla_large_lmt_overload_en;
+	ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+			DONT_UNLOCK_GAIN_IF_LG_ADC_OR_LMT_OVRG, reg);
+
+	reg = !ctrl->f_agc_rst_gla_large_adc_overload_en;
+	ad9361_spi_writef(spi, REG_FAST_LOW_POWER_THRESH,
+			DONT_UNLOCK_GAIN_IF_ADC_OVRG, reg);
+
+	/* 0 = Max Gain, 1 = Set Gain, 2 = Optimized Gain, 3 = No Gain Change */
+
+	if (ctrl->f_agc_rst_gla_en_agc_pulled_high_en) {
+		switch (ctrl->f_agc_rst_gla_if_en_agc_pulled_high_mode) {
+		case MAX_GAIN:
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+				GOTO_MAX_GAIN_OR_OPT_GAIN_IF_EN_AGC_HIGH, 1);
+
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+				GOTO_SET_GAIN_IF_EN_AGC_HIGH, 0);
+
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+				GOTO_OPT_GAIN_IF_ENERGY_LOST_OR_EN_AGC_HIGH, 0);
+			break;
+		case SET_GAIN:
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+				GOTO_MAX_GAIN_OR_OPT_GAIN_IF_EN_AGC_HIGH, 0);
+
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+				GOTO_SET_GAIN_IF_EN_AGC_HIGH, 1);
+			break;
+		case OPTIMIZED_GAIN:
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+				GOTO_MAX_GAIN_OR_OPT_GAIN_IF_EN_AGC_HIGH, 1);
+
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+				GOTO_SET_GAIN_IF_EN_AGC_HIGH, 0);
+
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+				GOTO_OPT_GAIN_IF_ENERGY_LOST_OR_EN_AGC_HIGH, 1);
+			break;
+		case NO_GAIN_CHANGE:
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+				GOTO_SET_GAIN_IF_EN_AGC_HIGH, 0);
+			ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+				GOTO_MAX_GAIN_OR_OPT_GAIN_IF_EN_AGC_HIGH, 0);
+			break;
+		}
+	} else {
+		ad9361_spi_writef(spi, REG_FAST_CONFIG_1,
+			GOTO_SET_GAIN_IF_EN_AGC_HIGH, 0);
+		ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+			GOTO_MAX_GAIN_OR_OPT_GAIN_IF_EN_AGC_HIGH, 0);
+	}
+
+	reg = ilog2(ctrl->f_agc_power_measurement_duration_in_state5 / 16);
+	reg = clamp_t(u32, reg, 0U, 15U);
+	ad9361_spi_writef(spi, REG_RX1_MANUAL_LPF_GAIN,
+			  POWER_MEAS_IN_STATE_5(~0), reg);
+	ad9361_spi_writef(spi, REG_RX1_MANUAL_LMT_FULL_GAIN,
+			  POWER_MEAS_IN_STATE_5_MSB, reg >> 3);
 
 	return ad9361_gc_update(phy);
 }
@@ -4332,6 +4503,12 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 					ADI_ENABLE | ADI_IQCOR_ENB);
 				axiadc_write(st, 0x4414 + (chan) * 0x40, 0);
 			}
+
+			phy->pdata->port_ctrl.rx_clk_data_delay =
+				ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
+			phy->pdata->port_ctrl.tx_clk_data_delay =
+				ad9361_spi_read(phy->spi, REG_TX_CLOCK_DATA_DELAY);
+
 			return 0;
 		}
 	}
@@ -5728,6 +5905,71 @@ static struct ad9361_phy_platform_data
 			   &pdata->gain_ctrl.immed_gain_change_if_large_adc_overload);
 	ad9361_of_get_bool(iodev, np, "adi,agc-immed-gain-change-if-large-lmt-overload-enable",
 			   &pdata->gain_ctrl.immed_gain_change_if_large_lmt_overload);
+
+	/*
+	 * Fast AGC
+	 */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-state-wait-time-ns", 260,
+			&pdata->gain_ctrl.f_agc_state_wait_time_ns); /* 0x117 0..31 RX samples -> time-ns */
+		/* Fast AGC - Low Power */
+	ad9361_of_get_bool(iodev, np, "adi,fagc-allow-agc-gain-increase-enable",
+			&pdata->gain_ctrl.f_agc_allow_agc_gain_increase); /* 0x110:1 */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-lp-thresh-increment-time", 5,
+			&pdata->gain_ctrl.f_agc_lp_thresh_increment_time); /* 0x11B RX samples */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-lp-thresh-increment-steps", 1,
+			&pdata->gain_ctrl.f_agc_lp_thresh_increment_steps); /* 0x117 1..8 */
+
+		/* Fast AGC - Lock Level */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-lock-level", 10,
+			&pdata->gain_ctrl.f_agc_lock_level); /* 0x101 0..-127 dBFS */
+	ad9361_of_get_bool(iodev, np, "adi,fagc-lock-level-lmt-gain-increase-enable",
+			&pdata->gain_ctrl.f_agc_lock_level_lmt_gain_increase_en); /* 0x111:6 (split table)*/
+	ad9361_of_get_u32(iodev, np, "adi,fagc-lock-level-gain-increase-upper-limit", 5,
+			&pdata->gain_ctrl.f_agc_lock_level_gain_increase_upper_limit); /* 0x118 0..63 */
+		/* Fast AGC - Peak Detectors and Final Settling */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-lpf-final-settling-steps", 1,
+			&pdata->gain_ctrl.f_agc_lpf_final_settling_steps); /* 0x112:6 0..3 (Post Lock Level Step)*/
+	ad9361_of_get_u32(iodev, np, "adi,fagc-lmt-final-settling-steps", 1,
+			&pdata->gain_ctrl.f_agc_lmt_final_settling_steps); /* 0x113:6 0..3 (Post Lock Level Step)*/
+	ad9361_of_get_u32(iodev, np, "adi,fagc-final-overrange-count", 3,
+			&pdata->gain_ctrl.f_agc_final_overrange_count); /* 0x116:5 0..7 */
+		/* Fast AGC - Final Power Test */
+	ad9361_of_get_bool(iodev, np, "adi,fagc-gain-increase-after-gain-lock-enable",
+			&pdata->gain_ctrl.f_agc_gain_increase_after_gain_lock_en); /* 0x110:7  */
+		/* Fast AGC - Unlocking the Gain */
+		/* 0 = MAX Gain, 1 = Optimized Gain, 2 = Set Gain */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-gain-index-type-after-exit-rx-mode", 0,
+			&pdata->gain_ctrl.f_agc_gain_index_type_after_exit_rx_mode); /* 0x110:[4,2]  */
+
+	ad9361_of_get_bool(iodev, np, "adi,fagc-use-last-lock-level-for-set-gain-enable",
+			&pdata->gain_ctrl.f_agc_use_last_lock_level_for_set_gain_en); /* 0x111:7 */
+	ad9361_of_get_bool(iodev, np, "adi,fagc-rst-gla-stronger-sig-thresh-exceeded-enable",
+			&pdata->gain_ctrl.f_agc_rst_gla_stronger_sig_thresh_exceeded_en); /* 0x111:7 */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-optimized-gain-offset", 5,
+			&pdata->gain_ctrl.f_agc_optimized_gain_offset);	/*0x116 0..15 steps */
+
+	ad9361_of_get_u32(iodev, np, "adi,fagc-rst-gla-stronger-sig-thresh-above-ll", 10,
+			&pdata->gain_ctrl.f_agc_rst_gla_stronger_sig_thresh_above_ll);	/*0x113 0..63 dbFS */
+	ad9361_of_get_bool(iodev, np, "adi,fagc-rst-gla-engergy-lost-sig-thresh-exceeded-enable",
+			&pdata->gain_ctrl.f_agc_rst_gla_engergy_lost_sig_thresh_exceeded_en); /* 0x110:6 */
+	ad9361_of_get_bool(iodev, np, "adi,fagc-rst-gla-engergy-lost-goto-optim-gain-enable",
+			&pdata->gain_ctrl.f_agc_rst_gla_engergy_lost_goto_optim_gain_en); /* 0x110:6 */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-rst-gla-engergy-lost-sig-thresh-below-ll", 10,
+			&pdata->gain_ctrl.f_agc_rst_gla_engergy_lost_sig_thresh_below_ll); /* 0x112 */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-energy-lost-stronger-sig-gain-lock-exit-cnt", 8,
+			&pdata->gain_ctrl.f_agc_energy_lost_stronger_sig_gain_lock_exit_cnt); /* 0x119 0..63 RX samples */
+	ad9361_of_get_bool(iodev, np, "adi,fagc-rst-gla-large-adc-overload-enable",
+			&pdata->gain_ctrl.f_agc_rst_gla_large_adc_overload_en); /*0x110:~1 and 0x114:~7 */
+	ad9361_of_get_bool(iodev, np, "adi,fagc-rst-gla-large-lmt-overload-enable",
+			&pdata->gain_ctrl.f_agc_rst_gla_large_lmt_overload_en); /*0x110:~1 */
+
+	ad9361_of_get_bool(iodev, np, "adi,fagc-rst-gla-en-agc-pulled-high-enable",
+			&pdata->gain_ctrl.f_agc_rst_gla_en_agc_pulled_high_en);
+
+	ad9361_of_get_u32(iodev, np, "adi,fagc-rst-gla-if-en-agc-pulled-high-mode", 0,
+			&pdata->gain_ctrl.f_agc_rst_gla_if_en_agc_pulled_high_mode); /* 0x0FB, 0x111 */
+	ad9361_of_get_u32(iodev, np, "adi,fagc-power-measurement-duration-in-state5", 64,
+			&pdata->gain_ctrl.f_agc_power_measurement_duration_in_state5); /* 0x109, 0x10a RX samples 0..524288 */
 
 	/* RSSI Control */
 
