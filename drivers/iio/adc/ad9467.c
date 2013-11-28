@@ -170,7 +170,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 
 			stat = axiadc_read(st, ADI_REG_CHAN_STATUS(0));
 			if (chan == 2)
-				stat |= axiadc_read(st, ADI_REG_CHAN_STATUS(0));
+				stat |= axiadc_read(st, ADI_REG_CHAN_STATUS(1));
 
 			err_field[dco + (inv_range * 33)] = !!(stat & (ADI_PN_ERR | ADI_PN_OOS));
 		}
