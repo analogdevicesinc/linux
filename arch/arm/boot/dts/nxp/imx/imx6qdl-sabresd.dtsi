@@ -143,9 +143,10 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_leds>;
 
-		led-red {
+		charger-led {
 			gpios = <&gpio1 2 0>;
-			default-state = "on";
+			linux,default-trigger = "max8903-charger-charging";
+			default-state = "off";
 		};
 	};
 
