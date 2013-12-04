@@ -371,8 +371,13 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 
 	reg |= TONE_PRBS;
 	reg |= TONE_LEVEL(level_dB / 3);
-	if (clk)
-		reg |= TONE_FREQ(DIV_ROUND_CLOSEST(freq_Hz * 32, clk) - 1);
+
+	if (freq_Hz < 4) {
+		reg |= TONE_FREQ(freq_Hz);
+	} else {
+		if (clk)
+			reg |= TONE_FREQ(DIV_ROUND_CLOSEST(freq_Hz * 32, clk) - 1);
+	}
 
 	reg_mask = BIST_MASK_CHANNEL_1_I_DATA | BIST_MASK_CHANNEL_1_Q_DATA |
 		BIST_MASK_CHANNEL_2_I_DATA | BIST_MASK_CHANNEL_2_Q_DATA;
