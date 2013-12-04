@@ -70,6 +70,7 @@ enum ad9361_bist_mode {
 
 enum {
 	ID_AD9361,
+	ID_AD9364,
 };
 
 struct ad9361_rf_phy phy;
@@ -572,7 +573,7 @@ static int ad9361_clkout_control(struct ad9361_rf_phy *phy,
 static int ad9361_load_mixer_gm_subtable(struct ad9361_rf_phy *phy)
 {
 	int i, addr;
-
+return 0;
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
 	ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_CONFIG,
@@ -4302,7 +4303,7 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD9361] = {
 		.name = "AD9361",
-		.max_rate = 250000000UL,
+		.max_rate = 61440000UL,
 		.max_testmode = 0,
 		.num_channels = 4,
 		.channel[0] = AIM_CHAN(0, 0, 12, 's'),
@@ -4310,6 +4311,15 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[2] = AIM_CHAN(2, 2, 12, 's'),
 		.channel[3] = AIM_CHAN(3, 3, 12, 's'),
 	},
+	[ID_AD9364] = {
+		.name = "AD9361",
+		.max_rate = 122880000UL,
+		.max_testmode = 0,
+		.num_channels = 2,
+		.channel[0] = AIM_CHAN(0, 0, 12, 's'),
+		.channel[1] = AIM_CHAN(1, 1, 12, 's'),
+	},
+
 };
 static struct attribute *ad9361_attributes[] = {
 	NULL,
@@ -4521,10 +4531,21 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned rx2tx2 = conv->phy->pdata->rx2tx2;
+	unsigned tmp;
 	int i;
 
 	conv->indio_dev = indio_dev;
 	axiadc_write(st, ADI_REG_CNTRL, rx2tx2 ? 0 : ADI_R1_MODE);
+	tmp = axiadc_read(st, 0x4048);
+
+	if (!rx2tx2) {
+		axiadc_write(st, 0x4048, tmp | BIT(5)); /* R1_MODE */
+		axiadc_write(st, 0x404c, 1); /* RATE */
+	} else {
+		tmp &= ~BIT(5);
+		axiadc_write(st, 0x4048, tmp);
+		axiadc_write(st, 0x404c, 3); /* RATE */
+	}
 
 	for (i = 0; i < conv->chip_info->num_channels; i++) {
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(i),
@@ -4536,7 +4557,7 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
 
-	ad9361_dig_tune(conv->phy, rx2tx2 ? 61000000 : 122000000);
+	ad9361_dig_tune(conv->phy, 61440000);
 
 	return ad9361_set_trx_clock_chain(conv->phy,
 					 conv->phy->pdata->rx_path_clks,
@@ -4560,7 +4581,7 @@ static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
   		goto out;
 	}
 
-	conv->chip_info = &axiadc_chip_info_tbl[ID_AD9361];
+	conv->chip_info = &axiadc_chip_info_tbl[phy->pdata->rx2tx2 ? ID_AD9361 : ID_AD9364];
 	conv->adc_output_mode = OUTPUT_MODE_TWOS_COMPLEMENT;
 	conv->write = ad9361_spi_write;
 	conv->read = ad9361_spi_read;
@@ -4580,7 +4601,6 @@ static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 out:
 	spi_set_drvdata(spi, NULL);
 	return ret;
-
 }
 
 enum ad9361_iio_dev_attr {
@@ -6130,7 +6150,7 @@ static int ad9361_probe(struct spi_device *spi)
 
 	rev = ret & REV_MASK;
 
-	if (spi_get_device_id(spi)->driver_data == 9643)
+	if (spi_get_device_id(spi)->driver_data == ID_AD9364)
 		phy->pdata->rx2tx2 = false;
 
 	INIT_WORK(&phy->work, ad9361_work_func);
