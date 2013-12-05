@@ -370,7 +370,7 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 	};
 
 	reg |= TONE_PRBS;
-	reg |= TONE_LEVEL(level_dB / 3);
+	reg |= TONE_LEVEL(level_dB / 6);
 
 	if (freq_Hz < 4) {
 		reg |= TONE_FREQ(freq_Hz);
@@ -382,7 +382,7 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 	reg_mask = BIST_MASK_CHANNEL_1_I_DATA | BIST_MASK_CHANNEL_1_Q_DATA |
 		BIST_MASK_CHANNEL_2_I_DATA | BIST_MASK_CHANNEL_2_Q_DATA;
 
-	reg1 = (mask & reg_mask);
+	reg1 = ((mask << 2) & reg_mask);
 	ad9361_spi_write(phy->spi, REG_BIST_AND_DATA_PORT_TEST_CONFIG, reg1);
 
 	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
