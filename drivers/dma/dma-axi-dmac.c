@@ -620,7 +620,7 @@ static int axi_dmac_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id axi_dmac_of_match_table[] = {
-	{ .compatible = "adi,axi-dmac" },
+	{ .compatible = "adi,axi-dmac-1.00.a" },
 	{ },
 };
 
