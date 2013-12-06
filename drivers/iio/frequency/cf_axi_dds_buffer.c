@@ -157,31 +157,33 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 
 	tmp_reg |= DATA_SEL_DMA;
 
-	cnt = st->txcount;
-	x = 1;
-
-	do {
-		if ((cnt <= VDMA_MAX_HSIZE) && ((cnt % 8) == 0))
-			break;
-
-		cnt = st->txcount / ++x;
-
-	} while (x < VDMA_MAX_VSIZE);
-
-	if (x > VDMA_MAX_VSIZE || cnt * x != st->txcount || ((cnt % 8) != 0)) {
-		dev_err(indio_dev->dev.parent, "Buffer size doesn't fit VDMA\n");
-		return -EINVAL;
-	}
-
 	dds_write(st, ADI_REG_CNTRL_1, 0);
 
-	st->dma_config.vsize = x;
-	st->dma_config.stride = st->dma_config.hsize = cnt;
+	if (!st->has_fifo_interface) {
+		cnt = st->txcount;
+		x = 1;
 
-	dmaengine_device_control(st->tx_chan, DMA_SLAVE_CONFIG,
-		(unsigned long)&st->dma_config);
+		do {
+			if ((cnt <= VDMA_MAX_HSIZE) && ((cnt % 8) == 0))
+				break;
 
-	dds_write(st, ADI_REG_VDMA_FRMCNT, st->txcount);
+			cnt = st->txcount / ++x;
+
+		} while (x < VDMA_MAX_VSIZE);
+
+		if (x > VDMA_MAX_VSIZE || cnt * x != st->txcount || ((cnt % 8) != 0)) {
+			dev_err(indio_dev->dev.parent, "Buffer size doesn't fit VDMA\n");
+			return -EINVAL;
+		}
+
+		st->dma_config.vsize = x;
+		st->dma_config.stride = st->dma_config.hsize = cnt;
+
+		dmaengine_device_control(st->tx_chan, DMA_SLAVE_CONFIG,
+			(unsigned long)&st->dma_config);
+
+		dds_write(st, ADI_REG_VDMA_FRMCNT, st->txcount);
+	}
 
 	desc = dmaengine_prep_slave_single(st->tx_chan,
 		st->buf_phys,

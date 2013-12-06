@@ -171,6 +171,7 @@ struct cf_axi_dds_state {
 	struct iio_dev 		*indio_dev;
 	struct resource 		r_mem; /* IO mem resources */
 	const struct cf_axi_dds_chip_info	*chip_info;
+	bool			has_fifo_interface;
 	struct iio_info		iio_info;
 	void			*buf_virt;
 	dma_addr_t		buf_phys;
@@ -181,7 +182,6 @@ struct cf_axi_dds_state {
 	void __iomem		*regs;
 	unsigned int		flags;
 	u32			dac_clk;
-	unsigned			vers_id;
 	unsigned			buffer_length;
 	unsigned			txcount;
 	unsigned 		ddr_dds_interp_en;

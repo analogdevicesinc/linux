@@ -39,6 +39,17 @@
 
 #define DRIVER_NAME		"cf_axi_dds_so"
 
+#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
+#define PCORE_VERSION_MAJOR(version) (version >> 16)
+#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0x3ff)
+#define PCORE_VERSION_LETTER(version) (version & 0xff)
+
+struct axidds_core_info {
+	unsigned int version;
+	bool has_fifo_interface;
+	const struct cf_axi_dds_chip_info *chip_info;
+};
+
 static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
@@ -344,6 +355,17 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	},
 };
 
+struct axidds_core_info ad9361_1_00_a_info = {
+	.version = PCORE_VERSION(4, 0, 'a'),
+	.chip_info = cf_axi_dds_chip_info_tbl,
+};
+
+struct axidds_core_info ad9361_6_00_a_info = {
+	.version = PCORE_VERSION(6, 0, 'a'),
+	.has_fifo_interface = true,
+	.chip_info = cf_axi_dds_chip_info_tbl,
+};
+
 static const struct iio_info cf_axi_dds_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = &cf_axi_dds_read_raw,
@@ -354,23 +376,32 @@ static const struct iio_info cf_axi_dds_info = {
 
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
-	{ .compatible = "xlnx,axi-ad9361-dds-1.00.a", .data = (void*) 0},
+	{ .compatible = "xlnx,axi-ad9361-dds-1.00.a", .data = &ad9361_1_00_a_info },
+	{ .compatible = "adi,axi-ad9361-dds-6.00.a", .data = &ad9361_6_00_a_info },
 { /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, cf_axi_dds_of_match);
 
 static int cf_axi_dds_of_probe(struct platform_device *op)
 {
+	const struct of_device_id *id;
+	const struct axidds_core_info *info;
 	struct cf_axi_dds_state *st;
 	struct iio_dev *indio_dev;
 	struct device *dev = &op->dev;
 	resource_size_t remap_size, phys_addr;
 	struct clk *clk = NULL;
+	unsigned int version;
 	int ret;
 	u32 ctrl_2, rate;
 
-	const struct of_device_id *of_id =
-			of_match_device(cf_axi_dds_of_match, &op->dev);
+	id = of_match_device(cf_axi_dds_of_match, &op->dev);
+	if (!id)
+		return -ENODEV;
+
+	info = id->data;
+	if (!info)
+		return -ENODEV;
 
 	dev_dbg(dev, "Device Tree Probing \'%s\'\n",
 			op->dev.of_node->name);
@@ -391,13 +422,10 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	st = iio_priv(indio_dev);
 	st->clk = clk;
 	st->indio_dev = indio_dev;
+	st->chip_info = info->chip_info;
+	st->has_fifo_interface = info->has_fifo_interface;
 
 	dev_set_drvdata(dev, indio_dev);
-
-	if (of_id)
-		st->vers_id = (unsigned) of_id->data;
-	else
-		goto failed1;
 
 	/* Get iospace for the device */
 	ret = of_address_to_resource(op->dev.of_node, 0, &st->r_mem);
@@ -418,11 +446,25 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
+	version = dds_read(st, ADI_REG_VERSION);
+
+	if (PCORE_VERSION_MAJOR(version) !=
+		PCORE_VERSION_MAJOR(info->version)) {
+		dev_err(&op->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
+			PCORE_VERSION_MAJOR(info->version),
+			PCORE_VERSION_MINOR(info->version),
+			PCORE_VERSION_LETTER(info->version),
+			PCORE_VERSION_MAJOR(version),
+			PCORE_VERSION_MINOR(version),
+			PCORE_VERSION_LETTER(version));
+		ret = -ENODEV;
+		goto failed2;
+	}
+
 	st->dac_clk = clk_get_rate(clk);
 
 	st->clk_nb.notifier_call = cf_axi_dds_rate_change;
 	clk_notifier_register(clk, &st->clk_nb);
-	st->chip_info = &cf_axi_dds_chip_info_tbl[st->vers_id];
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
@@ -493,7 +535,7 @@ skip_writebuf:
 	dev_info(dev, "Analog Devices CF_AXI_DDS_DDS %s (0x%X) at 0x%08llX mapped"
 		" to 0x%p, probed DDS %s\n",
 		dds_read(st, ADI_REG_ID) ? "SLAVE" : "MASTER",
-		dds_read(st, ADI_REG_VERSION),
+		version,
 		 (unsigned long long)phys_addr, st->regs, st->chip_info->name);
 
 	return 0;		/* success */

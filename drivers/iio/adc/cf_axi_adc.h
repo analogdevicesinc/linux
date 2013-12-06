@@ -296,6 +296,7 @@ struct axiadc_state {
 	struct list_head		block_list;
 	unsigned			id;
 	unsigned			pcore_version;
+	bool				has_fifo_interface;
 	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
 	unsigned			dma_align;

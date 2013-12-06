@@ -34,6 +34,16 @@
 
 #include "cf_axi_adc.h"
 
+#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
+#define PCORE_VERSION_MAJOR(version) (version >> 16)
+#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0x3ff)
+#define PCORE_VERSION_LETTER(version) (version & 0xff)
+
+struct axiadc_core_info {
+	bool has_fifo_interface;
+	unsigned int version;
+};
+
 static int axiadc_spi_read(struct axiadc_state *st, unsigned reg)
 {
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
@@ -426,7 +436,32 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
 	return 0;
 }
 
+static const struct axiadc_core_info ad9361_6_00_a_info = {
+	.has_fifo_interface = true,
+	.version = PCORE_VERSION(6, 0, 'a'),
+};
 
+static const struct axiadc_core_info ad9643_6_00_a_info = {
+	.has_fifo_interface = true,
+	.version = PCORE_VERSION(6, 0, 'a'),
+};
+
+/* Match table for of_platform binding */
+static const struct of_device_id axiadc_of_match[] = {
+	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", },
+	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
+	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
+	{ .compatible =	"xlnx,axi-adc-1c-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9250-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9265-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9683-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9625-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9434-1.00.a", },
+	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &ad9361_6_00_a_info },
+	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &ad9643_6_00_a_info },
+	{ /* end of list */ },
+};
+MODULE_DEVICE_TABLE(of, axiadc_of_match);
 
 /**
  * axiadc_of_probe - probe method for the AIM device.
@@ -440,6 +475,8 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
  */
 static int axiadc_of_probe(struct platform_device *op)
 {
+	const struct axiadc_core_info *info;
+	const struct of_device_id *id;
 	struct iio_dev *indio_dev;
 	struct device *dev = &op->dev;
 	struct axiadc_state *st;
@@ -447,10 +484,17 @@ static int axiadc_of_probe(struct platform_device *op)
 	struct axiadc_spidev axiadc_spidev;
 	struct axiadc_converter *conv;
 	resource_size_t remap_size, phys_addr;
+	unsigned int expected_version;
 	int ret;
 
 	dev_dbg(dev, "Device Tree Probing \'%s\'\n",
 		 op->dev.of_node->name);
+
+	id = of_match_node(axiadc_of_match, op->dev.of_node);
+	if (!id)
+		return -ENODEV;
+
+	info = id->data;
 
 	/* Defer driver probe until matching spi
 	 * converter driver is registered
@@ -516,6 +560,12 @@ static int axiadc_of_probe(struct platform_device *op)
 	st->streaming_dma = of_property_read_bool(op->dev.of_node,
 			"adi,streaming-dma");
 
+	/* FIFO interface only supports streaming DMA */
+	if (info && info->has_fifo_interface)
+		st->streaming_dma = true;
+
+	st->has_fifo_interface = info->has_fifo_interface;
+
 	conv = to_converter(st->dev_spi);
 	iio_device_set_drvdata(indio_dev, conv);
 
@@ -524,9 +574,29 @@ static int axiadc_of_probe(struct platform_device *op)
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
+
+	if (info)
+		expected_version = info->version;
+	else
+		expected_version = PCORE_VERSION(4, 0, 'a');
+
+	if (PCORE_VERSION_MAJOR(st->pcore_version) !=
+		PCORE_VERSION_MAJOR(expected_version)) {
+		dev_err(&op->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
+			PCORE_VERSION_MAJOR(expected_version),
+			PCORE_VERSION_MINOR(expected_version),
+			PCORE_VERSION_LETTER(expected_version),
+			PCORE_VERSION_MAJOR(st->pcore_version),
+			PCORE_VERSION_MINOR(st->pcore_version),
+			PCORE_VERSION_LETTER(st->pcore_version));
+		ret = -ENODEV;
+		goto failed2;
+	}
+
 	st->max_count = AXIADC_MAX_DMA_SIZE;
 
 	st->dma_align = ADI_DMA_BUSWIDTH(axiadc_read(st, ADI_REG_DMA_BUSWIDTH));
+	st->dma_align = 8;
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
@@ -632,21 +702,6 @@ static int axiadc_of_remove(struct platform_device *op)
 
 	return 0;
 }
-
-/* Match table for of_platform binding */
-static const struct of_device_id axiadc_of_match[] = {
-	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", },
-	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
-	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
-	{ .compatible =	"xlnx,axi-adc-1c-1.00.a", },
-	{ .compatible =	"xlnx,axi-ad9250-1.00.a", },
-	{ .compatible =	"xlnx,axi-ad9265-1.00.a", },
-	{ .compatible =	"xlnx,axi-ad9683-1.00.a", },
-	{ .compatible =	"xlnx,axi-ad9625-1.00.a", },
-	{ .compatible =	"xlnx,axi-ad9434-1.00.a", },
-	{ /* end of list */ },
-};
-MODULE_DEVICE_TABLE(of, axiadc_of_match);
 
 static struct platform_driver axiadc_of_driver = {
 	.driver = {

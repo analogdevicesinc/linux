@@ -64,11 +64,14 @@ static int axiadc_hw_submit_block(void *data, struct iio_dma_buffer_block *block
 
 	dma_async_issue_pending(st->rx_chan);
 
-	axiadc_write(st, ADI_REG_DMA_CNTRL, 0);
 	axiadc_write(st, ADI_REG_STATUS, ~0);
 	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);
-	axiadc_write(st, ADI_REG_DMA_COUNT, count);
-	axiadc_write(st, ADI_REG_DMA_CNTRL, ADI_DMA_START | 2);
+
+	if (!st->has_fifo_interface) {
+		axiadc_write(st, ADI_REG_DMA_CNTRL, 0);
+		axiadc_write(st, ADI_REG_DMA_COUNT, count);
+		axiadc_write(st, ADI_REG_DMA_CNTRL, ADI_DMA_START | 2);
+	}
 
 	return 0;
 }
