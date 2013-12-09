@@ -561,10 +561,13 @@ static int axiadc_of_probe(struct platform_device *op)
 			"adi,streaming-dma");
 
 	/* FIFO interface only supports streaming DMA */
-	if (info && info->has_fifo_interface)
-		st->streaming_dma = true;
+	if (info)
+		st->has_fifo_interface = info->has_fifo_interface;
+	else
+		st->has_fifo_interface = false;
 
-	st->has_fifo_interface = info->has_fifo_interface;
+	if (st->has_fifo_interface)
+		st->streaming_dma = true;
 
 	conv = to_converter(st->dev_spi);
 	iio_device_set_drvdata(indio_dev, conv);
