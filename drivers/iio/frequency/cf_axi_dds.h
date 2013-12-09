@@ -17,6 +17,11 @@
 #define ADI_REG_SCRATCH		0x0008			 	/*Version and Scratch Registers */
 #define ADI_SCRATCH(x)		(((x) & 0xffffffff) << 0)	/* RW, Scratch register. */
 
+#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
+#define PCORE_VERSION_MAJOR(version) (version >> 16)
+#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0xff)
+#define PCORE_VERSION_LETTER(version) (version & 0xff)
+
 /* DAC COMMON */
 
 #define ADI_REG_RSTN		0x0040

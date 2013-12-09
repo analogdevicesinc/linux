@@ -36,11 +36,6 @@
 
 #define DRIVER_NAME		"cf_axi_dds"
 
-#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
-#define PCORE_VERSION_MAJOR(version) (version >> 16)
-#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0x3ff)
-#define PCORE_VERSION_LETTER(version) (version & 0xff)
-
 struct dds_spidev {
 	struct device_node *of_nspi;
 	struct device *dev_spi;
@@ -479,7 +474,9 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 
 	st = iio_priv(indio_dev);
 	st->dev_spi = dds_spidev.dev_spi;
-	st->has_fifo_interface = info->has_fifo_interface;
+
+	if (info)
+		st->has_fifo_interface = info->has_fifo_interface;
 
 	dev_set_drvdata(dev, indio_dev);
 
@@ -513,7 +510,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	if (info)
 		expected_version = info->version;
 	else
-		expected_version = PCORE_VERSION(1, 0, 'a');
+		expected_version = PCORE_VERSION(4, 0, 'a');
 
 	if (PCORE_VERSION_MAJOR(version) !=
 		PCORE_VERSION_MAJOR(expected_version)) {

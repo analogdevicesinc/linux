@@ -39,11 +39,6 @@
 
 #define DRIVER_NAME		"cf_axi_dds_so"
 
-#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
-#define PCORE_VERSION_MAJOR(version) (version >> 16)
-#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0x3ff)
-#define PCORE_VERSION_LETTER(version) (version & 0xff)
-
 struct axidds_core_info {
 	unsigned int version;
 	bool has_fifo_interface;
