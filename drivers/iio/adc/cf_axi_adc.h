@@ -139,7 +139,7 @@
 #define ADI_USR_DECIMATION_N(x)			(((x) & 0xFFFF) << 0)
 #define ADI_TO_USR_DECIMATION_N(x)		(((x) >> 0) & 0xFFFF)
 
-
+#define ADI_REG_ADC_DP_DISABLE 			0x00C0
 
 /*
  * ADI High-Speed ADC common spi interface registers
@@ -297,6 +297,7 @@ struct axiadc_state {
 	unsigned			id;
 	unsigned			pcore_version;
 	bool				has_fifo_interface;
+	bool			dp_disable;
 	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
 	unsigned			dma_align;

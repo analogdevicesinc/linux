@@ -550,24 +550,29 @@ static int axiadc_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
-	st->rx_chan = of_dma_request_slave_channel(op->dev.of_node, "rx");
-	if (!st->rx_chan) {
-		ret = -EPROBE_DEFER;
-		dev_err(dev, "failed to find rx dma device\n");
-		goto failed2;
+	st->dp_disable = axiadc_read(st, ADI_REG_ADC_DP_DISABLE);
+
+	if (!st->dp_disable) {
+		st->rx_chan = of_dma_request_slave_channel(op->dev.of_node, "rx");
+		if (!st->rx_chan) {
+			ret = -EPROBE_DEFER;
+			dev_err(dev, "failed to find rx dma device\n");
+			goto failed2;
+		}
+
+		st->streaming_dma = of_property_read_bool(op->dev.of_node,
+				"adi,streaming-dma");
+
+		/* FIFO interface only supports streaming DMA */
+		if (info)
+			st->has_fifo_interface = info->has_fifo_interface;
+		else
+			st->has_fifo_interface = false;
+
+		if (st->has_fifo_interface)
+			st->streaming_dma = true;
+
 	}
-
-	st->streaming_dma = of_property_read_bool(op->dev.of_node,
-			"adi,streaming-dma");
-
-	/* FIFO interface only supports streaming DMA */
-	if (info)
-		st->has_fifo_interface = info->has_fifo_interface;
-	else
-		st->has_fifo_interface = false;
-
-	if (st->has_fifo_interface)
-		st->streaming_dma = true;
 
 	conv = to_converter(st->dev_spi);
 	iio_device_set_drvdata(indio_dev, conv);
@@ -599,14 +604,13 @@ static int axiadc_of_probe(struct platform_device *op)
 	st->max_count = AXIADC_MAX_DMA_SIZE;
 
 	st->dma_align = ADI_DMA_BUSWIDTH(axiadc_read(st, ADI_REG_DMA_BUSWIDTH));
-	st->dma_align = 8;
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	axiadc_channel_setup(indio_dev, conv->chip_info->channel,
-			     conv->chip_info->num_channels);
+			     st->dp_disable ? 0 : conv->chip_info->num_channels);
 
 	st->iio_info = axiadc_info;
 	st->iio_info.attrs = conv->attrs;
@@ -614,20 +618,23 @@ static int axiadc_of_probe(struct platform_device *op)
 
 	ret = conv->post_setup(indio_dev);
 
-	init_completion(&st->dma_complete);
+	if (!st->dp_disable) {
+		init_completion(&st->dma_complete);
 
-	if (st->streaming_dma)
-		axiadc_configure_ring_stream(indio_dev);
-	else
-		axiadc_configure_ring(indio_dev);
+		if (st->streaming_dma)
+			axiadc_configure_ring_stream(indio_dev);
+		else
+			axiadc_configure_ring(indio_dev);
 
-	ret = iio_buffer_register(indio_dev,
-				  indio_dev->channels,
-				  indio_dev->num_channels);
-	if (ret)
-		goto failed4;
+		ret = iio_buffer_register(indio_dev,
+					indio_dev->channels,
+					indio_dev->num_channels);
+		if (ret)
+			goto failed4;
 
-	*indio_dev->buffer->scan_mask = (1UL << conv->chip_info->num_channels) - 1;
+		*indio_dev->buffer->scan_mask =
+			(1UL << conv->chip_info->num_channels) - 1;
+	}
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
@@ -648,11 +655,13 @@ static int axiadc_of_probe(struct platform_device *op)
 	return 0;
 
 failed4:
-	if (st->streaming_dma)
-		axiadc_unconfigure_ring_stream(indio_dev);
-	else
-		axiadc_unconfigure_ring(indio_dev);
-	dma_release_channel(st->rx_chan);
+	if (!st->dp_disable) {
+		if (st->streaming_dma)
+			axiadc_unconfigure_ring_stream(indio_dev);
+		else
+			axiadc_unconfigure_ring(indio_dev);
+		dma_release_channel(st->rx_chan);
+	}
 failed2:
 	release_mem_region(phys_addr, remap_size);
 failed1:
@@ -680,14 +689,15 @@ static int axiadc_of_remove(struct platform_device *op)
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	iio_buffer_unregister(indio_dev);
-	if (st->streaming_dma)
-		axiadc_unconfigure_ring_stream(indio_dev);
-	else
-		axiadc_unconfigure_ring(indio_dev);
+	if (!st->dp_disable) {
+		iio_buffer_unregister(indio_dev);
+		if (st->streaming_dma)
+			axiadc_unconfigure_ring_stream(indio_dev);
+		else
+			axiadc_unconfigure_ring(indio_dev);
 
-	dma_release_channel(st->rx_chan);
-
+		dma_release_channel(st->rx_chan);
+	}
 	put_device(st->dev_spi);
 	module_put(st->dev_spi->driver->owner);
 
