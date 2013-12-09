@@ -39,14 +39,15 @@
 #define AXI_DMAC_REG_SRC_ADDRESS	0x414
 #define AXI_DMAC_REG_X_LENGTH		0x418
 #define AXI_DMAC_REG_Y_LENGTH		0x41c
-#define AXI_DMAC_REG_STRIDE		0x420
-#define AXI_DMAC_REG_TRANSFER_DONE	0x424
-#define AXI_DMAC_REG_ACTIVE_TRANSFER_ID 0x428
-#define AXI_DMAC_REG_STATUS		0x42c
-#define AXI_DMAC_REG_CURRENT_SRC_ADDR	0x430
-#define AXI_DMAC_REG_CURRENT_DEST_ADDR	0x434
-#define AXI_DMAC_REG_DBG0		0x438
-#define AXI_DMAC_REG_DBG1		0x43c
+#define AXI_DMAC_REG_DEST_STRIDE	0x420
+#define AXI_DMAC_REG_SRC_STRIDE		0x424
+#define AXI_DMAC_REG_TRANSFER_DONE	0x428
+#define AXI_DMAC_REG_ACTIVE_TRANSFER_ID 0x42c
+#define AXI_DMAC_REG_STATUS		0x430
+#define AXI_DMAC_REG_CURRENT_SRC_ADDR	0x434
+#define AXI_DMAC_REG_CURRENT_DEST_ADDR	0x438
+#define AXI_DMAC_REG_DBG0		0x43c
+#define AXI_DMAC_REG_DBG1		0x440
 
 #define AXI_DMAC_CTRL_ENABLE		BIT(0)
 #define AXI_DMAC_CTRL_PAUSE		BIT(1)
@@ -61,7 +62,8 @@ struct axi_dmac_sg {
 	dma_addr_t dest_addr;
 	unsigned int x_len;
 	unsigned int y_len;
-	unsigned int stride;
+	unsigned int dest_stride;
+	unsigned int src_stride;
 	unsigned int id;
 };
 
@@ -125,6 +127,28 @@ static int axi_dmac_read(struct axi_dmac *axi_dmac, unsigned int reg)
 	return readl(axi_dmac->base + reg);
 }
 
+static int axi_dmac_src_is_mem(struct axi_dmac_chan *chan)
+{
+	switch (chan->direction) {
+	case DMA_MEM_TO_DEV:
+	case DMA_MEM_TO_MEM:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static int axi_dmac_dest_is_mem(struct axi_dmac_chan *chan)
+{
+	switch (chan->direction) {
+	case DMA_DEV_TO_MEM:
+	case DMA_MEM_TO_MEM:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 {
 	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
@@ -152,13 +176,18 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 
 	sg->id = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_ID);
 
-	if (chan->direction == DMA_DEV_TO_MEM)
+	if (axi_dmac_dest_is_mem(chan)) {
 		axi_dmac_write(dmac, AXI_DMAC_REG_DEST_ADDRESS, sg->dest_addr);
-	else if (chan->direction == DMA_MEM_TO_DEV)
+		axi_dmac_write(dmac, AXI_DMAC_REG_DEST_STRIDE, sg->dest_stride);
+	}
+
+	if (axi_dmac_src_is_mem(chan)) {
 		axi_dmac_write(dmac, AXI_DMAC_REG_SRC_ADDRESS, sg->src_addr);
+		axi_dmac_write(dmac, AXI_DMAC_REG_SRC_STRIDE, sg->src_stride);
+	}
+
 	axi_dmac_write(dmac, AXI_DMAC_REG_X_LENGTH, sg->x_len - 1);
 	axi_dmac_write(dmac, AXI_DMAC_REG_Y_LENGTH, sg->y_len - 1);
-	axi_dmac_write(dmac, AXI_DMAC_REG_STRIDE, sg->stride);
 	axi_dmac_write(dmac, AXI_DMAC_REG_START_TRANSFER, 1);
 
 	return 0;
@@ -300,8 +329,16 @@ static void axi_dmac_issue_pending(struct dma_chan *c)
 
 static struct axi_dmac_desc *axi_dmac_alloc_desc(unsigned int num_sgs)
 {
-	return kzalloc(sizeof(struct axi_dmac_desc) +
+	struct axi_dmac_desc *desc;
+
+	desc = kzalloc(sizeof(struct axi_dmac_desc) +
 		sizeof(struct axi_dmac_sg) * num_sgs, GFP_ATOMIC);
+	if (!desc)
+		return NULL;
+
+	desc->num_sgs = num_sgs;
+
+	return desc;
 }
 
 static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
@@ -330,7 +367,6 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 		desc->sg[i].y_len = 1;
 	}
 
-	desc->num_sgs = sg_len;
 	desc->cyclic = false;
 
 	return vchan_tx_prep(&chan->vchan, &desc->vdesc, flags);
@@ -367,7 +403,6 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 		buf_addr += period_len;
 	}
 
-	desc->num_sgs = num_periods;
 	desc->cyclic = true;
 
 	return vchan_tx_prep(&chan->vchan, &desc->vdesc, flags);
@@ -379,46 +414,46 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 {
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;
-	dma_addr_t addr;
-	bool sgl;
 
 	if (xt->frame_size != 1 || xt->numf == 0)
+		return NULL;
+
+	if (xt->sgl[0].size == 0)
 		return NULL;
 
 	if (xt->dir != chan->direction)
 		return NULL;
 
-	switch (xt->dir) {
-	case DMA_MEM_TO_DEV:
+	if (axi_dmac_src_is_mem(chan)) {
 		if (!xt->src_inc)
 			return NULL;
-		addr = xt->src_start;
-		sgl = xt->src_sgl;
-		break;
-	case DMA_DEV_TO_MEM:
+	}
+
+	if (axi_dmac_dest_is_mem(chan)) {
 		if (!xt->dst_inc)
 			return NULL;
-		addr = xt->dst_start;
-		sgl = xt->dst_sgl;
-		break;
-	default:
-		return NULL;
 	}
 
 	desc = axi_dmac_alloc_desc(1);
 	if (!desc)
 		return NULL;
 
-	if (xt->dir == DMA_DEV_TO_MEM)
-		desc->sg[0].dest_addr = addr;
-	else
-		desc->sg[0].src_addr = addr;
+	if (axi_dmac_src_is_mem(chan)) {
+		desc->sg[0].src_addr = xt->src_start;
+		desc->sg[0].src_stride = xt->sgl[0].size;
+		if (xt->src_sgl)
+			desc->sg[0].src_stride += xt->sgl[0].icg;
+	}
+
+	if (axi_dmac_dest_is_mem(chan)) {
+		desc->sg[0].dest_addr = xt->dst_start;
+		desc->sg[0].dest_stride = xt->sgl[0].size;
+		if (xt->dst_sgl)
+			desc->sg[0].dest_stride += xt->sgl[0].icg;
+	}
+
 	desc->sg[0].x_len = xt->sgl[0].size;
 	desc->sg[0].y_len = xt->numf;
-	desc->sg[0].stride = xt->sgl[0].size;
-	if (sgl)
-		desc->sg[0].stride += xt->sgl[0].icg;
-	desc->num_sgs = 1;
 
 	return vchan_tx_prep(&chan->vchan, &desc->vdesc, flags);
 }
@@ -452,7 +487,8 @@ static bool axi_dmac_regmap_rdwr(struct device *dev, unsigned int reg)
 	case AXI_DMAC_REG_SRC_ADDRESS:
 	case AXI_DMAC_REG_X_LENGTH:
 	case AXI_DMAC_REG_Y_LENGTH:
-	case AXI_DMAC_REG_STRIDE:
+	case AXI_DMAC_REG_DEST_STRIDE:
+	case AXI_DMAC_REG_SRC_STRIDE:
 	case AXI_DMAC_REG_TRANSFER_DONE:
 	case AXI_DMAC_REG_ACTIVE_TRANSFER_ID :
 	case AXI_DMAC_REG_STATUS:
@@ -603,7 +639,7 @@ err_unregister_device:
 	dma_async_device_unregister(&dmac->dma_dev);
 err_clk_disable:
 	clk_disable_unprepare(dmac->clk);
-	
+
 	return ret;
 }
 
