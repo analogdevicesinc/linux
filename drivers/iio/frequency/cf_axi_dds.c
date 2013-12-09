@@ -362,11 +362,11 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD9122] = {
 		.name = "AD9122",
-		.channel[0] = CF_AXI_DDS_CHAN(0, 0, "1A"),
-		.channel[1] = CF_AXI_DDS_CHAN(1, 0, "1B"),
-		.channel[2] = CF_AXI_DDS_CHAN(2, 0, "2A"),
-		.channel[3] = CF_AXI_DDS_CHAN(3, 0, "2B"),
-		.channel[4] = {
+		.channel[1] = CF_AXI_DDS_CHAN(0, 0, "1A"),
+		.channel[2] = CF_AXI_DDS_CHAN(1, 0, "1B"),
+		.channel[3] = CF_AXI_DDS_CHAN(2, 0, "2A"),
+		.channel[4] = CF_AXI_DDS_CHAN(3, 0, "2B"),
+		.channel[0] = {
 			.type = IIO_TEMP,
 			.indexed = 1,
 			.channel = 0,
@@ -377,6 +377,7 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
 		.num_channels = 5,
 		.num_buf_channels = 2,
+		.num_dp_disable_channels = 1,
 	},
 	[ID_AD9739A] = {
 		.name = "AD9739A",
@@ -385,7 +386,6 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
 		.num_channels = 2,
 		.num_buf_channels = 1,
-
 	},
 };
 
@@ -509,6 +509,7 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	}
 
 	version = dds_read(st, ADI_REG_VERSION);
+	st->dp_disable = dds_read(st, ADI_REG_DAC_DP_DISABLE);
 
 	if (info)
 		expected_version = info->version;
@@ -546,7 +547,9 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->channels = st->chip_info->channel;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->num_channels = st->chip_info->num_channels;
+	indio_dev->num_channels = (st->dp_disable ?
+		st->chip_info->num_dp_disable_channels :
+		st->chip_info->num_channels);
 
 	st->iio_info = cf_axi_dds_info;
 	st->iio_info.attrs = conv->attrs;
@@ -564,32 +567,34 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	dds_write(st, ADI_REG_CNTRL_1, 0);
 	dds_write(st, ADI_REG_CNTRL_2,  ADI_DATA_SEL(DATA_SEL_DDS) | ADI_DATA_FORMAT);
 
-	cf_axi_dds_default_setup(st, 0, 90000, 40000000, 2);
-	cf_axi_dds_default_setup(st, 1, 90000, 40000000, 2);
+	if (!st->dp_disable) {
+		cf_axi_dds_default_setup(st, 0, 90000, 40000000, 2);
+		cf_axi_dds_default_setup(st, 1, 90000, 40000000, 2);
 
-	if (st->chip_info->num_channels >= 4) {
-		cf_axi_dds_default_setup(st, 2, 0, 40000000, 2);
-		cf_axi_dds_default_setup(st, 3, 0, 40000000, 2);
+		if (st->chip_info->num_channels >= 4) {
+			cf_axi_dds_default_setup(st, 2, 0, 40000000, 2);
+			cf_axi_dds_default_setup(st, 3, 0, 40000000, 2);
+		}
 	}
 
 	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
-
 	cf_axi_dds_sync_frame(indio_dev);
 
-	st->tx_chan = dma_request_slave_channel(&op->dev, "tx");
-	if (!st->tx_chan) {
-		dev_err(dev, "failed to find vdma device\n");
-		goto failed3;
+	if (!st->dp_disable) {
+		st->tx_chan = dma_request_slave_channel(&op->dev, "tx");
+		if (!st->tx_chan) {
+			dev_err(dev, "failed to find vdma device\n");
+			goto failed3;
+		}
+
+		cf_axi_dds_configure_buffer(indio_dev);
+
+		ret = iio_buffer_register(indio_dev,
+					st->chip_info->buf_channel, 2);
+		if (ret)
+			goto failed3;
 	}
 
-	cf_axi_dds_configure_buffer(indio_dev);
-
-	ret = iio_buffer_register(indio_dev,
-				  st->chip_info->buf_channel, 2);
-	if (ret)
-		goto failed3;
-
-skip_writebuf:
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto failed3;
@@ -627,7 +632,7 @@ static int cf_axi_dds_of_remove(struct platform_device *op)
 	iounmap(st->regs);
 	release_mem_region(st->r_mem.start, resource_size(&st->r_mem));
 
-	if (st->tx_chan == NULL) {
+	if (!st->dp_disable) {
 		cf_axi_dds_unconfigure_buffer(indio_dev);
 		dma_release_channel(st->tx_chan);
 	}

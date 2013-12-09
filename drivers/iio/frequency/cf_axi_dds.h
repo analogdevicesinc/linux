@@ -89,6 +89,7 @@ enum {
 #define ADI_USR_CHANMAX(x)	(((x) & 0xFF) << 0)
 #define ADI_TO_USR_CHANMAX(x)	(((x) >> 0) & 0xFF)
 
+#define ADI_REG_DAC_DP_DISABLE	0x00C0
 
 /* DAC CHANNEL */
 
@@ -165,6 +166,7 @@ struct cf_axi_dds_chip_info {
 	struct iio_chan_spec		buf_channel[4];
 	unsigned			num_channels;
 	unsigned			num_buf_channels;
+	unsigned			num_dp_disable_channels;
 };
 
 #include <linux/amba/xilinx_dma.h>
@@ -177,6 +179,7 @@ struct cf_axi_dds_state {
 	struct resource 		r_mem; /* IO mem resources */
 	const struct cf_axi_dds_chip_info	*chip_info;
 	bool			has_fifo_interface;
+	bool			dp_disable;
 	struct iio_info		iio_info;
 	void			*buf_virt;
 	dma_addr_t		buf_phys;
