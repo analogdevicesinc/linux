@@ -259,8 +259,11 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			ret = -ENODEV;
 			break;
 		}
+
+		reg = dds_read(st, ADI_REG_CNTRL_2);
 		cf_axi_dds_stop(st);
 		conv->write_raw(indio_dev, chan, val, val2, mask);
+		dds_write(st, ADI_REG_CNTRL_2, reg);
 		st->dac_clk = conv->get_data_clk(conv);
 		dds_write(st, ADI_REG_CNTRL_1, ctrl_reg);
 		ret = cf_axi_dds_sync_frame(indio_dev);
