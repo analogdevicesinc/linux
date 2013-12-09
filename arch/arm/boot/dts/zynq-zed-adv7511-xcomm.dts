@@ -120,43 +120,36 @@
 			cpu-dai = <&axi_i2s_0>;
 		};
 
-		axi_vdma_1: axivdma@43000000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
+		dma_tx: dma@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-vdma";
-			reg = <0x43000000 0x1000>;
-			/*xlnx,include-sg = <0x0>;*/
-			xlnx,num-fstores = <0x3>;
-			dma-channel@43000000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 57 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
+			interrupts = <0 57 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
 			};
 		};
 
-		axi_dma_1: axidma@40420000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
+		dma_rx: dma@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			reg = <0x40420000 0x10000>;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
-			dma-channel@40420000 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 56 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,sg-length-width = <23>;
-				xlnx,include-dre = <0x0>;
+			interrupts = <0 56 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <1>;
 			};
 		};
 
 		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
-			compatible = "xlnx,axi-adc-2c-1.00.a";
+			compatible = "adi,axi-ad9643-6.00.a";
 			reg = <0x79020000 0x10000 >;
-			dmas = <&axi_dma_1 0>;
+			dmas = <&dma_tx 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9467>;
 			xlnx,dphase-timeout = <0x8>;
@@ -169,10 +162,10 @@
 		};
 
 		cf_ad9122_core_0: cf-ad9122-core-lpc@74204000 {
-			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
+			compatible = "adi,axi-ad9122-6.00.a";
 			reg = <0x74204000 0x10000>;
 			spibus-connected = <&dac0_ad9122>;
-			dmas = <&axi_vdma_1 0>;
+			dmas = <&dma_rx 0>;
 			dma-names = "tx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;

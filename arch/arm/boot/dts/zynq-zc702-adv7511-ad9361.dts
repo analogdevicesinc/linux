@@ -137,43 +137,36 @@
 			cpu-dai = <&axi_spdif_tx_0>;
 		};
 
-		axi_vdma_1: axivdma@43040000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
+		rx_dma: dma@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-vdma";
-			reg = <0x43040000 0x1000>;
-			/*xlnx,include-sg = <0x0>;*/
-			xlnx,num-fstores = <0x3>;
-			dma-channel@43040000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 57 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
+			interrupts = <0 57 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
 			};
 		};
 
-		axi_dma_1: axidma@40400000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
+		tx_dma: dma@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			reg = <0x40400000 0x10000>;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
-			dma-channel@40420000 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 56 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,sg-length-width = <23>;
-				xlnx,include-dre = <0x0>;
+			interrupts = <0 56 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <1>;
 			};
 		};
 
 		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
-			compatible = "xlnx,axi-adc-2c-1.00.a";
+			compatible = "adi,axi-ad9361-6.00.a";
 			reg = <0x79020000 0x6000>;
-			dmas = <&axi_dma_1 0>;
+			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9361>;
 			xlnx,dphase-timeout = <0x8>;
@@ -183,15 +176,14 @@
 			xlnx,slv-awidth = <0x20>;
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
-			//adi,streaming-dma;
 		};
 
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
-			compatible = "xlnx,axi-ad9361-dds-1.00.a";
+			compatible = "adi,axi-ad9361-dds-6.00.a";
 			reg = <0x79024000 0x1000>;
 			clocks = <&adc0_ad9361 13>;
 			clock-names = "sampl_clk";
-			dmas = <&axi_vdma_1 0>;
+			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			dac-sample-frequency = <491520000>;
 			xlnx,dphase-timeout = <0x8>;
