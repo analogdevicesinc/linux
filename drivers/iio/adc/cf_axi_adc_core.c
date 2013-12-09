@@ -36,7 +36,7 @@
 
 #define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
 #define PCORE_VERSION_MAJOR(version) (version >> 16)
-#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0x3ff)
+#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0xff)
 #define PCORE_VERSION_LETTER(version) (version & 0xff)
 
 struct axiadc_core_info {
@@ -457,8 +457,8 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible =	"xlnx,axi-ad9683-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9625-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9434-1.00.a", },
-	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &ad9361_6_00_a_info },
-	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &ad9643_6_00_a_info },
+	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &ad9643_6_00_a_info },
+	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &ad9361_6_00_a_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
