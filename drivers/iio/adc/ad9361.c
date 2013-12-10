@@ -60,6 +60,8 @@ enum debugfs_cmd {
 	DBGFS_BIST_PRBS,
 	DBGFS_BIST_TONE,
 	DBGFS_BIST_DT_ANALYSIS,
+	DBGFS_RXGAIN_1,
+	DBGFS_RXGAIN_2,
 };
 
 enum ad9361_bist_mode {
@@ -89,7 +91,7 @@ struct ad9361_rf_phy {
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[120];
+	struct ad9361_debugfs_entry debugfs_entry[125];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -4171,7 +4173,7 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy, const char *na
 	return clk;
 }
 
-
+#if 0
 static int ad9361_clks_disable_unprepare(struct ad9361_rf_phy *phy)
 {
 	int i;
@@ -4181,6 +4183,7 @@ static int ad9361_clks_disable_unprepare(struct ad9361_rf_phy *phy)
 
 	return 0;
 }
+#endif
 
 static int ad9361_clks_resync(struct ad9361_rf_phy *phy)
 {
@@ -5166,7 +5169,6 @@ static int ad9361_get_agc_mode(struct iio_dev *indio_dev,
 	return phy->agc_mode[chan->channel];
 }
 
-
 static const char * const ad9361_agc_modes[] =
  	{"manual", "fast_attack", "slow_attack", "hybrid"};
 
@@ -5448,6 +5450,25 @@ static ssize_t ad9361_debugfs_read(struct file *file, char __user *userbuf,
 			ret = -EINVAL;
 		}
 
+	} else if (entry->cmd == DBGFS_RXGAIN_1 || entry->cmd == DBGFS_RXGAIN_2) {
+		struct rf_rx_gain rx_gain = {0};
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = ad9361_get_rx_gain(phy, (entry->cmd == DBGFS_RXGAIN_1) ?
+				1 : 2, &rx_gain);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		len = snprintf(buf, sizeof(buf), "%d %u %u %u %u %u %u %u\n",
+				rx_gain.gain_db,
+				rx_gain.fgt_lmt_index,
+				rx_gain.digital_gain,
+				rx_gain.lmt_gain,
+				rx_gain.lpf_gain,
+				rx_gain.lna_index,
+				rx_gain.tia_index,
+				rx_gain.mixer_index);
+
 	} else if (entry->cmd == DBGFS_BIST_DT_ANALYSIS) {
 		len = ad9361_dig_interface_timing_analysis(phy, buf, sizeof(buf));
 	} else if (entry->cmd) {
@@ -5598,6 +5619,20 @@ static int ad9361_register_debugfs(struct iio_dev *indio_dev)
 		.propname = "bist_timing_analysis",
 		.phy = phy,
 		.cmd = DBGFS_BIST_DT_ANALYSIS,
+	};
+
+	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
+		(struct ad9361_debugfs_entry) {
+		.propname = "gaininfo_rx1",
+		.phy = phy,
+		.cmd = DBGFS_RXGAIN_1,
+	};
+
+	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
+		(struct ad9361_debugfs_entry) {
+		.propname = "gaininfo_rx2",
+		.phy = phy,
+		.cmd = DBGFS_RXGAIN_2,
 	};
 
 	for (i = 0; i < phy->ad9361_debugfs_entry_index; i++)
