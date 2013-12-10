@@ -104,16 +104,16 @@
 			reg = <0x40400000 0x10000>;
 			dma-channel@40400000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 52 0x4>;
+				interrupts = <0x0 0x34 0x4>;
 				xlnx,datawidth = <0x40>;
-				xlnx,sg-length-width = <23>;
+				xlnx,sg-length-width = <0x17>;
 				xlnx,include-dre = <0x0>;
 			};
 		};
 
-		ad_mc_adc_0: ad-mc-adc@79020000 {
+		ad-mc-adc@79020000 {
 			compatible = "xlnx,axi-ad-mc-adc-1.00.a";
-			reg = < 0x79020000 0x10000 >;
+			reg = <0x79020000 0x10000>;
 			dmas = <&axi_dma_0 0>;
 			dma-names = "ad-mc-adc-dma";
 		};
@@ -126,18 +126,18 @@
 			reg = <0x40440000 0x10000>;
 			dma-channel@40440000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 35 0x4>;
+				interrupts = <0x0 0x23 0x4>;
 				xlnx,datawidth = <0x20>;
-				xlnx,sg-length-width = <23>;
+				xlnx,sg-length-width = <0x17>;
 				xlnx,include-dre = <0x0>;
 			};
 		};
 
-		ad_mc_speed_0: ad-mc-speed@75c20000 {
-			compatible = "xlnx,axi-ad-mc-speed-1.00.a";
-			reg = < 0x75c20000 0x10000 >;
+		ad-mc-torque-ctrl@6da00000 {
+			compatible = "xlnx,axi-ad-mc-torque-ctrl-1.00.a";
+			reg = <0x6da00000 0x10000>;
 			dmas = <&axi_dma_1 0>;
-			dma-names = "ad-mc-speed-dma";
+			dma-names = "ad-mc-torque-ctrl-dma";
 		};
 
 		axi_dma_2: axidma2@40480000 {
@@ -148,18 +148,40 @@
 			reg = <0x40480000 0x10000>;
 			dma-channel@40480000 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 35 0x4>;
+				interrupts = <0x0 0x21 0x4>;
 				xlnx,datawidth = <0x20>;
-				xlnx,sg-length-width = <23>;
+				xlnx,sg-length-width = <0x17>;
 				xlnx,include-dre = <0x0>;
 			};
 		};
 
-		ad_mc_controller_0: ad-mc-controller@6da00000 {
-			compatible = "xlnx,axi-ad-mc-controller-1.00.a";
-			reg = < 0x6da00000 0x10000 >;
+		ad-mc-speed@75c20000 {
+			compatible = "xlnx,axi-ad-mc-speed-1.00.a";
+			reg = <0x75c20000 0x10000>;
 			dmas = <&axi_dma_2 0>;
-			dma-names = "ad-mc-controller-dma";
+			dma-names = "ad-mc-speed-dma";
+		};
+
+		axi_dma_3: axidma3@404C0000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#dma-cells = <1>;
+			compatible = "xlnx,axi-dma";
+			reg = <0x404C0000 0x10000>;
+			dma-channel@404C0000 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = <0x0 0x1f 0x4>;
+				xlnx,datawidth = <0x40>;
+				xlnx,sg-length-width = <0x17>;
+				xlnx,include-dre = <0x0>;
+			};
+		};
+
+		ad-mc-adc2@6da20000 {
+			compatible = "xlnx,axi-ad-mc-adc-1.00.a";
+			reg = <0x6da20000 0x10000>;
+			dmas = <&axi_dma_3 0>;
+			dma-names = "ad-mc-adc-dma";
 		};
 	};
 };
