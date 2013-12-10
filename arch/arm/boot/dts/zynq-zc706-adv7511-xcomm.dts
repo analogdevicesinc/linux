@@ -199,7 +199,7 @@
 			compatible = "adi,axi-ad9122-6.00.a";
 			reg = <0x74204000 0x10000>;
 			spibus-connected = <&dac0_ad9122>;
-			dmas = <&rx_dma 0>;
+			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			dac-sample-frequency = <491520000>;
 			xlnx,dphase-timeout = <0x8>;
