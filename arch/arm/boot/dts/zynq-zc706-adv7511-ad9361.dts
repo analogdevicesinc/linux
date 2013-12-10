@@ -214,7 +214,7 @@
 		};
 
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
-			compatible = "xlnx,axi-ad9361-dds-6.00.a";
+			compatible = "adi,axi-ad9361-dds-6.00.a";
 			reg = <0x79024000 0x1000>;
 
 //			adi,axi-dds-rate = <1>; /* use 1 for 1RX1TX mode */
