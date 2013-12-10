@@ -580,7 +580,6 @@ static int ad9361_clkout_control(struct ad9361_rf_phy *phy,
 static int ad9361_load_mixer_gm_subtable(struct ad9361_rf_phy *phy)
 {
 	int i, addr;
-return 0;
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
 	ad9361_spi_write(phy->spi, REG_GM_SUB_TABLE_CONFIG,
