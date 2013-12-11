@@ -460,7 +460,7 @@ static int iio_dma_buffer_read(struct iio_buffer *r, size_t n,
 
 	block = queue->fileio.block;
 
-	n = ALIGN(n, r->bytes_per_datum);
+	n = round_down(n, r->bytes_per_datum);
 	if (n > block->block.bytes_used - queue->fileio.pos)
 		n = block->block.bytes_used - queue->fileio.pos;
 
