@@ -92,7 +92,7 @@ static int axiadc_hw_ring_predisable(struct iio_dev *indio_dev)
 	list_splice_tail_init(&st->block_list, &block_list);
 	spin_unlock_irq(&block_list_lock);
 
-	list_for_each_entry_safe(block, _block, &st->block_list, head) {
+	list_for_each_entry_safe(block, _block, &block_list, head) {
 		list_del(&block->head);
 		iio_dma_buffer_block_done(block);
 	}
