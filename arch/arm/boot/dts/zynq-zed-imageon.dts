@@ -12,7 +12,7 @@
 		i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = <0 58 0x4>;
+			interrupts = <0 59 0x4>;
 			reg = <0x41600000 0x10000>;
 
 			#size-cells = <0>;
@@ -48,6 +48,24 @@
 					};
 				};
 
+				i2c@2 { 
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <2>;
+
+					adv7611@4c {
+						compatible = "adi,adv7611";
+						reg = <0x4c>;
+
+						port {
+							adv7611: endpoint {
+								bus-width = <16>;
+								remote-endpoint = <&axi_hdmi_rx>;
+							};
+						};
+					};
+				};
+
 				i2c@3 {
 					#size-cells = <0>;
 					#address-cells = <1>;
@@ -73,7 +91,7 @@
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 59 0x4>;
+				interrupts = <0 58 0x4>;
 				xlnx,datawidth = <0x40>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
@@ -88,7 +106,7 @@
 		};
 
 		axi_hdmi@70e00000 {
-			compatible = "adi,axi-hdmi-1.00.a";
+			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
 			dmas = <&axi_vdma_0 0>;
@@ -116,6 +134,37 @@
 			compatible = "adv7511-hdmi-snd";
 			audio-codec = <&adv7511>;
 			cpu-dai = <&axi_spdif_tx_0>;
+		};
+
+		axi_hdmi_rx@777600000 {
+			compatible = "adi,axi-hdmi-rx-1.00.a";
+			reg = <0x77600000 0x40>;
+			interrupts = <0 55 0>;
+			dmas = <&axi_dmac 0>;
+			dma-names = "rx";
+			gpios = <&pca9534 2 0>;
+
+			port {
+				#address-cells = <0>;
+				#size-cells = <0>;
+
+				axi_hdmi_rx: endpoint {
+					remote-endpoint = <&adv7611>;
+				};
+			};
+		};
+
+		axi_dmac: dmac@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 57 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
+			};
 		};
 	};
 
