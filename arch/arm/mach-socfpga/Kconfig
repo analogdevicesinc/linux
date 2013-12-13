@@ -28,3 +28,8 @@ config SOCFPGA_SUSPEND
 	  Select this if you want to enable Suspend-to-RAM on SOCFPGA
 	  platforms.
 endif
+config FPGADMA
+	tristate "FPGA DMA FIFO driver"
+	depends on DMA_ENGINE
+	help
+		Sample FPGA DMA driver, for testing with special FPGA FIFO image
