@@ -29,6 +29,7 @@
 
 #include "core.h"
 #include "socfpga_cti.h"
+#include "ocram.h"
 
 void __iomem *socfpga_scu_base_addr = ((void __iomem *)(SOCFPGA_SCU_VIRT_BASE));
 void __iomem *sys_manager_base_addr;
@@ -207,7 +208,9 @@ static void __init socfpga_cyclone5_init(void)
 #endif
 	of_platform_populate(NULL, of_default_bus_match_table,
 		socfpga_auxdata_lookup, NULL);
-	socfpga_init_clocks();
+
+	socfpga_init_ocram_ecc();
+
 	enable_periphs();
 
 	socfpga_soc_device_init();
