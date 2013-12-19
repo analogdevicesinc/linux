@@ -394,6 +394,13 @@ config EDAC_ALTERA_L2_ECC
 	  the L2 memory & enable the L2 ECC before loading
 	  the kernel.
 
+config EDAC_ALTERA_OCRAM_ECC
+	bool "Altera On-Chip RAM EDAC"
+	depends on EDAC_ALTERA_ECC_MGR
+	help
+	  Support for error detection and correction on the
+	  Altera On-Chip RAM Memory.
+
 config EDAC_SYNOPSYS
 	tristate "Synopsys DDR Memory Controller"
 	depends on EDAC_MM_EDAC && ARCH_ZYNQ
@@ -407,5 +414,4 @@ config EDAC_XGENE
 	help
 	  Support for error detection and correction on the
 	  APM X-Gene family of SOCs.
-
 endif # EDAC
