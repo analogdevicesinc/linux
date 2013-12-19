@@ -30,6 +30,7 @@
 
 #include "core.h"
 #include "socfpga_cti.h"
+#include "ocram.h"
 
 void __iomem *socfpga_scu_base_addr = ((void __iomem *)(SOCFPGA_SCU_VIRT_BASE));
 void __iomem *sys_manager_base_addr;
@@ -215,6 +216,7 @@ static void __init socfpga_cyclone5_init(void)
 				socfpga_auxdata_lookup, NULL);
 	enable_periphs();
 	socfpga_soc_device_init();
+	socfpga_init_ocram_ecc();
 }
 
 static const char *altera_dt_match[] = {
