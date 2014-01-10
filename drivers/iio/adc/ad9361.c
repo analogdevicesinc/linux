@@ -4428,7 +4428,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	int ret, i, j, k, chan, t, num_chan;
+	int ret, i, j, k, chan, t, num_chan, err = 0;
 	u32 s0, s1, c0, c1, tmp, saved = 0;
 	u8 field[2][16];
 
@@ -4481,8 +4481,11 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 		c0 = ad9361_find_opt_delay(&field[0][0], &s0);
 		c1 = ad9361_find_opt_delay(&field[1][0], &s1);
 
-		if (!c0 && !c1)
-			dev_err(&phy->spi->dev, "%s: FAILED!", __func__);
+		if (!c0 && !c1) {
+			dev_err(&phy->spi->dev, "%s: Tuning %s FAILED!", __func__,
+				t ? "TX" : "RX");
+			err = -EIO;
+		}
 
 		if (c1 > c0)
 			ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY + t,
@@ -4526,11 +4529,11 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 			phy->pdata->port_ctrl.tx_clk_data_delay =
 				ad9361_spi_read(phy->spi, REG_TX_CLOCK_DATA_DELAY);
 
-			return 0;
+			return err;
 		}
 	}
 
-	return 0;
+	return -EINVAL;
 }
 
 static int ad9361_post_setup(struct iio_dev *indio_dev)
@@ -4539,7 +4542,7 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned rx2tx2 = conv->phy->pdata->rx2tx2;
 	unsigned tmp;
-	int i;
+	int i, ret;
 
 	conv->indio_dev = indio_dev;
 	axiadc_write(st, ADI_REG_CNTRL, rx2tx2 ? 0 : ADI_R1_MODE);
@@ -4564,7 +4567,9 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
 
-	ad9361_dig_tune(conv->phy, 61440000);
+	ret = ad9361_dig_tune(conv->phy, 61440000);
+	if (ret < 0)
+		return ret;
 
 	return ad9361_set_trx_clock_chain(conv->phy,
 					 conv->phy->pdata->rx_path_clks,
