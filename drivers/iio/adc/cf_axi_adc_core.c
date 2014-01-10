@@ -537,6 +537,8 @@ static int axiadc_of_probe(struct platform_device *op)
 	indio_dev->info = &st->iio_info;
 
 	ret = conv->post_setup(indio_dev);
+	if (ret < 0)
+		goto failed2;
 
 	init_completion(&st->dma_complete);
 
