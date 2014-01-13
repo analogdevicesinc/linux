@@ -596,7 +596,7 @@ static ssize_t ad9122_store(struct device *dev,
 	switch ((u32)this_attr->address) {
 	case AD9122_REG_I_DAC_OFFSET_MSB:
 	case AD9122_REG_Q_DAC_OFFSET_MSB:
-		if (readin < 0 || readin > 0xFFFF) {
+		if (readin < -32768 || readin > 32767) {
 			ret = -EINVAL;
 			goto out;
 		}
@@ -655,6 +655,10 @@ static ssize_t ad9122_show(struct device *dev,
 	case AD9122_REG_I_PHA_ADJ_MSB:
 	case AD9122_REG_Q_PHA_ADJ_MSB:
 		val = sign_extend32(val, 9);
+		break;
+	case AD9122_REG_I_DAC_OFFSET_MSB:
+	case AD9122_REG_Q_DAC_OFFSET_MSB:
+		val = (short) val;
 		break;
 	}
 
