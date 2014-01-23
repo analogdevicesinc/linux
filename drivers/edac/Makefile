@@ -68,4 +68,6 @@ obj-$(CONFIG_EDAC_OCTEON_PCI)		+= octeon_edac-pci.o
 
 obj-$(CONFIG_EDAC_ALTERA_MC)		+= altera_edac.o
 obj-$(CONFIG_EDAC_ALTERA_ECC_MGR)       += altera_ecc_mgr_edac.o
+obj-$(CONFIG_EDAC_ALTERA_L2_ECC)        += altera_ecc_l2.o
+obj-$(CONFIG_EDAC_ALTERA_OCRAM_ECC)     += altera_ecc_ocram.o
 obj-$(CONFIG_EDAC_SYNOPSYS)		+= synopsys_edac.o
