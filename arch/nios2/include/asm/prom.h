@@ -23,6 +23,4 @@ extern int __dtb_start;
 
 extern unsigned long early_altera_uart_or_juart_console(void);
 
-extern void device_tree_init(void);
-
 #endif /* _ASM_NIOS2_PROM_H */

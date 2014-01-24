@@ -35,8 +35,6 @@ EXPORT_SYMBOL(memory_end);
 
 unsigned long memory_size;
 
-char cmd_line[COMMAND_LINE_SIZE] = { 0, };
-
 /*				r1  r2  r3  r4  r5  r6  r7  r8  r9 r10 r11*/
 /*				r12 r13 r14 r15 or2 ra  fp  sp  gp es  ste  ea*/
 static struct pt_regs fake_regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -131,10 +129,10 @@ asmlinkage void __init nios2_boot_init(unsigned r4, unsigned r5, unsigned r6,
 
 #ifndef CONFIG_CMDLINE_FORCE
 	if (cmdline_passed[0])
-		strncpy(cmd_line, cmdline_passed, COMMAND_LINE_SIZE);
+		strncpy(boot_command_line, cmdline_passed, COMMAND_LINE_SIZE);
 #ifdef CONFIG_CMDLINE_IGNORE_DTB
 	else
-		strncpy(cmd_line, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
+		strncpy(boot_command_line, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
 #endif
 #endif
 }
@@ -159,10 +157,7 @@ void __init setup_arch(char **cmdline_p)
 	init_task.thread.kregs = &fake_regs;
 
 	/* Keep a copy of command line */
-	*cmdline_p = &cmd_line[0];
-
-	memcpy(boot_command_line, cmd_line, COMMAND_LINE_SIZE);
-	boot_command_line[COMMAND_LINE_SIZE-1] = 0;
+	*cmdline_p = boot_command_line;
 
 	/*
 	 * give all the memory to the bootmap allocator,  tell it to put the
@@ -202,7 +197,7 @@ void __init setup_arch(char **cmdline_p)
 	}
 #endif /* CONFIG_BLK_DEV_INITRD */
 
-	device_tree_init();
+	unflatten_and_copy_device_tree();
 
 	setup_cpuinfo();
 
