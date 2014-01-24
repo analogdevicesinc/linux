@@ -24,8 +24,6 @@
 #ifndef __ASSEMBLY__
 # ifdef __KERNEL__
 
-extern char cmd_line[COMMAND_LINE_SIZE];
-
 extern char exception_handler_hook[];
 extern char fast_handler[];
 extern char fast_handler_end[];
