@@ -5,7 +5,7 @@
 	#address-cells = <0x1>;
 	#size-cells = <0x1>;
 	interrupt-parent = <0x1>;
-	model = "Xilinx Zynq ZED";
+	model = "Parallella gen. 1";
 
 	cpus {
 		#address-cells = <0x1>;
