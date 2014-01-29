@@ -28,6 +28,7 @@
 #define SLCR_A9_CPU_RST_CTRL_OFFSET	0x244 /* CPU Software Reset Control */
 #define SLCR_REBOOT_STATUS_OFFSET	0x258 /* PS Reboot Status */
 #define SLCR_LVL_SHFTR_EN_OFFSET	0x900 /* Level Shifters Enable */
+#define SLCR_OCM_CFG_OFFSET		0x910 /* OCM Address Mapping */
 
 #define SLCR_UNLOCK_MAGIC		0xDF0D
 #define SLCR_A9_CPU_CLKSTOP		0x10
@@ -85,11 +86,20 @@ u32 zynq_slcr_read(u32 offset)
 EXPORT_SYMBOL(zynq_slcr_read);
 
 /**
+ * zynq_slcr_get_ocm_config - Get SLCR OCM config
+ *
+ * return:	OCM config bits
+ */
+u32 zynq_slcr_get_ocm_config(void)
+{
+	return zynq_slcr_read(SLCR_OCM_CFG_OFFSET);
+}
+
+/**
  * zynq_slcr_init_preload_fpga - Disable communication from the PL to PS.
  */
 void zynq_slcr_init_preload_fpga(void)
 {
-
 	/* Assert FPGA top level output resets */
 	zynq_slcr_write(0xF, SLCR_FPGA_RST_CTRL_OFFSET);
 
@@ -106,7 +116,6 @@ EXPORT_SYMBOL(zynq_slcr_init_preload_fpga);
  */
 void zynq_slcr_init_postload_fpga(void)
 {
-
 	/* Enable level shifters */
 	zynq_slcr_write(0xf, SLCR_LVL_SHFTR_EN_OFFSET);
 

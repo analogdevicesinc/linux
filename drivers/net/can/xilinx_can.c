@@ -436,7 +436,7 @@ static int xcan_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			/* Extended frames remote TX request */
 			id |= XCAN_IDR_SRR_MASK;
 	} else {
-		/* Extended CAN ID formact */
+		/* Extended CAN ID format */
 		id = ((cf->can_id & CAN_EFF_MASK) << XCAN_IDR_ID2_SHIFT) &
 			XCAN_IDR_ID2_MASK;
 		id |= (((cf->can_id & CAN_EFF_MASK) >>
@@ -946,15 +946,13 @@ static int xcan_probe(struct platform_device *pdev)
 	struct resource *res; /* IO mem resources */
 	struct net_device *ndev;
 	struct xcan_priv *priv;
-	struct device *dev = &pdev->dev;
 	int ret, irq;
 
 	/* Create a CAN device instance */
 	ndev = alloc_candev(sizeof(struct xcan_priv), XCAN_ECHO_SKB_MAX);
-	if (!ndev) {
-		dev_err(dev, "Could not allocate Xilinx CAN device\n");
+	if (!ndev)
 		return -ENOMEM;
-	}
+
 	priv = netdev_priv(ndev);
 	priv->dev = ndev;
 	priv->can.bittiming_const = &xcan_bittiming_const;
@@ -995,7 +993,7 @@ static int xcan_probe(struct platform_device *pdev)
 	ndev->mem_start = res->start;
 	ndev->mem_end = res->end;
 
-	priv->write_reg	= xcan_write_reg;
+	priv->write_reg = xcan_write_reg;
 	priv->read_reg = xcan_read_reg;
 
 	/* Getting the CAN devclk info */
@@ -1007,7 +1005,7 @@ static int xcan_probe(struct platform_device *pdev)
 	}
 
 	/* Check for type of CAN device */
-	if (of_device_is_compatible(pdev->dev.of_node, "xlnx,ps7-can")) {
+	if (of_device_is_compatible(pdev->dev.of_node, "xlnx,ps7-can-1.00.a")) {
 		priv->aperclk = devm_clk_get(&pdev->dev, "aper_clk");
 		if (IS_ERR(priv->aperclk)) {
 			dev_err(&pdev->dev, "aper clock not found\n");
@@ -1081,7 +1079,7 @@ static int xcan_remove(struct platform_device *pdev)
 
 /* Match table for OF platform binding */
 static struct of_device_id xcan_of_match[] = {
-	{ .compatible = "xlnx,ps7-can", },
+	{ .compatible = "xlnx,ps7-can-1.00.a", },
 	{ .compatible = "xlnx,axi-can-1.00.a", },
 	{ /* end of list */ },
 };

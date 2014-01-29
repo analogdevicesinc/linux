@@ -362,7 +362,15 @@ bool xilinx_drm_crtc_check_format(struct drm_crtc *base_crtc, uint32_t fourcc)
 {
 	struct xilinx_drm_crtc *crtc = to_xilinx_crtc(base_crtc);
 
-	return xilinx_drm_plane_check_format(crtc->plane_manager);
+	return xilinx_drm_plane_check_format(crtc->plane_manager, fourcc);
+}
+
+/* get format */
+uint32_t xilinx_drm_crtc_get_format(struct drm_crtc *base_crtc)
+{
+	struct xilinx_drm_crtc *crtc = to_xilinx_crtc(base_crtc);
+
+	return xilinx_drm_plane_get_format(crtc->priv_plane);
 }
 
 static struct drm_crtc_funcs xilinx_drm_crtc_funcs = {
