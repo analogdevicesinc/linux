@@ -41,12 +41,39 @@
 			};
 		};
 
+		fmc_i2c: i2c@41620000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = <0 55 0x4>;
+			reg = <0x41620000 0x10000>;
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+		};
+
+		fmc_spi: spi@e0006000 {
+			bus-num = <1>;
+			compatible = "xlnx,ps7-spi-1.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = <0 26 4>;
+			clock-names = "ref_clk", "aper_clk";
+			clocks = <&clkc 25>, <&clkc 34>;
+			num-chip-select = <4>;
+			reg = <0xe0006000 0x1000>;
+			speed-hz = <100000000>;
+			xlnx,has-ss0 = <0x1>;
+			xlnx,has-ss1 = <0x1>;
+			xlnx,has-ss2 = <0x1>;
+			xlnx,spi-clk-freq-hz = <100000000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
 		axi_vdma_0: axivdma@43000000 {
-			compatible = "xlnx,axi-vdma";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#dma-cells = <1>;
-			#dma-channels = <1>;
+			compatible = "xlnx,axi-vdma";
 			reg = <0x43000000 0x1000>;
 			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
@@ -63,7 +90,7 @@
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&clkc 17>;
+			clocks = <&clkc 16>;
 		};
 
 		axi_hdmi@70e00000 {
@@ -110,6 +137,65 @@
 			audio-codec = <&adau1761>;
 			cpu-dai = <&axi_i2s_0>;
 		};
+
+		rx_dma: dma@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 57 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
+			};
+		};
+
+		tx_dma: dma@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 56 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <1>;
+			};
+		};
+
+		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
+			compatible = "adi,axi-ad9361-6.00.a";
+			reg = <0x79020000 0x6000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_ad9361>;
+			xlnx,dphase-timeout = <0x8>;
+			xlnx,num-mem = <0x1>;
+			xlnx,num-reg = <0x1>;
+			xlnx,s-axi-min-size = <0x1ff>;
+			xlnx,slv-awidth = <0x20>;
+			xlnx,slv-dwidth = <0x20>;
+			xlnx,use-wstrb = <0x0>;
+		};
+
+		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
+			compatible = "adi,axi-ad9361-dds-6.00.a";
+			reg = <0x79024000 0x1000>;
+			clocks = <&adc0_ad9361 13>;
+			clock-names = "sampl_clk";
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			dac-sample-frequency = <491520000>;
+			xlnx,dphase-timeout = <0x8>;
+			xlnx,num-mem = <0x1>;
+			xlnx,num-reg = <0x1>;
+			xlnx,s-axi-min-size = <0x1ff>;
+			xlnx,slv-awidth = <0x20>;
+			xlnx,slv-dwidth = <0x20>;
+			xlnx,use-wstrb = <0x0>;
+		};
+
 	};
 
 	leds {
@@ -154,4 +240,10 @@
 			gpios = <&gpio 80 0>;
 		};
 	};
+};
+
+/include/ "adi-fmcomms2.dtsi"
+
+&adc0_ad9361 {
+	gpios = <&gpio 100 0>;
 };

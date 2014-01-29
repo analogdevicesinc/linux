@@ -3,18 +3,18 @@
 /include/ "zynq-zc706.dtsi"
 
 / {
+
 	fpga_axi: fpga-axi@0 {
 		compatible = "simple-bus";
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
 		ranges;
 
-		i2c@41600000 {
+		i2c0: i2c@0 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
 			interrupts = <0 58 4>;
 			reg = <0x41600000 0x10000>;
-			bus-id = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -91,7 +91,7 @@
 					};
 				};
 
-				xcomm_i2c: i2c@6 {
+				fmc_i2c: i2c@6 {
 					#size-cells = <0>;
 					#address-cells = <1>;
 					reg = <6>;
@@ -99,15 +99,33 @@
 			};
 		};
 
-		axi_vdma_0: axivdma@43020000 {
+		fmc_spi: spi@e0006000 {
+			bus-num = <1>;
+			compatible = "xlnx,ps7-spi-1.00.a";
+			interrupt-parent = <&gic>;
+			interrupts = < 0 26 4 >;
+			clock-names = "ref_clk", "aper_clk";
+			clocks = <&clkc 25>, <&clkc 34>;
+			num-chip-select = <4>;
+			reg = < 0xe0006000 0x1000 >;
+			speed-hz = <100000000>;
+			xlnx,has-ss0 = <0x1>;
+			xlnx,has-ss1 = <0x1>;
+			xlnx,has-ss2 = <0x1>;
+			xlnx,spi-clk-freq-hz = <100000000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_vdma_0: axivdma@43000000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-vdma";
-			reg = <0x43020000 0x1000>;
+			reg = <0x43000000 0x1000>;
 			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
-			dma-channel@43020000 {
+			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
 				interrupts = <0 59 0x4>;
 				xlnx,datawidth = <0x40>;
@@ -144,7 +162,7 @@
 			reg = <0x75c00000 0x1000>;
 			dmas = <&ps7_dma 0>;
 			dma-names = "tx";
-			clocks = <&clkc 15 &audio_clock>;
+			clocks = <&clkc 17 &audio_clock>;
 			clock-names = "axi", "spdif";
 		};
 
@@ -180,12 +198,12 @@
 			};
 		};
 
-		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
-			compatible = "adi,axi-ad9643-6.00.a";
-			reg = <0x79020000 0x10000>;
+		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
+			compatible = "adi,axi-ad9361-6.00.a";
+			reg = <0x79020000 0x6000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
-			spibus-connected = <&adc0_ad9467>;
+			spibus-connected = <&adc0_ad9361>;
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
 			xlnx,num-reg = <0x1>;
@@ -193,12 +211,17 @@
 			xlnx,slv-awidth = <0x20>;
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
-		} ;
+		};
 
-		cf_ad9122_core_0: cf-ad9122-core-lpc@74204000 {
-			compatible = "adi,axi-ad9122-6.00.a";
-			reg = <0x74204000 0x10000>;
-			spibus-connected = <&dac0_ad9122>;
+		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
+			compatible = "adi,axi-ad9361-dds-6.00.a";
+			reg = <0x79024000 0x1000>;
+
+//			adi,axi-dds-rate = <1>; /* use 1 for 1RX1TX mode */
+//			adi,axi-dds-1-rf-channel;
+
+			clocks = <&adc0_ad9361 13>;
+			clock-names = "sampl_clk";
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			dac-sample-frequency = <491520000>;
@@ -209,9 +232,12 @@
 			xlnx,slv-awidth = <0x20>;
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
-		} ;
+		};
 	};
 };
 
-/include/ "adi-fmcomms1.dtsi"
+/include/ "adi-fmcomms2.dtsi"
 
+&adc0_ad9361 {
+	gpios = <&gpio 83 0>;
+};

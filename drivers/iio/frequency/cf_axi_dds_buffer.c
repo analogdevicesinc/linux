@@ -46,7 +46,7 @@ static int cf_axi_dds_write_buffer(struct iio_buffer *r,
 		ret = -EFAULT;
 
 	st->txcount = count;
-	st->buffer_length = count / 4;
+	st->buffer_length = count;
 
 	if (iio_buffer_enabled(indio_dev)) {
 		dmaengine_terminate_all(st->tx_chan);
@@ -140,12 +140,13 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 			 (tmp_reg & CF_AXI_DDS_DMA_STAT_OVF) ? "overflow" : "",
 			 (tmp_reg & CF_AXI_DDS_DMA_STAT_OVF) ? "underflow" : "");
 #endif
-	tmp_reg = dds_read(st, CF_AXI_DDS_CTRL);
+	tmp_reg = dds_read(st, ADI_REG_CNTRL_2);
+	tmp_reg &= ~ADI_DATA_SEL(~0);
 
 	if (!state) {
-		cf_axi_dds_stop(st);
-		tmp_reg = CF_AXI_DDS_CTRL_DATA_EN | CF_AXI_DDS_CTRL_DDS_CLK_EN_V2;
-		dds_write(st, CF_AXI_DDS_CTRL, tmp_reg);
+//		cf_axi_dds_stop(st);
+		tmp_reg |= DATA_SEL_DDS;
+		dds_write(st, ADI_REG_CNTRL_2, tmp_reg);
 		dmaengine_terminate_all(st->tx_chan);
 		return 0;
 	}
@@ -154,34 +155,35 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 		return -EINVAL;
 	}
 
-	tmp_reg = CF_AXI_DDS_CTRL_DDS_SEL |
-		CF_AXI_DDS_CTRL_DATA_EN |
-		CF_AXI_DDS_CTRL_DDS_CLK_EN_V2 |
-		st->ddr_dds_interp_en;
+	tmp_reg |= DATA_SEL_DMA;
 
-	cnt = st->txcount;
-	x = 1;
+	dds_write(st, ADI_REG_CNTRL_1, 0);
 
-	do {
-		if (cnt > VDMA_MAX_HSIZE)
+	if (!st->has_fifo_interface) {
+		cnt = st->txcount;
+		x = 1;
+
+		do {
+			if ((cnt <= VDMA_MAX_HSIZE) && ((cnt % 8) == 0))
+				break;
+
 			cnt = st->txcount / ++x;
 
-		if ((cnt <= VDMA_MAX_HSIZE) && ((cnt % 8) == 0))
-			break;
-	} while (x < VDMA_MAX_VSIZE);
+		} while (x < VDMA_MAX_VSIZE);
 
-	if (x > VDMA_MAX_VSIZE || cnt * x != st->txcount || ((cnt % 8) != 0))
-		return -EINVAL;
+		if (x > VDMA_MAX_VSIZE || cnt * x != st->txcount || ((cnt % 8) != 0)) {
+			dev_err(indio_dev->dev.parent, "Buffer size doesn't fit VDMA\n");
+			return -EINVAL;
+		}
 
-	cf_axi_dds_stop(st);
+		st->dma_config.vsize = x;
+		st->dma_config.stride = st->dma_config.hsize = cnt;
 
-	st->dma_config.vsize = x;
-	st->dma_config.stride = st->dma_config.hsize = cnt;
+		dmaengine_device_control(st->tx_chan, DMA_SLAVE_CONFIG,
+			(unsigned long)&st->dma_config);
 
-	dmaengine_device_control(st->tx_chan, DMA_SLAVE_CONFIG,
-		(unsigned long)&st->dma_config);
-
-	dds_write(st, CF_AXI_DDS_DMA_FRAMECNT, st->txcount / 8);
+		dds_write(st, ADI_REG_VDMA_FRMCNT, st->txcount);
+	}
 
 	desc = dmaengine_prep_slave_single(st->tx_chan,
 		st->buf_phys,
@@ -195,10 +197,9 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 		dma_async_issue_pending(st->tx_chan);
 	}
 
-	dds_write(st, CF_AXI_DDS_CTRL, tmp_reg);
-	dds_write(st, CF_AXI_DDS_DMA_STAT,
-		  CF_AXI_DDS_DMA_STAT_OVF |
-		  CF_AXI_DDS_DMA_STAT_UNF);
+	dds_write(st, ADI_REG_CNTRL_2, tmp_reg);
+	dds_write(st, ADI_REG_VDMA_STATUS, ADI_VDMA_OVF | ADI_VDMA_UNF);
+	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
 
 	return 0;
 

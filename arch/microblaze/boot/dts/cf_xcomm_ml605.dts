@@ -618,7 +618,7 @@
 		axi_gpio_1: gpio@40040000 {
 			compatible = "xlnx,axi-gpio-1.01.b", "xlnx,xps-gpio-1.00.a";
 			interrupt-parent = <&axi_intc_0>;
-			interrupts = < 0 2 >;
+			//interrupts = < 0 2 >;
 			reg = < 0x40040000 0x10000 >;
 			xlnx,all-inputs = <0x0>;
 			xlnx,all-inputs-2 = <0x0>;
@@ -632,11 +632,13 @@
 			xlnx,is-dual = <0x1>;
 			xlnx,tri-default = <0xffffffff>;
 			xlnx,tri-default-2 = <0xffffffff>;
+			#gpio-cells = <2>;
+			gpio-controller;
 		} ;
 
-		axi_dac_4d_2c_0: cf-ad9122-core-lpc@7a020000 {
+		axi_dac_4d_2c_0: cf-ad9122-core-lpc@7a024000 {
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
-			reg = < 0x7a020000 0x10000 >;
+			reg = < 0x7a024000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
 			dac-sample-frequency = <491520000>;
 			dmas = <&axi_vdma_0 0>;
@@ -650,9 +652,9 @@
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
 		} ;
-		axi_dac_4d_2c_1: cf-ad9122-core-hpc@7a000000 {
+		axi_dac_4d_2c_1: cf-ad9122-core-hpc@7a004000 {
 			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
-			reg = < 0x7a000000 0x10000 >;
+			reg = < 0x7a004000 0x10000 >;
 			dac-sample-frequency = <491520000>;
 			spibus-connected = <&dac1_ad9122>;
 			dmas = <&axi_vdma_1 0>;

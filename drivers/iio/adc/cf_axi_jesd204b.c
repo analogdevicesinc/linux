@@ -74,12 +74,10 @@ static inline unsigned int jesd204b_read(struct jesd204b_state *st,
 
 static int jesd204b_set_lane(struct jesd204b_state *st, unsigned lane)
 {
-	unsigned stat;
+	jesd204b_write(st, AXI_JESD204B_REG_RX_LANESEL,
+		       AXI_JESD204B_RX_LANESEL(lane));
 
-	stat = jesd204b_read(st, AXI_JESD204B_REG_TEST_MODE);
-	stat &= ~0x7;
-	stat |= lane & 0x7;
-	jesd204b_write(st, AXI_JESD204B_REG_TEST_MODE, stat);
+	jesd204b_read(st, AXI_JESD204B_REG_RX_LANESEL);
 
 	return 0;
 }
@@ -88,46 +86,62 @@ static int jesd204b_es(struct jesd204b_state *st, unsigned lane)
 {
 	unsigned stat;
 
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_CNTRL,
+		AXI_JESD204B_EYESCAN_STOP);
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_CNTRL, 0);
+
 	jesd204b_set_lane(st, lane);
 
-	jesd204b_write(st, AXI_JESD204B_REG_ES_PRESCALE,
-		AXI_JESD204B_REG_ES_PRESCALE_STEP(1) |
-		AXI_JESD204B_REG_ES_PRESCALE_MAX(31) |
-		AXI_JESD204B_REG_ES_PRESCALE_MIN(st->prescale));
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_PRESCALE,
+		AXI_JESD204B_EYESCAN_PRESCALE(st->prescale));
 
-	jesd204b_write(st, AXI_JESD204B_REG_ES_VOFFSET,
-		AXI_JESD204B_REG_ES_VOFFSET_STEP(1) |
-		AXI_JESD204B_REG_ES_VOFFSET_MAX(AXI_JESD204B_ES_VSIZE / 2) |
-		AXI_JESD204B_REG_ES_VOFFSET_MIN(-1 * (AXI_JESD204B_ES_VSIZE / 2)));
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_VOFFSET,
+		AXI_JESD204B_EYESCAN_VOFFSET_STEP(1) |
+		AXI_JESD204B_EYESCAN_VOFFSET_MAX(AXI_JESD204B_ES_VSIZE / 2) |
+		AXI_JESD204B_EYESCAN_VOFFSET_MIN(-1 * (AXI_JESD204B_ES_VSIZE / 2)));
 
-	jesd204b_write(st, AXI_JESD204B_REG_ES_HOFFSET,
-		AXI_JESD204B_REG_ES_HOFFSET_MAX(st->es_hsize / 2) |
-		AXI_JESD204B_REG_ES_HOFFSET_MIN(-1 * (st->es_hsize / 2)));
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_HOFFSET_1,
+		AXI_JESD204B_EYESCAN_HOFFSET_MAX(st->es_hsize / 2) |
+		AXI_JESD204B_EYESCAN_HOFFSET_MIN(-1 * (st->es_hsize / 2)));
 
-	jesd204b_write(st, AXI_JESD204B_REG_ES_HMAXMIN,
-		AXI_JESD204B_REG_ES_HMAXMIN_MAX(st->es_hsize) |
-		AXI_JESD204B_REG_ES_HMAXMIN_MIN(0));
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_HOFFSET_2,
+		AXI_JESD204B_EYESCAN_HOFFSET_STEP(1));
 
-	jesd204b_write(st, AXI_JESD204B_REG_ES_HSIZE, st->es_hsize + 1);
-	jesd204b_write(st, AXI_JESD204B_REG_ES_HOFFSET_STP, 1);
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_DMA_STARTADDR, st->buf_phys);
 
-	jesd204b_write(st, AXI_JESD204B_REG_ES_START_ADDR, st->buf_phys);
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_SDATA_1_0,
+		AXI_JESD204B_EYESCAN_SDATA1(0) |
+		AXI_JESD204B_EYESCAN_SDATA0(0));
 
-	jesd204b_write(st, AXI_JESD204B_REG_ES_CTRL,
-		AXI_JESD204B_REG_ES_CTRL_NORM);
-	jesd204b_write(st, AXI_JESD204B_REG_ES_CTRL,
-		AXI_JESD204B_REG_ES_CTRL_NORM |
-		AXI_JESD204B_REG_ES_CTRL_START);
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_SDATA_3_2,
+		AXI_JESD204B_EYESCAN_SDATA3(0xFFFF) |
+		AXI_JESD204B_EYESCAN_SDATA2(0xFFFF));
+
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_SDATA_4,
+		AXI_JESD204B_EYESCAN_SDATA4(0xFFFF));
+
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_QDATA_1_0,
+		AXI_JESD204B_EYESCAN_QDATA1(0xFFFF) |
+		AXI_JESD204B_EYESCAN_QDATA0(0xFFFF));
+
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_QDATA_3_2,
+		AXI_JESD204B_EYESCAN_QDATA3(0xFFFF) |
+		AXI_JESD204B_EYESCAN_QDATA2(0xFFFF));
+
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_QDATA_4,
+		AXI_JESD204B_EYESCAN_QDATA4(0xFFFF));
+
+	jesd204b_write(st, AXI_JESD204B_REG_EYESCAN_CNTRL,
+		AXI_JESD204B_EYESCAN_INIT |
+		AXI_JESD204B_EYESCAN_START);
 
 	do {
 		msleep(50 * ((st->prescale & 0x1F) + 1));
-		stat = jesd204b_read(st, AXI_JESD204B_REG_ES_STATUS);
-		if (stat & (AXI_JESD204B_REG_ES_STATUS_ERROR |
-			AXI_JESD204B_REG_ES_STATUS_BUF_UNF |
-			AXI_JESD204B_REG_ES_STATUS_BUF_OVF))
+		stat = jesd204b_read(st, AXI_JESD204B_REG_EYESCAN_STATUS);
+		if (stat & AXI_JESD204B_EYESCAN_DMAERR)
 			return -EIO;
 
-	} while (stat & AXI_JESD204B_REG_ES_STATUS_ES_BUSY);
+	} while (stat & AXI_JESD204B_EYESCAN_STATUS);
 
 	return 0;
 }
@@ -186,7 +200,7 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 
 	jesd204b_set_lane(st, lane);
 
-	val = jesd204b_read(st, AXI_JESD204B_REG_INIT_DATA0);
+	val = jesd204b_read(st, AXI_JESD204B_REG_RX_INIT_DATA_0);
 	ret = sprintf(buf,
 		"DID: %d, BID: %d, LID: %d, L: %d, SCR: %d, F: %d\n",
 		AXI_JESD204B_INIT0_DID(val),
@@ -196,7 +210,7 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 		AXI_JESD204B_INIT0_SCR(val),
 		AXI_JESD204B_INIT0_F(val));
 
-	val = jesd204b_read(st, AXI_JESD204B_REG_INIT_DATA1);
+	val = jesd204b_read(st, AXI_JESD204B_REG_RX_INIT_DATA_1);
 	ret += sprintf(buf + ret,
 		"K: %d, M: %d, N: %d, CS: %d, S: %d, N': %d, HD: %d\n",
 		AXI_JESD204B_INIT1_K(val),
@@ -207,12 +221,12 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 		AXI_JESD204B_INIT1_ND(val),
 		AXI_JESD204B_INIT1_HD(val));
 
-	val = jesd204b_read(st, AXI_JESD204B_REG_INIT_DATA2);
+	val = jesd204b_read(st, AXI_JESD204B_REG_RX_INIT_DATA_2);
 	ret += sprintf(buf + ret, "FCHK: 0x%X, CF: %d\n",
 		AXI_JESD204B_INIT2_FCHK(val),
 		AXI_JESD204B_INIT2_CF(val));
 
-	val = jesd204b_read(st, AXI_JESD204B_REG_INIT_DATA3);
+	val = jesd204b_read(st, AXI_JESD204B_REG_RX_INIT_DATA_3);
 	ret += sprintf(buf + ret,
 		"ADJCNT: %d, PHYADJ: %d, ADJDIR: %d, JESDV: %d, SUBCLASS: %d\n",
 		AXI_JESD204B_INIT3_ADJCNT(val),
@@ -222,13 +236,13 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 		AXI_JESD204B_INIT3_SUBCLASSV(val));
 
 	ret += sprintf(buf + ret, "MFCNT : 0x%X\n",
-		       jesd204b_read(st, AXI_JESD204B_REG_TEST_MFCNT));
+		       jesd204b_read(st, AXI_JESD204B_REG_RX_TEST_MFCNT));
 	ret += sprintf(buf + ret, "ILACNT: 0x%X\n",
-		       jesd204b_read(st, AXI_JESD204B_REG_TEST_ILACNT));
+		       jesd204b_read(st, AXI_JESD204B_REG_RX_TEST_ILACNT));
 	ret += sprintf(buf + ret, "ERRCNT: 0x%X\n",
-		       jesd204b_read(st, AXI_JESD204B_REG_TEST_ERRCNT));
+		       jesd204b_read(st, AXI_JESD204B_REG_RX_TEST_ERRCNT));
 	ret += sprintf(buf + ret, "BUFCNT: 0x%X\n",
-		       jesd204b_read(st, AXI_JESD204B_REG_BUFCNT));
+		       jesd204b_read(st, AXI_JESD204B_REG_RX_BUFCNT));
 
 	ret += sprintf(buf + ret, "FC: %lu\n", st->rate);
 	ret += sprintf(buf + ret, "x%d,y%d CDRDW: %d\n", st->es_hsize, AXI_JESD204B_ES_VSIZE, 40);
@@ -314,7 +328,7 @@ static int jesd204b_of_probe(struct platform_device *op)
 	dev_info(dev, "Device Tree Probing \'%s\'\n",
 		 op->dev.of_node->name);
 
-	clk = clk_get(&op->dev, NULL);
+	clk = devm_clk_get(&op->dev, NULL);
 	if (IS_ERR(clk)) {
 		return -EPROBE_DEFER;
 	}
@@ -362,45 +376,84 @@ static int jesd204b_of_probe(struct platform_device *op)
 		goto err_release_mem_region;
 	}
 
-	jesd204b_write(st, AXI_JESD204B_REG_TEST_MODE,
-		       AXI_JESD204B_REG_TEST_MODE_JESD_RESET |
-		       AXI_JESD204B_REG_TEST_MODE_GTX_RESET);
-
 	ret = of_property_read_u32(op->dev.of_node,
 				   "jesd,frames-per-multiframe", &frmcnt);
-	if (ret)
-		goto err_release_mem_region;
+	if (ret) {
+		dev_err(dev, "Failed to read required dt property\n");
+		goto err_iounmap;
+	}
 
 	ret = of_property_read_u32(op->dev.of_node,
 				   "jesd,bytes-per-frame", &bytecnt);
-	if (ret)
-		goto err_release_mem_region;
+	if (ret) {
+		dev_err(dev, "Failed to read required dt property\n");
+		goto err_iounmap;
+	}
 
-	jesd204b_write(st, AXI_JESD204B_REG_CTRL,
+	jesd204b_write(st, AXI_JESD204B_REG_RX_CNTRL_1,
 		       (of_property_read_bool(op->dev.of_node,
 			"jesd,scramble_en") ?
-		       AXI_JESD204B_CTRL_SCR_EN : 0) |
+		       AXI_JESD204B_RX_DESCR_ENB : 0) |
 		       (of_property_read_bool(op->dev.of_node,
 			"jesd,lanesync_en") ?
-		       AXI_JESD204B_CTRL_LANESYNC_EN : 0));
+		       AXI_JESD204B_RX_LANESYNC_ENB : 0) |
+		      (of_property_read_bool(op->dev.of_node,
+			"jesd,sysref_en") ?
+		       AXI_JESD204B_RX_SYSREF_ENB : 0) |
+			AXI_JESD204B_RX_MFRM_FRMCNT(frmcnt - 1) |
+			AXI_JESD204B_RX_FRM_BYTECNT(bytecnt - 1));
 
-	jesd204b_write(st, AXI_JESD204B_REG_FRMCTRL,
-		       AXI_JESD204B_FRMCTRL_FRMCNT(frmcnt - 1) |
-		       AXI_JESD204B_FRMCTRL_BYTECNT(bytecnt - 1));
+	jesd204b_write(st, AXI_JESD204B_REG_RSTN,
+		       AXI_JESD204B_GT_RSTN);
 
+	jesd204b_write(st, AXI_JESD204B_REG_RSTN,
+		       AXI_JESD204B_GT_RSTN |
+		       AXI_JESD204B_IP_RSTN);
 
-	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
-		 jesd204b_read(st, AXI_JESD204B_REG_VERSION),
-		 (unsigned long long)phys_addr, st->regs);
+	jesd204b_write(st, AXI_JESD204B_REG_SYSREF,
+		       AXI_JESD204B_SYSREF);
 
-	/* TEMP workaround - this needs to come from DRP: RXOUT_DIV */
-	switch (st->vers_id) {
-	case 8:
+	mdelay(1);
+
+	jesd204b_write(st, AXI_JESD204B_REG_RSTN,
+		       AXI_JESD204B_GT_RSTN |
+		       AXI_JESD204B_IP_RSTN |
+		       AXI_JESD204B_RSTN | AXI_JESD204B_DRP_RSTN);
+
+	jesd204b_write(st, AXI_JESD204B_REG_SYSREF,
+		       AXI_JESD204B_SYSREF |
+		       AXI_JESD204B_IP_SYSREF);
+
+	jesd204b_write(st, AXI_JESD204B_REG_SYNC,
+		       AXI_JESD204B_SYNC | 0x2);
+
+	mdelay(10);
+
+	if (!jesd204b_read(st, AXI_JESD204B_REG_RX_STATUS))
+		dev_warn(dev, "JESD Link/Lane Errors");
+
+	st->es_hsize = jesd204b_read(st, AXI_JESD204B_REG_EYESCAN_RATE);
+
+	switch (st->es_hsize) {
+	case 0x1:
 		st->es_hsize = AXI_JESD204B_ES_HSIZE_FULL;
 		break;
-	default:
+	case 0x2:
 		st->es_hsize = AXI_JESD204B_ES_HSIZE_HALF;
 		break;
+	case 0x4:
+		st->es_hsize = AXI_JESD204B_ES_HSIZE_QRTR;
+		break;
+	case 0x8:
+		st->es_hsize = AXI_JESD204B_ES_HSIZE_OCT;
+		break;
+	case 0x10:
+		st->es_hsize = AXI_JESD204B_ES_HSIZE_HEX;
+		break;
+	default:
+		ret = -EINVAL;
+		dev_err(dev, "Failed get EYESCAN_RATE/RXOUT_DIV\n");
+		goto err_iounmap;
 	}
 
 	st->size = st->es_hsize * AXI_JESD204B_ES_VSIZE *
@@ -408,6 +461,12 @@ static int jesd204b_of_probe(struct platform_device *op)
 	st->prescale = 0;
 	st->buf_virt = dma_alloc_coherent(dev, PAGE_ALIGN(st->size),
 					  &st->buf_phys, GFP_KERNEL);
+
+	if (st->buf_virt == NULL) {
+		dev_err(dev, "Not enough dma memory for device\n");
+		ret = -ENOMEM;
+		goto err_iounmap;
+	}
 
 	memset(st->buf_virt, 0, PAGE_ALIGN(st->size));
 
@@ -418,8 +477,10 @@ static int jesd204b_of_probe(struct platform_device *op)
 	st->bin.size = st->size;
 
 	ret = sysfs_create_bin_file(&op->dev.kobj, &st->bin);
-	if (ret)
-		goto err_release_mem_region;
+	if (ret) {
+		dev_err(dev, "Failed to create sysfs bin file\n");
+		goto err_dma_free;
+	}
 
 	device_create_file(dev, &dev_attr_enable);
 	device_create_file(dev, &dev_attr_prescale);
@@ -456,8 +517,17 @@ static int jesd204b_of_probe(struct platform_device *op)
 	INIT_WORK(&st->work, jesd204b_work_func);
 	init_completion(&st->complete);
 
+	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
+		 jesd204b_read(st, ADI_REG_VERSION),
+		 (unsigned long long)phys_addr, st->regs);
+
 	return 0;
 
+err_dma_free:
+	dma_free_coherent(&op->dev, PAGE_ALIGN(st->size),
+			  st->buf_virt, st->buf_phys);
+err_iounmap:
+	iounmap(st->regs);
 err_release_mem_region:
 	release_mem_region(phys_addr, remap_size);
 err_clk_disable:
@@ -490,9 +560,11 @@ static int jesd204b_of_remove(struct platform_device *op)
 	else
 		release_mem_region(r_mem.start, resource_size(&r_mem));
 
+	dma_free_coherent(&op->dev, PAGE_ALIGN(st->size),
+			  st->buf_virt, st->buf_phys);
+
 	clk_disable_unprepare(st->clk);
 	clk_put(st->clk);
-
 	dev_set_drvdata(dev, NULL);
 
 	return 0;

@@ -16,6 +16,7 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/dma-buffer.h>
 #include <linux/dma-mapping.h>
+#include <linux/sizes.h>
 
 struct iio_dma_buffer_queue {
 	struct iio_buffer buffer;
@@ -49,8 +50,8 @@ static void iio_buffer_block_release(struct kref *kref)
 	dma_free_coherent(block->queue->dev, PAGE_ALIGN(block->block.size),
 					block->vaddr, block->phys_addr);
 
-	kfree(block);
 	iio_buffer_put(&block->queue->buffer);
+	kfree(block);
 }
 
 static void iio_buffer_block_get(struct iio_dma_buffer_block *block)
@@ -459,7 +460,7 @@ static int iio_dma_buffer_read(struct iio_buffer *r, size_t n,
 
 	block = queue->fileio.block;
 
-	n = ALIGN(n, r->bytes_per_datum);
+	n = round_down(n, r->bytes_per_datum);
 	if (n > block->block.bytes_used - queue->fileio.pos)
 		n = block->block.bytes_used - queue->fileio.pos;
 

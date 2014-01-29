@@ -33,8 +33,8 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 	if (!st->read_offs) {
 		ret = wait_for_completion_interruptible_timeout(&st->dma_complete,
 								4 * HZ);
-		stat = axiadc_read(st, AXIADC_PCORE_ADC_STAT);
-		dma_stat = axiadc_read(st, AXIADC_PCORE_DMA_STAT);
+		stat = axiadc_read(st, ADI_REG_STATUS);
+		dma_stat = axiadc_read(st, ADI_REG_DMA_STATUS);
 
 		if (st->compl_stat < 0) {
 			ret = st->compl_stat;
@@ -48,19 +48,12 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 		} else if (ret < 0) {
 			goto error_ret;
 		}
-#ifdef CONFIG_AXIADC_V2
-		if (dma_stat)
-			dev_warn(indio_dev->dev.parent,
-				"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
-				dma_stat, stat);
-#else
-		if ((stat & (AXIADC_PCORE_ADC_STAT_OVR0 | ((st->id == CHIPID_AD9467) ? 0 : AXIADC_PCORE_ADC_STAT_OVR1)))
-			|| dma_stat)
+
+		if ((stat & ADI_MUX_OVER_RANGE) /*|| !(stat & ADI_STATUS)*/ || dma_stat)
 			dev_warn(indio_dev->dev.parent,
 				"STATUS: DMA_STAT 0x%X, ADC_STAT 0x%X\n",
 				dma_stat, stat);
 
-#endif
 	}
 
 	count = min(count, st->ring_length - st->read_offs);
@@ -151,6 +144,16 @@ static const struct iio_buffer_access_funcs axiadc_ring_access_funcs = {
 	.set_bytes_per_datum = &axiadc_ring_set_bytes_per_datum,
 };
 
+static void axiadc_hw_transfer_done(void *data)
+{
+	struct iio_dev *indio_dev = data;
+	struct axiadc_state *st = iio_priv(indio_dev);
+
+	indio_dev->buffer->stufftoread = 1;
+	wake_up_interruptible_poll(&indio_dev->buffer->pollq, POLLIN | POLLRDNORM);
+	complete(&st->dma_complete);
+}
+
 static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -190,8 +193,8 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 		goto error_ret;
 	}
 
-	desc->callback = (dma_async_tx_callback) complete;
-	desc->callback_param = &st->dma_complete;
+	desc->callback = axiadc_hw_transfer_done;
+	desc->callback_param = indio_dev;
 
 	cookie = dmaengine_submit(desc);
 	if (cookie < 0) {
@@ -204,18 +207,11 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	st->read_offs = 0;
 	dma_async_issue_pending(st->rx_chan);
 
-	axiadc_write(st, AXIADC_PCORE_DMA_CTRL, 0);
-	axiadc_write(st, AXIADC_PCORE_ADC_STAT, 0xFFFFFFFF);
-	axiadc_write(st, AXIADC_PCORE_DMA_STAT, 0xFFFFFFFF);
-
-	if (st->pcore_version > AXIADC_PCORE_VERSION_IS(1, 0, 'a'))
-		axiadc_write(st, AXIADC_PCORE_DMA_CTRL,
-			AXIADC_DMA_CAP_EN |
-			AXIADC_DMA_CNT((st->rcount / st->dma_align) - 1));
-	else
-		axiadc_write(st, AXIADC_PCORE_DMA_CTRL,
-			AXIADC_DMA_CAP_EN_V10A |
-			AXIADC_DMA_CNT_V10A((st->rcount / st->dma_align) - 1));
+	axiadc_write(st, ADI_REG_DMA_CNTRL, 0);
+	axiadc_write(st, ADI_REG_STATUS, ~0);
+	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);
+	axiadc_write(st, ADI_REG_DMA_COUNT, st->rcount);
+	axiadc_write(st, ADI_REG_DMA_CNTRL, ADI_DMA_START);
 
 	return 0;
 
@@ -237,28 +233,28 @@ static int axiadc_hw_ring_postdisable(struct iio_dev *indio_dev)
 	return __axiadc_hw_ring_state_set(indio_dev, 0);
 }
 
-static bool axiadc_hw_ring_validate_scan_mask(struct iio_dev *indio_dev,
-				   const unsigned long *scan_mask)
-{
-	struct axiadc_state *st = iio_priv(indio_dev);
-	unsigned mask;
-
-	if (!st->have_user_logic)
-		return true;
-
-	mask = (1UL << st->chip_info->num_channels) - 1;
-
-	if ((*scan_mask & mask) && (*scan_mask & ~mask))
-		return false;
-
-	return true;
-}
+// static bool axiadc_hw_ring_validate_scan_mask(struct iio_dev *indio_dev,
+// 				   const unsigned long *scan_mask)
+// {
+// 	struct axiadc_state *st = iio_priv(indio_dev);
+// 	unsigned mask;
+//
+// 	if (!st->have_user_logic)
+// 		return true;
+//
+// 	mask = (1UL << st->chip_info->num_channels) - 1;
+//
+// 	if ((*scan_mask & mask) && (*scan_mask & ~mask))
+// 		return false;
+//
+// 	return true;
+// }
 
 
 static const struct iio_buffer_setup_ops axiadc_ring_setup_ops = {
 	.preenable = &axiadc_hw_ring_preenable,
 	.postdisable = &axiadc_hw_ring_postdisable,
-	.validate_scan_mask = &axiadc_hw_ring_validate_scan_mask,
+//	.validate_scan_mask = &axiadc_hw_ring_validate_scan_mask,
 };
 
 int axiadc_configure_ring(struct iio_dev *indio_dev)

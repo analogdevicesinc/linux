@@ -22,7 +22,7 @@
 #include "ad9122.h"
 #include "cf_axi_dds.h"
 
-const char clk_names[CLK_NUM][10] = {"data_clk", "dac_clk", "ref_clk"};
+static const char clk_names[CLK_NUM][10] = {"data_clk", "dac_clk", "ref_clk"};
 
 static const unsigned char ad9122_reg_defaults[][2] = {
 	{AD9122_REG_COMM, 0x00},
@@ -219,9 +219,10 @@ static int ad9122_tune_dci(struct cf_axi_converter *conv)
 
 			ad9122_write(conv->spi, AD9122_REG_SED_CTRL, 0);
 
-			conv->pcore_set_sed_pattern(conv->indio_dev,
-				(dac_sed_pattern[i].i1 << 16) | dac_sed_pattern[i].i0,
-				(dac_sed_pattern[i].q1 << 16) | dac_sed_pattern[i].q0);
+			conv->pcore_set_sed_pattern(conv->indio_dev, 0,
+				dac_sed_pattern[i].i0, dac_sed_pattern[i].i1);
+			conv->pcore_set_sed_pattern(conv->indio_dev, 1,
+				dac_sed_pattern[i].q0, dac_sed_pattern[i].q1);
 
 			ad9122_write(conv->spi, AD9122_REG_COMPARE_I0_LSBS,
 				dac_sed_pattern[i].i0 & 0xFF);
@@ -594,7 +595,7 @@ static ssize_t ad9122_store(struct device *dev,
 	switch ((u32)this_attr->address) {
 	case AD9122_REG_I_DAC_OFFSET_MSB:
 	case AD9122_REG_Q_DAC_OFFSET_MSB:
-		if (readin < 0 || readin > 0xFFFF) {
+		if (readin < -32768 || readin > 32767) {
 			ret = -EINVAL;
 			goto out;
 		}
@@ -653,6 +654,10 @@ static ssize_t ad9122_show(struct device *dev,
 	case AD9122_REG_I_PHA_ADJ_MSB:
 	case AD9122_REG_Q_PHA_ADJ_MSB:
 		val = sign_extend32(val, 9);
+		break;
+	case AD9122_REG_I_DAC_OFFSET_MSB:
+	case AD9122_REG_Q_DAC_OFFSET_MSB:
+		val = (short) val;
 		break;
 	}
 
@@ -820,6 +825,9 @@ static int ad9122_read_raw(struct iio_dev *indio_dev,
 
 		*val = ad9122_get_data_clk(conv);
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		*val = conv->temp_calib_code;
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		if (!conv->temp_calib_code)
 			return -EINVAL;
@@ -856,6 +864,9 @@ static int ad9122_write_raw(struct iio_dev *indio_dev,
 			ad9122_tune_dci(conv);
 		}
 		break;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		conv->temp_calib_code = val;
+		break;
 	case IIO_CHAN_INFO_PROCESSED:
 		/*
 		 * Writing in_temp0_input with the device temperature in milli
@@ -875,7 +886,7 @@ static int ad9122_probe(struct spi_device *spi)
 {
 	struct device_node *np = spi->dev.of_node;
 	struct cf_axi_converter *conv;
-	unsigned id, rate, datapath_ctrl;
+	unsigned id, rate, datapath_ctrl, tmp;
 	int ret;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
@@ -932,6 +943,10 @@ static int ad9122_probe(struct spi_device *spi)
 				  conv->fcenter_shift, rate);
 	if (ret)
 		goto out;
+
+	tmp = 25000;
+	of_property_read_u32(np, "temp-sensor-calibration-temperature-mdeg", &tmp);
+	conv->temp_calib = tmp;
 
 	spi_set_drvdata(spi, conv);
 

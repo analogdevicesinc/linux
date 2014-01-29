@@ -74,7 +74,7 @@ struct fft_state {
 	int				compl_stat;
 };
 
-struct fft_state *fft_state_glob;
+static struct fft_state *fft_state_glob;
 
 /*
  * IO accessors
@@ -90,7 +90,7 @@ static inline unsigned int fft_read(struct fft_state *st, unsigned reg)
 	return ioread32(st->regs + reg);
 }
 
-int fft_calculate(dma_addr_t src, dma_addr_t dest, unsigned int size, unsigned irsel)
+static int fft_calculate(dma_addr_t src, dma_addr_t dest, unsigned int size, unsigned irsel)
 {
 	struct fft_state *st = fft_state_glob;
 	struct dma_async_tx_descriptor *tx_desc, *rx_desc;

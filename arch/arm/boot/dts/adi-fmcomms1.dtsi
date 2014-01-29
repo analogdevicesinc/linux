@@ -127,6 +127,7 @@
 			dac-interp-factor = <2>;
 			/*dac-data-rate = <491520000>;*/
 			dac-data-rate = <245760000>;
+			temp-sensor-calibration-temperature-mdeg = <25000>;
 		};
 
 		vga0_ad8366: ad8366-lpc@6 {

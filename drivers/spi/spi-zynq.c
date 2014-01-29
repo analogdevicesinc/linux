@@ -120,6 +120,7 @@ struct xspips {
 	void __iomem *regs;
 	struct clk *devclk;
 	struct clk *aperclk;
+	unsigned int clk_rate;
 	struct notifier_block clk_rate_change_nb;
 	int irq;
 	u32 speed_hz;
@@ -215,7 +216,7 @@ static int xspips_setup_transfer(struct spi_device *spi,
 	u32 ctrl_reg;
 	u32 req_hz;
 	u32 baud_rate_val;
-	unsigned long flags, frequency;
+	unsigned long flags;
 
 	bits_per_word = (transfer) ?
 			transfer->bits_per_word : spi->bits_per_word;
@@ -226,8 +227,6 @@ static int xspips_setup_transfer(struct spi_device *spi,
 			__func__, spi->bits_per_word);
 		return -EINVAL;
 	}
-
-	frequency = clk_get_rate(xspi->devclk);
 
 	spin_lock_irqsave(&xspi->ctrl_reg_lock, flags);
 
@@ -243,15 +242,16 @@ static int xspips_setup_transfer(struct spi_device *spi,
 
 	/* Set the clock frequency */
 	if (xspi->speed_hz != req_hz) {
-		baud_rate_val = 1;	/* first valid value is 1 */
-		while ((baud_rate_val < 8) && (frequency /
+		baud_rate_val = 1;
+		while ((baud_rate_val < 8) && (xspi->clk_rate /
 					(2 << baud_rate_val)) > req_hz)
 			baud_rate_val++;
 
 		ctrl_reg &= 0xFFFFFFC7;
 		ctrl_reg |= (baud_rate_val << 3);
 
-		xspi->speed_hz = (frequency / (2 << baud_rate_val));
+		xspi->speed_hz =
+			(xspi->clk_rate / (2 << baud_rate_val));
 	}
 
 	xspips_write(xspi->regs + XSPIPS_CR_OFFSET, ctrl_reg);
@@ -741,6 +741,7 @@ static int xspips_probe(struct platform_device *pdev)
 		clk_set_rate(xspi->devclk, aper_clk_rate);
 
 	xspi->speed_hz = clk_get_rate(xspi->devclk) / 2;
+	xspi->clk_rate = clk_get_rate(xspi->devclk);
 
 	xspi->dev_busy = 0;
 

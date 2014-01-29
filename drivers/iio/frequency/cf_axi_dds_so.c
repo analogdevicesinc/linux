@@ -27,6 +27,9 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 
+#include <linux/clk.h>
+#include <linux/clkdev.h>
+
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
@@ -34,61 +37,61 @@
 #include "cf_axi_dds.h"
 #include "ad9122.h"
 
-#define DRIVER_NAME		"cf_axi_dds"
+#define DRIVER_NAME		"cf_axi_dds_so"
 
-struct dds_spidev {
-	struct device_node *of_nspi;
-	struct device *dev_spi;
+struct axidds_core_info {
+	unsigned int version;
+	bool has_fifo_interface;
+	const struct cf_axi_dds_chip_info *chip_info;
 };
 
 static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-	int stat;
-	static int retry = 0;
-
-	mdelay(10); /* Wait until clocks are stable */
 
 	dds_write(st, ADI_REG_FRAME, 0);
 	dds_write(st, ADI_REG_FRAME, ADI_FRAME);
 
-	if (conv->get_fifo_status) {
-		/* Check FIFO status */
-		stat = conv->get_fifo_status(conv);
-		if (stat) {
-			if (retry++ > 10) {
-				dev_warn(indio_dev->dev.parent,
-					 "FRAME/FIFO Reset Retry cnt\n");
-				return -EIO;
-			}
-			cf_axi_dds_sync_frame(indio_dev);
-		}
-	}
-
-	retry = 0;
 	return 0;
-}
-
-static void cf_axi_dds_set_sed_pattern(struct iio_dev *indio_dev, unsigned chan,
-				      unsigned pat1, unsigned pat2)
-{
-	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	unsigned ctrl;
-
-	dds_write(st, ADI_REG_CHAN_CNTRL_5(chan),
-		  ADI_TO_DDS_PATT_1(pat1) | ADI_DDS_PATT_2(pat2));
-
-	dds_write(st, ADI_REG_CNTRL_1, 0);
-
-	ctrl = dds_read(st, ADI_REG_CNTRL_2) & ~ADI_DATA_SEL(~0);
-	dds_write(st, ADI_REG_CNTRL_2, ctrl | ADI_DATA_SEL(DATA_SEL_SED) | ADI_DATA_FORMAT);
-
-	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
 }
 
 static void cf_axi_dds_stop(struct cf_axi_dds_state *st) {
 	dds_write(st, ADI_REG_CNTRL_1, 0);
+}
+
+
+static int cf_axi_dds_rate_change(struct notifier_block *nb,
+	unsigned long flags, void *data)
+{
+	struct clk_notifier_data *cnd = data;
+	struct cf_axi_dds_state *st =
+		container_of(nb, struct cf_axi_dds_state, clk_nb);
+	unsigned reg, i;
+	unsigned long long val64;
+
+	/* Temp Workaround: stop PCORE while we reset the sink */
+	if (flags == PRE_RATE_CHANGE && cnd->new_rate == -EINVAL)
+		cf_axi_dds_stop(st);
+
+	st->dac_clk = cnd->new_rate;
+
+	if (flags == POST_RATE_CHANGE) {
+		st->dac_clk = cnd->new_rate;
+		cf_axi_dds_stop(st);
+
+		for (i = 0; i < st->chip_info->num_channels; i++) {
+			reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i));
+			reg &= ~ADI_DDS_INCR(~0);
+			val64 = (u64) st->cached_freq[i] * 0xFFFFULL;
+			do_div(val64, st->dac_clk);
+			reg |= ADI_DDS_INCR(val64) | 1;
+			dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i), reg);
+		}
+		dds_write(st, ADI_REG_CNTRL_1, st->enable ? ADI_ENABLE : 0);
+		cf_axi_dds_sync_frame(st->indio_dev);
+	}
+
+	return NOTIFY_OK;
 }
 
 static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
@@ -96,6 +99,8 @@ static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
 
 	unsigned long long val64;
 	u32 val;
+
+	st->cached_freq[chan] = freq;
 
 	val64 = (u64) freq * 0xFFFFULL;
 	do_div(val64, st->dac_clk);
@@ -118,7 +123,6 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned long long val64;
 	unsigned reg;
 	int ret;
@@ -161,15 +165,11 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!conv->get_data_clk) {
-			ret = -ENODEV;
-			break;
-		}
-		*val = st->dac_clk = conv->get_data_clk(conv);
+		*val = st->dac_clk = clk_get_rate(st->clk);
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	default:
-		ret = conv->read_raw(indio_dev, chan, val, val2, m);
+		ret = -EINVAL;
 	}
 
 	mutex_unlock(&indio_dev->mlock);
@@ -184,7 +184,6 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			       long mask)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned long long val64;
 	unsigned reg, ctrl_reg;
 	int i, ret = 0;
@@ -204,6 +203,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		else
 			ctrl_reg &= ~ADI_ENABLE;
 
+		st->enable = !!val;
 		dds_write(st, ADI_REG_CNTRL_1, ctrl_reg);
 		break;
 	case IIO_CHAN_INFO_SCALE:
@@ -214,7 +214,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 				if (val2 == (1000000 >> i))
 					break;
 		}
-		cf_axi_dds_stop(st);
+		dds_write(st, ADI_REG_CNTRL_1, 0);
 		dds_write(st, ADI_REG_CHAN_CNTRL_1_IIOCHAN(chan->channel), ADI_DDS_SCALE(i));
 		dds_write(st, ADI_REG_CNTRL_1, ctrl_reg);
 		break;
@@ -227,7 +227,9 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 			break;
 		}
-		cf_axi_dds_stop(st);
+
+		st->cached_freq[chan->channel] = val;
+		dds_write(st, ADI_REG_CNTRL_1, 0);
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		reg &= ~ADI_DDS_INCR(~0);
 		val64 = (u64) val * 0xFFFFULL;
@@ -254,22 +256,14 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel), reg);
 		dds_write(st, ADI_REG_CNTRL_1, ctrl_reg);
 		break;
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!conv->write_raw) {
-			ret = -ENODEV;
-			break;
-		}
-
-		reg = dds_read(st, ADI_REG_CNTRL_2);
-		cf_axi_dds_stop(st);
-		conv->write_raw(indio_dev, chan, val, val2, mask);
-		dds_write(st, ADI_REG_CNTRL_2, reg);
-		st->dac_clk = conv->get_data_clk(conv);
-		dds_write(st, ADI_REG_CNTRL_1, ctrl_reg);
-		ret = cf_axi_dds_sync_frame(indio_dev);
+// 	case IIO_CHAN_INFO_SAMP_FREQ:
+//
+// 		dds_write(st, ADI_REG_CNTRL_1, 0);
+// 		/* FIXME */
+// 		ret = cf_axi_dds_sync_frame(indio_dev);
 		break;
 	default:
-		ret = conv->write_raw(indio_dev, chan, val, val2, mask);
+		ret = -EINVAL;
 	}
 
 	mutex_unlock(&indio_dev->mlock);
@@ -282,40 +276,19 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 			      unsigned *readval)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	int ret;
 
-	if (IS_ERR(conv))
-		return PTR_ERR(conv);
-
-	if ((reg & ~DEBUGFS_DRA_PCORE_REG_MAGIC) > 0xFF)
-		return -EINVAL;
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL) {
-		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
-			dds_write(st, reg & 0xFFFF, writeval);
-			ret = 0;
-		} else {
-			ret = conv->write(conv->spi, reg, writeval & 0xFF);
-		}
+		dds_write(st, reg & 0xFFFF, writeval);
 	} else {
-		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
-			ret = dds_read(st, reg & 0xFFFF);
-		} else {
-			ret = conv->read(conv->spi, reg);
-			if (ret < 0)
-				goto out_unlock;
-		}
+		ret = dds_read(st, reg & 0xFFFF);
 		*readval = ret;
-		ret = 0;
-
 	}
-
-out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 
-	return ret;
+	return 0;
 }
 
 static const char * const cf_axi_dds_scale[] = {
@@ -360,33 +333,32 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 }
 
 static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
-	[ID_AD9122] = {
-		.name = "AD9122",
-		.channel[1] = CF_AXI_DDS_CHAN(0, 0, "1A"),
-		.channel[2] = CF_AXI_DDS_CHAN(1, 0, "1B"),
-		.channel[3] = CF_AXI_DDS_CHAN(2, 0, "2A"),
-		.channel[4] = CF_AXI_DDS_CHAN(3, 0, "2B"),
-		.channel[0] = {
-			.type = IIO_TEMP,
-			.indexed = 1,
-			.channel = 0,
-			.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
-					      BIT(IIO_CHAN_INFO_CALIBBIAS),
-		},
+	[0] = {
+		.name = "AD9361",
+		.channel[0] = CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		.channel[1] = CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		.channel[2] = CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		.channel[3] = CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+		.channel[4] = CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
+		.channel[5] = CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
+		.channel[6] = CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
+		.channel[7] = CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
 		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
 		.buf_channel[1] = CF_AXI_DDS_CHAN_BUF(1),
-		.num_channels = 5,
+		.num_channels = 8,
 		.num_buf_channels = 2,
-		.num_dp_disable_channels = 1,
 	},
-	[ID_AD9739A] = {
-		.name = "AD9739A",
-		.channel[0] = CF_AXI_DDS_CHAN(0, 0, "1A"),
-		.channel[1] = CF_AXI_DDS_CHAN(1, 0, "1B"),
-		.buf_channel[0] = CF_AXI_DDS_CHAN_BUF(0),
-		.num_channels = 2,
-		.num_buf_channels = 1,
-	},
+};
+
+struct axidds_core_info ad9361_1_00_a_info = {
+	.version = PCORE_VERSION(4, 0, 'a'),
+	.chip_info = cf_axi_dds_chip_info_tbl,
+};
+
+struct axidds_core_info ad9361_6_00_a_info = {
+	.version = PCORE_VERSION(6, 0, 'a'),
+	.has_fifo_interface = true,
+	.chip_info = cf_axi_dds_chip_info_tbl,
 };
 
 static const struct iio_info cf_axi_dds_info = {
@@ -396,90 +368,57 @@ static const struct iio_info cf_axi_dds_info = {
 	.debugfs_reg_access = &cf_axi_dds_reg_access,
 };
 
-static int dds_attach_spi_client(struct device *dev, void *data)
-{
-	struct dds_spidev *dds_spidev = data;
-
-	if ((dds_spidev->of_nspi == dev->of_node) && dev->driver) {
-		dds_spidev->dev_spi = dev;
-		return 1;
-	}
-
-	return 0;
-}
-
-struct axidds_core_info {
-	unsigned int version;
-	bool has_fifo_interface;
-};
-
-static const struct axidds_core_info ad9122_6_00_a_info = {
-	.version = PCORE_VERSION(6, 0, 'a'),
-	.has_fifo_interface = true,
-};
 
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
-	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", },
-	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
-	{ .compatible = "xlnx,cf-ad9739a-core-1.00.a", },
-	{ .compatible = "xlnx,cf-ad9122x2-core-1.00.a", },
-	{ .compatible = "xlnx,cf-ad9122-core-2.00.a", },
-	{ .compatible = "xlnx,axi-dac-4d-2c-1.00.a", },
+	{ .compatible = "xlnx,axi-ad9361-dds-1.00.a", .data = &ad9361_1_00_a_info },
+	{ .compatible = "adi,axi-ad9361-dds-6.00.a", .data = &ad9361_6_00_a_info },
 { /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, cf_axi_dds_of_match);
 
 static int cf_axi_dds_of_probe(struct platform_device *op)
 {
-	unsigned int expected_version, version;
-	const struct axidds_core_info *info;
 	const struct of_device_id *id;
+	const struct axidds_core_info *info;
 	struct cf_axi_dds_state *st;
 	struct iio_dev *indio_dev;
 	struct device *dev = &op->dev;
 	resource_size_t remap_size, phys_addr;
-	struct dds_spidev dds_spidev;
-	struct cf_axi_converter *conv;
+	struct clk *clk = NULL;
+	unsigned int version;
 	int ret;
+	u32 ctrl_2, rate;
 
 	id = of_match_device(cf_axi_dds_of_match, &op->dev);
 	if (!id)
 		return -ENODEV;
 
 	info = id->data;
+	if (!info)
+		return -ENODEV;
 
 	dev_dbg(dev, "Device Tree Probing \'%s\'\n",
 			op->dev.of_node->name);
 
-	/* Defer driver probe until matching spi
-	 * converter driver is registered
-	 */
-	dds_spidev.of_nspi = of_parse_phandle(op->dev.of_node,
-						 "spibus-connected", 0);
-	if (!dds_spidev.of_nspi) {
-		dev_err(&op->dev, "could not find spi node\n");
-		return -ENODEV;
+	clk = devm_clk_get(dev, "sampl_clk");
+	if (IS_ERR(clk)) {
+		return -EPROBE_DEFER;
 	}
 
-	ret = bus_for_each_dev(&spi_bus_type, NULL, &dds_spidev,
-			       dds_attach_spi_client);
-	if (ret == 0)
-		return -EPROBE_DEFER;
-
-	if (!try_module_get(dds_spidev.dev_spi->driver->owner))
-		return -ENODEV;
-	get_device(dds_spidev.dev_spi);
+	ret = clk_prepare_enable(clk);
+	if (ret < 0)
+		return ret;
 
 	indio_dev = iio_device_alloc(sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
-	st->dev_spi = dds_spidev.dev_spi;
-
-	if (info)
-		st->has_fifo_interface = info->has_fifo_interface;
+	st->clk = clk;
+	st->indio_dev = indio_dev;
+	st->chip_info = info->chip_info;
+	st->has_fifo_interface = info->has_fifo_interface;
 
 	dev_set_drvdata(dev, indio_dev);
 
@@ -492,12 +431,6 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 
 	phys_addr = st->r_mem.start;
 	remap_size = resource_size(&st->r_mem);
-	if (!request_mem_region(phys_addr, remap_size, DRIVER_NAME)) {
-		dev_err(dev, "Couldn't lock memory region at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EBUSY;
-		goto failed1;
-	}
 
 	/* Fill in configuration data and add them to the list */
 	st->regs = ioremap(phys_addr, remap_size);
@@ -511,17 +444,12 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 	version = dds_read(st, ADI_REG_VERSION);
 	st->dp_disable = dds_read(st, ADI_REG_DAC_DP_DISABLE);
 
-	if (info)
-		expected_version = info->version;
-	else
-		expected_version = PCORE_VERSION(4, 0, 'a');
-
 	if (PCORE_VERSION_MAJOR(version) !=
-		PCORE_VERSION_MAJOR(expected_version)) {
+		PCORE_VERSION_MAJOR(info->version)) {
 		dev_err(&op->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
-			PCORE_VERSION_MAJOR(expected_version),
-			PCORE_VERSION_MINOR(expected_version),
-			PCORE_VERSION_LETTER(expected_version),
+			PCORE_VERSION_MAJOR(info->version),
+			PCORE_VERSION_MINOR(info->version),
+			PCORE_VERSION_LETTER(info->version),
 			PCORE_VERSION_MAJOR(version),
 			PCORE_VERSION_MINOR(version),
 			PCORE_VERSION_LETTER(version));
@@ -529,59 +457,63 @@ static int cf_axi_dds_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
-	conv = to_converter(st->dev_spi);
-	if (IS_ERR(conv)) {
-		ret = PTR_ERR(conv);
-		goto failed3;
-	}
+	st->dac_clk = clk_get_rate(clk);
 
-	iio_device_set_drvdata(indio_dev, conv);
-	conv->indio_dev = indio_dev;
-	conv->pcore_sync = cf_axi_dds_sync_frame;
-	conv->pcore_set_sed_pattern = cf_axi_dds_set_sed_pattern;
-
-	st->dac_clk = conv->get_data_clk(conv);
-	st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
+	st->clk_nb.notifier_call = cf_axi_dds_rate_change;
+	clk_notifier_register(clk, &st->clk_nb);
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->channels = st->chip_info->channel;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->num_channels = (st->dp_disable ?
-		st->chip_info->num_dp_disable_channels :
+	indio_dev->num_channels = (st->dp_disable ? 0 :
 		st->chip_info->num_channels);
 
 	st->iio_info = cf_axi_dds_info;
-	st->iio_info.attrs = conv->attrs;
 	indio_dev->info = &st->iio_info;
 
+	ctrl_2 = (of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-parity-enable") ? ADI_PAR_ENB : 0) |
+			(of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-parity-type-odd") ? ADI_PAR_TYPE : 0) |
+			(of_property_read_bool(op->dev.of_node,
+			"adi,axi-dds-1-rf-channel") ? ADI_R1_MODE : 0);
+
+	rate = 3;
+	of_property_read_u32(op->dev.of_node, "adi,axi-dds-rate", &rate);
+
 	dds_write(st, ADI_REG_RSTN, 0x0);
-	dds_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
+	dds_write(st, ADI_REG_RSTN, ADI_RSTN);
 
-	dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(1));
-
-	ret = conv->setup(conv);
-	if (ret < 0)
-		goto failed3;
+	dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(rate));
 
 	dds_write(st, ADI_REG_CNTRL_1, 0);
-	dds_write(st, ADI_REG_CNTRL_2,  ADI_DATA_SEL(DATA_SEL_DDS) | ADI_DATA_FORMAT);
+	dds_write(st, ADI_REG_CNTRL_2,  ctrl_2 | ADI_DATA_SEL(DATA_SEL_DDS));
 
 	if (!st->dp_disable) {
-		cf_axi_dds_default_setup(st, 0, 90000, 40000000, 2);
-		cf_axi_dds_default_setup(st, 1, 90000, 40000000, 2);
+		cf_axi_dds_default_setup(st, 0, 90000, 1000000, 4);
+		cf_axi_dds_default_setup(st, 1, 90000, 1000000, 4);
 
-		if (st->chip_info->num_channels >= 4) {
-			cf_axi_dds_default_setup(st, 2, 0, 40000000, 2);
-			cf_axi_dds_default_setup(st, 3, 0, 40000000, 2);
+		if (st->chip_info->num_channels > 2) {
+			cf_axi_dds_default_setup(st, 2, 0, 1000000, 4);
+			cf_axi_dds_default_setup(st, 3, 0, 1000000, 4);
+		}
+
+		if (st->chip_info->num_channels >= 8) {
+			cf_axi_dds_default_setup(st, 4, 90000, 1000000, 4);
+			cf_axi_dds_default_setup(st, 5, 90000, 1000000, 4);
+			cf_axi_dds_default_setup(st, 6, 0, 1000000, 4);
+			cf_axi_dds_default_setup(st, 7, 0, 1000000, 4);
+
 		}
 	}
-
+	st->enable = true;
 	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
+
 	cf_axi_dds_sync_frame(indio_dev);
 
 	if (!st->dp_disable) {
-		st->tx_chan = dma_request_slave_channel(&op->dev, "tx");
+		st->tx_chan = of_dma_request_slave_channel(op->dev.of_node, "tx");
 		if (!st->tx_chan) {
 			dev_err(dev, "failed to find vdma device\n");
 			goto failed3;
@@ -612,8 +544,6 @@ failed3:
 failed2:
 	release_mem_region(phys_addr, remap_size);
 failed1:
-	put_device(st->dev_spi);
-	module_put(st->dev_spi->driver->owner);
 	dev_set_drvdata(dev, NULL);
 	iio_device_free(indio_dev);
 
@@ -627,8 +557,6 @@ static int cf_axi_dds_of_remove(struct platform_device *op)
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	put_device(st->dev_spi);
-	module_put(st->dev_spi->driver->owner);
 	iounmap(st->regs);
 	release_mem_region(st->r_mem.start, resource_size(&st->r_mem));
 
