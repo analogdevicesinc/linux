@@ -30,6 +30,7 @@
 
 #include "core.h"
 #include "socfpga_cti.h"
+#include "l2_cache.h"
 #include "ocram.h"
 
 void __iomem *socfpga_scu_base_addr = ((void __iomem *)(SOCFPGA_SCU_VIRT_BASE));
