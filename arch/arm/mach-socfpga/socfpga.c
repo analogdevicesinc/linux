@@ -30,6 +30,7 @@
 
 #include "core.h"
 #include "socfpga_cti.h"
+#include "l2_cache.h"
 #include "ocram.h"
 
 void __iomem *sys_manager_base_addr;
