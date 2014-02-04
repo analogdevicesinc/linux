@@ -304,29 +304,63 @@ static int ad9361_reset(struct ad9361_rf_phy *phy)
 	return -ENODEV;
 }
 
-static int ad9361_bist_loopback(struct ad9361_rf_phy *phy, bool enable)
+
+static int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	unsigned reg, chan;
+
+	for (chan = 0; chan < conv->chip_info->num_channels; chan++) {
+		reg = axiadc_read(st, 0x4414 + (chan) * 0x40);
+		/* DAC_LB_ENB If set enables loopback of receive data */
+		if (enable)
+			reg |= BIT(1);
+		else
+			reg &= ~BIT(1);
+
+		axiadc_write(st, 0x4414 + (chan) * 0x40, reg);
+	}
+
+	return 0;
+}
+
+static int ad9361_bist_loopback(struct ad9361_rf_phy *phy, unsigned mode)
 {
 	u32 sp_hd, reg;
 
-	dev_dbg(&phy->spi->dev, "%s: enable %d", __func__, enable);
+	dev_dbg(&phy->spi->dev, "%s: mode %d", __func__, mode);
 
 	reg = ad9361_spi_read(phy->spi, REG_OBSERVE_CONFIG);
 
-	if (!enable) {
+
+	switch (mode) {
+	case 0:
+		ad9361_hdl_loopback(phy, false);
 		reg &= ~(DATA_PORT_SP_HD_LOOP_TEST_OE |
 			DATA_PORT_LOOP_TEST_ENABLE);
 		return ad9361_spi_write(phy->spi, REG_OBSERVE_CONFIG, reg);
+	case 1:
+		/* loopback (AD9361 internal) TX->RX */
+		ad9361_hdl_loopback(phy, false);
+		sp_hd = ad9361_spi_read(phy->spi, REG_PARALLEL_PORT_CONF_3);
+		if ((sp_hd & SINGLE_PORT_MODE) && (sp_hd & HALF_DUPLEX_MODE))
+			reg |= DATA_PORT_SP_HD_LOOP_TEST_OE;
+		else
+			reg &= ~DATA_PORT_SP_HD_LOOP_TEST_OE;
+
+		reg |= DATA_PORT_LOOP_TEST_ENABLE;
+
+		return ad9361_spi_write(phy->spi, REG_OBSERVE_CONFIG, reg);
+	case 2:
+		/* loopback (FPGA internal) RX->TX */
+		ad9361_hdl_loopback(phy, true);
+		reg &= ~(DATA_PORT_SP_HD_LOOP_TEST_OE |
+			DATA_PORT_LOOP_TEST_ENABLE);
+		return ad9361_spi_write(phy->spi, REG_OBSERVE_CONFIG, reg);
+	default:
+		return -EINVAL;
 	}
-
-	sp_hd = ad9361_spi_read(phy->spi, REG_PARALLEL_PORT_CONF_3);
-	if ((sp_hd & SINGLE_PORT_MODE) && (sp_hd & HALF_DUPLEX_MODE))
-		reg |= DATA_PORT_SP_HD_LOOP_TEST_OE;
-	else
-		reg &= ~DATA_PORT_SP_HD_LOOP_TEST_OE;
-
-	reg |= DATA_PORT_LOOP_TEST_ENABLE;
-
-	return ad9361_spi_write(phy->spi, REG_OBSERVE_CONFIG, reg);
 }
 
 static int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
