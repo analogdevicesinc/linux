@@ -5332,6 +5332,55 @@ static const struct iio_enum ad9361_agc_modes_available = {
 
 };
 
+static int ad9361_set_rf_port(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, u32 mode)
+{
+	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+
+	if (chan->output)
+		phy->pdata->rf_tx_output_sel = mode;
+	else
+		phy->pdata->rf_rx_input_sel = mode;
+
+	return ad9361_rf_port_setup(phy, phy->pdata->rf_rx_input_sel,
+				   phy->pdata->rf_tx_output_sel);
+
+}
+
+static int ad9361_get_rf_port(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+
+	if (chan->output)
+		return phy->pdata->rf_tx_output_sel;
+	else
+		return phy->pdata->rf_rx_input_sel;
+}
+
+static const char * const ad9361_rf_rx_port[] =
+	{"A_BALANCED", "B_BALANCED", "C_BALANCED",
+	 "A_N", "A_P", "B_N", "B_P", "C_N", "C_P"};
+
+static const struct iio_enum ad9361_rf_rx_port_available = {
+	.items = ad9361_rf_rx_port,
+	.num_items = ARRAY_SIZE(ad9361_rf_rx_port),
+	.get = ad9361_get_rf_port,
+	.set = ad9361_set_rf_port,
+
+};
+
+static const char * const ad9361_rf_tx_port[] =
+	{"A", "B"};
+
+static const struct iio_enum ad9361_rf_tx_port_available = {
+	.items = ad9361_rf_tx_port,
+	.num_items = ARRAY_SIZE(ad9361_rf_tx_port),
+	.get = ad9361_get_rf_port,
+	.set = ad9361_set_rf_port,
+
+};
+
 static ssize_t ad9361_phy_rx_write(struct iio_dev *indio_dev,
 				    uintptr_t private,
 				    const struct iio_chan_spec *chan,
@@ -5394,7 +5443,6 @@ static ssize_t ad9361_phy_rx_read(struct iio_dev *indio_dev,
 	.private = _ident, \
 }
 
-
 static const struct iio_chan_spec_ext_info ad9361_phy_rx_ext_info[] = {
 	/* Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
 	 * values > 2^32 in order to support the entire frequency range
@@ -5403,6 +5451,14 @@ static const struct iio_chan_spec_ext_info ad9361_phy_rx_ext_info[] = {
 	IIO_ENUM_AVAILABLE("gain_control_mode", &ad9361_agc_modes_available),
 	IIO_ENUM("gain_control_mode", false, &ad9361_agc_modes_available),
 	_AD9361_EXT_RX_INFO("rssi", 1),
+	IIO_ENUM_AVAILABLE("rf_port_select", &ad9361_rf_rx_port_available),
+	IIO_ENUM("rf_port_select", true, &ad9361_rf_rx_port_available),
+	{ },
+};
+
+static const struct iio_chan_spec_ext_info ad9361_phy_tx_ext_info[] = {
+	IIO_ENUM_AVAILABLE("rf_port_select", &ad9361_rf_tx_port_available),
+	IIO_ENUM("rf_port_select", true, &ad9361_rf_tx_port_available),
 	{ },
 };
 
@@ -5590,6 +5646,7 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.channel = 0,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.ext_info = ad9361_phy_tx_ext_info,
 }, {	/* RX1 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
@@ -5605,6 +5662,7 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.channel = 1,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.ext_info = ad9361_phy_tx_ext_info,
 }, {	/* RX2 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
