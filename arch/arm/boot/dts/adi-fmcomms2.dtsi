@@ -155,6 +155,7 @@
 
 		/* Fast AGC */
 
+		adi,fagc-dec-pow-measurement-duration = <64>; /* 64 Samples */
                 //adi,fagc-allow-agc-gain-increase-enable;
                 adi,fagc-lp-thresh-increment-steps = <1>;
                 adi,fagc-lp-thresh-increment-time = <5>;
