@@ -15,11 +15,6 @@
  * License as published by the Free Software Foundation;
  * either version 2 of the License, or (at your option) any
  * later version.
- *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the Free
- * Software Foundation, Inc., 675 Mass Ave, Cambridge, MA
- * 02139, USA.
  */
 
 #include <linux/interrupt.h>
@@ -233,7 +228,7 @@ static struct cmdbuf ch9_cmdbuf;
 static u32 rambase[8] = { 0x22, 0x1000, 0x1100, 0x1200, 0x1300, 0x1400, 0x1500,
 			0x1600 };
 
-static const char driver_name[] = "xilinx_udc";
+static const char driver_name[] = "xilinx-udc";
 static const char ep0name[] = "ep0";
 
 /* Control endpoint configuration.*/
@@ -1326,7 +1321,7 @@ static struct xusb_udc controller = {
 		.a_alt_hnp_support = 0,
 		.name = driver_name,
 		.dev = {
-			.init_name = "xilinx_udc",
+			.init_name = "xilinx-udc",
 			.release = xusb_release,
 			},
 		},
@@ -2181,7 +2176,6 @@ static int xudc_probe(struct platform_device *pdev)
 
 	udc->dma_enabled = of_property_read_bool(np, "xlnx,include-dma");
 
-	device_initialize(&udc->gadget.dev);
 	udc->gadget.dev.parent = &pdev->dev;
 
 	spin_lock_init(&udc->lock);
@@ -2199,10 +2193,6 @@ static int xudc_probe(struct platform_device *pdev)
 
 	/* Set device address to 0.*/
 	udc->write_fn(0, (udc->base_address + XUSB_ADDRESS_OFFSET));
-
-	ret = device_add(&udc->gadget.dev);
-	if (ret)
-		dev_dbg(&pdev->dev, "device_add returned %d\n", ret);
 
 	ret = usb_add_gadget_udc(&pdev->dev, &udc->gadget);
 	if (ret)

@@ -30,7 +30,9 @@ config MICROBLAZE
 	select MODULES_USE_ELF_RELA
 	select CLONE_BACKWARDS3
 	select CLKSRC_OF
+	select COMMON_CLK
 	select BUILDTIME_EXTABLE_SORT
+	select GENERIC_SCHED_CLOCK
 
 config SWAP
 	def_bool n

@@ -47,6 +47,7 @@ static void __iomem *zynq_slcr_base_priv;
 #define SLCR_CAN_MIOCLK_CTRL		(zynq_slcr_base_priv + 0x160)
 #define SLCR_DBG_CLK_CTRL		(zynq_slcr_base_priv + 0x164)
 #define SLCR_PCAP_CLK_CTRL		(zynq_slcr_base_priv + 0x168)
+#define SLCR_TOPSW_CLK_CTRL		(zynq_slcr_base_priv + 0x16c)
 #define SLCR_FPGA0_CLK_CTRL		(zynq_slcr_base_priv + 0x170)
 #define SLCR_621_TRUE			(zynq_slcr_base_priv + 0x1c4)
 #define SLCR_SWDT_CLK_SEL		(zynq_slcr_base_priv + 0x304)
@@ -106,6 +107,8 @@ unsigned int zynq_clk_suspended;
 static struct clk *armpll_save_parent;
 static struct clk *iopll_save_parent;
 
+#define TOPSW_CLK_CTRL_DIS_MASK	BIT(0)
+
 int zynq_clk_suspend_early(void)
 {
 	int ret;
@@ -133,6 +136,24 @@ void zynq_clk_resume_late(void)
 
 	zynq_clk_suspended = 0;
 }
+
+void zynq_clk_topswitch_enable(void)
+{
+	u32 reg;
+
+	reg = readl(SLCR_TOPSW_CLK_CTRL);
+	reg &= ~TOPSW_CLK_CTRL_DIS_MASK;
+	writel(reg, SLCR_TOPSW_CLK_CTRL);
+}
+
+void zynq_clk_topswitch_disable(void)
+{
+	u32 reg;
+
+	reg = readl(SLCR_TOPSW_CLK_CTRL);
+	reg |= TOPSW_CLK_CTRL_DIS_MASK;
+	writel(reg, SLCR_TOPSW_CLK_CTRL);
+}
 #endif
 
 static void __init zynq_clk_register_fclk(enum zynq_clk fclk,
@@ -140,6 +161,7 @@ static void __init zynq_clk_register_fclk(enum zynq_clk fclk,
 		const char **parents, int enable)
 {
 	struct clk *clk;
+	u32 enable_reg;
 	char *mux_name;
 	char *div0_name;
 	char *div1_name;
@@ -176,7 +198,8 @@ static void __init zynq_clk_register_fclk(enum zynq_clk fclk,
 	clks[fclk] = clk_register_gate(NULL, clk_name,
 			div1_name, CLK_SET_RATE_PARENT, fclk_gate_reg,
 			0, CLK_GATE_SET_TO_DISABLE, fclk_gate_lock);
-	if (!(enable & readl(fclk_gate_reg))) {
+	enable_reg = readl(fclk_gate_reg) & 1;
+	if (enable && !enable_reg) {
 		if (clk_prepare_enable(clks[fclk]))
 			pr_warn("%s: FCLK%u enable failed\n", __func__,
 					fclk - fclk0);

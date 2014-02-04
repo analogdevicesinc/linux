@@ -112,7 +112,6 @@
 			#dma-cells = <1>;
 			#dma-channels = <8>;
 			#dma-requests = <4>;
-			arm,primecell-periphid = <0x41330>;
 			clock-names = "apb_pclk";
 			clocks = <&clkc 27>;
 			compatible = "xlnx,ps7-dma-1.00.a", "arm,primecell", "arm,pl330";
@@ -134,7 +133,6 @@
 			phy-handle = <&phy0>;
 			phy-mode = "rgmii-id";
 			reg = <0xe000b000 0x1000>;
-			xlnx,enet-reset = <0xffffffff>;
 			xlnx,eth-mode = <0x1>;
 			xlnx,has-mdio = <0x1>;
 			xlnx,ptp-enet-clock = <111111115>;
@@ -169,7 +167,6 @@
 			interrupts = <0 25 4>;
 			reg = <0xe0004000 0x1000>;
 			xlnx,has-interrupt = <0x0>;
-			xlnx,i2c-reset = <0xffffffff>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			m24c02_eeprom@52 {
@@ -181,6 +178,12 @@
 		ps7_iop_bus_config_0: ps7-iop-bus-config@e0200000 {
 			compatible = "xlnx,ps7-iop-bus-config-1.00.a";
 			reg = <0xe0200000 0x1000>;
+		} ;
+		ps7_ocmc_0: ps7-ocmc@f800c000 {
+			compatible = "xlnx,ps7-ocmc-1.00.a", "xlnx,zynq-ocm-1.0";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = <0 3 4>;
+			reg = <0xf800c000 0x1000>;
 		} ;
 		ps7_pl310_0: ps7-pl310@f8f02000 {
 			arm,data-latency = <3 2 2>;
@@ -240,12 +243,6 @@
 			compatible = "xlnx,ps7-qspi-linear-1.00.a";
 			reg = <0xfc000000 0x1000000>;
 		} ;
-		ps7_ram_0: ps7-ram@0 {
-			compatible = "xlnx,ps7-ram-1.00.a", "xlnx,ps7-ocm";
-			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 3 4>;
-			reg = <0xfffc0000 0x40000>;
-		} ;
 		ps7_scugic_0: ps7-scugic@f8f01000 {
 			#address-cells = <2>;
 			#interrupt-cells = <3>;
@@ -275,7 +272,7 @@
 			clock-frequency = <50000000>;
 			clock-names = "clk_xin", "clk_ahb";
 			clocks = <&clkc 21>, <&clkc 32>;
-			compatible = "xlnx,ps7-sdio-1.00.a", "generic-sdhci", "arasan,sdhci";
+			compatible = "xlnx,ps7-sdio-1.00.a", "generic-sdhci", "arasan,sdhci-8.9a";
 			interrupt-parent = <&ps7_scugic_0>;
 			interrupts = <0 24 4>;
 			reg = <0xe0100000 0x1000>;
@@ -358,7 +355,7 @@
 			interrupts = <0 21 4>;
 			phy_type = "ulpi";
 			reg = <0xe0002000 0x1000>;
-			xlnx,usb-reset = "MIO 7";
+			usb-reset = <&ps7_gpio_0 7 0>;
 		} ;
 		ps7_wdt_0: ps7-wdt@f8005000 {
 			clocks = <&clkc 45>;

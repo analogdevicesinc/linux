@@ -1,22 +1,18 @@
 /*
- * Xilinx PS USB OTG Driver Header file.
+ * Xilinx Zynq USB OTG Driver Header file.
  *
  * Copyright 2011 Xilinx, Inc.
  *
  * This file is based on langwell_otg.h file with few minor modifications
- * to support Xilinx PS USB controller.
+ * to support Xilinx Zynq USB controller.
  *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU General Public License version 2 as published by the
  * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
- * Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#ifndef __XILINX_XUSBPS_OTG_H
-#define __XILINX_XUSBPS_OTG_H
+#ifndef __ZYNQ_OTG_H
+#define __ZYNQ_OTG_H
 
 #define CI_USBCMD		0x140
 #	define USBCMD_RST		BIT(1)
@@ -71,7 +67,7 @@
 
 #define INTR_DUMMY_MASK (USBSTS_SLI | USBSTS_URI | USBSTS_PCI)
 
-enum xusbps_otg_timer_type {
+enum zynq_otg_timer_type {
 	TA_WAIT_VRISE_TMR,
 	TA_WAIT_BCON_TMR,
 	TA_AIDL_BDIS_TMR,
@@ -91,7 +87,7 @@ enum xusbps_otg_timer_type {
 #define TB_SRP_FAIL	5500
 #define TB_BUS_SUSPEND	500
 
-struct xusbps_otg_timer {
+struct zynq_otg_timer {
 	unsigned long expires;	/* Number of count increase to timeout */
 	unsigned long count;	/* Tick counter */
 	void (*function)(unsigned long);	/* Timeout function */
@@ -164,7 +160,7 @@ struct otg_hsm {
 	int vbus_srp_up;
 };
 
-struct xusbps_otg {
+struct zynq_otg {
 	struct usb_phy		otg;
 	struct usb_phy		*ulpi;
 
@@ -206,11 +202,11 @@ struct xusbps_otg {
 };
 
 static inline
-struct xusbps_otg *xceiv_to_xotg(struct usb_phy *otg)
+struct zynq_otg *xceiv_to_xotg(struct usb_phy *otg)
 {
-	return container_of(otg, struct xusbps_otg, otg);
+	return container_of(otg, struct zynq_otg, otg);
 }
 
-void xusbps_update_transceiver(void);
+void zynq_update_transceiver(void);
 
-#endif /* __XILINX_XUSBPS_OTG_H__ */
+#endif /* __ZYNQ_OTG_H__ */
