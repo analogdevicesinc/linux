@@ -2889,6 +2889,7 @@ struct gain_control {
 	/*
 	 * Fast AGC
 	 */
+	u32 f_agc_dec_pow_measuremnt_duration;  /* Samples, 0x15C */
 	u32 f_agc_state_wait_time_ns; /* 0x117 0..31 RX samples -> time_ns */
 	/* Fast AGC - Low Power */
 	bool f_agc_allow_agc_gain_increase; /* 0x110:1 */
