@@ -2525,9 +2525,25 @@ static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy,
 
 static int ad9361_get_temp(struct ad9361_rf_phy *phy)
 {
-	u32 val = ad9361_spi_read(phy->spi, REG_TEMPERATURE);
+	u32 val;
+
+	ad9361_spi_writef(phy->spi, REG_AUXADC_CONFIG, AUXADC_POWER_DOWN, 1);
+	val = ad9361_spi_read(phy->spi, REG_TEMPERATURE);
+	ad9361_spi_writef(phy->spi, REG_AUXADC_CONFIG, AUXADC_POWER_DOWN, 0);
 
 	return DIV_ROUND_CLOSEST(val * 1000, 1140);
+}
+
+static int ad9361_get_auxadc(struct ad9361_rf_phy *phy)
+{
+	u32 val;
+	u8 buf[2];
+
+	ad9361_spi_writef(phy->spi, REG_AUXADC_CONFIG, AUXADC_POWER_DOWN, 1);
+	val = ad9361_spi_readm(phy->spi, REG_AUXADC_LSB, buf, 2);
+	ad9361_spi_writef(phy->spi, REG_AUXADC_CONFIG, AUXADC_POWER_DOWN, 0);
+
+	return (buf[1] << 4) | AUXADC_WORD_LSB(buf[0]);
 }
 
   //************************************************************
@@ -5390,13 +5406,24 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 				ret = IIO_VAL_INT;
 			}
 		} else {
+			ret = ad9361_get_auxadc(phy);
+			if (ret >= 0) {
+				*val = ret;
+				ret = IIO_VAL_INT;
+			}
 		}
+		break;
+	case IIO_CHAN_INFO_OFFSET:
+		*val = 57; /* AuxADC */
+		ret = IIO_VAL_INT;
 		break;
 	case IIO_CHAN_INFO_SCALE:
 		if (chan->output) {
 			*val = 1; /* AuxDAC */
 			*val2 = 0;
 		} else {
+			*val = 0; /* AuxADC */
+			*val2 = 305250;
 		}
 
 		ret = IIO_VAL_INT_PLUS_MICRO;
@@ -5540,6 +5567,12 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.output = 1,
 	.channel = 3,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),
+}, {	/* AUXADC1 */
+	.type = IIO_VOLTAGE,
+	.indexed = 1,
+	.channel = 2,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
 }};
 
 static const struct iio_info ad9361_phy_info = {
