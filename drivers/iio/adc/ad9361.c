@@ -5452,13 +5452,13 @@ static const struct iio_chan_spec_ext_info ad9361_phy_rx_ext_info[] = {
 	IIO_ENUM("gain_control_mode", false, &ad9361_agc_modes_available),
 	_AD9361_EXT_RX_INFO("rssi", 1),
 	IIO_ENUM_AVAILABLE("rf_port_select", &ad9361_rf_rx_port_available),
-	IIO_ENUM("rf_port_select", true, &ad9361_rf_rx_port_available),
+	IIO_ENUM("rf_port_select", false, &ad9361_rf_rx_port_available),
 	{ },
 };
 
 static const struct iio_chan_spec_ext_info ad9361_phy_tx_ext_info[] = {
 	IIO_ENUM_AVAILABLE("rf_port_select", &ad9361_rf_tx_port_available),
-	IIO_ENUM("rf_port_select", true, &ad9361_rf_tx_port_available),
+	IIO_ENUM("rf_port_select", false, &ad9361_rf_tx_port_available),
 	{ },
 };
 
