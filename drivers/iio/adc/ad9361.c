@@ -122,6 +122,8 @@ struct ad9361_rf_phy {
 	bool			rfdc_track_en;
 	bool			bbdc_track_en;
 	bool			quad_track_en;
+	u16 			auxdac1_value;
+	u16 			auxdac2_value;
 };
 
 struct refclk_scale {
@@ -2395,30 +2397,98 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 	return ad9361_gc_update(phy);
 }
 
-  //************************************************************
-  // Setup AuxDAC
-  //************************************************************
-static int ad9361_auxdac_setup(struct ad9361_rf_phy *phy)
+static int ad9361_auxdac_set(struct ad9361_rf_phy *phy, unsigned dac,
+			     unsigned val_mV)
 {
 	struct spi_device *spi = phy->spi;
-	/* FIXME later */
+	u32 val, tmp;
 
-	dev_dbg(&phy->spi->dev, "%s", __func__);
+	dev_dbg(&phy->spi->dev, "%s DAC%d = %d mV", __func__, dac, val_mV);
 
-	ad9361_spi_write(spi, 0x018, 0x00); // AuxDAC1 Word[9:2]
-	ad9361_spi_write(spi, 0x019, 0x00); // AuxDAC2 Word[9:2]
-	ad9361_spi_write(spi, 0x01a, 0x00); // AuxDAC1 Config and Word[1:0]
-	ad9361_spi_write(spi, 0x01b, 0x00); // AuxDAC2 Config and Word[1:0]
-	ad9361_spi_write(spi, 0x023, 0xff); // AuxDAC Manaul/Auto Control
-	/* FIXME eLNA control */
-	ad9361_spi_write(spi, 0x026, 0x00); // AuxDAC Manual Select Bit/GPO Manual Select
-	ad9361_spi_write(spi, 0x030, 0x00); // AuxDAC1 Rx Delay
-	ad9361_spi_write(spi, 0x031, 0x00); // AuxDAC1 Tx Delay
-	ad9361_spi_write(spi, 0x032, 0x00); // AuxDAC2 Rx Delay
-	ad9361_spi_write(spi, 0x033, 0x00); // AuxDAC2 Tx Delay
+	/* Disable DAC if val == 0, Ignored in ENSM Auto Mode */
+	ad9361_spi_writef(spi, REG_AUXDAC_ENABLE_CTRL,
+			  AUXDAC_MANUAL_BAR(dac), val_mV ? 0 : 1);
+
+	if (val_mV < 306)
+		val_mV = 306;
+
+	if (val_mV < 1888) {
+		val = ((val_mV - 306) * 1000) / 1404; /* Vref = 1V, Step = 2 */
+		tmp = AUXDAC_1_VREF(0);
+	} else {
+		val = ((val_mV - 1761) * 1000) / 1836; /* Vref = 2.5V, Step = 2 */
+		tmp = AUXDAC_1_VREF(3);
+	}
+
+	val = clamp_t(u32, val, 0, 1023);
+
+	switch (dac) {
+	case 1:
+		ad9361_spi_write(spi, REG_AUXDAC_1_WORD, val >> 2);
+		ad9361_spi_write(spi, REG_AUXDAC_1_CONFIG, AUXDAC_1_WORD_LSB(val) | tmp);
+		phy->auxdac1_value = val_mV;
+		break;
+	case 2:
+		ad9361_spi_write(spi, REG_AUXDAC_2_WORD, val >> 2);
+		ad9361_spi_write(spi, REG_AUXDAC_2_CONFIG, AUXDAC_2_WORD_LSB(val) | tmp);
+		phy->auxdac2_value = val_mV;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return 0;
 }
+
+static int ad9361_auxdac_get(struct ad9361_rf_phy *phy, unsigned dac)
+{
+
+	switch (dac) {
+	case 1:
+		return phy->auxdac1_value;
+	case 2:
+		return phy->auxdac2_value;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+  //************************************************************
+  // Setup AuxDAC
+  //************************************************************
+static int ad9361_auxdac_setup(struct ad9361_rf_phy *phy,
+			       struct auxdac_control *ctrl)
+{
+	struct spi_device *spi = phy->spi;
+	u8 tmp;
+
+	dev_dbg(&phy->spi->dev, "%s", __func__);
+
+	ad9361_auxdac_set(phy, 1, ctrl->dac1_default_value);
+	ad9361_auxdac_set(phy, 2, ctrl->dac2_default_value);
+
+	tmp = ~(AUXDAC_AUTO_TX_BAR(ctrl->dac2_in_tx_en << 1 | ctrl->dac1_in_tx_en) |
+		AUXDAC_AUTO_RX_BAR(ctrl->dac2_in_rx_en << 1 | ctrl->dac1_in_rx_en) |
+		AUXDAC_INIT_BAR(ctrl->dac2_in_alert_en << 1 | ctrl->dac1_in_alert_en));
+
+	ad9361_spi_writef(spi, REG_AUXDAC_ENABLE_CTRL,
+		AUXDAC_AUTO_TX_BAR(~0) |
+		AUXDAC_AUTO_RX_BAR(~0) |
+		AUXDAC_INIT_BAR(~0),
+		tmp); /* Auto Control */
+
+	ad9361_spi_writef(spi, REG_EXTERNAL_LNA_CTRL,
+			  AUXDAC_MANUAL_SELECT, ctrl->auxdac_manual_mode_en);
+	ad9361_spi_write(spi, REG_AUXDAC1_RX_DELAY, ctrl->dac1_rx_delay_us);
+	ad9361_spi_write(spi, REG_AUXDAC1_TX_DELAY, ctrl->dac1_tx_delay_us);
+	ad9361_spi_write(spi, REG_AUXDAC2_RX_DELAY, ctrl->dac2_rx_delay_us);
+	ad9361_spi_write(spi, REG_AUXDAC2_TX_DELAY, ctrl->dac2_tx_delay_us);
+
+	return 0;
+}
+
   //************************************************************
   // Setup AuxADC
   //************************************************************
@@ -3005,7 +3075,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9361_auxdac_setup(phy);
+	ret = ad9361_auxdac_setup(phy, &pd->auxdac_ctrl);
 	if (ret < 0)
 		return ret;
 
@@ -5306,6 +5376,31 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 		*val = ad9361_get_temp(phy);
 		ret = IIO_VAL_INT;
 		break;
+	case IIO_CHAN_INFO_RAW:
+		if (chan->output) {
+			if (chan->channel == 2)
+				ret = ad9361_auxdac_get(phy, 1);
+			else if (chan->channel == 3)
+				ret = ad9361_auxdac_get(phy, 2);
+			else
+				ret = -EINVAL;
+
+			if (ret >= 0) {
+				*val = ret;
+				ret = IIO_VAL_INT;
+			}
+		} else {
+		}
+		break;
+	case IIO_CHAN_INFO_SCALE:
+		if (chan->output) {
+			*val = 1; /* AuxDAC */
+			*val2 = 0;
+		} else {
+		}
+
+		ret = IIO_VAL_INT_PLUS_MICRO;
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -5362,6 +5457,19 @@ static int ad9361_phy_write_raw(struct iio_dev *indio_dev,
 						phy->current_tx_bw_Hz);
 		break;
 
+	case IIO_CHAN_INFO_RAW:
+		if (chan->output) {
+			if (chan->channel == 2)
+				ret = ad9361_auxdac_set(phy, 1, val);
+			else if (chan->channel == 3)
+				ret = ad9361_auxdac_set(phy, 2, val);
+			else
+				ret = -EINVAL;
+
+		} else {
+			ret = -EINVAL;
+		}
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -5420,6 +5528,18 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
+}, {	/* AUXDAC1 */
+	.type = IIO_VOLTAGE,
+	.indexed = 1,
+	.output = 1,
+	.channel = 2,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),
+}, {	/* AUXDAC2 */
+	.type = IIO_VOLTAGE,
+	.indexed = 1,
+	.output = 1,
+	.channel = 3,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),
 }};
 
 static const struct iio_info ad9361_phy_info = {
@@ -6093,6 +6213,37 @@ static struct ad9361_phy_platform_data
 			  &pdata->auxadc_ctrl.auxadc_clock_rate);
 	ad9361_of_get_u32(iodev, np, "adi,aux-adc-decimation", 256,
 			  &pdata->auxadc_ctrl.auxadc_decimation);
+
+	/* AuxDAC Control */
+
+	ad9361_of_get_bool(iodev, np, "adi,aux-dac-manual-mode-enable",
+			   &pdata->auxdac_ctrl.auxdac_manual_mode_en);
+
+	ad9361_of_get_u32(iodev, np, "adi,aux-dac1-default-value-mV", 0,
+			  &pdata->auxdac_ctrl.dac1_default_value);
+	ad9361_of_get_bool(iodev, np, "adi,aux-dac1-active-in-rx-enable",
+			   &pdata->auxdac_ctrl.dac1_in_rx_en);
+	ad9361_of_get_bool(iodev, np, "adi,aux-dac1-active-in-tx-enable",
+			   &pdata->auxdac_ctrl.dac1_in_tx_en);
+	ad9361_of_get_bool(iodev, np, "adi,aux-dac1-active-in-alert-enable",
+			   &pdata->auxdac_ctrl.dac1_in_alert_en);
+	ad9361_of_get_u32(iodev, np, "adi,aux-dac1-rx-delay-us", 0,
+			  &pdata->auxdac_ctrl.dac1_rx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,aux-dac1-tx-delay-us", 0,
+			  &pdata->auxdac_ctrl.dac1_tx_delay_us);
+
+	ad9361_of_get_u32(iodev, np, "adi,aux-dac2-default-value-mV", 0,
+			  &pdata->auxdac_ctrl.dac2_default_value);
+	ad9361_of_get_bool(iodev, np, "adi,aux-dac2-active-in-rx-enable",
+			   &pdata->auxdac_ctrl.dac2_in_rx_en);
+	ad9361_of_get_bool(iodev, np, "adi,aux-dac2-active-in-tx-enable",
+			   &pdata->auxdac_ctrl.dac2_in_tx_en);
+	ad9361_of_get_bool(iodev, np, "adi,aux-dac2-active-in-alert-enable",
+			   &pdata->auxdac_ctrl.dac2_in_alert_en);
+	ad9361_of_get_u32(iodev, np, "adi,aux-dac2-rx-delay-us", 0,
+			  &pdata->auxdac_ctrl.dac2_rx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,aux-dac2-tx-delay-us", 0,
+			  &pdata->auxdac_ctrl.dac2_tx_delay_us);
 
 	return pdata;
 }

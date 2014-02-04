@@ -208,6 +208,23 @@
 		adi,temp-sense-offset-signed = <0xCE>;
 		adi,temp-sense-periodic-measurement-enable;
 
+		/* AuxDAC Control */
+
+		adi,aux-dac-manual-mode-enable;
+
+		adi,aux-dac1-default-value-mV = <0>;
+		//adi,aux-dac1-active-in-rx-enable;
+		//adi,aux-dac1-active-in-tx-enable;
+		//adi,aux-dac1-active-in-alert-enable;
+		adi,aux-dac1-rx-delay-us = <0>;
+		adi,aux-dac1-tx-delay-us = <0>;
+
+		adi,aux-dac2-default-value-mV = <0>;
+		//adi,aux-dac2-active-in-rx-enable;
+		//adi,aux-dac2-active-in-tx-enable;
+		//adi,aux-dac2-active-in-alert-enable;
+		adi,aux-dac2-rx-delay-us = <0>;
+		adi,aux-dac2-tx-delay-us = <0>;
 	};
 };
 
