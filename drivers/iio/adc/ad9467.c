@@ -285,7 +285,7 @@ static void ad9467_convert_scale_table(struct axiadc_converter *conv)
 
 }
 
-static const char testmodes[][16] = {
+static const char * const testmodes[] = {
 	[TESTMODE_OFF]			= "off",
 	[TESTMODE_MIDSCALE_SHORT]	= "midscale_short",
 	[TESTMODE_POS_FULLSCALE]		= "pos_fullscale",
@@ -324,7 +324,8 @@ static ssize_t ad9467_testmode_mode_available(struct iio_dev *indio_dev,
 	int i;
 
 	for (i = 0; i <= conv->chip_info->max_testmode; ++i) {
-		len += sprintf(buf + len, "%s ", testmodes[i]);
+		if (testmodes[i])
+			len += sprintf(buf + len, "%s ", testmodes[i]);
 	}
 	len += sprintf(buf + len, "\n");
 	return len;
@@ -352,7 +353,7 @@ static ssize_t axiadc_testmode_write(struct iio_dev *indio_dev,
 	mode = 0;
 
 	for (i = 0; i <= conv->chip_info->max_testmode; ++i) {
-		if (sysfs_streq(buf, testmodes[i])) {
+		if (testmodes[i] && sysfs_streq(buf, testmodes[i])) {
 			mode = i;
 			break;
 		}
@@ -490,7 +491,7 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 	ret |= ad9467_spi_write(spi, 0x67, sel++); // lane id
 	ret |= ad9467_spi_write(spi, 0x6e, 0x80 | (l - 1)); // scr, 2-lane
 	ret |= ad9467_spi_write(spi, 0x70, 0x1f); // no. of frames per multi frame
-	ret |= ad9467_spi_write(spi, 0x3a, 0x1e); // sysref enabled
+	ret |= ad9467_spi_write(spi, 0x3a, 0x1f); // sysref enabled
 	ret |= ad9467_spi_write(spi, 0x5f, (0x16 | 0x0)); // enable
 	ret |= ad9467_spi_write(spi, 0x14, 0x00); // offset binary
 	ret |= ad9467_spi_write(spi, 0x0d, 0x00); // test patterns
