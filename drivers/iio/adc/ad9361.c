@@ -5654,22 +5654,6 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
-
-}, {	/* TX2 */
-	.type = IIO_VOLTAGE,
-	.indexed = 1,
-	.output = 1,
-	.channel = 1,
-	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-	.ext_info = ad9361_phy_tx_ext_info,
-}, {	/* RX2 */
-	.type = IIO_VOLTAGE,
-	.indexed = 1,
-	.channel = 1,
-	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-	.ext_info = ad9361_phy_rx_ext_info,
 }, {	/* AUXDAC1 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
@@ -5688,6 +5672,21 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.channel = 2,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+}, {	/* TX2 */
+	.type = IIO_VOLTAGE,
+	.indexed = 1,
+	.output = 1,
+	.channel = 1,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.ext_info = ad9361_phy_tx_ext_info,
+}, {	/* RX2 */
+	.type = IIO_VOLTAGE,
+	.indexed = 1,
+	.channel = 1,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.ext_info = ad9361_phy_rx_ext_info,
 }};
 
 static const struct iio_info ad9361_phy_info = {
