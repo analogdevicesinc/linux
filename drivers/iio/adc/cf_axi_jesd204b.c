@@ -54,6 +54,7 @@ struct jesd204b_state {
 	unsigned long		flags;
 	unsigned long		rate;
 	unsigned			es_hsize;
+	unsigned			addr;
 };
 
 /*
@@ -300,6 +301,32 @@ static ssize_t jesd204b_set_prescale(struct device *dev,
 }
 static DEVICE_ATTR(prescale, S_IWUSR, NULL, jesd204b_set_prescale);
 
+static ssize_t jesd204b_reg_write(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	struct jesd204b_state *st = dev_get_drvdata(dev);
+	unsigned val;
+	int ret;
+
+	ret = sscanf(buf, "%i %i", &st->addr, &val);
+
+	if (ret == 2)
+		jesd204b_write(st, st->addr, val);
+
+	return count;
+}
+static ssize_t jesd204b_reg_read(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	struct jesd204b_state *st = dev_get_drvdata(dev);
+
+	return sprintf(buf, "0x%X\n", jesd204b_read(st, st->addr));
+}
+
+static DEVICE_ATTR(reg_access, S_IWUSR | S_IRUSR, jesd204b_reg_read, jesd204b_reg_write);
+
 /* Match table for of_platform binding */
 static const struct of_device_id jesd204b_of_match[] = {
 	{ .compatible = "xlnx,axi-jesd204b-rx2-1.01.a", .data = (void*) 2},
@@ -429,6 +456,7 @@ static int jesd204b_of_probe(struct platform_device *op)
 
 	mdelay(10);
 
+
 	if (!jesd204b_read(st, AXI_JESD204B_REG_RX_STATUS))
 		dev_warn(dev, "JESD Link/Lane Errors");
 
@@ -484,6 +512,7 @@ static int jesd204b_of_probe(struct platform_device *op)
 
 	device_create_file(dev, &dev_attr_enable);
 	device_create_file(dev, &dev_attr_prescale);
+	device_create_file(dev, &dev_attr_reg_access);
 
 	switch (st->vers_id) {
 	case 1:
