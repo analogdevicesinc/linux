@@ -440,7 +440,7 @@ static int jesd204b_of_probe(struct platform_device *op)
 	jesd204b_write(st, AXI_JESD204B_REG_SYSREF,
 		       AXI_JESD204B_SYSREF);
 
-	mdelay(1);
+	mdelay(10);
 
 	jesd204b_write(st, AXI_JESD204B_REG_RSTN,
 		       AXI_JESD204B_GT_RSTN |
@@ -545,6 +545,18 @@ static int jesd204b_of_probe(struct platform_device *op)
 
 	INIT_WORK(&st->work, jesd204b_work_func);
 	init_completion(&st->complete);
+
+	jesd204b_write(st, AXI_JESD204B_REG_RSTN,
+		       AXI_JESD204B_GT_RSTN |
+		       AXI_JESD204B_IP_RSTN |
+		       AXI_JESD204B_DRP_RSTN);
+	mdelay(10);
+	jesd204b_write(st, AXI_JESD204B_REG_RSTN,
+		       AXI_JESD204B_GT_RSTN |
+		       AXI_JESD204B_IP_RSTN |
+		       AXI_JESD204B_RSTN | AXI_JESD204B_DRP_RSTN);
+
+	mdelay(10);
 
 	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
 		 jesd204b_read(st, ADI_REG_VERSION),
