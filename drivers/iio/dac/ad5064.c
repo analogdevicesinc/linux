@@ -5,7 +5,7 @@
  * LTC2617, LTC2619, LTC2626, LTC2627, LTC2629, LTC2631, LTC2633, LTC2635
  * Digital to analog converters driver
  *
- * Copyright 2011 Analog Devices Inc.
+ * Copyright 2011, 2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -23,6 +23,8 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+
+#include <linux/platform_data/ad5064.h>
 
 #define AD5064_MAX_DAC_CHANNELS			8
 #define AD5064_MAX_VREFS			4
@@ -811,6 +813,7 @@ static int ad5064_set_config(struct ad5064_state *st, unsigned int val)
 static int ad5064_probe(struct device *dev, enum ad5064_type type,
 			const char *name, ad5064_write_func write)
 {
+	struct ad5064_platform_data *pdata = dev->platform_data;
 	struct iio_dev *indio_dev;
 	struct ad5064_state *st;
 	unsigned int midscale;
@@ -831,11 +834,20 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 	for (i = 0; i < ad5064_num_vref(st); ++i)
 		st->vref_reg[i].supply = ad5064_vref_name(st, i);
 
-	ret = devm_regulator_bulk_get(dev, ad5064_num_vref(st),
-		st->vref_reg);
-	if (ret) {
-		if (!st->chip_info->internal_vref)
+	if (pdata && pdata->use_external_ref) {
+		ret = devm_regulator_bulk_get(dev, ad5064_num_vref(st),
+					st->vref_reg);
+		if (ret)
 			return ret;
+		ret = regulator_bulk_enable(ad5064_num_vref(st), st->vref_reg);
+		if (ret)
+			return ret;
+	} else {
+		if (!st->chip_info->internal_vref) {
+			dev_err(dev, "No vref available\n");
+			return -ENXIO;
+		}
+
 		st->use_internal_vref = true;
 		ret = ad5064_set_config(st, AD5064_CONFIG_INT_VREF_ENABLE);
 		if (ret) {
@@ -843,10 +855,6 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 				ret);
 			return ret;
 		}
-	} else {
-		ret = regulator_bulk_enable(ad5064_num_vref(st), st->vref_reg);
-		if (ret)
-			return ret;
 	}
 
 	indio_dev->dev.parent = dev;
