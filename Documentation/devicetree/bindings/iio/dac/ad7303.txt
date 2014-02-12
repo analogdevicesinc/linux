@@ -7,6 +7,9 @@ Required properties:
 	- Vdd-supply: Phandle to the Vdd power supply
 
 Optional properties:
+	- adi,use-external-reference: If set, the external reference voltage
+	  supply is used. Otherwise, the internal reference voltage supply is
+	  used.
 	- REF-supply: Phandle to the external reference voltage supply. This should
 	  only be set if there is an external reference voltage connected to the REF
 	  pin. If the property is not set Vdd/2 is used as the reference voltage.
