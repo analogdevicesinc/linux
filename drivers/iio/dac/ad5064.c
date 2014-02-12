@@ -439,7 +439,6 @@ static const char * const ad5064_vref_name(struct ad5064_state *st,
 static int ad5064_probe(struct device *dev, enum ad5064_type type,
 			const char *name, ad5064_write_func write)
 {
-	struct ad5064_platform_data *pdata = dev->platform_data;
 	struct iio_dev *indio_dev;
 	struct ad5064_state *st;
 	unsigned int midscale;
@@ -461,11 +460,15 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 	for (i = 0; i < ad5064_num_vref(st); ++i)
 		st->vref_reg[i].supply = ad5064_vref_name(st, i);
 
-	if (dev->of_node)
+	if (!st->chip_info->internal_vref) {
+		ext_vref = true;
+	} else if (dev->of_node) {
 		ext_vref = of_property_read_bool(dev->of_node,
 				"adi,use-external-reference");
-	else
+	} else {
+		struct ad5064_platform_data *pdata = dev->platform_data;
 		ext_vref = pdata && pdata->use_external_ref;
+	}
 
 	if (ext_vref) {
 		ret = devm_regulator_bulk_get(dev, ad5064_num_vref(st),
@@ -476,11 +479,6 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 		if (ret)
 			return ret;
 	} else {
-		if (!st->chip_info->internal_vref) {
-			dev_err(dev, "No vref available\n");
-			return -ENXIO;
-		}
-
 		st->use_internal_vref = true;
 		ret = ad5064_write(st, AD5064_CMD_CONFIG, 0,
 			AD5064_CONFIG_INT_VREF_ENABLE, 0);
