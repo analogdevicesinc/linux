@@ -29,12 +29,11 @@ Required properties:
 	  This property must be present for ad5024, ad5044, ad5064.
 
 Optional properties:
-	- adi,use-external-reference: If set, the external reference voltage
-	  supply is used. This should only be set if there is an external
-	  reference voltage connected to the vref or vref[A-D] pins.
-	  If the property is not set, the internal reference voltage supply
-	  is used if present, or an error is issued by the driver.
 	- vref-supply: phandle to the external reference voltage supply.
+	  This should only be set if there is an external reference voltage
+	  connected to the vref or vref[A-D] pins.
+	  If the property is not set, the internal reference voltage supply
+	  is used if present.
 	  This property can be used with ad5064-1, ad5628-1, ad5628-2, ad5648-1,
 	  ad5648-2, ad5666-1, ad5666-2, ad5668-1, ad5668-2, ad5668-3.
 
