@@ -445,6 +445,7 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 	unsigned int midscale;
 	unsigned int i;
 	int ret;
+	bool ext_vref;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (indio_dev == NULL)
@@ -460,7 +461,13 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 	for (i = 0; i < ad5064_num_vref(st); ++i)
 		st->vref_reg[i].supply = ad5064_vref_name(st, i);
 
-	if (pdata && pdata->use_external_ref) {
+	if (dev->of_node)
+		ext_vref = of_property_read_bool(dev->of_node,
+				"adi,use-external-reference");
+	else
+		ext_vref = pdata && pdata->use_external_ref;
+
+	if (ext_vref) {
 		ret = devm_regulator_bulk_get(dev, ad5064_num_vref(st),
 					st->vref_reg);
 		if (ret)
