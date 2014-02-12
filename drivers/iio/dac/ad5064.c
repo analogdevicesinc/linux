@@ -463,8 +463,9 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 	if (!st->chip_info->internal_vref) {
 		ext_vref = true;
 	} else if (dev->of_node) {
-		ext_vref = of_property_read_bool(dev->of_node,
-				"adi,use-external-reference");
+		for (i = 0; ext_vref && i < ad5064_num_vref(st); ++i)
+			ext_vref = of_property_read_bool(dev->of_node,
+					ad5064_vref_name(st, i));
 	} else {
 		struct ad5064_platform_data *pdata = dev->platform_data;
 		ext_vref = pdata && pdata->use_external_ref;
