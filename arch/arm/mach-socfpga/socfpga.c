@@ -37,6 +37,7 @@ void __iomem *rst_manager_base_addr;
 unsigned long socfpga_cpu1start_addr;
 void __iomem *sdr_ctl_base_addr;
 void __iomem *l3regs_base_addr;
+void __iomem *clkmgr_base_addr;
 
 #ifdef CONFIG_HW_PERF_EVENTS
 static struct arm_pmu_platdata socfpga_pmu_platdata = {
@@ -163,6 +164,10 @@ void __init socfpga_sysmgr_init(void)
 	rst_manager_base_addr = of_iomap(np, 0);
 	WARN_ON(!rst_manager_base_addr);
 
+	np = of_find_compatible_node(NULL, NULL, "altr,clk-mgr");
+	clkmgr_base_addr = of_iomap(np, 0);
+	WARN_ON(!clkmgr_base_addr);
+
 	np = of_find_compatible_node(NULL, NULL, "altr,sdr-ctl");
 	if (!np) {
 		pr_err("SOCFPGA: Unable to find sdr-ctl\n");
@@ -191,6 +196,9 @@ static void __init socfpga_init_irq(void)
 static void socfpga_cyclone5_restart(enum reboot_mode mode, const char *cmd)
 {
 	u32 temp;
+
+	/* Turn on all periph PLL clocks */
+	writel(0xffff, clkmgr_base_addr + SOCFPGA_ENABLE_PLL_REG);
 
 	temp = readl(rst_manager_base_addr + SOCFPGA_RSTMGR_CTRL);
 
