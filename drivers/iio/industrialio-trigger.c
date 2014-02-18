@@ -127,7 +127,6 @@ static struct iio_trigger *iio_trigger_find_by_name(const char *name,
 
 void iio_trigger_poll(struct iio_trigger *trig, s64 time)
 {
-	unsigned int num_consumers; 
 	int i;
 
 	if (!atomic_read(&trig->use_count)) {
@@ -152,7 +151,6 @@ EXPORT_SYMBOL(iio_trigger_generic_data_rdy_poll);
 
 void iio_trigger_poll_chained(struct iio_trigger *trig, s64 time)
 {
-	unsigned int num_consumers; 
 	int i;
 
 	if (!atomic_read(&trig->use_count)) {

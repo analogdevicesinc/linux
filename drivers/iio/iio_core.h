@@ -74,6 +74,7 @@ static inline long iio_buffer_ioctl(struct iio_dev *indio_dev,
 static inline void iio_buffer_free_blocks(struct iio_buffer *buffer) {}
 
 static inline void iio_disable_all_buffers(struct iio_dev *indio_dev) {}
+static inline void iio_buffer_wakeup_poll(struct iio_dev *indio_dev) {}
 
 #endif
 

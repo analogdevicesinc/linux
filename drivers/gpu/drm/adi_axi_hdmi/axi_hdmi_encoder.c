@@ -427,7 +427,8 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 			DRM_MODE_ENCODER_TMDS);
 	drm_encoder_helper_add(encoder, &axi_hdmi_encoder_helper_funcs);
 
-	encoder_drv = to_drm_i2c_encoder_driver(priv->encoder_slave->driver);
+	encoder_drv =
+	to_drm_i2c_encoder_driver(to_i2c_driver(priv->encoder_slave->dev.driver));
 	encoder_drv->encoder_init(priv->encoder_slave, dev,
 		&axi_hdmi_encoder->encoder);
 

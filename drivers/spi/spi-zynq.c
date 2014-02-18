@@ -1,8 +1,7 @@
 /*
- *
  * Xilinx Zynq SPI controller driver (master mode only)
  *
- * (c) 2008-2011 Xilinx, Inc.
+ * Copyright (C) 2008 - 2014 Xilinx, Inc.
  *
  * based on Blackfin On-Chip SPI Driver (spi_bfin5xx.c)
  *
@@ -11,7 +10,6 @@
  * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  */
-
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -87,7 +85,6 @@
 #define zynq_spi_read(addr)	__raw_readl(addr)
 #define zynq_spi_write(addr, val)	__raw_writel((val), (addr))
 
-
 /**
  * struct zynq_spi - This definition defines spi driver instance
  * @workqueue:		Queue of all the transfers
@@ -128,7 +125,6 @@ struct zynq_spi {
 	u8 dev_busy;
 	struct completion done;
 };
-
 
 /**
  * zynq_spi_init_hw - Initialize the hardware and configure the SPI controller
@@ -401,7 +397,7 @@ static int zynq_spi_start_transfer(struct spi_device *spi,
 	xspi->txbuf = transfer->tx_buf;
 	xspi->rxbuf = transfer->rx_buf;
 	xspi->remaining_bytes = transfer->len;
-	INIT_COMPLETION(xspi->done);
+	reinit_completion(&xspi->done);
 
 	zynq_spi_fill_tx_fifo(xspi);
 
@@ -910,7 +906,7 @@ static SIMPLE_DEV_PM_OPS(zynq_spi_dev_pm_ops, zynq_spi_suspend,
 MODULE_ALIAS("platform:" ZYNQ_SPI_NAME);
 
 static struct of_device_id zynq_spi_of_match[] = {
-	{ .compatible = "xlnx,ps7-spi-1.00.a", },
+	{ .compatible = "xlnx,zynq-spi-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, zynq_spi_of_match);

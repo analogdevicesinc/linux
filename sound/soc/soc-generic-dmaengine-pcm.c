@@ -25,7 +25,7 @@
 #include <sound/dmaengine_pcm.h>
 
 struct dmaengine_pcm {
-	struct dma_chan *chan[SNDRV_PCM_STREAM_CAPTURE + 1];
+	struct dma_chan *chan[SNDRV_PCM_STREAM_LAST + 1];
 	const struct snd_dmaengine_pcm_config *config;
 	struct snd_soc_platform platform;
 	unsigned int flags;
@@ -170,6 +170,9 @@ static struct dma_chan *dmaengine_pcm_compat_request_channel(
 	struct snd_pcm_substream *substream)
 {
 	struct dmaengine_pcm *pcm = soc_platform_to_pcm(rtd->platform);
+	struct snd_dmaengine_dai_dma_data *dma_data;
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 
 	if ((pcm->flags & SND_DMAENGINE_PCM_FLAG_HALF_DUPLEX) && pcm->chan[0])
 		return pcm->chan[0];
@@ -178,13 +181,15 @@ static struct dma_chan *dmaengine_pcm_compat_request_channel(
 		return pcm->config->compat_request_channel(rtd, substream);
 
 	return snd_dmaengine_pcm_request_channel(pcm->config->compat_filter_fn,
-		snd_soc_dai_get_dma_data(rtd->cpu_dai, substream));
+						 dma_data->filter_data);
 }
 
 static int dmaengine_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct dmaengine_pcm *pcm = soc_platform_to_pcm(rtd->platform);
 	const struct snd_dmaengine_pcm_config *config = pcm->config;
+	struct device *dev = rtd->platform->dev;
+	struct snd_dmaengine_dai_dma_data *dma_data;
 	struct snd_pcm_substream *substream;
 	size_t prealloc_buffer_size;
 	size_t max_buffer_size;
@@ -205,6 +210,13 @@ static int dmaengine_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		if (!substream)
 			continue;
 
+		dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+
+		if (!pcm->chan[i] &&
+		    (pcm->flags & SND_DMAENGINE_PCM_FLAG_CUSTOM_CHANNEL_NAME))
+			pcm->chan[i] = dma_request_slave_channel(dev,
+				dma_data->chan_name);
+
 		if (!pcm->chan[i] && (pcm->flags & SND_DMAENGINE_PCM_FLAG_COMPAT)) {
 			pcm->chan[i] = dmaengine_pcm_compat_request_channel(rtd,
 				substream);
@@ -218,7 +230,7 @@ static int dmaengine_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		}
 
 		ret = snd_pcm_lib_preallocate_pages(substream,
-				SNDRV_DMA_TYPE_DEV,
+				SNDRV_DMA_TYPE_DEV_IRAM,
 				dmaengine_dma_dev(pcm, substream),
 				prealloc_buffer_size,
 				max_buffer_size);
@@ -277,7 +289,9 @@ static void dmaengine_pcm_request_chan_of(struct dmaengine_pcm *pcm,
 {
 	unsigned int i;
 
-	if ((pcm->flags & SND_DMAENGINE_PCM_FLAG_NO_DT) || !dev->of_node)
+	if ((pcm->flags & (SND_DMAENGINE_PCM_FLAG_NO_DT |
+			   SND_DMAENGINE_PCM_FLAG_CUSTOM_CHANNEL_NAME)) ||
+	    !dev->of_node)
 		return;
 
 	if (pcm->flags & SND_DMAENGINE_PCM_FLAG_HALF_DUPLEX) {
@@ -287,6 +301,20 @@ static void dmaengine_pcm_request_chan_of(struct dmaengine_pcm *pcm,
 		for (i = SNDRV_PCM_STREAM_PLAYBACK; i <= SNDRV_PCM_STREAM_CAPTURE; i++)
 			pcm->chan[i] = dma_request_slave_channel(dev,
 					dmaengine_pcm_dma_channel_names[i]);
+	}
+}
+
+static void dmaengine_pcm_release_chan(struct dmaengine_pcm *pcm)
+{
+	unsigned int i;
+
+	for (i = SNDRV_PCM_STREAM_PLAYBACK; i <= SNDRV_PCM_STREAM_CAPTURE;
+	     i++) {
+		if (!pcm->chan[i])
+			continue;
+		dma_release_channel(pcm->chan[i]);
+		if (pcm->flags & SND_DMAENGINE_PCM_FLAG_HALF_DUPLEX)
+			break;
 	}
 }
 
@@ -300,6 +328,7 @@ int snd_dmaengine_pcm_register(struct device *dev,
 	const struct snd_dmaengine_pcm_config *config, unsigned int flags)
 {
 	struct dmaengine_pcm *pcm;
+	int ret;
 
 	pcm = kzalloc(sizeof(*pcm), GFP_KERNEL);
 	if (!pcm)
@@ -311,11 +340,20 @@ int snd_dmaengine_pcm_register(struct device *dev,
 	dmaengine_pcm_request_chan_of(pcm, dev);
 
 	if (flags & SND_DMAENGINE_PCM_FLAG_NO_RESIDUE)
-		return snd_soc_add_platform(dev, &pcm->platform,
+		ret = snd_soc_add_platform(dev, &pcm->platform,
 				&dmaengine_no_residue_pcm_platform);
 	else
-		return snd_soc_add_platform(dev, &pcm->platform,
+		ret = snd_soc_add_platform(dev, &pcm->platform,
 				&dmaengine_pcm_platform);
+	if (ret)
+		goto err_free_dma;
+
+	return 0;
+
+err_free_dma:
+	dmaengine_pcm_release_chan(pcm);
+	kfree(pcm);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_register);
 
@@ -330,7 +368,6 @@ void snd_dmaengine_pcm_unregister(struct device *dev)
 {
 	struct snd_soc_platform *platform;
 	struct dmaengine_pcm *pcm;
-	unsigned int i;
 
 	platform = snd_soc_lookup_platform(dev);
 	if (!platform)
@@ -338,15 +375,8 @@ void snd_dmaengine_pcm_unregister(struct device *dev)
 
 	pcm = soc_platform_to_pcm(platform);
 
-	for (i = SNDRV_PCM_STREAM_PLAYBACK; i <= SNDRV_PCM_STREAM_CAPTURE; i++) {
-		if (pcm->chan[i]) {
-			dma_release_channel(pcm->chan[i]);
-			if (pcm->flags & SND_DMAENGINE_PCM_FLAG_HALF_DUPLEX)
-				break;
-		}
-	}
-
 	snd_soc_remove_platform(platform);
+	dmaengine_pcm_release_chan(pcm);
 	kfree(pcm);
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_unregister);

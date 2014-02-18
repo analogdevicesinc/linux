@@ -17,6 +17,7 @@
 #include <linux/initrd.h>
 #include <linux/console.h>
 #include <linux/debugfs.h>
+#include <linux/of_fdt.h>
 
 #include <asm/setup.h>
 #include <asm/sections.h>
@@ -51,7 +52,7 @@ char cmd_line[COMMAND_LINE_SIZE] __attribute__ ((section(".data")));
 
 void __init setup_arch(char **cmdline_p)
 {
-	*cmdline_p = cmd_line;
+	*cmdline_p = boot_command_line;
 
 	console_verbose();
 
@@ -136,7 +137,7 @@ void __init machine_early_init(const char *cmdline, unsigned int ram,
 	lockdep_init();
 
 /* initialize device tree for usage in early_printk */
-	early_init_devtree((void *)_fdt_start);
+	early_init_devtree(_fdt_start);
 
 #ifdef CONFIG_EARLY_PRINTK
 	setup_early_printk(NULL);
@@ -152,8 +153,7 @@ void __init machine_early_init(const char *cmdline, unsigned int ram,
 	if (fdt)
 		pr_info("FDT at 0x%08x\n", fdt);
 	else
-		pr_info("Compiled-in FDT at 0x%08x\n",
-					(unsigned int)_fdt_start);
+		pr_info("Compiled-in FDT at %p\n", _fdt_start);
 
 #ifdef CONFIG_MTD_UCLINUX
 	pr_info("Found romfs @ 0x%08x (0x%08x)\n",

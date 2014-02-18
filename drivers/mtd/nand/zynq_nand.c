@@ -1,7 +1,7 @@
 /*
  * Xilinx Zynq NAND Flash Controller Driver
  *
- * Copyright (C) 2009 - 2013 Xilinx, Inc.
+ * Copyright (C) 2009 - 2014 Xilinx, Inc.
  *
  * This driver is based on plat_nand.c and mxc_nand.c drivers
  *
@@ -59,7 +59,6 @@
 
 /* Macros for the NAND controller register read/write */
 #define zynq_nand_write32(addr, val)	__raw_writel((val), (addr))
-
 
 /**
  * struct zynq_nand_command_format - Defines NAND flash command format
@@ -870,7 +869,7 @@ static int zynq_nand_probe(struct platform_device *pdev)
 	nand_chip->priv = xnand;
 	mtd->priv = nand_chip;
 	mtd->owner = THIS_MODULE;
-	mtd->name = "xilinx_nand";
+	mtd->name = ZYNQ_NAND_DRIVER_NAME;
 
 	/* Set address of NAND IO lines */
 	nand_chip->IO_ADDR_R = xnand->nand_base;
@@ -1033,7 +1032,7 @@ static int zynq_nand_remove(struct platform_device *pdev)
 
 /* Match table for device tree binding */
 static const struct of_device_id zynq_nand_of_match[] = {
-	{ .compatible = "xlnx,ps7-nand-1.00.a" },
+	{ .compatible = "xlnx,zynq-nand-1.00.a" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, zynq_nand_of_match);

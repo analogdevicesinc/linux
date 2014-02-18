@@ -101,7 +101,7 @@
 
 		fmc_spi: spi@e0006000 {
 			bus-num = <1>;
-			compatible = "xlnx,ps7-spi-1.00.a";
+			compatible = "xlnx,zynq-spi-1.00.a", "xlnx,ps7-spi-1.00.a";
 			interrupt-parent = <&gic>;
 			interrupts = < 0 26 4 >;
 			clock-names = "ref_clk", "aper_clk";

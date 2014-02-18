@@ -1,7 +1,7 @@
 /*
  * Xilinx Zynq GPIO device driver
  *
- * 2009-2011 (c) Xilinx, Inc.
+ * Copyright (C) 2009 - 2014 Xilinx, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU General Public License as published by the Free Software
@@ -660,7 +660,6 @@ static int zynq_gpio_probe(struct platform_device *pdev)
 
 	return 0;
 
-
 	return ret;
 }
 
@@ -680,7 +679,7 @@ static int zynq_gpio_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id zynq_gpio_of_match[] = {
-	{ .compatible = "xlnx,ps7-gpio-1.00.a", },
+	{ .compatible = "xlnx,zynq-gpio-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, zynq_gpio_of_match);

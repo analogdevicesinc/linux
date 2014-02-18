@@ -38,6 +38,7 @@ enum iio_chan_info_enum {
 	IIO_CHAN_INFO_PEAK,
 	IIO_CHAN_INFO_PEAK_SCALE,
 	IIO_CHAN_INFO_HYSTERESIS,
+	IIO_CHAN_INFO_INT_TIME,
 };
 
 enum iio_shared_by {
@@ -535,7 +536,7 @@ static inline void iio_device_put(struct iio_dev *indio_dev)
 {
 	if (indio_dev)
 		put_device(&indio_dev->dev);
-};
+}
 
 /**
  * dev_to_iio_dev() - Get IIO device struct from a device struct
@@ -671,7 +672,7 @@ static inline bool iio_buffer_enabled(struct iio_dev *indio_dev)
 {
 	return indio_dev->currentmode
 		& (INDIO_BUFFER_TRIGGERED | INDIO_BUFFER_HARDWARE);
-};
+}
 
 /**
  * iio_get_debugfs_dentry() - helper function to get the debugfs_dentry
@@ -681,12 +682,12 @@ static inline bool iio_buffer_enabled(struct iio_dev *indio_dev)
 static inline struct dentry *iio_get_debugfs_dentry(struct iio_dev *indio_dev)
 {
 	return indio_dev->debugfs_dentry;
-};
+}
 #else
 static inline struct dentry *iio_get_debugfs_dentry(struct iio_dev *indio_dev)
 {
 	return NULL;
-};
+}
 #endif
 
 int iio_str_to_fixpoint(const char *str, int fract_mult, int *integer,

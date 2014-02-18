@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/clockchips.h>
 #include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <asm/cpuinfo.h>
 
 static void __iomem *timer_baseaddr;
@@ -166,7 +167,7 @@ static __init void xilinx_clockevent_init(void)
 	clockevents_register_device(&clockevent_xilinx_timer);
 }
 
-static u32 xilinx_clock_read(void)
+static u64 xilinx_clock_read(void)
 {
 	return in_be32(timer_baseaddr + TCR1);
 }
@@ -229,8 +230,14 @@ static int __init xilinx_clocksource_init(void)
 static void __init xilinx_timer_init(struct device_node *timer)
 {
 	struct clk *clk;
+	static int initialized;
 	u32 irq;
 	u32 timer_num = 1;
+
+	if (initialized)
+		return;
+
+	initialized = 1;
 
 	timer_baseaddr = of_iomap(timer, 0);
 	if (!timer_baseaddr) {
@@ -272,7 +279,7 @@ static void __init xilinx_timer_init(struct device_node *timer)
 	xilinx_clocksource_init();
 	xilinx_clockevent_init();
 
-	setup_sched_clock(xilinx_clock_read, 32, timer_clock_freq);
+	sched_clock_register(xilinx_clock_read, 32, timer_clock_freq);
 }
 
 CLOCKSOURCE_OF_DECLARE(xilinx_timer, "xlnx,xps-timer-1.00.a",

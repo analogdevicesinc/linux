@@ -152,7 +152,7 @@ static int xadc_ps7_write_adc_reg(struct xadc *xadc, unsigned int reg,
 	xadc_ps7_update_intmsk(xadc, XADCPS7_INT_DFIFO_GTH,
 			XADCPS7_INT_DFIFO_GTH);
 
-	INIT_COMPLETION(xadc->completion);
+	reinit_completion(&xadc->completion);
 
 	cmd[0] = XADCPS7_CMD(XADCPS7_CMD_WRITE, reg, val);
 	xadc_ps7_write_fifo(xadc, cmd, ARRAY_SIZE(cmd));
@@ -189,7 +189,7 @@ static int xadc_ps7_read_adc_reg(struct xadc *xadc, unsigned int reg,
 	xadc_ps7_update_intmsk(xadc, XADCPS7_INT_DFIFO_GTH,
 			XADCPS7_INT_DFIFO_GTH);
 	xadc_ps7_drain_fifo(xadc);
-	INIT_COMPLETION(xadc->completion);
+	reinit_completion(&xadc->completion);
 
 	xadc_ps7_write_fifo(xadc, cmd, ARRAY_SIZE(cmd));
 	xadc_ps7_read_reg(xadc, XADCPS7_REG_CFG, &tmp);
@@ -774,10 +774,6 @@ static int xadc_preenable(struct iio_dev *indio_dev)
 	unsigned long scan_mask;
 	int seq_mode;
 	int ret;
-
-	ret = iio_sw_buffer_preenable(indio_dev);
-	if (ret)
-		goto err;
 
 	ret = xadc_update_reg(xadc, XADC_REG_CONF1, XADC_CONF1_SEQ_MASK,
 		XADC_CONF1_SEQ_DEFAULT);

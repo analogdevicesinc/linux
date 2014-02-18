@@ -203,7 +203,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 		ret = cookie;
 		goto error_ret;
 	}
-	INIT_COMPLETION(st->dma_complete);
+	reinit_completion(&st->dma_complete);
 	st->read_offs = 0;
 	dma_async_issue_pending(st->rx_chan);
 
@@ -221,11 +221,7 @@ error_ret:
 
 static int axiadc_hw_ring_preenable(struct iio_dev *indio_dev)
 {
-	int ret = iio_sw_buffer_preenable(indio_dev);
-	if (ret < 0)
-		return ret;
-
-return __axiadc_hw_ring_state_set(indio_dev, 1);
+	return __axiadc_hw_ring_state_set(indio_dev, 1);
 }
 
 static int axiadc_hw_ring_postdisable(struct iio_dev *indio_dev)

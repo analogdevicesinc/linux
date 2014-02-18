@@ -1,8 +1,7 @@
 /*
- *
  * Xilinx Zynq Quad-SPI (QSPI) controller driver (master mode only)
  *
- * (c) 2009-2011 Xilinx, Inc.
+ * Copyright (C) 2009 - 2014 Xilinx, Inc.
  *
  * based on Xilinx Zynq SPI Driver (spi-zynq.c)
  *
@@ -11,7 +10,6 @@
  * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  */
-
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -683,7 +681,7 @@ static int zynq_qspi_start_transfer(struct spi_device *qspi,
 	if (xqspi->txbuf)
 		instruction = *(u8 *)xqspi->txbuf;
 
-	INIT_COMPLETION(xqspi->done);
+	reinit_completion(&xqspi->done);
 	if (instruction && xqspi->is_inst) {
 		for (index = 0 ; index < ARRAY_SIZE(flash_inst); index++)
 			if (instruction == flash_inst[index].opcode)
@@ -1136,7 +1134,6 @@ static int zynq_qspi_probe(struct platform_device *pdev)
 	if (clk_notifier_register(xqspi->devclk, &xqspi->clk_rate_change_nb))
 		dev_warn(&pdev->dev, "Unable to register clock notifier.\n");
 
-
 	/* QSPI controller initializations */
 	zynq_qspi_init_hw(xqspi->regs, xqspi->is_dual);
 
@@ -1232,7 +1229,6 @@ static int zynq_qspi_remove(struct platform_device *pdev)
 	spi_unregister_master(master);
 	spi_master_put(master);
 
-
 	dev_dbg(&pdev->dev, "remove succeeded\n");
 	return 0;
 }
@@ -1241,7 +1237,7 @@ static int zynq_qspi_remove(struct platform_device *pdev)
 MODULE_ALIAS("platform:" DRIVER_NAME);
 
 static struct of_device_id zynq_qspi_of_match[] = {
-	{ .compatible = "xlnx,ps7-qspi-1.00.a", },
+	{ .compatible = "xlnx,zynq-qspi-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, zynq_qspi_of_match);
