@@ -56,4 +56,7 @@ extern unsigned long cpu1start_addr;
 
 #define SOCFPGA_SCU_VIRT_BASE   0xfee00000
 
+/* Clock manager defines */
+#define SOCFPGA_ENABLE_PLL_REG	0xA0
+
 #endif
