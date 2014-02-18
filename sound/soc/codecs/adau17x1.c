@@ -160,7 +160,7 @@ int adau17x1_dsp_mux_enum_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_dapm_update update;
 	unsigned int val, change;
 
-	if (ucontrol->value.enumerated.item[0] >= e->max)
+	if (ucontrol->value.enumerated.item[0] >= e->items)
 		return -EINVAL;
 
 	switch (ucontrol->value.enumerated.item[0]) {
