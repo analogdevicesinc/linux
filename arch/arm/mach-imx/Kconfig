@@ -44,6 +44,9 @@ config MXC_USE_EPIT
 	  uses the same clocks as the GPT. Anyway, on some systems the GPT
 	  may be in use for other purposes.
 
+config HAVE_IMX_RNG
+       bool
+
 config HAVE_IMX_ANATOP
 	bool
 
@@ -524,6 +527,7 @@ config SOC_IMX6Q
 
 config SOC_IMX6SL
 	bool "i.MX6 SoloLite support"
+	select HAVE_IMX_RNG
 	select PINCTRL_IMX6SL
 	select SOC_IMX6
 
