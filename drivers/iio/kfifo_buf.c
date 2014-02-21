@@ -125,6 +125,7 @@ static int iio_read_kfifo(struct iio_buffer *r, size_t n, char __user *buf)
 		ret = -EINVAL;
 	else
 		ret = kfifo_to_user(&kf->kf, buf, n, &copied);
+
 	mutex_unlock(&kf->user_lock);
 	if (ret < 0)
 		return ret;
@@ -195,6 +196,10 @@ static int iio_kfifo_write(struct iio_buffer *r, size_t n,
 		ret = kfifo_from_user(&kf->kf, buf, n, &copied);
 	mutex_unlock(&kf->user_lock);
 	if (ret)
+		return ret;
+
+	mutex_unlock(&kf->user_lock);
+	if (ret < 0)
 		return ret;
 
 	return copied;

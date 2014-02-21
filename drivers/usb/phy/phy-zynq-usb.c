@@ -1,7 +1,7 @@
 /*
  * Xilinx Zynq USB otg driver.
  *
- * Copyright 2011 Xilinx, Inc.
+ * Copyright (C) 2011 - 2014 Xilinx, Inc.
  *
  * This file is based on langwell_otg.c file with few minor modifications
  * to support Xilinx Zynq USB controller.
@@ -36,7 +36,7 @@
 
 #include "../core/usb.h"
 
-#include <linux/xilinx_devices.h>
+#include <linux/usb/zynq_usb.h>
 #include <linux/usb/zynq_otg.h>
 
 #define	DRIVER_NAME	"zynq-otg"

@@ -2,7 +2,7 @@
  * AD5024, AD5025, AD5044, AD5045, AD5064, AD5064-1, AD5065, AD5628, AD5629R,
  * AD5648, AD5666, AD5668, AD5669R Digital to analog converters driver
  *
- * Copyright 2011 Analog Devices Inc.
+ * Copyright 2011, 2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -20,6 +20,8 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+
+#include <linux/platform_data/ad5064.h>
 
 #define AD5064_MAX_DAC_CHANNELS			8
 #define AD5064_MAX_VREFS			4
@@ -239,10 +241,9 @@ static int ad5064_read_raw(struct iio_dev *indio_dev,
 		if (scale_uv < 0)
 			return scale_uv;
 
-		scale_uv = (scale_uv * 100) >> chan->scan_type.realbits;
-		*val =  scale_uv / 100000;
-		*val2 = (scale_uv % 100000) * 10;
-		return IIO_VAL_INT_PLUS_MICRO;
+		*val = scale_uv / 1000;
+		*val2 = chan->scan_type.realbits;
+		return IIO_VAL_FRACTIONAL_LOG2;
 	default:
 		break;
 	}
@@ -442,6 +443,7 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 	unsigned int midscale;
 	unsigned int i;
 	int ret;
+	bool ext_vref;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (indio_dev == NULL)
@@ -457,11 +459,26 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 	for (i = 0; i < ad5064_num_vref(st); ++i)
 		st->vref_reg[i].supply = ad5064_vref_name(st, i);
 
-	ret = devm_regulator_bulk_get(dev, ad5064_num_vref(st),
-		st->vref_reg);
-	if (ret) {
-		if (!st->chip_info->internal_vref)
+	if (!st->chip_info->internal_vref) {
+		ext_vref = true;
+	} else if (dev->of_node) {
+		for (i = 0; ext_vref && i < ad5064_num_vref(st); ++i)
+			ext_vref = of_property_read_bool(dev->of_node,
+					ad5064_vref_name(st, i));
+	} else {
+		struct ad5064_platform_data *pdata = dev->platform_data;
+		ext_vref = pdata && pdata->use_external_ref;
+	}
+
+	if (ext_vref) {
+		ret = devm_regulator_bulk_get(dev, ad5064_num_vref(st),
+					st->vref_reg);
+		if (ret)
 			return ret;
+		ret = regulator_bulk_enable(ad5064_num_vref(st), st->vref_reg);
+		if (ret)
+			return ret;
+	} else {
 		st->use_internal_vref = true;
 		ret = ad5064_write(st, AD5064_CMD_CONFIG, 0,
 			AD5064_CONFIG_INT_VREF_ENABLE, 0);
@@ -470,10 +487,6 @@ static int ad5064_probe(struct device *dev, enum ad5064_type type,
 				ret);
 			return ret;
 		}
-	} else {
-		ret = regulator_bulk_enable(ad5064_num_vref(st), st->vref_reg);
-		if (ret)
-			return ret;
 	}
 
 	indio_dev->dev.parent = dev;

@@ -9,6 +9,8 @@
  * Based on elements of hwmon and input subsystems.
  */
 
+#define pr_fmt(fmt) "iio-core: " fmt
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/idr.h>
@@ -107,6 +109,7 @@ static const char * const iio_chan_info_postfix[] = {
 	[IIO_CHAN_INFO_PHASE] = "phase",
 	[IIO_CHAN_INFO_HARDWAREGAIN] = "hardwaregain",
 	[IIO_CHAN_INFO_HYSTERESIS] = "hysteresis",
+	[IIO_CHAN_INFO_INT_TIME] = "integration_time",
 };
 
 const struct iio_chan_spec
@@ -136,16 +139,13 @@ static int __init iio_init(void)
 	/* Register sysfs bus */
 	ret  = bus_register(&iio_bus_type);
 	if (ret < 0) {
-		printk(KERN_ERR
-		       "%s could not register bus type\n",
-			__FILE__);
+		pr_err("could not register bus type\n");
 		goto error_nothing;
 	}
 
 	ret = alloc_chrdev_region(&iio_devt, 0, IIO_DEV_MAX, "iio");
 	if (ret < 0) {
-		printk(KERN_ERR "%s: failed to allocate char dev region\n",
-		       __FILE__);
+		pr_err("failed to allocate char dev region\n");
 		goto error_unregister_bus_type;
 	}
 
@@ -542,7 +542,7 @@ int __iio_device_attr_init(struct device_attribute *dev_attr,
 			   enum iio_shared_by shared_by)
 {
 	int ret = 0;
-	char *name_format = NULL;
+	char *name = NULL;
 	char *full_postfix;
 	sysfs_attr_init(&dev_attr->attr);
 
@@ -560,7 +560,7 @@ int __iio_device_attr_init(struct device_attribute *dev_attr,
 								    ->channel2],
 						 postfix);
 	} else {
-		if (chan->extend_name == NULL)
+		if (chan->extend_name == NULL || shared_by != IIO_SEPARATE)
 			full_postfix = kstrdup(postfix, GFP_KERNEL);
 		else
 			full_postfix = kasprintf(GFP_KERNEL,
@@ -574,16 +574,15 @@ int __iio_device_attr_init(struct device_attribute *dev_attr,
 	if (chan->differential) { /* Differential can not have modifier */
 		switch (shared_by) {
 		case IIO_SHARED_BY_ALL:
-			name_format = kasprintf(GFP_KERNEL, "%s", full_postfix);
+			name = kasprintf(GFP_KERNEL, "%s", full_postfix);
 			break;
 		case IIO_SHARED_BY_DIR:
-			name_format = kasprintf(GFP_KERNEL, "%s_%s",
+			name = kasprintf(GFP_KERNEL, "%s_%s",
 						iio_direction[chan->output],
 						full_postfix);
 			break;
 		case IIO_SHARED_BY_TYPE:
-			name_format
-				= kasprintf(GFP_KERNEL, "%s_%s-%s_%s",
+			name = kasprintf(GFP_KERNEL, "%s_%s-%s_%s",
 					    iio_direction[chan->output],
 					    iio_chan_type_name_spec[chan->type],
 					    iio_chan_type_name_spec[chan->type],
@@ -595,8 +594,7 @@ int __iio_device_attr_init(struct device_attribute *dev_attr,
 				ret = -EINVAL;
 				goto error_free_full_postfix;
 			}
-			name_format
-				= kasprintf(GFP_KERNEL,
+			name = kasprintf(GFP_KERNEL,
 					    "%s_%s%d-%s%d_%s",
 					    iio_direction[chan->output],
 					    iio_chan_type_name_spec[chan->type],
@@ -609,16 +607,15 @@ int __iio_device_attr_init(struct device_attribute *dev_attr,
 	} else { /* Single ended */
 		switch (shared_by) {
 		case IIO_SHARED_BY_ALL:
-			name_format = kasprintf(GFP_KERNEL, "%s", full_postfix);
+			name = kasprintf(GFP_KERNEL, "%s", full_postfix);
 			break;
 		case IIO_SHARED_BY_DIR:
-			name_format = kasprintf(GFP_KERNEL, "%s_%s",
+			name = kasprintf(GFP_KERNEL, "%s_%s",
 						iio_direction[chan->output],
 						full_postfix);
 			break;
 		case IIO_SHARED_BY_TYPE:
-			name_format
-				= kasprintf(GFP_KERNEL, "%s_%s_%s",
+			name = kasprintf(GFP_KERNEL, "%s_%s_%s",
 					    iio_direction[chan->output],
 					    iio_chan_type_name_spec[chan->type],
 					    full_postfix);
@@ -626,33 +623,24 @@ int __iio_device_attr_init(struct device_attribute *dev_attr,
 
 		case IIO_SEPARATE:
 			if (chan->indexed)
-				name_format
-					= kasprintf(GFP_KERNEL, "%s_%s%d_%s",
+				name = kasprintf(GFP_KERNEL, "%s_%s%d_%s",
 						    iio_direction[chan->output],
 						    iio_chan_type_name_spec[chan->type],
 						    chan->channel,
 						    full_postfix);
 			else
-				name_format
-					= kasprintf(GFP_KERNEL, "%s_%s_%s",
+				name = kasprintf(GFP_KERNEL, "%s_%s_%s",
 						    iio_direction[chan->output],
 						    iio_chan_type_name_spec[chan->type],
 						    full_postfix);
 			break;
 		}
 	}
-	if (name_format == NULL) {
+	if (name == NULL) {
 		ret = -ENOMEM;
 		goto error_free_full_postfix;
 	}
-	dev_attr->attr.name = kasprintf(GFP_KERNEL,
-					name_format,
-					chan->channel,
-					chan->channel2);
-	if (dev_attr->attr.name == NULL) {
-		ret = -ENOMEM;
-		goto error_free_name_format;
-	}
+	dev_attr->attr.name = name;
 
 	if (readfunc) {
 		dev_attr->attr.mode |= S_IRUGO;
@@ -663,8 +651,7 @@ int __iio_device_attr_init(struct device_attribute *dev_attr,
 		dev_attr->attr.mode |= S_IWUSR;
 		dev_attr->store = writefunc;
 	}
-error_free_name_format:
-	kfree(name_format);
+
 error_free_full_postfix:
 	kfree(full_postfix);
 
@@ -693,7 +680,7 @@ int __iio_add_chan_devattr(const char *postfix,
 	int ret;
 	struct iio_dev_attr *iio_attr, *t;
 
-	iio_attr = kzalloc(sizeof *iio_attr, GFP_KERNEL);
+	iio_attr = kzalloc(sizeof(*iio_attr), GFP_KERNEL);
 	if (iio_attr == NULL) {
 		ret = -ENOMEM;
 		goto error_ret;
@@ -958,7 +945,7 @@ struct iio_dev *iio_device_alloc(int sizeof_priv)
 		dev->id = ida_simple_get(&iio_ida, 0, 0, GFP_KERNEL);
 		if (dev->id < 0) {
 			/* cannot use a dev_err as the name isn't available */
-			printk(KERN_ERR "Failed to get id\n");
+			pr_err("failed to get device id\n");
 			kfree(dev);
 			return NULL;
 		}

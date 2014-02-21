@@ -1,7 +1,7 @@
 /*
  * Xilinx Zynq SMC Driver
  *
- * Copyright (C) 2012 - 2013 Xilinx, Inc.
+ * Copyright (C) 2012 - 2014 Xilinx, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -454,7 +454,7 @@ static const struct of_device_id matches_nor[] = {
 };
 
 static const struct of_device_id matches_nand[] = {
-	{ .compatible = "xlnx,ps7-nand-1.00.a" },
+	{ .compatible = "xlnx,zynq-nand-1.00.a" },
 	{}
 };
 
@@ -508,7 +508,6 @@ static int zynq_smc_probe(struct platform_device *pdev)
 	if (clk_notifier_register(zynq_smc->devclk,
 				  &zynq_smc->clk_rate_change_nb))
 		dev_warn(&pdev->dev, "Unable to register clock notifier.\n");
-
 
 	/* clear interrupts */
 	spin_lock_irqsave(&zynq_smc_lock, flags);

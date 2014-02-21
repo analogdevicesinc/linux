@@ -282,7 +282,7 @@ static ssize_t jesd204b_enable(struct device *dev,
 		complete_all(&st->complete);
 	}
 
-	INIT_COMPLETION(st->complete);
+	reinit_completion(&st->complete);
 	schedule_work(&st->work);
 
 	return count;

@@ -4478,7 +4478,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 			phy->cal_threshold_freq) {
 
 			set_bit(0, &phy->flags);
-			INIT_COMPLETION(phy->complete);
+			reinit_completion(&phy->complete);
 			schedule_work(&phy->work);
 			phy->last_tx_quad_cal_freq = ad9361_from_clk(rate);
 		}

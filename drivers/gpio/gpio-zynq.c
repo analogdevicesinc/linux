@@ -1,7 +1,7 @@
 /*
  * Xilinx Zynq GPIO device driver
  *
- * 2009-2011 (c) Xilinx, Inc.
+ * Copyright (C) 2009 - 2014 Xilinx, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU General Public License as published by the Free Software
@@ -622,13 +622,15 @@ static int zynq_gpio_probe(struct platform_device *pdev)
 	gpio->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(gpio->clk)) {
 		dev_err(&pdev->dev, "input clock not found.\n");
-		gpiochip_remove(chip);
+		if (gpiochip_remove(chip))
+			dev_err(&pdev->dev, "Failed to remove gpio chip\n");
 		return PTR_ERR(gpio->clk);
 	}
 	ret = clk_prepare_enable(gpio->clk);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to enable clock.\n");
-		gpiochip_remove(chip);
+		if (gpiochip_remove(chip))
+			dev_err(&pdev->dev, "Failed to remove gpio chip\n");
 		return ret;
 	}
 
@@ -659,9 +661,6 @@ static int zynq_gpio_probe(struct platform_device *pdev)
 	device_set_wakeup_capable(&pdev->dev, 1);
 
 	return 0;
-
-
-	return ret;
 }
 
 /**
@@ -680,7 +679,7 @@ static int zynq_gpio_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id zynq_gpio_of_match[] = {
-	{ .compatible = "xlnx,ps7-gpio-1.00.a", },
+	{ .compatible = "xlnx,zynq-gpio-1.00.a", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, zynq_gpio_of_match);

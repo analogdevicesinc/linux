@@ -40,27 +40,25 @@ struct iio_event_interface {
 	struct list_head	dev_attr_list;
 	unsigned long		flags;
 	struct attribute_group	group;
+	struct mutex		read_lock;
 };
 
 int iio_push_event(struct iio_dev *indio_dev, u64 ev_code, s64 timestamp)
 {
 	struct iio_event_interface *ev_int = indio_dev->event_interface;
 	struct iio_event_data ev;
-	unsigned long flags;
 	int copied;
 
 	/* Does anyone care? */
-	spin_lock_irqsave(&ev_int->wait.lock, flags);
 	if (test_bit(IIO_BUSY_BIT_POS, &ev_int->flags)) {
 
 		ev.id = ev_code;
 		ev.timestamp = timestamp;
 
-		copied = kfifo_put(&ev_int->det_events, &ev);
+		copied = kfifo_put(&ev_int->det_events, ev);
 		if (copied != 0)
-			wake_up_locked_poll(&ev_int->wait, POLLIN);
+			wake_up_poll(&ev_int->wait, POLLIN);
 	}
-	spin_unlock_irqrestore(&ev_int->wait.lock, flags);
 
 	return 0;
 }
@@ -81,10 +79,8 @@ static unsigned int iio_event_poll(struct file *filep,
 
 	poll_wait(filep, &ev_int->wait, wait);
 
-	spin_lock_irq(&ev_int->wait.lock);
 	if (!kfifo_is_empty(&ev_int->det_events))
 		events = POLLIN | POLLRDNORM;
-	spin_unlock_irq(&ev_int->wait.lock);
 
 	return events;
 }
@@ -105,31 +101,40 @@ static ssize_t iio_event_chrdev_read(struct file *filep,
 	if (count < sizeof(struct iio_event_data))
 		return -EINVAL;
 
-	spin_lock_irq(&ev_int->wait.lock);
-	if (kfifo_is_empty(&ev_int->det_events)) {
-		if (filep->f_flags & O_NONBLOCK) {
-			ret = -EAGAIN;
-			goto error_unlock;
+	do {
+		if (kfifo_is_empty(&ev_int->det_events)) {
+			if (filep->f_flags & O_NONBLOCK)
+				return -EAGAIN;
+			/* Blocking on device; waiting for something to be there */
+			ret = wait_event_interruptible(ev_int->wait,
+						!kfifo_is_empty(&ev_int->det_events) ||
+						indio_dev->info == NULL);
+			if (ret)
+				return ret;
+			if (indio_dev->info == NULL)
+				return -ENODEV;
 		}
-		/* Blocking on device; waiting for something to be there */
-		ret = wait_event_interruptible_locked_irq(ev_int->wait,
-					!kfifo_is_empty(&ev_int->det_events) ||
-					indio_dev->info == NULL);
+
+		if (mutex_lock_interruptible(&ev_int->read_lock))
+			return -ERESTARTSYS;
+		ret = kfifo_to_user(&ev_int->det_events, buf, count, &copied);
+		mutex_unlock(&ev_int->read_lock);
+
 		if (ret)
-			goto error_unlock;
-		if (indio_dev->info == NULL) {
-			ret = -ENODEV;
-			goto error_unlock;
-		}
-		/* Single access device so no one else can get the data */
-	}
+			return ret;
 
-	ret = kfifo_to_user(&ev_int->det_events, buf, count, &copied);
+		/*
+		 * If we couldn't read anything from the fifo (a different thread might
+		 * have been faster) we either return -EAGAIN if the file descriptor is
+		 * non-blocking, otherwise we go back to sleep and wait for more data to
+		 * arrive.
+		 */
+		if (copied == 0 && (filep->f_flags & O_NONBLOCK))
+			return -EAGAIN;
 
-error_unlock:
-	spin_unlock_irq(&ev_int->wait.lock);
+	} while (copied == 0);
 
-	return ret ? ret : copied;
+	return copied;
 }
 
 static int iio_event_chrdev_release(struct inode *inode, struct file *filep)
@@ -137,15 +142,7 @@ static int iio_event_chrdev_release(struct inode *inode, struct file *filep)
 	struct iio_dev *indio_dev = filep->private_data;
 	struct iio_event_interface *ev_int = indio_dev->event_interface;
 
-	spin_lock_irq(&ev_int->wait.lock);
-	__clear_bit(IIO_BUSY_BIT_POS, &ev_int->flags);
-	/*
-	 * In order to maintain a clean state for reopening,
-	 * clear out any awaiting events. The mask will prevent
-	 * any new __iio_push_event calls running.
-	 */
-	kfifo_reset_out(&ev_int->det_events);
-	spin_unlock_irq(&ev_int->wait.lock);
+	clear_bit(IIO_BUSY_BIT_POS, &ev_int->flags);
 
 	iio_device_put(indio_dev);
 
@@ -168,22 +165,20 @@ int iio_event_getfd(struct iio_dev *indio_dev)
 	if (ev_int == NULL)
 		return -ENODEV;
 
-	spin_lock_irq(&ev_int->wait.lock);
-	if (__test_and_set_bit(IIO_BUSY_BIT_POS, &ev_int->flags)) {
-		spin_unlock_irq(&ev_int->wait.lock);
+	if (test_and_set_bit(IIO_BUSY_BIT_POS, &ev_int->flags))
 		return -EBUSY;
-	}
-	spin_unlock_irq(&ev_int->wait.lock);
+
 	iio_device_get(indio_dev);
 
 	fd = anon_inode_getfd("iio:event", &iio_event_chrdev_fileops,
 				indio_dev, O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
-		spin_lock_irq(&ev_int->wait.lock);
-		__clear_bit(IIO_BUSY_BIT_POS, &ev_int->flags);
-		spin_unlock_irq(&ev_int->wait.lock);
+		clear_bit(IIO_BUSY_BIT_POS, &ev_int->flags);
 		iio_device_put(indio_dev);
+	} else {
+		kfifo_reset_out(&ev_int->det_events);
 	}
+
 	return fd;
 }
 
@@ -529,6 +524,7 @@ static void iio_setup_ev_int(struct iio_event_interface *ev_int)
 {
 	INIT_KFIFO(ev_int->det_events);
 	init_waitqueue_head(&ev_int->wait);
+	mutex_init(&ev_int->read_lock);
 }
 
 static const char *iio_event_group_name = "events";
