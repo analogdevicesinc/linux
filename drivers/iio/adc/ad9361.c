@@ -92,7 +92,7 @@ struct ad9361_rf_phy {
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[125];
+	struct ad9361_debugfs_entry debugfs_entry[128];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -6154,6 +6154,21 @@ static const struct file_operations ad9361_debugfs_reg_fops = {
 	.write = ad9361_debugfs_write,
 };
 
+static void ad9361_add_debugfs_entry(struct ad9361_rf_phy *phy,
+	const char *propname, unsigned int cmd)
+{
+	unsigned int i = phy->ad9361_debugfs_entry_index;
+
+	if (WARN_ON(i >= ARRAY_SIZE(phy->debugfs_entry)))
+		return;
+
+	phy->debugfs_entry[i].phy = phy;
+	phy->debugfs_entry[i].propname = propname;
+	phy->debugfs_entry[i].cmd = cmd;
+
+	phy->ad9361_debugfs_entry_index++;
+}
+
 static int ad9361_register_debugfs(struct iio_dev *indio_dev)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
@@ -6163,55 +6178,14 @@ static int ad9361_register_debugfs(struct iio_dev *indio_dev)
 	if (!iio_get_debugfs_dentry(indio_dev))
 		return -ENODEV;
 
-
-	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
-		(struct ad9361_debugfs_entry) {
-		.propname = "initialize",
-		.phy = phy,
-		.cmd = DBGFS_INIT,
-	};
-
-	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
-		(struct ad9361_debugfs_entry) {
-		.propname = "loopback",
-		.phy = phy,
-		.cmd = DBGFS_LOOPBACK,
-	};
-
-	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
-		(struct ad9361_debugfs_entry) {
-		.propname = "bist_prbs",
-		.phy = phy,
-		.cmd = DBGFS_BIST_PRBS,
-	};
-
-	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
-		(struct ad9361_debugfs_entry) {
-		.propname = "bist_tone",
-		.phy = phy,
-		.cmd = DBGFS_BIST_TONE,
-	};
-
-	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
-		(struct ad9361_debugfs_entry) {
-		.propname = "bist_timing_analysis",
-		.phy = phy,
-		.cmd = DBGFS_BIST_DT_ANALYSIS,
-	};
-
-	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
-		(struct ad9361_debugfs_entry) {
-		.propname = "gaininfo_rx1",
-		.phy = phy,
-		.cmd = DBGFS_RXGAIN_1,
-	};
-
-	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
-		(struct ad9361_debugfs_entry) {
-		.propname = "gaininfo_rx2",
-		.phy = phy,
-		.cmd = DBGFS_RXGAIN_2,
-	};
+	ad9361_add_debugfs_entry(phy, "initialize", DBGFS_INIT);
+	ad9361_add_debugfs_entry(phy, "loopback", DBGFS_LOOPBACK);
+	ad9361_add_debugfs_entry(phy, "bist_prbs", DBGFS_BIST_PRBS);
+	ad9361_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	ad9361_add_debugfs_entry(phy, "bist_timing_analysis",
+		DBGFS_BIST_DT_ANALYSIS);
+	ad9361_add_debugfs_entry(phy, "gaininfo_rx1", DBGFS_RXGAIN_1);
+	ad9361_add_debugfs_entry(phy, "gaininfo_rx2", DBGFS_RXGAIN_2);
 
 	for (i = 0; i < phy->ad9361_debugfs_entry_index; i++)
 		d = debugfs_create_file(
@@ -6277,6 +6251,10 @@ static int __ad9361_of_get_u32(struct iio_dev *indio_dev,
 		}
 	}
 
+	if (WARN_ON(phy->ad9361_debugfs_entry_index >=
+			ARRAY_SIZE(phy->debugfs_entry)))
+		return ret;
+
 	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
 		(struct ad9361_debugfs_entry) {
 		.out_value = out_value,
@@ -6295,6 +6273,10 @@ static void ad9361_of_get_bool(struct iio_dev *indio_dev, struct device_node *np
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	*out_value = of_property_read_bool(np, propname);
+
+	if (WARN_ON(phy->ad9361_debugfs_entry_index >=
+			ARRAY_SIZE(phy->debugfs_entry)))
+		return;
 
 	phy->debugfs_entry[phy->ad9361_debugfs_entry_index++] =
 		(struct ad9361_debugfs_entry) {
