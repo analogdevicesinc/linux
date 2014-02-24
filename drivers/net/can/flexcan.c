@@ -35,10 +35,12 @@
 #include <linux/list.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regmap.h>
 
@@ -270,6 +272,13 @@ struct flexcan_devtype_data {
 	u32 quirks;		/* quirks needed for different IP cores */
 };
 
+struct flexcan_stop_mode {
+	struct regmap *gpr;
+	u8 req_gpr;
+	u8 req_bit;
+	u8 ack_gpr;
+	u8 ack_bit;
+};
 struct flexcan_priv {
 	struct can_priv can;
 	struct can_rx_offload offload;
@@ -287,8 +296,8 @@ struct flexcan_priv {
 	struct flexcan_platform_data *pdata;
 	const struct flexcan_devtype_data *devtype_data;
 	struct regulator *reg_xceiver;
-	struct regmap *gpr;
 	int id;
+	struct flexcan_stop_mode stm;
 };
 
 static const struct flexcan_devtype_data fsl_p1010_devtype_data = {
@@ -368,28 +377,18 @@ static inline void flexcan_error_irq_disable(const struct flexcan_priv *priv)
 
 static inline void flexcan_enter_stop_mode(struct flexcan_priv *priv)
 {
-	int val;
-
 	/* enable stop request */
-	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_DISABLE_RXFG) {
-		val = priv->id ? IMX6Q_GPR13_CAN2_STOP_REQ :
-				IMX6Q_GPR13_CAN1_STOP_REQ;
-		regmap_update_bits(priv->gpr, IOMUXC_GPR13,
-			val, val);
-	}
+	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_DISABLE_RXFG)
+		regmap_update_bits(priv->stm.gpr, priv->stm.req_gpr,
+			1 << priv->stm.req_bit, 1 << priv->stm.req_bit);
 }
 
 static inline void flexcan_exit_stop_mode(struct flexcan_priv *priv)
 {
-	int val;
-
 	/* remove stop request */
-	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_DISABLE_RXFG) {
-		val = priv->id ? IMX6Q_GPR13_CAN2_STOP_REQ :
-				IMX6Q_GPR13_CAN1_STOP_REQ;
-		regmap_update_bits(priv->gpr, IOMUXC_GPR13,
-			val, 0);
-	}
+	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_DISABLE_RXFG)
+		regmap_update_bits(priv->stm.gpr, priv->stm.req_gpr,
+			1 << priv->stm.req_bit, 0);
 }
 
 static inline int flexcan_transceiver_enable(const struct flexcan_priv *priv)
@@ -1283,6 +1282,56 @@ static void unregister_flexcandev(struct net_device *dev)
 	unregister_candev(dev);
 }
 
+static int flexcan_of_parse_stop_mode(struct platform_device *pdev)
+{
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct device_node *np = pdev->dev.of_node;
+	struct device_node *node;
+	struct flexcan_priv *priv;
+	phandle phandle;
+	u32 out_val[5];
+	int ret;
+
+	if (!np)
+		return -EINVAL;
+	/*
+	 * stop mode property format is:
+	 * <&gpr req_gpr req_bit ack_gpr ack_bit>.
+	 */
+	ret = of_property_read_u32_array(np, "stop-mode", out_val, 5);
+	if (ret) {
+		dev_dbg(&pdev->dev, "no stop-mode property\n");
+		return ret;
+	}
+	phandle = *out_val;
+
+	node = of_find_node_by_phandle(phandle);
+	if (!node) {
+		dev_dbg(&pdev->dev, "could not find gpr node by phandle\n");
+		return PTR_ERR(node);
+	}
+
+	priv = netdev_priv(dev);
+	priv->stm.gpr = syscon_node_to_regmap(node);
+	if (IS_ERR(priv->stm.gpr)) {
+		dev_dbg(&pdev->dev, "could not find gpr regmap\n");
+		return PTR_ERR(priv->stm.gpr);
+	}
+
+	of_node_put(node);
+
+	priv->stm.req_gpr = out_val[1];
+	priv->stm.req_bit = out_val[2];
+	priv->stm.ack_gpr = out_val[3];
+	priv->stm.ack_bit = out_val[4];
+
+	dev_dbg(&pdev->dev, "gpr %s req_gpr 0x%x req_bit %u ack_gpr 0x%x ack_bit %u\n",
+			node->full_name, priv->stm.req_gpr,
+			priv->stm.req_bit, priv->stm.ack_gpr,
+			priv->stm.ack_bit);
+	return 0;
+}
+
 static const struct of_device_id flexcan_of_match[] = {
 	{ .compatible = "fsl,imx6q-flexcan", .data = &fsl_imx6q_devtype_data, },
 	{ .compatible = "fsl,imx28-flexcan", .data = &fsl_imx28_devtype_data, },
@@ -1424,18 +1473,12 @@ static int flexcan_probe(struct platform_device *pdev)
 	devm_can_led_init(dev);
 
 	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_DISABLE_RXFG) {
-		priv->gpr = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-				"gpr");
-		if (IS_ERR(priv->gpr)) {
+		err = flexcan_of_parse_stop_mode(pdev);
+		if (err) {
 			wakeup = 0;
-			dev_dbg(&pdev->dev, "can not get grp\n");
+			dev_dbg(&pdev->dev, "failed to parse stop-mode\n");
 		}
 
-		priv->id = of_alias_get_id(pdev->dev.of_node, "flexcan");
-		if (priv->id < 0) {
-			wakeup = 0;
-			dev_dbg(&pdev->dev, "can not get alias id\n");
-		}
 	}
 
 	device_set_wakeup_capable(&pdev->dev, wakeup);
