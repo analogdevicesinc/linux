@@ -3213,8 +3213,6 @@ static int ad9361_fastlock_prepare(struct ad9361_rf_phy *phy, bool tx,
 
 		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2, ready_mask, 1);
 		ad9361_trx_vco_cal_control(phy, tx, false);
-
-		phy->fastlock.current_profile[tx] = profile + 1;
 	} else if (!prepare && is_prepared) {
 		ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_SETUP + offs, 0);
 
@@ -3271,6 +3269,7 @@ static int ad9361_fastlock_recall(struct ad9361_rf_phy *phy, bool tx, u32 profil
 	}
 
 	ad9361_fastlock_prepare(phy, tx, profile, true);
+	phy->fastlock.current_profile[tx] = profile + 1;
 
 	return ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_SETUP + offs,
 			 RX_FAST_LOCK_PROFILE(profile) |
