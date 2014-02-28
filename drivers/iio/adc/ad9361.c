@@ -105,7 +105,7 @@ struct ad9361_rf_phy {
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[128];
+	struct ad9361_debugfs_entry debugfs_entry[132];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -3203,8 +3203,8 @@ static int ad9361_fastlock_prepare(struct ad9361_rf_phy *phy, bool tx,
 	if (prepare && !is_prepared) {
 		ad9361_spi_write(phy->spi,
 				REG_RX_FAST_LOCK_SETUP_INIT_DELAY + offs,
-				tx ? phy->pdata->tx_fastlock_delay_ns :
-				phy->pdata->rx_fastlock_delay_ns);
+				(tx ? phy->pdata->tx_fastlock_delay_ns :
+				phy->pdata->rx_fastlock_delay_ns) / 250);
 		ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_SETUP + offs,
 				RX_FAST_LOCK_PROFILE(profile) |
 				RX_FAST_LOCK_MODE_ENABLE);
@@ -3273,6 +3273,8 @@ static int ad9361_fastlock_recall(struct ad9361_rf_phy *phy, bool tx, u32 profil
 
 	return ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_SETUP + offs,
 			 RX_FAST_LOCK_PROFILE(profile) |
+			 (phy->pdata->trx_fastlock_pinctrl_en[tx] ?
+			 RX_FAST_LOCK_PROFILE_PIN_SELECT : 0) |
 			 RX_FAST_LOCK_MODE_ENABLE);
 }
 
@@ -3312,9 +3314,7 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	phy->rx_fir_dec = 0;
 	phy->rx_fir_ntaps = 0;
 	phy->ensm_pin_ctl_en = false;
-	phy->fastlock.current_profile[0] = 0;
-	phy->fastlock.current_profile[1] = 0;
-
+	memset(&phy->fastlock, 0, sizeof(phy->fastlock));
 }
 
 static int ad9361_setup(struct ad9361_rf_phy *phy)
@@ -6382,6 +6382,12 @@ static struct ad9361_phy_platform_data
 
 	ad9361_of_get_u32(iodev, np, "adi,rx-fastlock-delay-ns", 0,
 			  &pdata->tx_fastlock_delay_ns);
+
+	ad9361_of_get_bool(iodev, np, "adi,rx-fastlock-pincontrol-enable",
+			   &pdata->trx_fastlock_pinctrl_en[0]);
+
+	ad9361_of_get_bool(iodev, np, "adi,tx-fastlock-pincontrol-enable",
+			   &pdata->trx_fastlock_pinctrl_en[1]);
 
 	for (i = 0; i < ARRAY_SIZE(ad9361_dport_config); i++)
 		pdata->port_ctrl.pp_conf[ad9361_dport_config[i].reg - 1] |=
