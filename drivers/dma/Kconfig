@@ -353,6 +353,7 @@ config K3_DMA
 config DMA_AXI_DMAC
 	tristate "AXI DMAC driver"
 	select DMA_VIRTUAL_CHANNELS
+	select REGMAP_MMIO
 
 config DMA_ENGINE
 	bool
