@@ -44,6 +44,15 @@
 	chosen {
 		bootargs = "console=ttyS0 root=/dev/ram";
 	} ;
+
+	clocks {
+		axi_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <200000000>;
+			clock-output-names = "axi_clk";
+		};
+	};
 	cpus {
 		#address-cells = <1>;
 		#cpus = <0x1>;
@@ -213,7 +222,7 @@
 		axi_iic_0: i2c@40820000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&axi_intc_0>;
-			interrupts = < 6 2 >;
+			interrupts = < 8 2 >;
 			reg = < 0x40820000 0x10000 >;
 			xlnx,family = "virtex6";
 			xlnx,gpo-width = <0x1>;
@@ -407,7 +416,7 @@
 		axi_iic_1: i2c@40800000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&axi_intc_0>;
-			interrupts = < 5 2 >;
+			interrupts = < 7 2 >;
 			reg = < 0x40800000 0x10000 >;
 			xlnx,family = "virtex6";
 			xlnx,gpo-width = <0x1>;
@@ -636,12 +645,12 @@
 			gpio-controller;
 		} ;
 
-		axi_dac_4d_2c_0: cf-ad9122-core-lpc@7a024000 {
-			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
+		cf_ad9122_core_0: cf-ad9122-core-lpc@7a024000 {
+			compatible = "adi,axi-ad9122-6.00.a";
 			reg = < 0x7a024000 0x10000 >;
 			spibus-connected = <&dac0_ad9122>;
 			dac-sample-frequency = <491520000>;
-			dmas = <&axi_vdma_0 0>;
+			dmas = <&dma_tx_0 0>;
 			dma-names = "tx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "virtex6";
@@ -652,12 +661,12 @@
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
 		} ;
-		axi_dac_4d_2c_1: cf-ad9122-core-hpc@7a004000 {
-			compatible = "xlnx,axi-dac-4d-2c-1.00.a";
+		cf_ad9122_core_1: cf-ad9122-core-hpc@7a004000 {
+			compatible = "adi,axi-ad9122-6.00.a";
 			reg = < 0x7a004000 0x10000 >;
 			dac-sample-frequency = <491520000>;
 			spibus-connected = <&dac1_ad9122>;
-			dmas = <&axi_vdma_1 0>;
+			dmas = <&dma_tx_1 0>;
 			dma-names = "tx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,family = "virtex6";
@@ -669,13 +678,12 @@
 			xlnx,use-wstrb = <0x0>;
 		} ;
 
-		axi_adc_2c_0: cf-ad9643-core-lpc@7c820000 {
-			compatible = "xlnx,axi-adc-2c-1.00.a";
+		cf_ad9643_core_0: cf-ad9643-core-lpc@7c820000 {
+			compatible = "adi,axi-ad9643-6.00.a";
 			reg = < 0x7c820000 0x10000 >;
-			dmas = <&axi_dma_0 0>;
+			dmas = <&dma_rx_0 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9467>;
-//			spibus-slaveselect-connected = <0x1>;
 			dco-output-delay = <0x8c>;
 			xlnx,cf-buftype = <0x1>;
 			xlnx,dphase-timeout = <0x8>;
@@ -687,13 +695,13 @@
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
 		} ;
-		axi_adc_2c_1: cf-ad9643-core-hpc@7c800000 {
-			compatible = "xlnx,axi-adc-2c-1.00.a";
+
+		cf_ad9643_core_1: cf-ad9643-core-hpc@7c800000 {
+			compatible = "adi,axi-ad9643-6.00.a";
 			reg = < 0x7c800000 0x10000 >;
-			dmas = <&axi_dma_1 0>;
+			dmas = <&dma_rx_1 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc1_ad9467>;
-//			spibus-slaveselect-connected = <0x1>;
 			dco-output-delay = <0x89>;
 			xlnx,cf-buftype = <0x1>;
 			xlnx,dphase-timeout = <0x8>;
@@ -705,38 +713,63 @@
 			xlnx,slv-dwidth = <0x20>;
 			xlnx,use-wstrb = <0x0>;
 		} ;
-		axi_dma_0: axidma@41e40000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			ranges = < 0x41e40000 0x41e40000 0x10000 >;
+
+		dma_rx_0: dma@41e40000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			interrupt-parent = <&axi_intc_0>;
+			interrupts = < 4 2 >;
 			reg = < 0x41e40000 0x10000 >;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
-			dma-channel@41e40030 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 8 2 >;
-				xlnx,datawidth = <0x40>;
-				xlnx,include-dre = <0x0>;
-			} ;
-		} ;
-		axi_dma_1: axidma@41e20000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			ranges = < 0x41e20000 0x41e20000 0x10000 >;
+			clocks = <&axi_clk>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
+			};
+		};
+
+		dma_tx_0: dma@7e220000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			interrupt-parent = <&axi_intc_0>;
+			interrupts = < 6 2 >;
+			reg = < 0x7e220000 0x10000 >;
+			#dma-cells = <1>;
+			clocks = <&axi_clk>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <1>;
+			};
+		};
+
+		dma_rx_1: dma@41e20000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			interrupt-parent = <&axi_intc_0>;
+			interrupts = < 3 2 >;
 			reg = < 0x41e20000 0x10000 >;
-			xlnx,sg-include-stscntrl-strm = <0x0>;
-			dma-channel@41e20030 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 7 2 >;
-				xlnx,datawidth = <0x40>;
-				xlnx,include-dre = <0x0>;
-			} ;
-		} ;
+			#dma-cells = <1>;
+			clocks = <&axi_clk>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
+			};
+		};
+
+		dma_tx_1: dma@7e200000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			interrupt-parent = <&axi_intc_0>;
+			interrupts = < 5 2 >;
+			reg = < 0x7e200000 0x10000 >;
+			#dma-cells = <1>;
+			clocks = <&axi_clk>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <1>;
+			};
+		};
+
 		axi_intc_0: interrupt-controller@41200000 {
 			#interrupt-cells = <0x2>;
 			compatible = "xlnx,axi-intc-1.02.a", "xlnx,xps-intc-1.00.a";
@@ -753,7 +786,6 @@
 			compatible = "xlnx,axi-dma";
 			ranges = < 0x41e00000 0x41e00000 0x10000 >;
 			reg = < 0x41e00000 0x10000 >;
-//			xlnx,sg-include-stscntrl-strm = <0x0>;
 			dma-channel@41e00000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
 				interrupt-parent = <&axi_intc_0>;
@@ -799,42 +831,7 @@
 			xlnx,trig0-assert = <0x1>;
 			xlnx,trig1-assert = <0x1>;
 		} ;
-		axi_vdma_0: axivdma@7e220000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-vdma";
-			ranges = < 0x7e220000 0x7e220000 0x10000 >;
-			reg = < 0x7e220000 0x10000 >;
-			/*xlnx,include-sg = <0x0>;*/
-			xlnx,num-fstores = <0x3>;
-			dma-channel@7e220000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 4 2 >;
-				xlnx,datawidth = <0x40>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
-			} ;
-		} ;
-		axi_vdma_1: axivdma@7e200000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-vdma";
-			ranges = < 0x7e200000 0x7e200000 0x10000 >;
-			reg = < 0x7e200000 0x10000 >;
-//			xlnx,include-sg = <0x0>;
-			xlnx,num-fstores = <0x3>;
-			dma-channel@7e200000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupt-parent = <&axi_intc_0>;
-				interrupts = < 3 2 >;
-				xlnx,datawidth = <0x40>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
-			} ;
-		} ;
+
 		debug_module: debug@41400000 {
 			compatible = "xlnx,mdm-2.00.b";
 			reg = < 0x41400000 0x10000 >;
