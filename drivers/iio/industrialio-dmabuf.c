@@ -199,6 +199,9 @@ static int iio_dma_buffer_free_blocks(struct iio_buffer *buffer)
 
 	mutex_lock(&queue->lock);
 
+	if (!queue->num_blocks)
+		goto out_unlock;
+
 	spin_lock_irq(&queue->list_lock);
 	INIT_LIST_HEAD(&queue->incomming);
 	INIT_LIST_HEAD(&queue->outgoing);
@@ -214,6 +217,8 @@ static int iio_dma_buffer_free_blocks(struct iio_buffer *buffer)
 	queue->blocks = NULL;
 	queue->num_blocks = 0;
 	queue->max_offset = 0;
+
+out_unlock:
 
 	mutex_unlock(&queue->lock);
 
