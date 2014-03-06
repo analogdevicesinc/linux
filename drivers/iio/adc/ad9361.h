@@ -2782,8 +2782,8 @@
 #define MAX_BBPLL_DIV			64
 #define MIN_BBPLL_DIV			2
 
-#define MIN_ADC_CLK			10500000UL /* 10.5MHz */
-#define MAX_ADC_CLK			672000000UL /* 672 MHz */
+#define MIN_ADC_CLK			(MIN_BBPLL_FREQ / MAX_BBPLL_DIV) /* 11.17MHz */
+#define MAX_ADC_CLK			640000000UL /* 640 MHz */
 #define MAX_DAC_CLK			(MAX_ADC_CLK / 2)
 
 #define MAX_MBYTE_SPI			8
