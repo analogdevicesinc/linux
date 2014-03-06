@@ -2954,8 +2954,9 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 	for (i = rate_gov; i < 7; i++) {
 		adc_rate = clkrf * clk_dividers[i][0];
 		dac_rate = clktf * clk_dividers[i][0];
+
 		if ((adc_rate <= MAX_ADC_CLK) && (adc_rate >= MIN_ADC_CLK)) {
-			tmp = adc_rate / dac_rate;
+
 
 			if (dac_rate > adc_rate)
 				tmp = (dac_rate / adc_rate) * -1;
@@ -2969,8 +2970,14 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 				break;
 			} else {
 				dac_rate = adc_rate / 2;  /* ADC_CLK/2 */
-				index_tx = i + 2 - ((tmp == 1) ? 0 : tmp);
 				index_rx = i;
+
+				if (i == 4)
+					index_tx = 7; /* STOP: 3/2 != 1 */
+				else
+					index_tx = i + ((i == 5) ? 1 : 2) -
+						((tmp == 1) ? 0 : tmp);
+
 				break;
 			}
 		}
