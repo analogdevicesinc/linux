@@ -36,6 +36,29 @@
 		 */
 		ethernet0 = &gmac1;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		hps0 {
+			label = "hps_led0";
+			gpios = <&gpio1 15 1>;
+		};
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&gpio1 14 1>;
+		};
+
+		hps2 {
+			label = "hps_led2";
+			gpios = <&gpio1 13 1>;
+		};
+
+		hps3 {
+			label = "hps_led3";
+			gpios = <&gpio1 12 1>;
+		};
+	};
 };
 
 &gmac1 {
