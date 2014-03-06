@@ -2972,10 +2972,10 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 				dac_rate = adc_rate / 2;  /* ADC_CLK/2 */
 				index_rx = i;
 
-				if (i == 4)
+				if (i == 4 && tmp >= 0)
 					index_tx = 7; /* STOP: 3/2 != 1 */
 				else
-					index_tx = i + ((i == 5) ? 1 : 2) -
+					index_tx = i + ((i == 5 && tmp >= 0) ? 1 : 2) -
 						((tmp == 1) ? 0 : tmp);
 
 				break;
