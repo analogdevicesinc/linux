@@ -60,8 +60,21 @@
 	rxc-skew-ps = <2000>;
 };
 
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
 &i2c0 {
 	status = "okay";
+	speed-mode = <0>;
 
 	eeprom@51 {
 		compatible = "atmel,24c32";
@@ -78,6 +91,14 @@
 &mmc0 {
 	vmmc-supply = <&regulator_3_3v>;
 	vqmmc-supply = <&regulator_3_3v>;
+};
+
+&qspi {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
 };
 
 &usb1 {

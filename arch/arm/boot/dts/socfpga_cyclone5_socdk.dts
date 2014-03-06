@@ -44,6 +44,29 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		hps0 {
+			label = "hps_led0";
+			gpios = <&portb 15 1>;
+		};
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&portb 14 1>;
+		};
+
+		hps2 {
+			label = "hps_led2";
+			gpios = <&portb 13 1>;
+		};
+
+		hps3 {
+			label = "hps_led3";
+			gpios = <&portb 12 1>;
+		};
+	};
 };
 
 &gmac1 {
@@ -60,12 +83,21 @@
 	rxc-skew-ps = <2000>;
 };
 
+&gpio0 {
+	status = "okay";
+};
+
 &gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
 	status = "okay";
 };
 
 &i2c0 {
 	status = "okay";
+	speed-mode = <0>;
 
 	eeprom@51 {
 		compatible = "atmel,24c32";
@@ -83,6 +115,14 @@
 	cd-gpios = <&portb 18 0>;
 	vmmc-supply = <&regulator_3_3v>;
 	vqmmc-supply = <&regulator_3_3v>;
+};
+
+&qspi {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
 };
 
 &usb1 {
