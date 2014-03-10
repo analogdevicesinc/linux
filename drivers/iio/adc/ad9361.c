@@ -1958,18 +1958,50 @@ static int ad9361_trx_vco_cal_control(struct ad9361_rf_phy *phy,
 }
 
 static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
-				      bool rx, bool enable)
+				      bool tx, bool enable)
 {
 	unsigned val = enable ? ~0 : 0;
 
 	dev_dbg(&phy->spi->dev, "%s : state %d",
 		__func__, enable);
-	if (rx)
-		return ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE,
-					RX_LO_GEN_POWER_MODE(val));
-	else
+
+	if (tx) {
+		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+				  POWER_DOWN_TX_SYNTH, 1);
+
+		ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
+				  TX_VCO_DIVIDER(~0), 0x7);
+
+		ad9361_spi_write(phy->spi, REG_TX_SYNTH_POWER_DOWN_OVERRIDE,
+				TX_SYNTH_VCO_ALC_POWER_DOWN |
+				TX_SYNTH_PTAT_POWER_DOWN |
+				TX_SYNTH_VCO_POWER_DOWN |
+				TX_SYNTH_VCO_LDO_POWER_DOWN);
+
+		ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
+				  TX_EXT_VCO_BUFFER_POWER_DOWN, 0);
+
 		return ad9361_spi_write(phy->spi, REG_TX_LO_GEN_POWER_MODE,
 					TX_LO_GEN_POWER_MODE(val));
+	} else {
+		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+				  POWER_DOWN_RX_SYNTH, 1);
+
+		ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
+				  RX_VCO_DIVIDER(~0), 0x7);
+
+		ad9361_spi_write(phy->spi, REG_RX_SYNTH_POWER_DOWN_OVERRIDE,
+				RX_SYNTH_VCO_ALC_POWER_DOWN |
+				RX_SYNTH_PTAT_POWER_DOWN |
+				RX_SYNTH_VCO_POWER_DOWN |
+				RX_SYNTH_VCO_LDO_POWER_DOWN);
+
+		ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
+				  RX_EXT_VCO_BUFFER_POWER_DOWN, 0);
+
+		return ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE,
+					RX_LO_GEN_POWER_MODE(val));
+	}
 }
 
 /* REFERENCE CLOCK DELAY UNIT COUNTER REGISTER */
@@ -3454,47 +3486,48 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	if (pd->use_ext_rx_lo) {
-		ad9361_trx_ext_lo_control(phy, true, pd->use_ext_rx_lo);
-	} else {
-		ret = clk_set_rate(phy->clks[RX_RFPLL], ad9361_to_clk(pd->rx_synth_freq));
-		if (ret < 0) {
-			dev_err(dev, "Failed to set RX Synth rate (%d)\n",
-				ret);
-			return ret;
-		}
-
-		ret = clk_prepare_enable(phy->clks[RX_REFCLK]);
-		if (ret < 0) {
-			dev_err(dev, "Failed to enable RX Synth ref clock (%d)\n", ret);
-			return ret;
-		}
-
-		ret = clk_prepare_enable(phy->clks[RX_RFPLL]);
-		if (ret < 0)
-			return ret;
+	ret = clk_set_rate(phy->clks[RX_RFPLL], ad9361_to_clk(pd->rx_synth_freq));
+	if (ret < 0) {
+		dev_err(dev, "Failed to set RX Synth rate (%d)\n",
+			ret);
+		return ret;
 	}
 
-	if (pd->use_ext_tx_lo) {
-		ad9361_trx_ext_lo_control(phy, false, pd->use_ext_tx_lo);
-	} else {
-		ret = clk_set_rate(phy->clks[TX_RFPLL], ad9361_to_clk(pd->tx_synth_freq));
-		if (ret < 0) {
-			dev_err(dev, "Failed to set TX Synth rate (%d)\n",
-				ret);
-			return ret;
-		}
-
-		ret = clk_prepare_enable(phy->clks[TX_REFCLK]);
-		if (ret < 0) {
-			dev_err(dev, "Failed to enable TX Synth ref clock (%d)\n", ret);
-			return ret;
-		}
-
-		ret = clk_prepare_enable(phy->clks[TX_RFPLL]);
-		if (ret < 0)
-			return ret;
+	ret = clk_prepare_enable(phy->clks[RX_REFCLK]);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable RX Synth ref clock (%d)\n", ret);
+		return ret;
 	}
+
+	ret = clk_prepare_enable(phy->clks[RX_RFPLL]);
+	if (ret < 0)
+		return ret;
+
+	/* REVISIT : add EXT LO clock */
+	if (pd->use_ext_rx_lo)
+		ad9361_trx_ext_lo_control(phy, false, pd->use_ext_rx_lo);
+
+
+	ret = clk_set_rate(phy->clks[TX_RFPLL], ad9361_to_clk(pd->tx_synth_freq));
+	if (ret < 0) {
+		dev_err(dev, "Failed to set TX Synth rate (%d)\n",
+			ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(phy->clks[TX_REFCLK]);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable TX Synth ref clock (%d)\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(phy->clks[TX_RFPLL]);
+	if (ret < 0)
+		return ret;
+
+	/* REVISIT : add EXT LO clock */
+	if (pd->use_ext_tx_lo)
+		ad9361_trx_ext_lo_control(phy, true, pd->use_ext_tx_lo);
 
 	ret = ad9361_load_mixer_gm_subtable(phy);
 	if (ret < 0)
