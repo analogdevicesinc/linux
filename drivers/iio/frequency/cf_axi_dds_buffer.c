@@ -158,6 +158,7 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 	tmp_reg |= DATA_SEL_DMA;
 
 	dds_write(st, ADI_REG_CNTRL_1, 0);
+	st->enable = 0;
 
 	if (!st->has_fifo_interface) {
 		cnt = st->txcount;
@@ -200,6 +201,7 @@ static int __cf_axi_dds_hw_buffer_state_set(struct iio_dev *indio_dev, bool stat
 	dds_write(st, ADI_REG_CNTRL_2, tmp_reg);
 	dds_write(st, ADI_REG_VDMA_STATUS, ADI_VDMA_OVF | ADI_VDMA_UNF);
 	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
+	st->enable = 1;
 
 	return 0;
 
