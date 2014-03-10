@@ -1967,37 +1967,37 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 
 	if (tx) {
 		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
-				  POWER_DOWN_TX_SYNTH, 1);
+				  POWER_DOWN_TX_SYNTH, enable);
 
 		ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
 				  TX_VCO_DIVIDER(~0), 0x7);
 
 		ad9361_spi_write(phy->spi, REG_TX_SYNTH_POWER_DOWN_OVERRIDE,
-				TX_SYNTH_VCO_ALC_POWER_DOWN |
+				enable ? TX_SYNTH_VCO_ALC_POWER_DOWN |
 				TX_SYNTH_PTAT_POWER_DOWN |
 				TX_SYNTH_VCO_POWER_DOWN |
-				TX_SYNTH_VCO_LDO_POWER_DOWN);
+				TX_SYNTH_VCO_LDO_POWER_DOWN : 0);
 
 		ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
-				  TX_EXT_VCO_BUFFER_POWER_DOWN, 0);
+				  TX_EXT_VCO_BUFFER_POWER_DOWN, !enable);
 
 		return ad9361_spi_write(phy->spi, REG_TX_LO_GEN_POWER_MODE,
 					TX_LO_GEN_POWER_MODE(val));
 	} else {
 		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
-				  POWER_DOWN_RX_SYNTH, 1);
+				  POWER_DOWN_RX_SYNTH, enable);
 
 		ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
 				  RX_VCO_DIVIDER(~0), 0x7);
 
 		ad9361_spi_write(phy->spi, REG_RX_SYNTH_POWER_DOWN_OVERRIDE,
-				RX_SYNTH_VCO_ALC_POWER_DOWN |
+				enable ? RX_SYNTH_VCO_ALC_POWER_DOWN |
 				RX_SYNTH_PTAT_POWER_DOWN |
 				RX_SYNTH_VCO_POWER_DOWN |
-				RX_SYNTH_VCO_LDO_POWER_DOWN);
+				RX_SYNTH_VCO_LDO_POWER_DOWN : 0);
 
 		ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
-				  RX_EXT_VCO_BUFFER_POWER_DOWN, 0);
+				  RX_EXT_VCO_BUFFER_POWER_DOWN, !enable);
 
 		return ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE,
 					RX_LO_GEN_POWER_MODE(val));
