@@ -7,7 +7,6 @@ Required properties:
 	length of the controller register set.  The second entry is the
 	address and length of the QSPI Controller data area.
 - interrupts : Unit interrupt specifier for the controller interrupt.
-- master-ref-clk : Specifies the frequency of the controller input clock.
 - ext-decoder : Value of 0 means no external chipselect decoder is
 	connected, 1 means there is an external chipselect decoder connected.
 - num-chipselect : Number of chip select lines.
@@ -28,7 +27,7 @@ Example:
 		reg = <0xff705000 0x1000>,
 			<0xffa00000 0x1000>;
 		interrupts = <0 151 4>;
-		master-ref-clk = <400000000>;
+		clocks = <&qspi_clk>;
 		ext-decoder = <0>;
 		num-chipselect = <4>;
 		fifo-depth = <128>;
