@@ -1,7 +1,7 @@
 /*
  * ADF4350/ADF4351 SPI Wideband Synthesizer driver
  *
- * Copyright 2012-2013 Analog Devices Inc.
+ * Copyright 2012-2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -271,7 +271,7 @@ static ssize_t adf4350_write(struct iio_dev *indio_dev,
 		else
 			st->regs[ADF4350_REG2] &= ~ADF4350_REG2_POWER_DOWN_EN;
 
-		adf4350_sync_config(st, false);
+		adf4350_sync_config(st, true);
 		break;
 	default:
 		ret = -EINVAL;
