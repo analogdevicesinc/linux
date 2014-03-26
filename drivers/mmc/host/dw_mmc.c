@@ -1520,7 +1520,8 @@ static void dw_mci_tasklet_func(unsigned long priv)
 			if (test_and_clear_bit(EVENT_DATA_ERROR,
 					       &host->pending_events)) {
 				dw_mci_stop_dma(host);
-				send_stop_abort(host, data);
+				if (data->stop)
+					send_stop_abort(host, data);
 				state = STATE_DATA_ERROR;
 				break;
 			}
@@ -1563,6 +1564,11 @@ static void dw_mci_tasklet_func(unsigned long priv)
 			host->data = NULL;
 			set_bit(EVENT_DATA_COMPLETE, &host->completed_events);
 			err = dw_mci_data_complete(host, data);
+
+			if (!data->stop) {
+				dw_mci_request_end(host, host->mrq);
+				goto unlock;
+			}
 
 			if (!err) {
 				if (!data->stop || mrq->sbc) {
