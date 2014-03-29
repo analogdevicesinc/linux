@@ -590,7 +590,6 @@ static int spi_transfer_one_message(struct spi_master *master,
 				    struct spi_message *msg)
 {
 	struct spi_transfer *xfer;
-	bool cur_cs = true;
 	bool keep_cs = false;
 	int ret = 0;
 	int ms = 1;
@@ -636,8 +635,9 @@ static int spi_transfer_one_message(struct spi_master *master,
 					 &msg->transfers)) {
 				keep_cs = true;
 			} else {
-				cur_cs = !cur_cs;
-				spi_set_cs(msg->spi, cur_cs);
+				spi_set_cs(msg->spi, false);
+				udelay(10);
+				spi_set_cs(msg->spi, true);
 			}
 		}
 
