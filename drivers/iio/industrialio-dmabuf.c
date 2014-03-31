@@ -279,9 +279,16 @@ static void iio_dma_buffer_fileio_free(struct iio_dma_buffer_queue *queue)
 static void iio_dma_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
-	block->state = IIO_BLOCK_STATE_ACTIVE;
-	iio_buffer_block_get(block);
-	queue->ops->submit_block(queue->driver_data, block);
+	/*
+	 * If the hardware has already been removed we put the block into
+	 * limbo. It will neither be on the incoming nor outgoing list, nor will
+	 * it ever complete. It will just wait to be freed eventually.
+	 */
+	if (queue->ops) {
+		block->state = IIO_BLOCK_STATE_ACTIVE;
+		iio_buffer_block_get(block);
+		queue->ops->submit_block(queue->driver_data, block);
+	}
 }
 
 static int iio_dma_buffer_enable(struct iio_buffer *buffer,
@@ -716,6 +723,12 @@ EXPORT_SYMBOL(iio_dmabuf_allocate);
 
 void iio_dmabuf_free(struct iio_buffer *buffer)
 {
+	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buffer);
+
+	mutex_lock(&queue->lock);
+	queue->ops = NULL;
+	mutex_unlock(&queue->lock);
+
 	iio_buffer_put(buffer);
 }
 EXPORT_SYMBOL(iio_dmabuf_free);
