@@ -107,6 +107,7 @@ enum cpole1_capacitor {
  * struct ad9523_platform_data - platform specific information
  *
  * @vcxo_freq: External VCXO frequency in Hz
+ * @spi3wire: SPI 3-Wire mode enable;
  * @refa_diff_rcv_en: REFA differential/single-ended input selection.
  * @refb_diff_rcv_en: REFB differential/single-ended input selection.
  * @zd_in_diff_en: Zero Delay differential/single-ended input selection.
@@ -122,6 +123,7 @@ enum cpole1_capacitor {
  * @zero_delay_mode_internal_en: Internal, external Zero Delay mode selection.
  * @osc_in_feedback_en: PLL1 feedback path, local feedback from
  *			the OSC_IN receiver or zero delay mode
+ * @pll1_bypass_en: Bypass PLL1 - Single loop mode
  * @pll1_loop_filter_rzero: PLL1 Loop Filter Zero Resistor selection.
  * @ref_mode: Reference selection mode.
  * @pll2_charge_pump_current_nA: Magnitude of PLL2 charge pump current (nA).
@@ -141,7 +143,8 @@ enum cpole1_capacitor {
  */
 
 struct ad9523_platform_data {
-	unsigned long vcxo_freq;
+	unsigned long 			vcxo_freq;
+	bool				spi3wire;
 
 	/* Differential/ Single-Ended Input Configuration */
 	bool				refa_diff_rcv_en;
@@ -165,6 +168,7 @@ struct ad9523_platform_data {
 	unsigned short			pll1_charge_pump_current_nA;
 	bool				zero_delay_mode_internal_en;
 	bool				osc_in_feedback_en;
+	bool				pll1_bypass_en;
 	enum pll1_rzero_resistor	pll1_loop_filter_rzero;
 
 	/* Reference */
