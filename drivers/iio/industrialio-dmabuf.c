@@ -564,6 +564,23 @@ static bool iio_dma_buffer_data_available(struct iio_buffer *r)
 	return data_available;
 }
 
+static bool iio_dma_buffer_space_available(struct iio_buffer *r)
+{
+	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(r);
+	bool space_available = false;
+
+	mutex_lock(&queue->lock);
+	if (queue->fileio.block &&
+		queue->fileio.block->state == IIO_BLOCK_STATE_DEQUEUED)
+		space_available = true;
+	spin_lock_irq(&queue->list_lock);
+	space_available |= !list_empty(&queue->outgoing);
+	spin_unlock_irq(&queue->list_lock);
+	mutex_unlock(&queue->lock);
+
+	return space_available;
+}
+
 static void iio_dma_buffer_mmap_open(struct vm_area_struct *area)
 {
 	struct iio_dma_buffer_block *block = area->vm_private_data;
@@ -663,6 +680,7 @@ static const struct iio_buffer_access_funcs dmabuf_ops = {
 	.enable = iio_dma_buffer_enable,
 	.disable = iio_dma_buffer_disable,
 	.data_available = iio_dma_buffer_data_available,
+	.space_available = iio_dma_buffer_space_available,
 	.release = iio_dma_buffer_release,
 
 	.alloc_blocks = iio_dma_buffer_alloc_blocks,
