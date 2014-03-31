@@ -1,7 +1,7 @@
 /*
  * AD9523 SPI Low Jitter Clock Generator
  *
- * Copyright 2012 Analog Devices Inc.
+ * Copyright 2012-2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -12,6 +12,7 @@
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio/consumer.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/delay.h>
@@ -284,6 +285,10 @@ struct ad9523_state {
 	struct ad9523_outputs		output[AD9523_NUM_CHAN];
 	struct iio_chan_spec		ad9523_channels[AD9523_NUM_CHAN];
 	struct clk_onecell_data		clk_data;
+	struct clk 			*clks[AD9523_NUM_CHAN];
+	struct gpio_desc			*pwrdown_gpio;
+	struct gpio_desc			*reset_gpio;
+	struct gpio_desc			*sync_gpio;
 
 	unsigned long		vcxo_freq;
 	unsigned long		vco_freq;
@@ -904,7 +909,7 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 
 	ret = ad9523_write(indio_dev, AD9523_SERIAL_PORT_CONFIG,
 			   AD9523_SER_CONF_SOFT_RESET |
-			  (st->spi->mode & SPI_3WIRE ? 0 :
+			  ((st->spi->mode & SPI_3WIRE || pdata->spi3wire)? 0 :
 			  AD9523_SER_CONF_SDO_ACTIVE));
 	if (ret < 0)
 		return ret;
@@ -937,25 +942,31 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	ret = ad9523_write(indio_dev, AD9523_PLL1_CHARGE_PUMP_CTRL,
+		AD_IFE(pll1_bypass_en, AD9523_PLL1_CHARGE_PUMP_TRISTATE,
 		AD9523_PLL1_CHARGE_PUMP_CURRENT_nA(pdata->
 			pll1_charge_pump_current_nA) |
 		AD9523_PLL1_CHARGE_PUMP_MODE_NORMAL |
-		AD9523_PLL1_BACKLASH_PW_MIN);
+		AD9523_PLL1_BACKLASH_PW_MIN));
 	if (ret < 0)
 		return ret;
 
 	ret = ad9523_write(indio_dev, AD9523_PLL1_INPUT_RECEIVERS_CTRL,
+		AD_IFE(pll1_bypass_en, AD9523_PLL1_REFA_REFB_PWR_CTRL_EN |
+		AD_IF(osc_in_diff_en, AD9523_PLL1_OSC_IN_DIFF_EN) |
+		AD_IF(osc_in_cmos_neg_inp_en, AD9523_PLL1_OSC_IN_CMOS_NEG_INP_EN),
 		AD_IF(refa_diff_rcv_en, AD9523_PLL1_REFA_RCV_EN) |
 		AD_IF(refb_diff_rcv_en, AD9523_PLL1_REFB_RCV_EN) |
 		AD_IF(osc_in_diff_en, AD9523_PLL1_OSC_IN_DIFF_EN) |
 		AD_IF(osc_in_cmos_neg_inp_en,
 		      AD9523_PLL1_OSC_IN_CMOS_NEG_INP_EN) |
 		AD_IF(refa_diff_rcv_en, AD9523_PLL1_REFA_DIFF_RCV_EN) |
-		AD_IF(refb_diff_rcv_en, AD9523_PLL1_REFB_DIFF_RCV_EN));
+		AD_IF(refb_diff_rcv_en, AD9523_PLL1_REFB_DIFF_RCV_EN)));
 	if (ret < 0)
 		return ret;
 
 	ret = ad9523_write(indio_dev, AD9523_PLL1_REF_CTRL,
+		AD_IFE(pll1_bypass_en, AD9523_PLL1_BYPASS_FEEDBACK_DIV_EN |
+		AD9523_PLL1_ZERO_DELAY_MODE_INT,
 		AD_IF(zd_in_diff_en, AD9523_PLL1_ZD_IN_DIFF_EN) |
 		AD_IF(zd_in_cmos_neg_inp_en,
 		      AD9523_PLL1_ZD_IN_CMOS_NEG_INP_EN) |
@@ -963,7 +974,7 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 		      AD9523_PLL1_ZERO_DELAY_MODE_INT) |
 		AD_IF(osc_in_feedback_en, AD9523_PLL1_OSC_IN_PLL_FEEDBACK_EN) |
 		AD_IF(refa_cmos_neg_inp_en, AD9523_PLL1_REFA_CMOS_NEG_INP_EN) |
-		AD_IF(refb_cmos_neg_inp_en, AD9523_PLL1_REFB_CMOS_NEG_INP_EN));
+		AD_IF(refb_cmos_neg_inp_en, AD9523_PLL1_REFB_CMOS_NEG_INP_EN)));
 	if (ret < 0)
 		return ret;
 
@@ -1043,13 +1054,7 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	st->clk_data.clks = devm_kzalloc(&st->spi->dev,
-					 sizeof(*st->clk_data.clks) *
-					 AD9523_NUM_CHAN, GFP_KERNEL);
-	if (!st->clk_data.clks) {
-		dev_err(&st->spi->dev, "could not allocate memory\n");
-		return -ENOMEM;
-	}
+	st->clk_data.clks = st->clks;
 	st->clk_data.clk_num = AD9523_NUM_CHAN;
 
 	for (i = 0; i < pdata->num_channels; i++) {
@@ -1109,7 +1114,7 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	return 0;
+	return ad9523_sync(indio_dev);
 }
 
 #ifdef CONFIG_OF
@@ -1127,6 +1132,8 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 		dev_err(dev, "could not allocate memory for platform data\n");
 		return NULL;
 	}
+
+	pdata->spi3wire = of_property_read_bool(np, "adi,spi-3wire-enable");
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,vcxo-freq", &tmp);
@@ -1170,7 +1177,9 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 	pdata->osc_in_feedback_en =
 		of_property_read_bool(np, "adi,osc-in-feedback-enable");
 
-	/* Reference */
+	pdata->pll1_bypass_en = of_property_read_bool(np, "adi,pll1-bypass-enable");
+
+		/* Reference */
 	of_property_read_u32(np, "adi,ref-mode", &tmp);
 	pdata->ref_mode = tmp;
 
@@ -1188,8 +1197,10 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 
 	of_property_read_u32(np, "adi,pll2-r2-div", &tmp);
 	pdata->pll2_r2_div = tmp;
+	tmp = 0;
 	of_property_read_u32(np, "adi,pll2-vco-diff-m1", &tmp);
 	pdata->pll2_vco_diff_m1 = tmp;
+	tmp = 0;
 	of_property_read_u32(np, "adi,pll2-vco-diff-m2", &tmp);
 	pdata->pll2_vco_diff_m2 = tmp;
 
@@ -1287,6 +1298,21 @@ static int ad9523_probe(struct spi_device *spi)
 		ret = regulator_enable(st->reg);
 		if (ret)
 			return ret;
+	}
+
+	st->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown");
+	if (!IS_ERR(st->pwrdown_gpio)) {
+		ret = gpiod_direction_output(st->pwrdown_gpio, 1);
+	}
+
+	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
+	if (!IS_ERR(st->reset_gpio)) {
+		ret = gpiod_direction_output(st->reset_gpio, 1);
+	}
+
+	st->sync_gpio = devm_gpiod_get(&spi->dev, "sync");
+	if (!IS_ERR(st->sync_gpio)) {
+		ret = gpiod_direction_output(st->sync_gpio, 1);
 	}
 
 	spi_set_drvdata(spi, indio_dev);
