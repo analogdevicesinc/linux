@@ -24,7 +24,7 @@ struct iio_dma_buffer_queue {
 	const struct iio_dma_buffer_ops *ops;
 	struct mutex lock;
 	spinlock_t list_lock;
-	struct list_head incomming;
+	struct list_head incoming;
 	struct list_head outgoing;
 	bool active;
 
@@ -203,7 +203,7 @@ static int iio_dma_buffer_free_blocks(struct iio_buffer *buffer)
 		goto out_unlock;
 
 	spin_lock_irq(&queue->list_lock);
-	INIT_LIST_HEAD(&queue->incomming);
+	INIT_LIST_HEAD(&queue->incoming);
 	INIT_LIST_HEAD(&queue->outgoing);
 
 	for (i = 0; i < queue->num_blocks; i++)
@@ -260,7 +260,7 @@ static int iio_dma_buffer_fileio_alloc(struct iio_dma_buffer_queue *queue,
 	queue->fileio.pos = 0;
 
 	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
-		list_add_tail(&block->head, &queue->incomming);
+		list_add_tail(&block->head, &queue->incoming);
 
 	return 0;
 }
@@ -269,7 +269,7 @@ static void iio_dma_buffer_fileio_free(struct iio_dma_buffer_queue *queue)
 {
 	spin_lock_irq(&queue->list_lock);
 	queue->fileio.block->state = IIO_BLOCK_STATE_DEAD;
-	INIT_LIST_HEAD(&queue->incomming);
+	INIT_LIST_HEAD(&queue->incoming);
 	INIT_LIST_HEAD(&queue->outgoing);
 	spin_unlock_irq(&queue->list_lock);
 	iio_buffer_block_put(queue->fileio.block);
@@ -300,7 +300,7 @@ static int iio_dma_buffer_enable(struct iio_buffer *buffer,
 	if (!queue->num_blocks)
 		iio_dma_buffer_fileio_alloc(queue, indio_dev);
 
-	list_for_each_entry_safe(block, _block, &queue->incomming, head) {
+	list_for_each_entry_safe(block, _block, &queue->incoming, head) {
 		list_del(&block->head);
 		iio_dma_buffer_submit_block(queue, block);
 	}
@@ -333,7 +333,7 @@ static void iio_dma_buffer_enqueue(struct iio_dma_buffer_queue *queue,
 		iio_dma_buffer_submit_block(queue, block);
 	} else {
 		block->state = IIO_BLOCK_STATE_QUEUED;
-		list_move_tail(&block->head, &queue->incomming);
+		list_move_tail(&block->head, &queue->incoming);
 	}
 }
 
@@ -699,7 +699,7 @@ struct iio_buffer *iio_dmabuf_allocate(struct device *dma_dev,
 	queue->ops = ops;
 	queue->driver_data = driver_data;
 
-	INIT_LIST_HEAD(&queue->incomming);
+	INIT_LIST_HEAD(&queue->incoming);
 	INIT_LIST_HEAD(&queue->outgoing);
 
 	mutex_init(&queue->lock);
