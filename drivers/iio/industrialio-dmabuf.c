@@ -395,6 +395,7 @@ static int iio_dma_buffer_enqueue_block(struct iio_buffer *buffer,
 	}
 
 	dma_block = queue->blocks[block->id];
+	dma_block->block.bytes_used = block->bytes_used;
 
 	switch (dma_block->state) {
 	case IIO_BLOCK_STATE_DONE:
@@ -525,8 +526,8 @@ static int iio_dma_buffer_write(struct iio_buffer *r, size_t n,
 	block = queue->fileio.block;
 
 	n = ALIGN(n, r->bytes_per_datum);
-	if (n > block->block.bytes_used - queue->fileio.pos)
-		n = block->block.bytes_used - queue->fileio.pos;
+	if (n > block->block.size - queue->fileio.pos)
+		n = block->block.size - queue->fileio.pos;
 
 	if (copy_from_user(block->vaddr + queue->fileio.pos, user_buffer, n)) {
 		ret = -EFAULT;
@@ -535,8 +536,10 @@ static int iio_dma_buffer_write(struct iio_buffer *r, size_t n,
 
 	queue->fileio.pos += n;
 
-	if (queue->fileio.pos == block->block.bytes_used)
+	if (queue->fileio.pos == block->block.size) {
+		block->block.bytes_used = block->block.size;
 		iio_dma_buffer_enqueue(queue, block);
+	}
 
 	ret = n;
 
