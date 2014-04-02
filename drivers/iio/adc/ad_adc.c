@@ -86,7 +86,6 @@ static int adc_of_probe(struct platform_device *op)
 	st = iio_priv(indio_dev);
 
 	dev_set_drvdata(dev, indio_dev);
-	mutex_init(&st->lock);
 
 	phys_addr = r_mem.start;
 	remap_size = resource_size(&r_mem);
@@ -105,14 +104,6 @@ static int adc_of_probe(struct platform_device *op)
 		goto failed1;
 	}
 
-	st->rx_chan = dma_request_slave_channel(&op->dev,
-			"ad-adc-dma");
-	if (!st->rx_chan) {
-		ret = -EPROBE_DEFER;
-		dev_err(dev, "Failed to find rx dma device\n");
-		goto failed1;
-	}
-
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -123,9 +114,6 @@ static int adc_of_probe(struct platform_device *op)
 	adc_write(st, ADI_REG_RSTN, ADI_RSTN);
 
 	st->pcore_version = adc_read(st, ADI_REG_VERSION);
-	st->max_count = AXIADC_MAX_DMA_SIZE;
-	st->dma_align = ADI_DMA_BUSWIDTH(adc_read(st,
-				ADI_REG_DMA_BUSWIDTH));
 	
 	// Read adc type from device tree
 	ret = adc_parse_dt_string(op->dev.of_node, &adc_name);
@@ -192,16 +180,13 @@ static int adc_of_probe(struct platform_device *op)
 
 	indio_dev->channels = st->channels;
 
-
-	init_completion(&st->dma_complete);
-
 	st->streaming_dma = of_property_read_bool(op->dev.of_node,
                         "adi,streaming-dma");
 
 	if (st->streaming_dma)
-			axiadc_configure_ring_stream(indio_dev);
+			axiadc_configure_ring_stream(indio_dev, "ad-adc-dma");
 	else
-			axiadc_configure_ring(indio_dev);
+			axiadc_configure_ring(indio_dev, "ad-adc-dma");
 
 	ret = iio_buffer_register(indio_dev,
 				  indio_dev->channels,
@@ -222,7 +207,6 @@ failed2:
 		axiadc_unconfigure_ring_stream(indio_dev);
 	else
 		axiadc_unconfigure_ring(indio_dev);
-	dma_release_channel(st->rx_chan);
 failed1:
 	release_mem_region(phys_addr, remap_size);
 
@@ -239,8 +223,6 @@ static int adc_of_remove(struct platform_device *op)
 	iio_device_unregister(indio_dev);
 	iio_buffer_unregister(indio_dev);
 	axiadc_unconfigure_ring(indio_dev);
-
-	dma_release_channel(st->rx_chan);
 
 	iounmap(st->regs);
 
