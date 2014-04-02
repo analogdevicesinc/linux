@@ -19,46 +19,6 @@
 
 / {
 	soc {
-		clkmgr@ffd04000 {
-			clocks {
-				osc1 {
-					clock-frequency = <25000000>;
-				};
-			};
-		};
-
-		dwmmc0@ff704000 {
-			num-slots = <1>;
-			supports-highspeed;
-			broken-cd;
-
-			slot@0 {
-				reg = <0>;
-				bus-width = <4>;
-			};
-		};
-
-		gpio@ff708000 {
-			status = "okay";
-		};
-
-		gpio@ff709000 {
-			status = "okay";
-		};
-
-		gpio@ff70a000 {
-			status = "okay";
-		};
-
-		i2c0: i2c@ffc04000 {
-			speed-mode = <0>;
-			status = "okay";
-		};
-
-		qspi: spi@ff705000 {
-			status = "okay";
-		};
-
 		sysmgr@ffd08000 {
 			cpu1-start-addr = <0xffd080c4>;
 		};

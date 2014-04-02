@@ -21,7 +21,7 @@
 	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
 
 	chosen {
-		bootargs = "console=ttyS0,115200";
+		bootargs = "console=ttyS0,115200 root=/dev/mmcblk0p2 rw rootwait";
 	};
 
 	memory {
@@ -59,6 +59,41 @@
 			gpios = <&gpio1 12 1>;
 		};
 	};
+
+	soc {
+		gpio@ff708000 {
+			status = "okay";
+		};
+
+		gpio@ff709000 {
+			status = "okay";
+		};
+
+		gpio@ff70a000 {
+			status = "okay";
+		};
+	};
+};
+
+&can0 {
+	status = "okay";
+};
+
+&mmc {
+	num-slots = <1>;
+	supports-highspeed;
+	broken-cd;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+
+	slot@0 {
+	reg = <0>;
+	bus-width = <4>;
+	};
+};
+
+&osc1 {
+	clock-frequency = <25000000>;
 };
 
 &gmac1 {
@@ -73,10 +108,20 @@
 	txc-skew-ps = <2600>;
 	rxdv-skew-ps = <0>;
 	rxc-skew-ps = <2000>;
+	max-frame-size = <3800>;
 };
 
 &i2c0 {
 	status = "okay";
+	speed-mode = <0>;
+
+	lcd: lcd@28 {
+		compatible = "newhaven,nhd-0216k3z-nsw-bbw";
+		reg = <0x28>;
+		height = <2>;
+		width = <16>;
+		brightness = <8>;
+	};
 
 	eeprom@51 {
 		compatible = "atmel,24c32";
@@ -95,6 +140,7 @@
 };
 
 &qspi {
+	status = "okay";
 	flash0: n25q00@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -121,4 +167,16 @@
 			reg = <0x800000 0x7800000>;
 		};
 	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&watchdog0 {
+	status = "okay";
 };
