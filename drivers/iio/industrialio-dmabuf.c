@@ -333,7 +333,7 @@ static void iio_dma_buffer_enqueue(struct iio_dma_buffer_queue *queue,
 		iio_dma_buffer_submit_block(queue, block);
 	} else {
 		block->state = IIO_BLOCK_STATE_QUEUED;
-		list_move_tail(&block->head, &queue->incoming);
+		list_add_tail(&block->head, &queue->incoming);
 	}
 }
 
