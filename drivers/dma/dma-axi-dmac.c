@@ -83,6 +83,8 @@ struct axi_dmac_chan {
 	struct axi_dmac_desc *next_desc;
 	struct list_head active_descs;
 	enum dma_transfer_direction direction;
+	unsigned int src_width;
+	unsigned int dest_width;
 };
 
 struct axi_dmac {
@@ -93,6 +95,8 @@ struct axi_dmac {
 
 	struct dma_device dma_dev;
 	struct axi_dmac_chan chan;
+
+	struct device_dma_parameters dma_parms;
 
 #ifdef SPEED_TEST
 	void *test_virt;
@@ -458,6 +462,20 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 	return vchan_tx_prep(&chan->vchan, &desc->vdesc, flags);
 }
 
+static int axi_dmac_device_slave_caps(struct dma_chan *c,
+	struct dma_slave_caps *caps)
+{
+	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
+
+	caps->src_addr_widths = BIT(chan->src_width);
+	caps->dstn_addr_widths = BIT(chan->dest_width);
+	caps->directions = BIT(chan->direction);
+	caps->cmd_pause = false;
+	caps->cmd_terminate = true;
+
+	return 0;
+}
+
 static int axi_dmac_alloc_chan_resources(struct dma_chan *c)
 {
 	return 0;
@@ -517,7 +535,7 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	struct dma_device *dma_dev;
 	struct axi_dmac *dmac;
 	struct resource *res;
-	u32 chan_type;
+	u32 tmp;
 	int ret;
 	int i;
 
@@ -546,10 +564,10 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	if (of_chan == NULL)
 		return -ENODEV;
 
-	chan_type = 0;
-	of_property_read_u32(of_chan, "adi,type", &chan_type);
+	tmp = 0;
+	of_property_read_u32(of_chan, "adi,type", &tmp);
 
-	switch (chan_type) {
+	switch (tmp) {
 	case 0:
 		dmac->chan.direction = DMA_DEV_TO_MEM;
 		break;
@@ -566,6 +584,20 @@ static int axi_dmac_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	tmp = 64;
+	of_property_read_u32(of_chan, "adi,source-bus-width", &tmp);
+	dmac->chan.src_width = tmp / 8;
+
+	tmp = 64;
+	of_property_read_u32(of_chan, "adi,destination-bus-width", &tmp);
+	dmac->chan.dest_width = tmp / 8;
+
+	tmp = 24;
+	of_property_read_u32(of_chan, "adi,length-width", &tmp);
+
+	pdev->dev.dma_parms = &dmac->dma_parms;
+	dma_set_max_seg_size(&pdev->dev, (1ULL << tmp) - 1);
+
 	dma_dev = &dmac->dma_dev;
 	dma_cap_set(DMA_SLAVE, dma_dev->cap_mask);
 	dma_cap_set(DMA_CYCLIC, dma_dev->cap_mask);
@@ -577,6 +609,7 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	dma_dev->device_prep_dma_cyclic = axi_dmac_prep_dma_cyclic;
 	dma_dev->device_prep_interleaved_dma = axi_dmac_prep_interleaved;
 	dma_dev->device_control = axi_dmac_control;
+	dma_dev->device_slave_caps = axi_dmac_device_slave_caps;
 	dma_dev->dev = &pdev->dev;
 	dma_dev->chancnt = 1;
 	INIT_LIST_HEAD(&dma_dev->channels);

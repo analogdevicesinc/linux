@@ -569,7 +569,6 @@ static int mc_adv_ctrl_of_probe(struct platform_device *op)
 	st = iio_priv(indio_dev);
 
 	dev_set_drvdata(dev, indio_dev);
-	mutex_init(&st->lock);
 
 	phys_addr = r_mem.start;
 	remap_size = resource_size(&r_mem);
@@ -588,14 +587,6 @@ static int mc_adv_ctrl_of_probe(struct platform_device *op)
 		goto failed1;
 	}
 
-	st->rx_chan = dma_request_slave_channel(&op->dev,
-			"ad-mc-adv-ctrl-dma");
-	if (!st->rx_chan) {
-		ret = -EPROBE_DEFER;
-		dev_err(dev, "Failed to find rx dma device\n");
-		goto failed1;
-	}
-
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -606,9 +597,6 @@ static int mc_adv_ctrl_of_probe(struct platform_device *op)
 	mc_adv_ctrl_write(st, ADI_REG_RSTN, ADI_RSTN);
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
-	st->max_count = AXIADC_MAX_DMA_SIZE;
-	st->dma_align = ADI_DMA_BUSWIDTH(mc_adv_ctrl_read(st,
-				ADI_REG_DMA_BUSWIDTH));
 
 	st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 'u');
 	st->channels[1] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(1, 1, 16, 'u');
@@ -617,9 +605,7 @@ static int mc_adv_ctrl_of_probe(struct platform_device *op)
 	indio_dev->num_channels = 2;
 	indio_dev->masklength = 2;
 
-	init_completion(&st->dma_complete);
-
-	axiadc_configure_ring(indio_dev);
+	axiadc_configure_ring(indio_dev, "ad-mc-adv-ctrl-dma");
 
 	ret = iio_buffer_register(indio_dev,
 				  indio_dev->channels,
@@ -637,7 +623,6 @@ static int mc_adv_ctrl_of_probe(struct platform_device *op)
 
 failed2:
 	axiadc_unconfigure_ring(indio_dev);
-	dma_release_channel(st->rx_chan);
 failed1:
 	release_mem_region(phys_addr, remap_size);
 
@@ -654,8 +639,6 @@ static int mc_adv_ctrl_of_remove(struct platform_device *op)
 	iio_device_unregister(indio_dev);
 	iio_buffer_unregister(indio_dev);
 	axiadc_unconfigure_ring(indio_dev);
-
-	dma_release_channel(st->rx_chan);
 
 	iounmap(st->regs);
 

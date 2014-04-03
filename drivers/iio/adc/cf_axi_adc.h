@@ -256,8 +256,6 @@
 #include <linux/spi/spi.h>
 
 #define AXIADC_MAX_PCORE_TSIZE		(524288)
-#define AXIADC_MAX_DMA_SIZE		(4 * 1024 * 1024) /* Randomly picked */
-
 
 enum {
 	ID_AD9467,
@@ -281,29 +279,19 @@ struct axiadc_chip_info {
 
 struct axiadc_state {
 	struct device 			*dev_spi;
-	struct mutex			lock;
-	struct completion		dma_complete;
-	struct dma_chan			*rx_chan;
 	struct iio_info			iio_info;
 	void __iomem			*regs;
-	void				*buf_virt;
-	dma_addr_t			buf_phys;
-	size_t				read_offs;
-	int				compl_stat;
 	unsigned				max_usr_channel;
 	unsigned			adc_def_output_mode;
 	unsigned			max_count;
-	struct list_head		block_list;
 	unsigned			id;
 	unsigned			pcore_version;
 	bool				has_fifo_interface;
 	bool			dp_disable;
 	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
-	unsigned			dma_align;
 	bool				streaming_dma;
-	unsigned int			ring_length;
-	unsigned int			rcount;
+
 	struct iio_chan_spec	channels[16];
 };
 
@@ -375,9 +363,10 @@ static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 	return ioread32(st->regs + reg);
 }
 
-int axiadc_configure_ring(struct iio_dev *indio_dev);
+int axiadc_configure_ring(struct iio_dev *indio_dev, const char *dma_name);
 void axiadc_unconfigure_ring(struct iio_dev *indio_dev);
-int axiadc_configure_ring_stream(struct iio_dev *indio_dev);
+int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
+	const char *dma_name);
 void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev);
 
 #endif /* ADI_AXI_ADC_H_ */

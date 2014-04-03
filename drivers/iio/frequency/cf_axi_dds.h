@@ -9,6 +9,8 @@
 #ifndef ADI_AXI_DDS_H_
 #define ADI_AXI_DDS_H_
 
+#include <linux/spi/spi.h>
+
 #define ADI_REG_VERSION		0x0000				/*Version and Scratch Registers */
 #define ADI_VERSION(x)		(((x) & 0xffffffff) << 0)	/* RO, Version number. */
 #define VERSION_IS(x,y,z)	((x) << 16 | (y) << 8 | (z))
@@ -161,40 +163,28 @@ enum {
 };
 
 struct cf_axi_dds_chip_info {
-	char 				name[8];
-	struct iio_chan_spec		channel[9];
-	struct iio_chan_spec		buf_channel[4];
-	unsigned			num_channels;
-	unsigned			num_buf_channels;
-	unsigned			num_dp_disable_channels;
+	const char *name;
+	unsigned int num_channels;
+	unsigned int num_dds_channels;
+	unsigned int num_dp_disable_channels;
+	struct iio_chan_spec channel[13];
 };
 
-#include <linux/amba/xilinx_dma.h>
-
 struct cf_axi_dds_state {
-	struct list_head		list;
 	struct device 		*dev_spi;
 	struct clk 		*clk;
-	struct iio_dev 		*indio_dev;
-	struct resource 		r_mem; /* IO mem resources */
 	const struct cf_axi_dds_chip_info	*chip_info;
+
 	bool			has_fifo_interface;
+	bool			standalone;
 	bool			dp_disable;
-	struct iio_info		iio_info;
-	void			*buf_virt;
-	dma_addr_t		buf_phys;
-	struct dma_chan		*tx_chan;
-	struct xilinx_dma_config	dma_config;
-	u16			int_vref_mv;
-	int 			irq;
-	void __iomem		*regs;
-	unsigned int		flags;
-	u32			dac_clk;
-	unsigned			buffer_length;
-	unsigned			txcount;
-	unsigned 		ddr_dds_interp_en;
-	unsigned			cached_freq[8];
 	bool			enable;
+
+	struct iio_info		iio_info;
+	void __iomem		*regs;
+	u32			dac_clk;
+	unsigned 		ddr_dds_interp_en;
+	unsigned		cached_freq[8];
 	struct notifier_block   clk_nb;
 };
 
@@ -269,4 +259,5 @@ static inline unsigned int dds_read(struct cf_axi_dds_state *st, unsigned reg)
 {
 	return ioread32(st->regs + reg);
 }
+
 #endif /* ADI_AXI_DDS_H_ */

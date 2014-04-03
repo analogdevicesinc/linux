@@ -531,7 +531,6 @@ static int axiadc_of_probe(struct platform_device *op)
 	st->dev_spi = axiadc_spidev.dev_spi;
 
 	dev_set_drvdata(dev, indio_dev);
-	mutex_init(&st->lock);
 
 	phys_addr = r_mem.start;
 	remap_size = resource_size(&r_mem);
@@ -553,13 +552,6 @@ static int axiadc_of_probe(struct platform_device *op)
 	st->dp_disable = axiadc_read(st, ADI_REG_ADC_DP_DISABLE);
 
 	if (!st->dp_disable) {
-		st->rx_chan = of_dma_request_slave_channel(op->dev.of_node, "rx");
-		if (!st->rx_chan) {
-			ret = -EPROBE_DEFER;
-			dev_err(dev, "failed to find rx dma device\n");
-			goto failed2;
-		}
-
 		st->streaming_dma = of_property_read_bool(op->dev.of_node,
 				"adi,streaming-dma");
 
@@ -601,10 +593,6 @@ static int axiadc_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
-	st->max_count = AXIADC_MAX_DMA_SIZE;
-
-	st->dma_align = ADI_DMA_BUSWIDTH(axiadc_read(st, ADI_REG_DMA_BUSWIDTH));
-
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -621,12 +609,10 @@ static int axiadc_of_probe(struct platform_device *op)
 		goto failed2;
 
 	if (!st->dp_disable) {
-		init_completion(&st->dma_complete);
-
 		if (st->streaming_dma)
-			axiadc_configure_ring_stream(indio_dev);
+			axiadc_configure_ring_stream(indio_dev, NULL);
 		else
-			axiadc_configure_ring(indio_dev);
+			axiadc_configure_ring(indio_dev, NULL);
 
 		ret = iio_buffer_register(indio_dev,
 					indio_dev->channels,
@@ -643,10 +629,10 @@ static int axiadc_of_probe(struct platform_device *op)
 		goto failed4;
 
 	dev_info(dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p,"
-		 " DMA-%d probed ADC %s as %s\n",
+		 " probed ADC %s as %s\n",
 		 st->pcore_version,
 		 (unsigned long long)phys_addr, st->regs,
-		 st->rx_chan->chan_id, conv->chip_info->name,
+		 conv->chip_info->name,
 		 axiadc_read(st, ADI_REG_ID) ? "SLAVE" : "MASTER");
 
 	if (iio_get_debugfs_dentry(indio_dev))
@@ -662,7 +648,6 @@ failed4:
 			axiadc_unconfigure_ring_stream(indio_dev);
 		else
 			axiadc_unconfigure_ring(indio_dev);
-		dma_release_channel(st->rx_chan);
 	}
 failed2:
 	release_mem_region(phys_addr, remap_size);
@@ -697,8 +682,6 @@ static int axiadc_of_remove(struct platform_device *op)
 			axiadc_unconfigure_ring_stream(indio_dev);
 		else
 			axiadc_unconfigure_ring(indio_dev);
-
-		dma_release_channel(st->rx_chan);
 	}
 	put_device(st->dev_spi);
 	module_put(st->dev_spi->driver->owner);

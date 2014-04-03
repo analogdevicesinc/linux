@@ -19,25 +19,46 @@
 #include "../../staging/iio/ring_hw.h"
 #include "cf_axi_adc.h"
 
-static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
-				      size_t count, char __user *buf)
+#define AXIADC_MAX_DMA_SIZE		(4 * 1024 * 1024) /* Randomly picked */
+
+struct axiadc_buf {
+	struct iio_buffer buffer;
+	void *buf_virt;
+	dma_addr_t buf_phys;
+	size_t read_offs;
+	int compl_stat;
+	struct completion complete;
+	struct dma_chan *chan;
+	unsigned int ring_length;
+	unsigned int rcount;
+	struct mutex lock;
+	struct iio_dev *indio_dev;
+};
+
+static struct axiadc_buf *iio_buffer_to_axiadc_buf(struct iio_buffer *buf)
 {
-	struct iio_hw_buffer *hw_ring = iio_to_hw_buf(r);
-	struct iio_dev *indio_dev = hw_ring->private;
+	return container_of(buf, struct axiadc_buf, buffer);
+}
+
+static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
+				     size_t count, char __user *buf)
+{
+	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(r);
+	struct iio_dev *indio_dev = axiadc_buf->indio_dev;
 	struct axiadc_state *st = iio_priv(indio_dev);
-	int ret = 0;
 	unsigned stat, dma_stat;
+	int ret = 0;
 
-	mutex_lock(&st->lock);
+	mutex_lock(&axiadc_buf->lock);
 
-	if (!st->read_offs) {
-		ret = wait_for_completion_interruptible_timeout(&st->dma_complete,
-								4 * HZ);
+	if (!axiadc_buf->read_offs) {
+		ret = wait_for_completion_interruptible_timeout(
+			    &axiadc_buf->complete, 4 * HZ);
 		stat = axiadc_read(st, ADI_REG_STATUS);
 		dma_stat = axiadc_read(st, ADI_REG_DMA_STATUS);
 
-		if (st->compl_stat < 0) {
-			ret = st->compl_stat;
+		if (axiadc_buf->compl_stat < 0) {
+			ret = axiadc_buf->compl_stat;
 			goto error_ret;
 		} else if (ret == 0) {
 			ret = -ETIMEDOUT;
@@ -56,35 +77,33 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 
 	}
 
-	count = min(count, st->ring_length - st->read_offs);
+	count = min(count, axiadc_buf->ring_length - axiadc_buf->read_offs);
 
-	if (copy_to_user(buf, st->buf_virt + st->read_offs, count))
+	if (copy_to_user(buf, axiadc_buf->buf_virt + axiadc_buf->read_offs,
+		count))
 		ret = -EFAULT;
 
-	st->read_offs += count;
+	axiadc_buf->read_offs += count;
 
 error_ret:
 	r->stufftoread = count != 0;
-	mutex_unlock(&st->lock);
+	mutex_unlock(&axiadc_buf->lock);
 
 	return ret < 0 ? ret : count;
 }
 
 static int axiadc_ring_get_length(struct iio_buffer *r)
 {
-	struct iio_hw_buffer *hw_ring = iio_to_hw_buf(r);
-	struct iio_dev *indio_dev = hw_ring->private;
-	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(r);
 
-	return st->ring_length;
+	return axiadc_buf->ring_length;
 }
 
 static int axiadc_ring_set_length(struct iio_buffer *r, int length)
 {
-	struct iio_hw_buffer *hw_ring = iio_to_hw_buf(r);
-	struct axiadc_state *st = iio_priv(hw_ring->private);
+	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(r);
 
-	st->ring_length = length;
+	axiadc_buf->ring_length = length;
 
 	return 0;
 }
@@ -114,26 +133,10 @@ static struct attribute_group axiadc_ring_attr = {
 	.name = "buffer",
 };
 
-static struct iio_buffer *axiadc_rb_allocate(struct iio_dev *indio_dev)
+static void axiadc_ring_release(struct iio_buffer *r)
 {
-	struct iio_buffer *buf;
-	struct iio_hw_buffer *ring;
-
-	ring = kzalloc(sizeof *ring, GFP_KERNEL);
-	if (!ring)
-		return NULL;
-
-	ring->private = indio_dev;
-	buf = &ring->buf;
-	buf->attrs = &axiadc_ring_attr;
-	iio_buffer_init(buf);
-
-	return buf;
-}
-
-static inline void axiadc_rb_free(struct iio_buffer *r)
-{
-	kfree(iio_to_hw_buf(r));
+	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(r);
+	kfree(axiadc_buf);
 }
 
 static const struct iio_buffer_access_funcs axiadc_ring_access_funcs = {
@@ -142,50 +145,52 @@ static const struct iio_buffer_access_funcs axiadc_ring_access_funcs = {
 	.set_length = &axiadc_ring_set_length,
 	.get_bytes_per_datum = &axiadc_ring_get_bytes_per_datum,
 	.set_bytes_per_datum = &axiadc_ring_set_bytes_per_datum,
+	.release = axiadc_ring_release,
 };
 
 static void axiadc_hw_transfer_done(void *data)
 {
-	struct iio_dev *indio_dev = data;
-	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_buf *axiadc_buf = data;
 
-	indio_dev->buffer->stufftoread = 1;
-	wake_up_interruptible_poll(&indio_dev->buffer->pollq, POLLIN | POLLRDNORM);
-	complete(&st->dma_complete);
+	axiadc_buf->buffer.stufftoread = 1;
+	wake_up_interruptible_poll(&axiadc_buf->buffer.pollq,
+		POLLIN | POLLRDNORM);
+	complete(&axiadc_buf->complete);
 }
 
 static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 {
+	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(indio_dev->buffer);
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct dma_async_tx_descriptor *desc;
 	dma_cookie_t cookie;
 	int ret = 0;
 
 	if (!state) {
-		if (!completion_done(&st->dma_complete)) {
-			st->compl_stat = -EPERM;
-			dmaengine_terminate_all(st->rx_chan);
-			complete(&st->dma_complete);
+		if (!completion_done(&axiadc_buf->complete)) {
+			axiadc_buf->compl_stat = -EPERM;
+			dmaengine_terminate_all(axiadc_buf->chan);
+			complete(&axiadc_buf->complete);
 		}
 
 		return 0;
 	}
 
-	st->compl_stat = 0;
-	if (st->ring_length == 0) {
+	axiadc_buf->compl_stat = 0;
+	if (axiadc_buf->ring_length == 0) {
 		ret = -EINVAL;
 		goto error_ret;
 	}
 
-	st->rcount = ALIGN(st->ring_length, st->dma_align);
-
-	if (st->rcount > st->max_count) {
+	axiadc_buf->rcount = ALIGN(axiadc_buf->ring_length, 8);
+	if (axiadc_buf->rcount > AXIADC_MAX_DMA_SIZE) {
 		ret = -EINVAL;
 		goto error_ret;
 	}
 
-	desc = dmaengine_prep_slave_single(st->rx_chan, st->buf_phys, st->rcount,
-					   DMA_FROM_DEVICE, DMA_PREP_INTERRUPT);
+	desc = dmaengine_prep_slave_single(axiadc_buf->chan,
+		axiadc_buf->buf_phys, axiadc_buf->rcount, DMA_FROM_DEVICE,
+		DMA_PREP_INTERRUPT);
 	if (!desc) {
 		dev_err(indio_dev->dev.parent,
 			"Failed to allocate a dma descriptor\n");
@@ -194,7 +199,7 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	}
 
 	desc->callback = axiadc_hw_transfer_done;
-	desc->callback_param = indio_dev;
+	desc->callback_param = axiadc_buf;
 
 	cookie = dmaengine_submit(desc);
 	if (cookie < 0) {
@@ -203,18 +208,17 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 		ret = cookie;
 		goto error_ret;
 	}
-	reinit_completion(&st->dma_complete);
-	st->read_offs = 0;
-	dma_async_issue_pending(st->rx_chan);
+	reinit_completion(&axiadc_buf->complete);
+	axiadc_buf->read_offs = 0;
+	dma_async_issue_pending(axiadc_buf->chan);
 
 	axiadc_write(st, ADI_REG_DMA_CNTRL, 0);
 	axiadc_write(st, ADI_REG_STATUS, ~0);
 	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);
-	axiadc_write(st, ADI_REG_DMA_COUNT, st->rcount);
+	axiadc_write(st, ADI_REG_DMA_COUNT, axiadc_buf->rcount);
 	axiadc_write(st, ADI_REG_DMA_CNTRL, ADI_DMA_START);
 
 	return 0;
-
 error_ret:
 	return ret;
 }
@@ -229,58 +233,68 @@ static int axiadc_hw_ring_postdisable(struct iio_dev *indio_dev)
 	return __axiadc_hw_ring_state_set(indio_dev, 0);
 }
 
-// static bool axiadc_hw_ring_validate_scan_mask(struct iio_dev *indio_dev,
-// 				   const unsigned long *scan_mask)
-// {
-// 	struct axiadc_state *st = iio_priv(indio_dev);
-// 	unsigned mask;
-//
-// 	if (!st->have_user_logic)
-// 		return true;
-//
-// 	mask = (1UL << st->chip_info->num_channels) - 1;
-//
-// 	if ((*scan_mask & mask) && (*scan_mask & ~mask))
-// 		return false;
-//
-// 	return true;
-// }
-
-
 static const struct iio_buffer_setup_ops axiadc_ring_setup_ops = {
 	.preenable = &axiadc_hw_ring_preenable,
 	.postdisable = &axiadc_hw_ring_postdisable,
-//	.validate_scan_mask = &axiadc_hw_ring_validate_scan_mask,
 };
 
-int axiadc_configure_ring(struct iio_dev *indio_dev)
+int axiadc_configure_ring(struct iio_dev *indio_dev, const char *dma_name)
 {
-	struct axiadc_state *st = iio_priv(indio_dev);
-	indio_dev->buffer = axiadc_rb_allocate(indio_dev);
-	if (indio_dev->buffer == NULL)
+	struct axiadc_buf *axiadc_buf;
+	int ret;
+
+	if (!dma_name)
+		dma_name = "rx";
+
+	axiadc_buf = kzalloc(sizeof(*axiadc_buf), GFP_KERNEL);
+	if (!axiadc_buf)
 		return -ENOMEM;
 
+	axiadc_buf->chan = dma_request_slave_channel(indio_dev->dev.parent,
+		dma_name);
+	if (!axiadc_buf->chan) {
+		ret = -EPROBE_DEFER;
+		goto err_free;
+	}
+
+	init_completion(&axiadc_buf->complete);
+	mutex_init(&axiadc_buf->lock);
+	axiadc_buf->indio_dev = indio_dev;
+	axiadc_buf->buffer.attrs = &axiadc_ring_attr;
+	iio_buffer_init(&axiadc_buf->buffer);
+
+	iio_device_attach_buffer(indio_dev, &axiadc_buf->buffer);
 	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
 	indio_dev->buffer->access = &axiadc_ring_access_funcs;
 	indio_dev->setup_ops = &axiadc_ring_setup_ops;
 
-	st->buf_virt = dma_alloc_coherent(indio_dev->dev.parent,
-					  PAGE_ALIGN(AXIADC_MAX_DMA_SIZE), &st->buf_phys,
+	axiadc_buf->buf_virt = dma_alloc_coherent(indio_dev->dev.parent,
+					  PAGE_ALIGN(AXIADC_MAX_DMA_SIZE),
+					  &axiadc_buf->buf_phys,
 					  GFP_KERNEL);
-	if (st->buf_virt == NULL) {
+	if (!axiadc_buf->buf_virt) {
 		dev_err(indio_dev->dev.parent,
 			"Failed to allocate a dma memory\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_release_dma;
 	}
 
 	return 0;
+err_release_dma:
+	dma_release_channel(axiadc_buf->chan);
+err_free:
+	kfree(axiadc_buf);
+
+	return ret;
 }
 
 void axiadc_unconfigure_ring(struct iio_dev *indio_dev)
 {
-	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(indio_dev->buffer);
 
-	dma_free_coherent(indio_dev->dev.parent, PAGE_ALIGN(AXIADC_MAX_DMA_SIZE),
-			  st->buf_virt, st->buf_phys);
-	axiadc_rb_free(indio_dev->buffer);
+	dma_release_channel(axiadc_buf->chan);
+	dma_free_coherent(indio_dev->dev.parent,
+		PAGE_ALIGN(AXIADC_MAX_DMA_SIZE), axiadc_buf->buf_virt,
+		axiadc_buf->buf_phys);
+	iio_buffer_put(&axiadc_buf->buffer);
 }

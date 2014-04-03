@@ -117,7 +117,6 @@ static int axiadc_of_probe(struct platform_device *op)
 	st = iio_priv(indio_dev);
 
 	dev_set_drvdata(dev, indio_dev);
-	mutex_init(&st->lock);
 
 	phys_addr = r_mem.start;
 	remap_size = resource_size(&r_mem);
@@ -136,13 +135,6 @@ static int axiadc_of_probe(struct platform_device *op)
 		goto failed2;
 	}
 
-	st->rx_chan = dma_request_slave_channel(&op->dev, "ad-mc-speed-dma");
-	if (!st->rx_chan) {
-		ret = -EPROBE_DEFER;
-		dev_err(dev, "Failed to find rx dma device\n");
-		goto failed2;
-	}
-
 	conv = kmalloc(sizeof(struct axiadc_converter), GFP_KERNEL);
 
 	conv->chip_info = &axiadc_chip_info_tbl[ID_AD_MC_SPEED];
@@ -152,9 +144,6 @@ static int axiadc_of_probe(struct platform_device *op)
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
-	st->max_count = AXIADC_MAX_DMA_SIZE;
-
-	st->dma_align = ADI_DMA_BUSWIDTH(axiadc_read(st, ADI_REG_DMA_BUSWIDTH));
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = op->dev.of_node->name;
@@ -170,9 +159,7 @@ static int axiadc_of_probe(struct platform_device *op)
 	st->iio_info = axiadc_info;
 	indio_dev->info = &st->iio_info;
 
-	init_completion(&st->dma_complete);
-
-	axiadc_configure_ring(indio_dev);
+	axiadc_configure_ring(indio_dev, "ad-mc-speed-dma");
 
 	ret = iio_buffer_register(indio_dev,
 				  indio_dev->channels,
@@ -187,17 +174,16 @@ static int axiadc_of_probe(struct platform_device *op)
 	if (ret)
 		goto failed3;
 
-	dev_info(dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p, DMA-%d probed ADC %s as %s\n",
+	dev_info(dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p, probed ADC %s as %s\n",
 		 st->pcore_version,
 		 (unsigned long long)phys_addr, st->regs,
-		 st->rx_chan->chan_id, conv->chip_info->name,
+		 conv->chip_info->name,
 		 axiadc_read(st, ADI_REG_ID) ? "SLAVE" : "MASTER");
 
 	return 0;
 
 failed3:
 	axiadc_unconfigure_ring(indio_dev);
-	dma_release_channel(st->rx_chan);
 failed2:
 	release_mem_region(phys_addr, remap_size);
 failed1:
@@ -217,8 +203,6 @@ static int axiadc_of_remove(struct platform_device *op)
 	iio_device_unregister(indio_dev);
 	iio_buffer_unregister(indio_dev);
 	axiadc_unconfigure_ring(indio_dev);
-
-	dma_release_channel(st->rx_chan);
 
 	iounmap(st->regs);
 
