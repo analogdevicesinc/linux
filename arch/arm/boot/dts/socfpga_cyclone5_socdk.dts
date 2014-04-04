@@ -99,6 +99,21 @@
 	status = "okay";
 	speed-mode = <0>;
 
+	/*
+	 * adjust the falling times to decrease the i2c frequency to 50Khz
+	 * because the LCD module does not work at the standard 100Khz
+	 */
+	i2c-sda-falling-time-ns = <5000>;
+	i2c-scl-falling-time-ns = <5000>;
+
+	lcd: lcd@28 {
+		compatible = "newhaven,nhd-0216k3z-nsw-bbw";
+		reg = <0x28>;
+		height = <2>;
+		width = <16>;
+		brightness = <8>;
+	};
+
 	eeprom@51 {
 		compatible = "atmel,24c32";
 		reg = <0x51>;
