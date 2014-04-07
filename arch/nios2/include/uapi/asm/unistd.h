@@ -366,7 +366,9 @@
 #define __NR_process_vm_writev	346
 #define __NR_kcmp		347
 #define __NR_finit_module	348
+#define __NR_sched_setattr	349
+#define __NR_sched_getattr	350
 
-#define NR_syscalls		349
+#define NR_syscalls		351
 
 #endif  /* _UAPI_ASM_NIOS2_UNISTD_H */
