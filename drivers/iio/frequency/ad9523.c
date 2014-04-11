@@ -1455,8 +1455,8 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 		pdata->channels[cnt].channel_divider = tmp;
 		ret = of_property_read_string(chan_np, "adi,extended-name", &str);
 		if (ret >= 0)
-			strncpy(&pdata->channels[cnt].extended_name[0],
-				str, SPI_NAME_SIZE - 1);
+			strlcpy(pdata->channels[cnt].extended_name,
+				str, sizeof(pdata->channels[cnt].extended_name));
 
 		cnt++;
 	}
