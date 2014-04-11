@@ -146,7 +146,7 @@ struct ad9517_outputs {
 
 struct ad9517_state {
 	struct spi_device *spi;
-	unsigned char regs[AD9517_TRANSFER];
+	unsigned char regs[AD9517_TRANSFER+1];
 	struct ad9517_outputs output[NUM_OUTPUTS];
 	struct clk_onecell_data clk_data;
 	unsigned long refin_freq;
