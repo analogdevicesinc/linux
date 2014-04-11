@@ -9,9 +9,8 @@
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/dmaengine.h>
-
-#include <linux/of_device.h>
-#include <linux/of_address.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -44,8 +43,8 @@
 #define MC_CONTROL_MATLAB(x)		(((x) & 0x1) << 12)
 #define MC_CONTROL_CONTROLLER_MODE(x)	(((x) & 0x3) << 16)
 
-const char mc_adv_ctrl_sensors[3][8] = {"hall", "bemf", "resolver"};
-const char mc_adv_ctrl_controller_mode[4][26] = {"error", "stand-by",
+static const char mc_adv_ctrl_sensors[3][8] = {"hall", "bemf", "resolver"};
+static const char mc_adv_ctrl_controller_mode[4][26] = {"error", "stand-by",
 		"velocity-control", "open-loop-velocity-control"};
 
 static inline void mc_adv_ctrl_write(struct axiadc_state *st,
@@ -547,48 +546,28 @@ static const struct iio_info mc_adv_ctrl_info = {
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
-static int mc_adv_ctrl_of_probe(struct platform_device *op)
+static int mc_adv_ctrl_probe(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev;
-	struct device *dev = &op->dev;
 	struct axiadc_state *st;
-	struct resource r_mem;
-	resource_size_t remap_size, phys_addr;
+	struct resource *mem;
 	int ret;
 
-	ret = of_address_to_resource(op->dev.of_node, 0, &r_mem);
-	if (ret) {
-		dev_err(dev, "Invalid address\n");
-		return ret;
-	}
-
-	indio_dev = iio_device_alloc(sizeof(*st));
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
 
-	dev_set_drvdata(dev, indio_dev);
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	st->regs = devm_ioremap_resource(&pdev->dev, mem);
+	if (IS_ERR(st->regs))
+		return PTR_ERR(st->regs);
 
-	phys_addr = r_mem.start;
-	remap_size = resource_size(&r_mem);
-	if (!request_mem_region(phys_addr, remap_size, KBUILD_MODNAME)) {
-		dev_err(dev, "Couldn't lock memory region at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EBUSY;
-		goto failed1;
-	}
+	platform_set_drvdata(pdev, indio_dev);
 
-	st->regs = ioremap(phys_addr, remap_size);
-	if (st->regs == NULL) {
-		dev_err(dev, "Couldn't ioremap memory at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EFAULT;
-		goto failed1;
-	}
-
-	indio_dev->dev.parent = dev;
-	indio_dev->name = op->dev.of_node->name;
+	indio_dev->dev.parent = &pdev->dev;
+	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &mc_adv_ctrl_info;
 
@@ -607,50 +586,34 @@ static int mc_adv_ctrl_of_probe(struct platform_device *op)
 
 	axiadc_configure_ring(indio_dev, "ad-mc-adv-ctrl-dma");
 
-	ret = iio_buffer_register(indio_dev,
-				  indio_dev->channels,
+	ret = iio_buffer_register(indio_dev, indio_dev->channels,
 				  indio_dev->num_channels);
 	if (ret)
-		goto failed2;
+		goto err_unconfigure_ring;
 
 	*indio_dev->buffer->scan_mask = (1UL << 2) - 1;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto failed2;
+		goto err_iio_buffer_unregister;
 
 	return 0;
 
-failed2:
+err_iio_buffer_unregister:
+	iio_buffer_unregister(indio_dev);
+err_unconfigure_ring:
 	axiadc_unconfigure_ring(indio_dev);
-failed1:
-	release_mem_region(phys_addr, remap_size);
 
-	return -1;
+	return ret;
 }
 
-static int mc_adv_ctrl_of_remove(struct platform_device *op)
+static int mc_adv_ctrl_remove(struct platform_device *pdev)
 {
-	struct device *dev = &op->dev;
-	struct resource r_mem; /* IO mem resources */
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct axiadc_state *st = iio_priv(indio_dev);
+	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
 	iio_device_unregister(indio_dev);
 	iio_buffer_unregister(indio_dev);
 	axiadc_unconfigure_ring(indio_dev);
-
-	iounmap(st->regs);
-
-	/* Get iospace of the device */
-	if (of_address_to_resource(op->dev.of_node, 0, &r_mem))
-		dev_err(dev, "invalid address\n");
-	else
-		release_mem_region(r_mem.start, resource_size(&r_mem));
-
-	iio_device_free(indio_dev);
-
-	dev_set_drvdata(dev, NULL);
 
 	return 0;
 }
@@ -661,17 +624,17 @@ static const struct of_device_id mc_adv_ctrl_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mc_adv_ctrl_of_match);
 
-static struct platform_driver mc_adv_ctrl_of_driver = {
+static struct platform_driver mc_adv_ctrl_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.owner = THIS_MODULE,
 		.of_match_table = mc_adv_ctrl_of_match,
 	},
-	.probe	  = mc_adv_ctrl_of_probe,
-	.remove	 = mc_adv_ctrl_of_remove,
+	.probe	  = mc_adv_ctrl_probe,
+	.remove	 = mc_adv_ctrl_remove,
 };
 
-module_platform_driver(mc_adv_ctrl_of_driver);
+module_platform_driver(mc_adv_ctrl_driver);
 
 MODULE_AUTHOR("Dragos Bogdan <dragos.bogdan@analog.com>");
 MODULE_DESCRIPTION("Analog Devices MC-Advanced-Controller");

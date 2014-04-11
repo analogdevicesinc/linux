@@ -21,12 +21,8 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/clk.h>
-
+#include <linux/platform_device.h>
 #include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/of_dma.h>
-#include <linux/of_platform.h>
-#include <linux/of_address.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -473,24 +469,22 @@ MODULE_DEVICE_TABLE(of, axiadc_of_match);
  * It returns 0, if the driver is bound to the AIM device, or a negative
  * value if there is an error.
  */
-static int axiadc_of_probe(struct platform_device *op)
+static int axiadc_probe(struct platform_device *pdev)
 {
 	const struct axiadc_core_info *info;
 	const struct of_device_id *id;
 	struct iio_dev *indio_dev;
-	struct device *dev = &op->dev;
 	struct axiadc_state *st;
-	struct resource r_mem; /* IO mem resources */
+	struct resource *mem;
 	struct axiadc_spidev axiadc_spidev;
 	struct axiadc_converter *conv;
-	resource_size_t remap_size, phys_addr;
 	unsigned int expected_version;
 	int ret;
 
-	dev_dbg(dev, "Device Tree Probing \'%s\'\n",
-		 op->dev.of_node->name);
+	dev_dbg(&pdev->dev, "Device Tree Probing \'%s\'\n",
+		 pdev->dev.of_node->name);
 
-	id = of_match_node(axiadc_of_match, op->dev.of_node);
+	id = of_match_node(axiadc_of_match, pdev->dev.of_node);
 	if (!id)
 		return -ENODEV;
 
@@ -499,10 +493,10 @@ static int axiadc_of_probe(struct platform_device *op)
 	/* Defer driver probe until matching spi
 	 * converter driver is registered
 	 */
-	axiadc_spidev.of_nspi = of_parse_phandle(op->dev.of_node,
+	axiadc_spidev.of_nspi = of_parse_phandle(pdev->dev.of_node,
 						 "spibus-connected", 0);
 	if (!axiadc_spidev.of_nspi) {
-		dev_err(&op->dev, "could not find spi node\n");
+		dev_err(&pdev->dev, "could not find spi node\n");
 		return -ENODEV;
 	}
 
@@ -516,43 +510,27 @@ static int axiadc_of_probe(struct platform_device *op)
 
 	get_device(axiadc_spidev.dev_spi);
 
-	/* Get iospace for the device */
-	ret = of_address_to_resource(op->dev.of_node, 0, &r_mem);
-	if (ret) {
-		dev_err(dev, "invalid address\n");
-		return ret;
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
+	if (indio_dev == NULL) {
+		ret = -ENOMEM;
+		goto err_put_converter;
 	}
-
-	indio_dev = iio_device_alloc(sizeof(*st));
-	if (indio_dev == NULL)
-		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	st->regs = devm_ioremap_resource(&pdev->dev, mem);
+	if (IS_ERR(st->regs))
+		return PTR_ERR(st->regs);
+
 	st->dev_spi = axiadc_spidev.dev_spi;
 
-	dev_set_drvdata(dev, indio_dev);
-
-	phys_addr = r_mem.start;
-	remap_size = resource_size(&r_mem);
-	if (!request_mem_region(phys_addr, remap_size, KBUILD_MODNAME)) {
-		dev_err(dev, "Couldn't lock memory region at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EBUSY;
-		goto failed1;
-	}
-
-	st->regs = ioremap(phys_addr, remap_size);
-	if (st->regs == NULL) {
-		dev_err(dev, "Couldn't ioremap memory at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EFAULT;
-		goto failed2;
-	}
+	platform_set_drvdata(pdev, indio_dev);
 
 	st->dp_disable = axiadc_read(st, ADI_REG_ADC_DP_DISABLE);
 
 	if (!st->dp_disable) {
-		st->streaming_dma = of_property_read_bool(op->dev.of_node,
+		st->streaming_dma = of_property_read_bool(pdev->dev.of_node,
 				"adi,streaming-dma");
 
 		/* FIFO interface only supports streaming DMA */
@@ -563,7 +541,6 @@ static int axiadc_of_probe(struct platform_device *op)
 
 		if (st->has_fifo_interface)
 			st->streaming_dma = true;
-
 	}
 
 	conv = to_converter(st->dev_spi);
@@ -582,7 +559,7 @@ static int axiadc_of_probe(struct platform_device *op)
 
 	if (PCORE_VERSION_MAJOR(st->pcore_version) !=
 		PCORE_VERSION_MAJOR(expected_version)) {
-		dev_err(&op->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
+		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
 			PCORE_VERSION_MAJOR(expected_version),
 			PCORE_VERSION_MINOR(expected_version),
 			PCORE_VERSION_LETTER(expected_version),
@@ -590,11 +567,11 @@ static int axiadc_of_probe(struct platform_device *op)
 			PCORE_VERSION_MINOR(st->pcore_version),
 			PCORE_VERSION_LETTER(st->pcore_version));
 		ret = -ENODEV;
-		goto failed2;
+		goto err_put_converter;
 	}
 
-	indio_dev->dev.parent = dev;
-	indio_dev->name = op->dev.of_node->name;
+	indio_dev->dev.parent = &pdev->dev;
+	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	axiadc_channel_setup(indio_dev, conv->chip_info->channel,
@@ -606,7 +583,7 @@ static int axiadc_of_probe(struct platform_device *op)
 
 	ret = conv->post_setup(indio_dev);
 	if (ret < 0)
-		goto failed2;
+		goto err_put_converter;
 
 	if (!st->dp_disable) {
 		if (st->streaming_dma)
@@ -618,7 +595,7 @@ static int axiadc_of_probe(struct platform_device *op)
 					indio_dev->channels,
 					indio_dev->num_channels);
 		if (ret)
-			goto failed4;
+			goto err_unconfigure_ring;
 
 		*indio_dev->buffer->scan_mask =
 			(1UL << conv->chip_info->num_channels) - 1;
@@ -626,12 +603,11 @@ static int axiadc_of_probe(struct platform_device *op)
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto failed4;
+		goto err_iio_buffer_unregister;
 
-	dev_info(dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p,"
+	dev_info(&pdev->dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p,"
 		 " probed ADC %s as %s\n",
-		 st->pcore_version,
-		 (unsigned long long)phys_addr, st->regs,
+		 st->pcore_version, (unsigned long long)mem->start, st->regs,
 		 conv->chip_info->name,
 		 axiadc_read(st, ADI_REG_ID) ? "SLAVE" : "MASTER");
 
@@ -642,37 +618,34 @@ static int axiadc_of_probe(struct platform_device *op)
 
 	return 0;
 
-failed4:
+err_iio_buffer_unregister:
+	if (!st->dp_disable)
+		iio_buffer_unregister(indio_dev);
+err_unconfigure_ring:
 	if (!st->dp_disable) {
 		if (st->streaming_dma)
 			axiadc_unconfigure_ring_stream(indio_dev);
 		else
 			axiadc_unconfigure_ring(indio_dev);
 	}
-failed2:
-	release_mem_region(phys_addr, remap_size);
-failed1:
-	put_device(st->dev_spi);
-	module_put(st->dev_spi->driver->owner);
-	iio_device_free(indio_dev);
-	dev_set_drvdata(dev, NULL);
+err_put_converter:
+	put_device(axiadc_spidev.dev_spi);
+	module_put(axiadc_spidev.dev_spi->driver->owner);
 
 	return ret;
 }
 
 /**
- * axiadc_of_remove - unbinds the driver from the AIM device.
+ * axiadc_remove - unbinds the driver from the AIM device.
  * @of_dev:	pointer to OF device structure
  *
  * This function is called if a device is physically removed from the system or
  * if the driver module is being unloaded. It frees any resources allocated to
  * the device.
  */
-static int axiadc_of_remove(struct platform_device *op)
+static int axiadc_remove(struct platform_device *pdev)
 {
-	struct device *dev = &op->dev;
-	struct resource r_mem; /* IO mem resources */
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
@@ -686,32 +659,20 @@ static int axiadc_of_remove(struct platform_device *op)
 	put_device(st->dev_spi);
 	module_put(st->dev_spi->driver->owner);
 
-	iounmap(st->regs);
-
-	/* Get iospace of the device */
-	if (of_address_to_resource(op->dev.of_node, 0, &r_mem))
-		dev_err(dev, "invalid address\n");
-	else
-		release_mem_region(r_mem.start, resource_size(&r_mem));
-
-	iio_device_free(indio_dev);
-
-	dev_set_drvdata(dev, NULL);
-
 	return 0;
 }
 
-static struct platform_driver axiadc_of_driver = {
+static struct platform_driver axiadc_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.owner = THIS_MODULE,
 		.of_match_table = axiadc_of_match,
 	},
-	.probe		= axiadc_of_probe,
-	.remove		= axiadc_of_remove,
+	.probe		= axiadc_probe,
+	.remove		= axiadc_remove,
 };
 
-module_platform_driver(axiadc_of_driver);
+module_platform_driver(axiadc_driver);
 
 MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
 MODULE_DESCRIPTION("Analog Devices ADI-AIM");
