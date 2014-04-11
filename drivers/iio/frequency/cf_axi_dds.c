@@ -290,7 +290,8 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 				}
 				break;
 			default:
-				return -EINVAL;
+				ret = -EINVAL;
+				goto err_unlock;
 			}
 
 			val64 = (unsigned long long)val2 * 0x4000UL + (1000000UL / 2);
@@ -373,6 +374,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 
 	}
 
+err_unlock:
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
