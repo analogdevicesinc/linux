@@ -9,9 +9,8 @@
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/dmaengine.h>
-
-#include <linux/of_device.h>
-#include <linux/of_address.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -63,49 +62,29 @@ static int adc_parse_dt_string(struct device_node *np, const char **name_pointer
 	return(of_property_read_string(np, "adc-name-id", name_pointer));
 } 
 
-static int adc_of_probe(struct platform_device *op)
+static int adc_probe(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev;
-	struct device *dev = &op->dev;
 	struct axiadc_state *st;
-	struct resource r_mem;
-	resource_size_t remap_size, phys_addr;
+	struct resource *mem;
 	const char *adc_name;
 	int ret;
 	
-	ret = of_address_to_resource(op->dev.of_node, 0, &r_mem);
-	if (ret) {
-		dev_err(dev, "Invalid address\n");
-		return ret;
-	}
-
-	indio_dev = iio_device_alloc(sizeof(*st));
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
 
-	dev_set_drvdata(dev, indio_dev);
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	st->regs = devm_ioremap_resource(&pdev->dev, mem);
+	if (IS_ERR(st->regs))
+		return PTR_ERR(st->regs);
 
-	phys_addr = r_mem.start;
-	remap_size = resource_size(&r_mem);
-	if (!request_mem_region(phys_addr, remap_size, KBUILD_MODNAME)) {
-		dev_err(dev, "Couldn't lock memory region at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EBUSY;
-		goto failed1;
-	}
+	platform_set_drvdata(pdev, indio_dev);
 
-	st->regs = ioremap(phys_addr, remap_size);
-	if (st->regs == NULL) {
-		dev_err(dev, "Couldn't ioremap memory at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EFAULT;
-		goto failed1;
-	}
-
-	indio_dev->dev.parent = dev;
-	indio_dev->name = op->dev.of_node->name;
+	indio_dev->dev.parent = &pdev->dev;
+	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &adc_info;
 
@@ -116,30 +95,25 @@ static int adc_of_probe(struct platform_device *op)
 	st->pcore_version = adc_read(st, ADI_REG_VERSION);
 	
 	// Read adc type from device tree
-	ret = adc_parse_dt_string(op->dev.of_node, &adc_name);
-	
-	if(ret == (-EINVAL))
-	{
-		dev_err(dev, "Failed to select ADC. Property not found in devicetree.\n");
-		goto failed1;
-	}
-	if(ret == (-ENODATA))
-	{
-		dev_err(dev, "Failed to select ADC. Property found in devicetree, but has no value\n");
-		goto failed1;
-	}
-	if(ret == (-EILSEQ))
-	{
-		dev_err(dev, "Failed to select ADC. Property found but noy NULL terminated\n");
-		goto failed1;
+	ret = adc_parse_dt_string(pdev->dev.of_node, &adc_name);
+	switch(ret) {
+	case -EINVAL:
+		dev_err(&pdev->dev, "Failed to select ADC. Property not found in devicetree.\n");
+		return ret;
+	case -ENODATA:
+		dev_err(&pdev->dev, "Failed to select ADC. Property found in devicetree, but has no value\n");
+		return ret;
+	case -EILSEQ:
+		dev_err(&pdev->dev, "Failed to select ADC. Property found but noy NULL terminated\n");
+		return ret;
+	default:
+		break;
 	}
 	
 	ret = 1;
-	while(ret != 0)
-	{
+	while(ret != 0) {
 		ret = strcmp(adc_name, "ad7476a");
-		if(ret == 0)
-		{
+		if(ret == 0) {
 			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 32, 0, 'u');
 			st->channels[1] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(1, 1, 16, 32, 16, 'u');
 			indio_dev->num_channels = 2;
@@ -148,8 +122,7 @@ static int adc_of_probe(struct platform_device *op)
 		}
 
 		ret = strcmp(adc_name, "ad7091r"); 
-		if(ret == 0)
-		{
+		if(ret == 0) {
 			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 32, 16, 'u');
 			indio_dev->num_channels = 1;
 			indio_dev->masklength = 1;
@@ -157,8 +130,7 @@ static int adc_of_probe(struct platform_device *op)
 		}
 		
 		ret = strcmp(adc_name, "ad7780");
-		if(ret == 0)
-		{
+		if(ret == 0) {
 			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 24, 32, 8, 'u'); 
 			indio_dev->num_channels = 1;
 			indio_dev->masklength = 1;		  
@@ -166,21 +138,20 @@ static int adc_of_probe(struct platform_device *op)
 		} 
 		
 		ret = strcmp(adc_name, "ad7980");
-		if(ret == 0)
-		{
+		if(ret == 0) {
 			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 32, 16, 'u'); 
 			indio_dev->num_channels = 1;
 			indio_dev->masklength = 1;		  
 			break;	 
 		} 		
 		
-		dev_err(dev, "ADC not found in supported drivers list\n");  
-		goto failed1;
+		dev_err(&pdev->dev, "ADC not found in supported drivers list\n");  
+		return ret;
 	}
 
 	indio_dev->channels = st->channels;
 
-	st->streaming_dma = of_property_read_bool(op->dev.of_node,
+	st->streaming_dma = of_property_read_bool(pdev->dev.of_node,
                         "adi,streaming-dma");
 
 	if (st->streaming_dma)
@@ -192,49 +163,34 @@ static int adc_of_probe(struct platform_device *op)
 				  indio_dev->channels,
 				  indio_dev->num_channels);
 	if (ret)
-		goto failed2;
+		goto err_unconfigure_ring;
 
 	*indio_dev->buffer->scan_mask = (1UL << 2) - 1;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto failed2;
+		goto err_iio_unregister_buffer;
 
 	return 0;
 
-failed2:
+err_iio_unregister_buffer:
+	iio_buffer_unregister(indio_dev);
+err_unconfigure_ring:
 	if (st->streaming_dma)
 		axiadc_unconfigure_ring_stream(indio_dev);
 	else
 		axiadc_unconfigure_ring(indio_dev);
-failed1:
-	release_mem_region(phys_addr, remap_size);
 
-	return -1;
+	return ret;
 }
 
-static int adc_of_remove(struct platform_device *op)
+static int adc_remove(struct platform_device *pdev)
 {
-	struct device *dev = &op->dev;
-	struct resource r_mem; /* IO mem resources */
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct axiadc_state *st = iio_priv(indio_dev);
+	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
 	iio_device_unregister(indio_dev);
 	iio_buffer_unregister(indio_dev);
 	axiadc_unconfigure_ring(indio_dev);
-
-	iounmap(st->regs);
-
-	/* Get iospace of the device */
-	if (of_address_to_resource(op->dev.of_node, 0, &r_mem))
-		dev_err(dev, "invalid address\n");
-	else
-		release_mem_region(r_mem.start, resource_size(&r_mem));
-
-	iio_device_free(indio_dev);
-
-	dev_set_drvdata(dev, NULL);
 
 	return 0;
 } 
@@ -245,17 +201,17 @@ static const struct of_device_id adc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
 
-static struct platform_driver adc_of_driver = {
+static struct platform_driver adc_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.owner = THIS_MODULE,
 		.of_match_table = adc_of_match,
 	},
-	.probe	  = adc_of_probe,
-	.remove	 = adc_of_remove,
+	.probe	  = adc_probe,
+	.remove	 = adc_remove,
 };
 
-module_platform_driver(adc_of_driver);
+module_platform_driver(adc_driver);
 
 MODULE_AUTHOR("Dragos Bogdan <dragos.bogdan@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADC");
