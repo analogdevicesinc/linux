@@ -33,8 +33,48 @@ static bool filter(struct dma_chan *chan, void *param)
 	return true;
 }
 
+static void imx_pcm_dma_complete(void *arg)
+{
+	struct snd_pcm_substream *substream = arg;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct dmaengine_pcm_runtime_data *prtd = substream->runtime->private_data;
+	struct snd_dmaengine_dai_dma_data *dma_data;
+
+	prtd->pos += snd_pcm_lib_period_bytes(substream);
+	if (prtd->pos >= snd_pcm_lib_buffer_bytes(substream))
+		prtd->pos = 0;
+
+	snd_pcm_period_elapsed(substream);
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	if (dma_data->check_xrun && dma_data->check_xrun(substream))
+		dma_data->device_reset(substream, 1);
+}
+
+static int imx_pcm_dma_prepare_slave_config(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params, struct dma_slave_config *slave_config)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_dmaengine_dai_dma_data *dma_data;
+	struct dmaengine_pcm_runtime_data *prtd = substream->runtime->private_data;
+	int ret;
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	prtd->callback = imx_pcm_dma_complete;
+
+	ret = snd_hwparams_to_dma_slave_config(substream, params, slave_config);
+	if (ret)
+		return ret;
+
+	snd_dmaengine_pcm_set_config_from_dai_data(substream, dma_data,
+		slave_config);
+
+	return 0;
+
+}
+
 static const struct snd_dmaengine_pcm_config imx_dmaengine_pcm_config = {
-	.prepare_slave_config = snd_dmaengine_pcm_prepare_slave_config,
+	.prepare_slave_config = imx_pcm_dma_prepare_slave_config,
 	.compat_filter_fn = filter,
 };
 
