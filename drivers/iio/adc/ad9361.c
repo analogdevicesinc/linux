@@ -1406,7 +1406,7 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
 
 	do_div(invrc_tconst_1e6, 1000000000UL);
 
-	if (invrc_tconst_1e6 > ULONG_MAX)
+	if (invrc_tconst_1e6 > 0xFFFFFFFF)
 		dev_err(&phy->spi->dev, "invrc_tconst_1e6 > ULONG_MAX");
 
 	sqrt_inv_rc_tconst_1e3 = int_sqrt((u32)invrc_tconst_1e6);
