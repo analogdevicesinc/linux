@@ -105,7 +105,7 @@ struct ad9361_rf_phy {
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[132];
+	struct ad9361_debugfs_entry debugfs_entry[143];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -2029,6 +2029,52 @@ static int ad9361_set_dcxo_tune(struct ad9361_rf_phy *phy,
 			DCXO_TUNE_FINE_HIGH(fine));
 }
 
+
+static int ad9361_txmon_setup(struct ad9361_rf_phy *phy,
+			       struct tx_monitor_control *ctrl)
+{
+	struct spi_device *spi = phy->spi;
+
+	dev_dbg(&phy->spi->dev, "%s", __func__);
+
+	ad9361_spi_write(spi, REG_TPM_MODE_ENABLE,
+			 (ctrl->one_shot_mode_en ? ONE_SHOT_MODE : 0) |
+			 TX_MON_DURATION(ilog2(ctrl->tx_mon_duration / 16)));
+
+	ad9361_spi_write(spi, REG_TX_MON_DELAY, ctrl->tx_mon_delay);
+
+	ad9361_spi_write(spi, REG_TX_MON_1_CONFIG,
+			 TX_MON_1_LO_CM(ctrl->tx1_mon_lo_cm) |
+			 TX_MON_1_GAIN(ctrl->tx1_mon_front_end_gain));
+	ad9361_spi_write(spi, REG_TX_MON_2_CONFIG,
+			 TX_MON_2_LO_CM(ctrl->tx2_mon_lo_cm) |
+			 TX_MON_2_GAIN(ctrl->tx2_mon_front_end_gain));
+
+	ad9361_spi_write(spi, REG_TX_ATTEN_THRESH,
+			 ctrl->low_high_gain_threshold_mdB / 250);
+
+	ad9361_spi_write(spi, REG_TX_MON_HIGH_GAIN,
+			 TX_MON_HIGH_GAIN(ctrl->high_gain_dB));
+
+	ad9361_spi_write(spi, REG_TX_MON_LOW_GAIN,
+			 (ctrl->tx_mon_track_en ? TX_MON_TRACK : 0) |
+			 TX_MON_LOW_GAIN(ctrl->low_gain_dB));
+
+	return 0;
+}
+
+static int ad9361_txmon_control(struct ad9361_rf_phy *phy,
+				unsigned en_mask)
+{
+	dev_dbg(&phy->spi->dev, "%s", __func__);
+
+	ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
+			TX_MONITOR_POWER_DOWN(~0), !en_mask);
+
+	return ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
+			TX1_MONITOR_ENABLE | TX2_MONITOR_ENABLE, en_mask);
+}
+
 /* val
  * 0	(RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced
  * 1	(RX1B_N &  RX1B_P) and (RX2B_N & RX2B_P) enabled; balanced
@@ -2040,15 +2086,25 @@ static int ad9361_set_dcxo_tune(struct ad9361_rf_phy *phy,
  * 6	RX1B_P and RX2B_P enabled; unbalanced
  * 7	RX1C_N and RX2C_N enabled; unbalanced
  * 8	RX1C_P and RX2C_P enabled; unbalanced
+ * 9	TX_MON1
+ * 10	TX_MON2
+ * 11	TX_MON1 & TX_MON2
  */
 
-static int ad9361_rf_port_setup(struct ad9361_rf_phy *phy,
+static int ad9361_rf_port_setup(struct ad9361_rf_phy *phy, bool is_out,
 				    u32 rx_inputs, u32 txb)
 {
 	u32 val;
 
-	if (rx_inputs > 8)
+	if (rx_inputs > 11)
 		return -EINVAL;
+
+	if (!is_out) {
+		if (rx_inputs > 8)
+			return ad9361_txmon_control(phy, rx_inputs & (TX_1 | TX_2));
+		else
+			ad9361_txmon_control(phy, 0);
+	}
 
 	if (rx_inputs < 3)
 		val = 3 <<  (rx_inputs * 2);
@@ -3429,7 +3485,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	ad9361_en_dis_tx(phy, 2, pd->rx2tx2);
 	ad9361_en_dis_rx(phy, 2, pd->rx2tx2);
 
-	ret = ad9361_rf_port_setup(phy, pd->rf_rx_input_sel,
+	ret = ad9361_rf_port_setup(phy, true, pd->rf_rx_input_sel,
 				   pd->rf_tx_output_sel);
 	if (ret < 0)
 		return ret;
@@ -3600,6 +3656,10 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 
 	ret = ad9361_clkout_control(phy, pd->ad9361_clkout_mode);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_txmon_setup(phy, &pd->txmon_ctrl);
 	if (ret < 0)
 		return ret;
 
@@ -5733,7 +5793,8 @@ static int ad9361_set_rf_port(struct iio_dev *indio_dev,
 	else
 		phy->pdata->rf_rx_input_sel = mode;
 
-	return ad9361_rf_port_setup(phy, phy->pdata->rf_rx_input_sel,
+	return ad9361_rf_port_setup(phy, chan->output,
+				   phy->pdata->rf_rx_input_sel,
 				   phy->pdata->rf_tx_output_sel);
 
 }
@@ -5751,7 +5812,8 @@ static int ad9361_get_rf_port(struct iio_dev *indio_dev,
 
 static const char * const ad9361_rf_rx_port[] =
 	{"A_BALANCED", "B_BALANCED", "C_BALANCED",
-	 "A_N", "A_P", "B_N", "B_P", "C_N", "C_P"};
+	 "A_N", "A_P", "B_N", "B_P", "C_N", "C_P", "TX_MONITOR1",
+	 "TX_MONITOR2", "TX_MONITOR1_2"};
 
 static const struct iio_enum ad9361_rf_rx_port_available = {
 	.items = ad9361_rf_rx_port,
@@ -6780,6 +6842,32 @@ static struct ad9361_phy_platform_data
 			  &pdata->auxdac_ctrl.dac2_rx_delay_us);
 	ad9361_of_get_u32(iodev, np, "adi,aux-dac2-tx-delay-us", 0,
 			  &pdata->auxdac_ctrl.dac2_tx_delay_us);
+
+	/* Tx Monitor Control */
+
+	ad9361_of_get_u32(iodev, np, "adi,txmon-low-high-thresh", 37000,
+			&pdata->txmon_ctrl.low_high_gain_threshold_mdB);
+	ad9361_of_get_u32(iodev, np, "adi,txmon-low-gain", 0,
+			&pdata->txmon_ctrl.low_gain_dB);
+	ad9361_of_get_u32(iodev, np, "adi,txmon-high-gain", 24,
+			&pdata->txmon_ctrl.high_gain_dB);
+	ad9361_of_get_bool(iodev, np, "adi,txmon-dc-tracking-enable",
+			&pdata->txmon_ctrl.tx_mon_track_en);
+	ad9361_of_get_bool(iodev, np, "adi,txmon-one-shot-mode-enable",
+			&pdata->txmon_ctrl.one_shot_mode_en);
+	ad9361_of_get_u32(iodev, np, "adi,txmon-delay", 511,
+			&pdata->txmon_ctrl.tx_mon_delay);
+	ad9361_of_get_u32(iodev, np, "adi,txmon-duration", 8192,
+			&pdata->txmon_ctrl.tx_mon_duration);
+	ad9361_of_get_u32(iodev, np, "adi,txmon-1-front-end-gain", 2,
+			&pdata->txmon_ctrl.tx1_mon_front_end_gain);
+	ad9361_of_get_u32(iodev, np, "adi,txmon-2-front-end-gain", 2,
+			&pdata->txmon_ctrl.tx2_mon_front_end_gain);
+	ad9361_of_get_u32(iodev, np, "adi,txmon-1-lo-cm", 48,
+			&pdata->txmon_ctrl.tx1_mon_lo_cm);
+	ad9361_of_get_u32(iodev, np, "adi,txmon-2-lo-cm", 48,
+			&pdata->txmon_ctrl.tx2_mon_lo_cm);
+
 
 	return pdata;
 }
