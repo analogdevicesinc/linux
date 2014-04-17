@@ -37,14 +37,15 @@
 		};
 
 		axi_vdma_0: axivdma@43000000 {
+			compatible = "xlnx,axi-vdma";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-vdma";
+			#dma-channels = <1>;
 			reg = <0x43000000 0x1000>;
 			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
-			dma-channel@7e200000 {
+			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
 				interrupts = <0 59 0x4>;
 				xlnx,datawidth = <0x40>;
@@ -53,21 +54,15 @@
 			};
 		};
 
-		fpga_clock: fpga_clock {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <200000000>;
-		};
-
 		hdmi_clock: axi-clkgen@79000000 {
-			compatible = "adi,axi-clkgen-1.00.a";
+			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&fpga_clock>;
+			clocks = <&clkc 16>;
 		};
 
 		axi_hdmi@70e00000 {
-			compatible = "adi,axi-hdmi-1.00.a";
+			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
 			dmas = <&axi_vdma_0 0>;
@@ -86,7 +81,7 @@
 			reg = <0x75c00000 0x1000>;
 			dmas = <&ps7_dma 0>;
 			dma-names = "tx";
-			clocks = <&fpga_clock &audio_clock>;
+			clocks = <&clkc 15 &audio_clock>;
 			clock-names = "axi", "spdif";
 		};
 
@@ -97,89 +92,81 @@
 		};
 
 		axi_dma_0: axidma@40400000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
+			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x40400000 0x10000>;
-			dma-channel@40400000 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0x0 0x34 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,sg-length-width = <0x17>;
-				xlnx,include-dre = <0x0>;
+			#dma-cells = <1>;
+			interrupts = <0 57 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
 			};
 		};
 
-		ad-mc-adc@79020000 {
+		ad-mc-adc@40500000 {
 			compatible = "xlnx,axi-ad-mc-adc-1.00.a";
-			reg = <0x79020000 0x10000>;
+			reg = <0x40500000 0x10000>;
 			dmas = <&axi_dma_0 0>;
 			dma-names = "ad-mc-adc-dma";
 		};
 
-		axi_dma_1: axidma1@40440000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
+		axi_dma_1: axidma1@40420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x40420000 0x10000>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			reg = <0x40440000 0x10000>;
-			dma-channel@40440000 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0x0 0x23 0x4>;
-				xlnx,datawidth = <0x20>;
-				xlnx,sg-length-width = <0x17>;
-				xlnx,include-dre = <0x0>;
+			interrupts = <0 54 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <32>;
+				adi,type = <0>;
 			};
 		};
 
-		ad-mc-torque-ctrl@6da00000 {
+		ad-mc-torque-ctrl@40520000 {
 			compatible = "xlnx,axi-ad-mc-torque-ctrl-1.00.a";
-			reg = <0x6da00000 0x10000>;
+			reg = <0x40520000 0x10000>;
 			dmas = <&axi_dma_1 0>;
 			dma-names = "ad-mc-torque-ctrl-dma";
 		};
 
-		axi_dma_2: axidma2@40480000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
+		axi_dma_2: axidma2@40410000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x40410000 0x10000>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			reg = <0x40480000 0x10000>;
-			dma-channel@40480000 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0x0 0x21 0x4>;
-				xlnx,datawidth = <0x20>;
-				xlnx,sg-length-width = <0x17>;
-				xlnx,include-dre = <0x0>;
+			interrupts = <0 56 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <32>;
+				adi,type = <0>;
 			};
 		};
 
-		ad-mc-speed@75c20000 {
+		ad-mc-speed@40510000 {
 			compatible = "xlnx,axi-ad-mc-speed-1.00.a";
-			reg = <0x75c20000 0x10000>;
+			reg = <0x40510000 0x10000>;
 			dmas = <&axi_dma_2 0>;
 			dma-names = "ad-mc-speed-dma";
 		};
 
-		axi_dma_3: axidma3@404C0000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
+		axi_dma_3: axidma3@40430000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x40430000 0x10000>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-dma";
-			reg = <0x404C0000 0x10000>;
-			dma-channel@404C0000 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0x0 0x1f 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,sg-length-width = <0x17>;
-				xlnx,include-dre = <0x0>;
+			interrupts = <0 53 0>;
+			clocks = <&clkc 16>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
 			};
 		};
 
-		ad-mc-adc2@6da20000 {
+		ad-mc-adc2@40530000 {
 			compatible = "xlnx,axi-ad-mc-adc-1.00.a";
-			reg = <0x6da20000 0x10000>;
+			reg = <0x40530000 0x10000>;
 			dmas = <&axi_dma_3 0>;
 			dma-names = "ad-mc-adc-dma";
 		};
