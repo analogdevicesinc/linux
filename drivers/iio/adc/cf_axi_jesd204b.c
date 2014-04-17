@@ -19,12 +19,8 @@
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
-#include <linux/device.h>
-
-#include <linux/of.h>
+#include <linux/platform_device.h>
 #include <linux/of_device.h>
-#include <linux/of_platform.h>
-#include <linux/of_address.h>
 
 #include <linux/clk.h>
 
@@ -339,36 +335,38 @@ static const struct of_device_id jesd204b_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, jesd204b_of_match);
 
-static int jesd204b_of_probe(struct platform_device *op)
+static int jesd204b_probe(struct platform_device *pdev)
 {
-	struct device *dev = &op->dev;
 	struct jesd204b_state *st;
-	struct resource r_mem; /* IO mem resources */
-	struct clk *clk;
-	resource_size_t remap_size, phys_addr;
 	unsigned frmcnt, bytecnt;
+	struct resource *mem;
+	struct clk *clk;
 	int ret;
 
 	const struct of_device_id *of_id =
-			of_match_device(jesd204b_of_match, &op->dev);
+			of_match_device(jesd204b_of_match, &pdev->dev);
 
-	dev_info(dev, "Device Tree Probing \'%s\'\n",
-		 op->dev.of_node->name);
+	dev_dbg(&pdev->dev, "Device Tree Probing \'%s\'\n",
+		 pdev->dev.of_node->name);
 
-	clk = devm_clk_get(&op->dev, NULL);
-	if (IS_ERR(clk)) {
+	clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(clk))
 		return -EPROBE_DEFER;
-	}
 
-	st = devm_kzalloc(&op->dev, sizeof(*st), GFP_KERNEL);
+	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (!st) {
-		dev_err(dev, "Not enough memory for device\n");
+		dev_err(&pdev->dev, "Not enough memory for device\n");
 		return -ENOMEM;
 	}
 
-	st->dev = dev;
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	st->regs = devm_ioremap_resource(&pdev->dev, mem);
+	if (IS_ERR(st->regs))
+		return PTR_ERR(st->regs);
+
+	st->dev = &pdev->dev;
 	st->clk = clk;
-	dev_set_drvdata(dev, st);
+	platform_set_drvdata(pdev, st);
 
 	ret = clk_prepare_enable(clk);
 	if (ret < 0)
@@ -379,52 +377,28 @@ static int jesd204b_of_probe(struct platform_device *op)
 	if (of_id && of_id->data)
 		st->vers_id = (unsigned) of_id->data;
 
-	/* Get iospace for the device */
-	ret = of_address_to_resource(op->dev.of_node, 0, &r_mem);
-	if (ret) {
-		dev_err(dev, "invalid address\n");
-		goto err_clk_disable;
-	}
-
-	phys_addr = r_mem.start;
-	remap_size = resource_size(&r_mem);
-	if (!request_mem_region(phys_addr, remap_size, KBUILD_MODNAME)) {
-		dev_err(dev, "Couldn't lock memory region at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EBUSY;
-		goto err_clk_disable;
-	}
-
-	st->regs = ioremap(phys_addr, remap_size);
-	if (st->regs == NULL) {
-		dev_err(dev, "Couldn't ioremap memory at 0x%08llX\n",
-			(unsigned long long)phys_addr);
-		ret = -EFAULT;
-		goto err_release_mem_region;
-	}
-
-	ret = of_property_read_u32(op->dev.of_node,
+	ret = of_property_read_u32(pdev->dev.of_node,
 				   "jesd,frames-per-multiframe", &frmcnt);
 	if (ret) {
-		dev_err(dev, "Failed to read required dt property\n");
-		goto err_iounmap;
+		dev_err(&pdev->dev, "Failed to read required dt property\n");
+		goto err_clk_disable;
 	}
 
-	ret = of_property_read_u32(op->dev.of_node,
+	ret = of_property_read_u32(pdev->dev.of_node,
 				   "jesd,bytes-per-frame", &bytecnt);
 	if (ret) {
-		dev_err(dev, "Failed to read required dt property\n");
-		goto err_iounmap;
+		dev_err(&pdev->dev, "Failed to read required dt property\n");
+		goto err_clk_disable;
 	}
 
 	jesd204b_write(st, AXI_JESD204B_REG_RX_CNTRL_1,
-		       (of_property_read_bool(op->dev.of_node,
+		       (of_property_read_bool(pdev->dev.of_node,
 			"jesd,scramble_en") ?
 		       AXI_JESD204B_RX_DESCR_ENB : 0) |
-		       (of_property_read_bool(op->dev.of_node,
+		       (of_property_read_bool(pdev->dev.of_node,
 			"jesd,lanesync_en") ?
 		       AXI_JESD204B_RX_LANESYNC_ENB : 0) |
-		      (of_property_read_bool(op->dev.of_node,
+		      (of_property_read_bool(pdev->dev.of_node,
 			"jesd,sysref_en") ?
 		       AXI_JESD204B_RX_SYSREF_ENB : 0) |
 			AXI_JESD204B_RX_MFRM_FRMCNT(frmcnt - 1) |
@@ -458,7 +432,7 @@ static int jesd204b_of_probe(struct platform_device *op)
 
 
 	if (!jesd204b_read(st, AXI_JESD204B_REG_RX_STATUS))
-		dev_warn(dev, "JESD Link/Lane Errors");
+		dev_warn(&pdev->dev, "JESD Link/Lane Errors");
 
 	st->es_hsize = jesd204b_read(st, AXI_JESD204B_REG_EYESCAN_RATE);
 
@@ -480,20 +454,20 @@ static int jesd204b_of_probe(struct platform_device *op)
 		break;
 	default:
 		ret = -EINVAL;
-		dev_err(dev, "Failed get EYESCAN_RATE/RXOUT_DIV\n");
-		goto err_iounmap;
+		dev_err(&pdev->dev, "Failed get EYESCAN_RATE/RXOUT_DIV\n");
+		goto err_clk_disable;
 	}
 
 	st->size = st->es_hsize * AXI_JESD204B_ES_VSIZE *
 		sizeof(unsigned long long);
 	st->prescale = 0;
-	st->buf_virt = dma_alloc_coherent(dev, PAGE_ALIGN(st->size),
+	st->buf_virt = dma_alloc_coherent(&pdev->dev, PAGE_ALIGN(st->size),
 					  &st->buf_phys, GFP_KERNEL);
 
 	if (st->buf_virt == NULL) {
-		dev_err(dev, "Not enough dma memory for device\n");
+		dev_err(&pdev->dev, "Not enough dma memory for device\n");
 		ret = -ENOMEM;
-		goto err_iounmap;
+		goto err_clk_disable;
 	}
 
 	memset(st->buf_virt, 0, PAGE_ALIGN(st->size));
@@ -504,39 +478,32 @@ static int jesd204b_of_probe(struct platform_device *op)
 	st->bin.read = jesd204b_bin_read;
 	st->bin.size = st->size;
 
-	ret = sysfs_create_bin_file(&op->dev.kobj, &st->bin);
+	ret = sysfs_create_bin_file(&pdev->dev.kobj, &st->bin);
 	if (ret) {
-		dev_err(dev, "Failed to create sysfs bin file\n");
+		dev_err(&pdev->dev, "Failed to create sysfs bin file\n");
 		goto err_dma_free;
 	}
 
-	device_create_file(dev, &dev_attr_enable);
-	device_create_file(dev, &dev_attr_prescale);
-	device_create_file(dev, &dev_attr_reg_access);
+	device_create_file(&pdev->dev, &dev_attr_enable);
+	device_create_file(&pdev->dev, &dev_attr_prescale);
+	device_create_file(&pdev->dev, &dev_attr_reg_access);
 
 	switch (st->vers_id) {
-	case 1:
-		device_create_file(dev, &dev_attr_lane0_info);
-		break;
-	case 2:
-		device_create_file(dev, &dev_attr_lane0_info);
-		device_create_file(dev, &dev_attr_lane1_info);
-		break;
-	case 4:
-		device_create_file(dev, &dev_attr_lane0_info);
-		device_create_file(dev, &dev_attr_lane1_info);
-		device_create_file(dev, &dev_attr_lane2_info);
-		device_create_file(dev, &dev_attr_lane3_info);
-		break;
 	case 8:
-		device_create_file(dev, &dev_attr_lane0_info);
-		device_create_file(dev, &dev_attr_lane1_info);
-		device_create_file(dev, &dev_attr_lane2_info);
-		device_create_file(dev, &dev_attr_lane3_info);
-		device_create_file(dev, &dev_attr_lane4_info);
-		device_create_file(dev, &dev_attr_lane5_info);
-		device_create_file(dev, &dev_attr_lane6_info);
-		device_create_file(dev, &dev_attr_lane7_info);
+		device_create_file(&pdev->dev, &dev_attr_lane7_info);
+		device_create_file(&pdev->dev, &dev_attr_lane6_info);
+		device_create_file(&pdev->dev, &dev_attr_lane5_info);
+		device_create_file(&pdev->dev, &dev_attr_lane4_info);
+		/* fallthrough */
+	case 4:
+		device_create_file(&pdev->dev, &dev_attr_lane2_info);
+		device_create_file(&pdev->dev, &dev_attr_lane3_info);
+		/* fallthrough */
+	case 2:
+		device_create_file(&pdev->dev, &dev_attr_lane1_info);
+		/* fallthrough */
+	case 1:
+		device_create_file(&pdev->dev, &dev_attr_lane0_info);
 		break;
 	default:
 
@@ -558,70 +525,53 @@ static int jesd204b_of_probe(struct platform_device *op)
 
 	mdelay(10);
 
-	dev_info(dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
+	dev_info(&pdev->dev, "AXI-JESD204B (0x%X) at 0x%08llX mapped to 0x%p,",
 		 jesd204b_read(st, ADI_REG_VERSION),
-		 (unsigned long long)phys_addr, st->regs);
+		 (unsigned long long)mem->start, st->regs);
 
 	return 0;
 
 err_dma_free:
-	dma_free_coherent(&op->dev, PAGE_ALIGN(st->size),
+	dma_free_coherent(&pdev->dev, PAGE_ALIGN(st->size),
 			  st->buf_virt, st->buf_phys);
-err_iounmap:
-	iounmap(st->regs);
-err_release_mem_region:
-	release_mem_region(phys_addr, remap_size);
 err_clk_disable:
 	clk_disable_unprepare(clk);
-	clk_put(clk);
-	dev_set_drvdata(dev, NULL);
 
 	return ret;
 }
 
 /**
- * jesd204b_of_remove - unbinds the driver from the AIM device.
+ * jesd204b_remove - unbinds the driver from the AIM device.
  * @of_dev:	pointer to OF device structure
  *
  * This function is called if a device is physically removed from the system or
  * if the driver module is being unloaded. It frees any resources allocated to
  * the device.
  */
-static int jesd204b_of_remove(struct platform_device *op)
+static int jesd204b_remove(struct platform_device *pdev)
 {
-	struct device *dev = &op->dev;
-	struct resource r_mem; /* IO mem resources */
-	struct jesd204b_state *st = dev_get_drvdata(dev);
+	struct jesd204b_state *st = platform_get_drvdata(pdev);
 
-	iounmap(st->regs);
-
-	/* Get iospace of the device */
-	if (of_address_to_resource(op->dev.of_node, 0, &r_mem))
-		dev_err(dev, "invalid address\n");
-	else
-		release_mem_region(r_mem.start, resource_size(&r_mem));
-
-	dma_free_coherent(&op->dev, PAGE_ALIGN(st->size),
+	dma_free_coherent(&pdev->dev, PAGE_ALIGN(st->size),
 			  st->buf_virt, st->buf_phys);
 
 	clk_disable_unprepare(st->clk);
 	clk_put(st->clk);
-	dev_set_drvdata(dev, NULL);
 
 	return 0;
 }
 
-static struct platform_driver jesd204b_of_driver = {
+static struct platform_driver jesd204b_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.owner = THIS_MODULE,
 		.of_match_table = jesd204b_of_match,
 	},
-	.probe		= jesd204b_of_probe,
-	.remove		= jesd204b_of_remove,
+	.probe		= jesd204b_probe,
+	.remove		= jesd204b_remove,
 };
 
-module_platform_driver(jesd204b_of_driver);
+module_platform_driver(jesd204b_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AXI-JESD204B Interface Module");

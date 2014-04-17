@@ -198,10 +198,6 @@ static int iio_kfifo_write(struct iio_buffer *r, size_t n,
 	if (ret)
 		return ret;
 
-	mutex_unlock(&kf->user_lock);
-	if (ret < 0)
-		return ret;
-
 	return copied;
 }
 
