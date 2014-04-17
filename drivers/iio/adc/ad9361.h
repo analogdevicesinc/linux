@@ -3015,6 +3015,20 @@ struct auxadc_control {
 	u32			auxadc_decimation;
 };
 
+struct tx_monitor_control {
+	bool tx_mon_track_en;
+	bool one_shot_mode_en;
+	u32 low_high_gain_threshold_mdB;
+	u8 low_gain_dB;
+	u8 high_gain_dB;
+	u16 tx_mon_delay;
+	u16 tx_mon_duration;
+	u8 tx1_mon_front_end_gain;
+	u8 tx2_mon_front_end_gain;
+	u8 tx1_mon_lo_cm;
+	u8 tx2_mon_lo_cm;
+};
+
 enum ad9361_pdata_rx_freq {
 	BBPLL_FREQ,
 	ADC_FREQ,
@@ -3089,7 +3103,7 @@ struct ad9361_phy_platform_data {
 	struct elna_control	elna_ctrl;
 	struct auxadc_control	auxadc_ctrl;
 	struct auxdac_control	auxdac_ctrl;
-
+	struct tx_monitor_control txmon_ctrl;
 };
 
 struct rf_rx_gain {
