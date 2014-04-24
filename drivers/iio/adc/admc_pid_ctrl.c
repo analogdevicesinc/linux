@@ -1,7 +1,7 @@
 /*
- * Analog Devices MC-Controller Module
+ * Analog Devices MC-PID-Controller Module
  *
- * Copyright 2013 Analog Devices Inc.
+ * Copyright 2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -27,9 +27,6 @@
 #define MC_REG_KP			0x18
 #define MC_REG_KI			0x1C
 #define MC_REG_KD			0x20
-#define MC_REG_KP1			0x24
-#define MC_REG_KI1			0x28
-#define MC_REG_KD1			0x2C
 #define MC_REG_PWM_OPEN			0x30
 #define MC_REG_PWM_BREAK		0x34
 #define MC_REG_STATUS			0x38
@@ -38,45 +35,47 @@
 #define MC_CONTROL_RUN(x)		(((x) & 0x1) << 0)
 #define MC_CONTROL_RESET_OVR_CURR(x)	(((x) & 0x1) << 1)
 #define MC_CONTROL_BREAK(x)		(((x) & 0x1) << 2)
+#define MC_CONTROL_DIRECTION(x)		(((x) & 0x1) << 3)
 #define MC_CONTROL_DELTA(x)		(((x) & 0x1) << 4)
 #define MC_CONTROL_SENSORS(x)		(((x) & 0x3) << 8)
 #define MC_CONTROL_MATLAB(x)		(((x) & 0x1) << 12)
 #define MC_CONTROL_CALIB_ADC(x)		(((x) & 0x1) << 16)
 #define MC_CONTROL_GPO(x)		(((x) & 0x7FF) << 20)
 
-static const char mc_torque_ctrl_sensors[3][8] = {"hall", "bemf", "resolver"};
+static const char mc_pid_ctrl_sensors[3][8] = {"hall", "bemf", "resolver"};
 
-static inline void mc_torque_ctrl_write(struct axiadc_state *st,
+static inline void mc_pid_ctrl_write(struct axiadc_state *st,
 	unsigned reg, unsigned val)
 {
 	iowrite32(val, st->regs + reg);
 }
 
-static inline unsigned int mc_torque_ctrl_read(struct axiadc_state *st,
+static inline unsigned int mc_pid_ctrl_read(struct axiadc_state *st,
 	unsigned reg)
 {
 	return ioread32(st->regs + reg);
 }
 
-static int mc_torque_ctrl_reg_access(struct iio_dev *indio_dev,
+static int mc_pid_ctrl_reg_access(struct iio_dev *indio_dev,
 	unsigned reg, unsigned writeval, unsigned *readval)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL)
-		mc_torque_ctrl_write(st, reg & 0xFFFF, writeval);
+		mc_pid_ctrl_write(st, reg & 0xFFFF, writeval);
 	else
-		*readval = mc_torque_ctrl_read(st, reg & 0xFFFF);
+		*readval = mc_pid_ctrl_read(st, reg & 0xFFFF);
 	mutex_unlock(&indio_dev->mlock);
 
 	return 0;
 }
 
-enum mc_torque_ctrl_iio_dev_attr {
+enum mc_pid_ctrl_iio_dev_attr {
 	MC_RUN,
 	MC_RESET_OVR_CURR,
 	MC_BREAK,
+	MC_DIRECTION,
 	MC_DELTA,
 	MC_SENSORS_AVAIL,
 	MC_SENSORS,
@@ -86,15 +85,13 @@ enum mc_torque_ctrl_iio_dev_attr {
 	MC_REF_SPEED,
 	MC_KP,
 	MC_KI,
-	MC_KP1,
-	MC_KI1,
-	MC_KD1,
+	MC_KD,
 	MC_PWM,
 	MC_PWM_BREAK,
 	MC_STATUS,
 };
 
-static ssize_t mc_torque_ctrl_show(struct device *dev,
+static ssize_t mc_pid_ctrl_show(struct device *dev,
 			struct device_attribute *attr,
 			char *buf)
 {
@@ -109,22 +106,27 @@ static ssize_t mc_torque_ctrl_show(struct device *dev,
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address) {
 	case MC_RUN:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_RUN(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_RESET_OVR_CURR:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_RESET_OVR_CURR(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_BREAK:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_BREAK(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
+	case MC_DIRECTION:
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
+		setting = (reg_val & MC_CONTROL_DIRECTION(-1));
+		ret = sprintf(buf, "%u\n", setting);
+		break;
 	case MC_DELTA:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_DELTA(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
@@ -132,59 +134,51 @@ static ssize_t mc_torque_ctrl_show(struct device *dev,
 		ret = sprintf(buf, "%s\n", "hall bemf resolver");
 		break;
 	case MC_SENSORS:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		setting2 = (reg_val & MC_CONTROL_SENSORS(-1)) >> 8;
-		ret = sprintf(buf, "%s\n", mc_torque_ctrl_sensors[setting2]);
+		ret = sprintf(buf, "%s\n", mc_pid_ctrl_sensors[setting2]);
 		break;
 	case MC_MATLAB:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_MATLAB(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_CALIB_ADC:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_CALIB_ADC(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_GPO:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		setting2 = (reg_val & MC_CONTROL_GPO(-1)) >> 20;
 		ret = sprintf(buf, "%u\n", setting2);
 		break;
 	case MC_REF_SPEED:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_REFERENCE_SPEED);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_REFERENCE_SPEED);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_KI:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_KI);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_KI);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_KP:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_KP);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_KP);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
-	case MC_KI1:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_KI1);
-		ret = sprintf(buf, "%d\n", reg_val);
-		break;
-	case MC_KD1:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_KD1);
-		ret = sprintf(buf, "%d\n", reg_val);
-		break;
-	case MC_KP1:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_KP1);
+	case MC_KD:
+		reg_val = mc_pid_ctrl_read(st, MC_REG_KD);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_PWM:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_PWM_OPEN);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_PWM_OPEN);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_PWM_BREAK:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_PWM_BREAK);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_PWM_BREAK);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_STATUS:
-		reg_val = mc_torque_ctrl_read(st, MC_REG_STATUS);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_STATUS);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	default:
@@ -195,7 +189,7 @@ static ssize_t mc_torque_ctrl_show(struct device *dev,
 	return ret;
 }
 
-static ssize_t mc_torque_ctrl_store(struct device *dev,
+static ssize_t mc_pid_ctrl_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t len)
 {
@@ -213,37 +207,46 @@ static ssize_t mc_torque_ctrl_store(struct device *dev,
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_RUN(-1);
 		reg_val |= MC_CONTROL_RUN(setting);
-		mc_torque_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_RESET_OVR_CURR:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_RESET_OVR_CURR(-1);
 		reg_val |= MC_CONTROL_RESET_OVR_CURR(setting);
-		mc_torque_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_BREAK:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_BREAK(-1);
 		reg_val |= MC_CONTROL_BREAK(setting);
-		mc_torque_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		break;
+	case MC_DIRECTION:
+		ret = strtobool(buf, &setting);
+		if (ret < 0)
+			break;
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
+		reg_val &= ~MC_CONTROL_DIRECTION(-1);
+		reg_val |= MC_CONTROL_DIRECTION(setting);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_DELTA:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_DELTA(-1);
 		reg_val |= MC_CONTROL_DELTA(setting);
-		mc_torque_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_SENSORS:
 		if (sysfs_streq(buf, "hall"))
@@ -254,91 +257,79 @@ static ssize_t mc_torque_ctrl_store(struct device *dev,
 			setting2 = 2;
 		else
 			break;
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_SENSORS(-1);
 		reg_val |= MC_CONTROL_SENSORS(setting2);
-		mc_torque_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_MATLAB:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_MATLAB(-1);
 		reg_val |= MC_CONTROL_MATLAB(setting);
-		mc_torque_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_CALIB_ADC:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_CALIB_ADC(-1);
 		reg_val |= MC_CONTROL_CALIB_ADC(setting);
-		mc_torque_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_GPO:
 		ret = kstrtou32(buf, 10, &setting2);
 		if (ret < 0)
 			break;
-		reg_val = mc_torque_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = mc_pid_ctrl_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_GPO(-1);
 		reg_val |= MC_CONTROL_GPO(setting2);
-		mc_torque_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_REF_SPEED:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_torque_ctrl_write(st, MC_REG_REFERENCE_SPEED, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_REFERENCE_SPEED, reg_val);
 		break;
 	case MC_KI:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_torque_ctrl_write(st, MC_REG_KI, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_KI, reg_val);
 		break;
 	case MC_KP:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_torque_ctrl_write(st, MC_REG_KP, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_KP, reg_val);
 		break;
-	case MC_KI1:
+	case MC_KD:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_torque_ctrl_write(st, MC_REG_KI1, reg_val);
-		break;
-	case MC_KP1:
-		ret = kstrtou32(buf, 10, &reg_val);
-		if (ret < 0)
-			break;
-		mc_torque_ctrl_write(st, MC_REG_KP1, reg_val);
-		break;
-	case MC_KD1:
-		ret = kstrtou32(buf, 10, &reg_val);
-		if (ret < 0)
-			break;
-		mc_torque_ctrl_write(st, MC_REG_KD1, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_KD, reg_val);
 		break;
 	case MC_PWM:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_torque_ctrl_write(st, MC_REG_PWM_OPEN, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_PWM_OPEN, reg_val);
 		break;
 	case MC_PWM_BREAK:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_torque_ctrl_write(st, MC_REG_PWM_BREAK, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_PWM_BREAK, reg_val);
 		break;
 	case MC_STATUS:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_torque_ctrl_write(st, MC_REG_STATUS, reg_val);
+		mc_pid_ctrl_write(st, MC_REG_STATUS, reg_val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -348,147 +339,141 @@ static ssize_t mc_torque_ctrl_store(struct device *dev,
 	return ret ? ret : len;
 }
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_run, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_run, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_RUN);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_reset_overcurrent, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_reset_overcurrent, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_RESET_OVR_CURR);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_break, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_break, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_BREAK);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_delta, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_direction, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
+			MC_DIRECTION);
+
+static IIO_DEVICE_ATTR(mc_pid_ctrl_delta, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_DELTA);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_sensors_available, S_IRUGO,
-			mc_torque_ctrl_show,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_sensors_available, S_IRUGO,
+			mc_pid_ctrl_show,
 			NULL,
 			MC_SENSORS_AVAIL);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_sensors, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_sensors, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_SENSORS);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_matlab, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_matlab, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_MATLAB);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_calibrate_adc, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_calibrate_adc, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_CALIB_ADC);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_gpo, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_gpo, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_GPO);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_ref_speed, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_ref_speed, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_REF_SPEED);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_ki, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_ki, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_KI);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_kp, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_kp, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_KP);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_ki1, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
-			MC_KI1);
+static IIO_DEVICE_ATTR(mc_pid_ctrl_kd, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
+			MC_KD);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_kd1, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
-			MC_KD1);
-
-static IIO_DEVICE_ATTR(mc_torque_ctrl_kp1, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
-			MC_KP1);
-
-static IIO_DEVICE_ATTR(mc_torque_ctrl_pwm, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_pwm, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_PWM);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_pwm_break, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_pwm_break, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_PWM_BREAK);
 
-static IIO_DEVICE_ATTR(mc_torque_ctrl_status, S_IRUGO | S_IWUSR,
-			mc_torque_ctrl_show,
-			mc_torque_ctrl_store,
+static IIO_DEVICE_ATTR(mc_pid_ctrl_status, S_IRUGO | S_IWUSR,
+			mc_pid_ctrl_show,
+			mc_pid_ctrl_store,
 			MC_STATUS);
 
-static struct attribute *mc_torque_ctrl_attributes[] = {
-	&iio_dev_attr_mc_torque_ctrl_run.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_reset_overcurrent.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_break.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_delta.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_sensors_available.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_sensors.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_matlab.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_calibrate_adc.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_gpo.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_ref_speed.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_pwm.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_ki.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_kp.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_ki1.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_kd1.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_kp1.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_pwm_break.dev_attr.attr,
-	&iio_dev_attr_mc_torque_ctrl_status.dev_attr.attr,
+static struct attribute *mc_pid_ctrl_attributes[] = {
+	&iio_dev_attr_mc_pid_ctrl_run.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_reset_overcurrent.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_break.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_direction.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_delta.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_sensors_available.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_sensors.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_matlab.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_calibrate_adc.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_gpo.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_ref_speed.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_pwm.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_ki.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_kp.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_kd.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_pwm_break.dev_attr.attr,
+	&iio_dev_attr_mc_pid_ctrl_status.dev_attr.attr,
 	NULL,
 };
 
-static const struct attribute_group mc_torque_ctrl_attribute_group = {
-	.attrs = mc_torque_ctrl_attributes,
+static const struct attribute_group mc_pid_ctrl_attribute_group = {
+	.attrs = mc_pid_ctrl_attributes,
 };
 
-static int mc_torque_ctrl_update_scan_mode(struct iio_dev *indio_dev,
+static int mc_pid_ctrl_update_scan_mode(struct iio_dev *indio_dev,
 		const unsigned long *scan_mask)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	unsigned i, ctrl;
 
 	for (i = 0; i < indio_dev->masklength; i++) {
-		ctrl = mc_torque_ctrl_read(st, ADI_REG_CHAN_CNTRL(i));
+		ctrl = mc_pid_ctrl_read(st, ADI_REG_CHAN_CNTRL(i));
 
 		if (test_bit(i, scan_mask))
 			ctrl |= ADI_ENABLE;
 		else
 			ctrl &= ~ADI_ENABLE;
 
-		mc_torque_ctrl_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
+		mc_pid_ctrl_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
 	}
 
 	return 0;
 }
 
-static const struct iio_info mc_torque_ctrl_info = {
+static const struct iio_info mc_pid_ctrl_info = {
 	.driver_module = THIS_MODULE,
-	.debugfs_reg_access = &mc_torque_ctrl_reg_access,
-	.attrs = &mc_torque_ctrl_attribute_group,
-	.update_scan_mode = &mc_torque_ctrl_update_scan_mode,
+	.debugfs_reg_access = &mc_pid_ctrl_reg_access,
+	.attrs = &mc_pid_ctrl_attribute_group,
+	.update_scan_mode = &mc_pid_ctrl_update_scan_mode,
 };
 
 #define AIM_CHAN_NOCALIB(_chan, _si, _bits, _sign)	\
@@ -498,7 +483,7 @@ static const struct iio_info mc_torque_ctrl_info = {
 	  .scan_index = _si,				\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
-static int mc_torque_ctrl_probe(struct platform_device *pdev)
+static int mc_pid_ctrl_probe(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev;
 	struct axiadc_state *st;
@@ -521,11 +506,11 @@ static int mc_torque_ctrl_probe(struct platform_device *pdev)
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->info = &mc_torque_ctrl_info;
+	indio_dev->info = &mc_pid_ctrl_info;
 
 	/* Reset all HDL Cores */
-	mc_torque_ctrl_write(st, ADI_REG_RSTN, 0);
-	mc_torque_ctrl_write(st, ADI_REG_RSTN, ADI_RSTN);
+	mc_pid_ctrl_write(st, ADI_REG_RSTN, 0);
+	mc_pid_ctrl_write(st, ADI_REG_RSTN, ADI_RSTN);
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
 
@@ -536,7 +521,7 @@ static int mc_torque_ctrl_probe(struct platform_device *pdev)
 	indio_dev->num_channels = 2;
 	indio_dev->masklength = 2;
 
-	axiadc_configure_ring(indio_dev, "ad-mc-torque-ctrl-dma");
+	axiadc_configure_ring(indio_dev, "ad-mc-pid-ctrl-dma");
 
 	ret = iio_buffer_register(indio_dev, indio_dev->channels,
 				  indio_dev->num_channels);
@@ -559,7 +544,7 @@ err_unconfigure_ring:
 	return ret;
 }
 
-static int mc_torque_ctrl_remove(struct platform_device *pdev)
+static int mc_pid_ctrl_remove(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
@@ -570,24 +555,24 @@ static int mc_torque_ctrl_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id mc_torque_ctrl_of_match[] = {
-	{ .compatible = "xlnx,axi-ad-mc-torque-ctrl-1.00.a", },
+static const struct of_device_id mc_pid_ctrl_of_match[] = {
+	{ .compatible = "xlnx,axi-ad-mc-pid-ctrl-1.00.a", },
 	{ /* end of list */ },
 };
-MODULE_DEVICE_TABLE(of, mc_torque_ctrl_of_match);
+MODULE_DEVICE_TABLE(of, mc_pid_ctrl_of_match);
 
-static struct platform_driver mc_torque_ctrl_driver = {
+static struct platform_driver mc_pid_ctrl_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.owner = THIS_MODULE,
-		.of_match_table = mc_torque_ctrl_of_match,
+		.of_match_table = mc_pid_ctrl_of_match,
 	},
-	.probe	  = mc_torque_ctrl_probe,
-	.remove	 = mc_torque_ctrl_remove,
+	.probe	  = mc_pid_ctrl_probe,
+	.remove	 = mc_pid_ctrl_remove,
 };
 
-module_platform_driver(mc_torque_ctrl_driver);
+module_platform_driver(mc_pid_ctrl_driver);
 
 MODULE_AUTHOR("Dragos Bogdan <dragos.bogdan@analog.com>");
-MODULE_DESCRIPTION("Analog Devices MC-Torque-Controller");
+MODULE_DESCRIPTION("Analog Devices MC-PID-Controller");
 MODULE_LICENSE("GPL v2");
