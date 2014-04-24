@@ -124,11 +124,11 @@
 			};
 		};
 
-		ad-mc-torque-ctrl@40520000 {
-			compatible = "xlnx,axi-ad-mc-torque-ctrl-1.00.a";
+		ad-mc-pid-ctrl@40520000 {
+			compatible = "xlnx,axi-ad-mc-pid-ctrl-1.00.a";
 			reg = <0x40520000 0x10000>;
 			dmas = <&axi_dma_1 0>;
-			dma-names = "ad-mc-torque-ctrl-dma";
+			dma-names = "ad-mc-pid-ctrl-dma";
 		};
 
 		axi_dma_2: axidma2@40410000 {
