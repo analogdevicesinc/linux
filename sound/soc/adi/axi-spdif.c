@@ -1,16 +1,8 @@
 /*
- *  Copyright (C) 2012, Analog Devices Inc.
- *	Author: Lars-Peter Clausen <lars@metafoo.de>
+ * Copyright (C) 2012-2013, Analog Devices Inc.
+ * Author: Lars-Peter Clausen <lars@metafoo.de>
  *
- *  This program is free software; you can redistribute it and/or modify it
- *  under  the terms of the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the License, or (at your
- *  option) any later version.
- *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  675 Mass Ave, Cambridge, MA 02139, USA.
- *
+ * Licensed under the GPL-2.
  */
 
 #include <linux/init.h>
@@ -46,7 +38,7 @@
 struct axi_spdif {
 	struct regmap *regmap;
 	struct clk *clk;
-	struct clk *clk_spdif;
+	struct clk *clk_ref;
 
 	struct snd_dmaengine_dai_dma_data dma_data;
 
@@ -103,7 +95,7 @@ static int axi_spdif_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
-	clkdiv = DIV_ROUND_CLOSEST(clk_get_rate(spdif->clk_spdif),
+	clkdiv = DIV_ROUND_CLOSEST(clk_get_rate(spdif->clk_ref),
 			rate * 64 * 2) - 1;
 	clkdiv <<= AXI_SPDIF_CTRL_CLKDIV_OFFSET;
 
@@ -118,7 +110,7 @@ static int axi_spdif_dai_probe(struct snd_soc_dai *dai)
 {
 	struct axi_spdif *spdif = snd_soc_dai_get_drvdata(dai);
 
-	dai->playback_dma_data = &spdif->dma_data;
+	snd_soc_dai_init_dma_data(dai, &spdif->dma_data, NULL);
 
 	return 0;
 }
@@ -135,7 +127,7 @@ static int axi_spdif_startup(struct snd_pcm_substream *substream,
 	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(spdif->clk_spdif);
+	ret = clk_prepare_enable(spdif->clk_ref);
 	if (ret)
 		return ret;
 
@@ -153,7 +145,7 @@ static void axi_spdif_shutdown(struct snd_pcm_substream *substream,
 	regmap_update_bits(spdif->regmap, AXI_SPDIF_REG_CTRL,
 		AXI_SPDIF_CTRL_TXEN, 0);
 
-	clk_disable_unprepare(spdif->clk_spdif);
+	clk_disable_unprepare(spdif->clk_ref);
 }
 
 static const struct snd_soc_dai_ops axi_spdif_dai_ops = {
@@ -168,14 +160,14 @@ static struct snd_soc_dai_driver axi_spdif_dai = {
 	.playback = {
 		.channels_min = 2,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT,
+		.rates = SNDRV_PCM_RATE_KNOT,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 	.ops = &axi_spdif_dai_ops,
 };
 
 static const struct snd_soc_component_driver axi_spdif_component = {
-	.name		= "axi-spdif",
+	.name = "axi-spdif",
 };
 
 static const struct regmap_config axi_spdif_regmap_config = {
@@ -199,9 +191,9 @@ static int axi_spdif_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, spdif);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	base = devm_request_and_ioremap(&pdev->dev, res);
-	if (!base)
-		return -EBUSY;
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
 
 	spdif->regmap = devm_regmap_init_mmio(&pdev->dev, base,
 					    &axi_spdif_regmap_config);
@@ -212,9 +204,9 @@ static int axi_spdif_probe(struct platform_device *pdev)
 	if (IS_ERR(spdif->clk))
 		return PTR_ERR(spdif->clk);
 
-	spdif->clk_spdif = devm_clk_get(&pdev->dev, "spdif");
-	if (IS_ERR(spdif->clk_spdif))
-		return PTR_ERR(spdif->clk_spdif);
+	spdif->clk_ref = devm_clk_get(&pdev->dev, "ref");
+	if (IS_ERR(spdif->clk_ref))
+		return PTR_ERR(spdif->clk_ref);
 
 	ret = clk_prepare_enable(spdif->clk);
 	if (ret)
@@ -224,7 +216,7 @@ static int axi_spdif_probe(struct platform_device *pdev)
 	spdif->dma_data.addr_width = 4;
 	spdif->dma_data.maxburst = 1;
 
-	spdif->ratnum.num = clk_get_rate(spdif->clk_spdif) / 128;
+	spdif->ratnum.num = clk_get_rate(spdif->clk_ref) / 128;
 	spdif->ratnum.den_step = 1;
 	spdif->ratnum.den_min = 1;
 	spdif->ratnum.den_max = 64;
@@ -232,16 +224,19 @@ static int axi_spdif_probe(struct platform_device *pdev)
 	spdif->rate_constraints.rats = &spdif->ratnum;
 	spdif->rate_constraints.nrats = 1;
 
-	ret = snd_soc_register_component(&pdev->dev, &axi_spdif_component,
+	ret = devm_snd_soc_register_component(&pdev->dev, &axi_spdif_component,
 					 &axi_spdif_dai, 1);
 	if (ret)
-		return ret;
+		goto err_clk_disable;
 
-	ret = snd_dmaengine_pcm_register(&pdev->dev, NULL,
-			SND_DMAENGINE_PCM_FLAG_NO_RESIDUE);
+	ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
 	if (ret)
-		snd_soc_unregister_component(&pdev->dev);
+		goto err_clk_disable;
 
+	return 0;
+
+err_clk_disable:
+	clk_disable_unprepare(spdif->clk);
 	return ret;
 }
 
@@ -250,9 +245,6 @@ static int axi_spdif_dev_remove(struct platform_device *pdev)
 	struct axi_spdif *spdif = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(spdif->clk);
-
-	snd_dmaengine_pcm_unregister(&pdev->dev);
-	snd_soc_unregister_component(&pdev->dev);
 
 	return 0;
 }

@@ -543,9 +543,9 @@ struct dma_pl330_chan {
 	/* DMA-Engine Channel */
 	struct dma_chan chan;
 
-	/* List of to be submitted descriptors */
+	/* List of submitted descriptors */
 	struct list_head submitted_list;
-	/* List of to be issued descriptors */
+	/* List of issued descriptors */
 	struct list_head work_list;
 	/* List of completed descriptors */
 	struct list_head completed_list;
@@ -2883,6 +2883,7 @@ static int pl330_dma_device_slave_caps(struct dma_chan *dchan,
 	caps->directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV);
 	caps->cmd_pause = false;
 	caps->cmd_terminate = true;
+	caps->residue_granularity = DMA_RESIDUE_GRANULARITY_DESCRIPTOR;
 
 	return 0;
 }

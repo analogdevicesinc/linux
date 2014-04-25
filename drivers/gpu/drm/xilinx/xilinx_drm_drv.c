@@ -308,6 +308,8 @@ static void xilinx_drm_lastclose(struct drm_device *drm)
 {
 	struct xilinx_drm_private *private = drm->dev_private;
 
+	xilinx_drm_crtc_restore(private->crtc);
+
 	drm_fbdev_cma_restore_mode(private->fbdev);
 }
 
@@ -399,7 +401,9 @@ static int xilinx_drm_platform_probe(struct platform_device *pdev)
 /* exit xilinx drm platform */
 static int xilinx_drm_platform_remove(struct platform_device *pdev)
 {
-	drm_platform_exit(&xilinx_drm_driver, pdev);
+	struct xilinx_drm_private *private = platform_get_drvdata(pdev);
+
+	drm_put_dev(private->drm);
 
 	return 0;
 }

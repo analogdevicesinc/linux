@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/version.h>
 
+#include <linux/v4l2-subdev.h>
 #include <linux/videodev2.h>
 
 #include <media/v4l2-common.h>
@@ -27,6 +28,9 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-device.h>
 #include <media/videobuf2-core.h>
+
+#define CREATE_TRACE_POINTS
+#include <trace/events/v4l2.h>
 
 /* Zero out the end of the struct pointed to by p.  Everything after, but
  * not including, the specified field is cleared. */
@@ -829,6 +833,14 @@ static void v4l_print_freq_band(const void *arg, bool write_only)
 			p->tuner, p->type, p->index,
 			p->capability, p->rangelow,
 			p->rangehigh, p->modulation);
+}
+
+static void v4l_print_edid(const void *arg, bool write_only)
+{
+	const struct v4l2_edid *p = arg;
+
+	pr_cont("pad=%u, start_block=%u, blocks=%u\n",
+		p->pad, p->start_block, p->blocks);
 }
 
 static void v4l_print_u32(const void *arg, bool write_only)
@@ -2006,6 +2018,8 @@ static struct v4l2_ioctl_info v4l2_ioctls[] = {
 	IOCTL_INFO_FNC(VIDIOC_QUERYMENU, v4l_querymenu, v4l_print_querymenu, INFO_FL_CTRL | INFO_FL_CLEAR(v4l2_querymenu, index)),
 	IOCTL_INFO_STD(VIDIOC_G_INPUT, vidioc_g_input, v4l_print_u32, 0),
 	IOCTL_INFO_FNC(VIDIOC_S_INPUT, v4l_s_input, v4l_print_u32, INFO_FL_PRIO),
+	IOCTL_INFO_STD(VIDIOC_G_EDID, vidioc_g_edid, v4l_print_edid, INFO_FL_CLEAR(v4l2_edid, edid)),
+	IOCTL_INFO_STD(VIDIOC_S_EDID, vidioc_s_edid, v4l_print_edid, INFO_FL_PRIO | INFO_FL_CLEAR(v4l2_edid, edid)),
 	IOCTL_INFO_STD(VIDIOC_G_OUTPUT, vidioc_g_output, v4l_print_u32, 0),
 	IOCTL_INFO_FNC(VIDIOC_S_OUTPUT, v4l_s_output, v4l_print_u32, INFO_FL_PRIO),
 	IOCTL_INFO_FNC(VIDIOC_ENUMOUTPUT, v4l_enumoutput, v4l_print_enumoutput, INFO_FL_CLEAR(v4l2_output, index)),
@@ -2218,9 +2232,9 @@ static int check_array_args(unsigned int cmd, void *parg, size_t *array_size,
 		break;
 	}
 
-	case VIDIOC_SUBDEV_G_EDID:
-	case VIDIOC_SUBDEV_S_EDID: {
-		struct v4l2_subdev_edid *edid = parg;
+	case VIDIOC_G_EDID:
+	case VIDIOC_S_EDID: {
+		struct v4l2_edid *edid = parg;
 
 		if (edid->blocks) {
 			if (edid->blocks > 256) {
@@ -2249,6 +2263,23 @@ static int check_array_args(unsigned int cmd, void *parg, size_t *array_size,
 			*kernel_ptr = (void *)&ctrls->controls;
 			*array_size = sizeof(struct v4l2_ext_control)
 				    * ctrls->count;
+			ret = 1;
+		}
+		break;
+	}
+
+	case VIDIOC_SUBDEV_G_ROUTING:
+	case VIDIOC_SUBDEV_S_ROUTING: {
+		struct v4l2_subdev_routing *route = parg;
+
+		if (route->num_routes > 0) {
+			if (route->num_routes > 256)
+				return -EINVAL;
+
+			*user_ptr = (void __user *)route->routes;
+			*kernel_ptr = (void *)&route->routes;
+			*array_size = sizeof(struct v4l2_plane)
+				    * route->num_routes;
 			ret = 1;
 		}
 		break;
@@ -2338,6 +2369,12 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 	err = func(file, cmd, parg);
 	if (err == -ENOIOCTLCMD)
 		err = -ENOTTY;
+	if (err == 0) {
+		if (cmd == VIDIOC_DQBUF)
+			trace_v4l2_dqbuf(video_devdata(file)->minor, parg);
+		else if (cmd == VIDIOC_QBUF)
+			trace_v4l2_qbuf(video_devdata(file)->minor, parg);
+	}
 
 	if (has_array_args) {
 		*kernel_ptr = user_ptr;

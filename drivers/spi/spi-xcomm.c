@@ -305,7 +305,7 @@ static int spi_xcomm_probe(struct i2c_client *i2c,
 	master->dev.of_node = i2c->dev.of_node;
 	i2c_set_clientdata(i2c, master);
 
-	ret = spi_register_master(master);
+	ret = devm_spi_register_master(&i2c->dev, master);
 	if (ret < 0) {
 		spi_master_put(master);
 		return ret;
@@ -324,7 +324,6 @@ static int spi_xcomm_remove(struct i2c_client *i2c)
 	struct spi_xcomm *spi_xcomm = spi_master_get_devdata(master);
 
 	spi_xcomm_gpio_remove(spi_xcomm);
-	spi_unregister_master(master);
 
 	return 0;
 }

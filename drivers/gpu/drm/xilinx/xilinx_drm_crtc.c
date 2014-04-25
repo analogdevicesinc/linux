@@ -45,6 +45,11 @@ struct xilinx_drm_crtc {
 	struct xilinx_vtc *vtc;
 	struct xilinx_drm_plane_manager *plane_manager;
 	int dpms;
+	unsigned int default_zpos;
+	unsigned int default_alpha;
+	unsigned int alpha;
+	struct drm_property *zpos_prop;
+	struct drm_property *alpha_prop;
 	struct drm_pending_vblank_event *event;
 };
 
@@ -159,7 +164,7 @@ static int xilinx_drm_crtc_mode_set(struct drm_crtc *base_crtc,
 					 adjusted_mode->vdisplay);
 
 	/* configure a plane: vdma and osd layer */
-	ret = xilinx_drm_plane_mode_set(crtc->priv_plane, base_crtc,
+	ret = xilinx_drm_plane_mode_set(crtc->priv_plane,
 					base_crtc->fb, 0, 0,
 					adjusted_mode->hdisplay,
 					adjusted_mode->vdisplay,
@@ -182,7 +187,7 @@ static int _xilinx_drm_crtc_mode_set_base(struct drm_crtc *base_crtc,
 	int ret;
 
 	/* configure a plane */
-	ret = xilinx_drm_plane_mode_set(crtc->priv_plane, base_crtc,
+	ret = xilinx_drm_plane_mode_set(crtc->priv_plane,
 					fb, 0, 0,
 					base_crtc->hwmode.hdisplay,
 					base_crtc->hwmode.vdisplay,
@@ -318,6 +323,25 @@ static int xilinx_drm_crtc_page_flip(struct drm_crtc *base_crtc,
 	return 0;
 }
 
+/* set property of a plane */
+static int xilinx_drm_crtc_set_property(struct drm_crtc *base_crtc,
+					struct drm_property *property,
+					uint64_t val)
+{
+	struct xilinx_drm_crtc *crtc = to_xilinx_crtc(base_crtc);
+
+	if (property == crtc->zpos_prop)
+		xilinx_drm_plane_set_zpos(crtc->priv_plane, val);
+	else if (property == crtc->alpha_prop)
+		xilinx_drm_plane_set_alpha(crtc->priv_plane, val);
+	else
+		return -EINVAL;
+
+	drm_object_property_set_value(&base_crtc->base, property, val);
+
+	return 0;
+}
+
 /* vblank interrupt handler */
 static void xilinx_drm_crtc_vblank_handler(void *data)
 {
@@ -350,6 +374,38 @@ void xilinx_drm_crtc_disable_vblank(struct drm_crtc *base_crtc)
 	xilinx_vtc_disable_vblank_intr(crtc->vtc);
 }
 
+/**
+ * xilinx_drm_crtc_restore - Restore the crtc states
+ * @base_crtc: base crtc object
+ *
+ * Restore the crtc states to the default ones. The request is propagated
+ * to the plane driver.
+ */
+void xilinx_drm_crtc_restore(struct drm_crtc *base_crtc)
+{
+	struct xilinx_drm_crtc *crtc = to_xilinx_crtc(base_crtc);
+
+	/*
+	 * Reinitialize the property values, so correct values are read
+	 * for these properties.
+	 */
+	if (crtc->zpos_prop) {
+		xilinx_drm_plane_set_zpos(crtc->priv_plane, crtc->default_zpos);
+		drm_object_property_set_value(&base_crtc->base, crtc->zpos_prop,
+					      crtc->default_zpos);
+	}
+
+	if (crtc->alpha_prop) {
+		xilinx_drm_plane_set_alpha(crtc->priv_plane,
+					   crtc->default_alpha);
+		drm_object_property_set_value(&base_crtc->base,
+					      crtc->alpha_prop,
+					      crtc->default_alpha);
+	}
+
+	xilinx_drm_plane_restore(crtc->plane_manager);
+}
+
 /* check max width */
 unsigned int xilinx_drm_crtc_get_max_width(struct drm_crtc *base_crtc)
 {
@@ -378,7 +434,40 @@ static struct drm_crtc_funcs xilinx_drm_crtc_funcs = {
 	.destroy	= xilinx_drm_crtc_destroy,
 	.set_config	= drm_crtc_helper_set_config,
 	.page_flip	= xilinx_drm_crtc_page_flip,
+	.set_property	= xilinx_drm_crtc_set_property,
 };
+
+/* attach crtc properties */
+static void xilinx_drm_crtc_attach_property(struct drm_crtc *base_crtc)
+{
+	struct xilinx_drm_crtc *crtc = to_xilinx_crtc(base_crtc);
+	int num_planes;
+
+	num_planes = xilinx_drm_plane_get_num_planes(crtc->plane_manager);
+	if (num_planes <= 1)
+		return;
+
+	crtc->zpos_prop = drm_property_create_range(base_crtc->dev, 0, "zpos",
+						    0, num_planes - 1);
+	if (crtc->zpos_prop) {
+		crtc->default_zpos =
+			xilinx_drm_plane_get_default_zpos(crtc->priv_plane);
+		drm_object_attach_property(&base_crtc->base, crtc->zpos_prop,
+					   crtc->default_zpos);
+		xilinx_drm_plane_set_zpos(crtc->priv_plane, crtc->default_zpos);
+	}
+
+	crtc->default_alpha = xilinx_drm_plane_get_max_alpha(crtc->priv_plane);
+	crtc->alpha_prop = drm_property_create_range(base_crtc->dev, 0,
+						      "alpha", 0,
+						      crtc->default_alpha);
+	if (crtc->alpha_prop) {
+		drm_object_attach_property(&base_crtc->base, crtc->alpha_prop,
+					   crtc->default_alpha);
+		xilinx_drm_plane_set_alpha(crtc->priv_plane,
+					   crtc->default_alpha);
+	}
+}
 
 /* create crtc */
 struct drm_crtc *xilinx_drm_crtc_create(struct drm_device *drm)
@@ -470,6 +559,8 @@ struct drm_crtc *xilinx_drm_crtc_create(struct drm_device *drm)
 		goto err_out;
 	}
 	drm_crtc_helper_add(&crtc->base, &xilinx_drm_crtc_helper_funcs);
+
+	xilinx_drm_crtc_attach_property(&crtc->base);
 
 	return &crtc->base;
 

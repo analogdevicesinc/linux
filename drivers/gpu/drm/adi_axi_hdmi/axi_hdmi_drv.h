@@ -29,6 +29,7 @@ enum axi_hdmi_version {
 };
 
 struct axi_hdmi_private {
+	struct drm_device *drm_dev;
 	struct drm_fbdev_cma *fbdev;
 	struct drm_crtc *crtc;
 	struct axi_hdmi_encoder *encoder;

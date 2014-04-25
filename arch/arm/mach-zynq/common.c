@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/clk/zynq.h>
 #include <linux/clocksource.h>
 #include <linux/of_address.h>
@@ -67,13 +68,21 @@ static struct platform_device zynq_cpuidle_device = {
 #ifdef CONFIG_CACHE_L2X0
 static int __init zynq_l2c_init(void)
 {
-	/* 64KB way size, 8-way associativity, parity disabled,
-	 * prefetching option */
-#ifndef	CONFIG_XILINX_L2_PREFETCH
-	return l2x0_of_init(0x02060000, 0xF0F0FFFF);
-#else
-	return l2x0_of_init(0x72060000, 0xF0F0FFFF);
+	u32 auxctrl;
+
+	/*
+	 * 64KB way size, 8-way associativity, parity disabled,
+	 * prefetching option, shared attribute override enable
+	 */
+	auxctrl = L2X0_AUX_CTRL_SHARE_OVERRIDE_EN_MASK |
+			L2X0_AUX_CTRL_WAY_SIZE64K_MASK |
+			L2X0_AUX_CTRL_REPLACE_POLICY_RR_MASK;
+#ifdef CONFIG_XILINX_L2_PREFETCH
+	auxctrl |= L2X0_AUX_CTRL_EARLY_BRESP_EN_MASK |
+			L2X0_AUX_CTRL_INSTR_PREFETCH_EN_MASK |
+			L2X0_AUX_CTRL_DATA_PREFETCH_EN_MASK;
 #endif
+	return l2x0_of_init(auxctrl, 0xF0F0FFFF);
 }
 early_initcall(zynq_l2c_init);
 #endif
@@ -114,11 +123,16 @@ static void __init zynq_init_machine(void)
 
 	platform_device_register(&zynq_cpuidle_device);
 	platform_device_register_full(&devinfo);
+
+	zynq_slcr_init();
 }
 
 static void __init zynq_timer_init(void)
 {
-	zynq_slcr_init();
+	zynq_early_slcr_init();
+
+	zynq_clock_init();
+	of_clk_init(NULL);
 	clocksource_of_init();
 }
 

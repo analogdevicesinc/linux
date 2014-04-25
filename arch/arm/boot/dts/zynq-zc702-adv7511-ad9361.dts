@@ -67,11 +67,11 @@
 
 		fmc_spi: spi@e0006000 {
 			bus-num = <1>;
-			compatible = "xlnx,zynq-spi-1.00.a", "xlnx,ps7-spi-1.00.a";
+			compatible = "cdns,spi-r1p6", "xlnx,zynq-spi-1.00.a", "xlnx,ps7-spi-1.00.a";
 			interrupt-parent = <&gic>;
-			interrupts = <0 26 4>;
-			clock-names = "ref_clk", "aper_clk";
-			clocks = <&clkc 25>, <&clkc 34>;
+			interrupts = < 0 26 4 >;
+			clock-names = "ref_clk", "aper_clk", "pclk";
+			clocks = <&clkc 25>, <&clkc 34>, <&clkc 34>;
 			num-chip-select = <4>;
 			reg = <0xe0006000 0x1000>;
 			speed-hz = <100000000>;
@@ -127,8 +127,8 @@
 			reg = <0x75c00000 0x1000>;
 			dmas = <&ps7_dma 0>;
 			dma-names = "tx";
-			clocks = <&clkc 15 &audio_clock>;
-			clock-names = "axi", "spdif";
+			clocks = <&clkc 15>, <&audio_clock>, <&audio_clock>;
+			clock-names = "axi", "ref", "spdif";
 		};
 
 		adv7511_hdmi_snd: adv7511_hdmi_snd {

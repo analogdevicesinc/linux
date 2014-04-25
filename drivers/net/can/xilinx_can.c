@@ -500,7 +500,7 @@ static int xcan_rx(struct net_device *ndev)
 		/* The received frame is a standard format frame */
 		cf->can_id = (id_xcan & XCAN_IDR_ID1_MASK) >>
 				XCAN_IDR_ID1_SHIFT;
-		if (id_xcan & XCAN_IDR_RTR_MASK)
+		if (id_xcan & XCAN_IDR_SRR_MASK)
 			cf->can_id |= CAN_RTR_FLAG;
 	}
 
@@ -1038,7 +1038,7 @@ static int xcan_probe(struct platform_device *pdev)
 
 	/* Check for type of CAN device */
 	if (of_device_is_compatible(pdev->dev.of_node,
-				    "xlnx,zynq-can-1.00.a")) {
+				    "xlnx,zynq-can-1.0")) {
 		priv->aperclk = devm_clk_get(&pdev->dev, "aper_clk");
 		if (IS_ERR(priv->aperclk)) {
 			dev_err(&pdev->dev, "aper clock not found\n");
@@ -1126,7 +1126,7 @@ static int xcan_remove(struct platform_device *pdev)
 
 /* Match table for OF platform binding */
 static struct of_device_id xcan_of_match[] = {
-	{ .compatible = "xlnx,zynq-can-1.00.a", },
+	{ .compatible = "xlnx,zynq-can-1.0", },
 	{ .compatible = "xlnx,axi-can-1.00.a", },
 	{ /* end of list */ },
 };

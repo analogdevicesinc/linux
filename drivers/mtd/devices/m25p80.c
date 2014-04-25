@@ -41,7 +41,7 @@
 #define	OPCODE_WRSR		0x01	/* Write status register 1 byte */
 #define	OPCODE_NORM_READ	0x03	/* Read data bytes (low frequency) */
 #define	OPCODE_FAST_READ	0x0b	/* Read data bytes (high frequency) */
-#define OPCODE_QUAD_READ	0x6b	/* Quad read command */
+#define	OPCODE_QUAD_READ        0x6b    /* Read data bytes */
 #define	OPCODE_PP		0x02	/* Page program (up to 256 bytes) */
 #define OPCODE_QPP		0x32	/* Quad page program */
 #define	OPCODE_BE_4K		0x20	/* Erase 4KiB block */
@@ -50,12 +50,15 @@
 #define	OPCODE_CHIP_ERASE	0xc7	/* Erase whole flash chip */
 #define	OPCODE_SE		0xd8	/* Sector erase (usually 64KiB) */
 #define	OPCODE_RDID		0x9f	/* Read JEDEC ID */
+#define	OPCODE_RDCR             0x35    /* Read configuration register */
 #define OPCODE_RDFSR		0x70	/* Read Flag Status Register */
 #define OPCODE_WREAR		0xc5	/* Write Extended Address Register */
+#define OPCODE_RDEAR		0xc8	/* Read Extended Address Register */
 
 /* 4-byte address opcodes - used on Spansion and some Macronix flashes. */
 #define	OPCODE_NORM_READ_4B	0x13	/* Read data bytes (low frequency) */
 #define	OPCODE_FAST_READ_4B	0x0c	/* Read data bytes (high frequency) */
+#define	OPCODE_QUAD_READ_4B	0x6c    /* Read data bytes */
 #define	OPCODE_PP_4B		0x12	/* Page program (up to 256 bytes) */
 #define	OPCODE_SE_4B		0xdc	/* Sector erase (usually 64KiB) */
 
@@ -81,9 +84,18 @@
 #define	SR_BP2			0x10	/* Block protect 2 */
 #define	SR_SRWD			0x80	/* SR write protect */
 
+#define SR_QUAD_EN_MX           0x40    /* Macronix Quad I/O */
+
+/* Configuration Register bits. */
+#define CR_QUAD_EN_SPAN		0x2     /* Spansion Quad I/O */
+
+/* Extended/Bank Address Register bits */
+#define EAR_SEGMENT_MASK	0x7	/* 128 Mb segment mask */
+
 /* Flag Status Register bits. */
 #define FSR_RDY			0x80	/* Ready/Busy program erase
 					controller */
+
 /* Define max times to check status register before we give up. */
 #define	MAX_READY_WAIT_JIFFIES	(480 * HZ) /* N25Q specs 480s max chip erase */
 #define	MAX_CMD_SIZE		6
@@ -91,6 +103,12 @@
 #define JEDEC_MFR(_jedec_id)	((_jedec_id) >> 16)
 
 /****************************************************************************/
+
+enum read_type {
+	M25P80_NORMAL = 0,
+	M25P80_FAST,
+	M25P80_QUAD,
+};
 
 struct m25p {
 	struct spi_device	*spi;
@@ -102,14 +120,13 @@ struct m25p {
 	u8			read_opcode;
 	u8			program_opcode;
 	u8			*command;
-	bool			fast_read;
+	enum read_type		flash_read;
 	u16			curbank;
 	u32			jedec_id;
 	bool			check_fsr;
 	bool			shift;
 	bool			isparallel;
 	bool			isstacked;
-	u8			dummycount;
 };
 
 static inline struct m25p *mtd_to_m25p(struct mtd_info *mtd)
@@ -161,6 +178,26 @@ static int read_fsr(struct m25p *flash)
 static int read_sr(struct m25p *flash)
 {
 	return read_spi_reg(flash, OPCODE_RDSR, "SR");
+}
+
+/*
+ * Read configuration register, returning its value in the
+ * location. Return the configuration register value.
+ * Returns negative if error occured.
+ */
+static int read_cr(struct m25p *flash)
+{
+	u8 code = OPCODE_RDCR;
+	int ret;
+	u8 val;
+
+	ret = spi_write_then_read(flash->spi, &code, 1, &val, 1);
+	if (ret < 0) {
+		dev_err(&flash->spi->dev, "error %d reading CR\n", ret);
+		return ret;
+	}
+
+	return val;
 }
 
 /*
@@ -242,6 +279,28 @@ static inline int set_4byte(struct m25p *flash, u32 jedec_id, int enable)
 	}
 }
 
+/**
+ * read_ear - Get the extended/bank address register value
+ * @flash:	Pointer to the flash control structure
+ *
+ * This routine reads the Extended/bank address register value
+ *
+ * Return:	Negative if error occured.
+ */
+static int read_ear(struct m25p *flash)
+{
+	u8 code;
+
+	if (JEDEC_MFR(flash->jedec_id) == CFI_MFR_AMD)
+		code = OPCODE_BRRD;
+	else if (JEDEC_MFR(flash->jedec_id) == CFI_MFR_ST)
+		code = OPCODE_RDEAR;
+	else
+		return -EINVAL;
+
+	return read_spi_reg(flash, code, "EAR");
+}
+
 /*
  * Service routine to read status register until ready, or timeout occurs.
  * Returns non-zero if error.
@@ -312,6 +371,95 @@ static int write_ear(struct m25p *flash, u32 addr)
 	flash->curbank = ear;
 
 	return 0;
+}
+
+/*
+ * Write status Register and configuration register with 2 bytes
+ * The first byte will be written to the status register, while the
+ * second byte will be written to the configuration register.
+ * Return negative if error occured.
+ */
+static int write_sr_cr(struct m25p *flash, u16 val)
+{
+	flash->command[0] = OPCODE_WRSR;
+	flash->command[1] = val & 0xff;
+	flash->command[2] = (val >> 8);
+
+	return spi_write(flash->spi, flash->command, 3);
+}
+
+static int macronix_quad_enable(struct m25p *flash)
+{
+	int ret, val;
+	u8 cmd[2];
+	cmd[0] = OPCODE_WRSR;
+
+	val = read_sr(flash);
+	cmd[1] = val | SR_QUAD_EN_MX;
+	write_enable(flash);
+
+	spi_write(flash->spi, &cmd, 2);
+
+	if (wait_till_ready(flash))
+		return 1;
+
+	ret = read_sr(flash);
+	if (!(ret > 0 && (ret & SR_QUAD_EN_MX))) {
+		dev_err(&flash->spi->dev, "Macronix Quad bit not set\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int spansion_quad_enable(struct m25p *flash)
+{
+	int ret;
+	int quad_en = CR_QUAD_EN_SPAN << 8;
+
+	write_enable(flash);
+
+	ret = write_sr_cr(flash, quad_en);
+	if (ret < 0) {
+		dev_err(&flash->spi->dev,
+			"error while writing configuration register\n");
+		return -EINVAL;
+	}
+
+	/* read back and check it */
+	ret = read_cr(flash);
+	if (!(ret > 0 && (ret & CR_QUAD_EN_SPAN))) {
+		dev_err(&flash->spi->dev, "Spansion Quad bit not set\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int set_quad_mode(struct m25p *flash, u32 jedec_id)
+{
+	int status;
+
+	switch (JEDEC_MFR(jedec_id)) {
+	case CFI_MFR_MACRONIX:
+		status = macronix_quad_enable(flash);
+		if (status) {
+			dev_err(&flash->spi->dev,
+				"Macronix quad-read not enabled\n");
+			return -EINVAL;
+		}
+		return status;
+	/*
+	 * Revisit
+	 * Quad enable needs to be done explicitly only for spansion and
+	 * winbond devices. This is a non-volatile configuration that
+	 * only needs to be done once.
+	 * Especially with parallel and stacked configurations,
+	 * a direct call to spansion_quad_enable is not guaranteed to work.
+	 */
+	default:
+		return 0;
+	}
 }
 
 /*
@@ -480,6 +628,35 @@ static int m25p80_erase(struct mtd_info *mtd, struct erase_info *instr)
 }
 
 /*
+ * Dummy Cycle calculation for different type of read.
+ * It can be used to support more commands with
+ * different dummy cycle requirements.
+ */
+static inline int m25p80_dummy_cycles_read(struct m25p *flash)
+{
+	switch (flash->flash_read) {
+	case M25P80_FAST:
+	case M25P80_QUAD:
+		return 1;
+	case M25P80_NORMAL:
+		return 0;
+	default:
+		dev_err(&flash->spi->dev, "No valid read type supported\n");
+		return -1;
+	}
+}
+
+static inline unsigned int m25p80_rx_nbits(const struct m25p *flash)
+{
+	switch (flash->flash_read) {
+	case M25P80_QUAD:
+		return 4;
+	default:
+		return 0;
+	}
+}
+
+/*
  * Read an address range from the flash chip.  The address range
  * may be any size provided it is within the physical boundaries.
  */
@@ -490,6 +667,7 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	struct spi_transfer t[2];
 	struct spi_message m;
 	uint8_t opcode;
+	int dummy;
 
 	pr_debug("%s: %s from 0x%08x, len %zd\n", dev_name(&flash->spi->dev),
 			__func__, (u32)from, len);
@@ -497,11 +675,18 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	spi_message_init(&m);
 	memset(t, 0, (sizeof t));
 
+	dummy =  m25p80_dummy_cycles_read(flash);
+	if (dummy < 0) {
+		dev_err(&flash->spi->dev, "No valid read command supported\n");
+		return -EINVAL;
+	}
+
 	t[0].tx_buf = flash->command;
-	t[0].len = m25p_cmdsz(flash) + flash->dummycount;
+	t[0].len = m25p_cmdsz(flash) + dummy;
 	spi_message_add_tail(&t[0], &m);
 
 	t[1].rx_buf = buf;
+	t[1].rx_nbits = m25p80_rx_nbits(flash);
 	t[1].len = len;
 	spi_message_add_tail(&t[1], &m);
 
@@ -517,8 +702,7 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 
 	spi_sync(flash->spi, &m);
 
-	*retlen = m.actual_length - m25p_cmdsz(flash) -
-			flash->dummycount;
+	*retlen = m.actual_length - m25p_cmdsz(flash) - dummy;
 
 	return 0;
 }
@@ -918,7 +1102,8 @@ struct flash_info {
 #define	SST_WRITE	0x04		/* use SST byte programming */
 #define	M25P_NO_FR	0x08		/* Can't do fastread */
 #define	SECT_4K_PMC	0x10		/* OPCODE_BE_4K_PMC works uniformly */
-#define	SECT_32K	0x20		/* OPCODE_BE_32K */
+#define	M25P80_QUAD_READ	0x20    /* Flash supports Quad Read */
+#define	SECT_32K	0x80		/* OPCODE_BE_32K */
 #define E_FSR		0x40		/* Flag SR exists for flash */
 };
 
@@ -997,22 +1182,29 @@ static const struct spi_device_id m25p_ids[] = {
 	{ "mx25l12855e", INFO(0xc22618, 0, 64 * 1024, 256, 0) },
 	{ "mx25l25635e", INFO(0xc22019, 0, 64 * 1024, 512, 0) },
 	{ "mx25l25655e", INFO(0xc22619, 0, 64 * 1024, 512, 0) },
-	{ "mx66l51235l", INFO(0xc2201a, 0, 64 * 1024, 1024, 0) },
+	{ "mx66l51235l", INFO(0xc2201a, 0, 64 * 1024, 1024, M25P80_QUAD_READ) },
 
 	/* Micron */
-	{ "n25q064",  INFO(0x20ba17, 0, 64 * 1024, 128, 0) },
-	{ "n25q128a11",  INFO(0x20bb18, 0, 64 * 1024, 256, 0) },
-	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024, 256, 0) },
+	{ "n25q064",  INFO(0x20ba17, 0, 64 * 1024, 128, M25P80_QUAD_READ) },
+	{ "n25q128a11",  INFO(0x20bb18, 0, 64 * 1024, 256, M25P80_QUAD_READ) },
+	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024, 256, M25P80_QUAD_READ) },
 	{ "n25q256a", INFO(0x20ba19, 0, 64 * 1024, 512, SECT_4K) },
 	/* Numonyx flash n25q128 - FIXME check the name */
-	{ "n25q128",   INFO(0x20bb18, 0, 64 * 1024, 256, 0) },
-	{ "n25q128a11",  INFO(0x20bb18, 0, 64 * 1024, 256, E_FSR) },
-	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024, 256, E_FSR) },
-	{ "n25q256a13", INFO(0x20ba19,  0, 64 * 1024,  512, SECT_4K | E_FSR) },
-	{ "n25q256a11", INFO(0x20bb19,  0, 64 * 1024,  512, SECT_4K | E_FSR) },
-	{ "n25q512a13", INFO(0x20ba20,  0, 64 * 1024,  1024, SECT_4K | E_FSR) },
-	{ "n25q512a11", INFO(0x20bb20,  0, 64 * 1024,  1024, SECT_4K | E_FSR) },
-	{ "n25q00aa13", INFO(0x20ba21,  0, 64 * 1024,  2048, SECT_4K | E_FSR) },
+	{ "n25q128",   INFO(0x20bb18, 0, 64 * 1024, 256, M25P80_QUAD_READ) },
+	{ "n25q128a11",  INFO(0x20bb18, 0, 64 * 1024, 256,
+			      E_FSR | M25P80_QUAD_READ) },
+	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024, 256,
+			      E_FSR | M25P80_QUAD_READ) },
+	{ "n25q256a13", INFO(0x20ba19,  0, 64 * 1024,  512,
+			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+	{ "n25q256a11", INFO(0x20bb19,  0, 64 * 1024,  512,
+			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+	{ "n25q512a13", INFO(0x20ba20,  0, 64 * 1024,  1024,
+			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+	{ "n25q512a11", INFO(0x20bb20,  0, 64 * 1024,  1024,
+			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+	{ "n25q00aa13", INFO(0x20ba21,  0, 64 * 1024,  2048,
+			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
 
 	/* PMC */
 	{ "pm25lv512",   INFO(0,        0, 32 * 1024,    2, SECT_4K_PMC) },
@@ -1024,14 +1216,26 @@ static const struct spi_device_id m25p_ids[] = {
 	 */
 	{ "s25sl032p",  INFO(0x010215, 0x4d00,  64 * 1024,  64, 0) },
 	{ "s25sl064p",  INFO(0x010216, 0x4d00,  64 * 1024, 128, 0) },
-	{ "s25fl256s0", INFO(0x010219, 0x4d00, 256 * 1024, 128, 0) },
-	{ "s25fl256s1", INFO(0x010219, 0x4d01,  64 * 1024, 512, 0) },
-	{ "s25fl512s",  INFO(0x010220, 0x4d00, 256 * 1024, 256, 0) },
-	{ "s70fl01gs",  INFO(0x010221, 0x4d00, 256 * 1024, 256, 0) },
-	{ "s25sl12800", INFO(0x012018, 0x0300, 256 * 1024,  64, 0) },
-	{ "s25sl12801", INFO(0x012018, 0x0301,  64 * 1024, 256, 0) },
-	{ "s25fl129p0", INFO(0x012018, 0x4d00, 256 * 1024,  64, 0) },
-	{ "s25fl129p1", INFO(0x012018, 0x4d01,  64 * 1024, 256, 0) },
+	{ "s25fl128s0", INFO(0x012018, 0x4d00, 256 * 1024,  64,
+			     M25P80_QUAD_READ) },
+	{ "s25fl128s1", INFO(0x012018, 0x4d01,  64 * 1024, 256,
+			     M25P80_QUAD_READ) },
+	{ "s25fl256s0", INFO(0x010219, 0x4d00, 256 * 1024, 128,
+			     M25P80_QUAD_READ) },
+	{ "s25fl256s1", INFO(0x010219, 0x4d01,  64 * 1024, 512,
+			     M25P80_QUAD_READ) },
+	{ "s25fl512s",  INFO(0x010220, 0x4d00, 256 * 1024, 256,
+			     M25P80_QUAD_READ) },
+	{ "s70fl01gs",  INFO(0x010221, 0x4d00, 256 * 1024, 256,
+			     M25P80_QUAD_READ) },
+	{ "s25sl12800", INFO(0x012018, 0x0300, 256 * 1024,  64,
+			     M25P80_QUAD_READ) },
+	{ "s25sl12801", INFO(0x012018, 0x0301,  64 * 1024, 256,
+			     M25P80_QUAD_READ) },
+	{ "s25fl129p0", INFO(0x012018, 0x4d00, 256 * 1024,  64,
+			     M25P80_QUAD_READ) },
+	{ "s25fl129p1", INFO(0x012018, 0x4d01,  64 * 1024, 256,
+			     M25P80_QUAD_READ) },
 	{ "s25sl004a",  INFO(0x010212,      0,  64 * 1024,   8, 0) },
 	{ "s25sl008a",  INFO(0x010213,      0,  64 * 1024,  16, 0) },
 	{ "s25sl016a",  INFO(0x010214,      0,  64 * 1024,  32, 0) },
@@ -1086,6 +1290,7 @@ static const struct spi_device_id m25p_ids[] = {
 	{ "m25pe80", INFO(0x208014,  0, 64 * 1024, 16,       0) },
 	{ "m25pe16", INFO(0x208015,  0, 64 * 1024, 32, SECT_4K) },
 
+	{ "m25px16",    INFO(0x207115,  0, 64 * 1024, 32, SECT_4K) },
 	{ "m25px32",    INFO(0x207116,  0, 64 * 1024, 64, SECT_4K) },
 	{ "m25px32-s0", INFO(0x207316,  0, 64 * 1024, 64, SECT_4K) },
 	{ "m25px32-s1", INFO(0x206316,  0, 64 * 1024, 64, SECT_4K) },
@@ -1107,11 +1312,14 @@ static const struct spi_device_id m25p_ids[] = {
 	/* And thus, the sector size of w25q64 is set to 32KiB for */
 	/* JFFS2 support. */
 	{ "w25q64", INFO(0xef4017, 0, 64 * 1024, 128, SECT_32K) },
-	{ "w25q128", INFO(0xef4018, 0, 64 * 1024, 256, SECT_4K) },
+	{ "w25q128", INFO(0xef4018, 0, 64 * 1024, 256,
+			  SECT_4K | M25P80_QUAD_READ) },
 	{ "w25q80", INFO(0xef5014, 0, 64 * 1024,  16, SECT_4K) },
 	{ "w25q80bl", INFO(0xef4014, 0, 64 * 1024,  16, SECT_4K) },
-	{ "w25q128", INFO(0xef4018, 0, 64 * 1024, 256, SECT_4K) },
-	{ "w25q256", INFO(0xef4019, 0, 64 * 1024, 512, SECT_4K) },
+	{ "w25q128", INFO(0xef4018, 0, 64 * 1024, 256,
+			  SECT_4K | M25P80_QUAD_READ) },
+	{ "w25q256", INFO(0xef4019, 0, 64 * 1024, 512,
+			  SECT_4K | M25P80_QUAD_READ) },
 
 	/* Catalyst / On Semiconductor -- non-JEDEC */
 	{ "cat25c11", CAT25_INFO(  16, 8, 16, 1, M25P_NO_ERASE | M25P_NO_FR) },
@@ -1177,6 +1385,7 @@ static int m25p_probe(struct spi_device *spi)
 	unsigned			i;
 	struct mtd_part_parser_data	ppdata;
 	struct device_node *np = spi->dev.of_node;
+	int ret;
 
 	/* Platform data helps sort out which chip type we have, as
 	 * well as how this board partitions it.  If we don't have
@@ -1259,11 +1468,10 @@ static int m25p_probe(struct spi_device *spi)
 
 	{
 #ifdef CONFIG_OF
-		const char *comp_str;
 		u32 is_dual;
 		np = of_get_next_parent(spi->dev.of_node);
-		of_property_read_string(np, "compatible", &comp_str);
-		if (!strcmp(comp_str, "xlnx,zynq-qspi-1.00.a")) {
+		if (of_property_match_string(np, "compatible",
+		    "xlnx,zynq-qspi-1.0") >= 0) {
 			if (of_property_read_u32(np, "is-dual", &is_dual) < 0) {
 				/* Default to single if prop not defined */
 				flash->shift = 0;
@@ -1334,7 +1542,6 @@ static int m25p_probe(struct spi_device *spi)
 
 	flash->read_opcode = OPCODE_NORM_READ;
 	flash->program_opcode = OPCODE_PP;
-	flash->dummycount = 0;
 
 	if (info->flags & M25P_NO_ERASE)
 		flash->mtd.flags |= MTD_NO_ERASE;
@@ -1348,58 +1555,90 @@ static int m25p_probe(struct spi_device *spi)
 	flash->page_size = info->page_size;
 	flash->mtd.writebufsize = flash->page_size;
 
-	if (np)
+	if (np) {
 		/* If we were instantiated by DT, use it */
-		flash->fast_read = of_property_read_bool(np, "m25p,fast-read");
-	else
+		if (of_property_read_bool(np, "m25p,fast-read"))
+			flash->flash_read = M25P80_FAST;
+		else
+			flash->flash_read = M25P80_NORMAL;
+	} else {
 		/* If we weren't instantiated by DT, default to fast-read */
-		flash->fast_read = true;
+		flash->flash_read = M25P80_FAST;
+	}
 
 	/* Some devices cannot do fast-read, no matter what DT tells us */
 	if (info->flags & M25P_NO_FR)
-		flash->fast_read = false;
+		flash->flash_read = M25P80_NORMAL;
+
+	/* Quad-read mode takes precedence over fast/normal */
+	if (spi->mode & SPI_RX_QUAD && info->flags & M25P80_QUAD_READ) {
+		ret = set_quad_mode(flash, info->jedec_id);
+		if (ret) {
+			dev_err(&flash->spi->dev, "quad mode not supported\n");
+			return ret;
+		}
+		flash->flash_read = M25P80_QUAD;
+	}
 
 	/* Default commands */
-	if (flash->fast_read) {
+	switch (flash->flash_read) {
+	case M25P80_QUAD:
+		flash->read_opcode = OPCODE_QUAD_READ;
+		break;
+	case M25P80_FAST:
 		flash->read_opcode = OPCODE_FAST_READ;
-		flash->dummycount = 1;
+		break;
+	case M25P80_NORMAL:
+		flash->read_opcode = OPCODE_NORM_READ;
+		break;
+	default:
+		dev_err(&flash->spi->dev, "No Read opcode defined\n");
+		return -EINVAL;
 	}
 
 	flash->program_opcode = OPCODE_PP;
 
-	if (spi->master->flags & SPI_MASTER_QUAD_MODE) {
-		flash->read_opcode = OPCODE_QUAD_READ;
+	if (spi->master->mode_bits & SPI_TX_QUAD)
 		flash->program_opcode = OPCODE_QPP;
-		flash->dummycount = 1;
-	}
 
 	if (info->addr_width)
 		flash->addr_width = info->addr_width;
 	else if (flash->mtd.size > 0x1000000) {
 		/* enable 4-byte addressing if the device exceeds 16MiB */
 #ifdef CONFIG_OF
-		const char *comp_str;
 		np = of_get_next_parent(spi->dev.of_node);
-		of_property_read_string(np, "compatible", &comp_str);
-		if (!strcmp(comp_str, "xlnx,zynq-qspi-1.00.a")) {
+		if (of_property_match_string(np, "compatible",
+		    "xlnx,zynq-qspi-1.0") >= 0) {
+			int status;
 			flash->addr_width = 3;
 			set_4byte(flash, info->jedec_id, 0);
+			status = read_ear(flash);
+			if (status < 0)
+				dev_warn(&spi->dev, "failed to read ear reg\n");
+			else
+				flash->curbank = status & EAR_SEGMENT_MASK;
 		} else {
 #endif
-			flash->addr_width = 4;
-			if (JEDEC_MFR(info->jedec_id) == CFI_MFR_AMD) {
-				/* Dedicated 4-byte command set */
-				flash->read_opcode = flash->fast_read ?
-					OPCODE_FAST_READ_4B :
-					OPCODE_NORM_READ_4B;
-				flash->program_opcode = OPCODE_PP_4B;
-				/* No small sector erase for 4-byte
-				 * command set
-				 */
-				flash->erase_opcode = OPCODE_SE_4B;
-				flash->mtd.erasesize = info->sector_size;
-			} else
-				set_4byte(flash, info->jedec_id, 1);
+		flash->addr_width = 4;
+		if (JEDEC_MFR(info->jedec_id) == CFI_MFR_AMD) {
+			/* Dedicated 4-byte command set */
+			switch (flash->flash_read) {
+			case M25P80_QUAD:
+				flash->read_opcode = OPCODE_QUAD_READ_4B;
+				break;
+			case M25P80_FAST:
+				flash->read_opcode = OPCODE_FAST_READ_4B;
+				break;
+			case M25P80_NORMAL:
+				flash->read_opcode = OPCODE_NORM_READ_4B;
+				break;
+			}
+			flash->program_opcode = OPCODE_PP_4B;
+			/* No small sector erase for 4-byte command set */
+			flash->erase_opcode = OPCODE_SE_4B;
+			flash->mtd.erasesize = info->sector_size;
+		} else
+			set_4byte(flash, info->jedec_id, 1);
 #ifdef CONFIG_OF
 		}
 #endif
