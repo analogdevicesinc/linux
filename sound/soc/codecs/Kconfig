@@ -255,6 +255,10 @@ config SND_SOC_CS4270_VD33_ERRATA
 config SND_SOC_CS4271
 	tristate
 
+config SND_SOC_TDMC
+	select REGMAP
+	bool
+
 config SND_SOC_CX20442
 	tristate
 	depends on TTY
