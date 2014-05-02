@@ -264,6 +264,10 @@ config SND_SOC_STA32X
 config SND_SOC_STAC9766
 	tristate
 
+config SND_SOC_TDMC
+	select REGMAP
+	bool
+
 config SND_SOC_TLV320AIC23
 	tristate
 
