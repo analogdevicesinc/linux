@@ -517,6 +517,10 @@ config SND_SOC_TAS5086
 	tristate "Texas Instruments TAS5086 speaker amplifier"
 	depends on I2C
 
+config SND_SOC_TDMC
+	select REGMAP
+	bool
+
 config SND_SOC_TLV320AIC23
 	tristate
 
