@@ -343,6 +343,14 @@ struct sdma_channel {
 #define MXC_SDMA_DEFAULT_PRIORITY 1
 #define MXC_SDMA_MIN_PRIORITY 1
 #define MXC_SDMA_MAX_PRIORITY 7
+/*
+ * 0x78(SDMA_XTRIG_CONF2+4)~0x100(SDMA_CHNPRI_O) registers are reserved and
+ * can't be accessed. Skip these register touch in suspend/resume. Also below
+ * two macros are only used on i.mx6sx.
+ */
+#define MXC_SDMA_RESERVED_REG (SDMA_CHNPRI_0 - SDMA_XTRIG_CONF2 - 4)
+#define MXC_SDMA_SAVED_REG_NUM (((SDMA_CHNENBL0_IMX35 + 4 * 48) - \
+				MXC_SDMA_RESERVED_REG) / 4)
 
 #define SDMA_FIRMWARE_MAGIC 0x414d4453
 
@@ -381,6 +389,8 @@ struct sdma_engine {
 	struct device_dma_parameters	dma_parms;
 	struct sdma_channel		channel[MAX_DMA_CHANNELS];
 	struct sdma_channel_control	*channel_control;
+	u32				save_regs[MXC_SDMA_SAVED_REG_NUM];
+	const char			*fw_name;
 	void __iomem			*regs;
 	struct sdma_context_data	*context;
 	dma_addr_t			context_phys;
@@ -472,7 +482,6 @@ static struct sdma_script_start_addrs sdma_script_imx6q = {
 	.ap_2_ap_addr = 642,
 	.uart_2_mcu_addr = 817,
 	.mcu_2_app_addr = 747,
-	.per_2_per_addr = 6331,
 	.uartsh_2_mcu_addr = 1032,
 	.mcu_2_shp_addr = 960,
 	.app_2_mcu_addr = 683,
@@ -485,6 +494,24 @@ static struct sdma_driver_data sdma_imx6q = {
 	.chnenbl0 = SDMA_CHNENBL0_IMX35,
 	.num_events = 48,
 	.script_addrs = &sdma_script_imx6q,
+};
+
+static struct sdma_script_start_addrs sdma_script_imx6sx = {
+	.ap_2_ap_addr = 642,
+	.uart_2_mcu_addr = 817,
+	.mcu_2_app_addr = 747,
+	.uartsh_2_mcu_addr = 1032,
+	.mcu_2_shp_addr = 960,
+	.app_2_mcu_addr = 683,
+	.shp_2_mcu_addr = 891,
+	.spdif_2_mcu_addr = 1100,
+	.mcu_2_spdif_addr = 1134,
+};
+
+static struct sdma_driver_data sdma_imx6sx = {
+	.chnenbl0 = SDMA_CHNENBL0_IMX35,
+	.num_events = 48,
+	.script_addrs = &sdma_script_imx6sx,
 };
 
 static struct sdma_script_start_addrs sdma_script_imx7d = {
@@ -525,6 +552,9 @@ static const struct platform_device_id sdma_devtypes[] = {
 		.name = "imx6q-sdma",
 		.driver_data = (unsigned long)&sdma_imx6q,
 	}, {
+		.name = "imx6sx-sdma",
+		.driver_data = (unsigned long)&sdma_imx6sx,
+	}, {
 		.name = "imx7d-sdma",
 		.driver_data = (unsigned long)&sdma_imx7d,
 	}, {
@@ -534,6 +564,7 @@ static const struct platform_device_id sdma_devtypes[] = {
 MODULE_DEVICE_TABLE(platform, sdma_devtypes);
 
 static const struct of_device_id sdma_dt_ids[] = {
+	{ .compatible = "fsl,imx6sx-sdma", .data = &sdma_imx6sx, },
 	{ .compatible = "fsl,imx6q-sdma", .data = &sdma_imx6q, },
 	{ .compatible = "fsl,imx53-sdma", .data = &sdma_imx53, },
 	{ .compatible = "fsl,imx51-sdma", .data = &sdma_imx51, },
@@ -2017,6 +2048,7 @@ static int sdma_probe(struct platform_device *pdev)
 				dev_warn(&pdev->dev, "failed to get firmware from device tree\n");
 		}
 	}
+	sdma->fw_name = fw_name;
 
 	sdma->dma_device.dev = &pdev->dev;
 
@@ -2094,10 +2126,94 @@ static int sdma_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int sdma_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sdma_engine *sdma = platform_get_drvdata(pdev);
+	int i;
+
+	/* Do nothing if not i.MX6SX */
+	if (sdma->drvdata != &sdma_imx6sx)
+		return 0;
+
+	clk_enable(sdma->clk_ipg);
+	clk_enable(sdma->clk_ahb);
+	/* save regs */
+	for (i = 0; i < MXC_SDMA_SAVED_REG_NUM; i++) {
+		/*
+		 * 0x78(SDMA_XTRIG_CONF2+4)~0x100(SDMA_CHNPRI_O) registers are
+		 * reserved and can't be touched. Skip these regs.
+		 */
+		if (i > SDMA_XTRIG_CONF2 / 4)
+			sdma->save_regs[i] = readl_relaxed(sdma->regs +
+							   MXC_SDMA_RESERVED_REG
+							   + 4 * i);
+		else
+			sdma->save_regs[i] = readl_relaxed(sdma->regs + 4 * i);
+	}
+
+	clk_disable(sdma->clk_ipg);
+	clk_disable(sdma->clk_ahb);
+
+	return 0;
+}
+
+static int sdma_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sdma_engine *sdma = platform_get_drvdata(pdev);
+	int i, ret;
+
+	/* Do nothing if not i.MX6SX */
+	if (sdma->drvdata != &sdma_imx6sx)
+		return 0;
+
+	clk_enable(sdma->clk_ipg);
+	clk_enable(sdma->clk_ahb);
+	/* Do nothing if mega/fast mix not turned off */
+	if (readl_relaxed(sdma->regs + SDMA_H_C0PTR)) {
+		clk_disable(sdma->clk_ipg);
+		clk_disable(sdma->clk_ahb);
+		return 0;
+	}
+	/* restore regs and load firmware */
+	for (i = 0; i < MXC_SDMA_SAVED_REG_NUM; i++) {
+		/*
+		 * 0x78(SDMA_XTRIG_CONF2+4)~0x100(SDMA_CHNPRI_O) registers are
+		 * reserved and can't be touched. Skip these regs.
+		 */
+		if (i > SDMA_XTRIG_CONF2 / 4)
+			writel_relaxed(sdma->save_regs[i], sdma->regs +
+				       MXC_SDMA_RESERVED_REG + 4 * i);
+		else
+			writel_relaxed(sdma->save_regs[i] , sdma->regs + 4 * i);
+	}
+
+	/* prepare priority for channel0 to start */
+	sdma_set_channel_priority(&sdma->channel[0], MXC_SDMA_DEFAULT_PRIORITY);
+	clk_disable(sdma->clk_ipg);
+	clk_disable(sdma->clk_ahb);
+
+	ret = sdma_get_firmware(sdma, sdma->fw_name);
+	if (ret) {
+		dev_warn(&pdev->dev, "failed to get firware\n");
+		return ret;
+	}
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops sdma_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sdma_suspend, sdma_resume)
+};
+
 static struct platform_driver sdma_driver = {
 	.driver		= {
 		.name	= "imx-sdma",
 		.of_match_table = sdma_dt_ids,
+		.pm = &sdma_pm_ops,
 	},
 	.id_table	= sdma_devtypes,
 	.remove		= sdma_remove,
