@@ -10,9 +10,9 @@
 #ifndef __IIO_XILINX_XADC__
 #define __IIO_XILINX_XADC__
 
+#include <linux/interrupt.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
-#include <linux/interrupt.h>
 
 struct iio_dev;
 struct clk;
@@ -49,8 +49,8 @@ struct xadc {
 	const struct xadc_ops *ops;
 
 	uint16_t threshold[16];
-	unsigned int threshold_state;
-	unsigned int temp_hysteresis;
+	uint16_t temp_hysteresis;
+	unsigned int alarm_mask;
 
 	uint16_t *data;
 
@@ -60,13 +60,13 @@ struct xadc {
 
 	enum xadc_external_mux_mode external_mux_mode;
 
-	unsigned int ps7_alarm;
-	unsigned int ps7_masked_alarm;
-	unsigned int ps7_intmask;
-	struct delayed_work ps7_unmask_work;
+	unsigned int zynq_alarm;
+	unsigned int zynq_masked_alarm;
+	unsigned int zynq_intmask;
+	struct delayed_work zynq_unmask_work;
 
 	struct mutex mutex;
-	struct spinlock lock;
+	spinlock_t lock;
 
 	struct completion completion;
 };
@@ -84,34 +84,38 @@ struct xadc_ops {
 	unsigned int flags;
 };
 
-static inline int _xadc_read_reg(struct xadc *xadc, unsigned int reg,
+static inline int _xadc_read_adc_reg(struct xadc *xadc, unsigned int reg,
 	uint16_t *val)
 {
+	lockdep_assert_held(&xadc->mutex);
 	return xadc->ops->read(xadc, reg, val);
 }
 
-static inline int _xadc_write_reg(struct xadc *xadc, unsigned int reg,
+static inline int _xadc_write_adc_reg(struct xadc *xadc, unsigned int reg,
 	uint16_t val)
 {
+	lockdep_assert_held(&xadc->mutex);
 	return xadc->ops->write(xadc, reg, val);
 }
 
-static inline int xadc_read_reg(struct xadc *xadc, unsigned int reg,
+static inline int xadc_read_adc_reg(struct xadc *xadc, unsigned int reg,
 	uint16_t *val)
 {
 	int ret;
+
 	mutex_lock(&xadc->mutex);
-	ret = _xadc_read_reg(xadc, reg, val);
+	ret = _xadc_read_adc_reg(xadc, reg, val);
 	mutex_unlock(&xadc->mutex);
 	return ret;
 }
 
-static inline int xadc_write_reg(struct xadc *xadc, unsigned int reg,
+static inline int xadc_write_adc_reg(struct xadc *xadc, unsigned int reg,
 	uint16_t val)
 {
 	int ret;
+
 	mutex_lock(&xadc->mutex);
-	ret = _xadc_write_reg(xadc, reg, val);
+	ret = _xadc_write_adc_reg(xadc, reg, val);
 	mutex_unlock(&xadc->mutex);
 	return ret;
 }

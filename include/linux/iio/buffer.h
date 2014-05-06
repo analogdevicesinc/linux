@@ -48,6 +48,8 @@ struct iio_buffer;
  * struct iio_buffer_access_funcs - access functions for buffers.
  * @store_to:		actually store stuff to the buffer
  * @read:		try to get a specified number of elements (must exist)
+ * @data_available:	indicates whether data for reading from the buffer is
+ *			available.
  * @request_update:	if a parameter change has been marked, update underlying
  *			storage.
  * @get_bytes_per_datum:get current bytes per datum

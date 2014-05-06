@@ -21,37 +21,41 @@
 #include <linux/clk/zynq.h>
 #include <linux/clk-provider.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/io.h>
 
-static void __iomem *zynq_slcr_base_priv;
+static void __iomem *zynq_clkc_base;
 
-#define SLCR_ARMPLL_CTRL		(zynq_slcr_base_priv + 0x100)
-#define SLCR_DDRPLL_CTRL		(zynq_slcr_base_priv + 0x104)
-#define SLCR_IOPLL_CTRL			(zynq_slcr_base_priv + 0x108)
-#define SLCR_PLL_STATUS			(zynq_slcr_base_priv + 0x10c)
-#define SLCR_ARM_CLK_CTRL		(zynq_slcr_base_priv + 0x120)
-#define SLCR_DDR_CLK_CTRL		(zynq_slcr_base_priv + 0x124)
-#define SLCR_DCI_CLK_CTRL		(zynq_slcr_base_priv + 0x128)
-#define SLCR_APER_CLK_CTRL		(zynq_slcr_base_priv + 0x12c)
-#define SLCR_GEM0_CLK_CTRL		(zynq_slcr_base_priv + 0x140)
-#define SLCR_GEM1_CLK_CTRL		(zynq_slcr_base_priv + 0x144)
-#define SLCR_SMC_CLK_CTRL		(zynq_slcr_base_priv + 0x148)
-#define SLCR_LQSPI_CLK_CTRL		(zynq_slcr_base_priv + 0x14c)
-#define SLCR_SDIO_CLK_CTRL		(zynq_slcr_base_priv + 0x150)
-#define SLCR_UART_CLK_CTRL		(zynq_slcr_base_priv + 0x154)
-#define SLCR_SPI_CLK_CTRL		(zynq_slcr_base_priv + 0x158)
-#define SLCR_CAN_CLK_CTRL		(zynq_slcr_base_priv + 0x15c)
-#define SLCR_CAN_MIOCLK_CTRL		(zynq_slcr_base_priv + 0x160)
-#define SLCR_DBG_CLK_CTRL		(zynq_slcr_base_priv + 0x164)
-#define SLCR_PCAP_CLK_CTRL		(zynq_slcr_base_priv + 0x168)
-#define SLCR_TOPSW_CLK_CTRL		(zynq_slcr_base_priv + 0x16c)
-#define SLCR_FPGA0_CLK_CTRL		(zynq_slcr_base_priv + 0x170)
-#define SLCR_621_TRUE			(zynq_slcr_base_priv + 0x1c4)
-#define SLCR_SWDT_CLK_SEL		(zynq_slcr_base_priv + 0x304)
+#define SLCR_ARMPLL_CTRL		(zynq_clkc_base + 0x00)
+#define SLCR_DDRPLL_CTRL		(zynq_clkc_base + 0x04)
+#define SLCR_IOPLL_CTRL			(zynq_clkc_base + 0x08)
+#define SLCR_PLL_STATUS			(zynq_clkc_base + 0x0c)
+#define SLCR_ARM_CLK_CTRL		(zynq_clkc_base + 0x20)
+#define SLCR_DDR_CLK_CTRL		(zynq_clkc_base + 0x24)
+#define SLCR_DCI_CLK_CTRL		(zynq_clkc_base + 0x28)
+#define SLCR_APER_CLK_CTRL		(zynq_clkc_base + 0x2c)
+#define SLCR_GEM0_CLK_CTRL		(zynq_clkc_base + 0x40)
+#define SLCR_GEM1_CLK_CTRL		(zynq_clkc_base + 0x44)
+#define SLCR_SMC_CLK_CTRL		(zynq_clkc_base + 0x48)
+#define SLCR_LQSPI_CLK_CTRL		(zynq_clkc_base + 0x4c)
+#define SLCR_SDIO_CLK_CTRL		(zynq_clkc_base + 0x50)
+#define SLCR_UART_CLK_CTRL		(zynq_clkc_base + 0x54)
+#define SLCR_SPI_CLK_CTRL		(zynq_clkc_base + 0x58)
+#define SLCR_CAN_CLK_CTRL		(zynq_clkc_base + 0x5c)
+#define SLCR_CAN_MIOCLK_CTRL		(zynq_clkc_base + 0x60)
+#define SLCR_DBG_CLK_CTRL		(zynq_clkc_base + 0x64)
+#define SLCR_PCAP_CLK_CTRL		(zynq_clkc_base + 0x68)
+#define SLCR_TOPSW_CLK_CTRL		(zynq_clkc_base + 0x6c)
+#define SLCR_FPGA0_CLK_CTRL		(zynq_clkc_base + 0x70)
+#define SLCR_621_TRUE			(zynq_clkc_base + 0xc4)
+#define SLCR_SWDT_CLK_SEL		(zynq_clkc_base + 0x204)
 
 #define NUM_MIO_PINS	54
+
+#define DBG_CLK_CTRL_CLKACT_TRC		BIT(0)
+#define DBG_CLK_CTRL_CPU_1XCLKACT	BIT(1)
 
 enum zynq_clk {
 	armpll, ddrpll, iopll,
@@ -275,7 +279,7 @@ static void __init zynq_clk_setup(struct device_node *np)
 	int ret;
 	struct clk *clk;
 	char *clk_name;
-	unsigned int fclk_enable;
+	unsigned int fclk_enable = 0;
 	const char *clk_output_name[clk_max];
 	const char *cpu_parents[4];
 	const char *periph_parents[4];
@@ -300,6 +304,8 @@ static void __init zynq_clk_setup(struct device_node *np)
 	periph_parents[1] = clk_output_name[iopll];
 	periph_parents[2] = clk_output_name[armpll];
 	periph_parents[3] = clk_output_name[ddrpll];
+
+	of_property_read_u32(np, "fclk-enable", &fclk_enable);
 
 	/* ps_clk */
 	ret = of_property_read_u32(np, "ps-clk-frequency", &tmp);
@@ -555,6 +561,15 @@ static void __init zynq_clk_setup(struct device_node *np)
 			clk_output_name[cpu_1x], 0, SLCR_DBG_CLK_CTRL, 1, 0,
 			&dbgclk_lock);
 
+	/* leave debug clocks in the state the bootloader set them up to */
+	tmp = clk_readl(SLCR_DBG_CLK_CTRL);
+	if (tmp & DBG_CLK_CTRL_CLKACT_TRC)
+		if (clk_prepare_enable(clks[dbg_trc]))
+			pr_warn("%s: trace clk enable failed\n", __func__);
+	if (tmp & DBG_CLK_CTRL_CPU_1XCLKACT)
+		if (clk_prepare_enable(clks[dbg_apb]))
+			pr_warn("%s: debug APB clk enable failed\n", __func__);
+
 	/* One gated clock for all APER clocks. */
 	clks[dma] = clk_register_gate(NULL, clk_output_name[dma],
 			clk_output_name[cpu_2x], 0, SLCR_APER_CLK_CTRL, 0, 0,
@@ -626,8 +641,42 @@ static void __init zynq_clk_setup(struct device_node *np)
 
 CLK_OF_DECLARE(zynq_clkc, "xlnx,ps7-clkc", zynq_clk_setup);
 
-void __init zynq_clock_init(void __iomem *slcr_base)
+void __init zynq_clock_init(void)
 {
-	zynq_slcr_base_priv = slcr_base;
-	of_clk_init(NULL);
+	struct device_node *np;
+	struct device_node *slcr;
+	struct resource res;
+
+	np = of_find_compatible_node(NULL, NULL, "xlnx,ps7-clkc");
+	if (!np) {
+		pr_err("%s: clkc node not found\n", __func__);
+		goto np_err;
+	}
+
+	if (of_address_to_resource(np, 0, &res)) {
+		pr_err("%s: failed to get resource\n", np->name);
+		goto np_err;
+	}
+
+	slcr = of_get_parent(np);
+
+	if (slcr->data) {
+		zynq_clkc_base = (__force void __iomem *)slcr->data + res.start;
+	} else {
+		pr_err("%s: Unable to get I/O memory\n", np->name);
+		of_node_put(slcr);
+		goto np_err;
+	}
+
+	pr_info("%s: clkc starts at %p\n", __func__, zynq_clkc_base);
+
+	of_node_put(slcr);
+	of_node_put(np);
+
+	return;
+
+np_err:
+	of_node_put(np);
+	BUG();
+	return;
 }

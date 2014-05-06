@@ -1886,25 +1886,6 @@ do_hnp(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(do_hnp, S_IWUSR, NULL, do_hnp);
 
-static int zynq_otg_clk_notifier_cb(struct notifier_block *nb,
-		unsigned long event, void *data)
-{
-
-	switch (event) {
-	case PRE_RATE_CHANGE:
-		/* if a rate change is announced we need to check whether we can
-		 * maintain the current frequency by changing the clock
-		 * dividers.
-		 */
-		/* fall through */
-	case POST_RATE_CHANGE:
-		return NOTIFY_OK;
-	case ABORT_RATE_CHANGE:
-	default:
-		return NOTIFY_DONE;
-	}
-}
-
 static struct attribute *inputs_attrs[] = {
 	&dev_attr_a_bus_req.attr,
 	&dev_attr_a_bus_drop.attr,
@@ -1936,7 +1917,6 @@ static int zynq_otg_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &debug_dev_attr_group);
 	device_remove_file(&pdev->dev, &dev_attr_hsm);
 	device_remove_file(&pdev->dev, &dev_attr_registers);
-	clk_notifier_unregister(xotg->clk, &xotg->clk_rate_change_nb);
 	clk_disable_unprepare(xotg->clk);
 
 	return 0;
@@ -1991,11 +1971,6 @@ static int zynq_otg_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to enable APER clock.\n");
 		goto err;
 	}
-
-	xotg->clk_rate_change_nb.notifier_call = zynq_otg_clk_notifier_cb;
-	xotg->clk_rate_change_nb.next = NULL;
-	if (clk_notifier_register(xotg->clk, &xotg->clk_rate_change_nb))
-		dev_warn(&pdev->dev, "Unable to register clock notifier.\n");
 
 	/* OTG common part */
 	xotg->dev = &pdev->dev;
@@ -2073,7 +2048,6 @@ static int zynq_otg_probe(struct platform_device *pdev)
 	return 0;
 
 err_out_clk_disable:
-	clk_notifier_unregister(xotg->clk, &xotg->clk_rate_change_nb);
 	clk_disable_unprepare(xotg->clk);
 err:
 	zynq_otg_remove(pdev);
@@ -2267,15 +2241,10 @@ error:
 	transceiver_suspend(pdev);
 	return ret;
 }
-
-static const struct dev_pm_ops zynq_otg_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(zynq_otg_suspend, zynq_otg_resume)
-};
-#define ZYNQ_OTG_PM	(&zynq_otg_dev_pm_ops)
-
-#else /* ! CONFIG_PM_SLEEP */
-#define ZYNQ_OTG_PM	NULL
 #endif /* ! CONFIG_PM_SLEEP */
+
+static SIMPLE_DEV_PM_OPS(zynq_otg_dev_pm_ops, zynq_otg_suspend,
+			 zynq_otg_resume);
 
 #ifndef CONFIG_USB_ZYNQ_DR_OF
 static struct platform_driver zynq_otg_driver = {
@@ -2287,7 +2256,7 @@ struct platform_driver zynq_otg_driver = {
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= DRIVER_NAME,
-		.pm	= ZYNQ_OTG_PM,
+		.pm	= &zynq_otg_dev_pm_ops,
 	},
 };
 

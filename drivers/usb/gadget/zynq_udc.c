@@ -363,25 +363,6 @@ struct zynq_udc {
 #define get_pipe_by_windex(windex)	((windex & USB_ENDPOINT_NUMBER_MASK) \
 					* 2 + ((windex & USB_DIR_IN) ? 1 : 0))
 
-static int zynq_udc_clk_notifier_cb(struct notifier_block *nb,
-		unsigned long event, void *data)
-{
-
-	switch (event) {
-	case PRE_RATE_CHANGE:
-		/* if a rate change is announced we need to check whether we can
-		 * maintain the current frequency by changing the clock
-		 * dividers.
-		 */
-		/* fall through */
-	case POST_RATE_CHANGE:
-		return NOTIFY_OK;
-	case ABORT_RATE_CHANGE:
-	default:
-		return NOTIFY_DONE;
-	}
-}
-
 static int zynq_udc_clk_init(struct platform_device *pdev)
 {
 	struct zynq_usb2_platform_data *pdata = pdev->dev.platform_data;
@@ -392,11 +373,6 @@ static int zynq_udc_clk_init(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to enable APER clock.\n");
 		goto err_out_clk_put;
 	}
-
-	pdata->clk_rate_change_nb.notifier_call = zynq_udc_clk_notifier_cb;
-	pdata->clk_rate_change_nb.next = NULL;
-	if (clk_notifier_register(pdata->clk, &pdata->clk_rate_change_nb))
-		dev_warn(&pdev->dev, "Unable to register clock notifier.\n");
 
 	return 0;
 
@@ -479,11 +455,7 @@ static void done(struct zynq_ep *ep, struct zynq_req *req, int status)
 	}
 
 	if (req->mapped) {
-		dma_unmap_single(ep->udc->gadget.dev.parent,
-			req->req.dma, req->req.length,
-			ep_is_in(ep)
-				? DMA_TO_DEVICE
-				: DMA_FROM_DEVICE);
+		usb_gadget_unmap_request(&udc->gadget, &req->req, ep_is_in(ep));
 		req->req.dma = DMA_ADDR_INVALID;
 		req->mapped = 0;
 	} else
@@ -1180,11 +1152,11 @@ zynq_ep_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t gfp_flags)
 
 	/* map virtual address to hardware */
 	if (req->req.dma == DMA_ADDR_INVALID) {
-		req->req.dma = dma_map_single(ep->udc->gadget.dev.parent,
-					req->req.buf,
-					req->req.length, ep_is_in(ep)
-						? DMA_TO_DEVICE
-						: DMA_FROM_DEVICE);
+		int ret;
+
+		ret = usb_gadget_map_request(&udc->gadget, _req, ep_is_in(ep));
+		if (ret)
+			return ret;
 		req->mapped = 1;
 	} else {
 		dma_sync_single_for_device(ep->udc->gadget.dev.parent,
@@ -1743,6 +1715,7 @@ static int ep0_prime_status(struct zynq_udc *udc, int direction)
 {
 	struct zynq_req *req = udc->status_req;
 	struct zynq_ep *ep;
+	int ret;
 
 	if (direction == EP_DIR_IN)
 		udc->ep0_dir = USB_DIR_IN;
@@ -1758,9 +1731,10 @@ static int ep0_prime_status(struct zynq_udc *udc, int direction)
 	req->req.actual = 0;
 	req->req.complete = NULL;
 	req->dtd_count = 0;
-	req->req.dma = dma_map_single(ep->udc->gadget.dev.parent,
-				req->req.buf, req->req.length,
-				ep_is_in(ep) ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+	ret = usb_gadget_map_request(&udc->gadget, &req->req, ep_is_in(ep));
+	if (ret)
+		return ret;
+
 	req->mapped = 1;
 
 	if (zynq_req_to_dtd(req) == 0)
@@ -2165,7 +2139,7 @@ static void dtd_complete_irq(struct zynq_udc *udc)
 			if (status == REQ_UNCOMPLETE)
 				break;
 			/* Clear the endpoint complete events */
-			zynq_writel(bit_pos, &dr_regs->endptcomplete);
+			zynq_writel(bit_mask, &dr_regs->endptcomplete);
 			/* write back status to req */
 			curr_req->req.status = status;
 

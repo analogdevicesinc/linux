@@ -416,7 +416,7 @@ static int axi_hdmi_rx_enum_dv_timings(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	return v4l2_subdev_call(s->subdev, video, enum_dv_timings, timings);
+	return v4l2_subdev_call(s->subdev, pad, enum_dv_timings, timings);
 }
 
 static int axi_hdmi_rx_query_dv_timings(struct file *file, void *priv_fh,
@@ -435,7 +435,7 @@ static int axi_hdmi_rx_dv_timings_cap(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	return v4l2_subdev_call(s->subdev, video, dv_timings_cap, cap);
+	return v4l2_subdev_call(s->subdev, pad, dv_timings_cap, cap);
 }
 
 static int axi_hdmi_rx_enum_fmt_vid_cap(struct file *file, void *priv_fh,
@@ -629,8 +629,8 @@ static int axi_hdmi_rx_s_input(struct file *file, void *priv_fh, unsigned int i)
 
 	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_SRC_SEL, i);
 
-	return v4l2_subdev_call(s->subdev, video, s_routing, ADV7604_MODE_HDMI,
-		0, 0);
+	return v4l2_subdev_call(s->subdev, video, s_routing,
+		ADV7604_PAD_HDMI_PORT_A, 0, 0);
 }
 
 static const struct v4l2_ioctl_ops axi_hdmi_rx_ioctl_ops = {
@@ -753,7 +753,7 @@ static int axi_hdmi_rx_async_bound(struct v4l2_async_notifier *notifier,
 
 	hdmi_rx->stream.subdev = subdev;
 
-	ret = v4l2_subdev_call(subdev, video, s_routing, ADV7604_MODE_HDMI,
+	ret = v4l2_subdev_call(subdev, video, s_routing, ADV7604_PAD_HDMI_PORT_A,
 		0, 0);
 	if (ret)
 		return ret;

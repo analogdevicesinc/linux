@@ -1,16 +1,8 @@
 /*
- *  Copyright (C) 2012-2013, Analog Devices Inc.
- *	Author: Lars-Peter Clausen <lars@metafoo.de>
+ * Copyright (C) 2012-2013, Analog Devices Inc.
+ * Author: Lars-Peter Clausen <lars@metafoo.de>
  *
- *  This program is free software; you can redistribute it and/or modify it
- *  under  the terms of the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the License, or (at your
- *  option) any later version.
- *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  675 Mass Ave, Cambridge, MA 02139, USA.
- *
+ * Licensed under the GPL-2.
  */
 
 #include <linux/clk.h>
@@ -32,7 +24,6 @@
 #define AXI_I2S_REG_CTRL	0x04
 #define AXI_I2S_REG_CLK_CTRL	0x08
 #define AXI_I2S_REG_STATUS	0x10
-#define AXI_I2S_REG_PERIOD_SIZE	0x18
 
 #define AXI_I2S_REG_RX_FIFO	0x28
 #define AXI_I2S_REG_TX_FIFO	0x2C
@@ -44,12 +35,13 @@
 #define AXI_I2S_CTRL_TX_EN	BIT(0)
 #define AXI_I2S_CTRL_RX_EN	BIT(1)
 
+/* The frame size is configurable, but for now we always set it 64 bit */
 #define AXI_I2S_BITS_PER_FRAME 64
 
 struct axi_i2s {
 	struct regmap *regmap;
 	struct clk *clk;
-	struct clk *clk_i2s;
+	struct clk *clk_ref;
 
 	struct snd_soc_dai_driver dai_driver;
 
@@ -95,21 +87,16 @@ static int axi_i2s_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
 	struct axi_i2s *i2s = snd_soc_dai_get_drvdata(dai);
-	unsigned int bclk_div, frame_size;
+	unsigned int bclk_div, word_size;
 	unsigned int bclk_rate;
 
 	bclk_rate = params_rate(params) * AXI_I2S_BITS_PER_FRAME;
 
-	frame_size = AXI_I2S_BITS_PER_FRAME / 2 - 1;
-	bclk_div = DIV_ROUND_UP(clk_get_rate(i2s->clk_i2s), bclk_rate) / 2 - 1;
+	word_size = AXI_I2S_BITS_PER_FRAME / 2 - 1;
+	bclk_div = DIV_ROUND_UP(clk_get_rate(i2s->clk_ref), bclk_rate) / 2 - 1;
 
-	regmap_write(i2s->regmap, AXI_I2S_REG_CLK_CTRL, (frame_size << 16) |
+	regmap_write(i2s->regmap, AXI_I2S_REG_CLK_CTRL, (word_size << 16) |
 		bclk_div);
-
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		unsigned int period_size = params_period_bytes(params) / 4 - 1;
-		regmap_write(i2s->regmap, AXI_I2S_REG_PERIOD_SIZE, period_size);
-	}
 
 	return 0;
 }
@@ -134,7 +121,7 @@ static int axi_i2s_startup(struct snd_pcm_substream *substream,
 	if (ret)
 		return ret;
 
-	return clk_prepare_enable(i2s->clk_i2s);
+	return clk_prepare_enable(i2s->clk_ref);
 }
 
 static void axi_i2s_shutdown(struct snd_pcm_substream *substream,
@@ -142,15 +129,15 @@ static void axi_i2s_shutdown(struct snd_pcm_substream *substream,
 {
 	struct axi_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 
-	clk_disable_unprepare(i2s->clk_i2s);
+	clk_disable_unprepare(i2s->clk_ref);
 }
 
 static int axi_i2s_dai_probe(struct snd_soc_dai *dai)
 {
 	struct axi_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 
-	dai->playback_dma_data = &i2s->playback_dma_data;
-	dai->capture_dma_data = &i2s->capture_dma_data;
+	snd_soc_dai_init_dma_data(dai, &i2s->playback_dma_data,
+		&i2s->capture_dma_data);
 
 	return 0;
 }
@@ -167,28 +154,28 @@ static struct snd_soc_dai_driver axi_i2s_dai = {
 	.playback = {
 		.channels_min = 2,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT,
-		.formats = SNDRV_PCM_FMTBIT_S32_LE,
+		.rates = SNDRV_PCM_RATE_KNOT,
+		.formats = SNDRV_PCM_FMTBIT_S32_LE | SNDRV_PCM_FMTBIT_U32_LE,
 	},
 	.capture = {
 		.channels_min = 2,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT,
-		.formats = SNDRV_PCM_FMTBIT_S32_LE,
+		.rates = SNDRV_PCM_RATE_KNOT,
+		.formats = SNDRV_PCM_FMTBIT_S32_LE | SNDRV_PCM_FMTBIT_U32_LE,
 	},
 	.ops = &axi_i2s_dai_ops,
 	.symmetric_rates = 1,
 };
 
 static const struct snd_soc_component_driver axi_i2s_component = {
-	.name		= "axi-i2s",
+	.name = "axi-i2s",
 };
 
 static const struct regmap_config axi_i2s_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = AXI_I2S_REG_PERIOD_SIZE,
+	.max_register = AXI_I2S_REG_STATUS,
 };
 
 static int axi_i2s_probe(struct platform_device *pdev)
@@ -205,9 +192,9 @@ static int axi_i2s_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, i2s);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	base = devm_request_and_ioremap(&pdev->dev, res);
-	if (!base)
-		return -EBUSY;
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
 
 	i2s->regmap = devm_regmap_init_mmio(&pdev->dev, base,
 		&axi_i2s_regmap_config);
@@ -218,9 +205,9 @@ static int axi_i2s_probe(struct platform_device *pdev)
 	if (IS_ERR(i2s->clk))
 		return PTR_ERR(i2s->clk);
 
-	i2s->clk_i2s = devm_clk_get(&pdev->dev, "i2s");
-	if (IS_ERR(i2s->clk_i2s))
-		return PTR_ERR(i2s->clk_i2s);
+	i2s->clk_ref = devm_clk_get(&pdev->dev, "ref");
+	if (IS_ERR(i2s->clk_ref))
+		return PTR_ERR(i2s->clk_ref);
 
 	ret = clk_prepare_enable(i2s->clk);
 	if (ret)
@@ -234,7 +221,7 @@ static int axi_i2s_probe(struct platform_device *pdev)
 	i2s->capture_dma_data.addr_width = 4;
 	i2s->capture_dma_data.maxburst = 1;
 
-	i2s->ratnum.num = clk_get_rate(i2s->clk_i2s) / 2 / AXI_I2S_BITS_PER_FRAME;
+	i2s->ratnum.num = clk_get_rate(i2s->clk_ref) / 2 / AXI_I2S_BITS_PER_FRAME;
 	i2s->ratnum.den_step = 1;
 	i2s->ratnum.den_min = 1;
 	i2s->ratnum.den_max = 64;
@@ -244,16 +231,17 @@ static int axi_i2s_probe(struct platform_device *pdev)
 
 	regmap_write(i2s->regmap, AXI_I2S_REG_RESET, AXI_I2S_RESET_GLOBAL);
 
-	ret = snd_soc_register_component(&pdev->dev, &axi_i2s_component,
+	ret = devm_snd_soc_register_component(&pdev->dev, &axi_i2s_component,
 					 &axi_i2s_dai, 1);
 	if (ret)
-		return ret;
+		goto err_clk_disable;
 
-	ret = snd_dmaengine_pcm_register(&pdev->dev, NULL,
-			SND_DMAENGINE_PCM_FLAG_NO_RESIDUE);
+	ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
 	if (ret)
-		snd_soc_unregister_component(&pdev->dev);
+		goto err_clk_disable;
 
+err_clk_disable:
+	clk_disable_unprepare(i2s->clk);
 	return ret;
 }
 
@@ -262,9 +250,6 @@ static int axi_i2s_dev_remove(struct platform_device *pdev)
 	struct axi_i2s *i2s = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(i2s->clk);
-
-	snd_dmaengine_pcm_unregister(&pdev->dev);
-	snd_soc_unregister_component(&pdev->dev);
 
 	return 0;
 }

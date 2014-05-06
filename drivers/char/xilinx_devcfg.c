@@ -55,6 +55,7 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 						    *  Reset FPGA */
 #define XDCFG_CTRL_PCAP_PR_MASK		0x08000000 /* Enable PCAP for PR */
 #define XDCFG_CTRL_PCAP_MODE_MASK	0x04000000 /* Enable PCAP */
+#define XDCFG_CTRL_PCAP_RATE_EN_MASK  0x02000000 /* Enable PCAP Quad Rate */
 #define XDCFG_CTRL_PCFG_AES_EN_MASK	0x00000E00 /* AES Enable Mask */
 #define XDCFG_CTRL_SEU_EN_MASK		0x00000100 /* SEU Enable Mask */
 #define XDCFG_CTRL_SPNIDEN_MASK		0x00000040 /* Secure Non Invasive
@@ -84,6 +85,7 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 
 /* Interrupt Status/Mask Register Bit definitions */
 #define XDCFG_IXR_DMA_DONE_MASK		0x00002000 /* DMA Command Done */
+#define XDCFG_IXR_D_P_DONE_MASK		0x00001000 /* DMA and PCAP Cmd Done */
 #define XDCFG_IXR_PCFG_DONE_MASK	0x00000004 /* FPGA programmed */
 #define XDCFG_IXR_ERROR_FLAGS_MASK	0x00F0F860
 #define XDCFG_IXR_ALL_MASK		0xF8F7F87F
@@ -212,7 +214,8 @@ static irqreturn_t xdevcfg_irq(int irq, void *data)
 	xdevcfg_writereg(drvdata->base_address + XDCFG_INT_STS_OFFSET,
 				intr_status);
 
-	if ((intr_status & XDCFG_IXR_DMA_DONE_MASK) == XDCFG_IXR_DMA_DONE_MASK)
+	if ((intr_status & XDCFG_IXR_D_P_DONE_MASK) ==
+				XDCFG_IXR_D_P_DONE_MASK)
 		drvdata->dma_done = 1;
 
 	if ((intr_status & XDCFG_IXR_ERROR_FLAGS_MASK) ==
@@ -240,7 +243,7 @@ xdevcfg_write(struct file *file, const char __user *buf, size_t count,
 	char *kbuf;
 	int status;
 	unsigned long timeout;
-	u32 intr_reg;
+	u32 intr_reg, dma_len;
 	dma_addr_t dma_addr;
 	u32 transfer_length = 0;
 	struct xdevcfg_drvdata *drvdata = file->private_data;
@@ -256,8 +259,8 @@ xdevcfg_write(struct file *file, const char __user *buf, size_t count,
 	if (status)
 		goto err_clk;
 
-	kbuf = dma_alloc_coherent(drvdata->dev, count + drvdata->residue_len,
-				  &dma_addr, GFP_KERNEL);
+	dma_len = count + drvdata->residue_len;
+	kbuf = dma_alloc_coherent(drvdata->dev, dma_len, &dma_addr, GFP_KERNEL);
 	if (!kbuf) {
 		status = -ENOMEM;
 		goto err_unlock;
@@ -316,7 +319,7 @@ xdevcfg_write(struct file *file, const char __user *buf, size_t count,
 
 
 	xdevcfg_writereg(drvdata->base_address + XDCFG_INT_MASK_OFFSET,
-				(u32) (~(XDCFG_IXR_DMA_DONE_MASK |
+				(u32) (~(XDCFG_IXR_D_P_DONE_MASK |
 				XDCFG_IXR_ERROR_FLAGS_MASK)));
 
 	drvdata->dma_done = 0;
@@ -357,7 +360,7 @@ xdevcfg_write(struct file *file, const char __user *buf, size_t count,
 	intr_reg = xdevcfg_readreg(drvdata->base_address +
 					XDCFG_INT_MASK_OFFSET);
 	xdevcfg_writereg(drvdata->base_address + XDCFG_INT_MASK_OFFSET,
-				intr_reg | (XDCFG_IXR_DMA_DONE_MASK |
+				intr_reg | (XDCFG_IXR_D_P_DONE_MASK |
 				XDCFG_IXR_ERROR_FLAGS_MASK));
 
 	/* If we didn't write correctly, then bail out. */
@@ -370,7 +373,7 @@ xdevcfg_write(struct file *file, const char __user *buf, size_t count,
 	status = user_count;
 
 error:
-	dma_free_coherent(drvdata->dev, count, kbuf, dma_addr);
+	dma_free_coherent(drvdata->dev, dma_len, kbuf, dma_addr);
 err_unlock:
 	mutex_unlock(&drvdata->sem);
 err_clk:
@@ -420,7 +423,7 @@ xdevcfg_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 				XDCFG_IXR_ALL_MASK);
 
 	xdevcfg_writereg(drvdata->base_address + XDCFG_INT_MASK_OFFSET,
-				(u32) (~(XDCFG_IXR_DMA_DONE_MASK |
+				(u32) (~(XDCFG_IXR_D_P_DONE_MASK |
 				XDCFG_IXR_ERROR_FLAGS_MASK)));
 	/* Initiate DMA read command */
 	xdevcfg_writereg(drvdata->base_address + XDCFG_DMA_SRC_ADDR_OFFSET,
@@ -447,7 +450,7 @@ xdevcfg_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	intr_reg = xdevcfg_readreg(drvdata->base_address +
 					XDCFG_INT_MASK_OFFSET);
 	xdevcfg_writereg(drvdata->base_address + XDCFG_INT_MASK_OFFSET,
-				intr_reg | (XDCFG_IXR_DMA_DONE_MASK |
+				intr_reg | (XDCFG_IXR_D_P_DONE_MASK |
 				XDCFG_IXR_ERROR_FLAGS_MASK));
 
 
@@ -1150,11 +1153,13 @@ static ssize_t xdevcfg_set_aes(struct device *dev,
 	if (mask_bit)
 		xdevcfg_writereg(drvdata->base_address + XDCFG_CTRL_OFFSET,
 				(ctrl_reg_status |
-				 XDCFG_CTRL_PCFG_AES_EN_MASK));
+				 XDCFG_CTRL_PCFG_AES_EN_MASK |
+				 XDCFG_CTRL_PCAP_RATE_EN_MASK));
 	else
 		xdevcfg_writereg(drvdata->base_address + XDCFG_CTRL_OFFSET,
 				(ctrl_reg_status &
-				 (~XDCFG_CTRL_PCFG_AES_EN_MASK)));
+				 ~(XDCFG_CTRL_PCFG_AES_EN_MASK |
+				 XDCFG_CTRL_PCAP_RATE_EN_MASK)));
 
 	spin_unlock_irqrestore(&drvdata->lock, flags);
 
@@ -2057,7 +2062,7 @@ static int xdevcfg_drv_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id xdevcfg_of_match[] = {
-	{ .compatible = "xlnx,ps7-dev-cfg-1.00.a", },
+	{ .compatible = "xlnx,zynq-devcfg-1.0", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, xdevcfg_of_match);

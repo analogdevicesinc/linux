@@ -14,7 +14,7 @@ obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 
 cf_axi_adc-y := cf_axi_adc_core.o cf_axi_adc_ring.o cf_axi_adc_ring_stream.o
-obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o ad9467.o ad9361.o ad_mc_adc.o ad_mc_speed.o ad_mc_controller.o admc_torque_ctrl.o ad_adc.o
+obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o ad9467.o ad9361.o ad_mc_adc.o ad_mc_speed.o ad_mc_controller.o admc_pid_ctrl.o ad_adc.o
 obj-$(CONFIG_CF_AXI_FFT) += cf_axi_fft_core.o
 
 obj-$(CONFIG_AXI_JESD204B) += cf_axi_jesd204b.o
@@ -30,4 +30,5 @@ obj-$(CONFIG_TI_ADC081C) += ti-adc081c.o
 obj-$(CONFIG_TI_AM335X_ADC) += ti_am335x_adc.o
 obj-$(CONFIG_TWL6030_GPADC) += twl6030-gpadc.o
 obj-$(CONFIG_VIPERBOARD_ADC) += viperboard_adc.o
-obj-$(CONFIG_XILINX_XADC) += xilinx-xadc.o xilinx-xadc-events.o
+xilinx-xadc-y := xilinx-xadc-core.o xilinx-xadc-events.o
+obj-$(CONFIG_XILINX_XADC) += xilinx-xadc.o
