@@ -106,7 +106,7 @@ struct ad9361_rf_phy {
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[143];
+	struct ad9361_debugfs_entry debugfs_entry[145];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -2149,6 +2149,15 @@ static int ad9361_pp_port_setup(struct ad9361_rf_phy *phy, bool restore_c3)
 //	ad9361_spi_write(spi, REG_DIGITAL_IO_CTRL, pd->port_ctrl.digital_io_ctrl);
 	ad9361_spi_write(spi, REG_LVDS_INVERT_CTRL1, pd->port_ctrl.lvds_invert[0]);
 	ad9361_spi_write(spi, REG_LVDS_INVERT_CTRL2, pd->port_ctrl.lvds_invert[1]);
+
+	if (pd->rx1rx2_phase_inversion_en ||
+		(pd->port_ctrl.pp_conf[1] & INVERT_RX2)) {
+
+		ad9361_spi_writef(spi, REG_PARALLEL_PORT_CONF_2, INVERT_RX2, 1);
+		ad9361_spi_writef(spi, REG_INVERT_BITS,
+				  INVERT_RX2_RF_DC_CGOUT_WORD, 1);
+	}
+
 
 	return 0;
 }
@@ -6538,6 +6547,10 @@ static struct ad9361_phy_platform_data
 			  &pdata->rf_rx_input_sel);
 	ad9361_of_get_u32(iodev, np, "adi,tx-rf-port-input-select", 0,
 			  &pdata->rf_tx_output_sel);
+
+	ad9361_of_get_bool(iodev, np, "adi,rx1-rx2-phase-inversion-enable",
+			   &pdata->rx1rx2_phase_inversion_en);
+
 
 	tmpl = 2400000000ULL;
 	of_property_read_u64(np, "adi,rx-synthesizer-frequency-hz", &tmpl);
