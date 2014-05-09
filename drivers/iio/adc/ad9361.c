@@ -64,6 +64,7 @@ enum debugfs_cmd {
 	DBGFS_BIST_DT_ANALYSIS,
 	DBGFS_RXGAIN_1,
 	DBGFS_RXGAIN_2,
+	DBGFS_MCS,
 };
 
 enum ad9361_bist_mode {
@@ -2074,6 +2075,51 @@ static int ad9361_txmon_control(struct ad9361_rf_phy *phy,
 
 	return ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
 			TX1_MONITOR_ENABLE | TX2_MONITOR_ENABLE, en_mask);
+}
+
+static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
+{
+	unsigned mcs_mask = MCS_BBPLL_ENABLE | MCS_DIGITAL_CLK_ENABLE | MCS_BB_ENABLE;
+
+	dev_dbg(&phy->spi->dev, "%s: MCS step %d", __func__, step);
+
+
+	switch (step) {
+	case 1:
+		ad9361_spi_writef(phy->spi, REG_CP_BLEED_CURRENT,
+			MCS_REFCLK_SCALE_EN, 1);
+		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
+			mcs_mask, MCS_BB_ENABLE | MCS_BBPLL_ENABLE);
+		break;
+	case 2:
+		if (IS_ERR(phy->pdata->sync_gpio))
+			break;
+		/*
+		 * NOTE: This is not a regular GPIO -
+		 * HDL ensures Multi-chip Synchronization SYNC_IN Pulse Timing
+		 * relative to rising and falling edge of REF_CLK
+		 */
+		gpiod_set_value(phy->pdata->sync_gpio, 1);
+		gpiod_set_value(phy->pdata->sync_gpio, 0);
+		break;
+	case 3:
+		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
+			mcs_mask, MCS_BB_ENABLE | MCS_DIGITAL_CLK_ENABLE);
+		break;
+	case 4:
+		if (IS_ERR(phy->pdata->sync_gpio))
+			break;
+		gpiod_set_value(phy->pdata->sync_gpio, 1);
+		gpiod_set_value(phy->pdata->sync_gpio, 0);
+		break;
+	case 0:
+	case 5:
+		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
+			mcs_mask, 0);
+		break;
+	}
+
+	return 0;
 }
 
 /* val
@@ -6283,6 +6329,15 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_MCS:
+		if (ret != 1)
+			return -EINVAL;
+		ret = ad9361_mcs(phy, val);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
 	default:
 		break;
 	}
@@ -6348,6 +6403,7 @@ static int ad9361_register_debugfs(struct iio_dev *indio_dev)
 		DBGFS_BIST_DT_ANALYSIS);
 	ad9361_add_debugfs_entry(phy, "gaininfo_rx1", DBGFS_RXGAIN_1);
 	ad9361_add_debugfs_entry(phy, "gaininfo_rx2", DBGFS_RXGAIN_2);
+	ad9361_add_debugfs_entry(phy, "multichip_sync", DBGFS_MCS);
 
 	for (i = 0; i < phy->ad9361_debugfs_entry_index; i++)
 		d = debugfs_create_file(
@@ -6951,11 +7007,9 @@ static int ad9361_probe(struct spi_device *spi)
 		ret = gpiod_direction_output(phy->pdata->reset_gpio, 1);
 	}
 
-	if (ret) {
-		dev_err(&spi->dev, "fail to request RESET GPIO-%d",
-			phy->pdata->gpio_resetb);
-		ret = -ENODEV;
-		goto out;
+	phy->pdata->sync_gpio = devm_gpiod_get(&spi->dev, "sync");
+	if (!IS_ERR(phy->pdata->sync_gpio)) {
+		ret = gpiod_direction_output(phy->pdata->sync_gpio, 0);
 	}
 
 	phy->spi = spi;
