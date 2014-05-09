@@ -247,5 +247,5 @@
 /include/ "adi-fmcomms4.dtsi"
 
 &adc0_ad9364 {
-	gpios = <&gpio 100 0>;
+	reset-gpios = <&gpio 100 0>;
 };

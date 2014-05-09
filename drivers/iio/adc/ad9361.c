@@ -21,6 +21,7 @@
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 
 #include <asm/unaligned.h>
 
@@ -302,10 +303,10 @@ static int ad9361_spi_writem(struct spi_device *spi,
 
 static int ad9361_reset(struct ad9361_rf_phy *phy)
 {
-	if (gpio_is_valid(phy->pdata->gpio_resetb)) {
-		gpio_set_value(phy->pdata->gpio_resetb, 0);
+	if (!IS_ERR(phy->pdata->reset_gpio)) {
+		gpiod_set_value(phy->pdata->reset_gpio, 0);
 		mdelay(1);
-		gpio_set_value(phy->pdata->gpio_resetb, 1);
+		gpiod_set_value(phy->pdata->reset_gpio, 1);
 		mdelay(1);
 		dev_dbg(&phy->spi->dev, "%s: by GPIO", __func__);
 		return 0;
@@ -6792,12 +6793,6 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_bool(iodev, np, "adi,elna-rx2-gpo1-control-enable",
 			   &pdata->elna_ctrl.elna_2_control_en);
 
-	ret = of_get_gpio(np, 0);
-	if (ret < 0)
-		pdata->gpio_resetb = -1;
-	else
-		pdata->gpio_resetb = ret;
-
 	/* AuxADC Temp Sense Control */
 
 	ad9361_of_get_u32(iodev, np, "adi,temp-sense-measurement-interval-ms", 1000,
@@ -6938,12 +6933,10 @@ static int ad9361_probe(struct spi_device *spi)
 	if (phy->pdata == NULL)
 		return -EINVAL;
 
-	if (gpio_is_valid(phy->pdata->gpio_resetb)) {
-		ret = devm_gpio_request_one(&spi->dev, phy->pdata->gpio_resetb,
-			GPIOF_OUT_INIT_HIGH, "AD9361 RESETB");
-	} /*else {
-		ret = -ENODEV;
-	}*/
+	phy->pdata->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
+	if (!IS_ERR(phy->pdata->reset_gpio)) {
+		ret = gpiod_direction_output(phy->pdata->reset_gpio, 1);
+	}
 
 	if (ret) {
 		dev_err(&spi->dev, "fail to request RESET GPIO-%d",

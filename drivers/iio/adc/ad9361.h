@@ -3089,7 +3089,6 @@ struct ad9361_phy_platform_data {
 	u32			rf_tx_bandwidth_Hz;
 	int			tx_atten;
 	bool			update_tx_gain_via_alert;
-	int 			gpio_resetb;
 	u32			rx_fastlock_delay_ns;
 	u32			tx_fastlock_delay_ns;
 	bool			trx_fastlock_pinctrl_en[2];
@@ -3104,6 +3103,9 @@ struct ad9361_phy_platform_data {
 	struct auxadc_control	auxadc_ctrl;
 	struct auxdac_control	auxdac_ctrl;
 	struct tx_monitor_control txmon_ctrl;
+
+	struct gpio_desc			*sync_gpio;
+	struct gpio_desc			*reset_gpio;
 };
 
 struct rf_rx_gain {
