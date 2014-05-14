@@ -92,7 +92,14 @@ static int dwc2_driver_remove(struct platform_device *dev)
 {
 	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
 
-	dwc2_hcd_remove(hsotg);
+	if (IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL))
+		s3c_hsotg_remove(hsotg);
+	else if (IS_ENABLED(CONFIG_USB_DWC2_HOST))
+		dwc2_hcd_remove(hsotg);
+	else { /* dual role */
+		dwc2_hcd_remove(hsotg);
+		s3c_hsotg_remove(hsotg);
+	}
 
 	return 0;
 }
@@ -176,9 +183,22 @@ static int dwc2_driver_probe(struct platform_device *dev)
 
 	hsotg->dr_mode = of_usb_get_dr_mode(dev->dev.of_node);
 
-	retval = dwc2_hcd_init(hsotg, irq, params);
-	if (retval)
-		return retval;
+	if (IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)) {
+		retval = dwc2_gadget_init(hsotg, irq);
+		if (retval)
+			return retval;
+		retval = dwc2_hcd_init(hsotg, irq, params);
+		if (retval)
+			return retval;
+	} else if (IS_ENABLED(CONFIG_USB_DWC2_HOST)) {
+		retval = dwc2_hcd_init(hsotg, irq, params);
+		if (retval)
+			return retval;
+	} else if (IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL)) {
+		retval = dwc2_gadget_init(hsotg, irq);
+		if (retval)
+			return retval;
+	}
 
 	platform_set_drvdata(dev, hsotg);
 
