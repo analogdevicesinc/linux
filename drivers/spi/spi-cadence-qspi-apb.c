@@ -93,8 +93,10 @@ static void __hex_dump(unsigned int address_to_print,
 
 /****************************************************************************/
 
-#define CQSPI_NUMSGLREQBYTES (0)
-#define CQSPI_NUMBURSTREQBYTES (4)
+/* 1-beat single, 4-byte width = 4-byte single = 2**2 */
+#define CQSPI_NUMSGLREQBYTES (2)
+/* 16-beat burst, 4-byte width = 64-byte bursts = 2**6 */
+#define CQSPI_NUMBURSTREQBYTES (6)
 
 void cadence_qspi_apb_delay(struct struct_cqspi *cadence_qspi,
 	unsigned int ref_clk, unsigned int sclk_hz);
@@ -423,6 +425,17 @@ static void cadence_qspi_apb_dma_cleanup(
 			datalen, do_read ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
 }
 
+static int calculate_burst_bytes_exp(int numbytes)
+{
+	int exp = CQSPI_NUMBURSTREQBYTES;
+	while ((1<<exp) > CQSPI_FIFO_WIDTH) {
+		if ((numbytes % (1 << exp)) == 0)
+			break;
+		exp--;
+	}
+	return exp;
+}
+
 static int cadence_qspi_apb_dma_start(
 	struct struct_cqspi *cadence_qspi,
 	unsigned datalen, unsigned char *databuf,
@@ -433,8 +446,15 @@ static int cadence_qspi_apb_dma_start(
 	struct dma_chan *dmachan;
 	struct dma_slave_config dmaconf;
 	struct dma_async_tx_descriptor *dmadesc = NULL;
-	struct scatterlist sgl;
 	enum dma_data_direction data_direction;
+	int burst_len_exp;
+	int burst_words;
+
+	if (datalen % CQSPI_FIFO_WIDTH)
+		return -EINVAL;
+
+	burst_len_exp = calculate_burst_bytes_exp(datalen);
+	burst_words = (1<<burst_len_exp) / CQSPI_FIFO_WIDTH;
 
 	if (do_read) {
 		dmachan = cadence_qspi->rxchan;
@@ -442,14 +462,14 @@ static int cadence_qspi_apb_dma_start(
 		dmaconf.direction = DMA_DEV_TO_MEM;
 		dmaconf.src_addr = pdata->qspi_ahb_phy;
 		dmaconf.src_addr_width = 4;
-		dmaconf.src_maxburst = 1;
+		dmaconf.src_maxburst = burst_words;
 	} else {
 		dmachan = cadence_qspi->txchan;
 		data_direction = DMA_TO_DEVICE;
 		dmaconf.direction = DMA_MEM_TO_DEV;
 		dmaconf.dst_addr = pdata->qspi_ahb_phy;
 		dmaconf.dst_addr_width = 4;
-		dmaconf.dst_maxburst = 1;
+		dmaconf.dst_maxburst = burst_words;
 	}
 
 	/* map the buffer address */
@@ -461,21 +481,14 @@ static int cadence_qspi_apb_dma_start(
 	}
 
 	/* set up slave config */
-	dmachan->device->device_control(dmachan, DMA_SLAVE_CONFIG,
-		(unsigned long) &dmaconf);
+	dmaengine_slave_config(dmachan, &dmaconf);
 
-	/* get dmadesc, we use scatterlist API, with one
-		memory buffer in the list */
-	memset(&sgl, 0, sizeof(sgl));
-	sgl.dma_address = cadence_qspi->dma_addr;
-	sgl.length = datalen;
-
-	dmadesc = dmachan->device->device_prep_slave_sg(dmachan,
-				&sgl,
-				1,
-				dmaconf.direction,
-				DMA_PREP_INTERRUPT,
-				NULL);
+	/* get dmadesc */
+	dmadesc = dmaengine_prep_slave_single(dmachan,
+				      cadence_qspi->dma_addr,
+				      datalen,
+				      dmaconf.direction,
+				      DMA_PREP_INTERRUPT);
 	if (!dmadesc) {
 		cadence_qspi_apb_dma_cleanup(cadence_qspi, datalen, do_read);
 		return -ENOMEM;
@@ -501,7 +514,12 @@ static int cadence_qspi_apb_indirect_read_dma(
 	void *reg_base = cadence_qspi->iobase;
 	unsigned int reg;
 	unsigned int timeout;
-	unsigned int watermark = CQSPI_REG_SRAM_THRESHOLD_BYTES;
+	int burst_len_exp;
+	struct cqspi_flash_pdata *f_pdata =
+			&(pdata->f_pdata[cadence_qspi->current_cs]);
+	unsigned int page_size = f_pdata->page_size;
+	/* use watermark of page size less one burst */
+	unsigned int watermark = page_size - (1 << CQSPI_NUMBURSTREQBYTES);
 
 	if (rxlen < watermark)
 		watermark = rxlen;
@@ -516,7 +534,9 @@ static int cadence_qspi_apb_indirect_read_dma(
 	reg |= CQSPI_REG_CONFIG_DMA_MASK;
 	CQSPI_WRITEL(reg, reg_base + CQSPI_REG_CONFIG);
 
-	reg = (CQSPI_NUMBURSTREQBYTES << CQSPI_REG_DMA_BURST_LSB)
+	burst_len_exp = calculate_burst_bytes_exp(rxlen);
+
+	reg = (burst_len_exp << CQSPI_REG_DMA_BURST_LSB)
 		| (CQSPI_NUMSGLREQBYTES << CQSPI_REG_DMA_SINGLE_LSB);
 	CQSPI_WRITEL(reg, reg_base + CQSPI_REG_DMA);
 
@@ -605,11 +625,6 @@ static int cadence_qspi_apb_indirect_read_setup(void *reg_base,
 		reg_base + CQSPI_REG_INDIRECTTRIGGER);
 
 	reg = txbuf[0] << CQSPI_REG_RD_INSTR_OPCODE_LSB;
-
-#ifdef CONFIG_M25PXX_USE_FAST_READ_QUAD_OUTPUT
-#error WTFO
-	reg |= (CQSPI_INST_TYPE_QUAD << CQSPI_REG_RD_INSTR_TYPE_DATA_LSB);
-#endif /* CONFIG_M25PXX_USE_FAST_READ_QUAD_OUTPUT */
 
 	/* Get address */
 	addr_value = cadence_qspi_apb_cmd2addr(&txbuf[1], addr_bytes);
@@ -792,7 +807,7 @@ static int cadence_qspi_apb_indirect_write_dma(
 	void *reg_base = cadence_qspi->iobase;
 	unsigned int reg;
 	unsigned int timeout;
-
+	int burst_len_exp;
 	struct platform_device *pdev = cadence_qspi->pdev;
 	struct cqspi_platform_data *pdata = pdev->dev.platform_data;
 	struct cqspi_flash_pdata *f_pdata =
@@ -810,7 +825,9 @@ static int cadence_qspi_apb_indirect_write_dma(
 	reg |= CQSPI_REG_CONFIG_DMA_MASK;
 	CQSPI_WRITEL(reg, reg_base + CQSPI_REG_CONFIG);
 
-	reg = (CQSPI_NUMBURSTREQBYTES << CQSPI_REG_DMA_BURST_LSB)
+	burst_len_exp = calculate_burst_bytes_exp(txlen);
+
+	reg = (burst_len_exp << CQSPI_REG_DMA_BURST_LSB)
 		| (CQSPI_NUMSGLREQBYTES << CQSPI_REG_DMA_SINGLE_LSB);
 	CQSPI_WRITEL(reg, reg_base + CQSPI_REG_DMA);
 
@@ -1178,7 +1195,8 @@ int cadence_qspi_apb_process_queue(struct struct_cqspi *cadence_qspi,
 			 ret = cadence_qspi_apb_indirect_read_setup(iobase,
 				 pdata->qspi_ahb_phy, cmd_xfer->len,
 				 cmd_xfer->tx_buf, spi->addr_width);
-			if (pdata->enable_dma) {
+			if (pdata->enable_dma &&
+			    !(data_xfer->len % CQSPI_FIFO_WIDTH)) {
 				ret = cadence_qspi_apb_indirect_read_dma(
 					cadence_qspi, data_xfer->len,
 					data_xfer->rx_buf);
@@ -1192,7 +1210,8 @@ int cadence_qspi_apb_process_queue(struct struct_cqspi *cadence_qspi,
 			 ret = cadence_qspi_apb_indirect_write_setup(
 				 iobase, pdata->qspi_ahb_phy,
 				 cmd_xfer->len, cmd_xfer->tx_buf);
-			if (pdata->enable_dma) {
+			if (pdata->enable_dma &&
+			    !(data_xfer->len % CQSPI_FIFO_WIDTH)) {
 				ret = cadence_qspi_apb_indirect_write_dma(
 					cadence_qspi, data_xfer->len,
 					(unsigned char *)data_xfer->tx_buf);
