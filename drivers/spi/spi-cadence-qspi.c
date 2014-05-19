@@ -379,49 +379,23 @@ static int cadence_qspi_probe(struct platform_device *pdev)
 	cadence_qspi->pdev = pdev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "platform_get_resource failed\n");
-		status = -ENXIO;
-		goto err_iomem;
-	}
-
-	cadence_qspi->res = res;
-
-	if (!request_mem_region(res->start, resource_size(res), pdev->name)) {
-		dev_err(&pdev->dev, "request_mem_region failed\n");
-		status = -EBUSY;
-		goto err_iomem;
-	}
-
-	cadence_qspi->iobase = ioremap(res->start, resource_size(res));
+	cadence_qspi->iobase = devm_request_and_ioremap(&pdev->dev, res);
 	if (!cadence_qspi->iobase) {
-		dev_err(&pdev->dev, "ioremap failed\n");
-		status = -ENOMEM;
+		dev_err(&pdev->dev, "devm_request_and_ioremap res 0 failed\n");
+		status = -EADDRNOTAVAIL;
 		goto err_ioremap;
 	}
+	cadence_qspi->res = res;
 
 	res_ahb = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res_ahb) {
-		dev_err(&pdev->dev, "platform_get_resource failed\n");
-		status = -ENXIO;
-		goto err_ahbmem;
-	}
-	cadence_qspi->res_ahb = res_ahb;
-
-	if (!request_mem_region(res_ahb->start, resource_size(res_ahb),
-		pdev->name)) {
-		dev_err(&pdev->dev, "request_mem_region failed\n");
-		status = -EBUSY;
-		goto err_ahbmem;
-	}
-
-	cadence_qspi->qspi_ahb_virt = ioremap(res_ahb->start,
-		resource_size(res_ahb));
+	cadence_qspi->qspi_ahb_virt =
+		devm_request_and_ioremap(&pdev->dev, res_ahb);
 	if (!cadence_qspi->qspi_ahb_virt) {
-		dev_err(&pdev->dev, "ioremap res_ahb failed\n");
-		status = -ENOMEM;
+		dev_err(&pdev->dev, "devm_request_and_ioremap res 1 failed\n");
+		status = -EADDRNOTAVAIL;
 		goto err_ahbremap;
 	}
+	cadence_qspi->res_ahb = res_ahb;
 
 	cadence_qspi->workqueue =
 		create_singlethread_workqueue(dev_name(master->dev.parent));
@@ -506,14 +480,8 @@ err_start_q:
 err_irq:
 	destroy_workqueue(cadence_qspi->workqueue);
 err_wq:
-	iounmap(cadence_qspi->qspi_ahb_virt);
 err_ahbremap:
-	release_mem_region(res_ahb->start, resource_size(res_ahb));
-err_ahbmem:
-	iounmap(cadence_qspi->iobase);
 err_ioremap:
-	release_mem_region(res->start, resource_size(res));
-err_iomem:
 	spi_master_put(master);
 	dev_err(&pdev->dev, "Cadence QSPI controller probe failed\n");
 	return status;
