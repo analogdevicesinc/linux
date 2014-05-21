@@ -67,12 +67,12 @@
 
 		};
 
-		axi_vdma_0: axivdma@43200000 {
+		axi_vdma_0: axivdma@43000000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#dma-cells = <1>;
 			compatible = "xlnx,axi-vdma";
-			reg = <0x43020000 0x1000>;
+			reg = <0x43000000 0x1000>;
 			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
@@ -88,7 +88,7 @@
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&clkc 17>;
+			clocks = <&clkc 16>;
 		};
 
 		axi_hdmi@70e00000 {
