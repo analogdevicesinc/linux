@@ -164,15 +164,28 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	if (val)
 		return 0;
 
-	if (!chan->next_desc) {
-		vdesc = vchan_next_desc(&chan->vchan);
-		if (!vdesc)
-			return 0;
-		list_move_tail(&vdesc->node, &chan->active_descs);
-		chan->next_desc = to_axi_dmac_desc(vdesc);
-	}
+	do {
 
-	sg = &chan->next_desc->sg[chan->next_desc->num_submitted];
+		if (!chan->next_desc) {
+			vdesc = vchan_next_desc(&chan->vchan);
+			if (!vdesc)
+				return 0;
+			list_move_tail(&vdesc->node, &chan->active_descs);
+			chan->next_desc = to_axi_dmac_desc(vdesc);
+		}
+
+		sg = &chan->next_desc->sg[chan->next_desc->num_submitted];
+
+		if (sg->x_len == 0 || sg->y_len == 0) {
+			chan->next_desc->num_completed++;
+			if (chan->next_desc->num_completed == chan->next_desc->num_sgs) {
+				list_del(&chan->next_desc->vdesc.node);
+				vchan_cookie_complete(&chan->next_desc->vdesc);
+				chan->next_desc = NULL;
+			}
+			sg = NULL;
+		}
+	} while (sg == NULL);
 
 	chan->next_desc->num_submitted++;
 	if (chan->next_desc->num_submitted == chan->next_desc->num_sgs)
