@@ -55,6 +55,8 @@
 #define AXI_DMAC_IRQ_SOT		BIT(0)
 #define AXI_DMAC_IRQ_EOT		BIT(1)
 
+#define AXI_DMAC_FLAG_CYCLIC		BIT(0)
+
 #undef SPEED_TEST
 
 struct axi_dmac_sg {
@@ -85,6 +87,8 @@ struct axi_dmac_chan {
 	enum dma_transfer_direction direction;
 	unsigned int src_width;
 	unsigned int dest_width;
+
+	bool hw_cyclic;
 };
 
 struct axi_dmac {
@@ -157,39 +161,45 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 {
 	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct virt_dma_desc *vdesc;
+	struct axi_dmac_desc *desc;
 	struct axi_dmac_sg *sg;
+	unsigned int flags = 0;
 	unsigned int val;
 
 	val = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
 	if (val)
 		return 0;
 
+	desc = chan->next_desc;
+
 	do {
 
-		if (!chan->next_desc) {
+		if (!desc) {
 			vdesc = vchan_next_desc(&chan->vchan);
 			if (!vdesc)
 				return 0;
 			list_move_tail(&vdesc->node, &chan->active_descs);
-			chan->next_desc = to_axi_dmac_desc(vdesc);
+			desc = to_axi_dmac_desc(vdesc);
 		}
 
-		sg = &chan->next_desc->sg[chan->next_desc->num_submitted];
+		sg = &desc->sg[desc->num_submitted];
 
 		if (sg->x_len == 0 || sg->y_len == 0) {
-			chan->next_desc->num_completed++;
-			if (chan->next_desc->num_completed == chan->next_desc->num_sgs) {
-				list_del(&chan->next_desc->vdesc.node);
-				vchan_cookie_complete(&chan->next_desc->vdesc);
-				chan->next_desc = NULL;
+			desc->num_completed++;
+			if (desc->num_completed == desc->num_sgs) {
+				list_del(&desc->vdesc.node);
+				vchan_cookie_complete(&desc->vdesc);
+				desc = NULL;
 			}
 			sg = NULL;
 		}
 	} while (sg == NULL);
 
-	chan->next_desc->num_submitted++;
-	if (chan->next_desc->num_submitted == chan->next_desc->num_sgs)
+	desc->num_submitted++;
+	if (desc->num_submitted == desc->num_sgs)
 		chan->next_desc = NULL;
+	else
+		chan->next_desc = desc;
 
 	sg->id = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_ID);
 
@@ -203,8 +213,16 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 		axi_dmac_write(dmac, AXI_DMAC_REG_SRC_STRIDE, sg->src_stride);
 	}
 
+	/*
+	 * If the hardware supports cyclic transfers and there is no callback to
+	 * call, enable hw cyclic mode to avoid unnecessary interrupts.
+	 */
+	if (chan->hw_cyclic && desc->cyclic && !desc->vdesc.tx.callback)
+		flags |= AXI_DMAC_FLAG_CYCLIC;
+
 	axi_dmac_write(dmac, AXI_DMAC_REG_X_LENGTH, sg->x_len - 1);
 	axi_dmac_write(dmac, AXI_DMAC_REG_Y_LENGTH, sg->y_len - 1);
+	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, flags);
 	axi_dmac_write(dmac, AXI_DMAC_REG_START_TRANSFER, 1);
 
 	return 0;
@@ -610,6 +628,8 @@ static int axi_dmac_probe(struct platform_device *pdev)
 
 	pdev->dev.dma_parms = &dmac->dma_parms;
 	dma_set_max_seg_size(&pdev->dev, (1ULL << tmp) - 1);
+
+	dmac->chan.hw_cyclic = of_property_read_bool(of_chan, "adi,cyclic");
 
 	dma_dev = &dmac->dma_dev;
 	dma_cap_set(DMA_SLAVE, dma_dev->cap_mask);

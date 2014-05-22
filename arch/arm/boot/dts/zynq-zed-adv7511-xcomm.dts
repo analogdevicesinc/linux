@@ -120,7 +120,7 @@
 			cpu-dai = <&axi_i2s_0>;
 		};
 
-		dma_rx: dma@7c400000 {
+		rx_dma: dma@7c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
@@ -133,7 +133,7 @@
 			};
 		};
 
-		dma_tx: dma@7c420000 {
+		tx_dma: dma@7c420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
@@ -143,13 +143,14 @@
 			dma-channel {
 				adi,buswidth = <64>;
 				adi,type = <1>;
+				adi,cyclic;
 			};
 		};
 
 		cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
 			compatible = "adi,axi-ad9643-6.00.a";
 			reg = <0x79020000 0x10000 >;
-			dmas = <&dma_rx 0>;
+			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9467>;
 			xlnx,dphase-timeout = <0x8>;
@@ -165,7 +166,7 @@
 			compatible = "adi,axi-ad9122-6.00.a";
 			reg = <0x74204000 0x10000>;
 			spibus-connected = <&dac0_ad9122>;
-			dmas = <&dma_tx 0>;
+			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			xlnx,dphase-timeout = <0x8>;
 			xlnx,num-mem = <0x1>;
