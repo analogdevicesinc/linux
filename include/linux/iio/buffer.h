@@ -29,6 +29,7 @@ struct iio_buffer_block_alloc_req {
 };
 
 #define IIO_BUFFER_BLOCK_FLAG_TIMESTAMP_VALID (1 << 0)
+#define IIO_BUFFER_BLOCK_FLAG_CYCLIC (1 << 1)
 
 struct iio_buffer_block {
 	__u32 id;

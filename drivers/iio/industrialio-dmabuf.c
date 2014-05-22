@@ -379,6 +379,7 @@ int iio_dma_buffer_enqueue_block(struct iio_buffer *buffer,
 
 	dma_block = queue->blocks[block->id];
 	dma_block->block.bytes_used = block->bytes_used;
+	dma_block->block.flags = block->flags;
 
 	switch (dma_block->state) {
 	case IIO_BLOCK_STATE_DONE:
