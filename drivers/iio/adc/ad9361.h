@@ -3105,8 +3105,12 @@ struct ad9361_phy_platform_data {
 	struct auxdac_control	auxdac_ctrl;
 	struct tx_monitor_control txmon_ctrl;
 
-	struct gpio_desc			*sync_gpio;
 	struct gpio_desc			*reset_gpio;
+	/*  MCS SYNC */
+	struct gpio_desc			*sync_gpio;
+	struct gpio_desc			*cal_sw1_gpio;
+	struct gpio_desc			*cal_sw2_gpio;
+
 };
 
 struct rf_rx_gain {
