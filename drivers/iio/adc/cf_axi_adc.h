@@ -249,6 +249,21 @@
 #define AD9434_DEF_OUTPUT_MODE		0x00
 #define AD9434_REG_VREF_MASK		0xC0
 
+/*
+ * Analog Devices AD9680
+ */
+
+#define AD9680_REG_CHIP_ID_LOW		0x004
+#define AD9680_REG_CHIP_ID_HIGH		0x005
+#define AD9680_REG_DEVICE_INDEX		0x008
+#define AD9680_REG_INPUT_FS_RANGE	0x025
+
+#define AD9680_REG_OUTPUT_MODE		0x561
+#define AD9680_REG_TEST_MODE		0x550
+
+#define CHIPID_AD9680			0x55
+#define AD9680_DEF_OUTPUT_MODE		0x00
+#define AD9680_REG_VREF_MASK		0x0F
 
 /* debugfs direct register access */
 #define DEBUGFS_DRA_PCORE_REG_MAGIC	0x80000000
@@ -262,6 +277,7 @@ enum {
 	ID_AD9643,
 	ID_AD9250,
 	ID_AD9265,
+	ID_AD9680,
 	ID_AD9683,
 	ID_AD9625,
 	ID_AD9434,
@@ -302,6 +318,7 @@ struct axiadc_converter {
 	struct spi_device 	*spi;
 	struct clk 		*clk;
 	struct ad9361_rf_phy *phy;
+	struct gpio_desc			*pwrdown_gpio;
 	unsigned			id;
 	unsigned			adc_output_mode;
 	unsigned 		testmode[2];
