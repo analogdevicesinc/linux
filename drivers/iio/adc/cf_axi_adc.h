@@ -270,11 +270,12 @@ enum {
 struct axiadc_chip_info {
 	char				*name;
 	unsigned			num_channels;
+	const unsigned long 	*scan_masks;
 	int			(*scale_table)[2];
 	int				num_scales;
 	int				max_testmode;
 	unsigned long			max_rate;
-	struct iio_chan_spec		channel[4];
+	struct iio_chan_spec		channel[8];
 };
 
 struct axiadc_state {

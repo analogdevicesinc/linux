@@ -815,7 +815,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
 	cf_axi_dds_sync_frame(indio_dev);
 
-	if (!st->dp_disable) {
+	if (!st->dp_disable && !dds_read(st, ADI_REG_ID)) {
 		ret = cf_axi_dds_configure_buffer(indio_dev);
 		if (ret)
 			goto err_converter_put;
