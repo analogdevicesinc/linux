@@ -77,6 +77,7 @@ enum ad9361_bist_mode {
 enum {
 	ID_AD9361,
 	ID_AD9364,
+	ID_AD9361_2,
 };
 
 struct ad9361_rf_phy phy;
@@ -4891,6 +4892,11 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	return 0;
 }
 
+static const unsigned long ad9361_2x2_available_scan_masks[] = {
+	0x0FF,
+	0x000,
+};
+
 #define AIM_CHAN(_chan, _si, _bits, _sign)			\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
@@ -4900,6 +4906,13 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 			IIO_CHAN_INFO_CALIBPHASE_SEPARATE_BIT |		\
 			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
 			/*.ext_info = axiadc_ext_info,*/			\
+	  .scan_index = _si,						\
+	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+
+#define AIM_MC_CHAN(_chan, _si, _bits, _sign)			\
+	{ .type = IIO_VOLTAGE,						\
+	  .indexed = 1,							\
+	  .channel = _chan,						\
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
@@ -4913,6 +4926,21 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[1] = AIM_CHAN(1, 1, 12, 's'),
 		.channel[2] = AIM_CHAN(2, 2, 12, 's'),
 		.channel[3] = AIM_CHAN(3, 3, 12, 's'),
+	},
+	[ID_AD9361_2] = { /* MCS/MIMO 2x AD9361 */
+		.name = "AD9361-2",
+		.max_rate = 61440000UL,
+		.max_testmode = 0,
+		.num_channels = 8,
+		.scan_masks = ad9361_2x2_available_scan_masks,
+		.channel[0] = AIM_CHAN(0, 0, 12, 's'),
+		.channel[1] = AIM_CHAN(1, 1, 12, 's'),
+		.channel[2] = AIM_CHAN(2, 2, 12, 's'),
+		.channel[3] = AIM_CHAN(3, 3, 12, 's'),
+		.channel[4] = AIM_MC_CHAN(4, 4, 12, 's'),
+		.channel[5] = AIM_MC_CHAN(5, 5, 12, 's'),
+		.channel[6] = AIM_MC_CHAN(6, 6, 12, 's'),
+		.channel[7] = AIM_MC_CHAN(7, 7, 12, 's'),
 	},
 	[ID_AD9364] = {
 		.name = "AD9361",
@@ -5028,14 +5056,15 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 	u32 s0, s1, c0, c1, tmp, saved = 0;
 	u8 field[2][16];
 
-	num_chan = conv->chip_info->num_channels;
+	num_chan = (conv->chip_info->num_channels > 4) ? 4 : conv->chip_info->num_channels;
 
 	ad9361_bist_prbs(phy, BIST_INJ_RX);
 
 	for (t = 0; t < 2; t++) {
 		memset(field, 0, 32);
 		for (k = 0; k < 2; k++) {
-			ad9361_set_trx_clock_chain_freq(phy, k ? max_freq : 10000000UL);
+			if (max_freq)
+				ad9361_set_trx_clock_chain_freq(phy, k ? max_freq : 10000000UL);
 		for (i = 0; i < 2; i++) {
 			for (j = 0; j < 16; j++) {
 				ad9361_spi_write(phy->spi,
@@ -5048,8 +5077,9 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 				mdelay(4);
 
 				if ((t == 1) || (axiadc_read(st, ADI_REG_STATUS) & ADI_STATUS)) {
-					for (chan = 0, ret = 0; chan < num_chan; chan++)
+					for (chan = 0, ret = 0; chan < num_chan; chan++) {
 						ret |= axiadc_read(st, ADI_REG_CHAN_STATUS(chan));
+					}
 				} else {
 					ret = 1;
 				}
@@ -5146,8 +5176,10 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned rx2tx2 = conv->phy->pdata->rx2tx2;
-	unsigned tmp;
+	unsigned tmp, num_chan;
 	int i, ret;
+
+	num_chan = (conv->chip_info->num_channels > 4) ? 4 : conv->chip_info->num_channels;
 
 	conv->indio_dev = indio_dev;
 	axiadc_write(st, ADI_REG_CNTRL, rx2tx2 ? 0 : ADI_R1_MODE);
@@ -5162,7 +5194,7 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 		axiadc_write(st, 0x404c, 3); /* RATE */
 	}
 
-	for (i = 0; i < conv->chip_info->num_channels; i++) {
+	for (i = 0; i < num_chan; i++) {
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(i),
 			     ADI_DCFILT_OFFSET(0));
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
@@ -5172,7 +5204,8 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
 
-	ret = ad9361_dig_tune(conv->phy, 61440000);
+	ret = ad9361_dig_tune(conv->phy, ((conv->chip_info->num_channels > 4) ||
+		axiadc_read(st, ADI_REG_ID)) ? 0 : 61440000);
 	if (ret < 0)
 		return ret;
 
@@ -5198,7 +5231,9 @@ static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
   		goto out;
 	}
 
-	conv->chip_info = &axiadc_chip_info_tbl[phy->pdata->rx2tx2 ? ID_AD9361 : ID_AD9364];
+	conv->chip_info = &axiadc_chip_info_tbl[
+		(spi_get_device_id(spi)->driver_data == ID_AD9361_2) ?
+		ID_AD9361_2 : phy->pdata->rx2tx2 ? ID_AD9361 : ID_AD9364];
 	conv->adc_output_mode = OUTPUT_MODE_TWOS_COMPLEMENT;
 	conv->write = ad9361_spi_write;
 	conv->read = ad9361_spi_read;
@@ -7184,8 +7219,9 @@ static int ad9361_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad9361_id[] = {
-	{"ad9361", 9361}, /* 2RX2TX */
-	{"ad9364", 9364}, /* 1RX1TX */
+	{"ad9361", ID_AD9361}, /* 2RX2TX */
+	{"ad9364", ID_AD9364}, /* 1RX1TX */
+	{"ad9361-2x", ID_AD9361_2}, /* 2 x 2RX2TX */
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9361_id);
