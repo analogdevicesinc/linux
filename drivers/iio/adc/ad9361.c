@@ -4702,13 +4702,31 @@ static const struct clk_ops rfpll_clk_ops = {
 	.recalc_rate = ad9361_rfpll_recalc_rate,
 };
 
-static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy, const char *name,
-		const char *parent_name, unsigned long flags,
+#define AD9361_MAX_CLK_NAME 79
+
+static char *ad9361_clk_set_dev_name(struct ad9361_rf_phy *phy,
+					 char *dest, char *name)
+{
+	size_t len = 0;
+
+	if (*name == '-')
+		len = strlcpy(dest, dev_name(&phy->spi->dev),
+			      AD9361_MAX_CLK_NAME);
+	else
+		*dest = '\0';
+
+	return strncat(dest, name, AD9361_MAX_CLK_NAME - len);
+}
+
+static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy,
+		char *name, char *parent_name, unsigned long flags,
 		u32 source)
 {
 	struct refclk_scale *clk_priv;
 	struct clk_init_data init;
 	struct clk *clk;
+	char c_name[AD9361_MAX_CLK_NAME + 1], p_name[AD9361_MAX_CLK_NAME + 1];
+	const char *_parent_name;
 
 	clk_priv = kmalloc(sizeof(*clk_priv), GFP_KERNEL);
 	if (!clk_priv) {
@@ -4722,8 +4740,6 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy, const char *na
 	clk_priv->spi = phy->spi;
 	clk_priv->phy = phy;
 
-	init.name = name;
-
 	switch (source) {
 	case BBPLL_CLK:
 		init.ops = &bbpll_clk_ops;
@@ -4736,8 +4752,11 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy, const char *na
 		init.ops = &refclk_scale_ops;
 	}
 
+	_parent_name = ad9361_clk_set_dev_name(phy, p_name, parent_name);
+
+	init.name = ad9361_clk_set_dev_name(phy, c_name, name);;
 	init.flags = flags;
-	init.parent_names = &parent_name;
+	init.parent_names = &_parent_name;
 	init.num_parents = 1;
 
 	clk = clk_register(&phy->spi->dev, &clk_priv->hw);
@@ -4787,84 +4806,84 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 
 	/* Scaled Reference Clocks */
 	phy->clks[TX_REFCLK] = ad9361_clk_register(phy,
-					"tx_refclk", "ad9361_ext_refclk",
+					"-tx_refclk", "ad9361_ext_refclk",
 					flags | CLK_IGNORE_UNUSED,
 					TX_REFCLK);
 
 	phy->clks[RX_REFCLK] = ad9361_clk_register(phy,
-					"rx_refclk", "ad9361_ext_refclk",
+					"-rx_refclk", "ad9361_ext_refclk",
 					flags | CLK_IGNORE_UNUSED,
 					RX_REFCLK);
 
 	phy->clks[BB_REFCLK] = ad9361_clk_register(phy,
-					"bb_refclk", "ad9361_ext_refclk",
+					"-bb_refclk", "ad9361_ext_refclk",
 					flags | CLK_IGNORE_UNUSED,
 					BB_REFCLK);
 
 	/* Base Band PLL Clock */
 	phy->clks[BBPLL_CLK] = ad9361_clk_register(phy,
-					"bbpll_clk", "bb_refclk",
+					"-bbpll_clk", "-bb_refclk",
 					flags | CLK_IGNORE_UNUSED,
 					BBPLL_CLK);
 
 	phy->clks[ADC_CLK] = ad9361_clk_register(phy,
-					"adc_clk", "bbpll_clk",
+					"-adc_clk", "-bbpll_clk",
 					flags | CLK_IGNORE_UNUSED,
 					ADC_CLK);
 
 	phy->clks[R2_CLK] = ad9361_clk_register(phy,
-					"r2_clk", "adc_clk",
+					"-r2_clk", "-adc_clk",
 					flags | CLK_IGNORE_UNUSED,
 					R2_CLK);
 
 	phy->clks[R1_CLK] = ad9361_clk_register(phy,
-					"r1_clk", "r2_clk",
+					"-r1_clk", "-r2_clk",
 					flags | CLK_IGNORE_UNUSED,
 					R1_CLK);
 
 	phy->clks[CLKRF_CLK] = ad9361_clk_register(phy,
-					"clkrf_clk", "r1_clk",
+					"-clkrf_clk", "-r1_clk",
 					flags | CLK_IGNORE_UNUSED,
 					CLKRF_CLK);
 
 	phy->clks[RX_SAMPL_CLK] = ad9361_clk_register(phy,
-					"rx_sampl_clk", "clkrf_clk",
+					"-rx_sampl_clk", "-clkrf_clk",
 					flags | CLK_IGNORE_UNUSED,
 					RX_SAMPL_CLK);
 
 
 	phy->clks[DAC_CLK] = ad9361_clk_register(phy,
-					"dac_clk", "adc_clk",
+					"-dac_clk", "-adc_clk",
 					flags | CLK_IGNORE_UNUSED,
 					DAC_CLK);
 
 	phy->clks[T2_CLK] = ad9361_clk_register(phy,
-					"t2_clk", "dac_clk",
+					"-t2_clk", "-dac_clk",
 					flags | CLK_IGNORE_UNUSED,
 					T2_CLK);
 
 	phy->clks[T1_CLK] = ad9361_clk_register(phy,
-					"t1_clk", "t2_clk",
+					"-t1_clk", "-t2_clk",
 					flags | CLK_IGNORE_UNUSED,
 					T1_CLK);
 
 	phy->clks[CLKTF_CLK] = ad9361_clk_register(phy,
-					"clktf_clk", "t1_clk",
+					"-clktf_clk", "-t1_clk",
 					flags | CLK_IGNORE_UNUSED,
 					CLKTF_CLK);
 
 	phy->clks[TX_SAMPL_CLK] = ad9361_clk_register(phy,
-					"tx_sampl_clk", "clktf_clk",
+					"-tx_sampl_clk", "-clktf_clk",
 					flags | CLK_IGNORE_UNUSED,
 					TX_SAMPL_CLK);
 
 	phy->clks[RX_RFPLL] = ad9361_clk_register(phy,
-					"rx_rfpll", "rx_refclk",
+					"-rx_rfpll", "-rx_refclk",
 					flags | CLK_IGNORE_UNUSED,
 					RX_RFPLL);
 
 	phy->clks[TX_RFPLL] = ad9361_clk_register(phy,
-					"tx_rfpll", "tx_refclk",
+					"-tx_rfpll", "-tx_refclk",
 					flags | CLK_IGNORE_UNUSED,
 					TX_RFPLL);
 
