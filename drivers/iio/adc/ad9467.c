@@ -14,6 +14,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -112,6 +113,49 @@ static int ad9467_test_and_outputmode_set(struct iio_dev *indio_dev,
 	return ad9467_testmode_set(indio_dev, chan, mode);
 }
 
+static int ad9680_outputmode_set(struct spi_device *spi, unsigned mode)
+{
+	int ret;
+
+	ret = ad9467_spi_write(spi, AD9680_REG_OUTPUT_MODE, mode);
+	if (ret < 0)
+		return ret;
+
+	return ad9467_spi_write(spi, AD9680_REG_TEST_MODE, TESTMODE_OFF);
+}
+
+static int ad9680_testmode_set(struct iio_dev *indio_dev,
+			     unsigned chan, unsigned mode)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+
+	ad9467_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, 1 << chan);
+	ad9467_spi_write(conv->spi, AD9680_REG_TEST_MODE, mode);
+	ad9467_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, 0x3);
+
+	conv->testmode[chan] = mode;
+	return 0;
+}
+
+static int ad9680_test_and_outputmode_set(struct iio_dev *indio_dev,
+			     unsigned chan, unsigned mode)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int ret;
+
+	if (mode == TESTMODE_OFF)
+		ret = ad9467_spi_write(conv->spi, AD9680_REG_OUTPUT_MODE,
+				       conv->adc_output_mode);
+	else
+		ret = ad9467_spi_write(conv->spi, AD9680_REG_OUTPUT_MODE,
+			conv->adc_output_mode & ~OUTPUT_MODE_TWOS_COMPLEMENT);
+
+	if (ret < 0)
+		return ret;
+
+	return ad9680_testmode_set(indio_dev, chan, mode);
+}
+
 static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -124,6 +168,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	switch (conv->id) {
 	case CHIPID_AD9250:
 	case CHIPID_AD9683:
+	case CHIPID_AD9680:
 	case CHIPID_AD9625:
 		return 0;
 	case CHIPID_AD9434: /* TODO */
@@ -251,6 +296,11 @@ static int ad9265_scale_table[][2] = {
 	{1250, 0x00}, {1500, 0x40}, {1750, 0x80}, {2000, 0xC0},
 };
 
+static int ad9680_scale_table[][2] = {
+	{1200, 0x08}, {1300, 0x09}, {1400, 0x0A}, {1500, 0x0B},
+	{1600, 0x00}, {1700, 0x0C}, {1800, 0x0D}, {1900, 0x0F},
+};
+
 static int ad9467_scale_table[][2] = {
 	{2000, 0}, {2100, 6}, {2200, 7},
 	{2300, 8}, {2400, 9}, {2500, 10},
@@ -264,7 +314,6 @@ static int ad9643_scale_table[][2] = {
 	{1635, 0x1B}, {1612, 0x1A}, {1589, 0x19}, {1567, 0x18}, {1544, 0x17},
 	{1521, 0x16}, {1498, 0x15}, {1475, 0x14}, {1452, 0x13}, {1429, 0x12},
 	{1406, 0x11}, {1383, 0x10},
-
 };
 
 static int ad9434_scale_table[][2] = {
@@ -360,7 +409,10 @@ static ssize_t axiadc_testmode_write(struct iio_dev *indio_dev,
 	}
 
 	mutex_lock(&indio_dev->mlock);
-	ret = ad9467_testmode_set(indio_dev, chan->channel, mode);
+	if (conv->id == CHIPID_AD9680)
+		ret = ad9680_testmode_set(indio_dev, chan->channel, mode);
+	else
+		ret = ad9467_testmode_set(indio_dev, chan->channel, mode);
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret ? ret : len;
@@ -477,6 +529,17 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.num_channels = 1,
 		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 's'),
 	},
+	[ID_AD9680] = {
+		.name = "AD9680",
+		.max_rate = 1250000000UL,
+		.scale_table = ad9680_scale_table,
+		.num_scales = ARRAY_SIZE(ad9680_scale_table),
+		.max_testmode = TESTMODE_RAMP,
+		.num_channels = 2,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 's'),
+		.channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 's'),
+	},
+
 };
 
 static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
@@ -510,6 +573,8 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 
 static int ad9625_setup(struct spi_device *spi)
 {
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	struct clk *clk;
 	unsigned pll_stat;
 	int ret;
 
@@ -530,14 +595,76 @@ static int ad9625_setup(struct spi_device *spi)
 
 	mdelay(10);
 
+	ret = clk_prepare_enable(conv->clk);
+	if (ret < 0)
+		return ret;
+
+	mdelay(10);
+
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
-	dev_info(&spi->dev, "PLL %s, JESD204B Link %s\n",
-		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED",
-		 pll_stat & 0x01 ? "Ready" : "Fail");
+	dev_info(&spi->dev, "PLL %s\n",
+		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
 	return ret;
 }
+
+static int ad9680_setup(struct spi_device *spi,
+			unsigned m, unsigned l)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	struct clk *clk;
+	int ret;
+	unsigned pll_stat;
+	static int sel = 0;
+
+	clk = devm_clk_get(&spi->dev, "adc_sysref");
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+	}
+
+	clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+
+		conv->adc_clk = clk_get_rate(clk);
+	}
+
+	ret = ad9467_spi_write(spi, 0x008, 0x03); // select both channels
+
+	ret |= ad9467_spi_write(spi, 0x201, 0x00); // full sample rate (decimation = 1)
+	ret |= ad9467_spi_write(spi, 0x550, 0x04); // test pattern
+	ret |= ad9467_spi_write(spi, 0x571, 0x15); // serdes link power down
+	ret |= ad9467_spi_write(spi, 0x561, 0x00); // offset binary
+	ret |= ad9467_spi_write(spi, 0x570, 0x88); // m=2, l=4, f= 1
+	ret |= ad9467_spi_write(spi, 0x58f, 0x0d); // 14-bit
+	ret |= ad9467_spi_write(spi, 0x5b0, 0xAA); //
+	ret |= ad9467_spi_write(spi, 0x5b2, 0x00); // serdes-0 = lane 0
+	ret |= ad9467_spi_write(spi, 0x5b3, 0x11); // serdes-1 = lane 1
+	ret |= ad9467_spi_write(spi, 0x5b5, 0x22); // serdes-2 = lane 2
+	ret |= ad9467_spi_write(spi, 0x5b6, 0x33); // serdes-3 = lane 3
+	ret |= ad9467_spi_write(spi, 0x0ff, 0x01); // write enable
+	ret |= ad9467_spi_write(spi, 0x571, 0x14); // serdes link power up
+
+	ret = clk_prepare_enable(conv->clk);
+	if (ret < 0)
+		return ret;
+
+	conv->clk = clk;
+
+	mdelay(10);
+	pll_stat = ad9467_spi_read(spi, 0x56f);
+
+	dev_info(&spi->dev, "PLL %s\n",
+		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
+
+	return ret;
+}
+
 static struct attribute *ad9467_attributes[] = {
 	NULL,
 };
@@ -558,28 +685,34 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 
 	switch (m) {
 	case IIO_CHAN_INFO_SCALE:
-		vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
 
-		switch (conv->id) {
-		case CHIPID_AD9467:
-			mask = AD9467_REG_VREF_MASK;
-			break;
-		case CHIPID_AD9643:
-			mask = AD9643_REG_VREF_MASK;
-			break;
-		case CHIPID_AD9250:
-		case CHIPID_AD9683:
-		case CHIPID_AD9625:
-			mask = AD9250_REG_VREF_MASK;
-			break;
-		case CHIPID_AD9265:
-			mask = AD9265_REG_VREF_MASK;
-			break;
-		default:
-			mask = 0xFFFF;
+		if (conv->id == CHIPID_AD9680) {
+			vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
+		} else {
+			vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
+
+			switch (conv->id) {
+			case CHIPID_AD9467:
+				mask = AD9467_REG_VREF_MASK;
+				break;
+			case CHIPID_AD9643:
+				mask = AD9643_REG_VREF_MASK;
+				break;
+			case CHIPID_AD9250:
+			case CHIPID_AD9683:
+
+			case CHIPID_AD9625:
+				mask = AD9250_REG_VREF_MASK;
+				break;
+			case CHIPID_AD9265:
+				mask = AD9265_REG_VREF_MASK;
+				break;
+			default:
+				mask = 0xFFFF;
+			}
+
+			vref_val &= mask;
 		}
-
-		vref_val &= mask;
 
 		for (i = 0; i < conv->chip_info->num_scales; i++)
 			if (vref_val == conv->chip_info->scale_table[i][1])
@@ -619,10 +752,15 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 
 		for (i = 0; i < conv->chip_info->num_scales; i++)
 			if (val2 == conv->chip_info->scale_table[i][0]) {
-				ad9467_spi_write(conv->spi, ADC_REG_VREF,
-					conv->chip_info->scale_table[i][1]);
-				ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
-					      TRANSFER_SYNC);
+				if (conv->id == CHIPID_AD9680) {
+					ad9467_spi_write(conv->spi, AD9680_REG_INPUT_FS_RANGE,
+						conv->chip_info->scale_table[i][1]);
+				} else {
+					ad9467_spi_write(conv->spi, ADC_REG_VREF,
+						conv->chip_info->scale_table[i][1]);
+					ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
+						TRANSFER_SYNC);
+				}
 				return 0;
 			}
 
@@ -699,18 +837,31 @@ static int ad9467_probe(struct spi_device *spi)
 
 	spi->mode = SPI_MODE_0 | SPI_3WIRE;
 
-	ret = clk_prepare_enable(clk);
-	if (ret < 0)
-		return ret;
+	if (!(spi_get_device_id(spi)->driver_data == CHIPID_AD9680 ||
+		spi_get_device_id(spi)->driver_data == CHIPID_AD9625)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
 
+		conv->adc_clk = clk_get_rate(clk);
+
+	}
+
+	spi_set_drvdata(spi, conv);
 	conv->clk = clk;
-	conv->adc_clk = clk_get_rate(clk);
 
+	conv->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown");
+	if (!IS_ERR(conv->pwrdown_gpio)) {
+		ret = gpiod_direction_output(conv->pwrdown_gpio, 0);
+	}
 
-	conv->id = ad9467_spi_read(spi, ADC_REG_CHIP_ID);
+	conv->id = ad9467_spi_read(spi,
+		spi_get_device_id(spi)->driver_data == CHIPID_AD9680 ?
+		AD9680_REG_CHIP_ID_HIGH : ADC_REG_CHIP_ID);
+
 	if (conv->id != spi_get_device_id(spi)->driver_data) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
- 		ret = -ENODEV;
+		ret = -ENODEV;
  		goto out;
 	}
 
@@ -748,6 +899,17 @@ static int ad9467_probe(struct spi_device *spi)
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9683];
 		conv->adc_output_mode = AD9683_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
 		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
+		break;
+	case CHIPID_AD9680:
+		ret = ad9680_setup(spi, 1, 1);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize\n");
+			ret = -EIO;
+			goto out;
+		}
+		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9680];
+		conv->adc_output_mode = AD9680_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		ret = ad9680_outputmode_set(spi, conv->adc_output_mode);
 		break;
 	case CHIPID_AD9625:
 		ret = ad9625_setup(spi);
@@ -788,11 +950,12 @@ static int ad9467_probe(struct spi_device *spi)
 	conv->write_raw = ad9467_write_raw;
 	conv->read_raw = ad9467_read_raw;
 	conv->post_setup = ad9467_post_setup;
-	conv->testmode_set = ad9467_test_and_outputmode_set;
+	if (conv->id == CHIPID_AD9680)
+		conv->testmode_set = ad9680_test_and_outputmode_set;
+	else
+		conv->testmode_set = ad9467_test_and_outputmode_set;
 	conv->attrs = &ad9467_attribute_group;
 	conv->spi = spi;
-
-	spi_set_drvdata(spi, conv);
 
 	return 0;
 
@@ -820,6 +983,7 @@ static const struct spi_device_id ad9467_id[] = {
 	{"ad9683", CHIPID_AD9683},
 	{"ad9434", CHIPID_AD9434},
 	{"ad9625", CHIPID_AD9625},
+	{"ad9680", CHIPID_AD9680},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9467_id);
