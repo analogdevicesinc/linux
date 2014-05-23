@@ -65,6 +65,7 @@ enum debugfs_cmd {
 	DBGFS_RXGAIN_1,
 	DBGFS_RXGAIN_2,
 	DBGFS_MCS,
+	DBGFS_CAL_SW_CTRL,
 };
 
 enum ad9361_bist_mode {
@@ -107,7 +108,7 @@ struct ad9361_rf_phy {
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[145];
+	struct ad9361_debugfs_entry debugfs_entry[146];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -6355,6 +6356,22 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_CAL_SW_CTRL:
+		if (ret != 1)
+			return -EINVAL;
+
+		if (!IS_ERR(phy->pdata->cal_sw1_gpio) &&
+			!IS_ERR(phy->pdata->cal_sw2_gpio)) {
+			mutex_lock(&phy->indio_dev->mlock);
+			gpiod_set_value(phy->pdata->cal_sw1_gpio, !!val);
+			gpiod_set_value(phy->pdata->cal_sw2_gpio, !!(val & BIT(1)));
+			mutex_unlock(&phy->indio_dev->mlock);
+		} else {
+			return -ENODEV;
+		}
+
+		entry->val = val;
+		return count;
 	default:
 		break;
 	}
@@ -6421,6 +6438,8 @@ static int ad9361_register_debugfs(struct iio_dev *indio_dev)
 	ad9361_add_debugfs_entry(phy, "gaininfo_rx1", DBGFS_RXGAIN_1);
 	ad9361_add_debugfs_entry(phy, "gaininfo_rx2", DBGFS_RXGAIN_2);
 	ad9361_add_debugfs_entry(phy, "multichip_sync", DBGFS_MCS);
+	ad9361_add_debugfs_entry(phy, "calibration_switch_control",
+					 DBGFS_CAL_SW_CTRL);
 
 	for (i = 0; i < phy->ad9361_debugfs_entry_index; i++)
 		d = debugfs_create_file(
@@ -7024,9 +7043,20 @@ static int ad9361_probe(struct spi_device *spi)
 		ret = gpiod_direction_output(phy->pdata->reset_gpio, 1);
 	}
 
+	/* Optional: next three used for MCS synchronization */
 	phy->pdata->sync_gpio = devm_gpiod_get(&spi->dev, "sync");
 	if (!IS_ERR(phy->pdata->sync_gpio)) {
 		ret = gpiod_direction_output(phy->pdata->sync_gpio, 0);
+	}
+
+	phy->pdata->cal_sw1_gpio = devm_gpiod_get(&spi->dev, "cal-sw1");
+	if (!IS_ERR(phy->pdata->cal_sw1_gpio)) {
+		ret = gpiod_direction_output(phy->pdata->cal_sw1_gpio, 0);
+	}
+
+	phy->pdata->cal_sw2_gpio= devm_gpiod_get(&spi->dev, "cal-sw2");
+	if (!IS_ERR(phy->pdata->cal_sw2_gpio)) {
+		ret = gpiod_direction_output(phy->pdata->cal_sw2_gpio, 0);
 	}
 
 	phy->spi = spi;
