@@ -7109,7 +7109,12 @@ static int ad9361_probe(struct spi_device *spi)
 	phy->bin.size = 4096;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = "ad9361-phy";
+
+	if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else
+		indio_dev->name = "ad9361-phy";
+
 	indio_dev->info = &ad9361_phy_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = ad9361_phy_chan;
