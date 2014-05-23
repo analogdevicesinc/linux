@@ -6314,7 +6314,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_LOOPBACK:
 		if (ret != 1)
 			return -EINVAL;
+		mutex_lock(&phy->indio_dev->mlock);
 		ret = ad9361_bist_loopback(phy, val);
+		mutex_unlock(&phy->indio_dev->mlock);
 		if (ret < 0)
 			return ret;
 
@@ -6323,7 +6325,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_BIST_PRBS:
 		if (ret != 1)
 			return -EINVAL;
+		mutex_lock(&phy->indio_dev->mlock);
 		ret = ad9361_bist_prbs(phy, val);
+		mutex_unlock(&phy->indio_dev->mlock);
 		if (ret < 0)
 			return ret;
 
@@ -6332,7 +6336,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_BIST_TONE:
 		if (ret != 4)
 			return -EINVAL;
+		mutex_lock(&phy->indio_dev->mlock);
 		ret = ad9361_bist_tone(phy, val, val2, val3, val4);
+		mutex_unlock(&phy->indio_dev->mlock);
 		if (ret < 0)
 			return ret;
 
@@ -6341,7 +6347,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_MCS:
 		if (ret != 1)
 			return -EINVAL;
+		mutex_lock(&phy->indio_dev->mlock);
 		ret = ad9361_mcs(phy, val);
+		mutex_unlock(&phy->indio_dev->mlock);
 		if (ret < 0)
 			return ret;
 
