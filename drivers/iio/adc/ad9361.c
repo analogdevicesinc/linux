@@ -6577,17 +6577,17 @@ static struct ad9361_phy_platform_data
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,rx-data-clock-delay", &tmp);
-	pdata->port_ctrl.rx_clk_data_delay = (tmp & 0xF) << 4;
+	pdata->port_ctrl.rx_clk_data_delay = DATA_CLK_DELAY(tmp);
 	tmp = 0;
 	of_property_read_u32(np, "adi,rx-data-delay", &tmp);
-	pdata->port_ctrl.rx_clk_data_delay |= (tmp & 0xF);
+	pdata->port_ctrl.rx_clk_data_delay |= RX_DATA_DELAY(tmp);
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,tx-fb-clock-delay", &tmp);
-	pdata->port_ctrl.tx_clk_data_delay = (tmp & 0xF) << 4;
+	pdata->port_ctrl.tx_clk_data_delay = FB_CLK_DELAY(tmp);
 	tmp = 0;
 	of_property_read_u32(np, "adi,tx-data-delay", &tmp);
-	pdata->port_ctrl.tx_clk_data_delay |= (tmp & 0xF);
+	pdata->port_ctrl.tx_clk_data_delay |= TX_DATA_DELAY(tmp);
 
 	tmp = 75;
 	of_property_read_u32(np, "adi,lvds-bias-mV", &tmp);
