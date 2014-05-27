@@ -6423,7 +6423,7 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		if (!IS_ERR(phy->pdata->cal_sw1_gpio) &&
 			!IS_ERR(phy->pdata->cal_sw2_gpio)) {
 			mutex_lock(&phy->indio_dev->mlock);
-			gpiod_set_value(phy->pdata->cal_sw1_gpio, !!val);
+			gpiod_set_value(phy->pdata->cal_sw1_gpio, !!(val & BIT(0)));
 			gpiod_set_value(phy->pdata->cal_sw2_gpio, !!(val & BIT(1)));
 			mutex_unlock(&phy->indio_dev->mlock);
 		} else {
