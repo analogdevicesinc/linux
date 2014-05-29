@@ -568,7 +568,7 @@
 			#size-cells = <0>;
 			compatible = "snps,dw-apb-gpio";
 			reg = <0xff708000 0x1000>;
-			clocks = <&per_base_clk>;
+			clocks = <&l4_mp_clk>;
 			status = "disabled";
 
 			gpio0: gpio-controller@0 {
@@ -588,7 +588,7 @@
 			#size-cells = <0>;
 			compatible = "snps,dw-apb-gpio";
 			reg = <0xff709000 0x1000>;
-			clocks = <&per_base_clk>;
+			clocks = <&l4_mp_clk>;
 			status = "disabled";
 
 			gpio1: gpio-controller@0 {
@@ -608,7 +608,7 @@
 			#size-cells = <0>;
 			compatible = "snps,dw-apb-gpio";
 			reg = <0xff70a000 0x1000>;
-			clocks = <&per_base_clk>;
+			clocks = <&l4_mp_clk>;
 			status = "disabled";
 
 			gpio2: gpio-controller@0 {
