@@ -54,23 +54,29 @@ struct xilinx_drm_private {
 /**
  * struct xilinx_video_format_desc - Xilinx Video IP video format description
  * @name: Xilinx video format name
+ * @depth: color depth
  * @bpp: bits per pixel
  * @xilinx_format: xilinx format code
  * @drm_format: drm format code
  */
 struct xilinx_video_format_desc {
 	const char *name;
+	unsigned int depth;
 	unsigned int bpp;
 	unsigned int xilinx_format;
 	uint32_t drm_format;
 };
 
 static const struct xilinx_video_format_desc xilinx_video_formats[] = {
-	{ "yuv422", 16, XILINX_VIDEO_FORMAT_YUV422, DRM_FORMAT_YUV422 },
-	{ "yuv444", 24, XILINX_VIDEO_FORMAT_YUV444, DRM_FORMAT_YUV444 },
-	{ "xrgb888", 32, XILINX_VIDEO_FORMAT_RGB, DRM_FORMAT_XRGB8888 },
-	{ "yuv420", 16, XILINX_VIDEO_FORMAT_YUV420, DRM_FORMAT_YUV420 },
+	{ "yuv422", 16, 16, XILINX_VIDEO_FORMAT_YUV422, DRM_FORMAT_YUYV },
+	{ "yuv444", 24, 24, XILINX_VIDEO_FORMAT_YUV444, DRM_FORMAT_YUV444 },
+	{ "rgb888", 24, 24, XILINX_VIDEO_FORMAT_RGB, DRM_FORMAT_RGB888 },
+	{ "yuv420", 16, 16, XILINX_VIDEO_FORMAT_YUV420, DRM_FORMAT_YUV420 },
+	{ "xrgb8888", 24, 32, XILINX_VIDEO_FORMAT_XRGB, DRM_FORMAT_XRGB8888 },
 };
+
+static unsigned int xilinx_drm_format_bpp(uint32_t drm_format);
+static unsigned int xilinx_drm_format_depth(uint32_t drm_format);
 
 /* create a fb */
 static struct drm_framebuffer *
@@ -78,6 +84,7 @@ xilinx_drm_fb_create(struct drm_device *drm, struct drm_file *file_priv,
 		     struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct xilinx_drm_private *private = drm->dev_private;
+	struct drm_framebuffer *fb;
 	bool res;
 
 	res = xilinx_drm_crtc_check_format(private->crtc,
@@ -88,7 +95,14 @@ xilinx_drm_fb_create(struct drm_device *drm, struct drm_file *file_priv,
 		return ERR_PTR(-EINVAL);
 	}
 
-	return drm_fb_cma_create(drm, file_priv, mode_cmd);
+	fb = drm_fb_cma_create(drm, file_priv, mode_cmd);
+	if (IS_ERR(fb))
+		return fb;
+
+	fb->bits_per_pixel = xilinx_drm_format_bpp(mode_cmd->pixel_format);
+	fb->depth = xilinx_drm_format_depth(mode_cmd->pixel_format);
+
+	return fb;
 }
 
 /* poll changed handler */
@@ -190,6 +204,21 @@ static unsigned int xilinx_drm_format_bpp(uint32_t drm_format)
 	return 0;
 }
 
+/* get color depth of given format */
+static unsigned int xilinx_drm_format_depth(uint32_t drm_format)
+{
+	const struct xilinx_video_format_desc *format;
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(xilinx_video_formats); i++) {
+		format = &xilinx_video_formats[i];
+		if (format->drm_format == drm_format)
+			return format->depth;
+	}
+
+	return 0;
+}
+
 /* load xilinx drm */
 static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 {
@@ -209,7 +238,7 @@ static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 	if (IS_ERR(private->crtc)) {
 		DRM_DEBUG_DRIVER("failed to create xilinx crtc\n");
 		ret = PTR_ERR(private->crtc);
-		goto err_crtc;
+		goto err_out;
 	}
 
 	/* create a xilinx encoder */
@@ -217,7 +246,7 @@ static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 	if (IS_ERR(private->encoder)) {
 		DRM_DEBUG_DRIVER("failed to create xilinx encoder\n");
 		ret = PTR_ERR(private->encoder);
-		goto err_encoder;
+		goto err_out;
 	}
 
 	/* create a xilinx connector */
@@ -225,13 +254,13 @@ static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 	if (IS_ERR(private->connector)) {
 		DRM_DEBUG_DRIVER("failed to create xilinx connector\n");
 		ret = PTR_ERR(private->connector);
-		goto err_connector;
+		goto err_out;
 	}
 
 	ret = drm_vblank_init(drm, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to initialize vblank\n");
-		goto err_vblank;
+		goto err_out;
 	}
 
 	/* enable irq to enable vblank feature */
@@ -265,13 +294,7 @@ static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 
 err_fbdev:
 	drm_vblank_cleanup(drm);
-err_vblank:
-	xilinx_drm_connector_destroy(private->connector);
-err_connector:
-	xilinx_drm_encoder_destroy(private->encoder);
-err_encoder:
-	xilinx_drm_crtc_destroy(private->crtc);
-err_crtc:
+err_out:
 	drm_mode_config_cleanup(drm);
 	if (ret == -EPROBE_DEFER)
 		DRM_INFO("load() is defered & will be called again\n");

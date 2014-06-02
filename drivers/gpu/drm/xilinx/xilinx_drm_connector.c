@@ -30,6 +30,11 @@ struct xilinx_drm_connector {
 	struct drm_encoder *encoder;
 };
 
+struct xilinx_drm_connector_type {
+	const char *name;
+	const int type;
+};
+
 #define to_xilinx_connector(x)	\
 	container_of(x, struct xilinx_drm_connector, base)
 
@@ -54,13 +59,18 @@ static int xilinx_drm_connector_get_modes(struct drm_connector *base_connector)
 static int xilinx_drm_connector_mode_valid(struct drm_connector *base_connector,
 					   struct drm_display_mode *mode)
 {
-	if (mode->clock > 165000)
-		return MODE_CLOCK_HIGH;
+	struct xilinx_drm_connector *connector =
+		to_xilinx_connector(base_connector);
+	struct drm_encoder *encoder = connector->encoder;
+	struct drm_encoder_slave *encoder_slave = to_encoder_slave(encoder);
+	struct drm_encoder_slave_funcs *encoder_sfuncs =
+		encoder_slave->slave_funcs;
+	int ret = MODE_OK;
 
-	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
-		return MODE_NO_INTERLACE;
+	if (encoder_sfuncs->mode_valid)
+		ret = encoder_sfuncs->mode_valid(encoder, mode);
 
-	return MODE_OK;
+	return ret;
 }
 
 /* find best encoder: return stored encoder */
@@ -116,13 +126,20 @@ static struct drm_connector_funcs xilinx_drm_connector_funcs = {
 	.destroy	= xilinx_drm_connector_destroy,
 };
 
+static const struct xilinx_drm_connector_type connector_types[] = {
+	{ "HDMIA", DRM_MODE_CONNECTOR_HDMIA },
+	{ "DisplayPort", DRM_MODE_CONNECTOR_DisplayPort },
+};
+
 /* create connector */
 struct drm_connector *
 xilinx_drm_connector_create(struct drm_device *drm,
 			    struct drm_encoder *base_encoder)
 {
 	struct xilinx_drm_connector *connector;
-	int ret;
+	const char *string;
+	int type = DRM_MODE_CONNECTOR_Unknown;
+	int i, ret;
 
 	connector = devm_kzalloc(drm->dev, sizeof(*connector), GFP_KERNEL);
 	if (!connector)
@@ -131,9 +148,26 @@ xilinx_drm_connector_create(struct drm_device *drm,
 	connector->base.polled = DRM_CONNECTOR_POLL_CONNECT |
 				 DRM_CONNECTOR_POLL_DISCONNECT;
 
+	ret = of_property_read_string(drm->dev->of_node, "xlnx,connector-type",
+				      &string);
+	if (ret < 0) {
+		dev_err(drm->dev, "No connector type in DT\n");
+		return ERR_PTR(ret);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(connector_types); i++)
+		if (strcmp(connector_types[i].name, string) == 0) {
+			type = connector_types[i].type;
+			break;
+		}
+
+	if (type == DRM_MODE_CONNECTOR_Unknown) {
+		dev_err(drm->dev, "Unknown connector type in DT\n");
+		return ERR_PTR(-EINVAL);
+	}
+
 	ret = drm_connector_init(drm, &connector->base,
-				 &xilinx_drm_connector_funcs,
-				 DRM_MODE_CONNECTOR_HDMIA);
+				 &xilinx_drm_connector_funcs, type);
 	if (ret) {
 		DRM_ERROR("failed to initialize connector\n");
 		return ERR_PTR(ret);

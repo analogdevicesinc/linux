@@ -138,8 +138,8 @@ static int xvip_pipeline_start_stop(struct xvip_pipeline *pipe, bool start)
 
 	while (1) {
 		pad = xvip_get_entity_sink(entity, pad);
-		if (IS_ERR(pad))
-			return PTR_ERR(pad);
+		if (pad == NULL)
+			break;
 
 		if (!(pad->flags & MEDIA_PAD_FL_SINK))
 			break;
@@ -387,6 +387,11 @@ static void xvip_dma_buffer_queue(struct vb2_buffer *vb)
 
 	desc = dmaengine_prep_slave_single(dma->dma, buf->addr, buf->length,
 					   dir, flags);
+	if (!desc) {
+		dev_err(dma->xdev->dev, "Failed to prepare DMA transfer\n");
+		vb2_buffer_done(&buf->buf, VB2_BUF_STATE_ERROR);
+		return;
+	}
 	desc->callback = xvip_dma_complete;
 	desc->callback_param = buf;
 
@@ -591,10 +596,6 @@ __xvip_dma_try_format(struct xvip_dma *dma, struct v4l2_pix_format *pix,
 	 */
 	min_bpl = pix->width * info->bpp;
 	max_bpl = rounddown(XVIP_DMA_MAX_WIDTH, dma->align);
-	/* HACK: mplayer (svn r32540) doesn't initialize the byteperline field,
-	 * so hardcode it to the minimum value.
-	 */
-	pix->bytesperline = min_bpl;
 	bpl = rounddown(pix->bytesperline, dma->align);
 
 	pix->bytesperline = clamp(bpl, min_bpl, max_bpl);
@@ -904,8 +905,6 @@ int xvip_dma_init(struct xvip_composite_device *xdev, struct xvip_dma *dma,
 
 	dma->xdev = xdev;
 	dma->port = port;
-	mutex_init(&dma->lock);
-	mutex_init(&dma->pipe.lock);
 
 	dma->fmtinfo = xvip_get_format_by_fourcc(XVIP_DMA_DEF_FORMAT);
 	dma->format.pixelformat = dma->fmtinfo->fourcc;
@@ -924,6 +923,8 @@ int xvip_dma_init(struct xvip_composite_device *xdev, struct xvip_dma *dma,
 	if (ret < 0)
 		return ret;
 
+	mutex_init(&dma->lock);
+	mutex_init(&dma->pipe.lock);
 	/* ... and the video node... */
 	dma->video.v4l2_dev = &xdev->v4l2_dev;
 	dma->video.fops = &xvip_dma_fops;
@@ -977,7 +978,6 @@ int xvip_dma_init(struct xvip_composite_device *xdev, struct xvip_dma *dma,
 	return 0;
 
 error:
-	vb2_dma_contig_cleanup_ctx(dma->alloc_ctx);
 	xvip_dma_cleanup(dma);
 	return ret;
 }
@@ -990,7 +990,9 @@ void xvip_dma_cleanup(struct xvip_dma *dma)
 	if (dma->dma)
 		dma_release_channel(dma->dma);
 
-	vb2_dma_contig_cleanup_ctx(dma->alloc_ctx);
+	if (!IS_ERR_OR_NULL(dma->alloc_ctx))
+		vb2_dma_contig_cleanup_ctx(dma->alloc_ctx);
+
 	media_entity_cleanup(&dma->video.entity);
 
 	mutex_destroy(&dma->lock);

@@ -24,6 +24,8 @@ extern int zynq_early_slcr_init(void);
 extern void zynq_slcr_system_reset(void);
 extern void zynq_slcr_cpu_stop(int cpu);
 extern void zynq_slcr_cpu_start(int cpu);
+extern bool zynq_slcr_cpu_state_read(int cpu);
+extern void zynq_slcr_cpu_state_write(int cpu, bool die);
 extern u32 zynq_slcr_get_ocm_config(void);
 
 #ifdef CONFIG_SMP
@@ -41,9 +43,6 @@ extern void zynq_slcr_init_postload_fpga(void);
 
 extern void __iomem *zynq_slcr_base;
 extern void __iomem *zynq_scu_base;
-
-/* Hotplug */
-extern void zynq_platform_cpu_die(unsigned int cpu);
 
 #ifdef CONFIG_SUSPEND
 int zynq_pm_late_init(void);

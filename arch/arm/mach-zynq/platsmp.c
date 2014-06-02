@@ -115,8 +115,32 @@ static void __init zynq_smp_prepare_cpus(unsigned int max_cpus)
 #ifdef CONFIG_HOTPLUG_CPU
 static int zynq_cpu_kill(unsigned cpu)
 {
+	unsigned long timeout = jiffies + msecs_to_jiffies(50);
+
+	while (zynq_slcr_cpu_state_read(cpu))
+		if (time_after(jiffies, timeout))
+			return 0;
+
 	zynq_slcr_cpu_stop(cpu);
 	return 1;
+}
+
+/**
+ * zynq_cpu_die - platform-specific code to shutdown a CPU
+ * @cpu: cpu number
+ *
+ * Note: Called with IRQs disabled on the dying CPU.
+ */
+static void zynq_cpu_die(unsigned int cpu)
+{
+	zynq_slcr_cpu_state_write(cpu, true);
+	/*
+	 * there is no power-control hardware on this platform, so all
+	 * we can do is put the core into WFI; this is safe as the calling
+	 * code will have already disabled interrupts
+	 */
+	for (;;)
+		cpu_do_idle();
 }
 #endif
 
@@ -125,7 +149,7 @@ struct smp_operations zynq_smp_ops __initdata = {
 	.smp_prepare_cpus	= zynq_smp_prepare_cpus,
 	.smp_boot_secondary	= zynq_boot_secondary,
 #ifdef CONFIG_HOTPLUG_CPU
-	.cpu_die		= zynq_platform_cpu_die,
+	.cpu_die		= zynq_cpu_die,
 	.cpu_kill		= zynq_cpu_kill,
 #endif
 };
