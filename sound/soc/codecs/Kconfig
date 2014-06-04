@@ -48,6 +48,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_SN95031 if INTEL_SCU_IPC
 	select SND_SOC_SPDIF
 	select SND_SOC_SSM2602 if SND_SOC_I2C_AND_SPI
+	select SND_SOC_SSM4329_I2C if I2C
+	select SND_SOC_SSM4329_SPI if SPI
 	select SND_SOC_SSM4567_I2C if I2C
 	select SND_SOC_SSM4567_TDMC if SND_SOC_TDMC
 	select SND_SOC_STA32X if I2C
@@ -258,6 +260,31 @@ config SND_SOC_SPDIF
 	tristate
 
 config SND_SOC_SSM2602
+	tristate
+
+config SND_SOC_SSM4567
+	tristate
+
+config SND_SOC_SSM4329
+	select SND_SOC_SIGMADSP
+	tristate
+
+config SND_SOC_SSM4329_SPI
+	tristate "SSM4329 SPI support"
+	depends on SPI_MASTER
+	select SND_SOC_SSM4329
+
+config SND_SOC_SSM4329_I2C
+	tristate "SSM4329 I2C support"
+	depends on I2C
+	select SND_SOC_SSM4329
+
+config SND_SOC_SSM4329_TDMC_MASTER
+	bool "SSM4329 TDM-C master support"
+	depends on SND_SOC_SSM4329
+	select SND_SOC_TDMC
+
+config SND_SOC_SSM4567
 	tristate
 
 config SND_SOC_SSM4567_I2C
