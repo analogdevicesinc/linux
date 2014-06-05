@@ -2595,7 +2595,7 @@ static void wm8996_retune_mobile_pdata(struct snd_soc_codec *codec)
 	dev_dbg(codec->dev, "Allocated %d unique ReTune Mobile names\n",
 		wm8996->num_retune_mobile_texts);
 
-	wm8996->retune_mobile_enum.max = wm8996->num_retune_mobile_texts;
+	wm8996->retune_mobile_enum.items = wm8996->num_retune_mobile_texts;
 	wm8996->retune_mobile_enum.texts = wm8996->retune_mobile_texts;
 
 	ret = snd_soc_add_codec_controls(codec, controls, ARRAY_SIZE(controls));
@@ -2627,14 +2627,6 @@ static int wm8996_probe(struct snd_soc_codec *codec)
 
 	init_completion(&wm8996->dcs_done);
 	init_completion(&wm8996->fll_lock);
-
-	codec->control_data = wm8996->regmap;
-
-	ret = snd_soc_codec_set_cache_io(codec, 16, 16, SND_SOC_REGMAP);
-	if (ret != 0) {
-		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
-		goto err;
-	}
 
 	if (wm8996->pdata.num_retune_mobile_cfgs)
 		wm8996_retune_mobile_pdata(codec);
@@ -2674,13 +2666,11 @@ static int wm8996_probe(struct snd_soc_codec *codec)
 		} else {
 			dev_err(codec->dev, "Failed to request IRQ: %d\n",
 				ret);
+			return ret;
 		}
 	}
 
 	return 0;
-
-err:
-	return ret;
 }
 
 static int wm8996_remove(struct snd_soc_codec *codec)

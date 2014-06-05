@@ -634,7 +634,7 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 	}
 
 	/* probe color space converter */
-	sub_node = of_parse_phandle(plane_node, "rgb2yuv", i);
+	sub_node = of_parse_phandle(plane_node, "xlnx,rgb2yuv", i);
 	if (sub_node) {
 		plane->rgb2yuv = xilinx_rgb2yuv_probe(dev, sub_node);
 		of_node_put(sub_node);
@@ -652,7 +652,7 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 	}
 
 	/* probe chroma resampler */
-	sub_node = of_parse_phandle(plane_node, "cresample", i);
+	sub_node = of_parse_phandle(plane_node, "xlnx,cresample", i);
 	if (sub_node) {
 		plane->cresample = xilinx_cresample_probe(dev, sub_node);
 		of_node_put(sub_node);
@@ -813,6 +813,7 @@ static int
 xilinx_drm_plane_init_manager(struct xilinx_drm_plane_manager *manager)
 {
 	unsigned int format;
+	uint32_t drm_format;
 	int ret = 0;
 
 	if (manager->osd) {
@@ -820,12 +821,12 @@ xilinx_drm_plane_init_manager(struct xilinx_drm_plane_manager *manager)
 		manager->max_width = xilinx_osd_get_max_width(manager->osd);
 
 		format = xilinx_osd_get_format(manager->osd);
-		ret = xilinx_drm_format_by_code(format, &manager->format);
+		ret = xilinx_drm_format_by_code(format, &drm_format);
+		if (drm_format != manager->format)
+			ret = -EINVAL;
 	} else {
 		/* without osd, only one plane is supported */
 		manager->num_planes = 1;
-		/* YUV422 based on the current pipeline design without osd */
-		manager->format = DRM_FORMAT_YUV422;
 		manager->max_width = 4096;
 	}
 
@@ -838,6 +839,7 @@ xilinx_drm_plane_probe_manager(struct drm_device *drm)
 	struct xilinx_drm_plane_manager *manager;
 	struct device *dev = drm->dev;
 	struct device_node *sub_node;
+	const char *format;
 	int ret;
 
 	manager = devm_kzalloc(dev, sizeof(*manager), GFP_KERNEL);
@@ -851,10 +853,24 @@ xilinx_drm_plane_probe_manager(struct drm_device *drm)
 		return ERR_PTR(-EINVAL);
 	}
 
+	/* check the base pixel format of plane manager */
+	ret = of_property_read_string(manager->node, "xlnx,pixel-format",
+				      &format);
+	if (ret < 0) {
+		DRM_ERROR("failed to get a plane manager format\n");
+		return ERR_PTR(ret);
+	}
+
+	ret = xilinx_drm_format_by_name(format, &manager->format);
+	if (ret < 0) {
+		DRM_ERROR("invalid plane manager format\n");
+		return ERR_PTR(ret);
+	}
+
 	manager->drm = drm;
 
 	/* probe an OSD. proceed even if there's no OSD */
-	sub_node = of_parse_phandle(dev->of_node, "osd", 0);
+	sub_node = of_parse_phandle(dev->of_node, "xlnx,osd", 0);
 	if (sub_node) {
 		manager->osd = xilinx_osd_probe(dev, sub_node);
 		of_node_put(sub_node);

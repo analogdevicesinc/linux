@@ -26,12 +26,11 @@ enum adau17x1_clk_src {
 
 struct adau {
 	unsigned int sysclk;
-	unsigned int sysclk_div;
 	unsigned int pll_freq;
 
 	enum adau17x1_clk_src clk_src;
 	enum adau17x1_type type;
-	enum snd_soc_control_type control_type;
+	void (*switch_mode)(struct device *dev);
 
 	unsigned int dai_fmt;
 
@@ -39,20 +38,16 @@ struct adau {
 
 	bool master;
 
-	unsigned int tdm_dac_slot;
-	unsigned int tdm_adc_slot;
-
-	bool dsp_playback_bypass;
-	bool dsp_capture_bypass;
+	unsigned int tdm_slot[2];
+	bool dsp_bypass[2];
 
 	struct regmap *regmap;
 };
 
-int adau17x1_probe(struct snd_soc_codec *codec);
+int adau17x1_add_widgets(struct snd_soc_codec *codec);
 int adau17x1_add_routes(struct snd_soc_codec *codec);
-int adau17x1_bus_probe(struct device *dev,
-	struct regmap *regmap, enum adau17x1_type type,
-	enum snd_soc_control_type control_type);
+int adau17x1_probe(struct device *dev, struct regmap *regmap,
+	enum adau17x1_type type, void (*switch_mode)(struct device *dev));
 int adau17x1_set_micbias_voltage(struct snd_soc_codec *codec,
 	enum adau17x1_micbias_voltage micbias);
 bool adau17x1_readable_register(struct device *dev, unsigned int reg);
@@ -65,29 +60,6 @@ extern const struct snd_soc_dai_ops adau17x1_dai_ops;
 int adau17x1_load_firmware(struct adau *adau, struct device *dev,
 	const char *firmware);
 bool adau17x1_has_dsp(struct adau *adau);
-int adau17x1_dsp_mux_enum_put(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-int adau17x1_dsp_mux_enum_get(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-
-#define ADAU17X1_DSP_MUX_ENUM(xname, xenum) \
-	SOC_DAPM_ENUM_EXT(xname, xenum, \
-		adau17x1_dsp_mux_enum_get, adau17x1_dsp_mux_enum_put)
-
-#define DECLARE_ADAU17X1_AIFOUT_MUX(name, text) \
-static const char * const adau17x1_ ## name ## _aifout_text[] = { \
-	text, \
-	"DSP", \
-}; \
-static const SOC_ENUM_SINGLE_DECL(adau17x1_ ## name ## _aifout_mux_enum, \
-	ADAU17X1_SERIAL_OUTPUT_ROUTE, 0, adau17x1_ ## name ## _aifout_text); \
-static const struct snd_kcontrol_new adau17x1_ ## name ## _aifout_mux =  \
-	ADAU17X1_DSP_MUX_ENUM("AIFOUT Capture Mux", \
-	adau17x1_ ## name ## _aifout_mux_enum); \
-static const struct snd_soc_dapm_widget adau17x1_ ## name ## _dsp_widgets[] = { \
-	SND_SOC_DAPM_VIRT_MUX("AIFOUT Capture Mux", SND_SOC_NOPM, 0, 0, \
-		&adau17x1_ ## name ## _aifout_mux), \
-}
 
 #define ADAU17X1_CLOCK_CONTROL			0x4000
 #define ADAU17X1_PLL_CONTROL			0x4002
@@ -128,16 +100,16 @@ static const struct snd_soc_dapm_widget adau17x1_ ## name ## _dsp_widgets[] = { 
 #define ADAU17X1_CLOCK_CONTROL_CORECLK_SRC_PLL	BIT(3)
 #define ADAU17X1_CLOCK_CONTROL_SYSCLK_EN	BIT(0)
 
-#define ADUA_SERIAL_PORT1_BCLK32		(0x0 << 5)
-#define ADUA_SERIAL_PORT1_BCLK48		(0x1 << 5)
-#define ADUA_SERIAL_PORT1_BCLK64		(0x2 << 5)
-#define ADUA_SERIAL_PORT1_BCLK128		(0x3 << 5)
-#define ADUA_SERIAL_PORT1_BCLK256		(0x4 << 5)
+#define ADAU17X1_SERIAL_PORT1_BCLK32		(0x0 << 5)
+#define ADAU17X1_SERIAL_PORT1_BCLK48		(0x1 << 5)
+#define ADAU17X1_SERIAL_PORT1_BCLK64		(0x2 << 5)
+#define ADAU17X1_SERIAL_PORT1_BCLK128		(0x3 << 5)
+#define ADAU17X1_SERIAL_PORT1_BCLK256		(0x4 << 5)
 #define ADAU17X1_SERIAL_PORT1_BCLK_MASK		(0x7 << 5)
 
-#define ADUA_SERIAL_PORT0_STEREO		(0x0 << 1)
-#define ADUA_SERIAL_PORT0_TDM4			(0x1 << 1)
-#define ADUA_SERIAL_PORT0_TDM8			(0x2 << 1)
+#define ADAU17X1_SERIAL_PORT0_STEREO		(0x0 << 1)
+#define ADAU17X1_SERIAL_PORT0_TDM4		(0x1 << 1)
+#define ADAU17X1_SERIAL_PORT0_TDM8		(0x2 << 1)
 #define ADAU17X1_SERIAL_PORT0_TDM_MASK		(0x3 << 1)
 #define ADAU17X1_SERIAL_PORT0_PULSE_MODE	BIT(5)
 
@@ -145,5 +117,8 @@ static const struct snd_soc_dapm_widget adau17x1_ ## name ## _dsp_widgets[] = { 
 #define ADAU17X1_CONVERTER0_DAC_PAIR_MASK	(0x3 << 5)
 #define ADAU17X1_CONVERTER1_ADC_PAIR(x)		((x) - 1)
 #define ADAU17X1_CONVERTER1_ADC_PAIR_MASK	0x3
+
+#define ADAU17X1_CONVERTER0_CONVSR_MASK		0x7
+
 
 #endif

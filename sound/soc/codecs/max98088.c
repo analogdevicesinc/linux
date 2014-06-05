@@ -1849,7 +1849,7 @@ static void max98088_handle_eq_pdata(struct snd_soc_codec *codec)
 
        /* Now point the soc_enum to .texts array items */
        max98088->eq_enum.texts = max98088->eq_texts;
-       max98088->eq_enum.max = max98088->eq_textcnt;
+       max98088->eq_enum.items = max98088->eq_textcnt;
 
        ret = snd_soc_add_codec_controls(codec, controls, ARRAY_SIZE(controls));
        if (ret != 0)
@@ -1914,12 +1914,6 @@ static int max98088_probe(struct snd_soc_codec *codec)
        int ret = 0;
 
        regcache_mark_dirty(max98088->regmap);
-
-       ret = snd_soc_codec_set_cache_io(codec, 8, 8, SND_SOC_REGMAP);
-       if (ret != 0) {
-               dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
-               return ret;
-       }
 
        /* initialize private data */
 

@@ -162,30 +162,28 @@
 	.private_value = (unsigned long)&(struct soc_mixer_control) \
 		{.reg = xreg, .min = xmin, .max = xmax, \
 		 .platform_max = xmax} }
-#define SOC_ENUM_DOUBLE(xreg, xshift_l, xshift_r, xmax, xtexts) \
+#define SOC_ENUM_DOUBLE(xreg, xshift_l, xshift_r, xitems, xtexts) \
 {	.reg = xreg, .shift_l = xshift_l, .shift_r = xshift_r, \
-	.max = xmax, .texts = xtexts, \
-	.mask = xmax ? roundup_pow_of_two(xmax) - 1 : 0}
-#define SOC_ENUM_SINGLE(xreg, xshift, xmax, xtexts) \
-	SOC_ENUM_DOUBLE(xreg, xshift, xshift, xmax, xtexts)
-#define SOC_ENUM_SINGLE_EXT(xmax, xtexts) \
-{	.max = xmax, .texts = xtexts }
-#define SOC_VALUE_ENUM_DOUBLE(xreg, xshift_l, xshift_r, xmask, xmax, xtexts, xvalues) \
+	.items = xitems, .texts = xtexts, \
+	.mask = xitems ? roundup_pow_of_two(xitems) - 1 : 0}
+#define SOC_ENUM_SINGLE(xreg, xshift, xitems, xtexts) \
+	SOC_ENUM_DOUBLE(xreg, xshift, xshift, xitems, xtexts)
+#define SOC_ENUM_SINGLE_EXT(xitems, xtexts) \
+{	.items = xitems, .texts = xtexts }
+#define SOC_VALUE_ENUM_DOUBLE(xreg, xshift_l, xshift_r, xmask, xitems, xtexts, xvalues) \
 {	.reg = xreg, .shift_l = xshift_l, .shift_r = xshift_r, \
-	.mask = xmask, .max = xmax, .texts = xtexts, .values = xvalues}
-#define SOC_VALUE_ENUM_SINGLE(xreg, xshift, xmask, xmax, xtexts, xvalues) \
-	SOC_VALUE_ENUM_DOUBLE(xreg, xshift, xshift, xmask, xmax, xtexts, xvalues)
+	.mask = xmask, .items = xitems, .texts = xtexts, .values = xvalues}
+#define SOC_VALUE_ENUM_SINGLE(xreg, xshift, xmask, xnitmes, xtexts, xvalues) \
+	SOC_VALUE_ENUM_DOUBLE(xreg, xshift, xshift, xmask, xnitmes, xtexts, xvalues)
+#define SOC_ENUM_SINGLE_VIRT(xitems, xtexts) \
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, xitems, xtexts)
 #define SOC_ENUM(xname, xenum) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname,\
 	.info = snd_soc_info_enum_double, \
 	.get = snd_soc_get_enum_double, .put = snd_soc_put_enum_double, \
 	.private_value = (unsigned long)&xenum }
 #define SOC_VALUE_ENUM(xname, xenum) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname,\
-	.info = snd_soc_info_enum_double, \
-	.get = snd_soc_get_value_enum_double, \
-	.put = snd_soc_put_value_enum_double, \
-	.private_value = (unsigned long)&xenum }
+	SOC_ENUM(xname, xenum)
 #define SOC_SINGLE_EXT(xname, xreg, xshift, xmax, xinvert,\
 	 xhandler_get, xhandler_put) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
@@ -283,6 +281,8 @@
 							ARRAY_SIZE(xtexts), xtexts, xvalues)
 #define SOC_VALUE_ENUM_SINGLE_DECL(name, xreg, xshift, xmask, xtexts, xvalues) \
 	SOC_VALUE_ENUM_DOUBLE_DECL(name, xreg, xshift, xshift, xmask, xtexts, xvalues)
+#define SOC_ENUM_SINGLE_VIRT_DECL(name, xtexts) \
+	const struct soc_enum name = SOC_ENUM_SINGLE_VIRT(ARRAY_SIZE(xtexts), xtexts)
 
 /*
  * Component probe and remove ordering levels for components with runtime
@@ -340,12 +340,6 @@ typedef int (*hw_write_t)(void *,const char* ,int);
 
 extern struct snd_ac97_bus_ops *soc_ac97_ops;
 
-enum snd_soc_control_type {
-	SND_SOC_I2C = 1,
-	SND_SOC_SPI,
-	SND_SOC_REGMAP,
-};
-
 enum snd_soc_pcm_subclass {
 	SND_SOC_PCM_CLASS_PCM	= 0,
 	SND_SOC_PCM_CLASS_BE	= 1,
@@ -392,8 +386,7 @@ int snd_soc_codec_readable_register(struct snd_soc_codec *codec,
 int snd_soc_codec_writable_register(struct snd_soc_codec *codec,
 				    unsigned int reg);
 int snd_soc_codec_set_cache_io(struct snd_soc_codec *codec,
-			       int addr_bits, int data_bits,
-			       enum snd_soc_control_type control);
+			       struct regmap *regmap);
 int snd_soc_cache_sync(struct snd_soc_codec *codec);
 int snd_soc_cache_init(struct snd_soc_codec *codec);
 int snd_soc_cache_exit(struct snd_soc_codec *codec);
@@ -495,10 +488,6 @@ int snd_soc_info_enum_double(struct snd_kcontrol *kcontrol,
 int snd_soc_get_enum_double(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 int snd_soc_put_enum_double(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-int snd_soc_get_value_enum_double(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-int snd_soc_put_value_enum_double(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 int snd_soc_info_volsw(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_info *uinfo);
@@ -742,6 +731,7 @@ struct snd_soc_codec_driver {
 		unsigned int freq_in, unsigned int freq_out);
 
 	/* codec IO */
+	struct regmap *(*get_regmap)(struct device *);
 	unsigned int (*read)(struct snd_soc_codec *, unsigned int);
 	int (*write)(struct snd_soc_codec *, unsigned int, unsigned int);
 	int (*display_register)(struct snd_soc_codec *, char *,
@@ -1067,6 +1057,7 @@ struct soc_mixer_control {
 	int min, max, platform_max;
 	int reg, rreg;
 	unsigned int shift, rshift;
+	unsigned int sign_bit;
 	unsigned int invert:1;
 	unsigned int autodisable:1;
 };
@@ -1085,11 +1076,10 @@ struct soc_mreg_control {
 
 /* enumerated kcontrol */
 struct soc_enum {
-	unsigned short reg;
-	unsigned short reg2;
+	int reg;
 	unsigned char shift_l;
 	unsigned char shift_r;
-	unsigned int max;
+	unsigned int items;
 	unsigned int mask;
 	const char * const *texts;
 	const unsigned int *values;
@@ -1166,6 +1156,30 @@ static inline bool snd_soc_volsw_is_stereo(struct soc_mixer_control *mc)
 	 * stereo (bits in one register or in two registers)
 	 */
 	return 1;
+}
+
+static inline unsigned int snd_soc_enum_val_to_item(struct soc_enum *e,
+	unsigned int val)
+{
+	unsigned int i;
+
+	if (!e->values)
+		return val;
+
+	for (i = 0; i < e->items; i++)
+		if (val == e->values[i])
+			return i;
+
+	return 0;
+}
+
+static inline unsigned int snd_soc_enum_item_to_val(struct soc_enum *e,
+	unsigned int item)
+{
+	if (!e->values)
+		return item;
+
+	return e->values[item];
 }
 
 int snd_soc_util_init(void);
