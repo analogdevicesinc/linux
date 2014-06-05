@@ -1819,8 +1819,8 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	struct device *dev = &phy->spi->dev;
 	struct spi_device *spi = phy->spi;
 	unsigned long clktf, clkrf;
-	int txnco_word, rxnco_word;
-	u8 __rx_phase = 0;
+	int txnco_word, rxnco_word, ret;
+	u8 __rx_phase = 0, reg_inv_bits;
 	const u8 (*tab)[3];
 	u32 index_max, i , lpf_tia_mask;
 	/*
@@ -1887,6 +1887,19 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	if (rx_phase >= 0)
 		__rx_phase = rx_phase;
 
+
+	if (phy->pdata->rx1rx2_phase_inversion_en ||
+		(phy->pdata->port_ctrl.pp_conf[1] & INVERT_RX2)) {
+
+		ad9361_spi_writef(spi, REG_PARALLEL_PORT_CONF_2, INVERT_RX2, 0);
+
+		reg_inv_bits = ad9361_spi_read(spi, REG_INVERT_BITS);
+
+		ad9361_spi_write(spi, REG_INVERT_BITS,
+					INVERT_RX1_RF_DC_CGOUT_WORD |
+					INVERT_RX2_RF_DC_CGOUT_WORD);
+	}
+
 	ad9361_spi_write(spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
 			 RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(__rx_phase));
 	ad9361_spi_writef(spi, REG_KEXP_2, TX_NCO_FREQ(~0), txnco_word);
@@ -1922,7 +1935,16 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	ad9361_spi_write(spi, REG_QUAD_SETTLE_COUNT, 0xF0);
 	ad9361_spi_write(spi, REG_TX_QUAD_LPF_GAIN, 0x00);
 
-	return ad9361_run_calibration(phy, TX_QUAD_CAL);
+	ret =  ad9361_run_calibration(phy, TX_QUAD_CAL);
+
+	if (phy->pdata->rx1rx2_phase_inversion_en ||
+		(phy->pdata->port_ctrl.pp_conf[1] & INVERT_RX2)) {
+		ad9361_spi_writef(spi, REG_PARALLEL_PORT_CONF_2, INVERT_RX2, 1);
+		ad9361_spi_write(spi, REG_INVERT_BITS, reg_inv_bits);
+	}
+
+
+	return ret;
 }
 
 static int ad9361_tracking_control(struct ad9361_rf_phy *phy, bool bbdc_track,
