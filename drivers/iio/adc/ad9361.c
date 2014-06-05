@@ -5139,7 +5139,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 		if (!c0 && !c1) {
 			dev_err(&phy->spi->dev, "%s: Tuning %s FAILED!", __func__,
 				t ? "TX" : "RX");
-			err = -EIO;
+			err |= -EIO;
 		}
 
 		if (c1 > c0)
@@ -5180,6 +5180,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 			}
 
 			if (err == -EIO) {
+
 				ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY,
 						phy->pdata->port_ctrl.rx_clk_data_delay);
 
