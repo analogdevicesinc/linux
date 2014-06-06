@@ -983,6 +983,8 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 		goto out;
 	}
 
+	ad9361_spi_write(spi, REG_ENSM_CONFIG_1, TO_ALERT | FORCE_ALERT_STATE);
+
 	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
 	if (rc)
 		dev_err(dev, "Failed to restore state\n");
@@ -1029,6 +1031,8 @@ static void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 		phy->prev_ensm_state);
 		goto out;
 	}
+
+	ad9361_spi_write(spi, REG_ENSM_CONFIG_1, TO_ALERT | FORCE_ALERT_STATE);
 
 	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
 	if (rc) {
@@ -2162,7 +2166,7 @@ static int ad9361_pp_port_setup(struct ad9361_rf_phy *phy, bool restore_c3)
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	if (!pd->fdd) /* REVISIT */
+	if (!pd->fdd && !pd->tdd_use_dual_synth)
 		pd->port_ctrl.pp_conf[2] |= HALF_DUPLEX_MODE;
 
 	if (restore_c3) {
@@ -5089,6 +5093,11 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 	u32 s0, s1, c0, c1, tmp, saved = 0;
 	u8 field[2][16];
 
+	if (!phy->pdata->fdd && (phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)) {
+		ad9361_set_ensm_mode(phy, true, false);
+		ad9361_ensm_force_state(phy, ENSM_STATE_FDD);
+	}
+
 	num_chan = (conv->chip_info->num_channels > 4) ? 4 : conv->chip_info->num_channels;
 
 	ad9361_bist_prbs(phy, BIST_INJ_RX);
@@ -5197,6 +5206,12 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 					ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
 				phy->pdata->port_ctrl.tx_clk_data_delay =
 					ad9361_spi_read(phy->spi, REG_TX_CLOCK_DATA_DELAY);
+			}
+
+			if (!phy->pdata->fdd &&
+				(phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)) {
+				ad9361_set_ensm_mode(phy, phy->pdata->fdd, phy->pdata->ensm_pin_ctrl);
+				ad9361_ensm_restore_prev_state(phy);
 			}
 
 			return err;
