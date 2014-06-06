@@ -1042,7 +1042,6 @@ static void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 		if (rc)
 			dev_err(dev, "Failed to write ENSM_CONFIG_1");
 	}
-
 out:
 	return;
 }
@@ -1721,7 +1720,7 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 	ad9361_spi_write(phy->spi, REG_RX_CP_CONFIG + offs, 0x00);
 
 	/* see Table 70 Example Calibration Times for RF VCO Cal */
-	if (phy->pdata->fdd) {
+	if (phy->pdata->fdd || phy->pdata->tdd_use_fdd_tables) {
 		vco_cal_cnt = VCO_CAL_EN | VCO_CAL_COUNT(3) | FB_CLOCK_ADV(2);
 	} else {
 		if (ref_clk_hz > 40000000UL)
@@ -5153,6 +5152,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 
 		if (t == 0) {
 			/* Now do the loopback and tune the digital out */
+
 			ad9361_bist_prbs(phy, BIST_DISABLE);
 			ad9361_bist_loopback(phy, 1);
 
