@@ -2852,7 +2852,8 @@ static int s3c_hsotg_udc_start(struct usb_gadget *gadget,
 	hsotg->gadget.dev.of_node = hsotg->dev->of_node;
 	hsotg->gadget.speed = USB_SPEED_UNKNOWN;
 
-	clk_enable(hsotg->clk);
+	if (!IS_ERR(hsotg->clk))
+		clk_enable(hsotg->clk);
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(hsotg->supplies),
 				    hsotg->supplies);
@@ -2903,7 +2904,8 @@ static int s3c_hsotg_udc_stop(struct usb_gadget *gadget,
 	regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies),
 				hsotg->supplies);
 
-	clk_disable(hsotg->clk);
+	if (!IS_ERR(hsotg->clk))
+		clk_disable(hsotg->clk);
 
 	return 0;
 }
@@ -2936,10 +2938,12 @@ static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 	spin_lock_irqsave(&hsotg->lock, flags);
 	if (is_on) {
 		s3c_hsotg_phy_enable(hsotg);
-		clk_enable(hsotg->clk);
+		if (!IS_ERR(hsotg->clk))
+			clk_enable(hsotg->clk);
 		s3c_hsotg_core_init(hsotg);
 	} else {
-		clk_disable(hsotg->clk);
+		if (!IS_ERR(hsotg->clk))
+			clk_disable(hsotg->clk);
 		s3c_hsotg_phy_disable(hsotg);
 	}
 
@@ -3410,16 +3414,15 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 	}
 
 	hsotg->clk = devm_clk_get(dev, "otg");
-	if (IS_ERR(hsotg->clk)) {
-		dev_err(dev, "cannot get otg clock\n");
-		return PTR_ERR(hsotg->clk);
-	}
+	if (IS_ERR(hsotg->clk))
+		dev_warn(dev, "cannot get otg clock\n");
 
 	hsotg->gadget.max_speed = USB_SPEED_HIGH;
 	hsotg->gadget.ops = &s3c_hsotg_gadget_ops;
 	hsotg->gadget.name = dev_name(dev);
 
-	clk_prepare_enable(hsotg->clk);
+	if (!IS_ERR(hsotg->clk))
+		clk_prepare_enable(hsotg->clk);
 
 	/* regulators */
 
@@ -3452,7 +3455,8 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 			dev_name(dev), hsotg);
 	if (ret < 0) {
 		s3c_hsotg_phy_disable(hsotg);
-		clk_disable_unprepare(hsotg->clk);
+		if (!IS_ERR(hsotg->clk))
+			clk_disable_unprepare(hsotg->clk);
 		regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies),
 				       hsotg->supplies);
 		dev_err(dev, "cannot claim IRQ\n");
@@ -3521,7 +3525,8 @@ err_ep_mem:
 err_supplies:
 	s3c_hsotg_phy_disable(hsotg);
 err_clk:
-	clk_disable_unprepare(hsotg->clk);
+	if (!IS_ERR(hsotg->clk))
+		clk_disable_unprepare(hsotg->clk);
 
 	return ret;
 }
@@ -3541,7 +3546,8 @@ int s3c_hsotg_remove(struct dwc2_hsotg *hsotg)
 		usb_gadget_unregister_driver(hsotg->driver);
 	}
 
-	clk_disable_unprepare(hsotg->clk);
+	if (!IS_ERR(hsotg->clk))
+		clk_disable_unprepare(hsotg->clk);
 
 	return 0;
 }
@@ -3568,7 +3574,8 @@ static int s3c_hsotg_suspend(struct dwc2_hsotg *hsotg)
 
 		ret = regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies),
 					     hsotg->supplies);
-		clk_disable(hsotg->clk);
+		if (!IS_ERR(hsotg->clk))
+			clk_disable(hsotg->clk);
 	}
 
 	return ret;
@@ -3583,7 +3590,8 @@ static int s3c_hsotg_resume(struct dwc2_hsotg *hsotg)
 		dev_info(hsotg->dev, "resuming usb gadget %s\n",
 			 hsotg->driver->driver.name);
 
-		clk_enable(hsotg->clk);
+		if (!IS_ERR(hsotg->clk))
+			clk_enable(hsotg->clk);
 		ret = regulator_bulk_enable(ARRAY_SIZE(hsotg->supplies),
 					   hsotg->supplies);
 	}
