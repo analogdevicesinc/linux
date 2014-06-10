@@ -3552,7 +3552,7 @@ int s3c_hsotg_remove(struct dwc2_hsotg *hsotg)
 	return 0;
 }
 
-static int s3c_hsotg_suspend(struct dwc2_hsotg *hsotg)
+int s3c_hsotg_suspend(struct dwc2_hsotg *hsotg)
 {
 	unsigned long flags;
 	int ret = 0;
@@ -3581,7 +3581,7 @@ static int s3c_hsotg_suspend(struct dwc2_hsotg *hsotg)
 	return ret;
 }
 
-static int s3c_hsotg_resume(struct dwc2_hsotg *hsotg)
+int s3c_hsotg_resume(struct dwc2_hsotg *hsotg)
 {
 	unsigned long flags;
 	int ret = 0;
