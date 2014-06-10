@@ -183,6 +183,7 @@ static int dwc2_driver_probe(struct platform_device *dev)
 
 	hsotg->dr_mode = of_usb_get_dr_mode(dev->dev.of_node);
 
+	spin_lock_init(&hsotg->lock);
 	if (IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)) {
 		retval = dwc2_gadget_init(hsotg, irq);
 		if (retval)
