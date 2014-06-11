@@ -103,10 +103,20 @@ struct ad9361_fastlock {
 	struct ad9361_fastlock_entry entry[2][8];
 };
 
+struct refclk_scale {
+	struct clk_hw		hw;
+	struct spi_device	*spi;
+	struct ad9361_rf_phy	*phy;
+	u32			mult;
+	u32			div;
+	enum ad9361_clocks 	source;
+};
+
 struct ad9361_rf_phy {
 	struct spi_device 	*spi;
 	struct clk 		*clk_refin;
 	struct clk 		*clks[NUM_AD9361_CLKS];
+	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
 	struct ad9361_debugfs_entry debugfs_entry[146];
@@ -143,15 +153,6 @@ struct ad9361_rf_phy {
 	u16 			auxdac1_value;
 	u16 			auxdac2_value;
 	struct ad9361_fastlock	fastlock;
-};
-
-struct refclk_scale {
-	struct clk_hw		hw;
-	struct spi_device	*spi;
-	struct ad9361_rf_phy	*phy;
-	u32			mult;
-	u32			div;
-	enum ad9361_clocks 	source;
 };
 
 static const char *ad9361_ensm_states[] = {
@@ -4741,17 +4742,11 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy,
 		const char *name, const char *parent_name, unsigned long flags,
 		u32 source)
 {
-	struct refclk_scale *clk_priv;
+	struct refclk_scale *clk_priv = &phy->clk_priv[source];
 	struct clk_init_data init;
 	struct clk *clk;
 	char c_name[AD9361_MAX_CLK_NAME + 1], p_name[AD9361_MAX_CLK_NAME + 1];
 	const char *_parent_name;
-
-	clk_priv = kmalloc(sizeof(*clk_priv), GFP_KERNEL);
-	if (!clk_priv) {
-		pr_err("%s: could not allocate fixed factor clk\n", __func__);
-		return ERR_PTR(-ENOMEM);
-	}
 
 	/* struct refclk_scale assignments */
 	clk_priv->source = source;
@@ -4780,9 +4775,6 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy,
 
 	clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
 	phy->clk_data.clks[source] = clk;
-
-	if (IS_ERR(clk))
-		kfree(clk_priv);
 
 	return clk;
 }
