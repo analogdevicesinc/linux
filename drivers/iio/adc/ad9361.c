@@ -7184,7 +7184,6 @@ out_disable_clocks:
 out:
 	clk_disable_unprepare(clk);
 	iio_device_free(indio_dev);
-	spi_set_drvdata(spi, NULL);
 
 	return ret;
 }
@@ -7200,7 +7199,6 @@ static int ad9361_remove(struct spi_device *spi)
 	ad9361_clks_disable(phy);
 	clk_disable_unprepare(phy->clk_refin);
 	iio_device_free(phy->indio_dev);
-	spi_set_drvdata(spi, NULL);
 
 	return 0;
 }
