@@ -4738,7 +4738,7 @@ static char *ad9361_clk_set_dev_name(struct ad9361_rf_phy *phy,
 	return strncat(dest, name, AD9361_MAX_CLK_NAME - len);
 }
 
-static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy,
+static int ad9361_clk_register(struct ad9361_rf_phy *phy,
 		const char *name, const char *parent_name, unsigned long flags,
 		u32 source)
 {
@@ -4774,9 +4774,9 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy,
 	init.num_parents = 1;
 
 	clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
-	phy->clk_data.clks[source] = clk;
+	phy->clks[source] = clk;
 
-	return clk;
+	return 0;
 }
 
 static int ad9361_clks_disable(struct ad9361_rf_phy *phy)
@@ -4802,102 +4802,62 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	const char *parent_name;
 	u32 flags = CLK_GET_RATE_NOCACHE;
 
-	phy->clk_data.clks = devm_kzalloc(&phy->spi->dev,
-					 sizeof(*phy->clk_data.clks) *
-					 NUM_AD9361_CLKS, GFP_KERNEL);
-	if (!phy->clk_data.clks) {
-		dev_err(&phy->spi->dev, "could not allocate memory\n");
-		return -ENOMEM;
-	}
-
 	parent_name = of_clk_get_parent_name(phy->spi->dev.of_node, 0);
 	if (!parent_name)
 		return -EINVAL;
 
+	phy->clk_data.clks = phy->clks;
 	phy->clk_data.clk_num = NUM_AD9361_CLKS;
 
 	/* Scaled Reference Clocks */
-	phy->clks[TX_REFCLK] = ad9361_clk_register(phy,
-					"-tx_refclk", parent_name,
-					flags | CLK_IGNORE_UNUSED,
-					TX_REFCLK);
+	ad9361_clk_register(phy, "-tx_refclk", parent_name,
+		flags | CLK_IGNORE_UNUSED, TX_REFCLK);
 
-	phy->clks[RX_REFCLK] = ad9361_clk_register(phy,
-					"-rx_refclk", parent_name,
-					flags | CLK_IGNORE_UNUSED,
-					RX_REFCLK);
+	ad9361_clk_register(phy, "-rx_refclk", parent_name,
+		flags | CLK_IGNORE_UNUSED, RX_REFCLK);
 
-	phy->clks[BB_REFCLK] = ad9361_clk_register(phy,
-					"-bb_refclk", parent_name,
-					flags | CLK_IGNORE_UNUSED,
-					BB_REFCLK);
+	ad9361_clk_register(phy, "-bb_refclk", parent_name,
+		flags | CLK_IGNORE_UNUSED, BB_REFCLK);
 
 	/* Base Band PLL Clock */
-	phy->clks[BBPLL_CLK] = ad9361_clk_register(phy,
-					"-bbpll_clk", "-bb_refclk",
-					flags | CLK_IGNORE_UNUSED,
-					BBPLL_CLK);
+	ad9361_clk_register(phy, "-bbpll_clk", "-bb_refclk",
+		flags | CLK_IGNORE_UNUSED, BBPLL_CLK);
 
-	phy->clks[ADC_CLK] = ad9361_clk_register(phy,
-					"-adc_clk", "-bbpll_clk",
-					flags | CLK_IGNORE_UNUSED,
-					ADC_CLK);
+	ad9361_clk_register(phy, "-adc_clk", "-bbpll_clk",
+		flags | CLK_IGNORE_UNUSED, ADC_CLK);
 
-	phy->clks[R2_CLK] = ad9361_clk_register(phy,
-					"-r2_clk", "-adc_clk",
-					flags | CLK_IGNORE_UNUSED,
-					R2_CLK);
+	ad9361_clk_register(phy, "-r2_clk", "-adc_clk",
+		flags | CLK_IGNORE_UNUSED, R2_CLK);
 
-	phy->clks[R1_CLK] = ad9361_clk_register(phy,
-					"-r1_clk", "-r2_clk",
-					flags | CLK_IGNORE_UNUSED,
-					R1_CLK);
+	ad9361_clk_register(phy, "-r1_clk", "-r2_clk",
+		flags | CLK_IGNORE_UNUSED, R1_CLK);
 
-	phy->clks[CLKRF_CLK] = ad9361_clk_register(phy,
-					"-clkrf_clk", "-r1_clk",
-					flags | CLK_IGNORE_UNUSED,
-					CLKRF_CLK);
+	ad9361_clk_register(phy, "-clkrf_clk", "-r1_clk",
+		flags | CLK_IGNORE_UNUSED, CLKRF_CLK);
 
-	phy->clks[RX_SAMPL_CLK] = ad9361_clk_register(phy,
-					"-rx_sampl_clk", "-clkrf_clk",
-					flags | CLK_IGNORE_UNUSED,
-					RX_SAMPL_CLK);
+	ad9361_clk_register(phy, "-rx_sampl_clk", "-clkrf_clk",
+		flags | CLK_IGNORE_UNUSED, RX_SAMPL_CLK);
 
+	ad9361_clk_register(phy, "-dac_clk", "-adc_clk",
+		flags | CLK_IGNORE_UNUSED, DAC_CLK);
 
-	phy->clks[DAC_CLK] = ad9361_clk_register(phy,
-					"-dac_clk", "-adc_clk",
-					flags | CLK_IGNORE_UNUSED,
-					DAC_CLK);
+	ad9361_clk_register(phy, "-t2_clk", "-dac_clk",
+		flags | CLK_IGNORE_UNUSED, T2_CLK);
 
-	phy->clks[T2_CLK] = ad9361_clk_register(phy,
-					"-t2_clk", "-dac_clk",
-					flags | CLK_IGNORE_UNUSED,
-					T2_CLK);
+	ad9361_clk_register(phy, "-t1_clk", "-t2_clk",
+		flags | CLK_IGNORE_UNUSED, T1_CLK);
 
-	phy->clks[T1_CLK] = ad9361_clk_register(phy,
-					"-t1_clk", "-t2_clk",
-					flags | CLK_IGNORE_UNUSED,
-					T1_CLK);
+	ad9361_clk_register(phy, "-clktf_clk", "-t1_clk",
+		flags | CLK_IGNORE_UNUSED, CLKTF_CLK);
 
-	phy->clks[CLKTF_CLK] = ad9361_clk_register(phy,
-					"-clktf_clk", "-t1_clk",
-					flags | CLK_IGNORE_UNUSED,
-					CLKTF_CLK);
+	ad9361_clk_register(phy, "-tx_sampl_clk", "-clktf_clk",
+		flags | CLK_IGNORE_UNUSED, TX_SAMPL_CLK);
 
-	phy->clks[TX_SAMPL_CLK] = ad9361_clk_register(phy,
-					"-tx_sampl_clk", "-clktf_clk",
-					flags | CLK_IGNORE_UNUSED,
-					TX_SAMPL_CLK);
+	ad9361_clk_register(phy, "-rx_rfpll", "-rx_refclk",
+		flags | CLK_IGNORE_UNUSED, RX_RFPLL);
 
-	phy->clks[RX_RFPLL] = ad9361_clk_register(phy,
-					"-rx_rfpll", "-rx_refclk",
-					flags | CLK_IGNORE_UNUSED,
-					RX_RFPLL);
-
-	phy->clks[TX_RFPLL] = ad9361_clk_register(phy,
-					"-tx_rfpll", "-tx_refclk",
-					flags | CLK_IGNORE_UNUSED,
-					TX_RFPLL);
+	ad9361_clk_register(phy, "-tx_rfpll", "-tx_refclk",
+		flags | CLK_IGNORE_UNUSED, TX_RFPLL);
 
 
 	return 0;
