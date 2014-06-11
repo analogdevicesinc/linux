@@ -80,7 +80,7 @@ enum {
 	ID_AD9361_2,
 };
 
-struct ad9361_rf_phy phy;
+struct ad9361_rf_phy;
 struct ad9361_debugfs_entry {
 	struct ad9361_rf_phy *phy;
 	const char *propname;
