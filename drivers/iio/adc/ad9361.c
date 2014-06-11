@@ -7261,7 +7261,7 @@ static int ad9361_remove(struct spi_device *spi)
 
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin);
 	iio_device_unregister(phy->indio_dev);
-	clk_disable_unprepare(conv->clk);
+	clk_disable_unprepare(phy->clk_refin);
 	iio_device_free(phy->indio_dev);
 	spi_set_drvdata(spi, NULL);
 
