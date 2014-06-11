@@ -4787,17 +4787,13 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy,
 	return clk;
 }
 
-#if 0
-static int ad9361_clks_disable_unprepare(struct ad9361_rf_phy *phy)
+static int ad9361_clks_disable(struct ad9361_rf_phy *phy)
 {
-	int i;
-
-	for (i = TX_RFPLL; i >= 0; i--)
-		clk_disable_unprepare(phy->clks[i]);
+	clk_disable_unprepare(phy->clks[TX_RFPLL]);
+	clk_disable_unprepare(phy->clks[RX_RFPLL]);
 
 	return 0;
 }
-#endif
 
 static int ad9361_clks_resync(struct ad9361_rf_phy *phy)
 {
@@ -6390,7 +6386,7 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		clk_set_rate(phy->clks[TX_SAMPL_CLK], 1);
 		ad9361_reset(phy);
 		ad9361_clks_resync(phy);
-		//ad9361_clks_disable_unprepare(phy);
+		ad9361_clks_disable(phy);
 		ad9361_clear_state(phy);
 		ret = ad9361_setup(phy);
 		mutex_unlock(&phy->indio_dev->mlock);
@@ -7207,7 +7203,7 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0)
-		goto out;
+		goto out_disable_clocks;
 	ret = ad9361_register_axi_converter(phy);
 	if (ret < 0)
 		goto out1;
@@ -7226,7 +7222,8 @@ static int ad9361_probe(struct spi_device *spi)
 
 out1:
 	iio_device_unregister(indio_dev);
-
+out_disable_clocks:
+	ad9361_clks_disable(phy);
 out:
 	clk_disable_unprepare(clk);
 	iio_device_free(indio_dev);
@@ -7242,6 +7239,7 @@ static int ad9361_remove(struct spi_device *spi)
 
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin);
 	iio_device_unregister(phy->indio_dev);
+	ad9361_clks_disable(phy);
 	clk_disable_unprepare(phy->clk_refin);
 	iio_device_free(phy->indio_dev);
 	spi_set_drvdata(spi, NULL);
