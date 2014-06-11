@@ -7239,6 +7239,7 @@ static int ad9361_remove(struct spi_device *spi)
 
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin);
 	iio_device_unregister(phy->indio_dev);
+	of_clk_del_provider(spi->dev.of_node);
 	ad9361_clks_disable(phy);
 	clk_disable_unprepare(phy->clk_refin);
 	iio_device_free(phy->indio_dev);
