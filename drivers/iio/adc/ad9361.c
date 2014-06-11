@@ -3566,13 +3566,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ret = clk_prepare_enable(phy->clks[BB_REFCLK]);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable BB ref clock rate (%d)\n",
-			ret);
-		return ret;
-	}
-
 	ad9361_en_dis_tx(phy, 1, TX_ENABLE);
 	ad9361_en_dis_rx(phy, 1, RX_ENABLE);
 
@@ -3641,12 +3634,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 	}
 
-	ret = clk_prepare_enable(phy->clks[RX_REFCLK]);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable RX Synth ref clock (%d)\n", ret);
-		return ret;
-	}
-
 	ret = clk_prepare_enable(phy->clks[RX_RFPLL]);
 	if (ret < 0)
 		return ret;
@@ -3660,12 +3647,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0) {
 		dev_err(dev, "Failed to set TX Synth rate (%d)\n",
 			ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(phy->clks[TX_REFCLK]);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable TX Synth ref clock (%d)\n", ret);
 		return ret;
 	}
 
