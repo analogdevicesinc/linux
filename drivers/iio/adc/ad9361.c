@@ -4724,7 +4724,7 @@ static const struct clk_ops rfpll_clk_ops = {
 #define AD9361_MAX_CLK_NAME 79
 
 static char *ad9361_clk_set_dev_name(struct ad9361_rf_phy *phy,
-					 char *dest, char *name)
+					 char *dest, const char *name)
 {
 	size_t len = 0;
 
@@ -4738,7 +4738,7 @@ static char *ad9361_clk_set_dev_name(struct ad9361_rf_phy *phy,
 }
 
 static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy,
-		char *name, char *parent_name, unsigned long flags,
+		const char *name, const char *parent_name, unsigned long flags,
 		u32 source)
 {
 	struct refclk_scale *clk_priv;
@@ -4807,6 +4807,7 @@ static int ad9361_clks_resync(struct ad9361_rf_phy *phy)
 
 static int register_clocks(struct ad9361_rf_phy *phy)
 {
+	const char *parent_name;
 	u32 flags = CLK_GET_RATE_NOCACHE;
 
 	phy->clk_data.clks = devm_kzalloc(&phy->spi->dev,
@@ -4817,21 +4818,25 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 		return -ENOMEM;
 	}
 
+	parent_name = of_clk_get_parent_name(phy->spi->dev.of_node, 0);
+	if (!parent_name)
+		return -EINVAL;
+
 	phy->clk_data.clk_num = NUM_AD9361_CLKS;
 
 	/* Scaled Reference Clocks */
 	phy->clks[TX_REFCLK] = ad9361_clk_register(phy,
-					"-tx_refclk", "ad9361_ext_refclk",
+					"-tx_refclk", parent_name,
 					flags | CLK_IGNORE_UNUSED,
 					TX_REFCLK);
 
 	phy->clks[RX_REFCLK] = ad9361_clk_register(phy,
-					"-rx_refclk", "ad9361_ext_refclk",
+					"-rx_refclk", parent_name,
 					flags | CLK_IGNORE_UNUSED,
 					RX_REFCLK);
 
 	phy->clks[BB_REFCLK] = ad9361_clk_register(phy,
-					"-bb_refclk", "ad9361_ext_refclk",
+					"-bb_refclk", parent_name,
 					flags | CLK_IGNORE_UNUSED,
 					BB_REFCLK);
 
