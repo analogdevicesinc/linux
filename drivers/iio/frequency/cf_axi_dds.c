@@ -847,8 +847,10 @@ err_unconfigure_buffer:
 err_converter_put:
 	if (st->dev_spi)
 		dds_converter_put(st->dev_spi);
-	if (st->clk)
+	if (st->clk) {
+		clk_notifier_unregister(st->clk, &st->clk_nb);
 		clk_disable_unprepare(st->clk);
+	}
 err_iio_device_free:
 	iio_device_free(indio_dev);
 
@@ -865,8 +867,10 @@ static int cf_axi_dds_remove(struct platform_device *pdev)
 	cf_axi_dds_unconfigure_buffer(indio_dev);
 	if (st->dev_spi)
 		dds_converter_put(st->dev_spi);
-	if (st->clk)
+	if (st->clk) {
+		clk_notifier_unregister(st->clk, &st->clk_nb);
 		clk_disable_unprepare(st->clk);
+	}
 	iio_device_free(indio_dev);
 
 	return 0;
