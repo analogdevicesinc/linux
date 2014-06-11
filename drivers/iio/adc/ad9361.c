@@ -4797,7 +4797,7 @@ static struct clk *ad9361_clk_register(struct ad9361_rf_phy *phy,
 	init.parent_names = &_parent_name;
 	init.num_parents = 1;
 
-	clk = clk_register(&phy->spi->dev, &clk_priv->hw);
+	clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
 	phy->clk_data.clks[source] = clk;
 
 	if (IS_ERR(clk))
