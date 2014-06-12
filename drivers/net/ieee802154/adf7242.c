@@ -17,6 +17,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/adf7242.h>
 #include <linux/skbuff.h>
+#include <linux/of.h>
 
 #include <net/mac802154.h>
 #include <net/wpan-phy.h>
@@ -211,6 +212,15 @@
 
 #define AUTO_TX_TURNAROUND     (1 << 3)
 #define ADDON_EN               (1 << 4)
+
+
+static struct adf7242_platform_data adf7242_default_pdata = {
+	.mode = ADF_IEEE802154_AUTO_CSMA_CA | ADF_IEEE802154_HW_AACK,
+	.max_frame_retries = 4,
+	.max_cca_retries = 4,
+	.max_csma_be = 6,
+	.min_csma_be = 1,
+};
 
 struct adf7242_local {
        struct spi_device *spi;
@@ -899,22 +909,75 @@ static const struct attribute_group adf7242_attr_group = {
        .attrs = adf7242_attributes,
 };
 
+#ifdef CONFIG_OF
+static struct adf7242_platform_data *adf7242_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct adf7242_platform_data *pdata;
+	u32 tmp;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+
+	pdata->mode |= of_property_read_bool(np, "adi,hw-aack-mode-enable") ?
+		ADF_IEEE802154_HW_AACK : 0;
+
+	pdata->mode |= of_property_read_bool(np, "adi,auto-csma-ca-mode-enable") ?
+		ADF_IEEE802154_AUTO_CSMA_CA : 0;
+
+	pdata->mode |= of_property_read_bool(np, "adi,promiscuous-mode-enable") ?
+		ADF_IEEE802154_PROMISCUOUS_MODE : 0;
+
+	tmp = 4;
+	of_property_read_u32(np, "adi,max-frame-retries", &tmp);
+	pdata->max_frame_retries = tmp;
+
+	tmp = 4;
+	of_property_read_u32(np, "adi,max-cca-retries", &tmp);
+	pdata->max_cca_retries = tmp;
+
+	tmp = 6;
+	of_property_read_u32(np, "adi,max-csma-back-off-exponent", &tmp);
+	pdata->max_csma_be = tmp;
+
+	tmp = 1;
+	of_property_read_u32(np, "adi,min-csma-back-off-exponent", &tmp);
+	pdata->min_csma_be = tmp;
+
+	return pdata;
+}
+#else
+static
+struct adf7242_platform_data *adf7242_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int adf7242_probe(struct spi_device *spi)
 {
-       struct adf7242_platform_data *pdata = spi->dev.platform_data;
+       struct adf7242_platform_data *pdata;
        struct ieee802154_dev *dev;
        struct adf7242_local *lp;
        int ret;
 
-       if (!spi->irq) {
-               dev_err(&spi->dev, "no IRQ specified\n");
-               return -EINVAL;
-       }
+	if (!spi->irq) {
+		dev_err(&spi->dev, "no IRQ specified\n");
+		return -EINVAL;
+	}
 
-       if (!pdata) {
-               dev_err(&spi->dev, "no platform data?\n");
-               return -ENODEV;
-       }
+	if (spi->dev.of_node)
+		pdata = adf7242_parse_dt(&spi->dev);
+	else
+		pdata = spi->dev.platform_data;
+
+	if (!pdata) {
+		dev_err(&spi->dev, "no platform data? using default\n");
+		pdata = &adf7242_default_pdata;
+	}
 
        dev = ieee802154_alloc_device(sizeof(*lp), &adf7242_ops);
        if (!dev)
