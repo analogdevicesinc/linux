@@ -4923,13 +4923,6 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 
 };
-static struct attribute *ad9361_attributes[] = {
-	NULL,
-};
-
-static const struct attribute_group ad9361_attribute_group = {
-	.attrs = ad9361_attributes,
-};
 
 static int ad9361_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
@@ -5224,7 +5217,6 @@ static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 	conv->write_raw = ad9361_write_raw;
 	conv->read_raw = ad9361_read_raw;
 	conv->post_setup = ad9361_post_setup;
-	conv->attrs = &ad9361_attribute_group;
 	conv->spi = spi;
 	conv->phy = phy;
 
