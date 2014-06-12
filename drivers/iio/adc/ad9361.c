@@ -7052,10 +7052,6 @@ static int ad9361_probe(struct spi_device *spi)
 		return -EPROBE_DEFER;
 	}
 
-	ret = clk_prepare_enable(clk);
-	if (ret < 0)
-		return ret;
-
 	indio_dev = iio_device_alloc(sizeof(*phy));
 	if (indio_dev == NULL)
 		return -ENOMEM;
@@ -7174,7 +7170,6 @@ out1:
 out_disable_clocks:
 	ad9361_clks_disable(phy);
 out:
-	clk_disable_unprepare(clk);
 	iio_device_free(indio_dev);
 
 	return ret;
@@ -7189,7 +7184,6 @@ static int ad9361_remove(struct spi_device *spi)
 	iio_device_unregister(phy->indio_dev);
 	of_clk_del_provider(spi->dev.of_node);
 	ad9361_clks_disable(phy);
-	clk_disable_unprepare(phy->clk_refin);
 	iio_device_free(phy->indio_dev);
 
 	return 0;
