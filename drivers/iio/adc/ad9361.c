@@ -4923,13 +4923,6 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 
 };
-static struct attribute *ad9361_attributes[] = {
-	NULL,
-};
-
-static const struct attribute_group ad9361_attribute_group = {
-	.attrs = ad9361_attributes,
-};
 
 static int ad9361_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
@@ -5224,7 +5217,6 @@ static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 	conv->write_raw = ad9361_write_raw;
 	conv->read_raw = ad9361_read_raw;
 	conv->post_setup = ad9361_post_setup;
-	conv->attrs = &ad9361_attribute_group;
 	conv->spi = spi;
 	conv->phy = phy;
 
@@ -7060,10 +7052,6 @@ static int ad9361_probe(struct spi_device *spi)
 		return -EPROBE_DEFER;
 	}
 
-	ret = clk_prepare_enable(clk);
-	if (ret < 0)
-		return ret;
-
 	indio_dev = iio_device_alloc(sizeof(*phy));
 	if (indio_dev == NULL)
 		return -ENOMEM;
@@ -7182,7 +7170,6 @@ out1:
 out_disable_clocks:
 	ad9361_clks_disable(phy);
 out:
-	clk_disable_unprepare(clk);
 	iio_device_free(indio_dev);
 
 	return ret;
@@ -7197,7 +7184,6 @@ static int ad9361_remove(struct spi_device *spi)
 	iio_device_unregister(phy->indio_dev);
 	of_clk_del_provider(spi->dev.of_node);
 	ad9361_clks_disable(phy);
-	clk_disable_unprepare(phy->clk_refin);
 	iio_device_free(phy->indio_dev);
 
 	return 0;
