@@ -152,7 +152,7 @@ enum {
 #define ADI_TO_USR_INTERPOLATION_N(x)	(((x) >> 0) & 0xFFFF)
 
 
-#define AXIDDS_MAX_DMA_SIZE		(4 * 1024 * 1024) /* Randomly picked */
+#define AXIDDS_MAX_DMA_SIZE		(6 * 1024 * 1024) /* Randomly picked */
 
 /* debugfs direct register access */
 #define DEBUGFS_DRA_PCORE_REG_MAGIC	0x80000000
@@ -168,7 +168,7 @@ struct cf_axi_dds_chip_info {
 	unsigned int num_channels;
 	unsigned int num_dds_channels;
 	unsigned int num_dp_disable_channels;
-	struct iio_chan_spec channel[13];
+	struct iio_chan_spec channel[17];
 };
 
 struct cf_axi_dds_state {

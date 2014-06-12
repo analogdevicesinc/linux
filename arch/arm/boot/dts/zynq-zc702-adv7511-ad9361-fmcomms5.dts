@@ -179,7 +179,7 @@
 		};
 
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
-			compatible = "adi,axi-ad9361-dds-6.00.a";
+			compatible = "adi,axi-ad9361x2-dds-6.00.a";
 			reg = <0x79024000 0x1000>;
 			clocks = <&adc0_ad9361 13>;
 			clock-names = "sampl_clk";
@@ -194,7 +194,7 @@
 		};
 
 		cf_ad9361_dac_core_1: cf-ad9361-dds-core-hpc@79044000 {
-			compatible = "adi,axi-ad9361-dds-6.00.a";
+			compatible = "adi,axi-ad9361x2-dds-6.00.a";
 			reg = <0x79044000 0x1000>;
 			clocks = <&adc1_ad9361 13>;
 			clock-names = "sampl_clk";

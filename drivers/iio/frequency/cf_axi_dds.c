@@ -349,7 +349,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		dds_write(st, ADI_REG_CNTRL_1, ctrl_reg);
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!conv) {
+		if (IS_ERR(conv)) {
 			ret = -EINVAL;
 			break;
 		}
@@ -547,6 +547,30 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
 	.num_dds_channels = 8,
 };
 
+static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361x2 = {
+	.name = "AD9361",
+	.channel = {
+		CF_AXI_DDS_CHAN_BUF(0),
+		CF_AXI_DDS_CHAN_BUF(1),
+		CF_AXI_DDS_CHAN_BUF(2),
+		CF_AXI_DDS_CHAN_BUF(3),
+		CF_AXI_DDS_CHAN_BUF(4),
+		CF_AXI_DDS_CHAN_BUF(5),
+		CF_AXI_DDS_CHAN_BUF(6),
+		CF_AXI_DDS_CHAN_BUF(7),
+		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+		CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
+		CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
+		CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
+		CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
+	},
+	.num_channels = 16,
+	.num_dds_channels = 8,
+};
+
 static const struct iio_info cf_axi_dds_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = &cf_axi_dds_read_raw,
@@ -612,6 +636,14 @@ static const struct axidds_core_info ad9361_6_00_a_info = {
 	.chip_info = &cf_axi_dds_chip_info_ad9361,
 };
 
+static const struct axidds_core_info ad9361x2_6_00_a_info = {
+	.version = PCORE_VERSION(7, 0, 'a'),
+	.has_fifo_interface = true,
+	.standalone = true,
+	.rate = 3,
+	.chip_info = &cf_axi_dds_chip_info_ad9361x2,
+};
+
 static const struct axidds_core_info ad9144_7_00_a_info = {
 	.version = PCORE_VERSION(7, 0, 'a'),
 	.has_fifo_interface = true,
@@ -630,6 +662,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	{
 	    .compatible = "xlnx,axi-ad9361-dds-1.00.a",
 	    .data = &ad9361_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9361x2-dds-6.00.a",
+	    .data = &ad9361x2_6_00_a_info,
 	}, {
 	    .compatible = "adi,axi-ad9361-dds-6.00.a",
 	    .data = &ad9361_6_00_a_info,
@@ -798,7 +833,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		cf_axi_dds_default_setup(st, 1, 90000, 40000000, scale);
 
 
-		if (st->chip_info->num_channels >= 4) {
+		if (st->chip_info->num_dds_channels >= 4) {
 			cf_axi_dds_default_setup(st, 2, 0, 40000000, scale);
 			cf_axi_dds_default_setup(st, 3, 0, 40000000, scale);
 		}
