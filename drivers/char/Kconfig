@@ -600,5 +600,11 @@ config TILE_SROM
 	  device appear much like a simple EEPROM, and knows
 	  how to partition a single ROM for multiple purposes.
 
+config EPIPHANY
+        tristate "Epiphany device"
+        default y
+        help
+          Support for the /dev/epiphany device.
+
 endmenu
 

@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 12
 SUBLEVEL = 0
-EXTRAVERSION =
+EXTRAVERSION = -parallella
 NAME = One Giant Leap for Frogkind
 
 # *DOCUMENTATION*
@@ -345,7 +345,7 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 CFLAGS_MODULE   =
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
-CFLAGS_KERNEL	=
+CFLAGS_KERNEL	= -fno-stack-protector
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 

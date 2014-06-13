@@ -1,0 +1,8 @@
+2014-06-13  Ben Chaco  <bchaco@x3-c.com>
+
+	* Makefile:
+	Set EXTRAVERSION, -fno-stack-protector flag.
+	* drivers/char/Kconfig:
+	* drivers/char/Makefile:
+	* drivers/char/epiphany.c:
+	Added epiphany driver LKM source, updated Kconfig for epiphany driver
