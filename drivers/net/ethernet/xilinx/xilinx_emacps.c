@@ -453,7 +453,7 @@ MDC_DIV_64, MDC_DIV_96, MDC_DIV_128, MDC_DIV_224 };
 #define XEMACPS_RXBUF_CFI_MASK		0x00010000 /* CFI frame */
 #define XEMACPS_RXBUF_EOF_MASK		0x00008000 /* End of frame. */
 #define XEMACPS_RXBUF_SOF_MASK		0x00004000 /* Start of frame. */
-#define XEMACPS_RXBUF_LEN_MASK		0x00003FFF /* Mask for length field */
+#define XEMACPS_RXBUF_LEN_MASK		0x00001FFF /* Mask for length field */
 
 #define XEMACPS_RXBUF_WRAP_MASK		0x00000002 /* Wrap bit, last BD */
 #define XEMACPS_RXBUF_NEW_MASK		0x00000001 /* Used bit.. */
@@ -582,6 +582,8 @@ static int xemacps_mdio_read(struct mii_bus *bus, int mii_id, int phyreg)
 	int value;
 	volatile u32 ipisr;
 
+	pm_runtime_get_sync(&lp->pdev->dev);
+
 	regval  = XEMACPS_PHYMNTNC_OP_MASK;
 	regval |= XEMACPS_PHYMNTNC_OP_R_MASK;
 	regval |= (mii_id << XEMACPS_PHYMNTNC_PHYAD_SHIFT_MASK);
@@ -597,6 +599,8 @@ static int xemacps_mdio_read(struct mii_bus *bus, int mii_id, int phyreg)
 
 	value = xemacps_read(lp->baseaddr, XEMACPS_PHYMNTNC_OFFSET) &
 			XEMACPS_PHYMNTNC_DATA_MASK;
+
+	pm_runtime_put(&lp->pdev->dev);
 
 	return value;
 }
@@ -621,6 +625,8 @@ static int xemacps_mdio_write(struct mii_bus *bus, int mii_id, int phyreg,
 	u32 regval;
 	volatile u32 ipisr;
 
+	pm_runtime_get_sync(&lp->pdev->dev);
+
 	regval  = XEMACPS_PHYMNTNC_OP_MASK;
 	regval |= XEMACPS_PHYMNTNC_OP_W_MASK;
 	regval |= (mii_id << XEMACPS_PHYMNTNC_PHYAD_SHIFT_MASK);
@@ -634,6 +640,8 @@ static int xemacps_mdio_write(struct mii_bus *bus, int mii_id, int phyreg,
 		cpu_relax();
 		ipisr = xemacps_read(lp->baseaddr, XEMACPS_NWSR_OFFSET);
 	} while ((ipisr & XEMACPS_NWSR_MDIOIDLE_MASK) == 0);
+
+	pm_runtime_put(&lp->pdev->dev);
 
 	return 0;
 }

@@ -13,9 +13,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/edac.h>
@@ -588,7 +585,7 @@ static int zynq_edac_mc_remove(struct platform_device *pdev)
 }
 
 /* Device tree node type and compatible tuples this driver can match on */
-static struct of_device_id zynq_edac_match[] = {
+static const struct of_device_id zynq_edac_match[] = {
 	{ .compatible = "xlnx,zynq-ddrc-1.0", },
 	{ /* end of table */ }
 };

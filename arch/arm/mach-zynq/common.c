@@ -77,7 +77,7 @@ static int __init zynq_l2c_init(void)
 	auxctrl = L2X0_AUX_CTRL_SHARE_OVERRIDE_EN_MASK |
 			L2X0_AUX_CTRL_WAY_SIZE64K_MASK |
 			L2X0_AUX_CTRL_REPLACE_POLICY_RR_MASK;
-#ifdef CONFIG_XILINX_L2_PREFETCH
+#ifdef CONFIG_XILINX_PREFETCH
 	auxctrl |= L2X0_AUX_CTRL_EARLY_BRESP_EN_MASK |
 			L2X0_AUX_CTRL_INSTR_PREFETCH_EN_MASK |
 			L2X0_AUX_CTRL_DATA_PREFETCH_EN_MASK;
@@ -87,28 +87,10 @@ static int __init zynq_l2c_init(void)
 early_initcall(zynq_l2c_init);
 #endif
 
-
-#ifdef CONFIG_XILINX_L1_PREFETCH
-static void __init zynq_data_prefetch_enable(void *info)
-{
-	/*
-	 * Enable prefetching in aux control register. L2 prefetch must
-	 * only be enabled if the slave supports it (PL310 does)
-	 */
-	asm volatile ("mrc   p15, 0, r1, c1, c0, 1\n"
-		      "orr   r1, r1, #6\n"
-		      "mcr   p15, 0, r1, c1, c0, 1\n"
-		      : : : "r1");
-}
-#endif
-
 static void __init zynq_init_late(void)
 {
 	zynq_pm_late_init();
-
-#ifdef CONFIG_XILINX_L1_PREFETCH
-	on_each_cpu(zynq_data_prefetch_enable, NULL, 0);
-#endif
+	zynq_prefetch_init();
 }
 
 /**

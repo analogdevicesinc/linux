@@ -6,7 +6,7 @@ config ARCH_ZYNQ
 	select ARCH_SUPPORTS_BIG_ENDIAN
 	select ARM_AMBA
 	select ARM_GIC
-	select ARM_GLOBAL_TIMER
+	select ARM_GLOBAL_TIMER if !CPU_FREQ
 	select CACHE_L2X0
 	select CADENCE_TTC_TIMER
 	select GENERIC_ALLOCATOR
@@ -25,19 +25,11 @@ if ARCH_ZYNQ
 
 menu "Xilinx Specific Options"
 
-config XILINX_L1_PREFETCH
-	bool "L1 Cache Prefetch"
+config XILINX_PREFETCH
+	bool "Cache Prefetch"
 	default y
 	help
-	  This option turns on L1 cache prefetching to get the best performance
-	  in many cases. This may not always be the best performance depending on
-	  the usage. There are some cases where this may cause issues when booting.
-
-config XILINX_L2_PREFETCH
-	bool "L2 Cache Prefetch"
-	default y
-	help
-	  This option turns on L2 cache prefetching to get the best performance
+	  This option turns on L1 & L2 cache prefetching to get the best performance
 	  in many cases. This may not always be the best performance depending on
 	  the usage.
 
