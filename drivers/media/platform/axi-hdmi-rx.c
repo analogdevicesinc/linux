@@ -506,14 +506,20 @@ static int axi_hdmi_rx_try_fmt_vid_cap(struct file *file, void *priv_fh,
 {
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
+	struct v4l2_subdev_format fmt;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
-	struct v4l2_mbus_framefmt mbus_fmt;
+	int ret;
 
 	v4l_bound_align_image(&pix->width, 176, 1920, 0, &pix->height, 144,
 		1080, 0, 0);
 
-	v4l2_subdev_call(s->subdev, video, g_mbus_fmt, &mbus_fmt);
-	v4l2_fill_pix_format(pix, &mbus_fmt);
+	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	fmt.pad = ADV7611_PAD_SOURCE;
+	ret = v4l2_subdev_call(s->subdev, pad, get_fmt, NULL, &fmt);
+	if (ret)
+		return ret;
+
+	v4l2_fill_pix_format(pix, &fmt.format);
 
 	switch (pix->pixelformat) {
 	case V4L2_PIX_FMT_BGR32:
@@ -547,10 +553,19 @@ static int axi_hdmi_rx_s_fmt_vid_cap(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
+	struct v4l2_subdev_format fmt;
 	unsigned int config;
+	int ret;
 
 	if (axi_hdmi_rx_try_fmt_vid_cap(file, priv_fh, f))
 		return -EINVAL;
+
+	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	fmt.pad = ADV7611_PAD_SOURCE;
+	fmt.format.code = V4L2_MBUS_FMT_YUYV8_1X16;
+	ret = v4l2_subdev_call(s->subdev, pad, set_fmt, NULL, &fmt);
+	if (ret)
+		return ret;
 
 	s->width = pix->width;
 	s->height = pix->height;
