@@ -976,9 +976,9 @@ struct flash_info {
 #define	M25P_NO_FR	0x08		/* Can't do fastread */
 #define	SECT_4K_PMC	0x10		/* OPCODE_BE_4K_PMC works uniformly */
 #define	M25P80_DUAL_READ	0x20    /* Flash supports Dual Read */
-#define	M25P80_QUAD_READ	0x20    /* Flash supports Quad Read */
-#define	USE_FSR		0x40		/* use flag status register */
-#define	SHUTDOWN_3BYTE	0x80		/* set 3-byte mode on shutdown */
+#define	M25P80_QUAD_READ	0x40    /* Flash supports Quad Read */
+#define	USE_FSR		0x80		/* use flag status register */
+#define	SHUTDOWN_3BYTE	0x100		/* set 3-byte mode on shutdown */
 };
 
 #define INFO(_jedec_id, _ext_id, _sector_size, _n_sectors, _flags)	\
