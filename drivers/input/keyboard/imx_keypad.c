@@ -282,11 +282,6 @@ static void imx_keypad_check_for_events(unsigned long data)
 		reg_val = readw(keypad->mmio_base + KPSR);
 		reg_val |= KBD_STAT_KPKR | KBD_STAT_KRSS;
 		writew(reg_val, keypad->mmio_base + KPSR);
-
-		reg_val = readw(keypad->mmio_base + KPSR);
-		reg_val |= KBD_STAT_KRIE;
-		reg_val &= ~KBD_STAT_KDIE;
-		writew(reg_val, keypad->mmio_base + KPSR);
 	}
 }
 
@@ -538,6 +533,7 @@ static int __maybe_unused imx_kbd_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct imx_keypad *kbd = platform_get_drvdata(pdev);
 	struct input_dev *input_dev = kbd->input_dev;
+	unsigned short reg_val = readw(kbd->mmio_base + KPSR);
 
 	/* imx kbd can wake up system even clock is disabled */
 	mutex_lock(&input_dev->mutex);
@@ -547,8 +543,14 @@ static int __maybe_unused imx_kbd_suspend(struct device *dev)
 
 	mutex_unlock(&input_dev->mutex);
 
-	if (device_may_wakeup(&pdev->dev))
+	if (device_may_wakeup(&pdev->dev)) {
+		/* make sure KDI interrupt enabled */
+		reg_val |= KBD_STAT_KDIE;
+		reg_val &= ~KBD_STAT_KRIE;
+		writew(reg_val, kbd->mmio_base + KPSR);
+
 		enable_irq_wake(kbd->irq);
+	}
 
 	return 0;
 }
