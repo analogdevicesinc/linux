@@ -372,7 +372,8 @@ ENTRY(sys_call_table)
 	.long sys_finit_module
 	.long sys_sched_setattr
 	.long sys_sched_getattr		/* 350 */
+	.long sys_renameat2
 
-	.rept NR_syscalls - 351
+	.rept NR_syscalls - 352
 		.long sys_ni_syscall
 	.endr

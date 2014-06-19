@@ -24,7 +24,7 @@
 
 #define _BLOCKABLE (~(sigmask(SIGKILL) | sigmask(SIGSTOP)))
 
-static int do_signal(struct pt_regs *regs, sigset_t *oldset, int in_syscall);
+static int do_signal(struct pt_regs *regs, int in_syscall);
 
 /*
  * Do a signal return; undo the signal stack.
@@ -252,7 +252,7 @@ static inline void push_cache(unsigned long vaddr)
 	flush_icache_range(vaddr, vaddr + 12);
 }
 
-static inline void *get_sigframe(struct k_sigaction *ka, struct pt_regs *regs,
+static inline void *get_sigframe(struct ksignal *ksig, struct pt_regs *regs,
 				 size_t frame_size)
 {
 	unsigned long usp;
@@ -261,22 +261,19 @@ static inline void *get_sigframe(struct k_sigaction *ka, struct pt_regs *regs,
 	usp = regs->sp;
 
 	/* This is the X/Open sanctioned signal stack switching.  */
-	if ((ka->sa.sa_flags & SA_ONSTACK) && (current->sas_ss_sp != 0)) {
-		if (!on_sig_stack(usp))
-			usp = current->sas_ss_sp + current->sas_ss_size;
-	}
+	usp = sigsp(usp, ksig);
 
 	/* Verify, is it 32 or 64 bit aligned */
 	return (void *)((usp - frame_size) & -8UL);
 }
 
-static void setup_frame(int sig, struct k_sigaction *ka,
-			sigset_t *set, struct pt_regs *regs)
+static int setup_frame(struct ksignal *ksig, sigset_t *set,
+			struct pt_regs *regs)
 {
 	struct sigframe *frame;
 	int err = 0;
 
-	frame = get_sigframe(ka, regs, sizeof(*frame));
+	frame = get_sigframe(ksig, regs, sizeof(*frame));
 
 	if (_NSIG_WORDS > 1)
 		err |= copy_to_user(frame->extramask, &set->sig[1],
@@ -294,33 +291,26 @@ static void setup_frame(int sig, struct k_sigaction *ka,
 	err |= __put_user(0x003b683a, (long *)(frame->retcode + 4));
 
 	if (err)
-		goto give_sigsegv;
+		return -EFAULT;
 
 	push_cache((unsigned long) &frame->retcode);
 
 	/* Set up registers for signal handler */
 	regs->sp = (unsigned long) frame;
-	regs->r4 = (unsigned long) (current_thread_info()->exec_domain
-			&& current_thread_info()->exec_domain->signal_invmap
-			&& sig < 32
-			? current_thread_info()->exec_domain->signal_invmap[sig]
-			: sig);
-	regs->ea = (unsigned long) ka->sa.sa_handler;
-	return;
-
-give_sigsegv:
-	force_sigsegv(sig, current);
+	regs->r4 = ksig->sig;
+	regs->ea = (unsigned long) ksig->ka.sa.sa_handler;
+	return 0;
 }
 
-static void setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
-				sigset_t *set, struct pt_regs *regs)
+static int setup_rt_frame(struct ksignal *ksig, sigset_t *set,
+			  struct pt_regs *regs)
 {
 	struct rt_sigframe *frame;
 	int err = 0;
 
-	frame = get_sigframe(ka, regs, sizeof(*frame));
+	frame = get_sigframe(ksig, regs, sizeof(*frame));
 
-	err |= copy_siginfo_to_user(&frame->info, info);
+	err |= copy_siginfo_to_user(&frame->info, &ksig->info);
 
 	/* Create the ucontext.  */
 	err |= __put_user(0, &frame->uc.uc_flags);
@@ -339,24 +329,17 @@ static void setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	err |= __put_user(0x003b683a, (long *)(frame->retcode + 4));
 
 	if (err)
-		goto give_sigsegv;
+		return -EFAULT;
 
 	push_cache((unsigned long) &frame->retcode);
 
 	/* Set up registers for signal handler */
 	regs->sp = (unsigned long) frame;
-	regs->r4 = (unsigned long) (current_thread_info()->exec_domain
-			&& current_thread_info()->exec_domain->signal_invmap
-			&& sig < 32
-			? current_thread_info()->exec_domain->signal_invmap[sig]
-			: sig);
+	regs->r4 = ksig->sig;
 	regs->r5 = (unsigned long) &frame->info;
 	regs->r6 = (unsigned long) &frame->uc;
-	regs->ea = (unsigned long) ka->sa.sa_handler;
-	return;
-
-give_sigsegv:
-	force_sigsegv(sig, current);
+	regs->ea = (unsigned long) ksig->ka.sa.sa_handler;
+	return 0;
 }
 
 static inline void handle_restart(struct pt_regs *regs, struct k_sigaction *ka,
@@ -386,52 +369,36 @@ static inline void handle_restart(struct pt_regs *regs, struct k_sigaction *ka,
 /*
  * OK, we're invoking a handler
  */
-static void handle_signal(int sig, struct k_sigaction *ka, siginfo_t *info,
-				sigset_t *oldset, struct pt_regs *regs)
+static void handle_signal(struct ksignal *ksig, struct pt_regs *regs)
 {
-	/* set up the stack frame */
-	if (ka->sa.sa_flags & SA_SIGINFO)
-		setup_rt_frame(sig, ka, info, oldset, regs);
-	else
-		setup_frame(sig, ka, oldset, regs);
+	int ret;
+	sigset_t *oldset = sigmask_to_save();
 
-	if (!(ka->sa.sa_flags & SA_NODEFER)) {
-		spin_lock_irq(&current->sighand->siglock);
-		sigorsets(&current->blocked, &current->blocked,
-			&ka->sa.sa_mask);
-		sigaddset(&current->blocked, sig);
-		recalc_sigpending();
-		spin_unlock_irq(&current->sighand->siglock);
-	}
+	/* set up the stack frame */
+	if (ksig->ka.sa.sa_flags & SA_SIGINFO)
+		ret = setup_rt_frame(ksig, oldset, regs);
+	else
+		ret = setup_frame(ksig, oldset, regs);
+
+	signal_setup_done(ret, ksig, 0);
 }
 
-/*
- * Note that 'init' is a special process: it doesn't get signals it doesn't
- * want to handle. Thus you cannot kill init even with a SIGKILL even by
- * mistake.
- */
-static int do_signal(struct pt_regs *regs, sigset_t *oldset, int in_syscall)
+static int do_signal(struct pt_regs *regs, int in_syscall)
 {
-	struct k_sigaction ka;
-	siginfo_t info;
-	int signr;
+	struct ksignal ksig;
 
 	/* FIXME - Do we still need to do this ? */
 	current->thread.kregs = regs;
 
-	if (!oldset)
-		oldset = &current->blocked;
-
-	signr = get_signal_to_deliver(&info, &ka, regs, NULL);
-	if (signr > 0) {
+	if (get_signal(&ksig)) {
 		/*
 		 * Are we from a system call? If so, check system call
 		 * restarting.
 		 */
 		if (in_syscall)
-			handle_restart(regs, &ka, 1);
+			handle_restart(regs, &ksig.ka, 1);
 		/* Whee!  Actually deliver the signal.  */
-		handle_signal(signr, &ka, &info, oldset, regs);
+		handle_signal(&ksig, regs);
 		return 1;
 	}
 
@@ -457,10 +424,8 @@ static int do_signal(struct pt_regs *regs, sigset_t *oldset, int in_syscall)
 	return 0;
 }
 
-asmlinkage void do_notify_resume(struct pt_regs *regs, sigset_t *oldset,
-				int in_syscall)
+asmlinkage void do_notify_resume(struct pt_regs *regs, int in_syscall)
 {
-	pr_debug("--> ENTERING %s\n", __func__);
 	/*
 	 * We want the common case to go fast, which is why we may in certain
 	 * cases get here from kernel mode. Just return without doing anything
@@ -470,7 +435,7 @@ asmlinkage void do_notify_resume(struct pt_regs *regs, sigset_t *oldset,
 		return;
 
 	if (test_thread_flag(TIF_SIGPENDING))
-		do_signal(regs, oldset, in_syscall);
+		do_signal(regs, in_syscall);
 
 	if (test_and_clear_thread_flag(TIF_NOTIFY_RESUME))
 		tracehook_notify_resume(regs);

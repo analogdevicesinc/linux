@@ -298,8 +298,7 @@ Lsignal_return:
 	beq	r1, r0, restore_all
 	mov	r4, sp			/* pt_regs */
 	SAVE_SWITCH_STACK
-	mov	r5, r0			/* oldset = 0 */
-	movi	r6, 1			/* in_syscall = 1 */
+	movi	r5, 1			/* in_syscall = 1 */
 	call	do_notify_resume
 	RESTORE_SWITCH_STACK
 	br	restore_all
