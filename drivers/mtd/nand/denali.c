@@ -479,7 +479,7 @@ static void detect_partition_feature(struct denali_nand_info *denali)
 static uint16_t denali_nand_timing_set(struct denali_nand_info *denali)
 {
 	uint16_t status = PASS;
-	uint32_t id_bytes[5], addr;
+	uint32_t id_bytes[8], addr;
 	uint8_t i, maf_id, device_id;
 
 	dev_dbg(denali->dev,
