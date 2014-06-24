@@ -85,6 +85,6 @@ extern int /*rc*/ bcm_dma_abort(void __iomem *dma_chan_base);
 extern int bcm_dma_chan_alloc(unsigned preferred_feature_set,
 			      void __iomem **out_dma_base, int *out_dma_irq);
 extern int bcm_dma_chan_free(int channel);
-
+bool bcm_dma_ready(void);
 
 #endif /* _MACH_BCM2708_DMA_H */

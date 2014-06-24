@@ -230,6 +230,11 @@ static unsigned char bcm_dma_irqs[] = {
 
 static struct device *dmaman_dev;	/* we assume there's only one! */
 
+bool bcm_dma_ready(void)
+{
+	return dmaman_dev != NULL;
+}
+
 extern int bcm_dma_chan_alloc(unsigned preferred_feature_set,
 			      void __iomem **out_dma_base, int *out_dma_irq)
 {

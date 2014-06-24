@@ -473,6 +473,9 @@ static int bcm2708_dma_probe(struct platform_device *pdev)
 	struct bcm2708_dmadev *od;
 	int rc, i;
 
+	if (!bcm_dma_ready())
+		return -EPROBE_DEFER;
+
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 
@@ -502,7 +505,7 @@ static int bcm2708_dma_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, od);
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < 2; i++) {
 		void __iomem* chan_base;
 		int chan_id, irq;
 
@@ -528,7 +531,7 @@ static int bcm2708_dma_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	dev_dbg(&pdev->dev, "Load BCM2708 DMA engine driver\n");
+	dev_info(&pdev->dev, "Load BCM2708 DMA engine driver\n");
 
 	return rc;
 }
@@ -573,7 +576,7 @@ static int bcm2708_dma_init(void)
 
 	return rc;
 }
-subsys_initcall(bcm2708_dma_init);
+module_init(bcm2708_dma_init);
 
 static void __exit bcm2708_dma_exit(void)
 {

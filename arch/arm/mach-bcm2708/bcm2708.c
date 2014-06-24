@@ -53,6 +53,7 @@
 #include <mach/dma.h>
 #include <mach/vcio.h>
 #include <mach/system.h>
+#include <mach/gpio.h>
 
 #include <linux/delay.h>
 
@@ -529,6 +530,7 @@ static struct resource bcm2708_spi_resources[] = {
 
 
 static u64 bcm2708_spi_dmamask = DMA_BIT_MASK(DMA_MASK_BITS_COMMON);
+
 static struct platform_device bcm2708_spi_device = {
 	.name = "bcm2708_spi",
 	.id = 0,
@@ -539,25 +541,62 @@ static struct platform_device bcm2708_spi_device = {
 		.coherent_dma_mask = DMA_BIT_MASK(DMA_MASK_BITS_COMMON)},
 };
 
-#ifdef CONFIG_BCM2708_SPIDEV
-static struct spi_board_info bcm2708_spi_devices[] = {
-#ifdef CONFIG_SPI_SPIDEV
-	{
-		.modalias = "spidev",
-		.max_speed_hz = 500000,
-		.bus_num = 0,
-		.chip_select = 0,
-		.mode = SPI_MODE_0,
-	}, {
-		.modalias = "spidev",
-		.max_speed_hz = 500000,
-		.bus_num = 0,
-		.chip_select = 1,
-		.mode = SPI_MODE_0,
-	}
-#endif
-};
-#endif
+#include <linux/input.h>
+#include <linux/input/adxl34x.h>
+
+static const struct adxl34x_platform_data adxl34x_info = {    
+          .x_axis_offset = 0,    
+          .y_axis_offset = 0,    
+          .z_axis_offset = 0,    
+          .tap_threshold = 0x31,    
+          .tap_duration = 0x10,    
+          .tap_latency = 0x60,    
+          .tap_window = 0xF0,    
+          .tap_axis_control = ADXL_TAP_X_EN | ADXL_TAP_Y_EN | ADXL_TAP_Z_EN,    
+          .act_axis_control = 0xFF,    
+          .activity_threshold = 5,    
+          .inactivity_threshold = 3,    
+          .inactivity_time = 4,    
+          .free_fall_threshold = 0x7,    
+          .free_fall_time = 0x20,    
+          .data_rate = 0x8,    
+          .data_range = ADXL_FULL_RES,    
+    
+    
+          .ev_type = EV_ABS,    
+          .ev_code_x = ABS_X,                    /* EV_REL */    
+          .ev_code_y = ABS_Y,                    /* EV_REL */    
+          .ev_code_z = ABS_Z,                    /* EV_REL */    
+    
+    
+          .ev_code_tap = {BTN_TOUCH, BTN_TOUCH, BTN_TOUCH}, /* EV_KEY x,y,z */    
+    
+    
+/*          .ev_code_ff = KEY_F,*/                    /* EV_KEY */    
+/*          .ev_code_act_inactivity = KEY_A,*/          /* EV_KEY */    
+          .power_mode = ADXL_AUTO_SLEEP | ADXL_LINK,    
+          .fifo_mode = ADXL_FIFO_STREAM,    
+          .orientation_enable = ADXL_EN_ORIENTATION_3D,    
+          .deadzone_angle = ADXL_DEADZONE_ANGLE_10p8,    
+          .divisor_length =  ADXL_LP_FILTER_DIVISOR_16,    
+          /* EV_KEY {+Z, +Y, +X, -X, -Y, -Z} */    
+          .ev_codes_orient_3d = {BTN_Z, BTN_Y, BTN_X, BTN_A, BTN_B, BTN_C},    
+};    
+  
+  
+static struct spi_board_info bcm2708_spi_devices[] = {  
+  
+      {    
+                    .modalias                    = "adxl34x",    
+                    .platform_data                    = &adxl34x_info,    
+                    .irq = GPIO_IRQ_START + 17, // gpio_to_irq(17),    
+                    .max_speed_hz                    = 5000000,    
+                    .bus_num                    = 0,    
+                    .chip_select                      = 0,    
+                    .mode                               = SPI_MODE_3,    
+          }  
+  
+};  
 
 static struct resource bcm2708_bsc0_resources[] = {
 	{
@@ -606,7 +645,6 @@ static struct platform_device bcm2835_thermal_device = {
 	.name = "bcm2835_thermal",
 };
 
-#ifdef CONFIG_SND_BCM2708_SOC_I2S_MODULE
 static struct resource bcm2708_i2s_resources[] = {
 	{
 		.start = I2S_BASE,
@@ -626,7 +664,16 @@ static struct platform_device bcm2708_i2s_device = {
 	.num_resources = ARRAY_SIZE(bcm2708_i2s_resources),
 	.resource = bcm2708_i2s_resources,
 };
-#endif
+
+static struct i2c_board_info __initdata ssm4329_i2c_devices[] = {
+        {
+                I2C_BOARD_INFO("ssm4329", 0x34)
+        },
+};
+
+static struct platform_device snd_rpi_ssm4329_device = {
+        .name = "snd-rpi-ssm4329",
+};
 
 #if defined(CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC) || defined(CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC_MODULE)
 static struct platform_device snd_hifiberry_dac_device = {
@@ -809,9 +856,7 @@ void __init bcm2708_init(void)
 	bcm_register_device(&bcm2835_hwmon_device);
 	bcm_register_device(&bcm2835_thermal_device);
 
-#ifdef CONFIG_SND_BCM2708_SOC_I2S_MODULE
 	bcm_register_device(&bcm2708_i2s_device);
-#endif
 
 #if defined(CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC) || defined(CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC_MODULE)
         bcm_register_device(&snd_hifiberry_dac_device);
@@ -833,6 +878,8 @@ void __init bcm2708_init(void)
         i2c_register_board_info(1, snd_pcm512x_i2c_devices, ARRAY_SIZE(snd_pcm512x_i2c_devices));
 #endif
 
+	i2c_register_board_info(1, ssm4329_i2c_devices, ARRAY_SIZE(ssm4329_i2c_devices));
+	bcm_register_device(&snd_rpi_ssm4329_device);
 
 	for (i = 0; i < ARRAY_SIZE(amba_devs); i++) {
 		struct amba_device *d = amba_devs[i];
