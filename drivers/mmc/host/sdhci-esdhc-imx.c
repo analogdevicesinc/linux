@@ -1348,6 +1348,8 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 
 	sdhci_esdhc_imx_hwinit(host);
 
+	device_set_wakeup_capable(&pdev->dev, 1);
+
 	err = sdhci_add_host(host);
 	if (err)
 		goto disable_ahb_clk;
