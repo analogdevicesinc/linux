@@ -92,6 +92,9 @@ static int denali_dt_probe(struct platform_device *ofdev)
 	}
 	clk_prepare_enable(dt->clk);
 
+	denali->have_hw_ecc_fixup = of_property_read_bool(ofdev->dev.of_node,
+		"have-hw-ecc-fixup");
+
 	ret = denali_init(denali);
 	if (ret)
 		goto out_disable_clk;
