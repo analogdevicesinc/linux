@@ -12,24 +12,29 @@
 
 #include "sigmadsp.h"
 
-static int sigma_action_write_regmap(void *control_data,
-	const struct sigma_action *sa, size_t len)
+static int sigmadsp_write_regmap(void *control_data,
+	unsigned int addr, const uint8_t data[], size_t len)
 {
-	return regmap_raw_write(control_data, be16_to_cpu(sa->addr),
-		sa->payload, len - 2);
+	return regmap_raw_write(control_data, addr,
+		data, len);
 }
 
-int process_sigma_firmware_regmap(struct device *dev, struct regmap *regmap,
-	const char *name)
+static int sigmadsp_read_regmap(void *control_data,
+	unsigned int addr, uint8_t data[], size_t len)
 {
-	struct sigma_firmware ssfw;
-
-	ssfw.control_data = regmap;
-	ssfw.write = sigma_action_write_regmap;
-
-	return _process_sigma_firmware(dev, &ssfw, name);
+	return regmap_raw_read(control_data, addr,
+		data, len);
 }
-EXPORT_SYMBOL(process_sigma_firmware_regmap);
+
+void sigmadsp_init_regmap(struct sigmadsp *sigmadsp,
+	const struct sigmadsp_ops *ops, struct regmap *regmap)
+{
+	sigmadsp->control_data = regmap;
+	sigmadsp->write = sigmadsp_write_regmap;
+	sigmadsp->read = sigmadsp_read_regmap;
+	sigmadsp_init(sigmadsp, ops);
+}
+EXPORT_SYMBOL_GPL(sigmadsp_init_regmap);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("SigmaDSP regmap firmware loader");

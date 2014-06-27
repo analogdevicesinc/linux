@@ -11,31 +11,52 @@
 
 #include <linux/device.h>
 #include <linux/regmap.h>
+#include <linux/list.h>
 
-struct sigma_action {
-	u8 instr;
-	u8 len_hi;
-	__le16 len;
-	__be16 addr;
-	unsigned char payload[];
-} __packed;
+#include <sound/pcm.h>
 
-struct sigma_firmware {
-	const struct firmware *fw;
-	size_t pos;
+struct sigmadsp;
+struct snd_soc_codec;
+struct snd_pcm_substream;
 
-	void *control_data;
-	int (*write)(void *control_data, const struct sigma_action *sa,
-			size_t len);
+struct sigmadsp_ops {
+	int (*safeload)(struct sigmadsp *sigmadsp, unsigned int addr,
+			const uint8_t *data, size_t len);
 };
 
-int _process_sigma_firmware(struct device *dev,
-	struct sigma_firmware *ssfw, const char *name);
+struct sigmadsp {
+	const struct sigmadsp_ops *ops;
+
+	struct list_head ctrl_list;
+	struct list_head data_list;
+
+	struct snd_pcm_hw_constraint_list rate_constraints;
+
+	unsigned int current_samplerate;
+	struct snd_soc_codec *codec;
+
+	void *control_data;
+	int (*write)(void *, unsigned int, const uint8_t *, size_t);
+	int (*read)(void *, unsigned int, uint8_t *, size_t);
+};
+
+void sigmadsp_init(struct sigmadsp *sigmadsp, const struct sigmadsp_ops *ops);
+void sigmadsp_reset(struct sigmadsp *sigmadsp);
+
+int sigmadsp_restrict_params(struct sigmadsp *sigmadsp,
+	struct snd_pcm_substream *substream);
 
 struct i2c_client;
 
-extern int process_sigma_firmware(struct i2c_client *client, const char *name);
-extern int process_sigma_firmware_regmap(struct device *dev,
-		struct regmap *regmap, const char *name);
+void sigmadsp_init_regmap(struct sigmadsp *sigmadsp,
+	const struct sigmadsp_ops *ops,	struct regmap *regmap);
+void sigmadsp_init_i2c(struct sigmadsp *sigmadsp,
+	const struct sigmadsp_ops *ops,	struct i2c_client *client);
+
+int sigmadsp_firmware_load(struct sigmadsp *sigmadsp,
+	struct snd_soc_codec *codec, const char *name);
+int sigmadsp_setup(struct sigmadsp *sigmadsp, unsigned int rate);
+void sigmadsp_firmware_release(struct sigmadsp *sigmadsp);
+void sigmadsp_reset(struct sigmadsp *sigmadsp);
 
 #endif

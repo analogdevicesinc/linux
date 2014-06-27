@@ -143,6 +143,7 @@ config SND_SOC_AD73311
 	tristate
 
 config SND_SOC_ADAU1701
+	depends on BROKEN
 	select SND_SOC_SIGMADSP_I2C
 	tristate
 
