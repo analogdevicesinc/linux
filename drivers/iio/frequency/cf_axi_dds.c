@@ -547,6 +547,24 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
 	.num_dds_channels = 8,
 };
 
+static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9364 = {
+	.name = "AD9364",
+	.channel = {
+		CF_AXI_DDS_CHAN_BUF(0),
+		CF_AXI_DDS_CHAN_BUF(1),
+		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+		CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
+		CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
+		CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
+		CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
+	},
+	.num_channels = 10,
+	.num_dds_channels = 8,
+};
+
 static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361x2 = {
 	.name = "AD9361",
 	.channel = {
@@ -636,6 +654,14 @@ static const struct axidds_core_info ad9361_6_00_a_info = {
 	.chip_info = &cf_axi_dds_chip_info_ad9361,
 };
 
+static const struct axidds_core_info ad9364_6_00_a_info = {
+	.version = PCORE_VERSION(7, 0, 'a'),
+	.has_fifo_interface = true,
+	.standalone = true,
+	.rate = 1,
+	.chip_info = &cf_axi_dds_chip_info_ad9364,
+};
+
 static const struct axidds_core_info ad9361x2_6_00_a_info = {
 	.version = PCORE_VERSION(7, 0, 'a'),
 	.has_fifo_interface = true,
@@ -668,6 +694,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9361-dds-6.00.a",
 	    .data = &ad9361_6_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9364-dds-6.00.a",
+	    .data = &ad9364_6_00_a_info,
 	},
 	{ },
 };
