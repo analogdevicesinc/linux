@@ -1,7 +1,7 @@
 /*
  * DDS PCORE/COREFPGA Module
  *
- * Copyright 2012-2013 Analog Devices Inc.
+ * Copyright 2012-2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -100,7 +100,6 @@ static int dds_buffer_state_set(struct iio_dev *indio_dev, bool state)
 {
 	struct dds_buffer *dds_buffer = iio_buffer_to_dds_buffer(indio_dev->buffer);
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	unsigned tmp_reg;
 
 #if 0
 	tmp_reg = dds_read(st, CF_AXI_DDS_DMA_STAT);
@@ -109,28 +108,21 @@ static int dds_buffer_state_set(struct iio_dev *indio_dev, bool state)
 			 (tmp_reg & CF_AXI_DDS_DMA_STAT_OVF) ? "overflow" : "",
 			 (tmp_reg & CF_AXI_DDS_DMA_STAT_OVF) ? "underflow" : "");
 #endif
-	tmp_reg = dds_read(st, ADI_REG_CNTRL_2);
-	tmp_reg &= ~ADI_DATA_SEL(~0);
 
-	if (!state) {
-//		cf_axi_dds_stop(st);
-		tmp_reg |= DATA_SEL_DDS;
-		dds_write(st, ADI_REG_CNTRL_2, tmp_reg);
-		return 0;
-	}
+	if (!state)
+		return cf_axi_dds_datasel(st, -1, DATA_SEL_DDS);
 
-	tmp_reg |= DATA_SEL_DMA;
-
-	dds_write(st, ADI_REG_CNTRL_1, 0);
+	cf_axi_dds_stop(st);
 	st->enable = false;
 
 	if (!st->has_fifo_interface)
 		dds_write(st, ADI_REG_VDMA_FRMCNT, dds_buffer->length);
 
-	dds_write(st, ADI_REG_CNTRL_2, tmp_reg);
+	cf_axi_dds_datasel(st, -1, DATA_SEL_DMA);
 	dds_write(st, ADI_REG_VDMA_STATUS, ADI_VDMA_OVF | ADI_VDMA_UNF);
-	dds_write(st, ADI_REG_CNTRL_1, ADI_ENABLE);
+
 	st->enable = true;
+	cf_axi_dds_start_sync(st, 1);
 
 	return 0;
 }

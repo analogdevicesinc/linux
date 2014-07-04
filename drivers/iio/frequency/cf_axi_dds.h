@@ -31,20 +31,28 @@
 #define ADI_MMCM_RSTN 		(1 << 1)
 
 #define ADI_REG_CNTRL_1		0x0044
-#define ADI_ENABLE		(1 << 0)
+#define ADI_ENABLE		(1 << 0) /* v7.0 */
+#define ADI_SYNC			(1 << 0) /* v8.0 */
 
 #define ADI_REG_CNTRL_2		0x0048
 #define ADI_PAR_TYPE		(1 << 7)
 #define ADI_PAR_ENB		(1 << 6)
 #define ADI_R1_MODE		(1 << 5)
 #define ADI_DATA_FORMAT		(1 << 4)
-#define ADI_DATA_SEL(x)		(((x) & 0xF) << 0)
-#define ADI_TO_DATA_SEL(x)	(((x) >> 0) & 0xF)
+#define ADI_DATA_SEL(x)		(((x) & 0xF) << 0) /* v7.0 */
+#define ADI_TO_DATA_SEL(x)	(((x) >> 0) & 0xF) /* v7.0 */
 
-enum {
+enum dds_data_select {
 	DATA_SEL_DDS,
 	DATA_SEL_SED,
 	DATA_SEL_DMA,
+	DATA_SEL_ZERO,	/* OUTPUT 0 */
+	DATA_SEL_PN7,
+	DATA_SEL_PN15,
+	DATA_SEL_PN23,
+	DATA_SEL_PN31,
+	DATA_SEL_LB,	/* loopback data (ADC) */
+	DATA_SEL_PNXX,	/* (Device specific) */
 };
 
 
@@ -92,6 +100,7 @@ enum {
 #define ADI_TO_USR_CHANMAX(x)	(((x) >> 0) & 0xFF)
 
 #define ADI_REG_DAC_DP_DISABLE	0x00C0
+#define ADI_DAC_DP_DISABLE	(1 << 0)
 
 /* DAC CHANNEL */
 
@@ -110,8 +119,8 @@ enum {
 #define ADI_TO_DDS_SCALE_1(x)		(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_CHAN_CNTRL_2(c)		(0x0404 + (c) * 0x40)
-#define ADI_DDS_INIT_1(x)		(((x) & 0x1FFFF) << 15)
-#define ADI_TO_DDS_INIT_1(x)		(((x) >> 15) & 0x1FFFF)
+#define ADI_DDS_INIT_1(x)		(((x) & 0xFFFF) << 16)
+#define ADI_TO_DDS_INIT_1(x)		(((x) >> 16) & 0xFFFF)
 #define ADI_DDS_INCR_1(x)		(((x) & 0xFFFF) << 0)
 #define ADI_TO_DDS_INCR_1(x)		(((x) >> 0) & 0xFFFF)
 
@@ -120,8 +129,8 @@ enum {
 #define ADI_TO_DDS_SCALE_2(x)		(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_CHAN_CNTRL_4(c)		(0x040C + (c) * 0x40)
-#define ADI_DDS_INIT_2(x)		(((x) & 0x1FFFF) << 15)
-#define ADI_TO_DDS_INIT_2(x)		(((x) >> 15) & 0x1FFFF)
+#define ADI_DDS_INIT_2(x)		(((x) & 0xFFFF) << 16)
+#define ADI_TO_DDS_INIT_2(x)		(((x) >> 16) & 0xFFFF)
 #define ADI_DDS_INCR_2(x)		(((x) & 0xFFFF) << 0)
 #define ADI_TO_DDS_INCR_2(x)		(((x) >> 0) & 0xFFFF)
 
@@ -132,8 +141,19 @@ enum {
 #define ADI_TO_DDS_PATT_1(x)		(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_CHAN_CNTRL_6(c)		(0x0414 + (c) * 0x40)
-#define ADI_DAC_LB_ENB  			(1 << 1)
-#define ADI_DAC_PN_ENB 			(1 << 0)
+#define ADI_IQCOR_ENB			(1 << 2) /* v8.0 */
+//#define ADI_DAC_LB_ENB  			(1 << 1) /* v7.0 */
+//#define ADI_DAC_PN_ENB 			(1 << 0) /* v7.0 */
+
+#define ADI_REG_CHAN_CNTRL_7(c)		(0x0418 + (c) * 0x40) /* v8.0 */
+#define ADI_DAC_DDS_SEL(x)		(((x) & 0xF) << 0)
+#define ADI_TO_DAC_DDS_SEL(x)		(((x) >> 0) & 0xF)
+
+#define ADI_REG_CHAN_CNTRL_8(c)		(0x041C + (c) * 0x40) /* v8.0 */
+#define ADI_IQCOR_COEFF_1(x)		(((x) & 0xFFFF) << 16)
+#define ADI_TO_IQCOR_COEFF_1(x)		(((x) >> 16) & 0xFFFF)
+#define ADI_IQCOR_COEFF_2(x)		(((x) & 0xFFFF) << 0)
+#define ADI_TO_IQCOR_COEFF_2(x)		(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_USR_CNTRL_3(c)		(0x0420 + (c) * 0x40)
 #define ADI_USR_DATATYPE_BE		(1 << 25)
@@ -248,7 +268,10 @@ static inline struct cf_axi_converter *to_converter(struct device *dev)
 
 int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev);
 void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev);
-//void cf_axi_dds_stop(struct cf_axi_dds_state *st);
+int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
+			       int channel, enum dds_data_select sel);
+void cf_axi_dds_stop(struct cf_axi_dds_state *st);
+void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on);
 
 /*
  * IO accessors
