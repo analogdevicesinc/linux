@@ -22,11 +22,12 @@
 #include <drm/drm_encoder_slave.h>
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
-#include <linux/spinlock.h>
 
 #include "xilinx_drm_drv.h"
 
@@ -279,7 +280,7 @@ struct xilinx_drm_dp_i2c {
  * @link_config: common link configuration between IP core and sink device
  * @mode: current mode between IP core and sink device
  * @train_set: set of training data
- * @aux_lock: spinlock for aux communication
+ * @aux_lock: mutex to protect atomicity of xilinx_drm_dp_aux_cmd_submit()
  */
 struct xilinx_drm_dp {
 	struct drm_encoder *encoder;
@@ -296,7 +297,7 @@ struct xilinx_drm_dp {
 	struct xilinx_drm_dp_mode mode;
 	u8 train_set[4];
 
-	spinlock_t aux_lock;
+	struct mutex aux_lock;
 };
 
 static inline struct xilinx_drm_dp *to_dp(struct drm_encoder *encoder)
@@ -313,6 +314,12 @@ static inline struct xilinx_drm_dp *to_dp(struct drm_encoder *encoder)
  * @addr: aux address
  * @buf: buffer for command data
  * @bytes: number of bytes for @buf
+ *
+ * Submit an aux command. All aux related commands, native or i2c aux
+ * read/write, are submitted through this function. This function involves in
+ * multiple register reads/writes, thus the synchronization needs to be done
+ * by holding @aux_lock if multi-thread access is possible. The calling thread
+ * goes into sleep if there's no immediate reply to the command submission.
  *
  * Return: 0 if the command is submitted properly, or corresponding error code:
  * -EBUSY when there is any request already being processed
@@ -346,16 +353,17 @@ static int xilinx_drm_dp_aux_cmd_submit(struct xilinx_drm_dp *dp, u32 cmd,
 			  (bytes - 1) << XILINX_DP_TX_AUX_COMMAND_BYTES_SHIFT);
 
 	/* Wait for reply to be delivered upto 2ms */
-	for (i = 0; i < 2; i++) {
+	for (i = 0; ; i++) {
 		reg = xilinx_drm_readl(iomem, XILINX_DP_TX_INTR_SIGNAL_STATE);
 
 		if (reg & XILINX_DP_TX_INTR_SIGNAL_STATE_REPLY)
 			break;
 
-		if (reg & XILINX_DP_TX_INTR_SIGNAL_STATE_REPLY_TIMEOUT)
+		if (reg & XILINX_DP_TX_INTR_SIGNAL_STATE_REPLY_TIMEOUT ||
+		    i == 2)
 			return -ETIMEDOUT;
 
-		udelay(1000);
+		usleep_range(1000, 1100);
 	}
 
 	reg = xilinx_drm_readl(iomem, XILINX_DP_TX_AUX_REPLY_CODE);
@@ -397,9 +405,9 @@ static int xilinx_drm_dp_aux_cmd(struct xilinx_drm_dp *dp, u32 cmd, u16 addr,
 
 	/* Retry at least 3 times per DP spec */
 	for (tries = 0; tries < 5; tries++) {
-		spin_lock(&dp->aux_lock);
+		mutex_lock(&dp->aux_lock);
 		ret = xilinx_drm_dp_aux_cmd_submit(dp, cmd, addr, buf, bytes);
-		spin_unlock(&dp->aux_lock);
+		mutex_unlock(&dp->aux_lock);
 		if (!ret || ret == -EIO)
 			break;
 
@@ -480,21 +488,22 @@ static inline int xilinx_drm_dp_aux_read(struct xilinx_drm_dp *dp, u16 addr,
  */
 static int xilinx_drm_dp_phy_ready(struct xilinx_drm_dp *dp)
 {
-	u32 count = 100, reg;
+	u32 i, reg;
 
 	/* Wait for 100 * 1ms. This should be enough time for PHY to be ready */
-	do {
+	for (i = 0; ; i++) {
 		reg = xilinx_drm_readl(dp->iomem, XILINX_DP_TX_PHY_STATUS);
-		udelay(1000);
-	} while ((reg & XILINX_DP_TX_PHY_STATUS_READY_MASK) !=
-		 XILINX_DP_TX_PHY_STATUS_READY_MASK && --count > 0);
+		if ((reg & XILINX_DP_TX_PHY_STATUS_READY_MASK) ==
+		    XILINX_DP_TX_PHY_STATUS_READY_MASK)
+			return 0;
 
-	if (count == 0) {
-		dev_err(dp->dev, "PHY isn't ready\n");
-		return -ENODEV;
+		if (i == 100) {
+			DRM_ERROR("PHY isn't ready\n");
+			return -ENODEV;
+		}
+
+		usleep_range(1000, 1100);
 	}
-
-	return 0;
 }
 
 /**
@@ -1086,7 +1095,7 @@ static int xilinx_drm_dp_encoder_init(struct platform_device *pdev,
 	/* Get aclk rate */
 	clock_rate = clk_get_rate(dp->aclk);
 	if (clock_rate < XILINX_DP_TX_CLK_DIVIDER_MHZ) {
-		dev_err(dp->dev, "aclk should be higher than 1MHz\n");
+		DRM_ERROR("aclk should be higher than 1MHz\n");
 		return -EINVAL;
 	}
 
@@ -1372,7 +1381,7 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 	if (IS_ERR(dp->iomem))
 		return PTR_ERR(dp->iomem);
 
-	spin_lock_init(&dp->aux_lock);
+	mutex_init(&dp->aux_lock);
 
 	platform_set_drvdata(pdev, dp);
 
@@ -1388,18 +1397,20 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 	ret = xilinx_drm_dp_i2c_init(dp);
 	if (ret < 0) {
 		dev_err(dp->dev, "failed to initialize DP i2c\n");
-		return ret;
+		goto error;
 	}
 
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
+	if (irq < 0) {
+		ret = irq;
+		goto error;
+	}
 
 	ret = devm_request_threaded_irq(dp->dev, irq, NULL,
 					xilinx_drm_dp_irq_handler, IRQF_ONESHOT,
 					dev_name(dp->dev), dp);
 	if (ret < 0)
-		return ret;
+		goto error;
 
 	version = xilinx_drm_readl(dp->iomem, XILINX_DP_TX_VERSION);
 
@@ -1414,7 +1425,8 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 	version = xilinx_drm_readl(dp->iomem, XILINX_DP_TX_CORE_ID);
 	if (version & XILINX_DP_TX_CORE_ID_DIRECTION) {
 		dev_err(dp->dev, "Receiver is not supported\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto error;
 	}
 
 	dev_info(dp->dev, "Display Port, version %u.%02x%02x (tx)\n",
@@ -1426,6 +1438,10 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 		  XILINX_DP_TX_CORE_ID_REVISION_SHIFT));
 
 	return 0;
+
+error:
+	mutex_destroy(&dp->aux_lock);
+	return ret;
 }
 
 static int xilinx_drm_dp_remove(struct platform_device *pdev)
@@ -1435,6 +1451,8 @@ static int xilinx_drm_dp_remove(struct platform_device *pdev)
 	clk_disable_unprepare(dp->aclk);
 
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_ENABLE, 0);
+
+	mutex_destroy(&dp->aux_lock);
 
 	return 0;
 }

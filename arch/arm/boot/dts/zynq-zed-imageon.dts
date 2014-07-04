@@ -56,8 +56,16 @@
 					adv7611@4c {
 						compatible = "adi,adv7611";
 						reg = <0x4c>;
+						#address-cells = <0x1>;
+						#size-cells = <0x0>;
 
-						port {
+						port@0 {
+							reg = <0x0>;
+						};
+
+						port@1 {
+							reg = <0x1>;
+
 							adv7611: endpoint {
 								bus-width = <16>;
 								remote-endpoint = <&axi_hdmi_rx>;
