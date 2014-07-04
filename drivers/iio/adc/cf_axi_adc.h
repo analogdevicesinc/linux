@@ -19,9 +19,12 @@
 #define ADI_REG_SCRATCH		0x0008			 	/*Version and Scratch Registers */
 #define ADI_SCRATCH(x)		(((x) & 0xffffffff) << 0)	/* RW, Scratch register. */
 
+#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
+#define PCORE_VERSION_MAJOR(version) (version >> 16)
+#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0xff)
+#define PCORE_VERSION_LETTER(version) (version & 0xff)
 
 /* ADC COMMON */
-
 
 #define ADI_REG_RSTN			0x0040
 #define ADI_RSTN				(1 << 0)
@@ -97,13 +100,13 @@
 /* ADC CHANNEL */
 
 #define ADI_REG_CHAN_CNTRL(c)		(0x0400 + (c) * 0x40)
-#define ADI_PN_SEL			(1 << 10)
+#define ADI_PN_SEL			(1 << 10) /* !v8.0 */
 #define ADI_IQCOR_ENB			(1 << 9)
 #define ADI_DCFILT_ENB			(1 << 8)
 #define ADI_FORMAT_SIGNEXT		(1 << 6)
 #define ADI_FORMAT_TYPE			(1 << 5)
 #define ADI_FORMAT_ENABLE		(1 << 4)
-#define ADI_PN23_TYPE			(1 << 1)
+#define ADI_PN23_TYPE			(1 << 1) /* !v8.0 */
 #define ADI_ENABLE			(1 << 0)
 
 #define ADI_REG_CHAN_STATUS(c)		(0x0404 + (c) * 0x40)
@@ -122,6 +125,29 @@
 #define ADI_TO_IQCOR_COEFF_1(x)		(((x) >> 16) & 0xFFFF)
 #define ADI_IQCOR_COEFF_2(x)		(((x) & 0xFFFF) << 0)
 #define ADI_TO_IQCOR_COEFF_2(x)		(((x) >> 0) & 0xFFFF)
+
+#define ADI_REG_CHAN_CNTRL_3(c)		(0x0418 + (c) * 0x40) /* v8.0 */
+#define ADI_ADC_PN_SEL(x)		(((x) & 0xF) << 16)
+#define ADI_TO_ADC_PN_SEL(x)		(((x) >> 16) & 0xF)
+#define ADI_ADC_DATA_SEL(x)		(((x) & 0xF) << 0)
+#define ADI_TO_ADC_DATA_SEL(x)		(((x) >> 0) & 0xF)
+
+enum adc_pn_sel {
+	ADC_PN9 = 0,
+	ADC_PN23A = 1,
+	ADC_PN7 = 4,
+	ADC_PN15 = 5,
+	ADC_PN23 = 6,
+	ADC_PN31 = 7,
+	ADC_PN_CUSTOM = 9,
+	ADC_PN_END = 10,
+};
+
+enum adc_data_sel {
+	ADC_DATA_SEL_NORM,
+	ADC_DATA_SEL_LB, /* DAC loopback */
+	ADC_DATA_SEL_RAMP, /* TBD */
+};
 
 #define ADI_REG_CHAN_USR_CNTRL_1(c)		(0x0420 + (c) * 0x40)
 #define ADI_USR_DATATYPE_BE			(1 << 25)
@@ -261,7 +287,7 @@
 #define AD9680_REG_OUTPUT_MODE		0x561
 #define AD9680_REG_TEST_MODE		0x550
 
-#define CHIPID_AD9680			0x55
+#define CHIPID_AD9680			0xC5
 #define AD9680_DEF_OUTPUT_MODE		0x00
 #define AD9680_REG_VREF_MASK		0x0F
 
@@ -380,6 +406,10 @@ static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 {
 	return ioread32(st->regs + reg);
 }
+
+int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel);
+enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
+			       int channel, const char **name);
 
 int axiadc_configure_ring(struct iio_dev *indio_dev, const char *dma_name);
 void axiadc_unconfigure_ring(struct iio_dev *indio_dev);
