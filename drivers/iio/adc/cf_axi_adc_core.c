@@ -30,11 +30,6 @@
 
 #include "cf_axi_adc.h"
 
-#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
-#define PCORE_VERSION_MAJOR(version) (version >> 16)
-#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0xff)
-#define PCORE_VERSION_LETTER(version) (version & 0xff)
-
 struct axiadc_core_info {
 	bool has_fifo_interface;
 	unsigned int version;
@@ -619,7 +614,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	else
 		expected_version = PCORE_VERSION(4, 0, 'a');
 
-	if (PCORE_VERSION_MAJOR(st->pcore_version) !=
+	if (PCORE_VERSION_MAJOR(st->pcore_version) >
 		PCORE_VERSION_MAJOR(expected_version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
 			PCORE_VERSION_MAJOR(expected_version),
