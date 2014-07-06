@@ -245,9 +245,6 @@ enum pl330_byteswap {
  */
 #define MCODE_BUFF_PER_REQ	256
 
-/* If the _pl330_req is available to the client */
-#define IS_FREE(req)	(*((u8 *)((req)->mc_cpu)) == CMD_DMAEND)
-
 /* Use this _only_ to wait on transient states */
 #define UNTIL(t, s)	while (!(_state(t) & (s))) cpu_relax();
 
@@ -529,14 +526,12 @@ struct _xfer_spec {
 
 static inline bool _queue_empty(struct pl330_thread *thrd)
 {
-	return (IS_FREE(&thrd->req[0]) && IS_FREE(&thrd->req[1]))
-		? true : false;
+	return thrd->req[0].desc == NULL && thrd->req[1].desc == NULL;
 }
 
 static inline bool _queue_full(struct pl330_thread *thrd)
 {
-	return (IS_FREE(&thrd->req[0]) || IS_FREE(&thrd->req[1]))
-		? false : true;
+	return thrd->req[0].desc != NULL && thrd->req[1].desc != NULL;
 }
 
 static inline bool is_manager(struct pl330_thread *thrd)
@@ -948,21 +943,6 @@ static inline void _execute_DBGINSN(struct pl330_thread *thrd,
 	writel(0, regs + DBGCMD);
 }
 
-/*
- * Mark a _pl330_req as free.
- * We do it by writing DMAEND as the first instruction
- * because no valid request is going to have DMAEND as
- * its first instruction to execute.
- */
-static void mark_free(struct pl330_thread *thrd, int idx)
-{
-	struct _pl330_req *req = &thrd->req[idx];
-
-	_emit_END(0, req->mc_cpu);
-
-	thrd->req_running = -1;
-}
-
 static inline u32 _state(struct pl330_thread *thrd)
 {
 	void __iomem *regs = thrd->dmac->base;
@@ -1059,18 +1039,18 @@ static bool _trigger(struct pl330_thread *thrd)
 		return true;
 
 	idx = 1 - thrd->lstenq;
-	if (!IS_FREE(&thrd->req[idx]))
+	if (thrd->req[idx].desc != NULL) {
 		req = &thrd->req[idx];
-	else {
+	} else {
 		idx = thrd->lstenq;
-		if (!IS_FREE(&thrd->req[idx]))
+		if (thrd->req[idx].desc != NULL)
 			req = &thrd->req[idx];
 		else
 			req = NULL;
 	}
 
 	/* Return if no request */
-	if (!req || !req->desc)
+	if (!req)
 		return true;
 
 	desc = req->desc;
@@ -1440,7 +1420,7 @@ static int pl330_submit_req(struct pl330_thread *thrd,
 
 	ccr = _prepare_ccr(&desc->rqcfg);
 
-	idx = IS_FREE(&thrd->req[0]) ? 0 : 1;
+	idx = thrd->req[0].desc == NULL ? 0 : 1;
 
 	xs.ccr = ccr;
 	xs.desc = desc;
@@ -1534,8 +1514,7 @@ static void pl330_dotask(unsigned long data)
 
 			thrd->req[0].desc = NULL;
 			thrd->req[1].desc = NULL;
-			mark_free(thrd, 0);
-			mark_free(thrd, 1);
+			thrd->req_running = -1;
 
 			/* Clear the reset flag */
 			pl330->dmac_tbd.reset_chan &= ~(1 << i);
@@ -1617,8 +1596,6 @@ static int pl330_update(struct pl330_dmac *pl330)
 			descdone = thrd->req[active].desc;
 			thrd->req[active].desc = NULL;
 
-			mark_free(thrd, active);
-
 			/* Get going again ASAP */
 			_start(thrd);
 
@@ -1669,8 +1646,7 @@ static int pl330_chan_ctrl(struct pl330_thread *thrd, enum pl330_chan_op op)
 
 		thrd->req[0].desc = NULL;
 		thrd->req[1].desc = NULL;
-		mark_free(thrd, 0);
-		mark_free(thrd, 1);
+		thrd->req_running = -1;
 		break;
 
 	case PL330_OP_ABORT:
@@ -1682,7 +1658,7 @@ static int pl330_chan_ctrl(struct pl330_thread *thrd, enum pl330_chan_op op)
 			break;
 
 		thrd->req[active].desc = NULL;
-		mark_free(thrd, active);
+		thrd->req_running = -1;
 
 		/* Start the next */
 	case PL330_OP_START:
@@ -1743,9 +1719,8 @@ static struct pl330_thread *pl330_request_channel(struct pl330_dmac *pl330)
 				thrd->free = false;
 				thrd->lstenq = 1;
 				thrd->req[0].desc = NULL;
-				mark_free(thrd, 0);
 				thrd->req[1].desc = NULL;
-				mark_free(thrd, 1);
+				thrd->req_running = -1;
 				break;
 			}
 		}
@@ -1843,14 +1818,14 @@ static inline void _reset_thread(struct pl330_thread *thrd)
 	thrd->req[0].mc_bus = pl330->mcode_bus
 				+ (thrd->id * pl330->mcbufsz);
 	thrd->req[0].desc = NULL;
-	mark_free(thrd, 0);
 
 	thrd->req[1].mc_cpu = thrd->req[0].mc_cpu
 				+ pl330->mcbufsz / 2;
 	thrd->req[1].mc_bus = thrd->req[0].mc_bus
 				+ pl330->mcbufsz / 2;
 	thrd->req[1].desc = NULL;
-	mark_free(thrd, 1);
+
+	thrd->req_running = -1;
 }
 
 static int dmac_alloc_threads(struct pl330_dmac *pl330)
