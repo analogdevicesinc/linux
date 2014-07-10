@@ -246,7 +246,7 @@
 		};
 
 		devcfg@f8007000 {
-			compatible = "xlnx,ps7-dev-cfg-1.00.a";
+			compatible = "xlnx,zynq-devcfg-1.0";
 			reg = <0xf8007000 0x100>;
 			interrupts = <0 8 4>;
 			interrupt-parent = <&gic>;
