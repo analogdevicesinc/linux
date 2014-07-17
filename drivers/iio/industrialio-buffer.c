@@ -539,14 +539,14 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 			 indio_dev->masklength) {
 		ch = iio_find_channel_from_si(indio_dev, i);
 		length = ch->scan_type.storagebits / 8;
-		bytes = ALIGN(bytes, length);
+		bytes = roundup(bytes, length);
 		bytes += length;
 	}
 	if (timestamp) {
 		ch = iio_find_channel_from_si(indio_dev,
 					      indio_dev->scan_index_timestamp);
 		length = ch->scan_type.storagebits / 8;
-		bytes = ALIGN(bytes, length);
+		bytes = roundup(bytes, length);
 		bytes += length;
 	}
 	return bytes;
