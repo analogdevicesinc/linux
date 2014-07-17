@@ -318,6 +318,29 @@ static void zynq_gpio_irq_unmask(struct irq_data *irq_data)
 }
 
 /**
+ * zynq_gpio_irq_enable - Enable the interrupts for a gpio pin
+ * @irq_data:	irq data containing irq number of gpio pin for the interrupt
+ *		to enable
+ *
+ * Clears the INTSTS bit and unmasks the given interrrupt.
+ */
+static void zynq_gpio_irq_enable(struct irq_data *irq_data)
+{
+	/*
+	 * The Zynq GPIO controller does not disable interrupt detection when
+	 * the interrupt is masked and only disables the propagation of the
+	 * interrupt. This means when the controller detects an interrupt
+	 * condition while the interrupt is logically disabled it will propagate
+	 * that interrupt event once the interrupt is enabled. This will cause
+	 * the interrupt consumer to see spurious interrupts to prevent this
+	 * first make sure that the interrupt is not asserted and then enable
+	 * it.
+	 */
+	zynq_gpio_irq_ack(irq_data);
+	zynq_gpio_irq_unmask(irq_data);
+}
+
+/**
  * zynq_gpio_set_irq_type - Set the irq type for a gpio pin
  * @irq_data:	irq data containing irq number of gpio pin
  * @type:	interrupt type that is to be set for the gpio pin
