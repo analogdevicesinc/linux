@@ -458,7 +458,7 @@ int iio_dma_buffer_read(struct iio_buffer *buf, size_t n,
 
 	block = queue->fileio.block;
 
-	n = round_down(n, buf->bytes_per_datum);
+	n = rounddown(n, buf->bytes_per_datum);
 	if (n > block->block.bytes_used - queue->fileio.pos)
 		n = block->block.bytes_used - queue->fileio.pos;
 

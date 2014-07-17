@@ -54,7 +54,7 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 	if (block->block.bytes_used > max_size)
 		block->block.bytes_used = max_size;
 
-	block->block.bytes_used = round_down(block->block.bytes_used,
+	block->block.bytes_used = rounddown(block->block.bytes_used,
 			dmaengine_buffer->align);
 
 	spin_lock_irq(&dmaengine_buffer->queue.list_lock);
