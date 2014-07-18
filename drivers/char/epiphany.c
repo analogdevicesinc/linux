@@ -9,7 +9,7 @@
 #include <linux/gfp.h>
 #include <asm/uaccess.h> 
 
-#include <epiphany.h>
+#include <linux/epiphany.h>
 
 MODULE_AUTHOR("XCube, Ben Chaco");
 MODULE_DESCRIPTION("Adapteva Epiphany Driver");
@@ -172,8 +172,8 @@ static int epiphany_map_host_memory(struct vm_area_struct *vma)
 {
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
-	printk(KERN_INFO "Mapping host memory to vma 0x%08x, size 0x%08x, page "
-		   "offset 0x%08x", vma->vm_start,  vma->vm_end - vma->vm_start,
+	printk(KERN_INFO "Mapping host memory to vma 0x%08lx, size 0x%08lx, page "
+		   "offset 0x%08lx", vma->vm_start,  vma->vm_end - vma->vm_start,
 		   vma->vm_pgoff);
 	return remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 						   vma->vm_end - vma->vm_start,
@@ -193,8 +193,8 @@ static int epiphany_map_device_memory(struct vm_area_struct *vma)
 	pfn = (EPIPHANY_MEM_START + off) >> PAGE_SHIFT;
 #endif
 
-	printk(KERN_INFO "Mapping device memory to vma 0x%08x, size 0x%08x, page "
-		   "offset 0x%08x", vma->vm_start,  vma->vm_end - vma->vm_start,
+	printk(KERN_INFO "Mapping device memory to vma 0x%08lx, size 0x%08lx, page "
+		   "offset 0x%08lx", vma->vm_start,  vma->vm_end - vma->vm_start,
 		   vma->vm_pgoff);
 
 	if ( io_remap_pfn_range(vma, vma->vm_start, pfn, size,
