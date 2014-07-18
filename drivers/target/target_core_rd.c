@@ -158,7 +158,7 @@ static int rd_allocate_sgl_table(struct rd_dev *rd_dev, struct rd_dev_sg_table *
 						- 1;
 
 		for (j = 0; j < sg_per_table; j++) {
-			pg = alloc_pages(GFP_KERNEL, 0);
+			pg = alloc_pages(GFP_KERNEL | __GFP_ZERO, 0);
 			if (!pg) {
 				pr_err("Unable to allocate scatterlist"
 					" pages for struct rd_dev_sg_table\n");
@@ -242,7 +242,7 @@ static void rd_release_prot_space(struct rd_dev *rd_dev)
 	rd_dev->sg_prot_count = 0;
 }
 
-static int rd_build_prot_space(struct rd_dev *rd_dev, int prot_length)
+static int rd_build_prot_space(struct rd_dev *rd_dev, int prot_length, int block_size)
 {
 	struct rd_dev_sg_table *sg_table;
 	u32 total_sg_needed, sg_tables;
@@ -252,8 +252,13 @@ static int rd_build_prot_space(struct rd_dev *rd_dev, int prot_length)
 
 	if (rd_dev->rd_flags & RDF_NULLIO)
 		return 0;
-
-	total_sg_needed = rd_dev->rd_page_count / prot_length;
+	/*
+	 * prot_length=8byte dif data
+	 * tot sg needed = rd_page_count * (PGSZ/block_size) *
+	 * 		   (prot_length/block_size) + pad
+	 * PGSZ canceled each other.
+	 */
+	total_sg_needed = (rd_dev->rd_page_count * prot_length / block_size) + 1;
 
 	sg_tables = (total_sg_needed / max_sg_per_table) + 1;
 
@@ -606,7 +611,8 @@ static int rd_init_prot(struct se_device *dev)
         if (!dev->dev_attrib.pi_prot_type)
 		return 0;
 
-	return rd_build_prot_space(rd_dev, dev->prot_length);
+	return rd_build_prot_space(rd_dev, dev->prot_length,
+				   dev->dev_attrib.block_size);
 }
 
 static void rd_free_prot(struct se_device *dev)
