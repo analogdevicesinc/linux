@@ -6,11 +6,7 @@
 #define __user
 #endif
 
-#if 0
-#define PACK_ALIGN(x)  __attribute__((packed, aligned(x)))
-#else
-#define PACK_ALIGN(x) __attribute__((aligned(x)))
-#endif
+#define ALIGNED(x) __attribute__((aligned(x)))
 
 /** Length of the Global shared memory region */
 #define GLOBAL_SHM_SIZE               (1<<20)
@@ -33,7 +29,7 @@ typedef struct _EPIPHANY_ALLOC
 #pragma pack(push, 1)
 
 /** Shared memory segment */
-typedef struct PACK_ALIGN(8) e_shmseg {
+typedef struct ALIGNED(8) e_shmseg {
     void     *addr;         /* Virtual address */
     char      name[256];    /* Region name */
     size_t    size;         /* Region size in bytes */
@@ -41,13 +37,13 @@ typedef struct PACK_ALIGN(8) e_shmseg {
     off_t     offset;       /* Offset from shm base address */
 } e_shmseg_t;
 
-typedef struct PACK_ALIGN(8) e_shmseg_pvt  {
+typedef struct ALIGNED(8) e_shmseg_pvt  {
     e_shmseg_t  shm_seg;  /* The shared memory segment */
     unsigned    refcnt;   /* host app reference count */
     unsigned    valid;    /* 1 if the region is in use, 0 otherwise */
 } e_shmseg_pvt_t;
 
-typedef struct PACK_ALIGN(8) e_shmtable {
+typedef struct ALIGNED(8) e_shmtable {
     unsigned int   magic;
     unsigned int   padding;
     e_shmseg_pvt_t regions[MAX_SHM_REGIONS];
