@@ -45,7 +45,6 @@ typedef struct ALIGNED(8) e_shmseg_pvt  {
 
 typedef struct ALIGNED(8) e_shmtable {
     unsigned int   magic;
-    unsigned int   padding;
     e_shmseg_pvt_t regions[MAX_SHM_REGIONS];
     unsigned int   free_space;
     off_t          next_free_offset;
