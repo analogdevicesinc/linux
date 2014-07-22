@@ -55,7 +55,6 @@ static int epiphany_init(void)
 {
 	int			   result	 = 0;
 	void		  *ptr_err	 = 0;
-	e_shmtable_t  *shm_table = 0;
 
 	result = alloc_chrdev_region(&dev_no, 0, 1, DRIVER_NAME);
 	if ( result < 0 ) {
@@ -100,6 +99,7 @@ static int epiphany_init(void)
 	global_shm.mmap_handle = global_shm.phy_addr;
 #else
 	// Allocate shared memory
+	// Zero the shared memory
 	memset(&global_shm, 0, sizeof(global_shm));
 	global_shm.size = GLOBAL_SHM_SIZE;
 	global_shm.flags = GFP_KERNEL;
@@ -112,21 +112,14 @@ static int epiphany_init(void)
 	}
 
 	global_shm.phy_addr = __pa(global_shm.kvirt_addr);
-	global_shm.bus_addr = global_shm.phys_addr;	 
+	global_shm.bus_addr = global_shm.phys_addr;
 #endif
 
-	/* Initialize the shared memory table */
-	shm_table = (e_shmtable_t*)(global_shm.kvirt_addr);
-	shm_table->paddr_epi		= global_shm.bus_addr;
-	shm_table->paddr_cpu		= global_shm.phy_addr;
-	shm_table->magic			= SHM_MAGIC;
-	shm_table->free_space		= GLOBAL_SHM_SIZE - sizeof(*shm_table);
-	shm_table->lock				= (void*)0;
-	shm_table->next_free_offset = sizeof(*shm_table); 
-	memset(shm_table->regions, 0, sizeof(shm_table->regions));
+	// Zero the Global Shared Memory region
+	memset((void*)global_shm.kvirt_addr, 0, GLOBAL_SHM_SIZE);
 
-	printk(KERN_INFO "epiphany_init() - shared memory: bus 0x%08lx, phy 0x%08lx, kvirt 0x%08lx, paddr_epi 0x%08lx",
-		   global_shm.bus_addr, global_shm.phy_addr, global_shm.kvirt_addr, shm_table->paddr_epi);
+	printk(KERN_INFO "epiphany_init() - shared memory: bus 0x%08lx, phy 0x%08lx, kvirt 0x%08lx",
+		   global_shm.bus_addr, global_shm.phy_addr, global_shm.kvirt_addr);
 
 	return 0;
 

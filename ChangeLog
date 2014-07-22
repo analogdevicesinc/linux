@@ -1,3 +1,9 @@
+2014-07-22  Ben Chaco  <bchaco@x3-c.com>
+
+	* drivers/char/epiphany.c (static int epiphany_init):
+	* include/uapi/linux/epiphany.h:
+	Removed epiphany Shared Memory type definitions and initialization.
+
 2014-06-13  Ben Chaco  <bchaco@x3-c.com>
 
 	* Makefile:
