@@ -17,6 +17,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -140,6 +141,18 @@
 #define AD7793_HAS_EXITATION_CURRENT	BIT(3)
 #define AD7793_FLAG_HAS_GAIN		BIT(4)
 #define AD7793_FLAG_HAS_BUFFER		BIT(5)
+
+static struct ad7793_platform_data ad7793_default_pdata = {
+	.clock_src = AD7793_CLK_SRC_INT,
+	.burnout_current = false,
+	.boost_enable = false,
+	.buffered = true,
+	.unipolar = true,
+	.refsel = AD7793_REFSEL_INTERNAL,
+	.bias_voltage = AD7793_BIAS_VOLTAGE_DISABLED,
+	.exitation_current = AD7793_IX_DISABLED,
+	.current_source_direction = AD7793_IEXEC1_IOUT1_IEXEC2_IOUT2
+};
 
 struct ad7793_chip_info {
 	unsigned int id;
@@ -703,16 +716,64 @@ static const struct ad7793_chip_info ad7793_chip_info_tbl[] = {
 	},
 };
 
+#ifdef CONFIG_OF
+static struct ad7793_platform_data *ad7793_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct ad7793_platform_data *pdata;
+	u32 tmp;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+
+	tmp = AD7793_CLK_SRC_INT;
+	of_property_read_u32(np, "adi,clock-source", &tmp);
+	pdata->clock_src = tmp;
+	pdata->burnout_current = of_property_read_bool(np, "adi,burnout-current-enable");
+	pdata->boost_enable = of_property_read_bool(np, "adi,boost-enable");
+	pdata->buffered = of_property_read_bool(np, "adi,buffered-mode-enable");
+	pdata->unipolar = of_property_read_bool(np, "adi,unipolar-mode-enable");
+	tmp = AD7793_REFSEL_INTERNAL;
+	of_property_read_u32(np, "adi,reference-select", &tmp);
+	pdata->refsel = tmp;
+	tmp = AD7793_BIAS_VOLTAGE_DISABLED;
+	of_property_read_u32(np, "adi,bias-voltage", &tmp);
+	pdata->bias_voltage = tmp;
+	tmp = AD7793_IX_DISABLED;
+	of_property_read_u32(np, "adi,exitation-current", &tmp);
+	pdata->exitation_current = tmp;
+	tmp = AD7793_IEXEC1_IOUT1_IEXEC2_IOUT2;
+	of_property_read_u32(np, "adi,current-source-direction", &tmp);
+	pdata->current_source_direction = tmp;
+	
+	return pdata;
+}
+#else
+static
+struct ad7793_platform_data *ad7793_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int ad7793_probe(struct spi_device *spi)
 {
 	const struct ad7793_platform_data *pdata = spi->dev.platform_data;
 	struct ad7793_state *st;
 	struct iio_dev *indio_dev;
 	int ret, vref_mv = 0;
+	
+	if (spi->dev.of_node)
+		pdata = ad7793_parse_dt(&spi->dev);
+	else
+		pdata = spi->dev.platform_data;
 
 	if (!pdata) {
-		dev_err(&spi->dev, "no platform data?\n");
-		return -ENODEV;
+		dev_err(&spi->dev, "no platform data? using default\n");
+		pdata = &ad7793_default_pdata;
 	}
 
 	if (!spi->irq) {
