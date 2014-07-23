@@ -280,6 +280,7 @@ static int ad7793_setup(struct iio_dev *indio_dev,
 		return ret;
 
 	/* reset the serial interface */
+	ret = -1;
 	ret = spi_write(st->sd.spi, (u8 *)&ret, sizeof(ret));
 	if (ret < 0)
 		goto out;
