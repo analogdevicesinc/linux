@@ -472,6 +472,9 @@ irqreturn_t dwc2_handle_common_intr(int irq, void *dev)
 
 	spin_lock(&hsotg->lock);
 
+	if (dwc2_is_device_mode(hsotg))
+		retval = s3c_hsotg_irq(irq, dev);
+
 	gintsts = dwc2_read_common_intr(hsotg);
 	if (gintsts & ~GINTSTS_PRTINT)
 		retval = IRQ_HANDLED;

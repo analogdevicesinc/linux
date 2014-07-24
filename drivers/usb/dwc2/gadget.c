@@ -2257,14 +2257,13 @@ void s3c_hsotg_core_init(struct dwc2_hsotg *hsotg)
  * @irq: The IRQ number triggered
  * @pw: The pw value when registered the handler.
  */
-static irqreturn_t s3c_hsotg_irq(int irq, void *pw)
+irqreturn_t s3c_hsotg_irq(int irq, void *pw)
 {
 	struct dwc2_hsotg *hsotg = pw;
 	int retry_count = 8;
 	u32 gintsts;
 	u32 gintmsk;
 
-	spin_lock(&hsotg->lock);
 irq_retry:
 	gintsts = readl(hsotg->regs + GINTSTS);
 	gintmsk = readl(hsotg->regs + GINTMSK);
@@ -2274,31 +2273,10 @@ irq_retry:
 
 	gintsts &= gintmsk;
 
-	if (gintsts & GINTSTS_OTGINT) {
-		u32 otgint = readl(hsotg->regs + GOTGINT);
-
-		dev_info(hsotg->dev, "OTGInt: %08x\n", otgint);
-
-		writel(otgint, hsotg->regs + GOTGINT);
-	}
-
-	if (gintsts & GINTSTS_SESSREQINT) {
-		dev_dbg(hsotg->dev, "%s: SessReqInt\n", __func__);
-		writel(GINTSTS_SESSREQINT, hsotg->regs + GINTSTS);
-	}
-
 	if (gintsts & GINTSTS_ENUMDONE) {
 		writel(GINTSTS_ENUMDONE, hsotg->regs + GINTSTS);
 
 		s3c_hsotg_irq_enumdone(hsotg);
-	}
-
-	if (gintsts & GINTSTS_CONIDSTSCHNG) {
-		dev_dbg(hsotg->dev, "ConIDStsChg (DSTS=0x%08x, GOTCTL=%08x)\n",
-			readl(hsotg->regs + DSTS),
-			readl(hsotg->regs + GOTGCTL));
-
-		writel(GINTSTS_CONIDSTSCHNG, hsotg->regs + GINTSTS);
 	}
 
 	if (gintsts & (GINTSTS_OEPINT | GINTSTS_IEPINT)) {
@@ -2381,25 +2359,6 @@ irq_retry:
 		s3c_hsotg_handle_rx(hsotg);
 	}
 
-	if (gintsts & GINTSTS_MODEMIS) {
-		dev_warn(hsotg->dev, "warning, mode mismatch triggered\n");
-		writel(GINTSTS_MODEMIS, hsotg->regs + GINTSTS);
-	}
-
-	if (gintsts & GINTSTS_USBSUSP) {
-		dev_info(hsotg->dev, "GINTSTS_USBSusp\n");
-		writel(GINTSTS_USBSUSP, hsotg->regs + GINTSTS);
-
-		call_gadget(hsotg, suspend);
-	}
-
-	if (gintsts & GINTSTS_WKUPINT) {
-		dev_info(hsotg->dev, "GINTSTS_WkUpIn\n");
-		writel(GINTSTS_WKUPINT, hsotg->regs + GINTSTS);
-
-		call_gadget(hsotg, resume);
-	}
-
 	if (gintsts & GINTSTS_ERLYSUSP) {
 		dev_dbg(hsotg->dev, "GINTSTS_ErlySusp\n");
 		writel(GINTSTS_ERLYSUSP, hsotg->regs + GINTSTS);
@@ -2435,10 +2394,9 @@ irq_retry:
 	if (gintsts & IRQ_RETRY_MASK && --retry_count > 0)
 			goto irq_retry;
 
-	spin_unlock(&hsotg->lock);
-
 	return IRQ_HANDLED;
 }
+EXPORT_SYMBOL(s3c_hsotg_irq);
 
 /**
  * s3c_hsotg_ep_enable - enable the given endpoint
@@ -3490,8 +3448,8 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 	s3c_hsotg_hw_cfg(hsotg);
 	s3c_hsotg_init(hsotg);
 
-	ret = devm_request_irq(dev, irq, s3c_hsotg_irq, 0,
-				dev_name(dev), hsotg);
+	ret = devm_request_irq(dev, irq, dwc2_handle_common_intr, IRQF_SHARED,
+			dev_name(dev), hsotg);
 	if (ret < 0) {
 		s3c_hsotg_phy_disable(hsotg);
 		clk_disable_unprepare(hsotg->clk);

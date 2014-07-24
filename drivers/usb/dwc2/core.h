@@ -965,12 +965,15 @@ extern u16 dwc2_get_otg_version(struct dwc2_hsotg *hsotg);
 extern int s3c_hsotg_remove(struct dwc2_hsotg *hsotg);
 extern void s3c_hsotg_core_init(struct dwc2_hsotg *dwc2);
 extern int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq);
+irqreturn_t s3c_hsotg_irq(int irq, void *pw);
 #else
 static inline void s3c_hsotg_core_init(struct dwc2_hsotg *dwc2) {}
 static inline int s3c_hsotg_remove(struct dwc2_hsotg *dwc2)
 { return 0; }
 static inline int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 { return 0; }
+static inline irqreturn_t s3c_hsotg_irq(int irq, void *pw)
+{ return IRQ_HANDLED; }
 #endif
 
 #if defined(CONFIG_USB_DWC2_HOST) || defined(CONFIG_USB_DWC2_DUAL_ROLE)
