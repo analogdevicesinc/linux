@@ -34,6 +34,83 @@
 #include "cf_axi_dds.h"
 #include "ad9122.h"
 
+unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
+{
+	unsigned i;
+	u64 val64;
+
+	/*  format is 1.1.14 (sign, integer and fractional bits) */
+	switch (val) {
+	case 1:
+		i = 0x4000;
+		break;
+	case -1:
+		i = 0xC000;
+		break;
+	case 0:
+		i = 0;
+		if (val2 < 0) {
+			i = 0x8000;
+			val2 *= -1;
+		}
+		break;
+	default:
+		pr_err("%s: Invalid Value\n", __func__);
+	}
+
+	val64 = (unsigned long long)val2 * 0x4000UL + (1000000UL / 2);
+		do_div(val64, 1000000UL);
+
+	return i | val64;
+}
+
+int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val, int *r_val2)
+{
+	u64 val64;
+	int sign;
+
+	if (val & 0x8000)
+		sign = -1;
+	else
+		sign = 1;
+
+	if (val & 0x4000)
+		*r_val = 1 * sign;
+	else
+		*r_val = 0;
+
+	val &= ~0xC000;
+
+	val64 = val * 1000000ULL + (0x4000 / 2);
+	do_div(val64, 0x4000);
+
+	if (*r_val == 0)
+		*r_val2 = val64 * sign;
+	else
+		*r_val2 = val64;
+
+	return IIO_VAL_INT_PLUS_MICRO;
+}
+
+#ifdef CF_AXI_DDS_HAVE_TWOS_FMT
+unsigned cf_axi_dds_to_twos_fmt(int val, int val2)
+{
+	s64 sval64;
+	if (val < 0)
+		val2 = -val2;
+	sval64 = ((val * 1000000ULL + (long long)val2) * 0x4000);
+	return div_s64(sval64, 1000000UL);
+}
+
+int cf_axi_dds_twos_fmt_to_iio(s16 val, int *r_val, int *r_val2)
+{
+	*r_val = val;
+	*r_val2 = 14;
+
+	return IIO_VAL_FRACTIONAL_LOG2;
+}
+#endif
+
 int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 			       int channel, enum dds_data_select sel)
 {
@@ -219,7 +296,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 	struct cf_axi_converter *conv;
 	unsigned long long val64;
 	unsigned reg, phase = 0;
-	int ret, sign;
+	int ret;
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -236,24 +313,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		reg = ADI_TO_DDS_SCALE(dds_read(st, ADI_REG_CHAN_CNTRL_1_IIOCHAN(chan->channel)));
 		if (PCORE_VERSION_MAJOR(st->version) > 6) {
-			if (reg & 0x8000)
-				sign = -1;
-			else
-				sign = 1;
-
-			if (reg & 0x4000)
-				*val = 1 * sign;
-			else
-				*val = 0;
-
-			reg &= ~0xC000;
-
-			val64 = reg * 1000000ULL + (0x4000 / 2);
-			do_div(val64, 0x4000);
-			if (*val == 0)
-				*val2 = val64 * sign;
-			else
-				*val2 = val64;
+			cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 		} else {
 			if (!reg) {
 				*val = 1;
@@ -310,27 +370,8 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 			reg = ADI_TO_IQCOR_COEFF_2(reg);
 		}
 
-		if (reg & 0x8000)
-			sign = -1;
-		else
-			sign = 1;
-
-		if (reg & 0x4000)
-			*val = 1 * sign;
-		else
-			*val = 0;
-
-		reg &= ~0xC000;
-
-		val64 = reg * 1000000ULL + (0x4000 / 2);
-		do_div(val64, 0x4000);
-		if (*val == 0)
-			*val2 = val64 * sign;
-		else
-			*val2 = val64;
-
 		mutex_unlock(&indio_dev->mlock);
-		return IIO_VAL_INT_PLUS_MICRO;
+		return cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 	default:
 		if (!st->standalone) {
 			conv = to_converter(st->dev_spi);
@@ -476,28 +517,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			break;
 		}
 
-		/*  format is 1.1.14 (sign, integer and fractional bits) */
-		switch (val) {
-		case 1:
-			i = 0x4000;
-			break;
-		case -1:
-			i = 0xC000;
-			break;
-		case 0:
-			i = 0;
-			if (val2 < 0) {
-				i = 0x8000;
-				val2 *= -1;
-			}
-			break;
-		default:
-			return -EINVAL;
-		}
-
-		val64 = (unsigned long long)val2 * 0x4000UL + (1000000UL / 2);
-		do_div(val64, 1000000UL);
-		i |= val64;
+		i = cf_axi_dds_to_signed_mag_fmt(val, val2);
 
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_8(chan->channel));
 
@@ -616,6 +636,15 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	.scan_type = IIO_ST('s', 16, 16, 0), \
 }
 
+#define CF_AXI_DDS_CHAN_BUF_VIRT(_chan) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _chan, \
+	.output = 1, \
+	.scan_index = _chan, \
+	.scan_type = IIO_ST('s', 16, 16, 0), \
+}
+
 static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD9122] = {
 		.name = "AD9122",
@@ -720,10 +749,10 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361x2 = {
 		CF_AXI_DDS_CHAN_BUF(1),
 		CF_AXI_DDS_CHAN_BUF(2),
 		CF_AXI_DDS_CHAN_BUF(3),
-		CF_AXI_DDS_CHAN_BUF(4),
-		CF_AXI_DDS_CHAN_BUF(5),
-		CF_AXI_DDS_CHAN_BUF(6),
-		CF_AXI_DDS_CHAN_BUF(7),
+		CF_AXI_DDS_CHAN_BUF_VIRT(4),
+		CF_AXI_DDS_CHAN_BUF_VIRT(5),
+		CF_AXI_DDS_CHAN_BUF_VIRT(6),
+		CF_AXI_DDS_CHAN_BUF_VIRT(7),
 		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
 		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
 		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
