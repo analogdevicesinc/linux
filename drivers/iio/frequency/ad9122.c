@@ -1,7 +1,7 @@
 /*
  * AD9122 SPI DAC driver for AXI DDS PCORE/COREFPGA Module
  *
- * Copyright 2012-2013 Analog Devices Inc.
+ * Copyright 2012-2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/clk.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -838,6 +839,11 @@ static int ad9122_probe(struct spi_device *spi)
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
+
+	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
+	if (!IS_ERR(conv->reset_gpio)) {
+		ret = gpiod_direction_output(conv->reset_gpio, 1);
+	}
 
 	id = ad9122_read(spi, AD9122_REG_CHIP_ID);
 	if (id != CHIPID_AD9122) {
