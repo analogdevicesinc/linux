@@ -590,7 +590,6 @@ static int spi_transfer_one_message(struct spi_master *master,
 				    struct spi_message *msg)
 {
 	struct spi_transfer *xfer;
-	bool cur_cs = true;
 	bool keep_cs = false;
 	int ret = 0;
 	int ms = 1;
@@ -636,8 +635,9 @@ static int spi_transfer_one_message(struct spi_master *master,
 					 &msg->transfers)) {
 				keep_cs = true;
 			} else {
-				cur_cs = !cur_cs;
-				spi_set_cs(msg->spi, cur_cs);
+				spi_set_cs(msg->spi, false);
+				udelay(10);
+				spi_set_cs(msg->spi, true);
 			}
 		}
 
@@ -1579,7 +1579,7 @@ EXPORT_SYMBOL_GPL(spi_busnum_to_master);
  */
 int spi_setup(struct spi_device *spi)
 {
-	unsigned	bad_bits;
+	unsigned	bad_bits, ugly_bits;
 	int		status = 0;
 
 	/* check mode to prevent that DUAL and QUAD set at the same time
@@ -1599,6 +1599,15 @@ int spi_setup(struct spi_device *spi)
 	 * that aren't supported with their current master
 	 */
 	bad_bits = spi->mode & ~spi->master->mode_bits;
+	ugly_bits = bad_bits &
+		    (SPI_TX_DUAL | SPI_TX_QUAD | SPI_RX_DUAL | SPI_RX_QUAD);
+	if (ugly_bits) {
+		dev_warn(&spi->dev,
+			 "setup: ignoring unsupported mode bits %x\n",
+			 ugly_bits);
+		spi->mode &= ~ugly_bits;
+		bad_bits &= ~ugly_bits;
+	}
 	if (bad_bits) {
 		dev_err(&spi->dev, "setup: unsupported mode bits %x\n",
 			bad_bits);

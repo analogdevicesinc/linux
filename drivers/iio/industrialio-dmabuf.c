@@ -379,6 +379,7 @@ int iio_dma_buffer_enqueue_block(struct iio_buffer *buffer,
 
 	dma_block = queue->blocks[block->id];
 	dma_block->block.bytes_used = block->bytes_used;
+	dma_block->block.flags = block->flags;
 
 	switch (dma_block->state) {
 	case IIO_BLOCK_STATE_DONE:
@@ -458,7 +459,7 @@ int iio_dma_buffer_read(struct iio_buffer *buf, size_t n,
 
 	block = queue->fileio.block;
 
-	n = round_down(n, buf->bytes_per_datum);
+	n = rounddown(n, buf->bytes_per_datum);
 	if (n > block->block.bytes_used - queue->fileio.pos)
 		n = block->block.bytes_used - queue->fileio.pos;
 

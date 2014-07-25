@@ -23,7 +23,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0 0x00000000 0 0xC0000000>; /* 3 GB */
+		reg = <0 0x00000000 0 0x40000000>; /* 1 GB soldered on */
 	};
 
 	soc {
@@ -37,7 +37,7 @@
 			/* Device Bus parameters are required */
 
 			/* Read parameters */
-			devbus,bus-width    = <8>;
+			devbus,bus-width    = <16>;
 			devbus,turn-off-ps  = <60000>;
 			devbus,badr-skew-ps = <0>;
 			devbus,acc-first-ps = <124000>;

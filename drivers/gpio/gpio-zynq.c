@@ -102,6 +102,9 @@ struct zynq_gpio {
 	struct clk *clk;
 };
 
+static struct irq_chip zynq_gpio_level_irqchip;
+static struct irq_chip zynq_gpio_edge_irqchip;
+
 /**
  * zynq_gpio_get_bank_pin - Get the bank number and pin number within that bank
  * for a given pin in the GPIO device
@@ -318,6 +321,29 @@ static void zynq_gpio_irq_unmask(struct irq_data *irq_data)
 }
 
 /**
+ * zynq_gpio_irq_enable - Enable the interrupts for a gpio pin
+ * @irq_data:	irq data containing irq number of gpio pin for the interrupt
+ *		to enable
+ *
+ * Clears the INTSTS bit and unmasks the given interrrupt.
+ */
+static void zynq_gpio_irq_enable(struct irq_data *irq_data)
+{
+	/*
+	 * The Zynq GPIO controller does not disable interrupt detection when
+	 * the interrupt is masked and only disables the propagation of the
+	 * interrupt. This means when the controller detects an interrupt
+	 * condition while the interrupt is logically disabled it will propagate
+	 * that interrupt event once the interrupt is enabled. This will cause
+	 * the interrupt consumer to see spurious interrupts to prevent this
+	 * first make sure that the interrupt is not asserted and then enable
+	 * it.
+	 */
+	zynq_gpio_irq_ack(irq_data);
+	zynq_gpio_irq_unmask(irq_data);
+}
+
+/**
  * zynq_gpio_set_irq_type - Set the irq type for a gpio pin
  * @irq_data:	irq data containing irq number of gpio pin
  * @type:	interrupt type that is to be set for the gpio pin
@@ -385,6 +411,15 @@ static int zynq_gpio_set_irq_type(struct irq_data *irq_data, unsigned int type)
 			   int_pol);
 	zynq_gpio_writereg(gpio->base_addr + ZYNQ_GPIO_INTANY_OFFSET(bank_num),
 			   int_any);
+
+	if (type & IRQ_TYPE_LEVEL_MASK) {
+		__irq_set_chip_handler_name_locked(irq_data->irq,
+			&zynq_gpio_level_irqchip, handle_fasteoi_irq, NULL);
+	} else {
+		__irq_set_chip_handler_name_locked(irq_data->irq,
+			&zynq_gpio_edge_irqchip, handle_level_irq, NULL);
+	}
+
 	return 0;
 }
 
@@ -399,8 +434,20 @@ static int zynq_gpio_set_wake(struct irq_data *data, unsigned int on)
 }
 
 /* irq chip descriptor */
-static struct irq_chip zynq_gpio_irqchip = {
+static struct irq_chip zynq_gpio_level_irqchip = {
 	.name		= DRIVER_NAME,
+	.irq_enable	= zynq_gpio_irq_enable,
+	.irq_eoi	= zynq_gpio_irq_ack,
+	.irq_mask	= zynq_gpio_irq_mask,
+	.irq_unmask	= zynq_gpio_irq_unmask,
+	.irq_set_type	= zynq_gpio_set_irq_type,
+	.irq_set_wake	= zynq_gpio_set_wake,
+	.flags		= IRQCHIP_EOI_THREADED | IRQCHIP_EOI_IF_HANDLED,
+};
+
+static struct irq_chip zynq_gpio_edge_irqchip = {
+	.name		= DRIVER_NAME,
+	.irq_enable	= zynq_gpio_irq_enable,
 	.irq_ack	= zynq_gpio_irq_ack,
 	.irq_mask	= zynq_gpio_irq_mask,
 	.irq_unmask	= zynq_gpio_irq_unmask,
@@ -424,7 +471,6 @@ static void zynq_gpio_irqhandler(unsigned int irq, struct irq_desc *desc)
 	struct zynq_gpio *gpio = (struct zynq_gpio *)irq_get_handler_data(irq);
 	int gpio_irq = gpio->irq_base;
 	unsigned int int_sts, int_enb, bank_num;
-	struct irq_desc *gpio_irq_desc;
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 
 	chained_irq_enter(chip, desc);
@@ -439,12 +485,6 @@ static void zynq_gpio_irqhandler(unsigned int irq, struct irq_desc *desc)
 		for (; int_sts != 0; int_sts >>= 1, gpio_irq++) {
 			if (!(int_sts & 1))
 				continue;
-			gpio_irq_desc = irq_to_desc(gpio_irq);
-			BUG_ON(!gpio_irq_desc);
-			chip = irq_desc_get_chip(gpio_irq_desc);
-			BUG_ON(!chip);
-			chip->irq_ack(&gpio_irq_desc->irq_data);
-
 			/* call the pin specific handler */
 			generic_handle_irq(gpio_irq);
 		}
@@ -452,7 +492,6 @@ static void zynq_gpio_irqhandler(unsigned int irq, struct irq_desc *desc)
 		gpio_irq = gpio->irq_base + zynq_gpio_pin_table[bank_num] + 1;
 	}
 
-	chip = irq_desc_get_chip(desc);
 	chained_irq_exit(chip, desc);
 }
 
@@ -625,8 +664,8 @@ static int zynq_gpio_probe(struct platform_device *pdev)
 	for (pin_num = 0; pin_num < min_t(int, ZYNQ_GPIO_NR_GPIOS,
 					  (int)chip->ngpio); pin_num++) {
 		gpio_irq = irq_find_mapping(irq_domain, pin_num);
-		irq_set_chip_and_handler(gpio_irq, &zynq_gpio_irqchip,
-					 handle_simple_irq);
+		irq_set_chip_and_handler(gpio_irq, &zynq_gpio_level_irqchip,
+					 handle_fasteoi_irq);
 		irq_set_chip_data(gpio_irq, (void *)gpio);
 		set_irq_flags(gpio_irq, IRQF_VALID);
 	}

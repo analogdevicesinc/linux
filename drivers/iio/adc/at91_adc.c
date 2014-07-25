@@ -322,12 +322,11 @@ static int at91_adc_channel_init(struct iio_dev *idev)
 	return idev->num_channels;
 }
 
-static u8 at91_adc_get_trigger_value_by_name(struct iio_dev *idev,
+static int at91_adc_get_trigger_value_by_name(struct iio_dev *idev,
 					     struct at91_adc_trigger *triggers,
 					     const char *trigger_name)
 {
 	struct at91_adc_state *st = iio_priv(idev);
-	u8 value = 0;
 	int i;
 
 	for (i = 0; i < st->trigger_number; i++) {
@@ -340,15 +339,16 @@ static u8 at91_adc_get_trigger_value_by_name(struct iio_dev *idev,
 			return -ENOMEM;
 
 		if (strcmp(trigger_name, name) == 0) {
-			value = triggers[i].value;
 			kfree(name);
-			break;
+			if (triggers[i].value == 0)
+				return -EINVAL;
+			return triggers[i].value;
 		}
 
 		kfree(name);
 	}
 
-	return value;
+	return -EINVAL;
 }
 
 static int at91_adc_configure_trigger(struct iio_trigger *trig, bool state)
@@ -358,14 +358,14 @@ static int at91_adc_configure_trigger(struct iio_trigger *trig, bool state)
 	struct iio_buffer *buffer = idev->buffer;
 	struct at91_adc_reg_desc *reg = st->registers;
 	u32 status = at91_adc_readl(st, reg->trigger_register);
-	u8 value;
+	int value;
 	u8 bit;
 
 	value = at91_adc_get_trigger_value_by_name(idev,
 						   st->trigger_list,
 						   idev->trig->name);
-	if (value == 0)
-		return -EINVAL;
+	if (value < 0)
+		return value;
 
 	if (state) {
 		st->buffer = kmalloc(idev->scan_bytes, GFP_KERNEL);
@@ -765,14 +765,17 @@ static int at91_adc_probe_pdata(struct at91_adc_state *st,
 	if (!pdata)
 		return -EINVAL;
 
+	st->caps = (struct at91_adc_caps *)
+			platform_get_device_id(pdev)->driver_data;
+
 	st->use_external = pdata->use_external_triggers;
 	st->vref_mv = pdata->vref;
 	st->channels_mask = pdata->channels_used;
-	st->num_channels = pdata->num_channels;
+	st->num_channels = st->caps->num_channels;
 	st->startup_time = pdata->startup_time;
 	st->trigger_number = pdata->trigger_number;
 	st->trigger_list = pdata->trigger_list;
-	st->registers = pdata->registers;
+	st->registers = &st->caps->registers;
 
 	return 0;
 }
@@ -1101,7 +1104,6 @@ static int at91_adc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_OF
 static struct at91_adc_caps at91sam9260_caps = {
 	.calc_startup_ticks = calc_startup_ticks_9260,
 	.num_channels = 4,
@@ -1154,11 +1156,27 @@ static const struct of_device_id at91_adc_dt_ids[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, at91_adc_dt_ids);
-#endif
+
+static const struct platform_device_id at91_adc_ids[] = {
+	{
+		.name = "at91sam9260-adc",
+		.driver_data = (unsigned long)&at91sam9260_caps,
+	}, {
+		.name = "at91sam9g45-adc",
+		.driver_data = (unsigned long)&at91sam9g45_caps,
+	}, {
+		.name = "at91sam9x5-adc",
+		.driver_data = (unsigned long)&at91sam9x5_caps,
+	}, {
+		/* terminator */
+	}
+};
+MODULE_DEVICE_TABLE(platform, at91_adc_ids);
 
 static struct platform_driver at91_adc_driver = {
 	.probe = at91_adc_probe,
 	.remove = at91_adc_remove,
+	.id_table = at91_adc_ids,
 	.driver = {
 		   .name = DRIVER_NAME,
 		   .of_match_table = of_match_ptr(at91_adc_dt_ids),

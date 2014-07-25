@@ -252,38 +252,45 @@ static void mtip_async_complete(struct mtip_port *port,
 				void *data,
 				int status)
 {
-	struct mtip_cmd *command;
+	struct mtip_cmd *cmd;
 	struct driver_data *dd = data;
-	int cb_status = status ? -EIO : 0;
+	int unaligned, cb_status = status ? -EIO : 0;
+	void (*func)(void *, int);
 
 	if (unlikely(!dd) || unlikely(!port))
 		return;
 
-	command = &port->commands[tag];
+	cmd = &port->commands[tag];
 
 	if (unlikely(status == PORT_IRQ_TF_ERR)) {
 		dev_warn(&port->dd->pdev->dev,
 			"Command tag %d failed due to TFE\n", tag);
 	}
 
-	/* Upper layer callback */
-	if (likely(command->async_callback))
-		command->async_callback(command->async_data, cb_status);
-
-	command->async_callback = NULL;
-	command->comp_func = NULL;
-
-	/* Unmap the DMA scatter list entries */
-	dma_unmap_sg(&dd->pdev->dev,
-		command->sg,
-		command->scatter_ents,
-		command->direction);
-
-	/* Clear the allocated and active bits for the command */
+	/* Clear the active flag */
 	atomic_set(&port->commands[tag].active, 0);
-	release_slot(port, tag);
 
-	up(&port->cmd_slot);
+	/* Upper layer callback */
+	func = cmd->async_callback;
+	if (likely(func && cmpxchg(&cmd->async_callback, func, 0) == func)) {
+
+		/* Unmap the DMA scatter list entries */
+		dma_unmap_sg(&dd->pdev->dev,
+			cmd->sg,
+			cmd->scatter_ents,
+			cmd->direction);
+
+		func(cmd->async_data, cb_status);
+		unaligned = cmd->unaligned;
+
+		/* Clear the allocated bit for the command */
+		release_slot(port, tag);
+
+		if (unlikely(unaligned))
+			up(&port->cmd_slot_unal);
+		else
+			up(&port->cmd_slot);
+	}
 }
 
 /*
@@ -660,11 +667,12 @@ static void mtip_timeout_function(unsigned long int data)
 {
 	struct mtip_port *port = (struct mtip_port *) data;
 	struct host_to_dev_fis *fis;
-	struct mtip_cmd *command;
-	int tag, cmdto_cnt = 0;
+	struct mtip_cmd *cmd;
+	int unaligned, tag, cmdto_cnt = 0;
 	unsigned int bit, group;
 	unsigned int num_command_slots;
 	unsigned long to, tagaccum[SLOTBITS_IN_LONGS];
+	void (*func)(void *, int);
 
 	if (unlikely(!port))
 		return;
@@ -694,8 +702,8 @@ static void mtip_timeout_function(unsigned long int data)
 			group = tag >> 5;
 			bit = tag & 0x1F;
 
-			command = &port->commands[tag];
-			fis = (struct host_to_dev_fis *) command->command;
+			cmd = &port->commands[tag];
+			fis = (struct host_to_dev_fis *) cmd->command;
 
 			set_bit(tag, tagaccum);
 			cmdto_cnt++;
@@ -709,27 +717,30 @@ static void mtip_timeout_function(unsigned long int data)
 			 */
 			writel(1 << bit, port->completed[group]);
 
-			/* Call the async completion callback. */
-			if (likely(command->async_callback))
-				command->async_callback(command->async_data,
-							 -EIO);
-			command->async_callback = NULL;
-			command->comp_func = NULL;
-
-			/* Unmap the DMA scatter list entries */
-			dma_unmap_sg(&port->dd->pdev->dev,
-					command->sg,
-					command->scatter_ents,
-					command->direction);
-
-			/*
-			 * Clear the allocated bit and active tag for the
-			 * command.
-			 */
+			/* Clear the active flag for the command */
 			atomic_set(&port->commands[tag].active, 0);
-			release_slot(port, tag);
 
-			up(&port->cmd_slot);
+			func = cmd->async_callback;
+			if (func &&
+			    cmpxchg(&cmd->async_callback, func, 0) == func) {
+
+				/* Unmap the DMA scatter list entries */
+				dma_unmap_sg(&port->dd->pdev->dev,
+						cmd->sg,
+						cmd->scatter_ents,
+						cmd->direction);
+
+				func(cmd->async_data, -EIO);
+				unaligned = cmd->unaligned;
+
+				/* Clear the allocated bit for the command. */
+				release_slot(port, tag);
+
+				if (unaligned)
+					up(&port->cmd_slot_unal);
+				else
+					up(&port->cmd_slot);
+			}
 		}
 	}
 
@@ -1518,6 +1529,37 @@ static inline void ata_swap_string(u16 *buf, unsigned int len)
 		be16_to_cpus(&buf[i]);
 }
 
+static void mtip_set_timeout(struct driver_data *dd,
+					struct host_to_dev_fis *fis,
+					unsigned int *timeout, u8 erasemode)
+{
+	switch (fis->command) {
+	case ATA_CMD_DOWNLOAD_MICRO:
+		*timeout = 120000; /* 2 minutes */
+		break;
+	case ATA_CMD_SEC_ERASE_UNIT:
+	case 0xFC:
+		if (erasemode)
+			*timeout = ((*(dd->port->identify + 90) * 2) * 60000);
+		else
+			*timeout = ((*(dd->port->identify + 89) * 2) * 60000);
+		break;
+	case ATA_CMD_STANDBYNOW1:
+		*timeout = 120000;  /* 2 minutes */
+		break;
+	case 0xF7:
+	case 0xFA:
+		*timeout = 60000;  /* 60 seconds */
+		break;
+	case ATA_CMD_SMART:
+		*timeout = 15000;  /* 15 seconds */
+		break;
+	default:
+		*timeout = MTIP_IOCTL_COMMAND_TIMEOUT_MS;
+		break;
+	}
+}
+
 /*
  * Request the device identity information.
  *
@@ -1633,12 +1675,15 @@ static int mtip_standby_immediate(struct mtip_port *port)
 	int rv;
 	struct host_to_dev_fis	fis;
 	unsigned long start;
+	unsigned int timeout;
 
 	/* Build the FIS. */
 	memset(&fis, 0, sizeof(struct host_to_dev_fis));
 	fis.type	= 0x27;
 	fis.opts	= 1 << 7;
 	fis.command	= ATA_CMD_STANDBYNOW1;
+
+	mtip_set_timeout(port->dd, &fis, &timeout, 0);
 
 	start = jiffies;
 	rv = mtip_exec_internal_command(port,
@@ -1648,7 +1693,7 @@ static int mtip_standby_immediate(struct mtip_port *port)
 					0,
 					0,
 					GFP_ATOMIC,
-					15000);
+					timeout);
 	dbg_printk(MTIP_DRV_NAME "Time taken to complete standby cmd: %d ms\n",
 			jiffies_to_msecs(jiffies - start));
 	if (rv)
@@ -2190,36 +2235,6 @@ static unsigned int implicit_sector(unsigned char command,
 		break;
 	}
 	return rv;
-}
-static void mtip_set_timeout(struct driver_data *dd,
-					struct host_to_dev_fis *fis,
-					unsigned int *timeout, u8 erasemode)
-{
-	switch (fis->command) {
-	case ATA_CMD_DOWNLOAD_MICRO:
-		*timeout = 120000; /* 2 minutes */
-		break;
-	case ATA_CMD_SEC_ERASE_UNIT:
-	case 0xFC:
-		if (erasemode)
-			*timeout = ((*(dd->port->identify + 90) * 2) * 60000);
-		else
-			*timeout = ((*(dd->port->identify + 89) * 2) * 60000);
-		break;
-	case ATA_CMD_STANDBYNOW1:
-		*timeout = 120000;  /* 2 minutes */
-		break;
-	case 0xF7:
-	case 0xFA:
-		*timeout = 60000;  /* 60 seconds */
-		break;
-	case ATA_CMD_SMART:
-		*timeout = 15000;  /* 15 seconds */
-		break;
-	default:
-		*timeout = MTIP_IOCTL_COMMAND_TIMEOUT_MS;
-		break;
-	}
 }
 
 /*
@@ -4213,6 +4228,7 @@ skip_create_disk:
 	blk_queue_max_hw_sectors(dd->queue, 0xffff);
 	blk_queue_max_segment_size(dd->queue, 0x400000);
 	blk_queue_io_min(dd->queue, 4096);
+	blk_queue_bounce_limit(dd->queue, dd->pdev->dma_mask);
 
 	/*
 	 * write back cache is not supported in the device. FUA depends on
@@ -4467,6 +4483,57 @@ static DEFINE_HANDLER(5);
 static DEFINE_HANDLER(6);
 static DEFINE_HANDLER(7);
 
+static void mtip_disable_link_opts(struct driver_data *dd, struct pci_dev *pdev)
+{
+	int pos;
+	unsigned short pcie_dev_ctrl;
+
+	pos = pci_find_capability(pdev, PCI_CAP_ID_EXP);
+	if (pos) {
+		pci_read_config_word(pdev,
+			pos + PCI_EXP_DEVCTL,
+			&pcie_dev_ctrl);
+		if (pcie_dev_ctrl & (1 << 11) ||
+		    pcie_dev_ctrl & (1 << 4)) {
+			dev_info(&dd->pdev->dev,
+				"Disabling ERO/No-Snoop on bridge device %04x:%04x\n",
+					pdev->vendor, pdev->device);
+			pcie_dev_ctrl &= ~(PCI_EXP_DEVCTL_NOSNOOP_EN |
+						PCI_EXP_DEVCTL_RELAX_EN);
+			pci_write_config_word(pdev,
+				pos + PCI_EXP_DEVCTL,
+				pcie_dev_ctrl);
+		}
+	}
+}
+
+static void mtip_fix_ero_nosnoop(struct driver_data *dd, struct pci_dev *pdev)
+{
+	/*
+	 * This workaround is specific to AMD/ATI chipset with a PCI upstream
+	 * device with device id 0x5aXX
+	 */
+	if (pdev->bus && pdev->bus->self) {
+		if (pdev->bus->self->vendor == PCI_VENDOR_ID_ATI &&
+		    ((pdev->bus->self->device & 0xff00) == 0x5a00)) {
+			mtip_disable_link_opts(dd, pdev->bus->self);
+		} else {
+			/* Check further up the topology */
+			struct pci_dev *parent_dev = pdev->bus->self;
+			if (parent_dev->bus &&
+				parent_dev->bus->parent &&
+				parent_dev->bus->parent->self &&
+				parent_dev->bus->parent->self->vendor ==
+					 PCI_VENDOR_ID_ATI &&
+				(parent_dev->bus->parent->self->device &
+					0xff00) == 0x5a00) {
+				mtip_disable_link_opts(dd,
+					parent_dev->bus->parent->self);
+			}
+		}
+	}
+}
+
 /*
  * Called for each supported PCI device detected.
  *
@@ -4617,6 +4684,8 @@ static int mtip_pci_probe(struct pci_dev *pdev,
 			"Unable to enable MSI interrupt.\n");
 		goto block_initialize_err;
 	}
+
+	mtip_fix_ero_nosnoop(dd, pdev);
 
 	/* Initialize the block layer. */
 	rv = mtip_block_initialize(dd);
@@ -4921,13 +4990,13 @@ static int __init mtip_init(void)
  */
 static void __exit mtip_exit(void)
 {
-	debugfs_remove_recursive(dfs_parent);
-
 	/* Release the allocated major block device number. */
 	unregister_blkdev(mtip_major, MTIP_DRV_NAME);
 
 	/* Unregister the PCI driver. */
 	pci_unregister_driver(&mtip_pci_driver);
+
+	debugfs_remove_recursive(dfs_parent);
 }
 
 MODULE_AUTHOR("Micron Technology, Inc");

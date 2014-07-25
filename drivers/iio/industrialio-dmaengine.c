@@ -54,21 +54,29 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 	if (block->block.bytes_used > max_size)
 		block->block.bytes_used = max_size;
 
-	block->block.bytes_used = round_down(block->block.bytes_used,
+	block->block.bytes_used = rounddown(block->block.bytes_used,
 			dmaengine_buffer->align);
+
+	if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
+		desc = dmaengine_prep_dma_cyclic(dmaengine_buffer->chan,
+			block->phys_addr, block->block.bytes_used,
+			block->block.bytes_used, direction, 0);
+		if (!desc)
+			return -ENOMEM;
+	} else {
+		desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
+			block->phys_addr, block->block.bytes_used, direction,
+			DMA_PREP_INTERRUPT);
+		if (!desc)
+			return -ENOMEM;
+
+		desc->callback = dmaengine_buffer_block_done;
+		desc->callback_param = block;
+	}
 
 	spin_lock_irq(&dmaengine_buffer->queue.list_lock);
 	list_add_tail(&block->head, &dmaengine_buffer->active);
 	spin_unlock_irq(&dmaengine_buffer->queue.list_lock);
-
-	desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
-		block->phys_addr, block->block.bytes_used, direction,
-		DMA_PREP_INTERRUPT);
-	if (!desc)
-		return -ENOMEM;
-
-	desc->callback = dmaengine_buffer_block_done;
-	desc->callback_param = block;
 
 	cookie = dmaengine_submit(desc);
 	if (cookie < 0)
@@ -138,7 +146,6 @@ struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 	struct dmaengine_buffer *dmaengine_buffer;
 	struct dma_slave_caps caps;
 	unsigned int width, src_width, dest_width;
-	unsigned int i;
 	int ret;
 
 	dmaengine_buffer = kzalloc(sizeof(*dmaengine_buffer), GFP_KERNEL);

@@ -1683,7 +1683,19 @@ static int hub_probe(struct usb_interface *intf, const struct usb_device_id *id)
 #ifdef CONFIG_USB_ZYNQ_PHY
 	usb_disable_autosuspend(hdev);
 #else
-	usb_enable_autosuspend(hdev);
+	/*
+	 * Hubs have proper suspend/resume support, except for root hubs
+	 * where the controller driver doesn't have bus_suspend and
+	 * bus_resume methods.
+	 */
+	if (hdev->parent) {		/* normal device */
+		usb_enable_autosuspend(hdev);
+	} else {			/* root hub */
+		const struct hc_driver *drv = bus_to_hcd(hdev->bus)->driver;
+
+		if (drv->bus_suspend && drv->bus_resume)
+			usb_enable_autosuspend(hdev);
+	}
 #endif
 
 	if (hdev->level == MAX_TOPO_LEVEL) {
@@ -5344,10 +5356,11 @@ int usb_reset_device(struct usb_device *udev)
 				else if (cintf->condition ==
 						USB_INTERFACE_BOUND)
 					rebind = 1;
+				if (rebind)
+					cintf->needs_binding = 1;
 			}
-			if (ret == 0 && rebind)
-				usb_rebind_intf(cintf);
 		}
+		usb_unbind_and_rebind_marked_interfaces(udev);
 	}
 
 	usb_autosuspend_device(udev);
