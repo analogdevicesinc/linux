@@ -296,8 +296,6 @@ enum adc_data_sel {
 
 #include <linux/spi/spi.h>
 
-#define AXIADC_MAX_PCORE_TSIZE		(524288)
-
 enum {
 	ID_AD9467,
 	ID_AD9643,
