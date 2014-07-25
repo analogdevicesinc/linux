@@ -386,7 +386,7 @@ EXPORT_SYMBOL_GPL(iio_enum_write);
  */
 ssize_t iio_format_value(char *buf, unsigned int type, int val, int val2)
 {
-	unsigned long long tmp;
+	s64 tmp;
 	bool scale_db = false;
 
 	switch (type) {
@@ -408,14 +408,19 @@ ssize_t iio_format_value(char *buf, unsigned int type, int val, int val2)
 			return sprintf(buf, "%d.%09u\n", val, val2);
 	case IIO_VAL_FRACTIONAL:
 		tmp = div_s64((s64)val * 1000000000LL, val2);
-		val2 = do_div(tmp, 1000000000LL);
-		val = tmp;
+		val = div_s64_rem(tmp, 1000000000LL, &val2);
+		if (val2 < 0)
+			return sprintf(buf, "-%d.%09u\n", abs(val), abs(val2));
+		else
+			return sprintf(buf, "%d.%09u\n", val, val2);
 		return sprintf(buf, "%d.%09u\n", val, val2);
 	case IIO_VAL_FRACTIONAL_LOG2:
 		tmp = (s64)val * 1000000000LL >> val2;
-		val2 = do_div(tmp, 1000000000LL);
-		val = tmp;
-		return sprintf(buf, "%d.%09u\n", val, val2);
+		val = div_s64_rem(tmp, 1000000000LL, &val2);
+		if (val2 < 0)
+			return sprintf(buf, "-%d.%09u\n", abs(val), abs(val2));
+		else
+			return sprintf(buf, "%d.%09u\n", val, val2);
 	default:
 		return 0;
 	}
