@@ -293,16 +293,11 @@ struct ad9523_state {
 	struct gpio_desc		*sync_gpio;
 	struct clk_onecell_data		clk_data;
 	struct clk 			*clks[AD9523_NUM_CHAN];
-	struct gpio_desc			*pwrdown_gpio;
-	struct gpio_desc			*reset_gpio;
-	struct gpio_desc			*sync_gpio;
 
 	unsigned long		vcxo_freq;
 	unsigned long		vco_freq;
 	unsigned long		vco_out_freq[AD9523_NUM_CLK_SRC];
 	unsigned char		vco_out_map[AD9523_NUM_CHAN_ALT_CLK_SRC];
-
-	struct mutex		lock;
 
 	/*
 	 * Lock for accessing device registers. Some operations require
@@ -1020,6 +1015,7 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
+
 	ret = ad9523_write(indio_dev, AD9523_READBACK_CTRL,
 			  AD9523_READBACK_CTRL_READ_BUFFERED);
 	if (ret < 0)
@@ -1028,6 +1024,28 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	ret = ad9523_io_update(indio_dev);
 	if (ret < 0)
 		return ret;
+
+	i = ad9523_read(indio_dev, AD9523_EEPROM_CUSTOMER_VERSION_ID);
+	if (i < 0)
+		return i;
+
+	ret = ad9523_write(indio_dev, AD9523_EEPROM_CUSTOMER_VERSION_ID, 0xAD95);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9523_read(indio_dev, AD9523_EEPROM_CUSTOMER_VERSION_ID);
+	if (ret < 0)
+		return ret;
+
+	if (ret != 0xAD95) {
+		dev_err(&indio_dev->dev, "SPI Read Verify failed (0x%X)\n", ret);
+		return -EIO;
+	}
+
+	ret = ad9523_write(indio_dev, AD9523_EEPROM_CUSTOMER_VERSION_ID, i);
+	if (ret < 0)
+		return ret;
+
 
 	/*
 	 * PLL1 Setup
