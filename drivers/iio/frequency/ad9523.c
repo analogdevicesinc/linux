@@ -1009,6 +1009,7 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
+
 	ret = ad9523_write(indio_dev, AD9523_READBACK_CTRL,
 			  AD9523_READBACK_CTRL_READ_BUFFERED);
 	if (ret < 0)
@@ -1017,6 +1018,28 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	ret = ad9523_io_update(indio_dev);
 	if (ret < 0)
 		return ret;
+
+	i = ad9523_read(indio_dev, AD9523_EEPROM_CUSTOMER_VERSION_ID);
+	if (i < 0)
+		return i;
+
+	ret = ad9523_write(indio_dev, AD9523_EEPROM_CUSTOMER_VERSION_ID, 0xAD95);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9523_read(indio_dev, AD9523_EEPROM_CUSTOMER_VERSION_ID);
+	if (ret < 0)
+		return ret;
+
+	if (ret != 0xAD95) {
+		dev_err(&indio_dev->dev, "SPI Read Verify failed (0x%X)\n", ret);
+		return -EIO;
+	}
+
+	ret = ad9523_write(indio_dev, AD9523_EEPROM_CUSTOMER_VERSION_ID, i);
+	if (ret < 0)
+		return ret;
+
 
 	/*
 	 * PLL1 Setup
@@ -1463,8 +1486,13 @@ static int ad9523_probe(struct spi_device *spi)
 
 	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
 	if (!IS_ERR(st->reset_gpio)) {
+		ret = gpiod_direction_output(st->reset_gpio, 0);
+		udelay(1);
+
 		ret = gpiod_direction_output(st->reset_gpio, 1);
 	}
+
+	mdelay(10);
 
 	st->sync_gpio = devm_gpiod_get(&spi->dev, "sync");
 	if (!IS_ERR(st->sync_gpio)) {
