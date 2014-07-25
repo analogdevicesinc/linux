@@ -519,7 +519,7 @@ static int ad5933_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad5933_state *st = iio_priv(indio_dev);
 	__be16 dat;
-	int ret;
+	int ret = -EINVAL;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
