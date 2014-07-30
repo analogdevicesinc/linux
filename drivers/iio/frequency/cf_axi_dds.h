@@ -188,6 +188,7 @@ struct cf_axi_dds_chip_info {
 	unsigned int num_channels;
 	unsigned int num_dds_channels;
 	unsigned int num_dp_disable_channels;
+	unsigned int num_buf_channels;
 	struct iio_chan_spec channel[17];
 };
 
