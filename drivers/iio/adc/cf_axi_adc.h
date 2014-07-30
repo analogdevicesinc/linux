@@ -310,6 +310,7 @@ enum {
 struct axiadc_chip_info {
 	char				*name;
 	unsigned			num_channels;
+	unsigned 		num_shadow_slave_channels;
 	const unsigned long 	*scan_masks;
 	int			(*scale_table)[2];
 	int				num_scales;
@@ -322,6 +323,7 @@ struct axiadc_state {
 	struct device 			*dev_spi;
 	struct iio_info			iio_info;
 	void __iomem			*regs;
+	void __iomem			*slave_regs;
 	unsigned				max_usr_channel;
 	unsigned			adc_def_output_mode;
 	unsigned			max_count;
@@ -332,6 +334,7 @@ struct axiadc_state {
 	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
 	bool				streaming_dma;
+	unsigned			have_slave_channels;
 
 	struct iio_chan_spec	channels[16];
 };
@@ -403,6 +406,16 @@ static inline void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned 
 static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 {
 	return ioread32(st->regs + reg);
+}
+
+static inline void axiadc_slave_write(struct axiadc_state *st, unsigned reg, unsigned val)
+{
+	iowrite32(val, st->slave_regs + reg);
+}
+
+static inline unsigned int axiadc_slave_read(struct axiadc_state *st, unsigned reg)
+{
+	return ioread32(st->slave_regs + reg);
 }
 
 int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel);

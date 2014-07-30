@@ -4868,11 +4868,6 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	return 0;
 }
 
-static const unsigned long ad9361_2x2_available_scan_masks[] = {
-	0x0FF,
-	0x000,
-};
-
 #define AIM_CHAN(_chan, _si, _bits, _sign)			\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
@@ -4908,7 +4903,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.max_rate = 61440000UL,
 		.max_testmode = 0,
 		.num_channels = 8,
-		.scan_masks = ad9361_2x2_available_scan_masks,
+		.num_shadow_slave_channels = 4,
 		.channel[0] = AIM_CHAN(0, 0, 12, 's'),
 		.channel[1] = AIM_CHAN(1, 1, 12, 's'),
 		.channel[2] = AIM_CHAN(2, 2, 12, 's'),

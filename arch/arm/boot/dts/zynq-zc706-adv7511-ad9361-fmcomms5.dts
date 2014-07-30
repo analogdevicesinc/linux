@@ -205,6 +205,7 @@
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9361>;
+			slavecore-reg = <0x79040000 0x6000>;
 		};
 
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {

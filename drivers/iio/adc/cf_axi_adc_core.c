@@ -414,14 +414,24 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	unsigned i, ctrl;
 
 	for (i = 0; i < indio_dev->masklength; i++) {
-		ctrl = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
+		if (i > (st->have_slave_channels - 1))
+			ctrl = axiadc_slave_read(st,
+				ADI_REG_CHAN_CNTRL(i - st->have_slave_channels));
+		else
+			ctrl = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
 
 		if (test_bit(i, scan_mask))
 			ctrl |= ADI_ENABLE;
 		else
 			ctrl &= ~ADI_ENABLE;
 
-		axiadc_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
+
+		if (i > (st->have_slave_channels - 1))
+			axiadc_slave_write(st,
+				ADI_REG_CHAN_CNTRL(i - st->have_slave_channels),
+				ctrl);
+		else
+			axiadc_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
 	}
 
 	return 0;
@@ -602,6 +612,19 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	conv = to_converter(st->dev_spi);
 	iio_device_set_drvdata(indio_dev, conv);
+
+	if (conv->chip_info->num_shadow_slave_channels) {
+		u32 regs[2];
+		ret = of_property_read_u32_array(pdev->dev.of_node,
+				"slavecore-reg", regs, ARRAY_SIZE(regs));
+		if (!ret) {
+			st->slave_regs = ioremap(regs[0], regs[1]);
+			if (st->slave_regs)
+				st->have_slave_channels = conv->chip_info->
+					num_shadow_slave_channels;
+
+		}
+	}
 
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
