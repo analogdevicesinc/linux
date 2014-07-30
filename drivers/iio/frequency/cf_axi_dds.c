@@ -609,6 +609,19 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	{ },
 };
 
+static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
+			struct iio_chan_spec *channels, unsigned num)
+{
+
+	if (PCORE_VERSION_MAJOR(st->version) > 6) {
+		int i;
+		for (i = 0; i < num; i++) {
+			if (channels[i].type == IIO_ALTVOLTAGE)
+				channels[i].ext_info = NULL;
+		}
+	}
+}
+
 #define CF_AXI_DDS_CHAN(_chan, _address, _extend_name) { \
 	.type = IIO_ALTVOLTAGE,	\
 	.indexed = 1, \
@@ -645,7 +658,7 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	.scan_type = IIO_ST('s', 16, 16, 0), \
 }
 
-static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD9122] = {
 		.name = "AD9122",
 		.channel = {
@@ -708,7 +721,7 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	},
 };
 
-static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
 	.name = "AD9361",
 	.channel = {
 		CF_AXI_DDS_CHAN_BUF(0),
@@ -729,7 +742,7 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
 	.num_buf_channels = 4,
 };
 
-static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9364 = {
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9364 = {
 	.name = "AD9364",
 	.channel = {
 		CF_AXI_DDS_CHAN_BUF(0),
@@ -745,7 +758,7 @@ static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9364 = {
 
 };
 
-static const struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361x2 = {
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361x2 = {
 	.name = "AD9361",
 	.channel = {
 		CF_AXI_DDS_CHAN_BUF(0),
@@ -808,7 +821,7 @@ struct axidds_core_info {
 	unsigned int version;
 	bool has_fifo_interface;
 	bool standalone;
-	const struct cf_axi_dds_chip_info *chip_info;
+	struct cf_axi_dds_chip_info *chip_info;
 	unsigned int data_format;
 	unsigned int rate;
 };
@@ -1056,6 +1069,10 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			cf_axi_dds_default_setup(st, 6, 0, 1000000, scale);
 			cf_axi_dds_default_setup(st, 7, 0, 1000000, scale);
 		}
+
+		cf_axi_dds_update_chan_spec(st, st->chip_info->channel,
+				st->chip_info->num_channels);
+
 	}
 
 	st->enable = true;

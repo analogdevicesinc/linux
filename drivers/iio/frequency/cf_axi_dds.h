@@ -1,7 +1,7 @@
 /*
  * DDS PCORE/COREFPGA Module
  *
- * Copyright 2012 Analog Devices Inc.
+ * Copyright 2012-2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -195,7 +195,7 @@ struct cf_axi_dds_chip_info {
 struct cf_axi_dds_state {
 	struct device 		*dev_spi;
 	struct clk 		*clk;
-	const struct cf_axi_dds_chip_info	*chip_info;
+	struct cf_axi_dds_chip_info	*chip_info;
 
 	bool			has_fifo_interface;
 	bool			standalone;
