@@ -2584,7 +2584,7 @@ static int srpt_cm_req_recv(struct ib_cm_id *cm_id,
 		goto destroy_ib;
 	}
 
-	ch->sess = transport_init_session();
+	ch->sess = transport_init_session(TARGET_PROT_NORMAL);
 	if (IS_ERR(ch->sess)) {
 		rej->reason = __constant_cpu_to_be32(
 				SRP_LOGIN_REJ_INSUFFICIENT_RESOURCES);
@@ -3083,6 +3083,14 @@ static int srpt_queue_data_in(struct se_cmd *cmd)
 static void srpt_queue_tm_rsp(struct se_cmd *cmd)
 {
 	srpt_queue_response(cmd);
+}
+
+static void srpt_aborted_task(struct se_cmd *cmd)
+{
+	struct srpt_send_ioctx *ioctx = container_of(cmd,
+				struct srpt_send_ioctx, cmd);
+
+	srpt_unmap_sg_to_ib_sge(ioctx->ch, ioctx);
 }
 
 static int srpt_queue_status(struct se_cmd *cmd)
@@ -3932,6 +3940,7 @@ static struct target_core_fabric_ops srpt_template = {
 	.queue_data_in			= srpt_queue_data_in,
 	.queue_status			= srpt_queue_status,
 	.queue_tm_rsp			= srpt_queue_tm_rsp,
+	.aborted_task			= srpt_aborted_task,
 	/*
 	 * Setup function pointers for generic logic in
 	 * target_core_fabric_configfs.c

@@ -56,7 +56,13 @@ static const struct iio_info adc_info = {
 	  .indexed = 1,						 \
 	  .channel = _chan,					 \
 	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _real_bits, _storage_bits, _shift)}
+	  .scan_type = {					\
+		.sign = _sign,					\
+		.realbits = _real_bits,				\
+		.storagebits = _storage_bits,			\
+		.shift = _shift,				\
+	  },							\
+	}
 
 static int adc_parse_dt_string(struct device_node *np, const char **name_pointer)
 {	

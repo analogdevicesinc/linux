@@ -931,7 +931,8 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	sock_tx_timestamp(sk, &ipc.tx_flags);
 
 	if (msg->msg_controllen) {
-		err = ip_cmsg_send(sock_net(sk), msg, &ipc);
+		err = ip_cmsg_send(sock_net(sk), msg, &ipc,
+				   sk->sk_family == AF_INET6);
 		if (err)
 			return err;
 		if (ipc.opt)
@@ -1832,10 +1833,6 @@ static struct sock *__udp4_lib_mcast_demux_lookup(struct net *net,
 	unsigned short hnum = ntohs(loc_port);
 	unsigned int count, slot = udp_hashfn(net, hnum, udp_table.mask);
 	struct udp_hslot *hslot = &udp_table.hash[slot];
-
-	/* Do not bother scanning a too big list */
-	if (hslot->count > 10)
-		return NULL;
 
 	rcu_read_lock();
 begin:

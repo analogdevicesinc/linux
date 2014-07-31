@@ -160,7 +160,7 @@ static ssize_t ad7303_write_dac_powerdown(struct iio_dev *indio_dev,
 	ad7303_write(st, chan->channel, st->dac_cache[chan->channel]);
 
 	mutex_unlock(&indio_dev->mlock);
-	return ret ? ret : len;
+	return len;
 }
 
 static int ad7303_get_vref(struct ad7303_state *st,
@@ -254,7 +254,12 @@ static const struct iio_chan_spec_ext_info ad7303_ext_info[] = {
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
 	.address = (chan),				\
 	.scan_index = (chan),				\
-	.scan_type = IIO_ST('u', 8, 8, 0),		\
+	.scan_type = {					\
+		.realbits = 8,				\
+		.storagebits = 8,			\
+		.shift = 0,				\
+		.sign = 'u',				\
+	},						\
 	.ext_info = ad7303_ext_info,			\
 }
 

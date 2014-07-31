@@ -1103,10 +1103,14 @@ EXPORT_SYMBOL(drm_edid_is_valid);
 /**
  * Get EDID information via I2C.
  *
- * \param adapter : i2c device adaptor
- * \param buf     : EDID data buffer to be filled
- * \param len     : EDID data buffer length
- * \return 0 on success or -1 on failure.
+ * @adapter : i2c device adaptor
+ * @buf: EDID data buffer to be filled
+ * @block: 128 byte EDID block to start fetching from
+ * @len: EDID data buffer length to fetch
+ *
+ * Returns:
+ *
+ * 0 on success or -1 on failure.
  *
  * Try to fetch EDID information by calling i2c driver function.
  */
@@ -1250,9 +1254,11 @@ EXPORT_SYMBOL_GPL(drm_do_get_edid);
 
 /**
  * Probe DDC presence.
+ * @adapter: i2c adapter to probe
  *
- * \param adapter : i2c device adaptor
- * \return 1 on success
+ * Returns:
+ *
+ * 1 on success
  */
 bool
 drm_probe_ddc(struct i2c_adapter *adapter)
@@ -1593,8 +1599,10 @@ bad_std_timing(u8 a, u8 b)
 
 /**
  * drm_mode_std - convert standard mode info (width, height, refresh) into mode
+ * @connector: connector of for the EDID block
+ * @edid: EDID block to scan
  * @t: standard timing params
- * @timing_level: standard timing level
+ * @revision: standard timing level
  *
  * Take the standard timing params (in this case width, aspect, and refresh)
  * and convert them into a real mode using CVT/GTF/DMT.
@@ -2139,6 +2147,7 @@ do_established_modes(struct detailed_timing *timing, void *c)
 
 /**
  * add_established_modes - get est. modes from EDID and add them
+ * @connector: connector of for the EDID block
  * @edid: EDID block to scan
  *
  * Each EDID block contains a bitmap of the supported "established modes" list
@@ -2201,6 +2210,7 @@ do_standard_modes(struct detailed_timing *timing, void *c)
 
 /**
  * add_standard_modes - get std. modes from EDID and add them
+ * @connector: connector of for the EDID block
  * @edid: EDID block to scan
  *
  * Standard modes can be calculated using the appropriate standard (DMT,
@@ -2587,6 +2597,9 @@ drm_display_mode_from_vic_index(struct drm_connector *connector,
 		return NULL;
 
 	newmode = drm_mode_duplicate(dev, &edid_cea_modes[cea_mode]);
+	if (!newmode)
+		return NULL;
+
 	newmode->vrefresh = 0;
 
 	return newmode;
@@ -3307,6 +3320,7 @@ EXPORT_SYMBOL(drm_detect_hdmi_monitor);
 
 /**
  * drm_detect_monitor_audio - check monitor audio capability
+ * @edid: EDID block to scan
  *
  * Monitor should have CEA extension block.
  * If monitor has 'basic audio', but no CEA audio blocks, it's 'basic
@@ -3352,6 +3366,7 @@ EXPORT_SYMBOL(drm_detect_monitor_audio);
 
 /**
  * drm_rgb_quant_range_selectable - is RGB quantization range selectable?
+ * @edid: EDID block to scan
  *
  * Check whether the monitor reports the RGB quantization range selection
  * as supported. The AVI infoframe can then be used to inform the monitor
@@ -3576,8 +3591,8 @@ void drm_set_preferred_mode(struct drm_connector *connector,
 	struct drm_display_mode *mode;
 
 	list_for_each_entry(mode, &connector->probed_modes, head) {
-		if (drm_mode_width(mode)  == hpref &&
-		    drm_mode_height(mode) == vpref)
+		if (mode->hdisplay  == hpref &&
+		    mode->vdisplay == vpref)
 			mode->type |= DRM_MODE_TYPE_PREFERRED;
 	}
 }
@@ -3611,6 +3626,7 @@ drm_hdmi_avi_infoframe_from_display_mode(struct hdmi_avi_infoframe *frame,
 
 	frame->picture_aspect = HDMI_PICTURE_ASPECT_NONE;
 	frame->active_aspect = HDMI_ACTIVE_ASPECT_PICTURE;
+	frame->scan_mode = HDMI_SCAN_MODE_UNDERSCAN;
 
 	return 0;
 }

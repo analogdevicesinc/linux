@@ -141,7 +141,7 @@ static const char *pwm_mode_text[] = { "Binary", "Headphone", "Ternary",
 
 static const DECLARE_TLV_DB_SCALE(out_gain_tlv, -9150, 50, 0);
 static const DECLARE_TLV_DB_SCALE(master_vol_tlv, -12750, 50, 0);
-static const SOC_ENUM_SINGLE_DECL(pwm_src, STA529_FFXCFG1, 4, pwm_mode_text);
+static SOC_ENUM_SINGLE_DECL(pwm_src, STA529_FFXCFG1, 4, pwm_mode_text);
 
 static const struct snd_kcontrol_new sta529_snd_controls[] = {
 	SOC_DOUBLE_R_TLV("Digital Playback Volume", STA529_LVOL, STA529_RVOL, 0,
@@ -193,8 +193,7 @@ static int sta529_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
 		struct snd_soc_dai *dai)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_codec *codec = dai->codec;
 	int pdata, play_freq_val, record_freq_val;
 	int bclk_to_fs_ratio;
 

@@ -646,7 +646,12 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 		BIT(IIO_CHAN_INFO_CALIBPHASE), \
 	.output = 1, \
 	.scan_index = _chan, \
-	.scan_type = IIO_ST('s', 16, 16, 0), \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
 }
 
 #define CF_AXI_DDS_CHAN_BUF_VIRT(_chan) { \
@@ -655,7 +660,12 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	.channel = _chan, \
 	.output = 1, \
 	.scan_index = _chan, \
-	.scan_type = IIO_ST('s', 16, 16, 0), \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
 }
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {

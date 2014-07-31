@@ -431,10 +431,9 @@ sysenter_past_esp:
 	jnz sysenter_audit
 sysenter_do_call:
 	cmpl $(NR_syscalls), %eax
-	jae sysenter_badsys
+	jae syscall_badsys
 	call *sys_call_table(,%eax,4)
 	movl %eax,PT_EAX(%esp)
-sysenter_after_call:
 	LOCKDEP_SYS_EXIT
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	TRACE_IRQS_OFF
@@ -552,6 +551,11 @@ ENTRY(iret_exc)
 
 	CFI_RESTORE_STATE
 ldt_ss:
+	larl PT_OLDSS(%esp), %eax
+	jnz restore_nocheck
+	testl $0x00400000, %eax		# returning to 32bit stack?
+	jnz restore_nocheck		# allright, normal return
+
 #ifdef CONFIG_PARAVIRT
 	/*
 	 * The kernel can't run on a non-flat stack if paravirt mode
@@ -684,12 +688,7 @@ END(syscall_fault)
 
 syscall_badsys:
 	movl $-ENOSYS,PT_EAX(%esp)
-	jmp syscall_exit
-END(syscall_badsys)
-
-sysenter_badsys:
-	movl $-ENOSYS,PT_EAX(%esp)
-	jmp sysenter_after_call
+	jmp resume_userspace
 END(syscall_badsys)
 	CFI_ENDPROC
 /*

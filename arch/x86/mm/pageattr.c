@@ -126,8 +126,8 @@ within(unsigned long addr, unsigned long start, unsigned long end)
  * @vaddr:	virtual start address
  * @size:	number of bytes to flush
  *
- * clflush is an unordered instruction which needs fencing with mfence
- * to avoid ordering issues.
+ * clflushopt is an unordered instruction which needs fencing with mfence or
+ * sfence to avoid ordering issues.
  */
 void clflush_cache_range(void *vaddr, unsigned int size)
 {
@@ -136,11 +136,11 @@ void clflush_cache_range(void *vaddr, unsigned int size)
 	mb();
 
 	for (; vaddr < vend; vaddr += boot_cpu_data.x86_clflush_size)
-		clflush(vaddr);
+		clflushopt(vaddr);
 	/*
 	 * Flush any possible final partial cacheline:
 	 */
-	clflush(vend);
+	clflushopt(vend);
 
 	mb();
 }
@@ -323,8 +323,12 @@ static inline pgprot_t static_protections(pgprot_t prot, unsigned long address,
 	return prot;
 }
 
-static pte_t *__lookup_address_in_pgd(pgd_t *pgd, unsigned long address,
-				      unsigned int *level)
+/*
+ * Lookup the page table entry for a virtual address in a specific pgd.
+ * Return a pointer to the entry and the level of the mapping.
+ */
+pte_t *lookup_address_in_pgd(pgd_t *pgd, unsigned long address,
+			     unsigned int *level)
 {
 	pud_t *pud;
 	pmd_t *pmd;
@@ -365,7 +369,7 @@ static pte_t *__lookup_address_in_pgd(pgd_t *pgd, unsigned long address,
  */
 pte_t *lookup_address(unsigned long address, unsigned int *level)
 {
-        return __lookup_address_in_pgd(pgd_offset_k(address), address, level);
+        return lookup_address_in_pgd(pgd_offset_k(address), address, level);
 }
 EXPORT_SYMBOL_GPL(lookup_address);
 
@@ -373,7 +377,7 @@ static pte_t *_lookup_address_cpa(struct cpa_data *cpa, unsigned long address,
 				  unsigned int *level)
 {
         if (cpa->pgd)
-		return __lookup_address_in_pgd(cpa->pgd + pgd_index(address),
+		return lookup_address_in_pgd(cpa->pgd + pgd_index(address),
 					       address, level);
 
         return lookup_address(address, level);
@@ -1389,10 +1393,10 @@ static int change_page_attr_set_clr(unsigned long *addr, int numpages,
 	cache = cache_attr(mask_set);
 
 	/*
-	 * On success we use clflush, when the CPU supports it to
-	 * avoid the wbindv. If the CPU does not support it and in the
+	 * On success we use CLFLUSH, when the CPU supports it to
+	 * avoid the WBINVD. If the CPU does not support it and in the
 	 * error case we fall back to cpa_flush_all (which uses
-	 * wbindv):
+	 * WBINVD):
 	 */
 	if (!ret && cpu_has_clflush) {
 		if (cpa.flags & (CPA_PAGES_ARRAY | CPA_ARRAY)) {

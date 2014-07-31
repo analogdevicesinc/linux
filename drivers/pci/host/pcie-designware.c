@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/msi.h>
 #include <linux/of_address.h>
+#include <linux/of_pci.h>
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
 #include <linux/types.h>
@@ -294,14 +295,12 @@ no_valid_irq:
 static void clear_irq(unsigned int irq)
 {
 	unsigned int pos, nvec;
-	struct irq_desc *desc;
 	struct msi_desc *msi;
 	struct pcie_port *pp;
 	struct irq_data *data = irq_get_irq_data(irq);
 
 	/* get the port structure */
-	desc = irq_to_desc(irq);
-	msi = irq_desc_get_msi_desc(desc);
+	msi = irq_data_get_msi(data);
 	pp = sys_to_pcie(msi->dev->bus->sysdata);
 	if (!pp) {
 		BUG();
@@ -492,7 +491,7 @@ int __init dw_pcie_host_init(struct pcie_port *pp)
 	dw_pci.nr_controllers = 1;
 	dw_pci.private_data = (void **)&pp;
 
-	pci_common_init(&dw_pci);
+	pci_common_init_dev(pp->dev, &dw_pci);
 	pci_assign_unassigned_resources();
 #ifdef CONFIG_PCI_DOMAINS
 	dw_pci.domain++;
@@ -725,7 +724,7 @@ static struct pci_bus *dw_pcie_scan_bus(int nr, struct pci_sys_data *sys)
 
 	if (pp) {
 		pp->root_bus_nr = sys->busnr;
-		bus = pci_scan_root_bus(NULL, sys->busnr, &dw_pcie_ops,
+		bus = pci_scan_root_bus(pp->dev, sys->busnr, &dw_pcie_ops,
 					sys, &sys->resources);
 	} else {
 		bus = NULL;
@@ -738,8 +737,13 @@ static struct pci_bus *dw_pcie_scan_bus(int nr, struct pci_sys_data *sys)
 static int dw_pcie_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	struct pcie_port *pp = sys_to_pcie(dev->bus->sysdata);
+	int irq;
 
-	return pp->irq;
+	irq = of_irq_parse_and_map_pci(dev, slot, pin);
+	if (!irq)
+		irq = pp->irq;
+
+	return irq;
 }
 
 static void dw_pcie_add_bus(struct pci_bus *bus)
@@ -766,7 +770,7 @@ void dw_pcie_setup_rc(struct pcie_port *pp)
 	u32 membase;
 	u32 memlimit;
 
-	/* set the number of lines as 4 */
+	/* set the number of lanes */
 	dw_pcie_readl_rc(pp, PCIE_PORT_LINK_CONTROL, &val);
 	val &= ~PORT_LINK_MODE_MASK;
 	switch (pp->lanes) {

@@ -35,7 +35,7 @@ void reiserfs_evict_inode(struct inode *inode)
 	if (!inode->i_nlink && !is_bad_inode(inode))
 		dquot_initialize(inode);
 
-	truncate_inode_pages(&inode->i_data, 0);
+	truncate_inode_pages_final(&inode->i_data);
 	if (inode->i_nlink)
 		goto no_delete;
 
@@ -3220,14 +3220,8 @@ int reiserfs_setattr(struct dentry *dentry, struct iattr *attr)
 	    attr->ia_size != i_size_read(inode)) {
 		error = inode_newsize_ok(inode, attr->ia_size);
 		if (!error) {
-			/*
-			 * Could race against reiserfs_file_release
-			 * if called from NFS, so take tailpack mutex.
-			 */
-			mutex_lock(&REISERFS_I(inode)->tailpack);
 			truncate_setsize(inode, attr->ia_size);
-			reiserfs_truncate_file(inode, 1);
-			mutex_unlock(&REISERFS_I(inode)->tailpack);
+			reiserfs_vfs_truncate_file(inode);
 		}
 	}
 

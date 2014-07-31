@@ -42,33 +42,54 @@ ENTRY(startup_32)
 ENTRY(efi_pe_entry)
 	add	$0x4, %esp
 
+	call	1f
+1:	popl	%esi
+	subl	$1b, %esi
+
+	popl	%ecx
+	movl	%ecx, efi32_config(%esi)	/* Handle */
+	popl	%ecx
+	movl	%ecx, efi32_config+8(%esi)	/* EFI System table pointer */
+
+	/* Relocate efi_config->call() */
+	leal	efi32_config(%esi), %eax
+	add	%esi, 88(%eax)
+	pushl	%eax
+
 	call	make_boot_params
 	cmpl	$0, %eax
-	je	1f
-	movl	0x4(%esp), %esi
-	movl	(%esp), %ecx
-	pushl	%eax
-	pushl	%esi
-	pushl	%ecx
-
-	call	reloc
-reloc:
+	je	fail
+	movl	%esi, BP_code32_start(%eax)
 	popl	%ecx
-	subl	reloc, %ecx
-	movl	%ecx, BP_code32_start(%eax)
+	pushl	%eax
+	pushl	%ecx
+	jmp	2f		/* Skip efi_config initialization */
 
-	sub	$0x4, %esp
-
-ENTRY(efi_stub_entry)
+ENTRY(efi32_stub_entry)
 	add	$0x4, %esp
+	popl	%ecx
+	popl	%edx
+
+	call	1f
+1:	popl	%esi
+	subl	$1b, %esi
+
+	movl	%ecx, efi32_config(%esi)	/* Handle */
+	movl	%edx, efi32_config+8(%esi)	/* EFI System table pointer */
+
+	/* Relocate efi_config->call() */
+	leal	efi32_config(%esi), %eax
+	add	%esi, 88(%eax)
+	pushl	%eax
+2:
 	call	efi_main
 	cmpl	$0, %eax
 	movl	%eax, %esi
 	jne	2f
-1:
+fail:
 	/* EFI init failed, so hang. */
 	hlt
-	jmp	1b
+	jmp	fail
 2:
 	movl	BP_code32_start(%esi), %eax
 	leal	preferred_addr(%eax), %eax
@@ -203,6 +224,15 @@ relocated:
  */
 	xorl	%ebx, %ebx
 	jmp	*%eax
+
+#ifdef CONFIG_EFI_STUB
+	.data
+efi32_config:
+	.fill 11,8,0
+	.long efi_call_phys
+	.long 0
+	.byte 0
+#endif
 
 /*
  * Stack and heap for uncompression

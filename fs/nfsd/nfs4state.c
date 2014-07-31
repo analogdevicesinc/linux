@@ -1539,7 +1539,7 @@ out_err:
 }
 
 /*
- * Cache a reply. nfsd4_check_drc_limit() has bounded the cache size.
+ * Cache a reply. nfsd4_check_resp_size() has bounded the cache size.
  */
 void
 nfsd4_store_cache_entry(struct nfsd4_compoundres *resp)
@@ -1597,7 +1597,7 @@ nfsd4_enc_sequence_replay(struct nfsd4_compoundargs *args,
  * The sequence operation is not cached because we can use the slot and
  * session values.
  */
-__be32
+static __be32
 nfsd4_replay_cache_entry(struct nfsd4_compoundres *resp,
 			 struct nfsd4_sequence *seq)
 {
@@ -1606,9 +1606,8 @@ nfsd4_replay_cache_entry(struct nfsd4_compoundres *resp,
 
 	dprintk("--> %s slot %p\n", __func__, slot);
 
-	/* Either returns 0 or nfserr_retry_uncached */
 	status = nfsd4_enc_sequence_replay(resp->rqstp->rq_argp, resp);
-	if (status == nfserr_retry_uncached_rep)
+	if (status)
 		return status;
 
 	/* The sequence operation has been encoded, cstate->datap set. */
@@ -2288,7 +2287,8 @@ out:
 	if (!list_empty(&clp->cl_revoked))
 		seq->status_flags |= SEQ4_STATUS_RECALLABLE_STATE_REVOKED;
 out_no_session:
-	kfree(conn);
+	if (conn)
+		free_conn(conn);
 	spin_unlock(&nn->client_lock);
 	return status;
 out_put_session:
@@ -3628,8 +3628,11 @@ static __be32 nfsd4_lookup_stateid(stateid_t *stateid, unsigned char typemask,
 		return nfserr_bad_stateid;
 	status = lookup_clientid(&stateid->si_opaque.so_clid, sessions,
 							nn, &cl);
-	if (status == nfserr_stale_clientid)
+	if (status == nfserr_stale_clientid) {
+		if (sessions)
+			return nfserr_bad_stateid;
 		return nfserr_stale_stateid;
+	}
 	if (status)
 		return status;
 	*s = find_stateid_by_type(cl, stateid, typemask);
@@ -3723,7 +3726,7 @@ nfsd4_free_lock_stateid(struct nfs4_ol_stateid *stp)
 	 * correspondance, and we have to delete the lockowner when we
 	 * delete the lock stateid:
 	 */
-	release_lockowner(lo);
+	unhash_lockowner(lo);
 	return nfs_ok;
 }
 

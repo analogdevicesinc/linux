@@ -494,6 +494,7 @@ static int __ocfs2_mknod_locked(struct inode *dir,
 	struct ocfs2_dinode *fe = NULL;
 	struct ocfs2_extent_list *fel;
 	u16 feat;
+	struct ocfs2_inode_info *oi = OCFS2_I(inode);
 
 	*new_fe_bh = NULL;
 
@@ -575,8 +576,8 @@ static int __ocfs2_mknod_locked(struct inode *dir,
 			mlog_errno(status);
 	}
 
-	status = 0; /* error in ocfs2_create_new_inode_locks is not
-		     * critical */
+	oi->i_sync_tid = handle->h_transaction->t_tid;
+	oi->i_datasync_tid = handle->h_transaction->t_tid;
 
 leave:
 	if (status < 0) {
@@ -2479,6 +2480,7 @@ int ocfs2_mv_orphaned_inode_to_new(struct inode *dir,
 	di->i_orphaned_slot = 0;
 	set_nlink(inode, 1);
 	ocfs2_set_links_count(di, inode->i_nlink);
+	ocfs2_update_inode_fsync_trans(handle, inode, 1);
 	ocfs2_journal_dirty(handle, di_bh);
 
 	status = ocfs2_add_entry(handle, dentry, inode,

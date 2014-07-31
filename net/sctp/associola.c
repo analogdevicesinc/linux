@@ -330,7 +330,7 @@ void sctp_association_free(struct sctp_association *asoc)
 	/* Only real associations count against the endpoint, so
 	 * don't bother for if this is a temporary association.
 	 */
-	if (!list_empty(&asoc->asocs)) {
+	if (!asoc->temp) {
 		list_del(&asoc->asocs);
 
 		/* Decrement the backlog value for a TCP-style listening
@@ -1319,8 +1319,7 @@ void sctp_assoc_update_retran_path(struct sctp_association *asoc)
 			break;
 	}
 
-	if (trans_next != NULL)
-		asoc->peer.retran_path = trans_next;
+	asoc->peer.retran_path = trans_next;
 
 	pr_debug("%s: association:%p updated new path to addr:%pISpc\n",
 		 __func__, asoc, &asoc->peer.retran_path->ipaddr.sa);

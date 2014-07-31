@@ -281,6 +281,7 @@ static int iscsi_login_zero_tsih_s1(
 {
 	struct iscsi_session *sess = NULL;
 	struct iscsi_login_req *pdu = (struct iscsi_login_req *)buf;
+	enum target_prot_op sup_pro_ops;
 	int ret;
 
 	sess = kzalloc(sizeof(struct iscsi_session), GFP_KERNEL);
@@ -342,8 +343,9 @@ static int iscsi_login_zero_tsih_s1(
 		kfree(sess);
 		return -ENOMEM;
 	}
+	sup_pro_ops = conn->conn_transport->iscsit_get_sup_prot_ops(conn);
 
-	sess->se_sess = transport_init_session();
+	sess->se_sess = transport_init_session(sup_pro_ops);
 	if (IS_ERR(sess->se_sess)) {
 		iscsit_tx_login_rsp(conn, ISCSI_STATUS_CLS_TARGET_ERR,
 				ISCSI_LOGIN_STATUS_NO_RESOURCES);
@@ -442,7 +444,7 @@ static int iscsi_login_zero_tsih_s2(
 		}
 		off = mrdsl % PAGE_SIZE;
 		if (!off)
-			return 0;
+			goto check_prot;
 
 		if (mrdsl < PAGE_SIZE)
 			mrdsl = PAGE_SIZE;
@@ -454,6 +456,24 @@ static int iscsi_login_zero_tsih_s2(
 
 		if (iscsi_change_param_sprintf(conn, "MaxRecvDataSegmentLength=%lu\n", mrdsl))
 			return -1;
+		/*
+		 * ISER currently requires that ImmediateData + Unsolicited
+		 * Data be disabled when protection / signature MRs are enabled.
+		 */
+check_prot:
+		if (sess->se_sess->sup_prot_ops &
+		   (TARGET_PROT_DOUT_STRIP | TARGET_PROT_DOUT_PASS |
+		    TARGET_PROT_DOUT_INSERT)) {
+
+			if (iscsi_change_param_sprintf(conn, "ImmediateData=No"))
+				return -1;
+
+			if (iscsi_change_param_sprintf(conn, "InitialR2T=Yes"))
+				return -1;
+
+			pr_debug("Forcing ImmediateData=No + InitialR2T=Yes for"
+				 " T10-PI enabled ISER session\n");
+		}
 	}
 
 	return 0;
@@ -1196,7 +1216,7 @@ old_sess_out:
 static int __iscsi_target_login_thread(struct iscsi_np *np)
 {
 	u8 *buffer, zero_tsih = 0;
-	int ret = 0, rc;
+	int ret = 0, rc, stop;
 	struct iscsi_conn *conn = NULL;
 	struct iscsi_login *login;
 	struct iscsi_portal_group *tpg = NULL;
@@ -1210,9 +1230,6 @@ static int __iscsi_target_login_thread(struct iscsi_np *np)
 	if (np->np_thread_state == ISCSI_NP_THREAD_RESET) {
 		np->np_thread_state = ISCSI_NP_THREAD_ACTIVE;
 		complete(&np->np_restart_comp);
-	} else if (np->np_thread_state == ISCSI_NP_THREAD_SHUTDOWN) {
-		spin_unlock_bh(&np->np_thread_lock);
-		goto exit;
 	} else {
 		np->np_thread_state = ISCSI_NP_THREAD_ACTIVE;
 	}
@@ -1405,8 +1422,10 @@ old_sess_out:
 	}
 
 out:
-	return 1;
-
+	stop = kthread_should_stop();
+	/* Wait for another socket.. */
+	if (!stop)
+		return 1;
 exit:
 	iscsi_stop_login_thread_timer(np);
 	spin_lock_bh(&np->np_thread_lock);
@@ -1423,7 +1442,7 @@ int iscsi_target_login_thread(void *arg)
 
 	allow_signal(SIGINT);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		ret = __iscsi_target_login_thread(np);
 		/*
 		 * We break and exit here unless another sock_accept() call

@@ -58,10 +58,8 @@ static inline struct dev_cgroup *css_to_devcgroup(struct cgroup_subsys_state *s)
 
 static inline struct dev_cgroup *task_devcgroup(struct task_struct *task)
 {
-	return css_to_devcgroup(task_css(task, devices_subsys_id));
+	return css_to_devcgroup(task_css(task, devices_cgrp_id));
 }
-
-struct cgroup_subsys devices_subsys;
 
 /*
  * called under devcgroup_mutex
@@ -308,17 +306,17 @@ static int devcgroup_seq_show(struct seq_file *m, void *v)
 }
 
 /**
- * match_exception	- iterates the exception list trying to match a rule
- * 			  based on type, major, minor and access type. It is
- * 			  considered a match if an exception is found that
- * 			  will contain the entire range of provided parameters.
+ * match_exception	- iterates the exception list trying to find a complete match
  * @exceptions: list of exceptions
  * @type: device type (DEV_BLOCK or DEV_CHAR)
  * @major: device file major number, ~0 to match all
  * @minor: device file minor number, ~0 to match all
  * @access: permission mask (ACC_READ, ACC_WRITE, ACC_MKNOD)
  *
- * returns: true in case it matches an exception completely
+ * It is considered a complete match if an exception is found that will
+ * contain the entire range of provided parameters.
+ *
+ * Return: true in case it matches an exception completely
  */
 static bool match_exception(struct list_head *exceptions, short type,
 			    u32 major, u32 minor, short access)
@@ -343,20 +341,19 @@ static bool match_exception(struct list_head *exceptions, short type,
 }
 
 /**
- * match_exception_partial - iterates the exception list trying to match a rule
- * 			     based on type, major, minor and access type. It is
- * 			     considered a match if an exception's range is
- * 			     found to contain *any* of the devices specified by
- * 			     provided parameters. This is used to make sure no
- * 			     extra access is being granted that is forbidden by
- * 			     any of the exception list.
+ * match_exception_partial - iterates the exception list trying to find a partial match
  * @exceptions: list of exceptions
  * @type: device type (DEV_BLOCK or DEV_CHAR)
  * @major: device file major number, ~0 to match all
  * @minor: device file minor number, ~0 to match all
  * @access: permission mask (ACC_READ, ACC_WRITE, ACC_MKNOD)
  *
- * returns: true in case the provided range mat matches an exception completely
+ * It is considered a partial match if an exception's range is found to
+ * contain *any* of the devices specified by provided parameters. This is
+ * used to make sure no extra access is being granted that is forbidden by
+ * any of the exception list.
+ *
+ * Return: true in case the provided range mat matches an exception completely
  */
 static bool match_exception_partial(struct list_head *exceptions, short type,
 				    u32 major, u32 minor, short access)
@@ -389,13 +386,13 @@ static bool match_exception_partial(struct list_head *exceptions, short type,
 }
 
 /**
- * verify_new_ex - verifies if a new exception is part of what is allowed
- *		   by a dev cgroup based on the default policy +
- *		   exceptions. This is used to make sure a child cgroup
- *		   won't have more privileges than its parent
+ * verify_new_ex - verifies if a new exception is allowed by parent cgroup's permissions
  * @dev_cgroup: dev cgroup to be tested against
  * @refex: new exception
  * @behavior: behavior of the exception's dev_cgroup
+ *
+ * This is used to make sure a child cgroup won't have more privileges
+ * than its parent
  */
 static bool verify_new_ex(struct dev_cgroup *dev_cgroup,
 		          struct dev_exception_item *refex,
@@ -412,14 +409,14 @@ static bool verify_new_ex(struct dev_cgroup *dev_cgroup,
 			/*
 			 * new exception in the child doesn't matter, only
 			 * adding extra restrictions
-			 */
+			 */ 
 			return true;
 		} else {
 			/*
 			 * new exception in the child will add more devices
 			 * that can be acessed, so it can't match any of
 			 * parent's exceptions, even slightly
-			 */
+			 */ 
 			match = match_exception_partial(&dev_cgroup->exceptions,
 							refex->type,
 							refex->major,
@@ -611,7 +608,7 @@ static inline bool has_children(struct dev_cgroup *devcgroup)
  * parent cgroup has the access you're asking for.
  */
 static int devcgroup_update_access(struct dev_cgroup *devcgroup,
-				   int filetype, const char *buffer)
+				   int filetype, char *buffer)
 {
 	const char *b;
 	char temp[12];		/* 11 + 1 characters needed for a u32 */
@@ -771,7 +768,7 @@ static int devcgroup_update_access(struct dev_cgroup *devcgroup,
 }
 
 static int devcgroup_access_write(struct cgroup_subsys_state *css,
-				  struct cftype *cft, const char *buffer)
+				  struct cftype *cft, char *buffer)
 {
 	int retval;
 
@@ -801,13 +798,11 @@ static struct cftype dev_cgroup_files[] = {
 	{ }	/* terminate */
 };
 
-struct cgroup_subsys devices_subsys = {
-	.name = "devices",
+struct cgroup_subsys devices_cgrp_subsys = {
 	.css_alloc = devcgroup_css_alloc,
 	.css_free = devcgroup_css_free,
 	.css_online = devcgroup_online,
 	.css_offline = devcgroup_offline,
-	.subsys_id = devices_subsys_id,
 	.base_cftypes = dev_cgroup_files,
 };
 

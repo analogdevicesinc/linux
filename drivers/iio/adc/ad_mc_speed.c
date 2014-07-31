@@ -77,7 +77,13 @@ static const struct iio_info axiadc_info = {
 	  .indexed = 1,						 \
 	  .channel = _chan,					 \
 	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 32, 0)}
+	  .scan_type = {					\
+		.sign = _sign,					\
+		.realbits = _bits,				\
+		.storagebits = 32,				\
+		.shift = 0,					\
+	  },							\
+	}
 
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD_MC_SPEED] = {

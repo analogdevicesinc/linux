@@ -79,9 +79,11 @@
  *   2.35.0 - Add CIK macrotile mode array query
  *   2.36.0 - Fix CIK DCE tiling setup
  *   2.37.0 - allow GS ring setup on r6xx/r7xx
+ *   2.38.0 - RADEON_GEM_OP (GET_INITIAL_DOMAIN, SET_INITIAL_DOMAIN),
+ *            CIK: 1D and linear tiling modes contain valid PIPE_CONFIG
  */
 #define KMS_DRIVER_MAJOR	2
-#define KMS_DRIVER_MINOR	37
+#define KMS_DRIVER_MINOR	38
 #define KMS_DRIVER_PATCHLEVEL	0
 int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags);
 int radeon_driver_unload_kms(struct drm_device *dev);
@@ -183,7 +185,7 @@ module_param_named(dynclks, radeon_dynclks, int, 0444);
 MODULE_PARM_DESC(r4xx_atom, "Enable ATOMBIOS modesetting for R4xx");
 module_param_named(r4xx_atom, radeon_r4xx_atom, int, 0444);
 
-MODULE_PARM_DESC(vramlimit, "Restrict VRAM for testing");
+MODULE_PARM_DESC(vramlimit, "Restrict VRAM for testing, in megabytes");
 module_param_named(vramlimit, radeon_vram_limit, int, 0600);
 
 MODULE_PARM_DESC(agpmode, "AGP Mode (-1 == PCI)");

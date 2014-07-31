@@ -56,6 +56,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/debugfs.h>
+#include <linux/log2.h>
 
 /*
  * DDR target is the same on all platforms.
@@ -260,6 +261,17 @@ static int mvebu_mbus_setup_window(struct mvebu_mbus_state *mbus,
 		mbus->soc->win_cfg_offset(win);
 	u32 ctrl, remap_addr;
 
+	if (!is_power_of_2(size)) {
+		WARN(true, "Invalid MBus window size: 0x%zx\n", size);
+		return -EINVAL;
+	}
+
+	if ((base & (phys_addr_t)(size - 1)) != 0) {
+		WARN(true, "Invalid MBus base/size: %pa len 0x%zx\n", &base,
+		     size);
+		return -EINVAL;
+	}
+
 	ctrl = ((size - 1) & WIN_CTRL_SIZE_MASK) |
 		(attr << WIN_CTRL_ATTR_SHIFT)    |
 		(target << WIN_CTRL_TGT_SHIFT)   |
@@ -406,6 +418,10 @@ static int mvebu_devs_debug_show(struct seq_file *seq, void *v)
 		seq_printf(seq, "[%02d] %016llx - %016llx : %04x:%04x",
 			   win, (unsigned long long)wbase,
 			   (unsigned long long)(wbase + wsize), wtarget, wattr);
+
+		if (!is_power_of_2(wsize) ||
+		    ((wbase & (u64)(wsize - 1)) != 0))
+			seq_puts(seq, " (Invalid base/size!!)");
 
 		if (win < mbus->soc->num_remappable_wins) {
 			seq_printf(seq, " (remap %016llx)\n",
@@ -864,14 +880,14 @@ static void __init mvebu_mbus_get_pcie_resources(struct device_node *np,
 	ret = of_property_read_u32_array(np, "pcie-mem-aperture", reg, ARRAY_SIZE(reg));
 	if (!ret) {
 		mem->start = reg[0];
-		mem->end = mem->start + reg[1];
+		mem->end = mem->start + reg[1] - 1;
 		mem->flags = IORESOURCE_MEM;
 	}
 
 	ret = of_property_read_u32_array(np, "pcie-io-aperture", reg, ARRAY_SIZE(reg));
 	if (!ret) {
 		io->start = reg[0];
-		io->end = io->start + reg[1];
+		io->end = io->start + reg[1] - 1;
 		io->flags = IORESOURCE_IO;
 	}
 }
@@ -884,13 +900,12 @@ int __init mvebu_mbus_dt_init(void)
 	const __be32 *prop;
 	int ret;
 
-	np = of_find_matching_node(NULL, of_mvebu_mbus_ids);
+	np = of_find_matching_node_and_match(NULL, of_mvebu_mbus_ids, &of_id);
 	if (!np) {
 		pr_err("could not find a matching SoC family\n");
 		return -ENODEV;
 	}
 
-	of_id = of_match_node(of_mvebu_mbus_ids, np);
 	mbus_state.soc = of_id->data;
 
 	prop = of_get_property(np, "controller", NULL);

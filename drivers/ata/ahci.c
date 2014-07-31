@@ -35,7 +35,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
-#include <linux/init.h>
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -582,6 +581,7 @@ static int ahci_vt8251_hardreset(struct ata_link *link, unsigned int *class,
 				 unsigned long deadline)
 {
 	struct ata_port *ap = link->ap;
+	struct ahci_host_priv *hpriv = ap->host->private_data;
 	bool online;
 	int rc;
 
@@ -592,7 +592,7 @@ static int ahci_vt8251_hardreset(struct ata_link *link, unsigned int *class,
 	rc = sata_link_hardreset(link, sata_ehc_deb_timing(&link->eh_context),
 				 deadline, &online, NULL);
 
-	ahci_start_engine(ap);
+	hpriv->start_engine(ap);
 
 	DPRINTK("EXIT, rc=%d, class=%u\n", rc, *class);
 
@@ -607,6 +607,7 @@ static int ahci_p5wdh_hardreset(struct ata_link *link, unsigned int *class,
 {
 	struct ata_port *ap = link->ap;
 	struct ahci_port_priv *pp = ap->private_data;
+	struct ahci_host_priv *hpriv = ap->host->private_data;
 	u8 *d2h_fis = pp->rx_fis + RX_FIS_D2H_REG;
 	struct ata_taskfile tf;
 	bool online;
@@ -622,7 +623,7 @@ static int ahci_p5wdh_hardreset(struct ata_link *link, unsigned int *class,
 	rc = sata_link_hardreset(link, sata_ehc_deb_timing(&link->eh_context),
 				 deadline, &online, NULL);
 
-	ahci_start_engine(ap);
+	hpriv->start_engine(ap);
 
 	/* The pseudo configuration device on SIMG4726 attached to
 	 * ASUS P5W-DH Deluxe doesn't send signature FIS after
@@ -1118,6 +1119,17 @@ static bool ahci_broken_online(struct pci_dev *pdev)
 	return pdev->bus->number == (val >> 8) && pdev->devfn == (val & 0xff);
 }
 
+static bool ahci_broken_devslp(struct pci_dev *pdev)
+{
+	/* device with broken DEVSLP but still showing SDS capability */
+	static const struct pci_device_id ids[] = {
+		{ PCI_VDEVICE(INTEL, 0x0f23)}, /* Valleyview SoC */
+		{}
+	};
+
+	return pci_match_id(ids, pdev);
+}
+
 #ifdef CONFIG_ATA_ACPI
 static void ahci_gtf_filter_workaround(struct ata_host *host)
 {
@@ -1174,8 +1186,8 @@ static int ahci_init_interrupts(struct pci_dev *pdev, unsigned int n_ports,
 	if (hpriv->flags & AHCI_HFLAG_NO_MSI)
 		goto intx;
 
-	rc = pci_msi_vec_count(pdev);
-	if (rc < 0)
+	nvec = pci_msi_vec_count(pdev);
+	if (nvec < 0)
 		goto intx;
 
 	/*
@@ -1183,15 +1195,21 @@ static int ahci_init_interrupts(struct pci_dev *pdev, unsigned int n_ports,
 	 * Message mode could be enforced. In this case assume that advantage
 	 * of multipe MSIs is negated and use single MSI mode instead.
 	 */
-	if (rc < n_ports)
+	if (nvec < n_ports)
 		goto single_msi;
 
-	nvec = rc;
-	rc = pci_enable_msi_block(pdev, nvec);
-	if (rc < 0)
-		goto intx;
-	else if (rc > 0)
+	rc = pci_enable_msi_exact(pdev, nvec);
+	if (rc == -ENOSPC)
 		goto single_msi;
+	else if (rc < 0)
+		goto intx;
+
+	/* fallback to single MSI mode if the controller enforced MRSM mode */
+	if (readl(hpriv->mmio + HOST_CTL) & HOST_MRSM) {
+		pci_disable_msi(pdev);
+		printk(KERN_INFO "ahci: MRSM is on, fallback to single MSI\n");
+		goto single_msi;
+	}
 
 	/* fallback to single MSI mode if the controller enforced MRSM mode */
 	if (readl(hpriv->mmio + HOST_CTL) & HOST_MRSM) {
@@ -1203,8 +1221,7 @@ static int ahci_init_interrupts(struct pci_dev *pdev, unsigned int n_ports,
 	return nvec;
 
 single_msi:
-	rc = pci_enable_msi(pdev);
-	if (rc)
+	if (pci_enable_msi(pdev))
 		goto intx;
 	return 1;
 
@@ -1368,6 +1385,10 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 		hpriv->flags &= ~AHCI_HFLAG_32BIT_ONLY;
 
 	hpriv->mmio = pcim_iomap_table(pdev)[ahci_pci_bar];
+
+	/* must set flag prior to save config in order to take effect */
+	if (ahci_broken_devslp(pdev))
+		hpriv->flags |= AHCI_HFLAG_NO_DEVSLP;
 
 	/* save initial config */
 	ahci_pci_save_initial_config(pdev, hpriv);

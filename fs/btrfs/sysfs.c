@@ -24,6 +24,7 @@
 #include <linux/kobject.h>
 #include <linux/bug.h>
 #include <linux/genhd.h>
+#include <linux/debugfs.h>
 
 #include "ctree.h"
 #include "disk-io.h"
@@ -253,7 +254,6 @@ static ssize_t global_rsv_reserved_show(struct kobject *kobj,
 BTRFS_ATTR(global_rsv_reserved, 0444, global_rsv_reserved_show);
 
 #define to_space_info(_kobj) container_of(_kobj, struct btrfs_space_info, kobj)
-#define to_raid_kobj(_kobj) container_of(_kobj, struct raid_kobject, kobj)
 
 static ssize_t raid_bytes_show(struct kobject *kobj,
 			       struct kobj_attribute *attr, char *buf);
@@ -266,7 +266,7 @@ static ssize_t raid_bytes_show(struct kobject *kobj,
 {
 	struct btrfs_space_info *sinfo = to_space_info(kobj->parent);
 	struct btrfs_block_group_cache *block_group;
-	int index = to_raid_kobj(kobj)->raid_type;
+	int index = kobj - sinfo->block_group_kobjs;
 	u64 val = 0;
 
 	down_read(&sinfo->groups_sem);
@@ -288,7 +288,7 @@ static struct attribute *raid_attributes[] = {
 
 static void release_raid_kobj(struct kobject *kobj)
 {
-	kfree(to_raid_kobj(kobj));
+	kobject_put(kobj->parent);
 }
 
 struct kobj_type btrfs_raid_ktype = {
@@ -600,6 +600,12 @@ static int add_device_membership(struct btrfs_fs_info *fs_info)
 /* /sys/fs/btrfs/ entry */
 static struct kset *btrfs_kset;
 
+/* /sys/kernel/debug/btrfs */
+static struct dentry *btrfs_debugfs_root_dentry;
+
+/* Debugging tunables and exported data */
+u64 btrfs_debugfs_test;
+
 int btrfs_sysfs_add_one(struct btrfs_fs_info *fs_info)
 {
 	int error;
@@ -643,27 +649,41 @@ failure:
 	return error;
 }
 
+static int btrfs_init_debugfs(void)
+{
+#ifdef CONFIG_DEBUG_FS
+	btrfs_debugfs_root_dentry = debugfs_create_dir("btrfs", NULL);
+	if (!btrfs_debugfs_root_dentry)
+		return -ENOMEM;
+
+	debugfs_create_u64("test", S_IRUGO | S_IWUGO, btrfs_debugfs_root_dentry,
+			&btrfs_debugfs_test);
+#endif
+	return 0;
+}
+
 int btrfs_init_sysfs(void)
 {
 	int ret;
+
 	btrfs_kset = kset_create_and_add("btrfs", NULL, fs_kobj);
 	if (!btrfs_kset)
 		return -ENOMEM;
 
-	init_feature_attrs();
-
-	ret = sysfs_create_group(&btrfs_kset->kobj, &btrfs_feature_attr_group);
-	if (ret) {
-		kset_unregister(btrfs_kset);
+	ret = btrfs_init_debugfs();
+	if (ret)
 		return ret;
-	}
 
-	return 0;
+	init_feature_attrs();
+	ret = sysfs_create_group(&btrfs_kset->kobj, &btrfs_feature_attr_group);
+
+	return ret;
 }
 
 void btrfs_exit_sysfs(void)
 {
 	sysfs_remove_group(&btrfs_kset->kobj, &btrfs_feature_attr_group);
 	kset_unregister(btrfs_kset);
+	debugfs_remove_recursive(btrfs_debugfs_root_dentry);
 }
 

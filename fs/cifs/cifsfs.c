@@ -291,7 +291,7 @@ cifs_destroy_inode(struct inode *inode)
 static void
 cifs_evict_inode(struct inode *inode)
 {
-	truncate_inode_pages(&inode->i_data, 0);
+	truncate_inode_pages_final(&inode->i_data);
 	clear_inode(inode);
 	cifs_fscache_release_inode_cookie(inode);
 }
@@ -546,6 +546,7 @@ static int cifs_show_stats(struct seq_file *s, struct dentry *root)
 
 static int cifs_remount(struct super_block *sb, int *flags, char *data)
 {
+	sync_filesystem(sb);
 	*flags |= MS_NODIRATIME;
 	return 0;
 }
@@ -861,7 +862,6 @@ const struct inode_operations cifs_file_inode_ops = {
 /*	revalidate:cifs_revalidate, */
 	.setattr = cifs_setattr,
 	.getattr = cifs_getattr, /* do we need this anymore? */
-	.rename = cifs_rename,
 	.permission = cifs_permission,
 #ifdef CONFIG_CIFS_XATTR
 	.setxattr = cifs_setxattr,
@@ -1017,7 +1017,7 @@ cifs_init_once(void *inode)
 	init_rwsem(&cifsi->lock_sem);
 }
 
-static int
+static int __init
 cifs_init_inodecache(void)
 {
 	cifs_inode_cachep = kmem_cache_create("cifs_inode_cache",

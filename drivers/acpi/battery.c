@@ -45,15 +45,13 @@
 #include <linux/acpi.h>
 #include <linux/power_supply.h>
 
+#include "battery.h"
+
 #define PREFIX "ACPI: "
 
 #define ACPI_BATTERY_VALUE_UNKNOWN 0xFFFFFFFF
 
-#define ACPI_BATTERY_CLASS		"battery"
 #define ACPI_BATTERY_DEVICE_NAME	"Battery"
-#define ACPI_BATTERY_NOTIFY_STATUS	0x80
-#define ACPI_BATTERY_NOTIFY_INFO	0x81
-#define ACPI_BATTERY_NOTIFY_THRESHOLD   0x82
 
 /* Battery power unit: 0 means mW, 1 means mA */
 #define ACPI_BATTERY_POWER_UNIT_MA	1
@@ -1036,6 +1034,7 @@ static void acpi_battery_notify(struct acpi_device *device, u32 event)
 	acpi_bus_generate_netlink_event(device->pnp.device_class,
 					dev_name(&device->dev), event,
 					acpi_battery_present(battery));
+	acpi_notifier_call_chain(device, event, acpi_battery_present(battery));
 	/* acpi_battery_update could remove power_supply object */
 	if (old && battery->bat.dev)
 		power_supply_changed(&battery->bat);
@@ -1179,7 +1178,7 @@ static void __init acpi_battery_init_async(void *unused, async_cookie_t cookie)
 
 	if (dmi_check_system(bat_dmi_table))
 		battery_bix_broken_package = 1;
-
+	
 #ifdef CONFIG_ACPI_PROCFS_POWER
 	acpi_battery_dir = acpi_lock_battery_dir();
 	if (!acpi_battery_dir)

@@ -314,25 +314,17 @@ reread:
 		error = bp->b_error;
 		if (loud)
 			xfs_warn(mp, "SB validate failed with error %d.", error);
+		/* bad CRC means corrupted metadata */
+		if (error == EFSBADCRC)
+			error = EFSCORRUPTED;
 		goto release_buf;
 	}
 
 	/*
 	 * Initialize the mount structure from the superblock.
 	 */
-	xfs_sb_from_disk(sbp, XFS_BUF_TO_SBP(bp));
-	xfs_sb_quota_from_disk(sbp);
-
-	/*
-	 * If we haven't validated the superblock, do so now before we try
-	 * to check the sector size and reread the superblock appropriately.
-	 */
-	if (sbp->sb_magicnum != XFS_SB_MAGIC) {
-		if (loud)
-			xfs_warn(mp, "Invalid superblock magic number");
-		error = EINVAL;
-		goto release_buf;
-	}
+	xfs_sb_from_disk(&mp->m_sb, XFS_BUF_TO_SBP(bp));
+	xfs_sb_quota_from_disk(&mp->m_sb);
 
 	/*
 	 * We must be able to do sector-sized and sector-aligned IO.
@@ -345,11 +337,11 @@ reread:
 		goto release_buf;
 	}
 
+	/*
+	 * Re-read the superblock so the buffer is correctly sized,
+	 * and properly verified.
+	 */
 	if (buf_ops == NULL) {
-		/*
-		 * Re-read the superblock so the buffer is correctly sized,
-		 * and properly verified.
-		 */
 		xfs_buf_relse(bp);
 		sector_size = sbp->sb_sectsize;
 		buf_ops = loud ? &xfs_sb_buf_ops : &xfs_sb_quiet_buf_ops;
@@ -751,8 +743,6 @@ xfs_mountfs(
 		new_size *= mp->m_sb.sb_inodesize / XFS_DINODE_MIN_SIZE;
 		if (mp->m_sb.sb_inoalignmt >= XFS_B_TO_FSBT(mp, new_size))
 			mp->m_inode_cluster_size = new_size;
-		xfs_info(mp, "Using inode cluster size of %d bytes",
-			 mp->m_inode_cluster_size);
 	}
 
 	/*
