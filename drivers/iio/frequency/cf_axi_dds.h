@@ -189,6 +189,8 @@ struct cf_axi_dds_chip_info {
 	unsigned int num_dds_channels;
 	unsigned int num_dp_disable_channels;
 	unsigned int num_buf_channels;
+	unsigned num_shadow_slave_channels;
+	const unsigned long *scan_masks;
 	struct iio_chan_spec channel[17];
 };
 
@@ -204,10 +206,12 @@ struct cf_axi_dds_state {
 
 	struct iio_info		iio_info;
 	void __iomem		*regs;
+	void __iomem		*slave_regs;
 	u32			dac_clk;
 	unsigned 		ddr_dds_interp_en;
-	unsigned		cached_freq[8];
+	unsigned			cached_freq[8];
 	unsigned			version;
+	unsigned			have_slave_channels;
 	struct notifier_block   clk_nb;
 };
 
@@ -287,6 +291,17 @@ static inline void dds_write(struct cf_axi_dds_state *st,
 static inline unsigned int dds_read(struct cf_axi_dds_state *st, unsigned reg)
 {
 	return ioread32(st->regs + reg);
+}
+
+static inline void dds_slave_write(struct cf_axi_dds_state *st,
+			     unsigned reg, unsigned val)
+{
+	iowrite32(val, st->slave_regs + reg);
+}
+
+static inline unsigned int dds_slave_read(struct cf_axi_dds_state *st, unsigned reg)
+{
+	return ioread32(st->slave_regs + reg);
 }
 
 #endif /* ADI_AXI_DDS_H_ */

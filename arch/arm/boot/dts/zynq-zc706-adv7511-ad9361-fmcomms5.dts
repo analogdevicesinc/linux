@@ -199,6 +199,7 @@
 			};
 		};
 
+		/* Master HDL core with DMA */
 		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
 			compatible = "adi,axi-ad9361-6.00.a";
 			reg = <0x79020000 0x6000>;
@@ -215,8 +216,11 @@
 			clock-names = "sampl_clk";
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
+			slavecore-reg = <0x79044000 0x1000>;
 		};
 
+
+		/* Slave HDL core without DMA */
 		cf_ad9361_adc_core_1: cf-ad9361-hpc@79040000 {
 			compatible = "adi,axi-ad9361-6.00.a";
 			reg = <0x79040000 0x6000>;

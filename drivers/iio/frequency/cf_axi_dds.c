@@ -116,12 +116,24 @@ int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 {
 	if (PCORE_VERSION_MAJOR(st->version) > 7) {
 		if (channel < 0) { /* ALL */
-			int i;
+			unsigned i;
 			for (i = 0; i < st->chip_info->num_buf_channels; i++) {
-				dds_write(st, ADI_REG_CHAN_CNTRL_7(i), sel);
+				if (i > (st->have_slave_channels - 1))
+					dds_slave_write(st,
+						ADI_REG_CHAN_CNTRL_7(i -
+						st->have_slave_channels), sel);
+				else
+					dds_write(st,
+					ADI_REG_CHAN_CNTRL_7(i), sel);
 			}
 		} else {
-			dds_write(st, ADI_REG_CHAN_CNTRL_7(channel), sel);
+			if ((unsigned)channel > (st->have_slave_channels - 1))
+				dds_slave_write(st,
+					ADI_REG_CHAN_CNTRL_7(channel -
+					st->have_slave_channels), sel);
+			else
+				dds_write(st, ADI_REG_CHAN_CNTRL_7(channel),
+					  sel);
 		}
 	} else {
 		unsigned reg;
@@ -147,6 +159,11 @@ static enum dds_data_select cf_axi_dds_get_datasel(struct cf_axi_dds_state *st,
 	if (PCORE_VERSION_MAJOR(st->version) > 7) {
 		if (channel < 0)
 			channel = 0;
+
+		if ((unsigned)channel > (st->have_slave_channels - 1))
+			return dds_slave_read(st,
+				ADI_REG_CHAN_CNTRL_7(channel - st->have_slave_channels));
+
 		return dds_read(st, ADI_REG_CHAN_CNTRL_7(channel));
 	} else {
 		return ADI_TO_DATA_SEL(dds_read(st, ADI_REG_CNTRL_2));
@@ -592,6 +609,28 @@ out_unlock:
 	return ret;
 }
 
+static int cf_axi_dds_update_scan_mode(struct iio_dev *indio_dev,
+	const unsigned long *scan_mask)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	unsigned i, sel;
+
+	for (i = 0; i < indio_dev->masklength; i++) {
+		sel = cf_axi_dds_get_datasel(st, i);
+
+		if (test_bit(i, scan_mask)) {
+			sel = DATA_SEL_DMA;
+		} else {
+			if (sel == DATA_SEL_DMA)
+				sel = DATA_SEL_DDS;
+		}
+
+		cf_axi_dds_datasel(st, i, sel);
+	}
+
+	return 0;
+}
+
 static const char * const cf_axi_dds_scale[] = {
 	"1.000000", "0.500000", "0.250000", "0.125000",
 	"0.062500", "0.031250", "0.015625", "0.007812",
@@ -657,6 +696,19 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	.scan_index = _chan, \
 	.scan_type = IIO_ST('s', 16, 16, 0), \
 }
+
+static const unsigned long ad9361_2x2_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, /* 1 & 2 chan */
+	0x10, 0x20, 0x40, 0x80, 0x30, 0xC0, /* 1 & 2 chan */
+	0x33, 0xCC, 0xC3, 0x3C, 0x0F, 0xF0, /* 4 chan */
+	0xFF,				   /* 8 chan */
+	0x00,
+};
+
+static const unsigned long ad9361_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
+	0x00,
+};
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD9122] = {
@@ -740,6 +792,7 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
 	.num_channels = 12,
 	.num_dds_channels = 8,
 	.num_buf_channels = 4,
+	.scan_masks = ad9361_available_scan_masks,
 };
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9364 = {
@@ -781,6 +834,8 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361x2 = {
 	.num_channels = 16,
 	.num_dds_channels = 8,
 	.num_buf_channels = 4,
+	.num_shadow_slave_channels = 4,
+	.scan_masks = ad9361_2x2_available_scan_masks,
 };
 
 static const struct iio_info cf_axi_dds_info = {
@@ -788,6 +843,7 @@ static const struct iio_info cf_axi_dds_info = {
 	.read_raw = &cf_axi_dds_read_raw,
 	.write_raw = &cf_axi_dds_write_raw,
 	.debugfs_reg_access = &cf_axi_dds_reg_access,
+	.update_scan_mode = &cf_axi_dds_update_scan_mode,
 };
 
 static int dds_converter_match(struct device *dev, void *data)
@@ -1080,9 +1136,25 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	cf_axi_dds_sync_frame(indio_dev);
 
 	if (!st->dp_disable && !dds_read(st, ADI_REG_ID)) {
+
+		if (st->chip_info->num_shadow_slave_channels) {
+			u32 regs[2];
+			ret = of_property_read_u32_array(pdev->dev.of_node,
+					"slavecore-reg", regs, ARRAY_SIZE(regs));
+			if (!ret) {
+				st->slave_regs = ioremap(regs[0], regs[1]);
+				if (st->slave_regs)
+					st->have_slave_channels = st->chip_info->
+						num_shadow_slave_channels;
+
+			}
+		}
+
 		ret = cf_axi_dds_configure_buffer(indio_dev);
 		if (ret)
 			goto err_converter_put;
+
+		indio_dev->available_scan_masks = st->chip_info->scan_masks;
 
 		ret = iio_buffer_register(indio_dev, st->chip_info->channel,
 			st->chip_info->num_channels);
