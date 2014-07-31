@@ -4887,12 +4887,27 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	  .scan_index = _si,						\
 	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
+
+static const unsigned long ad9361_2x2_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, /* 1 & 2 chan */
+	0x10, 0x20, 0x40, 0x80, 0x30, 0xC0, /* 1 & 2 chan */
+	0x33, 0xCC, 0xC3, 0x3C, 0x0F, 0xF0, /* 4 chan */
+	0xFF,				   /* 8 chan */
+	0x00,
+};
+
+static const unsigned long ad9361_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
+	0x00,
+};
+
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD9361] = {
 		.name = "AD9361",
 		.max_rate = 61440000UL,
 		.max_testmode = 0,
 		.num_channels = 4,
+		.scan_masks = ad9361_available_scan_masks,
 		.channel[0] = AIM_CHAN(0, 0, 12, 's'),
 		.channel[1] = AIM_CHAN(1, 1, 12, 's'),
 		.channel[2] = AIM_CHAN(2, 2, 12, 's'),
@@ -4904,6 +4919,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.max_testmode = 0,
 		.num_channels = 8,
 		.num_shadow_slave_channels = 4,
+		.scan_masks = ad9361_2x2_available_scan_masks,
 		.channel[0] = AIM_CHAN(0, 0, 12, 's'),
 		.channel[1] = AIM_CHAN(1, 1, 12, 's'),
 		.channel[2] = AIM_CHAN(2, 2, 12, 's'),
