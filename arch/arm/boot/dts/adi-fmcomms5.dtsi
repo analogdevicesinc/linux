@@ -233,7 +233,7 @@
 		adi,aux-dac2-tx-delay-us = <0>;
 	};
 
-	adc1_ad9361: ad9361-phy-hpc@1 {
+	adc1_ad9361: ad9361-phy-B@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
