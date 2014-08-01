@@ -210,10 +210,12 @@ void cf_axi_dds_stop(struct cf_axi_dds_state *st)
 
 void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on)
 {
-	if (PCORE_VERSION_MAJOR(st->version) < 8)
+	if (PCORE_VERSION_MAJOR(st->version) < 8) {
 		dds_write(st, ADI_REG_CNTRL_1, (st->enable || force_on) ? ADI_ENABLE : 0);
-	else
+	} else {
 		dds_write(st, ADI_REG_CNTRL_1, ADI_SYNC);
+		dds_master_write(st, ADI_REG_CNTRL_1, ADI_SYNC);
+	}
 }
 
 static int cf_axi_dds_rate_change(struct notifier_block *nb,
@@ -616,13 +618,11 @@ static int cf_axi_dds_update_scan_mode(struct iio_dev *indio_dev,
 	unsigned i, sel;
 
 	for (i = 0; i < indio_dev->masklength; i++) {
-		sel = cf_axi_dds_get_datasel(st, i);
 
 		if (test_bit(i, scan_mask)) {
 			sel = DATA_SEL_DMA;
 		} else {
-			if (sel == DATA_SEL_DMA)
-				sel = DATA_SEL_DDS;
+			sel = DATA_SEL_DDS;
 		}
 
 		cf_axi_dds_datasel(st, i, sel);
@@ -833,7 +833,7 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361x2 = {
 	},
 	.num_channels = 16,
 	.num_dds_channels = 8,
-	.num_buf_channels = 4,
+	.num_buf_channels = 8,
 	.num_shadow_slave_channels = 4,
 	.scan_masks = ad9361_2x2_available_scan_masks,
 };
@@ -1160,6 +1160,13 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			st->chip_info->num_channels);
 		if (ret)
 			goto err_unconfigure_buffer;
+	} else if (dds_read(st, ADI_REG_ID)){
+		u32 regs[2];
+		ret = of_property_read_u32_array(pdev->dev.of_node,
+				"mastercore-reg", regs, ARRAY_SIZE(regs));
+		if (!ret) {
+			st->master_regs = ioremap(regs[0], regs[1]);
+		}
 	}
 
 	ret = iio_device_register(indio_dev);

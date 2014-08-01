@@ -207,6 +207,7 @@ struct cf_axi_dds_state {
 	struct iio_info		iio_info;
 	void __iomem		*regs;
 	void __iomem		*slave_regs;
+	void __iomem		*master_regs;
 	u32			dac_clk;
 	unsigned 		ddr_dds_interp_en;
 	unsigned			cached_freq[8];
@@ -302,6 +303,13 @@ static inline void dds_slave_write(struct cf_axi_dds_state *st,
 static inline unsigned int dds_slave_read(struct cf_axi_dds_state *st, unsigned reg)
 {
 	return ioread32(st->slave_regs + reg);
+}
+
+static inline void dds_master_write(struct cf_axi_dds_state *st,
+			     unsigned reg, unsigned val)
+{
+	if (st->master_regs)
+		iowrite32(val, st->master_regs + reg);
 }
 
 #endif /* ADI_AXI_DDS_H_ */
