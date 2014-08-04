@@ -155,6 +155,8 @@ struct ad9361_rf_phy {
 	struct ad9361_fastlock	fastlock;
 };
 
+static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq);
+
 static const char *ad9361_ensm_states[] = {
 	"sleep", "", "", "", "", "alert", "tx", "tx flush",
 	"rx", "rx_flush", "fdd", "fdd_flush"
@@ -3477,6 +3479,9 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
 			mcs_mask, 0);
 		break;
+
+	case 6:
+		ad9361_dig_tune(phy, 0);
 	}
 
 	return 0;
@@ -5035,6 +5040,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 	int ret, i, j, k, chan, t, num_chan, err = 0;
 	u32 s0, s1, c0, c1, tmp, saved = 0;
 	u8 field[2][16];
+	u32 saved_dsel[4], saved_chan_ctrl6[4];
 
 	unsigned hdl_dac_version = axiadc_read(st, 0x4000);
 
@@ -5120,11 +5126,15 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 					ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 					ADI_ENABLE | ADI_IQCOR_ENB);
 				axiadc_set_pnsel(st, chan, ADC_PN_CUSTOM);
-				if (PCORE_VERSION_MAJOR(hdl_dac_version) > 7)
+				saved_chan_ctrl6[chan] = axiadc_read(st, 0x4414 + (chan) * 0x40);
+				if (PCORE_VERSION_MAJOR(hdl_dac_version) > 7) {
+					saved_dsel[chan] = axiadc_read(st, 0x4418 + (chan) * 0x40);
 					axiadc_write(st, 0x4418 + (chan) * 0x40, 9);
-				else
-					axiadc_write(st, 0x4414 + (chan) * 0x40, 1);
-
+					axiadc_write(st, 0x4414 + (chan) * 0x40, 0); /* !IQCOR_ENB */
+					axiadc_write(st, 0x4044, 1);
+				} else {
+					axiadc_write(st, 0x4414 + (chan) * 0x40, 1); /* DAC_PN_ENB */
+				}
 			}
 			if (PCORE_VERSION_MAJOR(hdl_dac_version) < 8) {
 				saved = tmp = axiadc_read(st, 0x4048);
@@ -5144,11 +5154,12 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 					ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 					ADI_ENABLE | ADI_IQCOR_ENB);
 				axiadc_set_pnsel(st, chan, ADC_PN9);
-				if (PCORE_VERSION_MAJOR(hdl_dac_version) > 7)
-					axiadc_write(st, 0x4418 + (chan) * 0x40, 0);
-				else
-					axiadc_write(st, 0x4414 + (chan) * 0x40, 0);
+				if (PCORE_VERSION_MAJOR(hdl_dac_version) > 7) {
+					axiadc_write(st, 0x4418 + (chan) * 0x40, saved_dsel[chan]);
+					axiadc_write(st, 0x4044, 1);
+				}
 
+				axiadc_write(st, 0x4414 + (chan) * 0x40, saved_chan_ctrl6[chan]);
 			}
 
 			if (err == -EIO) {
@@ -5212,8 +5223,8 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
 
-	ret = ad9361_dig_tune(conv->phy, ((conv->chip_info->num_channels > 4) ||
-		axiadc_read(st, ADI_REG_ID)) ? 0 : 61440000);
+	ret = ad9361_dig_tune(conv->phy, (axiadc_read(st, ADI_REG_ID)) ?
+		0 : 61440000);
 	if (ret < 0)
 		return ret;
 
