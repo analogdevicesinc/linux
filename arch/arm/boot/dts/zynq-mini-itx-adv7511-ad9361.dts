@@ -152,6 +152,7 @@
 			dma-channel {
 				adi,buswidth = <64>;
 				adi,type = <1>;
+				adi,cyclic;
 			};
 		};
 
@@ -196,5 +197,9 @@
 /include/ "adi-fmcomms2.dtsi"
 
 &adc0_ad9361 {
+	en_agc-gpios = <&gpio 98 0>;
+	sync-gpios = <&gpio 99 0>;
 	reset-gpios = <&gpio 100 0>;
+	enable-gpios = <&gpio 101 0>;
+	txnrx-gpios = <&gpio 102 0>;
 };
