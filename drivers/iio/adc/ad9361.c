@@ -157,6 +157,67 @@ struct ad9361_rf_phy {
 
 static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq);
 
+#ifdef _DEBUG
+struct ad9361_trace {
+	s64 time;
+	unsigned reg;
+	unsigned read;
+};
+
+static struct ad9361_trace timestamps[5000];
+static int timestamp_cnt = 0;
+static bool timestamp_en = 0;
+
+static inline void ad9361_timestamp_en(unsigned reg, unsigned read)
+{
+	timestamp_en = true;
+}
+
+static inline void ad9361_timestamp_dis(unsigned reg, unsigned read)
+{
+	timestamp_en = false;
+}
+
+static inline void ad9361_add_timestamp(unsigned reg, unsigned read)
+{
+	if (timestamp_en && (timestamp_cnt < 5000)) {
+		timestamps[timestamp_cnt].time = iio_get_time_ns();
+		timestamps[timestamp_cnt].reg = reg;
+		timestamps[timestamp_cnt].read = read;
+
+		timestamp_cnt++;
+	}
+}
+
+static inline void ad9361_print_timestamp(void)
+{
+	int i;
+
+	pr_dbg("\n--- TRACE START / Points (%d) --- \n", timestamp_cnt);
+
+	for (i = 0; i < timestamp_cnt; i++) {
+		if (i == 0)
+			pr_dbg("[%lld] [%lld] \t%s\t 0x%X\n",
+			timestamps[i].time,
+				0LL,
+				timestamps[i].read ? "REG_RD" : "REG_WR",
+				timestamps[i].reg);
+		else
+			pr_dbg("[%lld] [%12lld] \t%s\t 0x%X\n",
+			timestamps[i].time,
+				timestamps[i].time - timestamps[i - 1].time,
+				timestamps[i].read ? "REG_RD" : "REG_WR",
+				timestamps[i].reg);
+
+		}
+
+	pr_dbg("\n--- TRACE END / Time %lld ns --- \n",
+	       timestamps[timestamp_cnt - 1].time - timestamps[0].time);
+
+	timestamp_cnt = 0;
+}
+#endif
+
 static const char *ad9361_ensm_states[] = {
 	"sleep", "", "", "", "", "alert", "tx", "tx flush",
 	"rx", "rx_flush", "fdd", "fdd_flush"
@@ -514,7 +575,7 @@ static ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, u32 reg,
 				 u32 mask, bool done_state)
 {
-	u32 timeout = 500;
+	u32 timeout = 5000; /* RFDC_CAL can take long */
 	u32 state;
 
 	do {
@@ -522,7 +583,11 @@ static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, u32 reg,
 		if (state == done_state)
 			return 0;
 
-		msleep_interruptible(1);
+		if (reg == REG_CALIBRATION_CTRL)
+			usleep_range(800, 1200);
+		else
+			usleep_range(80, 120);
+
 	} while (timeout--);
 
 	dev_err(&phy->spi->dev, "Calibration TIMEOUT (0x%X, 0x%X)", reg, mask);
