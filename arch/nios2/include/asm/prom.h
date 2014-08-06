@@ -19,8 +19,6 @@
 #ifndef _ASM_NIOS2_PROM_H
 #define _ASM_NIOS2_PROM_H
 
-extern int __dtb_start;
-
 extern unsigned long early_altera_uart_or_juart_console(void);
 
 #endif /* _ASM_NIOS2_PROM_H */

@@ -51,19 +51,20 @@ void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
 
 void __init early_init_devtree(void *params)
 {
-	if (params && be32_to_cpup((__be32 *)params) == OF_DT_HEADER)
-		initial_boot_params = params;
+	__be32 *dtb = (u32*)__dtb_start;
 #if defined(CONFIG_NIOS2_DTB_AT_PHYS_ADDR)
-	else if (be32_to_cpup((__be32 *)CONFIG_NIOS2_DTB_PHYS_ADDR) ==
-		 OF_DT_HEADER)
-		initial_boot_params = (void *)CONFIG_NIOS2_DTB_PHYS_ADDR;
-#endif
-	else if (be32_to_cpu((__be32)__dtb_start) == OF_DT_HEADER)
-		initial_boot_params = (void *)&__dtb_start;
-	else
+	if (be32_to_cpup((__be32 *)CONFIG_NIOS2_DTB_PHYS_ADDR) ==
+		 OF_DT_HEADER) {
+		params = (void *)CONFIG_NIOS2_DTB_PHYS_ADDR;
+		early_init_dt_scan(params);
 		return;
+	}
+#endif
+	if (be32_to_cpu((__be32) *dtb) == OF_DT_HEADER)
+		params = (void *)__dtb_start;
 
-	early_init_dt_scan(initial_boot_params);
+	early_init_dt_scan(params);
+
 }
 
 #ifdef CONFIG_EARLY_PRINTK
@@ -98,7 +99,9 @@ static int __init early_init_dt_scan_serial(unsigned long node,
 		return 0;
 #endif
 
-	*addr64 = of_get_flat_dt_translate_address(node);
+	*addr64 = fdt_translate_address((const void *)initial_boot_params,
+		node);
+
 	return *addr64 == OF_BAD_ADDR ? 0 : 1;
 }
 
