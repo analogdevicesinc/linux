@@ -18,6 +18,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -151,6 +152,12 @@ struct ad7791_state {
 
 	struct regulator *reg;
 	const struct ad7791_chip_info *info;
+};
+
+static struct ad7791_platform_data ad7791_default_pdata = {
+	.buffered = true,
+	.burnout_current = false,
+	.unipolar = false,
 };
 
 static struct ad7791_state *ad_sigma_delta_to_ad7791(struct ad_sigma_delta *sd)
@@ -351,13 +358,49 @@ static int ad7791_setup(struct ad7791_state *st,
 		st->mode);
 }
 
+#ifdef CONFIG_OF
+static struct ad7791_platform_data *ad7791_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct ad7791_platform_data *pdata;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+
+	pdata->buffered = of_property_read_bool(np, "adi,buffered-mode-enable");
+	pdata->burnout_current = of_property_read_bool(np, "adi,burnout-current-enable");
+	pdata->unipolar = of_property_read_bool(np, "adi,unipolar-mode-enable");
+	
+	return pdata;
+}
+#else
+static
+struct ad7791_platform_data *ad7791_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int ad7791_probe(struct spi_device *spi)
 {
-	struct ad7791_platform_data *pdata = spi->dev.platform_data;
+	struct ad7791_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct ad7791_state *st;
 	int ret;
 
+	if (spi->dev.of_node)
+		pdata = ad7791_parse_dt(&spi->dev);
+	else
+		pdata = spi->dev.platform_data;
+	
+	if (!pdata) {
+		dev_err(&spi->dev, "no platform data? using default\n");
+		pdata = &ad7791_default_pdata;
+	}
+	
 	if (!spi->irq) {
 		dev_err(&spi->dev, "Missing IRQ.\n");
 		return -ENXIO;
