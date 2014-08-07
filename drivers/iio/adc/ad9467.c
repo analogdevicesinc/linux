@@ -580,7 +580,7 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
-	dev_info(&spi->dev, "PLL %s, JESD204B Link %s\n",
+	dev_info(&spi->dev, "AD9250 PLL %s, JESD204B Link %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED",
 		 pll_stat & 0x01 ? "Ready" : "Fail");
 
@@ -618,7 +618,7 @@ static int ad9625_setup(struct spi_device *spi)
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
-	dev_info(&spi->dev, "PLL %s\n",
+	dev_info(&spi->dev, "AD9625 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
 	return ret;
@@ -647,8 +647,12 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l)
 		conv->adc_clk = clk_get_rate(clk);
 	}
 
-	ret = ad9467_spi_write(spi, 0x008, 0x03);	// select both channels
+	ad9467_spi_write(spi, 0x000, 0x81);	// RESET
+	mdelay(5);
+	ad9467_spi_write(spi, 0x001, 0x01);	// RESET
+	mdelay(1);
 
+	ret = ad9467_spi_write(spi, 0x008, 0x03);	// select both channels
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);	// write enable
 	ret |= ad9467_spi_write(spi, 0x201, 0x00);	// full sample rate (decimation = 1)
 	ret |= ad9467_spi_write(spi, 0x550, 0x04);	// test pattern
@@ -670,7 +674,7 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l)
 	mdelay(20);
 	pll_stat = ad9467_spi_read(spi, 0x56f);
 
-	dev_info(&spi->dev, "PLL %s\n",
+	dev_info(&spi->dev, "AD9680 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
 	return ret;
