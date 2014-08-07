@@ -688,6 +688,15 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	.scan_type = IIO_ST('s', 16, 16, 0), \
 }
 
+#define CF_AXI_DDS_CHAN_BUF_NO_CALIB(_chan) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _chan, \
+	.output = 1, \
+	.scan_index = _chan, \
+	.scan_type = IIO_ST('s', 16, 16, 0), \
+}
+
 #define CF_AXI_DDS_CHAN_BUF_VIRT(_chan) { \
 	.type = IIO_VOLTAGE, \
 	.indexed = 1, \
@@ -723,8 +732,8 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 					BIT(IIO_CHAN_INFO_PROCESSED) |
 					BIT(IIO_CHAN_INFO_CALIBBIAS),
 			},
-			CF_AXI_DDS_CHAN_BUF(0),
-			CF_AXI_DDS_CHAN_BUF(1),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1),
 			CF_AXI_DDS_CHAN(0, 0, "1A"),
 			CF_AXI_DDS_CHAN(1, 0, "1B"),
 			CF_AXI_DDS_CHAN(2, 0, "2A"),
