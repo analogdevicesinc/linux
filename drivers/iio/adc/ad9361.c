@@ -2130,6 +2130,9 @@ static int ad9361_set_dcxo_tune(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : coarse %u fine %u",
 		__func__, coarse, fine);
 
+	if (phy->pdata->use_extclk)
+		return -ENODEV;
+
 	ad9361_spi_write(phy->spi, REG_DCXO_COARSE_TUNE,
 			DCXO_TUNE_COARSE(coarse));
 	ad9361_spi_write(phy->spi, REG_DCXO_FINE_TUNE_LOW,
@@ -5628,10 +5631,16 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		ret = sprintf(buf, "%d\n", phy->quad_track_en);
 		break;
 	case AD9361_DCXO_TUNE_COARSE:
-		ret = sprintf(buf, "%d\n", phy->pdata->dcxo_coarse);
+		if (phy->pdata->use_extclk)
+			ret = -ENODEV;
+		else
+			ret = sprintf(buf, "%d\n", phy->pdata->dcxo_coarse);
 		break;
 	case AD9361_DCXO_TUNE_FINE:
-		ret = sprintf(buf, "%d\n", phy->pdata->dcxo_fine);
+		if (phy->pdata->use_extclk)
+			ret = -ENODEV;
+		else
+			ret = sprintf(buf, "%d\n", phy->pdata->dcxo_fine);
 		break;
 	default:
 		ret = -EINVAL;
