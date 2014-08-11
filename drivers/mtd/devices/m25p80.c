@@ -211,6 +211,9 @@ static int m25p_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	spi->addr_width = nor->addr_width;
+
+	data = dev_get_platdata(&spi->dev);
 	return mtd_device_register(&nor->mtd, data ? data->parts : NULL,
 				   data ? data->nr_parts : 0);
 }
