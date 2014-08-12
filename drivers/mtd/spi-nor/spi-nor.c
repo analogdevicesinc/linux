@@ -1174,6 +1174,9 @@ static int macronix_quad_enable(struct spi_nor *nor)
 		return -EINVAL;
 	}
 
+	if (!nor->shutdown)
+		nor->shutdown = spi_nor_shutdown;
+
 	return 0;
 }
 
@@ -1239,6 +1242,11 @@ static int set_quad_mode(struct spi_nor *nor, const struct flash_info *info)
 	}
 }
 
+static void spi_nor_shutdown(struct spi_nor *nor)
+{
+	set_4byte(nor, nor->jedec_id, 0);
+}
+
 static int spi_nor_check(struct spi_nor *nor)
 {
 	if (!nor->dev || !nor->read || !nor->write ||
@@ -1296,6 +1304,8 @@ int spi_nor_scan(struct spi_nor *nor, const char *name, enum read_mode mode)
 	}
 
 	mutex_init(&nor->lock);
+
+	nor->jedec_id = info->jedec_id;
 
 	/*
 	 * Atmel, SST, Intel/Numonyx, and others serial NOR tend to power up
