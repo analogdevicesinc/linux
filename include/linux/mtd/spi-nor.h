@@ -158,6 +158,8 @@ struct spi_nor {
 	u8			read_opcode;
 	u8			read_dummy;
 	u8			program_opcode;
+	u32			jedec_id;
+
 	enum read_mode		flash_read;
 	bool			sst_write_second;
 	struct spi_nor_xfer_cfg	cfg;
@@ -174,6 +176,7 @@ struct spi_nor {
 			int write_enable);
 	const struct spi_device_id *(*read_id)(struct spi_nor *nor);
 	int (*wait_till_ready)(struct spi_nor *nor);
+	void (*shutdown)(struct spi_nor *nor);
 
 	int (*read)(struct spi_nor *nor, loff_t from,
 			size_t len, size_t *retlen, u_char *read_buf);

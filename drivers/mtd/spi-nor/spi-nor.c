@@ -900,6 +900,11 @@ static int set_quad_mode(struct spi_nor *nor, u32 jedec_id)
 	}
 }
 
+static void spi_nor_shutdown(struct spi_nor *nor)
+{
+	set_4byte(nor, nor->jedec_id, 0);
+}
+
 static int spi_nor_check(struct spi_nor *nor)
 {
 	if (!nor->dev || !nor->read || !nor->write ||
@@ -912,6 +917,8 @@ static int spi_nor_check(struct spi_nor *nor)
 		nor->read_id = spi_nor_read_id;
 	if (!nor->wait_till_ready)
 		nor->wait_till_ready = spi_nor_wait_till_ready;
+	if (!nor->shutdown)
+		nor->shutdown = spi_nor_shutdown;
 
 	return 0;
 }
@@ -977,6 +984,8 @@ int spi_nor_scan(struct spi_nor *nor, const struct spi_device_id *id,
 	}
 
 	mutex_init(&nor->lock);
+
+	nor->jedec_id = info->jedec_id;
 
 	/*
 	 * Atmel, SST and Intel/Numonyx serial nor tend to power
