@@ -21,6 +21,7 @@ struct dmaengine_buffer {
 	struct list_head active;
 	struct iio_dma_buffer_queue queue;
 	unsigned int align;
+	struct iio_dma_buffer_block *repeat_block;
 };
 
 static struct dmaengine_buffer *iio_buffer_to_dmaengine_buffer(
@@ -50,6 +51,16 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 
 	dmaengine_buffer = iio_buffer_to_dmaengine_buffer(&block->queue->buffer);
 
+	/*
+	 * TODO: Move this functionality into the DMAengine API so we can do this
+	 * in a hardware assisted seamlessly way.
+	 */
+	if (dmaengine_buffer->repeat_block) {
+		dmaengine_terminate_all(dmaengine_buffer->chan);
+		iio_dma_buffer_block_done(dmaengine_buffer->repeat_block);
+		dmaengine_buffer->repeat_block = NULL;
+	}
+
 	max_size = dma_get_max_seg_size(dmaengine_buffer->chan->device->dev);
 	if (block->block.bytes_used > max_size)
 		block->block.bytes_used = max_size;
@@ -57,7 +68,8 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 	block->block.bytes_used = rounddown(block->block.bytes_used,
 			dmaengine_buffer->align);
 
-	if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
+	if (block->block.flags & (IIO_BUFFER_BLOCK_FLAG_CYCLIC |
+				  IIO_BUFFER_BLOCK_FLAG_REPEAT)) {
 		desc = dmaengine_prep_dma_cyclic(dmaengine_buffer->chan,
 			block->phys_addr, block->block.bytes_used,
 			block->block.bytes_used, direction, 0);
@@ -77,6 +89,9 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 	spin_lock_irq(&dmaengine_buffer->queue.list_lock);
 	list_add_tail(&block->head, &dmaengine_buffer->active);
 	spin_unlock_irq(&dmaengine_buffer->queue.list_lock);
+
+	if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_REPEAT)
+		dmaengine_buffer->repeat_block = block;
 
 	cookie = dmaengine_submit(desc);
 	if (cookie < 0)
@@ -98,6 +113,8 @@ static int dmaengine_buffer_disable(struct iio_buffer *buf,
 	dmaengine_buffer = iio_buffer_to_dmaengine_buffer(buf);
 
 	dmaengine_terminate_all(dmaengine_buffer->chan);
+
+	dmaengine_buffer->repeat_block = NULL;
 
 	spin_lock_irq(&dmaengine_buffer->queue.list_lock);
 	list_splice_tail_init(&dmaengine_buffer->active, &block_list);
