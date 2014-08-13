@@ -459,7 +459,7 @@ extern int dwc2_get_hwparams(struct dwc2_hsotg *hsotg);
 
 /* Transaction Execution Functions */
 extern enum dwc2_transaction_type dwc2_hcd_select_transactions(
-						struct dwc2_hsotg *hsotg);
+					struct dwc2_hsotg *hsotg, gfp_t mem_flags);
 extern void dwc2_hcd_queue_transactions(struct dwc2_hsotg *hsotg,
 					enum dwc2_transaction_type tr_type);
 

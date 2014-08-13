@@ -143,7 +143,7 @@ static void dwc2_sof_intr(struct dwc2_hsotg *hsotg)
 			list_move(&qh->qh_list_entry,
 				  &hsotg->periodic_sched_ready);
 	}
-	tr_type = dwc2_hcd_select_transactions(hsotg);
+	tr_type = dwc2_hcd_select_transactions(hsotg, GFP_ATOMIC);
 	if (tr_type != DWC2_TRANSACTION_NONE)
 		dwc2_hcd_queue_transactions(hsotg, tr_type);
 
@@ -465,12 +465,8 @@ static int dwc2_update_urb_state(struct dwc2_hsotg *hsotg,
 	/* Non DWORD-aligned buffer case handling */
 	if (chan->align_buf && xfer_length && chan->ep_is_in) {
 		dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n", __func__);
-		dma_sync_single_for_cpu(hsotg->dev, urb->dma, urb->length,
-					DMA_FROM_DEVICE);
 		memcpy(urb->buf + urb->actual_length, chan->qh->dw_align_buf,
 		       xfer_length);
-		dma_sync_single_for_device(hsotg->dev, urb->dma, urb->length,
-					   DMA_FROM_DEVICE);
 	}
 
 	dev_vdbg(hsotg->dev, "urb->actual_length=%d xfer_length=%d\n",
@@ -560,14 +556,9 @@ static enum dwc2_halt_status dwc2_update_isoc_urb_state(
 		    chan->ep_is_in) {
 			dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n",
 				 __func__);
-			dma_sync_single_for_cpu(hsotg->dev, urb->dma,
-						urb->length, DMA_FROM_DEVICE);
 			memcpy(urb->buf + frame_desc->offset +
 			       qtd->isoc_split_offset, chan->qh->dw_align_buf,
 			       frame_desc->actual_length);
-			dma_sync_single_for_device(hsotg->dev, urb->dma,
-						   urb->length,
-						   DMA_FROM_DEVICE);
 		}
 		break;
 	case DWC2_HC_XFER_FRAME_OVERRUN:
@@ -594,14 +585,9 @@ static enum dwc2_halt_status dwc2_update_isoc_urb_state(
 		    chan->ep_is_in) {
 			dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n",
 				 __func__);
-			dma_sync_single_for_cpu(hsotg->dev, urb->dma,
-						urb->length, DMA_FROM_DEVICE);
 			memcpy(urb->buf + frame_desc->offset +
 			       qtd->isoc_split_offset, chan->qh->dw_align_buf,
 			       frame_desc->actual_length);
-			dma_sync_single_for_device(hsotg->dev, urb->dma,
-						   urb->length,
-						   DMA_FROM_DEVICE);
 		}
 
 		/* Skip whole frame */
@@ -772,7 +758,7 @@ cleanup:
 	writel(haintmsk, hsotg->regs + HAINTMSK);
 
 	/* Try to queue more transfers now that there's a free channel */
-	tr_type = dwc2_hcd_select_transactions(hsotg);
+	tr_type = dwc2_hcd_select_transactions(hsotg, GFP_ATOMIC);
 	if (tr_type != DWC2_TRANSACTION_NONE)
 		dwc2_hcd_queue_transactions(hsotg, tr_type);
 }
@@ -937,12 +923,8 @@ static int dwc2_xfercomp_isoc_split_in(struct dwc2_hsotg *hsotg,
 
 	if (chan->align_buf) {
 		dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n", __func__);
-		dma_sync_single_for_cpu(hsotg->dev, qtd->urb->dma,
-					qtd->urb->length, DMA_FROM_DEVICE);
 		memcpy(qtd->urb->buf + frame_desc->offset +
 		       qtd->isoc_split_offset, chan->qh->dw_align_buf, len);
-		dma_sync_single_for_device(hsotg->dev, qtd->urb->dma,
-					   qtd->urb->length, DMA_FROM_DEVICE);
 	}
 
 	qtd->isoc_split_offset += len;
@@ -1170,12 +1152,8 @@ static void dwc2_update_urb_state_abn(struct dwc2_hsotg *hsotg,
 	/* Non DWORD-aligned buffer case handling */
 	if (chan->align_buf && xfer_length && chan->ep_is_in) {
 		dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n", __func__);
-		dma_sync_single_for_cpu(hsotg->dev, urb->dma, urb->length,
-					DMA_FROM_DEVICE);
 		memcpy(urb->buf + urb->actual_length, chan->qh->dw_align_buf,
 		       xfer_length);
-		dma_sync_single_for_device(hsotg->dev, urb->dma, urb->length,
-					   DMA_FROM_DEVICE);
 	}
 
 	urb->actual_length += xfer_length;

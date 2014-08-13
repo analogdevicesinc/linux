@@ -404,7 +404,7 @@ static int dwc2_hcd_urb_enqueue(struct dwc2_hsotg *hsotg,
 			return 0;
 
 		spin_lock_irqsave(&hsotg->lock, flags);
-		tr_type = dwc2_hcd_select_transactions(hsotg);
+		tr_type = dwc2_hcd_select_transactions(hsotg, mem_flags);
 		if (tr_type != DWC2_TRANSACTION_NONE)
 			dwc2_hcd_queue_transactions(hsotg, tr_type);
 		spin_unlock_irqrestore(&hsotg->lock, flags);
@@ -697,8 +697,12 @@ static void *dwc2_hc_init_xfer(struct dwc2_hsotg *hsotg,
 }
 
 static int dwc2_hc_setup_align_buf(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
-				   struct dwc2_host_chan *chan, void *bufptr)
+				   struct dwc2_host_chan *chan,
+				   struct dwc2_hcd_urb *urb, void *bufptr,
+				   gfp_t mem_flags)
 {
+	struct usb_hcd *hcd;
+	struct urb *usb_urb;
 	u32 buf_size;
 
 	if (chan->ep_type != USB_ENDPOINT_XFER_ISOC)
@@ -709,17 +713,28 @@ static int dwc2_hc_setup_align_buf(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 	if (!qh->dw_align_buf) {
 		qh->dw_align_buf = dma_alloc_coherent(hsotg->dev, buf_size,
 						      &qh->dw_align_buf_dma,
-						      GFP_ATOMIC);
+						      mem_flags);
 		if (!qh->dw_align_buf)
 			return -ENOMEM;
 	}
 
-	if (!chan->ep_is_in && chan->xfer_len) {
-		dma_sync_single_for_cpu(hsotg->dev, chan->xfer_dma, buf_size,
-					DMA_TO_DEVICE);
-		memcpy(qh->dw_align_buf, bufptr, chan->xfer_len);
-		dma_sync_single_for_device(hsotg->dev, chan->xfer_dma, buf_size,
-					   DMA_TO_DEVICE);
+	if (chan->xfer_len) {
+		dev_vdbg(hsotg->dev, "%s(): non-aligned buffer\n", __func__);
+		usb_urb = urb->priv;
+
+		if (usb_urb) {
+			if (usb_urb->transfer_flags &
+				(URB_SETUP_MAP_SINGLE | URB_DMA_MAP_SG |
+				 URB_DMA_MAP_PAGE | URB_DMA_MAP_SINGLE)) {
+					hcd = dwc2_hsotg_to_hcd(hsotg);
+					usb_hcd_unmap_urb_for_dma(hcd, usb_urb);
+				}
+				if (!chan->ep_is_in)
+					memcpy(qh->dw_align_buf, bufptr,
+						chan->xfer_len);
+		} else {
+			dev_warn(hsotg->dev, "no URB in dwc2_urb\n");
+		}
 	}
 
 	chan->align_buf = qh->dw_align_buf_dma;
@@ -735,7 +750,9 @@ static int dwc2_hc_setup_align_buf(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
  * @qh:    Transactions from the first QTD for this QH are selected and assigned
  *         to a free host channel
  */
-static int dwc2_assign_and_init_hc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
+static int dwc2_assign_and_init_hc(struct dwc2_hsotg *hsotg,
+				    struct dwc2_qh *qh,
+				    gfp_t mem_flags)
 {
 	struct dwc2_host_chan *chan;
 	struct dwc2_hcd_urb *urb;
@@ -828,7 +845,8 @@ static int dwc2_assign_and_init_hc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 	/* Non DWORD-aligned buffer case */
 	if (bufptr) {
 		dev_vdbg(hsotg->dev, "Non-aligned buffer\n");
-		if (dwc2_hc_setup_align_buf(hsotg, qh, chan, bufptr)) {
+		if (dwc2_hc_setup_align_buf(hsotg, qh, chan, urb, bufptr,
+					    mem_flags)) {
 			dev_err(hsotg->dev,
 				"%s: Failed to allocate memory to handle non-dword aligned buffer\n",
 				__func__);
@@ -872,7 +890,7 @@ static int dwc2_assign_and_init_hc(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
  * Return: The types of new transactions that were assigned to host channels
  */
 enum dwc2_transaction_type dwc2_hcd_select_transactions(
-		struct dwc2_hsotg *hsotg)
+		struct dwc2_hsotg *hsotg, gfp_t mem_flags)
 {
 	enum dwc2_transaction_type ret_val = DWC2_TRANSACTION_NONE;
 	struct list_head *qh_ptr;
@@ -894,8 +912,7 @@ enum dwc2_transaction_type dwc2_hcd_select_transactions(
 			hsotg->available_host_channels--;
 		}
 		qh = list_entry(qh_ptr, struct dwc2_qh, qh_list_entry);
-		if (dwc2_assign_and_init_hc(hsotg, qh))
-			break;
+		dwc2_assign_and_init_hc(hsotg, qh, mem_flags);
 
 		/*
 		 * Move the QH from the periodic ready schedule to the
@@ -921,14 +938,7 @@ enum dwc2_transaction_type dwc2_hcd_select_transactions(
 		if (list_empty(&hsotg->free_hc_list))
 			break;
 		qh = list_entry(qh_ptr, struct dwc2_qh, qh_list_entry);
-		if (hsotg->core_params->uframe_sched > 0) {
-			if (hsotg->available_host_channels < 1)
-				break;
-			hsotg->available_host_channels--;
-		}
-
-		if (dwc2_assign_and_init_hc(hsotg, qh))
-			break;
+		dwc2_assign_and_init_hc(hsotg, qh, mem_flags);
 
 		/*
 		 * Move the QH from the non-periodic inactive schedule to the

@@ -1199,7 +1199,7 @@ void dwc2_hcd_complete_xfer_ddma(struct dwc2_hsotg *hsotg,
 		}
 	}
 
-	tr_type = dwc2_hcd_select_transactions(hsotg);
+	tr_type = dwc2_hcd_select_transactions(hsotg, GFP_ATOMIC);
 	if (tr_type != DWC2_TRANSACTION_NONE || continue_isoc_xfer) {
 		if (continue_isoc_xfer) {
 			if (tr_type == DWC2_TRANSACTION_NONE)
