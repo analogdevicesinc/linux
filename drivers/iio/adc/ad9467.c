@@ -487,7 +487,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9467_scale_table),
 		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN(0, 0, 16, 's'),
+		       .channel[0] = AIM_CHAN(0, 0, 16, 'S'),
 		       },
 	[ID_AD9643] = {
 		       .name = "AD9643",
@@ -496,8 +496,8 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
 		       .max_testmode = TESTMODE_RAMP,
 		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN(0, 0, 14, 's'),
-		       .channel[1] = AIM_CHAN(1, 1, 14, 's'),
+		       .channel[0] = AIM_CHAN(0, 0, 14, 'S'),
+		       .channel[1] = AIM_CHAN(1, 1, 14, 'S'),
 		       },
 	[ID_AD9250] = {
 		       .name = "AD9250",
@@ -506,8 +506,8 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
 		       .max_testmode = TESTMODE_RAMP,
 		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 's'),
-		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S'),
+		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S'),
 		       },
 	[ID_AD9683] = {
 		       .name = "AD9683",
@@ -516,7 +516,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
 		       .max_testmode = TESTMODE_RAMP,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S'),
 		       },
 	[ID_AD9625] = {
 		       .name = "AD9625",
@@ -525,7 +525,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
 		       .max_testmode = TESTMODE_RAMP,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S'),
 		       },
 	[ID_AD9265] = {
 		       .name = "AD9265",
@@ -534,7 +534,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9265_scale_table),
 		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 'S'),
 		       },
 	[ID_AD9434] = {
 		       .name = "AD9434",
@@ -543,7 +543,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9434_scale_table),
 		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S'),
 		       },
 	[ID_AD9680] = {
 		       .name = "AD9680",
@@ -552,8 +552,8 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9680_scale_table),
 		       .max_testmode = TESTMODE_RAMP,
 		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 's'),
-		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S'),
+		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S'),
 		       },
 
 };
