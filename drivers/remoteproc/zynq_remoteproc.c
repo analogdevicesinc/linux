@@ -93,7 +93,7 @@ static int zynq_rproc_start(struct rproc *rproc)
 	outer_flush_range(local->mem_start, local->mem_end);
 
 	remoteprocdev = pdev;
-	ret = zynq_cpun_start(0, 1);
+	ret = zynq_cpun_start(rproc->bootaddr, 1);
 
 	return ret;
 }
@@ -208,13 +208,14 @@ static int zynq_remoteproc_probe(struct platform_device *pdev)
 		DMA_MEMORY_IO);
 	if (!ret) {
 		dev_err(&pdev->dev, "dma_declare_coherent_memory failed\n");
+		ret = -ENOMEM;
 		goto dma_fault;
 	}
 
 	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret) {
 		dev_err(&pdev->dev, "dma_set_coherent_mask: %d\n", ret);
-		goto dma_fault;
+		goto dma_mask_fault;
 	}
 
 	/* Init list for IRQs - it can be long list */
@@ -225,7 +226,7 @@ static int zynq_remoteproc_probe(struct platform_device *pdev)
 		int irq;
 
 		irq = platform_get_irq(pdev, count++);
-		if (irq == -ENXIO | irq == -EINVAL)
+		if (irq == -ENXIO || irq == -EINVAL)
 			break;
 
 		tmp = kzalloc(sizeof(struct irq_list), GFP_KERNEL);
@@ -318,6 +319,9 @@ ipi_fault:
 
 irq_fault:
 	clear_irq(pdev);
+
+dma_mask_fault:
+	dma_release_declared_memory(&pdev->dev);
 
 dma_fault:
 	/* Cpu can't be power on - for example in nosmp mode */

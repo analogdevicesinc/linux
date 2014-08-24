@@ -1556,9 +1556,8 @@ static int axienet_probe(struct platform_device *pdev)
 	/* Map device registers */
 	ethres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	lp->regs = devm_ioremap_resource(&pdev->dev, ethres);
-	if (!lp->regs) {
-		dev_err(&pdev->dev, "could not map Axi Ethernet regs.\n");
-		ret = -ENOMEM;
+	if (IS_ERR(lp->regs)) {
+		ret = PTR_ERR(lp->regs);
 		goto free_netdev;
 	}
 
@@ -1631,9 +1630,8 @@ static int axienet_probe(struct platform_device *pdev)
 		goto free_netdev;
 	}
 	lp->dma_regs = devm_ioremap_resource(&pdev->dev, &dmares);
-	if (!lp->dma_regs) {
-		dev_err(&pdev->dev, "could not map DMA regs\n");
-		ret = -ENOMEM;
+	if (IS_ERR(lp->dma_regs)) {
+		ret = PTR_ERR(lp->dma_regs);
 		goto free_netdev;
 	}
 	lp->rx_irq = irq_of_parse_and_map(np, 1);
@@ -1667,6 +1665,7 @@ static int axienet_probe(struct platform_device *pdev)
 	ret = register_netdev(lp->ndev);
 	if (ret) {
 		dev_err(lp->dev, "register_netdev() error (%i)\n", ret);
+		axienet_mdio_teardown(lp);
 		goto free_netdev;
 	}
 
@@ -1699,7 +1698,6 @@ static struct platform_driver axienet_driver = {
 	.probe = axienet_probe,
 	.remove = axienet_remove,
 	.driver = {
-		 .owner = THIS_MODULE,
 		 .name = "xilinx_axienet",
 		 .of_match_table = axienet_of_match,
 	},

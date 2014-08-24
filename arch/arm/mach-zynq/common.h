@@ -44,15 +44,7 @@ extern void zynq_slcr_init_postload_fpga(void);
 extern void __iomem *zynq_slcr_base;
 extern void __iomem *zynq_scu_base;
 
-#ifdef CONFIG_SUSPEND
 int zynq_pm_late_init(void);
-#else
-static inline int zynq_pm_late_init(void)
-{
-	return 0;
-}
-#endif
-
 extern unsigned int zynq_sys_suspend_sz;
 int zynq_sys_suspend(void __iomem *ddrc_base, void __iomem *slcr_base);
 
@@ -70,6 +62,17 @@ static inline void zynq_prefetch_init(void)
 #endif
 		      "mcr   p15, 0, r1, c1, c0, 1\n"
 		      : : : "r1");
+}
+
+static inline void zynq_core_pm_init(void)
+{
+	/* A9 clock gating */
+	asm volatile ("mrc  p15, 0, r12, c15, c0, 0\n"
+		      "orr  r12, r12, #1\n"
+		      "mcr  p15, 0, r12, c15, c0, 0\n"
+		      : /* no outputs */
+		      : /* no inputs */
+		      : "r12");
 }
 
 #endif
