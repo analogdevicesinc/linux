@@ -124,11 +124,11 @@
 			};
 		};
 
-		ad-mc-pid-ctrl@40520000 {
-			compatible = "xlnx,axi-ad-mc-pid-ctrl-1.00.a";
+		ad-mc-ctrl@40520000 {
+			compatible = "xlnx,axi-ad-mc-ctrl-1.00.a";
 			reg = <0x40520000 0x10000>;
 			dmas = <&axi_dma_1 0>;
-			dma-names = "ad-mc-pid-ctrl-dma";
+			dma-names = "ad-mc-ctrl-dma";
 		};
 
 		axi_dma_2: axidma2@40410000 {
@@ -169,6 +169,11 @@
 			reg = <0x40530000 0x10000>;
 			dmas = <&axi_dma_3 0>;
 			dma-names = "ad-mc-adc-dma";
+		};
+		
+		uiomc@7C000000 {
+			compatible = "generic-uio";
+			reg = <0x7C000000 0x4000000>;
 		};
 	};
 };
