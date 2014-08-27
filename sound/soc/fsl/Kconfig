@@ -131,6 +131,9 @@ config SND_SOC_FSL_RPMSG
 	  This option is only useful for out-of-tree drivers since
 	  in-tree drivers select it automatically.
 
+config SND_SOC_FSL_HDMI
+	tristate
+
 config SND_SOC_FSL_LPC3XXX
 	tristate "SoC Audio for NXP LPC32XX CPUs"
 	depends on ARCH_LPC32XX || COMPILE_TEST
@@ -265,6 +268,11 @@ if SND_IMX_SOC
 
 comment "SoC Audio support for Freescale i.MX boards:"
 
+config SND_SOC_IMX_HDMI_DMA
+	bool
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	select SND_SOC_IMX_PCM_DMA
+
 config SND_SOC_EUKREA_TLV320
 	tristate "Eukrea TLV320"
 	depends on ARCH_MXC && !ARM64 && I2C
@@ -369,6 +377,17 @@ config SND_SOC_IMX_CARD
 	  This option enables audio sound card support for i.MX boards
 	  with OF-graph DT bindings.
 	  It also support DPCM of single CPU multi Codec ststem.
+
+config SND_SOC_IMX6QDL_HDMI
+	tristate "SoC Audio support for i.MX6QDL boards with HDMI port"
+	depends on MFD_MXC_HDMI
+	select SND_SOC_IMX_HDMI_DMA
+	select SND_SOC_FSL_HDMI
+	select SND_SOC_HDMI_CODEC
+	help
+	  SoC Audio support for i.MX6QDL boards with HDMI audio
+	  Say Y if you want to add support for SoC audio on an i.MX board with
+	  IMX6QDL HDMI.
 
 endif # SND_IMX_SOC
 
