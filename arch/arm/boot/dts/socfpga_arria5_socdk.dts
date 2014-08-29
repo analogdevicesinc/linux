@@ -45,6 +45,29 @@
 		ethernet0 = &gmac1;
 	};
 
+	leds {
+		compatible = "gpio-leds";
+		hps0 {
+			label = "hps_led0";
+			gpios = <&gpio0 0 1>;
+		};
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&gpio1 11 1>;
+		};
+
+		hps2 {
+			label = "hps_led2";
+			gpios = <&gpio0 17 1>;
+		};
+
+		hps3 {
+			label = "hps_led3";
+			gpios = <&gpio0 18 1>;
+		};
+	};
+
 	soc {
 		gpio@ff708000 {
 			status = "okay";
