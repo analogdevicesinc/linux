@@ -4,26 +4,31 @@
 	#size-cells = <1>;
 	interrupt-parent = <&gic>;
 
+	aliases {
+		ethernet0 = &eth;
+		serial0 = &uart;
+	};
+
 	cpus {
 		#address-cells = <1>;
-		#cpus = <0x2>;
 		#size-cells = <0>;
 		ps7_cortexa9_0: cpu@0 {
+			bus-handle = <&axi>;
+			clock-latency = <1000>;
+			clocks = <&clkc 3>;
 			compatible = "arm,cortex-a9";
-			d-cache-line-size = <0x20>;
-			d-cache-size = <0x8000>;
 			device_type = "cpu";
-			i-cache-line-size = <0x20>;
-			i-cache-size = <0x8000>;
+			interrupt-handle = <&gic>;
+			operating-points = <666667 1000000 333334 1000000 222223 1000000>;
 			reg = <0x0>;
-		} ;
+		};
+
 		ps7_cortexa9_1: cpu@1 {
+			bus-handle = <&axi>;
+			clocks = <&clkc 3>;
 			compatible = "arm,cortex-a9";
-			d-cache-line-size = <0x20>;
-			d-cache-size = <0x8000>;
 			device_type = "cpu";
-			i-cache-line-size = <0x20>;
-			i-cache-size = <0x8000>;
+			interrupt-handle = <&gic>;
 			reg = <0x1>;
 		};
 	};
@@ -32,14 +37,11 @@
 		compatible = "arm,cortex-a9-pmu";
 		interrupts = <0 5 4>, <0 6 4>;
 		interrupt-parent = <&gic>;
+		reg = <0xf8891000 0x1000>, <0xf8893000 0x1000>;
+		reg-names = "cpu0", "cpu1";
 	};
 
-	aliases {
-		ethernet0 = &eth;
-		serial0 = &uart;
-	};
-
-	amba@0 {
+	axi: amba@0 {
 		compatible = "simple-bus";
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
@@ -265,13 +267,13 @@
 		};
 
 		ps7_ddrc_0: ps7-ddrc@f8006000 {
-			compatible = "xlnx,ps7-ddrc-1.00.a", "xlnx,ps7-ddrc", "xlnx,zynq-ddrc-1.00.a";
+			compatible = "xlnx,ps7-ddrc-1.00.a", "xlnx,ps7-ddrc", "xlnx,zynq-ddrc-1.0";
 			reg = <0xf8006000 0x1000>;
 			xlnx,has-ecc = <0x0>;
 		} ;
 
 		ps7_ocm_0: ps7-ocm@0xfffc0000 {
-			compatible = "xlnx,ps7-ocmc-1.00.a", "xlnx,zynq-ocm-1.0";
+			compatible = "xlnx,ps7-ocmc-1.00.a", "xlnx,zynq-ocmc-1.0";
 			interrupt-parent = <&gic>;
 			interrupts = <0 3 4>;
 			reg = <0xfffc0000 0x40000>; /* 256k */
