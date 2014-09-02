@@ -605,10 +605,10 @@ static int ad9625_setup(struct spi_device *spi)
 	unsigned pll_stat;
 	int ret;
 
-	ret = ad9467_spi_write(spi, 0x000, 0x3c);
+	ret = ad9467_spi_write(spi, 0x000, 0x24);
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
-	ret |= ad9467_spi_write(spi, 0x000, 0x18);
-	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
+	mdelay(10);
+
 	ret |= ad9467_spi_write(spi, 0x008, 0x00);
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
 	ret |= ad9467_spi_write(spi, 0x05f, 0x15);
@@ -616,9 +616,9 @@ static int ad9625_setup(struct spi_device *spi)
 	ret |= ad9467_spi_write(spi, 0x120, 0x11);
 	ret |= ad9467_spi_write(spi, 0x00d, 0x00);
 	ret |= ad9467_spi_write(spi, 0x014, 0x00);
+	ret |= ad9467_spi_write(spi, 0x015, 0x10);
 	ret |= ad9467_spi_write(spi, 0x05f, 0x14);
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
-	ret |= ad9467_spi_write(spi, 0xff, 0x00);
 
 	mdelay(10);
 
