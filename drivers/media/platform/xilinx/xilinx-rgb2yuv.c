@@ -19,12 +19,12 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/xilinx-v4l2-controls.h>
 
 #include <media/v4l2-async.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 
-#include "xilinx-controls.h"
 #include "xilinx-vip.h"
 
 #define XRGB2YUV_YMAX					0x100
@@ -549,7 +549,6 @@ MODULE_DEVICE_TABLE(of, xrgb2yuv_of_id_table);
 
 static struct platform_driver xrgb2yuv_driver = {
 	.driver			= {
-		.owner		= THIS_MODULE,
 		.name		= "xilinx-rgb2yuv",
 		.pm		= &xrgb2yuv_pm_ops,
 		.of_match_table	= xrgb2yuv_of_id_table,

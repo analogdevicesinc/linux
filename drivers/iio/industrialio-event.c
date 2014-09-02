@@ -48,6 +48,9 @@ struct iio_event_interface {
  * @indio_dev:		IIO device structure
  * @ev_code:		What event
  * @timestamp:		When the event occurred
+ *
+ * Note: The caller must make sure that this function is not running
+ * concurrently for the same indio_dev more than once.
  **/
 int iio_push_event(struct iio_dev *indio_dev, u64 ev_code, s64 timestamp)
 {
@@ -111,10 +114,10 @@ static ssize_t iio_event_chrdev_read(struct file *filep,
 		if (kfifo_is_empty(&ev_int->det_events)) {
 			if (filep->f_flags & O_NONBLOCK)
 				return -EAGAIN;
-			/* Blocking on device; waiting for something to be there */
+
 			ret = wait_event_interruptible(ev_int->wait,
-						!kfifo_is_empty(&ev_int->det_events) ||
-						indio_dev->info == NULL);
+					!kfifo_is_empty(&ev_int->det_events) ||
+					indio_dev->info == NULL);
 			if (ret)
 				return ret;
 			if (indio_dev->info == NULL)
@@ -130,10 +133,10 @@ static ssize_t iio_event_chrdev_read(struct file *filep,
 			return ret;
 
 		/*
-		 * If we couldn't read anything from the fifo (a different thread might
-		 * have been faster) we either return -EAGAIN if the file descriptor is
-		 * non-blocking, otherwise we go back to sleep and wait for more data to
-		 * arrive.
+		 * If we couldn't read anything from the fifo (a different
+		 * thread might have been faster) we either return -EAGAIN if
+		 * the file descriptor is non-blocking, otherwise we go back to
+		 * sleep and wait for more data to arrive.
 		 */
 		if (copied == 0 && (filep->f_flags & O_NONBLOCK))
 			return -EAGAIN;
@@ -361,32 +364,31 @@ static int iio_device_add_event_sysfs(struct iio_dev *indio_dev,
 		ret = iio_device_add_event(indio_dev, chan, i, type, dir,
 			IIO_SEPARATE, &chan->event_spec[i].mask_separate);
 		if (ret < 0)
-			goto error_ret;
+			return ret;
 		attrcount += ret;
 
 		ret = iio_device_add_event(indio_dev, chan, i, type, dir,
 			IIO_SHARED_BY_TYPE,
 			&chan->event_spec[i].mask_shared_by_type);
 		if (ret < 0)
-			goto error_ret;
+			return ret;
 		attrcount += ret;
 
 		ret = iio_device_add_event(indio_dev, chan, i, type, dir,
 			IIO_SHARED_BY_DIR,
 			&chan->event_spec[i].mask_shared_by_dir);
 		if (ret < 0)
-			goto error_ret;
+			return ret;
 		attrcount += ret;
 
 		ret = iio_device_add_event(indio_dev, chan, i, type, dir,
 			IIO_SHARED_BY_ALL,
 			&chan->event_spec[i].mask_shared_by_all);
 		if (ret < 0)
-			goto error_ret;
+			return ret;
 		attrcount += ret;
 	}
 	ret = attrcount;
-error_ret:
 	return ret;
 }
 
@@ -436,10 +438,8 @@ int iio_device_register_eventset(struct iio_dev *indio_dev)
 
 	indio_dev->event_interface =
 		kzalloc(sizeof(struct iio_event_interface), GFP_KERNEL);
-	if (indio_dev->event_interface == NULL) {
-		ret = -ENOMEM;
-		goto error_ret;
-	}
+	if (indio_dev->event_interface == NULL)
+		return -ENOMEM;
 
 	INIT_LIST_HEAD(&indio_dev->event_interface->dev_attr_list);
 
@@ -485,8 +485,6 @@ int iio_device_register_eventset(struct iio_dev *indio_dev)
 error_free_setup_event_lines:
 	iio_free_chan_devattr_list(&indio_dev->event_interface->dev_attr_list);
 	kfree(indio_dev->event_interface);
-error_ret:
-
 	return ret;
 }
 

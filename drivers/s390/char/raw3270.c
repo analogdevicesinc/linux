@@ -276,6 +276,15 @@ __raw3270_start(struct raw3270 *rp, struct raw3270_view *view,
 }
 
 int
+raw3270_view_active(struct raw3270_view *view)
+{
+	struct raw3270 *rp = view->dev;
+
+	return rp && rp->view == view &&
+		!test_bit(RAW3270_FLAGS_FROZEN, &rp->flags);
+}
+
+int
 raw3270_start(struct raw3270_view *view, struct raw3270_request *rq)
 {
 	unsigned long flags;
@@ -623,6 +632,8 @@ raw3270_reset_device_cb(struct raw3270_request *rq, void *data)
 		raw3270_size_device_done(rp);
 	} else
 		raw3270_writesf_readpart(rp);
+	memset(&rp->init_reset, 0, sizeof(rp->init_reset));
+	memset(&rp->init_data, 0, sizeof(rp->init_data));
 }
 
 static int
@@ -630,9 +641,10 @@ __raw3270_reset_device(struct raw3270 *rp)
 {
 	int rc;
 
+	/* Check if reset is already pending */
+	if (rp->init_reset.view)
+		return -EBUSY;
 	/* Store reset data stream to init_data/init_reset */
-	memset(&rp->init_reset, 0, sizeof(rp->init_reset));
-	memset(&rp->init_data, 0, sizeof(rp->init_data));
 	rp->init_data[0] = TW_KR;
 	rp->init_reset.ccw.cmd_code = TC_EWRITEA;
 	rp->init_reset.ccw.flags = CCW_FLAG_SLI;
@@ -790,7 +802,7 @@ struct raw3270 __init *raw3270_setup_console(void)
 	char *ascebc;
 	int rc;
 
-	cdev = ccw_device_probe_console(&raw3270_ccw_driver);
+	cdev = ccw_device_create_console(&raw3270_ccw_driver);
 	if (IS_ERR(cdev))
 		return ERR_CAST(cdev);
 
@@ -800,6 +812,13 @@ struct raw3270 __init *raw3270_setup_console(void)
 	if (rc)
 		return ERR_PTR(rc);
 	set_bit(RAW3270_FLAGS_CONSOLE, &rp->flags);
+
+	rc = ccw_device_enable_console(cdev);
+	if (rc) {
+		ccw_device_destroy_console(cdev);
+		return ERR_PTR(rc);
+	}
+
 	spin_lock_irqsave(get_ccwdev_lock(rp->cdev), flags);
 	do {
 		__raw3270_reset_device(rp);
@@ -834,7 +853,7 @@ raw3270_create_device(struct ccw_device *cdev)
 	char *ascebc;
 	int rc;
 
-	rp = kmalloc(sizeof(struct raw3270), GFP_KERNEL | GFP_DMA);
+	rp = kzalloc(sizeof(struct raw3270), GFP_KERNEL | GFP_DMA);
 	if (!rp)
 		return ERR_PTR(-ENOMEM);
 	ascebc = kmalloc(256, GFP_KERNEL);

@@ -15,12 +15,12 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/xilinx-v4l2-controls.h>
 
 #include <media/v4l2-async.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 
-#include "xilinx-controls.h"
 #include "xilinx-vip.h"
 #include "xilinx-vtc.h"
 
@@ -59,16 +59,30 @@
 #define XTPG_BAYER_PHASE_BGGR			3
 #define XTPG_BAYER_PHASE_OFF			4
 
+/*
+ * The minimum blanking value is one clock cycle for the front porch, one clock
+ * cycle for the sync pulse and one clock cycle for the back porch.
+ */
+#define XTPG_MIN_HBLANK			3
+#define XTPG_MAX_HBLANK			(XVTC_MAX_HSIZE - XVIP_MIN_WIDTH)
+#define XTPG_MIN_VBLANK			3
+#define XTPG_MAX_VBLANK			(XVTC_MAX_VSIZE - XVIP_MIN_HEIGHT)
+
 /**
  * struct xtpg_device - Xilinx Test Pattern Generator device structure
  * @xvip: Xilinx Video IP device
  * @pads: media pads
  * @npads: number of pads (1 or 2)
+ * @has_input: whether an input is connected to the sink pad
  * @formats: active V4L2 media bus format for each pad
  * @default_format: default V4L2 media bus format
  * @vip_format: format information corresponding to the active format
  * @bayer: boolean flag if TPG is set to any bayer format
  * @ctrl_handler: control handler
+ * @hblank: horizontal blanking control
+ * @vblank: vertical blanking control
+ * @pattern: test pattern control
+ * @streaming: is the video stream active
  * @vtc: video timing controller
  * @vtmux_gpio: video timing mux GPIO
  */
@@ -77,6 +91,7 @@ struct xtpg_device {
 
 	struct media_pad pads[2];
 	unsigned int npads;
+	bool has_input;
 
 	struct v4l2_mbus_framefmt formats[2];
 	struct v4l2_mbus_framefmt default_format;
@@ -84,6 +99,10 @@ struct xtpg_device {
 	bool bayer;
 
 	struct v4l2_ctrl_handler ctrl_handler;
+	struct v4l2_ctrl *hblank;
+	struct v4l2_ctrl *vblank;
+	struct v4l2_ctrl *pattern;
+	bool streaming;
 
 	struct xvtc_device *vtc;
 	struct gpio_desc *vtmux_gpio;
@@ -92,6 +111,46 @@ struct xtpg_device {
 static inline struct xtpg_device *to_tpg(struct v4l2_subdev *subdev)
 {
 	return container_of(subdev, struct xtpg_device, xvip.subdev);
+}
+
+static u32 xtpg_get_bayer_phase(unsigned int code)
+{
+	switch (code) {
+	case V4L2_MBUS_FMT_SRGGB8_1X8:
+		return XTPG_BAYER_PHASE_RGGB;
+	case V4L2_MBUS_FMT_SGRBG8_1X8:
+		return XTPG_BAYER_PHASE_GRBG;
+	case V4L2_MBUS_FMT_SGBRG8_1X8:
+		return XTPG_BAYER_PHASE_GBRG;
+	case V4L2_MBUS_FMT_SBGGR8_1X8:
+		return XTPG_BAYER_PHASE_BGGR;
+	default:
+		return XTPG_BAYER_PHASE_OFF;
+	}
+}
+
+static void xtpg_update_pattern_control(struct xtpg_device *xtpg,
+					bool passthrough, bool pattern)
+{
+	u32 pattern_mask = (1 << (xtpg->pattern->maximum + 1)) - 1;
+
+	/*
+	 * If the TPG has no sink pad or no input connected to its sink pad
+	 * passthrough mode can't be enabled.
+	 */
+	if (xtpg->npads == 1 || !xtpg->has_input)
+		passthrough = false;
+
+	/* If passthrough mode is allowed unmask bit 0. */
+	if (passthrough)
+		pattern_mask &= ~1;
+
+	/* If test pattern mode is allowed unmask all other bits. */
+	if (pattern)
+		pattern_mask &= 1;
+
+	__v4l2_ctrl_modify_range(xtpg->pattern, 0, xtpg->pattern->maximum,
+				 pattern_mask, pattern ? 9 : 0);
 }
 
 /* -----------------------------------------------------------------------------
@@ -103,11 +162,16 @@ static int xtpg_s_stream(struct v4l2_subdev *subdev, int enable)
 	struct xtpg_device *xtpg = to_tpg(subdev);
 	unsigned int width = xtpg->formats[0].width;
 	unsigned int height = xtpg->formats[0].height;
+	bool passthrough;
+	u32 bayer_phase;
 
 	if (!enable) {
 		xvip_stop(&xtpg->xvip);
 		if (xtpg->vtc)
 			xvtc_generator_stop(xtpg->vtc);
+
+		xtpg_update_pattern_control(xtpg, true, true);
+		xtpg->streaming = false;
 		return 0;
 	}
 
@@ -116,17 +180,58 @@ static int xtpg_s_stream(struct v4l2_subdev *subdev, int enable)
 	if (xtpg->vtc) {
 		struct xvtc_config config = {
 			.hblank_start = width,
-			.hsync_start = width + 10,
-			.hsync_end = width + 20,
-			.hsize = width + 100,
+			.hsync_start = width + 1,
 			.vblank_start = height,
-			.vsync_start = height + 10,
-			.vsync_end = height + 20,
-			.vsize = height + 100,
+			.vsync_start = height + 1,
 		};
+		unsigned int htotal;
+		unsigned int vtotal;
+
+		htotal = min_t(unsigned int, XVTC_MAX_HSIZE,
+			       v4l2_ctrl_g_ctrl(xtpg->hblank) + width);
+		vtotal = min_t(unsigned int, XVTC_MAX_VSIZE,
+			       v4l2_ctrl_g_ctrl(xtpg->vblank) + height);
+
+		config.hsync_end = htotal - 1;
+		config.hsize = htotal;
+		config.vsync_end = vtotal - 1;
+		config.vsize = vtotal;
 
 		xvtc_generator_start(xtpg->vtc, &config);
 	}
+
+	/*
+	 * Configure the bayer phase and video timing mux based on the
+	 * operation mode (passthrough or test pattern generation). The test
+	 * pattern can be modified by the control set handler, we thus need to
+	 * take the control lock here to avoid races.
+	 */
+	mutex_lock(xtpg->ctrl_handler.lock);
+
+	xvip_clr_and_set(&xtpg->xvip, XTPG_PATTERN_CONTROL,
+			 XTPG_PATTERN_MASK, xtpg->pattern->cur.val);
+
+	/*
+	 * Switching between passthrough and test pattern generation modes isn't
+	 * allowed during streaming, update the control range accordingly.
+	 */
+	passthrough = xtpg->pattern->cur.val == 0;
+	xtpg_update_pattern_control(xtpg, passthrough, !passthrough);
+
+	xtpg->streaming = true;
+
+	mutex_unlock(xtpg->ctrl_handler.lock);
+
+	/*
+	 * For TPG v5.0, the bayer phase needs to be off for the pass through
+	 * mode, otherwise the external input would be subsampled.
+	 */
+	bayer_phase = passthrough ? XTPG_BAYER_PHASE_OFF
+		    : xtpg_get_bayer_phase(xtpg->formats[0].code);
+	xvip_write(&xtpg->xvip, XTPG_BAYER_PHASE, bayer_phase);
+
+	if (!IS_ERR(xtpg->vtmux_gpio))
+		gpiod_set_value_cansleep(xtpg->vtmux_gpio, !passthrough);
 
 	xvip_start(&xtpg->xvip);
 
@@ -160,22 +265,6 @@ static int xtpg_get_format(struct v4l2_subdev *subdev,
 	fmt->format = *__xtpg_get_pad_format(xtpg, fh, fmt->pad, fmt->which);
 
 	return 0;
-}
-
-static u32 xtpg_get_bayer_phase(unsigned int code)
-{
-	switch (code) {
-	case V4L2_MBUS_FMT_SRGGB8_1X8:
-		return XTPG_BAYER_PHASE_RGGB;
-	case V4L2_MBUS_FMT_SGRBG8_1X8:
-		return XTPG_BAYER_PHASE_GRBG;
-	case V4L2_MBUS_FMT_SGBRG8_1X8:
-		return XTPG_BAYER_PHASE_GBRG;
-	case V4L2_MBUS_FMT_SBGGR8_1X8:
-		return XTPG_BAYER_PHASE_BGGR;
-	default:
-		return XTPG_BAYER_PHASE_OFF;
-	}
 }
 
 static int xtpg_set_format(struct v4l2_subdev *subdev,
@@ -266,35 +355,6 @@ static int xtpg_close(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
-static void xtpg_set_test_pattern(struct xtpg_device *xtpg,
-				  unsigned int pattern)
-{
-	u32 bayer_phase;
-
-	xvip_disable_reg_update(&xtpg->xvip);
-
-	/* TODO: For TPG v5.0, the bayer phase needs to be off for
-	 * the pass through mode, otherwise the external input would be
-	 * subsampled. This is a bit strange, and will be fixed when
-	 * the TPG IP core is updated.
-	 */
-	if (pattern)
-		bayer_phase =
-			xtpg_get_bayer_phase(xtpg->formats[0].code);
-	else
-		bayer_phase = XTPG_BAYER_PHASE_OFF;
-
-	xvip_write(&xtpg->xvip, XTPG_BAYER_PHASE, bayer_phase);
-
-	xvip_clr_and_set(&xtpg->xvip, XTPG_PATTERN_CONTROL, XTPG_PATTERN_MASK,
-			 pattern);
-
-	if (!IS_ERR(xtpg->vtmux_gpio))
-		gpiod_set_value_cansleep(xtpg->vtmux_gpio, pattern ? 1 : 0);
-
-	xvip_enable_reg_update(&xtpg->xvip);
-}
-
 static int xtpg_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct xtpg_device *xtpg = container_of(ctrl->handler,
@@ -302,7 +362,8 @@ static int xtpg_s_ctrl(struct v4l2_ctrl *ctrl)
 						ctrl_handler);
 	switch (ctrl->id) {
 	case V4L2_CID_TEST_PATTERN:
-		xtpg_set_test_pattern(xtpg, ctrl->val);
+		xvip_clr_and_set(&xtpg->xvip, XTPG_PATTERN_CONTROL,
+				 XTPG_PATTERN_MASK, ctrl->val);
 		return 0;
 	case V4L2_CID_XILINX_TPG_CROSS_HAIRS:
 		xvip_clr_or_set(&xtpg->xvip, XTPG_PATTERN_CONTROL,
@@ -377,7 +438,7 @@ static int xtpg_s_ctrl(struct v4l2_ctrl *ctrl)
 		return 0;
 	}
 
-	return -EINVAL;
+	return 0;
 }
 
 static const struct v4l2_ctrl_ops xtpg_ctrl_ops = {
@@ -639,32 +700,42 @@ static int xtpg_parse_of(struct xtpg_device *xtpg)
 	struct device_node *ports;
 	struct device_node *port;
 	unsigned int nports = 0;
+	bool has_endpoint = false;
 
 	ports = of_get_child_by_name(node, "ports");
 	if (ports == NULL)
 		ports = node;
 
 	for_each_child_of_node(ports, port) {
-		if (port->name && (of_node_cmp(port->name, "port") == 0)) {
-			const struct xvip_video_format *vip_format;
+		const struct xvip_video_format *format;
+		struct device_node *endpoint;
 
-			vip_format = xvip_of_get_format(port);
-			if (IS_ERR(vip_format)) {
-				dev_err(dev, "invalid format in DT");
-				return PTR_ERR(vip_format);
-			}
+		if (!port->name || of_node_cmp(port->name, "port"))
+			continue;
 
-			/* Get and check the format description */
-			if (!xtpg->vip_format) {
-				xtpg->vip_format = vip_format;
-			} else if (xtpg->vip_format != vip_format) {
-				dev_err(dev, "in/out format mismatch in DT");
-				return -EINVAL;
-			}
-
-			/* Count the number of ports. */
-			nports++;
+		format = xvip_of_get_format(port);
+		if (IS_ERR(format)) {
+			dev_err(dev, "invalid format in DT");
+			return PTR_ERR(format);
 		}
+
+		/* Get and check the format description */
+		if (!xtpg->vip_format) {
+			xtpg->vip_format = format;
+		} else if (xtpg->vip_format != format) {
+			dev_err(dev, "in/out format mismatch in DT");
+			return -EINVAL;
+		}
+
+		if (nports == 0) {
+			endpoint = of_get_next_child(port, NULL);
+			if (endpoint)
+				has_endpoint = true;
+			of_node_put(endpoint);
+		}
+
+		/* Count the number of ports. */
+		nports++;
 	}
 
 	if (nports != 1 && nports != 2) {
@@ -673,6 +744,8 @@ static int xtpg_parse_of(struct xtpg_device *xtpg)
 	}
 
 	xtpg->npads = nports;
+	if (nports == 2 && has_endpoint)
+		xtpg->has_input = true;
 
 	return 0;
 }
@@ -704,7 +777,7 @@ static int xtpg_probe(struct platform_device *pdev)
 	if (PTR_ERR(xtpg->vtmux_gpio) == -EPROBE_DEFER)
 		return -EPROBE_DEFER;
 	if (!IS_ERR(xtpg->vtmux_gpio))
-		gpiod_direction_output(xtpg->vtmux_gpio, 0);
+		gpiod_direction_output(xtpg->vtmux_gpio, 1);
 
 	xtpg->vtc = xvtc_of_get(pdev->dev.of_node);
 	if (IS_ERR(xtpg->vtc))
@@ -751,14 +824,18 @@ static int xtpg_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto error_media_init;
 
-	v4l2_ctrl_handler_init(&xtpg->ctrl_handler, 18);
+	v4l2_ctrl_handler_init(&xtpg->ctrl_handler, 3 + ARRAY_SIZE(xtpg_ctrls));
 
-	v4l2_ctrl_new_std_menu_items(&xtpg->ctrl_handler, &xtpg_ctrl_ops,
-				     V4L2_CID_TEST_PATTERN,
-				     ARRAY_SIZE(xtpg_pattern_strings) - 1,
-				     xtpg->npads == 2 ? 0 : 1,
-				     xtpg->npads == 2 ? 0 : 1,
-				     xtpg_pattern_strings);
+	xtpg->vblank = v4l2_ctrl_new_std(&xtpg->ctrl_handler, &xtpg_ctrl_ops,
+					 V4L2_CID_VBLANK, XTPG_MIN_VBLANK,
+					 XTPG_MAX_VBLANK, 1, 100);
+	xtpg->hblank = v4l2_ctrl_new_std(&xtpg->ctrl_handler, &xtpg_ctrl_ops,
+					 V4L2_CID_HBLANK, XTPG_MIN_HBLANK,
+					 XTPG_MAX_HBLANK, 1, 100);
+	xtpg->pattern = v4l2_ctrl_new_std_menu_items(&xtpg->ctrl_handler,
+					&xtpg_ctrl_ops, V4L2_CID_TEST_PATTERN,
+					ARRAY_SIZE(xtpg_pattern_strings) - 1,
+					1, 9, xtpg_pattern_strings);
 
 	for (i = 0; i < ARRAY_SIZE(xtpg_ctrls); i++)
 		v4l2_ctrl_new_custom(&xtpg->ctrl_handler, &xtpg_ctrls[i], NULL);
@@ -769,6 +846,8 @@ static int xtpg_probe(struct platform_device *pdev)
 		goto error;
 	}
 	subdev->ctrl_handler = &xtpg->ctrl_handler;
+
+	xtpg_update_pattern_control(xtpg, true, true);
 
 	ret = v4l2_ctrl_handler_setup(&xtpg->ctrl_handler);
 	if (ret < 0) {
@@ -818,7 +897,6 @@ MODULE_DEVICE_TABLE(of, xtpg_of_id_table);
 
 static struct platform_driver xtpg_driver = {
 	.driver = {
-		.owner		= THIS_MODULE,
 		.name		= "xilinx-axi-tpg",
 		.pm		= &xtpg_pm_ops,
 		.of_match_table	= xtpg_of_id_table,

@@ -61,6 +61,14 @@ void nfnl_unlock(__u8 subsys_id)
 }
 EXPORT_SYMBOL_GPL(nfnl_unlock);
 
+#ifdef CONFIG_PROVE_LOCKING
+int lockdep_nfnl_is_held(u8 subsys_id)
+{
+	return lockdep_is_held(&table[subsys_id].mutex);
+}
+EXPORT_SYMBOL_GPL(lockdep_nfnl_is_held);
+#endif
+
 int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n)
 {
 	nfnl_lock(n->subsys_id);
@@ -360,7 +368,6 @@ done:
 static void nfnetlink_rcv(struct sk_buff *skb)
 {
 	struct nlmsghdr *nlh = nlmsg_hdr(skb);
-	struct net *net = sock_net(skb->sk);
 	int msglen;
 
 	if (nlh->nlmsg_len < NLMSG_HDRLEN ||

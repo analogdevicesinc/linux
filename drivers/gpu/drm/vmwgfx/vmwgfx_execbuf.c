@@ -2734,7 +2734,6 @@ int vmw_execbuf_ioctl(struct drm_device *dev, void *data,
 {
 	struct vmw_private *dev_priv = vmw_priv(dev);
 	struct drm_vmw_execbuf_arg *arg = (struct drm_vmw_execbuf_arg *)data;
-	struct vmw_master *vmaster = vmw_master(file_priv->master);
 	int ret;
 
 	/*
@@ -2751,7 +2750,7 @@ int vmw_execbuf_ioctl(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
-	ret = ttm_read_lock(&vmaster->lock, true);
+	ret = ttm_read_lock(&dev_priv->reservation_sem, true);
 	if (unlikely(ret != 0))
 		return ret;
 
@@ -2767,6 +2766,6 @@ int vmw_execbuf_ioctl(struct drm_device *dev, void *data,
 	vmw_kms_cursor_post_execbuf(dev_priv);
 
 out_unlock:
-	ttm_read_unlock(&vmaster->lock);
+	ttm_read_unlock(&dev_priv->reservation_sem);
 	return ret;
 }

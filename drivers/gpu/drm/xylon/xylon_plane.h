@@ -21,28 +21,16 @@
 #define _XYLON_DRM_PLANE_H_
 
 enum xylon_drm_plane_op_id {
-	XYLON_DRM_PLANE_OP_ID_CTRL,
+	XYLON_DRM_PLANE_OP_ID_BACKGROUND_COLOR,
+	XYLON_DRM_PLANE_OP_ID_COLOR_TRANSPARENCY,
+	XYLON_DRM_PLANE_OP_ID_INTERLACE,
+	XYLON_DRM_PLANE_OP_ID_PIXEL_FORMAT,
 	XYLON_DRM_PLANE_OP_ID_TRANSPARENCY,
-	XYLON_DRM_PLANE_OP_ID_TRANSPARENT_COLOR,
-	XYLON_DRM_PLANE_OP_ID_BACKGORUND_COLOR
-};
-
-enum xylon_drm_plane_op_sub_id {
-	XYLON_DRM_PLANE_OP_SID_NONE,
-	XYLON_DRM_PLANE_OP_SID_CTRL_COLOR_TRANSPARENCY,
-	XYLON_DRM_PLANE_OP_SID_CTRL_PIXEL_FORMAT
-};
-
-enum xylon_drm_plane_op_cmd {
-	XYLON_DRM_PLANE_OP_DISABLE,
-	XYLON_DRM_PLANE_OP_ENABLE,
-	XYLON_DRM_PLANE_OP_PIXEL_FORMAT_NORMAL,
-	XYLON_DRM_PLANE_OP_PIXEL_FORMAT_ANDROID
+	XYLON_DRM_PLANE_OP_ID_TRANSPARENT_COLOR
 };
 
 struct xylon_drm_plane_op {
 	enum xylon_drm_plane_op_id id;
-	enum xylon_drm_plane_op_sub_id sid;
 	u32 param;
 };
 
@@ -57,7 +45,7 @@ int xylon_drm_plane_fb_set(struct drm_plane *base_plane,
 			   u32 src_w, u32 src_h);
 void xylon_drm_plane_commit(struct drm_plane *base_plane);
 
-void xylon_drm_plane_destroy(struct drm_plane *base);
+void xylon_drm_plane_destroy(struct drm_plane *base_plane);
 struct drm_plane *
 xylon_drm_plane_create(struct xylon_drm_plane_manager *manager,
 		       unsigned int possible_crtcs, bool priv, int priv_id);
@@ -67,7 +55,7 @@ int xylon_drm_plane_create_all(struct xylon_drm_plane_manager *manager,
 
 bool xylon_drm_plane_check_format(struct xylon_drm_plane_manager *manager,
 				  u32 format);
-unsigned int xylon_drm_plane_get_bits_per_pixel(struct drm_plane *base);
+unsigned int xylon_drm_plane_get_bits_per_pixel(struct drm_plane *base_plane);
 
 int xylon_drm_plane_op(struct drm_plane *base_plane,
 		       struct xylon_drm_plane_op *op);

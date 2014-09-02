@@ -544,7 +544,13 @@ static const struct iio_info mc_adv_ctrl_info = {
 	  .indexed = 1,						 \
 	  .channel = _chan,					 \
 	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+	  .scan_type = {					\
+		.sign = _sign,					\
+		.realbits = _bits,				\
+		.storagebits = 16,				\
+		.shift = 0,					\
+	  }							\
+	}
 
 static int mc_adv_ctrl_probe(struct platform_device *pdev)
 {

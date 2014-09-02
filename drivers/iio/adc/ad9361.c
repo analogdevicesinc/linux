@@ -4951,14 +4951,26 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	/*.ext_info = axiadc_ext_info,*/			\
 	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+	  .scan_type = {						\
+		.sign = _sign,						\
+		.realbits = _bits,					\
+		.storagebits = 16,					\
+		.shift = 0,						\
+	  },								\
+	}
 
 #define AIM_MC_CHAN(_chan, _si, _bits, _sign)			\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
 	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+	  .scan_type = {						\
+		.sign = _sign,						\
+		.realbits = _bits,					\
+		.storagebits = 16,					\
+		.shift = 0,						\
+	  },								\
+	}
 
 
 static const unsigned long ad9361_2x2_available_scan_masks[] = {

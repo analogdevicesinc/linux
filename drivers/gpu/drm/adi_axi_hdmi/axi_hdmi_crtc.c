@@ -35,7 +35,7 @@ static int axi_hdmi_crtc_update(struct drm_crtc *crtc)
 {
 	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
 	struct drm_display_mode *mode = &crtc->mode;
-	struct drm_framebuffer *fb = crtc->fb;
+	struct drm_framebuffer *fb = crtc->primary->fb;
 	struct dma_async_tx_descriptor *desc;
 	struct drm_gem_cma_object *obj;
 	size_t offset;

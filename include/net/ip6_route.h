@@ -56,6 +56,11 @@ static inline unsigned int rt6_flags2srcprefs(int flags)
 	return (flags >> 3) & 7;
 }
 
+static inline bool rt6_need_strict(const struct in6_addr *daddr)
+{
+	return ipv6_addr_type(daddr) &
+		(IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
+}
 
 void ip6_route_input(struct sk_buff *skb);
 
@@ -122,6 +127,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg);
 void rt6_ifdown(struct net *net, struct net_device *dev);
 void rt6_mtu_change(struct net_device *dev, unsigned int mtu);
 void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
+void rt6_clean_tohost(struct net *net, struct in6_addr *gateway);
 
 
 /*
@@ -176,7 +182,14 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
 
 static inline bool ip6_sk_accept_pmtu(const struct sock *sk)
 {
-	return inet6_sk(sk)->pmtudisc != IPV6_PMTUDISC_INTERFACE;
+	return inet6_sk(sk)->pmtudisc != IPV6_PMTUDISC_INTERFACE &&
+	       inet6_sk(sk)->pmtudisc != IPV6_PMTUDISC_OMIT;
+}
+
+static inline bool ip6_sk_local_df(const struct sock *sk)
+{
+	return inet6_sk(sk)->pmtudisc < IPV6_PMTUDISC_DO ||
+	       inet6_sk(sk)->pmtudisc == IPV6_PMTUDISC_OMIT;
 }
 
 static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt)

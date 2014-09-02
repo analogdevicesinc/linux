@@ -1189,8 +1189,8 @@ intel_tv_detect_type(struct intel_tv *intel_tv,
 	if (connector->polled & DRM_CONNECTOR_POLL_HPD) {
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		i915_disable_pipestat(dev_priv, 0,
-				      PIPE_HOTPLUG_INTERRUPT_ENABLE |
-				      PIPE_HOTPLUG_TV_INTERRUPT_ENABLE);
+				      PIPE_HOTPLUG_INTERRUPT_STATUS |
+				      PIPE_HOTPLUG_TV_INTERRUPT_STATUS);
 		spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 	}
 
@@ -1266,8 +1266,8 @@ intel_tv_detect_type(struct intel_tv *intel_tv,
 	if (connector->polled & DRM_CONNECTOR_POLL_HPD) {
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		i915_enable_pipestat(dev_priv, 0,
-				     PIPE_HOTPLUG_INTERRUPT_ENABLE |
-				     PIPE_HOTPLUG_TV_INTERRUPT_ENABLE);
+				     PIPE_HOTPLUG_INTERRUPT_STATUS |
+				     PIPE_HOTPLUG_TV_INTERRUPT_STATUS);
 		spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 	}
 
@@ -1644,9 +1644,8 @@ intel_tv_init(struct drm_device *dev)
 	intel_connector_attach_encoder(intel_connector, intel_encoder);
 	intel_encoder->type = INTEL_OUTPUT_TVOUT;
 	intel_encoder->crtc_mask = (1 << 0) | (1 << 1);
-	intel_encoder->cloneable = false;
+	intel_encoder->cloneable = 0;
 	intel_encoder->base.possible_crtcs = ((1 << 0) | (1 << 1));
-	intel_encoder->base.possible_clones = (1 << INTEL_OUTPUT_TVOUT);
 	intel_tv->type = DRM_MODE_CONNECTOR_Unknown;
 
 	/* BIOS margin values */

@@ -33,6 +33,7 @@
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/acpi.h>
+#include "battery.h"
 
 #define PREFIX "ACPI: "
 
@@ -85,6 +86,7 @@ struct acpi_ac {
 	struct power_supply charger;
 	struct acpi_device * device;
 	unsigned long long state;
+	struct notifier_block battery_nb;
 };
 
 #define to_acpi_ac(x) container_of(x, struct acpi_ac, charger)
@@ -180,6 +182,26 @@ static void acpi_ac_notify(struct acpi_device *device, u32 event)
 	return;
 }
 
+static int acpi_ac_battery_notify(struct notifier_block *nb,
+				  unsigned long action, void *data)
+{
+	struct acpi_ac *ac = container_of(nb, struct acpi_ac, battery_nb);
+	struct acpi_bus_event *event = (struct acpi_bus_event *)data;
+
+	/*
+	 * On HP Pavilion dv6-6179er AC status notifications aren't triggered
+	 * when adapter is plugged/unplugged. However, battery status
+	 * notifcations are triggered when battery starts charging or
+	 * discharging. Re-reading AC status triggers lost AC notifications,
+	 * if AC status has changed.
+	 */
+	if (strcmp(event->device_class, ACPI_BATTERY_CLASS) == 0 &&
+	    event->type == ACPI_BATTERY_NOTIFY_STATUS)
+		acpi_ac_get_state(ac);
+
+	return NOTIFY_OK;
+}
+
 static int thinkpad_e530_quirk(const struct dmi_system_id *d)
 {
 	ac_sleep_before_get_state_ms = 1000;
@@ -233,6 +255,8 @@ static int acpi_ac_add(struct acpi_device *device)
 	       acpi_device_name(device), acpi_device_bid(device),
 	       ac->state ? "on-line" : "off-line");
 
+	ac->battery_nb.notifier_call = acpi_ac_battery_notify;
+	register_acpi_notifier(&ac->battery_nb);
 end:
 	if (result)
 		kfree(ac);
@@ -277,6 +301,7 @@ static int acpi_ac_remove(struct acpi_device *device)
 
 	if (ac->charger.dev)
 		power_supply_unregister(&ac->charger);
+	unregister_acpi_notifier(&ac->battery_nb);
 
 	kfree(ac);
 
