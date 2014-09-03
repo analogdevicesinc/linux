@@ -476,12 +476,12 @@ static const struct iio_info mc_ctrl_info = {
 	.update_scan_mode = &mc_ctrl_update_scan_mode,
 };
 
-#define AIM_CHAN_NOCALIB(_chan, _si, _bits, _sign)	\
-	{ .type = IIO_VOLTAGE,				\
-	  .indexed = 1,					\
-	  .channel = _chan,				\
-	  .scan_index = _si,				\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+#define AIM_CHAN_NOCALIB(_chan, _si, _real_bits, _storage_bits, _shift, _sign)		  \
+	{ .type = IIO_VOLTAGE,					  \
+	  .indexed = 1,						 \
+	  .channel = _chan,					 \
+	  .scan_index = _si,						\
+	  .scan_type =  IIO_ST(_sign, _real_bits, _storage_bits, _shift)}
 
 static int mc_ctrl_probe(struct platform_device *pdev)
 {
@@ -513,15 +513,15 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	mc_ctrl_write(st, ADI_REG_RSTN, ADI_RSTN);
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
-
-	st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 'u');
-	st->channels[1] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(1, 1, 16, 'u');
-	st->channels[2] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(2, 2, 16, 'u');
-	st->channels[3] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(3, 3, 16, 'u');
-	st->channels[4] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(4, 4, 16, 'u');
-	st->channels[5] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(5, 5, 16, 'u');
-	st->channels[6] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(6, 6, 16, 'u');
-	st->channels[7] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(7, 7, 16, 'u');
+	
+	st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 32, 32, 0, 'u');
+	st->channels[1] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(1, 1, 32, 32, 0, 'u');
+	st->channels[2] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(2, 2, 32, 32, 0, 'u');
+	st->channels[3] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(3, 3, 32, 32, 0, 'u');
+	st->channels[4] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(4, 4, 32, 32, 0, 'u');
+	st->channels[5] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(5, 5, 32, 32, 0, 'u');
+	st->channels[6] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(6, 6, 32, 32, 0, 'u');
+	st->channels[7] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(7, 7, 32, 32, 0, 'u');
 	
 	indio_dev->channels = st->channels;
 	indio_dev->num_channels = 8;
