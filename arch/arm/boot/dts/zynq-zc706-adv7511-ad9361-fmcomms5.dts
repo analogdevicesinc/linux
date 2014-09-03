@@ -91,10 +91,10 @@
 					};
 				};
 
-				fmc_i2c: i2c@6 {
+				fmc_i2c: i2c@5 { /* HPC */
 					#size-cells = <0>;
 					#address-cells = <1>;
-					reg = <6>;
+					reg = <5>;
 				};
 			};
 		};
