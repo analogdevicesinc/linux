@@ -12,24 +12,6 @@
 };
 
 &fpga_axi {
-	fmc_spi: spi@e0006000 {
-		bus-num = <1>;
-		compatible = "cdns,spi-r1p6", "xlnx,zynq-spi-1.00.a", "xlnx,ps7-spi-1.00.a";
-		interrupt-parent = <&gic>;
-		interrupts = < 0 26 4 >;
-		clock-names = "ref_clk", "aper_clk", "pclk";
-		clocks = <&clkc 25>, <&clkc 34>, <&clkc 34>;
-		num-chip-select = <4>;
-		reg = < 0xe0006000 0x1000 >;
-		speed-hz = <100000000>;
-		xlnx,has-ss0 = <0x1>;
-		xlnx,has-ss1 = <0x1>;
-		xlnx,has-ss2 = <0x1>;
-		xlnx,spi-clk-freq-hz = <100000000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-	};
-
 	rx_dma: dma@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c400000 0x10000>;
@@ -92,7 +74,13 @@
 	};
 };
 
-/include/ "adi-fmcomms4.dtsi"
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-fmcomms4.dtsi"
 
 &adc0_ad9364 {
 	en_agc-gpios = <&gpio 98 0>;
