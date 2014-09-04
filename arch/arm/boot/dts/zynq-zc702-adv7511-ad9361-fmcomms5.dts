@@ -3,25 +3,13 @@
 /include/ "zynq-zc702.dtsi"
 /include/ "zynq-zc702-adv7511.dtsi"
 
-&fpga_axi {
-	fmc_spi: spi@e0006000 {
-		bus-num = <1>;
-		compatible = "cdns,spi-r1p6", "xlnx,zynq-spi-1.00.a", "xlnx,ps7-spi-1.00.a";
-		interrupt-parent = <&gic>;
-		interrupts = < 0 26 4 >;
-		clock-names = "ref_clk", "aper_clk", "pclk";
-		clocks = <&clkc 25>, <&clkc 34>, <&clkc 34>;
-		num-chip-select = <3>;
-		reg = <0xe0006000 0x1000>;
-		speed-hz = <100000000>;
-		xlnx,has-ss0 = <0x1>;
-		xlnx,has-ss1 = <0x1>;
-		xlnx,has-ss2 = <0x1>;
-		xlnx,spi-clk-freq-hz = <100000000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-	};
+&spi0 {
+	status = "okay";
+};
 
+#define fmc_spi spi0
+
+&fpga_axi {
 	rx_dma: dma@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c400000 0x10000>;
@@ -86,7 +74,7 @@
 	};
 };
 
-/include/ "adi-fmcomms5.dtsi"
+#include "adi-fmcomms5.dtsi"
 
 &adc0_ad9361 {
 	reset-gpios = <&gpio 100 0>;
