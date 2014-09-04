@@ -1,5 +1,5 @@
 
-&xcomm_i2c {
+&fmc_i2c {
 	spi_xcomm0: spi_xcomm0@58 {
 		#size-cells = <0>;
 		#address-cells = <1>;
