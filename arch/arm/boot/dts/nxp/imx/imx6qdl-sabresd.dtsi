@@ -12,6 +12,19 @@
 		stdout-path = &uart1;
 	};
 
+	battery: max8903@0 {
+		compatible = "fsl,max8903-charger";
+		pinctrl-names = "default";
+		dok_input = <&gpio2 24 1>;
+		uok_input = <&gpio1 27 1>;
+		chg_input = <&gpio3 23 1>;
+		flt_input = <&gpio5 2 1>;
+		fsl,dcm_always_high;
+		fsl,dc_valid;
+		fsl,usb_valid;
+		status = "okay";
+	};
+
 	memory@10000000 {
 		device_type = "memory";
 		reg = <0x10000000 0x40000000>;
@@ -492,6 +505,10 @@
 				MX6QDL_PAD_ENET_TXD1__GPIO1_IO29 0x1b0b0
 				MX6QDL_PAD_EIM_D22__GPIO3_IO22  0x1b0b0
 				MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25 0x1b0b0
+				MX6QDL_PAD_EIM_CS1__GPIO2_IO24 0x80000000
+				MX6QDL_PAD_ENET_RXD0__GPIO1_IO27 0x80000000
+				MX6QDL_PAD_EIM_A25__GPIO5_IO02 0x80000000
+				MX6QDL_PAD_EIM_D23__GPIO3_IO23 0x80000000
 			>;
 		};
 

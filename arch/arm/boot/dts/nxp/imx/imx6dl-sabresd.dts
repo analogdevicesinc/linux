@@ -12,6 +12,12 @@
 	compatible = "fsl,imx6dl-sabresd", "fsl,imx6dl";
 };
 
+&battery {
+	offset-charger = <1485>;
+	offset-discharger = <1464>;
+	offset-usb-charger = <1285>;
+};
+
 &ipu1_csi1_from_ipu1_csi1_mux {
 	clock-lanes = <0>;
 	data-lanes = <1 2>;
