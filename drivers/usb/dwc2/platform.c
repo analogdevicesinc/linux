@@ -41,6 +41,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/usb/otg.h>
 
 #include "core.h"
 #include "hcd.h"
@@ -90,7 +91,14 @@ static int dwc2_driver_remove(struct platform_device *dev)
 {
 	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
 
-	dwc2_hcd_remove(hsotg);
+	if (IS_ENABLED(CONFIG_USB_DWC2_GADGET))
+		s3c_hsotg_remove(hsotg);
+	else if (IS_ENABLED(CONFIG_USB_DWC2_HOST))
+		dwc2_hcd_remove(hsotg);
+	else { /* dual role */
+		s3c_hsotg_remove(hsotg);
+		dwc2_hcd_remove(hsotg);
+	}
 
 	return 0;
 }
@@ -116,9 +124,7 @@ MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
  */
 static int dwc2_driver_probe(struct platform_device *dev)
 {
-	const struct of_device_id *match;
-	const struct dwc2_core_params *params;
-	struct dwc2_core_params defparams;
+	struct dwc2_core_params params;
 	struct dwc2_hsotg *hsotg;
 	struct resource *res;
 	int retval;
@@ -127,17 +133,15 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	if (usb_disabled())
 		return -ENODEV;
 
-	match = of_match_device(dwc2_of_match_table, &dev->dev);
-	if (match && match->data) {
-		params = match->data;
-	} else {
-		/* Default all params to autodetect */
-		dwc2_set_all_params(&defparams, -1);
-		params = &defparams;
-	}
+	dwc2_set_all_params(&params, -1);
+	params.dma_desc_enable = 0;
 
 	hsotg = devm_kzalloc(&dev->dev, sizeof(*hsotg), GFP_KERNEL);
 	if (!hsotg)
+		return -ENOMEM;
+
+	hsotg->core_params = kzalloc(sizeof(*hsotg->core_params), GFP_KERNEL);
+	if (!hsotg->core_params)
 		return -ENOMEM;
 
 	hsotg->dev = &dev->dev;
@@ -165,12 +169,28 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	dev_dbg(&dev->dev, "mapped PA %08lx to VA %p\n",
 		(unsigned long)res->start, hsotg->regs);
 
-	retval = dwc2_hcd_init(hsotg, irq, params);
-	if (retval)
-		return retval;
+	if (IS_ENABLED(CONFIG_USB_DWC2_HOST)) {
+		retval = dwc2_hcd_init(hsotg, irq, &params);
+		if (retval)
+			return retval;
+	} else if (IS_ENABLED(CONFIG_USB_DWC2_GADGET)) {
+		retval = dwc2_gadget_init(hsotg, irq);
+		if (retval)
+			return retval;
+		retval = dwc2_core_init(hsotg, true, irq);
+		if (retval)
+			return retval;
+	} else { /* dual role */
+		retval = dwc2_gadget_init(hsotg, irq);
+		if (retval)
+			return retval;
+		retval = dwc2_hcd_init(hsotg, irq, &params);
+		if (retval)
+			return retval;
+	}
+	spin_lock_init(&hsotg->lock);
 
 	platform_set_drvdata(dev, hsotg);
-
 	return retval;
 }
 
