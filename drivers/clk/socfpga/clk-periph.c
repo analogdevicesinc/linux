@@ -29,18 +29,33 @@ static unsigned long clk_periclk_recalc_rate(struct clk_hw *hwclk,
 					     unsigned long parent_rate)
 {
 	struct socfpga_periph_clk *socfpgaclk = to_socfpga_periph_clk(hwclk);
-	u32 div;
+	u32 div, val;
 
-	if (socfpgaclk->fixed_div)
+	if (socfpgaclk->fixed_div) {
 		div = socfpgaclk->fixed_div;
-	else
+	} else {
+		if (socfpgaclk->div_reg) {
+			val = readl(socfpgaclk->div_reg) >> socfpgaclk->shift;
+			val &= div_mask(socfpgaclk->width);
+			parent_rate /= (val + 1);
+		}
 		div = ((readl(socfpgaclk->hw.reg) & 0x1ff) + 1);
+	}
 
 	return parent_rate / div;
 }
 
+static u8 clk_periclk_get_parent(struct clk_hw *hwclk)
+{
+	u32 clk_src;
+
+	clk_src = readl(clk_mgr_base_addr + CLKMGR_DBCTRL);
+	return clk_src & 0x1;
+}
+
 static const struct clk_ops periclk_ops = {
 	.recalc_rate = clk_periclk_recalc_rate,
+	.get_parent = clk_periclk_get_parent,
 };
 
 static __init void __socfpga_periph_init(struct device_node *node,
@@ -50,10 +65,12 @@ static __init void __socfpga_periph_init(struct device_node *node,
 	struct clk *clk;
 	struct socfpga_periph_clk *periph_clk;
 	const char *clk_name = node->name;
-	const char *parent_name;
+	const char *parent_name[SOCFPGA_MAX_PARENTS];
 	struct clk_init_data init;
 	int rc;
 	u32 fixed_div;
+	u32 div_reg[3];
+	int i = 0;
 
 	of_property_read_u32(node, "reg", &reg);
 
@@ -62,6 +79,15 @@ static __init void __socfpga_periph_init(struct device_node *node,
 		return;
 
 	periph_clk->hw.reg = clk_mgr_base_addr + reg;
+
+	rc = of_property_read_u32_array(node, "div-reg", div_reg, 3);
+	if (!rc) {
+		periph_clk->div_reg = clk_mgr_base_addr + div_reg[0];
+		periph_clk->shift = div_reg[1];
+		periph_clk->width = div_reg[2];
+	} else {
+		periph_clk->div_reg = 0;
+	}
 
 	rc = of_property_read_u32(node, "fixed-divider", &fixed_div);
 	if (rc)
@@ -74,9 +100,12 @@ static __init void __socfpga_periph_init(struct device_node *node,
 	init.name = clk_name;
 	init.ops = ops;
 	init.flags = 0;
-	parent_name = of_clk_get_parent_name(node, 0);
-	init.parent_names = &parent_name;
-	init.num_parents = 1;
+	while (i < SOCFPGA_MAX_PARENTS && (parent_name[i] =
+			of_clk_get_parent_name(node, i)) != NULL)
+		i++;
+
+	init.parent_names = parent_name;
+	init.num_parents = i;
 
 	periph_clk->hw.hw.init = &init;
 

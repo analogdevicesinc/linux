@@ -1,28 +1,27 @@
 /*
- *  Copyright (C) 2012 Altera Corporation <www.altera.com>
+ * Copyright Altera Corporation (C) 2012,2014. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/include/ "socfpga_cyclone5.dtsi"
+#include "socfpga_cyclone5.dtsi"
 
 / {
 	model = "Altera SOCFPGA Cyclone V SoC Development Kit";
 	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
 
 	chosen {
-		bootargs = "console=ttyS0,115200";
+		bootargs = "console=ttyS0,115200 root=/dev/mmcblk0p2 rw rootwait";
 	};
 
 	memory {
@@ -37,6 +36,65 @@
 		 */
 		ethernet0 = &gmac1;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		hps0 {
+			label = "hps_led0";
+			gpios = <&gpio1 15 1>;
+		};
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&gpio1 14 1>;
+		};
+
+		hps2 {
+			label = "hps_led2";
+			gpios = <&gpio1 13 1>;
+		};
+
+		hps3 {
+			label = "hps_led3";
+			gpios = <&gpio1 12 1>;
+		};
+	};
+
+	soc {
+		gpio@ff708000 {
+			status = "okay";
+		};
+
+		gpio@ff709000 {
+			status = "okay";
+		};
+
+		gpio@ff70a000 {
+			status = "okay";
+		};
+	};
+};
+
+&can0 {
+	status = "okay";
+};
+
+&mmc {
+	num-slots = <1>;
+	supports-highspeed;
+	broken-cd;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+
+	slot@0 {
+	cd-gpios = <&gpio1 18 0>;
+	reg = <0>;
+	bus-width = <4>;
+	};
+};
+
+&osc1 {
+	clock-frequency = <25000000>;
 };
 
 &gmac1 {
@@ -51,4 +109,82 @@
 	txc-skew-ps = <2600>;
 	rxdv-skew-ps = <0>;
 	rxc-skew-ps = <2000>;
+	max-frame-size = <3800>;
+};
+
+&i2c0 {
+	status = "okay";
+	speed-mode = <0>;
+
+	/*
+	 * adjust the falling times to decrease the i2c frequency to 50Khz
+	 * because the LCD module does not work at the standard 100Khz
+	 */
+	i2c-sda-falling-time-ns = <5000>;
+	i2c-scl-falling-time-ns = <5000>;
+
+	lcd: lcd@28 {
+		compatible = "newhaven,nhd-0216k3z-nsw-bbw";
+		reg = <0x28>;
+		height = <2>;
+		width = <16>;
+		brightness = <8>;
+	};
+
+	eeprom@51 {
+		compatible = "atmel,24c32";
+		reg = <0x51>;
+		pagesize = <32>;
+	};
+
+	rtc@68 {
+		compatible = "dallas,ds1339";
+		reg = <0x68>;
+	};
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
+	flash0: n25q00@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "n25q00";
+		reg = <0>;      /* chip select */
+		spi-max-frequency = <100000000>;
+		m25p,fast-read;
+		page-size = <256>;
+		block-size = <16>; /* 2^16, 64KB */
+		read-delay = <4>;  /* delay value in read data capture register */
+		tshsl-ns = <50>;
+		tsd2d-ns = <50>;
+		tchsh-ns = <4>;
+		tslch-ns = <4>;
+
+		partition@qspi-boot {
+			/* 8MB for raw data. */
+			label = "Flash 0 Raw Data";
+			reg = <0x0 0x800000>;
+		};
+		partition@qspi-rootfs {
+			/* 120MB for jffs2 data. */
+			label = "Flash 0 jffs2 Filesystem";
+			reg = <0x800000 0x7800000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&watchdog0 {
+	status = "okay";
 };
