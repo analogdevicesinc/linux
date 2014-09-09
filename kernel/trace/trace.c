@@ -73,7 +73,8 @@ static struct tracer_flags dummy_tracer_flags = {
 	.opts = dummy_tracer_opt
 };
 
-static int dummy_set_flag(u32 old_flags, u32 bit, int set)
+static int
+dummy_set_flag(struct trace_array *tr, u32 old_flags, u32 bit, int set)
 {
 	return 0;
 }
@@ -118,7 +119,7 @@ enum ftrace_dump_mode ftrace_dump_on_oops;
 /* When set, tracing will stop when a WARN*() is hit */
 int __disable_trace_on_warning;
 
-static int tracing_set_tracer(const char *buf);
+static int tracing_set_tracer(struct trace_array *tr, const char *buf);
 
 #define MAX_TRACER_SIZE		100
 static char bootup_tracer_buf[MAX_TRACER_SIZE] __initdata;
@@ -179,6 +180,17 @@ static int __init set_trace_boot_options(char *str)
 	return 0;
 }
 __setup("trace_options=", set_trace_boot_options);
+
+static char trace_boot_clock_buf[MAX_TRACER_SIZE] __initdata;
+static char *trace_boot_clock __initdata;
+
+static int __init set_trace_boot_clock(char *str)
+{
+	strlcpy(trace_boot_clock_buf, str, MAX_TRACER_SIZE);
+	trace_boot_clock = trace_boot_clock_buf;
+	return 0;
+}
+__setup("trace_clock=", set_trace_boot_clock);
 
 
 unsigned long long ns2usecs(cycle_t nsec)
@@ -1230,7 +1242,7 @@ int register_tracer(struct tracer *type)
 
 	printk(KERN_INFO "Starting tracer '%s'\n", type->name);
 	/* Do we want this tracer to start on bootup? */
-	tracing_set_tracer(type->name);
+	tracing_set_tracer(&global_trace, type->name);
 	default_bootup_tracer = NULL;
 	/* disable other selftests, since this will break it. */
 	tracing_selftest_disabled = true;
@@ -1355,6 +1367,7 @@ void tracing_start(void)
 
 	arch_spin_unlock(&ftrace_max_lock);
 
+	ftrace_start();
  out:
 	raw_spin_unlock_irqrestore(&global_trace.start_lock, flags);
 }
@@ -1401,6 +1414,7 @@ void tracing_stop(void)
 	struct ring_buffer *buffer;
 	unsigned long flags;
 
+	ftrace_stop();
 	raw_spin_lock_irqsave(&global_trace.start_lock, flags);
 	if (global_trace.stop_count++)
 		goto out;
@@ -1447,12 +1461,12 @@ static void tracing_stop_tr(struct trace_array *tr)
 
 void trace_stop_cmdline_recording(void);
 
-static int trace_save_cmdline(struct task_struct *tsk)
+static void trace_save_cmdline(struct task_struct *tsk)
 {
 	unsigned pid, idx;
 
 	if (!tsk->pid || unlikely(tsk->pid > PID_MAX_DEFAULT))
-		return 0;
+		return;
 
 	/*
 	 * It's not the end of the world if we don't get
@@ -1461,7 +1475,7 @@ static int trace_save_cmdline(struct task_struct *tsk)
 	 * so if we miss here, then better luck next time.
 	 */
 	if (!arch_spin_trylock(&trace_cmdline_lock))
-		return 0;
+		return;
 
 	idx = map_pid_to_cmdline[tsk->pid];
 	if (idx == NO_CMDLINE_MAP) {
@@ -1486,8 +1500,6 @@ static int trace_save_cmdline(struct task_struct *tsk)
 	memcpy(&saved_cmdlines[idx], tsk->comm, TASK_COMM_LEN);
 
 	arch_spin_unlock(&trace_cmdline_lock);
-
-	return 1;
 }
 
 void trace_find_cmdline(int pid, char comm[])
@@ -1529,8 +1541,9 @@ void tracing_record_cmdline(struct task_struct *tsk)
 	if (!__this_cpu_read(trace_cmdline_save))
 		return;
 
-	if (trace_save_cmdline(tsk))
-		__this_cpu_write(trace_cmdline_save, false);
+	__this_cpu_write(trace_cmdline_save, false);
+
+	trace_save_cmdline(tsk);
 }
 
 void
@@ -3136,27 +3149,52 @@ static int tracing_open(struct inode *inode, struct file *file)
 	return ret;
 }
 
+/*
+ * Some tracers are not suitable for instance buffers.
+ * A tracer is always available for the global array (toplevel)
+ * or if it explicitly states that it is.
+ */
+static bool
+trace_ok_for_array(struct tracer *t, struct trace_array *tr)
+{
+	return (tr->flags & TRACE_ARRAY_FL_GLOBAL) || t->allow_instances;
+}
+
+/* Find the next tracer that this trace array may use */
+static struct tracer *
+get_tracer_for_array(struct trace_array *tr, struct tracer *t)
+{
+	while (t && !trace_ok_for_array(t, tr))
+		t = t->next;
+
+	return t;
+}
+
 static void *
 t_next(struct seq_file *m, void *v, loff_t *pos)
 {
+	struct trace_array *tr = m->private;
 	struct tracer *t = v;
 
 	(*pos)++;
 
 	if (t)
-		t = t->next;
+		t = get_tracer_for_array(tr, t->next);
 
 	return t;
 }
 
 static void *t_start(struct seq_file *m, loff_t *pos)
 {
+	struct trace_array *tr = m->private;
 	struct tracer *t;
 	loff_t l = 0;
 
 	mutex_lock(&trace_types_lock);
-	for (t = trace_types; t && l < *pos; t = t_next(m, t, &l))
-		;
+
+	t = get_tracer_for_array(tr, trace_types);
+	for (; t && l < *pos; t = t_next(m, t, &l))
+			;
 
 	return t;
 }
@@ -3191,10 +3229,21 @@ static const struct seq_operations show_traces_seq_ops = {
 
 static int show_traces_open(struct inode *inode, struct file *file)
 {
+	struct trace_array *tr = inode->i_private;
+	struct seq_file *m;
+	int ret;
+
 	if (tracing_disabled)
 		return -ENODEV;
 
-	return seq_open(file, &show_traces_seq_ops);
+	ret = seq_open(file, &show_traces_seq_ops);
+	if (ret)
+		return ret;
+
+	m = file->private_data;
+	m->private = tr;
+
+	return 0;
 }
 
 static ssize_t
@@ -3354,13 +3403,14 @@ static int tracing_trace_options_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int __set_tracer_option(struct tracer *trace,
+static int __set_tracer_option(struct trace_array *tr,
 			       struct tracer_flags *tracer_flags,
 			       struct tracer_opt *opts, int neg)
 {
+	struct tracer *trace = tr->current_trace;
 	int ret;
 
-	ret = trace->set_flag(tracer_flags->val, opts->bit, !neg);
+	ret = trace->set_flag(tr, tracer_flags->val, opts->bit, !neg);
 	if (ret)
 		return ret;
 
@@ -3372,8 +3422,9 @@ static int __set_tracer_option(struct tracer *trace,
 }
 
 /* Try to assign a tracer specific option */
-static int set_tracer_option(struct tracer *trace, char *cmp, int neg)
+static int set_tracer_option(struct trace_array *tr, char *cmp, int neg)
 {
+	struct tracer *trace = tr->current_trace;
 	struct tracer_flags *tracer_flags = trace->flags;
 	struct tracer_opt *opts = NULL;
 	int i;
@@ -3382,8 +3433,7 @@ static int set_tracer_option(struct tracer *trace, char *cmp, int neg)
 		opts = &tracer_flags->opts[i];
 
 		if (strcmp(cmp, opts->name) == 0)
-			return __set_tracer_option(trace, trace->flags,
-						   opts, neg);
+			return __set_tracer_option(tr, trace->flags, opts, neg);
 	}
 
 	return -EINVAL;
@@ -3406,7 +3456,7 @@ int set_tracer_flag(struct trace_array *tr, unsigned int mask, int enabled)
 
 	/* Give the tracer a chance to approve the change */
 	if (tr->current_trace->flag_changed)
-		if (tr->current_trace->flag_changed(tr->current_trace, mask, !!enabled))
+		if (tr->current_trace->flag_changed(tr, mask, !!enabled))
 			return -EINVAL;
 
 	if (enabled)
@@ -3455,7 +3505,7 @@ static int trace_set_options(struct trace_array *tr, char *option)
 
 	/* If no option could be set, test the specific tracer options */
 	if (!trace_options[i])
-		ret = set_tracer_option(tr->current_trace, cmp, neg);
+		ret = set_tracer_option(tr, cmp, neg);
 
 	mutex_unlock(&trace_types_lock);
 
@@ -3561,6 +3611,8 @@ static const char readme_msg[] =
 #ifdef CONFIG_TRACER_SNAPSHOT
 	"\t\t      snapshot\n"
 #endif
+	"\t\t      dump\n"
+	"\t\t      cpudump\n"
 	"\t     example: echo do_fault:traceoff > set_ftrace_filter\n"
 	"\t              echo do_trap:traceoff:3 > set_ftrace_filter\n"
 	"\t     The first one will disable tracing every time do_fault is hit\n"
@@ -3884,10 +3936,26 @@ create_trace_option_files(struct trace_array *tr, struct tracer *tracer);
 static void
 destroy_trace_option_files(struct trace_option_dentry *topts);
 
-static int tracing_set_tracer(const char *buf)
+/*
+ * Used to clear out the tracer before deletion of an instance.
+ * Must have trace_types_lock held.
+ */
+static void tracing_set_nop(struct trace_array *tr)
+{
+	if (tr->current_trace == &nop_trace)
+		return;
+	
+	tr->current_trace->enabled--;
+
+	if (tr->current_trace->reset)
+		tr->current_trace->reset(tr);
+
+	tr->current_trace = &nop_trace;
+}
+
+static int tracing_set_tracer(struct trace_array *tr, const char *buf)
 {
 	static struct trace_option_dentry *topts;
-	struct trace_array *tr = &global_trace;
 	struct tracer *t;
 #ifdef CONFIG_TRACER_MAX_TRACE
 	bool had_max_tr;
@@ -3915,9 +3983,15 @@ static int tracing_set_tracer(const char *buf)
 	if (t == tr->current_trace)
 		goto out;
 
+	/* Some tracers are only allowed for the top level buffer */
+	if (!trace_ok_for_array(t, tr)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 	trace_branch_disable();
 
-	tr->current_trace->enabled = false;
+	tr->current_trace->enabled--;
 
 	if (tr->current_trace->reset)
 		tr->current_trace->reset(tr);
@@ -3940,9 +4014,11 @@ static int tracing_set_tracer(const char *buf)
 		free_snapshot(tr);
 	}
 #endif
-	destroy_trace_option_files(topts);
-
-	topts = create_trace_option_files(tr, t);
+	/* Currently, only the top instance has options */
+	if (tr->flags & TRACE_ARRAY_FL_GLOBAL) {
+		destroy_trace_option_files(topts);
+		topts = create_trace_option_files(tr, t);
+	}
 
 #ifdef CONFIG_TRACER_MAX_TRACE
 	if (t->use_max_tr && !had_max_tr) {
@@ -3959,7 +4035,7 @@ static int tracing_set_tracer(const char *buf)
 	}
 
 	tr->current_trace = t;
-	tr->current_trace->enabled = true;
+	tr->current_trace->enabled++;
 	trace_branch_enable(tr);
  out:
 	mutex_unlock(&trace_types_lock);
@@ -3971,6 +4047,7 @@ static ssize_t
 tracing_set_trace_write(struct file *filp, const char __user *ubuf,
 			size_t cnt, loff_t *ppos)
 {
+	struct trace_array *tr = filp->private_data;
 	char buf[MAX_TRACER_SIZE+1];
 	int i;
 	size_t ret;
@@ -3990,7 +4067,7 @@ tracing_set_trace_write(struct file *filp, const char __user *ubuf,
 	for (i = cnt - 1; i > 0 && isspace(buf[i]); i--)
 		buf[i] = 0;
 
-	err = tracing_set_tracer(buf);
+	err = tracing_set_tracer(tr, buf);
 	if (err)
 		return err;
 
@@ -4315,8 +4392,6 @@ static void tracing_spd_release_pipe(struct splice_pipe_desc *spd,
 
 static const struct pipe_buf_operations tracing_pipe_buf_ops = {
 	.can_merge		= 0,
-	.map			= generic_pipe_buf_map,
-	.unmap			= generic_pipe_buf_unmap,
 	.confirm		= generic_pipe_buf_confirm,
 	.release		= generic_pipe_buf_release,
 	.steal			= generic_pipe_buf_steal,
@@ -4411,7 +4486,7 @@ static ssize_t tracing_splice_read_pipe(struct file *filp,
 	trace_access_lock(iter->cpu_file);
 
 	/* Fill as many pages as possible. */
-	for (i = 0, rem = len; i < pipe->buffers && rem; i++) {
+	for (i = 0, rem = len; i < spd.nr_pages_max && rem; i++) {
 		spd.pages[i] = alloc_page(GFP_KERNEL);
 		if (!spd.pages[i])
 			break;
@@ -4698,24 +4773,9 @@ static int tracing_clock_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static ssize_t tracing_clock_write(struct file *filp, const char __user *ubuf,
-				   size_t cnt, loff_t *fpos)
+static int tracing_set_clock(struct trace_array *tr, const char *clockstr)
 {
-	struct seq_file *m = filp->private_data;
-	struct trace_array *tr = m->private;
-	char buf[64];
-	const char *clockstr;
 	int i;
-
-	if (cnt >= sizeof(buf))
-		return -EINVAL;
-
-	if (copy_from_user(&buf, ubuf, cnt))
-		return -EFAULT;
-
-	buf[cnt] = 0;
-
-	clockstr = strstrip(buf);
 
 	for (i = 0; i < ARRAY_SIZE(trace_clocks); i++) {
 		if (strcmp(trace_clocks[i].name, clockstr) == 0)
@@ -4743,6 +4803,32 @@ static ssize_t tracing_clock_write(struct file *filp, const char __user *ubuf,
 #endif
 
 	mutex_unlock(&trace_types_lock);
+
+	return 0;
+}
+
+static ssize_t tracing_clock_write(struct file *filp, const char __user *ubuf,
+				   size_t cnt, loff_t *fpos)
+{
+	struct seq_file *m = filp->private_data;
+	struct trace_array *tr = m->private;
+	char buf[64];
+	const char *clockstr;
+	int ret;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt] = 0;
+
+	clockstr = strstrip(buf);
+
+	ret = tracing_set_clock(tr, clockstr);
+	if (ret)
+		return ret;
 
 	*fpos += cnt;
 
@@ -5193,8 +5279,6 @@ static void buffer_pipe_buf_get(struct pipe_inode_info *pipe,
 /* Pipe buffer operations for a buffer. */
 static const struct pipe_buf_operations buffer_pipe_buf_ops = {
 	.can_merge		= 0,
-	.map			= generic_pipe_buf_map,
-	.unmap			= generic_pipe_buf_unmap,
 	.confirm		= generic_pipe_buf_confirm,
 	.release		= buffer_pipe_buf_release,
 	.steal			= generic_pipe_buf_steal,
@@ -5270,7 +5354,7 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 	trace_access_lock(iter->cpu_file);
 	entries = ring_buffer_entries_cpu(iter->trace_buffer->buffer, iter->cpu_file);
 
-	for (i = 0; i < pipe->buffers && len && entries; i++, len -= PAGE_SIZE) {
+	for (i = 0; i < spd.nr_pages_max && len && entries; i++, len -= PAGE_SIZE) {
 		struct page *page;
 		int r;
 
@@ -5704,7 +5788,7 @@ trace_options_write(struct file *filp, const char __user *ubuf, size_t cnt,
 
 	if (!!(topt->flags->val & topt->opt->bit) != val) {
 		mutex_lock(&trace_types_lock);
-		ret = __set_tracer_option(topt->tr->current_trace, topt->flags,
+		ret = __set_tracer_option(topt->tr, topt->flags,
 					  topt->opt, !val);
 		mutex_unlock(&trace_types_lock);
 		if (ret)
@@ -6111,7 +6195,9 @@ static int instance_delete(const char *name)
 
 	list_del(&tr->list);
 
+	tracing_set_nop(tr);
 	event_trace_del_tracer(tr);
+	ftrace_destroy_function_files(tr);
 	debugfs_remove_recursive(tr->dir);
 	free_percpu(tr->trace_buffer.data);
 	ring_buffer_free(tr->trace_buffer.buffer);
@@ -6206,6 +6292,12 @@ init_tracer_debugfs(struct trace_array *tr, struct dentry *d_tracer)
 {
 	int cpu;
 
+	trace_create_file("available_tracers", 0444, d_tracer,
+			tr, &show_traces_fops);
+
+	trace_create_file("current_tracer", 0644, d_tracer,
+			tr, &set_tracer_fops);
+
 	trace_create_file("tracing_cpumask", 0644, d_tracer,
 			  tr, &tracing_cpumask_fops);
 
@@ -6236,6 +6328,9 @@ init_tracer_debugfs(struct trace_array *tr, struct dentry *d_tracer)
 	trace_create_file("tracing_on", 0644, d_tracer,
 			  tr, &rb_simple_fops);
 
+	if (ftrace_create_function_files(tr, d_tracer))
+		WARN(1, "Could not allocate function filter files");
+
 #ifdef CONFIG_TRACER_SNAPSHOT
 	trace_create_file("snapshot", 0644, d_tracer,
 			  tr, &snapshot_fops);
@@ -6257,12 +6352,6 @@ static __init int tracer_init_debugfs(void)
 		return 0;
 
 	init_tracer_debugfs(&global_trace, d_tracer);
-
-	trace_create_file("available_tracers", 0444, d_tracer,
-			&global_trace, &show_traces_fops);
-
-	trace_create_file("current_tracer", 0644, d_tracer,
-			&global_trace, &set_tracer_fops);
 
 #ifdef CONFIG_TRACER_MAX_TRACE
 	trace_create_file("tracing_max_latency", 0644, d_tracer,
@@ -6525,6 +6614,13 @@ __init static int tracer_alloc_buffers(void)
 		tracing_off();
 
 	trace_init_cmdlines();
+
+	if (trace_boot_clock) {
+		ret = tracing_set_clock(&global_trace, trace_boot_clock);
+		if (ret < 0)
+			pr_warning("Trace clock %s not defined, going back to default\n",
+				   trace_boot_clock);
+	}
 
 	/*
 	 * register_tracer() might reference current_trace, so it

@@ -104,12 +104,11 @@ static int cpu0_cpufreq_init(struct cpufreq_policy *policy)
 }
 
 static struct cpufreq_driver cpu0_cpufreq_driver = {
-	.flags = CPUFREQ_STICKY,
+	.flags = CPUFREQ_STICKY | CPUFREQ_NEED_INITIAL_FREQ_CHECK,
 	.verify = cpufreq_generic_frequency_table_verify,
 	.target_index = cpu0_set_target,
 	.get = cpufreq_generic_get,
 	.init = cpu0_cpufreq_init,
-	.exit = cpufreq_generic_exit,
 	.name = "generic_cpu0",
 	.attr = cpufreq_generic_attr,
 };

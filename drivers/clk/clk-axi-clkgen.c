@@ -57,7 +57,7 @@ struct axi_clkgen;
 struct axi_clkgen_mmcm_ops {
 	void (*enable)(struct axi_clkgen *axi_clkgen, bool enable);
 	int (*write)(struct axi_clkgen *axi_clkgen, unsigned int reg,
-		    unsigned int val, unsigned int mask);
+		     unsigned int val, unsigned int mask);
 	int (*read)(struct axi_clkgen *axi_clkgen, unsigned int reg,
 		    unsigned int *val);
 };
@@ -241,7 +241,7 @@ static int axi_clkgen_v1_mmcm_write(struct axi_clkgen *axi_clkgen,
 {
 	reg = axi_clkgen_v1_map_mmcm_reg(reg);
 	if (reg == 0)
-	    return -EINVAL;
+		return -EINVAL;
 
 	axi_clkgen_write(axi_clkgen, reg, val);
 
@@ -253,7 +253,7 @@ static int axi_clkgen_v1_mmcm_read(struct axi_clkgen *axi_clkgen,
 {
 	reg = axi_clkgen_v1_map_mmcm_reg(reg);
 	if (reg == 0)
-	    return -EINVAL;
+		return -EINVAL;
 
 	axi_clkgen_read(axi_clkgen, reg, val);
 
@@ -272,32 +272,41 @@ static const struct axi_clkgen_mmcm_ops axi_clkgen_v1_mmcm_ops = {
 	.enable = axi_clkgen_v1_mmcm_enable,
 };
 
+static int axi_clkgen_wait_non_busy(struct axi_clkgen *axi_clkgen)
+{
+	unsigned int timeout = 10000;
+	unsigned int val;
+
+	do {
+		axi_clkgen_read(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_STATUS, &val);
+	} while ((val & AXI_CLKGEN_V2_DRP_STATUS_BUSY) && --timeout);
+
+	if (val & AXI_CLKGEN_V2_DRP_STATUS_BUSY)
+		return -EIO;
+
+	return val & 0xffff;
+}
+
 static int axi_clkgen_v2_mmcm_read(struct axi_clkgen *axi_clkgen,
 	unsigned int reg, unsigned int *val)
 {
-	unsigned int timeout = 10000;
 	unsigned int reg_val;
+	int ret;
 
-	do {
-	    axi_clkgen_read(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_STATUS, &reg_val);
-	} while ((reg_val & AXI_CLKGEN_V2_DRP_STATUS_BUSY) && --timeout);
+	ret = axi_clkgen_wait_non_busy(axi_clkgen);
+	if (ret < 0)
+		return ret;
 
-	if (timeout == 0)
-		return -EIO;
-	
 	reg_val = AXI_CLKGEN_V2_DRP_CNTRL_SEL | AXI_CLKGEN_V2_DRP_CNTRL_READ;
 	reg_val |= (reg << 16);
 
 	axi_clkgen_write(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_CNTRL, reg_val);
 
-	do {
-	    axi_clkgen_read(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_STATUS, val);
-	} while ((*val & AXI_CLKGEN_V2_DRP_STATUS_BUSY) && --timeout);
+	ret = axi_clkgen_wait_non_busy(axi_clkgen);
+	if (ret < 0)
+		return ret;
 
-	if (timeout == 0)
-		return -EIO;
-
-	*val &= 0xffff;
+	*val = ret;
 
 	return 0;
 }
@@ -305,21 +314,16 @@ static int axi_clkgen_v2_mmcm_read(struct axi_clkgen *axi_clkgen,
 static int axi_clkgen_v2_mmcm_write(struct axi_clkgen *axi_clkgen,
 	unsigned int reg, unsigned int val, unsigned int mask)
 {
-	unsigned int timeout = 10000;
-	unsigned int reg_val;
+	unsigned int reg_val = 0;
+	int ret;
 
-	do {
-	    axi_clkgen_read(axi_clkgen, AXI_CLKGEN_V2_REG_DRP_STATUS, &reg_val);
-	} while ((reg_val & AXI_CLKGEN_V2_DRP_STATUS_BUSY) && --timeout);
-
-	if (timeout == 0)
-		return -EIO;
+	ret = axi_clkgen_wait_non_busy(axi_clkgen);
+	if (ret < 0)
+		return ret;
 
 	if (mask != 0xffff) {
 		axi_clkgen_v2_mmcm_read(axi_clkgen, reg, &reg_val);
 		reg_val &= ~mask;
-	} else {
-		reg_val = 0;
 	}
 
 	reg_val |= AXI_CLKGEN_V2_DRP_CNTRL_SEL | (reg << 16) | (val & mask);
@@ -467,11 +471,11 @@ static const struct clk_ops axi_clkgen_ops = {
 
 static const struct of_device_id axi_clkgen_ids[] = {
 	{
-	    .compatible = "adi,axi-clkgen-1.00.a",
-	    .data = &axi_clkgen_v1_mmcm_ops
+		.compatible = "adi,axi-clkgen-1.00.a",
+		.data = &axi_clkgen_v1_mmcm_ops
 	}, {
-	    .compatible = "adi,axi-clkgen-2.00.a",
-	    .data = &axi_clkgen_v2_mmcm_ops,
+		.compatible = "adi,axi-clkgen-2.00.a",
+		.data = &axi_clkgen_v2_mmcm_ops,
 	},
 	{ },
 };
@@ -488,13 +492,16 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	struct clk *clk;
 
 	if (!pdev->dev.of_node)
-	    return -ENODEV;
+		return -ENODEV;
+
+	id = of_match_node(axi_clkgen_ids, pdev->dev.of_node);
+	if (!id)
+		return -ENODEV;
 
 	axi_clkgen = devm_kzalloc(&pdev->dev, sizeof(*axi_clkgen), GFP_KERNEL);
 	if (!axi_clkgen)
 		return -ENOMEM;
 
-	id = of_match_node(axi_clkgen_ids, pdev->dev.of_node);
 	axi_clkgen->mmcm_ops = id->data;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);

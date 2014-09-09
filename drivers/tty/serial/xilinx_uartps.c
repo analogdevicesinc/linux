@@ -133,6 +133,15 @@ MODULE_PARM_DESC(rx_timeout, "Rx timeout, 1-255");
 #define CDNS_UART_IXR_BRK	0x80000000
 
 /*
+ * Modem Control register:
+ * The read/write Modem Control register controls the interface with the modem
+ * or data set, or a peripheral device emulating a modem.
+ */
+#define CDNS_UART_MODEMCR_FCM	0x00000020 /* Automatic flow control mode */
+#define CDNS_UART_MODEMCR_RTS	0x00000002 /* Request to send output control */
+#define CDNS_UART_MODEMCR_DTR	0x00000001 /* Data Terminal Ready */
+
+/*
  * Channel Status Register:
  * The channel status register (CSR) is provided to enable the control logic
  * to monitor the status of bits in the channel interrupt status register,
@@ -581,7 +590,7 @@ static unsigned int cdns_uart_tx_empty(struct uart_port *port)
 {
 	unsigned int status;
 
-	status = cdns_uart_readl(CDNS_UART_ISR_OFFSET) & CDNS_UART_IXR_TXEMPTY;
+	status = cdns_uart_readl(CDNS_UART_SR_OFFSET) & CDNS_UART_SR_TXEMPTY;
 	return status ? TIOCSER_TEMT : 0;
 }
 
@@ -915,12 +924,18 @@ static unsigned int cdns_uart_get_mctrl(struct uart_port *port)
 
 static void cdns_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
-	/* N/A */
-}
+	unsigned int val;
 
-static void cdns_uart_enable_ms(struct uart_port *port)
-{
-	/* N/A */
+	val = cdns_uart_readl(CDNS_UART_MODEMCR_OFFSET);
+
+	val &= ~(CDNS_UART_MODEMCR_RTS | CDNS_UART_MODEMCR_DTR);
+
+	if (mctrl & TIOCM_RTS)
+		val |= CDNS_UART_MODEMCR_RTS;
+	if (mctrl & TIOCM_DTR)
+		val |= CDNS_UART_MODEMCR_DTR;
+
+	cdns_uart_writel(val, CDNS_UART_MODEMCR_OFFSET);
 }
 
 #ifdef CONFIG_CONSOLE_POLL
@@ -974,7 +989,6 @@ static void cdns_uart_poll_put_char(struct uart_port *port, unsigned char c)
 static struct uart_ops cdns_uart_ops = {
 	.set_mctrl	= cdns_uart_set_mctrl,
 	.get_mctrl	= cdns_uart_get_mctrl,
-	.enable_ms	= cdns_uart_enable_ms,
 	.start_tx	= cdns_uart_start_tx,
 	.stop_tx	= cdns_uart_stop_tx,
 	.stop_rx	= cdns_uart_stop_rx,
@@ -1000,7 +1014,7 @@ static struct uart_port cdns_uart_port[2];
  * cdns_uart_get_port - Configure the port from platform device resource info
  * @id: Port id
  *
- * Returns a pointer to a uart_port or NULL for failure
+ * Return: a pointer to a uart_port or NULL for failure
  */
 static struct uart_port *cdns_uart_get_port(int id)
 {
@@ -1434,7 +1448,6 @@ static struct platform_driver cdns_uart_platform_driver = {
 	.probe   = cdns_uart_probe,
 	.remove  = cdns_uart_remove,
 	.driver  = {
-		.owner = THIS_MODULE,
 		.name = CDNS_UART_NAME,
 		.of_match_table = cdns_uart_of_match,
 		.pm = &cdns_uart_dev_pm_ops,

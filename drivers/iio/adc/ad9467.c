@@ -467,7 +467,13 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
 	  .ext_info = axiadc_ext_info,					\
 	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+	  .scan_type = {						\
+			.sign = _sign,					\
+			.realbits = _bits,				\
+			.storagebits = 16,				\
+			.shift = 0,					\
+	  },								\
+	}
 
 #define AIM_CHAN_NOCALIB(_chan, _si, _bits, _sign)			\
 	{ .type = IIO_VOLTAGE,						\
@@ -477,7 +483,13 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
 	  .ext_info = axiadc_ext_info,			\
 	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+	  .scan_type = {						\
+			.sign = _sign,					\
+			.realbits = _bits,				\
+			.storagebits = 16,				\
+			.shift = 0,					\
+	  },								\
+	}
 
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD9467] = {

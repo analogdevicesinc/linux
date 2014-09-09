@@ -14,6 +14,8 @@
  *	evm_inode_removexattr, and evm_verifyxattr
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/module.h>
 #include <linux/crypto.h>
 #include <linux/audit.h>
@@ -62,7 +64,7 @@ static int evm_find_protected_xattrs(struct dentry *dentry)
 	int error;
 	int count = 0;
 
-	if (!inode->i_op || !inode->i_op->getxattr)
+	if (!inode->i_op->getxattr)
 		return -EOPNOTSUPP;
 
 	for (xattr = evm_config_xattrnames; *xattr != NULL; xattr++) {
@@ -285,20 +287,12 @@ out:
  * @xattr_value: pointer to the new extended attribute value
  * @xattr_value_len: pointer to the new extended attribute value length
  *
- * Before allowing the 'security.evm' protected xattr to be updated,
- * verify the existing value is valid.  As only the kernel should have
- * access to the EVM encrypted key needed to calculate the HMAC, prevent
- * userspace from writing HMAC value.  Writing 'security.evm' requires
- * requires CAP_SYS_ADMIN privileges.
+ * Updating 'security.evm' requires CAP_SYS_ADMIN privileges and that
+ * the current value is valid.
  */
 int evm_inode_setxattr(struct dentry *dentry, const char *xattr_name,
 		       const void *xattr_value, size_t xattr_value_len)
 {
-	const struct evm_ima_xattr_data *xattr_data = xattr_value;
-
-	if ((strcmp(xattr_name, XATTR_NAME_EVM) == 0)
-	    && (xattr_data->type == EVM_XATTR_HMAC))
-		return -EPERM;
 	return evm_protect_xattr(dentry, xattr_name, xattr_value,
 				 xattr_value_len);
 }
@@ -440,7 +434,7 @@ static int __init init_evm(void)
 
 	error = evm_init_secfs();
 	if (error < 0) {
-		printk(KERN_INFO "EVM: Error registering secfs\n");
+		pr_info("Error registering secfs\n");
 		goto err;
 	}
 
@@ -457,7 +451,7 @@ static int __init evm_display_config(void)
 	char **xattrname;
 
 	for (xattrname = evm_config_xattrnames; *xattrname != NULL; xattrname++)
-		printk(KERN_INFO "EVM: %s\n", *xattrname);
+		pr_info("%s\n", *xattrname);
 	return 0;
 }
 

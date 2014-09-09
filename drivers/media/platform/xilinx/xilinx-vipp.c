@@ -563,7 +563,6 @@ done:
 
 static void xvip_composite_v4l2_cleanup(struct xvip_composite_device *xdev)
 {
-	v4l2_ctrl_handler_free(&xdev->ctrl_handler);
 	v4l2_device_unregister(&xdev->v4l2_dev);
 	media_device_unregister(&xdev->media_dev);
 }
@@ -592,9 +591,6 @@ static int xvip_composite_v4l2_init(struct xvip_composite_device *xdev)
 		media_device_unregister(&xdev->media_dev);
 		return ret;
 	}
-
-	v4l2_ctrl_handler_init(&xdev->ctrl_handler, 0);
-	xdev->v4l2_dev.ctrl_handler = &xdev->ctrl_handler;
 
 	return 0;
 }
@@ -653,7 +649,6 @@ MODULE_DEVICE_TABLE(of, xvip_composite_of_id_table);
 
 static struct platform_driver xvip_composite_driver = {
 	.driver = {
-		.owner = THIS_MODULE,
 		.name = "xilinx-axi-video",
 		.of_match_table = xvip_composite_of_id_table,
 	},

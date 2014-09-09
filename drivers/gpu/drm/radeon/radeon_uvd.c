@@ -99,6 +99,7 @@ int radeon_uvd_init(struct radeon_device *rdev)
 	case CHIP_KABINI:
 	case CHIP_KAVERI:
 	case CHIP_HAWAII:
+	case CHIP_MULLINS:
 		fw_name = FIRMWARE_BONAIRE;
 		break;
 
@@ -455,7 +456,7 @@ static int radeon_uvd_cs_reloc(struct radeon_cs_parser *p,
 	}
 
 	reloc = p->relocs_ptr[(idx / 4)];
-	start = reloc->lobj.gpu_offset;
+	start = reloc->gpu_offset;
 	end = start + radeon_bo_size(reloc->robj);
 	start += offset;
 
@@ -811,8 +812,7 @@ void radeon_uvd_note_usage(struct radeon_device *rdev)
 		    (rdev->pm.dpm.hd != hd)) {
 			rdev->pm.dpm.sd = sd;
 			rdev->pm.dpm.hd = hd;
-			/* disable this for now */
-			/*streams_changed = true;*/
+			streams_changed = true;
 		}
 	}
 

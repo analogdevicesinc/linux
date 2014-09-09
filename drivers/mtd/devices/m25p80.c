@@ -15,7 +15,6 @@
  *
  */
 
-#include <linux/init.h>
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/module.h>
@@ -41,7 +40,8 @@
 #define	OPCODE_WRSR		0x01	/* Write status register 1 byte */
 #define	OPCODE_NORM_READ	0x03	/* Read data bytes (low frequency) */
 #define	OPCODE_FAST_READ	0x0b	/* Read data bytes (high frequency) */
-#define	OPCODE_QUAD_READ        0x6b    /* Read data bytes */
+#define	OPCODE_DUAL_READ        0x3b    /* Read data bytes (Dual SPI) */
+#define	OPCODE_QUAD_READ        0x6b    /* Read data bytes (Quad SPI) */
 #define	OPCODE_PP		0x02	/* Page program (up to 256 bytes) */
 #define OPCODE_QPP		0x32	/* Quad page program */
 #define	OPCODE_BE_4K		0x20	/* Erase 4KiB block */
@@ -58,7 +58,8 @@
 /* 4-byte address opcodes - used on Spansion and some Macronix flashes. */
 #define	OPCODE_NORM_READ_4B	0x13	/* Read data bytes (low frequency) */
 #define	OPCODE_FAST_READ_4B	0x0c	/* Read data bytes (high frequency) */
-#define	OPCODE_QUAD_READ_4B	0x6c    /* Read data bytes */
+#define	OPCODE_DUAL_READ_4B	0x3c    /* Read data bytes (Dual SPI) */
+#define	OPCODE_QUAD_READ_4B	0x6c    /* Read data bytes (Quad SPI) */
 #define	OPCODE_PP_4B		0x12	/* Page program (up to 256 bytes) */
 #define	OPCODE_SE_4B		0xdc	/* Sector erase (usually 64KiB) */
 
@@ -82,7 +83,17 @@
 #define	SR_BP0			4	/* Block protect 0 */
 #define	SR_BP1			8	/* Block protect 1 */
 #define	SR_BP2			0x10	/* Block protect 2 */
+#define	SR_BP_BIT_OFFSET	2	/* Offset to Block protect 0 */
+#define	SR_BP_BIT_MASK		(SR_BP2 | SR_BP1 | SR_BP0)
 #define	SR_SRWD			0x80	/* SR write protect */
+#define SR_BP3			0x40
+/* Bit to determine whether protection starts from top or bottom */
+#define SR_BP_TB		0x20
+
+#define BP_BITS_FROM_SR(sr)	(((sr) & SR_BP_BIT_MASK) >> SR_BP_BIT_OFFSET)
+
+/* Highest resolution of sector locking */
+#define M25P_MAX_LOCKABLE_SECTORS	64
 
 #define SR_QUAD_EN_MX           0x40    /* Macronix Quad I/O */
 
@@ -107,6 +118,7 @@
 enum read_type {
 	M25P80_NORMAL = 0,
 	M25P80_FAST,
+	M25P80_DUAL,
 	M25P80_QUAD,
 };
 
@@ -116,6 +128,8 @@ struct m25p {
 	struct mtd_info		mtd;
 	u16			page_size;
 	u16			addr_width;
+	u16			n_sectors;
+	u32			sector_size;
 	u8			erase_opcode;
 	u8			read_opcode;
 	u8			program_opcode;
@@ -636,6 +650,7 @@ static inline int m25p80_dummy_cycles_read(struct m25p *flash)
 {
 	switch (flash->flash_read) {
 	case M25P80_FAST:
+	case M25P80_DUAL:
 	case M25P80_QUAD:
 		return 1;
 	case M25P80_NORMAL:
@@ -649,6 +664,8 @@ static inline int m25p80_dummy_cycles_read(struct m25p *flash)
 static inline unsigned int m25p80_rx_nbits(const struct m25p *flash)
 {
 	switch (flash->flash_read) {
+	case M25P80_DUAL:
+		return 2;
 	case M25P80_QUAD:
 		return 4;
 	default:
@@ -983,46 +1000,125 @@ time_out:
 	return ret;
 }
 
+static inline uint16_t min_lockable_sectors(struct m25p *flash,
+					    uint16_t n_sectors)
+{
+	uint16_t lock_granularity;
+
+	/*
+	 * Revisit - SST (not used by us) has the same JEDEC ID as micron but
+	 * protected area table is similar to that of spansion.
+	 */
+	lock_granularity = max(1, n_sectors/M25P_MAX_LOCKABLE_SECTORS);
+	if (JEDEC_MFR(flash->jedec_id) == 0x20)	/* Micron */
+		lock_granularity = 1;
+
+	return lock_granularity;
+}
+
+static inline uint32_t get_protected_area_start(struct m25p *flash,
+						uint8_t lock_bits)
+{
+	u16 n_sectors;
+	u32 sector_size;
+	uint64_t mtd_size;
+
+	n_sectors = flash->n_sectors;
+	sector_size = flash->sector_size;
+	mtd_size = flash->mtd.size;
+
+	if (flash->isparallel) {
+		sector_size = (flash->sector_size >> 1);
+		mtd_size = (flash->mtd.size >> 1);
+	}
+	if (flash->isstacked) {
+		n_sectors = (flash->n_sectors >> 1);
+		mtd_size = (flash->mtd.size >> 1);
+	}
+
+	return mtd_size - (1<<(lock_bits-1)) *
+		min_lockable_sectors(flash, n_sectors) * sector_size;
+}
+
+static uint8_t min_protected_area_including_offset(struct m25p *flash,
+						   uint32_t offset)
+{
+	uint8_t lock_bits, lockbits_limit;
+
+	/*
+	 * Revisit - SST (not used by us) has the same JEDEC ID as micron but
+	 * protected area table is similar to that of spansion.
+	 * Mircon has 4 block protect bits.
+	 */
+	lockbits_limit = 7;
+	if (JEDEC_MFR(flash->jedec_id) == 0x20)	/* Micron */
+		lockbits_limit = 15;
+
+	for (lock_bits = 1; lock_bits < lockbits_limit; lock_bits++) {
+		if (offset >= get_protected_area_start(flash, lock_bits))
+			break;
+	}
+	return lock_bits;
+}
+
+static int write_sr_modify_protection(struct m25p *flash, uint8_t status,
+				      uint8_t lock_bits)
+{
+	uint8_t status_new, bp_mask;
+
+	status_new = status & ~SR_BP_BIT_MASK;
+	bp_mask = (lock_bits << SR_BP_BIT_OFFSET) & SR_BP_BIT_MASK;
+
+	/* Micron */
+	if (JEDEC_MFR(flash->jedec_id) == 0x20) {
+		/* Protected area starts from top */
+		status_new &= ~SR_BP_TB;
+
+		if (lock_bits > 7)
+			bp_mask |= SR_BP3;
+	}
+
+	status_new |= bp_mask;
+
+	write_enable(flash);
+	if (write_sr(flash, status_new) < 0)
+		return 1;
+	return 0;
+}
+
 static int m25p80_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 {
 	struct m25p *flash = mtd_to_m25p(mtd);
 	uint32_t offset = ofs;
-	uint8_t status_old, status_new;
+	uint8_t status;
+	uint8_t lock_bits;
 	int res = 0;
 
 	mutex_lock(&flash->lock);
+
+	if (flash->isparallel == 1)
+		offset /= 2;
+
+	if (flash->isstacked == 1) {
+		if (offset >= (flash->mtd.size / 2)) {
+			offset = offset - (flash->mtd.size / 2);
+			flash->spi->master->flags |= SPI_MASTER_U_PAGE;
+		} else
+			flash->spi->master->flags &= ~SPI_MASTER_U_PAGE;
+	}
+
 	/* Wait until finished previous command */
 	if (wait_till_ready(flash)) {
 		res = 1;
 		goto err;
 	}
+	status = read_sr(flash);
 
-	status_old = read_sr(flash);
-
-	if (offset < flash->mtd.size-(flash->mtd.size/2))
-		status_new = status_old | SR_BP2 | SR_BP1 | SR_BP0;
-	else if (offset < flash->mtd.size-(flash->mtd.size/4))
-		status_new = (status_old & ~SR_BP0) | SR_BP2 | SR_BP1;
-	else if (offset < flash->mtd.size-(flash->mtd.size/8))
-		status_new = (status_old & ~SR_BP1) | SR_BP2 | SR_BP0;
-	else if (offset < flash->mtd.size-(flash->mtd.size/16))
-		status_new = (status_old & ~(SR_BP0|SR_BP1)) | SR_BP2;
-	else if (offset < flash->mtd.size-(flash->mtd.size/32))
-		status_new = (status_old & ~SR_BP2) | SR_BP1 | SR_BP0;
-	else if (offset < flash->mtd.size-(flash->mtd.size/64))
-		status_new = (status_old & ~(SR_BP2|SR_BP0)) | SR_BP1;
-	else
-		status_new = (status_old & ~(SR_BP2|SR_BP1)) | SR_BP0;
+	lock_bits = min_protected_area_including_offset(flash, offset);
 
 	/* Only modify protection if it will not unlock other areas */
-	if ((status_new&(SR_BP2|SR_BP1|SR_BP0)) >
-					(status_old&(SR_BP2|SR_BP1|SR_BP0))) {
-		write_enable(flash);
-		if (write_sr(flash, status_new) < 0) {
-			res = 1;
-			goto err;
-		}
-	}
+	if (lock_bits > BP_BITS_FROM_SR(status))
+		res = write_sr_modify_protection(flash, status, lock_bits);
 
 err:	mutex_unlock(&flash->lock);
 	return res;
@@ -1032,44 +1128,66 @@ static int m25p80_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 {
 	struct m25p *flash = mtd_to_m25p(mtd);
 	uint32_t offset = ofs;
-	uint8_t status_old, status_new;
+	uint8_t status;
+	uint8_t lock_bits;
 	int res = 0;
 
 	mutex_lock(&flash->lock);
+
+	if (flash->isparallel == 1)
+		offset /= 2;
+
+	if (flash->isstacked == 1) {
+		if (offset >= (flash->mtd.size / 2)) {
+			offset = offset - (flash->mtd.size / 2);
+			flash->spi->master->flags |= SPI_MASTER_U_PAGE;
+		} else
+			flash->spi->master->flags &= ~SPI_MASTER_U_PAGE;
+	}
+
 	/* Wait until finished previous command */
 	if (wait_till_ready(flash)) {
 		res = 1;
 		goto err;
 	}
+	status = read_sr(flash);
 
-	status_old = read_sr(flash);
-
-	if (offset+len > flash->mtd.size-(flash->mtd.size/64))
-		status_new = status_old & ~(SR_BP2|SR_BP1|SR_BP0);
-	else if (offset+len > flash->mtd.size-(flash->mtd.size/32))
-		status_new = (status_old & ~(SR_BP2|SR_BP1)) | SR_BP0;
-	else if (offset+len > flash->mtd.size-(flash->mtd.size/16))
-		status_new = (status_old & ~(SR_BP2|SR_BP0)) | SR_BP1;
-	else if (offset+len > flash->mtd.size-(flash->mtd.size/8))
-		status_new = (status_old & ~SR_BP2) | SR_BP1 | SR_BP0;
-	else if (offset+len > flash->mtd.size-(flash->mtd.size/4))
-		status_new = (status_old & ~(SR_BP0|SR_BP1)) | SR_BP2;
-	else if (offset+len > flash->mtd.size-(flash->mtd.size/2))
-		status_new = (status_old & ~SR_BP1) | SR_BP2 | SR_BP0;
-	else
-		status_new = (status_old & ~SR_BP0) | SR_BP2 | SR_BP1;
+	lock_bits = min_protected_area_including_offset(flash, offset+len) - 1;
 
 	/* Only modify protection if it will not lock other areas */
-	if ((status_new&(SR_BP2|SR_BP1|SR_BP0)) <
-					(status_old&(SR_BP2|SR_BP1|SR_BP0))) {
-		write_enable(flash);
-		if (write_sr(flash, status_new) < 0) {
-			res = 1;
-			goto err;
-		}
-	}
+	if (lock_bits < BP_BITS_FROM_SR(status))
+		res = write_sr_modify_protection(flash, status, lock_bits);
 
 err:	mutex_unlock(&flash->lock);
+	return res;
+}
+
+static int m25p80_is_locked(struct mtd_info *mtd, loff_t ofs, uint64_t len)
+{
+	struct m25p *flash = mtd_to_m25p(mtd);
+	uint32_t offset = ofs;
+	uint32_t protected_area_start;
+	uint8_t status;
+	int res;
+
+	mutex_lock(&flash->lock);
+	/* Wait until finished previous command */
+	if (wait_till_ready(flash)) {
+		mutex_unlock(&flash->lock);
+		return -EBUSY;
+	}
+	status = read_sr(flash);
+	mutex_unlock(&flash->lock);
+
+	protected_area_start = get_protected_area_start(flash,
+						BP_BITS_FROM_SR(status));
+	if (offset >= protected_area_start)
+		res = MTD_IS_LOCKED;
+	else if (offset+len < protected_area_start)
+		res = MTD_IS_UNLOCKED;
+	else
+		res = MTD_IS_PARTIALLY_LOCKED;
+
 	return res;
 }
 
@@ -1102,9 +1220,11 @@ struct flash_info {
 #define	SST_WRITE	0x04		/* use SST byte programming */
 #define	M25P_NO_FR	0x08		/* Can't do fastread */
 #define	SECT_4K_PMC	0x10		/* OPCODE_BE_4K_PMC works uniformly */
-#define	M25P80_QUAD_READ	0x20    /* Flash supports Quad Read */
-#define	SECT_32K	0x80		/* OPCODE_BE_32K */
-#define E_FSR		0x40		/* Flag SR exists for flash */
+#define	M25P80_DUAL_READ	0x20    /* Flash supports Dual Read */
+#define	M25P80_QUAD_READ	0x40    /* Flash supports Quad Read */
+#define	SECT_32K	0x100		/* OPCODE_BE_32K */
+#define E_FSR		0x200		/* Flag SR exists for flash */
+#define	M25P_FLASH_LOCK	0x80		/* Flash protection support */
 };
 
 #define INFO(_jedec_id, _ext_id, _sector_size, _n_sectors, _flags)	\
@@ -1183,28 +1303,38 @@ static const struct spi_device_id m25p_ids[] = {
 	{ "mx25l25635e", INFO(0xc22019, 0, 64 * 1024, 512, 0) },
 	{ "mx25l25655e", INFO(0xc22619, 0, 64 * 1024, 512, 0) },
 	{ "mx66l51235l", INFO(0xc2201a, 0, 64 * 1024, 1024, M25P80_QUAD_READ) },
+	{ "mx66l1g55g",  INFO(0xc2261b, 0, 64 * 1024, 2048, M25P80_QUAD_READ) },
 
 	/* Micron */
 	{ "n25q064",  INFO(0x20ba17, 0, 64 * 1024, 128, M25P80_QUAD_READ) },
-	{ "n25q128a11",  INFO(0x20bb18, 0, 64 * 1024, 256, M25P80_QUAD_READ) },
-	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024, 256, M25P80_QUAD_READ) },
-	{ "n25q256a", INFO(0x20ba19, 0, 64 * 1024, 512, SECT_4K) },
+	{ "n25q128a11",  INFO(0x20bb18, 0, 64 * 1024, 256, M25P80_QUAD_READ |
+							   M25P_FLASH_LOCK) },
+	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024, 256, M25P80_QUAD_READ |
+							   M25P_FLASH_LOCK) },
+	{ "n25q256a", INFO(0x20ba19, 0, 64 * 1024, 512, SECT_4K |
+							M25P_FLASH_LOCK) },
 	/* Numonyx flash n25q128 - FIXME check the name */
-	{ "n25q128",   INFO(0x20bb18, 0, 64 * 1024, 256, M25P80_QUAD_READ) },
+	{ "n25q128",   INFO(0x20bb18, 0, 64 * 1024, 256, M25P80_QUAD_READ |
+							 M25P_FLASH_LOCK) },
 	{ "n25q128a11",  INFO(0x20bb18, 0, 64 * 1024, 256,
-			      E_FSR | M25P80_QUAD_READ) },
+			      E_FSR | M25P80_QUAD_READ | M25P_FLASH_LOCK) },
 	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024, 256,
-			      E_FSR | M25P80_QUAD_READ) },
+			      E_FSR | M25P80_QUAD_READ | M25P_FLASH_LOCK) },
 	{ "n25q256a13", INFO(0x20ba19,  0, 64 * 1024,  512,
-			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+			     SECT_4K | E_FSR | M25P80_QUAD_READ |
+			     M25P_FLASH_LOCK) },
 	{ "n25q256a11", INFO(0x20bb19,  0, 64 * 1024,  512,
-			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+			     SECT_4K | E_FSR | M25P80_QUAD_READ |
+			     M25P_FLASH_LOCK) },
 	{ "n25q512a13", INFO(0x20ba20,  0, 64 * 1024,  1024,
-			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+			     SECT_4K | E_FSR | M25P80_QUAD_READ |
+			     M25P_FLASH_LOCK) },
 	{ "n25q512a11", INFO(0x20bb20,  0, 64 * 1024,  1024,
-			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+			     SECT_4K | E_FSR | M25P80_QUAD_READ |
+			     M25P_FLASH_LOCK) },
 	{ "n25q00aa13", INFO(0x20ba21,  0, 64 * 1024,  2048,
-			     SECT_4K | E_FSR | M25P80_QUAD_READ) },
+			     SECT_4K | E_FSR | M25P80_QUAD_READ |
+			     M25P_FLASH_LOCK) },
 
 	/* PMC */
 	{ "pm25lv512",   INFO(0,        0, 32 * 1024,    2, SECT_4K_PMC) },
@@ -1216,31 +1346,20 @@ static const struct spi_device_id m25p_ids[] = {
 	 */
 	{ "s25sl032p",  INFO(0x010215, 0x4d00,  64 * 1024,  64, 0) },
 	{ "s25sl064p",  INFO(0x010216, 0x4d00,  64 * 1024, 128, 0) },
-	{ "s25fl128s0", INFO(0x012018, 0x4d00, 256 * 1024,  64,
-			     M25P80_QUAD_READ) },
-	{ "s25fl128s1", INFO(0x012018, 0x4d01,  64 * 1024, 256,
-			     M25P80_QUAD_READ) },
-	{ "s25fl256s0", INFO(0x010219, 0x4d00, 256 * 1024, 128,
-			     M25P80_QUAD_READ) },
-	{ "s25fl256s1", INFO(0x010219, 0x4d01,  64 * 1024, 512,
-			     M25P80_QUAD_READ) },
-	{ "s25fl512s",  INFO(0x010220, 0x4d00, 256 * 1024, 256,
-			     M25P80_QUAD_READ) },
-	{ "s70fl01gs",  INFO(0x010221, 0x4d00, 256 * 1024, 256,
-			     M25P80_QUAD_READ) },
-	{ "s25sl12800", INFO(0x012018, 0x0300, 256 * 1024,  64,
-			     M25P80_QUAD_READ) },
-	{ "s25sl12801", INFO(0x012018, 0x0301,  64 * 1024, 256,
-			     M25P80_QUAD_READ) },
-	{ "s25fl129p0", INFO(0x012018, 0x4d00, 256 * 1024,  64,
-			     M25P80_QUAD_READ) },
-	{ "s25fl129p1", INFO(0x012018, 0x4d01,  64 * 1024, 256,
-			     M25P80_QUAD_READ) },
+	{ "s25fl256s0", INFO(0x010219, 0x4d00, 256 * 1024, 128, M25P80_QUAD_READ | M25P_FLASH_LOCK) },
+	{ "s25fl256s1", INFO(0x010219, 0x4d01,  64 * 1024, 512, M25P80_DUAL_READ | M25P80_QUAD_READ) },
+	{ "s25fl512s",  INFO(0x010220, 0x4d00, 256 * 1024, 256, M25P80_DUAL_READ | M25P80_QUAD_READ) },
+	{ "s70fl01gs",  INFO(0x010221, 0x4d00, 256 * 1024, 256, M25P80_QUAD_READ) },
+	{ "s25sl12800", INFO(0x012018, 0x0300, 256 * 1024,  64, M25P80_QUAD_READ | M25P_FLASH_LOCK) },
+	{ "s25sl12801", INFO(0x012018, 0x0301,  64 * 1024, 256, M25P80_QUAD_READ | M25P_FLASH_LOCK) },
+	{ "s25fl129p0", INFO(0x012018, 0x4d00, 256 * 1024,  64, M25P80_QUAD_READ | M25P_FLASH_LOCK) },
+	{ "s25fl129p1", INFO(0x012018, 0x4d01,  64 * 1024, 256, M25P80_QUAD_READ | M25P_FLASH_LOCK) },
 	{ "s25sl004a",  INFO(0x010212,      0,  64 * 1024,   8, 0) },
 	{ "s25sl008a",  INFO(0x010213,      0,  64 * 1024,  16, 0) },
 	{ "s25sl016a",  INFO(0x010214,      0,  64 * 1024,  32, 0) },
 	{ "s25sl032a",  INFO(0x010215,      0,  64 * 1024,  64, 0) },
 	{ "s25sl064a",  INFO(0x010216,      0,  64 * 1024, 128, 0) },
+	{ "s25fl008k",  INFO(0xef4014,      0,  64 * 1024,  16, SECT_4K) },
 	{ "s25fl016k",  INFO(0xef4015,      0,  64 * 1024,  32, SECT_4K) },
 	/* s25fl064k supports 4KiB, 32KiB and 64KiB sectors erase size. */
 	/* To support JFFS2, the minimum erase size is 8KiB(>4KiB). */
@@ -1262,25 +1381,25 @@ static const struct spi_device_id m25p_ids[] = {
 
 	/* ST Microelectronics -- newer production may have feature updates */
 	{ "m25p05",  INFO(0x202010,  0,  32 * 1024,   2, 0) },
-	{ "m25p10",  INFO(0x202011,  0,  32 * 1024,   4, 0) },
-	{ "m25p20",  INFO(0x202012,  0,  64 * 1024,   4, 0) },
-	{ "m25p40",  INFO(0x202013,  0,  64 * 1024,   8, 0) },
-	{ "m25p80",  INFO(0x202014,  0,  64 * 1024,  16, 0) },
-	{ "m25p16",  INFO(0x202015,  0,  64 * 1024,  32, 0) },
-	{ "m25p32",  INFO(0x202016,  0,  64 * 1024,  64, 0) },
-	{ "m25p64",  INFO(0x202017,  0,  64 * 1024, 128, 0) },
-	{ "m25p128", INFO(0x202018,  0, 256 * 1024,  64, 0) },
+	{ "m25p10",  INFO(0x202011,  0,  32 * 1024,   4, M25P_FLASH_LOCK) },
+	{ "m25p20",  INFO(0x202012,  0,  64 * 1024,   4, M25P_FLASH_LOCK) },
+	{ "m25p40",  INFO(0x202013,  0,  64 * 1024,   8, M25P_FLASH_LOCK) },
+	{ "m25p80",  INFO(0x202014,  0,  64 * 1024,  16, M25P_FLASH_LOCK) },
+	{ "m25p16",  INFO(0x202015,  0,  64 * 1024,  32, M25P_FLASH_LOCK) },
+	{ "m25p32",  INFO(0x202016,  0,  64 * 1024,  64, M25P_FLASH_LOCK) },
+	{ "m25p64",  INFO(0x202017,  0,  64 * 1024, 128, M25P_FLASH_LOCK) },
+	{ "m25p128", INFO(0x202018,  0, 256 * 1024,  64, M25P_FLASH_LOCK) },
 	{ "n25q032", INFO(0x20ba16,  0,  64 * 1024,  64, 0) },
 
 	{ "m25p05-nonjedec",  INFO(0, 0,  32 * 1024,   2, 0) },
-	{ "m25p10-nonjedec",  INFO(0, 0,  32 * 1024,   4, 0) },
-	{ "m25p20-nonjedec",  INFO(0, 0,  64 * 1024,   4, 0) },
-	{ "m25p40-nonjedec",  INFO(0, 0,  64 * 1024,   8, 0) },
-	{ "m25p80-nonjedec",  INFO(0, 0,  64 * 1024,  16, 0) },
-	{ "m25p16-nonjedec",  INFO(0, 0,  64 * 1024,  32, 0) },
-	{ "m25p32-nonjedec",  INFO(0, 0,  64 * 1024,  64, 0) },
-	{ "m25p64-nonjedec",  INFO(0, 0,  64 * 1024, 128, 0) },
-	{ "m25p128-nonjedec", INFO(0, 0, 256 * 1024,  64, 0) },
+	{ "m25p10-nonjedec",  INFO(0, 0,  32 * 1024,   4, M25P_FLASH_LOCK) },
+	{ "m25p20-nonjedec",  INFO(0, 0,  64 * 1024,   4, M25P_FLASH_LOCK) },
+	{ "m25p40-nonjedec",  INFO(0, 0,  64 * 1024,   8, M25P_FLASH_LOCK) },
+	{ "m25p80-nonjedec",  INFO(0, 0,  64 * 1024,  16, M25P_FLASH_LOCK) },
+	{ "m25p16-nonjedec",  INFO(0, 0,  64 * 1024,  32, M25P_FLASH_LOCK) },
+	{ "m25p32-nonjedec",  INFO(0, 0,  64 * 1024,  64, M25P_FLASH_LOCK) },
+	{ "m25p64-nonjedec",  INFO(0, 0,  64 * 1024, 128, M25P_FLASH_LOCK) },
+	{ "m25p128-nonjedec", INFO(0, 0, 256 * 1024,  64, M25P_FLASH_LOCK) },
 
 	{ "m45pe10", INFO(0x204011,  0, 64 * 1024,    2, 0) },
 	{ "m45pe80", INFO(0x204014,  0, 64 * 1024,   16, 0) },
@@ -1288,7 +1407,7 @@ static const struct spi_device_id m25p_ids[] = {
 
 	{ "m25pe20", INFO(0x208012,  0, 64 * 1024,  4,       0) },
 	{ "m25pe80", INFO(0x208014,  0, 64 * 1024, 16,       0) },
-	{ "m25pe16", INFO(0x208015,  0, 64 * 1024, 32, SECT_4K) },
+	{ "m25pe16", INFO(0x208015,  0, 64 * 1024, 32, SECT_4K | M25P_FLASH_LOCK) },
 
 	{ "m25px16",    INFO(0x207115,  0, 64 * 1024, 32, SECT_4K) },
 	{ "m25px32",    INFO(0x207116,  0, 64 * 1024, 64, SECT_4K) },
@@ -1361,9 +1480,8 @@ static const struct spi_device_id *jedec_probe(struct spi_device *spi)
 	for (tmp = 0; tmp < ARRAY_SIZE(m25p_ids) - 1; tmp++) {
 		info = (void *)m25p_ids[tmp].driver_data;
 		if (info->jedec_id == jedec) {
-			if (info->ext_id != 0 && info->ext_id != ext_jedec)
-				continue;
-			return &m25p_ids[tmp];
+			if (info->ext_id == 0 || info->ext_id == ext_jedec)
+				return &m25p_ids[tmp];
 		}
 	}
 	dev_err(&spi->dev, "unrecognized JEDEC id %06x\n", jedec);
@@ -1491,6 +1609,7 @@ static int m25p_probe(struct spi_device *spi)
 					/* dual stacked */
 					flash->shift = 0;
 					flash->mtd.size <<= 1;
+					info->n_sectors <<= 1;
 					flash->isstacked = 1;
 					flash->isparallel = 0;
 #else
@@ -1510,13 +1629,16 @@ static int m25p_probe(struct spi_device *spi)
 #endif
 	}
 
+	flash->n_sectors = info->n_sectors;
+	flash->sector_size = info->sector_size;
 	flash->mtd._erase = m25p80_erase;
 	flash->mtd._read = m25p80_read_ext;
 
-	/* flash protection support for STmicro chips */
-	if (JEDEC_MFR(info->jedec_id) == CFI_MFR_ST) {
+	/* flash protection support for STmicro chips, Spansion and Micron */
+	if (info->flags & M25P_FLASH_LOCK) {
 		flash->mtd._lock = m25p80_lock;
 		flash->mtd._unlock = m25p80_unlock;
+		flash->mtd._is_locked = m25p80_is_locked;
 	}
 
 	/* sst flash chips use AAI word program */
@@ -1570,7 +1692,7 @@ static int m25p_probe(struct spi_device *spi)
 	if (info->flags & M25P_NO_FR)
 		flash->flash_read = M25P80_NORMAL;
 
-	/* Quad-read mode takes precedence over fast/normal */
+	/* Quad/Dual-read mode takes precedence over fast/normal */
 	if (spi->mode & SPI_RX_QUAD && info->flags & M25P80_QUAD_READ) {
 		ret = set_quad_mode(flash, info->jedec_id);
 		if (ret) {
@@ -1578,12 +1700,17 @@ static int m25p_probe(struct spi_device *spi)
 			return ret;
 		}
 		flash->flash_read = M25P80_QUAD;
+	} else if (spi->mode & SPI_RX_DUAL && info->flags & M25P80_DUAL_READ) {
+		flash->flash_read = M25P80_DUAL;
 	}
 
 	/* Default commands */
 	switch (flash->flash_read) {
 	case M25P80_QUAD:
 		flash->read_opcode = OPCODE_QUAD_READ;
+		break;
+	case M25P80_DUAL:
+		flash->read_opcode = OPCODE_DUAL_READ;
 		break;
 	case M25P80_FAST:
 		flash->read_opcode = OPCODE_FAST_READ;
@@ -1625,6 +1752,9 @@ static int m25p_probe(struct spi_device *spi)
 			switch (flash->flash_read) {
 			case M25P80_QUAD:
 				flash->read_opcode = OPCODE_QUAD_READ_4B;
+				break;
+			case M25P80_DUAL:
+				flash->read_opcode = OPCODE_DUAL_READ_4B;
 				break;
 			case M25P80_FAST:
 				flash->read_opcode = OPCODE_FAST_READ_4B;

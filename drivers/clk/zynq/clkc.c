@@ -106,7 +106,6 @@ static const char *gem1_emio_input_names[] __initdata = {"gem1_emio_clk"};
 static const char *swdt_ext_clk_input_names[] __initdata = {"swdt_ext_clk"};
 
 #ifdef CONFIG_SUSPEND
-static struct clk *armpll_save_parent;
 static struct clk *iopll_save_parent;
 
 #define TOPSW_CLK_CTRL_DIS_MASK	BIT(0)
@@ -116,22 +115,16 @@ int zynq_clk_suspend_early(void)
 	int ret;
 
 	iopll_save_parent = clk_get_parent(clks[iopll]);
-	armpll_save_parent = clk_get_parent(clks[armpll]);
 
 	ret = clk_set_parent(clks[iopll], ps_clk);
 	if (ret)
 		pr_info("%s: reparent iopll failed %d\n", __func__, ret);
-
-	ret = clk_set_parent(clks[armpll], ps_clk);
-	if (ret)
-		pr_info("%s: reparent armpll failed %d\n", __func__, ret);
 
 	return 0;
 }
 
 void zynq_clk_resume_late(void)
 {
-	clk_set_parent(clks[armpll], armpll_save_parent);
 	clk_set_parent(clks[iopll], iopll_save_parent);
 }
 
@@ -202,7 +195,7 @@ static void __init zynq_clk_register_fclk(enum zynq_clk fclk,
 	clks[fclk] = clk_register_gate(NULL, clk_name,
 			div1_name, CLK_SET_RATE_PARENT, fclk_gate_reg,
 			0, CLK_GATE_SET_TO_DISABLE, fclk_gate_lock);
-	enable_reg = readl(fclk_gate_reg) & 1;
+	enable_reg = clk_readl(fclk_gate_reg) & 1;
 	if (enable && !enable_reg) {
 		if (clk_prepare_enable(clks[fclk]))
 			pr_warn("%s: FCLK%u enable failed\n", __func__,
@@ -311,10 +304,6 @@ static void __init zynq_clk_setup(struct device_node *np)
 	ps_clk = clk_register_fixed_rate(NULL, "ps_clk", NULL, CLK_IS_ROOT,
 			tmp);
 
-	ret = of_property_read_u32(np, "fclk-enable", &fclk_enable);
-	if (ret)
-		fclk_enable = 0xf;
-
 	/* PLLs */
 	clk = clk_register_zynq_pll("armpll_int", "ps_clk", SLCR_ARMPLL_CTRL,
 			SLCR_PLL_STATUS, 0, &armpll_lock);
@@ -335,7 +324,7 @@ static void __init zynq_clk_setup(struct device_node *np)
 			SLCR_IOPLL_CTRL, 4, 1, 0, &iopll_lock);
 
 	/* CPU clocks */
-	tmp = readl(SLCR_621_TRUE) & 1;
+	tmp = clk_readl(SLCR_621_TRUE) & 1;
 	clk = clk_register_mux(NULL, "cpu_mux", cpu_parents, 4,
 			CLK_SET_RATE_NO_REPARENT, SLCR_ARM_CLK_CTRL, 4, 2, 0,
 			&armclk_lock);

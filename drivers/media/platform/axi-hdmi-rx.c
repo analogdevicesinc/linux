@@ -739,7 +739,7 @@ static int axi_hdmi_rx_nodes_register(struct axi_hdmi_rx *hdmi_rx)
 	q->buf_struct_size = sizeof(struct axi_hdmi_rx_buffer);
 	q->ops = &axi_hdmi_rx_qops;
 	q->mem_ops = &vb2_dma_contig_memops;
-	q->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 
 	ret = vb2_queue_init(q);
 	if (ret)

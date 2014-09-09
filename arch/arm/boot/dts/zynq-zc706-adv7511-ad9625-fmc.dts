@@ -2,6 +2,21 @@
 
 /include/ "zynq-zc706.dtsi"
 
+&spi0 {
+	status = "okay";
+
+	adc0_ad9625: ad9625@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad9625";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&axi_ad9625_jesd>, <&ad9625_clkin>;
+		clock-names = "jesd_clk", "adc_clk";
+
+	};
+};
+
 / {
 
 	clocks {
@@ -130,35 +145,6 @@
 						reg = <0x54>;
 					};
 				};
-			};
-		};
-
-		fmc_spi: spi@e0006000 {
-			bus-num = <1>;
-			compatible = "cdns,spi-r1p6", "xlnx,zynq-spi-1.00.a", "xlnx,ps7-spi-1.00.a";
-			interrupt-parent = <&gic>;
-			interrupts = < 0 26 4 >;
-			clock-names = "ref_clk", "aper_clk", "pclk";
-			clocks = <&clkc 25>, <&clkc 34>, <&clkc 34>;
-			num-chip-select = <2>;
-			reg = < 0xe0006000 0x1000 >;
-			speed-hz = <100000000>;
-			xlnx,has-ss0 = <0x1>;
-			xlnx,has-ss1 = <0x1>;
-			xlnx,has-ss2 = <0x1>;
-			xlnx,spi-clk-freq-hz = <100000000>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			adc0_ad9625: ad9625@0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				compatible = "ad9625";
-				reg = <0>;
-				spi-max-frequency = <10000000>;
-				clocks = <&axi_ad9625_jesd>, <&ad9625_clkin>;
-				clock-names = "jesd_clk", "adc_clk";
-
 			};
 		};
 

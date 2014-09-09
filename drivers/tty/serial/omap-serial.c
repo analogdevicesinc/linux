@@ -347,7 +347,14 @@ static void serial_omap_stop_tx(struct uart_port *port)
 
 	if ((up->rs485.flags & SER_RS485_ENABLED) &&
 	    !(up->rs485.flags & SER_RS485_RX_DURING_TX)) {
-		up->ier = UART_IER_RLSI | UART_IER_RDI;
+		/*
+		 * Empty the RX FIFO, we are not interested in anything
+		 * received during the half-duplex transmission.
+		 */
+		serial_out(up, UART_FCR, up->fcr | UART_FCR_CLEAR_RCVR);
+		/* Re-enable RX interrupts */
+		up->ier |= UART_IER_RLSI | UART_IER_RDI;
+		up->port.read_status_mask |= UART_LSR_DR;
 		serial_out(up, UART_IER, up->ier);
 	}
 
@@ -360,7 +367,7 @@ static void serial_omap_stop_rx(struct uart_port *port)
 	struct uart_omap_port *up = to_uart_omap_port(port);
 
 	pm_runtime_get_sync(up->dev);
-	up->ier &= ~UART_IER_RLSI;
+	up->ier &= ~(UART_IER_RLSI | UART_IER_RDI);
 	up->port.read_status_mask &= ~UART_LSR_DR;
 	serial_out(up, UART_IER, up->ier);
 	pm_runtime_mark_last_busy(up->dev);
@@ -1795,6 +1802,7 @@ static int serial_omap_remove(struct platform_device *dev)
 	pm_runtime_disable(up->dev);
 	uart_remove_one_port(&serial_omap_reg, &up->port);
 	pm_qos_remove_request(&up->pm_qos_request);
+	device_init_wakeup(&dev->dev, false);
 
 	return 0;
 }

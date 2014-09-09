@@ -19,12 +19,12 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/xilinx-v4l2-controls.h>
 
 #include <media/v4l2-async.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 
-#include "xilinx-controls.h"
 #include "xilinx-vip.h"
 
 #define XCRESAMPLE_ENCODING			0x100
@@ -429,7 +429,6 @@ MODULE_DEVICE_TABLE(of, xcresample_of_id_table);
 
 static struct platform_driver xcresample_driver = {
 	.driver			= {
-		.owner		= THIS_MODULE,
 		.name		= "xilinx-cresample",
 		.pm		= &xcresample_pm_ops,
 		.of_match_table	= xcresample_of_id_table,

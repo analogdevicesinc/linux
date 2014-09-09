@@ -477,11 +477,17 @@ static const struct iio_info mc_ctrl_info = {
 };
 
 #define AIM_CHAN_NOCALIB(_chan, _si, _real_bits, _storage_bits, _shift, _sign)		  \
-	{ .type = IIO_VOLTAGE,					  \
-	  .indexed = 1,						 \
-	  .channel = _chan,					 \
-	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _real_bits, _storage_bits, _shift)}
+	{ .type = IIO_VOLTAGE,				\
+	  .indexed = 1,					\
+	  .channel = _chan,				\
+	  .scan_index = _si,				\
+	  .scan_type = {				\
+		.sign = _sign,				\
+		.realbits = _real_bits,			\
+		.storagebits = _storage_bits,		\
+		.shift = _shift,			\
+	  },						\
+	}
 
 static int mc_ctrl_probe(struct platform_device *pdev)
 {
