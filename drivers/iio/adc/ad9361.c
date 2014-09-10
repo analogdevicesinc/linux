@@ -5293,6 +5293,8 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 		axiadc_write(st, 0x404c, 3); /* RATE */
 	}
 
+	axiadc_write(st, 0x404c, 1); /* Altera */
+
 	for (i = 0; i < num_chan; i++) {
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(i),
 			     ADI_DCFILT_OFFSET(0));
