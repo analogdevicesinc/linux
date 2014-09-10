@@ -197,6 +197,16 @@ static irqreturn_t altera_spi_irq(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static int altera_spi_setupxfer(struct spi_device *spi, struct spi_transfer *t)
+{
+	return 0;
+}
+
+static int altera_spi_setup(struct spi_device *spi)
+{
+	return 0;
+}
+
 static int altera_spi_probe(struct platform_device *pdev)
 {
 	struct altera_spi *hw;
@@ -214,6 +224,7 @@ static int altera_spi_probe(struct platform_device *pdev)
 	master->mode_bits = SPI_CS_HIGH;
 	master->bits_per_word_mask = SPI_BPW_RANGE_MASK(1, 16);
 	master->dev.of_node = pdev->dev.of_node;
+	master->setup = altera_spi_setup;
 
 	hw = spi_master_get_devdata(master);
 	platform_set_drvdata(pdev, hw);
@@ -222,6 +233,7 @@ static int altera_spi_probe(struct platform_device *pdev)
 	hw->bitbang.master = master;
 	hw->bitbang.chipselect = altera_spi_chipsel;
 	hw->bitbang.txrx_bufs = altera_spi_txrx;
+	hw->bitbang.setup_transfer = altera_spi_setupxfer;
 
 	/* find and map our resources */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
