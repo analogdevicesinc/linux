@@ -169,6 +169,8 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	dev_dbg(&dev->dev, "mapped PA %08lx to VA %p\n",
 		(unsigned long)res->start, hsotg->regs);
 
+	spin_lock_init(&hsotg->lock);
+
 	if (IS_ENABLED(CONFIG_USB_DWC2_HOST)) {
 		retval = dwc2_hcd_init(hsotg, irq, &params);
 		if (retval)
@@ -188,7 +190,6 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		if (retval)
 			return retval;
 	}
-	spin_lock_init(&hsotg->lock);
 
 	platform_set_drvdata(dev, hsotg);
 	return retval;
