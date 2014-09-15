@@ -2245,6 +2245,19 @@ static int axienet_open(struct net_device *ndev)
 						axienet_adjust_link,
 						lp->phy_flags,
 						lp->phy_interface);
+		} else {
+			/**
+			 * No need to start the internal PHY, applying the fixup
+			 * is enough for SGMII operation
+			 */
+			if (lp->phy_node_int)
+				lp->phy_dev_int = of_phy_connect(lp->ndev,
+					lp->phy_node_int, NULL, 0,
+					PHY_INTERFACE_MODE_GMII);
+
+			lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
+					     axienet_adjust_link, 0,
+					     PHY_INTERFACE_MODE_SGMII);
 		}
 
 		if (!phydev)
@@ -3831,6 +3844,18 @@ static const struct attribute_group mcdma_attributes = {
 #endif
 
 /**
+ * axienet_pma_phy_fixup - PCS/PMA Internal PHY fixup.
+ * @phy: the pointer to the phy device
+ *
+ * The internal PHY powers up with BMCR_ISOLATE beeing set, clear it.
+ */
+
+static int axienet_pma_phy_fixup(struct phy_device *phy)
+{
+	return phy_write(phy, MII_BMCR, BMCR_ANENABLE | BMCR_FULLDPLX);
+}
+
+/**
  * axienet_probe - Axi Ethernet probe function.
  * @pdev:	Pointer to platform device structure.
  *
@@ -4126,6 +4151,14 @@ static int axienet_probe(struct platform_device *pdev)
 			dev_warn(&pdev->dev, "error registering MDIO bus\n");
 	}
 
+	if (lp->phy_mode == XAE_PHY_TYPE_SGMII) {
+		lp->phy_node_int = of_parse_phandle(pdev->dev.of_node,
+						    "phy-handle", 1);
+		if (lp->phy_node_int)
+			phy_register_fixup_for_uid(0, 0xffffffff,
+						   axienet_pma_phy_fixup);
+	}
+
 #ifdef CONFIG_AXIENET_HAS_MCDMA
 	/* Create sysfs file entries for the device */
 	ret = sysfs_create_group(&lp->dev->kobj, &mcdma_attributes);
@@ -4209,6 +4242,10 @@ static int axienet_remove(struct platform_device *pdev)
 #endif
 	of_node_put(lp->phy_node);
 	lp->phy_node = NULL;
+
+	if (lp->phy_node_int)
+		of_node_put(lp->phy_node_int);
+	lp->phy_node_int = NULL;
 
 	free_netdev(ndev);
 
