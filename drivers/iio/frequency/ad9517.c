@@ -372,8 +372,8 @@ static int ad9517_setup(struct ad9517_state *st)
 
 	prescaler &= ~IS_FD;
 
-	vco_freq = (st->refin_freq * (prescaler  *
-			pll_b_cnt + pll_a_cnt)) / pll_r_cnt;
+	vco_freq = (st->refin_freq / pll_r_cnt * (prescaler  *
+			pll_b_cnt + pll_a_cnt));
 
 	/* tcal = 4400 * Rdiv * cal_div / Refin */
 	cal_delay_ms = (4400 * pll_r_cnt *
