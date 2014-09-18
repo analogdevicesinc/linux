@@ -13,7 +13,7 @@
  * Linux IRQ# is currently offset by one to map to the hardware
  * irq number. So hardware IRQ0 maps to Linux irq 1.
  */
-#define NR_IRQS		(32 + 1)
+#define NR_IRQS		(127 + 1)
 
 #include <asm-generic/irq.h>
 
