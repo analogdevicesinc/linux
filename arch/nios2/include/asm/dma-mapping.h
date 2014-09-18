@@ -14,6 +14,35 @@
 #include <linux/cache.h>
 #include <asm/cacheflush.h>
 
+static inline struct dma_map_ops *get_dma_ops(struct device *dev)
+{
+	/* We don't handle the NULL dev case for ISA for now. We could
+	 * do it via an out of line call but it is not needed for now. The
+	 * only ISA DMA device we support is the floppy and we have a hack
+	 * in the floppy driver directly to get a device for us.
+	 */
+	if (unlikely(!dev) || !dev->archdata.dma_ops)
+		return NULL;
+
+	return dev->archdata.dma_ops;
+}
+
+extern int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
+			   void *cpu_addr, dma_addr_t dma_addr, size_t size);
+
+static inline int
+dma_mmap_attrs(struct device *dev, struct vm_area_struct *vma, void *cpu_addr,
+	       dma_addr_t dma_addr, size_t size, struct dma_attrs *attrs)
+{
+	struct dma_map_ops *ops = get_dma_ops(dev);
+	BUG_ON(!ops);
+	if (ops->mmap)
+		return ops->mmap(dev, vma, cpu_addr, dma_addr, size, attrs);
+	return dma_common_mmap(dev, vma, cpu_addr, dma_addr, size);
+}
+
+#define dma_mmap_coherent(d, v, c, h, s) dma_mmap_attrs(d, v, c, h, s, NULL)
+
 static inline void __dma_sync(void *vaddr, size_t size,
 			      enum dma_data_direction direction)
 {
