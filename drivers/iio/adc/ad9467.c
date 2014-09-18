@@ -217,7 +217,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 
 		ad9467_testmode_set(indio_dev, 0, TESTMODE_PN9_SEQ);
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
-		axiadc_set_pnsel(st, 1, ADC_PN9);
+		axiadc_set_pnsel(st, 0, ADC_PN9);
 		axiadc_write(st, ADI_REG_CHAN_STATUS(0), ~0);
 
 		for (dco = 0; dco <= 32; dco++) {
