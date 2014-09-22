@@ -78,6 +78,8 @@ struct jesd204b_gt_state {
 	unsigned			tx_sys_clk_sel;
 	unsigned			tx_out_clk_sel;
 	bool			use_cpll;
+
+	struct delayed_work	sync_work;
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct child_clk, hw)
@@ -309,6 +311,39 @@ static int jesd204b_gt_status_error(struct device *dev,
 	}
 
 	return 0;
+}
+
+static void jesd204b_gt_clk_synchronize(struct child_clk *clk)
+{
+	struct jesd204b_gt_state *st = dev_get_drvdata(clk->dev);
+	unsigned offs = (clk->num == JESD204B_GT_TX ?
+		ADI_REG_TX_GT_RSTN - ADI_REG_RX_GT_RSTN : 0);
+	int ret;
+
+	if (!clk->enabled)
+		return;
+
+	ret = jesd204b_gt_read(st, ADI_REG_RX_STATUS + offs);
+	while (ret != 0x1ffff) {
+		jesd204b_gt_write(st, ADI_REG_RX_SYSREF_CTL + offs, ADI_RX_SYSREF);
+		jesd204b_gt_write(st, ADI_REG_RX_SYSREF_CTL + offs, 0);
+
+		msleep(100);
+		ret = jesd204b_gt_read(st, ADI_REG_RX_STATUS + offs);
+		dev_dbg(st->dev, "Resynchronizing\n");
+	}
+}
+
+static void jesd204b_gt_sync_work_func(struct work_struct *work)
+{
+	struct jesd204b_gt_state *st =
+		container_of(work, struct jesd204b_gt_state, sync_work.work);
+	unsigned int i;
+
+	for (i = 0; i < 2; i++)
+		jesd204b_gt_clk_synchronize(&st->output[i]);
+
+	queue_delayed_work(system_freezable_wq, &st->sync_work, HZ);
 }
 
 static int jesd204b_gt_clk_enable(struct clk_hw *hw)
@@ -567,6 +602,8 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 	INIT_WORK(&st->work, jesd204b_gt_work_func);
 	init_completion(&st->complete);
 
+	INIT_DELAYED_WORK(&st->sync_work, jesd204b_gt_sync_work_func);
+
 	st->clk_data.clks = devm_kzalloc(&pdev->dev,
 					 sizeof(*st->clk_data.clks) *
 					 2, GFP_KERNEL);
@@ -575,6 +612,8 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	st->clk_data.clk_num = 2;
+
+	schedule_delayed_work(&st->sync_work, HZ);
 
 	clk = jesd204b_gt_clk_register(&pdev->dev, JESD204B_GT_RX, "adc_gt_clk");
 	if (IS_ERR(clk))
@@ -616,6 +655,8 @@ err_dma_free:
 static int jesd204b_gt_remove(struct platform_device *pdev)
 {
 	struct jesd204b_gt_state *st = platform_get_drvdata(pdev);
+
+	cancel_delayed_work_sync(&st->sync_work);
 
 	dma_free_coherent(&pdev->dev, PAGE_ALIGN(st->size),
 			  st->buf_virt, st->buf_phys);
