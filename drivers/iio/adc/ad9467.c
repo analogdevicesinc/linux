@@ -589,6 +589,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 
 static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 {
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	int ret;
 	unsigned pll_stat;
 	static int sel = 0;
@@ -606,6 +607,10 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 
 	ret |= ad9467_spi_write(spi, 0xff, 0x01);
 	ret |= ad9467_spi_write(spi, 0xff, 0x00);
+
+	ret = clk_prepare_enable(conv->clk);
+	if (ret < 0)
+		return ret;
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
