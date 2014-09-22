@@ -12,7 +12,7 @@
 };
 
 &fpga_axi {
-	rx_dma: dma@7c400000 {
+	rx_dma: rx-dmac@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;
@@ -25,7 +25,7 @@
 		};
 	};
 
-	cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
+	axi_ad9652_core_0: axi-ad9652-lpc@79020000 {
 		compatible = "adi,axi-ad9643-6.00.a";
 		reg = <0x79020000 0x10000>;
 		dmas = <&rx_dma 0>;

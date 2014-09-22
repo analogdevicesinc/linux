@@ -576,13 +576,13 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       },
 	[ID_AD9652] = {
 		       .name = "AD9652",
-		       .max_rate = 1250000000UL,
+		       .max_rate = 310000000UL,
 		       .scale_table = ad9652_scale_table,
 		       .num_scales = ARRAY_SIZE(ad9652_scale_table),
 		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
 		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN_NOCALIB(1, 1, 16, 'S'),
-		       .channel[1] = AIM_CHAN_NOCALIB(0, 0, 16, 'S'),
+		       .channel[0] = AIM_CHAN(0, 0, 16, 'S'),
+		       .channel[1] = AIM_CHAN(1, 1, 16, 'S'),
 		       },
 
 };
