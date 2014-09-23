@@ -114,20 +114,6 @@ static int axiadc_ring_set_bytes_per_datum(struct iio_buffer *r, size_t bpd)
 	return 0;
 }
 
-static IIO_BUFFER_ENABLE_ATTR;
-static IIO_BUFFER_LENGTH_ATTR;
-
-static struct attribute *axiadc_ring_attributes[] = {
-	&dev_attr_length.attr,
-	&dev_attr_enable.attr,
-	NULL,
-};
-
-static struct attribute_group axiadc_ring_attr = {
-	.attrs = axiadc_ring_attributes,
-	.name = "buffer",
-};
-
 static void axiadc_ring_release(struct iio_buffer *r)
 {
 	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(r);
@@ -254,7 +240,6 @@ int axiadc_configure_ring(struct iio_dev *indio_dev, const char *dma_name)
 	init_completion(&axiadc_buf->complete);
 	mutex_init(&axiadc_buf->lock);
 	axiadc_buf->indio_dev = indio_dev;
-	axiadc_buf->buffer.attrs = &axiadc_ring_attr;
 	iio_buffer_init(&axiadc_buf->buffer);
 
 	iio_device_attach_buffer(indio_dev, &axiadc_buf->buffer);

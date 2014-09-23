@@ -169,20 +169,6 @@ static int dds_buffer_set_length(struct iio_buffer *buf, int length)
 	return 0;
 }
 
-static IIO_BUFFER_ENABLE_ATTR;
-static IIO_BUFFER_LENGTH_ATTR;
-
-static struct attribute *dds_buffer_attributes[] = {
-	&dev_attr_length.attr,
-	&dev_attr_enable.attr,
-	NULL,
-};
-
-static struct attribute_group dds_buffer_attrs = {
-	.attrs = dds_buffer_attributes,
-	.name = "buffer",
-};
-
 static void dds_buffer_release(struct iio_buffer *buf)
 {
 	struct dds_buffer *dds_buffer = iio_buffer_to_dds_buffer(buf);
@@ -227,7 +213,6 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 	if (!dds_buffer)
 		return -ENOMEM;
 
-	dds_buffer->iio_buffer.attrs = &dds_buffer_attrs;
 	dds_buffer->iio_buffer.access = &dds_buffer_access_funcs;
 	iio_buffer_init(&dds_buffer->iio_buffer);
 	dds_buffer->indio_dev = indio_dev;

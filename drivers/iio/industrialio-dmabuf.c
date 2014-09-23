@@ -682,20 +682,6 @@ static const struct iio_buffer_access_funcs dmabuf_ops = {
 	.mmap = iio_dma_buffer_mmap,
 };
 
-static IIO_BUFFER_ENABLE_ATTR;
-static IIO_BUFFER_LENGTH_ATTR;
-
-static struct attribute *iio_dmabuf_attributes[] = {
-	&dev_attr_length.attr,
-	&dev_attr_enable.attr,
-	NULL,
-};
-
-static struct attribute_group iio_dmabuf_attribute_group = {
-	.attrs = iio_dmabuf_attributes,
-	.name = "buffer",
-};
-
 static u64 dmamask = DMA_BIT_MASK(64);
 
 int iio_dmabuf_init(struct iio_dma_buffer_queue *queue,
@@ -703,7 +689,6 @@ int iio_dmabuf_init(struct iio_dma_buffer_queue *queue,
 	void *driver_data)
 {
 	iio_buffer_init(&queue->buffer);
-	queue->buffer.attrs = &iio_dmabuf_attribute_group;
 	queue->buffer.access = &dmabuf_ops;
 	queue->buffer.length = PAGE_SIZE;
 	queue->dev = dma_dev;
