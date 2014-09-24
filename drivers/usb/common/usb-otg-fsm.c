@@ -190,6 +190,11 @@ static void otg_hnp_polling_work(struct work_struct *work)
 				fsm->otg->host->b_hnp_enable = 1;
 		}
 		fsm->a_bus_req = 0;
+		if (fsm->tst_maint) {
+			fsm->tst_maint = 0;
+			fsm->otg_vbus_off = 0;
+			otg_del_timer(fsm, A_TST_MAINT);
+		}
 	} else if (state == OTG_STATE_B_HOST) {
 		fsm->b_bus_req = 0;
 	}
