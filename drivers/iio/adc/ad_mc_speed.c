@@ -133,7 +133,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	st->iio_info = axiadc_info;
 	indio_dev->info = &st->iio_info;
 
-	axiadc_configure_ring(indio_dev, "ad-mc-speed-dma");
+	axiadc_configure_ring_stream(indio_dev, "ad-mc-speed-dma");
 
 	ret = iio_buffer_register(indio_dev, indio_dev->channels,
 				  indio_dev->num_channels);
@@ -155,7 +155,7 @@ static int axiadc_probe(struct platform_device *pdev)
 err_iio_buffer_unregister:
 	iio_buffer_unregister(indio_dev);
 err_unconfigure_ring:
-	axiadc_unconfigure_ring(indio_dev);
+	axiadc_unconfigure_ring_stream(indio_dev);
 
 	return ret;
 }

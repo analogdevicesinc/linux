@@ -533,7 +533,7 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	indio_dev->num_channels = 8;
 	indio_dev->masklength = 8;
 
-	axiadc_configure_ring(indio_dev, "ad-mc-ctrl-dma");
+	axiadc_configure_ring_stream(indio_dev, "ad-mc-ctrl-dma");
 
 	ret = iio_buffer_register(indio_dev, indio_dev->channels,
 				  indio_dev->num_channels);
@@ -551,7 +551,7 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 err_iio_buffer_unregister:
 	iio_buffer_unregister(indio_dev);
 err_unconfigure_ring:
-	axiadc_unconfigure_ring(indio_dev);
+	axiadc_unconfigure_ring_stream(indio_dev);
 
 	return ret;
 }
