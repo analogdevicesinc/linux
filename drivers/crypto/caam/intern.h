@@ -70,7 +70,6 @@ struct caam_drv_private {
 #endif
 
 	struct device *smdev;
-	struct device *secviodev;
 
 	/* Physical-presence section */
 	struct caam_ctrl __iomem *ctrl; /* controller region */
@@ -78,7 +77,6 @@ struct caam_drv_private {
 	struct caam_assurance __iomem *assure;
 	struct caam_queue_if __iomem *qi; /* QI control region */
 	struct caam_job_ring __iomem *jr[4];	/* JobR's register space */
-	struct snvs_full __iomem *snvs;	/* SNVS HP+LP register space */
 	dma_addr_t __iomem *sm_base;	/* Secure memory storage base */
 	u32 sm_size;
 
@@ -88,7 +86,6 @@ struct caam_drv_private {
 	 */
 	u8 total_jobrs;		/* Total Job Rings in device */
 	u8 qi_present;		/* Nonzero if QI present in device */
-	int secvio_irq;		/* Security violation interrupt number */
 	int virt_en;		/* Virtualization enabled in CAAM */
 
 #define	RNG4_MAX_HANDLES 2
