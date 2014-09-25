@@ -226,6 +226,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 					 dco > 0 ? ((dco - 1) | dco_en) : 0);
 			ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
 					 TRANSFER_SYNC);
+			ad9467_spi_read(conv->spi, ADC_REG_OUTPUT_DELAY);
 
 			axiadc_write(st, ADI_REG_CHAN_STATUS(0), ~0);
 			if (chan == 2)
