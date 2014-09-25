@@ -47,8 +47,11 @@ static int socfpga_boot_secondary(unsigned int cpu, struct task_struct *idle)
 		smp_wmb();
 		outer_clean_range(0, trampoline_size);
 
-		/* This will release CPU #1 out of reset. */
-		writel(0, rst_manager_base_addr + SOCFPGA_RSTMGR_MODMPURST);
+		/* This will release CPU #1 out of reset.*/
+		if (of_machine_is_compatible("altr,socfpga-arria10"))
+			writel(0, rst_manager_base_addr + 0x20);
+		else
+			writel(0, rst_manager_base_addr + 0x10);
 	}
 
 	return 0;
