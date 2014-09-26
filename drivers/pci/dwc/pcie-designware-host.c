@@ -95,6 +95,28 @@ void dw_pcie_msi_init(struct pcie_port *pp)
 			    (u32)(msi_target >> 32 & 0xffffffff));
 }
 
+void dw_pcie_msi_cfg_store(struct pcie_port *pp)
+{
+	int i;
+
+	for (i = 0; i < MAX_MSI_CTRLS; i++)
+		dw_pcie_rd_own_conf(pp, PCIE_MSI_INTR0_ENABLE + i * 12, 4,
+				&pp->msi_enable[i]);
+}
+
+void dw_pcie_msi_cfg_restore(struct pcie_port *pp)
+{
+	int i;
+
+	for (i = 0; i < MAX_MSI_CTRLS; i++) {
+		dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_LO, 4,
+				virt_to_phys((void *)pp->msi_data));
+		dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_HI, 4, 0);
+		dw_pcie_wr_own_conf(pp, PCIE_MSI_INTR0_ENABLE + i * 12, 4,
+				pp->msi_enable[i]);
+	}
+}
+
 static void dw_pcie_msi_clear_irq(struct pcie_port *pp, int irq)
 {
 	unsigned int res, bit, val;
@@ -609,6 +631,11 @@ void dw_pcie_setup_rc(struct pcie_port *pp)
 	val &= 0xff000000;
 	val |= 0x00ff0100;
 	dw_pcie_writel_dbi(pci, PCI_PRIMARY_BUS, val);
+
+	/* program correct class for RC */
+	val = dw_pcie_readl_dbi(pci, PCI_CLASS_REVISION);
+	val |= PCI_CLASS_BRIDGE_PCI << 16;
+	dw_pcie_writel_dbi(pci, val, PCI_CLASS_REVISION);
 
 	/* setup command register */
 	val = dw_pcie_readl_dbi(pci, PCI_COMMAND);
