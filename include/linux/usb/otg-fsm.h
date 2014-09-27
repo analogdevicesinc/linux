@@ -56,6 +56,7 @@ enum otg_fsm_timer {
 	A_DP_END,
 	A_TST_MAINT,
 	B_SRP_REQD,
+	B_TST_SUSP,
 
 	NUM_OTG_FSM_TIMERS,
 };
