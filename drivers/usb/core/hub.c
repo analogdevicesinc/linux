@@ -2213,9 +2213,9 @@ static inline void announce_device(struct usb_device *udev) { }
  */
 static int usb_enumerate_device_otg(struct usb_device *udev)
 {
+#ifdef	CONFIG_USB_OTG
 	int err = 0;
 
-#ifdef	CONFIG_USB_OTG
 	/*
 	 * OTG-aware devices on OTG-capable root hubs may be able to use SRP,
 	 * to wake us after we've powered off VBUS; and HNP, switching roles
@@ -2272,7 +2272,7 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 		}
 	}
 #endif
-	return err;
+	return 0;
 }
 
 
