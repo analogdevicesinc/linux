@@ -72,6 +72,11 @@
 					 * pulse after A(PET) turn off v-bus
 					 */
 
+#define TB_TST_SUSP          (20)	/* B-dev hand host role back to A-dev
+					 * via suspend bus after set config.
+					 * max: 100ms
+					 */
+
 #if IS_ENABLED(CONFIG_USB_OTG_FSM)
 
 int ci_hdrc_otg_fsm_init(struct ci_hdrc *ci);
