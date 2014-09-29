@@ -186,6 +186,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	case CHIPID_AD9434:	/* TODO */
 		return 0;
 	case CHIPID_AD9265:
+	case CHIPID_AD9652:
 		dco_en = 0;
 		break;
 	default:
@@ -203,10 +204,10 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	chan_ctrl1 = axiadc_read(st, ADI_REG_CHAN_CNTRL(1));
 
 	do {
-		ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
-				 OUTPUT_EVEN_ODD_MODE_EN | (inv_range ?
-							    INVERT_DCO_CLK :
-							    0));
+		if (conv->id !=	CHIPID_AD9652)
+			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
+					OUTPUT_EVEN_ODD_MODE_EN | (inv_range ?
+						INVERT_DCO_CLK : 0));
 
 		if (chan == 2) {
 			ad9467_testmode_set(indio_dev, 1, TESTMODE_PN23_SEQ);
@@ -217,7 +218,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 
 		ad9467_testmode_set(indio_dev, 0, TESTMODE_PN9_SEQ);
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
-		axiadc_set_pnsel(st, 1, ADC_PN9);
+		axiadc_set_pnsel(st, 0, ADC_PN9);
 		axiadc_write(st, ADI_REG_CHAN_STATUS(0), ~0);
 
 		for (dco = 0; dco <= 32; dco++) {
@@ -225,6 +226,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 					 dco > 0 ? ((dco - 1) | dco_en) : 0);
 			ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
 					 TRANSFER_SYNC);
+			ad9467_spi_read(conv->spi, ADC_REG_OUTPUT_DELAY);
 
 			axiadc_write(st, ADI_REG_CHAN_STATUS(0), ~0);
 			if (chan == 2)
@@ -281,11 +283,13 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 #endif
 	if (dco > 32) {
 		dco -= 33;
-		ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
+		if (conv->id !=	CHIPID_AD9652)
+			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
 				 OUTPUT_EVEN_ODD_MODE_EN | INVERT_DCO_CLK);
 		cnt = 1;
 	} else {
-		ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
+		if (conv->id !=	CHIPID_AD9652)
+			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
 				 OUTPUT_EVEN_ODD_MODE_EN);
 		cnt = 0;
 	}
@@ -340,6 +344,10 @@ static int ad9434_scale_table[][2] = {
 	{1470, 0x01}, {1440, 0x02}, {1420, 0x03}, {1390, 0x04}, {1360, 0x05},
 	{1340, 0x06}, {1310, 0x07}, {1280, 0x08}, {1260, 0x09}, {1230, 0x0A},
 	{1200, 0x0B}, {1180, 0x0C},
+};
+
+static int ad9652_scale_table[][2] = {
+	{1250, 0}, {1125, 1}, {1200, 2}, {1250, 3}, {1000, 5},
 };
 
 static void ad9467_convert_scale_table(struct axiadc_converter *conv)
@@ -567,11 +575,22 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S'),
 		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S'),
 		       },
+	[ID_AD9652] = {
+		       .name = "AD9652",
+		       .max_rate = 310000000UL,
+		       .scale_table = ad9652_scale_table,
+		       .num_scales = ARRAY_SIZE(ad9652_scale_table),
+		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
+		       .num_channels = 2,
+		       .channel[0] = AIM_CHAN(0, 0, 16, 'S'),
+		       .channel[1] = AIM_CHAN(1, 1, 16, 'S'),
+		       },
 
 };
 
 static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 {
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	int ret;
 	unsigned pll_stat;
 	static int sel = 0;
@@ -589,6 +608,10 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 
 	ret |= ad9467_spi_write(spi, 0xff, 0x01);
 	ret |= ad9467_spi_write(spi, 0xff, 0x00);
+
+	ret = clk_prepare_enable(conv->clk);
+	if (ret < 0)
+		return ret;
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
@@ -731,6 +754,9 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 				break;
 			case CHIPID_AD9265:
 				mask = AD9265_REG_VREF_MASK;
+				break;
+			case CHIPID_AD9652:
+				mask = AD9652_REG_VREF_MASK;
 				break;
 			default:
 				mask = 0xFFFF;
@@ -981,6 +1007,12 @@ static int ad9467_probe(struct spi_device *spi)
 		    AD9434_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
 		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
 		break;
+	case CHIPID_AD9652:
+		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9652];
+		conv->adc_output_mode =
+		    AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
+		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
+		break;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
 		ret = -ENODEV;
@@ -1032,6 +1064,7 @@ static const struct spi_device_id ad9467_id[] = {
 	{"ad9434", CHIPID_AD9434},
 	{"ad9625", CHIPID_AD9625},
 	{"ad9680", CHIPID_AD9680},
+	{"ad9652", CHIPID_AD9652},
 	{}
 };
 

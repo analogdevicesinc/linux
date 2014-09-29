@@ -173,6 +173,13 @@ struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 	} else {
 		width = 1;
 	}
+
+	if (!width) { /* FIXME */
+		pr_warn("%s:%d width %d (DMA width >= 256-bits ?)\n",
+			__func__,__LINE__, width);
+		width = 32;
+	}
+
 	dmaengine_buffer->align = width;
 
 	INIT_LIST_HEAD(&dmaengine_buffer->active);

@@ -514,7 +514,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
 	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
 	{ .compatible =	"xlnx,axi-adc-1c-1.00.a", },
-	{ .compatible =	"xlnx,axi-ad9250-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &ad9680_6_00_a_info },
 	{ .compatible =	"xlnx,axi-ad9683-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9625-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9434-1.00.a", },

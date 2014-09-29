@@ -21,7 +21,7 @@
 #define XILINX_NUM_MSI_IRQS	32
 #define NR_IRQS		(32 + IRQ_XILINX_MSI_0 + IRQ_OFFSET)
 #else
-#define NR_IRQS		(32 + IRQ_OFFSET)
+#define NR_IRQS		(127 + IRQ_OFFSET)
 #endif
 
 #include <asm-generic/irq.h>
