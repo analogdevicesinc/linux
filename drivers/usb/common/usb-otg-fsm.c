@@ -142,6 +142,7 @@ static void otg_hnp_polling_work(struct work_struct *work)
 	enum usb_otg_state state = fsm->otg->state;
 	u8 flag;
 	int retval;
+	struct usb_otg_descriptor *desc = NULL;
 
 	if (state != OTG_STATE_A_HOST && state != OTG_STATE_B_HOST)
 		return;
@@ -151,6 +152,24 @@ static void otg_hnp_polling_work(struct work_struct *work)
 		dev_err(fsm->otg->host->controller,
 			"no usb dev connected, can't start HNP polling\n");
 		return;
+	}
+
+	/*
+	 * Legacy otg test device does not support HNP polling,
+	 * start HNP directly for legacy otg test device.
+	 */
+	if (fsm->tst_maint &&
+		(__usb_get_extra_descriptor(udev->rawdescriptors[0],
+		le16_to_cpu(udev->config[0].desc.wTotalLength),
+				USB_DT_OTG, (void **) &desc) == 0)) {
+		/* shorter bLength of OTG 1.3 or earlier */
+		if (desc->bLength < 5) {
+			fsm->a_bus_req = 0;
+			fsm->tst_maint = 0;
+			otg_del_timer(fsm, A_TST_MAINT);
+			*fsm->host_req_flag = HOST_REQUEST_FLAG;
+			return;
+		}
 	}
 
 	*fsm->host_req_flag = 0;
