@@ -257,7 +257,7 @@ static int altera_mutex_probe(struct platform_device *pdev)
 	if (!regs)
 		return -ENXIO;
 
-	mutex->regs = devm_request_and_ioremap(&pdev->dev, regs);
+	mutex->regs = devm_ioremap_resource(&pdev->dev, regs);
 	if (!mutex->regs)
 		return -EADDRNOTAVAIL;
 
