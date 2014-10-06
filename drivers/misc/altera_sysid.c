@@ -88,7 +88,7 @@ static int altera_sysid_probe(struct platform_device *pdev)
 	if (!regs)
 		return -ENXIO;
 
-	sysid->regs = devm_request_and_ioremap(&pdev->dev, regs);
+	sysid->regs = devm_ioremap_resource(&pdev->dev, regs);
 	if (!sysid->regs)
 		return -ENOMEM;
 
