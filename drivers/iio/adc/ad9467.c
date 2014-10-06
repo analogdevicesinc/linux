@@ -293,30 +293,13 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	int ret, dco, cnt, start, max_start, max_cnt;
-	unsigned stat, inv_range = 0, dco_en = 0, do_inv;
+	int ret, val, cnt, start, max_start, max_cnt;
+	unsigned stat, inv_range = 0, do_inv, lane,
+		 chan_ctrl0, chan_ctrl1, max_val = dco ? 32 : 31;
 	unsigned char err_field[66];
-	unsigned chan_ctrl0, chan_ctrl1;
-
-	switch (conv->id) {
-	case CHIPID_AD9250:
-	case CHIPID_AD9683:
-	case CHIPID_AD9680:
-	case CHIPID_AD9625:
-	case CHIPID_AD9434:	/* TODO */
-		return 0;
-	case CHIPID_AD9265:
-	case CHIPID_AD9652:
-		dco_en = 0;
-		break;
-	default:
-		dco_en = DCO_DELAY_ENABLE;
-	}
 
 	ret = ad9467_outputmode_set(conv->spi,
-				    conv->
-				    adc_output_mode &
-				    ~OUTPUT_MODE_TWOS_COMPLEMENT);
+			conv->adc_output_mode & ~OUTPUT_MODE_TWOS_COMPLEMENT);
 	if (ret < 0)
 		return ret;
 
@@ -324,10 +307,19 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 	chan_ctrl1 = axiadc_read(st, ADI_REG_CHAN_CNTRL(1));
 
 	do {
-		if (conv->id !=	CHIPID_AD9652)
+		if (dco && conv->id != CHIPID_AD9652) {
 			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
 					OUTPUT_EVEN_ODD_MODE_EN | (inv_range ?
 						INVERT_DCO_CLK : 0));
+		} else if (!dco) {
+			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
+
+			if (inv_range)
+				reg_cntrl |= ADI_DDR_EDGESEL;
+			else
+				reg_cntrl &= ~ADI_DDR_EDGESEL;
+			axiadc_write(st, ADI_REG_CNTRL, reg_cntrl);
+		}
 
 		if (chan == 2) {
 			ad9467_testmode_set(indio_dev, 1, TESTMODE_PN23_SEQ);
@@ -341,12 +333,18 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 		axiadc_set_pnsel(st, 0, ADC_PN9);
 		axiadc_write(st, ADI_REG_CHAN_STATUS(0), ~0);
 
-		for (dco = 0; dco <= 32; dco++) {
-			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_DELAY,
-					 dco > 0 ? ((dco - 1) | dco_en) : 0);
-			ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
-					 TRANSFER_SYNC);
-			ad9467_spi_read(conv->spi, ADC_REG_OUTPUT_DELAY);
+		for (val = 0; val <= max_val; val++) {
+			if (dco) {
+				ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_DELAY,
+						val > 0 ? ((val - 1) | dco_en) : 0);
+				ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
+						TRANSFER_SYNC);
+				ad9467_spi_read(conv->spi, ADC_REG_OUTPUT_DELAY);
+			} else {
+				for (lane = 0; lane < nb_lanes; lane++) {
+					axiadc_idelay_set(st, lane, val);
+				}
+			}
 
 			axiadc_write(st, ADI_REG_CHAN_STATUS(0), ~0);
 			if (chan == 2)
@@ -358,15 +356,15 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 			if (chan == 2)
 				stat |= axiadc_read(st, ADI_REG_CHAN_STATUS(1));
 
-			err_field[dco + (inv_range * 33)] =
+			err_field[val + (inv_range * (max_val + 1))] =
 			    ! !(stat & (ADI_PN_ERR | ADI_PN_OOS));
 		}
 
-		for (dco = 0, cnt = 0, max_cnt = 0, start = -1, max_start = 0;
-		     dco <= (32 + (inv_range * 33)); dco++) {
-			if (err_field[dco] == 0) {
+		for (val = 0, cnt = 0, max_cnt = 0, start = -1, max_start = 0;
+		     val <= (max_val + (inv_range * (max_val + 1))); val++) {
+			if (err_field[val] == 0) {
 				if (start == -1)
-					start = dco;
+					start = val;
 				cnt++;
 			} else {
 				if (cnt > max_cnt) {
@@ -383,7 +381,7 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 			max_start = start;
 		}
 
-		if ((inv_range == 0) && ((max_cnt < 3) || (err_field[32] == 0))) {
+		if ((inv_range == 0) && ((max_cnt < 3) || (err_field[max_val] == 0))) {
 			do_inv = 1;
 			inv_range = 1;
 		} else {
@@ -392,38 +390,61 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 
 	} while (do_inv);
 
-	dco = max_start + (max_cnt / 2);
+	val = max_start + (max_cnt / 2);
 
 #ifdef DCO_DEBUG
-	for (cnt = 0; cnt <= (32 + (inv_range * 33)); cnt++)
-		if (cnt == dco)
+	for (cnt = 0; cnt <= (max_val + (inv_range * (max_val + 1))); cnt++) {
+		if (cnt == val)
 			printk("|");
 		else
 			printk("%c", err_field[cnt] ? '-' : 'o');
+		if (cnt == max_val)
+			printk("\n");
+	}
 #endif
-	if (dco > 32) {
-		dco -= 33;
-		if (conv->id !=	CHIPID_AD9652)
+	if (val > max_val) {
+		val -= max_val + 1;
+		if (dco && conv->id != CHIPID_AD9652) {
 			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
 				 OUTPUT_EVEN_ODD_MODE_EN | INVERT_DCO_CLK);
+		} else if (!dco) {
+			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
+			reg_cntrl |= ADI_DDR_EDGESEL;
+			axiadc_write(st, ADI_REG_CNTRL, reg_cntrl);
+		}
 		cnt = 1;
 	} else {
-		if (conv->id !=	CHIPID_AD9652)
+		if (dco && conv->id != CHIPID_AD9652) {
 			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
 				 OUTPUT_EVEN_ODD_MODE_EN);
+		} else if (!dco) {
+			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
+			reg_cntrl &= ~ADI_DDR_EDGESEL;
+			axiadc_write(st, ADI_REG_CNTRL, reg_cntrl);
+		}
 		cnt = 0;
 	}
 
 #ifdef DCO_DEBUG
-	printk(" %s DCO 0x%X CLK %lu Hz\n", cnt ? "INVERT" : "",
-	       dco > 0 ? ((dco - 1) | dco_en) : 0, conv->adc_clk);
+	if (dco)
+		printk(" %s DCO 0x%X CLK %lu Hz\n", cnt ? "INVERT" : "",
+				val > 0 ? ((val - 1) | dco_en) : 0,
+				conv->adc_clk);
+	else
+		printk(" %s IDELAY 0x%x\n", cnt ? "INVERT" : "", val);
 #endif
 
 	ad9467_testmode_set(indio_dev, 0, TESTMODE_OFF);
 	ad9467_testmode_set(indio_dev, 1, TESTMODE_OFF);
-	ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_DELAY,
-			 dco > 0 ? ((dco - 1) | dco_en) : 0);
-	ad9467_spi_write(conv->spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+	if (dco) {
+		ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_DELAY,
+				val > 0 ? ((val - 1) | dco_en) : 0);
+		ad9467_spi_write(conv->spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+	} else {
+		for (lane = 0; lane < nb_lanes; lane++) {
+			axiadc_idelay_set(st, lane, val);
+		}
+	}
 
 	axiadc_write(st, ADI_REG_CHAN_CNTRL(0), chan_ctrl0);
 	axiadc_write(st, ADI_REG_CHAN_CNTRL(1), chan_ctrl1);
@@ -985,7 +1006,7 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 		if (!conv->clk)
 			return -ENODEV;
 
-		*val = conv->adc_clk = clk_get_rate(conv->clk);
+		*val = conv->adc_clk = clk_get_rate_scaled(conv->clk, &conv->adc_clkscale);
 
 		return IIO_VAL_INT;
 
@@ -1045,6 +1066,10 @@ static int ad9467_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	int ret, i;
 
+	ret = ad9467_idelay_calibrate(indio_dev, conv->chip_info->num_channels);
+	if (ret < 0)
+		return ret;
+
 	ret = ad9467_dco_calibrate(indio_dev, conv->chip_info->num_channels);
 	if (ret < 0)
 		return ret;
@@ -1081,6 +1106,9 @@ static int ad9467_probe(struct spi_device *spi)
 		clk_enabled = 1;
 		conv->adc_clk = clk_get_rate(clk);
 	}
+
+	conv->adc_clkscale.mult = 1;
+	conv->adc_clkscale.div = 1;
 
 	spi_set_drvdata(spi, conv);
 	conv->spi = spi;
