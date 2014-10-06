@@ -1,0 +1,24 @@
+/ {
+	clocks {
+		ad9467_ref_clk: clock@0 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <250000000>;
+				clock-output-names = "ad9567_refclk";
+		};
+	};
+};
+
+&fmc_spi {
+	adc_ad9467: ad9467@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad9467";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&ad9467_ref_clk>;
+		clock-names = "adc_clk";
+
+		adi,spi-3wire-enable;
+	};
+};
