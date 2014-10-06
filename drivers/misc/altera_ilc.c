@@ -182,7 +182,7 @@ static int altera_ilc_probe(struct platform_device *pdev)
 	if (!regs)
 		return -ENXIO;
 
-	ilc->regs = devm_request_and_ioremap(&pdev->dev, regs);
+	ilc->regs = devm_ioremap_resource(&pdev->dev, regs);
 	if (!ilc->regs)
 		return -EADDRNOTAVAIL;
 
