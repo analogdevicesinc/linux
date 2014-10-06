@@ -379,9 +379,9 @@ static int cadence_qspi_probe(struct platform_device *pdev)
 	cadence_qspi->pdev = pdev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	cadence_qspi->iobase = devm_request_and_ioremap(&pdev->dev, res);
+	cadence_qspi->iobase = devm_ioremap_resource(&pdev->dev, res);
 	if (!cadence_qspi->iobase) {
-		dev_err(&pdev->dev, "devm_request_and_ioremap res 0 failed\n");
+		dev_err(&pdev->dev, "devm_ioremap_resource res 0 failed\n");
 		status = -EADDRNOTAVAIL;
 		goto err_ioremap;
 	}
@@ -389,9 +389,9 @@ static int cadence_qspi_probe(struct platform_device *pdev)
 
 	res_ahb = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	cadence_qspi->qspi_ahb_virt =
-		devm_request_and_ioremap(&pdev->dev, res_ahb);
+		devm_ioremap_resource(&pdev->dev, res_ahb);
 	if (!cadence_qspi->qspi_ahb_virt) {
-		dev_err(&pdev->dev, "devm_request_and_ioremap res 1 failed\n");
+		dev_err(&pdev->dev, "devm_ioremap_resource res 1 failed\n");
 		status = -EADDRNOTAVAIL;
 		goto err_ahbremap;
 	}
