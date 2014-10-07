@@ -900,12 +900,23 @@ static struct snd_soc_dai_driver adau1761_dai_driver = {
 	.ops = &adau17x1_dai_ops,
 };
 
+static struct adau1761_platform_data zed_pdata = {
+	.input_differential = true,
+	.lineout_mode = ADAU1761_OUTPUT_MODE_LINE,
+	.headphone_mode = ADAU1761_OUTPUT_MODE_HEADPHONE,
+	.digmic_jackdetect_pin_mode = ADAU1761_DIGMIC_JACKDET_PIN_MODE_NONE,
+};
+
 int adau1761_probe(struct device *dev, struct regmap *regmap,
 	enum adau17x1_type type, void (*switch_mode)(struct device *dev))
 {
 	struct snd_soc_dai_driver *dai_drv;
 	const char *firmware_name;
 	int ret;
+
+	/* ZED board hack */
+	if (!dev->platform_data)
+		dev->platform_data = &zed_pdata;
 
 	if (type == ADAU1361) {
 		dai_drv = &adau1361_dai_driver;
