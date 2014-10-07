@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/regmap.h>
+#include <linux/reset.h>
 #include "fpga-bridge.h"
 
 #define SOCFPGA_RSTMGR_BRGMODRST		0x1c
@@ -38,6 +39,9 @@
 #define ALT_L3_REMAP_H2F_MSK			0x00000008
 #define ALT_L3_REMAP_LWH2F_MSK			0x00000010
 
+#define HPS2FPGA_BRIDGE_NAME			"hps2fpga"
+#define LWHPS2FPGA_BRIDGE_NAME			"lwhps2fpga"
+#define FPGA2HPS_BRIDGE_NAME			"fpga2hps"
 static struct of_device_id altera_fpga_of_match[];
 
 /* The L3 REMAP register is write only, so keep a cached value. */
@@ -47,7 +51,7 @@ struct altera_hps2fpga_data {
 	char	name[48];
 	struct platform_device *pdev;
 	struct device_node *np;
-	struct regmap *rstreg;
+	struct reset_control *bridge_reset;
 	struct regmap *l3reg;
 	unsigned int reset_mask;
 	unsigned int remap_mask;
@@ -56,26 +60,18 @@ struct altera_hps2fpga_data {
 static int alt_hps2fpga_enable_show(struct fpga_bridge *bridge)
 {
 	struct altera_hps2fpga_data *priv = bridge->priv;
-	unsigned int value;
 
-	regmap_read(priv->rstreg, SOCFPGA_RSTMGR_BRGMODRST, &value);
-
-	return ((value & priv->reset_mask) == 0);
+	return reset_control_status(priv->bridge_reset);
 }
 
 static inline void _alt_hps2fpga_enable_set(struct altera_hps2fpga_data *priv,
 	 bool enable)
 {
-	unsigned int value;
-
 	/* bring bridge out of reset */
 	if (enable)
-		value = 0;
+		reset_control_deassert(priv->bridge_reset);
 	else
-		value = priv->reset_mask;
-
-	regmap_update_bits(priv->rstreg, SOCFPGA_RSTMGR_BRGMODRST,
-			   priv->reset_mask, value);
+		reset_control_assert(priv->bridge_reset);
 
 	/* Allow bridge to be visible to L3 masters or not */
 	if (priv->remap_mask) {
@@ -101,19 +97,19 @@ struct fpga_bridge_ops altera_hps2fpga_br_ops = {
 };
 
 static struct altera_hps2fpga_data hps2fpga_data  = {
-	.name = "hps2fpga",
+	.name = HPS2FPGA_BRIDGE_NAME,
 	.reset_mask = ALT_RSTMGR_BRGMODRST_H2F_MSK,
 	.remap_mask = ALT_L3_REMAP_H2F_MSK,
 };
 
 static struct altera_hps2fpga_data lwhps2fpga_data  = {
-	.name = "lshps2fpga",
+	.name = LWHPS2FPGA_BRIDGE_NAME,
 	.reset_mask = ALT_RSTMGR_BRGMODRST_LWH2F_MSK,
 	.remap_mask = ALT_L3_REMAP_LWH2F_MSK,
 };
 
 static struct altera_hps2fpga_data fpga2hps_data  = {
-	.name = "fpga2hps",
+	.name = FPGA2HPS_BRIDGE_NAME,
 	.reset_mask = ALT_RSTMGR_BRGMODRST_F2H_MSK,
 };
 
@@ -121,40 +117,39 @@ static int alt_fpga_bridge_probe(struct platform_device *pdev)
 {
 	struct altera_hps2fpga_data *priv;
 	const struct of_device_id *of_id;
+	struct device *dev = &pdev->dev;
 	uint32_t init_val;
 	int rc;
 	struct clk *clk;
 
-	of_id = of_match_device(altera_fpga_of_match, &pdev->dev);
+	of_id = of_match_device(altera_fpga_of_match, dev);
 	priv = (struct altera_hps2fpga_data *)of_id->data;
 	WARN_ON(!priv);
 
-	priv->np = pdev->dev.of_node;
+	priv->np = dev->of_node;
 	priv->pdev = pdev;
 
-	priv->rstreg = syscon_regmap_lookup_by_compatible("altr,rst-mgr");
-	if (IS_ERR(priv->rstreg)) {
-		dev_err(&priv->pdev->dev,
-			"regmap for altr,rst-mgr lookup failed.\n");
-		return PTR_ERR(priv->rstreg);
+	priv->bridge_reset = devm_reset_control_get(dev, priv->name);
+	if (IS_ERR(priv->bridge_reset)) {
+		dev_err(dev, "Could not get %s reset control!\n", priv->name);
+		return PTR_ERR(priv->bridge_reset);
 	}
 
 	priv->l3reg = syscon_regmap_lookup_by_compatible("altr,l3regs");
 	if (IS_ERR(priv->l3reg)) {
-		dev_err(&priv->pdev->dev,
-			"regmap for altr,l3regs lookup failed.\n");
+		dev_err(dev, "regmap for altr,l3regs lookup failed.\n");
 		return PTR_ERR(priv->l3reg);
 	}
 
 	clk = of_clk_get(pdev->dev.of_node, 0);
 	if (IS_ERR(clk)) {
-		dev_err(&pdev->dev, "no clock specified\n");
+		dev_err(dev, "no clock specified\n");
 		return PTR_ERR(clk);
 	}
 
 	rc = clk_prepare_enable(clk);
 	if (rc) {
-		dev_err(&pdev->dev, "could not enable clock\n");
+		dev_err(dev, "could not enable clock\n");
 		return -EBUSY;
 	}
 
