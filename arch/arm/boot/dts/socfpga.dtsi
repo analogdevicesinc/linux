@@ -549,18 +549,24 @@
 		hps_fpgabridge0: fpgabridge@0 {
 			compatible = "altr,socfpga-hps2fpga-bridge";
 			label = "hps2fpga";
+			resets = <&rst HPS2FPGA_RESET>;
+			reset-names = "hps2fpga";
 			clocks = <&l4_main_clk>;
 		};
 
 		hps_fpgabridge1: fpgabridge@1 {
 			compatible = "altr,socfpga-lwhps2fpga-bridge";
 			label = "lwhps2fpga";
+			resets = <&rst LWHPS2FPGA_RESET>;
+			reset-names = "lwhps2fpga";
 			clocks = <&l4_main_clk>;
 		};
 
 		hps_fpgabridge2: fpgabridge@2 {
 			compatible = "altr,socfpga-fpga2hps-bridge";
 			label = "fpga2hps";
+			resets = <&rst FPGA2HPS_RESET>;
+			reset-names = "fpga2hps";
 			clocks = <&l4_main_clk>;
 		};
 
