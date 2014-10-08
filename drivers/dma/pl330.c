@@ -1141,7 +1141,7 @@ static inline int _ldst_devtomem(unsigned dry_run, u8 buf[],
 		const struct _xfer_spec *pxs, int cyc)
 {
 	int off = 0;
-	enum pl330_cond cond = (pxs->r->cfg->brst_len == 1) ? SINGLE : BURST;
+	enum pl330_cond cond = (pxs->desc->rqcfg.brst_len == 1) ? SINGLE : BURST;
 
 	while (cyc--) {
 		off += _emit_WFP(dry_run, &buf[off], cond, pxs->desc->peri);
@@ -1157,7 +1157,7 @@ static inline int _ldst_memtodev(unsigned dry_run, u8 buf[],
 		const struct _xfer_spec *pxs, int cyc)
 {
 	int off = 0;
-	enum pl330_cond cond = (pxs->r->cfg->brst_len == 1) ? SINGLE : BURST;
+	enum pl330_cond cond = (pxs->desc->rqcfg.brst_len == 1) ? SINGLE : BURST;
 
 	while (cyc--) {
 		off += _emit_WFP(dry_run, &buf[off], cond, pxs->desc->peri);
@@ -2809,12 +2809,6 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	ret = pl330_add(pl330);
 	if (ret)
 		return ret;
-
-	if (pdat->init) {
-		ret = pdat->init(adev);
-		if (ret)
-			goto probe_err3;
-	}
 
 	INIT_LIST_HEAD(&pl330->desc_pool);
 	spin_lock_init(&pl330->pool_lock);
