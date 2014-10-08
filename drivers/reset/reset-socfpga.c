@@ -153,7 +153,20 @@ static struct platform_driver socfpga_reset_driver = {
 		.of_match_table	= socfpga_reset_dt_ids,
 	},
 };
-module_platform_driver(socfpga_reset_driver);
+
+static int __init socfpga_reset_init(void)
+{
+        return platform_driver_probe(&socfpga_reset_driver,
+                                     socfpga_reset_probe);
+}
+
+static void __exit socfpga_reset_exit(void)
+{
+        platform_driver_unregister(&socfpga_reset_driver);
+}
+
+arch_initcall(socfpga_reset_init);
+module_exit(socfpga_reset_exit);
 
 MODULE_AUTHOR("Steffen Trumtrar <s.trumtrar@pengutronix.de");
 MODULE_DESCRIPTION("Socfpga Reset Controller Driver");
