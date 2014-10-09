@@ -1,0 +1,150 @@
+/*
+ * Copyright Altera Corporation (C) 2012,2014. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "socfpga_cyclone5.dtsi"
+
+/ {
+	model = "Altera SOCFPGA Cyclone V SoC Development Kit";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x0 0x40000000>; /* 1GB */
+	};
+
+	aliases {
+		/* this allow the ethaddr uboot environmnet variable contents
+		 * to be added to the gmac1 device tree blob.
+		 */
+		ethernet0 = &gmac1;
+	};
+
+	regulator_3_3v: 3-3-v-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		hps0 {
+			label = "hps_led0";
+			gpios = <&portb 15 1>;
+		};
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&portb 14 1>;
+		};
+
+		hps2 {
+			label = "hps_led2";
+			gpios = <&portb 13 1>;
+		};
+
+		hps3 {
+			label = "hps_led3";
+			gpios = <&portb 12 1>;
+		};
+	};
+};
+
+&can0 {
+	status = "okay";
+};
+
+&gmac1 {
+	status = "okay";
+	phy-mode = "rgmii";
+
+	rxd0-skew-ps = <0>;
+	rxd1-skew-ps = <0>;
+	rxd2-skew-ps = <0>;
+	rxd3-skew-ps = <0>;
+	txen-skew-ps = <0>;
+	txc-skew-ps = <2600>;
+	rxdv-skew-ps = <0>;
+	rxc-skew-ps = <2000>;
+	max-frame-size = <3800>;
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+	speed-mode = <0>;
+
+	/*
+	 * adjust the falling times to decrease the i2c frequency to 50Khz
+	 * because the LCD module does not work at the standard 100Khz
+	 */
+	i2c-sda-falling-time-ns = <5000>;
+	i2c-scl-falling-time-ns = <5000>;
+
+	lcd: lcd@28 {
+		compatible = "newhaven,nhd-0216k3z-nsw-bbw";
+		reg = <0x28>;
+		height = <2>;
+		width = <16>;
+		brightness = <8>;
+	};
+
+	eeprom@51 {
+		compatible = "atmel,24c32";
+		reg = <0x51>;
+		pagesize = <32>;
+	};
+
+	rtc@68 {
+		compatible = "dallas,ds1339";
+		reg = <0x68>;
+	};
+};
+
+&mmc0 {
+	cd-gpios = <&portb 18 0>;
+	vmmc-supply = <&regulator_3_3v>;
+	vqmmc-supply = <&regulator_3_3v>;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&osc1 {
+	clock-frequency = <19200000>;
+};
+
+&nand {
+	status = "okay";
+};
+
