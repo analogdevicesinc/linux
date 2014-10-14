@@ -373,7 +373,10 @@ ENTRY(sys_call_table)
 	.long sys_sched_setattr
 	.long sys_sched_getattr		/* 350 */
 	.long sys_renameat2
+	.long sys_getrandom
+	.long sys_memfd_create
+	.long sys_seccomp		/* 355 */
 
-	.rept NR_syscalls - 352
+	.rept NR_syscalls - 355
 		.long sys_ni_syscall
 	.endr
