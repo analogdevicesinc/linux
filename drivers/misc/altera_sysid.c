@@ -89,8 +89,8 @@ static int altera_sysid_probe(struct platform_device *pdev)
 		return -ENXIO;
 
 	sysid->regs = devm_ioremap_resource(&pdev->dev, regs);
-	if (!sysid->regs)
-		return -ENOMEM;
+	if (IS_ERR(sysid->regs))
+		return PTR_ERR(sysid->regs);
 
 	platform_set_drvdata(pdev, sysid);
 
