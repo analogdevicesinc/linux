@@ -354,6 +354,9 @@ static int ad9467_idelay_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	case CHIPID_AD9467:
 		nb_lanes = 8;
 		break;
+	case CHIPID_AD9434:
+		nb_lanes = 6;
+		break;
 	default:
 		return 0;
 	}
@@ -372,9 +375,8 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	case CHIPID_AD9683:
 	case CHIPID_AD9680:
 	case CHIPID_AD9625:
+	case CHIPID_AD9434:
 	case 0xFF:
-		return 0;
-	case CHIPID_AD9434:	/* TODO */
 		return 0;
 	case CHIPID_AD9265:
 	case CHIPID_AD9652:
