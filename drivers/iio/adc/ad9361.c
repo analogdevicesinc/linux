@@ -5137,7 +5137,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 		memset(field, 0, 32);
 		for (k = 0; k < 2; k++) {
 			if (max_freq)
-				ad9361_set_trx_clock_chain_freq(phy, k ? max_freq : 10000000UL);
+				ad9361_set_trx_clock_chain_freq(phy, k ? max_freq : 30720000UL); /* 10000000UL */
 		for (i = 0; i < 2; i++) {
 			for (j = 0; j < 16; j++) {
 				ad9361_spi_write(phy->spi,
@@ -5161,7 +5161,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 			}
 		}
 		}
-#ifdef _DEBUG
+//#ifdef _DEBUG
 		printk("SAMPL CLK: %lu\n", clk_get_rate(phy->clks[RX_SAMPL_CLK]));
 		printk("  ");
 		for (i = 0; i < 16; i++)
@@ -5176,7 +5176,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 			printk("\n");
 		}
 		printk("\n");
-#endif
+//#endif
 		c0 = ad9361_find_opt_delay(&field[0][0], &s0);
 		c1 = ad9361_find_opt_delay(&field[1][0], &s1);
 
