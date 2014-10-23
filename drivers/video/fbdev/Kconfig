@@ -219,6 +219,16 @@ config FB_TILEBLITTING
 comment "Frame buffer hardware drivers"
 	depends on FB
 
+config FB_ALTERA_VIP
+	tristate "Altera VIP Frame Reader framebuffer support"
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This driver supports the Altera Video and Image Processing(VIP)
+	  Frame Reader
+
 config FB_BCM2708
 	tristate "BCM2708 framebuffer support"
 	depends on FB && RASPBERRYPI_FIRMWARE
@@ -232,6 +242,7 @@ config FB_BCM2708
 	  inserted into and removed from the running kernel), say M
 	  here and read <file:Documentation/kbuild/modules.txt>.  The module
 	  will be called bcm2708_fb.
+
 
 config FB_GRVGA
 	tristate "Aeroflex Gaisler framebuffer support"
@@ -572,7 +583,7 @@ config FB_STI
 	  BIOS routines contained in a ROM chip in HP PA-RISC based machines.
 	  Enabling this option will implement the linux framebuffer device
 	  using calls to the STI BIOS routines for initialisation.
-	
+
 	  If you enable this option, you will get a planar framebuffer device
 	  /dev/fb which will work on the most common HP graphic cards of the
 	  NGLE family, including the artist chips (in the 7xx and Bxxx series),
