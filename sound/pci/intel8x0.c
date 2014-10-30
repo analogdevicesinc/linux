@@ -430,7 +430,7 @@ struct intel8x0 {
 	u32 int_sta_mask;		/* interrupt status mask */
 };
 
-static DEFINE_PCI_DEVICE_TABLE(snd_intel8x0_ids) = {
+static const struct pci_device_id snd_intel8x0_ids[] = {
 	{ PCI_VDEVICE(INTEL, 0x2415), DEVICE_INTEL },	/* 82801AA */
 	{ PCI_VDEVICE(INTEL, 0x2425), DEVICE_INTEL },	/* 82901AB */
 	{ PCI_VDEVICE(INTEL, 0x2445), DEVICE_INTEL },	/* 82801BA */
@@ -2779,7 +2779,7 @@ static void intel8x0_measure_ac97_clock(struct intel8x0 *chip)
 	unsigned long port;
 	unsigned long pos, pos1, t;
 	int civ, timeout = 1000, attempt = 1;
-	struct timespec start_time, stop_time;
+	ktime_t start_time, stop_time;
 
 	if (chip->ac97_bus->clock != 48000)
 		return; /* specified in module option */
@@ -2813,7 +2813,7 @@ static void intel8x0_measure_ac97_clock(struct intel8x0 *chip)
 		iputbyte(chip, port + ICH_REG_OFF_CR, ICH_IOCE);
 		iputdword(chip, ICHREG(ALI_DMACR), 1 << ichdev->ali_slot);
 	}
-	do_posix_clock_monotonic_gettime(&start_time);
+	start_time = ktime_get();
 	spin_unlock_irq(&chip->reg_lock);
 	msleep(50);
 	spin_lock_irq(&chip->reg_lock);
@@ -2837,7 +2837,7 @@ static void intel8x0_measure_ac97_clock(struct intel8x0 *chip)
 		pos += ichdev->position;
 	}
 	chip->in_measurement = 0;
-	do_posix_clock_monotonic_gettime(&stop_time);
+	stop_time = ktime_get();
 	/* stop */
 	if (chip->device_type == DEVICE_ALI) {
 		iputdword(chip, ICHREG(ALI_DMACR), 1 << (ichdev->ali_slot + 16));
@@ -2865,9 +2865,7 @@ static void intel8x0_measure_ac97_clock(struct intel8x0 *chip)
 	}
 
 	pos /= 4;
-	t = stop_time.tv_sec - start_time.tv_sec;
-	t *= 1000000;
-	t += (stop_time.tv_nsec - start_time.tv_nsec) / 1000;
+	t = ktime_us_delta(stop_time, start_time);
 	dev_info(chip->card->dev,
 		 "%s: measured %lu usecs (%lu samples)\n", __func__, t, pos);
 	if (t == 0) {

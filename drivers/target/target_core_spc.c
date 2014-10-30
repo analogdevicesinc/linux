@@ -129,15 +129,10 @@ static sense_reason_t
 spc_emulate_evpd_80(struct se_cmd *cmd, unsigned char *buf)
 {
 	struct se_device *dev = cmd->se_dev;
-	u16 len = 0;
+	u16 len;
 
 	if (dev->dev_flags & DF_EMULATED_VPD_UNIT_SERIAL) {
-		u32 unit_serial_len;
-
-		unit_serial_len = strlen(dev->t10_wwn.unit_serial);
-		unit_serial_len++; /* For NULL Terminator */
-
-		len += sprintf(&buf[4], "%s", dev->t10_wwn.unit_serial);
+		len = sprintf(&buf[4], "%s", dev->t10_wwn.unit_serial);
 		len++; /* Extra Byte for NULL Terminator */
 		buf[3] = len;
 	}
@@ -669,7 +664,7 @@ spc_emulate_evpd_b3(struct se_cmd *cmd, unsigned char *buf)
 	buf[0] = dev->transport->get_device_type(dev);
 	buf[3] = 0x0c;
 	put_unaligned_be32(dev->t10_alua.lba_map_segment_size, &buf[8]);
-	put_unaligned_be32(dev->t10_alua.lba_map_segment_size, &buf[12]);
+	put_unaligned_be32(dev->t10_alua.lba_map_segment_multiplier, &buf[12]);
 
 	return 0;
 }

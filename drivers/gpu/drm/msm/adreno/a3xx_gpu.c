@@ -207,11 +207,11 @@ static int a3xx_hw_init(struct msm_gpu *gpu)
 	/* Turn on performance counters: */
 	gpu_write(gpu, REG_A3XX_RBBM_PERFCTR_CTL, 0x01);
 
-	/* Set SP perfcounter 7 to count SP_FS_FULL_ALU_INSTRUCTIONS
-	 * we will use this to augment our hang detection:
-	 */
-	gpu_write(gpu, REG_A3XX_SP_PERFCOUNTER7_SELECT,
-			SP_FS_FULL_ALU_INSTRUCTIONS);
+	/* Enable the perfcntrs that we use.. */
+	for (i = 0; i < gpu->num_perfcntrs; i++) {
+		const struct msm_gpu_perfcntr *perfcntr = &gpu->perfcntrs[i];
+		gpu_write(gpu, perfcntr->select_reg, perfcntr->select_val);
+	}
 
 	gpu_write(gpu, REG_A3XX_RBBM_INT_0_MASK, A3XX_INT0_MASK);
 
@@ -392,12 +392,9 @@ static const unsigned int a3xx_registers[] = {
 #ifdef CONFIG_DEBUG_FS
 static void a3xx_show(struct msm_gpu *gpu, struct seq_file *m)
 {
-	struct drm_device *dev = gpu->dev;
 	int i;
 
 	adreno_show(gpu, m);
-
-	mutex_lock(&dev->struct_mutex);
 
 	gpu->funcs->pm_resume(gpu);
 
@@ -418,8 +415,6 @@ static void a3xx_show(struct msm_gpu *gpu, struct seq_file *m)
 	}
 
 	gpu->funcs->pm_suspend(gpu);
-
-	mutex_unlock(&dev->struct_mutex);
 }
 #endif
 
@@ -465,6 +460,13 @@ static const struct adreno_gpu_funcs funcs = {
 	},
 };
 
+static const struct msm_gpu_perfcntr perfcntrs[] = {
+	{ REG_A3XX_SP_PERFCOUNTER6_SELECT, REG_A3XX_RBBM_PERFCTR_SP_6_LO,
+			SP_ALU_ACTIVE_CYCLES, "ALUACTIVE" },
+	{ REG_A3XX_SP_PERFCOUNTER7_SELECT, REG_A3XX_RBBM_PERFCTR_SP_7_LO,
+			SP_FS_FULL_ALU_INSTRUCTIONS, "ALUFULL" },
+};
+
 struct msm_gpu *a3xx_gpu_init(struct drm_device *dev)
 {
 	struct a3xx_gpu *a3xx_gpu = NULL;
@@ -503,6 +505,9 @@ struct msm_gpu *a3xx_gpu_init(struct drm_device *dev)
 
 	DBG("fast_rate=%u, slow_rate=%u, bus_freq=%u",
 			gpu->fast_rate, gpu->slow_rate, gpu->bus_freq);
+
+	gpu->perfcntrs = perfcntrs;
+	gpu->num_perfcntrs = ARRAY_SIZE(perfcntrs);
 
 	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, config->rev);
 	if (ret)
@@ -675,6 +680,8 @@ static int a3xx_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dt_match[] = {
+	{ .compatible = "qcom,adreno-3xx" },
+	/* for backwards compat w/ downstream kgsl DT files: */
 	{ .compatible = "qcom,kgsl-3d0" },
 	{}
 };

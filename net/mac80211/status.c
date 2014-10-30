@@ -473,8 +473,6 @@ static void ieee80211_tx_latency_end_msrmnt(struct ieee80211_local *local,
 					    struct sta_info *sta,
 					    struct ieee80211_hdr *hdr)
 {
-	ktime_t skb_dprt;
-	struct timespec dprt_time;
 	u32 msrmnt;
 	u16 tid;
 	u8 *qc;
@@ -506,9 +504,8 @@ static void ieee80211_tx_latency_end_msrmnt(struct ieee80211_local *local,
 
 	tx_lat = &sta->tx_lat[tid];
 
-	ktime_get_ts(&dprt_time); /* time stamp completion time */
-	skb_dprt = ktime_set(dprt_time.tv_sec, dprt_time.tv_nsec);
-	msrmnt = ktime_to_ms(ktime_sub(skb_dprt, skb_arv));
+	/* Calculate the latency */
+	msrmnt = ktime_to_ms(ktime_sub(ktime_get(), skb_arv));
 
 	if (tx_lat->max < msrmnt) /* update stats */
 		tx_lat->max = msrmnt;
@@ -540,6 +537,23 @@ static void ieee80211_tx_latency_end_msrmnt(struct ieee80211_local *local,
  *  - current throughput (higher value for higher tpt)?
  */
 #define STA_LOST_PKT_THRESHOLD	50
+
+static void ieee80211_lost_packet(struct sta_info *sta, struct sk_buff *skb)
+{
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
+	/* This packet was aggregated but doesn't carry status info */
+	if ((info->flags & IEEE80211_TX_CTL_AMPDU) &&
+	    !(info->flags & IEEE80211_TX_STAT_AMPDU))
+		return;
+
+	if (++sta->lost_packets < STA_LOST_PKT_THRESHOLD)
+		return;
+
+	cfg80211_cqm_pktloss_notify(sta->sdata->dev, sta->sta.addr,
+				    sta->lost_packets, GFP_ATOMIC);
+	sta->lost_packets = 0;
+}
 
 void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
@@ -680,12 +694,8 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 			if (info->flags & IEEE80211_TX_STAT_ACK) {
 				if (sta->lost_packets)
 					sta->lost_packets = 0;
-			} else if (++sta->lost_packets >= STA_LOST_PKT_THRESHOLD) {
-				cfg80211_cqm_pktloss_notify(sta->sdata->dev,
-							    sta->sta.addr,
-							    sta->lost_packets,
-							    GFP_ATOMIC);
-				sta->lost_packets = 0;
+			} else {
+				ieee80211_lost_packet(sta, skb);
 			}
 		}
 

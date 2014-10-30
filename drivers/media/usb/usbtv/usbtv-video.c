@@ -634,15 +634,12 @@ static int usbtv_start_streaming(struct vb2_queue *vq, unsigned int count)
 	return usbtv_start(usbtv);
 }
 
-static int usbtv_stop_streaming(struct vb2_queue *vq)
+static void usbtv_stop_streaming(struct vb2_queue *vq)
 {
 	struct usbtv *usbtv = vb2_get_drv_priv(vq);
 
-	if (usbtv->udev == NULL)
-		return -ENODEV;
-
-	usbtv_stop(usbtv);
-	return 0;
+	if (usbtv->udev)
+		usbtv_stop(usbtv);
 }
 
 static struct vb2_ops usbtv_vb2_ops = {
@@ -704,7 +701,6 @@ int usbtv_video_init(struct usbtv *usbtv)
 	usbtv->vdev.tvnorms = USBTV_TV_STD;
 	usbtv->vdev.queue = &usbtv->vb2q;
 	usbtv->vdev.lock = &usbtv->v4l2_lock;
-	set_bit(V4L2_FL_USE_FH_PRIO, &usbtv->vdev.flags);
 	video_set_drvdata(&usbtv->vdev, usbtv);
 	ret = video_register_device(&usbtv->vdev, VFL_TYPE_GRABBER, -1);
 	if (ret < 0) {

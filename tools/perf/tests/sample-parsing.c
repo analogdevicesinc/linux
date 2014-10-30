@@ -1,9 +1,10 @@
 #include <stdbool.h>
-#include <inttypes.h>
+#include <linux/types.h>
 
 #include "util.h"
 #include "event.h"
 #include "evsel.h"
+#include "debug.h"
 
 #include "tests.h"
 

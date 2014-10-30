@@ -1566,7 +1566,6 @@ static int axienet_probe(struct platform_device *pdev)
 	if (!ndev)
 		return -ENOMEM;
 
-	ether_setup(ndev);
 	platform_set_drvdata(pdev, ndev);
 
 	SET_NETDEV_DEV(ndev, &pdev->dev);
@@ -1719,8 +1718,7 @@ static int axienet_remove(struct platform_device *pdev)
 	axienet_mdio_teardown(lp);
 	unregister_netdev(ndev);
 
-	if (lp->phy_node)
-		of_node_put(lp->phy_node);
+	of_node_put(lp->phy_node);
 	lp->phy_node = NULL;
 
 	if (lp->phy_node_int)

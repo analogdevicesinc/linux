@@ -412,7 +412,7 @@ static int wm8996_get_retune_mobile_block(const char *name)
 static int wm8996_put_retune_mobile_enum(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct wm8996_priv *wm8996 = snd_soc_codec_get_drvdata(codec);
 	struct wm8996_pdata *pdata = &wm8996->pdata;
 	int block = wm8996_get_retune_mobile_block(kcontrol->id.name);
@@ -434,7 +434,7 @@ static int wm8996_put_retune_mobile_enum(struct snd_kcontrol *kcontrol,
 static int wm8996_get_retune_mobile_enum(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct wm8996_priv *wm8996 = snd_soc_codec_get_drvdata(codec);
 	int block = wm8996_get_retune_mobile_block(kcontrol->id.name);
 
@@ -620,15 +620,12 @@ static int bg_event(struct snd_soc_dapm_widget *w,
 static int cp_event(struct snd_soc_dapm_widget *w,
 		    struct snd_kcontrol *kcontrol, int event)
 {
-	int ret = 0;
-
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		msleep(5);
 		break;
 	default:
 		WARN(1, "Invalid event %d\n", event);
-		ret = -EINVAL;
 	}
 
 	return 0;
@@ -690,8 +687,7 @@ static void wait_for_dc_servo(struct snd_soc_codec *codec, u16 mask)
 static void wm8996_seq_notifier(struct snd_soc_dapm_context *dapm,
 				enum snd_soc_dapm_type event, int subseq)
 {
-	struct snd_soc_codec *codec = container_of(dapm,
-						   struct snd_soc_codec, dapm);
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(dapm);
 	struct wm8996_priv *wm8996 = snd_soc_codec_get_drvdata(codec);
 	u16 val, mask;
 

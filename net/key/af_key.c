@@ -405,7 +405,6 @@ static int verify_address_len(const void *p)
 		 * XXX When it can, remove this -EINVAL.  -DaveM
 		 */
 		return -EINVAL;
-		break;
 	}
 
 	return 0;
@@ -536,7 +535,6 @@ pfkey_satype2proto(uint8_t satype)
 		return IPPROTO_ESP;
 	case SADB_X_SATYPE_IPCOMP:
 		return IPPROTO_COMP;
-		break;
 	default:
 		return 0;
 	}
@@ -553,7 +551,6 @@ pfkey_proto2satype(uint16_t proto)
 		return SADB_SATYPE_ESP;
 	case IPPROTO_COMP:
 		return SADB_X_SATYPE_IPCOMP;
-		break;
 	default:
 		return 0;
 	}
@@ -1476,9 +1473,7 @@ static int pfkey_add(struct sock *sk, struct sk_buff *skb, const struct sadb_msg
 	else
 		err = xfrm_state_update(x);
 
-	xfrm_audit_state_add(x, err ? 0 : 1,
-			     audit_get_loginuid(current),
-			     audit_get_sessionid(current), 0);
+	xfrm_audit_state_add(x, err ? 0 : 1, true);
 
 	if (err < 0) {
 		x->km.state = XFRM_STATE_DEAD;
@@ -1532,9 +1527,7 @@ static int pfkey_delete(struct sock *sk, struct sk_buff *skb, const struct sadb_
 	c.event = XFRM_MSG_DELSA;
 	km_state_notify(x, &c);
 out:
-	xfrm_audit_state_delete(x, err ? 0 : 1,
-				audit_get_loginuid(current),
-				audit_get_sessionid(current), 0);
+	xfrm_audit_state_delete(x, err ? 0 : 1, true);
 	xfrm_state_put(x);
 
 	return err;
@@ -1726,17 +1719,13 @@ static int pfkey_flush(struct sock *sk, struct sk_buff *skb, const struct sadb_m
 	struct net *net = sock_net(sk);
 	unsigned int proto;
 	struct km_event c;
-	struct xfrm_audit audit_info;
 	int err, err2;
 
 	proto = pfkey_satype2proto(hdr->sadb_msg_satype);
 	if (proto == 0)
 		return -EINVAL;
 
-	audit_info.loginuid = audit_get_loginuid(current);
-	audit_info.sessionid = audit_get_sessionid(current);
-	audit_info.secid = 0;
-	err = xfrm_state_flush(net, proto, &audit_info);
+	err = xfrm_state_flush(net, proto, true);
 	err2 = unicast_flush_resp(sk, hdr);
 	if (err || err2) {
 		if (err == -ESRCH) /* empty table - go quietly */
@@ -2288,9 +2277,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
 	err = xfrm_policy_insert(pol->sadb_x_policy_dir-1, xp,
 				 hdr->sadb_msg_type != SADB_X_SPDUPDATE);
 
-	xfrm_audit_policy_add(xp, err ? 0 : 1,
-			      audit_get_loginuid(current),
-			      audit_get_sessionid(current), 0);
+	xfrm_audit_policy_add(xp, err ? 0 : 1, true);
 
 	if (err)
 		goto out;
@@ -2372,9 +2359,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
 	if (xp == NULL)
 		return -ENOENT;
 
-	xfrm_audit_policy_delete(xp, err ? 0 : 1,
-				 audit_get_loginuid(current),
-				 audit_get_sessionid(current), 0);
+	xfrm_audit_policy_delete(xp, err ? 0 : 1, true);
 
 	if (err)
 		goto out;
@@ -2553,7 +2538,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
 		sel.sport_mask = htons(0xffff);
 
 	/* set destination address info of selector */
-	sa = ext_hdrs[SADB_EXT_ADDRESS_DST - 1],
+	sa = ext_hdrs[SADB_EXT_ADDRESS_DST - 1];
 	pfkey_sadb_addr2xfrm_addr(sa, &sel.daddr);
 	sel.prefixlen_d = sa->sadb_address_prefixlen;
 	sel.proto = pfkey_proto_to_xfrm(sa->sadb_address_proto);
@@ -2622,9 +2607,7 @@ static int pfkey_spdget(struct sock *sk, struct sk_buff *skb, const struct sadb_
 		return -ENOENT;
 
 	if (delete) {
-		xfrm_audit_policy_delete(xp, err ? 0 : 1,
-				audit_get_loginuid(current),
-				audit_get_sessionid(current), 0);
+		xfrm_audit_policy_delete(xp, err ? 0 : 1, true);
 
 		if (err)
 			goto out;
@@ -2733,13 +2716,9 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, const struct sad
 {
 	struct net *net = sock_net(sk);
 	struct km_event c;
-	struct xfrm_audit audit_info;
 	int err, err2;
 
-	audit_info.loginuid = audit_get_loginuid(current);
-	audit_info.sessionid = audit_get_sessionid(current);
-	audit_info.secid = 0;
-	err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, &audit_info);
+	err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, true);
 	err2 = unicast_flush_resp(sk, hdr);
 	if (err || err2) {
 		if (err == -ESRCH) /* empty table - old silent behavior */

@@ -344,17 +344,16 @@ static void twl4030_init_chip(struct snd_soc_codec *codec)
 static void twl4030_apll_enable(struct snd_soc_codec *codec, int enable)
 {
 	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
-	int status = -1;
 
 	if (enable) {
 		twl4030->apll_enabled++;
 		if (twl4030->apll_enabled == 1)
-			status = twl4030_audio_enable_resource(
+			twl4030_audio_enable_resource(
 							TWL4030_AUDIO_RES_APLL);
 	} else {
 		twl4030->apll_enabled--;
 		if (!twl4030->apll_enabled)
-			status = twl4030_audio_disable_resource(
+			twl4030_audio_disable_resource(
 							TWL4030_AUDIO_RES_APLL);
 	}
 }
@@ -830,7 +829,7 @@ static int snd_soc_get_volsw_twl4030(struct snd_kcontrol *kcontrol,
 {
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	unsigned int reg = mc->reg;
 	unsigned int shift = mc->shift;
 	unsigned int rshift = mc->rshift;
@@ -859,7 +858,7 @@ static int snd_soc_put_volsw_twl4030(struct snd_kcontrol *kcontrol,
 {
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	unsigned int reg = mc->reg;
 	unsigned int shift = mc->shift;
 	unsigned int rshift = mc->rshift;
@@ -888,7 +887,7 @@ static int snd_soc_get_volsw_r2_twl4030(struct snd_kcontrol *kcontrol,
 {
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	unsigned int reg = mc->reg;
 	unsigned int reg2 = mc->rreg;
 	unsigned int shift = mc->shift;
@@ -915,7 +914,7 @@ static int snd_soc_put_volsw_r2_twl4030(struct snd_kcontrol *kcontrol,
 {
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	unsigned int reg = mc->reg;
 	unsigned int reg2 = mc->rreg;
 	unsigned int shift = mc->shift;
@@ -956,7 +955,7 @@ static SOC_ENUM_SINGLE_DECL(twl4030_op_modes_enum,
 static int snd_soc_put_twl4030_opmode_enum_double(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
 
 	if (twl4030->configured) {
@@ -1764,16 +1763,16 @@ static int twl4030_hw_params(struct snd_pcm_substream *substream,
 	old_format = twl4030_read(codec, TWL4030_REG_AUDIO_IF);
 	format = old_format;
 	format &= ~TWL4030_DATA_WIDTH;
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
+	switch (params_width(params)) {
+	case 16:
 		format |= TWL4030_DATA_WIDTH_16S_16W;
 		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
+	case 32:
 		format |= TWL4030_DATA_WIDTH_32S_24W;
 		break;
 	default:
-		dev_err(codec->dev, "%s: unknown format %d\n", __func__,
-			params_format(params));
+		dev_err(codec->dev, "%s: unsupported bits/sample %d\n",
+			__func__, params_width(params));
 		return -EINVAL;
 	}
 
@@ -2162,10 +2161,8 @@ static int twl4030_soc_probe(struct snd_soc_codec *codec)
 
 	twl4030 = devm_kzalloc(codec->dev, sizeof(struct twl4030_priv),
 			       GFP_KERNEL);
-	if (twl4030 == NULL) {
-		dev_err(codec->dev, "Can not allocate memory\n");
+	if (!twl4030)
 		return -ENOMEM;
-	}
 	snd_soc_codec_set_drvdata(codec, twl4030);
 	/* Set the defaults, and power up the codec */
 	twl4030->sysclk = twl4030_audio_get_mclk() / 1000;

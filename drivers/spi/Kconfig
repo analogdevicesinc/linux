@@ -91,8 +91,8 @@ config SPI_BFIN5XX
 	help
 	  This is the SPI controller master driver for Blackfin 5xx processor.
 
-config SPI_BFIN_V3
-	tristate "SPI controller v3 for Blackfin"
+config SPI_ADI_V3
+	tristate "SPI controller v3 for ADI"
 	depends on BF60x
 	help
 	  This is the SPI controller v3 master driver
@@ -382,9 +382,21 @@ config SPI_PXA2XX
 config SPI_PXA2XX_PCI
 	def_tristate SPI_PXA2XX && PCI
 
+config SPI_ROCKCHIP
+	tristate "Rockchip SPI controller driver"
+	depends on ARM || ARM64 || AVR32 || HEXAGON || MIPS || SUPERH
+	help
+	  This selects a driver for Rockchip SPI controller.
+
+	  If you say yes to this option, support will be included for
+	  RK3066, RK3188 and RK3288 families of SPI controller.
+	  Rockchip SPI controller support DMA transport and PIO mode.
+	  The main usecase of this controller is to use spi flash as boot
+	  device.
+
 config SPI_RSPI
 	tristate "Renesas RSPI/QSPI controller"
-	depends on (SUPERH && SH_DMAE_BASE) || ARCH_SHMOBILE
+	depends on SUPERH || ARCH_SHMOBILE || COMPILE_TEST
 	help
 	  SPI driver for Renesas RSPI and QSPI blocks.
 
@@ -434,7 +446,7 @@ config SPI_SC18IS602
 
 config SPI_SH_MSIOF
 	tristate "SuperH MSIOF SPI controller"
-	depends on HAVE_CLK
+	depends on HAVE_CLK && HAS_DMA
 	depends on SUPERH || ARCH_SHMOBILE || COMPILE_TEST
 	help
 	  SPI driver for SuperH and SH Mobile MSIOF blocks.
@@ -512,7 +524,7 @@ config SPI_TEGRA20_SLINK
 
 config SPI_TOPCLIFF_PCH
 	tristate "Intel EG20T PCH/LAPIS Semicon IOH(ML7213/ML7223/ML7831) SPI"
-	depends on PCI
+	depends on PCI && (X86_32 || COMPILE_TEST)
 	help
 	  SPI driver for the Topcliff PCH (Platform Controller Hub) SPI bus
 	  used in some x86 embedded processors.

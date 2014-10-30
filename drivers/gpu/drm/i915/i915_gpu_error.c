@@ -42,6 +42,7 @@ static const char *ring_str(int ring)
 	case VCS: return "bsd";
 	case BCS: return "blt";
 	case VECS: return "vebox";
+	case VCS2: return "bsd2";
 	default: return "";
 	}
 }
@@ -204,6 +205,7 @@ static void print_error_buffers(struct drm_i915_error_state_buf *m,
 		err_puts(m, tiling_flag(err->tiling));
 		err_puts(m, dirty_flag(err->dirty));
 		err_puts(m, purgeable_flag(err->purgeable));
+		err_puts(m, err->userptr ? " userptr" : "");
 		err_puts(m, err->ring != -1 ? " " : "");
 		err_puts(m, ring_str(err->ring));
 		err_puts(m, i915_cache_level_str(err->cache_level));
@@ -227,6 +229,8 @@ static const char *hangcheck_action_to_str(enum intel_ring_hangcheck_action a)
 		return "wait";
 	case HANGCHECK_ACTIVE:
 		return "active";
+	case HANGCHECK_ACTIVE_LOOP:
+		return "active (loop)";
 	case HANGCHECK_KICK:
 		return "kick";
 	case HANGCHECK_HUNG:
@@ -257,7 +261,8 @@ static void i915_ring_error_state(struct drm_i915_error_state_buf *m,
 		err_printf(m, "  INSTPS: 0x%08x\n", ring->instps);
 	}
 	err_printf(m, "  INSTPM: 0x%08x\n", ring->instpm);
-	err_printf(m, "  FADDR: 0x%08x\n", ring->faddr);
+	err_printf(m, "  FADDR: 0x%08x %08x\n", upper_32_bits(ring->faddr),
+		   lower_32_bits(ring->faddr));
 	if (INTEL_INFO(dev)->gen >= 6) {
 		err_printf(m, "  RC PSMI: 0x%08x\n", ring->rc_psmi);
 		err_printf(m, "  FAULT_REG: 0x%08x\n", ring->fault_reg);
@@ -324,6 +329,7 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 	struct drm_device *dev = error_priv->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_error_state *error = error_priv->error;
+	struct drm_i915_error_object *obj;
 	int i, j, offset, elt;
 	int max_hangcheck_score;
 
@@ -355,6 +361,12 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 	err_printf(m, "PCI ID: 0x%04x\n", dev->pdev->device);
 	err_printf(m, "EIR: 0x%08x\n", error->eir);
 	err_printf(m, "IER: 0x%08x\n", error->ier);
+	if (INTEL_INFO(dev)->gen >= 8) {
+		for (i = 0; i < 4; i++)
+			err_printf(m, "GTIER gt %d: 0x%08x\n", i,
+				   error->gtier[i]);
+	} else if (HAS_PCH_SPLIT(dev) || IS_VALLEYVIEW(dev))
+		err_printf(m, "GTIER: 0x%08x\n", error->gtier[0]);
 	err_printf(m, "PGTBL_ER: 0x%08x\n", error->pgtbl_er);
 	err_printf(m, "FORCEWAKE: 0x%08x\n", error->forcewake);
 	err_printf(m, "DERRMR: 0x%08x\n", error->derrmr);
@@ -392,8 +404,6 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 				    error->pinned_bo_count[0]);
 
 	for (i = 0; i < ARRAY_SIZE(error->ring); i++) {
-		struct drm_i915_error_object *obj;
-
 		obj = error->ring[i].batchbuffer;
 		if (obj) {
 			err_puts(m, dev_priv->ring[i].name);
@@ -452,16 +462,19 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 			err_printf(m, "%s --- HW Context = 0x%08x\n",
 				   dev_priv->ring[i].name,
 				   obj->gtt_offset);
-			offset = 0;
-			for (elt = 0; elt < PAGE_SIZE/16; elt += 4) {
-				err_printf(m, "[%04x] %08x %08x %08x %08x\n",
-					   offset,
-					   obj->pages[0][elt],
-					   obj->pages[0][elt+1],
-					   obj->pages[0][elt+2],
-					   obj->pages[0][elt+3]);
-					offset += 16;
-			}
+			print_error_obj(m, obj);
+		}
+	}
+
+	if ((obj = error->semaphore_obj)) {
+		err_printf(m, "Semaphore page = 0x%08x\n", obj->gtt_offset);
+		for (elt = 0; elt < PAGE_SIZE/16; elt += 4) {
+			err_printf(m, "[%04x] %08x %08x %08x %08x\n",
+				   elt * 4,
+				   obj->pages[0][elt],
+				   obj->pages[0][elt+1],
+				   obj->pages[0][elt+2],
+				   obj->pages[0][elt+3]);
 		}
 	}
 
@@ -535,6 +548,7 @@ static void i915_error_state_free(struct kref *error_ref)
 		kfree(error->ring[i].requests);
 	}
 
+	i915_error_object_free(error->semaphore_obj);
 	kfree(error->active_bo);
 	kfree(error->overlay);
 	kfree(error->display);
@@ -648,6 +662,7 @@ static void capture_bo(struct drm_i915_error_buffer *err,
 	err->tiling = obj->tiling_mode;
 	err->dirty = obj->dirty;
 	err->purgeable = obj->madv != I915_MADV_WILLNEED;
+	err->userptr = obj->userptr.mm != NULL;
 	err->ring = obj->ring ? obj->ring->id : -1;
 	err->cache_level = obj->cache_level;
 }
@@ -751,8 +766,61 @@ static void i915_gem_record_fences(struct drm_device *dev,
 	}
 }
 
+
+static void gen8_record_semaphore_state(struct drm_i915_private *dev_priv,
+					struct drm_i915_error_state *error,
+					struct intel_engine_cs *ring,
+					struct drm_i915_error_ring *ering)
+{
+	struct intel_engine_cs *to;
+	int i;
+
+	if (!i915_semaphore_is_enabled(dev_priv->dev))
+		return;
+
+	if (!error->semaphore_obj)
+		error->semaphore_obj =
+			i915_error_object_create(dev_priv,
+						 dev_priv->semaphore_obj,
+						 &dev_priv->gtt.base);
+
+	for_each_ring(to, dev_priv, i) {
+		int idx;
+		u16 signal_offset;
+		u32 *tmp;
+
+		if (ring == to)
+			continue;
+
+		signal_offset = (GEN8_SIGNAL_OFFSET(ring, i) & (PAGE_SIZE - 1))
+				/ 4;
+		tmp = error->semaphore_obj->pages[0];
+		idx = intel_ring_sync_index(ring, to);
+
+		ering->semaphore_mboxes[idx] = tmp[signal_offset];
+		ering->semaphore_seqno[idx] = ring->semaphore.sync_seqno[idx];
+	}
+}
+
+static void gen6_record_semaphore_state(struct drm_i915_private *dev_priv,
+					struct intel_engine_cs *ring,
+					struct drm_i915_error_ring *ering)
+{
+	ering->semaphore_mboxes[0] = I915_READ(RING_SYNC_0(ring->mmio_base));
+	ering->semaphore_mboxes[1] = I915_READ(RING_SYNC_1(ring->mmio_base));
+	ering->semaphore_seqno[0] = ring->semaphore.sync_seqno[0];
+	ering->semaphore_seqno[1] = ring->semaphore.sync_seqno[1];
+
+	if (HAS_VEBOX(dev_priv->dev)) {
+		ering->semaphore_mboxes[2] =
+			I915_READ(RING_SYNC_2(ring->mmio_base));
+		ering->semaphore_seqno[2] = ring->semaphore.sync_seqno[2];
+	}
+}
+
 static void i915_record_ring_state(struct drm_device *dev,
-				   struct intel_ring_buffer *ring,
+				   struct drm_i915_error_state *error,
+				   struct intel_engine_cs *ring,
 				   struct drm_i915_error_ring *ering)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -760,18 +828,10 @@ static void i915_record_ring_state(struct drm_device *dev,
 	if (INTEL_INFO(dev)->gen >= 6) {
 		ering->rc_psmi = I915_READ(ring->mmio_base + 0x50);
 		ering->fault_reg = I915_READ(RING_FAULT_REG(ring));
-		ering->semaphore_mboxes[0]
-			= I915_READ(RING_SYNC_0(ring->mmio_base));
-		ering->semaphore_mboxes[1]
-			= I915_READ(RING_SYNC_1(ring->mmio_base));
-		ering->semaphore_seqno[0] = ring->sync_seqno[0];
-		ering->semaphore_seqno[1] = ring->sync_seqno[1];
-	}
-
-	if (HAS_VEBOX(dev)) {
-		ering->semaphore_mboxes[2] =
-			I915_READ(RING_SYNC_2(ring->mmio_base));
-		ering->semaphore_seqno[2] = ring->sync_seqno[2];
+		if (INTEL_INFO(dev)->gen >= 8)
+			gen8_record_semaphore_state(dev_priv, error, ring, ering);
+		else
+			gen6_record_semaphore_state(dev_priv, ring, ering);
 	}
 
 	if (INTEL_INFO(dev)->gen >= 4) {
@@ -781,8 +841,10 @@ static void i915_record_ring_state(struct drm_device *dev,
 		ering->instdone = I915_READ(RING_INSTDONE(ring->mmio_base));
 		ering->instps = I915_READ(RING_INSTPS(ring->mmio_base));
 		ering->bbaddr = I915_READ(RING_BBADDR(ring->mmio_base));
-		if (INTEL_INFO(dev)->gen >= 8)
+		if (INTEL_INFO(dev)->gen >= 8) {
+			ering->faddr |= (u64) I915_READ(RING_DMA_FADD_UDW(ring->mmio_base)) << 32;
 			ering->bbaddr |= (u64) I915_READ(RING_BBADDR_UDW(ring->mmio_base)) << 32;
+		}
 		ering->bbstate = I915_READ(RING_BBSTATE(ring->mmio_base));
 	} else {
 		ering->faddr = I915_READ(DMA_FADD_I8XX);
@@ -828,8 +890,8 @@ static void i915_record_ring_state(struct drm_device *dev,
 		ering->hws = I915_READ(mmio);
 	}
 
-	ering->cpu_ring_head = ring->head;
-	ering->cpu_ring_tail = ring->tail;
+	ering->cpu_ring_head = ring->buffer->head;
+	ering->cpu_ring_tail = ring->buffer->tail;
 
 	ering->hangcheck_score = ring->hangcheck.score;
 	ering->hangcheck_action = ring->hangcheck.action;
@@ -862,7 +924,7 @@ static void i915_record_ring_state(struct drm_device *dev,
 }
 
 
-static void i915_gem_record_active_context(struct intel_ring_buffer *ring,
+static void i915_gem_record_active_context(struct intel_engine_cs *ring,
 					   struct drm_i915_error_state *error,
 					   struct drm_i915_error_ring *ering)
 {
@@ -874,11 +936,11 @@ static void i915_gem_record_active_context(struct intel_ring_buffer *ring,
 		return;
 
 	list_for_each_entry(obj, &dev_priv->mm.bound_list, global_list) {
+		if (!i915_gem_obj_ggtt_bound(obj))
+			continue;
+
 		if ((error->ccid & PAGE_MASK) == i915_gem_obj_ggtt_offset(obj)) {
-			ering->ctx = i915_error_object_create_sized(dev_priv,
-								    obj,
-								    &dev_priv->gtt.base,
-								    1);
+			ering->ctx = i915_error_ggtt_object_create(dev_priv, obj);
 			break;
 		}
 	}
@@ -892,16 +954,17 @@ static void i915_gem_record_rings(struct drm_device *dev,
 	int i, count;
 
 	for (i = 0; i < I915_NUM_RINGS; i++) {
-		struct intel_ring_buffer *ring = &dev_priv->ring[i];
+		struct intel_engine_cs *ring = &dev_priv->ring[i];
+
+		error->ring[i].pid = -1;
 
 		if (ring->dev == NULL)
 			continue;
 
 		error->ring[i].valid = true;
 
-		i915_record_ring_state(dev, ring, &error->ring[i]);
+		i915_record_ring_state(dev, error, ring, &error->ring[i]);
 
-		error->ring[i].pid = -1;
 		request = i915_gem_find_active_request(ring);
 		if (request) {
 			/* We need to copy these to an anonymous buffer
@@ -936,7 +999,7 @@ static void i915_gem_record_rings(struct drm_device *dev,
 		}
 
 		error->ring[i].ringbuffer =
-			i915_error_ggtt_object_create(dev_priv, ring->obj);
+			i915_error_ggtt_object_create(dev_priv, ring->buffer->obj);
 
 		if (ring->status_page.obj)
 			error->ring[i].hws_page =
@@ -1037,7 +1100,7 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 				   struct drm_i915_error_state *error)
 {
 	struct drm_device *dev = dev_priv->dev;
-	int pipe;
+	int i;
 
 	/* General organization
 	 * 1. Registers specific to a single generation
@@ -1049,7 +1112,8 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 
 	/* 1: Registers specific to a single generation */
 	if (IS_VALLEYVIEW(dev)) {
-		error->ier = I915_READ(GTIER) | I915_READ(VLV_IER);
+		error->gtier[0] = I915_READ(GTIER);
+		error->ier = I915_READ(VLV_IER);
 		error->forcewake = I915_READ(FORCEWAKE_VLV);
 	}
 
@@ -1061,9 +1125,6 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 		error->gab_ctl = I915_READ(GAB_CTL);
 		error->gfx_mode = I915_READ(GFX_MODE);
 	}
-
-	if (IS_GEN2(dev))
-		error->ier = I915_READ16(IER);
 
 	/* 2: Registers which belong to multiple generations */
 	if (INTEL_INFO(dev)->gen >= 7)
@@ -1085,15 +1146,18 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 	if (HAS_HW_CONTEXTS(dev))
 		error->ccid = I915_READ(CCID);
 
-	if (HAS_PCH_SPLIT(dev))
-		error->ier = I915_READ(DEIER) | I915_READ(GTIER);
-	else {
+	if (INTEL_INFO(dev)->gen >= 8) {
+		error->ier = I915_READ(GEN8_DE_MISC_IER);
+		for (i = 0; i < 4; i++)
+			error->gtier[i] = I915_READ(GEN8_GT_IER(i));
+	} else if (HAS_PCH_SPLIT(dev)) {
+		error->ier = I915_READ(DEIER);
+		error->gtier[0] = I915_READ(GTIER);
+	} else if (IS_GEN2(dev)) {
+		error->ier = I915_READ16(IER);
+	} else if (!IS_VALLEYVIEW(dev)) {
 		error->ier = I915_READ(IER);
-		for_each_pipe(pipe)
-			error->pipestat[pipe] = I915_READ(PIPESTAT(pipe));
 	}
-
-	/* 4: Everything else */
 	error->eir = I915_READ(EIR);
 	error->pgtbl_er = I915_READ(PGTBL_ER);
 

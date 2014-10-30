@@ -1,4 +1,4 @@
-    /*
+/*
  * Driver for Linear Technology LTC2945 I2C Power Monitor
  *
  * Copyright (c) 2014 Guenter Roeck
@@ -469,7 +469,7 @@ static struct attribute *ltc2945_attrs[] = {
 };
 ATTRIBUTE_GROUPS(ltc2945);
 
-static struct regmap_config ltc2945_regmap_config = {
+static const struct regmap_config ltc2945_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = LTC2945_MIN_ADIN_THRES_L,

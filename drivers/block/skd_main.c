@@ -563,7 +563,6 @@ skd_prep_discard_cdb(struct skd_scsi_request *scsi_req,
 
 	req = skreq->req;
 	blk_add_request_payload(req, page, len);
-	req->buffer = buf;
 }
 
 static void skd_request_fn_not_online(struct request_queue *q);
@@ -744,6 +743,7 @@ static void skd_request_fn(struct request_queue *q)
 				break;
 			}
 			skreq->discard_page = 1;
+			req->completion_data = page;
 			skd_prep_discard_cdb(scsi_req, skreq, page, lba, count);
 
 		} else if (flush == SKD_FLUSH_ZERO_SIZE_FIRST) {
@@ -858,8 +858,7 @@ static void skd_end_request(struct skd_device *skdev,
 		(skreq->discard_page == 1)) {
 		pr_debug("%s:%s:%d, free the page!",
 			 skdev->name, __func__, __LINE__);
-		free_page((unsigned long)req->buffer);
-		req->buffer = NULL;
+		__free_page(req->completion_data);
 	}
 
 	if (unlikely(error)) {
@@ -3945,15 +3944,14 @@ static int skd_acquire_msix(struct skd_device *skdev)
 	for (i = 0; i < SKD_MAX_MSIX_COUNT; i++)
 		entries[i].entry = i;
 
-	rc = pci_enable_msix_range(pdev, entries,
-				   SKD_MIN_MSIX_COUNT, SKD_MAX_MSIX_COUNT);
-	if (rc < 0) {
+	rc = pci_enable_msix_exact(pdev, entries, SKD_MAX_MSIX_COUNT);
+	if (rc) {
 		pr_err("(%s): failed to enable MSI-X %d\n",
 		       skd_name(skdev), rc);
 		goto msix_out;
 	}
 
-	skdev->msix_count = rc;
+	skdev->msix_count = SKD_MAX_MSIX_COUNT;
 	skdev->msix_entries = kzalloc(sizeof(struct skd_msix_entry) *
 				      skdev->msix_count, GFP_KERNEL);
 	if (!skdev->msix_entries) {
@@ -4114,15 +4112,13 @@ static int skd_cons_skcomp(struct skd_device *skdev)
 		 skdev->name, __func__, __LINE__,
 		 nbytes, SKD_N_COMPLETION_ENTRY);
 
-	skcomp = pci_alloc_consistent(skdev->pdev, nbytes,
-				      &skdev->cq_dma_address);
+	skcomp = pci_zalloc_consistent(skdev->pdev, nbytes,
+				       &skdev->cq_dma_address);
 
 	if (skcomp == NULL) {
 		rc = -ENOMEM;
 		goto err_out;
 	}
-
-	memset(skcomp, 0, nbytes);
 
 	skdev->skcomp_table = skcomp;
 	skdev->skerr_table = (struct fit_comp_error_info *)((char *)skcomp +
@@ -4306,14 +4302,13 @@ static int skd_cons_skspcl(struct skd_device *skdev)
 
 		nbytes = SKD_N_SPECIAL_FITMSG_BYTES;
 
-		skspcl->msg_buf = pci_alloc_consistent(skdev->pdev, nbytes,
-						       &skspcl->mb_dma_address);
+		skspcl->msg_buf =
+			pci_zalloc_consistent(skdev->pdev, nbytes,
+					      &skspcl->mb_dma_address);
 		if (skspcl->msg_buf == NULL) {
 			rc = -ENOMEM;
 			goto err_out;
 		}
-
-		memset(skspcl->msg_buf, 0, nbytes);
 
 		skspcl->req.sg = kzalloc(sizeof(struct scatterlist) *
 					 SKD_N_SG_PER_SPECIAL, GFP_KERNEL);
@@ -4355,24 +4350,20 @@ static int skd_cons_sksb(struct skd_device *skdev)
 
 	nbytes = SKD_N_INTERNAL_BYTES;
 
-	skspcl->data_buf = pci_alloc_consistent(skdev->pdev, nbytes,
-						&skspcl->db_dma_address);
+	skspcl->data_buf = pci_zalloc_consistent(skdev->pdev, nbytes,
+						 &skspcl->db_dma_address);
 	if (skspcl->data_buf == NULL) {
 		rc = -ENOMEM;
 		goto err_out;
 	}
 
-	memset(skspcl->data_buf, 0, nbytes);
-
 	nbytes = SKD_N_SPECIAL_FITMSG_BYTES;
-	skspcl->msg_buf = pci_alloc_consistent(skdev->pdev, nbytes,
-					       &skspcl->mb_dma_address);
+	skspcl->msg_buf = pci_zalloc_consistent(skdev->pdev, nbytes,
+						&skspcl->mb_dma_address);
 	if (skspcl->msg_buf == NULL) {
 		rc = -ENOMEM;
 		goto err_out;
 	}
-
-	memset(skspcl->msg_buf, 0, nbytes);
 
 	skspcl->req.sksg_list = skd_cons_sg_list(skdev, 1,
 						 &skspcl->req.sksg_dma_address);
@@ -4775,7 +4766,7 @@ static const struct block_device_operations skd_blockdev_ops = {
  *****************************************************************************
  */
 
-static DEFINE_PCI_DEVICE_TABLE(skd_pci_tbl) = {
+static const struct pci_device_id skd_pci_tbl[] = {
 	{ PCI_VENDOR_ID_STEC, PCI_DEVICE_ID_S1120,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
 	{ 0 }                     /* terminate list */

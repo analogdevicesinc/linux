@@ -10,10 +10,10 @@
 #include <linux/fs.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
-#include <obd_support.h>
-#include <lustre_lite.h>
-#include <lustre_dlm.h>
-#include <lustre_ver.h>
+#include "../include/obd_support.h"
+#include "../include/lustre_lite.h"
+#include "../include/lustre_dlm.h"
+#include "../include/lustre_ver.h"
 #include "llite_internal.h"
 
 /* If we ever have hundreds of extended attributes, we might want to consider
@@ -120,7 +120,7 @@ static int ll_xattr_cache_add(struct list_head *cache,
 		return -EPROTO;
 	}
 
-	OBD_SLAB_ALLOC_PTR_GFP(xattr, xattr_kmem, __GFP_IO);
+	OBD_SLAB_ALLOC_PTR_GFP(xattr, xattr_kmem, GFP_NOFS);
 	if (xattr == NULL) {
 		CDEBUG(D_CACHE, "failed to allocate xattr\n");
 		return -ENOMEM;
@@ -232,7 +232,7 @@ static int ll_xattr_cache_list(struct list_head *cache,
  * \retval 0 @cache is not initialized
  * \retval 1 @cache is initialized
  */
-int ll_xattr_cache_valid(struct ll_inode_info *lli)
+static int ll_xattr_cache_valid(struct ll_inode_info *lli)
 {
 	return !!(lli->lli_flags & LLIF_XATTR_CACHE);
 }

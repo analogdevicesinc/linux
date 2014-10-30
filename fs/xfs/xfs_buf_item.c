@@ -488,7 +488,7 @@ xfs_buf_item_unpin(
 		xfs_buf_lock(bp);
 		xfs_buf_hold(bp);
 		bp->b_flags |= XBF_ASYNC;
-		xfs_buf_ioerror(bp, EIO);
+		xfs_buf_ioerror(bp, -EIO);
 		XFS_BUF_UNDONE(bp);
 		xfs_buf_stale(bp);
 		xfs_buf_ioend(bp, 0);
@@ -725,7 +725,7 @@ xfs_buf_item_get_format(
 	bip->bli_formats = kmem_zalloc(count * sizeof(struct xfs_buf_log_format),
 				KM_SLEEP);
 	if (!bip->bli_formats)
-		return ENOMEM;
+		return -ENOMEM;
 	return 0;
 }
 
@@ -812,7 +812,6 @@ xfs_buf_item_init(
  */
 static void
 xfs_buf_item_log_segment(
-	struct xfs_buf_log_item	*bip,
 	uint			first,
 	uint			last,
 	uint			*map)
@@ -920,7 +919,7 @@ xfs_buf_item_log(
 		if (end > last)
 			end = last;
 
-		xfs_buf_item_log_segment(bip, first, end,
+		xfs_buf_item_log_segment(first, end,
 					 &bip->bli_formats[i].blf_data_map[0]);
 
 		start += bp->b_maps[i].bm_len;
@@ -1053,7 +1052,7 @@ xfs_buf_iodone_callbacks(
 	static ulong		lasttime;
 	static xfs_buftarg_t	*lasttarg;
 
-	if (likely(!xfs_buf_geterror(bp)))
+	if (likely(!bp->b_error))
 		goto do_callbacks;
 
 	/*

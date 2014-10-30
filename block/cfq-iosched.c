@@ -908,7 +908,7 @@ static inline void cfq_schedule_dispatch(struct cfq_data *cfqd)
 {
 	if (cfqd->busy_queues) {
 		cfq_log(cfqd, "schedule dispatch");
-		kblockd_schedule_work(cfqd->queue, &cfqd->unplug_work);
+		kblockd_schedule_work(&cfqd->unplug_work);
 	}
 }
 
@@ -1272,15 +1272,22 @@ __cfq_group_service_tree_add(struct cfq_rb_root *st, struct cfq_group *cfqg)
 	rb_insert_color(&cfqg->rb_node, &st->rb);
 }
 
+/*
+ * This has to be called only on activation of cfqg
+ */
 static void
 cfq_update_group_weight(struct cfq_group *cfqg)
 {
-	BUG_ON(!RB_EMPTY_NODE(&cfqg->rb_node));
-
 	if (cfqg->new_weight) {
 		cfqg->weight = cfqg->new_weight;
 		cfqg->new_weight = 0;
 	}
+}
+
+static void
+cfq_update_group_leaf_weight(struct cfq_group *cfqg)
+{
+	BUG_ON(!RB_EMPTY_NODE(&cfqg->rb_node));
 
 	if (cfqg->new_leaf_weight) {
 		cfqg->leaf_weight = cfqg->new_leaf_weight;
@@ -1299,7 +1306,12 @@ cfq_group_service_tree_add(struct cfq_rb_root *st, struct cfq_group *cfqg)
 	/* add to the service tree */
 	BUG_ON(!RB_EMPTY_NODE(&cfqg->rb_node));
 
-	cfq_update_group_weight(cfqg);
+	/*
+	 * Update leaf_weight.  We cannot update weight at this point
+	 * because cfqg might already have been activated and is
+	 * contributing its current weight to the parent's child_weight.
+	 */
+	cfq_update_group_leaf_weight(cfqg);
 	__cfq_group_service_tree_add(st, cfqg);
 
 	/*
@@ -1323,6 +1335,7 @@ cfq_group_service_tree_add(struct cfq_rb_root *st, struct cfq_group *cfqg)
 	 */
 	while ((parent = cfqg_parent(pos))) {
 		if (propagate) {
+			cfq_update_group_weight(pos);
 			propagate = !parent->nr_active++;
 			parent->children_weight += pos->weight;
 		}
@@ -1670,11 +1683,11 @@ static int cfq_print_leaf_weight(struct seq_file *sf, void *v)
 	return 0;
 }
 
-static int __cfqg_set_weight_device(struct cgroup_subsys_state *css,
-				    struct cftype *cft, const char *buf,
-				    bool is_leaf_weight)
+static ssize_t __cfqg_set_weight_device(struct kernfs_open_file *of,
+					char *buf, size_t nbytes, loff_t off,
+					bool is_leaf_weight)
 {
-	struct blkcg *blkcg = css_to_blkcg(css);
+	struct blkcg *blkcg = css_to_blkcg(of_css(of));
 	struct blkg_conf_ctx ctx;
 	struct cfq_group *cfqg;
 	int ret;
@@ -1697,19 +1710,19 @@ static int __cfqg_set_weight_device(struct cgroup_subsys_state *css,
 	}
 
 	blkg_conf_finish(&ctx);
-	return ret;
+	return ret ?: nbytes;
 }
 
-static int cfqg_set_weight_device(struct cgroup_subsys_state *css,
-				  struct cftype *cft, char *buf)
+static ssize_t cfqg_set_weight_device(struct kernfs_open_file *of,
+				      char *buf, size_t nbytes, loff_t off)
 {
-	return __cfqg_set_weight_device(css, cft, buf, false);
+	return __cfqg_set_weight_device(of, buf, nbytes, off, false);
 }
 
-static int cfqg_set_leaf_weight_device(struct cgroup_subsys_state *css,
-				       struct cftype *cft, char *buf)
+static ssize_t cfqg_set_leaf_weight_device(struct kernfs_open_file *of,
+					   char *buf, size_t nbytes, loff_t off)
 {
-	return __cfqg_set_weight_device(css, cft, buf, true);
+	return __cfqg_set_weight_device(of, buf, nbytes, off, true);
 }
 
 static int __cfq_set_weight(struct cgroup_subsys_state *css, struct cftype *cft,
@@ -1837,7 +1850,7 @@ static struct cftype cfq_blkcg_files[] = {
 		.name = "weight_device",
 		.flags = CFTYPE_ONLY_ON_ROOT,
 		.seq_show = cfqg_print_leaf_weight_device,
-		.write_string = cfqg_set_leaf_weight_device,
+		.write = cfqg_set_leaf_weight_device,
 	},
 	{
 		.name = "weight",
@@ -1851,7 +1864,7 @@ static struct cftype cfq_blkcg_files[] = {
 		.name = "weight_device",
 		.flags = CFTYPE_NOT_ON_ROOT,
 		.seq_show = cfqg_print_weight_device,
-		.write_string = cfqg_set_weight_device,
+		.write = cfqg_set_weight_device,
 	},
 	{
 		.name = "weight",
@@ -1863,7 +1876,7 @@ static struct cftype cfq_blkcg_files[] = {
 	{
 		.name = "leaf_weight_device",
 		.seq_show = cfqg_print_leaf_weight_device,
-		.write_string = cfqg_set_leaf_weight_device,
+		.write = cfqg_set_leaf_weight_device,
 	},
 	{
 		.name = "leaf_weight",
@@ -4460,7 +4473,7 @@ out_free:
 static ssize_t
 cfq_var_show(unsigned int var, char *page)
 {
-	return sprintf(page, "%d\n", var);
+	return sprintf(page, "%u\n", var);
 }
 
 static ssize_t

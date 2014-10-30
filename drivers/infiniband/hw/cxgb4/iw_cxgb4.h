@@ -52,6 +52,8 @@
 
 #include <rdma/ib_verbs.h>
 #include <rdma/iw_cm.h>
+#include <rdma/rdma_netlink.h>
+#include <rdma/iw_portmap.h>
 
 #include "cxgb4.h"
 #include "cxgb4_uld.h"
@@ -137,6 +139,29 @@ struct c4iw_stats {
 	u64  pas_ofld_conn_fails;
 };
 
+struct c4iw_hw_queue {
+	int t4_eq_status_entries;
+	int t4_max_eq_size;
+	int t4_max_iq_size;
+	int t4_max_rq_size;
+	int t4_max_sq_size;
+	int t4_max_qp_depth;
+	int t4_max_cq_depth;
+	int t4_stat_len;
+};
+
+struct wr_log_entry {
+	struct timespec post_host_ts;
+	struct timespec poll_host_ts;
+	u64 post_sge_ts;
+	u64 cqe_sge_ts;
+	u64 poll_sge_ts;
+	u16 qid;
+	u16 wr_id;
+	u8 opcode;
+	u8 valid;
+};
+
 struct c4iw_rdev {
 	struct c4iw_resource resource;
 	unsigned long qpshift;
@@ -154,7 +179,11 @@ struct c4iw_rdev {
 	unsigned long oc_mw_pa;
 	void __iomem *oc_mw_kva;
 	struct c4iw_stats stats;
+	struct c4iw_hw_queue hw_queue;
 	struct t4_dev_status_page *status_page;
+	atomic_t wr_log_idx;
+	struct wr_log_entry *wr_log;
+	int wr_log_size;
 };
 
 static inline int c4iw_fatal_error(struct c4iw_rdev *rdev)
@@ -164,7 +193,7 @@ static inline int c4iw_fatal_error(struct c4iw_rdev *rdev)
 
 static inline int c4iw_num_stags(struct c4iw_rdev *rdev)
 {
-	return min((int)T4_MAX_NUM_STAG, (int)(rdev->lldi.vr->stag.size >> 5));
+	return (int)(rdev->lldi.vr->stag.size >> 5);
 }
 
 #define C4IW_WR_TO (30*HZ)
@@ -235,6 +264,7 @@ struct c4iw_dev {
 	struct idr atid_idr;
 	struct idr stid_idr;
 	struct list_head db_fc_list;
+	u32 avail_ird;
 };
 
 static inline struct c4iw_dev *to_c4iw_dev(struct ib_device *ibdev)
@@ -314,6 +344,13 @@ static inline void remove_handle_nolock(struct c4iw_dev *rhp,
 					 struct idr *idr, u32 id)
 {
 	_remove_handle(rhp, idr, id, 0);
+}
+
+extern uint c4iw_max_read_depth;
+
+static inline int cur_max_read_depth(struct c4iw_dev *dev)
+{
+	return min(dev->rdev.lldi.max_ordird_qp, c4iw_max_read_depth);
 }
 
 struct c4iw_pd {
@@ -728,6 +765,7 @@ enum c4iw_ep_flags {
 	CLOSE_SENT		= 3,
 	TIMEOUT                 = 4,
 	QP_REFERENCED           = 5,
+	RELEASE_MAPINFO		= 6,
 };
 
 enum c4iw_ep_history {
@@ -764,6 +802,8 @@ struct c4iw_ep_common {
 	struct mutex mutex;
 	struct sockaddr_storage local_addr;
 	struct sockaddr_storage remote_addr;
+	struct sockaddr_storage mapped_local_addr;
+	struct sockaddr_storage mapped_remote_addr;
 	struct c4iw_wr_wait wr_wait;
 	unsigned long flags;
 	unsigned long history;
@@ -805,7 +845,48 @@ struct c4iw_ep {
 	u8 retry_with_mpa_v1;
 	u8 tried_with_mpa_v1;
 	unsigned int retry_count;
+	int snd_win;
+	int rcv_win;
 };
+
+static inline void print_addr(struct c4iw_ep_common *epc, const char *func,
+			      const char *msg)
+{
+
+#define SINA(a) (&(((struct sockaddr_in *)(a))->sin_addr.s_addr))
+#define SINP(a) ntohs(((struct sockaddr_in *)(a))->sin_port)
+#define SIN6A(a) (&(((struct sockaddr_in6 *)(a))->sin6_addr))
+#define SIN6P(a) ntohs(((struct sockaddr_in6 *)(a))->sin6_port)
+
+	if (c4iw_debug) {
+		switch (epc->local_addr.ss_family) {
+		case AF_INET:
+			PDBG("%s %s %pI4:%u/%u <-> %pI4:%u/%u\n",
+			     func, msg, SINA(&epc->local_addr),
+			     SINP(&epc->local_addr),
+			     SINP(&epc->mapped_local_addr),
+			     SINA(&epc->remote_addr),
+			     SINP(&epc->remote_addr),
+			     SINP(&epc->mapped_remote_addr));
+			break;
+		case AF_INET6:
+			PDBG("%s %s %pI6:%u/%u <-> %pI6:%u/%u\n",
+			     func, msg, SIN6A(&epc->local_addr),
+			     SIN6P(&epc->local_addr),
+			     SIN6P(&epc->mapped_local_addr),
+			     SIN6A(&epc->remote_addr),
+			     SIN6P(&epc->remote_addr),
+			     SIN6P(&epc->mapped_remote_addr));
+			break;
+		default:
+			break;
+		}
+	}
+#undef SINA
+#undef SINP
+#undef SIN6A
+#undef SIN6P
+}
 
 static inline struct c4iw_ep *to_ep(struct iw_cm_id *cm_id)
 {
@@ -862,7 +943,7 @@ int c4iw_destroy_ctrl_qp(struct c4iw_rdev *rdev);
 int c4iw_register_device(struct c4iw_dev *dev);
 void c4iw_unregister_device(struct c4iw_dev *dev);
 int __init c4iw_cm_init(void);
-void __exit c4iw_cm_term(void);
+void c4iw_cm_term(void);
 void c4iw_release_dev_ucontext(struct c4iw_rdev *rdev,
 			       struct c4iw_dev_ucontext *uctx);
 void c4iw_init_dev_ucontext(struct c4iw_rdev *rdev,
@@ -945,7 +1026,8 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe);
 
 extern struct cxgb4_client t4c_client;
 extern c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS];
-extern int c4iw_max_read_depth;
+extern void c4iw_log_wr_stats(struct t4_wq *wq, struct t4_cqe *cqe);
+extern int c4iw_wr_log;
 extern int db_fc_threshold;
 extern int db_coalescing_threshold;
 extern int use_dsgl;

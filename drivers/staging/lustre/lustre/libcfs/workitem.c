@@ -41,7 +41,7 @@
 
 #define DEBUG_SUBSYSTEM S_LNET
 
-#include <linux/libcfs/libcfs.h>
+#include "../../include/linux/libcfs/libcfs.h"
 
 #define CFS_WS_NAME_LEN	 16
 
@@ -75,7 +75,7 @@ typedef struct cfs_wi_sched {
 	char			ws_name[CFS_WS_NAME_LEN];
 } cfs_wi_sched_t;
 
-struct cfs_workitem_data {
+static struct cfs_workitem_data {
 	/** serialize */
 	spinlock_t		wi_glock;
 	/** list of all schedulers */
@@ -365,6 +365,7 @@ cfs_wi_sched_create(char *name, struct cfs_cpt_table *cptab,
 		return -ENOMEM;
 
 	strncpy(sched->ws_name, name, CFS_WS_NAME_LEN);
+	sched->ws_name[CFS_WS_NAME_LEN - 1] = '\0';
 	sched->ws_cptab = cptab;
 	sched->ws_cpt = cpt;
 

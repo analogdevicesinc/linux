@@ -130,10 +130,6 @@ struct pcl816_private {
 	unsigned int ai_cmd_canceled:1;
 };
 
-static int check_channel_list(struct comedi_device *dev,
-			      struct comedi_subdevice *s,
-			      unsigned int *chanlist, unsigned int chanlen);
-
 static void pcl816_start_pacer(struct comedi_device *dev, bool load_counters)
 {
 	struct pcl816_private *devpriv = dev->private;
@@ -164,9 +160,7 @@ static void pcl816_ai_setup_dma(struct comedi_device *dev,
 	bytes = devpriv->hwdmasize;
 	if (cmd->stop_src == TRIG_COUNT) {
 		/*  how many */
-		bytes = s->async->cmd.chanlist_len *
-		s->async->cmd.chanlist_len *
-		sizeof(short);
+		bytes = cmd->stop_arg * cfc_bytes_per_scan(s);
 
 		/*  how many DMA pages we must fill */
 		devpriv->dma_runs_to_end = bytes / devpriv->hwdmasize;
@@ -322,7 +316,7 @@ static void transfer_from_dma_buf(struct comedi_device *dev,
 	int i;
 
 	for (i = 0; i < len; i++) {
-		comedi_buf_put(s->async, ptr[bufptr++]);
+		comedi_buf_put(s, ptr[bufptr++]);
 
 		if (!pcl816_ai_next_chan(dev, s))
 			return;
@@ -365,12 +359,68 @@ static irqreturn_t pcl816_interrupt(int irq, void *d)
 	return IRQ_HANDLED;
 }
 
+static int check_channel_list(struct comedi_device *dev,
+			      struct comedi_subdevice *s,
+			      unsigned int *chanlist,
+			      unsigned int chanlen)
+{
+	unsigned int chansegment[16];
+	unsigned int i, nowmustbechan, seglen, segpos;
+
+	/*  correct channel and range number check itself comedi/range.c */
+	if (chanlen < 1) {
+		dev_err(dev->class_dev, "range/channel list is empty!\n");
+		return 0;
+	}
+
+	if (chanlen > 1) {
+		/*  first channel is every time ok */
+		chansegment[0] = chanlist[0];
+		for (i = 1, seglen = 1; i < chanlen; i++, seglen++) {
+			/*  we detect loop, this must by finish */
+			    if (chanlist[0] == chanlist[i])
+				break;
+			nowmustbechan =
+			    (CR_CHAN(chansegment[i - 1]) + 1) % chanlen;
+			if (nowmustbechan != CR_CHAN(chanlist[i])) {
+				/*  channel list isn't continuous :-( */
+				dev_dbg(dev->class_dev,
+					"channel list must be continuous! chanlist[%i]=%d but must be %d or %d!\n",
+					i, CR_CHAN(chanlist[i]), nowmustbechan,
+					CR_CHAN(chanlist[0]));
+				return 0;
+			}
+			/*  well, this is next correct channel in list */
+			chansegment[i] = chanlist[i];
+		}
+
+		/*  check whole chanlist */
+		for (i = 0, segpos = 0; i < chanlen; i++) {
+			    if (chanlist[i] != chansegment[i % seglen]) {
+				dev_dbg(dev->class_dev,
+					"bad channel or range number! chanlist[%i]=%d,%d,%d and not %d,%d,%d!\n",
+					i, CR_CHAN(chansegment[i]),
+					CR_RANGE(chansegment[i]),
+					CR_AREF(chansegment[i]),
+					CR_CHAN(chanlist[i % seglen]),
+					CR_RANGE(chanlist[i % seglen]),
+					CR_AREF(chansegment[i % seglen]));
+				return 0;	/*  chan/gain list is strange */
+			}
+		}
+	} else {
+		seglen = 1;
+	}
+
+	return seglen;	/*  we can serve this with MUX logic */
+}
+
 static int pcl816_ai_cmdtest(struct comedi_device *dev,
 			     struct comedi_subdevice *s, struct comedi_cmd *cmd)
 {
 	struct pcl816_private *devpriv = dev->private;
 	int err = 0;
-	int tmp;
+	unsigned int arg;
 
 	/* Step 1 : check if triggers are trivially valid */
 
@@ -417,15 +467,12 @@ static int pcl816_ai_cmdtest(struct comedi_device *dev,
 
 	/* step 4: fix up any arguments */
 	if (cmd->convert_src == TRIG_TIMER) {
-		tmp = cmd->convert_arg;
+		arg = cmd->convert_arg;
 		i8253_cascade_ns_to_timer(I8254_OSC_BASE_10MHZ,
 					  &devpriv->divisor1,
 					  &devpriv->divisor2,
-					  &cmd->convert_arg, cmd->flags);
-		if (cmd->convert_arg < 10000)
-			cmd->convert_arg = 10000;
-		if (tmp != cmd->convert_arg)
-			err++;
+					  &arg, cmd->flags);
+		err |= cfc_check_trigger_arg_is(&cmd->convert_arg, arg);
 	}
 
 	if (err)
@@ -521,7 +568,7 @@ static int pcl816_ai_poll(struct comedi_device *dev, struct comedi_subdevice *s)
 
 	cfc_handle_events(dev, s);
 
-	return s->async->buf_write_count - s->async->buf_read_count;
+	return comedi_buf_n_bytes_ready(s);
 }
 
 static int pcl816_ai_cancel(struct comedi_device *dev,
@@ -545,62 +592,6 @@ static int pcl816_ai_cancel(struct comedi_device *dev,
 	devpriv->ai_cmd_canceled = 1;
 
 	return 0;
-}
-
-static int
-check_channel_list(struct comedi_device *dev,
-		   struct comedi_subdevice *s, unsigned int *chanlist,
-		   unsigned int chanlen)
-{
-	unsigned int chansegment[16];
-	unsigned int i, nowmustbechan, seglen, segpos;
-
-	/*  correct channel and range number check itself comedi/range.c */
-	if (chanlen < 1) {
-		comedi_error(dev, "range/channel list is empty!");
-		return 0;
-	}
-
-	if (chanlen > 1) {
-		/*  first channel is every time ok */
-		chansegment[0] = chanlist[0];
-		for (i = 1, seglen = 1; i < chanlen; i++, seglen++) {
-			/*  we detect loop, this must by finish */
-			    if (chanlist[0] == chanlist[i])
-				break;
-			nowmustbechan =
-			    (CR_CHAN(chansegment[i - 1]) + 1) % chanlen;
-			if (nowmustbechan != CR_CHAN(chanlist[i])) {
-				/*  channel list isn't continuous :-( */
-				dev_dbg(dev->class_dev,
-					"channel list must be continuous! chanlist[%i]=%d but must be %d or %d!\n",
-					i, CR_CHAN(chanlist[i]), nowmustbechan,
-					CR_CHAN(chanlist[0]));
-				return 0;
-			}
-			/*  well, this is next correct channel in list */
-			chansegment[i] = chanlist[i];
-		}
-
-		/*  check whole chanlist */
-		for (i = 0, segpos = 0; i < chanlen; i++) {
-			    if (chanlist[i] != chansegment[i % seglen]) {
-				dev_dbg(dev->class_dev,
-					"bad channel or range number! chanlist[%i]=%d,%d,%d and not %d,%d,%d!\n",
-					i, CR_CHAN(chansegment[i]),
-					CR_RANGE(chansegment[i]),
-					CR_AREF(chansegment[i]),
-					CR_CHAN(chanlist[i % seglen]),
-					CR_RANGE(chanlist[i % seglen]),
-					CR_AREF(chansegment[i % seglen]));
-				return 0;	/*  chan/gain list is strange */
-			}
-		}
-	} else {
-		seglen = 1;
-	}
-
-	return seglen;	/*  we can serve this with MUX logic */
 }
 
 static int pcl816_ai_insn_read(struct comedi_device *dev,

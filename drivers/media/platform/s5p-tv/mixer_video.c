@@ -989,7 +989,7 @@ static void mxr_watchdog(unsigned long arg)
 	spin_unlock_irqrestore(&layer->enq_slock, flags);
 }
 
-static int stop_streaming(struct vb2_queue *vq)
+static void stop_streaming(struct vb2_queue *vq)
 {
 	struct mxr_layer *layer = vb2_get_drv_priv(vq);
 	struct mxr_device *mdev = layer->mdev;
@@ -1035,7 +1035,6 @@ static int stop_streaming(struct vb2_queue *vq)
 	mxr_streamer_put(mdev);
 	/* allow changes in output configuration */
 	mxr_output_put(mdev);
-	return 0;
 }
 
 static struct vb2_ops mxr_video_qops = {
@@ -1110,8 +1109,6 @@ struct mxr_layer *mxr_base_layer_create(struct mxr_device *mdev,
 		.ioctl_ops = &mxr_ioctl_ops,
 	};
 	strlcpy(layer->vfd.name, name, sizeof(layer->vfd.name));
-	/* let framework control PRIORITY */
-	set_bit(V4L2_FL_USE_FH_PRIO, &layer->vfd.flags);
 
 	video_set_drvdata(&layer->vfd, layer);
 	layer->vfd.lock = &layer->mutex;

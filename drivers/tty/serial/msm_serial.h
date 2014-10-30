@@ -109,11 +109,6 @@
 #define UART_ISR		0x0014
 #define UART_ISR_TX_READY	(1 << 7)
 
-#define GSBI_CONTROL		0x0
-#define GSBI_PROTOCOL_CODE	0x30
-#define GSBI_PROTOCOL_UART	0x40
-#define GSBI_PROTOCOL_IDLE	0x0
-
 #define UARTDM_RXFS		0x50
 #define UARTDM_RXFS_BUF_SHIFT	0x7
 #define UARTDM_RXFS_BUF_MASK	0x7
@@ -131,13 +126,13 @@
 static inline
 void msm_write(struct uart_port *port, unsigned int val, unsigned int off)
 {
-	__raw_writel(val, port->membase + off);
+	writel_relaxed(val, port->membase + off);
 }
 
 static inline
 unsigned int msm_read(struct uart_port *port, unsigned int off)
 {
-	return __raw_readl(port->membase + off);
+	return readl_relaxed(port->membase + off);
 }
 
 /*

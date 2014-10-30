@@ -69,8 +69,10 @@ static void exynos_drm_crtc_dpms(struct drm_crtc *crtc, int mode)
 
 	if (mode > DRM_MODE_DPMS_ON) {
 		/* wait for the completion of page flip. */
-		wait_event(exynos_crtc->pending_flip_queue,
-				atomic_read(&exynos_crtc->pending_flip) == 0);
+		if (!wait_event_timeout(exynos_crtc->pending_flip_queue,
+				!atomic_read(&exynos_crtc->pending_flip),
+				HZ/20))
+			atomic_set(&exynos_crtc->pending_flip, 0);
 		drm_vblank_off(crtc->dev, exynos_crtc->pipe);
 	}
 
@@ -259,6 +261,7 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 			spin_lock_irq(&dev->event_lock);
 			drm_vblank_put(dev, exynos_crtc->pipe);
 			list_del(&event->base.link);
+			atomic_set(&exynos_crtc->pending_flip, 0);
 			spin_unlock_irq(&dev->event_lock);
 
 			goto out;
@@ -368,6 +371,7 @@ int exynos_drm_crtc_create(struct exynos_drm_manager *manager)
 		return -ENOMEM;
 	}
 
+	manager->crtc = &exynos_crtc->drm_crtc;
 	crtc = &exynos_crtc->drm_crtc;
 
 	private->crtc[manager->pipe] = crtc;
@@ -490,4 +494,28 @@ void exynos_drm_crtc_complete_scanout(struct drm_framebuffer *fb)
 		if (manager->ops->wait_for_vblank)
 			manager->ops->wait_for_vblank(manager);
 	}
+}
+
+int exynos_drm_crtc_get_pipe_from_type(struct drm_device *drm_dev,
+					unsigned int out_type)
+{
+	struct drm_crtc *crtc;
+
+	list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list, head) {
+		struct exynos_drm_crtc *exynos_crtc;
+
+		exynos_crtc = to_exynos_crtc(crtc);
+		if (exynos_crtc->manager->type == out_type)
+			return exynos_crtc->manager->pipe;
+	}
+
+	return -EPERM;
+}
+
+void exynos_drm_crtc_te_handler(struct drm_crtc *crtc)
+{
+	struct exynos_drm_manager *manager = to_exynos_crtc(crtc)->manager;
+
+	if (manager->ops->te_handler)
+		manager->ops->te_handler(manager);
 }

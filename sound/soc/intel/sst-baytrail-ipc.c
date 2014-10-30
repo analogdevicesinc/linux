@@ -22,7 +22,6 @@
 #include <linux/export.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-#include <linux/list.h>
 #include <linux/platform_device.h>
 #include <linux/kthread.h>
 #include <linux/firmware.h>
@@ -123,6 +122,26 @@ struct sst_byt_tstamp {
 	u32 channel_peak[8];
 } __packed;
 
+struct sst_byt_fw_version {
+	u8 build;
+	u8 minor;
+	u8 major;
+	u8 type;
+} __packed;
+
+struct sst_byt_fw_build_info {
+	u8 date[16];
+	u8 time[16];
+} __packed;
+
+struct sst_byt_fw_init {
+	struct sst_byt_fw_version fw_version;
+	struct sst_byt_fw_build_info build_info;
+	u16 result;
+	u8 module_id;
+	u8 debug_info;
+} __packed;
+
 /* driver internal IPC message structure */
 struct ipc_message {
 	struct list_head list;
@@ -173,6 +192,7 @@ struct sst_byt {
 	/* boot */
 	wait_queue_head_t boot_wait;
 	bool boot_complete;
+	struct sst_fw *fw;
 
 	/* IPC messaging */
 	struct list_head tx_list;
@@ -297,6 +317,24 @@ static inline void sst_byt_tx_msg_reply_complete(struct sst_byt *byt,
 		list_add_tail(&msg->list, &byt->empty_list);
 	else
 		wake_up(&msg->waitq);
+}
+
+static void sst_byt_drop_all(struct sst_byt *byt)
+{
+	struct ipc_message *msg, *tmp;
+	unsigned long flags;
+
+	/* drop all TX and Rx messages before we stall + reset DSP */
+	spin_lock_irqsave(&byt->dsp->spinlock, flags);
+	list_for_each_entry_safe(msg, tmp, &byt->tx_list, list) {
+		list_move(&msg->list, &byt->empty_list);
+	}
+
+	list_for_each_entry_safe(msg, tmp, &byt->rx_list, list) {
+		list_move(&msg->list, &byt->empty_list);
+	}
+
+	spin_unlock_irqrestore(&byt->dsp->spinlock, flags);
 }
 
 static int sst_byt_tx_wait_done(struct sst_byt *byt, struct ipc_message *msg,
@@ -661,36 +699,33 @@ out:
 static int sst_byt_stream_operations(struct sst_byt *byt, int type,
 				     int stream_id, int wait)
 {
-	struct sst_byt_start_stream_params start_stream;
 	u64 header;
-	void *tx_msg = NULL;
-	size_t size = 0;
 
-	if (type != IPC_IA_START_STREAM) {
-		header = sst_byt_header(type, 0, false, stream_id);
-	} else {
-		start_stream.byte_offset = 0;
-		header = sst_byt_header(IPC_IA_START_STREAM,
-					sizeof(start_stream) + sizeof(u32),
-					true, stream_id);
-		tx_msg = &start_stream;
-		size = sizeof(start_stream);
-	}
-
+	header = sst_byt_header(type, 0, false, stream_id);
 	if (wait)
-		return sst_byt_ipc_tx_msg_wait(byt, header,
-					       tx_msg, size, NULL, 0);
+		return sst_byt_ipc_tx_msg_wait(byt, header, NULL, 0, NULL, 0);
 	else
-		return sst_byt_ipc_tx_msg_nowait(byt, header, tx_msg, size);
+		return sst_byt_ipc_tx_msg_nowait(byt, header, NULL, 0);
 }
 
 /* stream ALSA trigger operations */
-int sst_byt_stream_start(struct sst_byt *byt, struct sst_byt_stream *stream)
+int sst_byt_stream_start(struct sst_byt *byt, struct sst_byt_stream *stream,
+			 u32 start_offset)
 {
+	struct sst_byt_start_stream_params start_stream;
+	void *tx_msg;
+	size_t size;
+	u64 header;
 	int ret;
 
-	ret = sst_byt_stream_operations(byt, IPC_IA_START_STREAM,
-					stream->str_id, 0);
+	start_stream.byte_offset = start_offset;
+	header = sst_byt_header(IPC_IA_START_STREAM,
+				sizeof(start_stream) + sizeof(u32),
+				true, stream->str_id);
+	tx_msg = &start_stream;
+	size = sizeof(start_stream);
+
+	ret = sst_byt_ipc_tx_msg_nowait(byt, header, tx_msg, size);
 	if (ret < 0)
 		dev_err(byt->dev, "ipc: error failed to start stream %d\n",
 			stream->str_id);
@@ -782,10 +817,70 @@ static struct sst_dsp_device byt_dev = {
 	.ops = &sst_byt_ops,
 };
 
+int sst_byt_dsp_suspend_late(struct device *dev, struct sst_pdata *pdata)
+{
+	struct sst_byt *byt = pdata->dsp;
+
+	dev_dbg(byt->dev, "dsp reset\n");
+	sst_dsp_reset(byt->dsp);
+	sst_byt_drop_all(byt);
+	dev_dbg(byt->dev, "dsp in reset\n");
+
+	dev_dbg(byt->dev, "free all blocks and unload fw\n");
+	sst_fw_unload(byt->fw);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sst_byt_dsp_suspend_late);
+
+int sst_byt_dsp_boot(struct device *dev, struct sst_pdata *pdata)
+{
+	struct sst_byt *byt = pdata->dsp;
+	int ret;
+
+	dev_dbg(byt->dev, "reload dsp fw\n");
+
+	sst_dsp_reset(byt->dsp);
+
+	ret = sst_fw_reload(byt->fw);
+	if (ret <  0) {
+		dev_err(dev, "error: failed to reload firmware\n");
+		return ret;
+	}
+
+	/* wait for DSP boot completion */
+	byt->boot_complete = false;
+	sst_dsp_boot(byt->dsp);
+	dev_dbg(byt->dev, "dsp booting...\n");
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sst_byt_dsp_boot);
+
+int sst_byt_dsp_wait_for_ready(struct device *dev, struct sst_pdata *pdata)
+{
+	struct sst_byt *byt = pdata->dsp;
+	int err;
+
+	dev_dbg(byt->dev, "wait for dsp reboot\n");
+
+	err = wait_event_timeout(byt->boot_wait, byt->boot_complete,
+				 msecs_to_jiffies(IPC_BOOT_MSECS));
+	if (err == 0) {
+		dev_err(byt->dev, "ipc: error DSP boot timeout\n");
+		return -EIO;
+	}
+
+	dev_dbg(byt->dev, "dsp rebooted\n");
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sst_byt_dsp_wait_for_ready);
+
 int sst_byt_dsp_init(struct device *dev, struct sst_pdata *pdata)
 {
 	struct sst_byt *byt;
 	struct sst_fw *byt_sst_fw;
+	struct sst_byt_fw_init init;
 	int err;
 
 	dev_dbg(dev, "initialising Byt DSP IPC\n");
@@ -809,7 +904,7 @@ int sst_byt_dsp_init(struct device *dev, struct sst_pdata *pdata)
 	/* start the IPC message thread */
 	init_kthread_worker(&byt->kworker);
 	byt->tx_thread = kthread_run(kthread_worker_fn,
-				     &byt->kworker,
+				     &byt->kworker, "%s",
 				     dev_name(byt->dev));
 	if (IS_ERR(byt->tx_thread)) {
 		err = PTR_ERR(byt->tx_thread);
@@ -824,7 +919,7 @@ int sst_byt_dsp_init(struct device *dev, struct sst_pdata *pdata)
 	byt->dsp = sst_dsp_new(dev, &byt_dev, pdata);
 	if (byt->dsp == NULL) {
 		err = -ENODEV;
-		goto err_free_msg;
+		goto dsp_err;
 	}
 
 	/* keep the DSP in reset state for base FW loading */
@@ -847,7 +942,17 @@ int sst_byt_dsp_init(struct device *dev, struct sst_pdata *pdata)
 		goto boot_err;
 	}
 
+	/* show firmware information */
+	sst_dsp_inbox_read(byt->dsp, &init, sizeof(init));
+	dev_info(byt->dev, "FW version: %02x.%02x.%02x.%02x\n",
+		 init.fw_version.major, init.fw_version.minor,
+		 init.fw_version.build, init.fw_version.type);
+	dev_info(byt->dev, "Build type: %x\n", init.fw_version.type);
+	dev_info(byt->dev, "Build date: %s %s\n",
+		 init.build_info.date, init.build_info.time);
+
 	pdata->dsp = byt;
+	byt->fw = byt_sst_fw;
 
 	return 0;
 
@@ -856,6 +961,8 @@ boot_err:
 	sst_fw_free(byt_sst_fw);
 fw_err:
 	sst_dsp_free(byt->dsp);
+dsp_err:
+	kthread_stop(byt->tx_thread);
 err_free_msg:
 	kfree(byt->msg);
 
@@ -870,6 +977,7 @@ void sst_byt_dsp_free(struct device *dev, struct sst_pdata *pdata)
 	sst_dsp_reset(byt->dsp);
 	sst_fw_free_all(byt->dsp);
 	sst_dsp_free(byt->dsp);
+	kthread_stop(byt->tx_thread);
 	kfree(byt->msg);
 }
 EXPORT_SYMBOL_GPL(sst_byt_dsp_free);

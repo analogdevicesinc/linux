@@ -1302,7 +1302,7 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	netdev->netdev_ops = &alx_netdev_ops;
-	SET_ETHTOOL_OPS(netdev, &alx_ethtool_ops);
+	netdev->ethtool_ops = &alx_ethtool_ops;
 	netdev->irq = pdev->irq;
 	netdev->watchdog_timeo = ALX_WATCHDOG_TIME;
 
@@ -1527,7 +1527,7 @@ static const struct pci_error_handlers alx_err_handlers = {
 	.resume         = alx_pci_error_resume,
 };
 
-static DEFINE_PCI_DEVICE_TABLE(alx_pci_tbl) = {
+static const struct pci_device_id alx_pci_tbl[] = {
 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8161),
 	  .driver_data = ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2200),

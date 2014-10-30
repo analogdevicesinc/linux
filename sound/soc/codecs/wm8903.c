@@ -281,8 +281,7 @@ static int wm8903_dcs_event(struct snd_soc_dapm_widget *w,
 static void wm8903_seq_notifier(struct snd_soc_dapm_context *dapm,
 				enum snd_soc_dapm_type event, int subseq)
 {
-	struct snd_soc_codec *codec = container_of(dapm,
-						   struct snd_soc_codec, dapm);
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(dapm);
 	struct wm8903_priv *wm8903 = snd_soc_codec_get_drvdata(codec);
 	int dcs_mode = WM8903_DCS_MODE_WRITE_STOP;
 	int i, val;
@@ -439,7 +438,7 @@ static int wm8903_set_deemph(struct snd_soc_codec *codec)
 static int wm8903_get_deemph(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct wm8903_priv *wm8903 = snd_soc_codec_get_drvdata(codec);
 
 	ucontrol->value.enumerated.item[0] = wm8903->deemph;
@@ -450,7 +449,7 @@ static int wm8903_get_deemph(struct snd_kcontrol *kcontrol,
 static int wm8903_put_deemph(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct wm8903_priv *wm8903 = snd_soc_codec_get_drvdata(codec);
 	int deemph = ucontrol->value.enumerated.item[0];
 	int ret = 0;
@@ -1477,19 +1476,19 @@ static int wm8903_hw_params(struct snd_pcm_substream *substream,
 
 	aif1 &= ~WM8903_AIF_WL_MASK;
 	bclk = 2 * fs;
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
+	switch (params_width(params)) {
+	case 16:
 		bclk *= 16;
 		break;
-	case SNDRV_PCM_FORMAT_S20_3LE:
+	case 20:
 		bclk *= 20;
 		aif1 |= 0x4;
 		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
+	case 24:
 		bclk *= 24;
 		aif1 |= 0x8;
 		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
+	case 32:
 		bclk *= 32;
 		aif1 |= 0xc;
 		break;

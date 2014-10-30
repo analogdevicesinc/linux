@@ -253,7 +253,7 @@ static int axi_hdmi_rx_start_streaming(struct vb2_queue *q, unsigned int count)
 	return 0;
 }
 
-static int axi_hdmi_rx_stop_streaming(struct vb2_queue *q)
+static void axi_hdmi_rx_stop_streaming(struct vb2_queue *q)
 {
 	struct axi_hdmi_rx *hdmi_rx = vb2_get_drv_priv(q);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
@@ -272,7 +272,6 @@ static int axi_hdmi_rx_stop_streaming(struct vb2_queue *q)
 	spin_unlock_irqrestore(&s->spinlock, flags);
 
 	vb2_wait_for_all_buffers(q);
-	return 0;
 }
 
 static const struct vb2_ops axi_hdmi_rx_qops = {
@@ -718,7 +717,6 @@ static int axi_hdmi_rx_nodes_register(struct axi_hdmi_rx *hdmi_rx)
 	vdev->fops = &axi_hdmi_rx_fops;
 	vdev->release = video_device_release_empty;
 	vdev->ctrl_handler = s->subdev->ctrl_handler;
-	set_bit(V4L2_FL_USE_FH_PRIO, &vdev->flags);
 	vdev->lock = &s->lock;
 	vdev->queue = q;
 	q->lock = &s->lock;

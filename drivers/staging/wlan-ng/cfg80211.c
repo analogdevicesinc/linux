@@ -1,4 +1,6 @@
 /* cfg80211 Interface for prism2_usb module */
+#include "hfa384x.h"
+#include "prism2mgmt.h"
 
 
 /* Prism2 channel/frequency/bitrate declarations */
@@ -84,7 +86,7 @@ static int prism2_domibset_uint32(wlandevice_t *wlandev, u32 did, u32 data)
 }
 
 static int prism2_domibset_pstr32(wlandevice_t *wlandev,
-				  u32 did, u8 len, u8 *data)
+				  u32 did, u8 len, const u8 *data)
 {
 	struct p80211msg_dot11req_mibset msg;
 	p80211item_pstr32_t *mibitem =
@@ -298,7 +300,7 @@ static int prism2_set_default_key(struct wiphy *wiphy, struct net_device *dev,
 
 
 static int prism2_get_station(struct wiphy *wiphy, struct net_device *dev,
-			      u8 *mac, struct station_info *sinfo)
+			      const u8 *mac, struct station_info *sinfo)
 {
 	wlandevice_t *wlandev = dev->ml_priv;
 	struct p80211msg_lnxreq_commsquality quality;

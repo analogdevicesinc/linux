@@ -52,7 +52,7 @@ module_param(reglog, bool, 0600);
 #define reglog 0
 #endif
 
-static char *vram;
+static char *vram = "16m";
 MODULE_PARM_DESC(vram, "Configure VRAM size (for devices without IOMMU/GPUMMU");
 module_param(vram, charp, 0);
 
@@ -159,7 +159,7 @@ static int msm_unload(struct drm_device *dev)
 static int get_mdp_ver(struct platform_device *pdev)
 {
 #ifdef CONFIG_OF
-	const static struct of_device_id match_types[] = { {
+	static const struct of_device_id match_types[] = { {
 		.compatible = "qcom,mdss_mdp",
 		.data	= (void	*)5,
 	}, {
@@ -180,7 +180,6 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	struct msm_drm_private *priv;
 	struct msm_kms *kms;
 	int ret;
-
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -220,7 +219,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 		 * is bogus, but non-null if allocation succeeded:
 		 */
 		p = dma_alloc_attrs(dev->dev, size,
-				&priv->vram.paddr, 0, &attrs);
+				&priv->vram.paddr, GFP_KERNEL, &attrs);
 		if (!p) {
 			dev_err(dev->dev, "failed to allocate VRAM\n");
 			priv->vram.paddr = 0;
@@ -288,7 +287,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	}
 
 	pm_runtime_get_sync(dev->dev);
-	ret = drm_irq_install(dev);
+	ret = drm_irq_install(dev, platform_get_irq(dev->platformdev, 0));
 	pm_runtime_put_sync(dev->dev);
 	if (ret < 0) {
 		dev_err(dev->dev, "failed to install IRQ handler\n");
@@ -298,6 +297,10 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 #ifdef CONFIG_DRM_MSM_FBDEV
 	priv->fbdev = msm_fbdev_init(dev);
 #endif
+
+	ret = msm_debugfs_late_init(dev);
+	if (ret)
+		goto fail;
 
 	drm_kms_helper_poll_init(dev);
 
@@ -310,13 +313,15 @@ fail:
 
 static void load_gpu(struct drm_device *dev)
 {
+	static DEFINE_MUTEX(init_lock);
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_gpu *gpu;
 
-	if (priv->gpu)
-		return;
+	mutex_lock(&init_lock);
 
-	mutex_lock(&dev->struct_mutex);
+	if (priv->gpu)
+		goto out;
+
 	gpu = a3xx_gpu_init(dev);
 	if (IS_ERR(gpu)) {
 		dev_warn(dev->dev, "failed to load a3xx gpu\n");
@@ -326,7 +331,9 @@ static void load_gpu(struct drm_device *dev)
 
 	if (gpu) {
 		int ret;
+		mutex_lock(&dev->struct_mutex);
 		gpu->funcs->pm_resume(gpu);
+		mutex_unlock(&dev->struct_mutex);
 		ret = gpu->funcs->hw_init(gpu);
 		if (ret) {
 			dev_err(dev->dev, "gpu hw init failed: %d\n", ret);
@@ -336,12 +343,12 @@ static void load_gpu(struct drm_device *dev)
 			/* give inactive pm a chance to kick in: */
 			msm_gpu_retire(gpu);
 		}
-
 	}
 
 	priv->gpu = gpu;
 
-	mutex_unlock(&dev->struct_mutex);
+out:
+	mutex_unlock(&init_lock);
 }
 
 static int msm_open(struct drm_device *dev, struct drm_file *file)
@@ -382,11 +389,8 @@ static void msm_preclose(struct drm_device *dev, struct drm_file *file)
 static void msm_lastclose(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
-	if (priv->fbdev) {
-		drm_modeset_lock_all(dev);
-		drm_fb_helper_restore_fbdev_mode(priv->fbdev);
-		drm_modeset_unlock_all(dev);
-	}
+	if (priv->fbdev)
+		drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
 }
 
 static irqreturn_t msm_irq(int irq, void *arg)
@@ -531,6 +535,41 @@ static struct drm_info_list msm_debugfs_list[] = {
 		{ "fb", show_locked, 0, msm_fb_show },
 };
 
+static int late_init_minor(struct drm_minor *minor)
+{
+	int ret;
+
+	if (!minor)
+		return 0;
+
+	ret = msm_rd_debugfs_init(minor);
+	if (ret) {
+		dev_err(minor->dev->dev, "could not install rd debugfs\n");
+		return ret;
+	}
+
+	ret = msm_perf_debugfs_init(minor);
+	if (ret) {
+		dev_err(minor->dev->dev, "could not install perf debugfs\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+int msm_debugfs_late_init(struct drm_device *dev)
+{
+	int ret;
+	ret = late_init_minor(dev->primary);
+	if (ret)
+		return ret;
+	ret = late_init_minor(dev->render);
+	if (ret)
+		return ret;
+	ret = late_init_minor(dev->control);
+	return ret;
+}
+
 static int msm_debugfs_init(struct drm_minor *minor)
 {
 	struct drm_device *dev = minor->dev;
@@ -545,13 +584,17 @@ static int msm_debugfs_init(struct drm_minor *minor)
 		return ret;
 	}
 
-	return ret;
+	return 0;
 }
 
 static void msm_debugfs_cleanup(struct drm_minor *minor)
 {
 	drm_debugfs_remove_files(msm_debugfs_list,
 			ARRAY_SIZE(msm_debugfs_list), minor);
+	if (!minor->dev->dev_private)
+		return;
+	msm_rd_debugfs_cleanup(minor);
+	msm_perf_debugfs_cleanup(minor);
 }
 #endif
 
@@ -866,66 +909,28 @@ static int compare_of(struct device *dev, void *data)
 	return dev->of_node == data;
 }
 
-static int msm_drm_add_components(struct device *master, struct master *m)
+static int add_components(struct device *dev, struct component_match **matchptr,
+		const char *name)
 {
-	struct device_node *np = master->of_node;
+	struct device_node *np = dev->of_node;
 	unsigned i;
-	int ret;
 
 	for (i = 0; ; i++) {
 		struct device_node *node;
 
-		node = of_parse_phandle(np, "connectors", i);
+		node = of_parse_phandle(np, name, i);
 		if (!node)
 			break;
 
-		ret = component_master_add_child(m, compare_of, node);
-		of_node_put(node);
-
-		if (ret)
-			return ret;
+		component_match_add(dev, matchptr, compare_of, node);
 	}
+
 	return 0;
 }
 #else
 static int compare_dev(struct device *dev, void *data)
 {
 	return dev == data;
-}
-
-static int msm_drm_add_components(struct device *master, struct master *m)
-{
-	/* For non-DT case, it kinda sucks.  We don't actually have a way
-	 * to know whether or not we are waiting for certain devices (or if
-	 * they are simply not present).  But for non-DT we only need to
-	 * care about apq8064/apq8060/etc (all mdp4/a3xx):
-	 */
-	static const char *devnames[] = {
-			"hdmi_msm.0", "kgsl-3d0.0",
-	};
-	int i;
-
-	DBG("Adding components..");
-
-	for (i = 0; i < ARRAY_SIZE(devnames); i++) {
-		struct device *dev;
-		int ret;
-
-		dev = bus_find_device_by_name(&platform_bus_type,
-				NULL, devnames[i]);
-		if (!dev) {
-			dev_info(master, "still waiting for %s\n", devnames[i]);
-			return -EPROBE_DEFER;
-		}
-
-		ret = component_master_add_child(m, compare_dev, dev);
-		if (ret) {
-			DBG("could not add child: %d", ret);
-			return ret;
-		}
-	}
-
-	return 0;
 }
 #endif
 
@@ -940,9 +945,8 @@ static void msm_drm_unbind(struct device *dev)
 }
 
 static const struct component_master_ops msm_drm_ops = {
-		.add_components = msm_drm_add_components,
-		.bind = msm_drm_bind,
-		.unbind = msm_drm_unbind,
+	.bind = msm_drm_bind,
+	.unbind = msm_drm_unbind,
 };
 
 /*
@@ -951,8 +955,39 @@ static const struct component_master_ops msm_drm_ops = {
 
 static int msm_pdev_probe(struct platform_device *pdev)
 {
+	struct component_match *match = NULL;
+#ifdef CONFIG_OF
+	add_components(&pdev->dev, &match, "connectors");
+	add_components(&pdev->dev, &match, "gpus");
+#else
+	/* For non-DT case, it kinda sucks.  We don't actually have a way
+	 * to know whether or not we are waiting for certain devices (or if
+	 * they are simply not present).  But for non-DT we only need to
+	 * care about apq8064/apq8060/etc (all mdp4/a3xx):
+	 */
+	static const char *devnames[] = {
+			"hdmi_msm.0", "kgsl-3d0.0",
+	};
+	int i;
+
+	DBG("Adding components..");
+
+	for (i = 0; i < ARRAY_SIZE(devnames); i++) {
+		struct device *dev;
+
+		dev = bus_find_device_by_name(&platform_bus_type,
+				NULL, devnames[i]);
+		if (!dev) {
+			dev_info(&pdev->dev, "still waiting for %s\n", devnames[i]);
+			return -EPROBE_DEFER;
+		}
+
+		component_match_add(&pdev->dev, &match, compare_dev, dev);
+	}
+#endif
+
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	return component_master_add(&pdev->dev, &msm_drm_ops);
+	return component_master_add_with_match(&pdev->dev, &msm_drm_ops, match);
 }
 
 static int msm_pdev_remove(struct platform_device *pdev)
@@ -968,7 +1003,8 @@ static const struct platform_device_id msm_id[] = {
 };
 
 static const struct of_device_id dt_match[] = {
-	{ .compatible = "qcom,mdss_mdp" },
+	{ .compatible = "qcom,mdp" },      /* mdp4 */
+	{ .compatible = "qcom,mdss_mdp" }, /* mdp5 */
 	{}
 };
 MODULE_DEVICE_TABLE(of, dt_match);

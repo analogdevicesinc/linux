@@ -103,7 +103,8 @@ static int find_index(struct mlx4_dev *dev,
 	int i;
 
 	for (i = 0; i < MLX4_MAX_MAC_NUM; i++) {
-		if ((mac & MLX4_MAC_MASK) ==
+		if (table->refs[i] &&
+		    (MLX4_MAC_MASK & mac) ==
 		    (MLX4_MAC_MASK & be64_to_cpu(table->entries[i])))
 			return i;
 	}
@@ -165,12 +166,14 @@ int __mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac)
 
 	mutex_lock(&table->mutex);
 	for (i = 0; i < MLX4_MAX_MAC_NUM; i++) {
-		if (free < 0 && !table->entries[i]) {
-			free = i;
+		if (!table->refs[i]) {
+			if (free < 0)
+				free = i;
 			continue;
 		}
 
-		if (mac == (MLX4_MAC_MASK & be64_to_cpu(table->entries[i]))) {
+		if ((MLX4_MAC_MASK & mac) ==
+		     (MLX4_MAC_MASK & be64_to_cpu(table->entries[i]))) {
 			/* MAC already registered, increment ref count */
 			err = i;
 			++table->refs[i];
@@ -244,18 +247,24 @@ EXPORT_SYMBOL_GPL(mlx4_get_base_qpn);
 
 void __mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, u64 mac)
 {
-	struct mlx4_port_info *info = &mlx4_priv(dev)->port[port];
-	struct mlx4_mac_table *table = &info->mac_table;
+	struct mlx4_port_info *info;
+	struct mlx4_mac_table *table;
 	int index;
 
+	if (port < 1 || port > dev->caps.num_ports) {
+		mlx4_warn(dev, "invalid port number (%d), aborting...\n", port);
+		return;
+	}
+	info = &mlx4_priv(dev)->port[port];
+	table = &info->mac_table;
 	mutex_lock(&table->mutex);
 	index = find_index(dev, table, mac);
 
 	if (validate_index(dev, table, index))
 		goto out;
 	if (--table->refs[index]) {
-		mlx4_dbg(dev, "Have more references for index %d,"
-			 "no need to modify mac table\n", index);
+		mlx4_dbg(dev, "Have more references for index %d, no need to modify mac table\n",
+			 index);
 		goto out;
 	}
 
@@ -453,9 +462,8 @@ void __mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, u16 vlan)
 	}
 
 	if (--table->refs[index]) {
-		mlx4_dbg(dev, "Have %d more references for index %d,"
-			 "no need to modify vlan table\n", table->refs[index],
-			 index);
+		mlx4_dbg(dev, "Have %d more references for index %d, no need to modify vlan table\n",
+			 table->refs[index], index);
 		goto out;
 	}
 	table->entries[index] = 0;
@@ -796,8 +804,7 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
 					if (!memcmp(gid_entry_mbox->raw, gid_entry_tbl->raw,
 						    sizeof(gid_entry_tbl->raw))) {
 						/* found duplicate */
-						mlx4_warn(dev, "requested gid entry for slave:%d "
-							  "is a duplicate of gid at index %d\n",
+						mlx4_warn(dev, "requested gid entry for slave:%d is a duplicate of gid at index %d\n",
 							  slave, i);
 						mutex_unlock(&(priv->port[port].gid_table.mutex));
 						return -EINVAL;
@@ -1053,14 +1060,26 @@ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
 
 	for (i = 0; i < MLX4_NUM_TC; i++) {
 		struct mlx4_port_scheduler_tc_cfg_be *tc = &context->tc[i];
-		u16 r = ratelimit && ratelimit[i] ? ratelimit[i] :
-			MLX4_RATELIMIT_DEFAULT;
+		u16 r;
+
+		if (ratelimit && ratelimit[i]) {
+			if (ratelimit[i] <= MLX4_MAX_100M_UNITS_VAL) {
+				r = ratelimit[i];
+				tc->max_bw_units =
+					htons(MLX4_RATELIMIT_100M_UNITS);
+			} else {
+				r = ratelimit[i]/10;
+				tc->max_bw_units =
+					htons(MLX4_RATELIMIT_1G_UNITS);
+			}
+			tc->max_bw_value = htons(r);
+		} else {
+			tc->max_bw_value = htons(MLX4_RATELIMIT_DEFAULT);
+			tc->max_bw_units = htons(MLX4_RATELIMIT_1G_UNITS);
+		}
 
 		tc->pg = htons(pg[i]);
 		tc->bw_precentage = htons(tc_tx_bw[i]);
-
-		tc->max_bw_units = htons(MLX4_RATELIMIT_UNITS);
-		tc->max_bw_value = htons(r);
 	}
 
 	in_mod = MLX4_SET_PORT_SCHEDULER << 8 | port;

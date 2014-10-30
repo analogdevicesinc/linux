@@ -46,8 +46,6 @@ Status: experimental
 #include "comedi_fc.h"
 #include "8253.h"
 
-#define DAS16CS_SIZE			18
-
 #define DAS16CS_ADC_DATA		0
 #define DAS16CS_DIO_MUX			2
 #define DAS16CS_MISC1			4
@@ -184,6 +182,7 @@ static int das16cs_ao_winsn(struct comedi_device *dev,
 
 		for (bit = 15; bit >= 0; bit--) {
 			int b = (d >> bit) & 0x1;
+
 			b <<= 1;
 			outw(status1 | b | 0x0000, dev->iobase + DAS16CS_MISC1);
 			udelay(1);

@@ -526,7 +526,7 @@ static const struct snd_soc_dapm_route wm8985_dapm_routes[] = {
 static int eqmode_get(struct snd_kcontrol *kcontrol,
 		      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	unsigned int reg;
 
 	reg = snd_soc_read(codec, WM8985_EQ1_LOW_SHELF);
@@ -541,7 +541,7 @@ static int eqmode_get(struct snd_kcontrol *kcontrol,
 static int eqmode_put(struct snd_kcontrol *kcontrol,
 		      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	unsigned int regpwr2, regpwr3;
 	unsigned int reg_eq;
 
@@ -698,22 +698,22 @@ static int wm8985_hw_params(struct snd_pcm_substream *substream,
 	if ((int)wm8985->bclk < 0)
 		return wm8985->bclk;
 
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
+	switch (params_width(params)) {
+	case 16:
 		blen = 0x0;
 		break;
-	case SNDRV_PCM_FORMAT_S20_3LE:
+	case 20:
 		blen = 0x1;
 		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
+	case 24:
 		blen = 0x2;
 		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
+	case 32:
 		blen = 0x3;
 		break;
 	default:
 		dev_err(dai->dev, "Unsupported word length %u\n",
-			params_format(params));
+			params_width(params));
 		return -EINVAL;
 	}
 
@@ -980,11 +980,7 @@ static int wm8985_resume(struct snd_soc_codec *codec)
 
 static int wm8985_remove(struct snd_soc_codec *codec)
 {
-	struct wm8985_priv *wm8985;
-
-	wm8985 = snd_soc_codec_get_drvdata(codec);
 	wm8985_set_bias_level(codec, SND_SOC_BIAS_OFF);
-	regulator_bulk_free(ARRAY_SIZE(wm8985->supplies), wm8985->supplies);
 	return 0;
 }
 
@@ -999,7 +995,7 @@ static int wm8985_probe(struct snd_soc_codec *codec)
 	for (i = 0; i < ARRAY_SIZE(wm8985->supplies); i++)
 		wm8985->supplies[i].supply = wm8985_supply_names[i];
 
-	ret = regulator_bulk_get(codec->dev, ARRAY_SIZE(wm8985->supplies),
+	ret = devm_regulator_bulk_get(codec->dev, ARRAY_SIZE(wm8985->supplies),
 				 wm8985->supplies);
 	if (ret) {
 		dev_err(codec->dev, "Failed to request supplies: %d\n", ret);
@@ -1010,7 +1006,7 @@ static int wm8985_probe(struct snd_soc_codec *codec)
 				    wm8985->supplies);
 	if (ret) {
 		dev_err(codec->dev, "Failed to enable supplies: %d\n", ret);
-		goto err_reg_get;
+		return ret;
 	}
 
 	ret = wm8985_reset(codec);
@@ -1032,8 +1028,6 @@ static int wm8985_probe(struct snd_soc_codec *codec)
 
 err_reg_enable:
 	regulator_bulk_disable(ARRAY_SIZE(wm8985->supplies), wm8985->supplies);
-err_reg_get:
-	regulator_bulk_free(ARRAY_SIZE(wm8985->supplies), wm8985->supplies);
 	return ret;
 }
 

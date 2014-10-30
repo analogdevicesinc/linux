@@ -186,6 +186,15 @@ static inline void *bio_data(struct bio *bio)
 #define BIOVEC_SEG_BOUNDARY(q, b1, b2) \
 	__BIO_SEG_BOUNDARY(bvec_to_phys((b1)), bvec_to_phys((b2)) + (b2)->bv_len, queue_segment_boundary((q)))
 
+/*
+ * Check if adding a bio_vec after bprv with offset would create a gap in
+ * the SG list. Most drivers don't care about this, but some do.
+ */
+static inline bool bvec_gap_to_prev(struct bio_vec *bprv, unsigned int offset)
+{
+	return offset || ((bprv->bv_offset + bprv->bv_len) & (PAGE_SIZE - 1));
+}
+
 #define bio_io_error(bio) bio_endio((bio), -EIO)
 
 /*
@@ -299,6 +308,7 @@ struct bio_integrity_payload {
 
 	unsigned short		bip_slab;	/* slab the bip came from */
 	unsigned short		bip_vcnt;	/* # of integrity bio_vecs */
+	unsigned short		bip_max_vcnt;	/* integrity bio_vec slots */
 	unsigned		bip_owns_buf:1;	/* should free bip_buf */
 
 	struct work_struct	bip_work;	/* I/O completion */
@@ -333,7 +343,7 @@ static inline struct bio *bio_next_split(struct bio *bio, int sectors,
 
 extern struct bio_set *bioset_create(unsigned int, unsigned int);
 extern void bioset_free(struct bio_set *);
-extern mempool_t *biovec_create_pool(struct bio_set *bs, int pool_entries);
+extern mempool_t *biovec_create_pool(int pool_entries);
 
 extern struct bio *bio_alloc_bioset(gfp_t, int, struct bio_set *);
 extern void bio_put(struct bio *);
@@ -643,10 +653,6 @@ struct biovec_slab {
 #define BIO_SPLIT_ENTRIES 2
 
 #if defined(CONFIG_BLK_DEV_INTEGRITY)
-
-
-
-#define bip_vec_idx(bip, idx)	(&(bip->bip_vec[(idx)]))
 
 #define bip_for_each_vec(bvl, bip, iter)				\
 	for_each_bvec(bvl, (bip)->bip_vec, iter, (bip)->bip_iter)

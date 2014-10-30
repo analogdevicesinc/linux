@@ -968,7 +968,7 @@ static void team_port_disable(struct team *team,
 static void __team_compute_features(struct team *team)
 {
 	struct team_port *port;
-	u32 vlan_features = TEAM_VLAN_FEATURES;
+	u32 vlan_features = TEAM_VLAN_FEATURES & NETIF_F_ALL_FOR_ALL;
 	unsigned short max_hard_header_len = ETH_HLEN;
 	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
 
@@ -2045,16 +2045,10 @@ static void team_setup(struct net_device *dev)
 static int team_newlink(struct net *src_net, struct net_device *dev,
 			struct nlattr *tb[], struct nlattr *data[])
 {
-	int err;
-
 	if (tb[IFLA_ADDRESS] == NULL)
 		eth_hw_addr_random(dev);
 
-	err = register_netdevice(dev);
-	if (err)
-		return err;
-
-	return 0;
+	return register_netdevice(dev);
 }
 
 static int team_validate(struct nlattr *tb[], struct nlattr *data[])

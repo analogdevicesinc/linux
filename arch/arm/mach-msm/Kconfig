@@ -42,9 +42,6 @@ config ARCH_QSD8X50
 
 endchoice
 
-config MSM_HAS_DEBUG_UART_HS
-	bool
-
 config MSM_SOC_REV_A
 	bool
 
@@ -108,8 +105,5 @@ config MSM_GPIOMUX
 	bool
 	help
 	  Support for MSM V1 TLMM GPIOMUX architecture.
-
-config MSM_SCM
-	bool
 
 endif

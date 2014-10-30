@@ -224,7 +224,7 @@ struct atmel_spi {
 	struct platform_device	*pdev;
 
 	struct spi_transfer	*current_transfer;
-	unsigned long		current_remaining_bytes;
+	int			current_remaining_bytes;
 	int			done_status;
 
 	struct completion	xfer_completion;
@@ -597,21 +597,15 @@ static int atmel_spi_next_xfer_dma_submit(struct spi_master *master,
 		goto err_exit;
 
 	/* Send both scatterlists */
-	rxdesc = rxchan->device->device_prep_slave_sg(rxchan,
-					&as->dma.sgrx,
-					1,
-					DMA_FROM_DEVICE,
-					DMA_PREP_INTERRUPT | DMA_CTRL_ACK,
-					NULL);
+	rxdesc = dmaengine_prep_slave_sg(rxchan, &as->dma.sgrx, 1,
+					 DMA_FROM_DEVICE,
+					 DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!rxdesc)
 		goto err_dma;
 
-	txdesc = txchan->device->device_prep_slave_sg(txchan,
-					&as->dma.sgtx,
-					1,
-					DMA_TO_DEVICE,
-					DMA_PREP_INTERRUPT | DMA_CTRL_ACK,
-					NULL);
+	txdesc = dmaengine_prep_slave_sg(txchan, &as->dma.sgtx, 1,
+					 DMA_TO_DEVICE,
+					 DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!txdesc)
 		goto err_dma;
 
@@ -874,8 +868,9 @@ atmel_spi_pump_pio_data(struct atmel_spi *as, struct spi_transfer *xfer)
 		spi_readl(as, RDR);
 	}
 	if (xfer->bits_per_word > 8) {
-		as->current_remaining_bytes -= 2;
-		if (as->current_remaining_bytes < 0)
+		if (as->current_remaining_bytes > 2)
+			as->current_remaining_bytes -= 2;
+		else
 			as->current_remaining_bytes = 0;
 	} else {
 		as->current_remaining_bytes--;
@@ -1017,7 +1012,7 @@ static int atmel_spi_setup(struct spi_device *spi)
 	csr |= SPI_BF(DLYBCT, 0);
 
 	/* chipselect must have been muxed as GPIO (e.g. in board setup) */
-	npcs_pin = (unsigned int)spi->controller_data;
+	npcs_pin = (unsigned long)spi->controller_data;
 
 	if (gpio_is_valid(spi->cs_gpio))
 		npcs_pin = spi->cs_gpio;
@@ -1110,6 +1105,8 @@ static int atmel_spi_one_transfer(struct spi_master *master,
 				atmel_spi_next_xfer_pio(master, xfer);
 			} else {
 				as->current_remaining_bytes -= len;
+				if (as->current_remaining_bytes < 0)
+					as->current_remaining_bytes = 0;
 			}
 		} else {
 			atmel_spi_next_xfer_pio(master, xfer);
@@ -1250,7 +1247,7 @@ msg_done:
 static void atmel_spi_cleanup(struct spi_device *spi)
 {
 	struct atmel_spi_device	*asd = spi->controller_state;
-	unsigned		gpio = (unsigned) spi->controller_data;
+	unsigned		gpio = (unsigned long) spi->controller_data;
 
 	if (!asd)
 		return;

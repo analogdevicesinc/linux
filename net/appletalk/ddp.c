@@ -1489,8 +1489,6 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
 		goto drop;
 
 	/* Queue packet (standard) */
-	skb->sk = sock;
-
 	if (sock_queue_rcv_skb(sock, skb) < 0)
 		goto drop;
 
@@ -1644,7 +1642,6 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr 
 	if (!skb)
 		goto out;
 
-	skb->sk = sk;
 	skb_reserve(skb, ddp_dl->header_length);
 	skb_reserve(skb, dev->hard_header_len);
 	skb->dev = dev;
@@ -1669,7 +1666,7 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr 
 		goto out;
 	}
 
-	if (sk->sk_no_check == 1)
+	if (sk->sk_no_check_tx)
 		ddp->deh_sum = 0;
 	else
 		ddp->deh_sum = atalk_checksum(skb, len + sizeof(*ddp));
@@ -1808,7 +1805,7 @@ static int atalk_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 		long amount = 0;
 
 		if (skb)
-		amount = skb->len - sizeof(struct ddpehdr);
+			amount = skb->len - sizeof(struct ddpehdr);
 		rc = put_user(amount, (int __user *)argp);
 		break;
 	}

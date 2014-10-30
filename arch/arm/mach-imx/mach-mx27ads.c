@@ -245,7 +245,7 @@ static void __init mx27ads_regulator_init(void)
 	vchip->set		= vgpio_set;
 	gpiochip_add(vchip);
 
-	platform_device_register_data(&platform_bus, "reg-fixed-voltage",
+	platform_device_register_data(NULL, "reg-fixed-voltage",
 				      PLATFORM_DEVID_AUTO,
 				      &mx27ads_lcd_regulator_pdata,
 				      sizeof(mx27ads_lcd_regulator_pdata));
@@ -391,7 +391,6 @@ MACHINE_START(MX27ADS, "Freescale i.MX27ADS")
 	.map_io = mx27ads_map_io,
 	.init_early = imx27_init_early,
 	.init_irq = mx27_init_irq,
-	.handle_irq = imx27_handle_irq,
 	.init_time	= mx27ads_timer_init,
 	.init_machine = mx27ads_board_init,
 	.restart	= mxc_restart,

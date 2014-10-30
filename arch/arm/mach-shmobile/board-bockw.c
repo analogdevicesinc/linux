@@ -34,13 +34,15 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
 #include <linux/usb/renesas_usbhs.h>
+
 #include <media/soc_camera.h>
-#include <mach/common.h>
-#include <mach/irqs.h>
-#include <mach/r8a7778.h>
 #include <asm/mach/arch.h>
 #include <sound/rcar_snd.h>
 #include <sound/simple_card.h>
+
+#include "common.h"
+#include "irqs.h"
+#include "r8a7778.h"
 
 #define FPGA	0x18200000
 #define IRQ0MR	0x30
@@ -177,7 +179,7 @@ static struct renesas_usbhs_platform_info usbhs_info __initdata = {
 #define USB1_DEVICE	"renesas_usbhs"
 #define ADD_USB_FUNC_DEVICE_IF_POSSIBLE()			\
 	platform_device_register_resndata(			\
-		&platform_bus, "renesas_usbhs", -1,		\
+		NULL, "renesas_usbhs", -1,			\
 		usbhsf_resources,				\
 		ARRAY_SIZE(usbhsf_resources),			\
 		&usbhs_info, sizeof(struct renesas_usbhs_platform_info))
@@ -236,7 +238,6 @@ static struct sh_eth_plat_data ether_platform_data __initdata = {
 };
 
 static struct platform_device_info ether_info __initdata = {
-	.parent		= &platform_bus,
 	.name		= "r8a777x-ether",
 	.id		= -1,
 	.res		= ether_resources,
@@ -322,7 +323,6 @@ static struct resource vin##idx##_resources[] __initdata = {		\
 };									\
 									\
 static struct platform_device_info vin##idx##_info __initdata = {	\
-	.parent		= &platform_bus,				\
 	.name		= "r8a7778-vin",				\
 	.id		= idx,						\
 	.res		= vin##idx##_resources,				\
@@ -345,24 +345,39 @@ static struct rsnd_ssi_platform_info rsnd_ssi[] = {
 	RSND_SSI_UNUSED, /* SSI 0 */
 	RSND_SSI_UNUSED, /* SSI 1 */
 	RSND_SSI_UNUSED, /* SSI 2 */
-	RSND_SSI_SET(1, HPBDMA_SLAVE_HPBIF3_TX, gic_iid(0x85), RSND_SSI_PLAY),
-	RSND_SSI_SET(2, HPBDMA_SLAVE_HPBIF4_RX, gic_iid(0x85), RSND_SSI_CLK_PIN_SHARE),
-	RSND_SSI_SET(0, HPBDMA_SLAVE_HPBIF5_TX, gic_iid(0x86), RSND_SSI_PLAY),
-	RSND_SSI_SET(0, HPBDMA_SLAVE_HPBIF6_RX, gic_iid(0x86), 0),
-	RSND_SSI_SET(3, HPBDMA_SLAVE_HPBIF7_TX, gic_iid(0x86), RSND_SSI_PLAY),
-	RSND_SSI_SET(4, HPBDMA_SLAVE_HPBIF8_RX, gic_iid(0x86), RSND_SSI_CLK_PIN_SHARE),
+	RSND_SSI(HPBDMA_SLAVE_HPBIF3_TX, gic_iid(0x85), 0),
+	RSND_SSI(HPBDMA_SLAVE_HPBIF4_RX, gic_iid(0x85), RSND_SSI_CLK_PIN_SHARE),
+	RSND_SSI(HPBDMA_SLAVE_HPBIF5_TX, gic_iid(0x86), 0),
+	RSND_SSI(HPBDMA_SLAVE_HPBIF6_RX, gic_iid(0x86), 0),
+	RSND_SSI(HPBDMA_SLAVE_HPBIF7_TX, gic_iid(0x86), 0),
+	RSND_SSI(HPBDMA_SLAVE_HPBIF8_RX, gic_iid(0x86), RSND_SSI_CLK_PIN_SHARE),
 };
 
-static struct rsnd_scu_platform_info rsnd_scu[9] = {
-	{ .flags = 0, }, /* SRU 0 */
-	{ .flags = 0, }, /* SRU 1 */
-	{ .flags = 0, }, /* SRU 2 */
-	{ .flags = RSND_SCU_USE_HPBIF, },
-	{ .flags = RSND_SCU_USE_HPBIF, },
-	{ .flags = RSND_SCU_USE_HPBIF, },
-	{ .flags = RSND_SCU_USE_HPBIF, },
-	{ .flags = RSND_SCU_USE_HPBIF, },
-	{ .flags = RSND_SCU_USE_HPBIF, },
+static struct rsnd_src_platform_info rsnd_src[9] = {
+	RSND_SRC_UNUSED, /* SRU 0 */
+	RSND_SRC_UNUSED, /* SRU 1 */
+	RSND_SRC_UNUSED, /* SRU 2 */
+	RSND_SRC(0, 0),
+	RSND_SRC(0, 0),
+	RSND_SRC(0, 0),
+	RSND_SRC(0, 0),
+	RSND_SRC(0, 0),
+	RSND_SRC(0, 0),
+};
+
+static struct rsnd_dai_platform_info rsnd_dai[] = {
+	{
+		.playback = { .ssi = &rsnd_ssi[5], .src = &rsnd_src[5] },
+		.capture  = { .ssi = &rsnd_ssi[6], .src = &rsnd_src[6] },
+	}, {
+		.playback = { .ssi = &rsnd_ssi[3], .src = &rsnd_src[3] },
+	}, {
+		.capture  = { .ssi = &rsnd_ssi[4], .src = &rsnd_src[4] },
+	}, {
+		.playback = { .ssi = &rsnd_ssi[7], .src = &rsnd_src[7] },
+	}, {
+		.capture  = { .ssi = &rsnd_ssi[8], .src = &rsnd_src[8] },
+	},
 };
 
 enum {
@@ -437,8 +452,10 @@ static struct rcar_snd_info rsnd_info = {
 	.flags		= RSND_GEN1,
 	.ssi_info	= rsnd_ssi,
 	.ssi_info_nr	= ARRAY_SIZE(rsnd_ssi),
-	.scu_info	= rsnd_scu,
-	.scu_info_nr	= ARRAY_SIZE(rsnd_scu),
+	.src_info	= rsnd_src,
+	.src_info_nr	= ARRAY_SIZE(rsnd_src),
+	.dai_info	= rsnd_dai,
+	.dai_info_nr	= ARRAY_SIZE(rsnd_dai),
 	.start		= rsnd_start,
 	.stop		= rsnd_stop,
 };
@@ -591,6 +608,7 @@ static void __init bockw_init(void)
 {
 	void __iomem *base;
 	struct clk *clk;
+	struct platform_device *pdev;
 	int i;
 
 	r8a7778_clock_init();
@@ -603,10 +621,10 @@ static void __init bockw_init(void)
 	/* VIN1 has a pin conflict with Ether */
 	if (!IS_ENABLED(CONFIG_SH_ETH))
 		platform_device_register_full(&vin1_info);
-	platform_device_register_data(&platform_bus, "soc-camera-pdrv", 0,
+	platform_device_register_data(NULL, "soc-camera-pdrv", 0,
 				      &iclink0_ml86v7667,
 				      sizeof(iclink0_ml86v7667));
-	platform_device_register_data(&platform_bus, "soc-camera-pdrv", 1,
+	platform_device_register_data(NULL, "soc-camera-pdrv", 1,
 				      &iclink1_ml86v7667,
 				      sizeof(iclink1_ml86v7667));
 
@@ -619,12 +637,12 @@ static void __init bockw_init(void)
 	r8a7778_pinmux_init();
 
 	platform_device_register_resndata(
-		&platform_bus, "sh_mmcif", -1,
+		NULL, "sh_mmcif", -1,
 		mmc_resources, ARRAY_SIZE(mmc_resources),
 		&sh_mmcif_plat, sizeof(struct sh_mmcif_plat_data));
 
 	platform_device_register_resndata(
-		&platform_bus, "rcar_usb_phy", -1,
+		NULL, "rcar_usb_phy", -1,
 		usb_phy_resources,
 		ARRAY_SIZE(usb_phy_resources),
 		&usb_phy_platform_data,
@@ -650,7 +668,7 @@ static void __init bockw_init(void)
 		iowrite16(val, fpga + IRQ0MR);
 
 		platform_device_register_resndata(
-			&platform_bus, "smsc911x", -1,
+			NULL, "smsc911x", -1,
 			smsc911x_resources, ARRAY_SIZE(smsc911x_resources),
 			&smsc911x_data, sizeof(smsc911x_data));
 	}
@@ -667,15 +685,12 @@ static void __init bockw_init(void)
 		iounmap(base);
 
 		platform_device_register_resndata(
-			&platform_bus, "sh_mobile_sdhi", 0,
+			NULL, "sh_mobile_sdhi", 0,
 			sdhi0_resources, ARRAY_SIZE(sdhi0_resources),
 			&sdhi0_info, sizeof(struct sh_mobile_sdhi_info));
 	}
 
 	/* for Audio */
-	clk = clk_get(NULL, "audio_clk_b");
-	clk_set_rate(clk, 24576000);
-	clk_put(clk);
 	rsnd_codec_power(5, 1); /* enable ak4642 */
 
 	platform_device_register_simple(
@@ -684,14 +699,17 @@ static void __init bockw_init(void)
 	platform_device_register_simple(
 		"ak4554-adc-dac", 1, NULL, 0);
 
-	platform_device_register_resndata(
-		&platform_bus, "rcar_sound", -1,
+	pdev = platform_device_register_resndata(
+		NULL, "rcar_sound", -1,
 		rsnd_resources, ARRAY_SIZE(rsnd_resources),
 		&rsnd_info, sizeof(rsnd_info));
 
+	clk = clk_get(&pdev->dev, "clk_b");
+	clk_set_rate(clk, 24576000);
+	clk_put(clk);
+
 	for (i = 0; i < ARRAY_SIZE(rsnd_card_info); i++) {
 		struct platform_device_info cardinfo = {
-			.parent         = &platform_bus,
 			.name           = "asoc-simple-card",
 			.id             = i,
 			.data           = &rsnd_card_info[i],

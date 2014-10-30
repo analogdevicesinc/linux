@@ -17,7 +17,6 @@
 #include <linux/acpi.h>
 #include <linux/gpio/consumer.h>
 #include <linux/gpio_keys.h>
-#include <linux/input.h>
 #include <linux/platform_device.h>
 #include <linux/pnp.h>
 
@@ -84,6 +83,9 @@ soc_button_device_create(struct pnp_dev *pdev,
 				       sizeof(*gpio_keys_pdata) +
 					sizeof(*gpio_keys) * MAX_NBUTTONS,
 				       GFP_KERNEL);
+	if (!gpio_keys_pdata)
+		return ERR_PTR(-ENOMEM);
+
 	gpio_keys = (void *)(gpio_keys_pdata + 1);
 
 	for (info = button_info; info->name; info++) {

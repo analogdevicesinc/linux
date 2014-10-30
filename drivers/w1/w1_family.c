@@ -87,7 +87,7 @@ void w1_unregister_family(struct w1_family *fent)
 	w1_reconnect_slaves(fent, 0);
 
 	while (atomic_read(&fent->refcnt)) {
-		printk(KERN_INFO "Waiting for family %u to become free: refcnt=%d.\n",
+		pr_info("Waiting for family %u to become free: refcnt=%d.\n",
 				fent->fid, atomic_read(&fent->refcnt));
 
 		if (msleep_interruptible(1000))
@@ -139,9 +139,9 @@ void w1_family_get(struct w1_family *f)
 
 void __w1_family_get(struct w1_family *f)
 {
-	smp_mb__before_atomic_inc();
+	smp_mb__before_atomic();
 	atomic_inc(&f->refcnt);
-	smp_mb__after_atomic_inc();
+	smp_mb__after_atomic();
 }
 
 EXPORT_SYMBOL(w1_unregister_family);

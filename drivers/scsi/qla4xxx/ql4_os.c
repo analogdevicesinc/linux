@@ -83,12 +83,12 @@ MODULE_PARM_DESC(ql4xsess_recovery_tmo,
 		" Target Session Recovery Timeout.\n"
 		"\t\t  Default: 120 sec.");
 
-int ql4xmdcapmask = 0x1F;
+int ql4xmdcapmask = 0;
 module_param(ql4xmdcapmask, int, S_IRUGO);
 MODULE_PARM_DESC(ql4xmdcapmask,
 		 " Set the Minidump driver capture mask level.\n"
-		 "\t\t  Default is 0x1F.\n"
-		 "\t\t  Can be set to 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F");
+		 "\t\t  Default is 0 (firmware default capture mask)\n"
+		 "\t\t  Can be set to 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F, 0xFF");
 
 int ql4xenablemd = 1;
 module_param(ql4xenablemd, int, S_IRUGO | S_IWUSR);
@@ -756,9 +756,9 @@ static int qla4xxx_get_chap_list(struct Scsi_Host *shost, uint16_t chap_tbl_idx,
 			continue;
 
 		chap_rec->chap_tbl_idx = i;
-		strncpy(chap_rec->username, chap_table->name,
+		strlcpy(chap_rec->username, chap_table->name,
 			ISCSI_CHAP_AUTH_NAME_MAX_LEN);
-		strncpy(chap_rec->password, chap_table->secret,
+		strlcpy(chap_rec->password, chap_table->secret,
 			QL4_CHAP_MAX_SECRET_LEN);
 		chap_rec->password_length = chap_table->secret_len;
 
@@ -1050,6 +1050,7 @@ static int qla4xxx_get_host_stats(struct Scsi_Host *shost, char *buf, int len)
 	if (!ql_iscsi_stats) {
 		ql4_printk(KERN_ERR, ha,
 			   "Unable to allocate memory for iscsi stats\n");
+		ret = -ENOMEM;
 		goto exit_host_stats;
 	}
 
@@ -1058,6 +1059,7 @@ static int qla4xxx_get_host_stats(struct Scsi_Host *shost, char *buf, int len)
 	if (ret != QLA_SUCCESS) {
 		ql4_printk(KERN_ERR, ha,
 			   "Unable to retrieve iscsi stats\n");
+		ret = -EIO;
 		goto exit_host_stats;
 	}
 	host_stats->mactx_frames = le64_to_cpu(ql_iscsi_stats->mac_tx_frames);
@@ -1742,6 +1744,9 @@ static int qla4xxx_get_ep_param(struct iscsi_endpoint *ep,
 	struct sockaddr *dst_addr;
 	struct scsi_qla_host *ha;
 
+	if (!qla_ep)
+		return -ENOTCONN;
+
 	ha = to_qla_host(qla_ep->host);
 	DEBUG2(ql4_printk(KERN_INFO, ha, "%s: host: %ld\n", __func__,
 			  ha->host_no));
@@ -1749,9 +1754,6 @@ static int qla4xxx_get_ep_param(struct iscsi_endpoint *ep,
 	switch (param) {
 	case ISCSI_PARAM_CONN_PORT:
 	case ISCSI_PARAM_CONN_ADDRESS:
-		if (!qla_ep)
-			return -ENOTCONN;
-
 		dst_addr = (struct sockaddr *)&qla_ep->dst_addr;
 		if (!dst_addr)
 			return -ENOTCONN;
@@ -2879,7 +2881,6 @@ static int qla4xxx_conn_get_param(struct iscsi_cls_conn *cls_conn,
 	struct iscsi_conn *conn;
 	struct qla_conn *qla_conn;
 	struct sockaddr *dst_addr;
-	int len = 0;
 
 	conn = cls_conn->dd_data;
 	qla_conn = conn->dd_data;
@@ -2893,9 +2894,6 @@ static int qla4xxx_conn_get_param(struct iscsi_cls_conn *cls_conn,
 	default:
 		return iscsi_conn_get_param(cls_conn, param, buf);
 	}
-
-	return len;
-
 }
 
 int qla4xxx_get_ddb_index(struct scsi_qla_host *ha, uint16_t *ddb_index)
@@ -3569,14 +3567,13 @@ static int qla4xxx_copy_from_fwddb_param(struct iscsi_bus_flash_session *sess,
 	if (test_bit(OPT_IPV6_DEVICE, &options)) {
 		conn->ipv6_traffic_class = fw_ddb_entry->ipv4_tos;
 
-		conn->link_local_ipv6_addr = kzalloc(IPv6_ADDR_LEN, GFP_KERNEL);
+		conn->link_local_ipv6_addr = kmemdup(
+					fw_ddb_entry->link_local_ipv6_addr,
+					IPv6_ADDR_LEN, GFP_KERNEL);
 		if (!conn->link_local_ipv6_addr) {
 			rc = -ENOMEM;
 			goto exit_copy;
 		}
-
-		memcpy(conn->link_local_ipv6_addr,
-		       fw_ddb_entry->link_local_ipv6_addr, IPv6_ADDR_LEN);
 	} else {
 		conn->ipv4_tos = fw_ddb_entry->ipv4_tos;
 	}
@@ -4565,6 +4562,7 @@ static void qla4xxx_timer(struct scsi_qla_host *ha)
 	     test_bit(DPC_LINK_CHANGED, &ha->dpc_flags) ||
 	     test_bit(DPC_HA_UNRECOVERABLE, &ha->dpc_flags) ||
 	     test_bit(DPC_HA_NEED_QUIESCENT, &ha->dpc_flags) ||
+	     test_bit(DPC_SYSFS_DDB_EXPORT, &ha->dpc_flags) ||
 	     test_bit(DPC_AEN, &ha->dpc_flags)) {
 		DEBUG2(printk("scsi%ld: %s: scheduling dpc routine"
 			      " - dpc flags = 0x%lx\n",
@@ -4862,9 +4860,6 @@ static int qla4xxx_recover_adapter(struct scsi_qla_host *ha)
 		    ha->host_no, __func__));
 		status = ha->isp_ops->reset_firmware(ha);
 		if (status == QLA_SUCCESS) {
-			if (!test_bit(AF_FW_RECOVERY, &ha->flags))
-				qla4xxx_cmd_wait(ha);
-
 			ha->isp_ops->disable_intrs(ha);
 			qla4xxx_process_aen(ha, FLUSH_DDB_CHANGED_AENS);
 			qla4xxx_abort_active_cmds(ha, DID_RESET << 16);
@@ -5431,6 +5426,11 @@ dpc_post_reset_ha:
 			} else
 				qla4xxx_relogin_all_devices(ha);
 		}
+	}
+	if (test_and_clear_bit(DPC_SYSFS_DDB_EXPORT, &ha->dpc_flags)) {
+		if (qla4xxx_sysfs_ddb_export(ha))
+			ql4_printk(KERN_ERR, ha, "%s: Error exporting ddb to sysfs\n",
+				   __func__);
 	}
 }
 
@@ -6029,8 +6029,8 @@ static int qla4xxx_get_bidi_chap(struct scsi_qla_host *ha, char *username,
 		if (!(chap_table->flags & BIT_6)) /* Not BIDI */
 			continue;
 
-		strncpy(password, chap_table->secret, QL4_CHAP_MAX_SECRET_LEN);
-		strncpy(username, chap_table->name, QL4_CHAP_MAX_NAME_LEN);
+		strlcpy(password, chap_table->secret, QL4_CHAP_MAX_SECRET_LEN);
+		strlcpy(username, chap_table->name, QL4_CHAP_MAX_NAME_LEN);
 		ret = 0;
 		break;
 	}
@@ -6260,8 +6260,8 @@ static void qla4xxx_get_param_ddb(struct ddb_entry *ddb_entry,
 
 	tddb->tpgt = sess->tpgt;
 	tddb->port = conn->persistent_port;
-	strncpy(tddb->iscsi_name, sess->targetname, ISCSI_NAME_SIZE);
-	strncpy(tddb->ip_addr, conn->persistent_address, DDB_IPADDR_LEN);
+	strlcpy(tddb->iscsi_name, sess->targetname, ISCSI_NAME_SIZE);
+	strlcpy(tddb->ip_addr, conn->persistent_address, DDB_IPADDR_LEN);
 }
 
 static void qla4xxx_convert_param_ddb(struct dev_db_entry *fw_ddb_entry,
@@ -7766,7 +7766,7 @@ static int qla4xxx_sysfs_ddb_logout(struct iscsi_bus_flash_session *fnode_sess,
 		goto exit_ddb_logout;
 	}
 
-	strncpy(flash_tddb->iscsi_name, fnode_sess->targetname,
+	strlcpy(flash_tddb->iscsi_name, fnode_sess->targetname,
 		ISCSI_NAME_SIZE);
 
 	if (!strncmp(fnode_sess->portal_type, PORTAL_TYPE_IPV6, 4))
@@ -8409,7 +8409,7 @@ exit_ddb_del:
  *
  * Export the firmware DDB for all send targets and normal targets to sysfs.
  **/
-static int qla4xxx_sysfs_ddb_export(struct scsi_qla_host *ha)
+int qla4xxx_sysfs_ddb_export(struct scsi_qla_host *ha)
 {
 	struct dev_db_entry *fw_ddb_entry = NULL;
 	dma_addr_t fw_ddb_entry_dma;
@@ -8847,11 +8847,8 @@ skip_retry_init:
 		ql4_printk(KERN_ERR, ha,
 			   "%s: No iSCSI boot target configured\n", __func__);
 
-	if (qla4xxx_sysfs_ddb_export(ha))
-		ql4_printk(KERN_ERR, ha,
-			   "%s: Error exporting ddb to sysfs\n", __func__);
-
-		/* Perform the build ddb list and login to each */
+	set_bit(DPC_SYSFS_DDB_EXPORT, &ha->dpc_flags);
+	/* Perform the build ddb list and login to each */
 	qla4xxx_build_ddb_list(ha, INIT_ADAPTER);
 	iscsi_host_for_each_session(ha->host, qla4xxx_login_flash_ddb);
 	qla4xxx_wait_login_resp_boot_tgt(ha);
@@ -9228,20 +9225,20 @@ static int qla4xxx_eh_abort(struct scsi_cmnd *cmd)
 {
 	struct scsi_qla_host *ha = to_qla_host(cmd->device->host);
 	unsigned int id = cmd->device->id;
-	unsigned int lun = cmd->device->lun;
+	uint64_t lun = cmd->device->lun;
 	unsigned long flags;
 	struct srb *srb = NULL;
 	int ret = SUCCESS;
 	int wait = 0;
 
-	ql4_printk(KERN_INFO, ha, "scsi%ld:%d:%d: Abort command issued cmd=%p, cdb=0x%x\n",
+	ql4_printk(KERN_INFO, ha, "scsi%ld:%d:%llu: Abort command issued cmd=%p, cdb=0x%x\n",
 		   ha->host_no, id, lun, cmd, cmd->cmnd[0]);
 
 	spin_lock_irqsave(&ha->hardware_lock, flags);
 	srb = (struct srb *) CMD_SP(cmd);
 	if (!srb) {
 		spin_unlock_irqrestore(&ha->hardware_lock, flags);
-		ql4_printk(KERN_INFO, ha, "scsi%ld:%d:%d: Specified command has already completed.\n",
+		ql4_printk(KERN_INFO, ha, "scsi%ld:%d:%llu: Specified command has already completed.\n",
 			   ha->host_no, id, lun);
 		return SUCCESS;
 	}
@@ -9249,11 +9246,11 @@ static int qla4xxx_eh_abort(struct scsi_cmnd *cmd)
 	spin_unlock_irqrestore(&ha->hardware_lock, flags);
 
 	if (qla4xxx_abort_task(ha, srb) != QLA_SUCCESS) {
-		DEBUG3(printk("scsi%ld:%d:%d: Abort_task mbx failed.\n",
+		DEBUG3(printk("scsi%ld:%d:%llu: Abort_task mbx failed.\n",
 		    ha->host_no, id, lun));
 		ret = FAILED;
 	} else {
-		DEBUG3(printk("scsi%ld:%d:%d: Abort_task mbx success.\n",
+		DEBUG3(printk("scsi%ld:%d:%llu: Abort_task mbx success.\n",
 		    ha->host_no, id, lun));
 		wait = 1;
 	}
@@ -9263,14 +9260,14 @@ static int qla4xxx_eh_abort(struct scsi_cmnd *cmd)
 	/* Wait for command to complete */
 	if (wait) {
 		if (!qla4xxx_eh_wait_on_command(ha, cmd)) {
-			DEBUG2(printk("scsi%ld:%d:%d: Abort handler timed out\n",
+			DEBUG2(printk("scsi%ld:%d:%llu: Abort handler timed out\n",
 			    ha->host_no, id, lun));
 			ret = FAILED;
 		}
 	}
 
 	ql4_printk(KERN_INFO, ha,
-	    "scsi%ld:%d:%d: Abort command - %s\n",
+	    "scsi%ld:%d:%llu: Abort command - %s\n",
 	    ha->host_no, id, lun, (ret == SUCCESS) ? "succeeded" : "failed");
 
 	return ret;
@@ -9298,7 +9295,7 @@ static int qla4xxx_eh_device_reset(struct scsi_cmnd *cmd)
 	ret = FAILED;
 
 	ql4_printk(KERN_INFO, ha,
-		   "scsi%ld:%d:%d:%d: DEVICE RESET ISSUED.\n", ha->host_no,
+		   "scsi%ld:%d:%d:%llu: DEVICE RESET ISSUED.\n", ha->host_no,
 		   cmd->device->channel, cmd->device->id, cmd->device->lun);
 
 	DEBUG2(printk(KERN_INFO
@@ -9328,7 +9325,7 @@ static int qla4xxx_eh_device_reset(struct scsi_cmnd *cmd)
 		goto eh_dev_reset_done;
 
 	ql4_printk(KERN_INFO, ha,
-		   "scsi(%ld:%d:%d:%d): DEVICE RESET SUCCEEDED.\n",
+		   "scsi(%ld:%d:%d:%llu): DEVICE RESET SUCCEEDED.\n",
 		   ha->host_no, cmd->device->channel, cmd->device->id,
 		   cmd->device->lun);
 
@@ -9445,7 +9442,7 @@ static int qla4xxx_eh_host_reset(struct scsi_cmnd *cmd)
 	}
 
 	ql4_printk(KERN_INFO, ha,
-		   "scsi(%ld:%d:%d:%d): HOST RESET ISSUED.\n", ha->host_no,
+		   "scsi(%ld:%d:%d:%llu): HOST RESET ISSUED.\n", ha->host_no,
 		   cmd->device->channel, cmd->device->id, cmd->device->lun);
 
 	if (qla4xxx_wait_for_hba_online(ha) != QLA_SUCCESS) {

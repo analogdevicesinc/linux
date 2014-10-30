@@ -64,6 +64,7 @@
 
 #include "iwl-debug.h"
 #include "iwl-io.h"
+#include "iwl-prph.h"
 
 #include "mvm.h"
 #include "fw-api-rs.h"
@@ -143,7 +144,7 @@ int iwl_mvm_send_cmd_status(struct iwl_mvm *mvm, struct iwl_host_cmd *cmd,
 		      "cmd flags %x", cmd->flags))
 		return -EINVAL;
 
-	cmd->flags |= CMD_SYNC | CMD_WANT_SKB;
+	cmd->flags |= CMD_WANT_SKB;
 
 	ret = iwl_trans_send_cmd(mvm->trans, cmd);
 	if (ret == -ERFKILL) {
@@ -469,6 +470,8 @@ void iwl_mvm_dump_nic_error_log(struct iwl_mvm *mvm)
 			mvm->status, table.valid);
 	}
 
+	/* Do not change this output - scripts rely on it */
+
 	IWL_ERR(mvm, "Loaded firmware version: %s\n", mvm->fw->fw_version);
 
 	trace_iwlwifi_dev_ucode_error(trans->dev, table.error_id, table.tsf_low,
@@ -516,28 +519,6 @@ void iwl_mvm_dump_nic_error_log(struct iwl_mvm *mvm)
 		iwl_mvm_dump_umac_error_log(mvm);
 }
 
-void iwl_mvm_fw_error_sram_dump(struct iwl_mvm *mvm)
-{
-	const struct fw_img *img;
-	u32 ofs, sram_len;
-	void *sram;
-
-	if (!mvm->ucode_loaded || mvm->fw_error_sram)
-		return;
-
-	img = &mvm->fw->img[mvm->cur_ucode];
-	ofs = img->sec[IWL_UCODE_SECTION_DATA].offset;
-	sram_len = img->sec[IWL_UCODE_SECTION_DATA].len;
-
-	sram = kzalloc(sram_len, GFP_ATOMIC);
-	if (!sram)
-		return;
-
-	iwl_trans_read_mem_bytes(mvm->trans, ofs, sram, sram_len);
-	mvm->fw_error_sram = sram;
-	mvm->fw_error_sram_len = sram_len;
-}
-
 /**
  * iwl_mvm_send_lq_cmd() - Send link quality command
  * @init: This command is sent as part of station initialization right
@@ -553,7 +534,7 @@ int iwl_mvm_send_lq_cmd(struct iwl_mvm *mvm, struct iwl_lq_cmd *lq, bool init)
 	struct iwl_host_cmd cmd = {
 		.id = LQ_CMD,
 		.len = { sizeof(struct iwl_lq_cmd), },
-		.flags = init ? CMD_SYNC : CMD_ASYNC,
+		.flags = init ? 0 : CMD_ASYNC,
 		.data = { lq, },
 	};
 
@@ -604,6 +585,39 @@ void iwl_mvm_update_smps(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 	ieee80211_request_smps(vif, smps_mode);
 }
 
+static void iwl_mvm_diversity_iter(void *_data, u8 *mac,
+				   struct ieee80211_vif *vif)
+{
+	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
+	bool *result = _data;
+	int i;
+
+	for (i = 0; i < NUM_IWL_MVM_SMPS_REQ; i++) {
+		if (mvmvif->smps_requests[i] == IEEE80211_SMPS_STATIC ||
+		    mvmvif->smps_requests[i] == IEEE80211_SMPS_DYNAMIC)
+			*result = false;
+	}
+}
+
+bool iwl_mvm_rx_diversity_allowed(struct iwl_mvm *mvm)
+{
+	bool result = true;
+
+	lockdep_assert_held(&mvm->mutex);
+
+	if (num_of_ant(mvm->fw->valid_rx_ant) == 1)
+		return false;
+
+	if (!mvm->cfg->rx_with_siso_diversity)
+		return false;
+
+	ieee80211_iterate_active_interfaces_atomic(
+			mvm->hw, IEEE80211_IFACE_ITER_NORMAL,
+			iwl_mvm_diversity_iter, &result);
+
+	return result;
+}
+
 int iwl_mvm_update_low_latency(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 			       bool value)
 {
@@ -623,7 +637,7 @@ int iwl_mvm_update_low_latency(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 
 	iwl_mvm_bt_coex_vif_change(mvm);
 
-	return iwl_mvm_power_update_mac(mvm, vif);
+	return iwl_mvm_power_update_mac(mvm);
 }
 
 static void iwl_mvm_ll_iter(void *_data, u8 *mac, struct ieee80211_vif *vif)

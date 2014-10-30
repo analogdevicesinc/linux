@@ -23,7 +23,7 @@ static int bond_debug_rlb_hash_show(struct seq_file *m, void *v)
 	struct rlb_client_info *client_info;
 	u32 hash_index;
 
-	if (bond->params.mode != BOND_MODE_ALB)
+	if (BOND_MODE(bond) != BOND_MODE_ALB)
 		return 0;
 
 	seq_printf(m, "SourceIP        DestinationIP   "
@@ -69,8 +69,7 @@ void bond_debug_register(struct bonding *bond)
 		debugfs_create_dir(bond->dev->name, bonding_debug_root);
 
 	if (!bond->debug_dir) {
-		pr_warn("%s: Warning: failed to register to debugfs\n",
-			bond->dev->name);
+		netdev_warn(bond->dev, "failed to register to debugfs\n");
 		return;
 	}
 
@@ -98,8 +97,7 @@ void bond_debug_reregister(struct bonding *bond)
 	if (d) {
 		bond->debug_dir = d;
 	} else {
-		pr_warn("%s: Warning: failed to reregister, so just unregister old one\n",
-			bond->dev->name);
+		netdev_warn(bond->dev, "failed to reregister, so just unregister old one\n");
 		bond_debug_unregister(bond);
 	}
 }

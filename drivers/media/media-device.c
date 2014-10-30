@@ -106,8 +106,6 @@ static long media_device_enum_entities(struct media_device *mdev,
 	if (ent->name) {
 		strncpy(u_ent.name, ent->name, sizeof(u_ent.name));
 		u_ent.name[sizeof(u_ent.name) - 1] = '\0';
-	} else {
-		memset(u_ent.name, 0, sizeof(u_ent.name));
 	}
 	u_ent.type = ent->type;
 	u_ent.revision = ent->revision;
@@ -373,7 +371,8 @@ static void media_device_release(struct media_devnode *mdev)
  * - dev must point to the parent device
  * - model must be filled with the device model name
  */
-int __must_check media_device_register(struct media_device *mdev)
+int __must_check __media_device_register(struct media_device *mdev,
+					 struct module *owner)
 {
 	int ret;
 
@@ -389,7 +388,7 @@ int __must_check media_device_register(struct media_device *mdev)
 	mdev->devnode.fops = &media_device_fops;
 	mdev->devnode.parent = mdev->dev;
 	mdev->devnode.release = media_device_release;
-	ret = media_devnode_register(&mdev->devnode);
+	ret = media_devnode_register(&mdev->devnode, owner);
 	if (ret < 0)
 		return ret;
 
@@ -401,7 +400,7 @@ int __must_check media_device_register(struct media_device *mdev)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(media_device_register);
+EXPORT_SYMBOL_GPL(__media_device_register);
 
 /**
  * media_device_unregister - unregister a media device

@@ -1078,6 +1078,8 @@ static void w1_search_process(struct w1_master *dev, u8 search_type)
  * w1_process_callbacks() - execute each dev->async_list callback entry
  * @dev: w1_master device
  *
+ * The w1 master list_mutex must be held.
+ *
  * Return: 1 if there were commands to executed 0 otherwise
  */
 int w1_process_callbacks(struct w1_master *dev)
@@ -1160,28 +1162,26 @@ static int __init w1_init(void)
 {
 	int retval;
 
-	printk(KERN_INFO "Driver for 1-wire Dallas network protocol.\n");
+	pr_info("Driver for 1-wire Dallas network protocol.\n");
 
 	w1_init_netlink();
 
 	retval = bus_register(&w1_bus_type);
 	if (retval) {
-		printk(KERN_ERR "Failed to register bus. err=%d.\n", retval);
+		pr_err("Failed to register bus. err=%d.\n", retval);
 		goto err_out_exit_init;
 	}
 
 	retval = driver_register(&w1_master_driver);
 	if (retval) {
-		printk(KERN_ERR
-			"Failed to register master driver. err=%d.\n",
+		pr_err("Failed to register master driver. err=%d.\n",
 			retval);
 		goto err_out_bus_unregister;
 	}
 
 	retval = driver_register(&w1_slave_driver);
 	if (retval) {
-		printk(KERN_ERR
-			"Failed to register slave driver. err=%d.\n",
+		pr_err("Failed to register slave driver. err=%d.\n",
 			retval);
 		goto err_out_master_unregister;
 	}

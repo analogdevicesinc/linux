@@ -91,7 +91,7 @@ static inline void dma_write(u32 val, int reg, int lch)
 	addr += reg_map[reg].offset;
 	addr += reg_map[reg].stride * lch;
 
-	__raw_writel(val, addr);
+	writel_relaxed(val, addr);
 }
 
 static inline u32 dma_read(int reg, int lch)
@@ -101,7 +101,7 @@ static inline u32 dma_read(int reg, int lch)
 	addr += reg_map[reg].offset;
 	addr += reg_map[reg].stride * lch;
 
-	return __raw_readl(addr);
+	return readl_relaxed(addr);
 }
 
 static void omap2_clear_dma(int lch)
@@ -258,6 +258,9 @@ static int __init omap2_system_dma_init_dev(struct omap_hwmod *oh, void *unused)
 
 	if (cpu_is_omap34xx() && (omap_type() != OMAP2_DEVICE_TYPE_GP))
 		d->dev_caps |= HS_CHANNELS_RESERVED;
+
+	if (platform_get_irq_byname(pdev, "0") < 0)
+		d->dev_caps |= DMA_ENGINE_HANDLE_IRQ;
 
 	/* Check the capabilities register for descriptor loading feature */
 	if (dma_read(CAPS_0, 0) & DMA_HAS_DESCRIPTOR_CAPS)

@@ -262,6 +262,9 @@ struct gfs2_holder {
 	unsigned long gh_ip;
 };
 
+/* Number of quota types we support */
+#define GFS2_MAXQUOTAS 2
+
 /* Resource group multi-block reservation, in order of appearance:
 
    Step 1. Function prepares to write, allocates a mb, sets the size hint.
@@ -282,8 +285,8 @@ struct gfs2_blkreserv {
 	u64 rs_inum;                  /* Inode number for reservation */
 
 	/* ancillary quota stuff */
-	struct gfs2_quota_data *rs_qa_qd[2 * MAXQUOTAS];
-	struct gfs2_holder rs_qa_qd_ghs[2 * MAXQUOTAS];
+	struct gfs2_quota_data *rs_qa_qd[2 * GFS2_MAXQUOTAS];
+	struct gfs2_holder rs_qa_qd_ghs[2 * GFS2_MAXQUOTAS];
 	unsigned int rs_qa_qd_num;
 };
 
@@ -465,9 +468,7 @@ struct gfs2_trans {
 	unsigned int tr_reserved;
 	unsigned int tr_touched:1;
 	unsigned int tr_attached:1;
-
-	struct gfs2_holder tr_t_gh;
-
+	unsigned int tr_alloced:1;
 
 	unsigned int tr_num_buf_new;
 	unsigned int tr_num_databuf_new;
@@ -682,7 +683,7 @@ struct gfs2_sbd {
 	struct lm_lockstruct sd_lockstruct;
 	struct gfs2_holder sd_live_gh;
 	struct gfs2_glock *sd_rename_gl;
-	struct gfs2_glock *sd_trans_gl;
+	struct gfs2_glock *sd_freeze_gl;
 	wait_queue_head_t sd_glock_wait;
 	atomic_t sd_glock_disposal;
 	struct completion sd_locking_init;
@@ -729,6 +730,8 @@ struct gfs2_sbd {
 
 	struct gfs2_holder sd_sc_gh;
 	struct gfs2_holder sd_qc_gh;
+
+	struct completion sd_journal_ready;
 
 	/* Daemon stuff */
 
@@ -794,6 +797,12 @@ struct gfs2_sbd {
 
 	/* For quiescing the filesystem */
 	struct gfs2_holder sd_freeze_gh;
+	struct gfs2_holder sd_freeze_root_gh;
+	struct gfs2_holder sd_thaw_gh;
+	atomic_t sd_log_freeze;
+	atomic_t sd_frozen_root;
+	wait_queue_head_t sd_frozen_root_wait;
+	wait_queue_head_t sd_log_frozen_wait;
 
 	char sd_fsname[GFS2_FSNAME_LEN];
 	char sd_table_name[GFS2_FSNAME_LEN];

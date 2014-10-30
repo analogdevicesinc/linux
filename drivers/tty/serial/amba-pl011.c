@@ -303,7 +303,7 @@ static void pl011_dma_probe_initcall(struct device *dev, struct uart_amba_port *
 
 	/* Optionally make use of an RX channel as well */
 	chan = dma_request_slave_channel(dev, "rx");
-	
+
 	if (!chan && plat->dma_rx_param) {
 		chan = dma_request_channel(mask, plat->dma_filter, plat->dma_rx_param);
 
@@ -1484,7 +1484,7 @@ static int pl011_hwinit(struct uart_port *port)
 	 */
 	retval = clk_prepare_enable(uap->clk);
 	if (retval)
-		goto out;
+		return retval;
 
 	uap->port.uartclk = clk_get_rate(uap->clk);
 
@@ -1507,8 +1507,6 @@ static int pl011_hwinit(struct uart_port *port)
 			plat->init();
 	}
 	return 0;
- out:
-	return retval;
 }
 
 static void pl011_write_lcr_h(struct uart_amba_port *uap, unsigned int lcr_h)
@@ -2045,6 +2043,35 @@ static struct console amba_console = {
 };
 
 #define AMBA_CONSOLE	(&amba_console)
+
+static void pl011_putc(struct uart_port *port, int c)
+{
+	while (readl(port->membase + UART01x_FR) & UART01x_FR_TXFF)
+		;
+	writeb(c, port->membase + UART01x_DR);
+	while (readl(port->membase + UART01x_FR) & UART01x_FR_BUSY)
+		;
+}
+
+static void pl011_early_write(struct console *con, const char *s, unsigned n)
+{
+	struct earlycon_device *dev = con->data;
+
+	uart_console_write(&dev->port, s, n, pl011_putc);
+}
+
+static int __init pl011_early_console_setup(struct earlycon_device *device,
+					    const char *opt)
+{
+	if (!device->port.membase)
+		return -ENODEV;
+
+	device->con->write = pl011_early_write;
+	return 0;
+}
+EARLYCON_DECLARE(pl011, pl011_early_console_setup);
+OF_EARLYCON_DECLARE(pl011, "arm,pl011", pl011_early_console_setup);
+
 #else
 #define AMBA_CONSOLE	NULL
 #endif
@@ -2102,32 +2129,24 @@ static int pl011_probe(struct amba_device *dev, const struct amba_id *id)
 		if (amba_ports[i] == NULL)
 			break;
 
-	if (i == ARRAY_SIZE(amba_ports)) {
-		ret = -EBUSY;
-		goto out;
-	}
+	if (i == ARRAY_SIZE(amba_ports))
+		return -EBUSY;
 
 	uap = devm_kzalloc(&dev->dev, sizeof(struct uart_amba_port),
 			   GFP_KERNEL);
-	if (uap == NULL) {
-		ret = -ENOMEM;
-		goto out;
-	}
+	if (uap == NULL)
+		return -ENOMEM;
 
 	i = pl011_probe_dt_alias(i, &dev->dev);
 
 	base = devm_ioremap(&dev->dev, dev->res.start,
 			    resource_size(&dev->res));
-	if (!base) {
-		ret = -ENOMEM;
-		goto out;
-	}
+	if (!base)
+		return -ENOMEM;
 
 	uap->clk = devm_clk_get(&dev->dev, NULL);
-	if (IS_ERR(uap->clk)) {
-		ret = PTR_ERR(uap->clk);
-		goto out;
-	}
+	if (IS_ERR(uap->clk))
+		return PTR_ERR(uap->clk);
 
 	uap->vendor = vendor;
 	uap->lcrh_rx = vendor->lcrh_rx;
@@ -2169,7 +2188,7 @@ static int pl011_probe(struct amba_device *dev, const struct amba_id *id)
 		uart_unregister_driver(&amba_reg);
 		pl011_dma_remove(uap);
 	}
- out:
+
 	return ret;
 }
 

@@ -54,6 +54,20 @@ static int __init dsp_disable(char *s)
 
 __setup("nodsp", dsp_disable);
 
+static int mips_htw_disabled;
+
+static int __init htw_disable(char *s)
+{
+	mips_htw_disabled = 1;
+	cpu_data[0].options &= ~MIPS_CPU_HTW;
+	write_c0_pwctl(read_c0_pwctl() &
+		       ~(1 << MIPS_PWCTL_PWEN_SHIFT));
+
+	return 1;
+}
+
+__setup("nohtw", htw_disable);
+
 static inline void check_errata(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
@@ -62,7 +76,7 @@ static inline void check_errata(void)
 	case CPU_34K:
 		/*
 		 * Erratum "RPS May Cause Incorrect Instruction Execution"
-		 * This code only handles VPE0, any SMP/SMTC/RTOS code
+		 * This code only handles VPE0, any SMP/RTOS code
 		 * making use of VPE1 will be responsable for that VPE.
 		 */
 		if ((c->processor_id & PRID_REV_MASK) <= PRID_REV_34K_V1_0_2)
@@ -130,14 +144,13 @@ static inline int __cpu_has_fpu(void)
 
 static inline unsigned long cpu_get_msa_id(void)
 {
-	unsigned long status, conf5, msa_id;
+	unsigned long status, msa_id;
 
 	status = read_c0_status();
 	__enable_fpu(FPU_64BIT);
-	conf5 = read_c0_config5();
 	enable_msa();
 	msa_id = read_msa_ir();
-	write_c0_config5(conf5);
+	disable_msa();
 	write_c0_status(status);
 	return msa_id;
 }
@@ -321,6 +334,9 @@ static inline unsigned int decode_config3(struct cpuinfo_mips *c)
 		c->options |= MIPS_CPU_SEGMENTS;
 	if (config3 & MIPS_CONF3_MSA)
 		c->ases |= MIPS_ASE_MSA;
+	/* Only tested on 32-bit cores */
+	if ((config3 & MIPS_CONF3_PW) && config_enabled(CONFIG_32BIT))
+		c->options |= MIPS_CPU_HTW;
 
 	return config3 & MIPS_CONF_M;
 }
@@ -389,6 +405,8 @@ static inline unsigned int decode_config5(struct cpuinfo_mips *c)
 
 	if (config5 & MIPS_CONF5_EVA)
 		c->options |= MIPS_CPU_EVA;
+	if (config5 & MIPS_CONF5_MRP)
+		c->options |= MIPS_CPU_MAAR;
 
 	return config5 & MIPS_CONF_M;
 }
@@ -421,9 +439,18 @@ static void decode_configs(struct cpuinfo_mips *c)
 
 	mips_probe_watch_registers(c);
 
+	if (cpu_has_rixi) {
+		/* Enable the RIXI exceptions */
+		write_c0_pagegrain(read_c0_pagegrain() | PG_IEC);
+		back_to_back_c0_hazard();
+		/* Verify the IEC bit is set */
+		if (read_c0_pagegrain() & PG_IEC)
+			c->options |= MIPS_CPU_RIXIEX;
+	}
+
 #ifndef CONFIG_MIPS_CPS
 	if (cpu_has_mips_r2) {
-		c->core = read_c0_ebase() & 0x3ff;
+		c->core = get_ebase_cpunum();
 		if (cpu_has_mipsmt)
 			c->core >>= fls(core_nvpes()) - 1;
 	}
@@ -684,21 +711,6 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c, unsigned int cpu)
 		 */
 		c->tlbsize = (read_c0_info() & (1 << 29)) ? 64 : 48;
 		break;
-	case PRID_IMP_RM9000:
-		c->cputype = CPU_RM9000;
-		__cpu_name[cpu] = "RM9000";
-		set_isa(c, MIPS_CPU_ISA_IV);
-		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
-			     MIPS_CPU_LLSC;
-		/*
-		 * Bit 29 in the info register of the RM9000
-		 * indicates if the TLB has 48 or 64 entries.
-		 *
-		 * 29	   1 =>	   64 entry JTLB
-		 *	   0 =>	   48 entry JTLB
-		 */
-		c->tlbsize = (read_c0_info() & (1 << 29)) ? 64 : 48;
-		break;
 	case PRID_IMP_R8000:
 		c->cputype = CPU_R8000;
 		__cpu_name[cpu] = "RM8000";
@@ -754,6 +766,12 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c, unsigned int cpu)
 			c->cputype = CPU_LOONGSON3;
 			__cpu_name[cpu] = "ICT Loongson-3";
 			set_elf_platform(cpu, "loongson3a");
+			break;
+		case PRID_REV_LOONGSON3B_R1:
+		case PRID_REV_LOONGSON3B_R2:
+			c->cputype = CPU_LOONGSON3;
+			__cpu_name[cpu] = "ICT Loongson-3";
+			set_elf_platform(cpu, "loongson3b");
 			break;
 		}
 
@@ -1041,6 +1059,7 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 	decode_configs(c);
 	/* JZRISC does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
+	BUG_ON(!__builtin_constant_p(cpu_has_counter) || cpu_has_counter);
 	switch (c->processor_id & PRID_IMP_MASK) {
 	case PRID_IMP_JZRISC:
 		c->cputype = CPU_JZRISC;
@@ -1074,6 +1093,7 @@ static inline void cpu_probe_netlogic(struct cpuinfo_mips *c, int cpu)
 	switch (c->processor_id & PRID_IMP_MASK) {
 	case PRID_IMP_NETLOGIC_XLP2XX:
 	case PRID_IMP_NETLOGIC_XLP9XX:
+	case PRID_IMP_NETLOGIC_XLP5XX:
 		c->cputype = CPU_XLP;
 		__cpu_name[cpu] = "Broadcom XLPII";
 		break;
@@ -1199,6 +1219,12 @@ void cpu_probe(void)
 
 	if (mips_dsp_disabled)
 		c->ases &= ~(MIPS_ASE_DSP | MIPS_ASE_DSP2P);
+
+	if (mips_htw_disabled) {
+		c->options &= ~MIPS_CPU_HTW;
+		write_c0_pwctl(read_c0_pwctl() &
+			       ~(1 << MIPS_PWCTL_PWEN_SHIFT));
+	}
 
 	if (c->options & MIPS_CPU_FPU) {
 		c->fpu_id = cpu_get_fpu_id();

@@ -42,8 +42,6 @@ addition, the clock does not seem to be very accurate.
 
 #include "comedi_fc.h"
 
-#define DT2814_SIZE 2
-
 #define DT2814_CSR 0
 #define DT2814_DATA 1
 
@@ -128,7 +126,7 @@ static int dt2814_ai_cmdtest(struct comedi_device *dev,
 			     struct comedi_subdevice *s, struct comedi_cmd *cmd)
 {
 	int err = 0;
-	int tmp;
+	unsigned int arg;
 
 	/* Step 1 : check if triggers are trivially valid */
 
@@ -170,10 +168,9 @@ static int dt2814_ai_cmdtest(struct comedi_device *dev,
 
 	/* step 4: fix up any arguments */
 
-	tmp = cmd->scan_begin_arg;
-	dt2814_ns_to_timer(&cmd->scan_begin_arg, cmd->flags & TRIG_ROUND_MASK);
-	if (tmp != cmd->scan_begin_arg)
-		err++;
+	arg = cmd->scan_begin_arg;
+	dt2814_ns_to_timer(&arg, cmd->flags);
+	err |= cfc_check_trigger_arg_is(&cmd->scan_begin_arg, arg);
 
 	if (err)
 		return 4;
@@ -188,9 +185,7 @@ static int dt2814_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 	int chan;
 	int trigvar;
 
-	trigvar =
-	    dt2814_ns_to_timer(&cmd->scan_begin_arg,
-			       cmd->flags & TRIG_ROUND_MASK);
+	trigvar = dt2814_ns_to_timer(&cmd->scan_begin_arg, cmd->flags);
 
 	chan = CR_CHAN(cmd->chanlist[0]);
 
@@ -210,7 +205,7 @@ static irqreturn_t dt2814_interrupt(int irq, void *d)
 	int data;
 
 	if (!dev->attached) {
-		comedi_error(dev, "spurious interrupt");
+		dev_err(dev->class_dev, "spurious interrupt\n");
 		return IRQ_HANDLED;
 	}
 
@@ -246,7 +241,7 @@ static int dt2814_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	int ret;
 	int i;
 
-	ret = comedi_request_region(dev, it->options[0], DT2814_SIZE);
+	ret = comedi_request_region(dev, it->options[0], 0x2);
 	if (ret)
 		return ret;
 

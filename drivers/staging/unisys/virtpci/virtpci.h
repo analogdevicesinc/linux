@@ -1,6 +1,6 @@
 /* virtpci.h
  *
- * Copyright © 2010 - 2013 UNISYS CORPORATION
+ * Copyright (C) 2010 - 2013 UNISYS CORPORATION
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,6 +24,7 @@
 
 #include "uisqueue.h"
 #include <linux/version.h>
+#include <linux/uuid.h>
 
 #define PCI_DEVICE_ID_VIRTHBA 0xAA00
 #define PCI_DEVICE_ID_VIRTNIC 0xAB00
@@ -41,7 +42,7 @@ struct net_adap_info {
 	u8 mac_addr[MAX_MACADDR_LEN];
 	int num_rcv_bufs;
 	unsigned mtu;
-	GUID zoneGuid;
+	uuid_le zoneGuid;
 };
 
 typedef enum {
@@ -57,8 +58,8 @@ struct virtpci_dev {
 						 * this device */
 	unsigned short vendor;	/* vendor id for device */
 	unsigned short device;	/* device id for device */
-	U32 busNo;		/* number of bus on which device exists */
-	U32 deviceNo;		/* device's number on the bus */
+	u32 busNo;		/* number of bus on which device exists */
+	u32 deviceNo;		/* device's number on the bus */
 	struct InterruptInfo intr;	/* interrupt info */
 	struct device generic_dev;	/* generic device */
 	union {
@@ -76,8 +77,6 @@ struct virtpci_driver {
 	const char *name;	/* the name of the driver in sysfs */
 	const char *version;
 	const char *vertag;
-	const char *build_date;
-	const char *build_time;
 	const struct pci_device_id *id_table;	/* must be non-NULL for probe
 						 * to be called */
 	int (*probe)(struct virtpci_dev *dev,

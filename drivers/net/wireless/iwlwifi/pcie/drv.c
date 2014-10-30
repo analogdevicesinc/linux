@@ -78,7 +78,7 @@
 	.driver_data = (kernel_ulong_t)&(cfg)
 
 /* Hardware specific file defines the PCI IDs table for that hardware module */
-static DEFINE_PCI_DEVICE_TABLE(iwl_hw_card_ids) = {
+static const struct pci_device_id iwl_hw_card_ids[] = {
 #if IS_ENABLED(CONFIG_IWLDVM)
 	{IWL_PCI_DEVICE(0x4232, 0x1201, iwl5100_agn_cfg)}, /* Mini Card */
 	{IWL_PCI_DEVICE(0x4232, 0x1301, iwl5100_agn_cfg)}, /* Half Mini Card */
@@ -352,10 +352,16 @@ static DEFINE_PCI_DEVICE_TABLE(iwl_hw_card_ids) = {
 	{IWL_PCI_DEVICE(0x08B3, 0x8060, iwl3160_2n_cfg)},
 	{IWL_PCI_DEVICE(0x08B3, 0x8062, iwl3160_n_cfg)},
 	{IWL_PCI_DEVICE(0x08B4, 0x8270, iwl3160_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x08B4, 0x8370, iwl3160_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x08B4, 0x8272, iwl3160_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x08B3, 0x8470, iwl3160_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x08B3, 0x8570, iwl3160_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x08B3, 0x1070, iwl3160_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x08B3, 0x1170, iwl3160_2ac_cfg)},
+
+/* 3165 Series */
+	{IWL_PCI_DEVICE(0x3165, 0x4010, iwl3165_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x3165, 0x4210, iwl3165_2ac_cfg)},
 
 /* 7265 Series */
 	{IWL_PCI_DEVICE(0x095A, 0x5010, iwl7265_2ac_cfg)},
@@ -367,6 +373,7 @@ static DEFINE_PCI_DEVICE_TABLE(iwl_hw_card_ids) = {
 	{IWL_PCI_DEVICE(0x095A, 0x5012, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5412, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5410, iwl7265_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x095A, 0x5510, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5400, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x1010, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5000, iwl7265_2n_cfg)},
@@ -377,10 +384,11 @@ static DEFINE_PCI_DEVICE_TABLE(iwl_hw_card_ids) = {
 	{IWL_PCI_DEVICE(0x095B, 0x5202, iwl7265_n_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9010, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9012, iwl7265_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x095A, 0x900A, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9110, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9112, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9210, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095A, 0x9200, iwl7265_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x095B, 0x9200, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9510, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9310, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9410, iwl7265_2ac_cfg)},
@@ -417,7 +425,7 @@ static u64 splx_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splx)
 	    splx->package.count != 2 ||
 	    splx->package.elements[0].type != ACPI_TYPE_INTEGER ||
 	    splx->package.elements[0].integer.value != 0) {
-		IWL_ERR(trans, "Unsupported splx structure");
+		IWL_ERR(trans, "Unsupported splx structure\n");
 		return 0;
 	}
 
@@ -426,14 +434,14 @@ static u64 splx_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splx)
 	    limits->package.count < 2 ||
 	    limits->package.elements[0].type != ACPI_TYPE_INTEGER ||
 	    limits->package.elements[1].type != ACPI_TYPE_INTEGER) {
-		IWL_ERR(trans, "Invalid limits element");
+		IWL_ERR(trans, "Invalid limits element\n");
 		return 0;
 	}
 
 	domain_type = &limits->package.elements[0];
 	power_limit = &limits->package.elements[1];
 	if (!(domain_type->integer.value & SPL_DOMAINTYPE_WIFI)) {
-		IWL_DEBUG_INFO(trans, "WiFi power is not limited");
+		IWL_DEBUG_INFO(trans, "WiFi power is not limited\n");
 		return 0;
 	}
 
@@ -450,26 +458,26 @@ static void set_dflt_pwr_limit(struct iwl_trans *trans, struct pci_dev *pdev)
 	pxsx_handle = ACPI_HANDLE(&pdev->dev);
 	if (!pxsx_handle) {
 		IWL_DEBUG_INFO(trans,
-			       "Could not retrieve root port ACPI handle");
+			       "Could not retrieve root port ACPI handle\n");
 		return;
 	}
 
 	/* Get the method's handle */
 	status = acpi_get_handle(pxsx_handle, (acpi_string)SPL_METHOD, &handle);
 	if (ACPI_FAILURE(status)) {
-		IWL_DEBUG_INFO(trans, "SPL method not found");
+		IWL_DEBUG_INFO(trans, "SPL method not found\n");
 		return;
 	}
 
 	/* Call SPLC with no arguments */
 	status = acpi_evaluate_object(handle, NULL, NULL, &splx);
 	if (ACPI_FAILURE(status)) {
-		IWL_ERR(trans, "SPLC invocation failed (0x%x)", status);
+		IWL_ERR(trans, "SPLC invocation failed (0x%x)\n", status);
 		return;
 	}
 
 	trans->dflt_pwr_limit = splx_get_pwr_limit(trans, splx.pointer);
-	IWL_DEBUG_INFO(trans, "Default power limit set to %lld",
+	IWL_DEBUG_INFO(trans, "Default power limit set to %lld\n",
 		       trans->dflt_pwr_limit);
 	kfree(splx.pointer);
 }

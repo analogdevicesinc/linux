@@ -41,6 +41,24 @@
 #define DIGITAL_MIFARE_READ_RES_LEN 16
 #define DIGITAL_MIFARE_ACK_RES	0x0A
 
+#define DIGITAL_CMD_SENSB_REQ			0x05
+#define DIGITAL_SENSB_ADVANCED			BIT(5)
+#define DIGITAL_SENSB_EXTENDED			BIT(4)
+#define DIGITAL_SENSB_ALLB_REQ			BIT(3)
+#define DIGITAL_SENSB_N(n)			((n) & 0x7)
+
+#define DIGITAL_CMD_SENSB_RES			0x50
+
+#define DIGITAL_CMD_ATTRIB_REQ			0x1D
+#define DIGITAL_ATTRIB_P1_TR0_DEFAULT		(0x0 << 6)
+#define DIGITAL_ATTRIB_P1_TR1_DEFAULT		(0x0 << 4)
+#define DIGITAL_ATTRIB_P1_SUPRESS_EOS		BIT(3)
+#define DIGITAL_ATTRIB_P1_SUPRESS_SOS		BIT(2)
+#define DIGITAL_ATTRIB_P2_LISTEN_POLL_1		(0x0 << 6)
+#define DIGITAL_ATTRIB_P2_POLL_LISTEN_1		(0x0 << 4)
+#define DIGITAL_ATTRIB_P2_MAX_FRAME_256		0x8
+#define DIGITAL_ATTRIB_P4_DID(n)		((n) & 0xf)
+
 #define DIGITAL_CMD_SENSF_REQ	0x00
 #define DIGITAL_CMD_SENSF_RES	0x01
 
@@ -75,6 +93,7 @@ static const u8 digital_ats_fsc[] = {
 };
 
 #define DIGITAL_ATS_FSCI(t0) ((t0) & 0x0F)
+#define DIGITAL_SENSB_FSCI(pi2) (((pi2) & 0xF0) >> 4)
 #define DIGITAL_ATS_MAX_FSC  256
 
 #define DIGITAL_RATS_BYTE1 0xE0
@@ -90,6 +109,32 @@ struct digital_sel_req {
 	u8 b2;
 	u8 nfcid1[4];
 	u8 bcc;
+} __packed;
+
+struct digital_sensb_req {
+	u8 cmd;
+	u8 afi;
+	u8 param;
+} __packed;
+
+struct digital_sensb_res {
+	u8 cmd;
+	u8 nfcid0[4];
+	u8 app_data[4];
+	u8 proto_info[3];
+} __packed;
+
+struct digital_attrib_req {
+	u8 cmd;
+	u8 nfcid0[4];
+	u8 param1;
+	u8 param2;
+	u8 param3;
+	u8 param4;
+} __packed;
+
+struct digital_attrib_res {
+	u8 mbli_did;
 } __packed;
 
 struct digital_sensf_req {
@@ -273,6 +318,8 @@ static void digital_in_recv_sel_res(struct nfc_digital_dev *ddev, void *arg,
 
 	if (DIGITAL_SEL_RES_IS_T2T(sel_res)) {
 		nfc_proto = NFC_PROTO_MIFARE;
+	} else if (DIGITAL_SEL_RES_IS_NFC_DEP(sel_res)) {
+		nfc_proto = NFC_PROTO_NFC_DEP;
 	} else if (DIGITAL_SEL_RES_IS_T4T(sel_res)) {
 		rc = digital_in_send_rats(ddev, target);
 		if (rc)
@@ -282,8 +329,6 @@ static void digital_in_recv_sel_res(struct nfc_digital_dev *ddev, void *arg,
 		 * done when receiving the ATS
 		 */
 		goto exit_free_skb;
-	} else if (DIGITAL_SEL_RES_IS_NFC_DEP(sel_res)) {
-		nfc_proto = NFC_PROTO_NFC_DEP;
 	} else {
 		rc = -EOPNOTSUPP;
 		goto exit;
@@ -531,6 +576,175 @@ int digital_in_recv_mifare_res(struct sk_buff *resp)
 	return -EIO;
 }
 
+static void digital_in_recv_attrib_res(struct nfc_digital_dev *ddev, void *arg,
+				       struct sk_buff *resp)
+{
+	struct nfc_target *target = arg;
+	struct digital_attrib_res *attrib_res;
+	int rc;
+
+	if (IS_ERR(resp)) {
+		rc = PTR_ERR(resp);
+		resp = NULL;
+		goto exit;
+	}
+
+	if (resp->len < sizeof(*attrib_res)) {
+		PROTOCOL_ERR("12.6.2");
+		rc = -EIO;
+		goto exit;
+	}
+
+	attrib_res = (struct digital_attrib_res *)resp->data;
+
+	if (attrib_res->mbli_did & 0x0f) {
+		PROTOCOL_ERR("12.6.2.1");
+		rc = -EIO;
+		goto exit;
+	}
+
+	rc = digital_target_found(ddev, target, NFC_PROTO_ISO14443_B);
+
+exit:
+	dev_kfree_skb(resp);
+	kfree(target);
+
+	if (rc)
+		digital_poll_next_tech(ddev);
+}
+
+static int digital_in_send_attrib_req(struct nfc_digital_dev *ddev,
+			       struct nfc_target *target,
+			       struct digital_sensb_res *sensb_res)
+{
+	struct digital_attrib_req *attrib_req;
+	struct sk_buff *skb;
+	int rc;
+
+	skb = digital_skb_alloc(ddev, sizeof(*attrib_req));
+	if (!skb)
+		return -ENOMEM;
+
+	attrib_req = (struct digital_attrib_req *)skb_put(skb,
+							  sizeof(*attrib_req));
+
+	attrib_req->cmd = DIGITAL_CMD_ATTRIB_REQ;
+	memcpy(attrib_req->nfcid0, sensb_res->nfcid0,
+	       sizeof(attrib_req->nfcid0));
+	attrib_req->param1 = DIGITAL_ATTRIB_P1_TR0_DEFAULT |
+			     DIGITAL_ATTRIB_P1_TR1_DEFAULT;
+	attrib_req->param2 = DIGITAL_ATTRIB_P2_LISTEN_POLL_1 |
+			     DIGITAL_ATTRIB_P2_POLL_LISTEN_1 |
+			     DIGITAL_ATTRIB_P2_MAX_FRAME_256;
+	attrib_req->param3 = sensb_res->proto_info[1] & 0x07;
+	attrib_req->param4 = DIGITAL_ATTRIB_P4_DID(0);
+
+	rc = digital_in_send_cmd(ddev, skb, 30, digital_in_recv_attrib_res,
+				 target);
+	if (rc)
+		kfree_skb(skb);
+
+	return rc;
+}
+
+static void digital_in_recv_sensb_res(struct nfc_digital_dev *ddev, void *arg,
+				      struct sk_buff *resp)
+{
+	struct nfc_target *target = NULL;
+	struct digital_sensb_res *sensb_res;
+	u8 fsci;
+	int rc;
+
+	if (IS_ERR(resp)) {
+		rc = PTR_ERR(resp);
+		resp = NULL;
+		goto exit;
+	}
+
+	if (resp->len != sizeof(*sensb_res)) {
+		PROTOCOL_ERR("5.6.2.1");
+		rc = -EIO;
+		goto exit;
+	}
+
+	sensb_res = (struct digital_sensb_res *)resp->data;
+
+	if (sensb_res->cmd != DIGITAL_CMD_SENSB_RES) {
+		PROTOCOL_ERR("5.6.2");
+		rc = -EIO;
+		goto exit;
+	}
+
+	if (!(sensb_res->proto_info[1] & BIT(0))) {
+		PROTOCOL_ERR("5.6.2.12");
+		rc = -EIO;
+		goto exit;
+	}
+
+	if (sensb_res->proto_info[1] & BIT(3)) {
+		PROTOCOL_ERR("5.6.2.16");
+		rc = -EIO;
+		goto exit;
+	}
+
+	fsci = DIGITAL_SENSB_FSCI(sensb_res->proto_info[1]);
+	if (fsci >= 8)
+		ddev->target_fsc = DIGITAL_ATS_MAX_FSC;
+	else
+		ddev->target_fsc = digital_ats_fsc[fsci];
+
+	target = kzalloc(sizeof(struct nfc_target), GFP_KERNEL);
+	if (!target) {
+		rc = -ENOMEM;
+		goto exit;
+	}
+
+	rc = digital_in_send_attrib_req(ddev, target, sensb_res);
+
+exit:
+	dev_kfree_skb(resp);
+
+	if (rc) {
+		kfree(target);
+		digital_poll_next_tech(ddev);
+	}
+}
+
+int digital_in_send_sensb_req(struct nfc_digital_dev *ddev, u8 rf_tech)
+{
+	struct digital_sensb_req *sensb_req;
+	struct sk_buff *skb;
+	int rc;
+
+	rc = digital_in_configure_hw(ddev, NFC_DIGITAL_CONFIG_RF_TECH,
+				     NFC_DIGITAL_RF_TECH_106B);
+	if (rc)
+		return rc;
+
+	rc = digital_in_configure_hw(ddev, NFC_DIGITAL_CONFIG_FRAMING,
+				     NFC_DIGITAL_FRAMING_NFCB);
+	if (rc)
+		return rc;
+
+	skb = digital_skb_alloc(ddev, sizeof(*sensb_req));
+	if (!skb)
+		return -ENOMEM;
+
+	sensb_req = (struct digital_sensb_req *)skb_put(skb,
+							sizeof(*sensb_req));
+
+	sensb_req->cmd = DIGITAL_CMD_SENSB_REQ;
+	sensb_req->afi = 0x00; /* All families and sub-families */
+	sensb_req->param = DIGITAL_SENSB_N(0);
+
+	rc = digital_in_send_cmd(ddev, skb, 30, digital_in_recv_sensb_res,
+				 NULL);
+	if (rc)
+		kfree_skb(skb);
+
+	return rc;
+}
+
 static void digital_in_recv_sensf_res(struct nfc_digital_dev *ddev, void *arg,
 				   struct sk_buff *resp)
 {
@@ -730,6 +944,13 @@ static int digital_tg_send_sel_res(struct nfc_digital_dev *ddev)
 	if (!DIGITAL_DRV_CAPS_TG_CRC(ddev))
 		digital_skb_add_crc_a(skb);
 
+	rc = digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_FRAMING,
+				     NFC_DIGITAL_FRAMING_NFCA_ANTICOL_COMPLETE);
+	if (rc) {
+		kfree_skb(skb);
+		return rc;
+	}
+
 	rc = digital_tg_send_cmd(ddev, skb, 300, digital_tg_recv_atr_req,
 				 NULL);
 	if (rc)
@@ -788,6 +1009,13 @@ static int digital_tg_send_sdd_res(struct nfc_digital_dev *ddev)
 	for (i = 0; i < 4; i++)
 		sdd_res->bcc ^= sdd_res->nfcid1[i];
 
+	rc = digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_FRAMING,
+				NFC_DIGITAL_FRAMING_NFCA_STANDARD_WITH_CRC_A);
+	if (rc) {
+		kfree_skb(skb);
+		return rc;
+	}
+
 	rc = digital_tg_send_cmd(ddev, skb, 300, digital_tg_recv_sel_req,
 				 NULL);
 	if (rc)
@@ -840,6 +1068,13 @@ static int digital_tg_send_sens_res(struct nfc_digital_dev *ddev)
 	sens_res[0] = (DIGITAL_SENS_RES_NFC_DEP >> 8) & 0xFF;
 	sens_res[1] = DIGITAL_SENS_RES_NFC_DEP & 0xFF;
 
+	rc = digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_FRAMING,
+				     NFC_DIGITAL_FRAMING_NFCA_STANDARD);
+	if (rc) {
+		kfree_skb(skb);
+		return rc;
+	}
+
 	rc = digital_tg_send_cmd(ddev, skb, 300, digital_tg_recv_sdd_req,
 				 NULL);
 	if (rc)
@@ -877,6 +1112,18 @@ exit:
 	dev_kfree_skb(resp);
 }
 
+static void digital_tg_recv_atr_or_sensf_req(struct nfc_digital_dev *ddev,
+		void *arg, struct sk_buff *resp)
+{
+	if (!IS_ERR(resp) && (resp->len >= 2) &&
+			(resp->data[1] == DIGITAL_CMD_SENSF_REQ))
+		digital_tg_recv_sensf_req(ddev, arg, resp);
+	else
+		digital_tg_recv_atr_req(ddev, arg, resp);
+
+	return;
+}
+
 static int digital_tg_send_sensf_res(struct nfc_digital_dev *ddev,
 			      struct digital_sensf_req *sensf_req)
 {
@@ -887,7 +1134,7 @@ static int digital_tg_send_sensf_res(struct nfc_digital_dev *ddev,
 
 	size = sizeof(struct digital_sensf_res);
 
-	if (sensf_req->rc != DIGITAL_SENSF_REQ_RC_NONE)
+	if (sensf_req->rc == DIGITAL_SENSF_REQ_RC_NONE)
 		size -= sizeof(sensf_res->rd);
 
 	skb = digital_skb_alloc(ddev, size);
@@ -922,7 +1169,7 @@ static int digital_tg_send_sensf_res(struct nfc_digital_dev *ddev,
 		digital_skb_add_crc_f(skb);
 
 	rc = digital_tg_send_cmd(ddev, skb, 300,
-				 digital_tg_recv_atr_req, NULL);
+				 digital_tg_recv_atr_or_sensf_req, NULL);
 	if (rc)
 		kfree_skb(skb);
 
@@ -971,7 +1218,31 @@ exit:
 	dev_kfree_skb(resp);
 }
 
+static int digital_tg_config_nfca(struct nfc_digital_dev *ddev)
+{
+	int rc;
+
+	rc = digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_RF_TECH,
+				     NFC_DIGITAL_RF_TECH_106A);
+	if (rc)
+		return rc;
+
+	return digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_FRAMING,
+				       NFC_DIGITAL_FRAMING_NFCA_NFC_DEP);
+}
+
 int digital_tg_listen_nfca(struct nfc_digital_dev *ddev, u8 rf_tech)
+{
+	int rc;
+
+	rc = digital_tg_config_nfca(ddev);
+	if (rc)
+		return rc;
+
+	return digital_tg_listen(ddev, 300, digital_tg_recv_sens_req, NULL);
+}
+
+static int digital_tg_config_nfcf(struct nfc_digital_dev *ddev, u8 rf_tech)
 {
 	int rc;
 
@@ -979,12 +1250,8 @@ int digital_tg_listen_nfca(struct nfc_digital_dev *ddev, u8 rf_tech)
 	if (rc)
 		return rc;
 
-	rc = digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_FRAMING,
-				     NFC_DIGITAL_FRAMING_NFCA_NFC_DEP);
-	if (rc)
-		return rc;
-
-	return digital_tg_listen(ddev, 300, digital_tg_recv_sens_req, NULL);
+	return digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_FRAMING,
+				       NFC_DIGITAL_FRAMING_NFCF_NFC_DEP);
 }
 
 int digital_tg_listen_nfcf(struct nfc_digital_dev *ddev, u8 rf_tech)
@@ -992,12 +1259,7 @@ int digital_tg_listen_nfcf(struct nfc_digital_dev *ddev, u8 rf_tech)
 	int rc;
 	u8 *nfcid2;
 
-	rc = digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_RF_TECH, rf_tech);
-	if (rc)
-		return rc;
-
-	rc = digital_tg_configure_hw(ddev, NFC_DIGITAL_CONFIG_FRAMING,
-				     NFC_DIGITAL_FRAMING_NFCF_NFC_DEP);
+	rc = digital_tg_config_nfcf(ddev, rf_tech);
 	if (rc)
 		return rc;
 
@@ -1010,4 +1272,44 @@ int digital_tg_listen_nfcf(struct nfc_digital_dev *ddev, u8 rf_tech)
 	get_random_bytes(nfcid2 + 2, NFC_NFCID2_MAXSIZE - 2);
 
 	return digital_tg_listen(ddev, 300, digital_tg_recv_sensf_req, nfcid2);
+}
+
+void digital_tg_recv_md_req(struct nfc_digital_dev *ddev, void *arg,
+			    struct sk_buff *resp)
+{
+	u8 rf_tech;
+	int rc;
+
+	if (IS_ERR(resp)) {
+		resp = NULL;
+		goto exit_free_skb;
+	}
+
+	rc = ddev->ops->tg_get_rf_tech(ddev, &rf_tech);
+	if (rc)
+		goto exit_free_skb;
+
+	switch (rf_tech) {
+	case NFC_DIGITAL_RF_TECH_106A:
+		rc = digital_tg_config_nfca(ddev);
+		if (rc)
+			goto exit_free_skb;
+		digital_tg_recv_sens_req(ddev, arg, resp);
+		break;
+	case NFC_DIGITAL_RF_TECH_212F:
+	case NFC_DIGITAL_RF_TECH_424F:
+		rc = digital_tg_config_nfcf(ddev, rf_tech);
+		if (rc)
+			goto exit_free_skb;
+		digital_tg_recv_sensf_req(ddev, arg, resp);
+		break;
+	default:
+		goto exit_free_skb;
+	}
+
+	return;
+
+exit_free_skb:
+	digital_poll_next_tech(ddev);
+	dev_kfree_skb(resp);
 }

@@ -91,14 +91,11 @@
 #ifndef _LUSTRE_IDL_H_
 #define _LUSTRE_IDL_H_
 
-#if !defined(LPU64)
-#include <linux/libcfs/libcfs.h> /* for LPUX64, etc */
-#endif
+#include "../../../include/linux/libcfs/libcfs.h"
 
 /* Defn's shared with user-space. */
-#include <lustre/lustre_user.h>
-
-#include <lustre/lustre_errno.h>
+#include "lustre_user.h"
+#include "lustre_errno.h"
 
 /*
  *  GENERAL STUFF
@@ -265,7 +262,7 @@ static inline __u64 range_space(const struct lu_seq_range *range)
 
 static inline void range_init(struct lu_seq_range *range)
 {
-	range->lsr_start = range->lsr_end = range->lsr_index = 0;
+	memset(range, 0, sizeof(*range));
 }
 
 /**
@@ -302,7 +299,7 @@ static inline int range_compare_loc(const struct lu_seq_range *r1,
 	       r1->lsr_flags != r2->lsr_flags;
 }
 
-#define DRANGE "[%#16.16"LPF64"x-%#16.16"LPF64"x):%x:%s"
+#define DRANGE "[%#16.16Lx-%#16.16Lx):%x:%s"
 
 #define PRANGE(range)		\
 	(range)->lsr_start,	\
@@ -682,14 +679,14 @@ static inline void ostid_set_id(struct ost_id *oi, __u64 oid)
 {
 	if (fid_seq_is_mdt0(ostid_seq(oi))) {
 		if (oid >= IDIF_MAX_OID) {
-			CERROR("Bad "LPU64" to set "DOSTID"\n",
+			CERROR("Bad %llu to set "DOSTID"\n",
 				oid, POSTID(oi));
 			return;
 		}
 		oi->oi.oi_id = oid;
 	} else {
 		if (oid > OBIF_MAX_OID) {
-			CERROR("Bad "LPU64" to set "DOSTID"\n",
+			CERROR("Bad %llu to set "DOSTID"\n",
 				oid, POSTID(oi));
 			return;
 		}
@@ -1682,6 +1679,30 @@ static inline __u32 lov_mds_md_size(__u16 stripes, __u32 lmm_magic)
 				stripes * sizeof(struct lov_ost_data_v1);
 }
 
+static inline __u32
+lov_mds_md_max_stripe_count(size_t buf_size, __u32 lmm_magic)
+{
+	switch (lmm_magic) {
+	case LOV_MAGIC_V1: {
+		struct lov_mds_md_v1 lmm;
+
+		if (buf_size < sizeof(lmm))
+			return 0;
+
+		return (buf_size - sizeof(lmm)) / sizeof(lmm.lmm_objects[0]);
+	}
+	case LOV_MAGIC_V3: {
+		struct lov_mds_md_v3 lmm;
+
+		if (buf_size < sizeof(lmm))
+			return 0;
+
+		return (buf_size - sizeof(lmm)) / sizeof(lmm.lmm_objects[0]);
+	}
+	default:
+		return 0;
+	}
+}
 
 #define OBD_MD_FLID	(0x00000001ULL) /* object ID */
 #define OBD_MD_FLATIME     (0x00000002ULL) /* access time */
@@ -2681,6 +2702,8 @@ enum seq_op {
  * protocol, this will limit the max number of OSTs per LOV */
 
 #define LOV_DESC_MAGIC 0xB0CCDE5C
+#define LOV_DESC_QOS_MAXAGE_DEFAULT 5  /* Seconds */
+#define LOV_DESC_STRIPE_SIZE_DEFAULT (1 << LNET_MTU_BITS)
 
 /* LOV settings descriptor (should only contain static info) */
 struct lov_desc {
@@ -2722,7 +2745,7 @@ struct ldlm_res_id {
 	__u64 name[RES_NAME_SIZE];
 };
 
-#define DLDLMRES	"["LPX64":"LPX64":"LPX64"]."LPX64i
+#define DLDLMRES	"[%#llx:%#llx:%#llx].%llx"
 #define PLDLMRES(res)	(res)->lr_name.name[0], (res)->lr_name.name[1], \
 			(res)->lr_name.name[2], (res)->lr_name.name[3]
 

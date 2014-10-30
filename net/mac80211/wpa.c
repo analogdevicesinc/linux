@@ -406,7 +406,10 @@ static int ccmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
 
 	if (info->control.hw_key &&
 	    !(info->control.hw_key->flags & IEEE80211_KEY_FLAG_GENERATE_IV) &&
-	    !(info->control.hw_key->flags & IEEE80211_KEY_FLAG_PUT_IV_SPACE)) {
+	    !(info->control.hw_key->flags & IEEE80211_KEY_FLAG_PUT_IV_SPACE) &&
+	    !((info->control.hw_key->flags &
+	       IEEE80211_KEY_FLAG_GENERATE_IV_MGMT) &&
+	      ieee80211_is_mgmt(hdr->frame_control))) {
 		/*
 		 * hwaccel has no need for preallocated room for CCMP
 		 * header or MIC fields
@@ -808,7 +811,7 @@ ieee80211_crypto_hw_encrypt(struct ieee80211_tx_data *tx)
 ieee80211_rx_result
 ieee80211_crypto_hw_decrypt(struct ieee80211_rx_data *rx)
 {
-	if (rx->sta->cipher_scheme)
+	if (rx->sta && rx->sta->cipher_scheme)
 		return ieee80211_crypto_cs_decrypt(rx);
 
 	return RX_DROP_UNUSABLE;

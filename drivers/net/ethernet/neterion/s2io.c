@@ -471,7 +471,7 @@ module_param_array(rts_frm_len, uint, NULL, 0);
  * S2IO device table.
  * This table lists all the devices that this driver supports.
  */
-static DEFINE_PCI_DEVICE_TABLE(s2io_tbl) = {
+static const struct pci_device_id s2io_tbl[] = {
 	{PCI_VENDOR_ID_S2IO, PCI_DEVICE_ID_S2IO_WIN,
 	 PCI_ANY_ID, PCI_ANY_ID},
 	{PCI_VENDOR_ID_S2IO, PCI_DEVICE_ID_S2IO_UNI,
@@ -531,15 +531,6 @@ static inline void s2io_start_all_tx_queue(struct s2io_nic *sp)
 		for (i = 0; i < sp->config.tx_fifo_num; i++)
 			sp->mac_control.fifos[i].queue_state = FIFO_QUEUE_START;
 	}
-	netif_tx_start_all_queues(sp->dev);
-}
-
-static inline void s2io_start_tx_queue(struct s2io_nic *sp, int fifo_no)
-{
-	if (!sp->config.multiq)
-		sp->mac_control.fifos[fifo_no].queue_state =
-			FIFO_QUEUE_START;
-
 	netif_tx_start_all_queues(sp->dev);
 }
 
@@ -5369,8 +5360,8 @@ static int s2io_ethtool_gset(struct net_device *dev, struct ethtool_cmd *info)
 		ethtool_cmd_speed_set(info, SPEED_10000);
 		info->duplex = DUPLEX_FULL;
 	} else {
-		ethtool_cmd_speed_set(info, -1);
-		info->duplex = -1;
+		ethtool_cmd_speed_set(info, SPEED_UNKNOWN);
+		info->duplex = DUPLEX_UNKNOWN;
 	}
 
 	info->autoneg = AUTONEG_DISABLE;
@@ -7919,7 +7910,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
 
 	/*  Driver entry points */
 	dev->netdev_ops = &s2io_netdev_ops;
-	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+	dev->ethtool_ops = &netdev_ethtool_ops;
 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
 		NETIF_F_TSO | NETIF_F_TSO6 |
 		NETIF_F_RXCSUM | NETIF_F_LRO;

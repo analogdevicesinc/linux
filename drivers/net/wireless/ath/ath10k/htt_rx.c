@@ -21,6 +21,7 @@
 #include "txrx.h"
 #include "debug.h"
 #include "trace.h"
+#include "mac.h"
 
 #include <linux/log2.h>
 
@@ -225,10 +226,26 @@ static void ath10k_htt_rx_ring_refill_retry(unsigned long arg)
 	ath10k_htt_rx_msdu_buff_replenish(htt);
 }
 
-void ath10k_htt_rx_detach(struct ath10k_htt *htt)
+static void ath10k_htt_rx_ring_clean_up(struct ath10k_htt *htt)
 {
-	int sw_rd_idx = htt->rx_ring.sw_rd_idx.msdu_payld;
+	struct sk_buff *skb;
+	int i;
 
+	for (i = 0; i < htt->rx_ring.size; i++) {
+		skb = htt->rx_ring.netbufs_ring[i];
+		if (!skb)
+			continue;
+
+		dma_unmap_single(htt->ar->dev, ATH10K_SKB_CB(skb)->paddr,
+				 skb->len + skb_tailroom(skb),
+				 DMA_FROM_DEVICE);
+		dev_kfree_skb_any(skb);
+		htt->rx_ring.netbufs_ring[i] = NULL;
+	}
+}
+
+void ath10k_htt_rx_free(struct ath10k_htt *htt)
+{
 	del_timer_sync(&htt->rx_ring.refill_retry_timer);
 	tasklet_kill(&htt->rx_replenish_task);
 	tasklet_kill(&htt->txrx_compl_task);
@@ -236,18 +253,7 @@ void ath10k_htt_rx_detach(struct ath10k_htt *htt)
 	skb_queue_purge(&htt->tx_compl_q);
 	skb_queue_purge(&htt->rx_compl_q);
 
-	while (sw_rd_idx != __le32_to_cpu(*(htt->rx_ring.alloc_idx.vaddr))) {
-		struct sk_buff *skb =
-				htt->rx_ring.netbufs_ring[sw_rd_idx];
-		struct ath10k_skb_cb *cb = ATH10K_SKB_CB(skb);
-
-		dma_unmap_single(htt->ar->dev, cb->paddr,
-				 skb->len + skb_tailroom(skb),
-				 DMA_FROM_DEVICE);
-		dev_kfree_skb_any(htt->rx_ring.netbufs_ring[sw_rd_idx]);
-		sw_rd_idx++;
-		sw_rd_idx &= htt->rx_ring.size_mask;
-	}
+	ath10k_htt_rx_ring_clean_up(htt);
 
 	dma_free_coherent(htt->ar->dev,
 			  (htt->rx_ring.size *
@@ -277,6 +283,7 @@ static inline struct sk_buff *ath10k_htt_rx_netbuf_pop(struct ath10k_htt *htt)
 
 	idx = htt->rx_ring.sw_rd_idx.msdu_payld;
 	msdu = htt->rx_ring.netbufs_ring[idx];
+	htt->rx_ring.netbufs_ring[idx] = NULL;
 
 	idx++;
 	idx &= htt->rx_ring.size_mask;
@@ -297,10 +304,12 @@ static void ath10k_htt_rx_free_msdu_chain(struct sk_buff *skb)
 	}
 }
 
+/* return: < 0 fatal error, 0 - non chained msdu, 1 chained msdu */
 static int ath10k_htt_rx_amsdu_pop(struct ath10k_htt *htt,
 				   u8 **fw_desc, int *fw_desc_len,
 				   struct sk_buff **head_msdu,
-				   struct sk_buff **tail_msdu)
+				   struct sk_buff **tail_msdu,
+				   u32 *attention)
 {
 	int msdu_len, msdu_chaining = 0;
 	struct sk_buff *msdu;
@@ -310,7 +319,7 @@ static int ath10k_htt_rx_amsdu_pop(struct ath10k_htt *htt,
 
 	if (htt->rx_confused) {
 		ath10k_warn("htt is confused. refusing rx\n");
-		return 0;
+		return -1;
 	}
 
 	msdu = *head_msdu = ath10k_htt_rx_netbuf_pop(htt);
@@ -350,6 +359,11 @@ static int ath10k_htt_rx_amsdu_pop(struct ath10k_htt *htt,
 			break;
 		}
 
+		*attention |= __le32_to_cpu(rx_desc->attention.flags) &
+					    (RX_ATTENTION_FLAGS_TKIP_MIC_ERR |
+					     RX_ATTENTION_FLAGS_DECRYPT_ERR |
+					     RX_ATTENTION_FLAGS_FCS_ERR |
+					     RX_ATTENTION_FLAGS_MGMT_TYPE);
 		/*
 		 * Copy the FW rx descriptor for this MSDU from the rx
 		 * indication message into the MSDU's netbuf. HL uses the
@@ -398,7 +412,6 @@ static int ath10k_htt_rx_amsdu_pop(struct ath10k_htt *htt,
 		msdu_len = MS(__le32_to_cpu(rx_desc->msdu_start.info0),
 			      RX_MSDU_START_INFO0_MSDU_LENGTH);
 		msdu_chained = rx_desc->frag_info.ring2_more_count;
-		msdu_chaining = msdu_chained;
 
 		if (msdu_len_invalid)
 			msdu_len = 0;
@@ -426,6 +439,7 @@ static int ath10k_htt_rx_amsdu_pop(struct ath10k_htt *htt,
 
 			msdu->next = next;
 			msdu = next;
+			msdu_chaining = 1;
 		}
 
 		last_msdu = __le32_to_cpu(rx_desc->msdu_end.info0) &
@@ -441,6 +455,9 @@ static int ath10k_htt_rx_amsdu_pop(struct ath10k_htt *htt,
 		}
 	}
 	*tail_msdu = msdu;
+
+	if (*head_msdu == NULL)
+		msdu_chaining = -1;
 
 	/*
 	 * Don't refill the ring yet.
@@ -464,7 +481,7 @@ static void ath10k_htt_rx_replenish_task(unsigned long ptr)
 	ath10k_htt_rx_msdu_buff_replenish(htt);
 }
 
-int ath10k_htt_rx_attach(struct ath10k_htt *htt)
+int ath10k_htt_rx_alloc(struct ath10k_htt *htt)
 {
 	dma_addr_t paddr;
 	void *vaddr;
@@ -490,7 +507,7 @@ int ath10k_htt_rx_attach(struct ath10k_htt *htt)
 	htt->rx_ring.fill_level = ath10k_htt_rx_ring_fill_level(htt);
 
 	htt->rx_ring.netbufs_ring =
-		kmalloc(htt->rx_ring.size * sizeof(struct sk_buff *),
+		kzalloc(htt->rx_ring.size * sizeof(struct sk_buff *),
 			GFP_KERNEL);
 	if (!htt->rx_ring.netbufs_ring)
 		goto err_netbuf;
@@ -636,6 +653,203 @@ struct amsdu_subframe_hdr {
 	__be16 len;
 } __packed;
 
+static const u8 rx_legacy_rate_idx[] = {
+	3,	/* 0x00  - 11Mbps  */
+	2,	/* 0x01  - 5.5Mbps */
+	1,	/* 0x02  - 2Mbps   */
+	0,	/* 0x03  - 1Mbps   */
+	3,	/* 0x04  - 11Mbps  */
+	2,	/* 0x05  - 5.5Mbps */
+	1,	/* 0x06  - 2Mbps   */
+	0,	/* 0x07  - 1Mbps   */
+	10,	/* 0x08  - 48Mbps  */
+	8,	/* 0x09  - 24Mbps  */
+	6,	/* 0x0A  - 12Mbps  */
+	4,	/* 0x0B  - 6Mbps   */
+	11,	/* 0x0C  - 54Mbps  */
+	9,	/* 0x0D  - 36Mbps  */
+	7,	/* 0x0E  - 18Mbps  */
+	5,	/* 0x0F  - 9Mbps   */
+};
+
+static void ath10k_htt_rx_h_rates(struct ath10k *ar,
+				  enum ieee80211_band band,
+				  u8 info0, u32 info1, u32 info2,
+				  struct ieee80211_rx_status *status)
+{
+	u8 cck, rate, rate_idx, bw, sgi, mcs, nss;
+	u8 preamble = 0;
+
+	/* Check if valid fields */
+	if (!(info0 & HTT_RX_INDICATION_INFO0_START_VALID))
+		return;
+
+	preamble = MS(info1, HTT_RX_INDICATION_INFO1_PREAMBLE_TYPE);
+
+	switch (preamble) {
+	case HTT_RX_LEGACY:
+		cck = info0 & HTT_RX_INDICATION_INFO0_LEGACY_RATE_CCK;
+		rate = MS(info0, HTT_RX_INDICATION_INFO0_LEGACY_RATE);
+		rate_idx = 0;
+
+		if (rate < 0x08 || rate > 0x0F)
+			break;
+
+		switch (band) {
+		case IEEE80211_BAND_2GHZ:
+			if (cck)
+				rate &= ~BIT(3);
+			rate_idx = rx_legacy_rate_idx[rate];
+			break;
+		case IEEE80211_BAND_5GHZ:
+			rate_idx = rx_legacy_rate_idx[rate];
+			/* We are using same rate table registering
+			   HW - ath10k_rates[]. In case of 5GHz skip
+			   CCK rates, so -4 here */
+			rate_idx -= 4;
+			break;
+		default:
+			break;
+		}
+
+		status->rate_idx = rate_idx;
+		break;
+	case HTT_RX_HT:
+	case HTT_RX_HT_WITH_TXBF:
+		/* HT-SIG - Table 20-11 in info1 and info2 */
+		mcs = info1 & 0x1F;
+		nss = mcs >> 3;
+		bw = (info1 >> 7) & 1;
+		sgi = (info2 >> 7) & 1;
+
+		status->rate_idx = mcs;
+		status->flag |= RX_FLAG_HT;
+		if (sgi)
+			status->flag |= RX_FLAG_SHORT_GI;
+		if (bw)
+			status->flag |= RX_FLAG_40MHZ;
+		break;
+	case HTT_RX_VHT:
+	case HTT_RX_VHT_WITH_TXBF:
+		/* VHT-SIG-A1 in info 1, VHT-SIG-A2 in info2
+		   TODO check this */
+		mcs = (info2 >> 4) & 0x0F;
+		nss = ((info1 >> 10) & 0x07) + 1;
+		bw = info1 & 3;
+		sgi = info2 & 1;
+
+		status->rate_idx = mcs;
+		status->vht_nss = nss;
+
+		if (sgi)
+			status->flag |= RX_FLAG_SHORT_GI;
+
+		switch (bw) {
+		/* 20MHZ */
+		case 0:
+			break;
+		/* 40MHZ */
+		case 1:
+			status->flag |= RX_FLAG_40MHZ;
+			break;
+		/* 80MHZ */
+		case 2:
+			status->vht_flag |= RX_VHT_FLAG_80MHZ;
+		}
+
+		status->flag |= RX_FLAG_VHT;
+		break;
+	default:
+		break;
+	}
+}
+
+static void ath10k_htt_rx_h_protected(struct ath10k_htt *htt,
+				      struct ieee80211_rx_status *rx_status,
+				      struct sk_buff *skb,
+				      enum htt_rx_mpdu_encrypt_type enctype,
+				      enum rx_msdu_decap_format fmt,
+				      bool dot11frag)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+
+	rx_status->flag &= ~(RX_FLAG_DECRYPTED |
+			     RX_FLAG_IV_STRIPPED |
+			     RX_FLAG_MMIC_STRIPPED);
+
+	if (enctype == HTT_RX_MPDU_ENCRYPT_NONE)
+		return;
+
+	/*
+	 * There's no explicit rx descriptor flag to indicate whether a given
+	 * frame has been decrypted or not. We're forced to use the decap
+	 * format as an implicit indication. However fragmentation rx is always
+	 * raw and it probably never reports undecrypted raws.
+	 *
+	 * This makes sure sniffed frames are reported as-is without stripping
+	 * the protected flag.
+	 */
+	if (fmt == RX_MSDU_DECAP_RAW && !dot11frag)
+		return;
+
+	rx_status->flag |= RX_FLAG_DECRYPTED |
+			   RX_FLAG_IV_STRIPPED |
+			   RX_FLAG_MMIC_STRIPPED;
+	hdr->frame_control = __cpu_to_le16(__le16_to_cpu(hdr->frame_control) &
+					   ~IEEE80211_FCTL_PROTECTED);
+}
+
+static bool ath10k_htt_rx_h_channel(struct ath10k *ar,
+				    struct ieee80211_rx_status *status)
+{
+	struct ieee80211_channel *ch;
+
+	spin_lock_bh(&ar->data_lock);
+	ch = ar->scan_channel;
+	if (!ch)
+		ch = ar->rx_channel;
+	spin_unlock_bh(&ar->data_lock);
+
+	if (!ch)
+		return false;
+
+	status->band = ch->band;
+	status->freq = ch->center_freq;
+
+	return true;
+}
+
+static void ath10k_process_rx(struct ath10k *ar,
+			      struct ieee80211_rx_status *rx_status,
+			      struct sk_buff *skb)
+{
+	struct ieee80211_rx_status *status;
+
+	status = IEEE80211_SKB_RXCB(skb);
+	*status = *rx_status;
+
+	ath10k_dbg(ATH10K_DBG_DATA,
+		   "rx skb %p len %u %s%s%s%s%s %srate_idx %u vht_nss %u freq %u band %u flag 0x%x fcs-err %imic-err %i\n",
+		   skb,
+		   skb->len,
+		   status->flag == 0 ? "legacy" : "",
+		   status->flag & RX_FLAG_HT ? "ht" : "",
+		   status->flag & RX_FLAG_VHT ? "vht" : "",
+		   status->flag & RX_FLAG_40MHZ ? "40" : "",
+		   status->vht_flag & RX_VHT_FLAG_80MHZ ? "80" : "",
+		   status->flag & RX_FLAG_SHORT_GI ? "sgi " : "",
+		   status->rate_idx,
+		   status->vht_nss,
+		   status->freq,
+		   status->band, status->flag,
+		   !!(status->flag & RX_FLAG_FAILED_FCS_CRC),
+		   !!(status->flag & RX_FLAG_MMIC_ERROR));
+	ath10k_dbg_dump(ATH10K_DBG_HTT_DUMP, NULL, "rx skb: ",
+			skb->data, skb->len);
+
+	ieee80211_rx(ar->hw, skb);
+}
+
 static int ath10k_htt_rx_nwifi_hdrlen(struct ieee80211_hdr *hdr)
 {
 	/* nwifi header is padded to 4 bytes. this fixes 4addr rx */
@@ -643,11 +857,12 @@ static int ath10k_htt_rx_nwifi_hdrlen(struct ieee80211_hdr *hdr)
 }
 
 static void ath10k_htt_rx_amsdu(struct ath10k_htt *htt,
-				struct htt_rx_info *info)
+				struct ieee80211_rx_status *rx_status,
+				struct sk_buff *skb_in)
 {
 	struct htt_rx_desc *rxd;
+	struct sk_buff *skb = skb_in;
 	struct sk_buff *first;
-	struct sk_buff *skb = info->skb;
 	enum rx_msdu_decap_format fmt;
 	enum htt_rx_mpdu_encrypt_type enctype;
 	struct ieee80211_hdr *hdr;
@@ -728,24 +943,28 @@ static void ath10k_htt_rx_amsdu(struct ath10k_htt *htt,
 			break;
 		}
 
-		info->skb = skb;
-		info->encrypt_type = enctype;
+		skb_in = skb;
+		ath10k_htt_rx_h_protected(htt, rx_status, skb_in, enctype, fmt,
+					  false);
 		skb = skb->next;
-		info->skb->next = NULL;
+		skb_in->next = NULL;
 
 		if (skb)
-			info->amsdu_more = true;
+			rx_status->flag |= RX_FLAG_AMSDU_MORE;
+		else
+			rx_status->flag &= ~RX_FLAG_AMSDU_MORE;
 
-		ath10k_process_rx(htt->ar, info);
+		ath10k_process_rx(htt->ar, rx_status, skb_in);
 	}
 
 	/* FIXME: It might be nice to re-assemble the A-MSDU when there's a
 	 * monitor interface active for sniffing purposes. */
 }
 
-static void ath10k_htt_rx_msdu(struct ath10k_htt *htt, struct htt_rx_info *info)
+static void ath10k_htt_rx_msdu(struct ath10k_htt *htt,
+			       struct ieee80211_rx_status *rx_status,
+			       struct sk_buff *skb)
 {
-	struct sk_buff *skb = info->skb;
 	struct htt_rx_desc *rxd;
 	struct ieee80211_hdr *hdr;
 	enum rx_msdu_decap_format fmt;
@@ -808,66 +1027,9 @@ static void ath10k_htt_rx_msdu(struct ath10k_htt *htt, struct htt_rx_info *info)
 		break;
 	}
 
-	info->skb = skb;
-	info->encrypt_type = enctype;
+	ath10k_htt_rx_h_protected(htt, rx_status, skb, enctype, fmt, false);
 
-	ath10k_process_rx(htt->ar, info);
-}
-
-static bool ath10k_htt_rx_has_decrypt_err(struct sk_buff *skb)
-{
-	struct htt_rx_desc *rxd;
-	u32 flags;
-
-	rxd = (void *)skb->data - sizeof(*rxd);
-	flags = __le32_to_cpu(rxd->attention.flags);
-
-	if (flags & RX_ATTENTION_FLAGS_DECRYPT_ERR)
-		return true;
-
-	return false;
-}
-
-static bool ath10k_htt_rx_has_fcs_err(struct sk_buff *skb)
-{
-	struct htt_rx_desc *rxd;
-	u32 flags;
-
-	rxd = (void *)skb->data - sizeof(*rxd);
-	flags = __le32_to_cpu(rxd->attention.flags);
-
-	if (flags & RX_ATTENTION_FLAGS_FCS_ERR)
-		return true;
-
-	return false;
-}
-
-static bool ath10k_htt_rx_has_mic_err(struct sk_buff *skb)
-{
-	struct htt_rx_desc *rxd;
-	u32 flags;
-
-	rxd = (void *)skb->data - sizeof(*rxd);
-	flags = __le32_to_cpu(rxd->attention.flags);
-
-	if (flags & RX_ATTENTION_FLAGS_TKIP_MIC_ERR)
-		return true;
-
-	return false;
-}
-
-static bool ath10k_htt_rx_is_mgmt(struct sk_buff *skb)
-{
-	struct htt_rx_desc *rxd;
-	u32 flags;
-
-	rxd = (void *)skb->data - sizeof(*rxd);
-	flags = __le32_to_cpu(rxd->attention.flags);
-
-	if (flags & RX_ATTENTION_FLAGS_MGMT_TYPE)
-		return true;
-
-	return false;
+	ath10k_process_rx(htt->ar, rx_status, skb);
 }
 
 static int ath10k_htt_rx_get_csum_state(struct sk_buff *skb)
@@ -952,20 +1114,72 @@ static int ath10k_unchain_msdu(struct sk_buff *msdu_head)
 	return 0;
 }
 
+static bool ath10k_htt_rx_amsdu_allowed(struct ath10k_htt *htt,
+					struct sk_buff *head,
+					enum htt_rx_mpdu_status status,
+					bool channel_set,
+					u32 attention)
+{
+	if (head->len == 0) {
+		ath10k_dbg(ATH10K_DBG_HTT,
+			   "htt rx dropping due to zero-len\n");
+		return false;
+	}
+
+	if (attention & RX_ATTENTION_FLAGS_DECRYPT_ERR) {
+		ath10k_dbg(ATH10K_DBG_HTT,
+			   "htt rx dropping due to decrypt-err\n");
+		return false;
+	}
+
+	if (!channel_set) {
+		ath10k_warn("no channel configured; ignoring frame!\n");
+		return false;
+	}
+
+	/* Skip mgmt frames while we handle this in WMI */
+	if (status == HTT_RX_IND_MPDU_STATUS_MGMT_CTRL ||
+	    attention & RX_ATTENTION_FLAGS_MGMT_TYPE) {
+		ath10k_dbg(ATH10K_DBG_HTT, "htt rx mgmt ctrl\n");
+		return false;
+	}
+
+	if (status != HTT_RX_IND_MPDU_STATUS_OK &&
+	    status != HTT_RX_IND_MPDU_STATUS_TKIP_MIC_ERR &&
+	    status != HTT_RX_IND_MPDU_STATUS_ERR_INV_PEER &&
+	    !htt->ar->monitor_started) {
+		ath10k_dbg(ATH10K_DBG_HTT,
+			   "htt rx ignoring frame w/ status %d\n",
+			   status);
+		return false;
+	}
+
+	if (test_bit(ATH10K_CAC_RUNNING, &htt->ar->dev_flags)) {
+		ath10k_dbg(ATH10K_DBG_HTT,
+			   "htt rx CAC running\n");
+		return false;
+	}
+
+	return true;
+}
+
 static void ath10k_htt_rx_handler(struct ath10k_htt *htt,
 				  struct htt_rx_indication *rx)
 {
-	struct htt_rx_info info;
+	struct ieee80211_rx_status *rx_status = &htt->rx_status;
 	struct htt_rx_indication_mpdu_range *mpdu_ranges;
+	struct htt_rx_desc *rxd;
+	enum htt_rx_mpdu_status status;
 	struct ieee80211_hdr *hdr;
 	int num_mpdu_ranges;
+	u32 attention;
 	int fw_desc_len;
 	u8 *fw_desc;
+	bool channel_set;
 	int i, j;
+	int ret;
 
 	lockdep_assert_held(&htt->rx_ring.lock);
-
-	memset(&info, 0, sizeof(info));
 
 	fw_desc_len = __le16_to_cpu(rx->prefix.fw_rx_desc_bytes);
 	fw_desc = (u8 *)&rx->fw_desc;
@@ -974,106 +1188,91 @@ static void ath10k_htt_rx_handler(struct ath10k_htt *htt,
 			     HTT_RX_INDICATION_INFO1_NUM_MPDU_RANGES);
 	mpdu_ranges = htt_rx_ind_get_mpdu_ranges(rx);
 
+	/* Fill this once, while this is per-ppdu */
+	if (rx->ppdu.info0 & HTT_RX_INDICATION_INFO0_START_VALID) {
+		memset(rx_status, 0, sizeof(*rx_status));
+		rx_status->signal  = ATH10K_DEFAULT_NOISE_FLOOR +
+				     rx->ppdu.combined_rssi;
+	}
+
+	if (rx->ppdu.info0 & HTT_RX_INDICATION_INFO0_END_VALID) {
+		/* TSF available only in 32-bit */
+		rx_status->mactime = __le32_to_cpu(rx->ppdu.tsf) & 0xffffffff;
+		rx_status->flag |= RX_FLAG_MACTIME_END;
+	}
+
+	channel_set = ath10k_htt_rx_h_channel(htt->ar, rx_status);
+
+	if (channel_set) {
+		ath10k_htt_rx_h_rates(htt->ar, rx_status->band,
+				      rx->ppdu.info0,
+				      __le32_to_cpu(rx->ppdu.info1),
+				      __le32_to_cpu(rx->ppdu.info2),
+				      rx_status);
+	}
+
 	ath10k_dbg_dump(ATH10K_DBG_HTT_DUMP, NULL, "htt rx ind: ",
 			rx, sizeof(*rx) +
 			(sizeof(struct htt_rx_indication_mpdu_range) *
 				num_mpdu_ranges));
 
 	for (i = 0; i < num_mpdu_ranges; i++) {
-		info.status = mpdu_ranges[i].mpdu_range_status;
+		status = mpdu_ranges[i].mpdu_range_status;
 
 		for (j = 0; j < mpdu_ranges[i].mpdu_count; j++) {
 			struct sk_buff *msdu_head, *msdu_tail;
-			enum htt_rx_mpdu_status status;
-			int msdu_chaining;
 
+			attention = 0;
 			msdu_head = NULL;
 			msdu_tail = NULL;
-			msdu_chaining = ath10k_htt_rx_amsdu_pop(htt,
-							 &fw_desc,
-							 &fw_desc_len,
-							 &msdu_head,
-							 &msdu_tail);
+			ret = ath10k_htt_rx_amsdu_pop(htt,
+						      &fw_desc,
+						      &fw_desc_len,
+						      &msdu_head,
+						      &msdu_tail,
+						      &attention);
 
-			if (!msdu_head) {
-				ath10k_warn("htt rx no data!\n");
-				continue;
-			}
-
-			if (msdu_head->len == 0) {
-				ath10k_dbg(ATH10K_DBG_HTT,
-					   "htt rx dropping due to zero-len\n");
+			if (ret < 0) {
+				ath10k_warn("failed to pop amsdu from htt rx ring %d\n",
+					    ret);
 				ath10k_htt_rx_free_msdu_chain(msdu_head);
 				continue;
 			}
 
-			if (ath10k_htt_rx_has_decrypt_err(msdu_head)) {
-				ath10k_dbg(ATH10K_DBG_HTT,
-					   "htt rx dropping due to decrypt-err\n");
+			rxd = container_of((void *)msdu_head->data,
+					   struct htt_rx_desc,
+					   msdu_payload);
+
+			if (!ath10k_htt_rx_amsdu_allowed(htt, msdu_head,
+							 status,
+							 channel_set,
+							 attention)) {
 				ath10k_htt_rx_free_msdu_chain(msdu_head);
 				continue;
 			}
 
-			status = info.status;
-
-			/* Skip mgmt frames while we handle this in WMI */
-			if (status == HTT_RX_IND_MPDU_STATUS_MGMT_CTRL ||
-			    ath10k_htt_rx_is_mgmt(msdu_head)) {
-				ath10k_dbg(ATH10K_DBG_HTT, "htt rx mgmt ctrl\n");
+			if (ret > 0 &&
+			    ath10k_unchain_msdu(msdu_head) < 0) {
 				ath10k_htt_rx_free_msdu_chain(msdu_head);
 				continue;
 			}
 
-			if (status != HTT_RX_IND_MPDU_STATUS_OK &&
-			    status != HTT_RX_IND_MPDU_STATUS_TKIP_MIC_ERR &&
-			    status != HTT_RX_IND_MPDU_STATUS_ERR_INV_PEER &&
-			    !htt->ar->monitor_enabled) {
-				ath10k_dbg(ATH10K_DBG_HTT,
-					   "htt rx ignoring frame w/ status %d\n",
-					   status);
-				ath10k_htt_rx_free_msdu_chain(msdu_head);
-				continue;
-			}
+			if (attention & RX_ATTENTION_FLAGS_FCS_ERR)
+				rx_status->flag |= RX_FLAG_FAILED_FCS_CRC;
+			else
+				rx_status->flag &= ~RX_FLAG_FAILED_FCS_CRC;
 
-			if (test_bit(ATH10K_CAC_RUNNING, &htt->ar->dev_flags)) {
-				ath10k_dbg(ATH10K_DBG_HTT,
-					   "htt rx CAC running\n");
-				ath10k_htt_rx_free_msdu_chain(msdu_head);
-				continue;
-			}
-
-			if (msdu_chaining &&
-			    (ath10k_unchain_msdu(msdu_head) < 0)) {
-				ath10k_htt_rx_free_msdu_chain(msdu_head);
-				continue;
-			}
-
-			info.skb     = msdu_head;
-			info.fcs_err = ath10k_htt_rx_has_fcs_err(msdu_head);
-			info.mic_err = ath10k_htt_rx_has_mic_err(msdu_head);
-
-			if (info.fcs_err)
-				ath10k_dbg(ATH10K_DBG_HTT,
-					   "htt rx has FCS err\n");
-
-			if (info.mic_err)
-				ath10k_dbg(ATH10K_DBG_HTT,
-					   "htt rx has MIC err\n");
-
-			info.signal  = ATH10K_DEFAULT_NOISE_FLOOR;
-			info.signal += rx->ppdu.combined_rssi;
-
-			info.rate.info0 = rx->ppdu.info0;
-			info.rate.info1 = __le32_to_cpu(rx->ppdu.info1);
-			info.rate.info2 = __le32_to_cpu(rx->ppdu.info2);
-			info.tsf = __le32_to_cpu(rx->ppdu.tsf);
+			if (attention & RX_ATTENTION_FLAGS_TKIP_MIC_ERR)
+				rx_status->flag |= RX_FLAG_MMIC_ERROR;
+			else
+				rx_status->flag &= ~RX_FLAG_MMIC_ERROR;
 
 			hdr = ath10k_htt_rx_skb_get_hdr(msdu_head);
 
 			if (ath10k_htt_rx_hdr_is_amsdu(hdr))
-				ath10k_htt_rx_amsdu(htt, &info);
+				ath10k_htt_rx_amsdu(htt, rx_status, msdu_head);
 			else
-				ath10k_htt_rx_msdu(htt, &info);
+				ath10k_htt_rx_msdu(htt, rx_status, msdu_head);
 		}
 	}
 
@@ -1084,16 +1283,18 @@ static void ath10k_htt_rx_frag_handler(struct ath10k_htt *htt,
 				struct htt_rx_fragment_indication *frag)
 {
 	struct sk_buff *msdu_head, *msdu_tail;
+	enum htt_rx_mpdu_encrypt_type enctype;
 	struct htt_rx_desc *rxd;
 	enum rx_msdu_decap_format fmt;
-	struct htt_rx_info info = {};
+	struct ieee80211_rx_status *rx_status = &htt->rx_status;
 	struct ieee80211_hdr *hdr;
-	int msdu_chaining;
+	int ret;
 	bool tkip_mic_err;
 	bool decrypt_err;
 	u8 *fw_desc;
 	int fw_desc_len, hdrlen, paramlen;
 	int trim;
+	u32 attention = 0;
 
 	fw_desc_len = __le16_to_cpu(frag->fw_rx_desc_bytes);
 	fw_desc = (u8 *)frag->fw_msdu_rx_desc;
@@ -1102,31 +1303,27 @@ static void ath10k_htt_rx_frag_handler(struct ath10k_htt *htt,
 	msdu_tail = NULL;
 
 	spin_lock_bh(&htt->rx_ring.lock);
-	msdu_chaining = ath10k_htt_rx_amsdu_pop(htt, &fw_desc, &fw_desc_len,
-						&msdu_head, &msdu_tail);
+	ret = ath10k_htt_rx_amsdu_pop(htt, &fw_desc, &fw_desc_len,
+				      &msdu_head, &msdu_tail,
+				      &attention);
 	spin_unlock_bh(&htt->rx_ring.lock);
 
 	ath10k_dbg(ATH10K_DBG_HTT_DUMP, "htt rx frag ahead\n");
 
-	if (!msdu_head) {
-		ath10k_warn("htt rx frag no data\n");
-		return;
-	}
-
-	if (msdu_chaining || msdu_head != msdu_tail) {
-		ath10k_warn("aggregation with fragmentation?!\n");
+	if (ret) {
+		ath10k_warn("failed to pop amsdu from httr rx ring for fragmented rx %d\n",
+			    ret);
 		ath10k_htt_rx_free_msdu_chain(msdu_head);
 		return;
 	}
 
 	/* FIXME: implement signal strength */
+	rx_status->flag |= RX_FLAG_NO_SIGNAL_VAL;
 
 	hdr = (struct ieee80211_hdr *)msdu_head->data;
 	rxd = (void *)msdu_head->data - sizeof(*rxd);
-	tkip_mic_err = !!(__le32_to_cpu(rxd->attention.flags) &
-				RX_ATTENTION_FLAGS_TKIP_MIC_ERR);
-	decrypt_err = !!(__le32_to_cpu(rxd->attention.flags) &
-				RX_ATTENTION_FLAGS_DECRYPT_ERR);
+	tkip_mic_err = !!(attention & RX_ATTENTION_FLAGS_TKIP_MIC_ERR);
+	decrypt_err = !!(attention & RX_ATTENTION_FLAGS_DECRYPT_ERR);
 	fmt = MS(__le32_to_cpu(rxd->msdu_start.info1),
 			RX_MSDU_START_INFO1_DECAP_FORMAT);
 
@@ -1136,57 +1333,55 @@ static void ath10k_htt_rx_frag_handler(struct ath10k_htt *htt,
 		goto end;
 	}
 
-	info.skb = msdu_head;
-	info.status = HTT_RX_IND_MPDU_STATUS_OK;
-	info.encrypt_type = MS(__le32_to_cpu(rxd->mpdu_start.info0),
-				RX_MPDU_START_INFO0_ENCRYPT_TYPE);
-	info.skb->ip_summed = ath10k_htt_rx_get_csum_state(info.skb);
+	enctype = MS(__le32_to_cpu(rxd->mpdu_start.info0),
+		     RX_MPDU_START_INFO0_ENCRYPT_TYPE);
+	ath10k_htt_rx_h_protected(htt, rx_status, msdu_head, enctype, fmt,
+				  true);
+	msdu_head->ip_summed = ath10k_htt_rx_get_csum_state(msdu_head);
 
-	if (tkip_mic_err) {
+	if (tkip_mic_err)
 		ath10k_warn("tkip mic error\n");
-		info.status = HTT_RX_IND_MPDU_STATUS_TKIP_MIC_ERR;
-	}
 
 	if (decrypt_err) {
 		ath10k_warn("decryption err in fragmented rx\n");
-		dev_kfree_skb_any(info.skb);
+		dev_kfree_skb_any(msdu_head);
 		goto end;
 	}
 
-	if (info.encrypt_type != HTT_RX_MPDU_ENCRYPT_NONE) {
+	if (enctype != HTT_RX_MPDU_ENCRYPT_NONE) {
 		hdrlen = ieee80211_hdrlen(hdr->frame_control);
-		paramlen = ath10k_htt_rx_crypto_param_len(info.encrypt_type);
+		paramlen = ath10k_htt_rx_crypto_param_len(enctype);
 
 		/* It is more efficient to move the header than the payload */
-		memmove((void *)info.skb->data + paramlen,
-			(void *)info.skb->data,
+		memmove((void *)msdu_head->data + paramlen,
+			(void *)msdu_head->data,
 			hdrlen);
-		skb_pull(info.skb, paramlen);
-		hdr = (struct ieee80211_hdr *)info.skb->data;
+		skb_pull(msdu_head, paramlen);
+		hdr = (struct ieee80211_hdr *)msdu_head->data;
 	}
 
 	/* remove trailing FCS */
 	trim  = 4;
 
 	/* remove crypto trailer */
-	trim += ath10k_htt_rx_crypto_tail_len(info.encrypt_type);
+	trim += ath10k_htt_rx_crypto_tail_len(enctype);
 
 	/* last fragment of TKIP frags has MIC */
 	if (!ieee80211_has_morefrags(hdr->frame_control) &&
-	    info.encrypt_type == HTT_RX_MPDU_ENCRYPT_TKIP_WPA)
+	    enctype == HTT_RX_MPDU_ENCRYPT_TKIP_WPA)
 		trim += 8;
 
-	if (trim > info.skb->len) {
+	if (trim > msdu_head->len) {
 		ath10k_warn("htt rx fragment: trailer longer than the frame itself? drop\n");
-		dev_kfree_skb_any(info.skb);
+		dev_kfree_skb_any(msdu_head);
 		goto end;
 	}
 
-	skb_trim(info.skb, info.skb->len - trim);
+	skb_trim(msdu_head, msdu_head->len - trim);
 
 	ath10k_dbg_dump(ATH10K_DBG_HTT_DUMP, NULL, "htt rx frag mpdu: ",
-			info.skb->data, info.skb->len);
-	ath10k_process_rx(htt->ar, &info);
+			msdu_head->data, msdu_head->len);
+	ath10k_process_rx(htt->ar, rx_status, msdu_head);
 
 end:
 	if (fw_desc_len > 0) {
@@ -1233,6 +1428,86 @@ static void ath10k_htt_rx_frm_tx_compl(struct ath10k *ar,
 		tx_done.msdu_id = __le16_to_cpu(msdu_id);
 		ath10k_txrx_tx_unref(htt, &tx_done);
 	}
+}
+
+static void ath10k_htt_rx_addba(struct ath10k *ar, struct htt_resp *resp)
+{
+	struct htt_rx_addba *ev = &resp->rx_addba;
+	struct ath10k_peer *peer;
+	struct ath10k_vif *arvif;
+	u16 info0, tid, peer_id;
+
+	info0 = __le16_to_cpu(ev->info0);
+	tid = MS(info0, HTT_RX_BA_INFO0_TID);
+	peer_id = MS(info0, HTT_RX_BA_INFO0_PEER_ID);
+
+	ath10k_dbg(ATH10K_DBG_HTT,
+		   "htt rx addba tid %hu peer_id %hu size %hhu\n",
+		   tid, peer_id, ev->window_size);
+
+	spin_lock_bh(&ar->data_lock);
+	peer = ath10k_peer_find_by_id(ar, peer_id);
+	if (!peer) {
+		ath10k_warn("received addba event for invalid peer_id: %hu\n",
+			    peer_id);
+		spin_unlock_bh(&ar->data_lock);
+		return;
+	}
+
+	arvif = ath10k_get_arvif(ar, peer->vdev_id);
+	if (!arvif) {
+		ath10k_warn("received addba event for invalid vdev_id: %u\n",
+			    peer->vdev_id);
+		spin_unlock_bh(&ar->data_lock);
+		return;
+	}
+
+	ath10k_dbg(ATH10K_DBG_HTT,
+		   "htt rx start rx ba session sta %pM tid %hu size %hhu\n",
+		   peer->addr, tid, ev->window_size);
+
+	ieee80211_start_rx_ba_session_offl(arvif->vif, peer->addr, tid);
+	spin_unlock_bh(&ar->data_lock);
+}
+
+static void ath10k_htt_rx_delba(struct ath10k *ar, struct htt_resp *resp)
+{
+	struct htt_rx_delba *ev = &resp->rx_delba;
+	struct ath10k_peer *peer;
+	struct ath10k_vif *arvif;
+	u16 info0, tid, peer_id;
+
+	info0 = __le16_to_cpu(ev->info0);
+	tid = MS(info0, HTT_RX_BA_INFO0_TID);
+	peer_id = MS(info0, HTT_RX_BA_INFO0_PEER_ID);
+
+	ath10k_dbg(ATH10K_DBG_HTT,
+		   "htt rx delba tid %hu peer_id %hu\n",
+		   tid, peer_id);
+
+	spin_lock_bh(&ar->data_lock);
+	peer = ath10k_peer_find_by_id(ar, peer_id);
+	if (!peer) {
+		ath10k_warn("received addba event for invalid peer_id: %hu\n",
+			    peer_id);
+		spin_unlock_bh(&ar->data_lock);
+		return;
+	}
+
+	arvif = ath10k_get_arvif(ar, peer->vdev_id);
+	if (!arvif) {
+		ath10k_warn("received addba event for invalid vdev_id: %u\n",
+			    peer->vdev_id);
+		spin_unlock_bh(&ar->data_lock);
+		return;
+	}
+
+	ath10k_dbg(ATH10K_DBG_HTT,
+		   "htt rx stop rx ba session sta %pM tid %hu\n",
+		   peer->addr, tid);
+
+	ieee80211_stop_rx_ba_session_offl(arvif->vif, peer->addr, tid);
+	spin_unlock_bh(&ar->data_lock);
 }
 
 void ath10k_htt_t2h_msg_handler(struct ath10k *ar, struct sk_buff *skb)
@@ -1329,9 +1604,25 @@ void ath10k_htt_t2h_msg_handler(struct ath10k *ar, struct sk_buff *skb)
 		trace_ath10k_htt_stats(skb->data, skb->len);
 		break;
 	case HTT_T2H_MSG_TYPE_TX_INSPECT_IND:
+		/* Firmware can return tx frames if it's unable to fully
+		 * process them and suspects host may be able to fix it. ath10k
+		 * sends all tx frames as already inspected so this shouldn't
+		 * happen unless fw has a bug.
+		 */
+		ath10k_warn("received an unexpected htt tx inspect event\n");
+		break;
 	case HTT_T2H_MSG_TYPE_RX_ADDBA:
+		ath10k_htt_rx_addba(ar, resp);
+		break;
 	case HTT_T2H_MSG_TYPE_RX_DELBA:
-	case HTT_T2H_MSG_TYPE_RX_FLUSH:
+		ath10k_htt_rx_delba(ar, resp);
+		break;
+	case HTT_T2H_MSG_TYPE_RX_FLUSH: {
+		/* Ignore this event because mac80211 takes care of Rx
+		 * aggregation reordering.
+		 */
+		break;
+	}
 	default:
 		ath10k_dbg(ATH10K_DBG_HTT, "htt event (%d) not handled\n",
 			   resp->hdr.msg_type);

@@ -203,12 +203,6 @@ static int __f2fs_set_acl(struct inode *inode, int type,
 	size_t size = 0;
 	int error;
 
-	if (acl) {
-		error = posix_acl_valid(acl);
-		if (error < 0)
-			return error;
-	}
-
 	switch (type) {
 	case ACL_TYPE_ACCESS:
 		name_index = F2FS_XATTR_INDEX_POSIX_ACL_ACCESS;
@@ -240,7 +234,7 @@ static int __f2fs_set_acl(struct inode *inode, int type,
 		}
 	}
 
-	error = f2fs_setxattr(inode, name_index, "", value, size, ipage);
+	error = f2fs_setxattr(inode, name_index, "", value, size, ipage, 0);
 
 	kfree(value);
 	if (!error)

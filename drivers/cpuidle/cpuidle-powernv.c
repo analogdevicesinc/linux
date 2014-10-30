@@ -73,12 +73,10 @@ static int fastsleep_loop(struct cpuidle_device *dev,
 		return index;
 
 	new_lpcr = old_lpcr;
-	new_lpcr &= ~(LPCR_MER | LPCR_PECE); /* lpcr[mer] must be 0 */
-
-	/* exit powersave upon external interrupt, but not decrementer
-	 * interrupt.
+	/* Do not exit powersave upon decrementer as we've setup the timer
+	 * offload.
 	 */
-	new_lpcr |= LPCR_PECE0;
+	new_lpcr &= ~LPCR_PECE1;
 
 	mtspr(SPRN_LPCR, new_lpcr);
 	power7_sleep();
@@ -162,10 +160,10 @@ static int powernv_cpuidle_driver_init(void)
 static int powernv_add_idle_states(void)
 {
 	struct device_node *power_mgt;
-	struct property *prop;
 	int nr_idle_states = 1; /* Snooze */
 	int dt_idle_states;
-	u32 *flags;
+	const __be32 *idle_state_flags;
+	u32 len_flags, flags;
 	int i;
 
 	/* Currently we have snooze statically defined */
@@ -176,18 +174,18 @@ static int powernv_add_idle_states(void)
 		return nr_idle_states;
 	}
 
-	prop = of_find_property(power_mgt, "ibm,cpu-idle-state-flags", NULL);
-	if (!prop) {
+	idle_state_flags = of_get_property(power_mgt, "ibm,cpu-idle-state-flags", &len_flags);
+	if (!idle_state_flags) {
 		pr_warn("DT-PowerMgmt: missing ibm,cpu-idle-state-flags\n");
 		return nr_idle_states;
 	}
 
-	dt_idle_states = prop->length / sizeof(u32);
-	flags = (u32 *) prop->value;
+	dt_idle_states = len_flags / sizeof(u32);
 
 	for (i = 0; i < dt_idle_states; i++) {
 
-		if (flags[i] & IDLE_USE_INST_NAP) {
+		flags = be32_to_cpu(idle_state_flags[i]);
+		if (flags & IDLE_USE_INST_NAP) {
 			/* Add NAP state */
 			strcpy(powernv_states[nr_idle_states].name, "Nap");
 			strcpy(powernv_states[nr_idle_states].desc, "Nap");
@@ -198,7 +196,7 @@ static int powernv_add_idle_states(void)
 			nr_idle_states++;
 		}
 
-		if (flags[i] & IDLE_USE_INST_SLEEP) {
+		if (flags & IDLE_USE_INST_SLEEP) {
 			/* Add FASTSLEEP state */
 			strcpy(powernv_states[nr_idle_states].name, "FastSleep");
 			strcpy(powernv_states[nr_idle_states].desc, "FastSleep");

@@ -1558,6 +1558,8 @@ ceph_mdsc_create_request(struct ceph_mds_client *mdsc, int op, int mode)
 	init_completion(&req->r_safe_completion);
 	INIT_LIST_HEAD(&req->r_unsafe_item);
 
+	req->r_stamp = CURRENT_TIME;
+
 	req->r_op = op;
 	req->r_direct_mode = mode;
 	return req;
@@ -1783,7 +1785,8 @@ static struct ceph_msg *create_request_message(struct ceph_mds_client *mdsc,
 	}
 
 	len = sizeof(*head) +
-		pathlen1 + pathlen2 + 2*(1 + sizeof(u32) + sizeof(u64));
+		pathlen1 + pathlen2 + 2*(1 + sizeof(u32) + sizeof(u64)) +
+		sizeof(struct timespec);
 
 	/* calculate (max) length for cap releases */
 	len += sizeof(struct ceph_mds_request_release) *
@@ -1800,6 +1803,7 @@ static struct ceph_msg *create_request_message(struct ceph_mds_client *mdsc,
 		goto out_free2;
 	}
 
+	msg->hdr.version = 2;
 	msg->hdr.tid = cpu_to_le64(req->r_tid);
 
 	head = msg->front.iov_base;
@@ -1835,6 +1839,9 @@ static struct ceph_msg *create_request_message(struct ceph_mds_client *mdsc,
 		      req->r_old_dentry->d_inode,
 		      mds, req->r_old_inode_drop, req->r_old_inode_unless, 0);
 	head->num_releases = cpu_to_le16(releases);
+
+	/* time stamp */
+	ceph_encode_copy(&p, &req->r_stamp, sizeof(req->r_stamp));
 
 	BUG_ON(p > end);
 	msg->front.iov_len = p - msg->front.iov_base;
@@ -1897,6 +1904,7 @@ static int __prepare_send_request(struct ceph_mds_client *mdsc,
 	     req->r_tid, ceph_mds_op_name(req->r_op), req->r_attempts);
 
 	if (req->r_got_unsafe) {
+		void *p;
 		/*
 		 * Replay.  Do not regenerate message (and rebuild
 		 * paths, etc.); just use the original message.
@@ -1917,8 +1925,13 @@ static int __prepare_send_request(struct ceph_mds_client *mdsc,
 
 		/* remove cap/dentry releases from message */
 		rhead->num_releases = 0;
-		msg->hdr.front_len = cpu_to_le32(req->r_request_release_offset);
-		msg->front.iov_len = req->r_request_release_offset;
+
+		/* time stamp */
+		p = msg->front.iov_base + req->r_request_release_offset;
+		ceph_encode_copy(&p, &req->r_stamp, sizeof(req->r_stamp));
+
+		msg->front.iov_len = p - msg->front.iov_base;
+		msg->hdr.front_len = cpu_to_le32(msg->front.iov_len);
 		return 0;
 	}
 
@@ -2054,11 +2067,12 @@ static void __wake_requests(struct ceph_mds_client *mdsc,
 static void kick_requests(struct ceph_mds_client *mdsc, int mds)
 {
 	struct ceph_mds_request *req;
-	struct rb_node *p;
+	struct rb_node *p = rb_first(&mdsc->request_tree);
 
 	dout("kick_requests mds%d\n", mds);
-	for (p = rb_first(&mdsc->request_tree); p; p = rb_next(p)) {
+	while (p) {
 		req = rb_entry(p, struct ceph_mds_request, r_node);
+		p = rb_next(p);
 		if (req->r_got_unsafe)
 			continue;
 		if (req->r_session &&
@@ -2218,13 +2232,13 @@ static void handle_reply(struct ceph_mds_session *session, struct ceph_msg *msg)
 	/* dup? */
 	if ((req->r_got_unsafe && !head->safe) ||
 	    (req->r_got_safe && head->safe)) {
-		pr_warning("got a dup %s reply on %llu from mds%d\n",
+		pr_warn("got a dup %s reply on %llu from mds%d\n",
 			   head->safe ? "safe" : "unsafe", tid, mds);
 		mutex_unlock(&mdsc->mutex);
 		goto out;
 	}
 	if (req->r_got_safe && !head->safe) {
-		pr_warning("got unsafe after safe on %llu from mds%d\n",
+		pr_warn("got unsafe after safe on %llu from mds%d\n",
 			   tid, mds);
 		mutex_unlock(&mdsc->mutex);
 		goto out;
@@ -2241,6 +2255,7 @@ static void handle_reply(struct ceph_mds_session *session, struct ceph_msg *msg)
 	 */
 	if (result == -ESTALE) {
 		dout("got ESTALE on request %llu", req->r_tid);
+		req->r_resend_mds = -1;
 		if (req->r_direct_mode != USE_AUTH_MDS) {
 			dout("not using auth, setting for that now");
 			req->r_direct_mode = USE_AUTH_MDS;
@@ -3525,7 +3540,7 @@ static void peer_reset(struct ceph_connection *con)
 	struct ceph_mds_session *s = con->private;
 	struct ceph_mds_client *mdsc = s->s_mdsc;
 
-	pr_warning("mds%d closed our session\n", s->s_mds);
+	pr_warn("mds%d closed our session\n", s->s_mds);
 	send_mds_reconnect(mdsc, s);
 }
 

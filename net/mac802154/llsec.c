@@ -538,6 +538,7 @@ static int llsec_recover_addr(struct mac802154_llsec *sec,
 			      struct ieee802154_addr *addr)
 {
 	__le16 caddr = sec->params.coord_shortaddr;
+
 	addr->pan_id = sec->params.pan_id;
 
 	if (caddr == cpu_to_le16(IEEE802154_ADDR_BROADCAST)) {
@@ -924,6 +925,37 @@ llsec_do_decrypt(struct sk_buff *skb, const struct mac802154_llsec *sec,
 }
 
 static int
+llsec_update_devkey_record(struct mac802154_llsec_device *dev,
+			   const struct ieee802154_llsec_key_id *in_key)
+{
+	struct mac802154_llsec_device_key *devkey;
+
+	devkey = llsec_devkey_find(dev, in_key);
+
+	if (!devkey) {
+		struct mac802154_llsec_device_key *next;
+
+		next = kzalloc(sizeof(*devkey), GFP_ATOMIC);
+		if (!next)
+			return -ENOMEM;
+
+		next->devkey.key_id = *in_key;
+
+		spin_lock_bh(&dev->lock);
+
+		devkey = llsec_devkey_find(dev, in_key);
+		if (!devkey)
+			list_add_rcu(&next->devkey.list, &dev->dev.keys);
+		else
+			kfree(next);
+
+		spin_unlock_bh(&dev->lock);
+	}
+
+	return 0;
+}
+
+static int
 llsec_update_devkey_info(struct mac802154_llsec_device *dev,
 			 const struct ieee802154_llsec_key_id *in_key,
 			 u32 frame_counter)
@@ -934,6 +966,13 @@ llsec_update_devkey_info(struct mac802154_llsec_device *dev,
 		devkey = llsec_devkey_find(dev, in_key);
 		if (!devkey)
 			return -ENOENT;
+	}
+
+	if (dev->dev.key_mode == IEEE802154_LLSEC_DEVKEY_RECORD) {
+		int rc = llsec_update_devkey_record(dev, in_key);
+
+		if (rc < 0)
+			return rc;
 	}
 
 	spin_lock_bh(&dev->lock);

@@ -264,8 +264,6 @@ struct mlx5_ib_mr {
 	__be64			*pas;
 	dma_addr_t		dma;
 	int			npages;
-	struct completion	done;
-	enum ib_wc_status	status;
 	struct mlx5_ib_dev     *dev;
 	struct mlx5_create_mkey_mbox_out out;
 	struct mlx5_core_sig_ctx    *sig;
@@ -276,6 +274,17 @@ struct mlx5_ib_fast_reg_page_list {
 	__be64			       *mapped_page_list;
 	dma_addr_t			map;
 };
+
+struct mlx5_ib_umr_context {
+	enum ib_wc_status	status;
+	struct completion	done;
+};
+
+static inline void mlx5_ib_init_umr_context(struct mlx5_ib_umr_context *context)
+{
+	context->status = -1;
+	init_completion(&context->done);
+}
 
 struct umr_common {
 	struct ib_pd	*pd;
@@ -351,7 +360,7 @@ struct mlx5_ib_resources {
 
 struct mlx5_ib_dev {
 	struct ib_device		ib_dev;
-	struct mlx5_core_dev		mdev;
+	struct mlx5_core_dev		*mdev;
 	MLX5_DECLARE_DOORBELL_LOCK(uar_lock);
 	struct list_head		eqs_list;
 	int				num_ports;
@@ -445,16 +454,6 @@ static inline struct mlx5_ib_ah *to_mah(struct ib_ah *ibah)
 	return container_of(ibah, struct mlx5_ib_ah, ibah);
 }
 
-static inline struct mlx5_ib_dev *mlx5_core2ibdev(struct mlx5_core_dev *dev)
-{
-	return container_of(dev, struct mlx5_ib_dev, mdev);
-}
-
-static inline struct mlx5_ib_dev *mlx5_pci2ibdev(struct pci_dev *pdev)
-{
-	return mlx5_core2ibdev(pci2mlx5_core_dev(pdev));
-}
-
 int mlx5_ib_db_map_user(struct mlx5_ib_ucontext *context, unsigned long virt,
 			struct mlx5_db *db);
 void mlx5_ib_db_unmap_user(struct mlx5_ib_ucontext *context, struct mlx5_db *db);
@@ -462,7 +461,7 @@ void __mlx5_ib_cq_clean(struct mlx5_ib_cq *cq, u32 qpn, struct mlx5_ib_srq *srq)
 void mlx5_ib_cq_clean(struct mlx5_ib_cq *cq, u32 qpn, struct mlx5_ib_srq *srq);
 void mlx5_ib_free_srq_wqe(struct mlx5_ib_srq *srq, int wqe_index);
 int mlx5_MAD_IFC(struct mlx5_ib_dev *dev, int ignore_mkey, int ignore_bkey,
-		 int port, struct ib_wc *in_wc, struct ib_grh *in_grh,
+		 u8 port, struct ib_wc *in_wc, struct ib_grh *in_grh,
 		 void *in_mad, void *response_mad);
 struct ib_ah *create_ib_ah(struct ib_ah_attr *ah_attr,
 			   struct mlx5_ib_ah *ah);

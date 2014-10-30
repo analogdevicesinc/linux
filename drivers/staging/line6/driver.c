@@ -124,6 +124,7 @@ static int line6_send_raw_message_async_part(struct message *msg,
 static int line6_start_listen(struct usb_line6 *line6)
 {
 	int err;
+
 	usb_fill_int_urb(line6->urb_listen, line6->usbdev,
 			 usb_rcvintpipe(line6->usbdev, line6->ep_control_read),
 			 line6->buffer_listen, LINE6_BUFSIZE_LISTEN,
@@ -662,7 +663,7 @@ static int line6_probe(struct usb_interface *interface,
 	case LINE6_DEVID_POCKETPOD:
 		switch (interface_number) {
 		case 0:
-			return 0;	/* this interface has no endpoints */
+			return -ENODEV;	/* this interface has no endpoints */
 		case 1:
 			alternate = 0;
 			break;

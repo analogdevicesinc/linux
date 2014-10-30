@@ -31,19 +31,15 @@
 
 #include <rtl8188e_hal.h>
 
-static void dm_CheckStatistics(struct adapter *Adapter)
-{
-}
-
 /*  Initialize GPIO setting registers */
 static void dm_InitGPIOSetting(struct adapter *Adapter)
 {
 	u8	tmp1byte;
 
-	tmp1byte = rtw_read8(Adapter, REG_GPIO_MUXCFG);
+	tmp1byte = usb_read8(Adapter, REG_GPIO_MUXCFG);
 	tmp1byte &= (GPIOSEL_GPIO | ~GPIOSEL_ENBT);
 
-	rtw_write8(Adapter, REG_GPIO_MUXCFG, tmp1byte);
+	usb_write8(Adapter, REG_GPIO_MUXCFG, tmp1byte);
 }
 
 /*  */
@@ -57,7 +53,7 @@ static void Init_ODM_ComInfo_88E(struct adapter *Adapter)
 	u8 cut_ver, fab_ver;
 
 	/*  Init Value */
-	_rtw_memset(dm_odm, 0, sizeof(*dm_odm));
+	memset(dm_odm, 0, sizeof(*dm_odm));
 
 	dm_odm->Adapter = Adapter;
 
@@ -173,12 +169,6 @@ void rtl8188e_HalDmWatchDog(struct adapter *Adapter)
 	if (Adapter->wdinfo.p2p_ps_mode)
 		fw_ps_awake = false;
 
-	if (hw_init_completed && ((!fw_cur_in_ps) && fw_ps_awake)) {
-		/*  Calculate Tx/Rx statistics. */
-		dm_CheckStatistics(Adapter);
-
-	}
-
 	/* ODM */
 	if (hw_init_completed) {
 		struct mlme_priv *pmlmepriv = &Adapter->mlmepriv;
@@ -208,13 +198,9 @@ void rtl8188e_init_dm_priv(struct adapter *Adapter)
 	struct dm_priv	*pdmpriv = &hal_data->dmpriv;
 	struct odm_dm_struct *podmpriv = &hal_data->odmpriv;
 
-	_rtw_memset(pdmpriv, 0, sizeof(struct dm_priv));
+	memset(pdmpriv, 0, sizeof(struct dm_priv));
 	Init_ODM_ComInfo_88E(Adapter);
 	ODM_InitDebugSetting(podmpriv);
-}
-
-void rtl8188e_deinit_dm_priv(struct adapter *Adapter)
-{
 }
 
 /*  Add new function to reset the state of antenna diversity before link. */

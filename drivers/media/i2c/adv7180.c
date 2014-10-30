@@ -461,6 +461,7 @@ static int adv7180_g_mbus_config(struct v4l2_subdev *sd,
 }
 
 static const struct v4l2_subdev_video_ops adv7180_video_ops = {
+	.s_std = adv7180_s_std,
 	.querystd = adv7180_querystd,
 	.g_input_status = adv7180_g_input_status,
 	.s_routing = adv7180_s_routing,
@@ -472,7 +473,6 @@ static const struct v4l2_subdev_video_ops adv7180_video_ops = {
 };
 
 static const struct v4l2_subdev_core_ops adv7180_core_ops = {
-	.s_std = adv7180_s_std,
 	.s_power = adv7180_s_power,
 };
 
@@ -663,7 +663,6 @@ static int adv7180_remove(struct i2c_client *client)
 	if (state->irq > 0)
 		free_irq(client->irq, state);
 
-	v4l2_device_unregister_subdev(sd);
 	adv7180_exit_controls(state);
 	mutex_destroy(&state->mutex);
 	return 0;

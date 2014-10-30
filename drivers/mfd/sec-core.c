@@ -25,12 +25,13 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/samsung/core.h>
 #include <linux/mfd/samsung/irq.h>
-#include <linux/mfd/samsung/rtc.h>
 #include <linux/mfd/samsung/s2mpa01.h>
 #include <linux/mfd/samsung/s2mps11.h>
 #include <linux/mfd/samsung/s2mps14.h>
+#include <linux/mfd/samsung/s2mpu02.h>
 #include <linux/mfd/samsung/s5m8763.h>
 #include <linux/mfd/samsung/s5m8767.h>
+#include <linux/regulator/machine.h>
 #include <linux/regmap.h>
 
 static const struct mfd_cell s5m8751_devs[] = {
@@ -90,8 +91,17 @@ static const struct mfd_cell s2mpa01_devs[] = {
 	},
 };
 
+static const struct mfd_cell s2mpu02_devs[] = {
+	{ .name = "s2mpu02-pmic", },
+	{ .name = "s2mpu02-rtc", },
+	{
+		.name = "s2mpu02-clk",
+		.of_compatible = "samsung,s2mpu02-clk",
+	}
+};
+
 #ifdef CONFIG_OF
-static struct of_device_id sec_dt_match[] = {
+static const struct of_device_id sec_dt_match[] = {
 	{	.compatible = "samsung,s5m8767-pmic",
 		.data = (void *)S5M8767X,
 	}, {
@@ -103,6 +113,9 @@ static struct of_device_id sec_dt_match[] = {
 	}, {
 		.compatible = "samsung,s2mpa01-pmic",
 		.data = (void *)S2MPA01,
+	}, {
+		.compatible = "samsung,s2mpu02-pmic",
+		.data = (void *)S2MPU02,
 	}, {
 		/* Sentinel */
 	},
@@ -127,6 +140,18 @@ static bool s2mps11_volatile(struct device *dev, unsigned int reg)
 	case S2MPS11_REG_INT1M:
 	case S2MPS11_REG_INT2M:
 	case S2MPS11_REG_INT3M:
+		return false;
+	default:
+		return true;
+	}
+}
+
+static bool s2mpu02_volatile(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case S2MPU02_REG_INT1M:
+	case S2MPU02_REG_INT2M:
+	case S2MPU02_REG_INT3M:
 		return false;
 	default:
 		return true;
@@ -178,6 +203,15 @@ static const struct regmap_config s2mps14_regmap_config = {
 	.cache_type = REGCACHE_FLAT,
 };
 
+static const struct regmap_config s2mpu02_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+
+	.max_register = S2MPU02_REG_DVSDATA,
+	.volatile_reg = s2mpu02_volatile,
+	.cache_type = REGCACHE_FLAT,
+};
+
 static const struct regmap_config s5m8763_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
@@ -194,20 +228,6 @@ static const struct regmap_config s5m8767_regmap_config = {
 	.max_register = S5M8767_REG_LDO28CTRL,
 	.volatile_reg = s2mps11_volatile,
 	.cache_type = REGCACHE_FLAT,
-};
-
-static const struct regmap_config s5m_rtc_regmap_config = {
-	.reg_bits = 8,
-	.val_bits = 8,
-
-	.max_register = SEC_RTC_REG_MAX,
-};
-
-static const struct regmap_config s2mps14_rtc_regmap_config = {
-	.reg_bits = 8,
-	.val_bits = 8,
-
-	.max_register = S2MPS_RTC_REG_MAX,
 };
 
 #ifdef CONFIG_OF
@@ -253,6 +273,7 @@ static inline unsigned long sec_i2c_get_driver_data(struct i2c_client *i2c,
 #ifdef CONFIG_OF
 	if (i2c->dev.of_node) {
 		const struct of_device_id *match;
+
 		match = of_match_node(sec_dt_match, i2c->dev.of_node);
 		return (unsigned long)match->data;
 	}
@@ -264,9 +285,11 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
 	struct sec_platform_data *pdata = dev_get_platdata(&i2c->dev);
-	const struct regmap_config *regmap, *regmap_rtc;
+	const struct regmap_config *regmap;
+	const struct mfd_cell *sec_devs;
 	struct sec_pmic_dev *sec_pmic;
-	int ret;
+	unsigned long device_type;
+	int ret, num_sec_devs;
 
 	sec_pmic = devm_kzalloc(&i2c->dev, sizeof(struct sec_pmic_dev),
 				GFP_KERNEL);
@@ -277,7 +300,7 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 	sec_pmic->dev = &i2c->dev;
 	sec_pmic->i2c = i2c;
 	sec_pmic->irq = i2c->irq;
-	sec_pmic->type = sec_i2c_get_driver_data(i2c, id);
+	device_type = sec_i2c_get_driver_data(i2c, id);
 
 	if (sec_pmic->dev->of_node) {
 		pdata = sec_pmic_i2c_parse_dt_pdata(sec_pmic->dev);
@@ -285,7 +308,7 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 			ret = PTR_ERR(pdata);
 			return ret;
 		}
-		pdata->device_type = sec_pmic->type;
+		pdata->device_type = device_type;
 	}
 	if (pdata) {
 		sec_pmic->device_type = pdata->device_type;
@@ -298,39 +321,24 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 	switch (sec_pmic->device_type) {
 	case S2MPA01:
 		regmap = &s2mpa01_regmap_config;
-		/*
-		 * The rtc-s5m driver does not support S2MPA01 and there
-		 * is no mfd_cell for S2MPA01 RTC device.
-		 * However we must pass something to devm_regmap_init_i2c()
-		 * so use S5M-like regmap config even though it wouldn't work.
-		 */
-		regmap_rtc = &s5m_rtc_regmap_config;
 		break;
 	case S2MPS11X:
 		regmap = &s2mps11_regmap_config;
-		/*
-		 * The rtc-s5m driver does not support S2MPS11 and there
-		 * is no mfd_cell for S2MPS11 RTC device.
-		 * However we must pass something to devm_regmap_init_i2c()
-		 * so use S5M-like regmap config even though it wouldn't work.
-		 */
-		regmap_rtc = &s5m_rtc_regmap_config;
 		break;
 	case S2MPS14X:
 		regmap = &s2mps14_regmap_config;
-		regmap_rtc = &s2mps14_rtc_regmap_config;
 		break;
 	case S5M8763X:
 		regmap = &s5m8763_regmap_config;
-		regmap_rtc = &s5m_rtc_regmap_config;
 		break;
 	case S5M8767X:
 		regmap = &s5m8767_regmap_config;
-		regmap_rtc = &s5m_rtc_regmap_config;
+		break;
+	case S2MPU02:
+		regmap = &s2mpu02_regmap_config;
 		break;
 	default:
 		regmap = &sec_regmap_config;
-		regmap_rtc = &s5m_rtc_regmap_config;
 		break;
 	}
 
@@ -342,21 +350,6 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 		return ret;
 	}
 
-	sec_pmic->rtc = i2c_new_dummy(i2c->adapter, RTC_I2C_ADDR);
-	if (!sec_pmic->rtc) {
-		dev_err(&i2c->dev, "Failed to allocate I2C for RTC\n");
-		return -ENODEV;
-	}
-	i2c_set_clientdata(sec_pmic->rtc, sec_pmic);
-
-	sec_pmic->regmap_rtc = devm_regmap_init_i2c(sec_pmic->rtc, regmap_rtc);
-	if (IS_ERR(sec_pmic->regmap_rtc)) {
-		ret = PTR_ERR(sec_pmic->regmap_rtc);
-		dev_err(&i2c->dev, "Failed to allocate RTC register map: %d\n",
-			ret);
-		goto err_regmap_rtc;
-	}
-
 	if (pdata && pdata->cfg_pmic_irq)
 		pdata->cfg_pmic_irq();
 
@@ -366,34 +359,39 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 
 	switch (sec_pmic->device_type) {
 	case S5M8751X:
-		ret = mfd_add_devices(sec_pmic->dev, -1, s5m8751_devs,
-				      ARRAY_SIZE(s5m8751_devs), NULL, 0, NULL);
+		sec_devs = s5m8751_devs;
+		num_sec_devs = ARRAY_SIZE(s5m8751_devs);
 		break;
 	case S5M8763X:
-		ret = mfd_add_devices(sec_pmic->dev, -1, s5m8763_devs,
-				      ARRAY_SIZE(s5m8763_devs), NULL, 0, NULL);
+		sec_devs = s5m8763_devs;
+		num_sec_devs = ARRAY_SIZE(s5m8763_devs);
 		break;
 	case S5M8767X:
-		ret = mfd_add_devices(sec_pmic->dev, -1, s5m8767_devs,
-				      ARRAY_SIZE(s5m8767_devs), NULL, 0, NULL);
+		sec_devs = s5m8767_devs;
+		num_sec_devs = ARRAY_SIZE(s5m8767_devs);
 		break;
 	case S2MPA01:
-		ret = mfd_add_devices(sec_pmic->dev, -1, s2mpa01_devs,
-				      ARRAY_SIZE(s2mpa01_devs), NULL, 0, NULL);
+		sec_devs = s2mpa01_devs;
+		num_sec_devs = ARRAY_SIZE(s2mpa01_devs);
 		break;
 	case S2MPS11X:
-		ret = mfd_add_devices(sec_pmic->dev, -1, s2mps11_devs,
-				      ARRAY_SIZE(s2mps11_devs), NULL, 0, NULL);
+		sec_devs = s2mps11_devs;
+		num_sec_devs = ARRAY_SIZE(s2mps11_devs);
 		break;
 	case S2MPS14X:
-		ret = mfd_add_devices(sec_pmic->dev, -1, s2mps14_devs,
-				      ARRAY_SIZE(s2mps14_devs), NULL, 0, NULL);
+		sec_devs = s2mps14_devs;
+		num_sec_devs = ARRAY_SIZE(s2mps14_devs);
+		break;
+	case S2MPU02:
+		sec_devs = s2mpu02_devs;
+		num_sec_devs = ARRAY_SIZE(s2mpu02_devs);
 		break;
 	default:
 		/* If this happens the probe function is problem */
 		BUG();
 	}
-
+	ret = mfd_add_devices(sec_pmic->dev, -1, sec_devs, num_sec_devs, NULL,
+			      0, NULL);
 	if (ret)
 		goto err_mfd;
 
@@ -403,8 +401,6 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 
 err_mfd:
 	sec_irq_exit(sec_pmic);
-err_regmap_rtc:
-	i2c_unregister_device(sec_pmic->rtc);
 	return ret;
 }
 
@@ -414,7 +410,6 @@ static int sec_pmic_remove(struct i2c_client *i2c)
 
 	mfd_remove_devices(sec_pmic->dev);
 	sec_irq_exit(sec_pmic);
-	i2c_unregister_device(sec_pmic->rtc);
 	return 0;
 }
 
@@ -424,18 +419,26 @@ static int sec_pmic_suspend(struct device *dev)
 	struct i2c_client *i2c = container_of(dev, struct i2c_client, dev);
 	struct sec_pmic_dev *sec_pmic = i2c_get_clientdata(i2c);
 
-	if (device_may_wakeup(dev)) {
+	if (device_may_wakeup(dev))
 		enable_irq_wake(sec_pmic->irq);
-		/*
-		 * PMIC IRQ must be disabled during suspend for RTC alarm
-		 * to work properly.
-		 * When device is woken up from suspend by RTC Alarm, an
-		 * interrupt occurs before resuming I2C bus controller.
-		 * The interrupt is handled by regmap_irq_thread which tries
-		 * to read RTC registers. This read fails (I2C is still
-		 * suspended) and RTC Alarm interrupt is disabled.
-		 */
-		disable_irq(sec_pmic->irq);
+	/*
+	 * PMIC IRQ must be disabled during suspend for RTC alarm
+	 * to work properly.
+	 * When device is woken up from suspend, an
+	 * interrupt occurs before resuming I2C bus controller.
+	 * The interrupt is handled by regmap_irq_thread which tries
+	 * to read RTC registers. This read fails (I2C is still
+	 * suspended) and RTC Alarm interrupt is disabled.
+	 */
+	disable_irq(sec_pmic->irq);
+
+	switch (sec_pmic->device_type) {
+	case S2MPS14X:
+	case S2MPU02:
+		regulator_suspend_prepare(PM_SUSPEND_MEM);
+		break;
+	default:
+		break;
 	}
 
 	return 0;
@@ -446,10 +449,9 @@ static int sec_pmic_resume(struct device *dev)
 	struct i2c_client *i2c = container_of(dev, struct i2c_client, dev);
 	struct sec_pmic_dev *sec_pmic = i2c_get_clientdata(i2c);
 
-	if (device_may_wakeup(dev)) {
+	if (device_may_wakeup(dev))
 		disable_irq_wake(sec_pmic->irq);
-		enable_irq(sec_pmic->irq);
-	}
+	enable_irq(sec_pmic->irq);
 
 	return 0;
 }

@@ -126,6 +126,7 @@
 typedef unsigned char u8;
 typedef unsigned char u8;
 typedef unsigned short u16;
+typedef short s16;
 typedef COMPILER_DEPENDENT_UINT64 u64;
 typedef COMPILER_DEPENDENT_INT64 s64;
 
@@ -329,6 +330,15 @@ typedef u32 acpi_physical_address;
  *
  ******************************************************************************/
 
+#ifdef ACPI_NO_MEM_ALLOCATIONS
+
+#define ACPI_ALLOCATE(a)                NULL
+#define ACPI_ALLOCATE_ZEROED(a)         NULL
+#define ACPI_FREE(a)
+#define ACPI_MEM_TRACKING(a)
+
+#else				/* ACPI_NO_MEM_ALLOCATIONS */
+
 #ifdef ACPI_DBG_TRACK_ALLOCATIONS
 /*
  * Memory allocation tracking (used by acpi_exec to detect memory leaks)
@@ -349,6 +359,8 @@ typedef u32 acpi_physical_address;
 #define ACPI_MEM_TRACKING(a)
 
 #endif				/* ACPI_DBG_TRACK_ALLOCATIONS */
+
+#endif				/* ACPI_NO_MEM_ALLOCATIONS */
 
 /******************************************************************************
  *
@@ -505,7 +517,7 @@ typedef u64 acpi_integer;
 
 #define ACPI_TO_POINTER(i)              ACPI_ADD_PTR (void, (void *) NULL,(acpi_size) i)
 #define ACPI_TO_INTEGER(p)              ACPI_PTR_DIFF (p, (void *) NULL)
-#define ACPI_OFFSET(d, f)               (acpi_size) ACPI_PTR_DIFF (&(((d *)0)->f), (void *) NULL)
+#define ACPI_OFFSET(d, f)               ACPI_PTR_DIFF (&(((d *) 0)->f), (void *) NULL)
 #define ACPI_PHYSADDR_TO_PTR(i)         ACPI_TO_POINTER(i)
 #define ACPI_PTR_TO_PHYSADDR(i)         ACPI_TO_INTEGER(i)
 
@@ -600,8 +612,9 @@ typedef u64 acpi_integer;
 #define ACPI_NOTIFY_RESERVED            (u8) 0x0A
 #define ACPI_NOTIFY_LOCALITY_UPDATE     (u8) 0x0B
 #define ACPI_NOTIFY_SHUTDOWN_REQUEST    (u8) 0x0C
+#define ACPI_NOTIFY_AFFINITY_UPDATE     (u8) 0x0D
 
-#define ACPI_NOTIFY_MAX                 0x0C
+#define ACPI_NOTIFY_MAX                 0x0D
 
 /*
  * Types associated with ACPI names and objects. The first group of
@@ -928,8 +941,18 @@ struct acpi_object_list {
  * Miscellaneous common Data Structures used by the interfaces
  */
 #define ACPI_NO_BUFFER              0
+
+#ifdef ACPI_NO_MEM_ALLOCATIONS
+
+#define ACPI_ALLOCATE_BUFFER        (acpi_size) (0)
+#define ACPI_ALLOCATE_LOCAL_BUFFER  (acpi_size) (0)
+
+#else				/* ACPI_NO_MEM_ALLOCATIONS */
+
 #define ACPI_ALLOCATE_BUFFER        (acpi_size) (-1)	/* Let ACPICA allocate buffer */
 #define ACPI_ALLOCATE_LOCAL_BUFFER  (acpi_size) (-2)	/* For internal use only (enables tracking) */
+
+#endif				/* ACPI_NO_MEM_ALLOCATIONS */
 
 struct acpi_buffer {
 	acpi_size length;	/* Length in bytes of the buffer */
@@ -1222,5 +1245,18 @@ struct acpi_memory_list {
 #define ACPI_OSI_WIN_VISTA_SP2          0x0A
 #define ACPI_OSI_WIN_7                  0x0B
 #define ACPI_OSI_WIN_8                  0x0C
+
+/* Definitions of file IO */
+
+#define ACPI_FILE_READING               0x01
+#define ACPI_FILE_WRITING               0x02
+#define ACPI_FILE_BINARY                0x04
+
+#define ACPI_FILE_BEGIN                 0x01
+#define ACPI_FILE_END                   0x02
+
+/* Definitions of getopt */
+
+#define ACPI_OPT_END                    -1
 
 #endif				/* __ACTYPES_H__ */

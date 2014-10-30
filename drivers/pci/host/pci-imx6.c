@@ -25,6 +25,7 @@
 #include <linux/resource.h>
 #include <linux/signal.h>
 #include <linux/types.h>
+#include <linux/interrupt.h>
 
 #include "pcie-designware.h"
 
@@ -32,13 +33,9 @@
 
 struct imx6_pcie {
 	int			reset_gpio;
-	int			power_on_gpio;
-	int			wake_up_gpio;
-	int			disable_gpio;
-	struct clk		*lvds_gate;
-	struct clk		*sata_ref_100m;
-	struct clk		*pcie_ref_125m;
-	struct clk		*pcie_axi;
+	struct clk		*pcie_bus;
+	struct clk		*pcie_phy;
+	struct clk		*pcie;
 	struct pcie_port	pp;
 	struct regmap		*iomuxc_gpr;
 	void __iomem		*mem_base;
@@ -52,6 +49,9 @@ struct imx6_pcie {
 
 /* PCIe Port Logic registers (memory-mapped) */
 #define PL_OFFSET 0x700
+#define PCIE_PL_PFLR (PL_OFFSET + 0x08)
+#define PCIE_PL_PFLR_LINK_STATE_MASK		(0x3f << 16)
+#define PCIE_PL_PFLR_FORCE_LINK			(1 << 15)
 #define PCIE_PHY_DEBUG_R0 (PL_OFFSET + 0x28)
 #define PCIE_PHY_DEBUG_R1 (PL_OFFSET + 0x2c)
 #define PCIE_PHY_DEBUG_R1_XMLH_LINK_IN_TRAINING	(1 << 29)
@@ -217,6 +217,32 @@ static int imx6q_pcie_abort_handler(unsigned long addr,
 static int imx6_pcie_assert_core_reset(struct pcie_port *pp)
 {
 	struct imx6_pcie *imx6_pcie = to_imx6_pcie(pp);
+	u32 val, gpr1, gpr12;
+
+	/*
+	 * If the bootloader already enabled the link we need some special
+	 * handling to get the core back into a state where it is safe to
+	 * touch it for configuration.  As there is no dedicated reset signal
+	 * wired up for MX6QDL, we need to manually force LTSSM into "detect"
+	 * state before completely disabling LTSSM, which is a prerequisite
+	 * for core configuration.
+	 *
+	 * If both LTSSM_ENABLE and REF_SSP_ENABLE are active we have a strong
+	 * indication that the bootloader activated the link.
+	 */
+	regmap_read(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1, &gpr1);
+	regmap_read(imx6_pcie->iomuxc_gpr, IOMUXC_GPR12, &gpr12);
+
+	if ((gpr1 & IMX6Q_GPR1_PCIE_REF_CLK_EN) &&
+	    (gpr12 & IMX6Q_GPR12_PCIE_CTL_2)) {
+		val = readl(pp->dbi_base + PCIE_PL_PFLR);
+		val &= ~PCIE_PL_PFLR_LINK_STATE_MASK;
+		val |= PCIE_PL_PFLR_FORCE_LINK;
+		writel(val, pp->dbi_base + PCIE_PL_PFLR);
+
+		regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR12,
+				IMX6Q_GPR12_PCIE_CTL_2, 0 << 10);
+	}
 
 	regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
 			IMX6Q_GPR1_PCIE_TEST_PD, 1 << 18);
@@ -231,36 +257,27 @@ static int imx6_pcie_deassert_core_reset(struct pcie_port *pp)
 	struct imx6_pcie *imx6_pcie = to_imx6_pcie(pp);
 	int ret;
 
-	if (gpio_is_valid(imx6_pcie->power_on_gpio))
-		gpio_set_value(imx6_pcie->power_on_gpio, 1);
-
 	regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
 			IMX6Q_GPR1_PCIE_TEST_PD, 0 << 18);
 	regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
 			IMX6Q_GPR1_PCIE_REF_CLK_EN, 1 << 16);
 
-	ret = clk_prepare_enable(imx6_pcie->sata_ref_100m);
+	ret = clk_prepare_enable(imx6_pcie->pcie_phy);
 	if (ret) {
-		dev_err(pp->dev, "unable to enable sata_ref_100m\n");
-		goto err_sata_ref;
+		dev_err(pp->dev, "unable to enable pcie_phy clock\n");
+		goto err_pcie_phy;
 	}
 
-	ret = clk_prepare_enable(imx6_pcie->pcie_ref_125m);
+	ret = clk_prepare_enable(imx6_pcie->pcie_bus);
 	if (ret) {
-		dev_err(pp->dev, "unable to enable pcie_ref_125m\n");
-		goto err_pcie_ref;
+		dev_err(pp->dev, "unable to enable pcie_bus clock\n");
+		goto err_pcie_bus;
 	}
 
-	ret = clk_prepare_enable(imx6_pcie->lvds_gate);
+	ret = clk_prepare_enable(imx6_pcie->pcie);
 	if (ret) {
-		dev_err(pp->dev, "unable to enable lvds_gate\n");
-		goto err_lvds_gate;
-	}
-
-	ret = clk_prepare_enable(imx6_pcie->pcie_axi);
-	if (ret) {
-		dev_err(pp->dev, "unable to enable pcie_axi\n");
-		goto err_pcie_axi;
+		dev_err(pp->dev, "unable to enable pcie clock\n");
+		goto err_pcie;
 	}
 
 	/* allow the clocks to stabilize */
@@ -274,13 +291,11 @@ static int imx6_pcie_deassert_core_reset(struct pcie_port *pp)
 	}
 	return 0;
 
-err_pcie_axi:
-	clk_disable_unprepare(imx6_pcie->lvds_gate);
-err_lvds_gate:
-	clk_disable_unprepare(imx6_pcie->pcie_ref_125m);
-err_pcie_ref:
-	clk_disable_unprepare(imx6_pcie->sata_ref_100m);
-err_sata_ref:
+err_pcie:
+	clk_disable_unprepare(imx6_pcie->pcie_bus);
+err_pcie_bus:
+	clk_disable_unprepare(imx6_pcie->pcie_phy);
+err_pcie_phy:
 	return ret;
 
 }
@@ -327,6 +342,13 @@ static int imx6_pcie_wait_for_link(struct pcie_port *pp)
 	}
 
 	return 0;
+}
+
+static irqreturn_t imx6_pcie_msi_handler(int irq, void *arg)
+{
+	struct pcie_port *pp = arg;
+
+	return dw_handle_msi_irq(pp);
 }
 
 static int imx6_pcie_start_link(struct pcie_port *pp)
@@ -403,6 +425,9 @@ static void imx6_pcie_host_init(struct pcie_port *pp)
 	dw_pcie_setup_rc(pp);
 
 	imx6_pcie_start_link(pp);
+
+	if (IS_ENABLED(CONFIG_PCI_MSI))
+		dw_pcie_msi_init(pp);
 }
 
 static void imx6_pcie_reset_phy(struct pcie_port *pp)
@@ -487,21 +512,30 @@ static struct pcie_host_ops imx6_pcie_host_ops = {
 	.host_init = imx6_pcie_host_init,
 };
 
-static int imx6_add_pcie_port(struct pcie_port *pp,
+static int __init imx6_add_pcie_port(struct pcie_port *pp,
 			struct platform_device *pdev)
 {
 	int ret;
 
-	pp->irq = platform_get_irq(pdev, 0);
-	if (!pp->irq) {
-		dev_err(&pdev->dev, "failed to get irq\n");
-		return -ENODEV;
+	if (IS_ENABLED(CONFIG_PCI_MSI)) {
+		pp->msi_irq = platform_get_irq_byname(pdev, "msi");
+		if (pp->msi_irq <= 0) {
+			dev_err(&pdev->dev, "failed to get MSI irq\n");
+			return -ENODEV;
+		}
+
+		ret = devm_request_irq(&pdev->dev, pp->msi_irq,
+		                       imx6_pcie_msi_handler,
+		                       IRQF_SHARED, "mx6-pcie-msi", pp);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to request MSI irq\n");
+			return -ENODEV;
+		}
 	}
 
 	pp->root_bus_nr = -1;
 	pp->ops = &imx6_pcie_host_ops;
 
-	spin_lock_init(&pp->conf_lock);
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to initialize host\n");
@@ -546,69 +580,26 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		}
 	}
 
-	imx6_pcie->power_on_gpio = of_get_named_gpio(np, "power-on-gpio", 0);
-	if (gpio_is_valid(imx6_pcie->power_on_gpio)) {
-		ret = devm_gpio_request_one(&pdev->dev,
-					imx6_pcie->power_on_gpio,
-					GPIOF_OUT_INIT_LOW,
-					"PCIe power enable");
-		if (ret) {
-			dev_err(&pdev->dev, "unable to get power-on gpio\n");
-			return ret;
-		}
-	}
-
-	imx6_pcie->wake_up_gpio = of_get_named_gpio(np, "wake-up-gpio", 0);
-	if (gpio_is_valid(imx6_pcie->wake_up_gpio)) {
-		ret = devm_gpio_request_one(&pdev->dev,
-					imx6_pcie->wake_up_gpio,
-					GPIOF_IN,
-					"PCIe wake up");
-		if (ret) {
-			dev_err(&pdev->dev, "unable to get wake-up gpio\n");
-			return ret;
-		}
-	}
-
-	imx6_pcie->disable_gpio = of_get_named_gpio(np, "disable-gpio", 0);
-	if (gpio_is_valid(imx6_pcie->disable_gpio)) {
-		ret = devm_gpio_request_one(&pdev->dev,
-					imx6_pcie->disable_gpio,
-					GPIOF_OUT_INIT_HIGH,
-					"PCIe disable endpoint");
-		if (ret) {
-			dev_err(&pdev->dev, "unable to get disable-ep gpio\n");
-			return ret;
-		}
-	}
-
 	/* Fetch clocks */
-	imx6_pcie->lvds_gate = devm_clk_get(&pdev->dev, "lvds_gate");
-	if (IS_ERR(imx6_pcie->lvds_gate)) {
+	imx6_pcie->pcie_phy = devm_clk_get(&pdev->dev, "pcie_phy");
+	if (IS_ERR(imx6_pcie->pcie_phy)) {
 		dev_err(&pdev->dev,
-			"lvds_gate clock select missing or invalid\n");
-		return PTR_ERR(imx6_pcie->lvds_gate);
+			"pcie_phy clock source missing or invalid\n");
+		return PTR_ERR(imx6_pcie->pcie_phy);
 	}
 
-	imx6_pcie->sata_ref_100m = devm_clk_get(&pdev->dev, "sata_ref_100m");
-	if (IS_ERR(imx6_pcie->sata_ref_100m)) {
+	imx6_pcie->pcie_bus = devm_clk_get(&pdev->dev, "pcie_bus");
+	if (IS_ERR(imx6_pcie->pcie_bus)) {
 		dev_err(&pdev->dev,
-			"sata_ref_100m clock source missing or invalid\n");
-		return PTR_ERR(imx6_pcie->sata_ref_100m);
+			"pcie_bus clock source missing or invalid\n");
+		return PTR_ERR(imx6_pcie->pcie_bus);
 	}
 
-	imx6_pcie->pcie_ref_125m = devm_clk_get(&pdev->dev, "pcie_ref_125m");
-	if (IS_ERR(imx6_pcie->pcie_ref_125m)) {
+	imx6_pcie->pcie = devm_clk_get(&pdev->dev, "pcie");
+	if (IS_ERR(imx6_pcie->pcie)) {
 		dev_err(&pdev->dev,
-			"pcie_ref_125m clock source missing or invalid\n");
-		return PTR_ERR(imx6_pcie->pcie_ref_125m);
-	}
-
-	imx6_pcie->pcie_axi = devm_clk_get(&pdev->dev, "pcie_axi");
-	if (IS_ERR(imx6_pcie->pcie_axi)) {
-		dev_err(&pdev->dev,
-			"pcie_axi clock source missing or invalid\n");
-		return PTR_ERR(imx6_pcie->pcie_axi);
+			"pcie clock source missing or invalid\n");
+		return PTR_ERR(imx6_pcie->pcie);
 	}
 
 	/* Grab GPR config register range */
@@ -627,6 +618,14 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static void imx6_pcie_shutdown(struct platform_device *pdev)
+{
+	struct imx6_pcie *imx6_pcie = platform_get_drvdata(pdev);
+
+	/* bring down link, so bootloader gets clean state in case of reboot */
+	imx6_pcie_assert_core_reset(&imx6_pcie->pp);
+}
+
 static const struct of_device_id imx6_pcie_of_match[] = {
 	{ .compatible = "fsl,imx6q-pcie", },
 	{},
@@ -639,6 +638,7 @@ static struct platform_driver imx6_pcie_driver = {
 		.owner	= THIS_MODULE,
 		.of_match_table = imx6_pcie_of_match,
 	},
+	.shutdown = imx6_pcie_shutdown,
 };
 
 /* Freescale PCIe driver does not allow module unload */

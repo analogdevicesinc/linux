@@ -113,7 +113,7 @@ static void *vb2_dma_sg_alloc(void *alloc_ctx, unsigned long size, gfp_t gfp_fla
 		goto fail_pages_alloc;
 
 	ret = sg_alloc_table_from_pages(&buf->sg_table, buf->pages,
-			buf->num_pages, 0, size, gfp_flags);
+			buf->num_pages, 0, size, GFP_KERNEL);
 	if (ret)
 		goto fail_table_alloc;
 
@@ -211,7 +211,7 @@ static void *vb2_dma_sg_get_userptr(void *alloc_ctx, unsigned long vaddr,
 		     ++num_pages_from_user, vaddr += PAGE_SIZE) {
 			unsigned long pfn;
 
-			if (follow_pfn(buf->vma, vaddr, &pfn)) {
+			if (follow_pfn(vma, vaddr, &pfn)) {
 				dprintk(1, "no page for address %lu\n", vaddr);
 				break;
 			}

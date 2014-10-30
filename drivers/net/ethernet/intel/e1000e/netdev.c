@@ -124,6 +124,36 @@ static const struct e1000_reg_info e1000_reg_info_tbl[] = {
 };
 
 /**
+ * __ew32_prepare - prepare to write to MAC CSR register on certain parts
+ * @hw: pointer to the HW structure
+ *
+ * When updating the MAC CSR registers, the Manageability Engine (ME) could
+ * be accessing the registers at the same time.  Normally, this is handled in
+ * h/w by an arbiter but on some parts there is a bug that acknowledges Host
+ * accesses later than it should which could result in the register to have
+ * an incorrect value.  Workaround this by checking the FWSM register which
+ * has bit 24 set while ME is accessing MAC CSR registers, wait if it is set
+ * and try again a number of times.
+ **/
+s32 __ew32_prepare(struct e1000_hw *hw)
+{
+	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
+
+	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
+		udelay(50);
+
+	return i;
+}
+
+void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
+{
+	if (hw->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+		__ew32_prepare(hw);
+
+	writel(val, hw->hw_addr + reg);
+}
+
+/**
  * e1000_regdump - register printout routine
  * @hw: pointer to the HW structure
  * @reginfo: pointer to the register info table
@@ -599,6 +629,7 @@ static void e1000e_update_rdt_wa(struct e1000_ring *rx_ring, unsigned int i)
 
 	if (unlikely(!ret_val && (i != readl(rx_ring->tail)))) {
 		u32 rctl = er32(RCTL);
+
 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
 		e_err("ME firmware caused invalid RDT - resetting\n");
 		schedule_work(&adapter->reset_task);
@@ -615,6 +646,7 @@ static void e1000e_update_tdt_wa(struct e1000_ring *tx_ring, unsigned int i)
 
 	if (unlikely(!ret_val && (i != readl(tx_ring->tail)))) {
 		u32 tctl = er32(TCTL);
+
 		ew32(TCTL, tctl & ~E1000_TCTL_EN);
 		e_err("ME firmware caused invalid TDT - resetting\n");
 		schedule_work(&adapter->reset_task);
@@ -1198,6 +1230,7 @@ static bool e1000_clean_tx_irq(struct e1000_ring *tx_ring)
 	while ((eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) &&
 	       (count < tx_ring->count)) {
 		bool cleaned = false;
+
 		rmb();		/* read buffer_info after eop_desc */
 		for (; !cleaned; count++) {
 			tx_desc = E1000_TX_DESC(*tx_ring, i);
@@ -1753,6 +1786,7 @@ static irqreturn_t e1000_intr_msi(int __always_unused irq, void *data)
 		    adapter->flags & FLAG_RX_NEEDS_RESTART) {
 			/* disable receives */
 			u32 rctl = er32(RCTL);
+
 			ew32(RCTL, rctl & ~E1000_RCTL_EN);
 			adapter->flags |= FLAG_RESTART_NOW;
 		}
@@ -1960,6 +1994,7 @@ static void e1000_configure_msix(struct e1000_adapter *adapter)
 	/* Workaround issue with spurious interrupts on 82574 in MSI-X mode */
 	if (hw->mac.type == e1000_82574) {
 		u32 rfctl = er32(RFCTL);
+
 		rfctl |= E1000_RFCTL_ACK_DIS;
 		ew32(RFCTL, rfctl);
 	}
@@ -2204,6 +2239,7 @@ static void e1000_irq_disable(struct e1000_adapter *adapter)
 
 	if (adapter->msix_entries) {
 		int i;
+
 		for (i = 0; i < adapter->num_vectors; i++)
 			synchronize_irq(adapter->msix_entries[i].vector);
 	} else {
@@ -2921,6 +2957,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
 
 	if (adapter->flags2 & FLAG2_DMA_BURST) {
 		u32 txdctl = er32(TXDCTL(0));
+
 		txdctl &= ~(E1000_TXDCTL_PTHRESH | E1000_TXDCTL_HTHRESH |
 			    E1000_TXDCTL_WTHRESH);
 		/* set up some performance related parameters to encourage the
@@ -3239,6 +3276,7 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
 
 		if (adapter->flags & FLAG_IS_ICH) {
 			u32 rxdctl = er32(RXDCTL(0));
+
 			ew32(RXDCTL(0), rxdctl | 0x3);
 		}
 
@@ -3303,8 +3341,10 @@ static int e1000e_write_uc_addr_list(struct net_device *netdev)
 {
 	struct e1000_adapter *adapter = netdev_priv(netdev);
 	struct e1000_hw *hw = &adapter->hw;
-	unsigned int rar_entries = hw->mac.rar_entry_count;
+	unsigned int rar_entries;
 	int count = 0;
+
+	rar_entries = hw->mac.ops.rar_get_count(hw);
 
 	/* save a rar entry for our hardware address */
 	rar_entries--;
@@ -3324,9 +3364,13 @@ static int e1000e_write_uc_addr_list(struct net_device *netdev)
 		 * combining
 		 */
 		netdev_for_each_uc_addr(ha, netdev) {
+			int rval;
+
 			if (!rar_entries)
 				break;
-			hw->mac.ops.rar_set(hw, ha->addr, rar_entries--);
+			rval = hw->mac.ops.rar_set(hw, ha->addr, rar_entries--);
+			if (rval < 0)
+				return -ENOMEM;
 			count++;
 		}
 	}
@@ -4085,12 +4129,37 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
 	struct e1000_adapter *adapter = container_of(cc, struct e1000_adapter,
 						     cc);
 	struct e1000_hw *hw = &adapter->hw;
-	cycle_t systim;
+	cycle_t systim, systim_next;
 
 	/* latch SYSTIMH on read of SYSTIML */
 	systim = (cycle_t)er32(SYSTIML);
 	systim |= (cycle_t)er32(SYSTIMH) << 32;
 
+	if ((hw->mac.type == e1000_82574) || (hw->mac.type == e1000_82583)) {
+		u64 incvalue, time_delta, rem, temp;
+		int i;
+
+		/* errata for 82574/82583 possible bad bits read from SYSTIMH/L
+		 * check to see that the time is incrementing at a reasonable
+		 * rate and is a multiple of incvalue
+		 */
+		incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
+		for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
+			/* latch SYSTIMH on read of SYSTIML */
+			systim_next = (cycle_t)er32(SYSTIML);
+			systim_next |= (cycle_t)er32(SYSTIMH) << 32;
+
+			time_delta = systim_next - systim;
+			temp = time_delta;
+			rem = do_div(temp, incvalue);
+
+			systim = systim_next;
+
+			if ((time_delta < E1000_82574_SYSTIM_EPSILON) &&
+			    (rem == 0))
+				break;
+		}
+	}
 	return systim;
 }
 
@@ -4491,7 +4560,7 @@ static void e1000e_update_phy_task(struct work_struct *work)
 	e1000_get_phy_info(hw);
 
 	/* Enable EEE on 82579 after link up */
-	if (hw->phy.type == e1000_phy_82579)
+	if (hw->phy.type >= e1000_phy_82579)
 		e1000_set_eee_pchlan(hw);
 }
 
@@ -4695,6 +4764,7 @@ static void e1000e_update_stats(struct e1000_adapter *adapter)
 	/* Correctable ECC Errors */
 	if (hw->mac.type == e1000_pch_lpt) {
 		u32 pbeccsts = er32(PBECCSTS);
+
 		adapter->corr_errors +=
 		    pbeccsts & E1000_PBECCSTS_CORR_ERR_CNT_MASK;
 		adapter->uncorr_errors +=
@@ -4808,6 +4878,7 @@ static void e1000e_enable_receives(struct e1000_adapter *adapter)
 	    (adapter->flags & FLAG_RESTART_NOW)) {
 		struct e1000_hw *hw = &adapter->hw;
 		u32 rctl = er32(RCTL);
+
 		ew32(RCTL, rctl | E1000_RCTL_EN);
 		adapter->flags &= ~FLAG_RESTART_NOW;
 	}
@@ -4930,6 +5001,7 @@ static void e1000_watchdog_task(struct work_struct *work)
 			if ((adapter->flags & FLAG_TARC_SPEED_MODE_BIT) &&
 			    !txb2b) {
 				u32 tarc0;
+
 				tarc0 = er32(TARC(0));
 				tarc0 &= ~SPEED_MODE_BIT;
 				ew32(TARC(0), tarc0);
@@ -5092,7 +5164,8 @@ link_up:
 #define E1000_TX_FLAGS_VLAN_MASK	0xffff0000
 #define E1000_TX_FLAGS_VLAN_SHIFT	16
 
-static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb)
+static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb,
+		     __be16 protocol)
 {
 	struct e1000_context_desc *context_desc;
 	struct e1000_buffer *buffer_info;
@@ -5111,7 +5184,7 @@ static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb)
 
 	hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
 	mss = skb_shinfo(skb)->gso_size;
-	if (skb->protocol == htons(ETH_P_IP)) {
+	if (protocol == htons(ETH_P_IP)) {
 		struct iphdr *iph = ip_hdr(skb);
 		iph->tot_len = 0;
 		iph->check = 0;
@@ -5159,7 +5232,8 @@ static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb)
 	return 1;
 }
 
-static bool e1000_tx_csum(struct e1000_ring *tx_ring, struct sk_buff *skb)
+static bool e1000_tx_csum(struct e1000_ring *tx_ring, struct sk_buff *skb,
+			  __be16 protocol)
 {
 	struct e1000_adapter *adapter = tx_ring->adapter;
 	struct e1000_context_desc *context_desc;
@@ -5167,15 +5241,9 @@ static bool e1000_tx_csum(struct e1000_ring *tx_ring, struct sk_buff *skb)
 	unsigned int i;
 	u8 css;
 	u32 cmd_len = E1000_TXD_CMD_DEXT;
-	__be16 protocol;
 
 	if (skb->ip_summed != CHECKSUM_PARTIAL)
-		return 0;
-
-	if (skb->protocol == cpu_to_be16(ETH_P_8021Q))
-		protocol = vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
-	else
-		protocol = skb->protocol;
+		return false;
 
 	switch (protocol) {
 	case cpu_to_be16(ETH_P_IP):
@@ -5215,7 +5283,7 @@ static bool e1000_tx_csum(struct e1000_ring *tx_ring, struct sk_buff *skb)
 		i = 0;
 	tx_ring->next_to_use = i;
 
-	return 1;
+	return true;
 }
 
 static int e1000_tx_map(struct e1000_ring *tx_ring, struct sk_buff *skb,
@@ -5474,6 +5542,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
 	int count = 0;
 	int tso;
 	unsigned int f;
+	__be16 protocol = vlan_get_protocol(skb);
 
 	if (test_bit(__E1000_DOWN, &adapter->state)) {
 		dev_kfree_skb_any(skb);
@@ -5548,7 +5617,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
 
 	first = tx_ring->next_to_use;
 
-	tso = e1000_tso(tx_ring, skb);
+	tso = e1000_tso(tx_ring, skb, protocol);
 	if (tso < 0) {
 		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
@@ -5556,14 +5625,14 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
 
 	if (tso)
 		tx_flags |= E1000_TX_FLAGS_TSO;
-	else if (e1000_tx_csum(tx_ring, skb))
+	else if (e1000_tx_csum(tx_ring, skb, protocol))
 		tx_flags |= E1000_TX_FLAGS_CSUM;
 
 	/* Old method was to assume IPv4 packet by default if TSO was enabled.
 	 * 82571 hardware supports TSO capabilities for IPv6 as well...
 	 * no longer assume, we must.
 	 */
-	if (skb->protocol == htons(ETH_P_IP))
+	if (protocol == htons(ETH_P_IP))
 		tx_flags |= E1000_TX_FLAGS_IPV4;
 
 	if (unlikely(skb->no_fcs))
@@ -5961,6 +6030,28 @@ release:
 	return retval;
 }
 
+static void e1000e_flush_lpic(struct pci_dev *pdev)
+{
+	struct net_device *netdev = pci_get_drvdata(pdev);
+	struct e1000_adapter *adapter = netdev_priv(netdev);
+	struct e1000_hw *hw = &adapter->hw;
+	u32 ret_val;
+
+	pm_runtime_get_sync(netdev->dev.parent);
+
+	ret_val = hw->phy.ops.acquire(hw);
+	if (ret_val)
+		goto fl_out;
+
+	pr_info("EEE TX LPI TIMER: %08X\n",
+		er32(LPIC) >> E1000_LPIC_LPIET_SHIFT);
+
+	hw->phy.ops.release(hw);
+
+fl_out:
+	pm_runtime_put_sync(netdev->dev.parent);
+}
+
 static int e1000e_pm_freeze(struct device *dev)
 {
 	struct net_device *netdev = pci_get_drvdata(to_pci_dev(dev));
@@ -6209,6 +6300,7 @@ static int __e1000_resume(struct pci_dev *pdev)
 		e1e_wphy(&adapter->hw, BM_WUS, ~0);
 	} else {
 		u32 wus = er32(WUS);
+
 		if (wus) {
 			e_info("MAC Wakeup cause - %s\n",
 			       wus & E1000_WUS_EX ? "Unicast Packet" :
@@ -6260,6 +6352,8 @@ static int e1000e_pm_suspend(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 
+	e1000e_flush_lpic(pdev);
+
 	e1000e_pm_freeze(dev);
 
 	return __e1000_shutdown(pdev, false);
@@ -6284,9 +6378,14 @@ static int e1000e_pm_runtime_idle(struct device *dev)
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct net_device *netdev = pci_get_drvdata(pdev);
 	struct e1000_adapter *adapter = netdev_priv(netdev);
+	u16 eee_lp;
 
-	if (!e1000e_has_link(adapter))
+	eee_lp = adapter->hw.dev_spec.ich8lan.eee_lp_ability;
+
+	if (!e1000e_has_link(adapter)) {
+		adapter->hw.dev_spec.ich8lan.eee_lp_ability = eee_lp;
 		pm_schedule_suspend(dev, 5 * MSEC_PER_SEC);
+	}
 
 	return -EBUSY;
 }
@@ -6338,6 +6437,8 @@ static int e1000e_pm_runtime_suspend(struct device *dev)
 
 static void e1000_shutdown(struct pci_dev *pdev)
 {
+	e1000e_flush_lpic(pdev);
+
 	e1000e_pm_freeze(&pdev->dev);
 
 	__e1000_shutdown(pdev, false);
@@ -6635,6 +6736,7 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	int bars, i, err, pci_using_dac;
 	u16 eeprom_data = 0;
 	u16 eeprom_apme_mask = E1000_EEPROM_APME;
+	s32 rval = 0;
 
 	if (ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
 		aspm_disable_flag = PCIE_LINK_STATE_L0S;
@@ -6867,15 +6969,19 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	} else if (adapter->flags & FLAG_APME_IN_CTRL3) {
 		if (adapter->flags & FLAG_APME_CHECK_PORT_B &&
 		    (adapter->hw.bus.func == 1))
-			e1000_read_nvm(&adapter->hw, NVM_INIT_CONTROL3_PORT_B,
-				       1, &eeprom_data);
+			rval = e1000_read_nvm(&adapter->hw,
+					      NVM_INIT_CONTROL3_PORT_B,
+					      1, &eeprom_data);
 		else
-			e1000_read_nvm(&adapter->hw, NVM_INIT_CONTROL3_PORT_A,
-				       1, &eeprom_data);
+			rval = e1000_read_nvm(&adapter->hw,
+					      NVM_INIT_CONTROL3_PORT_A,
+					      1, &eeprom_data);
 	}
 
 	/* fetch WoL from EEPROM */
-	if (eeprom_data & eeprom_apme_mask)
+	if (rval)
+		e_dbg("NVM read error getting WoL initial values: %d\n", rval);
+	else if (eeprom_data & eeprom_apme_mask)
 		adapter->eeprom_wol |= E1000_WUFC_MAG;
 
 	/* now that we have the eeprom settings, apply the special cases
@@ -6894,7 +7000,12 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		device_wakeup_enable(&pdev->dev);
 
 	/* save off EEPROM version number */
-	e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
+	rval = e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
+
+	if (rval) {
+		e_dbg("NVM read error getting EEPROM version: %d\n", rval);
+		adapter->eeprom_vers = 0;
+	}
 
 	/* reset the hardware with the new settings */
 	e1000e_reset(adapter);
@@ -7027,7 +7138,7 @@ static const struct pci_error_handlers e1000_err_handler = {
 	.resume = e1000_io_resume,
 };
 
-static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) = {
+static const struct pci_device_id e1000_pci_tbl[] = {
 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_COPPER), board_82571 },
 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_FIBER), board_82571 },
 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82571EB_QUAD_COPPER), board_82571 },
@@ -7144,6 +7255,7 @@ static struct pci_driver e1000_driver = {
 static int __init e1000_init_module(void)
 {
 	int ret;
+
 	pr_info("Intel(R) PRO/1000 Network Driver - %s\n",
 		e1000e_driver_version);
 	pr_info("Copyright(c) 1999 - 2014 Intel Corporation.\n");

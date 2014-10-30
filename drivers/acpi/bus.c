@@ -139,6 +139,21 @@ void acpi_bus_private_data_handler(acpi_handle handle,
 }
 EXPORT_SYMBOL(acpi_bus_private_data_handler);
 
+int acpi_bus_attach_private_data(acpi_handle handle, void *data)
+{
+	acpi_status status;
+
+	status = acpi_attach_data(handle,
+			acpi_bus_private_data_handler, data);
+	if (ACPI_FAILURE(status)) {
+		acpi_handle_debug(handle, "Error attaching device data\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(acpi_bus_attach_private_data);
+
 int acpi_bus_get_private_data(acpi_handle handle, void **data)
 {
 	acpi_status status;
@@ -147,25 +162,20 @@ int acpi_bus_get_private_data(acpi_handle handle, void **data)
 		return -EINVAL;
 
 	status = acpi_get_data(handle, acpi_bus_private_data_handler, data);
-	if (ACPI_FAILURE(status) || !*data) {
-		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "No context for object [%p]\n",
-				handle));
+	if (ACPI_FAILURE(status)) {
+		acpi_handle_debug(handle, "No context for object\n");
 		return -ENODEV;
 	}
 
 	return 0;
 }
-EXPORT_SYMBOL(acpi_bus_get_private_data);
+EXPORT_SYMBOL_GPL(acpi_bus_get_private_data);
 
-void acpi_bus_no_hotplug(acpi_handle handle)
+void acpi_bus_detach_private_data(acpi_handle handle)
 {
-	struct acpi_device *adev = NULL;
-
-	acpi_bus_get_device(handle, &adev);
-	if (adev)
-		adev->flags.no_hotplug = true;
+	acpi_detach_data(handle, acpi_bus_private_data_handler);
 }
-EXPORT_SYMBOL_GPL(acpi_bus_no_hotplug);
+EXPORT_SYMBOL_GPL(acpi_bus_detach_private_data);
 
 static void acpi_print_osc_error(acpi_handle handle,
 	struct acpi_osc_context *context, char *error)
@@ -347,16 +357,18 @@ static void acpi_bus_notify(acpi_handle handle, u32 type, void *data)
 {
 	struct acpi_device *adev;
 	struct acpi_driver *driver;
-	acpi_status status;
 	u32 ost_code = ACPI_OST_SC_NON_SPECIFIC_FAILURE;
+	bool hotplug_event = false;
 
 	switch (type) {
 	case ACPI_NOTIFY_BUS_CHECK:
 		acpi_handle_debug(handle, "ACPI_NOTIFY_BUS_CHECK event\n");
+		hotplug_event = true;
 		break;
 
 	case ACPI_NOTIFY_DEVICE_CHECK:
 		acpi_handle_debug(handle, "ACPI_NOTIFY_DEVICE_CHECK event\n");
+		hotplug_event = true;
 		break;
 
 	case ACPI_NOTIFY_DEVICE_WAKE:
@@ -365,6 +377,7 @@ static void acpi_bus_notify(acpi_handle handle, u32 type, void *data)
 
 	case ACPI_NOTIFY_EJECT_REQUEST:
 		acpi_handle_debug(handle, "ACPI_NOTIFY_EJECT_REQUEST event\n");
+		hotplug_event = true;
 		break;
 
 	case ACPI_NOTIFY_DEVICE_CHECK_LIGHT:
@@ -400,16 +413,9 @@ static void acpi_bus_notify(acpi_handle handle, u32 type, void *data)
 	    (driver->flags & ACPI_DRIVER_ALL_NOTIFY_EVENTS))
 		driver->ops.notify(adev, type);
 
-	switch (type) {
-	case ACPI_NOTIFY_BUS_CHECK:
-	case ACPI_NOTIFY_DEVICE_CHECK:
-	case ACPI_NOTIFY_EJECT_REQUEST:
-		status = acpi_hotplug_schedule(adev, type);
-		if (ACPI_SUCCESS(status))
-			return;
-	default:
-		break;
-	}
+	if (hotplug_event && ACPI_SUCCESS(acpi_hotplug_schedule(adev, type)))
+		return;
+
 	acpi_bus_put_acpi_device(adev);
 	return;
 
@@ -461,9 +467,6 @@ static int __init acpi_bus_init_irq(void)
 	return 0;
 }
 
-u8 acpi_gbl_permanent_mmap;
-
-
 void __init acpi_early_init(void)
 {
 	acpi_status status;
@@ -472,6 +475,9 @@ void __init acpi_early_init(void)
 		return;
 
 	printk(KERN_INFO PREFIX "Core revision %08x\n", ACPI_CA_VERSION);
+
+	/* It's safe to verify table checksums during late stage */
+	acpi_gbl_verify_table_checksum = TRUE;
 
 	/* enable workarounds, unless strict ACPI spec. compliance */
 	if (!acpi_strict)

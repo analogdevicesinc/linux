@@ -594,6 +594,7 @@ static int xs_local_send_request(struct rpc_task *task)
 	}
 
 	switch (status) {
+	case -ENOBUFS:
 	case -EAGAIN:
 		status = xs_nospace(task);
 		break;
@@ -661,6 +662,7 @@ static int xs_udp_send_request(struct rpc_task *task)
 		dprintk("RPC:       sendmsg returned unrecognized error %d\n",
 			-status);
 	case -ENETUNREACH:
+	case -ENOBUFS:
 	case -EPIPE:
 	case -ECONNREFUSED:
 		/* When the server has died, an ICMP port unreachable message
@@ -758,6 +760,7 @@ static int xs_tcp_send_request(struct rpc_task *task)
 		status = -ENOTCONN;
 		/* Should we call xs_close() here? */
 		break;
+	case -ENOBUFS:
 	case -EAGAIN:
 		status = xs_nospace(task);
 		break;
@@ -866,8 +869,6 @@ static void xs_reset_transport(struct sock_xprt *transport)
 	xs_restore_old_callbacks(transport, sk);
 	write_unlock_bh(&sk->sk_callback_lock);
 
-	sk->sk_no_check = 0;
-
 	trace_rpc_socket_close(&transport->xprt, sock);
 	sock_release(sock);
 }
@@ -893,11 +894,11 @@ static void xs_close(struct rpc_xprt *xprt)
 	xs_reset_transport(transport);
 	xprt->reestablish_timeout = 0;
 
-	smp_mb__before_clear_bit();
+	smp_mb__before_atomic();
 	clear_bit(XPRT_CONNECTION_ABORT, &xprt->state);
 	clear_bit(XPRT_CLOSE_WAIT, &xprt->state);
 	clear_bit(XPRT_CLOSING, &xprt->state);
-	smp_mb__after_clear_bit();
+	smp_mb__after_atomic();
 	xprt_disconnect_done(xprt);
 }
 
@@ -1497,12 +1498,12 @@ static void xs_tcp_cancel_linger_timeout(struct rpc_xprt *xprt)
 
 static void xs_sock_reset_connection_flags(struct rpc_xprt *xprt)
 {
-	smp_mb__before_clear_bit();
+	smp_mb__before_atomic();
 	clear_bit(XPRT_CONNECTION_ABORT, &xprt->state);
 	clear_bit(XPRT_CONNECTION_CLOSE, &xprt->state);
 	clear_bit(XPRT_CLOSE_WAIT, &xprt->state);
 	clear_bit(XPRT_CLOSING, &xprt->state);
-	smp_mb__after_clear_bit();
+	smp_mb__after_atomic();
 }
 
 static void xs_sock_mark_closed(struct rpc_xprt *xprt)
@@ -1556,10 +1557,10 @@ static void xs_tcp_state_change(struct sock *sk)
 		xprt->connect_cookie++;
 		xprt->reestablish_timeout = 0;
 		set_bit(XPRT_CLOSING, &xprt->state);
-		smp_mb__before_clear_bit();
+		smp_mb__before_atomic();
 		clear_bit(XPRT_CONNECTED, &xprt->state);
 		clear_bit(XPRT_CLOSE_WAIT, &xprt->state);
-		smp_mb__after_clear_bit();
+		smp_mb__after_atomic();
 		xs_tcp_schedule_linger_timeout(xprt, xs_tcp_fin_timeout);
 		break;
 	case TCP_CLOSE_WAIT:
@@ -1578,9 +1579,9 @@ static void xs_tcp_state_change(struct sock *sk)
 	case TCP_LAST_ACK:
 		set_bit(XPRT_CLOSING, &xprt->state);
 		xs_tcp_schedule_linger_timeout(xprt, xs_tcp_fin_timeout);
-		smp_mb__before_clear_bit();
+		smp_mb__before_atomic();
 		clear_bit(XPRT_CONNECTED, &xprt->state);
-		smp_mb__after_clear_bit();
+		smp_mb__after_atomic();
 		break;
 	case TCP_CLOSE:
 		xs_tcp_cancel_linger_timeout(xprt);
@@ -1948,6 +1949,7 @@ static int xs_local_setup_socket(struct sock_xprt *transport)
 		dprintk("RPC:       xprt %p connected to %s\n",
 				xprt, xprt->address_strings[RPC_DISPLAY_ADDR]);
 		xprt_set_connected(xprt);
+	case -ENOBUFS:
 		break;
 	case -ENOENT:
 		dprintk("RPC:       xprt %p: socket %s does not exist\n",
@@ -2046,7 +2048,6 @@ static void xs_udp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
 		sk->sk_user_data = xprt;
 		sk->sk_data_ready = xs_udp_data_ready;
 		sk->sk_write_space = xs_udp_write_space;
-		sk->sk_no_check = UDP_CSUM_NORCV;
 		sk->sk_allocation = GFP_ATOMIC;
 
 		xprt_set_connected(xprt);
@@ -2284,6 +2285,7 @@ static void xs_tcp_setup_socket(struct work_struct *work)
 	case -ECONNREFUSED:
 	case -ECONNRESET:
 	case -ENETUNREACH:
+	case -ENOBUFS:
 		/* retry with existing socket, after a delay */
 		goto out;
 	}
@@ -3057,12 +3059,12 @@ static int param_set_uint_minmax(const char *val,
 		const struct kernel_param *kp,
 		unsigned int min, unsigned int max)
 {
-	unsigned long num;
+	unsigned int num;
 	int ret;
 
 	if (!val)
 		return -EINVAL;
-	ret = strict_strtoul(val, 0, &num);
+	ret = kstrtouint(val, 0, &num);
 	if (ret == -EINVAL || num < min || num > max)
 		return -EINVAL;
 	*((unsigned int *)kp->arg) = num;

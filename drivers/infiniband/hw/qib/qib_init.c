@@ -1222,7 +1222,7 @@ static int qib_init_one(struct pci_dev *, const struct pci_device_id *);
 #define DRIVER_LOAD_MSG "Intel " QIB_DRV_NAME " loaded: "
 #define PFX QIB_DRV_NAME ": "
 
-static DEFINE_PCI_DEVICE_TABLE(qib_pci_tbl) = {
+static const struct pci_device_id qib_pci_tbl[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_PATHSCALE, PCI_DEVICE_ID_QLOGIC_IB_6120) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_IB_7220) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_IB_7322) },
@@ -1272,7 +1272,7 @@ static int qib_notify_dca(struct notifier_block *nb, unsigned long event,
  * Do all the generic driver unit- and chip-independent memory
  * allocation and initialization.
  */
-static int __init qlogic_ib_init(void)
+static int __init qib_ib_init(void)
 {
 	int ret;
 
@@ -1316,12 +1316,12 @@ bail:
 	return ret;
 }
 
-module_init(qlogic_ib_init);
+module_init(qib_ib_init);
 
 /*
  * Do the non-unit driver cleanup, memory free, etc. at unload.
  */
-static void __exit qlogic_ib_cleanup(void)
+static void __exit qib_ib_cleanup(void)
 {
 	int ret;
 
@@ -1346,7 +1346,7 @@ static void __exit qlogic_ib_cleanup(void)
 	qib_dev_cleanup();
 }
 
-module_exit(qlogic_ib_cleanup);
+module_exit(qib_ib_cleanup);
 
 /* this can only be called after a successful initialization */
 static void cleanup_device_data(struct qib_devdata *dd)

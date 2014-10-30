@@ -15,20 +15,28 @@
 #include <linux/numa.h>
 
 #define PART_BITS 4
+#define VQ_NAME_LEN 16
 
 static int major;
 static DEFINE_IDA(vd_index_ida);
 
 static struct workqueue_struct *virtblk_wq;
 
+struct virtio_blk_vq {
+	struct virtqueue *vq;
+	spinlock_t lock;
+	char name[VQ_NAME_LEN];
+} ____cacheline_aligned_in_smp;
+
 struct virtio_blk
 {
 	struct virtio_device *vdev;
-	struct virtqueue *vq;
-	spinlock_t vq_lock;
 
 	/* The disk structure for the kernel. */
 	struct gendisk *disk;
+
+	/* Block layer tags. */
+	struct blk_mq_tag_set tag_set;
 
 	/* Process context for config space updates */
 	struct work_struct config_work;
@@ -44,6 +52,10 @@ struct virtio_blk
 
 	/* Ida index - used to track minor number allocations. */
 	int index;
+
+	/* num of vqs */
+	int num_vqs;
+	struct virtio_blk_vq *vqs;
 };
 
 struct virtblk_req
@@ -112,7 +124,7 @@ static int __virtblk_add_req(struct virtqueue *vq,
 
 static inline void virtblk_request_done(struct request *req)
 {
-	struct virtblk_req *vbr = req->special;
+	struct virtblk_req *vbr = blk_mq_rq_to_pdu(req);
 	int error = virtblk_result(vbr);
 
 	if (req->cmd_type == REQ_TYPE_BLOCK_PC) {
@@ -130,14 +142,15 @@ static void virtblk_done(struct virtqueue *vq)
 {
 	struct virtio_blk *vblk = vq->vdev->priv;
 	bool req_done = false;
+	int qid = vq->index;
 	struct virtblk_req *vbr;
 	unsigned long flags;
 	unsigned int len;
 
-	spin_lock_irqsave(&vblk->vq_lock, flags);
+	spin_lock_irqsave(&vblk->vqs[qid].lock, flags);
 	do {
 		virtqueue_disable_cb(vq);
-		while ((vbr = virtqueue_get_buf(vblk->vq, &len)) != NULL) {
+		while ((vbr = virtqueue_get_buf(vblk->vqs[qid].vq, &len)) != NULL) {
 			blk_mq_complete_request(vbr->req);
 			req_done = true;
 		}
@@ -147,18 +160,20 @@ static void virtblk_done(struct virtqueue *vq)
 
 	/* In case queue is stopped waiting for more buffers. */
 	if (req_done)
-		blk_mq_start_stopped_hw_queues(vblk->disk->queue);
-	spin_unlock_irqrestore(&vblk->vq_lock, flags);
+		blk_mq_start_stopped_hw_queues(vblk->disk->queue, true);
+	spin_unlock_irqrestore(&vblk->vqs[qid].lock, flags);
 }
 
 static int virtio_queue_rq(struct blk_mq_hw_ctx *hctx, struct request *req)
 {
 	struct virtio_blk *vblk = hctx->queue->queuedata;
-	struct virtblk_req *vbr = req->special;
+	struct virtblk_req *vbr = blk_mq_rq_to_pdu(req);
 	unsigned long flags;
 	unsigned int num;
+	int qid = hctx->queue_num;
 	const bool last = (req->cmd_flags & REQ_END) != 0;
 	int err;
+	bool notify = false;
 
 	BUG_ON(req->nr_phys_segments + 2 > vblk->sg_elems);
 
@@ -198,12 +213,12 @@ static int virtio_queue_rq(struct blk_mq_hw_ctx *hctx, struct request *req)
 			vbr->out_hdr.type |= VIRTIO_BLK_T_IN;
 	}
 
-	spin_lock_irqsave(&vblk->vq_lock, flags);
-	err = __virtblk_add_req(vblk->vq, vbr, vbr->sg, num);
+	spin_lock_irqsave(&vblk->vqs[qid].lock, flags);
+	err = __virtblk_add_req(vblk->vqs[qid].vq, vbr, vbr->sg, num);
 	if (err) {
-		virtqueue_kick(vblk->vq);
+		virtqueue_kick(vblk->vqs[qid].vq);
 		blk_mq_stop_hw_queue(hctx);
-		spin_unlock_irqrestore(&vblk->vq_lock, flags);
+		spin_unlock_irqrestore(&vblk->vqs[qid].lock, flags);
 		/* Out of mem doesn't actually happen, since we fall back
 		 * to direct descriptors */
 		if (err == -ENOMEM || err == -ENOSPC)
@@ -211,10 +226,12 @@ static int virtio_queue_rq(struct blk_mq_hw_ctx *hctx, struct request *req)
 		return BLK_MQ_RQ_QUEUE_ERROR;
 	}
 
-	if (last)
-		virtqueue_kick(vblk->vq);
+	if (last && virtqueue_kick_prepare(vblk->vqs[qid].vq))
+		notify = true;
+	spin_unlock_irqrestore(&vblk->vqs[qid].lock, flags);
 
-	spin_unlock_irqrestore(&vblk->vq_lock, flags);
+	if (notify)
+		virtqueue_notify(vblk->vqs[qid].vq);
 	return BLK_MQ_RQ_QUEUE_OK;
 }
 
@@ -371,12 +388,64 @@ static void virtblk_config_changed(struct virtio_device *vdev)
 static int init_vq(struct virtio_blk *vblk)
 {
 	int err = 0;
+	int i;
+	vq_callback_t **callbacks;
+	const char **names;
+	struct virtqueue **vqs;
+	unsigned short num_vqs;
+	struct virtio_device *vdev = vblk->vdev;
 
-	/* We expect one virtqueue, for output. */
-	vblk->vq = virtio_find_single_vq(vblk->vdev, virtblk_done, "requests");
-	if (IS_ERR(vblk->vq))
-		err = PTR_ERR(vblk->vq);
+	err = virtio_cread_feature(vdev, VIRTIO_BLK_F_MQ,
+				   struct virtio_blk_config, num_queues,
+				   &num_vqs);
+	if (err)
+		num_vqs = 1;
 
+	vblk->vqs = kmalloc(sizeof(*vblk->vqs) * num_vqs, GFP_KERNEL);
+	if (!vblk->vqs) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	names = kmalloc(sizeof(*names) * num_vqs, GFP_KERNEL);
+	if (!names)
+		goto err_names;
+
+	callbacks = kmalloc(sizeof(*callbacks) * num_vqs, GFP_KERNEL);
+	if (!callbacks)
+		goto err_callbacks;
+
+	vqs = kmalloc(sizeof(*vqs) * num_vqs, GFP_KERNEL);
+	if (!vqs)
+		goto err_vqs;
+
+	for (i = 0; i < num_vqs; i++) {
+		callbacks[i] = virtblk_done;
+		snprintf(vblk->vqs[i].name, VQ_NAME_LEN, "req.%d", i);
+		names[i] = vblk->vqs[i].name;
+	}
+
+	/* Discover virtqueues and write information to configuration.  */
+	err = vdev->config->find_vqs(vdev, num_vqs, vqs, callbacks, names);
+	if (err)
+		goto err_find_vqs;
+
+	for (i = 0; i < num_vqs; i++) {
+		spin_lock_init(&vblk->vqs[i].lock);
+		vblk->vqs[i].vq = vqs[i];
+	}
+	vblk->num_vqs = num_vqs;
+
+ err_find_vqs:
+	kfree(vqs);
+ err_vqs:
+	kfree(callbacks);
+ err_callbacks:
+	kfree(names);
+ err_names:
+	if (err)
+		kfree(vblk->vqs);
+ out:
 	return err;
 }
 
@@ -480,32 +549,26 @@ static const struct device_attribute dev_attr_cache_type_rw =
 	__ATTR(cache_type, S_IRUGO|S_IWUSR,
 	       virtblk_cache_type_show, virtblk_cache_type_store);
 
-static struct blk_mq_ops virtio_mq_ops = {
-	.queue_rq	= virtio_queue_rq,
-	.map_queue	= blk_mq_map_queue,
-	.alloc_hctx	= blk_mq_alloc_single_hw_queue,
-	.free_hctx	= blk_mq_free_single_hw_queue,
-	.complete	= virtblk_request_done,
-};
-
-static struct blk_mq_reg virtio_mq_reg = {
-	.ops		= &virtio_mq_ops,
-	.nr_hw_queues	= 1,
-	.queue_depth	= 0, /* Set in virtblk_probe */
-	.numa_node	= NUMA_NO_NODE,
-	.flags		= BLK_MQ_F_SHOULD_MERGE,
-};
-module_param_named(queue_depth, virtio_mq_reg.queue_depth, uint, 0444);
-
-static int virtblk_init_vbr(void *data, struct blk_mq_hw_ctx *hctx,
-			     struct request *rq, unsigned int nr)
+static int virtblk_init_request(void *data, struct request *rq,
+		unsigned int hctx_idx, unsigned int request_idx,
+		unsigned int numa_node)
 {
 	struct virtio_blk *vblk = data;
-	struct virtblk_req *vbr = rq->special;
+	struct virtblk_req *vbr = blk_mq_rq_to_pdu(rq);
 
 	sg_init_table(vbr->sg, vblk->sg_elems);
 	return 0;
 }
+
+static struct blk_mq_ops virtio_mq_ops = {
+	.queue_rq	= virtio_queue_rq,
+	.map_queue	= blk_mq_map_queue,
+	.complete	= virtblk_request_done,
+	.init_request	= virtblk_init_request,
+};
+
+static unsigned int virtblk_queue_depth;
+module_param_named(queue_depth, virtblk_queue_depth, uint, 0444);
 
 static int virtblk_probe(struct virtio_device *vdev)
 {
@@ -551,7 +614,6 @@ static int virtblk_probe(struct virtio_device *vdev)
 	err = init_vq(vblk);
 	if (err)
 		goto out_free_vblk;
-	spin_lock_init(&vblk->vq_lock);
 
 	/* FIXME: How many partitions?  How long is a piece of string? */
 	vblk->disk = alloc_disk(1 << PART_BITS);
@@ -561,23 +623,33 @@ static int virtblk_probe(struct virtio_device *vdev)
 	}
 
 	/* Default queue sizing is to fill the ring. */
-	if (!virtio_mq_reg.queue_depth) {
-		virtio_mq_reg.queue_depth = vblk->vq->num_free;
+	if (!virtblk_queue_depth) {
+		virtblk_queue_depth = vblk->vqs[0].vq->num_free;
 		/* ... but without indirect descs, we use 2 descs per req */
 		if (!virtio_has_feature(vdev, VIRTIO_RING_F_INDIRECT_DESC))
-			virtio_mq_reg.queue_depth /= 2;
+			virtblk_queue_depth /= 2;
 	}
-	virtio_mq_reg.cmd_size =
+
+	memset(&vblk->tag_set, 0, sizeof(vblk->tag_set));
+	vblk->tag_set.ops = &virtio_mq_ops;
+	vblk->tag_set.queue_depth = virtblk_queue_depth;
+	vblk->tag_set.numa_node = NUMA_NO_NODE;
+	vblk->tag_set.flags = BLK_MQ_F_SHOULD_MERGE;
+	vblk->tag_set.cmd_size =
 		sizeof(struct virtblk_req) +
 		sizeof(struct scatterlist) * sg_elems;
+	vblk->tag_set.driver_data = vblk;
+	vblk->tag_set.nr_hw_queues = vblk->num_vqs;
 
-	q = vblk->disk->queue = blk_mq_init_queue(&virtio_mq_reg, vblk);
+	err = blk_mq_alloc_tag_set(&vblk->tag_set);
+	if (err)
+		goto out_put_disk;
+
+	q = vblk->disk->queue = blk_mq_init_queue(&vblk->tag_set);
 	if (!q) {
 		err = -ENOMEM;
-		goto out_put_disk;
+		goto out_free_tags;
 	}
-
-	blk_mq_init_commands(q, virtblk_init_vbr, vblk);
 
 	q->queuedata = vblk;
 
@@ -679,6 +751,8 @@ static int virtblk_probe(struct virtio_device *vdev)
 out_del_disk:
 	del_gendisk(vblk->disk);
 	blk_cleanup_queue(vblk->disk->queue);
+out_free_tags:
+	blk_mq_free_tag_set(&vblk->tag_set);
 out_put_disk:
 	put_disk(vblk->disk);
 out_free_vq:
@@ -705,6 +779,8 @@ static void virtblk_remove(struct virtio_device *vdev)
 	del_gendisk(vblk->disk);
 	blk_cleanup_queue(vblk->disk->queue);
 
+	blk_mq_free_tag_set(&vblk->tag_set);
+
 	/* Stop all the virtqueues. */
 	vdev->config->reset(vdev);
 
@@ -713,6 +789,7 @@ static void virtblk_remove(struct virtio_device *vdev)
 	refc = atomic_read(&disk_to_dev(vblk->disk)->kobj.kref.refcount);
 	put_disk(vblk->disk);
 	vdev->config->del_vqs(vdev);
+	kfree(vblk->vqs);
 	kfree(vblk);
 
 	/* Only free device id if we don't have any users */
@@ -749,7 +826,7 @@ static int virtblk_restore(struct virtio_device *vdev)
 	vblk->config_enable = true;
 	ret = init_vq(vdev->priv);
 	if (!ret)
-		blk_mq_start_stopped_hw_queues(vblk->disk->queue);
+		blk_mq_start_stopped_hw_queues(vblk->disk->queue, true);
 
 	return ret;
 }
@@ -763,7 +840,8 @@ static const struct virtio_device_id id_table[] = {
 static unsigned int features[] = {
 	VIRTIO_BLK_F_SEG_MAX, VIRTIO_BLK_F_SIZE_MAX, VIRTIO_BLK_F_GEOMETRY,
 	VIRTIO_BLK_F_RO, VIRTIO_BLK_F_BLK_SIZE, VIRTIO_BLK_F_SCSI,
-	VIRTIO_BLK_F_WCE, VIRTIO_BLK_F_TOPOLOGY, VIRTIO_BLK_F_CONFIG_WCE
+	VIRTIO_BLK_F_WCE, VIRTIO_BLK_F_TOPOLOGY, VIRTIO_BLK_F_CONFIG_WCE,
+	VIRTIO_BLK_F_MQ,
 };
 
 static struct virtio_driver virtio_blk = {

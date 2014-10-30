@@ -183,10 +183,6 @@ static void vsmp_smp_finish(void)
 	local_irq_enable();
 }
 
-static void vsmp_cpus_done(void)
-{
-}
-
 /*
  * Setup the PC, SP, and GP of a secondary processor and start it
  * running!
@@ -287,12 +283,12 @@ struct plat_smp_ops vsmp_smp_ops = {
 	.send_ipi_mask		= vsmp_send_ipi_mask,
 	.init_secondary		= vsmp_init_secondary,
 	.smp_finish		= vsmp_smp_finish,
-	.cpus_done		= vsmp_cpus_done,
 	.boot_secondary		= vsmp_boot_secondary,
 	.smp_setup		= vsmp_smp_setup,
 	.prepare_cpus		= vsmp_prepare_cpus,
 };
 
+#ifdef CONFIG_PROC_FS
 static int proc_cpuinfo_chain_call(struct notifier_block *nfb,
 	unsigned long action_unused, void *data)
 {
@@ -314,3 +310,4 @@ static int __init proc_cpuinfo_notifier_init(void)
 }
 
 subsys_initcall(proc_cpuinfo_notifier_init);
+#endif

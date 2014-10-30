@@ -106,7 +106,7 @@ struct vlan_pcpu_stats {
 
 #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
 
-extern struct net_device *__vlan_find_dev_deep(struct net_device *real_dev,
+extern struct net_device *__vlan_find_dev_deep_rcu(struct net_device *real_dev,
 					       __be16 vlan_proto, u16 vlan_id);
 extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
 extern u16 vlan_dev_vlan_id(const struct net_device *dev);
@@ -187,7 +187,6 @@ vlan_dev_get_egress_qos_mask(struct net_device *dev, u32 skprio)
 }
 
 extern bool vlan_do_receive(struct sk_buff **skb);
-extern struct sk_buff *vlan_untag(struct sk_buff *skb);
 
 extern int vlan_vid_add(struct net_device *dev, __be16 proto, u16 vid);
 extern void vlan_vid_del(struct net_device *dev, __be16 proto, u16 vid);
@@ -206,7 +205,7 @@ static inline int vlan_get_encap_level(struct net_device *dev)
 }
 #else
 static inline struct net_device *
-__vlan_find_dev_deep(struct net_device *real_dev,
+__vlan_find_dev_deep_rcu(struct net_device *real_dev,
 		     __be16 vlan_proto, u16 vlan_id)
 {
 	return NULL;
@@ -239,11 +238,6 @@ static inline u16 vlan_dev_get_egress_qos_mask(struct net_device *dev,
 static inline bool vlan_do_receive(struct sk_buff **skb)
 {
 	return false;
-}
-
-static inline struct sk_buff *vlan_untag(struct sk_buff *skb)
-{
-	return skb;
 }
 
 static inline int vlan_vid_add(struct net_device *dev, __be16 proto, u16 vid)

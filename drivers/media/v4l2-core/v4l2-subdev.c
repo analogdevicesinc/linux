@@ -126,6 +126,57 @@ static int subdev_close(struct file *file)
 	return 0;
 }
 
+#if defined(CONFIG_VIDEO_V4L2_SUBDEV_API)
+static int check_format(struct v4l2_subdev *sd,
+			struct v4l2_subdev_format *format)
+{
+	if (format->which != V4L2_SUBDEV_FORMAT_TRY &&
+	    format->which != V4L2_SUBDEV_FORMAT_ACTIVE)
+		return -EINVAL;
+
+	if (format->pad >= sd->entity.num_pads)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int check_crop(struct v4l2_subdev *sd, struct v4l2_subdev_crop *crop)
+{
+	if (crop->which != V4L2_SUBDEV_FORMAT_TRY &&
+	    crop->which != V4L2_SUBDEV_FORMAT_ACTIVE)
+		return -EINVAL;
+
+	if (crop->pad >= sd->entity.num_pads)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int check_selection(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_selection *sel)
+{
+	if (sel->which != V4L2_SUBDEV_FORMAT_TRY &&
+	    sel->which != V4L2_SUBDEV_FORMAT_ACTIVE)
+		return -EINVAL;
+
+	if (sel->pad >= sd->entity.num_pads)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int check_edid(struct v4l2_subdev *sd, struct v4l2_subdev_edid *edid)
+{
+	if (edid->pad >= sd->entity.num_pads)
+		return -EINVAL;
+
+	if (edid->blocks && edid->edid == NULL)
+		return -EINVAL;
+
+	return 0;
+}
+#endif
+
 static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 {
 	struct video_device *vdev = video_devdata(file);
@@ -133,11 +184,15 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	struct v4l2_fh *vfh = file->private_data;
 #if defined(CONFIG_VIDEO_V4L2_SUBDEV_API)
 	struct v4l2_subdev_fh *subdev_fh = to_v4l2_subdev_fh(vfh);
+	int rval;
 #endif
 
 	switch (cmd) {
 	case VIDIOC_QUERYCTRL:
 		return v4l2_queryctrl(vfh->ctrl_handler, arg);
+
+	case VIDIOC_QUERY_EXT_CTRL:
+		return v4l2_query_ext_ctrl(vfh->ctrl_handler, arg);
 
 	case VIDIOC_QUERYMENU:
 		return v4l2_querymenu(vfh->ctrl_handler, arg);
@@ -203,12 +258,9 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_SUBDEV_G_FMT: {
 		struct v4l2_subdev_format *format = arg;
 
-		if (format->which != V4L2_SUBDEV_FORMAT_TRY &&
-		    format->which != V4L2_SUBDEV_FORMAT_ACTIVE)
-			return -EINVAL;
-
-		if (format->pad >= sd->entity.num_pads)
-			return -EINVAL;
+		rval = check_format(sd, format);
+		if (rval)
+			return rval;
 
 		return v4l2_subdev_call(sd, pad, get_fmt, subdev_fh, format);
 	}
@@ -216,12 +268,9 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_SUBDEV_S_FMT: {
 		struct v4l2_subdev_format *format = arg;
 
-		if (format->which != V4L2_SUBDEV_FORMAT_TRY &&
-		    format->which != V4L2_SUBDEV_FORMAT_ACTIVE)
-			return -EINVAL;
-
-		if (format->pad >= sd->entity.num_pads)
-			return -EINVAL;
+		rval = check_format(sd, format);
+		if (rval)
+			return rval;
 
 		return v4l2_subdev_call(sd, pad, set_fmt, subdev_fh, format);
 	}
@@ -229,14 +278,10 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_SUBDEV_G_CROP: {
 		struct v4l2_subdev_crop *crop = arg;
 		struct v4l2_subdev_selection sel;
-		int rval;
 
-		if (crop->which != V4L2_SUBDEV_FORMAT_TRY &&
-		    crop->which != V4L2_SUBDEV_FORMAT_ACTIVE)
-			return -EINVAL;
-
-		if (crop->pad >= sd->entity.num_pads)
-			return -EINVAL;
+		rval = check_crop(sd, crop);
+		if (rval)
+			return rval;
 
 		rval = v4l2_subdev_call(sd, pad, get_crop, subdev_fh, crop);
 		if (rval != -ENOIOCTLCMD)
@@ -258,14 +303,10 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_SUBDEV_S_CROP: {
 		struct v4l2_subdev_crop *crop = arg;
 		struct v4l2_subdev_selection sel;
-		int rval;
 
-		if (crop->which != V4L2_SUBDEV_FORMAT_TRY &&
-		    crop->which != V4L2_SUBDEV_FORMAT_ACTIVE)
-			return -EINVAL;
-
-		if (crop->pad >= sd->entity.num_pads)
-			return -EINVAL;
+		rval = check_crop(sd, crop);
+		if (rval)
+			return rval;
 
 		rval = v4l2_subdev_call(sd, pad, set_crop, subdev_fh, crop);
 		if (rval != -ENOIOCTLCMD)
@@ -305,11 +346,23 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 					fse);
 	}
 
-	case VIDIOC_SUBDEV_G_FRAME_INTERVAL:
-		return v4l2_subdev_call(sd, video, g_frame_interval, arg);
+	case VIDIOC_SUBDEV_G_FRAME_INTERVAL: {
+		struct v4l2_subdev_frame_interval *fi = arg;
 
-	case VIDIOC_SUBDEV_S_FRAME_INTERVAL:
+		if (fi->pad >= sd->entity.num_pads)
+			return -EINVAL;
+
+		return v4l2_subdev_call(sd, video, g_frame_interval, arg);
+	}
+
+	case VIDIOC_SUBDEV_S_FRAME_INTERVAL: {
+		struct v4l2_subdev_frame_interval *fi = arg;
+
+		if (fi->pad >= sd->entity.num_pads)
+			return -EINVAL;
+
 		return v4l2_subdev_call(sd, video, s_frame_interval, arg);
+	}
 
 	case VIDIOC_SUBDEV_ENUM_FRAME_INTERVAL: {
 		struct v4l2_subdev_frame_interval_enum *fie = arg;
@@ -324,12 +377,9 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_SUBDEV_G_SELECTION: {
 		struct v4l2_subdev_selection *sel = arg;
 
-		if (sel->which != V4L2_SUBDEV_FORMAT_TRY &&
-		    sel->which != V4L2_SUBDEV_FORMAT_ACTIVE)
-			return -EINVAL;
-
-		if (sel->pad >= sd->entity.num_pads)
-			return -EINVAL;
+		rval = check_selection(sd, sel);
+		if (rval)
+			return rval;
 
 		return v4l2_subdev_call(
 			sd, pad, get_selection, subdev_fh, sel);
@@ -338,12 +388,9 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_SUBDEV_S_SELECTION: {
 		struct v4l2_subdev_selection *sel = arg;
 
-		if (sel->which != V4L2_SUBDEV_FORMAT_TRY &&
-		    sel->which != V4L2_SUBDEV_FORMAT_ACTIVE)
-			return -EINVAL;
-
-		if (sel->pad >= sd->entity.num_pads)
-			return -EINVAL;
+		rval = check_selection(sd, sel);
+		if (rval)
+			return rval;
 
 		return v4l2_subdev_call(
 			sd, pad, set_selection, subdev_fh, sel);
@@ -352,10 +399,9 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_G_EDID: {
 		struct v4l2_subdev_edid *edid = arg;
 
-		if (edid->pad >= sd->entity.num_pads)
-			return -EINVAL;
-		if (edid->blocks && edid->edid == NULL)
-			return -EINVAL;
+		rval = check_edid(sd, edid);
+		if (rval)
+			return rval;
 
 		return v4l2_subdev_call(sd, pad, get_edid, edid);
 	}
@@ -363,10 +409,9 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_S_EDID: {
 		struct v4l2_subdev_edid *edid = arg;
 
-		if (edid->pad >= sd->entity.num_pads)
-			return -EINVAL;
-		if (edid->blocks && edid->edid == NULL)
-			return -EINVAL;
+		rval = check_edid(sd, edid);
+		if (rval)
+			return rval;
 
 		return v4l2_subdev_call(sd, pad, set_edid, edid);
 	}
@@ -424,6 +469,7 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 
 		return v4l2_subdev_call(sd, pad, set_routing, route);
 	}
+
 #endif
 
 	default:
@@ -438,6 +484,17 @@ static long subdev_ioctl(struct file *file, unsigned int cmd,
 {
 	return video_usercopy(file, cmd, arg, subdev_do_ioctl);
 }
+
+#ifdef CONFIG_COMPAT
+static long subdev_compat_ioctl32(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+
+	return v4l2_subdev_call(sd, core, compat_ioctl32, cmd, arg);
+}
+#endif
 
 static unsigned int subdev_poll(struct file *file, poll_table *wait)
 {
@@ -460,6 +517,9 @@ const struct v4l2_file_operations v4l2_subdev_fops = {
 	.owner = THIS_MODULE,
 	.open = subdev_open,
 	.unlocked_ioctl = subdev_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = subdev_compat_ioctl32,
+#endif
 	.release = subdev_close,
 	.poll = subdev_poll,
 };

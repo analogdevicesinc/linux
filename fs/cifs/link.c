@@ -213,8 +213,12 @@ create_mf_symlink(const unsigned int xid, struct cifs_tcon *tcon,
 	if (rc)
 		goto out;
 
-	rc = tcon->ses->server->ops->create_mf_symlink(xid, tcon, cifs_sb,
-					fromName, buf, &bytes_written);
+	if (tcon->ses->server->ops->create_mf_symlink)
+		rc = tcon->ses->server->ops->create_mf_symlink(xid, tcon,
+					cifs_sb, fromName, buf, &bytes_written);
+	else
+		rc = -EOPNOTSUPP;
+
 	if (rc)
 		goto out;
 
@@ -339,9 +343,11 @@ cifs_query_mf_symlink(unsigned int xid, struct cifs_tcon *tcon,
 	if (rc)
 		return rc;
 
-	if (file_info.EndOfFile != cpu_to_le64(CIFS_MF_SYMLINK_FILE_SIZE))
+	if (file_info.EndOfFile != cpu_to_le64(CIFS_MF_SYMLINK_FILE_SIZE)) {
+		rc = -ENOENT;
 		/* it's not a symlink */
 		goto out;
+	}
 
 	io_parms.netfid = fid.netfid;
 	io_parms.pid = current->tgid;
@@ -374,7 +380,7 @@ cifs_create_mf_symlink(unsigned int xid, struct cifs_tcon *tcon,
 	oparms.cifs_sb = cifs_sb;
 	oparms.desired_access = GENERIC_WRITE;
 	oparms.create_options = create_options;
-	oparms.disposition = FILE_OPEN;
+	oparms.disposition = FILE_CREATE;
 	oparms.path = path;
 	oparms.fid = &fid;
 	oparms.reconnect = false;

@@ -25,7 +25,6 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
-#include <linux/list.h>
 #include <linux/platform_device.h>
 #include <linux/kthread.h>
 #include <linux/firmware.h>
@@ -184,7 +183,7 @@ struct sst_hsw_ipc_fw_ready {
 	u32 inbox_size;
 	u32 outbox_size;
 	u32 fw_info_size;
-	u8 fw_info[1];
+	u8 fw_info[IPC_MAX_MAILBOX_BYTES - 5 * sizeof(u32)];
 } __attribute__((packed));
 
 struct ipc_message {
@@ -458,9 +457,10 @@ static void ipc_tx_msgs(struct kthread_work *work)
 		return;
 	}
 
-	/* if the DSP is busy we will TX messages after IRQ */
+	/* if the DSP is busy, we will TX messages after IRQ.
+	 * also postpone if we are in the middle of procesing completion irq*/
 	ipcx = sst_dsp_shim_read_unlocked(hsw->dsp, SST_IPCX);
-	if (ipcx & SST_IPCX_BUSY) {
+	if (ipcx & (SST_IPCX_BUSY | SST_IPCX_DONE)) {
 		spin_unlock_irqrestore(&hsw->dsp->spinlock, flags);
 		return;
 	}
@@ -503,6 +503,7 @@ static int tx_wait_done(struct sst_hsw *hsw, struct ipc_message *msg,
 		ipc_shim_dbg(hsw, "message timeout");
 
 		trace_ipc_error("error message timeout for", msg->header);
+		list_del(&msg->list);
 		ret = -ETIMEDOUT;
 	} else {
 
@@ -570,6 +571,9 @@ static void hsw_fw_ready(struct sst_hsw *hsw, u32 header)
 {
 	struct sst_hsw_ipc_fw_ready fw_ready;
 	u32 offset;
+	u8 fw_info[IPC_MAX_MAILBOX_BYTES - 5 * sizeof(u32)];
+	char *tmp[5], *pinfo;
+	int i = 0;
 
 	offset = (header & 0x1FFFFFFF) << 3;
 
@@ -590,6 +594,19 @@ static void hsw_fw_ready(struct sst_hsw *hsw, u32 header)
 		fw_ready.inbox_offset, fw_ready.inbox_size);
 	dev_dbg(hsw->dev, " mailbox downstream 0x%x - size 0x%x\n",
 		fw_ready.outbox_offset, fw_ready.outbox_size);
+	if (fw_ready.fw_info_size < sizeof(fw_ready.fw_info)) {
+		fw_ready.fw_info[fw_ready.fw_info_size] = 0;
+		dev_dbg(hsw->dev, " Firmware info: %s \n", fw_ready.fw_info);
+
+		/* log the FW version info got from the mailbox here. */
+		memcpy(fw_info, fw_ready.fw_info, fw_ready.fw_info_size);
+		pinfo = &fw_info[0];
+		for (i = 0; i < sizeof(tmp) / sizeof(char *); i++)
+			tmp[i] = strsep(&pinfo, " ");
+		dev_info(hsw->dev, "FW loaded, mailbox readback FW info: type %s, - "
+			"version: %s.%s, build %s, source commit id: %s\n",
+			tmp[0], tmp[1], tmp[2], tmp[3], tmp[4]);
+	}
 }
 
 static void hsw_notification_work(struct work_struct *work)
@@ -672,7 +689,9 @@ static void hsw_stream_update(struct sst_hsw *hsw, struct ipc_message *msg)
 	switch (stream_msg) {
 	case IPC_STR_STAGE_MESSAGE:
 	case IPC_STR_NOTIFICATION:
+		break;
 	case IPC_STR_RESET:
+		trace_ipc_notification("stream reset", stream->reply.stream_hw_id);
 		break;
 	case IPC_STR_PAUSE:
 		stream->running = false;
@@ -763,7 +782,8 @@ static int hsw_process_reply(struct sst_hsw *hsw, u32 header)
 	}
 
 	/* update any stream states */
-	hsw_stream_update(hsw, msg);
+	if (msg_get_global_type(header) == IPC_GLB_STREAM_MESSAGE)
+		hsw_stream_update(hsw, msg);
 
 	/* wake up and return the error if we have waiters on this message ? */
 	list_del(&msg->list);
@@ -1629,7 +1649,7 @@ int sst_hsw_dx_set_state(struct sst_hsw *hsw,
 	enum sst_hsw_dx_state state, struct sst_hsw_ipc_dx_reply *dx)
 {
 	u32 header, state_;
-	int ret;
+	int ret, item;
 
 	header = IPC_GLB_TYPE(IPC_GLB_ENTER_DX_STATE);
 	state_ = state;
@@ -1643,6 +1663,13 @@ int sst_hsw_dx_set_state(struct sst_hsw *hsw,
 		return ret;
 	}
 
+	for (item = 0; item < dx->entries_no; item++) {
+		dev_dbg(hsw->dev,
+			"Item[%d] offset[%x] - size[%x] - source[%x]\n",
+			item, dx->mem_info[item].offset,
+			dx->mem_info[item].size,
+			dx->mem_info[item].source);
+	}
 	dev_dbg(hsw->dev, "ipc: got %d entry numbers for state %d\n",
 		dx->entries_no, state);
 
@@ -1730,17 +1757,17 @@ int sst_hsw_dsp_init(struct device *dev, struct sst_pdata *pdata)
 
 	ret = msg_empty_list_init(hsw);
 	if (ret < 0)
-		goto list_err;
+		return -ENOMEM;
 
 	/* start the IPC message thread */
 	init_kthread_worker(&hsw->kworker);
 	hsw->tx_thread = kthread_run(kthread_worker_fn,
-					   &hsw->kworker,
+					   &hsw->kworker, "%s",
 					   dev_name(hsw->dev));
 	if (IS_ERR(hsw->tx_thread)) {
 		ret = PTR_ERR(hsw->tx_thread);
 		dev_err(hsw->dev, "error: failed to create message TX task\n");
-		goto list_err;
+		goto err_free_msg;
 	}
 	init_kthread_work(&hsw->kwork, ipc_tx_msgs);
 
@@ -1750,7 +1777,7 @@ int sst_hsw_dsp_init(struct device *dev, struct sst_pdata *pdata)
 	hsw->dsp = sst_dsp_new(dev, &hsw_dev, pdata);
 	if (hsw->dsp == NULL) {
 		ret = -ENODEV;
-		goto list_err;
+		goto dsp_err;
 	}
 
 	/* keep the DSP in reset state for base FW loading */
@@ -1776,8 +1803,6 @@ int sst_hsw_dsp_init(struct device *dev, struct sst_pdata *pdata)
 
 	/* get the FW version */
 	sst_hsw_fw_get_version(hsw, &version);
-	dev_info(hsw->dev, "FW loaded: type %d - version: %d.%d build %d\n",
-		version.type, version.major, version.minor, version.build);
 
 	/* get the globalmixer */
 	ret = sst_hsw_mixer_get_info(hsw);
@@ -1794,8 +1819,11 @@ boot_err:
 	sst_fw_free(hsw_sst_fw);
 fw_err:
 	sst_dsp_free(hsw->dsp);
+dsp_err:
+	kthread_stop(hsw->tx_thread);
+err_free_msg:
 	kfree(hsw->msg);
-list_err:
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(sst_hsw_dsp_init);
@@ -1808,6 +1836,7 @@ void sst_hsw_dsp_free(struct device *dev, struct sst_pdata *pdata)
 	sst_fw_free_all(hsw->dsp);
 	sst_dsp_free(hsw->dsp);
 	kfree(hsw->scratch);
+	kthread_stop(hsw->tx_thread);
 	kfree(hsw->msg);
 }
 EXPORT_SYMBOL_GPL(sst_hsw_dsp_free);

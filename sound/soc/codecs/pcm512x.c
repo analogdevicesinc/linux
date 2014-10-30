@@ -259,17 +259,17 @@ static const struct soc_enum pcm512x_veds =
 			pcm512x_ramp_step_text);
 
 static const struct snd_kcontrol_new pcm512x_controls[] = {
-SOC_DOUBLE_R_TLV("Playback Digital Volume", PCM512x_DIGITAL_VOLUME_2,
+SOC_DOUBLE_R_TLV("Digital Playback Volume", PCM512x_DIGITAL_VOLUME_2,
 		 PCM512x_DIGITAL_VOLUME_3, 0, 255, 1, digital_tlv),
 SOC_DOUBLE_TLV("Playback Volume", PCM512x_ANALOG_GAIN_CTRL,
 	       PCM512x_LAGN_SHIFT, PCM512x_RAGN_SHIFT, 1, 1, analog_tlv),
 SOC_DOUBLE_TLV("Playback Boost Volume", PCM512x_ANALOG_GAIN_BOOST,
 	       PCM512x_AGBL_SHIFT, PCM512x_AGBR_SHIFT, 1, 0, boost_tlv),
-SOC_DOUBLE("Playback Digital Switch", PCM512x_MUTE, PCM512x_RQML_SHIFT,
+SOC_DOUBLE("Digital Playback Switch", PCM512x_MUTE, PCM512x_RQML_SHIFT,
 	   PCM512x_RQMR_SHIFT, 1, 1),
 
 SOC_SINGLE("Deemphasis Switch", PCM512x_DSP, PCM512x_DEMP_SHIFT, 1, 1),
-SOC_VALUE_ENUM("DSP Program", pcm512x_dsp_program),
+SOC_ENUM("DSP Program", pcm512x_dsp_program),
 
 SOC_ENUM("Clock Missing Period", pcm512x_clk_missing),
 SOC_ENUM("Auto Mute Time Left", pcm512x_autom_l),
@@ -517,6 +517,7 @@ void pcm512x_remove(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(pcm512x_remove);
 
+#ifdef CONFIG_PM_RUNTIME
 static int pcm512x_suspend(struct device *dev)
 {
 	struct pcm512x_priv *pcm512x = dev_get_drvdata(dev);
@@ -578,6 +579,7 @@ static int pcm512x_resume(struct device *dev)
 
 	return 0;
 }
+#endif
 
 const struct dev_pm_ops pcm512x_pm_ops = {
 	SET_RUNTIME_PM_OPS(pcm512x_suspend, pcm512x_resume, NULL)

@@ -272,7 +272,8 @@ void ieee80211_restart_hw(struct ieee80211_hw *hw)
 
 	/* use this reason, ieee80211_reconfig will unblock it */
 	ieee80211_stop_queues_by_reason(hw, IEEE80211_MAX_QUEUE_MAP,
-					IEEE80211_QUEUE_STOP_REASON_SUSPEND);
+					IEEE80211_QUEUE_STOP_REASON_SUSPEND,
+					false);
 
 	/*
 	 * Stop all Rx during the reconfig. We don't want state changes
@@ -340,7 +341,7 @@ static int ieee80211_ifa_changed(struct notifier_block *nb,
 
 	sdata_unlock(sdata);
 
-	return NOTIFY_DONE;
+	return NOTIFY_OK;
 }
 #endif
 
@@ -371,7 +372,7 @@ static int ieee80211_ifa6_changed(struct notifier_block *nb,
 
 	drv_ipv6_addr_change(local, sdata, idev);
 
-	return NOTIFY_DONE;
+	return NOTIFY_OK;
 }
 #endif
 
@@ -446,7 +447,9 @@ static const struct ieee80211_ht_cap mac80211_ht_capa_mod_mask = {
 	.cap_info = cpu_to_le16(IEEE80211_HT_CAP_SUP_WIDTH_20_40 |
 				IEEE80211_HT_CAP_MAX_AMSDU |
 				IEEE80211_HT_CAP_SGI_20 |
-				IEEE80211_HT_CAP_SGI_40),
+				IEEE80211_HT_CAP_SGI_40 |
+				IEEE80211_HT_CAP_LDPC_CODING |
+				IEEE80211_HT_CAP_40MHZ_INTOLERANT),
 	.mcs = {
 		.rx_mask = { 0xff, 0xff, 0xff, 0xff, 0xff,
 			     0xff, 0xff, 0xff, 0xff, 0xff, },
@@ -954,6 +957,8 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 	if (local->hw.wiphy->flags & WIPHY_FLAG_SUPPORTS_TDLS)
 		local->hw.wiphy->flags |= WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
 
+	local->hw.wiphy->max_num_csa_counters = IEEE80211_MAX_CSA_COUNTERS_NUM;
+
 	result = wiphy_register(local->hw.wiphy);
 	if (result < 0)
 		goto fail_wiphy_register;
@@ -1183,18 +1188,12 @@ static int __init ieee80211_init(void)
 	if (ret)
 		goto err_minstrel;
 
-	ret = rc80211_pid_init();
-	if (ret)
-		goto err_pid;
-
 	ret = ieee80211_iface_init();
 	if (ret)
 		goto err_netdev;
 
 	return 0;
  err_netdev:
-	rc80211_pid_exit();
- err_pid:
 	rc80211_minstrel_ht_exit();
  err_minstrel:
 	rc80211_minstrel_exit();
@@ -1204,7 +1203,6 @@ static int __init ieee80211_init(void)
 
 static void __exit ieee80211_exit(void)
 {
-	rc80211_pid_exit();
 	rc80211_minstrel_ht_exit();
 	rc80211_minstrel_exit();
 

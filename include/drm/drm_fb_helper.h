@@ -86,8 +86,9 @@ struct drm_fb_helper {
 	int crtc_count;
 	struct drm_fb_helper_crtc *crtc_info;
 	int connector_count;
+	int connector_info_alloc_count;
 	struct drm_fb_helper_connector **connector_info;
-	struct drm_fb_helper_funcs *funcs;
+	const struct drm_fb_helper_funcs *funcs;
 	struct fb_info *fbdev;
 	u32 pseudo_palette[17];
 	struct list_head kernel_fb_list;
@@ -97,6 +98,8 @@ struct drm_fb_helper {
 	bool delayed_hotplug;
 };
 
+void drm_fb_helper_prepare(struct drm_device *dev, struct drm_fb_helper *helper,
+			   const struct drm_fb_helper_funcs *funcs);
 int drm_fb_helper_init(struct drm_device *dev,
 		       struct drm_fb_helper *helper, int crtc_count,
 		       int max_conn);
@@ -108,7 +111,7 @@ int drm_fb_helper_set_par(struct fb_info *info);
 int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 			    struct fb_info *info);
 
-bool drm_fb_helper_restore_fbdev_mode(struct drm_fb_helper *fb_helper);
+bool drm_fb_helper_restore_fbdev_mode_unlocked(struct drm_fb_helper *fb_helper);
 void drm_fb_helper_fill_var(struct fb_info *info, struct drm_fb_helper *fb_helper,
 			    uint32_t fb_width, uint32_t fb_height);
 void drm_fb_helper_fill_fix(struct fb_info *info, uint32_t pitch,
@@ -128,4 +131,7 @@ struct drm_display_mode *
 drm_pick_cmdline_mode(struct drm_fb_helper_connector *fb_helper_conn,
 		      int width, int height);
 
+int drm_fb_helper_add_one_connector(struct drm_fb_helper *fb_helper, struct drm_connector *connector);
+int drm_fb_helper_remove_one_connector(struct drm_fb_helper *fb_helper,
+				       struct drm_connector *connector);
 #endif

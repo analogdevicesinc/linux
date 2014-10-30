@@ -42,7 +42,7 @@ cgrp_css_alloc(struct cgroup_subsys_state *parent_css)
 static int cgrp_css_online(struct cgroup_subsys_state *css)
 {
 	struct cgroup_cls_state *cs = css_cls_state(css);
-	struct cgroup_cls_state *parent = css_cls_state(css_parent(css));
+	struct cgroup_cls_state *parent = css_cls_state(css->parent);
 
 	if (parent)
 		cs->classid = parent->classid;
@@ -107,5 +107,5 @@ struct cgroup_subsys net_cls_cgrp_subsys = {
 	.css_online		= cgrp_css_online,
 	.css_free		= cgrp_css_free,
 	.attach			= cgrp_attach,
-	.base_cftypes		= ss_files,
+	.legacy_cftypes		= ss_files,
 };

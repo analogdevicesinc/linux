@@ -21,8 +21,8 @@
 
 struct ht_priv
 {
-	u32	ht_option;
-	u32	ampdu_enable;/* for enable Tx A-MPDU */
+	bool	ht_option;
+	bool	ampdu_enable;/* for enable Tx A-MPDU */
 	/* u8	baddbareq_issued[16]; */
 	u32	tx_amsdu_enable;/* for enable Tx A-MSDU */
 	u32	tx_amdsu_maxlen; /*  1: 8k, 0:4k ; default:8k, for tx */
@@ -33,9 +33,9 @@ struct ht_priv
 	u8	sgi;/* short GI */
 
 	/* for processing Tx A-MPDU */
-	u8	agg_enable_bitmap;
+	u16	agg_enable_bitmap;
 	/* u8	ADDBA_retry_count; */
-	u8	candidate_tid_bitmap;
+	u16	candidate_tid_bitmap;
 
 	struct ieee80211_ht_cap ht_cap;
 };

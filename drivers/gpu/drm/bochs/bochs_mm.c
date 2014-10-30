@@ -387,7 +387,7 @@ int bochs_gem_create(struct drm_device *dev, u32 size, bool iskernel,
 
 	*obj = NULL;
 
-	size = ALIGN(size, PAGE_SIZE);
+	size = PAGE_ALIGN(size);
 	if (size == 0)
 		return -EINVAL;
 
@@ -434,17 +434,13 @@ static void bochs_bo_unref(struct bochs_bo **bo)
 
 	tbo = &((*bo)->bo);
 	ttm_bo_unref(&tbo);
-	if (tbo == NULL)
-		*bo = NULL;
-
+	*bo = NULL;
 }
 
 void bochs_gem_free_object(struct drm_gem_object *obj)
 {
 	struct bochs_bo *bochs_bo = gem_to_bochs_bo(obj);
 
-	if (!bochs_bo)
-		return;
 	bochs_bo_unref(&bochs_bo);
 }
 

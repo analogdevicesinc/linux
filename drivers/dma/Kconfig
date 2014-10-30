@@ -33,13 +33,23 @@ if DMADEVICES
 
 comment "DMA Devices"
 
-config XILINX_DMA
-	tristate "Xilinx DMA engines support"
+config INTEL_MIC_X100_DMA
+	tristate "Intel MIC X100 DMA Driver"
+	depends on 64BIT && X86 && INTEL_MIC_BUS
 	select DMA_ENGINE
-	---help---
-	Enable support for the Xilinx DMA controllers. It supports three DMA
-	engines: Axi Central DMA (memory to memory transfer), Axi DMA (memory and
-	device transfer), and Axi VDMA (memory and video device transfer).
+	help
+	  This enables DMA support for the Intel Many Integrated Core
+	  (MIC) family of PCIe form factor coprocessor X100 devices that
+	  run a 64 bit Linux OS. This driver will be used by both MIC
+	  host and card drivers.
+
+	  If you are building host kernel with a MIC device or a card
+	  kernel for a MIC device, then say M (recommended) or Y, else
+	  say N. If unsure say N.
+
+	  More information about the Intel MIC family as well as the Linux
+	  OS and tools for MIC to use with this driver are available from
+	  <http://software.intel.com/en-us/mic-developer>.
 
 config INTEL_MID_DMAC
 	tristate "Intel MID DMA support for Peripheral DMA controllers"
@@ -242,7 +252,7 @@ config PL330_DMA
 
 config PCH_DMA
 	tristate "Intel EG20T PCH / LAPIS Semicon IOH(ML7213/ML7223/ML7831) DMA"
-	depends on PCI && X86
+	depends on PCI && (X86_32 || COMPILE_TEST)
 	select DMA_ENGINE
 	help
 	  Enable support for Intel EG20T PCH DMA engine.
@@ -285,7 +295,7 @@ config MXS_DMA
 	select DMA_ENGINE
 	help
 	  Support the MXS DMA engine. This engine including APBH-DMA
-	  and APBX-DMA is integrated into Freescale i.MX23/28 chips.
+	  and APBX-DMA is integrated into Freescale i.MX23/28/MX6Q/MX6DL chips.
 
 config EP93XX_DMA
 	bool "Cirrus Logic EP93xx DMA support"
@@ -382,6 +392,22 @@ config FSL_EDMA
 	  multiplexing capability for DMA request sources(slot).
 	  This module can be found on Freescale Vybrid and LS-1 SoCs.
 
+config DMA_SUN6I
+	tristate "Allwinner A31 SoCs DMA support"
+	depends on MACH_SUN6I || COMPILE_TEST
+	depends on RESET_CONTROLLER
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Support for the DMA engine for Allwinner A31 SoCs.
+
+config NBPFAXI_DMA
+	tristate "Renesas Type-AXI NBPF DMA support"
+	select DMA_ENGINE
+	depends on ARM || COMPILE_TEST
+	help
+	  Support for "Type-AXI" NBPF DMA IPs from Renesas
+
 config DMA_ENGINE
 	bool
 
@@ -395,6 +421,7 @@ config DMA_ACPI
 config DMA_OF
 	def_bool y
 	depends on OF
+	select DMA_ENGINE
 
 comment "DMA Clients"
 	depends on DMA_ENGINE

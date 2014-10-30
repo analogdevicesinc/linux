@@ -139,8 +139,9 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
 static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw);
 static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw);
 static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw);
-static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index);
-static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index);
+static int e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index);
+static int e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index);
+static u32 e1000_rar_get_count_pch_lpt(struct e1000_hw *hw);
 static s32 e1000_k1_workaround_lv(struct e1000_hw *hw);
 static void e1000_gate_hw_phy_config_ich8lan(struct e1000_hw *hw, bool gate);
 static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force);
@@ -571,7 +572,6 @@ static s32 e1000_init_phy_params_ich8lan(struct e1000_hw *hw)
 		break;
 	default:
 		return -E1000_ERR_PHY;
-		break;
 	}
 
 	return 0;
@@ -704,6 +704,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
 		mac->ops.rar_set = e1000_rar_set_pch_lpt;
 		mac->ops.setup_physical_interface =
 		    e1000_setup_copper_link_pch_lpt;
+		mac->ops.rar_get_count = e1000_rar_get_count_pch_lpt;
 	}
 
 	/* Enable PCS Lock-loss workaround for ICH8 */
@@ -1334,6 +1335,7 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
 	if (((hw->mac.type == e1000_pch2lan) ||
 	     (hw->mac.type == e1000_pch_lpt)) && link) {
 		u32 reg;
+
 		reg = er32(STATUS);
 		if (!(reg & (E1000_STATUS_FD | E1000_STATUS_SPEED_MASK))) {
 			u16 emi_addr;
@@ -1634,9 +1636,9 @@ static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw)
 	u32 fwsm;
 
 	fwsm = er32(FWSM);
-	return ((fwsm & E1000_ICH_FWSM_FW_VALID) &&
+	return (fwsm & E1000_ICH_FWSM_FW_VALID) &&
 		((fwsm & E1000_FWSM_MODE_MASK) ==
-		 (E1000_ICH_MNG_IAMT_MODE << E1000_FWSM_MODE_SHIFT)));
+		 (E1000_ICH_MNG_IAMT_MODE << E1000_FWSM_MODE_SHIFT));
 }
 
 /**
@@ -1667,7 +1669,7 @@ static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw)
  *  contain the MAC address but RAR[1-6] are reserved for manageability (ME).
  *  Use SHRA[0-3] in place of those reserved for ME.
  **/
-static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
+static int e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
 {
 	u32 rar_low, rar_high;
 
@@ -1689,7 +1691,7 @@ static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
 		e1e_flush();
 		ew32(RAH(index), rar_high);
 		e1e_flush();
-		return;
+		return 0;
 	}
 
 	/* RAR[1-6] are owned by manageability.  Skip those and program the
@@ -1712,7 +1714,7 @@ static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
 		/* verify the register updates */
 		if ((er32(SHRAL(index - 1)) == rar_low) &&
 		    (er32(SHRAH(index - 1)) == rar_high))
-			return;
+			return 0;
 
 		e_dbg("SHRA[%d] might be locked by ME - FWSM=0x%8.8x\n",
 		      (index - 1), er32(FWSM));
@@ -1720,6 +1722,43 @@ static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
 
 out:
 	e_dbg("Failed to write receive address at index %d\n", index);
+	return -E1000_ERR_CONFIG;
+}
+
+/**
+ *  e1000_rar_get_count_pch_lpt - Get the number of available SHRA
+ *  @hw: pointer to the HW structure
+ *
+ *  Get the number of available receive registers that the Host can
+ *  program. SHRA[0-10] are the shared receive address registers
+ *  that are shared between the Host and manageability engine (ME).
+ *  ME can reserve any number of addresses and the host needs to be
+ *  able to tell how many available registers it has access to.
+ **/
+static u32 e1000_rar_get_count_pch_lpt(struct e1000_hw *hw)
+{
+	u32 wlock_mac;
+	u32 num_entries;
+
+	wlock_mac = er32(FWSM) & E1000_FWSM_WLOCK_MAC_MASK;
+	wlock_mac >>= E1000_FWSM_WLOCK_MAC_SHIFT;
+
+	switch (wlock_mac) {
+	case 0:
+		/* All SHRA[0..10] and RAR[0] available */
+		num_entries = hw->mac.rar_entry_count;
+		break;
+	case 1:
+		/* Only RAR[0] available */
+		num_entries = 1;
+		break;
+	default:
+		/* SHRA[0..(wlock_mac - 1)] available + RAR[0] */
+		num_entries = wlock_mac + 1;
+		break;
+	}
+
+	return num_entries;
 }
 
 /**
@@ -1733,7 +1772,7 @@ out:
  *  contain the MAC address. SHRA[0-10] are the shared receive address
  *  registers that are shared between the Host and manageability engine (ME).
  **/
-static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index)
+static int e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index)
 {
 	u32 rar_low, rar_high;
 	u32 wlock_mac;
@@ -1755,7 +1794,7 @@ static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index)
 		e1e_flush();
 		ew32(RAH(index), rar_high);
 		e1e_flush();
-		return;
+		return 0;
 	}
 
 	/* The manageability engine (ME) can lock certain SHRAR registers that
@@ -1787,12 +1826,13 @@ static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index)
 			/* verify the register updates */
 			if ((er32(SHRAL_PCH_LPT(index - 1)) == rar_low) &&
 			    (er32(SHRAH_PCH_LPT(index - 1)) == rar_high))
-				return;
+				return 0;
 		}
 	}
 
 out:
 	e_dbg("Failed to write receive address at index %d\n", index);
+	return -E1000_ERR_CONFIG;
 }
 
 /**
@@ -2404,7 +2444,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 			return ret_val;
 		e1e_rphy(hw, PHY_REG(776, 20), &data);
 		data &= ~(0x3FF << 2);
-		data |= (0x1A << 2);
+		data |= (E1000_TX_PTR_GAP << 2);
 		ret_val = e1e_wphy(hw, PHY_REG(776, 20), data);
 		if (ret_val)
 			return ret_val;
@@ -4565,14 +4605,23 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
 
 			/* Disable LPLU if both link partners support 100BaseT
 			 * EEE and 100Full is advertised on both ends of the
-			 * link.
+			 * link, and enable Auto Enable LPI since there will
+			 * be no driver to enable LPI while in Sx.
 			 */
 			if ((eee_advert & I82579_EEE_100_SUPPORTED) &&
 			    (dev_spec->eee_lp_ability &
 			     I82579_EEE_100_SUPPORTED) &&
-			    (hw->phy.autoneg_advertised & ADVERTISE_100_FULL))
+			    (hw->phy.autoneg_advertised & ADVERTISE_100_FULL)) {
 				phy_ctrl &= ~(E1000_PHY_CTRL_D0A_LPLU |
 					      E1000_PHY_CTRL_NOND0A_LPLU);
+
+				/* Set Auto Enable LPI after link up */
+				e1e_rphy_locked(hw,
+						I217_LPI_GPIO_CTRL, &phy_reg);
+				phy_reg |= I217_LPI_GPIO_CTRL_AUTO_EN_LPI;
+				e1e_wphy_locked(hw,
+						I217_LPI_GPIO_CTRL, phy_reg);
+			}
 		}
 
 		/* For i217 Intel Rapid Start Technology support,
@@ -4668,6 +4717,11 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
 			e_dbg("Failed to setup iRST\n");
 			return;
 		}
+
+		/* Clear Auto Enable LPI after link up */
+		e1e_rphy_locked(hw, I217_LPI_GPIO_CTRL, &phy_reg);
+		phy_reg &= ~I217_LPI_GPIO_CTRL_AUTO_EN_LPI;
+		e1e_wphy_locked(hw, I217_LPI_GPIO_CTRL, phy_reg);
 
 		if (!(er32(FWSM) & E1000_ICH_FWSM_FW_VALID)) {
 			/* Restore clear on SMB if no manageability engine
@@ -4976,6 +5030,7 @@ static const struct e1000_mac_operations ich8_mac_ops = {
 	/* id_led_init dependent on mac type */
 	.config_collision_dist	= e1000e_config_collision_dist_generic,
 	.rar_set		= e1000e_rar_set_generic,
+	.rar_get_count		= e1000e_rar_get_count_generic,
 };
 
 static const struct e1000_phy_operations ich8_phy_ops = {

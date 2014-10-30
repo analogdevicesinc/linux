@@ -52,7 +52,6 @@ struct msm_port {
 	struct clk		*clk;
 	struct clk		*pclk;
 	unsigned int		imr;
-	void __iomem		*gsbi_base;
 	int			is_uartdm;
 	unsigned int		old_snap_state;
 };
@@ -126,14 +125,14 @@ static void handle_rx_dm(struct uart_port *port, unsigned int misr)
 	port->icount.rx += count;
 
 	while (count > 0) {
-		unsigned int c;
+		unsigned char buf[4];
 
 		sr = msm_read(port, UART_SR);
 		if ((sr & UART_SR_RX_READY) == 0) {
 			msm_port->old_snap_state -= count;
 			break;
 		}
-		c = msm_read(port, UARTDM_RF);
+		ioread32_rep(port->membase + UARTDM_RF, buf, 1);
 		if (sr & UART_SR_RX_BREAK) {
 			port->icount.brk++;
 			if (uart_handle_break(port))
@@ -142,8 +141,7 @@ static void handle_rx_dm(struct uart_port *port, unsigned int misr)
 			port->icount.frame++;
 
 		/* TODO: handle sysrq */
-		tty_insert_flip_string(tport, (char *)&c,
-				       (count > 4) ? 4 : count);
+		tty_insert_flip_string(tport, buf, min(count, 4));
 		count -= 4;
 	}
 
@@ -220,6 +218,12 @@ static void handle_tx(struct uart_port *port)
 	struct msm_port *msm_port = UART_TO_MSM(port);
 	unsigned int tx_count, num_chars;
 	unsigned int tf_pointer = 0;
+	void __iomem *tf;
+
+	if (msm_port->is_uartdm)
+		tf = port->membase + UARTDM_TF;
+	else
+		tf = port->membase + UART_TF;
 
 	tx_count = uart_circ_chars_pending(xmit);
 	tx_count = min3(tx_count, (unsigned int)UART_XMIT_SIZE - xmit->tail,
@@ -229,8 +233,7 @@ static void handle_tx(struct uart_port *port)
 		if (msm_port->is_uartdm)
 			reset_dm_count(port, tx_count + 1);
 
-		msm_write(port, port->x_char,
-			  msm_port->is_uartdm ? UARTDM_TF : UART_TF);
+		iowrite8_rep(tf, &port->x_char, 1);
 		port->icount.tx++;
 		port->x_char = 0;
 	} else if (tx_count && msm_port->is_uartdm) {
@@ -240,7 +243,6 @@ static void handle_tx(struct uart_port *port)
 	while (tf_pointer < tx_count) {
 		int i;
 		char buf[4] = { 0 };
-		unsigned int *bf = (unsigned int *)&buf;
 
 		if (!(msm_read(port, UART_SR) & UART_SR_TX_READY))
 			break;
@@ -256,7 +258,7 @@ static void handle_tx(struct uart_port *port)
 			port->icount.tx++;
 		}
 
-		msm_write(port, *bf, msm_port->is_uartdm ? UARTDM_TF : UART_TF);
+		iowrite32_rep(tf, buf, 1);
 		xmit->tail = (xmit->tail + num_chars) & (UART_XMIT_SIZE - 1);
 		tf_pointer += num_chars;
 	}
@@ -599,9 +601,7 @@ static const char *msm_type(struct uart_port *port)
 static void msm_release_port(struct uart_port *port)
 {
 	struct platform_device *pdev = to_platform_device(port->dev);
-	struct msm_port *msm_port = UART_TO_MSM(port);
 	struct resource *uart_resource;
-	struct resource *gsbi_resource;
 	resource_size_t size;
 
 	uart_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -612,28 +612,12 @@ static void msm_release_port(struct uart_port *port)
 	release_mem_region(port->mapbase, size);
 	iounmap(port->membase);
 	port->membase = NULL;
-
-	if (msm_port->gsbi_base) {
-		writel_relaxed(GSBI_PROTOCOL_IDLE,
-				msm_port->gsbi_base + GSBI_CONTROL);
-
-		gsbi_resource = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-		if (unlikely(!gsbi_resource))
-			return;
-
-		size = resource_size(gsbi_resource);
-		release_mem_region(gsbi_resource->start, size);
-		iounmap(msm_port->gsbi_base);
-		msm_port->gsbi_base = NULL;
-	}
 }
 
 static int msm_request_port(struct uart_port *port)
 {
-	struct msm_port *msm_port = UART_TO_MSM(port);
 	struct platform_device *pdev = to_platform_device(port->dev);
 	struct resource *uart_resource;
-	struct resource *gsbi_resource;
 	resource_size_t size;
 	int ret;
 
@@ -652,30 +636,8 @@ static int msm_request_port(struct uart_port *port)
 		goto fail_release_port;
 	}
 
-	gsbi_resource = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	/* Is this a GSBI-based port? */
-	if (gsbi_resource) {
-		size = resource_size(gsbi_resource);
-
-		if (!request_mem_region(gsbi_resource->start, size,
-						 "msm_serial")) {
-			ret = -EBUSY;
-			goto fail_release_port_membase;
-		}
-
-		msm_port->gsbi_base = ioremap(gsbi_resource->start, size);
-		if (!msm_port->gsbi_base) {
-			ret = -EBUSY;
-			goto fail_release_gsbi;
-		}
-	}
-
 	return 0;
 
-fail_release_gsbi:
-	release_mem_region(gsbi_resource->start, size);
-fail_release_port_membase:
-	iounmap(port->membase);
 fail_release_port:
 	release_mem_region(port->mapbase, size);
 	return ret;
@@ -683,7 +645,6 @@ fail_release_port:
 
 static void msm_config_port(struct uart_port *port, int flags)
 {
-	struct msm_port *msm_port = UART_TO_MSM(port);
 	int ret;
 	if (flags & UART_CONFIG_TYPE) {
 		port->type = PORT_MSM;
@@ -691,9 +652,6 @@ static void msm_config_port(struct uart_port *port, int flags)
 		if (ret)
 			return;
 	}
-	if (msm_port->gsbi_base)
-		writel_relaxed(GSBI_PROTOCOL_UART,
-				msm_port->gsbi_base + GSBI_CONTROL);
 }
 
 static int msm_verify_port(struct uart_port *port, struct serial_struct *ser)
@@ -906,11 +864,17 @@ static void msm_console_write(struct console *co, const char *s,
 	struct msm_port *msm_port;
 	int num_newlines = 0;
 	bool replaced = false;
+	void __iomem *tf;
 
 	BUG_ON(co->index < 0 || co->index >= UART_NR);
 
 	port = get_port_from_line(co->index);
 	msm_port = UART_TO_MSM(port);
+
+	if (msm_port->is_uartdm)
+		tf = port->membase + UARTDM_TF;
+	else
+		tf = port->membase + UART_TF;
 
 	/* Account for newlines that will get a carriage return added */
 	for (i = 0; i < count; i++)
@@ -927,7 +891,6 @@ static void msm_console_write(struct console *co, const char *s,
 		int j;
 		unsigned int num_chars;
 		char buf[4] = { 0 };
-		unsigned int *bf = (unsigned int *)&buf;
 
 		if (msm_port->is_uartdm)
 			num_chars = min(count - i, (unsigned int)sizeof(buf));
@@ -952,7 +915,7 @@ static void msm_console_write(struct console *co, const char *s,
 		while (!(msm_read(port, UART_SR) & UART_SR_TX_READY))
 			cpu_relax();
 
-		msm_write(port, *bf, msm_port->is_uartdm ? UARTDM_TF : UART_TF);
+		iowrite32_rep(tf, buf, 1);
 		i += num_chars;
 	}
 	spin_unlock(&port->lock);
@@ -962,7 +925,7 @@ static int __init msm_console_setup(struct console *co, char *options)
 {
 	struct uart_port *port;
 	struct msm_port *msm_port;
-	int baud, flow, bits, parity;
+	int baud = 0, flow, bits, parity;
 
 	if (unlikely(co->index >= UART_NR || co->index < 0))
 		return -ENXIO;
@@ -1036,7 +999,7 @@ static const struct of_device_id msm_uartdm_table[] = {
 	{ }
 };
 
-static int __init msm_serial_probe(struct platform_device *pdev)
+static int msm_serial_probe(struct platform_device *pdev)
 {
 	struct msm_port *msm_port;
 	struct resource *resource;
@@ -1102,7 +1065,7 @@ static int msm_serial_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id msm_match_table[] = {
+static const struct of_device_id msm_match_table[] = {
 	{ .compatible = "qcom,msm-uart" },
 	{ .compatible = "qcom,msm-uartdm" },
 	{}
@@ -1110,6 +1073,7 @@ static struct of_device_id msm_match_table[] = {
 
 static struct platform_driver msm_platform_driver = {
 	.remove = msm_serial_remove,
+	.probe = msm_serial_probe,
 	.driver = {
 		.name = "msm_serial",
 		.owner = THIS_MODULE,
@@ -1125,7 +1089,7 @@ static int __init msm_serial_init(void)
 	if (unlikely(ret))
 		return ret;
 
-	ret = platform_driver_probe(&msm_platform_driver, msm_serial_probe);
+	ret = platform_driver_register(&msm_platform_driver);
 	if (unlikely(ret))
 		uart_unregister_driver(&msm_uart_driver);
 

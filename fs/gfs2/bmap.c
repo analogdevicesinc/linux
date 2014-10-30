@@ -359,7 +359,7 @@ static inline void release_metapath(struct metapath *mp)
  * Returns: The length of the extent (minimum of one block)
  */
 
-static inline unsigned int gfs2_extent_length(void *start, unsigned int len, __be64 *ptr, unsigned limit, int *eob)
+static inline unsigned int gfs2_extent_length(void *start, unsigned int len, __be64 *ptr, size_t limit, int *eob)
 {
 	const __be64 *end = (start + len);
 	const __be64 *first = ptr;
@@ -449,7 +449,7 @@ static int gfs2_bmap_alloc(struct inode *inode, const sector_t lblock,
 			   struct buffer_head *bh_map, struct metapath *mp,
 			   const unsigned int sheight,
 			   const unsigned int height,
-			   const unsigned int maxlen)
+			   const size_t maxlen)
 {
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
@@ -483,7 +483,8 @@ static int gfs2_bmap_alloc(struct inode *inode, const sector_t lblock,
 	} else {
 		/* Need to allocate indirect blocks */
 		ptrs_per_blk = height > 1 ? sdp->sd_inptrs : sdp->sd_diptrs;
-		dblks = min(maxlen, ptrs_per_blk - mp->mp_list[end_of_metadata]);
+		dblks = min(maxlen, (size_t)(ptrs_per_blk -
+					     mp->mp_list[end_of_metadata]));
 		if (height == ip->i_height) {
 			/* Writing into existing tree, extend tree down */
 			iblks = height - sheight;
@@ -605,7 +606,7 @@ int gfs2_block_map(struct inode *inode, sector_t lblock,
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	unsigned int bsize = sdp->sd_sb.sb_bsize;
-	const unsigned int maxlen = bh_map->b_size >> inode->i_blkbits;
+	const size_t maxlen = bh_map->b_size >> inode->i_blkbits;
 	const u64 *arr = sdp->sd_heightsize;
 	__be64 *ptr;
 	u64 size;
@@ -707,7 +708,7 @@ int gfs2_extent_map(struct inode *inode, u64 lblock, int *new, u64 *dblock, unsi
  * @top: The first pointer in the buffer
  * @bottom: One more than the last pointer
  * @height: the height this buffer is at
- * @data: a pointer to a struct strip_mine
+ * @sm: a pointer to a struct strip_mine
  *
  * Returns: errno
  */
@@ -992,6 +993,8 @@ unlock:
 	return err;
 }
 
+#define GFS2_JTRUNC_REVOKES 8192
+
 /**
  * gfs2_journaled_truncate - Wrapper for truncate_pagecache for jdata files
  * @inode: The inode being truncated
@@ -1002,8 +1005,6 @@ unlock:
  * truncated. As a result, we need to split this into separate transactions
  * if the number of pages being truncated gets too large.
  */
-
-#define GFS2_JTRUNC_REVOKES 8192
 
 static int gfs2_journaled_truncate(struct inode *inode, u64 oldsize, u64 newsize)
 {
@@ -1348,7 +1349,7 @@ void gfs2_free_journal_extents(struct gfs2_jdesc *jd)
  * gfs2_add_jextent - Add or merge a new extent to extent cache
  * @jd: The journal descriptor
  * @lblock: The logical block at start of new extent
- * @pblock: The physical block at start of new extent
+ * @dblock: The physical block at start of new extent
  * @blocks: Size of extent in fs blocks
  *
  * Returns: 0 on success or -ENOMEM

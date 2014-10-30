@@ -35,7 +35,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
 #include <linux/module.h>
-#include <linux/usb/usb_phy_gen_xceiv.h>
+#include <linux/usb/usb_phy_generic.h>
 #include <linux/platform_data/usb-omap.h>
 #include <linux/sizes.h>
 
@@ -56,16 +56,24 @@ static const struct of_device_id musb_dsps_of_match[];
  * dependent on musb core layer symbols.
  */
 static inline u8 dsps_readb(const void __iomem *addr, unsigned offset)
-	{ return __raw_readb(addr + offset); }
+{
+	return __raw_readb(addr + offset);
+}
 
 static inline u32 dsps_readl(const void __iomem *addr, unsigned offset)
-	{ return __raw_readl(addr + offset); }
+{
+	return __raw_readl(addr + offset);
+}
 
 static inline void dsps_writeb(void __iomem *addr, unsigned offset, u8 data)
-	{ __raw_writeb(data, addr + offset); }
+{
+	__raw_writeb(data, addr + offset);
+}
 
 static inline void dsps_writel(void __iomem *addr, unsigned offset, u32 data)
-	{ __raw_writel(data, addr + offset); }
+{
+	__raw_writel(data, addr + offset);
+}
 
 /**
  * DSPS musb wrapper register offset.
@@ -136,6 +144,7 @@ struct dsps_glue {
 	const struct dsps_musb_wrapper *wrp; /* wrapper register offsets */
 	struct timer_list timer;	/* otg_workaround timer */
 	unsigned long last_timer;    /* last timer data for each instance */
+	bool sw_babble_enabled;
 
 	struct dsps_context context;
 	struct debugfs_regset32 regset;
@@ -329,8 +338,20 @@ static irqreturn_t dsps_interrupt(int irq, void *hci)
 	 * value but DEVCTL.BDEVICE is invalid without DEVCTL.SESSION set.
 	 * Also, DRVVBUS pulses for SRP (but not at 5V) ...
 	 */
-	if (is_host_active(musb) && usbintr & MUSB_INTR_BABBLE)
+	if (is_host_active(musb) && usbintr & MUSB_INTR_BABBLE) {
 		pr_info("CAUTION: musb: Babble Interrupt Occurred\n");
+
+		/*
+		 * When a babble condition occurs, the musb controller removes
+		 * the session and is no longer in host mode. Hence, all
+		 * devices connected to its root hub get disconnected.
+		 *
+		 * Hand this error down to the musb core isr, so it can
+		 * recover.
+		 */
+		musb->int_usb = MUSB_INTR_BABBLE | MUSB_INTR_DISCONNECT;
+		musb->int_tx = musb->int_rx = 0;
+	}
 
 	if (usbintr & ((1 << wrp->drvvbus) << wrp->usb_shift)) {
 		int drvvbus = dsps_readl(reg_base, wrp->status);
@@ -457,6 +478,19 @@ static int dsps_musb_init(struct musb *musb)
 	val &= ~(1 << wrp->otg_disable);
 	dsps_writel(musb->ctrl_base, wrp->phy_utmi, val);
 
+	/*
+	 *  Check whether the dsps version has babble control enabled.
+	 * In latest silicon revision the babble control logic is enabled.
+	 * If MUSB_BABBLE_CTL returns 0x4 then we have the babble control
+	 * logic enabled.
+	 */
+	val = dsps_readb(musb->mregs, MUSB_BABBLE_CTL);
+	if (val == MUSB_BABBLE_RCV_DISABLE) {
+		glue->sw_babble_enabled = true;
+		val |= MUSB_BABBLE_SW_SESSION_CTRL;
+		dsps_writeb(musb->mregs, MUSB_BABBLE_CTL, val);
+	}
+
 	ret = dsps_musb_dbg_init(musb, glue);
 	if (ret)
 		return ret;
@@ -482,10 +516,9 @@ static int dsps_musb_set_mode(struct musb *musb, u8 mode)
 	struct dsps_glue *glue = dev_get_drvdata(dev->parent);
 	const struct dsps_musb_wrapper *wrp = glue->wrp;
 	void __iomem *ctrl_base = musb->ctrl_base;
-	void __iomem *base = musb->mregs;
 	u32 reg;
 
-	reg = dsps_readl(base, wrp->mode);
+	reg = dsps_readl(ctrl_base, wrp->mode);
 
 	switch (mode) {
 	case MUSB_HOST:
@@ -498,7 +531,7 @@ static int dsps_musb_set_mode(struct musb *musb, u8 mode)
 		 */
 		reg |= (1 << wrp->iddig_mux);
 
-		dsps_writel(base, wrp->mode, reg);
+		dsps_writel(ctrl_base, wrp->mode, reg);
 		dsps_writel(ctrl_base, wrp->phy_utmi, 0x02);
 		break;
 	case MUSB_PERIPHERAL:
@@ -511,10 +544,10 @@ static int dsps_musb_set_mode(struct musb *musb, u8 mode)
 		 */
 		reg |= (1 << wrp->iddig_mux);
 
-		dsps_writel(base, wrp->mode, reg);
+		dsps_writel(ctrl_base, wrp->mode, reg);
 		break;
 	case MUSB_OTG:
-		dsps_writel(base, wrp->phy_utmi, 0x02);
+		dsps_writel(ctrl_base, wrp->phy_utmi, 0x02);
 		break;
 	default:
 		dev_err(glue->dev, "unsupported mode %d\n", mode);
@@ -522,6 +555,84 @@ static int dsps_musb_set_mode(struct musb *musb, u8 mode)
 	}
 
 	return 0;
+}
+
+static bool  sw_babble_control(struct musb *musb)
+{
+	u8 babble_ctl;
+	bool session_restart =  false;
+
+	babble_ctl = dsps_readb(musb->mregs, MUSB_BABBLE_CTL);
+	dev_dbg(musb->controller, "babble: MUSB_BABBLE_CTL value %x\n",
+		babble_ctl);
+	/*
+	 * check line monitor flag to check whether babble is
+	 * due to noise
+	 */
+	dev_dbg(musb->controller, "STUCK_J is %s\n",
+		babble_ctl & MUSB_BABBLE_STUCK_J ? "set" : "reset");
+
+	if (babble_ctl & MUSB_BABBLE_STUCK_J) {
+		int timeout = 10;
+
+		/*
+		 * babble is due to noise, then set transmit idle (d7 bit)
+		 * to resume normal operation
+		 */
+		babble_ctl = dsps_readb(musb->mregs, MUSB_BABBLE_CTL);
+		babble_ctl |= MUSB_BABBLE_FORCE_TXIDLE;
+		dsps_writeb(musb->mregs, MUSB_BABBLE_CTL, babble_ctl);
+
+		/* wait till line monitor flag cleared */
+		dev_dbg(musb->controller, "Set TXIDLE, wait J to clear\n");
+		do {
+			babble_ctl = dsps_readb(musb->mregs, MUSB_BABBLE_CTL);
+			udelay(1);
+		} while ((babble_ctl & MUSB_BABBLE_STUCK_J) && timeout--);
+
+		/* check whether stuck_at_j bit cleared */
+		if (babble_ctl & MUSB_BABBLE_STUCK_J) {
+			/*
+			 * real babble condition has occurred
+			 * restart the controller to start the
+			 * session again
+			 */
+			dev_dbg(musb->controller, "J not cleared, misc (%x)\n",
+				babble_ctl);
+			session_restart = true;
+		}
+	} else {
+		session_restart = true;
+	}
+
+	return session_restart;
+}
+
+static int dsps_musb_reset(struct musb *musb)
+{
+	struct device *dev = musb->controller;
+	struct dsps_glue *glue = dev_get_drvdata(dev->parent);
+	const struct dsps_musb_wrapper *wrp = glue->wrp;
+	int session_restart = 0;
+
+	if (glue->sw_babble_enabled)
+		session_restart = sw_babble_control(musb);
+	/*
+	 * In case of new silicon version babble condition can be recovered
+	 * without resetting the MUSB. But for older silicon versions, MUSB
+	 * reset is needed
+	 */
+	if (session_restart || !glue->sw_babble_enabled) {
+		dev_info(musb->controller, "Restarting MUSB to recover from Babble\n");
+		dsps_writel(musb->ctrl_base, wrp->control, (1 << wrp->reset));
+		usleep_range(100, 200);
+		usb_phy_shutdown(musb->xceiv);
+		usleep_range(100, 200);
+		usb_phy_init(musb->xceiv);
+		session_restart = 1;
+	}
+
+	return !session_restart;
 }
 
 static struct musb_platform_ops dsps_ops = {
@@ -533,6 +644,7 @@ static struct musb_platform_ops dsps_ops = {
 
 	.try_idle	= dsps_musb_try_idle,
 	.set_mode	= dsps_musb_set_mode,
+	.reset		= dsps_musb_reset,
 };
 
 static u64 musb_dmamask = DMA_BIT_MASK(32);
@@ -750,7 +862,7 @@ static const struct of_device_id musb_dsps_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, musb_dsps_of_match);
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int dsps_suspend(struct device *dev)
 {
 	struct dsps_glue *glue = dev_get_drvdata(dev);

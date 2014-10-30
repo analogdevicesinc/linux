@@ -871,7 +871,8 @@ static int osc_extent_wait(const struct lu_env *env, struct osc_extent *ext,
 	LASSERT(sanity_check_nolock(ext) == 0);
 	/* `Kick' this extent only if the caller is waiting for it to be
 	 * written out. */
-	if (state == OES_INV && !ext->oe_urgent && !ext->oe_hp) {
+	if (state == OES_INV && !ext->oe_urgent && !ext->oe_hp &&
+	    !ext->oe_trunc_pending) {
 		if (ext->oe_state == OES_ACTIVE) {
 			ext->oe_urgent = 1;
 		} else if (ext->oe_state == OES_CACHE) {
@@ -922,8 +923,8 @@ static int osc_extent_truncate(struct osc_extent *ext, pgoff_t trunc_index,
 	int		    rc       = 0;
 
 	LASSERT(sanity_check(ext) == 0);
-	LASSERT(ext->oe_state == OES_TRUNC);
-	LASSERT(!ext->oe_urgent);
+	EASSERT(ext->oe_state == OES_TRUNC, ext);
+	EASSERT(!ext->oe_urgent, ext);
 
 	/* Request new lu_env.
 	 * We can't use that env from osc_cache_truncate_start() because
@@ -1311,7 +1312,7 @@ static int osc_completion(const struct lu_env *env, struct osc_async_page *oap,
 static void osc_consume_write_grant(struct client_obd *cli,
 				    struct brw_page *pga)
 {
-	LASSERT(spin_is_locked(&cli->cl_loi_list_lock.lock));
+	assert_spin_locked(&cli->cl_loi_list_lock.lock);
 	LASSERT(!(pga->flag & OBD_BRW_FROM_GRANT));
 	atomic_inc(&obd_dirty_pages);
 	cli->cl_dirty += PAGE_CACHE_SIZE;
@@ -1326,7 +1327,7 @@ static void osc_consume_write_grant(struct client_obd *cli,
 static void osc_release_write_grant(struct client_obd *cli,
 				    struct brw_page *pga)
 {
-	LASSERT(spin_is_locked(&cli->cl_loi_list_lock.lock));
+	assert_spin_locked(&cli->cl_loi_list_lock.lock);
 	if (!(pga->flag & OBD_BRW_FROM_GRANT)) {
 		return;
 	}
@@ -2153,7 +2154,7 @@ int osc_prep_async_page(struct osc_object *osc, struct osc_page *ops,
 	INIT_LIST_HEAD(&oap->oap_rpc_item);
 
 	spin_lock_init(&oap->oap_lock);
-	CDEBUG(D_INFO, "oap %p page %p obj off "LPU64"\n",
+	CDEBUG(D_INFO, "oap %p page %p obj off %llu\n",
 	       oap, page, oap->oap_obj_off);
 	return 0;
 }
@@ -2594,7 +2595,7 @@ again:
 			break;
 		}
 
-		OSC_EXTENT_DUMP(D_CACHE, ext, "try to trunc:"LPU64".\n", size);
+		OSC_EXTENT_DUMP(D_CACHE, ext, "try to trunc:%llu.\n", size);
 
 		osc_extent_get(ext);
 		if (ext->oe_state == OES_ACTIVE) {
@@ -2655,7 +2656,7 @@ again:
 			LASSERT(oio->oi_trunc == NULL);
 			oio->oi_trunc = osc_extent_get(ext);
 			OSC_EXTENT_DUMP(D_CACHE, ext,
-					"trunc at "LPU64"\n", size);
+					"trunc at %llu\n", size);
 		}
 		osc_extent_put(env, ext);
 	}

@@ -648,13 +648,13 @@ static void vivi_fillbuff(struct vivi_dev *dev, struct vivi_buffer *buf)
 	gen_text(dev, vbuf, line++ * 16, 16, str);
 	snprintf(str, sizeof(str), " int32 %d, int64 %lld, bitmask %08x ",
 			dev->int32->cur.val,
-			dev->int64->cur.val64,
+			*dev->int64->p_cur.p_s64,
 			dev->bitmask->cur.val);
 	gen_text(dev, vbuf, line++ * 16, 16, str);
 	snprintf(str, sizeof(str), " boolean %d, menu %s, string \"%s\" ",
 			dev->boolean->cur.val,
 			dev->menu->qmenu[dev->menu->cur.val],
-			dev->string->cur.string);
+			dev->string->p_cur.p_char);
 	gen_text(dev, vbuf, line++ * 16, 16, str);
 	snprintf(str, sizeof(str), " integer_menu %lld, value %d ",
 			dev->int_menu->qmenu_int[dev->int_menu->cur.val],
@@ -906,12 +906,11 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 }
 
 /* abort streaming and wait for last buffer */
-static int stop_streaming(struct vb2_queue *vq)
+static void stop_streaming(struct vb2_queue *vq)
 {
 	struct vivi_dev *dev = vb2_get_drv_priv(vq);
 	dprintk(dev, 1, "%s\n", __func__);
 	vivi_stop_generating(dev);
-	return 0;
 }
 
 static void vivi_lock(struct vb2_queue *vq)
@@ -1015,7 +1014,6 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 		f->fmt.pix.colorspace = V4L2_COLORSPACE_SMPTE170M;
 	else
 		f->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
-	f->fmt.pix.priv = 0;
 	return 0;
 }
 
@@ -1237,7 +1235,7 @@ static const struct v4l2_ctrl_config vivi_ctrl_int32 = {
 	.id = VIVI_CID_CUSTOM_BASE + 2,
 	.name = "Integer 32 Bits",
 	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 0x80000000,
+	.min = -0x80000000LL,
 	.max = 0x7fffffff,
 	.step = 1,
 };
@@ -1247,6 +1245,9 @@ static const struct v4l2_ctrl_config vivi_ctrl_int64 = {
 	.id = VIVI_CID_CUSTOM_BASE + 3,
 	.name = "Integer 64 Bits",
 	.type = V4L2_CTRL_TYPE_INTEGER64,
+	.min = LLONG_MIN,
+	.max = LLONG_MAX,
+	.step = 1,
 };
 
 static const char * const vivi_ctrl_menu_strings[] = {
@@ -1460,7 +1461,6 @@ static int __init vivi_create_instance(int inst)
 	vfd->debug = debug;
 	vfd->v4l2_dev = &dev->v4l2_dev;
 	vfd->queue = q;
-	set_bit(V4L2_FL_USE_FH_PRIO, &vfd->flags);
 
 	/*
 	 * Provide a mutex to v4l2 core. It will be used to protect

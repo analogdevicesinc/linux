@@ -25,7 +25,7 @@
 #include <engine/software.h>
 #include <engine/disp.h>
 
-#include <core/class.h>
+#include <nvif/class.h>
 
 #include "nv50.h"
 
@@ -200,17 +200,17 @@ nve0_disp_ovly_mthd_chan = {
 
 static struct nouveau_oclass
 nve0_disp_sclass[] = {
-	{ NVE0_DISP_MAST_CLASS, &nvd0_disp_mast_ofuncs },
-	{ NVE0_DISP_SYNC_CLASS, &nvd0_disp_sync_ofuncs },
-	{ NVE0_DISP_OVLY_CLASS, &nvd0_disp_ovly_ofuncs },
-	{ NVE0_DISP_OIMM_CLASS, &nvd0_disp_oimm_ofuncs },
-	{ NVE0_DISP_CURS_CLASS, &nvd0_disp_curs_ofuncs },
+	{ GK104_DISP_CORE_CHANNEL_DMA, &nvd0_disp_mast_ofuncs.base },
+	{ GK104_DISP_BASE_CHANNEL_DMA, &nvd0_disp_sync_ofuncs.base },
+	{ GK104_DISP_OVERLAY_CONTROL_DMA, &nvd0_disp_ovly_ofuncs.base },
+	{ GK104_DISP_OVERLAY, &nvd0_disp_oimm_ofuncs.base },
+	{ GK104_DISP_CURSOR, &nvd0_disp_curs_ofuncs.base },
 	{}
 };
 
 static struct nouveau_oclass
 nve0_disp_base_oclass[] = {
-	{ NVE0_DISP_CLASS, &nvd0_disp_base_ofuncs, nvd0_disp_base_omthds },
+	{ GK104_DISP, &nvd0_disp_base_ofuncs },
 	{}
 };
 
@@ -246,7 +246,6 @@ nve0_disp_ctor(struct nouveau_object *parent, struct nouveau_object *engine,
 	priv->sor.power = nv50_sor_power;
 	priv->sor.hda_eld = nvd0_hda_eld;
 	priv->sor.hdmi = nvd0_hdmi_ctrl;
-	priv->sor.dp = &nvd0_sor_dp_func;
 	return 0;
 }
 
@@ -259,8 +258,11 @@ nve0_disp_oclass = &(struct nv50_disp_impl) {
 		.init = _nouveau_disp_init,
 		.fini = _nouveau_disp_fini,
 	},
+	.base.vblank = &nvd0_disp_vblank_func,
+	.base.outp =  nvd0_disp_outp_sclass,
 	.mthd.core = &nve0_disp_mast_mthd_chan,
 	.mthd.base = &nvd0_disp_sync_mthd_chan,
 	.mthd.ovly = &nve0_disp_ovly_mthd_chan,
 	.mthd.prev = -0x020000,
+	.head.scanoutpos = nvd0_disp_base_scanoutpos,
 }.base.base;

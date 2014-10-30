@@ -42,12 +42,12 @@
 # include <linux/init.h>
 # include <linux/utsname.h>
 
-#include <lustre_acl.h>
-#include <obd_class.h>
-#include <lustre_fid.h>
-#include <lprocfs_status.h>
-#include <lustre_param.h>
-#include <lustre_log.h>
+#include "../include/lustre_acl.h"
+#include "../include/obd_class.h"
+#include "../include/lustre_fid.h"
+#include "../include/lprocfs_status.h"
+#include "../include/lustre_param.h"
+#include "../include/lustre_log.h"
 
 #include "mdc_internal.h"
 
@@ -136,7 +136,7 @@ static int send_getstatus(struct obd_import *imp, struct lu_fid *rootfid,
 
 	*rootfid = body->fid1;
 	CDEBUG(D_NET,
-	       "root fid="DFID", last_committed="LPU64"\n",
+	       "root fid="DFID", last_committed=%llu\n",
 	       PFID(rootfid),
 	       lustre_msg_get_last_committed(req->rq_repmsg));
 out:
@@ -397,7 +397,7 @@ static int mdc_xattr_common(struct obd_export *exp,const struct req_format *fmt,
 		rec->sx_suppgid2 = -1;
 		rec->sx_fid    = *fid;
 		rec->sx_valid  = valid | OBD_MD_FLCTIME;
-		rec->sx_time   = cfs_time_current_sec();
+		rec->sx_time   = get_seconds();
 		rec->sx_size   = output_size;
 		rec->sx_flags  = flags;
 
@@ -670,7 +670,7 @@ void mdc_replay_open(struct ptlrpc_request *req)
 		LASSERT(och->och_magic == OBD_CLIENT_HANDLE_MAGIC);
 
 		file_fh = &och->och_fh;
-		CDEBUG(D_HA, "updating handle from "LPX64" to "LPX64"\n",
+		CDEBUG(D_HA, "updating handle from %#llx to %#llx\n",
 		       file_fh->cookie, body->handle.cookie);
 		old = *file_fh;
 		*file_fh = body->handle;
@@ -903,9 +903,9 @@ int mdc_close(struct obd_export *exp, struct md_op_data *op_data,
 	mdc_close_pack(req, op_data);
 
 	req_capsule_set_size(&req->rq_pill, &RMF_MDT_MD, RCL_SERVER,
-			     obd->u.cli.cl_max_mds_easize);
+			     obd->u.cli.cl_default_mds_easize);
 	req_capsule_set_size(&req->rq_pill, &RMF_LOGCOOKIES, RCL_SERVER,
-			     obd->u.cli.cl_max_mds_cookiesize);
+			     obd->u.cli.cl_default_mds_cookiesize);
 
 	ptlrpc_request_set_replen(req);
 
@@ -1182,7 +1182,7 @@ static int mdc_ioc_fid2path(struct obd_export *exp, struct getinfo_fid2path *gf)
 	memcpy(key, KEY_FID2PATH, sizeof(KEY_FID2PATH));
 	memcpy(key + cfs_size_round(sizeof(KEY_FID2PATH)), gf, sizeof(*gf));
 
-	CDEBUG(D_IOCTL, "path get "DFID" from "LPU64" #%d\n",
+	CDEBUG(D_IOCTL, "path get "DFID" from %llu #%d\n",
 	       PFID(&gf->gf_fid), gf->gf_recno, gf->gf_linkno);
 
 	if (!fid_is_sane(&gf->gf_fid))
@@ -1200,7 +1200,7 @@ static int mdc_ioc_fid2path(struct obd_export *exp, struct getinfo_fid2path *gf)
 	else if (vallen > sizeof(*gf) + gf->gf_pathlen)
 		GOTO(out, rc = -EOVERFLOW);
 
-	CDEBUG(D_IOCTL, "path get "DFID" from "LPU64" #%d\n%s\n",
+	CDEBUG(D_IOCTL, "path get "DFID" from %llu #%d\n%s\n",
 	       PFID(&gf->gf_fid), gf->gf_recno, gf->gf_linkno, gf->gf_path);
 
 out:
@@ -1515,12 +1515,12 @@ static int changelog_kkuc_cb(const struct lu_env *env, struct llog_handle *llh,
 
 	if (rec->cr.cr_index < cs->cs_startrec) {
 		/* Skip entries earlier than what we are interested in */
-		CDEBUG(D_CHANGELOG, "rec="LPU64" start="LPU64"\n",
+		CDEBUG(D_CHANGELOG, "rec=%llu start=%llu\n",
 		       rec->cr.cr_index, cs->cs_startrec);
 		return 0;
 	}
 
-	CDEBUG(D_CHANGELOG, LPU64" %02d%-5s "LPU64" 0x%x t="DFID" p="DFID
+	CDEBUG(D_CHANGELOG, "%llu %02d%-5s %llu 0x%x t="DFID" p="DFID
 		" %.*s\n", rec->cr.cr_index, rec->cr.cr_type,
 		changelog_type2str(rec->cr.cr_type), rec->cr.cr_time,
 		rec->cr.cr_flags & CLF_FLAGMASK,
@@ -1547,7 +1547,7 @@ static int mdc_changelog_send_thread(void *csdata)
 	struct kuc_hdr *kuch;
 	int rc;
 
-	CDEBUG(D_CHANGELOG, "changelog to fp=%p start "LPU64"\n",
+	CDEBUG(D_CHANGELOG, "changelog to fp=%p start %llu\n",
 	       cs->cs_fp, cs->cs_startrec);
 
 	OBD_ALLOC(cs->cs_buf, KUC_CHANGELOG_MSG_MAXSIZE);
@@ -2153,11 +2153,39 @@ int mdc_get_info(const struct lu_env *env, struct obd_export *exp,
 
 		if (*vallen != sizeof(int))
 			return -EINVAL;
-		mdsize = *(int*)val;
+		mdsize = *(int *)val;
 		if (mdsize > exp->exp_obd->u.cli.cl_max_mds_easize)
 			exp->exp_obd->u.cli.cl_max_mds_easize = mdsize;
 		max_easize = val;
 		*max_easize = exp->exp_obd->u.cli.cl_max_mds_easize;
+		return 0;
+	} else if (KEY_IS(KEY_DEFAULT_EASIZE)) {
+		int *default_easize;
+
+		if (*vallen != sizeof(int))
+			return -EINVAL;
+		default_easize = val;
+		*default_easize = exp->exp_obd->u.cli.cl_default_mds_easize;
+		return 0;
+	} else if (KEY_IS(KEY_MAX_COOKIESIZE)) {
+		int mdsize, *max_cookiesize;
+
+		if (*vallen != sizeof(int))
+			return -EINVAL;
+		mdsize = *(int *)val;
+		if (mdsize > exp->exp_obd->u.cli.cl_max_mds_cookiesize)
+			exp->exp_obd->u.cli.cl_max_mds_cookiesize = mdsize;
+		max_cookiesize = val;
+		*max_cookiesize = exp->exp_obd->u.cli.cl_max_mds_cookiesize;
+		return 0;
+	} else if (KEY_IS(KEY_DEFAULT_COOKIESIZE)) {
+		int *default_cookiesize;
+
+		if (*vallen != sizeof(int))
+			return -EINVAL;
+		default_cookiesize = val;
+		*default_cookiesize =
+			exp->exp_obd->u.cli.cl_default_mds_cookiesize;
 		return 0;
 	} else if (KEY_IS(KEY_CONN_DATA)) {
 		struct obd_import *imp = class_exp2cliimp(exp);
@@ -2395,7 +2423,7 @@ struct ldlm_valblock_ops inode_lvbo = {
 static int mdc_setup(struct obd_device *obd, struct lustre_cfg *cfg)
 {
 	struct client_obd *cli = &obd->u.cli;
-	struct lprocfs_static_vars lvars = { 0 };
+	struct lprocfs_static_vars lvars = { NULL };
 	int rc;
 
 	OBD_ALLOC(cli->cl_rpc_lock, sizeof (*cli->cl_rpc_lock));
@@ -2439,11 +2467,15 @@ err_rpc_lock:
 }
 
 /* Initialize the default and maximum LOV EA and cookie sizes.  This allows
- * us to make MDS RPCs with large enough reply buffers to hold the
- * maximum-sized (= maximum striped) EA and cookie without having to
- * calculate this (via a call into the LOV + OSCs) each time we make an RPC. */
+ * us to make MDS RPCs with large enough reply buffers to hold a default
+ * sized EA and cookie without having to calculate this (via a call into the
+ * LOV + OSCs) each time we make an RPC.  The maximum size is also tracked
+ * but not used to avoid wastefully vmalloc()'ing large reply buffers when
+ * a large number of stripes is possible.  If a larger reply buffer is
+ * required it will be reallocated in the ptlrpc layer due to overflow.
+ */
 static int mdc_init_ea_size(struct obd_export *exp, int easize,
-		     int def_easize, int cookiesize)
+			    int def_easize, int cookiesize, int def_cookiesize)
 {
 	struct obd_device *obd = exp->exp_obd;
 	struct client_obd *cli = &obd->u.cli;
@@ -2456,6 +2488,9 @@ static int mdc_init_ea_size(struct obd_export *exp, int easize,
 
 	if (cli->cl_max_mds_cookiesize < cookiesize)
 		cli->cl_max_mds_cookiesize = cookiesize;
+
+	if (cli->cl_default_mds_cookiesize < def_cookiesize)
+		cli->cl_default_mds_cookiesize = def_cookiesize;
 
 	return 0;
 }
@@ -2531,7 +2566,7 @@ static int mdc_llog_finish(struct obd_device *obd, int count)
 static int mdc_process_config(struct obd_device *obd, obd_count len, void *buf)
 {
 	struct lustre_cfg *lcfg = buf;
-	struct lprocfs_static_vars lvars = { 0 };
+	struct lprocfs_static_vars lvars = { NULL };
 	int rc = 0;
 
 	lprocfs_mdc_init_vars(&lvars);
@@ -2702,7 +2737,7 @@ struct md_ops mdc_md_ops = {
 int __init mdc_init(void)
 {
 	int rc;
-	struct lprocfs_static_vars lvars = { 0 };
+	struct lprocfs_static_vars lvars = { NULL };
 	lprocfs_mdc_init_vars(&lvars);
 
 	rc = class_register_type(&mdc_obd_ops, &mdc_md_ops, lvars.module_vars,

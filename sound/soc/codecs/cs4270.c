@@ -438,7 +438,7 @@ static int cs4270_dai_mute(struct snd_soc_dai *dai, int mute)
 static int cs4270_soc_put_mute(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct cs4270_private *cs4270 = snd_soc_codec_get_drvdata(codec);
 	int left = !ucontrol->value.integer.value[0];
 	int right = !ucontrol->value.integer.value[1];
@@ -664,10 +664,8 @@ static int cs4270_i2c_probe(struct i2c_client *i2c_client,
 
 	cs4270 = devm_kzalloc(&i2c_client->dev, sizeof(struct cs4270_private),
 			      GFP_KERNEL);
-	if (!cs4270) {
-		dev_err(&i2c_client->dev, "could not allocate codec\n");
+	if (!cs4270)
 		return -ENOMEM;
-	}
 
 	/* get the power supply regulators */
 	for (i = 0; i < ARRAY_SIZE(supply_names); i++)

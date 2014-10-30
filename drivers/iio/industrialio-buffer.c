@@ -40,10 +40,7 @@ static bool iio_buffer_is_active(struct iio_buffer *buf)
 
 static bool iio_buffer_data_available(struct iio_buffer *buf)
 {
-	if (buf->access->data_available)
-		return buf->access->data_available(buf);
-
-	return buf->stufftoread;
+	return buf->access->data_available(buf);
 }
 
 /**
@@ -203,7 +200,16 @@ static ssize_t iio_show_fixed_type(struct device *dev,
 		type = IIO_BE;
 #endif
 	}
-	return sprintf(buf, "%s:%c%d/%d>>%u\n",
+	if (this_attr->c->scan_type.repeat > 1)
+		return sprintf(buf, "%s:%c%d/%dX%d>>%u\n",
+		       iio_endian_prefix[type],
+		       this_attr->c->scan_type.sign,
+		       this_attr->c->scan_type.realbits,
+		       this_attr->c->scan_type.storagebits,
+		       this_attr->c->scan_type.repeat,
+		       this_attr->c->scan_type.shift);
+		else
+			return sprintf(buf, "%s:%c%d/%d>>%u\n",
 		       iio_endian_prefix[type],
 		       this_attr->c->scan_type.sign,
 		       this_attr->c->scan_type.realbits,
@@ -538,15 +544,23 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 	for_each_set_bit(i, mask,
 			 indio_dev->masklength) {
 		ch = iio_find_channel_from_si(indio_dev, i);
-		length = ch->scan_type.storagebits / 8;
-		bytes = roundup(bytes, length);
+		if (ch->scan_type.repeat > 1)
+			length = ch->scan_type.storagebits / 8 *
+				ch->scan_type.repeat;
+		else
+			length = ch->scan_type.storagebits / 8;
+		bytes = ALIGN(bytes, length);
 		bytes += length;
 	}
 	if (timestamp) {
 		ch = iio_find_channel_from_si(indio_dev,
 					      indio_dev->scan_index_timestamp);
-		length = ch->scan_type.storagebits / 8;
-		bytes = roundup(bytes, length);
+		if (ch->scan_type.repeat > 1)
+			length = ch->scan_type.storagebits / 8 *
+				ch->scan_type.repeat;
+		else
+			length = ch->scan_type.storagebits / 8;
+		bytes = ALIGN(bytes, length);
 		bytes += length;
 	}
 	return bytes;
@@ -1081,17 +1095,28 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 					       indio_dev->masklength,
 					       in_ind + 1);
 			ch = iio_find_channel_from_si(indio_dev, in_ind);
-			length = ch->scan_type.storagebits/8;
+			if (ch->scan_type.repeat > 1)
+				length = ch->scan_type.storagebits / 8 *
+					ch->scan_type.repeat;
+			else
+				length = ch->scan_type.storagebits / 8;
 			/* Make sure we are aligned */
 			in_loc = roundup(in_loc, length) + length;
 		}
 		ch = iio_find_channel_from_si(indio_dev, in_ind);
-		length = ch->scan_type.storagebits/8;
-		out_loc = roundup(out_loc, length);
-		in_loc = roundup(in_loc, length);
-		ret = iio_buffer_add_demux(buffer, &p, in_loc, out_loc, length);
-		if (ret)
-			goto error_clear_mux_table;
+		if (ch->scan_type.repeat > 1)
+			length = ch->scan_type.storagebits / 8 *
+				ch->scan_type.repeat;
+		else
+			length = ch->scan_type.storagebits / 8;
+		if (out_loc % length)
+			out_loc += length - out_loc % length;
+		if (in_loc % length)
+			in_loc += length - in_loc % length;
+		p->from = in_loc;
+		p->to = out_loc;
+		p->length = length;
+		list_add_tail(&p->l, &buffer->demux_list);
 		out_loc += length;
 		in_loc += length;
 	}
@@ -1099,12 +1124,19 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 	if (buffer->scan_timestamp) {
 		ch = iio_find_channel_from_si(indio_dev,
 			indio_dev->scan_index_timestamp);
-		length = ch->scan_type.storagebits/8;
-		out_loc = roundup(out_loc, length);
-		in_loc = roundup(in_loc, length);
-		ret = iio_buffer_add_demux(buffer, &p, in_loc, out_loc, length);
-		if (ret)
-			goto error_clear_mux_table;
+		if (ch->scan_type.repeat > 1)
+			length = ch->scan_type.storagebits / 8 *
+				ch->scan_type.repeat;
+		else
+			length = ch->scan_type.storagebits / 8;
+		if (out_loc % length)
+			out_loc += length - out_loc % length;
+		if (in_loc % length)
+			in_loc += length - in_loc % length;
+		p->from = in_loc;
+		p->to = out_loc;
+		p->length = length;
+		list_add_tail(&p->l, &buffer->demux_list);
 		out_loc += length;
 		in_loc += length;
 	}

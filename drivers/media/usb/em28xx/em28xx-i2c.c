@@ -501,6 +501,12 @@ static int em28xx_i2c_xfer(struct i2c_adapter *i2c_adap,
 	int addr, rc, i;
 	u8 reg;
 
+	/* prevent i2c xfer attempts after device is disconnected
+	   some fe's try to do i2c writes/reads from their release
+	   interfaces when called in disconnect path */
+	if (dev->disconnected)
+		return -ENODEV;
+
 	rc = rt_mutex_trylock(&dev->i2c_bus_lock);
 	if (rc < 0)
 		return rc;
@@ -939,7 +945,6 @@ int em28xx_i2c_register(struct em28xx *dev, unsigned bus,
 	dev->i2c_bus[bus].algo_type = algo_type;
 	dev->i2c_bus[bus].dev = dev;
 	dev->i2c_adap[bus].algo_data = &dev->i2c_bus[bus];
-	i2c_set_adapdata(&dev->i2c_adap[bus], &dev->v4l2_dev);
 
 	retval = i2c_add_adapter(&dev->i2c_adap[bus]);
 	if (retval < 0) {

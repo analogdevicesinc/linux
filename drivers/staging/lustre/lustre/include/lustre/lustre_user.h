@@ -46,8 +46,8 @@
  * @{
  */
 
-#include <lustre/ll_fiemap.h>
-#include <linux/lustre_user.h>
+#include "ll_fiemap.h"
+#include "../linux/lustre_user.h"
 
 /* for statfs() */
 #define LL_SUPER_MAGIC 0x0BD00BD0
@@ -179,7 +179,7 @@ struct ost_id {
 	};
 };
 
-#define DOSTID LPX64":"LPU64
+#define DOSTID "%#llx:%llu"
 #define POSTID(oi) ostid_seq(oi), ostid_id(oi)
 
 /*
@@ -475,7 +475,7 @@ static inline void obd_uuid2fsname(char *buf, char *uuid, int buflen)
    e.g. printf("file FID is "DFID"\n", PFID(fid)); */
 #define FID_NOBRACE_LEN 40
 #define FID_LEN (FID_NOBRACE_LEN + 2)
-#define DFID_NOBRACE LPX64":0x%x:0x%x"
+#define DFID_NOBRACE "%#llx:0x%x:0x%x"
 #define DFID "["DFID_NOBRACE"]"
 #define PFID(fid)     \
 	(fid)->f_seq, \
@@ -484,11 +484,7 @@ static inline void obd_uuid2fsname(char *buf, char *uuid, int buflen)
 
 /* scanf input parse format -- strip '[' first.
    e.g. sscanf(fidstr, SFID, RFID(&fid)); */
-/* #define SFID "0x"LPX64i":0x"LPSZX":0x"LPSZX""
-liblustreapi.c:2893: warning: format '%lx' expects type 'long unsigned int *', but argument 4 has type 'unsigned int *'
-liblustreapi.c:2893: warning: format '%lx' expects type 'long unsigned int *', but argument 5 has type 'unsigned int *'
-*/
-#define SFID "0x"LPX64i":0x%x:0x%x"
+#define SFID "0x%llx:0x%x:0x%x"
 #define RFID(fid)     \
 	&((fid)->f_seq), \
 	&((fid)->f_oid), \
@@ -1106,7 +1102,8 @@ static inline struct hsm_action_item * hai_zero(struct hsm_action_list *hal)
 {
 	return (struct hsm_action_item *)(hal->hal_fsname +
 					  cfs_size_round(strlen(hal-> \
-								hal_fsname)));
+								hal_fsname)
+							 + 1));
 }
 /* Return pointer to next hai */
 static inline struct hsm_action_item * hai_next(struct hsm_action_item *hai)
@@ -1121,7 +1118,7 @@ static inline int hal_size(struct hsm_action_list *hal)
 	int i, sz;
 	struct hsm_action_item *hai;
 
-	sz = sizeof(*hal) + cfs_size_round(strlen(hal->hal_fsname));
+	sz = sizeof(*hal) + cfs_size_round(strlen(hal->hal_fsname) + 1);
 	hai = hai_zero(hal);
 	for (i = 0; i < hal->hal_count; i++, hai = hai_next(hai))
 		sz += cfs_size_round(hai->hai_len);

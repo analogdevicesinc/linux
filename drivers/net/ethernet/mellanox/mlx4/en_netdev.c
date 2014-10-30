@@ -130,7 +130,7 @@ static enum mlx4_net_trans_rule_id mlx4_ip_proto_to_trans_rule_id(u8 ip_proto)
 	case IPPROTO_TCP:
 		return MLX4_NET_TRANS_RULE_ID_TCP;
 	default:
-		return -EPROTONOSUPPORT;
+		return MLX4_NET_TRANS_RULE_NUM;
 	}
 };
 
@@ -177,7 +177,7 @@ static void mlx4_en_filter_work(struct work_struct *work)
 	int rc;
 	__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
 
-	if (spec_tcp_udp.id < 0) {
+	if (spec_tcp_udp.id >= MLX4_NET_TRANS_RULE_NUM) {
 		en_warn(priv, "RFS: ignoring unsupported ip protocol (%d)\n",
 			filter->ip_proto);
 		goto ignore;
@@ -474,39 +474,12 @@ static int mlx4_en_tunnel_steer_add(struct mlx4_en_priv *priv, unsigned char *ad
 				    int qpn, u64 *reg_id)
 {
 	int err;
-	struct mlx4_spec_list spec_eth_outer = { {NULL} };
-	struct mlx4_spec_list spec_vxlan     = { {NULL} };
-	struct mlx4_spec_list spec_eth_inner = { {NULL} };
-
-	struct mlx4_net_trans_rule rule = {
-		.queue_mode = MLX4_NET_TRANS_Q_FIFO,
-		.exclusive = 0,
-		.allow_loopback = 1,
-		.promisc_mode = MLX4_FS_REGULAR,
-		.priority = MLX4_DOMAIN_NIC,
-	};
-
-	__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
 
 	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
 		return 0; /* do nothing */
 
-	rule.port = priv->port;
-	rule.qpn = qpn;
-	INIT_LIST_HEAD(&rule.list);
-
-	spec_eth_outer.id = MLX4_NET_TRANS_RULE_ID_ETH;
-	memcpy(spec_eth_outer.eth.dst_mac, addr, ETH_ALEN);
-	memcpy(spec_eth_outer.eth.dst_mac_msk, &mac_mask, ETH_ALEN);
-
-	spec_vxlan.id = MLX4_NET_TRANS_RULE_ID_VXLAN;    /* any vxlan header */
-	spec_eth_inner.id = MLX4_NET_TRANS_RULE_ID_ETH;	 /* any inner eth header */
-
-	list_add_tail(&spec_eth_outer.list, &rule.list);
-	list_add_tail(&spec_vxlan.list,     &rule.list);
-	list_add_tail(&spec_eth_inner.list, &rule.list);
-
-	err = mlx4_flow_attach(priv->mdev->dev, &rule, reg_id);
+	err = mlx4_tunnel_steer_add(priv->mdev->dev, addr, priv->port, qpn,
+				    MLX4_DOMAIN_NIC, reg_id);
 	if (err) {
 		en_err(priv, "failed to add vxlan steering rule, err %d\n", err);
 		return err;
@@ -644,6 +617,7 @@ static int mlx4_en_get_qp(struct mlx4_en_priv *priv)
 		goto alloc_err;
 	}
 	memcpy(entry->mac, priv->dev->dev_addr, sizeof(entry->mac));
+	memcpy(priv->current_mac, entry->mac, sizeof(priv->current_mac));
 	entry->reg_id = reg_id;
 
 	hlist_add_head_rcu(&entry->hlist,
@@ -760,20 +734,22 @@ static int mlx4_en_replace_mac(struct mlx4_en_priv *priv, int qpn,
 	return __mlx4_replace_mac(dev, priv->port, qpn, new_mac_u64);
 }
 
-static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv)
+static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv,
+			      unsigned char new_mac[ETH_ALEN + 2])
 {
 	int err = 0;
 
 	if (priv->port_up) {
 		/* Remove old MAC and insert the new one */
 		err = mlx4_en_replace_mac(priv, priv->base_qpn,
-					  priv->dev->dev_addr, priv->prev_mac);
+					  new_mac, priv->current_mac);
 		if (err)
 			en_err(priv, "Failed changing HW MAC address\n");
-		memcpy(priv->prev_mac, priv->dev->dev_addr,
-		       sizeof(priv->prev_mac));
 	} else
 		en_dbg(HW, priv, "Port is down while registering mac, exiting...\n");
+
+	if (!err)
+		memcpy(priv->current_mac, new_mac, sizeof(priv->current_mac));
 
 	return err;
 }
@@ -783,15 +759,17 @@ static int mlx4_en_set_mac(struct net_device *dev, void *addr)
 	struct mlx4_en_priv *priv = netdev_priv(dev);
 	struct mlx4_en_dev *mdev = priv->mdev;
 	struct sockaddr *saddr = addr;
+	unsigned char new_mac[ETH_ALEN + 2];
 	int err;
 
 	if (!is_valid_ether_addr(saddr->sa_data))
 		return -EADDRNOTAVAIL;
 
-	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
-
 	mutex_lock(&mdev->state_lock);
-	err = mlx4_en_do_set_mac(priv);
+	memcpy(new_mac, saddr->sa_data, ETH_ALEN);
+	err = mlx4_en_do_set_mac(priv, new_mac);
+	if (!err)
+		memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
 	mutex_unlock(&mdev->state_lock);
 
 	return err;
@@ -940,11 +918,6 @@ static void mlx4_en_set_promisc_mode(struct mlx4_en_priv *priv,
 					  0, MLX4_MCAST_DISABLE);
 		if (err)
 			en_err(priv, "Failed disabling multicast filter\n");
-
-		/* Disable port VLAN filter */
-		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
-		if (err)
-			en_err(priv, "Failed disabling VLAN filter\n");
 	}
 }
 
@@ -993,11 +966,6 @@ static void mlx4_en_clear_promisc_mode(struct mlx4_en_priv *priv,
 			en_err(priv, "Failed disabling promiscuous mode\n");
 		break;
 	}
-
-	/* Enable port VLAN filter */
-	err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
-	if (err)
-		en_err(priv, "Failed enabling VLAN filter\n");
 }
 
 static void mlx4_en_do_multicast(struct mlx4_en_priv *priv,
@@ -1166,7 +1134,8 @@ static void mlx4_en_do_uc_filter(struct mlx4_en_priv *priv,
 			}
 
 			/* MAC address of the port is not in uc list */
-			if (ether_addr_equal_64bits(entry->mac, dev->dev_addr))
+			if (ether_addr_equal_64bits(entry->mac,
+						    priv->current_mac))
 				found = true;
 
 			if (!found) {
@@ -1476,7 +1445,7 @@ static void mlx4_en_do_get_stats(struct work_struct *work)
 		queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
 	}
 	if (mdev->mac_removed[MLX4_MAX_PORTS + 1 - priv->port]) {
-		mlx4_en_do_set_mac(priv);
+		mlx4_en_do_set_mac(priv, priv->current_mac);
 		mdev->mac_removed[MLX4_MAX_PORTS + 1 - priv->port] = 0;
 	}
 	mutex_unlock(&mdev->state_lock);
@@ -1526,6 +1495,27 @@ static void mlx4_en_linkstate(struct work_struct *work)
 	mutex_unlock(&mdev->state_lock);
 }
 
+static int mlx4_en_init_affinity_hint(struct mlx4_en_priv *priv, int ring_idx)
+{
+	struct mlx4_en_rx_ring *ring = priv->rx_ring[ring_idx];
+	int numa_node = priv->mdev->dev->numa_node;
+	int ret = 0;
+
+	if (!zalloc_cpumask_var(&ring->affinity_mask, GFP_KERNEL))
+		return -ENOMEM;
+
+	ret = cpumask_set_cpu_local_first(ring_idx, numa_node,
+					  ring->affinity_mask);
+	if (ret)
+		free_cpumask_var(ring->affinity_mask);
+
+	return ret;
+}
+
+static void mlx4_en_free_affinity_hint(struct mlx4_en_priv *priv, int ring_idx)
+{
+	free_cpumask_var(priv->rx_ring[ring_idx]->affinity_mask);
+}
 
 int mlx4_en_start_port(struct net_device *dev)
 {
@@ -1567,17 +1557,25 @@ int mlx4_en_start_port(struct net_device *dev)
 
 		mlx4_en_cq_init_lock(cq);
 
+		err = mlx4_en_init_affinity_hint(priv, i);
+		if (err) {
+			en_err(priv, "Failed preparing IRQ affinity hint\n");
+			goto cq_err;
+		}
+
 		err = mlx4_en_activate_cq(priv, cq, i);
 		if (err) {
 			en_err(priv, "Failed activating Rx CQ\n");
+			mlx4_en_free_affinity_hint(priv, i);
 			goto cq_err;
 		}
 		for (j = 0; j < cq->size; j++)
 			cq->buf[j].owner_sr_opcode = MLX4_CQE_OWNER_MASK;
 		err = mlx4_en_set_cq_moder(priv, cq);
 		if (err) {
-			en_err(priv, "Failed setting cq moderation parameters");
+			en_err(priv, "Failed setting cq moderation parameters\n");
 			mlx4_en_deactivate_cq(priv, cq);
+			mlx4_en_free_affinity_hint(priv, i);
 			goto cq_err;
 		}
 		mlx4_en_arm_cq(priv, cq);
@@ -1615,7 +1613,7 @@ int mlx4_en_start_port(struct net_device *dev)
 		}
 		err = mlx4_en_set_cq_moder(priv, cq);
 		if (err) {
-			en_err(priv, "Failed setting cq moderation parameters");
+			en_err(priv, "Failed setting cq moderation parameters\n");
 			mlx4_en_deactivate_cq(priv, cq);
 			goto tx_err;
 		}
@@ -1715,8 +1713,10 @@ rss_err:
 mac_err:
 	mlx4_en_put_qp(priv);
 cq_err:
-	while (rx_index--)
+	while (rx_index--) {
 		mlx4_en_deactivate_cq(priv, priv->rx_cq[rx_index]);
+		mlx4_en_free_affinity_hint(priv, i);
+	}
 	for (i = 0; i < priv->rx_ring_num; i++)
 		mlx4_en_deactivate_rx_ring(priv, priv->rx_ring[i]);
 
@@ -1847,6 +1847,8 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
 			msleep(1);
 		mlx4_en_deactivate_rx_ring(priv, priv->rx_ring[i]);
 		mlx4_en_deactivate_cq(priv, cq);
+
+		mlx4_en_free_affinity_hint(priv, i);
 	}
 }
 
@@ -2303,7 +2305,7 @@ static void mlx4_en_add_vxlan_port(struct  net_device *dev,
 	struct mlx4_en_priv *priv = netdev_priv(dev);
 	__be16 current_port;
 
-	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS))
+	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
 		return;
 
 	if (sa_family == AF_INET6)
@@ -2436,10 +2438,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 	priv->port = port;
 	priv->port_up = false;
 	priv->flags = prof->flags;
+	priv->pflags = MLX4_EN_PRIV_FLAGS_BLUEFLAME;
 	priv->ctrl_flags = cpu_to_be32(MLX4_WQE_CTRL_CQ_UPDATE |
 			MLX4_WQE_CTRL_SOLICITED);
 	priv->num_tx_rings_p_up = mdev->profile.num_tx_rings_p_up;
 	priv->tx_ring_num = prof->tx_ring_num;
+	priv->tx_work_limit = MLX4_EN_DEFAULT_TX_WORK;
 
 	priv->tx_ring = kzalloc(sizeof(struct mlx4_en_tx_ring *) * MAX_TX_RINGS,
 				GFP_KERNEL);
@@ -2501,7 +2505,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 		}
 	}
 
-	memcpy(priv->prev_mac, dev->dev_addr, sizeof(priv->prev_mac));
+	memcpy(priv->current_mac, dev->dev_addr, sizeof(priv->current_mac));
 
 	priv->stride = roundup_pow_of_two(sizeof(struct mlx4_en_rx_desc) +
 					  DS_SIZE * MLX4_EN_MAX_RX_FRAGS);
@@ -2539,7 +2543,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
 
-	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
+	dev->ethtool_ops = &mlx4_en_ethtool_ops;
 
 	/*
 	 * Set driver features
@@ -2594,8 +2598,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 				    prof->tx_pause, prof->tx_ppp,
 				    prof->rx_pause, prof->rx_ppp);
 	if (err) {
-		en_err(priv, "Failed setting port general configurations "
-		       "for port %d, with error %d\n", priv->port, err);
+		en_err(priv, "Failed setting port general configurations for port %d, with error %d\n",
+		       priv->port, err);
 		goto out;
 	}
 

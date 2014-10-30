@@ -39,7 +39,7 @@
  */
 
 #define DEBUG_SUBSYSTEM S_LNET
-#include <linux/lnet/lib-lnet.h>
+#include "../../include/linux/lnet/lib-lnet.h"
 
 /**
  * Create an event queue that has room for \a count number of events.
@@ -238,7 +238,7 @@ lnet_eq_enqueue_event(lnet_eq_t *eq, lnet_event_t *ev)
 	lnet_eq_wait_unlock();
 }
 
-int
+static int
 lnet_eq_dequeue_event(lnet_eq_t *eq, lnet_event_t *ev)
 {
 	int		new_index = eq->eq_deq_seq & (eq->eq_size - 1);
@@ -325,11 +325,12 @@ EXPORT_SYMBOL(LNetEQWait);
 
 static int
 lnet_eq_wait_locked(int *timeout_ms)
+__must_hold(&the_lnet.ln_eq_wait_lock)
 {
 	int		tms = *timeout_ms;
 	int		wait;
 	wait_queue_t  wl;
-	cfs_time_t      now;
+	unsigned long      now;
 
 	if (tms == 0)
 		return -1; /* don't want to wait and no new event */

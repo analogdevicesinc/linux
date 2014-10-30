@@ -1198,7 +1198,6 @@ static int _rtl92se_set_media_status(struct ieee80211_hw *hw,
 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
 			 "Network type %d not supported!\n", type);
 		return 1;
-		break;
 
 	}
 
@@ -2543,24 +2542,4 @@ void rtl92se_resume(struct ieee80211_hw *hw)
 	if ((val & 0x0000ff00) != 0)
 		pci_write_config_dword(rtlpci->pdev, 0x40,
 			val & 0xffff00ff);
-}
-
-/* Turn on AAP (RCR:bit 0) for promicuous mode. */
-void rtl92se_allow_all_destaddr(struct ieee80211_hw *hw,
-				bool allow_all_da, bool write_into_reg)
-{
-	struct rtl_priv *rtlpriv = rtl_priv(hw);
-	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
-
-	if (allow_all_da) /* Set BIT0 */
-		rtlpci->receive_config |= RCR_AAP;
-	else /* Clear BIT0 */
-		rtlpci->receive_config &= ~RCR_AAP;
-
-	if (write_into_reg)
-		rtl_write_dword(rtlpriv, RCR, rtlpci->receive_config);
-
-	RT_TRACE(rtlpriv, COMP_TURBO | COMP_INIT, DBG_LOUD,
-		 "receive_config=0x%08X, write_into_reg=%d\n",
-		 rtlpci->receive_config, write_into_reg);
 }
