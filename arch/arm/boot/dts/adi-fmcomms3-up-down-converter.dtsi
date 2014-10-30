@@ -3,7 +3,7 @@
  */
 / {
 	clocks {
-		adf4351_clkin: clock@0 {
+		adf4351_clkin: clock@1 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
 			clock-frequency = <25000000>;
