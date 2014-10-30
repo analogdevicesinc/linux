@@ -412,10 +412,15 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			       long mask)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	struct cf_axi_converter *conv = to_converter(st->dev_spi);
+	struct cf_axi_converter *conv;
 	unsigned long long val64;
 	unsigned reg, i, phase = 0;
 	int ret = 0;
+
+	if (st->dev_spi)
+		conv = to_converter(st->dev_spi);
+	else
+		conv = ERR_PTR(-ENODEV);
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -552,7 +557,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		dds_write(st, ADI_REG_CHAN_CNTRL_6(chan->channel), ADI_IQCOR_ENB);
 		break;
 	default:
-		if (conv)
+		if (!IS_ERR(conv))
 			ret = conv->write_raw(indio_dev, chan, val, val2, mask);
 		else
 			ret = -EINVAL;
