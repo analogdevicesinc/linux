@@ -197,10 +197,17 @@ static int imx6q_cpufreq_init(struct cpufreq_policy *policy)
 	int ret;
 
 	policy->clk = arm_clk;
+	policy->cur = clk_get_rate(arm_clk) / 1000;
 	ret = cpufreq_generic_init(policy, freq_table, transition_latency);
 	policy->suspend_freq = policy->max;
+	if (ret) {
+		dev_err(cpu_dev, "imx6 cpufreq init failed!\n");
+		return ret;
+	}
+	if (policy->cur > freq_table[0].frequency)
+		request_bus_freq(BUS_FREQ_HIGH);
 
-	return ret;
+	return 0;
 }
 
 static struct cpufreq_driver imx6q_cpufreq_driver = {
