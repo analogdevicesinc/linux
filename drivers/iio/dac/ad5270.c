@@ -12,7 +12,7 @@
 #include <linux/iio/sysfs.h>
 #include <linux/delay.h>
 
-#define AD5270_CMD(x)    (((x) & 0x00F) << 10)
+#define AD5270_CMD(x)    (((x) & 0x03F) << 10)
 #define AD5270_DATA(x)   (((x) & 0x3FF) <<  0)
 
 #define AD5270_CMD_NOP           0
@@ -35,7 +35,11 @@
 
 #define AD5270_REG_PWR_SHUTDOWN (1 << 0)
 
+#define AD5270_SDO_TRISTATE 0x8001
+
 #define NO_SHIFT 0
+
+#define AD5270_F_SDO_TRISTATE (1 << 0) /* Features Tristate SDO pin */
 
 struct ad5270_state;
 
@@ -44,12 +48,14 @@ struct ad5270_state;
  * @name:		chip name
  * @channel:		channel specification
  * @num_channels:	number of channels
+ * @features:		feature flags that the chip might have
  */
 
 struct ad5270_chip_info {
 	char *name;
 	const struct iio_chan_spec channel[6];
 	unsigned int num_channels;
+	unsigned int features;
 };
 
 typedef int (*ad5270_write_func)(struct ad5270_state *st,
@@ -92,6 +98,19 @@ enum ad5270_iio_dev_attr {
 	RPERFORMANCE,
 };
 
+static int ad5270_sdo_tristate(struct ad5270_state *st)
+{
+	unsigned int cmd = AD5270_SDO_TRISTATE >> 10;
+	unsigned int data = AD5270_SDO_TRISTATE;
+	int ret;
+
+	ret = st->write(st, cmd, data, NO_SHIFT);
+	if (ret)
+		return ret;
+
+	return st->write(st, AD5270_CMD_NOP, 0, NO_SHIFT);
+}
+
 static int ad5270_read_raw(struct iio_dev *indio_dev,
 	struct iio_chan_spec const *chan, int *val, int *val2, long mask)
 {
@@ -107,6 +126,13 @@ static int ad5270_read_raw(struct iio_dev *indio_dev,
 			return ret;
 		mutex_lock(&indio_dev->mlock);
 		*val = st->read(st, chan->scan_type.shift);
+		if (st->chip_info->features & AD5270_F_SDO_TRISTATE) {
+			ret = ad5270_sdo_tristate(st);
+			if (ret) {
+				mutex_unlock(&indio_dev->mlock);
+				return ret;
+			}
+		}
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	default:
@@ -135,6 +161,11 @@ static int ad5270_write_raw(struct iio_dev *indio_dev,
 			chan->scan_type.shift);
 		if (ret)
 			break;
+		if (st->chip_info->features & AD5270_F_SDO_TRISTATE) {
+			ret = ad5270_sdo_tristate(st);
+			if (ret)
+				break;
+		}
 		break;
 	default:
 		break;
@@ -166,6 +197,11 @@ static ssize_t ad5270_show(struct device *dev,
 			break;
 		val = st->read(st,
 			st->chip_info->channel[0].scan_type.shift);
+		if (st->chip_info->features & AD5270_F_SDO_TRISTATE) {
+			ret = ad5270_sdo_tristate(st);
+			if (ret)
+				break;
+		}
 		ret = sprintf(buf, "%d\n", val);
 		break;
 	case OTP0_EN:
@@ -182,6 +218,11 @@ static ssize_t ad5270_show(struct device *dev,
 			break;
 		val = st->read(st, NO_SHIFT);
 		st->rperform = !!(val & AD5270_REG_CTRL_RDAC_PERFM_EN);
+		if (st->chip_info->features & AD5270_F_SDO_TRISTATE) {
+			ret = ad5270_sdo_tristate(st);
+			if (ret)
+				break;
+		}
 		ret = sprintf(buf, "%s\n",
 			(st->rperform) ? "enabled" : "disabled");
 		break;
@@ -225,7 +266,14 @@ static ssize_t ad5270_store(struct device *dev,
 		if (ret)
 			break;
 		ret = st->write(st, AD5270_CMD_50TP_STORE, 0, NO_SHIFT);
+		if (ret)
+			break;
 		msleep(400);
+		if (st->chip_info->features & AD5270_F_SDO_TRISTATE) {
+			ret = ad5270_sdo_tristate(st);
+			if (ret)
+				break;
+		}
 		break;
 	case OTP0_EN:
 		if (!strncmp(buf, "enabled", sizeof("enabled") - 1))
@@ -242,6 +290,11 @@ static ssize_t ad5270_store(struct device *dev,
 				AD5270_REG_PWR_SHUTDOWN : 0, NO_SHIFT);
 		if (ret)
 			break;
+		if (st->chip_info->features & AD5270_F_SDO_TRISTATE) {
+			ret = ad5270_sdo_tristate(st);
+			if (ret)
+				break;
+		}
 
 		st->shutdown = !!readin;
 		break;
@@ -256,6 +309,13 @@ static ssize_t ad5270_store(struct device *dev,
 			reg |= AD5270_REG_CTRL_RDAC_PERFM_EN;
 
 		ret = st->write(st, AD5270_CMD_CTRL_WR, reg, NO_SHIFT);
+		if (ret)
+			break;
+		if (st->chip_info->features & AD5270_F_SDO_TRISTATE) {
+			ret = ad5270_sdo_tristate(st);
+			if (ret)
+				break;
+		}
 		break;
 	default:
 		ret = -EINVAL;
@@ -333,11 +393,13 @@ static const struct ad5270_chip_info chip_info_tbl[] = {
 		.name = "AD5270",
 		.num_channels = 1,
 		.channel[0] = AD5270_CHANNEL(0, 10, 0),
+		.features = AD5270_F_SDO_TRISTATE,
 	},
 	[ID_AD5271] = {
 		.name = "AD5271",
 		.num_channels = 1,
 		.channel[0] = AD5270_CHANNEL(0, 8, 2),
+		.features = AD5270_F_SDO_TRISTATE,
 	},
 	[ID_AD5272] = {
 		.name = "AD5272",
@@ -350,6 +412,16 @@ static const struct ad5270_chip_info chip_info_tbl[] = {
 		.channel[0] = AD5270_CHANNEL(0, 8, 2),
 	},
 };
+
+static int ad5270_setup(struct ad5270_state *st)
+{
+	int ret = 0;
+
+	if (st->chip_info->features & AD5270_F_SDO_TRISTATE)
+		ret = ad5270_sdo_tristate(st);
+
+	return ret;
+}
 
 static int ad5270_probe(struct device *dev, enum ad5270_type chip_type,
 			const char *name, ad5270_read_func read,
@@ -378,6 +450,11 @@ static int ad5270_probe(struct device *dev, enum ad5270_type chip_type,
 	indio_dev->channels = st->chip_info->channel;
 	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+
+	ret = ad5270_setup(st);
+	if (ret)
+		return ret;
+
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		return ret;
@@ -422,13 +499,13 @@ static int ad5270_spi_write(struct ad5270_state *st, unsigned int cmd,
 static int ad5270_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
+
 	return ad5270_probe(&spi->dev, id->driver_data, id->name,
 		ad5270_spi_read, ad5270_spi_write);
 }
 
 static int ad5270_spi_remove(struct spi_device *spi)
 {
-
 	return ad5270_remove(&spi->dev);
 }
 
