@@ -535,21 +535,14 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 
 	axiadc_configure_ring_stream(indio_dev, "ad-mc-ctrl-dma");
 
-	ret = iio_buffer_register(indio_dev, indio_dev->channels,
-				  indio_dev->num_channels);
+	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto err_unconfigure_ring;
 
 	*indio_dev->buffer->scan_mask = (1UL << 2) - 1;
 
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto err_iio_buffer_unregister;
-
 	return 0;
 
-err_iio_buffer_unregister:
-	iio_buffer_unregister(indio_dev);
 err_unconfigure_ring:
 	axiadc_unconfigure_ring_stream(indio_dev);
 
@@ -561,7 +554,6 @@ static int mc_ctrl_remove(struct platform_device *pdev)
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
 	iio_device_unregister(indio_dev);
-	iio_buffer_unregister(indio_dev);
 	axiadc_unconfigure_ring(indio_dev);
 
 	return 0;
