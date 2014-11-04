@@ -114,8 +114,7 @@ static const struct iio_buffer_setup_ops iio_simple_dummy_buffer_setup_ops = {
 	.predisable = &iio_triggered_buffer_predisable,
 };
 
-int iio_simple_dummy_configure_buffer(struct iio_dev *indio_dev,
-	const struct iio_chan_spec *channels, unsigned int num_channels)
+int iio_simple_dummy_configure_buffer(struct iio_dev *indio_dev)
 {
 	int ret;
 	struct iio_buffer *buffer;
@@ -172,7 +171,8 @@ int iio_simple_dummy_configure_buffer(struct iio_dev *indio_dev,
 	 */
 	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
 
-	ret = iio_buffer_register(indio_dev, channels, num_channels);
+	ret = iio_buffer_register(indio_dev, indio_dev->channels,
+				  indio_dev->num_channels);
 	if (ret)
 		goto error_dealloc_pollfunc;
 
