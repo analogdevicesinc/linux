@@ -333,12 +333,20 @@ static const struct iio_info ad7791_no_filter_info = {
 static int ad7791_setup(struct ad7791_state *st,
 			struct ad7791_platform_data *pdata)
 {
+	int ret;
+
 	/* Set to poweron-reset default values */
 	st->mode = AD7791_MODE_BUFFER;
 	st->filter = AD7791_FILTER_RATE_16_6;
 
 	if (!pdata)
 		return 0;
+	/* reset the serial interface */
+	ret = -1;
+	ret = spi_write(st->sd.spi, (u8 *)&ret, sizeof(ret));
+	if (ret < 0)
+		return ret;
+	usleep_range(500, 2000); /* Wait for at least 500us */
 
 	if ((st->info->flags & AD7791_FLAG_HAS_BUFFER) && !pdata->buffered)
 		st->mode &= ~AD7791_MODE_BUFFER;
@@ -369,7 +377,7 @@ static struct ad7791_platform_data *ad7791_parse_dt(struct device *dev)
 	pdata->buffered = of_property_read_bool(np, "adi,buffered-mode-enable");
 	pdata->burnout_current = of_property_read_bool(np, "adi,burnout-current-enable");
 	pdata->unipolar = of_property_read_bool(np, "adi,unipolar-mode-enable");
-	
+
 	return pdata;
 }
 #else
@@ -391,12 +399,12 @@ static int ad7791_probe(struct spi_device *spi)
 		pdata = ad7791_parse_dt(&spi->dev);
 	else
 		pdata = spi->dev.platform_data;
-	
+
 	if (!pdata) {
 		dev_err(&spi->dev, "no platform data? using default\n");
 		pdata = &ad7791_default_pdata;
 	}
-	
+
 	if (!spi->irq) {
 		dev_err(&spi->dev, "Missing IRQ.\n");
 		return -ENXIO;
