@@ -146,7 +146,8 @@ static void otg_hnp_polling_work(struct work_struct *work)
 	int retval;
 	struct usb_otg_descriptor *desc = NULL;
 
-	if (state != OTG_STATE_A_HOST && state != OTG_STATE_B_HOST)
+	if ((state != OTG_STATE_A_HOST || !fsm->b_hnp_enable) &&
+	    state != OTG_STATE_B_HOST)
 		return;
 
 	udev = usb_hub_find_child(fsm->otg->host->root_hub, 1);
