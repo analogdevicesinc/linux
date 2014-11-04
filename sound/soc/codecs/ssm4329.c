@@ -687,7 +687,7 @@ static const struct snd_soc_dapm_widget ssm4329_dapm_widgets[] = {
 
 #define SSM4329_SP_ROUTES(_sp, _ch) \
 	SSM4329_SP_ROUTE(_sp, _ch, "ADC", "ADC"), \
-	SSM4329_SP_ROUTE(_sp, _ch, "DSP", "DSP"), \
+	SSM4329_SP_ROUTE(_sp, _ch, "DSP", "DSP Processor"), \
 	SSM4329_SP_ROUTE(_sp, _ch, "AEC", \
 		(_ch % 2 == 0) ? "DAC AEC" : "Interpolator AEC"), \
 	SSM4329_SP_ROUTE(_sp, _ch, "SRC", \
