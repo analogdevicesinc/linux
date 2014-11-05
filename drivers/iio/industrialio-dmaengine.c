@@ -123,7 +123,6 @@ static const struct iio_buffer_access_funcs dmaengine_buffer_ops = {
 	.read = iio_dma_buffer_read,
 	.write = iio_dma_buffer_write,
 	.set_bytes_per_datum = iio_dma_buffer_set_bytes_per_datum,
-	.get_length = iio_dma_buffer_get_length,
 	.set_length = iio_dma_buffer_set_length,
 	.enable = iio_dma_buffer_enable,
 	.disable = dmaengine_buffer_disable,
