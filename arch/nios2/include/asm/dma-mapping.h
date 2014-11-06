@@ -14,47 +14,38 @@
 #include <linux/cache.h>
 #include <asm/cacheflush.h>
 
-static inline struct dma_map_ops *get_dma_ops(struct device *dev)
-{
-	/* We don't handle the NULL dev case for ISA for now. We could
-	* do it via an out of line call but it is not needed for now. The
-	* only ISA DMA device we support is the floppy and we have a hack
-	* in the floppy driver directly to get a device for us.
-	*/
-	if (unlikely(!dev) || !dev->archdata.dma_ops)
-		return NULL;
-
-	return dev->archdata.dma_ops;
-}
-
-extern int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
-			    void *cpu_addr, dma_addr_t dma_addr, size_t size);
-
-static inline int
-dma_mmap_attrs(struct device *dev, struct vm_area_struct *vma, void *cpu_addr,
-	      dma_addr_t dma_addr, size_t size, struct dma_attrs *attrs)
-{
-	struct dma_map_ops *ops = get_dma_ops(dev);
-	BUG_ON(!ops);
-	if (ops->mmap)
-		return ops->mmap(dev, vma, cpu_addr, dma_addr, size, attrs);
-	return dma_common_mmap(dev, vma, cpu_addr, dma_addr, size);
-}
-
-#define dma_mmap_coherent(d, v, c, h, s) dma_mmap_attrs(d, v, c, h, s, NULL)
-
-static inline void __dma_sync(void *vaddr, size_t size,
+static inline void __dma_sync_for_device(void *vaddr, size_t size,
 			      enum dma_data_direction direction)
 {
 	switch (direction) {
-	case DMA_FROM_DEVICE:	/* invalidate cache */
+	case DMA_FROM_DEVICE:
 		invalidate_dcache_range((unsigned long)vaddr,
 			(unsigned long)(vaddr + size));
 		break;
-	case DMA_TO_DEVICE:	/* flush and invalidate cache */
-	case DMA_BIDIRECTIONAL:
+	case DMA_TO_DEVICE:
+		/*
+		 * We just need to flush the caches here , but Nios2 flush
+		 * instruction will do both writeback and invalidate.
+		 */
+	case DMA_BIDIRECTIONAL: /* flush and invalidate */
 		flush_dcache_range((unsigned long)vaddr,
 			(unsigned long)(vaddr + size));
+		break;
+	default:
+		BUG();
+	}
+}
+
+static inline void __dma_sync_for_cpu(void *vaddr, size_t size,
+			      enum dma_data_direction direction)
+{
+	switch (direction) {
+	case DMA_BIDIRECTIONAL:
+	case DMA_FROM_DEVICE:
+		invalidate_dcache_range((unsigned long)vaddr,
+			(unsigned long)(vaddr + size));
+		break;
+	case DMA_TO_DEVICE:
 		break;
 	default:
 		BUG();
@@ -74,7 +65,8 @@ static inline dma_addr_t dma_map_single(struct device *dev, void *ptr,
 					size_t size,
 					enum dma_data_direction direction)
 {
-	__dma_sync(ptr, size, direction);
+	BUG_ON(!valid_dma_direction(direction));
+	__dma_sync_for_device(ptr, size, direction);
 	return virt_to_phys(ptr);
 }
 
@@ -108,13 +100,6 @@ extern void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
 
 static inline int dma_supported(struct device *dev, u64 mask)
 {
-	/* we fall back to GFP_DMA when the mask isn't all 1s,
-	 * so we can't guarantee allocations that must be
-	 * within a tighter range than GFP_DMA.
-	 */
-	if (mask < 0x00ffffff)
-		return 0;
-
 	return 1;
 }
 
@@ -133,10 +118,24 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
 	return 0;
 }
 
+/*
+* dma_alloc_noncoherent() returns non-cacheable memory, so there's no need to
+* do any flushing here.
+*/
 static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
 				  enum dma_data_direction direction)
 {
-	__dma_sync(vaddr, size, direction);
 }
 
+/* drivers/base/dma-mapping.c */
+extern int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
+		void *cpu_addr, dma_addr_t dma_addr, size_t size);
+extern int dma_common_get_sgtable(struct device *dev, struct sg_table *sgt,
+		void *cpu_addr, dma_addr_t dma_addr,
+		size_t size);
+
+#define dma_mmap_coherent(d, v, c, h, s) dma_common_mmap(d, v, c, h, s)
+#define dma_get_sgtable(d, t, v, h, s) dma_common_get_sgtable(d, t, v, h, s)
+
 #endif /* _ASM_NIOS2_DMA_MAPPING_H */
+
