@@ -10,7 +10,6 @@
 /*
  * TODO:
  *     - Add support for using channels as GPIOs
- *     - support for AD5593R (I2C interface)
  */
 
 #include "ad5592r.h"
@@ -176,6 +175,9 @@ static void ad5592r_reset(struct ad5592r_state *st)
 
 static const struct ad5592r_chip_info ad5592r_chip_info_tbl[] = {
 	[ID_AD5592R] = {
+		.num_channels = 8,
+	},
+	[ID_AD5593R] = {
 		.num_channels = 8,
 	},
 };

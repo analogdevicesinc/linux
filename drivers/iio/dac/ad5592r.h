@@ -17,6 +17,7 @@ struct ad5592r_state;
 
 enum ad5592r_type {
 	ID_AD5592R,
+	ID_AD5593R,
 };
 
 enum ad5592r_registers {
