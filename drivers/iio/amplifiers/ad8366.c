@@ -12,6 +12,7 @@
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio/consumer.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/bitrev.h>
@@ -19,10 +20,21 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+enum ad8366_type {
+	ID_AD8366,
+	ID_ADA4961,
+	ID_ADL5240,
+	ID_HMC271,
+	ID_HMC1119,
+};
+
 struct ad8366_state {
 	struct spi_device	*spi;
-	struct regulator	*reg;
+	struct regulator		*reg;
+	struct gpio_desc		*reset_gpio;
 	unsigned char		ch[2];
+	enum ad8366_type	type;
+
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
@@ -36,13 +48,29 @@ static int ad8366_write(struct iio_dev *indio_dev,
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ch_a = bitrev8(ch_a & 0x3F);
-	ch_b = bitrev8(ch_b & 0x3F);
+	switch (st->type) {
+	case ID_AD8366:
+		ch_a = bitrev8(ch_a & 0x3F);
+		ch_b = bitrev8(ch_b & 0x3F);
 
-	st->data[0] = ch_b >> 4;
-	st->data[1] = (ch_b << 4) | (ch_a >> 2);
+		st->data[0] = ch_b >> 4;
+		st->data[1] = (ch_b << 4) | (ch_a >> 2);
+		break;
+	case ID_ADA4961:
+		st->data[0] = ch_a & 0x1F;
+		break;
+	case ID_ADL5240:
+		st->data[0] = (ch_a & 0x3F);
+		break;
+	case ID_HMC271:
+		st->data[0] = bitrev8(ch_a & 0x1F) >> 3;
+		break;
+	case ID_HMC1119:
+		st->data[0] = ch_a;
+		break;
+	}
 
-	ret = spi_write(st->spi, st->data, ARRAY_SIZE(st->data));
+	ret = spi_write(st->spi, st->data, indio_dev->num_channels);
 	if (ret < 0)
 		dev_err(&indio_dev->dev, "write failed (%d)", ret);
 
@@ -57,15 +85,33 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int ret;
-	unsigned code;
+	int code;
 
 	mutex_lock(&indio_dev->mlock);
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		code = st->ch[chan->channel];
 
+		switch (st->type) {
+		case ID_AD8366:
+			code = code * 253 + 4500;
+			break;
+		case ID_ADA4961:
+			code = 15000 - code * 1000;
+			break;
+		case ID_ADL5240:
+			code = 20000 - 31500 + code * 500;
+			break;
+		case ID_HMC271:
+			code = -31000 + code * 1000;
+			break;
+		case ID_HMC1119:
+			code = -1 * code * 250;
+			break;
+
+		}
+
 		/* Values in dB */
-		code = code * 253 + 4500;
 		*val = code / 1000;
 		*val2 = (code % 1000) * 1000;
 
@@ -86,19 +132,41 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad8366_state *st = iio_priv(indio_dev);
-	unsigned code;
+	int code;
 	int ret;
-
-	if (val < 0 || val2 < 0)
-		return -EINVAL;
-
 	/* Values in dB */
-	code = (((u8)val * 1000) + ((u32)val2 / 1000));
+	if (val < 0)
+		code = (((s8)val * 1000) - ((s32)val2 / 1000));
+	else
+		code = (((s8)val * 1000) + ((s32)val2 / 1000));
 
-	if (code > 20500 || code < 4500)
-		return -EINVAL;
-
-	code = (code - 4500) / 253;
+	switch (st->type) {
+	case ID_AD8366:
+		if (code > 20500 || code < 4500)
+			return -EINVAL;
+		code = (code - 4500) / 253;
+		break;
+	case ID_ADA4961:
+		if (code > 15000 || code < -6000)
+			return -EINVAL;
+		code = (15000 - code) / 1000;
+		break;
+	case ID_ADL5240:
+		if (code < -11500 || code > 20000)
+			return -EINVAL;
+		code = ((code - 500 - 20000) / 500) & 0x3F;
+		break;
+	case ID_HMC271:
+		if (code < -31000 || code > 0)
+			return -EINVAL;
+		code = ((code - 1000) / 1000) & 0x1F;
+		break;
+	case ID_HMC1119:
+		if (code < -31750 || code > 0)
+			return -EINVAL;
+		code = (abs(code) / 250) & 0x7F;
+		break;
+	}
 
 	mutex_lock(&indio_dev->mlock);
 	switch (mask) {
@@ -133,6 +201,10 @@ static const struct iio_chan_spec ad8366_channels[] = {
 	AD8366_CHAN(1),
 };
 
+static const struct iio_chan_spec ada4961_channels[] = {
+	AD8366_CHAN(0),
+};
+
 static int ad8366_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -156,17 +228,47 @@ static int ad8366_probe(struct spi_device *spi)
 	st->spi = spi;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
+
+	/* try to get a unique name */
+	if (spi->dev.platform_data)
+		indio_dev->name = spi->dev.platform_data;
+	else if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else
+		indio_dev->name = spi_get_device_id(spi)->name;
+
+	st->type = spi_get_device_id(spi)->driver_data;
+	switch (st->type) {
+	case ID_AD8366:
+		indio_dev->channels = ad8366_channels;
+		indio_dev->num_channels = ARRAY_SIZE(ad8366_channels);
+		break;
+	case ID_ADA4961:
+	case ID_ADL5240:
+	case ID_HMC271:
+	case ID_HMC1119:
+
+		st->reset_gpio = devm_gpiod_get(&spi->dev, "reset",
+			GPIOD_OUT_HIGH);
+
+		indio_dev->channels = ada4961_channels;
+		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
+		break;
+	default:
+		dev_err(&spi->dev, "Invalid device ID\n");
+		return -EINVAL;
+	}
+
 	indio_dev->info = &ad8366_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = ad8366_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad8366_channels);
+
+	ret = ad8366_write(indio_dev, 0 , 0);
+	if (ret < 0)
+		goto error_disable_reg;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto error_disable_reg;
-
-	ad8366_write(indio_dev, 0, 0);
 
 	return 0;
 
@@ -192,7 +294,11 @@ static int ad8366_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad8366_id[] = {
-	{"ad8366", 0},
+	{"ad8366", ID_AD8366},
+	{"ada4961", ID_ADA4961},
+	{"adl5240", ID_ADL5240},
+	{"hmc271", ID_HMC271},
+	{"hmc1119", ID_HMC1119},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad8366_id);
@@ -208,6 +314,6 @@ static struct spi_driver ad8366_driver = {
 
 module_spi_driver(ad8366_driver);
 
-MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
+MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD8366 VGA");
 MODULE_LICENSE("GPL v2");
