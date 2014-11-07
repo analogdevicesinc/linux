@@ -337,9 +337,14 @@ static int ad9122_setup(struct cf_axi_converter *conv, unsigned mode)
 	struct spi_device *spi = conv->spi;
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(ad9122_reg_defaults); i++)
-			ad9122_write(spi, ad9122_reg_defaults[i][0],
-					     ad9122_reg_defaults[i][1]);
+	for (i = 0; i < ARRAY_SIZE(ad9122_reg_defaults); i++) {
+		unsigned char reg = ad9122_reg_defaults[i][0],
+			      value = ad9122_reg_defaults[i][1];
+
+		if (reg == AD9122_REG_COMM)
+			value |= mode;
+		ad9122_write(spi, reg, value);
+	}
 
 	return ad9122_sync(conv);
 }
@@ -440,7 +445,9 @@ static int ad9122_set_data_clk(struct cf_axi_converter *conv, unsigned long freq
 		return -EINVAL;
 	}
 
-	r_ref_freq = clk_round_rate(conv->clk[CLK_REF], dat_freq / 8);
+	r_ref_freq = clk_get_rate(conv->clk[CLK_REF]);
+	dev_dbg(&conv->spi->dev, "CLK REF rate: %li\n", r_ref_freq);
+
 	if (r_ref_freq != (dat_freq / 8)) {
 		dev_err(&conv->spi->dev,
 			"CLK_REF: Requested Rate exceeds mismatch %ld (%lu)",
@@ -888,13 +895,20 @@ static int ad9122_probe(struct spi_device *spi)
 	struct device_node *np = spi->dev.of_node;
 	struct cf_axi_converter *conv;
 	unsigned id, rate, datapath_ctrl, tmp;
-	int ret;
+	int ret, conf;
+	bool spi3wire = of_property_read_bool(
+			spi->dev.of_node, "adi,spi-3wire-enable");
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
 
 	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
+
+	conf = (spi->mode & SPI_3WIRE || spi3wire) ? AD9122_COMM_SDIO : 0;
+	ret = ad9122_write(spi, AD9122_REG_COMM, conf | AD9122_COMM_RESET);
+	if (ret < 0)
+		return ret;
 
 	id = ad9122_read(spi, AD9122_REG_CHIP_ID);
 	if (id != CHIPID_AD9122) {
@@ -920,7 +934,7 @@ static int ad9122_probe(struct spi_device *spi)
 		goto out;
 	}
 
-	ret = ad9122_setup(conv, 0);
+	ret = ad9122_setup(conv, conf);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
