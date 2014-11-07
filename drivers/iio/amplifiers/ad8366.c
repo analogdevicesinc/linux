@@ -19,10 +19,17 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+enum ad8366_type {
+	ID_AD8366,
+	ID_ADA4961,
+};
+
 struct ad8366_state {
 	struct spi_device	*spi;
 	struct regulator	*reg;
 	unsigned char		ch[2];
+	enum ad8366_type	type;
+
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
@@ -36,13 +43,21 @@ static int ad8366_write(struct iio_dev *indio_dev,
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ch_a = bitrev8(ch_a & 0x3F);
-	ch_b = bitrev8(ch_b & 0x3F);
+	switch (st->type) {
+	case ID_AD8366:
+		ch_a = bitrev8(ch_a & 0x3F);
+		ch_b = bitrev8(ch_b & 0x3F);
 
-	st->data[0] = ch_b >> 4;
-	st->data[1] = (ch_b << 4) | (ch_a >> 2);
+		st->data[0] = ch_b >> 4;
+		st->data[1] = (ch_b << 4) | (ch_a >> 2);
+		break;
+	case ID_ADA4961:
+		ch_a = bitrev8(ch_a & 0x1F);
+		st->data[0] = ch_a;
+		break;
+	}
 
-	ret = spi_write(st->spi, st->data, ARRAY_SIZE(st->data));
+	ret = spi_write(st->spi, st->data, indio_dev->num_channels);
 	if (ret < 0)
 		dev_err(&indio_dev->dev, "write failed (%d)", ret);
 
@@ -64,8 +79,16 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		code = st->ch[chan->channel];
 
+		switch (st->type) {
+		case ID_AD8366:
+			code = code * 253 + 4500;
+			break;
+		case ID_ADA4961:
+			code = 15000 - code * 1000;
+			break;
+		}
+
 		/* Values in dB */
-		code = code * 253 + 4500;
 		*val = code / 1000;
 		*val2 = (code % 1000) * 1000;
 
@@ -86,19 +109,24 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad8366_state *st = iio_priv(indio_dev);
-	unsigned code;
+	int code;
 	int ret;
 
-	if (val < 0 || val2 < 0)
-		return -EINVAL;
-
 	/* Values in dB */
-	code = (((u8)val * 1000) + ((u32)val2 / 1000));
+	code = (((s8)val * 1000) + ((s32)val2 / 1000));
 
-	if (code > 20500 || code < 4500)
-		return -EINVAL;
-
-	code = (code - 4500) / 253;
+	switch (st->type) {
+	case ID_AD8366:
+		if (code > 20500 || code < 4500)
+			return -EINVAL;
+		code = (code - 4500) / 253;
+		break;
+	case ID_ADA4961:
+		if (code > 15000 || code < -6000)
+			return -EINVAL;
+		code = (15000 - code) / 1000;
+		break;
+	}
 
 	mutex_lock(&indio_dev->mlock);
 	switch (mask) {
@@ -132,6 +160,10 @@ static const struct iio_chan_spec ad8366_channels[] = {
 	AD8366_CHAN(1),
 };
 
+static const struct iio_chan_spec ada4961_channels[] = {
+	AD8366_CHAN(0),
+};
+
 static int ad8366_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -155,11 +187,32 @@ static int ad8366_probe(struct spi_device *spi)
 	st->spi = spi;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
+
+	/* try to get a unique name */
+	if (spi->dev.platform_data)
+		indio_dev->name = spi->dev.platform_data;
+	else if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else
+		indio_dev->name = spi_get_device_id(spi)->name;
+
+	st->type = spi_get_device_id(spi)->driver_data;
+	switch (st->type) {
+	case ID_AD8366:
+		indio_dev->channels = ad8366_channels;
+		indio_dev->num_channels = ARRAY_SIZE(ad8366_channels);
+		break;
+	case ID_ADA4961:
+		indio_dev->channels = ada4961_channels;
+		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
+		break;
+	default:
+		dev_err(&spi->dev, "Invalid device ID\n");
+		return -EINVAL;
+	}
+
 	indio_dev->info = &ad8366_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = ad8366_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad8366_channels);
 
 	ret = ad8366_write(indio_dev, 0 , 0);
 	if (ret < 0)
@@ -193,7 +246,8 @@ static int ad8366_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad8366_id[] = {
-	{"ad8366", 0},
+	{"ad8366", ID_AD8366},
+	{"ada4961", ID_ADA4961},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad8366_id);
