@@ -411,8 +411,8 @@ bool ssm4329_tdmc_active(struct ssm4329 *ssm4329)
 	return ssm4329->tdmc_active;
 }
 
-#define SSM4329_SP2_OUT_WIDGET() SND_SOC_DAPM_AIF_OUT_E("SP2 OUT", NULL, 0, \
-	SND_SOC_NOPM, 0, 0, ssm4329_sp2_out_event, \
+#define SSM4329_SP2_OUT_WIDGET() SND_SOC_DAPM_AIF_OUT_E("SP2 OUT", \
+	"SP2 Capture", 0, SND_SOC_NOPM, 0, 0, ssm4329_sp2_out_event, \
 	SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)
 
 #else
@@ -430,8 +430,8 @@ bool ssm4329_tdmc_active(struct ssm4329 *ssm4329)
 	return false;
 }
 
-#define SSM4329_SP2_OUT_WIDGET() SND_SOC_DAPM_AIF_OUT("SP2 OUT", NULL, 0, \
-	SSM4329_REG_DIG_PWR1, 4, 1)
+#define SSM4329_SP2_OUT_WIDGET() SND_SOC_DAPM_AIF_OUT("SP2 OUT", \
+	"SP2 Capture", 0, SSM4329_REG_DIG_PWR1, 4, 1)
 
 #endif
 
@@ -633,9 +633,9 @@ static const struct snd_kcontrol_new ssm4329_out_src_ch2_mux_ctrl = SOC_DAPM_ENU
 	"Output SRC Channel 2 Mux", ssm4329_out_src_ch2_mux_enum);
 
 static const struct snd_soc_dapm_widget ssm4329_dapm_widgets[] = {
-	SND_SOC_DAPM_AIF_IN("SP1 IN", NULL, 0, SSM4329_REG_DIG_PWR1, 1, 1),
-	SND_SOC_DAPM_AIF_OUT("SP1 OUT", NULL, 0, SSM4329_REG_DIG_PWR1, 2, 1),
-	SND_SOC_DAPM_AIF_IN("SP2 IN", NULL, 0, SSM4329_REG_DIG_PWR1, 3, 1),
+	SND_SOC_DAPM_AIF_IN("SP1 IN", "SP1 Playback", 0, SSM4329_REG_DIG_PWR1, 1, 1),
+	SND_SOC_DAPM_AIF_OUT("SP1 OUT", "SP1 Capture", 0, SSM4329_REG_DIG_PWR1, 2, 1),
+	SND_SOC_DAPM_AIF_IN("SP2 IN", "SP2 Playback", 0, SSM4329_REG_DIG_PWR1, 3, 1),
 	SSM4329_SP2_OUT_WIDGET(),
 	SND_SOC_DAPM_PGA("Interpolator", SSM4329_REG_DIG_PWR1, 5, 1, NULL, 0),
 	SND_SOC_DAPM_PGA("DAC AEC", SSM4329_REG_DIG_PWR1, 6, 1, NULL, 0),
@@ -767,12 +767,6 @@ static const struct snd_soc_dapm_route ssm4329_dapm_routes[] = {
 	{ "Output SRC Channel 2 Mux", "AEC", "Interpolator AEC" },
 	{ "Output SRC Channel 2 Mux", "Input SRC", "Input SRC Channel 2 Mux" },
 	{ "Output SRC Channel 2 Mux", "ADC", "ADC" },
-
-	{ "SP1 Capture", NULL, "SP1 OUT" },
-	{ "SP2 Capture", NULL, "SP2 OUT" },
-
-	{ "SP1 IN", NULL, "SP1 Playback" },
-	{ "SP2 IN", NULL, "SP2 Playback"  },
 };
 
 static const struct snd_soc_dapm_route ssm4329_sp1_out_routes[] = {
