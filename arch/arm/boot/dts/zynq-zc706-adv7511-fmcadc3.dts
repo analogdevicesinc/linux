@@ -112,6 +112,8 @@
 
 &spi0 {
 	status = "okay";
+	is-decoded-cs = <1>;
+	num-cs = <7>;
 };
 
 #define fmc_spi spi0
