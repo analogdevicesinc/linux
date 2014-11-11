@@ -46,7 +46,6 @@
 #define CDNS_SPI_CR_MANSTRT_MASK	0x00010000 /* Manual TX Start */
 #define CDNS_SPI_CR_CPHA_MASK		0x00000004 /* Clock Phase Control */
 #define CDNS_SPI_CR_CPOL_MASK		0x00000002 /* Clock Polarity Control */
-#define CDNS_SPI_CR_PERI_SEL_MASK	0x00000200 /* Peripheral Select Decode */
 #define CDNS_SPI_CR_SSCTRL_MASK		0x00003C00 /* Slave Select Mask */
 #define CDNS_SPI_CR_BAUD_DIV_MASK	0x00000038 /* Baud Rate Divisor Mask */
 #define CDNS_SPI_CR_MSTREN_MASK		0x00000001 /* Master Enable Mask */
@@ -191,9 +190,8 @@ static void cdns_spi_chipselect(struct spi_device *spi, bool is_high)
 				     CDNS_SPI_SS_SHIFT) &
 				     CDNS_SPI_CR_SSCTRL_MASK;
 		else
-			ctrl_reg |= ((spi->chip_select << CDNS_SPI_SS_SHIFT) &
-				     CDNS_SPI_CR_SSCTRL_MASK) |
-				     CDNS_SPI_CR_PERI_SEL_MASK;
+			ctrl_reg |= (spi->chip_select << CDNS_SPI_SS_SHIFT) &
+				     CDNS_SPI_CR_SSCTRL_MASK;
 	}
 
 	cdns_spi_write(xspi, CDNS_SPI_CR_OFFSET, ctrl_reg);
