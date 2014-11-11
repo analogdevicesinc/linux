@@ -169,11 +169,6 @@ static int dds_buffer_set_length(struct iio_buffer *buf, int length)
 	return 0;
 }
 
-static int dds_buffer_get_bytes_per_datum(struct iio_buffer *buf)
-{
-	return buf->bytes_per_datum;
-}
-
 static IIO_BUFFER_ENABLE_ATTR;
 static IIO_BUFFER_LENGTH_ATTR;
 
@@ -198,7 +193,6 @@ static const struct iio_buffer_access_funcs dds_buffer_access_funcs = {
 	.write = &dds_buffer_write,
 	.get_length = &dds_buffer_get_length,
 	.set_length = &dds_buffer_set_length,
-	.get_bytes_per_datum = &dds_buffer_get_bytes_per_datum,
 	.enable = dds_buffer_enable,
 	.disable = dds_buffer_disable,
 	.release = dds_buffer_release,

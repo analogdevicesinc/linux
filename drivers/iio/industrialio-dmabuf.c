@@ -627,12 +627,6 @@ int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_mmap);
 
-int iio_dma_buffer_get_bytes_per_datum(struct iio_buffer *buf)
-{
-	return buf->bytes_per_datum;
-}
-EXPORT_SYMBOL_GPL(iio_dma_buffer_get_bytes_per_datum);
-
 int iio_dma_buffer_set_bytes_per_datum(struct iio_buffer *buf, size_t bpd)
 {
 	buf->bytes_per_datum = bpd;
@@ -671,7 +665,6 @@ static void iio_dma_buffer_release(struct iio_buffer *buffer)
 static const struct iio_buffer_access_funcs dmabuf_ops = {
 	.read = iio_dma_buffer_read,
 	.write = iio_dma_buffer_write,
-	.get_bytes_per_datum = iio_dma_buffer_get_bytes_per_datum,
 	.set_bytes_per_datum = iio_dma_buffer_set_bytes_per_datum,
 	.get_length = iio_dma_buffer_get_length,
 	.set_length = iio_dma_buffer_set_length,

@@ -108,11 +108,6 @@ static int axiadc_ring_set_length(struct iio_buffer *r, int length)
 	return 0;
 }
 
-static int axiadc_ring_get_bytes_per_datum(struct iio_buffer *r)
-{
-	return r->bytes_per_datum;
-}
-
 static int axiadc_ring_set_bytes_per_datum(struct iio_buffer *r, size_t bpd)
 {
 	r->bytes_per_datum = bpd;
@@ -143,7 +138,6 @@ static const struct iio_buffer_access_funcs axiadc_ring_access_funcs = {
 	.read = &axiadc_read_first_n_hw_rb,
 	.get_length = &axiadc_ring_get_length,
 	.set_length = &axiadc_ring_set_length,
-	.get_bytes_per_datum = &axiadc_ring_get_bytes_per_datum,
 	.set_bytes_per_datum = &axiadc_ring_set_bytes_per_datum,
 	.release = axiadc_ring_release,
 };

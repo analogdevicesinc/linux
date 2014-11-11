@@ -73,7 +73,6 @@ bool iio_dma_buffer_data_available(struct iio_buffer *buf);
 bool iio_dma_buffer_space_available(struct iio_buffer *buf);
 int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 	struct vm_area_struct *vma);
-int iio_dma_buffer_get_bytes_per_datum(struct iio_buffer *buf);
 int iio_dma_buffer_set_bytes_per_datum(struct iio_buffer *buf, size_t bpd);
 int iio_dma_buffer_get_length(struct iio_buffer *buf);
 int iio_dma_buffer_set_length(struct iio_buffer *buf, int length);
