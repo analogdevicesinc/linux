@@ -641,6 +641,10 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 	unsigned long *compound_mask;
 	const unsigned long *old_mask;
 
+	if (insert_buffer && bitmap_empty(insert_buffer->scan_mask,
+		indio_dev->masklength))
+		return -EINVAL;
+
 	/* Wind down existing buffers - iff there are any */
 	if (!list_empty(&indio_dev->buffer_list)) {
 		if (indio_dev->setup_ops->predisable) {
