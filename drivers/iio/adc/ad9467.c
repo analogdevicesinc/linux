@@ -751,7 +751,7 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	ret |= ad9467_spi_write(spi, 0x550, 0x04);	// test pattern
 	ret |= ad9467_spi_write(spi, 0x561, 0x00);	// offset binary
 	ret |= ad9467_spi_write(spi, 0x570, 0x88);	// m=2, l=4, f= 1
-	ret |= ad9467_spi_write(spi, 0x58f, ad9234 ? 0x0f : 0x0d);	// 12-bit / 14-bit
+	ret |= ad9467_spi_write(spi, 0x58f, ad9234 ? 0x0b : 0x0d);	// 12-bit / 14-bit
 	ret |= ad9467_spi_write(spi, 0x5b2, 0x00);	// serdes-0 = lane 0
 	ret |= ad9467_spi_write(spi, 0x5b3, 0x11);	// serdes-1 = lane 1
 	ret |= ad9467_spi_write(spi, 0x5b5, 0x22);	// serdes-2 = lane 2
