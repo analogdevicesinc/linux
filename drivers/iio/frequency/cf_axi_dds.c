@@ -575,11 +575,14 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 			      unsigned *readval)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	struct cf_axi_converter *conv = to_converter(st->dev_spi);
+	struct cf_axi_converter *conv = ERR_PTR(-ENODEV);
 	int ret;
 
 	if ((reg & ~DEBUGFS_DRA_PCORE_REG_MAGIC) > 0xFFFF)
 		return -EINVAL;
+
+	if (st->dev_spi)
+		conv = to_converter(st->dev_spi);
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL) {
