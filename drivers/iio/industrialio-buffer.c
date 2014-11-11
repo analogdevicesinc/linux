@@ -515,7 +515,7 @@ static const unsigned long *iio_scan_mask_match(const unsigned long *av_masks,
 					  bool strict)
 {
 	int (*cmp_func)(const unsigned long *src1, const unsigned long *src2,
-		int nbits);
+		unsigned int nbits);
 
 	if (strict)
 		cmp_func = bitmap_equal;
