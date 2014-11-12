@@ -9,42 +9,6 @@
 #ifndef IIO_FREQUENCY_AD9528_H_
 #define IIO_FREQUENCY_AD9528_H_
 
-enum outp_drv_mode {
-	LVDS,		/* 0 */
-	LVDS_BOOST,	/* 1 */
-	HSTL,		/* 2 */
-};
-
-enum outp_signal_src {
-	AD9528_VCO		= 0,
-	AD9528_VCXO		= 1,
-	AD9528_SYSREF_VCO	= 2,
-	AD9528_SYSREF_VCXO	= 3,
-	AD9528_VCXO_INV		= 5,
-	AD9528_SYSREF_VCXO_INV	= 7,
-};
-
-enum ref_sel_mode {
-	NONEREVERTIVE_STAY_ON_REFB,	/* 0 */
-	REVERT_TO_REFA,	/* 1 */
-	SELECT_REFA,	/* 2 */
-	SELECT_REFB,	/* 3 */
-	EXT_REF_SEL	/* 4 */
-};
-
-enum sysref_src {
-	SYSREF_SRC_EXTERNAL,
-	SYSREF_SRC_EXTERNAL_RESAMPLED,
-	SYSREF_SRC_INTERNAL,
-};
-
-enum sysref_pattern_mode {
-	PATTERN_NSHOT,
-	PATTERN_CONTINUOUS,
-	PATTERN_PRBS,
-	PATTERN_STOP,
-};
-
 /**
  * struct ad9528_channel_spec - Output channel configuration
  *
@@ -63,40 +27,11 @@ struct ad9528_channel_spec {
 	bool			sync_ignore_en;
 				 /* CH0..CH3 VCXO, CH4..CH9 VCO2 */
 	bool			output_dis;
-	enum outp_drv_mode	driver_mode;
-	enum outp_signal_src	signal_source;
+	unsigned char		driver_mode;
+	unsigned char		signal_source;
 	unsigned char		divider_phase;
 	unsigned short		channel_divider;
 	char			extended_name[16];
-};
-
-enum rpole2_resistor {
-	RPOLE2_900_OHM,
-	RPOLE2_450_OHM,
-	RPOLE2_300_OHM,
-	RPOLE2_225_OHM,
-};
-
-enum rzero_resistor {
-	RZERO_3250_OHM,
-	RZERO_2750_OHM,
-	RZERO_2250_OHM,
-	RZERO_2100_OHM,
-	RZERO_3000_OHM,
-	RZERO_2500_OHM,
-	RZERO_2000_OHM,
-	RZERO_1850_OHM,
-};
-
-enum cpole1_capacitor {
-	CPOLE1_0_PF,
-	CPOLE1_8_PF,
-	CPOLE1_16_PF,
-	CPOLE1_24_PF,
-	_CPOLE1_24_PF, /* place holder */
-	CPOLE1_32_PF,
-	CPOLE1_40_PF,
-	CPOLE1_48_PF,
 };
 
 /**
@@ -161,8 +96,8 @@ struct ad9528_platform_data {
 	bool				pll1_bypass_en;
 
 	/* Reference */
-	enum ref_sel_mode		ref_mode;
-	enum sysref_src			sysref_src;
+	unsigned char			ref_mode;
+	unsigned char			sysref_src;
 	unsigned short			sysref_k_div;
 
 	/* PLL2 Setting */
@@ -175,9 +110,9 @@ struct ad9528_platform_data {
 	unsigned char			pll2_vco_diff_m1; /* 3..5 */
 
 	/* Loop Filter PLL2 */
-	enum rpole2_resistor		rpole2;
-	enum rzero_resistor		rzero;
-	enum cpole1_capacitor		cpole1;
+	unsigned char			rpole2;
+	unsigned char			rzero;
+	unsigned char			cpole1;
 	bool				rzero_bypass_en;
 
 	/* Output Channel Configuration */
