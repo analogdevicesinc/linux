@@ -1,5 +1,7 @@
+#include <dt-bindings/iio/frequency/ad9528.h>
+
 &fmc_spi {
-	clk0_ad9528: ad9528-1@0 {
+	clk0_ad9528: ad9528@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
@@ -16,7 +18,7 @@
 		adi,vcxo-freq = <80000000>;
 
 		/* PLL1 config */
-		adi,ref-mode = <0>;
+		adi,ref-mode = <REF_MODE_STAY_ON_REFB>;
 		adi,refa-diff-rcv-enable;
 		adi,refa-r-div = <1>;
 		adi,refb-r-div = <1>;
@@ -34,65 +36,65 @@
 		adi,pll2-charge-pump-current-nA = <805000>;
 
 		/* SYSREF config */
-		adi,sysref-src = <2>;
+		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
 		adi,sysref-k-div = <20>;
 
-		adi,rpole2 = <0>;
-		adi,rzero = <0>;
-		adi,cpole1 = <2>;
+		adi,rpole2 = <RPOLE2_900_OHM>;
+		adi,rzero = <RZERO_3250_OHM>;
+		adi,cpole1 = <CPOLE1_16_PF>;
 
 		ad9528_0_c1: channel@1 {
 			reg = <1>;
 			adi,extended-name = "FPGA";
-			adi,driver-mode = <0>; /* LVDS */
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
 			adi,channel-divider = <2>;
-			adi,signal-source = <0>;
+			adi,signal-source = <SOURCE_VCO>;
 		};
 
 		ad9528_0_c2: channel@2 {
 			reg = <2>;
 			adi,extended-name = "ADC2-sysref";
-			adi,driver-mode = <0>; /* LVDS */
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
 			adi,channel-divider = <1>;
-			adi,signal-source = <2>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
 		ad9528_0_c3: channel@3 {
 			reg = <3>;
 			adi,extended-name = "ADC2";
-			adi,driver-mode = <0>; /* LVDS */
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
 			adi,channel-divider = <1>;
-			adi,signal-source = <0>;
+			adi,signal-source = <SOURCE_VCO>;
 		};
 
 		ad9528_0_c8: channel@8 {
 			reg = <8>;
 			adi,extended-name = "ADC1";
-			adi,driver-mode = <0>; /* LVDS */
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
 			adi,channel-divider = <1>;
-			adi,signal-source = <0>;
+			adi,signal-source = <SOURCE_VCO>;
 		};
 
 		ad9528_0_c9: channel@9 {
 			reg = <9>;
 			adi,extended-name = "ADC1-sysref";
-			adi,driver-mode = <0>; /* LVDS */
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
 			adi,channel-divider = <1>;
-			adi,signal-source = <2>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
 		ad9528_0_c13: channel@13 {
 			reg = <13>;
 			adi,extended-name = "FPGA-sysref";
-			adi,driver-mode = <0>; /* LVDS */
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
 			adi,channel-divider = <1>;
-			adi,signal-source = <2>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 	};
 
