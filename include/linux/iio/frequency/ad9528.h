@@ -39,6 +39,8 @@ struct ad9528_channel_spec {
  *
  * @vcxo_freq: External VCXO frequency in Hz
  * @spi3wire: SPI 3-Wire mode enable;
+ * @refa_en: REFA input enable.
+ * @refb_en: REFB input enable.
  * @refa_diff_rcv_en: REFA differential/single-ended input selection.
  * @refb_diff_rcv_en: REFB differential/single-ended input selection.
  * @osc_in_diff_en: OSC differential/ single-ended input selection.
@@ -76,6 +78,10 @@ struct ad9528_channel_spec {
 struct ad9528_platform_data {
 	unsigned long			vcxo_freq;
 	bool				spi3wire;
+
+	/* REFA / REFB input configuration */
+	bool				refa_en;
+	bool				refb_en;
 
 	/* Differential/ Single-Ended Input Configuration */
 	bool				refa_diff_rcv_en;
