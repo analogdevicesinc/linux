@@ -899,8 +899,8 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		      AD9528_PLL1_OSC_IN_CMOS_NEG_INP_EN) |
 		AD9528_PLL1_REFB_BYPASS_EN | AD9528_PLL1_REFA_BYPASS_EN |
 		AD9528_PLL1_FEEDBACK_BYPASS_EN,
-		AD_IF(refa_diff_rcv_en, AD9528_PLL1_REFA_RCV_EN) |
-		AD_IF(refb_diff_rcv_en, AD9528_PLL1_REFB_RCV_EN) |
+		AD_IF(refa_en, AD9528_PLL1_REFA_RCV_EN) |
+		AD_IF(refb_en, AD9528_PLL1_REFB_RCV_EN) |
 		AD_IF(osc_in_diff_en, AD9528_PLL1_OSC_IN_DIFF_EN) |
 		AD_IF(osc_in_cmos_neg_inp_en,
 		      AD9528_PLL1_OSC_IN_CMOS_NEG_INP_EN) |
@@ -1165,6 +1165,9 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	tmp = 0;
 	of_property_read_u32(np, "adi,vcxo-freq", &tmp);
 	pdata->vcxo_freq = tmp;
+
+	pdata->refa_en = of_property_read_bool(np, "adi,refa-enable");
+	pdata->refb_en = of_property_read_bool(np, "adi,refb-enable");
 
 	/* Differential/ Single-Ended Input Configuration */
 	pdata->refa_diff_rcv_en = of_property_read_bool(np, "adi,refa-diff-rcv-enable");
