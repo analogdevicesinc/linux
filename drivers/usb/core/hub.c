@@ -5018,7 +5018,8 @@ hub_port_init(struct usb_hub *hub, struct usb_device *udev, int port1,
 			}
 			if (maxp0 < 0) {
 				if (maxp0 != -ENODEV)
-					dev_err(&udev->dev, "device descriptor read/64, error %d\n",
+					dev_err(&udev->dev,
+						"device no response, device descriptor read/64, error %d\n",
 							maxp0);
 				retval = maxp0;
 				continue;
