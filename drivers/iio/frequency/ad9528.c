@@ -25,6 +25,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/frequency/ad9528.h>
+#include <dt-bindings/iio/frequency/ad9528.h>
 
 #define AD9528_READ	(1 << 15)
 #define AD9528_WRITE	(0 << 15)
@@ -229,8 +230,8 @@ enum {
 };
 
 enum {
-	_AD9528_VCO,
-	_AD9528_VCXO,
+	AD9528_VCO,
+	AD9528_VCXO,
 	AD9528_NUM_CLK_SRC,
 };
 
@@ -950,7 +951,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	sysref_ctrl = AD9528_SYSREF_PATTERN_MODE(PATTERN_CONTINUOUS) |
+	sysref_ctrl = AD9528_SYSREF_PATTERN_MODE(SYSREF_PATTERN_CONTINUOUS) |
 			AD9528_SYSREF_SOURCE(pdata->sysref_src);
 	ret = ad9528_write(indio_dev, AD9528_SYSREF_CTRL, sysref_ctrl);
 	if (ret < 0)
