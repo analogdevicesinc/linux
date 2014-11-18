@@ -183,8 +183,6 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	case CHIPID_AD9683:
 	case CHIPID_AD9680:
 	case CHIPID_AD9625:
-	case 0xFF:
-		return 0;
 	case CHIPID_AD9434:	/* TODO */
 		return 0;
 	case CHIPID_AD9265:
@@ -349,7 +347,6 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	case CHIPID_AD9680:
 	case CHIPID_AD9625:
 	case CHIPID_AD9434:
-	case 0xFF:
 		return 0;
 	case CHIPID_AD9265:
 	case CHIPID_AD9652:
@@ -635,7 +632,6 @@ static ssize_t axiadc_testmode_write(struct iio_dev *indio_dev,
 	switch (conv->id) {
 	case CHIPID_AD9680:
 	case CHIPID_AD9234:
-	case 0xFF:
 		ret = ad9680_testmode_set(indio_dev, chan->channel, mode);
 		break;
 	default:
@@ -897,6 +893,16 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	ret |= ad9467_spi_write(spi, 0x201, 0x00);	// full sample rate (decimation = 1)
 	ret |= ad9467_spi_write(spi, 0x550, 0x04);	// test pattern
 	ret |= ad9467_spi_write(spi, 0x561, 0x00);	// offset binary
+
+	ret |= ad9467_spi_write(spi, 0x580, 0x00);	// DID
+	ret |= ad9467_spi_write(spi, 0x581, 0x01);	// BID
+
+	ret |= ad9467_spi_write(spi, 0x583, 0x00);	// lane 0
+	ret |= ad9467_spi_write(spi, 0x585, 0x01);	// lane 1
+	ret |= ad9467_spi_write(spi, 0x587, 0x02);	// lane 2
+	ret |= ad9467_spi_write(spi, 0x589, 0x03);	// lane 3
+
+
 	ret |= ad9467_spi_write(spi, 0x570, 0x88);	// m=2, l=4, f= 1
 	ret |= ad9467_spi_write(spi, 0x58f, ad9234 ? 0x0b : 0x0d);	// 12-bit / 14-bit
 	ret |= ad9467_spi_write(spi, 0x5b2, 0x00);	// serdes-0 = lane 0
@@ -939,8 +945,7 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 	switch (m) {
 	case IIO_CHAN_INFO_SCALE:
 
-		if (conv->id == CHIPID_AD9680 || conv->id == CHIPID_AD9234 ||
-				conv->id == 0xFF) {
+		if (conv->id == CHIPID_AD9680 || conv->id == CHIPID_AD9234) {
 			vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
 		} else {
 			vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
@@ -1008,8 +1013,7 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 		for (i = 0; i < conv->chip_info->num_scales; i++)
 			if (val2 == conv->chip_info->scale_table[i][0]) {
 				if (conv->id == CHIPID_AD9680 ||
-						conv->id == CHIPID_AD9234 ||
-						conv->id == 0xFF) {
+						conv->id == CHIPID_AD9234) {
 					ad9467_spi_write(conv->spi,
 							 AD9680_REG_INPUT_FS_RANGE,
 							 conv->chip_info->
@@ -1133,9 +1137,7 @@ static int ad9467_probe(struct spi_device *spi)
 	if (conv == NULL)
 		return -ENOMEM;
 
-	if (!
-	    (spi_get_device_id(spi)->driver_data == CHIPID_AD9680
-	     || conv->id == 0xFF
+	if (!(spi_get_device_id(spi)->driver_data == CHIPID_AD9680
 	     || spi_get_device_id(spi)->driver_data == CHIPID_AD9625)) {
 		ret = clk_prepare_enable(clk);
 		if (ret < 0)
@@ -1171,15 +1173,10 @@ static int ad9467_probe(struct spi_device *spi)
 	}
 
 	if (conv->id != spi_get_device_id(spi)->driver_data) {
-		if (spi_get_device_id(spi)->driver_data == CHIPID_AD9680
-		    && conv->id == 0xFF) {
-
-		} else {
-			dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n",
-				conv->id);
-			ret = -ENODEV;
-			goto out;
-		}
+		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n",
+			conv->id);
+		ret = -ENODEV;
+		goto out;
 	}
 
 	switch (conv->id) {
@@ -1235,7 +1232,6 @@ static int ad9467_probe(struct spi_device *spi)
 		ret = ad9680_outputmode_set(spi, conv->adc_output_mode);
 		break;
 	case CHIPID_AD9680:
-	case 0xFF:
 		ret = ad9680_setup(spi, 1, 1, false);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize\n");
@@ -1302,7 +1298,6 @@ static int ad9467_probe(struct spi_device *spi)
 	switch (conv->id) {
 	case CHIPID_AD9680:
 	case CHIPID_AD9234:
-	case 0xFF:
 		conv->testmode_set = ad9680_test_and_outputmode_set;
 		break;
 	default:
