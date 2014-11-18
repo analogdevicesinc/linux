@@ -69,6 +69,10 @@ config LOCKDEP_SUPPORT
 config HAVE_LATENCYTOP_SUPPORT
 	def_bool y
 
+config FORCE_MAX_ZONEORDER
+	int
+	default "14"
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
