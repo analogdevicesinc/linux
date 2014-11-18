@@ -88,6 +88,10 @@ config STACKTRACE_SUPPORT
 config LOCKDEP_SUPPORT
 	def_bool y
 
+config FORCE_MAX_ZONEORDER
+	int
+	default "14"
+
 source "arch/microblaze/Kconfig.platform"
 
 menu "Processor type and features"
