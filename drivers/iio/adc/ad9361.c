@@ -5264,7 +5264,8 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	unsigned rx2tx2 = conv->phy->pdata->rx2tx2;
+	struct ad9361_rf_phy *phy = conv->phy;
+	unsigned rx2tx2 = phy->pdata->rx2tx2;
 	unsigned tmp, num_chan;
 	int i, ret;
 
@@ -5293,14 +5294,14 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
 
-	ret = ad9361_dig_tune(conv->phy, (axiadc_read(st, ADI_REG_ID)) ?
+	ret = ad9361_dig_tune(phy, (axiadc_read(st, ADI_REG_ID)) ?
 		0 : 61440000);
 	if (ret < 0)
 		return ret;
 
-	return ad9361_set_trx_clock_chain(conv->phy,
-					 conv->phy->pdata->rx_path_clks,
-					 conv->phy->pdata->tx_path_clks);
+	return ad9361_set_trx_clock_chain(phy,
+					 phy->pdata->rx_path_clks,
+					 phy->pdata->tx_path_clks);
 }
 
 static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
