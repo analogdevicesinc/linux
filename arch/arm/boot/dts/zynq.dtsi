@@ -300,7 +300,7 @@
 			xlnx,has-ecc = <0x0>;
 		} ;
 
-		ps7_ocm_0: ps7-ocm@0xfffc0000 {
+		ps7_ocm_0: ps7-ocm@f800c000 {
 			compatible = "xlnx,ps7-ocmc-1.00.a", "xlnx,zynq-ocmc-1.0";
 			interrupt-parent = <&gic>;
 			interrupts = <0 3 4>;
