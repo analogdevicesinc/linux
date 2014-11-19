@@ -193,17 +193,17 @@ static inline void ad9361_print_timestamp(void)
 {
 	int i;
 
-	pr_dbg("\n--- TRACE START / Points (%d) --- \n", timestamp_cnt);
+	pr_debug("\n--- TRACE START / Points (%d) --- \n", timestamp_cnt);
 
 	for (i = 0; i < timestamp_cnt; i++) {
 		if (i == 0)
-			pr_dbg("[%lld] [%lld] \t%s\t 0x%X\n",
+			pr_debug("[%lld] [%lld] \t%s\t 0x%X\n",
 			timestamps[i].time,
 				0LL,
 				timestamps[i].read ? "REG_RD" : "REG_WR",
 				timestamps[i].reg);
 		else
-			pr_dbg("[%lld] [%12lld] \t%s\t 0x%X\n",
+			pr_debug("[%lld] [%12lld] \t%s\t 0x%X\n",
 			timestamps[i].time,
 				timestamps[i].time - timestamps[i - 1].time,
 				timestamps[i].read ? "REG_RD" : "REG_WR",
@@ -211,7 +211,7 @@ static inline void ad9361_print_timestamp(void)
 
 		}
 
-	pr_dbg("\n--- TRACE END / Time %lld ns --- \n",
+	pr_debug("\n--- TRACE END / Time %lld ns --- \n",
 	       timestamps[timestamp_cnt - 1].time - timestamps[0].time);
 
 	timestamp_cnt = 0;
