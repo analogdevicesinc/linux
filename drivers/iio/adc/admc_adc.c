@@ -140,16 +140,11 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	axiadc_configure_ring_stream(indio_dev, "ad-mc-adc-dma");
 
-	ret = iio_buffer_register(indio_dev, indio_dev->channels,
-				  indio_dev->num_channels);
+	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto err_unconfigure_ring;
 
 	*indio_dev->buffer->scan_mask = (1UL << indio_dev->num_channels) - 1;
-
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto err_iio_unregister_buffer;
 
 	dev_info(&pdev->dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p, probed ADC %s as %s\n",
 		 st->pcore_version,
@@ -158,8 +153,6 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_iio_unregister_buffer:
-	iio_buffer_unregister(indio_dev);
 err_unconfigure_ring:
 	axiadc_unconfigure_ring_stream(indio_dev);
 
@@ -171,7 +164,6 @@ static int axiadc_remove(struct platform_device *pdev)
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
 	iio_device_unregister(indio_dev);
-	iio_buffer_unregister(indio_dev);
 	axiadc_unconfigure_ring(indio_dev);
 
 	return 0;

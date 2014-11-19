@@ -519,6 +519,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
 	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
 	{ .compatible =	"xlnx,axi-adc-1c-1.00.a", },
+	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &ad9680_6_00_a_info },
 	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &ad9680_6_00_a_info },
 	{ .compatible =	"xlnx,axi-ad9683-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9625-1.00.a", },
@@ -676,20 +677,15 @@ static int axiadc_probe(struct platform_device *pdev)
 			axiadc_configure_ring_stream(indio_dev, NULL);
 		else
 			axiadc_configure_ring(indio_dev, NULL);
-
-		ret = iio_buffer_register(indio_dev,
-					indio_dev->channels,
-					indio_dev->num_channels);
-		if (ret)
-			goto err_unconfigure_ring;
-
-		*indio_dev->buffer->scan_mask =
-			(1UL << conv->chip_info->num_channels) - 1;
 	}
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto err_iio_buffer_unregister;
+		goto err_unconfigure_ring;
+
+	if (indio_dev->buffer && indio_dev->buffer->scan_mask)
+		*indio_dev->buffer->scan_mask =
+			(1UL << conv->chip_info->num_channels) - 1;
 
 	dev_info(&pdev->dev, "ADI AIM (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,"
 		 " probed ADC %s as %s\n",
@@ -707,9 +703,6 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_iio_buffer_unregister:
-	if (!st->dp_disable)
-		iio_buffer_unregister(indio_dev);
 err_unconfigure_ring:
 	if (!st->dp_disable) {
 		if (st->streaming_dma)
@@ -739,7 +732,6 @@ static int axiadc_remove(struct platform_device *pdev)
 
 	iio_device_unregister(indio_dev);
 	if (!st->dp_disable) {
-		iio_buffer_unregister(indio_dev);
 		if (st->streaming_dma)
 			axiadc_unconfigure_ring_stream(indio_dev);
 		else
