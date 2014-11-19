@@ -192,8 +192,8 @@
 			adi,sync-transfer-start = <0x1>;
 
 			dma-channel {
-				adi,source-bus-width = <256>;
-				adi,destination-bus-width = <256>;
+				adi,source-bus-width = <64>;
+				adi,destination-bus-width = <64>;
 				//adi,buswidth = <256>;
 				adi,type = <0>;
 			};
