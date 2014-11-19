@@ -17,11 +17,19 @@
 #include <linux/of.h>
 #include <linux/clk.h>
 #include <linux/gpio/consumer.h>
+#include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include "ad9144.h"
 #include "cf_axi_dds.h"
+
+struct ad9144_platform_data {
+	u8 xbar_lane0_sel;
+	u8 xbar_lane1_sel;
+	u8 xbar_lane2_sel;
+	u8 xbar_lane3_sel;
+};
 
 static const char *clk_names[3] = { "jesd_clk", "dac_clk", "dac_sysref" };
 
@@ -69,16 +77,18 @@ static int ad9144_get_temperature_code(struct cf_axi_converter *conv)
 //      return 0;
 // }
 
-static int ad9144_setup(struct cf_axi_converter *conv, unsigned mode)
+static int ad9144_setup(struct cf_axi_converter *conv, struct ad9144_platform_data *pdata)
 {
 	struct spi_device *spi = conv->spi;
 
 	// power-up and dac initialization
 
-	mdelay(50);
+	mdelay(5);
 
 	ad9144_write(spi, REG_SPI_INTFCONFA, SOFTRESET_M | SOFTRESET);	// reset
 	ad9144_write(spi, REG_SPI_INTFCONFA, 0x00);	// reset
+
+	mdelay(4);
 
 	ad9144_write(spi, 0x011, 0x00);	// dacs - power up everything
 	ad9144_write(spi, 0x080, 0x00);	// clocks - power up everything
@@ -147,8 +157,10 @@ static int ad9144_setup(struct cf_axi_converter *conv, unsigned mode)
 
 	// cross-bar
 
-	ad9144_write(spi, 0x308, 0x18);	// lane selects
-	ad9144_write(spi, 0x309, 0x11);	// lane selects
+	ad9144_write(spi, REG_XBAR_LN_0_1, SRC_LANE0(pdata->xbar_lane0_sel) |
+		SRC_LANE1(pdata->xbar_lane1_sel));	// lane selects
+	ad9144_write(spi, REG_XBAR_LN_2_3, SRC_LANE2(pdata->xbar_lane2_sel) |
+		SRC_LANE3(pdata->xbar_lane3_sel));	// lane selects
 
 	// data link layer
 
@@ -336,12 +348,61 @@ static int ad9144_prepare(struct cf_axi_converter *conv)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct ad9144_platform_data *pdata;
+	unsigned int tmp;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+
+	tmp = 0;
+	of_property_read_u32(np, "adi,jesd-xbar-lane0-sel", &tmp);
+	pdata->xbar_lane0_sel = tmp;
+
+	tmp = 1;
+	of_property_read_u32(np, "adi,jesd-xbar-lane1-sel", &tmp);
+	pdata->xbar_lane1_sel = tmp;
+
+	tmp = 2;
+	of_property_read_u32(np, "adi,jesd-xbar-lane2-sel", &tmp);
+	pdata->xbar_lane2_sel = tmp;
+
+	tmp = 3;
+	of_property_read_u32(np, "adi,jesd-xbar-lane3-sel", &tmp);
+	pdata->xbar_lane3_sel = tmp;
+
+	return pdata;
+}
+#else
+static
+struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int ad9144_probe(struct spi_device *spi)
 {
-	//struct device_node *np = spi->dev.of_node;
 	struct cf_axi_converter *conv;
+	struct ad9144_platform_data *pdata;
 	unsigned id;
 	int ret;
+
+	if (spi->dev.of_node)
+		pdata = ad9144_parse_dt(&spi->dev);
+	else
+		pdata = spi->dev.platform_data;
+
+	if (!pdata) {
+		dev_err(&spi->dev, "no platform data?\n");
+		return -EINVAL;
+	}
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
@@ -384,7 +445,7 @@ static int ad9144_probe(struct spi_device *spi)
 		goto out;
 	}
 
-	ret = ad9144_setup(conv, 0);
+	ret = ad9144_setup(conv, pdata);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
