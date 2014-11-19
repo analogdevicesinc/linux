@@ -354,13 +354,11 @@ struct axiadc_state {
 	struct iio_chan_spec	channels[16];
 };
 
-struct ad9361_rf_phy;
-
 struct axiadc_converter {
 	struct spi_device 	*spi;
 	struct clk 		*clk;
-	struct ad9361_rf_phy *phy;
-	struct gpio_desc			*pwrdown_gpio;
+	void 			*phy;
+	struct gpio_desc		*pwrdown_gpio;
 	unsigned			id;
 	unsigned			adc_output_mode;
 	unsigned 		testmode[2];
