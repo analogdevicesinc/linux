@@ -398,19 +398,56 @@ start_rng:
 
 /**
  * caam_get_era() - Return the ERA of the SEC on SoC, based
- * on "sec-era" propery in the DTS. This property is updated by u-boot.
+ * on the SEC_VID register.
+ * Returns the ERA number (1..4) or -ENOTSUPP if the ERA is unknown.
+ * @caam_id - the value of the SEC_VID register
  **/
-int caam_get_era(void)
+int caam_get_era(u64 caam_id)
 {
-	struct device_node *caam_node;
-	int ret;
-	u32 prop;
+	struct sec_vid sec_vid;
+	static const struct {
+		u16 ip_id;
+		u8 maj_rev;
+		u8 era;
+	} caam_eras[] = {
+		{0x0A10, 1, 1},
+		{0x0A10, 2, 2},
+		{0x0A12, 1, 3},
+		{0x0A14, 1, 3},
+		{0x0A10, 3, 4},
+		{0x0A11, 1, 4},
+		{0x0A14, 2, 4},
+		{0x0A16, 1, 4},
+		{0x0A18, 1, 4},
+		{0x0A11, 2, 5},
+		{0x0A12, 2, 5},
+		{0x0A13, 1, 5},
+		{0x0A1C, 1, 5},
+		{0x0A12, 4, 6},
+		{0x0A13, 2, 6},
+		{0x0A16, 2, 6},
+		{0x0A17, 1, 6},
+		{0x0A18, 2, 6},
+		{0x0A1A, 1, 6},
+		{0x0A1C, 2, 6},
+		{0x0A14, 3, 7},
+		{0x0A10, 4, 8},
+		{0x0A11, 3, 8},
+		{0x0A11, 4, 8},
+		{0x0A12, 5, 8},
+		{0x0A16, 3, 8},
+	};
+	int i;
 
-	caam_node = of_find_compatible_node(NULL, NULL, "fsl,sec-v4.0");
-	ret = of_property_read_u32(caam_node, "fsl,sec-era", &prop);
-	of_node_put(caam_node);
+	sec_vid.ip_id = caam_id >> SEC_VID_IPID_SHIFT;
+	sec_vid.maj_rev = (caam_id & SEC_VID_MAJ_MASK) >> SEC_VID_MAJ_SHIFT;
 
-	return ret ? -ENOTSUPP : prop;
+	for (i = 0; i < ARRAY_SIZE(caam_eras); i++)
+		if (caam_eras[i].ip_id == sec_vid.ip_id &&
+		    caam_eras[i].maj_rev == sec_vid.maj_rev)
+			return caam_eras[i].era;
+
+	return -ENOTSUPP;
 }
 EXPORT_SYMBOL(caam_get_era);
 
@@ -768,7 +805,7 @@ static int caam_probe(struct platform_device *pdev)
 
 	/* Report "alive" for developer to see */
 	dev_info(dev, "device ID = 0x%016llx (Era %d)\n", caam_id,
-		 caam_get_era());
+		 caam_get_era(caam_id));
 	dev_info(dev, "job rings = %d, qi = %d, dpaa2 = %s\n",
 		 ctrlpriv->total_jobrs, ctrlpriv->qi_present,
 		 caam_dpaa2 ? "yes" : "no");
