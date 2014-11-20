@@ -5137,7 +5137,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 		memset(field, 0, 32);
 		for (k = 0; k < 2; k++) {
 			if (max_freq)
-				ad9361_set_trx_clock_chain_freq(phy, k ? max_freq : 30720000UL); /* 10000000UL */
+				ad9361_set_trx_clock_chain_freq(phy, k ? 45000000UL : 15000000UL); /* 10000000UL */
 		for (i = 0; i < 2; i++) {
 			for (j = 0; j < 16; j++) {
 				ad9361_spi_write(phy->spi,
