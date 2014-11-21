@@ -121,6 +121,7 @@ static int ad_sd_read_reg_raw(struct ad_sigma_delta *sigma_delta,
 	if (sigma_delta->info->has_registers) {
 		data[0] = reg << sigma_delta->info->addr_shift;
 		data[0] |= sigma_delta->info->read_mask;
+		data[0] |= sigma_delta->comm;
 		spi_message_add_tail(&t[0], &m);
 	}
 	spi_message_add_tail(&t[1], &m);
@@ -502,7 +503,8 @@ int ad_sd_setup_buffer_and_trigger(struct iio_dev *indio_dev)
 	int ret;
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-			&ad_sd_trigger_handler, &ad_sd_buffer_setup_ops);
+			&ad_sd_trigger_handler, &ad_sd_buffer_setup_ops
+			);
 	if (ret)
 		return ret;
 

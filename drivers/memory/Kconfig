@@ -75,4 +75,10 @@ config FSL_IFC
 	bool
 	depends on FSL_SOC
 
+config PL353_SMC
+	bool "ARM PL353 Static Memory Controller(SMC) driver"
+	default y
+	depends on ARM
+	help
+	  This driver is for the ARM PL353 Static Memory Controller(SMC) module.
 endif

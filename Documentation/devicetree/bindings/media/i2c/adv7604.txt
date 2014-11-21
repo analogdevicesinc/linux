@@ -4,11 +4,10 @@ The ADV7604 and ADV7611 are multiformat video decoders with an integrated HDMI
 receiver. The ADV7604 has four multiplexed HDMI inputs and one analog input,
 and the ADV7611 has one HDMI input and no analog input.
 
-These device tree bindings support the ADV7611 only at the moment.
-
 Required Properties:
 
   - compatible: Must contain one of the following
+    - "adi,adv7604" for the ADV7604
     - "adi,adv7611" for the ADV7611
 
   - reg: I2C slave address

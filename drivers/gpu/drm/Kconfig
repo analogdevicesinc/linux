@@ -72,7 +72,7 @@ config DRM_GEM_CMA_HELPER
 	  Choose this if you need the GEM CMA helper functions
 
 config DRM_KMS_CMA_HELPER
-	bool
+	bool	
 	select DRM_GEM_CMA_HELPER
 	select DRM_KMS_FB_HELPER
 	select FB_SYS_FILLRECT
@@ -169,6 +169,14 @@ config DRM_SAVAGE
 	  Choose this option if you have a Savage3D/4/SuperSavage/Pro/Twister
 	  chipset. If M is selected the module will be called savage.
 
+config DRM_ENCODER_ADV7511
+	tristate "AV7511 encoder"
+	depends on DRM && I2C
+	select REGMAP_I2C
+	select HDMI
+
+source "drivers/gpu/drm/adi_axi_hdmi/Kconfig"
+
 source "drivers/gpu/drm/exynos/Kconfig"
 
 source "drivers/gpu/drm/vmwgfx/Kconfig"
@@ -204,3 +212,7 @@ source "drivers/gpu/drm/tegra/Kconfig"
 source "drivers/gpu/drm/panel/Kconfig"
 
 source "drivers/gpu/drm/sti/Kconfig"
+
+source "drivers/gpu/drm/xilinx/Kconfig"
+
+source "drivers/gpu/drm/xylon/Kconfig"

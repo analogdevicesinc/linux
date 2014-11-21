@@ -233,15 +233,26 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 	if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
 		return -EINVAL;
 
-	raw_spin_lock(&irq_controller_lock);
+	/* raw_spin_lock(&irq_controller_lock); */
 	mask = 0xff << shift;
 	bit = gic_cpu_map[cpu] << shift;
 	val = readl_relaxed(reg) & ~mask;
 	writel_relaxed(val | bit, reg);
-	raw_spin_unlock(&irq_controller_lock);
+	/* raw_spin_unlock(&irq_controller_lock); */
 
 	return IRQ_SET_MASK_OK;
 }
+
+void gic_set_cpu(unsigned int cpu, unsigned int irq)
+{
+	struct irq_data *d = irq_get_irq_data(irq);
+	struct cpumask mask;
+
+	cpumask_clear(&mask);
+	cpumask_set_cpu(cpu, &mask);
+	gic_set_affinity(d, &mask, true);
+}
+EXPORT_SYMBOL(gic_set_cpu);
 #endif
 
 #ifdef CONFIG_PM
@@ -600,12 +611,13 @@ static void __init gic_pm_init(struct gic_chip_data *gic)
 #endif
 
 #ifdef CONFIG_SMP
-static void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
+void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 {
 	int cpu;
-	unsigned long flags, map = 0;
+	/* unsigned long flags; */
+	unsigned long map = 0;
 
-	raw_spin_lock_irqsave(&irq_controller_lock, flags);
+/*	raw_spin_lock_irqsave(&irq_controller_lock, flags); */
 
 	/* Convert our logical CPU mask into a physical one. */
 	for_each_cpu(cpu, mask)
@@ -620,8 +632,9 @@ static void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	/* this always happens on GIC0 */
 	writel_relaxed(map << 16 | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
 
-	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
+/*	raw_spin_unlock_irqrestore(&irq_controller_lock, flags); */
 }
+EXPORT_SYMBOL(gic_raise_softirq);
 #endif
 
 #ifdef CONFIG_BL_SWITCHER

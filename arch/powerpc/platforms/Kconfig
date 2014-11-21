@@ -331,6 +331,13 @@ config FSL_ULI1575
 config CPM
 	bool
 
+config XILINX_VIRTEX
+	bool
+	select PPC_DCR_MMIO
+	select PPC_DCR_NATIVE
+	help
+	  Support for Xilinx Virtex platforms.
+
 config OF_RTC
 	bool
 	help

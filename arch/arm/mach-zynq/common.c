@@ -54,10 +54,17 @@ void __iomem *zynq_scu_base;
  * zynq_memory_init - Initialize special memory
  *
  * We need to stop things allocating the low memory as DMA can't work in
- * the 1st 512K of memory.
+ * the 1st 512K of memory.  Using reserve vs remove is not totally clear yet.
  */
 static void __init zynq_memory_init(void)
 {
+	/*
+	 * Reserve the 0-0x4000 addresses (before swapper page tables
+	 * and kernel) which can't be used for DMA.
+	 * 0x0 - 0x4000 - reserving below not to be used by DMA
+	 * 0x4000 - 0x8000 swapper page table
+	 * 0x8000 - 0x80000 kernel .text
+	 */
 	if (!__pa(PAGE_OFFSET))
 		memblock_reserve(__pa(PAGE_OFFSET), __pa(swapper_pg_dir));
 }
@@ -65,6 +72,13 @@ static void __init zynq_memory_init(void)
 static struct platform_device zynq_cpuidle_device = {
 	.name = "cpuidle-zynq",
 };
+
+static void __init zynq_init_late(void)
+{
+	zynq_pm_late_init();
+	zynq_core_pm_init();
+	zynq_prefetch_init();
+}
 
 /**
  * zynq_get_revision - Get Zynq silicon revision
@@ -204,6 +218,7 @@ DT_MACHINE_START(XILINX_EP107, "Xilinx Zynq Platform")
 	.map_io		= zynq_map_io,
 	.init_irq	= zynq_irq_init,
 	.init_machine	= zynq_init_machine,
+	.init_late	= zynq_init_late,
 	.init_time	= zynq_timer_init,
 	.dt_compat	= zynq_dt_match,
 	.reserve	= zynq_memory_init,

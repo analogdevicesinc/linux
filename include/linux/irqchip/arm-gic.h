@@ -83,6 +83,9 @@ void gic_init_bases(unsigned int, int, void __iomem *, void __iomem *,
 		    u32 offset, struct device_node *);
 void gic_cascade_irq(unsigned int gic_nr, unsigned int irq);
 void gic_cpu_if_down(void);
+void gic_raise_softirq(const struct cpumask *mask, unsigned int irq);
+
+void gic_set_cpu(unsigned int cpu, unsigned int irq);
 
 static inline void gic_init(unsigned int nr, int start,
 			    void __iomem *dist , void __iomem *cpu)

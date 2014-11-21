@@ -36,6 +36,7 @@
 #include <linux/v4l2-dv-timings.h>
 #include <linux/videodev2.h>
 #include <linux/workqueue.h>
+#include <linux/of_graph.h>
 
 #include <media/adv7604.h>
 #include <media/v4l2-ctrls.h>

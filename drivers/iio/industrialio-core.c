@@ -25,7 +25,9 @@
 #include <linux/slab.h>
 #include <linux/anon_inodes.h>
 #include <linux/debugfs.h>
+
 #include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
 #include "iio_core.h"
 #include "iio_core_trigger.h"
 #include <linux/iio/sysfs.h>
@@ -101,12 +103,15 @@ static const char * const iio_chan_info_postfix[] = {
 	[IIO_CHAN_INFO_OFFSET] = "offset",
 	[IIO_CHAN_INFO_CALIBSCALE] = "calibscale",
 	[IIO_CHAN_INFO_CALIBBIAS] = "calibbias",
+	[IIO_CHAN_INFO_CALIBPHASE] = "calibphase",
 	[IIO_CHAN_INFO_PEAK] = "peak_raw",
 	[IIO_CHAN_INFO_PEAK_SCALE] = "peak_scale",
 	[IIO_CHAN_INFO_QUADRATURE_CORRECTION_RAW] = "quadrature_correction_raw",
 	[IIO_CHAN_INFO_AVERAGE_RAW] = "mean_raw",
 	[IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY]
 	= "filter_low_pass_3db_frequency",
+	[IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY]
+	= "filter_high_pass_3db_frequency",
 	[IIO_CHAN_INFO_SAMP_FREQ] = "sampling_frequency",
 	[IIO_CHAN_INFO_FREQUENCY] = "frequency",
 	[IIO_CHAN_INFO_PHASE] = "phase",
@@ -172,7 +177,7 @@ static void __exit iio_exit(void)
 	if (iio_devt)
 		unregister_chrdev_region(iio_devt, IIO_DEV_MAX);
 	bus_unregister(&iio_bus_type);
-	debugfs_remove(iio_debugfs_dentry);
+	debugfs_remove_recursive(iio_debugfs_dentry);
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -257,6 +262,9 @@ static int iio_device_register_debugfs(struct iio_dev *indio_dev)
 	indio_dev->debugfs_dentry =
 		debugfs_create_dir(dev_name(&indio_dev->dev),
 				   iio_debugfs_dentry);
+	if (IS_ERR(indio_dev->debugfs_dentry))
+		return PTR_ERR(indio_dev->debugfs_dentry);
+
 	if (indio_dev->debugfs_dentry == NULL) {
 		dev_warn(indio_dev->dev.parent,
 			 "Failed to create debugfs directory\n");
@@ -384,7 +392,7 @@ EXPORT_SYMBOL_GPL(iio_enum_write);
  */
 ssize_t iio_format_value(char *buf, unsigned int type, int size, int *vals)
 {
-	unsigned long long tmp;
+	s64 tmp;
 	bool scale_db = false;
 
 	switch (type) {
@@ -408,14 +416,19 @@ ssize_t iio_format_value(char *buf, unsigned int type, int size, int *vals)
 			return sprintf(buf, "%d.%09u\n", vals[0], vals[1]);
 	case IIO_VAL_FRACTIONAL:
 		tmp = div_s64((s64)vals[0] * 1000000000LL, vals[1]);
-		vals[1] = do_div(tmp, 1000000000LL);
-		vals[0] = tmp;
+		vals[0] = div_s64_rem(tmp, 1000000000LL, &vals[1]);
+		if (vals[1] < 0)
+			return sprintf(buf, "-%ld.%09u\n", abs(vals[0]), -vals[1]);
+		else
+			return sprintf(buf, "%d.%09u\n", vals[0], vals[1]);
 		return sprintf(buf, "%d.%09u\n", vals[0], vals[1]);
 	case IIO_VAL_FRACTIONAL_LOG2:
 		tmp = (s64)vals[0] * 1000000000LL >> vals[1];
-		vals[1] = do_div(tmp, 1000000000LL);
-		vals[0] = tmp;
-		return sprintf(buf, "%d.%09u\n", vals[0], vals[1]);
+		vals[0] = div_s64_rem(tmp, 1000000000LL, &vals[1]);
+		if (vals[1] < 0)
+			return sprintf(buf, "-%ld.%09u\n", abs(vals[0]), -vals[1]);
+		else
+			return sprintf(buf, "%d.%09u\n", vals[0], vals[1]);
 	case IIO_VAL_INT_MULTIPLE:
 	{
 		int i;
@@ -1090,7 +1103,10 @@ static int iio_chrdev_release(struct inode *inode, struct file *filp)
 {
 	struct iio_dev *indio_dev = container_of(inode->i_cdev,
 						struct iio_dev, chrdev);
+
 	clear_bit(IIO_BUSY_BIT_POS, &indio_dev->flags);
+	if (indio_dev->buffer)
+		iio_buffer_free_blocks(indio_dev->buffer);
 	iio_device_put(indio_dev);
 
 	return 0;
@@ -1107,16 +1123,29 @@ static long iio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (!indio_dev->info)
 		return -ENODEV;
 
-	if (cmd == IIO_GET_EVENT_FD_IOCTL) {
+	switch (cmd) {
+	case IIO_GET_EVENT_FD_IOCTL:
 		fd = iio_event_getfd(indio_dev);
 		if (copy_to_user(ip, &fd, sizeof(fd)))
 			return -EFAULT;
 		return 0;
+	default:
+		if (indio_dev->buffer)
+			return iio_buffer_ioctl(indio_dev, filp, cmd, arg);
 	}
 	return -EINVAL;
 }
 
-static const struct file_operations iio_buffer_fileops = {
+static const struct file_operations iio_buffer_none_fileops = {
+	.release = iio_chrdev_release,
+	.open = iio_chrdev_open,
+	.owner = THIS_MODULE,
+	.llseek = noop_llseek,
+	.unlocked_ioctl = iio_ioctl,
+	.compat_ioctl = iio_ioctl,
+};
+
+static const struct file_operations iio_buffer_in_fileops = {
 	.read = iio_buffer_read_first_n_outer_addr,
 	.release = iio_chrdev_release,
 	.open = iio_chrdev_open,
@@ -1125,9 +1154,22 @@ static const struct file_operations iio_buffer_fileops = {
 	.llseek = noop_llseek,
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = iio_ioctl,
+	.mmap = iio_buffer_mmap,
 };
 
 static const struct iio_buffer_setup_ops noop_ring_setup_ops;
+
+static const struct file_operations iio_buffer_out_fileops = {
+	.write = iio_buffer_chrdev_write,
+	.release = iio_chrdev_release,
+	.open = iio_chrdev_open,
+	.poll = iio_buffer_poll_addr,
+	.owner = THIS_MODULE,
+	.llseek = noop_llseek,
+	.unlocked_ioctl = iio_ioctl,
+	.compat_ioctl = iio_ioctl,
+	.mmap = iio_buffer_mmap,
+};
 
 /**
  * iio_device_register() - register a device with the IIO subsystem
@@ -1135,6 +1177,7 @@ static const struct iio_buffer_setup_ops noop_ring_setup_ops;
  **/
 int iio_device_register(struct iio_dev *indio_dev)
 {
+	const struct file_operations *fops;
 	int ret;
 
 	/* If the calling driver did not initialize of_node, do it here */
@@ -1150,11 +1193,19 @@ int iio_device_register(struct iio_dev *indio_dev)
 			"Failed to register debugfs interfaces\n");
 		return ret;
 	}
+
+	ret = iio_buffer_alloc_sysfs(indio_dev);
+	if (ret) {
+		dev_err(indio_dev->dev.parent,
+			"Failed to create buffer sysfs interfaces\n");
+		goto error_unreg_debugfs;
+	}
+
 	ret = iio_device_register_sysfs(indio_dev);
 	if (ret) {
 		dev_err(indio_dev->dev.parent,
 			"Failed to register sysfs interfaces\n");
-		goto error_unreg_debugfs;
+		goto error_buffer_free_sysfs;
 	}
 	ret = iio_device_register_eventset(indio_dev);
 	if (ret) {
@@ -1169,7 +1220,16 @@ int iio_device_register(struct iio_dev *indio_dev)
 		indio_dev->setup_ops == NULL)
 		indio_dev->setup_ops = &noop_ring_setup_ops;
 
-	cdev_init(&indio_dev->chrdev, &iio_buffer_fileops);
+	if (indio_dev->buffer) {
+		if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
+			fops = &iio_buffer_in_fileops;
+		else
+			fops = &iio_buffer_out_fileops;
+	} else {
+		fops = &iio_buffer_none_fileops;
+	}
+
+	cdev_init(&indio_dev->chrdev, fops);
 	indio_dev->chrdev.owner = indio_dev->info->driver_module;
 	indio_dev->chrdev.kobj.parent = &indio_dev->dev.kobj;
 	ret = cdev_add(&indio_dev->chrdev, indio_dev->dev.devt, 1);
@@ -1187,6 +1247,8 @@ error_unreg_eventset:
 	iio_device_unregister_eventset(indio_dev);
 error_free_sysfs:
 	iio_device_unregister_sysfs(indio_dev);
+error_buffer_free_sysfs:
+	iio_buffer_free_sysfs(indio_dev);
 error_unreg_debugfs:
 	iio_device_unregister_debugfs(indio_dev);
 	return ret;
@@ -1215,6 +1277,8 @@ void iio_device_unregister(struct iio_dev *indio_dev)
 	iio_buffer_wakeup_poll(indio_dev);
 
 	mutex_unlock(&indio_dev->info_exist_lock);
+
+	iio_buffer_free_sysfs(indio_dev);
 }
 EXPORT_SYMBOL(iio_device_unregister);
 

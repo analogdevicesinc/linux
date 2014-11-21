@@ -160,10 +160,6 @@ struct v4l2_subdev_core_ops {
 	int (*try_ext_ctrls)(struct v4l2_subdev *sd, struct v4l2_ext_controls *ctrls);
 	int (*querymenu)(struct v4l2_subdev *sd, struct v4l2_querymenu *qm);
 	long (*ioctl)(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
-#ifdef CONFIG_COMPAT
-	long (*compat_ioctl32)(struct v4l2_subdev *sd, unsigned int cmd,
-			       unsigned long arg);
-#endif
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	int (*g_register)(struct v4l2_subdev *sd, struct v4l2_dbg_register *reg);
 	int (*s_register)(struct v4l2_subdev *sd, const struct v4l2_dbg_register *reg);
@@ -194,7 +190,6 @@ struct v4l2_subdev_tuner_ops {
 	int (*s_radio)(struct v4l2_subdev *sd);
 	int (*s_frequency)(struct v4l2_subdev *sd, const struct v4l2_frequency *freq);
 	int (*g_frequency)(struct v4l2_subdev *sd, struct v4l2_frequency *freq);
-	int (*enum_freq_bands)(struct v4l2_subdev *sd, struct v4l2_frequency_band *band);
 	int (*g_tuner)(struct v4l2_subdev *sd, struct v4l2_tuner *vt);
 	int (*s_tuner)(struct v4l2_subdev *sd, const struct v4l2_tuner *vt);
 	int (*g_modulator)(struct v4l2_subdev *sd, struct v4l2_modulator *vm);
@@ -526,6 +521,10 @@ struct v4l2_subdev_pad_ops {
 			      struct v4l2_mbus_frame_desc *fd);
 	int (*set_frame_desc)(struct v4l2_subdev *sd, unsigned int pad,
 			      struct v4l2_mbus_frame_desc *fd);
+	int (*get_routing)(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_routing *route);
+	int (*set_routing)(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_routing *route);
 };
 
 struct v4l2_subdev_ops {

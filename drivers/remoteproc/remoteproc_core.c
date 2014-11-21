@@ -689,10 +689,15 @@ static int rproc_count_vrings(struct rproc *rproc, struct fw_rsc_vdev *rsc,
  * enum fw_resource_type.
  */
 static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
-	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
+	[RSC_CARVEOUT] = NULL, /* Register carveouts separately */
 	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
 	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
 	[RSC_VDEV] = NULL, /* VDEVs were handled upon registrarion */
+	[RSC_MMU] = NULL, /* For firmware purpose */
+};
+
+static rproc_handle_resource_t rproc_carveout_handlers[RSC_LAST] = {
+	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
 };
 
 static rproc_handle_resource_t rproc_vdev_handler[RSC_LAST] = {
@@ -922,6 +927,12 @@ static void rproc_fw_config_virtio(const struct firmware *fw, void *context)
 
 	/* count the number of notify-ids */
 	rproc->max_notifyid = -1;
+
+	/* look for carveout areas and register them first */
+	ret = rproc_handle_resources(rproc, tablesz, rproc_carveout_handlers);
+	if (ret)
+		goto out;
+
 	ret = rproc_handle_resources(rproc, tablesz, rproc_count_vrings_handler);
 	if (ret)
 		goto out;

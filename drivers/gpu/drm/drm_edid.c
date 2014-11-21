@@ -66,6 +66,8 @@
 #define EDID_QUIRK_FIRST_DETAILED_PREFERRED	(1 << 5)
 /* use +hsync +vsync for detailed mode */
 #define EDID_QUIRK_DETAILED_SYNC_PP		(1 << 6)
+/* No or broken YCrCb input support */
+#define EDID_QUIRK_NO_YCRCB		(1 << 7)
 /* Force reduced-blanking timings for detailed modes */
 #define EDID_QUIRK_FORCE_REDUCED_BLANKING	(1 << 7)
 /* Force 8bpc */
@@ -126,6 +128,9 @@ static struct edid_quirk {
 	/* Samsung SyncMaster 22[5-6]BW */
 	{ "SAM", 596, EDID_QUIRK_PREFER_LARGE_60 },
 	{ "SAM", 638, EDID_QUIRK_PREFER_LARGE_60 },
+
+	/* Denon AVR */
+	{ "DON", 25, EDID_QUIRK_NO_YCRCB },
 
 	/* Sony PVM-2541A does up to 12 bpc, but only reports max 8 bpc */
 	{ "SNY", 0x2541, EDID_QUIRK_FORCE_12BPC },
@@ -1125,9 +1130,10 @@ EXPORT_SYMBOL(drm_edid_is_valid);
  * Return: 0 on success or -1 on failure.
  */
 static int
-drm_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf,
+drm_do_probe_ddc_edid(void *data, unsigned char *buf,
 		      int block, int len)
 {
+	struct i2c_adapter *adapter = data;
 	unsigned char start = block * EDID_LENGTH;
 	unsigned char segment = block >> 1;
 	unsigned char xfers = segment ? 3 : 2;
@@ -1184,8 +1190,8 @@ static bool drm_edid_is_zero(u8 *in_edid, int length)
 	return true;
 }
 
-static u8 *
-drm_do_get_edid(struct drm_connector *connector, struct i2c_adapter *adapter)
+struct edid *drm_do_get_edid(struct drm_connector *connector,
+	int (*get_edid_block)(void *, unsigned char *buf, int, int), void *data)
 {
 	int i, j = 0, valid_extensions = 0;
 	u8 *block, *new;
@@ -1196,7 +1202,7 @@ drm_do_get_edid(struct drm_connector *connector, struct i2c_adapter *adapter)
 
 	/* base block fetch */
 	for (i = 0; i < 4; i++) {
-		if (drm_do_probe_ddc_edid(adapter, block, 0, EDID_LENGTH))
+		if (get_edid_block(data, block, 0, EDID_LENGTH))
 			goto out;
 		if (drm_edid_block_valid(block, 0, print_bad_edid))
 			break;
@@ -1210,7 +1216,7 @@ drm_do_get_edid(struct drm_connector *connector, struct i2c_adapter *adapter)
 
 	/* if there's no extensions, we're done */
 	if (block[0x7e] == 0)
-		return block;
+		return (struct edid *)block;
 
 	new = krealloc(block, (block[0x7e] + 1) * EDID_LENGTH, GFP_KERNEL);
 	if (!new)
@@ -1219,7 +1225,7 @@ drm_do_get_edid(struct drm_connector *connector, struct i2c_adapter *adapter)
 
 	for (j = 1; j <= block[0x7e]; j++) {
 		for (i = 0; i < 4; i++) {
-			if (drm_do_probe_ddc_edid(adapter,
+			if (get_edid_block(data,
 				  block + (valid_extensions + 1) * EDID_LENGTH,
 				  j, EDID_LENGTH))
 				goto out;
@@ -1247,7 +1253,7 @@ drm_do_get_edid(struct drm_connector *connector, struct i2c_adapter *adapter)
 		block = new;
 	}
 
-	return block;
+	return (struct edid *)block;
 
 carp:
 	if (print_bad_edid) {
@@ -1260,6 +1266,7 @@ out:
 	kfree(block);
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(drm_do_get_edid);
 
 /**
  * drm_probe_ddc() - probe DDC presence
@@ -1292,7 +1299,7 @@ struct edid *drm_get_edid(struct drm_connector *connector,
 	struct edid *edid = NULL;
 
 	if (drm_probe_ddc(adapter))
-		edid = (struct edid *)drm_do_get_edid(connector, adapter);
+		edid = drm_do_get_edid(connector, drm_do_probe_ddc_edid, adapter);
 
 	return edid;
 }
@@ -3667,6 +3674,11 @@ int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 		edid_fixup_preferred(connector, quirks);
 
 	drm_add_display_info(edid, &connector->display_info, connector);
+
+	if (quirks & EDID_QUIRK_NO_YCRCB) {
+		connector->display_info.color_formats &=
+			~(DRM_COLOR_FORMAT_YCRCB444 | DRM_COLOR_FORMAT_YCRCB422);
+	}
 
 	if (quirks & EDID_QUIRK_FORCE_8BPC)
 		connector->display_info.bpc = 8;

@@ -69,6 +69,10 @@ config LOCKDEP_SUPPORT
 config HAVE_LATENCYTOP_SUPPORT
 	def_bool y
 
+config FORCE_MAX_ZONEORDER
+	int
+	default "14"
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
@@ -272,6 +276,11 @@ config PCI_SYSCALL
 config PCI_XILINX
 	bool "Xilinx PCI host bridge support"
 	depends on PCI
+
+config XILINX_AXIPCIE
+	bool "Xilinx AXI PCIe host bridge support"
+	depends on PCI
+	select ARCH_SUPPORTS_MSI
 
 source "drivers/pci/Kconfig"
 

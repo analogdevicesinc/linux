@@ -285,6 +285,8 @@ static int create_image(int platform_mode)
 	if (error || hibernation_test(TEST_CPUS))
 		goto Enable_cpus;
 
+	clockevents_notify(CLOCK_EVT_NOTIFY_SUSPEND, NULL);
+
 	local_irq_disable();
 
 	error = syscore_suspend();
@@ -316,6 +318,7 @@ static int create_image(int platform_mode)
 	syscore_resume();
 
  Enable_irqs:
+	clockevents_notify(CLOCK_EVT_NOTIFY_RESUME, NULL);
 	local_irq_enable();
 
  Enable_cpus:
@@ -438,6 +441,8 @@ static int resume_target_kernel(bool platform_mode)
 	if (error)
 		goto Enable_cpus;
 
+	clockevents_notify(CLOCK_EVT_NOTIFY_SUSPEND, NULL);
+
 	local_irq_disable();
 
 	error = syscore_suspend();
@@ -472,6 +477,7 @@ static int resume_target_kernel(bool platform_mode)
 	syscore_resume();
 
  Enable_irqs:
+	clockevents_notify(CLOCK_EVT_NOTIFY_RESUME, NULL);
 	local_irq_enable();
 
  Enable_cpus:
@@ -550,6 +556,8 @@ int hibernation_platform_enter(void)
 	if (error)
 		goto Platform_finish;
 
+	clockevents_notify(CLOCK_EVT_NOTIFY_SUSPEND, NULL);
+
 	local_irq_disable();
 	syscore_suspend();
 	if (pm_wakeup_pending()) {
@@ -563,6 +571,7 @@ int hibernation_platform_enter(void)
 
  Power_up:
 	syscore_resume();
+	clockevents_notify(CLOCK_EVT_NOTIFY_RESUME, NULL);
 	local_irq_enable();
 	enable_nonboot_cpus();
 

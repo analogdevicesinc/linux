@@ -1,0 +1,15 @@
+config DRM_XILINX
+	tristate "Xilinx DRM"
+	depends on DRM && ARCH_ZYNQ && HAVE_CLK
+	select DRM_KMS_HELPER
+	select DRM_KMS_CMA_HELPER
+	select DRM_GEM_CMA_HELPER
+	select XILINX_AXIVDMA
+	help
+	  DRM display driver for Xilinx IP based pipelines.
+
+config DRM_XILINX_DP
+	tristate "Xilinx DRM Display Port Driver"
+	depends on DRM_XILINX
+	help
+	  DRM driver for Xilinx Display Port IP.

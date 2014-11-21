@@ -700,8 +700,8 @@ static int inv_mpu_probe(struct i2c_client *client,
 
 	result = iio_triggered_buffer_setup(indio_dev,
 					    inv_mpu6050_irq_handler,
-					    inv_mpu6050_read_fifo,
-					    NULL);
+					    inv_mpu6050_read_fifo
+					    );
 	if (result) {
 		dev_err(&st->client->dev, "configure buffer fail %d\n",
 				result);

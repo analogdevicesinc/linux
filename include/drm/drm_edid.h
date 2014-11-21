@@ -272,11 +272,18 @@ struct drm_connector *drm_select_eld(struct drm_encoder *encoder,
 				     struct drm_display_mode *mode);
 int drm_load_edid_firmware(struct drm_connector *connector);
 
+struct edid *drm_do_get_edid(struct drm_connector *connector,
+	int (*get_edid_block)(void *, unsigned char *buf, int, int), void *data);
+
 int
 drm_hdmi_avi_infoframe_from_display_mode(struct hdmi_avi_infoframe *frame,
 					 const struct drm_display_mode *mode);
 int
 drm_hdmi_vendor_infoframe_from_display_mode(struct hdmi_vendor_infoframe *frame,
 					    const struct drm_display_mode *mode);
+
+struct edid *drm_do_get_edid(struct drm_connector *connector,
+	int (*get_edid_block)(void *, unsigned char *buf, int, int),
+	void *data);
 
 #endif /* __DRM_EDID_H__ */

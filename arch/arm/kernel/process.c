@@ -183,6 +183,9 @@ void arch_cpu_idle_dead(void)
 void machine_shutdown(void)
 {
 	disable_nonboot_cpus();
+#ifdef CONFIG_SMP
+	smp_send_stop();
+#endif
 }
 
 /*

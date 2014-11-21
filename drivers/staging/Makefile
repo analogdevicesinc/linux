@@ -51,3 +51,6 @@ obj-$(CONFIG_GS_FPGABOOT)	+= gs_fpgaboot/
 obj-$(CONFIG_BT_NOKIA_H4P)	+= nokia_h4p/
 obj-$(CONFIG_CRYPTO_SKEIN)	+= skein/
 obj-$(CONFIG_UNISYSSPAR)	+= unisys/
+obj-$(CONFIG_XILINX_VIDEO_IP)	+= video/axivdma/
+obj-$(CONFIG_XILINX_APF)	+= apf/
+obj-$(CONFIG_PMODS)		+= pmods/

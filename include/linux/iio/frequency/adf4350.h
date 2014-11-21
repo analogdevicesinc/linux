@@ -37,7 +37,7 @@
 #define ADF4350_REG2_LDF_INT_N			(1 << 8)
 #define ADF4350_REG2_CHARGE_PUMP_CURR_uA(x)	(((((x)-312) / 312) & 0xF) << 9)
 #define ADF4350_REG2_DOUBLE_BUFF_EN		(1 << 13)
-#define ADF4350_REG2_10BIT_R_CNT(x)		((x) << 14)
+#define ADF4350_REG2_10BIT_R_CNT(x)		(((x) & 0x3FF) << 14)
 #define ADF4350_REG2_RDIV2_EN			(1 << 24)
 #define ADF4350_REG2_RMULT2_EN			(1 << 25)
 #define ADF4350_REG2_MUXOUT(x)			((x) << 26)
@@ -52,7 +52,7 @@
 
 /* REG3 Bit Definitions */
 #define ADF4350_REG3_12BIT_CLKDIV(x)		((x) << 3)
-#define ADF4350_REG3_12BIT_CLKDIV_MODE(x)	((x) << 16)
+#define ADF4350_REG3_12BIT_CLKDIV_MODE(x)	((x) << 15)
 #define ADF4350_REG3_12BIT_CSR_EN		(1 << 18)
 #define ADF4351_REG3_CHARGE_CANCELLATION_EN	(1 << 21)
 #define ADF4351_REG3_ANTI_BACKLASH_3ns_EN	(1 << 22)
