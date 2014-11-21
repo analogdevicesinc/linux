@@ -11,14 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/clocksource.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
+#include <linux/io.h>
 
 #include <asm/mach/arch.h>
 
-#include "bcm_kona_smc.h"
-#include "kona.h"
+#include "kona_l2_cache.h"
 
 #define RSTMGR_DT_STRING		"brcm,bcm21664-resetmgr"
 
@@ -61,8 +60,7 @@ static void bcm21664_restart(enum reboot_mode mode, const char *cmd)
 
 static void __init bcm21664_init(void)
 {
-	of_platform_populate(NULL, of_default_bus_match_table, NULL,
-		&platform_bus);
+	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 	kona_l2_cache_init();
 }
 

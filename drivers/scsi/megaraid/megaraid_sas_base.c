@@ -2038,9 +2038,9 @@ int megasas_sriov_start_heartbeat(struct megasas_instance *instance,
 
 	if (initial) {
 		instance->hb_host_mem =
-			pci_alloc_consistent(instance->pdev,
-					     sizeof(struct MR_CTRL_HB_HOST_MEM),
-					     &instance->hb_host_mem_h);
+			pci_zalloc_consistent(instance->pdev,
+					      sizeof(struct MR_CTRL_HB_HOST_MEM),
+					      &instance->hb_host_mem_h);
 		if (!instance->hb_host_mem) {
 			printk(KERN_DEBUG "megasas: SR-IOV: Couldn't allocate"
 			       " memory for heartbeat host memory for "
@@ -2048,8 +2048,6 @@ int megasas_sriov_start_heartbeat(struct megasas_instance *instance,
 			retval = -ENOMEM;
 			goto out;
 		}
-		memset(instance->hb_host_mem, 0,
-		       sizeof(struct MR_CTRL_HB_HOST_MEM));
 	}
 
 	memset(dcmd->mbox.b, 0, MFI_MBOX_SIZE);
@@ -3061,16 +3059,14 @@ megasas_transition_to_ready(struct megasas_instance *instance, int ocr)
 	u32 cur_state;
 	u32 abs_state, curr_abs_state;
 
-	fw_state = instance->instancet->read_fw_status_reg(instance->reg_set) & MFI_STATE_MASK;
+	abs_state = instance->instancet->read_fw_status_reg(instance->reg_set);
+	fw_state = abs_state & MFI_STATE_MASK;
 
 	if (fw_state != MFI_STATE_READY)
 		printk(KERN_INFO "megasas: Waiting for FW to come to ready"
 		       " state\n");
 
 	while (fw_state != MFI_STATE_READY) {
-
-		abs_state =
-		instance->instancet->read_fw_status_reg(instance->reg_set);
 
 		switch (fw_state) {
 
@@ -3223,10 +3219,8 @@ megasas_transition_to_ready(struct megasas_instance *instance, int ocr)
 		 * The cur_state should not last for more than max_wait secs
 		 */
 		for (i = 0; i < (max_wait * 1000); i++) {
-			fw_state = instance->instancet->read_fw_status_reg(instance->reg_set) &
-					MFI_STATE_MASK ;
-		curr_abs_state =
-		instance->instancet->read_fw_status_reg(instance->reg_set);
+			curr_abs_state = instance->instancet->
+				read_fw_status_reg(instance->reg_set);
 
 			if (abs_state == curr_abs_state) {
 				msleep(1);
@@ -3242,6 +3236,9 @@ megasas_transition_to_ready(struct megasas_instance *instance, int ocr)
 			       "in %d secs\n", fw_state, max_wait);
 			return -ENODEV;
 		}
+
+		abs_state = curr_abs_state;
+		fw_state = curr_abs_state & MFI_STATE_MASK;
 	}
 	printk(KERN_INFO "megasas: FW now in Ready state\n");
 

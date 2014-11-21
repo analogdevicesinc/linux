@@ -1,4 +1,5 @@
 #include <linux/types.h>
+#include <sys/mman.h>
 #include "event.h"
 #include "debug.h"
 #include "hist.h"
@@ -178,13 +179,14 @@ int perf_event__synthesize_mmap_events(struct perf_tool *tool,
 		return -1;
 	}
 
-	event->header.type = PERF_RECORD_MMAP;
+	event->header.type = PERF_RECORD_MMAP2;
 
 	while (1) {
 		char bf[BUFSIZ];
 		char prot[5];
 		char execname[PATH_MAX];
 		char anonstr[] = "//anon";
+		unsigned int ino;
 		size_t size;
 		ssize_t n;
 
@@ -195,15 +197,20 @@ int perf_event__synthesize_mmap_events(struct perf_tool *tool,
 		strcpy(execname, "");
 
 		/* 00400000-0040c000 r-xp 00000000 fd:01 41038  /bin/cat */
-		n = sscanf(bf, "%"PRIx64"-%"PRIx64" %s %"PRIx64" %*x:%*x %*u %s\n",
-		       &event->mmap.start, &event->mmap.len, prot,
-		       &event->mmap.pgoff,
-		       execname);
+		n = sscanf(bf, "%"PRIx64"-%"PRIx64" %s %"PRIx64" %x:%x %u %s\n",
+		       &event->mmap2.start, &event->mmap2.len, prot,
+		       &event->mmap2.pgoff, &event->mmap2.maj,
+		       &event->mmap2.min,
+		       &ino, execname);
+
 		/*
  		 * Anon maps don't have the execname.
  		 */
-		if (n < 4)
+		if (n < 7)
 			continue;
+
+		event->mmap2.ino = (u64)ino;
+
 		/*
 		 * Just like the kernel, see __perf_event_mmap in kernel/perf_event.c
 		 */
@@ -211,6 +218,21 @@ int perf_event__synthesize_mmap_events(struct perf_tool *tool,
 			event->header.misc = PERF_RECORD_MISC_USER;
 		else
 			event->header.misc = PERF_RECORD_MISC_GUEST_USER;
+
+		/* map protection and flags bits */
+		event->mmap2.prot = 0;
+		event->mmap2.flags = 0;
+		if (prot[0] == 'r')
+			event->mmap2.prot |= PROT_READ;
+		if (prot[1] == 'w')
+			event->mmap2.prot |= PROT_WRITE;
+		if (prot[2] == 'x')
+			event->mmap2.prot |= PROT_EXEC;
+
+		if (prot[3] == 's')
+			event->mmap2.flags |= MAP_SHARED;
+		else
+			event->mmap2.flags |= MAP_PRIVATE;
 
 		if (prot[2] != 'x') {
 			if (!mmap_data || prot[0] != 'r')
@@ -223,15 +245,15 @@ int perf_event__synthesize_mmap_events(struct perf_tool *tool,
 			strcpy(execname, anonstr);
 
 		size = strlen(execname) + 1;
-		memcpy(event->mmap.filename, execname, size);
+		memcpy(event->mmap2.filename, execname, size);
 		size = PERF_ALIGN(size, sizeof(u64));
-		event->mmap.len -= event->mmap.start;
-		event->mmap.header.size = (sizeof(event->mmap) -
-					(sizeof(event->mmap.filename) - size));
-		memset(event->mmap.filename + size, 0, machine->id_hdr_size);
-		event->mmap.header.size += machine->id_hdr_size;
-		event->mmap.pid = tgid;
-		event->mmap.tid = pid;
+		event->mmap2.len -= event->mmap.start;
+		event->mmap2.header.size = (sizeof(event->mmap2) -
+					(sizeof(event->mmap2.filename) - size));
+		memset(event->mmap2.filename + size, 0, machine->id_hdr_size);
+		event->mmap2.header.size += machine->id_hdr_size;
+		event->mmap2.pid = tgid;
+		event->mmap2.tid = pid;
 
 		if (process(tool, event, &synth_sample, machine) != 0) {
 			rc = -1;
@@ -581,7 +603,14 @@ int perf_event__synthesize_kernel_mmap(struct perf_tool *tool,
 
 size_t perf_event__fprintf_comm(union perf_event *event, FILE *fp)
 {
-	return fprintf(fp, ": %s:%d\n", event->comm.comm, event->comm.tid);
+	const char *s;
+
+	if (event->header.misc & PERF_RECORD_MISC_COMM_EXEC)
+		s = " exec";
+	else
+		s = "";
+
+	return fprintf(fp, "%s: %s:%d\n", s, event->comm.comm, event->comm.tid);
 }
 
 int perf_event__process_comm(struct perf_tool *tool __maybe_unused,
@@ -612,12 +641,15 @@ size_t perf_event__fprintf_mmap(union perf_event *event, FILE *fp)
 size_t perf_event__fprintf_mmap2(union perf_event *event, FILE *fp)
 {
 	return fprintf(fp, " %d/%d: [%#" PRIx64 "(%#" PRIx64 ") @ %#" PRIx64
-			   " %02x:%02x %"PRIu64" %"PRIu64"]: %c %s\n",
+			   " %02x:%02x %"PRIu64" %"PRIu64"]: %c%c%c%c %s\n",
 		       event->mmap2.pid, event->mmap2.tid, event->mmap2.start,
 		       event->mmap2.len, event->mmap2.pgoff, event->mmap2.maj,
 		       event->mmap2.min, event->mmap2.ino,
 		       event->mmap2.ino_generation,
-		       (event->header.misc & PERF_RECORD_MISC_MMAP_DATA) ? 'r' : 'x',
+		       (event->mmap2.prot & PROT_READ) ? 'r' : '-',
+		       (event->mmap2.prot & PROT_WRITE) ? 'w' : '-',
+		       (event->mmap2.prot & PROT_EXEC) ? 'x' : '-',
+		       (event->mmap2.flags & MAP_SHARED) ? 's' : 'p',
 		       event->mmap2.filename);
 }
 
@@ -699,7 +731,7 @@ void thread__find_addr_map(struct thread *thread,
 			   enum map_type type, u64 addr,
 			   struct addr_location *al)
 {
-	struct map_groups *mg = &thread->mg;
+	struct map_groups *mg = thread->mg;
 	bool load_map = false;
 
 	al->machine = machine;
@@ -756,6 +788,7 @@ try_again:
 		    cpumode == PERF_RECORD_MISC_USER &&
 		    machine && mg != &machine->kmaps) {
 			mg = &machine->kmaps;
+			load_map = true;
 			goto try_again;
 		}
 	} else {
@@ -788,7 +821,7 @@ int perf_event__preprocess_sample(const union perf_event *event,
 {
 	u8 cpumode = event->header.misc & PERF_RECORD_MISC_CPUMODE_MASK;
 	struct thread *thread = machine__findnew_thread(machine, sample->pid,
-							sample->pid);
+							sample->tid);
 
 	if (thread == NULL)
 		return -1;
@@ -840,4 +873,46 @@ int perf_event__preprocess_sample(const union perf_event *event,
 	}
 
 	return 0;
+}
+
+bool is_bts_event(struct perf_event_attr *attr)
+{
+	return attr->type == PERF_TYPE_HARDWARE &&
+	       (attr->config & PERF_COUNT_HW_BRANCH_INSTRUCTIONS) &&
+	       attr->sample_period == 1;
+}
+
+bool sample_addr_correlates_sym(struct perf_event_attr *attr)
+{
+	if (attr->type == PERF_TYPE_SOFTWARE &&
+	    (attr->config == PERF_COUNT_SW_PAGE_FAULTS ||
+	     attr->config == PERF_COUNT_SW_PAGE_FAULTS_MIN ||
+	     attr->config == PERF_COUNT_SW_PAGE_FAULTS_MAJ))
+		return true;
+
+	if (is_bts_event(attr))
+		return true;
+
+	return false;
+}
+
+void perf_event__preprocess_sample_addr(union perf_event *event,
+					struct perf_sample *sample,
+					struct machine *machine,
+					struct thread *thread,
+					struct addr_location *al)
+{
+	u8 cpumode = event->header.misc & PERF_RECORD_MISC_CPUMODE_MASK;
+
+	thread__find_addr_map(thread, machine, cpumode, MAP__FUNCTION,
+			      sample->addr, al);
+	if (!al->map)
+		thread__find_addr_map(thread, machine, cpumode, MAP__VARIABLE,
+				      sample->addr, al);
+
+	al->cpu = sample->cpu;
+	al->sym = NULL;
+
+	if (al->map)
+		al->sym = map__find_symbol(al->map, al->addr, NULL);
 }

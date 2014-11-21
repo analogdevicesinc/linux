@@ -47,6 +47,7 @@
 #include "board-mx31moboard.h"
 #include "common.h"
 #include "devices-imx31.h"
+#include "ehci.h"
 #include "hardware.h"
 #include "iomux-mx3.h"
 #include "ulpi.h"
@@ -434,10 +435,8 @@ static int __init moboard_usbh2_init(void)
 		return -ENODEV;
 
 	pdev = imx31_add_mxc_ehci_hs(2, &usbh2_pdata);
-	if (IS_ERR(pdev))
-		return PTR_ERR(pdev);
 
-	return 0;
+	return PTR_ERR_OR_ZERO(pdev);
 }
 
 static const struct gpio_led mx31moboard_leds[] __initconst = {
@@ -600,7 +599,6 @@ MACHINE_START(MX31MOBOARD, "EPFL Mobots mx31moboard")
 	.map_io = mx31_map_io,
 	.init_early = imx31_init_early,
 	.init_irq = mx31_init_irq,
-	.handle_irq = imx31_handle_irq,
 	.init_time	= mx31moboard_timer_init,
 	.init_machine = mx31moboard_init,
 	.restart	= mxc_restart,

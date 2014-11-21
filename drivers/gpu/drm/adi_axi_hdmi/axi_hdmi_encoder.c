@@ -496,7 +496,7 @@ static enum drm_connector_status axi_hdmi_connector_detect(
 
 static void axi_hdmi_connector_destroy(struct drm_connector *connector)
 {
-	drm_sysfs_connector_remove(connector);
+	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
 }
 
@@ -520,7 +520,7 @@ static int axi_hdmi_connector_init(struct drm_device *dev,
 	drm_connector_init(dev, connector, &axi_hdmi_connector_funcs, type);
 	drm_connector_helper_add(connector, &axi_hdmi_connector_helper_funcs);
 
-	err = drm_sysfs_connector_add(connector);
+	err = drm_connector_register(connector);
 	if (err)
 		goto err_connector;
 

@@ -82,7 +82,7 @@ static const DECLARE_TLV_DB_SCALE(sidetone_vol_tlv, -1800, 300, 0);
 static int snd_soc_tlv320aic23_put_volsw(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	u16 val, reg;
 
 	val = (ucontrol->value.integer.value[0] & 0x07);
@@ -105,7 +105,7 @@ static int snd_soc_tlv320aic23_put_volsw(struct snd_kcontrol *kcontrol,
 static int snd_soc_tlv320aic23_get_volsw(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	u16 val;
 
 	val = snd_soc_read(codec, TLV320AIC23_ANLG) & (0x1C0);
@@ -364,16 +364,16 @@ static int tlv320aic23_hw_params(struct snd_pcm_substream *substream,
 
 	iface_reg = snd_soc_read(codec, TLV320AIC23_DIGT_FMT) & ~(0x03 << 2);
 
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
+	switch (params_width(params)) {
+	case 16:
 		break;
-	case SNDRV_PCM_FORMAT_S20_3LE:
+	case 20:
 		iface_reg |= (0x01 << 2);
 		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
+	case 24:
 		iface_reg |= (0x02 << 2);
 		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
+	case 32:
 		iface_reg |= (0x03 << 2);
 		break;
 	}

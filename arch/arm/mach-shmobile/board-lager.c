@@ -31,6 +31,8 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/sh_mmcif.h>
 #include <linux/mmc/sh_mobile_sdhi.h>
+#include <linux/mtd/partitions.h>
+#include <linux/mtd/mtd.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/platform_data/camera-rcar.h>
 #include <linux/platform_data/gpio-rcar.h>
@@ -43,21 +45,22 @@
 #include <linux/regulator/gpio-regulator.h>
 #include <linux/regulator/machine.h>
 #include <linux/sh_eth.h>
-#include <linux/usb/phy.h>
-#include <linux/usb/renesas_usbhs.h>
-#include <mach/common.h>
-#include <mach/irqs.h>
-#include <mach/r8a7790.h>
-#include <media/soc_camera.h>
-#include <asm/mach-types.h>
-#include <asm/mach/arch.h>
-#include <linux/mtd/partitions.h>
-#include <linux/mtd/mtd.h>
 #include <linux/spi/flash.h>
 #include <linux/spi/rspi.h>
 #include <linux/spi/spi.h>
+#include <linux/usb/phy.h>
+#include <linux/usb/renesas_usbhs.h>
+
+#include <media/soc_camera.h>
+#include <asm/mach-types.h>
+#include <asm/mach/arch.h>
 #include <sound/rcar_snd.h>
 #include <sound/simple_card.h>
+
+#include "common.h"
+#include "irqs.h"
+#include "r8a7790.h"
+#include "rcar-gen2.h"
 
 /*
  * SSI-AK4643
@@ -277,7 +280,6 @@ static const struct resource ether_resources[] __initconst = {
 };
 
 static const struct platform_device_info ether_info __initconst = {
-	.parent		= &platform_bus,
 	.name		= "r8a7790-ether",
 	.id		= -1,
 	.res		= ether_resources,
@@ -325,12 +327,12 @@ static const struct rspi_plat_data qspi_pdata __initconst = {
 
 static const struct spi_board_info spi_info[] __initconst = {
 	{
-		.modalias               = "m25p80",
-		.platform_data          = &spi_flash_data,
-		.mode                   = SPI_MODE_0,
-		.max_speed_hz           = 30000000,
-		.bus_num                = 0,
-		.chip_select            = 0,
+		.modalias	= "m25p80",
+		.platform_data	= &spi_flash_data,
+		.mode		= SPI_MODE_0 | SPI_TX_QUAD | SPI_RX_QUAD,
+		.max_speed_hz	= 30000000,
+		.bus_num	= 0,
+		.chip_select	= 0,
 	},
 };
 
@@ -354,7 +356,6 @@ static void __init lager_add_vin_device(unsigned idx,
 					struct rcar_vin_platform_data *pdata)
 {
 	struct platform_device_info vin_info = {
-		.parent		= &platform_bus,
 		.name		= "r8a7790-vin",
 		.id		= idx,
 		.res		= &vin_resources[idx * 2],
@@ -391,7 +392,7 @@ LAGER_CAMERA(1, "adv7180", 0x20, NULL, RCAR_VIN_BT656);
 
 static void __init lager_add_camera1_device(void)
 {
-	platform_device_register_data(&platform_bus, "soc-camera-pdrv", 1,
+	platform_device_register_data(NULL, "soc-camera-pdrv", 1,
 				      &cam1_link, sizeof(cam1_link));
 	lager_add_vin_device(1, &vin1_pdata);
 }
@@ -403,7 +404,6 @@ static const struct resource sata1_resources[] __initconst = {
 };
 
 static const struct platform_device_info sata1_info __initconst = {
-	.parent		= &platform_bus,
 	.name		= "sata-r8a7790",
 	.id		= 1,
 	.res		= sata1_resources,
@@ -533,7 +533,7 @@ static struct usbhs_private usbhs_priv __initdata = {
 static void __init lager_register_usbhs(void)
 {
 	usb_bind_phy("renesas_usbhs", 0, "usb_phy_rcar_gen2");
-	platform_device_register_resndata(&platform_bus,
+	platform_device_register_resndata(NULL,
 					  "renesas_usbhs", -1,
 					  usbhs_resources,
 					  ARRAY_SIZE(usbhs_resources),
@@ -567,20 +567,27 @@ static struct resource rsnd_resources[] __initdata = {
 };
 
 static struct rsnd_ssi_platform_info rsnd_ssi[] = {
-	RSND_SSI_SET(0, 0, gic_spi(370), RSND_SSI_PLAY),
-	RSND_SSI_SET(0, 0, gic_spi(371), RSND_SSI_CLK_PIN_SHARE),
+	RSND_SSI(0, gic_spi(370), 0),
+	RSND_SSI(0, gic_spi(371), RSND_SSI_CLK_PIN_SHARE),
 };
 
-static struct rsnd_scu_platform_info rsnd_scu[2] = {
+static struct rsnd_src_platform_info rsnd_src[2] = {
 	/* no member at this point */
+};
+
+static struct rsnd_dai_platform_info rsnd_dai = {
+	.playback = { .ssi = &rsnd_ssi[0], },
+	.capture  = { .ssi = &rsnd_ssi[1], },
 };
 
 static struct rcar_snd_info rsnd_info = {
 	.flags		= RSND_GEN2,
 	.ssi_info	= rsnd_ssi,
 	.ssi_info_nr	= ARRAY_SIZE(rsnd_ssi),
-	.scu_info	= rsnd_scu,
-	.scu_info_nr	= ARRAY_SIZE(rsnd_scu),
+	.src_info	= rsnd_src,
+	.src_info_nr	= ARRAY_SIZE(rsnd_src),
+	.dai_info	= &rsnd_dai,
+	.dai_info_nr	= 1,
 };
 
 static struct asoc_simple_card_info rsnd_card_info = {
@@ -601,7 +608,6 @@ static struct asoc_simple_card_info rsnd_card_info = {
 static void __init lager_add_rsnd_device(void)
 {
 	struct platform_device_info cardinfo = {
-		.parent         = &platform_bus,
 		.name           = "asoc-simple-card",
 		.id             = -1,
 		.data           = &rsnd_card_info,
@@ -613,7 +619,7 @@ static void __init lager_add_rsnd_device(void)
 				ARRAY_SIZE(i2c2_devices));
 
 	platform_device_register_resndata(
-		&platform_bus, "rcar_sound", -1,
+		NULL, "rcar_sound", -1,
 		rsnd_resources, ARRAY_SIZE(rsnd_resources),
 		&rsnd_info, sizeof(rsnd_info));
 
@@ -656,7 +662,6 @@ static const struct resource pci1_resources[] __initconst = {
 };
 
 static const struct platform_device_info pci1_info __initconst = {
-	.parent		= &platform_bus,
 	.name		= "pci-rcar-gen2",
 	.id		= 1,
 	.res		= pci1_resources,
@@ -677,7 +682,6 @@ static const struct resource pci2_resources[] __initconst = {
 };
 
 static const struct platform_device_info pci2_info __initconst = {
-	.parent		= &platform_bus,
 	.name		= "pci-rcar-gen2",
 	.id		= 2,
 	.res		= pci2_resources,
@@ -788,16 +792,16 @@ static void __init lager_add_standard_devices(void)
 	r8a7790_pinmux_init();
 
 	r8a7790_add_standard_devices();
-	platform_device_register_data(&platform_bus, "leds-gpio", -1,
+	platform_device_register_data(NULL, "leds-gpio", -1,
 				      &lager_leds_pdata,
 				      sizeof(lager_leds_pdata));
-	platform_device_register_data(&platform_bus, "gpio-keys", -1,
+	platform_device_register_data(NULL, "gpio-keys", -1,
 				      &lager_keys_pdata,
 				      sizeof(lager_keys_pdata));
 	regulator_register_always_on(fixed_regulator_idx++,
 				     "fixed-3.3V", fixed3v3_power_consumers,
 				     ARRAY_SIZE(fixed3v3_power_consumers), 3300000);
-	platform_device_register_resndata(&platform_bus, "sh_mmcif", 1,
+	platform_device_register_resndata(NULL, "sh_mmcif", 1,
 					  mmcif1_resources, ARRAY_SIZE(mmcif1_resources),
 					  &mmcif1_pdata, sizeof(mmcif1_pdata));
 
@@ -805,27 +809,27 @@ static void __init lager_add_standard_devices(void)
 
 	lager_add_du_device();
 
-	platform_device_register_resndata(&platform_bus, "qspi", 0,
+	platform_device_register_resndata(NULL, "qspi", 0,
 					  qspi_resources,
 					  ARRAY_SIZE(qspi_resources),
 					  &qspi_pdata, sizeof(qspi_pdata));
 	spi_register_board_info(spi_info, ARRAY_SIZE(spi_info));
 
-	platform_device_register_data(&platform_bus, "reg-fixed-voltage", fixed_regulator_idx++,
+	platform_device_register_data(NULL, "reg-fixed-voltage", fixed_regulator_idx++,
 				      &vcc_sdhi0_info, sizeof(struct fixed_voltage_config));
-	platform_device_register_data(&platform_bus, "reg-fixed-voltage", fixed_regulator_idx++,
+	platform_device_register_data(NULL, "reg-fixed-voltage", fixed_regulator_idx++,
 				      &vcc_sdhi2_info, sizeof(struct fixed_voltage_config));
 
-	platform_device_register_data(&platform_bus, "gpio-regulator", gpio_regulator_idx++,
+	platform_device_register_data(NULL, "gpio-regulator", gpio_regulator_idx++,
 				      &vccq_sdhi0_info, sizeof(struct gpio_regulator_config));
-	platform_device_register_data(&platform_bus, "gpio-regulator", gpio_regulator_idx++,
+	platform_device_register_data(NULL, "gpio-regulator", gpio_regulator_idx++,
 				      &vccq_sdhi2_info, sizeof(struct gpio_regulator_config));
 
 	lager_add_camera1_device();
 
 	platform_device_register_full(&sata1_info);
 
-	platform_device_register_resndata(&platform_bus, "usb_phy_rcar_gen2",
+	platform_device_register_resndata(NULL, "usb_phy_rcar_gen2",
 					  -1, usbhs_phy_resources,
 					  ARRAY_SIZE(usbhs_phy_resources),
 					  &usbhs_phy_pdata,
@@ -836,10 +840,10 @@ static void __init lager_add_standard_devices(void)
 
 	lager_add_rsnd_device();
 
-	platform_device_register_resndata(&platform_bus, "sh_mobile_sdhi", 0,
+	platform_device_register_resndata(NULL, "sh_mobile_sdhi", 0,
 					  sdhi0_resources, ARRAY_SIZE(sdhi0_resources),
 					  &sdhi0_info, sizeof(struct sh_mobile_sdhi_info));
-	platform_device_register_resndata(&platform_bus, "sh_mobile_sdhi", 2,
+	platform_device_register_resndata(NULL, "sh_mobile_sdhi", 2,
 					  sdhi2_resources, ARRAY_SIZE(sdhi2_resources),
 					  &sdhi2_info, sizeof(struct sh_mobile_sdhi_info));
 }
@@ -879,9 +883,10 @@ static const char * const lager_boards_compat_dt[] __initconst = {
 
 DT_MACHINE_START(LAGER_DT, "lager")
 	.smp		= smp_ops(r8a7790_smp_ops),
-	.init_early	= r8a7790_init_early,
+	.init_early	= shmobile_init_delay,
 	.init_time	= rcar_gen2_timer_init,
 	.init_machine	= lager_init,
 	.init_late	= shmobile_init_late,
+	.reserve	= rcar_gen2_reserve,
 	.dt_compat	= lager_boards_compat_dt,
 MACHINE_END

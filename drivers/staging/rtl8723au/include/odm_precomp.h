@@ -16,10 +16,6 @@
 #ifndef	__ODM_PRECOMP_H__
 #define __ODM_PRECOMP_H__
 
-#include "odm_types.h"
-
-#define		TEST_FALG___		1
-
 /* 2 Config Flags and Structs - defined by each ODM Type */
 
 #include <osdep_service.h>
@@ -36,7 +32,6 @@
 #include "odm.h"
 #include "odm_HWConfig.h"
 #include "odm_debug.h"
-#include "odm_RegDefine11AC.h"
 #include "odm_RegDefine11N.h"
 
 #include "HalDMOutSrc8723A.h" /* for IQK,LCK,Power-tracking */

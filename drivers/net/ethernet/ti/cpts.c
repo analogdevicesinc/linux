@@ -236,13 +236,11 @@ static void cpts_overflow_check(struct work_struct *work)
 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
 }
 
-#define CPTS_REF_CLOCK_NAME "cpsw_cpts_rft_clk"
-
-static void cpts_clk_init(struct cpts *cpts)
+static void cpts_clk_init(struct device *dev, struct cpts *cpts)
 {
-	cpts->refclk = clk_get(NULL, CPTS_REF_CLOCK_NAME);
+	cpts->refclk = devm_clk_get(dev, "cpts");
 	if (IS_ERR(cpts->refclk)) {
-		pr_err("Failed to clk_get %s\n", CPTS_REF_CLOCK_NAME);
+		dev_err(dev, "Failed to get cpts refclk\n");
 		cpts->refclk = NULL;
 		return;
 	}
@@ -252,30 +250,27 @@ static void cpts_clk_init(struct cpts *cpts)
 static void cpts_clk_release(struct cpts *cpts)
 {
 	clk_disable(cpts->refclk);
-	clk_put(cpts->refclk);
 }
 
 static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
 		      u16 ts_seqid, u8 ts_msgtype)
 {
 	u16 *seqid;
-	unsigned int offset;
+	unsigned int offset = 0;
 	u8 *msgtype, *data = skb->data;
 
-	switch (ptp_class) {
-	case PTP_CLASS_V1_IPV4:
-	case PTP_CLASS_V2_IPV4:
-		offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
+	if (ptp_class & PTP_CLASS_VLAN)
+		offset += VLAN_HLEN;
+
+	switch (ptp_class & PTP_CLASS_PMASK) {
+	case PTP_CLASS_IPV4:
+		offset += ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
 		break;
-	case PTP_CLASS_V1_IPV6:
-	case PTP_CLASS_V2_IPV6:
-		offset = OFF_PTP6;
+	case PTP_CLASS_IPV6:
+		offset += ETH_HLEN + IP6_HLEN + UDP_HLEN;
 		break;
-	case PTP_CLASS_V2_L2:
-		offset = ETH_HLEN;
-		break;
-	case PTP_CLASS_V2_VLAN:
-		offset = ETH_HLEN + VLAN_HLEN;
+	case PTP_CLASS_L2:
+		offset += ETH_HLEN;
 		break;
 	default:
 		return 0;
@@ -390,7 +385,7 @@ int cpts_register(struct device *dev, struct cpts *cpts,
 	for (i = 0; i < CPTS_MAX_EVENTS; i++)
 		list_add(&cpts->pool_data[i].list, &cpts->pool);
 
-	cpts_clk_init(cpts);
+	cpts_clk_init(dev, cpts);
 	cpts_write32(cpts, CPTS_EN, control);
 	cpts_write32(cpts, TS_PEND_EN, int_enable);
 

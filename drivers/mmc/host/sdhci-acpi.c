@@ -102,11 +102,19 @@ static void sdhci_acpi_int_hw_reset(struct sdhci_host *host)
 }
 
 static const struct sdhci_ops sdhci_acpi_ops_dflt = {
+	.set_clock = sdhci_set_clock,
 	.enable_dma = sdhci_acpi_enable_dma,
+	.set_bus_width = sdhci_set_bus_width,
+	.reset = sdhci_reset,
+	.set_uhs_signaling = sdhci_set_uhs_signaling,
 };
 
 static const struct sdhci_ops sdhci_acpi_ops_int = {
+	.set_clock = sdhci_set_clock,
 	.enable_dma = sdhci_acpi_enable_dma,
+	.set_bus_width = sdhci_set_bus_width,
+	.reset = sdhci_reset,
+	.set_uhs_signaling = sdhci_set_uhs_signaling,
 	.hw_reset   = sdhci_acpi_int_hw_reset,
 };
 
@@ -116,9 +124,11 @@ static const struct sdhci_acpi_chip sdhci_acpi_chip_int = {
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.chip    = &sdhci_acpi_chip_int,
-	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET,
+	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE |
+		   MMC_CAP_HW_RESET | MMC_CAP_1_8V_DDR,
 	.caps2   = MMC_CAP2_HC_ERASE_SZ,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 };
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {

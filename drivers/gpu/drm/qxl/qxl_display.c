@@ -574,6 +574,10 @@ static int qxl_crtc_mode_set(struct drm_crtc *crtc,
 			   bo->surf.height, bo->surf.stride, bo->surf.format);
 		qxl_io_create_primary(qdev, base_offset, bo);
 		bo->is_primary = true;
+	}
+
+	if (bo->is_primary) {
+		DRM_DEBUG_KMS("setting surface_id to 0 for primary surface %d on crtc %d\n", bo->surface_id, qcrtc->index);
 		surf_id = 0;
 	} else {
 		surf_id = bo->surface_id;
@@ -831,7 +835,7 @@ static void qxl_conn_destroy(struct drm_connector *connector)
 	struct qxl_output *qxl_output =
 		drm_connector_to_qxl_output(connector);
 
-	drm_sysfs_connector_remove(connector);
+	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
 	kfree(qxl_output);
 }
@@ -841,7 +845,7 @@ static const struct drm_connector_funcs qxl_connector_funcs = {
 	.save = qxl_conn_save,
 	.restore = qxl_conn_restore,
 	.detect = qxl_conn_detect,
-	.fill_modes = drm_helper_probe_single_connector_modes,
+	.fill_modes = drm_helper_probe_single_connector_modes_nomerge,
 	.set_property = qxl_conn_set_property,
 	.destroy = qxl_conn_destroy,
 };
@@ -898,7 +902,7 @@ static int qdev_output_init(struct drm_device *dev, int num_output)
 
 	drm_object_attach_property(&connector->base,
 				   qdev->hotplug_mode_update_property, 0);
-	drm_sysfs_connector_add(connector);
+	drm_connector_register(connector);
 	return 0;
 }
 

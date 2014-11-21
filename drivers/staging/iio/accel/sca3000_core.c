@@ -459,6 +459,7 @@ static const struct iio_chan_spec sca3000_channels_with_temp[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |
 			BIT(IIO_CHAN_INFO_OFFSET),
+		.scan_index = -1,
 	},
 };
 
@@ -1152,11 +1153,6 @@ static int sca3000_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	ret = iio_buffer_register(indio_dev,
-				  sca3000_channels,
-				  ARRAY_SIZE(sca3000_channels));
-	if (ret < 0)
-		goto error_unregister_dev;
 	if (indio_dev->buffer) {
 		iio_scan_mask_set(indio_dev, indio_dev->buffer, 0);
 		iio_scan_mask_set(indio_dev, indio_dev->buffer, 1);
@@ -1171,7 +1167,7 @@ static int sca3000_probe(struct spi_device *spi)
 					   "sca3000",
 					   indio_dev);
 		if (ret)
-			goto error_unregister_ring;
+			goto error_unregister_dev;
 	}
 	sca3000_register_ring_funcs(indio_dev);
 	ret = sca3000_clean_setup(st);
@@ -1182,8 +1178,6 @@ static int sca3000_probe(struct spi_device *spi)
 error_free_irq:
 	if (spi->irq)
 		free_irq(spi->irq, indio_dev);
-error_unregister_ring:
-	iio_buffer_unregister(indio_dev);
 error_unregister_dev:
 	iio_device_unregister(indio_dev);
 	return ret;
@@ -1217,7 +1211,6 @@ static int sca3000_remove(struct spi_device *spi)
 	if (spi->irq)
 		free_irq(spi->irq, indio_dev);
 	iio_device_unregister(indio_dev);
-	iio_buffer_unregister(indio_dev);
 	sca3000_unconfigure_ring(indio_dev);
 
 	return 0;

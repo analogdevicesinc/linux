@@ -13,7 +13,7 @@ config MFD_CORE
 config MFD_CS5535
 	tristate "AMD CS5535 and CS5536 southbridge core functions"
 	select MFD_CORE
-	depends on PCI && X86
+	depends on PCI && (X86_32 || (X86 && COMPILE_TEST))
 	---help---
 	  This is the core driver for CS5535/CS5536 MFD functions.  This is
           necessary for using the board's GPIO and MFGPT functionality.
@@ -66,6 +66,18 @@ config MFD_BCM590XX
 	depends on I2C
 	help
 	  Support for the BCM590xx PMUs from Broadcom
+
+config MFD_AXP20X
+	bool "X-Powers AXP20X"
+	select MFD_CORE
+	select REGMAP_I2C
+	select REGMAP_IRQ
+	depends on I2C=y
+	help
+	  If you say Y here you get support for the X-Powers AXP202 and AXP209.
+	  This driver include only the core APIs. You have to select individual
+	  components like regulators or the PEK (Power Enable Key) under the
+	  corresponding menus.
 
 config MFD_CROS_EC
 	tristate "ChromeOS Embedded Controller"
@@ -175,6 +187,7 @@ config MFD_MC13XXX
 	tristate
 	depends on (SPI_MASTER || I2C)
 	select MFD_CORE
+	select REGMAP_IRQ
 	help
 	  Enable support for the Freescale MC13783 and MC13892 PMICs.
 	  This driver provides common support for accessing the device,
@@ -241,6 +254,18 @@ config LPC_SCH
 	  LPC bridge function of the Intel SCH provides support for
 	  System Management Bus and General Purpose I/O.
 
+config INTEL_SOC_PMIC
+	bool "Support for Intel Atom SoC PMIC"
+	depends on I2C=y
+	select MFD_CORE
+	select REGMAP_I2C
+	select REGMAP_IRQ
+	help
+	  Select this option to enable support for the PMIC device
+	  on some Intel SoC systems. The PMIC provides ADC, GPIO,
+	  thermal, charger and related power management functions
+	  on these systems.
+
 config MFD_INTEL_MSIC
 	bool "Intel MSIC"
 	depends on INTEL_SCU_IPC
@@ -249,6 +274,16 @@ config MFD_INTEL_MSIC
 	  Select this option to enable access to Intel MSIC (Avatele
 	  Passage) chip. This chip embeds audio, battery, GPIO, etc.
 	  devices used in Intel Medfield platforms.
+
+config MFD_IPAQ_MICRO
+	bool "Atmel Micro ASIC (iPAQ h3100/h3600/h3700) Support"
+	depends on SA1100_H3100 || SA1100_H3600
+	select MFD_CORE
+	help
+	  Select this to get support for the Microcontroller found in
+	  the Compaq iPAQ handheld computers. This is an Atmel
+	  AT90LS8535 microcontroller flashed with a special iPAQ
+	  firmware using the custom protocol implemented in this driver.
 
 config MFD_JANZ_CMODIO
 	tristate "Janz CMOD-IO PCI MODULbus Carrier Board"
@@ -331,28 +366,29 @@ config MFD_88PM860X
 	  battery-charger under the corresponding menus.
 
 config MFD_MAX14577
-	bool "Maxim Semiconductor MAX14577 MUIC + Charger Support"
+	bool "Maxim Semiconductor MAX14577/77836 MUIC + Charger Support"
 	depends on I2C=y
 	select MFD_CORE
 	select REGMAP_I2C
 	select REGMAP_IRQ
 	select IRQ_DOMAIN
 	help
-	  Say yes here to add support for Maxim Semiconductor MAX14577.
-	  This is a Micro-USB IC with Charger controls on chip.
+	  Say yes here to add support for Maxim Semiconductor MAX14577 and
+	  MAX77836 Micro-USB ICs with battery charger.
 	  This driver provides common support for accessing the device;
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
 
 config MFD_MAX77686
-	bool "Maxim Semiconductor MAX77686 PMIC Support"
+	bool "Maxim Semiconductor MAX77686/802 PMIC Support"
 	depends on I2C=y
 	select MFD_CORE
 	select REGMAP_I2C
+	select REGMAP_IRQ
 	select IRQ_DOMAIN
 	help
-	  Say yes here to add support for Maxim Semiconductor MAX77686.
-	  This is a Power Management IC with RTC on chip.
+	  Say yes here to add support for Maxim Semiconductor MAX77686 and
+	  MAX77802 which are Power Management IC with an RTC on chip.
 	  This driver provides common support for accessing the device;
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
@@ -362,6 +398,7 @@ config MFD_MAX77693
 	depends on I2C=y
 	select MFD_CORE
 	select REGMAP_I2C
+	select REGMAP_IRQ
 	help
 	  Say yes here to add support for Maxim Semiconductor MAX77693.
 	  This is a companion Power Management IC with Flash, Haptic, Charger,
@@ -551,6 +588,7 @@ config MFD_SEC_CORE
 	select MFD_CORE
 	select REGMAP_I2C
 	select REGMAP_IRQ
+	select REGULATOR
 	help
 	 Support for the Samsung Electronics MFD series.
 	 This driver provides common support for accessing the device,
@@ -675,6 +713,7 @@ config MFD_DB8500_PRCMU
 config MFD_STMPE
 	bool "STMicroelectronics STMPE"
 	depends on (I2C=y || SPI_MASTER=y)
+	depends on OF
 	select MFD_CORE
 	help
 	  Support for the STMPE family of I/O Expanders from
@@ -719,6 +758,14 @@ config MFD_STA2X11
 	select MFD_CORE
 	select REGMAP_MMIO
 
+config MFD_SUN6I_PRCM
+	bool "Allwinner A31 PRCM controller"
+	depends on ARCH_SUNXI
+	select MFD_CORE
+	help
+	  Support for the PRCM (Power/Reset/Clock Management) unit available
+	  in A31 SoC.
+
 config MFD_SYSCON
 	bool "System Controller Register R/W Based on Regmap"
 	select REGMAP_MMIO
@@ -729,6 +776,7 @@ config MFD_SYSCON
 config MFD_DAVINCI_VOICECODEC
 	tristate
 	select MFD_CORE
+	select REGMAP_MMIO
 
 config MFD_TI_AM335X_TSCADC
 	tristate "TI ADC / Touch Screen chip support"
@@ -1024,7 +1072,7 @@ config MFD_LM3533
 config MFD_TIMBERDALE
 	tristate "Timberdale FPGA"
 	select MFD_CORE
-	depends on PCI && GPIOLIB
+	depends on PCI && GPIOLIB && (X86_32 || COMPILE_TEST)
 	---help---
 	This is the core driver for the timberdale FPGA. This device is a
 	multifunction device which exposes numerous platform devices.
@@ -1194,7 +1242,7 @@ config MFD_WM8994
 	  functionaltiy of the device other drivers must be enabled.
 
 config MFD_STW481X
-	bool "Support for ST Microelectronics STw481x"
+	tristate "Support for ST Microelectronics STw481x"
 	depends on I2C && ARCH_NOMADIK
 	select REGMAP_I2C
 	select MFD_CORE
@@ -1217,7 +1265,7 @@ config MCP_SA11X0
 
 # Chip drivers
 config MCP_UCB1200
-	bool "Support for UCB1200 / UCB1300"
+	tristate "Support for UCB1200 / UCB1300"
 	depends on MCP_SA11X0
 	select MCP
 
@@ -1227,12 +1275,17 @@ config MCP_UCB1200_TS
 
 endmenu
 
-config VEXPRESS_CONFIG
-	bool "ARM Versatile Express platform infrastructure"
-	depends on ARM || ARM64
+config MFD_VEXPRESS_SYSREG
+	bool "Versatile Express System Registers"
+	depends on VEXPRESS_CONFIG && GPIOLIB
+	default y
+	select CLKSRC_MMIO
+	select GPIO_GENERIC_PLATFORM
+	select MFD_CORE
+	select MFD_SYSCON
 	help
-	  Platform configuration infrastructure for the ARM Ltd.
-	  Versatile Express.
+	  System Registers are the platform configuration block
+	  on the ARM Ltd. Versatile Express board.
 
 endmenu
 endif

@@ -1,4 +1,4 @@
-/* Copyright © 2010 - 2013 UNISYS CORPORATION
+/* Copyright (C) 2010 - 2013 UNISYS CORPORATION
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,11 +25,14 @@
 
 #include "channel.h"
 #include "chanstub.h"
+#include "timskmodutils.h"
 #include "version.h"
 
 static __init int
 channel_mod_init(void)
 {
+	if (!unisys_spar_platform)
+		return -ENODEV;
 	return 0;
 }
 
@@ -39,7 +42,7 @@ channel_mod_exit(void)
 }
 
 unsigned char
-SignalInsert_withLock(CHANNEL_HEADER __iomem *pChannel, U32 Queue,
+SignalInsert_withLock(CHANNEL_HEADER __iomem *pChannel, u32 Queue,
 		      void *pSignal, spinlock_t *lock)
 {
 	unsigned char result;
@@ -51,7 +54,7 @@ SignalInsert_withLock(CHANNEL_HEADER __iomem *pChannel, U32 Queue,
 }
 
 unsigned char
-SignalRemove_withLock(CHANNEL_HEADER __iomem *pChannel, U32 Queue,
+SignalRemove_withLock(CHANNEL_HEADER __iomem *pChannel, u32 Queue,
 		      void *pSignal, spinlock_t *lock)
 {
 	unsigned char result;

@@ -1,7 +1,7 @@
 /*******************************************************************
  * This file is part of the Emulex Linux Device Driver for         *
  * Fibre Channel Host Bus Adapters.                                *
- * Copyright (C) 2004-2013 Emulex.  All rights reserved.           *
+ * Copyright (C) 2004-2014 Emulex.  All rights reserved.           *
  * EMULEX and SLI are trademarks of Emulex.                        *
  * www.emulex.com                                                  *
  * Portions Copyright (C) 2004-2005 Christoph Hellwig              *
@@ -919,10 +919,15 @@ lpfc_sli4_pdev_reg_request(struct lpfc_hba *phba, uint32_t opcode)
 		phba->cfg_sriov_nr_virtfn = 0;
 	}
 
+	if (opcode == LPFC_FW_DUMP)
+		phba->hba_flag |= HBA_FW_DUMP_OP;
+
 	status = lpfc_do_offline(phba, LPFC_EVT_OFFLINE);
 
-	if (status != 0)
+	if (status != 0) {
+		phba->hba_flag &= ~HBA_FW_DUMP_OP;
 		return status;
+	}
 
 	/* wait for the device to be quiesced before firmware reset */
 	msleep(100);
@@ -1993,6 +1998,14 @@ lpfc_vport_param_show(name)\
 lpfc_vport_param_init(name, defval, minval, maxval)\
 static DEVICE_ATTR(lpfc_##name, S_IRUGO , lpfc_##name##_show, NULL)
 
+#define LPFC_VPORT_ULL_ATTR_R(name, defval, minval, maxval, desc) \
+static uint64_t lpfc_##name = defval;\
+module_param(lpfc_##name, ullong, S_IRUGO);\
+MODULE_PARM_DESC(lpfc_##name, desc);\
+lpfc_vport_param_show(name)\
+lpfc_vport_param_init(name, defval, minval, maxval)\
+static DEVICE_ATTR(lpfc_##name, S_IRUGO , lpfc_##name##_show, NULL)
+
 #define LPFC_VPORT_ATTR_RW(name, defval, minval, maxval, desc) \
 static uint lpfc_##name = defval;\
 module_param(lpfc_##name, uint, S_IRUGO);\
@@ -2364,7 +2377,7 @@ lpfc_oas_tgt_store(struct device *dev, struct device_attribute *attr,
 	uint8_t wwpn[WWN_SZ];
 	int rc;
 
-	if (!phba->cfg_EnableXLane)
+	if (!phba->cfg_fof)
 		return -EPERM;
 
 	/* count may include a LF at end of string */
@@ -2432,7 +2445,7 @@ lpfc_oas_vpt_store(struct device *dev, struct device_attribute *attr,
 	uint8_t wwpn[WWN_SZ];
 	int rc;
 
-	if (!phba->cfg_EnableXLane)
+	if (!phba->cfg_fof)
 		return -EPERM;
 
 	/* count may include a LF at end of string */
@@ -2499,7 +2512,7 @@ lpfc_oas_lun_state_store(struct device *dev, struct device_attribute *attr,
 	struct lpfc_hba *phba = ((struct lpfc_vport *)shost->hostdata)->phba;
 	int val = 0;
 
-	if (!phba->cfg_EnableXLane)
+	if (!phba->cfg_fof)
 		return -EPERM;
 
 	if (!isdigit(buf[0]))
@@ -2565,7 +2578,7 @@ lpfc_oas_lun_state_set(struct lpfc_hba *phba, uint8_t vpt_wwpn[],
 
 	int rc = 0;
 
-	if (!phba->cfg_EnableXLane)
+	if (!phba->cfg_fof)
 		return -EPERM;
 
 	if (oas_state) {
@@ -2670,7 +2683,7 @@ lpfc_oas_lun_show(struct device *dev, struct device_attribute *attr,
 	uint64_t oas_lun;
 	int len = 0;
 
-	if (!phba->cfg_EnableXLane)
+	if (!phba->cfg_fof)
 		return -EPERM;
 
 	if (wwn_to_u64(phba->cfg_oas_vpt_wwpn) == 0)
@@ -2716,7 +2729,7 @@ lpfc_oas_lun_store(struct device *dev, struct device_attribute *attr,
 	uint64_t scsi_lun;
 	ssize_t rc;
 
-	if (!phba->cfg_EnableXLane)
+	if (!phba->cfg_fof)
 		return -EPERM;
 
 	if (wwn_to_u64(phba->cfg_oas_vpt_wwpn) == 0)
@@ -4591,7 +4604,7 @@ LPFC_VPORT_ATTR(discovery_threads, 32, 1, 64, "Maximum number of ELS commands "
 # Value range is [0,65535]. Default value is 255.
 # NOTE: The SCSI layer might probe all allowed LUN on some old targets.
 */
-LPFC_VPORT_ATTR_R(max_luns, 255, 0, 65535, "Maximum allowed LUN ID");
+LPFC_VPORT_ULL_ATTR_R(max_luns, 255, 0, 65535, "Maximum allowed LUN ID");
 
 /*
 # lpfc_poll_tmo: .Milliseconds driver will wait between polling FCP ring.
@@ -4655,7 +4668,7 @@ LPFC_ATTR_R(EnableXLane, 0, 0, 1, "Enable Express Lane Feature.");
 #       0x0 - 0x7f  = CS_CTL field in FC header (high 7 bits)
 # Value range is [0x0,0x7f]. Default value is 0
 */
-LPFC_ATTR_R(XLanePriority, 0, 0x0, 0x7f, "CS_CTL for Express Lane Feature.");
+LPFC_ATTR_RW(XLanePriority, 0, 0x0, 0x7f, "CS_CTL for Express Lane Feature.");
 
 /*
 # lpfc_enable_bg: Enable BlockGuard (Emulex's Implementation of T10-DIF)

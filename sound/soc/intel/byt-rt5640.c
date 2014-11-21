@@ -34,6 +34,7 @@ static const struct snd_soc_dapm_widget byt_rt5640_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route byt_rt5640_audio_map[] = {
+	{"Headset Mic", NULL, "MICBIAS1"},
 	{"IN2P", NULL, "Headset Mic"},
 	{"IN2N", NULL, "Headset Mic"},
 	{"DMIC1", NULL, "Internal Mic"},
@@ -100,12 +101,6 @@ static int byt_rt5640_init(struct snd_soc_pcm_runtime *runtime)
 	snd_soc_dapm_ignore_suspend(dapm, "SPORP");
 	snd_soc_dapm_ignore_suspend(dapm, "SPORN");
 
-	snd_soc_dapm_enable_pin(dapm, "Headset Mic");
-	snd_soc_dapm_enable_pin(dapm, "Headphone");
-	snd_soc_dapm_enable_pin(dapm, "Speaker");
-	snd_soc_dapm_enable_pin(dapm, "Internal Mic");
-
-	snd_soc_dapm_sync(dapm);
 	return ret;
 }
 
@@ -117,27 +112,13 @@ static struct snd_soc_dai_link byt_rt5640_dais[] = {
 	{
 		.name = "Baytrail Audio",
 		.stream_name = "Audio",
-		.cpu_dai_name = "Front-cpu-dai",
+		.cpu_dai_name = "baytrail-pcm-audio",
 		.codec_dai_name = "rt5640-aif1",
 		.codec_name = "i2c-10EC5640:00",
 		.platform_name = "baytrail-pcm-audio",
 		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 			   SND_SOC_DAIFMT_CBS_CFS,
 		.init = byt_rt5640_init,
-		.ignore_suspend = 1,
-		.ops = &byt_rt5640_ops,
-	},
-	{
-		.name = "Baytrail Voice",
-		.stream_name = "Voice",
-		.cpu_dai_name = "Mic1-cpu-dai",
-		.codec_dai_name = "rt5640-aif1",
-		.codec_name = "i2c-10EC5640:00",
-		.platform_name = "baytrail-pcm-audio",
-		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-			   SND_SOC_DAIFMT_CBS_CFS,
-		.init = NULL,
-		.ignore_suspend = 1,
 		.ops = &byt_rt5640_ops,
 	},
 };
@@ -155,28 +136,17 @@ static struct snd_soc_card byt_rt5640_card = {
 static int byt_rt5640_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &byt_rt5640_card;
-	struct device *dev = &pdev->dev;
 
 	card->dev = &pdev->dev;
-	dev_set_drvdata(dev, card);
-	return snd_soc_register_card(card);
-}
-
-static int byt_rt5640_remove(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-
-	snd_soc_unregister_card(card);
-
-	return 0;
+	return devm_snd_soc_register_card(&pdev->dev, card);
 }
 
 static struct platform_driver byt_rt5640_audio = {
 	.probe = byt_rt5640_probe,
-	.remove = byt_rt5640_remove,
 	.driver = {
 		.name = "byt-rt5640",
 		.owner = THIS_MODULE,
+		.pm = &snd_soc_pm_ops,
 	},
 };
 module_platform_driver(byt_rt5640_audio)

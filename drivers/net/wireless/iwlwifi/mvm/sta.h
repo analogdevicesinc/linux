@@ -73,6 +73,7 @@
 #include "rs.h"
 
 struct iwl_mvm;
+struct iwl_mvm_vif;
 
 /**
  * DOC: station table - introduction
@@ -253,6 +254,8 @@ enum iwl_mvm_agg_state {
  *	This is basically (last acked packet++).
  * @rate_n_flags: Rate at which Tx was attempted. Holds the data between the
  *	Tx response (TX_CMD), and the block ack notification (COMPRESSED_BA).
+ * @reduced_tpc: Reduced tx power. Holds the data between the
+ *	Tx response (TX_CMD), and the block ack notification (COMPRESSED_BA).
  * @state: state of the BA agreement establishment / tear down.
  * @txq_id: Tx queue used by the BA session
  * @ssn: the first packet to be sent in AGG HW queue in Tx AGG start flow, or
@@ -265,6 +268,7 @@ struct iwl_mvm_tid_data {
 	u16 next_reclaimed;
 	/* The rest is Tx AGG related */
 	u32 rate_n_flags;
+	u8 reduced_tpc;
 	enum iwl_mvm_agg_state state;
 	u16 txq_id;
 	u16 ssn;
@@ -284,8 +288,6 @@ static inline u16 iwl_mvm_tid_queued(struct iwl_mvm_tid_data *tid_data)
  * @tid_disable_agg: bitmap: if bit(tid) is set, the fw won't send ampdus for
  *	tid.
  * @max_agg_bufsize: the maximal size of the AGG buffer for this station
- * @bt_reduced_txpower_dbg: debug mode in which %bt_reduced_txpower is forced
- *	by debugfs.
  * @bt_reduced_txpower: is reduced tx power enabled for this station
  * @next_status_eosp: the next reclaimed packet is a PS-Poll response and
  *	we need to signal the EOSP
@@ -294,6 +296,7 @@ static inline u16 iwl_mvm_tid_queued(struct iwl_mvm_tid_data *tid_data)
  * @tid_data: per tid data. Look at %iwl_mvm_tid_data.
  * @tx_protection: reference counter for controlling the Tx protection.
  * @tt_tx_protection: is thermal throttling enable Tx protection?
+ * @disable_tx: is tx to this STA disabled?
  *
  * When mac80211 creates a station it reserves some space (hw->sta_data_size)
  * in the structure for use by driver. This structure is placed in that
@@ -306,7 +309,6 @@ struct iwl_mvm_sta {
 	u32 mac_id_n_color;
 	u16 tid_disable_agg;
 	u8 max_agg_bufsize;
-	bool bt_reduced_txpower_dbg;
 	bool bt_reduced_txpower;
 	bool next_status_eosp;
 	spinlock_t lock;
@@ -317,6 +319,8 @@ struct iwl_mvm_sta {
 	/* Temporary, until the new TLC will control the Tx protection */
 	s8 tx_protection;
 	bool tt_tx_protection;
+
+	bool disable_tx;
 };
 
 static inline struct iwl_mvm_sta *
@@ -404,5 +408,13 @@ void iwl_mvm_sta_modify_sleep_tx_count(struct iwl_mvm *mvm,
 				       bool agg);
 int iwl_mvm_drain_sta(struct iwl_mvm *mvm, struct iwl_mvm_sta *mvmsta,
 		      bool drain);
+void iwl_mvm_sta_modify_disable_tx(struct iwl_mvm *mvm,
+				   struct iwl_mvm_sta *mvmsta, bool disable);
+void iwl_mvm_sta_modify_disable_tx_ap(struct iwl_mvm *mvm,
+				      struct ieee80211_sta *sta,
+				      bool disable);
+void iwl_mvm_modify_all_sta_disable_tx(struct iwl_mvm *mvm,
+				       struct iwl_mvm_vif *mvmvif,
+				       bool disable);
 
 #endif /* __sta_h__ */

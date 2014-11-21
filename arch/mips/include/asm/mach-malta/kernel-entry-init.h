@@ -10,13 +10,14 @@
 #ifndef __ASM_MACH_MIPS_KERNEL_ENTRY_INIT_H
 #define __ASM_MACH_MIPS_KERNEL_ENTRY_INIT_H
 
+#include <asm/regdef.h>
+#include <asm/mipsregs.h>
+
 	/*
 	 * Prepare segments for EVA boot:
 	 *
 	 * This is in case the processor boots in legacy configuration
 	 * (SI_EVAReset is de-asserted and CONFIG5.K == 0)
-	 *
-	 * On entry, t1 is loaded with CP0_CONFIG
 	 *
 	 * ========================= Mappings =============================
 	 * Virtual memory           Physical memory           Mapping
@@ -30,12 +31,20 @@
 	 *
 	 *
 	 * Lowmem is expanded to 2GB
+	 *
+	 * The following code uses the t0, t1, t2 and ra registers without
+	 * previously preserving them.
+	 *
 	 */
-	.macro	eva_entry
+	.macro	platform_eva_init
+
+	.set	push
+	.set	reorder
 	/*
 	 * Get Config.K0 value and use it to program
 	 * the segmentation registers
 	 */
+	mfc0    t1, CP0_CONFIG
 	andi	t1, 0x7 /* CCA */
 	move	t2, t1
 	ins	t2, t1, 16, 3
@@ -77,39 +86,11 @@
 	mtc0    t0, $16, 5
 	sync
 	jal	mips_ihb
+
+	.set	pop
 	.endm
 
 	.macro	kernel_entry_setup
-#ifdef CONFIG_MIPS_MT_SMTC
-	mfc0	t0, CP0_CONFIG
-	bgez	t0, 9f
-	mfc0	t0, CP0_CONFIG, 1
-	bgez	t0, 9f
-	mfc0	t0, CP0_CONFIG, 2
-	bgez	t0, 9f
-	mfc0	t0, CP0_CONFIG, 3
-	and	t0, 1<<2
-	bnez	t0, 0f
-9:
-	/* Assume we came from YAMON... */
-	PTR_LA	v0, 0x9fc00534	/* YAMON print */
-	lw	v0, (v0)
-	move	a0, zero
-	PTR_LA	a1, nonmt_processor
-	jal	v0
-
-	PTR_LA	v0, 0x9fc00520	/* YAMON exit */
-	lw	v0, (v0)
-	li	a0, 1
-	jal	v0
-
-1:	b	1b
-
-	__INITDATA
-nonmt_processor:
-	.asciz	"SMTC kernel requires the MT ASE to run\n"
-	__FINIT
-#endif
 
 #ifdef CONFIG_EVA
 	sync
@@ -125,7 +106,7 @@ nonmt_processor:
 	sll     t0, t0, 6   /* SC bit */
 	bgez    t0, 9f
 
-	eva_entry
+	platform_eva_init
 	b       0f
 9:
 	/* Assume we came from YAMON... */
@@ -157,8 +138,7 @@ nonsc_processor:
 #ifdef CONFIG_EVA
 	sync
 	ehb
-	mfc0    t1, CP0_CONFIG
-	eva_entry
+	platform_eva_init
 #endif
 	.endm
 

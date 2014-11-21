@@ -15,6 +15,7 @@
  */
 
 #include "skeleton.dtsi"
+#include <dt-bindings/reset/altr,rst-mgr.h>
 
 / {
 	#address-cells = <1>;
@@ -513,6 +514,10 @@
 			mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
 			clocks = <&emac0_clk>;
 			clock-names = "stmmaceth";
+			resets = <&rst EMAC0_RESET>;
+			reset-names = "stmmaceth";
+			snps,multicast-filter-bins = <256>;
+			snps,perfect-filter-entries = <128>;
 			status = "disabled";
 		};
 
@@ -525,6 +530,10 @@
 			mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
 			clocks = <&emac1_clk>;
 			clock-names = "stmmaceth";
+			resets = <&rst EMAC1_RESET>;
+			reset-names = "stmmaceth";
+			snps,multicast-filter-bins = <256>;
+			snps,perfect-filter-entries = <128>;
 			status = "disabled";
 		};
 
@@ -539,18 +548,24 @@
 		hps_fpgabridge0: fpgabridge@0 {
 			compatible = "altr,socfpga-hps2fpga-bridge";
 			label = "hps2fpga";
+			resets = <&rst HPS2FPGA_RESET>;
+			reset-names = "hps2fpga";
 			clocks = <&l4_main_clk>;
 		};
 
 		hps_fpgabridge1: fpgabridge@1 {
 			compatible = "altr,socfpga-lwhps2fpga-bridge";
 			label = "lwhps2fpga";
+			resets = <&rst LWHPS2FPGA_RESET>;
+			reset-names = "lwhps2fpga";
 			clocks = <&l4_main_clk>;
 		};
 
 		hps_fpgabridge2: fpgabridge@2 {
 			compatible = "altr,socfpga-fpga2hps-bridge";
 			label = "fpga2hps";
+			resets = <&rst FPGA2HPS_RESET>;
+			reset-names = "fpga2hps";
 			clocks = <&l4_main_clk>;
 		};
 
@@ -881,8 +896,9 @@
 			clocks = <&l4_sp_clk>;
 		};
 
-		rstmgr@ffd05000 {
-			compatible = "altr,rst-mgr", "syscon";
+		rst: rstmgr@ffd05000 {
+			#reset-cells = <1>;
+			compatible = "altr,rst-mgr";
 			reg = <0xffd05000 0x1000>;
 		};
 

@@ -29,17 +29,17 @@
 #include <linux/ioport.h>	/* for struct resource */
 #include <linux/device.h>
 
-#ifdef	CONFIG_ACPI
-
 #ifndef _LINUX
 #define _LINUX
 #endif
+#include <acpi/acpi.h>
+
+#ifdef	CONFIG_ACPI
 
 #include <linux/list.h>
 #include <linux/mod_devicetable.h>
 #include <linux/dynamic_debug.h>
 
-#include <acpi/acpi.h>
 #include <acpi/acpi_bus.h>
 #include <acpi/acpi_drivers.h>
 #include <acpi/acpi_numa.h>
@@ -184,6 +184,8 @@ extern int ec_transaction(u8 command,
                           const u8 *wdata, unsigned wdata_len,
                           u8 *rdata, unsigned rdata_len);
 extern acpi_handle ec_get_handle(void);
+
+extern bool acpi_is_pnp_device(struct acpi_device *);
 
 #if defined(CONFIG_ACPI_WMI) || defined(CONFIG_ACPI_WMI_MODULE)
 
@@ -361,6 +363,17 @@ extern bool osc_sb_apei_support_acked;
 #define OSC_PCI_EXPRESS_AER_CONTROL		0x00000008
 #define OSC_PCI_EXPRESS_CAPABILITY_CONTROL	0x00000010
 #define OSC_PCI_CONTROL_MASKS			0x0000001f
+
+#define ACPI_GSB_ACCESS_ATTRIB_QUICK		0x00000002
+#define ACPI_GSB_ACCESS_ATTRIB_SEND_RCV         0x00000004
+#define ACPI_GSB_ACCESS_ATTRIB_BYTE		0x00000006
+#define ACPI_GSB_ACCESS_ATTRIB_WORD		0x00000008
+#define ACPI_GSB_ACCESS_ATTRIB_BLOCK		0x0000000A
+#define ACPI_GSB_ACCESS_ATTRIB_MULTIBYTE	0x0000000B
+#define ACPI_GSB_ACCESS_ATTRIB_WORD_CALL	0x0000000C
+#define ACPI_GSB_ACCESS_ATTRIB_BLOCK_CALL	0x0000000D
+#define ACPI_GSB_ACCESS_ATTRIB_RAW_BYTES	0x0000000E
+#define ACPI_GSB_ACCESS_ATTRIB_RAW_PROCESS	0x0000000F
 
 extern acpi_status acpi_pci_osc_control_set(acpi_handle handle,
 					     u32 *mask, u32 req);
@@ -555,14 +568,20 @@ static inline int acpi_subsys_runtime_resume(struct device *dev) { return 0; }
 int acpi_dev_suspend_late(struct device *dev);
 int acpi_dev_resume_early(struct device *dev);
 int acpi_subsys_prepare(struct device *dev);
+void acpi_subsys_complete(struct device *dev);
 int acpi_subsys_suspend_late(struct device *dev);
 int acpi_subsys_resume_early(struct device *dev);
+int acpi_subsys_suspend(struct device *dev);
+int acpi_subsys_freeze(struct device *dev);
 #else
 static inline int acpi_dev_suspend_late(struct device *dev) { return 0; }
 static inline int acpi_dev_resume_early(struct device *dev) { return 0; }
 static inline int acpi_subsys_prepare(struct device *dev) { return 0; }
+static inline void acpi_subsys_complete(struct device *dev) {}
 static inline int acpi_subsys_suspend_late(struct device *dev) { return 0; }
 static inline int acpi_subsys_resume_early(struct device *dev) { return 0; }
+static inline int acpi_subsys_suspend(struct device *dev) { return 0; }
+static inline int acpi_subsys_freeze(struct device *dev) { return 0; }
 #endif
 
 #if defined(CONFIG_ACPI) && defined(CONFIG_PM)

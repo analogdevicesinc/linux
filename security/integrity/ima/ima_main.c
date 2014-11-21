@@ -81,7 +81,6 @@ static void ima_rdwr_violation_check(struct file *file)
 {
 	struct inode *inode = file_inode(file);
 	fmode_t mode = file->f_mode;
-	int must_measure;
 	bool send_tomtou = false, send_writers = false;
 	char *pathbuf = NULL;
 	const char *pathname;
@@ -89,22 +88,19 @@ static void ima_rdwr_violation_check(struct file *file)
 	if (!S_ISREG(inode->i_mode) || !ima_initialized)
 		return;
 
-	mutex_lock(&inode->i_mutex);	/* file metadata: permissions, xattr */
-
 	if (mode & FMODE_WRITE) {
-		if (atomic_read(&inode->i_readcount) && IS_IMA(inode))
-			send_tomtou = true;
-		goto out;
+		if (atomic_read(&inode->i_readcount) && IS_IMA(inode)) {
+			struct integrity_iint_cache *iint;
+			iint = integrity_iint_find(inode);
+			/* IMA_MEASURE is set from reader side */
+			if (iint && (iint->flags & IMA_MEASURE))
+				send_tomtou = true;
+		}
+	} else {
+		if ((atomic_read(&inode->i_writecount) > 0) &&
+		    ima_must_measure(inode, MAY_READ, FILE_CHECK))
+			send_writers = true;
 	}
-
-	must_measure = ima_must_measure(inode, MAY_READ, FILE_CHECK);
-	if (!must_measure)
-		goto out;
-
-	if (atomic_read(&inode->i_writecount) > 0)
-		send_writers = true;
-out:
-	mutex_unlock(&inode->i_mutex);
 
 	if (!send_tomtou && !send_writers)
 		return;
@@ -163,7 +159,7 @@ static int process_measurement(struct file *file, const char *filename,
 {
 	struct inode *inode = file_inode(file);
 	struct integrity_iint_cache *iint;
-	struct ima_template_desc *template_desc = ima_template_desc_current();
+	struct ima_template_desc *template_desc;
 	char *pathbuf = NULL;
 	const char *pathname = NULL;
 	int rc = -ENOMEM, action, must_appraise, _func;
@@ -207,6 +203,7 @@ static int process_measurement(struct file *file, const char *filename,
 		goto out_digsig;
 	}
 
+	template_desc = ima_template_desc_current();
 	if (strcmp(template_desc->name, IMA_TEMPLATE_IMA_NAME) == 0) {
 		if (action & IMA_APPRAISE_SUBMASK)
 			xattr_ptr = &xattr_value;
@@ -214,8 +211,11 @@ static int process_measurement(struct file *file, const char *filename,
 		xattr_ptr = &xattr_value;
 
 	rc = ima_collect_measurement(iint, file, xattr_ptr, &xattr_len);
-	if (rc != 0)
+	if (rc != 0) {
+		if (file->f_flags & O_DIRECT)
+			rc = (iint->flags & IMA_PERMIT_DIRECTIO) ? 0 : -EACCES;
 		goto out_digsig;
+	}
 
 	pathname = filename ?: ima_d_path(&file->f_path, &pathbuf);
 
@@ -319,14 +319,31 @@ int ima_module_check(struct file *file)
 	return process_measurement(file, NULL, MAY_EXEC, MODULE_CHECK);
 }
 
+int ima_fw_from_file(struct file *file, char *buf, size_t size)
+{
+	if (!file) {
+		if ((ima_appraise & IMA_APPRAISE_FIRMWARE) &&
+		    (ima_appraise & IMA_APPRAISE_ENFORCE))
+			return -EACCES;	/* INTEGRITY_UNKNOWN */
+		return 0;
+	}
+	return process_measurement(file, NULL, MAY_EXEC, FIRMWARE_CHECK);
+}
+
 static int __init init_ima(void)
 {
 	int error;
 
 	hash_setup(CONFIG_IMA_DEFAULT_HASH);
 	error = ima_init();
-	if (!error)
-		ima_initialized = 1;
+	if (error)
+		goto out;
+
+	error = ima_init_keyring(INTEGRITY_KEYRING_IMA);
+	if (error)
+		goto out;
+	ima_initialized = 1;
+out:
 	return error;
 }
 

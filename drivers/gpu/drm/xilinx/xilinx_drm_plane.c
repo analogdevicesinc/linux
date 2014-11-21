@@ -142,12 +142,6 @@ void xilinx_drm_plane_dpms(struct drm_plane *base_plane, int dpms)
 			xilinx_osd_layer_set_alpha(plane->osd_layer, 1,
 						   plane->alpha);
 			xilinx_osd_layer_enable(plane->osd_layer);
-			if (plane->priv) {
-				/* set background color as black */
-				xilinx_osd_set_color(manager->osd, 0x0, 0x0,
-						     0x0);
-				xilinx_osd_enable(manager->osd);
-			}
 
 			xilinx_osd_enable_rue(manager->osd);
 		}
@@ -161,8 +155,6 @@ void xilinx_drm_plane_dpms(struct drm_plane *base_plane, int dpms)
 			xilinx_osd_layer_set_dimension(plane->osd_layer,
 						       0, 0, 0, 0);
 			xilinx_osd_layer_disable(plane->osd_layer);
-			if (plane->priv)
-				xilinx_osd_reset(manager->osd);
 
 			xilinx_osd_enable_rue(manager->osd);
 		}
@@ -258,11 +250,6 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 	/* set OSD dimensions */
 	if (plane->manager->osd) {
 		xilinx_osd_disable_rue(plane->manager->osd);
-
-		/* if a plane is private, it's for crtc */
-		if (plane->priv)
-			xilinx_osd_set_dimension(plane->manager->osd,
-						 crtc_w, crtc_h);
 
 		xilinx_osd_layer_set_dimension(plane->osd_layer, crtc_x, crtc_y,
 					       src_w, src_h);
@@ -371,7 +358,8 @@ xilinx_drm_plane_update_prio(struct xilinx_drm_plane_manager *manager)
 	xilinx_osd_enable_rue(manager->osd);
 }
 
-void xilinx_drm_plane_set_zpos(struct drm_plane *base_plane, unsigned int zpos)
+static void xilinx_drm_plane_set_zpos(struct drm_plane *base_plane,
+				      unsigned int zpos)
 {
 	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
 	struct xilinx_drm_plane_manager *manager = plane->manager;
@@ -399,8 +387,8 @@ void xilinx_drm_plane_set_zpos(struct drm_plane *base_plane, unsigned int zpos)
 	}
 }
 
-void xilinx_drm_plane_set_alpha(struct drm_plane *base_plane,
-				unsigned int alpha)
+static void xilinx_drm_plane_set_alpha(struct drm_plane *base_plane,
+				       unsigned int alpha)
 {
 	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
 
@@ -446,22 +434,6 @@ int xilinx_drm_plane_get_max_width(struct drm_plane *base_plane)
 	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
 
 	return plane->manager->max_width;
-}
-
-/* get the max alpha value */
-unsigned int xilinx_drm_plane_get_max_alpha(struct drm_plane *base_plane)
-{
-	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
-
-	return plane->manager->default_alpha;
-}
-
-/* get the default z-position value which is the plane id */
-unsigned int xilinx_drm_plane_get_default_zpos(struct drm_plane *base_plane)
-{
-	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
-
-	return plane->id;
 }
 
 /* check if format is supported */
@@ -560,6 +532,49 @@ static void xilinx_drm_plane_attach_property(struct drm_plane *base_plane)
 					   manager->default_alpha);
 }
 
+/**
+ * xilinx_drm_plane_manager_dpms - Set DPMS for the Xilinx plane manager
+ * @manager: Xilinx plane manager object
+ * @dpms: requested DPMS
+ *
+ * Set the Xilinx plane manager to the given DPMS state. This function is
+ * usually called from the CRTC driver with calling xilinx_drm_plane_dpms().
+ */
+void xilinx_drm_plane_manager_dpms(struct xilinx_drm_plane_manager *manager,
+				   int dpms)
+{
+	switch (dpms) {
+	case DRM_MODE_DPMS_ON:
+		if (manager->osd) {
+			xilinx_osd_disable_rue(manager->osd);
+			xilinx_osd_set_color(manager->osd, 0x0, 0x0, 0x0);
+			xilinx_osd_enable(manager->osd);
+			xilinx_osd_enable_rue(manager->osd);
+		}
+		break;
+	default:
+		if (manager->osd)
+			xilinx_osd_reset(manager->osd);
+		break;
+	}
+}
+
+/**
+ * xilinx_drm_plane_manager_mode_set - Set the mode to the Xilinx plane manager
+ * @manager: Xilinx plane manager object
+ * @crtc_w: CRTC width
+ * @crtc_h: CRTC height
+ *
+ * Set the width and height of the Xilinx plane manager. This function is uaully
+ * called from the CRTC driver before calling the xilinx_drm_plane_mode_set().
+ */
+void xilinx_drm_plane_manager_mode_set(struct xilinx_drm_plane_manager *manager,
+				      unsigned int crtc_w, unsigned int crtc_h)
+{
+	if (manager->osd)
+		xilinx_osd_set_dimension(manager->osd, crtc_w, crtc_h);
+}
+
 /* create a plane */
 static struct xilinx_drm_plane *
 xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
@@ -570,6 +585,7 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 	char plane_name[16];
 	struct device_node *plane_node;
 	struct device_node *sub_node;
+	enum drm_plane_type type;
 	uint32_t fmt_in = -1;
 	uint32_t fmt_out = -1;
 	const char *fmt;
@@ -693,14 +709,18 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 		plane->format = manager->format;
 
 	/* initialize drm plane */
-	ret = drm_plane_init(manager->drm, &plane->base, possible_crtcs,
-			     &xilinx_drm_plane_funcs, &plane->format, 1, priv);
+	type = priv ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
+	ret = drm_universal_plane_init(manager->drm, &plane->base,
+				       possible_crtcs, &xilinx_drm_plane_funcs,
+				       &plane->format, 1, type);
 	if (ret) {
 		DRM_ERROR("failed to initialize plane\n");
 		goto err_init;
 	}
 	plane->manager = manager;
 	manager->planes[i] = plane;
+
+	xilinx_drm_plane_attach_property(&plane->base);
 
 	of_node_put(plane_node);
 
@@ -734,36 +754,12 @@ xilinx_drm_plane_create_private(struct xilinx_drm_plane_manager *manager,
 	return &plane->base;
 }
 
-void xilinx_drm_plane_destroy_private(struct xilinx_drm_plane_manager *manager,
-				      struct drm_plane *base_plane)
-{
-	xilinx_drm_plane_destroy(base_plane);
-}
-
-/* destroy planes */
-void xilinx_drm_plane_destroy_planes(struct xilinx_drm_plane_manager *manager)
-{
-	struct xilinx_drm_plane *plane;
-	int i;
-
-	for (i = 0; i < manager->num_planes; i++) {
-		plane = manager->planes[i];
-		if (plane && !plane->priv) {
-			xilinx_drm_plane_destroy(&plane->base);
-			manager->planes[i] = NULL;
-		}
-	}
-}
-
 /* create extra planes */
 int xilinx_drm_plane_create_planes(struct xilinx_drm_plane_manager *manager,
 				   unsigned int possible_crtcs)
 {
 	struct xilinx_drm_plane *plane;
 	int i;
-	int err_ret;
-
-	xilinx_drm_plane_create_property(manager);
 
 	/* find if there any available plane, and create if available */
 	for (i = 0; i < manager->num_planes; i++) {
@@ -773,20 +769,13 @@ int xilinx_drm_plane_create_planes(struct xilinx_drm_plane_manager *manager,
 		plane = xilinx_drm_plane_create(manager, possible_crtcs, false);
 		if (IS_ERR(plane)) {
 			DRM_ERROR("failed to allocate a plane\n");
-			err_ret = PTR_ERR(plane);
-			goto err_out;
+			return PTR_ERR(plane);
 		}
-
-		xilinx_drm_plane_attach_property(&plane->base);
 
 		manager->planes[i] = plane;
 	}
 
 	return 0;
-
-err_out:
-	xilinx_drm_plane_destroy_planes(manager);
-	return err_ret;
 }
 
 /* initialize a plane manager: num_planes, format, max_width */
@@ -870,21 +859,12 @@ xilinx_drm_plane_probe_manager(struct drm_device *drm)
 
 	manager->default_alpha = OSD_MAX_ALPHA;
 
+	xilinx_drm_plane_create_property(manager);
+
 	return manager;
 }
 
 void xilinx_drm_plane_remove_manager(struct xilinx_drm_plane_manager *manager)
 {
-	int i;
-
-	for (i = 0; i < manager->num_planes; i++) {
-		if (manager->planes[i] && !manager->planes[i]->priv) {
-			xilinx_drm_plane_dpms(&manager->planes[i]->base,
-					      DRM_MODE_DPMS_OFF);
-			xilinx_drm_plane_destroy(&manager->planes[i]->base);
-			manager->planes[i] = NULL;
-		}
-	}
-
 	of_node_put(manager->node);
 }

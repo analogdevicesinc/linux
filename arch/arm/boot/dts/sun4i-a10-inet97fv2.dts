@@ -24,15 +24,19 @@
 	};
 
 	soc@01c00000 {
-		uart0: serial@01c28000 {
+		mmc0: mmc@01c0f000 {
 			pinctrl-names = "default";
-			pinctrl-0 = <&uart0_pins_a>;
+			pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin_reference_design>;
+			vmmc-supply = <&reg_vcc3v3>;
+			bus-width = <4>;
+			cd-gpios = <&pio 7 1 0>; /* PH1 */
+			cd-inverted;
 			status = "okay";
 		};
 
-		i2c0: i2c@01c2ac00 {
+		uart0: serial@01c28000 {
 			pinctrl-names = "default";
-			pinctrl-0 = <&i2c0_pins_a>;
+			pinctrl-0 = <&uart0_pins_a>;
 			status = "okay";
 		};
 
@@ -56,6 +60,21 @@
 
 		ohci1: usb@01c1c400 {
 			status = "okay";
+		};
+
+		i2c0: i2c@01c2ac00 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c0_pins_a>;
+			status = "okay";
+
+			axp209: pmic@34 {
+				compatible = "x-powers,axp209";
+				reg = <0x34>;
+				interrupts = <0>;
+
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
 		};
 	};
 

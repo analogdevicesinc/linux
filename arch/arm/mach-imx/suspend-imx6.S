@@ -10,6 +10,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/assembler.h>
 #include <asm/asm-offsets.h>
 #include <asm/hardware/cache-l2x0.h>
 #include "hardware.h"
@@ -172,6 +173,8 @@ ENTRY(imx6_suspend)
 	ldr	r6, [r11, #0x0]
 	ldr	r11, [r0, #PM_INFO_MX6Q_GPC_V_OFFSET]
 	ldr	r6, [r11, #0x0]
+	ldr	r11, [r0, #PM_INFO_MX6Q_IOMUXC_V_OFFSET]
+	ldr	r6, [r11, #0x0]
 
 	/* use r11 to store the IO address */
 	ldr	r11, [r0, #PM_INFO_MX6Q_SRC_V_OFFSET]
@@ -301,7 +304,7 @@ rbc_loop:
 	resume_mmdc
 
 	/* return to suspend finish */
-	mov	pc, lr
+	ret	lr
 
 resume:
 	/* invalidate L1 I-cache first */
@@ -325,7 +328,7 @@ resume:
 	mov	r5, #0x1
 	resume_mmdc
 
-	mov	pc, lr
+	ret	lr
 ENDPROC(imx6_suspend)
 
 /*
@@ -334,28 +337,10 @@ ENDPROC(imx6_suspend)
  * turned into relative ones.
  */
 
-#ifdef CONFIG_CACHE_L2X0
-	.macro	pl310_resume
-	adr	r0, l2x0_saved_regs_offset
-	ldr	r2, [r0]
-	add	r2, r2, r0
-	ldr	r0, [r2, #L2X0_R_PHY_BASE]	@ get physical base of l2x0
-	ldr	r1, [r2, #L2X0_R_AUX_CTRL]	@ get aux_ctrl value
-	str	r1, [r0, #L2X0_AUX_CTRL]	@ restore aux_ctrl
-	mov	r1, #0x1
-	str	r1, [r0, #L2X0_CTRL]		@ re-enable L2
-	.endm
-
-l2x0_saved_regs_offset:
-	.word	l2x0_saved_regs - .
-
-#else
-	.macro	pl310_resume
-	.endm
-#endif
-
 ENTRY(v7_cpu_resume)
 	bl	v7_invalidate_l1
-	pl310_resume
+#ifdef CONFIG_CACHE_L2X0
+	bl	l2c310_early_resume
+#endif
 	b	cpu_resume
 ENDPROC(v7_cpu_resume)

@@ -1086,8 +1086,8 @@ struct rtl_io {
 	struct device *dev;
 
 	/*PCI MEM map */
-	unsigned long pci_mem_end;	/*shared mem end        */
-	unsigned long pci_mem_start;	/*shared mem start */
+	void __iomem *pci_mem_end;	/*shared mem end        */
+	void __iomem *pci_mem_start;	/*shared mem start */
 
 	/*PCI IO map */
 	unsigned long pci_base_addr;	/*device I/O address */
@@ -1853,7 +1853,7 @@ struct rtl_hal_ops {
 			     u32 cmd_len, u8 *p_cmdbuffer);
 	bool (*get_btc_status)(void);
 	u32 (*rx_command_packet_handler)(struct ieee80211_hw *hw,
-					 struct rtl_stats status,
+					 const struct rtl_stats *status,
 					 struct sk_buff *skb);
 };
 

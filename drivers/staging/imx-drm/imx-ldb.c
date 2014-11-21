@@ -317,7 +317,6 @@ static struct drm_connector_funcs imx_ldb_connector_funcs = {
 static struct drm_connector_helper_funcs imx_ldb_connector_helper_funcs = {
 	.get_modes = imx_ldb_connector_get_modes,
 	.best_encoder = imx_ldb_connector_best_encoder,
-	.mode_valid = imx_drm_connector_mode_valid,
 };
 
 static struct drm_encoder_funcs imx_ldb_encoder_funcs = {
@@ -574,6 +573,9 @@ static void imx_ldb_unbind(struct device *dev, struct device *master,
 
 	for (i = 0; i < 2; i++) {
 		struct imx_ldb_channel *channel = &imx_ldb->channel[i];
+
+		if (!channel->connector.funcs)
+			continue;
 
 		channel->connector.funcs->destroy(&channel->connector);
 		channel->encoder.funcs->destroy(&channel->encoder);

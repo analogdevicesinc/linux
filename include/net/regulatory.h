@@ -131,6 +131,11 @@ struct regulatory_request {
  * 	all country IE information processed by the regulatory core. This will
  * 	override %REGULATORY_COUNTRY_IE_FOLLOW_POWER as all country IEs will
  * 	be ignored.
+ * @REGULATORY_ENABLE_RELAX_NO_IR: for devices that wish to allow the
+ *      NO_IR relaxation, which enables transmissions on channels on which
+ *      otherwise initiating radiation is not allowed. This will enable the
+ *      relaxations enabled under the CFG80211_REG_RELAX_NO_IR configuration
+ *      option
  */
 enum ieee80211_regulatory_flags {
 	REGULATORY_CUSTOM_REG			= BIT(0),
@@ -138,6 +143,7 @@ enum ieee80211_regulatory_flags {
 	REGULATORY_DISABLE_BEACON_HINTS		= BIT(2),
 	REGULATORY_COUNTRY_IE_FOLLOW_POWER	= BIT(3),
 	REGULATORY_COUNTRY_IE_IGNORE		= BIT(4),
+	REGULATORY_ENABLE_RELAX_NO_IR           = BIT(5),
 };
 
 struct ieee80211_freq_range {
@@ -161,7 +167,7 @@ struct ieee80211_reg_rule {
 struct ieee80211_regdomain {
 	struct rcu_head rcu_head;
 	u32 n_reg_rules;
-	char alpha2[2];
+	char alpha2[3];
 	enum nl80211_dfs_regions dfs_region;
 	struct ieee80211_reg_rule reg_rules[];
 };

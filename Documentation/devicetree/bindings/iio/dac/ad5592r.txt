@@ -1,0 +1,25 @@
+Analog Devices AD5592R DAC/ADC device driver
+
+Required properties:
+	- compatible: Must be one of:
+		* "adi,ad5592r"
+	- reg: SPI chip select number for the device
+	- spi-max-frequency: Max SPI frequency to use (< 30000000)
+	- spi-cpol: The AD5592R requires inverse clock polarity (CPOL) mode
+	- channel-modes: An array of eight 8-bit values (one per channel)
+	  describing the mode of each channel according to the following:
+		* 0 = unused (pulled down),
+		* 1 = DAC,
+		* 2 = ADC,
+		* 6 = tri-state
+
+Example:
+
+	ad5592r@0 {
+		compatible = "adi,ad5592r";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+
+		channel-modes = /bits/ 8 <1 2 2 0 0 0 0 0>;
+	};

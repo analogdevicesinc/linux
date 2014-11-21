@@ -1,7 +1,7 @@
 /*
  * This file is part of the Chelsio T4 Ethernet driver for Linux.
  *
- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
+ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -1697,7 +1697,8 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
 		return handle_trace_pkt(q->adap, si);
 
 	pkt = (const struct cpl_rx_pkt *)rsp;
-	csum_ok = pkt->csum_calc && !pkt->err_vec;
+	csum_ok = pkt->csum_calc && !pkt->err_vec &&
+		  (q->netdev->features & NETIF_F_RXCSUM);
 	if ((pkt->l2info & htonl(RXF_TCP)) &&
 	    (q->netdev->features & NETIF_F_GRO) && csum_ok && !pkt->ip_frag) {
 		do_gro(rxq, si, pkt);
@@ -1720,8 +1721,7 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
 
 	rxq->stats.pkts++;
 
-	if (csum_ok && (q->netdev->features & NETIF_F_RXCSUM) &&
-	    (pkt->l2info & htonl(RXF_UDP | RXF_TCP))) {
+	if (csum_ok && (pkt->l2info & htonl(RXF_UDP | RXF_TCP))) {
 		if (!pkt->ip_frag) {
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
 			rxq->stats.rx_cso++;
@@ -2031,7 +2031,7 @@ static void sge_rx_timer_cb(unsigned long data)
 			struct sge_fl *fl = s->egr_map[id];
 
 			clear_bit(id, s->starving_fl);
-			smp_mb__after_clear_bit();
+			smp_mb__after_atomic();
 
 			if (fl_starving(fl)) {
 				rxq = container_of(fl, struct sge_eth_rxq, fl);
@@ -2215,7 +2215,6 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
 	iq->cntxt_id = ntohs(c.iqid);
 	iq->abs_id = ntohs(c.physiqid);
 	iq->size--;                           /* subtract status entry */
-	iq->adap = adap;
 	iq->netdev = dev;
 	iq->handler = hnd;
 
@@ -2304,7 +2303,8 @@ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
 			    FW_EQ_ETH_CMD_PFN(adap->fn) | FW_EQ_ETH_CMD_VFN(0));
 	c.alloc_to_len16 = htonl(FW_EQ_ETH_CMD_ALLOC |
 				 FW_EQ_ETH_CMD_EQSTART | FW_LEN16(c));
-	c.viid_pkd = htonl(FW_EQ_ETH_CMD_VIID(pi->viid));
+	c.viid_pkd = htonl(FW_EQ_ETH_CMD_AUTOEQUEQE |
+			   FW_EQ_ETH_CMD_VIID(pi->viid));
 	c.fetchszm_to_iqid = htonl(FW_EQ_ETH_CMD_HOSTFCMODE(2) |
 				   FW_EQ_ETH_CMD_PCIECHN(pi->tx_chan) |
 				   FW_EQ_ETH_CMD_FETCHRO(1) |
@@ -2481,6 +2481,22 @@ static void free_rspq_fl(struct adapter *adap, struct sge_rspq *rq,
 }
 
 /**
+ *      t4_free_ofld_rxqs - free a block of consecutive Rx queues
+ *      @adap: the adapter
+ *      @n: number of queues
+ *      @q: pointer to first queue
+ *
+ *      Release the resources of a consecutive block of offload Rx queues.
+ */
+void t4_free_ofld_rxqs(struct adapter *adap, int n, struct sge_ofld_rxq *q)
+{
+	for ( ; n; n--, q++)
+		if (q->rspq.desc)
+			free_rspq_fl(adap, &q->rspq,
+				     q->fl.size ? &q->fl : NULL);
+}
+
+/**
  *	t4_free_sge_resources - free SGE resources
  *	@adap: the adapter
  *
@@ -2491,12 +2507,12 @@ void t4_free_sge_resources(struct adapter *adap)
 	int i;
 	struct sge_eth_rxq *eq = adap->sge.ethrxq;
 	struct sge_eth_txq *etq = adap->sge.ethtxq;
-	struct sge_ofld_rxq *oq = adap->sge.ofldrxq;
 
 	/* clean up Ethernet Tx/Rx queues */
 	for (i = 0; i < adap->sge.ethqsets; i++, eq++, etq++) {
 		if (eq->rspq.desc)
-			free_rspq_fl(adap, &eq->rspq, &eq->fl);
+			free_rspq_fl(adap, &eq->rspq,
+				     eq->fl.size ? &eq->fl : NULL);
 		if (etq->q.desc) {
 			t4_eth_eq_free(adap, adap->fn, adap->fn, 0,
 				       etq->q.cntxt_id);
@@ -2507,14 +2523,9 @@ void t4_free_sge_resources(struct adapter *adap)
 	}
 
 	/* clean up RDMA and iSCSI Rx queues */
-	for (i = 0; i < adap->sge.ofldqsets; i++, oq++) {
-		if (oq->rspq.desc)
-			free_rspq_fl(adap, &oq->rspq, &oq->fl);
-	}
-	for (i = 0, oq = adap->sge.rdmarxq; i < adap->sge.rdmaqs; i++, oq++) {
-		if (oq->rspq.desc)
-			free_rspq_fl(adap, &oq->rspq, &oq->fl);
-	}
+	t4_free_ofld_rxqs(adap, adap->sge.ofldqsets, adap->sge.ofldrxq);
+	t4_free_ofld_rxqs(adap, adap->sge.rdmaqs, adap->sge.rdmarxq);
+	t4_free_ofld_rxqs(adap, adap->sge.rdmaciqs, adap->sge.rdmaciq);
 
 	/* clean up offload Tx queues */
 	for (i = 0; i < ARRAY_SIZE(adap->sge.ofldtxq); i++) {

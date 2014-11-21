@@ -40,11 +40,11 @@
  */
 
 #define DEBUG_SUBSYSTEM S_RPC
-#include <obd_support.h>
-#include <obd_class.h>
-#include <lustre_net.h>
-#include <lprocfs_status.h>
-#include <linux/libcfs/libcfs.h>
+#include "../include/obd_support.h"
+#include "../include/obd_class.h"
+#include "../include/lustre_net.h"
+#include "../include/lprocfs_status.h"
+#include "../../include/linux/libcfs/libcfs.h"
 #include "ptlrpc_internal.h"
 
 /* XXX: This is just for liblustre. Remove the #if defined directive when the
@@ -746,7 +746,7 @@ static int nrs_policy_register(struct ptlrpc_nrs *nrs,
 	LASSERT(desc->pd_compat != NULL);
 
 	OBD_CPT_ALLOC_GFP(policy, svcpt->scp_service->srv_cptable,
-			  svcpt->scp_cpt, sizeof(*policy), __GFP_IO);
+			  svcpt->scp_cpt, sizeof(*policy), GFP_NOFS);
 	if (policy == NULL)
 		return -ENOMEM;
 

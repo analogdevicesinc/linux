@@ -674,12 +674,6 @@ static int shmob_drm_connector_get_modes(struct drm_connector *connector)
 	return 1;
 }
 
-static int shmob_drm_connector_mode_valid(struct drm_connector *connector,
-					  struct drm_display_mode *mode)
-{
-	return MODE_OK;
-}
-
 static struct drm_encoder *
 shmob_drm_connector_best_encoder(struct drm_connector *connector)
 {
@@ -690,7 +684,6 @@ shmob_drm_connector_best_encoder(struct drm_connector *connector)
 
 static const struct drm_connector_helper_funcs connector_helper_funcs = {
 	.get_modes = shmob_drm_connector_get_modes,
-	.mode_valid = shmob_drm_connector_mode_valid,
 	.best_encoder = shmob_drm_connector_best_encoder,
 };
 
@@ -699,7 +692,7 @@ static void shmob_drm_connector_destroy(struct drm_connector *connector)
 	struct shmob_drm_connector *scon = to_shmob_connector(connector);
 
 	shmob_drm_backlight_exit(scon);
-	drm_sysfs_connector_remove(connector);
+	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
 }
 
@@ -733,7 +726,7 @@ int shmob_drm_connector_create(struct shmob_drm_device *sdev,
 		return ret;
 
 	drm_connector_helper_add(connector, &connector_helper_funcs);
-	ret = drm_sysfs_connector_add(connector);
+	ret = drm_connector_register(connector);
 	if (ret < 0)
 		goto err_cleanup;
 
@@ -756,7 +749,7 @@ int shmob_drm_connector_create(struct shmob_drm_device *sdev,
 err_backlight:
 	shmob_drm_backlight_exit(&sdev->connector);
 err_sysfs:
-	drm_sysfs_connector_remove(connector);
+	drm_connector_unregister(connector);
 err_cleanup:
 	drm_connector_cleanup(connector);
 	return ret;

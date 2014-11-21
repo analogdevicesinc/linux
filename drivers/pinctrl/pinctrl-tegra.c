@@ -290,30 +290,11 @@ static int tegra_pinctrl_enable(struct pinctrl_dev *pctldev, unsigned function,
 	return 0;
 }
 
-static void tegra_pinctrl_disable(struct pinctrl_dev *pctldev,
-				  unsigned function, unsigned group)
-{
-	struct tegra_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
-	const struct tegra_pingroup *g;
-	u32 val;
-
-	g = &pmx->soc->groups[group];
-
-	if (WARN_ON(g->mux_reg < 0))
-		return;
-
-	val = pmx_readl(pmx, g->mux_bank, g->mux_reg);
-	val &= ~(0x3 << g->mux_bit);
-	val |= g->func_safe << g->mux_bit;
-	pmx_writel(pmx, val, g->mux_bank, g->mux_reg);
-}
-
 static const struct pinmux_ops tegra_pinmux_ops = {
 	.get_functions_count = tegra_pinctrl_get_funcs_count,
 	.get_function_name = tegra_pinctrl_get_func_name,
 	.get_function_groups = tegra_pinctrl_get_func_groups,
 	.enable = tegra_pinctrl_enable,
-	.disable = tegra_pinctrl_disable,
 };
 
 static int tegra_pinconf_reg(struct tegra_pmx *pmx,
@@ -336,32 +317,32 @@ static int tegra_pinconf_reg(struct tegra_pmx *pmx,
 		*width = 1;
 		break;
 	case TEGRA_PINCONF_PARAM_ENABLE_INPUT:
-		*bank = g->einput_bank;
-		*reg = g->einput_reg;
+		*bank = g->mux_bank;
+		*reg = g->mux_reg;
 		*bit = g->einput_bit;
 		*width = 1;
 		break;
 	case TEGRA_PINCONF_PARAM_OPEN_DRAIN:
-		*bank = g->odrain_bank;
-		*reg = g->odrain_reg;
+		*bank = g->mux_bank;
+		*reg = g->mux_reg;
 		*bit = g->odrain_bit;
 		*width = 1;
 		break;
 	case TEGRA_PINCONF_PARAM_LOCK:
-		*bank = g->lock_bank;
-		*reg = g->lock_reg;
+		*bank = g->mux_bank;
+		*reg = g->mux_reg;
 		*bit = g->lock_bit;
 		*width = 1;
 		break;
 	case TEGRA_PINCONF_PARAM_IORESET:
-		*bank = g->ioreset_bank;
-		*reg = g->ioreset_reg;
+		*bank = g->mux_bank;
+		*reg = g->mux_reg;
 		*bit = g->ioreset_bit;
 		*width = 1;
 		break;
 	case TEGRA_PINCONF_PARAM_RCV_SEL:
-		*bank = g->rcv_sel_bank;
-		*reg = g->rcv_sel_reg;
+		*bank = g->mux_bank;
+		*reg = g->mux_reg;
 		*bit = g->rcv_sel_bit;
 		*width = 1;
 		break;
@@ -408,8 +389,8 @@ static int tegra_pinconf_reg(struct tegra_pmx *pmx,
 		*width = g->slwr_width;
 		break;
 	case TEGRA_PINCONF_PARAM_DRIVE_TYPE:
-		*bank = g->drvtype_bank;
-		*reg = g->drvtype_reg;
+		*bank = g->drv_bank;
+		*reg = g->drv_reg;
 		*bit = g->drvtype_bit;
 		*width = 2;
 		break;
@@ -418,11 +399,22 @@ static int tegra_pinconf_reg(struct tegra_pmx *pmx,
 		return -ENOTSUPP;
 	}
 
-	if (*reg < 0) {
-		if (report_err)
+	if (*reg < 0 || *bit > 31) {
+		if (report_err) {
+			const char *prop = "unknown";
+			int i;
+
+			for (i = 0; i < ARRAY_SIZE(cfg_params); i++) {
+				if (cfg_params[i].param == param) {
+					prop = cfg_params[i].property;
+					break;
+				}
+			}
+
 			dev_err(pmx->dev,
-				"Config param %04x not supported on group %s\n",
-				param, g->name);
+				"Config param %04x (%s) not supported on group %s\n",
+				param, prop, g->name);
+		}
 		return -ENOTSUPP;
 	}
 

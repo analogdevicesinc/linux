@@ -1,6 +1,6 @@
 /* visorchannel_funcs.c
  *
- * Copyright © 2010 - 2013 UNISYS CORPORATION
+ * Copyright (C) 2010 - 2013 UNISYS CORPORATION
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,14 +24,14 @@
 
 #include "globals.h"
 #include "visorchannel.h"
-#include "guidutils.h"
+#include <linux/uuid.h>
 
 #define MYDRVNAME "visorchannel"
 
 struct VISORCHANNEL_Tag {
 	MEMREGION *memregion;	/* from visor_memregion_create() */
 	CHANNEL_HEADER chan_hdr;
-	GUID guid;
+	uuid_le guid;
 	ulong size;
 	BOOL needs_lock;
 	spinlock_t insert_lock;
@@ -50,7 +50,7 @@ struct VISORCHANNEL_Tag {
  */
 static VISORCHANNEL *
 visorchannel_create_guts(HOSTADDRESS physaddr, ulong channelBytes,
-			 VISORCHANNEL *parent, ulong off, GUID guid,
+			 VISORCHANNEL *parent, ulong off, uuid_le guid,
 			 BOOL needs_lock)
 {
 	VISORCHANNEL *p = NULL;
@@ -90,7 +90,7 @@ visorchannel_create_guts(HOSTADDRESS physaddr, ulong channelBytes,
 	if (channelBytes == 0)
 		/* we had better be a CLIENT of this channel */
 		channelBytes = (ulong) p->chan_hdr.Size;
-	if (STRUCTSEQUAL(guid, Guid0))
+	if (uuid_le_cmp(guid, NULL_UUID_LE) == 0)
 		/* we had better be a CLIENT of this channel */
 		guid = p->chan_hdr.Type;
 	if (visor_memregion_resize(p->memregion, channelBytes) < 0) {
@@ -114,7 +114,7 @@ Away:
 }
 
 VISORCHANNEL *
-visorchannel_create(HOSTADDRESS physaddr, ulong channelBytes, GUID guid)
+visorchannel_create(HOSTADDRESS physaddr, ulong channelBytes, uuid_le guid)
 {
 	return visorchannel_create_guts(physaddr, channelBytes, NULL, 0, guid,
 					FALSE);
@@ -123,7 +123,7 @@ EXPORT_SYMBOL_GPL(visorchannel_create);
 
 VISORCHANNEL *
 visorchannel_create_with_lock(HOSTADDRESS physaddr, ulong channelBytes,
-			      GUID guid)
+			      uuid_le guid)
 {
 	return visorchannel_create_guts(physaddr, channelBytes, NULL, 0, guid,
 					TRUE);
@@ -132,7 +132,7 @@ EXPORT_SYMBOL_GPL(visorchannel_create_with_lock);
 
 VISORCHANNEL *
 visorchannel_create_overlapped(ulong channelBytes,
-			       VISORCHANNEL *parent, ulong off, GUID guid)
+			       VISORCHANNEL *parent, ulong off, uuid_le guid)
 {
 	return visorchannel_create_guts(0, channelBytes, parent, off, guid,
 					FALSE);
@@ -142,7 +142,7 @@ EXPORT_SYMBOL_GPL(visorchannel_create_overlapped);
 VISORCHANNEL *
 visorchannel_create_overlapped_with_lock(ulong channelBytes,
 					 VISORCHANNEL *parent, ulong off,
-					 GUID guid)
+					 uuid_le guid)
 {
 	return visorchannel_create_guts(0, channelBytes, parent, off, guid,
 					TRUE);
@@ -177,23 +177,24 @@ visorchannel_get_nbytes(VISORCHANNEL *channel)
 EXPORT_SYMBOL_GPL(visorchannel_get_nbytes);
 
 char *
-visorchannel_GUID_id(GUID *guid, char *s)
+visorchannel_uuid_id(uuid_le *guid, char *s)
 {
-	return GUID_format1(guid, s);
+	sprintf(s, "%pUL", guid);
+	return s;
 }
-EXPORT_SYMBOL_GPL(visorchannel_GUID_id);
+EXPORT_SYMBOL_GPL(visorchannel_uuid_id);
 
 char *
 visorchannel_id(VISORCHANNEL *channel, char *s)
 {
-	return visorchannel_GUID_id(&channel->guid, s);
+	return visorchannel_uuid_id(&channel->guid, s);
 }
 EXPORT_SYMBOL_GPL(visorchannel_id);
 
 char *
 visorchannel_zoneid(VISORCHANNEL *channel, char *s)
 {
-	return visorchannel_GUID_id(&channel->chan_hdr.ZoneGuid, s);
+	return visorchannel_uuid_id(&channel->chan_hdr.ZoneGuid, s);
 }
 EXPORT_SYMBOL_GPL(visorchannel_zoneid);
 
@@ -204,12 +205,12 @@ visorchannel_get_clientpartition(VISORCHANNEL *channel)
 }
 EXPORT_SYMBOL_GPL(visorchannel_get_clientpartition);
 
-GUID
-visorchannel_get_GUID(VISORCHANNEL *channel)
+uuid_le
+visorchannel_get_uuid(VISORCHANNEL *channel)
 {
 	return channel->guid;
 }
-EXPORT_SYMBOL_GPL(visorchannel_get_GUID);
+EXPORT_SYMBOL_GPL(visorchannel_get_uuid);
 
 MEMREGION *
 visorchannel_get_memregion(VISORCHANNEL *channel)
@@ -241,12 +242,12 @@ visorchannel_write(VISORCHANNEL *channel, ulong offset,
 EXPORT_SYMBOL_GPL(visorchannel_write);
 
 int
-visorchannel_clear(VISORCHANNEL *channel, ulong offset, U8 ch, ulong nbytes)
+visorchannel_clear(VISORCHANNEL *channel, ulong offset, u8 ch, ulong nbytes)
 {
 	int rc = -1;
 	int bufsize = 65536;
 	int written = 0;
-	U8 *buf = vmalloc(bufsize);
+	u8 *buf = vmalloc(bufsize);
 
 	if (buf == NULL) {
 		ERRDRV("%s failed memory allocation", __func__);
@@ -278,10 +279,10 @@ Away:
 }
 EXPORT_SYMBOL_GPL(visorchannel_clear);
 
-void *
+void __iomem  *
 visorchannel_get_header(VISORCHANNEL *channel)
 {
-	return (void *) &(channel->chan_hdr);
+	return (void __iomem *) &(channel->chan_hdr);
 }
 EXPORT_SYMBOL_GPL(visorchannel_get_header);
 
@@ -309,7 +310,7 @@ EXPORT_SYMBOL_GPL(visorchannel_get_header);
 			       sizeof((sig_hdr)->FIELD)) >= 0)
 
 static BOOL
-sig_read_header(VISORCHANNEL *channel, U32 queue,
+sig_read_header(VISORCHANNEL *channel, u32 queue,
 		SIGNAL_QUEUE_HEADER *sig_hdr)
 {
 	BOOL rc = FALSE;
@@ -335,8 +336,8 @@ Away:
 }
 
 static BOOL
-sig_do_data(VISORCHANNEL *channel, U32 queue,
-	    SIGNAL_QUEUE_HEADER *sig_hdr, U32 slot, void *data, BOOL is_write)
+sig_do_data(VISORCHANNEL *channel, u32 queue,
+	    SIGNAL_QUEUE_HEADER *sig_hdr, u32 slot, void *data, BOOL is_write)
 {
 	BOOL rc = FALSE;
 	int signal_data_offset = SIG_DATA_OFFSET(&channel->chan_hdr, queue,
@@ -361,15 +362,15 @@ Away:
 }
 
 static inline BOOL
-sig_read_data(VISORCHANNEL *channel, U32 queue,
-	      SIGNAL_QUEUE_HEADER *sig_hdr, U32 slot, void *data)
+sig_read_data(VISORCHANNEL *channel, u32 queue,
+	      SIGNAL_QUEUE_HEADER *sig_hdr, u32 slot, void *data)
 {
 	return sig_do_data(channel, queue, sig_hdr, slot, data, FALSE);
 }
 
 static inline BOOL
-sig_write_data(VISORCHANNEL *channel, U32 queue,
-	       SIGNAL_QUEUE_HEADER *sig_hdr, U32 slot, void *data)
+sig_write_data(VISORCHANNEL *channel, u32 queue,
+	       SIGNAL_QUEUE_HEADER *sig_hdr, u32 slot, void *data)
 {
 	return sig_do_data(channel, queue, sig_hdr, slot, data, TRUE);
 }
@@ -377,7 +378,7 @@ sig_write_data(VISORCHANNEL *channel, U32 queue,
 static inline unsigned char
 safe_sig_queue_validate(pSIGNAL_QUEUE_HEADER psafe_sqh,
 			pSIGNAL_QUEUE_HEADER punsafe_sqh,
-			U32 *phead, U32 *ptail)
+			u32 *phead, u32 *ptail)
 {
 	if ((*phead >= psafe_sqh->MaxSignalSlots)
 	    || (*ptail >= psafe_sqh->MaxSignalSlots)) {
@@ -397,7 +398,7 @@ safe_sig_queue_validate(pSIGNAL_QUEUE_HEADER psafe_sqh,
 }				/* end safe_sig_queue_validate */
 
 BOOL
-visorchannel_signalremove(VISORCHANNEL *channel, U32 queue, void *msg)
+visorchannel_signalremove(VISORCHANNEL *channel, u32 queue, void *msg)
 {
 	BOOL rc = FALSE;
 	SIGNAL_QUEUE_HEADER sig_hdr;
@@ -443,7 +444,7 @@ Away:
 EXPORT_SYMBOL_GPL(visorchannel_signalremove);
 
 BOOL
-visorchannel_signalinsert(VISORCHANNEL *channel, U32 queue, void *msg)
+visorchannel_signalinsert(VISORCHANNEL *channel, u32 queue, void *msg)
 {
 	BOOL rc = FALSE;
 	SIGNAL_QUEUE_HEADER sig_hdr;
@@ -497,11 +498,11 @@ EXPORT_SYMBOL_GPL(visorchannel_signalinsert);
 
 
 int
-visorchannel_signalqueue_slots_avail(VISORCHANNEL *channel, U32 queue)
+visorchannel_signalqueue_slots_avail(VISORCHANNEL *channel, u32 queue)
 {
 	SIGNAL_QUEUE_HEADER sig_hdr;
-	U32 slots_avail, slots_used;
-	U32 head, tail;
+	u32 slots_avail, slots_used;
+	u32 head, tail;
 
 	if (!sig_read_header(channel, queue, &sig_hdr))
 		return 0;
@@ -516,7 +517,7 @@ visorchannel_signalqueue_slots_avail(VISORCHANNEL *channel, U32 queue)
 EXPORT_SYMBOL_GPL(visorchannel_signalqueue_slots_avail);
 
 int
-visorchannel_signalqueue_max_slots(VISORCHANNEL *channel, U32 queue)
+visorchannel_signalqueue_max_slots(VISORCHANNEL *channel, u32 queue)
 {
 	SIGNAL_QUEUE_HEADER sig_hdr;
 	if (!sig_read_header(channel, queue, &sig_hdr))
@@ -551,14 +552,13 @@ sigqueue_debug(SIGNAL_QUEUE_HEADER *q, int which, struct seq_file *seq)
 
 void
 visorchannel_debug(VISORCHANNEL *channel, int nQueues,
-		   struct seq_file *seq, U32 off)
+		   struct seq_file *seq, u32 off)
 {
 	HOSTADDRESS addr = 0;
 	ulong nbytes = 0, nbytes_region = 0;
 	MEMREGION *memregion = NULL;
 	CHANNEL_HEADER hdr;
 	CHANNEL_HEADER *phdr = &hdr;
-	char s[99];
 	int i = 0;
 	int errcode = 0;
 
@@ -588,9 +588,8 @@ visorchannel_debug(VISORCHANNEL *channel, int nQueues,
 	nbytes = (ulong) (phdr->Size);
 	seq_printf(seq, "--- Begin channel @0x%-16.16Lx for 0x%lx bytes (region=0x%lx bytes) ---\n",
 		   addr + off, nbytes, nbytes_region);
-	seq_printf(seq, "Type            = %s\n", GUID_format2(&phdr->Type, s));
-	seq_printf(seq, "ZoneGuid        = %s\n",
-		   GUID_format2(&phdr->ZoneGuid, s));
+	seq_printf(seq, "Type            = %pUL\n", &phdr->Type);
+	seq_printf(seq, "ZoneGuid        = %pUL\n", &phdr->ZoneGuid);
 	seq_printf(seq, "Signature       = 0x%-16.16Lx\n",
 		   (long long) phdr->Signature);
 	seq_printf(seq, "LegacyState     = %lu\n", (ulong) phdr->LegacyState);

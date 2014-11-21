@@ -260,7 +260,7 @@ static int iscsi_check_tmf_restrictions(struct iscsi_task *task, int opcode)
 {
 	struct iscsi_conn *conn = task->conn;
 	struct iscsi_tm *tmf = &conn->tmhdr;
-	unsigned int hdr_lun;
+	u64 hdr_lun;
 
 	if (conn->tmf_state == TMF_INITIAL)
 		return 0;
@@ -338,7 +338,7 @@ static int iscsi_prep_scsi_cmd_pdu(struct iscsi_task *task)
 	struct iscsi_session *session = conn->session;
 	struct scsi_cmnd *sc = task->sc;
 	struct iscsi_scsi_req *hdr;
-	unsigned hdrlength, cmd_len;
+	unsigned hdrlength, cmd_len, transfer_length;
 	itt_t itt;
 	int rc;
 
@@ -391,11 +391,11 @@ static int iscsi_prep_scsi_cmd_pdu(struct iscsi_task *task)
 	if (scsi_get_prot_op(sc) != SCSI_PROT_NORMAL)
 		task->protected = true;
 
+	transfer_length = scsi_transfer_length(sc);
+	hdr->data_length = cpu_to_be32(transfer_length);
 	if (sc->sc_data_direction == DMA_TO_DEVICE) {
-		unsigned out_len = scsi_out(sc)->length;
 		struct iscsi_r2t_info *r2t = &task->unsol_r2t;
 
-		hdr->data_length = cpu_to_be32(out_len);
 		hdr->flags |= ISCSI_FLAG_CMD_WRITE;
 		/*
 		 * Write counters:
@@ -414,18 +414,19 @@ static int iscsi_prep_scsi_cmd_pdu(struct iscsi_task *task)
 		memset(r2t, 0, sizeof(*r2t));
 
 		if (session->imm_data_en) {
-			if (out_len >= session->first_burst)
+			if (transfer_length >= session->first_burst)
 				task->imm_count = min(session->first_burst,
 							conn->max_xmit_dlength);
 			else
-				task->imm_count = min(out_len,
-							conn->max_xmit_dlength);
+				task->imm_count = min(transfer_length,
+						      conn->max_xmit_dlength);
 			hton24(hdr->dlength, task->imm_count);
 		} else
 			zero_data(hdr->dlength);
 
 		if (!session->initial_r2t_en) {
-			r2t->data_length = min(session->first_burst, out_len) -
+			r2t->data_length = min(session->first_burst,
+					       transfer_length) -
 					       task->imm_count;
 			r2t->data_offset = task->imm_count;
 			r2t->ttt = cpu_to_be32(ISCSI_RESERVED_TAG);
@@ -438,7 +439,6 @@ static int iscsi_prep_scsi_cmd_pdu(struct iscsi_task *task)
 	} else {
 		hdr->flags |= ISCSI_FLAG_CMD_FINAL;
 		zero_data(hdr->dlength);
-		hdr->data_length = cpu_to_be32(scsi_in(sc)->length);
 
 		if (sc->sc_data_direction == DMA_FROM_DEVICE)
 			hdr->flags |= ISCSI_FLAG_CMD_READ;
@@ -466,7 +466,7 @@ static int iscsi_prep_scsi_cmd_pdu(struct iscsi_task *task)
 			  scsi_bidi_cmnd(sc) ? "bidirectional" :
 			  sc->sc_data_direction == DMA_TO_DEVICE ?
 			  "write" : "read", conn->id, sc, sc->cmnd[0],
-			  task->itt, scsi_bufflen(sc),
+			  task->itt, transfer_length,
 			  scsi_bidi_cmnd(sc) ? scsi_in(sc)->length : 0,
 			  session->cmdsn,
 			  session->max_cmdsn - session->exp_cmdsn + 1);
@@ -717,10 +717,20 @@ __iscsi_conn_send_pdu(struct iscsi_conn *conn, struct iscsi_hdr *hdr,
 			return NULL;
 		}
 
+		if (data_size > ISCSI_DEF_MAX_RECV_SEG_LEN) {
+			iscsi_conn_printk(KERN_ERR, conn, "Invalid buffer len of %u for login task. Max len is %u\n", data_size, ISCSI_DEF_MAX_RECV_SEG_LEN);
+			return NULL;
+		}
+
 		task = conn->login_task;
 	} else {
 		if (session->state != ISCSI_STATE_LOGGED_IN)
 			return NULL;
+
+		if (data_size != 0) {
+			iscsi_conn_printk(KERN_ERR, conn, "Can not send data buffer of len %u for op 0x%x\n", data_size, opcode);
+			return NULL;
+		}
 
 		BUG_ON(conn->c_stage == ISCSI_CONN_INITIAL_STAGE);
 		BUG_ON(conn->c_stage == ISCSI_CONN_STOPPED);
@@ -1442,9 +1452,9 @@ static int iscsi_xmit_task(struct iscsi_conn *conn)
 		conn->task = NULL;
 	}
 	/* regular RX path uses back_lock */
-	spin_lock_bh(&conn->session->back_lock);
+	spin_lock(&conn->session->back_lock);
 	__iscsi_put_task(task);
-	spin_unlock_bh(&conn->session->back_lock);
+	spin_unlock(&conn->session->back_lock);
 	return rc;
 }
 
@@ -1859,8 +1869,7 @@ static int iscsi_exec_task_mgmt_fn(struct iscsi_conn *conn,
  * Fail commands. session lock held and recv side suspended and xmit
  * thread flushed
  */
-static void fail_scsi_tasks(struct iscsi_conn *conn, unsigned lun,
-			    int error)
+static void fail_scsi_tasks(struct iscsi_conn *conn, u64 lun, int error)
 {
 	struct iscsi_task *task;
 	int i;
@@ -2098,7 +2107,7 @@ static void iscsi_check_transport_timeouts(unsigned long data)
 				  conn->ping_timeout, conn->recv_timeout,
 				  last_recv, conn->last_ping, jiffies);
 		spin_unlock(&session->frwd_lock);
-		iscsi_conn_failure(conn, ISCSI_ERR_CONN_FAILED);
+		iscsi_conn_failure(conn, ISCSI_ERR_NOP_TIMEDOUT);
 		return;
 	}
 
@@ -2279,7 +2288,8 @@ int iscsi_eh_device_reset(struct scsi_cmnd *sc)
 	cls_session = starget_to_session(scsi_target(sc->device));
 	session = cls_session->dd_data;
 
-	ISCSI_DBG_EH(session, "LU Reset [sc %p lun %u]\n", sc, sc->device->lun);
+	ISCSI_DBG_EH(session, "LU Reset [sc %p lun %llu]\n", sc,
+		     sc->device->lun);
 
 	mutex_lock(&session->eh_mutex);
 	spin_lock_bh(&session->frwd_lock);
@@ -2971,7 +2981,7 @@ void iscsi_conn_teardown(struct iscsi_cls_conn *cls_conn)
 	 */
 	for (;;) {
 		spin_lock_irqsave(session->host->host_lock, flags);
-		if (!session->host->host_busy) { /* OK for ERL == 0 */
+		if (!atomic_read(&session->host->host_busy)) { /* OK for ERL == 0 */
 			spin_unlock_irqrestore(session->host->host_lock, flags);
 			break;
 		}
@@ -2979,7 +2989,7 @@ void iscsi_conn_teardown(struct iscsi_cls_conn *cls_conn)
 		msleep_interruptible(500);
 		iscsi_conn_printk(KERN_INFO, conn, "iscsi conn_destroy(): "
 				  "host_busy %d host_failed %d\n",
-				  session->host->host_busy,
+				  atomic_read(&session->host->host_busy),
 				  session->host->host_failed);
 		/*
 		 * force eh_abort() to unblock

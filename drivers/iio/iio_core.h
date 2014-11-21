@@ -35,7 +35,7 @@ int __iio_add_chan_devattr(const char *postfix,
 			   struct list_head *attr_list);
 void iio_free_chan_devattr_list(struct list_head *attr_list);
 
-ssize_t iio_format_value(char *buf, unsigned int type, int val, int val2);
+ssize_t iio_format_value(char *buf, unsigned int type, int size, int *vals);
 
 /* Event interface flags */
 #define IIO_BUSY_BIT_POS 1
@@ -50,6 +50,8 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
 				      size_t n, loff_t *f_ps);
 
+int iio_buffer_alloc_sysfs(struct iio_dev *indio_dev);
+void iio_buffer_free_sysfs(struct iio_dev *indio_dev);
 
 #define iio_buffer_poll_addr (&iio_buffer_poll)
 #define iio_buffer_read_first_n_outer_addr (&iio_buffer_read_first_n_outer)
@@ -72,6 +74,13 @@ static inline void iio_buffer_wakeup_poll(struct iio_dev *indio_dev) {}
 static inline long iio_buffer_ioctl(struct iio_dev *indio_dev,
 	struct file *filp, unsigned int cmd, unsigned long arg) {}
 static inline void iio_buffer_free_blocks(struct iio_buffer *buffer) {}
+
+static inline int iio_buffer_alloc_sysfs(struct iio_dev *indio_dev)
+{
+	return 0;
+}
+
+static inline void iio_buffer_free_sysfs(struct iio_dev *indio_dev) {}
 
 static inline void iio_disable_all_buffers(struct iio_dev *indio_dev) {}
 static inline void iio_buffer_wakeup_poll(struct iio_dev *indio_dev) {}

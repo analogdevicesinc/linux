@@ -162,7 +162,7 @@ struct kvm_pit_config {
 #define KVM_EXIT_TPR_ACCESS       12
 #define KVM_EXIT_S390_SIEIC       13
 #define KVM_EXIT_S390_RESET       14
-#define KVM_EXIT_DCR              15
+#define KVM_EXIT_DCR              15 /* deprecated */
 #define KVM_EXIT_NMI              16
 #define KVM_EXIT_INTERNAL_ERROR   17
 #define KVM_EXIT_OSI              18
@@ -171,6 +171,7 @@ struct kvm_pit_config {
 #define KVM_EXIT_WATCHDOG         21
 #define KVM_EXIT_S390_TSCH        22
 #define KVM_EXIT_EPR              23
+#define KVM_EXIT_SYSTEM_EVENT     24
 
 /* For KVM_EXIT_INTERNAL_ERROR */
 /* Emulate instruction failed. */
@@ -267,7 +268,7 @@ struct kvm_run {
 			__u64 trans_exc_code;
 			__u32 pgm_code;
 		} s390_ucontrol;
-		/* KVM_EXIT_DCR */
+		/* KVM_EXIT_DCR (deprecated) */
 		struct {
 			__u32 dcrn;
 			__u32 data;
@@ -301,6 +302,13 @@ struct kvm_run {
 		struct {
 			__u32 epr;
 		} epr;
+		/* KVM_EXIT_SYSTEM_EVENT */
+		struct {
+#define KVM_SYSTEM_EVENT_SHUTDOWN       1
+#define KVM_SYSTEM_EVENT_RESET          2
+			__u32 type;
+			__u64 flags;
+		} system_event;
 		/* Fix the size of the union. */
 		char padding[256];
 	};
@@ -391,13 +399,18 @@ struct kvm_vapic_addr {
 	__u64 vapic_addr;
 };
 
-/* for KVM_SET_MPSTATE */
+/* for KVM_SET_MP_STATE */
 
+/* not all states are valid on all architectures */
 #define KVM_MP_STATE_RUNNABLE          0
 #define KVM_MP_STATE_UNINITIALIZED     1
 #define KVM_MP_STATE_INIT_RECEIVED     2
 #define KVM_MP_STATE_HALTED            3
 #define KVM_MP_STATE_SIPI_RECEIVED     4
+#define KVM_MP_STATE_STOPPED           5
+#define KVM_MP_STATE_CHECK_STOP        6
+#define KVM_MP_STATE_OPERATING         7
+#define KVM_MP_STATE_LOAD              8
 
 struct kvm_mp_state {
 	__u32 mp_state;
@@ -416,6 +429,8 @@ struct kvm_s390_psw {
 #define KVM_S390_INT_PFAULT_INIT	0xfffe0004u
 #define KVM_S390_INT_PFAULT_DONE	0xfffe0005u
 #define KVM_S390_MCHK			0xfffe1000u
+#define KVM_S390_INT_CLOCK_COMP		0xffff1004u
+#define KVM_S390_INT_CPU_TIMER		0xffff1005u
 #define KVM_S390_INT_VIRTIO		0xffff2603u
 #define KVM_S390_INT_SERVICE		0xffff2401u
 #define KVM_S390_INT_EMERGENCY		0xffff1201u
@@ -515,6 +530,7 @@ enum {
 	kvm_ioeventfd_flag_nr_pio,
 	kvm_ioeventfd_flag_nr_deassign,
 	kvm_ioeventfd_flag_nr_virtio_ccw_notify,
+	kvm_ioeventfd_flag_nr_fast_mmio,
 	kvm_ioeventfd_flag_nr_max,
 };
 
@@ -529,7 +545,7 @@ enum {
 struct kvm_ioeventfd {
 	__u64 datamatch;
 	__u64 addr;        /* legal pio/mmio address */
-	__u32 len;         /* 1, 2, 4, or 8 bytes    */
+	__u32 len;         /* 1, 2, 4, or 8 bytes; or 0 to ignore length */
 	__s32 fd;
 	__u32 flags;
 	__u8  pad[36];
@@ -743,6 +759,12 @@ struct kvm_ppc_smmu_info {
 #define KVM_CAP_IOAPIC_POLARITY_IGNORED 97
 #define KVM_CAP_ENABLE_CAP_VM 98
 #define KVM_CAP_S390_IRQCHIP 99
+#define KVM_CAP_IOEVENTFD_NO_LENGTH 100
+#define KVM_CAP_VM_ATTRIBUTES 101
+#define KVM_CAP_ARM_PSCI_0_2 102
+#define KVM_CAP_PPC_FIXUP_HCALL 103
+#define KVM_CAP_PPC_ENABLE_HCALL 104
+#define KVM_CAP_CHECK_EXTENSION_VM 105
 
 #ifdef KVM_CAP_IRQ_ROUTING
 

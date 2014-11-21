@@ -149,7 +149,7 @@
 			user_led_pio_8out: gpio@0x4cc0 {
 				compatible = "ALTR,pio-1.0";
 				reg = < 0x00004CC0 0x00000010 >;
-				width = < 8 >;
+				altr,gpio-bank-width = < 8 >;
 				resetvalue = < 255 >;
 				#gpio-cells = < 2 >;
 				gpio-controller;
@@ -160,7 +160,7 @@
 				reg = < 0x00004CE0 0x00000010 >;
 				interrupt-parent = < &cpu >;
 				interrupts = < 8 >;
-				width = < 8 >;
+				altr,gpio-bank-width = < 8 >;
 				resetvalue = < 0 >;
 				edge_type = < 2 >;
 				level_trigger = < 0 >;
@@ -174,7 +174,7 @@
 				reg = < 0x00004D00 0x00000010 >;
 				interrupt-parent = < &cpu >;
 				interrupts = < 9 >;
-				width = < 4 >;
+				altr,gpio-bank-width = < 4 >;
 				resetvalue = < 0 >;
 				edge_type = < 2 >;
 				level_trigger = < 0 >;

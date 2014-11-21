@@ -1,7 +1,7 @@
 /*
  * Marvell Wireless LAN device driver: ioctl data structures & APIs
  *
- * Copyright (C) 2011, Marvell International Ltd.
+ * Copyright (C) 2011-2014, Marvell International Ltd.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -303,7 +303,7 @@ struct mwifiex_ds_ant_cfg {
 	u32 rx_ant;
 };
 
-#define MWIFIEX_NUM_OF_CMD_BUFFER	20
+#define MWIFIEX_NUM_OF_CMD_BUFFER	50
 #define MWIFIEX_SIZE_OF_CMD_BUFFER	2048
 
 enum {

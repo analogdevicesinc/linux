@@ -1,6 +1,6 @@
 /* file.c
  *
- * Copyright © 2010 - 2013 UNISYS CORPORATION
+ * Copyright (C) 2010 - 2013 UNISYS CORPORATION
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -190,8 +190,8 @@ visorchipset_ioctl(struct inode *inode, struct file *file,
 #endif
 {
 	int rc = SUCCESS;
-	S64 adjustment;
-	S64 vrtc_offset;
+	s64 adjustment;
+	s64 vrtc_offset;
 	DBGINF("entered visorchipset_ioctl, cmd=%d", cmd);
 	switch (cmd) {
 	case VMCALL_QUERY_GUEST_VIRTUAL_TIME_OFFSET:

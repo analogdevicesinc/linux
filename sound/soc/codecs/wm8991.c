@@ -154,7 +154,7 @@ static const unsigned int out_sidetone_tlv[] = {
 static int wm899x_outpga_put_volsw_vu(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int reg = kcontrol->private_value & 0xff;
 	int ret;
 	u16 val;
@@ -1081,16 +1081,16 @@ static int wm8991_hw_params(struct snd_pcm_substream *substream,
 
 	audio1 &= ~WM8991_AIF_WL_MASK;
 	/* bit size */
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
+	switch (params_width(params)) {
+	case 16:
 		break;
-	case SNDRV_PCM_FORMAT_S20_3LE:
+	case 20:
 		audio1 |= WM8991_AIF_WL_20BITS;
 		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
+	case 24:
 		audio1 |= WM8991_AIF_WL_24BITS;
 		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
+	case 32:
 		audio1 |= WM8991_AIF_WL_32BITS;
 		break;
 	}

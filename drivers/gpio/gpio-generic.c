@@ -388,9 +388,18 @@ static int bgpio_setup_direction(struct bgpio_chip *bgc,
 	return 0;
 }
 
+static int bgpio_request(struct gpio_chip *chip, unsigned gpio_pin)
+{
+	if (gpio_pin < chip->ngpio)
+		return 0;
+
+	return -EINVAL;
+}
+
 int bgpio_remove(struct bgpio_chip *bgc)
 {
-	return gpiochip_remove(&bgc->gc);
+	gpiochip_remove(&bgc->gc);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(bgpio_remove);
 
@@ -413,6 +422,7 @@ int bgpio_init(struct bgpio_chip *bgc, struct device *dev,
 	bgc->gc.label = dev_name(dev);
 	bgc->gc.base = -1;
 	bgc->gc.ngpio = bgc->bits;
+	bgc->gc.request = bgpio_request;
 
 	ret = bgpio_setup_io(bgc, dat, set, clr);
 	if (ret)

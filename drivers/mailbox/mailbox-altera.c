@@ -311,9 +311,9 @@ static int altera_mbox_probe(struct platform_device *pdev)
 	if (!regs)
 		return -ENXIO;
 
-	mbox->mbox_base = devm_request_and_ioremap(&pdev->dev, regs);
-	if (!mbox->mbox_base)
-		return -EADDRNOTAVAIL;
+	mbox->mbox_base = devm_ioremap_resource(&pdev->dev, regs);
+	if (IS_ERR(mbox->mbox_base))
+		return PTR_ERR(mbox->mbox_base);
 
 	mbox->dev = &pdev->dev;
 	mutex_init(&mbox->lock);

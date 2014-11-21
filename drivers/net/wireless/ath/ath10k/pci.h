@@ -38,7 +38,8 @@
 #define DIAG_TRANSFER_LIMIT 2048
 
 struct bmi_xfer {
-	struct completion done;
+	bool tx_done;
+	bool rx_done;
 	bool wait_for_resp;
 	u32 resp_len;
 };
@@ -188,9 +189,6 @@ struct ath10k_pci {
 	struct ath10k_pci_pipe pipe_info[CE_COUNT_MAX];
 
 	struct ath10k_hif_cb msg_callbacks_current;
-
-	/* Target address used to signal a pending firmware event */
-	u32 fw_indicator_address;
 
 	/* Copy Engine used for Diagnostic Accesses */
 	struct ath10k_ce_pipe *ce_diag;

@@ -412,10 +412,15 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			       long mask)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	struct cf_axi_converter *conv = to_converter(st->dev_spi);
+	struct cf_axi_converter *conv;
 	unsigned long long val64;
 	unsigned reg, i, phase = 0;
 	int ret = 0;
+
+	if (st->dev_spi)
+		conv = to_converter(st->dev_spi);
+	else
+		conv = ERR_PTR(-ENODEV);
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -552,7 +557,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		dds_write(st, ADI_REG_CHAN_CNTRL_6(chan->channel), ADI_IQCOR_ENB);
 		break;
 	default:
-		if (conv)
+		if (!IS_ERR(conv))
 			ret = conv->write_raw(indio_dev, chan, val, val2, mask);
 		else
 			ret = -EINVAL;
@@ -570,11 +575,14 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 			      unsigned *readval)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	struct cf_axi_converter *conv = to_converter(st->dev_spi);
+	struct cf_axi_converter *conv = ERR_PTR(-ENODEV);
 	int ret;
 
 	if ((reg & ~DEBUGFS_DRA_PCORE_REG_MAGIC) > 0xFFFF)
 		return -EINVAL;
+
+	if (st->dev_spi)
+		conv = to_converter(st->dev_spi);
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL) {
@@ -1180,10 +1188,6 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 		indio_dev->available_scan_masks = st->chip_info->scan_masks;
 
-		ret = iio_buffer_register(indio_dev, st->chip_info->channel,
-			st->chip_info->num_channels);
-		if (ret)
-			goto err_unconfigure_buffer;
 	} else if (dds_read(st, ADI_REG_ID)){
 		u32 regs[2];
 		ret = of_property_read_u32_array(pdev->dev.of_node,
@@ -1230,7 +1234,6 @@ static int cf_axi_dds_remove(struct platform_device *pdev)
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	iio_buffer_unregister(indio_dev);
 	cf_axi_dds_unconfigure_buffer(indio_dev);
 	if (st->dev_spi)
 		dds_converter_put(st->dev_spi);

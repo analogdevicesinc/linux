@@ -46,7 +46,10 @@ struct i915_params i915 __read_mostly = {
 	.reset = true,
 	.invert_brightness = 0,
 	.disable_display = 0,
-	.enable_cmd_parser = 0,
+	.enable_cmd_parser = 1,
+	.disable_vtd_wa = 0,
+	.use_mmio_flip = 0,
+	.mmio_debug = 0,
 };
 
 module_param_named(modeset, i915.modeset, int, 0400);
@@ -149,6 +152,18 @@ MODULE_PARM_DESC(invert_brightness,
 module_param_named(disable_display, i915.disable_display, bool, 0600);
 MODULE_PARM_DESC(disable_display, "Disable display (default: false)");
 
+module_param_named(disable_vtd_wa, i915.disable_vtd_wa, bool, 0600);
+MODULE_PARM_DESC(disable_vtd_wa, "Disable all VT-d workarounds (default: false)");
+
 module_param_named(enable_cmd_parser, i915.enable_cmd_parser, int, 0600);
 MODULE_PARM_DESC(enable_cmd_parser,
-		 "Enable command parsing (1=enabled, 0=disabled [default])");
+		 "Enable command parsing (1=enabled [default], 0=disabled)");
+
+module_param_named(use_mmio_flip, i915.use_mmio_flip, int, 0600);
+MODULE_PARM_DESC(use_mmio_flip,
+		 "use MMIO flips (-1=never, 0=driver discretion [default], 1=always)");
+
+module_param_named(mmio_debug, i915.mmio_debug, bool, 0600);
+MODULE_PARM_DESC(mmio_debug,
+	"Enable the MMIO debug code (default: false). This may negatively "
+	"affect performance.");

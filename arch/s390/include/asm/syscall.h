@@ -28,7 +28,7 @@ extern const unsigned int sys_call_table_emu[];
 static inline long syscall_get_nr(struct task_struct *task,
 				  struct pt_regs *regs)
 {
-	return test_tsk_thread_flag(task, TIF_SYSCALL) ?
+	return test_pt_regs_flag(regs, PIF_SYSCALL) ?
 		(regs->int_code & 0xffff) : -1;
 }
 
@@ -54,7 +54,7 @@ static inline void syscall_set_return_value(struct task_struct *task,
 					    struct pt_regs *regs,
 					    int error, long val)
 {
-	regs->gprs[2] = error ? -error : val;
+	regs->gprs[2] = error ? error : val;
 }
 
 static inline void syscall_get_arguments(struct task_struct *task,

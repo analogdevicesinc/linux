@@ -1,6 +1,6 @@
 /* parser.c
  *
- * Copyright © 2010 - 2013 UNISYS CORPORATION
+ * Copyright (C) 2010 - 2013 UNISYS CORPORATION
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,7 @@
 #include "controlvmchannel.h"
 #include <linux/ctype.h>
 #include <linux/mm.h>
+#include <linux/uuid.h>
 
 #define MYDRVNAME "visorchipset_parser"
 #define CURRENT_FILE_PC VISOR_CHIPSET_PC_parser_c
@@ -40,7 +41,7 @@ struct PARSER_CONTEXT_Tag {
 };
 
 static PARSER_CONTEXT *
-parser_init_guts(U64 addr, U32 bytes, BOOL isLocal,
+parser_init_guts(u64 addr, u32 bytes, BOOL isLocal,
 		 BOOL hasStandardPayloadHeader, BOOL *tryAgain)
 {
 	int allocbytes = sizeof(PARSER_CONTEXT) + bytes;
@@ -151,7 +152,7 @@ Away:
 }
 
 PARSER_CONTEXT *
-parser_init(U64 addr, U32 bytes, BOOL isLocal, BOOL *tryAgain)
+parser_init(u64 addr, u32 bytes, BOOL isLocal, BOOL *tryAgain)
 {
 	return parser_init_guts(addr, bytes, isLocal, TRUE, tryAgain);
 }
@@ -162,7 +163,7 @@ parser_init(U64 addr, U32 bytes, BOOL isLocal, BOOL *tryAgain)
  * parser_byteStream_get() to obtain the data.
  */
 PARSER_CONTEXT *
-parser_init_byteStream(U64 addr, U32 bytes, BOOL isLocal, BOOL *tryAgain)
+parser_init_byteStream(u64 addr, u32 bytes, BOOL isLocal, BOOL *tryAgain)
 {
 	return parser_init_guts(addr, bytes, isLocal, FALSE, tryAgain);
 }
@@ -191,7 +192,7 @@ parser_byteStream_get(PARSER_CONTEXT *ctx, ulong *nbytes)
 	return (void *) ctx->data;
 }
 
-GUID
+uuid_le
 parser_id_get(PARSER_CONTEXT *ctx)
 {
 	ULTRA_CONTROLVM_PARAMETERS_HEADER *phdr = NULL;
@@ -199,7 +200,7 @@ parser_id_get(PARSER_CONTEXT *ctx)
 	if (ctx == NULL) {
 		ERRDRV("%s (%s:%d) - no context",
 		       __func__, __FILE__, __LINE__);
-		return Guid0;
+		return NULL_UUID_LE;
 	}
 	phdr = (ULTRA_CONTROLVM_PARAMETERS_HEADER *) (ctx->data);
 	return phdr->Id;

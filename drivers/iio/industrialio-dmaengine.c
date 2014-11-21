@@ -122,9 +122,7 @@ static void dmaengine_buffer_release(struct iio_buffer *buf)
 static const struct iio_buffer_access_funcs dmaengine_buffer_ops = {
 	.read = iio_dma_buffer_read,
 	.write = iio_dma_buffer_write,
-	.get_bytes_per_datum = iio_dma_buffer_get_bytes_per_datum,
 	.set_bytes_per_datum = iio_dma_buffer_set_bytes_per_datum,
-	.get_length = iio_dma_buffer_get_length,
 	.set_length = iio_dma_buffer_set_length,
 	.enable = iio_dma_buffer_enable,
 	.disable = dmaengine_buffer_disable,
@@ -173,6 +171,13 @@ struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 	} else {
 		width = 1;
 	}
+
+	if (!width) { /* FIXME */
+		pr_warn("%s:%d width %d (DMA width >= 256-bits ?)\n",
+			__func__,__LINE__, width);
+		width = 32;
+	}
+
 	dmaengine_buffer->align = width;
 
 	INIT_LIST_HEAD(&dmaengine_buffer->active);

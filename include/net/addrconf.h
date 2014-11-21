@@ -204,6 +204,7 @@ void ipv6_sock_ac_close(struct sock *sk);
 
 int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
 int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
+void ipv6_ac_destroy_dev(struct inet6_dev *idev);
 bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
 			 const struct in6_addr *addr);
 bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
@@ -304,11 +305,6 @@ static inline void addrconf_addr_solict_mult(const struct in6_addr *addr,
 		      htonl(0xFF020000), 0,
 		      htonl(0x1),
 		      htonl(0xFF000000) | addr->s6_addr32[3]);
-}
-
-static inline bool ipv6_addr_is_multicast(const struct in6_addr *addr)
-{
-	return (addr->s6_addr32[0] & htonl(0xFF000000)) == htonl(0xFF000000);
 }
 
 static inline bool ipv6_addr_is_ll_all_nodes(const struct in6_addr *addr)

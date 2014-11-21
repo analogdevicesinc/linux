@@ -136,7 +136,7 @@ int qlcnic_82xx_issue_cmd(struct qlcnic_adapter *adapter,
 	rsp = qlcnic_poll_rsp(adapter);
 
 	if (rsp == QLCNIC_CDRP_RSP_TIMEOUT) {
-		dev_err(&pdev->dev, "card response timeout.\n");
+		dev_err(&pdev->dev, "command timeout, response = 0x%x\n", rsp);
 		cmd->rsp.arg[0] = QLCNIC_RCODE_TIMEOUT;
 	} else if (rsp == QLCNIC_CDRP_RSP_FAIL) {
 		cmd->rsp.arg[0] = QLCRD32(adapter, QLCNIC_CDRP_ARG(1), &err);
@@ -1027,8 +1027,11 @@ int qlcnic_config_port_mirroring(struct qlcnic_adapter *adapter, u8 id,
 	u32 arg1;
 
 	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC ||
-	    !(adapter->eswitch[id].flags & QLCNIC_SWITCH_ENABLE))
+	    !(adapter->eswitch[id].flags & QLCNIC_SWITCH_ENABLE)) {
+		dev_err(&adapter->pdev->dev, "%s: Not a management function\n",
+			__func__);
 		return err;
+	}
 
 	arg1 = id | (enable_mirroring ? BIT_4 : 0);
 	arg1 |= pci_func << 8;
@@ -1318,8 +1321,12 @@ int qlcnic_config_switch_port(struct qlcnic_adapter *adapter,
 	u32 arg1, arg2 = 0;
 	u8 pci_func;
 
-	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC)
+	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC) {
+		dev_err(&adapter->pdev->dev, "%s: Not a management function\n",
+			__func__);
 		return err;
+	}
+
 	pci_func = esw_cfg->pci_func;
 	index = qlcnic_is_valid_nic_func(adapter, pci_func);
 	if (index < 0)
@@ -1363,6 +1370,8 @@ int qlcnic_config_switch_port(struct qlcnic_adapter *adapter,
 			arg1 &= ~(0x0ffff << 16);
 			break;
 	default:
+		dev_err(&adapter->pdev->dev, "%s: Invalid opmode 0x%x\n",
+			__func__, esw_cfg->op_mode);
 		return err;
 	}
 

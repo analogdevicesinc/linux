@@ -32,7 +32,7 @@ static enum hrtimer_restart iio_trig_hrtimer_trig(struct hrtimer *timer)
 	trig_info = container_of(timer, struct iio_hrtimer_trig_info, timer);
 
 	hrtimer_forward_now(timer, trig_info->period);
-	iio_trigger_poll(trig_info->trigger, 0);
+	iio_trigger_poll(trig_info->trigger);
 
 	return HRTIMER_RESTART;
 }

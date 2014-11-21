@@ -51,6 +51,7 @@
 		dma-channel {
 			adi,buswidth = <64>;
 			adi,type = <1>;
+			adi,cyclic;
 		};
 	};
 

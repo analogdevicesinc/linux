@@ -22,11 +22,10 @@
 @  r9  = normal "successful" return address
 @  r10 = this threads thread_info structure
 @  lr  = unrecognised instruction return address
-@  IRQs disabled.
+@  IRQs enabled.
 @
 ENTRY(do_vfp)
 	inc_preempt_count r10, r4
-	enable_irq
  	ldr	r4, .LCvfp
 	ldr	r11, [r10, #TI_CPU]	@ CPU number
 	add	r10, r10, #TI_VFPSTATE	@ r10 = workspace
@@ -35,7 +34,7 @@ ENDPROC(do_vfp)
 
 ENTRY(vfp_null_entry)
 	dec_preempt_count_ti r10, r4
-	mov	pc, lr
+	ret	lr
 ENDPROC(vfp_null_entry)
 
 	.align	2
@@ -50,7 +49,7 @@ ENTRY(vfp_testing_entry)
 	dec_preempt_count_ti r10, r4
 	ldr	r0, VFP_arch_address
 	str	r0, [r0]		@ set to non-zero value
-	mov	pc, r9			@ we have handled the fault
+	ret	r9			@ we have handled the fault
 ENDPROC(vfp_testing_entry)
 
 	.align	2

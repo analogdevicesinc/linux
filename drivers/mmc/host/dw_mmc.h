@@ -129,6 +129,7 @@
 #define SDMMC_CMD_INDX(n)		((n) & 0x1F)
 /* Status register defines */
 #define SDMMC_GET_FCNT(x)		(((x)>>17) & 0x1FFF)
+#define SDMMC_STATUS_DMA_REQ		BIT(31)
 /* FIFOTH register defines */
 #define SDMMC_SET_FIFOTH(m, r, t)	(((m) & 0x7) << 28 | \
 					 ((r) & 0xFFF) << 16 | \
@@ -149,6 +150,10 @@
 #define SDMMC_GET_VERID(x)		((x) & 0xFFFF)
 /* Card read threshold */
 #define SDMMC_SET_RD_THLD(v, x)		(((v) & 0x1FFF) << 16 | (x))
+
+/* All ctrl reset bits */
+#define SDMMC_CTRL_ALL_RESET_FLAGS \
+	(SDMMC_CTRL_RESET | SDMMC_CTRL_FIFO_RESET | SDMMC_CTRL_DMA_RESET)
 
 /* Register access macros */
 #define mci_readl(dev, reg)			\
@@ -195,7 +200,6 @@ extern int dw_mci_resume(struct dw_mci *host);
  * @mmc: The mmc_host representing this slot.
  * @host: The MMC controller this slot is using.
  * @quirks: Slot-level quirks (DW_MCI_SLOT_QUIRK_XXX)
- * @wp_gpio: If gpio_is_valid() we'll use this to read write protect.
  * @ctype: Card type for this slot.
  * @mrq: mmc_request currently being processed or waiting to be
  *	processed, or NULL when the slot is idle.
@@ -214,7 +218,6 @@ struct dw_mci_slot {
 	struct dw_mci		*host;
 
 	int			quirks;
-	int			wp_gpio;
 
 	u32			ctype;
 

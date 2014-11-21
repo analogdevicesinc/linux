@@ -142,6 +142,11 @@ struct ad9361_rf_phy {
 	bool			bypass_rx_fir;
 	bool			bypass_tx_fir;
 	bool			rx_eq_2tx;
+	bool			filt_valid;
+	unsigned long		filt_rx_path_clks[NUM_RX_CLOCKS];
+	unsigned long		filt_tx_path_clks[NUM_TX_CLOCKS];
+	u32			filt_rx_bw_Hz;
+	u32			filt_tx_bw_Hz;
 	u8			tx_fir_int;
 	u8			tx_fir_ntaps;
 	u8			rx_fir_dec;
@@ -193,17 +198,17 @@ static inline void ad9361_print_timestamp(void)
 {
 	int i;
 
-	pr_dbg("\n--- TRACE START / Points (%d) --- \n", timestamp_cnt);
+	pr_debug("\n--- TRACE START / Points (%d) --- \n", timestamp_cnt);
 
 	for (i = 0; i < timestamp_cnt; i++) {
 		if (i == 0)
-			pr_dbg("[%lld] [%lld] \t%s\t 0x%X\n",
+			pr_debug("[%lld] [%lld] \t%s\t 0x%X\n",
 			timestamps[i].time,
 				0LL,
 				timestamps[i].read ? "REG_RD" : "REG_WR",
 				timestamps[i].reg);
 		else
-			pr_dbg("[%lld] [%12lld] \t%s\t 0x%X\n",
+			pr_debug("[%lld] [%12lld] \t%s\t 0x%X\n",
 			timestamps[i].time,
 				timestamps[i].time - timestamps[i - 1].time,
 				timestamps[i].read ? "REG_RD" : "REG_WR",
@@ -211,7 +216,7 @@ static inline void ad9361_print_timestamp(void)
 
 		}
 
-	pr_dbg("\n--- TRACE END / Time %lld ns --- \n",
+	pr_debug("\n--- TRACE END / Time %lld ns --- \n",
 	       timestamps[timestamp_cnt - 1].time - timestamps[0].time);
 
 	timestamp_cnt = 0;
@@ -1315,6 +1320,99 @@ static int ad9361_en_dis_rx(struct ad9361_rf_phy *phy, u32 rx_if, u32 enable)
 			  RX_CHANNEL_ENABLE(rx_if), enable);
 }
 
+static int ad9361_gc_update(struct ad9361_rf_phy *phy)
+{
+	struct spi_device *spi = phy->spi;
+	unsigned long clkrf;
+	u32 reg, delay_lna, settling_delay, dec_pow_meas_dur;
+	int ret;
+
+	clkrf = clk_get_rate(phy->clks[CLKRF_CLK]);
+	delay_lna = phy->pdata->elna_ctrl.settling_delay_ns;
+
+	/*
+	 * AGC Attack Delay (us)=ceiling((((0.2+Delay_LNA)*ClkRF+14))/(2*ClkRF))+1
+	 * ClkRF in MHz, delay in us
+	 */
+
+	reg = (200 * delay_lna) / 2 + (14000000UL / (clkrf / 500U));
+	reg = DIV_ROUND_UP(reg, 1000UL) +
+		phy->pdata->gain_ctrl.agc_attack_delay_extra_margin_us;
+	reg = clamp_t(u8, reg, 0U, 31U);
+	ret = ad9361_spi_writef(spi, REG_AGC_ATTACK_DELAY,
+			  AGC_ATTACK_DELAY(~0), reg);
+
+	/*
+	 * Peak Overload Wait Time (ClkRF cycles)=ceiling((0.1+Delay_LNA) *clkRF+1)
+	 */
+
+	reg = (delay_lna + 100UL) * (clkrf / 1000UL);
+	reg = DIV_ROUND_UP(reg, 1000000UL) + 1;
+	reg = clamp_t(u8, reg, 0U, 31U);
+	ret |= ad9361_spi_writef(spi, REG_PEAK_WAIT_TIME,
+			  PEAK_OVERLOAD_WAIT_TIME(~0), reg);
+
+	/*
+	 * Settling Delay in 0x111.  Applies to all gain control modes:
+	 * 0x111[D4:D0]= ceiling(((0.2+Delay_LNA)*clkRF
+	dodebug = false;+14)/2)
+	 */
+
+	reg = (delay_lna + 200UL) * (clkrf / 2000UL);
+	reg = DIV_ROUND_UP(reg, 1000000UL) + 7;
+	reg = settling_delay = clamp_t(u8, reg, 0U, 31U);
+	ret |= ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
+			 SETTLING_DELAY(~0), reg);
+
+	/*
+	 * Gain Update Counter [15:0]= round((((time*ClkRF-0x111[D4:D0]*2)-2))/2)
+	 */
+	reg = phy->pdata->gain_ctrl.gain_update_interval_us * (clkrf / 1000UL) -
+		settling_delay * 2000UL - 2000UL;
+
+	reg = DIV_ROUND_CLOSEST(reg, 2000UL);
+	reg = clamp_t(u32, reg, 0U, 131071UL);
+
+	if (phy->agc_mode[0] == RF_GAIN_FASTATTACK_AGC ||
+		phy->agc_mode[1] == RF_GAIN_FASTATTACK_AGC) {
+		dec_pow_meas_dur =
+			phy->pdata->gain_ctrl.f_agc_dec_pow_measuremnt_duration;
+	} else {
+
+		dec_pow_meas_dur = phy->pdata->gain_ctrl.dec_pow_measuremnt_duration;
+
+		if (((reg * 2) / dec_pow_meas_dur) < 2) {
+			dec_pow_meas_dur = reg;
+		}
+	}
+
+	/* Power Measurement Duration */
+	ad9361_spi_writef(spi, REG_DEC_POWER_MEASURE_DURATION_0,
+			  DEC_POWER_MEASUREMENT_DURATION(~0),
+			  ilog2(dec_pow_meas_dur / 16));
+
+
+	ret |= ad9361_spi_writef(spi, REG_DIGITAL_SAT_COUNTER,
+			  DOUBLE_GAIN_COUNTER,  reg > 65535);
+
+	if (reg > 65535)
+		reg /= 2;
+
+	ret |= ad9361_spi_write(spi, REG_GAIN_UPDATE_COUNTER1, reg & 0xFF);
+	ret |= ad9361_spi_write(spi, REG_GAIN_UPDATE_COUNTER2, reg >> 8);
+
+	/*
+	 * Fast AGC State Wait Time - Energy Detect Count
+	 */
+
+	reg = DIV_ROUND_CLOSEST(phy->pdata->gain_ctrl.f_agc_state_wait_time_ns *
+				1000, clkrf / 1000UL);
+	reg = clamp_t(u32, reg, 0U, 31U);
+	ret |= ad9361_spi_writef(spi, REG_FAST_ENERGY_DETECT_COUNT,
+			  ENERGY_DETECT_COUNT(~0),  reg);
+
+	return ret;
+}
 
 static int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 		struct rf_gain_ctrl *gain_ctrl)
@@ -1322,7 +1420,7 @@ static int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 	struct spi_device *spi = phy->spi;
 	struct device *dev = &phy->spi->dev;
 	int rc = 0;
-	u32 gain_ctl_shift, mode, dec_pow_meas_dur;
+	u32 gain_ctl_shift, mode;
 	u8 val;
 
 	rc = ad9361_spi_readm(spi, REG_AGC_CONFIG_1, &val, 1);
@@ -1332,24 +1430,12 @@ static int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 		goto out;
 	}
 
-	/*
-	 * if one channel is set to FAST AGC the
-	 * f_agc_dec_pow_measuremnt_duration wins
-	 */
-	if (phy->agc_mode[gain_ctrl->ant == 2 ? 0 : 1] == RF_GAIN_FASTATTACK_AGC)
-		dec_pow_meas_dur =
-			phy->pdata->gain_ctrl.f_agc_dec_pow_measuremnt_duration;
-	else
-		dec_pow_meas_dur = phy->pdata->gain_ctrl.dec_pow_measuremnt_duration;
-
 	switch (gain_ctrl->mode) {
 	case RF_GAIN_MGC:
 		mode = RX_GAIN_CTL_MGC;
 		break;
 	case RF_GAIN_FASTATTACK_AGC:
 		mode = RX_GAIN_CTL_AGC_FAST_ATK;
-		dec_pow_meas_dur =
-			phy->pdata->gain_ctrl.f_agc_dec_pow_measuremnt_duration;
 		break;
 	case RF_GAIN_SLOWATTACK_AGC:
 		mode = RX_GAIN_CTL_AGC_SLOW_ATK;
@@ -1392,13 +1478,9 @@ static int ad9361_set_gain_ctrl_mode(struct ad9361_rf_phy *phy,
 		goto out;
 	}
 
-	/* Power Measurement Duration */
-	ad9361_spi_writef(spi, REG_DEC_POWER_MEASURE_DURATION_0,
-			  DEC_POWER_MEASUREMENT_DURATION(~0),
-			  ilog2(dec_pow_meas_dur / 16));
 
-
-	rc = ad9361_en_dis_rx(phy, gain_ctrl->ant, RX_ENABLE);
+	ad9361_en_dis_rx(phy, gain_ctrl->ant, RX_ENABLE);
+	rc = ad9361_gc_update(phy);
 out:
 	return rc;
 }
@@ -2084,8 +2166,7 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 		ad9361_spi_write(phy->spi, REG_TX_SYNTH_POWER_DOWN_OVERRIDE,
 				enable ? TX_SYNTH_VCO_ALC_POWER_DOWN |
 				TX_SYNTH_PTAT_POWER_DOWN |
-				TX_SYNTH_VCO_POWER_DOWN |
-				TX_SYNTH_VCO_LDO_POWER_DOWN : 0);
+				TX_SYNTH_VCO_POWER_DOWN : 0);
 
 		ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
 				  TX_EXT_VCO_BUFFER_POWER_DOWN, !enable);
@@ -2102,8 +2183,7 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 		ad9361_spi_write(phy->spi, REG_RX_SYNTH_POWER_DOWN_OVERRIDE,
 				enable ? RX_SYNTH_VCO_ALC_POWER_DOWN |
 				RX_SYNTH_PTAT_POWER_DOWN |
-				RX_SYNTH_VCO_POWER_DOWN |
-				RX_SYNTH_VCO_LDO_POWER_DOWN : 0);
+				RX_SYNTH_VCO_POWER_DOWN : 0);
 
 		ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
 				  RX_EXT_VCO_BUFFER_POWER_DOWN, !enable);
@@ -2181,7 +2261,7 @@ static int ad9361_txmon_control(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
 	ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
-			TX_MONITOR_POWER_DOWN(~0), !en_mask);
+			TX_MONITOR_POWER_DOWN(~0), ~en_mask);
 
 	return ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
 			TX1_MONITOR_ENABLE | TX2_MONITOR_ENABLE, en_mask);
@@ -2271,79 +2351,6 @@ static int ad9361_pp_port_setup(struct ad9361_rf_phy *phy, bool restore_c3)
 
 
 	return 0;
-}
-
-static int ad9361_gc_update(struct ad9361_rf_phy *phy)
-{
-	struct spi_device *spi = phy->spi;
-	unsigned long clkrf;
-	u32 reg, delay_lna, settling_delay;
-	int ret;
-
-	clkrf = clk_get_rate(phy->clks[CLKRF_CLK]);
-	delay_lna = phy->pdata->elna_ctrl.settling_delay_ns;
-
-	/*
-	 * AGC Attack Delay (us)=ceiling((((0.2+Delay_LNA)*ClkRF+14))/(2*ClkRF))+1
-	 * ClkRF in MHz, delay in us
-	 */
-
-	reg = (200 * delay_lna) / 2 + (14000000UL / (clkrf / 500U));
-	reg = DIV_ROUND_UP(reg, 1000UL) +
-		phy->pdata->gain_ctrl.agc_attack_delay_extra_margin_us;
-	reg = clamp_t(u8, reg, 0U, 31U);
-	ret = ad9361_spi_writef(spi, REG_AGC_ATTACK_DELAY,
-			  AGC_ATTACK_DELAY(~0), reg);
-
-	/*
-	 * Peak Overload Wait Time (ClkRF cycles)=ceiling((0.1+Delay_LNA) *clkRF+1)
-	 */
-
-	reg = (delay_lna + 100UL) * (clkrf / 1000UL);
-	reg = DIV_ROUND_UP(reg, 1000000UL) + 1;
-	reg = clamp_t(u8, reg, 0U, 31U);
-	ret |= ad9361_spi_writef(spi, REG_PEAK_WAIT_TIME,
-			  PEAK_OVERLOAD_WAIT_TIME(~0), reg);
-
-	/*
-	 * Settling Delay in 0x111.  Applies to all gain control modes:
-	 * 0x111[D4:D0]= ceiling(((0.2+Delay_LNA)*clkRF+14)/2)
-	 */
-
-	reg = (delay_lna + 200UL) * (clkrf / 2000UL);
-	reg = DIV_ROUND_UP(reg, 1000000UL) + 7;
-	reg = settling_delay = clamp_t(u8, reg, 0U, 31U);
-	ret |= ad9361_spi_writef(spi, REG_FAST_CONFIG_2_SETTLING_DELAY,
-			 SETTLING_DELAY(~0), reg);
-
-	/*
-	 * Gain Update Counter [15:0]= round((((time*ClkRF-0x111[D4:D0]*2)-2))/2)
-	 */
-	reg = phy->pdata->gain_ctrl.gain_update_interval_us * (clkrf / 1000UL) -
-		settling_delay * 2000UL - 2000UL;
-	reg = DIV_ROUND_CLOSEST(reg, 2000UL);
-	reg = clamp_t(u32, reg, 0U, 131071UL);
-
-	ret |= ad9361_spi_writef(spi, REG_DIGITAL_SAT_COUNTER,
-			  DOUBLE_GAIN_COUNTER,  reg > 65535);
-
-	if (reg > 65535)
-		reg /= 2;
-
-	ret |= ad9361_spi_write(spi, REG_GAIN_UPDATE_COUNTER1, reg & 0xFF);
-	ret |= ad9361_spi_write(spi, REG_GAIN_UPDATE_COUNTER2, reg >> 8);
-
-	/*
-	 * Fast AGC State Wait Time - Energy Detect Count
-	 */
-
-	reg = DIV_ROUND_CLOSEST(phy->pdata->gain_ctrl.f_agc_state_wait_time_ns *
-				1000, clkrf / 1000UL);
-	reg = clamp_t(u32, reg, 0U, 31U);
-	ret |= ad9361_spi_writef(spi, REG_FAST_ENERGY_DETECT_COUNT,
-			  ENERGY_DETECT_COUNT(~0),  reg);
-
-	return ret;
 }
 
 static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
@@ -3057,6 +3064,24 @@ out:
 
 }
 
+static int ad9361_validate_trx_clock_chain(struct ad9361_rf_phy *phy,
+				      unsigned long *rx_path_clks)
+{
+	int i, data_clk;
+
+	data_clk = (phy->pdata->rx2tx2 ? 4 : 2) * rx_path_clks[RX_SAMPL_FREQ];
+
+	for (i = ADC_FREQ; i < RX_SAMPL_CLK; i++) {
+		if (abs(rx_path_clks[i] - data_clk) < 4)
+			return 0;
+	}
+
+	dev_err(&phy->spi->dev, "%s: Failed - at least one of the clock rates"
+		"must be equal to the DATA_CLK (lvds) rate", __func__);
+
+	return -EINVAL;
+}
+
 static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
@@ -3068,6 +3093,20 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 
 	if (!rx_path_clks || !tx_path_clks)
 		return -EINVAL;
+
+	dev_dbg(&phy->spi->dev, "%s: %lu %lu %lu %lu %lu %lu",
+		__func__, rx_path_clks[BBPLL_FREQ], rx_path_clks[ADC_FREQ],
+		rx_path_clks[R2_FREQ], rx_path_clks[R1_FREQ],
+		rx_path_clks[CLKRF_FREQ], rx_path_clks[RX_SAMPL_FREQ]);
+
+	dev_dbg(&phy->spi->dev, "%s: %lu %lu %lu %lu %lu %lu",
+		__func__, tx_path_clks[BBPLL_FREQ], tx_path_clks[ADC_FREQ],
+		tx_path_clks[R2_FREQ], tx_path_clks[R1_FREQ],
+		tx_path_clks[CLKRF_FREQ], tx_path_clks[RX_SAMPL_FREQ]);
+
+	ret = ad9361_validate_trx_clock_chain(phy, rx_path_clks);
+	if (ret < 0)
+		return ret;
 
 	ret = clk_set_rate(phy->clks[BBPLL_CLK], rx_path_clks[BBPLL_FREQ]);
 	if (ret < 0)
@@ -3224,16 +3263,6 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 	tx_path_clks[T1_FREQ] =tx_path_clks[T2_FREQ] / clk_dividers[index_tx][2];
 	tx_path_clks[CLKTF_FREQ] = tx_path_clks[T1_FREQ] / clk_dividers[index_tx][3];
 	tx_path_clks[TX_SAMPL_FREQ] = tx_path_clks[CLKTF_FREQ] / 	tx_intdec;
-
-	dev_dbg(&phy->spi->dev, "%s: %lu %lu %lu %lu %lu %lu",
-		__func__, rx_path_clks[BBPLL_FREQ], rx_path_clks[ADC_FREQ],
-		rx_path_clks[R2_FREQ], rx_path_clks[R1_FREQ],
-		rx_path_clks[CLKRF_FREQ], rx_path_clks[RX_SAMPL_FREQ]);
-
-	dev_dbg(&phy->spi->dev, "%s: %lu %lu %lu %lu %lu %lu",
-		__func__, tx_path_clks[BBPLL_FREQ], tx_path_clks[ADC_FREQ],
-		tx_path_clks[R2_FREQ], tx_path_clks[R1_FREQ],
-		tx_path_clks[CLKRF_FREQ], tx_path_clks[RX_SAMPL_FREQ]);
 
 	return 0;
 }
@@ -3981,9 +4010,14 @@ static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
 	int i = 0, ret, txc, rxc;
 	int tx = -1, tx_gain, tx_int;
 	int rx = -1, rx_gain, rx_dec;
+	int rtx = -1, rrx = -1;
 	short coef_tx[128];
 	short coef_rx[128];
 	char *ptr = data;
+
+	phy->filt_rx_bw_Hz = 0;
+	phy->filt_tx_bw_Hz = 0;
+	phy->filt_valid = false;
 
 	while ((line = strsep(&ptr, "\n"))) {
 		if (line >= data + size) {
@@ -4009,6 +4043,55 @@ static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
 			else
 				tx = -1;
 		}
+
+		if (rtx < 0) {
+			ret = sscanf(line, "RTX %lu %lu %lu %lu %lu %lu",
+				     &phy->filt_tx_path_clks[0],
+				     &phy->filt_tx_path_clks[1],
+				     &phy->filt_tx_path_clks[2],
+				     &phy->filt_tx_path_clks[3],
+				     &phy->filt_tx_path_clks[4],
+				     &phy->filt_tx_path_clks[5]);
+			if (ret == 6) {
+				rtx = 0;
+				continue;
+			} else {
+				rtx = -1;
+			}
+		}
+
+		if (rrx < 0) {
+			ret = sscanf(line, "RRX %lu %lu %lu %lu %lu %lu",
+				     &phy->filt_rx_path_clks[0],
+				     &phy->filt_rx_path_clks[1],
+				     &phy->filt_rx_path_clks[2],
+				     &phy->filt_rx_path_clks[3],
+				     &phy->filt_rx_path_clks[4],
+				     &phy->filt_rx_path_clks[5]);
+			if (ret == 6) {
+				rrx = 0;
+				continue;
+			} else {
+				rrx = -1;
+			}
+		}
+
+		if (!phy->filt_rx_bw_Hz) {
+			ret = sscanf(line, "BWRX %d", &phy->filt_rx_bw_Hz);
+			if (ret == 1)
+				continue;
+			else
+				phy->filt_rx_bw_Hz = 0;
+		}
+
+		if (!phy->filt_tx_bw_Hz) {
+			ret = sscanf(line, "BWTX %d", &phy->filt_tx_bw_Hz);
+			if (ret == 1)
+				continue;
+			else
+				phy->filt_tx_bw_Hz = 0;
+		}
+
 		ret = sscanf(line, "%d,%d", &txc, &rxc);
 		if (ret == 1) {
 			coef_tx[i] = coef_rx[i] = (short)txc;
@@ -4048,6 +4131,8 @@ static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
 	if (ret < 0)
 		return ret;
 
+	if (!(rrx | rtx))
+		phy->filt_valid = true;
 
 	return size;
 }
@@ -4057,7 +4142,7 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 	struct device *dev = &phy->spi->dev;
 	int ret;
 	unsigned long rx[6], tx[6];
-	u32 max;
+	u32 max, valid;
 
 	dev_dbg(dev, "%s: TX FIR EN=%d/TAPS%d/INT%d, RX FIR EN=%d/TAPS%d/DEC%d",
 		__func__, !phy->bypass_tx_fir, phy->tx_fir_ntaps, phy->tx_fir_int,
@@ -4092,16 +4177,23 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 		}
 	}
 
-	ret = ad9361_calculate_rf_clock_chain(phy,
-			clk_get_rate(phy->clks[TX_SAMPL_CLK]),
-			phy->rate_governor, rx, tx);
+	if (!phy->filt_valid || phy->bypass_rx_fir || phy->bypass_tx_fir) {
+		ret = ad9361_calculate_rf_clock_chain(phy,
+				clk_get_rate(phy->clks[TX_SAMPL_CLK]),
+				phy->rate_governor, rx, tx);
+		if (ret < 0) {
+			dev_err(dev,
+				"%s: Calculating filter rates failed %d",
+				__func__, ret);
 
-	if (ret < 0) {
-		dev_err(dev,
-			"%s: Calculating filter rates failed %d",
-			__func__, ret);
+			return ret;
+		}
+		valid = false;
+	} else {
+		memcpy(rx, phy->filt_rx_path_clks, sizeof(rx));
+		memcpy(tx, phy->filt_tx_path_clks, sizeof(tx));
+		valid = true;
 
-		return ret;
 	}
 
 	if (!phy->bypass_tx_fir) {
@@ -4131,7 +4223,7 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 		return ret;
 
 	/*
-	 * Workaround for clock framework since clocks don't change the we
+	 * Workaround for clock framework since clocks don't change we
 	 * manually need to enable the filter
 	 */
 
@@ -4145,8 +4237,9 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 			TX_FIR_ENABLE_INTERPOLATION(~0), !phy->bypass_tx_fir);
 	}
 
-	return ad9361_update_rf_bandwidth(phy, phy->current_rx_bw_Hz,
-			phy->current_tx_bw_Hz);
+	return ad9361_update_rf_bandwidth(phy,
+		valid ? phy->filt_rx_bw_Hz : phy->current_rx_bw_Hz,
+		valid ? phy->filt_tx_bw_Hz : phy->current_tx_bw_Hz);
 }
 
 static void ad9361_work_func(struct work_struct *work)
@@ -5274,7 +5367,8 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	unsigned rx2tx2 = conv->phy->pdata->rx2tx2;
+	struct ad9361_rf_phy *phy = conv->phy;
+	unsigned rx2tx2 = phy->pdata->rx2tx2;
 	unsigned tmp, num_chan;
 	int i, ret;
 
@@ -5305,14 +5399,14 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
 
-	ret = ad9361_dig_tune(conv->phy, (axiadc_read(st, ADI_REG_ID)) ?
+	ret = ad9361_dig_tune(phy, (axiadc_read(st, ADI_REG_ID)) ?
 		0 : 61440000);
 	if (ret < 0)
 		return ret;
 
-	return ad9361_set_trx_clock_chain(conv->phy,
-					 conv->phy->pdata->rx_path_clks,
-					 conv->phy->pdata->tx_path_clks);
+	return ad9361_set_trx_clock_chain(phy,
+					 phy->pdata->rx_path_clks,
+					 phy->pdata->tx_path_clks);
 }
 
 static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)

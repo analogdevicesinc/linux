@@ -681,12 +681,11 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 	return r;
 }
 
-static int stop_streaming(struct vb2_queue *vq)
+static void stop_streaming(struct vb2_queue *vq)
 {
 	struct pwc_device *pdev = vb2_get_drv_priv(vq);
 
-	if (mutex_lock_interruptible(&pdev->v4l2_lock))
-		return -ERESTARTSYS;
+	mutex_lock(&pdev->v4l2_lock);
 	if (pdev->udev) {
 		pwc_set_leds(pdev, 0, 0);
 		pwc_camera_power(pdev, 0);
@@ -695,8 +694,6 @@ static int stop_streaming(struct vb2_queue *vq)
 
 	pwc_cleanup_queued_bufs(pdev);
 	mutex_unlock(&pdev->v4l2_lock);
-
-	return 0;
 }
 
 static struct vb2_ops pwc_vb_queue_ops = {
@@ -1016,7 +1013,6 @@ static int usb_pwc_probe(struct usb_interface *intf, const struct usb_device_id 
 	strcpy(pdev->vdev.name, name);
 	pdev->vdev.queue = &pdev->vb_queue;
 	pdev->vdev.queue->lock = &pdev->vb_queue_lock;
-	set_bit(V4L2_FL_USE_FH_PRIO, &pdev->vdev.flags);
 	video_set_drvdata(&pdev->vdev, pdev);
 
 	pdev->release = le16_to_cpu(udev->descriptor.bcdDevice);

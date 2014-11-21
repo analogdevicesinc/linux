@@ -60,7 +60,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 #include "iwl-trans.h"
-
 #include "mvm.h"
 #include "fw-api.h"
 
@@ -130,42 +129,7 @@ static void iwl_mvm_pass_packet_to_mac80211(struct iwl_mvm *mvm,
 
 	memcpy(IEEE80211_SKB_RXCB(skb), stats, sizeof(*stats));
 
-	ieee80211_rx_ni(mvm->hw, skb);
-}
-
-static void iwl_mvm_calc_rssi(struct iwl_mvm *mvm,
-			      struct iwl_rx_phy_info *phy_info,
-			      struct ieee80211_rx_status *rx_status)
-{
-	int rssi_a, rssi_b, rssi_a_dbm, rssi_b_dbm, max_rssi_dbm;
-	u32 agc_a, agc_b;
-	u32 val;
-
-	val = le32_to_cpu(phy_info->non_cfg_phy[IWL_RX_INFO_AGC_IDX]);
-	agc_a = (val & IWL_OFDM_AGC_A_MSK) >> IWL_OFDM_AGC_A_POS;
-	agc_b = (val & IWL_OFDM_AGC_B_MSK) >> IWL_OFDM_AGC_B_POS;
-
-	val = le32_to_cpu(phy_info->non_cfg_phy[IWL_RX_INFO_RSSI_AB_IDX]);
-	rssi_a = (val & IWL_OFDM_RSSI_INBAND_A_MSK) >> IWL_OFDM_RSSI_A_POS;
-	rssi_b = (val & IWL_OFDM_RSSI_INBAND_B_MSK) >> IWL_OFDM_RSSI_B_POS;
-
-	/*
-	 * dBm = rssi dB - agc dB - constant.
-	 * Higher AGC (higher radio gain) means lower signal.
-	 */
-	rssi_a_dbm = rssi_a - IWL_RSSI_OFFSET - agc_a;
-	rssi_b_dbm = rssi_b - IWL_RSSI_OFFSET - agc_b;
-	max_rssi_dbm = max_t(int, rssi_a_dbm, rssi_b_dbm);
-
-	IWL_DEBUG_STATS(mvm, "Rssi In A %d B %d Max %d AGCA %d AGCB %d\n",
-			rssi_a_dbm, rssi_b_dbm, max_rssi_dbm, agc_a, agc_b);
-
-	rx_status->signal = max_rssi_dbm;
-	rx_status->chains = (le16_to_cpu(phy_info->phy_flags) &
-				RX_RES_PHY_FLAGS_ANTENNA)
-					>> RX_RES_PHY_FLAGS_ANTENNA_POS;
-	rx_status->chain_signal[0] = rssi_a_dbm;
-	rx_status->chain_signal[1] = rssi_b_dbm;
+	ieee80211_rx(mvm->hw, skb);
 }
 
 /*
@@ -185,13 +149,13 @@ static void iwl_mvm_get_signal_strength(struct iwl_mvm *mvm,
 	    le32_to_cpu(phy_info->non_cfg_phy[IWL_RX_INFO_ENERGY_ANT_ABC_IDX]);
 	energy_a = (val & IWL_RX_INFO_ENERGY_ANT_A_MSK) >>
 						IWL_RX_INFO_ENERGY_ANT_A_POS;
-	energy_a = energy_a ? -energy_a : -256;
+	energy_a = energy_a ? -energy_a : S8_MIN;
 	energy_b = (val & IWL_RX_INFO_ENERGY_ANT_B_MSK) >>
 						IWL_RX_INFO_ENERGY_ANT_B_POS;
-	energy_b = energy_b ? -energy_b : -256;
+	energy_b = energy_b ? -energy_b : S8_MIN;
 	energy_c = (val & IWL_RX_INFO_ENERGY_ANT_C_MSK) >>
 						IWL_RX_INFO_ENERGY_ANT_C_POS;
-	energy_c = energy_c ? -energy_c : -256;
+	energy_c = energy_c ? -energy_c : S8_MIN;
 	max_energy = max(energy_a, energy_b);
 	max_energy = max(max_energy, energy_c);
 
@@ -295,6 +259,23 @@ int iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb,
 	memset(&rx_status, 0, sizeof(rx_status));
 
 	/*
+	 * We have tx blocked stations (with CS bit). If we heard frames from
+	 * a blocked station on a new channel we can TX to it again.
+	 */
+	if (unlikely(mvm->csa_tx_block_bcn_timeout)) {
+		struct ieee80211_sta *sta;
+
+		rcu_read_lock();
+
+		sta = ieee80211_find_sta(
+			rcu_dereference(mvm->csa_tx_blocked_vif), hdr->addr2);
+		if (sta)
+			iwl_mvm_sta_modify_disable_tx_ap(mvm, sta, false);
+
+		rcu_read_unlock();
+	}
+
+	/*
 	 * drop the packet if it has failed being decrypted by HW
 	 */
 	if (iwl_mvm_set_mac80211_rx_flag(mvm, hdr, &rx_status, rx_pkt_status)) {
@@ -337,10 +318,7 @@ int iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb,
 	 */
 	/*rx_status.flag |= RX_FLAG_MACTIME_MPDU;*/
 
-	if (mvm->fw->ucode_capa.flags & IWL_UCODE_TLV_FLAGS_RX_ENERGY_API)
-		iwl_mvm_get_signal_strength(mvm, phy_info, &rx_status);
-	else
-		iwl_mvm_calc_rssi(mvm, phy_info, &rx_status);
+	iwl_mvm_get_signal_strength(mvm, phy_info, &rx_status);
 
 	IWL_DEBUG_STATS_LIMIT(mvm, "Rssi %d, TSF %llu\n", rx_status.signal,
 			      (unsigned long long)rx_status.mactime);
@@ -394,6 +372,8 @@ int iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb,
 		rx_status.rate_idx = rate_n_flags & RATE_VHT_MCS_RATE_CODE_MSK;
 		rx_status.flag |= RX_FLAG_VHT;
 		rx_status.flag |= stbc << RX_FLAG_STBC_SHIFT;
+		if (rate_n_flags & RATE_MCS_BF_MSK)
+			rx_status.vht_flag |= RX_VHT_FLAG_BF;
 	} else {
 		rx_status.rate_idx =
 			iwl_mvm_legacy_rate_to_mac80211_idx(rate_n_flags,

@@ -134,9 +134,11 @@ static struct acpi_exdump_info acpi_ex_dump_method[9] = {
 	{ACPI_EXD_POINTER, ACPI_EXD_OFFSET(method.aml_start), "Aml Start"}
 };
 
-static struct acpi_exdump_info acpi_ex_dump_mutex[5] = {
+static struct acpi_exdump_info acpi_ex_dump_mutex[6] = {
 	{ACPI_EXD_INIT, ACPI_EXD_TABLE_SIZE(acpi_ex_dump_mutex), NULL},
 	{ACPI_EXD_UINT8, ACPI_EXD_OFFSET(mutex.sync_level), "Sync Level"},
+	{ACPI_EXD_UINT8, ACPI_EXD_OFFSET(mutex.original_sync_level),
+	 "Original Sync Level"},
 	{ACPI_EXD_POINTER, ACPI_EXD_OFFSET(mutex.owner_thread), "Owner Thread"},
 	{ACPI_EXD_UINT16, ACPI_EXD_OFFSET(mutex.acquisition_depth),
 	 "Acquire Depth"},
@@ -492,7 +494,7 @@ acpi_ex_dump_object(union acpi_operand_object *obj_desc,
 				}
 			}
 
-			acpi_os_printf("\n", next);
+			acpi_os_printf("\n");
 			break;
 
 		case ACPI_EXD_HDLR_LIST:
@@ -526,7 +528,7 @@ acpi_ex_dump_object(union acpi_operand_object *obj_desc,
 				}
 			}
 
-			acpi_os_printf("\n", next);
+			acpi_os_printf("\n");
 			break;
 
 		case ACPI_EXD_RGN_LIST:
@@ -560,7 +562,7 @@ acpi_ex_dump_object(union acpi_operand_object *obj_desc,
 				}
 			}
 
-			acpi_os_printf("\n", next);
+			acpi_os_printf("\n");
 			break;
 
 		case ACPI_EXD_NODE:

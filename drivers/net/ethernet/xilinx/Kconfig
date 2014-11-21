@@ -51,6 +51,7 @@ config XILINX_PS_EMAC
 config XILINX_PS_EMAC_HWTSTAMP
 	bool "Generate hardware packet timestamps"
 	depends on XILINX_PS_EMAC
+	select PTP_1588_CLOCK
 	default n
 	---help---
 	  Generate hardare packet timestamps. This is to facilitate IEE 1588.

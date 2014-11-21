@@ -18,6 +18,7 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/mei.h>
 
@@ -415,6 +416,10 @@ void mei_host_client_init(struct work_struct *work)
 	dev->reset_count = 0;
 
 	mutex_unlock(&dev->device_lock);
+
+	pm_runtime_mark_last_busy(&dev->pdev->dev);
+	dev_dbg(&dev->pdev->dev, "rpm: autosuspend\n");
+	pm_runtime_autosuspend(&dev->pdev->dev);
 }
 
 /**
@@ -425,6 +430,12 @@ void mei_host_client_init(struct work_struct *work)
  */
 bool mei_hbuf_acquire(struct mei_device *dev)
 {
+	if (mei_pg_state(dev) == MEI_PG_ON ||
+	    dev->pg_event == MEI_PG_EVENT_WAIT) {
+		dev_dbg(&dev->pdev->dev, "device is in pg\n");
+		return false;
+	}
+
 	if (!dev->hbuf_is_ready) {
 		dev_dbg(&dev->pdev->dev, "hbuf is not ready\n");
 		return false;
@@ -448,7 +459,7 @@ int mei_cl_disconnect(struct mei_cl *cl)
 {
 	struct mei_device *dev;
 	struct mei_cl_cb *cb;
-	int rets, err;
+	int rets;
 
 	if (WARN_ON(!cl || !cl->dev))
 		return -ENODEV;
@@ -460,9 +471,18 @@ int mei_cl_disconnect(struct mei_cl *cl)
 	if (cl->state != MEI_FILE_DISCONNECTING)
 		return 0;
 
+	rets = pm_runtime_get(&dev->pdev->dev);
+	if (rets < 0 && rets != -EINPROGRESS) {
+		pm_runtime_put_noidle(&dev->pdev->dev);
+		cl_err(dev, cl, "rpm: get failed %d\n", rets);
+		return rets;
+	}
+
 	cb = mei_io_cb_init(cl, NULL);
-	if (!cb)
-		return -ENOMEM;
+	if (!cb) {
+		rets = -ENOMEM;
+		goto free;
+	}
 
 	cb->fop_type = MEI_FOP_CLOSE;
 	if (mei_hbuf_acquire(dev)) {
@@ -471,6 +491,7 @@ int mei_cl_disconnect(struct mei_cl *cl)
 			cl_err(dev, cl, "failed to disconnect.\n");
 			goto free;
 		}
+		cl->timer_count = MEI_CONNECT_TIMEOUT;
 		mdelay(10); /* Wait for hardware disconnection ready */
 		list_add_tail(&cb->list, &dev->ctrl_rd_list.list);
 	} else {
@@ -480,29 +501,27 @@ int mei_cl_disconnect(struct mei_cl *cl)
 	}
 	mutex_unlock(&dev->device_lock);
 
-	err = wait_event_timeout(dev->wait_recvd_msg,
+	wait_event_timeout(dev->wait_recvd_msg,
 			MEI_FILE_DISCONNECTED == cl->state,
 			mei_secs_to_jiffies(MEI_CL_CONNECT_TIMEOUT));
 
 	mutex_lock(&dev->device_lock);
+
 	if (MEI_FILE_DISCONNECTED == cl->state) {
 		rets = 0;
 		cl_dbg(dev, cl, "successfully disconnected from FW client.\n");
 	} else {
-		rets = -ENODEV;
-		if (MEI_FILE_DISCONNECTED != cl->state)
-			cl_err(dev, cl, "wrong status client disconnect.\n");
-
-		if (err)
-			cl_dbg(dev, cl, "wait failed disconnect err=%08x\n",
-					err);
-
-		cl_err(dev, cl, "failed to disconnect from FW client.\n");
+		cl_dbg(dev, cl, "timeout on disconnect from FW client.\n");
+		rets = -ETIME;
 	}
 
 	mei_io_list_flush(&dev->ctrl_rd_list, cl);
 	mei_io_list_flush(&dev->ctrl_wr_list, cl);
 free:
+	cl_dbg(dev, cl, "rpm: autosuspend\n");
+	pm_runtime_mark_last_busy(&dev->pdev->dev);
+	pm_runtime_put_autosuspend(&dev->pdev->dev);
+
 	mei_io_cb_free(cb);
 	return rets;
 }
@@ -557,6 +576,13 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 
 	dev = cl->dev;
 
+	rets = pm_runtime_get(&dev->pdev->dev);
+	if (rets < 0 && rets != -EINPROGRESS) {
+		pm_runtime_put_noidle(&dev->pdev->dev);
+		cl_err(dev, cl, "rpm: get failed %d\n", rets);
+		return rets;
+	}
+
 	cb = mei_io_cb_init(cl, file);
 	if (!cb) {
 		rets = -ENOMEM;
@@ -567,6 +593,7 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 
 	/* run hbuf acquire last so we don't have to undo */
 	if (!mei_cl_is_other_connecting(cl) && mei_hbuf_acquire(dev)) {
+		cl->state = MEI_FILE_CONNECTING;
 		if (mei_hbm_cl_connect_req(dev, cl)) {
 			rets = -ENODEV;
 			goto out;
@@ -574,6 +601,7 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 		cl->timer_count = MEI_CONNECT_TIMEOUT;
 		list_add_tail(&cb->list, &dev->ctrl_rd_list.list);
 	} else {
+		cl->state = MEI_FILE_INITIALIZING;
 		list_add_tail(&cb->list, &dev->ctrl_wr_list.list);
 	}
 
@@ -585,6 +613,7 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 	mutex_lock(&dev->device_lock);
 
 	if (cl->state != MEI_FILE_CONNECTED) {
+		cl->state = MEI_FILE_DISCONNECTED;
 		/* something went really wrong */
 		if (!cl->status)
 			cl->status = -EFAULT;
@@ -596,6 +625,10 @@ int mei_cl_connect(struct mei_cl *cl, struct file *file)
 	rets = cl->status;
 
 out:
+	cl_dbg(dev, cl, "rpm: autosuspend\n");
+	pm_runtime_mark_last_busy(&dev->pdev->dev);
+	pm_runtime_put_autosuspend(&dev->pdev->dev);
+
 	mei_io_cb_free(cb);
 	return rets;
 }
@@ -713,23 +746,31 @@ int mei_cl_read_start(struct mei_cl *cl, size_t length)
 		return  -ENOTTY;
 	}
 
+	rets = pm_runtime_get(&dev->pdev->dev);
+	if (rets < 0 && rets != -EINPROGRESS) {
+		pm_runtime_put_noidle(&dev->pdev->dev);
+		cl_err(dev, cl, "rpm: get failed %d\n", rets);
+		return rets;
+	}
+
 	cb = mei_io_cb_init(cl, NULL);
-	if (!cb)
-		return -ENOMEM;
+	if (!cb) {
+		rets = -ENOMEM;
+		goto out;
+	}
 
 	/* always allocate at least client max message */
 	length = max_t(size_t, length, dev->me_clients[i].props.max_msg_length);
 	rets = mei_io_cb_alloc_resp_buf(cb, length);
 	if (rets)
-		goto err;
+		goto out;
 
 	cb->fop_type = MEI_FOP_READ;
 	if (mei_hbuf_acquire(dev)) {
-		if (mei_hbm_cl_flow_control_req(dev, cl)) {
-			cl_err(dev, cl, "flow control send failed\n");
-			rets = -ENODEV;
-			goto err;
-		}
+		rets = mei_hbm_cl_flow_control_req(dev, cl);
+		if (rets < 0)
+			goto out;
+
 		list_add_tail(&cb->list, &dev->read_list.list);
 	} else {
 		list_add_tail(&cb->list, &dev->ctrl_wr_list.list);
@@ -737,9 +778,14 @@ int mei_cl_read_start(struct mei_cl *cl, size_t length)
 
 	cl->read_cb = cb;
 
-	return rets;
-err:
-	mei_io_cb_free(cb);
+out:
+	cl_dbg(dev, cl, "rpm: autosuspend\n");
+	pm_runtime_mark_last_busy(&dev->pdev->dev);
+	pm_runtime_put_autosuspend(&dev->pdev->dev);
+
+	if (rets)
+		mei_io_cb_free(cb);
+
 	return rets;
 }
 
@@ -776,7 +822,7 @@ int mei_cl_irq_write(struct mei_cl *cl, struct mei_cl_cb *cb,
 		return rets;
 
 	if (rets == 0) {
-		cl_dbg(dev, cl,	"No flow control credentials: not sending.\n");
+		cl_dbg(dev, cl, "No flow control credentials: not sending.\n");
 		return 0;
 	}
 
@@ -856,6 +902,12 @@ int mei_cl_write(struct mei_cl *cl, struct mei_cl_cb *cb, bool blocking)
 
 	cl_dbg(dev, cl, "mei_cl_write %d\n", buf->size);
 
+	rets = pm_runtime_get(&dev->pdev->dev);
+	if (rets < 0 && rets != -EINPROGRESS) {
+		pm_runtime_put_noidle(&dev->pdev->dev);
+		cl_err(dev, cl, "rpm: get failed %d\n", rets);
+		return rets;
+	}
 
 	cb->fop_type = MEI_FOP_WRITE;
 	cb->buf_idx = 0;
@@ -926,6 +978,10 @@ out:
 
 	rets = buf->size;
 err:
+	cl_dbg(dev, cl, "rpm: autosuspend\n");
+	pm_runtime_mark_last_busy(&dev->pdev->dev);
+	pm_runtime_put_autosuspend(&dev->pdev->dev);
+
 	return rets;
 }
 

@@ -53,6 +53,30 @@ static struct nand_ecclayout gpmi_hw_ecclayout = {
 	.oobfree = { {.offset = 0, .length = 0} }
 };
 
+static const struct gpmi_devdata gpmi_devdata_imx23 = {
+	.type = IS_MX23,
+	.bch_max_ecc_strength = 20,
+	.max_chain_delay = 16,
+};
+
+static const struct gpmi_devdata gpmi_devdata_imx28 = {
+	.type = IS_MX28,
+	.bch_max_ecc_strength = 20,
+	.max_chain_delay = 16,
+};
+
+static const struct gpmi_devdata gpmi_devdata_imx6q = {
+	.type = IS_MX6Q,
+	.bch_max_ecc_strength = 40,
+	.max_chain_delay = 12,
+};
+
+static const struct gpmi_devdata gpmi_devdata_imx6sx = {
+	.type = IS_MX6SX,
+	.bch_max_ecc_strength = 62,
+	.max_chain_delay = 12,
+};
+
 static irqreturn_t bch_irq(int irq, void *cookie)
 {
 	struct gpmi_nand_data *this = cookie;
@@ -102,14 +126,8 @@ static inline bool gpmi_check_ecc(struct gpmi_nand_data *this)
 		/* The mx23/mx28 only support the GF13. */
 		if (geo->gf_len == 14)
 			return false;
-
-		if (geo->ecc_strength > MXS_ECC_STRENGTH_MAX)
-			return false;
-	} else if (GPMI_IS_MX6Q(this)) {
-		if (geo->ecc_strength > MX6_ECC_STRENGTH_MAX)
-			return false;
 	}
-	return true;
+	return geo->ecc_strength <= this->devdata->bch_max_ecc_strength;
 }
 
 /*
@@ -267,11 +285,9 @@ static int legacy_set_geometry(struct gpmi_nand_data *this)
 	geo->ecc_strength = get_ecc_strength(this);
 	if (!gpmi_check_ecc(this)) {
 		dev_err(this->dev,
-			"We can not support this nand chip."
-			" Its required ecc strength(%d) is beyond our"
-			" capability(%d).\n", geo->ecc_strength,
-			(GPMI_IS_MX6Q(this) ? MX6_ECC_STRENGTH_MAX
-					: MXS_ECC_STRENGTH_MAX));
+			"required ecc strength of the NAND chip: %d is not supported by the GPMI controller (%d)\n",
+			geo->ecc_strength,
+			this->devdata->bch_max_ecc_strength);
 		return -EINVAL;
 	}
 
@@ -572,7 +588,7 @@ static int gpmi_get_clks(struct gpmi_nand_data *this)
 	}
 
 	/* Get extra clocks */
-	if (GPMI_IS_MX6Q(this))
+	if (GPMI_IS_MX6(this))
 		extra_clks = extra_clks_for_mx6q;
 	if (!extra_clks)
 		return 0;
@@ -590,9 +606,9 @@ static int gpmi_get_clks(struct gpmi_nand_data *this)
 		r->clock[i] = clk;
 	}
 
-	if (GPMI_IS_MX6Q(this))
+	if (GPMI_IS_MX6(this))
 		/*
-		 * Set the default value for the gpmi clock in mx6q:
+		 * Set the default value for the gpmi clock.
 		 *
 		 * If you want to use the ONFI nand which is in the
 		 * Synchronous Mode, you should change the clock as you need.
@@ -1065,6 +1081,7 @@ static int gpmi_ecc_read_subpage(struct mtd_info *mtd, struct nand_chip *chip,
 	int first, last, marker_pos;
 	int ecc_parity_size;
 	int col = 0;
+	int old_swap_block_mark = this->swap_block_mark;
 
 	/* The size of ECC parity */
 	ecc_parity_size = geo->gf_len * geo->ecc_strength / 8;
@@ -1073,17 +1090,21 @@ static int gpmi_ecc_read_subpage(struct mtd_info *mtd, struct nand_chip *chip,
 	first = offs / size;
 	last = (offs + len - 1) / size;
 
-	/*
-	 * Find the chunk which contains the Block Marker. If this chunk is
-	 * in the range of [first, last], we have to read out the whole page.
-	 * Why? since we had swapped the data at the position of Block Marker
-	 * to the metadata which is bound with the chunk 0.
-	 */
-	marker_pos = geo->block_mark_byte_offset / size;
-	if (last >= marker_pos && first <= marker_pos) {
-		dev_dbg(this->dev, "page:%d, first:%d, last:%d, marker at:%d\n",
+	if (this->swap_block_mark) {
+		/*
+		 * Find the chunk which contains the Block Marker.
+		 * If this chunk is in the range of [first, last],
+		 * we have to read out the whole page.
+		 * Why? since we had swapped the data at the position of Block
+		 * Marker to the metadata which is bound with the chunk 0.
+		 */
+		marker_pos = geo->block_mark_byte_offset / size;
+		if (last >= marker_pos && first <= marker_pos) {
+			dev_dbg(this->dev,
+				"page:%d, first:%d, last:%d, marker at:%d\n",
 				page, first, last, marker_pos);
-		return gpmi_ecc_read_page(mtd, chip, buf, 0, page);
+			return gpmi_ecc_read_page(mtd, chip, buf, 0, page);
+		}
 	}
 
 	meta = geo->metadata_size;
@@ -1129,7 +1150,7 @@ static int gpmi_ecc_read_subpage(struct mtd_info *mtd, struct nand_chip *chip,
 	writel(r1_old, bch_regs + HW_BCH_FLASH0LAYOUT0);
 	writel(r2_old, bch_regs + HW_BCH_FLASH0LAYOUT1);
 	this->bch_geometry = old_geo;
-	this->swap_block_mark = true;
+	this->swap_block_mark = old_swap_block_mark;
 
 	return max_bitflips;
 }
@@ -1163,7 +1184,7 @@ static int gpmi_ecc_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 
 		/* Handle block mark swapping. */
 		block_mark_swapping(this,
-				(void *) payload_virt, (void *) auxiliary_virt);
+				(void *)payload_virt, (void *)auxiliary_virt);
 	} else {
 		/*
 		 * If control arrives here, we're not doing block mark swapping,
@@ -1293,10 +1314,10 @@ static int gpmi_ecc_read_oob(struct mtd_info *mtd, struct nand_chip *chip,
 
 	/*
 	 * Now, we want to make sure the block mark is correct. In the
-	 * Swapping/Raw case, we already have it. Otherwise, we need to
-	 * explicitly read it.
+	 * non-transcribing case (!GPMI_IS_MX23()), we already have it.
+	 * Otherwise, we need to explicitly read it.
 	 */
-	if (!this->swap_block_mark) {
+	if (GPMI_IS_MX23(this)) {
 		/* Read the block mark into the first byte of the OOB buffer. */
 		chip->cmdfunc(mtd, NAND_CMD_READ0, 0, page);
 		chip->oob_poi[0] = chip->read_byte(mtd);
@@ -1337,7 +1358,7 @@ static int gpmi_block_markbad(struct mtd_info *mtd, loff_t ofs)
 	chipnr = (int)(ofs >> chip->chip_shift);
 	chip->select_chip(mtd, chipnr);
 
-	column = this->swap_block_mark ? mtd->writesize : 0;
+	column = !GPMI_IS_MX23(this) ? mtd->writesize : 0;
 
 	/* Write the block mark. */
 	block_mark = this->data_buffer_dma;
@@ -1580,8 +1601,9 @@ static int mx23_boot_init(struct gpmi_nand_data  *this)
 			dev_dbg(dev, "Transcribing mark in block %u\n", block);
 			ret = chip->block_markbad(mtd, byte);
 			if (ret)
-				dev_err(dev, "Failed to mark block bad with "
-							"ret %d\n", ret);
+				dev_err(dev,
+					"Failed to mark block bad with ret %d\n",
+					ret);
 		}
 	}
 
@@ -1632,9 +1654,6 @@ static int gpmi_init_last(struct gpmi_nand_data *this)
 	struct bch_geometry *bch_geo = &this->bch_geometry;
 	int ret;
 
-	/* Set up swap_block_mark, must be set before the gpmi_set_geometry() */
-	this->swap_block_mark = !GPMI_IS_MX23(this);
-
 	/* Set up the medium geometry */
 	ret = gpmi_set_geometry(this);
 	if (ret)
@@ -1655,7 +1674,7 @@ static int gpmi_init_last(struct gpmi_nand_data *this)
 	 *  (1) the chip is imx6, and
 	 *  (2) the size of the ECC parity is byte aligned.
 	 */
-	if (GPMI_IS_MX6Q(this) &&
+	if (GPMI_IS_MX6(this) &&
 		((bch_geo->gf_len * bch_geo->ecc_strength) % 8) == 0) {
 		ecc->read_subpage = gpmi_ecc_read_subpage;
 		chip->options |= NAND_SUBPAGE_READ;
@@ -1698,8 +1717,19 @@ static int gpmi_nand_init(struct gpmi_nand_data *this)
 	chip->badblock_pattern	= &gpmi_bbt_descr;
 	chip->block_markbad	= gpmi_block_markbad;
 	chip->options		|= NAND_NO_SUBPAGE_WRITE;
-	if (of_get_nand_on_flash_bbt(this->dev->of_node))
+
+	/* Set up swap_block_mark, must be set before the gpmi_set_geometry() */
+	this->swap_block_mark = !GPMI_IS_MX23(this);
+
+	if (of_get_nand_on_flash_bbt(this->dev->of_node)) {
 		chip->bbt_options |= NAND_BBT_USE_FLASH | NAND_BBT_NO_OOB;
+
+		if (of_property_read_bool(this->dev->of_node,
+						"fsl,no-blockmark-swap"))
+			this->swap_block_mark = false;
+	}
+	dev_dbg(this->dev, "Blockmark swapping %sabled\n",
+		this->swap_block_mark ? "en" : "dis");
 
 	/*
 	 * Allocate a temporary DMA buffer for reading ID in the
@@ -1711,7 +1741,7 @@ static int gpmi_nand_init(struct gpmi_nand_data *this)
 	if (ret)
 		goto err_out;
 
-	ret = nand_scan_ident(mtd, GPMI_IS_MX6Q(this) ? 2 : 1, NULL);
+	ret = nand_scan_ident(mtd, GPMI_IS_MX6(this) ? 2 : 1, NULL);
 	if (ret)
 		goto err_out;
 
@@ -1740,23 +1770,19 @@ err_out:
 	return ret;
 }
 
-static const struct platform_device_id gpmi_ids[] = {
-	{ .name = "imx23-gpmi-nand", .driver_data = IS_MX23, },
-	{ .name = "imx28-gpmi-nand", .driver_data = IS_MX28, },
-	{ .name = "imx6q-gpmi-nand", .driver_data = IS_MX6Q, },
-	{}
-};
-
 static const struct of_device_id gpmi_nand_id_table[] = {
 	{
 		.compatible = "fsl,imx23-gpmi-nand",
-		.data = (void *)&gpmi_ids[IS_MX23],
+		.data = &gpmi_devdata_imx23,
 	}, {
 		.compatible = "fsl,imx28-gpmi-nand",
-		.data = (void *)&gpmi_ids[IS_MX28],
+		.data = &gpmi_devdata_imx28,
 	}, {
 		.compatible = "fsl,imx6q-gpmi-nand",
-		.data = (void *)&gpmi_ids[IS_MX6Q],
+		.data = &gpmi_devdata_imx6q,
+	}, {
+		.compatible = "fsl,imx6sx-gpmi-nand",
+		.data = &gpmi_devdata_imx6sx,
 	}, {}
 };
 MODULE_DEVICE_TABLE(of, gpmi_nand_id_table);
@@ -1767,17 +1793,17 @@ static int gpmi_nand_probe(struct platform_device *pdev)
 	const struct of_device_id *of_id;
 	int ret;
 
+	this = devm_kzalloc(&pdev->dev, sizeof(*this), GFP_KERNEL);
+	if (!this)
+		return -ENOMEM;
+
 	of_id = of_match_device(gpmi_nand_id_table, &pdev->dev);
 	if (of_id) {
-		pdev->id_entry = of_id->data;
+		this->devdata = of_id->data;
 	} else {
 		dev_err(&pdev->dev, "Failed to find the right device id.\n");
 		return -ENODEV;
 	}
-
-	this = devm_kzalloc(&pdev->dev, sizeof(*this), GFP_KERNEL);
-	if (!this)
-		return -ENOMEM;
 
 	platform_set_drvdata(pdev, this);
 	this->pdev  = pdev;
@@ -1823,7 +1849,6 @@ static struct platform_driver gpmi_nand_driver = {
 	},
 	.probe   = gpmi_nand_probe,
 	.remove  = gpmi_nand_remove,
-	.id_table = gpmi_ids,
 };
 module_platform_driver(gpmi_nand_driver);
 

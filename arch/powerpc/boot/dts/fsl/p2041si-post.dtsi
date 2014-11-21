@@ -246,7 +246,7 @@
 	};
 
 	corenet-cf@18000 {
-		compatible = "fsl,corenet-cf";
+		compatible = "fsl,corenet1-cf", "fsl,corenet-cf";
 		reg = <0x18000 0x1000>;
 		interrupts = <16 2 1 31>;
 		fsl,ccf-num-csdids = <32>;
@@ -262,6 +262,7 @@
 		interrupts = <
 			24 2 0 0
 			16 2 1 30>;
+		fsl,portid-mapping = <0x0f000000>;
 
 		pamu0: pamu@0 {
 			reg = <0 0x1000>;
@@ -358,6 +359,7 @@
 			compatible = "fsl,qoriq-core-mux-1.0";
 			clocks = <&pll0 0>, <&pll0 1>, <&pll1 0>, <&pll1 1>;
 			clock-names = "pll0", "pll0-div2", "pll1", "pll1-div2";
+			clock-output-names = "cmux2";
 		};
 
 		mux3: mux3@60 {

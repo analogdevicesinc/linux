@@ -41,7 +41,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
-#include <linux/usb/otg.h>
+
+#include <linux/usb/of.h>
 
 #include "core.h"
 #include "hcd.h"
@@ -91,13 +92,13 @@ static int dwc2_driver_remove(struct platform_device *dev)
 {
 	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
 
-	if (IS_ENABLED(CONFIG_USB_DWC2_GADGET))
+	if (IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL))
 		s3c_hsotg_remove(hsotg);
 	else if (IS_ENABLED(CONFIG_USB_DWC2_HOST))
 		dwc2_hcd_remove(hsotg);
 	else { /* dual role */
-		s3c_hsotg_remove(hsotg);
 		dwc2_hcd_remove(hsotg);
+		s3c_hsotg_remove(hsotg);
 	}
 
 	return 0;
@@ -106,6 +107,7 @@ static int dwc2_driver_remove(struct platform_device *dev)
 static const struct of_device_id dwc2_of_match_table[] = {
 	{ .compatible = "brcm,bcm2835-usb", .data = &params_bcm2835 },
 	{ .compatible = "snps,dwc2", .data = NULL },
+	{ .compatible = "samsung,s3c6400-hsotg", .data = NULL},
 	{},
 };
 MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
@@ -124,7 +126,9 @@ MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
  */
 static int dwc2_driver_probe(struct platform_device *dev)
 {
-	struct dwc2_core_params params;
+	const struct of_device_id *match;
+	const struct dwc2_core_params *params;
+	struct dwc2_core_params defparams;
 	struct dwc2_hsotg *hsotg;
 	struct resource *res;
 	int retval;
@@ -133,15 +137,23 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	if (usb_disabled())
 		return -ENODEV;
 
-	dwc2_set_all_params(&params, -1);
-	params.dma_desc_enable = 0;
+	match = of_match_device(dwc2_of_match_table, &dev->dev);
+	if (match && match->data) {
+		params = match->data;
+	} else {
+		/* Default all params to autodetect */
+		dwc2_set_all_params(&defparams, -1);
+		params = &defparams;
+
+		/*
+		 * Disable descriptor dma mode by default as the HW can support
+		 * it, but does not support it for SPLIT transactions.
+		 */
+		defparams.dma_desc_enable = 0;
+	}
 
 	hsotg = devm_kzalloc(&dev->dev, sizeof(*hsotg), GFP_KERNEL);
 	if (!hsotg)
-		return -ENOMEM;
-
-	hsotg->core_params = kzalloc(sizeof(*hsotg->core_params), GFP_KERNEL);
-	if (!hsotg->core_params)
 		return -ENOMEM;
 
 	hsotg->dev = &dev->dev;
@@ -169,30 +181,50 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	dev_dbg(&dev->dev, "mapped PA %08lx to VA %p\n",
 		(unsigned long)res->start, hsotg->regs);
 
-	spin_lock_init(&hsotg->lock);
+	hsotg->dr_mode = of_usb_get_dr_mode(dev->dev.of_node);
 
-	if (IS_ENABLED(CONFIG_USB_DWC2_HOST)) {
-		retval = dwc2_hcd_init(hsotg, irq, &params);
-		if (retval)
-			return retval;
-	} else if (IS_ENABLED(CONFIG_USB_DWC2_GADGET)) {
+	spin_lock_init(&hsotg->lock);
+	if (IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)) {
 		retval = dwc2_gadget_init(hsotg, irq);
 		if (retval)
 			return retval;
-		retval = dwc2_core_init(hsotg, true, irq);
+		retval = dwc2_hcd_init(hsotg, irq, params);
 		if (retval)
 			return retval;
-	} else { /* dual role */
+	} else if (IS_ENABLED(CONFIG_USB_DWC2_HOST)) {
+		retval = dwc2_hcd_init(hsotg, irq, params);
+		if (retval)
+			return retval;
+	} else if (IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL)) {
 		retval = dwc2_gadget_init(hsotg, irq);
-		if (retval)
-			return retval;
-		retval = dwc2_hcd_init(hsotg, irq, &params);
 		if (retval)
 			return retval;
 	}
 
 	platform_set_drvdata(dev, hsotg);
+
 	return retval;
+}
+
+static int dwc2_suspend(struct platform_device *dev, pm_message_t state)
+{
+	struct dwc2_hsotg *dwc2 = platform_get_drvdata(dev);
+	int ret = 0;
+
+	if (dwc2_is_device_mode(dwc2))
+		ret = s3c_hsotg_suspend(dwc2);
+	return ret;
+}
+
+static int dwc2_resume(struct platform_device *dev)
+{
+	struct dwc2_hsotg *dwc2 = platform_get_drvdata(dev);
+	int ret = 0;
+
+	if (dwc2_is_device_mode(dwc2))
+		ret = s3c_hsotg_resume(dwc2);
+
+	return ret;
 }
 
 static struct platform_driver dwc2_platform_driver = {
@@ -202,6 +234,8 @@ static struct platform_driver dwc2_platform_driver = {
 	},
 	.probe = dwc2_driver_probe,
 	.remove = dwc2_driver_remove,
+	.suspend = dwc2_suspend,
+	.resume = dwc2_resume,
 };
 
 module_platform_driver(dwc2_platform_driver);

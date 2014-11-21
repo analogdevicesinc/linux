@@ -26,14 +26,7 @@
 #include <recv_osdep.h>
 
 #include <osdep_intf.h>
-#include <usb_ops.h>
-
-/* init os related resource in struct recv_priv */
-int rtw_os_recv_resource_init(struct recv_priv *precvpriv,
-			      struct adapter *padapter)
-{
-	return _SUCCESS;
-}
+#include <usb_ops_linux.h>
 
 /* alloc os related resource in struct recv_frame */
 int rtw_os_recv_resource_alloc(struct adapter *padapter,
@@ -44,40 +37,18 @@ int rtw_os_recv_resource_alloc(struct adapter *padapter,
 	return _SUCCESS;
 }
 
-/* free os related resource in struct recv_frame */
-void rtw_os_recv_resource_free(struct recv_priv *precvpriv)
-{
-}
-
 /* alloc os related resource in struct recv_buf */
 int rtw_os_recvbuf_resource_alloc(struct adapter *padapter,
 				  struct recv_buf *precvbuf)
 {
 	int res = _SUCCESS;
 
-	precvbuf->irp_pending = false;
 	precvbuf->purb = usb_alloc_urb(0, GFP_KERNEL);
 	if (precvbuf->purb == NULL)
 		res = _FAIL;
 	precvbuf->pskb = NULL;
 	precvbuf->reuse = false;
-	precvbuf->pallocated_buf = NULL;
-	precvbuf->pbuf = NULL;
-	precvbuf->pdata = NULL;
-	precvbuf->phead = NULL;
-	precvbuf->ptail = NULL;
-	precvbuf->pend = NULL;
-	precvbuf->transfer_len = 0;
-	precvbuf->len = 0;
 	return res;
-}
-
-/* free os related resource in struct recv_buf */
-int rtw_os_recvbuf_resource_free(struct adapter *padapter,
-				 struct recv_buf *precvbuf)
-{
-	usb_free_urb(precvbuf->purb);
-	return _SUCCESS;
 }
 
 void rtw_handle_tkip_mic_err(struct adapter *padapter, u8 bgroup)
@@ -102,7 +73,7 @@ void rtw_handle_tkip_mic_err(struct adapter *padapter, u8 bgroup)
 		}
 	}
 
-	_rtw_memset(&ev, 0x00, sizeof(ev));
+	memset(&ev, 0x00, sizeof(ev));
 	if (bgroup)
 		ev.flags |= IW_MICFAILURE_GROUP;
 	else
@@ -110,15 +81,10 @@ void rtw_handle_tkip_mic_err(struct adapter *padapter, u8 bgroup)
 
 	ev.src_addr.sa_family = ARPHRD_ETHER;
 	memcpy(ev.src_addr.sa_data, &pmlmepriv->assoc_bssid[0], ETH_ALEN);
-	_rtw_memset(&wrqu, 0x00, sizeof(wrqu));
+	memset(&wrqu, 0x00, sizeof(wrqu));
 	wrqu.data.length = sizeof(ev);
 	wireless_send_event(padapter->pnetdev, IWEVMICHAELMICFAILURE,
 			    &wrqu, (char *)&ev);
-}
-
-void rtw_hostapd_mlme_rx(struct adapter *padapter,
-			 struct recv_frame *precv_frame)
-{
 }
 
 int rtw_recv_indicatepkt(struct adapter *padapter,
@@ -225,31 +191,9 @@ _recv_indicatepkt_drop:
 	 return _FAIL;
 }
 
-void rtw_os_read_port(struct adapter *padapter, struct recv_buf *precvbuf)
-{
-	struct recv_priv *precvpriv = &padapter->recvpriv;
-
-	precvbuf->ref_cnt--;
-	/* free skb in recv_buf */
-	dev_kfree_skb_any(precvbuf->pskb);
-	precvbuf->pskb = NULL;
-	precvbuf->reuse = false;
-	if (!precvbuf->irp_pending)
-		rtw_read_port(padapter, precvpriv->ff_hwaddr, 0,
-			      (unsigned char *)precvbuf);
-}
-
-static void _rtw_reordering_ctrl_timeout_handler(void *func_context)
-{
-	struct recv_reorder_ctrl *preorder_ctrl;
-
-	preorder_ctrl = (struct recv_reorder_ctrl *)func_context;
-	rtw_reordering_ctrl_timeout_handler(preorder_ctrl);
-}
-
 void rtw_init_recv_timer(struct recv_reorder_ctrl *preorder_ctrl)
 {
 	struct adapter *padapter = preorder_ctrl->padapter;
 
-	_init_timer(&(preorder_ctrl->reordering_ctrl_timer), padapter->pnetdev, _rtw_reordering_ctrl_timeout_handler, preorder_ctrl);
+	_init_timer(&(preorder_ctrl->reordering_ctrl_timer), padapter->pnetdev, rtw_reordering_ctrl_timeout_handler, preorder_ctrl);
 }

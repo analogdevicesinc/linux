@@ -299,9 +299,21 @@ long machine_check_early(struct pt_regs *regs)
 {
 	long handled = 0;
 
+	__get_cpu_var(irq_stat).mce_exceptions++;
+
 	if (cur_cpu_spec && cur_cpu_spec->machine_check_early)
 		handled = cur_cpu_spec->machine_check_early(regs);
 	return handled;
+}
+
+long hmi_exception_realmode(struct pt_regs *regs)
+{
+	__get_cpu_var(irq_stat).hmi_exceptions++;
+
+	if (ppc_md.hmi_exception_early)
+		ppc_md.hmi_exception_early(regs);
+
+	return 0;
 }
 
 #endif
@@ -611,7 +623,7 @@ int machine_check_e500(struct pt_regs *regs)
 	if (reason & MCSR_BUS_RBERR)
 		printk("Bus - Read Data Bus Error\n");
 	if (reason & MCSR_BUS_WBERR)
-		printk("Bus - Read Data Bus Error\n");
+		printk("Bus - Write Data Bus Error\n");
 	if (reason & MCSR_BUS_IPERR)
 		printk("Bus - Instruction Parity Error\n");
 	if (reason & MCSR_BUS_RPERR)
@@ -738,6 +750,20 @@ bail:
 void SMIException(struct pt_regs *regs)
 {
 	die("System Management Interrupt", regs, SIGABRT);
+}
+
+void handle_hmi_exception(struct pt_regs *regs)
+{
+	struct pt_regs *old_regs;
+
+	old_regs = set_irq_regs(regs);
+	irq_enter();
+
+	if (ppc_md.handle_hmi_exception)
+		ppc_md.handle_hmi_exception(regs);
+
+	irq_exit();
+	set_irq_regs(old_regs);
 }
 
 void unknown_exception(struct pt_regs *regs)

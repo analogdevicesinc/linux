@@ -532,7 +532,6 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct m2mtest_fmt *fmt)
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * fmt->depth) >> 3;
 	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
 	f->fmt.pix.field = V4L2_FIELD_NONE;
-	f->fmt.pix.priv = 0;
 
 	return 0;
 }
@@ -787,7 +786,7 @@ static int m2mtest_start_streaming(struct vb2_queue *q, unsigned count)
 	return 0;
 }
 
-static int m2mtest_stop_streaming(struct vb2_queue *q)
+static void m2mtest_stop_streaming(struct vb2_queue *q)
 {
 	struct m2mtest_ctx *ctx = vb2_get_drv_priv(q);
 	struct vb2_buffer *vb;
@@ -799,12 +798,11 @@ static int m2mtest_stop_streaming(struct vb2_queue *q)
 		else
 			vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 		if (vb == NULL)
-			return 0;
+			return;
 		spin_lock_irqsave(&ctx->dev->irqlock, flags);
 		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
 		spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
 	}
-	return 0;
 }
 
 static struct vb2_ops m2mtest_qops = {

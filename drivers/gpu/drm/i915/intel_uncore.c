@@ -231,8 +231,8 @@ static void __vlv_force_wake_get(struct drm_i915_private *dev_priv,
 	}
 
 	/* WaRsForcewakeWaitTC0:vlv */
-	__gen6_gt_wait_for_thread_c0(dev_priv);
-
+	if (!IS_CHERRYVIEW(dev_priv->dev))
+		__gen6_gt_wait_for_thread_c0(dev_priv);
 }
 
 static void __vlv_force_wake_put(struct drm_i915_private *dev_priv,
@@ -250,13 +250,13 @@ static void __vlv_force_wake_put(struct drm_i915_private *dev_priv,
 		__raw_i915_write32(dev_priv, FORCEWAKE_MEDIA_VLV,
 				_MASKED_BIT_DISABLE(FORCEWAKE_KERNEL));
 
-	/* The below doubles as a POSTING_READ */
-	gen6_gt_check_fifodbg(dev_priv);
-
+	/* something from same cacheline, but !FORCEWAKE_VLV */
+	__raw_posting_read(dev_priv, FORCEWAKE_ACK_VLV);
+	if (!IS_CHERRYVIEW(dev_priv->dev))
+		gen6_gt_check_fifodbg(dev_priv);
 }
 
-void vlv_force_wake_get(struct drm_i915_private *dev_priv,
-						int fw_engine)
+static void vlv_force_wake_get(struct drm_i915_private *dev_priv, int fw_engine)
 {
 	unsigned long irqflags;
 
@@ -275,8 +275,7 @@ void vlv_force_wake_get(struct drm_i915_private *dev_priv,
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
-void vlv_force_wake_put(struct drm_i915_private *dev_priv,
-						int fw_engine)
+static void vlv_force_wake_put(struct drm_i915_private *dev_priv, int fw_engine)
 {
 	unsigned long irqflags;
 
@@ -317,12 +316,13 @@ static void gen6_force_wake_timer(unsigned long arg)
 	intel_runtime_pm_put(dev_priv);
 }
 
-static void intel_uncore_forcewake_reset(struct drm_device *dev, bool restore)
+void intel_uncore_forcewake_reset(struct drm_device *dev, bool restore)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	unsigned long irqflags;
 
-	del_timer_sync(&dev_priv->uncore.force_wake_timer);
+	if (del_timer_sync(&dev_priv->uncore.force_wake_timer))
+		gen6_force_wake_timer((unsigned long)dev_priv);
 
 	/* Hold uncore.lock across reset to prevent any register access
 	 * with forcewake not set correctly
@@ -358,23 +358,19 @@ static void intel_uncore_forcewake_reset(struct drm_device *dev, bool restore)
 			dev_priv->uncore.fifo_count =
 				__raw_i915_read32(dev_priv, GTFIFOCTL) &
 				GT_FIFO_FREE_ENTRIES_MASK;
-	} else {
-		dev_priv->uncore.forcewake_count = 0;
-		dev_priv->uncore.fw_rendercount = 0;
-		dev_priv->uncore.fw_mediacount = 0;
 	}
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
-void intel_uncore_early_sanitize(struct drm_device *dev)
+void intel_uncore_early_sanitize(struct drm_device *dev, bool restore_forcewake)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	if (HAS_FPGA_DBG_UNCLAIMED(dev))
 		__raw_i915_write32(dev_priv, FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
 
-	if (IS_HASWELL(dev) &&
+	if ((IS_HASWELL(dev) || IS_BROADWELL(dev)) &&
 	    (__raw_i915_read32(dev_priv, HSW_EDRAM_PRESENT) == 1)) {
 		/* The docs do not explain exactly how the calculation can be
 		 * made. It is somewhat guessable, but for now, it's always
@@ -390,31 +386,13 @@ void intel_uncore_early_sanitize(struct drm_device *dev)
 		__raw_i915_write32(dev_priv, GTFIFODBG,
 				   __raw_i915_read32(dev_priv, GTFIFODBG));
 
-	intel_uncore_forcewake_reset(dev, false);
+	intel_uncore_forcewake_reset(dev, restore_forcewake);
 }
 
 void intel_uncore_sanitize(struct drm_device *dev)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 reg_val;
-
 	/* BIOS often leaves RC6 enabled, but disable it for hw init */
 	intel_disable_gt_powersave(dev);
-
-	/* Turn off power gate, require especially for the BIOS less system */
-	if (IS_VALLEYVIEW(dev)) {
-
-		mutex_lock(&dev_priv->rps.hw_lock);
-		reg_val = vlv_punit_read(dev_priv, PUNIT_REG_PWRGT_STATUS);
-
-		if (reg_val & (PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_RENDER) |
-			       PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_MEDIA) |
-			       PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DISP2D)))
-			vlv_punit_write(dev_priv, PUNIT_REG_PWRGT_CTRL, 0x0);
-
-		mutex_unlock(&dev_priv->rps.hw_lock);
-
-	}
 }
 
 /*
@@ -488,6 +466,44 @@ void assert_force_wake_inactive(struct drm_i915_private *dev_priv)
 #define NEEDS_FORCE_WAKE(dev_priv, reg) \
 	 ((reg) < 0x40000 && (reg) != FORCEWAKE)
 
+#define REG_RANGE(reg, start, end) ((reg) >= (start) && (reg) < (end))
+
+#define FORCEWAKE_VLV_RENDER_RANGE_OFFSET(reg) \
+	(REG_RANGE((reg), 0x2000, 0x4000) || \
+	 REG_RANGE((reg), 0x5000, 0x8000) || \
+	 REG_RANGE((reg), 0xB000, 0x12000) || \
+	 REG_RANGE((reg), 0x2E000, 0x30000))
+
+#define FORCEWAKE_VLV_MEDIA_RANGE_OFFSET(reg) \
+	(REG_RANGE((reg), 0x12000, 0x14000) || \
+	 REG_RANGE((reg), 0x22000, 0x24000) || \
+	 REG_RANGE((reg), 0x30000, 0x40000))
+
+#define FORCEWAKE_CHV_RENDER_RANGE_OFFSET(reg) \
+	(REG_RANGE((reg), 0x2000, 0x4000) || \
+	 REG_RANGE((reg), 0x5000, 0x8000) || \
+	 REG_RANGE((reg), 0x8300, 0x8500) || \
+	 REG_RANGE((reg), 0xB000, 0xC000) || \
+	 REG_RANGE((reg), 0xE000, 0xE800))
+
+#define FORCEWAKE_CHV_MEDIA_RANGE_OFFSET(reg) \
+	(REG_RANGE((reg), 0x8800, 0x8900) || \
+	 REG_RANGE((reg), 0xD000, 0xD800) || \
+	 REG_RANGE((reg), 0x12000, 0x14000) || \
+	 REG_RANGE((reg), 0x1A000, 0x1C000) || \
+	 REG_RANGE((reg), 0x1E800, 0x1EA00) || \
+	 REG_RANGE((reg), 0x30000, 0x40000))
+
+#define FORCEWAKE_CHV_COMMON_RANGE_OFFSET(reg) \
+	(REG_RANGE((reg), 0x4000, 0x5000) || \
+	 REG_RANGE((reg), 0x8000, 0x8300) || \
+	 REG_RANGE((reg), 0x8500, 0x8600) || \
+	 REG_RANGE((reg), 0x9000, 0xB000) || \
+	 REG_RANGE((reg), 0xC000, 0xC800) || \
+	 REG_RANGE((reg), 0xF000, 0x10000) || \
+	 REG_RANGE((reg), 0x14000, 0x14400) || \
+	 REG_RANGE((reg), 0x22000, 0x24000))
+
 static void
 ilk_dummy_write(struct drm_i915_private *dev_priv)
 {
@@ -498,20 +514,30 @@ ilk_dummy_write(struct drm_i915_private *dev_priv)
 }
 
 static void
-hsw_unclaimed_reg_clear(struct drm_i915_private *dev_priv, u32 reg)
+hsw_unclaimed_reg_debug(struct drm_i915_private *dev_priv, u32 reg, bool read,
+			bool before)
 {
+	const char *op = read ? "reading" : "writing to";
+	const char *when = before ? "before" : "after";
+
+	if (!i915.mmio_debug)
+		return;
+
 	if (__raw_i915_read32(dev_priv, FPGA_DBG) & FPGA_DBG_RM_NOCLAIM) {
-		DRM_ERROR("Unknown unclaimed register before writing to %x\n",
-			  reg);
+		WARN(1, "Unclaimed register detected %s %s register 0x%x\n",
+		     when, op, reg);
 		__raw_i915_write32(dev_priv, FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
 	}
 }
 
 static void
-hsw_unclaimed_reg_check(struct drm_i915_private *dev_priv, u32 reg)
+hsw_unclaimed_reg_detect(struct drm_i915_private *dev_priv)
 {
+	if (i915.mmio_debug)
+		return;
+
 	if (__raw_i915_read32(dev_priv, FPGA_DBG) & FPGA_DBG_RM_NOCLAIM) {
-		DRM_ERROR("Unclaimed write to %x\n", reg);
+		DRM_ERROR("Unclaimed register detected. Please use the i915.mmio_debug=1 to debug this problem.");
 		__raw_i915_write32(dev_priv, FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
 	}
 }
@@ -548,6 +574,7 @@ gen5_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 static u##x \
 gen6_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 	REG_READ_HEADER(x); \
+	hsw_unclaimed_reg_debug(dev_priv, reg, true, true); \
 	if (dev_priv->uncore.forcewake_count == 0 && \
 	    NEEDS_FORCE_WAKE((dev_priv), (reg))) { \
 		dev_priv->uncore.funcs.force_wake_get(dev_priv, \
@@ -558,6 +585,7 @@ gen6_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 	} else { \
 		val = __raw_i915_read##x(dev_priv, reg); \
 	} \
+	hsw_unclaimed_reg_debug(dev_priv, reg, true, false); \
 	REG_READ_FOOTER; \
 }
 
@@ -581,7 +609,35 @@ vlv_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 	REG_READ_FOOTER; \
 }
 
+#define __chv_read(x) \
+static u##x \
+chv_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
+	unsigned fwengine = 0; \
+	REG_READ_HEADER(x); \
+	if (FORCEWAKE_CHV_RENDER_RANGE_OFFSET(reg)) { \
+		if (dev_priv->uncore.fw_rendercount == 0) \
+			fwengine = FORCEWAKE_RENDER; \
+	} else if (FORCEWAKE_CHV_MEDIA_RANGE_OFFSET(reg)) { \
+		if (dev_priv->uncore.fw_mediacount == 0) \
+			fwengine = FORCEWAKE_MEDIA; \
+	} else if (FORCEWAKE_CHV_COMMON_RANGE_OFFSET(reg)) { \
+		if (dev_priv->uncore.fw_rendercount == 0) \
+			fwengine |= FORCEWAKE_RENDER; \
+		if (dev_priv->uncore.fw_mediacount == 0) \
+			fwengine |= FORCEWAKE_MEDIA; \
+	} \
+	if (fwengine) \
+		dev_priv->uncore.funcs.force_wake_get(dev_priv, fwengine); \
+	val = __raw_i915_read##x(dev_priv, reg); \
+	if (fwengine) \
+		dev_priv->uncore.funcs.force_wake_put(dev_priv, fwengine); \
+	REG_READ_FOOTER; \
+}
 
+__chv_read(8)
+__chv_read(16)
+__chv_read(32)
+__chv_read(64)
 __vlv_read(8)
 __vlv_read(16)
 __vlv_read(32)
@@ -599,6 +655,7 @@ __gen4_read(16)
 __gen4_read(32)
 __gen4_read(64)
 
+#undef __chv_read
 #undef __vlv_read
 #undef __gen6_read
 #undef __gen5_read
@@ -655,12 +712,13 @@ hsw_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace)
 	if (NEEDS_FORCE_WAKE((dev_priv), (reg))) { \
 		__fifo_ret = __gen6_gt_wait_for_fifo(dev_priv); \
 	} \
-	hsw_unclaimed_reg_clear(dev_priv, reg); \
+	hsw_unclaimed_reg_debug(dev_priv, reg, false, true); \
 	__raw_i915_write##x(dev_priv, reg, val); \
 	if (unlikely(__fifo_ret)) { \
 		gen6_gt_check_fifodbg(dev_priv); \
 	} \
-	hsw_unclaimed_reg_check(dev_priv, reg); \
+	hsw_unclaimed_reg_debug(dev_priv, reg, false, false); \
+	hsw_unclaimed_reg_detect(dev_priv); \
 	REG_WRITE_FOOTER; \
 }
 
@@ -689,6 +747,7 @@ static bool is_gen8_shadowed(struct drm_i915_private *dev_priv, u32 reg)
 static void \
 gen8_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace) { \
 	REG_WRITE_HEADER; \
+	hsw_unclaimed_reg_debug(dev_priv, reg, false, true); \
 	if (reg < 0x40000 && !is_gen8_shadowed(dev_priv, reg)) { \
 		if (dev_priv->uncore.forcewake_count == 0) \
 			dev_priv->uncore.funcs.force_wake_get(dev_priv,	\
@@ -700,9 +759,43 @@ gen8_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace
 	} else { \
 		__raw_i915_write##x(dev_priv, reg, val); \
 	} \
+	hsw_unclaimed_reg_debug(dev_priv, reg, false, false); \
+	hsw_unclaimed_reg_detect(dev_priv); \
 	REG_WRITE_FOOTER; \
 }
 
+#define __chv_write(x) \
+static void \
+chv_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace) { \
+	unsigned fwengine = 0; \
+	bool shadowed = is_gen8_shadowed(dev_priv, reg); \
+	REG_WRITE_HEADER; \
+	if (!shadowed) { \
+		if (FORCEWAKE_CHV_RENDER_RANGE_OFFSET(reg)) { \
+			if (dev_priv->uncore.fw_rendercount == 0) \
+				fwengine = FORCEWAKE_RENDER; \
+		} else if (FORCEWAKE_CHV_MEDIA_RANGE_OFFSET(reg)) { \
+			if (dev_priv->uncore.fw_mediacount == 0) \
+				fwengine = FORCEWAKE_MEDIA; \
+		} else if (FORCEWAKE_CHV_COMMON_RANGE_OFFSET(reg)) { \
+			if (dev_priv->uncore.fw_rendercount == 0) \
+				fwengine |= FORCEWAKE_RENDER; \
+			if (dev_priv->uncore.fw_mediacount == 0) \
+				fwengine |= FORCEWAKE_MEDIA; \
+		} \
+	} \
+	if (fwengine) \
+		dev_priv->uncore.funcs.force_wake_get(dev_priv, fwengine); \
+	__raw_i915_write##x(dev_priv, reg, val); \
+	if (fwengine) \
+		dev_priv->uncore.funcs.force_wake_put(dev_priv, fwengine); \
+	REG_WRITE_FOOTER; \
+}
+
+__chv_write(8)
+__chv_write(16)
+__chv_write(32)
+__chv_write(64)
 __gen8_write(8)
 __gen8_write(16)
 __gen8_write(32)
@@ -724,6 +817,7 @@ __gen4_write(16)
 __gen4_write(32)
 __gen4_write(64)
 
+#undef __chv_write
 #undef __gen8_write
 #undef __hsw_write
 #undef __gen6_write
@@ -739,7 +833,7 @@ void intel_uncore_init(struct drm_device *dev)
 	setup_timer(&dev_priv->uncore.force_wake_timer,
 		    gen6_force_wake_timer, (unsigned long)dev_priv);
 
-	intel_uncore_early_sanitize(dev);
+	intel_uncore_early_sanitize(dev, false);
 
 	if (IS_VALLEYVIEW(dev)) {
 		dev_priv->uncore.funcs.force_wake_get = __vlv_force_wake_get;
@@ -787,14 +881,26 @@ void intel_uncore_init(struct drm_device *dev)
 
 	switch (INTEL_INFO(dev)->gen) {
 	default:
-		dev_priv->uncore.funcs.mmio_writeb  = gen8_write8;
-		dev_priv->uncore.funcs.mmio_writew  = gen8_write16;
-		dev_priv->uncore.funcs.mmio_writel  = gen8_write32;
-		dev_priv->uncore.funcs.mmio_writeq  = gen8_write64;
-		dev_priv->uncore.funcs.mmio_readb  = gen6_read8;
-		dev_priv->uncore.funcs.mmio_readw  = gen6_read16;
-		dev_priv->uncore.funcs.mmio_readl  = gen6_read32;
-		dev_priv->uncore.funcs.mmio_readq  = gen6_read64;
+		if (IS_CHERRYVIEW(dev)) {
+			dev_priv->uncore.funcs.mmio_writeb  = chv_write8;
+			dev_priv->uncore.funcs.mmio_writew  = chv_write16;
+			dev_priv->uncore.funcs.mmio_writel  = chv_write32;
+			dev_priv->uncore.funcs.mmio_writeq  = chv_write64;
+			dev_priv->uncore.funcs.mmio_readb  = chv_read8;
+			dev_priv->uncore.funcs.mmio_readw  = chv_read16;
+			dev_priv->uncore.funcs.mmio_readl  = chv_read32;
+			dev_priv->uncore.funcs.mmio_readq  = chv_read64;
+
+		} else {
+			dev_priv->uncore.funcs.mmio_writeb  = gen8_write8;
+			dev_priv->uncore.funcs.mmio_writew  = gen8_write16;
+			dev_priv->uncore.funcs.mmio_writel  = gen8_write32;
+			dev_priv->uncore.funcs.mmio_writeq  = gen8_write64;
+			dev_priv->uncore.funcs.mmio_readb  = gen6_read8;
+			dev_priv->uncore.funcs.mmio_readw  = gen6_read16;
+			dev_priv->uncore.funcs.mmio_readl  = gen6_read32;
+			dev_priv->uncore.funcs.mmio_readq  = gen6_read64;
+		}
 		break;
 	case 7:
 	case 6:
@@ -854,12 +960,15 @@ void intel_uncore_fini(struct drm_device *dev)
 	intel_uncore_forcewake_reset(dev, false);
 }
 
+#define GEN_RANGE(l, h) GENMASK(h, l)
+
 static const struct register_whitelist {
 	uint64_t offset;
 	uint32_t size;
-	uint32_t gen_bitmask; /* support gens, 0x10 for 4, 0x30 for 4 and 5, etc. */
+	/* supported gens, 0x10 for 4, 0x30 for 4 and 5, etc. */
+	uint32_t gen_bitmask;
 } whitelist[] = {
-	{ RING_TIMESTAMP(RENDER_RING_BASE), 8, 0x1F0 },
+	{ RING_TIMESTAMP(RENDER_RING_BASE), 8, GEN_RANGE(4, 8) },
 };
 
 int i915_reg_read_ioctl(struct drm_device *dev,
@@ -911,13 +1020,13 @@ int i915_get_reset_stats_ioctl(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_reset_stats *args = data;
 	struct i915_ctx_hang_stats *hs;
-	struct i915_hw_context *ctx;
+	struct intel_context *ctx;
 	int ret;
 
 	if (args->flags || args->pad)
 		return -EINVAL;
 
-	if (args->ctx_id == DEFAULT_CONTEXT_ID && !capable(CAP_SYS_ADMIN))
+	if (args->ctx_id == DEFAULT_CONTEXT_HANDLE && !capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
 	ret = mutex_lock_interruptible(&dev->struct_mutex);
@@ -955,6 +1064,9 @@ static int i965_do_reset(struct drm_device *dev)
 {
 	int ret;
 
+	/* FIXME: i965g/gm need a display save/restore for gpu reset. */
+	return -ENODEV;
+
 	/*
 	 * Set the domains we want to reset (GRDOM/bits 2 and 3) as
 	 * well as the reset bit (GR/bit 0).  Setting the GR bit
@@ -966,7 +1078,6 @@ static int i965_do_reset(struct drm_device *dev)
 	if (ret)
 		return ret;
 
-	/* We can't reset render&media without also resetting display ... */
 	pci_write_config_byte(dev->pdev, I965_GDRST,
 			      GRDOM_MEDIA | GRDOM_RESET_ENABLE);
 
@@ -979,26 +1090,58 @@ static int i965_do_reset(struct drm_device *dev)
 	return 0;
 }
 
-static int ironlake_do_reset(struct drm_device *dev)
+static int g4x_do_reset(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 gdrst;
 	int ret;
 
-	gdrst = I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR);
-	gdrst &= ~GRDOM_MASK;
-	I915_WRITE(MCHBAR_MIRROR_BASE + ILK_GDSR,
-		   gdrst | GRDOM_RENDER | GRDOM_RESET_ENABLE);
-	ret = wait_for(I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR) & 0x1, 500);
+	pci_write_config_byte(dev->pdev, I965_GDRST,
+			      GRDOM_RENDER | GRDOM_RESET_ENABLE);
+	ret =  wait_for(i965_reset_complete(dev), 500);
 	if (ret)
 		return ret;
 
-	/* We can't reset render&media without also resetting display ... */
-	gdrst = I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR);
-	gdrst &= ~GRDOM_MASK;
+	/* WaVcpClkGateDisableForMediaReset:ctg,elk */
+	I915_WRITE(VDECCLK_GATE_D, I915_READ(VDECCLK_GATE_D) | VCP_UNIT_CLOCK_GATE_DISABLE);
+	POSTING_READ(VDECCLK_GATE_D);
+
+	pci_write_config_byte(dev->pdev, I965_GDRST,
+			      GRDOM_MEDIA | GRDOM_RESET_ENABLE);
+	ret =  wait_for(i965_reset_complete(dev), 500);
+	if (ret)
+		return ret;
+
+	/* WaVcpClkGateDisableForMediaReset:ctg,elk */
+	I915_WRITE(VDECCLK_GATE_D, I915_READ(VDECCLK_GATE_D) & ~VCP_UNIT_CLOCK_GATE_DISABLE);
+	POSTING_READ(VDECCLK_GATE_D);
+
+	pci_write_config_byte(dev->pdev, I965_GDRST, 0);
+
+	return 0;
+}
+
+static int ironlake_do_reset(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret;
+
 	I915_WRITE(MCHBAR_MIRROR_BASE + ILK_GDSR,
-		   gdrst | GRDOM_MEDIA | GRDOM_RESET_ENABLE);
-	return wait_for(I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR) & 0x1, 500);
+		   ILK_GRDOM_RENDER | ILK_GRDOM_RESET_ENABLE);
+	ret = wait_for((I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR) &
+			ILK_GRDOM_RESET_ENABLE) == 0, 500);
+	if (ret)
+		return ret;
+
+	I915_WRITE(MCHBAR_MIRROR_BASE + ILK_GDSR,
+		   ILK_GRDOM_MEDIA | ILK_GRDOM_RESET_ENABLE);
+	ret = wait_for((I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR) &
+			ILK_GRDOM_RESET_ENABLE) == 0, 500);
+	if (ret)
+		return ret;
+
+	I915_WRITE(MCHBAR_MIRROR_BASE + ILK_GDSR, 0);
+
+	return 0;
 }
 
 static int gen6_do_reset(struct drm_device *dev)
@@ -1024,14 +1167,16 @@ static int gen6_do_reset(struct drm_device *dev)
 
 int intel_gpu_reset(struct drm_device *dev)
 {
-	switch (INTEL_INFO(dev)->gen) {
-	case 8:
-	case 7:
-	case 6: return gen6_do_reset(dev);
-	case 5: return ironlake_do_reset(dev);
-	case 4: return i965_do_reset(dev);
-	default: return -ENODEV;
-	}
+	if (INTEL_INFO(dev)->gen >= 6)
+		return gen6_do_reset(dev);
+	else if (IS_GEN5(dev))
+		return ironlake_do_reset(dev);
+	else if (IS_G4X(dev))
+		return g4x_do_reset(dev);
+	else if (IS_GEN4(dev))
+		return i965_do_reset(dev);
+	else
+		return -ENODEV;
 }
 
 void intel_uncore_check_errors(struct drm_device *dev)

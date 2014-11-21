@@ -211,19 +211,16 @@ struct txrpt_ccx_8723a {
 #define txrpt_ccx_sw_8723a(txrpt_ccx) ((txrpt_ccx)->sw0 + ((txrpt_ccx)->sw1<<8))
 #define txrpt_ccx_qtime_8723a(txrpt_ccx) ((txrpt_ccx)->ccx_qtime0+((txrpt_ccx)->ccx_qtime1<<8))
 
-void dump_txrpt_ccx_8723a(void *buf);
 void handle_txrpt_ccx_8723a(struct rtw_adapter *adapter, void *buf);
 void rtl8723a_update_txdesc(struct xmit_frame *pxmitframe, u8 *pmem);
 void rtl8723a_fill_fake_txdesc(struct rtw_adapter *padapter, u8 *pDesc, u32 BufferLen, u8 IsPsPoll, u8 IsBTQosNull);
 
-s32	rtl8723au_hal_xmitframe_enqueue(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe);
+int rtl8723au_hal_xmitframe_enqueue(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe);
 s32 rtl8723au_xmit_buf_handler(struct rtw_adapter *padapter);
 #define hal_xmit_handler rtl8723au_xmit_buf_handler
-s32	rtl8723au_init_xmit_priv(struct rtw_adapter * padapter);
-void	rtl8723au_free_xmit_priv(struct rtw_adapter * padapter);
-s32 rtl8723au_hal_xmit(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe);
-s32 rtl8723au_mgnt_xmit(struct rtw_adapter *padapter, struct xmit_frame *pmgntframe);
-s32 rtl8723au_xmitframe_complete(struct rtw_adapter *padapter, struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf);
+bool rtl8723au_hal_xmit(struct rtw_adapter *padapter, struct xmit_frame *pxmitframe);
+int rtl8723au_mgnt_xmit(struct rtw_adapter *padapter, struct xmit_frame *pmgntframe);
+bool rtl8723au_xmitframe_complete(struct rtw_adapter *padapter, struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf);
 
 
 #endif

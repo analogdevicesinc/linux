@@ -16,7 +16,6 @@
 
 #include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 #include <linux/mmc/mmc.h>
 #include <linux/slab.h>
@@ -468,6 +467,10 @@ MODULE_DEVICE_TABLE(of, sdhci_msm_dt_match);
 
 static struct sdhci_ops sdhci_msm_ops = {
 	.platform_execute_tuning = sdhci_msm_execute_tuning,
+	.reset = sdhci_reset,
+	.set_clock = sdhci_set_clock,
+	.set_bus_width = sdhci_set_bus_width,
+	.set_uhs_signaling = sdhci_set_uhs_signaling,
 };
 
 static int sdhci_msm_probe(struct platform_device *pdev)

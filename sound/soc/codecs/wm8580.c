@@ -252,7 +252,7 @@ static int wm8580_out_vu(struct snd_kcontrol *kcontrol,
 {
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct wm8580_priv *wm8580 = snd_soc_codec_get_drvdata(codec);
 	unsigned int reg = mc->reg;
 	unsigned int reg2 = mc->rreg;
@@ -511,19 +511,19 @@ static int wm8580_paif_hw_params(struct snd_pcm_substream *substream,
 	int i, ratio, osr;
 
 	/* bit size */
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
+	switch (params_width(params)) {
+	case 16:
 		paifa |= 0x8;
 		break;
-	case SNDRV_PCM_FORMAT_S20_3LE:
+	case 20:
 		paifa |= 0x0;
 		paifb |= WM8580_AIF_LENGTH_20;
 		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
+	case 24:
 		paifa |= 0x0;
 		paifb |= WM8580_AIF_LENGTH_24;
 		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
+	case 32:
 		paifa |= 0x0;
 		paifb |= WM8580_AIF_LENGTH_32;
 		break;

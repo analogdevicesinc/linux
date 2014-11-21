@@ -217,8 +217,6 @@ static void mdp4_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct mdp4_crtc *mdp4_crtc = to_mdp4_crtc(crtc);
 
-	mdp4_crtc->plane->funcs->destroy(mdp4_crtc->plane);
-
 	drm_crtc_cleanup(crtc);
 	drm_flip_work_cleanup(&mdp4_crtc->unref_fb_work);
 	drm_flip_work_cleanup(&mdp4_crtc->unref_cursor_work);
@@ -399,6 +397,7 @@ static void mdp4_crtc_prepare(struct drm_crtc *crtc)
 	struct mdp4_crtc *mdp4_crtc = to_mdp4_crtc(crtc);
 	DBG("%s", mdp4_crtc->name);
 	/* make sure we hold a ref to mdp clks while setting up mode: */
+	drm_crtc_vblank_get(crtc);
 	mdp4_enable(get_kms(crtc));
 	mdp4_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
 }
@@ -409,6 +408,7 @@ static void mdp4_crtc_commit(struct drm_crtc *crtc)
 	crtc_flush(crtc);
 	/* drop the ref to mdp clk's that we got in prepare: */
 	mdp4_disable(get_kms(crtc));
+	drm_crtc_vblank_put(crtc);
 }
 
 static int mdp4_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,

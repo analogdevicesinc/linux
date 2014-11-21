@@ -71,8 +71,7 @@ static DEFINE_RWLOCK(fib6_walker_lock);
 #define FWS_INIT FWS_L
 #endif
 
-static void fib6_prune_clones(struct net *net, struct fib6_node *fn,
-			      struct rt6_info *rt);
+static void fib6_prune_clones(struct net *net, struct fib6_node *fn);
 static struct rt6_info *fib6_find_prefix(struct net *net, struct fib6_node *fn);
 static struct fib6_node *fib6_repair_tree(struct net *net, struct fib6_node *fn);
 static int fib6_walk(struct fib6_walker_t *w);
@@ -644,7 +643,7 @@ static int fib6_commit_metrics(struct dst_entry *dst,
 	if (dst->flags & DST_HOST) {
 		mp = dst_metrics_write_ptr(dst);
 	} else {
-		mp = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
+		mp = kzalloc(sizeof(u32) * RTAX_MAX, GFP_ATOMIC);
 		if (!mp)
 			return -ENOMEM;
 		dst_init_metrics(dst, mp, 0);
@@ -941,7 +940,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
 	if (!err) {
 		fib6_start_gc(info->nl_net, rt);
 		if (!(rt->rt6i_flags & RTF_CACHE))
-			fib6_prune_clones(info->nl_net, pn, rt);
+			fib6_prune_clones(info->nl_net, pn);
 	}
 
 out:
@@ -1375,7 +1374,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
 			pn = pn->parent;
 		}
 #endif
-		fib6_prune_clones(info->nl_net, pn, rt);
+		fib6_prune_clones(info->nl_net, pn);
 	}
 
 	/*
@@ -1601,10 +1600,27 @@ static int fib6_prune_clone(struct rt6_info *rt, void *arg)
 	return 0;
 }
 
-static void fib6_prune_clones(struct net *net, struct fib6_node *fn,
-			      struct rt6_info *rt)
+static void fib6_prune_clones(struct net *net, struct fib6_node *fn)
 {
-	fib6_clean_tree(net, fn, fib6_prune_clone, 1, rt);
+	fib6_clean_tree(net, fn, fib6_prune_clone, 1, NULL);
+}
+
+static int fib6_update_sernum(struct rt6_info *rt, void *arg)
+{
+	__u32 sernum = *(__u32 *)arg;
+
+	if (rt->rt6i_node &&
+	    rt->rt6i_node->fn_sernum != sernum)
+		rt->rt6i_node->fn_sernum = sernum;
+
+	return 0;
+}
+
+static void fib6_flush_trees(struct net *net)
+{
+	__u32 new_sernum = fib6_new_sernum();
+
+	fib6_clean_all(net, fib6_update_sernum, &new_sernum);
 }
 
 /*
@@ -1790,6 +1806,8 @@ int __init fib6_init(void)
 			      NULL);
 	if (ret)
 		goto out_unregister_subsys;
+
+	__fib6_flush_trees = fib6_flush_trees;
 out:
 	return ret;
 

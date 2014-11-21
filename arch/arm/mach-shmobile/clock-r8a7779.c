@@ -23,8 +23,11 @@
 #include <linux/io.h>
 #include <linux/sh_clk.h>
 #include <linux/clkdev.h>
-#include <mach/clock.h>
-#include <mach/common.h>
+#include <linux/sh_timer.h>
+
+#include "clock.h"
+#include "common.h"
+#include "r8a7779.h"
 
 /*
  *		MD1 = 1			MD1 = 0
@@ -51,9 +54,6 @@
 #define MSTPCR1		IOMEM(0xffc80034)
 #define MSTPCR3		IOMEM(0xffc8003c)
 #define MSTPSR1		IOMEM(0xffc80044)
-
-#define MODEMR		0xffcc0020
-
 
 /* ioremap() through clock mapping mandatory to avoid
  * collision with ARM coherent DMA virtual memory range.
@@ -173,9 +173,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("ohci-platform.1", &mstp_clks[MSTP101]), /* USB OHCI port2 */
 	CLKDEV_DEV_ID("ehci-platform.0", &mstp_clks[MSTP100]), /* USB EHCI port0/1 */
 	CLKDEV_DEV_ID("ohci-platform.0", &mstp_clks[MSTP100]), /* USB OHCI port0/1 */
-	CLKDEV_DEV_ID("sh_tmu.0", &mstp_clks[MSTP016]), /* TMU00 */
-	CLKDEV_DEV_ID("sh_tmu.1", &mstp_clks[MSTP016]), /* TMU01 */
-	CLKDEV_DEV_ID("sh_tmu.2", &mstp_clks[MSTP016]), /* TMU02 */
+	CLKDEV_ICK_ID("fck", "sh-tmu.0", &mstp_clks[MSTP016]), /* TMU0 */
 	CLKDEV_DEV_ID("i2c-rcar.0", &mstp_clks[MSTP030]), /* I2C0 */
 	CLKDEV_DEV_ID("ffc70000.i2c", &mstp_clks[MSTP030]), /* I2C0 */
 	CLKDEV_DEV_ID("i2c-rcar.1", &mstp_clks[MSTP029]), /* I2C1 */
@@ -209,13 +207,8 @@ static struct clk_lookup lookups[] = {
 
 void __init r8a7779_clock_init(void)
 {
-	void __iomem *modemr = ioremap_nocache(MODEMR, PAGE_SIZE);
-	u32 mode;
+	u32 mode = r8a7779_read_mode_pins();
 	int k, ret = 0;
-
-	BUG_ON(!modemr);
-	mode = ioread32(modemr);
-	iounmap(modemr);
 
 	if (mode & MD(1)) {
 		plla_clk.rate = 1500000000;
@@ -269,4 +262,14 @@ void __init r8a7779_clock_init(void)
 		shmobile_clk_init();
 	else
 		panic("failed to setup r8a7779 clocks\n");
+}
+
+/* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
+void __init __weak r8a7779_register_twd(void) { }
+
+void __init r8a7779_earlytimer_init(void)
+{
+	r8a7779_clock_init();
+	r8a7779_register_twd();
+	shmobile_earlytimer_init();
 }

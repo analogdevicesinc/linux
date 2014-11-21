@@ -39,9 +39,9 @@
 # include <linux/module.h>
 # include <linux/kernel.h>
 
-#include <obd_class.h>
+#include "../include/obd_class.h"
 #include "mdc_internal.h"
-#include <lustre_fid.h>
+#include "../include/lustre_fid.h"
 
 /* mdc_setattr does its own semaphore handling */
 static int mdc_reint(struct ptlrpc_request *request,
@@ -199,7 +199,8 @@ int mdc_setattr(struct obd_export *exp, struct md_op_data *op_data,
 	*request = req;
 	if (rc && req->rq_commit_cb) {
 		/* Put an extra reference on \var mod on error case. */
-		obd_mod_put(*mod);
+		if (mod != NULL && *mod != NULL)
+			obd_mod_put(*mod);
 		req->rq_commit_cb(req);
 	}
 	return rc;
@@ -272,7 +273,7 @@ rebuild:
 	if (resends) {
 		req->rq_generation_set = 1;
 		req->rq_import_generation = generation;
-		req->rq_sent = cfs_time_current_sec() + resends;
+		req->rq_sent = get_seconds() + resends;
 	}
 	level = LUSTRE_IMP_FULL;
  resend:
@@ -357,9 +358,9 @@ int mdc_unlink(struct obd_export *exp, struct md_op_data *op_data,
 	mdc_unlink_pack(req, op_data);
 
 	req_capsule_set_size(&req->rq_pill, &RMF_MDT_MD, RCL_SERVER,
-			     obd->u.cli.cl_max_mds_easize);
+			     obd->u.cli.cl_default_mds_easize);
 	req_capsule_set_size(&req->rq_pill, &RMF_LOGCOOKIES, RCL_SERVER,
-			     obd->u.cli.cl_max_mds_cookiesize);
+			     obd->u.cli.cl_default_mds_cookiesize);
 	ptlrpc_request_set_replen(req);
 
 	*request = req;
@@ -470,9 +471,9 @@ int mdc_rename(struct obd_export *exp, struct md_op_data *op_data,
 	mdc_rename_pack(req, op_data, old, oldlen, new, newlen);
 
 	req_capsule_set_size(&req->rq_pill, &RMF_MDT_MD, RCL_SERVER,
-			     obd->u.cli.cl_max_mds_easize);
+			     obd->u.cli.cl_default_mds_easize);
 	req_capsule_set_size(&req->rq_pill, &RMF_LOGCOOKIES, RCL_SERVER,
-			     obd->u.cli.cl_max_mds_cookiesize);
+			     obd->u.cli.cl_default_mds_cookiesize);
 	ptlrpc_request_set_replen(req);
 
 	rc = mdc_reint(req, obd->u.cli.cl_rpc_lock, LUSTRE_IMP_FULL);

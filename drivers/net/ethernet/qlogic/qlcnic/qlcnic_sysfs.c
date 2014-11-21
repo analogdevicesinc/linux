@@ -19,6 +19,10 @@
 #include <linux/sysfs.h>
 #include <linux/aer.h>
 #include <linux/log2.h>
+#ifdef CONFIG_QLCNIC_HWMON
+#include <linux/hwmon.h>
+#include <linux/hwmon-sysfs.h>
+#endif
 
 #define QLC_STATUS_UNSUPPORTED_CMD	-2
 
@@ -276,6 +280,7 @@ static ssize_t qlcnic_sysfs_read_crb(struct file *filp, struct kobject *kobj,
 	if (ret != 0)
 		return ret;
 	qlcnic_read_crb(adapter, buf, offset, size);
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 
 	return size;
 }
@@ -292,6 +297,7 @@ static ssize_t qlcnic_sysfs_write_crb(struct file *filp, struct kobject *kobj,
 	if (ret != 0)
 		return ret;
 
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	qlcnic_write_crb(adapter, buf, offset, size);
 	return size;
 }
@@ -325,6 +331,7 @@ static ssize_t qlcnic_sysfs_read_mem(struct file *filp, struct kobject *kobj,
 		return -EIO;
 
 	memcpy(buf, &data, size);
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 
 	return size;
 }
@@ -342,6 +349,7 @@ static ssize_t qlcnic_sysfs_write_mem(struct file *filp, struct kobject *kobj,
 	if (ret != 0)
 		return ret;
 
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	memcpy(&data, buf, size);
 
 	if (qlcnic_pci_mem_write_2M(adapter, offset, data))
@@ -358,6 +366,8 @@ int qlcnic_is_valid_nic_func(struct qlcnic_adapter *adapter, u8 pci_func)
 		if (adapter->npars[i].pci_func == pci_func)
 			return i;
 	}
+
+	dev_err(&adapter->pdev->dev, "%s: Invalid nic function\n", __func__);
 	return -EINVAL;
 }
 
@@ -406,6 +416,7 @@ static ssize_t qlcnic_sysfs_write_pm_config(struct file *filp,
 	if (rem)
 		return QL_STATUS_INVALID_PARAM;
 
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	pm_cfg = (struct qlcnic_pm_func_cfg *)buf;
 	ret = validate_pm_config(adapter, pm_cfg, count);
 
@@ -468,6 +479,7 @@ static ssize_t qlcnic_sysfs_read_pm_config(struct file *filp,
 		pm_cfg[pci_func].dest_npar = 0;
 		pm_cfg[pci_func].pci_func = i;
 	}
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	return size;
 }
 
@@ -549,6 +561,7 @@ static ssize_t qlcnic_sysfs_write_esw_config(struct file *file,
 	if (rem)
 		return QL_STATUS_INVALID_PARAM;
 
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	esw_cfg = (struct qlcnic_esw_func_cfg *)buf;
 	ret = validate_esw_config(adapter, esw_cfg, count);
 	if (ret)
@@ -643,6 +656,7 @@ static ssize_t qlcnic_sysfs_read_esw_config(struct file *file,
 		if (qlcnic_get_eswitch_port_config(adapter, &esw_cfg[pci_func]))
 			return QL_STATUS_INVALID_PARAM;
 	}
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	return size;
 }
 
@@ -682,6 +696,7 @@ static ssize_t qlcnic_sysfs_write_npar_config(struct file *file,
 	if (rem)
 		return QL_STATUS_INVALID_PARAM;
 
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	np_cfg = (struct qlcnic_npar_func_cfg *)buf;
 	ret = validate_npar_config(adapter, np_cfg, count);
 	if (ret)
@@ -753,6 +768,7 @@ static ssize_t qlcnic_sysfs_read_npar_config(struct file *file,
 		np_cfg[pci_func].max_tx_queues = nic_info.max_tx_ques;
 		np_cfg[pci_func].max_rx_queues = nic_info.max_rx_ques;
 	}
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	return size;
 }
 
@@ -910,6 +926,7 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
 
 	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
 	count = size / sizeof(struct qlcnic_pci_func_cfg);
+	qlcnic_swap32_buffer((u32 *)pci_info, size / sizeof(u32));
 	for (i = 0; i < count; i++) {
 		pci_cfg[i].pci_func = pci_info[i].id;
 		pci_cfg[i].func_type = pci_info[i].type;
@@ -963,6 +980,7 @@ static ssize_t qlcnic_83xx_sysfs_flash_read_handler(struct file *filp,
 	}
 
 	qlcnic_83xx_unlock_flash(adapter);
+	qlcnic_swap32_buffer((u32 *)p_read_buf, count);
 	memcpy(buf, p_read_buf, size);
 	kfree(p_read_buf);
 
@@ -980,9 +998,10 @@ static int qlcnic_83xx_sysfs_flash_bulk_write(struct qlcnic_adapter *adapter,
 	if (!p_cache)
 		return -ENOMEM;
 
+	count = size / sizeof(u32);
+	qlcnic_swap32_buffer((u32 *)buf, count);
 	memcpy(p_cache, buf, size);
 	p_src = p_cache;
-	count = size / sizeof(u32);
 
 	if (qlcnic_83xx_lock_flash(adapter) != 0) {
 		kfree(p_cache);
@@ -1047,6 +1066,7 @@ static int qlcnic_83xx_sysfs_flash_write(struct qlcnic_adapter *adapter,
 	if (!p_cache)
 		return -ENOMEM;
 
+	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
 	memcpy(p_cache, buf, size);
 	p_src = p_cache;
 	count = size / sizeof(u32);
@@ -1242,6 +1262,68 @@ static struct bin_attribute bin_attr_flash = {
 	.read = qlcnic_83xx_sysfs_flash_read_handler,
 	.write = qlcnic_83xx_sysfs_flash_write_handler,
 };
+
+#ifdef CONFIG_QLCNIC_HWMON
+
+static ssize_t qlcnic_hwmon_show_temp(struct device *dev,
+				      struct device_attribute *dev_attr,
+				      char *buf)
+{
+	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+	unsigned int temperature = 0, value = 0;
+
+	if (qlcnic_83xx_check(adapter))
+		value = QLCRDX(adapter->ahw, QLC_83XX_ASIC_TEMP);
+	else if (qlcnic_82xx_check(adapter))
+		value = QLC_SHARED_REG_RD32(adapter, QLCNIC_ASIC_TEMP);
+
+	temperature = qlcnic_get_temp_val(value);
+	/* display millidegree celcius */
+	temperature *= 1000;
+	return sprintf(buf, "%u\n", temperature);
+}
+
+/* hwmon-sysfs attributes */
+static SENSOR_DEVICE_ATTR(temp1_input, S_IRUGO,
+			  qlcnic_hwmon_show_temp, NULL, 1);
+
+static struct attribute *qlcnic_hwmon_attrs[] = {
+	&sensor_dev_attr_temp1_input.dev_attr.attr,
+	NULL
+};
+
+ATTRIBUTE_GROUPS(qlcnic_hwmon);
+
+void qlcnic_register_hwmon_dev(struct qlcnic_adapter *adapter)
+{
+	struct device *dev = &adapter->pdev->dev;
+	struct device *hwmon_dev;
+
+	/* Skip hwmon registration for a VF device */
+	if (qlcnic_sriov_vf_check(adapter)) {
+		adapter->ahw->hwmon_dev = NULL;
+		return;
+	}
+	hwmon_dev = hwmon_device_register_with_groups(dev, qlcnic_driver_name,
+						      adapter,
+						      qlcnic_hwmon_groups);
+	if (IS_ERR(hwmon_dev)) {
+		dev_err(dev, "Cannot register with hwmon, err=%ld\n",
+			PTR_ERR(hwmon_dev));
+		hwmon_dev = NULL;
+	}
+	adapter->ahw->hwmon_dev = hwmon_dev;
+}
+
+void qlcnic_unregister_hwmon_dev(struct qlcnic_adapter *adapter)
+{
+	struct device *hwmon_dev = adapter->ahw->hwmon_dev;
+	if (hwmon_dev) {
+		hwmon_device_unregister(hwmon_dev);
+		adapter->ahw->hwmon_dev = NULL;
+	}
+}
+#endif
 
 void qlcnic_create_sysfs_entries(struct qlcnic_adapter *adapter)
 {

@@ -134,6 +134,8 @@ source "drivers/staging/Kconfig"
 
 source "drivers/platform/Kconfig"
 
+source "drivers/soc/Kconfig"
+
 source "drivers/clk/Kconfig"
 
 source "drivers/hwspinlock/Kconfig"
@@ -175,5 +177,9 @@ source "drivers/phy/Kconfig"
 source "drivers/powercap/Kconfig"
 
 source "drivers/mcb/Kconfig"
+
+source "drivers/ras/Kconfig"
+
+source "drivers/thunderbolt/Kconfig"
 
 endmenu

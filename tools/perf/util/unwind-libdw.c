@@ -3,11 +3,12 @@
 #include <elfutils/libdwfl.h>
 #include <inttypes.h>
 #include <errno.h>
+#include "debug.h"
 #include "unwind.h"
 #include "unwind-libdw.h"
 #include "machine.h"
 #include "thread.h"
-#include "types.h"
+#include <linux/types.h>
 #include "event.h"
 #include "perf_regs.h"
 

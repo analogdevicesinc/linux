@@ -19,6 +19,16 @@ config HID_SENSOR_PRESS
           To compile this driver as a module, choose M here: the module
           will be called hid-sensor-press.
 
+config MPL115
+	tristate "Freescale MPL115A2 pressure sensor driver"
+	depends on I2C
+	help
+	  Say yes here to build support for the Freescale MPL115A2
+	  pressure sensor connected via I2C.
+
+          To compile this driver as a module, choose M here: the module
+          will be called mpl115.
+
 config MPL3115
 	tristate "Freescale MPL3115A2 pressure sensor driver"
 	depends on I2C
@@ -59,5 +69,15 @@ config IIO_ST_PRESS_SPI
 	tristate
 	depends on IIO_ST_PRESS
 	depends on IIO_ST_SENSORS_SPI
+
+config T5403
+	tristate "EPCOS T5403 digital barometric pressure sensor driver"
+	depends on I2C
+	help
+	  Say yes here to build support for the EPCOS T5403 pressure sensor
+	  connected via I2C.
+
+          To compile this driver as a module, choose M here: the module
+          will be called t5403.
 
 endmenu

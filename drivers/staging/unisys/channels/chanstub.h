@@ -1,4 +1,4 @@
-/* Copyright © 2010 - 2013 UNISYS CORPORATION
+/* Copyright (C) 2010 - 2013 UNISYS CORPORATION
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -15,9 +15,9 @@
 
 #ifndef __CHANSTUB_H__
 #define __CHANSTUB_H__
-unsigned char SignalInsert_withLock(CHANNEL_HEADER __iomem *pChannel, U32 Queue,
+unsigned char SignalInsert_withLock(CHANNEL_HEADER __iomem *pChannel, u32 Queue,
 				     void *pSignal, spinlock_t *lock);
-unsigned char SignalRemove_withLock(CHANNEL_HEADER __iomem *pChannel, U32 Queue,
+unsigned char SignalRemove_withLock(CHANNEL_HEADER __iomem *pChannel, u32 Queue,
 				     void *pSignal, spinlock_t *lock);
 
 #endif

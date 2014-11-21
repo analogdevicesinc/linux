@@ -13,10 +13,9 @@
 #ifndef __ARCH_MVEBU_BOARD_H
 #define __ARCH_MVEBU_BOARD_H
 
-#ifdef CONFIG_MACH_T5325
-void t5325_init(void);
+#ifdef CONFIG_MACH_NETXBIG
+void netxbig_init(void);
 #else
-static inline void t5325_init(void) {};
+static inline void netxbig_init(void) {};
 #endif
-
 #endif

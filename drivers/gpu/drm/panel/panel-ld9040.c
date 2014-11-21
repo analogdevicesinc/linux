@@ -27,6 +27,7 @@
 #define MCS_ELVSS_ON		0xb1
 #define MCS_USER_SETTING	0xf0
 #define MCS_DISPCTL		0xf2
+#define MCS_POWER_CTRL		0xf4
 #define MCS_GTCON		0xf7
 #define MCS_PANEL_CONDITION	0xf8
 #define MCS_GAMMA_SET1		0xf9
@@ -109,7 +110,10 @@ struct ld9040 {
 	int error;
 };
 
-#define panel_to_ld9040(p) container_of(p, struct ld9040, panel)
+static inline struct ld9040 *panel_to_ld9040(struct drm_panel *panel)
+{
+	return container_of(panel, struct ld9040, panel);
+}
 
 static int ld9040_clear_error(struct ld9040 *ctx)
 {
@@ -182,6 +186,8 @@ static void ld9040_init(struct ld9040 *ctx)
 	ld9040_dcs_write_seq_static(ctx, MCS_DISPCTL,
 		0x02, 0x08, 0x08, 0x10, 0x10);
 	ld9040_dcs_write_seq_static(ctx, MCS_MANPWR, 0x04);
+	ld9040_dcs_write_seq_static(ctx, MCS_POWER_CTRL,
+		0x0a, 0x87, 0x25, 0x6a, 0x44, 0x02, 0x88);
 	ld9040_dcs_write_seq_static(ctx, MCS_ELVSS_ON, 0x0d, 0x00, 0x16);
 	ld9040_dcs_write_seq_static(ctx, MCS_GTCON, 0x09, 0x00, 0x00);
 	ld9040_brightness_set(ctx);
@@ -213,6 +219,11 @@ static int ld9040_power_off(struct ld9040 *ctx)
 
 static int ld9040_disable(struct drm_panel *panel)
 {
+	return 0;
+}
+
+static int ld9040_unprepare(struct drm_panel *panel)
+{
 	struct ld9040 *ctx = panel_to_ld9040(panel);
 
 	msleep(120);
@@ -225,7 +236,7 @@ static int ld9040_disable(struct drm_panel *panel)
 	return ld9040_power_off(ctx);
 }
 
-static int ld9040_enable(struct drm_panel *panel)
+static int ld9040_prepare(struct drm_panel *panel)
 {
 	struct ld9040 *ctx = panel_to_ld9040(panel);
 	int ret;
@@ -239,9 +250,14 @@ static int ld9040_enable(struct drm_panel *panel)
 	ret = ld9040_clear_error(ctx);
 
 	if (ret < 0)
-		ld9040_disable(panel);
+		ld9040_unprepare(panel);
 
 	return ret;
+}
+
+static int ld9040_enable(struct drm_panel *panel)
+{
+	return 0;
 }
 
 static int ld9040_get_modes(struct drm_panel *panel)
@@ -270,6 +286,8 @@ static int ld9040_get_modes(struct drm_panel *panel)
 
 static const struct drm_panel_funcs ld9040_drm_funcs = {
 	.disable = ld9040_disable,
+	.unprepare = ld9040_unprepare,
+	.prepare = ld9040_prepare,
 	.enable = ld9040_enable,
 	.get_modes = ld9040_get_modes,
 };

@@ -853,8 +853,8 @@ u64 fsl_pci_immrbar_base(struct pci_controller *hose)
 		in = pcie->cfg_type0 + PEX_RC_INWIN_BASE;
 		for (i = 0; i < 4; i++) {
 			/* not enabled, skip */
-			if (!in_le32(&in[i].ar) & PEX_RCIWARn_EN)
-				 continue;
+			if (!(in_le32(&in[i].ar) & PEX_RCIWARn_EN))
+				continue;
 
 			if (get_immrbase() == in_le32(&in[i].tar))
 				return (u64)in_le32(&in[i].barh) << 32 |
@@ -1150,8 +1150,7 @@ static int fsl_pci_pme_probe(struct pci_controller *hose)
 	pci = hose->private_data;
 
 	/* Enable PTOD, ENL23D & EXL23D */
-	out_be32(&pci->pex_pme_mes_disr, 0);
-	setbits32(&pci->pex_pme_mes_disr,
+	clrbits32(&pci->pex_pme_mes_disr,
 		  PME_DISR_EN_PTOD | PME_DISR_EN_ENL23D | PME_DISR_EN_EXL23D);
 
 	out_be32(&pci->pex_pme_mes_ier, 0);

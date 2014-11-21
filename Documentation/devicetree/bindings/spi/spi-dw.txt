@@ -1,30 +1,24 @@
-* Synopsys DesignWare SPI
+Synopsys DesignWare SPI master
 
-Required properties :
- - compatible : should contain "snps,dw-spi-mmio"
- - reg : Offset and length of the register set for the device
- - interrupts : should contain the interrupt number in the
-		appropriate format for IRQ controller
+Required properties:
+- compatible: should be "snps,designware-spi"
+- #address-cells: see spi-bus.txt
+- #size-cells: see spi-bus.txt
+- reg: address and length of the spi master registers
+- interrupts: should contain one interrupt
+- clocks: spi clock phandle
+- num-cs: see spi-bus.txt
 
-Recommended properties :
- - num-chipselect : total number of chipselects
- - bus-num : The bus that SPI is on.
+Optional properties:
+- cs-gpios: see spi-bus.txt
 
-Optional properties :
- - tx-dma-channel : tx dma channel to use for SPI TX
- - rx-dma-channel : rx dma channel to use for SPI RX
- - clocks : clock source
+Example:
 
-Example :
-	spi0: spi@fff00000 {
-		compatible = "snps,dw-spi-mmio";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0xfff00000 0x1000>;
-		interrupts = <0 154 4>;
-		num-chipselect = <4>;
-		bus-num = <0>;
-		tx-dma-channel = <&pdma 16>;
-		rx-dma-channel = <&pdma 17>;
-		clocks = <&per_base_clk>;
-	};
+spi: spi@4020a000 {
+	compatible = "snps,designware-spi";
+	interrupts = <11 1>;
+	reg = <0x4020a000 0x1000>;
+	clocks = <&pclk>;
+	num-cs = <2>;
+	cs-gpios = <&banka 0 0>;
+};

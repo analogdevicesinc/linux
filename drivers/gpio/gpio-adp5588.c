@@ -379,10 +379,8 @@ static int adp5588_gpio_probe(struct i2c_client *client,
 	}
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (dev == NULL) {
-		dev_err(&client->dev, "failed to alloc memory\n");
+	if (dev == NULL)
 		return -ENOMEM;
-	}
 
 	dev->client = client;
 
@@ -472,11 +470,7 @@ static int adp5588_gpio_remove(struct i2c_client *client)
 	if (dev->irq_base)
 		free_irq(dev->client->irq, dev);
 
-	ret = gpiochip_remove(&dev->gpio_chip);
-	if (ret) {
-		dev_err(&client->dev, "gpiochip_remove failed %d\n", ret);
-		return ret;
-	}
+	gpiochip_remove(&dev->gpio_chip);
 
 	kfree(dev);
 	return 0;

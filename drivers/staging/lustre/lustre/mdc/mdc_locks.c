@@ -38,14 +38,14 @@
 
 # include <linux/module.h>
 
-#include <linux/lustre_intent.h>
-#include <obd.h>
-#include <obd_class.h>
-#include <lustre_dlm.h>
-#include <lustre_fid.h> /* fid_res_name_eq() */
-#include <lustre_mdc.h>
-#include <lustre_net.h>
-#include <lustre_req_layout.h>
+#include "../include/linux/lustre_intent.h"
+#include "../include/obd.h"
+#include "../include/obd_class.h"
+#include "../include/lustre_dlm.h"
+#include "../include/lustre_fid.h"	/* fid_res_name_eq() */
+#include "../include/lustre_mdc.h"
+#include "../include/lustre_net.h"
+#include "../include/lustre_req_layout.h"
 #include "mdc_internal.h"
 
 struct mdc_getattr_args {
@@ -442,9 +442,9 @@ static struct ptlrpc_request *mdc_intent_unlink_pack(struct obd_export *exp,
 	mdc_unlink_pack(req, op_data);
 
 	req_capsule_set_size(&req->rq_pill, &RMF_MDT_MD, RCL_SERVER,
-			     obddev->u.cli.cl_max_mds_easize);
+			     obddev->u.cli.cl_default_mds_easize);
 	req_capsule_set_size(&req->rq_pill, &RMF_ACL, RCL_SERVER,
-			     obddev->u.cli.cl_max_mds_cookiesize);
+			     obddev->u.cli.cl_default_mds_cookiesize);
 	ptlrpc_request_set_replen(req);
 	return req;
 }
@@ -462,6 +462,7 @@ static struct ptlrpc_request *mdc_intent_getattr_pack(struct obd_export *exp,
 					       OBD_MD_FLRMTPERM : OBD_MD_FLACL);
 	struct ldlm_intent    *lit;
 	int		    rc;
+	int		    easize;
 
 	req = ptlrpc_request_alloc(class_exp2cliimp(exp),
 				   &RQF_LDLM_INTENT_GETATTR);
@@ -482,12 +483,15 @@ static struct ptlrpc_request *mdc_intent_getattr_pack(struct obd_export *exp,
 	lit = req_capsule_client_get(&req->rq_pill, &RMF_LDLM_INTENT);
 	lit->opc = (__u64)it->it_op;
 
-	/* pack the intended request */
-	mdc_getattr_pack(req, valid, it->it_flags, op_data,
-			 obddev->u.cli.cl_max_mds_easize);
+	if (obddev->u.cli.cl_default_mds_easize > 0)
+		easize = obddev->u.cli.cl_default_mds_easize;
+	else
+		easize = obddev->u.cli.cl_max_mds_easize;
 
-	req_capsule_set_size(&req->rq_pill, &RMF_MDT_MD, RCL_SERVER,
-			     obddev->u.cli.cl_max_mds_easize);
+	/* pack the intended request */
+	mdc_getattr_pack(req, valid, it->it_flags, op_data, easize);
+
+	req_capsule_set_size(&req->rq_pill, &RMF_MDT_MD, RCL_SERVER, easize);
 	if (client_is_remote(exp))
 		req_capsule_set_size(&req->rq_pill, &RMF_ACL, RCL_SERVER,
 				     sizeof(struct mdt_remote_perm));
@@ -528,7 +532,7 @@ static struct ptlrpc_request *mdc_intent_layout_pack(struct obd_export *exp,
 	layout->li_opc = LAYOUT_INTENT_ACCESS;
 
 	req_capsule_set_size(&req->rq_pill, &RMF_DLM_LVB, RCL_SERVER,
-			obd->u.cli.cl_max_mds_easize);
+			     obd->u.cli.cl_default_mds_easize);
 	ptlrpc_request_set_replen(req);
 	return req;
 }
@@ -856,7 +860,7 @@ resend:
 	if (resends) {
 		req->rq_generation_set = 1;
 		req->rq_import_generation = generation;
-		req->rq_sent = cfs_time_current_sec() + resends;
+		req->rq_sent = get_seconds() + resends;
 	}
 
 	/* It is important to obtain rpc_lock first (if applicable), so that
@@ -893,7 +897,10 @@ resend:
 	mdc_put_rpc_lock(obddev->u.cli.cl_rpc_lock, it);
 
 	if (rc < 0) {
-		CERROR("ldlm_cli_enqueue: %d\n", rc);
+		CDEBUG_LIMIT((rc == -EACCES || rc == -EIDRM) ? D_INFO : D_ERROR,
+			     "%s: ldlm_cli_enqueue failed: rc = %d\n",
+			     obddev->obd_name, rc);
+
 		mdc_clear_replay_flag(req, rc);
 		ptlrpc_req_finished(req);
 		return rc;

@@ -1,6 +1,6 @@
 /* uisutils.h
  *
- * Copyright © 2010 - 2013 UNISYS CORPORATION
+ * Copyright (C) 2010 - 2013 UNISYS CORPORATION
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include <linux/io.h>
 #include <linux/sched.h>
 #include <linux/gfp.h>
+#include <linux/uuid.h>
 
 #include "vmcallinterface.h"
 #include "channel.h"
@@ -54,17 +55,17 @@ extern atomic_t UisUtils_Registered_Services;
 
 typedef unsigned int MACARRAY[MAX_MACADDR_LEN];
 typedef struct ReqHandlerInfo_struct {
-	GUID switchTypeGuid;
+	uuid_le switchTypeGuid;
 	int (*controlfunc)(struct io_msgs *);
 	unsigned long min_channel_bytes;
 	int (*Server_Channel_Ok)(unsigned long channelBytes);
 	int (*Server_Channel_Init)
-	 (void *x, unsigned char *clientStr, U32 clientStrLen, U64 bytes);
+	 (void *x, unsigned char *clientStr, u32 clientStrLen, u64 bytes);
 	char switch_type_name[99];
 	struct list_head list_link;	/* links into ReqHandlerInfo_list */
 } ReqHandlerInfo_t;
 
-ReqHandlerInfo_t *ReqHandlerAdd(GUID switchTypeGuid,
+ReqHandlerInfo_t *ReqHandlerAdd(uuid_le switchTypeGuid,
 				const char *switch_type_name,
 				int (*controlfunc)(struct io_msgs *),
 				unsigned long min_channel_bytes,
@@ -72,15 +73,15 @@ ReqHandlerInfo_t *ReqHandlerAdd(GUID switchTypeGuid,
 							 channelBytes),
 				int (*Server_Channel_Init)
 				 (void *x, unsigned char *clientStr,
-				  U32 clientStrLen, U64 bytes));
-ReqHandlerInfo_t *ReqHandlerFind(GUID switchTypeGuid);
-int ReqHandlerDel(GUID switchTypeGuid);
+				  u32 clientStrLen, u64 bytes));
+ReqHandlerInfo_t *ReqHandlerFind(uuid_le switchTypeGuid);
+int ReqHandlerDel(uuid_le switchTypeGuid);
 
 #define uislib_ioremap_cache(addr, size) \
 	dbg_ioremap_cache(addr, size, __FILE__, __LINE__)
 
 static inline void __iomem *
-dbg_ioremap_cache(U64 addr, unsigned long size, char *file, int line)
+dbg_ioremap_cache(u64 addr, unsigned long size, char *file, int line)
 {
 	void __iomem *new;
 	new = ioremap_cache(addr, size);
@@ -90,7 +91,7 @@ dbg_ioremap_cache(U64 addr, unsigned long size, char *file, int line)
 #define uislib_ioremap(addr, size) dbg_ioremap(addr, size, __FILE__, __LINE__)
 
 static inline void *
-dbg_ioremap(U64 addr, unsigned long size, char *file, int line)
+dbg_ioremap(u64 addr, unsigned long size, char *file, int line)
 {
 	void *new;
 	new = ioremap(addr, size);
@@ -112,7 +113,7 @@ int uisutil_add_proc_line_ex(int *total, char **buffer, int *buffer_remaining,
 
 int uisctrl_register_req_handler(int type, void *fptr,
 				 ULTRA_VBUS_DEVICEINFO *chipset_DriverInfo);
-int uisctrl_register_req_handler_ex(GUID switchTypeGuid,
+int uisctrl_register_req_handler_ex(uuid_le switchTypeGuid,
 				    const char *switch_type_name,
 				    int (*fptr)(struct io_msgs *),
 				    unsigned long min_channel_bytes,
@@ -120,39 +121,39 @@ int uisctrl_register_req_handler_ex(GUID switchTypeGuid,
 							     channelBytes),
 				    int (*Server_Channel_Init)
 				    (void *x, unsigned char *clientStr,
-				     U32 clientStrLen, U64 bytes),
+				     u32 clientStrLen, u64 bytes),
 				    ULTRA_VBUS_DEVICEINFO *chipset_DriverInfo);
 
-int uisctrl_unregister_req_handler_ex(GUID switchTypeGuid);
+int uisctrl_unregister_req_handler_ex(uuid_le switchTypeGuid);
 unsigned char *util_map_virt(struct phys_info *sg);
 void util_unmap_virt(struct phys_info *sg);
 unsigned char *util_map_virt_atomic(struct phys_info *sg);
 void util_unmap_virt_atomic(void *buf);
-int uislib_server_inject_add_vnic(U32 switchNo, U32 BusNo, U32 numIntPorts,
-				  U32 numExtPorts, MACARRAY pmac[],
+int uislib_server_inject_add_vnic(u32 switchNo, u32 BusNo, u32 numIntPorts,
+				  u32 numExtPorts, MACARRAY pmac[],
 				  pCHANNEL_HEADER **chan);
-void uislib_server_inject_del_vnic(U32 switchNo, U32 busNo, U32 numIntPorts,
-				   U32 numExtPorts);
-int uislib_client_inject_add_bus(U32 busNo, GUID instGuid,
-				 U64 channelAddr, ulong nChannelBytes);
-int  uislib_client_inject_del_bus(U32 busNo);
+void uislib_server_inject_del_vnic(u32 switchNo, u32 busNo, u32 numIntPorts,
+				   u32 numExtPorts);
+int uislib_client_inject_add_bus(u32 busNo, uuid_le instGuid,
+				 u64 channelAddr, ulong nChannelBytes);
+int  uislib_client_inject_del_bus(u32 busNo);
 
-int uislib_client_inject_add_vhba(U32 busNo, U32 devNo,
-				  U64 phys_chan_addr, U32 chan_bytes,
-				  int is_test_addr, GUID instGuid,
+int uislib_client_inject_add_vhba(u32 busNo, u32 devNo,
+				  u64 phys_chan_addr, u32 chan_bytes,
+				  int is_test_addr, uuid_le instGuid,
 				  struct InterruptInfo *intr);
-int  uislib_client_inject_pause_vhba(U32 busNo, U32 devNo);
-int  uislib_client_inject_resume_vhba(U32 busNo, U32 devNo);
-int uislib_client_inject_del_vhba(U32 busNo, U32 devNo);
-int uislib_client_inject_add_vnic(U32 busNo, U32 devNo,
-				  U64 phys_chan_addr, U32 chan_bytes,
-				  int is_test_addr, GUID instGuid,
+int  uislib_client_inject_pause_vhba(u32 busNo, u32 devNo);
+int  uislib_client_inject_resume_vhba(u32 busNo, u32 devNo);
+int uislib_client_inject_del_vhba(u32 busNo, u32 devNo);
+int uislib_client_inject_add_vnic(u32 busNo, u32 devNo,
+				  u64 phys_chan_addr, u32 chan_bytes,
+				  int is_test_addr, uuid_le instGuid,
 				  struct InterruptInfo *intr);
-int uislib_client_inject_pause_vnic(U32 busNo, U32 devNo);
-int uislib_client_inject_resume_vnic(U32 busNo, U32 devNo);
-int uislib_client_inject_del_vnic(U32 busNo, U32 devNo);
+int uislib_client_inject_pause_vnic(u32 busNo, u32 devNo);
+int uislib_client_inject_resume_vnic(u32 busNo, u32 devNo);
+int uislib_client_inject_del_vnic(u32 busNo, u32 devNo);
 #ifdef STORAGE_CHANNEL
-U64 uislib_storage_channel(int client_id);
+u64 uislib_storage_channel(int client_id);
 #endif
 int uislib_get_owned_pdest(struct uisscsi_dest *pdest);
 
@@ -193,14 +194,21 @@ struct chaninfo {
  * correctly at DEVICE_CREATE time, INSTEAD OF waiting until
  * DEVICE_CONFIGURE time.
  */
-#define WAIT_FOR_VALID_GUID(guid) \
-	do {						   \
-		while (MEMCMP_IO(&guid, &Guid0, sizeof(Guid0)) == 0) {	\
-			LOGERR("Waiting for non-0 GUID (why???)...\n"); \
-			UIS_THREAD_WAIT_SEC(5);				\
-		}							\
-		LOGERR("OK... GUID is non-0 now\n");			\
-	} while (0)
+static inline void
+wait_for_valid_guid(uuid_le __iomem *guid)
+{
+	uuid_le tmpguid;
+
+	while (1) {
+		memcpy_fromio((void *)&tmpguid,
+			      (void __iomem *)guid, sizeof(uuid_le));
+		if (uuid_le_cmp(tmpguid, NULL_UUID_LE) != 0)
+			break;
+		LOGERR("Waiting for non-0 GUID (why???)...\n");
+		UIS_THREAD_WAIT_SEC(5);
+	}
+	LOGERR("OK... GUID is non-0 now\n");
+}
 
 /* CopyFragsInfoFromSkb returns the number of entries added to frags array
  * Returns -1 on failure.
@@ -212,11 +220,11 @@ unsigned int uisutil_copy_fragsinfo_from_skb(unsigned char *calling_ctx,
 					     struct phys_info frags[]);
 
 static inline unsigned int
-Issue_VMCALL_IO_CONTROLVM_ADDR(U64 *ControlAddress, U32 *ControlBytes)
+Issue_VMCALL_IO_CONTROLVM_ADDR(u64 *ControlAddress, u32 *ControlBytes)
 {
 	VMCALL_IO_CONTROLVM_ADDR_PARAMS params;
 	int result = VMCALL_SUCCESS;
-	U64 physaddr;
+	u64 physaddr;
 
 	physaddr = virt_to_phys(&params);
 	ISSUE_IO_VMCALL(VMCALL_IO_CONTROLVM_ADDR, physaddr, result);
@@ -227,11 +235,11 @@ Issue_VMCALL_IO_CONTROLVM_ADDR(U64 *ControlAddress, U32 *ControlBytes)
 	return result;
 }
 
-static inline unsigned int Issue_VMCALL_IO_DIAG_ADDR(U64 *DiagChannelAddress)
+static inline unsigned int Issue_VMCALL_IO_DIAG_ADDR(u64 *DiagChannelAddress)
 {
 	VMCALL_IO_DIAG_ADDR_PARAMS params;
 	int result = VMCALL_SUCCESS;
-	U64 physaddr;
+	u64 physaddr;
 
 	physaddr = virt_to_phys(&params);
 	ISSUE_IO_VMCALL(VMCALL_IO_DIAG_ADDR, physaddr, result);
@@ -241,11 +249,11 @@ static inline unsigned int Issue_VMCALL_IO_DIAG_ADDR(U64 *DiagChannelAddress)
 }
 
 static inline unsigned int
-Issue_VMCALL_IO_VISORSERIAL_ADDR(U64 *DiagChannelAddress)
+Issue_VMCALL_IO_VISORSERIAL_ADDR(u64 *DiagChannelAddress)
 {
 	VMCALL_IO_VISORSERIAL_ADDR_PARAMS params;
 	int result = VMCALL_SUCCESS;
-	U64 physaddr;
+	u64 physaddr;
 
 	physaddr = virt_to_phys(&params);
 	ISSUE_IO_VMCALL(VMCALL_IO_VISORSERIAL_ADDR, physaddr, result);
@@ -254,20 +262,20 @@ Issue_VMCALL_IO_VISORSERIAL_ADDR(U64 *DiagChannelAddress)
 	return result;
 }
 
-static inline S64 Issue_VMCALL_QUERY_GUEST_VIRTUAL_TIME_OFFSET(void)
+static inline s64 Issue_VMCALL_QUERY_GUEST_VIRTUAL_TIME_OFFSET(void)
 {
-	U64 result = VMCALL_SUCCESS;
-	U64 physaddr = 0;
+	u64 result = VMCALL_SUCCESS;
+	u64 physaddr = 0;
 
 	ISSUE_IO_VMCALL(VMCALL_QUERY_GUEST_VIRTUAL_TIME_OFFSET, physaddr,
 			result);
 	return result;
 }
 
-static inline S64 Issue_VMCALL_MEASUREMENT_DO_NOTHING(void)
+static inline s64 Issue_VMCALL_MEASUREMENT_DO_NOTHING(void)
 {
-	U64 result = VMCALL_SUCCESS;
-	U64 physaddr = 0;
+	u64 result = VMCALL_SUCCESS;
+	u64 physaddr = 0;
 
 	ISSUE_IO_VMCALL(VMCALL_MEASUREMENT_DO_NOTHING, physaddr, result);
 	return result;
@@ -281,7 +289,7 @@ struct log_info_t {
 	unsigned long long min_delta[64];
 };
 
-static inline int Issue_VMCALL_UPDATE_PHYSICAL_TIME(U64 adjustment)
+static inline int Issue_VMCALL_UPDATE_PHYSICAL_TIME(u64 adjustment)
 {
 	int result = VMCALL_SUCCESS;
 
@@ -292,27 +300,27 @@ static inline int Issue_VMCALL_UPDATE_PHYSICAL_TIME(U64 adjustment)
 static inline unsigned int
 Issue_VMCALL_CHANNEL_MISMATCH(const char *ChannelName,
 			      const char *ItemName,
-			      U32 SourceLineNumber, const char *path_n_fn)
+			      u32 SourceLineNumber, const char *path_n_fn)
 {
 	VMCALL_CHANNEL_VERSION_MISMATCH_PARAMS params;
 	int result = VMCALL_SUCCESS;
-	U64 physaddr;
+	u64 physaddr;
 	char *last_slash = NULL;
 
-	strncpy(params.ChannelName, ChannelName,
+	strlcpy(params.ChannelName, ChannelName,
 		lengthof(VMCALL_CHANNEL_VERSION_MISMATCH_PARAMS, ChannelName));
-	strncpy(params.ItemName, ItemName,
+	strlcpy(params.ItemName, ItemName,
 		lengthof(VMCALL_CHANNEL_VERSION_MISMATCH_PARAMS, ItemName));
 	params.SourceLineNumber = SourceLineNumber;
 
 	last_slash = strrchr(path_n_fn, '/');
 	if (last_slash != NULL) {
 		last_slash++;
-		strncpy(params.SourceFileName, last_slash,
+		strlcpy(params.SourceFileName, last_slash,
 			lengthof(VMCALL_CHANNEL_VERSION_MISMATCH_PARAMS,
 				 SourceFileName));
 	} else
-		strncpy(params.SourceFileName,
+		strlcpy(params.SourceFileName,
 			"Cannot determine source filename",
 			lengthof(VMCALL_CHANNEL_VERSION_MISMATCH_PARAMS,
 				 SourceFileName));
@@ -325,7 +333,7 @@ Issue_VMCALL_CHANNEL_MISMATCH(const char *ChannelName,
 static inline unsigned int Issue_VMCALL_FATAL_BYE_BYE(void)
 {
 	int result = VMCALL_SUCCESS;
-	U64 physaddr = 0;
+	u64 physaddr = 0;
 
 	ISSUE_IO_VMCALL(VMCALL_GENERIC_SURRENDER_QUANTUM_FOREVER, physaddr,
 			result);
@@ -339,10 +347,10 @@ void uislib_cache_free(struct kmem_cache *cur_pool, void *p, char *fn, int ln);
 #define UISCACHEFREE(cur_pool, p) \
 	uislib_cache_free(cur_pool, p, __FILE__, __LINE__)
 
-void uislib_enable_channel_interrupts(U32 busNo, U32 devNo,
+void uislib_enable_channel_interrupts(u32 busNo, u32 devNo,
 				      int (*interrupt)(void *),
 				      void *interrupt_context);
-void uislib_disable_channel_interrupts(U32 busNo, U32 devNo);
-void uislib_force_channel_interrupt(U32 busNo, U32 devNo);
+void uislib_disable_channel_interrupts(u32 busNo, u32 devNo);
+void uislib_force_channel_interrupt(u32 busNo, u32 devNo);
 
 #endif /* __UISUTILS__H__ */

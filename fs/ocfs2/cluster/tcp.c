@@ -108,7 +108,7 @@ static struct rb_root o2net_handler_tree = RB_ROOT;
 static struct o2net_node o2net_nodes[O2NM_MAX_NODES];
 
 /* XXX someday we'll need better accounting */
-static struct socket *o2net_listen_sock = NULL;
+static struct socket *o2net_listen_sock;
 
 /*
  * listen work is only queued by the listening socket callbacks on the
@@ -1480,6 +1480,14 @@ static int o2net_set_nodelay(struct socket *sock)
 	return ret;
 }
 
+static int o2net_set_usertimeout(struct socket *sock)
+{
+	int user_timeout = O2NET_TCP_USER_TIMEOUT;
+
+	return kernel_setsockopt(sock, SOL_TCP, TCP_USER_TIMEOUT,
+				(char *)&user_timeout, sizeof(user_timeout));
+}
+
 static void o2net_initialize_handshake(void)
 {
 	o2net_hand->o2hb_heartbeat_timeout_ms = cpu_to_be32(
@@ -1536,16 +1544,20 @@ static void o2net_idle_timer(unsigned long data)
 #endif
 
 	printk(KERN_NOTICE "o2net: Connection to " SC_NODEF_FMT " has been "
-	       "idle for %lu.%lu secs, shutting it down.\n", SC_NODEF_ARGS(sc),
-	       msecs / 1000, msecs % 1000);
+	       "idle for %lu.%lu secs.\n",
+	       SC_NODEF_ARGS(sc), msecs / 1000, msecs % 1000);
 
-	/*
-	 * Initialize the nn_timeout so that the next connection attempt
-	 * will continue in o2net_start_connect.
+	/* idle timerout happen, don't shutdown the connection, but
+	 * make fence decision. Maybe the connection can recover before
+	 * the decision is made.
 	 */
 	atomic_set(&nn->nn_timeout, 1);
+	o2quo_conn_err(o2net_num_from_nn(nn));
+	queue_delayed_work(o2net_wq, &nn->nn_still_up,
+			msecs_to_jiffies(O2NET_QUORUM_DELAY_MS));
 
-	o2net_sc_queue_work(sc, &sc->sc_shutdown_work);
+	o2net_sc_reset_idle_timer(sc);
+
 }
 
 static void o2net_sc_reset_idle_timer(struct o2net_sock_container *sc)
@@ -1560,6 +1572,15 @@ static void o2net_sc_reset_idle_timer(struct o2net_sock_container *sc)
 
 static void o2net_sc_postpone_idle(struct o2net_sock_container *sc)
 {
+	struct o2net_node *nn = o2net_nn_from_num(sc->sc_node->nd_num);
+
+	/* clear fence decision since the connection recover from timeout*/
+	if (atomic_read(&nn->nn_timeout)) {
+		o2quo_conn_up(o2net_num_from_nn(nn));
+		cancel_delayed_work(&nn->nn_still_up);
+		atomic_set(&nn->nn_timeout, 0);
+	}
+
 	/* Only push out an existing timer */
 	if (timer_pending(&sc->sc_idle_timeout))
 		o2net_sc_reset_idle_timer(sc);
@@ -1647,6 +1668,12 @@ static void o2net_start_connect(struct work_struct *work)
 	ret = o2net_set_nodelay(sc->sc_sock);
 	if (ret) {
 		mlog(ML_ERROR, "setting TCP_NODELAY failed with %d\n", ret);
+		goto out;
+	}
+
+	ret = o2net_set_usertimeout(sock);
+	if (ret) {
+		mlog(ML_ERROR, "set TCP_USER_TIMEOUT failed with %d\n", ret);
 		goto out;
 	}
 
@@ -1799,7 +1826,7 @@ int o2net_register_hb_callbacks(void)
 
 /* ------------------------------------------------------------ */
 
-static int o2net_accept_one(struct socket *sock)
+static int o2net_accept_one(struct socket *sock, int *more)
 {
 	int ret, slen;
 	struct sockaddr_in sin;
@@ -1810,6 +1837,7 @@ static int o2net_accept_one(struct socket *sock)
 	struct o2net_node *nn;
 
 	BUG_ON(sock == NULL);
+	*more = 0;
 	ret = sock_create_lite(sock->sk->sk_family, sock->sk->sk_type,
 			       sock->sk->sk_protocol, &new_sock);
 	if (ret)
@@ -1821,11 +1849,18 @@ static int o2net_accept_one(struct socket *sock)
 	if (ret < 0)
 		goto out;
 
+	*more = 1;
 	new_sock->sk->sk_allocation = GFP_ATOMIC;
 
 	ret = o2net_set_nodelay(new_sock);
 	if (ret) {
 		mlog(ML_ERROR, "setting TCP_NODELAY failed with %d\n", ret);
+		goto out;
+	}
+
+	ret = o2net_set_usertimeout(new_sock);
+	if (ret) {
+		mlog(ML_ERROR, "set TCP_USER_TIMEOUT failed with %d\n", ret);
 		goto out;
 	}
 
@@ -1919,11 +1954,36 @@ out:
 	return ret;
 }
 
+/*
+ * This function is invoked in response to one or more
+ * pending accepts at softIRQ level. We must drain the
+ * entire que before returning.
+ */
+
 static void o2net_accept_many(struct work_struct *work)
 {
 	struct socket *sock = o2net_listen_sock;
-	while (o2net_accept_one(sock) == 0)
+	int	more;
+	int	err;
+
+	/*
+	 * It is critical to note that due to interrupt moderation
+	 * at the network driver level, we can't assume to get a
+	 * softIRQ for every single conn since tcp SYN packets
+	 * can arrive back-to-back, and therefore many pending
+	 * accepts may result in just 1 softIRQ. If we terminate
+	 * the o2net_accept_one() loop upon seeing an err, what happens
+	 * to the rest of the conns in the queue? If no new SYN
+	 * arrives for hours, no softIRQ  will be delivered,
+	 * and the connections will just sit in the queue.
+	 */
+
+	for (;;) {
+		err = o2net_accept_one(sock, &more);
+		if (!more)
+			break;
 		cond_resched();
+	}
 }
 
 static void o2net_listen_data_ready(struct sock *sk)

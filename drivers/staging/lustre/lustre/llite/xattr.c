@@ -41,11 +41,11 @@
 
 #define DEBUG_SUBSYSTEM S_LLITE
 
-#include <obd_support.h>
-#include <lustre_lite.h>
-#include <lustre_dlm.h>
-#include <lustre_ver.h>
-#include <lustre_eacl.h>
+#include "../include/obd_support.h"
+#include "../include/lustre_lite.h"
+#include "../include/lustre_dlm.h"
+#include "../include/lustre_ver.h"
+#include "../include/lustre_eacl.h"
 
 #include "llite_internal.h"
 
@@ -112,8 +112,8 @@ int ll_setxattr_common(struct inode *inode, const char *name,
 	struct ptlrpc_request *req = NULL;
 	int xattr_type, rc;
 	struct obd_capa *oc;
-	struct rmtacl_ctl_entry *rce = NULL;
 #ifdef CONFIG_FS_POSIX_ACL
+	struct rmtacl_ctl_entry *rce = NULL;
 	posix_acl_xattr_header *new_value = NULL;
 	ext_acl_xattr_header *acl = NULL;
 #endif
@@ -123,6 +123,11 @@ int ll_setxattr_common(struct inode *inode, const char *name,
 	rc = xattr_type_filter(sbi, xattr_type);
 	if (rc)
 		return rc;
+
+	if ((xattr_type == XATTR_ACL_ACCESS_T ||
+	     xattr_type == XATTR_ACL_DEFAULT_T) &&
+	    !inode_owner_or_capable(inode))
+		return -EPERM;
 
 	/* b10667: ignore lustre special xattr for now */
 	if ((xattr_type == XATTR_TRUSTED_T && strcmp(name, "trusted.lov") == 0) ||
@@ -241,6 +246,7 @@ int ll_setxattr(struct dentry *dentry, const char *name,
 			int lum_size = (lump->lmm_magic == LOV_USER_MAGIC_V1) ?
 				sizeof(*lump) : sizeof(struct lov_user_md_v3);
 
+			memset(&f, 0, sizeof(f)); /* f.f_flags is used below */
 			f.f_dentry = dentry;
 			rc = ll_lov_setstripe_ea_info(inode, &f, flags, lump,
 						      lum_size);

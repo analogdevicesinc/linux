@@ -153,13 +153,6 @@ static int dds_buffer_write(struct iio_buffer *buf, size_t count,
 	return ret < 0 ? ret : count;
 }
 
-static int dds_buffer_get_length(struct iio_buffer *buf)
-{
-	struct dds_buffer *dds_buffer = iio_buffer_to_dds_buffer(buf);
-
-	return dds_buffer->length;
-}
-
 static int dds_buffer_set_length(struct iio_buffer *buf, int length)
 {
 	struct dds_buffer *dds_buffer = iio_buffer_to_dds_buffer(buf);
@@ -169,25 +162,6 @@ static int dds_buffer_set_length(struct iio_buffer *buf, int length)
 	return 0;
 }
 
-static int dds_buffer_get_bytes_per_datum(struct iio_buffer *buf)
-{
-	return buf->bytes_per_datum;
-}
-
-static IIO_BUFFER_ENABLE_ATTR;
-static IIO_BUFFER_LENGTH_ATTR;
-
-static struct attribute *dds_buffer_attributes[] = {
-	&dev_attr_length.attr,
-	&dev_attr_enable.attr,
-	NULL,
-};
-
-static struct attribute_group dds_buffer_attrs = {
-	.attrs = dds_buffer_attributes,
-	.name = "buffer",
-};
-
 static void dds_buffer_release(struct iio_buffer *buf)
 {
 	struct dds_buffer *dds_buffer = iio_buffer_to_dds_buffer(buf);
@@ -196,9 +170,7 @@ static void dds_buffer_release(struct iio_buffer *buf)
 
 static const struct iio_buffer_access_funcs dds_buffer_access_funcs = {
 	.write = &dds_buffer_write,
-	.get_length = &dds_buffer_get_length,
 	.set_length = &dds_buffer_set_length,
-	.get_bytes_per_datum = &dds_buffer_get_bytes_per_datum,
 	.enable = dds_buffer_enable,
 	.disable = dds_buffer_disable,
 	.release = dds_buffer_release,
@@ -233,7 +205,6 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 	if (!dds_buffer)
 		return -ENOMEM;
 
-	dds_buffer->iio_buffer.attrs = &dds_buffer_attrs;
 	dds_buffer->iio_buffer.access = &dds_buffer_access_funcs;
 	iio_buffer_init(&dds_buffer->iio_buffer);
 	dds_buffer->indio_dev = indio_dev;

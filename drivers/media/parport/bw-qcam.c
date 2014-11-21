@@ -759,7 +759,6 @@ static int qcam_g_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format *f
 	pix->sizeimage = pix->width * pix->height;
 	/* Just a guess */
 	pix->colorspace = V4L2_COLORSPACE_SRGB;
-	pix->priv = 0;
 	return 0;
 }
 
@@ -785,7 +784,6 @@ static int qcam_try_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format 
 	pix->sizeimage = pix->width * pix->height;
 	/* Just a guess */
 	pix->colorspace = V4L2_COLORSPACE_SRGB;
-	pix->priv = 0;
 	return 0;
 }
 
@@ -937,7 +935,7 @@ static struct qcam *qcam_init(struct parport *port)
 		return NULL;
 
 	v4l2_dev = &qcam->v4l2_dev;
-	snprintf(v4l2_dev->name, sizeof(v4l2_dev->name), "bw-qcam%d", num_cams);
+	snprintf(v4l2_dev->name, sizeof(v4l2_dev->name), "bw-qcam%u", num_cams);
 
 	if (v4l2_device_register(port->dev, v4l2_dev) < 0) {
 		v4l2_err(v4l2_dev, "Could not register v4l2_device\n");
@@ -990,7 +988,6 @@ static struct qcam *qcam_init(struct parport *port)
 	qcam->vdev.fops = &qcam_fops;
 	qcam->vdev.lock = &qcam->lock;
 	qcam->vdev.ioctl_ops = &qcam_ioctl_ops;
-	set_bit(V4L2_FL_USE_FH_PRIO, &qcam->vdev.flags);
 	qcam->vdev.release = video_device_release_empty;
 	video_set_drvdata(&qcam->vdev, qcam);
 

@@ -94,6 +94,8 @@ void mipi_dsi_host_unregister(struct mipi_dsi_host *host);
 #define MIPI_DSI_MODE_VSYNC_FLUSH	BIT(8)
 /* disable EoT packets in HS mode */
 #define MIPI_DSI_MODE_EOT_PACKET	BIT(9)
+/* device supports non-continuous clock behavior (DSI spec 5.6.1) */
+#define MIPI_DSI_CLOCK_NON_CONTINUOUS	BIT(10)
 
 enum mipi_dsi_pixel_format {
 	MIPI_DSI_FMT_RGB888,
@@ -121,28 +123,37 @@ struct mipi_dsi_device {
 	unsigned long mode_flags;
 };
 
-#define to_mipi_dsi_device(d) container_of(d, struct mipi_dsi_device, dev)
+static inline struct mipi_dsi_device *to_mipi_dsi_device(struct device *dev)
+{
+	return container_of(dev, struct mipi_dsi_device, dev);
+}
 
 int mipi_dsi_attach(struct mipi_dsi_device *dsi);
 int mipi_dsi_detach(struct mipi_dsi_device *dsi);
-int mipi_dsi_dcs_write(struct mipi_dsi_device *dsi, unsigned int channel,
-		       const void *data, size_t len);
-ssize_t mipi_dsi_dcs_read(struct mipi_dsi_device *dsi, unsigned int channel,
-			  u8 cmd, void *data, size_t len);
+ssize_t mipi_dsi_dcs_write(struct mipi_dsi_device *dsi, const void *data,
+			    size_t len);
+ssize_t mipi_dsi_dcs_read(struct mipi_dsi_device *dsi, u8 cmd, void *data,
+			  size_t len);
 
 /**
  * struct mipi_dsi_driver - DSI driver
  * @driver: device driver model driver
  * @probe: callback for device binding
  * @remove: callback for device unbinding
+ * @shutdown: called at shutdown time to quiesce the device
  */
 struct mipi_dsi_driver {
 	struct device_driver driver;
 	int(*probe)(struct mipi_dsi_device *dsi);
 	int(*remove)(struct mipi_dsi_device *dsi);
+	void (*shutdown)(struct mipi_dsi_device *dsi);
 };
 
-#define to_mipi_dsi_driver(d) container_of(d, struct mipi_dsi_driver, driver)
+static inline struct mipi_dsi_driver *
+to_mipi_dsi_driver(struct device_driver *driver)
+{
+	return container_of(driver, struct mipi_dsi_driver, driver);
+}
 
 static inline void *mipi_dsi_get_drvdata(const struct mipi_dsi_device *dsi)
 {

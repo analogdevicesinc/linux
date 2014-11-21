@@ -1,5 +1,5 @@
 
-* Samsung S2MPS11 and S2MPS14 Voltage and Current Regulator
+* Samsung S2MPS11, S2MPS14 and S2MPU02 Voltage and Current Regulator
 
 The Samsung S2MPS11 is a multi-function device which includes voltage and
 current regulators, RTC, charger controller and other sub-blocks. It is
@@ -7,7 +7,8 @@ interfaced to the host controller using an I2C interface. Each sub-block is
 addressed by the host system using different I2C slave addresses.
 
 Required properties:
-- compatible: Should be "samsung,s2mps11-pmic" or "samsung,s2mps14-pmic".
+- compatible: Should be "samsung,s2mps11-pmic" or "samsung,s2mps14-pmic"
+              or "samsung,s2mpu02-pmic".
 - reg: Specifies the I2C slave address of the pmic block. It should be 0x66.
 
 Optional properties:
@@ -56,6 +57,20 @@ for a particular group of BUCKs. So provide same regulator-ramp-delay<value>.
 Grouping of BUCKs sharing ramp rate setting is as follow : BUCK[1, 6],
 BUCK[3, 4], and BUCK[7, 8, 10]
 
+On S2MPS14 the LDO10, LDO11 and LDO12 can be configured to external control
+over GPIO. To turn this feature on this property must be added to the regulator
+sub-node:
+	- samsung,ext-control-gpios: GPIO specifier for one GPIO
+		controlling this regulator (enable/disable);
+Example:
+	LDO12 {
+		regulator-name = "V_EMMC_2.8V";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		samsung,ext-control-gpios = <&gpk0 2 0>;
+	};
+
+
 The regulator constraints inside the regulator nodes use the standard regulator
 bindings which are documented elsewhere.
 
@@ -67,11 +82,13 @@ as per the datasheet of s2mps11.
 		  - valid values for n are:
 			- S2MPS11: 1 to 38
 			- S2MPS14: 1 to 25
-		  - Example: LDO1, LD02, LDO28
+			- S2MPU02: 1 to 28
+		  - Example: LDO1, LDO2, LDO28
 	- BUCKn
 		  - valid values for n are:
 			- S2MPS11: 1 to 10
 			- S2MPS14: 1 to 5
+			- S2MPU02: 1 to 7
 		  - Example: BUCK1, BUCK2, BUCK9
 
 Example:
@@ -82,7 +99,7 @@ Example:
 
 		s2m_osc: clocks {
 			compatible = "samsung,s2mps11-clk";
-			#clock-cells = 1;
+			#clock-cells = <1>;
 			clock-output-names = "xx", "yy", "zz";
 		};
 

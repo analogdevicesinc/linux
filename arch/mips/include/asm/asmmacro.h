@@ -10,6 +10,7 @@
 
 #include <asm/hazards.h>
 #include <asm/asm-offsets.h>
+#include <asm/msa.h>
 
 #ifdef CONFIG_32BIT
 #include <asm/asmmacro-32.h>
@@ -17,26 +18,8 @@
 #ifdef CONFIG_64BIT
 #include <asm/asmmacro-64.h>
 #endif
-#ifdef CONFIG_MIPS_MT_SMTC
-#include <asm/mipsmtregs.h>
-#endif
 
-#ifdef CONFIG_MIPS_MT_SMTC
-	.macro	local_irq_enable reg=t0
-	mfc0	\reg, CP0_TCSTATUS
-	ori	\reg, \reg, TCSTATUS_IXMT
-	xori	\reg, \reg, TCSTATUS_IXMT
-	mtc0	\reg, CP0_TCSTATUS
-	_ehb
-	.endm
-
-	.macro	local_irq_disable reg=t0
-	mfc0	\reg, CP0_TCSTATUS
-	ori	\reg, \reg, TCSTATUS_IXMT
-	mtc0	\reg, CP0_TCSTATUS
-	_ehb
-	.endm
-#elif defined(CONFIG_CPU_MIPSR2)
+#ifdef CONFIG_CPU_MIPSR2
 	.macro	local_irq_enable reg=t0
 	ei
 	irq_enable_hazard
@@ -71,7 +54,7 @@
 	sw      \reg, TI_PRE_COUNT($28)
 #endif
 	.endm
-#endif /* CONFIG_MIPS_MT_SMTC */
+#endif /* CONFIG_CPU_MIPSR2 */
 
 	.macro	fpu_save_16even thread tmp=t0
 	cfc1	\tmp, fcr31
@@ -267,13 +250,35 @@
 	.set	pop
 	.endm
 #else
+
+#ifdef CONFIG_CPU_MICROMIPS
+#define CFC_MSA_INSN		0x587e0056
+#define CTC_MSA_INSN		0x583e0816
+#define LDD_MSA_INSN		0x58000837
+#define STD_MSA_INSN		0x5800083f
+#define COPY_UW_MSA_INSN	0x58f00056
+#define COPY_UD_MSA_INSN	0x58f80056
+#define INSERT_W_MSA_INSN	0x59300816
+#define INSERT_D_MSA_INSN	0x59380816
+#else
+#define CFC_MSA_INSN		0x787e0059
+#define CTC_MSA_INSN		0x783e0819
+#define LDD_MSA_INSN		0x78000823
+#define STD_MSA_INSN		0x78000827
+#define COPY_UW_MSA_INSN	0x78f00059
+#define COPY_UD_MSA_INSN	0x78f80059
+#define INSERT_W_MSA_INSN	0x79300819
+#define INSERT_D_MSA_INSN	0x79380819
+#endif
+
 	/*
 	 * Temporary until all toolchains in use include MSA support.
 	 */
 	.macro	cfcmsa	rd, cs
 	.set	push
 	.set	noat
-	.word	0x787e0059 | (\cs << 11)
+	.insn
+	.word	CFC_MSA_INSN | (\cs << 11)
 	move	\rd, $1
 	.set	pop
 	.endm
@@ -282,7 +287,7 @@
 	.set	push
 	.set	noat
 	move	$1, \rs
-	.word	0x783e0819 | (\cd << 6)
+	.word	CTC_MSA_INSN | (\cd << 6)
 	.set	pop
 	.endm
 
@@ -290,7 +295,7 @@
 	.set	push
 	.set	noat
 	add	$1, \base, \off
-	.word	0x78000823 | (\wd << 6)
+	.word	LDD_MSA_INSN | (\wd << 6)
 	.set	pop
 	.endm
 
@@ -298,14 +303,15 @@
 	.set	push
 	.set	noat
 	add	$1, \base, \off
-	.word	0x78000827 | (\wd << 6)
+	.word	STD_MSA_INSN | (\wd << 6)
 	.set	pop
 	.endm
 
 	.macro	copy_u_w	rd, ws, n
 	.set	push
 	.set	noat
-	.word	0x78f00059 | (\n << 16) | (\ws << 11)
+	.insn
+	.word	COPY_UW_MSA_INSN | (\n << 16) | (\ws << 11)
 	/* move triggers an assembler bug... */
 	or	\rd, $1, zero
 	.set	pop
@@ -314,7 +320,8 @@
 	.macro	copy_u_d	rd, ws, n
 	.set	push
 	.set	noat
-	.word	0x78f80059 | (\n << 16) | (\ws << 11)
+	.insn
+	.word	COPY_UD_MSA_INSN | (\n << 16) | (\ws << 11)
 	/* move triggers an assembler bug... */
 	or	\rd, $1, zero
 	.set	pop
@@ -325,7 +332,7 @@
 	.set	noat
 	/* move triggers an assembler bug... */
 	or	$1, \rs, zero
-	.word	0x79300819 | (\n << 16) | (\wd << 6)
+	.word	INSERT_W_MSA_INSN | (\n << 16) | (\wd << 6)
 	.set	pop
 	.endm
 
@@ -334,7 +341,7 @@
 	.set	noat
 	/* move triggers an assembler bug... */
 	or	$1, \rs, zero
-	.word	0x79380819 | (\n << 16) | (\wd << 6)
+	.word	INSERT_D_MSA_INSN | (\n << 16) | (\wd << 6)
 	.set	pop
 	.endm
 #endif
@@ -372,9 +379,19 @@
 	st_d	29, THREAD_FPR29, \thread
 	st_d	30, THREAD_FPR30, \thread
 	st_d	31, THREAD_FPR31, \thread
+	.set	push
+	.set	noat
+	cfcmsa	$1, MSA_CSR
+	sw	$1, THREAD_MSA_CSR(\thread)
+	.set	pop
 	.endm
 
 	.macro	msa_restore_all	thread
+	.set	push
+	.set	noat
+	lw	$1, THREAD_MSA_CSR(\thread)
+	ctcmsa	MSA_CSR, $1
+	.set	pop
 	ld_d	0, THREAD_FPR0, \thread
 	ld_d	1, THREAD_FPR1, \thread
 	ld_d	2, THREAD_FPR2, \thread
@@ -407,6 +424,26 @@
 	ld_d	29, THREAD_FPR29, \thread
 	ld_d	30, THREAD_FPR30, \thread
 	ld_d	31, THREAD_FPR31, \thread
+	.endm
+
+	.macro	msa_init_upper wd
+#ifdef CONFIG_64BIT
+	insert_d \wd, 1
+#else
+	insert_w \wd, 2
+	insert_w \wd, 3
+#endif
+	.if	31-\wd
+	msa_init_upper	(\wd+1)
+	.endif
+	.endm
+
+	.macro	msa_init_all_upper
+	.set	push
+	.set	noat
+	not	$1, zero
+	msa_init_upper	0
+	.set	pop
 	.endm
 
 #endif /* _ASM_ASMMACRO_H */

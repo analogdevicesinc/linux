@@ -52,8 +52,12 @@ static unsigned int sdhci_arasan_get_timeout_clock(struct sdhci_host *host)
 }
 
 static struct sdhci_ops sdhci_arasan_ops = {
+	.set_clock = sdhci_set_clock,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.get_timeout_clock = sdhci_arasan_get_timeout_clock,
+	.set_bus_width = sdhci_set_bus_width,
+	.reset = sdhci_reset,
+	.set_uhs_signaling = sdhci_set_uhs_signaling,
 };
 
 static struct sdhci_pltfm_data sdhci_arasan_pdata = {
@@ -161,7 +165,7 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 	host = sdhci_pltfm_init(pdev, &sdhci_arasan_pdata, 0);
 	if (IS_ERR(host)) {
 		ret = PTR_ERR(host);
-		dev_err(&pdev->dev, "platform init failed (%u)\n", ret);
+		dev_err(&pdev->dev, "platform init failed (%d)\n", ret);
 		goto clk_disable_all;
 	}
 
@@ -172,7 +176,7 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 
 	ret = sdhci_add_host(host);
 	if (ret) {
-		dev_err(&pdev->dev, "platform register failed (%u)\n", ret);
+		dev_err(&pdev->dev, "platform register failed (%d)\n", ret);
 		goto err_pltfm_free;
 	}
 

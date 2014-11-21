@@ -39,17 +39,16 @@
  */
 
 #define DEBUG_SUBSYSTEM S_RPC
-# include <linux/libcfs/libcfs.h>
+#include "../../include/linux/libcfs/libcfs.h"
 
-#include <obd_support.h>
-#include <lustre_ha.h>
-#include <lustre_net.h>
-#include <lustre_import.h>
-#include <lustre_export.h>
-#include <obd.h>
-#include <obd_ost.h>
-#include <obd_class.h>
-#include <obd_lov.h> /* for IOC_LOV_SET_OSC_ACTIVE */
+#include "../include/obd_support.h"
+#include "../include/lustre_ha.h"
+#include "../include/lustre_net.h"
+#include "../include/lustre_import.h"
+#include "../include/lustre_export.h"
+#include "../include/obd.h"
+#include "../include/obd_ost.h"
+#include "../include/obd_class.h"
 #include <linux/list.h>
 
 #include "ptlrpc_internal.h"
@@ -86,7 +85,7 @@ int ptlrpc_replay_next(struct obd_import *imp, int *inflight)
 	last_transno = imp->imp_last_replay_transno;
 	spin_unlock(&imp->imp_lock);
 
-	CDEBUG(D_HA, "import %p from %s committed "LPU64" last "LPU64"\n",
+	CDEBUG(D_HA, "import %p from %s committed %llu last %llu\n",
 	       imp, obd2cli_tgt(imp->imp_obd),
 	       imp->imp_peer_committed_transno, last_transno);
 
@@ -165,8 +164,8 @@ int ptlrpc_replay_next(struct obd_import *imp, int *inflight)
 	if (req != NULL) {
 		rc = ptlrpc_replay_req(req);
 		if (rc) {
-			CERROR("recovery replay error %d for req "
-			       LPU64"\n", rc, req->rq_xid);
+			CERROR("recovery replay error %d for req %llu\n",
+			       rc, req->rq_xid);
 			return rc;
 		}
 		*inflight = 1;
@@ -369,11 +368,14 @@ EXPORT_SYMBOL(ptlrpc_recover_import);
 int ptlrpc_import_in_recovery(struct obd_import *imp)
 {
 	int in_recovery = 1;
+
 	spin_lock(&imp->imp_lock);
 	if (imp->imp_state == LUSTRE_IMP_FULL ||
 	    imp->imp_state == LUSTRE_IMP_CLOSED ||
-	    imp->imp_state == LUSTRE_IMP_DISCON)
+	    imp->imp_state == LUSTRE_IMP_DISCON ||
+	    imp->imp_obd->obd_no_recov)
 		in_recovery = 0;
 	spin_unlock(&imp->imp_lock);
+
 	return in_recovery;
 }

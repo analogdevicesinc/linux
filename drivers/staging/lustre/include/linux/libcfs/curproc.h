@@ -56,7 +56,6 @@
 /* check if task is running in compat mode.*/
 #define current_pid()		(current->pid)
 #define current_comm()		(current->comm)
-int cfs_get_environ(const char *key, char *value, int *val_len);
 
 typedef __u32 cfs_cap_t;
 
@@ -74,7 +73,7 @@ typedef __u32 cfs_cap_t;
 			 (1 << CFS_CAP_DAC_OVERRIDE) |	  \
 			 (1 << CFS_CAP_DAC_READ_SEARCH) |       \
 			 (1 << CFS_CAP_FOWNER) |		\
-			 (1 << CFS_CAP_FSETID ) |	       \
+			 (1 << CFS_CAP_FSETID) |	       \
 			 (1 << CFS_CAP_LINUX_IMMUTABLE) |       \
 			 (1 << CFS_CAP_SYS_ADMIN) |	     \
 			 (1 << CFS_CAP_SYS_BOOT) |	      \

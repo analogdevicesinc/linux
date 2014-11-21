@@ -43,10 +43,36 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 
+static int intel_fbdev_set_par(struct fb_info *info)
+{
+	struct drm_fb_helper *fb_helper = info->par;
+	struct intel_fbdev *ifbdev =
+		container_of(fb_helper, struct intel_fbdev, helper);
+	int ret;
+
+	ret = drm_fb_helper_set_par(info);
+
+	if (ret == 0) {
+		/*
+		 * FIXME: fbdev presumes that all callbacks also work from
+		 * atomic contexts and relies on that for emergency oops
+		 * printing. KMS totally doesn't do that and the locking here is
+		 * by far not the only place this goes wrong.  Ignore this for
+		 * now until we solve this for real.
+		 */
+		mutex_lock(&fb_helper->dev->struct_mutex);
+		ret = i915_gem_object_set_to_gtt_domain(ifbdev->fb->obj,
+							true);
+		mutex_unlock(&fb_helper->dev->struct_mutex);
+	}
+
+	return ret;
+}
+
 static struct fb_ops intelfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_check_var = drm_fb_helper_check_var,
-	.fb_set_par = drm_fb_helper_set_par,
+	.fb_set_par = intel_fbdev_set_par,
 	.fb_fillrect = cfb_fillrect,
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
@@ -81,7 +107,7 @@ static int intelfb_alloc(struct drm_fb_helper *helper,
 							  sizes->surface_depth);
 
 	size = mode_cmd.pitches[0] * mode_cmd.height;
-	size = ALIGN(size, PAGE_SIZE);
+	size = PAGE_ALIGN(size);
 	obj = i915_gem_object_create_stolen(dev, size);
 	if (obj == NULL)
 		obj = i915_gem_alloc_object(dev, size);
@@ -343,15 +369,15 @@ static bool intel_fb_initial_config(struct drm_fb_helper *fb_helper,
 			num_connectors_detected++;
 
 		if (!enabled[i]) {
-			DRM_DEBUG_KMS("connector %d not enabled, skipping\n",
-				      connector->base.id);
+			DRM_DEBUG_KMS("connector %s not enabled, skipping\n",
+				      connector->name);
 			continue;
 		}
 
 		encoder = connector->encoder;
 		if (!encoder || WARN_ON(!encoder->crtc)) {
-			DRM_DEBUG_KMS("connector %d has no encoder or crtc, skipping\n",
-				      connector->base.id);
+			DRM_DEBUG_KMS("connector %s has no encoder or crtc, skipping\n",
+				      connector->name);
 			enabled[i] = false;
 			continue;
 		}
@@ -373,16 +399,16 @@ static bool intel_fb_initial_config(struct drm_fb_helper *fb_helper,
 			}
 		}
 
-		DRM_DEBUG_KMS("looking for cmdline mode on connector %d\n",
-			      fb_conn->connector->base.id);
+		DRM_DEBUG_KMS("looking for cmdline mode on connector %s\n",
+			      connector->name);
 
 		/* go for command line mode first */
 		modes[i] = drm_pick_cmdline_mode(fb_conn, width, height);
 
 		/* try for preferred next */
 		if (!modes[i]) {
-			DRM_DEBUG_KMS("looking for preferred mode on connector %d\n",
-				      fb_conn->connector->base.id);
+			DRM_DEBUG_KMS("looking for preferred mode on connector %s\n",
+				      connector->name);
 			modes[i] = drm_has_preferred_mode(fb_conn, width,
 							  height);
 		}
@@ -390,7 +416,7 @@ static bool intel_fb_initial_config(struct drm_fb_helper *fb_helper,
 		/* No preferred mode marked by the EDID? Are there any modes? */
 		if (!modes[i] && !list_empty(&connector->modes)) {
 			DRM_DEBUG_KMS("using first mode listed on connector %s\n",
-				      drm_get_connector_name(connector));
+				      connector->name);
 			modes[i] = list_first_entry(&connector->modes,
 						    struct drm_display_mode,
 						    head);
@@ -409,16 +435,20 @@ static bool intel_fb_initial_config(struct drm_fb_helper *fb_helper,
 			 * since the fb helper layer wants a pointer to
 			 * something we own.
 			 */
+			DRM_DEBUG_KMS("looking for current mode on connector %s\n",
+				      connector->name);
 			intel_mode_from_pipe_config(&encoder->crtc->hwmode,
 						    &to_intel_crtc(encoder->crtc)->config);
 			modes[i] = &encoder->crtc->hwmode;
 		}
 		crtcs[i] = new_crtc;
 
-		DRM_DEBUG_KMS("connector %s on crtc %d: %s\n",
-			      drm_get_connector_name(connector),
+		DRM_DEBUG_KMS("connector %s on pipe %c [CRTC:%d]: %dx%d%s\n",
+			      connector->name,
+			      pipe_name(to_intel_crtc(encoder->crtc)->pipe),
 			      encoder->crtc->base.id,
-			      modes[i]->name);
+			      modes[i]->hdisplay, modes[i]->vdisplay,
+			      modes[i]->flags & DRM_MODE_FLAG_INTERLACE ? "i" :"");
 
 		fallback = false;
 	}
@@ -448,7 +478,7 @@ out:
 	return true;
 }
 
-static struct drm_fb_helper_funcs intel_fb_helper_funcs = {
+static const struct drm_fb_helper_funcs intel_fb_helper_funcs = {
 	.initial_config = intel_fb_initial_config,
 	.gamma_set = intel_crtc_fb_gamma_set,
 	.gamma_get = intel_crtc_fb_gamma_get,
@@ -497,7 +527,7 @@ static bool intel_fbdev_init_bios(struct drm_device *dev,
 		return false;
 
 	/* Find the largest fb */
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+	for_each_crtc(dev, crtc) {
 		intel_crtc = to_intel_crtc(crtc);
 
 		if (!intel_crtc->active || !crtc->primary->fb) {
@@ -521,7 +551,7 @@ static bool intel_fbdev_init_bios(struct drm_device *dev,
 	}
 
 	/* Now make sure all the pipes will fit into it */
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+	for_each_crtc(dev, crtc) {
 		unsigned int cur_size;
 
 		intel_crtc = to_intel_crtc(crtc);
@@ -586,7 +616,7 @@ static bool intel_fbdev_init_bios(struct drm_device *dev,
 	drm_framebuffer_reference(&ifbdev->fb->base);
 
 	/* Final pass to check if any active pipes don't have fbs */
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+	for_each_crtc(dev, crtc) {
 		intel_crtc = to_intel_crtc(crtc);
 
 		if (!intel_crtc->active)
@@ -619,7 +649,8 @@ int intel_fbdev_init(struct drm_device *dev)
 	if (ifbdev == NULL)
 		return -ENOMEM;
 
-	ifbdev->helper.funcs = &intel_fb_helper_funcs;
+	drm_fb_helper_prepare(dev, &ifbdev->helper, &intel_fb_helper_funcs);
+
 	if (!intel_fbdev_init_bios(dev, ifbdev))
 		ifbdev->preferred_bpp = 32;
 
@@ -692,11 +723,7 @@ void intel_fbdev_restore_mode(struct drm_device *dev)
 	if (!dev_priv->fbdev)
 		return;
 
-	drm_modeset_lock_all(dev);
-
-	ret = drm_fb_helper_restore_fbdev_mode(&dev_priv->fbdev->helper);
+	ret = drm_fb_helper_restore_fbdev_mode_unlocked(&dev_priv->fbdev->helper);
 	if (ret)
 		DRM_DEBUG("failed to restore crtc mode\n");
-
-	drm_modeset_unlock_all(dev);
 }

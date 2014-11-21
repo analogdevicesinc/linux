@@ -627,12 +627,6 @@ int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_mmap);
 
-int iio_dma_buffer_get_bytes_per_datum(struct iio_buffer *buf)
-{
-	return buf->bytes_per_datum;
-}
-EXPORT_SYMBOL_GPL(iio_dma_buffer_get_bytes_per_datum);
-
 int iio_dma_buffer_set_bytes_per_datum(struct iio_buffer *buf, size_t bpd)
 {
 	buf->bytes_per_datum = bpd;
@@ -640,12 +634,6 @@ int iio_dma_buffer_set_bytes_per_datum(struct iio_buffer *buf, size_t bpd)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_set_bytes_per_datum);
-
-int iio_dma_buffer_get_length(struct iio_buffer *buf)
-{
-	return buf->length;
-}
-EXPORT_SYMBOL_GPL(iio_dma_buffer_get_length);
 
 int iio_dma_buffer_set_length(struct iio_buffer *buf, int length)
 {
@@ -671,9 +659,7 @@ static void iio_dma_buffer_release(struct iio_buffer *buffer)
 static const struct iio_buffer_access_funcs dmabuf_ops = {
 	.read = iio_dma_buffer_read,
 	.write = iio_dma_buffer_write,
-	.get_bytes_per_datum = iio_dma_buffer_get_bytes_per_datum,
 	.set_bytes_per_datum = iio_dma_buffer_set_bytes_per_datum,
-	.get_length = iio_dma_buffer_get_length,
 	.set_length = iio_dma_buffer_set_length,
 	.enable = iio_dma_buffer_enable,
 	.disable = iio_dma_buffer_disable,
@@ -689,20 +675,6 @@ static const struct iio_buffer_access_funcs dmabuf_ops = {
 	.mmap = iio_dma_buffer_mmap,
 };
 
-static IIO_BUFFER_ENABLE_ATTR;
-static IIO_BUFFER_LENGTH_ATTR;
-
-static struct attribute *iio_dmabuf_attributes[] = {
-	&dev_attr_length.attr,
-	&dev_attr_enable.attr,
-	NULL,
-};
-
-static struct attribute_group iio_dmabuf_attribute_group = {
-	.attrs = iio_dmabuf_attributes,
-	.name = "buffer",
-};
-
 static u64 dmamask = DMA_BIT_MASK(64);
 
 int iio_dmabuf_init(struct iio_dma_buffer_queue *queue,
@@ -710,7 +682,6 @@ int iio_dmabuf_init(struct iio_dma_buffer_queue *queue,
 	void *driver_data)
 {
 	iio_buffer_init(&queue->buffer);
-	queue->buffer.attrs = &iio_dmabuf_attribute_group;
 	queue->buffer.access = &dmabuf_ops;
 	queue->buffer.length = PAGE_SIZE;
 	queue->dev = dma_dev;

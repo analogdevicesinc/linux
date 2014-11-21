@@ -14,7 +14,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
+#include <asm/cacheflush.h>
 #include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/edac.h>

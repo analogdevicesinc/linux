@@ -300,7 +300,7 @@ bool iscsit_check_np_match(
 		port = ntohs(sock_in->sin_port);
 	}
 
-	if ((ip_match == true) && (np->np_port == port) &&
+	if (ip_match && (np->np_port == port) &&
 	    (np->np_network_transport == network_transport))
 		return true;
 
@@ -325,7 +325,7 @@ static struct iscsi_np *iscsit_get_np(
 		}
 
 		match = iscsit_check_np_match(sockaddr, np, network_transport);
-		if (match == true) {
+		if (match) {
 			/*
 			 * Increment the np_exports reference count now to
 			 * prevent iscsit_del_np() below from being called
@@ -1121,7 +1121,7 @@ iscsit_get_immediate_data(struct iscsi_cmd *cmd, struct iscsi_scsi_req *hdr,
 	/*
 	 * Special case for Unsupported SAM WRITE Opcodes and ImmediateData=Yes.
 	 */
-	if (dump_payload == true)
+	if (dump_payload)
 		goto after_immediate_data;
 
 	immed_ret = iscsit_handle_immediate_data(cmd, hdr,
@@ -3490,10 +3490,8 @@ iscsit_build_sendtargets_response(struct iscsi_cmd *cmd,
 
 				len = sprintf(buf, "TargetAddress="
 					"%s:%hu,%hu",
-					(inaddr_any == false) ?
-						np->np_ip : conn->local_ip,
-					(inaddr_any == false) ?
-						np->np_port : conn->local_port,
+					inaddr_any ? conn->local_ip : np->np_ip,
+					inaddr_any ? conn->local_port : np->np_port,
 					tpg->tpgt);
 				len += 1;
 
@@ -4542,6 +4540,7 @@ static void iscsit_logout_post_handler_diffcid(
 {
 	struct iscsi_conn *l_conn;
 	struct iscsi_session *sess = conn->sess;
+	bool conn_found = false;
 
 	if (!sess)
 		return;
@@ -4550,12 +4549,13 @@ static void iscsit_logout_post_handler_diffcid(
 	list_for_each_entry(l_conn, &sess->sess_conn_list, conn_list) {
 		if (l_conn->cid == cid) {
 			iscsit_inc_conn_usage_count(l_conn);
+			conn_found = true;
 			break;
 		}
 	}
 	spin_unlock_bh(&sess->conn_lock);
 
-	if (!l_conn)
+	if (!conn_found)
 		return;
 
 	if (l_conn->sock)

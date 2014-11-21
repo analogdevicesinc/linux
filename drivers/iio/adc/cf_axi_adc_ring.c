@@ -29,7 +29,6 @@ struct axiadc_buf {
 	int compl_stat;
 	struct completion complete;
 	struct dma_chan *chan;
-	unsigned int ring_length;
 	unsigned int rcount;
 	struct mutex lock;
 	struct iio_dev *indio_dev;
@@ -77,7 +76,7 @@ static int axiadc_read_first_n_hw_rb(struct iio_buffer *r,
 
 	}
 
-	count = min(count, axiadc_buf->ring_length - axiadc_buf->read_offs);
+	count = min(count, r->length - axiadc_buf->read_offs);
 
 	if (copy_to_user(buf, axiadc_buf->buf_virt + axiadc_buf->read_offs,
 		count))
@@ -92,25 +91,11 @@ error_ret:
 	return ret < 0 ? ret : count;
 }
 
-static int axiadc_ring_get_length(struct iio_buffer *r)
-{
-	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(r);
-
-	return axiadc_buf->ring_length;
-}
-
 static int axiadc_ring_set_length(struct iio_buffer *r, int length)
 {
-	struct axiadc_buf *axiadc_buf = iio_buffer_to_axiadc_buf(r);
-
-	axiadc_buf->ring_length = length;
+	r->length = length;
 
 	return 0;
-}
-
-static int axiadc_ring_get_bytes_per_datum(struct iio_buffer *r)
-{
-	return r->bytes_per_datum;
 }
 
 static int axiadc_ring_set_bytes_per_datum(struct iio_buffer *r, size_t bpd)
@@ -118,20 +103,6 @@ static int axiadc_ring_set_bytes_per_datum(struct iio_buffer *r, size_t bpd)
 	r->bytes_per_datum = bpd;
 	return 0;
 }
-
-static IIO_BUFFER_ENABLE_ATTR;
-static IIO_BUFFER_LENGTH_ATTR;
-
-static struct attribute *axiadc_ring_attributes[] = {
-	&dev_attr_length.attr,
-	&dev_attr_enable.attr,
-	NULL,
-};
-
-static struct attribute_group axiadc_ring_attr = {
-	.attrs = axiadc_ring_attributes,
-	.name = "buffer",
-};
 
 static void axiadc_ring_release(struct iio_buffer *r)
 {
@@ -141,9 +112,7 @@ static void axiadc_ring_release(struct iio_buffer *r)
 
 static const struct iio_buffer_access_funcs axiadc_ring_access_funcs = {
 	.read = &axiadc_read_first_n_hw_rb,
-	.get_length = &axiadc_ring_get_length,
 	.set_length = &axiadc_ring_set_length,
-	.get_bytes_per_datum = &axiadc_ring_get_bytes_per_datum,
 	.set_bytes_per_datum = &axiadc_ring_set_bytes_per_datum,
 	.release = axiadc_ring_release,
 };
@@ -177,12 +146,12 @@ static int __axiadc_hw_ring_state_set(struct iio_dev *indio_dev, bool state)
 	}
 
 	axiadc_buf->compl_stat = 0;
-	if (axiadc_buf->ring_length == 0) {
+	if (indio_dev->buffer->length == 0) {
 		ret = -EINVAL;
 		goto error_ret;
 	}
 
-	axiadc_buf->rcount = ALIGN(axiadc_buf->ring_length, 8);
+	axiadc_buf->rcount = ALIGN(indio_dev->buffer->length, 8);
 	if (axiadc_buf->rcount > AXIADC_MAX_DMA_SIZE) {
 		ret = -EINVAL;
 		goto error_ret;
@@ -260,7 +229,6 @@ int axiadc_configure_ring(struct iio_dev *indio_dev, const char *dma_name)
 	init_completion(&axiadc_buf->complete);
 	mutex_init(&axiadc_buf->lock);
 	axiadc_buf->indio_dev = indio_dev;
-	axiadc_buf->buffer.attrs = &axiadc_ring_attr;
 	iio_buffer_init(&axiadc_buf->buffer);
 
 	iio_device_attach_buffer(indio_dev, &axiadc_buf->buffer);

@@ -83,8 +83,6 @@
  */
 #define IOREMAP_MAX_ORDER	24
 
-#define CONSISTENT_END		(0xffe00000UL)
-
 #else /* CONFIG_MMU */
 
 /*
@@ -93,9 +91,7 @@
  * of this define that was meant to.
  * Fortunately, there is no reference for this in noMMU mode, for now.
  */
-#ifndef TASK_SIZE
-#define TASK_SIZE		(CONFIG_DRAM_SIZE)
-#endif
+#define TASK_SIZE		UL(0xffffffff)
 
 #ifndef TASK_UNMAPPED_BASE
 #define TASK_UNMAPPED_BASE	UL(0x00000000)
@@ -152,13 +148,11 @@
 
 /*
  * PLAT_PHYS_OFFSET is the offset (from zero) of the start of physical
- * memory.  This is used for XIP and NoMMU kernels, or by kernels which
- * have their own mach/memory.h.  Assembly code must always use
+ * memory.  This is used for XIP and NoMMU kernels, and on platforms that don't
+ * have CONFIG_ARM_PATCH_PHYS_VIRT. Assembly code must always use
  * PLAT_PHYS_OFFSET and not PHYS_OFFSET.
  */
-#ifndef PLAT_PHYS_OFFSET
 #define PLAT_PHYS_OFFSET	UL(CONFIG_PHYS_OFFSET)
-#endif
 
 #ifndef __ASSEMBLY__
 

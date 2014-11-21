@@ -188,6 +188,7 @@ static void __init socfpga_init_irq(void)
 {
 	irqchip_init();
 	socfpga_sysmgr_init();
+	socfpga_init_l2_ecc();
 }
 
 static void socfpga_cyclone5_restart(enum reboot_mode mode, const char *cmd)
@@ -208,22 +209,11 @@ static void socfpga_cyclone5_restart(enum reboot_mode mode, const char *cmd)
 
 static void __init socfpga_cyclone5_init(void)
 {
-#ifdef CONFIG_CACHE_L2X0
-	u32 aux_ctrl = 0;
-	socfpga_init_l2_ecc();
-	aux_ctrl |= (1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) |
-			(1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) |
-			(1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT);
-	l2x0_of_init(aux_ctrl, ~0UL);
-#endif
 	of_platform_populate(NULL, of_default_bus_match_table,
-		socfpga_auxdata_lookup, NULL);
-
-	socfpga_init_ocram_ecc();
-
+				socfpga_auxdata_lookup, NULL);
 	enable_periphs();
-
 	socfpga_soc_device_init();
+	socfpga_init_ocram_ecc();
 }
 
 static const char *altera_dt_match[] = {
@@ -232,6 +222,10 @@ static const char *altera_dt_match[] = {
 };
 
 DT_MACHINE_START(SOCFPGA, "Altera SOCFPGA")
+	.l2c_aux_val	= L310_AUX_CTRL_DATA_PREFETCH |
+			L310_AUX_CTRL_INSTR_PREFETCH |
+			L2C_AUX_CTRL_SHARED_OVERRIDE,
+	.l2c_aux_mask	= ~0,
 	.smp		= smp_ops(socfpga_smp_ops),
 	.map_io		= socfpga_map_io,
 	.init_irq	= socfpga_init_irq,

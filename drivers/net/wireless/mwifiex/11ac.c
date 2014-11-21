@@ -1,7 +1,7 @@
 /*
  * Marvell Wireless LAN device driver: 802.11ac
  *
- * Copyright (C) 2013, Marvell International Ltd.
+ * Copyright (C) 2013-2014, Marvell International Ltd.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -212,8 +212,7 @@ int mwifiex_cmd_append_11ac_tlv(struct mwifiex_private *priv,
 				      sizeof(struct mwifiex_ie_types_header));
 			memcpy((u8 *)vht_op +
 				sizeof(struct mwifiex_ie_types_header),
-			       (u8 *)bss_desc->bcn_vht_oper +
-			       sizeof(struct ieee_types_header),
+			       (u8 *)bss_desc->bcn_vht_oper,
 			       le16_to_cpu(vht_op->header.len));
 
 			/* negotiate the channel width and central freq

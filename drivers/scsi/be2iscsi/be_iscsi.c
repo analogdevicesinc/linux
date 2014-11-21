@@ -914,7 +914,7 @@ void beiscsi_conn_get_stats(struct iscsi_cls_conn *cls_conn,
 	stats->r2t_pdus = conn->r2t_pdus_cnt;
 	stats->digest_err = 0;
 	stats->timeout_err = 0;
-	stats->custom_length = 0;
+	stats->custom_length = 1;
 	strcpy(stats->custom[0].desc, "eh_abort_cnt");
 	stats->custom[0].value = conn->eh_abort_cnt;
 }
@@ -1106,7 +1106,7 @@ static int beiscsi_open_conn(struct iscsi_endpoint *ep,
 	struct beiscsi_hba *phba = beiscsi_ep->phba;
 	struct tcp_connect_and_offload_out *ptcpcnct_out;
 	struct be_dma_mem nonemb_cmd;
-	unsigned int tag;
+	unsigned int tag, req_memsize;
 	int ret = -ENOMEM;
 
 	beiscsi_log(phba, KERN_INFO, BEISCSI_LOG_CONFIG,
@@ -1127,8 +1127,14 @@ static int beiscsi_open_conn(struct iscsi_endpoint *ep,
 		       (beiscsi_ep->ep_cid)] = ep;
 
 	beiscsi_ep->cid_vld = 0;
+
+	if (is_chip_be2_be3r(phba))
+		req_memsize = sizeof(struct tcp_connect_and_offload_in);
+	else
+		req_memsize = sizeof(struct tcp_connect_and_offload_in_v1);
+
 	nonemb_cmd.va = pci_alloc_consistent(phba->ctrl.pdev,
-				sizeof(struct tcp_connect_and_offload_in),
+				req_memsize,
 				&nonemb_cmd.dma);
 	if (nonemb_cmd.va == NULL) {
 
@@ -1139,7 +1145,7 @@ static int beiscsi_open_conn(struct iscsi_endpoint *ep,
 		beiscsi_free_ep(beiscsi_ep);
 		return -ENOMEM;
 	}
-	nonemb_cmd.size = sizeof(struct tcp_connect_and_offload_in);
+	nonemb_cmd.size = req_memsize;
 	memset(nonemb_cmd.va, 0, nonemb_cmd.size);
 	tag = mgmt_open_connection(phba, dst_addr, beiscsi_ep, &nonemb_cmd);
 	if (tag <= 0) {
