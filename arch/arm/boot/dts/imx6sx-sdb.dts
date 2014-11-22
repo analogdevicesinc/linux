@@ -34,6 +34,7 @@
 	pinctrl-0 = <&pinctrl_qspi2>;
 	status = "okay";
 
+#ifndef SPANSIONFLASH
 	flash0: n25q256a@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -49,6 +50,7 @@
 		spi-max-frequency = <29000000>;
 		reg = <1>;
 	};
+#endif
 };
 
 &reg_arm {
