@@ -62,15 +62,32 @@ static int sigmadsp_read_i2c(void *control_data,
 	return 0;
 }
 
-void sigmadsp_init_i2c(struct sigmadsp *sigmadsp,
-	const struct sigmadsp_ops *ops, struct i2c_client *client)
+/**
+ * devm_sigmadsp_init_i2c() - Initialize SigmaDSP instance
+ * @client: The parent I2C device
+ * @ops: The sigmadsp_ops to use for this instance
+ * @firmware_name: Name of the firmware file to load
+ *
+ * Allocates a SigmaDSP instance and loads the specified firmware file.
+ *
+ * Returns a pointer to a struct sigmadsp on success, or a PTR_ERR() on error.
+ */
+struct sigmadsp *devm_sigmadsp_init_i2c(struct i2c_client *client,
+	const struct sigmadsp_ops *ops,	const char *firmware_name)
 {
+	struct sigmadsp *sigmadsp;
+
+	sigmadsp = devm_sigmadsp_init(&client->dev, ops, firmware_name);
+	if (IS_ERR(sigmadsp))
+		return sigmadsp;
+
 	sigmadsp->control_data = client;
 	sigmadsp->write = sigmadsp_write_i2c;
 	sigmadsp->read = sigmadsp_read_i2c;
-	sigmadsp_init(sigmadsp, ops);
+
+	return sigmadsp;
 }
-EXPORT_SYMBOL_GPL(sigmadsp_init_i2c);
+EXPORT_SYMBOL_GPL(devm_sigmadsp_init_i2c);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("SigmaDSP I2C firmware loader");

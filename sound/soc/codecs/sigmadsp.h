@@ -34,13 +34,17 @@ struct sigmadsp {
 
 	unsigned int current_samplerate;
 	struct snd_soc_codec *codec;
+	struct device *dev;
+
+	struct mutex lock;
 
 	void *control_data;
 	int (*write)(void *, unsigned int, const uint8_t *, size_t);
 	int (*read)(void *, unsigned int, uint8_t *, size_t);
 };
 
-void sigmadsp_init(struct sigmadsp *sigmadsp, const struct sigmadsp_ops *ops);
+struct sigmadsp *devm_sigmadsp_init(struct device *dev,
+	const struct sigmadsp_ops *ops, const char *firmware_name);
 void sigmadsp_reset(struct sigmadsp *sigmadsp);
 
 int sigmadsp_restrict_params(struct sigmadsp *sigmadsp,
@@ -48,15 +52,15 @@ int sigmadsp_restrict_params(struct sigmadsp *sigmadsp,
 
 struct i2c_client;
 
-void sigmadsp_init_regmap(struct sigmadsp *sigmadsp,
-	const struct sigmadsp_ops *ops,	struct regmap *regmap);
-void sigmadsp_init_i2c(struct sigmadsp *sigmadsp,
-	const struct sigmadsp_ops *ops,	struct i2c_client *client);
+struct sigmadsp *devm_sigmadsp_init_regmap(struct device *dev,
+	struct regmap *regmap, const struct sigmadsp_ops *ops,
+	const char *firmware_name);
+struct sigmadsp *devm_sigmadsp_init_i2c(struct i2c_client *client,
+	const struct sigmadsp_ops *ops,	const char *firmware_name);
 
-int sigmadsp_firmware_load(struct sigmadsp *sigmadsp,
-	struct snd_soc_codec *codec, const char *name);
+int sigmadsp_attach(struct sigmadsp *sigmadsp,
+	struct snd_soc_codec *codec);
 int sigmadsp_setup(struct sigmadsp *sigmadsp, unsigned int rate);
-void sigmadsp_firmware_release(struct sigmadsp *sigmadsp);
 void sigmadsp_reset(struct sigmadsp *sigmadsp);
 
 #endif

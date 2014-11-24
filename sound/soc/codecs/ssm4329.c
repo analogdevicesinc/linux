@@ -26,9 +26,9 @@
 #include <sound/soc.h>
 #include <sound/tlv.h>
 
+#include "sigmadsp.h"
 #include "ssm4329.h"
 #include "tdmc.h"
-#include "sigmadsp.h"
 
 /* ADI Vendor ID */
 #define SSM4329_REG_VENDOR_ID		0x4000
@@ -252,6 +252,7 @@ struct ssm4329_dai_cfg {
 
 struct ssm4329 {
 	struct regmap *regmap;
+	struct sigmadsp *sigmadsp;
 	unsigned int sysclk;
 
 	struct gpio_desc *pwdn_gpio;
@@ -260,8 +261,6 @@ struct ssm4329 {
 	struct ssm4329_dai_cfg dais[2];
 
 	struct snd_soc_dapm_context *dapm;
-
-	struct sigmadsp sigmadsp;
 
 #ifdef CONFIG_SND_SOC_SSM4329_TDMC_MASTER
 	struct snd_soc_dai *tdmc_dai;
@@ -938,14 +937,16 @@ static int ssm4329_hw_params(struct snd_pcm_substream *substream,
 		regmap_update_bits(ssm4329->regmap,
 			reg_base + SSM4329_REG_SPT_CTRL1, ctrl1_mask, ctrl1_val);
 
+	if (ssm4329->sigmadsp) {
+		regmap_write(ssm4329->regmap, SSM4329_REG_SDSP_CTRL3, 0);
 
-	ret = sigmadsp_setup(&ssm4329->sigmadsp, params_rate(params));
-	if (ret)
-		return ret;
+		ret = sigmadsp_setup(ssm4329->sigmadsp, params_rate(params));
+		if (ret < 0)
+			return ret;
 
-	regmap_write(ssm4329->regmap, SSM4329_REG_SDSP_CTRL2, 6);
-	regmap_write(ssm4329->regmap, SSM4329_REG_SDSP_CTRL3, 1);
-
+		regmap_write(ssm4329->regmap, SSM4329_REG_SDSP_CTRL2, 6);
+		regmap_write(ssm4329->regmap, SSM4329_REG_SDSP_CTRL3, 1);
+	}
 
 	return 0;
 }
@@ -1356,6 +1357,11 @@ static int ssm4329_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 static int ssm4329_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
+	struct ssm4329 *ssm4329 = snd_soc_dai_get_drvdata(dai);
+
+	if (ssm4329->sigmadsp)
+		return sigmadsp_restrict_params(ssm4329->sigmadsp, substream);
+
 	return 0;
 }
 
@@ -1469,7 +1475,16 @@ static int ssm4329_codec_probe(struct snd_soc_codec *codec)
 
 	ssm4329_unlock(ssm4329);
 
-	return 0;
+	if (!ssm4329->sigmadsp)
+		return 0;
+
+	ret = sigmadsp_attach(ssm4329->sigmadsp, codec);
+	if (ret) {
+		dev_err(codec->dev, "Failed to attach firmware: %d\n",
+			ret);
+	}
+
+	return ret;
 }
 
 static const struct snd_soc_dai_ops ssm4329_dai_ops = {
@@ -1570,8 +1585,6 @@ int ssm4329_probe(struct device *dev, struct regmap *regmap)
 
 	ssm4329->regmap = regmap;
 
-	sigmadsp_init_regmap(&ssm4329->sigmadsp, NULL, regmap);
-
 	/* Power-on default is stero left-justified. */
 	for (i = 0; i < ARRAY_SIZE(ssm4329->dais); i++) {
 		ssm4329->dais[i].slot_width = 0;
@@ -1592,6 +1605,15 @@ int ssm4329_probe(struct device *dev, struct regmap *regmap)
 	ret = ssm4329_tdmc_master_register(dev, ssm4329);
 	if (ret)
 		return ret;
+
+	ssm4329->sigmadsp = devm_sigmadsp_init_regmap(dev, regmap, NULL,
+		"ssm4329.bin");
+	if (IS_ERR(ssm4329->sigmadsp)) {
+		dev_warn(dev, "Could not find firmware file: %ld\n",
+			PTR_ERR(ssm4329->sigmadsp));
+		ssm4329->sigmadsp = NULL;
+	}
+
 
 	return snd_soc_register_codec(dev, &ssm4329_codec_driver,
 			ssm4329_dais, ARRAY_SIZE(ssm4329_dais));

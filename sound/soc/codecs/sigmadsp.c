@@ -1,13 +1,12 @@
 /*
  * Load Analog Devices SigmaStudio firmware files
  *
- * Copyright 2009-2013 Analog Devices Inc.
+ * Copyright 2009-2014 Analog Devices Inc.
  *
  * Licensed under the GPL-2 or later.
  */
 
 #include <linux/crc32.h>
-#include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/kernel.h>
 #include <linux/i2c.h>
@@ -16,9 +15,8 @@
 #include <linux/slab.h>
 
 #include <sound/control.h>
+#include <sound/core.h>
 #include <sound/soc.h>
-
-#include <asm/unaligned.h>
 
 #include "sigmadsp.h"
 
@@ -30,7 +28,7 @@
 
 struct sigmadsp_control {
 	struct list_head head;
-	unsigned int samplerates;
+	uint32_t samplerates;
 	unsigned int addr;
 	unsigned int num_bytes;
 	const char *name;
@@ -41,7 +39,7 @@ struct sigmadsp_control {
 
 struct sigmadsp_data {
 	struct list_head head;
-	unsigned int samplerates;
+	uint32_t samplerates;
 	unsigned int addr;
 	unsigned int length;
 	uint8_t data[];
@@ -55,7 +53,7 @@ struct sigma_fw_chunk {
 
 struct sigma_fw_chunk_data {
 	struct sigma_fw_chunk chunk;
-	__be16 addr;
+	__le16 addr;
 	uint8_t data[];
 } __packed;
 
@@ -82,9 +80,6 @@ enum {
 	SIGMA_ACTION_WRITEXBYTES = 0,
 	SIGMA_ACTION_WRITESINGLE,
 	SIGMA_ACTION_WRITESAFELOAD,
-	SIGMA_ACTION_DELAY,
-	SIGMA_ACTION_PLLWAIT,
-	SIGMA_ACTION_NOOP,
 	SIGMA_ACTION_END,
 };
 
@@ -95,18 +90,6 @@ struct sigma_action {
 	__be16 addr;
 	unsigned char payload[];
 } __packed;
-
-static int sigmadsp_rate_to_index(struct sigmadsp *sigmadsp, unsigned int rate)
-{
-	unsigned int i;
-
-	for (i = 0; i < sigmadsp->rate_constraints.count; i++) {
-		if (sigmadsp->rate_constraints.list[i] == rate)
-			return i;
-	}
-
-	return -EINVAL;
-}
 
 static int sigmadsp_write(struct sigmadsp *sigmadsp, unsigned int addr,
 	const uint8_t data[], size_t len)
@@ -120,7 +103,7 @@ static int sigmadsp_read(struct sigmadsp *sigmadsp, unsigned int addr,
 	return sigmadsp->read(sigmadsp->control_data, addr, data, len);
 }
 
-static int sigma_fw_ctrl_info(struct snd_kcontrol *kcontrol,
+static int sigmadsp_ctrl_info(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_info *info)
 {
 	struct sigmadsp_control *ctrl = (void *)kcontrol->private_value;
@@ -131,72 +114,70 @@ static int sigma_fw_ctrl_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int sigma_fw_ctrl_put(struct snd_kcontrol *kcontrol,
+static int sigmadsp_ctrl_write(struct sigmadsp *sigmadsp,
+	struct sigmadsp_control *ctrl, void *data)
+{
+	/* safeload loads up to 20 bytes in a atomic operation */
+	if (ctrl->num_bytes > 4 && ctrl->num_bytes <= 20 && sigmadsp->ops &&
+	    sigmadsp->ops->safeload)
+		return sigmadsp->ops->safeload(sigmadsp, ctrl->addr, data,
+			ctrl->num_bytes);
+	else
+		return sigmadsp_write(sigmadsp, ctrl->addr, data,
+			ctrl->num_bytes);
+}
+
+static int sigmadsp_ctrl_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct sigmadsp_control *ctrl = (void *)kcontrol->private_value;
 	struct sigmadsp *sigmadsp = snd_kcontrol_chip(kcontrol);
 	uint8_t *data;
-	int ret;
+	int ret = 0;
+
+	mutex_lock(&sigmadsp->lock);
 
 	data = ucontrol->value.bytes.data;
 
-	if (ctrl->num_bytes <= 4 || ctrl->num_bytes > 20 || !sigmadsp->ops)
-		ret = sigmadsp_write(sigmadsp, ctrl->addr, data,
-			ctrl->num_bytes);
-	else
-		ret = sigmadsp->ops->safeload(sigmadsp, ctrl->addr, data,
-			ctrl->num_bytes);
+	if (!(kcontrol->vd[0].access & SNDRV_CTL_ELEM_ACCESS_INACTIVE))
+		ret = sigmadsp_ctrl_write(sigmadsp, ctrl, data);
 
-	if (ret == 0)
-		memcpy(ctrl->cache, ucontrol->value.bytes.data, ctrl->num_bytes);
+	if (ret == 0) {
+		memcpy(ctrl->cache, data, ctrl->num_bytes);
+		ctrl->cached = true;
+	}
+
+	mutex_unlock(&sigmadsp->lock);
 
 	return ret;
 }
 
-static int sigma_fw_ctrl_get(struct snd_kcontrol *kcontrol,
+static int sigmadsp_ctrl_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct sigmadsp_control *ctrl = (void *)kcontrol->private_value;
 	struct sigmadsp *sigmadsp = snd_kcontrol_chip(kcontrol);
+	int ret = 0;
+
+	mutex_lock(&sigmadsp->lock);
 
 	if (!ctrl->cached) {
-		sigmadsp_read(sigmadsp, ctrl->addr, ctrl->cache,
+		ret = sigmadsp_read(sigmadsp, ctrl->addr, ctrl->cache,
 			ctrl->num_bytes);
-		ctrl->cached = true;
 	}
 
-	memcpy(ucontrol->value.bytes.data, ctrl->cache, ctrl->num_bytes);
+	if (ret == 0) {
+		ctrl->cached = true;
+		memcpy(ucontrol->value.bytes.data, ctrl->cache,
+			ctrl->num_bytes);
+	}
 
-	return 0;
+	mutex_unlock(&sigmadsp->lock);
+
+	return ret;
 }
 
-static int sigma_fw_load_data(struct sigmadsp *sigmadsp,
-	const struct sigma_fw_chunk *chunk, unsigned int length)
-{
-	const struct sigma_fw_chunk_data *data_chunk;
-	struct sigmadsp_data *data;
-
-	if (length <= sizeof(*data_chunk))
-	    return -EINVAL;
-
-	data_chunk = (struct sigma_fw_chunk_data *)chunk;
-	
-	length -= sizeof(*data_chunk);
-	
-	data = kzalloc(sizeof(*data) + length, GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
-
-	data->addr = le16_to_cpu(data_chunk->addr);
-	data->length = length;
-	memcpy(data->data, data_chunk->data, length);
-	list_add_tail(&data->head, &sigmadsp->data_list);
-
-	return 0;
-}
-
-static void sigma_fw_control_free(struct snd_kcontrol *kcontrol)
+static void sigmadsp_control_free(struct snd_kcontrol *kcontrol)
 {
 	struct sigmadsp_control *ctrl = (void *)kcontrol->private_value;
 
@@ -227,15 +208,15 @@ static int sigma_fw_load_control(struct sigmadsp *sigmadsp,
 	int ret;
 
 	if (length <= sizeof(*ctrl_chunk))
-	    return -EINVAL;
+		return -EINVAL;
 
 	ctrl_chunk = (const struct sigma_fw_chunk_control *)chunk;
 
 	name_len = length - sizeof(*ctrl_chunk);
-	if (name_len > 43) /* Max ALSA control name length */
-	    return -EINVAL;
+	if (name_len >= 44)
+		name_len = 43;
 
-	/* Make sure there are no %NUL bytes in the string */
+	/* Make sure there are no non-displayable characaters in the string */
 	if (!sigma_fw_validate_control_name(ctrl_chunk->name, name_len))
 		return -EINVAL;
 
@@ -252,9 +233,10 @@ static int sigma_fw_load_control(struct sigmadsp *sigmadsp,
 	memcpy(name, ctrl_chunk->name, name_len);
 	name[name_len] = '\0';
 	ctrl->name = name;
-	
+
 	ctrl->addr = le16_to_cpu(ctrl_chunk->addr);
 	ctrl->num_bytes = num_bytes;
+	ctrl->samplerates = le32_to_cpu(chunk->samplerates);
 
 	list_add_tail(&ctrl->head, &sigmadsp->ctrl_list);
 
@@ -264,6 +246,32 @@ err_free_ctrl:
 	kfree(ctrl);
 
 	return ret;
+}
+
+static int sigma_fw_load_data(struct sigmadsp *sigmadsp,
+	const struct sigma_fw_chunk *chunk, unsigned int length)
+{
+	const struct sigma_fw_chunk_data *data_chunk;
+	struct sigmadsp_data *data;
+
+	if (length <= sizeof(*data_chunk))
+		return -EINVAL;
+
+	data_chunk = (struct sigma_fw_chunk_data *)chunk;
+
+	length -= sizeof(*data_chunk);
+
+	data = kzalloc(sizeof(*data) + length, GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	data->addr = le16_to_cpu(data_chunk->addr);
+	data->length = length;
+	data->samplerates = le32_to_cpu(chunk->samplerates);
+	memcpy(data->data, data_chunk->data, length);
+	list_add_tail(&data->head, &sigmadsp->data_list);
+
+	return 0;
 }
 
 static int sigma_fw_load_samplerates(struct sigmadsp *sigmadsp,
@@ -298,8 +306,8 @@ static int sigma_fw_load_samplerates(struct sigmadsp *sigmadsp,
 	return 0;
 }
 
-static int sigmadsp_fw_load_v2(struct snd_soc_codec *codec,
-	struct sigmadsp *sigmadsp, const struct firmware *fw)
+static int sigmadsp_fw_load_v2(struct sigmadsp *sigmadsp,
+	const struct firmware *fw)
 {
 	struct sigma_fw_chunk *chunk;
 	unsigned int length, pos;
@@ -307,10 +315,10 @@ static int sigmadsp_fw_load_v2(struct snd_soc_codec *codec,
 
 	/*
 	 * Make sure that there is at least one chunk to avoid integer
-	 * underflows later on.
+	 * underflows later on. Empty firmware is still valid though.
 	 */
 	if (fw->size < sizeof(*chunk) + sizeof(struct sigma_firmware_header))
-		return -EINVAL;
+		return 0;
 
 	pos = sizeof(struct sigma_firmware_header);
 
@@ -322,7 +330,7 @@ static int sigmadsp_fw_load_v2(struct snd_soc_codec *codec,
 		if (length > fw->size - pos || length < sizeof(*chunk))
 			return -EINVAL;
 
-		switch (chunk->tag) {
+		switch (le32_to_cpu(chunk->tag)) {
 		case SIGMA_FW_CHUNK_TYPE_DATA:
 			ret = sigma_fw_load_data(sigmadsp, chunk, length);
 			break;
@@ -333,7 +341,7 @@ static int sigmadsp_fw_load_v2(struct snd_soc_codec *codec,
 			ret = sigma_fw_load_samplerates(sigmadsp, chunk, length);
 			break;
 		default:
-			dev_warn(codec->dev, "Unkown chunk type: %d\n",
+			dev_warn(sigmadsp->dev, "Unknown chunk type: %d\n",
 				chunk->tag);
 			ret = 0;
 			break;
@@ -384,7 +392,7 @@ static int process_sigma_action(struct sigmadsp *sigmadsp,
 	struct sigma_action *sa)
 {
 	size_t len = sigma_action_len(sa);
-	int ret;
+	struct sigmadsp_data *data;
 
 	pr_debug("%s: instr:%i addr:%#x len:%zu\n", __func__,
 		sa->instr, sa->addr, len);
@@ -393,14 +401,17 @@ static int process_sigma_action(struct sigmadsp *sigmadsp,
 	case SIGMA_ACTION_WRITEXBYTES:
 	case SIGMA_ACTION_WRITESINGLE:
 	case SIGMA_ACTION_WRITESAFELOAD:
-		ret = sigmadsp_write(sigmadsp, be16_to_cpu(sa->addr),
-				sa->payload, len - 2);
-		if (ret < 0)
+		if (len < 3)
 			return -EINVAL;
-		break;
-	case SIGMA_ACTION_DELAY:
-		udelay(len);
-		len = 0;
+
+		data = kzalloc(sizeof(*data) + len - 2, GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
+
+		data->addr = be16_to_cpu(sa->addr);
+		data->length = len - 2;
+		memcpy(data->data, sa->payload, data->length);
+		list_add_tail(&data->head, &sigmadsp->data_list);
 		break;
 	case SIGMA_ACTION_END:
 		return 0;
@@ -442,12 +453,10 @@ static int sigmadsp_fw_load_v1(struct sigmadsp *sigmadsp,
 	return 0;
 }
 
-void sigmadsp_firmware_release(struct sigmadsp *sigmadsp)
+static void sigmadsp_firmware_release(struct sigmadsp *sigmadsp)
 {
 	struct sigmadsp_control *ctrl, *_ctrl;
 	struct sigmadsp_data *data, *_data;
-
-	sigmadsp_reset(sigmadsp);
 
 	list_for_each_entry_safe(ctrl, _ctrl, &sigmadsp->ctrl_list, head) {
 		kfree(ctrl->name);
@@ -460,10 +469,13 @@ void sigmadsp_firmware_release(struct sigmadsp *sigmadsp)
 	INIT_LIST_HEAD(&sigmadsp->ctrl_list);
 	INIT_LIST_HEAD(&sigmadsp->data_list);
 }
-EXPORT_SYMBOL_GPL(sigmadsp_firmware_release);
 
-int sigmadsp_firmware_load(struct sigmadsp *sigmadsp,
-	struct snd_soc_codec *codec, const char *name)
+static void devm_sigmadsp_release(struct device *dev, void *res)
+{
+	sigmadsp_firmware_release((struct sigmadsp *)res);
+}
+
+static int sigmadsp_firmware_load(struct sigmadsp *sigmadsp, const char *name)
 {
 	const struct sigma_firmware_header *ssfw_head;
 	const struct firmware *fw;
@@ -471,7 +483,7 @@ int sigmadsp_firmware_load(struct sigmadsp *sigmadsp,
 	u32 crc;
 
 	/* first load the blob */
-	ret = request_firmware(&fw, name, codec->dev);
+	ret = request_firmware(&fw, name, sigmadsp->dev);
 	if (ret) {
 		pr_debug("%s: request_firmware() failed with %i\n", __func__, ret);
 		goto done;
@@ -487,13 +499,13 @@ int sigmadsp_firmware_load(struct sigmadsp *sigmadsp,
 	 * overflows later in the loading process.
 	 */
 	if (fw->size < sizeof(*ssfw_head) || fw->size >= 0x4000000) {
-		dev_err(codec->dev, "Failed to load firmware: Invalid size\n");
+		dev_err(sigmadsp->dev, "Failed to load firmware: Invalid size\n");
 		goto done;
 	}
 
 	ssfw_head = (void *)fw->data;
 	if (memcmp(ssfw_head->magic, SIGMA_MAGIC, ARRAY_SIZE(ssfw_head->magic))) {
-		dev_err(codec->dev, "Failed to load firmware: Invalid magic\n");
+		dev_err(sigmadsp->dev, "Failed to load firmware: Invalid magic\n");
 		goto done;
 	}
 
@@ -501,7 +513,7 @@ int sigmadsp_firmware_load(struct sigmadsp *sigmadsp,
 			fw->size - sizeof(*ssfw_head));
 	pr_debug("%s: crc=%x\n", __func__, crc);
 	if (crc != le32_to_cpu(ssfw_head->crc)) {
-		dev_err(codec->dev, "Failed to load firmware: Wrong crc checksum: expected %x got %x\n",
+		dev_err(sigmadsp->dev, "Failed to load firmware: Wrong crc checksum: expected %x got %x\n",
 			le32_to_cpu(ssfw_head->crc), crc);
 		goto done;
 	}
@@ -511,48 +523,114 @@ int sigmadsp_firmware_load(struct sigmadsp *sigmadsp,
 		ret = sigmadsp_fw_load_v1(sigmadsp, fw);
 		break;
 	case 2:
-		ret = sigmadsp_fw_load_v2(codec, sigmadsp, fw);
+		ret = sigmadsp_fw_load_v2(sigmadsp, fw);
 		break;
 	default:
-		dev_err(codec->dev, "Unknown firmware version: %d\n",
+		dev_err(sigmadsp->dev,
+			"Failed to load firmware: Invalid version %d. Supported firmware versions: 1, 2\n",
 			ssfw_head->version);
 		ret = -EINVAL;
 		break;
 	}
 
-	sigmadsp->codec = codec;
+	if (ret)
+		sigmadsp_firmware_release(sigmadsp);
 
 done:
 	release_firmware(fw);
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(sigmadsp_firmware_load);
 
-void sigmadsp_init(struct sigmadsp *sigmadsp, const struct sigmadsp_ops *ops)
+static int sigmadsp_init(struct sigmadsp *sigmadsp, struct device *dev,
+	const struct sigmadsp_ops *ops, const char *firmware_name)
 {
 	sigmadsp->ops = ops;
+	sigmadsp->dev = dev;
 
 	INIT_LIST_HEAD(&sigmadsp->ctrl_list);
 	INIT_LIST_HEAD(&sigmadsp->data_list);
+	mutex_init(&sigmadsp->lock);
+
+	return sigmadsp_firmware_load(sigmadsp, firmware_name);
 }
-EXPORT_SYMBOL_GPL(sigmadsp_init);
 
-void sigmadsp_reset(struct sigmadsp *sigmadsp)
+/**
+ * devm_sigmadsp_init() - Initialize SigmaDSP instance
+ * @dev: The parent device
+ * @ops: The sigmadsp_ops to use for this instance
+ * @firmware_name: Name of the firmware file to load
+ *
+ * Allocates a SigmaDSP instance and loads the specified firmware file.
+ *
+ * Returns a pointer to a struct sigmadsp on success, or a PTR_ERR() on error.
+ */
+struct sigmadsp *devm_sigmadsp_init(struct device *dev,
+	const struct sigmadsp_ops *ops, const char *firmware_name)
 {
-	struct sigmadsp_control *ctrl;
+	struct sigmadsp *sigmadsp;
+	int ret;
 
-	list_for_each_entry(ctrl, &sigmadsp->ctrl_list, head) {
-		if (ctrl->kcontrol)
-			snd_ctl_remove(sigmadsp->codec->card->snd_card, ctrl->kcontrol);
+	sigmadsp = devres_alloc(devm_sigmadsp_release, sizeof(*sigmadsp),
+		GFP_KERNEL);
+	if (!sigmadsp)
+		return ERR_PTR(-ENOMEM);
+
+	ret = sigmadsp_init(sigmadsp, dev, ops, firmware_name);
+	if (ret) {
+		devres_free(sigmadsp);
+		return ERR_PTR(ret);
 	}
 
-	sigmadsp->current_samplerate = 0;
+	devres_add(dev, sigmadsp);
+
+	return sigmadsp;
 }
-EXPORT_SYMBOL_GPL(sigmadsp_reset);
+EXPORT_SYMBOL_GPL(devm_sigmadsp_init);
+
+static int sigmadsp_rate_to_index(struct sigmadsp *sigmadsp, unsigned int rate)
+{
+	unsigned int i;
+
+	for (i = 0; i < sigmadsp->rate_constraints.count; i++) {
+		if (sigmadsp->rate_constraints.list[i] == rate)
+			return i;
+	}
+
+	return -EINVAL;
+}
+
+static unsigned int sigmadsp_get_samplerate_mask(struct sigmadsp *sigmadsp,
+	unsigned int samplerate)
+{
+	int samplerate_index;
+
+	if (samplerate == 0)
+		return 0;
+
+	if (sigmadsp->rate_constraints.count) {
+		samplerate_index = sigmadsp_rate_to_index(sigmadsp, samplerate);
+		if (samplerate_index < 0)
+			return 0;
+
+		return BIT(samplerate_index);
+	} else {
+		return ~0;
+	}
+}
+
+static bool sigmadsp_samplerate_valid(unsigned int supported,
+	unsigned int requested)
+{
+	/* All samplerates are supported */
+	if (!supported)
+		return true;
+
+	return supported & requested;
+}
 
 static int sigmadsp_alloc_control(struct sigmadsp *sigmadsp,
-	struct sigmadsp_control *ctrl)
+	struct sigmadsp_control *ctrl, unsigned int samplerate_mask)
 {
 	struct snd_kcontrol_new template;
 	struct snd_kcontrol *kcontrol;
@@ -561,47 +639,124 @@ static int sigmadsp_alloc_control(struct sigmadsp *sigmadsp,
 	memset(&template, 0, sizeof(template));
 	template.iface = SNDRV_CTL_ELEM_IFACE_MIXER;
 	template.name = ctrl->name;
-	template.info = sigma_fw_ctrl_info;
-	template.get = sigma_fw_ctrl_get;
-	template.put = sigma_fw_ctrl_put;
+	template.info = sigmadsp_ctrl_info;
+	template.get = sigmadsp_ctrl_get;
+	template.put = sigmadsp_ctrl_put;
 	template.private_value = (unsigned long)ctrl;
+	template.access = SNDRV_CTL_ELEM_ACCESS_READWRITE;
+	if (!sigmadsp_samplerate_valid(ctrl->samplerates, samplerate_mask))
+		template.access |= SNDRV_CTL_ELEM_ACCESS_INACTIVE;
 
 	kcontrol = snd_ctl_new1(&template, sigmadsp);
 	if (!kcontrol)
 		return -ENOMEM;
 
-	kcontrol->private_free = sigma_fw_control_free;
+	kcontrol->private_free = sigmadsp_control_free;
+	ctrl->kcontrol = kcontrol;
 
 	ret = snd_ctl_add(sigmadsp->codec->card->snd_card, kcontrol);
 	if (ret)
-	    return ret;
-
-	ctrl->kcontrol = kcontrol;
+		return ret;
 
 	return 0;
 }
 
+static void sigmadsp_activate_ctrl(struct sigmadsp *sigmadsp,
+	struct sigmadsp_control *ctrl, unsigned int samplerate_mask)
+{
+	struct snd_card *card = sigmadsp->codec->card->snd_card;
+	struct snd_kcontrol_volatile *vd;
+	struct snd_ctl_elem_id id;
+	bool active, changed;
+
+	active = sigmadsp_samplerate_valid(ctrl->samplerates, samplerate_mask);
+
+	down_write(&card->controls_rwsem);
+	if (!ctrl->kcontrol) {
+		up_write(&card->controls_rwsem);
+		return;
+	}
+
+	id = ctrl->kcontrol->id;
+	vd = &ctrl->kcontrol->vd[0];
+	if (active == (bool)(vd->access & SNDRV_CTL_ELEM_ACCESS_INACTIVE)) {
+		vd->access ^= SNDRV_CTL_ELEM_ACCESS_INACTIVE;
+		changed = true;
+	}
+	up_write(&card->controls_rwsem);
+
+	if (active && changed) {
+		mutex_lock(&sigmadsp->lock);
+		if (ctrl->cached)
+			sigmadsp_ctrl_write(sigmadsp, ctrl, ctrl->cache);
+		mutex_unlock(&sigmadsp->lock);
+	}
+
+	if (changed)
+		snd_ctl_notify(card, SNDRV_CTL_EVENT_MASK_INFO, &id);
+}
+
+/**
+ * sigmadsp_attach() - Attach a sigmadsp instance to a ASoC codec 
+ * @sigmadsp: The sigmadsp instance to attach
+ * @codec: The CODEC to attach to
+ *
+ * Typically called in the CODECs' probe callback.
+ *
+ * Note, once this function has been called the firmware must not be released
+ * until after the ALSA snd_card that the codec belongs to has been
+ * disconnected, even if sigmadsp_attach() returns an error.
+ */
+int sigmadsp_attach(struct sigmadsp *sigmadsp,
+	struct snd_soc_codec *codec)
+{
+	struct sigmadsp_control *ctrl;
+	unsigned int samplerate_mask;
+	int ret;
+
+	sigmadsp->codec = codec;
+
+	samplerate_mask = sigmadsp_get_samplerate_mask(sigmadsp,
+		sigmadsp->current_samplerate);
+
+	list_for_each_entry(ctrl, &sigmadsp->ctrl_list, head) {
+		ret = sigmadsp_alloc_control(sigmadsp, ctrl, samplerate_mask);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sigmadsp_attach);
+
+/**
+ * sigmadsp_setup() - Setup the DSP for the specified samplerate
+ * @sigmadsp: The sigmadsp instance to configure
+ * @samplerate: The samplerate the DSP should be configured for
+ *
+ * Loads the appropriate firmware program and parameter memory (if not already
+ * loaded) and enables the controls for the specified samplerate. Any control
+ * parameter changes that have been made previously will be restored.
+ *
+ * Returns 0 on success, a negative error code otherwise.
+ */
 int sigmadsp_setup(struct sigmadsp *sigmadsp, unsigned int samplerate)
 {
 	struct sigmadsp_control *ctrl;
+	unsigned int samplerate_mask;
 	struct sigmadsp_data *data;
-	unsigned int samplerate_bit;
-	int samplerate_index;
 	int ret;
 
 	if (sigmadsp->current_samplerate == samplerate)
 		return 0;
 
-	sigmadsp_reset(sigmadsp);
-
-	samplerate_index = sigmadsp_rate_to_index(sigmadsp, samplerate);
-	if (samplerate_index < 0)
-		return samplerate_index;
-	
-	samplerate_bit = BIT(samplerate_index);
+	samplerate_mask = sigmadsp_get_samplerate_mask(sigmadsp, samplerate);
+	if (samplerate_mask == 0)
+		return -EINVAL;
 
 	list_for_each_entry(data, &sigmadsp->data_list, head) {
-		if (data->samplerates && !(data->samplerates & samplerate_bit))
+		if (!sigmadsp_samplerate_valid(data->samplerates,
+		    samplerate_mask))
 			continue;
 		ret = sigmadsp_write(sigmadsp, data->addr, data->data,
 			data->length);
@@ -609,18 +764,12 @@ int sigmadsp_setup(struct sigmadsp *sigmadsp, unsigned int samplerate)
 			goto err;
 	}
 
-	list_for_each_entry(ctrl, &sigmadsp->ctrl_list, head) {
-		if (ctrl->samplerates && !(ctrl->samplerates & samplerate_bit))
-			continue;
-		ret = sigmadsp_alloc_control(sigmadsp, ctrl);
-		if (ret)
-			goto err;
-	}
+	list_for_each_entry(ctrl, &sigmadsp->ctrl_list, head)
+		sigmadsp_activate_ctrl(sigmadsp, ctrl, samplerate_mask);
 
 	sigmadsp->current_samplerate = samplerate;
 
 	return 0;
-
 err:
 	sigmadsp_reset(sigmadsp);
 
@@ -628,6 +777,34 @@ err:
 }
 EXPORT_SYMBOL_GPL(sigmadsp_setup);
 
+/**
+ * sigmadsp_reset() - Notify the sigmadsp instance that the DSP has been reset
+ * @sigmadsp: The sigmadsp instance to reset
+ *
+ * Should be called whenever the DSP has been reset and parameter and program
+ * memory need to be re-loaded.
+ */
+void sigmadsp_reset(struct sigmadsp *sigmadsp)
+{
+	struct sigmadsp_control *ctrl;
+
+	list_for_each_entry(ctrl, &sigmadsp->ctrl_list, head)
+		sigmadsp_activate_ctrl(sigmadsp, ctrl, false);
+
+	sigmadsp->current_samplerate = 0;
+}
+EXPORT_SYMBOL_GPL(sigmadsp_reset);
+
+/**
+ * sigmadsp_restrict_params() - Applies DSP firmware specific constraints
+ * @sigmadsp: The sigmadsp instance
+ * @substream: The substream to restrict
+ *
+ * Applies samplerate constraints that may be required by the firmware Should
+ * typically be called from the CODEC/component drivers startup callback.
+ *
+ * Returns 0 on success, a negative error code otherwise.
+ */
 int sigmadsp_restrict_params(struct sigmadsp *sigmadsp,
 	struct snd_pcm_substream *substream)
 {
