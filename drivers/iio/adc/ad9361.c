@@ -4182,11 +4182,18 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 				clk_get_rate(phy->clks[TX_SAMPL_CLK]),
 				phy->rate_governor, rx, tx);
 		if (ret < 0) {
+			u32 min = DIV_ROUND_UP(MIN_ADC_CLK,
+					phy->rate_governor ? 8 : 12);
 			dev_err(dev,
-				"%s: Calculating filter rates failed %d",
-				__func__, ret);
+				"%s: Calculating filter rates failed %d "
+				"using min frequency",__func__, ret);
+			if (clk_get_rate(phy->clks[TX_SAMPL_CLK]) <= min)
+				ret = ad9361_calculate_rf_clock_chain(phy, min,
+					phy->rate_governor, rx, tx);
+			if (ret < 0) {
+				return ret;
+			}
 
-			return ret;
 		}
 		valid = false;
 	} else {
