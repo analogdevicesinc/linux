@@ -1228,10 +1228,10 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 
 	of_property_read_u32(np, "adi,pll2-r2-div", &tmp);
 	pdata->pll2_r2_div = tmp;
-	tmp = 0;
+	tmp = 3;
 	of_property_read_u32(np, "adi,pll2-vco-diff-m1", &tmp);
 	pdata->pll2_vco_diff_m1 = tmp;
-	tmp = 0;
+	tmp = 3;
 	of_property_read_u32(np, "adi,pll2-vco-diff-m2", &tmp);
 	pdata->pll2_vco_diff_m2 = tmp;
 
