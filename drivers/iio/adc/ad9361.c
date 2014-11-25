@@ -5784,7 +5784,7 @@ static IIO_DEVICE_ATTR(tx_path_rates, S_IRUGO,
 			NULL,
 			AD9361_TX_PATH_FREQ);
 
-static IIO_DEVICE_ATTR(trx_rate_governor, S_IRUGO,
+static IIO_DEVICE_ATTR(trx_rate_governor, S_IRUGO | S_IWUSR,
 			ad9361_phy_show,
 			ad9361_phy_store,
 			AD9361_TRX_RATE_GOV);
