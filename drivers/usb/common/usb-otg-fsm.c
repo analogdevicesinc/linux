@@ -157,6 +157,13 @@ static void otg_hnp_polling_work(struct work_struct *work)
 		return;
 	}
 
+	if (udev->state != USB_STATE_CONFIGURED) {
+		dev_dbg(&udev->dev, "the B dev is not resumed!\n");
+		schedule_delayed_work(&fsm->hnp_polling_work,
+				      msecs_to_jiffies(T_HOST_REQ_POLL));
+		return;
+	}
+
 	/*
 	 * Legacy otg test device does not support HNP polling,
 	 * start HNP directly for legacy otg test device.
