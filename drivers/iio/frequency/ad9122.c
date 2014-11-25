@@ -445,7 +445,7 @@ static int ad9122_set_data_clk(struct cf_axi_converter *conv, unsigned long freq
 		return -EINVAL;
 	}
 
-	r_ref_freq = clk_get_rate(conv->clk[CLK_REF]);
+	r_ref_freq = clk_round_rate(conv->clk[CLK_REF], dat_freq / 8);
 	dev_dbg(&conv->spi->dev, "CLK REF rate: %li\n", r_ref_freq);
 
 	if (r_ref_freq != (dat_freq / 8)) {
