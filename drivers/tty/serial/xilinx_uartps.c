@@ -924,7 +924,7 @@ static unsigned int cdns_uart_get_mctrl(struct uart_port *port)
 
 static void cdns_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
-	unsigned int val;
+	u32 val;
 
 	val = cdns_uart_readl(CDNS_UART_MODEMCR_OFFSET);
 

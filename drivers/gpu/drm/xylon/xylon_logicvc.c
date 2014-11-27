@@ -115,8 +115,8 @@
 #define LOGICVC_CTRL_HSYNC_INVERT		(1 << 1)
 #define LOGICVC_CTRL_VSYNC			(1 << 2)
 #define LOGICVC_CTRL_VSYNC_INVERT		(1 << 3)
-#define LOGICVC_CTRL_DATA_BLANK_SIGNAL		(1 << 4)
-#define LOGICVC_CTRL_DATA_BLANK_SIGNAL_INVERT	(1 << 5)
+#define LOGICVC_CTRL_DATA_ENABLE		(1 << 4)
+#define LOGICVC_CTRL_DATA_ENABLE_INVERT		(1 << 5)
 #define LOGICVC_CTRL_PIXEL_DATA_INVERT		(1 << 7)
 #define LOGICVC_CTRL_PIXEL_DATA_TRIGGER_INVERT	(1 << 8)
 #define LOGICVC_CTRL_DISABLE_LAYER_UPDATE	(1 << 9)
@@ -125,7 +125,6 @@
 #define LOGICVC_LAYER_CTRL_ENABLE			(1 << 0)
 #define LOGICVC_LAYER_CTRL_COLOR_TRANSPARENCY_BIT	(1 << 1)
 #define LOGICVC_LAYER_CTRL_INTERLACE_BIT		(1 << 3)
-#define LOGICVC_LAYER_CTRL_PIXEL_FORMAT_BIT_ABGR	(1 << 4)
 
 /* logiCVC control registers initial values */
 #define LOGICVC_DTYPE_REG_INIT 0
@@ -220,7 +219,6 @@ struct xylon_cvc_layer_data {
 	void __iomem *clut_base;
 	dma_addr_t vmem_pbase;
 	struct xylon_cvc *cvc;
-	unsigned char ctrl_flags;
 };
 
 struct xylon_cvc {
@@ -421,9 +419,12 @@ void xylon_cvc_layer_enable(struct xylon_cvc *cvc, int id)
 {
 	struct xylon_cvc_layer_data *layer_data = cvc->layer_data[id];
 	struct xylon_cvc_register_access *reg_access = &cvc->reg_access;
+	u32 regval = reg_access->xylon_cvc_get_reg_val(layer_data->base,
+						       LOGICVC_LAYER_CTRL_ROFF,
+						       layer_data);
 
-	layer_data->ctrl_flags |= LOGICVC_LAYER_CTRL_ENABLE;
-	reg_access->xylon_cvc_set_reg_val(layer_data->ctrl_flags,
+	regval |= LOGICVC_LAYER_CTRL_ENABLE;
+	reg_access->xylon_cvc_set_reg_val(regval,
 					  layer_data->base,
 					  LOGICVC_LAYER_CTRL_ROFF,
 					  layer_data);
@@ -433,9 +434,12 @@ void xylon_cvc_layer_disable(struct xylon_cvc *cvc, int id)
 {
 	struct xylon_cvc_layer_data *layer_data = cvc->layer_data[id];
 	struct xylon_cvc_register_access *reg_access = &cvc->reg_access;
+	u32 regval = reg_access->xylon_cvc_get_reg_val(layer_data->base,
+						       LOGICVC_LAYER_CTRL_ROFF,
+						       layer_data);
 
-	layer_data->ctrl_flags &= (~LOGICVC_LAYER_CTRL_ENABLE);
-	reg_access->xylon_cvc_set_reg_val(layer_data->ctrl_flags,
+	regval &= (~LOGICVC_LAYER_CTRL_ENABLE);
+	reg_access->xylon_cvc_set_reg_val(regval,
 					  layer_data->base,
 					  LOGICVC_LAYER_CTRL_ROFF,
 					  layer_data);
@@ -473,12 +477,6 @@ void xylon_cvc_layer_ctrl(struct xylon_cvc *cvc, int id,
 		break;
 	case LOGICVC_LAYER_INTERLACE_ENABLE:
 		regval &= ~LOGICVC_LAYER_CTRL_INTERLACE_BIT;
-		break;
-	case LOGICVC_LAYER_PIXEL_FORMAT_ABGR_DISABLE:
-		regval &= ~LOGICVC_LAYER_CTRL_PIXEL_FORMAT_BIT_ABGR;
-		break;
-	case LOGICVC_LAYER_PIXEL_FORMAT_ABGR_ENABLE:
-		regval |= LOGICVC_LAYER_CTRL_PIXEL_FORMAT_BIT_ABGR;
 		break;
 	default:
 		return;
@@ -704,8 +702,7 @@ void xylon_cvc_disable(struct xylon_cvc *cvc)
 			xylon_cvc_layer_disable(cvc, i);
 }
 
-static int xylon_parse_hw_info(struct device *dev,
-			       struct device_node *dn, struct xylon_cvc *cvc)
+static int xylon_parse_hw_info(struct device_node *dn, struct xylon_cvc *cvc)
 {
 	int ret;
 	const char *string;
@@ -834,7 +831,7 @@ static int xylonfb_parse_layer_info(struct device *dev,
 static void xylon_cvc_init_ctrl(struct device_node *dn, u32 *ctrl)
 {
 	u32 ctrl_reg = (LOGICVC_CTRL_HSYNC | LOGICVC_CTRL_VSYNC |
-			LOGICVC_CTRL_DATA_BLANK_SIGNAL);
+			LOGICVC_CTRL_DATA_ENABLE);
 
 	if (of_property_read_bool(dn, "is-hsync-active-low"))
 		ctrl_reg |= LOGICVC_CTRL_HSYNC_INVERT;
@@ -977,7 +974,7 @@ struct xylon_cvc *xylon_cvc_probe(struct device *dev, struct device_node *dn)
 		 LOGICVC_MINOR_REVISION_MASK),
 		 ((ip_ver & LOGICVC_PATCH_LEVEL_MASK) + 'a'));
 
-	ret = xylon_parse_hw_info(dev, dn, cvc);
+	ret = xylon_parse_hw_info(dn, cvc);
 	if (ret)
 		return ERR_PTR(ret);
 
