@@ -164,17 +164,14 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 	return ret;
 }
 
-static int ad5592r_reset(struct ad5592r_state *st)
+static void ad5592r_reset(struct ad5592r_state *st)
 {
 	struct iio_dev *iio_dev = iio_priv_to_dev(st);
-	int ret;
 
 	mutex_lock(&iio_dev->mlock);
-	ret = st->ops->reg_write(st, AD5592R_REG_RESET, 0x5ac);
-	if (!ret)
-		udelay(250);
+	st->ops->reg_write(st, AD5592R_REG_RESET, 0xdac);
+	udelay(250);
 	mutex_unlock(&iio_dev->mlock);
-	return ret;
 }
 
 static const struct ad5592r_chip_info ad5592r_chip_info_tbl[] = {
@@ -274,9 +271,7 @@ int ad5592r_probe(struct device *dev, enum ad5592r_type type,
 	iio_dev->info = &ad5592r_info;
 	iio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = ad5592r_reset(st);
-	if (ret)
-		return ret;
+	ad5592r_reset(st);
 
 	ret = ad5592r_alloc_channels(st);
 	if (ret)
