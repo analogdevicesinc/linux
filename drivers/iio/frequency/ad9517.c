@@ -234,9 +234,10 @@ static int ad9517_parse_firmware(struct ad9517_state *st,
 	char *line;
 	int ret;
 	unsigned addr, val1, val2;
+	char *start_addr = data;
 
 	while ((line = strsep(&data, "\n"))) {
-		if (line >= data + size)
+		if (line >= start_addr + size)
 			break;
 
 		ret = sscanf(line, "\"%x\",\"%x\",\"%x\"", &addr, &val1, &val2);
