@@ -529,6 +529,7 @@ config SOC_IMX6SX
 	select SOC_IMX6
 	select HAVE_IMX_RPMSG
 	select RPMSG
+	select IMX_SEMA4
 
 	help
 	  This enables support for Freescale i.MX6 SoloX processor.

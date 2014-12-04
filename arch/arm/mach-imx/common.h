@@ -12,11 +12,13 @@
 #define __ASM_ARCH_MXC_COMMON_H__
 
 #include <linux/reboot.h>
+#include <soc/imx/src.h>
 
 struct irq_data;
 struct platform_device;
 struct pt_regs;
 struct clk;
+struct clk_hw;
 struct device_node;
 enum mxc_cpu_pwr_mode;
 struct of_device_id;
@@ -62,6 +64,15 @@ void imx_gpc_set_arm_power_up_timing(u32 sw2iso, u32 sw);
 void imx_gpc_set_arm_power_down_timing(u32 sw2iso, u32 sw);
 void imx25_pm_init(void);
 void imx27_pm_init(void);
+unsigned int imx_gpc_is_mf_mix_off(void);
+void imx6sx_set_m4_highfreq(bool high_freq);
+void imx_mu_enable_m4_irqs_in_gic(bool enable);
+void imx_gpc_add_m4_wake_up_irq(u32 irq, bool enable);
+void imx_gpc_hold_m4_in_sleep(void);
+void imx_gpc_release_m4_in_sleep(void);
+void mcc_receive_from_mu_buffer(unsigned int index, unsigned int *data);
+void mcc_send_via_mu_buffer(unsigned int index, unsigned int data);
+unsigned int imx_gpc_is_m4_sleeping(void);
 
 enum mxc_cpu_pwr_mode {
 	WAIT_CLOCKED,		/* wfi only */
