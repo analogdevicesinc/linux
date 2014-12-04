@@ -2777,6 +2777,7 @@
 #define MAX_LPF_GAIN			24
 #define MAX_DIG_GAIN			31
 
+#define MAX_BBPLL_FREF			70000000UL /* 70 MHz */
 #define MIN_BBPLL_FREQ			715000000UL /* 715 MHz */
 #define MAX_BBPLL_FREQ			1430000000UL /* 1430 MHz */
 #define MAX_BBPLL_DIV			64
@@ -2791,6 +2792,8 @@
 #define RFPLL_MODULUS			8388593UL
 #define BBPLL_MODULUS			2088960UL
 
+#define MAX_SYNTH_FREF			80000000UL /* 80 MHz */
+#define MIN_SYNTH_FREF			10000000UL /* 10 MHz */
 #define MIN_VCO_FREQ_HZ			6000000000ULL
 #define MAX_CARRIER_FREQ_HZ		6000000000ULL
 #define MIN_CARRIER_FREQ_HZ		47000000ULL
@@ -3084,6 +3087,7 @@ struct ad9361_phy_platform_data {
 	u32			rf_tx_output_sel;
 	unsigned long		rx_path_clks[NUM_RX_CLOCKS];
 	unsigned long		tx_path_clks[NUM_TX_CLOCKS];
+	u32			trx_synth_max_fref;
 	u64			rx_synth_freq;
 	u64			tx_synth_freq;
 	u32			rf_rx_bandwidth_Hz;
