@@ -87,7 +87,7 @@
 
 		clocks = <&axi_jesd_gt 0>;
 		clock-names = "adc_gt_clk";
-		clock-output-names = "jesd_clk";
+		clock-output-names = "jesd_adc_clk";
 
 		xlnx,gt-line-rate = "8.0";
 		xlnx,gt-refclk-freq = "200.0";
@@ -147,5 +147,5 @@
 };
 
 #define fmc_spi spi0
- 
+
 #include "adi-fmcjesdadc1.dtsi"

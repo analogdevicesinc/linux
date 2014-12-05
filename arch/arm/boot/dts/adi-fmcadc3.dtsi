@@ -107,7 +107,7 @@
 		spi-cpol;
 		spi-cpha;
 		clocks = <&axi_ad9234_jesd>, <&clk0_ad9528 8>, <&clk0_ad9528 9>;
-		clock-names = "jesd_clk", "adc_clk", "adc_sysref";
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
 
 	adc1_ad9234: ad9234@2 {
@@ -119,6 +119,6 @@
 		spi-cpol;
 		spi-cpha;
 		clocks = <&axi_ad9234_jesd>, <&clk0_ad9528 3>, <&clk0_ad9528 2>;
-		clock-names = "jesd_clk", "adc_clk", "adc_sysref";
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
 };
