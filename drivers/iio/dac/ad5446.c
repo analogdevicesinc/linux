@@ -480,7 +480,8 @@ static int ad5446_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
 
-	return ad5446_probe(&spi->dev, id->name,
+	return ad5446_probe(&spi->dev, spi->dev.of_node ?
+		spi->dev.of_node->name : id->name,
 		&ad5446_spi_chip_info[id->driver_data]);
 }
 
