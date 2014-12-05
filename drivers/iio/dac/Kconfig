@@ -163,16 +163,6 @@ config AD5791
 	  module will be called ad5791.
 
 config AD7303
-	tristate "Analog Devices AD7303 DAC driver"
-	depends on SPI
-	help
-	  Say yes here to build support for Analog Devices AD7303 Digital to Analog
-	  Converters (DAC).
-
-	  To compile this driver as module choose M here: the module will be called
-	  ad7303.
-
-config AD7303
 	tristate "Analog Devices Analog Devices AD7303 DAC driver"
 	depends on SPI
 	select IIO_BUFFER
