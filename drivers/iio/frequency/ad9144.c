@@ -31,7 +31,7 @@ struct ad9144_platform_data {
 	u8 xbar_lane3_sel;
 };
 
-static const char *clk_names[3] = { "jesd_clk", "dac_clk", "dac_sysref" };
+static const char *clk_names[3] = { "jesd_dac_clk", "dac_clk", "dac_sysref" };
 
 static int ad9144_read(struct spi_device *spi, unsigned reg)
 {
