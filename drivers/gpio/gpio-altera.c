@@ -347,7 +347,7 @@ teardown:
 	irq_domain_remove(altera_gc->domain);
 dispose_irq:
 	irq_dispose_mapping(altera_gc->mapped_irq);
-	WARN_ON(gpiochip_remove(&altera_gc->mmchip.gc) < 0);
+	gpiochip_remove(&altera_gc->mmchip.gc);
 
 	pr_err("%s: registration failed with status %d\n",
 		node->full_name, ret);
@@ -360,13 +360,9 @@ skip_irq:
 static int altera_gpio_remove(struct platform_device *pdev)
 {
 	unsigned int irq, i;
-	int status;
 	struct altera_gpio_chip *altera_gc = platform_get_drvdata(pdev);
 
-	status = gpiochip_remove(&altera_gc->mmchip.gc);
-
-	if (status < 0)
-		return status;
+	gpiochip_remove(&altera_gc->mmchip.gc);
 
 	if (altera_gc->domain) {
 		irq_dispose_mapping(altera_gc->mapped_irq);
