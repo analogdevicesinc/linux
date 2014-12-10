@@ -325,7 +325,7 @@
 				xlnx,genlock-mode ;
 			} ;
 		} ;
-		fmc_i2c: axi-iic@41600000 {
+		axi_iic_main: axi-iic@41600000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "xlnx,xps-iic-2.00.a";
