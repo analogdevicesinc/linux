@@ -803,13 +803,12 @@
 		};
 
 		spi0: spi@fff00000 {
-			compatible = "snps,dw-spi-mmio";
+			compatible = "snps,dw-apb-ssi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0xfff00000 0x1000>;
 			interrupts = <0 154 4>;
-			num-chipselect = <4>;
-			bus-num = <0>;
+			num-cs = <4>;
 			tx-dma-channel = <&pdma 16>;
 			rx-dma-channel = <&pdma 17>;
 			clocks = <&per_base_clk>;
@@ -824,7 +823,7 @@
 		};
 
 		spi1: spi@fff01000 {
-			compatible = "snps,dw-spi-mmio";
+			compatible = "ssnps,dw-apb-ssi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0xfff01000 0x1000>;
