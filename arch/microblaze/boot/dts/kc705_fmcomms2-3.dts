@@ -332,7 +332,26 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <9 2>;
 			reg = <0x41600000 0x10000>;
+			mux@74 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "pca9548";
+				reg = <0x74>;
 
+				mux1: i2c@1 { /* HPC */
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <1>;
+
+				};
+
+				fmc_i2c: i2c@2 { /* LPC */
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <2>;
+
+				};
+			};
 		} ;
 		axi_intc: axi-intc@41200000 {
 			#interrupt-cells = <2>;

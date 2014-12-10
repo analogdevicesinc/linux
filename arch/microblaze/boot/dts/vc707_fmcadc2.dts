@@ -411,14 +411,34 @@
 			interrupts = <9 2>;
 			reg = <0x41600000 0x10000>;
 
-			eeprom@50 {
-				compatible = "at24,24c02";
-				reg = <0x50>;
-			};
+			mux@74 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "pca9548";
+				reg = <0x74>;
 
-			eeprom@54 {
-				compatible = "at24,24c02";
-				reg = <0x54>;
+				fmc_i2c: i2c@1 { /* HPC */
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <1>;
+					eeprom@50 {
+						compatible = "at24,24c02";
+						reg = <0x50>;
+					};
+
+					eeprom@54 {
+						compatible = "at24,24c02";
+						reg = <0x54>;
+					};
+				};
+
+				mux2: i2c@2 { /* LPC */
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <2>;
+
+
+				};
 			};
 
 		} ;
