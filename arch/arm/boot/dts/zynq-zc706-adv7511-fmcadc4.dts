@@ -116,7 +116,7 @@
 
 #define fmc_spi spi0
 
-#include "adi-fmcadc3.dtsi"
+#include "adi-fmcadc4.dtsi"
 
 &clk0_ad9528 {
 	reset-gpios = <&gpio 86 0>;
