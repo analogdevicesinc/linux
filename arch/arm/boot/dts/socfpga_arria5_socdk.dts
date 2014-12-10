@@ -44,6 +44,29 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		hps0 {
+			label = "hps_led0";
+			gpios = <&porta 0 1>;
+		};
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&portb 11 1>;
+		};
+
+		hps2 {
+			label = "hps_led2";
+			gpios = <&porta 17 1>;
+		};
+
+		hps3 {
+			label = "hps_led3";
+			gpios = <&porta 18 1>;
+		};
+	};
 };
 
 &gmac1 {
@@ -58,6 +81,7 @@
 	txc-skew-ps = <2600>;
 	rxdv-skew-ps = <0>;
 	rxc-skew-ps = <2000>;
+	max-frame-size = <3800>;
 };
 
 &gpio0 {
@@ -110,6 +134,33 @@
 
 &qspi {
 	status = "okay";
+	flash0: n25q512a@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "n25q512a";
+		reg = <0>;      /* chip select */
+		spi-max-frequency = <100000000>;
+		m25p,fast-read;
+		page-size = <256>;
+		block-size = <16>; /* 2^16, 64KB */
+		read-delay = <4>;  /* delay value in read data capture register */
+		tshsl-ns = <50>;
+		tsd2d-ns = <50>;
+		tchsh-ns = <4>;
+		tslch-ns = <4>;
+
+		partition@qspi-boot {
+			/* 8MB for raw data. */
+			label = "Flash 0 Raw Data";
+			reg = <0x0 0x800000>;
+		};
+
+		partition@qspi-rootfs {
+			/* 56MB for jffs2 data. */
+			label = "Flash 0 jffs2 Filesystem";
+			reg = <0x800000 0x3800000>;
+		};
+	};
 };
 
 &uart0 {
