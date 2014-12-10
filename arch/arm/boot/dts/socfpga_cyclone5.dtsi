@@ -37,12 +37,14 @@
 			cap-sd-highspeed;
 		};
 
-		sysmgr@ffd08000 {
-			cpu1-start-addr = <0xffd080c4>;
+		ethernet@ff702000 {
+			phy-mode = "rgmii";
+			phy-addr = <0xffffffff>; /* probe for phy addr */
+			status = "okay";
 		};
 
-		qspi: spi@ff705000 {
-			status = "okay";
+		sysmgr@ffd08000 {
+			cpu1-start-addr = <0xffd080c4>;
 		};
 	};
 };
