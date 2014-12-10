@@ -4647,7 +4647,7 @@ static unsigned long ad9361_bbpll_recalc_rate(struct clk_hw *hw,
 static long ad9361_bbpll_round_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long *prate)
 {
-	u64 tmp;
+	u64 tmp, rate64 = rate;
 	u32 fract, integer;
 
 	if (rate > MAX_BBPLL_FREQ)
@@ -4656,11 +4656,11 @@ static long ad9361_bbpll_round_rate(struct clk_hw *hw, unsigned long rate,
 	if (rate < MIN_BBPLL_FREQ)
 		return MIN_BBPLL_FREQ;
 
-	tmp = do_div(rate, *prate);
+	tmp = do_div(rate64, *prate);
 	tmp = tmp * BBPLL_MODULUS + (*prate >> 1);
 	do_div(tmp, *prate);
 
-	integer = rate;
+	integer = rate64;
 	fract = tmp;
 
 	tmp = *prate * (u64)fract;
@@ -4675,7 +4675,7 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
 	struct spi_device *spi = clk_priv->spi;
-	u64 tmp;
+	u64 tmp, rate64 = rate;
 	u32 fract, integer;
 	int icp_val;
 	u8 lf_defaults[3] = {0x35, 0x5B, 0xE8};
@@ -4687,7 +4687,7 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * Setup Loop Filter and CP Current
 	 * Scale is 150uA @ (1280MHz BBPLL, 40MHz REFCLK)
 	 */
-	tmp = (rate >> 7) * 150ULL;
+	tmp = (rate64 >> 7) * 150ULL;
 	do_div(tmp, (parent_rate >> 7) * 32UL + (tmp >> 1));
 
 	/* 25uA/LSB, Offset 25uA */
@@ -4706,11 +4706,11 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	ad9361_spi_write(spi, REG_SDM_CTRL, 0x10);
 
 	/* Calculate and set BBPLL frequency word */
-	tmp = do_div(rate, parent_rate);
+	tmp = do_div(rate64, parent_rate);
 	tmp = tmp *(u64) BBPLL_MODULUS + (parent_rate >> 1);
 	do_div(tmp, parent_rate);
 
-	integer = rate;
+	integer = rate64;
 	fract = tmp;
 
 	ad9361_spi_write(spi, REG_INTEGER_BB_FREQ_WORD, integer);
