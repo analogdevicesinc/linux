@@ -688,7 +688,6 @@ static int ad9625_setup(struct spi_device *spi)
 	ret = ad9467_spi_write(spi, 0x000, 0x24);
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
 	mdelay(10);
-
 	ret |= ad9467_spi_write(spi, 0x008, 0x00);
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
 	ret |= ad9467_spi_write(spi, 0x05f, 0x15);
@@ -703,6 +702,9 @@ static int ad9625_setup(struct spi_device *spi)
 	mdelay(10);
 
 	ret = clk_prepare_enable(conv->clk);
+	if (ret == -EIO) /* Sync issue on the dual FMCADC5 */
+		ret = 0;
+
 	if (ret < 0)
 		return ret;
 
@@ -968,6 +970,14 @@ static int ad9467_probe(struct spi_device *spi)
 	conv->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown");
 	if (!IS_ERR(conv->pwrdown_gpio)) {
 		ret = gpiod_direction_output(conv->pwrdown_gpio, 0);
+	}
+
+	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
+	if (!IS_ERR(conv->reset_gpio)) {
+		ret = gpiod_direction_output(conv->reset_gpio, 0);
+		udelay(1);
+		ret = gpiod_direction_output(conv->reset_gpio, 1);
+
 	}
 
 	mdelay(10);
