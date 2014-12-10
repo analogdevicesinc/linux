@@ -145,12 +145,6 @@
 			compatible = "fixed-clock";
 			reg = <0>;
 		} ;
-		ad9625_clkin: clock@0 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <2500000000>;
-			clock-output-names = "clkin";
-		};
 	} ;
 	axi_cpu_interconnect_xbar: axi@0 {
 		#address-cells = <1>;
@@ -163,7 +157,7 @@
 			device_type = "network";
 			interrupt-parent = <&axi_intc>;
 			interrupts = <1 0>;
-			local-mac-address = [00 0a 35 00 00 00];
+			local-mac-address = [00 0a 35 00 00 09];
 			reg = <0x40e00000 0x2000>;
 			phy-handle = <&phy0>;
 			xlnx,duplex = <0x1>;
@@ -461,6 +455,17 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <9 2>;
 			reg = <0x41600000 0x10000>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+			eeprom@54 {
+				compatible = "at24,24c02";
+				reg = <0x54>;
+			};
+
 		} ;
 		axi_intc: axi-intc@41200000 {
 			#interrupt-cells = <2>;
