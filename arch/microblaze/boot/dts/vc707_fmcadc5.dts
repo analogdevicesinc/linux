@@ -248,7 +248,7 @@
 			xlnx,tri-default = <0xFFF10f00>;
 		} ;
 
-		axi_ad9625_0_gt: axi-jesd-gt@44a60000 {
+		axi_ad9625_0_gt: axi-jesd-gt-rx@44a60000 {
 			#clock-cells = <1>;
 			compatible = "adi,axi-jesd-gt-1.0";
 			reg = <0x44a60000 0x10000>;
@@ -265,7 +265,7 @@
 
 		} ;
 
-		axi_ad9625_1_gt: axi-jesd-gt@44b60000 {
+		axi_ad9625_1_gt: axi-jesd-gt-rx@44b60000 {
 			#clock-cells = <1>;
 			compatible = "adi,axi-jesd-gt-1.0";
 			reg = <0x44b60000 0x10000>;
@@ -282,7 +282,7 @@
 
 		} ;
 
-		axi_ad9625_0_jesd: jesd204@44a91000 {
+		axi_ad9625_0_jesd: axi-jesd204b-rx@44a91000 {
 			#clock-cells = <0>;
 			compatible = "xlnx,jesd204-5.2";
 			reg = <0x44a91000 0x1000>;
@@ -315,7 +315,7 @@
 			xlnx,use-rpat = "false";
 		} ;
 
-		axi_ad9625_1_jesd: jesd204@44b91000 {
+		axi_ad9625_1_jesd: axi-jesd204b-rx@44b91000 {
 			#clock-cells = <0>;
 			compatible = "xlnx,jesd204-5.2";
 			reg = <0x44b91000 0x1000>;

@@ -231,7 +231,7 @@
 
 
 		} ;
-		axi_ad9144_jesd: jesd204@44a90000 {
+		axi_ad9144_jesd: axi-jesd204b-tx@44a90000 {
 			#clock-cells = <0>;
 			compatible = "xlnx,jesd204-5.2";
 			reg = <0x44a90000 0x1000>;
@@ -308,7 +308,7 @@
 			};
 
 		} ;
-		axi_ad9680_jesd: jesd204@44a910000 {
+		axi_ad9680_jesd: axi-jesd204b-rx@44a910000 {
 			#clock-cells = <0>;
 			compatible = "xlnx,jesd204-5.2";
 			reg = <0x44a91000 0x1000>;
@@ -365,7 +365,7 @@
 			xlnx,tri-default = <0xFFFFFFFF>;
 			xlnx,tri-default-2 = <0xFFFFFFE0>;
 		} ;
-		axi_daq2_gt: axi-jesd-gt@44a60000 {
+		axi_daq2_gt: axi-jesd-gt-rx@44a60000 {
 			#clock-cells = <1>;
 
 			compatible = "adi,axi-jesd-gt-1.0";
