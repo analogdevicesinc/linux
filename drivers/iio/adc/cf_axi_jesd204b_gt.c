@@ -400,13 +400,12 @@ static const struct clk_ops clkout_ops = {
 	.is_enabled = jesd204b_gt_clk_is_enabled,
 };
 
-static struct clk *jesd204b_gt_clk_register(struct device *dev, unsigned num, bool tx)
+static struct clk *jesd204b_gt_clk_register(struct device *dev, const char *parent_name, unsigned num, bool tx)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(dev);
 	struct clk_init_data init;
 	struct child_clk *output = &st->output[num];
 	struct clk *clk;
-	const char *parent_name;
 	const char *clk_name;
 	int ret;
 
@@ -418,9 +417,8 @@ static struct clk *jesd204b_gt_clk_register(struct device *dev, unsigned num, bo
 	init.name = clk_name;
 	init.ops = &clkout_ops;
 
-	parent_name = of_clk_get_parent_name(dev->of_node, 0);
-	init.parent_names = &parent_name;
-	init.num_parents = 1;
+	init.parent_names = (parent_name ? &parent_name: NULL);
+	init.num_parents = (parent_name ? 1 : 0);
 
 	output->hw.init = &init;
 	output->dev = dev;
@@ -620,15 +618,19 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 	}
 	st->clk_data.clk_num = 0;
 
-	if (st->rx_sys_clk_sel || st->rx_out_clk_sel) {
-		clk = jesd204b_gt_clk_register(&pdev->dev, st->clk_data.clk_num, false);
+	if ((st->rx_sys_clk_sel || st->rx_out_clk_sel) && !IS_ERR(st->adc_clk)) {
+		clk = jesd204b_gt_clk_register(&pdev->dev,
+					       __clk_get_name(st->adc_clk),
+					       st->clk_data.clk_num, false);
 		if (IS_ERR(clk))
 				return PTR_ERR(clk);
 		st->clk_data.clk_num++;
 	}
 
-	if (st->tx_sys_clk_sel || st->tx_out_clk_sel) {
-		clk = jesd204b_gt_clk_register(&pdev->dev, st->clk_data.clk_num, true);
+	if ((st->tx_sys_clk_sel || st->tx_out_clk_sel) && !IS_ERR(st->dac_clk)) {
+		clk = jesd204b_gt_clk_register(&pdev->dev,
+					       __clk_get_name(st->dac_clk),
+					       st->clk_data.clk_num, true);
 		if (IS_ERR(clk))
 				return PTR_ERR(clk);
 		st->clk_data.clk_num++;
