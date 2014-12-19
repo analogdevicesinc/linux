@@ -804,10 +804,14 @@ static int si476x_core_probe(struct i2c_client *client)
 	/* Power down si476x first */
 	si476x_core_stop(core, true);
 
-	rval = si476x_core_get_revision_info(core);
-	if (rval < 0) {
-		rval = -ENODEV;
-		goto free_kfifo;
+	if (of_property_read_bool(client->dev.of_node, "revision-a10"))
+		core->revision = SI476X_REVISION_A10;
+	else {
+		rval = si476x_core_get_revision_info(core);
+		if (rval < 0) {
+			rval = -ENODEV;
+			goto free_kfifo;
+		}
 	}
 
 	cell_num = 0;
