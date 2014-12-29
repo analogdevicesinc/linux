@@ -13,3 +13,11 @@ menuconfig RESET_CONTROLLER
 	  If unsure, say no.
 
 source "drivers/reset/sti/Kconfig"
+
+config A10SYCON_RESET
+	tristate "Altera Arria10 System Control Reset"
+	depends on ARCH_SOCFPGA && RESET_CONTROLLER
+	select MFD_A10SYCON
+	help
+	  This option enables support for the external reset functions
+	  on the Altera Arria10 System Controller.
