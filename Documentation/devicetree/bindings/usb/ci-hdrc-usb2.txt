@@ -84,8 +84,14 @@ i.mx specific properties
 - over-current-active-high: over current signal polarity is high active,
   typically over current signal polarity is low active.
 - external-vbus-divider: enables off-chip resistor divider for Vbus
+- imx6-usb-charger-detection: enable imx6 usb charger detect function,
+  only set it when the user wants SoC usb charger detection capabilities.
+  If the user wants to use charger IC's usb charger detection capabilities,
+  please do not set it.
+- fsl,anatop: phandle for anatop module, anatop module is only existed
+  at imx6 SoC series.
 
-Example:
+Examples:
 
 	usb@f7ed0000 {
 		compatible = "chipidea,usb2";
@@ -102,4 +108,18 @@ Example:
 		rx-burst-size-dword = <0x10>;
 		extcon = <0>, <&usb_id>;
 		phy-clkgate-delay-us = <400>;
+	};
+
+	usb@02184000 { /* USB OTG */
+		compatible = "fsl,imx6q-usb", "fsl,imx27-usb";
+		reg = <0x02184000 0x200>;
+		interrupts = <0 43 0x04>;
+		fsl,usbphy = <&usbphy1>;
+		fsl,usbmisc = <&usbmisc 0>;
+		disable-over-current;
+		external-vbus-divider;
+		imx6-usb-charger-detection;
+		fsl,anatop = <&anatop>;
+		maximum-speed = "full-speed";
+		tpl-support;
 	};
