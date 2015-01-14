@@ -373,6 +373,35 @@ static int ad9361_spi_writem(struct spi_device *spi,
 	return 0;
 }
 
+static int ad9361_find_opt(u8 *field, u32 size, u32 *ret_start)
+{
+	int i, cnt = 0, max_cnt = 0, start, max_start = 0;
+
+	for(i = 0, start = -1; i < size; i++) {
+		if (field[i] == 0) {
+			if (start == -1)
+				start = i;
+			cnt++;
+		} else {
+			if (cnt > max_cnt) {
+				max_cnt = cnt;
+				max_start = start;
+			}
+			start = -1;
+			cnt = 0;
+		}
+	}
+
+	if (cnt > max_cnt) {
+		max_cnt = cnt;
+		max_start = start;
+	}
+
+	*ret_start = max_start;
+
+	return max_cnt;
+}
+
 static int ad9361_reset(struct ad9361_rf_phy *phy)
 {
 	if (!IS_ERR(phy->pdata->reset_gpio)) {
@@ -2023,6 +2052,50 @@ static int __ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
 
 /* TX QUADRATURE CALIBRATION */
 
+static int ad9361_tx_quad_phase_search(struct ad9361_rf_phy *phy, u32 rxnco_word)
+{
+	int i, ret;
+	u8 field[64];
+	u32 val, start;
+
+	dev_dbg(&phy->spi->dev, "%s", __func__);
+
+	for (i = 0; i < (ARRAY_SIZE(field) / 2); i++) {
+
+		ad9361_spi_write(phy->spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
+			RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(i));
+
+		ret =  ad9361_run_calibration(phy, TX_QUAD_CAL);
+		if (ret < 0)
+			return ret;
+
+		/* Handle 360/0 wrap around */
+		val = ad9361_spi_read(phy->spi, REG_QUAD_CAL_STATUS_TX1);
+		field[i] = field[i + 32] = !((val & TX1_LO_CONV) && (val & TX1_SSB_CONV));
+	}
+
+	ret = ad9361_find_opt(field, ARRAY_SIZE(field), &start);
+
+#ifdef _DEBUG
+	for (i = 0; i < 64; i++) {
+		printk("%c", (field[i] ? '#' : 'o'));
+	}
+	printk(" RX_NCO_PHASE_OFFSET(%d) \n", (start + ret / 2) & 0x1F);
+#endif
+
+	ad9361_spi_write(phy->spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
+		RX_NCO_FREQ(rxnco_word) |
+		RX_NCO_PHASE_OFFSET((start + ret / 2) & 0x1F));
+
+	ad9361_run_calibration(phy, TX_QUAD_CAL);
+	/* REVISIT: sometimes we need to do it twice */
+	ret = ad9361_run_calibration(phy, TX_QUAD_CAL);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 				unsigned long bw_rx, unsigned long bw_tx,
 				int rx_phase)
@@ -2030,8 +2103,8 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	struct device *dev = &phy->spi->dev;
 	struct spi_device *spi = phy->spi;
 	unsigned long clktf, clkrf;
-	u8 __rx_phase = 0, reg_inv_bits;
 	int txnco_word, rxnco_word, txnco_freq, ret;
+	u8 __rx_phase = 0, reg_inv_bits, val;
 	const u8 (*tab)[3];
 	u32 index_max, i , lpf_tia_mask;
 	/*
@@ -2152,7 +2225,16 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	ad9361_spi_write(spi, REG_QUAD_SETTLE_COUNT, 0xF0);
 	ad9361_spi_write(spi, REG_TX_QUAD_LPF_GAIN, 0x00);
 
-	ret =  ad9361_run_calibration(phy, TX_QUAD_CAL);
+	ret = ad9361_run_calibration(phy, TX_QUAD_CAL);
+
+	val = ad9361_spi_readf(spi, REG_QUAD_CAL_STATUS_TX1,
+			       TX1_LO_CONV | TX1_SSB_CONV);
+	dev_dbg(dev, "LO leakage: %d Quadrature Calibration: %d : rx_phase %d\n",
+		!!(val & TX1_LO_CONV), !!(val & TX1_SSB_CONV), __rx_phase);
+
+	/* Calibration failed -> loop through all 32 phase offsets */
+	if (val != (TX1_LO_CONV | TX1_SSB_CONV))
+		ret = ad9361_tx_quad_phase_search(phy, rxnco_word);
 
 	if (phy->pdata->rx1rx2_phase_inversion_en ||
 		(phy->pdata->port_ctrl.pp_conf[1] & INVERT_RX2)) {
@@ -5239,35 +5321,6 @@ static int ad9361_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int ad9361_find_opt_delay(u8 *field, u32 *ret_start)
-{
-	int i, cnt = 0, max_cnt = 0, start, max_start = 0;
-
-	for(i = 0, start = -1; i < 16; i++) {
-		if (field[i] == 0) {
-			if (start == -1)
-				start = i;
-			cnt++;
-		} else {
-			if (cnt > max_cnt) {
-				max_cnt = cnt;
-				max_start = start;
-			}
-			start = -1;
-			cnt = 0;
-		}
-	}
-
-	if (cnt > max_cnt) {
-		max_cnt = cnt;
-		max_start = start;
-	}
-
-	*ret_start = max_start;
-
-	return max_cnt;
-}
-
 static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
@@ -5332,8 +5385,8 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 		}
 		printk("\n");
 #endif
-		c0 = ad9361_find_opt_delay(&field[0][0], &s0);
-		c1 = ad9361_find_opt_delay(&field[1][0], &s1);
+		c0 = ad9361_find_opt(&field[0][0], 16, &s0);
+		c1 = ad9361_find_opt(&field[1][0], 16, &s1);
 
 		if (!c0 && !c1) {
 			dev_err(&phy->spi->dev, "%s: Tuning %s FAILED!", __func__,
