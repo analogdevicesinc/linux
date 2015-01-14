@@ -1979,16 +1979,59 @@ static int ad9361_rf_dc_offset_calib(struct ad9361_rf_phy *phy,
 	return ad9361_run_calibration(phy, RFDC_CAL);
 }
 
+static int __ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
+				     u32 rf_rx_bw, u32 rf_tx_bw)
+{
+	u32 real_rx_bandwidth = rf_rx_bw / 2;
+	u32 real_tx_bandwidth = rf_tx_bw / 2;
+	unsigned long bbpll_freq;
+	int ret;
+
+	dev_dbg(&phy->spi->dev, "%s: %d %d",
+		__func__, rf_rx_bw, rf_tx_bw);
+
+	bbpll_freq = clk_get_rate(phy->clks[BBPLL_CLK]);
+
+	ret = ad9361_rx_bb_analog_filter_calib(phy,
+				real_rx_bandwidth,
+				bbpll_freq);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_tx_bb_analog_filter_calib(phy,
+				real_tx_bandwidth,
+				bbpll_freq);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_rx_tia_calib(phy, real_rx_bandwidth);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_tx_bb_second_filter_calib(phy, rf_tx_bw);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_rx_adc_setup(phy,
+				bbpll_freq,
+				clk_get_rate(phy->clks[ADC_CLK]));
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 /* TX QUADRATURE CALIBRATION */
 
 static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
-				unsigned long bw, int rx_phase)
+				unsigned long bw_rx, unsigned long bw_tx,
+				int rx_phase)
 {
 	struct device *dev = &phy->spi->dev;
 	struct spi_device *spi = phy->spi;
 	unsigned long clktf, clkrf;
-	int txnco_word, rxnco_word, ret;
 	u8 __rx_phase = 0, reg_inv_bits;
+	int txnco_word, rxnco_word, txnco_freq, ret;
 	const u8 (*tab)[3];
 	u32 index_max, i , lpf_tia_mask;
 	/*
@@ -2001,16 +2044,15 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	clkrf = clk_get_rate(phy->clks[CLKRF_CLK]);
 	clktf = clk_get_rate(phy->clks[CLKTF_CLK]);
 
-	dev_dbg(&phy->spi->dev, "%s : bw %lu clkrf %lu clktf %lu",
-		__func__, bw, clkrf, clktf);
+	dev_dbg(&phy->spi->dev, "%s : bw_tx %lu clkrf %lu clktf %lu",
+		__func__, bw_tx, clkrf, clktf);
 
-	txnco_word = DIV_ROUND_CLOSEST(bw * 8, clktf) - 1;
+	txnco_word = DIV_ROUND_CLOSEST(bw_tx * 8, clktf) - 1;
 	txnco_word = clamp_t(int, txnco_word, 0, 3);
+	rxnco_word = txnco_word;
 
  	dev_dbg(dev, "Tx NCO frequency: %lu (BW/4: %lu) txnco_word %d\n",
-		clktf * (txnco_word + 1) / 32, bw / 4, txnco_word);
-
-	rxnco_word = txnco_word;
+		clktf * (txnco_word + 1) / 32, bw_tx / 4, txnco_word);
 
 	if (clkrf == (2 * clktf)) {
 		__rx_phase = 0x0E;
@@ -2051,10 +2093,17 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 		dev_err(dev, "Unhandled case in %s line %d clkrf %lu clktf %lu\n",
 			__func__, __LINE__, clkrf, clktf);
 
-
 	if (rx_phase >= 0)
 		__rx_phase = rx_phase;
 
+	txnco_freq = clktf * (txnco_word + 1) / 32;
+
+	if (txnco_freq > (bw_rx / 4) || txnco_freq > (bw_tx / 4)) {
+		/* Make sure the BW during calibration is wide enough */
+		ret = __ad9361_update_rf_bandwidth(phy, txnco_freq * 8, txnco_freq * 8);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (phy->pdata->rx1rx2_phase_inversion_en ||
 		(phy->pdata->port_ctrl.pp_conf[1] & INVERT_RX2)) {
@@ -2111,6 +2160,11 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 		ad9361_spi_write(spi, REG_INVERT_BITS, reg_inv_bits);
 	}
 
+	if (txnco_freq > (bw_rx / 4) || txnco_freq > (bw_tx / 4)) {
+		__ad9361_update_rf_bandwidth(phy,
+			phy->current_rx_bw_Hz,
+			phy->current_tx_bw_Hz);
+	}
 
 	return ret;
 }
@@ -3837,7 +3891,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9361_tx_quad_calib(phy, real_tx_bandwidth, -1);
+	ret = ad9361_tx_quad_calib(phy, real_rx_bandwidth, real_tx_bandwidth, -1);
 	if (ret < 0)
 		return ret;
 
@@ -3899,7 +3953,8 @@ static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal, int arg)
 
 	switch (cal) {
 	case TX_QUAD_CAL:
-		ret = ad9361_tx_quad_calib(phy, phy->current_tx_bw_Hz / 2, arg);
+		ret = ad9361_tx_quad_calib(phy, phy->current_rx_bw_Hz / 2,
+					   phy->current_tx_bw_Hz / 2, arg);
 		break;
 	case RFDC_CAL:
 		ret = ad9361_rf_dc_offset_calib(phy,
@@ -3920,52 +3975,24 @@ static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal, int arg)
 static int ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
 				     u32 rf_rx_bw, u32 rf_tx_bw)
 {
-	unsigned long bbpll_freq;
-	u32 real_rx_bandwidth = rf_rx_bw / 2;
-	u32 real_tx_bandwidth = rf_tx_bw / 2;
 	int ret;
-
-	bbpll_freq = clk_get_rate(phy->clks[BBPLL_CLK]);
 
 	ret = ad9361_tracking_control(phy, false, false, false);
 	if (ret < 0)
 		return ret;
 
-
 	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 
-	ret = ad9361_rx_bb_analog_filter_calib(phy,
-				real_rx_bandwidth,
-				bbpll_freq);
-	if (ret < 0)
-		return ret;
-
-	ret = ad9361_tx_bb_analog_filter_calib(phy,
-				real_tx_bandwidth,
-				bbpll_freq);
-	if (ret < 0)
-		return ret;
-
-	ret = ad9361_rx_tia_calib(phy, real_rx_bandwidth);
-	if (ret < 0)
-		return ret;
-
-	ret = ad9361_tx_bb_second_filter_calib(phy, rf_tx_bw);
-	if (ret < 0)
-		return ret;
-
-	ret = ad9361_rx_adc_setup(phy,
-				bbpll_freq,
-				clk_get_rate(phy->clks[ADC_CLK]));
-	if (ret < 0)
-		return ret;
-
-	ret = ad9361_tx_quad_calib(phy, real_tx_bandwidth, -1);
+	ret = __ad9361_update_rf_bandwidth(phy, rf_rx_bw, rf_tx_bw);
 	if (ret < 0)
 		return ret;
 
 	phy->current_rx_bw_Hz = rf_rx_bw;
 	phy->current_tx_bw_Hz = rf_tx_bw;
+
+	ret = ad9361_tx_quad_calib(phy, rf_rx_bw / 2, rf_tx_bw / 2, -1);
+	if (ret < 0)
+		return ret;
 
 	ret = ad9361_tracking_control(phy, phy->bbdc_track_en,
 			phy->rfdc_track_en, phy->quad_track_en);
@@ -4230,6 +4257,18 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 		valid = true;
 
 	}
+
+#ifdef _DEBUG
+	dev_dbg(&phy->spi->dev, "%s:RX %lu %lu %lu %lu %lu %lu",
+		__func__, rx[BBPLL_FREQ], rx[ADC_FREQ],
+		rx[R2_FREQ], rx[R1_FREQ],
+		rx[CLKRF_FREQ], rx[RX_SAMPL_FREQ]);
+
+	dev_dbg(&phy->spi->dev, "%s:TX %lu %lu %lu %lu %lu %lu",
+		__func__, tx[BBPLL_FREQ], tx[ADC_FREQ],
+		tx[R2_FREQ], tx[R1_FREQ],
+		tx[CLKRF_FREQ], tx[RX_SAMPL_FREQ]);
+#endif
 
 	if (!phy->bypass_tx_fir) {
 		max = (tx[DAC_FREQ] / tx[TX_SAMPL_FREQ]) * 16;
