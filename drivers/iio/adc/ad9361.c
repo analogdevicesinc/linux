@@ -155,6 +155,7 @@ struct ad9361_rf_phy {
 	bool			rfdc_track_en;
 	bool			bbdc_track_en;
 	bool			quad_track_en;
+	bool			txmon_tdd_en;
 	u16 			auxdac1_value;
 	u16 			auxdac2_value;
 	struct ad9361_fastlock	fastlock;
@@ -2404,13 +2405,29 @@ static int ad9361_txmon_setup(struct ad9361_rf_phy *phy,
 static int ad9361_txmon_control(struct ad9361_rf_phy *phy,
 				unsigned en_mask)
 {
-	dev_dbg(&phy->spi->dev, "%s", __func__);
+	dev_err(&phy->spi->dev, "%s: mask 0x%X", __func__, en_mask);
+
+#if 0
+	if (!phy->pdata->fdd && en_mask) {
+		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_1,
+				ENABLE_RX_DATA_PORT_FOR_CAL, 1);
+		phy->txmon_tdd_en = true;
+	} else {
+		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_1,
+				ENABLE_RX_DATA_PORT_FOR_CAL, 0);
+		phy->txmon_tdd_en = false;
+	}
+#endif
 
 	ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
 			TX_MONITOR_POWER_DOWN(~0), ~en_mask);
 
-	return ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
-			TX1_MONITOR_ENABLE | TX2_MONITOR_ENABLE, en_mask);
+	ad9361_spi_writef(phy->spi, REG_TPM_MODE_ENABLE,
+			TX1_MON_ENABLE, !!(en_mask & TX_1));
+
+	return ad9361_spi_writef(phy->spi, REG_TPM_MODE_ENABLE,
+			TX2_MON_ENABLE, !!(en_mask & TX_2));
+
 }
 
 /* val
@@ -3145,6 +3162,7 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state,
 
 	val = (phy->pdata->ensm_pin_pulse_mode ? 0 : LEVEL_MODE) |
 		(pinctrl ? ENABLE_ENSM_PIN_CTRL : 0) |
+		(phy->txmon_tdd_en ? ENABLE_RX_DATA_PORT_FOR_CAL : 0) |
 		TO_ALERT;
 
 	switch (ensm_state) {
@@ -3752,6 +3770,7 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	phy->rx_fir_dec = 0;
 	phy->rx_fir_ntaps = 0;
 	phy->ensm_pin_ctl_en = false;
+	phy->txmon_tdd_en = 0;
 	memset(&phy->fastlock, 0, sizeof(phy->fastlock));
 }
 
@@ -6329,6 +6348,44 @@ static ssize_t ad9361_phy_rx_read(struct iio_dev *indio_dev,
 	.private = _ident, \
 }
 
+static ssize_t ad9361_phy_tx_read(struct iio_dev *indio_dev,
+				   uintptr_t private,
+				   const struct iio_chan_spec *chan,
+				   char *buf)
+{
+	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+	u8 reg_val_buf[3];
+	u32 val;
+	int ret;
+
+	mutex_lock(&indio_dev->mlock);
+	ret = ad9361_spi_readm(phy->spi, REG_TX_RSSI_LSB,
+			reg_val_buf, ARRAY_SIZE(reg_val_buf));
+
+	switch (chan->channel) {
+	case 0:
+		val = (reg_val_buf[2] << 1) | (reg_val_buf[0] & TX_RSSI_1);
+		break;
+	case 1:
+		val = (reg_val_buf[1] << 1) | ((reg_val_buf[0] & TX_RSSI_2) >> 1);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	mutex_unlock(&indio_dev->mlock);
+
+	val *= RSSI_RESOLUTION;
+
+	return ret < 0 ? ret : sprintf(buf, "%u.%02u dB\n",
+			val / RSSI_MULTIPLIER, val % RSSI_MULTIPLIER);
+}
+
+#define _AD9361_EXT_TX_INFO(_name, _ident) { \
+	.name = _name, \
+	.read = ad9361_phy_tx_read, \
+	.private = _ident, \
+}
+
 static const struct iio_chan_spec_ext_info ad9361_phy_rx_ext_info[] = {
 	/* Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
 	 * values > 2^32 in order to support the entire frequency range
@@ -6345,6 +6402,7 @@ static const struct iio_chan_spec_ext_info ad9361_phy_rx_ext_info[] = {
 static const struct iio_chan_spec_ext_info ad9361_phy_tx_ext_info[] = {
 	IIO_ENUM_AVAILABLE("rf_port_select", &ad9361_rf_tx_port_available),
 	IIO_ENUM("rf_port_select", false, &ad9361_rf_tx_port_available),
+	_AD9361_EXT_TX_INFO("rssi", 0),
 	{ },
 };
 
