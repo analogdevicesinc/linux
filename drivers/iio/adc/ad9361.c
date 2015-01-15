@@ -119,7 +119,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[147];
+	struct ad9361_debugfs_entry debugfs_entry[148];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -2271,6 +2271,10 @@ static int ad9361_tracking_control(struct ad9361_rf_phy *phy, bool bbdc_track,
 			 DC_OFFSET_UPDATE(phy->pdata->dc_offset_update_events) |
 			(bbdc_track ? ENABLE_BB_DC_OFFSET_TRACKING : 0) |
 			(rfdc_track ? ENABLE_RF_OFFSET_TRACKING : 0));
+
+	ad9361_spi_writef(spi, REG_RX_QUAD_GAIN2,
+			 CORRECTION_WORD_DECIMATION_M(~0),
+			 phy->pdata->qec_tracking_slow_mode_en ? 4 : 0);
 
 	if (rxquad_track)
 		qtrack = ENABLE_TRACKING_MODE_CH1 |
@@ -7119,6 +7123,9 @@ static struct ad9361_phy_platform_data
 
 	ad9361_of_get_u32(iodev, np, "adi,dc-offset-count-low-range", 0x32,
 			  &pdata->rf_dc_offset_count_low);
+
+	ad9361_of_get_bool(iodev, np, "adi,qec-tracking-slow-mode-enable",
+			  &pdata->qec_tracking_slow_mode_en);
 
 	ret = of_property_read_u32_array(np, "adi,rx-path-clock-frequencies",
 			rx_path_clks, ARRAY_SIZE(rx_path_clks));
