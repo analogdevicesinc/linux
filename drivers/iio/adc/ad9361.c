@@ -2409,7 +2409,7 @@ static int ad9361_txmon_setup(struct ad9361_rf_phy *phy,
 static int ad9361_txmon_control(struct ad9361_rf_phy *phy,
 				unsigned en_mask)
 {
-	dev_err(&phy->spi->dev, "%s: mask 0x%X", __func__, en_mask);
+	dev_dbg(&phy->spi->dev, "%s: mask 0x%X", __func__, en_mask);
 
 #if 0
 	if (!phy->pdata->fdd && en_mask) {
