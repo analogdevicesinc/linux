@@ -1015,6 +1015,8 @@
 /*
  *	REG_TPM_MODE_ENABLE
  */
+#define TX2_MON_ENABLE		     	     (1 << 7) /* Tx2 Monitor Enable */
+#define TX1_MON_ENABLE		     	     (1 << 5) /* Tx1 Monitor Enable */
 #define ONE_SHOT_MODE			     (1 << 6) /* One Shot Mode */
 #define TX_MON_DURATION(x)		     (((x) & 0xF) << 0) /* Tx Mon Duration<3:0> */
 
