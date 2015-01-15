@@ -3078,6 +3078,7 @@ struct ad9361_phy_platform_data {
 	bool			use_ext_rx_lo;
 	bool			use_ext_tx_lo;
 	bool			rx1rx2_phase_inversion_en;
+	bool			qec_tracking_slow_mode_en;
 	u8			dc_offset_update_events;
 	u8			dc_offset_attenuation_high;
 	u8			dc_offset_attenuation_low;
