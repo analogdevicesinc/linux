@@ -19,6 +19,7 @@ struct ad7091r_state;
 struct ad7091r_chip_info {
 	unsigned num_channels;
 	const struct iio_chan_spec *channels;
+	unsigned vref_mV;
 };
 
 extern const struct regmap_config ad7091r_regmap_config;
