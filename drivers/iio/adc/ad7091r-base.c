@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
 
 #define AD7091R_REG_RESULT  0
 #define AD7091R_REG_CHANNEL 1
@@ -43,6 +44,7 @@ enum ad7091r_mode {
 struct ad7091r_state {
 	struct device *dev;
 	struct regmap *map;
+	struct regulator *reg;
 	const struct ad7091r_chip_info *chip_info;
 	enum ad7091r_mode mode;
 };
@@ -138,6 +140,21 @@ static int ad7091r_read_raw(struct iio_dev *iio_dev,
 		ret = IIO_VAL_INT;
 		break;
 
+	case IIO_CHAN_INFO_SCALE:
+		if (st->reg) {
+			ret = regulator_get_voltage(st->reg);
+			if (ret < 0)
+				goto unlock;
+
+			*val = ret / 1000;
+		} else {
+			*val = st->chip_info->vref_mV;
+		}
+
+		*val2 = chan->scan_type.realbits;
+		ret = IIO_VAL_FRACTIONAL_LOG2;
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -214,6 +231,18 @@ int ad7091r_probe(struct device *dev, const char *name,
 			return ret;
 	}
 
+	st->reg = devm_regulator_get_optional(dev, "vref");
+	if (IS_ERR(st->reg)) {
+		if (PTR_ERR(st->reg) == EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		else
+			st->reg = NULL;
+	} else {
+		ret = regulator_enable(st->reg);
+		if (ret)
+			return ret;
+	}
+
 	/* Use command mode by default */
 	ret = ad7091r_set_mode(st, AD7091R_MODE_COMMAND);
 	if (ret < 0)
@@ -221,18 +250,29 @@ int ad7091r_probe(struct device *dev, const char *name,
 
 	ret = iio_device_register(iio_dev);
 	if (ret)
-		return ret;
+		goto err_disable_reg;
 
 	dev_dbg(dev, "Probed\n");
 	return 0;
+
+err_disable_reg:
+	if (st->reg)
+		regulator_disable(st->reg);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(ad7091r_probe);
 
 int ad7091r_remove(struct device *dev)
 {
 	struct iio_dev *iio_dev = dev_get_drvdata(dev);
+	struct ad7091r_state *st = iio_priv(iio_dev);
 
 	iio_device_unregister(iio_dev);
+
+	if (st->reg)
+		regulator_disable(st->reg);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ad7091r_remove);
