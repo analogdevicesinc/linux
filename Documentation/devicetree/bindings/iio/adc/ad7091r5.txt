@@ -1,0 +1,16 @@
+* Analog Devices AD7091R5 Analog to Digital Converter (ADC)
+
+Required properties:
+  - compatible: Must be "adi,ad7091r5".
+  - reg: I2C address for the device
+
+Optional properties:
+  - vref-supply: phandle + specifier to a regulator for the external VREF
+	supply. If no external VREF is supplied this attribute should be omitted.
+	see: Documentation/devicetree/bindings/regulator/regulator.txt
+
+Example:
+adc@0 {
+	compatible: "adi,ad7091r5";
+	reg = <0x2F>;
+};
