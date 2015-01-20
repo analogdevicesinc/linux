@@ -90,6 +90,12 @@ i.mx specific properties
   please do not set it.
 - fsl,anatop: phandle for anatop module, anatop module is only existed
   at imx6 SoC series.
+- pinctrl-names: for names of hsic pin group
+- pinctrl-0: hsic "idle" pin group
+- pinctrl-1: hsic "active" pin group
+- osc-clkgate-delay: the delay between powering up the xtal 24MHz clock
+  and release the clock to the digital logic inside the analog block,
+  0 <= osc-clkgate-delay <= 7.
 
 Examples:
 
@@ -120,6 +126,10 @@ Examples:
 		external-vbus-divider;
 		imx6-usb-charger-detection;
 		fsl,anatop = <&anatop>;
+		pinctrl-names = "idle", "active";
+		pinctrl-0 = <&pinctrl_usbh2_1>;
+		pinctrl-1 = <&pinctrl_usbh2_2>;
+		osc-clkgate-delay = <0x3>;
 		maximum-speed = "full-speed";
 		tpl-support;
 	};
