@@ -145,7 +145,7 @@ static int ad6676_set_splitreg(struct spi_device *spi, u32 reg, u32 val)
 	return ret;
 }
 
-static int ad6676_get_splitreg(struct spi_device *spi, u32 reg, u32 *val)
+static inline int ad6676_get_splitreg(struct spi_device *spi, u32 reg, u32 *val)
 {
 	int ret;
 
@@ -170,7 +170,7 @@ static int ad6676_set_fadc(struct axiadc_converter *conv, u32 val)
 		clamp_t(u32, val, MIN_FADC, MAX_FADC) / MHz);
 }
 
-static u32 ad6676_get_fadc(struct axiadc_converter *conv)
+static inline u32 ad6676_get_fadc(struct axiadc_converter *conv)
 {
 	u32 val;
 	int ret = ad6676_get_splitreg(conv->spi, AD6676_FADC_0, &val);
@@ -214,7 +214,7 @@ static int ad6676_set_bw(struct axiadc_converter *conv, u32 val)
 		clamp_t(u32, val, MIN_BW, MAX_BW) / MHz);
 }
 
-static u32 ad6676_get_bw(struct axiadc_converter *conv)
+static inline u32 ad6676_get_bw(struct axiadc_converter *conv)
 {
 	u32 val;
 	int ret = ad6676_get_splitreg(conv->spi, AD6676_BW_0, &val);
@@ -520,7 +520,6 @@ static int ad6676_setup(struct axiadc_converter *conv)
 
 static int ad6676_update(struct axiadc_converter *conv, struct ad6676_platform_data *pdata)
 {
-	struct ad6676_phy *phy = conv_to_phy(conv);
 	struct spi_device *spi = conv->spi;
 	int ret;
 
