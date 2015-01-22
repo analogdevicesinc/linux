@@ -385,7 +385,7 @@ static int ad6676_jesd_setup(struct axiadc_converter *conv, struct ad6676_jesd_c
 	ret |= ad6676_spi_write(spi, AD6676_F, 0x01); // 2 bytes/frame
 	ret |= ad6676_spi_write(spi, AD6676_K, conf->f - 1); // 16 frames/multi-frame
 	ret |= ad6676_spi_write(spi, AD6676_M, 0x01); // 2 converters
-	ret |= ad6676_spi_write(spi, AD6676_S, 0x01); // samples per frame
+	ret |= ad6676_spi_write(spi, AD6676_S, 0x00); // 1 samples per frame
 	ret |= ad6676_spi_write(spi, AD6676_SER2, 0xBD);
 
 	return ret;
