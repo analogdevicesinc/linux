@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
 #include <linux/io.h>
+#include <linux/clk-provider.h>
 
 #define NIOS2_ID_DEFAULT		(0x1)
 #define NIOS2_REVISION_DEFAULT		(0x1)
@@ -23,6 +24,11 @@
 static struct of_device_id altera_of_bus_ids[] __initdata = {
 	{ .compatible = "simple-bus", },
 	{ .compatible = "altr,avalon", },
+	{}
+};
+
+static const __initconst struct of_device_id clk_match[] = {
+	{ .compatible = "fixed-clock", .data = of_fixed_clk_setup, },
 	{}
 };
 
@@ -63,6 +69,9 @@ static int __init nios2_device_probe(void)
 	nios2_soc_device_init();
 
 	of_platform_bus_probe(NULL, altera_of_bus_ids, NULL);
+
+	of_clk_init(clk_match);
+
 	return 0;
 }
 
