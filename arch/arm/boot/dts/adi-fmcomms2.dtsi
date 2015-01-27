@@ -30,6 +30,13 @@
 		//adi,debug-mode-enable;
 		/* Digital Interface Control */
 
+		 /* adi,digital-interface-tune-skip-mode:
+		  * 0 = TUNE RX&TX
+		  * 1 = SKIP TX
+		  * 2 = SKIP ALL
+		  */
+		adi,digital-interface-tune-skip-mode = <0>;
+
 		adi,pp-tx-swap-enable;
 		adi,pp-rx-swap-enable;
 		adi,rx-frame-pulse-mode-enable;
