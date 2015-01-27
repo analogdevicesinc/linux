@@ -3084,6 +3084,7 @@ struct ad9361_phy_platform_data {
 	u8			dc_offset_attenuation_low;
 	u8			rf_dc_offset_count_high;
 	u8			rf_dc_offset_count_low;
+	u8			dig_interface_tune_skipmode;
 	u32			dcxo_coarse;
 	u32			dcxo_fine;
 	u32			rf_rx_input_sel;
