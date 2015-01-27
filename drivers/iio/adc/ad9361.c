@@ -1,7 +1,7 @@
 /*
  * AD9361 Agile RF Transceiver
  *
- * Copyright 2013-2014 Analog Devices Inc.
+ * Copyright 2013-2015 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -119,7 +119,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[148];
+	struct ad9361_debugfs_entry debugfs_entry[149];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -5355,7 +5355,18 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 
 	unsigned hdl_dac_version = axiadc_read(st, 0x4000);
 
-	if (!phy->pdata->fdd && (phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)) {
+	if (phy->pdata->dig_interface_tune_skipmode == 2) {
+	/* skip completely and use defaults */
+		ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY,
+				phy->pdata->port_ctrl.rx_clk_data_delay);
+
+		ad9361_spi_write(phy->spi, REG_TX_CLOCK_DATA_DELAY,
+				phy->pdata->port_ctrl.tx_clk_data_delay);
+
+		return 0;
+	}
+
+	if (!phy->pdata->fdd) {
 		ad9361_set_ensm_mode(phy, true, false);
 		ad9361_ensm_force_state(phy, ENSM_STATE_FDD);
 	}
@@ -5430,6 +5441,21 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 			/* Now do the loopback and tune the digital out */
 
 			ad9361_bist_prbs(phy, BIST_DISABLE);
+
+			if (phy->pdata->dig_interface_tune_skipmode == 1) {
+			/* skip TX */
+
+				phy->pdata->port_ctrl.rx_clk_data_delay =
+					ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
+
+				if (!phy->pdata->fdd) {
+					ad9361_set_ensm_mode(phy, phy->pdata->fdd,
+							     phy->pdata->ensm_pin_ctrl);
+					ad9361_ensm_restore_prev_state(phy);
+				}
+				return 0;
+			}
+
 			ad9361_bist_loopback(phy, 1);
 
 			for (chan = 0; chan < num_chan; chan++) {
@@ -5488,8 +5514,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 					ad9361_spi_read(phy->spi, REG_TX_CLOCK_DATA_DELAY);
 			}
 
-			if (!phy->pdata->fdd &&
-				(phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)) {
+			if (!phy->pdata->fdd) {
 				ad9361_set_ensm_mode(phy, phy->pdata->fdd, phy->pdata->ensm_pin_ctrl);
 				ad9361_ensm_restore_prev_state(phy);
 			}
@@ -7057,6 +7082,9 @@ static struct ad9361_phy_platform_data
 	tmp = 0x0F;
 	of_property_read_u32(np, "adi,lvds-invert2-control", &tmp);
 	pdata->port_ctrl.lvds_invert[1] = tmp;
+
+	ad9361_of_get_u32(iodev, np, "adi,digital-interface-tune-skip-mode", 0,
+			  &pdata->dig_interface_tune_skipmode);
 
 	ad9361_of_get_bool(iodev, np, "adi,2rx-2tx-mode-enable", &pdata->rx2tx2);
 
