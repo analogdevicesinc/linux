@@ -7561,7 +7561,7 @@ static int ad9361_probe(struct spi_device *spi)
 
 	sysfs_bin_attr_init(&phy->bin);
 	phy->bin.attr.name = "filter_fir_config";
-	phy->bin.attr.mode = S_IWUSR;
+	phy->bin.attr.mode = S_IWUSR | S_IRUGO;
 	phy->bin.write = ad9361_fir_bin_write;
 	phy->bin.read = ad9361_fir_bin_read;
 	phy->bin.size = 4096;
