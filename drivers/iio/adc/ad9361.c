@@ -3212,6 +3212,18 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state,
 	if (rc)
 		dev_err(dev, "Failed to restore state\n");
 
+	if ((val & FORCE_RX_ON) &&
+		(phy->agc_mode[0] == RF_GAIN_MGC ||
+		 phy->agc_mode[1] == RF_GAIN_MGC)) {
+		u32 tmp = ad9361_spi_read(spi, REG_SMALL_LMT_OVERLOAD_THRESH);
+		ad9361_spi_write(spi, REG_SMALL_LMT_OVERLOAD_THRESH,
+			(tmp & SMALL_LMT_OVERLOAD_THRESH(~0)) |
+			(phy->agc_mode[0] == RF_GAIN_MGC ? FORCE_PD_RESET_RX1 : 0) |
+			(phy->agc_mode[1] == RF_GAIN_MGC ? FORCE_PD_RESET_RX2 : 0));
+		ad9361_spi_write(spi, REG_SMALL_LMT_OVERLOAD_THRESH,
+				 tmp & SMALL_LMT_OVERLOAD_THRESH(~0));
+	}
+
 	phy->curr_ensm_state = ensm_state;
 
 out:
