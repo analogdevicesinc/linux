@@ -119,7 +119,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[149];
+	struct ad9361_debugfs_entry debugfs_entry[150];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -3448,18 +3448,27 @@ static int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctr
 {
 	struct ad9361_phy_platform_data *pd = phy->pdata;
 	int ret;
+	u32 val = 0;
 
 	ad9361_spi_write(phy->spi, REG_ENSM_MODE, fdd ? FDD_MODE : 0);
 
+	if (pd->use_ext_rx_lo)
+		val |= POWER_DOWN_RX_SYNTH;
+
+	if (pd->use_ext_tx_lo)
+		val |= POWER_DOWN_TX_SYNTH;
+
 	if (fdd)
 		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
-			DUAL_SYNTH_MODE |
-			(pinctrl ? FDD_EXTERNAL_CTRL_ENABLE : 0)); /* Dual Synth */
+			val | DUAL_SYNTH_MODE |
+			(pinctrl ? (pd->fdd_independent_mode ?
+				FDD_EXTERNAL_CTRL_ENABLE : 0) : 0));
 	 else
-		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
+		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2, val |
 				(pd->tdd_use_dual_synth ? DUAL_SYNTH_MODE : 0) |
-				(pinctrl ? SYNTH_ENABLE_PIN_CTRL_MODE :
-				(pd->tdd_use_dual_synth ? 0 : TXNRX_SPI_CTRL)));
+				(pd->tdd_use_dual_synth ? 0 :
+				(pinctrl ? SYNTH_ENABLE_PIN_CTRL_MODE : TXNRX_SPI_CTRL)));
+
 	return ret;
 }
 
@@ -5686,6 +5695,11 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		else if (sysfs_streq(buf, "pinctrl")) {
 			res = true;
 			val = ENSM_STATE_SLEEP_WAIT;
+			phy->pdata->fdd_independent_mode = false;
+		} else if (sysfs_streq(buf, "pinctrl_fdd_indep")) {
+			res = true;
+			val = ENSM_STATE_SLEEP_WAIT;
+			phy->pdata->fdd_independent_mode = true;
 		} else
 			break;
 
@@ -5851,7 +5865,7 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		break;
 	case AD9361_ENSM_MODE_AVAIL:
 		ret = sprintf(buf, "%s\n", phy->pdata->fdd ?
-				"sleep wait alert fdd pinctrl" :
+				"sleep wait alert fdd pinctrl pinctrl_fdd_indep" :
 				"sleep wait alert rx tx pinctrl");
 		break;
 	case AD9361_TX_PATH_FREQ:
@@ -7011,6 +7025,9 @@ static struct ad9361_phy_platform_data
 
 	ad9361_of_get_bool(iodev, np, "adi,frequency-division-duplex-mode-enable",
 			   &pdata->fdd);
+
+	ad9361_of_get_bool(iodev, np, "adi,frequency-division-duplex-independent-mode-enable",
+			   &pdata->fdd_independent_mode);
 
 	ad9361_of_get_bool(iodev, np, "adi,ensm-enable-pin-pulse-mode-enable",
 			   &pdata->ensm_pin_pulse_mode);
