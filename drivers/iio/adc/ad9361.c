@@ -4116,6 +4116,63 @@ static int ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
 	return 0;
 }
 
+static int ad9361_verify_fir_filter_coef(struct ad9361_rf_phy *phy,
+				       enum fir_dest dest,
+				       u32 ntaps, short *coef)
+{
+	struct spi_device *spi = phy->spi;
+	u32 val, offs = 0, gain = 0, conf, sel, cnt;
+	int ret = 0;
+
+	dev_dbg(&phy->spi->dev, "%s: TAPS %d, dest %d",
+		__func__, ntaps, dest);
+
+	if (dest & FIR_IS_RX) {
+		gain = ad9361_spi_read(spi, REG_RX_FILTER_GAIN);
+		offs = REG_RX_FILTER_COEF_ADDR - REG_TX_FILTER_COEF_ADDR;
+		ad9361_spi_write(spi, REG_RX_FILTER_GAIN, 0);
+	}
+
+	conf = ad9361_spi_read(spi, REG_TX_FILTER_CONF + offs);
+
+	if ((dest & 3) == 3) {
+		sel = 1;
+		cnt = 2;
+	} else {
+		sel = (dest & 3);
+		cnt = 1;
+	}
+
+	for (; cnt > 0; cnt--, sel++) {
+
+		ad9361_spi_write(spi, REG_TX_FILTER_CONF + offs,
+				 FIR_NUM_TAPS(ntaps / 16 - 1) |
+				 FIR_SELECT(sel) | FIR_START_CLK);
+		for (val = 0; val < ntaps; val++) {
+			short tmp;
+			ad9361_spi_write(spi, REG_TX_FILTER_COEF_ADDR + offs, val);
+
+			tmp = (ad9361_spi_read(spi, REG_TX_FILTER_COEF_READ_DATA_1 + offs) & 0xFF) |
+			(ad9361_spi_read(spi, REG_TX_FILTER_COEF_READ_DATA_2 + offs) << 8);
+
+			if (tmp != coef[val]) {
+				dev_err(&phy->spi->dev,"%s%d read verify failed TAP%d %d =! %d \n",
+					(dest & FIR_IS_RX) ? "RX" : "TX", sel,
+					val, tmp, coef[val]);
+				ret = -EIO;
+			}
+		}
+	}
+
+	if (dest & FIR_IS_RX) {
+		ad9361_spi_write(spi, REG_RX_FILTER_GAIN, gain);
+	}
+
+	ad9361_spi_write(spi, REG_TX_FILTER_CONF + offs, conf);
+
+	return ret;
+}
+
 static int ad9361_load_fir_filter_coef(struct ad9361_rf_phy *phy,
 				       enum fir_dest dest, int gain_dB,
 				       u32 ntaps, short *coef)
@@ -4167,7 +4224,7 @@ static int ad9361_load_fir_filter_coef(struct ad9361_rf_phy *phy,
 	fir_conf &= ~FIR_START_CLK;
 	ad9361_spi_write(spi, REG_TX_FILTER_CONF + offs, fir_conf);
 
-	return 0;
+	return ad9361_verify_fir_filter_coef(phy, dest, ntaps, coef);
 }
 
 static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
