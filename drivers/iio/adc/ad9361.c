@@ -877,7 +877,6 @@ static int ad9361_rfpll_vco_init(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : freq %d MHz : index %d",
 		__func__, tab[i].VCO_MHz, i);
 
-
 	ad9361_spi_write(spi, REG_RX_VCO_OUTPUT + offs,
 			       VCO_OUTPUT_LEVEL(tab[i].VCO_Output_Level) |
 			       PORB_VCO_LOGIC);
@@ -1898,6 +1897,9 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 	u32 vco_cal_cnt;
 	dev_dbg(&phy->spi->dev, "%s : ref_clk_hz %lu : is_tx %d",
 		__func__, ref_clk_hz, tx);
+
+	ad9361_spi_write(phy->spi, REG_RX_CP_LEVEL_DETECT + offs, 0x17);
+	ad9361_spi_write(phy->spi, REG_RX_DSM_SETUP_1 + offs, 0x0);
 
 	ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE + offs, 0x00);
 	ad9361_spi_write(phy->spi, REG_RX_VCO_LDO + offs, 0x0B);
