@@ -1232,6 +1232,11 @@
 				clocks = <&clks IMX6SX_CLK_I2C4>;
 				status = "disabled";
 			};
+
+			qosc: qosc@021fc000 {
+				compatible = "fsl,imx6sx-qosc";
+				reg = <0x021fc000 0x4000>;
+			};
 		};
 
 		aips3: aips-bus@02200000 {
