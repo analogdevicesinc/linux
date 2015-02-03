@@ -168,6 +168,13 @@
 
 &spi0 {
 	status = "okay";
+
+	spidev@0 {
+		compatible = "spidev";
+		reg = <0>;	/* chip select */
+		spi-max-frequency = <1000000>;
+		enable-dma = <1>;
+	};
 };
 
 &uart0 {
