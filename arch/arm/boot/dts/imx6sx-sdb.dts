@@ -136,3 +136,11 @@
 &reg_soc {
 	vin-supply = <&sw1a_reg>;
 };
+
+&usbphy1 {
+	tx-d-cal = <0x5>;
+};
+
+&usbphy2 {
+	tx-d-cal = <0x5>;
+};
