@@ -437,7 +437,6 @@ static int xrgb2yuv_parse_of(struct xrgb2yuv_device *xrgb2yuv)
 static int xrgb2yuv_probe(struct platform_device *pdev)
 {
 	struct xrgb2yuv_device *xrgb2yuv;
-	struct resource *res;
 	struct v4l2_subdev *subdev;
 	struct v4l2_mbus_framefmt *default_format;
 	unsigned int i;
@@ -453,10 +452,9 @@ static int xrgb2yuv_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	xrgb2yuv->xvip.iomem = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(xrgb2yuv->xvip.iomem))
-		return PTR_ERR(xrgb2yuv->xvip.iomem);
+	ret = xvip_init_resources(&xrgb2yuv->xvip);
+	if (ret < 0)
+		return ret;
 
 	/* Reset and initialize the core */
 	xvip_reset(&xrgb2yuv->xvip);
@@ -490,7 +488,7 @@ static int xrgb2yuv_probe(struct platform_device *pdev)
 	subdev->entity.ops = &xrgb2yuv_media_ops;
 	ret = media_entity_init(&subdev->entity, 2, xrgb2yuv->pads, 0);
 	if (ret < 0)
-		return ret;
+		goto error;
 
 	v4l2_ctrl_handler_init(&xrgb2yuv->ctrl_handler, 13);
 
@@ -523,6 +521,7 @@ static int xrgb2yuv_probe(struct platform_device *pdev)
 error:
 	v4l2_ctrl_handler_free(&xrgb2yuv->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
+	xvip_cleanup_resources(&xrgb2yuv->xvip);
 	return ret;
 }
 
@@ -535,6 +534,8 @@ static int xrgb2yuv_remove(struct platform_device *pdev)
 	v4l2_ctrl_handler_free(&xrgb2yuv->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
 
+	xvip_cleanup_resources(&xrgb2yuv->xvip);
+
 	return 0;
 }
 
@@ -542,7 +543,7 @@ static SIMPLE_DEV_PM_OPS(xrgb2yuv_pm_ops, xrgb2yuv_pm_suspend,
 			 xrgb2yuv_pm_resume);
 
 static const struct of_device_id xrgb2yuv_of_id_table[] = {
-	{ .compatible = "xlnx,axi-rgb2yuv-7.1" },
+	{ .compatible = "xlnx,v-rgb2yuv-7.1" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, xrgb2yuv_of_id_table);

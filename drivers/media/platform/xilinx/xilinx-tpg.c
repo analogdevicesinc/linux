@@ -129,8 +129,8 @@ static u32 xtpg_get_bayer_phase(unsigned int code)
 	}
 }
 
-static void xtpg_update_pattern_control(struct xtpg_device *xtpg,
-					bool passthrough, bool pattern)
+static void __xtpg_update_pattern_control(struct xtpg_device *xtpg,
+					  bool passthrough, bool pattern)
 {
 	u32 pattern_mask = (1 << (xtpg->pattern->maximum + 1)) - 1;
 
@@ -151,6 +151,14 @@ static void xtpg_update_pattern_control(struct xtpg_device *xtpg,
 
 	__v4l2_ctrl_modify_range(xtpg->pattern, 0, xtpg->pattern->maximum,
 				 pattern_mask, pattern ? 9 : 0);
+}
+
+static void xtpg_update_pattern_control(struct xtpg_device *xtpg,
+					bool passthrough, bool pattern)
+{
+	mutex_lock(xtpg->ctrl_handler.lock);
+	__xtpg_update_pattern_control(xtpg, passthrough, pattern);
+	mutex_unlock(xtpg->ctrl_handler.lock);
 }
 
 /* -----------------------------------------------------------------------------
@@ -216,7 +224,7 @@ static int xtpg_s_stream(struct v4l2_subdev *subdev, int enable)
 	 * allowed during streaming, update the control range accordingly.
 	 */
 	passthrough = xtpg->pattern->cur.val == 0;
-	xtpg_update_pattern_control(xtpg, passthrough, !passthrough);
+	__xtpg_update_pattern_control(xtpg, passthrough, !passthrough);
 
 	xtpg->streaming = true;
 
@@ -639,7 +647,7 @@ static struct v4l2_ctrl_config xtpg_ctrls[] = {
 	}, {
 		.ops	= &xtpg_ctrl_ops,
 		.id	= V4L2_CID_XILINX_TPG_STUCK_PIXEL_THRESH,
-		.name	= "Test Pattern: Stuck Pixel threshhold",
+		.name	= "Test Pattern: Stuck Pixel threshold",
 		.type	= V4L2_CTRL_TYPE_INTEGER,
 		.min	= 0,
 		.max	= (1 << 16) - 1,
@@ -754,7 +762,6 @@ static int xtpg_probe(struct platform_device *pdev)
 {
 	struct v4l2_subdev *subdev;
 	struct xtpg_device *xtpg;
-	struct resource *res;
 	u32 i, bayer_phase;
 	int ret;
 
@@ -768,20 +775,23 @@ static int xtpg_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	xtpg->xvip.iomem = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(xtpg->xvip.iomem))
-		return PTR_ERR(xtpg->xvip.iomem);
+	ret = xvip_init_resources(&xtpg->xvip);
+	if (ret < 0)
+		return ret;
 
 	xtpg->vtmux_gpio = devm_gpiod_get_index(&pdev->dev, "timing", 0);
-	if (PTR_ERR(xtpg->vtmux_gpio) == -EPROBE_DEFER)
-		return -EPROBE_DEFER;
+	if (PTR_ERR(xtpg->vtmux_gpio) == -EPROBE_DEFER) {
+		ret = -EPROBE_DEFER;
+		goto error;
+	}
 	if (!IS_ERR(xtpg->vtmux_gpio))
 		gpiod_direction_output(xtpg->vtmux_gpio, 1);
 
 	xtpg->vtc = xvtc_of_get(pdev->dev.of_node);
-	if (IS_ERR(xtpg->vtc))
-		return PTR_ERR(xtpg->vtc);
+	if (IS_ERR(xtpg->vtc)) {
+		ret = PTR_ERR(xtpg->vtc);
+		goto error;
+	}
 
 	/* Reset and initialize the core */
 	xvip_reset(&xtpg->xvip);
@@ -822,7 +832,7 @@ static int xtpg_probe(struct platform_device *pdev)
 
 	ret = media_entity_init(&subdev->entity, xtpg->npads, xtpg->pads, 0);
 	if (ret < 0)
-		goto error_media_init;
+		goto error;
 
 	v4l2_ctrl_handler_init(&xtpg->ctrl_handler, 3 + ARRAY_SIZE(xtpg_ctrls));
 
@@ -870,8 +880,8 @@ static int xtpg_probe(struct platform_device *pdev)
 error:
 	v4l2_ctrl_handler_free(&xtpg->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
-error_media_init:
 	xvtc_put(xtpg->vtc);
+	xvip_cleanup_resources(&xtpg->xvip);
 	return ret;
 }
 
@@ -884,20 +894,22 @@ static int xtpg_remove(struct platform_device *pdev)
 	v4l2_ctrl_handler_free(&xtpg->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
 
+	xvip_cleanup_resources(&xtpg->xvip);
+
 	return 0;
 }
 
 static SIMPLE_DEV_PM_OPS(xtpg_pm_ops, xtpg_pm_suspend, xtpg_pm_resume);
 
 static const struct of_device_id xtpg_of_id_table[] = {
-	{ .compatible = "xlnx,axi-tpg-5.0" },
+	{ .compatible = "xlnx,v-tpg-5.0" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, xtpg_of_id_table);
 
 static struct platform_driver xtpg_driver = {
 	.driver = {
-		.name		= "xilinx-axi-tpg",
+		.name		= "xilinx-tpg",
 		.pm		= &xtpg_pm_ops,
 		.of_match_table	= xtpg_of_id_table,
 	},

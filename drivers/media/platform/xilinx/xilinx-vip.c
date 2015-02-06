@@ -10,9 +10,13 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/clk.h>
 #include <linux/export.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
+#include <linux/platform_device.h>
+
+#include <media/media-entity.h>
 
 #include "xilinx-vip.h"
 
@@ -88,8 +92,8 @@ EXPORT_SYMBOL_GPL(xvip_get_format_by_fourcc);
  * xvip_of_get_format - Parse a device tree node and return format information
  * @node: the device tree node
  *
- * Read the xlnx,axi-video-format and xlnx,axi-video-width properties from the
- * device tree @node passed as an argument and return the corresponding format
+ * Read the xlnx,video-format and xlnx,video-width properties from the device
+ * tree @node passed as an argument and return the corresponding format
  * information.
  *
  * Return: a pointer to the format information structure corresponding to the
@@ -102,11 +106,11 @@ const struct xvip_video_format *xvip_of_get_format(struct device_node *node)
 	u32 width;
 	int ret;
 
-	ret = of_property_read_string(node, "xlnx,axi-video-format", &name);
+	ret = of_property_read_string(node, "xlnx,video-format", &name);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
-	ret = of_property_read_u32(node, "xlnx,axi-video-width", &width);
+	ret = of_property_read_u32(node, "xlnx,video-width", &width);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
@@ -188,8 +192,126 @@ void xvip_clr_and_set(struct xvip_device *xvip, u32 addr, u32 clr, u32 set)
 }
 EXPORT_SYMBOL_GPL(xvip_clr_and_set);
 
+int xvip_init_resources(struct xvip_device *xvip)
+{
+	struct platform_device *pdev = to_platform_device(xvip->dev);
+	struct resource *res;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	xvip->iomem = devm_ioremap_resource(xvip->dev, res);
+	if (IS_ERR(xvip->iomem))
+		return PTR_ERR(xvip->iomem);
+
+	xvip->clk = devm_clk_get(xvip->dev, NULL);
+	if (IS_ERR(xvip->clk))
+		return PTR_ERR(xvip->clk);
+
+	clk_prepare_enable(xvip->clk);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(xvip_init_resources);
+
+void xvip_cleanup_resources(struct xvip_device *xvip)
+{
+	clk_disable_unprepare(xvip->clk);
+}
+EXPORT_SYMBOL_GPL(xvip_cleanup_resources);
+
 /* -----------------------------------------------------------------------------
  * Subdev operation helpers
+ */
+
+/**
+ * xvip_get_pad_format - Get the frame format on media bus for the pad
+ * @fh: V4L2 subdevice file handle
+ * @format: V4L2 active frame format on media bus
+ * @pad: media pad
+ * @which: media bus format type
+ *
+ * Get the frame format on media bus for the pad. Return corresponding
+ * frame format. The try format is returned by v4l2_subdev_get_try_format(),
+ * and when the active format is requested, the given frame format, @format,
+ * is returned.
+ *
+ * Return: frame format on media bus if successful, or NULL if no format
+ * is found.
+ */
+struct v4l2_mbus_framefmt *
+xvip_get_pad_format(struct v4l2_subdev_fh *fh,
+		    struct v4l2_mbus_framefmt *format,
+		    unsigned int pad, u32 which)
+{
+	switch (which) {
+	case V4L2_SUBDEV_FORMAT_TRY:
+		return v4l2_subdev_get_try_format(fh, pad);
+	case V4L2_SUBDEV_FORMAT_ACTIVE:
+		return format;
+	default:
+		return NULL;
+	}
+}
+EXPORT_SYMBOL_GPL(xvip_get_pad_format);
+
+/**
+ * xvip_set_format - Set the subdevice format
+ * @format: V4L2 frame format on media bus
+ * @vip_format: Xilinx Video IP video format
+ * @fmt: media bus format
+ *
+ * Set the subdevice format. The format code is defined in vip_format,
+ * and width and height are defined in subdev format. The new format is stored
+ * in @format.
+ */
+void xvip_set_format(struct v4l2_mbus_framefmt *format,
+		     const struct xvip_video_format *vip_format,
+		     struct v4l2_subdev_format *fmt)
+{
+	format->code = vip_format->code;
+	format->width = clamp_t(unsigned int, fmt->format.width,
+				XVIP_MIN_WIDTH, XVIP_MAX_WIDTH);
+	format->height = clamp_t(unsigned int, fmt->format.height,
+			 XVIP_MIN_HEIGHT, XVIP_MAX_HEIGHT);
+}
+EXPORT_SYMBOL_GPL(xvip_set_format);
+
+/**
+ * xvip_init_formats - Initialize formats on all pads
+ * @subdev: V4L2 subdevice
+ * @fh: V4L2 subdev file handle
+ *
+ * Initialize all pad formats with default values. If fh is not NULL, try
+ * formats are initialized on the file handle. Otherwise active formats are
+ * initialized on the device.
+ */
+void xvip_init_formats(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
+{
+	struct xvip_device *xvip = container_of(subdev, struct xvip_device,
+						subdev);
+	struct v4l2_subdev_format format;
+
+	memset(&format, 0, sizeof(format));
+
+	format.which = fh ? V4L2_SUBDEV_FORMAT_TRY : V4L2_SUBDEV_FORMAT_ACTIVE;
+	format.format.width = xvip_read(xvip, XVIP_ACTIVE_SIZE) &
+			      XVIP_ACTIVE_HSIZE_MASK;
+	format.format.height = (xvip_read(xvip, XVIP_ACTIVE_SIZE) &
+				XVIP_ACTIVE_VSIZE_MASK) >>
+			       XVIP_ACTIVE_VSIZE_SHIFT;
+	format.format.field = V4L2_FIELD_NONE;
+	format.format.colorspace = V4L2_COLORSPACE_SRGB;
+
+	format.pad = XVIP_PAD_SOURCE;
+
+	v4l2_subdev_call(subdev, pad, set_fmt, fh, &format);
+
+	format.pad = XVIP_PAD_SINK;
+
+	v4l2_subdev_call(subdev, pad, set_fmt, fh, &format);
+}
+EXPORT_SYMBOL_GPL(xvip_init_formats);
+
+/* -----------------------------------------------------------------------------
+ * Subdev operations handlers
  */
 
 /**
@@ -265,3 +387,52 @@ int xvip_enum_frame_size(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(xvip_enum_frame_size);
+
+/* -----------------------------------------------------------------------------
+ * Initialization and cleanup
+ */
+
+/**
+ * xvip_device_init - Initialize a video IP device
+ * @xvip: the video IP device
+ *
+ * Allocate pads and formats for the device. The caller must have set the
+ * following xvip fields prior to calling this function.
+ *
+ * - npads to the number of pads
+ *
+ * Return 0 on success or -ENOMEM on memory allocation failure.
+ */
+int xvip_device_init(struct xvip_device *xvip)
+{
+	struct v4l2_mbus_framefmt *formats;
+	struct media_pad *pads;
+
+	pads = kzalloc(xvip->npads * sizeof(*pads), GFP_KERNEL);
+	formats = kzalloc(xvip->npads * sizeof(*formats), GFP_KERNEL);
+
+	if (pads == NULL || formats == NULL) {
+		kfree(pads);
+		kfree(formats);
+		return -ENOMEM;
+	}
+
+	xvip->pads = pads;
+	xvip->formats = formats;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(xvip_device_init);
+
+/**
+ * xvip_device_cleanup - Cleanup a video IP device
+ * @xvip: the video IP device
+ *
+ * Free the memory allocated by xvip_device_init().
+ */
+void xvip_device_cleanup(struct xvip_device *xvip)
+{
+	kfree(xvip->pads);
+	kfree(xvip->formats);
+}
+EXPORT_SYMBOL_GPL(xvip_device_cleanup);

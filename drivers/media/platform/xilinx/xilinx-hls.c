@@ -104,7 +104,7 @@ static int xhls_create_controls(struct xhls_device *xhls)
 		return xhls->ctrl_handler.error;
 	}
 
-	strlcpy(ctrl->cur.string, xhls->compatible, model.max + 1);
+	v4l2_ctrl_s_ctrl_string(ctrl, xhls->compatible);
 
 	xhls->xvip.subdev.ctrl_handler = &xhls->ctrl_handler;
 
@@ -403,10 +403,9 @@ static int xhls_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	xhls->xvip.iomem = devm_ioremap_resource(&pdev->dev, mem);
-	if (IS_ERR(xhls->xvip.iomem))
-		return PTR_ERR(xhls->xvip.iomem);
+	ret = xvip_init_resources(&xhls->xvip);
+	if (ret < 0)
+		return ret;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	xhls->user_mem = devm_ioremap_resource(&pdev->dev, mem);
@@ -433,7 +432,7 @@ static int xhls_probe(struct platform_device *pdev)
 	subdev->entity.ops = &xhls_media_ops;
 	ret = media_entity_init(&subdev->entity, 2, xhls->pads, 0);
 	if (ret < 0)
-		return ret;
+		goto error;
 
 	ret = xhls_create_controls(xhls);
 	if (ret < 0)
@@ -454,6 +453,7 @@ static int xhls_probe(struct platform_device *pdev)
 error:
 	v4l2_ctrl_handler_free(&xhls->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
+	xvip_cleanup_resources(&xhls->xvip);
 	return ret;
 }
 
@@ -466,18 +466,20 @@ static int xhls_remove(struct platform_device *pdev)
 	v4l2_ctrl_handler_free(&xhls->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
 
+	xvip_cleanup_resources(&xhls->xvip);
+
 	return 0;
 }
 
 static const struct of_device_id xhls_of_id_table[] = {
-	{ .compatible = "xlnx,axi-hls" },
+	{ .compatible = "xlnx,v-hls" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, xhls_of_id_table);
 
 static struct platform_driver xhls_driver = {
 	.driver = {
-		.name = "xilinx-axi-hls",
+		.name = "xilinx-hls",
 		.of_match_table = xhls_of_id_table,
 	},
 	.probe = xhls_probe,

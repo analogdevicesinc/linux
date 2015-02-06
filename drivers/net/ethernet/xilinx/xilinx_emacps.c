@@ -945,10 +945,10 @@ static void xemacps_update_hwaddr(struct net_local *lp)
 	addr[5] = (regvalh >> 8) & 0xFF;
 
 	if (is_valid_ether_addr(addr)) {
-		memcpy(lp->ndev->dev_addr, addr, sizeof(addr));
+		ether_addr_copy(lp->ndev->dev_addr, addr);
 	} else {
-		dev_info(&lp->pdev->dev, "invalid address, use assigned\n");
-		random_ether_addr(lp->ndev->dev_addr);
+		dev_info(&lp->pdev->dev, "invalid address, use random\n");
+		eth_hw_addr_random(lp->ndev);
 		dev_info(&lp->pdev->dev,
 				"MAC updated %02x:%02x:%02x:%02x:%02x:%02x\n",
 				lp->ndev->dev_addr[0], lp->ndev->dev_addr[1],
@@ -2821,6 +2821,7 @@ static int xemacps_probe(struct platform_device *pdev)
 	struct net_local *lp;
 	u32 regval = 0;
 	int rc = -ENXIO;
+	const u8 *mac_address;
 
 	r_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	r_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
@@ -2929,7 +2930,14 @@ static int xemacps_probe(struct platform_device *pdev)
 		goto err_out_clk_dis_all;
 	}
 
-	xemacps_update_hwaddr(lp);
+	mac_address = of_get_mac_address(lp->pdev->dev.of_node);
+	if (mac_address) {
+		ether_addr_copy(lp->ndev->dev_addr, mac_address);
+		xemacps_set_hwaddr(lp);
+	} else {
+		xemacps_update_hwaddr(lp);
+	}
+
 	tasklet_init(&lp->tx_bdreclaim_tasklet, xemacps_tx_poll,
 		     (unsigned long) ndev);
 	tasklet_disable(&lp->tx_bdreclaim_tasklet);

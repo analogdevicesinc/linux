@@ -1,5 +1,5 @@
 /*
- * Suspend support for Zynq
+ * Zynq power management
  *
  *  Copyright (C) 2012 - 2014 Xilinx
  *
@@ -21,18 +21,21 @@
 
 #include <linux/clk/zynq.h>
 #include <linux/genalloc.h>
-#include <linux/of_address.h>
-#include <linux/of_device.h>
 #include <linux/suspend.h>
 #include <asm/cacheflush.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/map.h>
 #include <asm/suspend.h>
+#include <linux/io.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
 #include "common.h"
 
+/* register offsets */
 #define DDRC_CTRL_REG1_OFFS		0x60
 #define DDRC_DRAM_PARAM_REG3_OFFS	0x20
 
+/* bitfields */
 #define DDRC_CLOCKSTOP_MASK	BIT(23)
 #define DDRC_SELFREFRESH_MASK	BIT(12)
 
@@ -203,7 +206,7 @@ static void zynq_pm_suspend_init(void) { };
 /**
  * zynq_pm_ioremap() - Create IO mappings
  * @comp:	DT compatible string
- * Returns a pointer to the mapped memory or NULL.
+ * Return: Pointer to the mapped memory or NULL.
  *
  * Remap the memory region for a compatible DT node.
  */
@@ -224,11 +227,16 @@ static void __iomem *zynq_pm_ioremap(const char *comp)
 	return base;
 }
 
-int __init zynq_pm_late_init(void)
+/**
+ * zynq_pm_late_init() - Power management init
+ *
+ * Initialization of power management related featurs and infrastructure.
+ */
+void __init zynq_pm_late_init(void)
 {
 	u32 reg;
 
-	ddrc_base = zynq_pm_ioremap("xlnx,zynq-ddrc-1.0");
+	ddrc_base = zynq_pm_ioremap("xlnx,zynq-ddrc-a05");
 	if (!ddrc_base) {
 		pr_warn("%s: Unable to map DDRC IO memory.\n", __func__);
 	} else {
@@ -244,6 +252,4 @@ int __init zynq_pm_late_init(void)
 
 	/* set up suspend */
 	zynq_pm_suspend_init();
-
-	return 0;
 }

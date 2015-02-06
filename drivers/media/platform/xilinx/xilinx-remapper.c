@@ -10,6 +10,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -374,36 +375,36 @@ static int xremap_parse_of(struct xremap_device *xremap)
 	int ret;
 
 	/* Parse the DT properties. */
-	ret = of_property_read_u32(node, "xlnx,axi-video-width",
+	ret = of_property_read_u32(node, "xlnx,video-width",
 				   &xremap->config.width);
 	if (ret < 0) {
 		dev_dbg(xremap->xvip.dev, "unable to parse %s property\n",
-			"xlnx,axi-video-width");
+			"xlnx,video-width");
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(node, "#xlnx,axi-s-components",
+	ret = of_property_read_u32(node, "#xlnx,s-components",
 				   &xremap->config.num_s_components);
 	if (ret < 0) {
 		dev_dbg(xremap->xvip.dev, "unable to parse %s property\n",
-			"#xlnx,axi-s-components");
+			"#xlnx,s-components");
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(node, "#xlnx,axi-m-components",
+	ret = of_property_read_u32(node, "#xlnx,m-components",
 				   &xremap->config.num_m_components);
 	if (ret < 0) {
 		dev_dbg(xremap->xvip.dev, "unable to parse %s property\n",
-			"#xlnx,axi-m-components");
+			"#xlnx,m-components");
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32_array(node, "xlnx,axi-component-maps",
+	ret = of_property_read_u32_array(node, "xlnx,component-maps",
 					 xremap->config.component_maps,
 					 xremap->config.num_m_components);
 	if (ret < 0) {
 		dev_dbg(xremap->xvip.dev, "unable to parse %s property\n",
-			"xlnx,axi-component-maps");
+			"xlnx,component-maps");
 		return -EINVAL;
 	}
 
@@ -464,6 +465,12 @@ static int xremap_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	xremap->xvip.clk = devm_clk_get(xremap->xvip.dev, NULL);
+	if (IS_ERR(xremap->xvip.clk))
+		return PTR_ERR(xremap->xvip.clk);
+
+	clk_prepare_enable(xremap->xvip.clk);
+
 	/* Initialize V4L2 subdevice and media entity */
 	subdev = &xremap->xvip.subdev;
 	v4l2_subdev_init(subdev, &xremap_ops);
@@ -480,7 +487,7 @@ static int xremap_probe(struct platform_device *pdev)
 	subdev->entity.ops = &xremap_media_ops;
 	ret = media_entity_init(&subdev->entity, 2, xremap->pads, 0);
 	if (ret < 0)
-		return ret;
+		goto error;
 
 	platform_set_drvdata(pdev, xremap);
 
@@ -496,6 +503,7 @@ static int xremap_probe(struct platform_device *pdev)
 
 error:
 	media_entity_cleanup(&subdev->entity);
+	clk_disable_unprepare(xremap->xvip.clk);
 	return ret;
 }
 
@@ -507,18 +515,20 @@ static int xremap_remove(struct platform_device *pdev)
 	v4l2_async_unregister_subdev(subdev);
 	media_entity_cleanup(&subdev->entity);
 
+	clk_disable_unprepare(xremap->xvip.clk);
+
 	return 0;
 }
 
 static const struct of_device_id xremap_of_id_table[] = {
-	{ .compatible = "xlnx,axi-remapper" },
+	{ .compatible = "xlnx,v-remapper" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, xremap_of_id_table);
 
 static struct platform_driver xremap_driver = {
 	.driver = {
-		.name = "xilinx-axi-remapper",
+		.name = "xilinx-remapper",
 		.of_match_table = xremap_of_id_table,
 	},
 	.probe = xremap_probe,

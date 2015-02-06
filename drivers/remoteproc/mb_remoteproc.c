@@ -148,7 +148,7 @@ static void mb_rproc_kick(struct rproc *rproc, int vqid)
 /* power off the remote processor */
 static int mb_rproc_stop(struct rproc *rproc)
 {
-  	struct device *dev = rproc->dev.parent;
+	struct device *dev = rproc->dev.parent;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mb_rproc_pdata *local = platform_get_drvdata(pdev);
 
@@ -376,9 +376,9 @@ static int mb_remoteproc_probe(struct platform_device *pdev)
 			goto dma_mask_fault;
 		}
 		return 0;
-	} else {
-		ret = -ENODEV;
 	}
+
+	ret = -ENODEV;
 
 dma_mask_fault:
 	dma_release_declared_memory(&pdev->dev);
@@ -412,7 +412,6 @@ static struct platform_driver mb_remoteproc_driver = {
 	.remove = mb_remoteproc_remove,
 	.driver = {
 		.name = "mb_remoteproc",
-		.owner = THIS_MODULE,
 		.of_match_table = mb_remoteproc_match,
 	},
 };
