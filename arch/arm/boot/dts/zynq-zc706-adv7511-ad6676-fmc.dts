@@ -28,7 +28,7 @@
 
 		adi,adc-frequency-hz = <3200000000>;
 		adi,adc-frequency-fixed-enable;
-		adi,intermediate-frequency-hz = <200000000>;
+		adi,intermediate-frequency-hz = <250000000>;
 
 		adi,intermediate-frequency-min-hz = <150000000>;
 		adi,intermediate-frequency-max-hz = <450000000>;
