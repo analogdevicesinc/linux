@@ -453,6 +453,9 @@ static int xvip_graph_dma_init_one(struct xvip_composite_device *xdev,
 
 	list_add_tail(&dma->list, &xdev->dmas);
 
+	xdev->v4l2_caps |= type == V4L2_BUF_TYPE_VIDEO_CAPTURE
+			 ? V4L2_CAP_VIDEO_CAPTURE : V4L2_CAP_VIDEO_OUTPUT;
+
 	return 0;
 }
 
@@ -642,14 +645,14 @@ static int xvip_composite_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id xvip_composite_of_id_table[] = {
-	{ .compatible = "xlnx,axi-video" },
+	{ .compatible = "xlnx,video" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, xvip_composite_of_id_table);
 
 static struct platform_driver xvip_composite_driver = {
 	.driver = {
-		.name = "xilinx-axi-video",
+		.name = "xilinx-video",
 		.of_match_table = xvip_composite_of_id_table,
 	},
 	.probe = xvip_composite_probe,

@@ -16,6 +16,8 @@
 #include <linux/io.h>
 #include <media/v4l2-subdev.h>
 
+struct clk;
+
 /*
  * Minimum and maximum width and height common to most video IP cores. IP
  * cores with different requirements must define their own values.
@@ -88,12 +90,21 @@
  * @subdev: V4L2 subdevice
  * @dev: (OF) device
  * @iomem: device I/O register space remapped to kernel virtual memory
+ * @npads: number of pads on the subdevice
+ * @pads: media pads
+ * @formats: active formats on the pads
  * @saved_ctrl: saved control register for resume / suspend
  */
 struct xvip_device {
 	struct v4l2_subdev subdev;
 	struct device *dev;
 	void __iomem *iomem;
+	struct clk *clk;
+
+	unsigned int npads;
+	struct media_pad *pads;
+	struct v4l2_mbus_framefmt *formats;
+
 	u32 saved_ctrl;
 };
 
@@ -115,6 +126,9 @@ struct xvip_video_format {
 	const char *description;
 };
 
+int xvip_device_init(struct xvip_device *xvip);
+void xvip_device_cleanup(struct xvip_device *xvip);
+
 const struct xvip_video_format *xvip_get_format_by_code(unsigned int code);
 const struct xvip_video_format *xvip_get_format_by_fourcc(u32 fourcc);
 const struct xvip_video_format *xvip_of_get_format(struct device_node *node);
@@ -124,6 +138,14 @@ int xvip_enum_mbus_code(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh,
 			struct v4l2_subdev_mbus_code_enum *code);
 int xvip_enum_frame_size(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh,
 			 struct v4l2_subdev_frame_size_enum *fse);
+struct v4l2_mbus_framefmt *
+xvip_get_pad_format(struct v4l2_subdev_fh *fh,
+		    struct v4l2_mbus_framefmt *format,
+		    unsigned int pad, u32 which);
+void xvip_set_format(struct v4l2_mbus_framefmt *format,
+		     const struct xvip_video_format *vip_format,
+		     struct v4l2_subdev_format *fmt);
+void xvip_init_formats(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh);
 
 static inline u32 xvip_read(struct xvip_device *xvip, u32 addr)
 {
@@ -147,6 +169,9 @@ static inline void xvip_set(struct xvip_device *xvip, u32 addr, u32 set)
 
 void xvip_clr_or_set(struct xvip_device *xvip, u32 addr, u32 mask, bool set);
 void xvip_clr_and_set(struct xvip_device *xvip, u32 addr, u32 clr, u32 set);
+
+int xvip_init_resources(struct xvip_device *xvip);
+void xvip_cleanup_resources(struct xvip_device *xvip);
 
 static inline void xvip_reset(struct xvip_device *xvip)
 {
