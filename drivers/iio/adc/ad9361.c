@@ -1082,13 +1082,11 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	switch (ensm_state) {
 
 	case ENSM_STATE_TX:
+	case ENSM_STATE_FDD:
 		val |= FORCE_TX_ON;
 		break;
 	case ENSM_STATE_RX:
 		val |= FORCE_RX_ON;
-		break;
-	case ENSM_STATE_FDD:
-		val |= (FORCE_TX_ON | FORCE_RX_ON);
 		break;
 	case ENSM_STATE_ALERT:
 		val &= ~(FORCE_TX_ON | FORCE_RX_ON);
@@ -1129,13 +1127,11 @@ static void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 	switch (phy->prev_ensm_state) {
 
 	case ENSM_STATE_TX:
+	case ENSM_STATE_FDD:
 		val |= FORCE_TX_ON;
 		break;
 	case ENSM_STATE_RX:
 		val |= FORCE_RX_ON;
-		break;
-	case ENSM_STATE_FDD:
-		val |= (FORCE_TX_ON | FORCE_RX_ON);
 		break;
 	case ENSM_STATE_ALERT:
 		val |= TO_ALERT;
@@ -3179,7 +3175,7 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state,
 			rc = -EINVAL;
 		break;
 	case ENSM_STATE_FDD:
-		val |= (FORCE_TX_ON | FORCE_RX_ON);
+		val |= FORCE_TX_ON;
 		if (!phy->pdata->fdd)
 			rc = -EINVAL;
 		break;
