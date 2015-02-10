@@ -3468,8 +3468,7 @@ static int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctr
 	if (fdd)
 		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
 			val | DUAL_SYNTH_MODE |
-			(pinctrl ? (pd->fdd_independent_mode ?
-				FDD_EXTERNAL_CTRL_ENABLE : 0) : 0));
+			(pd->fdd_independent_mode ? FDD_EXTERNAL_CTRL_ENABLE : 0));
 	 else
 		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2, val |
 				(pd->tdd_use_dual_synth ? DUAL_SYNTH_MODE : 0) |
@@ -3818,6 +3817,12 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 
 	if (pd->fdd) {
 		pd->tdd_skip_vco_cal = false;
+		if (pd->ensm_pin_ctrl && pd->fdd_independent_mode) {
+			dev_warn(dev,
+				 "%s: Either set ENSM PINCTRL or FDD Independent Mode",
+				__func__);
+			pd->ensm_pin_ctrl = false;
+		}
 	} else { /* TDD Mode */
 		if (pd->tdd_use_dual_synth || pd->tdd_skip_vco_cal)
 			pd->tdd_use_fdd_tables = true;
@@ -5767,6 +5772,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		break;
 	case AD9361_ENSM_MODE:
 		res = false;
+		phy->pdata->fdd_independent_mode = false;
 
 		if (sysfs_streq(buf, "tx"))
 			val = ENSM_STATE_TX;
@@ -5783,10 +5789,8 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		else if (sysfs_streq(buf, "pinctrl")) {
 			res = true;
 			val = ENSM_STATE_SLEEP_WAIT;
-			phy->pdata->fdd_independent_mode = false;
 		} else if (sysfs_streq(buf, "pinctrl_fdd_indep")) {
-			res = true;
-			val = ENSM_STATE_SLEEP_WAIT;
+			val = ENSM_STATE_FDD;
 			phy->pdata->fdd_independent_mode = true;
 		} else
 			break;
