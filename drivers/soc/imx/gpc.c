@@ -453,7 +453,7 @@ static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 		disp_clks = 6;
 	} else if (cpu_is_imx6sx()) {
 		pu_clks = 1;
-		disp_clks = 7;
+		disp_clks = 8;
 	} else {
 		pu_clks = GPC_CLK_MAX;
 		disp_clks = 0;
