@@ -169,6 +169,27 @@ static int uio_dmem_genirq_probe(struct platform_device *pdev)
 		uioinfo->name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%pOFn",
 					       pdev->dev.of_node);
 		uioinfo->version = "devicetree";
+		/* alloc pdata */
+		pdata = kzalloc(sizeof(pdata), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&pdev->dev, "unable to kmalloc\n");
+			return -ENOMEM;
+		}
+		pdata->num_dynamic_regions = 0;
+		of_property_read_u32(pdev->dev.of_node,
+			"uio,number-of-dynamic-regions",
+			&pdata->num_dynamic_regions);
+		pdata->dynamic_region_sizes =
+			kzalloc(sizeof(*pdata->dynamic_region_sizes) *
+				pdata->num_dynamic_regions, GFP_KERNEL);
+		if (!pdata->dynamic_region_sizes) {
+			dev_err(&pdev->dev, "unable to kmalloc\n");
+			return -ENOMEM;
+		}
+		of_property_read_u32_array(pdev->dev.of_node,
+			"uio,dynamic-regions-sizes",
+			pdata->dynamic_region_sizes,
+			pdata->num_dynamic_regions);
 	}
 
 	if (!uioinfo || !uioinfo->name || !uioinfo->version) {
@@ -317,10 +338,13 @@ static const struct dev_pm_ops uio_dmem_genirq_dev_pm_ops = {
 };
 
 #ifdef CONFIG_OF
-static const struct of_device_id uio_of_genirq_match[] = {
-	{ /* empty for now */ },
+static struct of_device_id uio_of_genirq_match[] = {
+	{ .compatible = "dmem-uio", },
+	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, uio_of_genirq_match);
+module_param_string(of_id, uio_of_genirq_match[0].compatible, 128, 0);
+MODULE_PARM_DESC(of_id, "Openfirmware id of the device to be handled by uio");
 #endif
 
 static struct platform_driver uio_dmem_genirq = {
