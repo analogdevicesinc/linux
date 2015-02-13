@@ -40,18 +40,22 @@
 	};
 
 	ad9361@79020000 {
-		compatible = "generic-uio";
+		compatible = "dmem-uio";
 		reg = <0x79020000 0x6000>;
 	};
 
 	rx_dma@7c400000 {
-		compatible = "generic-uio";
+		compatible = "dmem-uio";
 		reg = <0x7c400000 0x10000>;
+		uio,number-of-dynamic-regions = <1>;
+		uio,dynamic-regions-sizes = <262144>;
 	};
 
 	tx_dma@7c420000 {
-		compatible = "generic-uio";
+		compatible = "dmem-uio";
 		reg = <0x7c420000 0x10000>;
+		uio,number-of-dynamic-regions = <1>;
+		uio,dynamic-regions-sizes = <262144>;
 	};
 };
 
