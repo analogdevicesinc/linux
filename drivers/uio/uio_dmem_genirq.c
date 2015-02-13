@@ -222,7 +222,7 @@ static int uio_dmem_genirq_probe(struct platform_device *pdev)
 			uioinfo->irq = UIO_IRQ_NONE;
 		else if (ret < 0) {
 			dev_err(&pdev->dev, "failed to get IRQ\n");
-			return ret;
+			goto bad1;
 		}
 	}
 
