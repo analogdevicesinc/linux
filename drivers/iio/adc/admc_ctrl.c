@@ -533,7 +533,9 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	indio_dev->num_channels = 8;
 	indio_dev->masklength = 8;
 
-	axiadc_configure_ring_stream(indio_dev, "ad-mc-ctrl-dma");
+	ret = axiadc_configure_ring_stream(indio_dev, "ad-mc-ctrl-dma");
+	if (ret < 0)
+		return ret;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
