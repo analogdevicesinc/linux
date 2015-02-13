@@ -83,12 +83,12 @@ static int ad9144_setup(struct cf_axi_converter *conv, struct ad9144_platform_da
 
 	// power-up and dac initialization
 
-	mdelay(5);
+	msleep(5);
 
 	ad9144_write(spi, REG_SPI_INTFCONFA, SOFTRESET_M | SOFTRESET);	// reset
 	ad9144_write(spi, REG_SPI_INTFCONFA, 0x00);	// reset
 
-	mdelay(4);
+	msleep(4);
 
 	ad9144_write(spi, 0x011, 0x00);	// dacs - power up everything
 	ad9144_write(spi, 0x080, 0x00);	// clocks - power up everything
@@ -147,7 +147,7 @@ static int ad9144_setup(struct cf_axi_converter *conv, struct ad9144_platform_da
 	ad9144_write(spi, 0x289, 0x04);	// data-rate == 10Gbps
 	ad9144_write(spi, 0x280, 0x01);	// enable serdes pll
 	ad9144_write(spi, 0x280, 0x05);	// enable serdes calibration
-	mdelay(20);
+	msleep(20);
 
 	if ((ad9144_read(spi, 0x281) & 0x01) == 0x00) {
 		dev_err(&spi->dev, "AD9144, PLL/link errors!!\n\r");
@@ -181,7 +181,7 @@ static int ad9144_setup(struct cf_axi_converter *conv, struct ad9144_platform_da
 	ad9144_write(spi, 0x0e8, 0x03);	// cal 2 dacs at once
 	ad9144_write(spi, 0x0e9, 0x01);	// single cal enable
 	ad9144_write(spi, 0x0e9, 0x03);	// single cal start
-	mdelay(10);
+	msleep(10);
 
 	ad9144_write(spi, 0x0e8, 0x01);	// read dac-0
 	if ((ad9144_read(spi, 0x0e9) & 0xc0) != 0x80) {
@@ -196,11 +196,11 @@ static int ad9144_setup(struct cf_axi_converter *conv, struct ad9144_platform_da
 	ad9144_write(spi, 0x0e7, 0x30);	// turn off cal clock
 
 #if 0
-	mdelay(50);
+	msleep(50);
 
 	ad9144_write(spi, REG_SPI_INTFCONFA, SOFTRESET_M | SOFTRESET);	// reset
 	ad9144_write(spi, REG_SPI_INTFCONFA, 0x00);	// reset
-	mdelay(1);
+	msleep(1);
 
 	ad9144_write(spi, REG_PWRCNTRL0, PD_DAC_2 | PD_DAC_3);	// 0x11 dacs - power up everything
 	ad9144_write(spi, REG_CLKCFG0, PD_CLK23);	// 0x80 clocks - power up everything
@@ -237,7 +237,7 @@ static int ad9144_setup(struct cf_axi_converter *conv, struct ad9144_platform_da
 	ad9144_write(spi, REG_SYNTH_ENABLE_CNTRL, SPI_ENABLE_SYNTH);	// enable serdes pll
 	ad9144_write(spi, REG_SYNTH_ENABLE_CNTRL, SPI_ENABLE_SYNTH | SPI_RECAL_SYNTH);	// enable serdes calibration
 
-	mdelay(50);
+	msleep(50);
 
 	if ((ad9144_read(spi, 0x281) & 0x01) == 0x00) {
 		dev_err(&spi->dev, "AD9144, PLL/link errors!!\n\r");
