@@ -136,7 +136,9 @@ static int axiadc_probe(struct platform_device *pdev)
 	st->iio_info = axiadc_info;
 	indio_dev->info = &st->iio_info;
 
-	axiadc_configure_ring_stream(indio_dev, "ad-mc-adc-dma");
+	ret = axiadc_configure_ring_stream(indio_dev, "ad-mc-adc-dma");
+	if (ret < 0)
+		return ret;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
