@@ -211,7 +211,10 @@
 
 #define AD9528_NUM_CHAN					14
 
-#define AD9528_SPI_MAGIC				0x0100FF05
+enum ad9528_type {
+	AD9528_SPI_MAGIC	= 0x0100FF05,
+	AD9528_1_SPI_MAGIC	= 0x0200FF05,
+};
 
 /* Helpers to avoid excess line breaks */
 #define AD_IFE(_pde, _a, _b) ((pdata->_pde) ? _a : _b)
@@ -260,6 +263,7 @@ struct ad9528_state {
 	unsigned char		vco_out_map[AD9528_NUM_CHAN];
 
 	struct mutex		lock;
+	enum ad9528_type	type;
 
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
@@ -773,7 +777,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	if (ret != AD9528_SPI_MAGIC) {
+	if (ret != st->type) {
 		dev_err(&indio_dev->dev,
 				"SPI Read Verify failed (0x%X)\n", ret);
 		return -EIO;
@@ -1141,6 +1145,7 @@ struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 static int ad9528_probe(struct spi_device *spi)
 {
+	const struct spi_device_id *dev_id = spi_get_device_id(spi);
 	struct ad9528_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct ad9528_state *st;
@@ -1163,6 +1168,7 @@ static int ad9528_probe(struct spi_device *spi)
 	st = iio_priv(indio_dev);
 
 	mutex_init(&st->lock);
+	st->type = dev_id->driver_data;
 
 	st->reg = devm_regulator_get(&spi->dev, "vcc");
 	if (!IS_ERR(st->reg)) {
@@ -1241,7 +1247,8 @@ static int ad9528_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad9528_id[] = {
-	{"ad9528", 9528},
+	{ "ad9528", AD9528_SPI_MAGIC },
+	{ "ad9528-1", AD9528_1_SPI_MAGIC },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9528_id);
