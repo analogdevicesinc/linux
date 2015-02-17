@@ -106,7 +106,7 @@
 #define AD9528_PLL1_REFA_DIFF_RCV_EN		BIT(5)
 #define AD9528_PLL1_REFB_RCV_EN			BIT(4)
 #define AD9528_PLL1_REFA_RCV_EN			BIT(3)
-#define AD9528_PLL1_REFA_REFB_PWR_CTRL_EN	BIT(2)
+#define AD9528_PLL1_VCXO_RCV_PD_EN		BIT(2)
 #define AD9528_PLL1_OSC_IN_CMOS_NEG_INP_EN	BIT(1)
 #define AD9528_PLL1_OSC_IN_DIFF_EN		BIT(0)
 
@@ -806,7 +806,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	ret = ad9528_write(indio_dev, AD9528_PLL1_CTRL,
-		AD_IFE(pll1_bypass_en, AD9528_PLL1_REFA_REFB_PWR_CTRL_EN |
+		AD_IFE(pll1_bypass_en,
 		AD_IF(osc_in_diff_en, AD9528_PLL1_OSC_IN_DIFF_EN) |
 		AD_IF(osc_in_cmos_neg_inp_en,
 		      AD9528_PLL1_OSC_IN_CMOS_NEG_INP_EN) |
