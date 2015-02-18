@@ -24,6 +24,11 @@
 #include "ad9144.h"
 #include "cf_axi_dds.h"
 
+enum chip_id {
+	CHIPID_AD9144 = 0x44,
+	CHIPID_AD9152 = 0x52,
+};
+
 struct ad9144_platform_data {
 	u8 xbar_lane0_sel;
 	u8 xbar_lane1_sel;
@@ -33,6 +38,7 @@ struct ad9144_platform_data {
 
 struct ad9144_state {
 	struct cf_axi_converter conv;
+	enum chip_id id;
 	struct regmap *map;
 };
 
@@ -92,17 +98,36 @@ static int ad9144_setup(struct ad9144_state *st,
 	regmap_write(map, 0x080, 0x00);	// clocks - power up everything
 	regmap_write(map, 0x081, 0x00);	// sysref - power up/falling edge
 
-	// required device configurations
+	if (st->id == CHIPID_AD9144) {
+		// required device configurations
 
-	regmap_write(map, 0x12d, 0x8b);	// data-path
-	regmap_write(map, 0x146, 0x01);	// data-path
-	regmap_write(map, 0x2a4, 0xff);	// clock
-	regmap_write(map, 0x1c4, 0x73);	// dac-pll
-	regmap_write(map, 0x291, 0x49);	// serde-pll
-	regmap_write(map, 0x29c, 0x24);	// serde-pll
-	regmap_write(map, 0x29f, 0x73);	// serde-pll
-	regmap_write(map, 0x232, 0xff);	// jesd
-	regmap_write(map, 0x333, 0x01);	// jesd
+		regmap_write(map, 0x12d, 0x8b);	// data-path
+		regmap_write(map, 0x146, 0x01);	// data-path
+		regmap_write(map, 0x2a4, 0xff);	// clock
+		regmap_write(map, 0x1c4, 0x73);	// dac-pll
+		regmap_write(map, 0x291, 0x49);	// serde-pll
+		regmap_write(map, 0x29c, 0x24);	// serde-pll
+		regmap_write(map, 0x29f, 0x73);	// serde-pll
+		regmap_write(map, 0x232, 0xff);	// jesd
+		regmap_write(map, 0x333, 0x01);	// jesd
+	} else if (st->id == CHIPID_AD9152) {
+		/* So secret. Such ugly. Very hardcoded. wow. */
+		regmap_write(map, 0x1a0, 0x01);
+		regmap_write(map, 0x1db, 0x0f);
+		regmap_write(map, 0x1dc, 0x10);
+		regmap_write(map, 0x1d3, 0x06);
+		regmap_write(map, 0x1d4, 0x0d);
+		regmap_write(map, 0x1d8, 0xb0);
+		regmap_write(map, 0x1da, 0x40);
+		regmap_write(map, 0x2a6, 0x08);
+		regmap_write(map, 0x248, 0xaa);
+		regmap_write(map, 0x291, 0x49);
+		regmap_write(map, 0x232, 0x0f);
+		regmap_write(map, 0x2aa, 0xb7);
+		regmap_write(map, 0x2ab, 0x87);
+		regmap_write(map, 0x2aa, 0xb7); // jesd termination
+		regmap_write(map, 0x2ab, 0x87); // jesd termination
+	}
 
 	// digital data path
 
@@ -113,6 +138,10 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	regmap_write(map, 0x200, 0x00);	// phy - power up
 	regmap_write(map, 0x201, 0x00);	// phy - power up
+	if (st->id == CHIPID_AD9152) {
+		regmap_write(map, 0x230, 0x28); // half-rate CDR
+		regmap_write(map, 0x312, 0x20); // half-rate CDR
+	}
 	regmap_write(map, 0x300, 0x01);	// single link - link 0
 	regmap_write(map, 0x450, 0x00);	// device id (0x400)
 	regmap_write(map, 0x451, 0x00);	// bank id (0x401)
@@ -126,6 +155,8 @@ static int ad9144_setup(struct ad9144_state *st,
 	regmap_write(map, 0x459, 0x20);	// jesd204b, 1 samples per converter per device
 	regmap_write(map, 0x45a, 0x80);	// HD mode, no CS bits
 	regmap_write(map, 0x45d, 0x49);	// check-sum of 0x450 to 0x45c
+	if (st->id == CHIPID_AD9152)
+		regmap_write(map, 0x478, 0x01);	// ilas mf count
 	regmap_write(map, 0x46c, 0x0f);	// enable deskew for all lanes
 	regmap_write(map, 0x476, 0x01);	// frame - bytecount (1)
 	regmap_write(map, 0x47d, 0x0f);	// enable all lanes
@@ -134,10 +165,13 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	regmap_write(map, 0x2aa, 0xb7);	// jesd termination
 	regmap_write(map, 0x2ab, 0x87);	// jesd termination
-	regmap_write(map, 0x2b1, 0xb7);	// jesd termination
-	regmap_write(map, 0x2b2, 0x87);	// jesd termination
+	if (st->id == CHIPID_AD9144) {
+		regmap_write(map, 0x2b1, 0xb7);	// jesd termination
+		regmap_write(map, 0x2b2, 0x87);	// jesd termination
+	}
 	regmap_write(map, 0x2a7, 0x01);	// input termination calibration
-	regmap_write(map, 0x2ae, 0x01);	// input termination calibration
+	if (st->id == CHIPID_AD9144)
+		regmap_write(map, 0x2ae, 0x01);	// input termination calibration
 	regmap_write(map, 0x314, 0x01);	// pclk == qbd master clock
 	regmap_write(map, 0x230, 0x28);	// cdr mode - halfrate, no division
 	regmap_write(map, 0x206, 0x00);	// cdr reset
@@ -164,32 +198,36 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	regmap_write(map, 0x301, 0x01);	// subclass-1
 	regmap_write(map, 0x304, 0x00);	// lmfc delay
-	regmap_write(map, 0x305, 0x00);	// lmfc delay
+	if (st->id == CHIPID_AD9144)
+		regmap_write(map, 0x305, 0x00);	// lmfc delay
 	regmap_write(map, 0x306, 0x0a);	// receive buffer delay
-	regmap_write(map, 0x307, 0x0a);	// receive buffer delay
+	if (st->id == CHIPID_AD9144)
+		regmap_write(map, 0x307, 0x0a);	// receive buffer delay
 	regmap_write(map, 0x03a, 0x01);	// sync-oneshot mode
 	regmap_write(map, 0x03a, 0x81);	// sync-enable
 	regmap_write(map, 0x03a, 0xc1);	// sysref-armed
 	regmap_write(map, 0x300, 0x01);	// enable link
 
-	// dac calibration
+	if (st->id == CHIPID_AD9144) {
+		// dac calibration
 
-	regmap_write(map, 0x0e7, 0x38);	// set calibration clock to 1m
-	regmap_write(map, 0x0ed, 0xa6);	// use isb reference of 38 to set cal
-	regmap_write(map, 0x0e8, 0x03);	// cal 2 dacs at once
-	regmap_write(map, 0x0e9, 0x01);	// single cal enable
-	regmap_write(map, 0x0e9, 0x03);	// single cal start
-	msleep(10);
+		regmap_write(map, 0x0e7, 0x38);	// set calibration clock to 1m
+		regmap_write(map, 0x0ed, 0xa6);	// use isb reference of 38 to set cal
+		regmap_write(map, 0x0e8, 0x03);	// cal 2 dacs at once
+		regmap_write(map, 0x0e9, 0x01);	// single cal enable
+		regmap_write(map, 0x0e9, 0x03);	// single cal start
+		msleep(10);
 
-	for (i = 0, timeout = 30; i < 2; i++) {
-		regmap_write(map, 0x0e8, 1 << i); // read dac-x
-		do {
-			msleep(1);
-			regmap_read(map, 0x0e9, &val);
-		} while ((val & CAL_ACTIVE) && timeout--);
+		for (i = 0, timeout = 30; i < 2; i++) {
+			regmap_write(map, 0x0e8, 1 << i); // read dac-x
+			do {
+				msleep(1);
+				regmap_read(map, 0x0e9, &val);
+			} while ((val & CAL_ACTIVE) && timeout--);
 
-		if ((val & (CAL_FIN | CAL_ERRHI | CAL_ERRLO)) != CAL_FIN) {
-			dev_err(dev, "AD9144, dac-%d calibration failed (0x%X)!!\n", i, val);
+			if ((val & (CAL_FIN | CAL_ERRHI | CAL_ERRLO)) != CAL_FIN) {
+				dev_err(dev, "AD9144, dac-%d calibration failed (0x%X)!!\n", i, val);
+			}
 		}
 	}
 
@@ -332,6 +370,7 @@ static const struct regmap_config ad9144_regmap_config = {
 
 static int ad9144_probe(struct spi_device *spi)
 {
+	const struct spi_device_id *dev_id = spi_get_device_id(spi);
 	struct cf_axi_converter *conv;
 	struct ad9144_platform_data *pdata;
 	struct ad9144_state *st;
@@ -352,7 +391,9 @@ static int ad9144_probe(struct spi_device *spi)
 	if (st == NULL)
 		return -ENOMEM;
 
+	st->id = (enum chip_id) dev_id->driver_data;
 	conv = &st->conv;
+
 	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
 	if (!IS_ERR(conv->reset_gpio)) {
 		ret = gpiod_direction_output(conv->reset_gpio, 1);
@@ -371,7 +412,7 @@ static int ad9144_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	if (id != CHIPID_AD9144) {
+	if (id != st->id) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", id);
 		ret = -ENODEV;
 		goto out;
@@ -406,6 +447,8 @@ static int ad9144_probe(struct spi_device *spi)
 
 	clk_prepare_enable(conv->clk[0]);
 	spi_set_drvdata(spi, conv);
+
+	dev_info(&spi->dev, "Probed.\n");
 	return 0;
 out:
 	return ret;
@@ -418,7 +461,8 @@ static int ad9144_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad9144_id[] = {
-	{"ad9144", 9144},
+	{ "ad9144", CHIPID_AD9144 },
+	{ "ad9152", CHIPID_AD9152 },
 	{}
 };
 
