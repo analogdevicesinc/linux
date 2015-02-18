@@ -1295,7 +1295,6 @@
 #define CMM_ENABLE                           (1 << 3)
 
 
-#define CHIPID_AD9144 			0x44
-#define AD9144_MAX_DAC_RATE 		2000000000UL
+#define AD9144_MAX_DAC_RATE		2000000000UL
 
 #endif	/* end ifndef _DEF_AD9144_H */
