@@ -1400,13 +1400,14 @@ static int ad9361_gc_update(struct ad9361_rf_phy *phy)
 		dec_pow_meas_dur =
 			phy->pdata->gain_ctrl.f_agc_dec_pow_measuremnt_duration;
 	} else {
-
+		u32 fir_div = DIV_ROUND_CLOSEST(clkrf, clk_get_rate(phy->clks[RX_SAMPL_CLK]));
 		dec_pow_meas_dur = phy->pdata->gain_ctrl.dec_pow_measuremnt_duration;
 
-		if (((reg * 2) / dec_pow_meas_dur) < 2) {
-			dec_pow_meas_dur = reg;
+		if (((reg * 2 / fir_div) / dec_pow_meas_dur) < 2) {
+			dec_pow_meas_dur = reg / fir_div;
 		}
 	}
+
 
 	/* Power Measurement Duration */
 	ad9361_spi_writef(spi, REG_DEC_POWER_MEASURE_DURATION_0,
