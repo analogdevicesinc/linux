@@ -27,6 +27,7 @@
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
 #include <asm/pmu.h>
+#include <asm/cacheflush.h>
 
 #include "core.h"
 #include "socfpga_cti.h"
