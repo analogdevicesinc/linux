@@ -73,6 +73,11 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 
 	dws->bus_num = pdev->id;
 
+	if (of_property_read_bool(pdev->dev.of_node, "32bit_access")) {
+		dws->dwread = dw_readl;
+		dws->dwwrite = dw_writel;
+	}
+
 	dws->max_freq = clk_get_rate(dwsmmio->clk);
 
 	num_cs = 4;
