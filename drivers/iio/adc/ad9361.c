@@ -7641,7 +7641,7 @@ static int ad9361_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "%s : Unsupported PRODUCT_ID 0x%X",
 			__func__, ret);
 		ret = -ENODEV;
-		goto out;
+		goto out_iio_device_free;
 	}
 
 	rev = ret & REV_MASK;
@@ -7654,16 +7654,18 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ret = register_clocks(phy);
 	if (ret < 0)
-		goto out;
+		goto out_iio_device_free;
 
 	ad9361_init_gain_tables(phy);
 
 	ret = ad9361_setup(phy);
 	if (ret < 0)
-		goto out;
+		goto out_iio_device_free;
 
-	of_clk_add_provider(spi->dev.of_node,
+	ret = of_clk_add_provider(spi->dev.of_node,
 			    of_clk_src_onecell_get, &phy->clk_data);
+	if (ret)
+		goto out_disable_clocks;
 
 	sysfs_bin_attr_init(&phy->bin);
 	phy->bin.attr.name = "filter_fir_config";
@@ -7687,28 +7689,30 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0)
-		goto out_disable_clocks;
+		goto out_clk_del_provider;
 	ret = ad9361_register_axi_converter(phy);
 	if (ret < 0)
-		goto out1;
+		goto out_iio_device_unregister;
 	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin);
 	if (ret < 0)
-		goto out1;
+		goto out_iio_device_unregister;
 
 	ret = ad9361_register_debugfs(indio_dev);
 	if (ret < 0)
-		goto out1;
+		goto out_iio_device_unregister;
 
 	dev_info(&spi->dev, "%s : AD9361 Rev %d successfully initialized",
 		 __func__, rev);
 
 	return 0;
 
-out1:
+out_iio_device_unregister:
 	iio_device_unregister(indio_dev);
+out_clk_del_provider:
+	of_clk_del_provider(spi->dev.of_node);
 out_disable_clocks:
 	ad9361_clks_disable(phy);
-out:
+out_iio_device_free:
 	iio_device_free(indio_dev);
 
 	return ret;
