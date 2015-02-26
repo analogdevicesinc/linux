@@ -225,7 +225,7 @@ static inline void ad9361_print_timestamp(void)
 #endif
 
 static const char *ad9361_ensm_states[] = {
-	"sleep", "", "", "", "", "alert", "tx", "tx flush",
+	"sleep", NULL, NULL, NULL, NULL, "alert", "tx", "tx flush",
 	"rx", "rx_flush", "fdd", "fdd_flush"
 };
 
@@ -5952,9 +5952,15 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		ret = sprintf(buf, "%u\n", phy->current_tx_bw_Hz);
 		break;
 	case AD9361_ENSM_MODE:
-		ret = sprintf(buf, "%s\n",
-			      ad9361_ensm_states[ad9361_spi_readf
-			      (phy->spi, REG_STATE, ENSM_STATE(~0))]);
+		ret = ad9361_spi_readf(phy->spi, REG_STATE, ENSM_STATE(~0));
+		if (ret < 0)
+			break;
+		if (ret >= ARRAY_SIZE(ad9361_ensm_states) ||
+			ad9361_ensm_states[ret] == NULL) {
+			ret = -EIO;
+			break;
+		}
+		ret = sprintf(buf, "%s\n", ad9361_ensm_states[ret]);
 		break;
 	case AD9361_ENSM_MODE_AVAIL:
 		ret = sprintf(buf, "%s\n", phy->pdata->fdd ?
