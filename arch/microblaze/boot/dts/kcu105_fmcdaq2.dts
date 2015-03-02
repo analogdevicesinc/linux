@@ -404,10 +404,10 @@
 			clock-names = "adc_clk", "adc_sysref", "dac_sysref", "dac_clk";
 			clock-output-names = "adc_gt_clk", "dac_gt_clk";
 
-			adi,rx-sys-clk-select = <2>;
-			adi,rx-out-clk-select = <2>;
-			adi,tx-sys-clk-select = <2>;
-			adi,tx-out-clk-select = <2>;
+			adi,rx-sys-clk-select = <3>;
+			adi,rx-out-clk-select = <4>;
+			adi,tx-sys-clk-select = <3>;
+			adi,tx-out-clk-select = <4>;
 
 		} ;
 
@@ -594,10 +594,10 @@
 	reset-gpios = <&axi_daq2_gpio 3 8>;
 	irq-gpios = <&axi_daq2_gpio 2 0>;
 
-	adi,jesd-xbar-lane0-sel = <1>;
-	adi,jesd-xbar-lane1-sel = <0>;
-	adi,jesd-xbar-lane2-sel = <3>;
-	adi,jesd-xbar-lane3-sel = <2>;
+	adi,jesd-xbar-lane0-sel = <0>;
+	adi,jesd-xbar-lane1-sel = <1>;
+	adi,jesd-xbar-lane2-sel = <2>;
+	adi,jesd-xbar-lane3-sel = <3>;
 };
 
 &clk0_ad9523 {
