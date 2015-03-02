@@ -45,7 +45,7 @@
 
 /* Arria10 System Controller Register Defines */
 #define A10SYCON_NOP               0x00    /* No Change */
-#define AA10SYCON_DUMMY_READ       0x01    /* Dummy Read */
+#define A10SYCON_VERSION_READ      0x01    /* MAX5 Version Read */
 
 #define A10SYCON_LED_WR_REG        0x02    /* LED - Upper 4 bits */
 #define A10SYCON_LED_RD_REG        0x03    /* LED - Upper 4 bits */
@@ -116,49 +116,50 @@
 #define A10SC_FMCB_EN_SHIFT        3       /* FMCB Pwr Enable */
 #define A10SC_FMCB_AUXEN_SHIFT     2       /* FMCB Aux Pwr Enable */
 
-#define A10SYCON_HPS_RST_WR_REG	   0x10	   /* HPS Reset */
-#define A10SYCON_HPS_RST_RD_REG	   0x11	   /* HPS Reset */
+#define A10SYCON_HPS_RST_WR_REG    0x10    /* HPS Reset */
+#define A10SYCON_HPS_RST_RD_REG    0x11    /* HPS Reset */
 /* HPS Reset Bit Definitions */
-#define A10SC_HPS_UARTA_RST_N      BIT(7)  /* UARTA Reset n */
-#define A10SC_HPS_WARM_RST_N       BIT(6)  /* WARM Reset n */
-#define A10SC_HPS_WARM_RST1_N      BIT(5)  /* WARM Reset1 n */
-#define A10SC_HPS_COLD_RST_N       BIT(4)  /* COLD Reset n */
-#define A10SC_HPS_NPOR             BIT(3)  /* N Power On Reset */
-#define A10SC_HPS_NRST             BIT(2)  /* N Reset */
-#define A10SC_ENET_HPS_RST_N       BIT(1)  /* Ethernet Reset n */
-#define A10SC_ENET_HPS_INT_N       BIT(0)  /* Ethernet IRQ n */
+#define A10SC_HPS_UARTA_RSTN_SHIFT 7       /* UARTA Reset n */
+#define A10SC_HPS_WARM_RSTN_SHIFT  6       /* WARM Reset n */
+#define A10SC_HPS_WARM_RST1N_SHIFT 5       /* WARM Reset1 n */
+#define A10SC_HPS_COLD_RSTN_SHIFT  4       /* COLD Reset n */
+#define A10SC_HPS_NPOR_SHIFT       3       /* N Power On Reset */
+#define A10SC_HPS_NRST_SHIFT       2       /* N Reset */
+#define A10SC_HPS_ENET_RSTN_SHIFT  1       /* Ethernet Reset n */
+#define A10SC_HPS_ENET_INTN_SHIFT  0       /* Ethernet IRQ n */
 
-#define A10SYCON_USB_QSPI_WR_REG   0x12	   /* USB, BQSPI, FILE Reset */
-#define A10SYCON_USB_QSPI_RD_REG   0x13	   /* USB, BQSPI, FILE Reset */
+#define A10SYCON_USB_QSPI_WR_REG   0x12    /* USB, BQSPI, FILE Reset */
+#define A10SYCON_USB_QSPI_RD_REG   0x13    /* USB, BQSPI, FILE Reset */
 /* USB/QSPI/FILE Reset Bit Definitions */
-#define A10SC_USB_RST              BIT(7)  /* USB Reset */
-#define A10SC_BQSPI_RST_N          BIT(6)  /* BQSPI Reset n */
-#define A10SC_FILE_RST_N           BIT(5)  /* FILE Reset n */
-#define A10SC_PCIE_PERST_N         BIT(4)  /* PCIe PE Reset n */
+#define A10SC_USB_RST_SHIFT        7       /* USB Reset */
+#define A10SC_BQSPI_RST_N_SHIFT    6       /* BQSPI Reset n */
+#define A10SC_FILE_RST_N_SHIFT     5       /* FILE Reset n */
+#define A10SC_PCIE_PERST_N_SHIFT   4       /* PCIe PE Reset n */
 
-#define A10SYCON_SFPA_WR_REG       0x14	   /* SFPA Control Reg */
-#define A10SYCON_SFPA_RD_REG       0x15	   /* SFPA Control Reg */
+#define A10SYCON_SFPA_WR_REG       0x14    /* SFPA Control Reg */
+#define A10SYCON_SFPA_RD_REG       0x15    /* SFPA Control Reg */
+#define A10SYCON_SFPB_WR_REG       0x16    /* SFPB Control Reg */
+#define A10SYCON_SFPB_RD_REG       0x17    /* SFPB Control Reg */
 /* SFPA Bit Definitions */
-#define A10SC_SFPA_TXDISABLE       BIT(7)  /* SFPA TX Disable */
-#define A10SC_SFPA_RATESEL10       0x60    /* SFPA_Rate Select [1:0] */
-#define A10SC_SFPA_LOS             BIT(4)  /* SFPA LOS */
-#define A10SC_SFPA_FAULT           BIT(3)  /* SFPA Fault */
+#define A10SC_SFP_TXDIS_SHIFT      7       /* SFPA TX Disable */
+#define A10SC_SFP_RATESEL10        0x60    /* SFPA_Rate Select [1:0] */
+#define A10SC_SFP_LOS_SHIFT        4       /* SFPA LOS */
+#define A10SC_SFP_FAULT_SHIFT      3       /* SFPA Fault */
 
-#define A10SYCON_SFPB_WR_REG       0x16    /* SFPA Control Reg */
-#define A10SYCON_SFPB_RD_REG       0x17	   /* SFPA Control Reg */
-/* SFPB Bit Definitions */
-#define A10SC_SFPB_TXDISABLE       BIT(7)  /* SFPB TX Disable */
-#define A10SC_SFPB_RATESEL10       0x60    /* SFPB_Rate Select [1:0] */
-#define A10SC_SFPB_LOS             BIT(4)  /* SFPB LOS */
-#define A10SC_SFPB_FAULT           BIT(3)  /* SFPB Fault */
+#define A10SYCON_I2C_M_RD_REG      0x19    /* I2C Master Select */
 
-#define A10SYCON_I2C_M_RD_REG      0x19	   /* I2C Master Select */
+#define A10SYCON_WARM_RST_WR_REG   0x1A    /* HPS Warm Reset */
+#define A10SYCON_WARM_RST_RD_REG   0x1B    /* HPS Warm Reset */
 
-#define A10SYCON_WARM_RST_WR_REG   0x1A	   /* HPS Warm Reset */
-#define A10SYCON_WARM_RST_RD_REG   0x1B	   /* HPS Warm Reset */
+#define A10SYCON_WR_KEY_WR_REG     0x1C    /* HPS Warm Reset Key */
+#define A10SYCON_WR_KEY_RD_REG     0x1D    /* HPS Warm Reset Key */
 
-#define A10SYCON_WR_KEY_WR_REG     0x1C	   /* HPS Warm Reset Key */
-#define A10SYCON_WR_KEY_RD_REG     0x1D	   /* HPS Warm Reset Key */
+#define A10SYCON_PMBUS_WR_REG      0x1E    /* HPS PM Bus */
+#define A10SYCON_PMBUS_RD_REG      0x1F    /* HPS PM Bus */
+/* PM Bus Bit Definitions */
+#define A10SC_PMBUS_EN_SHIFT       7       /* PMBus FPGA Enable */
+#define A10SC_PMBUS_DISN_SHIFT     6       /* PMBus HPS Enable */
+#define A10SC_PMBUS_ALERTN_SHIFT   5       /* PMBus Alert */
 
 struct a10sycon_pdata;
 

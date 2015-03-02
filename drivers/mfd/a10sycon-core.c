@@ -28,6 +28,7 @@
 static bool a10sycon_reg_readable(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
+	case A10SYCON_VERSION_READ:
 	case A10SYCON_LED_RD_REG:
 	case A10SYCON_PBDSW_RD_REG:
 	case A10SYCON_PBDSW_CLR_REG:
@@ -43,6 +44,7 @@ static bool a10sycon_reg_readable(struct device *dev, unsigned int reg)
 	case A10SYCON_I2C_M_RD_REG:
 	case A10SYCON_WARM_RST_RD_REG:
 	case A10SYCON_WR_KEY_RD_REG:
+	case A10SYCON_PMBUS_RD_REG:
 		return true;
 	default:
 		return false;
@@ -61,6 +63,7 @@ static bool a10sycon_reg_writeable(struct device *dev, unsigned int reg)
 	case A10SYCON_SFPB_WR_REG:
 	case A10SYCON_WARM_RST_WR_REG:
 	case A10SYCON_WR_KEY_WR_REG:
+	case A10SYCON_PMBUS_WR_REG:
 		return true;
 	default:
 		return false;
@@ -79,6 +82,7 @@ static bool a10sycon_reg_volatile(struct device *dev, unsigned int reg)
 	case A10SYCON_I2C_M_RD_REG:
 	case A10SYCON_WARM_RST_RD_REG:
 	case A10SYCON_WR_KEY_RD_REG:
+	case A10SYCON_PMBUS_RD_REG:
 		return true;
 	default:
 		return false;

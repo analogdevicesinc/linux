@@ -61,6 +61,39 @@
 #define A10SC_FMCA_EN_POSITION          (24 + A10SC_FMCA_EN_SHIFT)
 #define A10SC_PCIE_AUXEN_POSITION       (24 + A10SC_PCIE_AUXEN_SHIFT)
 #define A10SC_PCIE_EN_POSITION          (24 + A10SC_PCIE_EN_SHIFT)
+/* HPS Resets need an offset of 32 */
+#define A10SC_HPS_RST_UART_POSITION     (32 + A10SC_HPS_UARTA_RSTN_SHIFT)
+#define A10SC_HPS_RST_WARM_POSITION     (32 + A10SC_HPS_WARM_RSTN_SHIFT)
+#define A10SC_HPS_RST_WARM1_POSITION    (32 + A10SC_HPS_WARM_RST1N_SHIFT)
+#define A10SC_HPS_RST_COLD_POSITION     (32 + A10SC_HPS_COLD_RSTN_SHIFT)
+#define A10SC_HPS_RST_NPOR_POSITION     (32 + A10SC_HPS_NPOR_SHIFT)
+#define A10SC_HPS_RST_NRST_POSITION     (32 + A10SC_HPS_NRST_SHIFT)
+#define A10SC_HPS_RST_ENET_POSITION     (32 + A10SC_HPS_ENET_RSTN_SHIFT)
+#define A10SC_HPS_RST_ENETINT_POSITION  (32 + A10SC_HPS_ENET_INTN_SHIFT)
+/* Peripheral Resets need an offset of 40 */
+#define A10SC_PER_RST_USB_POSITION      (40 + A10SC_USB_RST_SHIFT)
+#define A10SC_PER_RST_BQSPI_POSITION    (40 + A10SC_BQSPI_RST_N_SHIFT)
+#define A10SC_PER_RST_FILE_POSITION     (40 + A10SC_FILE_RST_N_SHIFT)
+#define A10SC_PER_RST_PCIE_POSITION     (40 + A10SC_PCIE_PERST_N_SHIFT)
+/* HWMON - Read Entire Register */
+#define A10SC_ENTIRE_REG                (88)
+#define A10SC_ENTIRE_REG_MASK           (0xFF)
+#define A10SC_VERSION                   (0 + A10SC_ENTIRE_REG)
+#define A10SC_LED                       (1 + A10SC_ENTIRE_REG)
+#define A10SC_PB                        (2 + A10SC_ENTIRE_REG)
+#define A10SC_PBF                       (3 + A10SC_ENTIRE_REG)
+#define A10SC_PG1                       (4 + A10SC_ENTIRE_REG)
+#define A10SC_PG2                       (5 + A10SC_ENTIRE_REG)
+#define A10SC_PG3                       (6 + A10SC_ENTIRE_REG)
+#define A10SC_FMCAB                     (7 + A10SC_ENTIRE_REG)
+#define A10SC_HPS_RST                   (8 + A10SC_ENTIRE_REG)
+#define A10SC_PER_RST                   (9 + A10SC_ENTIRE_REG)
+#define A10SC_SFPA                      (10 + A10SC_ENTIRE_REG)
+#define A10SC_SFPB                      (11 + A10SC_ENTIRE_REG)
+#define A10SC_I2C_MASTER                (12 + A10SC_ENTIRE_REG)
+#define A10SC_WARM_RST                  (13 + A10SC_ENTIRE_REG)
+#define A10SC_WARM_RST_KEY              (14 + A10SC_ENTIRE_REG)
+#define A10SC_PMBUS                     (15 + A10SC_ENTIRE_REG)
 
 struct a10sycon_hwmon {
 	struct a10sycon	*a10sc;
@@ -94,13 +127,6 @@ static const char *const hwmon_names[] = {
 	[A10SC_BF_PR_BIT_POSITION]     = "BF PRESENTn",
 	[A10SC_10V_FAIL_BIT_POSITION]  = "10V FAILn",
 	[A10SC_FAM2C_BIT_POSITION]     = "FAM2C PWR Good",
-
-	[A10SC_FMCB_AUXEN_POSITION]    = "FMCB AUX Enable",
-	[A10SC_FMCB_EN_POSITION]       = "FMCB Enable",
-	[A10SC_FMCA_AUXEN_POSITION]    = "FMCA AUX Enable",
-	[A10SC_FMCA_EN_POSITION]       = "FMCA Enable",
-	[A10SC_PCIE_AUXEN_POSITION]    = "PCIE AUX Enable",
-	[A10SC_PCIE_EN_POSITION]       = "PCIE Enable",
 };
 
 static ssize_t a10sycon_read_status(struct device *dev,
@@ -109,14 +135,21 @@ static ssize_t a10sycon_read_status(struct device *dev,
 {
 	struct a10sycon_hwmon *hwmon = dev_get_drvdata(dev);
 	int ret, index = to_sensor_dev_attr(devattr)->index;
+	int mask = A10SYCON_REG_BIT_MASK(index);
 	unsigned char reg = A10SYCON_PWR_GOOD1_RD_REG +
 			    A10SYCON_REG_OFFSET(index);
+
+	/* Check if this is an entire register read */
+	if (index >= A10SC_ENTIRE_REG) {
+		reg = ((index - A10SC_ENTIRE_REG) << 1) + 1;
+		mask = A10SC_ENTIRE_REG_MASK;
+	}
 
 	ret = a10sycon_reg_read(hwmon->a10sc, reg);
 	if (ret < 0)
 		return ret;
 
-	return sprintf(buf, "0x%X\n", (ret & A10SYCON_REG_BIT_MASK(index)));
+	return sprintf(buf, "0x%X\n", (ret & mask));
 }
 
 static ssize_t a10sycon_hwmon_show_name(struct device *dev,
@@ -137,13 +170,23 @@ static ssize_t set_enable(struct device *dev,
 			  struct device_attribute *dev_attr,
 			  const char *buf, size_t count)
 {
+	unsigned long val;
 	struct a10sycon_hwmon *hwmon = dev_get_drvdata(dev);
 	int ret, index = to_sensor_dev_attr(dev_attr)->index;
+	int mask = A10SYCON_REG_BIT_MASK(index);
 	unsigned char reg = (A10SYCON_PWR_GOOD1_RD_REG & WRITE_REG_MASK) +
 			    A10SYCON_REG_OFFSET(index);
+	int res = kstrtol(buf, 10, &val);
+	if (res < 0)
+		return res;
 
-	ret = a10sycon_reg_write(hwmon->a10sc, reg,
-				 A10SYCON_REG_BIT_MASK(index));
+	/* Check if this is an entire register write */
+	if (index >= A10SC_ENTIRE_REG) {
+		reg = ((index - A10SC_ENTIRE_REG) << 1);
+		mask = A10SC_ENTIRE_REG_MASK;
+	}
+
+	ret = a10sycon_reg_update(hwmon->a10sc, reg, mask, val);
 	if (ret < 0)
 		return ret;
 
@@ -250,36 +293,88 @@ static SENSOR_DEVICE_ATTR(fam2c_input, S_IRUGO, a10sycon_read_status, NULL,
 static SENSOR_DEVICE_ATTR(fam2c_label, S_IRUGO, show_label, NULL,
 			  A10SC_FAM2C_BIT_POSITION);
 /* Peripheral Enable bits */
-static SENSOR_DEVICE_ATTR(fmcb_aux_en_value, S_IRUGO | S_IWUSR,
+static SENSOR_DEVICE_ATTR(fmcb_aux_en, S_IRUGO | S_IWUSR,
 			  a10sycon_read_status, set_enable,
 			  A10SC_FMCB_AUXEN_POSITION);
-static SENSOR_DEVICE_ATTR(fmcb_aux_en_label, S_IRUGO, show_label, NULL,
-			  A10SC_FMCB_AUXEN_POSITION);
-static SENSOR_DEVICE_ATTR(fmcb_en_value, S_IRUGO | S_IWUSR,
+static SENSOR_DEVICE_ATTR(fmcb_en, S_IRUGO | S_IWUSR,
 			  a10sycon_read_status, set_enable,
 			  A10SC_FMCB_EN_POSITION);
-static SENSOR_DEVICE_ATTR(fmcb_en_label, S_IRUGO, show_label, NULL,
-			  A10SC_FMCB_EN_POSITION);
-static SENSOR_DEVICE_ATTR(fmca_aux_en_value, S_IRUGO | S_IWUSR,
+static SENSOR_DEVICE_ATTR(fmca_aux_en, S_IRUGO | S_IWUSR,
 			  a10sycon_read_status, set_enable,
 			  A10SC_FMCA_AUXEN_POSITION);
-static SENSOR_DEVICE_ATTR(fmca_aux_en_label, S_IRUGO, show_label, NULL,
-			  A10SC_FMCA_AUXEN_POSITION);
-static SENSOR_DEVICE_ATTR(fmca_en_value, S_IRUGO | S_IWUSR,
+static SENSOR_DEVICE_ATTR(fmca_en, S_IRUGO | S_IWUSR,
 			  a10sycon_read_status, set_enable,
 			  A10SC_FMCA_EN_POSITION);
-static SENSOR_DEVICE_ATTR(fmca_en_label, S_IRUGO, show_label, NULL,
-			  A10SC_FMCA_EN_POSITION);
-static SENSOR_DEVICE_ATTR(pcie_aux_en_value, S_IRUGO | S_IWUSR,
+static SENSOR_DEVICE_ATTR(pcie_aux_en, S_IRUGO | S_IWUSR,
 			  a10sycon_read_status, set_enable,
 			  A10SC_PCIE_AUXEN_POSITION);
-static SENSOR_DEVICE_ATTR(pcie_aux_en_label, S_IRUGO, show_label, NULL,
-			  A10SC_PCIE_AUXEN_POSITION);
-static SENSOR_DEVICE_ATTR(pcie_en_value, S_IRUGO | S_IWUSR,
+static SENSOR_DEVICE_ATTR(pcie_en, S_IRUGO | S_IWUSR,
 			  a10sycon_read_status, set_enable,
 			  A10SC_PCIE_EN_POSITION);
-static SENSOR_DEVICE_ATTR(pcie_en_label, S_IRUGO, show_label, NULL,
-			  A10SC_PCIE_EN_POSITION);
+/* HPS Reset bits */
+static SENSOR_DEVICE_ATTR(hps_uart_rst, S_IRUGO,
+			  a10sycon_read_status, set_enable,
+			  A10SC_HPS_RST_UART_POSITION);
+static SENSOR_DEVICE_ATTR(hps_warm_rst, S_IRUGO,
+			  a10sycon_read_status, set_enable,
+			  A10SC_HPS_RST_WARM_POSITION);
+static SENSOR_DEVICE_ATTR(hps_warm1_rst, S_IRUGO,
+			  a10sycon_read_status, set_enable,
+			  A10SC_HPS_RST_WARM1_POSITION);
+static SENSOR_DEVICE_ATTR(hps_cold_rst, S_IRUGO,
+			  a10sycon_read_status, set_enable,
+			  A10SC_HPS_RST_COLD_POSITION);
+static SENSOR_DEVICE_ATTR(hps_npor, S_IRUGO,
+			  a10sycon_read_status, set_enable,
+			  A10SC_HPS_RST_NPOR_POSITION);
+static SENSOR_DEVICE_ATTR(hps_nrst, S_IRUGO,
+			  a10sycon_read_status, set_enable,
+			  A10SC_HPS_RST_NRST_POSITION);
+static SENSOR_DEVICE_ATTR(hps_enet_rst, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable,
+			  A10SC_HPS_RST_ENET_POSITION);
+static SENSOR_DEVICE_ATTR(hps_enet_int, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable,
+			  A10SC_HPS_RST_ENETINT_POSITION);
+/* Peripheral Reset bits */
+static SENSOR_DEVICE_ATTR(usb_reset, S_IRUGO | S_IWUSR, a10sycon_read_status,
+			  set_enable, A10SC_PER_RST_USB_POSITION);
+static SENSOR_DEVICE_ATTR(bqspi_resetn, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable,
+			  A10SC_PER_RST_BQSPI_POSITION);
+static SENSOR_DEVICE_ATTR(file_resetn, S_IRUGO | S_IWUSR, a10sycon_read_status,
+			  set_enable, A10SC_PER_RST_FILE_POSITION);
+static SENSOR_DEVICE_ATTR(pcie_perstn, S_IRUGO | S_IWUSR, a10sycon_read_status,
+			  set_enable, A10SC_PER_RST_PCIE_POSITION);
+/* Entire Byte Read */
+static SENSOR_DEVICE_ATTR(max5_version, S_IRUGO, a10sycon_read_status,
+			  NULL, A10SC_VERSION);
+static SENSOR_DEVICE_ATTR(max5_led, S_IRUGO, a10sycon_read_status,
+			  NULL, A10SC_LED);
+static SENSOR_DEVICE_ATTR(max5_button, S_IRUGO, a10sycon_read_status,
+			  NULL, A10SC_PB);
+static SENSOR_DEVICE_ATTR(max5_button_irq, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable, A10SC_PBF);
+static SENSOR_DEVICE_ATTR(max5_pg1, S_IRUGO, a10sycon_read_status,
+			  NULL, A10SC_PG1);
+static SENSOR_DEVICE_ATTR(max5_pg2, S_IRUGO, a10sycon_read_status,
+			  NULL, A10SC_PG2);
+static SENSOR_DEVICE_ATTR(max5_pg3, S_IRUGO, a10sycon_read_status,
+			  NULL, A10SC_PG3);
+static SENSOR_DEVICE_ATTR(max5_fmcab, S_IRUGO, a10sycon_read_status,
+			  NULL, A10SC_FMCAB);
+static SENSOR_DEVICE_ATTR(max5_hps_resets, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable, A10SC_HPS_RST);
+static SENSOR_DEVICE_ATTR(max5_per_resets, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable, A10SC_PER_RST);
+static SENSOR_DEVICE_ATTR(max5_sfpa, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable, A10SC_SFPA);
+static SENSOR_DEVICE_ATTR(max5_sfpb, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable, A10SC_SFPB);
+static SENSOR_DEVICE_ATTR(max5_i2c_master, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable, A10SC_I2C_MASTER);
+static SENSOR_DEVICE_ATTR(max5_pmbus, S_IRUGO | S_IWUSR,
+			  a10sycon_read_status, set_enable, A10SC_PMBUS);
 
 static DEVICE_ATTR(name, S_IRUGO, a10sycon_hwmon_show_name, NULL);
 
@@ -337,18 +432,41 @@ static struct attribute *a10sycon_attr[] = {
 	&sensor_dev_attr_fam2c_input.dev_attr.attr,
 	&sensor_dev_attr_fam2c_label.dev_attr.attr,
 	/* Peripheral Enable Register */
-	&sensor_dev_attr_fmcb_aux_en_value.dev_attr.attr,
-	&sensor_dev_attr_fmcb_aux_en_label.dev_attr.attr,
-	&sensor_dev_attr_fmcb_en_value.dev_attr.attr,
-	&sensor_dev_attr_fmcb_en_label.dev_attr.attr,
-	&sensor_dev_attr_fmca_aux_en_value.dev_attr.attr,
-	&sensor_dev_attr_fmca_aux_en_label.dev_attr.attr,
-	&sensor_dev_attr_fmca_en_value.dev_attr.attr,
-	&sensor_dev_attr_fmca_en_label.dev_attr.attr,
-	&sensor_dev_attr_pcie_aux_en_value.dev_attr.attr,
-	&sensor_dev_attr_pcie_aux_en_label.dev_attr.attr,
-	&sensor_dev_attr_pcie_en_value.dev_attr.attr,
-	&sensor_dev_attr_pcie_en_label.dev_attr.attr,
+	&sensor_dev_attr_fmcb_aux_en.dev_attr.attr,
+	&sensor_dev_attr_fmcb_en.dev_attr.attr,
+	&sensor_dev_attr_fmca_aux_en.dev_attr.attr,
+	&sensor_dev_attr_fmca_en.dev_attr.attr,
+	&sensor_dev_attr_pcie_aux_en.dev_attr.attr,
+	&sensor_dev_attr_pcie_en.dev_attr.attr,
+	/* HPS Reset bits */
+	&sensor_dev_attr_hps_uart_rst.dev_attr.attr,
+	&sensor_dev_attr_hps_warm_rst.dev_attr.attr,
+	&sensor_dev_attr_hps_warm1_rst.dev_attr.attr,
+	&sensor_dev_attr_hps_cold_rst.dev_attr.attr,
+	&sensor_dev_attr_hps_npor.dev_attr.attr,
+	&sensor_dev_attr_hps_nrst.dev_attr.attr,
+	&sensor_dev_attr_hps_enet_rst.dev_attr.attr,
+	&sensor_dev_attr_hps_enet_int.dev_attr.attr,
+	/* Peripheral Reset bits */
+	&sensor_dev_attr_usb_reset.dev_attr.attr,
+	&sensor_dev_attr_bqspi_resetn.dev_attr.attr,
+	&sensor_dev_attr_file_resetn.dev_attr.attr,
+	&sensor_dev_attr_pcie_perstn.dev_attr.attr,
+	/* Byte Value Register */
+	&sensor_dev_attr_max5_version.dev_attr.attr,
+	&sensor_dev_attr_max5_led.dev_attr.attr,
+	&sensor_dev_attr_max5_button.dev_attr.attr,
+	&sensor_dev_attr_max5_button_irq.dev_attr.attr,
+	&sensor_dev_attr_max5_pg1.dev_attr.attr,
+	&sensor_dev_attr_max5_pg2.dev_attr.attr,
+	&sensor_dev_attr_max5_pg3.dev_attr.attr,
+	&sensor_dev_attr_max5_fmcab.dev_attr.attr,
+	&sensor_dev_attr_max5_hps_resets.dev_attr.attr,
+	&sensor_dev_attr_max5_per_resets.dev_attr.attr,
+	&sensor_dev_attr_max5_sfpa.dev_attr.attr,
+	&sensor_dev_attr_max5_sfpb.dev_attr.attr,
+	&sensor_dev_attr_max5_i2c_master.dev_attr.attr,
+	&sensor_dev_attr_max5_pmbus.dev_attr.attr,
 	NULL
 };
 
