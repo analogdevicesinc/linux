@@ -1736,7 +1736,7 @@ static int adv76xx_s_routing(struct v4l2_subdev *sd,
 }
 
 static int adv76xx_enum_mbus_code(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_fh *fh,
+				  struct v4l2_subdev_pad_config *cfg,
 				  struct v4l2_subdev_mbus_code_enum *code)
 {
 	struct adv76xx_state *state = to_state(sd);
@@ -1813,7 +1813,8 @@ static void adv76xx_setup_format(struct adv76xx_state *state)
 			state->format->swap_cb_cr ? ADV76XX_OP_SWAP_CB_CR : 0);
 }
 
-static int adv76xx_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+static int adv76xx_get_format(struct v4l2_subdev *sd,
+			      struct v4l2_subdev_pad_config *cfg,
 			      struct v4l2_subdev_format *format)
 {
 	struct adv76xx_state *state = to_state(sd);
@@ -1826,7 +1827,7 @@ static int adv76xx_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY) {
 		struct v4l2_mbus_framefmt *fmt;
 
-		fmt = v4l2_subdev_get_try_format(fh, format->pad);
+		fmt = v4l2_subdev_get_try_format(sd, cfg, format->pad);
 		format->format.code = fmt->code;
 	} else {
 		format->format.code = state->format->code;
@@ -1835,7 +1836,8 @@ static int adv76xx_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 	return 0;
 }
 
-static int adv76xx_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+static int adv76xx_set_format(struct v4l2_subdev *sd,
+			      struct v4l2_subdev_pad_config *cfg,
 			      struct v4l2_subdev_format *format)
 {
 	struct adv76xx_state *state = to_state(sd);
@@ -1854,7 +1856,7 @@ static int adv76xx_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY) {
 		struct v4l2_mbus_framefmt *fmt;
 
-		fmt = v4l2_subdev_get_try_format(fh, format->pad);
+		fmt = v4l2_subdev_get_try_format(sd, cfg, format->pad);
 		fmt->code = format->format.code;
 	} else {
 		state->format = info;

@@ -1515,7 +1515,7 @@ static int smiapp_set_stream(struct v4l2_subdev *subdev, int enable)
 }
 
 static int smiapp_enum_mbus_code(struct v4l2_subdev *subdev,
-				 struct v4l2_subdev_fh *fh,
+				 struct v4l2_subdev_pad_config *cfg,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(subdev);
@@ -1569,13 +1569,13 @@ static u32 __smiapp_get_mbus_code(struct v4l2_subdev *subdev,
 }
 
 static int __smiapp_get_format(struct v4l2_subdev *subdev,
-			       struct v4l2_subdev_fh *fh,
+			       struct v4l2_subdev_pad_config *cfg,
 			       struct v4l2_subdev_format *fmt)
 {
 	struct smiapp_subdev *ssd = to_smiapp_subdev(subdev);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		fmt->format = *v4l2_subdev_get_try_format(fh, fmt->pad);
+		fmt->format = *v4l2_subdev_get_try_format(subdev, cfg, fmt->pad);
 	} else {
 		struct v4l2_rect *r;
 
@@ -1594,21 +1594,21 @@ static int __smiapp_get_format(struct v4l2_subdev *subdev,
 }
 
 static int smiapp_get_format(struct v4l2_subdev *subdev,
-			     struct v4l2_subdev_fh *fh,
+			     struct v4l2_subdev_pad_config *cfg,
 			     struct v4l2_subdev_format *fmt)
 {
 	struct smiapp_sensor *sensor = to_smiapp_sensor(subdev);
 	int rval;
 
 	mutex_lock(&sensor->mutex);
-	rval = __smiapp_get_format(subdev, fh, fmt);
+	rval = __smiapp_get_format(subdev, cfg, fmt);
 	mutex_unlock(&sensor->mutex);
 
 	return rval;
 }
 
 static void smiapp_get_crop_compose(struct v4l2_subdev *subdev,
-				    struct v4l2_subdev_fh *fh,
+				    struct v4l2_subdev_pad_config *cfg,
 				    struct v4l2_rect **crops,
 				    struct v4l2_rect **comps, int which)
 {
@@ -1624,12 +1624,12 @@ static void smiapp_get_crop_compose(struct v4l2_subdev *subdev,
 	} else {
 		if (crops) {
 			for (i = 0; i < subdev->entity.num_pads; i++) {
-				crops[i] = v4l2_subdev_get_try_crop(fh, i);
+				crops[i] = v4l2_subdev_get_try_crop(subdev, cfg, i);
 				BUG_ON(!crops[i]);
 			}
 		}
 		if (comps) {
-			*comps = v4l2_subdev_get_try_compose(fh,
+			*comps = v4l2_subdev_get_try_compose(subdev, cfg,
 							     SMIAPP_PAD_SINK);
 			BUG_ON(!*comps);
 		}
@@ -1638,14 +1638,14 @@ static void smiapp_get_crop_compose(struct v4l2_subdev *subdev,
 
 /* Changes require propagation only on sink pad. */
 static void smiapp_propagate(struct v4l2_subdev *subdev,
-			     struct v4l2_subdev_fh *fh, int which,
+			     struct v4l2_subdev_pad_config *cfg, int which,
 			     int target)
 {
 	struct smiapp_sensor *sensor = to_smiapp_sensor(subdev);
 	struct smiapp_subdev *ssd = to_smiapp_subdev(subdev);
 	struct v4l2_rect *comp, *crops[SMIAPP_PADS];
 
-	smiapp_get_crop_compose(subdev, fh, crops, &comp, which);
+	smiapp_get_crop_compose(subdev, cfg, crops, &comp, which);
 
 	switch (target) {
 	case V4L2_SEL_TGT_CROP:
@@ -1749,7 +1749,7 @@ static int smiapp_set_format(struct v4l2_subdev *subdev,
 		      sensor->limits[SMIAPP_LIMIT_MIN_Y_OUTPUT_SIZE],
 		      sensor->limits[SMIAPP_LIMIT_MAX_Y_OUTPUT_SIZE]);
 
-	smiapp_get_crop_compose(subdev, fh, crops, NULL, fmt->which);
+	smiapp_get_crop_compose(subdev, cfg, crops, NULL, fmt->which);
 
 	crops[ssd->sink_pad]->left = 0;
 	crops[ssd->sink_pad]->top = 0;
@@ -1757,7 +1757,7 @@ static int smiapp_set_format(struct v4l2_subdev *subdev,
 	crops[ssd->sink_pad]->height = fmt->format.height;
 	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
 		ssd->sink_fmt = *crops[ssd->sink_pad];
-	smiapp_propagate(subdev, fh, fmt->which,
+	smiapp_propagate(subdev, cfg, fmt->which,
 			 V4L2_SEL_TGT_CROP);
 
 	mutex_unlock(&sensor->mutex);
@@ -1810,7 +1810,7 @@ static int scaling_goodness(struct v4l2_subdev *subdev, int w, int ask_w,
 }
 
 static void smiapp_set_compose_binner(struct v4l2_subdev *subdev,
-				      struct v4l2_subdev_fh *fh,
+				      struct v4l2_subdev_pad_config *cfg,
 				      struct v4l2_subdev_selection *sel,
 				      struct v4l2_rect **crops,
 				      struct v4l2_rect *comp)
@@ -1858,7 +1858,7 @@ static void smiapp_set_compose_binner(struct v4l2_subdev *subdev,
  * result.
  */
 static void smiapp_set_compose_scaler(struct v4l2_subdev *subdev,
-				      struct v4l2_subdev_fh *fh,
+				      struct v4l2_subdev_pad_config *cfg,
 				      struct v4l2_subdev_selection *sel,
 				      struct v4l2_rect **crops,
 				      struct v4l2_rect *comp)
@@ -1974,25 +1974,25 @@ static void smiapp_set_compose_scaler(struct v4l2_subdev *subdev,
 }
 /* We're only called on source pads. This function sets scaling. */
 static int smiapp_set_compose(struct v4l2_subdev *subdev,
-			      struct v4l2_subdev_fh *fh,
+			      struct v4l2_subdev_pad_config *cfg,
 			      struct v4l2_subdev_selection *sel)
 {
 	struct smiapp_sensor *sensor = to_smiapp_sensor(subdev);
 	struct smiapp_subdev *ssd = to_smiapp_subdev(subdev);
 	struct v4l2_rect *comp, *crops[SMIAPP_PADS];
 
-	smiapp_get_crop_compose(subdev, fh, crops, &comp, sel->which);
+	smiapp_get_crop_compose(subdev, cfg, crops, &comp, sel->which);
 
 	sel->r.top = 0;
 	sel->r.left = 0;
 
 	if (ssd == sensor->binner)
-		smiapp_set_compose_binner(subdev, fh, sel, crops, comp);
+		smiapp_set_compose_binner(subdev, cfg, sel, crops, comp);
 	else
-		smiapp_set_compose_scaler(subdev, fh, sel, crops, comp);
+		smiapp_set_compose_scaler(subdev, cfg, sel, crops, comp);
 
 	*comp = sel->r;
-	smiapp_propagate(subdev, fh, sel->which,
+	smiapp_propagate(subdev, cfg, sel->which,
 			 V4L2_SEL_TGT_COMPOSE);
 
 	if (sel->which == V4L2_SUBDEV_FORMAT_ACTIVE)
@@ -2045,7 +2045,7 @@ static int __smiapp_sel_supported(struct v4l2_subdev *subdev,
 }
 
 static int smiapp_set_crop(struct v4l2_subdev *subdev,
-			   struct v4l2_subdev_fh *fh,
+			   struct v4l2_subdev_pad_config *cfg,
 			   struct v4l2_subdev_selection *sel)
 {
 	struct smiapp_sensor *sensor = to_smiapp_sensor(subdev);
@@ -2053,7 +2053,7 @@ static int smiapp_set_crop(struct v4l2_subdev *subdev,
 	struct v4l2_rect *src_size, *crops[SMIAPP_PADS];
 	struct v4l2_rect _r;
 
-	smiapp_get_crop_compose(subdev, fh, crops, NULL, sel->which);
+	smiapp_get_crop_compose(subdev, cfg, crops, NULL, sel->which);
 
 	if (sel->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 		if (sel->pad == ssd->sink_pad)
@@ -2064,15 +2064,15 @@ static int smiapp_set_crop(struct v4l2_subdev *subdev,
 		if (sel->pad == ssd->sink_pad) {
 			_r.left = 0;
 			_r.top = 0;
-			_r.width = v4l2_subdev_get_try_format(fh, sel->pad)
+			_r.width = v4l2_subdev_get_try_format(subdev, cfg, sel->pad)
 				->width;
-			_r.height = v4l2_subdev_get_try_format(fh, sel->pad)
+			_r.height = v4l2_subdev_get_try_format(subdev, cfg, sel->pad)
 				->height;
 			src_size = &_r;
 		} else {
 			src_size =
 				v4l2_subdev_get_try_compose(
-					fh, ssd->sink_pad);
+					subdev, cfg, ssd->sink_pad);
 		}
 	}
 
@@ -2090,14 +2090,14 @@ static int smiapp_set_crop(struct v4l2_subdev *subdev,
 	*crops[sel->pad] = sel->r;
 
 	if (ssd != sensor->pixel_array && sel->pad == SMIAPP_PAD_SINK)
-		smiapp_propagate(subdev, fh, sel->which,
+		smiapp_propagate(subdev, cfg, sel->which,
 				 V4L2_SEL_TGT_CROP);
 
 	return 0;
 }
 
 static int __smiapp_get_selection(struct v4l2_subdev *subdev,
-				  struct v4l2_subdev_fh *fh,
+				  struct v4l2_subdev_pad_config *cfg,
 				  struct v4l2_subdev_selection *sel)
 {
 	struct smiapp_sensor *sensor = to_smiapp_sensor(subdev);
@@ -2110,13 +2110,13 @@ static int __smiapp_get_selection(struct v4l2_subdev *subdev,
 	if (ret)
 		return ret;
 
-	smiapp_get_crop_compose(subdev, fh, crops, &comp, sel->which);
+	smiapp_get_crop_compose(subdev, cfg, crops, &comp, sel->which);
 
 	if (sel->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 		sink_fmt = ssd->sink_fmt;
 	} else {
 		struct v4l2_mbus_framefmt *fmt =
-			v4l2_subdev_get_try_format(fh, ssd->sink_pad);
+			v4l2_subdev_get_try_format(subdev, cfg, ssd->sink_pad);
 
 		sink_fmt.left = 0;
 		sink_fmt.top = 0;
@@ -2152,20 +2152,20 @@ static int __smiapp_get_selection(struct v4l2_subdev *subdev,
 }
 
 static int smiapp_get_selection(struct v4l2_subdev *subdev,
-				struct v4l2_subdev_fh *fh,
+				struct v4l2_subdev_pad_config *cfg,
 				struct v4l2_subdev_selection *sel)
 {
 	struct smiapp_sensor *sensor = to_smiapp_sensor(subdev);
 	int rval;
 
 	mutex_lock(&sensor->mutex);
-	rval = __smiapp_get_selection(subdev, fh, sel);
+	rval = __smiapp_get_selection(subdev, cfg, sel);
 	mutex_unlock(&sensor->mutex);
 
 	return rval;
 }
 static int smiapp_set_selection(struct v4l2_subdev *subdev,
-				struct v4l2_subdev_fh *fh,
+				struct v4l2_subdev_pad_config *cfg,
 				struct v4l2_subdev_selection *sel)
 {
 	struct smiapp_sensor *sensor = to_smiapp_sensor(subdev);
@@ -2191,10 +2191,10 @@ static int smiapp_set_selection(struct v4l2_subdev *subdev,
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
-		ret = smiapp_set_crop(subdev, fh, sel);
+		ret = smiapp_set_crop(subdev, cfg, sel);
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		ret = smiapp_set_compose(subdev, fh, sel);
+		ret = smiapp_set_compose(subdev, cfg, sel);
 		break;
 	default:
 		ret = -EINVAL;
@@ -2726,8 +2726,8 @@ static int smiapp_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	for (i = 0; i < ssd->npads; i++) {
 		struct v4l2_mbus_framefmt *try_fmt =
-			v4l2_subdev_get_try_format(fh, i);
-		struct v4l2_rect *try_crop = v4l2_subdev_get_try_crop(fh, i);
+			v4l2_subdev_get_try_format(sd, fh->pad, i);
+		struct v4l2_rect *try_crop = v4l2_subdev_get_try_crop(sd, fh->pad, i);
 		struct v4l2_rect *try_comp;
 
 		try_fmt->width = sensor->limits[SMIAPP_LIMIT_X_ADDR_MAX] + 1;
@@ -2743,7 +2743,7 @@ static int smiapp_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		if (ssd != sensor->pixel_array)
 			continue;
 
-		try_comp = v4l2_subdev_get_try_compose(fh, i);
+		try_comp = v4l2_subdev_get_try_compose(sd, fh->pad, i);
 		*try_comp = *try_crop;
 	}
 
