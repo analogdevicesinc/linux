@@ -202,15 +202,23 @@ static void socfpga_cyclone5_restart(enum reboot_mode mode, const char *cmd)
 	u32 temp;
 
 	/* Turn on all periph PLL clocks */
-	writel(0xffff, clkmgr_base_addr + SOCFPGA_ENABLE_PLL_REG);
-
-	temp = readl(rst_manager_base_addr + SOCFPGA_RSTMGR_CTRL);
+	if (!of_machine_is_compatible("altr,socfpga-arria10")) {
+		writel(0xffff, clkmgr_base_addr + SOCFPGA_ENABLE_PLL_REG);
+		temp = readl(rst_manager_base_addr + SOCFPGA_RSTMGR_CTRL);
+	} else {
+		temp = readl(rst_manager_base_addr + SOCFPGA_A10_RSTMGR_CTRL);
+	}
 
 	if (mode == REBOOT_HARD)
 		temp |= RSTMGR_CTRL_SWCOLDRSTREQ;
 	else
 		temp |= RSTMGR_CTRL_SWWARMRSTREQ;
-	writel(temp, rst_manager_base_addr + SOCFPGA_RSTMGR_CTRL);
+
+	if (of_machine_is_compatible("altr,socfpga-arria10")) {
+		writel(temp, rst_manager_base_addr + SOCFPGA_A10_RSTMGR_CTRL);
+	} else {
+		writel(temp, rst_manager_base_addr + SOCFPGA_RSTMGR_CTRL);
+	}
 }
 
 static void __init socfpga_cyclone5_init(void)
