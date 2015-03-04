@@ -133,6 +133,7 @@ struct ad9361_rf_phy {
 
 	bool			auto_cal_en;
 	u64			last_tx_quad_cal_freq;
+	u32			last_tx_quad_cal_phase;
 	unsigned long		flags;
 	unsigned long		cal_threshold_freq;
 	u32			current_rx_bw_Hz;
@@ -2041,48 +2042,61 @@ static int __ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
 
 /* TX QUADRATURE CALIBRATION */
 
-static int ad9361_tx_quad_phase_search(struct ad9361_rf_phy *phy, u32 rxnco_word)
+static int __ad9361_tx_quad_calib(struct ad9361_rf_phy *phy, u32 phase,
+				  u32 rxnco_word, u32 decim, u8 *res)
 {
-	int i, ret;
-	u8 field[64];
-	u32 val, start;
+		int ret;
 
-	dev_dbg(&phy->spi->dev, "%s", __func__);
-
-	for (i = 0; i < (ARRAY_SIZE(field) / 2); i++) {
 		ad9361_spi_write(phy->spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
-			RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(i));
+			RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(phase));
+		ad9361_spi_write(phy->spi, REG_QUAD_CAL_CTRL,
+				SETTLE_MAIN_ENABLE | DC_OFFSET_ENABLE | QUAD_CAL_SOFT_RESET |
+				GAIN_ENABLE | PHASE_ENABLE | M_DECIM(decim));
+		ad9361_spi_write(phy->spi, REG_QUAD_CAL_CTRL,
+				SETTLE_MAIN_ENABLE | DC_OFFSET_ENABLE |
+				GAIN_ENABLE | PHASE_ENABLE | M_DECIM(decim));
 
 		ret =  ad9361_run_calibration(phy, TX_QUAD_CAL);
 		if (ret < 0)
 			return ret;
 
+		if (res)
+			*res = ad9361_spi_read(phy->spi, REG_QUAD_CAL_STATUS_TX1) &
+					(TX1_LO_CONV | TX1_SSB_CONV);
+
+		return 0;
+}
+
+static int ad9361_tx_quad_phase_search(struct ad9361_rf_phy *phy, u32 rxnco_word, u8 decim)
+{
+	int i, ret;
+	u8 field[64], val;
+	u32 start;
+
+	dev_dbg(&phy->spi->dev, "%s", __func__);
+
+	for (i = 0; i < (ARRAY_SIZE(field) / 2); i++) {
+		ret = __ad9361_tx_quad_calib(phy, i, rxnco_word, decim, &val);
+		if (ret < 0)
+			return ret;
+
 		/* Handle 360/0 wrap around */
-		val = ad9361_spi_read(phy->spi, REG_QUAD_CAL_STATUS_TX1);
 		field[i] = field[i + 32] = !((val & TX1_LO_CONV) && (val & TX1_SSB_CONV));
 	}
 
 	ret = ad9361_find_opt(field, ARRAY_SIZE(field), &start);
 
+	phy->last_tx_quad_cal_phase = (start + ret / 2) & 0x1F;
+
 #ifdef _DEBUG
 	for (i = 0; i < 64; i++) {
 		printk("%c", (field[i] ? '#' : 'o'));
 	}
-	printk(" RX_NCO_PHASE_OFFSET(%d) \n", (start + ret / 2) & 0x1F);
+	printk(" RX_NCO_PHASE_OFFSET(%d, 0x%X) \n", phy->last_tx_quad_cal_phase,
+	       phy->last_tx_quad_cal_phase);
 #endif
 
-	ad9361_spi_write(phy->spi, REG_QUAD_CAL_CTRL,
-			 SETTLE_MAIN_ENABLE | DC_OFFSET_ENABLE | QUAD_CAL_SOFT_RESET |
-			 GAIN_ENABLE | PHASE_ENABLE | M_DECIM(3));
-	ad9361_spi_write(phy->spi, REG_QUAD_CAL_CTRL,
-			 SETTLE_MAIN_ENABLE | DC_OFFSET_ENABLE |
-			 GAIN_ENABLE | PHASE_ENABLE | M_DECIM(3));
-
-	ad9361_spi_write(phy->spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
-		RX_NCO_FREQ(rxnco_word) |
-		RX_NCO_PHASE_OFFSET((start + ret / 2) & 0x1F));
-
-	ret = ad9361_run_calibration(phy, TX_QUAD_CAL);
+	ret = __ad9361_tx_quad_calib(phy, phy->last_tx_quad_cal_phase, rxnco_word, decim, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -2097,9 +2111,10 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	struct spi_device *spi = phy->spi;
 	unsigned long clktf, clkrf;
 	int txnco_word, rxnco_word, txnco_freq, ret;
-	u8 __rx_phase = 0, reg_inv_bits, val;
+	u8 __rx_phase = 0, reg_inv_bits, val, decim;
 	const u8 (*tab)[3];
 	u32 index_max, i , lpf_tia_mask;
+
 	/*
 	 * Find NCO frequency that matches this equation:
 	 * BW / 4 = Rx NCO freq = Tx NCO freq:
@@ -2119,6 +2134,11 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 
  	dev_dbg(dev, "Tx NCO frequency: %lu (BW/4: %lu) txnco_word %d\n",
 		clktf * (txnco_word + 1) / 32, bw_tx / 4, txnco_word);
+
+	if (clktf <= 4000000UL)
+		decim = 2;
+	else
+		decim = 3;
 
 	if (clkrf == (2 * clktf)) {
 		__rx_phase = 0x0E;
@@ -2183,15 +2203,8 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 					INVERT_RX2_RF_DC_CGOUT_WORD);
 	}
 
-	ad9361_spi_write(spi, REG_QUAD_CAL_NCO_FREQ_PHASE_OFFSET,
-			 RX_NCO_FREQ(rxnco_word) | RX_NCO_PHASE_OFFSET(__rx_phase));
+
 	ad9361_spi_writef(spi, REG_KEXP_2, TX_NCO_FREQ(~0), txnco_word);
-	ad9361_spi_write(spi, REG_QUAD_CAL_CTRL,
-			 SETTLE_MAIN_ENABLE | DC_OFFSET_ENABLE | QUAD_CAL_SOFT_RESET |
-			 GAIN_ENABLE | PHASE_ENABLE | M_DECIM(3));
-	ad9361_spi_write(spi, REG_QUAD_CAL_CTRL,
-			 SETTLE_MAIN_ENABLE | DC_OFFSET_ENABLE |
-			 GAIN_ENABLE | PHASE_ENABLE | M_DECIM(3));
 	ad9361_spi_write(spi, REG_QUAD_CAL_COUNT, 0xFF);
 	ad9361_spi_write(spi, REG_KEXP_1, KEXP_TX(1) | KEXP_TX_COMP(3) |
 			 KEXP_DC_I(3) | KEXP_DC_Q(3));
@@ -2220,16 +2233,23 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	ad9361_spi_write(spi, REG_QUAD_SETTLE_COUNT, 0xF0);
 	ad9361_spi_write(spi, REG_TX_QUAD_LPF_GAIN, 0x00);
 
-	ret = ad9361_run_calibration(phy, TX_QUAD_CAL);
+	ret = __ad9361_tx_quad_calib(phy, __rx_phase, rxnco_word, decim, &val);
 
-	val = ad9361_spi_readf(spi, REG_QUAD_CAL_STATUS_TX1,
-			       TX1_LO_CONV | TX1_SSB_CONV);
 	dev_dbg(dev, "LO leakage: %d Quadrature Calibration: %d : rx_phase %d\n",
 		!!(val & TX1_LO_CONV), !!(val & TX1_SSB_CONV), __rx_phase);
 
+	/* Calibration failed -> try last phase offset */
+	if (val != (TX1_LO_CONV | TX1_SSB_CONV)) {
+		if (phy->last_tx_quad_cal_phase < 31)
+			ret = __ad9361_tx_quad_calib(phy, phy->last_tx_quad_cal_phase,
+						     rxnco_word, decim, &val);
+	} else {
+		phy->last_tx_quad_cal_phase = __rx_phase;
+	}
+
 	/* Calibration failed -> loop through all 32 phase offsets */
 	if (val != (TX1_LO_CONV | TX1_SSB_CONV))
-		ret = ad9361_tx_quad_phase_search(phy, rxnco_word);
+		ret = ad9361_tx_quad_phase_search(phy, rxnco_word, decim);
 
 	if (phy->pdata->rx1rx2_phase_inversion_en ||
 		(phy->pdata->port_ctrl.pp_conf[1] & INVERT_RX2)) {
@@ -4021,6 +4041,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
+	phy->last_tx_quad_cal_phase = ~0;
 	ret = ad9361_tx_quad_calib(phy, real_rx_bandwidth, real_tx_bandwidth, -1);
 	if (ret < 0)
 		return ret;
@@ -4530,7 +4551,7 @@ static void ad9361_work_func(struct work_struct *work)
 
 	dev_dbg(&phy->spi->dev, "%s:", __func__);
 
-	ret = ad9361_do_calib_run(phy, TX_QUAD_CAL, -1);
+	ret = ad9361_do_calib_run(phy, TX_QUAD_CAL, phy->last_tx_quad_cal_phase);
 	if (ret < 0)
 		dev_err(&phy->spi->dev,
 			"%s: TX QUAD cal failed", __func__);
