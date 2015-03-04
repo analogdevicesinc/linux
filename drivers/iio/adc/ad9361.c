@@ -3339,7 +3339,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 	unsigned long clktf, clkrf, adc_rate = 0, dac_rate = 0;
 	u64 bbpll_rate;
 	int i, index_rx = -1, index_tx = -1, tmp;
-	u32 div, tx_intdec, rx_intdec;
+	u32 div, tx_intdec, rx_intdec, recursion = 1;
 	const char clk_dividers[][4] = {
 		{12,3,2,2},
 		{8,2,2,2},
@@ -3350,7 +3350,6 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 		{1,1,1,1},
 	};
 
-
 	if (phy->bypass_rx_fir)
 		rx_intdec = 1;
 	else
@@ -3360,6 +3359,11 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 		tx_intdec = 1;
 	else
 		tx_intdec = phy->tx_fir_int;
+
+	if ((rate_gov == 1) && ((rx_intdec * tx_sample_rate * 8) < MIN_ADC_CLK)) {
+		recursion = 0;
+		rate_gov = 0;
+	}
 
 	dev_dbg(&phy->spi->dev, "%s: requested rate %lu TXFIR int %d RXFIR dec %d mode %s",
 		__func__, tx_sample_rate, tx_intdec, rx_intdec,
@@ -3403,7 +3407,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 		}
 	}
 
-	if ((index_tx < 0 || index_tx > 6 || index_rx < 0 || index_rx > 6) && rate_gov < 7) {
+	if ((index_tx < 0 || index_tx > 6 || index_rx < 0 || index_rx > 6) && rate_gov < 7 && recursion) {
 		return ad9361_calculate_rf_clock_chain(phy, tx_sample_rate,
 			++rate_gov, rx_path_clks, tx_path_clks);
 	} else if ((index_tx < 0 || index_tx > 6 || index_rx < 0 || index_rx > 6)) {
@@ -4439,12 +4443,10 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 				clk_get_rate(phy->clks[TX_SAMPL_CLK]),
 				phy->rate_governor, rx, tx);
 		if (ret < 0) {
-			u32 min = DIV_ROUND_UP(MIN_ADC_CLK,
-					phy->rate_governor ? 8 : 12);
+			u32 min = phy->rate_governor ? 1500000U : 1000000U;
 			dev_err(dev,
 				"%s: Calculating filter rates failed %d "
 				"using min frequency",__func__, ret);
-			if (clk_get_rate(phy->clks[TX_SAMPL_CLK]) <= min)
 				ret = ad9361_calculate_rf_clock_chain(phy, min,
 					phy->rate_governor, rx, tx);
 			if (ret < 0) {
