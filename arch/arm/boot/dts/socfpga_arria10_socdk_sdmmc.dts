@@ -25,4 +25,5 @@
 	altr,dw-mshc-ciu-div = <3>;
 	altr,dw-mshc-sdr-timing = <0 3>;
 	clock-freq-min-max = <400000 25000000>;
+	pwr-en = <0>;
 };
