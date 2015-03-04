@@ -174,12 +174,12 @@ static struct ad9361_trace timestamps[5000];
 static int timestamp_cnt = 0;
 static bool timestamp_en = 0;
 
-static inline void ad9361_timestamp_en(unsigned reg, unsigned read)
+static inline void ad9361_timestamp_en(void)
 {
 	timestamp_en = true;
 }
 
-static inline void ad9361_timestamp_dis(unsigned reg, unsigned read)
+static inline void ad9361_timestamp_dis(void)
 {
 	timestamp_en = false;
 }
