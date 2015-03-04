@@ -188,6 +188,7 @@
 	altr,dw-mshc-sdr-timing = <0 3>;
 	clock-frequency = <50000000>;
 	clock-freq-min-max = <400000 25000000>;
+	pwr-en = <0>;
 
 	slot@0 {
 		reg = <0>;
