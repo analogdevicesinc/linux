@@ -60,6 +60,7 @@ struct jesd204b_gt_state {
 	dma_addr_t		buf_phys;
 	struct bin_attribute 	bin;
 	unsigned			size;
+	unsigned			lanes;
 	int			lane;
 	int			prescale;
 	unsigned			vers_id;
@@ -75,6 +76,7 @@ struct jesd204b_gt_state {
 	unsigned			tx_sys_clk_sel;
 	unsigned			tx_out_clk_sel;
 	bool			use_cpll;
+	bool 			use_lpm;
 
 	struct delayed_work	sync_work;
 };
@@ -97,12 +99,76 @@ static inline unsigned int jesd204b_gt_read(struct jesd204b_gt_state *st,
 	return ioread32(st->regs + reg);
 }
 
+static inline void jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
+				  unsigned reg, unsigned val)
+{
+	int timeout = 10;
+	jesd204b_gt_write(st, ADI_REG_DRP_CNTRL,
+			  ADI_DRP_ADDRESS(reg) | ADI_DRP_WDATA(val));
+
+	do {
+		if (!(jesd204b_gt_read(st, ADI_REG_DRP_STATUS) & ADI_DRP_STATUS))
+			return;
+
+		mdelay(1);
+	} while (timeout--);
+
+	dev_err(st->dev, "%s: Timeout!", __func__);
+}
+
+static inline unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st,
+					 unsigned reg)
+{
+	int timeout = 10;
+	unsigned val;
+
+	jesd204b_gt_write(st, ADI_REG_DRP_CNTRL,
+		ADI_DRP_RWN | ADI_DRP_ADDRESS(reg) | ADI_DRP_WDATA(0xFFFF));
+
+	do {
+		val = jesd204b_gt_read(st, ADI_REG_DRP_STATUS);
+
+		if (val & ADI_DRP_STATUS) {
+			mdelay(1);
+			continue;
+		}
+
+		return ADI_TO_DRP_RDATA(val);
+
+	} while (timeout--);
+
+	dev_err(st->dev, "%s: Timeout!", __func__);
+	return -ETIMEDOUT;
+}
+
 static int jesd204b_gt_set_lane(struct jesd204b_gt_state *st, unsigned lane)
 {
 	jesd204b_gt_write(st, ADI_REG_RX_LANESEL,
 		       ADI_RX_LANESEL(lane));
 
 	jesd204b_gt_read(st, ADI_REG_RX_LANESEL);
+
+	return 0;
+}
+
+static int jesd204b_gt_set_lpm_dfe_mode(struct jesd204b_gt_state *st,
+					unsigned lpm)
+{
+	u32 i, mode, val;
+
+	mode = lpm ? 0x104 : 0x954;
+
+	for (i = 0; i < st->lanes; i++) {
+		jesd204b_gt_set_lane(st, i);
+		jesd204b_gt_drp_write(st, 0x29, mode);
+
+		val = jesd204b_gt_drp_read(st, 0x29);
+
+		if (val != mode) {
+			dev_err(st->dev, "%s: Read Verify Failed (0x%X)!", __func__, val);
+			return -EIO;
+		}
+	}
 
 	return 0;
 }
@@ -204,6 +270,7 @@ jesd204b_gt_bin_read(struct file *filp, struct kobject *kobj,
 		count = st->bin.size - off;
 	if (unlikely(!count))
 		return count;
+
 
 	wait_for_completion(&st->complete);
 
@@ -503,6 +570,9 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 				   "adi,tx-out-clk-select", &st->tx_out_clk_sel);
 
 	st->use_cpll = of_property_read_bool(pdev->dev.of_node, "adi,use-cpll-enable");
+	st->use_lpm = of_property_read_bool(pdev->dev.of_node, "adi,use-lpm-enable");
+
+	of_property_read_u32(pdev->dev.of_node, "adi,lanes", &st->lanes);
 
 	jesd204b_gt_write(st, ADI_REG_CPLL_PD, st->use_cpll ? 0 : ADI_CPLL_PD);
 
@@ -524,6 +594,11 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 
 	jesd204b_gt_write(st, ADI_REG_TX_GT_RSTN, 0);
 	jesd204b_gt_write(st, ADI_REG_TX_RSTN, 0);
+
+	jesd204b_gt_write(st, ADI_REG_RSTN_1,
+			  ADI_DRP_RSTN); /* enable (drp) */
+
+	jesd204b_gt_set_lpm_dfe_mode(st, st->use_lpm);
 
 	jesd204b_gt_write(st, ADI_REG_RSTN_1,
 			  ADI_DRP_RSTN | ADI_GT_PLL_RSTN); /* enable (drp, pll) */
