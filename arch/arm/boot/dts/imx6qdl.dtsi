@@ -368,8 +368,8 @@
 					clocks = <&clks IMX6QDL_CLK_SSI1_IPG>,
 						 <&clks IMX6QDL_CLK_SSI1>;
 					clock-names = "ipg", "baud";
-					dmas = <&sdma 37 1 0>,
-					       <&sdma 38 1 0>;
+					dmas = <&sdma 37 22 0>,
+					       <&sdma 38 22 0>;
 					dma-names = "rx", "tx";
 					fsl,fifo-depth = <15>;
 					status = "disabled";
@@ -384,8 +384,8 @@
 					clocks = <&clks IMX6QDL_CLK_SSI2_IPG>,
 						 <&clks IMX6QDL_CLK_SSI2>;
 					clock-names = "ipg", "baud";
-					dmas = <&sdma 41 1 0>,
-					       <&sdma 42 1 0>;
+					dmas = <&sdma 41 22 0>,
+					       <&sdma 42 22 0>;
 					dma-names = "rx", "tx";
 					fsl,fifo-depth = <15>;
 					status = "disabled";
@@ -400,8 +400,8 @@
 					clocks = <&clks IMX6QDL_CLK_SSI3_IPG>,
 						 <&clks IMX6QDL_CLK_SSI3>;
 					clock-names = "ipg", "baud";
-					dmas = <&sdma 45 1 0>,
-					       <&sdma 46 1 0>;
+					dmas = <&sdma 45 22 0>,
+					       <&sdma 46 22 0>;
 					dma-names = "rx", "tx";
 					fsl,fifo-depth = <15>;
 					status = "disabled";
