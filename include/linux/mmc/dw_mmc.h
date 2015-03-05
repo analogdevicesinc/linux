@@ -257,6 +257,7 @@ struct dw_mci_board {
 	 * it.
 	 */
 	unsigned int fifo_depth;
+	int pwr_en;
 
 	/* delay in mS before detecting cards after interrupt */
 	u32 detect_delay_ms;
