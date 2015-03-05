@@ -1,0 +1,54 @@
+* Analog Devices AD7173 and similar Analog to Digital Converter (ADC)
+
+Required properties:
+	- compatible: Must be one of "adi,ad7172-2", "adi,ad7173-8", "adi,7175-2",
+	  "adi,7176-2".
+	- reg: SPI chip select number for the device
+	- interrupts: IRQ line for the ADC
+		see: Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+	- spi-max-frequency: See Documentation/devicetree/bindings/spi/spi-bus.txt
+	- spi-cpha: See Documentation/devicetree/bindings/spi/spi-bus.txt
+	- spi-cpol: See Documentation/devicetree/bindings/spi/spi-bus.txt
+
+Optional properties:
+	- adi,channels: List of external channels connected to the ADC:
+	  Required properties:
+		* #address-cells: Must be 2.
+		* #size-cells: Must be 0.
+
+	  The child nodes of this node represent the external channels which are
+	  connected to the ADC. If the property is no present no external
+	  channels will be assumed to be connected.
+
+	  Each child node represents one channel and has the following
+	  properties:
+		Required properties:
+			* reg: Pins the channel is connected to. The first value specifies
+			  the positive input pin, the second value the negative input pin.
+		Optional properties:
+			* adi,bipolar: If set the channel is used in bipolar mode.
+
+
+Example:
+	ad7173 {
+		compatible = "adi,ad7173";
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <100000>;
+
+		adi,channels {
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			channel@0,1 {
+				reg = <0 1>;
+				adi,bipolar;
+			};
+
+			channel@2,3 {
+				reg = <2 3>;
+				adi,bipolar;
+			};
+		};
+	};
