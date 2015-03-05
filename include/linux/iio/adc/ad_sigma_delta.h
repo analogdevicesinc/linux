@@ -30,6 +30,8 @@ struct iio_dev;
 
 /**
  * struct ad_sigma_delta_info - Sigma Delta driver specific callbacks and options
+ * @prepare_channel: Will be called to prepare and configure a channel,
+ *		may be NULL.
  * @set_channel: Will be called to select the current channel, may be NULL.
  * @set_mode: Will be called to select the current mode, may be NULL.
  * @postprocess_sample: Is called for each sampled data word, can be used to
@@ -42,6 +44,8 @@ struct iio_dev;
  *   be used.
  */
 struct ad_sigma_delta_info {
+	int (*prepare_channel)(struct ad_sigma_delta *sd,
+		const struct iio_chan_spec *chan);
 	int (*set_channel)(struct ad_sigma_delta *sd, unsigned int channel);
 	int (*set_mode)(struct ad_sigma_delta *sd,
 		enum ad_sigma_delta_mode mode);
@@ -82,6 +86,15 @@ struct ad_sigma_delta {
 	 */
 	uint8_t				data[4] ____cacheline_aligned;
 };
+
+static inline int ad_sigma_delta_prepare_channel(struct ad_sigma_delta *sd,
+	const struct iio_chan_spec *chan)
+{
+	if (sd->info->prepare_channel)
+		return sd->info->prepare_channel(sd, chan);
+
+	return 0;
+}
 
 static inline int ad_sigma_delta_set_channel(struct ad_sigma_delta *sd,
 	unsigned int channel)
