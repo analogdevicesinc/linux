@@ -257,6 +257,7 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 		return -EBUSY;
 
 	mutex_lock(&indio_dev->mlock);
+	ad_sigma_delta_prepare_channel(sigma_delta, chan);
 	ad_sigma_delta_set_channel(sigma_delta, chan->address);
 
 	spi_bus_lock(sigma_delta->spi->master);
@@ -323,6 +324,10 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 
 	channel = find_first_bit(indio_dev->active_scan_mask,
 				 indio_dev->masklength);
+	ret = ad_sigma_delta_prepare_channel(sigma_delta,
+		&indio_dev->channels[channel]);
+	if (ret)
+		goto err_predisable;
 	ret = ad_sigma_delta_set_channel(sigma_delta,
 		indio_dev->channels[channel].address);
 	if (ret)

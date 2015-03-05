@@ -32,6 +32,8 @@ struct iio_dev;
 /**
  * struct ad_sigma_delta_info - Sigma Delta driver specific callbacks and options
  * @set_channel: Will be called to select the current channel, may be NULL.
+ * @prepare_channel: Will be called to prepare and configure a channel, may be
+ *                   NULL.
  * @set_mode: Will be called to select the current mode, may be NULL.
  * @postprocess_sample: Is called for each sampled data word, can be used to
  *		modify or drop the sample data, it, may be NULL.
@@ -44,6 +46,8 @@ struct iio_dev;
  */
 struct ad_sigma_delta_info {
 	int (*set_channel)(struct ad_sigma_delta *, unsigned int channel);
+	int (*prepare_channel)(struct ad_sigma_delta *,
+		const struct iio_chan_spec *);
 	int (*set_mode)(struct ad_sigma_delta *, enum ad_sigma_delta_mode mode);
 	int (*postprocess_sample)(struct ad_sigma_delta *, unsigned int raw_sample);
 	bool has_registers;
@@ -81,6 +85,15 @@ struct ad_sigma_delta {
 	uint8_t				data[4] ____cacheline_aligned;
 };
 
+static inline int ad_sigma_delta_prepare_channel(struct ad_sigma_delta *sd,
+	const struct iio_chan_spec *chan)
+{
+	if (sd->info->prepare_channel)
+		return sd->info->prepare_channel(sd, chan);
+
+	return 0;
+}
+
 static inline int ad_sigma_delta_set_channel(struct ad_sigma_delta *sd,
 	unsigned int channel)
 {
@@ -89,7 +102,6 @@ static inline int ad_sigma_delta_set_channel(struct ad_sigma_delta *sd,
 
 	return 0;
 }
-
 static inline int ad_sigma_delta_set_mode(struct ad_sigma_delta *sd,
 	unsigned int mode)
 {
