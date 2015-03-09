@@ -5495,6 +5495,9 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 		ad9361_ensm_force_state(phy, ENSM_STATE_FDD);
 	}
 
+	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
+	ad9361_ensm_restore_prev_state(phy);
+
 	num_chan = (conv->chip_info->num_channels > 4) ? 4 : conv->chip_info->num_channels;
 
 	ad9361_bist_prbs(phy, BIST_INJ_RX);
@@ -5689,9 +5692,14 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	return ad9361_set_trx_clock_chain(phy,
+	ret = ad9361_set_trx_clock_chain(phy,
 					 phy->pdata->rx_path_clks,
 					 phy->pdata->tx_path_clks);
+
+	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
+	ad9361_ensm_restore_prev_state(phy);
+
+	return ret;
 }
 
 static int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
