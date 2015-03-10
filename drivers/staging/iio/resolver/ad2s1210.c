@@ -490,10 +490,22 @@ static int ad2s1210_read_raw(struct iio_dev *indio_dev,
 
 	switch (chan->type) {
 	case IIO_ANGL:
-		ad2s1210_set_mode(MOD_POS, st);
+		if (!st->pdata->entrl_conf_mode_en)
+			ad2s1210_set_mode(MOD_POS, st);
+		else {
+			ad2s1210_set_mode(MOD_CONFIG, st);
+			st->rx[0] = ad2s1210_config_read(st, AD2S1210_REG_POSITION);
+			st->rx[1] = ad2s1210_config_read(st, AD2S1210_REG_POSITION + 1);
+		}
 		break;
 	case IIO_ANGL_VEL:
-		ad2s1210_set_mode(MOD_VEL, st);
+		if (!st->pdata->entrl_conf_mode_en)
+			ad2s1210_set_mode(MOD_VEL, st);
+		else {
+			ad2s1210_set_mode(MOD_CONFIG, st);
+			st->rx[0] = ad2s1210_config_read(st, AD2S1210_REG_VELOCITY);
+			st->rx[1] = ad2s1210_config_read(st, AD2S1210_REG_VELOCITY + 1);
+		}
 		break;
 	default:
 	       ret = -EINVAL;
@@ -501,9 +513,11 @@ static int ad2s1210_read_raw(struct iio_dev *indio_dev,
 	}
 	if (ret < 0)
 		goto error_ret;
-	ret = spi_read(st->sdev, st->rx, 2);
-	if (ret < 0)
-		goto error_ret;
+	if (!st->pdata->entrl_conf_mode_en) {
+		ret = spi_read(st->sdev, st->rx, 2);
+		if (ret < 0)
+			goto error_ret;
+	}
 
 	switch (chan->type) {
 	case IIO_ANGL:
@@ -694,6 +708,9 @@ struct ad2s1210_platform_data *ad2s1210_parse_dt(struct device *dev)
 
 	pdata->clk_in_freq = AD2S1210_DEF_CLKIN;
 	of_property_read_u32(np, "adi,clock-input-frequency", &pdata->clk_in_freq);
+
+	pdata->entrl_conf_mode_en =
+			of_property_read_bool(np, "adi,entirely-configuration-mode-enable");
 
 	return pdata;
 }
