@@ -2929,6 +2929,11 @@ static int xemacps_probe(struct platform_device *pdev)
 		goto err_out_clk_dis_all;
 	}
 
+	rc = of_property_read_u8_array(lp->pdev->dev.of_node, "local-mac-address",
+						lp->ndev->dev_addr, 6);
+	if (!rc)
+		xemacps_set_hwaddr(lp);
+
 	xemacps_update_hwaddr(lp);
 	tasklet_init(&lp->tx_bdreclaim_tasklet, xemacps_tx_poll,
 		     (unsigned long) ndev);
