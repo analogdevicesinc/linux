@@ -99,10 +99,11 @@ static inline unsigned int jesd204b_gt_read(struct jesd204b_gt_state *st,
 	return ioread32(st->regs + reg);
 }
 
-static inline void jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
+static void jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
 				  unsigned reg, unsigned val)
 {
-	int timeout = 10;
+	int timeout = 20;
+
 	jesd204b_gt_write(st, ADI_REG_DRP_CNTRL,
 			  ADI_DRP_ADDRESS(reg) | ADI_DRP_WDATA(val));
 
@@ -116,10 +117,10 @@ static inline void jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
 	dev_err(st->dev, "%s: Timeout!", __func__);
 }
 
-static inline unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st,
+static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st,
 					 unsigned reg)
 {
-	int timeout = 10;
+	int timeout = 20;
 	unsigned val;
 
 	jesd204b_gt_write(st, ADI_REG_DRP_CNTRL,
@@ -154,19 +155,28 @@ static int jesd204b_gt_set_lane(struct jesd204b_gt_state *st, unsigned lane)
 static int jesd204b_gt_set_lpm_dfe_mode(struct jesd204b_gt_state *st,
 					unsigned lpm)
 {
-	u32 i, mode, val;
+	u32 i, type;
 
-	mode = lpm ? 0x104 : 0x954;
+	type = jesd204b_gt_read(st, ADI_REG_TRANSCEIVER_TYPE);
 
 	for (i = 0; i < st->lanes; i++) {
 		jesd204b_gt_set_lane(st, i);
-		jesd204b_gt_drp_write(st, 0x29, mode);
-
-		val = jesd204b_gt_drp_read(st, 0x29);
-
-		if (val != mode) {
-			dev_err(st->dev, "%s: Read Verify Failed (0x%X)!", __func__, val);
-			return -EIO;
+		if (type == ADI_TRANSCEIVER_GTH) {
+			if (lpm) {
+				jesd204b_gt_drp_write(st, 0x036, 0x0032);
+				jesd204b_gt_drp_write(st, 0x039, 0x1000);
+				jesd204b_gt_drp_write(st, 0x062, 0x1980);
+			} else {
+				jesd204b_gt_drp_write(st, 0x036, 0x0002);
+				jesd204b_gt_drp_write(st, 0x039, 0x0000);
+				jesd204b_gt_drp_write(st, 0x062, 0x0000);
+			}
+		} else {
+			if (lpm) {
+				jesd204b_gt_drp_write(st, 0x029, 0x0104);
+			} else {
+				jesd204b_gt_drp_write(st, 0x029, 0x0954);
+			}
 		}
 	}
 
@@ -345,7 +355,8 @@ static ssize_t jesd204b_gt_info_read(struct device *dev,
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(dev);
 
-	return sprintf(buf, "x%d,y%d CDRDW: %d\n", st->es_hsize, ADI_ES_VSIZE, 40);
+	return sprintf(buf, "x%d,y%d CDRDW: %d LPM: %d\n",
+		       st->es_hsize, ADI_ES_VSIZE, 40, st->use_lpm);
 }
 
 static DEVICE_ATTR(info, S_IRUSR, jesd204b_gt_info_read, NULL);
@@ -574,7 +585,9 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 
 	of_property_read_u32(pdev->dev.of_node, "adi,lanes", &st->lanes);
 
-	jesd204b_gt_write(st, ADI_REG_CPLL_PD, st->use_cpll ? 0 : ADI_CPLL_PD);
+	jesd204b_gt_write(st, ADI_REG_CPLL_PD,
+			(st->use_cpll ? 0 : ADI_CPLL_PD) |
+			(st->use_lpm ? ADI_LPM_EN : 0));
 
 	if (st->rx_sys_clk_sel || st->rx_out_clk_sel)
 		jesd204b_gt_write(st, ADI_REG_RX_CLK_SEL,
@@ -587,7 +600,6 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 			  ADI_RX_OUT_CLK_SEL(st->tx_out_clk_sel));
 
 	jesd204b_gt_write(st, ADI_REG_RSTN_1, 0); /* resets (drp, pll) */
-
 
 	jesd204b_gt_write(st, ADI_REG_RX_GT_RSTN, 0);
 	jesd204b_gt_write(st, ADI_REG_RX_RSTN, 0);
@@ -649,7 +661,7 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 	}
 
 	st->size = st->es_hsize * ADI_ES_VSIZE *
-		sizeof(unsigned long long);
+		(st->use_lpm ? sizeof(u32) : sizeof(u64));
 	st->prescale = 0;
 	st->buf_virt = dma_alloc_coherent(&pdev->dev, PAGE_ALIGN(st->size),
 					  &st->buf_phys, GFP_KERNEL);

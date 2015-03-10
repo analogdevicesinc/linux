@@ -28,6 +28,7 @@
 
 #define ADI_REG_CPLL_PD		0x0010
 #define ADI_CPLL_PD			(1 << 0)
+#define ADI_LPM_EN			(1 << 1)
 
 #define ADI_REG_RSTN_1		0x0014
 #define ADI_DRP_RSTN			(1 << 1)
@@ -170,5 +171,9 @@
 
 #define ADI_REG_EYESCAN_RATE		0x00E4
 #define ADI_EYESCAN_RATE			(1 << 1)
+
+#define ADI_REG_TRANSCEIVER_TYPE		0x00E8
+#define ADI_TRANSCEIVER_GTH		0x1 /* Ultra-Scale */
+#define ADI_TRANSCEIVER_GTX		0x0 /* 7-Series */
 
 #endif /* ADI_JESD204B_GT_H_ */
