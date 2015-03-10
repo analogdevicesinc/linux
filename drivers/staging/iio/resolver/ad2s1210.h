@@ -14,4 +14,5 @@ struct ad2s1210_platform_data {
 	struct gpio_desc *a[2];
 	struct gpio_desc *res[2];
 	bool gpioin;
+	unsigned int clk_in_freq;
 };

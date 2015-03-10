@@ -692,6 +692,9 @@ struct ad2s1210_platform_data *ad2s1210_parse_dt(struct device *dev)
 
 	pdata->gpioin = of_property_read_bool(np, "adi,gpios-input-direction-enable");
 
+	pdata->clk_in_freq = AD2S1210_DEF_CLKIN;
+	of_property_read_u32(np, "adi,clock-input-frequency", &pdata->clk_in_freq);
+
 	return pdata;
 }
 #else
@@ -749,7 +752,8 @@ static int ad2s1210_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	st->fclkin = spi->max_speed_hz;
+	st->fclkin = st->pdata->clk_in_freq;
+
 	spi->mode = SPI_MODE_3;
 	spi_setup(spi);
 	ad2s1210_initial(st);
