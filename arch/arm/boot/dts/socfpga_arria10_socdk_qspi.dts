@@ -1,213 +1,61 @@
 /*
- * Copyright (C) 2014 Altera Corporation <www.altera.com>
+ * Copyright (C) 2015 Altera Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /dts-v1/;
-#include "socfpga_arria10.dtsi"
+#include "socfpga_arria10_socdk.dtsi"
 
 / {
-	model = "Altera SOCFPGA Arria 10";
-	compatible = "altr,socfpga-arria10", "altr,socfpga";
-
-	chosen {
-		bootargs = "console=ttyS0,115200 rootwait";
-	};
-
-	memory {
-		name = "memory";
-		device_type = "memory";
-		reg = <0x0 0x40000000>; /* 1GB */
-	};
-
-	a10_leds {
-		compatible = "gpio-leds";
-
-		a10sycon0 {
-			label = "a10sycon_led0";
-			gpios = <&gpio4 4 1>;
-		};
-
-		a10sycon1 {
-			label = "a10sycon_led1";
-			gpios = <&gpio4 5 1>;
-		};
-
-		a10sycon2 {
-			label = "a10sycon_led2";
-			gpios = <&gpio4 6 1>;
-		};
-
-		a10sycon03 {
-			label = "a10sycon_led3";
-			gpios = <&gpio4 7 1>;
-		};
-	};
-
-	a10_keys {
-		compatible = "gpio-keys";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		dip_sw0 {
-			label = "DIP_SW0";
-			gpios = <&gpio4 8 1>;
-			linux,code = <0x40>;
-			debounce-interval = <50>;
-		};
-
-		dip_sw1 {
-			label = "DIP_SW1";
-			gpios = <&gpio4 9 1>;
-			linux,code = <0x41>;
-			debounce-interval = <50>;
-		};
-
-		dip_sw2 {
-			label = "DIP_SW2";
-			gpios = <&gpio4 10 1>;
-			linux,code = <0x42>;
-			debounce-interval = <50>;
-		};
-
-		dip_sw3 {
-			label = "DIP_SW3";
-			gpios = <&gpio4 11 1>;
-			linux,code = <0x43>;
-			debounce-interval = <50>;
-		};
-
-		pb_sw0 {
-			label = "PB_SW0";
-			gpios = <&gpio4 12 1>;
-			linux,code = <0x44>;
-			debounce-interval = <50>;
-		};
-
-		pb_sw1 {
-			label = "PB_SW1";
-			gpios = <&gpio4 13 1>;
-			linux,code = <0x45>;
-			debounce-interval = <50>;
-		};
-
-		pb_sw2 {
-			label = "PB_SW2";
-			gpios = <&gpio4 14 1>;
-			linux,code = <0x46>;
-			debounce-interval = <50>;
-		};
-
-		pb_sw3 {
-			label = "PB_SW3";
-			gpios = <&gpio4 15 1>;
-			linux,code = <0x47>;
-			debounce-interval = <50>;
-		};
-	};
 	soc {
-		clkmgr@ffd04000 {
-			clocks {
-				osc1 {
-					clock-frequency = <25000000>;
+		qspi: spi@ff809000 {
+			compatible = "cadence,qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xff809000 0x100>,
+				<0xffa00000 0x100000>;
+			interrupts = <0 100 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&l4_main_clk>;
+			ext-decoder = <0>;  /* external decoder */
+			num-chipselect = <4>;
+			fifo-depth = <128>;
+			bus-num = <2>;
+			status = "okay";
+			flash0: n25q00@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "n25q00aa";
+				reg = <0>;      /* chip select */
+				spi-max-frequency = <100000000>;
+				m25p,fast-read;
+				page-size = <256>;
+				block-size = <16>; /* 2^16, 64KB */
+				read-delay = <4>;  /* delay value in read data capture register */
+				tshsl-ns = <50>;
+				tsd2d-ns = <50>;
+				tchsh-ns = <4>;
+				tslch-ns = <4>;
+
+				partition@qspi-boot {
+					label = "Boot and fpga data";
+					reg = <0x0 0x1B20000>;
+				};
+				partition@qspi-rootfs {
+					label = "Root Filesystem - JFFS2";
+					reg = <0x1B20000 0x64E0000>;
 				};
 			};
 		};
-
-		serial1@ffc02100 {
-			status = "okay";
-		};
 	};
-};
-
-&gmac0 {
-	phy-mode = "rgmii";
-	phy-addr = <0xffffffff>; /* probe for phy addr */
-	rxd0-skew-ps = <0>;
-	rxd0-skew-ps = <0>;
-	rxd1-skew-ps = <0>;
-	rxd2-skew-ps = <0>;
-	rxd3-skew-ps = <0>;
-	txen-skew-ps = <0>;
-	txc-skew-ps = <2600>;
-	rxdv-skew-ps = <0>;
-	rxc-skew-ps = <2000>;
-	snps,max-mtu = <0>;
-	status = "okay";
-};
-
-&spi1 {
-	status = "okay";
-
-	a10_sysctl: a10_sysctl@0 {
-		compatible = "altr,a10sycon";
-		reg = <0>;
-		interrupt-parent = <&gpio1>;
-		/* low-level active IRQ at GPIO1_5 */
-		interrupts = <5 0x8>;
-		interrupt-controller;
-		#interrupt-cells = <2>;
-		spi-max-frequency = <1000000>;
-
-		gpio4: gpio-controller {
-			compatible = "altr,a10sycon-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			ngpios = <16>;
-		};
-
-		hwmon: a10hwmon {
-			compatible = "altr,a10sycon-hwmon";
-		};
-
-		a10rst: a10rst {
-			compatible = "altr,a10sycon-reset";
-			#reset-cells = <1>;
-		};
-	};
-};
-
-&qspi {
-	status = "okay";
-	flash0: n25q00@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "n25q00aa";
-		reg = <0>;      /* chip select */
-		spi-max-frequency = <100000000>;
-		m25p,fast-read;
-		page-size = <256>;
-		block-size = <16>; /* 2^16, 64KB */
-		read-delay = <4>;  /* delay value in read data capture register */
-		tshsl-ns = <50>;
-		tsd2d-ns = <50>;
-		tchsh-ns = <4>;
-		tslch-ns = <4>;
-
-		partition@qspi-boot {
-			label = "Boot and fpga data";
-			reg = <0x0 0x1B20000>;
-		};
-
-		partition@qspi-rootfs {
-			label = "Root Filesystem - JFFS2";
-			reg = <0x1B20000 0x64E0000>;
-		};
-	};
-};
-
-&usb0 {
-	status = "okay";
 };
