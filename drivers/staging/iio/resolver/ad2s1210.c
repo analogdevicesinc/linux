@@ -754,8 +754,6 @@ static int ad2s1210_probe(struct spi_device *spi)
 
 	st->fclkin = st->pdata->clk_in_freq;
 
-	spi->mode = SPI_MODE_3;
-	spi_setup(spi);
 	ad2s1210_initial(st);
 
 	return 0;
