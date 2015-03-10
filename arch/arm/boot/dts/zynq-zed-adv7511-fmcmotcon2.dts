@@ -34,6 +34,7 @@
 		xlnx,eth-mode = <0x1>;
 		xlnx,has-mdio = <0x0>;
 		xlnx,ptp-enet-clock = <111111115>;
+		local-mac-address = [00 49 76 a2 b2 f5];
 
 		phy-handle = <&phy1>;
 		phy-mode = "rgmii-id";
