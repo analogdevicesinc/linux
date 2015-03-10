@@ -678,20 +678,47 @@ static int ad2s1210_setup_gpios(struct ad2s1210_state *st)
 	return ret;
 }
 
+#ifdef CONFIG_OF
+struct ad2s1210_platform_data *ad2s1210_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct ad2s1210_platform_data *pdata;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+
+	pdata->gpioin = of_property_read_bool(np, "adi,gpios-input-direction-enable");
+
+	return pdata;
+}
+#else
+struct ad2s1210_platform_data *ad2s1210_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int ad2s1210_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct ad2s1210_state *st;
 	int ret;
 
-	if (spi->dev.platform_data == NULL)
+	if ((!spi->dev.of_node) && (spi->dev.platform_data == NULL))
 		return -EINVAL;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 	st = iio_priv(indio_dev);
-	st->pdata = spi->dev.platform_data;
+
+	if (spi->dev.of_node)
+		st->pdata = ad2s1210_parse_dt(&spi->dev);
+	else
+		st->pdata = spi->dev.platform_data;
 
 	st->pdata->sample = devm_gpiod_get(&spi->dev, "sample");
 	st->pdata->a[0] = devm_gpiod_get(&spi->dev, "a0");
