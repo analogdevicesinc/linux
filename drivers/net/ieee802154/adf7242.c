@@ -22,18 +22,8 @@
 #include <net/mac802154.h>
 #include <net/wpan-phy.h>
 
-/*
- * DEBUG LEVEL
- *     0       OFF
- *     1       INFO
- *     2       INFO + TRACE
- */
-
-#define ADF_DEBUG      0
-#define DBG(n, args...) do { if (ADF_DEBUG >= (n)) pr_debug(args); } while (0)
-
 #define FIRMWARE       "adf7242_firmware.bin"
-#define MAX_POLL_LOOPS 10
+#define MAX_POLL_LOOPS 50
 
 /* All Registers */
 
@@ -77,6 +67,7 @@
 #define REG_GP_IN      0x32E	/* R GPIO Configuration */
 #define REG_SYNT       0x335	/* RW bandwidth calibration timers */
 #define REG_CAL_CFG    0x33D	/* RW Calibration Settings */
+#define REG_PA_BIAS    0x36E	/* RW PA BIAS */
 #define REG_SYNT_CAL   0x371	/* RW Oscillator and Doubler Configuration */
 #define REG_IIRF_CFG   0x389	/* RW BB Filter Decimation Rate */
 #define REG_CDR_CFG    0x38A	/* RW CDR kVCO */
@@ -118,6 +109,18 @@
 #define REG_AFC_KI_KP  0x3F8	/* RW AFC ki and kp */
 #define REG_AFC_RANGE  0x3F9	/* RW AFC range */
 #define REG_AFC_READ   0x3FA	/* RW Readback frequency error */
+
+/* REG_EXTPA_MSC */
+#define PA_PWR(x)		(((x) & 0xF) << 4)
+#define EXTPA_BIAS_SRC		(1 << 3)
+#define EXTPA_BIAS_MODE(x)	(((x) & 0x7) << 0)
+
+/* REG_PA_CFG */
+#define PA_BRIDGE_DBIAS(x)	(((x) & 0x1F) << 0)
+
+/* REG_PA_BIAS */
+#define PA_BIAS_CTRL(x)		(((x) & 0x1F) << 1)
+#define REG_PA_BIAS_DFL		(1 << 0)
 
 #define REG_PAN_ID0            0x112
 #define REG_PAN_ID1            0x113
@@ -167,6 +170,7 @@
 #define CMD_SPI_MEMR_WR(x)     (0x08 + (x >> 8))	/* Write data to MCR or Packet RAM as random block */
 #define CMD_SPI_MEMR_RD(x)     (0x28 + (x >> 8))	/* Read data from MCR or Packet RAM as random block */
 #define CMD_SPI_PRAM_WR                0x1E	/* Write data sequentially to current PRAM page selected */
+#define CMD_SPI_PRAM_RD                0x3E	/* Read data sequentially from current PRAM page selected */
 #define CMD_RC_SLEEP           0xB1	/* Invoke transition of radio controller into SLEEP state */
 #define CMD_RC_IDLE            0xB2	/* Invoke transition of radio controller into IDLE state */
 #define CMD_RC_PHY_RDY         0xB3	/* Invoke transition of radio controller into PHY_RDY state */
@@ -175,6 +179,8 @@
 #define CMD_RC_MEAS            0xB6	/* Invoke transition of radio controller into MEAS state */
 #define CMD_RC_CCA             0xB7	/* Invoke Clear channel assessment */
 #define CMD_RC_CSMACA          0xC1	/* initiates CSMA-CA channel access sequence and frame transmission */
+#define CMD_RC_PC_RESET        0xC7	/* Program counter reset */
+#define CMD_RC_RESET           0xC8	/* Resets the ADF7242 and puts it in the sleep state */
 
 /* STATUS */
 
@@ -224,41 +230,40 @@ static struct adf7242_platform_data adf7242_default_pdata = {
 struct adf7242_local {
 	struct spi_device *spi;
 	struct adf7242_platform_data *pdata;
-	struct work_struct irqwork;
 	struct completion tx_complete;
 	struct ieee802154_dev *dev;
 	struct mutex bmux;
-	spinlock_t lock;
-	unsigned irq_disabled:1;	/* P: lock */
-	unsigned is_tx:1;	/* P: lock */
+	struct spi_message stat_msg;
+	struct spi_transfer stat_xfer;
 	unsigned mode;
 	unsigned tx_irq;
 	int tx_stat;
-	u8 buf[3];
+	u8 max_frame_retries;
+	u8 max_cca_retries;
+
+	/*
+	 * DMA (thus cache coherency maintenance) requires the
+	 * transfer buffers to live in their own cache lines.
+	 */
+
+	u8 buf[3] ____cacheline_aligned;
+	u8 buf_reg_tx[3];
+	u8 buf_read_tx[4];
+	u8 buf_read_rx[4];
+	u8 buf_stat_rx;
+	u8 buf_stat_tx;
+	u8 buf_cmd;
+
 };
 
 static int adf7242_status(struct adf7242_local *lp, u8 * stat)
 {
 	int status;
-	struct spi_message msg;
-	u8 buf_tx[1], buf_rx[1];
-
-	struct spi_transfer xfer = {
-		.len = 1,
-		.tx_buf = buf_tx,
-		.rx_buf = buf_rx,
-	};
-
-	buf_tx[0] = CMD_SPI_NOP;
-
-	spi_message_init(&msg);
-	spi_message_add_tail(&xfer, &msg);
 
 	mutex_lock(&lp->bmux);
-	status = spi_sync(lp->spi, &msg);
+	status = spi_sync(lp->spi, &lp->stat_msg);
+	*stat = lp->buf_stat_rx;
 	mutex_unlock(&lp->bmux);
-
-	*stat = buf_rx[0];
 
 	return status;
 }
@@ -268,14 +273,17 @@ static int adf7242_wait_ready(struct adf7242_local *lp)
 	u8 stat;
 	int cnt = 0;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 
 	do {
 		adf7242_status(lp, &stat);
 		cnt++;
 	} while (!(stat & STAT_RC_READY) && (cnt < MAX_POLL_LOOPS));
 
-	DBG(2, "%s :Exit loops=%d\n", __func__, cnt);
+	if (cnt >= MAX_POLL_LOOPS)
+		dev_warn(&lp->spi->dev, "%s Timeout (%d)\n", __func__, cnt);
+
+	dev_vdbg(&lp->spi->dev, "%s :Exit loops=%d\n", __func__, cnt);
 
 	return 0;
 }
@@ -285,7 +293,7 @@ static int adf7242_wait_status(struct adf7242_local *lp, int status)
 	u8 stat;
 	int cnt = 0;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 
 	do {
 		adf7242_status(lp, &stat);
@@ -293,7 +301,10 @@ static int adf7242_wait_status(struct adf7242_local *lp, int status)
 		cnt++;
 	} while ((stat != status) && (cnt < MAX_POLL_LOOPS));
 
-	DBG(2, "%s :Exit loops=%d\n", __func__, cnt);
+	if (cnt >= MAX_POLL_LOOPS)
+		dev_warn(&lp->spi->dev, "%s Timeout (%d)\n", __func__, cnt);
+
+	dev_vdbg(&lp->spi->dev, "%s :Exit loops=%d\n", __func__, cnt);
 
 	return 0;
 }
@@ -313,28 +324,30 @@ static int adf7242_write_fbuf(struct adf7242_local *lp, u8 * data, u8 len)
 		.tx_buf = data,
 	};
 
-	DBG(2, "%s :Enter\n", __func__);
-	adf7242_wait_ready(lp);
-
-	buf[0] = CMD_SPI_PKT_WR;
-	buf[1] = len + 2;
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 
 	spi_message_init(&msg);
 	spi_message_add_tail(&xfer_head, &msg);
 	spi_message_add_tail(&xfer_buf, &msg);
 
+	adf7242_wait_ready(lp);
+
 	mutex_lock(&lp->bmux);
+	buf[0] = CMD_SPI_PKT_WR;
+	buf[1] = len + 2;
+
 	status = spi_sync(lp->spi, &msg);
 	mutex_unlock(&lp->bmux);
 
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 	return status;
 }
 
 static int adf7242_read_fbuf(struct adf7242_local *lp,
-			     u8 * data, u8 * len, u8 * lqi)
+			     u8 *data, size_t *len, u8 *lqi)
 {
 	u8 *buf = lp->buf;
+	u8 plen;
 	int status;
 	struct spi_message msg;
 	struct spi_transfer xfer_head = {
@@ -348,27 +361,34 @@ static int adf7242_read_fbuf(struct adf7242_local *lp,
 		.rx_buf = data,
 	};
 
-	DBG(2, "%s :Enter\n", __func__);
-	adf7242_wait_ready(lp);
-
-	mutex_lock(&lp->bmux);
-	buf[0] = CMD_SPI_PKT_RD;
-	buf[1] = CMD_SPI_NOP;
-	buf[2] = 0;		/* PHR */
-
 	spi_message_init(&msg);
 	spi_message_add_tail(&xfer_head, &msg);
 	spi_message_add_tail(&xfer_buf, &msg);
 
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
+	adf7242_wait_ready(lp);
+
+	mutex_lock(&lp->bmux);
+	if (lqi) {
+		buf[0] = CMD_SPI_PKT_RD;
+		buf[1] = CMD_SPI_NOP;
+		buf[2] = 0;		/* PHR */
+	} else {
+		buf[0] = CMD_SPI_PRAM_RD;
+		buf[1] = 0;
+		buf[2] = CMD_SPI_NOP;
+	}
+
 	status = spi_sync(lp->spi, &msg);
 
-	if (!status) {
-		*lqi = data[buf[2] - 1];
-		*len = buf[2];	/* PHR */
+	if (!status && lqi) {
+		plen = buf[2] & 0x7F;
+		*lqi = data[plen - 1];
+		*len = plen;	/* PHR */
 	}
 
 	mutex_unlock(&lp->bmux);
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 	return status;
 }
 
@@ -376,22 +396,21 @@ static int adf7242_read_reg(struct adf7242_local *lp, u16 addr, u8 * data)
 {
 	int status;
 	struct spi_message msg;
-	u8 buf_tx[4], buf_rx[4];
 
 	struct spi_transfer xfer = {
 		.len = 4,
-		.tx_buf = buf_tx,
-		.rx_buf = buf_rx,
+		.tx_buf = lp->buf_read_tx,
+		.rx_buf = lp->buf_read_rx,
 	};
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 	adf7242_wait_ready(lp);
 
 	mutex_lock(&lp->bmux);
-	buf_tx[0] = CMD_SPI_MEM_RD(addr);
-	buf_tx[1] = addr;
-	buf_tx[2] = CMD_SPI_NOP;
-	buf_tx[3] = CMD_SPI_NOP;
+	lp->buf_read_tx[0] = CMD_SPI_MEM_RD(addr);
+	lp->buf_read_tx[1] = addr;
+	lp->buf_read_tx[2] = CMD_SPI_NOP;
+	lp->buf_read_tx[3] = CMD_SPI_NOP;
 
 	spi_message_init(&msg);
 	spi_message_add_tail(&xfer, &msg);
@@ -401,10 +420,11 @@ static int adf7242_read_reg(struct adf7242_local *lp, u16 addr, u8 * data)
 		status = msg.status;
 
 	if (!status)
-		*data = buf_rx[3];
+		*data = lp->buf_read_rx[3];
 
 	mutex_unlock(&lp->bmux);
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit REG 0x%X, VAL 0x%X\n", __func__,
+		 addr, *data);
 
 	return status;
 }
@@ -412,27 +432,20 @@ static int adf7242_read_reg(struct adf7242_local *lp, u16 addr, u8 * data)
 static int adf7242_write_reg(struct adf7242_local *lp, u16 addr, u8 data)
 {
 	int status;
-	struct spi_message msg;
-	u8 buf_tx[4];
 
-	struct spi_transfer xfer = {
-		.len = 3,
-		.tx_buf = buf_tx,
-	};
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
+
 	adf7242_wait_ready(lp);
 
-	buf_tx[0] = CMD_SPI_MEM_WR(addr);
-	buf_tx[1] = addr;
-	buf_tx[2] = data;
-
-	spi_message_init(&msg);
-	spi_message_add_tail(&xfer, &msg);
-
 	mutex_lock(&lp->bmux);
-	status = spi_sync(lp->spi, &msg);
+	lp->buf_reg_tx[0] = CMD_SPI_MEM_WR(addr);
+	lp->buf_reg_tx[1] = addr;
+	lp->buf_reg_tx[2] = data;
+	status = spi_write(lp->spi, lp->buf_reg_tx, 3);
 	mutex_unlock(&lp->bmux);
-	DBG(2, "%s :Exit\n", __func__);
+
+	dev_vdbg(&lp->spi->dev, "%s :Exit REG 0x%X, VAL 0x%X\n",
+		 __func__, addr, data);
 
 	return status;
 }
@@ -440,35 +453,27 @@ static int adf7242_write_reg(struct adf7242_local *lp, u16 addr, u8 data)
 static int adf7242_cmd(struct adf7242_local *lp, u8 cmd)
 {
 	int status;
-	struct spi_message msg;
-	u8 buf_tx[1];
 
-	struct spi_transfer xfer = {
-		.len = 1,
-		.tx_buf = buf_tx,
-	};
+	dev_vdbg(&lp->spi->dev, "%s :Enter CMD=0x%X\n", __func__, cmd);
 
-	DBG(2, "%s :Enter CMD=0x%X\n", __func__, cmd);
 	adf7242_wait_ready(lp);
 
-	buf_tx[0] = cmd;
-	spi_message_init(&msg);
-	spi_message_add_tail(&xfer, &msg);
-
 	mutex_lock(&lp->bmux);
-	status = spi_sync(lp->spi, &msg);
+	lp->buf_cmd = cmd;
+	status = spi_write(lp->spi, &lp->buf_cmd, 1);
 	mutex_unlock(&lp->bmux);
-	DBG(2, "%s :Exit\n", __func__);
+
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 
 	return status;
 }
 
 static int adf7242_upload_firmware(struct adf7242_local *lp, u8 * data, u16 len)
 {
-	int status, i, page = 0;
 	struct spi_message msg;
 	struct spi_transfer xfer_buf = { };
-	u8 buf[2];
+	int status, i, page = 0;
+	u8 *buf = lp->buf;
 
 	struct spi_transfer xfer_head = {
 		.len = 2,
@@ -478,14 +483,15 @@ static int adf7242_upload_firmware(struct adf7242_local *lp, u8 * data, u16 len)
 	buf[0] = CMD_SPI_PRAM_WR;
 	buf[1] = 0;
 
+	spi_message_init(&msg);
+	spi_message_add_tail(&xfer_head, &msg);
+	spi_message_add_tail(&xfer_buf, &msg);
+
 	for (i = len; i >= 0; i -= PRAM_PAGESIZE) {
 		adf7242_write_reg(lp, REG_PRAMPG, page);
 
-		xfer_buf.len = i >= PRAM_PAGESIZE ? PRAM_PAGESIZE : i,
-		    xfer_buf.tx_buf = &data[page * PRAM_PAGESIZE],
-		    spi_message_init(&msg);
-		spi_message_add_tail(&xfer_head, &msg);
-		spi_message_add_tail(&xfer_buf, &msg);
+		xfer_buf.len = (i >= PRAM_PAGESIZE) ? PRAM_PAGESIZE : i;
+		xfer_buf.tx_buf = &data[page * PRAM_PAGESIZE];
 
 		mutex_lock(&lp->bmux);
 		status = spi_sync(lp->spi, &msg);
@@ -496,12 +502,131 @@ static int adf7242_upload_firmware(struct adf7242_local *lp, u8 * data, u16 len)
 	return status;
 }
 
-static int adf7242_ed(struct ieee802154_dev *dev, u8 * level)
+static int adf7242_verify_firmware(struct adf7242_local *lp,
+		const u8 *data, size_t len)
+{
+	int i, j;
+	unsigned int page;
+
+	u8 *buf = kmalloc(PRAM_PAGESIZE, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	for (page = 0, i = len; i >= 0; i -= PRAM_PAGESIZE, page++) {
+
+		size_t nb = (i >= PRAM_PAGESIZE)	 ? PRAM_PAGESIZE : i;
+		adf7242_write_reg(lp, REG_PRAMPG, page);
+		adf7242_read_fbuf(lp, buf, &nb, NULL);
+
+		for (j = 0; j < nb; j++) {
+			if (buf[j] != data[page * PRAM_PAGESIZE + j]) {
+				kfree(buf);
+				return -EIO;
+
+			}
+		}
+	}
+	kfree(buf);
+
+	return 0;
+}
+
+static int
+adf7242_set_txpower(struct ieee802154_dev *dev, int db)
+{
+	struct adf7242_local *lp = dev->priv;
+	u8 pwr, bias_ctrl, dbias, tmp;
+	int ret;
+
+	dev_vdbg(&lp->spi->dev, "%s :Enter Power %d dB\n", __func__, db);
+
+	if (db > 5 || db < -26)
+		return -EINVAL;
+
+	db = DIV_ROUND_CLOSEST(db + 29, 2);
+
+	if (db > 15) {
+		dbias = 21;
+		bias_ctrl = 63;
+	} else {
+		dbias = 13;
+		bias_ctrl = 55;
+	}
+
+	pwr = clamp_t(u8, db, 3, 15);
+
+	adf7242_read_reg(lp, REG_PA_CFG, &tmp);
+	tmp &= ~PA_BRIDGE_DBIAS(~0);
+	tmp |= PA_BRIDGE_DBIAS(dbias);
+	adf7242_write_reg(lp, REG_PA_CFG, tmp);
+
+	adf7242_read_reg(lp, REG_PA_BIAS, &tmp);
+	tmp &= ~PA_BIAS_CTRL(~0);
+	tmp |= PA_BIAS_CTRL(bias_ctrl);
+	adf7242_write_reg(lp, REG_PA_BIAS, tmp);
+
+	adf7242_read_reg(lp, REG_EXTPA_MSC, &tmp);
+	tmp &= ~PA_PWR(~0);
+	tmp |= PA_PWR(pwr);
+	ret = adf7242_write_reg(lp, REG_EXTPA_MSC, tmp);
+
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
+	return ret;
+}
+
+static int
+adf7242_set_csma_params(struct ieee802154_dev *dev, u8 min_be, u8 max_be,
+			  u8 retries)
+{
+	struct adf7242_local *lp = dev->priv;
+	int ret;
+	dev_vdbg(&lp->spi->dev, "%s :Enter min_be=%d max_be=%d retries=%d\n",
+		 __func__, min_be, max_be, retries);
+
+	if (min_be > max_be || max_be > 8 || retries > 5)
+		return -EINVAL;
+
+	ret = adf7242_write_reg(lp, REG_AUTO_TX1,
+				  MAX_FRAME_RETRIES(lp->max_frame_retries) |
+				  MAX_CCA_RETRIES(retries));
+	if (ret)
+		return ret;
+
+	lp->max_cca_retries = retries;
+
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
+
+	return adf7242_write_reg(lp, REG_AUTO_TX2, CSMA_MAX_BE(max_be) |
+			CSMA_MIN_BE(min_be));
+}
+
+static int
+adf7242_set_frame_retries(struct ieee802154_dev *dev, s8 retries)
+{
+	struct adf7242_local *lp = dev->priv;
+	int ret = 0;
+
+	dev_vdbg(&lp->spi->dev, "%s :Enter Retries = %d\n", __func__, retries);
+
+	if (retries < -1 || retries > 15)
+		return -EINVAL;
+
+	if (retries >= 0)
+		ret = adf7242_write_reg(lp, REG_AUTO_TX1,
+				  MAX_FRAME_RETRIES(retries) |
+				  MAX_CCA_RETRIES(lp->max_cca_retries));
+
+	lp->max_frame_retries = retries;
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
+	return ret;
+}
+
+static int adf7242_ed(struct ieee802154_dev *dev, u8 *level)
 {
 	struct adf7242_local *lp = dev->priv;
 	int ret;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 #if 0
 	adf7242_cmd(lp, CMD_RC_PHY_RDY);
 	adf7242_cmd(lp, CMD_RC_CCA);
@@ -511,7 +636,8 @@ static int adf7242_ed(struct ieee802154_dev *dev, u8 * level)
 #endif
 	ret = adf7242_read_reg(lp, REG_RRB, level);
 	adf7242_cmd(lp, CMD_RC_RX);
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit ret=%d level=%d\n",
+		 __func__, ret, *level);
 
 	return ret;
 }
@@ -521,9 +647,9 @@ static int adf7242_start(struct ieee802154_dev *dev)
 	struct adf7242_local *lp = dev->priv;
 	int ret;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 	ret = adf7242_cmd(lp, CMD_RC_RX);
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 
 	return ret;
 }
@@ -532,9 +658,9 @@ static void adf7242_stop(struct ieee802154_dev *dev)
 {
 	struct adf7242_local *lp = dev->priv;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 	adf7242_cmd(lp, CMD_RC_PHY_RDY);
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 }
 
 static int adf7242_channel(struct ieee802154_dev *dev, int page, int channel)
@@ -542,8 +668,8 @@ static int adf7242_channel(struct ieee802154_dev *dev, int page, int channel)
 	struct adf7242_local *lp = dev->priv;
 	unsigned long freq;
 
-	DBG(2, "%s :Enter\n", __func__);
-	DBG(1, "%s :Channel=%d\n", __func__, channel);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
+	dev_dbg(&lp->spi->dev, "%s :Channel=%d\n", __func__, channel);
 
 	might_sleep();
 
@@ -552,7 +678,6 @@ static int adf7242_channel(struct ieee802154_dev *dev, int page, int channel)
 	BUG_ON(channel > 26);
 
 	freq = (2405 + 5 * (channel - 11)) * 100;
-
 	adf7242_cmd(lp, CMD_RC_PHY_RDY);
 
 	adf7242_write_reg(lp, REG_CH_FREQ0, freq);
@@ -562,7 +687,7 @@ static int adf7242_channel(struct ieee802154_dev *dev, int page, int channel)
 	adf7242_cmd(lp, CMD_RC_RX);
 
 	dev->phy->current_channel = channel;
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 
 	return 0;
 }
@@ -574,30 +699,30 @@ static int adf7242_set_hw_addr_filt(struct ieee802154_dev *dev,
 	struct adf7242_local *lp = dev->priv;
 	u8 reg;
 
-	DBG(2, "%s :Enter\n", __func__);
-	DBG(1, "%s :Changed=0x%lX\n", __func__, changed);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
+	dev_dbg(&lp->spi->dev, "%s :Changed=0x%lX\n", __func__, changed);
 
 	might_sleep();
 
 	if (changed & IEEE802515_AFILT_IEEEADDR_CHANGED) {
-		adf7242_write_reg(lp, REG_IEEE_ADDR_0, filt->ieee_addr[7]);
-		adf7242_write_reg(lp, REG_IEEE_ADDR_1, filt->ieee_addr[6]);
-		adf7242_write_reg(lp, REG_IEEE_ADDR_2, filt->ieee_addr[5]);
-		adf7242_write_reg(lp, REG_IEEE_ADDR_3, filt->ieee_addr[4]);
-		adf7242_write_reg(lp, REG_IEEE_ADDR_4, filt->ieee_addr[3]);
-		adf7242_write_reg(lp, REG_IEEE_ADDR_5, filt->ieee_addr[2]);
-		adf7242_write_reg(lp, REG_IEEE_ADDR_6, filt->ieee_addr[1]);
-		adf7242_write_reg(lp, REG_IEEE_ADDR_7, filt->ieee_addr[0]);
+		u8 addr[8], i;
+		memcpy(addr, &filt->ieee_addr, 8);
+
+		for (i = 0; i < 8; i++)
+			adf7242_write_reg(lp, REG_IEEE_ADDR_0 + i, addr[i]);
+
 	}
 
 	if (changed & IEEE802515_AFILT_SADDR_CHANGED) {
-		adf7242_write_reg(lp, REG_SHORT_ADDR_0, filt->short_addr);
-		adf7242_write_reg(lp, REG_SHORT_ADDR_1, filt->short_addr >> 8);
+		u16 saddr = le16_to_cpu(filt->short_addr);
+		adf7242_write_reg(lp, REG_SHORT_ADDR_0, saddr);
+		adf7242_write_reg(lp, REG_SHORT_ADDR_1, saddr >> 8);
 	}
 
 	if (changed & IEEE802515_AFILT_PANID_CHANGED) {
-		adf7242_write_reg(lp, REG_PAN_ID0, filt->pan_id);
-		adf7242_write_reg(lp, REG_PAN_ID1, filt->pan_id >> 8);
+		u16 pan_id = le16_to_cpu(filt->pan_id);
+		adf7242_write_reg(lp, REG_PAN_ID0, pan_id);
+		adf7242_write_reg(lp, REG_PAN_ID1, pan_id >> 8);
 	}
 
 	if (changed & IEEE802515_AFILT_PANC_CHANGED) {
@@ -609,7 +734,7 @@ static int adf7242_set_hw_addr_filt(struct ieee802154_dev *dev,
 		adf7242_write_reg(lp, REG_AUTO_CFG, reg);
 	}
 
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 	return 0;
 }
 
@@ -617,18 +742,14 @@ static int adf7242_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
 {
 	struct adf7242_local *lp = dev->priv;
 	int ret;
-	unsigned long flags;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 
-	spin_lock_irqsave(&lp->lock, flags);
-	BUG_ON(lp->is_tx);
-	lp->is_tx = 1;
-	spin_unlock_irqrestore(&lp->lock, flags);
+	reinit_completion(&lp->tx_complete);
 
 	ret = adf7242_write_fbuf(lp, skb->data, skb->len);
 	if (ret)
-		goto err_rx;
+		goto err;
 
 	if (lp->mode & ADF_IEEE802154_AUTO_CSMA_CA) {
 		ret = adf7242_cmd(lp, CMD_RC_PHY_RDY);
@@ -638,31 +759,40 @@ static int adf7242_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
 	}
 
 	if (ret)
-		goto err_rx;
+		goto err;
 
-	ret = wait_for_completion_interruptible(&lp->tx_complete);
+	ret = wait_for_completion_interruptible_timeout(&lp->tx_complete, 3*HZ);
+	if (ret == -ERESTARTSYS)
+		goto err;
+	if (ret == 0) {
+		dev_warn(&lp->spi->dev, "Timeout waiting for TX interrupt\n");
+		ret = -ETIMEDOUT;
+		goto err;
+	}
 
-	if (ret < 0)
-		goto err_rx;
+	if (lp->tx_stat != SUCCESS) {
+		dev_warn(&lp->spi->dev,
+			 "Error xmit: Retry count exceeded Status=0x%x\n",
+			 lp->tx_stat);
+		ret = -ECOMM;
+	} else {
+		ret = 0;
+	}
 
-	DBG(2, "%s :Exit\n", __func__);
-	return ret;
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 
-err_rx:
-	spin_lock_irqsave(&lp->lock, flags);
-	lp->is_tx = 0;
-	spin_unlock_irqrestore(&lp->lock, flags);
+err:
 	return ret;
 }
 
 static int adf7242_rx(struct adf7242_local *lp)
 {
-	u8 len = 128;
+	size_t len = 128;
 	u8 lqi = 0;
 	int ret;
 	struct sk_buff *skb;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 
 	skb = alloc_skb(len, GFP_KERNEL);
 	if (!skb)
@@ -681,8 +811,9 @@ static int adf7242_rx(struct adf7242_local *lp)
 
 	ieee802154_rx_irqsafe(lp->dev, skb, lqi);
 
-	DBG(1, "%s: %d %d %x\n", __func__, ret, len, lqi);
-	DBG(2, "%s :Exit\n", __func__);
+	dev_dbg(&lp->spi->dev, "%s: ret=%d len=%d lqi=%d\n",
+		__func__, ret, len, lqi);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 
 	return 0;
 }
@@ -695,21 +826,22 @@ static struct ieee802154_ops adf7242_ops = {
 	.set_hw_addr_filt = adf7242_set_hw_addr_filt,
 	.start = adf7242_start,
 	.stop = adf7242_stop,
+	.set_csma_params = adf7242_set_csma_params,
+	.set_frame_retries = adf7242_set_frame_retries,
+	.set_txpower = adf7242_set_txpower,
 };
 
-static void adf7242_irqwork(struct work_struct *work)
+static irqreturn_t adf7242_isr(int irq, void *data)
 {
-	struct adf7242_local *lp =
-	    container_of(work, struct adf7242_local, irqwork);
+	struct adf7242_local *lp = data;
 	u8 irq1, auto_stat = 0, stat = 0;
 	int ret;
-	unsigned long flags;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 
 	ret = adf7242_read_reg(lp, REG_IRQ1_SRC1, &irq1);
 
-	DBG(1, "%s IRQ1 = %X:\n%s%s%s%s%s%s%s%s\n", __func__, irq1,
+	dev_dbg(&lp->spi->dev, "%s IRQ1 = %X:\n%s%s%s%s%s%s%s%s\n", __func__, irq1,
 	    irq1 & IRQ_CCA_COMPLETE ? "IRQ_CCA_COMPLETE\n" : "",
 	    irq1 & IRQ_SFD_RX ? "IRQ_SFD_RX\n" : "",
 	    irq1 & IRQ_SFD_TX ? "IRQ_SFD_TX\n" : "",
@@ -721,7 +853,7 @@ static void adf7242_irqwork(struct work_struct *work)
 
 	adf7242_status(lp, &stat);
 
-	DBG(1, "%s STATUS = %X:\n%s\n%s%s%s%s%s\n", __func__, stat,
+	dev_dbg(&lp->spi->dev, "%s STATUS = %X:\n%s\n%s%s%s%s%s\n", __func__, stat,
 	    stat & STAT_RC_READY ? "RC_READY" : "RC_BUSY",
 	    (stat & 0xf) == RC_STATUS_IDLE ? "RC_STATUS_IDLE" : "",
 	    (stat & 0xf) == RC_STATUS_MEAS ? "RC_STATUS_MEAS" : "",
@@ -731,8 +863,16 @@ static void adf7242_irqwork(struct work_struct *work)
 
 	adf7242_write_reg(lp, REG_IRQ1_SRC1, irq1);
 
-	if (irq1 & IRQ_RX_PKT_RCVD) {
+	if (!(irq1 & (IRQ_RX_PKT_RCVD | lp->tx_irq)))
+		dev_err(&lp->spi->dev, "%s :ERROR IRQ1 = 0x%X\n", __func__, irq1);
 
+#if 0
+	if ((irq1 & IRQ_RX_PKT_RCVD) &&
+		((lp->mode & ADF_IEEE802154_REPORT_ACK) ||
+		!(irq1 & lp->tx_irq))) {
+#else
+	if (irq1 & IRQ_RX_PKT_RCVD) {
+#endif
 		/* Wait until ACK is processed */
 		if ((lp->mode & ADF_IEEE802154_HW_AACK) &&
 		    ((stat & RC_STATUS_MASK) != RC_STATUS_PHY_RDY))
@@ -747,7 +887,7 @@ static void adf7242_irqwork(struct work_struct *work)
 			adf7242_read_reg(lp, REG_AUTO_STATUS, &auto_stat);
 			auto_stat &= AUTO_STATUS_MASK;
 
-			DBG(1, "%s AUTO_STATUS = %X:\n%s%s%s%s\n",
+			dev_dbg(&lp->spi->dev, "%s AUTO_STATUS = %X:\n%s%s%s%s\n",
 			    __func__, auto_stat,
 			    auto_stat == SUCCESS ? "SUCCESS" : "",
 			    auto_stat ==
@@ -758,45 +898,12 @@ static void adf7242_irqwork(struct work_struct *work)
 			/* save CSMA-CA completion status */
 			lp->tx_stat = auto_stat;
 		}
-		spin_lock_irqsave(&lp->lock, flags);
-		if (lp->is_tx) {
-			lp->is_tx = 0;
-			complete(&lp->tx_complete);
-		}
-		spin_unlock_irqrestore(&lp->lock, flags);
 
-		/* in case we just received a frame we are already in PHY_RX */
-
-		if (!(irq1 & IRQ_RX_PKT_RCVD))
-			adf7242_cmd(lp, CMD_RC_RX);
+		complete(&lp->tx_complete);
+		adf7242_cmd(lp, CMD_RC_RX);
 	}
 
-	spin_lock_irqsave(&lp->lock, flags);
-	if (lp->irq_disabled) {
-		lp->irq_disabled = 0;
-		enable_irq(lp->spi->irq);
-	}
-	spin_unlock_irqrestore(&lp->lock, flags);
-
-	DBG(2, "%s :Exit\n", __func__);
-}
-
-static irqreturn_t adf7242_isr(int irq, void *data)
-{
-	struct adf7242_local *lp = data;
-
-	DBG(2, "%s :Enter\n", __func__);
-
-	spin_lock(&lp->lock);
-	if (!lp->irq_disabled) {
-		disable_irq_nosync(irq);
-		lp->irq_disabled = 1;
-	}
-	spin_unlock(&lp->lock);
-
-	schedule_work(&lp->irqwork);
-
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 
 	return IRQ_HANDLED;
 }
@@ -806,8 +913,10 @@ static int adf7242_hw_init(struct adf7242_local *lp)
 	int ret;
 	const struct firmware *fw;
 
-	DBG(2, "%s :Enter\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Enter\n", __func__);
 
+
+	adf7242_cmd(lp, CMD_RC_RESET);
 	adf7242_cmd(lp, CMD_RC_IDLE);
 
 	if (lp->mode) {
@@ -818,37 +927,49 @@ static int adf7242_hw_init(struct adf7242_local *lp)
 		ret = request_firmware(&fw, FIRMWARE, &lp->spi->dev);
 		if (ret) {
 			dev_err(&lp->spi->dev,
-				"request_firmware() failed with %i\n", ret);
+				"request_firmware() failed with %d\n", ret);
 			return ret;
 		}
 
-		adf7242_upload_firmware(lp, (u8 *) fw->data, fw->size);
+		ret = adf7242_upload_firmware(lp, (u8 *) fw->data, fw->size);
+		if (ret) {
+			dev_err(&lp->spi->dev,
+				"upload firmware failed with %d\n", ret);
+			return ret;
+		}
+
+		ret = adf7242_verify_firmware(lp, (u8 *) fw->data, fw->size);
+		if (ret) {
+			dev_err(&lp->spi->dev,
+				"verify firmware failed with %d\n", ret);
+			return ret;
+		}
+
+		adf7242_cmd(lp, CMD_RC_PC_RESET);
+
 		release_firmware(fw);
 
 		adf7242_write_reg(lp, REG_FFILT_CFG,
 				  ACCEPT_BEACON_FRAMES |
 				  ACCEPT_DATA_FRAMES |
-				  ACCEPT_ACK_FRAMES |
 				  ACCEPT_MACCMD_FRAMES |
 				  (lp->mode & ADF_IEEE802154_PROMISCUOUS_MODE ?
 				   ACCEPT_ALL_ADDRESS : 0) |
-				  ACCEPT_RESERVED_FRAMES);
+				  (lp->mode & ADF_IEEE802154_REPORT_ACK ?
+				   ACCEPT_ACK_FRAMES : 0) |
+				   ACCEPT_RESERVED_FRAMES);
 
-		adf7242_write_reg(lp, REG_AUTO_TX1,
-				  MAX_FRAME_RETRIES(lp->pdata->
-						    max_frame_retries) |
-				  MAX_CCA_RETRIES(lp->pdata->max_cca_retries));
-
-		adf7242_write_reg(lp, REG_AUTO_TX2,
-				  CSMA_MAX_BE(lp->pdata->max_csma_be) |
-				  CSMA_MIN_BE(lp->pdata->min_csma_be));
+		adf7242_set_csma_params(lp->dev, lp->pdata->min_csma_be,
+					lp->pdata->max_csma_be,
+					lp->pdata->max_cca_retries);
+		adf7242_set_frame_retries(lp->dev, lp->pdata->max_frame_retries);
 
 		adf7242_write_reg(lp, REG_AUTO_CFG,
 				  (lp->mode & ADF_IEEE802154_HW_AACK ?
-				   RX_AUTO_ACK_EN : 0));
+				   RX_AUTO_ACK_EN | CSMA_CA_RX_TURNAROUND : 0));
 	}
 
-	adf7242_write_reg(lp, REG_PKT_CFG, lp->mode ? ADDON_EN : 0);
+	adf7242_write_reg(lp, REG_PKT_CFG, (lp->mode ? ADDON_EN : 0) | BIT(2));
 
 	adf7242_write_reg(lp, REG_EXTPA_MSC, 0xF1);
 	adf7242_write_reg(lp, REG_RXFE_CFG, 0x1D);
@@ -861,7 +982,7 @@ static int adf7242_hw_init(struct adf7242_local *lp)
 
 	adf7242_cmd(lp, CMD_RC_PHY_RDY);
 
-	DBG(2, "%s :Exit\n", __func__);
+	dev_vdbg(&lp->spi->dev, "%s :Exit\n", __func__);
 
 	return 0;
 }
@@ -880,11 +1001,25 @@ static ssize_t adf7242_show(struct device *dev,
 			    struct device_attribute *devattr, char *buf)
 {
 	struct adf7242_local *lp = dev_get_drvdata(dev);
-	u8 stat;
+	u8 stat, irq1;
+	size_t len;
 
 	adf7242_status(lp, &stat);
 
-	return sprintf(buf, "STATUS = %X:\n%s\n%s%s%s%s%s\n", stat,
+	adf7242_read_reg(lp, REG_IRQ1_SRC1, &irq1);
+
+	len = sprintf(buf, "IRQ1 = %X:\n%s%s%s%s%s%s%s%s\n", irq1,
+	    irq1 & IRQ_CCA_COMPLETE ? "IRQ_CCA_COMPLETE\n" : "",
+	    irq1 & IRQ_SFD_RX ? "IRQ_SFD_RX\n" : "",
+	    irq1 & IRQ_SFD_TX ? "IRQ_SFD_TX\n" : "",
+	    irq1 & IRQ_RX_PKT_RCVD ? "IRQ_RX_PKT_RCVD\n" : "",
+	    irq1 & IRQ_TX_PKT_SENT ? "IRQ_TX_PKT_SENT\n" : "",
+	    irq1 & IRQ_CSMA_CA ? "IRQ_CSMA_CA\n" : "",
+	    irq1 & IRQ_FRAME_VALID ? "IRQ_FRAME_VALID\n" : "",
+	    irq1 & IRQ_ADDRESS_VALID ? "IRQ_ADDRESS_VALID\n" : "");
+
+
+	len += sprintf(buf + len, "STATUS = %X:\n%s\n%s%s%s%s%s\n", stat,
 		       stat & STAT_RC_READY ? "RC_READY" : "RC_BUSY",
 		       (stat & 0xf) == RC_STATUS_IDLE ? "RC_STATUS_IDLE" : "",
 		       (stat & 0xf) == RC_STATUS_MEAS ? "RC_STATUS_MEAS" : "",
@@ -893,6 +1028,7 @@ static ssize_t adf7242_show(struct device *dev,
 		       (stat & 0xf) == RC_STATUS_RX ? "RC_STATUS_RX" : "",
 		       (stat & 0xf) == RC_STATUS_TX ? "RC_STATUS_TX" : "");
 
+	return len;
 }
 
 static DEVICE_ATTR(status, 0664, adf7242_show, NULL);
@@ -929,6 +1065,10 @@ static struct adf7242_platform_data *adf7242_parse_dt(struct device *dev)
 	pdata->mode |=
 		of_property_read_bool(np, "adi,promiscuous-mode-enable") ?
 		ADF_IEEE802154_PROMISCUOUS_MODE : 0;
+
+	pdata->mode |=
+		of_property_read_bool(np, "adi,report-ack-frames-enable") ?
+		ADF_IEEE802154_REPORT_ACK : 0;
 
 	tmp = 4;
 	of_property_read_u32(np, "adi,max-frame-retries", &tmp);
@@ -1013,9 +1153,16 @@ static int adf7242_probe(struct spi_device *spi)
 		(lp->mode & ADF_IEEE802154_HW_AACK ? IEEE802154_HW_AACK : 0);
 
 	mutex_init(&lp->bmux);
-	INIT_WORK(&lp->irqwork, adf7242_irqwork);
-	spin_lock_init(&lp->lock);
 	init_completion(&lp->tx_complete);
+
+	/* Setup Status Message */
+	lp->stat_xfer.len = 1;
+	lp->stat_xfer.tx_buf = &lp->buf_stat_tx;
+	lp->stat_xfer.rx_buf = &lp->buf_stat_rx;
+	lp->buf_stat_tx = CMD_SPI_NOP;
+
+	spi_message_init(&lp->stat_msg);
+	spi_message_add_tail(&lp->stat_xfer, &lp->stat_msg);
 
 	spi_set_drvdata(spi, lp);
 
@@ -1023,14 +1170,16 @@ static int adf7242_probe(struct spi_device *spi)
 	if (ret)
 		goto err_hw_init;
 
-	ret = request_irq(spi->irq, adf7242_isr, IRQF_TRIGGER_HIGH,
-			  dev_name(&spi->dev), lp);
+	ret = devm_request_threaded_irq(&spi->dev, spi->irq, NULL,
+				adf7242_isr, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+				dev_name(&spi->dev), lp);
+
 	if (ret)
 		goto err_hw_init;
 
 	ret = ieee802154_register_device(lp->dev);
 	if (ret)
-		goto err_irq;
+		goto err_hw_init;
 
 	dev_set_drvdata(&spi->dev, lp);
 
@@ -1044,9 +1193,6 @@ static int adf7242_probe(struct spi_device *spi)
 
 out:
 	ieee802154_unregister_device(lp->dev);
-err_irq:
-	free_irq(spi->irq, lp);
-	flush_work(&lp->irqwork);
 err_hw_init:
 	mutex_destroy(&lp->bmux);
 	ieee802154_free_device(lp->dev);
@@ -1058,8 +1204,6 @@ static int adf7242_remove(struct spi_device *spi)
 	struct adf7242_local *lp = spi_get_drvdata(spi);
 
 	ieee802154_unregister_device(lp->dev);
-	free_irq(spi->irq, lp);
-	flush_work(&lp->irqwork);
 	mutex_destroy(&lp->bmux);
 	ieee802154_free_device(lp->dev);
 
@@ -1079,6 +1223,6 @@ static struct spi_driver adf7242_driver = {
 
 module_spi_driver(adf7242_driver);
 
-MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
-MODULE_DESCRIPTION("ADF7242 Transceiver Driver");
+MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
+MODULE_DESCRIPTION("ADF7242 IEEE802.15.4 Transceiver Driver");
 MODULE_LICENSE("GPL");
