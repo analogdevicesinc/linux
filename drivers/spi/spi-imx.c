@@ -432,10 +432,15 @@ static void mx51_ecspi_intctrl(struct spi_imx_data *spi_imx, int enable)
 
 static void mx51_ecspi_trigger(struct spi_imx_data *spi_imx)
 {
-	u32 reg;
-
-	reg = readl(spi_imx->base + MX51_ECSPI_CTRL);
-	reg |= MX51_ECSPI_CTRL_XCH;
+	u32 reg = readl(spi_imx->base + MX51_ECSPI_CTRL);
+	/*
+	 * To workaround TKT238285, SDMA script need use XCH instead of SMC
+	 * just like PIO mode.
+	 */
+	if (!spi_imx->usedma)
+		reg |= MX51_ECSPI_CTRL_XCH;
+	else
+		reg &= ~MX51_ECSPI_CTRL_SMC;
 	writel(reg, spi_imx->base + MX51_ECSPI_CTRL);
 }
 
@@ -527,7 +532,6 @@ static int mx51_ecspi_config(struct spi_device *spi)
 	 */
 
 	writel(MX51_ECSPI_DMA_RX_WML(spi_imx->wml) |
-		MX51_ECSPI_DMA_TX_WML(spi_imx->wml) |
 		MX51_ECSPI_DMA_RXT_WML(spi_imx->wml) |
 		MX51_ECSPI_DMA_TEDEN | MX51_ECSPI_DMA_RXDEN |
 		MX51_ECSPI_DMA_RXTDEN, spi_imx->base + MX51_ECSPI_DMA);
@@ -1204,6 +1208,8 @@ static int spi_imx_dma_transfer(struct spi_imx_data *spi_imx,
 	dma_async_issue_pending(master->dma_tx);
 
 	transfer_timeout = spi_imx_calculate_timeout(spi_imx, transfer->len);
+
+	spi_imx->devtype_data->trigger(spi_imx);
 
 	/* Wait SDMA to finish the data transfer.*/
 	timeout = wait_for_completion_timeout(&spi_imx->dma_tx_completion,
