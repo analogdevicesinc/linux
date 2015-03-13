@@ -491,6 +491,13 @@
 			};
 		};
 
+		hps_0_fpgamgr: fpgamgr@0xffcfe400 {
+			compatible = "altr,socfpga-a10-fpga-mgr";
+			transport = "mmio";
+			reg = <0xffd03000 0x1000
+			       0xffcfe400 0x1000>;
+		};
+
 		i2c0: i2c@ffc02200 {
 			#address-cells = <1>;
 			#size-cells = <0>;
