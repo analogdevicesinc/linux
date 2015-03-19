@@ -45,7 +45,7 @@
 	fmc_i2c: i2c@41620000 {
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 		interrupt-parent = <&gic>;
-		interrupts = <0 57 0x4>;
+		interrupts = <0 55 0x4>;
 		reg = <0x41620000 0x10000>;
 
 		#size-cells = <0>;
@@ -82,7 +82,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x40510000 0x10000>;
 		#dma-cells = <1>;
-		interrupts = <0 55 0>;
+		interrupts = <0 57 0>;
 		clocks = <&clkc 15>;
 		dma-channel {
 			adi,buswidth = <32>;
