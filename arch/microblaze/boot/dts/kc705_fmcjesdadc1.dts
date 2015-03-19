@@ -412,8 +412,8 @@
 			compatible = "xlnx,xps-intc-1.00.a";
 			interrupt-controller ;
 			reg = <0x41200000 0x10000>;
-			xlnx,kind-of-intr = <0x3810>;
-			xlnx,num-intr-inputs = <0x15>;
+			xlnx,kind-of-intr = <0x0000201e>;
+			xlnx,num-intr-inputs = <32>;
 		} ;
 		axi_spdif_tx_core: axi-spdif-tx@75c00000 {
 			compatible = "adi,axi-spdif-tx-1.0";
