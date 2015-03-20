@@ -58,6 +58,7 @@
 						reg = <0x4c>;
 						#address-cells = <0x1>;
 						#size-cells = <0x0>;
+						interrupts = <0 55 0>;
 
 						port@0 {
 							reg = <0x0>;
@@ -147,7 +148,6 @@
 		axi_hdmi_rx@777600000 {
 			compatible = "adi,axi-hdmi-rx-1.00.a";
 			reg = <0x77600000 0x40>;
-			interrupts = <0 55 0>;
 			dmas = <&axi_dmac 0>;
 			dma-names = "rx";
 			gpios = <&pca9534 2 0>;

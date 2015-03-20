@@ -37,6 +37,7 @@
 #include <linux/videodev2.h>
 #include <linux/workqueue.h>
 #include <linux/of_graph.h>
+#include <linux/interrupt.h>
 
 #include <media/adv7604.h>
 #include <media/v4l2-ctrls.h>
@@ -2744,6 +2745,15 @@ static int adv7604_parse_dt(struct adv7604_state *state)
 	return 0;
 }
 
+static irqreturn_t adv7604_irq_handler(int irq, void *devid)
+{
+	struct adv7604_state *state = devid;
+
+	adv7604_isr(&state->sd, 0, NULL);
+
+	return IRQ_HANDLED;
+}
+
 static int adv7604_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -2793,6 +2803,17 @@ static int adv7604_probe(struct i2c_client *client,
 	} else {
 		v4l_err(client, "No platform data!\n");
 		return -ENODEV;
+	}
+
+	/* Request IRQ if available. */
+	if (client->irq) {
+		err = request_threaded_irq(client->irq, NULL, adv7604_irq_handler,
+					   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					   KBUILD_MODNAME, state);
+		if (err < 0) {
+			v4l2_err(client, "Request interrupt error\n");
+			return err;
+		}
 	}
 
 	/* Request GPIOs. */
@@ -2961,6 +2982,9 @@ static int adv7604_remove(struct i2c_client *client)
 	media_entity_cleanup(&sd->entity);
 	adv7604_unregister_clients(to_state(sd));
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
+	if (client->irq)
+		free_irq(client->irq, state);
+
 	return 0;
 }
 
