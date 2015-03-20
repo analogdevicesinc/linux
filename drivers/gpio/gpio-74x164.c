@@ -147,6 +147,9 @@ static int gen_74x164_probe(struct spi_device *spi)
 	chip->registers = nregs;
 	chip->gpio_chip.ngpio = GEN_74X164_NUMBER_GPIOS * chip->registers;
 
+	of_property_read_u8_array(spi->dev.of_node, "registers-default",
+				 chip->buffer, chip->registers);
+
 	chip->gpio_chip.can_sleep = true;
 	chip->gpio_chip.parent = &spi->dev;
 	chip->gpio_chip.owner = THIS_MODULE;
