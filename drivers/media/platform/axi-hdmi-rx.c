@@ -16,7 +16,6 @@
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
-#include <linux/interrupt.h>
 
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-event.h>
@@ -694,16 +693,6 @@ static void axi_hdmi_rx_notify(struct v4l2_subdev *sd, unsigned int notification
 	}
 }
 
-static irqreturn_t axi_hdmi_rx_irq_handler(int irq, void *dev_id)
-{
-	struct axi_hdmi_rx *hdmi_rx = dev_id;
-
-	v4l2_subdev_call(hdmi_rx->stream.subdev, core,
-				interrupt_service_routine, 0, NULL);
-
-	return IRQ_HANDLED;
-}
-
 static int axi_hdmi_rx_nodes_register(struct axi_hdmi_rx *hdmi_rx)
 {
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
@@ -818,12 +807,7 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 	struct device_node *ep_node;
 	struct axi_hdmi_rx *hdmi_rx;
 	struct resource *res;
-	int irq;
 	int ret;
-
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return -ENXIO;
 
 	hdmi_rx = devm_kzalloc(&pdev->dev, sizeof(*hdmi_rx), GFP_KERNEL);
 	if (hdmi_rx == NULL)
@@ -892,19 +876,8 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 		goto err_device_unregister;
 	}
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq > 0) {
-		ret = request_threaded_irq(irq, NULL, axi_hdmi_rx_irq_handler,
-			IRQF_ONESHOT | IRQF_TRIGGER_HIGH, dev_name(&pdev->dev),
-			hdmi_rx);
-		if (ret < 0)
-			goto err_async_notifier_unregister;;
-	}
-
 	return 0;
 
-err_async_notifier_unregister:
-	v4l2_async_notifier_unregister(&hdmi_rx->notifier);
 err_device_unregister:
 	v4l2_device_unregister(&hdmi_rx->v4l2_dev);
 err_dma_cleanup_ctx:
@@ -917,10 +890,6 @@ err_dma_release_channel:
 static int axi_hdmi_rx_remove(struct platform_device *pdev)
 {
 	struct axi_hdmi_rx *hdmi_rx = platform_get_drvdata(pdev);
-	int irq = platform_get_irq(pdev, 0);
-
-	if (irq > 0)
-		free_irq(irq, hdmi_rx);
 
 	v4l2_async_notifier_unregister(&hdmi_rx->notifier);
 	video_unregister_device(&hdmi_rx->stream.vdev);
