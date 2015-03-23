@@ -33,6 +33,7 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/io.h>
+#include <linux/regulator/consumer.h>
 
 #include "../core/usb.h"
 
@@ -120,6 +121,7 @@ static int zynq_otg_set_vbus(struct usb_otg *otg, bool enabled)
 {
 	struct zynq_otg		*xotg = the_transceiver;
 	u32 val;
+	int ret;
 
 	dev_dbg(xotg->dev, "%s <--- %s\n", __func__, enabled ? "on" : "off");
 
@@ -133,6 +135,20 @@ static int zynq_otg_set_vbus(struct usb_otg *otg, bool enabled)
 		writel((val | PORTSC_PP), xotg->base + CI_PORTSC1);
 	else
 		writel((val & ~PORTSC_PP), xotg->base + CI_PORTSC1);
+
+	if (!IS_ERR(xotg->vbus)) {
+		if (enabled != xotg->vbus_enabled) {
+			if (enabled)
+				ret = regulator_enable(xotg->vbus);
+			else
+				ret = regulator_disable(xotg->vbus);
+			if (ret < 0) {
+				dev_err(xotg->dev, "%s Failed to set VBUS supply to %d\n", __func__, enabled);
+				return ret;
+			}
+			xotg->vbus_enabled = enabled;
+		}
+	}
 
 	dev_dbg(xotg->dev, "%s --->\n", __func__);
 
@@ -1972,6 +1988,8 @@ static int zynq_otg_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	xotg->vbus = pdata->vbus;
+
 	/* OTG common part */
 	xotg->dev = &pdev->dev;
 	xotg->otg.dev = xotg->dev;
@@ -2042,8 +2060,10 @@ static int zynq_otg_probe(struct platform_device *pdev)
 		goto err_out_clk_disable;
 	}
 
-	if (xotg->otg.state == OTG_STATE_A_IDLE)
+	if (xotg->otg.state == OTG_STATE_A_IDLE) {
+		xotg->hsm.a_bus_req = 1;
 		zynq_update_transceiver();
+	}
 
 	return 0;
 

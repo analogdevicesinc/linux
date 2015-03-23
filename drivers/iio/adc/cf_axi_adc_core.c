@@ -83,6 +83,7 @@ int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(axiadc_set_pnsel);
 
 enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 			       int channel, const char **name)
@@ -673,10 +674,14 @@ static int axiadc_probe(struct platform_device *pdev)
 		goto err_put_converter;
 
 	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID)) {
+
 		if (st->streaming_dma)
-			axiadc_configure_ring_stream(indio_dev, NULL);
+			ret = axiadc_configure_ring_stream(indio_dev, NULL);
 		else
-			axiadc_configure_ring(indio_dev, NULL);
+			ret = axiadc_configure_ring(indio_dev, NULL);
+
+		if (ret < 0)
+			goto err_put_converter;
 	}
 
 	ret = iio_device_register(indio_dev);

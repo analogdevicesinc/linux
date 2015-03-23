@@ -55,7 +55,7 @@
 
 		clocks = <&axi_jesd_gt 0>;
 		clock-names = "adc_gt_clk";
-		clock-output-names = "jesd_clk";
+		clock-output-names = "jesd_adc_clk";
 
 		xlnx,gt-line-rate = "8.0";
 		xlnx,gt-refclk-freq = "200.0";
@@ -85,12 +85,10 @@
 
 		clocks = <&clk0_ad9528 8>, <&clk0_ad9528 9>;
 		clock-names = "adc_clk", "adc_sysref";
-		clock-output-names = "adc_gt_clk", "dac_gt_clk";
+		clock-output-names = "adc_gt_clk";
 
 		adi,rx-sys-clk-select = <3>;
 		adi,rx-out-clk-select = <4>;
-		adi,tx-sys-clk-select = <3>;
-		adi,tx-out-clk-select = <4>;
 
 		xlnx,pcore-cpll-fbdiv = <0x2>;
 		xlnx,pcore-device-type = <0x0>;
@@ -118,7 +116,7 @@
 
 #define fmc_spi spi0
 
-#include "adi-fmcadc3.dtsi"
+#include "adi-fmcadc4.dtsi"
 
 &clk0_ad9528 {
 	reset-gpios = <&gpio 86 0>;

@@ -25,8 +25,7 @@
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		clocks = <&axi_ad9625_jesd>, <&ad9625_clkin>;
-		clock-names = "jesd_clk", "adc_clk";
-
+		clock-names = "jesd_adc_clk", "adc_clk";
 	};
 };
 
@@ -91,8 +90,8 @@
 		reg = < 0x44a91000 0x1000 >;
 
 		clocks = <&axi_daq2_gt 0>;
-		clock-names = "gt_clk";
-		clock-output-names = "jesd_clk";
+		clock-names = "adc_gt_clk";
+		clock-output-names = "jesd_adc_clk";
 
 		xlnx,lanes = <0x8>;
 		xlnx,frames-per-multiframe = <32>;

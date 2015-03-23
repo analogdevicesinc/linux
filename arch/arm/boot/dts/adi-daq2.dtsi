@@ -15,7 +15,7 @@
 		spi-cpha;
 
 		spi-max-frequency = <10000000>;
-		clock-output-names = "ad9523_out0", "ad9523_out1", "ad9523_out2", "ad9523_out3", "ad9523_out4", "ad9523_out5", "ad9523_out6", "ad9523_out7", "ad9523_out8", "ad9523_out9", "ad9523_out10", "ad9523_out11", "ad9523_out12", "ad9523_out13";
+		clock-output-names = "ad9523-1_out0", "ad9523-1_out1", "ad9523-1_out2", "ad9523-1_out3", "ad9523-1_out4", "ad9523-1_out5", "ad9523-1_out6", "ad9523-1_out7", "ad9523-1_out8", "ad9523-1_out9", "ad9523-1_out10", "ad9523-1_out11", "ad9523-1_out12", "ad9523-1_out13";
 		adi,vcxo-freq = <125000000>;
 		adi,spi-3wire-enable;
 		adi,pll1-bypass-enable;
@@ -34,7 +34,7 @@
 
 		ad9523_0_c1:channel@1 {
 			reg = <1>;
-			adi,extended-name = "DAC_CLK";
+			adi,extended-name = "ADC_CLK";
 			adi,driver-mode = <1>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <1>;
@@ -60,7 +60,7 @@
 
 		ad9523_0_c6:channel@6 {
 			reg = <6>;
-			adi,extended-name = "FMC_ADC_SYSREF";
+			adi,extended-name = "CLKD_ADC_SYSREF";
 			adi,driver-mode = <1>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <128>;
@@ -69,7 +69,7 @@
 
 		ad9523_0_c7:channel@7 {
 			reg = <7>;
-			adi,extended-name = "FMC_DAC_SYSREF";
+			adi,extended-name = "CLKD_DAC_SYSREF";
 			adi,driver-mode = <1>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <128>;
@@ -96,7 +96,7 @@
 
 		ad9523_0_c13:channel@13 {
 			reg = <13>;
-			adi,extended-name = "ADC_CLK";
+			adi,extended-name = "DAC_CLK";
 			adi,driver-mode = <1>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <1>;
@@ -113,7 +113,7 @@
 		spi-cpha;
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 8>;
-		clock-names = "jesd_clk", "dac_clk", "dac_sysref";
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
 
 		adi,jesd-xbar-lane0-sel = <2>;
 		adi,jesd-xbar-lane1-sel = <3>;
@@ -130,7 +130,7 @@
 		spi-cpol;
 		spi-cpha;
 		clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 5>;
-		clock-names = "jesd_clk", "adc_clk", "adc_sysref";
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
 };
 

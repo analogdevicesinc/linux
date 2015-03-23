@@ -5,9 +5,9 @@
 		linux,stdout-path = &axi_uart;
 	} ;
 	aliases {
-		ethernet0 = &axi_ethernet_eth_buf;
+		ethernet0 = &axi_ethernet;
 		serial0 = &axi_uart;
-		serial1 = &sys_mb_debug;
+		//serial1 = &sys_mb_debug;
 	} ;
 	axi_ddr_cntrl: memory@80000000 {
 		device_type = "memory";
@@ -145,185 +145,67 @@
 			compatible = "fixed-clock";
 			reg = <0>;
 		} ;
-		ad9625_clkin: clock@0 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <2500000000>;
-			clock-output-names = "clkin";
-		};
 	} ;
 	axi_cpu_interconnect_xbar: axi@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "xlnx,axi-crossbar-2.1", "simple-bus";
 		ranges ;
-		axi_ad9625_core: axi-ad9625@44a10000 {
-			compatible = "adi,axi-ad9625-1.0";
-			reg = <0x44a10000 0x10000>;
-			adi,s-axi-min-size = <0x0000FFFF>;
-			dmas = <&axi_ad9625_dma 0>;
-			dma-names = "rx";
-			spibus-connected = <&adc0_ad9625>;
-		} ;
 
-		axi_ad9625_dma: axi-dmac@7c420000 {
+		rx_dma: axi-dmac@44a30000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
 			#dma-cells = <1>;
 			compatible = "adi,axi-dmac-1.00.a";
 			interrupt-parent = <&axi_intc>;
 			interrupts = <10 2>;
-			reg = <0x7c420000 0x10000>;
+			reg = <0x44a30000 0x10000>;
 			clocks = <&clk_bus_0>;
-			adi,2d-transfer = <0x0>;
-			adi,axi-slice-dest = <0x0>;
-			adi,axi-slice-src = <0x0>;
-			adi,clks-async-dest-req = <0x1>;
-			adi,clks-async-req-src = <0x1>;
-			adi,clks-async-src-dest = <0x1>;
-			adi,cyclic = <0x0>;
-			adi,dma-axi-protocol-dest = <0x0>;
-			adi,dma-axi-protocol-src = <0x0>;
-			adi,dma-data-width-dest = <0x100>;
-			adi,dma-data-width-src = <0x100>;
-			adi,dma-length-width = <0x18>;
-			adi,dma-type-dest = <0x0>;
-			adi,dma-type-src = <0x2>;
-			adi,fifo-size = <0x4>;
-			adi,max-bytes-per-burst = <0x80>;
-			adi,sync-transfer-start = <0x1>;
 
 			dma-channel {
-				adi,source-bus-width = <64>;
-				adi,destination-bus-width = <64>;
-				//adi,buswidth = <256>;
 				adi,type = <0>;
 			};
-		} ;
-		axi_ad9625_gpio: gpio@40030000 {
-			#gpio-cells = <2>;
-			compatible = "xlnx,xps-gpio-1.00.a";
-			gpio-controller ;
-			interrupt-parent = <&axi_intc>;
-			interrupts = <14 2>;
-			reg = <0x40030000 0x10000>;
-			xlnx,all-inputs = <0x0>;
-			xlnx,all-inputs-2 = <0x0>;
-			xlnx,all-outputs = <0x0>;
-			xlnx,all-outputs-2 = <0x0>;
-			xlnx,dout-default = <0x00000000>;
-			xlnx,dout-default-2 = <0x00000000>;
-			xlnx,gpio-width = <0x2>;
-			xlnx,gpio2-width = <0x20>;
-			xlnx,interrupt-present = <0x1>;
-			xlnx,is-dual = <0x0>;
-			xlnx,tri-default = <0xFFFFFFFF>;
-			xlnx,tri-default-2 = <0xFFFFFFFF>;
-		} ;
-		axi_ad9625_gt: axi-jesd-gt@44a60000 {
-			#clock-cells = <1>;
-			compatible = "adi,axi-jesd-gt-1.0";
-			reg = <0x44a60000 0x10000>;
-			adi,s-axi-min-size = <0x0000FFFF>;
-
-			clocks = <&ad9625_clkin>;
-			clock-names = "adc_clk";
-			clock-output-names = "adc_gt_clk";
-
-			adi,rx-sys-clk-select = <0>;
-			adi,rx-out-clk-select = <2>;
-			adi,use-cpll-enable;
 
 		} ;
-		axi_ad9625_jesd: jesd204@44a91000 {
-			#clock-cells = <0>;
-			compatible = "xlnx,jesd204-5.2";
-			reg = <0x44a91000 0x1000>;
-
-			clocks = <&axi_ad9625_gt 0>;
-			clock-names = "gt_clk";
-			clock-output-names = "jesd_clk";
-
-			xlnx,frames-per-multiframe = <32>;
-			xlnx,bytes-per-frame = <1>;
-			xlnx,subclass = <1>;
-			xlnx,lanesync-enable;
-			xlnx,scramble-enable;
-
-			xlnx,component-name = "system_axi_ad9625_jesd_0";
-			xlnx,drpclk-freq = "200.0";
-			xlnx,elaboration-transient-dir = <0x0>;
-			xlnx,gt-line-rate = "6.25";
-			xlnx,gt-refclk-freq = "156.25";
-			xlnx,lanes = <0x8>;
-			xlnx,lmfc-buffer-size = <0x6>;
-			xlnx,node-is-transmit = <0x0>;
-			xlnx,pll-selection = <0x0>;
-			xlnx,speedgrade = "-2";
-			xlnx,supportlevel = <0x0>;
-			xlnx,sysref-sampling-edge = <0x0>;
-			xlnx,transceivercontrol = "false";
-			xlnx,use-bram = <0x1>;
-			xlnx,use-jspat = "false";
-			xlnx,use-rpat = "false";
-		} ;
-		axi_ad9625_spi: axi-quad-spi@44a70000 {
+		
+		cf_ad9467_core_0: cf-ad9467-core-lpc@44A00000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "xlnx,cf-ad9467-core-1.00.a";
+			reg = <0x44A00000 0x10000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc_ad9467>;
+		} ;		
+				
+		fmc_spi: axi-quad-spi@44a70000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "xlnx,xps-spi-2.00.a";
 			interrupt-parent = <&axi_intc>;
 			interrupts = <13 0>;
 			reg = <0x44a70000 0x10000>;
-			xlnx,num-ss-bits = <0x2>;
-
-			adc0_ad9625: ad9625@0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				compatible = "ad9625";
-				reg = <0>;
-				spi-max-frequency = <10000000>;
-				clocks = <&axi_ad9625_jesd>, <&ad9625_clkin>;
-				clock-names = "jesd_clk", "adc_clk";
-
-			};
-
+			num-cs = <0x2>;
 		} ;
-		axi_ethernet_dma: axi-dma@41e10000 {
-			axistream-connected = <&axi_ethernet_eth_buf>;
-			axistream-control-connected = <&axi_ethernet_eth_buf>;
-			compatible = "xlnx,axi-dma";
-			interrupt-parent = <&axi_intc>;
-			interrupts = <2 2>, <3 2>;
-			reg = <0x41e10000 0x10000>;
-		} ;
-		axi_ethernet_eth_buf: network@40e00000 {
-			axistream-connected = <&axi_ethernet_dma>;
-			axistream-control-connected = <&axi_ethernet_dma>;
-			clock-frequency = <100000000>;
-			clocks = <&clk_bus_0>;
-			compatible = "xlnx,axi-ethernet-1.00.a";
+		
+		axi_ethernet: network@40e00000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "xlnx,xps-ethernetlite-1.00.a";
 			device_type = "network";
 			interrupt-parent = <&axi_intc>;
-			interrupts = <1 2>;
-			local-mac-address = [00 0a 35 00 00 00];
-			reg = <0x40e00000 0x40000>;
-			phy-handle = <&phy0 &phy1>;
-			xlnx,avb = <0x0>;
-			xlnx,enable-lvds = <0x0>;
-			xlnx,mcast-extend = <0x0>;
-			xlnx,phy-type = <0x4>;
-			xlnx,phyaddr = <0x1>;
-			xlnx,rxcsum = <0x2>;
-			xlnx,rxmem = <0x1000>;
-			xlnx,rxvlan-strp = <0x0>;
-			xlnx,rxvlan-tag = <0x0>;
-			xlnx,rxvlan-tran = <0x0>;
-			xlnx,stats = <0x1>;
-			xlnx,temac-addr-width = <0xc>;
-			xlnx,txcsum = <0x2>;
-			xlnx,txmem = <0x1000>;
-			xlnx,txvlan-strp = <0x0>;
-			xlnx,txvlan-tag = <0x0>;
-			xlnx,txvlan-tran = <0x0>;
-			xlnx,type = <0x1>;
+			interrupts = <1 0>;
+			local-mac-address = [00 0a 35 00 00 07];
+			reg = <0x40e00000 0x2000>;
+			phy-handle = <&phy0>;
+			xlnx,duplex = <0x1>;
+			xlnx,include-global-buffers = <0x1>;
+			xlnx,include-internal-loopback = <0x0>;
+			xlnx,include-mdio = <0x1>;
+			xlnx,rx-ping-pong = <0x1>;
+			xlnx,s-axi-id-width = <0x1>;
+			xlnx,tx-ping-pong = <0x1>;
+			xlnx,use-internal = <0x0>;
 			mdio {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -332,32 +214,15 @@
 					device_type = "ethernet-phy";
 					reg = <7>;
 				} ;
-				phy1: phy@1 {
-					device_type = "ethernet-phy";
-					reg = <1>;
-				} ;
-
 			} ;
 		} ;
 		axi_gpio_lcd: gpio_lcd@40010000 {
-			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			compatible = "xlnx,axi-xlnx-lcd-1.00.a";
-			gpio-controller ;
 			interrupt-parent = <&axi_intc>;
 			interrupts = <5 2>;
 			reg = <0x40010000 0x10000>;
-			xlnx,all-inputs = <0x0>;
-			xlnx,all-inputs-2 = <0x0>;
-			xlnx,all-outputs = <0x1>;
-			xlnx,all-outputs-2 = <0x0>;
-			xlnx,dout-default = <0x00000000>;
-			xlnx,dout-default-2 = <0x00000000>;
-			xlnx,gpio-width = <0x7>;
-			xlnx,gpio2-width = <0x20>;
-			xlnx,interrupt-present = <0x1>;
-			xlnx,is-dual = <0x0>;
-			xlnx,tri-default = <0xFFFFFFFF>;
-			xlnx,tri-default-2 = <0xFFFFFFFF>;
 		} ;
 		axi_gpio_sw_led: gpio@40020000 {
 			#gpio-cells = <2>;
@@ -366,13 +231,13 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <6 2>;
 			reg = <0x40020000 0x10000>;
-			xlnx,all-inputs = <0x1>;
+			xlnx,all-inputs = <0x0>;
 			xlnx,all-inputs-2 = <0x0>;
 			xlnx,all-outputs = <0x0>;
-			xlnx,all-outputs-2 = <0x1>;
+			xlnx,all-outputs-2 = <0x0>;
 			xlnx,dout-default = <0x00000000>;
 			xlnx,dout-default-2 = <0x00000000>;
-			xlnx,gpio-width = <0xd>;
+			xlnx,gpio-width = <0x9>;
 			xlnx,gpio2-width = <0x8>;
 			xlnx,interrupt-present = <0x1>;
 			xlnx,is-dual = <0x1>;
@@ -411,14 +276,45 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <9 2>;
 			reg = <0x41600000 0x10000>;
+			mux@74 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "pca9548";
+				reg = <0x74>;
+
+				mux1: i2c@1 { /* HPC */
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <1>;
+
+				};
+
+				fmc_i2c: i2c@2 { /* LPC */
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <2>;
+
+					eeprom@50 {
+						compatible = "at24,24c02";
+						reg = <0x50>;
+					};
+
+					eeprom@54 {
+						compatible = "at24,24c02";
+						reg = <0x54>;
+					};
+
+				};
+			};
+
 		} ;
 		axi_intc: axi-intc@41200000 {
 			#interrupt-cells = <2>;
 			compatible = "xlnx,xps-intc-1.00.a";
 			interrupt-controller ;
 			reg = <0x41200000 0x10000>;
-			xlnx,kind-of-intr = <0x3810>;
-			xlnx,num-intr-inputs = <0xf>;
+			xlnx,kind-of-intr = <0x0000201e>;
+			xlnx,num-intr-inputs = <32>;
 		} ;
 		axi_spdif_tx_core: axi-spdif-tx@75c00000 {
 			compatible = "adi,axi-spdif-tx-1.0";
@@ -435,7 +331,7 @@
 				compatible = "xlnx,axi-dma-mm2s-channel";
 				interrupts = <7 2>;
 				xlnx,datawidth = <0x20>;
-				xlnx,device-id = <0x1>;
+				xlnx,device-id = <0x0>;
 			} ;
 		} ;
 		axi_timer: axi-timer@41c00000 {
@@ -495,3 +391,6 @@
 		} ;
 	} ;
 } ;
+
+#include "adi-ad9467-fmc-250ebz.dtsi"
+

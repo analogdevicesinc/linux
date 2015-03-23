@@ -419,6 +419,9 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 	if (direction != chan->direction)
 		return NULL;
 
+	if (period_len == 0 || buf_len == 0)
+		return NULL;
+
 	if (buf_len % period_len)
 		return NULL;
 

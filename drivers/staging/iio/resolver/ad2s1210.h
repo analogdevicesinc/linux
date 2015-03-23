@@ -10,8 +10,10 @@
  */
 
 struct ad2s1210_platform_data {
-	unsigned sample;
-	unsigned a[2];
-	unsigned res[2];
+	struct gpio_desc *sample;
+	struct gpio_desc *a[2];
+	struct gpio_desc *res[2];
 	bool gpioin;
+	unsigned int clk_in_freq;
+	bool entrl_conf_mode_en;
 };

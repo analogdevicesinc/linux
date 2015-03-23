@@ -216,7 +216,6 @@ static unsigned long jesd204b_clk_recalc_rate(struct clk_hw *hw,
 
 static int jesd204b_clk_enable(struct clk_hw *hw)
 {
-	struct jesd204b_state *st = to_clk_priv(hw)->st;
 	to_clk_priv(hw)->enabled = true;
 
 	return 0;
@@ -255,6 +254,7 @@ static int jesd204b_probe(struct platform_device *pdev)
 	struct child_clk *clk_priv;
 	struct clk_init_data init;
 	const char *parent_name;
+	const char *clk_name;
 	struct clk *clk_out;
 	unsigned frmcnt, bytecnt, subclass, val;
 	int ret;
@@ -391,7 +391,12 @@ static int jesd204b_probe(struct platform_device *pdev)
 	clk_priv->rate = st->rate;
 	clk_priv->st = st;
 
-	init.name = st->transmit ? "jesd204_tx_clk" : "jesd204_rx_clk";
+	ret = of_property_read_string(pdev->dev.of_node, "clock-output-names",
+		&clk_name);
+	if (ret < 0)
+		return ret;
+
+	init.name = clk_name;
 	init.ops = &clkout_ops;
 	init.flags = 0;
 

@@ -359,6 +359,7 @@ struct axiadc_converter {
 	struct clk 		*clk;
 	void 			*phy;
 	struct gpio_desc		*pwrdown_gpio;
+	struct gpio_desc		*reset_gpio;
 	unsigned			id;
 	unsigned			adc_output_mode;
 	unsigned 		testmode[2];

@@ -548,6 +548,7 @@ struct net_local {
 	unsigned int enetnum;
 	unsigned int lastrxfrmscntr;
 	unsigned int has_mdio;
+	unsigned int gen_timer_timeout;
 #ifdef CONFIG_XILINX_PS_EMAC_HWTSTAMP
 	struct hwtstamp_config hwtstamp_config;
 	struct ptp_clock *ptp_clock;
@@ -761,6 +762,8 @@ static void xemacps_adjust_link(struct net_device *ndev)
 			} else if (phydev->speed == SPEED_10) {
 				xemacps_set_freq(lp->devclk, 2500000,
 						&lp->pdev->dev);
+				lp->gen_timer_timeout =
+					XEAMCPS_GEN_PURPOSE_TIMER_LOAD * 5;
 			} else {
 				dev_err(&lp->pdev->dev,
 					"%s: unknown PHY speed %d\n",
@@ -1360,6 +1363,14 @@ static int xemacps_rx(struct net_local *lp, int budget)
 		if (!(regval & XEMACPS_RXBUF_NEW_MASK))
 			break;
 
+		regval = xemacps_read(lp->baseaddr, XEMACPS_RXSR_OFFSET);
+		xemacps_write(lp->baseaddr, XEMACPS_RXSR_OFFSET, regval);
+		if (regval & XEMACPS_RXSR_HRESPNOK_MASK) {
+			dev_err(&lp->pdev->dev, "RX error 0x%x\n", regval);
+			numbdfree = 0xFFFFFFFF;
+			break;
+		}
+
 		new_skb = netdev_alloc_skb(lp->ndev, XEMACPS_RX_BUF_SIZE);
 		if (new_skb == NULL) {
 			dev_err(&lp->ndev->dev, "no memory for new sk_buff\n");
@@ -1456,16 +1467,18 @@ static int xemacps_rx_poll(struct napi_struct *napi, int budget)
 {
 	struct net_local *lp = container_of(napi, struct net_local, napi);
 	int work_done = 0;
-	u32 regval;
+	u32 count;
 
 	spin_lock(&lp->rx_lock);
 	while (1) {
-		regval = xemacps_read(lp->baseaddr, XEMACPS_RXSR_OFFSET);
-		xemacps_write(lp->baseaddr, XEMACPS_RXSR_OFFSET, regval);
-		if (regval & XEMACPS_RXSR_HRESPNOK_MASK)
-			dev_err(&lp->pdev->dev, "RX error 0x%x\n", regval);
 
-		work_done += xemacps_rx(lp, budget - work_done);
+		count = xemacps_rx(lp, budget - work_done);
+		if (count == 0xFFFFFFFF) {
+			napi_complete(napi);
+			spin_unlock(&lp->rx_lock);
+			goto reset_hw;
+		}
+		work_done += count;
 		if (work_done >= budget)
 			break;
 
@@ -1490,6 +1503,9 @@ static int xemacps_rx_poll(struct napi_struct *napi, int budget)
 	}
 	spin_unlock(&lp->rx_lock);
 	return work_done;
+reset_hw:
+	queue_work(lp->txtimeout_handler_wq, &lp->txtimeout_reinit);
+	return 0;
 }
 
 /**
@@ -1988,7 +2004,7 @@ static void xemacps_gen_purpose_timerhandler(unsigned long data)
 	xemacps_update_stats(data);
 	xemacps_resetrx_for_no_rxdata(data);
 	mod_timer(&(lp->gen_purpose_timer),
-		jiffies + msecs_to_jiffies(XEAMCPS_GEN_PURPOSE_TIMER_LOAD));
+		jiffies + msecs_to_jiffies(lp->gen_timer_timeout));
 }
 
 /**
@@ -2043,10 +2059,11 @@ static int xemacps_open(struct net_device *ndev)
 		goto err_pm_put;
 	}
 
+	lp->gen_timer_timeout = XEAMCPS_GEN_PURPOSE_TIMER_LOAD;
 	setup_timer(&(lp->gen_purpose_timer), xemacps_gen_purpose_timerhandler,
 							(unsigned long)lp);
 	mod_timer(&(lp->gen_purpose_timer),
-		jiffies + msecs_to_jiffies(XEAMCPS_GEN_PURPOSE_TIMER_LOAD));
+		jiffies + msecs_to_jiffies(lp->gen_timer_timeout));
 
 	netif_carrier_on(ndev);
 	netif_start_queue(ndev);
@@ -2542,13 +2559,13 @@ xemacps_get_wol(struct net_device *ndev, struct ethtool_wolinfo *ewol)
 	ewol->supported = WAKE_MAGIC | WAKE_ARP | WAKE_UCAST | WAKE_MCAST;
 
 	regval = xemacps_read(lp->baseaddr, XEMACPS_WOL_OFFSET);
-	if (regval | XEMACPS_WOL_MCAST_MASK)
+	if (regval & XEMACPS_WOL_MCAST_MASK)
 		ewol->wolopts |= WAKE_MCAST;
-	if (regval | XEMACPS_WOL_ARP_MASK)
+	if (regval & XEMACPS_WOL_ARP_MASK)
 		ewol->wolopts |= WAKE_ARP;
-	if (regval | XEMACPS_WOL_SPEREG1_MASK)
+	if (regval & XEMACPS_WOL_SPEREG1_MASK)
 		ewol->wolopts |= WAKE_UCAST;
-	if (regval | XEMACPS_WOL_MAGIC_MASK)
+	if (regval & XEMACPS_WOL_MAGIC_MASK)
 		ewol->wolopts |= WAKE_MAGIC;
 
 }
@@ -2911,6 +2928,11 @@ static int xemacps_probe(struct platform_device *pdev)
 		dev_err(&lp->pdev->dev, "error in xemacps_mii_init\n");
 		goto err_out_clk_dis_all;
 	}
+
+	rc = of_property_read_u8_array(lp->pdev->dev.of_node, "local-mac-address",
+						lp->ndev->dev_addr, 6);
+	if (!rc)
+		xemacps_set_hwaddr(lp);
 
 	xemacps_update_hwaddr(lp);
 	tasklet_init(&lp->tx_bdreclaim_tasklet, xemacps_tx_poll,

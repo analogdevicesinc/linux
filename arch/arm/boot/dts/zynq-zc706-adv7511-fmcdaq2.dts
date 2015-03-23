@@ -75,8 +75,8 @@
 		reg = < 0x44a90000 0x1000 >;
 
 		clocks = <&axi_daq2_gt 1>;
-		clock-names = "gt_clk";
-		clock-output-names = "jesd_clk";
+		clock-names = "dac_gt_clk";
+		clock-output-names = "jesd_dac_clk";
 
 		xlnx,gt-line-rate = "8.0";
 		xlnx,gt-refclk-freq = "200.0";
@@ -117,8 +117,8 @@
 		reg = < 0x44a91000 0x1000 >;
 
 		clocks = <&axi_daq2_gt 0>;
-		clock-names = "gt_clk";
-		clock-output-names = "jesd_clk";
+		clock-names = "adc_gt_clk";
+		clock-output-names = "jesd_adc_clk";
 
 		xlnx,gt-line-rate = "8.0";
 		xlnx,gt-refclk-freq = "200.0";
@@ -146,7 +146,7 @@
 		compatible = "xlnx,axi-jesd-gt-1.0";
 		reg = < 0x44a60000 0x10000 >;
 
-		clocks = <&clk0_ad9523 4>, <&clk0_ad9523 6>, <&clk0_ad9523 7>, <&clk0_ad9523 9>;
+		clocks = <&clk0_ad9523 1>, <&clk0_ad9523 6>, <&clk0_ad9523 7>, <&clk0_ad9523 13>;
 		clock-names = "adc_clk", "adc_sysref", "dac_sysref", "dac_clk";
 		clock-output-names = "adc_gt_clk", "dac_gt_clk";
 
@@ -178,7 +178,7 @@
 };
 
 #define fmc_spi spi0
- 
+
 #include "adi-daq2.dtsi"
 
 &adc0_ad9680 {

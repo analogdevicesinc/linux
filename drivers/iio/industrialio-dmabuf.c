@@ -132,8 +132,8 @@ int iio_dma_buffer_alloc_blocks(struct iio_buffer *buffer,
 	/* 64 blocks ought to be enough for anybody ;) */
 	if (req->count > 64 - queue->num_blocks)
 		req->count = 64 - queue->num_blocks;
-	if (req->size > SZ_4M)
-		req->size = SZ_4M;
+	if (req->size > SZ_16M)
+		req->size = SZ_16M;
 
 	req->id = queue->num_blocks;
 

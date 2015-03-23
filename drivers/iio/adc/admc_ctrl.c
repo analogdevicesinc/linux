@@ -520,20 +520,22 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
 	
-	st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 32, 32, 0, 'u');
-	st->channels[1] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(1, 1, 32, 32, 0, 'u');
-	st->channels[2] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(2, 2, 32, 32, 0, 'u');
-	st->channels[3] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(3, 3, 32, 32, 0, 'u');
-	st->channels[4] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(4, 4, 32, 32, 0, 'u');
-	st->channels[5] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(5, 5, 32, 32, 0, 'u');
-	st->channels[6] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(6, 6, 32, 32, 0, 'u');
-	st->channels[7] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(7, 7, 32, 32, 0, 'u');
+	st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 32, 32, 0, 's');
+	st->channels[1] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(1, 1, 32, 32, 0, 's');
+	st->channels[2] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(2, 2, 32, 32, 0, 's');
+	st->channels[3] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(3, 3, 32, 32, 0, 's');
+	st->channels[4] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(4, 4, 32, 32, 0, 's');
+	st->channels[5] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(5, 5, 32, 32, 0, 's');
+	st->channels[6] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(6, 6, 32, 32, 0, 's');
+	st->channels[7] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(7, 7, 32, 32, 0, 's');
 	
 	indio_dev->channels = st->channels;
 	indio_dev->num_channels = 8;
 	indio_dev->masklength = 8;
 
-	axiadc_configure_ring_stream(indio_dev, "ad-mc-ctrl-dma");
+	ret = axiadc_configure_ring_stream(indio_dev, "ad-mc-ctrl-dma");
+	if (ret < 0)
+		return ret;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)

@@ -35,7 +35,6 @@ struct xylon_drm_plane_properties {
 	struct drm_property *control;
 	struct drm_property *color_transparency;
 	struct drm_property *interlace;
-	struct drm_property *pixel_format;
 	struct drm_property *transparency;
 	struct drm_property *transparent_color;
 };
@@ -218,9 +217,6 @@ static int xylon_drm_plane_set_property(struct drm_plane *base_plane,
 	} else if (property == props->interlace) {
 		op.id = XYLON_DRM_PLANE_OP_ID_INTERLACE;
 		op.param = (bool)val;
-	} else if (property == props->pixel_format) {
-		op.id = XYLON_DRM_PLANE_OP_ID_PIXEL_FORMAT;
-		op.param = (bool)val;
 	} else if (property == props->transparency) {
 		op.id = XYLON_DRM_PLANE_OP_ID_TRANSPARENCY;
 		op.param = (u32)val;
@@ -275,13 +271,6 @@ static int xylon_drm_plane_create_properties(struct drm_plane *base_plane)
 					   "interlace",
 					   size))
 		return -EINVAL;
-	size = xylon_drm_property_size(property_pixel_format);
-	if (xylon_drm_property_create_list(dev, obj,
-					   &props->pixel_format,
-					   property_pixel_format,
-					   "pixel_format",
-					   size))
-		return -EINVAL;
 	if (!last_plane &&
 	    xylon_drm_property_create_range(dev, obj,
 					    &props->transparency,
@@ -308,7 +297,12 @@ xylon_drm_plane_properties_initial_value(struct drm_plane *base_plane)
 	struct drm_mode_object *obj = &base_plane->base;
 	struct xylon_drm_plane *plane = to_xylon_plane(base_plane);
 	struct xylon_drm_plane_properties *props = &plane->properties;
+	struct xylon_drm_plane_op op;
 	bool val;
+
+	op.id = XYLON_DRM_PLANE_OP_ID_COLOR_TRANSPARENCY;
+	op.param = false;
+	xylon_drm_plane_op(base_plane, &op);
 
 	val = xylon_cvc_get_info(plane->manager->cvc,
 				 LOGICVC_INFO_LAYER_COLOR_TRANSPARENCY,
@@ -460,12 +454,6 @@ int xylon_drm_plane_op(struct drm_plane *base_plane,
 			par = LOGICVC_LAYER_INTERLACE_ENABLE;
 		else
 			par = LOGICVC_LAYER_INTERLACE_DISABLE;
-		break;
-	case XYLON_DRM_PLANE_OP_ID_PIXEL_FORMAT:
-		if (op->param)
-			par = LOGICVC_LAYER_PIXEL_FORMAT_ABGR_ENABLE;
-		else
-			par = LOGICVC_LAYER_PIXEL_FORMAT_ABGR_DISABLE;
 		break;
 	}
 

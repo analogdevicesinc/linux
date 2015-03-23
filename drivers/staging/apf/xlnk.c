@@ -42,7 +42,8 @@
 #include <linux/pagemap.h>
 #include <linux/errno.h>	/* error codes */
 #include <linux/dma-mapping.h>  /* dma */
-
+#include <linux/clk.h>
+#include <linux/of.h>
 
 #include "xlnk-ioctl.h"
 #include "xlnk.h"
@@ -203,10 +204,53 @@ static void xlnk_devpacks_free_all(void)
 	}
 }
 
+/**
+ * struct xlnk_data - data specific to xlnk
+ * @numxclks:	number of clocks available
+ * @clks:	pointer to array of clocks
+ *
+ * This struct should contain all the data specific to xlnk
+ */
+struct xlnk_data {
+	int numxclks;
+	struct clk **clks;
+};
+
+/**
+ * xlnk_clk_control() - turn all xlnk clocks on or off
+ * @turn_on:	false - turn off (disable), true - turn on (enable)
+ *
+ * This function obtains a list of available clocks from the driver data
+ * and enables or disables all of them based on the value of turn_on
+ */
+static void xlnk_clk_control(bool turn_on)
+{
+	struct xlnk_data *xlnk_dat;
+	int i;
+
+	xlnk_dat = platform_get_drvdata(xlnk_pdev);
+	for (i = 0; i < xlnk_dat->numxclks; i++) {
+		if (IS_ERR(xlnk_dat->clks[i]))
+			continue;
+		if (turn_on)
+			clk_prepare_enable(xlnk_dat->clks[i]);
+		else
+			clk_disable_unprepare(xlnk_dat->clks[i]);
+	}
+}
+
 static int xlnk_probe(struct platform_device *pdev)
 {
-	int err;
+	int err, i;
+	const char *clkname;
+	struct clk **clks;
+	struct xlnk_data *xlnk_dat;
 	dev_t dev = 0;
+
+	xlnk_dev_buf = NULL;
+	xlnk_dev_size = 0;
+	xlnk_dev_vmas = 0;
+	xlnk_bufpool = NULL;
 
 	/* use 2.6 device model */
 	err = alloc_chrdev_region(&dev, 0, 1, driver_name);
@@ -246,7 +290,38 @@ static int xlnk_probe(struct platform_device *pdev)
 
 	xlnk_pdev = pdev;
 	xlnk_dev = &pdev->dev;
+	xlnk_dat = devm_kzalloc(xlnk_dev,
+				sizeof(*xlnk_dat),
+				GFP_KERNEL);
+	if (!xlnk_dat)
+		return -ENOMEM;
 
+	xlnk_dat->numxclks = of_property_count_strings(xlnk_dev->of_node,
+							"clock-names");
+	if (xlnk_dat->numxclks > 0) {
+		clks = devm_kmalloc_array(xlnk_dev,
+					xlnk_dat->numxclks,
+					sizeof(struct clk *),
+					GFP_KERNEL);
+		if (!clks)
+			return -ENOMEM;
+
+		xlnk_dat->clks = clks;
+		for (i = 0; i < xlnk_dat->numxclks; i++) {
+			of_property_read_string_index(xlnk_dev->of_node,
+						"clock-names",
+						i,
+						&clkname);
+			if (clkname) {
+				clks[i] = devm_clk_get(xlnk_dev, clkname);
+				if (IS_ERR(clks[i]))
+					dev_warn(xlnk_dev,
+						"Unable to get clk\n");
+			} else
+				dev_warn(xlnk_dev, "Unable to get clock\n");
+		}
+	}
+	platform_set_drvdata(xlnk_pdev, xlnk_dat);
 	if (xlnk_pdev)
 		pr_info("xlnk_pdev is not null\n");
 	else
@@ -353,11 +428,17 @@ static int xlnk_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id xlnk_match[] = {
+	{ .compatible = "xlnx,xlnk-1.0", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, xlnk_match);
 
 static struct platform_driver xlnk_driver = {
 	.driver = {
-		   .name = DRIVER_NAME,
-		   },
+		.name = DRIVER_NAME,
+		.of_match_table = xlnk_match,
+	},
 	.probe = xlnk_probe,
 	.remove = xlnk_remove,
 	.suspend = XLNK_SUSPEND,
@@ -365,18 +446,6 @@ static struct platform_driver xlnk_driver = {
 };
 
 static u64 dma_mask = 0xFFFFFFFFUL;
-
-static struct platform_device xlnk_device = {
-	.name = "xlnk",
-	.id = 0,
-	.dev = {
-		.platform_data = NULL,
-		.dma_mask = &dma_mask,
-		.coherent_dma_mask = 0xFFFFFFFF,
-	},
-	.resource = NULL,
-	.num_resources = 0,
-};
 
 /*
  * This function is called when an application opens handle to the
@@ -388,6 +457,7 @@ static int xlnk_open(struct inode *ip, struct file *filp)
 
 	if ((filp->f_flags & O_ACCMODE) == O_WRONLY)
 		xlnk_dev_size = 0;
+	xlnk_clk_control(true);
 
 	return status;
 }
@@ -443,8 +513,8 @@ static ssize_t xlnk_write(struct file *filp, const char __user *buf,
  */
 static int xlnk_release(struct inode *ip, struct file *filp)
 {
-	int status = 0;
-	return status;
+	xlnk_clk_control(false);
+	return 0;
 }
 
 
@@ -1144,28 +1214,7 @@ static int xlnk_recover_resource(unsigned long buf)
 	return 0;
 }
 
-static int __init xlnk_init(void)
-{
-	pr_info("%s driver initializing\n", DRIVER_NAME);
-
-	xlnk_dev_buf = NULL;
-	xlnk_dev_size = 0;
-	xlnk_dev_vmas = 0;
-	xlnk_bufpool = NULL;
-
-	platform_device_register(&xlnk_device);
-
-	return platform_driver_register(&xlnk_driver);
-}
-
-static void __exit xlnk_exit(void)
-{
-	platform_driver_unregister(&xlnk_driver);
-}
-
-/* APF driver initialization and de-initialization functions */
-module_init(xlnk_init);
-module_exit(xlnk_exit);
+module_platform_driver(xlnk_driver);
 
 MODULE_DESCRIPTION("Xilinx APF driver");
 MODULE_LICENSE("GPL");

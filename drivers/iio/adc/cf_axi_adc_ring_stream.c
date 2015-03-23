@@ -56,7 +56,7 @@ int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 
 	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
 			&axiadc_dma_buffer_ops, indio_dev);
-	if (buffer == NULL)
+	if (IS_ERR_OR_NULL(buffer))
 		return -ENOMEM;
 
 	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
@@ -64,8 +64,10 @@ int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(axiadc_configure_ring_stream);
 
 void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev)
 {
 	iio_dmaengine_buffer_free(indio_dev->buffer);
 }
+EXPORT_SYMBOL_GPL(axiadc_unconfigure_ring_stream);

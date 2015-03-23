@@ -255,6 +255,7 @@ err_free:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(axiadc_configure_ring);
 
 void axiadc_unconfigure_ring(struct iio_dev *indio_dev)
 {
@@ -266,3 +267,4 @@ void axiadc_unconfigure_ring(struct iio_dev *indio_dev)
 		axiadc_buf->buf_phys);
 	iio_buffer_put(&axiadc_buf->buffer);
 }
+EXPORT_SYMBOL_GPL(axiadc_unconfigure_ring);

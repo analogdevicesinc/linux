@@ -535,7 +535,7 @@ static int axi_hdmi_connector_init(struct drm_device *dev,
 	return 0;
 
 err_sysfs:
-	drm_sysfs_connector_remove(connector);
+	drm_connector_unregister(connector);
 err_connector:
 	drm_connector_cleanup(connector);
 	return err;

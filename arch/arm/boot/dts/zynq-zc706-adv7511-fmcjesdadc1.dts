@@ -26,8 +26,9 @@
 	};
 };
 
+
 &fpga_axi {
-	rx_dma: rx-dmac@7c420000 {
+	rx_dma0: rx-dmac@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;
@@ -35,47 +36,28 @@
 		clocks = <&clkc 16>;
 
 		dma-channel {
-			adi,source-bus-width = <64>;
-			adi,destination-bus-width = <64>;
+			adi,buswidth = <64>;
 			adi,type = <0>;
 		};
 	};
 
-	tx_dma: tx-dmac@7c400000 {
+	rx_dma1: rx-dmac@7c430000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x7c400000 0x10000>;
+		reg = <0x7c430000 0x10000>;
 		#dma-cells = <1>;
 		interrupts = <0 56 0>;
 		clocks = <&clkc 16>;
 
 		dma-channel {
-			adi,source-bus-width = <128>;
-			adi,destination-bus-width = <128>;
-			adi,type = <1>;
-			adi,cyclic;
+			adi,buswidth = <64>;
+			adi,type = <0>;
 		};
 	};
 
-	cf_ad9122_core_0: cf-ad9122-core-hpc@44A00000 {
-		compatible = "adi,axi-ad9122-6.00.a";
-		reg = <0x44A04000 0x10000>;
-		spibus-connected = <&dac0_ad9122>;
-		dmas = <&tx_dma 0>;
-		dma-names = "tx";
-
-		xlnx,dphase-timeout = <0x8>;
-		xlnx,num-mem = <0x1>;
-		xlnx,num-reg = <0x1>;
-		xlnx,s-axi-min-size = <0x1ff>;
-		xlnx,slv-awidth = <0x20>;
-		xlnx,slv-dwidth = <0x20>;
-		xlnx,use-wstrb = <0x0>;
-	} ;
-
-	axi_ad9250_core: axi-ad9250-hpc@44a10000 {
+	axi_ad9250_core0: axi-ad9250-hpc-0@44a10000 {
 		compatible = "xlnx,axi-ad9250-1.00.a";
 		reg = < 0x44a10000 0x10000 >;
-		dmas = <&rx_dma 0>;
+		dmas = <&rx_dma0 0>;
 		dma-names = "rx";
 		spibus-connected = <&adc0_ad9250>;
 
@@ -85,24 +67,38 @@
 		xlnx,s-axi-min-size = <0xffff>;
 	} ;
 
-	axi_ad9250_jesd: axi-jesd204b-rx@44a91000 {
+	axi_ad9250_core1: axi-ad9250-hpc-1@44a20000 {
+		compatible = "xlnx,axi-ad9250-1.00.a";
+		reg = < 0x44a20000 0x10000 >;
+		dmas = <&rx_dma1 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc1_ad9250>;
+
+		xlnx,pcore-device-type = <0x0>;
+		xlnx,pcore-id = <0x0>;
+		xlnx,pcore-iodelay-group = "adc_if_delay_group";
+		xlnx,s-axi-min-size = <0xffff>;
+	} ;
+
+	axi_jesd: axi-jesd204b-rx@44a91000 {
 		#clock-cells = <0>;
 		compatible = "xlnx,jesd204-5.1";
 		reg = < 0x44a91000 0x1000 >;
 
-		clocks = <&axi_daq2_gt 0>;
+		clocks = <&axi_jesd_gt 0>;
 		clock-names = "adc_gt_clk";
-		clock-output-names = "jesd_clk";
+		clock-output-names = "jesd_adc_clk";
 
 		xlnx,gt-line-rate = "8.0";
 		xlnx,gt-refclk-freq = "200.0";
 
-		xlnx,lanes = <0x2>;
+		xlnx,lanes = <4>;
 		xlnx,frames-per-multiframe = <32>;
-		xlnx,bytes-per-frame = <1>;
+		xlnx,bytes-per-frame = <2>;
 		xlnx,subclass = <1>;
 		xlnx,lanesync-enable;
 		xlnx,scramble-enable;
+		xlnx,sysref-enable;
 
 		xlnx,lmfc-buffer-size = <0x6>;
 		xlnx,node-is-transmit = <0x0>;
@@ -115,12 +111,12 @@
 		xlnx,use-rpat = "false";
 	} ;
 
-	axi_daq2_gt: axi-jesd-gt-rx-tx@44a60000 {
+	axi_jesd_gt: axi-jesd-gt-rx-tx@44a60000 {
 		#clock-cells = <1>;
 		compatible = "xlnx,axi-jesd-gt-1.0";
 		reg = < 0x44a60000 0x10000 >;
 
-		clocks = <&clk0_ad9523 2>;
+		clocks = <&clk_ad9517 0>;
 		clock-names = "adc_clk";
 		clock-output-names = "adc_gt_clk";
 
@@ -131,7 +127,7 @@
 		xlnx,pcore-cpll-fbdiv = <0x2>;
 		xlnx,pcore-device-type = <0x0>;
 		xlnx,pcore-id = <0x0>;
-		xlnx,pcore-num-of-lanes = <0x2>;
+		xlnx,pcore-num-of-lanes = <0x4>;
 		xlnx,pcore-pma-rsv = <0x1e7080>;
 		xlnx,pcore-qpll-cfg = "000011010000000000110000001";
 		xlnx,pcore-qpll-fbdiv = <0x9000>;
@@ -151,13 +147,5 @@
 };
 
 #define fmc_spi spi0
- 
-#include "adi-daq1.dtsi"
 
-&clk0_ad9523 {
-	reset-gpios = <&gpio 86 0>;
-};
-
-&dac0_ad9122 {
-	reset-gpios = <&gpio 86 0>;
-};
+#include "adi-fmcjesdadc1.dtsi"

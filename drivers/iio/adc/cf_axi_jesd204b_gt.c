@@ -35,15 +35,12 @@
 
 #define ADI_ES_VSIZE		255
 
-#define JESD204B_GT_RX		0
-#define JESD204B_GT_TX		1
-
-
 struct child_clk {
 	struct device 		*dev;
 	struct clk_hw		hw;
 	unsigned long 		rate;
 	bool			enabled;
+	bool			tx;
 	unsigned			num;
 };
 
@@ -316,7 +313,7 @@ static int jesd204b_gt_status_error(struct device *dev,
 static void jesd204b_gt_clk_synchronize(struct child_clk *clk)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(clk->dev);
-	unsigned offs = (clk->num == JESD204B_GT_TX ?
+	unsigned offs = (clk->tx ?
 		ADI_REG_TX_GT_RSTN - ADI_REG_RX_GT_RSTN : 0);
 	int ret;
 
@@ -340,7 +337,7 @@ static void jesd204b_gt_sync_work_func(struct work_struct *work)
 		container_of(work, struct jesd204b_gt_state, sync_work.work);
 	unsigned int i;
 
-	for (i = 0; i < 2; i++)
+	for (i = 0; i < st->clk_data.clk_num; i++)
 		jesd204b_gt_clk_synchronize(&st->output[i]);
 
 	queue_delayed_work(system_freezable_wq, &st->sync_work, HZ);
@@ -349,7 +346,7 @@ static void jesd204b_gt_sync_work_func(struct work_struct *work)
 static int jesd204b_gt_clk_enable(struct clk_hw *hw)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
-	unsigned offs = (to_clk_priv(hw)->num == JESD204B_GT_TX ?
+	unsigned offs = (to_clk_priv(hw)->tx ?
 		ADI_REG_TX_GT_RSTN - ADI_REG_RX_GT_RSTN : 0);
 	int ret = 0;
 
@@ -403,22 +400,30 @@ static const struct clk_ops clkout_ops = {
 	.is_enabled = jesd204b_gt_clk_is_enabled,
 };
 
-static struct clk *jesd204b_gt_clk_register(struct device *dev, unsigned num,
-				char *name)
+static struct clk *jesd204b_gt_clk_register(struct device *dev, const char *parent_name, unsigned num, bool tx)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(dev);
 	struct clk_init_data init;
 	struct child_clk *output = &st->output[num];
 	struct clk *clk;
+	const char *clk_name;
+	int ret;
 
-	init.name = name;
+	ret = of_property_read_string_index(dev->of_node, "clock-output-names",
+		num, &clk_name);
+	if (ret < 0)
+		return ERR_PTR(ret);
+
+	init.name = clk_name;
 	init.ops = &clkout_ops;
 
-	init.num_parents = 0;
-	init.flags = CLK_IS_ROOT;
+	init.parent_names = (parent_name ? &parent_name: NULL);
+	init.num_parents = (parent_name ? 1 : 0);
+
 	output->hw.init = &init;
 	output->dev = dev;
 	output->num = num;
+	output->tx = tx;
 	output->rate = st->rate;
 
 	/* register the clock */
@@ -611,18 +616,25 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "could not allocate memory\n");
 		return -ENOMEM;
 	}
-	st->clk_data.clk_num = 2;
+	st->clk_data.clk_num = 0;
 
-	schedule_delayed_work(&st->sync_work, HZ);
+	if ((st->rx_sys_clk_sel || st->rx_out_clk_sel) && !IS_ERR(st->adc_clk)) {
+		clk = jesd204b_gt_clk_register(&pdev->dev,
+					       __clk_get_name(st->adc_clk),
+					       st->clk_data.clk_num, false);
+		if (IS_ERR(clk))
+				return PTR_ERR(clk);
+		st->clk_data.clk_num++;
+	}
 
-	clk = jesd204b_gt_clk_register(&pdev->dev, JESD204B_GT_RX, "adc_gt_clk");
-	if (IS_ERR(clk))
-			return PTR_ERR(clk);
-
-	clk = jesd204b_gt_clk_register(&pdev->dev, JESD204B_GT_TX, "dac_gt_clk");
-	if (IS_ERR(clk))
-			return PTR_ERR(clk);
-
+	if ((st->tx_sys_clk_sel || st->tx_out_clk_sel) && !IS_ERR(st->dac_clk)) {
+		clk = jesd204b_gt_clk_register(&pdev->dev,
+					       __clk_get_name(st->dac_clk),
+					       st->clk_data.clk_num, true);
+		if (IS_ERR(clk))
+				return PTR_ERR(clk);
+		st->clk_data.clk_num++;
+	}
 	of_clk_add_provider(pdev->dev.of_node,
 			    of_clk_src_onecell_get, &st->clk_data);
 
@@ -633,6 +645,9 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 		PCORE_VERSION_MINOR(st->version),
 		PCORE_VERSION_LETTER(st->version),
 		(unsigned long long)mem->start, st->regs);
+
+	if (!of_property_read_bool(pdev->dev.of_node,"adi,no-auto-resync-enable"))
+		schedule_delayed_work(&st->sync_work, HZ);
 
 	return 0;
 

@@ -238,6 +238,7 @@ err_free:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(cf_axi_dds_configure_buffer);
 
 void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev)
 {
@@ -256,3 +257,4 @@ void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev)
 		dds_buffer->buf_phys);
 	iio_buffer_put(indio_dev->buffer);
 }
+EXPORT_SYMBOL_GPL(cf_axi_dds_unconfigure_buffer);
