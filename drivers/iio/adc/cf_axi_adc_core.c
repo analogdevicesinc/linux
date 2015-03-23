@@ -83,6 +83,7 @@ int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(axiadc_set_pnsel);
 
 enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 			       int channel, const char **name)

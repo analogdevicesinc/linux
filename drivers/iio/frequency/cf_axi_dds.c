@@ -152,6 +152,7 @@ int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cf_axi_dds_datasel);
 
 static enum dds_data_select cf_axi_dds_get_datasel(struct cf_axi_dds_state *st,
 			       int channel)
@@ -207,6 +208,7 @@ void cf_axi_dds_stop(struct cf_axi_dds_state *st)
 	if (PCORE_VERSION_MAJOR(st->version) < 8)
 		dds_write(st, ADI_REG_CNTRL_1, 0);
 }
+EXPORT_SYMBOL_GPL(cf_axi_dds_stop);
 
 void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on)
 {
@@ -217,6 +219,7 @@ void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on)
 		dds_master_write(st, ADI_REG_CNTRL_1, ADI_SYNC);
 	}
 }
+EXPORT_SYMBOL_GPL(cf_axi_dds_start_sync);
 
 static int cf_axi_dds_rate_change(struct notifier_block *nb,
 	unsigned long flags, void *data)

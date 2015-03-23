@@ -91,8 +91,10 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cf_axi_dds_configure_buffer);
 
 void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev)
 {
 	iio_dmaengine_buffer_free(indio_dev->buffer);
 }
+EXPORT_SYMBOL_GPL(cf_axi_dds_unconfigure_buffer);
