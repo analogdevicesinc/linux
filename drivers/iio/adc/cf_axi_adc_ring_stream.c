@@ -64,8 +64,10 @@ int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(axiadc_configure_ring_stream);
 
 void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev)
 {
 	iio_dmaengine_buffer_free(indio_dev->buffer);
 }
+EXPORT_SYMBOL_GPL(axiadc_unconfigure_ring_stream);
