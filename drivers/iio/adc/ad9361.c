@@ -119,7 +119,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[150];
+	struct ad9361_debugfs_entry debugfs_entry[170];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -3035,23 +3035,36 @@ static int ad9361_ctrl_outs_setup(struct ad9361_rf_phy *phy,
   // Setup GPO
   //************************************************************
 
-static int ad9361_gpo_setup(struct ad9361_rf_phy *phy)
+static int ad9361_gpo_setup(struct ad9361_rf_phy *phy, struct gpo_control *ctrl)
 {
 	struct spi_device *spi = phy->spi;
-	/* FIXME later */
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
 
-	ad9361_spi_write(spi, 0x020, 0x00); // GPO Auto Enable Setup in RX and TX
-	ad9361_spi_write(spi, 0x027, 0x03); // GPO Manual and GPO auto value in ALERT
-	ad9361_spi_write(spi, 0x028, 0x00); // GPO_0 RX Delay
-	ad9361_spi_write(spi, 0x029, 0x00); // GPO_1 RX Delay
-	ad9361_spi_write(spi, 0x02a, 0x00); // GPO_2 RX Delay
-	ad9361_spi_write(spi, 0x02b, 0x00); // GPO_3 RX Delay
-	ad9361_spi_write(spi, 0x02c, 0x00); // GPO_0 TX Delay
-	ad9361_spi_write(spi, 0x02d, 0x00); // GPO_1 TX Delay
-	ad9361_spi_write(spi, 0x02e, 0x00); // GPO_2 TX Delay
-	ad9361_spi_write(spi, 0x02f, 0x00); // GPO_3 TX Delay
+	ad9361_spi_write(spi, REG_AUTO_GPO,
+			 GPO_ENABLE_AUTO_RX(ctrl->gpo0_slave_rx_en |
+				(ctrl->gpo1_slave_rx_en << 1) |
+				(ctrl->gpo2_slave_rx_en << 2) |
+				(ctrl->gpo3_slave_rx_en << 3)) |
+			 GPO_ENABLE_AUTO_TX(ctrl->gpo0_slave_tx_en |
+				(ctrl->gpo1_slave_tx_en << 1) |
+				(ctrl->gpo2_slave_tx_en << 2) |
+				(ctrl->gpo3_slave_tx_en << 3)));
+
+	ad9361_spi_write(spi, REG_GPO_FORCE_AND_INIT,
+			 GPO_INIT_STATE(ctrl->gpo0_inactive_state_high_en |
+				(ctrl->gpo1_inactive_state_high_en << 1) |
+				(ctrl->gpo2_inactive_state_high_en << 2) |
+				(ctrl->gpo3_inactive_state_high_en << 3)));
+
+	ad9361_spi_write(spi, REG_GPO0_RX_DELAY, ctrl->gpo0_rx_delay_us);
+	ad9361_spi_write(spi, REG_GPO0_TX_DELAY, ctrl->gpo0_tx_delay_us);
+	ad9361_spi_write(spi, REG_GPO1_RX_DELAY, ctrl->gpo1_rx_delay_us);
+	ad9361_spi_write(spi, REG_GPO1_TX_DELAY, ctrl->gpo1_tx_delay_us);
+	ad9361_spi_write(spi, REG_GPO2_RX_DELAY, ctrl->gpo2_rx_delay_us);
+	ad9361_spi_write(spi, REG_GPO2_TX_DELAY, ctrl->gpo2_tx_delay_us);
+	ad9361_spi_write(spi, REG_GPO3_RX_DELAY, ctrl->gpo3_rx_delay_us);
+	ad9361_spi_write(spi, REG_GPO3_TX_DELAY, ctrl->gpo3_tx_delay_us);
 
 	return 0;
 }
@@ -3927,7 +3940,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9361_gpo_setup(phy);
+	ret = ad9361_gpo_setup(phy, &pd->gpo_ctrl);
 	if (ret < 0)
 		return ret;
 
@@ -7555,6 +7568,51 @@ static struct ad9361_phy_platform_data
 			  &pdata->auxdac_ctrl.dac2_rx_delay_us);
 	ad9361_of_get_u32(iodev, np, "adi,aux-dac2-tx-delay-us", 0,
 			  &pdata->auxdac_ctrl.dac2_tx_delay_us);
+
+	/* GPO Control */
+
+	ad9361_of_get_bool(iodev, np, "adi,gpo0-inactive-state-high-enable",
+			&pdata->gpo_ctrl.gpo0_inactive_state_high_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo1-inactive-state-high-enable",
+			&pdata->gpo_ctrl.gpo1_inactive_state_high_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo2-inactive-state-high-enable",
+			&pdata->gpo_ctrl.gpo2_inactive_state_high_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo3-inactive-state-high-enable",
+			&pdata->gpo_ctrl.gpo3_inactive_state_high_en);
+
+	ad9361_of_get_bool(iodev, np, "adi,gpo0-slave-rx-enable",
+			&pdata->gpo_ctrl.gpo0_slave_rx_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo0-slave-tx-enable",
+			&pdata->gpo_ctrl.gpo0_slave_tx_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo1-slave-rx-enable",
+			&pdata->gpo_ctrl.gpo1_slave_rx_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo1-slave-tx-enable",
+			&pdata->gpo_ctrl.gpo1_slave_tx_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo2-slave-rx-enable",
+			&pdata->gpo_ctrl.gpo2_slave_rx_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo2-slave-tx-enable",
+			&pdata->gpo_ctrl.gpo2_slave_tx_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo3-slave-rx-enable",
+			&pdata->gpo_ctrl.gpo3_slave_rx_en);
+	ad9361_of_get_bool(iodev, np, "adi,gpo3-slave-tx-enable",
+			&pdata->gpo_ctrl.gpo3_slave_tx_en);
+
+	ad9361_of_get_u32(iodev, np, "adi,gpo0-rx-delay-us", 0,
+			  &pdata->gpo_ctrl.gpo0_rx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,gpo0-tx-delay-us", 0,
+			  &pdata->gpo_ctrl.gpo0_tx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,gpo1-rx-delay-us", 0,
+			  &pdata->gpo_ctrl.gpo1_rx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,gpo1-tx-delay-us", 0,
+			  &pdata->gpo_ctrl.gpo1_tx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,gpo2-rx-delay-us", 0,
+			  &pdata->gpo_ctrl.gpo2_rx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,gpo2-tx-delay-us", 0,
+			  &pdata->gpo_ctrl.gpo2_tx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,gpo3-rx-delay-us", 0,
+			  &pdata->gpo_ctrl.gpo3_rx_delay_us);
+	ad9361_of_get_u32(iodev, np, "adi,gpo3-tx-delay-us", 0,
+			  &pdata->gpo_ctrl.gpo3_tx_delay_us);
 
 	/* Tx Monitor Control */
 
