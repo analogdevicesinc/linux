@@ -35,6 +35,8 @@ void __iomem *sdr_ctl_base_addr;
 unsigned long socfpga_cpu1start_addr;
 void __iomem *clkmgr_base_addr;
 
+static int socfpga_is_a10(void);
+
 static void __init socfpga_soc_device_init(void)
 {
 	struct device_node *root;
@@ -88,8 +90,18 @@ static void __init socfpga_soc_device_init(void)
 
 static void __init enable_periphs(void)
 {
-	/* Release all peripherals from reset.*/
-	__raw_writel(0, rst_manager_base_addr + SOCFPGA_RSTMGR_MODPERRST);
+	if (socfpga_is_a10()) {
+		/* temp hack to enable all periphs from reset for A10 */
+		writel(0x0, rst_manager_base_addr + SOCFPGA_A10_RSTMGR_PER0MODRST);
+		writel(0x0, rst_manager_base_addr + SOCFPGA_A10_RSTMGR_PER1MODRST);
+	} else {
+		writel(0x0, rst_manager_base_addr + SOCFPGA_RSTMGR_MODPERRST);
+	}
+}
+
+static int socfpga_is_a10(void)
+{
+	return of_machine_is_compatible("altr,socfpga-arria10");
 }
 
 void __init socfpga_sysmgr_init(void)
