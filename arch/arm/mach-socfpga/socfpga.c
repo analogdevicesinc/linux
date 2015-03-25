@@ -42,6 +42,8 @@ void __iomem *sdr_ctl_base_addr;
 void __iomem *l3regs_base_addr;
 void __iomem *clkmgr_base_addr;
 
+static int socfpga_is_a10(void);
+
 #ifdef CONFIG_HW_PERF_EVENTS
 static struct arm_pmu_platdata socfpga_pmu_platdata = {
 	.handle_irq = socfpga_pmu_handler,
@@ -129,8 +131,18 @@ static void __init socfpga_scu_map_io(void)
 
 static void __init enable_periphs(void)
 {
-	/* Release all peripherals from reset.*/
-	__raw_writel(0, rst_manager_base_addr + SOCFPGA_RSTMGR_MODPERRST);
+	if (socfpga_is_a10()) {
+		/* temp hack to enable all periphs from reset for A10 */
+		writel(0x0, rst_manager_base_addr + SOCFPGA_A10_RSTMGR_PER0MODRST);
+		writel(0x0, rst_manager_base_addr + SOCFPGA_A10_RSTMGR_PER1MODRST);
+	} else {
+		writel(0x0, rst_manager_base_addr + SOCFPGA_RSTMGR_MODPERRST);
+	}
+}
+
+static int socfpga_is_a10(void)
+{
+	return of_machine_is_compatible("altr,socfpga-arria10");
 }
 
 static void __init socfpga_map_io(void)
