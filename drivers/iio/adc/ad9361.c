@@ -1430,7 +1430,7 @@ static int ad9361_gc_update(struct ad9361_rf_phy *phy)
 	 */
 
 	reg = DIV_ROUND_CLOSEST(phy->pdata->gain_ctrl.f_agc_state_wait_time_ns *
-				1000, clkrf / 1000UL);
+				(clkrf / 1000UL), 1000000UL);
 	reg = clamp_t(u32, reg, 0U, 31U);
 	ret |= ad9361_spi_writef(spi, REG_FAST_ENERGY_DETECT_COUNT,
 			  ENERGY_DETECT_COUNT(~0),  reg);
