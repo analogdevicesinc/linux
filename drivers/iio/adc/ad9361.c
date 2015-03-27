@@ -708,7 +708,7 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
 
 	for (i = 0; i < index_max; i++) {
 		ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, i); /* Gain Table Index */
-		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA1, tab[i][0] | ((i > 50) ? 0x80: 0) ); /* Ext LNA, Int LNA, & Mixer Gain Word */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA1, tab[i][0]); /* Ext LNA, Int LNA, & Mixer Gain Word */
 		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA2, tab[i][1]); /* TIA & LPF Word */
 		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA3, tab[i][2]); /* DC Cal bit & Dig Gain Word */
 		ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG,
@@ -1105,13 +1105,6 @@ static void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	if (rc)
 		dev_err(dev, "Failed to restore state\n");
 
-	val = 0;
-	do {
-		val++;
-	} while ((ad9361_spi_readf(spi, REG_STATE, ENSM_STATE(~0)) != ensm_state) && (val < 1000));
-
-	pr_err("%s: count %d state: %d\n", __func__, val, ensm_state);
-
 out:
 	return;
 
@@ -1167,14 +1160,6 @@ static void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 		if (rc)
 			dev_err(dev, "Failed to write ENSM_CONFIG_1");
 	}
-
-	val = 0;
-	do {
-		val++;
-	} while ((ad9361_spi_readf(spi, REG_STATE, ENSM_STATE(~0)) != phy->prev_ensm_state) && (val < 1000));
-
-	pr_err("%s: count %d :state %d\n", __func__, val, phy->prev_ensm_state);
-
 out:
 	return;
 }
@@ -1974,7 +1959,7 @@ static int ad9361_rf_dc_offset_calib(struct ad9361_rf_phy *phy,
 {
 	struct spi_device *spi = phy->spi;
 
-	dev_err(&phy->spi->dev, "%s : rx_freq %llu",
+	dev_dbg(&phy->spi->dev, "%s : rx_freq %llu",
 		__func__, rx_freq);
 
 	ad9361_spi_write(spi, REG_WAIT_COUNT, 0x20);
@@ -5551,7 +5536,6 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 	} else {
 		ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 		ad9361_ensm_restore_prev_state(phy);
-		mdelay(20);
 	}
 
 	num_chan = (conv->chip_info->num_channels > 4) ? 4 : conv->chip_info->num_channels;
@@ -5586,7 +5570,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 			}
 		}
 		}
-//#ifdef _DEBUG
+#ifdef _DEBUG
 		printk("SAMPL CLK: %lu\n", clk_get_rate(phy->clks[RX_SAMPL_CLK]));
 		printk("  ");
 		for (i = 0; i < 16; i++)
@@ -5601,7 +5585,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq)
 			printk("\n");
 		}
 		printk("\n");
-//#endif
+#endif
 		c0 = ad9361_find_opt(&field[0][0], 16, &s0);
 		c1 = ad9361_find_opt(&field[1][0], 16, &s1);
 
