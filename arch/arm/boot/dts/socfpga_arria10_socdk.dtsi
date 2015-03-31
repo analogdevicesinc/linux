@@ -159,7 +159,7 @@
 	txc-skew-ps = <1860>; /* 960ps */
 	rxdv-skew-ps = <420>; /* 0ps */
 	rxc-skew-ps = <1680>; /* 780ps */
-	snps,max-mtu = <0>;
+	max-frame-size = <3800>;
 	status = "okay";
 };
 
