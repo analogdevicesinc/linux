@@ -1814,7 +1814,7 @@ static void select_input(struct v4l2_subdev *sd)
 			afe_write(sd, 0xc8, 0x40); /* phase control */
 		}
 
-		cp_write(sd, 0x3e, 0x00); /* CP core pre-gain control */
+		cp_write(sd, 0x3e, 0x80); /* CP core pre-gain control */
 		cp_write(sd, 0xc3, 0x39); /* CP coast control. Graphics mode */
 		cp_write(sd, 0x40, 0x80); /* CP core pre-gain control. Graphics mode */
 	} else {
