@@ -1,0 +1,38 @@
+* Analog Devices ADF7242 IEEE 802.15.4 radio *
+
+Required properties:
+	- compatible: should be "adi,adf7242"
+	- reg: SPI chip select number for the device
+	- spi-max-frequency: Max SPI frequency to use (< 10000000)
+	- interrupts: The interrupt number to the cpu. The interrupt specifier format
+	              depends on the interrupt controller.
+
+Optional properties:
+	- adi,hw-aack-mode-enable: Enable automatic packet acknowledgement
+	- adi,auto-csma-ca-mode-enable: Enable automatic CSMA-CA Tx mode
+	- adi,promiscuous-mode-enable: Enable promiscuous mode
+	- adi,report-ack-frames-enable: Report Ack frames
+	- adi,max-frame-retries: Specifies the number of attempts to retransmit
+	                         unacknowledged frames while in automatic CSMA-CA
+	                         Tx mode (valid: [0-15], default: 4)
+	- adi,max-cca-retries: Specifies the number of attempts to repeat CSMA-CA
+	                       algorithm prior to cancellation of RC_TX command
+	                       (valid: [0-5], default: 4, disable CSMA-CA: 7)
+	- adi,max-csma-back-off-exponent: Specifies the maximum back-off exponent
+	                                  used in the CSMA-CA algorithm
+	                                  (valid: [4-8], default: 6)
+	- adi,min-csma-back-off-exponent: Specifies the minimum back-off exponent
+	                                  used in the CSMA-CA algorithm
+	                                  (valid: [0-max], default: 1)
+
+Example:
+
+	adf7242@0 {
+		compatible = "adi,adf7242";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		interrupts = <0x62 IRQ_TYPE_LEVEL_HIGH>;
+
+		adi,hw-aack-mode-enable;
+		adi,auto-csma-ca-mode-enable;
+	};
