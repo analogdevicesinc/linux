@@ -666,7 +666,6 @@ static int zynq_gpio_probe(struct platform_device *pdev)
 				     zynq_gpio_irqhandler);
 
 	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
 
 	return 0;
 
