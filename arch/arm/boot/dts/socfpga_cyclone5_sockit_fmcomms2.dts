@@ -114,6 +114,7 @@
 			ranges = <0x00000000 0x00000000 0xc0000000 0x00010000>,
 				<0x00000001 0x00010000 0xff210000 0x00000008>,
 				<0x00000001 0x00010080 0xff210080 0x00000010>,
+				<0x00000001 0x00010090 0xff210090 0x00000010>,
 				<0x00000001 0x00020000 0xff220000 0x00010000>,
 				<0x00000001 0x00024000 0xff224000 0x00001000>,
 				<0x00000001 0x00004000 0xff204000 0x00004000>,
@@ -178,6 +179,15 @@
 				};
 			};
 
+			gpio: gpio@0x100010090 {
+				compatible = "altr,pio-14.0", "altr,pio-1.0";
+				reg = <0x00000001 0x00010090 0x00000010>;
+				altr,gpio-bank-width = <5>;
+				resetvalue = <0>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
 			spi_ad9361: spi@0x100008000 {
 				compatible = "altr,spi-14.0", "altr,spi-1.0";
 				reg = <0x00000001 0x00008000 0x00000020>;
@@ -201,6 +211,12 @@
 					clock-names = "ad9361_ext_refclk";
 					clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 
+					/* GPIO */
+					reset-gpios = <&gpio 4 0>;
+					en_agc-gpios = <&gpio 3 0>;
+					sync-gpios = <&gpio 2 0>;
+					enable-gpios = <&gpio 1 0>;
+					txnrx-gpios = <&gpio 0 0>;
 
 					//adi,debug-mode-enable;
 					/* Digital Interface Control */
