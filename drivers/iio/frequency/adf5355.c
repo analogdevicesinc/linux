@@ -27,8 +27,6 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/frequency/adf5355.h>
 
-#include "adf5355.h"
-
 /* REG0 Bit Definitions */
 #define ADF5355_REG0_INT(x)			(((x) & 0xFFFF) << 4)
 #define ADF5355_REG0_PRESCALER(x)		((x) << 20)
