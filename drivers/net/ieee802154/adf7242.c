@@ -1210,8 +1210,22 @@ static int adf7242_remove(struct spi_device *spi)
 	return 0;
 }
 
+static const struct of_device_id adf7242_of_match[] = {
+	{ .compatible = "adi,adf7242", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, adf7242_of_match);
+
+static const struct spi_device_id adf7242_device_id[] = {
+	{ .name = "adf7242", },
+	{ },
+};
+MODULE_DEVICE_TABLE(spi, adf7242_device_id);
+
 static struct spi_driver adf7242_driver = {
+	.id_table = adf7242_device_id,
 	.driver = {
+		   .of_match_table = of_match_ptr(adf7242_of_match),
 		   .name = "adf7242",
 		   .owner = THIS_MODULE,
 		   },
