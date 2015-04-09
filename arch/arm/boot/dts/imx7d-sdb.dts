@@ -727,6 +727,7 @@
 	non-removable;
 	vmmc-supply = <&reg_brcm>;
 	fsl,tuning-step = <2>;
+	wifi-host;
 	status = "okay";
 };
 
