@@ -394,7 +394,7 @@ static int ad6676_jesd_setup(struct axiadc_converter *conv, struct ad6676_jesd_c
 
 static int ad6676_shuffle_setup(struct axiadc_converter *conv, struct ad6676_shuffler_conf *conf)
 {
-	u32 reg_val, val, thresh;
+	u32 reg_val = 0, val, thresh;
 	int i;
 
 	thresh = clamp_t(u8, conf->shuffle_thresh, 0, 8U);
@@ -664,7 +664,7 @@ static ssize_t ad6676_extinfo_write(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad6676_phy *phy = conv_to_phy(conv);
 	struct ad6676_platform_data *pdata = phy->pdata;
-	bool update;
+	bool update = false;
 	s64 readin;
 	int ret = 0;
 
