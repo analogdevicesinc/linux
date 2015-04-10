@@ -966,6 +966,10 @@ static int zynq_gpio_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 1);
 	pm_runtime_put(&pdev->dev);
 
+	/* XXX: this is a workaround to force the GPIO controller clock to stay
+	 * enabled, otherwise register writes are ignored. */
+	pm_runtime_get_sync(chip->parent);
+
 	return 0;
 
 err_rm_gpiochip:
