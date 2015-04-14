@@ -53,8 +53,7 @@ static int ad8366_write(struct iio_dev *indio_dev,
 		st->data[1] = (ch_b << 4) | (ch_a >> 2);
 		break;
 	case ID_ADA4961:
-		ch_a = bitrev8(ch_a & 0x1F);
-		st->data[0] = ch_a;
+		st->data[0] = ch_a & 0x1F;
 		break;
 	}
 
@@ -73,7 +72,7 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int ret;
-	unsigned code;
+	int code;
 
 	mutex_lock(&indio_dev->mlock);
 	switch (m) {
