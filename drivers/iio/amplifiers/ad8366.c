@@ -23,7 +23,7 @@ enum ad8366_type {
 	ID_AD8366,
 	ID_ADA4961,
 	ID_ADL5240,
-
+	ID_HMC271,
 };
 
 struct ad8366_state {
@@ -59,7 +59,9 @@ static int ad8366_write(struct iio_dev *indio_dev,
 	case ID_ADL5240:
 		st->data[0] = (ch_a & 0x3F) << 2;
 		break;
-
+	case ID_HMC271:
+		st->data[0] = bitrev8(ch_a & 0x1F);
+		break;
 	}
 
 	ret = spi_write(st->spi, st->data, indio_dev->num_channels);
@@ -93,6 +95,9 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 			break;
 		case ID_ADL5240:
 			code = 20000 - 31500 + code * 500;
+			break;
+		case ID_HMC271:
+			code = -31000 + code * 1000;
 			break;
 		}
 
@@ -140,6 +145,11 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 		if (code < -11500 || code > 20000)
 			return -EINVAL;
 		code = ((code - 500 - 20000) / 500) & 0x3F;
+		break;
+	case ID_HMC271:
+		if (code < -31000 || code > 0)
+			return -EINVAL;
+		code = ((code - 1000) / 1000) & 0x1F;
 		break;
 	}
 
@@ -219,6 +229,7 @@ static int ad8366_probe(struct spi_device *spi)
 		break;
 	case ID_ADA4961:
 	case ID_ADL5240:
+	case ID_HMC271:
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
@@ -265,6 +276,7 @@ static const struct spi_device_id ad8366_id[] = {
 	{"ad8366", ID_AD8366},
 	{"ada4961", ID_ADA4961},
 	{"adl5240", ID_ADL5240},
+	{"hmc271", ID_HMC271},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad8366_id);
