@@ -23,6 +23,8 @@
 enum ad8366_type {
 	ID_AD8366,
 	ID_ADA4961,
+	ID_ADL5240,
+
 };
 
 struct ad8366_state {
@@ -55,6 +57,10 @@ static int ad8366_write(struct iio_dev *indio_dev,
 	case ID_ADA4961:
 		st->data[0] = ch_a & 0x1F;
 		break;
+	case ID_ADL5240:
+		st->data[0] = (ch_a & 0x3F) << 2;
+		break;
+
 	}
 
 	ret = spi_write(st->spi, st->data, indio_dev->num_channels);
@@ -86,6 +92,9 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 		case ID_ADA4961:
 			code = 15000 - code * 1000;
 			break;
+		case ID_ADL5240:
+			code = 20000 - 31500 + code * 500;
+			break;
 		}
 
 		/* Values in dB */
@@ -111,9 +120,11 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int code;
 	int ret;
-
 	/* Values in dB */
-	code = (((s8)val * 1000) + ((s32)val2 / 1000));
+	if (val < 0)
+		code = (((s8)val * 1000) - ((s32)val2 / 1000));
+	else
+		code = (((s8)val * 1000) + ((s32)val2 / 1000));
 
 	switch (st->type) {
 	case ID_AD8366:
@@ -125,6 +136,11 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 		if (code > 15000 || code < -6000)
 			return -EINVAL;
 		code = (15000 - code) / 1000;
+		break;
+	case ID_ADL5240:
+		if (code < -11500 || code > 20000)
+			return -EINVAL;
+		code = ((code - 500 - 20000) / 500) & 0x3F;
 		break;
 	}
 
@@ -204,6 +220,7 @@ static int ad8366_probe(struct spi_device *spi)
 		indio_dev->num_channels = ARRAY_SIZE(ad8366_channels);
 		break;
 	case ID_ADA4961:
+	case ID_ADL5240:
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
@@ -249,6 +266,7 @@ static int ad8366_remove(struct spi_device *spi)
 static const struct spi_device_id ad8366_id[] = {
 	{"ad8366", ID_AD8366},
 	{"ada4961", ID_ADA4961},
+	{"adl5240", ID_ADL5240},
 	{}
 };
 
