@@ -231,6 +231,8 @@ static int set_geometry_by_ecc_info(struct gpmi_nand_data *this)
 	geo->ecc_strength = round_up(chip->ecc_strength_ds, 2);
 	if (!gpmi_check_ecc(this))
 		return -EINVAL;
+	/* set the ecc strength to the maximum ecc controller can support */
+	geo->ecc_strength = this->devdata->bch_max_ecc_strength;
 
 	/* Keep the C >= O */
 	if (geo->ecc_chunk_size < mtd->oobsize) {
@@ -347,7 +349,7 @@ static int legacy_set_geometry(struct gpmi_nand_data *this)
 	if (!gpmi_check_ecc(this)) {
 		dev_err(this->dev,
 			"ecc strength: %d cannot be supported by the controller (%d)\n"
-			"try to use minimum ecc strength that NAND chip required\n",
+			"try to use maximum ecc strength that NAND chip required\n",
 			geo->ecc_strength,
 			this->devdata->bch_max_ecc_strength);
 		return -EINVAL;
@@ -431,6 +433,9 @@ int common_nfc_set_geometry(struct gpmi_nand_data *this)
 {
 	if ((of_property_read_bool(this->dev->of_node, "fsl,use-minimum-ecc"))
 				|| legacy_set_geometry(this))
+		/* To align with the kobs-ng, use the maximum ecc strength */
+		/* controller can support, rather than the minimum ecc nand */
+		/* spec required. */
 		return set_geometry_by_ecc_info(this);
 
 	return 0;
