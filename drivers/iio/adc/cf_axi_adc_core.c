@@ -408,6 +408,66 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
+static int axiadc_read_event_value(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, enum iio_event_info info, int *val,
+	int *val2)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+
+	if (conv->read_event_value)
+		return conv->read_event_value(indio_dev, chan,
+				type, dir, info, val, val2);
+	else
+		return -ENOSYS;
+}
+
+static int axiadc_write_event_value(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, enum iio_event_info info, int val,
+	int val2)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+
+	if (conv->write_event_value)
+		return conv->write_event_value(indio_dev, chan,
+				type, dir, info, val, val2);
+	else
+		return -ENOSYS;
+}
+
+static int axiadc_read_event_config(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    enum iio_event_type type,
+				    enum iio_event_direction dir)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+
+	if (conv->read_event_config)
+		return conv->read_event_config(indio_dev, chan, type, dir);
+	else
+		return -ENOSYS;
+}
+
+static int axiadc_write_event_config(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan,
+				     enum iio_event_type type,
+				     enum iio_event_direction dir,
+				     int state)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+
+	if (conv->write_event_config)
+		return conv->write_event_config(indio_dev,
+				chan, type, dir, state);
+	else
+		return -ENOSYS;
+}
+
 static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	const unsigned long *scan_mask)
 {
@@ -478,6 +538,10 @@ static const struct iio_info axiadc_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = &axiadc_read_raw,
 	.write_raw = &axiadc_write_raw,
+	.read_event_value = &axiadc_read_event_value,
+	.write_event_value = &axiadc_write_event_value,
+	.read_event_config = &axiadc_read_event_config,
+	.write_event_config = &axiadc_write_event_config,
 	.debugfs_reg_access = &axiadc_reg_access,
 	.update_scan_mode = &axiadc_update_scan_mode,
 };

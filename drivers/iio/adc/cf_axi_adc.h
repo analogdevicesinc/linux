@@ -386,6 +386,33 @@ struct axiadc_converter {
 			 int val2,
 			 long mask);
 
+	int (*read_event_value)(struct iio_dev *indio_dev,
+			struct iio_chan_spec const *chan,
+			enum iio_event_type type,
+			enum iio_event_direction dir,
+			enum iio_event_info info,
+			int *val,
+			int *val2);
+
+	int (*write_event_value)(struct iio_dev *indio_dev,
+			struct iio_chan_spec const *chan,
+			enum iio_event_type type,
+			enum iio_event_direction dir,
+			enum iio_event_info info,
+			int val,
+			int val2);
+
+	int (*read_event_config)(struct iio_dev *indio_dev,
+			const struct iio_chan_spec *chan,
+			enum iio_event_type type,
+			enum iio_event_direction dir);
+
+	int (*write_event_config)(struct iio_dev *indio_dev,
+			const struct iio_chan_spec *chan,
+			enum iio_event_type type,
+			enum iio_event_direction dir,
+			int state);
+
 	int (*post_setup)(struct iio_dev *indio_dev);
 	int (*testmode_set)(struct iio_dev *indio_dev, unsigned chan,
 			unsigned mode);
