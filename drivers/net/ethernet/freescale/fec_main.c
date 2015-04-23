@@ -122,6 +122,11 @@ static struct platform_device_id fec_devtype[] = {
 				FEC_QUIRK_BUG_CAPTURE | FEC_QUIRK_HAS_RACC |
 				FEC_QUIRK_HAS_COALESCE,
 	}, {
+		.name = "imx6ul-fec",
+		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
+				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
+				FEC_QUIRK_HAS_VLAN,
+	}, {
 		/* sentinel */
 	}
 };
