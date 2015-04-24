@@ -683,6 +683,7 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	conv = to_converter(st->dev_spi);
 	iio_device_set_drvdata(indio_dev, conv);
+	conv->indio_dev = indio_dev;
 
 	if (conv->chip_info->num_shadow_slave_channels) {
 		u32 regs[2];
