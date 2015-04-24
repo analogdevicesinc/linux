@@ -13,9 +13,11 @@
 #include <linux/spi/spi.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/gpio/consumer.h>
 
+#include <linux/iio/events.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
@@ -406,6 +408,155 @@ static void ad9467_convert_scale_table(struct axiadc_converter *conv)
 
 }
 
+static irqreturn_t ad9680_event_handler(
+		struct axiadc_converter *conv, unsigned chn)
+{
+	u64 event = IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE, chn,
+			IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING);
+	s64 timestamp = iio_get_time_ns();
+
+	iio_push_event(conv->indio_dev, event, timestamp);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t ad9680_fdA_handler(int irq, void *private)
+{
+	return ad9680_event_handler(private, 0);
+}
+
+static irqreturn_t ad9680_fdB_handler(int irq, void *private)
+{
+	return ad9680_event_handler(private, 1);
+}
+
+static int ad9680_read_thresh(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, enum iio_event_info info, int *val,
+	int *val2)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct spi_device *spi = conv->spi;
+	u16 low, high;
+
+	mutex_lock(&indio_dev->mlock);
+	low = (ad9467_spi_read(spi, AD9680_REG_THRESH_LOW_MSB) << 8) |
+		ad9467_spi_read(spi, AD9680_REG_THRESH_LOW_LSB);
+	high = (ad9467_spi_read(spi, AD9680_REG_THRESH_HI_MSB) << 8) |
+		ad9467_spi_read(spi, AD9680_REG_THRESH_HI_LSB);
+	mutex_unlock(&indio_dev->mlock);
+
+	switch (info) {
+	case IIO_EV_INFO_HYSTERESIS:
+		*val = high - low;
+		break;
+	case IIO_EV_INFO_VALUE:
+		*val = high;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return IIO_VAL_INT;
+}
+
+static int ad9680_read_thresh_en(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    enum iio_event_type type,
+				    enum iio_event_direction dir)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct spi_device *spi = conv->spi;
+	int ret;
+
+	ret = ad9467_spi_read(spi, AD9680_REG_CHIP_PIN_CTRL);
+	if (ret < 0)
+		return ret;
+	else
+		return !(ret & AD9680_REG_CHIP_PIN_CTRL_MASK(chan->channel));
+}
+
+static int ad9680_write_thresh(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, enum iio_event_info info, int val,
+	int val2)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct spi_device *spi = conv->spi;
+	int ret = 0;
+	int low, high;
+
+	mutex_lock(&indio_dev->mlock);
+	high = (ad9467_spi_read(spi, AD9680_REG_THRESH_HI_MSB) << 8) |
+		ad9467_spi_read(spi, AD9680_REG_THRESH_HI_LSB);
+
+	switch (info) {
+	case IIO_EV_INFO_HYSTERESIS:
+		if (val < 0) {
+			ret = -EINVAL;
+			goto unlock;
+		}
+
+		low = high - val;
+		break;
+
+	case IIO_EV_INFO_VALUE:
+		if (val > 0x7FF) {
+			ret = -EINVAL;
+			goto unlock;
+		}
+
+		ad9467_spi_write(spi, AD9680_REG_THRESH_HI_MSB, val >> 8);
+		ad9467_spi_write(spi, AD9680_REG_THRESH_HI_LSB, val & 0xFF);
+
+		/* Calculate the new lower threshold limit */
+		low = (ad9467_spi_read(spi, AD9680_REG_THRESH_LOW_MSB) << 8) |
+			ad9467_spi_read(spi, AD9680_REG_THRESH_LOW_LSB);
+		low = val - high + low;
+		break;
+
+	default:
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	if (low < 0)
+		low = 0;
+	ad9467_spi_write(spi, AD9680_REG_THRESH_LOW_MSB, low >> 8);
+	ad9467_spi_write(spi, AD9680_REG_THRESH_LOW_LSB, low & 0xFF);
+
+unlock:
+	mutex_unlock(&indio_dev->mlock);
+	return ret;
+}
+
+static int ad9680_write_thresh_en(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan,
+				     enum iio_event_type type,
+				     enum iio_event_direction dir,
+				     int state)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct spi_device *spi = conv->spi;
+	int ret;
+
+	mutex_lock(&indio_dev->mlock);
+
+	ret = ad9467_spi_read(spi, AD9680_REG_CHIP_PIN_CTRL);
+	if (ret < 0)
+		goto err_unlock;
+
+	if (state)
+		ret &= ~AD9680_REG_CHIP_PIN_CTRL_MASK(chan->channel);
+	else
+		ret |= AD9680_REG_CHIP_PIN_CTRL_MASK(chan->channel);
+
+	ret = ad9467_spi_write(spi, AD9680_REG_CHIP_PIN_CTRL, ret);
+err_unlock:
+	mutex_unlock(&indio_dev->mlock);
+	return ret;
+}
+
 static const char *const testmodes[] = {
 	[TESTMODE_OFF] = "off",
 	[TESTMODE_MIDSCALE_SHORT] = "midscale_short",
@@ -516,26 +667,32 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{},
 };
 
-#define AIM_CHAN(_chan, _si, _bits, _sign)			\
+#define AIM_CHAN(_chan, _si, _bits, _sign)				\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT | 		\
-			IIO_CHAN_INFO_CALIBSCALE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_CALIBPHASE_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY_SEPARATE_BIT |		\
-			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
-			.ext_info = axiadc_ext_info,			\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
+			BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
+			BIT(IIO_CHAN_INFO_CALIBPHASE) |			\
+			BIT(IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY), \
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) | 	\
+			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
+	  .ext_info = axiadc_ext_info,					\
 	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
+	  .scan_type = {						\
+			.sign = _sign,					\
+			.realbits = _bits,				\
+			.storagebits = 16,				\
+			.shift = 0,					\
+	  },								\
+	}
 
 #define AIM_CHAN_NOCALIB(_chan, _si, _bits, _sign, _shift)		\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask = IIO_CHAN_INFO_SCALE_SHARED_BIT |	 		\
-			IIO_CHAN_INFO_SAMP_FREQ_SHARED_BIT,		\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) | 	\
+			BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
 	  .ext_info = axiadc_ext_info,			\
 	  .scan_index = _si,						\
 	  .scan_type = {						\
@@ -554,7 +711,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9467_scale_table),
 		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN(0, 0, 16, 's'),
+		       .channel[0] = AIM_CHAN(0, 0, 16, 'S'),
 		       },
 	[ID_AD9643] = {
 		       .name = "AD9643",
@@ -563,8 +720,8 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
 		       .max_testmode = TESTMODE_RAMP,
 		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN(0, 0, 14, 's'),
-		       .channel[1] = AIM_CHAN(1, 1, 14, 's'),
+		       .channel[0] = AIM_CHAN(0, 0, 14, 'S'),
+		       .channel[1] = AIM_CHAN(1, 1, 14, 'S'),
 		       },
 	[ID_AD9250] = {
 		       .name = "AD9250",
@@ -573,8 +730,8 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
 		       .max_testmode = TESTMODE_RAMP,
 		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 's'),
-		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
+		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S', 0),
 		       },
 	[ID_AD9683] = {
 		       .name = "AD9683",
@@ -583,7 +740,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
 		       .max_testmode = TESTMODE_RAMP,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
 		       },
 	[ID_AD9625] = {
 		       .name = "AD9625",
@@ -601,48 +758,36 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .num_scales = ARRAY_SIZE(ad9265_scale_table),
 		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 'S', 0),
 		       },
 	[ID_AD9434] = {
 		       .name = "AD9434",
 		       .max_rate = 500000000UL,
 		       .scale_table = ad9434_scale_table,
 		       .num_scales = ARRAY_SIZE(ad9434_scale_table),
-		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
+		       .max_testmode = TESTMODE_USER,
 		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 's'),
-		       },
-	[ID_AD9680] = {
-		       .name = "AD9680",
-		       .max_rate = 1250000000UL,
-		       .scale_table = ad9680_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9680_scale_table),
-		       .max_testmode = TESTMODE_RAMP,
-		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 's'),
-		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 's'),
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S', 0),
 		       },
 	[ID_AD9652] = {
 		       .name = "AD9652",
-		       .max_rate = 1250000000UL,
+		       .max_rate = 310000000UL,
 		       .scale_table = ad9652_scale_table,
 		       .num_scales = ARRAY_SIZE(ad9652_scale_table),
 		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
 		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN_NOCALIB(1, 1, 16, 'S'),
-		       .channel[1] = AIM_CHAN_NOCALIB(0, 0, 16, 'S'),
+		       .channel[0] = AIM_CHAN(0, 0, 16, 'S'),
+		       .channel[1] = AIM_CHAN(1, 1, 16, 'S'),
 		       },
-	[ID_AD9234] = {
-		       .name = "AD9234",
-		       .max_rate = 1000000000UL,
-		       .scale_table = ad9680_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9680_scale_table),
-		       .max_testmode = TESTMODE_RAMP,
-		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S', 0),
-		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 12, 'S', 0),
+	[ID_AD9649] = {
+		       .name = "AD9649",
+		       .max_rate = 80000000UL,
+		       .scale_table = ad9649_scale_table,
+		       .num_scales = ARRAY_SIZE(ad9649_scale_table),
+		       .max_testmode = TESTMODE_MIXED_BIT_FREQUENCY,
+		       .num_channels = 1,
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
 		       },
-
 };
 
 static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
@@ -916,6 +1061,42 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int ad9680_request_fd_irqs(struct axiadc_converter *conv)
+{
+	struct device *dev = &conv->spi->dev;
+	struct gpio_desc *gpio;
+
+	gpio = devm_gpiod_get(dev, "fastdetect-a", GPIOD_IN);
+	if (!IS_ERR(gpio)) {
+		int ret, irq = gpiod_to_irq(gpio);
+		if (irq < 0)
+			return irq;
+
+		ret = devm_request_threaded_irq(dev,
+				irq, NULL, ad9680_fdA_handler,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				"fastdetect-a", conv);
+		if (ret < 0)
+			return ret;
+	}
+
+	gpio = devm_gpiod_get(dev, "fastdetect-b", GPIOD_IN);
+	if (!IS_ERR(gpio)) {
+		int ret, irq = gpiod_to_irq(gpio);
+		if (irq < 0)
+			return irq;
+
+		ret = devm_request_threaded_irq(dev,
+				irq, NULL, ad9680_fdB_handler,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				"fastdetect-b", conv);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int ad9467_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -1115,6 +1296,10 @@ static int ad9467_probe(struct spi_device *spi)
 	conv->read = ad9467_spi_read;
 	conv->write_raw = ad9467_write_raw;
 	conv->read_raw = ad9467_read_raw;
+	conv->read_event_value = ad9680_read_thresh,
+	conv->write_event_value = ad9680_write_thresh,
+	conv->read_event_config = ad9680_read_thresh_en,
+	conv->write_event_config = ad9680_write_thresh_en,
 	conv->post_setup = ad9467_post_setup;
 
 	switch (conv->id) {
@@ -1130,6 +1315,17 @@ static int ad9467_probe(struct spi_device *spi)
 
 	conv->attrs = &ad9467_attribute_group;
 	conv->spi = spi;
+
+	if (conv->id == CHIPID_AD9680) {
+		ret = ad9680_request_fd_irqs(conv);
+		if (ret < 0)
+			goto out;
+
+		/* Enable Fast Detect output */
+		ret = ad9467_spi_write(spi, AD9680_REG_THRESH_CTRL, 0x1);
+		if (ret < 0)
+			goto out;
+	}
 
 	return 0;
 
