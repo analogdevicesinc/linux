@@ -1,5 +1,5 @@
 /dts-v1/;
-/include/ "zynq-rfsom.dtsi"
+/include/ "zynq-picozed-sdr.dtsi"
 
 
 &i2c0 {

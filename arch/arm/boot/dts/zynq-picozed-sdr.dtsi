@@ -137,6 +137,7 @@
 				adi,source-bus-width = <64>;
 				adi,destination-bus-width = <64>;
 				adi,type = <1>;
+				adi,cyclic;
 			};
 		};
 
