@@ -26,6 +26,7 @@
 					reg = <0>;
 					osc@5d {
 						compatible = "si570";
+						temperature-stability = <50>;
 						reg = <0x5d>;
 						factory-fout = <156250000>;
 						initial-fout = <148500000>;
