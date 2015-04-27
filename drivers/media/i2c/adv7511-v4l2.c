@@ -1791,6 +1791,7 @@ static int adv7511_probe(struct i2c_client *client)
 	state->colorspace = V4L2_COLORSPACE_SRGB;
 
 	sd = &state->sd;
+	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 
 	v4l2_dbg(1, debug, sd, "detecting adv7511 client on address 0x%x\n",
 			 client->addr << 1);
