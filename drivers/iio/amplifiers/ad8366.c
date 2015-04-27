@@ -57,7 +57,7 @@ static int ad8366_write(struct iio_dev *indio_dev,
 		st->data[0] = ch_a & 0x1F;
 		break;
 	case ID_ADL5240:
-		st->data[0] = (ch_a & 0x3F) << 2;
+		st->data[0] = (ch_a & 0x3F);
 		break;
 	case ID_HMC271:
 		st->data[0] = bitrev8(ch_a & 0x1F);
