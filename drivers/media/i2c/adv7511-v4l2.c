@@ -2297,6 +2297,7 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 			 client->addr << 1);
 
 	v4l2_i2c_subdev_init(sd, client, &adv7511_ops);
+	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	adv7511_subdev(sd);
 	sd->internal_ops = &adv7511_int_ops;
 
