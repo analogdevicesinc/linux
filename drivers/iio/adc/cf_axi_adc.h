@@ -283,13 +283,22 @@ enum adc_data_sel {
 #define AD9680_REG_CHIP_ID_HIGH		0x005
 #define AD9680_REG_DEVICE_INDEX		0x008
 #define AD9680_REG_INPUT_FS_RANGE	0x025
+#define AD9680_REG_CHIP_PIN_CTRL	0x040
 
 #define AD9680_REG_OUTPUT_MODE		0x561
 #define AD9680_REG_TEST_MODE		0x550
 
+#define AD9680_REG_THRESH_CTRL		0x245
+#define AD9680_REG_THRESH_HI_LSB	0x247
+#define AD9680_REG_THRESH_HI_MSB	0x248
+#define AD9680_REG_THRESH_LOW_LSB	0x249
+#define AD9680_REG_THRESH_LOW_MSB	0x24A
+
 #define CHIPID_AD9680			0xC5
 #define AD9680_DEF_OUTPUT_MODE		0x00
 #define AD9680_REG_VREF_MASK		0x0F
+
+#define AD9680_REG_CHIP_PIN_CTRL_MASK(chn)	(0x07 << (3 * (chn)))
 
 /*
  * Analog Devices AD9652
@@ -385,6 +394,33 @@ struct axiadc_converter {
 			 int val,
 			 int val2,
 			 long mask);
+
+	int (*read_event_value)(struct iio_dev *indio_dev,
+			struct iio_chan_spec const *chan,
+			enum iio_event_type type,
+			enum iio_event_direction dir,
+			enum iio_event_info info,
+			int *val,
+			int *val2);
+
+	int (*write_event_value)(struct iio_dev *indio_dev,
+			struct iio_chan_spec const *chan,
+			enum iio_event_type type,
+			enum iio_event_direction dir,
+			enum iio_event_info info,
+			int val,
+			int val2);
+
+	int (*read_event_config)(struct iio_dev *indio_dev,
+			const struct iio_chan_spec *chan,
+			enum iio_event_type type,
+			enum iio_event_direction dir);
+
+	int (*write_event_config)(struct iio_dev *indio_dev,
+			const struct iio_chan_spec *chan,
+			enum iio_event_type type,
+			enum iio_event_direction dir,
+			int state);
 
 	int (*post_setup)(struct iio_dev *indio_dev);
 	int (*testmode_set)(struct iio_dev *indio_dev, unsigned chan,

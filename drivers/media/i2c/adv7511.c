@@ -57,7 +57,6 @@ MODULE_LICENSE("GPL");
 #define ADV7511_MAX_HEIGHT 1200
 #define ADV7511_MIN_PIXELCLOCK 20000000
 #define ADV7511_MAX_PIXELCLOCK 225000000
-#define XYLON_LOGICVC_INTG
 
 /*
 **********************************************************************
@@ -1585,6 +1584,7 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 			 client->addr << 1);
 
 	v4l2_i2c_subdev_init(sd, client, &adv7511_ops);
+	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	adv7511_subdev(sd);
 	hdl = &state->hdl;
 	v4l2_ctrl_handler_init(hdl, 10);
@@ -1657,6 +1657,11 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 #endif
 	v4l2_info(sd, "%s found @ 0x%x (%s)\n", client->name,
 			  client->addr << 1, client->adapter->name);
+
+	err = v4l2_async_register_subdev(sd);
+	if (err)
+		goto err_unreg_cec;
+
 	return 0;
 
 err_unreg_cec:
@@ -1684,6 +1689,7 @@ static int adv7511_remove(struct i2c_client *client)
 	cancel_delayed_work(&state->edid_handler);
 	i2c_unregister_device(state->i2c_edid);
 	destroy_workqueue(state->work_queue);
+	v4l2_async_unregister_subdev(sd);
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&sd->entity);
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
