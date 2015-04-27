@@ -65,25 +65,25 @@
 		};
 
 		uart0: uart@e0000000 {
-			compatible = "xlnx,xuartps";
-			status = "disabled";
-			reg = <0xe0000000 0x1000>;
-			interrupts = <0 27 4>;
 			interrupt-parent = <&gic>;
-			clock-names = "ref_clk", "aper_clk";
+			compatible = "xlnx,xuartps", "cdns,uart-r1p8";
+			status = "disabled";
 			clocks = <&clkc 23>, <&clkc 40>;
+			clock-names = "uart_clk", "pclk";
+			reg = <0xE0000000 0x1000>;
+			interrupts = <0 27 4>;
 			port-number = <0>;
 			current-speed = <115200>;
 			device_type = "serial";
 		};
 
 		uart1: uart@e0001000 {
-			compatible = "xlnx,xuartps";
-			reg = <0xe0001000 0x1000>;
-			interrupts = < 0 50 4>;
 			interrupt-parent = <&gic>;
-			clock-names = "ref_clk", "aper_clk";
+			compatible = "xlnx,xuartps", "cdns,uart-r1p8";
 			clocks = <&clkc 24>, <&clkc 41>;
+			clock-names = "uart_clk", "pclk";
+			reg = <0xE0001000 0x1000>;
+			interrupts = <0 50 4>;
 			port-number = <0>;
 			current-speed = <115200>;
 			device_type = "serial";
