@@ -12,6 +12,7 @@
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio/consumer.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/bitrev.h>
@@ -28,7 +29,8 @@ enum ad8366_type {
 
 struct ad8366_state {
 	struct spi_device	*spi;
-	struct regulator	*reg;
+	struct regulator		*reg;
+	struct gpio_desc		*reset_gpio;
 	unsigned char		ch[2];
 	enum ad8366_type	type;
 
@@ -60,9 +62,10 @@ static int ad8366_write(struct iio_dev *indio_dev,
 		st->data[0] = (ch_a & 0x3F);
 		break;
 	case ID_HMC271:
-		st->data[0] = bitrev8(ch_a & 0x1F);
+		st->data[0] = bitrev8(ch_a & 0x1F) >> 3;
 		break;
 	}
+
 
 	ret = spi_write(st->spi, st->data, indio_dev->num_channels);
 	if (ret < 0)
@@ -230,6 +233,12 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_ADA4961:
 	case ID_ADL5240:
 	case ID_HMC271:
+
+		st->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
+		if (!IS_ERR(st->reset_gpio)) {
+			gpiod_direction_output(st->reset_gpio, 1);
+		}
+
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
