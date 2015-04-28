@@ -253,6 +253,8 @@
 			clocks = <&clk_bus_0>;
 
 			dma-channel {
+				adi,source-bus-width = <128>;
+				adi,destination-bus-width = <128>;
 				adi,type = <1>;
 				adi,cyclic;
 			};
