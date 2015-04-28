@@ -197,8 +197,7 @@
 		adi,rx-data-delay = <4>;
 		adi,tx-fb-clock-delay = <7>;
 
-		adi,dcxo-coarse-and-fine-tune = <8 5920>;
-		//adi,xo-disable-use-ext-refclk-enable;
+		adi,xo-disable-use-ext-refclk-enable;
 
 		/* Mode Setup */
 
