@@ -556,25 +556,107 @@ static void iio_free_scan_mask(struct iio_dev *indio_dev,
 		kfree(mask);
 }
 
+struct iio_device_config {
+	unsigned int mode;
+	const unsigned long *scan_mask;
+	unsigned int scan_bytes;
+	bool scan_timestamp;
+};
+
+static int iio_verify_update(struct iio_dev *indio_dev,
+	struct iio_buffer *insert_buffer, struct iio_buffer *remove_buffer,
+	struct iio_device_config *config)
+{
+	unsigned long *compound_mask;
+	const unsigned long *scan_mask;
+	struct iio_buffer *buffer;
+	bool scan_timestamp;
+
+	memset(config, 0, sizeof(*config));
+
+	/*
+	 * If there is just one buffer and we are removing it there is nothing
+	 * to verify.
+	 */
+	if (remove_buffer && !insert_buffer &&
+		list_is_singular(&indio_dev->buffer_list))
+			return 0;
+
+	/* Definitely possible for devices to support both of these. */
+	if ((indio_dev->modes & INDIO_BUFFER_TRIGGERED) && indio_dev->trig)
+		config->mode = INDIO_BUFFER_TRIGGERED;
+	else if (indio_dev->modes & INDIO_BUFFER_HARDWARE)
+		config->mode = INDIO_BUFFER_HARDWARE;
+	else /* Should never be reached */
+		return -EINVAL;
+
+	/* What scan mask do we actually have? */
+	compound_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
+				sizeof(long), GFP_KERNEL);
+	if (compound_mask == NULL)
+		return -ENOMEM;
+
+	scan_timestamp = false;
+
+	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+		if (buffer == remove_buffer)
+			continue;
+		bitmap_or(compound_mask, compound_mask, buffer->scan_mask,
+			  indio_dev->masklength);
+		scan_timestamp |= buffer->scan_timestamp;
+	}
+
+	if (insert_buffer) {
+		bitmap_or(compound_mask, compound_mask,
+			  insert_buffer->scan_mask, indio_dev->masklength);
+		scan_timestamp |= insert_buffer->scan_timestamp;
+	}
+
+	if (indio_dev->available_scan_masks) {
+		scan_mask = iio_scan_mask_match(indio_dev->available_scan_masks,
+				    indio_dev->masklength,
+				    compound_mask,
+				    indio_dev->direction ==
+				    IIO_DEVICE_DIRECTION_OUT);
+		kfree(compound_mask);
+		if (scan_mask == NULL)
+			return -EINVAL;
+	} else {
+		scan_mask = compound_mask;
+	}
+
+	config->scan_bytes = iio_compute_scan_bytes(indio_dev,
+				    scan_mask, scan_timestamp);
+	config->scan_mask = scan_mask;
+	config->scan_timestamp = scan_timestamp;
+
+	return 0;
+}
+
 static int __iio_update_buffers(struct iio_dev *indio_dev,
 		       struct iio_buffer *insert_buffer,
 		       struct iio_buffer *remove_buffer)
 {
 	int ret;
-	int success = 0;
 	struct iio_buffer *buffer;
-	unsigned long *compound_mask;
 	const unsigned long *old_mask;
+	struct iio_device_config new_config;
 
+	ret = iio_verify_update(indio_dev, insert_buffer, remove_buffer,
+		&new_config);
+	if (ret)
+		return ret;
 
 	if (insert_buffer) {
 		if (bitmap_empty(insert_buffer->scan_mask,
-			indio_dev->masklength))
-			return -EINVAL;
+			indio_dev->masklength)) {
+			ret = -EINVAL;
+			goto err_free_config;
+		}
 
 		ret = iio_buffer_request_update(indio_dev, insert_buffer);
 		if (ret)
-			return ret;
+			goto err_free_config;
 	}
 
 	/* Wind down existing buffers - iff there are any */
@@ -616,63 +698,10 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		return 0;
 	}
 
-	/* What scan mask do we actually have? */
-	compound_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
-				sizeof(long), GFP_KERNEL);
-	if (compound_mask == NULL) {
-		iio_free_scan_mask(indio_dev, old_mask);
-		return -ENOMEM;
-	}
-	indio_dev->scan_timestamp = 0;
-
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
-		bitmap_or(compound_mask, compound_mask, buffer->scan_mask,
-			  indio_dev->masklength);
-		indio_dev->scan_timestamp |= buffer->scan_timestamp;
-	}
-	if (indio_dev->available_scan_masks) {
-		indio_dev->active_scan_mask =
-			iio_scan_mask_match(indio_dev->available_scan_masks,
-					    indio_dev->masklength,
-					    compound_mask,
-					    indio_dev->direction ==
-					    IIO_DEVICE_DIRECTION_OUT);
-		kfree(compound_mask);
-		if (indio_dev->active_scan_mask == NULL) {
-			/*
-			 * Roll back.
-			 * Note can only occur when adding a buffer.
-			 */
-			iio_buffer_disable(insert_buffer, indio_dev);
-			iio_buffer_deactivate(insert_buffer);
-			if (old_mask) {
-				indio_dev->active_scan_mask = old_mask;
-				success = -EINVAL;
-			}
-			else {
-				ret = -EINVAL;
-				return ret;
-			}
-		}
-	} else {
-		indio_dev->active_scan_mask = compound_mask;
-	}
-
-	/* Definitely possible for devices to support both of these. */
-	if (indio_dev->modes & INDIO_BUFFER_TRIGGERED) {
-		if (!indio_dev->trig) {
-			dev_dbg(&indio_dev->dev, "Buffer not started: no trigger\n");
-			ret = -EINVAL;
-			/* Can only occur on first buffer */
-			goto error_remove_inserted;
-		}
-		indio_dev->currentmode = INDIO_BUFFER_TRIGGERED;
-	} else if (indio_dev->modes & INDIO_BUFFER_HARDWARE) {
-		indio_dev->currentmode = INDIO_BUFFER_HARDWARE;
-	} else { /* Should never be reached */
-		ret = -EINVAL;
-		goto error_remove_inserted;
-	}
+	indio_dev->currentmode = new_config.mode;
+	indio_dev->active_scan_mask = new_config.scan_mask;
+	indio_dev->scan_timestamp = new_config.scan_timestamp;
+	indio_dev->scan_bytes = new_config.scan_bytes;
 
 	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
 		iio_update_demux(indio_dev);
@@ -686,10 +715,6 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 			goto error_remove_inserted;
 		}
 	}
-	indio_dev->scan_bytes =
-		iio_compute_scan_bytes(indio_dev,
-				       indio_dev->active_scan_mask,
-				       indio_dev->scan_timestamp);
 	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
 		ret = iio_buffer_enable(buffer, indio_dev);
 		if (ret)
@@ -720,7 +745,7 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 
 	iio_free_scan_mask(indio_dev, old_mask);
 
-	return success;
+	return 0;
 
 error_disable_all_buffers:
 	iio_buffer_disable(buffer, indio_dev);
@@ -733,6 +758,10 @@ error_remove_inserted:
 		iio_buffer_deactivate(insert_buffer);
 	iio_free_scan_mask(indio_dev, indio_dev->active_scan_mask);
 	indio_dev->active_scan_mask = old_mask;
+	return ret;
+
+err_free_config:
+	iio_free_scan_mask(indio_dev, new_config.scan_mask);
 	return ret;
 }
 
