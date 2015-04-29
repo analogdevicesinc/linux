@@ -14,6 +14,8 @@
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/gpio.h>
+#include <linux/interrupt.h>
+#include <linux/of_irq.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-of.h>
 #include <media/adv7604.h>
@@ -67,6 +69,19 @@ static int imageon_bridge_load_input_edid(struct platform_device *pdev,
 	release_firmware(fw);
 
 	return 0;
+}
+
+static irqreturn_t imageon_bridge_hdmiio_int_handler(int irq, void *dev_id)
+{
+	struct imageon_bridge *bridge = dev_id;
+
+	v4l2_subdev_call(bridge->imageon_subdev[INPUT_SUBDEV].subdev,
+			core, interrupt_service_routine, 0, NULL);
+
+	v4l2_subdev_call(bridge->imageon_subdev[OUTPUT_SUBDEV].subdev,
+			core, interrupt_service_routine, 0, NULL);
+
+	return IRQ_HANDLED;
 }
 
 static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
@@ -169,11 +184,23 @@ static int imageon_bridge_probe(struct platform_device *pdev)
 {
 	struct imageon_bridge *bridge;
 	struct v4l2_async_subdev **asubdevs;
+	int irq;
 	int ret;
 
 	bridge = imageon_bridge_parse_dt(&pdev->dev);
 	if (bridge == NULL)
 		return -ENOMEM;
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq > 0) {
+		ret = request_threaded_irq(irq, NULL, imageon_bridge_hdmiio_int_handler,
+				IRQF_ONESHOT | IRQF_TRIGGER_LOW, dev_name(&pdev->dev),
+				bridge);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "failed to request irq\n");
+			return ret;
+		}
+	}
 
 	ret = devm_gpio_request_one(&pdev->dev,
 		bridge->gpio_rx_hotplug, GPIOF_OUT_INIT_LOW, "RX_HOTPLUG");
