@@ -121,6 +121,9 @@
 			rx_hotplug-gpios = <&pca9534 2 0>;
 			tx_pd-gpios = <&pca9534 4 0>;
 
+			interrupt-parent = <&gpio>;
+			interrupts = <86 0>;
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
