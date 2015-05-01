@@ -17,7 +17,6 @@
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
-#include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 
 #include <linux/device.h>
@@ -28,6 +27,8 @@
 #include "xilinx_drm_crtc.h"
 #include "xilinx_drm_drv.h"
 #include "xilinx_drm_encoder.h"
+#include "xilinx_drm_fb.h"
+#include "xilinx_drm_gem.h"
 
 #define DRIVER_NAME	"xilinx_drm"
 #define DRIVER_DESC	"Xilinx DRM KMS support for Xilinx"
@@ -47,7 +48,7 @@ struct xilinx_drm_private {
 	struct drm_crtc *crtc;
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
-	struct drm_fbdev_cma *fbdev;
+	struct drm_fb_helper *fb;
 	struct platform_device *pdev;
 };
 
@@ -73,36 +74,56 @@ static const struct xilinx_video_format_desc xilinx_video_formats[] = {
 	{ "rgb888", 24, 24, XILINX_VIDEO_FORMAT_RGB, DRM_FORMAT_RGB888 },
 	{ "yuv420", 16, 16, XILINX_VIDEO_FORMAT_YUV420, DRM_FORMAT_YUV420 },
 	{ "xrgb8888", 24, 32, XILINX_VIDEO_FORMAT_XRGB, DRM_FORMAT_XRGB8888 },
+	{ "rgba8888", 32, 32, XILINX_VIDEO_FORMAT_NONE, DRM_FORMAT_RGBA8888 },
+	{ "rgb565", 16, 16, XILINX_VIDEO_FORMAT_NONE, DRM_FORMAT_RGB565 },
+	{ "xbgr8888", 24, 32, XILINX_VIDEO_FORMAT_NONE, DRM_FORMAT_XBGR8888 },
+	{ "abgr8888", 32, 32, XILINX_VIDEO_FORMAT_NONE, DRM_FORMAT_ABGR8888 },
 };
 
-static unsigned int xilinx_drm_format_bpp(uint32_t drm_format);
-static unsigned int xilinx_drm_format_depth(uint32_t drm_format);
-
-/* create a fb */
-static struct drm_framebuffer *
-xilinx_drm_fb_create(struct drm_device *drm, struct drm_file *file_priv,
-		     struct drm_mode_fb_cmd2 *mode_cmd)
+/**
+ * xilinx_drm_check_format - Check if the given format is supported
+ * @drm: DRM device
+ * @fourcc: format fourcc
+ *
+ * Check if the given format @fourcc is supported by the current pipeline
+ *
+ * Return: true if the format is supported, or false
+ */
+bool xilinx_drm_check_format(struct drm_device *drm, uint32_t fourcc)
 {
 	struct xilinx_drm_private *private = drm->dev_private;
-	struct drm_framebuffer *fb;
-	bool res;
 
-	res = xilinx_drm_crtc_check_format(private->crtc,
-					   mode_cmd->pixel_format);
-	if (!res) {
-		DRM_ERROR("unsupported pixel format %08x\n",
-			  mode_cmd->pixel_format);
-		return ERR_PTR(-EINVAL);
-	}
+	return xilinx_drm_crtc_check_format(private->crtc, fourcc);
+}
 
-	fb = drm_fb_cma_create(drm, file_priv, mode_cmd);
-	if (IS_ERR(fb))
-		return fb;
+/**
+ * xilinx_drm_get_format - Get the current device format
+ * @drm: DRM device
+ *
+ * Get the current format of pipeline
+ *
+ * Return: the corresponding DRM_FORMAT_XXX
+ */
+uint32_t xilinx_drm_get_format(struct drm_device *drm)
+{
+	struct xilinx_drm_private *private = drm->dev_private;
 
-	fb->bits_per_pixel = xilinx_drm_format_bpp(mode_cmd->pixel_format);
-	fb->depth = xilinx_drm_format_depth(mode_cmd->pixel_format);
+	return xilinx_drm_crtc_get_format(private->crtc);
+}
 
-	return fb;
+/**
+ * xilinx_drm_get_align - Get the alignment value for pitch
+ * @drm: DRM object
+ *
+ * Get the alignment value for pitch from the plane
+ *
+ * Return: The alignment value if successful, or the error code.
+ */
+unsigned int xilinx_drm_get_align(struct drm_device *drm)
+{
+	struct xilinx_drm_private *private = drm->dev_private;
+
+	return xilinx_drm_crtc_get_align(private->crtc);
 }
 
 /* poll changed handler */
@@ -110,7 +131,7 @@ static void xilinx_drm_output_poll_changed(struct drm_device *drm)
 {
 	struct xilinx_drm_private *private = drm->dev_private;
 
-	drm_fbdev_cma_hotplug_event(private->fbdev);
+	xilinx_drm_fb_hotplug_event(private->fb);
 }
 
 static const struct drm_mode_config_funcs xilinx_drm_mode_config_funcs = {
@@ -190,7 +211,7 @@ int xilinx_drm_format_by_name(const char *name, uint32_t *drm_format)
 }
 
 /* get bpp of given format */
-static unsigned int xilinx_drm_format_bpp(uint32_t drm_format)
+unsigned int xilinx_drm_format_bpp(uint32_t drm_format)
 {
 	const struct xilinx_video_format_desc *format;
 	unsigned int i;
@@ -205,7 +226,7 @@ static unsigned int xilinx_drm_format_bpp(uint32_t drm_format)
 }
 
 /* get color depth of given format */
-static unsigned int xilinx_drm_format_depth(uint32_t drm_format)
+unsigned int xilinx_drm_format_depth(uint32_t drm_format)
 {
 	const struct xilinx_video_format_desc *format;
 	unsigned int i;
@@ -225,6 +246,7 @@ static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 	struct xilinx_drm_private *private;
 	struct platform_device *pdev = drm->platformdev;
 	unsigned int bpp;
+	unsigned int align;
 	int ret;
 
 	private = devm_kzalloc(drm->dev, sizeof(*private), GFP_KERNEL);
@@ -269,17 +291,18 @@ static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 	/* allow disable vblank */
 	drm->vblank_disable_allowed = 1;
 
-	/* initialize xilinx cma framebuffer */
-	bpp = xilinx_drm_format_bpp(xilinx_drm_crtc_get_format(private->crtc));
-	private->fbdev = drm_fbdev_cma_init(drm, bpp, 1, 1);
-	if (IS_ERR(private->fbdev)) {
-		DRM_ERROR("failed to initialize drm cma fbdev\n");
-		ret = PTR_ERR(private->fbdev);
-		goto err_fbdev;
-	}
-
 	drm->dev_private = private;
 	private->drm = drm;
+
+	/* initialize xilinx framebuffer */
+	bpp = xilinx_drm_format_bpp(xilinx_drm_crtc_get_format(private->crtc));
+	align = xilinx_drm_crtc_get_align(private->crtc);
+	private->fb = xilinx_drm_fb_init(drm, bpp, 1, 1, align);
+	if (IS_ERR(private->fb)) {
+		DRM_ERROR("failed to initialize drm cma fb\n");
+		ret = PTR_ERR(private->fb);
+		goto err_fb;
+	}
 
 	drm_kms_helper_poll_init(drm);
 
@@ -292,7 +315,7 @@ static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 
 	return 0;
 
-err_fbdev:
+err_fb:
 	drm_vblank_cleanup(drm);
 err_out:
 	drm_mode_config_cleanup(drm);
@@ -310,7 +333,7 @@ static int xilinx_drm_unload(struct drm_device *drm)
 
 	drm_kms_helper_poll_fini(drm);
 
-	drm_fbdev_cma_fini(private->fbdev);
+	xilinx_drm_fb_fini(private->fb);
 
 	drm_mode_config_cleanup(drm);
 
@@ -333,7 +356,7 @@ static void xilinx_drm_lastclose(struct drm_device *drm)
 
 	xilinx_drm_crtc_restore(private->crtc);
 
-	drm_fbdev_cma_restore_mode(private->fbdev);
+	xilinx_drm_fb_restore_mode(private->fb);
 }
 
 static const struct file_operations xilinx_drm_fops = {
@@ -373,7 +396,7 @@ static struct drm_driver xilinx_drm_driver = {
 	.gem_prime_mmap			= drm_gem_cma_prime_mmap,
 	.gem_free_object		= drm_gem_cma_free_object,
 	.gem_vm_ops			= &drm_gem_cma_vm_ops,
-	.dumb_create			= drm_gem_cma_dumb_create,
+	.dumb_create			= xilinx_drm_gem_cma_dumb_create,
 	.dumb_map_offset		= drm_gem_cma_dumb_map_offset,
 	.dumb_destroy			= drm_gem_dumb_destroy,
 

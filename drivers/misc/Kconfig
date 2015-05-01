@@ -75,7 +75,7 @@ config ATMEL_TCB_CLKSRC
 config ATMEL_TCB_CLKSRC_BLOCK
 	int
 	depends on ATMEL_TCB_CLKSRC
-	prompt "TC Block" if ARCH_AT91RM9200 || ARCH_AT91SAM9260 || CPU_AT32AP700X
+	prompt "TC Block" if CPU_AT32AP700X
 	default 0
 	range 0 1
 	help
@@ -533,6 +533,17 @@ config XILINX_TRAFGEN
 	  configurable options which are provided through sysfs entries allow
 	  allow the user to generate a wide variety of traffic based on their
 	  their requirements.
+
+	  If unsure, say N
+
+config XILINX_JESD204B
+	tristate "Xilinx JESD204B"
+	depends on MICROBLAZE
+	help
+	  This option enables support for the Xilinx JESD204B driver.
+	  It is designed to allow user to access JESD204B IP registers
+	  with sysfs entries. JESD204B is the protocol used by High-Speed
+	  data converters to transfer data to FPGA/ASIC.
 
 	  If unsure, say N
 

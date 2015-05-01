@@ -3,11 +3,13 @@ Device-Tree bindings for Xilinx DisplayPort IP core
 The IP core supports transmission of video data in DisplayPort protocol.
 
 Required properties:
- - compatible: Should be "xlnx,v-dp-4.2".
+ - compatible: Should be "xlnx,v-dp".
  - reg: Base address and size of the IP core.
  - interrupts: Interrupt number.
  - interrupts-parent: phandle for interrupt controller.
- - clocks: phandle for aclk
+ - clocks: phandle for aclk and audio clock
+ - clock-names: The identification string, "aclk", is always required for
+   the axi clock. "aud_clk" is required only when audio needs to be enabled.
 
  - xlnx,dp-version: Version of DisplayPort protocol.
  - xlnx,max-lanes: Maximum number of lanes of the IP core. The value should
@@ -25,25 +27,29 @@ Required properties:
    6, 8, 10, 12, or 16.
 
 Optional properties:
- - clock-names: Should be 'aclk'.
  - xlnx,enable-yonly: Enable yonly colormetry.
  - xlnx,enable-ycrcb: Enable ycrcb colormetry.
  - xlnx,enable-sync: Enable synchronous operation with video clock.
+ - xlnx,max-pclock-frequency: Maximum pixel clock rate(KHz). The value should
+   specify the maximum pixel clock rate in KHz that the IP core supports.
+ - xlnx,dp-sub: A phandle referencing the ZynqMP DisplayPort subsystem
+   which contains additional blocks such as buffer managers, blender, and audio.
 
 Example:
 
 	xlnx_dp: dp@83c10000 {
-		compatible = "xlnx,v-dp-4.2";
+		compatible = "xlnx,v-dp";
 		reg = <0x83c10000 0x10000>;
 		interrupts = <0 57 4>;
 		interrupt-parent = <&ps7_scugic_0>;
-		clock-names = "aclk";
-		clocks = <&dp_aclk 0>;
+		clocks = <&dp_aclk>, <&dp_aud_clk>;
+		clock-names = "aclk", "aud_clk";
 
 		xlnx,dp-version = "v1.2";
 		xlnx,max-lanes = <4>;
 		xlnx,max-link-rate = <270000>;
 		xlnx,max-bpc = <16>;
+		xlnx,max-pclock-frequency = <150000>;
 		xlnx,enable-ycrcb;
 
 		xlnx,colormetry = "rgb";

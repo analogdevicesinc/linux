@@ -158,13 +158,11 @@ int dma_direct_mmap_coherent(struct device *dev, struct vm_area_struct *vma,
 			     void *cpu_addr, dma_addr_t handle, size_t size,
 			     struct dma_attrs *attrs)
 {
+#ifdef CONFIG_MMU
 	unsigned long user_count = (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
 	unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
 	unsigned long off = vma->vm_pgoff;
 	unsigned long pfn;
-
-	if (!IS_ENABLED(CONFIG_MMU))
-		return -ENXIO;
 
 	if (off >= count || user_count > (count - off))
 		return -ENXIO;
@@ -177,6 +175,9 @@ int dma_direct_mmap_coherent(struct device *dev, struct vm_area_struct *vma,
 #endif
 	return remap_pfn_range(vma, vma->vm_start, pfn + off,
 			       vma->vm_end - vma->vm_start, vma->vm_page_prot);
+#else
+	return -ENXIO;
+#endif
 }
 
 struct dma_map_ops dma_direct_ops = {

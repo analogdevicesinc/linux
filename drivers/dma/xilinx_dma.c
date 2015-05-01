@@ -878,7 +878,8 @@ err:
  */
 static struct dma_async_tx_descriptor *xilinx_dma_prep_dma_cyclic(
 	struct dma_chan *dchan, dma_addr_t buf_addr, size_t buf_len,
-	size_t period_len, enum dma_transfer_direction direction, void *context)
+	size_t period_len, enum dma_transfer_direction direction,
+	unsigned long flags)
 {
 	struct xilinx_dma_desc_hw *hw;
 	struct xilinx_dma_transfer *t;

@@ -1403,8 +1403,7 @@ err:
  *
  * Return: zero always
  */
-static int xudc_stop(struct usb_gadget *gadget,
-		     struct usb_gadget_driver *driver)
+static int xudc_stop(struct usb_gadget *gadget)
 {
 	struct xusb_udc *udc = to_udc(gadget);
 	unsigned long flags;
@@ -2072,8 +2071,8 @@ static int xudc_probe(struct platform_device *pdev)
 	/* Map the registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	udc->addr = devm_ioremap_resource(&pdev->dev, res);
-	if (!udc->addr)
-		return -ENOMEM;
+	if (IS_ERR(udc->addr))
+		return PTR_ERR(udc->addr);
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
