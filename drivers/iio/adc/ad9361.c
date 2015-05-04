@@ -3913,6 +3913,9 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 			DIGITAL_POWER_UP | CLOCK_ENABLE_DFLT | BBPLL_ENABLE |
 			(pd->use_extclk ? XO_BYPASS : 0)); /* Enable Clocks */
 
+	ret = clk_prepare_enable(phy->clk_refin);
+	if (ret < 0)
+		return ret;
 
 	ret = clk_set_rate(phy->clks[BB_REFCLK], ref_freq);
 	if (ret < 0) {
