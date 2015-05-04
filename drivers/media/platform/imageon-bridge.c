@@ -102,7 +102,7 @@ static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
 		bridge->imageon_subdev[INPUT_SUBDEV].subdev = subdev;
 
 		ret = v4l2_subdev_call(subdev, video, s_routing,
-					ADV7604_PAD_HDMI_PORT_A, 0, 0);
+					ADV76XX_PAD_HDMI_PORT_A, 0, 0);
 		if (ret)
 			return ret;
 

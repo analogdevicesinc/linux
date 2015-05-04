@@ -643,8 +643,8 @@ static int axi_hdmi_rx_s_input(struct file *file, void *priv_fh, unsigned int i)
 
 	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_SRC_SEL, i);
 
-	return v4l2_subdev_call(s->subdev, video, s_routing, ADV7604_MODE_HDMI,
-		0, 0);
+	return v4l2_subdev_call(s->subdev, video, s_routing,
+		ADV76XX_PAD_HDMI_PORT_A, 0, 0);
 }
 
 static const struct v4l2_ioctl_ops axi_hdmi_rx_ioctl_ops = {
@@ -685,7 +685,7 @@ static void axi_hdmi_rx_notify(struct v4l2_subdev *sd, unsigned int notification
 	long hotplug = (long)arg;
 
 	switch (notification) {
-	case ADV7604_HOTPLUG:
+	case ADV76XX_HOTPLUG:
 		gpio_set_value_cansleep(hdmi_rx->hotplug_gpio, hotplug);
 		break;
 	default:
@@ -757,7 +757,7 @@ static int axi_hdmi_rx_async_bound(struct v4l2_async_notifier *notifier,
 
 	hdmi_rx->stream.subdev = subdev;
 
-	ret = v4l2_subdev_call(subdev, video, s_routing, ADV7604_MODE_HDMI,
+	ret = v4l2_subdev_call(subdev, video, s_routing, ADV76XX_PAD_HDMI_PORT_A,
 		0, 0);
 	if (ret)
 		return ret;
