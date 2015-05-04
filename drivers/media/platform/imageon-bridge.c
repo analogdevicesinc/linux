@@ -133,7 +133,7 @@ static int imageon_bridge_async_complete(struct v4l2_async_notifier *notifier)
 
 	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	fmt.pad = ADV7611_PAD_SOURCE;
-	fmt.format.code = V4L2_MBUS_FMT_YUYV8_1X16;
+	fmt.format.code = MEDIA_BUS_FMT_YUYV8_1X16;
 	ret = v4l2_subdev_call(bridge->imageon_subdev[INPUT_SUBDEV].subdev,
 				pad, set_fmt, NULL, &fmt);
 	if (ret)
