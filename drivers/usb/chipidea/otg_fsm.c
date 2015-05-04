@@ -466,6 +466,10 @@ static void ci_otg_drv_vbus(struct otg_fsm *fsm, int on)
 		/* Enable power power */
 		hw_write(ci, OP_PORTSC, PORTSC_W1C_BITS | PORTSC_PP,
 							PORTSC_PP);
+
+		if (ci->usb_phy && ci->usb_phy->otg)
+			otg_set_vbus(ci->usb_phy->otg, true);
+
 		if (ci->platdata->reg_vbus) {
 			ret = regulator_enable(ci->platdata->reg_vbus);
 			if (ret) {
@@ -483,6 +487,8 @@ static void ci_otg_drv_vbus(struct otg_fsm *fsm, int on)
 	} else {
 		if (ci->platdata->reg_vbus)
 			regulator_disable(ci->platdata->reg_vbus);
+		if (ci->usb_phy && ci->usb_phy->otg)
+			otg_set_vbus(ci->usb_phy->otg, false);
 
 		fsm->a_bus_drop = 1;
 		fsm->a_bus_req = 0;
