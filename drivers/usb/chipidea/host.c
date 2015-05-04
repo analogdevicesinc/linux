@@ -36,12 +36,16 @@ static int ehci_ci_portpower(struct usb_hcd *hcd, int portnum, bool enable)
 	int ret = 0;
 	int port = HCS_N_PORTS(ehci->hcs_params);
 
+	if (port > 1) {
+		dev_warn(dev,
+			"Not support multi-port regulator control\n");
+		return 0;
+	}
+
+	if (ci->usb_phy && ci->usb_phy->otg)
+		otg_set_vbus(ci->usb_phy->otg, enable);
+
 	if (priv->reg_vbus) {
-		if (port > 1) {
-			dev_warn(dev,
-				"Not support multi-port regulator control\n");
-			return 0;
-		}
 		if (enable)
 			ret = regulator_enable(priv->reg_vbus);
 		else
@@ -54,14 +58,6 @@ static int ehci_ci_portpower(struct usb_hcd *hcd, int portnum, bool enable)
 		}
 	}
 
-	if (ci->platdata->flags & CI_HDRC_PHY_VBUS_CONTROL &&
-			ci->usb_phy && ci->usb_phy->set_vbus) {
-		if (enable)
-			ci->usb_phy->set_vbus(ci->usb_phy, 1);
-		else
-			ci->usb_phy->set_vbus(ci->usb_phy, 0);
-	}
-
 	if (enable && (ci->platdata->phy_mode == USBPHY_INTERFACE_MODE_HSIC)) {
 		/*
 		 * Marvell 28nm HSIC PHY requires forcing the port to HS mode.
@@ -70,7 +66,6 @@ static int ehci_ci_portpower(struct usb_hcd *hcd, int portnum, bool enable)
 		hw_port_test_set(ci, 5);
 		hw_port_test_set(ci, 0);
 	}
-
 	return 0;
 };
 

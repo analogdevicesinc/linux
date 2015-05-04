@@ -58,7 +58,10 @@
 #include <linux/usb/otg.h>
 #include <linux/usb/chipidea.h>
 #include <linux/usb/of.h>
+#include <linux/usb/ulpi.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/phy.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/ehci_def.h>
 
@@ -835,6 +838,46 @@ static void ci_get_otg_capable(struct ci_hdrc *ci)
 	}
 }
 
+#ifdef CONFIG_USB_ULPI
+
+static int ci_hdrc_create_ulpi_phy(struct device *dev, struct ci_hdrc *ci)
+{
+	struct usb_phy *ulpi;
+	int reset_gpio;
+	int ret;
+
+	reset_gpio = of_get_named_gpio(dev->parent->of_node, "xlnx,phy-reset-gpio", 0);
+	if (gpio_is_valid(reset_gpio)) {
+		ret = devm_gpio_request_one(dev, reset_gpio,
+				GPIOF_INIT_LOW, "ulpi resetb");
+		if (ret) {
+			dev_err(dev, "Failed to request ULPI reset gpio: %d\n", ret);
+			return ret;
+		}
+		msleep(5);
+		gpio_set_value_cansleep(reset_gpio, 1);
+		msleep(1);
+	}
+
+	ulpi = otg_ulpi_create(&ulpi_viewport_access_ops,
+		ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
+	if (ulpi) {
+		ulpi->io_priv = ci->hw_bank.abs + 0x170;
+		ci->usb_phy = ulpi;
+	}
+
+	return 0;
+}
+
+#else
+
+static int ci_hdrc_create_ulpi_phy(struct device *dev, struct ci_hdrc *ci)
+{
+	return 0;
+}
+
+#endif
+
 static ssize_t role_show(struct device *dev, struct device_attribute *attr,
 			  char *buf)
 {
@@ -937,6 +980,13 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 	} else {
 		ci->phy = devm_phy_get(dev->parent, "usb-phy");
 		ci->usb_phy = devm_usb_get_phy(dev->parent, USB_PHY_TYPE_USB2);
+
+		if (IS_ERR(ci->phy) && IS_ERR(ci->usb_phy) && 
+			 ci->platdata->phy_mode == USBPHY_INTERFACE_MODE_ULPI) {
+			ret = ci_hdrc_create_ulpi_phy(dev, ci);
+			if (ret)
+				return ret;
+		}
 
 		/* if both generic PHY and USB PHY layers aren't enabled */
 		if (PTR_ERR(ci->phy) == -ENOSYS &&
