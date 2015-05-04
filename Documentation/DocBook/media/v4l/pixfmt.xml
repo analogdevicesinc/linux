@@ -182,14 +182,14 @@ see <xref linkend="colorspaces" />.</entry>
           </entry>
         </row>
         <row>
-          <entry>__u16</entry>
+          <entry>__u32</entry>
           <entry><structfield>bytesperline</structfield></entry>
           <entry>Distance in bytes between the leftmost pixels in two adjacent
             lines. See &v4l2-pix-format;.</entry>
         </row>
         <row>
           <entry>__u16</entry>
-          <entry><structfield>reserved[7]</structfield></entry>
+          <entry><structfield>reserved[6]</structfield></entry>
           <entry>Reserved for future extensions. Should be zeroed by the
            application.</entry>
         </row>
@@ -1405,6 +1405,7 @@ access the palette, this must be done with ioctls of the Linux framebuffer API.<
     &sub-srggb8;
     &sub-sbggr16;
     &sub-srggb10;
+    &sub-srggb10p;
     &sub-srggb10alaw8;
     &sub-srggb10dpcm8;
     &sub-srggb12;

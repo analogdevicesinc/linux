@@ -220,19 +220,9 @@ static inline struct v4l2_subdev *to_sd(struct v4l2_ctrl *ctrl)
 	return &container_of(ctrl->handler, struct adv7842_state, hdl)->sd;
 }
 
-static inline unsigned hblanking(const struct v4l2_bt_timings *t)
-{
-	return V4L2_DV_BT_BLANKING_WIDTH(t);
-}
-
 static inline unsigned htotal(const struct v4l2_bt_timings *t)
 {
 	return V4L2_DV_BT_FRAME_WIDTH(t);
-}
-
-static inline unsigned vblanking(const struct v4l2_bt_timings *t)
-{
-	return V4L2_DV_BT_BLANKING_HEIGHT(t);
 }
 
 static inline unsigned vtotal(const struct v4l2_bt_timings *t)
@@ -1128,7 +1118,7 @@ static void set_rgb_quantization_range(struct v4l2_subdev *sd)
 		/* Receiving DVI-D signal
 		 * ADV7842 selects RGB limited range regardless of
 		 * input format (CE/IT) in automatic mode */
-		if (state->timings.bt.standards & V4L2_DV_BT_STD_CEA861) {
+		if (state->timings.bt.flags & V4L2_DV_FL_IS_CE_VIDEO) {
 			/* RGB limited range (16-235) */
 			io_write_and_or(sd, 0x02, 0x0f, 0x00);
 		} else {
@@ -1910,7 +1900,8 @@ static int adv7842_g_mbus_fmt(struct v4l2_subdev *sd,
 		return 0;
 	}
 
-	if (state->timings.bt.standards & V4L2_DV_BT_STD_CEA861) {
+	fmt->colorspace = V4L2_COLORSPACE_SRGB;
+	if (state->timings.bt.flags & V4L2_DV_FL_IS_CE_VIDEO) {
 		fmt->colorspace = (state->timings.bt.height <= 576) ?
 			V4L2_COLORSPACE_SMPTE170M : V4L2_COLORSPACE_REC709;
 	}
