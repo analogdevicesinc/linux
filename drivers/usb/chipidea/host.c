@@ -48,12 +48,16 @@ static int ehci_ci_portpower(struct usb_hcd *hcd, int portnum, bool enable)
 	int ret = 0;
 	int port = HCS_N_PORTS(ehci->hcs_params);
 
+	if (port > 1) {
+		dev_warn(dev,
+			"Not support multi-port regulator control\n");
+		return 0;
+	}
+
+	if (ci->usb_phy && ci->usb_phy->otg)
+		otg_set_vbus(ci->usb_phy->otg, enable);
+
 	if (priv->reg_vbus) {
-		if (port > 1) {
-			dev_warn(dev,
-				"Not support multi-port regulator control\n");
-			return 0;
-		}
 		if (enable)
 			ret = regulator_enable(priv->reg_vbus);
 		else
