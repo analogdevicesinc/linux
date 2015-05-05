@@ -34,7 +34,7 @@
 					reg = <1>;
 
 					adv7511@39 {
-						compatible = "adv7511-media";
+						compatible = "adv7511-v4l2";
 						reg = <0x39>;
 
 						powerdown-gpio = <&pca9534 4 GPIO_ACTIVE_HIGH>;
