@@ -59,6 +59,8 @@ MODULE_LICENSE("GPL");
 #define ADV7511_MIN_PIXELCLOCK 20000000
 #define ADV7511_MAX_PIXELCLOCK 225000000
 
+#define SKIP_RGB_QUANTIZATION
+
 /*
 **********************************************************************
 *
@@ -366,7 +368,7 @@ static void adv7511_set_IT_content_AVI_InfoFrame(struct v4l2_subdev *sd)
 
 static int adv7511_set_rgb_quantization_mode(struct v4l2_subdev *sd, struct v4l2_ctrl *ctrl)
 {
-#ifdef XYLON_LOGICVC_INTG
+#if defined XYLON_LOGICVC_INTG || defined SKIP_RGB_QUANTIZATION
 	return 0;
 #endif
 	switch (ctrl->val) {
