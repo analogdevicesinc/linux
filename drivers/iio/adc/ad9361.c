@@ -3422,7 +3422,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 		__func__, tx_sample_rate, tx_intdec, rx_intdec,
 		rate_gov ? "Nominal" : "Highest OSR");
 
-	if (tx_sample_rate > (phy->pdata->rx2tx2 ? 61440000UL : 122880000UL))
+	if (tx_sample_rate > 61440000UL)
 		return -EINVAL;
 
 	clktf = tx_sample_rate * tx_intdec;
@@ -5436,7 +5436,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 	[ID_AD9364] = {
 		.name = "AD9361",
-		.max_rate = 122880000UL,
+		.max_rate = 61440000UL,
 		.max_testmode = 0,
 		.num_channels = 2,
 		.channel[0] = AIM_CHAN(0, 0, 12, 'S'),
