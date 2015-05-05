@@ -29,7 +29,7 @@
 					reg = <1>;
 
 					adv7511@39 {
-						compatible = "adv7511";
+						compatible = "adv7511-media";
 						reg = <0x39>;
 
 						edid-addr = <0x50>;
