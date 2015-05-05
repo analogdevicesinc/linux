@@ -31,8 +31,15 @@
 
 	chosen {
 		bootargs = "console=ttyPS0,115200 root=/dev/ram rw earlyprintk";
-		linux,stdout-path = "/amba/serial@e0001000";
+		linux,stdout-path = &uart1;
+		stdout-path = &uart1;
 	};
+
+	usb_phy0: phy0 {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+	};
+
 };
 
 &qspi {
@@ -70,10 +77,8 @@
 	};
 };
 
-&usb0 {
-	status = "okay";
-	dr_mode = "host";
-	phy_type = "ulpi";
+&clkc {
+	ps-clk-frequency = <33333333>;
 };
 
 &gem0 {
@@ -92,4 +97,10 @@
 
 &uart1 {
 	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+	dr_mode = "host";
+	usb-phy = <&usb_phy0>;
 };

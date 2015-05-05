@@ -1,9 +1,11 @@
 /*
  * Xilinx Color Filter Array
  *
- * Copyright (C) 2013 - 2014 Xilinx, Inc.
+ * Copyright (C) 2013-2015 Ideas on Board
+ * Copyright (C) 2013-2015 Xilinx, Inc.
  *
- * Author: Hyun Woo Kwon <hyunk@xilinx.com>
+ * Contacts: Hyun Kwon <hyun.kwon@xilinx.com>
+ *           Laurent Pinchart <laurent.pinchart@ideasonboard.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -61,13 +63,13 @@ static inline struct xcfa_device *to_cfa(struct v4l2_subdev *subdev)
 static int xcfa_get_bayer_phase(const unsigned int code)
 {
 	switch (code) {
-	case V4L2_MBUS_FMT_SRGGB8_1X8:
+	case MEDIA_BUS_FMT_SRGGB8_1X8:
 		return XCFA_BAYER_PHASE_RGGB;
-	case V4L2_MBUS_FMT_SGRBG8_1X8:
+	case MEDIA_BUS_FMT_SGRBG8_1X8:
 		return XCFA_BAYER_PHASE_GRBG;
-	case V4L2_MBUS_FMT_SGBRG8_1X8:
+	case MEDIA_BUS_FMT_SGBRG8_1X8:
 		return XCFA_BAYER_PHASE_GBRG;
-	case V4L2_MBUS_FMT_SBGGR8_1X8:
+	case MEDIA_BUS_FMT_SBGGR8_1X8:
 		return XCFA_BAYER_PHASE_BGGR;
 	}
 

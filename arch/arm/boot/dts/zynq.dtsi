@@ -209,12 +209,11 @@
 		};
 
 		usb: usb@e0002000 {
-			compatible = "xlnx,ps7-usb-1.00.a", "xlnx,zynq-usb-1.00.a";
+			compatible = "xlnx,zynq-usb-2.20a", "chipidea,usb2";
 			reg = <0xe0002000 0x1000>;
 			interrupts = <0 21 4>;
 			interrupt-parent = <&gic>;
 			clocks = <&clkc 28>;
-			dr_mode = "host";
 			phy_type = "ulpi";
 		};
 

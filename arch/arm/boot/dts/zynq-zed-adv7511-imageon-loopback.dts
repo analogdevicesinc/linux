@@ -1,6 +1,7 @@
 /dts-v1/;
 
 /include/ "zynq-zed.dtsi"
+/include/ "zynq-zed-adv7511.dtsi"
 
 / {
 	fpga_axi: fpga-axi@0 {
@@ -29,7 +30,7 @@
 					reg = <1>;
 
 					adv7511@39 {
-						compatible = "adv7511";
+						compatible = "adv7511-media";
 						reg = <0x39>;
 
 						edid-addr = <0x50>;
@@ -68,7 +69,7 @@
 						};
 
 						port {
-							adv7511: endpoint {
+							adv7511_media: endpoint {
 								remote-endpoint = <&imageon_output>;
 							};
 						};
@@ -121,6 +122,9 @@
 			rx_hotplug-gpios = <&pca9534 2 0>;
 			tx_pd-gpios = <&pca9534 4 0>;
 
+			interrupt-parent = <&gpio>;
+			interrupts = <86 0>;
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -135,7 +139,7 @@
 				port@1 {
 				    reg = <1>;
 				    imageon_output: endpoint {
-				        remote-endpoint = <&adv7511>;
+				        remote-endpoint = <&adv7511_media>;
 				    };
 				};
 			};

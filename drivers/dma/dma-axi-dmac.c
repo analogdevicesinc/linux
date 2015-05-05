@@ -410,7 +410,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 	struct dma_chan *c, dma_addr_t buf_addr, size_t buf_len,
 	size_t period_len, enum dma_transfer_direction direction,
-	unsigned long flags, void *context)
+	unsigned long flags)
 {
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;

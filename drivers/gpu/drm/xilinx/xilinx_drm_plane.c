@@ -25,7 +25,9 @@
 #include <linux/of_dma.h>
 #include <linux/platform_device.h>
 
+#include "xilinx_drm_dp_sub.h"
 #include "xilinx_drm_drv.h"
+#include "xilinx_drm_fb.h"
 #include "xilinx_drm_plane.h"
 
 #include "xilinx_cresample.h"
@@ -54,12 +56,13 @@ struct xilinx_drm_plane_dma {
  * @zpos: user requested z-position value
  * @prio: actual layer priority
  * @alpha: alpha value
- * @priv: flag for private plane
+ * @primary: flag for primary plane
  * @format: pixel format
  * @dma: dma object
  * @rgb2yuv: rgb2yuv instance
  * @cresample: cresample instance
  * @osd_layer: osd layer
+ * @dp_layer: DisplayPort subsystem layer
  * @manager: plane manager
  */
 struct xilinx_drm_plane {
@@ -69,12 +72,13 @@ struct xilinx_drm_plane {
 	unsigned int zpos;
 	unsigned int prio;
 	unsigned int alpha;
-	bool priv;
+	bool primary;
 	uint32_t format;
 	struct xilinx_drm_plane_dma dma;
 	struct xilinx_rgb2yuv *rgb2yuv;
 	struct xilinx_cresample *cresample;
 	struct xilinx_osd_layer *osd_layer;
+	struct xilinx_drm_dp_sub_layer *dp_layer;
 	struct xilinx_drm_plane_manager *manager;
 };
 
@@ -86,6 +90,7 @@ struct xilinx_drm_plane {
  * @drm: drm device
  * @node: plane device node
  * @osd: osd instance
+ * @dp_sub: DisplayPort subsystem instance
  * @num_planes: number of available planes
  * @format: video format
  * @max_width: maximum width
@@ -98,6 +103,7 @@ struct xilinx_drm_plane_manager {
 	struct drm_device *drm;
 	struct device_node *node;
 	struct xilinx_osd *osd;
+	struct xilinx_drm_dp_sub *dp_sub;
 	int num_planes;
 	uint32_t format;
 	int max_width;
@@ -124,6 +130,14 @@ void xilinx_drm_plane_dpms(struct drm_plane *base_plane, int dpms)
 	plane->dpms = dpms;
 	switch (dpms) {
 	case DRM_MODE_DPMS_ON:
+		if (manager->dp_sub) {
+			if (plane->primary)
+				xilinx_drm_dp_sub_set_alpha(manager->dp_sub,
+							    plane->alpha);
+			xilinx_drm_dp_sub_layer_enable(manager->dp_sub,
+						       plane->dp_layer);
+		}
+
 		/* start dma engine */
 		dma_async_issue_pending(plane->dma.chan);
 
@@ -171,6 +185,11 @@ void xilinx_drm_plane_dpms(struct drm_plane *base_plane, int dpms)
 
 		/* stop dma engine and release descriptors */
 		dmaengine_terminate_all(plane->dma.chan);
+
+		if (manager->dp_sub)
+			xilinx_drm_dp_sub_layer_disable(manager->dp_sub,
+							plane->dp_layer);
+
 		break;
 	}
 }
@@ -226,7 +245,7 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 	if (plane->rgb2yuv)
 		xilinx_rgb2yuv_configure(plane->rgb2yuv, crtc_w, crtc_h);
 
-	obj = drm_fb_cma_get_gem_obj(fb, 0);
+	obj = xilinx_drm_fb_get_gem_obj(fb, 0);
 	if (!obj) {
 		DRM_ERROR("failed to get a gem obj for fb\n");
 		return -EINVAL;
@@ -255,6 +274,16 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 					       src_w, src_h);
 
 		xilinx_osd_enable_rue(plane->manager->osd);
+	}
+
+	if (plane->manager->dp_sub) {
+		int ret;
+
+		ret = xilinx_drm_dp_sub_layer_check_size(plane->manager->dp_sub,
+							 plane->dp_layer,
+							 src_w, src_h);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
@@ -312,6 +341,13 @@ static void xilinx_drm_plane_destroy(struct drm_plane *base_plane)
 	if (plane->manager->osd) {
 		xilinx_osd_layer_disable(plane->osd_layer);
 		xilinx_osd_layer_put(plane->osd_layer);
+	}
+
+	if (plane->manager->dp_sub) {
+		xilinx_drm_dp_sub_layer_disable(plane->manager->dp_sub,
+						plane->dp_layer);
+		xilinx_drm_dp_sub_layer_put(plane->manager->dp_sub,
+					    plane->dp_layer);
 	}
 }
 
@@ -391,6 +427,7 @@ static void xilinx_drm_plane_set_alpha(struct drm_plane *base_plane,
 				       unsigned int alpha)
 {
 	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
+	struct xilinx_drm_plane_manager *manager = plane->manager;
 
 	if (plane->alpha == alpha)
 		return;
@@ -398,7 +435,10 @@ static void xilinx_drm_plane_set_alpha(struct drm_plane *base_plane,
 	plane->alpha = alpha;
 
 	/* FIXME: use global alpha for now */
-	xilinx_osd_layer_set_alpha(plane->osd_layer, 1, plane->alpha);
+	if (plane->osd_layer)
+		xilinx_osd_layer_set_alpha(plane->osd_layer, 1, plane->alpha);
+	else if (manager->dp_sub)
+		xilinx_drm_dp_sub_set_alpha(manager->dp_sub, plane->alpha);
 }
 
 /* set property of a plane */
@@ -499,20 +539,32 @@ uint32_t xilinx_drm_plane_get_format(struct drm_plane *base_plane)
 	return plane->format;
 }
 
+/**
+ * xilinx_drm_plane_get_align - Get the alignment value for pitch
+ * @base_plane: Base drm plane object
+ *
+ * Get the alignment value for pitch from the dma device
+ *
+ * Return: The alignment value if successful, or the error code.
+ */
+unsigned int xilinx_drm_plane_get_align(struct drm_plane *base_plane)
+{
+	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
+
+	return 1 << plane->dma.chan->device->copy_align;
+}
+
 /* create plane properties */
 static void
 xilinx_drm_plane_create_property(struct xilinx_drm_plane_manager *manager)
 {
-	if (!manager->osd)
-		return;
+	if (manager->osd)
+		manager->zpos_prop = drm_property_create_range(manager->drm, 0,
+				"zpos", 0, manager->num_planes - 1);
 
-	manager->zpos_prop = drm_property_create_range(manager->drm, 0,
-						       "zpos", 0,
-						       manager->num_planes - 1);
-
-	manager->alpha_prop = drm_property_create_range(manager->drm, 0,
-							"alpha", 0,
-							manager->default_alpha);
+	if (manager->osd || manager->dp_sub)
+		manager->alpha_prop = drm_property_create_range(manager->drm, 0,
+				"alpha", 0, manager->default_alpha);
 }
 
 /* attach plane properties */
@@ -526,10 +578,14 @@ static void xilinx_drm_plane_attach_property(struct drm_plane *base_plane)
 					   manager->zpos_prop,
 					   plane->id);
 
-	if (manager->alpha_prop)
+	if (manager->alpha_prop) {
+		if (manager->dp_sub && !plane->primary)
+			return;
+
 		drm_object_attach_property(&base_plane->base,
 					   manager->alpha_prop,
 					   manager->default_alpha);
+	}
 }
 
 /**
@@ -545,16 +601,26 @@ void xilinx_drm_plane_manager_dpms(struct xilinx_drm_plane_manager *manager,
 {
 	switch (dpms) {
 	case DRM_MODE_DPMS_ON:
+		if (manager->dp_sub) {
+			xilinx_drm_dp_sub_set_bg_color(manager->dp_sub,
+						       0, 0, 0);
+			xilinx_drm_dp_sub_enable(manager->dp_sub);
+		}
+
 		if (manager->osd) {
 			xilinx_osd_disable_rue(manager->osd);
-			xilinx_osd_set_color(manager->osd, 0x0, 0x0, 0x0);
 			xilinx_osd_enable(manager->osd);
 			xilinx_osd_enable_rue(manager->osd);
 		}
+
 		break;
 	default:
 		if (manager->osd)
 			xilinx_osd_reset(manager->osd);
+
+		if (manager->dp_sub)
+			xilinx_drm_dp_sub_disable(manager->dp_sub);
+
 		break;
 	}
 }
@@ -578,7 +644,7 @@ void xilinx_drm_plane_manager_mode_set(struct xilinx_drm_plane_manager *manager,
 /* create a plane */
 static struct xilinx_drm_plane *
 xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
-			unsigned int possible_crtcs, bool priv)
+			unsigned int possible_crtcs, bool primary)
 {
 	struct xilinx_drm_plane *plane;
 	struct device *dev = manager->drm->dev;
@@ -614,7 +680,7 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 		goto err_out;
 	}
 
-	plane->priv = priv;
+	plane->primary = primary;
 	plane->id = i;
 	plane->prio = i;
 	plane->zpos = i;
@@ -704,12 +770,37 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 			plane->format = manager->format;
 	}
 
+	if (manager->dp_sub) {
+		plane->dp_layer = xilinx_drm_dp_sub_layer_get(manager->dp_sub,
+							      primary);
+		if (IS_ERR(plane->dp_layer)) {
+			DRM_ERROR("failed to create a dp_sub layer\n");
+			ret = PTR_ERR(plane->dp_layer);
+			plane->dp_layer = NULL;
+			goto err_dma;
+		}
+
+		if (primary) {
+			ret = xilinx_drm_dp_sub_layer_set_fmt(manager->dp_sub,
+							      plane->dp_layer,
+							      manager->format);
+			if (ret) {
+				DRM_ERROR("failed to set dp_sub layer fmt\n");
+				goto err_dma;
+			}
+		}
+
+		plane->format =
+			xilinx_drm_dp_sub_layer_get_fmt(manager->dp_sub,
+							plane->dp_layer);
+	}
+
 	/* If there's no IP other than VDMA, pick the manager's format */
 	if (plane->format == -1)
 		plane->format = manager->format;
 
 	/* initialize drm plane */
-	type = priv ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
+	type = primary ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
 	ret = drm_universal_plane_init(manager->drm, &plane->base,
 				       possible_crtcs, &xilinx_drm_plane_funcs,
 				       &plane->format, 1, type);
@@ -727,6 +818,12 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 	return plane;
 
 err_init:
+	if (manager->dp_sub) {
+		xilinx_drm_dp_sub_layer_disable(manager->dp_sub,
+						plane->dp_layer);
+		xilinx_drm_dp_sub_layer_put(plane->manager->dp_sub,
+					    plane->dp_layer);
+	}
 	if (manager->osd) {
 		xilinx_osd_layer_disable(plane->osd_layer);
 		xilinx_osd_layer_put(plane->osd_layer);
@@ -738,16 +835,16 @@ err_out:
 	return ERR_PTR(ret);
 }
 
-/* create a private plane */
+/* create a primary plane */
 struct drm_plane *
-xilinx_drm_plane_create_private(struct xilinx_drm_plane_manager *manager,
+xilinx_drm_plane_create_primary(struct xilinx_drm_plane_manager *manager,
 				unsigned int possible_crtcs)
 {
 	struct xilinx_drm_plane *plane;
 
 	plane = xilinx_drm_plane_create(manager, possible_crtcs, true);
 	if (IS_ERR(plane)) {
-		DRM_ERROR("failed to allocate a private plane\n");
+		DRM_ERROR("failed to allocate a primary plane\n");
 		return ERR_CAST(plane);
 	}
 
@@ -794,6 +891,9 @@ xilinx_drm_plane_init_manager(struct xilinx_drm_plane_manager *manager)
 		ret = xilinx_drm_format_by_code(format, &drm_format);
 		if (drm_format != manager->format)
 			ret = -EINVAL;
+	} else if (manager->dp_sub) {
+		manager->num_planes = XILINX_DRM_DP_SUB_NUM_LAYERS;
+		manager->max_width = XILINX_DRM_DP_SUB_MAX_WIDTH;
 	} else {
 		/* without osd, only one plane is supported */
 		manager->num_planes = 1;
@@ -849,6 +949,15 @@ xilinx_drm_plane_probe_manager(struct drm_device *drm)
 			DRM_ERROR("failed to probe an osd\n");
 			return ERR_CAST(manager->osd);
 		}
+		manager->default_alpha = OSD_MAX_ALPHA;
+	}
+
+	manager->dp_sub = xilinx_drm_dp_sub_of_get(drm->dev->of_node);
+	if (IS_ERR(manager->dp_sub)) {
+		DRM_DEBUG_KMS("failed to get a dp_sub\n");
+		return ERR_CAST(manager->dp_sub);
+	} else if (manager->dp_sub != NULL) {
+		manager->default_alpha = XILINX_DRM_DP_SUB_MAX_ALPHA;
 	}
 
 	ret = xilinx_drm_plane_init_manager(manager);
@@ -857,8 +966,6 @@ xilinx_drm_plane_probe_manager(struct drm_device *drm)
 		return ERR_PTR(ret);
 	}
 
-	manager->default_alpha = OSD_MAX_ALPHA;
-
 	xilinx_drm_plane_create_property(manager);
 
 	return manager;
@@ -866,5 +973,6 @@ xilinx_drm_plane_probe_manager(struct drm_device *drm)
 
 void xilinx_drm_plane_remove_manager(struct xilinx_drm_plane_manager *manager)
 {
+	xilinx_drm_dp_sub_put(manager->dp_sub);
 	of_node_put(manager->node);
 }

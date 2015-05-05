@@ -151,7 +151,7 @@ static const struct s5k4ecgx_frmsize s5k4ecgx_prev_sizes[] = {
 #define S5K4ECGX_NUM_PREV ARRAY_SIZE(s5k4ecgx_prev_sizes)
 
 struct s5k4ecgx_pixfmt {
-	enum v4l2_mbus_pixelcode code;
+	u32 code;
 	u32 colorspace;
 	/* REG_TC_PCFG_Format register value */
 	u16 reg_p_format;
@@ -159,7 +159,7 @@ struct s5k4ecgx_pixfmt {
 
 /* By default value, output from sensor will be YUV422 0-255 */
 static const struct s5k4ecgx_pixfmt s5k4ecgx_formats[] = {
-	{ V4L2_MBUS_FMT_YUYV8_2X8, V4L2_COLORSPACE_JPEG, 5 },
+	{ MEDIA_BUS_FMT_YUYV8_2X8, V4L2_COLORSPACE_JPEG, 5 },
 };
 
 static const char * const s5k4ecgx_supply_names[] = {
@@ -532,7 +532,7 @@ static int s5k4ecgx_try_frame_size(struct v4l2_mbus_framefmt *mf,
 }
 
 static int s5k4ecgx_enum_mbus_code(struct v4l2_subdev *sd,
-				   struct v4l2_subdev_fh *fh,
+				   struct v4l2_subdev_pad_config *cfg,
 				   struct v4l2_subdev_mbus_code_enum *code)
 {
 	if (code->index >= ARRAY_SIZE(s5k4ecgx_formats))
@@ -542,15 +542,15 @@ static int s5k4ecgx_enum_mbus_code(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int s5k4ecgx_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+static int s5k4ecgx_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct s5k4ecgx *priv = to_s5k4ecgx(sd);
 	struct v4l2_mbus_framefmt *mf;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		if (fh) {
-			mf = v4l2_subdev_get_try_format(fh, 0);
+		if (cfg) {
+			mf = v4l2_subdev_get_try_format(sd, cfg, 0);
 			fmt->format = *mf;
 		}
 		return 0;
@@ -582,7 +582,7 @@ static const struct s5k4ecgx_pixfmt *s5k4ecgx_try_fmt(struct v4l2_subdev *sd,
 	return &s5k4ecgx_formats[i];
 }
 
-static int s5k4ecgx_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+static int s5k4ecgx_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg,
 			    struct v4l2_subdev_format *fmt)
 {
 	struct s5k4ecgx *priv = to_s5k4ecgx(sd);
@@ -597,8 +597,8 @@ static int s5k4ecgx_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 	fmt->format.field = V4L2_FIELD_NONE;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		if (fh) {
-			mf = v4l2_subdev_get_try_format(fh, 0);
+		if (cfg) {
+			mf = v4l2_subdev_get_try_format(sd, cfg, 0);
 			*mf = fmt->format;
 		}
 		return 0;
@@ -693,7 +693,7 @@ static int s5k4ecgx_registered(struct v4l2_subdev *sd)
  */
 static int s5k4ecgx_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-	struct v4l2_mbus_framefmt *mf = v4l2_subdev_get_try_format(fh, 0);
+	struct v4l2_mbus_framefmt *mf = v4l2_subdev_get_try_format(sd, fh->pad, 0);
 
 	mf->width = s5k4ecgx_prev_sizes[0].size.width;
 	mf->height = s5k4ecgx_prev_sizes[0].size.height;
