@@ -845,7 +845,8 @@ static void adis16400_setup_chan_mask(struct adis16400_state *st)
 	for (i = 0; i < chip_info->num_channels; i++) {
 		const struct iio_chan_spec *ch = &chip_info->channels[i];
 
-		if (ch->scan_index >= 0) {
+		if (ch->scan_index >= 0 &&
+				ch->scan_index != ADIS16400_SCAN_TIMESTAMP) {
 			BUG_ON(ch->scan_index > 31);
 			st->avail_scan_mask[0] |= BIT(ch->scan_index);
 		}
