@@ -39,6 +39,7 @@ struct imageon_bridge {
 	int gpio_tx_pd;
 
 	u8 input_edid_data[256];
+	u8 input_edid_blocks;
 };
 
 static struct imageon_bridge *
@@ -62,8 +63,14 @@ static int imageon_bridge_load_input_edid(struct platform_device *pdev,
 	if (fw->size > 256) {
 		dev_err(&pdev->dev, "EDID firmware data too large\n");
 		release_firmware(fw);
+		bridge->input_edid_blocks = 0;
 		return -EINVAL;
 	}
+
+	if (fw->size > 128)
+		bridge->input_edid_blocks = 2;
+	else
+		bridge->input_edid_blocks = 1;
 
 	memcpy(bridge->input_edid_data, fw->data, fw->size);
 
@@ -92,7 +99,7 @@ static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
 	struct v4l2_subdev_edid edid = {
 		.pad = 0,
 		.start_block = 0,
-		.blocks = 1,
+		.blocks = bridge->input_edid_blocks,
 		.edid = bridge->input_edid_data,
 	};
 	int ret;
