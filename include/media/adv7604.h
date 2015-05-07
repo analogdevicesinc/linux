@@ -169,6 +169,5 @@ enum adv76xx_pad {
 
 /* notify events */
 #define ADV76XX_HOTPLUG		1
-#define ADV76XX_FMT_CHANGE	2
 
 #endif
