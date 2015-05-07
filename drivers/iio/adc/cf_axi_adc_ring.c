@@ -115,6 +115,8 @@ static const struct iio_buffer_access_funcs axiadc_ring_access_funcs = {
 	.set_length = &axiadc_ring_set_length,
 	.set_bytes_per_datum = &axiadc_ring_set_bytes_per_datum,
 	.release = axiadc_ring_release,
+
+	.modes = INDIO_BUFFER_HARDWARE,
 };
 
 static void axiadc_hw_transfer_done(void *data)

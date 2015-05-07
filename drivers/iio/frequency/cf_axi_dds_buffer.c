@@ -189,6 +189,8 @@ static int dds_buffer_postdisable(struct iio_dev *indio_dev)
 static const struct iio_buffer_setup_ops dds_buffer_setup_ops = {
 	.preenable = &dds_buffer_preenable,
 	.postdisable = &dds_buffer_postdisable,
+
+	.modes = INDIO_BUFFER_HARDWARE,
 };
 
 int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
