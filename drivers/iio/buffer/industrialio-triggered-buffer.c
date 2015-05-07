@@ -17,8 +17,6 @@
 #include <linux/iio/trigger_consumer.h>
 
 static const struct iio_buffer_setup_ops iio_triggered_buffer_setup_ops = {
-	.postenable = &iio_triggered_buffer_postenable,
-	.predisable = &iio_triggered_buffer_predisable,
 };
 
 /**
