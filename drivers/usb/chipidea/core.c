@@ -910,7 +910,7 @@ static int ci_hdrc_create_ulpi_phy(struct device *dev, struct ci_hdrc *ci)
 			return ret;
 		}
 		msleep(5);
-		gpio_set_value(reset_gpio, 1);
+		gpio_set_value_cansleep(reset_gpio, 1);
 		msleep(1);
 	}
 
