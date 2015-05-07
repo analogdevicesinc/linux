@@ -24,9 +24,11 @@
 
 #include <linux/iio/iio.h>
 #include "iio_core.h"
+#include "iio_core_trigger.h"
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer_impl.h>
+#include <linux/iio/trigger.h>
 
 static const char * const iio_endian_prefix[] = {
 	[IIO_BE] = "be",
@@ -952,17 +954,23 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 
 	indio_dev->currentmode = config->mode;
 
+	ret = iio_trigger_attach_poll_func(indio_dev);
+	if (ret)
+		goto err_disable_buffers;
+
 	if (indio_dev->setup_ops->postenable) {
 		ret = indio_dev->setup_ops->postenable(indio_dev);
 		if (ret) {
 			dev_dbg(&indio_dev->dev,
 			       "Buffer not started: postenable failed (%d)\n", ret);
-			goto err_disable_buffers;
+			goto err_detach_pollfunc;
 		}
 	}
 
 	return 0;
 
+err_detach_pollfunc:
+	iio_trigger_detach_poll_func(indio_dev);
 err_disable_buffers:
 	list_for_each_entry_continue_reverse(buffer, &indio_dev->buffer_list,
 					     buffer_list)
@@ -1007,6 +1015,8 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	}
 
 	indio_dev->currentmode = INDIO_DIRECT_MODE;
+
+	iio_trigger_detach_poll_func(indio_dev);
 
 	if (indio_dev->setup_ops->postdisable) {
 		ret2 = indio_dev->setup_ops->postdisable(indio_dev);

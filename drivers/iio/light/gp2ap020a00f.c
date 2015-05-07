@@ -1423,12 +1423,8 @@ static int gp2ap020a00f_buffer_postenable(struct iio_dev *indio_dev)
 		goto error_unlock;
 
 	data->buffer = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
-	if (!data->buffer) {
+	if (!data->buffer)
 		err = -ENOMEM;
-		goto error_unlock;
-	}
-
-	err = iio_triggered_buffer_postenable(indio_dev);
 
 error_unlock:
 	mutex_unlock(&data->lock);
@@ -1442,10 +1438,6 @@ static int gp2ap020a00f_buffer_predisable(struct iio_dev *indio_dev)
 	int i, err;
 
 	mutex_lock(&data->lock);
-
-	err = iio_triggered_buffer_predisable(indio_dev);
-	if (err < 0)
-		goto error_unlock;
 
 	for_each_set_bit(i, indio_dev->active_scan_mask,
 		indio_dev->masklength) {
@@ -1468,7 +1460,6 @@ static int gp2ap020a00f_buffer_predisable(struct iio_dev *indio_dev)
 	if (err == 0)
 		kfree(data->buffer);
 
-error_unlock:
 	mutex_unlock(&data->lock);
 
 	return err;
