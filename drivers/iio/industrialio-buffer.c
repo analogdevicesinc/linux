@@ -13,6 +13,9 @@
  * - Better memory allocation techniques?
  * - Alternative access techniques?
  */
+
+#define DEBUG
+
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/device.h>
@@ -26,6 +29,27 @@
 #include "iio_core.h"
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
+
+#include <linux/module.h>
+#include <linux/random.h>
+
+static int test_err_path = 1;
+module_param(test_err_path, int, 0644);
+MODULE_PARM_DESC(test_err_path, "test");
+
+static int _random_err(const char *func)
+{
+	if (test_err_path && (prandom_u32() & 0xf) == 0) {
+		pr_debug("Injected error for %s\n", func);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+#define random_err(x) (_random_err(#x) ?: (x))
+#define random_err_callback(x, ...) \
+	(_random_err(#x) ?: (x ? x(__VA_ARGS__) : 0))
 
 static const char * const iio_endian_prefix[] = {
 	[IIO_BE] = "be",
@@ -504,15 +528,13 @@ static int iio_buffer_request_update(struct iio_dev *indio_dev,
 	int ret;
 
 	iio_buffer_update_bytes_per_datum(indio_dev, buffer);
-	if (buffer->access->request_update) {
-		ret = buffer->access->request_update(buffer);
+		ret = random_err_callback(buffer->access->request_update, buffer);
 		if (ret) {
 			dev_dbg(&indio_dev->dev,
 			       "Buffer not started: buffer parameter update failed (%d)\n",
 				ret);
 			return ret;
 		}
-	}
 
 	return 0;
 }
@@ -622,17 +644,13 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	 * encountered.
 	 */
 
-	if (indio_dev->setup_ops->predisable) {
-		ret2 = indio_dev->setup_ops->predisable(indio_dev);
+		ret2 = random_err_callback(indio_dev->setup_ops->predisable, indio_dev);
 		if (ret2 && !ret)
 			ret = ret2;
-	}
 
-	if (indio_dev->setup_ops->postdisable) {
-		ret = indio_dev->setup_ops->postdisable(indio_dev);
+		ret2 = random_err_callback(indio_dev->setup_ops->postdisable, indio_dev);
 		if (ret2 && !ret)
 			ret = ret2;
-	}
 
 	indio_dev->currentmode = INDIO_DIRECT_MODE;
 	iio_free_scan_mask(indio_dev, indio_dev->active_scan_mask);
@@ -654,18 +672,15 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 	iio_update_demux(indio_dev);
 
 	/* Wind up again */
-	if (indio_dev->setup_ops->preenable) {
-		ret = indio_dev->setup_ops->preenable(indio_dev);
+		ret = random_err_callback(indio_dev->setup_ops->preenable, indio_dev);
 		if (ret) {
 			dev_dbg(&indio_dev->dev,
 			       "Buffer not started: buffer preenable failed (%d)\n", ret);
 			goto err_undo_config;
 		}
-	}
 
-	if (indio_dev->info->update_scan_mode) {
-		ret = indio_dev->info
-			->update_scan_mode(indio_dev,
+		ret = random_err_callback(indio_dev->info
+			->update_scan_mode, indio_dev,
 					   indio_dev->active_scan_mask);
 		if (ret < 0) {
 			dev_dbg(&indio_dev->dev,
@@ -673,16 +688,13 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 				ret);
 			goto err_run_postdisable;
 		}
-	}
 
-	if (indio_dev->setup_ops->postenable) {
-		ret = indio_dev->setup_ops->postenable(indio_dev);
+		ret = random_err_callback(indio_dev->setup_ops->postenable, indio_dev);
 		if (ret) {
 			dev_dbg(&indio_dev->dev,
 			       "Buffer not started: postenable failed (%d)\n", ret);
 			goto err_run_postdisable;
 		}
-	}
 
 	return 0;
 
@@ -703,8 +715,8 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 	struct iio_device_config new_config;
 	int ret;
 
-	ret = iio_verify_update(indio_dev, insert_buffer, remove_buffer,
-		&new_config);
+	ret = random_err(iio_verify_update(indio_dev, insert_buffer, remove_buffer,
+		&new_config));
 	if (ret)
 		return ret;
 
