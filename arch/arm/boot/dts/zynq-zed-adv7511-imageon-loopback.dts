@@ -22,6 +22,7 @@
 			mux@70 {
 				compatible = "nxp,pca9546";
 				reg = <0x70>;
+				reset-gpio = <&gpio 87 1>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				i2c@1 {
@@ -88,6 +89,8 @@
 						#address-cells = <0x1>;
 						#size-cells = <0x0>;
 
+						reset-gpios = <&pca9534 0 0>;
+
 						port@0 {
 							reg = <0x0>;
 						};
@@ -147,3 +150,6 @@
 	};
 };
 
+&usb {
+	dr_mode = "host";
+};
