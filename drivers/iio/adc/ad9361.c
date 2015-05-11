@@ -4990,7 +4990,7 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * Scale is 150uA @ (1280MHz BBPLL, 40MHz REFCLK)
 	 */
 	tmp = (rate64 >> 7) * 150ULL;
-	do_div(tmp, (parent_rate >> 7) * 32UL + (tmp >> 1));
+	do_div(tmp, (parent_rate >> 7) * 32UL);
 
 	/* 25uA/LSB, Offset 25uA */
 	icp_val = DIV_ROUND_CLOSEST((u32)tmp, 25U) - 1;
