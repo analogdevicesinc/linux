@@ -31,7 +31,7 @@
 		ad9523_0_c1:channel@1 {
 			reg = <1>;
 			adi,extended-name = "ADC_CLK";
-			adi,driver-mode = <1>;
+			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <1>;
 //			adi,output-dis;
@@ -39,7 +39,7 @@
 		ad9523_0_c4:channel@4 {
 			reg = <4>;
 			adi,extended-name = "ADC_CLK_FMC";
-			adi,driver-mode = <1>;
+			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <2>;
 //			adi,output-dis;
@@ -48,7 +48,7 @@
 		ad9523_0_c5:channel@5 {
 			reg = <5>;
 			adi,extended-name = "ADC_SYSREF";
-			adi,driver-mode = <1>;
+			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <128>;
 //			adi,output-dis;
@@ -57,7 +57,7 @@
 		ad9523_0_c6:channel@6 {
 			reg = <6>;
 			adi,extended-name = "CLKD_ADC_SYSREF";
-			adi,driver-mode = <1>;
+			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <128>;
 //			adi,output-dis;
@@ -66,7 +66,7 @@
 		ad9523_0_c7:channel@7 {
 			reg = <7>;
 			adi,extended-name = "CLKD_DAC_SYSREF";
-			adi,driver-mode = <1>;
+			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <128>;
 //			adi,output-dis;
@@ -75,7 +75,7 @@
 		ad9523_0_c8:channel@8 {
 			reg = <8>;
 			adi,extended-name = "DAC_SYSREF";
-			adi,driver-mode = <1>;
+			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <128>;
 //			adi,output-dis;
@@ -84,7 +84,7 @@
 		ad9523_0_c9:channel@9 {
 			reg = <9>;
 			adi,extended-name = "FMC_DAC_REF_CLK";
-			adi,driver-mode = <1>;
+			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <2>;
 //			adi,output-dis;
@@ -93,7 +93,7 @@
 		ad9523_0_c13:channel@13 {
 			reg = <13>;
 			adi,extended-name = "DAC_CLK";
-			adi,driver-mode = <1>;
+			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <1>;
 //			adi,output-dis;

@@ -506,6 +506,10 @@ int iio_str_to_fixpoint(const char *str, int fract_mult,
 				break;
 			else
 				return -EINVAL;
+		} else if (!strcmp(str, " dB")) {
+			/* Ignore the dB suffix */
+			str += sizeof(" dB") - 1;
+			continue;
 		} else if (*str == '.' && integer_part) {
 			integer_part = false;
 		} else {
