@@ -36,6 +36,7 @@
 #include <linux/v4l2-dv-timings.h>
 #include <linux/videodev2.h>
 #include <linux/workqueue.h>
+#include <linux/of_gpio.h>
 #include <linux/of_graph.h>
 #include <linux/interrupt.h>
 
@@ -164,6 +165,8 @@ struct adv76xx_state {
 	struct workqueue_struct *work_queues;
 	struct delayed_work delayed_work_enable_hotplug;
 	bool restart_stdi_once;
+
+	int reset_gpio;
 
 	/* i2c clients */
 	struct i2c_client *i2c_clients[ADV76XX_PAGE_MAX];
@@ -2685,6 +2688,21 @@ static irqreturn_t adv76xx_irq_handler(int irq, void *devid)
 	return IRQ_HANDLED;
 }
 
+static int adv76xx_reset(struct adv76xx_state *state)
+{
+	if (gpio_is_valid(state->reset_gpio)) {
+		/* ADV76XX can be reset by a low reset pulse of minimum 5 ms. */
+		gpio_set_value_cansleep(state->reset_gpio, 0);
+		mdelay(10);
+		gpio_set_value_cansleep(state->reset_gpio, 1);
+		/* It is recommended to wait 5 ms after the low pulse before */
+		/* an I2C write is performed to the ADV76XX. */
+		mdelay(10);
+	}
+
+	return 0;
+}
+
 static int adv76xx_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -2757,6 +2775,18 @@ static int adv76xx_probe(struct i2c_client *client,
 
 		if (state->hpd_gpio[i])
 			v4l_info(client, "Handling HPD %u GPIO\n", i);
+	}
+	state->reset_gpio = of_get_named_gpio(client->dev.of_node,
+								"reset-gpios", 0);
+	if (gpio_is_valid(state->reset_gpio)) {
+		err = devm_gpio_request_one(&client->dev,
+			state->reset_gpio, GPIOF_OUT_INIT_HIGH, "RESET_GPIO");
+		if (err < 0) {
+			v4l2_err(client, "Request reset gpio error\n");
+			return err;
+		} else {
+			adv76xx_reset(state);
+		}
 	}
 
 	state->timings = cea640x480;

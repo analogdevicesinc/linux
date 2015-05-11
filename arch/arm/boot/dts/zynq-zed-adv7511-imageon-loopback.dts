@@ -89,6 +89,8 @@
 						#address-cells = <0x1>;
 						#size-cells = <0x0>;
 
+						reset-gpios = <&pca9534 0 0>;
+
 						port@0 {
 							reg = <0x0>;
 						};
