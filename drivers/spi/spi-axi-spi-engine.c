@@ -37,10 +37,19 @@
 #define SPI_ENGINE_REG_SDI_DATA_FIFO		0xe8
 #define SPI_ENGINE_REG_SDI_DATA_FIFO_PEEK	0xec
 
+#define SPI_ENGINE_REG_OFFLOAD_CTRL(x)		(0x100 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_STATUS(x)	(0x104 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_RESET(x)		(0x108 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_CMD_MEM(x)	(0x110 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_SDO_MEM(x)	(0x114 + (0x20 * x))
+
 #define SPI_ENGINE_INT_CMD_ALMOST_EMPTY		BIT(0)
 #define SPI_ENGINE_INT_SDO_ALMOST_EMPTY		BIT(1)
 #define SPI_ENGINE_INT_SDI_ALMOST_FULL		BIT(2)
 #define SPI_ENGINE_INT_SYNC			BIT(3)
+
+#define SPI_ENGINE_OFFLOAD_CTRL_ENABLE		BIT(0)
+#define SPI_ENGINE_OFFLOAD_STATUS_ENABLED	BIT(0)
 
 #define SPI_ENGINE_CONFIG_CPHA			BIT(0)
 #define SPI_ENGINE_CONFIG_CPOL			BIT(1)
@@ -232,6 +241,81 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 
 	return 0;
 }
+
+bool spi_engine_offload_supported(struct spi_device *spi)
+{
+	if (strcmp(spi->master->dev.parent->driver->name, "spi-engine") != 0)
+		return false;
+
+	return true;
+}
+EXPORT_SYMBOL_GPL(spi_engine_offload_supported);
+
+void spi_engine_offload_enable(struct spi_device *spi, bool enable)
+{
+	struct spi_master *master = spi->master;
+	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	unsigned int reg;
+
+	reg = readl(spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CTRL(0));
+	if (enable)
+		reg |= SPI_ENGINE_OFFLOAD_CTRL_ENABLE;
+	else
+		reg &= ~SPI_ENGINE_OFFLOAD_CTRL_ENABLE;
+	writel(reg, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CTRL(0));
+}
+EXPORT_SYMBOL_GPL(spi_engine_offload_enable);
+
+int spi_engine_offload_load_msg(struct spi_device *spi,
+	struct spi_message *msg)
+{
+	struct spi_master *master = spi->master;
+	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_engine_program p_dry;
+	struct spi_engine_program *p;
+	struct spi_transfer *xfer;
+	void __iomem *cmd_addr;
+	void __iomem *sdo_addr;
+	const uint8_t *buf;
+	unsigned int i, j;
+	size_t size;
+
+	msg->spi = spi;
+
+	p_dry.length = 0;
+	spi_engine_compile_message(spi_engine, msg, true, &p_dry);
+
+	size = sizeof(*p->instructions) * (p_dry.length + 2);
+
+	p = kzalloc(sizeof(*p) + size, GFP_KERNEL);
+	if (!p)
+		return -ENOMEM;
+
+	cmd_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CMD_MEM(0);
+	sdo_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_SDO_MEM(0);
+
+	spi_engine_compile_message(spi_engine, msg, false, p);
+	spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SLEEP(10));
+	spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SYNC(0));
+
+	writel(1, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_RESET(0));
+	j = 0;
+	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+		if (!xfer->tx_buf)
+			continue;
+		buf = xfer->tx_buf;
+		for (i = 0; i < xfer->len; i++, j++)
+			writel(buf[i], sdo_addr);
+	}
+
+	for (i = 0; i < p->length; i++)
+		writel(p->instructions[i], cmd_addr);
+
+	kfree(p);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(spi_engine_offload_load_msg);
 
 static void spi_engine_xfer_next(struct spi_engine *spi_engine,
 	struct spi_transfer **_xfer)
