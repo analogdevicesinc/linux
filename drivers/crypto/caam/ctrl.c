@@ -504,14 +504,16 @@ static int caam_probe(struct platform_device *pdev)
 	}
 	ctrlpriv->caam_ipg = clk;
 
-	clk = caam_drv_identify_clk(&pdev->dev, "mem");
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		dev_err(&pdev->dev,
-			"can't identify CAAM mem clk: %d\n", ret);
-		return ret;
+	if (!(of_find_compatible_node(NULL, NULL, "fsl,imx7d-caam"))) {
+		clk = caam_drv_identify_clk(&pdev->dev, "mem");
+		if (IS_ERR(clk)) {
+			ret = PTR_ERR(clk);
+			dev_err(&pdev->dev,
+				"can't identify CAAM mem clk: %d\n", ret);
+			return ret;
+		}
+		ctrlpriv->caam_mem = clk;
 	}
-	ctrlpriv->caam_mem = clk;
 
 	clk = caam_drv_identify_clk(&pdev->dev, "aclk");
 	if (IS_ERR(clk)) {
@@ -522,7 +524,8 @@ static int caam_probe(struct platform_device *pdev)
 	}
 	ctrlpriv->caam_aclk = clk;
 
-	if (!of_machine_is_compatible("fsl,imx6ul")) {
+	if (!(of_find_compatible_node(NULL, NULL, "fsl,imx7d-caam")) &&
+			!(of_find_compatible_node(NULL, NULL, "fsl,imx6ul-caam"))) {
 		clk = caam_drv_identify_clk(&pdev->dev, "emi_slow");
 		if (IS_ERR(clk)) {
 			ret = PTR_ERR(clk);
