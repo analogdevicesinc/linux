@@ -124,7 +124,6 @@ static int adc_probe(struct platform_device *pdev)
 			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 32, 0, 'u');
 			st->channels[1] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(1, 1, 16, 32, 16, 'u');
 			indio_dev->num_channels = 2;
-			indio_dev->masklength = 2;
 			break;
 		}
 
@@ -132,7 +131,6 @@ static int adc_probe(struct platform_device *pdev)
 		if(ret == 0) {
 			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 32, 16, 'u');
 			indio_dev->num_channels = 1;
-			indio_dev->masklength = 1;
 			break;
 		}
 		
@@ -140,7 +138,6 @@ static int adc_probe(struct platform_device *pdev)
 		if(ret == 0) {
 			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 24, 32, 8, 'u'); 
 			indio_dev->num_channels = 1;
-			indio_dev->masklength = 1;		  
 			break;	 
 		} 
 		
@@ -148,7 +145,6 @@ static int adc_probe(struct platform_device *pdev)
 		if(ret == 0) {
 			st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 32, 16, 'u'); 
 			indio_dev->num_channels = 1;
-			indio_dev->masklength = 1;		  
 			break;	 
 		} 		
 		
@@ -169,8 +165,6 @@ static int adc_probe(struct platform_device *pdev)
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto err_unconfigure_ring;
-
-	*indio_dev->buffer->scan_mask = (1UL << 2) - 1;
 
 	return 0;
 
