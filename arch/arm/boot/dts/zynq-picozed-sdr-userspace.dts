@@ -13,13 +13,6 @@
 	};
 
 	clocks {
-		ad9361_clkin: clock@0 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <40000000>;
-			clock-output-names = "ad9361_ext_refclk";
-		};
-
 		usb_ulpi_fixed_clk: clock@1 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
