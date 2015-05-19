@@ -145,6 +145,7 @@ config AT91_ADC
 config CF_AXI_ADC
 	tristate "Analog Devices AD9467 AD9643 High-Speed AXI ADC driver"
 	select IIO_BUFFER
+	select IIO_HW_CONSUMER
 	help
 	  Say yes here to build support for Analog Devices AD9467 and AD9643,
 	  High-Speed LVDS analog to digital converters (ADC).

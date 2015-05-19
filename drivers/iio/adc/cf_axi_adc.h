@@ -360,6 +360,8 @@ struct axiadc_state {
 	bool				streaming_dma;
 	unsigned			have_slave_channels;
 
+	struct iio_hw_consumer	*frontend;
+
 	struct iio_chan_spec	channels[16];
 };
 
