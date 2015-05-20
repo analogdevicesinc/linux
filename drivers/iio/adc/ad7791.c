@@ -169,7 +169,8 @@ static struct ad7791_state *ad_sigma_delta_to_ad7791(struct ad_sigma_delta *sd)
 	return container_of(sd, struct ad7791_state, sd);
 }
 
-static int ad7791_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
+static int ad7791_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
+	unsigned int channel)
 {
 	ad_sd_set_comm(sd, channel);
 
