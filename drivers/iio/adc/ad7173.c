@@ -416,7 +416,7 @@ static struct ad7173_state *ad_sigma_delta_to_ad7173(struct ad_sigma_delta *sd)
 	return container_of(sd, struct ad7173_state, sd);
 }
 
-static int ad7173_prepare_channel(struct ad_sigma_delta *sd,
+static int ad7173_prepare_channel(struct ad_sigma_delta *sd, unsigned int slot,
 	const struct iio_chan_spec *chan)
 {
 	unsigned int config;
@@ -429,7 +429,8 @@ static int ad7173_prepare_channel(struct ad_sigma_delta *sd,
 	return ad_sd_write_reg(sd, AD7173_REG_SETUP(slot), 2, config);
 }
 
-static int ad7173_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
+static int ad7173_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
+	unsigned int channel)
 {
 	struct ad7173_state *st = ad_sigma_delta_to_ad7173(sd);
 	unsigned int val;
