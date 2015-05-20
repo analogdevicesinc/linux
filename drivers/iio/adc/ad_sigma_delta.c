@@ -23,8 +23,9 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/adc/ad_sigma_delta.h>
 
-#include <asm/unaligned.h>
+#include <linux/spi/spi-engine.h>
 
+#include <asm/unaligned.h>
 
 #define AD_SD_COMM_CHAN_MASK	0x3
 
@@ -425,12 +426,19 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 
 	ad_sd_prepare_transfer_msg(indio_dev);
 
+	if (indio_dev->currentmode == INDIO_BUFFER_HARDWARE) {
+		sigma_delta->spi_transfer[1].rx_buf = (void *)-1;
+		spi_engine_offload_load_msg(sigma_delta->spi, &sigma_delta->spi_msg);
+		spi_engine_offload_enable(sigma_delta->spi, true);
+	} else {
+		sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
+		sigma_delta->irq_dis = false;
+		enable_irq(sigma_delta->spi->irq);
+	}
+
 	ret = ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_CONTINUOUS);
 	if (ret)
 		goto err_unlock;
-
-	sigma_delta->irq_dis = false;
-	enable_irq(sigma_delta->spi->irq);
 
 	return 0;
 
@@ -445,12 +453,16 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 
-	reinit_completion(&sigma_delta->completion);
-	wait_for_completion_timeout(&sigma_delta->completion, HZ);
+	if (indio_dev->currentmode == INDIO_BUFFER_HARDWARE) {
+		spi_engine_offload_enable(sigma_delta->spi, false);
+	} else {
+		reinit_completion(&sigma_delta->completion);
+		wait_for_completion_timeout(&sigma_delta->completion, HZ);
 
-	if (!sigma_delta->irq_dis) {
-		disable_irq_nosync(sigma_delta->spi->irq);
-		sigma_delta->irq_dis = true;
+		if (!sigma_delta->irq_dis) {
+			disable_irq_nosync(sigma_delta->spi->irq);
+			sigma_delta->irq_dis = true;
+		}
 	}
 
 	sigma_delta->keep_cs_asserted = false;
@@ -598,9 +610,11 @@ static void ad_sd_remove_trigger(struct iio_dev *indio_dev)
  */
 int ad_sd_setup_buffer_and_trigger(struct iio_dev *indio_dev)
 {
+	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 	int ret;
 
-	ad_sd_prepare_transfer_msg(indio_dev);
+	if (spi_engine_offload_supported(sigma_delta->spi))
+		indio_dev->modes |= INDIO_BUFFER_HARDWARE;
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
 			&ad_sd_trigger_handler, &ad_sd_buffer_setup_ops);
