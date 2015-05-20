@@ -99,31 +99,37 @@ int ad_sd_write_reg(struct ad_sigma_delta *sigma_delta, unsigned int reg,
 }
 EXPORT_SYMBOL_GPL(ad_sd_write_reg);
 
+static void ad_sd_prepare_read_reg(struct ad_sigma_delta *sigma_delta,
+	struct spi_message *m, struct spi_transfer *t, unsigned int reg,
+	unsigned int size, uint8_t *tx_buf, uint8_t *rx_buf, bool cs_change)
+{
+	memset(t, 0, sizeof(*t) * 2);
+	t[1].rx_buf = rx_buf;
+	t[1].len = size;
+	t[1].cs_change = cs_change;
+
+	spi_message_init(m);
+
+	if (sigma_delta->info->has_registers) {
+		tx_buf[0] = reg << sigma_delta->info->addr_shift;
+		tx_buf[0] |= sigma_delta->info->read_mask;
+		tx_buf[0] |= sigma_delta->comm;
+		t[0].tx_buf = tx_buf,
+		t[0].len = 1,
+		spi_message_add_tail(&t[0], m);
+	}
+	spi_message_add_tail(&t[1], m);
+}
+
 static int ad_sd_read_reg_raw(struct ad_sigma_delta *sigma_delta,
 	unsigned int reg, unsigned int size, uint8_t *val)
 {
-	uint8_t *data = sigma_delta->data;
-	int ret;
-	struct spi_transfer t[] = {
-		{
-			.tx_buf = data,
-			.len = 1,
-		}, {
-			.rx_buf = val,
-			.len = size,
-			.cs_change = sigma_delta->bus_locked,
-		},
-	};
 	struct spi_message m;
+	struct spi_transfer t[2];
+	int ret;
 
-	spi_message_init(&m);
-
-	if (sigma_delta->info->has_registers) {
-		data[0] = reg << sigma_delta->info->addr_shift;
-		data[0] |= sigma_delta->info->read_mask;
-		spi_message_add_tail(&t[0], &m);
-	}
-	spi_message_add_tail(&t[1], &m);
+	ad_sd_prepare_read_reg(sigma_delta, &m, t, reg, size,
+		sigma_delta->data, val, sigma_delta->keep_cs_asserted);
 
 	if (sigma_delta->bus_locked)
 		ret = spi_sync_locked(sigma_delta->spi, &m);
@@ -593,6 +599,8 @@ static void ad_sd_remove_trigger(struct iio_dev *indio_dev)
 int ad_sd_setup_buffer_and_trigger(struct iio_dev *indio_dev)
 {
 	int ret;
+
+	ad_sd_prepare_transfer_msg(indio_dev);
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
 			&ad_sd_trigger_handler, &ad_sd_buffer_setup_ops);
