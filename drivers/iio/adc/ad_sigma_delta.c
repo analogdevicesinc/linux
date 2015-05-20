@@ -211,7 +211,7 @@ int ad_sd_calibrate(struct ad_sigma_delta *sigma_delta,
 	int ret;
 	unsigned long timeout;
 
-	ret = ad_sigma_delta_set_channel(sigma_delta, channel);
+	ret = ad_sigma_delta_set_channel(sigma_delta, 0, channel);
 	if (ret)
 		return ret;
 
@@ -303,7 +303,8 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 		return -EBUSY;
 
 	mutex_lock(&indio_dev->mlock);
-	ad_sigma_delta_set_channel(sigma_delta, chan->address);
+	ad_sigma_delta_prepare_channel(sigma_delta, 0, chan);
+	ad_sigma_delta_set_channel(sigma_delta, 0, chan->address);
 
 	ad_sigma_delta_set_active_slots(sigma_delta, 1);
 
