@@ -23,8 +23,9 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/adc/ad_sigma_delta.h>
 
-#include <asm/unaligned.h>
+#include <linux/spi/spi-engine.h>
 
+#include <asm/unaligned.h>
 
 #define AD_SD_COMM_CHAN_MASK	0x3
 
@@ -340,6 +341,52 @@ out:
 }
 EXPORT_SYMBOL_NS_GPL(ad_sigma_delta_single_conversion, IIO_AD_SIGMA_DELTA);
 
+/*
+ * There are code duplication introduced by the below function but since the spi engine
+ * is the only things we have not upstreamed, let's keep this code duplicated as it allow
+ * us to leave the rest of the module in sync with upstream.
+ */
+static void ad_sd_prepare_and_enable_spi_engine_msg(struct ad_sigma_delta *sigma_delta,
+						    struct iio_dev *indio_dev)
+{
+	struct spi_transfer t[] = {
+		{
+			.tx_buf = sigma_delta->tx_buf,
+			.len = 1,
+		}, {
+			.rx_buf = (void *)-1,
+			.cs_change = true,
+		},
+	};
+	unsigned int reg_size;
+	unsigned int data_reg;
+	struct spi_message m;
+
+	reg_size = indio_dev->channels[0].scan_type.realbits +
+			indio_dev->channels[0].scan_type.shift;
+	reg_size = DIV_ROUND_UP(reg_size, 8);
+
+	if (sigma_delta->info->data_reg != 0)
+		data_reg = sigma_delta->info->data_reg;
+	else
+		data_reg = AD_SD_REG_DATA;
+
+	t[1].len = reg_size;
+
+	spi_message_init(&m);
+
+	if (sigma_delta->info->has_registers) {
+		sigma_delta->tx_buf[0] = data_reg << sigma_delta->info->addr_shift;
+		sigma_delta->tx_buf[0] |= sigma_delta->info->read_mask;
+		sigma_delta->tx_buf[0] |= sigma_delta->comm;
+		spi_message_add_tail(&t[0], &m);
+	}
+	spi_message_add_tail(&t[1], &m);
+
+	spi_engine_offload_load_msg(sigma_delta->spi, &m);
+	spi_engine_offload_enable(sigma_delta->spi, true);
+}
+
 static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
@@ -391,12 +438,21 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	sigma_delta->bus_locked = true;
 	sigma_delta->keep_cs_asserted = true;
 
+	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE)
+		ad_sd_prepare_and_enable_spi_engine_msg(sigma_delta, indio_dev);
+
 	ret = ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_CONTINUOUS);
 	if (ret)
 		goto err_unlock;
 
-	sigma_delta->irq_dis = false;
-	enable_irq(sigma_delta->spi->irq);
+	/*
+	 * Differs from upstream because of the spi engine support and we want to enable
+	 * the irq only after setting AD_SD_MODE_CONTINUOUS (as in the upstream lib)
+	 */
+	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE) {
+		sigma_delta->irq_dis = false;
+		enable_irq(sigma_delta->spi->irq);
+	}
 
 	return 0;
 
@@ -410,12 +466,16 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 
-	reinit_completion(&sigma_delta->completion);
-	wait_for_completion_timeout(&sigma_delta->completion, HZ);
+	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE) {
+		spi_engine_offload_enable(sigma_delta->spi, false);
+	} else {
+		reinit_completion(&sigma_delta->completion);
+		wait_for_completion_timeout(&sigma_delta->completion, HZ);
 
-	if (!sigma_delta->irq_dis) {
-		disable_irq_nosync(sigma_delta->spi->irq);
-		sigma_delta->irq_dis = true;
+		if (!sigma_delta->irq_dis) {
+			disable_irq_nosync(sigma_delta->spi->irq);
+			sigma_delta->irq_dis = true;
+		}
 	}
 
 	sigma_delta->keep_cs_asserted = false;
@@ -613,6 +673,9 @@ int devm_ad_sd_setup_buffer_and_trigger(struct device *dev, struct iio_dev *indi
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 	int ret;
+
+	if (spi_engine_offload_supported(sigma_delta->spi))
+		indio_dev->modes |= INDIO_BUFFER_HARDWARE;
 
 	sigma_delta->slots = devm_kcalloc(dev, sigma_delta->num_slots,
 					  sizeof(*sigma_delta->slots), GFP_KERNEL);
