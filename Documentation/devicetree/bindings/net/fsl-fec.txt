@@ -34,6 +34,9 @@ Optional properties:
 - fsl,err006687-workaround-present: If present indicates that the system has
   the hardware workaround for ERR006687 applied and does not need a software
   workaround.
+- fsl,wakeup_irq : The property define the wakeup irq index in enet irq source.
+- stop-mode : If present, indicates soc need to set gpr bit to request stop
+  mode.
 
 Optional subnodes:
 - mdio : specifies the mdio bus in the FEC, used as a container for phy nodes
