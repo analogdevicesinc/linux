@@ -99,32 +99,37 @@ int ad_sd_write_reg(struct ad_sigma_delta *sigma_delta, unsigned int reg,
 }
 EXPORT_SYMBOL_GPL(ad_sd_write_reg);
 
+static void ad_sd_prepare_read_reg(struct ad_sigma_delta *sigma_delta,
+	struct spi_message *m, struct spi_transfer *t, unsigned int reg,
+	unsigned int size, uint8_t *tx_buf, uint8_t *rx_buf, bool cs_change)
+{
+	memset(t, 0, sizeof(*t) * 2);
+	t[1].rx_buf = rx_buf;
+	t[1].len = size;
+	t[1].cs_change = cs_change;
+
+	spi_message_init(m);
+
+	if (sigma_delta->info->has_registers) {
+		tx_buf[0] = reg << sigma_delta->info->addr_shift;
+		tx_buf[0] |= sigma_delta->info->read_mask;
+		tx_buf[0] |= sigma_delta->comm;
+		t[0].tx_buf = tx_buf,
+		t[0].len = 1,
+		spi_message_add_tail(&t[0], m);
+	}
+	spi_message_add_tail(&t[1], m);
+}
+
 static int ad_sd_read_reg_raw(struct ad_sigma_delta *sigma_delta,
 	unsigned int reg, unsigned int size, uint8_t *val)
 {
-	uint8_t *data = sigma_delta->reg_data;
-	int ret;
-	struct spi_transfer t[] = {
-		{
-			.tx_buf = data,
-			.len = 1,
-		}, {
-			.rx_buf = val,
-			.len = size,
-			.cs_change = sigma_delta->bus_locked,
-		},
-	};
 	struct spi_message m;
+	struct spi_transfer t[2];
+	int ret;
 
-	spi_message_init(&m);
-
-	if (sigma_delta->info->has_registers) {
-		data[0] = reg << sigma_delta->info->addr_shift;
-		data[0] |= sigma_delta->info->read_mask;
-		data[0] |= sigma_delta->comm;
-		spi_message_add_tail(&t[0], &m);
-	}
-	spi_message_add_tail(&t[1], &m);
+	ad_sd_prepare_read_reg(sigma_delta, &m, t, reg, size,
+		sigma_delta->reg_data, val, sigma_delta->keep_cs_asserted);
 
 	if (sigma_delta->bus_locked)
 		ret = spi_sync_locked(sigma_delta->spi, &m);
@@ -376,38 +381,13 @@ static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
-	uint8_t *data = sigma_delta->buf_data;
-	unsigned int reg_size;
-	unsigned int data_reg;
 	int ret;
 
-	memset(data, 0x00, 16);
-
-	reg_size = indio_dev->channels[0].scan_type.realbits +
-			indio_dev->channels[0].scan_type.shift;
-	reg_size = DIV_ROUND_UP(reg_size, 8);
-
-	if (sigma_delta->info->data_reg != 0)
-		data_reg = sigma_delta->info->data_reg;
-	else
-		data_reg = AD_SD_REG_DATA;
-
-	switch (reg_size) {
-	case 4:
-	case 2:
-	case 1:
-		ret = ad_sd_read_reg_raw(sigma_delta, data_reg, reg_size,
-			&data[0]);
-		break;
-	case 3:
-		/* We store 24 bit samples in a 32 bit word. Keep the upper
-		 * byte set to zero. */
-		ret = ad_sd_read_reg_raw(sigma_delta, data_reg, reg_size,
-			&data[1]);
-		break;
-	}
-
-	iio_push_to_buffers_with_timestamp(indio_dev, data, pf->timestamp);
+	memset(sigma_delta->buf_data, 0x00, 16);
+	ret = spi_sync_locked(sigma_delta->spi, &sigma_delta->spi_msg);
+	if (ret == 0)
+		iio_push_to_buffers_with_timestamp(indio_dev,
+			sigma_delta->buf_data, pf->timestamp);
 
 	iio_trigger_notify_done(indio_dev->trig);
 	sigma_delta->irq_dis = false;
@@ -512,6 +492,32 @@ static void ad_sd_remove_trigger(struct iio_dev *indio_dev)
 	iio_trigger_free(sigma_delta->trig);
 }
 
+static void ad_sd_prepare_transfer_msg(struct iio_dev *indio_dev)
+{
+	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	uint8_t *tx = sigma_delta->buf_data + 16;
+	uint8_t *rx = sigma_delta->buf_data;
+	unsigned int reg_size;
+	unsigned int data_reg;
+
+	reg_size = indio_dev->channels[0].scan_type.realbits +
+			indio_dev->channels[0].scan_type.shift;
+	reg_size = DIV_ROUND_UP(reg_size, 8);
+
+	if (sigma_delta->info->data_reg != 0)
+		data_reg = sigma_delta->info->data_reg;
+	else
+		data_reg = AD_SD_REG_DATA;
+
+	/* We store 24 bit samples in a 32 bit word. Keep the upper
+	 * byte set to zero. */
+	if (reg_size == 3)
+		rx += 1;
+	ad_sd_prepare_read_reg(sigma_delta, &sigma_delta->spi_msg,
+		sigma_delta->spi_transfer, data_reg, reg_size, tx,
+		rx, true);
+}
+
 /**
  * ad_sd_setup_buffer_and_trigger() -
  * @indio_dev: The IIO device
@@ -519,6 +525,8 @@ static void ad_sd_remove_trigger(struct iio_dev *indio_dev)
 int ad_sd_setup_buffer_and_trigger(struct iio_dev *indio_dev)
 {
 	int ret;
+
+	ad_sd_prepare_transfer_msg(indio_dev);
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
 			&ad_sd_trigger_handler, &ad_sd_buffer_setup_ops
