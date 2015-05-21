@@ -96,6 +96,8 @@ struct iio_buffer_access_funcs {
 		struct iio_buffer_block *block);
 	int (*mmap)(struct iio_buffer *buffer,
 		struct vm_area_struct *vma);
+	
+	unsigned int modes;
 };
 
 /**

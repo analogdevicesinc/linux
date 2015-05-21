@@ -192,6 +192,9 @@ config SPI_EFM32
 	help
 	  Driver for the spi controller found on Energy Micro's EFM32 SoCs.
 
+config SPI_ENGINE
+	tristate "SPI Engine controller"
+
 config SPI_EP93XX
 	tristate "Cirrus Logic EP93xx SPI controller"
 	depends on HAS_DMA

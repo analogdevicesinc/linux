@@ -348,10 +348,6 @@ static int lis3l02dq_buffer_postenable(struct iio_dev *indio_dev)
 	ret = lis3l02dq_spi_write_reg_8(indio_dev,
 					LIS3L02DQ_REG_CTRL_1_ADDR,
 					t);
-	if (ret)
-		goto error_ret;
-
-	return iio_triggered_buffer_postenable(indio_dev);
 error_ret:
 	return ret;
 }
@@ -361,10 +357,6 @@ static int lis3l02dq_buffer_predisable(struct iio_dev *indio_dev)
 {
 	u8 t;
 	int ret;
-
-	ret = iio_triggered_buffer_predisable(indio_dev);
-	if (ret)
-		goto error_ret;
 
 	ret = lis3l02dq_spi_read_reg_8(indio_dev,
 				       LIS3L02DQ_REG_CTRL_1_ADDR,
