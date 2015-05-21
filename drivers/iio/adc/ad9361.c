@@ -937,8 +937,8 @@ static int ad9361_get_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 
 	rx_gain->tia_index = ad9361_spi_readf(spi, REG_GAIN_TABLE_READ_DATA2, TIA_GAIN);
 
-	rx_gain->lmt_gain = lna_table[rx_gain->lna_index] +
-				mixer_table[rx_gain->mixer_index] +
+	rx_gain->lmt_gain = lna_table[phy->current_table][rx_gain->lna_index] +
+				mixer_table[phy->current_table][rx_gain->mixer_index] +
 				tia_table[rx_gain->tia_index];
 
 	ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, tbl_addr);
