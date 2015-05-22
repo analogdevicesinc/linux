@@ -1882,6 +1882,15 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 	if (err)
 		goto err_unreg_cec;
 
+#ifdef CONFIG_VIDEO_IMAGEON_BRIDGE
+	/* Recommended Register Settings for Embedded Sync Processing - 1080p-60 */
+	adv7511_wr(sd, 0x30, 0x16);
+	adv7511_wr(sd, 0x31, 0x2);
+	adv7511_wr(sd, 0x32, 0xc0);
+	adv7511_wr(sd, 0x33, 0x10);
+	adv7511_wr(sd, 0x34, 0x5);
+#endif
+
 	return 0;
 
 err_unreg_cec:
