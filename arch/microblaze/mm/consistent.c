@@ -156,6 +156,7 @@ void *consistent_alloc(gfp_t gfp, size_t size, dma_addr_t *dma_handle)
 }
 EXPORT_SYMBOL(consistent_alloc);
 
+#ifdef CONFIG_MMU
 static pte_t *consistent_virt_to_pte(void *vaddr)
 {
 	unsigned long addr = (unsigned long)vaddr;
@@ -172,6 +173,7 @@ unsigned long consistent_virt_to_pfn(void *vaddr)
 
 	return pte_pfn(*ptep);
 }
+#endif
 
 /*
  * free page(s) as defined by the above mapping.

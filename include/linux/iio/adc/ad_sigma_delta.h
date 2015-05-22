@@ -16,6 +16,8 @@ enum ad_sigma_delta_mode {
 	AD_SD_MODE_POWERDOWN = 3,
 };
 
+#define AD_SD_SLOT_DISABLE ((unsigned int)-1)
+
 /**
  * struct ad_sigma_delta_calib_data - Calibration data for Sigma Delta devices
  * @mode: Calibration mode.
@@ -45,8 +47,9 @@ struct iio_dev;
  *   be used.
  */
 struct ad_sigma_delta_info {
-	int (*set_channel)(struct ad_sigma_delta *, unsigned int channel);
-	int (*prepare_channel)(struct ad_sigma_delta *,
+	int (*set_channel)(struct ad_sigma_delta *, unsigned int slot,
+		unsigned int channel);
+	int (*prepare_channel)(struct ad_sigma_delta *, unsigned int slot,
 		const struct iio_chan_spec *);
 	int (*set_mode)(struct ad_sigma_delta *, enum ad_sigma_delta_mode mode);
 	int (*postprocess_sample)(struct ad_sigma_delta *, unsigned int raw_sample);
@@ -60,6 +63,7 @@ struct ad_sigma_delta_info {
  * struct ad_sigma_delta - Sigma Delta device struct
  * @spi: The spi device associated with the Sigma Delta device.
  * @trig: The IIO trigger associated with the Sigma Delta device.
+ * @num_slots: Number of sequencer slots
  *
  * Most of the fields are private to the sigma delta library code and should not
  * be accessed by individual drivers.
@@ -68,37 +72,46 @@ struct ad_sigma_delta {
 	struct spi_device	*spi;
 	struct iio_trigger	*trig;
 
+	unsigned int		num_slots;
+
 /* private: */
 	struct completion	completion;
 	bool			irq_dis;
 
 	bool			bus_locked;
+	bool			keep_cs_asserted;
 
 	uint8_t			comm;
 
 	const struct ad_sigma_delta_info *info;
+	unsigned int		active_slots;
+	unsigned int		current_slot;
+
+	struct spi_message	spi_msg;
+	struct spi_transfer	spi_transfer[2];
+	uint8_t			*buf_data;
 
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	uint8_t				data[4] ____cacheline_aligned;
+	uint8_t				reg_data[4] ____cacheline_aligned;
 };
 
 static inline int ad_sigma_delta_prepare_channel(struct ad_sigma_delta *sd,
-	const struct iio_chan_spec *chan)
+	unsigned int slot, const struct iio_chan_spec *chan)
 {
 	if (sd->info->prepare_channel)
-		return sd->info->prepare_channel(sd, chan);
+		return sd->info->prepare_channel(sd, slot, chan);
 
 	return 0;
 }
 
 static inline int ad_sigma_delta_set_channel(struct ad_sigma_delta *sd,
-	unsigned int channel)
+	unsigned int slot, unsigned int channel)
 {
 	if (sd->info->set_channel)
-		return sd->info->set_channel(sd, channel);
+		return sd->info->set_channel(sd, slot, channel);
 
 	return 0;
 }

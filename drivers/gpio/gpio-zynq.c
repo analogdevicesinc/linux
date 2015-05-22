@@ -578,7 +578,7 @@ static void zynq_gpio_free(struct gpio_chip *chip, unsigned offset)
 
 static const struct dev_pm_ops zynq_gpio_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(zynq_gpio_suspend, zynq_gpio_resume)
-	SET_PM_RUNTIME_PM_OPS(zynq_gpio_runtime_suspend,
+	SET_RUNTIME_PM_OPS(zynq_gpio_runtime_suspend,
 			zynq_gpio_runtime_resume, NULL)
 };
 
@@ -666,6 +666,11 @@ static int zynq_gpio_probe(struct platform_device *pdev)
 				     zynq_gpio_irqhandler);
 
 	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
+	/* XXX: this is a workaround to force the GPIO controller clock to stay
+	 * enabled, otherwise register writes are ignored. */
+	pm_runtime_get_sync(chip->dev);
 
 	return 0;
 

@@ -136,6 +136,8 @@ static const struct iio_buffer_access_funcs dmaengine_buffer_ops = {
 	.enqueue_block = iio_dma_buffer_enqueue_block,
 	.dequeue_block = iio_dma_buffer_dequeue_block,
 	.mmap = iio_dma_buffer_mmap,
+
+	.modes = INDIO_BUFFER_HARDWARE,
 };
 
 struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,

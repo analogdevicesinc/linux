@@ -298,6 +298,7 @@ enum dma_slave_buswidth {
 	DMA_SLAVE_BUSWIDTH_3_BYTES = 3,
 	DMA_SLAVE_BUSWIDTH_4_BYTES = 4,
 	DMA_SLAVE_BUSWIDTH_8_BYTES = 8,
+	DMA_SLAVE_BUSWIDTH_16_BYTES = 16,
 };
 
 /**
@@ -447,7 +448,8 @@ struct dmaengine_unmap_data {
  * 	communicate status
  * @phys: physical address of the descriptor
  * @chan: target channel for this operation
- * @tx_submit: set the prepared descriptor(s) to be executed by the engine
+ * @tx_submit: accept the descriptor, assign ordered cookie and mark the
+ * descriptor pending. To be pushed on .issue_pending() call
  * @callback: routine to call after this operation is complete
  * @callback_param: general parameter to pass to the callback routine
  * ---async_tx api specific fields---

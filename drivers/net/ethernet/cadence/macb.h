@@ -12,6 +12,7 @@
 
 #define MACB_GREGS_NBR 16
 #define MACB_GREGS_VERSION 1
+#define MACB_MAX_QUEUES 8
 
 /* MACB register offsets */
 #define MACB_NCR				0x0000
@@ -70,6 +71,7 @@
 #define GEM_NCFGR				0x0004
 #define GEM_USRIO				0x000c
 #define GEM_DMACFG				0x0010
+#define GEM_JML					0x0048
 #define GEM_HRB					0x0080
 #define GEM_HRT					0x0084
 #define GEM_SA1B				0x0088
@@ -88,6 +90,13 @@
 #define GEM_DCFG5				0x0290
 #define GEM_DCFG6				0x0294
 #define GEM_DCFG7				0x0298
+
+#define GEM_ISR(hw_q)				(0x0400 + ((hw_q) << 2))
+#define GEM_TBQP(hw_q)				(0x0440 + ((hw_q) << 2))
+#define GEM_RBQP(hw_q)				(0x0480 + ((hw_q) << 2))
+#define GEM_IER(hw_q)				(0x0600 + ((hw_q) << 2))
+#define GEM_IDR(hw_q)				(0x0620 + ((hw_q) << 2))
+#define GEM_IMR(hw_q)				(0x0640 + ((hw_q) << 2))
 
 /* Bitfields in NCR */
 #define MACB_LB_OFFSET				0
@@ -297,7 +306,7 @@
 
 /* Bitfields in MID */
 #define MACB_IDNUM_OFFSET			16
-#define MACB_IDNUM_SIZE				16
+#define MACB_IDNUM_SIZE				12
 #define MACB_REV_OFFSET				0
 #define MACB_REV_SIZE				16
 
@@ -376,6 +385,10 @@
 	__raw_readl((port)->regs + GEM_##reg)
 #define gem_writel(port, reg, value)			\
 	__raw_writel((value), (port)->regs + GEM_##reg)
+#define queue_readl(queue, reg)				\
+	__raw_readl((queue)->bp->regs + (queue)->reg)
+#define queue_writel(queue, reg, value)			\
+	__raw_writel((value), (queue)->bp->regs + (queue)->reg)
 
 /*
  * Conditional GEM/MACB macros.  These perform the operation to the correct
@@ -453,6 +466,9 @@ struct macb_dma_desc {
 #define MACB_RX_MHASH_MATCH_SIZE		1
 #define MACB_RX_BROADCAST_OFFSET		31
 #define MACB_RX_BROADCAST_SIZE			1
+
+#define MACB_RX_FRMLEN_MASK			0xFFF
+#define MACB_RX_JFRMLEN_MASK			0x3FFF
 
 /* RX checksum offload disabled: bit 24 clear in NCFGR */
 #define GEM_RX_TYPEID_MATCH_OFFSET		22
@@ -597,6 +613,23 @@ struct macb_config {
 	unsigned int		dma_burst_length;
 };
 
+struct macb_queue {
+	struct macb		*bp;
+	int			irq;
+
+	unsigned int		ISR;
+	unsigned int		IER;
+	unsigned int		IDR;
+	unsigned int		IMR;
+	unsigned int		TBQP;
+
+	unsigned int		tx_head, tx_tail;
+	struct macb_dma_desc	*tx_ring;
+	struct macb_tx_skb	*tx_skb;
+	dma_addr_t		tx_ring_dma;
+	struct work_struct	tx_error_task;
+};
+
 struct macb {
 	void __iomem		*regs;
 
@@ -607,9 +640,8 @@ struct macb {
 	void			*rx_buffers;
 	size_t			rx_buffer_size;
 
-	unsigned int		tx_head, tx_tail;
-	struct macb_dma_desc	*tx_ring;
-	struct macb_tx_skb	*tx_skb;
+	unsigned int		num_queues;
+	struct macb_queue	queues[MACB_MAX_QUEUES];
 
 	spinlock_t		lock;
 	struct platform_device	*pdev;
@@ -618,7 +650,6 @@ struct macb {
 	struct clk		*tx_clk;
 	struct net_device	*dev;
 	struct napi_struct	napi;
-	struct work_struct	tx_error_task;
 	struct net_device_stats	stats;
 	union {
 		struct macb_stats	macb;
@@ -626,7 +657,6 @@ struct macb {
 	}			hw_stats;
 
 	dma_addr_t		rx_ring_dma;
-	dma_addr_t		tx_ring_dma;
 	dma_addr_t		rx_buffers_dma;
 
 	struct macb_or_gem_ops	macbgem_ops;
@@ -647,6 +677,9 @@ struct macb {
 	dma_addr_t skb_physaddr;		/* phys addr from pci_map_single */
 	int skb_length;				/* saved skb length for pci_unmap_single */
 	unsigned int		max_tx_length;
+	unsigned int		rx_frm_len_mask;
+	unsigned int		jumbo_max_len;
+	bool			isjumbo;
 };
 
 extern const struct ethtool_ops macb_ethtool_ops;

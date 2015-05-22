@@ -1,9 +1,11 @@
 /*
  * Xilinx Test Pattern Generator
  *
- * Copyright (C) 2013 Ideas on Board SPRL
+ * Copyright (C) 2013-2015 Ideas on Board
+ * Copyright (C) 2013-2015 Xilinx, Inc.
  *
- * Contacts: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+ * Contacts: Hyun Kwon <hyun.kwon@xilinx.com>
+ *           Laurent Pinchart <laurent.pinchart@ideasonboard.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -116,13 +118,13 @@ static inline struct xtpg_device *to_tpg(struct v4l2_subdev *subdev)
 static u32 xtpg_get_bayer_phase(unsigned int code)
 {
 	switch (code) {
-	case V4L2_MBUS_FMT_SRGGB8_1X8:
+	case MEDIA_BUS_FMT_SRGGB8_1X8:
 		return XTPG_BAYER_PHASE_RGGB;
-	case V4L2_MBUS_FMT_SGRBG8_1X8:
+	case MEDIA_BUS_FMT_SGRBG8_1X8:
 		return XTPG_BAYER_PHASE_GRBG;
-	case V4L2_MBUS_FMT_SGBRG8_1X8:
+	case MEDIA_BUS_FMT_SGBRG8_1X8:
 		return XTPG_BAYER_PHASE_GBRG;
-	case V4L2_MBUS_FMT_SBGGR8_1X8:
+	case MEDIA_BUS_FMT_SBGGR8_1X8:
 		return XTPG_BAYER_PHASE_BGGR;
 	default:
 		return XTPG_BAYER_PHASE_OFF;
@@ -238,7 +240,7 @@ static int xtpg_s_stream(struct v4l2_subdev *subdev, int enable)
 		    : xtpg_get_bayer_phase(xtpg->formats[0].code);
 	xvip_write(&xtpg->xvip, XTPG_BAYER_PHASE, bayer_phase);
 
-	if (!IS_ERR(xtpg->vtmux_gpio))
+	if (xtpg->vtmux_gpio)
 		gpiod_set_value_cansleep(xtpg->vtmux_gpio, !passthrough);
 
 	xvip_start(&xtpg->xvip);
@@ -779,18 +781,17 @@ static int xtpg_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	xtpg->vtmux_gpio = devm_gpiod_get_index(&pdev->dev, "timing", 0);
-	if (PTR_ERR(xtpg->vtmux_gpio) == -EPROBE_DEFER) {
-		ret = -EPROBE_DEFER;
-		goto error;
+	xtpg->vtmux_gpio = devm_gpiod_get_optional(&pdev->dev, "timing",
+						   GPIOD_OUT_HIGH);
+	if (IS_ERR(xtpg->vtmux_gpio)) {
+		ret = PTR_ERR(xtpg->vtmux_gpio);
+		goto error_resource;
 	}
-	if (!IS_ERR(xtpg->vtmux_gpio))
-		gpiod_direction_output(xtpg->vtmux_gpio, 1);
 
 	xtpg->vtc = xvtc_of_get(pdev->dev.of_node);
 	if (IS_ERR(xtpg->vtc)) {
 		ret = PTR_ERR(xtpg->vtc);
-		goto error;
+		goto error_resource;
 	}
 
 	/* Reset and initialize the core */
@@ -881,6 +882,7 @@ error:
 	v4l2_ctrl_handler_free(&xtpg->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
 	xvtc_put(xtpg->vtc);
+error_resource:
 	xvip_cleanup_resources(&xtpg->xvip);
 	return ret;
 }

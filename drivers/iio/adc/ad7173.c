@@ -78,6 +78,8 @@
 #define AD7173_GPIO_GP_DATA0		BIT(0)
 
 #define AD7173_SETUP_BIPOLAR		BIT(12)
+#define AD7173_SETUP_AREF_BUF		(0x3 << 10)
+#define AD7173_SETUP_AIN_BUF		(0x3 << 8)
 #define AD7173_SETUP_REF_SEL_MASK	0x30
 #define AD7173_SETUP_REF_SEL_AVDD1_AVSS	0x30
 #define AD7173_SETUP_REF_SEL_INT_REF	0x20
@@ -414,7 +416,7 @@ static struct ad7173_state *ad_sigma_delta_to_ad7173(struct ad_sigma_delta *sd)
 	return container_of(sd, struct ad7173_state, sd);
 }
 
-static int ad7173_prepare_channel(struct ad_sigma_delta *sd,
+static int ad7173_prepare_channel(struct ad_sigma_delta *sd, unsigned int slot,
 	const struct iio_chan_spec *chan)
 {
 	unsigned int config;
@@ -424,15 +426,21 @@ static int ad7173_prepare_channel(struct ad_sigma_delta *sd,
 	if (chan->differential)
 		config |= AD7173_SETUP_BIPOLAR;
 
-	return ad_sd_write_reg(sd, AD7173_REG_SETUP(0), 2, config);
+	return ad_sd_write_reg(sd, AD7173_REG_SETUP(slot), 2, config);
 }
 
-static int ad7173_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
+static int ad7173_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
+	unsigned int channel)
 {
 	struct ad7173_state *st = ad_sigma_delta_to_ad7173(sd);
+	unsigned int val;
 
-	return ad_sd_write_reg(&st->sd, AD7173_REG_CH(0), 2,
-		AD7173_CH_ENABLE | channel);
+	if (channel == AD_SD_SLOT_DISABLE)
+	    val = 0;
+	else
+	    val = AD7173_CH_ENABLE | channel;
+
+	return ad_sd_write_reg(&st->sd, AD7173_REG_CH(slot), 2, val);
 }
 
 static int ad7173_set_mode(struct ad_sigma_delta *sd,
@@ -737,6 +745,8 @@ static int ad7173_probe(struct spi_device *spi)
 	st->info = &ad7173_device_info[id->driver_data];
 
 	ad_sd_init(&st->sd, indio_dev, spi, &ad7173_sigma_delta_info);
+
+	st->sd.num_slots = st->info->num_configs;
 
 	spi_set_drvdata(spi, indio_dev);
 

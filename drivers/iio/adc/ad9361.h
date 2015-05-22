@@ -3668,12 +3668,14 @@ static const u8 gm_st_ctrl[16]= {0x0, 0xD, 0x15, 0x1B, 0x21, 0x25, 0x29,
 			 0x2C, 0x2F, 0x31, 0x33, 0x34, 0x35, 0x3A, 0x3D, 0x3E};
 
 
-static const s8 lna_table[] = {6, 17, 19, 25};
+static const s8 lna_table[RXGAIN_TBLS_END][4] = {
+	{5, 17, 19, 24}, {3, 14, 17, 21}, {-4, 10, 13, 14}};
 static const s8 tia_table[] = {-6, 0};
-static const s8 mixer_table[] = {0, 5, 11, 16,
-			17, 18, 19, 20,
-			21, 22, 23, 24,
-			25, 26,	27, 28};
+static const s8 mixer_table[RXGAIN_TBLS_END][16] = {
+	{0, 3, 9, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25},
+	{0, 3, 9, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26},
+	{0, 3, 8, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}};
+
 
 #endif
 

@@ -32,17 +32,8 @@
 
 	chosen {
 		bootargs = "console=ttyPS0,115200 root=/dev/ram rw earlyprintk";
-		linux,stdout-path = "/amba/serial@e0001000";
-	};
-
-	leds {
-		compatible = "gpio-leds";
-
-		ds23 {
-			label = "ds23";
-			gpios = <&gpio0 10 0>;
-			linux,default-trigger = "heartbeat";
-		};
+		linux,stdout-path = &uart1;
+		stdout-path = &uart1;
 	};
 
 	gpio-keys {
@@ -74,6 +65,11 @@
 			gpios = <&gpio0 10 0>;
 			linux,default-trigger = "heartbeat";
 		};
+	};
+
+	usb_phy0: phy0 {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
 	};
 };
 
@@ -112,15 +108,12 @@
 	};
 };
 
-&usb0 {
-	status = "okay";
-	dr_mode = "host";
-	phy_type = "ulpi";
-	usb-reset = <&gpio0 7 0>;
-};
-
 &can0 {
 	status = "okay";
+};
+
+&clkc {
+	ps-clk-frequency = <33333333>;
 };
 
 &gem0 {
@@ -215,4 +208,10 @@
 
 &uart1 {
 	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+	dr_mode = "host";
+	usb-phy = <&usb_phy0>;
 };

@@ -1,9 +1,11 @@
 /*
  * Xilinx Video Remapper
  *
- * Copyright (C) 2013 Ideas on Board SPRL
+ * Copyright (C) 2013-2015 Ideas on Board
+ * Copyright (C) 2013-2015 Xilinx, Inc.
  *
- * Contacts: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+ * Contacts: Hyun Kwon <hyun.kwon@xilinx.com>
+ *           Laurent Pinchart <laurent.pinchart@ideasonboard.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -97,11 +99,11 @@ static inline struct xremap_device *to_remap(struct v4l2_subdev *subdev)
 
 static const struct xremap_mapping xremap_mappings[] = {
 	{
-		.code = V4L2_MBUS_FMT_RBG888_1X24,
+		.code = MEDIA_BUS_FMT_RBG888_1X24,
 		.width = 8,
 		.num_components = 3,
 		.outputs = (const struct xremap_mapping_output[]) {
-			{ V4L2_MBUS_FMT_RGB888_1X32_PADHI, 4, { 1, 0, 2, 4 } },
+			{ MEDIA_BUS_FMT_RGB888_1X32_PADHI, 4, { 1, 0, 2, 4 } },
 			{ },
 		},
 	},

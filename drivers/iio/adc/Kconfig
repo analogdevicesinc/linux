@@ -145,6 +145,7 @@ config AT91_ADC
 config CF_AXI_ADC
 	tristate "Analog Devices AD9467 AD9643 High-Speed AXI ADC driver"
 	select IIO_BUFFER
+	select IIO_HW_CONSUMER
 	help
 	  Say yes here to build support for Analog Devices AD9467 and AD9643,
 	  High-Speed LVDS analog to digital converters (ADC).
@@ -164,6 +165,14 @@ config AXIADC_V2
 
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
+
+config AXP288_ADC
+	tristate "X-Powers AXP288 ADC driver"
+	depends on MFD_AXP20X
+	help
+	  Say yes here to have support for X-Powers power management IC (PMIC) ADC
+	  device. Depending on platform configuration, this general purpose ADC can
+	  be used for sampling sensors such as thermal resistors.
 
 config EXYNOS_ADC
 	tristate "Exynos ADC driver support"
@@ -243,6 +252,20 @@ config NAU7802
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called nau7802.
+
+config QCOM_SPMI_IADC
+	tristate "Qualcomm SPMI PMIC current ADC"
+	depends on SPMI
+	select REGMAP_SPMI
+	help
+	  This is the IIO Current ADC driver for Qualcomm QPNP IADC Chip.
+
+	  The driver supports single mode operation to read from one of two
+	  channels (external or internal). Hardware have additional
+	  channels internally used for gain and offset calibration.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called qcom-spmi-iadc.
 
 config ROCKCHIP_SARADC
 	tristate "Rockchip SARADC driver"

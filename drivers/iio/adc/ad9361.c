@@ -937,8 +937,8 @@ static int ad9361_get_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 
 	rx_gain->tia_index = ad9361_spi_readf(spi, REG_GAIN_TABLE_READ_DATA2, TIA_GAIN);
 
-	rx_gain->lmt_gain = lna_table[rx_gain->lna_index] +
-				mixer_table[rx_gain->mixer_index] +
+	rx_gain->lmt_gain = lna_table[phy->current_table][rx_gain->lna_index] +
+				mixer_table[phy->current_table][rx_gain->mixer_index] +
 				tia_table[rx_gain->tia_index];
 
 	ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, tbl_addr);
@@ -3422,7 +3422,7 @@ static int ad9361_calculate_rf_clock_chain(struct ad9361_rf_phy *phy,
 		__func__, tx_sample_rate, tx_intdec, rx_intdec,
 		rate_gov ? "Nominal" : "Highest OSR");
 
-	if (tx_sample_rate > (phy->pdata->rx2tx2 ? 61440000UL : 122880000UL))
+	if (tx_sample_rate > 61440000UL)
 		return -EINVAL;
 
 	clktf = tx_sample_rate * tx_intdec;
@@ -3913,6 +3913,9 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 			DIGITAL_POWER_UP | CLOCK_ENABLE_DFLT | BBPLL_ENABLE |
 			(pd->use_extclk ? XO_BYPASS : 0)); /* Enable Clocks */
 
+	ret = clk_prepare_enable(phy->clk_refin);
+	if (ret < 0)
+		return ret;
 
 	ret = clk_set_rate(phy->clks[BB_REFCLK], ref_freq);
 	if (ret < 0) {
@@ -4987,7 +4990,7 @@ static int ad9361_bbpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * Scale is 150uA @ (1280MHz BBPLL, 40MHz REFCLK)
 	 */
 	tmp = (rate64 >> 7) * 150ULL;
-	do_div(tmp, (parent_rate >> 7) * 32UL + (tmp >> 1));
+	do_div(tmp, (parent_rate >> 7) * 32UL);
 
 	/* 25uA/LSB, Offset 25uA */
 	icp_val = DIV_ROUND_CLOSEST((u32)tmp, 25U) - 1;
@@ -5445,7 +5448,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 	[ID_AD9364] = {
 		.name = "AD9361",
-		.max_rate = 122880000UL,
+		.max_rate = 61440000UL,
 		.max_testmode = 0,
 		.num_channels = 2,
 		.channel[0] = AIM_CHAN(0, 0, 12, 'S'),

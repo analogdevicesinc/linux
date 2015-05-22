@@ -41,6 +41,11 @@ config IIO_TRIGGERED_BUFFER
 	help
 	  Provides helper functions for setting up triggered buffers.
 
+config IIO_HW_CONSUMER
+	tristate
+	help
+	  Hardware consumer buffer
+
 endif # IIO_BUFFER
 
 config IIO_TRIGGER

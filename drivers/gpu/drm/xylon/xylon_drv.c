@@ -161,6 +161,8 @@ static void xylon_drm_lastclose(struct drm_device *dev)
 {
 	struct xylon_drm_device *xdev = dev->dev_private;
 
+	xylon_drm_crtc_properties_restore(xdev->crtc);
+
 	xylon_drm_fbdev_restore_mode(xdev->fbdev);
 }
 
@@ -278,8 +280,7 @@ static struct drm_driver xylon_drm_driver = {
 	.minor = DRIVER_MINOR,
 };
 
-#if defined(CONFIG_PM_SLEEP) || defined(CONFIG_PM_RUNTIME)
-static int xylon_drm_pm_suspend(struct device *dev)
+static int __maybe_unused xylon_drm_pm_suspend(struct device *dev)
 {
 	struct xylon_drm_device *xdev = dev_get_drvdata(dev);
 
@@ -289,7 +290,7 @@ static int xylon_drm_pm_suspend(struct device *dev)
 	return 0;
 }
 
-static int xylon_drm_pm_resume(struct device *dev)
+static int __maybe_unused xylon_drm_pm_resume(struct device *dev)
 {
 	struct xylon_drm_device *xdev = dev_get_drvdata(dev);
 
@@ -298,7 +299,6 @@ static int xylon_drm_pm_resume(struct device *dev)
 
 	return 0;
 }
-#endif
 
 static const struct dev_pm_ops xylon_drm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(xylon_drm_pm_suspend, xylon_drm_pm_resume)
@@ -329,7 +329,6 @@ static struct platform_driver xylon_drm_platform_driver = {
 	.probe = xylon_drm_platform_probe,
 	.remove = xylon_drm_platform_remove,
 	.driver = {
-		.owner = THIS_MODULE,
 		.name = DRIVER_NAME,
 		.pm = &xylon_drm_pm_ops,
 		.of_match_table = xylon_drm_of_match,

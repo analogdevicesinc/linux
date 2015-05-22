@@ -71,6 +71,8 @@ Description:
 
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_raw
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_supply_raw
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_i_raw
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_q_raw
 KernelVersion:	2.6.35
 Contact:	linux-iio@vger.kernel.org
 Description:
@@ -80,6 +82,11 @@ Description:
 		versions may be used. The number must always be specified and
 		unique to allow association with event codes. Units after
 		application of scale and offset are millivolts.
+
+		Channels with a 'i' and 'q' modifiers always exists in pairs and both
+		channels refer to the same signal. The 'i' channel contains the in-phase
+		component of the signal while the 'q' channel contains the quadrature
+		component.
 
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY-voltageZ_raw
 KernelVersion:	2.6.35
@@ -200,6 +207,13 @@ Description:
 		Raw pressure measurement from channel Y. Units after
 		application of scale and offset are kilopascal.
 
+What:		/sys/bus/iio/devices/iio:deviceX/in_pressureY_input
+What:		/sys/bus/iio/devices/iio:deviceX/in_pressure_input
+KernelVersion:	3.8
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Scaled pressure measurement from channel Y, in kilopascal.
+
 What:		/sys/bus/iio/devices/iio:deviceX/in_humidityrelative_raw
 KernelVersion:	3.14
 Contact:	linux-iio@vger.kernel.org
@@ -227,10 +241,15 @@ What:		/sys/bus/iio/devices/iio:deviceX/in_accel_y_offset
 What:		/sys/bus/iio/devices/iio:deviceX/in_accel_z_offset
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_offset
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltage_offset
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_i_offset
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_q_offset
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltage_q_offset
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltage_i_offset
 What:		/sys/bus/iio/devices/iio:deviceX/in_tempY_offset
 What:		/sys/bus/iio/devices/iio:deviceX/in_temp_offset
 What:		/sys/bus/iio/devices/iio:deviceX/in_pressureY_offset
 What:		/sys/bus/iio/devices/iio:deviceX/in_pressure_offset
+What:		/sys/bus/iio/devices/iio:deviceX/in_humidityrelative_offset
 KernelVersion:	2.6.35
 Contact:	linux-iio@vger.kernel.org
 Description:
@@ -249,8 +268,13 @@ Description:
 		to the _raw output.
 
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_scale
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_i_scale
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_q_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_supply_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltage_scale
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltage_i_scale
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltage_q_scale
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltage-voltage_scale
 What:		/sys/bus/iio/devices/iio:deviceX/out_voltageY_scale
 What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_accel_scale
@@ -266,6 +290,7 @@ What:		/sys/bus/iio/devices/iio:deviceX/in_rot_from_north_magnetic_tilt_comp_sca
 What:		/sys/bus/iio/devices/iio:deviceX/in_rot_from_north_true_tilt_comp_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_pressureY_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_pressure_scale
+What:		/sys/bus/iio/devices/iio:deviceX/in_humidityrelative_scale
 KernelVersion:	2.6.35
 Contact:	linux-iio@vger.kernel.org
 Description:
@@ -295,6 +320,10 @@ Description:
 
 What		/sys/bus/iio/devices/iio:deviceX/in_voltageY_calibscale
 What		/sys/bus/iio/devices/iio:deviceX/in_voltageY_supply_calibscale
+What		/sys/bus/iio/devices/iio:deviceX/in_voltageY_i_calibscale
+What		/sys/bus/iio/devices/iio:deviceX/in_voltageY_q_calibscale
+What		/sys/bus/iio/devices/iio:deviceX/in_voltage_i_calibscale
+What		/sys/bus/iio/devices/iio:deviceX/in_voltage_q_calibscale
 What		/sys/bus/iio/devices/iio:deviceX/in_voltage_calibscale
 What		/sys/bus/iio/devices/iio:deviceX/in_accel_x_calibscale
 What		/sys/bus/iio/devices/iio:deviceX/in_accel_y_calibscale
@@ -328,6 +357,10 @@ Description:
 		are listed in this attribute.
 
 What		/sys/bus/iio/devices/iio:deviceX/out_voltageY_hardwaregain
+What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_red_hardwaregain
+What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_green_hardwaregain
+What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_blue_hardwaregain
+What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_clear_hardwaregain
 KernelVersion:	2.6.35
 Contact:	linux-iio@vger.kernel.org
 Description:
@@ -859,6 +892,10 @@ What:		/sys/.../iio:deviceX/scan_elements/in_timestamp_en
 What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_supply_en
 What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_en
 What:		/sys/.../iio:deviceX/scan_elements/in_voltageY-voltageZ_en
+What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_i_en
+What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_q_en
+What:		/sys/.../iio:deviceX/scan_elements/in_voltage_i_en
+What:		/sys/.../iio:deviceX/scan_elements/in_voltage_q_en
 What:		/sys/.../iio:deviceX/scan_elements/in_incli_x_en
 What:		/sys/.../iio:deviceX/scan_elements/in_incli_y_en
 What:		/sys/.../iio:deviceX/scan_elements/in_pressureY_en
@@ -876,6 +913,10 @@ What:		/sys/.../iio:deviceX/scan_elements/in_incli_type
 What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_type
 What:		/sys/.../iio:deviceX/scan_elements/in_voltage_type
 What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_supply_type
+What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_i_type
+What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_q_type
+What:		/sys/.../iio:deviceX/scan_elements/in_voltage_i_type
+What:		/sys/.../iio:deviceX/scan_elements/in_voltage_q_type
 What:		/sys/.../iio:deviceX/scan_elements/in_timestamp_type
 What:		/sys/.../iio:deviceX/scan_elements/in_pressureY_type
 What:		/sys/.../iio:deviceX/scan_elements/in_pressure_type
@@ -912,6 +953,10 @@ Description:
 
 What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_index
 What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_supply_index
+What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_i_index
+What:		/sys/.../iio:deviceX/scan_elements/in_voltageY_q_index
+What:		/sys/.../iio:deviceX/scan_elements/in_voltage_i_index
+What:		/sys/.../iio:deviceX/scan_elements/in_voltage_q_index
 What:		/sys/.../iio:deviceX/scan_elements/in_accel_x_index
 What:		/sys/.../iio:deviceX/scan_elements/in_accel_y_index
 What:		/sys/.../iio:deviceX/scan_elements/in_accel_z_index
@@ -1028,3 +1073,19 @@ Contact:	linux-iio@vger.kernel.org
 Description:
 		Raw value of rotation from true/magnetic north measured with
 		or without compensation from tilt sensors.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_currentX_raw
+What:		/sys/bus/iio/devices/iio:deviceX/in_currentX_i_raw
+What:		/sys/bus/iio/devices/iio:deviceX/in_currentX_q_raw
+KernelVersion:	3.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Raw current measurement from channel X. Units are in milliamps
+		after application of scale and offset. If no offset or scale is
+		present, output should be considered as processed with the
+		unit in milliamps.
+
+		Channels with a 'i' and 'q' modifiers always exists in pairs and both
+		channels refer to the same signal. The 'i' channel contains the in-phase
+		component of the signal while the 'q' channel contains the quadrature
+		component.

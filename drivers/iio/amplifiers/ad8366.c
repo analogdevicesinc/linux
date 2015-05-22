@@ -12,6 +12,7 @@
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio/consumer.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/bitrev.h>
@@ -23,11 +24,14 @@
 enum ad8366_type {
 	ID_AD8366,
 	ID_ADA4961,
+	ID_ADL5240,
+	ID_HMC271,
 };
 
 struct ad8366_state {
 	struct spi_device	*spi;
-	struct regulator	*reg;
+	struct regulator		*reg;
+	struct gpio_desc		*reset_gpio;
 	unsigned char		ch[2];
 	enum ad8366_type	type;
 
@@ -53,10 +57,16 @@ static int ad8366_write(struct iio_dev *indio_dev,
 		st->data[1] = (ch_b << 4) | (ch_a >> 2);
 		break;
 	case ID_ADA4961:
-		ch_a = bitrev8(ch_a & 0x1F);
-		st->data[0] = ch_a;
+		st->data[0] = ch_a & 0x1F;
+		break;
+	case ID_ADL5240:
+		st->data[0] = (ch_a & 0x3F);
+		break;
+	case ID_HMC271:
+		st->data[0] = bitrev8(ch_a & 0x1F) >> 3;
 		break;
 	}
+
 
 	ret = spi_write(st->spi, st->data, indio_dev->num_channels);
 	if (ret < 0)
@@ -73,7 +83,7 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int ret;
-	unsigned code;
+	int code;
 
 	mutex_lock(&indio_dev->mlock);
 	switch (m) {
@@ -86,6 +96,12 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 			break;
 		case ID_ADA4961:
 			code = 15000 - code * 1000;
+			break;
+		case ID_ADL5240:
+			code = 20000 - 31500 + code * 500;
+			break;
+		case ID_HMC271:
+			code = -31000 + code * 1000;
 			break;
 		}
 
@@ -112,9 +128,11 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int code;
 	int ret;
-
 	/* Values in dB */
-	code = (((s8)val * 1000) + ((s32)val2 / 1000));
+	if (val < 0)
+		code = (((s8)val * 1000) - ((s32)val2 / 1000));
+	else
+		code = (((s8)val * 1000) + ((s32)val2 / 1000));
 
 	switch (st->type) {
 	case ID_AD8366:
@@ -126,6 +144,16 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 		if (code > 15000 || code < -6000)
 			return -EINVAL;
 		code = (15000 - code) / 1000;
+		break;
+	case ID_ADL5240:
+		if (code < -11500 || code > 20000)
+			return -EINVAL;
+		code = ((code - 500 - 20000) / 500) & 0x3F;
+		break;
+	case ID_HMC271:
+		if (code < -31000 || code > 0)
+			return -EINVAL;
+		code = ((code - 1000) / 1000) & 0x1F;
 		break;
 	}
 
@@ -205,6 +233,14 @@ static int ad8366_probe(struct spi_device *spi)
 		indio_dev->num_channels = ARRAY_SIZE(ad8366_channels);
 		break;
 	case ID_ADA4961:
+	case ID_ADL5240:
+	case ID_HMC271:
+
+		st->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
+		if (!IS_ERR(st->reset_gpio)) {
+			gpiod_direction_output(st->reset_gpio, 1);
+		}
+
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
@@ -250,6 +286,8 @@ static int ad8366_remove(struct spi_device *spi)
 static const struct spi_device_id ad8366_id[] = {
 	{"ad8366", ID_AD8366},
 	{"ada4961", ID_ADA4961},
+	{"adl5240", ID_ADL5240},
+	{"hmc271", ID_HMC271},
 	{}
 };
 
