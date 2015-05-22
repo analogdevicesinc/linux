@@ -230,17 +230,20 @@ static void zynq_qspi_init_hw(struct zynq_qspi *xqspi)
 }
 
 /**
- * zynq_qspi_copy_read_data - Copy data to RX buffer
+ * zynq_qspi_read_rx_fifo - Read 1..4 bytes from RxFIFO to RX buffer
  * @xqspi:	Pointer to the zynq_qspi structure
- * @data:	The 32 bit variable where data is stored
- * @size:	Number of bytes to be copied from data to RX buffer
+ * @size:	Number of bytes to be read (1..4)
  *
  * Note: In case of dual parallel connection, even number of bytes are read
  * when odd bytes are requested to avoid transfer of a nibble to each flash.
  * The receive buffer though, is populated with the number of bytes requested.
  */
-static void zynq_qspi_copy_read_data(struct zynq_qspi *xqspi, u32 data, u8 size)
+static void zynq_qspi_read_rx_fifo(struct zynq_qspi *xqspi, unsigned size)
 {
+	u32 data;
+
+	data = zynq_qspi_read(xqspi, ZYNQ_QSPI_RXD_OFFSET);
+
 	if (xqspi->rxbuf) {
 		if (!xqspi->is_dual || xqspi->is_instr) {
 			memcpy(xqspi->rxbuf, ((u8 *) &data) + 4 - size, size);
@@ -254,28 +257,45 @@ static void zynq_qspi_copy_read_data(struct zynq_qspi *xqspi, u32 data, u8 size)
 			xqspi->rxbuf += len;
 		}
 	}
+
 	xqspi->bytes_to_receive -= size;
 	if (xqspi->bytes_to_receive < 0)
 		xqspi->bytes_to_receive = 0;
 }
 
 /**
- * zynq_qspi_copy_write_data - Copy data from TX buffer
+ * zynq_qspi_write_tx_fifo - Write 1..4 bytes from TX buffer to TxFIFO
  * @xqspi:	Pointer to the zynq_qspi structure
- * @data:	Pointer to the 32 bit variable where data is to be copied
- * @size:	Number of bytes to be copied from TX buffer to data
+ * @size:	Number of bytes to be written (1..4)
+ *
+ * In dual parallel configuration, when read/write data operations
+ * are performed, odd data bytes have to be converted to even to
+ * avoid a nibble (of data when programming / dummy when reading)
+ * going to individual flash devices, where a byte is expected.
+ * This check is only for data and will not apply for commands.
  */
-static void zynq_qspi_copy_write_data(struct zynq_qspi *xqspi, u32 *data,
-				      u8 size)
+static void zynq_qspi_write_tx_fifo(struct zynq_qspi *xqspi, unsigned size)
 {
+	static const unsigned offset[4] = {
+		ZYNQ_QSPI_TXD_00_01_OFFSET, ZYNQ_QSPI_TXD_00_10_OFFSET,
+		ZYNQ_QSPI_TXD_00_11_OFFSET, ZYNQ_QSPI_TXD_00_00_OFFSET };
+	unsigned xsize;
+	u32 data;
+
 	if (xqspi->txbuf) {
-		memcpy(data, xqspi->txbuf, size);
+		data = 0xffffffff;
+		memcpy(&data, xqspi->txbuf, size);
 		xqspi->txbuf += size;
 	} else {
-		*data = 0;
+		data = 0;
 	}
 
 	xqspi->bytes_to_transfer -= size;
+
+	xsize = size;
+	if (xqspi->is_dual && !xqspi->is_instr && (size%2))
+		xsize++;
+	zynq_qspi_write(xqspi, offset[xsize-1], data);
 }
 
 /**
@@ -434,14 +454,30 @@ static int zynq_qspi_setup(struct spi_device *qspi)
 /**
  * zynq_qspi_fill_tx_fifo - Fills the TX FIFO with as many bytes as possible
  * @xqspi:	Pointer to the zynq_qspi structure
- * @size:	Size of the fifo to be filled
+ * @txcount:	Maximum number of words to write
+ * @txempty:	Indicates that TxFIFO is empty
  */
-static void zynq_qspi_fill_tx_fifo(struct zynq_qspi *xqspi, u32 size)
+static void zynq_qspi_fill_tx_fifo(struct zynq_qspi *xqspi, int txcount,
+				   bool txempty)
 {
-	u32 fifocount;
+	int count, len, k;
 
-	for (fifocount = 0; (fifocount < size) &&
-	     (xqspi->bytes_to_transfer >= 4); fifocount++) {
+	len = xqspi->bytes_to_transfer;
+	if (len && len < 4) {
+		/*
+		 * We must empty the TxFIFO between accesses to TXD0,
+		 * TXD1, TXD2, TXD3.
+		 */
+		if (txempty)
+			zynq_qspi_write_tx_fifo(xqspi, len);
+		return;
+	}
+
+	count = len/4;
+	if (count > txcount)
+		count = txcount;
+
+	for (k = 0; k < count; k++) {
 		if (xqspi->txbuf) {
 			zynq_qspi_write(xqspi,
 					ZYNQ_QSPI_TXD_00_00_OFFSET,
@@ -453,30 +489,6 @@ static void zynq_qspi_fill_tx_fifo(struct zynq_qspi *xqspi, u32 size)
 		}
 		xqspi->bytes_to_transfer -= 4;
 	}
-}
-
-/**
- * zynq_qspi_tx_dual_parallel - Handles odd byte tx for dual parallel
- *
- * @xqspi:	Pointer to the zynq_qspi structure
- * @data:	Data to be transmitted
- * @len:	No. of bytes to be transmitted
- *
- * In dual parallel configuration, when read/write data operations
- * are performed, odd data bytes have to be converted to even to
- * avoid a nibble (of data when programming / dummy when reading)
- * going to individual flash devices, where a byte is expected.
- * This check is only for data and will not apply for commands.
- */
-static inline void zynq_qspi_tx_dual_parallel(struct zynq_qspi *xqspi,
-					      u32 data, u32 len)
-{
-	len = len % 2 ? len + 1 : len;
-	if (len == 4)
-		zynq_qspi_write(xqspi, ZYNQ_QSPI_TXD_00_00_OFFSET, data);
-	else
-		zynq_qspi_write(xqspi, ZYNQ_QSPI_TXD_00_01_OFFSET +
-				((len - 1) * 4), data);
 }
 
 /**
@@ -495,8 +507,8 @@ static irqreturn_t zynq_qspi_irq(int irq, void *dev_id)
 	struct spi_master *master = dev_id;
 	struct zynq_qspi *xqspi = spi_master_get_devdata(master);
 	u32 intr_status, rxcount, rxindex = 0;
-	u8 offset[3] = {ZYNQ_QSPI_TXD_00_01_OFFSET, ZYNQ_QSPI_TXD_00_10_OFFSET,
-			ZYNQ_QSPI_TXD_00_11_OFFSET};
+	bool txempty;
+	u32 data;
 
 	intr_status = zynq_qspi_read(xqspi, ZYNQ_QSPI_STATUS_OFFSET);
 	zynq_qspi_write(xqspi, ZYNQ_QSPI_STATUS_OFFSET , intr_status);
@@ -508,7 +520,7 @@ static irqreturn_t zynq_qspi_irq(int irq, void *dev_id)
 		 * We have the THRESHOLD value set to 1,
 		 * so this bit indicates Tx FIFO is empty.
 		 */
-		u32 data;
+		txempty = !!(intr_status & ZYNQ_QSPI_IXR_TXNFULL_MASK);
 
 		rxcount = xqspi->bytes_to_receive - xqspi->bytes_to_transfer;
 		rxcount = (rxcount % 4) ? ((rxcount/4) + 1) : (rxcount/4);
@@ -528,33 +540,16 @@ static irqreturn_t zynq_qspi_irq(int irq, void *dev_id)
 				}
 				xqspi->bytes_to_receive -= 4;
 			} else {
-				data = zynq_qspi_read(xqspi,
-						      ZYNQ_QSPI_RXD_OFFSET);
-				zynq_qspi_copy_read_data(xqspi, data,
+				zynq_qspi_read_rx_fifo(xqspi,
 						xqspi->bytes_to_receive);
 			}
 			rxindex++;
 		}
 
 		if (xqspi->bytes_to_transfer) {
-			if (xqspi->bytes_to_transfer >= 4) {
-				/* There is more data to send */
-				zynq_qspi_fill_tx_fifo(xqspi,
-						       ZYNQ_QSPI_RX_THRESHOLD);
-			} else if (intr_status & ZYNQ_QSPI_IXR_TXNFULL_MASK) {
-				int tmp;
-				tmp = xqspi->bytes_to_transfer;
-				zynq_qspi_copy_write_data(xqspi, &data,
-					xqspi->bytes_to_transfer);
-
-				if (!xqspi->is_dual || xqspi->is_instr)
-					zynq_qspi_write(xqspi,
-							offset[tmp - 1], data);
-				else {
-					zynq_qspi_tx_dual_parallel(xqspi, data,
-								   tmp);
-				}
-			}
+			/* There is more data to send */
+			zynq_qspi_fill_tx_fifo(xqspi, ZYNQ_QSPI_RX_THRESHOLD,
+					       txempty);
 		} else {
 			/*
 			 * If transfer and receive is completed then only send
@@ -592,7 +587,6 @@ static int zynq_qspi_start_transfer(struct spi_master *master,
 				    struct spi_transfer *transfer)
 {
 	struct zynq_qspi *xqspi = spi_master_get_devdata(master);
-	u32 data;
 
 	xqspi->txbuf = transfer->tx_buf;
 	xqspi->rxbuf = transfer->rx_buf;
@@ -601,18 +595,7 @@ static int zynq_qspi_start_transfer(struct spi_master *master,
 
 	zynq_qspi_setup_transfer(qspi, transfer);
 
-	if (transfer->len >= 4) {
-		zynq_qspi_fill_tx_fifo(xqspi, ZYNQ_QSPI_FIFO_DEPTH);
-	} else {
-		zynq_qspi_copy_write_data(xqspi, &data, transfer->len);
-
-		if (!xqspi->is_dual || xqspi->is_instr)
-			zynq_qspi_write(xqspi, ZYNQ_QSPI_TXD_00_01_OFFSET +
-					((transfer->len - 1) * 4), data);
-		else {
-			zynq_qspi_tx_dual_parallel(xqspi, data, transfer->len);
-		}
-	}
+	zynq_qspi_fill_tx_fifo(xqspi, ZYNQ_QSPI_FIFO_DEPTH, true);
 
 	zynq_qspi_write(xqspi, ZYNQ_QSPI_IEN_OFFSET,
 			ZYNQ_QSPI_IXR_ALL_MASK);
