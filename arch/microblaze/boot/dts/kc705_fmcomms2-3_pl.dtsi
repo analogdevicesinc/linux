@@ -274,8 +274,8 @@
 		};
 		axi_linear_flash: flash@42000000 {
 			bank-width = <2>;
-			compatible = "cfi-flash-tmp";
-			reg = <0x42000000 0x1000>;
+			compatible = "cfi-flash";
+			reg = <0x60000000 0x2000000>;
 			xlnx,axi-clk-period-ps = <0x2710>;
 			xlnx,include-datawidth-matching-0 = <0x1>;
 			xlnx,include-datawidth-matching-1 = <0x1>;
