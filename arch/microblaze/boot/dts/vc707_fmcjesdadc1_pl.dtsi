@@ -141,7 +141,7 @@
 		compatible = "simple-bus";
 		ranges ;
 		axi_ad9250_0_core: axi-ad9250-hpc-0@44a10000 {
-			compatible = "adi,axi-ad9250-1.0";
+			compatible = "xlnx,axi-ad9250-1.00.a";
 			reg = <0x44a10000 0x10000>;
 			xlnx,s-axi-min-size = <0x0000FFFF>;
 		};
@@ -169,7 +169,7 @@
 			xlnx,sync-transfer-start = <0x1>;
 		};
 		axi_ad9250_1_core: axi-ad9250-hpc-1@44a20000 {
-			compatible = "adi,axi-ad9250-1.0";
+			compatible = "xlnx,axi-ad9250-1.00.a";
 			reg = <0x44a20000 0x10000>;
 			xlnx,s-axi-min-size = <0x0000FFFF>;
 		};
