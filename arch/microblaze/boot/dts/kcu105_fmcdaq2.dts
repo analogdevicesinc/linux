@@ -16,6 +16,8 @@
 		fmc_spi = &axi_spi;
 	};
 	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x80000000>;
 	};
 };
 &axi_ethernet_eth_buf {
@@ -114,35 +116,35 @@
 };
 
 &axi_iic_main {
-	eeprom@50 {
-		compatible = "at24,24c02";
-		reg = <0x50>;
-	};
 
-	ad7291@2f {
-		compatible = "adi,ad7291";
-		reg = <0x2f>;
-	};
-};
+	mux@75 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "pca9544";
+		reg = <0x75>;
 
-&axi_linear_flash {
-	#address-cells = <1>;
-	#size-cells = <1>;
-	partition@0x00000000 {
-		label = "fpga";
-		reg = <0x00000000 0x1380000>;
-	};
-	partition@0x01380000 {
-		label = "boot";
-		reg = <0x01380000 0x80000>;
-	};
-	partition@0x01400000 {
-		label = "bootenv";
-		reg = <0x01400000 0x40000>;
-	};
-	partition@0x01440000 {
-		label = "image";
-		reg = <0x01440000 0xBC0000>;
+		mux1: i2c@1 { /* HPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <1>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+			ad7291@2f {
+				compatible = "adi,ad7291";
+				reg = <0x2f>;
+			};
+
+		};
+
+		fmc_i2c: i2c@2 { /* LPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <2>;
+		};
 	};
 };
 
