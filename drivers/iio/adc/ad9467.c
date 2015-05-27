@@ -223,12 +223,7 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 				ad9467_spi_read(conv->spi, ADC_REG_OUTPUT_DELAY);
 			} else {
 				for (lane = 0; lane < nb_lanes; lane++) {
-					axiadc_write(st, ADI_REG_DELAY_CNTRL, 0);
-
-					axiadc_write(st, ADI_REG_DELAY_CNTRL,
-							ADI_DELAY_ADDRESS(lane)
-							| ADI_DELAY_WDATA(val)
-							| ADI_DELAY_SEL);
+					axiadc_idelay_set(st, lane, val);
 				}
 			}
 
@@ -328,12 +323,7 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 		ad9467_spi_write(conv->spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
 	} else {
 		for (lane = 0; lane < nb_lanes; lane++) {
-			axiadc_write(st, ADI_REG_DELAY_CNTRL, 0);
-
-			axiadc_write(st, ADI_REG_DELAY_CNTRL,
-					ADI_DELAY_ADDRESS(lane)
-					| ADI_DELAY_WDATA(val)
-					| ADI_DELAY_SEL);
+			axiadc_idelay_set(st, lane, val);
 		}
 	}
 

@@ -49,7 +49,7 @@
 #define ADI_MUX_OVER_RANGE		(1 << 1)
 #define ADI_STATUS			(1 << 0)
 
-#define ADI_REG_DELAY_CNTRL		0x0060
+#define ADI_REG_DELAY_CNTRL		0x0060	/* <= v8.0 */
 #define ADI_DELAY_SEL			(1 << 17)
 #define ADI_DELAY_RWN			(1 << 16)
 #define ADI_DELAY_ADDRESS(x)		(((x) & 0xFF) << 8)
@@ -57,7 +57,7 @@
 #define ADI_DELAY_WDATA(x)		(((x) & 0x1F) << 0)
 #define ADI_TO_DELAY_WDATA(x)		(((x) >> 0) & 0x1F)
 
-#define ADI_REG_DELAY_STATUS		0x0064
+#define ADI_REG_DELAY_STATUS		0x0064 /* <= v8.0 */
 #define ADI_DELAY_LOCKED			(1 << 9)
 #define ADI_DELAY_STATUS			(1 << 8)
 #define ADI_DELAY_RDATA(x)		(((x) & 0x1F) << 0)
@@ -166,6 +166,9 @@ enum adc_data_sel {
 #define ADI_TO_USR_DECIMATION_N(x)		(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_ADC_DP_DISABLE 			0x00C0
+
+/* PCORE Version > 8.00 */
+#define ADI_REG_DELAY(l)				(0x0800 + (l) * 0x4)
 
 /*
  * ADI High-Speed ADC common spi interface registers
@@ -468,6 +471,21 @@ static inline void axiadc_slave_write(struct axiadc_state *st, unsigned reg, uns
 static inline unsigned int axiadc_slave_read(struct axiadc_state *st, unsigned reg)
 {
 	return ioread32(st->slave_regs + reg);
+}
+
+
+static inline void axiadc_idelay_set(struct axiadc_state *st,
+				unsigned lane, unsigned val)
+{
+	if (PCORE_VERSION_MAJOR(st->pcore_version) > 8) {
+		axiadc_write(st, ADI_REG_DELAY(lane), val);
+	} else {
+		axiadc_write(st, ADI_REG_DELAY_CNTRL, 0);
+		axiadc_write(st, ADI_REG_DELAY_CNTRL,
+				ADI_DELAY_ADDRESS(lane)
+				| ADI_DELAY_WDATA(val)
+				| ADI_DELAY_SEL);
+	}
 }
 
 int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel);
