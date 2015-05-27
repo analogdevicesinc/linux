@@ -242,6 +242,7 @@ static const struct clk_ops clkout_ops = {
 static const struct of_device_id jesd204b_of_match[] = {
 	{ .compatible = "xlnx,jesd204-5.1", .data = (void*) 51},
 	{ .compatible = "xlnx,jesd204-5.2", .data = (void*) 51},
+	{ .compatible = "xlnx,jesd204-6.0", .data = (void*) 51},
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, jesd204b_of_match);

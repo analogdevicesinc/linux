@@ -1,6 +1,6 @@
 
 /dts-v1/;
-/include/ "vc707_fmcadc2_pl.dtsi"
+/include/ "vc707_fmcjesdadc1_pl.dtsi"
 / {
 	chosen {
 		bootargs = "console=ttyUL0,115200";
@@ -18,18 +18,9 @@
 		device_type = "memory";
 		reg = <0x80000000 0x40000000>;
 	};
-
-  	clocks {
-		ad9625_clkin: clock@0 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <2500000000>;
-			clock-output-names = "clkin";
-		};
-  	};
 };
 &axi_ethernet_eth_buf {
-	local-mac-address = [00 0a 35 00 00 04];
+	local-mac-address = [00 0a 35 00 00 15];
 	phy-handle = <&phy0 &phy1>;
 };
 
@@ -45,38 +36,41 @@
 	};
 };
 
-&axi_spi {
-	adc0_ad9625: ad9625@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "ad9625";
-		reg = <0>;
-		spi-max-frequency = <10000000>;
-		clocks = <&axi_ad9625_jesd>, <&ad9625_clkin>;
-		clock-names = "jesd_adc_clk", "adc_clk";
-
-	};
-};
-
-&axi_ad9625_core {
-	dmas = <&axi_ad9625_dma 0>;
+&axi_ad9250_0_core {
+	dmas = <&axi_ad9250_0_dma 0>;
 	dma-names = "rx";
-	spibus-connected = <&adc0_ad9625>;
+	spibus-connected = <&adc0_ad9250>;
 };
 
-&axi_ad9625_dma {
+&axi_ad9250_1_core {
+	dmas = <&axi_ad9250_1_dma 0>;
+	dma-names = "rx";
+	spibus-connected = <&adc1_ad9250>;
+};
+
+&axi_ad9250_0_dma {
 	#dma-cells = <1>;
 	clocks = <&clk_bus_0>;
+
 	dma-channel {
-		adi,source-bus-width = <64>;
-		adi,destination-bus-width = <64>;
+		adi,buswidth = <64>;
 		adi,type = <0>;
 	};
 };
 
-&axi_ad9625_gt {
+&axi_ad9250_1_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+
+	dma-channel {
+		adi,buswidth = <64>;
+		adi,type = <0>;
+	};
+};
+
+&axi_ad9250_gt {
 	#clock-cells = <1>;
-	clocks = <&ad9625_clkin>;
+	clocks = <&clk_ad9517 0>;
 	clock-names = "adc_clk";
 	clock-output-names = "adc_gt_clk";
 
@@ -85,17 +79,19 @@
 	adi,use-cpll-enable;
 };
 
-&axi_ad9625_jesd {
+&axi_ad9250_jesd {
 	#clock-cells = <0>;
-	clocks = <&axi_ad9625_gt 0>;
+	clocks = <&axi_ad9250_gt 0>;
 	clock-names = "adc_gt_clk";
 	clock-output-names = "jesd_adc_clk";
 
+	xlnx,lanes = <4>;
 	xlnx,frames-per-multiframe = <32>;
-	xlnx,bytes-per-frame = <1>;
+	xlnx,bytes-per-frame = <2>;
 	xlnx,subclass = <1>;
 	xlnx,lanesync-enable;
 	xlnx,scramble-enable;
+	xlnx,sysref-enable;
 };
 
 &axi_iic_main {
@@ -150,3 +146,6 @@
 		reg = <0x01440000 0xBC0000>;
 	};
 };
+
+#define fmc_spi axi_spi
+#include "adi-fmcjesdadc1.dtsi"

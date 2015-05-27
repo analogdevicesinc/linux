@@ -1,7 +1,6 @@
 
 /dts-v1/;
-/include/ "kcu105_fmcdaq2_pl.dtsi"
-
+/include/ "vc707_fmcdaq2_pl.dtsi"
 / {
 	chosen {
 		bootargs = "console=ttyUL0,115200";
@@ -13,15 +12,15 @@
 		i2c0 = &axi_iic_main;
 		serial0 = &axi_uart;
 		serial1 = &sys_mb_debug;
-		fmc_spi = &axi_spi;
+		spi0 = &axi_spi;
 	};
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x80000000>;
+		reg = <0x80000000 0x40000000>;
 	};
 };
 &axi_ethernet_eth_buf {
-	local-mac-address = [00 0a 35 00 00 01];
+	local-mac-address = [00 0a 35 00 00 08];
 	phy-handle = <&phy0 &phy1>;
 };
 
@@ -61,6 +60,7 @@
 	clocks = <&axi_daq2_gt 1>;
 	clock-names = "dac_gt_clk";
 	clock-output-names = "jesd_dac_clk";
+
 	xlnx,frames-per-multiframe = <32>;
 	xlnx,bytes-per-frame = <1>;
 	xlnx,subclass = <1>;
@@ -116,18 +116,16 @@
 };
 
 &axi_iic_main {
-
-	mux@75 {
+	mux@74 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "pca9544";
-		reg = <0x75>;
+		compatible = "pca9548";
+		reg = <0x74>;
 
-		mux1: i2c@1 { /* HPC */
+		fmc_i2c: i2c@1 { /* HPC */
 			#size-cells = <0>;
 			#address-cells = <1>;
 			reg = <1>;
-
 			eeprom@50 {
 				compatible = "at24,24c02";
 				reg = <0x50>;
@@ -137,14 +135,36 @@
 				compatible = "adi,ad7291";
 				reg = <0x2f>;
 			};
-
 		};
 
-		fmc_i2c: i2c@2 { /* LPC */
+		mux2: i2c@2 { /* LPC */
 			#size-cells = <0>;
 			#address-cells = <1>;
 			reg = <2>;
+
+
 		};
+	};
+};
+
+&axi_linear_flash {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	partition@0x00000000 {
+		label = "fpga";
+		reg = <0x00000000 0x1380000>;
+	};
+	partition@0x01380000 {
+		label = "boot";
+		reg = <0x01380000 0x80000>;
+	};
+	partition@0x01400000 {
+		label = "bootenv";
+		reg = <0x01400000 0x40000>;
+	};
+	partition@0x01440000 {
+		label = "image";
+		reg = <0x01440000 0xBC0000>;
 	};
 };
 

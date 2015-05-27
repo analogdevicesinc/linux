@@ -201,6 +201,7 @@
 							 XILINX_DP_TX_PHY_CONFIG_GTTX_RESET | \
 							 XILINX_DP_TX_PHY_CONFIG_PHY_PMA_RESET | \
 							 XILINX_DP_TX_PHY_CONFIG_PHY_PCS_RESET)
+#define XILINX_DP_SUB_TX_PHY_CONFIG_EN_8B_10B		BIT(16)
 #define XILINX_DP_TX_PHY_PREEMPHASIS_LANE_0		0x210
 #define XILINX_DP_TX_PHY_PREEMPHASIS_LANE_1		0x214
 #define XILINX_DP_TX_PHY_PREEMPHASIS_LANE_2		0x218
@@ -697,6 +698,13 @@ static int xilinx_drm_dp_train(struct xilinx_drm_dp *dp)
 		return ret;
 	}
 
+	ret = drm_dp_dpcd_writeb(&dp->aux, DP_MAIN_LINK_CHANNEL_CODING_SET,
+				 DP_SET_ANSI_8B10B);
+	if (ret < 0) {
+		DRM_ERROR("failed to set ANSI 8B/10B encoding\n");
+		return ret;
+	}
+
 	ret = drm_dp_dpcd_writeb(&dp->aux, DP_LINK_BW_SET, bw_code);
 	if (ret < 0) {
 		DRM_ERROR("failed to set DP bandwidth\n");
@@ -765,6 +773,8 @@ static void xilinx_drm_dp_dpms(struct drm_encoder *encoder, int dpms)
 
 	switch (dpms) {
 	case DRM_MODE_DPMS_ON:
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_SW_RESET,
+				  XILINX_DP_TX_SW_RESET_ALL);
 		if (dp->aud_clk)
 			xilinx_drm_writel(iomem, XILINX_DP_TX_AUDIO_CONTROL, 1);
 
@@ -1060,7 +1070,8 @@ static int xilinx_drm_dp_encoder_init(struct platform_device *pdev,
 				      struct drm_encoder_slave *encoder)
 {
 	struct xilinx_drm_dp *dp = platform_get_drvdata(pdev);
-	int clock_rate, ret;
+	int clock_rate;
+	u32 reg = 0;
 
 	encoder->slave_priv = dp;
 	encoder->slave_funcs = &xilinx_drm_dp_encoder_funcs;
@@ -1076,10 +1087,9 @@ static int xilinx_drm_dp_encoder_init(struct platform_device *pdev,
 
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_CLK_DIVIDER,
 			  clock_rate / XILINX_DP_TX_CLK_DIVIDER_MHZ);
-	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_PHY_CONFIG, 0);
-	ret = xilinx_drm_dp_phy_ready(dp);
-	if (ret < 0)
-		return ret;
+	if (dp->dp_sub)
+		reg = XILINX_DP_SUB_TX_PHY_CONFIG_EN_8B_10B;
+	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_PHY_CONFIG, reg);
 
 	if (dp->dp_sub)
 		xilinx_drm_writel(dp->iomem, XILINX_DP_SUB_TX_INTR_EN,
@@ -1339,8 +1349,6 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dp);
 
-	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_SW_RESET,
-			  XILINX_DP_TX_SW_RESET_ALL);
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_PHY_CONFIG,
 			  XILINX_DP_TX_PHY_CONFIG_ALL_RESET);
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_FORCE_SCRAMBLER_RESET, 1);
