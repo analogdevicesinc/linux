@@ -15,9 +15,10 @@ obj-$(CONFIG_AD7791) += ad7791.o
 obj-$(CONFIG_AD7793) += ad7793.o
 obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD799X) += ad799x.o
+obj-$(CONFIG_AD9361) += ad9361.o ad9361_conv.o
 
 cf_axi_adc-y := cf_axi_adc_core.o cf_axi_adc_ring.o cf_axi_adc_ring_stream.o
-obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o ad9467.o ad9361.o admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o ad6676.o
+obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o ad9467.o  admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o ad6676.o
 
 obj-$(CONFIG_CF_AXI_FFT) += cf_axi_fft_core.o
 

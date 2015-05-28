@@ -142,6 +142,14 @@ config AT91_ADC
 	help
 	  Say yes here to build support for Atmel AT91 ADC.
 
+config AD9361
+	tristate "Analog Devices AD9361, AD9364 RF Agile Transceiver driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9361, AD9364 RF Agile Transceivers. Provides direct access
+	  via sysfs.
+
 config CF_AXI_ADC
 	tristate "Analog Devices AD9467 AD9643 High-Speed AXI ADC driver"
 	select IIO_BUFFER
