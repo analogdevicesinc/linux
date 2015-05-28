@@ -108,7 +108,7 @@ static const struct gpmi_devdata gpmi_devdata_imx28 = {
 };
 
 static const char * const gpmi_clks_for_mx6[] = {
-	"gpmi_io", "gpmi_apb", "gpmi_bch", "gpmi_bch_apb", "per1_bch",
+	"gpmi_io", "gpmi_apb", "gpmi_bch", "gpmi_bch_apb",
 };
 
 static const struct gpmi_devdata gpmi_devdata_imx6q = {
@@ -128,6 +128,14 @@ static const struct gpmi_devdata gpmi_devdata_imx6qp = {
 static const struct gpmi_devdata gpmi_devdata_imx6sx = {
 	.type = IS_MX6SX,
 	.bch_max_ecc_strength = 62,
+	.max_chain_delay = 12,
+	.clks = gpmi_clks_for_mx6,
+	.clks_count = ARRAY_SIZE(gpmi_clks_for_mx6),
+};
+
+static const struct gpmi_devdata gpmi_devdata_imx6ul = {
+	.type = IS_MX6UL,
+	.bch_max_ecc_strength = 40,
 	.max_chain_delay = 12,
 	.clks = gpmi_clks_for_mx6,
 	.clks_count = ARRAY_SIZE(gpmi_clks_for_mx6),
@@ -2106,6 +2114,9 @@ static const struct of_device_id gpmi_nand_id_table[] = {
 	}, {
 		.compatible = "fsl,imx6sx-gpmi-nand",
 		.data = &gpmi_devdata_imx6sx,
+	}, {
+		.compatible = "fsl,imx6ul-gpmi-nand",
+		.data = (void *)&gpmi_devdata_imx6ul,
 	}, {
 		.compatible = "fsl,imx7d-gpmi-nand",
 		.data = &gpmi_devdata_imx7d,
