@@ -236,6 +236,6 @@
 	};
 };
 
-&usb0 {
+&watchdog1 {
 	status = "okay";
 };
