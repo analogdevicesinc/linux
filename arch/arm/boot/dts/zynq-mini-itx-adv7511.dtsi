@@ -5,7 +5,7 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		i2c0: i2c@0 {
+		i2c@0 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&gic>;
 			interrupts = <0 58 4>;
