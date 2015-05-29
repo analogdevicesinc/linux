@@ -142,16 +142,8 @@ config AT91_ADC
 	help
 	  Say yes here to build support for Atmel AT91 ADC.
 
-config AD9361
-	tristate "Analog Devices AD9361, AD9364 RF Agile Transceiver driver"
-	depends on SPI
-	help
-	  Say yes here to build support for Analog Devices:
-	  AD9361, AD9364 RF Agile Transceivers. Provides direct access
-	  via sysfs.
-
 config CF_AXI_ADC
-	tristate "Analog Devices AD9467 AD9643 High-Speed AXI ADC driver"
+	tristate "Analog Devices High-Speed AXI ADC driver core"
 	select IIO_BUFFER
 	select IIO_HW_CONSUMER
 	help
@@ -164,12 +156,44 @@ config CF_AXI_ADC
 	  To compile this driver as a module, choose M here: the
 	  module will be called cf_axi_adc.
 
+config AD9361
+	tristate "Analog Devices AD9361, AD9364 RF Agile Transceiver driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9361, AD9364 RF Agile Transceivers. Provides direct access
+	  via sysfs.
+
+config AD6676
+	tristate "Analog Devices AD6676 Wideband IF Receiver driver"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD6676 Wideband IF Receivers. Provides direct access
+	  via sysfs.
+
+config AD9467
+	tristate "Analog Devices AD9467, AD9680, etc. high speed ADCs"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9467, AD9643, AD9250, AD9265, AD9683, AD9434, AD9625,
+	  AD9680, AD9652, AD9234 high speed ADCs. Provides direct access
+	  via sysfs.
+
+config ADMC
+	tristate "Analog Devices Motor Control (AD-FMCMOTCON) drivers"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD-FMCMOTCON1 device drivers. Provides direct access
+	  via sysfs.
+
 config CF_AXI_FFT
 	tristate "Generic FFT driver"
-
-config AXIADC_V2
-	depends on CF_AXI_ADC
-	tristate "Temp Register Layout Flavour"
 
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
