@@ -6857,6 +6857,17 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_DIGITAL_TUNE:
+		if (ret != 2)
+			return -EINVAL;
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = ad9361_dig_tune(phy, val, val2);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
 	default:
 		break;
 	}
@@ -6925,6 +6936,7 @@ static int ad9361_register_debugfs(struct iio_dev *indio_dev)
 	ad9361_add_debugfs_entry(phy, "multichip_sync", DBGFS_MCS);
 	ad9361_add_debugfs_entry(phy, "calibration_switch_control",
 					 DBGFS_CAL_SW_CTRL);
+	ad9361_add_debugfs_entry(phy, "digital_tune", DBGFS_DIGITAL_TUNE);
 
 	for (i = 0; i < phy->ad9361_debugfs_entry_index; i++)
 		d = debugfs_create_file(
