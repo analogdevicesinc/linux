@@ -3298,6 +3298,7 @@ struct ad9361_rf_phy {
 	bool 			ensm_pin_ctl_en;
 
 	bool			auto_cal_en;
+	bool 			manual_tx_quad_cal_en;
 	u64			last_tx_quad_cal_freq;
 	u32			last_tx_quad_cal_phase;
 	unsigned long		flags;
