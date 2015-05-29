@@ -711,6 +711,7 @@
 			compatible = "snps,dw-wdt";
 			reg = <0xffd00200 0x100>;
 			interrupts = <0 119 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&l4_sys_free_clk>;
 			status = "disabled";
 		};
 
@@ -718,6 +719,7 @@
 			compatible = "snps,dw-wdt";
 			reg = <0xffd00300 0x100>;
 			interrupts = <0 120 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&l4_sys_free_clk>;
 			status = "disabled";
 		};
 	};

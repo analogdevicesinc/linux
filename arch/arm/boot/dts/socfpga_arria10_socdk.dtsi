@@ -242,3 +242,7 @@
 &uart1 {
 	status = "okay";
 };
+
+&watchdog1 {
+	status = "okay";
+};
