@@ -2532,20 +2532,24 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	ad9361_spi_write(spi, REG_QUAD_SETTLE_COUNT, 0xF0);
 	ad9361_spi_write(spi, REG_TX_QUAD_LPF_GAIN, 0x00);
 
-	ret = __ad9361_tx_quad_calib(phy, __rx_phase, rxnco_word, decim, &val);
+	if (rx_phase != -2) {
+		ret = __ad9361_tx_quad_calib(phy, __rx_phase, rxnco_word, decim, &val);
 
-	dev_dbg(dev, "LO leakage: %d Quadrature Calibration: %d : rx_phase %d\n",
-		!!(val & TX1_LO_CONV), !!(val & TX1_SSB_CONV), __rx_phase);
+		dev_dbg(dev, "LO leakage: %d Quadrature Calibration: %d : rx_phase %d\n",
+			!!(val & TX1_LO_CONV), !!(val & TX1_SSB_CONV), __rx_phase);
 
-	/* Calibration failed -> try last phase offset */
-	if (val != (TX1_LO_CONV | TX1_SSB_CONV)) {
-		if (phy->last_tx_quad_cal_phase < 31)
-			ret = __ad9361_tx_quad_calib(phy, phy->last_tx_quad_cal_phase,
-						     rxnco_word, decim, &val);
+		/* Calibration failed -> try last phase offset */
+		if (val != (TX1_LO_CONV | TX1_SSB_CONV)) {
+			if (phy->last_tx_quad_cal_phase < 31)
+				ret = __ad9361_tx_quad_calib(phy, phy->last_tx_quad_cal_phase,
+							rxnco_word, decim, &val);
+		} else {
+			phy->last_tx_quad_cal_phase = __rx_phase;
+		}
 	} else {
-		phy->last_tx_quad_cal_phase = __rx_phase;
+		/* force phase search */
+		val = 0;
 	}
-
 	/* Calibration failed -> loop through all 32 phase offsets */
 	if (val != (TX1_LO_CONV | TX1_SSB_CONV))
 		ret = ad9361_tx_quad_phase_search(phy, rxnco_word, decim);
@@ -4154,6 +4158,7 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	phy->prev_ensm_state = 0;
 	phy->curr_ensm_state = 0;
 	phy->auto_cal_en = false;
+	phy->manual_tx_quad_cal_en = false;
 	phy->last_tx_quad_cal_freq = 0;
 	phy->flags = 0;
 	phy->current_rx_bw_Hz = 0;
@@ -4498,9 +4503,11 @@ static int ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
 	phy->current_rx_bw_Hz = rf_rx_bw;
 	phy->current_tx_bw_Hz = rf_tx_bw;
 
-	ret = ad9361_tx_quad_calib(phy, rf_rx_bw / 2, rf_tx_bw / 2, -1);
-	if (ret < 0)
-		return ret;
+	if (phy->manual_tx_quad_cal_en == false) {
+		ret = ad9361_tx_quad_calib(phy, rf_rx_bw / 2, rf_tx_bw / 2, -1);
+		if (ret < 0)
+			return ret;
+	}
 
 	ret = ad9361_tracking_control(phy, phy->bbdc_track_en,
 			phy->rfdc_track_en, phy->quad_track_en);
@@ -5836,12 +5843,17 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		break;
 	case AD9361_CALIB_MODE:
 		val = 0;
-		if (sysfs_streq(buf, "auto"))
+		if (sysfs_streq(buf, "auto")) {
 			phy->auto_cal_en = true;
-		else if (sysfs_streq(buf, "manual"))
+			phy->manual_tx_quad_cal_en = false;
+		} else if (sysfs_streq(buf, "manual")) {
 			phy->auto_cal_en = false;
-		else if (!strncmp(buf, "tx_quad", 7)) {
-			ret = sscanf(buf, "tx_quad %u", &arg);
+			phy->manual_tx_quad_cal_en = false;
+		} else if (sysfs_streq(buf, "manual_tx_quad")) {
+			phy->auto_cal_en = false;
+			phy->manual_tx_quad_cal_en = true;
+		} else if (!strncmp(buf, "tx_quad", 7)) {
+			ret = sscanf(buf, "tx_quad %d", &arg);
 			if (ret != 1)
 				arg = -1;
 			val = TX_QUAD_CAL;
@@ -5970,10 +5982,13 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		ret = sprintf(buf, "%d\n", !phy->bypass_tx_fir && !phy->bypass_rx_fir);
 		break;
 	case AD9361_CALIB_MODE_AVAIL:
-		ret = sprintf(buf, "auto manual tx_quad rf_dc_offs\n");
+		ret = sprintf(buf, "auto manual manual_tx_quad tx_quad rf_dc_offs\n");
 		break;
 	case AD9361_CALIB_MODE:
-		ret = sprintf(buf, "%s\n", phy->auto_cal_en ? "auto" : "manual");
+		if (phy->manual_tx_quad_cal_en)
+			ret = sprintf(buf, "manual_tx_quad %d\n", phy->last_tx_quad_cal_phase);
+		else
+			ret = sprintf(buf, "%s\n", phy->auto_cal_en ? "auto" : "manual");
 		break;
 	case AD9361_BBDC_OFFS_ENABLE:
 		ret = sprintf(buf, "%d\n", phy->bbdc_track_en);
