@@ -3221,6 +3221,14 @@ enum debugfs_cmd {
 	DBGFS_RXGAIN_2,
 	DBGFS_MCS,
 	DBGFS_CAL_SW_CTRL,
+	DBGFS_DIGITAL_TUNE,
+};
+
+enum dig_tune_flags {
+	BE_VERBOSE = 1,
+	BE_MOREVERBOSE = 2,
+	DO_IDELAY = 4,
+	DO_ODELAY = 8,
 };
 
 enum ad9361_bist_mode {
@@ -3274,7 +3282,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[170];
+	struct ad9361_debugfs_entry debugfs_entry[171];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -3336,6 +3344,8 @@ int ad9361_set_trx_clock_chain_freq(struct ad9361_rf_phy *phy,
 int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks);
+int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
+			   enum dig_tune_flags flags);
 
 
 #endif

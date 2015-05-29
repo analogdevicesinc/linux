@@ -25,24 +25,23 @@
 #include <linux/clk-provider.h>
 
 #include "ad9361.h"
-#include "cf_axi_adc.h"
 
 #ifdef CONFIG_CF_AXI_ADC
-
-enum dig_tune_flags {
-	BE_VERBOSE = 1,
-	DO_IDELAY = 2,
-	DO_ODELAY = 4,
-};
+#include "cf_axi_adc.h"
 
 ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 						   char *buf, unsigned buflen)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	struct axiadc_state *st;
 	int ret, i, j, chan, len = 0;
 	u8 field[16][16];
 	u8 rx;
+
+	if (!conv)
+		return -ENODEV;
+
+	st = iio_priv(conv->indio_dev);
 
 	rx = ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
 
@@ -239,10 +238,14 @@ static int ad9361_write_raw(struct iio_dev *indio_dev,
 int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	unsigned reg, addr, chan;
+	struct axiadc_state *st;
+	unsigned reg, addr, chan, version;
 
-	unsigned version = axiadc_read(st, 0x4000);
+	if (!conv)
+		return -ENODEV;
+
+	st = iio_priv(conv->indio_dev);
+	version = axiadc_read(st, 0x4000);
 
 	/* Still there but implemented a bit different */
 	if (PCORE_VERSION_MAJOR(version) > 7)
@@ -293,7 +296,7 @@ static int ad9361_midscale_iodelay(struct ad9361_rf_phy *phy, bool tx)
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
 	int ret = 0, i;
 
-	for (i = 0; i < (tx ? 8 : 7); i++)
+	for (i = 0; i < 7; i++)
 		ret |= ad9361_iodelay_set(st, i, 15, tx);
 
 	return 0;
@@ -309,7 +312,7 @@ static int ad9361_dig_tune_iodelay(struct ad9361_rf_phy *phy, bool tx)
 
 	num_chan = (conv->chip_info->num_channels > 4) ? 4 : conv->chip_info->num_channels;
 
-	for (i = 0; i < (tx ? 8 : 7); i++) {
+	for (i = 0; i < 7; i++) {
 		for (j = 0; j < 32; j++) {
 			ad9361_iodelay_set(st, i, j, tx);
 			mdelay(1);
@@ -337,17 +340,45 @@ static int ad9361_dig_tune_iodelay(struct ad9361_rf_phy *phy, bool tx)
 	return 0;
 }
 
-static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
+static void ad9361_dig_tune_verbose_print(struct ad9361_rf_phy *phy,
+					  u8 field[][16], bool tx)
+{
+	int i, j;
+
+	printk("SAMPL CLK: %lu tuning: %s\n",
+	       clk_get_rate(phy->clks[RX_SAMPL_CLK]), tx ? "TX" : "RX");
+	printk("  ");
+	for (i = 0; i < 16; i++)
+		printk("%x:", i);
+	printk("\n");
+
+	for (i = 0; i < 2; i++) {
+		printk("%x:", i);
+		for (j = 0; j < 16; j++) {
+			printk("%c ", (field[i][j] ? '#' : 'o'));
+		}
+		printk("\n");
+	}
+	printk("\n");
+}
+
+int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			   enum dig_tune_flags flags)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	struct axiadc_state *st;
 	int ret, i, j, k, chan, t, num_chan, err = 0;
 	u32 s0, s1, c0, c1, tmp, saved = 0;
 	u8 field[2][16];
 	u32 saved_dsel[4], saved_chan_ctrl6[4];
-	u32 rates[3] = {15000000U, 40000000U, 61440000U};
-	unsigned hdl_dac_version = axiadc_read(st, 0x4000);
+	u32 rates[3] = {25000000U, 40000000U, 61440000U};
+	unsigned hdl_dac_version;
+
+	if (!conv)
+		return -ENODEV;
+
+	st = iio_priv(conv->indio_dev);
+	hdl_dac_version = axiadc_read(st, 0x4000);
 
 	if (phy->pdata->dig_interface_tune_skipmode == 2) {
 	/* skip completely and use defaults */
@@ -407,33 +438,22 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 				field[i][j] |= ret;
 			}
 		}
+
+		if ((flags & BE_MOREVERBOSE) && max_freq) {
+			ad9361_dig_tune_verbose_print(phy, field, t);
 		}
-
-		if (flags & BE_VERBOSE) {
-			printk("SAMPL CLK: %lu tuning: %s\n",
-			       clk_get_rate(phy->clks[RX_SAMPL_CLK]), t ? "TX" : "RX");
-			printk("  ");
-			for (i = 0; i < 16; i++)
-				printk("%x:", i);
-			printk("\n");
-
-			for (i = 0; i < 2; i++) {
-				printk("%x:", i);
-				for (j = 0; j < 16; j++) {
-					printk("%c ", (field[i][j] ? '#' : 'o'));
-				}
-				printk("\n");
-			}
-			printk("\n");
 		}
 
 		c0 = ad9361_find_opt(&field[0][0], 16, &s0);
 		c1 = ad9361_find_opt(&field[1][0], 16, &s1);
 
 		if (!c0 && !c1) {
+			ad9361_dig_tune_verbose_print(phy, field, t);
 			dev_err(&phy->spi->dev, "%s: Tuning %s FAILED!", __func__,
 				t ? "TX" : "RX");
 			err |= -EIO;
+		} else if (flags & BE_VERBOSE) {
+			ad9361_dig_tune_verbose_print(phy, field, t);
 		}
 
 		if (c1 > c0)
@@ -467,6 +487,7 @@ static int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			}
 
 			ad9361_bist_loopback(phy, 1);
+			axiadc_write(st, 0x4000 + ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
 
 			for (chan = 0; chan < num_chan; chan++) {
 				axiadc_write(st, ADI_REG_CHAN_CNTRL(chan),
@@ -574,18 +595,18 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
 
-	flags = 0 /* BE_VERBOSE | DO_IDELAY | DO_ODELAY */;
+	flags = 0;
 
 	ret = ad9361_dig_tune(phy, (axiadc_read(st, ADI_REG_ID)) ?
 		0 : 61440000, flags);
 	if (ret < 0)
-		return ret;
+		goto error;
 
 	if (flags & (DO_IDELAY | DO_ODELAY)) {
 		ret = ad9361_dig_tune(phy, (axiadc_read(st, ADI_REG_ID)) ?
 			0 : 61440000, flags & BE_VERBOSE);
 		if (ret < 0)
-			return ret;
+			goto error;
 	}
 
 	ret = ad9361_set_trx_clock_chain(phy,
@@ -595,6 +616,10 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 	ad9361_ensm_restore_prev_state(phy);
 
+	return 0;
+
+error:
+	spi_set_drvdata(phy->spi, NULL);
 	return ret;
 }
 
@@ -645,6 +670,12 @@ struct ad9361_rf_phy* ad9361_spi_to_phy(struct spi_device *spi)
 }
 
 #else  /* CONFIG_CF_AXI_ADC */
+
+int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
+			   enum dig_tune_flags flags)
+{
+	return -ENODEV;
+}
 
 ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 						   char *buf, unsigned buflen)
