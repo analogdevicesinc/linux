@@ -3206,6 +3206,10 @@ enum ad9361_clocks {
 	T1_CLK,
 	CLKTF_CLK,
 	TX_SAMPL_CLK,
+	RX_RFPLL_INT,
+	TX_RFPLL_INT,
+	RX_RFPLL_DUMMY,
+	TX_RFPLL_DUMMY,
 	RX_RFPLL,
 	TX_RFPLL,
 	NUM_AD9361_CLKS,
@@ -3273,6 +3277,7 @@ struct refclk_scale {
 	struct clk_hw		hw;
 	struct spi_device	*spi;
 	struct ad9361_rf_phy	*phy;
+	unsigned long		rate;
 	u32			mult;
 	u32			div;
 	enum ad9361_clocks 	source;
@@ -3281,6 +3286,8 @@ struct refclk_scale {
 struct ad9361_rf_phy {
 	struct spi_device 	*spi;
 	struct clk 		*clk_refin;
+	struct clk 		*clk_ext_lo_rx;
+	struct clk 		*clk_ext_lo_tx;
 	struct clk 		*clks[NUM_AD9361_CLKS];
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
@@ -3293,6 +3300,8 @@ struct ad9361_rf_phy {
 	u32 			ad9361_debugfs_entry_index;
 	u8 			prev_ensm_state;
 	u8			curr_ensm_state;
+	u8			cached_rx_rfpll_div;
+	u8			cached_tx_rfpll_div;
 	struct rx_gain_info rx_gain[RXGAIN_TBLS_END];
 	enum rx_gain_table_name current_table;
 	bool 			ensm_pin_ctl_en;
