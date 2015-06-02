@@ -2193,9 +2193,9 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "%s : ref_clk_hz %lu : is_tx %d",
 		__func__, ref_clk_hz, tx);
 
-	/* REVIST:
-	 * ad9361_spi_write(phy->spi, REG_RX_CP_LEVEL_DETECT + offs, 0x17);
-	 */
+	/* REVIST:*/
+	ad9361_spi_write(phy->spi, REG_RX_CP_LEVEL_DETECT + offs, 0x17);
+
 	ad9361_spi_write(phy->spi, REG_RX_DSM_SETUP_1 + offs, 0x0);
 
 	ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE + offs, 0x00);
@@ -2620,45 +2620,50 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 				      bool tx, bool enable)
 {
 	unsigned val = enable ? ~0 : 0;
+	int ret;
 
-	dev_dbg(&phy->spi->dev, "%s : state %d",
-		__func__, enable);
+	dev_dbg(&phy->spi->dev, "%s : %s state %d",__func__,
+		tx ? "TX" : "RX", enable);
 
 	if (tx) {
-		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
 				  POWER_DOWN_TX_SYNTH, enable);
 
-		ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
-				  TX_VCO_DIVIDER(~0), 0x7);
+		ret |= ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
+				  TX_VCO_DIVIDER(~0), enable ? 7 :
+				  phy->cached_tx_rfpll_div);
 
-		ad9361_spi_write(phy->spi, REG_TX_SYNTH_POWER_DOWN_OVERRIDE,
+		ret |= ad9361_spi_write(phy->spi, REG_TX_SYNTH_POWER_DOWN_OVERRIDE,
 				enable ? TX_SYNTH_VCO_ALC_POWER_DOWN |
 				TX_SYNTH_PTAT_POWER_DOWN |
 				TX_SYNTH_VCO_POWER_DOWN : 0);
 
-		ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
+		ret |= ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
 				  TX_EXT_VCO_BUFFER_POWER_DOWN, !enable);
 
-		return ad9361_spi_write(phy->spi, REG_TX_LO_GEN_POWER_MODE,
+		ret |= ad9361_spi_write(phy->spi, REG_TX_LO_GEN_POWER_MODE,
 					TX_LO_GEN_POWER_MODE(val));
 	} else {
-		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
 				  POWER_DOWN_RX_SYNTH, enable);
 
-		ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
-				  RX_VCO_DIVIDER(~0), 0x7);
+		ret |= ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
+				  RX_VCO_DIVIDER(~0), enable ? 7 :
+				  phy->cached_rx_rfpll_div);
 
-		ad9361_spi_write(phy->spi, REG_RX_SYNTH_POWER_DOWN_OVERRIDE,
+		ret |= ad9361_spi_write(phy->spi, REG_RX_SYNTH_POWER_DOWN_OVERRIDE,
 				enable ? RX_SYNTH_VCO_ALC_POWER_DOWN |
 				RX_SYNTH_PTAT_POWER_DOWN |
 				RX_SYNTH_VCO_POWER_DOWN : 0);
 
-		ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
+		ret |= ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
 				  RX_EXT_VCO_BUFFER_POWER_DOWN, !enable);
 
-		return ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE,
+		ret |= ad9361_spi_write(phy->spi, REG_RX_LO_GEN_POWER_MODE,
 					RX_LO_GEN_POWER_MODE(val));
 	}
+
+	return ret;
 }
 
 /* REFERENCE CLOCK DELAY UNIT COUNTER REGISTER */
@@ -3842,11 +3847,8 @@ int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctrl)
 
 	ad9361_spi_write(phy->spi, REG_ENSM_MODE, fdd ? FDD_MODE : 0);
 
-	if (pd->use_ext_rx_lo)
-		val |= POWER_DOWN_RX_SYNTH;
-
-	if (pd->use_ext_tx_lo)
-		val |= POWER_DOWN_TX_SYNTH;
+	val = ad9361_spi_read(phy->spi, REG_ENSM_CONFIG_2);
+	val &= POWER_DOWN_RX_SYNTH | POWER_DOWN_TX_SYNTH;
 
 	if (fdd)
 		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
@@ -4338,11 +4340,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	/* REVISIT : add EXT LO clock */
-	if (pd->use_ext_rx_lo)
-		ad9361_trx_ext_lo_control(phy, false, pd->use_ext_rx_lo);
-
-
 	/* Skip quad cal here we do it later again */
 	phy->last_tx_quad_cal_freq = pd->tx_synth_freq;
 	ret = clk_set_rate(phy->clks[TX_RFPLL], ad9361_to_clk(pd->tx_synth_freq));
@@ -4356,9 +4353,13 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	/* REVISIT : add EXT LO clock */
-	if (pd->use_ext_tx_lo)
-		ad9361_trx_ext_lo_control(phy, true, pd->use_ext_tx_lo);
+	clk_set_parent(phy->clks[RX_RFPLL],
+			pd->use_ext_rx_lo ? phy->clk_ext_lo_rx :
+			phy->clks[RX_RFPLL_INT]);
+
+	clk_set_parent(phy->clks[TX_RFPLL],
+			pd->use_ext_tx_lo ? phy->clk_ext_lo_tx :
+			phy->clks[TX_RFPLL_INT]);
 
 	ret = ad9361_load_mixer_gm_subtable(phy);
 	if (ret < 0)
@@ -4457,6 +4458,8 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal, int arg)
 {
 	int ret;
+
+	dev_dbg(&phy->spi->dev, "%s: CAL %u ARG %d", __func__, cal, arg);
 
 	ret = ad9361_tracking_control(phy, false, false, false);
 	if (ret < 0)
@@ -5414,12 +5417,12 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 		__func__, parent_rate);
 
 	switch (clk_priv->source) {
-	case RX_RFPLL:
+	case RX_RFPLL_INT:
 		reg = REG_RX_FRACT_BYTE_2;
 		div_mask = RX_VCO_DIVIDER(~0);
 		profile = phy->fastlock.current_profile[0];
 		break;
-	case TX_RFPLL:
+	case TX_RFPLL_INT:
 		reg = REG_TX_FRACT_BYTE_2;
 		div_mask = TX_VCO_DIVIDER(~0);
 		profile = phy->fastlock.current_profile[1];
@@ -5429,7 +5432,7 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 	}
 
 	if (profile) {
-		bool tx = clk_priv->source == TX_RFPLL;
+		bool tx = clk_priv->source == TX_RFPLL_INT;
 		profile = profile - 1;
 
 		buf[0] = ad9361_fastlock_readval(phy->spi, tx, profile, 4);
@@ -5454,6 +5457,9 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 static long ad9361_rfpll_round_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long *prate)
 {
+	struct refclk_scale *clk_priv = to_clk_priv(hw);
+	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, rate);
+
 	if (ad9361_from_clk(rate) > MAX_CARRIER_FREQ_HZ ||
 		ad9361_from_clk(rate) < MIN_CARRIER_FREQ_HZ)
 		return -EINVAL;
@@ -5474,7 +5480,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
 
-	ad9361_fastlock_prepare(phy, clk_priv->source == TX_RFPLL, 0, false);
+	ad9361_fastlock_prepare(phy, clk_priv->source == TX_RFPLL_INT, 0, false);
 
 	ret = ad9361_calc_rfpll_divder(ad9361_from_clk(rate), parent_rate,
 				&integer, &fract, &vco_div, &vco);
@@ -5482,15 +5488,17 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 		return ret;
 
 	switch (clk_priv->source) {
-	case RX_RFPLL:
+	case RX_RFPLL_INT:
 		reg = REG_RX_FRACT_BYTE_2;
 		lock_reg = REG_RX_CP_OVERRANGE_VCO_LOCK;
 		div_mask = RX_VCO_DIVIDER(~0);
+		phy->cached_rx_rfpll_div = vco_div;
 		break;
-	case TX_RFPLL:
+	case TX_RFPLL_INT:
 		reg = REG_TX_FRACT_BYTE_2;
 		lock_reg = REG_TX_CP_OVERRANGE_VCO_LOCK;
 		div_mask = TX_VCO_DIVIDER(~0);
+		phy->cached_tx_rfpll_div = vco_div;
 		break;
 	default:
 		return -EINVAL;
@@ -5499,7 +5507,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	/* Option to skip VCO cal in TDD mode when moving from TX/RX to Alert */
 	if (phy->pdata->tdd_skip_vco_cal)
-		ad9361_trx_vco_cal_control(phy, clk_priv->source == TX_RFPLL,
+		ad9361_trx_vco_cal_control(phy, clk_priv->source == TX_RFPLL_INT,
 					   true);
 
 	ad9361_rfpll_vco_init(phy, div_mask == TX_VCO_DIVIDER(~0),
@@ -5516,39 +5524,116 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	ad9361_spi_writem(clk_priv->spi, reg, buf, 5);
 	ad9361_spi_writef(clk_priv->spi, REG_RFPLL_DIVIDERS, div_mask, vco_div);
 
-	/* Load Gain Table */
-	if (clk_priv->source == RX_RFPLL) {
-		ret = ad9361_load_gt(phy, ad9361_from_clk(rate), GT_RX1 + GT_RX2);
-		if (ret < 0)
-			return ret;
-	}
-
-	/* For RX LO we typically have the tracking option enabled
-	 * so for now do nothing here.
-	 */
-	if (phy->auto_cal_en && (clk_priv->source == TX_RFPLL))
-		if (abs(phy->last_tx_quad_cal_freq - ad9361_from_clk(rate)) >
-			phy->cal_threshold_freq) {
-
-			set_bit(0, &phy->flags);
-			INIT_COMPLETION(phy->complete);
-			schedule_work(&phy->work);
-			phy->last_tx_quad_cal_freq = ad9361_from_clk(rate);
-		}
-
 	ret = ad9361_check_cal_done(phy, lock_reg, VCO_LOCK, 1);
 
 	if (phy->pdata->tdd_skip_vco_cal)
-		ad9361_trx_vco_cal_control(phy, clk_priv->source == TX_RFPLL,
+		ad9361_trx_vco_cal_control(phy, clk_priv->source == TX_RFPLL_INT,
 					   false);
 
 	return ret;
 }
 
-static const struct clk_ops rfpll_clk_ops = {
+static const struct clk_ops rfpll_clk_ops_int = {
 	.round_rate = ad9361_rfpll_round_rate,
 	.set_rate = ad9361_rfpll_set_rate,
 	.recalc_rate = ad9361_rfpll_recalc_rate,
+};
+
+static unsigned long ad9361_rfpll_dummy_recalc_rate(struct clk_hw *hw,
+		unsigned long parent_rate)
+{
+	struct refclk_scale *clk_priv = to_clk_priv(hw);
+	return clk_priv->rate;
+}
+
+static int ad9361_rfpll_dummy_set_rate(struct clk_hw *hw, unsigned long rate,
+				unsigned long parent_rate)
+{
+	struct refclk_scale *clk_priv = to_clk_priv(hw);
+	clk_priv->rate = rate;
+
+	return 0;
+}
+
+static const struct clk_ops rfpll_dummy_clk_ops_int = {
+	.round_rate = ad9361_rfpll_round_rate,
+	.set_rate = ad9361_rfpll_dummy_set_rate,
+	.recalc_rate = ad9361_rfpll_dummy_recalc_rate,
+};
+
+
+static u8 ad9361_clk_mux_get_parent(struct clk_hw *hw)
+{
+	struct refclk_scale *clk_priv = to_clk_priv(hw);
+	dev_dbg(&clk_priv->spi->dev, "%s: index %d", __func__, clk_priv->mult);
+
+	return clk_priv->mult;
+}
+
+static int ad9361_clk_mux_set_parent(struct clk_hw *hw, u8 index)
+{
+	struct refclk_scale *clk_priv = to_clk_priv(hw);
+	struct ad9361_rf_phy *phy = clk_priv->phy;
+	int ret;
+
+	dev_dbg(&clk_priv->spi->dev, "%s: index %d", __func__, index);
+
+	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
+
+	ret = ad9361_trx_ext_lo_control(phy, clk_priv->source == TX_RFPLL, index == 1);
+	if (ret >= 0)
+		clk_priv->mult = index;
+
+	ad9361_ensm_restore_prev_state(phy);
+
+	return ret;
+}
+
+long ad9361_clk_mux_determine_rate(struct clk_hw *hw, unsigned long rate,
+			      unsigned long *best_parent_rate,
+			      struct clk_hw **best_parent_p)
+{
+	struct refclk_scale *clk_priv = to_clk_priv(hw);
+	struct ad9361_rf_phy *phy = clk_priv->phy;
+	unsigned long best_rate;
+	int ret;
+
+	long best = __clk_mux_determine_rate(hw, rate, best_parent_rate, best_parent_p);
+	best_rate = (unsigned long) best;
+
+	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, best);
+
+	switch (clk_priv->source) {
+	case RX_RFPLL:
+		ret = ad9361_load_gt(phy, ad9361_from_clk(best_rate), GT_RX1 + GT_RX2);
+		if (ret < 0)
+			best = ret;
+		break;
+	case TX_RFPLL:
+		/* For RX LO we typically have the tracking option enabled
+		* so for now do nothing here.
+		*/
+		if (phy->auto_cal_en)
+			if (abs(phy->last_tx_quad_cal_freq - ad9361_from_clk(best_rate)) >
+				phy->cal_threshold_freq) {
+
+				set_bit(0, &phy->flags);
+				reinit_completion(&phy->complete);
+				schedule_work(&phy->work);
+				phy->last_tx_quad_cal_freq = ad9361_from_clk(best_rate);
+			}
+		break;
+	default:
+		best = -EINVAL;
+	}
+
+	return best;
+}
+
+static const struct clk_ops rfpll_clk_ops = {
+	.get_parent = ad9361_clk_mux_get_parent,
+	.set_parent = ad9361_clk_mux_set_parent,
+	.determine_rate = ad9361_clk_mux_determine_rate,
 };
 
 #define AD9361_MAX_CLK_NAME 79
@@ -5557,6 +5642,9 @@ static char *ad9361_clk_set_dev_name(struct ad9361_rf_phy *phy,
 					 char *dest, const char *name)
 {
 	size_t len = 0;
+
+	if (name == NULL)
+		return NULL;
 
 	if (*name == '-')
 		len = strlcpy(dest, dev_name(&phy->spi->dev),
@@ -5568,14 +5656,15 @@ static char *ad9361_clk_set_dev_name(struct ad9361_rf_phy *phy,
 }
 
 static int ad9361_clk_register(struct ad9361_rf_phy *phy,
-		const char *name, const char *parent_name, unsigned long flags,
+		const char *name, const char *parent_name,
+		const char *parent_name2, unsigned long flags,
 		u32 source)
 {
 	struct refclk_scale *clk_priv = &phy->clk_priv[source];
 	struct clk_init_data init;
 	struct clk *clk;
-	char c_name[AD9361_MAX_CLK_NAME + 1], p_name[AD9361_MAX_CLK_NAME + 1];
-	const char *_parent_name;
+	char c_name[AD9361_MAX_CLK_NAME + 1], p_name[2][AD9361_MAX_CLK_NAME + 1];
+	const char *_parent_name[2];
 
 	/* struct refclk_scale assignments */
 	clk_priv->source = source;
@@ -5583,9 +5672,29 @@ static int ad9361_clk_register(struct ad9361_rf_phy *phy,
 	clk_priv->spi = phy->spi;
 	clk_priv->phy = phy;
 
+	_parent_name[0] = ad9361_clk_set_dev_name(phy, p_name[0], parent_name);
+	_parent_name[1] = ad9361_clk_set_dev_name(phy, p_name[1], parent_name2);
+
+	init.name = ad9361_clk_set_dev_name(phy, c_name, name);;
+	init.flags = flags;
+	init.parent_names = &_parent_name[0];
+	init.num_parents = _parent_name[1] ? 2 : _parent_name[0] ? 1 : 0;
+
 	switch (source) {
 	case BBPLL_CLK:
 		init.ops = &bbpll_clk_ops;
+		break;
+	case RX_RFPLL_INT:
+	case TX_RFPLL_INT:
+		init.ops = &rfpll_clk_ops_int;
+		break;
+	case RX_RFPLL_DUMMY:
+		init.ops = &rfpll_dummy_clk_ops_int;
+		clk_priv->rate = ad9361_to_clk(phy->pdata->rx_synth_freq);
+		break;
+	case TX_RFPLL_DUMMY:
+		init.ops = &rfpll_dummy_clk_ops_int;
+		clk_priv->rate = ad9361_to_clk(phy->pdata->tx_synth_freq);
 		break;
 	case RX_RFPLL:
 	case TX_RFPLL:
@@ -5594,13 +5703,6 @@ static int ad9361_clk_register(struct ad9361_rf_phy *phy,
 	default:
 		init.ops = &refclk_scale_ops;
 	}
-
-	_parent_name = ad9361_clk_set_dev_name(phy, p_name, parent_name);
-
-	init.name = ad9361_clk_set_dev_name(phy, c_name, name);;
-	init.flags = flags;
-	init.parent_names = &_parent_name;
-	init.num_parents = 1;
 
 	clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
 	phy->clks[source] = clk;
@@ -5629,65 +5731,97 @@ static int ad9361_clks_resync(struct ad9361_rf_phy *phy)
 static int register_clocks(struct ad9361_rf_phy *phy)
 {
 	const char *parent_name;
+	const char *ext_tx_lo = NULL;
+	const char *ext_rx_lo = NULL;
 	u32 flags = CLK_GET_RATE_NOCACHE;
 
-	parent_name = of_clk_get_parent_name(phy->spi->dev.of_node, 0);
-	if (!parent_name)
-		return -EINVAL;
+	parent_name = __clk_get_name(phy->clk_refin);
 
 	phy->clk_data.clks = phy->clks;
 	phy->clk_data.clk_num = NUM_AD9361_CLKS;
 
+	/* Dummy Clock in case no external LO clock given */
+
+	phy->clk_ext_lo_rx = devm_clk_get(&phy->spi->dev, "ext_rx_lo");
+	phy->clk_ext_lo_tx = devm_clk_get(&phy->spi->dev, "ext_tx_lo");
+
+	if (IS_ERR_OR_NULL(phy->clk_ext_lo_rx)) {
+		ad9361_clk_register(phy, "-rx_lo_dummy", NULL, NULL,
+			CLK_IGNORE_UNUSED, RX_RFPLL_DUMMY);
+
+		phy->clk_ext_lo_rx = phy->clks[RX_RFPLL_DUMMY];
+		ext_rx_lo = "-rx_lo_dummy";
+	} else {
+		ext_rx_lo = __clk_get_name(phy->clk_ext_lo_rx);
+	}
+
+	if (IS_ERR_OR_NULL(phy->clk_ext_lo_tx)) {
+		ad9361_clk_register(phy, "-tx_lo_dummy", NULL, NULL,
+			CLK_IGNORE_UNUSED, TX_RFPLL_DUMMY);
+
+		phy->clk_ext_lo_tx = phy->clks[TX_RFPLL_DUMMY];
+		ext_tx_lo = "-tx_lo_dummy";
+	} else {
+		ext_tx_lo = __clk_get_name(phy->clk_ext_lo_tx);
+	}
+
 	/* Scaled Reference Clocks */
-	ad9361_clk_register(phy, "-tx_refclk", parent_name,
+	ad9361_clk_register(phy, "-tx_refclk", parent_name, NULL,
 		flags | CLK_IGNORE_UNUSED, TX_REFCLK);
 
-	ad9361_clk_register(phy, "-rx_refclk", parent_name,
+	ad9361_clk_register(phy, "-rx_refclk", parent_name, NULL,
 		flags | CLK_IGNORE_UNUSED, RX_REFCLK);
 
-	ad9361_clk_register(phy, "-bb_refclk", parent_name,
+	ad9361_clk_register(phy, "-bb_refclk", parent_name, NULL,
 		flags | CLK_IGNORE_UNUSED, BB_REFCLK);
 
 	/* Base Band PLL Clock */
-	ad9361_clk_register(phy, "-bbpll_clk", "-bb_refclk",
+	ad9361_clk_register(phy, "-bbpll_clk", "-bb_refclk", NULL,
 		flags | CLK_IGNORE_UNUSED, BBPLL_CLK);
 
-	ad9361_clk_register(phy, "-adc_clk", "-bbpll_clk",
+	ad9361_clk_register(phy, "-adc_clk", "-bbpll_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, ADC_CLK);
 
-	ad9361_clk_register(phy, "-r2_clk", "-adc_clk",
+	ad9361_clk_register(phy, "-r2_clk", "-adc_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, R2_CLK);
 
-	ad9361_clk_register(phy, "-r1_clk", "-r2_clk",
+	ad9361_clk_register(phy, "-r1_clk", "-r2_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, R1_CLK);
 
-	ad9361_clk_register(phy, "-clkrf_clk", "-r1_clk",
+	ad9361_clk_register(phy, "-clkrf_clk", "-r1_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, CLKRF_CLK);
 
-	ad9361_clk_register(phy, "-rx_sampl_clk", "-clkrf_clk",
+	ad9361_clk_register(phy, "-rx_sampl_clk", "-clkrf_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, RX_SAMPL_CLK);
 
-	ad9361_clk_register(phy, "-dac_clk", "-adc_clk",
+	ad9361_clk_register(phy, "-dac_clk", "-adc_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, DAC_CLK);
 
-	ad9361_clk_register(phy, "-t2_clk", "-dac_clk",
+	ad9361_clk_register(phy, "-t2_clk", "-dac_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, T2_CLK);
 
-	ad9361_clk_register(phy, "-t1_clk", "-t2_clk",
+	ad9361_clk_register(phy, "-t1_clk", "-t2_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, T1_CLK);
 
-	ad9361_clk_register(phy, "-clktf_clk", "-t1_clk",
+	ad9361_clk_register(phy, "-clktf_clk", "-t1_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, CLKTF_CLK);
 
-	ad9361_clk_register(phy, "-tx_sampl_clk", "-clktf_clk",
+	ad9361_clk_register(phy, "-tx_sampl_clk", "-clktf_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, TX_SAMPL_CLK);
 
-	ad9361_clk_register(phy, "-rx_rfpll", "-rx_refclk",
-		flags | CLK_IGNORE_UNUSED, RX_RFPLL);
+	ad9361_clk_register(phy, "-rx_rfpll_int", "-rx_refclk", NULL,
+		flags | CLK_IGNORE_UNUSED, RX_RFPLL_INT);
 
-	ad9361_clk_register(phy, "-tx_rfpll", "-tx_refclk",
-		flags | CLK_IGNORE_UNUSED, TX_RFPLL);
+	ad9361_clk_register(phy, "-tx_rfpll_int", "-tx_refclk", NULL,
+		flags | CLK_IGNORE_UNUSED, TX_RFPLL_INT);
 
+	ad9361_clk_register(phy, "-rx_rfpll", "-rx_rfpll_int", ext_rx_lo,
+		flags | CLK_IGNORE_UNUSED | CLK_SET_RATE_NO_REPARENT |
+		CLK_SET_RATE_PARENT, RX_RFPLL);
+
+	ad9361_clk_register(phy, "-tx_rfpll", "-tx_rfpll_int", ext_tx_lo,
+		flags | CLK_IGNORE_UNUSED | CLK_SET_RATE_NO_REPARENT |
+		CLK_SET_RATE_PARENT, TX_RFPLL);
 
 	return 0;
 }
@@ -6161,6 +6295,7 @@ enum lo_ext_info {
 	LOEXT_RECALL,
 	LOEXT_LOAD,
 	LOEXT_SAVE,
+	LOEXT_EXTERNAL,
 };
 
 static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
@@ -6187,26 +6322,16 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	case LOEXT_FREQ:
 		switch (chan->channel) {
 		case 0:
-			if (phy->pdata->use_ext_rx_lo) {
-				ret = -EINVAL;
-				break;
-			}
 			tmp = clk_set_rate(phy->clks[RX_RFPLL],
 					ad9361_to_clk(readin));
 			break;
-
 		case 1:
-			if (phy->pdata->use_ext_tx_lo) {
-				ret = -EINVAL;
-				break;
-			}
 			tmp = clk_set_rate(phy->clks[TX_RFPLL],
 					ad9361_to_clk(readin));
 			if (test_bit(0, &phy->flags))
 				wait_for_completion(&phy->complete);
 
 			break;
-
 		default:
 			ret = -EINVAL;
 		}
@@ -6246,6 +6371,31 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	case LOEXT_SAVE:
 		phy->fastlock.save_profile = readin;
 		break;
+	case LOEXT_EXTERNAL:
+		switch (chan->channel) {
+		case 0:
+			if (phy->clk_ext_lo_rx)
+				ret = clk_set_parent(phy->clks[RX_RFPLL],
+				       readin ? phy->clk_ext_lo_rx :
+				       phy->clks[RX_RFPLL_INT]);
+			else
+				ret = -ENODEV;
+			break;
+
+		case 1:
+			if (phy->clk_ext_lo_tx)
+				ret = clk_set_parent(phy->clks[TX_RFPLL],
+				       readin ? phy->clk_ext_lo_tx :
+				       phy->clks[TX_RFPLL_INT]);
+			else
+				ret = -ENODEV;
+			break;
+
+		default:
+			ret = -EINVAL;
+		}
+		break;
+
 	}
 	mutex_unlock(&indio_dev->mlock);
 
@@ -6264,23 +6414,8 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 	switch (private) {
 	case LOEXT_FREQ:
-		switch (chan->channel) {
-		case 0:
-			if (phy->pdata->use_ext_rx_lo)
-				val = 0;
-			else
-				val = ad9361_from_clk(clk_get_rate(phy->clks[RX_RFPLL]));
-			break;
-
-		case 1:
-			if (phy->pdata->use_ext_tx_lo)
-				val = 0;
-			else
-				val = ad9361_from_clk(clk_get_rate(phy->clks[TX_RFPLL]));
-			break;
-		default:
-			ret = -EINVAL;
-		}
+		val = ad9361_from_clk(clk_get_rate(phy->clks[chan->channel ?
+			TX_RFPLL : RX_RFPLL]));
 		break;
 	case LOEXT_SAVE: {
 		u8 faslock_vals[16];
@@ -6303,6 +6438,18 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 		else
 			val = ret - 1;
+		break;
+	case LOEXT_EXTERNAL:
+		switch (chan->channel) {
+		case 0:
+			val = clk_get_parent(phy->clks[RX_RFPLL]) != phy->clks[RX_RFPLL_INT];
+			break;
+		case 1:
+			val = clk_get_parent(phy->clks[TX_RFPLL]) != phy->clks[TX_RFPLL_INT];
+			break;
+		default:
+			ret = -EINVAL;
+		}
 		break;
 	default:
 		ret = 0;
@@ -6330,6 +6477,7 @@ static const struct iio_chan_spec_ext_info ad9361_phy_ext_info[] = {
 	_AD9361_EXT_LO_INFO("fastlock_recall", LOEXT_RECALL),
 	_AD9361_EXT_LO_INFO("fastlock_load", LOEXT_LOAD),
 	_AD9361_EXT_LO_INFO("fastlock_save", LOEXT_SAVE),
+	_AD9361_EXT_LO_INFO("external", LOEXT_EXTERNAL),
 	{ },
 };
 
