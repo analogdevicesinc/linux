@@ -338,10 +338,12 @@ static int caam_remove(struct platform_device *pdev)
 
 	/* shut clocks off before finalizing shutdown */
 	clk_disable_unprepare(ctrlpriv->caam_ipg);
-	clk_disable_unprepare(ctrlpriv->caam_mem);
 	clk_disable_unprepare(ctrlpriv->caam_aclk);
+	if (ctrlpriv->caam_mem)
+		clk_disable_unprepare(ctrlpriv->caam_mem);
 	if (ctrlpriv->caam_emi_slow)
 		clk_disable_unprepare(ctrlpriv->caam_emi_slow);
+
 	return 0;
 }
 
@@ -539,8 +541,10 @@ static int caam_probe(struct platform_device *pdev)
 	int BLOCK_OFFSET = 0;
 
 	ctrlpriv = devm_kzalloc(&pdev->dev, sizeof(*ctrlpriv), GFP_KERNEL);
-	if (!ctrlpriv)
-		return -ENOMEM;
+	if (!ctrlpriv) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
 	dev = &pdev->dev;
 	dev_set_drvdata(dev, ctrlpriv);
@@ -552,16 +556,15 @@ static int caam_probe(struct platform_device *pdev)
 	clk = caam_drv_identify_clk(&pdev->dev, "ipg");
 	if (IS_ERR(clk)) {
 		ret = PTR_ERR(clk);
-		dev_err(&pdev->dev,
-			"can't identify CAAM ipg clk: %d\n", ret);
-		return ret;
+		dev_err(&pdev->dev, "can't identify CAAM ipg clk: %d\n", ret);
+		goto release_ctrlpriv;
 	}
 	ctrlpriv->caam_ipg = clk;
 
 	ret = clk_prepare_enable(ctrlpriv->caam_ipg);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "can't enable CAAM ipg clock: %d\n", ret);
-		return ret;
+		goto release_ctrlpriv;
 	}
 
 	clk = caam_drv_identify_clk(&pdev->dev, "aclk");
@@ -569,7 +572,7 @@ static int caam_probe(struct platform_device *pdev)
 		ret = PTR_ERR(clk);
 		dev_err(&pdev->dev,
 			"can't identify CAAM aclk clk: %d\n", ret);
-		return ret;
+		goto disable_caam_ipg;
 	}
 	ctrlpriv->caam_aclk = clk;
 
@@ -585,7 +588,7 @@ static int caam_probe(struct platform_device *pdev)
 			ret = PTR_ERR(clk);
 			dev_err(&pdev->dev,
 				"can't identify CAAM mem clk: %d\n", ret);
-			return ret;
+			goto disable_caam_aclk;
 		}
 		ctrlpriv->caam_mem = clk;
 
@@ -603,7 +606,7 @@ static int caam_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev,
 					"can't identify CAAM emi_slow clk: %d\n",
 					ret);
-				return ret;
+				goto disable_caam_mem;
 			}
 			ctrlpriv->caam_emi_slow = clk;
 
@@ -930,6 +933,10 @@ disable_caam_aclk:
 	clk_disable_unprepare(ctrlpriv->caam_aclk);
 disable_caam_ipg:
 	clk_disable_unprepare(ctrlpriv->caam_ipg);
+release_ctrlpriv:
+	devm_kfree(&pdev->dev, ctrlpriv);
+
+exit:
 	return ret;
 }
 
