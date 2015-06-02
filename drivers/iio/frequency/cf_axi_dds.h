@@ -226,6 +226,7 @@ enum {
 struct cf_axi_converter {
 	struct spi_device 	*spi;
 	struct clk 	*clk[CLK_NUM];
+	void		*phy;
 	struct gpio_desc			*pwrdown_gpio;
 	struct gpio_desc			*reset_gpio;
 	struct gpio_desc			*txen_gpio;
