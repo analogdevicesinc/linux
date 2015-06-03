@@ -35,6 +35,12 @@ struct ad9739a_phy {
 
 static const char ad9739a_op_modes[2][16] = {"normal-baseband", "mix-mode"};
 
+enum ad9739a_iio_dev_attr {
+	AD9739A_FSC,
+	AD9739A_OP_MODE_AVAIL,
+	AD9739A_OP_MODE,
+};
+
 static inline struct ad9739a_phy *conv_to_phy(struct cf_axi_converter *conv)
 {
 	return conv->phy;
@@ -213,12 +219,6 @@ static int ad9739a_write_raw(struct iio_dev *indio_dev,
 {
 	return 0;
 }
-
-enum mc_ctrl_iio_dev_attr {
-	AD9739A_FSC,
-	AD9739A_OP_MODE_AVAIL,
-	AD9739A_OP_MODE,
-};
 
 static ssize_t ad9739a_show(struct device *dev,
 				struct device_attribute *attr,
