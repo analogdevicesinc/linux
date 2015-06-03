@@ -157,6 +157,9 @@
 		adi,tx-sys-clk-select = <3>;
 		adi,tx-out-clk-select = <4>;
 
+		adi,lanes = <0x4>;
+		adi,use-lpm-enable;
+
 		xlnx,pcore-cpll-fbdiv = <0x2>;
 		xlnx,pcore-device-type = <0x0>;
 		xlnx,pcore-id = <0x0>;
