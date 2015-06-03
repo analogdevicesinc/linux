@@ -937,8 +937,8 @@ static int ad9361_get_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 
 	rx_gain->tia_index = ad9361_spi_readf(spi, REG_GAIN_TABLE_READ_DATA2, TIA_GAIN);
 
-	rx_gain->lmt_gain = lna_table[rx_gain->lna_index] +
-				mixer_table[rx_gain->mixer_index] +
+	rx_gain->lmt_gain = lna_table[phy->current_table][rx_gain->lna_index] +
+				mixer_table[phy->current_table][rx_gain->mixer_index] +
 				tia_table[rx_gain->tia_index];
 
 	ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, tbl_addr);
@@ -3517,11 +3517,8 @@ static int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctr
 
 	ad9361_spi_write(phy->spi, REG_ENSM_MODE, fdd ? FDD_MODE : 0);
 
-	if (pd->use_ext_rx_lo)
-		val |= POWER_DOWN_RX_SYNTH;
-
-	if (pd->use_ext_tx_lo)
-		val |= POWER_DOWN_TX_SYNTH;
+	val = ad9361_spi_read(phy->spi, REG_ENSM_CONFIG_2);
+	val &= POWER_DOWN_RX_SYNTH | POWER_DOWN_TX_SYNTH;
 
 	if (fdd)
 		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
@@ -3776,14 +3773,15 @@ static int ad9361_fastlock_save(struct ad9361_rf_phy *phy, bool tx,
 
 static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 {
-	unsigned mcs_mask = MCS_BBPLL_ENABLE | MCS_DIGITAL_CLK_ENABLE | MCS_BB_ENABLE;
+	unsigned mcs_mask = MCS_RF_ENABLE | MCS_BBPLL_ENABLE |
+		MCS_DIGITAL_CLK_ENABLE | MCS_BB_ENABLE;
 
 	dev_dbg(&phy->spi->dev, "%s: MCS step %d", __func__, step);
 
 	switch (step) {
 	case 1:
 		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
-			mcs_mask, MCS_BB_ENABLE | MCS_BBPLL_ENABLE);
+			mcs_mask, MCS_BB_ENABLE | MCS_BBPLL_ENABLE | MCS_RF_ENABLE);
 		ad9361_spi_writef(phy->spi, REG_CP_BLEED_CURRENT,
 			MCS_REFCLK_SCALE_EN, 1);
 		break;
@@ -3800,7 +3798,7 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 		break;
 	case 3:
 		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
-			mcs_mask, MCS_BB_ENABLE | MCS_DIGITAL_CLK_ENABLE);
+			mcs_mask, MCS_BB_ENABLE | MCS_DIGITAL_CLK_ENABLE | MCS_RF_ENABLE);
 		break;
 	case 4:
 		if (IS_ERR(phy->pdata->sync_gpio))
@@ -3809,13 +3807,18 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 		gpiod_set_value(phy->pdata->sync_gpio, 0);
 		break;
 	case 0:
+		/* REVIST:
+		 * POWER_DOWN_TRX_SYNTH and MCS_RF_ENABLE somehow conflict
+		 */
+		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+				  POWER_DOWN_TX_SYNTH | POWER_DOWN_RX_SYNTH, 0);
 	case 5:
 		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
-			mcs_mask, 0);
+			mcs_mask, MCS_RF_ENABLE);
 		break;
-
 	case 6:
 		ad9361_dig_tune(phy, 0);
+		break;
 	}
 
 	return 0;
