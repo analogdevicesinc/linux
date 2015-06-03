@@ -165,4 +165,12 @@
 #define PART_ID_PART_ID(x)			((((x) & 0xFF) << 0))
 #define AD9739A_ID					0x24
 
+#define AD9739A_MIN_FSC				8580	// 8.58 mA
+#define AD9739A_MAX_FSC				31700	// 31.6998 mA
+
+enum operation_mode {
+	NORMAL_BASEBAND_OPERATION,
+	MIX_MODE_OPERATION,
+};
+
 #endif /* end ifndef _DEF_AD9739A_H */
