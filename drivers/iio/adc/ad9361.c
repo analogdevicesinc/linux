@@ -2622,12 +2622,19 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 	unsigned val = enable ? ~0 : 0;
 	int ret;
 
+	/* REVIST:
+	 * POWER_DOWN_TRX_SYNTH and MCS_RF_ENABLE somehow conflict
+	 */
+
+	bool mcs_rf_enable = ad9361_spi_readf(phy->spi,
+		REG_MULTICHIP_SYNC_AND_TX_MON_CTRL, MCS_RF_ENABLE);
+
 	dev_dbg(&phy->spi->dev, "%s : %s state %d",__func__,
 		tx ? "TX" : "RX", enable);
 
 	if (tx) {
 		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
-				  POWER_DOWN_TX_SYNTH, enable);
+				  POWER_DOWN_TX_SYNTH, mcs_rf_enable ? 0 : enable);
 
 		ret |= ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
 				  TX_VCO_DIVIDER(~0), enable ? 7 :
@@ -2645,7 +2652,7 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 					TX_LO_GEN_POWER_MODE(val));
 	} else {
 		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
-				  POWER_DOWN_RX_SYNTH, enable);
+				  POWER_DOWN_RX_SYNTH, mcs_rf_enable ? 0 : enable);
 
 		ret |= ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
 				  RX_VCO_DIVIDER(~0), enable ? 7 :
@@ -4139,6 +4146,11 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 		gpiod_set_value(phy->pdata->sync_gpio, 0);
 		break;
 	case 0:
+		/* REVIST:
+		 * POWER_DOWN_TRX_SYNTH and MCS_RF_ENABLE somehow conflict
+		 */
+		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+				  POWER_DOWN_TX_SYNTH | POWER_DOWN_TX_SYNTH, 0);
 	case 5:
 		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
 			mcs_mask, MCS_RF_ENABLE);
