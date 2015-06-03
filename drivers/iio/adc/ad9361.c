@@ -3517,11 +3517,8 @@ static int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctr
 
 	ad9361_spi_write(phy->spi, REG_ENSM_MODE, fdd ? FDD_MODE : 0);
 
-	if (pd->use_ext_rx_lo)
-		val |= POWER_DOWN_RX_SYNTH;
-
-	if (pd->use_ext_tx_lo)
-		val |= POWER_DOWN_TX_SYNTH;
+	val = ad9361_spi_read(phy->spi, REG_ENSM_CONFIG_2);
+	val &= POWER_DOWN_RX_SYNTH | POWER_DOWN_TX_SYNTH;
 
 	if (fdd)
 		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
@@ -3810,6 +3807,11 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 		gpiod_set_value(phy->pdata->sync_gpio, 0);
 		break;
 	case 0:
+		/* REVIST:
+		 * POWER_DOWN_TRX_SYNTH and MCS_RF_ENABLE somehow conflict
+		 */
+		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+				  POWER_DOWN_TX_SYNTH | POWER_DOWN_RX_SYNTH, 0);
 	case 5:
 		ad9361_spi_writef(phy->spi, REG_MULTICHIP_SYNC_AND_TX_MON_CTRL,
 			mcs_mask, MCS_RF_ENABLE);
