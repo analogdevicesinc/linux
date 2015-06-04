@@ -154,6 +154,18 @@
 				status = "disabled";
 			};
 
+			usdhc0: usdhc@4005d000 {
+				compatible = "fsl,s32v234-usdhc";
+				reg = <0x0 0x4005D000 0x0 0x1000>;
+				interrupts = <0 28 4>;
+				clocks = <&clks S32V234_CLK_SDHC>,
+					 <&clks S32V234_CLK_SDHC>,
+					 <&clks S32V234_CLK_SDHC>;
+				clock-names = "ipg", "ahb", "per";
+				bus-width = <8>;
+				status = "disabled";
+			};
+
 			siul2: siul@4006c000 {
 				compatible = "fsl,s32v234-siul2";
 				reg = <0x0 0x4006C000 0x0 0x1794>;
