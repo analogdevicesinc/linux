@@ -108,7 +108,7 @@ static const struct gpmi_devdata gpmi_devdata_imx28 = {
 };
 
 static const char * const gpmi_clks_for_mx6[] = {
-	"gpmi_io", "gpmi_apb", "gpmi_bch", "gpmi_bch_apb",
+	"gpmi_io", "gpmi_apb", "gpmi_bch", "gpmi_bch_apb", "per1_bch",
 };
 
 static const struct gpmi_devdata gpmi_devdata_imx6q = {
