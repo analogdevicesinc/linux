@@ -197,6 +197,7 @@ struct adv76xx_state {
 	struct v4l2_ctrl *analog_sampling_phase_ctrl;
 	struct v4l2_ctrl *free_run_color_manual_ctrl;
 	struct v4l2_ctrl *free_run_color_ctrl;
+	struct v4l2_ctrl *free_run_mode_ctrl;
 	struct v4l2_ctrl *rgb_quantization_range_ctrl;
 };
 
@@ -1228,6 +1229,30 @@ static int adv76xx_s_ctrl(struct v4l2_ctrl *ctrl)
 		cp_write(sd, 0xc0, (ctrl->val & 0xff0000) >> 16);
 		cp_write(sd, 0xc1, (ctrl->val & 0x00ff00) >> 8);
 		cp_write(sd, 0xc2, (u8)(ctrl->val & 0x0000ff));
+		return 0;
+	case V4L2_CID_ADV_RX_FREE_RUN_MODE:
+		switch (ctrl->val) {
+		case 0: /* Disabled */
+			/* Disable the free run feature in HDMI mode. */
+			cp_write_clr_set(sd, 0xba, 0x1, 0);
+			/* Do not force the CP core free run. */
+			cp_write_clr_set(sd, 0xbf, 0x1, 0);
+			break;
+		case 1: /* Enabled */
+			/* Enable the free run feature in HDMI mode. */
+			cp_write_clr_set(sd, 0xba, 0x1, 1);
+			/* Force the CP core to free run. */
+			cp_write_clr_set(sd, 0xbf, 0x1, 1);
+			break;
+		case 2: /* Automatic */
+			/* Enable the free run feature in HDMI mode. */
+			cp_write_clr_set(sd, 0xba, 0x1, 1);
+			/* Do not force the CP core free run. */
+			cp_write_clr_set(sd, 0xbf, 0x1, 0);
+			break;
+		default:
+			break;
+		}
 		return 0;
 	}
 	return -EINVAL;
@@ -2720,6 +2745,23 @@ static const struct v4l2_ctrl_config adv76xx_ctrl_free_run_color = {
 	.def = 0x0,
 };
 
+static const char * const adv76xx_free_run_mode_strings[] = {
+	"Disabled",
+	"Enabled",
+	"Automatic",
+};
+
+static const struct v4l2_ctrl_config adv76xx_ctrl_free_run_mode = {
+	.ops = &adv76xx_ctrl_ops,
+	.id = V4L2_CID_ADV_RX_FREE_RUN_MODE,
+	.name = "Free Running Mode",
+	.type = V4L2_CTRL_TYPE_MENU,
+	.min = 0,
+	.max = ARRAY_SIZE(adv76xx_free_run_mode_strings) - 1,
+	.def = 2,
+	.qmenu = adv76xx_free_run_mode_strings,
+};
+
 /* ----------------------------------------------------------------------- */
 
 struct adv76xx_register_map {
@@ -3468,6 +3510,8 @@ static int adv76xx_probe(struct i2c_client *client,
 		v4l2_ctrl_new_custom(hdl, &adv76xx_ctrl_free_run_color_manual, NULL);
 	state->free_run_color_ctrl =
 		v4l2_ctrl_new_custom(hdl, &adv76xx_ctrl_free_run_color, NULL);
+	state->free_run_mode_ctrl =
+		v4l2_ctrl_new_custom(hdl, &adv76xx_ctrl_free_run_mode, NULL);
 
 	sd->ctrl_handler = hdl;
 	if (hdl->error) {
