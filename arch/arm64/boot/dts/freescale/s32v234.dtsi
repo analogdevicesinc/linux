@@ -5,6 +5,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/s32v234-clock.h>
 #include <dt-bindings/pinctrl/s32v234-pinctrl.h>
 
 /memreserve/ 0x80000000 0x00010000;
@@ -148,6 +149,8 @@
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x40053000 0x0 0x1000>;
 				interrupts = <GIC_SPI 59 IRQ_TYPE_EDGE_RISING>;
+				clocks = <&clks S32V234_CLK_LIN>;
+				clock-names = "lin";
 				status = "disabled";
 			};
 
@@ -176,6 +179,8 @@
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x400bc000 0x0 0x1000>;
 				interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
+				clocks = <&clks S32V234_CLK_LIN>;
+				clock-names = "lin";
 				status = "disabled";
 			};
 		};
