@@ -20,6 +20,22 @@
 		serial1 = &uart1;
 	};
 
+	clocks {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		firc {
+			compatible = "fixed-clock";
+			clock-frequency = <48000000>;
+			#clock-cells = <0>;
+		};
+		fxosc {
+			compatible = "fixed-clock";
+			clock-frequency = <40000000>;
+			#clock-cells = <0>;
+		};
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -117,6 +133,17 @@
 			reg = <0x0 0x40000000 0x0 0x7d000>;
 			ranges;
 
+			clks: mc_cgm0@4003c000 {
+				compatible = "fsl,s32v234-mc_cgm0";
+				reg = <0x0 0x4003C000 0x0 0x1000>;
+				#clock-cells = <1>;
+			};
+
+			mc_me: mc_me@4004a000 {
+				compatible = "fsl,s32v234-mc_me";
+				reg = <0x0 0x4004A000 0x0 0x1000>;
+			};
+
 			uart0: serial@40053000 {
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x40053000 0x0 0x1000>;
@@ -128,6 +155,12 @@
 				compatible = "fsl,s32v234-siul2";
 				reg = <0x0 0x4006C000 0x0 0x1794>;
 				status = "disabled";
+			};
+
+			src: src@4007c000 {
+				compatible = "fsl,s32v234-src";
+				reg = <0x0 0x4007C000 0x0 0x1000>;
+				#reset-cells = <1>;
 			};
 		};
 
