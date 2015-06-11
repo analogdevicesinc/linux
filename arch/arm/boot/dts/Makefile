@@ -509,6 +509,7 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ul-tx6ul-0011.dtb \
 	imx6ul-tx6ul-mainboard.dtb \
 	imx6ul-14x14-ddr3-arm2.dtb \
+	imx6ul-14x14-ddr3-arm2-emmc.dtb	\
 	imx6ul-14x14-ddr3-arm2-gpmi-weim.dtb \
 	imx6ul-14x14-ddr3-arm2-mqs.dtb \
 	imx6ul-14x14-ddr3-arm2-spdif.dtb \
