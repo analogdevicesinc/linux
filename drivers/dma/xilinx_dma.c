@@ -540,8 +540,8 @@ static int xilinx_dma_reset(struct xilinx_dma_chan *chan)
 	}
 
 	/* re-apply config */
-	dmaengine_device_control(&chan->common, DMA_SLAVE_CONFIG,
-			(unsigned long)&chan->config);
+	dmaengine_slave_config(&chan->common,
+			(struct dma_slave_config *)&chan->config);
 
 	return 0;
 }
@@ -1153,8 +1153,10 @@ out_unlock:
 	spin_unlock_irqrestore(&chan->lock, flags);
 }
 
-static int xilinx_dma_terminate_all(struct xilinx_dma_chan *chan)
+static int xilinx_dma_terminate_all(struct dma_chan *dchan)
 {
+	struct xilinx_dma_chan *chan = to_xilinx_chan(dchan);
+
 	unsigned long flags;
 	/* Disable intr
 	 */
@@ -1183,11 +1185,11 @@ static int xilinx_dma_terminate_all(struct xilinx_dma_chan *chan)
  * . enable genlock
  * . set transfer information using config struct
  */
-static int xilinx_vdma_device_control(struct dma_chan *dchan,
-				  enum dma_ctrl_cmd cmd, unsigned long arg)
+static int xilinx_vdma_slave_config(struct dma_chan *dchan,
+	struct dma_slave_config *config)
 {
 	struct xilinx_dma_chan *chan;
-	struct xilinx_dma_config *cfg = (struct xilinx_dma_config *)arg;
+	struct xilinx_dma_config *cfg = (struct xilinx_dma_config *)config;
 	u32 reg;
 
 	if (!dchan)
@@ -1195,93 +1197,25 @@ static int xilinx_vdma_device_control(struct dma_chan *dchan,
 
 	chan = to_xilinx_chan(dchan);
 
-	switch (cmd) {
-	case DMA_TERMINATE_ALL:
-		return xilinx_dma_terminate_all(chan);
-	case DMA_SLAVE_CONFIG:
-		reg = DMA_IN(&chan->regs->cr);
+	reg = DMA_IN(&chan->regs->cr);
 
-		/* If vsize is -1, it is park-related operations */
-		if (cfg->vsize == -1) {
-			if (cfg->park)
-				reg &= ~XILINX_VDMA_CIRC_EN;
-			else
-				reg |= XILINX_VDMA_CIRC_EN;
-
-			DMA_OUT(&chan->regs->cr, reg);
-			return 0;
-		}
-
-		/* If hsize is -1, it is interrupt threshold settings */
-		if (cfg->hsize == -1) {
-			if (cfg->coalesc <= XILINX_DMA_COALESCE_MAX) {
-				reg &= ~XILINX_DMA_XR_COALESCE_MASK;
-				reg |= cfg->coalesc <<
-					XILINX_DMA_COALESCE_SHIFT;
-			}
-
-			if (cfg->delay <= XILINX_DMA_DELAY_MAX) {
-				reg &= ~XILINX_DMA_XR_DELAY_MASK;
-				reg |= cfg->delay << XILINX_DMA_DELAY_SHIFT;
-			}
-
-			DMA_OUT(&chan->regs->cr, reg);
-			return 0;
-		}
-
-		/* Transfer information */
-		chan->config = *cfg;
-
-		if (cfg->gen_lock) {
-			if (chan->genlock) {
-				reg |= XILINX_VDMA_SYNC_EN;
-				reg |= cfg->master << XILINX_VDMA_MSTR_SHIFT;
-			}
-		}
-
-		if (cfg->coalesc <= XILINX_DMA_COALESCE_MAX)
-			reg |= cfg->coalesc << XILINX_DMA_COALESCE_SHIFT;
-
-		if (cfg->delay <= XILINX_DMA_DELAY_MAX)
-			reg |= cfg->delay << XILINX_DMA_DELAY_SHIFT;
+	/* If vsize is -1, it is park-related operations */
+	if (cfg->vsize == -1) {
+		if (cfg->park)
+			reg &= ~XILINX_VDMA_CIRC_EN;
+		else
+			reg |= XILINX_VDMA_CIRC_EN;
 
 		DMA_OUT(&chan->regs->cr, reg);
-		break;
-	default:
-		return -ENXIO;
+		return 0;
 	}
 
-	return 0;
-}
-
-
-/* Run-time device configuration for Axi DMA and Axi CDMA */
-static int xilinx_dma_device_control(struct dma_chan *dchan,
-				  enum dma_ctrl_cmd cmd, unsigned long arg)
-{
-	struct xilinx_dma_chan *chan;
-	struct xilinx_dma_config *cfg = (struct xilinx_dma_config *)arg;
-	u32 reg;
-
-	if (!dchan)
-		return -EINVAL;
-
-	chan = to_xilinx_chan(dchan);
-
-	switch (cmd) {
-	case DMA_TERMINATE_ALL:
-		return xilinx_dma_terminate_all(chan);
-	case DMA_SLAVE_CONFIG:
-		/* Configure interrupt coalescing and delay counter
-		 * Use value XILINX_DMA_NO_CHANGE to signal no change
-		 */
-		reg = DMA_IN(&chan->regs->cr);
-
-		chan->config = *cfg;
-
+	/* If hsize is -1, it is interrupt threshold settings */
+	if (cfg->hsize == -1) {
 		if (cfg->coalesc <= XILINX_DMA_COALESCE_MAX) {
 			reg &= ~XILINX_DMA_XR_COALESCE_MASK;
-			reg |= cfg->coalesc << XILINX_DMA_COALESCE_SHIFT;
+			reg |= cfg->coalesc <<
+				XILINX_DMA_COALESCE_SHIFT;
 		}
 
 		if (cfg->delay <= XILINX_DMA_DELAY_MAX) {
@@ -1290,11 +1224,62 @@ static int xilinx_dma_device_control(struct dma_chan *dchan,
 		}
 
 		DMA_OUT(&chan->regs->cr, reg);
-
-		break;
-	default:
-		return -ENXIO;
+		return 0;
 	}
+
+	/* Transfer information */
+	chan->config = *cfg;
+
+	if (cfg->gen_lock) {
+		if (chan->genlock) {
+			reg |= XILINX_VDMA_SYNC_EN;
+			reg |= cfg->master << XILINX_VDMA_MSTR_SHIFT;
+		}
+	}
+
+	if (cfg->coalesc <= XILINX_DMA_COALESCE_MAX)
+		reg |= cfg->coalesc << XILINX_DMA_COALESCE_SHIFT;
+
+	if (cfg->delay <= XILINX_DMA_DELAY_MAX)
+		reg |= cfg->delay << XILINX_DMA_DELAY_SHIFT;
+
+	DMA_OUT(&chan->regs->cr, reg);
+
+	return 0;
+}
+
+
+/* Run-time device configuration for Axi DMA and Axi CDMA */
+static int xilinx_dma_slave_config(struct dma_chan *dchan,
+	struct dma_slave_config *config)
+{
+	struct xilinx_dma_chan *chan;
+	struct xilinx_dma_config *cfg = (struct xilinx_dma_config *)config;
+	u32 reg;
+
+	if (!dchan)
+		return -EINVAL;
+
+	chan = to_xilinx_chan(dchan);
+
+	/* Configure interrupt coalescing and delay counter
+	 * Use value XILINX_DMA_NO_CHANGE to signal no change
+	 */
+	reg = DMA_IN(&chan->regs->cr);
+
+	chan->config = *cfg;
+
+	if (cfg->coalesc <= XILINX_DMA_COALESCE_MAX) {
+		reg &= ~XILINX_DMA_XR_COALESCE_MASK;
+		reg |= cfg->coalesc << XILINX_DMA_COALESCE_SHIFT;
+	}
+
+	if (cfg->delay <= XILINX_DMA_DELAY_MAX) {
+		reg &= ~XILINX_DMA_XR_DELAY_MASK;
+		reg |= cfg->delay << XILINX_DMA_DELAY_SHIFT;
+	}
+
+	DMA_OUT(&chan->regs->cr, reg);
 
 	return 0;
 }
@@ -1494,7 +1479,8 @@ static int xilinx_dma_of_probe(struct platform_device *pdev)
 		dma_cap_set(DMA_CYCLIC, xdev->common.cap_mask);
 		xdev->common.device_prep_slave_sg = xilinx_dma_prep_slave_sg;
 		xdev->common.device_prep_dma_cyclic = xilinx_dma_prep_dma_cyclic;
-		xdev->common.device_control = xilinx_dma_device_control;
+		xdev->common.device_terminate_all = xilinx_dma_terminate_all;
+		xdev->common.device_config = xilinx_dma_slave_config;
 		xdev->common.device_issue_pending = xilinx_dma_issue_pending;
 	}
 
@@ -1515,7 +1501,8 @@ static int xilinx_dma_of_probe(struct platform_device *pdev)
 		dma_cap_set(DMA_SLAVE, xdev->common.cap_mask);
 		dma_cap_set(DMA_PRIVATE, xdev->common.cap_mask);
 		xdev->common.device_prep_slave_sg = xilinx_vdma_prep_slave_sg;
-		xdev->common.device_control = xilinx_vdma_device_control;
+		xdev->common.device_terminate_all = xilinx_dma_terminate_all;
+		xdev->common.device_config = xilinx_vdma_slave_config;
 		xdev->common.device_issue_pending = xilinx_dma_issue_pending;
 	}
 

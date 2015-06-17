@@ -360,11 +360,11 @@ static ssize_t ad5933_show(struct device *dev,
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32) this_attr->address) {
 	case AD5933_OUT_RANGE:
-		len = sprintf(buf, "%d\n",
+		len = sprintf(buf, "%u\n",
 			      st->range_avail[(st->ctrl_hb >> 1) & 0x3]);
 		break;
 	case AD5933_OUT_RANGE_AVAIL:
-		len = sprintf(buf, "%d %d %d %d\n", st->range_avail[0],
+		len = sprintf(buf, "%u %u %u %u\n", st->range_avail[0],
 			      st->range_avail[3], st->range_avail[2],
 			      st->range_avail[1]);
 		break;
@@ -520,7 +520,7 @@ static int ad5933_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad5933_state *st = iio_priv(indio_dev);
 	__be16 dat;
-	int ret = -EINVAL;
+	int ret;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
@@ -625,7 +625,7 @@ static int ad5933_register_ring_funcs_and_init(struct iio_dev *indio_dev)
 {
 	struct iio_buffer *buffer;
 
-	buffer = iio_kfifo_allocate(indio_dev);
+	buffer = iio_kfifo_allocate();
 	if (!buffer)
 		return -ENOMEM;
 
@@ -756,10 +756,6 @@ static int ad5933_probe(struct i2c_client *client,
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto error_unreg_ring;
-
-	/* enable both REAL and IMAG channels by default */
-	iio_scan_mask_set(indio_dev, indio_dev->buffer, 0);
-	iio_scan_mask_set(indio_dev, indio_dev->buffer, 1);
 
 	return 0;
 

@@ -30,6 +30,7 @@ obj-$(CONFIG_AXI_JESD204B) += cf_axi_jesd204b.o cf_axi_jesd204b_v51.o cf_axi_jes
 
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_AXP288_ADC) += axp288_adc.o
+obj-$(CONFIG_CC10001_ADC) += cc10001_adc.o
 obj-$(CONFIG_EXYNOS_ADC) += exynos_adc.o
 obj-$(CONFIG_LP8788_ADC) += lp8788_adc.o
 obj-$(CONFIG_MAX1027) += max1027.o
@@ -39,6 +40,7 @@ obj-$(CONFIG_MCP3422) += mcp3422.o
 obj-$(CONFIG_MEN_Z188_ADC) += men_z188_adc.o
 obj-$(CONFIG_NAU7802) += nau7802.o
 obj-$(CONFIG_QCOM_SPMI_IADC) += qcom-spmi-iadc.o
+obj-$(CONFIG_QCOM_SPMI_VADC) += qcom-spmi-vadc.o
 obj-$(CONFIG_ROCKCHIP_SARADC) += rockchip_saradc.o
 obj-$(CONFIG_TI_ADC081C) += ti-adc081c.o
 obj-$(CONFIG_TI_ADC128S052) += ti-adc128s052.o

@@ -631,7 +631,7 @@ static int ad7192_probe(struct spi_device *spi)
 	struct ad7192_platform_data *pdata;
 	struct ad7192_state *st;
 	struct iio_dev *indio_dev;
-	int ret , voltage_uv = 0;
+	int ret, voltage_uv = 0;
 
 	pdata = devm_kzalloc(&spi->dev, sizeof(struct ad7192_platform_data),
 				GFP_KERNEL);

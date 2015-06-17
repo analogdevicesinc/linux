@@ -165,8 +165,8 @@ struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 			src_width = __ffs(caps.src_addr_widths);
 		else
 			src_width = 1;
-		if (caps.dstn_addr_widths)
-			dest_width = __ffs(caps.dstn_addr_widths);
+		if (caps.dst_addr_widths)
+			dest_width = __ffs(caps.dst_addr_widths);
 		else
 			dest_width = 1;
 		width = max(src_width, dest_width);

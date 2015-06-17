@@ -240,22 +240,17 @@ static void zynq_qspi_init_hw(struct zynq_qspi *xqspi)
  */
 static void zynq_qspi_read_rx_fifo(struct zynq_qspi *xqspi, unsigned size)
 {
+	unsigned xsize;
 	u32 data;
 
 	data = zynq_qspi_read(xqspi, ZYNQ_QSPI_RXD_OFFSET);
 
 	if (xqspi->rxbuf) {
-		if (!xqspi->is_dual || xqspi->is_instr) {
-			memcpy(xqspi->rxbuf, ((u8 *) &data) + 4 - size, size);
-			xqspi->rxbuf += size;
-		} else {
-			u8 buff[4], len;
-			len = size;
-			size = size % 2 ? size + 1 : size;
-			memcpy(buff, ((u8 *) &data) + 4 - size, size);
-			memcpy(xqspi->rxbuf, buff, len);
-			xqspi->rxbuf += len;
-		}
+		xsize = size;
+		if (xqspi->is_dual && !xqspi->is_instr && (size%2))
+			xsize++;
+		memcpy(xqspi->rxbuf, ((u8 *) &data) + 4 - xsize, size);
+		xqspi->rxbuf += size;
 	}
 
 	xqspi->bytes_to_receive -= size;
@@ -477,18 +472,45 @@ static void zynq_qspi_fill_tx_fifo(struct zynq_qspi *xqspi, int txcount,
 	if (count > txcount)
 		count = txcount;
 
-	for (k = 0; k < count; k++) {
-		if (xqspi->txbuf) {
-			zynq_qspi_write(xqspi,
-					ZYNQ_QSPI_TXD_00_00_OFFSET,
-					*((u32 *)xqspi->txbuf));
-			xqspi->txbuf += 4;
-		} else {
-			zynq_qspi_write(xqspi,
-					ZYNQ_QSPI_TXD_00_00_OFFSET, 0x00);
-		}
-		xqspi->bytes_to_transfer -= 4;
+	if (xqspi->txbuf) {
+		writesl(xqspi->regs + ZYNQ_QSPI_TXD_00_00_OFFSET,
+			xqspi->txbuf, count);
+		xqspi->txbuf += count*4;
+	} else {
+		for (k = 0; k < count; k++)
+			writel_relaxed(0, xqspi->regs +
+					  ZYNQ_QSPI_TXD_00_00_OFFSET);
 	}
+	xqspi->bytes_to_transfer -= count*4;
+}
+
+/**
+ * zynq_qspi_drain_rx_fifo - Drains the RX FIFO by as many bytes as possible
+ * @xqspi:	Pointer to the zynq_qspi structure
+ * @rxcount:	Maximum number of words to read
+ */
+static void zynq_qspi_drain_rx_fifo(struct zynq_qspi *xqspi, int rxcount)
+{
+	int count, len, k;
+
+	len = xqspi->bytes_to_receive - xqspi->bytes_to_transfer;
+	count = len/4;
+	if (count > rxcount)
+		count = rxcount;
+
+	if (xqspi->rxbuf) {
+		readsl(xqspi->regs + ZYNQ_QSPI_RXD_OFFSET,
+		       xqspi->rxbuf, count);
+		xqspi->rxbuf += count*4;
+	} else {
+		for (k = 0; k < count; k++)
+			readl_relaxed(xqspi->regs + ZYNQ_QSPI_RXD_OFFSET);
+	}
+	xqspi->bytes_to_receive -= count*4;
+	len -= count*4;
+
+	if (len && len < 4 && count < rxcount)
+		zynq_qspi_read_rx_fifo(xqspi, len);
 }
 
 /**
@@ -506,9 +528,8 @@ static irqreturn_t zynq_qspi_irq(int irq, void *dev_id)
 {
 	struct spi_master *master = dev_id;
 	struct zynq_qspi *xqspi = spi_master_get_devdata(master);
-	u32 intr_status, rxcount, rxindex = 0;
+	u32 intr_status;
 	bool txempty;
-	u32 data;
 
 	intr_status = zynq_qspi_read(xqspi, ZYNQ_QSPI_STATUS_OFFSET);
 	zynq_qspi_write(xqspi, ZYNQ_QSPI_STATUS_OFFSET , intr_status);
@@ -522,29 +543,8 @@ static irqreturn_t zynq_qspi_irq(int irq, void *dev_id)
 		 */
 		txempty = !!(intr_status & ZYNQ_QSPI_IXR_TXNFULL_MASK);
 
-		rxcount = xqspi->bytes_to_receive - xqspi->bytes_to_transfer;
-		rxcount = (rxcount % 4) ? ((rxcount/4) + 1) : (rxcount/4);
-
 		/* Read out the data from the RX FIFO */
-		while ((rxindex < rxcount) &&
-		       (rxindex < ZYNQ_QSPI_RX_THRESHOLD)) {
-			if (xqspi->bytes_to_receive >= 4) {
-				if (xqspi->rxbuf) {
-					(*(u32 *)xqspi->rxbuf) =
-					zynq_qspi_read(xqspi,
-						       ZYNQ_QSPI_RXD_OFFSET);
-					xqspi->rxbuf += 4;
-				} else {
-					data = zynq_qspi_read(xqspi,
-							ZYNQ_QSPI_RXD_OFFSET);
-				}
-				xqspi->bytes_to_receive -= 4;
-			} else {
-				zynq_qspi_read_rx_fifo(xqspi,
-						xqspi->bytes_to_receive);
-			}
-			rxindex++;
-		}
+		zynq_qspi_drain_rx_fifo(xqspi, ZYNQ_QSPI_RX_THRESHOLD);
 
 		if (xqspi->bytes_to_transfer) {
 			/* There is more data to send */

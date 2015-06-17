@@ -451,7 +451,7 @@ static void macb_update_stats(struct macb *bp)
 	WARN_ON((unsigned long)(end - p - 1) != (MACB_TPF - MACB_PFR) / 4);
 
 	for(; p < end; p++, reg++)
-		*p += __raw_readl(reg);
+		*p += readl_relaxed(reg);
 }
 
 static int macb_halt_tx(struct macb *bp)
@@ -981,7 +981,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
 	struct macb_queue *queue = dev_id;
 	struct macb *bp = queue->bp;
 	struct net_device *dev = bp->dev;
-	u32 status;
+	u32 status, ctrl;
 
 	status = queue_readl(queue, ISR);
 
@@ -1036,6 +1036,21 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
 		 * Link change detection isn't possible with RMII, so we'll
 		 * add that if/when we get our hands on a full-blown MII PHY.
 		 */
+
+		/* There is a hardware issue under heavy load where DMA can
+		 * stop, this causes endless "used buffer descriptor read"
+		 * interrupts but it can be cleared by re-enabling RX. See
+		 * the at91 manual, section 41.3.1 or the Zynq manual
+		 * section 16.7.4 for details.
+		 */
+		if (status & MACB_BIT(RXUBR)) {
+			ctrl = macb_readl(bp, NCR);
+			macb_writel(bp, NCR, ctrl & ~MACB_BIT(RE));
+			macb_writel(bp, NCR, ctrl | MACB_BIT(RE));
+
+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+				macb_writel(bp, ISR, MACB_BIT(RXUBR));
+		}
 
 		if (status & MACB_BIT(ISR_ROVR)) {
 			/* We missed at least one packet */
@@ -1583,6 +1598,7 @@ static u32 macb_dbw(struct macb *bp)
 static void macb_configure_dma(struct macb *bp)
 {
 	u32 dmacfg;
+	u32 tmp, ncr;
 
 	if (macb_is_gem(bp)) {
 		dmacfg = gem_readl(bp, DMACFG) & ~GEM_BF(RXBS, -1L);
@@ -1590,7 +1606,24 @@ static void macb_configure_dma(struct macb *bp)
 		if (bp->dma_burst_length)
 			dmacfg = GEM_BFINS(FBLDO, bp->dma_burst_length, dmacfg);
 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
-		dmacfg &= ~GEM_BIT(ENDIA);
+		dmacfg &= ~GEM_BIT(ENDIA_PKT);
+
+		/* Find the CPU endianness by using the loopback bit of net_ctrl
+		 * register. save it first. When the CPU is in big endian we
+		 * need to program swaped mode for management descriptor access.
+		 */
+		ncr = macb_readl(bp, NCR);
+		__raw_writel(MACB_BIT(LLB), bp->regs + MACB_NCR);
+		tmp =  __raw_readl(bp->regs + MACB_NCR);
+
+		if (tmp == MACB_BIT(LLB))
+			dmacfg &= ~GEM_BIT(ENDIA_DESC);
+		else
+			dmacfg |= GEM_BIT(ENDIA_DESC); /* CPU in big endian */
+
+		/* Restore net_ctrl */
+		macb_writel(bp, NCR, ncr);
+
 		if (bp->dev->features & NETIF_F_HW_CSUM)
 			dmacfg |= GEM_BIT(TXCOEN);
 		else
@@ -1706,7 +1739,7 @@ static int hash_get_index(__u8 *addr)
 
 	for (j = 0; j < 6; j++) {
 		for (i = 0, bitval = 0; i < 8; i++)
-			bitval ^= hash_bit_value(i*6 + j, addr);
+			bitval ^= hash_bit_value(i * 6 + j, addr);
 
 		hash_index |= (bitval << j);
 	}
@@ -1859,12 +1892,23 @@ static int macb_change_mtu(struct net_device *dev, int new_mtu)
 
 static void gem_update_stats(struct macb *bp)
 {
-	u32 __iomem *reg = bp->regs + GEM_OTX;
+	int i;
 	u32 *p = &bp->hw_stats.gem.tx_octets_31_0;
-	u32 *end = &bp->hw_stats.gem.rx_udp_checksum_errors + 1;
 
-	for (; p < end; p++, reg++)
-		*p += __raw_readl(reg);
+	for (i = 0; i < GEM_STATS_LEN; ++i, ++p) {
+		u32 offset = gem_statistics[i].offset;
+		u64 val = readl_relaxed(bp->regs + offset);
+
+		bp->ethtool_stats[i] += val;
+		*p += val;
+
+		if (offset == GEM_OCTTXL || offset == GEM_OCTRXL) {
+			/* Add GEM_OCTTXH, GEM_OCTRXH */
+			val = readl_relaxed(bp->regs + offset + 4);
+			bp->ethtool_stats[i] += ((u64)val) << 32;
+			*(++p) += val;
+		}
+	}
 }
 
 static struct net_device_stats *gem_get_stats(struct macb *bp)
@@ -1903,6 +1947,39 @@ static struct net_device_stats *gem_get_stats(struct macb *bp)
 	nstat->tx_fifo_errors = hwstat->tx_underrun;
 
 	return nstat;
+}
+
+static void gem_get_ethtool_stats(struct net_device *dev,
+				  struct ethtool_stats *stats, u64 *data)
+{
+	struct macb *bp;
+
+	bp = netdev_priv(dev);
+	gem_update_stats(bp);
+	memcpy(data, &bp->ethtool_stats, sizeof(u64) * GEM_STATS_LEN);
+}
+
+static int gem_get_sset_count(struct net_device *dev, int sset)
+{
+	switch (sset) {
+	case ETH_SS_STATS:
+		return GEM_STATS_LEN;
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static void gem_get_ethtool_strings(struct net_device *dev, u32 sset, u8 *p)
+{
+	int i;
+
+	switch (sset) {
+	case ETH_SS_STATS:
+		for (i = 0; i < GEM_STATS_LEN; i++, p += ETH_GSTRING_LEN)
+			memcpy(p, gem_statistics[i].stat_string,
+			       ETH_GSTRING_LEN);
+		break;
+	}
 }
 
 struct net_device_stats *macb_get_stats(struct net_device *dev)
@@ -2023,6 +2100,18 @@ const struct ethtool_ops macb_ethtool_ops = {
 };
 EXPORT_SYMBOL_GPL(macb_ethtool_ops);
 
+static const struct ethtool_ops gem_ethtool_ops = {
+	.get_settings		= macb_get_settings,
+	.set_settings		= macb_set_settings,
+	.get_regs_len		= macb_get_regs_len,
+	.get_regs		= macb_get_regs,
+	.get_link		= ethtool_op_get_link,
+	.get_ts_info		= ethtool_op_get_ts_info,
+	.get_ethtool_stats	= gem_get_ethtool_stats,
+	.get_strings		= gem_get_ethtool_strings,
+	.get_sset_count		= gem_get_sset_count,
+};
+
 int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	struct macb *bp = netdev_priv(dev);
@@ -2089,17 +2178,17 @@ static const struct net_device_ops macb_netdev_ops = {
 };
 
 #if defined(CONFIG_OF)
-static struct macb_config pc302gem_config = {
+static const struct macb_config pc302gem_config = {
 	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
 	.dma_burst_length = 16,
 };
 
-static struct macb_config sama5d3_config = {
+static const struct macb_config sama5d3_config = {
 	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
 	.dma_burst_length = 16,
 };
 
-static struct macb_config sama5d4_config = {
+static const struct macb_config sama5d4_config = {
 	.caps = 0,
 	.dma_burst_length = 4,
 };
@@ -2130,7 +2219,7 @@ static void macb_configure_caps(struct macb *bp)
 	if (bp->pdev->dev.of_node) {
 		match = of_match_node(macb_dt_ids, bp->pdev->dev.of_node);
 		if (match && match->data) {
-			config = (const struct macb_config *)match->data;
+			config = match->data;
 
 			bp->caps = config->caps;
 			/*
@@ -2181,7 +2270,7 @@ static void macb_probe_queues(void __iomem *mem,
 			(*num_queues)++;
 }
 
-static int __init macb_probe(struct platform_device *pdev)
+static int macb_probe(struct platform_device *pdev)
 {
 	struct macb_platform_data *pdata;
 	struct resource *regs;
@@ -2315,7 +2404,6 @@ static int __init macb_probe(struct platform_device *pdev)
 
 	dev->netdev_ops = &macb_netdev_ops;
 	netif_napi_add(dev, &bp->napi, macb_poll, 64);
-	dev->ethtool_ops = &macb_ethtool_ops;
 
 	dev->base_addr = regs->start;
 
@@ -2329,12 +2417,14 @@ static int __init macb_probe(struct platform_device *pdev)
 		bp->macbgem_ops.mog_free_rx_buffers = gem_free_rx_buffers;
 		bp->macbgem_ops.mog_init_rings = gem_init_rings;
 		bp->macbgem_ops.mog_rx = gem_rx;
+		dev->ethtool_ops = &gem_ethtool_ops;
 	} else {
 		bp->max_tx_length = MACB_MAX_TX_LEN;
 		bp->macbgem_ops.mog_alloc_rx_buffers = macb_alloc_rx_buffers;
 		bp->macbgem_ops.mog_free_rx_buffers = macb_free_rx_buffers;
 		bp->macbgem_ops.mog_init_rings = macb_init_rings;
 		bp->macbgem_ops.mog_rx = macb_rx;
+		dev->ethtool_ops = &macb_ethtool_ops;
 	}
 
 	/* Set features */
@@ -2423,7 +2513,7 @@ err_out:
 	return err;
 }
 
-static int __exit macb_remove(struct platform_device *pdev)
+static int macb_remove(struct platform_device *pdev)
 {
 	struct net_device *dev;
 	struct macb *bp;
@@ -2448,8 +2538,7 @@ static int __exit macb_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int macb_suspend(struct device *dev)
+static int __maybe_unused macb_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct net_device *netdev = platform_get_drvdata(pdev);
@@ -2466,7 +2555,7 @@ static int macb_suspend(struct device *dev)
 	return 0;
 }
 
-static int macb_resume(struct device *dev)
+static int __maybe_unused macb_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct net_device *netdev = platform_get_drvdata(pdev);
@@ -2481,12 +2570,12 @@ static int macb_resume(struct device *dev)
 
 	return 0;
 }
-#endif
 
 static SIMPLE_DEV_PM_OPS(macb_pm_ops, macb_suspend, macb_resume);
 
 static struct platform_driver macb_driver = {
-	.remove		= __exit_p(macb_remove),
+	.probe		= macb_probe,
+	.remove		= macb_remove,
 	.driver		= {
 		.name		= "macb",
 		.of_match_table	= of_match_ptr(macb_dt_ids),
@@ -2494,7 +2583,7 @@ static struct platform_driver macb_driver = {
 	},
 };
 
-module_platform_driver_probe(macb_driver, macb_probe);
+module_platform_driver(macb_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Cadence MACB/GEM Ethernet driver");

@@ -5549,6 +5549,8 @@ static int ad9361_clk_mux_set_parent(struct clk_hw *hw, u8 index)
 }
 
 long ad9361_clk_mux_determine_rate(struct clk_hw *hw, unsigned long rate,
+			      unsigned long min_rate,
+			      unsigned long max_rate,
 			      unsigned long *best_parent_rate,
 			      struct clk_hw **best_parent_p)
 {
@@ -5557,7 +5559,8 @@ long ad9361_clk_mux_determine_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long best_rate;
 	int ret;
 
-	long best = __clk_mux_determine_rate(hw, rate, best_parent_rate, best_parent_p);
+	long best = __clk_mux_determine_rate(hw, rate, min_rate, max_rate,
+			best_parent_rate, best_parent_p);
 	best_rate = (unsigned long) best;
 
 	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, best);

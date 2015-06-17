@@ -55,8 +55,8 @@ static int axi_hdmi_crtc_update(struct drm_crtc *crtc)
 		axi_hdmi_crtc->dma_config.vsize = mode->vdisplay;
 		axi_hdmi_crtc->dma_config.stride = fb->pitches[0];
 
-		dmaengine_device_control(axi_hdmi_crtc->dma, DMA_SLAVE_CONFIG,
-			(unsigned long)&axi_hdmi_crtc->dma_config);
+		dmaengine_slave_config(axi_hdmi_crtc->dma,
+			(struct dma_slave_config *)&axi_hdmi_crtc->dma_config);
 
 		offset = crtc->x * fb->bits_per_pixel / 8 + crtc->y * fb->pitches[0];
 

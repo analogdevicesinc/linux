@@ -170,6 +170,20 @@ static inline int write_sr(struct spi_nor *nor, u8 val)
 }
 
 /*
+ * Write status Register and configuration register with 2 bytes
+ * The first byte will be written to the status register, while the
+ * second byte will be written to the configuration register.
+ * Return negative if error occured.
+ */
+static int write_sr_cr(struct spi_nor *nor, u16 val)
+{
+	nor->cmd_buf[0] = val & 0xff;
+	nor->cmd_buf[1] = (val >> 8);
+
+	return nor->write_reg(nor, SPINOR_OP_WRSR, nor->cmd_buf, 2, 0);
+}
+
+/*
  * Set write enable latch with Write Enable command.
  * Returns negative if error occurred.
  */
@@ -597,6 +611,7 @@ static int write_sr_modify_protection(struct spi_nor *nor, uint8_t status,
 				      uint8_t lock_bits)
 {
 	uint8_t status_new, bp_mask;
+	u16 val;
 
 	status_new = status & ~SR_BP_BIT_MASK;
 	bp_mask = (lock_bits << SR_BP_BIT_OFFSET) & SR_BP_BIT_MASK;
@@ -613,8 +628,17 @@ static int write_sr_modify_protection(struct spi_nor *nor, uint8_t status,
 	status_new |= bp_mask;
 
 	write_enable(nor);
-	if (write_sr(nor, status_new) < 0)
-		return 1;
+
+	/* For spansion flashes */
+	if (nor->jedec_id == CFI_MFR_AMD) {
+		val = read_cr(nor) << 8;
+		val |= status_new;
+		if (write_sr_cr(nor, val) < 0)
+			return 1;
+	} else {
+		if (write_sr(nor, status_new) < 0)
+			return 1;
+	}
 	return 0;
 }
 
@@ -828,6 +852,7 @@ static const struct spi_device_id spi_nor_ids[] = {
 	/* GigaDevice */
 	{ "gd25q32", INFO(0xc84016, 0, 64 * 1024,  64, SECT_4K) },
 	{ "gd25q64", INFO(0xc84017, 0, 64 * 1024, 128, SECT_4K) },
+	{ "gd25q128", INFO(0xc84018, 0, 64 * 1024, 256, SECT_4K) },
 
 	/* Intel/Numonyx -- xxxs33b */
 	{ "160s33b",  INFO(0x898911, 0, 64 * 1024,  32, 0) },
@@ -850,13 +875,13 @@ static const struct spi_device_id spi_nor_ids[] = {
 	{ "mx66l1g55g",  INFO(0xc2261b, 0, 64 * 1024, 2048, SPI_NOR_QUAD_READ) },
 
 	/* Micron */
-	{ "n25q032",	 INFO(0x20ba16, 0, 64 * 1024,   64, 0) },
-	{ "n25q064",     INFO(0x20ba17, 0, 64 * 1024,  128, 0) },
+	{ "n25q032",	 INFO(0x20ba16, 0, 64 * 1024,   64, SPI_NOR_QUAD_READ) },
+	{ "n25q064",     INFO(0x20ba17, 0, 64 * 1024,  128, SPI_NOR_QUAD_READ) },
 	{ "n25q128a11",  INFO(0x20bb18, 0, 64 * 1024,  256, SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | SPI_NOR_FLASH_LOCK) },
 	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024,  256, SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | SPI_NOR_FLASH_LOCK) },
-	{ "n25q256a11",  INFO(0x20bb19, 0, 64 * 1024,  512, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
+	{ "n25q256a",    INFO(0x20bb19, 0, 64 * 1024,  512, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
 	{ "n25q256a13",  INFO(0x20ba19, 0, 64 * 1024,  512, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
-	{ "n25q512a11",  INFO(0x20bb20, 0, 64 * 1024, 1024, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
+	{ "n25q512a",    INFO(0x20bb20, 0, 64 * 1024, 1024, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
 	{ "n25q512a13",  INFO(0x20ba20, 0, 64 * 1024, 1024, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
 	{ "n25q512ax3",  INFO(0x20ba20, 0, 64 * 1024, 1024, USE_FSR | SPI_NOR_FLASH_LOCK) },
 	{ "n25q00",      INFO(0x20ba21, 0, 64 * 1024, 2048, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
@@ -1293,24 +1318,13 @@ static int macronix_quad_enable(struct spi_nor *nor)
 	return 0;
 }
 
-/*
- * Write status Register and configuration register with 2 bytes
- * The first byte will be written to the status register, while the
- * second byte will be written to the configuration register.
- * Return negative if error occured.
- */
-static int write_sr_cr(struct spi_nor *nor, u16 val)
-{
-	nor->cmd_buf[0] = val & 0xff;
-	nor->cmd_buf[1] = (val >> 8);
-
-	return nor->write_reg(nor, SPINOR_OP_WRSR, nor->cmd_buf, 2, 0);
-}
-
 static int __maybe_unused spansion_quad_enable(struct spi_nor *nor)
 {
 	int ret;
 	int quad_en = CR_QUAD_EN_SPAN << 8;
+
+	quad_en |= read_sr(nor);
+	quad_en |= (read_cr(nor) << 8);
 
 	write_enable(nor);
 
@@ -1331,6 +1345,45 @@ static int __maybe_unused spansion_quad_enable(struct spi_nor *nor)
 	return 0;
 }
 
+static int micron_quad_enable(struct spi_nor *nor)
+{
+	int ret;
+	u8 val;
+
+	ret = nor->read_reg(nor, SPINOR_OP_RD_EVCR, &val, 1);
+	if (ret < 0) {
+		dev_err(nor->dev, "error %d reading EVCR\n", ret);
+		return ret;
+	}
+
+	write_enable(nor);
+
+	/* set EVCR, enable quad I/O */
+	nor->cmd_buf[0] = val & ~EVCR_QUAD_EN_MICRON;
+	ret = nor->write_reg(nor, SPINOR_OP_WD_EVCR, nor->cmd_buf, 1, 0);
+	if (ret < 0) {
+		dev_err(nor->dev, "error while writing EVCR register\n");
+		return ret;
+	}
+
+	ret = spi_nor_wait_till_ready(nor);
+	if (ret)
+		return ret;
+
+	/* read EVCR and check it */
+	ret = nor->read_reg(nor, SPINOR_OP_RD_EVCR, &val, 1);
+	if (ret < 0) {
+		dev_err(nor->dev, "error %d reading EVCR\n", ret);
+		return ret;
+	}
+	if (val & EVCR_QUAD_EN_MICRON) {
+		dev_err(nor->dev, "Micron EVCR Quad bit not clear\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int set_quad_mode(struct spi_nor *nor, struct flash_info *info)
 {
 	int status;
@@ -1341,6 +1394,13 @@ static int set_quad_mode(struct spi_nor *nor, struct flash_info *info)
 		status = macronix_quad_enable(nor);
 		if (status) {
 			dev_err(nor->dev, "Macronix quad-read not enabled\n");
+			return -EINVAL;
+		}
+		return status;
+	case CFI_MFR_ST:
+		status = micron_quad_enable(nor);
+		if (status) {
+			dev_err(nor->dev, "Micron quad-read not enabled\n");
 			return -EINVAL;
 		}
 		return status;

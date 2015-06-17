@@ -337,17 +337,6 @@ static int axi_dmac_terminate_all(struct dma_chan *c)
 	return 0;
 }
 
-static int axi_dmac_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
-	unsigned long arg)
-{
-	switch (cmd) {
-	case DMA_TERMINATE_ALL:
-		return axi_dmac_terminate_all(chan);
-	default:
-		return -ENOSYS;
-	}
-}
-
 static void axi_dmac_issue_pending(struct dma_chan *c)
 {
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
@@ -496,25 +485,6 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 	return vchan_tx_prep(&chan->vchan, &desc->vdesc, flags);
 }
 
-static int axi_dmac_device_slave_caps(struct dma_chan *c,
-	struct dma_slave_caps *caps)
-{
-	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
-
-	caps->src_addr_widths = BIT(chan->src_width);
-	caps->dstn_addr_widths = BIT(chan->dest_width);
-	caps->directions = BIT(chan->direction);
-	caps->cmd_pause = false;
-	caps->cmd_terminate = true;
-
-	return 0;
-}
-
-static int axi_dmac_alloc_chan_resources(struct dma_chan *c)
-{
-	return 0;
-}
-
 static void axi_dmac_free_chan_resources(struct dma_chan *c)
 {
 	vchan_free_chan_resources(to_virt_chan(c));
@@ -637,18 +607,20 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	dma_dev = &dmac->dma_dev;
 	dma_cap_set(DMA_SLAVE, dma_dev->cap_mask);
 	dma_cap_set(DMA_CYCLIC, dma_dev->cap_mask);
-	dma_dev->device_alloc_chan_resources = axi_dmac_alloc_chan_resources;
 	dma_dev->device_free_chan_resources = axi_dmac_free_chan_resources;
 	dma_dev->device_tx_status = dma_cookie_status;
 	dma_dev->device_issue_pending = axi_dmac_issue_pending;
 	dma_dev->device_prep_slave_sg = axi_dmac_prep_slave_sg;
 	dma_dev->device_prep_dma_cyclic = axi_dmac_prep_dma_cyclic;
 	dma_dev->device_prep_interleaved_dma = axi_dmac_prep_interleaved;
-	dma_dev->device_control = axi_dmac_control;
-	dma_dev->device_slave_caps = axi_dmac_device_slave_caps;
+	dma_dev->device_terminate_all = axi_dmac_terminate_all;
 	dma_dev->dev = &pdev->dev;
 	dma_dev->chancnt = 1;
 	INIT_LIST_HEAD(&dma_dev->channels);
+
+	dma_dev->src_addr_widths = BIT(dmac->chan.src_width);
+	dma_dev->dst_addr_widths = BIT(dmac->chan.dest_width);
+	dma_dev->directions = BIT(dmac->chan.direction);
 
 	dmac->chan.vchan.desc_free = axi_dmac_desc_free;
 	vchan_init(&dmac->chan.vchan, dma_dev);

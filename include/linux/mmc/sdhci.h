@@ -17,6 +17,11 @@
 #include <linux/io.h>
 #include <linux/mmc/host.h>
 
+struct sdhci_host_next {
+	unsigned int	sg_count;
+	s32		cookie;
+};
+
 struct sdhci_host {
 	/* Data set by hardware interface driver */
 	const char *hw_name;	/* Hardware bus name */
@@ -106,6 +111,10 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_CLEAR_TRANSFERMODE_REG_BEFORE_CMD	(1<<10)
 /* Capability register bit-63 indicates HS400 support */
 #define SDHCI_QUIRK2_CAPS_BIT63_FOR_HS400		(1<<11)
+/* forced tuned clock */
+#define SDHCI_QUIRK2_TUNING_WORK_AROUND			(1<<12)
+/* disable the block count for single block transactions */
+#define SDHCI_QUIRK2_SUPPORT_SINGLE			(1<<13)
 /* Write protect signal is not wired, data in SDHCI_PRESENT_STATE is bogus */
 #define SDHCI_QUIRK2_DISABLE_WRITE_PROTECT		(1<<15)
 
@@ -205,6 +214,7 @@ struct sdhci_host {
 #define SDHCI_TUNING_MODE_1	0
 	struct timer_list	tuning_timer;	/* Timer for tuning */
 
+	struct sdhci_host_next	next_data;
 	unsigned long private[0] ____cacheline_aligned;
 };
 #endif /* LINUX_MMC_SDHCI_H */

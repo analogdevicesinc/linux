@@ -107,16 +107,22 @@ struct xilinx_vdma_config {
 	int ext_fsync;
 };
 
-/* Device configuration structure for CDMA */
+/**
+ * struct xilinx_cdma_config - CDMA Configuration structure
+ * @coalesc: Interrupt coalescing threshold
+ * @delay: Delay counter
+ * @reset: Reset Channel
+ */
 struct xilinx_cdma_config {
-	enum dma_transfer_direction direction;
-					/* Channel direction */
-	int coalesc;			/* Interrupt coalescing threshold */
-	int delay;			/* Delay counter */
-	int reset;			/* Reset Channel */
+        int coalesc;
+        int delay;
+        int reset;
 };
 
 int xilinx_vdma_channel_set_config(struct dma_chan *dchan,
 					struct xilinx_vdma_config *cfg);
-
+int xilinx_dma_channel_set_config(struct dma_chan *dchan,
+					struct xilinx_dma_config *cfg);
+int xilinx_cdma_channel_set_config(struct dma_chan *dchan,
+                                        struct xilinx_cdma_config *cfg);
 #endif

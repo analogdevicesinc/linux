@@ -84,7 +84,7 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 		ret = rb->access->read(rb, n, buf);
 		if (ret == 0 && (filp->f_flags & O_NONBLOCK))
 			ret = -EAGAIN;
-	 } while (ret == 0);
+	} while (ret == 0);
 
 	return ret;
 }
@@ -233,6 +233,86 @@ static ssize_t iio_scan_el_show(struct device *dev,
 	return sprintf(buf, "%d\n", ret);
 }
 
+/* Note NULL used as error indicator as it doesn't make sense. */
+static const unsigned long *iio_scan_mask_match(const unsigned long *av_masks,
+					  unsigned int masklength,
+					  const unsigned long *mask,
+					  bool strict)
+{
+	if (bitmap_empty(mask, masklength))
+		return NULL;
+	while (*av_masks) {
+		if (strict) {
+			if (bitmap_equal(mask, av_masks, masklength))
+				return av_masks;
+		} else {
+			if (bitmap_subset(mask, av_masks, masklength))
+				return av_masks;
+		}
+		av_masks += BITS_TO_LONGS(masklength);
+	}
+	return NULL;
+}
+
+static bool iio_validate_scan_mask(struct iio_dev *indio_dev,
+	const unsigned long *mask)
+{
+	if (!indio_dev->setup_ops->validate_scan_mask)
+		return true;
+
+	return indio_dev->setup_ops->validate_scan_mask(indio_dev, mask);
+}
+
+/**
+ * iio_scan_mask_set() - set particular bit in the scan mask
+ * @indio_dev: the iio device
+ * @buffer: the buffer whose scan mask we are interested in
+ * @bit: the bit to be set.
+ *
+ * Note that at this point we have no way of knowing what other
+ * buffers might request, hence this code only verifies that the
+ * individual buffers request is plausible.
+ */
+static int iio_scan_mask_set(struct iio_dev *indio_dev,
+		      struct iio_buffer *buffer, int bit)
+{
+	const unsigned long *mask;
+	unsigned long *trialmask;
+
+	trialmask = kmalloc(sizeof(*trialmask)*
+			    BITS_TO_LONGS(indio_dev->masklength),
+			    GFP_KERNEL);
+
+	if (trialmask == NULL)
+		return -ENOMEM;
+	if (!indio_dev->masklength) {
+		WARN_ON("Trying to set scanmask prior to registering buffer\n");
+		goto err_invalid_mask;
+	}
+	bitmap_copy(trialmask, buffer->scan_mask, indio_dev->masklength);
+	set_bit(bit, trialmask);
+
+	if (!iio_validate_scan_mask(indio_dev, trialmask))
+		goto err_invalid_mask;
+
+	if (indio_dev->available_scan_masks) {
+		mask = iio_scan_mask_match(indio_dev->available_scan_masks,
+					   indio_dev->masklength,
+					   trialmask, false);
+		if (!mask)
+			goto err_invalid_mask;
+	}
+	bitmap_copy(buffer->scan_mask, trialmask, indio_dev->masklength);
+
+	kfree(trialmask);
+
+	return 0;
+
+err_invalid_mask:
+	kfree(trialmask);
+	return -EINVAL;
+}
+
 static int iio_scan_mask_clear(struct iio_buffer *buffer, int bit)
 {
 	clear_bit(bit, buffer->scan_mask);
@@ -365,7 +445,8 @@ static int iio_buffer_add_channel_sysfs(struct iio_dev *indio_dev,
 }
 
 static ssize_t iio_buffer_read_length(struct device *dev,
-	struct device_attribute *attr, char *buf)
+				      struct device_attribute *attr,
+				      char *buf)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_buffer *buffer = indio_dev->buffer;
@@ -374,7 +455,8 @@ static ssize_t iio_buffer_read_length(struct device *dev,
 }
 
 static ssize_t iio_buffer_write_length(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t len)
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_buffer *buffer = indio_dev->buffer;
@@ -401,35 +483,11 @@ static ssize_t iio_buffer_write_length(struct device *dev,
 }
 
 static ssize_t iio_buffer_show_enable(struct device *dev,
-	struct device_attribute *attr, char *buf)
+				      struct device_attribute *attr,
+				      char *buf)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	return sprintf(buf, "%d\n", iio_buffer_is_active(indio_dev->buffer));
-}
-
-/* Note NULL used as error indicator as it doesn't make sense. */
-static const unsigned long *iio_scan_mask_match(const unsigned long *av_masks,
-					  unsigned int masklength,
-					  const unsigned long *mask,
-					  bool strict)
-{
-	int (*cmp_func)(const unsigned long *src1, const unsigned long *src2,
-		unsigned int nbits);
-
-	if (strict)
-		cmp_func = bitmap_equal;
-	else
-		cmp_func = bitmap_subset;
-
-
-	if (bitmap_empty(mask, masklength))
-		return NULL;
-	while (*av_masks) {
-		if (cmp_func(mask, av_masks, masklength))
-			return av_masks;
-		av_masks += BITS_TO_LONGS(masklength);
-	}
-	return NULL;
 }
 
 static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
@@ -527,7 +585,7 @@ static int iio_buffer_request_update(struct iio_dev *indio_dev,
 		ret = buffer->access->request_update(buffer);
 		if (ret) {
 			dev_dbg(&indio_dev->dev,
-			      "Buffer not started: buffer parameter update failed (%d)\n",
+			       "Buffer not started: buffer parameter update failed (%d)\n",
 				ret);
 			return ret;
 		}
@@ -557,6 +615,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 {
 	unsigned long *compound_mask;
 	const unsigned long *scan_mask;
+	bool strict_scanmask = false;
 	struct iio_buffer *buffer;
 	bool scan_timestamp;
 	unsigned int modes;
@@ -583,12 +642,28 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 		modes &= insert_buffer->access->modes;
 
 	/* Definitely possible for devices to support both of these. */
-	if ((modes & INDIO_BUFFER_TRIGGERED) && indio_dev->trig)
+	if ((modes & INDIO_BUFFER_TRIGGERED) && indio_dev->trig) {
 		config->mode = INDIO_BUFFER_TRIGGERED;
-	else if (modes & INDIO_BUFFER_HARDWARE)
+	} else if (modes & INDIO_BUFFER_HARDWARE) {
+		/*
+		 * Keep things simple for now and only allow a single buffer to
+		 * be connected in hardware mode.
+		 */
+		if (insert_buffer && !list_empty(&indio_dev->buffer_list))
+			return -EINVAL;
 		config->mode = INDIO_BUFFER_HARDWARE;
-	else
+		strict_scanmask = true;
+	} else if (modes & INDIO_BUFFER_SOFTWARE) {
+		config->mode = INDIO_BUFFER_SOFTWARE;
+	} else {
+		/* Can only occur on first buffer */
+		if (indio_dev->modes & INDIO_BUFFER_TRIGGERED)
+			dev_dbg(&indio_dev->dev, "Buffer not started: no trigger\n");
 		return -EINVAL;
+	}
+
+	if (indio_dev->direction == IIO_DEVICE_DIRECTION_OUT)
+		strict_scanmask = true;
 
 	/* What scan mask do we actually have? */
 	compound_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
@@ -616,13 +691,12 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 		scan_mask = iio_scan_mask_match(indio_dev->available_scan_masks,
 				    indio_dev->masklength,
 				    compound_mask,
-				    indio_dev->direction ==
-				    IIO_DEVICE_DIRECTION_OUT);
+				    strict_scanmask);
 		kfree(compound_mask);
 		if (scan_mask == NULL)
 			return -EINVAL;
 	} else {
-		scan_mask = compound_mask;
+	    scan_mask = compound_mask;
 	}
 
 	config->scan_bytes = iio_compute_scan_bytes(indio_dev,
@@ -633,57 +707,12 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int iio_disable_buffers(struct iio_dev *indio_dev)
-{
-	struct iio_buffer *buffer;
-	int ret = 0;
-	int ret2;
-
-	/* Wind down existing buffers - iff there are any */
-	if (list_empty(&indio_dev->buffer_list))
-		return 0;
-
-	/*
-	 * If things go wrong at some step in disable we still need to continue
-	 * to perform the other steps, otherwise we leave the device in a
-	 * inconsistent state. We return the error code for the first error we
-	 * encountered.
-	 */
-
-	if (indio_dev->setup_ops->predisable) {
-		ret2 = indio_dev->setup_ops->predisable(indio_dev);
-		if (ret2 && !ret)
-			ret = ret2;
-	}
-
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
-		ret = iio_buffer_disable(buffer, indio_dev);
-		if (ret2 && !ret)
-			ret = ret2;
-	}
-
-	iio_trigger_detach_poll_func(indio_dev);
-
-	if (indio_dev->setup_ops->postdisable) {
-		ret = indio_dev->setup_ops->postdisable(indio_dev);
-		if (ret2 && !ret)
-			ret = ret2;
-	}
-
-	indio_dev->currentmode = INDIO_DIRECT_MODE;
-	iio_free_scan_mask(indio_dev, indio_dev->active_scan_mask);
-	indio_dev->active_scan_mask = NULL;
-
-	return ret;
-}
-
 static int iio_enable_buffers(struct iio_dev *indio_dev,
 	struct iio_device_config *config)
 {
 	struct iio_buffer *buffer;
 	int ret;
 
-	indio_dev->currentmode = config->mode;
 	indio_dev->active_scan_mask = config->scan_mask;
 	indio_dev->scan_timestamp = config->scan_timestamp;
 	indio_dev->scan_bytes = config->scan_bytes;
@@ -719,6 +748,8 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 		}
 	}
 
+	indio_dev->currentmode = config->mode;
+
 	ret = iio_trigger_attach_poll_func(indio_dev);
 	if (ret)
 		goto err_buffer_disable;
@@ -743,7 +774,51 @@ err_buffer_disable:
 	if (indio_dev->setup_ops->postdisable)
 		indio_dev->setup_ops->postdisable(indio_dev);
 err_undo_config:
+	indio_dev->active_scan_mask = NULL;
+
+	return ret;
+}
+
+static int iio_disable_buffers(struct iio_dev *indio_dev)
+{
+	struct iio_buffer *buffer;
+	int ret = 0;
+	int ret2;
+
+	/* Wind down existing buffers - iff there are any */
+	if (list_empty(&indio_dev->buffer_list))
+		return 0;
+
+	/*
+	 * If things go wrong at some step in disable we still need to continue
+	 * to perform the other steps, otherwise we leave the device in a
+	 * inconsistent state. We return the error code for the first error we
+	 * encountered.
+	 */
+
+	if (indio_dev->setup_ops->predisable) {
+		ret2 = indio_dev->setup_ops->predisable(indio_dev);
+		if (ret2 && !ret)
+			ret = ret2;
+	}
+
+	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+		ret = iio_buffer_disable(buffer, indio_dev);
+		if (ret2 && !ret)
+			ret = ret2;
+	}
+
+	iio_trigger_detach_poll_func(indio_dev);
+
 	indio_dev->currentmode = INDIO_DIRECT_MODE;
+
+	if (indio_dev->setup_ops->postdisable) {
+		ret2 = indio_dev->setup_ops->postdisable(indio_dev);
+		if (ret2 && !ret)
+			ret = ret2;
+	}
+
+	iio_free_scan_mask(indio_dev, indio_dev->active_scan_mask);
 	indio_dev->active_scan_mask = NULL;
 
 	return ret;
@@ -858,7 +933,9 @@ void iio_disable_all_buffers(struct iio_dev *indio_dev)
 }
 
 static ssize_t iio_buffer_store_enable(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t len)
+				       struct device_attribute *attr,
+				       const char *buf,
+				       size_t len)
 {
 	int ret;
 	bool requested_state;
@@ -900,7 +977,7 @@ static struct device_attribute dev_attr_length_ro = __ATTR(length,
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR,
 	iio_buffer_show_enable, iio_buffer_store_enable);
 
-int iio_buffer_alloc_sysfs(struct iio_dev *indio_dev)
+int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 {
 	struct iio_dev_attr *p;
 	struct attribute **attr;
@@ -1010,7 +1087,7 @@ error_cleanup_dynamic:
 	return ret;
 }
 
-void iio_buffer_free_sysfs(struct iio_dev *indio_dev)
+void iio_buffer_free_sysfs_and_mask(struct iio_dev *indio_dev)
 {
 	if (!indio_dev->buffer)
 		return;
@@ -1036,66 +1113,6 @@ bool iio_validate_scan_mask_onehot(struct iio_dev *indio_dev,
 	return bitmap_weight(mask, indio_dev->masklength) == 1;
 }
 EXPORT_SYMBOL_GPL(iio_validate_scan_mask_onehot);
-
-static bool iio_validate_scan_mask(struct iio_dev *indio_dev,
-	const unsigned long *mask)
-{
-	if (!indio_dev->setup_ops->validate_scan_mask)
-		return true;
-
-	return indio_dev->setup_ops->validate_scan_mask(indio_dev, mask);
-}
-
-/**
- * iio_scan_mask_set() - set particular bit in the scan mask
- * @indio_dev: the iio device
- * @buffer: the buffer whose scan mask we are interested in
- * @bit: the bit to be set.
- *
- * Note that at this point we have no way of knowing what other
- * buffers might request, hence this code only verifies that the
- * individual buffers request is plausible.
- */
-int iio_scan_mask_set(struct iio_dev *indio_dev,
-		      struct iio_buffer *buffer, int bit)
-{
-	const unsigned long *mask;
-	unsigned long *trialmask;
-
-	trialmask = kmalloc(sizeof(*trialmask)*
-			    BITS_TO_LONGS(indio_dev->masklength),
-			    GFP_KERNEL);
-
-	if (trialmask == NULL)
-		return -ENOMEM;
-	if (!indio_dev->masklength) {
-		WARN_ON("Trying to set scanmask prior to registering buffer\n");
-		goto err_invalid_mask;
-	}
-	bitmap_copy(trialmask, buffer->scan_mask, indio_dev->masklength);
-	set_bit(bit, trialmask);
-
-	if (!iio_validate_scan_mask(indio_dev, trialmask))
-		goto err_invalid_mask;
-
-	if (indio_dev->available_scan_masks) {
-		mask = iio_scan_mask_match(indio_dev->available_scan_masks,
-					   indio_dev->masklength,
-					   trialmask, false);
-		if (!mask)
-			goto err_invalid_mask;
-	}
-	bitmap_copy(buffer->scan_mask, trialmask, indio_dev->masklength);
-
-	kfree(trialmask);
-
-	return 0;
-
-err_invalid_mask:
-	kfree(trialmask);
-	return -EINVAL;
-}
-EXPORT_SYMBOL_GPL(iio_scan_mask_set);
 
 int iio_scan_mask_query(struct iio_dev *indio_dev,
 			struct iio_buffer *buffer, int bit)
