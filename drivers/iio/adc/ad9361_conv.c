@@ -91,6 +91,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 
 	return len;
 }
+EXPORT_SYMBOL(ad9361_dig_interface_timing_analysis);
 
 #define AIM_CHAN(_chan, _si, _bits, _sign)			\
 	{ .type = IIO_VOLTAGE,						\
@@ -274,6 +275,7 @@ int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable)
 
 	return 0;
 }
+EXPORT_SYMBOL(ad9361_hdl_loopback);
 
 static int ad9361_iodelay_set(struct axiadc_state *st, unsigned lane,
 			      unsigned val, bool tx)
@@ -560,6 +562,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(ad9361_dig_tune);
 
 static int ad9361_post_setup(struct iio_dev *indio_dev)
 {
@@ -662,12 +665,14 @@ out:
 	spi_set_drvdata(spi, NULL);
 	return ret;
 }
+EXPORT_SYMBOL(ad9361_register_axi_converter);
 
 struct ad9361_rf_phy* ad9361_spi_to_phy(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	return conv->phy;
 }
+EXPORT_SYMBOL(ad9361_spi_to_phy);
 
 #else  /* CONFIG_CF_AXI_ADC */
 
@@ -676,17 +681,20 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 {
 	return -ENODEV;
 }
+EXPORT_SYMBOL(ad9361_dig_tune);
 
 ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 						   char *buf, unsigned buflen)
 {
 	return 0;
 }
+EXPORT_SYMBOL(ad9361_dig_interface_timing_analysis);
 
 int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable)
 {
 	return -ENODEV;
 }
+EXPORT_SYMBOL(ad9361_hdl_loopback);
 
 int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 {
@@ -695,10 +703,12 @@ int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 
 	return 0;
 }
+EXPORT_SYMBOL(ad9361_register_axi_converter);
 
 struct ad9361_rf_phy* ad9361_spi_to_phy(struct spi_device *spi)
 {
 	return spi_get_drvdata(spi);
 }
+EXPORT_SYMBOL(ad9361_spi_to_phy);
 
 #endif /* CONFIG_CF_AXI_ADC */
