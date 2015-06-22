@@ -627,6 +627,7 @@ int ad9361_spi_read(struct spi_device *spi, u32 reg)
 
 	return buf;
 }
+EXPORT_SYMBOL(ad9361_spi_read);
 
 static int __ad9361_spi_readf(struct spi_device *spi, u32 reg,
 				 u32 mask, u32 offset)
@@ -674,6 +675,7 @@ int ad9361_spi_write(struct spi_device *spi,
 
 	return 0;
 }
+EXPORT_SYMBOL(ad9361_spi_write);
 
 static int __ad9361_spi_writef(struct spi_device *spi, u32 reg,
 				 u32 mask, u32 offset, u32 val)
@@ -758,6 +760,7 @@ int ad9361_find_opt(u8 *field, u32 size, u32 *ret_start)
 
 	return max_cnt;
 }
+EXPORT_SYMBOL(ad9361_find_opt);
 
 static int ad9361_reset(struct ad9361_rf_phy *phy)
 {
@@ -820,6 +823,7 @@ int ad9361_bist_loopback(struct ad9361_rf_phy *phy, unsigned mode)
 		return -EINVAL;
 	}
 }
+EXPORT_SYMBOL(ad9361_bist_loopback);
 
 int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
 {
@@ -841,6 +845,7 @@ int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
 
 	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
 }
+EXPORT_SYMBOL(ad9361_bist_prbs);
 
 static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 			    enum ad9361_bist_mode mode, u32 freq_Hz,
@@ -1375,6 +1380,7 @@ out:
 	return;
 
 }
+EXPORT_SYMBOL(ad9361_ensm_force_state);
 
 void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 {
@@ -1429,6 +1435,7 @@ void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 out:
 	return;
 }
+EXPORT_SYMBOL(ad9361_ensm_restore_prev_state);
 
 static int set_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 		struct rf_rx_gain *rx_gain)
@@ -3615,6 +3622,7 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 	}
 	return ad9361_bb_clk_change_handler(phy);
 }
+EXPORT_SYMBOL(ad9361_set_trx_clock_chain);
 
 static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
@@ -3769,6 +3777,7 @@ int ad9361_set_trx_clock_chain_freq(struct ad9361_rf_phy *phy,
 		return ret;
 	return ad9361_set_trx_clock_chain(phy, rx, tx);
 }
+EXPORT_SYMBOL(ad9361_set_trx_clock_chain_freq);
 
 int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctrl)
 {
@@ -3796,6 +3805,7 @@ int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctrl)
 
 	return ret;
 }
+EXPORT_SYMBOL(ad9361_set_ensm_mode);
 
 /* Fast Lock */
 
