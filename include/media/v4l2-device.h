@@ -22,6 +22,7 @@
 #define _V4L2_DEVICE_H
 
 #include <media/media-device.h>
+#include <media/v4l2-event.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-dev.h>
 
@@ -126,6 +127,23 @@ static inline void v4l2_subdev_notify(struct v4l2_subdev *sd,
 {
 	if (sd && sd->v4l2_dev && sd->v4l2_dev->notify)
 		sd->v4l2_dev->notify(sd, notification, arg);
+}
+
+/**
+ * v4l2_subdev_notify_event() - Delivers event notification for subdevice
+ * @sd: The subdev for which to deliver the event
+ * @ev: The event to deliver
+ *
+ * Will deliver the specified event to all userspace event listeners which are
+ * subscribed to the v42l subdev event queue as well as to the bridge driver
+ * using the notify callback. The notification type for the notify callback
+ * will be V4L2_DEVICE_NOTIFY_EVENT.
+ */
+static inline void v4l2_subdev_notify_event(struct v4l2_subdev *sd,
+	const struct v4l2_event *ev)
+{
+	v4l2_event_queue(sd->devnode, ev);
+	v4l2_subdev_notify(sd, V4L2_DEVICE_NOTIFY_EVENT, (void *)ev);
 }
 
 /* Iterate over all subdevs. */
