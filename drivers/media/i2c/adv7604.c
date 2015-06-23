@@ -1763,8 +1763,8 @@ static int adv76xx_s_routing(struct v4l2_subdev *sd,
 	select_input(sd);
 	enable_input(sd);
 
-	v4l2_subdev_notify(sd, V4L2_DEVICE_NOTIFY_EVENT,
-			   (void *)&adv76xx_ev_fmt);
+	v4l2_subdev_notify_event(sd, &adv76xx_ev_fmt);
+
 	return 0;
 }
 
