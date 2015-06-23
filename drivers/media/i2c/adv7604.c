@@ -1931,8 +1931,7 @@ static int adv76xx_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 			"%s: fmt_change = 0x%x, fmt_change_digital = 0x%x\n",
 			__func__, fmt_change, fmt_change_digital);
 
-		v4l2_subdev_notify(sd, V4L2_DEVICE_NOTIFY_EVENT,
-				   (void *)&adv76xx_ev_fmt);
+		v4l2_subdev_notify_event(sd, &adv76xx_ev_fmt);
 
 		if (handled)
 			*handled = true;
