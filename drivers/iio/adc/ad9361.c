@@ -5857,6 +5857,7 @@ enum ad9361_iio_dev_attr {
 	AD9361_QUAD_ENABLE,
 	AD9361_DCXO_TUNE_COARSE,
 	AD9361_DCXO_TUNE_FINE,
+	AD9361_MCS_SYNC,
 };
 
 static ssize_t ad9361_phy_store(struct device *dev,
@@ -6058,6 +6059,12 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		ret = ad9361_set_dcxo_tune(phy, phy->pdata->dcxo_coarse,
 					   phy->pdata->dcxo_fine);
 		break;
+	case AD9361_MCS_SYNC:
+		ret = kstrtol(buf, 10, &readin);
+		if (ret)
+			break;
+		ret = ad9361_mcs(phy, readin);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -6255,6 +6262,11 @@ static IIO_DEVICE_ATTR(dcxo_tune_fine, S_IRUGO | S_IWUSR,
 			ad9361_phy_store,
 			AD9361_DCXO_TUNE_FINE);
 
+static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
+			NULL,
+			ad9361_phy_store,
+			AD9361_MCS_SYNC);
+
 static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_in_voltage_filter_fir_en.dev_attr.attr,
 	&iio_dev_attr_out_voltage_filter_fir_en.dev_attr.attr,
@@ -6274,6 +6286,7 @@ static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_in_voltage_quadrature_tracking_en.dev_attr.attr,
 	&iio_dev_attr_dcxo_tune_coarse.dev_attr.attr,
 	&iio_dev_attr_dcxo_tune_fine.dev_attr.attr,
+	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	NULL,
 };
 
