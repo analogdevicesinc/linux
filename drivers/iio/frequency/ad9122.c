@@ -318,6 +318,7 @@ static int ad9122_sync(struct cf_axi_converter *conv)
 	ad9122_write(spi, AD9122_REG_FIFO_STATUS_1, 0x0);
 	ad9122_write(spi, AD9122_REG_SYNC_CTRL_1,
 		     AD9122_SYNC_CTRL_1_SYNC_EN |
+		     AD9122_SYNC_CTRL_1_DATA_FIFO_RATE_TOGGLE |
 		     AD9122_SYNC_CTRL_1_RISING_EDGE_SYNC);
 
 	timeout = 255;
