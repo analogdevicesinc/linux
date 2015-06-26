@@ -72,6 +72,7 @@ struct axi_hdmi_rx {
 	struct v4l2_async_subdev *asds[1];
 
 	u8 edid_data[256];
+	u8 edid_blocks;
 };
 
 struct axi_hdmi_rx_buffer {
@@ -738,7 +739,7 @@ static int axi_hdmi_rx_async_bound(struct v4l2_async_notifier *notifier,
 	struct v4l2_subdev_edid edid = {
 		.pad = 0,
 		.start_block = 0,
-		.blocks = 1,
+		.blocks = hdmi_rx->edid_blocks,
 		.edid = hdmi_rx->edid_data,
 	};
 
@@ -788,6 +789,11 @@ static int axi_hdmi_rx_load_edid(struct platform_device *pdev,
 		release_firmware(fw);
 		return -EINVAL;
 	}
+
+	if (fw->size > 128)
+		hdmi_rx->edid_blocks = 2;
+	else
+		hdmi_rx->edid_blocks = 1;
 
 	memcpy(hdmi_rx->edid_data, fw->data, fw->size);
 
