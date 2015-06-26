@@ -30,7 +30,6 @@
 #define AXI_HDMI_RX_REG_ID		0x004
 #define AXI_HDMI_RX_REG_ENABLE		0x040
 #define AXI_HDMI_RX_REG_CONFIG		0x044
-#define AXI_HDMI_RX_REG_SRC_SEL		0x048
 #define AXI_HDMI_RX_REG_CLK_COUNT	0x054
 #define AXI_HDMI_RX_REG_CLK_RATIO	0x058
 #define AXI_HDMI_RX_REG_DMA_STATUS	0x060
@@ -299,7 +298,6 @@ static int axi_hdmi_rx_g_register(struct file *file, void *priv_fh,
 	case AXI_HDMI_RX_REG_ID:
 	case AXI_HDMI_RX_REG_ENABLE:
 	case AXI_HDMI_RX_REG_CONFIG:
-	case AXI_HDMI_RX_REG_SRC_SEL:
 	case AXI_HDMI_RX_REG_CLK_COUNT:
 	case AXI_HDMI_RX_REG_CLK_RATIO:
 	case AXI_HDMI_RX_REG_DMA_STATUS:
@@ -326,7 +324,6 @@ static int axi_hdmi_rx_s_register(struct file *file, void *priv_fh,
 	switch (reg->reg) {
 	case AXI_HDMI_RX_REG_ENABLE:
 	case AXI_HDMI_RX_REG_CONFIG:
-	case AXI_HDMI_RX_REG_SRC_SEL:
 	case AXI_HDMI_RX_REG_DMA_STATUS:
 	case AXI_HDMI_RX_REG_TPM_STATUS:
 	case AXI_HDMI_RX_REG_STATUS:
@@ -606,17 +603,13 @@ static int axi_hdmi_rx_enum_input(struct file *file, void *priv_fh,
 	case 0:
 		snprintf(inp->name, sizeof(inp->name), "HDMI-0");
 		break;
-	case 1:
-		snprintf(inp->name, sizeof(inp->name), "Generator-0");
-		break;
 	default:
 		return -EINVAL;
 	}
 
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
 	inp->capabilities = V4L2_IN_CAP_DV_TIMINGS;
-	if (inp->index == 1)
-		return 0;
+
 	return v4l2_subdev_call(s->subdev, video, g_input_status, &inp->status);
 }
 
@@ -624,7 +617,7 @@ static int axi_hdmi_rx_g_input(struct file *file, void *priv_fh, unsigned int *i
 {
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 
-	*i = axi_hdmi_rx_read(hdmi_rx, AXI_HDMI_RX_REG_SRC_SEL);
+	*i = 0;
 	return 0;
 }
 
@@ -633,10 +626,8 @@ static int axi_hdmi_rx_s_input(struct file *file, void *priv_fh, unsigned int i)
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	if (i >= 2)
+	if (i != 0)
 		return -EINVAL;
-
-	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_SRC_SEL, i);
 
 	return v4l2_subdev_call(s->subdev, video, s_routing,
 		ADV76XX_PAD_HDMI_PORT_A, 0, 0);
