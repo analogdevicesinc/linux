@@ -141,7 +141,7 @@
 		compatible = "simple-bus";
 		ranges ;
 		axi_ad9467: cf-ad9467-core-lpc@44A00000 {
-			compatible = "adi,axi-ad9467-1.0";
+			compatible = "xlnx,cf-ad9467-core-1.00.a";
 			reg = <0x44a00000 0x10000>;
 			xlnx,s-axi-min-size = <0x0000FFFF>;
 		};
