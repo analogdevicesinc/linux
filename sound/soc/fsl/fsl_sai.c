@@ -808,6 +808,7 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	char tmp[8];
 	int irq, ret, i;
 	int index;
+	u32 buffer_size;
 
 	sai = devm_kzalloc(&pdev->dev, sizeof(*sai), GFP_KERNEL);
 	if (!sai)
@@ -924,8 +925,11 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	if (of_property_read_u32(np, "fsl,dma-buffer-size", &buffer_size))
+		buffer_size = IMX_SAI_DMABUF_SIZE;
+
 	if (sai->sai_on_imx)
-		return imx_pcm_dma_init(pdev, IMX_SAI_DMABUF_SIZE);
+		return imx_pcm_dma_init(pdev, buffer_size);
 	else
 		return devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
 }

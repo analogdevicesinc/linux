@@ -64,6 +64,10 @@ Optional properties:
                     by SOC design.  See the notes below.
                     Only used on Power Architecture.
 
+- fsl,dma-buffer-size: It specify the audio buffer size of playback and
+  capture. If this property is absent, using the default value of audio buffer
+  size.
+
 Child 'codec' node required properties:
 - compatible:       Compatible list, contains the name of the codec
 
