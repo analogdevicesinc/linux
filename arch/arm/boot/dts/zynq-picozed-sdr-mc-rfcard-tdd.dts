@@ -1,0 +1,22 @@
+#include "zynq-picozed-sdr-mc.dts"
+
+&adc0_ad9361 {
+
+	/delete-property/ adi,frequency-division-duplex-mode-enable;
+	adi,tdd-use-dual-synth-mode-enable;
+
+	adi,rx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
+	adi,tx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
+
+	adi,elna-bypass-loss-mdB = <2100>;
+	adi,elna-gain-mdB = <17000>;
+	adi,elna-rx1-gpo0-control-enable;
+	adi,elna-rx2-gpo1-control-enable;
+	adi,elna-settling-delay-ns = <1000>;
+
+	adi,gpo2-slave-rx-enable;
+	adi,gpo2-rx-delay-us = <0>;
+
+	adi,gpo3-slave-tx-enable;
+	adi,gpo3-tx-delay-us = <0>;
+};
