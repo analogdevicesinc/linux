@@ -60,6 +60,7 @@
 
 #define AXI_HDMI_RESET_ENABLE		BIT(0)
 
+#define AXI_HDMI_CTRL_SS_BYPASS		BIT(2)
 #define AXI_HDMI_CTRL_FULL_RANGE	BIT(1)
 #define AXI_HDMI_CTRL_CSC_BYPASS	BIT(0)
 
@@ -180,6 +181,7 @@ static ssize_t axi_hdmi_set_mode(struct file *file, const char __user *userbuf,
 {
 	struct axi_hdmi_private *private = file->private_data;
 	char buf[20];
+	unsigned int ctrl;
 	unsigned int i;
 
 	count = min_t(size_t, count, sizeof(buf) - 1);
@@ -197,6 +199,18 @@ static ssize_t axi_hdmi_set_mode(struct file *file, const char __user *userbuf,
 		return -EINVAL;
 
 	writel(i, private->base + AXI_HDMI_REG_SOURCE_SEL);
+
+	if (i == AXI_HDMI_SOURCE_SEL_TESTPATTERN) {
+		ctrl = AXI_HDMI_CTRL_CSC_BYPASS | AXI_HDMI_CTRL_SS_BYPASS |
+			AXI_HDMI_CTRL_FULL_RANGE;
+	} else {
+		if (private->is_rgb)
+			ctrl = AXI_HDMI_CTRL_CSC_BYPASS;
+		else
+			ctrl = 0;
+	}
+
+	writel(ctrl, private->base + AXI_HDMI_REG_CTRL);
 
 	return count;
 }
