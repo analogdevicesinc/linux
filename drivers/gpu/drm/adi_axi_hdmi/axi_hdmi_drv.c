@@ -173,7 +173,6 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 
 	private->hdmi_clock = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(private->hdmi_clock)) {
-		printk("%s:%s[%d]\n", __FILE__, __func__, __LINE__);
 		return -EPROBE_DEFER;
 	}
 
@@ -193,16 +192,12 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	private->encoder_slave = of_find_i2c_device_by_node(slave_node);
 	of_node_put(slave_node);
 
-	if (!private->encoder_slave || !private->encoder_slave->dev.driver) {
-		printk("%s:%s[%d]\n", __FILE__, __func__, __LINE__);
+	if (!private->encoder_slave || !private->encoder_slave->dev.driver)
 		return -EPROBE_DEFER;
-	}
 
 	private->dma = dma_request_slave_channel(&pdev->dev, "video");
-	if (private->dma == NULL) {
-		printk("%s:%s[%d]\n", __FILE__, __func__, __LINE__);
+	if (private->dma == NULL)
 		return -EPROBE_DEFER;
-	}
 
 	platform_set_drvdata(pdev, private);
 

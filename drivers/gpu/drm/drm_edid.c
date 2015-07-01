@@ -3389,7 +3389,6 @@ bool drm_detect_hdmi_monitor(struct edid *edid)
 	int start_offset, end_offset;
 
 	edid_ext = drm_find_cea_extension(edid);
-	printk("%s:%s[%d]: %p\n", __FILE__, __func__, __LINE__, edid_ext);
 	if (!edid_ext)
 		return false;
 
