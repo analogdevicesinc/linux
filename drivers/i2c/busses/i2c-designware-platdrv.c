@@ -136,11 +136,13 @@ static inline void dw_i2c_acpi_unconfigure(struct platform_device *pdev) { }
 static int dw_i2c_probe(struct platform_device *pdev)
 {
 	struct dw_i2c_dev *dev;
+	struct device_node *np = pdev->dev.of_node;
 	struct i2c_adapter *adap;
 	struct resource *mem;
 	struct dw_i2c_platform_data *pdata;
 	int irq, r;
 	u32 clk_freq, ht = 0;
+	int speed, speed_prop, ret;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
@@ -212,6 +214,16 @@ static int dw_i2c_probe(struct platform_device *pdev)
 	else
 		dev->master_cfg =  DW_IC_CON_MASTER | DW_IC_CON_SLAVE_DISABLE |
 			DW_IC_CON_RESTART_EN | DW_IC_CON_SPEED_FAST;
+
+	/* Get speed from device tree.  Default to fast speed. */
+	speed = DW_IC_CON_SPEED_FAST;
+	if (np) {
+		ret = of_property_read_u32(np, "speed-mode", &speed_prop);
+		if (!ret && (speed_prop == 0))
+			speed = DW_IC_CON_SPEED_STD;
+	}
+	dev->master_cfg =  DW_IC_CON_MASTER | DW_IC_CON_SLAVE_DISABLE |
+		DW_IC_CON_RESTART_EN | speed;
 
 	dev->clk = devm_clk_get(&pdev->dev, NULL);
 	dev->get_clk_rate_khz = i2c_dw_get_clk_rate_khz;

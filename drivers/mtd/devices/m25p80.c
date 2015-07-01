@@ -232,6 +232,9 @@ static int m25p_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	spi->addr_width = nor->addr_width;
+
+	data = dev_get_platdata(&spi->dev);
 	ppdata.of_node = spi->dev.of_node;
 
 	return mtd_device_parse_register(&flash->mtd, NULL, &ppdata,
@@ -246,6 +249,12 @@ static int m25p_remove(struct spi_device *spi)
 
 	/* Clean up MTD stuff. */
 	return mtd_device_unregister(&flash->mtd);
+}
+
+static void m25p_shutdown(struct spi_device *spi)
+{
+	struct m25p	*flash = spi_get_drvdata(spi);
+	flash->spi_nor.shutdown(&flash->spi_nor);
 }
 
 /*
@@ -269,7 +278,7 @@ static const struct spi_device_id m25p_ids[] = {
 	{"mx66l1g55g"},
 	{"n25q064"},	{"n25q128a11"},	{"n25q128a13"},	{"n25q256a"},
 	{"n25q256a13"},
-	{"n25q512a"},	{"n25q512a11"},	{"n25q512ax3"},	{"n25q00"},
+	{"n25q512a"},	{"n25q512a11"},	{"n25q512ax3"},	{"n25q00"}, {"n25q00aa"},
 	{"pm25lv512"},	{"pm25lv010"},	{"pm25lq032"},
 	{"s25sl032p"},	{"s25sl064p"},	{"s25fl256s0"},	{"s25fl256s1"},
 	{"s25fl512s"},	{"s70fl01gs"},	{"s25sl12800"},	{"s25sl12801"},
@@ -307,6 +316,7 @@ static struct spi_driver m25p80_driver = {
 	.id_table	= m25p_ids,
 	.probe	= m25p_probe,
 	.remove	= m25p_remove,
+	.shutdown = m25p_shutdown,
 
 	/* REVISIT: many of these chips have deep power-down modes, which
 	 * should clearly be entered on suspend() to minimize power use.

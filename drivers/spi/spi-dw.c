@@ -149,7 +149,7 @@ static inline u32 tx_max(struct dw_spi *dws)
 	u32 tx_left, tx_room, rxtx_gap;
 
 	tx_left = (dws->tx_end - dws->tx) / dws->n_bytes;
-	tx_room = dws->fifo_len - dw_readw(dws, DW_SPI_TXFLR);
+	tx_room = dws->fifo_len - dws->dwread(dws, DW_SPI_TXFLR);
 
 	/*
 	 * Another concern is about the tx/rx mismatch, we
@@ -170,7 +170,7 @@ static inline u32 rx_max(struct dw_spi *dws)
 {
 	u32 rx_left = (dws->rx_end - dws->rx) / dws->n_bytes;
 
-	return min_t(u32, rx_left, dw_readw(dws, DW_SPI_RXFLR));
+	return min_t(u32, rx_left, (u32)dws->dwread(dws, DW_SPI_RXFLR));
 }
 
 static void dw_writer(struct dw_spi *dws)
@@ -186,7 +186,7 @@ static void dw_writer(struct dw_spi *dws)
 			else
 				txw = *(u16 *)(dws->tx);
 		}
-		dw_writew(dws, DW_SPI_DR, txw);
+		dws->dwwrite(dws, DW_SPI_DR, txw);
 		dws->tx += dws->n_bytes;
 	}
 }
@@ -194,10 +194,10 @@ static void dw_writer(struct dw_spi *dws)
 static void dw_reader(struct dw_spi *dws)
 {
 	u32 max = rx_max(dws);
-	u16 rxw;
+	u32 rxw;
 
 	while (max--) {
-		rxw = dw_readw(dws, DW_SPI_DR);
+		rxw = dws->dwread(dws, DW_SPI_DR);
 		/* Care rx only if the transfer's original "rx" is not null */
 		if (dws->rx_end - dws->len) {
 			if (dws->n_bytes == 1)
@@ -233,6 +233,43 @@ static void *next_transfer(struct dw_spi *dws)
  */
 static int map_dma_buffers(struct dw_spi *dws)
 {
+#ifdef CONFIG_SPI_DW_PL330_DMA
+	if (!dws->dma_inited
+		|| !dws->cur_chip->enable_dma
+		|| !dws->dma_ops)
+		return 0;
+
+	if (dws->cur_msg->is_dma_mapped) {
+		if (dws->cur_transfer->tx_dma)
+			dws->tx_dma = dws->cur_transfer->tx_dma;
+
+		if (dws->cur_transfer->rx_dma)
+			dws->rx_dma = dws->cur_transfer->rx_dma;
+	} else {
+		if (dws->cur_transfer->tx_buf != NULL) {
+			dws->tx_dma = dma_map_single(dws->master->dev,
+					(void *)dws->cur_transfer->tx_buf,
+					dws->cur_transfer->len,
+					DMA_TO_DEVICE);
+			if (dma_mapping_error(dws->master->dev, dws->tx_dma)) {
+				dev_err(&dws->master->dev, "dma_map_single Tx failed\n");
+				return 0;
+			}
+		}
+
+		if (dws->cur_transfer->rx_buf != NULL) {
+			dws->rx_dma = dma_map_single(dws->master->_dev,
+					dws->cur_transfer->rx_buf,
+					dws->cur_transfer->len, DMA_FROM_DEVICE);
+			if (dma_mapping_error(dws->master->dev, dws->rx_dma)) {
+				dev_err(&dws->master->dev, "dma_map_single Rx failed\n");
+				dma_unmap_single(dws->master->dev, dws->tx_dma,
+						dws->cur_transfer->len, DMA_TO_DEVICE);
+				return 0;
+			}
+		}
+	}
+#else
 	if (!dws->cur_msg->is_dma_mapped
 		|| !dws->dma_inited
 		|| !dws->cur_chip->enable_dma
@@ -244,6 +281,7 @@ static int map_dma_buffers(struct dw_spi *dws)
 
 	if (dws->cur_transfer->rx_dma)
 		dws->rx_dma = dws->cur_transfer->rx_dma;
+#endif
 
 	return 1;
 }
@@ -285,6 +323,15 @@ void dw_spi_xfer_done(struct dw_spi *dws)
 	/* Update total byte transferred return count actual bytes read */
 	dws->cur_msg->actual_length += dws->len;
 
+	if (dws->dma_mapped) {
+		if (!dws->cur_msg->is_dma_mapped) {
+			dma_unmap_single(&dws->master->dev, dws->rx_dma,
+						dws->cur_transfer->len, DMA_FROM_DEVICE);
+			dma_unmap_single(&dws->master->dev, dws->tx_dma,
+						dws->cur_transfer->len, DMA_TO_DEVICE);
+		}
+	}
+
 	/* Move to next transfer */
 	dws->cur_msg->state = next_transfer(dws);
 
@@ -299,13 +346,13 @@ EXPORT_SYMBOL_GPL(dw_spi_xfer_done);
 
 static irqreturn_t interrupt_transfer(struct dw_spi *dws)
 {
-	u16 irq_status = dw_readw(dws, DW_SPI_ISR);
+	u32 irq_status = dws->dwread(dws, DW_SPI_ISR);
 
 	/* Error handling */
 	if (irq_status & (SPI_INT_TXOI | SPI_INT_RXOI | SPI_INT_RXUI)) {
-		dw_readw(dws, DW_SPI_TXOICR);
-		dw_readw(dws, DW_SPI_RXOICR);
-		dw_readw(dws, DW_SPI_RXUICR);
+		dws->dwread(dws, DW_SPI_TXOICR);
+		dws->dwread(dws, DW_SPI_RXOICR);
+		dws->dwread(dws, DW_SPI_RXUICR);
 		int_error_stop(dws, "interrupt_transfer: fifo overrun/underrun");
 		return IRQ_HANDLED;
 	}
@@ -329,7 +376,7 @@ static irqreturn_t interrupt_transfer(struct dw_spi *dws)
 static irqreturn_t dw_spi_irq(int irq, void *dev_id)
 {
 	struct dw_spi *dws = dev_id;
-	u16 irq_status = dw_readw(dws, DW_SPI_ISR) & 0x3f;
+	u32 irq_status = dws->dwread(dws, DW_SPI_ISR) & 0x3f;
 
 	if (!irq_status)
 		return IRQ_NONE;
@@ -477,11 +524,12 @@ static void pump_transfers(unsigned long data)
 	 *	2. clk_div is changed
 	 *	3. control value changes
 	 */
-	if (dw_readw(dws, DW_SPI_CTRL0) != cr0 || cs_change || clk_div || imask) {
+	if (dws->dwread(dws, DW_SPI_CTRL0) != cr0 ||
+	    cs_change || clk_div || imask) {
 		spi_enable_chip(dws, 0);
 
-		if (dw_readw(dws, DW_SPI_CTRL0) != cr0)
-			dw_writew(dws, DW_SPI_CTRL0, cr0);
+		if (dws->dwread(dws, DW_SPI_CTRL0) != cr0)
+			dws->dwwrite(dws, DW_SPI_CTRL0, cr0);
 
 		spi_set_clk(dws, clk_div ? clk_div : chip->clk_div);
 		spi_chip_sel(dws, spi, 1);
@@ -491,7 +539,7 @@ static void pump_transfers(unsigned long data)
 		if (imask)
 			spi_umask_intr(dws, imask);
 		if (txint_level)
-			dw_writew(dws, DW_SPI_TXFLTR, txint_level);
+			dws->dwwrite(dws, DW_SPI_TXFLTR, txint_level);
 
 		spi_enable_chip(dws, 1);
 		if (cs_change)
@@ -621,12 +669,12 @@ static void spi_hw_init(struct device *dev, struct dw_spi *dws)
 	if (!dws->fifo_len) {
 		u32 fifo;
 
-		for (fifo = 1; fifo < 256; fifo++) {
-			dw_writew(dws, DW_SPI_TXFLTR, fifo);
-			if (fifo != dw_readw(dws, DW_SPI_TXFLTR))
+		for (fifo = 1; fifo <= 256; fifo++) {
+			dw_writel(dws, DW_SPI_TXFLTR, fifo);
+			if (fifo != dw_readl(dws, DW_SPI_TXFLTR))
 				break;
 		}
-		dw_writew(dws, DW_SPI_TXFLTR, 0);
+		dw_writel(dws, DW_SPI_TXFLTR, 0);
 
 		dws->fifo_len = (fifo == 1) ? 0 : fifo;
 		dev_dbg(dev, "Detected FIFO size: %u bytes\n", dws->fifo_len);
@@ -650,6 +698,11 @@ int dw_spi_add_host(struct device *dev, struct dw_spi *dws)
 	dws->dma_inited = 0;
 	dws->dma_addr = (dma_addr_t)(dws->paddr + 0x60);
 	snprintf(dws->name, sizeof(dws->name), "dw_spi%d", dws->bus_num);
+
+	if (!dws->dwread)
+		dws->dwread = dw_readw;
+	if (!dws->dwwrite)
+		dws->dwwrite = dw_writew;
 
 	ret = devm_request_irq(dev, dws->irq, dw_spi_irq, IRQF_SHARED,
 			dws->name, dws);

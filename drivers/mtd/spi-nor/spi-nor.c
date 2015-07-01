@@ -885,6 +885,7 @@ static const struct spi_device_id spi_nor_ids[] = {
 	{ "n25q512a13",  INFO(0x20ba20, 0, 64 * 1024, 1024, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
 	{ "n25q512ax3",  INFO(0x20ba20, 0, 64 * 1024, 1024, USE_FSR | SPI_NOR_FLASH_LOCK) },
 	{ "n25q00",      INFO(0x20ba21, 0, 64 * 1024, 2048, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | USE_FSR | SPI_NOR_FLASH_LOCK) },
+	{ "n25q00aa",    INFO(0x20bb21, 0, 64 * 1024, 2048, SECT_4K | USE_FSR | SHUTDOWN_3BYTE) },
 
 	/* PMC */
 	{ "pm25lv512",   INFO(0,        0, 32 * 1024,    2, SECT_4K_PMC) },
@@ -1381,6 +1382,9 @@ static int micron_quad_enable(struct spi_nor *nor)
 		return -EINVAL;
 	}
 
+	if (!nor->shutdown)
+		nor->shutdown = spi_nor_shutdown;
+
 	return 0;
 }
 
@@ -1414,6 +1418,11 @@ static int set_quad_mode(struct spi_nor *nor, struct flash_info *info)
 	default:
 		return 0;
 	}
+}
+
+static void spi_nor_shutdown(struct spi_nor *nor)
+{
+	set_4byte(nor, nor->jedec_id, 0);
 }
 
 static int spi_nor_check(struct spi_nor *nor)
@@ -1478,6 +1487,8 @@ int spi_nor_scan(struct spi_nor *nor, const char *name, enum read_mode mode)
 	}
 
 	mutex_init(&nor->lock);
+
+	nor->jedec_id = info->jedec_id;
 
 	/*
 	 * Atmel, SST and Intel/Numonyx serial nor tend to power

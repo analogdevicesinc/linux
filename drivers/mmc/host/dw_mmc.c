@@ -43,8 +43,8 @@
 
 /* Common flag combinations */
 #define DW_MCI_DATA_ERROR_FLAGS	(SDMMC_INT_DRTO | SDMMC_INT_DCRC | \
-				 SDMMC_INT_HTO | SDMMC_INT_SBE  | \
-				 SDMMC_INT_EBE)
+				 SDMMC_INT_HTO | SDMMC_INT_FRUN | \
+				 SDMMC_INT_SBE  | SDMMC_INT_EBE)
 #define DW_MCI_CMD_ERROR_FLAGS	(SDMMC_INT_RTO | SDMMC_INT_RCRC | \
 				 SDMMC_INT_RESP_ERR)
 #define DW_MCI_ERROR_FLAGS	(DW_MCI_DATA_ERROR_FLAGS | \
@@ -1066,6 +1066,7 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct dw_mci_slot *slot = mmc_priv(mmc);
 	const struct dw_mci_drv_data *drv_data = slot->host->drv_data;
+	struct dw_mci *host = slot->host;
 	u32 regs;
 	int ret;
 
@@ -1122,7 +1123,11 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		set_bit(DW_MMC_CARD_NEED_INIT, &slot->flags);
 		regs = mci_readl(slot->host, PWREN);
 		regs |= (1 << slot->id);
-		mci_writel(slot->host, PWREN, regs);
+		if (host->pdata->pwr_en) {
+			regs = mci_readl(slot->host, PWREN);
+			regs |= (1 << slot->id);
+			mci_writel(slot->host, PWREN, regs);
+		}
 		break;
 	case MMC_POWER_ON:
 		if (!IS_ERR(mmc->supply.vqmmc) && !slot->host->vqmmc_enabled) {
@@ -1142,10 +1147,11 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			regulator_disable(mmc->supply.vqmmc);
 			slot->host->vqmmc_enabled = false;
 		}
-
-		regs = mci_readl(slot->host, PWREN);
-		regs &= ~(1 << slot->id);
-		mci_writel(slot->host, PWREN, regs);
+		if (host->pdata->pwr_en) {
+			regs = mci_readl(slot->host, PWREN);
+			regs &= ~(1 << slot->id);
+			mci_writel(slot->host, PWREN, regs);
+		}
 		break;
 	default:
 		break;
@@ -1520,7 +1526,8 @@ static void dw_mci_tasklet_func(unsigned long priv)
 			if (test_and_clear_bit(EVENT_DATA_ERROR,
 					       &host->pending_events)) {
 				dw_mci_stop_dma(host);
-				send_stop_abort(host, data);
+				if (data->stop)
+					send_stop_abort(host, data);
 				state = STATE_DATA_ERROR;
 				break;
 			}
@@ -1563,6 +1570,11 @@ static void dw_mci_tasklet_func(unsigned long priv)
 			host->data = NULL;
 			set_bit(EVENT_DATA_COMPLETE, &host->completed_events);
 			err = dw_mci_data_complete(host, data);
+
+			if (!data->stop) {
+				dw_mci_request_end(host, host->mrq);
+				goto unlock;
+			}
 
 			if (!err) {
 				if (!data->stop || mrq->sbc) {
@@ -2153,6 +2165,9 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			dw_mci_handle_cd(host);
 		}
 
+		if (pending & SDMMC_INT_HLE)
+			mci_writel(host, RINTSTS, SDMMC_INT_HLE);
+
 		/* Handle SDIO Interrupts */
 		for (i = 0; i < host->num_slots; i++) {
 			struct dw_mci_slot *slot = host->slot[i];
@@ -2528,6 +2543,7 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 	const struct dw_mci_drv_data *drv_data = host->drv_data;
 	int idx, ret;
 	u32 clock_frequency;
+	int pwr_en;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -2563,6 +2579,11 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 
 	if (of_find_property(np, "supports-highspeed", NULL))
 		pdata->caps |= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED;
+
+	if (of_property_read_u32(dev->of_node, "pwr-en", &pwr_en)) {
+		dev_dbg(dev, "couldn't determine pwr-en, assuming pwr-en = 1\n");
+		pdata->pwr_en = 1;
+	}
 
 	return pdata;
 }

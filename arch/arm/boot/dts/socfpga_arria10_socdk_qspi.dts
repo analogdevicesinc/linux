@@ -1,0 +1,61 @@
+/*
+ * Copyright (C) 2015 Altera Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+#include "socfpga_arria10_socdk.dtsi"
+
+/ {
+	soc {
+		qspi: spi@ff809000 {
+			compatible = "cadence,qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xff809000 0x100>,
+				<0xffa00000 0x100000>;
+			interrupts = <0 100 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&l4_main_clk>;
+			ext-decoder = <0>;  /* external decoder */
+			num-chipselect = <4>;
+			fifo-depth = <128>;
+			bus-num = <2>;
+			status = "okay";
+			flash0: n25q00@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "n25q00aa";
+				reg = <0>;      /* chip select */
+				spi-max-frequency = <100000000>;
+				m25p,fast-read;
+				page-size = <256>;
+				block-size = <16>; /* 2^16, 64KB */
+				read-delay = <4>;  /* delay value in read data capture register */
+				tshsl-ns = <50>;
+				tsd2d-ns = <50>;
+				tchsh-ns = <4>;
+				tslch-ns = <4>;
+
+				partition@qspi-boot {
+					label = "Boot and fpga data";
+					reg = <0x0 0x1B20000>;
+				};
+				partition@qspi-rootfs {
+					label = "Root Filesystem - JFFS2";
+					reg = <0x1B20000 0x64E0000>;
+				};
+			};
+		};
+	};
+};

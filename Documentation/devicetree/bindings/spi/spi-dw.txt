@@ -11,6 +11,7 @@ Required properties:
 
 Optional properties:
 - cs-gpios: see spi-bus.txt
+- 32bit_access : use 32 bit register accesses
 
 Example:
 

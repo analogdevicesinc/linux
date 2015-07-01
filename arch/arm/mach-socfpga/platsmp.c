@@ -35,20 +35,29 @@ static int socfpga_boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 	if (socfpga_cpu1start_addr) {
 		/* This will put CPU #1 into reset. */
-		writel(RSTMGR_MPUMODRST_CPU1,
-		       rst_manager_base_addr + SOCFPGA_RSTMGR_MODMPURST);
+		if (of_machine_is_compatible("altr,socfpga-arria10"))
+			writel(RSTMGR_MPUMODRST_CPU1, rst_manager_base_addr +
+			       SOCFPGA_A10_RSTMGR_MODMPURST);
+		else
+			writel(RSTMGR_MPUMODRST_CPU1, rst_manager_base_addr +
+			       SOCFPGA_RSTMGR_MODMPURST);
 
 		memcpy(phys_to_virt(0), &secondary_trampoline, trampoline_size);
 
 		writel(virt_to_phys(socfpga_secondary_startup),
-		       sys_manager_base_addr + (socfpga_cpu1start_addr & 0x000000ff));
+		       sys_manager_base_addr + (socfpga_cpu1start_addr & 0x00000fff));
 
 		flush_cache_all();
 		smp_wmb();
 		outer_clean_range(0, trampoline_size);
 
-		/* This will release CPU #1 out of reset. */
-		writel(0, rst_manager_base_addr + SOCFPGA_RSTMGR_MODMPURST);
+		/* This will release CPU #1 out of reset.*/
+		if (of_machine_is_compatible("altr,socfpga-arria10"))
+			writel(0, rst_manager_base_addr +
+			       SOCFPGA_A10_RSTMGR_MODMPURST);
+		else
+			writel(0, rst_manager_base_addr +
+			       SOCFPGA_RSTMGR_MODMPURST);
 	}
 
 	return 0;
@@ -90,6 +99,9 @@ static void __init socfpga_smp_prepare_cpus(unsigned int max_cpus)
  */
 static void socfpga_cpu_die(unsigned int cpu)
 {
+	/* Flush the L1 data cache. */
+	flush_cache_all();
+
 	/* Do WFI. If we wake up early, go back into WFI */
 	while (1)
 		cpu_do_idle();

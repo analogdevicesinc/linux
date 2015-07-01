@@ -1,0 +1,34 @@
+/*
+ * Copyright (C) 2015 Altera Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+#include "socfpga_arria10_socdk.dtsi"
+
+&mmc {
+	status = "okay";
+	num-slots = <1>;
+	supports-highspeed;
+	broken-cd;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+	clock-freq-min-max = <400000 25000000>;
+	pwr-en = <0>;
+
+	slot@0 {
+		reg = <0>;
+		bus-width = <4>;
+	};
+};

@@ -1,5 +1,7 @@
 /*
- * Copyright (C) 2014 Altera Corporation <www.altera.com>
+ * FPGA Framework
+ *
+ *  Copyright (C) 2013 Altera Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,35 +16,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef __FPGA_CORE_H
+#define __FPGA_CORE_H
 
-/dts-v1/;
-#include "socfpga_arria10.dtsi"
+extern const struct file_operations fpga_mgr_fops;
 
-/ {
-	model = "Altera SOCFPGA Arria 10";
-	compatible = "altr,socfpga-arria10", "altr,socfpga";
-
-	chosen {
-		bootargs = "console=ttyS0,115200 rootwait";
-	};
-
-	memory {
-		name = "memory";
-		device_type = "memory";
-		reg = <0x0 0x40000000>; /* 1GB */
-	};
-
-	soc {
-		clkmgr@ffd04000 {
-			clocks {
-				osc1 {
-					clock-frequency = <25000000>;
-				};
-			};
-		};
-
-		serial0@ffc02000 {
-			status = "okay";
-		};
-	};
-};
+#endif /* __FPGA_CORE_H */
