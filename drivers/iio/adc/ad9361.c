@@ -3917,6 +3917,7 @@ static int ad9361_fastlock_load(struct ad9361_rf_phy *phy, bool tx,
 {
 	u32 offs = 0;
 	int i, ret = 0;
+	u8 buf[4];
 
 	dev_dbg(&phy->spi->dev, "%s: %s Profile %d:",
 		__func__, tx ? "TX" : "RX", profile);
@@ -3924,9 +3925,21 @@ static int ad9361_fastlock_load(struct ad9361_rf_phy *phy, bool tx,
 	if (tx)
 		offs = REG_TX_FAST_LOCK_SETUP - REG_RX_FAST_LOCK_SETUP;
 
-	for (i = 0; i < RX_FAST_LOCK_CONFIG_WORD_NUM; i++)
-		ret |= ad9361_fastlock_writeval(phy->spi, tx, profile,
-						i, values[i], i == 0xF);
+	buf[0] = values[0];
+	buf[1] = RX_FAST_LOCK_PROFILE_ADDR(profile) | RX_FAST_LOCK_PROFILE_WORD(0);
+	ad9361_spi_writem(phy->spi, REG_RX_FAST_LOCK_PROGRAM_DATA + offs, buf, 2);
+
+	for (i = 1; i < RX_FAST_LOCK_CONFIG_WORD_NUM; i++) {
+		buf[0] = RX_FAST_LOCK_PROGRAM_WRITE | RX_FAST_LOCK_PROGRAM_CLOCK_ENABLE;
+		buf[1] = 0;
+		buf[2] = values[i];
+		buf[3] = RX_FAST_LOCK_PROFILE_ADDR(profile) | RX_FAST_LOCK_PROFILE_WORD(i);
+		ad9361_spi_writem(phy->spi, REG_RX_FAST_LOCK_PROGRAM_CTRL + offs, buf, 4);
+	}
+
+	ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_PROGRAM_CTRL + offs,
+			 RX_FAST_LOCK_PROGRAM_WRITE | RX_FAST_LOCK_PROGRAM_CLOCK_ENABLE);
+	ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_PROGRAM_CTRL + offs, 0);
 
 	phy->fastlock.entry[tx][profile].flags = FASTLOOK_INIT;
 	phy->fastlock.entry[tx][profile].alc_orig = values[15];
