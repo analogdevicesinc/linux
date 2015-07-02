@@ -925,6 +925,9 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 		goto err_device_unregister;
 	}
 
+	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_CONFIG,
+			AXI_HDMI_RX_CONFIG_EDGE_SEL);
+
 	return 0;
 
 err_device_unregister:
