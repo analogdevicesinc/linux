@@ -20,7 +20,18 @@
 	compatible = "radxa,rock", "rockchip,rk3188";
 
 	memory {
-		reg = <0x60000000 0x80000000>;
+		reg = <0x60000000 0x7f000000>;
+	};
+
+	framebuffer {
+		compatible = "simple-framebuffer";
+		reg = <0xdf000000 (1280 * 720 * 4)>;
+		width = <1280>;
+		height = <720>;
+		stride = <(1280 * 4)>;
+		format = "x8r8g8b8";
+		pinctrl-names = "default";
+		pinctrl-0 = <&lcdc1_clk &lcdc1_rgb888 &hdmi_rst_n>;
 	};
 
 	gpio-keys {
@@ -43,21 +54,21 @@
 		compatible = "gpio-leds";
 
 		green {
-			label = "rock:green:user1";
+			label = "green";
 			gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
-			default-state = "off";
+			linux,default-trigger = "heartbeat";
 		};
 
 		blue {
-			label = "rock:blue:user2";
+			label = "blue";
 			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
-			default-state = "off";
+			linux,default-trigger = "mmc0";
 		};
 
-		sleep {
-			label = "rock:red:power";
-			gpios = <&gpio0 15 0>;
-			default-state = "off";
+		red {
+			label = "red";
+			gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "rc-feedback";
 		};
 	};
 
@@ -103,6 +114,20 @@
 		regulator-always-on;
 		regulator-boot-on;
 	};
+
+	iio-trigger-hrtimer {
+		compatible = "iio-trigger-hrtimer";
+		status = "okay";
+		/*interrupts = <3 IRQ_TYPE_EDGE_BOTH>;*/
+	};
+
+	iio-interrupt-trigger {
+		compatible = "iio-interrupt-trigger";
+		status = "okay";
+		interrupt-parent = <&gpio1>;
+		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;
+	};
+
 };
 
 &emac {
@@ -121,8 +146,8 @@
 	};
 };
 
-&cpu0 {
-	cpu0-supply = <&vdd_arm>;
+&i2c0 {
+	status = "okay";
 };
 
 &i2c1 {
@@ -235,6 +260,10 @@
 	};
 };
 
+&i2c2 {
+	status = "okay";
+};
+
 &mmc0 {
 	num-slots = <1>;
 	status = "okay";
@@ -247,11 +276,11 @@
 };
 
 &pwm1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &pwm2 {
-	status = "okay";
+	status = "disabled";
 };
 
 &pwm3 {
@@ -261,6 +290,10 @@
 &pinctrl {
 	pcfg_output_low: pcfg-output-low {
 		output-low;
+	};
+
+	pcfg_output_high: pcfg-output-high {
+		output-high;
 	};
 
 	act8846 {
@@ -281,6 +314,12 @@
 		};
 	};
 
+	it66121 {
+		hdmi_rst_n: hdmi_rst_n {
+			rockchip,pins = <RK_GPIO3 10 RK_FUNC_GPIO &pcfg_output_high>;
+		};
+	};
+
 	ir-receiver {
 		ir_recv_pin: ir-recv-pin {
 			rockchip,pins = <RK_GPIO0 10 RK_FUNC_GPIO &pcfg_pull_none>;
@@ -295,6 +334,100 @@
 			rockchip,pins = <2 31 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
+
+	lcdc1 {
+		lcdc1_clk: lcdc1-clk {
+			rockchip,pins = <RK_GPIO2 24 RK_FUNC_1 &pcfg_pull_none>, /* lcd1_dclk  */
+					<RK_GPIO2 25 RK_FUNC_1 &pcfg_pull_none>, /* lcd1_den   */
+					<RK_GPIO2 26 RK_FUNC_1 &pcfg_pull_none>, /* lcd1_hsync */
+					<RK_GPIO2 27 RK_FUNC_1 &pcfg_pull_none>; /* lcd1_vsync */
+		};
+
+		lcdc1_rgb888: lcdc1-rgb888 {
+			rockchip,pins = <RK_GPIO2 0 RK_FUNC_1 &pcfg_pull_none>,  /*  D0 = B0 */
+					<RK_GPIO2 1 RK_FUNC_1 &pcfg_pull_none>,  /*  D1 = B1 */
+					<RK_GPIO2 2 RK_FUNC_1 &pcfg_pull_none>,  /*  D2 = B2 */
+					<RK_GPIO2 3 RK_FUNC_1 &pcfg_pull_none>,  /*  D3 = B3 */
+					<RK_GPIO2 4 RK_FUNC_1 &pcfg_pull_none>,  /*  D4 = B4 */
+					<RK_GPIO2 5 RK_FUNC_1 &pcfg_pull_none>,  /*  D5 = B5 */
+					<RK_GPIO2 6 RK_FUNC_1 &pcfg_pull_none>,  /*  D6 = B6 */
+					<RK_GPIO2 7 RK_FUNC_1 &pcfg_pull_none>,  /*  D7 = B7 */
+					<RK_GPIO2 8 RK_FUNC_1 &pcfg_pull_none>,  /*  D8 = G0 */
+					<RK_GPIO2 9 RK_FUNC_1 &pcfg_pull_none>,  /*  D9 = G1 */
+					<RK_GPIO2 10 RK_FUNC_1 &pcfg_pull_none>, /* D10 = G2 */
+					<RK_GPIO2 11 RK_FUNC_1 &pcfg_pull_none>, /* D11 = G3 */
+					<RK_GPIO2 12 RK_FUNC_1 &pcfg_pull_none>, /* D12 = G4 */
+					<RK_GPIO2 13 RK_FUNC_1 &pcfg_pull_none>, /* D13 = G5 */
+					<RK_GPIO2 14 RK_FUNC_1 &pcfg_pull_none>, /* D14 = G6 */
+					<RK_GPIO2 15 RK_FUNC_1 &pcfg_pull_none>, /* D15 = G7 */
+					<RK_GPIO2 16 RK_FUNC_1 &pcfg_pull_none>, /* D16 = R0 */
+					<RK_GPIO2 17 RK_FUNC_1 &pcfg_pull_none>, /* D17 = R1 */
+					<RK_GPIO2 18 RK_FUNC_1 &pcfg_pull_none>, /* D18 = R2 */
+					<RK_GPIO2 19 RK_FUNC_1 &pcfg_pull_none>, /* D19 = R3 */
+					<RK_GPIO2 20 RK_FUNC_1 &pcfg_pull_none>, /* D20 = R4 */
+					<RK_GPIO2 21 RK_FUNC_1 &pcfg_pull_none>, /* D21 = R5 */
+					<RK_GPIO2 22 RK_FUNC_1 &pcfg_pull_none>, /* D22 = R6 */
+					<RK_GPIO2 23 RK_FUNC_1 &pcfg_pull_none>; /* D23 = R7 */
+		};
+	};
+
+	ad7606 {
+		gpio_convst: gpio-convst {
+			rockchip,pins = <RK_GPIO3 28 RK_FUNC_GPIO &pcfg_pull_none>; 
+		};
+		gpio_reset: gpio-reset {
+			rockchip,pins = <RK_GPIO0 7 RK_FUNC_GPIO &pcfg_pull_none>;  
+		};
+		gpio_range: gpio-range {
+			rockchip,pins = <RK_GPIO0 6 RK_FUNC_GPIO &pcfg_pull_none>;  
+		};
+		gpio_os0: gpio-os0 {
+			rockchip,pins = <RK_GPIO0 9 RK_FUNC_GPIO &pcfg_pull_none>;  
+		};
+		gpio_os1: gpio-os1 {
+			rockchip,pins = <RK_GPIO0 1 RK_FUNC_GPIO &pcfg_pull_none>;  
+		};
+		gpio_os2: gpio-os2 {
+			rockchip,pins = <RK_GPIO3 29 RK_FUNC_GPIO &pcfg_pull_none>; 
+		};
+		/*gpio_frstdata: gpio-frstdata {
+			rockchip,pins = <RK_GPIO1 2 RK_FUNC_GPIO &pcfg_pull_none>;  
+		};*/
+	};
+};
+
+&saradc {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	adc@0 {
+		compatible = "adi,ad7606-8";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+		spi-cpol;
+		ad7606,default_os = <0>;
+		ad7606,default_range = <10000>;
+		ad7606,gpio_convst = <&gpio3 28 GPIO_ACTIVE_LOW>;
+		ad7606,gpio_reset = <&gpio0 7 GPIO_ACTIVE_LOW>;
+		ad7606,gpio_range = <&gpio0 6 GPIO_ACTIVE_LOW>;
+		ad7606,gpio_os0 = <&gpio0 9 GPIO_ACTIVE_LOW>;
+		ad7606,gpio_os1 = <&gpio0 1 GPIO_ACTIVE_LOW>;
+		ad7606,gpio_os2 = <&gpio3 29 GPIO_ACTIVE_LOW>;
+		/*ad7606,gpio_frstdata =  <&gpio1 2 GPIO_ACTIVE_LOW>;*/
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_convst &gpio_reset &gpio_range &gpio_os0 &gpio_os1 &gpio_os2>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
+		dmas = <&dmac2 0>;
+		dma-names = "rx";
+	};
+};
+
+&spi1 {
+	status = "okay";
 };
 
 &uart0 {
@@ -302,7 +435,7 @@
 };
 
 &uart1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &uart2 {
@@ -310,7 +443,7 @@
 };
 
 &uart3 {
-	status = "okay";
+	status = "disabled";
 };
 
 &usb_host {
