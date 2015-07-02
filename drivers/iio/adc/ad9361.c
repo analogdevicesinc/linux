@@ -3636,6 +3636,33 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 			return ret;
 		}
 	}
+
+	/*
+	 * Workaround for clock framework since clocks don't change we
+	 * manually need to enable the filter
+	 */
+
+	if (phy->rx_fir_dec == 1 || phy->bypass_rx_fir) {
+		ad9361_spi_writef(phy->spi, REG_RX_ENABLE_FILTER_CTRL,
+			RX_FIR_ENABLE_DECIMATION(~0), !phy->bypass_rx_fir);
+	}
+
+	if (phy->tx_fir_int == 1 || phy->bypass_tx_fir) {
+		ad9361_spi_writef(phy->spi, REG_TX_ENABLE_FILTER_CTRL,
+			TX_FIR_ENABLE_INTERPOLATION(~0), !phy->bypass_tx_fir);
+	}
+
+	/* The FIR filter once enabled causes the interface timing to change.
+	 * It's typically not a problem if the timing margin is big enough.
+	 * However at 61.44 MSPS it causes problems on some systems.
+	 * So we always run the digital tune in case the filter is enabled.
+	 * If it is disabled we restore the values from the initial calibration.
+	 */
+
+	if (!phy->pdata->dig_interface_tune_fir_disable &&
+		!(phy->bypass_tx_fir && phy->bypass_rx_fir))
+		ret = ad9361_dig_tune(phy, 0, SKIP_STORE_RESULT);
+
 	return ad9361_bb_clk_change_handler(phy);
 }
 EXPORT_SYMBOL(ad9361_set_trx_clock_chain);
@@ -4067,6 +4094,7 @@ static int ad9361_fastlock_save(struct ad9361_rf_phy *phy, bool tx,
 
 	for (i = 0; i < RX_FAST_LOCK_CONFIG_WORD_NUM; i++)
 		values[i] = ad9361_fastlock_readval(phy->spi, tx, profile, i);
+
 
 	return 0;
 }
@@ -4530,6 +4558,7 @@ static int ad9361_verify_fir_filter_coef(struct ad9361_rf_phy *phy,
 		ad9361_spi_write(spi, REG_TX_FILTER_CONF + offs,
 				 FIR_NUM_TAPS(ntaps / 16 - 1) |
 				 FIR_SELECT(sel) | FIR_START_CLK);
+
 		for (val = 0; val < ntaps; val++) {
 			short tmp;
 			ad9361_spi_write(spi, REG_TX_FILTER_COEF_ADDR + offs, val);
@@ -4772,7 +4801,7 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 	unsigned long rx[6], tx[6];
 	u32 max, valid;
 
-	dev_dbg(dev, "%s: TX FIR EN=%d/TAPS%d/INT%d, RX FIR EN=%d/TAPS%d/DEC%d",
+	dev_err(dev, "%s: TX FIR EN=%d/TAPS%d/INT%d, RX FIR EN=%d/TAPS%d/DEC%d",
 		__func__, !phy->bypass_tx_fir, phy->tx_fir_ntaps, phy->tx_fir_int,
 		!phy->bypass_rx_fir, phy->rx_fir_ntaps, phy->rx_fir_dec);
 
@@ -4867,20 +4896,10 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	/*
-	 * Workaround for clock framework since clocks don't change we
-	 * manually need to enable the filter
-	 */
-
-	if (phy->rx_fir_dec == 1 || phy->bypass_rx_fir) {
-		ad9361_spi_writef(phy->spi, REG_RX_ENABLE_FILTER_CTRL,
-			RX_FIR_ENABLE_DECIMATION(~0), !phy->bypass_rx_fir);
-	}
-
-	if (phy->tx_fir_int == 1 || phy->bypass_tx_fir) {
-		ad9361_spi_writef(phy->spi, REG_TX_ENABLE_FILTER_CTRL,
-			TX_FIR_ENABLE_INTERPOLATION(~0), !phy->bypass_tx_fir);
-	}
+	/* See also: ad9361_set_trx_clock_chain() */
+	if (!phy->pdata->dig_interface_tune_fir_disable &&
+		phy->bypass_tx_fir && phy->bypass_rx_fir)
+		ad9361_dig_tune(phy, 0, RESTORE_DEFAULT);
 
 	return ad9361_update_rf_bandwidth(phy,
 		valid ? phy->filt_rx_bw_Hz : phy->current_rx_bw_Hz,
@@ -7350,6 +7369,9 @@ static struct ad9361_phy_platform_data
 
 	ad9361_of_get_u32(iodev, np, "adi,digital-interface-tune-skip-mode", 0,
 			  &pdata->dig_interface_tune_skipmode);
+
+	ad9361_of_get_bool(iodev, np, "adi,digital-interface-tune-fir-disable",
+			   &pdata->dig_interface_tune_fir_disable);
 
 	ad9361_of_get_bool(iodev, np, "adi,2rx-2tx-mode-enable", &pdata->rx2tx2);
 
