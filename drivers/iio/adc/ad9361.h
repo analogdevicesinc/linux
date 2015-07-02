@@ -3101,6 +3101,7 @@ struct ad9361_phy_platform_data {
 	bool			use_ext_tx_lo;
 	bool			rx1rx2_phase_inversion_en;
 	bool			qec_tracking_slow_mode_en;
+	bool			dig_interface_tune_fir_disable;
 	u8			dc_offset_update_events;
 	u8			dc_offset_attenuation_high;
 	u8			dc_offset_attenuation_low;
@@ -3233,6 +3234,8 @@ enum dig_tune_flags {
 	BE_MOREVERBOSE = 2,
 	DO_IDELAY = 4,
 	DO_ODELAY = 8,
+	SKIP_STORE_RESULT = 16,
+	RESTORE_DEFAULT = 32,
 };
 
 enum ad9361_bist_mode {
@@ -3289,7 +3292,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[171];
+	struct ad9361_debugfs_entry debugfs_entry[172];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
