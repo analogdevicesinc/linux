@@ -2967,7 +2967,7 @@ static int adv76xx_probe(struct i2c_client *client,
 	/* Request IRQ if available. */
 	if (client->irq) {
 		err = request_threaded_irq(client->irq, NULL, adv76xx_irq_handler,
-					   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 					   KBUILD_MODNAME, state);
 		if (err < 0) {
 			v4l2_err(client, "Request interrupt error\n");
