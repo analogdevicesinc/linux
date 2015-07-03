@@ -1100,6 +1100,23 @@ static int adv7511_s_dv_timings(struct v4l2_subdev *sd,
 	/* save timings */
 	state->dv_timings = *timings;
 
+	if (state->cfg.embedded_sync) {
+		const struct v4l2_bt_timings *bt = &timings->bt;
+		unsigned int vfrontporch;
+
+		/* The hardware vsync generator has a off-by-one bug */
+		vfrontporch = bt->vfrontporch + 1;
+
+		adv7511_wr(sd, 0x30, (bt->hfrontporch >> 2) & 0xff);
+		adv7511_wr(sd, 0x31, ((bt->hfrontporch & 3) << 6) |
+			((bt->hsync >> 4) & 0x3f));
+		adv7511_wr(sd, 0x32, ((bt->hsync & 0xf) << 4) |
+			((vfrontporch >> 6) & 0xf));
+		adv7511_wr(sd, 0x33, ((vfrontporch & 0x3f) << 2) |
+			((bt->vsync >> 8) & 0x3));
+		adv7511_wr(sd, 0x34, bt->vsync & 0xff);
+	}
+
 	/* set h/vsync polarities */
 	adv7511_wr_and_or(sd, 0x17, 0x9f,
 		((bt->polarities & V4L2_DV_VSYNC_POS_POL) ? 0 : 0x40) |
