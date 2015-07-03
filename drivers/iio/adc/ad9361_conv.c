@@ -489,7 +489,6 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 							     phy->pdata->ensm_pin_ctrl);
 					ad9361_ensm_restore_prev_state(phy);
 				}
-
 				return 0;
 			}
 
