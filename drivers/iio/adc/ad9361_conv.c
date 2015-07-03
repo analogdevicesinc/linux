@@ -475,6 +475,9 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			/* Now do the loopback and tune the digital out */
 			ad9361_bist_prbs(phy, BIST_DISABLE);
 
+			axiadc_write(st, ADI_REG_RSTN, ADI_MMCM_RSTN);
+			axiadc_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
+
 			if (phy->pdata->dig_interface_tune_skipmode == 1) {
 			/* skip TX */
 				if (!(flags & SKIP_STORE_RESULT))
@@ -556,6 +559,9 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 				ad9361_set_ensm_mode(phy, phy->pdata->fdd, phy->pdata->ensm_pin_ctrl);
 				ad9361_ensm_restore_prev_state(phy);
 			}
+
+			axiadc_write(st, ADI_REG_RSTN, ADI_MMCM_RSTN);
+			axiadc_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
 
 			return err;
 		}
