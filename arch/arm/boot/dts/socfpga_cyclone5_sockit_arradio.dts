@@ -86,7 +86,7 @@
 			host-perio-tx-fifo-size = <0xa00>;
 			host-nperio-tx-fifo-size = <0xa00>;
 			dma-desc-enable = <0>;
-      dr_mode = "host";
+			dr_mode = "host";
 		};
 
 		clocks {
