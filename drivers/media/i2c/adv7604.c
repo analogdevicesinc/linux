@@ -2215,6 +2215,7 @@ static int adv76xx_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 	const u8 irq_reg_0x70 = io_read(sd, 0x70);
 	u8 fmt_change_digital;
 	u8 fmt_change;
+	u8 hdmi_mode;
 	u8 tx_5v;
 
 	if (irq_reg_0x43)
@@ -2242,8 +2243,17 @@ static int adv76xx_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 		if (handled)
 			*handled = true;
 	}
+
+	if (info->type == ADV7604) {
+		hdmi_mode = irq_reg_0x6b & 0x1;
+	} else {
+		hdmi_mode = io_read(sd, 0x66);
+		io_write(sd, 0x67, hdmi_mode);
+		hdmi_mode &= 0x08;
+	}
+
 	/* HDMI/DVI mode */
-	if (irq_reg_0x6b & 0x01) {
+	if (hdmi_mode) {
 		v4l2_dbg(1, debug, sd, "%s: irq %s mode\n", __func__,
 			(io_read(sd, 0x6a) & 0x01) ? "HDMI" : "DVI");
 		set_rgb_quantization_range(sd);
@@ -2888,6 +2898,7 @@ static void adv7604_setup_irqs(struct v4l2_subdev *sd)
 static void adv7611_setup_irqs(struct v4l2_subdev *sd)
 {
 	io_write(sd, 0x41, 0xd0); /* STDI irq for any change, disable INT2 */
+	io_write(sd, 0x69, 0x08); /* HDMI mode interrupt */
 }
 
 static void adv7612_setup_irqs(struct v4l2_subdev *sd)
