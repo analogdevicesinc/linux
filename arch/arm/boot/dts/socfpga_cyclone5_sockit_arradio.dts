@@ -66,7 +66,7 @@
 		uart1: serial1@ffc03000 {
 			clock-frequency = <100000000>;
 		};
-		
+
 		mmc: dwmmc0@ff704000 {
 			num-slots = <0x1>;
 			supports-highspeed;
@@ -78,7 +78,7 @@
 				bus-width = <0x4>;
 			};
 		};
-		
+
 		usb1: usb@ffb40000 {
 			status = "okay";
 			enable-dynamic-fifo = <1>;
@@ -86,6 +86,7 @@
 			host-perio-tx-fifo-size = <0xa00>;
 			host-nperio-tx-fifo-size = <0xa00>;
 			dma-desc-enable = <0>;
+      dr_mode = "host";
 		};
 
 		clocks {
@@ -95,7 +96,7 @@
 				clock-frequency = <40000000>;
 				clock-output-names = "ad9361_ext_refclk";
 			};
-			
+
 			axi_dmac0_clk: axi_dmac0_clk@1 {
 				#clock-cells = <0x0>;
 				compatible = "fixed-clock";
@@ -121,7 +122,7 @@
 				<0x00000001 0x00000000 0xff200000 0x00004000>,
 				<0x00000001 0x00008000 0xff208000 0x00000020>,
 				<0x00000001 0x00009000 0xff209000 0x00000080>;
-				
+
 			alt_vip_vfr_vga: vip@0x100009000 {
 				compatible = "ALTR,vip-frame-reader-14.0", "ALTR,vip-frame-reader-9.1";
 				reg = <0x00000001 0x00009000 0x00000080>;
@@ -140,7 +141,7 @@
 				dma-names = "rx";
 				spibus-connected = <&adc0_ad9361>;
 			};
-			
+
 			cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@0x100020000 {
 				compatible = "adi,axi-ad9361-dds-6.00.a";
 				reg = <0x00000001 0x00024000 0x00001000>;
