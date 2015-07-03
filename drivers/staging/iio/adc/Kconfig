@@ -36,6 +36,18 @@ config AD7606_IFACE_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7606_iface_spi.
 
+config AD7606_DMA_BUFFER
+	tristate "ad7606 adc dma buffer support"
+	depends on AD7606
+	depends on SPI
+	select DMA_ENGINE
+	help
+	  Say yes here to include dma buffer support on the AD7606
+	  ADC driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad7606_dma_buffer.
+
 config AD7780
 	tristate "Analog Devices AD7780 and similar ADCs driver"
 	depends on SPI
