@@ -2815,17 +2815,6 @@ static int adv76xx_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	/* Request IRQ if available. */
-	if (client->irq) {
-		err = request_threaded_irq(client->irq, NULL, adv76xx_irq_handler,
-					   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-					   KBUILD_MODNAME, state);
-		if (err < 0) {
-			v4l2_err(client, "Request interrupt error\n");
-			return err;
-		}
-	}
-
 	/* Request GPIOs. */
 	for (i = 0; i < state->info->num_dv_ports; ++i) {
 		state->hpd_gpio[i] =
@@ -2975,12 +2964,26 @@ static int adv76xx_probe(struct i2c_client *client,
 	v4l2_info(sd, "%s found @ 0x%x (%s)\n", client->name,
 			client->addr << 1, client->adapter->name);
 
+	/* Request IRQ if available. */
+	if (client->irq) {
+		err = request_threaded_irq(client->irq, NULL, adv76xx_irq_handler,
+					   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					   KBUILD_MODNAME, state);
+		if (err < 0) {
+			v4l2_err(client, "Request interrupt error\n");
+			goto err_entity;
+		}
+	}
+
 	err = v4l2_async_register_subdev(sd);
 	if (err)
-		goto err_entity;
+		goto err_free_irq;
 
 	return 0;
 
+err_free_irq:
+	if (client->irq)
+		free_irq(client->irq, state);
 err_entity:
 	media_entity_cleanup(&sd->entity);
 err_work_queues:
