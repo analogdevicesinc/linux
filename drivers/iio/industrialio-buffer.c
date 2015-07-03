@@ -1401,9 +1401,7 @@ static int iio_buffer_dequeue_block(struct iio_dev *indio_dev,
 		}
 
 		ret = buffer->access->dequeue_block(buffer, &block);
-		if (ret == -EAGAIN && non_blocking)
-			ret = 0;
-	 } while (ret);
+	 } while (ret == -EAGAIN && !non_blocking);
 
 	 if (ret)
 		return ret;
