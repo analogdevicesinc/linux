@@ -105,3 +105,5 @@ all.config
 
 # Kdevelop4
 *.kdev4
+zImage-dtb
+boot.img

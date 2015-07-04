@@ -103,12 +103,26 @@ static int iio_interrupt_trigger_remove(struct platform_device *pdev)
 
 	return 0;
 }
+//=============== add by HJW 2015-06-19 =========================
+#ifdef CONFIG_OF
+static const struct of_device_id iio_interrupt_trigger_dt_ids[] = {
+	{ .compatible = "iio-interrupt-trigger" },
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, ad7606_dt_ids);
+#endif
+//=============================================================
 
 static struct platform_driver iio_interrupt_trigger_driver = {
 	.probe = iio_interrupt_trigger_probe,
 	.remove = iio_interrupt_trigger_remove,
 	.driver = {
 		.name = "iio_interrupt_trigger",
+//=============== add by HJW 2015-06-19 =========================
+#ifdef CONFIG_OF
+		.of_match_table = of_match_ptr(iio_interrupt_trigger_dt_ids),
+#endif
+//=============================================================
 	},
 };
 

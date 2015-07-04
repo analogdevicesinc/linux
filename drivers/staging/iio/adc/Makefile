@@ -6,6 +6,7 @@ ad7606-y := ad7606_core.o
 ad7606-$(CONFIG_IIO_BUFFER) += ad7606_ring.o
 ad7606-$(CONFIG_AD7606_IFACE_PARALLEL) += ad7606_par.o
 ad7606-$(CONFIG_AD7606_IFACE_SPI) += ad7606_spi.o
+ad7606-$(CONFIG_AD7606_DMA_BUFFER) += ad7606_ring_stream.o
 obj-$(CONFIG_AD7606) += ad7606.o
 
 obj-$(CONFIG_AD7780) += ad7780.o
