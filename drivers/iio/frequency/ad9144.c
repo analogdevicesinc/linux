@@ -80,6 +80,7 @@ static int ad9144_get_temperature_code(struct cf_axi_converter *conv)
 static int ad9144_setup(struct cf_axi_converter *conv, struct ad9144_platform_data *pdata)
 {
 	struct spi_device *spi = conv->spi;
+	u8 val, i, timeout;
 
 	// power-up and dac initialization
 
@@ -183,82 +184,19 @@ static int ad9144_setup(struct cf_axi_converter *conv, struct ad9144_platform_da
 	ad9144_write(spi, 0x0e9, 0x03);	// single cal start
 	mdelay(10);
 
-	ad9144_write(spi, 0x0e8, 0x01);	// read dac-0
-	if ((ad9144_read(spi, 0x0e9) & 0xc0) != 0x80) {
-		dev_err(&spi->dev, "AD9144, dac-0 calibration failed!!\n");
-	}
+	for (i = 0, timeout = 30; i < 2; i++) {
+		ad9144_write(spi, 0x0e8, 1 << i); // read dac-x
+		do {
+			mdelay(1);
+			val = ad9144_read(spi, 0x0e9);
+		} while ((val & CAL_ACTIVE) && timeout--);
 
-	ad9144_write(spi, 0x0e8, 0x02);	// read dac-1
-	if ((ad9144_read(spi, 0x0e9) & 0xc0) != 0x80) {
-		dev_err(&spi->dev, "AD9144, dac-1 calibration failed!!\n");
+		if ((val & (CAL_FIN | CAL_ERRHI | CAL_ERRLO)) != CAL_FIN) {
+			dev_err(&spi->dev, "AD9144, dac-%d calibration failed (0x%X)!!\n", i, val);
+		}
 	}
 
 	ad9144_write(spi, 0x0e7, 0x30);	// turn off cal clock
-
-#if 0
-	mdelay(50);
-
-	ad9144_write(spi, REG_SPI_INTFCONFA, SOFTRESET_M | SOFTRESET);	// reset
-	ad9144_write(spi, REG_SPI_INTFCONFA, 0x00);	// reset
-	mdelay(1);
-
-	ad9144_write(spi, REG_PWRCNTRL0, PD_DAC_2 | PD_DAC_3);	// 0x11 dacs - power up everything
-	ad9144_write(spi, REG_CLKCFG0, PD_CLK23);	// 0x80 clocks - power up everything
-	ad9144_write(spi, REG_SYSREF_ACTRL0, 0x00);	// 0x81 sysref - power up/falling edge
-	ad9144_write(spi, 0x2a7, 0x01);	// input termination calibration
-	ad9144_write(spi, 0x2ae, 0x01);	// input termination calibration
-	ad9144_write(spi, 0x2a4, 0x4b);	// clock termination (0x77 ?)
-	ad9144_write(spi, 0x112, 0x00);	// interpolation (bypass)
-
-	ad9144_write(spi, 0x200, 0x00);	// phy - power up
-
-	for (i = 0; i < 2; i++) {
-		ad9144_write(spi, 0x300, (i ? SEL_REG_MAP_1 : 0) | LINK_MODE);	// dual link - disabled
-		ad9144_write(spi, 0x452, 0x04);	// lane-0, link id
-		ad9144_write(spi, 0x453, 0x83);	// descrambling, 4 lanes
-		ad9144_write(spi, 0x454, 0x00);	// octects per frame per lane (1)
-		ad9144_write(spi, 0x476, 0x01);	// frame - bytecount (1)
-		ad9144_write(spi, 0x455, 0x1f);	// mult-frame - framecount (32)
-		ad9144_write(spi, 0x456, 0x01);	// no-of-converters (2)
-		ad9144_write(spi, 0x457, 0x0f);	// no CS bits, 16bit dac
-		ad9144_write(spi, 0x458, 0x2f);	// subclass 1, 16bits per sample
-		ad9144_write(spi, 0x459, 0x20);	// jesd204b, 1 samples per converter per device
-		ad9144_write(spi, 0x45a, 0x80);	// HD mode, no CS bits
-		ad9144_write(spi, 0x45d, 0x49);	// check-sum of 0x450 to 0x45c
-		ad9144_write(spi, 0x478, 0x01);	// ilas mf count (4)
-		ad9144_write(spi, 0x46c, 0x0f);	// enable deskew for all lanes
-		ad9144_write(spi, 0x47d, 0x0f);	// enable all lanes
-	}
-
-	ad9144_write(spi, 0x230, 0x28);	// cdr mode - halfrate, no division
-	ad9144_write(spi, 0x206, 0x00);	// cdr reset
-	ad9144_write(spi, 0x206, 0x01);	// cdr reset
-	ad9144_write(spi, 0x289, 0x00);	// data-rate == 10Gbps
-	ad9144_write(spi, REG_SYNTH_ENABLE_CNTRL, SPI_ENABLE_SYNTH);	// enable serdes pll
-	ad9144_write(spi, REG_SYNTH_ENABLE_CNTRL, SPI_ENABLE_SYNTH | SPI_RECAL_SYNTH);	// enable serdes calibration
-
-	mdelay(50);
-
-	if ((ad9144_read(spi, 0x281) & 0x01) == 0x00) {
-		dev_err(&spi->dev, "AD9144, PLL/link errors!!\n\r");
-	}
-
-	ad9144_write(spi, 0x314, 0x01);	// pclk == qbd master clock
-	ad9144_write(spi, 0x301, 0x01);	// subclass-1
-
-	ad9144_write(spi, 0x03a, 0x00);	// sync-disable
-	ad9144_write(spi, 0x03a, 0x01);	// sync-oneshot mode
-	ad9144_write(spi, 0x03a, 0x81);	// sync-enable
-	ad9144_write(spi, 0x03a, 0xc1);	// sysref-armed
-	ad9144_write(spi, 0x306, 0x0a);	// receive buffer delay
-	ad9144_write(spi, 0x307, 0x0a);	// receive buffer delay
-	ad9144_write(spi, 0x304, 0x00);	// lmfc delay
-	ad9144_write(spi, 0x305, 0x00);	// lmfc delay
-	ad9144_write(spi, 0x0f7, 0x18);	// data path enable
-	ad9144_write(spi, 0x033, 0x80);	// sync enable
-	ad9144_write(spi, 0x034, 0x01);	// oneshot sysref
-	ad9144_write(spi, 0x300, 0x03);	// enable link
-#endif
 
 	return 0;
 }
