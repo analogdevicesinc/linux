@@ -867,6 +867,10 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 			goto err_i2c_unregister_device;
 
 		init_waitqueue_head(&adv7511->wq);
+	} else {
+		regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE0, 0x00);
+		regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE1, 0x00);
+		regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE2, 0x00);
 	}
 
 	/* CEC is unused for now */
