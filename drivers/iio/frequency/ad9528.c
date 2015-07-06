@@ -211,7 +211,7 @@
 
 #define AD9528_NUM_CHAN					14
 
-#define AD9528_SPI_MAGIC				0x0100FF05
+#define AD9528_SPI_MAGIC				0x00FF05
 
 /* Helpers to avoid excess line breaks */
 #define AD_IFE(_pde, _a, _b) ((pdata->_pde) ? _a : _b)
@@ -324,7 +324,7 @@ static int ad9528_write(struct iio_dev *indio_dev, unsigned addr, unsigned val)
 			AD9528_ADDR(addr));
 	st->data[1].d32 = cpu_to_be32(val);
 
-	dev_info(&indio_dev->dev, "Write 0x%x: 0x%x\n",
+	dev_dbg(&indio_dev->dev, "Write 0x%x: 0x%x\n",
 			AD9528_ADDR(addr) - AD9528_TRANSF_LEN(addr) + 1, val);
 
 	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
@@ -773,7 +773,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	if (ret != AD9528_SPI_MAGIC) {
+	if ((ret & 0xFFFFFF) != AD9528_SPI_MAGIC) {
 		dev_err(&indio_dev->dev,
 				"SPI Read Verify failed (0x%X)\n", ret);
 		return -EIO;
