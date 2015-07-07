@@ -123,34 +123,34 @@
 	};
 
 	vga0_ada4961: ada4961-A@3 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "ada4961";
-			reg = <3>;
-			spi-max-frequency = <10000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ada4961";
+		reg = <3>;
+		spi-max-frequency = <10000000>;
 	};
 
 	vga1_ada4961: ada4961-B@4 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "ada4961";
-			reg = <4>;
-			spi-max-frequency = <10000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ada4961";
+		reg = <4>;
+		spi-max-frequency = <10000000>;
 	};
 
 	vga2_ada4961: ada4961-C@5 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "ada4961";
-			reg = <5>;
-			spi-max-frequency = <10000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ada4961";
+		reg = <5>;
+		spi-max-frequency = <10000000>;
 	};
 
 	vga3_ada4961: ada4961-D@6 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "ada4961";
-			reg = <6>;
-			spi-max-frequency = <10000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ada4961";
+		reg = <6>;
+		spi-max-frequency = <10000000>;
 	};
 };
