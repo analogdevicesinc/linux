@@ -16,6 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/gpio/consumer.h>
+#include <linux/of.h>
 
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
@@ -813,6 +814,23 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S', 0,
 				       ad9680_events, ARRAY_SIZE(ad9680_events)),
 		       },
+	[ID_AD9680_x2] = {
+		       .name = "AD9680",
+		       .max_rate = 1250000000UL,
+		       .scale_table = ad9680_scale_table,
+		       .num_scales = ARRAY_SIZE(ad9680_scale_table),
+		       .max_testmode = TESTMODE_RAMP,
+		       .num_channels = 4,
+		       .num_shadow_slave_channels = 2,
+		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0,
+				       ad9680_events, ARRAY_SIZE(ad9680_events)),
+		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S', 0,
+				       ad9680_events, ARRAY_SIZE(ad9680_events)),
+		       .channel[2] = AIM_CHAN_NOCALIB(2, 2, 14, 'S', 0,
+				       ad9680_events, ARRAY_SIZE(ad9680_events)),
+		       .channel[3] = AIM_CHAN_NOCALIB(3, 3, 14, 'S', 0,
+				       ad9680_events, ARRAY_SIZE(ad9680_events)),
+	},
 	[ID_AD9652] = {
 		       .name = "AD9652",
 		       .max_rate = 310000000UL,
@@ -1180,6 +1198,7 @@ static int ad9467_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv;
 	struct clk *clk = NULL;
+	bool master_slave_2x_quirk = false;
 	int ret, clk_enabled = 0;
 
 	clk = devm_clk_get(&spi->dev, NULL);
@@ -1289,13 +1308,19 @@ static int ad9467_probe(struct spi_device *spi)
 		ret = ad9680_outputmode_set(spi, conv->adc_output_mode);
 		break;
 	case CHIPID_AD9680:
+#ifdef CONFIG_OF
+		if (spi->dev.of_node)
+			master_slave_2x_quirk = of_property_read_bool(
+				spi->dev.of_node, "adi,master-slave-2x-quirk");
+#endif
 		ret = ad9680_setup(spi, 1, 1, false);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize\n");
 			ret = -EIO;
 			goto out;
 		}
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9680];
+		conv->chip_info = &axiadc_chip_info_tbl[master_slave_2x_quirk ?
+			ID_AD9680_x2 : ID_AD9680];
 		conv->adc_output_mode =
 		    AD9680_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
 		ret = ad9680_outputmode_set(spi, conv->adc_output_mode);

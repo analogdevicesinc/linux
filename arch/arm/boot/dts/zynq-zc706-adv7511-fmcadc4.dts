@@ -18,36 +18,20 @@
 		};
 	};
 
-	axi_ad9680_core0: axi-ad9680-hpc@44a00000 {
+	axi_ad9680_core0: axi-ad9680-hpc-ab@44a00000 {
 		compatible = "adi,axi-ad9680-1.0";
 		reg = < 0x44a00000 0x10000 >;
 		dmas = <&rx_dma0 0>;
 		dma-names = "rx";
 		spibus-connected = <&adc0_ad9680>;
-
-		xlnx,pcore-device-type = <0x0>;
-		xlnx,pcore-id = <0x0>;
-		xlnx,pcore-iodelay-group = "adc_if_delay_group";
-		xlnx,s-axi-min-size = <0xffff>;
+		slavecore-reg = <0x44a10000 0x10000>;
 	};
 
-/*
-	TODO: currently the driver and the IIO subsystem don't handle
-	that several IIO devices can share one DMA
-
-	axi_ad9680_core1: axi-ad9680-hpc@44a10000 {
+	axi_ad9680_core1: axi-ad9680-hpc-cd@44a10000 {
 		compatible = "adi,axi-ad9680-1.0";
 		reg = < 0x44a10000 0x10000 >;
-		dmas = <&rx_dma0 0>;
-		dma-names = "rx";
 		spibus-connected = <&adc1_ad9680>;
-
-		xlnx,pcore-device-type = <0x0>;
-		xlnx,pcore-id = <0x0>;
-		xlnx,pcore-iodelay-group = "adc_if_delay_group";
-		xlnx,s-axi-min-size = <0xffff>;
 	};
-	*/
 
 	axi_ad9680_jesd: axi-jesd204b-rx@44a91000 {
 		#clock-cells = <0>;
