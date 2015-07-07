@@ -44,6 +44,7 @@ struct iio_buffer_block {
 };
 
 struct iio_buffer;
+struct pipe_inode_info;
 
 /**
  * struct iio_buffer_access_funcs - access functions for buffers.
@@ -74,6 +75,13 @@ struct iio_buffer_access_funcs {
 	int (*write)(struct iio_buffer *buffer, size_t n,
 		const char __user *buf);
 	bool (*space_available)(struct iio_buffer *buffer);
+
+	ssize_t (*splice_read)(struct iio_buffer *buffer,
+			struct iio_dev *indio_dev, struct pipe_inode_info *pipe,
+			size_t pages, unsigned int flags, bool non_blocking);
+	ssize_t (*splice_write)(struct iio_buffer *buffer,
+			struct iio_dev *indio_dev, struct pipe_inode_info *pipe,
+			size_t pages, unsigned int flags, bool non_blocking);
 
 	int (*request_update)(struct iio_buffer *buffer);
 

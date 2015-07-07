@@ -17,11 +17,13 @@
 #include <linux/export.h>
 #include <linux/device.h>
 #include <linux/fs.h>
+#include <linux/file.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/dma-mapping.h>
+#include <linux/pipe_fs_i.h>
 
 #include <linux/iio/iio.h>
 #include "iio_core.h"
@@ -1506,4 +1508,40 @@ int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma)
 	}
 
 	return indio_dev->buffer->access->mmap(indio_dev->buffer, vma);
+}
+
+ssize_t iio_buffer_splice_write(struct pipe_inode_info *pipe,
+		struct file *filep, loff_t *ppos,
+		size_t count, unsigned int flags)
+{
+	bool non_blocking = filep->f_flags & O_NONBLOCK;
+	struct iio_dev *indio_dev = filep->private_data;
+	struct iio_buffer *buffer = indio_dev->buffer;
+
+	if (!buffer->access->splice_write)
+		return -ENOSYS;
+
+	if (unlikely(indio_dev->direction != IIO_DEVICE_DIRECTION_OUT))
+		return -EINVAL;
+
+	return buffer->access->splice_write(buffer, indio_dev,
+			pipe, count, flags, non_blocking);
+}
+
+ssize_t iio_buffer_splice_read(struct file *filep, loff_t *ppos,
+		struct pipe_inode_info *pipe, size_t count,
+		unsigned int flags)
+{
+	bool non_blocking = filep->f_flags & O_NONBLOCK;
+	struct iio_dev *indio_dev = filep->private_data;
+	struct iio_buffer *buffer = indio_dev->buffer;
+
+	if (!buffer->access->splice_read)
+		return -ENOSYS;
+
+	if (unlikely(indio_dev->direction != IIO_DEVICE_DIRECTION_IN))
+		return -EINVAL;
+
+	return buffer->access->splice_read(buffer, indio_dev,
+			pipe, count, flags, non_blocking);
 }

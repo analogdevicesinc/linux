@@ -42,6 +42,7 @@ ssize_t iio_format_value(char *buf, unsigned int type, int size, int *vals);
 
 #ifdef CONFIG_IIO_BUFFER
 struct poll_table_struct;
+struct pipe_inode_info;
 
 unsigned int iio_buffer_poll(struct file *filp,
 			     struct poll_table_struct *wait);
@@ -63,12 +64,21 @@ long iio_buffer_ioctl(struct iio_dev *indio_dev, struct file *filp,
 int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma);
 void iio_buffer_free_blocks(struct iio_buffer *buffer);
 
+ssize_t iio_buffer_splice_read(struct file *filp, loff_t *ppos,
+		struct pipe_inode_info *pipe, size_t count,
+		unsigned int flags);
+ssize_t iio_buffer_splice_write(struct pipe_inode_info *pipe,
+		struct file *out, loff_t *ppos,
+		size_t len, unsigned int flags);
+
 #else
 
 #define iio_buffer_chrdev_write NULL
 #define iio_buffer_poll_addr NULL
 #define iio_buffer_read_first_n_outer_addr NULL
 #define iio_buffer_mmap NULL
+#define iio_buffer_splice_read NULL
+#define iio_buffer_splice_write NULL
 
 static inline int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 {

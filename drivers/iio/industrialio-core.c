@@ -1176,6 +1176,7 @@ static const struct file_operations iio_buffer_in_fileops = {
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = iio_ioctl,
 	.mmap = iio_buffer_mmap,
+	.splice_read = iio_buffer_splice_read,
 };
 
 static int iio_check_unique_scan_index(struct iio_dev *indio_dev)
@@ -1213,6 +1214,7 @@ static const struct file_operations iio_buffer_out_fileops = {
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = iio_ioctl,
 	.mmap = iio_buffer_mmap,
+	.splice_write = iio_buffer_splice_write,
 };
 
 /**
