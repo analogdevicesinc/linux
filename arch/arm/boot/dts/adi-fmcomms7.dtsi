@@ -1,0 +1,156 @@
+/ {
+	clocks {
+
+	};
+};
+
+&fmc_spi {
+	clk0_hmc7044: hmc7044@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "hmc7044";
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+
+		spi-max-frequency = <1000000>;
+		clock-output-names = "clk-0", "clk-1", "clk-2", "clk-3", "clk-4", "clk-5", "clk-6", "clk-7", "clk-8", "clk-9", "clk-10", "clk-11", "clk-12", "clk-13";
+
+	};
+
+	dac0_ad9144: ad9144@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad9144";
+		reg = <1>;
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <1000000>;
+		clocks = <&axi_ad9144_jesd>, <&clk0_hmc7044 10>, <&clk0_hmc7044 11>;
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+
+		adi,jesd-xbar-lane0-sel = <2>;
+		adi,jesd-xbar-lane1-sel = <3>;
+		adi,jesd-xbar-lane2-sel = <0>;
+		adi,jesd-xbar-lane3-sel = <1>;
+	};
+
+	adc0_ad9680: ad9680@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad9680";
+		reg = <2>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+		spi-cpha;
+		clocks = <&axi_ad9680_jesd>, <&clk0_hmc7044 6>, <&clk0_hmc7044 7>;
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+	};
+};
+
+&fmc_spi2 {
+
+	pll0_adf4355: adf4355_1_LO_TX@0 {
+		compatible = "adf4355-3";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		clocks = <&clk0_hmc7044 2>;
+		clock-names = "clkin";
+		clock-output-names = "adf4355_1_out";
+		//adi,reference-doubler-enable;
+		adi,reference-div2-enable;
+		//adi,phase-detector-polarity-negative-enable;
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <6>;
+		adi,mute-till-lock-enable;
+		adi,output-a-power = <2>;
+		adi,output-b-power = <2>;
+		adi,output-b-enable;
+		adi,output-a-enable;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,muxout-level-3v3-enable;
+		adi,power-up-frequency = <2400000000>;
+	};
+
+	pll1_adf4355: adf4355_2_LO_RX@1 {
+		compatible = "adf4355-3";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		clocks = <&clk0_hmc7044 0>;
+		clock-names = "clkin";
+		clock-output-names = "adf4355_2_out";
+		//adi,reference-doubler-enable;
+		adi,reference-div2-enable;
+		//adi,phase-detector-polarity-negative-enable;
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <6>;
+		adi,mute-till-lock-enable;
+		adi,output-a-power = <2>;
+		adi,output-a-enable;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,muxout-level-3v3-enable;
+		adi,power-up-frequency = <2400000000>;
+	};
+
+	phlpf0_hmc1044: hmc1044_1_TX1@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "hmc1044";
+		reg = <2>;
+		spi-max-frequency = <1000000>;
+		adi,default-cutoff-frequency-mhz = <3400>;
+	};
+
+	phlpf1_hmc1044: hmc1044_2_TX2@3 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "hmc1044";
+		reg = <3>;
+		spi-max-frequency = <1000000>;
+		adi,default-cutoff-frequency-mhz = <3400>;
+	};
+
+	phlpf2_hmc1044: hmc1044_3_RX@4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "hmc1044";
+		reg = <4>;
+		spi-max-frequency = <1000000>;
+		adi,default-cutoff-frequency-mhz = <3400>;
+	};
+
+	dga0_adl5240: adl5240_1_TX1@5 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adl5240";
+		reg = <5>;
+		spi-max-frequency = <100000>;
+	};
+
+	dga1_adl5240: adl5240_1_TX2@6 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adl5240";
+		reg = <6>;
+		spi-max-frequency = <100000>;
+	};
+
+	dga0_hmc271: hmc271_1_RX1@7 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "hmc271";
+		reg = <7>;
+		spi-max-frequency = <100000>;
+	};
+
+	dga1_hmc271: hmc271_2_RX2@8 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "hmc271";
+		reg = <8>;
+		spi-max-frequency = <100000>;
+	};
+};
