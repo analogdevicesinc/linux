@@ -112,3 +112,11 @@ config ADF5355
 
 endmenu
 endmenu
+
+menu "Programmable Switches"
+
+config IIO_FREQUENCY_HF_SWITCH_GPIO
+	tristate "Analog Devices HMC922 HF Switches"
+	help
+
+endmenu
