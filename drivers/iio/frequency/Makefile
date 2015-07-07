@@ -13,5 +13,6 @@ obj-$(CONFIG_CF_AXI_DDS) += cf_axi_dds.o cf_axi_dds_buffer_stream.o
 obj-$(CONFIG_CF_AXI_DDS_AD9122) += ad9122.o
 obj-$(CONFIG_CF_AXI_DDS_AD9144) += ad9144.o
 obj-$(CONFIG_CF_AXI_DDS_AD9739A) += ad9739a.o
+obj-$(CONFIG_HMC1044) += hmc1044.o
 obj-$(CONFIG_IIO_FREQUENCY_HF_SWITCH_GPIO) += hf_switch.o
 
