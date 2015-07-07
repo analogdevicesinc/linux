@@ -79,6 +79,9 @@ int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 int iio_dma_buffer_set_bytes_per_datum(struct iio_buffer *buf, size_t bpd);
 int iio_dma_buffer_get_length(struct iio_buffer *buf);
 int iio_dma_buffer_set_length(struct iio_buffer *buf, int length);
+ssize_t iio_dma_buffer_splice_read(struct iio_buffer *buffer,
+		struct iio_dev *indio_dev, struct pipe_inode_info *pipe,
+		size_t pages, unsigned int flags, bool non_blocking);
 int iio_dmabuf_init(struct iio_dma_buffer_queue *queue,
 	struct device *dma_dev, const struct iio_dma_buffer_ops *ops,
 	void *driver_data);

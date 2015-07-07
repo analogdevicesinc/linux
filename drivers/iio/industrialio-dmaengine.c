@@ -150,6 +150,7 @@ static const struct iio_buffer_access_funcs dmaengine_buffer_ops = {
 	.data_available = iio_dma_buffer_data_available,
 	.space_available = iio_dma_buffer_space_available,
 	.release = dmaengine_buffer_release,
+	.splice_read = iio_dma_buffer_splice_read,
 
 	.alloc_blocks = iio_dma_buffer_alloc_blocks,
 	.free_blocks = iio_dma_buffer_free_blocks,

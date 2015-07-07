@@ -12,12 +12,17 @@
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
+#include <linux/pagemap.h>
+#include <linux/pipe_fs_i.h>
 #include <linux/poll.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/dma-buffer.h>
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
 #include <linux/sizes.h>
+#include <linux/splice.h>
+
+#include <asm/page.h>
 
 static void iio_dma_buffer_enqueue(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block);
@@ -464,6 +469,52 @@ static int iio_dma_buffer_queue_dequeue(struct iio_dma_buffer_queue *queue)
 	return queue->fileio.block ? 0 : -EAGAIN;
 }
 
+static bool iio_dma_buffer_data_available_unlocked(
+		struct iio_dma_buffer_queue *queue)
+{
+	bool data_available = false;
+
+	if (queue->fileio.block &&
+		queue->fileio.block->state == IIO_BLOCK_STATE_DEQUEUED)
+		data_available = true;
+	spin_lock_irq(&queue->list_lock);
+	data_available |= !list_empty(&queue->outgoing);
+	spin_unlock_irq(&queue->list_lock);
+
+	return data_available;
+}
+
+static int iio_buffer_get_dma_block(struct iio_dma_buffer_queue *queue,
+		struct iio_dev *indio_dev, bool non_blocking,
+		struct iio_dma_buffer_block **block)
+{
+	struct iio_dma_buffer_block *dma_block;
+	int ret;
+
+	do {
+		if (!iio_dma_buffer_data_available_unlocked(queue)) {
+			if (non_blocking)
+				return -EAGAIN;
+
+			ret = wait_event_interruptible(queue->buffer.pollq,
+					iio_dma_buffer_data_available_unlocked(queue)
+					|| indio_dev->info == 0);
+			if (ret)
+				return ret;
+			if (indio_dev->info == 0)
+				return -ENODEV;
+		}
+
+		dma_block = iio_dma_buffer_dequeue(queue);
+	} while (!dma_block && !non_blocking);
+
+	if (!dma_block)
+		return -EAGAIN;
+
+	*block = dma_block;
+	return 0;
+}
+
 static ssize_t iio_dma_buffer_queue_get_io_len(
 		struct iio_dma_buffer_queue *queue, size_t len, bool align)
 {
@@ -577,15 +628,10 @@ EXPORT_SYMBOL_GPL(iio_dma_buffer_write);
 bool iio_dma_buffer_data_available(struct iio_buffer *buf)
 {
 	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buf);
-	bool data_available = false;
+	bool data_available;
 
 	mutex_lock(&queue->lock);
-	if (queue->fileio.block &&
-		queue->fileio.block->state == IIO_BLOCK_STATE_DEQUEUED)
-		data_available = true;
-	spin_lock_irq(&queue->list_lock);
-	data_available |= !list_empty(&queue->outgoing);
-	spin_unlock_irq(&queue->list_lock);
+	data_available = iio_dma_buffer_data_available_unlocked(queue);
 	mutex_unlock(&queue->lock);
 
 	return data_available;
@@ -701,6 +747,113 @@ static void iio_dma_buffer_release(struct iio_buffer *buffer)
 	kfree(queue);
 }
 
+static void iio_dma_buffer_release_page_spd(struct splice_pipe_desc *spd,
+		unsigned int i)
+{
+	/* Nothing to do. */
+}
+
+static void iio_dma_buffer_release_page(struct pipe_inode_info *pipe,
+		struct pipe_buffer *buf)
+{
+	/* Nothing to do. */
+}
+
+static const struct pipe_buf_operations iio_dma_buffer_pipe_buf_ops = {
+	.can_merge = 0,
+	.confirm = generic_pipe_buf_confirm,
+	.release = iio_dma_buffer_release_page,
+	.steal = generic_pipe_buf_steal,
+	.get = generic_pipe_buf_get,
+};
+
+ssize_t iio_dma_buffer_splice_read(struct iio_buffer *buffer,
+		struct iio_dev *indio_dev,
+		struct pipe_inode_info *pipe, size_t count,
+		unsigned int flags, bool non_blocking)
+{
+	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buffer);
+	size_t page = 0;
+	ssize_t ret, len;
+	void *vaddr;
+	struct iio_dma_buffer_block *block;
+	struct page *pages[PIPE_DEF_BUFFERS];
+	struct partial_page partial[PIPE_DEF_BUFFERS];
+	struct splice_pipe_desc spd = {
+		.pages = pages,
+		.partial = partial,
+		.nr_pages_max = PIPE_DEF_BUFFERS,
+		.flags = flags,
+		.ops = &iio_dma_buffer_pipe_buf_ops,
+		.spd_release = iio_dma_buffer_release_page_spd,
+	};
+
+	if (splice_grow_spd(pipe, &spd))
+		return -ENOMEM;
+
+	mutex_lock(&queue->lock);
+
+	if (!queue->do_fileio) {
+		ret = -EBUSY;
+		goto out_unlock;
+	}
+
+	if (!queue->fileio.block) {
+		ret = iio_buffer_get_dma_block(queue, indio_dev, non_blocking,
+				&queue->fileio.block);
+		if (ret)
+			goto out_unlock;
+
+		queue->fileio.pos = 0;
+	}
+
+	block = queue->fileio.block;
+
+	len = iio_dma_buffer_queue_get_io_len(queue, count, false);
+	if (len < 0) {
+		ret = (int) len;
+		goto out_unlock;
+	}
+
+	vaddr = block->vaddr + queue->fileio.pos;
+
+	while (len && page < spd.nr_pages_max) {
+		off_t offset = offset_in_page(vaddr);
+		size_t bytes = min_t(size_t, len, PAGE_SIZE - offset);
+
+		pages[page] = vmalloc_to_page(vaddr);
+		partial[page].len = bytes;
+		partial[page].offset = offset;
+
+		page++;
+		vaddr += PAGE_SIZE - offset;
+		len -= bytes;
+	}
+
+	spd.nr_pages = page;
+
+	if (page > 0)
+		ret = splice_to_pipe(pipe, &spd);
+
+	if (ret > 0) {
+		queue->fileio.pos += ret;
+		BUG_ON(queue->fileio.pos > block->block.bytes_used);
+
+		if (queue->fileio.pos == block->block.bytes_used) {
+			iio_dma_buffer_enqueue(queue, block);
+
+			queue->fileio.block = NULL;
+			queue->fileio.pos = 0;
+		}
+	}
+
+out_unlock:
+	mutex_unlock(&queue->lock);
+	splice_shrink_spd(&spd);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(iio_dma_buffer_splice_read);
+
 static const struct iio_buffer_access_funcs dmabuf_ops = {
 	.read = iio_dma_buffer_read,
 	.write = iio_dma_buffer_write,
@@ -711,6 +864,7 @@ static const struct iio_buffer_access_funcs dmabuf_ops = {
 	.data_available = iio_dma_buffer_data_available,
 	.space_available = iio_dma_buffer_space_available,
 	.release = iio_dma_buffer_release,
+	.splice_read = iio_dma_buffer_splice_read,
 
 	.alloc_blocks = iio_dma_buffer_alloc_blocks,
 	.free_blocks = iio_dma_buffer_free_blocks,
