@@ -332,6 +332,7 @@ enum {
 	ID_AD9434,
 	ID_AD9652,
 	ID_AD9234,
+	ID_AD9680_x2,
 };
 
 struct axiadc_chip_info {
@@ -358,7 +359,6 @@ struct axiadc_state {
 	unsigned			pcore_version;
 	bool				has_fifo_interface;
 	bool			dp_disable;
-	unsigned char		testmode[2];
 	unsigned long 		adc_clk;
 	bool				streaming_dma;
 	unsigned			have_slave_channels;
@@ -376,7 +376,7 @@ struct axiadc_converter {
 	struct gpio_desc		*reset_gpio;
 	unsigned			id;
 	unsigned			adc_output_mode;
-	unsigned 		testmode[2];
+	unsigned 		testmode[8];
 	unsigned long 		adc_clk;
 	const struct axiadc_chip_info	*chip_info;
 	int		(*read)(struct spi_device *spi, unsigned reg);
