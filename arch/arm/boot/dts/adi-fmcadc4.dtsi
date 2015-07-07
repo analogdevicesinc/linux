@@ -106,6 +106,7 @@
 		spi-max-frequency = <1000000>;
 		spi-cpol;
 		spi-cpha;
+		adi,master-slave-2x-quirk;
 		clocks = <&axi_ad9680_jesd>, <&clk0_ad9528 8>, <&clk0_ad9528 9>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
