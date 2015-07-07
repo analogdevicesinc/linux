@@ -557,6 +557,7 @@ dtb-$(CONFIG_ARCH_SHMOBILE_MULTI) += \
 dtb-$(CONFIG_ARCH_SOCFPGA) += \
 	socfpga_arria5_socdk.dtb \
 	socfpga_arria10_socdk_qspi.dtb \
+	socfpga_arria10_socdk_nand.dtb \
 	socfpga_arria10_socdk_sdmmc.dtb \
 	socfpga_arria10_swvp.dtb \
 	socfpga_cyclone5_socdk.dtb \
