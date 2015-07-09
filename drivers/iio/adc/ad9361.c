@@ -6994,7 +6994,11 @@ static ssize_t ad9361_debugfs_read(struct file *file, char __user *userbuf,
 				rx_gain.mixer_index);
 
 	} else if (entry->cmd == DBGFS_BIST_DT_ANALYSIS) {
-		len = ad9361_dig_interface_timing_analysis(phy, buf, sizeof(buf));
+		if (entry->val)
+			len = ad9361_dig_interface_timing_analysis(phy,
+							buf, sizeof(buf));
+
+		entry->val = 0;
 	} else if (entry->cmd) {
 		val = entry->val;
 	} else
@@ -7109,6 +7113,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		if (ret < 0)
 			return ret;
 
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_DT_ANALYSIS:
 		entry->val = val;
 		return count;
 	default:
