@@ -890,7 +890,8 @@ static int adf5355_probe(struct spi_device *spi)
 		if (IS_ERR(clk_out))
 			kfree(clk_priv);
 
-		of_clk_add_provider(spi->dev.of_node, of_clk_src_simple_get, clk_out);
+		if (!IS_ERR(clk_out))
+			of_clk_add_provider(spi->dev.of_node, of_clk_src_simple_get, clk_out);
 	}
 
 	return 0;
@@ -918,6 +919,9 @@ static int adf5355_remove(struct spi_device *spi)
 
 	if (st->clk)
 		clk_disable_unprepare(st->clk);
+
+	if (IS_ENABLED(CONFIG_OF))
+		of_clk_del_provider(spi->dev.of_node);
 
 	if (!IS_ERR(reg)) {
 		regulator_disable(reg);
