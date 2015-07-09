@@ -5774,6 +5774,12 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	phy->clk_ext_lo_rx = devm_clk_get(&phy->spi->dev, "ext_rx_lo");
 	phy->clk_ext_lo_tx = devm_clk_get(&phy->spi->dev, "ext_tx_lo");
 
+	if (PTR_ERR(phy->clk_ext_lo_rx) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
+	if (PTR_ERR(phy->clk_ext_lo_tx) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
 	if (IS_ERR_OR_NULL(phy->clk_ext_lo_rx)) {
 		ad9361_clk_register(phy, "-rx_lo_dummy", NULL, NULL,
 			CLK_IGNORE_UNUSED, RX_RFPLL_DUMMY);
