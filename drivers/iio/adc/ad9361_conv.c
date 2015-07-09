@@ -41,6 +41,8 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 	if (!conv)
 		return -ENODEV;
 
+	dev_dbg(&phy->spi->dev, "%s:\n", __func__);
+
 	st = iio_priv(conv->indio_dev);
 
 	rx = ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
@@ -378,6 +380,9 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 
 	if (!conv)
 		return -ENODEV;
+
+	dev_dbg(&phy->spi->dev, "%s: freq %lu flags 0x%X\n", __func__,
+		max_freq, flags);
 
 	st = iio_priv(conv->indio_dev);
 	hdl_dac_version = axiadc_read(st, 0x4000);
