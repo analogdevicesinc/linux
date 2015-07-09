@@ -45,6 +45,9 @@
  * @mux_out_sel:		Controls the on-chip multiplexer (MUXOUT).
  * @mux_out_3V3_en:	MUXOUT is programmable to two logic levels. Clear this to
  *			select 1.8 V logic, and set it to select 3.3 V logic.
+ * @clock_shift:		Defines the rate shift (scaling) between the kernel
+ * 			clock framework and the driver.
+ * 			(max ADF5355 rate in Hz > ULONG_MAX)
  *
  */
 
@@ -71,6 +74,8 @@
 	bool 			outa_en;
 	u32			outb_power;
 	u32			outa_power;
+
+	u32			clock_shift;
 
  	int			gpio_lock_detect;
  };
