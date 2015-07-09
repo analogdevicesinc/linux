@@ -7838,7 +7838,7 @@ static int ad9361_probe(struct spi_device *spi)
 		return -EPROBE_DEFER;
 	}
 
-	indio_dev = iio_device_alloc(sizeof(*phy));
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*phy));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
@@ -7865,7 +7865,7 @@ static int ad9361_probe(struct spi_device *spi)
 		ret = gpiod_direction_output(phy->pdata->cal_sw1_gpio, 0);
 	}
 
-	phy->pdata->cal_sw2_gpio= devm_gpiod_get(&spi->dev, "cal-sw2");
+	phy->pdata->cal_sw2_gpio = devm_gpiod_get(&spi->dev, "cal-sw2");
 	if (!IS_ERR(phy->pdata->cal_sw2_gpio)) {
 		ret = gpiod_direction_output(phy->pdata->cal_sw2_gpio, 0);
 	}
@@ -7887,8 +7887,7 @@ static int ad9361_probe(struct spi_device *spi)
 	if ((ret & PRODUCT_ID_MASK) != PRODUCT_ID_9361) {
 		dev_err(&spi->dev, "%s : Unsupported PRODUCT_ID 0x%X",
 			__func__, ret);
-		ret = -ENODEV;
-		goto out_iio_device_free;
+		return -ENODEV;
 	}
 
 	rev = ret & REV_MASK;
@@ -7901,13 +7900,13 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ret = register_clocks(phy);
 	if (ret < 0)
-		goto out_iio_device_free;
+		return ret;
 
 	ad9361_init_gain_tables(phy);
 
 	ret = ad9361_setup(phy);
 	if (ret < 0)
-		goto out_iio_device_free;
+		return ret;
 
 	ret = of_clk_add_provider(spi->dev.of_node,
 			    of_clk_src_onecell_get, &phy->clk_data);
@@ -7959,8 +7958,6 @@ out_clk_del_provider:
 	of_clk_del_provider(spi->dev.of_node);
 out_disable_clocks:
 	ad9361_clks_disable(phy);
-out_iio_device_free:
-	iio_device_free(indio_dev);
 
 	return ret;
 }
@@ -7973,7 +7970,6 @@ static int ad9361_remove(struct spi_device *spi)
 	iio_device_unregister(phy->indio_dev);
 	of_clk_del_provider(spi->dev.of_node);
 	ad9361_clks_disable(phy);
-	iio_device_free(phy->indio_dev);
 
 	return 0;
 }
