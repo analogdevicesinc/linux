@@ -1,0 +1,40 @@
+
+#include "zynq-zc706-adv7511-ad9361-fmcomms5.dts"
+
+&fmc_spi {
+	lo_adf5355: adf5355@2 {
+		#clock-cells = <0>;
+		compatible = "adf5355";
+		reg = <2>;
+		spi-max-frequency = <10000000>;
+		clocks = <&ad9361_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "ADF5355";
+		gpios = <&gpio 112 0>;
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <6>;
+//		adi,mute-till-lock-enable;
+		adi,output-a-power = <3>;
+		adi,output-b-power = <0>;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,power-up-frequency = /bits/ 64 <4800000000>;
+		adi,output-a-enable;
+		adi,clock-shift = <2>;
+		adi,reference-doubler-enable;
+	};
+};
+
+&adc0_ad9361 {
+	clocks = <&ad9361_clkin>, <&lo_adf5355>, <&lo_adf5355>;
+	clock-names = "ad9361_ext_refclk", "ext_tx_lo", "ext_rx_lo";
+	adi,external-rx-lo-enable;
+	adi,external-tx-lo-enable;
+};
+
+&adc1_ad9361 {
+	clocks = <&ad9361_clkin>, <&lo_adf5355>, <&lo_adf5355>;
+	clock-names = "ad9361_ext_refclk", "ext_tx_lo", "ext_rx_lo";
+	adi,external-rx-lo-enable;
+	adi,external-tx-lo-enable;
+};
