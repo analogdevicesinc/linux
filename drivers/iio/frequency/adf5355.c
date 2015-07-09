@@ -656,9 +656,7 @@ static struct adf5355_platform_data *adf5355_parse_dt(struct device *dev)
 
 	strncpy(&pdata->name[0], np->name, SPI_NAME_SIZE - 1);
 
-	tmp = 0;
-	of_property_read_u32(np, "adi,power-up-frequency", &tmp);
-	pdata->power_up_frequency = tmp;
+	of_property_read_u64(np, "adi,power-up-frequency", &pdata->power_up_frequency);
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,reference-div-factor", &tmp);
