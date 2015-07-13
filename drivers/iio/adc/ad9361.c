@@ -447,10 +447,12 @@ static int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable)
 
 		if (PCORE_VERSION_MAJOR(version) > 7) {
 		/* FIXME: May cause problems if DMA is selected */
-			if (enable)
+			if (enable) {
 				reg = 0x8;
-			else
-				reg = 0x0;
+			} else {
+				if (reg == 0x8)
+					reg = 0x0;
+			}
 		} else {
 		/* DAC_LB_ENB If set enables loopback of receive data */
 			if (enable)
