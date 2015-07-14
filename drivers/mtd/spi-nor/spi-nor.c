@@ -870,7 +870,7 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "n25q512a",    INFO(0x20bb20, 0, 64 * 1024, 1024, SECT_4K | USE_FSR | SPI_NOR_QUAD_READ) },
 	{ "n25q512ax3",  INFO(0x20ba20, 0, 64 * 1024, 1024, SECT_4K | USE_FSR | SPI_NOR_QUAD_READ) },
 	{ "n25q00",      INFO(0x20ba21, 0, 64 * 1024, 2048, SECT_4K | USE_FSR | SPI_NOR_QUAD_READ) },
-	{ "n25q00aa",    INFO(0x20bb21, 0, 64 * 1024, 2048, SECT_4K | USE_FSR | SHUTDOWN_3BYTE) },
+	{ "n25q00aa",    INFO(0x20bb21, 0, 64 * 1024, 2048, SECT_4K | USE_FSR | SPI_NOR_QUAD_READ) },
 
 	/* PMC */
 	{ "pm25lv512",   INFO(0,        0, 32 * 1024,    2, SECT_4K_PMC) },
@@ -1232,7 +1232,18 @@ static int set_quad_mode(struct spi_nor *nor, const struct flash_info *info)
 		}
 		return status;
 	case SNOR_MFR_MICRON:
+		/*
+		 * The micron_quad_enable function sets quad protocol
+		 * mode, which is problematic for most controllers,
+		 * so we don't use it.  I.e. return zero instead.
+		 */
 		return 0;
+		status = micron_quad_enable(nor);
+		if (status) {
+			dev_err(nor->dev, "Micron quad-read not enabled\n");
+			return -EINVAL;
+		}
+		return status;
 	default:
 		status = spansion_quad_enable(nor);
 		if (status) {
@@ -1241,11 +1252,6 @@ static int set_quad_mode(struct spi_nor *nor, const struct flash_info *info)
 		}
 		return status;
 	}
-}
-
-static void spi_nor_shutdown(struct spi_nor *nor)
-{
-	set_4byte(nor, nor->jedec_id, 0);
 }
 
 static int spi_nor_check(struct spi_nor *nor)
@@ -1305,8 +1311,6 @@ int spi_nor_scan(struct spi_nor *nor, const char *name, enum read_mode mode)
 	}
 
 	mutex_init(&nor->lock);
-
-	nor->jedec_id = info->jedec_id;
 
 	/*
 	 * Atmel, SST, Intel/Numonyx, and others serial NOR tend to power up
