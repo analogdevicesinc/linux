@@ -227,9 +227,6 @@ static int m25p_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	spi->addr_width = nor->addr_width;
-
-	data = dev_get_platdata(&spi->dev);
 	ppdata.of_node = spi->dev.of_node;
 
 	return mtd_device_parse_register(&nor->mtd, NULL, &ppdata,
