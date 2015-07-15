@@ -18,7 +18,6 @@ Subnodes of the Cadence Quad SPI controller are spi slave nodes with additional
 custom properties:
 - cdns,page-size : Size, in bytes, of the device's write page
 - cdns,block-size : Size of the device's erase block
-- cdns,read-delay : Delay for read capture logic, in clock cycles
 - cdns,tshsl-ns : Delay in nanoseconds for the length that the master mode chip select outputs are de-asserted between transactions.
 - cdns,tsd2d-ns : Delay in nanoseconds between one chip select being de-activated and the activation of another.
 - cdns,tchsh-ns : Delay in nanoseconds between last bit of current transaction and deasserting the device chip select (qspi_n_ss_out).
