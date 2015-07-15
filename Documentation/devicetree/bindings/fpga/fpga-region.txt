@@ -1,0 +1,491 @@
+FPGA Region Device Tree Binding
+
+Alan Tull 2016
+
+ CONTENTS
+ - Introduction
+ - Terminology
+ - Overview
+ - Constraints
+ - FPGA Region
+ - Supported Use Models
+ - Sequence
+ - Device Tree Examples
+
+
+Introduction
+============
+
+FPGA Regions are introduced as a way to solve the problem of how to program an
+FPGA under an operating system and have the new hardware show up in the device
+tree.  By adding these bindings to the Device Tree, a system can have the
+information needed to program the FPGA and add the desired hardware, and also
+the information about the devices to be added to the Device Tree once the
+programming has succeeded.
+
+This device tree binding document hits some of the high points of FPGA usage and
+attempts to include terminology used by both major FPGA manufacturers.  This
+document isn't a replacement for any manufacturers white papers and
+specifications for FPGA usage.
+
+
+Terminology
+===========
+
+Full Reconfiguration
+ * The entire FPGA is programmed.
+
+Partial Reconfiguration (PR)
+ * A section of the FPGA is reprogrammed while the rest of the FPGA is not
+   affected. Not all FPGA's support this.
+
+Partial Reconfiguration Region (PRR)
+ * Also called a "reconfigurable partition"
+ * A PRR is a specific section of a FPGA reserved for reconfiguration.
+ * A base (or static) FPGA image may create a set of PRR's that later may
+   be independently reprogrammed many times.
+ * The size and specific location of each PRR is fixed.
+ * The connections at the edge of each PRR are fixed.  The image that is loaded
+   into a PRR must fit and must use a subset of the region's connections.
+ * The busses within the FPGA are split such that each region gets its own
+   branch that may be gated independently.
+
+Persona
+ * Also called a "partial bit stream"
+ * An FPGA image that is designed to be loaded into a PRR.  There may be
+   any number of personas designed to fit into a PRR, but only one at at time
+   may be loaded.
+ * A persona may create more regions.
+
+FPGA Manager
+ * An FPGA Manager is a hardware block that programs an FPGA under the control
+   of a host processor.
+
+
+    ----------------       ------------------------------
+    |  Host CPU    |       |           FPGA             |
+    |              |       |                            |
+    |          ----|       |       -------    --------  |
+    |          | H |       |   |==>| FB0 |<==>| PRR0 |  |
+    |          | W |       |   |   -------    --------  |
+    |          |   |       |   |                        |
+    |          | B |<=====>|<==|   -------    --------  |
+    |          | R |       |   |==>| FB1 |<==>| PRR1 |  |
+    |          | I |       |   |   -------    --------  |
+    |          | D |       |   |                        |
+    |          | G |       |   |   -------    --------  |
+    |          | E |       |   |==>| FB1 |<==>| PRR1 |  |
+    |          ----|       |       -------    --------  |
+    |              |       |                            |
+    ----------------       ------------------------------
+
+Figure 1: An FPGA set up with a base image that created three regions.  Each
+region gets its own split of the busses that can be independently gated by an
+soft logic bridge in the FPGA.  The contents of each PRR can be reprogrammed
+independently while the rest of the system continues to function.
+
+FPGA Bridge
+ * FPGA Bridges gate bus signals between a host and FPGA.
+ * FPGA Bridges should be disabled while the FPGA is being programmed to
+   prevent spurious signals on the cpu bus.
+ * FPGA bridges may be actual hardware or soft logic on the FPGA.
+ * During Full Reconfiguration, hardware bridges between the host and FPGA
+   will be disabled to prevent spurious data on the bus.
+ * These hardware FPGA Bridges may not be needed in implementations where the
+   FPGA Manager transparantly handles gating the buses.
+ * A base FPGA image may create a set of reprogrammable regions, each having
+   its own split of the busses that is gated by its own bridge in the FPGA.
+ * During Partial Reconfiguration of a specific region, the region's bridge
+   will be used to gate the busses.  Traffic to other regions is not affected.
+
+Base Image
+ * Also called the "static image"
+ * An FPGA image that is designed to do full reconfiguration of the FPGA.
+ * A base image may set up a set of partial reconfiguration regions that may
+   later be reprogrammed.
+
+
+Overview
+========
+
+This binding introduces the FPGA Region which supports full or partial
+reconfiguration of a FPGA under device tree control.
+
+In the device tree, an FPGA Region brings together the devices (FPGA Managers
+and FPGA Bridges) needed to be able to program an FPGA device.  The FPGA Region
+also includes child nodes that are the devices that exist in the FPGA.
+
+The base FPGA Region in the device tree is required to include a phandle to an
+FPGA Manager.  This region also contains a list of phandles to the hardware FPGA
+Bridges, if any.  This base FPGA Region corresponds to the whole FPGA and is
+used for full reconfiguration.
+
+FPGA Regions that are children of the base FPGA region inherit the parent's FPGA
+Manager but specify their own bridges.  These child regions correspond to
+partial reconfiguration regions in the FPGA.  The bridges they specify will be
+FPGA Bridges within the static image of the FPGA.
+
+The intended use is that device tree overlays can be used to reprogram an FPGA
+while an operating system is running.  In that case, the live device tree will
+contain an FPGA Manager, FPGA Bridges, and the base FPGA Region.  The device
+tree overlays contain the name of the FPGA image file to be programmed and the
+child devices that will be contained in the FPGA after programming.
+
+When such a device tree overlay is applied, it is targeted to one of the
+existing FPGA regions.  A few things must happen in the OS's implementation
+before the overlay can be accepted into the live tree.  The OS will attempt to
+program the FPGA using the firmware that the overlay specifies.  That
+reprogramming sequence is detailed below (see the Sequence section).  If
+programming fails, the overlay is rejected.  If programming succeeds, the
+overlay is added into the live tree and correctly shows what firmware the FPGA
+has been programmed with.  Child nodes in the overlay are added and those
+devices are populated.
+
+The base FPGA Region supports full reconfiguration of the FPGA device.  If the
+FPGA image loaded contains the logic that creates a set of Partial
+Reconfiguration Regions, then the overlay that programs the FPGA should also add
+a set of FPGA Regions as children of the original FPGA Region.  The child FPGA
+Regions do not need to specify an FPGA Manager as they will use the ancestor
+region's FPGA Manager.
+
+
+Constraints
+===========
+
+It is beyond the scope of this document to fully describe all the FPGA design
+constraints required to make partial reconfiguration work[1] [2] [3], but a few
+deserve quick mention.
+
+A persona must have boundary connections that line up with those of the partion
+or region it is designed to go into.
+
+During programming, transactions through those connections must be stopped and
+the connections must be held at a fixed logic level.  This can be achieved by
+FPGA Bridges that exist on the FPGA fabric prior to the partial reconfiguration.
+
+FPGA Region
+===========
+
+An FPGA Region specifies the devices (FPGA Manager and FPGA Bridges ) needed to
+reconfigure a FPGA device.
+
+In the live Device Tree, an FPGA Region reflects the current configuration of
+the device.  If the live tree shows a "firmware-name" property under a FPGA
+Region, the FPGA already has been programmed with that firmware.
+
+A device tree overlay that targets a FPGA Region and adds the "firmware-name"
+property and child nodes is a request to reprogram the FPGA and, if successful,
+add the child nodes.  If reprogramming is not successful, the overlay must be
+rejected and not added to the live tree.
+
+Required properties:
+- compatible   : should contain "fpga-region"
+- fpga-mgr     : should contain a phandle to an FPGA Manager.  Child FPGA
+		 Regions inherit this property from the parent, so it
+		 should be left out for any child FPGA Regions.
+- fpga-bridges : should contain a list of phandles to FPGA Bridges.  This
+		 property is optional if the FPGA Manager controls the
+		 bridges during reprogramming.
+- #address-cells, #size-cells, ranges: must be present to handle address space
+  mapping for children.
+
+Properties added in an overlay:
+- firmware-name : should contain the name of an FPGA image file located on the
+  firmware search path.  If this property shows up in a live device tree it
+  can only mean that the FPGA has already been programmed with this image.
+- partial-fpga-config : boolean property should be defined if partial
+  reconfiguration of the FPGA is to be done, otherwise full reconfiguration
+  is done.
+- external-fpga-config : boolean property should be defined if the FPGA
+  has already been configured.  Then the FPGA Region can be used to add
+  child nodes for the devices that are in the FPGA.
+- child nodes : devices in the FPGA after programming.
+
+In the example below, when an overlay is applied targeting base_fpga_region,
+fpgamgr@ff706000 is used to program the FPGA and the bridge specified is
+controlled during the programming.  During programming, the bridges listed in
+that region are disabled, the firmware specified in the overlay is loaded to the
+FPGA using the FPGA manager specified in the region.  If FPGA programming
+succeeds, the bridges are reenabled and the overlay makes it into the live
+device tree.  The jtag_uart and led_pio child devices are then populated.  If
+FPGA programming fails, the bridges are left disabled and the overlay is
+rejected.
+
+Example:
+Base tree contains:
+
+	fpga_mgr0: fpgamgr@ff706000 {
+		compatible = "altr,socfpga-fpga-mgr";
+		reg = <0xff706000 0x1000
+		       0xffb90000 0x4>;
+		interrupts = <0 175 4>;
+	};
+
+	fpga_bridge0: fpga_bridge@ff400000 {
+		compatible = "altr,socfpga-lwhps2fpga-bridge";
+		reg = <0xff400000 0x100000>;
+		resets = <&rst LWHPS2FPGA_RESET>;
+		reset-names = "lwhps2fpga";
+		clocks = <&l4_main_clk>;
+	};
+
+	base_fpga_region {
+		compatible = "fpga-region";
+		fpga-mgr = <&fpga_mgr0>;
+		fpga-bridges = <&fpga_bridge0>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0xff200000 0x100000>;
+	};
+
+/dts-v1/ /plugin/;
+/ {
+	fragment@0 {
+		target-path = "/soc/base_fpga_region";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			firmware-name = "soc_system.rbf";
+
+			jtag_uart: serial@20000 {
+				compatible = "altr,juart-1.0";
+				reg = <0x20000 0x8>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 42 4>;
+			};
+
+			led_pio: gpio@10040 {
+				compatible = "altr,pio-1.0";
+				reg = <0x10040 0x20>;
+				altr,gpio-bank-width = <4>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+		};
+	};
+};
+
+Supported Use Models
+====================
+
+Here's a list of supported use models.  We may need to add more.  Some uses are
+specific to one FPGA device or another.
+
+In all cases the live DT must specify the FPGA Manager, FPGA Bridges (if any),
+and a FPGA Region.  The target of the Device Tree Overlay is the FPGA Region.
+
+ * No FPGA Bridges
+   In this case, the FPGA Manager which programs the FPGA also handles the
+   bridges.  No FPGA Bridge devices are needed for full reconfiguration.
+
+ * Full reconfiguration with bridges
+   In this case, there are hardware bridges between the processor and FPGA that
+   need to be disabled during full reconfiguration.  Before the overlay is
+   applied, the live DT must include the FPGA Manager, FPGA Bridges, and a
+   base FPGA Region which contains phandles to the FPGA Manager and Bridges.
+
+ * Partial reconfiguration with bridges in the FPGA
+   In this case, the FPGA will have more than one PRR that will be programmed
+   separately.  While one PRR is being programmed, other PRR's may be active
+   on the bus.  To manage this, FPGA Bridges need to exist in the FPGA
+   that can gate the buses going to one FPGA region while the buses are
+   enabled for other sections.  Before any partial reconfiguration can be
+   done, a base FPGA image must be loaded which includes PRR's with FPGA
+   bridges.  This can be done by doing full reconfiguration using an overlay
+   that contains the FPGA image that sets up the regions in the FPGA fabric.
+   The overlay would also contain FPGA Regions that will become children of
+   the original base FPGA Region.
+
+Sequence
+========
+
+When a DT overlay is loaded, the FPGA Region will be notified and will do the
+following:
+ 1. Disable the FPGA Bridges.
+ 2. Use the the FPGA manager core to program the FPGA.
+ 3. Enable the FPGA Bridges.
+ 4. Call of_platform_populate resulting in device drivers getting probed.
+
+When the overlay is removed, the FPGA Region will be notified and will disable
+the bridges and the child nodes will be removed.
+
+Device Tree Examples
+====================
+
+The intention of this section is to give some simple examples, focusing on
+the placement of the elements detailed above, especially:
+ * FPGA Manager
+ * FPGA Bridges
+ * FPGA Region
+ * ranges
+ * target-path or target
+
+For the purposes of this section, I'm dividing the Device Tree into two parts,
+each with its own requirements.  The two parts are:
+ * The live DT prior to the overlay being added
+ * The DT overlay
+
+The live Device Tree must contain an FPGA Region, an FPGA Manager, and any FPGA
+Bridges.  The FPGA Region's "fpga-mgr" property specifies the manager by phandle
+to handle programming the FPGA.  If the FPGA Region is the child of another FPGA
+Region, the parent's FPGA Manager is used.  If FPGA Bridges need to be involved,
+they are specified in the FPGA Region by the "fpga-bridges" property.  During
+FPGA programming, the FPGA Region will disable the bridges that are in its
+"fpga-bridges" list and will re-enable them after FPGA programming has
+succeeded.
+
+The Device Tree Overlay will contain:
+ * "target-path" or "target"
+   The insertion point where the the contents of the overlay will go into the
+   live tree.  target-path is a full path, while target is a phandle.
+ * "ranges"
+    The address space mapping from processor to FPGA bus(ses).
+ * "firmware-name"
+   Specifies the name of the FPGA image file on the firmware search
+   path.  The search path is described in the firmware class documentation.
+ * "partial-fpga-config"
+   This binding is a boolean and should be present if partial reconfiguration
+   is to be done.
+ * child nodes corresponding to hardware that will be loaded in this region of
+   the FPGA.
+
+Device Tree Example: Full Reconfiguration without Bridges
+=========================================================
+
+Live Device Tree contains:
+	fpga_mgr0: fpgamgr@f8007000 {
+		compatible = "xlnx,zynq-devcfg-1.0";
+		reg = <0xf8007000 0x100>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 8 4>;
+		clocks = <&clkc 12>;
+		clock-names = "ref_clk";
+		syscon = <&slcr>;
+	};
+
+	base_fpga_region {
+		compatible = "fpga-region";
+		fpga-mgr = <&fpga_mgr0>;
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+	};
+
+DT Overlay contains:
+/dts-v1/ /plugin/;
+/ {
+fragment@0 {
+	target = <&base_fpga_region>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+	__overlay__ {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		firmware-name = "zynq-gpio.bin";
+
+		gpio1: gpio@40000000 {
+			compatible = "xlnx,xps-gpio-1.00.a";
+			reg = <0x40000000 0x10000>;
+			gpio-controller;
+			#gpio-cells = <0x2>;
+			xlnx,gpio-width= <0x6>;
+		};
+	};
+};
+
+Device Tree Example: Full Reconfiguration to add PRR's
+======================================================
+
+The Base FPGA Region is specified similar to the first example above.
+
+This example programs the FPGA to have two regions that can later be partially
+configured.  Each region has its own bridge in the FPGA fabric.
+
+DT Overlay contains:
+/dts-v1/ /plugin/;
+/ {
+	fragment@0 {
+		target-path = "/soc/base_fpga_region";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		__overlay__ {
+			#address-cells = <1>;
+		        #size-cells = <1>;
+
+			firmware-name = "base.rbf";
+
+			fpga_bridge1_0: fpga_bridge@4400 {
+				compatible = "altr,freeze-bridge";
+				reg = <0x4400 0x10>;
+			};
+
+			fpga_bridge2_0: fpga_bridge@4420 {
+				compatible = "altr,freeze-bridge";
+				reg = <0x4420 0x10>;
+			};
+
+			fpga_region1 {
+				compatible = "fpga-region";
+				fpga-bridges = <&fpga_bridge1_0>;
+				#address-cells = <0x1>;
+				#size-cells = <0x1>;
+				ranges;
+			};
+
+			fpga_region2 {
+				compatible = "fpga-region";
+				fpga-bridges = <&fpga_bridge2_0>;
+				#address-cells = <0x1>;
+				#size-cells = <0x1>;
+				ranges;
+			};
+		};
+	};
+};
+
+Device Tree Example: Partial Reconfiguration
+============================================
+
+This example reprograms one of the PRR's set up in the previous example.
+
+The sequence that occurs when this overlay is similar to the above, the only
+differences are that the FPGA is partially reconfigured due to the
+"partial-fpga-config" boolean and the only bridge that is controlled during
+programming is the FPGA based bridge of fpga_region1.
+
+/dts-v1/ /plugin/;
+/ {
+	fragment@0 {
+		target-path = "/soc/base_fpga_region/fpga_region1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		__overlay__ {
+			#address-cells = <1>;
+		        #size-cells = <1>;
+
+			firmware-name = "soc_image2.rbf";
+			partial-fpga-config;
+
+			gpio@10040 {
+				compatible = "altr,pio-1.0";
+				reg = <0x10040 0x20>;
+				clocks = <0x2>;
+				altr,gpio-bank-width = <0x4>;
+				resetvalue = <0x0>;
+				#gpio-cells = <0x2>;
+				gpio-controller;
+			};
+		};
+	};
+};
+
+
+--
+[1] www.altera.com/content/dam/altera-www/global/en_US/pdfs/literature/ug/ug_partrecon.pdf
+[2] tspace.library.utoronto.ca/bitstream/1807/67932/1/Byma_Stuart_A_201411_MAS_thesis.pdf
+[3] http://www.xilinx.com/support/documentation/sw_manuals/xilinx14_1/ug702.pdf
