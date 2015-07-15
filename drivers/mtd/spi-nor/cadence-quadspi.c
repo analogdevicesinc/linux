@@ -43,6 +43,7 @@ struct cqspi_flash_pdata {
 	struct spi_nor nor;
 	u32 clk_rate;
 	unsigned int read_delay;
+	unsigned int read_delay_baud;
 	unsigned int tshsl_ns;
 	unsigned int tsd2d_ns;
 	unsigned int tchsh_ns;
@@ -66,6 +67,11 @@ struct cqspi_st {
 	unsigned int fifo_depth;
 	struct cqspi_flash_pdata f_pdata[CQSPI_MAX_CHIPSELECT];
 };
+
+static int cqspi_calibrate_read_delay(
+				struct spi_nor *nor,
+				struct cqspi_flash_pdata *f_pdata,
+				unsigned int baud);
 
 /* Operation timeout value */
 #define CQSPI_TIMEOUT_MS			500
@@ -947,6 +953,7 @@ static void cqspi_switch_cs(struct cqspi_st *cqspi, unsigned int cs)
 	cqspi_controller_enable(cqspi);
 }
 
+
 static int cqspi_prep(struct spi_nor *nor, enum spi_nor_ops ops)
 {
 	struct cqspi_st *cqspi = nor->priv;
@@ -965,12 +972,17 @@ static int cqspi_prep(struct spi_nor *nor, enum spi_nor_ops ops)
 	sclk = f_pdata->clk_rate;
 	if (cqspi->sclk != sclk) {
 		cqspi->sclk = sclk;
-		cqspi_controller_disable(cqspi);
-		cqspi_config_baudrate_div(cqspi,
-					  cqspi->master_ref_clk_hz, sclk);
-		cqspi_delay(cqspi, cqspi->master_ref_clk_hz, sclk);
-		cqspi_readdata_capture(cqspi, 1, f_pdata->read_delay);
-		cqspi_controller_enable(cqspi);
+		if (sclk == f_pdata->read_delay) {
+			cqspi_controller_disable(cqspi);
+			cqspi_config_baudrate_div(cqspi,
+						  cqspi->master_ref_clk_hz,
+						  sclk);
+			cqspi_delay(cqspi, cqspi->master_ref_clk_hz, sclk);
+			cqspi_readdata_capture(cqspi, 1, f_pdata->read_delay);
+			cqspi_controller_enable(cqspi);
+		} else {
+			cqspi_calibrate_read_delay(nor,	f_pdata, sclk);
+		}
 	}
 	return 0;
 }
@@ -995,16 +1007,70 @@ static int cqspi_write_reg(struct spi_nor *nor, u8 opcode, u8 *buf, int len,
 	ret = cqspi_command_write(nor, opcode, buf, len);
 	return ret;
 }
+static int cqspi_calibrate_read_delay(
+				struct spi_nor *nor,
+				struct cqspi_flash_pdata *f_pdata,
+				unsigned int baud)
+{
+	struct cqspi_st *cqspi = nor->priv;
+	u32 temp = 0, idcode = 0;
+	unsigned int sclk = 1000000; /* first read of id is done at 1MHz */
+	int i, range_lo = -1, range_hi = -1;
 
+	cqspi_controller_disable(cqspi);
+	cqspi_config_baudrate_div(cqspi, cqspi->master_ref_clk_hz, sclk);
+	cqspi_delay(cqspi, cqspi->master_ref_clk_hz, sclk);
+	cqspi_readdata_capture(cqspi, 1, 0);
+	cqspi_controller_enable(cqspi);
+	cqspi_read_reg(nor, SPINOR_OP_RDID, (u8 *)&idcode, sizeof(idcode));
+
+	sclk = baud;
+
+	cqspi_controller_disable(cqspi);
+	cqspi_config_baudrate_div(cqspi, cqspi->master_ref_clk_hz, sclk);
+	cqspi_delay(cqspi, cqspi->master_ref_clk_hz, sclk);
+	cqspi_controller_enable(cqspi);
+	
+	for (i = 0; i <= CQSPI_REG_READCAPTURE_DELAY_MASK; i++) {
+		cqspi_controller_disable(cqspi);
+		cqspi_readdata_capture(cqspi, 1, i);
+		cqspi_controller_enable(cqspi);
+		cqspi_read_reg(nor, SPINOR_OP_RDID, (u8 *)&temp, sizeof(temp));
+		/* search for range lo */
+		if (range_lo == -1 && temp == idcode) {
+			range_lo = i;
+			continue;
+		}
+
+		/* search for range hi */
+		if (range_lo != -1 && temp != idcode) {
+			range_hi = i - 1;
+			break;
+		}
+		range_hi = i;
+	}
+
+	if (range_lo == -1) {
+		dev_err(nor->dev,
+			"failed to calibrate read delay for %d baud", baud);
+		return -EINVAL;
+	}
+
+	f_pdata->read_delay = DIV_ROUND_UP((range_hi + range_lo), 2);
+	f_pdata->read_delay_baud = baud;
+	dev_info(nor->dev,
+			"Read data capture delay for %d baud "
+			"calibrated to %i (%i - %i)\n",
+			baud, f_pdata->read_delay, range_lo, range_hi);
+	cqspi_controller_disable(cqspi);
+	cqspi_readdata_capture(cqspi, 1, f_pdata->read_delay);
+	cqspi_controller_enable(cqspi);
+	return 0;
+}
 static int cqspi_of_get_flash_pdata(struct platform_device *pdev,
 				    struct cqspi_flash_pdata *f_pdata,
 				    struct device_node *np)
 {
-	if (of_property_read_u32(np, "cdns,read-delay", &f_pdata->read_delay)) {
-		dev_err(&pdev->dev, "couldn't determine read-delay\n");
-		return -ENXIO;
-	}
-
 	if (of_property_read_u32(np, "cdns,tshsl-ns", &f_pdata->tshsl_ns)) {
 		dev_err(&pdev->dev, "couldn't determine tshsl-ns\n");
 		return -ENXIO;
