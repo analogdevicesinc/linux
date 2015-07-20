@@ -326,19 +326,23 @@ static void iio_dma_buffer_enqueue(struct iio_dma_buffer_queue *queue,
 	}
 }
 
-static void iio_dma_buffer_dequeue(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block **block)
+static struct iio_dma_buffer_block * iio_dma_buffer_dequeue(
+		struct iio_dma_buffer_queue *queue)
 {
+	struct iio_dma_buffer_block *block;
+
 	spin_lock_irq(&queue->list_lock);
 	if (list_empty(&queue->outgoing)) {
-		*block = NULL;
+		block = NULL;
 	} else {
-		*block = list_first_entry(&queue->outgoing,
+		block = list_first_entry(&queue->outgoing,
 				struct iio_dma_buffer_block, head);
-		list_del(&(*block)->head);
-		(*block)->state = IIO_BLOCK_STATE_DEQUEUED;
+		list_del(&block->head);
+		block->state = IIO_BLOCK_STATE_DEQUEUED;
 	}
 	spin_unlock_irq(&queue->list_lock);
+
+	return block;
 }
 
 int iio_dma_buffer_query_block(struct iio_buffer *buffer,
@@ -408,13 +412,12 @@ int iio_dma_buffer_dequeue_block(struct iio_buffer *buffer,
 	struct iio_buffer_block *block)
 {
 	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buffer);
-	struct iio_dma_buffer_block *dma_block = NULL;
+	struct iio_dma_buffer_block *dma_block;
 	int ret = 0;
 
 	mutex_lock(&queue->lock);
 
-	iio_dma_buffer_dequeue(queue, &dma_block);
-
+	dma_block = iio_dma_buffer_dequeue(queue);
 	if (!dma_block) {
 		ret = -EAGAIN;
 		goto out_unlock;
@@ -447,7 +450,7 @@ int iio_dma_buffer_read(struct iio_buffer *buf, size_t n,
 	}
 
 	if (queue->fileio.block->state != IIO_BLOCK_STATE_DEQUEUED) {
-		iio_dma_buffer_dequeue(queue, &block);
+		block = iio_dma_buffer_dequeue(queue);
 		if (block == NULL) {
 			ret = 0;
 			goto out_unlock;
@@ -500,7 +503,7 @@ int iio_dma_buffer_write(struct iio_buffer *buf, size_t n,
 	}
 
 	if (queue->fileio.block->state != IIO_BLOCK_STATE_DEQUEUED) {
-		iio_dma_buffer_dequeue(queue, &block);
+		block = iio_dma_buffer_dequeue(queue);
 		if (block == NULL) {
 			ret = 0;
 			goto out_unlock;
