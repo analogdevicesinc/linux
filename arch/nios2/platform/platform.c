@@ -15,12 +15,19 @@
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
 #include <linux/io.h>
+#include <linux/clk-provider.h>
+
+static const __initconst struct of_device_id clk_match[] = {
+	{ .compatible = "fixed-clock", .data = of_fixed_clk_setup, },
+	{}
+};
 
 static int __init nios2_soc_device_init(void)
 {
 	struct soc_device *soc_dev;
 	struct soc_device_attribute *soc_dev_attr;
 	const char *machine;
+	int ret;
 
 	soc_dev_attr = kzalloc(sizeof(*soc_dev_attr), GFP_KERNEL);
 	if (soc_dev_attr) {
@@ -37,6 +44,8 @@ static int __init nios2_soc_device_init(void)
 			kfree(soc_dev_attr);
 		}
 	}
+
+	of_clk_init(clk_match);
 
 	return 0;
 }
