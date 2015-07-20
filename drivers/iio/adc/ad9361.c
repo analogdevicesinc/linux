@@ -950,7 +950,7 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
 {
 	struct spi_device *spi = phy->spi;
 	const u8 (*tab)[3];
-	u32 band, index_max, i;
+	u32 band, index_max, i, lna;
 
 	dev_dbg(&phy->spi->dev, "%s: frequency %llu", __func__, freq);
 
@@ -974,12 +974,16 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
 		index_max = SIZE_FULL_TABLE;
 	}
 
+
+	lna = phy->pdata->elna_ctrl.elna_in_gaintable_all_index_en ?
+		EXT_LNA_CTRL : 0;
+
 	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, START_GAIN_TABLE_CLOCK |
 			RECEIVER_SELECT(dest)); /* Start Gain Table Clock */
 
 	for (i = 0; i < index_max; i++) {
 		ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, i); /* Gain Table Index */
-		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA1, tab[i][0]); /* Ext LNA, Int LNA, & Mixer Gain Word */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA1, tab[i][0] | lna); /* Ext LNA, Int LNA, & Mixer Gain Word */
 		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA2, tab[i][1]); /* TIA & LPF Word */
 		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA3, tab[i][2]); /* DC Cal bit & Dig Gain Word */
 		ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG,
@@ -7680,6 +7684,8 @@ static struct ad9361_phy_platform_data
 			   &pdata->elna_ctrl.elna_1_control_en);
 	ad9361_of_get_bool(iodev, np, "adi,elna-rx2-gpo1-control-enable",
 			   &pdata->elna_ctrl.elna_2_control_en);
+	ad9361_of_get_bool(iodev, np, "adi,elna-gaintable-all-index-enable",
+			   &pdata->elna_ctrl.elna_in_gaintable_all_index_en);
 
 	/* AuxADC Temp Sense Control */
 
