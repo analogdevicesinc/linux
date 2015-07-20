@@ -42,7 +42,9 @@
 #define MXC_CPU_IMX6ULL		0x65
 #define MXC_CPU_IMX7D		0x72
 
+#define IMX_DDR_TYPE_DDR3		0
 #define IMX_DDR_TYPE_LPDDR2		1
+#define IMX_DDR_TYPE_LPDDR3		2
 
 #ifndef __ASSEMBLY__
 extern unsigned int __mxc_cpu_type;

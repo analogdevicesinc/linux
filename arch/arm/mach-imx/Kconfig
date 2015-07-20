@@ -54,6 +54,9 @@ config HAVE_IMX_GPC
 config HAVE_IMX_MMDC
 	bool
 
+config HAVE_IMX_DDRC
+       bool
+
 config HAVE_IMX_SRC
 	def_bool y if SMP
 	select ARCH_HAS_RESET_CONTROLLER
@@ -535,6 +538,7 @@ config SOC_IMX7D
 	select HAVE_ARM_ARCH_TIMER
 	select HAVE_IMX_ANATOP
 	select HAVE_IMX_MMDC
+	select HAVE_IMX_DDRC
 	select HAVE_IMX_SRC
 	select IMX_GPCV2
 	help
