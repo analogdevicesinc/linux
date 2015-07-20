@@ -1159,6 +1159,8 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		else
 			scale = 2; /* 0.250 */
 
+		of_property_read_u32(np, "adi,axi-dds-default-scale", &scale);
+
 		cf_axi_dds_default_setup(st, 0, 90000, 40000000, scale);
 		cf_axi_dds_default_setup(st, 1, 90000, 40000000, scale);
 
