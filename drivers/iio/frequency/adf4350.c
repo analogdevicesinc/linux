@@ -542,6 +542,31 @@ static int adf4350_probe(struct spi_device *spi)
 
 	memset(st->regs_hw, 0xFF, sizeof(st->regs_hw));
 
+	if (gpio_is_valid(pdata->gpio_lock_detect)) {
+		int i;
+		ret = devm_gpio_request(&spi->dev, pdata->gpio_lock_detect,
+					indio_dev->name);
+		if (ret) {
+			dev_err(&spi->dev, "fail to request lock detect GPIO-%d",
+				pdata->gpio_lock_detect);
+			goto error_disable_reg;
+		}
+		gpio_direction_input(pdata->gpio_lock_detect);
+
+		/* ADF4350/1 are write only devices, try to probe it this way */
+		for (i = 0; i < 4; i++) {
+			st->regs[ADF4350_REG2] = ADF4350_REG2_MUXOUT((i & 1) ?
+				ADF4350_MUXOUT_DVDD : ADF4350_MUXOUT_GND);
+			adf4350_sync_config(st, false);
+			ret = gpio_get_value(st->pdata->gpio_lock_detect);
+			if (ret != ((i & 1) ? 1 : 0)) {
+				ret = -ENODEV;
+				dev_err(&spi->dev, "Probe failed (muxout)");
+				goto error_disable_reg;
+			}
+		}
+	}
+
 	st->regs[ADF4350_REG2] =
 		ADF4350_REG2_DOUBLE_BUFF_EN |
 		(pdata->ref_doubler_en ? ADF4350_REG2_RMULT2_EN : 0) |
@@ -571,18 +596,6 @@ static int adf4350_probe(struct spi_device *spi)
 
 	st->regs[ADF4350_REG5] = ADF4350_REG5_LD_PIN_MODE_DIGITAL |
 				BIT(19) | BIT(20);
-
-
-	if (gpio_is_valid(pdata->gpio_lock_detect)) {
-		ret = devm_gpio_request(&spi->dev, pdata->gpio_lock_detect,
-					indio_dev->name);
-		if (ret) {
-			dev_err(&spi->dev, "fail to request lock detect GPIO-%d",
-				pdata->gpio_lock_detect);
-			goto error_disable_reg;
-		}
-		gpio_direction_input(pdata->gpio_lock_detect);
-	}
 
 	if (pdata->power_up_frequency) {
 		ret = adf4350_set_freq(st, pdata->power_up_frequency);
