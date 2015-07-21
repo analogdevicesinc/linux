@@ -291,7 +291,7 @@ static IIO_DEVICE_ATTR(full_scale_current, S_IRUGO | S_IWUSR,
 static IIO_DEVICE_ATTR(operation_modes_available, S_IRUGO,
 					ad9739a_show,
 					NULL,
-					AD9739A_OP_MODE);
+					AD9739A_OP_MODE_AVAIL);
 
 static IIO_DEVICE_ATTR(operation_mode, S_IRUGO | S_IWUSR,
 					ad9739a_show,
