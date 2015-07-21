@@ -3,6 +3,8 @@
 
 #include <linux/kref.h>
 
+struct scatterlist;
+
 struct iio_dma_buffer_queue {
 	struct iio_buffer buffer;
 	struct device *dev;
@@ -35,8 +37,9 @@ enum iio_block_state {
 
 struct iio_dma_buffer_block {
 	struct iio_buffer_block block;
+	struct scatterlist *sglist;
+	int sglen;
 	void *vaddr;
-	dma_addr_t phys_addr;
 	struct list_head head;
 	struct iio_dma_buffer_queue *queue;
 	enum iio_block_state state;

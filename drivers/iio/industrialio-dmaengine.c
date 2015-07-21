@@ -29,6 +29,16 @@ static struct dmaengine_buffer *iio_buffer_to_dmaengine_buffer(
 	return container_of(buffer, struct dmaengine_buffer, queue.buffer);
 }
 
+static void dmaengine_buffer_unmap(struct iio_dma_buffer_block *block)
+{
+	struct iio_dma_buffer_queue *queue = block->queue;
+	struct iio_dev *indio_dev = dev_to_iio_dev(queue->dev);
+
+	dma_unmap_sg(queue->dev, block->sglist, block->sglen,
+			indio_dev->direction == IIO_DEVICE_DIRECTION_IN ?
+			DMA_FROM_DEVICE : DMA_TO_DEVICE);
+}
+
 static void dmaengine_buffer_block_done(void *data)
 {
 	struct iio_dma_buffer_block *block = data;
@@ -37,6 +47,7 @@ static void dmaengine_buffer_block_done(void *data)
 	spin_lock_irqsave(&block->queue->list_lock, flags);
 	list_del(&block->head);
 	spin_unlock_irqrestore(&block->queue->list_lock, flags);
+	dmaengine_buffer_unmap(block);
 	iio_dma_buffer_block_done(block);
 }
 
@@ -47,6 +58,7 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 	struct dma_async_tx_descriptor *desc;
 	unsigned int max_size;
 	dma_cookie_t cookie;
+	int ret;
 
 	dmaengine_buffer = iio_buffer_to_dmaengine_buffer(&block->queue->buffer);
 
@@ -57,16 +69,24 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 	block->block.bytes_used = rounddown(block->block.bytes_used,
 			dmaengine_buffer->align);
 
+	ret = dma_map_sg(dmaengine_buffer->chan->device->dev, block->sglist,
+			sg_nents(block->sglist), direction == DMA_MEM_TO_DEV ?
+			DMA_TO_DEVICE : DMA_FROM_DEVICE);
+	if (ret < 0)
+		return ret;
+
+	block->sglen = ret;
+
 	if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
 		desc = dmaengine_prep_dma_cyclic(dmaengine_buffer->chan,
-			block->phys_addr, block->block.bytes_used,
+			sg_phys(block->sglist), block->block.bytes_used,
 			block->block.bytes_used, direction, 0);
 		if (!desc)
 			return -ENOMEM;
 	} else {
-		desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
-			block->phys_addr, block->block.bytes_used, direction,
-			DMA_PREP_INTERRUPT);
+		desc = dmaengine_prep_slave_sg(dmaengine_buffer->chan,
+				block->sglist, block->sglen,
+				direction, DMA_PREP_INTERRUPT);
 		if (!desc)
 			return -ENOMEM;
 
@@ -105,6 +125,7 @@ static int dmaengine_buffer_disable(struct iio_buffer *buf,
 
 	list_for_each_entry_safe(block, _block, &block_list, head) {
 		list_del(&block->head);
+		dmaengine_buffer_unmap(block);
 		iio_dma_buffer_block_done(block);
 	}
 

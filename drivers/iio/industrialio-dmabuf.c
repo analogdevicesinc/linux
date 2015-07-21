@@ -16,6 +16,7 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/dma-buffer.h>
 #include <linux/dma-mapping.h>
+#include <linux/scatterlist.h>
 #include <linux/sizes.h>
 
 static void iio_buffer_block_release(struct kref *kref)
@@ -25,8 +26,8 @@ static void iio_buffer_block_release(struct kref *kref)
 
 	BUG_ON(block->state != IIO_BLOCK_STATE_DEAD);
 
-	dma_free_coherent(block->queue->dev, PAGE_ALIGN(block->block.size),
-					block->vaddr, block->phys_addr);
+	vfree(block->vaddr);
+	vfree(block->sglist);
 
 	iio_buffer_put(&block->queue->buffer);
 	kfree(block);
@@ -91,26 +92,49 @@ static struct iio_dma_buffer_block *iio_dma_buffer_alloc_block(
 	struct iio_dma_buffer_queue *queue, size_t size)
 {
 	struct iio_dma_buffer_block *block;
+	unsigned int i, nb_pages = PAGE_ALIGN(size) / PAGE_SIZE;
+	void *vaddr;
 
 	block = kzalloc(sizeof(*block), GFP_KERNEL);
 	if (!block)
 		return NULL;
 
-	block->vaddr = dma_alloc_coherent(queue->dev, PAGE_ALIGN(size),
-		&block->phys_addr, GFP_KERNEL);
-	if (!block->vaddr) {
-		kfree(block);
-		return NULL;
-	}
 	block->block.size = size;
 	block->state = IIO_BLOCK_STATE_DEQUEUED;
 	block->queue = queue;
+
+	block->vaddr = vzalloc(PAGE_ALIGN(size));
+	if (!block->vaddr)
+		goto err_free_block;
+
+	block->sglist = vzalloc(nb_pages * sizeof(*block->sglist));
+	if (!block->sglist)
+		goto err_free_vaddr;
+
+	sg_init_table(block->sglist, nb_pages);
+	for (i = 0, vaddr = block->vaddr; i < nb_pages;
+			i++, vaddr += PAGE_SIZE, size -= PAGE_SIZE) {
+		size_t page_size = size < PAGE_SIZE ? size : PAGE_SIZE;
+		struct page *page = vmalloc_to_page(vaddr);
+		if (!page)
+			goto err_free_sglist;
+
+		sg_set_page(&block->sglist[i], page, page_size, 0);
+	}
+
 	INIT_LIST_HEAD(&block->head);
 	kref_init(&block->kref);
 
 	iio_buffer_get(&queue->buffer);
-
 	return block;
+
+err_free_sglist:
+	vfree(block->sglist);
+err_free_vaddr:
+	vfree(vaddr);
+err_free_block:
+	kfree(block);
+	return NULL;
 }
 
 int iio_dma_buffer_alloc_blocks(struct iio_buffer *buffer,
@@ -599,8 +623,11 @@ int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 {
 	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buffer);
 	struct iio_dma_buffer_block *block = NULL;
+	unsigned long uaddr;
+	unsigned int i, nb_pages;
 	size_t vm_offset;
-	unsigned int i;
+	void *vaddr;
+	int ret = 0;
 
 	vm_offset = vma->vm_pgoff << PAGE_SHIFT;
 
@@ -617,16 +644,22 @@ int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 	if (PAGE_ALIGN(block->block.size) < vma->vm_end - vma->vm_start)
 		return -EINVAL;
 
+	nb_pages = PAGE_ALIGN(block->block.size) / PAGE_SIZE;
 	vma->vm_pgoff = 0;
 
 	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_ops = &iio_dma_buffer_vm_ops;
 	vma->vm_private_data = block;
 
-	vma->vm_ops->open(vma);
-
-	return dma_mmap_coherent(queue->dev, vma, block->vaddr,
-		block->phys_addr, vma->vm_end - vma->vm_start);
+	for (uaddr = vma->vm_start, vaddr = block->vaddr, i = 0;
+			!ret && i < nb_pages;
+			i++, vaddr += PAGE_SIZE, uaddr += PAGE_SIZE)
+		ret = vm_insert_page(vma, uaddr, vmalloc_to_page(vaddr));
+	if (ret)
+		dev_err(queue->dev, "Unable to insert page %i: %i\n", i, ret);
+	if (!ret)
+		vma->vm_ops->open(vma);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_mmap);
 
