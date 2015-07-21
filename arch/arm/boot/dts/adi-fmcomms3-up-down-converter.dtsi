@@ -27,6 +27,7 @@
 			adi,charge-pump-current = <2500>;
 			adi,output-power = <3>;
 			adi,mute-till-lock-enable;
+			adi,muxout-select = <6>;
 		};
 
 		lo_pll0_rx_adf4351: adf4351-udc-rx-pmod@1 {
@@ -43,5 +44,6 @@
 			adi,charge-pump-current = <2500>;
 			adi,output-power = <3>;
 			adi,mute-till-lock-enable;
+			adi,muxout-select = <6>;
 		};
 };
