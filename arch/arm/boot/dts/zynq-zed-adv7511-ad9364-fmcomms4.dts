@@ -97,3 +97,12 @@
 	enable-gpios = <&gpio 101 0>;
 	txnrx-gpios = <&gpio 102 0>;
 };
+
+&lo_pll0_rx_adf4351 {
+	gpios = <&gpio 103 0>;
+};
+
+&lo_pll0_tx_adf4351 {
+	gpios = <&gpio 104 0>;
+};
+
