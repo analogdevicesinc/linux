@@ -4338,6 +4338,9 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (!ref_freq)
 		return -EINVAL;
 
+	clk_set_parent(phy->clks[TX_RFPLL], phy->clks[TX_RFPLL_INT]);
+	clk_set_parent(phy->clks[RX_RFPLL], phy->clks[RX_RFPLL_INT]);
+
 	ret = clk_set_rate(phy->clks[RX_REFCLK], ref_freq);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set RX Synth ref clock rate (%d)\n", ret);
@@ -5622,52 +5625,55 @@ static int ad9361_clk_mux_set_parent(struct clk_hw *hw, u8 index)
 	return ret;
 }
 
-long ad9361_clk_mux_determine_rate(struct clk_hw *hw, unsigned long rate,
-			      unsigned long *best_parent_rate,
-			      struct clk_hw **best_parent_p)
+static const struct clk_ops rfpll_clk_ops = {
+	.get_parent = ad9361_clk_mux_get_parent,
+	.set_parent = ad9361_clk_mux_set_parent,
+	.determine_rate = __clk_mux_determine_rate,
+};
+
+static int ad9361_rx_rfpll_rate_change(struct notifier_block *nb,
+	unsigned long flags, void *data)
 {
-	struct refclk_scale *clk_priv = to_clk_priv(hw);
-	struct ad9361_rf_phy *phy = clk_priv->phy;
-	unsigned long best_rate;
-	int ret;
+	struct clk_notifier_data *cnd = data;
+	struct ad9361_rf_phy *phy =
+		container_of(nb, struct ad9361_rf_phy, clk_nb_rx);
 
-	long best = __clk_mux_determine_rate(hw, rate, best_parent_rate, best_parent_p);
-	best_rate = (unsigned long) best;
+	if (flags == POST_RATE_CHANGE) {
+		dev_dbg(&phy->spi->dev, "%s: rate %llu Hz", __func__,
+			ad9361_from_clk(cnd->new_rate));
+		ad9361_load_gt(phy, ad9361_from_clk(cnd->new_rate), GT_RX1 + GT_RX2);
+	}
 
-	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, best);
+	return NOTIFY_OK;
+}
 
-	switch (clk_priv->source) {
-	case RX_RFPLL:
-		ret = ad9361_load_gt(phy, ad9361_from_clk(best_rate), GT_RX1 + GT_RX2);
-		if (ret < 0)
-			best = ret;
-		break;
-	case TX_RFPLL:
+static int ad9361_tx_rfpll_rate_change(struct notifier_block *nb,
+	unsigned long flags, void *data)
+{
+	struct clk_notifier_data *cnd = data;
+	struct ad9361_rf_phy *phy =
+		container_of(nb, struct ad9361_rf_phy, clk_nb_tx);
+
+	if (flags == POST_RATE_CHANGE) {
+		dev_dbg(&phy->spi->dev, "%s: rate %llu Hz", __func__,
+			ad9361_from_clk(cnd->new_rate));
 		/* For RX LO we typically have the tracking option enabled
 		* so for now do nothing here.
 		*/
 		if (phy->auto_cal_en)
-			if (abs(phy->last_tx_quad_cal_freq - ad9361_from_clk(best_rate)) >
+			if (abs(phy->last_tx_quad_cal_freq - ad9361_from_clk(cnd->new_rate)) >
 				phy->cal_threshold_freq) {
 
 				set_bit(0, &phy->flags);
 				reinit_completion(&phy->complete);
 				schedule_work(&phy->work);
-				phy->last_tx_quad_cal_freq = ad9361_from_clk(best_rate);
+				phy->last_tx_quad_cal_freq = ad9361_from_clk(cnd->new_rate);
 			}
-		break;
-	default:
-		best = -EINVAL;
 	}
 
-	return best;
+	return NOTIFY_OK;
 }
 
-static const struct clk_ops rfpll_clk_ops = {
-	.get_parent = ad9361_clk_mux_get_parent,
-	.set_parent = ad9361_clk_mux_set_parent,
-	.determine_rate = ad9361_clk_mux_determine_rate,
-};
 
 #define AD9361_MAX_CLK_NAME 79
 
@@ -5767,6 +5773,7 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	const char *ext_tx_lo = NULL;
 	const char *ext_rx_lo = NULL;
 	u32 flags = CLK_GET_RATE_NOCACHE;
+	int ret;
 
 	parent_name = __clk_get_name(phy->clk_refin);
 
@@ -5861,6 +5868,16 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	ad9361_clk_register(phy, "-tx_rfpll", "-tx_rfpll_int", ext_tx_lo,
 		flags | CLK_IGNORE_UNUSED | CLK_SET_RATE_NO_REPARENT |
 		CLK_SET_RATE_PARENT, TX_RFPLL);
+
+	phy->clk_nb_rx.notifier_call = ad9361_rx_rfpll_rate_change;
+	ret = clk_notifier_register(phy->clks[RX_RFPLL], &phy->clk_nb_rx);
+	if (ret < 0)
+		return ret;
+
+	phy->clk_nb_tx.notifier_call = ad9361_tx_rfpll_rate_change;
+	ret = clk_notifier_register(phy->clks[TX_RFPLL], &phy->clk_nb_tx);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -7061,6 +7078,8 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 			return -EINVAL;
 		mutex_lock(&phy->indio_dev->mlock);
 		clk_set_rate(phy->clks[TX_SAMPL_CLK], 1);
+		clk_set_parent(phy->clks[RX_RFPLL], phy->clk_ext_lo_rx);
+		clk_set_parent(phy->clks[TX_RFPLL], phy->clk_ext_lo_tx);
 		ad9361_reset(phy);
 		ad9361_clks_resync(phy);
 		ad9361_clks_disable(phy);
@@ -7925,7 +7944,7 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ret = ad9361_setup(phy);
 	if (ret < 0)
-		return ret;
+		goto out_unregister_notifier;
 
 	ret = of_clk_add_provider(spi->dev.of_node,
 			    of_clk_src_onecell_get, &phy->clk_data);
@@ -7977,6 +7996,9 @@ out_clk_del_provider:
 	of_clk_del_provider(spi->dev.of_node);
 out_disable_clocks:
 	ad9361_clks_disable(phy);
+out_unregister_notifier:
+	clk_notifier_unregister(phy->clks[RX_RFPLL], &phy->clk_nb_rx);
+	clk_notifier_unregister(phy->clks[TX_RFPLL], &phy->clk_nb_tx);
 
 	return ret;
 }
@@ -7988,6 +8010,8 @@ static int ad9361_remove(struct spi_device *spi)
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin);
 	iio_device_unregister(phy->indio_dev);
 	of_clk_del_provider(spi->dev.of_node);
+	clk_notifier_unregister(phy->clks[RX_RFPLL], &phy->clk_nb_rx);
+	clk_notifier_unregister(phy->clks[TX_RFPLL], &phy->clk_nb_tx);
 	ad9361_clks_disable(phy);
 
 	return 0;

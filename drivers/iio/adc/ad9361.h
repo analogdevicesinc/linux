@@ -3290,6 +3290,8 @@ struct ad9361_rf_phy {
 	struct clk 		*clk_ext_lo_rx;
 	struct clk 		*clk_ext_lo_tx;
 	struct clk 		*clks[NUM_AD9361_CLKS];
+	struct notifier_block   clk_nb_tx;
+	struct notifier_block   clk_nb_rx;
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
