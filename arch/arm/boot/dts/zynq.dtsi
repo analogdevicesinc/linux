@@ -215,6 +215,7 @@
 			interrupt-parent = <&gic>;
 			clocks = <&clkc 28>;
 			phy_type = "ulpi";
+			dr_mode = "host"; /* This breaks OTG mode */
 		};
 
 		i2c0: i2c@e0004000 {
