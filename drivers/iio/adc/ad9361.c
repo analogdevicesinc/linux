@@ -7959,7 +7959,7 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ret = ad9361_register_debugfs(indio_dev);
 	if (ret < 0)
-		goto out_iio_device_unregister;
+		dev_warn(&spi->dev, "%s: failed to register debugfs", __func__);
 
 	dev_info(&spi->dev, "%s : AD9361 Rev %d successfully initialized",
 		 __func__, rev);
