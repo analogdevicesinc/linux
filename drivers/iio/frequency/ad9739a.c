@@ -283,7 +283,7 @@ static ssize_t ad9739a_store(struct device *dev,
 	return ret ? ret : len;
 }
 
-static IIO_DEVICE_ATTR(full_scalle_current, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(full_scale_current, S_IRUGO | S_IWUSR,
 					ad9739a_show,
 					ad9739a_store,
 					AD9739A_FSC);
@@ -291,7 +291,7 @@ static IIO_DEVICE_ATTR(full_scalle_current, S_IRUGO | S_IWUSR,
 static IIO_DEVICE_ATTR(operation_modes_available, S_IRUGO,
 					ad9739a_show,
 					NULL,
-					AD9739A_OP_MODE);
+					AD9739A_OP_MODE_AVAIL);
 
 static IIO_DEVICE_ATTR(operation_mode, S_IRUGO | S_IWUSR,
 					ad9739a_show,
@@ -299,7 +299,7 @@ static IIO_DEVICE_ATTR(operation_mode, S_IRUGO | S_IWUSR,
 					AD9739A_OP_MODE);
 
 static struct attribute *ad9739a_attributes[] = {
-	&iio_dev_attr_full_scalle_current.dev_attr.attr,
+	&iio_dev_attr_full_scale_current.dev_attr.attr,
 	&iio_dev_attr_operation_modes_available.dev_attr.attr,
 	&iio_dev_attr_operation_mode.dev_attr.attr,
 	NULL,
