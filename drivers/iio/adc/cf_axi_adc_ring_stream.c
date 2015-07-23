@@ -56,8 +56,8 @@ int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 
 	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
 			&axiadc_dma_buffer_ops, indio_dev);
-	if (IS_ERR_OR_NULL(buffer))
-		return -ENOMEM;
+	if (IS_ERR(buffer))
+		return PTR_ERR(buffer);
 
 	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
 	iio_device_attach_buffer(indio_dev, buffer);
