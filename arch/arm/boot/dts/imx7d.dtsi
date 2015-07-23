@@ -188,6 +188,11 @@
 		mipi-phy-supply = <&reg_1p0d>;
 		pcie-phy-supply = <&reg_1p0d>;
 	};
+
+	iomuxc_lpsr_gpr: lpsr-gpr@30270000 {
+		compatible = "fsl,imx7d-lpsr-gpr";
+		reg = <0x30270000 0x10000>;
+	};
 };
 
 &anatop {
