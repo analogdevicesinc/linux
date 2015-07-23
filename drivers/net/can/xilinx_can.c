@@ -553,6 +553,7 @@ static int xcan_rx(struct net_device *ndev)
 	return 1;
 }
 
+static void xcan_chip_stop(struct net_device *ndev);
 /**
  * xcan_current_error_state - Get current error state from HW
  * @ndev:	Pointer to net_device structure
@@ -719,6 +720,8 @@ static void xcan_err_interrupt(struct net_device *ndev, u32 isr)
 	if (isr & XCAN_IXR_RXOFLW_MASK) {
 		stats->rx_over_errors++;
 		stats->rx_errors++;
+		xcan_chip_stop(ndev);
+		xcan_chip_start(ndev);
 		if (skb) {
 			cf->can_id |= CAN_ERR_CRTL;
 			cf->data[1] |= CAN_ERR_CRTL_RX_OVERFLOW;
