@@ -1195,6 +1195,16 @@ config ARM_ERRATA_825619
 	  DMB NSHST or DMB ISHST instruction followed by a mix of Cacheable
 	  and Device/Strongly-Ordered loads and stores might cause deadlock
 
+config ARM_ERRATA_814220
+	bool "ARM errata: Cache maintenance by set/way operations can execute out of order"
+	depends on CPU_V7
+	help
+	  The v7 ARM states that all cache and branch predictor maintenance operations
+	  that do not specify an address execute, relative to each other, in program order.
+	  However, because of this erratum, an L2 set/way cache maintenance operation can
+	  overtake an L1 set/way cache maintenance operation. This ERRATA only affected the
+	  Cortex-A7 and present in r0p2, r0p3, r0p4, r0p5.
+
 config ARM_ERRATA_852421
 	bool "ARM errata: A17: DMB ST might fail to create order between stores"
 	depends on CPU_V7
