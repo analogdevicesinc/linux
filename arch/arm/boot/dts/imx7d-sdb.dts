@@ -69,6 +69,7 @@
 			#gpio-cells = <2>;
 			reg = <0>;
 			registers-number = <1>;
+			registers-default = /bits/ 8 <0x74>; /* Enable PERI_3V3, SENSOR_RST_B and HDMI_RST*/
 			spi-max-frequency = <100000>;
 		};
 	};
