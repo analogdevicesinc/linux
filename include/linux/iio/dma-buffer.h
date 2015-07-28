@@ -13,7 +13,7 @@ struct iio_dma_buffer_queue {
 	spinlock_t list_lock;
 	struct list_head incoming;
 	struct list_head outgoing;
-	bool active;
+	bool active, do_fileio;
 
 	void *driver_data;
 
