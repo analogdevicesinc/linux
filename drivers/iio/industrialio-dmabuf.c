@@ -454,15 +454,52 @@ out_unlock:
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_dequeue_block);
 
+static int iio_dma_buffer_queue_dequeue(struct iio_dma_buffer_queue *queue)
+{
+	if (!queue->fileio.block) {
+		queue->fileio.block = iio_dma_buffer_dequeue(queue);
+		queue->fileio.pos = 0;
+	}
+
+	return queue->fileio.block ? 0 : -EAGAIN;
+}
+
+static ssize_t iio_dma_buffer_queue_get_io_len(
+		struct iio_dma_buffer_queue *queue, size_t len, bool align)
+{
+	struct iio_dma_buffer_block *block = queue->fileio.block;
+
+	if (len < queue->buffer.bytes_per_datum)
+		return -EINVAL;
+
+	if (align)
+		len = ALIGN(len, queue->buffer.bytes_per_datum);
+	else
+		len = rounddown(len, queue->buffer.bytes_per_datum);
+	return (ssize_t) min_t(size_t, len,
+			block->block.bytes_used - queue->fileio.pos);
+}
+
+static void iio_dma_buffer_queue_add_io_len(
+		struct iio_dma_buffer_queue *queue, size_t len)
+{
+	struct iio_dma_buffer_block *block = queue->fileio.block;
+
+	queue->fileio.pos += len;
+	BUG_ON(queue->fileio.pos > block->block.bytes_used);
+
+	if (queue->fileio.pos == block->block.bytes_used) {
+		iio_dma_buffer_enqueue(queue, block);
+		queue->fileio.block = NULL;
+	}
+}
+
 int iio_dma_buffer_read(struct iio_buffer *buf, size_t n,
 	char __user *user_buffer)
 {
 	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buf);
-	struct iio_dma_buffer_block *block;
+	ssize_t len;
 	int ret;
-
-	if (n < buf->bytes_per_datum)
-		return -EINVAL;
 
 	mutex_lock(&queue->lock);
 
@@ -471,35 +508,22 @@ int iio_dma_buffer_read(struct iio_buffer *buf, size_t n,
 		goto out_unlock;
 	}
 
-	block = queue->fileio.block;
+	ret = iio_dma_buffer_queue_dequeue(queue);
+	if (ret)
+		goto out_unlock;
 
-	if (!block) {
-		block = iio_dma_buffer_dequeue(queue);
-		if (block == NULL) {
-			ret = 0;
-			goto out_unlock;
-		}
-		queue->fileio.pos = 0;
-		queue->fileio.block = block;
-	}
+	len = iio_dma_buffer_queue_get_io_len(queue, n, false);
+	ret = (int) len;
+	if (ret < 0)
+		goto out_unlock;
 
-	n = rounddown(n, buf->bytes_per_datum);
-	if (n > block->block.bytes_used - queue->fileio.pos)
-		n = block->block.bytes_used - queue->fileio.pos;
-
-	if (copy_to_user(user_buffer, block->vaddr + queue->fileio.pos, n)) {
+	if (copy_to_user(user_buffer, queue->fileio.block->vaddr
+				+ queue->fileio.pos, len)) {
 		ret = -EFAULT;
 		goto out_unlock;
 	}
 
-	queue->fileio.pos += n;
-
-	if (queue->fileio.pos == block->block.bytes_used) {
-		iio_dma_buffer_enqueue(queue, block);
-		queue->fileio.block = NULL;
-	}
-
-	ret = n;
+	iio_dma_buffer_queue_add_io_len(queue, len);
 
 out_unlock:
 	mutex_unlock(&queue->lock);
@@ -512,7 +536,7 @@ int iio_dma_buffer_write(struct iio_buffer *buf, size_t n,
 	const char __user *user_buffer)
 {
 	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buf);
-	struct iio_dma_buffer_block *block;
+	ssize_t len;
 	int ret;
 
 	if (n < buf->bytes_per_datum)
@@ -525,36 +549,22 @@ int iio_dma_buffer_write(struct iio_buffer *buf, size_t n,
 		goto out_unlock;
 	}
 
-	block = queue->fileio.block;
+	ret = iio_dma_buffer_queue_dequeue(queue);
+	if (ret)
+		goto out_unlock;
 
-	if (!block) {
-		block = iio_dma_buffer_dequeue(queue);
-		if (block == NULL) {
-			ret = 0;
-			goto out_unlock;
-		}
-		queue->fileio.pos = 0;
-		queue->fileio.block = block;
-	}
+	len = iio_dma_buffer_queue_get_io_len(queue, n, true);
+	ret = (int) len;
+	if (ret < 0)
+		goto out_unlock;
 
-	n = ALIGN(n, buf->bytes_per_datum);
-	if (n > block->block.size - queue->fileio.pos)
-		n = block->block.size - queue->fileio.pos;
-
-	if (copy_from_user(block->vaddr + queue->fileio.pos, user_buffer, n)) {
+	if (copy_from_user(queue->fileio.block->vaddr + queue->fileio.pos,
+				user_buffer, len)) {
 		ret = -EFAULT;
 		goto out_unlock;
 	}
 
-	queue->fileio.pos += n;
-
-	if (queue->fileio.pos == block->block.size) {
-		block->block.bytes_used = block->block.size;
-		iio_dma_buffer_enqueue(queue, block);
-		queue->fileio.block = NULL;
-	}
-
-	ret = n;
+	iio_dma_buffer_queue_add_io_len(queue, len);
 
 out_unlock:
 	mutex_unlock(&queue->lock);
