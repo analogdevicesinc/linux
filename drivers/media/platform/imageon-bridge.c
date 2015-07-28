@@ -318,3 +318,6 @@ static struct platform_driver imageon_bridge_driver = {
 	.remove = imageon_bridge_remove,
 };
 module_platform_driver(imageon_bridge_driver);
+
+MODULE_DESCRIPTION("Imageon video bridge");
+MODULE_LICENSE("GPL v2");
