@@ -610,6 +610,14 @@
 				     <0 0 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		ocramedac@ff8c3000 {
+			compatible = "altr,a10-ocram-edac";
+			reg = <0xff8c3000 0x5000>;
+			iram = <&ocram>;
+			interrupts = <0 2 IRQ_TYPE_LEVEL_HIGH>,
+				     <0 0 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		mmc: dwmmc0@ff808000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
