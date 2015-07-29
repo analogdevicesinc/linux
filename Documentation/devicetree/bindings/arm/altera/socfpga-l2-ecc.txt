@@ -1,10 +1,12 @@
 Altera SoCFPGA L2 cache Error Detection and Correction [EDAC]
 
 Required Properties:
-- compatible : Should be "altr,l2-edac"
+- compatible : Should be "altr,l2-edac" for Cyclone V, and should be
+	"altr,a10-l2-edac" for Arria 10.
 - reg : Address and size for ECC error interrupt clear registers.
 - interrupts : Should be single bit error interrupt, then double bit error
-	interrupt. Note the rising edge type.
+	interrupt. Note the rising edge type for Cyclone V, and the level type
+	for Arria 10.
 
 Example:
 
@@ -12,4 +14,10 @@ Example:
 		compatible = "altr,l2-edac";
 		reg = <0xffd08140 0x4>;
 		interrupts = <0 36 1>, <0 37 1>;
+	};
+
+	l2edac@ffd06000 {
+		compatible = "altr,a10-l2-edac";
+		reg = <0xffd06000 0x200>;
+		interrupts = <0 2 4>, <0 0 4>;
 	};
