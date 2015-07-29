@@ -603,6 +603,13 @@
 			cache-level = <2>;
 		};
 
+		l2edac@ffd06000 {
+			compatible = "altr,a10-l2-edac";
+			reg = <0xffd06000 0x200>;
+			interrupts = <0 2 IRQ_TYPE_LEVEL_HIGH>,
+				     <0 0 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		mmc: dwmmc0@ff808000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
