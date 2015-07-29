@@ -342,7 +342,7 @@ struct axiadc_chip_info {
 	unsigned			num_channels;
 	unsigned 		num_shadow_slave_channels;
 	const unsigned long 	*scan_masks;
-	int			(*scale_table)[2];
+	const int			(*scale_table)[2];
 	int				num_scales;
 	int				max_testmode;
 	unsigned long			max_rate;
