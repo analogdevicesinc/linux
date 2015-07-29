@@ -360,21 +360,21 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	return ad9467_calibrate(indio_dev, chan, true, dco_en, 0);
 }
 
-static int ad9265_scale_table[][2] = {
+static const int ad9265_scale_table[][2] = {
 	{1250, 0x00}, {1500, 0x40}, {1750, 0x80}, {2000, 0xC0},
 };
 
-static int ad9680_scale_table[][2] = {
+static const int ad9680_scale_table[][2] = {
 	{1200, 0x08}, {1300, 0x09}, {1400, 0x0A}, {1500, 0x0B},
 	{1600, 0x00}, {1700, 0x0C}, {1800, 0x0D}, {1900, 0x0F},
 };
 
-static int ad9467_scale_table[][2] = {
+static const int ad9467_scale_table[][2] = {
 	{2000, 0}, {2100, 6}, {2200, 7},
 	{2300, 8}, {2400, 9}, {2500, 10},
 };
 
-static int ad9643_scale_table[][2] = {
+static const int ad9643_scale_table[][2] = {
 	{2087, 0x0F}, {2065, 0x0E}, {2042, 0x0D}, {2020, 0x0C}, {1997, 0x0B},
 	{1975, 0x0A}, {1952, 0x09}, {1930, 0x08}, {1907, 0x07}, {1885, 0x06},
 	{1862, 0x05}, {1840, 0x04}, {1817, 0x03}, {1795, 0x02}, {1772, 0x01},
@@ -384,26 +384,24 @@ static int ad9643_scale_table[][2] = {
 	{1406, 0x11}, {1383, 0x10},
 };
 
-static int ad9434_scale_table[][2] = {
+static const int ad9434_scale_table[][2] = {
 	{1600, 0x1C}, {1580, 0x1D}, {1550, 0x1E}, {1520, 0x1F}, {1500, 0x00},
 	{1470, 0x01}, {1440, 0x02}, {1420, 0x03}, {1390, 0x04}, {1360, 0x05},
 	{1340, 0x06}, {1310, 0x07}, {1280, 0x08}, {1260, 0x09}, {1230, 0x0A},
 	{1200, 0x0B}, {1180, 0x0C},
 };
 
-static int ad9652_scale_table[][2] = {
+static const int ad9652_scale_table[][2] = {
 	{1250, 0}, {1125, 1}, {1200, 2}, {1250, 3}, {1000, 5},
 };
 
-static void ad9467_convert_scale_table(struct axiadc_converter *conv)
+static int ad9467_scale(struct axiadc_converter *conv, int index)
 {
-	int i;
+	if (index > conv->chip_info->num_scales)
+		return -EINVAL;
 
-	for (i = 0; i < conv->chip_info->num_scales; i++)
-		conv->chip_info->scale_table[i][0] =
-		    (conv->chip_info->scale_table[i][0] * 1000000ULL) >>
+	return (conv->chip_info->scale_table[index][0] * 1000000ULL) >>
 		    conv->chip_info->channel[0].scan_type.realbits;
-
 }
 
 static irqreturn_t ad9680_event_handler(
@@ -576,8 +574,7 @@ static ssize_t ad9467_show_scale_available(struct iio_dev *indio_dev,
 	int i, len = 0;
 
 	for (i = 0; i < conv->chip_info->num_scales; i++)
-		len += sprintf(buf + len, "0.%06u ",
-			       conv->chip_info->scale_table[i][0]);
+		len += sprintf(buf + len, "0.%06u ", ad9467_scale(conv, i));
 
 	len += sprintf(buf + len, "\n");
 
@@ -999,7 +996,7 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 				break;
 
 		*val = 0;
-		*val2 = conv->chip_info->scale_table[i][0];
+		*val2 = ad9467_scale(conv, i);
 
 		return IIO_VAL_INT_PLUS_MICRO;
 
@@ -1029,7 +1026,7 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 
 		for (i = 0; i < conv->chip_info->num_scales; i++)
-			if (val2 == conv->chip_info->scale_table[i][0]) {
+			if (val2 == ad9467_scale(conv, i)) {
 				if (conv->id == CHIPID_AD9680 ||
 						conv->id == CHIPID_AD9234) {
 					ad9467_spi_write(conv->spi,
@@ -1307,8 +1304,6 @@ static int ad9467_probe(struct spi_device *spi)
 
 	if (ret < 0)
 		goto out;
-
-	ad9467_convert_scale_table(conv);
 
 	conv->write = ad9467_spi_write;
 	conv->read = ad9467_spi_read;
