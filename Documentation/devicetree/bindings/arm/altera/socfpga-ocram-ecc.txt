@@ -1,11 +1,13 @@
 Altera SoCFPGA On-Chip RAM Error Detection and Correction [EDAC]
 
 OCRAM ECC Required Properties:
-- compatible : Should be "altr,ocram-edac"
+- compatible : Should be "altr,ocram-edac" for Cyclone V, and should be
+	"altr,a10-ocram-edac" for Arria 10.
 - reg : Address and size for ECC error interrupt clear registers.
 - iram : phandle to On-Chip RAM definition.
 - interrupts : Should be single bit error interrupt, then double bit error
-	interrupt. Note the rising edge type.
+	interrupt. Note the rising edge type for Cyclone V, and the level type
+	for Arria 10.
 
 Example:
 	ocramedac@ffd08144 {
@@ -13,4 +15,11 @@ Example:
 		reg = <0xffd08144 0x4>;
 		iram = <&ocram>;
 		interrupts = <0 178 1>, <0 179 1>;
+	};
+
+	ocramedac@ff8c3000 {
+		compatible = "altr,a10-ocram-edac";
+		reg = <0xff8c3000 0x5000>;
+		iram = <&ocram>;
+		interrupts = <0 2 4>, <0 0 4>;
 	};
