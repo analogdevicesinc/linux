@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Freescale Semiconductor, Inc.
+ * Copyright 2014-2015 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -106,6 +106,12 @@ static void __init imx6sx_init_late(void)
 		platform_device_register_simple("imx6q-cpufreq", -1, NULL, 0);
 }
 
+static void __init imx6sx_map_io(void)
+{
+	debug_ll_io_init();
+	imx6_pm_map_io();
+}
+
 static const char * const imx6sx_dt_compat[] __initconst = {
 	"fsl,imx6sx",
 	NULL,
@@ -114,6 +120,7 @@ static const char * const imx6sx_dt_compat[] __initconst = {
 DT_MACHINE_START(IMX6SX, "Freescale i.MX6 SoloX (Device Tree)")
 	.l2c_aux_val 	= 0,
 	.l2c_aux_mask	= ~0,
+	.map_io		= imx6sx_map_io,
 	.init_irq	= imx6sx_init_irq,
 	.init_machine	= imx6sx_init_machine,
 	.dt_compat	= imx6sx_dt_compat,

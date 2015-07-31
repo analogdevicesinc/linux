@@ -109,13 +109,14 @@
 
 #include "mxc.h"
 
-#include "mx7.h"
 #include "mx3x.h"
 #include "mx31.h"
 #include "mx35.h"
 #include "mx2x.h"
 #include "mx21.h"
 #include "mx27.h"
+#include "mx6.h"
+#include "mx7.h"
 
 #define imx_map_entry(soc, name, _type)	{				\
 	.virtual = soc ## _IO_P2V(soc ## _ ## name ## _BASE_ADDR),	\
