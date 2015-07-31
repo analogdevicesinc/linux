@@ -110,6 +110,24 @@ static int ad9144_setup(struct ad9144_state *st,
 		regmap_write(map, 0x29f, 0x73);	// serde-pll
 		regmap_write(map, 0x232, 0xff);	// jesd
 		regmap_write(map, 0x333, 0x01);	// jesd
+
+		/* Write optimal settings for the SERDES PLL, as per table 39 of the
+		 * datasheet. */
+		regmap_write(map, 0x284, 0x62);
+		regmap_write(map, 0x285, 0xc9);
+		regmap_write(map, 0x286, 0x0e);
+		regmap_write(map, 0x287, 0x12);
+		regmap_write(map, 0x28a, 0x7b);
+		regmap_write(map, 0x28b, 0x00);
+		regmap_write(map, 0x290, 0x89);
+		regmap_write(map, 0x294, 0x24);
+		regmap_write(map, 0x296, 0x03);
+		regmap_write(map, 0x297, 0x0d);
+		regmap_write(map, 0x299, 0x02);
+		regmap_write(map, 0x29a, 0x8e);
+		regmap_write(map, 0x29c, 0x2a);
+		regmap_write(map, 0x29f, 0x78);
+		regmap_write(map, 0x2a0, 0x06);
 	} else if (st->id == CHIPID_AD9152) {
 		/* So secret. Such ugly. Very hardcoded. wow. */
 		regmap_write(map, 0x1a0, 0x01);
