@@ -1107,6 +1107,30 @@ static int ad9361_get_tx_atten(struct ad9361_rf_phy *phy, u32 tx_num)
 	return code;
 }
 
+int ad9361_tx_mute(struct ad9361_rf_phy *phy, u32 state)
+{
+	int ret;
+
+	if (state) {
+		phy->tx1_atten_cached = ad9361_get_tx_atten(phy, 1);
+		phy->tx2_atten_cached = ad9361_get_tx_atten(phy, 2);
+
+		return ad9361_set_tx_atten(phy, 89750, true, true, true);
+	} else {
+		if (phy->tx1_atten_cached == phy->tx2_atten_cached)
+			return ad9361_set_tx_atten(phy, phy->tx1_atten_cached,
+						   true, true, true);
+
+		ret = ad9361_set_tx_atten(phy, phy->tx1_atten_cached,
+						   true, false, true);
+		ret |= ad9361_set_tx_atten(phy, phy->tx2_atten_cached,
+						   false, true, true);
+
+		return ret;
+	}
+}
+EXPORT_SYMBOL(ad9361_tx_mute);
+
 static u32 ad9361_rfvco_tableindex(unsigned long freq)
 {
 	if (freq < 50000000UL)
