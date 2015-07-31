@@ -3325,6 +3325,9 @@ struct ad9361_rf_phy {
 	bool			txmon_tdd_en;
 	u16 			auxdac1_value;
 	u16 			auxdac2_value;
+	u32			tx1_atten_cached;
+	u32			tx2_atten_cached;
+
 	struct ad9361_fastlock	fastlock;
 };
 
@@ -3349,7 +3352,7 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long *tx_path_clks);
 int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			   enum dig_tune_flags flags);
-
+int ad9361_tx_mute(struct ad9361_rf_phy *phy, u32 state);
 
 #endif
 
