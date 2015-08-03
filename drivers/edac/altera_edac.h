@@ -203,13 +203,19 @@ struct ecc_mgr_prv_data {
 	int (*setup)(struct platform_device *pdev, void __iomem *base);
 	int ce_clear_mask;
 	int ue_clear_mask;
+	uintptr_t clear_mask_offs;
+	int ce_status_mask;
+	int ue_status_mask;
+	uintptr_t status_mask_offs;
 #ifdef CONFIG_EDAC_DEBUG
 	struct edac_dev_sysfs_attribute *eccmgr_sysfs_attr;
 	void * (*init_mem)(size_t size, void **other);
 	void (*free_mem)(void *p, size_t size, void *other);
 	int ecc_enable_mask;
+	uintptr_t enable_mask_offs;
 	int ce_set_mask;
 	int ue_set_mask;
+	uintptr_t set_mask_offs;
 	int trig_alloc_sz;
 #endif
 };
@@ -223,9 +229,44 @@ struct altr_ecc_mgr_dev {
 };
 
 extern const struct ecc_mgr_prv_data l2ecc_data;
+extern const struct ecc_mgr_prv_data a10_l2ecc_data;
 extern const struct ecc_mgr_prv_data ocramecc_data;
 
 ssize_t altr_ecc_mgr_trig(struct edac_device_ctl_info *edac_dci,
 			  const char *buffer, size_t count);
+
+static inline void __iomem *ecc_clear_addr(const struct altr_ecc_mgr_dev *dev)
+{
+	void __iomem *addr = (void __iomem *)((uintptr_t)dev->base +
+			      dev->data->clear_mask_offs);
+
+       return addr;
+}
+
+static inline void __iomem *ecc_status_addr(const struct altr_ecc_mgr_dev *dev)
+{
+	void __iomem *addr = (void __iomem *)((uintptr_t)dev->base +
+			      dev->data->status_mask_offs);
+
+       return addr;
+}
+
+#ifdef CONFIG_EDAC_DEBUG
+static inline void __iomem *ecc_enable_addr(const struct altr_ecc_mgr_dev *dev)
+{
+	void __iomem *addr = (void __iomem *)((uintptr_t)dev->base +
+			      dev->data->enable_mask_offs);
+
+       return addr;
+}
+
+static inline void __iomem *ecc_set_addr(const struct altr_ecc_mgr_dev *dev)
+{
+	void __iomem *addr = (void __iomem *)((uintptr_t)dev->base +
+			      dev->data->set_mask_offs);
+
+	return addr;
+}
+#endif
 
 #endif	/* #ifndef _ALTERA_EDAC_H */
