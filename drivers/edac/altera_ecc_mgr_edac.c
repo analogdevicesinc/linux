@@ -164,6 +164,8 @@ static const struct of_device_id altr_ecc_mgr_of_match[] = {
 #endif
 #ifdef CONFIG_EDAC_ALTERA_OCRAM_ECC
 	{ .compatible = "altr,ocram-edac", .data = (void *)&ocramecc_data },
+	{ .compatible = "altr,a10-ocram-edac",
+	  .data = (void *)&a10_ocramecc_data },
 #endif
 	{},
 };

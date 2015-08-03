@@ -231,6 +231,7 @@ struct altr_ecc_mgr_dev {
 extern const struct ecc_mgr_prv_data l2ecc_data;
 extern const struct ecc_mgr_prv_data a10_l2ecc_data;
 extern const struct ecc_mgr_prv_data ocramecc_data;
+extern const struct ecc_mgr_prv_data a10_ocramecc_data;
 
 ssize_t altr_ecc_mgr_trig(struct edac_device_ctl_info *edac_dci,
 			  const char *buffer, size_t count);
