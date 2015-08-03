@@ -19,8 +19,12 @@
 
 #ifdef CONFIG_EDAC_ALTERA_L2_ECC
 void socfpga_init_l2_ecc(void);
+void socfpga_init_arria10_l2_ecc(void);
 #else
 inline void socfpga_init_l2_ecc(void)
+{
+}
+inline void socfpga_init_arria10_l2_ecc(void)
 {
 }
 #endif

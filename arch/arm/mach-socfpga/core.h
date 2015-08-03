@@ -32,6 +32,16 @@
 #define SOCFPGA_A10_RSTMGR_PER1MODRST	0x28
 #define SOCFPGA_A10_RSTMGR_BRGMODRST	0x2C
 
+/* A10 System Manager L2 cache ECC control register */
+#define SOCFPGA_A10_SYSMGR_L2_ECC_CTRL	0x10
+
+/* A10 System Manager ECC interrupt mask control registers */
+#define SOCFPGA_A10_SYSMGR_ECC_INTMASK_SET	0x94
+#define SOCFPGA_A10_SYSMGR_ECC_INTMASK_CLR	0x98
+
+#define SOCFPGA_A10_MPU_CTRL_L2_ECC_EN		BIT(0)
+#define SOCFPGA_A10_ECC_INTMASK_CLR_EN		BIT(0)
+
 /* System Manager bits */
 #define RSTMGR_CTRL_SWCOLDRSTREQ	0x1	/* Cold Reset */
 #define RSTMGR_CTRL_SWWARMRSTREQ	0x2	/* Warm Reset */

@@ -17,6 +17,40 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 
+#include "core.h"
+
+void socfpga_init_arria10_l2_ecc(void)
+{
+	struct device_node *np;
+	void __iomem *mapped_l2_edac_addr;
+
+	np = of_find_compatible_node(NULL, NULL, "altr,a10-l2-edac");
+	if (!np) {
+		pr_err("SOCFPGA: Unable to find altr,a10-l2-edac in dtb\n");
+		return;
+	}
+
+	if (!sys_manager_base_addr) {
+		pr_err("SOCFPGA: sys-mgr is not initialized\n");
+		return;
+	}
+
+	mapped_l2_edac_addr = of_iomap(np, 0);
+	if (!mapped_l2_edac_addr) {
+		pr_err("SOCFPGA: Unable to find L2 ECC mapping in dtb\n");
+		return;
+	}
+
+	writel(SOCFPGA_A10_ECC_INTMASK_CLR_EN, sys_manager_base_addr +
+	       SOCFPGA_A10_SYSMGR_ECC_INTMASK_CLR);
+	writel(SOCFPGA_A10_MPU_CTRL_L2_ECC_EN, mapped_l2_edac_addr +
+	       SOCFPGA_A10_SYSMGR_L2_ECC_CTRL);
+
+	pr_alert("SOCFPGA: Success Initializing L2 cache ECC for Arria10");
+
+	return;
+}
+
 void socfpga_init_l2_ecc(void)
 {
 	struct device_node *np;
