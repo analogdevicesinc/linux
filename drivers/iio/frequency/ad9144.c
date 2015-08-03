@@ -449,7 +449,7 @@ static int ad9144_probe(struct spi_device *spi)
 	conv->write_raw = ad9144_write_raw;
 	conv->read_raw = ad9144_read_raw;
 	conv->spi = spi;
-	conv->id = ID_AD9144;
+	conv->id = st->id == CHIPID_AD9144 ? ID_AD9144 : ID_AD9152;
 
 	ret = ad9144_get_clks(conv);
 	if (ret < 0) {
