@@ -181,6 +181,7 @@ enum {
 	ID_AD9122,
 	ID_AD9739A,
 	ID_AD9144,
+	ID_AD9152,
 };
 
 struct cf_axi_dds_chip_info {
