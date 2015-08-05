@@ -492,10 +492,12 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-pico.dtb \
 	imx7d-sbc-imx7.dtb \
 	imx7d-sdb.dtb \
+	imx7d-sdb-m4.dtb \
 	imx7d-sdb-sht11.dtb \
 	imx7s-colibri-eval-v3.dtb \
 	imx7s-warp.dtb \
-	imx7d-12x12-lpddr3-arm2.dtb
+	imx7d-12x12-lpddr3-arm2.dtb \
+	imx7d-12x12-lpddr3-arm2-m4.dtb
 dtb-$(CONFIG_SOC_LS1021A) += \
 	ls1021a-qds.dtb \
 	ls1021a-twr.dtb
