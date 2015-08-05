@@ -72,6 +72,7 @@ obj-$(CONFIG_HAVE_IMX_GPC) += gpc.o gpcv2.o
 obj-$(CONFIG_HAVE_IMX_MMDC) += mmdc.o
 obj-$(CONFIG_HAVE_IMX_DDRC) += ddrc.o
 obj-$(CONFIG_HAVE_IMX_SRC) += src.o
+obj-$(CONFIG_HAVE_IMX_RPMSG) += imx_rpmsg.o
 ifneq ($(CONFIG_SOC_IMX6)$(CONFIG_SOC_LS1021A),)
 AFLAGS_headsmp.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SMP) += headsmp.o platsmp.o
@@ -81,7 +82,7 @@ obj-$(CONFIG_SOC_IMX6Q) += mach-imx6q.o
 obj-$(CONFIG_SOC_IMX6SL) += mach-imx6sl.o
 obj-$(CONFIG_SOC_IMX6SX) += mach-imx6sx.o
 obj-$(CONFIG_SOC_IMX6UL) += mach-imx6ul.o
-obj-$(CONFIG_SOC_IMX7D) += mach-imx7d.o
+obj-$(CONFIG_SOC_IMX7D) += mach-imx7d.o mu.o
 
 ifeq ($(CONFIG_SUSPEND),y)
 AFLAGS_suspend-imx6.o :=-Wa,-march=armv7-a
