@@ -21,7 +21,7 @@
 #include "altera_edac.h"
 
 /* OCRAM ECC Management Group Defines */
-#define ALTR_MAN_GRP_OCRAM_ECC_OFFSET	0x04
+#define ALTR_MAN_GRP_OCRAM_ECC_OFFSET	0x00
 #define ALTR_OCR_ECC_EN_MASK		0x00000001
 #define ALTR_OCR_ECC_INJS_MASK		0x00000002
 #define ALTR_OCR_ECC_INJD_MASK		0x00000004
