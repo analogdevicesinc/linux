@@ -1,0 +1,33 @@
+Altera SoCFPGA NAND Flash Controller FIFOs Error Detection and Correction [EDAC]
+
+The Altera Arria 10 NAND flash controller has three local SRAM memory buffers:
+the write FIFO buffer, the read FIFO buffer and the ECC buffer.
+Each of these memories is protected by error checking and correction (ECC),
+and by interrupts for single and double-bit errors.
+
+NAND ECC Required Properties:
+- compatible : Should be "altr,a10-nand-buf-edac" for the ECC buffer
+	or "altr,a10-nand-rd-edac" for the read FIFO buffer
+	or "altr,a10-nand-wr-edac" for the write FIFO buffer.
+- reg : Address and size for ECC error interrupt status and clear registers.
+- interrupts : Should be single bit error interrupt, then double bit error
+	interrupt.
+
+Example:
+	nandedac_buf@ff8c2000 {
+		compatible = "altr,a10-nand-buf-edac";
+		reg = <0xff8c2000 0x400>;
+		interrupts = <0 2 4>, <0 0 4>;
+	};
+
+	nandedac_rd@ff8c2400 {
+		compatible = "altr,a10-nand-rd-edac";
+		reg = <0xff8c2400 0x400>;
+		interrupts = <0 2 4>, <0 0 4>;
+	};
+
+	nandedac_wr@ff8c2800 {
+		compatible = "altr,a10-nand-wr-edac";
+		reg = <0xff8c2800 0x400>;
+		interrupts = <0 2 4>, <0 0 4>;
+	};
