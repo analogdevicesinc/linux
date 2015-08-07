@@ -87,9 +87,6 @@ void sdhci_get_of_property(struct platform_device *pdev)
 		if (sdhci_of_wp_inverted(np))
 			host->quirks |= SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
 
-		if (of_property_read_bool(np, "disable-wp"))
-			host->quirks2 |= SDHCI_QUIRK2_DISABLE_WRITE_PROTECT;
-
 		if (of_get_property(np, "broken-cd", NULL))
 			host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
 
