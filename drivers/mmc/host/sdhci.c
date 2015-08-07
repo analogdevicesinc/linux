@@ -1731,9 +1731,6 @@ static int sdhci_get_ro(struct mmc_host *mmc)
 	struct sdhci_host *host = mmc_priv(mmc);
 	int ret;
 
-	if (host->quirks2 & SDHCI_QUIRK2_DISABLE_WRITE_PROTECT)
-		return 0;
-
 	sdhci_runtime_pm_get(host);
 	ret = sdhci_do_get_ro(host);
 	sdhci_runtime_pm_put(host);
