@@ -2204,6 +2204,7 @@ static int gpmi_pm_suspend(struct device *dev)
 	struct gpmi_nand_data *this = dev_get_drvdata(dev);
 
 	release_dma_channels(this);
+	pinctrl_pm_select_sleep_state(dev);
 	return 0;
 }
 
@@ -2211,6 +2212,8 @@ static int gpmi_pm_resume(struct device *dev)
 {
 	struct gpmi_nand_data *this = dev_get_drvdata(dev);
 	int ret;
+
+	pinctrl_pm_select_default_state(dev);
 
 	ret = acquire_dma_channels(this);
 	if (ret < 0)
