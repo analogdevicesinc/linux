@@ -761,6 +761,7 @@ static int zynq_gpio_remove(struct platform_device *pdev)
 	gpiochip_remove(&gpio->chip);
 	clk_disable_unprepare(gpio->clk);
 	device_set_wakeup_capable(&pdev->dev, 0);
+	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
@@ -784,6 +785,12 @@ static int __init zynq_gpio_init(void)
 	return platform_driver_register(&zynq_gpio_driver);
 }
 postcore_initcall(zynq_gpio_init);
+
+static void __exit zynq_gpio_exit(void)
+{
+	platform_driver_unregister(&zynq_gpio_driver);
+}
+module_exit(zynq_gpio_exit);
 
 MODULE_AUTHOR("Xilinx Inc.");
 MODULE_DESCRIPTION("Zynq GPIO driver");
