@@ -44,29 +44,38 @@
 #define AXI_DMAC_REG_TRANSFER_DONE	0x428
 #define AXI_DMAC_REG_ACTIVE_TRANSFER_ID 0x42c
 #define AXI_DMAC_REG_STATUS		0x430
-#define AXI_DMAC_REG_CURRENT_SRC_ADDR	0x434
-#define AXI_DMAC_REG_CURRENT_DEST_ADDR	0x438
-#define AXI_DMAC_REG_DBG0		0x43c
-#define AXI_DMAC_REG_DBG1		0x440
+#define AXI_DMAC_REG_CURRENT_DEST_ADDR	0x434
+#define AXI_DMAC_REG_CURRENT_SRC_ADDR	0x438
+#define AXI_DMAC_REG_SG_ADDRESS		0x43c
+#define AXI_DMAC_REG_DESC_ID		0x440
+#define AXI_DMAC_REG_DBG0		0x444
+#define AXI_DMAC_REG_DBG1		0x448
 
 #define AXI_DMAC_CTRL_ENABLE		BIT(0)
 #define AXI_DMAC_CTRL_PAUSE		BIT(1)
+#define AXI_DMAC_CTRL_HWDESC_EN		BIT(2)
 
 #define AXI_DMAC_IRQ_SOT		BIT(0)
 #define AXI_DMAC_IRQ_EOT		BIT(1)
 
 #define AXI_DMAC_FLAG_CYCLIC		BIT(0)
+#define AXI_DMAC_FLAG_BUSY		BIT(2)
+
+#define SG_FLAG_IS_LAST_DESC		BIT(0)
+#define SG_FLAG_IRQ_EOT			BIT(1)
 
 #undef SPEED_TEST
 
 struct axi_dmac_sg {
-	dma_addr_t src_addr;
-	dma_addr_t dest_addr;
-	unsigned int x_len;
-	unsigned int y_len;
-	unsigned int dest_stride;
-	unsigned int src_stride;
-	unsigned int id;
+	u32 flags;
+	u32 id;
+	u64 dest_addr;
+	u64 src_addr;
+	u64 next_sg_addr;
+	u32 y_len;
+	u32 x_len;
+	u32 src_stride;
+	u32 dest_stride;
 };
 
 struct axi_dmac_desc {
@@ -76,7 +85,10 @@ struct axi_dmac_desc {
 	unsigned int num_submitted;
 	unsigned int num_completed;
 	unsigned int num_sgs;
-	struct axi_dmac_sg sg[];
+
+	struct axi_dmac_sg *sg;
+	dma_addr_t sg_dma_addr;
+	struct axi_dmac *dmac;
 };
 
 struct axi_dmac_chan {
@@ -106,6 +118,8 @@ struct axi_dmac {
 	void *test_virt;
 	dma_addr_t test_phys;
 #endif
+
+	bool use_hwdesc;
 };
 
 static struct axi_dmac *chan_to_axi_dmac(struct axi_dmac_chan *chan)
@@ -157,10 +171,19 @@ static int axi_dmac_dest_is_mem(struct axi_dmac_chan *chan)
 	}
 }
 
+static struct axi_dmac_desc * axi_dmac_get_desc(struct axi_dmac_chan *chan)
+{
+	struct virt_dma_desc *vdesc = vchan_next_desc(&chan->vchan);
+	if (!vdesc)
+		return NULL;
+
+	list_move_tail(&vdesc->node, &chan->active_descs);
+	return to_axi_dmac_desc(vdesc);
+}
+
 static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 {
 	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
-	struct virt_dma_desc *vdesc;
 	struct axi_dmac_desc *desc;
 	struct axi_dmac_sg *sg;
 	unsigned int flags = 0;
@@ -173,14 +196,10 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	desc = chan->next_desc;
 
 	do {
-
-		if (!desc) {
-			vdesc = vchan_next_desc(&chan->vchan);
-			if (!vdesc)
-				return 0;
-			list_move_tail(&vdesc->node, &chan->active_descs);
-			desc = to_axi_dmac_desc(vdesc);
-		}
+		if (!desc)
+			desc = axi_dmac_get_desc(chan);
+		if (!desc)
+			return 0;
 
 		sg = &desc->sg[desc->num_submitted];
 
@@ -233,6 +252,33 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	return 0;
 }
 
+static void axi_dmac_start_transfer_sg(struct axi_dmac_chan *chan)
+{
+	unsigned int val;
+	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
+	struct axi_dmac_desc *desc;
+
+	val = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
+	if (val)
+		return;
+
+	desc = axi_dmac_get_desc(chan);
+	if (!desc)
+		return;
+
+	/* If we have no callback for the IRQ, disable the end-of-transfer
+	 * interrupts */
+	if (!desc->vdesc.tx.callback) {
+		unsigned int i;
+
+		for (i = 0; i < desc->num_sgs; i++)
+			desc->sg[i].flags &= ~SG_FLAG_IRQ_EOT;
+	}
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_SG_ADDRESS, desc->sg_dma_addr);
+	axi_dmac_write(dmac, AXI_DMAC_REG_START_TRANSFER, 1);
+}
+
 static struct axi_dmac_desc *axi_dmac_active_desc(struct axi_dmac_chan *chan)
 {
 	return list_first_entry_or_null(&chan->active_descs, struct axi_dmac_desc,
@@ -263,6 +309,19 @@ static void axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 				vchan_cookie_complete(&active_desc->vdesc);
 				active_desc = axi_dmac_active_desc(chan);
 			}
+		}
+	}
+}
+
+static void axi_dmac_transfer_done_sg(struct axi_dmac_chan *chan)
+{
+	struct axi_dmac_desc *active_desc = axi_dmac_active_desc(chan);
+	if (active_desc) {
+		if (active_desc->cyclic) {
+			vchan_cyclic_callback(&active_desc->vdesc);
+		} else {
+			list_del(&active_desc->vdesc.node);
+			vchan_cookie_complete(&active_desc->vdesc);
 		}
 	}
 }
@@ -311,12 +370,20 @@ static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
 
 	spin_lock(&dmac->chan.vchan.lock);
 	if (pending & AXI_DMAC_IRQ_EOT) {
-		unsigned int completed_transfers;
-		completed_transfers = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_DONE);
-		axi_dmac_transfer_done(&dmac->chan, completed_transfers);
+		if (dmac->use_hwdesc) {
+			axi_dmac_transfer_done_sg(&dmac->chan);
+		} else {
+			unsigned int completed = axi_dmac_read(dmac,
+					AXI_DMAC_REG_TRANSFER_DONE);
+			axi_dmac_transfer_done(&dmac->chan, completed);
+		}
 	}
-	if (pending & AXI_DMAC_IRQ_SOT)
-		axi_dmac_start_transfer(&dmac->chan);
+	if (pending & AXI_DMAC_IRQ_SOT) {
+		if (dmac->use_hwdesc)
+			axi_dmac_start_transfer_sg(&dmac->chan);
+		else
+			axi_dmac_start_transfer(&dmac->chan);
+	}
 	spin_unlock(&dmac->chan.vchan.lock);
 
 	return IRQ_HANDLED;
@@ -327,11 +394,16 @@ static int axi_dmac_terminate_all(struct dma_chan *c)
 {
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
+	unsigned int i, timeout = 1000;
 	unsigned long flags;
 	LIST_HEAD(head);
 
 	spin_lock_irqsave(&chan->vchan.lock, flags);
-	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, 0);
+	if (dmac->use_hwdesc)
+		axi_dmac_write(dmac, AXI_DMAC_REG_CTRL,
+				AXI_DMAC_CTRL_HWDESC_EN);
+	else
+		axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, 0);
 	chan->next_desc = NULL;
 	vchan_get_all_descriptors(&chan->vchan, &head);
 	list_splice_tail_init(&chan->active_descs, &head);
@@ -339,7 +411,15 @@ static int axi_dmac_terminate_all(struct dma_chan *c)
 
 	vchan_dma_desc_free_list(&chan->vchan, &head);
 
-	return 0;
+	for (i = 0; i < timeout; i++) {
+		if (!(axi_dmac_read(dmac, AXI_DMAC_REG_FLAGS) &
+					AXI_DMAC_FLAG_BUSY))
+			break;
+
+		msleep(1);
+	}
+
+	return i == timeout ? -ETIMEDOUT : 0;
 }
 
 static void axi_dmac_issue_pending(struct dma_chan *c)
@@ -347,26 +427,58 @@ static void axi_dmac_issue_pending(struct dma_chan *c)
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	unsigned long flags;
+	u32 val = AXI_DMAC_CTRL_ENABLE;
 
-	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
+	if (dmac->use_hwdesc)
+		val |= AXI_DMAC_CTRL_HWDESC_EN;
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, val);
 
 	spin_lock_irqsave(&chan->vchan.lock, flags);
-	if (vchan_issue_pending(&chan->vchan))
-		axi_dmac_start_transfer(chan);
+	if (vchan_issue_pending(&chan->vchan)) {
+		if (dmac->use_hwdesc)
+			axi_dmac_start_transfer_sg(chan);
+		else
+			axi_dmac_start_transfer(chan);
+	}
 	spin_unlock_irqrestore(&chan->vchan.lock, flags);
 }
 
-static struct axi_dmac_desc *axi_dmac_alloc_desc(unsigned int num_sgs)
+static struct axi_dmac_desc *axi_dmac_alloc_desc(struct axi_dmac_chan *chan,
+		unsigned int num_sgs)
 {
+	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct axi_dmac_desc *desc;
+	struct axi_dmac_sg *sg;
+	unsigned int i;
+	dma_addr_t dma_addr;
 
-	desc = kzalloc(sizeof(struct axi_dmac_desc) +
-		sizeof(struct axi_dmac_sg) * num_sgs, GFP_ATOMIC);
+	desc = kzalloc(sizeof(struct axi_dmac_desc), GFP_ATOMIC);
 	if (!desc)
 		return NULL;
 
-	desc->num_sgs = num_sgs;
+	sg = dma_alloc_coherent(dmac->dma_dev.dev,
+			sizeof(struct axi_dmac_sg) * num_sgs,
+			&dma_addr, GFP_ATOMIC);
+	if (!sg) {
+		kfree(desc);
+		return NULL;
+	}
 
+	for (i = 0; i < num_sgs; i++) {
+		sg[i].next_sg_addr = dma_addr + (i + 1) * sizeof(*sg);
+		sg[i].id = i;
+		sg[i].dest_stride = 0;
+		sg[i].src_stride = 0;
+		sg[i].flags = 0;
+	}
+
+	sg[num_sgs - 1].flags = SG_FLAG_IS_LAST_DESC | SG_FLAG_IRQ_EOT;
+
+	desc->dmac = dmac;
+	desc->sg = sg;
+	desc->num_sgs = num_sgs;
+	desc->sg_dma_addr = dma_addr;
 	return desc;
 }
 
@@ -383,7 +495,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 	if (direction != chan->direction)
 		return NULL;
 
-	desc = axi_dmac_alloc_desc(sg_len);
+	desc = axi_dmac_alloc_desc(chan, sg_len);
 	if (!desc)
 		return NULL;
 
@@ -396,7 +508,15 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 		desc->sg[i].y_len = 0;
 	}
 
-	desc->cyclic = false;
+	if (flags & DMA_PREP_CYCLIC) {
+		desc->cyclic = true;
+
+		/* Make the last descriptor loop into the first one */
+		desc->sg[sg_len - 1].next_sg_addr = desc->sg_dma_addr;
+		desc->sg[sg_len - 1].flags &= ~SG_FLAG_IS_LAST_DESC;
+	} else {
+		desc->cyclic = false;
+	}
 
 	return vchan_tx_prep(&chan->vchan, &desc->vdesc, flags);
 }
@@ -421,7 +541,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 
 	num_periods = buf_len / period_len;
 
-	desc = axi_dmac_alloc_desc(num_periods);
+	desc = axi_dmac_alloc_desc(chan, num_periods);
 	if (!desc)
 		return NULL;
 
@@ -433,7 +553,12 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 		desc->sg[i].x_len = period_len - 1;
 		desc->sg[i].y_len = 0;
 		buf_addr += period_len;
+
+		desc->sg[i].flags = SG_FLAG_IRQ_EOT;
 	}
+
+	/* Make the last descriptor loop into the first one */
+	desc->sg[num_periods - 1].next_sg_addr = desc->sg_dma_addr;
 
 	desc->cyclic = true;
 
@@ -466,7 +591,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 			return NULL;
 	}
 
-	desc = axi_dmac_alloc_desc(1);
+	desc = axi_dmac_alloc_desc(chan, 1);
 	if (!desc)
 		return NULL;
 
@@ -497,7 +622,12 @@ static void axi_dmac_free_chan_resources(struct dma_chan *c)
 
 static void axi_dmac_desc_free(struct virt_dma_desc *vdesc)
 {
-	kfree(container_of(vdesc, struct axi_dmac_desc, vdesc));
+	struct axi_dmac_desc *desc = to_axi_dmac_desc(vdesc);
+
+	dma_free_coherent(desc->dmac->dma_dev.dev,
+			sizeof(struct axi_dmac_sg) * desc->num_sgs,
+			desc->sg, desc->sg_dma_addr);
+	kfree(desc);
 }
 
 static bool axi_dmac_regmap_rdwr(struct device *dev, unsigned int reg)
@@ -521,6 +651,8 @@ static bool axi_dmac_regmap_rdwr(struct device *dev, unsigned int reg)
 	case AXI_DMAC_REG_STATUS:
 	case AXI_DMAC_REG_CURRENT_SRC_ADDR:
 	case AXI_DMAC_REG_CURRENT_DEST_ADDR:
+	case AXI_DMAC_REG_SG_ADDRESS:
+	case AXI_DMAC_REG_DESC_ID:
 	case AXI_DMAC_REG_DBG0:
 	case AXI_DMAC_REG_DBG1:
 		return true;
@@ -546,7 +678,6 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	struct resource *res;
 	u32 tmp;
 	int ret;
-	int i;
 
 	dmac = devm_kzalloc(&pdev->dev, sizeof(*dmac), GFP_KERNEL);
 	if (!dmac)
@@ -568,6 +699,9 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	clk_prepare_enable(dmac->clk);
 
 	INIT_LIST_HEAD(&dmac->chan.active_descs);
+
+	dmac->use_hwdesc = of_property_read_bool(
+			pdev->dev.of_node, "use-hw-descriptors");
 
 	of_chan = of_get_child_by_name(pdev->dev.of_node, "dma-channel");
 	if (of_chan == NULL)
