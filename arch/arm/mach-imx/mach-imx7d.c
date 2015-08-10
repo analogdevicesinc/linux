@@ -107,8 +107,9 @@ static void __init imx7d_init_irq(void)
 
 static void __init imx7d_map_io(void)
 {
-       debug_ll_io_init();
-       imx7_pm_map_io();
+	debug_ll_io_init();
+	imx7_pm_map_io();
+	imx_busfreq_map_io();
 }
 
 static const char *const imx7d_dt_compat[] __initconst = {
