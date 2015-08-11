@@ -166,6 +166,18 @@
 #define A10_INTMASK_CLR_OFST       0x10
 #define A10_DDR0_IRQ_MASK          BIT(17)
 
+/* Altera Arria 10 ECC Controller Management Group Defines */
+#define ALTR_A10_ECC_CTL_OFFSET		0x08
+#define ALTR_A10_ECC_EN_CTL_MASK	BIT(0)
+
+#define ALTR_A10_ECC_INTSTAT_OFFSET	0x20
+#define ALTR_A10_ECC_CEA_INTSTAT_MASK	BIT(0)
+#define ALTR_A10_ECC_UEA_INTSTAT_MASK	BIT(8)
+
+#define ALTR_A10_ECC_INTTEST_OFFSET	0x24
+#define ALTR_A10_ECC_CEA_INTTEST_MASK	BIT(0)
+#define ALTR_A10_ECC_UEA_INTTEST_MASK	BIT(8)
+
 struct altr_sdram_prv_data {
 	int ecc_ctrl_offset;
 	int ecc_ctl_en_mask;
@@ -232,9 +244,13 @@ extern const struct ecc_mgr_prv_data l2ecc_data;
 extern const struct ecc_mgr_prv_data a10_l2ecc_data;
 extern const struct ecc_mgr_prv_data ocramecc_data;
 extern const struct ecc_mgr_prv_data a10_ocramecc_data;
+extern const struct ecc_mgr_prv_data a10_nandecc_data;
 
 ssize_t altr_ecc_mgr_trig(struct edac_device_ctl_info *edac_dci,
 			  const char *buffer, size_t count);
+ssize_t altr_a10_ecc_mgr_trig(struct edac_device_ctl_info *edac_dci,
+			      const char *buffer, size_t count);
+int altr_a10_ecc_dependencies(struct platform_device *pdev, void __iomem *base);
 
 static inline void __iomem *ecc_clear_addr(const struct altr_ecc_mgr_dev *dev)
 {

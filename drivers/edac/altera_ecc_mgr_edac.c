@@ -76,7 +76,50 @@ static irqreturn_t altr_ecc_mgr_handler(int irq, void *dev_id)
 	return IRQ_RETVAL(handle_ce | handle_ue);
 }
 
+/*
+ * Test for Arria 10 ECC dependencies upon entry because
+ * the kernel startup code should have initialized the module
+ * memory and enabled the ECC.
+ * Test for ECC is enabled. Fail if ECC is not on.
+ */
+int altr_a10_ecc_dependencies(struct platform_device *pdev, void __iomem *base)
+{
+	u32 control;
+	void __iomem *en_addr = (void __iomem *)((uintptr_t)base +
+						 ALTR_A10_ECC_CTL_OFFSET);
+	int ret = 0;
+
+	control = readl(en_addr) & ALTR_A10_ECC_EN_CTL_MASK;
+	if (!control) {
+		dev_err(&pdev->dev, "No ECC present, or ECC disabled\n");
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+
 #ifdef CONFIG_EDAC_DEBUG
+/*
+ * User controllable interrupt assertion for test purposes of the
+ * Altera Arria 10 ECC controller.
+ */
+ssize_t altr_a10_ecc_mgr_trig(struct edac_device_ctl_info *edac_dci,
+			      const char *buffer, size_t count)
+{
+	struct altr_ecc_mgr_dev *drvdata = edac_dci->pvt_info;
+	const struct ecc_mgr_prv_data *priv = drvdata->data;
+	void __iomem *set_addr = ecc_set_addr(drvdata);
+	unsigned long flags;
+
+	local_irq_save(flags);
+	writel(priv->ce_set_mask, set_addr);
+	/* Ensure the interrupt test bits are set */
+	wmb();
+	local_irq_restore(flags);
+
+	return count;
+}
+
 ssize_t altr_ecc_mgr_trig(struct edac_device_ctl_info *edac_dci,
 			  const char *buffer, size_t count)
 {
@@ -166,6 +209,14 @@ static const struct of_device_id altr_ecc_mgr_of_match[] = {
 	{ .compatible = "altr,ocram-edac", .data = (void *)&ocramecc_data },
 	{ .compatible = "altr,a10-ocram-edac",
 	  .data = (void *)&a10_ocramecc_data },
+#endif
+#ifdef CONFIG_EDAC_ALTERA_NAND_ECC
+	{ .compatible = "altr,a10-nand-buf-edac",
+	  .data = (void *)&a10_nandecc_data },
+	{ .compatible = "altr,a10-nand-rd-edac",
+	  .data = (void *)&a10_nandecc_data },
+	{ .compatible = "altr,a10-nand-wr-edac",
+	  .data = (void *)&a10_nandecc_data },
 #endif
 	{},
 };
