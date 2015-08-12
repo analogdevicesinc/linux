@@ -76,6 +76,8 @@ obj-$(CONFIG_VIDEO_ATMEL_ISI)		+= atmel/
 
 obj-$(CONFIG_VIDEO_STM32_DCMI)		+= stm32/
 
+obj-$(CONFIG_VIDEO_MXC_OUTPUT)		+= mxc/output/
+
 ccflags-y += -I$(srctree)/drivers/media/i2c
 
 obj-$(CONFIG_VIDEO_MEDIATEK_VPU)	+= mtk-vpu/
