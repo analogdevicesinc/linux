@@ -31,6 +31,9 @@ static struct clk *step_clk;
 static struct clk *pll2_pfd2_396m_clk;
 
 /* clk used by i.MX6UL */
+static struct clk *pll1_bypass_clk;
+static struct clk *pll1_bypass_src_clk;
+static struct clk *pll1_clk;
 static struct clk *pll2_bus_clk;
 static struct clk *secondary_sel_clk;
 
@@ -218,8 +221,12 @@ static int imx6q_cpufreq_probe(struct platform_device *pdev)
 	pll1_sw_clk = clk_get(cpu_dev, "pll1_sw");
 	step_clk = clk_get(cpu_dev, "step");
 	pll2_pfd2_396m_clk = clk_get(cpu_dev, "pll2_pfd2_396m");
+	pll1_clk = clk_get(cpu_dev, "pll1");
+	pll1_bypass_clk = clk_get(cpu_dev, "pll1_bypass");
+	pll1_bypass_src_clk = clk_get(cpu_dev, "pll1_bypass_src");
 	if (IS_ERR(arm_clk) || IS_ERR(pll1_sys_clk) || IS_ERR(pll1_sw_clk) ||
-	    IS_ERR(step_clk) || IS_ERR(pll2_pfd2_396m_clk)) {
+	    IS_ERR(step_clk) || IS_ERR(pll2_pfd2_396m_clk) || IS_ERR(pll1_clk) ||
+	    IS_ERR(pll1_bypass_clk) || IS_ERR(pll1_bypass_src_clk)) {
 		dev_err(cpu_dev, "failed to get clocks\n");
 		ret = -ENOENT;
 		goto put_clk;
@@ -389,6 +396,12 @@ put_clk:
 		clk_put(step_clk);
 	if (!IS_ERR(pll2_pfd2_396m_clk))
 		clk_put(pll2_pfd2_396m_clk);
+	if (!IS_ERR(pll1_clk))
+		clk_put(pll1_clk);
+	if (!IS_ERR(pll1_bypass_clk))
+		clk_put(pll1_bypass_clk);
+	if (!IS_ERR(pll1_bypass_src_clk))
+		clk_put(pll1_bypass_src_clk);
 	if (!IS_ERR(pll2_bus_clk))
 		clk_put(pll2_bus_clk);
 	if (!IS_ERR(secondary_sel_clk))
