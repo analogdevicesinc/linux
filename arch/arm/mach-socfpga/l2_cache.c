@@ -46,6 +46,8 @@ void socfpga_init_arria10_l2_ecc(void)
 	writel(SOCFPGA_A10_MPU_CTRL_L2_ECC_EN, mapped_l2_edac_addr +
 	       SOCFPGA_A10_SYSMGR_L2_ECC_CTRL);
 
+	iounmap(mapped_l2_edac_addr);
+
 	pr_alert("SOCFPGA: Success Initializing L2 cache ECC for Arria10");
 
 	of_node_put(np);
@@ -71,6 +73,8 @@ void socfpga_init_l2_ecc(void)
 
 	/* Enable ECC */
 	writel(0x01, mapped_l2_edac_addr);
+
+	iounmap(mapped_l2_edac_addr);
 
 	pr_alert("SOCFPGA: Success Initializing L2 cache ECC");
 	of_node_put(np);

@@ -106,6 +106,8 @@ void socfpga_init_ocram_ecc(void)
 	writel(0x18, mapped_ocr_edac_addr);
 	writel(0x19, mapped_ocr_edac_addr);
 
+	iounmap(mapped_ocr_edac_addr);
+
 	pr_alert("SOCFPGA: Success Initializing OCRAM");
 
 	return;

@@ -130,16 +130,14 @@ int socfpga_init_a10_ecc(struct device_node *np, u32 intmask, int dual_port)
 
 	if (!sys_manager_base_addr) {
 		pr_err("SOCFPGA: sys-mgr is not initialized\n");
-		ret = -EINVAL;
-		goto out;
+		return -EINVAL;
 	}
 
 	ecc_ioaddr = of_iomap(np, 0);
 	if (!ecc_ioaddr) {
 		pr_err("ECC: Unable to find %s mapping in dtb\n",
 		       np->full_name);
-		ret = -EINVAL;
-		goto out;
+		return -EINVAL;
 	}
 
 	/* Disable ECC */
@@ -175,7 +173,7 @@ int socfpga_init_a10_ecc(struct device_node *np, u32 intmask, int dual_port)
 
 	/* Ensure data is written out */
 	wmb();
-
 out:
+	iounmap(ecc_ioaddr);
 	return ret;
 }
