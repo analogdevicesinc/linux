@@ -184,7 +184,12 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 
 		sg = &desc->sg[desc->num_submitted];
 
-		if (sg->x_len == 0 || sg->y_len == 0) {
+		if (sg->x_len == U32_MAX || sg->y_len == U32_MAX) {
+			/* sg->x_len and sg->y_len should be the number of bytes
+			 * to transfer, minus one; so a value of U32_MAX
+			 * corresponds to a zero-length transfer.
+			 */
+
 			desc->num_completed++;
 			if (desc->num_completed == desc->num_sgs) {
 				list_del(&desc->vdesc.node);
@@ -220,8 +225,8 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	if (chan->hw_cyclic && desc->cyclic && !desc->vdesc.tx.callback)
 		flags |= AXI_DMAC_FLAG_CYCLIC;
 
-	axi_dmac_write(dmac, AXI_DMAC_REG_X_LENGTH, sg->x_len - 1);
-	axi_dmac_write(dmac, AXI_DMAC_REG_Y_LENGTH, sg->y_len - 1);
+	axi_dmac_write(dmac, AXI_DMAC_REG_X_LENGTH, sg->x_len);
+	axi_dmac_write(dmac, AXI_DMAC_REG_Y_LENGTH, sg->y_len);
 	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, flags);
 	axi_dmac_write(dmac, AXI_DMAC_REG_START_TRANSFER, 1);
 
@@ -387,8 +392,8 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 			desc->sg[i].dest_addr = sg_dma_address(sg);
 		else
 			desc->sg[i].src_addr = sg_dma_address(sg);
-		desc->sg[i].x_len = sg_dma_len(sg);
-		desc->sg[i].y_len = 1;
+		desc->sg[i].x_len = sg_dma_len(sg) - 1;
+		desc->sg[i].y_len = 0;
 	}
 
 	desc->cyclic = false;
@@ -425,8 +430,8 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 			desc->sg[i].dest_addr = buf_addr;
 		else
 			desc->sg[i].src_addr = buf_addr;
-		desc->sg[i].x_len = period_len;
-		desc->sg[i].y_len = 1;
+		desc->sg[i].x_len = period_len - 1;
+		desc->sg[i].y_len = 0;
 		buf_addr += period_len;
 	}
 
@@ -479,8 +484,8 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 			desc->sg[0].dest_stride += xt->sgl[0].icg;
 	}
 
-	desc->sg[0].x_len = xt->sgl[0].size;
-	desc->sg[0].y_len = xt->numf;
+	desc->sg[0].x_len = xt->sgl[0].size - 1;
+	desc->sg[0].y_len = xt->numf - 1;
 
 	return vchan_tx_prep(&chan->vchan, &desc->vdesc, flags);
 }
