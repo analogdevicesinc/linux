@@ -1187,10 +1187,28 @@ static int sdma_alloc_chan_resources(struct dma_chan *chan)
 {
 	struct sdma_channel *sdmac = to_sdma_chan(chan);
 	struct imx_dma_data *data = chan->private;
+	struct imx_dma_data default_data;
 	int prio, ret;
 
-	if (!data)
-		return -EINVAL;
+	clk_enable(sdmac->sdma->clk_ipg);
+	clk_enable(sdmac->sdma->clk_ahb);
+
+	/*
+	 * dmatest(memcpy) will never call slave_config before prep, so we need
+	 * do some job in slave_config in this case.
+	 */
+	if (!data) {
+		sdmac->word_size  =  sdmac->sdma->dma_device.copy_align;
+		default_data.priority = 2;
+		default_data.peripheral_type = IMX_DMATYPE_MEMORY;
+		default_data.dma_request = 0;
+		default_data.dma_request2 = 0;
+		data = &default_data;
+
+		sdma_config_ownership(sdmac, false, true, false);
+		sdma_get_pc(sdmac, IMX_DMATYPE_MEMORY);
+		sdma_load_context(sdmac);
+	}
 
 	switch (data->priority) {
 	case DMA_PRIO_HIGH:
@@ -2082,6 +2100,7 @@ static int sdma_probe(struct platform_device *pdev)
 	sdma->dma_device.device_prep_dma_memcpy = sdma_prep_memcpy;
 	sdma->dma_device.device_issue_pending = sdma_issue_pending;
 	sdma->dma_device.dev->dma_parms = &sdma->dma_parms;
+	sdma->dma_device.copy_align = 2;
 	dma_set_max_seg_size(sdma->dma_device.dev, 65535);
 
 	platform_set_drvdata(pdev, sdma);
