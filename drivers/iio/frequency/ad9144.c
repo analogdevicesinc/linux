@@ -128,23 +128,6 @@ static int ad9144_setup(struct ad9144_state *st,
 		regmap_write(map, 0x29c, 0x2a);
 		regmap_write(map, 0x29f, 0x78);
 		regmap_write(map, 0x2a0, 0x06);
-	} else if (st->id == CHIPID_AD9152) {
-		/* So secret. Such ugly. Very hardcoded. wow. */
-		regmap_write(map, 0x1a0, 0x01);
-		regmap_write(map, 0x1db, 0x0f);
-		regmap_write(map, 0x1dc, 0x10);
-		regmap_write(map, 0x1d3, 0x06);
-		regmap_write(map, 0x1d4, 0x0d);
-		regmap_write(map, 0x1d8, 0xb0);
-		regmap_write(map, 0x1da, 0x40);
-		regmap_write(map, 0x2a6, 0x08);
-		regmap_write(map, 0x248, 0xaa);
-		regmap_write(map, 0x291, 0x49);
-		regmap_write(map, 0x232, 0x0f);
-		regmap_write(map, 0x2aa, 0xb7);
-		regmap_write(map, 0x2ab, 0x87);
-		regmap_write(map, 0x2aa, 0xb7); // jesd termination
-		regmap_write(map, 0x2ab, 0x87); // jesd termination
 	}
 
 	// digital data path
