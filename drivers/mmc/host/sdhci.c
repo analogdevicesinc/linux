@@ -1221,6 +1221,9 @@ void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			}
 			real_div = div;
 			div >>= 1;
+			if ((host->quirks2 & SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN)
+				&& !div && host->max_clk <= 25000000)
+				div = 1;
 		}
 	} else {
 		/* Version 2.00 divisors must be a power of 2. */
@@ -1730,9 +1733,6 @@ static int sdhci_get_ro(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 	int ret;
-
-	if (host->quirks2 & SDHCI_QUIRK2_DISABLE_WRITE_PROTECT)
-		return 0;
 
 	sdhci_runtime_pm_get(host);
 	ret = sdhci_do_get_ro(host);

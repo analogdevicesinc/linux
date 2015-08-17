@@ -812,6 +812,30 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_dds_channels = 8,
 		.num_buf_channels = 4,
 	},
+	[ID_AD9152] = {
+		.name = "AD9152",
+		.channel = {
+			{
+				.type = IIO_TEMP,
+				.indexed = 1,
+				.channel = 0,
+				.scan_index = -1,
+				.info_mask_separate =
+					BIT(IIO_CHAN_INFO_PROCESSED) |
+					BIT(IIO_CHAN_INFO_CALIBBIAS),
+			},
+			CF_AXI_DDS_CHAN_BUF(0),
+			CF_AXI_DDS_CHAN_BUF(1),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+			CF_AXI_DDS_CHAN(2, 0, "2A"),
+			CF_AXI_DDS_CHAN(3, 0, "2B"),
+		},
+		.num_channels = 7,
+		.num_dp_disable_channels = 3,
+		.num_dds_channels = 4,
+		.num_buf_channels = 2,
+	},
 };
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {

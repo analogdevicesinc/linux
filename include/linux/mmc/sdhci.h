@@ -115,8 +115,8 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_TUNING_WORK_AROUND			(1<<12)
 /* disable the block count for single block transactions */
 #define SDHCI_QUIRK2_SUPPORT_SINGLE			(1<<13)
-/* Write protect signal is not wired, data in SDHCI_PRESENT_STATE is bogus */
-#define SDHCI_QUIRK2_DISABLE_WRITE_PROTECT		(1<<15)
+/* Broken Clock divider zero in controller */
+#define SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN		(1<<15)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */

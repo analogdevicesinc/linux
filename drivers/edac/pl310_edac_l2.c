@@ -139,7 +139,8 @@ static int pl310_edac_l2_probe(struct platform_device *pdev)
 	}
 
 	dci = edac_device_alloc_ctl_info(sizeof(*priv), "l2cache",
-					 1, "L", 1, 1, NULL, 0, 0);
+					 1, "L", 1, 1, NULL, 0,
+					 edac_device_alloc_index());
 	if (IS_ERR(dci))
 		return PTR_ERR(dci);
 
@@ -209,7 +210,7 @@ static int pl310_edac_l2_remove(struct platform_device *pdev)
 }
 
 /* Device tree node type and compatible tuples this driver can match on */
-static struct of_device_id pl310_edac_l2_match[] = {
+static const struct of_device_id pl310_edac_l2_match[] = {
 	{ .compatible = "arm,pl310-cache", },
 	{ /* end of table */ }
 };
@@ -219,7 +220,6 @@ MODULE_DEVICE_TABLE(of, pl310_edac_l2_match);
 static struct platform_driver pl310_edac_l2_driver = {
 	.driver = {
 		 .name = "pl310-edac-l2",
-		 .owner = THIS_MODULE,
 		 .of_match_table = pl310_edac_l2_match,
 	},
 	.probe = pl310_edac_l2_probe,

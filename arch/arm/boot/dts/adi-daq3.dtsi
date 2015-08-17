@@ -122,6 +122,9 @@
 
 		clocks = <&axi_ad9152_jesd>, <&clk0_ad9528 2>, <&clk0_ad9528 8>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+
+		/* Fix for an early DAQ3 design bug (swapped SERDIN+ / SERDIN- pins) */
+		adi,lanes2-3-swap-data;
 	};
 
 	adc0_ad9680: ad9680@2 {

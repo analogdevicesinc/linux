@@ -62,6 +62,9 @@ static struct sdhci_ops sdhci_arasan_ops = {
 
 static struct sdhci_pltfm_data sdhci_arasan_pdata = {
 	.ops = &sdhci_arasan_ops,
+	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+			SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
 };
 
 #ifdef CONFIG_PM_SLEEP
@@ -172,6 +175,12 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 	pltfm_host = sdhci_priv(host);
 	pltfm_host->priv = sdhci_arasan;
 	pltfm_host->clk = clk_xin;
+
+	ret = mmc_of_parse(host->mmc);
+	if (ret) {
+		dev_err(&pdev->dev, "parsing dt failed (%u)\n", ret);
+		goto clk_disable_all;
+	}
 
 	ret = sdhci_add_host(host);
 	if (ret)

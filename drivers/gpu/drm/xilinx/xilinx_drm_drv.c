@@ -46,8 +46,6 @@
 struct xilinx_drm_private {
 	struct drm_device *drm;
 	struct drm_crtc *crtc;
-	struct drm_encoder *encoder;
-	struct drm_connector *connector;
 	struct drm_fb_helper *fb;
 	struct platform_device *pdev;
 };
@@ -244,9 +242,11 @@ unsigned int xilinx_drm_format_depth(uint32_t drm_format)
 static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 {
 	struct xilinx_drm_private *private;
+	struct drm_encoder *encoder;
+	struct drm_connector *connector;
+	struct device_node *encoder_node;
 	struct platform_device *pdev = drm->platformdev;
-	unsigned int bpp;
-	unsigned int align;
+	unsigned int bpp, align, i = 0;
 	int ret;
 
 	private = devm_kzalloc(drm->dev, sizeof(*private), GFP_KERNEL);
@@ -263,20 +263,29 @@ static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
 		goto err_out;
 	}
 
-	/* create a xilinx encoder */
-	private->encoder = xilinx_drm_encoder_create(drm);
-	if (IS_ERR(private->encoder)) {
-		DRM_DEBUG_DRIVER("failed to create xilinx encoder\n");
-		ret = PTR_ERR(private->encoder);
-		goto err_out;
+	while ((encoder_node = of_parse_phandle(drm->dev->of_node,
+						"xlnx,encoder-slave", i))) {
+		encoder = xilinx_drm_encoder_create(drm, encoder_node);
+		of_node_put(encoder_node);
+		if (IS_ERR(encoder)) {
+			DRM_DEBUG_DRIVER("failed to create xilinx encoder\n");
+			ret = PTR_ERR(encoder);
+			goto err_out;
+		}
+
+		connector = xilinx_drm_connector_create(drm, encoder, i);
+		if (IS_ERR(connector)) {
+			DRM_DEBUG_DRIVER("failed to create xilinx connector\n");
+			ret = PTR_ERR(connector);
+			goto err_out;
+		}
+
+		i++;
 	}
 
-	/* create a xilinx connector */
-	private->connector = xilinx_drm_connector_create(drm, private->encoder);
-	if (IS_ERR(private->connector)) {
-		DRM_DEBUG_DRIVER("failed to create xilinx connector\n");
-		ret = PTR_ERR(private->connector);
-		goto err_out;
+	if (i == 0) {
+		DRM_ERROR("failed to get an encoder slave node\n");
+		return -ENODEV;
 	}
 
 	ret = drm_vblank_init(drm, 1);
@@ -415,9 +424,21 @@ static struct drm_driver xilinx_drm_driver = {
 static int xilinx_drm_pm_suspend(struct device *dev)
 {
 	struct xilinx_drm_private *private = dev_get_drvdata(dev);
+	struct drm_device *drm = private->drm;
+	struct drm_connector *connector;
 
-	drm_kms_helper_poll_disable(private->drm);
-	drm_helper_connector_dpms(private->connector, DRM_MODE_DPMS_SUSPEND);
+	drm_modeset_lock_all(drm);
+	drm_kms_helper_poll_disable(drm);
+	list_for_each_entry(connector, &drm->mode_config.connector_list, head) {
+		int old_dpms = connector->dpms;
+
+		if (connector->funcs->dpms)
+			connector->funcs->dpms(connector,
+					       DRM_MODE_DPMS_SUSPEND);
+
+		connector->dpms = old_dpms;
+	}
+	drm_modeset_unlock_all(drm);
 
 	return 0;
 }
@@ -426,9 +447,20 @@ static int xilinx_drm_pm_suspend(struct device *dev)
 static int xilinx_drm_pm_resume(struct device *dev)
 {
 	struct xilinx_drm_private *private = dev_get_drvdata(dev);
+	struct drm_device *drm = private->drm;
+	struct drm_connector *connector;
 
-	drm_helper_connector_dpms(private->connector, DRM_MODE_DPMS_ON);
-	drm_kms_helper_poll_enable(private->drm);
+	drm_modeset_lock_all(drm);
+	list_for_each_entry(connector, &drm->mode_config.connector_list, head) {
+		if (connector->funcs->dpms) {
+			int dpms = connector->dpms;
+
+			connector->dpms = DRM_MODE_DPMS_OFF;
+			connector->funcs->dpms(connector, dpms);
+		}
+	}
+	drm_kms_helper_poll_enable(drm);
+	drm_modeset_unlock_all(drm);
 
 	return 0;
 }
