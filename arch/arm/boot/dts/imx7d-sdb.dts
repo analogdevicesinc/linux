@@ -429,6 +429,18 @@
 	status = "okay";
 };
 
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5>;
+	assigned-clocks = <&clks IMX7D_UART5_ROOT_SRC>;
+	assigned-clock-parents = <&clks IMX7D_PLL_SYS_MAIN_240M_CLK>;
+	uart-has-rtscts;
+	/* for DTE mode, add below change */
+	/* fsl,dte-mode; */
+	/* pinctrl-0 = <&pinctrl_uart5dte>; */
+	status = "okay";
+};
+
 &uart6 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart6>;
@@ -567,7 +579,7 @@
 		pinctrl_hog: hoggrp {
 			fsl,pins = <
 				MX7D_PAD_UART3_CTS_B__GPIO4_IO7		0x14
-				MX7D_PAD_ECSPI2_SS0__GPIO4_IO23		0x34  /* bt reg on */
+				MX7D_PAD_ECSPI2_SS0__GPIO4_IO23		0x80000000  /* bt reg on */
 			>;
 		};
 
@@ -671,6 +683,15 @@
 				MX7D_PAD_SAI1_RX_DATA__UART5_DCE_RX	0x79
 				MX7D_PAD_SAI1_TX_SYNC__UART5_DCE_CTS	0x79
 				MX7D_PAD_SAI1_TX_DATA__UART5_DCE_RTS	0x79
+			>;
+		};
+
+		pinctrl_uart5dte: uart5dtegrp {
+			fsl,pins = <
+				MX7D_PAD_SAI1_TX_BCLK__UART5_DTE_RX 0x79
+				MX7D_PAD_SAI1_RX_DATA__UART5_DTE_TX 0x79
+				MX7D_PAD_SAI1_TX_SYNC__UART5_DTE_RTS 0x79
+				MX7D_PAD_SAI1_TX_DATA__UART5_DTE_CTS 0x79
 			>;
 		};
 
