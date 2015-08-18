@@ -35,6 +35,7 @@ static struct rpmsgtty_port rpmsg_tty_port;
 
 /* this needs to be less then (RPMSG_BUF_SIZE - sizeof(struct rpmsg_hdr)) */
 #define RPMSG_MAX_SIZE		256
+#define MSG		"hello world!"
 
 static int rpmsg_tty_cb(struct rpmsg_device *rpdev, void *data, int len,
 						void *priv, u32 src)
@@ -143,6 +144,16 @@ static int rpmsg_tty_probe(struct rpmsg_device *rpdev)
 
 	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
 			rpdev->src, rpdev->dst);
+
+	/*
+	 * send a message to our remote processor, and tell remote
+	 * processor about this channel
+	 */
+	err = rpmsg_send(rpdev->ept, MSG, strlen(MSG));
+	if (err) {
+		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", err);
+		return err;
+	}
 
 	rpmsgtty_driver = tty_alloc_driver(1, TTY_DRIVER_UNNUMBERED_NODE);
 	if (IS_ERR(rpmsgtty_driver))
