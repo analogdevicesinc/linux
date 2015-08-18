@@ -177,6 +177,7 @@ struct dma_interleaved_template {
  *  sources that were the result of a previous operation, in the case of a PQ
  *  operation it continues the calculation with new sources
  * @DMA_PREP_FENCE - tell the driver that subsequent operations depend
+ * @DMA_PREP_CYCLIC - perform a cyclic transfer
  *  on the result of this operation
  */
 enum dma_ctrl_flags {
@@ -186,6 +187,7 @@ enum dma_ctrl_flags {
 	DMA_PREP_PQ_DISABLE_Q = (1 << 3),
 	DMA_PREP_CONTINUE = (1 << 4),
 	DMA_PREP_FENCE = (1 << 5),
+	DMA_PREP_CYCLIC = (1 << 6),
 };
 
 /**
