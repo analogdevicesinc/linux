@@ -50,6 +50,10 @@
 	compatible = "fsl,imx6qp-sabreauto", "fsl,imx6qp";
 };
 
+&fec {
+	pinctrl-assert-gpios = <&max7322 0 GPIO_ACTIVE_HIGH>;
+};
+
 &i2c2 {
 	max7322: gpio@68 {
 		compatible = "maxim,max7322";
@@ -60,7 +64,38 @@
 };
 
 &pcie {
-	status = "disabled";
+	reset-gpio = <&max7310_c 5 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&pre1 {
+	status = "okay";
+};
+
+&pre2 {
+	status = "okay";
+};
+
+&pre3 {
+	status = "okay";
+};
+
+&pre4 {
+	status = "okay";
+};
+
+&prg1 {
+	memory-region = <&memory>;
+	status = "okay";
+};
+
+&prg2 {
+	memory-region = <&memory>;
+	status = "okay";
+};
+
+&sata {
+	status = "okay";
 };
 
 &vgen3_reg {
