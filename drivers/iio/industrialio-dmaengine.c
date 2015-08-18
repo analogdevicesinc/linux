@@ -78,11 +78,9 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 	block->sglen = ret;
 
 	if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
-		desc = dmaengine_prep_dma_cyclic(dmaengine_buffer->chan,
-			sg_phys(block->sglist), block->block.bytes_used,
-			block->block.bytes_used, direction, 0);
-		if (!desc)
-			return -ENOMEM;
+		desc = dmaengine_prep_slave_sg(dmaengine_buffer->chan,
+				block->sglist, block->sglen,
+				direction, DMA_PREP_CYCLIC);
 	} else {
 		desc = dmaengine_prep_slave_sg(dmaengine_buffer->chan,
 				block->sglist, block->sglen,
