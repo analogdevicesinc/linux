@@ -19,6 +19,8 @@
 		interrupts = <0 57 0>;
 		clocks = <&clkc 16>;
 
+		use-hw-descriptors;
+
 		dma-channel {
 			adi,buswidth = <64>;
 			adi,type = <0>;
@@ -31,6 +33,8 @@
 		#dma-cells = <1>;
 		interrupts = <0 56 0>;
 		clocks = <&clkc 16>;
+
+		use-hw-descriptors;
 
 		dma-channel {
 			adi,buswidth = <64>;
