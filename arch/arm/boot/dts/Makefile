@@ -499,7 +499,8 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7s-warp.dtb \
 	imx7d-12x12-lpddr3-arm2.dtb \
 	imx7d-12x12-lpddr3-arm2-m4.dtb \
-	imx7d-12x12-lpddr3-arm2-ecspi.dtb
+	imx7d-12x12-lpddr3-arm2-ecspi.dtb \
+	imx7d-12x12-lpddr3-arm2-enet2.dtb
 dtb-$(CONFIG_SOC_LS1021A) += \
 	ls1021a-qds.dtb \
 	ls1021a-twr.dtb
