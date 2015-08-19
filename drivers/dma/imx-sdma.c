@@ -2258,8 +2258,6 @@ static int sdma_resume(struct device *dev)
 
 	/* prepare priority for channel0 to start */
 	sdma_set_channel_priority(&sdma->channel[0], MXC_SDMA_DEFAULT_PRIORITY);
-	clk_disable(sdma->clk_ipg);
-	clk_disable(sdma->clk_ahb);
 
 	ret = sdma_get_firmware(sdma, sdma->fw_name);
 	if (ret) {
@@ -2272,6 +2270,9 @@ static int sdma_resume(struct device *dev)
 		dev_err(sdma->dev, "restore context error!\n");
 		return ret;
 	}
+
+	clk_disable(sdma->clk_ipg);
+	clk_disable(sdma->clk_ahb);
 
 	return 0;
 }
