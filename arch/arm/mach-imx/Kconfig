@@ -544,6 +544,7 @@ config SOC_IMX6UL
 
 config SOC_IMX7D
 	bool "i.MX7 Dual support"
+	select PCI_DOMAINS if PCI
 	select PINCTRL_IMX7D
 	select ARM_GIC
 	select HAVE_ARM_ARCH_TIMER
