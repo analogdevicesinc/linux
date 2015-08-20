@@ -83,7 +83,8 @@ endif
 obj-$(CONFIG_SOC_IMX6Q) += mach-imx6q.o
 obj-$(CONFIG_SOC_IMX6SL) += mach-imx6sl.o
 AFLAGS_lpddr2_freq_imx6sx.o :=-Wa,-march=armv7-a
-obj-$(CONFIG_SOC_IMX6SX) += mach-imx6sx.o lpddr2_freq_imx6sx.o busfreq_lpddr2.o
+AFLAGS_ddr3_freq_imx6sx.o :=-Wa,-march=armv7-a
+obj-$(CONFIG_SOC_IMX6SX) += mach-imx6sx.o lpddr2_freq_imx6sx.o ddr3_freq_imx6sx.o busfreq_lpddr2.o
 obj-$(CONFIG_SOC_IMX6UL) += mach-imx6ul.o
 obj-$(CONFIG_SOC_IMX7D) += mach-imx7d.o mu.o
 
