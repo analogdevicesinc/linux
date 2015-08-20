@@ -20,6 +20,7 @@
 #include "cf_axi_adc.h"
 
 struct adc_chip_info {
+	bool has_regs;
 	bool has_frontend;
 	const struct iio_chan_spec *channels;
 	unsigned int num_channels;
@@ -62,8 +63,68 @@ static const struct iio_chan_spec cn0363_channels[] = {
 
 static const struct adc_chip_info cn0363_chip_info = {
 	.has_frontend = true,
+	.has_regs = true,
 	.channels = cn0363_channels,
 	.num_channels = ARRAY_SIZE(cn0363_channels),
+};
+
+#define USDRX1_CHANNEL(_ch) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _ch, \
+	.modified = 0, \
+	.channel2 = 0, \
+	.address = 0, \
+	.scan_index = _ch, \
+	.scan_type = { \
+		.sign = 's', \
+		.realbits = 16, \
+		.storagebits = 16, \
+		.shift = 0, \
+		.endianness = IIO_LE, \
+	}, \
+}
+
+static const struct iio_chan_spec usdrx1_channels[] = {
+	USDRX1_CHANNEL(0),
+	USDRX1_CHANNEL(1),
+	USDRX1_CHANNEL(2),
+	USDRX1_CHANNEL(3),
+	USDRX1_CHANNEL(4),
+	USDRX1_CHANNEL(5),
+	USDRX1_CHANNEL(6),
+	USDRX1_CHANNEL(7),
+	USDRX1_CHANNEL(8),
+	USDRX1_CHANNEL(9),
+	USDRX1_CHANNEL(10),
+	USDRX1_CHANNEL(11),
+	USDRX1_CHANNEL(12),
+	USDRX1_CHANNEL(13),
+	USDRX1_CHANNEL(14),
+	USDRX1_CHANNEL(15),
+	USDRX1_CHANNEL(16),
+	USDRX1_CHANNEL(17),
+	USDRX1_CHANNEL(18),
+	USDRX1_CHANNEL(19),
+	USDRX1_CHANNEL(20),
+	USDRX1_CHANNEL(21),
+	USDRX1_CHANNEL(22),
+	USDRX1_CHANNEL(23),
+	USDRX1_CHANNEL(24),
+	USDRX1_CHANNEL(25),
+	USDRX1_CHANNEL(26),
+	USDRX1_CHANNEL(27),
+	USDRX1_CHANNEL(28),
+	USDRX1_CHANNEL(29),
+	USDRX1_CHANNEL(30),
+	USDRX1_CHANNEL(31),
+};
+
+static const struct adc_chip_info usdrx1_chip_info = {
+	.has_frontend = false,
+	.has_regs = false,
+	.channels = usdrx1_channels,
+	.num_channels = ARRAY_SIZE(usdrx1_channels),
 };
 
 static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
@@ -124,13 +185,16 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 static inline void adc_write(struct axiadc_state *st,
 	unsigned reg, unsigned val)
 {
-	iowrite32(val, st->regs + reg);
+	if (st->regs)
+		iowrite32(val, st->regs + reg);
 }
 
 static inline unsigned int adc_read(struct axiadc_state *st,
 	unsigned reg)
 {
-	return ioread32(st->regs + reg);
+	if (st->regs)
+		return ioread32(st->regs + reg);
+	return 0;
 }
 
 static int adc_reg_access(struct iio_dev *indio_dev,
@@ -260,6 +324,7 @@ static int adc_legacy_probe(struct platform_device *pdev,
 static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "xlnx,axi-ad-adc-1.00.a", },
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
+	{ .compatible = "adi,usdrx1", .data = &usdrx1_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
@@ -284,10 +349,12 @@ static int adc_probe(struct platform_device *pdev)
 
 	st = iio_priv(indio_dev);
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	st->regs = devm_ioremap_resource(&pdev->dev, mem);
-	if (IS_ERR(st->regs))
-		return PTR_ERR(st->regs);
+	if (info->has_regs) {
+		mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		st->regs = devm_ioremap_resource(&pdev->dev, mem);
+		if (IS_ERR(st->regs))
+			return PTR_ERR(st->regs);
+	}
 
 	platform_set_drvdata(pdev, indio_dev);
 

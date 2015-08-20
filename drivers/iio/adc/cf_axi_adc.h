@@ -458,12 +458,15 @@ struct axiadc_spidev {
 
 static inline void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned val)
 {
-	iowrite32(val, st->regs + reg);
+	if (st->regs)
+		iowrite32(val, st->regs + reg);
 }
 
 static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 {
-	return ioread32(st->regs + reg);
+	if (st->regs)
+		return ioread32(st->regs + reg);
+	return 0;
 }
 
 static inline void axiadc_slave_write(struct axiadc_state *st, unsigned reg, unsigned val)
