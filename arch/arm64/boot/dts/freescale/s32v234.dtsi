@@ -122,6 +122,12 @@
 				interrupts = <GIC_SPI 59 IRQ_TYPE_EDGE_RISING>;
 				status = "disabled";
 			};
+
+			siul2: siul@4006c000 {
+				compatible = "fsl,s32v234-siul2";
+				reg = <0x0 0x4006C000 0x0 0x1794>;
+				status = "disabled";
+			};
 		};
 
 		aips1: bus@40080000 {
