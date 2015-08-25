@@ -1091,7 +1091,10 @@ static int ad9517_probe(struct spi_device *spi)
 	if (ret)
 		goto err_of_clk_del_provider;
 
+	spi_set_drvdata(spi, indio_dev);
+
 	dev_info(&spi->dev, "probed\n");
+
 	return 0;
 
 err_of_clk_del_provider:
