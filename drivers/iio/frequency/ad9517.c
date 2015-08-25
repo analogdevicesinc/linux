@@ -549,6 +549,8 @@ static int ad9517_setup(struct ad9517_state *st)
 	unsigned long vco_freq;
 	unsigned long vco_divin_freq;
 	unsigned long div0123_freq;
+	bool uses_vco = false;
+	bool uses_clkin = false;
 
 	gpiod_set_value(st->gpio_sync, 1);
 
@@ -647,33 +649,51 @@ static int ad9517_setup(struct ad9517_state *st)
 
 	prescaler &= ~IS_FD;
 
-	vco_freq = (st->refin_freq * (prescaler  *
-			pll_b_cnt + pll_a_cnt)) / pll_r_cnt;
+	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_SEL)
+		uses_vco = true;
+	else
+		uses_clkin = true;
 
-	/* tcal = 4400 * Rdiv * cal_div / Refin */
-	cal_delay_ms = (4400 * pll_r_cnt *
-		(2 << ((st->regs[AD9517_PLL3] >> 1) & 0x3))) /
-		(st->refin_freq / 1000);
+	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP)
+		uses_clkin = true;
+	else
+		uses_vco = true;
 
-	msleep(cal_delay_ms);
+	if (uses_vco) {
+		if (st->refin_freq == 0) {
+			dev_err(&st->spi->dev, "Invalid or missing REFIN clock\n");
+			return -EINVAL;
+		}
+
+		vco_freq = (st->refin_freq / pll_r_cnt * (prescaler  *
+				pll_b_cnt + pll_a_cnt));
+
+		/* tcal = 4400 * Rdiv * cal_div / Refin */
+		cal_delay_ms = (4400 * pll_r_cnt *
+			(2 << ((st->regs[AD9517_PLL3] >> 1) & 0x3))) /
+			(st->refin_freq / 1000);
+
+		msleep(cal_delay_ms);
+	}
+
+	if (uses_clkin) {
+		if (st->clkin_freq == 0) {
+			dev_err(&st->spi->dev, "Invalid or missing CLKIN clock\n");
+			return -EINVAL;
+		}
+	}
 
 	/* Internal clock distribution */
 
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_SEL) {
-		if (!vco_freq)
-			return -EINVAL;
 		vco_divin_freq = vco_freq;
 		st->vco_divin_clk_parent_name = "refclk";
 	} else {
-		if (!st->clkin_freq)
-			return -EINVAL;
 		vco_divin_freq = st->clkin_freq;
 		st->vco_divin_clk_parent_name = "clkin";
 	}
 
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP) {
-		if (!st->clkin_freq)
-			return -EINVAL;
 		div0123_freq = st->clkin_freq;
 		st->div0123_clk_parent_name = "clkin";
 	} else {
@@ -1016,29 +1036,27 @@ static int ad9517_probe(struct spi_device *spi)
 	}
 
 	st->spi = spi;
-	ref_clk = clk_get(&spi->dev, "refclk");
-	clkin = clk_get(&spi->dev, "clkin");
 
-	if (IS_ERR(ref_clk) && IS_ERR(clkin)) {
-		ret = PTR_ERR(ref_clk);
-		dev_err(&spi->dev, "failed getting clock (%d)\n", ret);
-		return ret;
-	}
-
-
+	ref_clk = devm_clk_get(&spi->dev, "refclk");
 	if (IS_ERR(ref_clk)) {
 		ret = PTR_ERR(ref_clk);
-		dev_warn(&spi->dev, "failed getting clock (%d)\n", ret);
+		if (ret != -ENOENT) {
+			dev_err(&spi->dev, "Failed getting REFIN clock (%d)\n", ret);
+			return ret;
+		}
 	} else {
 		st->refin_freq = clk_get_rate(ref_clk);
 		clk_prepare_enable(ref_clk);
 
 	}
 
+	clkin = devm_clk_get(&spi->dev, "clkin");
 	if (IS_ERR(clkin)) {
 		ret = PTR_ERR(clkin);
-		dev_warn(&spi->dev, "failed getting clock (%d)\n", ret);
-		return ret;
+		if (ret != -ENOENT) {
+			dev_err(&spi->dev, "Failed getting CLK clock (%d)\n", ret);
+			return ret;
+		}
 	} else {
 		st->clkin_freq = clk_get_rate(clkin);
 		clk_prepare_enable(clkin);
