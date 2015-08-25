@@ -385,6 +385,22 @@ clk_err:
 	return ret;
 }
 
+static void imx_gpc_handle_ldobypass(struct platform_device *pdev)
+{
+	struct regulator *pu_reg = imx_gpc_domains[GPC_PGC_DOMAIN_PU].supply;
+	u32 bypass = 0;
+	int ret;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "fsl,ldo-bypass", &bypass);
+	if (ret && ret != -EINVAL)
+		dev_warn(&pdev->dev, "failed to read fsl,ldo-bypass property: %d\n", ret);
+
+	/* We only bypass pu since arm and soc has been set in u-boot */
+	if (pu_reg && bypass) {
+		regulator_allow_bypass(pu_reg, true);
+	}
+}
+
 static int imx_gpc_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
@@ -471,6 +487,8 @@ static int imx_gpc_probe(struct platform_device *pdev)
 			}
 		}
 	}
+
+	imx_gpc_handle_ldobypass(pdev);
 
 	return 0;
 }
