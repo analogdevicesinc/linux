@@ -1050,10 +1050,14 @@ static int ad9517_probe(struct spi_device *spi)
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		return ret;
+		goto err_of_clk_del_provider;
 
 	dev_info(&spi->dev, "probed\n");
 	return 0;
+
+err_of_clk_del_provider:
+	of_clk_del_provider(spi->dev.of_node);
+	return ret;
 }
 
 static int ad9517_remove(struct spi_device *spi)
@@ -1061,6 +1065,7 @@ static int ad9517_remove(struct spi_device *spi)
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	iio_device_unregister(indio_dev);
+	of_clk_del_provider(spi->dev.of_node);
 
 	return 0;
 }
