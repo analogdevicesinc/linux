@@ -997,7 +997,7 @@ static int ad9517_probe(struct spi_device *spi)
 	if (IS_ERR(ref_clk) && IS_ERR(clkin)) {
 		ret = PTR_ERR(ref_clk);
 		dev_err(&spi->dev, "failed getting clock (%d)\n", ret);
-		goto out;
+		return ret;
 	}
 
 
@@ -1013,7 +1013,7 @@ static int ad9517_probe(struct spi_device *spi)
 	if (IS_ERR(clkin)) {
 		ret = PTR_ERR(clkin);
 		dev_warn(&spi->dev, "failed getting clock (%d)\n", ret);
-		goto out;
+		return ret;
 	} else {
 		st->clkin_freq = clk_get_rate(clkin);
 		clk_prepare_enable(clkin);
@@ -1028,8 +1028,7 @@ static int ad9517_probe(struct spi_device *spi)
 					 NUM_OUTPUTS, GFP_KERNEL);
 	if (!st->clk_data.clks) {
 		dev_err(&st->spi->dev, "could not allocate memory\n");
-		ret = -ENOMEM;
-		goto out;
+		return -ENOMEM;
 	}
 	st->clk_data.clk_num = NUM_OUTPUTS;
 
@@ -1051,15 +1050,10 @@ static int ad9517_probe(struct spi_device *spi)
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto out;
-
+		return ret;
 
 	dev_info(&spi->dev, "probed\n");
 	return 0;
-
-out:
-	spi_set_drvdata(spi, NULL);
-	return ret;
 }
 
 static int ad9517_remove(struct spi_device *spi)
@@ -1067,8 +1061,6 @@ static int ad9517_remove(struct spi_device *spi)
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	iio_device_unregister(indio_dev);
-
-	spi_set_drvdata(spi, NULL);
 
 	return 0;
 }
