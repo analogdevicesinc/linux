@@ -18,6 +18,8 @@
 #include <linux/firmware.h>
 #include <linux/of.h>
 
+#include <linux/gpio/consumer.h>
+
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
@@ -155,6 +157,9 @@ struct ad9517_state {
 	unsigned long vco_divin_freq;
 	char *div0123_clk_parent_name;
 	char *vco_divin_clk_parent_name;
+
+	struct gpio_desc *gpio_reset;
+	struct gpio_desc *gpio_sync;
 };
 
 #define IS_FD				(1 << 7)
@@ -536,6 +541,8 @@ static int ad9517_setup(struct ad9517_state *st)
 	unsigned long vco_divin_freq;
 	unsigned long div0123_freq;
 
+	gpiod_set_value(st->gpio_sync, 1);
+
 	/* Setup PLL */
 	for (reg = AD9517_PFD_CP; reg <= AD9517_PLL8; reg++) {
 		ret = ad9517_write(spi, reg, st->regs[reg]);
@@ -702,7 +709,6 @@ static int ad9517_setup(struct ad9517_state *st)
 	st->output[OUT_6].parent_name =
 		st->output[OUT_7].parent_name =
 		st->div0123_clk_parent_name;
-
 
 	st->div0123_freq = div0123_freq;
 	st->vco_divin_freq = vco_divin_freq;
@@ -944,6 +950,16 @@ static int ad9517_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+
+	st->gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset",
+	    GPIOD_OUT_HIGH);
+	if (st->gpio_reset) {
+		udelay(10);
+		gpiod_set_value(st->gpio_reset, 0);
+	}
+
+	st->gpio_sync = devm_gpiod_get_optional(&spi->dev, "sync",
+	    GPIOD_OUT_HIGH);
 
 	conf = AD9517_LONG_INSTR |
 		(spi->mode & SPI_3WIRE ? 0 : AD9517_SDO_ACTIVE);
