@@ -540,7 +540,7 @@ static struct clk *ad9517_clk_register(struct ad9517_state *st, unsigned num)
 	output->st = st;
 
 	/* register the clock */
-	clk = clk_register(&st->spi->dev, &output->hw);
+	clk = devm_clk_register(&st->spi->dev, &output->hw);
 	st->clk_data.clks[num] = clk;
 
 	return clk;
