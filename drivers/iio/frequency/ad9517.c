@@ -233,23 +233,31 @@ static int ad9517_write(struct spi_device *spi,
 }
 
 static int ad9517_parse_firmware(struct ad9517_state *st,
-				 char *data, unsigned size)
+				 const char *data, unsigned size)
 {
+	unsigned addr, val1, val2;
 	char *line;
 	int ret;
-	unsigned addr, val1, val2;
 
-	while ((line = strsep(&data, "\n"))) {
-		if (line >= data + size)
-			break;
-
+	line = kmalloc(size, GFP_KERNEL);
+	if (!line)
+		return -ENOMEM;
+	memcpy(line, data, size);
+	while (line) {
 		ret = sscanf(line, "\"%x\",\"%x\",\"%x\"", &addr, &val1, &val2);
 		if (ret == 3) {
-			if (addr > AD9517_TRANSFER)
+			if (addr > AD9517_TRANSFER) {
+				kfree(line);
 				return -EINVAL;
+			}
 			st->regs[addr] = val2 & 0xFF;
 		}
+		line = strchr(line, '\n');
+		if (line != NULL)
+		    line++;
 	}
+	kfree(line);
+
 	return 0;
 }
 
@@ -996,7 +1004,7 @@ static int ad9517_probe(struct spi_device *spi)
 				"request_firmware() failed with %i\n", ret);
 			return ret;
 		}
-		ad9517_parse_firmware(st, (u8 *) fw->data, fw->size);
+		ad9517_parse_firmware(st, fw->data, fw->size);
 		release_firmware(fw);
 	} else {
 		ret = ad9517_parse_pdata(st, pdata);
