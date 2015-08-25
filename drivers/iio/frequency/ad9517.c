@@ -939,7 +939,7 @@ static int ad9517_probe(struct spi_device *spi)
 	struct ad9517_state *st;
 	struct clk *clk, *ref_clk, *clkin;
 
-	indio_dev = iio_device_alloc(sizeof(*st));
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
@@ -1067,7 +1067,6 @@ static int ad9517_remove(struct spi_device *spi)
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	iio_device_unregister(indio_dev);
-	iio_device_free(indio_dev);
 
 	spi_set_drvdata(spi, NULL);
 
