@@ -706,7 +706,6 @@ static int ad9517_probe(struct spi_device *spi)
 				"request_firmware() failed with %i\n", ret);
 			return ret;
 		}
-		printk("firmware: %s %d\n", name, fw->size);
 		ad9517_parse_firmware(st, fw->data, fw->size);
 		release_firmware(fw);
 	} else {
