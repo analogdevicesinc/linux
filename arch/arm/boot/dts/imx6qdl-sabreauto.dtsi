@@ -73,24 +73,11 @@
 
 	sound-cs42888 {
 		compatible = "fsl,imx6-sabreauto-cs42888",
-			"fsl,imx-audio-cs42888";
+				"fsl,imx-audio-cs42888";
 		model = "imx-cs42888";
-		audio-cpu = <&esai>;
-		audio-asrc = <&asrc>;
+		esai-controller = <&esai>;
+		asrc-controller = <&asrc>;
 		audio-codec = <&codec>;
-		audio-routing =
-			"Line Out Jack", "AOUT1L",
-			"Line Out Jack", "AOUT1R",
-			"Line Out Jack", "AOUT2L",
-			"Line Out Jack", "AOUT2R",
-			"Line Out Jack", "AOUT3L",
-			"Line Out Jack", "AOUT3R",
-			"Line Out Jack", "AOUT4L",
-			"Line Out Jack", "AOUT4R",
-			"AIN1L", "Line In Jack",
-			"AIN1R", "Line In Jack",
-			"AIN2L", "Line In Jack",
-			"AIN2R", "Line In Jack";
 	};
 
 	sound-spdif {
