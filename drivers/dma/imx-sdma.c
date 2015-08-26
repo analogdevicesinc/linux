@@ -1318,6 +1318,7 @@ static int sdma_transfer_init(struct sdma_channel *sdmac,
 	sdmac->buf_tail = 0;
 	sdmac->flags = 0;
 	sdmac->direction = direction;
+	sdmac->flags = 0;
 
 	ret = sdma_load_context(sdmac);
 	if (ret)
