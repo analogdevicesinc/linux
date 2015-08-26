@@ -270,7 +270,6 @@ static int xilinx_spi_txrx_bufs(struct spi_device *spi, struct spi_transfer *t)
 
 	while (remaining_words) {
 		int n_words, tx_words, rx_words;
-		unsigned int sr;
 
 		n_words = min(remaining_words, xspi->buffer_size);
 
@@ -299,27 +298,10 @@ static int xilinx_spi_txrx_bufs(struct spi_device *spi, struct spi_transfer *t)
 			xspi->write_fn(cr | XSPI_CR_TRANS_INHIBIT,
 			       xspi->regs + XSPI_CR_OFFSET);
 
-		/*
-		 * The XSPI_SR_TX_EMPTY_MASK bit will go low when the last transmit
-		 * sample is taken out of the TX FIFO, which is when the last transfer
-		 * starts. Whereas the last receive sample is only put into the RX FIFO
-		 * when the last transfer finishes. So if the RX FIFO can be read faster
-		 * than it takes to execute the last transfer we nd up trying to read
-		 * the last sample before it is available. So only read all but the last
-		 * sample unconditionally and explicitly check that the RX FIFO is not
-		 * empty before trying to read the last sample.
-		 */
-
 		/* Read out all the data from the Rx FIFO */
-		rx_words = n_words - 1;
+		rx_words = n_words;
 		while (rx_words--)
 			xilinx_spi_rx(xspi);
-
-		/* Wait for the last word to appear in the RX FIFO */
-		do {
-			sr = xspi->read_fn(xspi->regs + XSPI_SR_OFFSET);
-		} while (sr & XSPI_SR_RX_EMPTY_MASK);
-		xilinx_spi_rx(xspi);
 
 		remaining_words -= n_words;
 	}
