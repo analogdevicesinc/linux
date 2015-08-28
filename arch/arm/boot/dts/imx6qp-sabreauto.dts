@@ -50,6 +50,22 @@
 	compatible = "fsl,imx6qp-sabreauto", "fsl,imx6qp";
 };
 
+&mxcfb1 {
+	prefetch;
+};
+
+&mxcfb2 {
+	prefetch;
+};
+
+&mxcfb3 {
+	prefetch;
+};
+
+&mxcfb4 {
+	prefetch;
+};
+
 &fec {
 	pinctrl-assert-gpios = <&max7322 0 GPIO_ACTIVE_HIGH>;
 };
