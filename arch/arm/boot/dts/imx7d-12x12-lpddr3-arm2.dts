@@ -919,7 +919,7 @@
 	srp-disable;
 	hnp-disable;
 	adp-disable;
-	status = "disabled";
+	status = "okay";
 };
 
 &usbotg2 {
@@ -927,7 +927,7 @@
 	srp-disable;
 	hnp-disable;
 	adp-disable;
-	status = "disabled";
+	status = "okay";
 };
 
 &usdhc1 {
