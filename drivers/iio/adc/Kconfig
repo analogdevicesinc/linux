@@ -132,6 +132,11 @@ config AD799X
 	  i2c analog to digital converters (ADC). Provides direct access
 	  via sysfs.
 
+config AD9761
+	tristate "Analog Devices AD9671 driver"
+	depends on SPI
+	select IIO_BUFFER
+
 config AT91_ADC
 	tristate "Atmel AT91 ADC"
 	depends on ARCH_AT91
