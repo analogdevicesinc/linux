@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Freescale Semiconductor, Inc.
+ * Copyright 2011-2015 Freescale Semiconductor, Inc.
  * Copyright 2011 Linaro Ltd.
  *
  * This file is dual-licensed: you can use it either under the terms
@@ -336,11 +336,6 @@
 	txd1-skew-ps = <0>;
 	txd2-skew-ps = <0>;
 	txd3-skew-ps = <0>;
-	status = "okay";
-};
-
-&hdmi {
-	ddc-i2c-bus = <&i2c2>;
 	status = "okay";
 };
 
