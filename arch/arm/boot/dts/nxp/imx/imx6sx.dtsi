@@ -1140,6 +1140,8 @@
 				clock-names = "ipg", "ahb", "ptp",
 					      "enet_clk_ref", "enet_out";
 				fsl,stop-mode = <&gpr 0x10 4>;
+				fsl,num-tx-queues=<3>;
+				fsl,num-rx-queues=<3>;
 				status = "disabled";
 			};
 
