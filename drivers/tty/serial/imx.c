@@ -2324,6 +2324,8 @@ static int imx_serial_port_suspend_noirq(struct device *dev)
 
 	clk_disable(sport->clk_ipg);
 
+	pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
@@ -2332,6 +2334,8 @@ static int imx_serial_port_resume_noirq(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct imx_port *sport = platform_get_drvdata(pdev);
 	int ret;
+
+	pinctrl_pm_select_default_state(dev);
 
 	ret = clk_enable(sport->clk_ipg);
 	if (ret)
