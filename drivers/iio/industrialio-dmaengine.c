@@ -56,6 +56,10 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_block *block,
 
 	block->block.bytes_used = rounddown(block->block.bytes_used,
 			dmaengine_buffer->align);
+	if (block->block.bytes_used == 0) {
+		iio_dma_buffer_block_done(block);
+		return 0;
+	}
 
 	if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
 		desc = dmaengine_prep_dma_cyclic(dmaengine_buffer->chan,
