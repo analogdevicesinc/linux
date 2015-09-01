@@ -78,6 +78,14 @@ config PCI_IMX6
 	select PCIEPORTBUS
 	select PCIE_DW_HOST
 
+config EP_MODE_IN_EP_RC_SYS
+	bool "PCI Express EP mode in the IMX6 RC/EP interconnection system"
+	depends on PCI_IMX6
+
+config RC_MODE_IN_EP_RC_SYS
+	bool "PCI Express RC mode in the IMX6 RC/EP interconnection system"
+	depends on PCI_IMX6 && EP_MODE_IN_EP_RC_SYS!=y
+
 config PCIE_SPEAR13XX
 	bool "STMicroelectronics SPEAr PCIe controller"
 	depends on PCI
