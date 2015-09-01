@@ -762,6 +762,17 @@ int ad9361_find_opt(u8 *field, u32 size, u32 *ret_start)
 }
 EXPORT_SYMBOL(ad9361_find_opt);
 
+static int ad9361_1rx1tx_channel_map(struct ad9361_rf_phy *phy, int map, int channel)
+{
+	if (phy->pdata->rx2tx2)
+		return channel;
+
+	if (map == 2)
+		return channel + 1;
+
+	return channel;
+}
+
 static int ad9361_reset(struct ad9361_rf_phy *phy)
 {
 	if (!IS_ERR(phy->pdata->reset_gpio)) {
@@ -973,7 +984,6 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
 		tab = &full_gain_table[band][0];
 		index_max = SIZE_FULL_TABLE;
 	}
-
 
 	lna = phy->pdata->elna_ctrl.elna_in_gaintable_all_index_en ?
 		EXT_LNA_CTRL : 0;
@@ -1626,18 +1636,21 @@ static int ad9361_init_gain_tables(struct ad9361_rf_phy *phy)
 	return 0;
 }
 
-static int ad9361_en_dis_tx(struct ad9361_rf_phy *phy, u32 tx_if, u32 enable)
+int ad9361_en_dis_tx(struct ad9361_rf_phy *phy, u32 tx_if, u32 enable)
 {
-	if (tx_if == 2 && !phy->pdata->rx2tx2 && enable)
+	if ((tx_if & enable) > 1 && spi_get_device_id(phy->spi)->driver_data ==
+		ID_AD9364 && enable)
 		return -EINVAL;
 
 	return ad9361_spi_writef(phy->spi, REG_TX_ENABLE_FILTER_CTRL,
 			TX_CHANNEL_ENABLE(tx_if), enable);
 }
+EXPORT_SYMBOL(ad9361_en_dis_tx);
 
 static int ad9361_en_dis_rx(struct ad9361_rf_phy *phy, u32 rx_if, u32 enable)
 {
-	if (rx_if == 2 && !phy->pdata->rx2tx2 && enable)
+	if ((rx_if & enable) > 1 && spi_get_device_id(phy->spi)->driver_data ==
+		ID_AD9364 && enable)
 		return -EINVAL;
 
 	return ad9361_spi_writef(phy->spi, REG_RX_ENABLE_FILTER_CTRL,
@@ -2364,7 +2377,9 @@ static int __ad9361_tx_quad_calib(struct ad9361_rf_phy *phy, u32 phase,
 			return ret;
 
 		if (res)
-			*res = ad9361_spi_read(phy->spi, REG_QUAD_CAL_STATUS_TX1) &
+			*res = ad9361_spi_read(phy->spi,
+					(phy->pdata->rx1tx1_mode_use_tx_num == 2) ?
+					REG_QUAD_CAL_STATUS_TX2 : REG_QUAD_CAL_STATUS_TX1) &
 					(TX1_LO_CONV | TX1_SSB_CONV);
 
 		return 0;
@@ -2597,9 +2612,13 @@ static int ad9361_tracking_control(struct ad9361_rf_phy *phy, bool bbdc_track,
 			 CORRECTION_WORD_DECIMATION_M(~0),
 			 phy->pdata->qec_tracking_slow_mode_en ? 4 : 0);
 
-	if (rxquad_track)
-		qtrack = ENABLE_TRACKING_MODE_CH1 |
-			(phy->pdata->rx2tx2 ? ENABLE_TRACKING_MODE_CH2 : 0);
+	if (rxquad_track) {
+		if (phy->pdata->rx2tx2)
+			qtrack = ENABLE_TRACKING_MODE_CH1 | ENABLE_TRACKING_MODE_CH2;
+		else
+			qtrack = (phy->pdata->rx1tx1_mode_use_rx_num == 1) ?
+				ENABLE_TRACKING_MODE_CH1 : ENABLE_TRACKING_MODE_CH2;
+	}
 
 	ad9361_spi_write(spi, REG_CALIBRATION_CONFIG_1,
 			 ENABLE_PHASE_CORR | ENABLE_GAIN_CORR |
@@ -4286,11 +4305,18 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	ad9361_en_dis_tx(phy, 1, TX_ENABLE);
-	ad9361_en_dis_rx(phy, 1, RX_ENABLE);
+	if (!pd->rx2tx2) {
+		pd->rx1tx1_mode_use_tx_num =
+			clamp_t(u32, pd->rx1tx1_mode_use_tx_num, TX_1, TX_2);
+		pd->rx1tx1_mode_use_rx_num =
+			clamp_t(u32, pd->rx1tx1_mode_use_rx_num, RX_1, RX_2);
 
-	ad9361_en_dis_tx(phy, 2, pd->rx2tx2);
-	ad9361_en_dis_rx(phy, 2, pd->rx2tx2);
+		ad9361_en_dis_tx(phy, TX_1 | TX_2, pd->rx1tx1_mode_use_tx_num);
+		ad9361_en_dis_rx(phy, TX_1 | TX_2, pd->rx1tx1_mode_use_rx_num);
+	} else {
+		ad9361_en_dis_tx(phy, TX_1 | TX_2, TX_1 | TX_2);
+		ad9361_en_dis_rx(phy, RX_1 | RX_2, RX_1 | RX_2);
+	}
 
 	ret = ad9361_rf_port_setup(phy, true, pd->rf_rx_input_sel,
 				   pd->rf_tx_output_sel);
@@ -4460,9 +4486,19 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	ad9361_spi_writef(phy->spi, REG_TX_ATTEN_OFFSET,
 			  MASK_CLR_ATTEN_UPDATE, 0);
 
-	ret = ad9361_set_tx_atten(phy, pd->tx_atten, true, true, true);
+	ret = ad9361_set_tx_atten(phy, pd->tx_atten,
+			pd->rx2tx2 ? true : pd->rx1tx1_mode_use_tx_num == 1,
+			pd->rx2tx2 ? true : pd->rx1tx1_mode_use_tx_num == 2, true);
 	if (ret < 0)
 		return ret;
+
+	if (!pd->rx2tx2) {
+		ret = ad9361_set_tx_atten(phy, 89750,
+				pd->rx1tx1_mode_use_tx_num == 2,
+				pd->rx1tx1_mode_use_tx_num == 1, true);
+		if (ret < 0)
+			return ret;
+	}
 
 	ret = ad9361_rssi_setup(phy, &pd->rssi_ctrl, false);
 	if (ret < 0)
@@ -6556,7 +6592,8 @@ static int ad9361_set_agc_mode(struct iio_dev *indio_dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	struct rf_gain_ctrl gc = {0};
 
-	gc.ant = chan->channel + 1;
+	gc.ant = ad9361_1rx1tx_channel_map(phy,
+			phy->pdata->rx1tx1_mode_use_rx_num, chan->channel + 1);
 	gc.mode = phy->agc_mode[chan->channel] = mode;
 
 	return ad9361_set_gain_ctrl_mode(phy, &gc);
@@ -6676,7 +6713,8 @@ static ssize_t ad9361_phy_rx_read(struct iio_dev *indio_dev,
 
 	mutex_lock(&indio_dev->mlock);
 
-	rssi.ant = chan->channel + 1;
+	rssi.ant = ad9361_1rx1tx_channel_map(phy,
+			phy->pdata->rx1tx1_mode_use_rx_num, chan->channel + 1);
 	rssi.duration = 1;
 	ret = ad9361_read_rssi(phy, &rssi);
 	val = rssi.symbol;
@@ -6765,7 +6803,10 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
-			ret = ad9361_get_tx_atten(phy, chan->channel + 1);
+			ret = ad9361_get_tx_atten(phy,
+				ad9361_1rx1tx_channel_map(phy,
+				phy->pdata->rx1tx1_mode_use_tx_num,
+			        chan->channel + 1));
 			if (ret < 0) {
 				ret = -EINVAL;
 				goto out_unlock;
@@ -6778,7 +6819,8 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 
 		} else {
 			struct rf_rx_gain rx_gain = {0};
-			ret = ad9361_get_rx_gain(phy, chan->channel + 1, &rx_gain);
+			ret = ad9361_get_rx_gain(phy, ad9361_1rx1tx_channel_map(phy,
+			phy->pdata->rx1tx1_mode_use_rx_num, chan->channel + 1), &rx_gain);
 			*val = rx_gain.gain_db;
 			*val2 = 0;
 		}
@@ -6858,19 +6900,27 @@ static int ad9361_phy_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
+			int ch;
 			if (val > 0 || (val == 0 && val2 > 0)) {
 				ret = -EINVAL;
 				goto out;
 			}
 
 			code = ((abs(val) * 1000) + (abs(val2) / 1000));
-			ret = ad9361_set_tx_atten(phy, code,
-				chan->channel == 0, chan->channel == 1,
+
+
+			ch = ad9361_1rx1tx_channel_map(phy,
+					phy->pdata->rx1tx1_mode_use_tx_num,
+				        chan->channel);
+			ret = ad9361_set_tx_atten(phy, code, ch == 0, ch == 1,
 			        !phy->pdata->update_tx_gain_via_alert);
 		} else {
 			struct rf_rx_gain rx_gain = {0};
 			rx_gain.gain_db = val;
-			ret = ad9361_set_rx_gain(phy, chan->channel + 1, &rx_gain);
+			ret = ad9361_set_rx_gain(phy,
+					ad9361_1rx1tx_channel_map(phy,
+					phy->pdata->rx1tx1_mode_use_rx_num,
+					chan->channel + 1), &rx_gain);
 		}
 		break;
 
@@ -7432,6 +7482,12 @@ static struct ad9361_phy_platform_data
 
 	ad9361_of_get_bool(iodev, np, "adi,2rx-2tx-mode-enable", &pdata->rx2tx2);
 
+	ad9361_of_get_u32(iodev, np, "adi,1rx-1tx-mode-use-rx-num", 1,
+			  &pdata->rx1tx1_mode_use_rx_num);
+
+	ad9361_of_get_u32(iodev, np, "adi,1rx-1tx-mode-use-tx-num", 1,
+			  &pdata->rx1tx1_mode_use_tx_num);
+
 	ad9361_of_get_bool(iodev, np, "adi,split-gain-table-mode-enable",
 			   &pdata->split_gt);
 
@@ -7930,8 +7986,11 @@ static int ad9361_probe(struct spi_device *spi)
 
 	rev = ret & REV_MASK;
 
-	if (spi_get_device_id(spi)->driver_data == ID_AD9364)
+	if (spi_get_device_id(spi)->driver_data == ID_AD9364) {
 		phy->pdata->rx2tx2 = false;
+		phy->pdata->rx1tx1_mode_use_rx_num = 1;
+		phy->pdata->rx1tx1_mode_use_tx_num = 1;
+	}
 
 	INIT_WORK(&phy->work, ad9361_work_func);
 	init_completion(&phy->complete);
