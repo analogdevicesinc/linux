@@ -18,6 +18,8 @@
 #include <linux/firmware.h>
 #include <linux/of.h>
 
+#include <linux/gpio/consumer.h>
+
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
@@ -157,6 +159,9 @@ struct ad9517_state {
 	unsigned long clkin_freq;
 	char *div0123_clk_parent_name;
 	char *vco_divin_clk_parent_name;
+
+	struct gpio_desc *gpio_reset;
+	struct gpio_desc *gpio_sync;
 };
 
 #define IS_FD				(1 << 7)
@@ -229,23 +234,22 @@ static int ad9517_write(struct spi_device *spi,
 }
 
 static int ad9517_parse_firmware(struct ad9517_state *st,
-				 char *data, unsigned size)
+				 const char *data, unsigned size)
 {
-	char *line;
-	int ret;
 	unsigned addr, val1, val2;
-	char *start_addr = data;
+	const char *line = data;
+	int ret;
 
-	while ((line = strsep(&data, "\n"))) {
-		if (line >= start_addr + size)
-			break;
-
+	while (line) {
 		ret = sscanf(line, "\"%x\",\"%x\",\"%x\"", &addr, &val1, &val2);
 		if (ret == 3) {
 			if (addr > AD9517_TRANSFER)
 				return -EINVAL;
 			st->regs[addr] = val2 & 0xFF;
 		}
+		line = strchr(line, '\n');
+		if (line != NULL)
+		    line++;
 	}
 	return 0;
 }
@@ -277,6 +281,10 @@ static int ad9517_setup(struct ad9517_state *st)
 	unsigned long vco_freq;
 	unsigned long vco_divin_freq;
 	unsigned long div0123_freq;
+	bool uses_vco = false;
+	bool uses_clkin = false;
+
+	gpiod_set_value(st->gpio_sync, 1);
 
 	/* Setup PLL */
 	for (reg = AD9517_PFD_CP; reg <= AD9517_PLL8; reg++) {
@@ -373,33 +381,51 @@ static int ad9517_setup(struct ad9517_state *st)
 
 	prescaler &= ~IS_FD;
 
-	vco_freq = (st->refin_freq / pll_r_cnt * (prescaler  *
-			pll_b_cnt + pll_a_cnt));
+	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_SEL)
+		uses_vco = true;
+	else
+		uses_clkin = true;
 
-	/* tcal = 4400 * Rdiv * cal_div / Refin */
-	cal_delay_ms = (4400 * pll_r_cnt *
-		(2 << ((st->regs[AD9517_PLL3] >> 1) & 0x3))) /
-		(st->refin_freq / 1000);
+	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP)
+		uses_clkin = true;
+	else
+		uses_vco = true;
 
-	msleep(cal_delay_ms);
+	if (uses_vco) {
+		if (st->refin_freq == 0) {
+			dev_err(&st->spi->dev, "Invalid or missing REFIN clock\n");
+			return -EINVAL;
+		}
+
+		vco_freq = (st->refin_freq / pll_r_cnt * (prescaler  *
+				pll_b_cnt + pll_a_cnt));
+
+		/* tcal = 4400 * Rdiv * cal_div / Refin */
+		cal_delay_ms = (4400 * pll_r_cnt *
+			(2 << ((st->regs[AD9517_PLL3] >> 1) & 0x3))) /
+			(st->refin_freq / 1000);
+
+		msleep(cal_delay_ms);
+	}
+
+	if (uses_clkin) {
+		if (st->clkin_freq == 0) {
+			dev_err(&st->spi->dev, "Invalid or missing CLKIN clock\n");
+			return -EINVAL;
+		}
+	}
 
 	/* Internal clock distribution */
 
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_SEL) {
-		if (!vco_freq)
-			return -EINVAL;
 		vco_divin_freq = vco_freq;
 		st->vco_divin_clk_parent_name = "refclk";
 	} else {
-		if (!st->clkin_freq)
-			return -EINVAL;
 		vco_divin_freq = st->clkin_freq;
 		st->vco_divin_clk_parent_name = "clkin";
 	}
 
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP) {
-		if (!st->clkin_freq)
-			return -EINVAL;
 		div0123_freq = st->clkin_freq;
 		st->div0123_clk_parent_name = "clkin";
 	} else {
@@ -503,6 +529,8 @@ static int ad9517_setup(struct ad9517_state *st)
 		st->output[OUT_7].parent_name =
 		st->div0123_clk_parent_name;
 
+	gpiod_set_value(st->gpio_sync, 0);
+
 	return 0;
 }
 
@@ -540,7 +568,7 @@ static struct clk *ad9517_clk_register(struct ad9517_state *st, unsigned num)
 	output->st = st;
 
 	/* register the clock */
-	clk = clk_register(&st->spi->dev, &output->hw);
+	clk = devm_clk_register(&st->spi->dev, &output->hw);
 	st->clk_data.clks[num] = clk;
 
 	return clk;
@@ -628,11 +656,21 @@ static int ad9517_probe(struct spi_device *spi)
 	bool spi3wire = of_property_read_bool(
 			spi->dev.of_node, "adi,spi-3wire-enable");
 
-	indio_dev = iio_device_alloc(sizeof(*st));
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+
+	st->gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset",
+	    GPIOD_OUT_HIGH);
+	if (st->gpio_reset) {
+		udelay(10);
+		gpiod_set_value(st->gpio_reset, 0);
+	}
+
+	st->gpio_sync = devm_gpiod_get_optional(&spi->dev, "sync",
+	    GPIOD_OUT_HIGH);
 
 	conf = AD9517_LONG_INSTR |
 		((spi->mode & SPI_3WIRE || spi3wire) ? 0 : AD9517_SDO_ACTIVE);
@@ -668,7 +706,7 @@ static int ad9517_probe(struct spi_device *spi)
 				"request_firmware() failed with %i\n", ret);
 			return ret;
 		}
-		ad9517_parse_firmware(st, (u8 *) fw->data, fw->size);
+		ad9517_parse_firmware(st, fw->data, fw->size);
 		release_firmware(fw);
 	} else {
 		ret = ad9517_parse_pdata(st, pdata);
@@ -680,27 +718,25 @@ static int ad9517_probe(struct spi_device *spi)
 	}
 
 	st->spi = spi;
-	ref_clk = clk_get(&spi->dev, "refclk");
-	clkin = clk_get(&spi->dev, "clkin");
 
-	if (IS_ERR(ref_clk) && IS_ERR(clkin)) {
-		ret = PTR_ERR(ref_clk);
-		dev_err(&spi->dev, "failed getting clock (%d)\n", ret);
-		goto out;
-	}
-
-
+	ref_clk = devm_clk_get(&spi->dev, "refclk");
 	if (IS_ERR(ref_clk)) {
 		ret = PTR_ERR(ref_clk);
-		dev_warn(&spi->dev, "failed getting clock (%d)\n", ret);
+		if (ret != -ENOENT) {
+			dev_err(&spi->dev, "Failed getting REFIN clock (%d)\n", ret);
+			return ret;
+		}
 	} else {
 		st->refin_freq = clk_get_rate(ref_clk);
 	}
 
+	clkin = devm_clk_get(&spi->dev, "clkin");
 	if (IS_ERR(clkin)) {
 		ret = PTR_ERR(clkin);
-		dev_warn(&spi->dev, "failed getting clock (%d)\n", ret);
-		goto out;
+		if (ret != -ENOENT) {
+			dev_err(&spi->dev, "Failed getting CLK clock (%d)\n", ret);
+			return ret;
+		}
 	} else {
 		st->clkin_freq = clk_get_rate(clkin);
 	}
@@ -714,8 +750,7 @@ static int ad9517_probe(struct spi_device *spi)
 					 NUM_OUTPUTS, GFP_KERNEL);
 	if (!st->clk_data.clks) {
 		dev_err(&st->spi->dev, "could not allocate memory\n");
-		ret = -ENOMEM;
-		goto out;
+		return -ENOMEM;
 	}
 	st->clk_data.clk_num = NUM_OUTPUTS;
 
@@ -740,14 +775,14 @@ static int ad9517_probe(struct spi_device *spi)
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto out;
+		goto err_of_clk_del_provider;
 
+	spi_set_drvdata(spi, indio_dev);
 
-	dev_info(&spi->dev, "probed\n");
 	return 0;
 
-out:
-	spi_set_drvdata(spi, NULL);
+err_of_clk_del_provider:
+	of_clk_del_provider(spi->dev.of_node);
 	return ret;
 }
 
@@ -756,9 +791,7 @@ static int ad9517_remove(struct spi_device *spi)
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	iio_device_unregister(indio_dev);
-	iio_device_free(indio_dev);
-
-	spi_set_drvdata(spi, NULL);
+	of_clk_del_provider(spi->dev.of_node);
 
 	return 0;
 }

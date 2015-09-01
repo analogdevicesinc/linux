@@ -1,31 +1,49 @@
 /*
- * Driver for the AXI-HDMI-RX core
+ * Driver for the Analog Devices AXI-DMAC core
  *
- * Copyright 2013 Analog Devices Inc.
+ * Copyright 2013-2015 Analog Devices Inc.
  *  Author: Lars-Peter Clausen <lars@metafoo.de>
  *
  * Licensed under the GPL-2.
  */
 
-#include <linux/kernel.h>
-#include <linux/io.h>
-#include <linux/slab.h>
-#include <linux/module.h>
-#include <linux/interrupt.h>
+#include <linux/clk.h>
+#include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
+#include <linux/err.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_dma.h>
-#include <linux/err.h>
 #include <linux/platform_device.h>
-#include <linux/device.h>
-#include <linux/delay.h>
-#include <linux/clk.h>
-#include <linux/of_dma.h>
 #include <linux/regmap.h>
+#include <linux/slab.h>
+
+#include <dt-bindings/dma/axi-dmac.h>
 
 #include "dmaengine.h"
 #include "virt-dma.h"
+
+/*
+ * The AXI-DMAC is a soft IP core that is used in FPGA designs. The core has
+ * various instantiation parameters which decided the exact feature set support
+ * by the core.
+ *
+ * Each channel of the core has a source interface and a destination interface.
+ * The number of channels and the type of the channel interfaces is selected at
+ * configuration time. A interface can either be a connected to a central memory
+ * interconnect, which allows access to system memory, or it can be connected to
+ * a dedicated bus which is directly connected to a data port on a peripheral.
+ * Given that those are configuration options of the core that are selected when
+ * it is instantiated this means that they can not be changed by software at
+ * runtime. By extension this means that each channel is uni-directional. It can
+ * either be device to memory or memory to device, but not both. Also since the
+ * device side is a dedicated data bus only connected to a single peripheral
+ * there is no address than can or needs to be configured for the device side.
+ */
 
 #define AXI_DMAC_REG_IRQ_MASK		0x80
 #define AXI_DMAC_REG_IRQ_PENDING	0x84
@@ -85,10 +103,17 @@ struct axi_dmac_chan {
 	struct axi_dmac_desc *next_desc;
 	struct list_head active_descs;
 	enum dma_transfer_direction direction;
+
 	unsigned int src_width;
 	unsigned int dest_width;
+	unsigned int src_type;
+	unsigned int dest_type;
+
+	unsigned int max_length;
+	unsigned int align_mask;
 
 	bool hw_cyclic;
+	bool hw_2d;
 };
 
 struct axi_dmac {
@@ -137,27 +162,31 @@ static int axi_dmac_read(struct axi_dmac *axi_dmac, unsigned int reg)
 
 static int axi_dmac_src_is_mem(struct axi_dmac_chan *chan)
 {
-	switch (chan->direction) {
-	case DMA_MEM_TO_DEV:
-	case DMA_MEM_TO_MEM:
-		return true;
-	default:
-		return false;
-	}
+	return chan->src_type == AXI_DMAC_BUS_TYPE_AXI_MM;
 }
 
 static int axi_dmac_dest_is_mem(struct axi_dmac_chan *chan)
 {
-	switch (chan->direction) {
-	case DMA_DEV_TO_MEM:
-	case DMA_MEM_TO_MEM:
-		return true;
-	default:
-		return false;
-	}
+	return chan->dest_type == AXI_DMAC_BUS_TYPE_AXI_MM;
 }
 
-static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
+static bool axi_dmac_check_len(struct axi_dmac_chan *chan, unsigned int len)
+{
+	if (len == 0 || len > chan->max_length)
+		return false;
+	if ((len & chan->align_mask) != 0) /* Not aligned */
+		return false;
+	return true;
+}
+
+static bool axi_dmac_check_addr(struct axi_dmac_chan *chan, dma_addr_t addr)
+{
+	if ((addr & chan->align_mask) != 0) /* Not aligned */
+		return false;
+	return true;
+}
+
+static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 {
 	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct virt_dma_desc *vdesc;
@@ -167,33 +196,19 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	unsigned int val;
 
 	val = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
-	if (val)
-		return 0;
+	if (val) /* Queue is full, wait for the next SOT IRQ */
+		return;
 
 	desc = chan->next_desc;
 
-	do {
-
-		if (!desc) {
-			vdesc = vchan_next_desc(&chan->vchan);
-			if (!vdesc)
-				return 0;
-			list_move_tail(&vdesc->node, &chan->active_descs);
-			desc = to_axi_dmac_desc(vdesc);
-		}
-
-		sg = &desc->sg[desc->num_submitted];
-
-		if (sg->x_len == 0 || sg->y_len == 0) {
-			desc->num_completed++;
-			if (desc->num_completed == desc->num_sgs) {
-				list_del(&desc->vdesc.node);
-				vchan_cookie_complete(&desc->vdesc);
-				desc = NULL;
-			}
-			sg = NULL;
-		}
-	} while (sg == NULL);
+	if (!desc) {
+		vdesc = vchan_next_desc(&chan->vchan);
+		if (!vdesc)
+			return;
+		list_move_tail(&vdesc->node, &chan->active_descs);
+		desc = to_axi_dmac_desc(vdesc);
+	}
+	sg = &desc->sg[desc->num_submitted];
 
 	desc->num_submitted++;
 	if (desc->num_submitted == desc->num_sgs)
@@ -224,41 +239,38 @@ static int axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	axi_dmac_write(dmac, AXI_DMAC_REG_Y_LENGTH, sg->y_len - 1);
 	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, flags);
 	axi_dmac_write(dmac, AXI_DMAC_REG_START_TRANSFER, 1);
-
-	return 0;
 }
 
 static struct axi_dmac_desc *axi_dmac_active_desc(struct axi_dmac_chan *chan)
 {
-	return list_first_entry_or_null(&chan->active_descs, struct axi_dmac_desc,
-			vdesc.node);
+	return list_first_entry_or_null(&chan->active_descs,
+		struct axi_dmac_desc, vdesc.node);
 }
 
 static void axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 	unsigned int completed_transfers)
 {
-	struct axi_dmac_desc *active_desc;
+	struct axi_dmac_desc *active;
 	struct axi_dmac_sg *sg;
 
-	active_desc = axi_dmac_active_desc(chan);
-	if (!active_desc)
+	active = axi_dmac_active_desc(chan);
+	if (!active)
 		return;
 
-	if (active_desc->cyclic) {
-		vchan_cyclic_callback(&active_desc->vdesc);
+	if (active->cyclic) {
+		vchan_cyclic_callback(&active->vdesc);
 	} else {
-		while (active_desc &&
-			active_desc->num_completed < active_desc->num_submitted) {
-			sg = &active_desc->sg[active_desc->num_completed];
+		do {
+			sg = &active->sg[active->num_completed];
 			if (!(BIT(sg->id) & completed_transfers))
 				break;
-			active_desc->num_completed++;
-			if (active_desc->num_completed == active_desc->num_sgs) {
-				list_del(&active_desc->vdesc.node);
-				vchan_cookie_complete(&active_desc->vdesc);
-				active_desc = axi_dmac_active_desc(chan);
+			active->num_completed++;
+			if (active->num_completed == active->num_sgs) {
+				list_del(&active->vdesc.node);
+				vchan_cookie_complete(&active->vdesc);
+				active = axi_dmac_active_desc(chan);
 			}
-		}
+		} while (active);
 	}
 }
 
@@ -305,11 +317,14 @@ static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
 	axi_dmac_write(dmac, AXI_DMAC_REG_IRQ_PENDING, pending);
 
 	spin_lock(&dmac->chan.vchan.lock);
+	/* One or more transfers have finished */
 	if (pending & AXI_DMAC_IRQ_EOT) {
-		unsigned int completed_transfers;
-		completed_transfers = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_DONE);
-		axi_dmac_transfer_done(&dmac->chan, completed_transfers);
+		unsigned int completed;
+
+		completed = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_DONE);
+		axi_dmac_transfer_done(&dmac->chan, completed);
 	}
+	/* Space has become available in the descriptor queue */
 	if (pending & AXI_DMAC_IRQ_SOT)
 		axi_dmac_start_transfer(&dmac->chan);
 	spin_unlock(&dmac->chan.vchan.lock);
@@ -356,7 +371,7 @@ static struct axi_dmac_desc *axi_dmac_alloc_desc(unsigned int num_sgs)
 	struct axi_dmac_desc *desc;
 
 	desc = kzalloc(sizeof(struct axi_dmac_desc) +
-		sizeof(struct axi_dmac_sg) * num_sgs, GFP_ATOMIC);
+		sizeof(struct axi_dmac_sg) * num_sgs, GFP_NOWAIT);
 	if (!desc)
 		return NULL;
 
@@ -383,6 +398,12 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 		return NULL;
 
 	for_each_sg(sgl, sg, sg_len, i) {
+		if (!axi_dmac_check_addr(chan, sg_dma_address(sg)) ||
+		    !axi_dmac_check_len(chan, sg_dma_len(sg))) {
+			kfree(desc);
+			return NULL;
+		}
+
 		if (direction == DMA_DEV_TO_MEM)
 			desc->sg[i].dest_addr = sg_dma_address(sg);
 		else
@@ -408,10 +429,11 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 	if (direction != chan->direction)
 		return NULL;
 
-	if (period_len == 0 || buf_len == 0)
+	if (!axi_dmac_check_len(chan, buf_len) ||
+	    !axi_dmac_check_addr(chan, buf_addr))
 		return NULL;
 
-	if (buf_len % period_len)
+	if (period_len == 0 || buf_len % period_len)
 		return NULL;
 
 	num_periods = buf_len / period_len;
@@ -441,23 +463,40 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 {
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;
+	size_t dst_icg, src_icg;
 
-	if (xt->frame_size != 1 || xt->numf == 0)
-		return NULL;
-
-	if (xt->sgl[0].size == 0)
+	if (xt->frame_size != 1)
 		return NULL;
 
 	if (xt->dir != chan->direction)
 		return NULL;
 
 	if (axi_dmac_src_is_mem(chan)) {
-		if (!xt->src_inc)
+		if (!xt->src_inc || !axi_dmac_check_addr(chan, xt->src_start))
 			return NULL;
 	}
 
 	if (axi_dmac_dest_is_mem(chan)) {
-		if (!xt->dst_inc)
+		if (!xt->dst_inc || !axi_dmac_check_addr(chan, xt->dst_start))
+			return NULL;
+	}
+
+	dst_icg = dmaengine_get_dst_icg(xt, &xt->sgl[0]);
+	src_icg = dmaengine_get_src_icg(xt, &xt->sgl[0]);
+
+	if (chan->hw_2d) {
+		if (!axi_dmac_check_len(chan, xt->sgl[0].size) ||
+		    !axi_dmac_check_len(chan, xt->numf))
+			return NULL;
+		if (xt->sgl[0].size + dst_icg > chan->max_length ||
+		    xt->sgl[0].size + src_icg > chan->max_length)
+			return NULL;
+	} else {
+		if (dst_icg != 0 || src_icg != 0)
+			return NULL;
+		if (chan->max_length / xt->sgl[0].size < xt->numf)
+			return NULL;
+		if (!axi_dmac_check_len(chan, xt->sgl[0].size * xt->numf))
 			return NULL;
 	}
 
@@ -467,20 +506,21 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 
 	if (axi_dmac_src_is_mem(chan)) {
 		desc->sg[0].src_addr = xt->src_start;
-		desc->sg[0].src_stride = xt->sgl[0].size;
-		if (xt->src_sgl)
-			desc->sg[0].src_stride += xt->sgl[0].icg;
+		desc->sg[0].src_stride = xt->sgl[0].size + src_icg;
 	}
 
 	if (axi_dmac_dest_is_mem(chan)) {
 		desc->sg[0].dest_addr = xt->dst_start;
-		desc->sg[0].dest_stride = xt->sgl[0].size;
-		if (xt->dst_sgl)
-			desc->sg[0].dest_stride += xt->sgl[0].icg;
+		desc->sg[0].dest_stride = xt->sgl[0].size + dst_icg;
 	}
 
-	desc->sg[0].x_len = xt->sgl[0].size;
-	desc->sg[0].y_len = xt->numf;
+	if (chan->hw_2d) {
+		desc->sg[0].x_len = xt->sgl[0].size;
+		desc->sg[0].y_len = xt->numf;
+	} else {
+		desc->sg[0].x_len = xt->sgl[0].size * xt->numf;
+		desc->sg[0].y_len = 1;
+	}
 
 	return vchan_tx_prep(&chan->vchan, &desc->vdesc, flags);
 }
@@ -533,38 +573,83 @@ static const struct regmap_config axi_dmac_regmap_config = {
 	.writeable_reg = axi_dmac_regmap_rdwr,
 };
 
-static int axi_dmac_probe(struct platform_device *pdev)
+/*
+ * The configuration stored in the devicetree matches the configuration
+ * parameters of the peripheral instance and allows the driver to know which
+ * features are implemented and how it should behave.
+ */
+static int axi_dmac_parse_chan_dt(struct device_node *of_chan,
+	struct axi_dmac_chan *chan)
 {
-	struct device_node *of_chan;
-	struct dma_device *dma_dev;
-	struct axi_dmac *dmac;
-	struct resource *res;
-	u32 tmp;
+	u32 val;
 	int ret;
-	int i;
 
-	dmac = devm_kzalloc(&pdev->dev, sizeof(*dmac), GFP_KERNEL);
-	if (!dmac)
-		return -ENOMEM;
+	ret = of_property_read_u32(of_chan, "reg", &val);
+	if (ret)
+		return ret;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	dmac->base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(dmac->base))
-		return PTR_ERR(dmac->base);
-
-	dmac->irq = platform_get_irq(pdev, 0);
-	if (dmac->irq <= 0)
+	/* We only support 1 channel for now */
+	if (val != 0)
 		return -EINVAL;
 
-	dmac->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(dmac->clk))
-		return PTR_ERR(dmac->clk);
+	ret = of_property_read_u32(of_chan, "adi,source-bus-type", &val);
+	if (ret)
+		return ret;
+	if (val > AXI_DMAC_BUS_TYPE_FIFO)
+		return -EINVAL;
+	chan->src_type = val;
 
-	clk_prepare_enable(dmac->clk);
+	ret = of_property_read_u32(of_chan, "adi,destination-bus-type", &val);
+	if (ret)
+		return ret;
+	if (val > AXI_DMAC_BUS_TYPE_FIFO)
+		return -EINVAL;
+	chan->dest_type = val;
 
-	INIT_LIST_HEAD(&dmac->chan.active_descs);
+	ret = of_property_read_u32(of_chan, "adi,source-bus-width", &val);
+	if (ret)
+		return ret;
+	chan->src_width = val / 8;
 
-	of_chan = of_get_child_by_name(pdev->dev.of_node, "dma-channel");
+	ret = of_property_read_u32(of_chan, "adi,destination-bus-width", &val);
+	if (ret)
+		return ret;
+	chan->dest_width = val / 8;
+
+	ret = of_property_read_u32(of_chan, "adi,length-width", &val);
+	if (ret)
+		return ret;
+
+	if (val >= 32)
+		chan->max_length = UINT_MAX;
+	else
+		chan->max_length = (1ULL << val) - 1;
+
+	chan->align_mask = max(chan->dest_width, chan->src_width) - 1;
+
+	if (axi_dmac_dest_is_mem(chan) && axi_dmac_src_is_mem(chan))
+		chan->direction = DMA_MEM_TO_MEM;
+	else if (!axi_dmac_dest_is_mem(chan) && axi_dmac_src_is_mem(chan))
+		chan->direction = DMA_MEM_TO_DEV;
+	else if (axi_dmac_dest_is_mem(chan) && !axi_dmac_src_is_mem(chan))
+		chan->direction = DMA_DEV_TO_MEM;
+	else
+		chan->direction = DMA_DEV_TO_DEV;
+
+	chan->hw_cyclic = of_property_read_bool(of_chan, "adi,cyclic");
+	chan->hw_2d = of_property_read_bool(of_chan, "adi,2d");
+
+	return 0;
+}
+
+/* Support old binding */
+static int axi_dmac_parse_chan_dt_compat(struct device_node *of_node,
+	struct axi_dmac_chan *chan)
+{
+	struct device_node *of_chan;
+	u32 tmp;
+
+	of_chan = of_get_child_by_name(of_node, "dma-channel");
 	if (of_chan == NULL)
 		return -ENODEV;
 
@@ -573,16 +658,16 @@ static int axi_dmac_probe(struct platform_device *pdev)
 
 	switch (tmp) {
 	case 0:
-		dmac->chan.direction = DMA_DEV_TO_MEM;
+		chan->direction = DMA_DEV_TO_MEM;
 		break;
 	case 1:
-		dmac->chan.direction = DMA_MEM_TO_DEV;
+		chan->direction = DMA_MEM_TO_DEV;
 		break;
 	case 2:
-		dmac->chan.direction = DMA_MEM_TO_MEM;
+		chan->direction = DMA_MEM_TO_MEM;
 		break;
 	case 3:
-		dmac->chan.direction = DMA_DEV_TO_DEV;
+		chan->direction = DMA_DEV_TO_DEV;
 		break;
 	default:
 		return -EINVAL;
@@ -590,19 +675,74 @@ static int axi_dmac_probe(struct platform_device *pdev)
 
 	tmp = 64;
 	of_property_read_u32(of_chan, "adi,source-bus-width", &tmp);
-	dmac->chan.src_width = tmp / 8;
+	chan->src_width = tmp / 8;
 
 	tmp = 64;
 	of_property_read_u32(of_chan, "adi,destination-bus-width", &tmp);
-	dmac->chan.dest_width = tmp / 8;
+	chan->dest_width = tmp / 8;
 
 	tmp = 24;
 	of_property_read_u32(of_chan, "adi,length-width", &tmp);
 
-	pdev->dev.dma_parms = &dmac->dma_parms;
-	dma_set_max_seg_size(&pdev->dev, (1ULL << tmp) - 1);
+	if (tmp >= 32)
+		chan->max_length = UINT_MAX;
+	else
+		chan->max_length = (1ULL << tmp) - 1;
 
-	dmac->chan.hw_cyclic = of_property_read_bool(of_chan, "adi,cyclic");
+	chan->align_mask = max(chan->dest_width, chan->src_width) - 1;
+
+	chan->hw_cyclic = of_property_read_bool(of_chan, "adi,cyclic");
+	chan->hw_2d = true;
+
+	return 0;
+}
+
+static int axi_dmac_probe(struct platform_device *pdev)
+{
+	struct device_node *of_channels, *of_chan;
+	struct dma_device *dma_dev;
+	struct axi_dmac *dmac;
+	struct resource *res;
+	int ret;
+
+	dmac = devm_kzalloc(&pdev->dev, sizeof(*dmac), GFP_KERNEL);
+	if (!dmac)
+		return -ENOMEM;
+
+	dmac->irq = platform_get_irq(pdev, 0);
+	if (dmac->irq <= 0)
+		return -EINVAL;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	dmac->base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(dmac->base))
+		return PTR_ERR(dmac->base);
+
+	dmac->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(dmac->clk))
+		return PTR_ERR(dmac->clk);
+
+	INIT_LIST_HEAD(&dmac->chan.active_descs);
+
+	of_channels = of_get_child_by_name(pdev->dev.of_node, "adi,channels");
+	if (of_channels == NULL) {
+		ret = axi_dmac_parse_chan_dt_compat(pdev->dev.of_node, &dmac->chan);
+		if (ret)
+			return ret;
+	} else {
+		for_each_child_of_node(of_channels, of_chan) {
+			ret = axi_dmac_parse_chan_dt(of_chan, &dmac->chan);
+			if (ret) {
+				of_node_put(of_chan);
+				of_node_put(of_channels);
+				return -EINVAL;
+			}
+		}
+		of_node_put(of_channels);
+	}
+
+	pdev->dev.dma_parms = &dmac->dma_parms;
+	dma_set_max_seg_size(&pdev->dev, dmac->chan.max_length);
 
 	dma_dev = &dmac->dma_dev;
 	dma_cap_set(DMA_SLAVE, dma_dev->cap_mask);
@@ -616,21 +756,27 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	dma_dev->device_terminate_all = axi_dmac_terminate_all;
 	dma_dev->dev = &pdev->dev;
 	dma_dev->chancnt = 1;
-	INIT_LIST_HEAD(&dma_dev->channels);
-
 	dma_dev->src_addr_widths = BIT(dmac->chan.src_width);
 	dma_dev->dst_addr_widths = BIT(dmac->chan.dest_width);
 	dma_dev->directions = BIT(dmac->chan.direction);
+	dma_dev->residue_granularity = DMA_RESIDUE_GRANULARITY_DESCRIPTOR;
+	INIT_LIST_HEAD(&dma_dev->channels);
 
 	dmac->chan.vchan.desc_free = axi_dmac_desc_free;
 	vchan_init(&dmac->chan.vchan, dma_dev);
+
+	ret = clk_prepare_enable(dmac->clk);
+	if (ret < 0)
+		return ret;
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_IRQ_MASK, 0x00);
 
 	ret = dma_async_device_register(dma_dev);
 	if (ret)
 		goto err_clk_disable;
 
 	ret = of_dma_controller_register(pdev->dev.of_node,
-			of_dma_xlate_by_chan_id, dma_dev);
+		of_dma_xlate_by_chan_id, dma_dev);
 	if (ret)
 		goto err_unregister_device;
 
@@ -640,8 +786,6 @@ static int axi_dmac_probe(struct platform_device *pdev)
 		goto err_unregister_of;
 
 	platform_set_drvdata(pdev, dmac);
-
-	axi_dmac_write(dmac, AXI_DMAC_REG_IRQ_MASK, 0x00);
 
 	devm_regmap_init_mmio(&pdev->dev, dmac->base, &axi_dmac_regmap_config);
 
@@ -688,8 +832,9 @@ static int axi_dmac_remove(struct platform_device *pdev)
 {
 	struct axi_dmac *dmac = platform_get_drvdata(pdev);
 
-	free_irq(dmac->irq, dmac);
 	of_dma_controller_free(pdev->dev.of_node);
+	free_irq(dmac->irq, dmac);
+	tasklet_kill(&dmac->chan.vchan.task);
 	dma_async_device_unregister(&dmac->dma_dev);
 	clk_disable_unprepare(dmac->clk);
 
@@ -703,7 +848,6 @@ static const struct of_device_id axi_dmac_of_match_table[] = {
 
 static struct platform_driver axi_dmac_driver = {
 	.driver = {
-		.owner = THIS_MODULE,
 		.name = "dma-axi-dmac",
 		.of_match_table = axi_dmac_of_match_table,
 	},
@@ -714,4 +858,4 @@ module_platform_driver(axi_dmac_driver);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("DMA controller driver for the AXI-DMAC controller");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

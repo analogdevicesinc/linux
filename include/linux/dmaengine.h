@@ -126,10 +126,18 @@ enum dma_transfer_direction {
  *	 chunk and before first src/dst address for next chunk.
  *	 Ignored for dst(assumed 0), if dst_inc is true and dst_sgl is false.
  *	 Ignored for src(assumed 0), if src_inc is true and src_sgl is false.
+ * @dst_icg: Number of bytes to jump after last dst address of this
+ *	 chunk and before the first dst address for next chunk.
+ *	 Ignored if dst_inc is true and dst_sgl is false.
+ * @src_icg: Number of bytes to jump after last src address of this
+ *	 chunk and before the first src address for next chunk.
+ *	 Ignored if src_inc is true and src_sgl is false.
  */
 struct data_chunk {
 	size_t size;
 	size_t icg;
+	size_t dst_icg;
+	size_t src_icg;
 };
 
 /**
@@ -884,6 +892,33 @@ static inline int dma_maxpq(struct dma_device *dma, enum dma_ctrl_flags flags)
 	else if (dmaf_continue(flags))
 		return dma_dev_to_maxpq(dma) - 3;
 	BUG();
+}
+
+static inline size_t dmaengine_get_icg(bool inc, bool sgl, size_t icg,
+				      size_t dir_icg)
+{
+	if (inc) {
+		if (dir_icg)
+			return dir_icg;
+		else if (sgl)
+			return icg;
+	}
+
+	return 0;
+}
+
+static inline size_t dmaengine_get_dst_icg(struct dma_interleaved_template *xt,
+					   struct data_chunk *chunk)
+{
+	return dmaengine_get_icg(xt->dst_inc, xt->dst_sgl,
+				 chunk->icg, chunk->dst_icg);
+}
+
+static inline size_t dmaengine_get_src_icg(struct dma_interleaved_template *xt,
+					   struct data_chunk *chunk)
+{
+	return dmaengine_get_icg(xt->src_inc, xt->src_sgl,
+				 chunk->icg, chunk->src_icg);
 }
 
 /* --- public DMA engine API --- */
