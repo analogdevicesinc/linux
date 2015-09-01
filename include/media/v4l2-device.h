@@ -69,6 +69,8 @@ struct v4l2_device {
 			unsigned int notification, void *arg);
 	struct v4l2_ctrl_handler *ctrl_handler;
 	struct v4l2_prio_state prio;
+	/* BKL replacement mutex. Temporary solution only. */
+	struct mutex ioctl_lock;
 	struct kref ref;
 	void (*release)(struct v4l2_device *v4l2_dev);
 };
