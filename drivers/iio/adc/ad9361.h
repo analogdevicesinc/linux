@@ -3113,6 +3113,8 @@ struct ad9361_phy_platform_data {
 	u32			dcxo_fine;
 	u32			rf_rx_input_sel;
 	u32			rf_tx_output_sel;
+	u32			rx1tx1_mode_use_rx_num;
+	u32			rx1tx1_mode_use_tx_num;
 	unsigned long		rx_path_clks[NUM_RX_CLOCKS];
 	unsigned long		tx_path_clks[NUM_TX_CLOCKS];
 	u32			trx_synth_max_fref;
@@ -3295,7 +3297,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[173];
+	struct ad9361_debugfs_entry debugfs_entry[175];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
@@ -3366,6 +3368,7 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			   enum dig_tune_flags flags);
 int ad9361_tx_mute(struct ad9361_rf_phy *phy, u32 state);
+int ad9361_en_dis_tx(struct ad9361_rf_phy *phy, u32 tx_if, u32 enable);
 
 #endif
 
