@@ -155,6 +155,14 @@
 		mux-ext-port = <6>;
 		hp-det-gpios = <&gpio1 17 1>;
 	};
+
+	sound-spdif {
+		compatible = "fsl,imx-audio-spdif",
+			   "fsl,imx6sx-sdb-spdif";
+		model = "imx-spdif";
+		spdif-controller = <&spdif>;
+		spdif-out;
+	};
 };
 
 &adc1 {
@@ -305,6 +313,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1>;
 	status = "disabled";
+};
+
+&spdif {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spdif>;
+	status = "okay";
 };
 
 &ssi2 {
@@ -542,6 +556,12 @@
 				MX6SX_PAD_NAND_RE_B__QSPI2_B_DATA_3     0x70f1
 				MX6SX_PAD_NAND_DATA02__QSPI2_B_SCLK     0x70f1
 				MX6SX_PAD_NAND_DATA03__QSPI2_B_SS0_B    0x70f1
+			>;
+		};
+
+		pinctrl_spdif: spdifgrp {
+			fsl,pins = <
+				MX6SX_PAD_SD4_DATA4__SPDIF_OUT          0x1b0b0
 			>;
 		};
 
