@@ -487,7 +487,6 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			break;
 		}
 
-		st->cached_freq[chan->channel] = val;
 		cf_axi_dds_stop(st);
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		reg &= ~ADI_DDS_INCR(~0);
@@ -495,6 +494,11 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		do_div(val64, st->dac_clk);
 		reg |= ADI_DDS_INCR(val64) | 1;
 		dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel), reg);
+
+		val64 = (u64)ADI_TO_DDS_INCR(reg) * (u64)st->dac_clk;
+		do_div(val64, 0xFFFF);
+		st->cached_freq[chan->channel] = val64;
+
 		cf_axi_dds_start_sync(st, 0);
 		break;
 	case IIO_CHAN_INFO_PHASE:
