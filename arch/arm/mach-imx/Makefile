@@ -84,7 +84,8 @@ obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 endif
 AFLAGS_ddr3_freq_imx6.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX6Q) += mach-imx6q.o ddr3_freq_imx6.o
-obj-$(CONFIG_SOC_IMX6SL) += mach-imx6sl.o
+AFLAGS_lpddr2_freq_imx6.o :=-Wa,-march=armv7-a
+obj-$(CONFIG_SOC_IMX6SL) += mach-imx6sl.o lpddr2_freq_imx6.o
 AFLAGS_lpddr2_freq_imx6sx.o :=-Wa,-march=armv7-a
 AFLAGS_ddr3_freq_imx6sx.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX6SX) += mach-imx6sx.o lpddr2_freq_imx6sx.o ddr3_freq_imx6sx.o busfreq_lpddr2.o
