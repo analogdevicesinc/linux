@@ -143,7 +143,7 @@ xremap_match_mapping(struct xremap_device *xremap,
  */
 
 static int xremap_enum_mbus_code(struct v4l2_subdev *subdev,
-				 struct v4l2_subdev_fh *fh,
+				 struct v4l2_subdev_pad_config *cfg,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
 	struct xremap_device *xremap = to_remap(subdev);
@@ -176,7 +176,7 @@ static int xremap_enum_mbus_code(struct v4l2_subdev *subdev,
 		if (code->index)
 			return -EINVAL;
 
-		format = v4l2_subdev_get_try_format(fh, code->pad);
+		format = v4l2_subdev_get_try_format(subdev, cfg, code->pad);
 		code->code = format->code;
 	}
 
@@ -184,12 +184,12 @@ static int xremap_enum_mbus_code(struct v4l2_subdev *subdev,
 }
 
 static int xremap_enum_frame_size(struct v4l2_subdev *subdev,
-				  struct v4l2_subdev_fh *fh,
+				  struct v4l2_subdev_pad_config *cfg,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct v4l2_mbus_framefmt *format;
 
-	format = v4l2_subdev_get_try_format(fh, fse->pad);
+	format = v4l2_subdev_get_try_format(subdev, cfg, fse->pad);
 
 	if (fse->index || fse->code != format->code)
 		return -EINVAL;
@@ -214,12 +214,13 @@ static int xremap_enum_frame_size(struct v4l2_subdev *subdev,
 }
 
 static struct v4l2_mbus_framefmt *
-xremap_get_pad_format(struct xremap_device *xremap, struct v4l2_subdev_fh *fh,
+xremap_get_pad_format(struct xremap_device *xremap, struct v4l2_subdev_pad_config *cfg,
 		      unsigned int pad, u32 which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(fh, pad);
+		return v4l2_subdev_get_try_format(&xremap->xvip.subdev, cfg, pad);
+
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &xremap->formats[pad];
 	default:
@@ -228,18 +229,18 @@ xremap_get_pad_format(struct xremap_device *xremap, struct v4l2_subdev_fh *fh,
 }
 
 static int xremap_get_format(struct v4l2_subdev *subdev,
-			     struct v4l2_subdev_fh *fh,
+			     struct v4l2_subdev_pad_config *cfg,
 			     struct v4l2_subdev_format *fmt)
 {
 	struct xremap_device *xremap = to_remap(subdev);
 
-	fmt->format = *xremap_get_pad_format(xremap, fh, fmt->pad, fmt->which);
+	fmt->format = *xremap_get_pad_format(xremap, cfg, fmt->pad, fmt->which);
 
 	return 0;
 }
 
 static int xremap_set_format(struct v4l2_subdev *subdev,
-			     struct v4l2_subdev_fh *fh,
+			     struct v4l2_subdev_pad_config *cfg,
 			     struct v4l2_subdev_format *fmt)
 {
 	struct xremap_device *xremap = to_remap(subdev);
@@ -248,7 +249,7 @@ static int xremap_set_format(struct v4l2_subdev *subdev,
 	struct v4l2_mbus_framefmt *format;
 	unsigned int i;
 
-	format = xremap_get_pad_format(xremap, fh, fmt->pad, fmt->which);
+	format = xremap_get_pad_format(xremap, cfg, fmt->pad, fmt->which);
 
 	if (fmt->pad == XREMAP_PAD_SOURCE) {
 		fmt->format = *format;
@@ -284,7 +285,7 @@ static int xremap_set_format(struct v4l2_subdev *subdev,
 	fmt->format = *format;
 
 	/* Propagate the format to the source pad. */
-	format = xremap_get_pad_format(xremap, fh, XREMAP_PAD_SOURCE,
+	format = xremap_get_pad_format(xremap, cfg, XREMAP_PAD_SOURCE,
 				       fmt->which);
 	*format = fmt->format;
 	format->code = output->code;
@@ -299,14 +300,14 @@ static int xremap_set_format(struct v4l2_subdev *subdev,
 /*
  * xremap_init_formats - Initialize formats on all pads
  * @subdev: remapper V4L2 subdevice
- * @fh: V4L2 subdev file handle
+ * @cfg: V4L2 subdev pad configuration
  *
  * Initialize all pad formats with default values. If fh is not NULL, try
  * formats are initialized on the file handle. Otherwise active formats are
  * initialized on the device.
  */
 static void xremap_init_formats(struct v4l2_subdev *subdev,
-				struct v4l2_subdev_fh *fh)
+				struct v4l2_subdev_pad_config *cfg)
 {
 	struct xremap_device *xremap = to_remap(subdev);
 	struct v4l2_subdev_format format;
@@ -314,17 +315,17 @@ static void xremap_init_formats(struct v4l2_subdev *subdev,
 	memset(&format, 0, sizeof(format));
 
 	format.pad = XREMAP_PAD_SINK;
-	format.which = fh ? V4L2_SUBDEV_FORMAT_TRY : V4L2_SUBDEV_FORMAT_ACTIVE;
+	format.which = cfg ? V4L2_SUBDEV_FORMAT_TRY : V4L2_SUBDEV_FORMAT_ACTIVE;
 	format.format.code = xremap->default_mapping->code;
 	format.format.width = XREMAP_DEF_WIDTH;
 	format.format.height = XREMAP_DEF_HEIGHT;
 
-	xremap_set_format(subdev, fh, &format);
+	xremap_set_format(subdev, cfg, &format);
 }
 
 static int xremap_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
-	xremap_init_formats(subdev, fh);
+	xremap_init_formats(subdev, fh->pad);
 
 	return 0;
 }

@@ -105,12 +105,12 @@ static int xcfa_s_stream(struct v4l2_subdev *subdev, int enable)
 
 static struct v4l2_mbus_framefmt *
 __xcfa_get_pad_format(struct xcfa_device *xcfa,
-		      struct v4l2_subdev_fh *fh,
+		      struct v4l2_subdev_pad_config *cfg,
 		      unsigned int pad, u32 which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(fh, pad);
+		return v4l2_subdev_get_try_format(&xcfa->xvip.subdev, cfg, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &xcfa->formats[pad];
 	default:
@@ -119,25 +119,25 @@ __xcfa_get_pad_format(struct xcfa_device *xcfa,
 }
 
 static int xcfa_get_format(struct v4l2_subdev *subdev,
-			   struct v4l2_subdev_fh *fh,
+			   struct v4l2_subdev_pad_config *cfg,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct xcfa_device *xcfa = to_cfa(subdev);
 
-	fmt->format = *__xcfa_get_pad_format(xcfa, fh, fmt->pad, fmt->which);
+	fmt->format = *__xcfa_get_pad_format(xcfa, cfg, fmt->pad, fmt->which);
 
 	return 0;
 }
 
 static int xcfa_set_format(struct v4l2_subdev *subdev,
-			   struct v4l2_subdev_fh *fh,
+			   struct v4l2_subdev_pad_config *cfg,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct xcfa_device *xcfa = to_cfa(subdev);
 	struct v4l2_mbus_framefmt *__format;
 	int bayer_phase;
 
-	__format = __xcfa_get_pad_format(xcfa, fh, fmt->pad, fmt->which);
+	__format = __xcfa_get_pad_format(xcfa, cfg, fmt->pad, fmt->which);
 
 	if (fmt->pad == XVIP_PAD_SOURCE) {
 		fmt->format = *__format;
@@ -156,7 +156,7 @@ static int xcfa_set_format(struct v4l2_subdev *subdev,
 	fmt->format = *__format;
 
 	/* Propagate the format to the source pad */
-	__format = __xcfa_get_pad_format(xcfa, fh, XVIP_PAD_SOURCE, fmt->which);
+	__format = __xcfa_get_pad_format(xcfa, cfg, XVIP_PAD_SOURCE, fmt->which);
 
 	xvip_set_format_size(__format, fmt);
 
@@ -173,10 +173,10 @@ static int xcfa_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 	struct v4l2_mbus_framefmt *__format;
 
 	/* Initialize with default formats */
-	__format = v4l2_subdev_get_try_format(fh, XVIP_PAD_SINK);
+	__format = v4l2_subdev_get_try_format(subdev, fh->pad, XVIP_PAD_SINK);
 	*__format = xcfa->default_formats[XVIP_PAD_SINK];
 
-	__format = v4l2_subdev_get_try_format(fh, XVIP_PAD_SOURCE);
+	__format = v4l2_subdev_get_try_format(subdev, fh->pad, XVIP_PAD_SOURCE);
 	*__format = xcfa->default_formats[XVIP_PAD_SOURCE];
 
 	return 0;

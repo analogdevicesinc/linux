@@ -253,12 +253,12 @@ static int xtpg_s_stream(struct v4l2_subdev *subdev, int enable)
  */
 
 static struct v4l2_mbus_framefmt *
-__xtpg_get_pad_format(struct xtpg_device *xtpg, struct v4l2_subdev_fh *fh,
+__xtpg_get_pad_format(struct xtpg_device *xtpg, struct v4l2_subdev_pad_config *cfg,
 		      unsigned int pad, u32 which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(fh, pad);
+		return v4l2_subdev_get_try_format(&xtpg->xvip.subdev, cfg, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &xtpg->formats[pad];
 	default:
@@ -267,25 +267,25 @@ __xtpg_get_pad_format(struct xtpg_device *xtpg, struct v4l2_subdev_fh *fh,
 }
 
 static int xtpg_get_format(struct v4l2_subdev *subdev,
-			   struct v4l2_subdev_fh *fh,
+			   struct v4l2_subdev_pad_config *cfg,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct xtpg_device *xtpg = to_tpg(subdev);
 
-	fmt->format = *__xtpg_get_pad_format(xtpg, fh, fmt->pad, fmt->which);
+	fmt->format = *__xtpg_get_pad_format(xtpg, cfg, fmt->pad, fmt->which);
 
 	return 0;
 }
 
 static int xtpg_set_format(struct v4l2_subdev *subdev,
-			   struct v4l2_subdev_fh *fh,
+			   struct v4l2_subdev_pad_config *cfg,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct xtpg_device *xtpg = to_tpg(subdev);
 	struct v4l2_mbus_framefmt *__format;
 	u32 bayer_phase;
 
-	__format = __xtpg_get_pad_format(xtpg, fh, fmt->pad, fmt->which);
+	__format = __xtpg_get_pad_format(xtpg, cfg, fmt->pad, fmt->which);
 
 	/* In two pads mode the source pad format is always identical to the
 	 * sink pad format.
@@ -308,7 +308,7 @@ static int xtpg_set_format(struct v4l2_subdev *subdev,
 
 	/* Propagate the format to the source pad. */
 	if (xtpg->npads == 2) {
-		__format = __xtpg_get_pad_format(xtpg, fh, 1, fmt->which);
+		__format = __xtpg_get_pad_format(xtpg, cfg, 1, fmt->which);
 		*__format = fmt->format;
 	}
 
@@ -320,12 +320,12 @@ static int xtpg_set_format(struct v4l2_subdev *subdev,
  */
 
 static int xtpg_enum_frame_size(struct v4l2_subdev *subdev,
-				struct v4l2_subdev_fh *fh,
+				struct v4l2_subdev_pad_config *cfg,
 				struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct v4l2_mbus_framefmt *format;
 
-	format = v4l2_subdev_get_try_format(fh, fse->pad);
+	format = v4l2_subdev_get_try_format(subdev, cfg, fse->pad);
 
 	if (fse->index || fse->code != format->code)
 		return -EINVAL;
@@ -352,10 +352,10 @@ static int xtpg_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
 	struct xtpg_device *xtpg = to_tpg(subdev);
 
-	*v4l2_subdev_get_try_format(fh, 0) = xtpg->default_format;
+	*v4l2_subdev_get_try_format(subdev, fh->pad, 0) = xtpg->default_format;
 
 	if (xtpg->npads == 2)
-		*v4l2_subdev_get_try_format(fh, 1) = xtpg->default_format;
+		*v4l2_subdev_get_try_format(subdev, fh->pad, 1) = xtpg->default_format;
 
 	return 0;
 }
