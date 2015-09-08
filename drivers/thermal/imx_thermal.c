@@ -12,6 +12,7 @@
 #include <linux/cpu_cooling.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/device_cooling.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -218,7 +219,7 @@ static struct thermal_soc_data thermal_imx7d_data = {
 struct imx_thermal_data {
 	struct cpufreq_policy *policy;
 	struct thermal_zone_device *tz;
-	struct thermal_cooling_device *cdev;
+	struct thermal_cooling_device *cdev[2];
 	enum thermal_device_mode mode;
 	struct regmap *tempmon;
 	u32 c1, c2; /* See formula in imx_get_sensor_data() */
@@ -747,12 +748,25 @@ static int imx_thermal_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
-	data->cdev = cpufreq_cooling_register(data->policy);
-	if (IS_ERR(data->cdev)) {
-		ret = PTR_ERR(data->cdev);
-		dev_err(&pdev->dev,
-			"failed to register cpufreq cooling device: %d\n", ret);
-		cpufreq_cpu_put(data->policy);
+	data->cdev[0] = cpufreq_cooling_register(data->policy);
+	if (IS_ERR(data->cdev[0])) {
+		ret = PTR_ERR(data->cdev[0]);
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"failed to register cpufreq cooling device: %d\n",
+				ret);
+		return ret;
+	}
+
+	data->cdev[1] = devfreq_cooling_register();
+	if (IS_ERR(data->cdev[1])) {
+		ret = PTR_ERR(data->cdev[1]);
+		if (ret != -EPROBE_DEFER) {
+			dev_err(&pdev->dev,
+				"failed to register cpufreq cooling device: %d\n",
+				ret);
+			cpufreq_cooling_unregister(data->cdev[0]);
+		}
 		return ret;
 	}
 
@@ -762,7 +776,7 @@ static int imx_thermal_probe(struct platform_device *pdev)
 		if (ret != -EPROBE_DEFER)
 			dev_err(&pdev->dev,
 				"failed to get thermal clk: %d\n", ret);
-		cpufreq_cooling_unregister(data->cdev);
+		cpufreq_cooling_unregister(data->cdev[0]);
 		cpufreq_cpu_put(data->policy);
 		return ret;
 	}
@@ -777,7 +791,8 @@ static int imx_thermal_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(data->thermal_clk);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to enable thermal clk: %d\n", ret);
-		cpufreq_cooling_unregister(data->cdev);
+		cpufreq_cooling_unregister(data->cdev[0]);
+		devfreq_cooling_unregister(data->cdev[1]);
 		cpufreq_cpu_put(data->policy);
 		return ret;
 	}
@@ -793,7 +808,8 @@ static int imx_thermal_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"failed to register thermal zone device %d\n", ret);
 		clk_disable_unprepare(data->thermal_clk);
-		cpufreq_cooling_unregister(data->cdev);
+		cpufreq_cooling_unregister(data->cdev[0]);
+		devfreq_cooling_unregister(data->cdev[1]);
 		cpufreq_cpu_put(data->policy);
 		return ret;
 	}
@@ -829,7 +845,8 @@ static int imx_thermal_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to request alarm irq: %d\n", ret);
 		clk_disable_unprepare(data->thermal_clk);
 		thermal_zone_device_unregister(data->tz);
-		cpufreq_cooling_unregister(data->cdev);
+		cpufreq_cooling_unregister(data->cdev[0]);
+		devfreq_cooling_unregister(data->cdev[1]);
 		cpufreq_cpu_put(data->policy);
 		return ret;
 	}
@@ -849,7 +866,8 @@ static int imx_thermal_remove(struct platform_device *pdev)
 		clk_disable_unprepare(data->thermal_clk);
 
 	thermal_zone_device_unregister(data->tz);
-	cpufreq_cooling_unregister(data->cdev);
+	cpufreq_cooling_unregister(data->cdev[0]);
+	devfreq_cooling_unregister(data->cdev[1]);
 	cpufreq_cpu_put(data->policy);
 
 	return 0;
