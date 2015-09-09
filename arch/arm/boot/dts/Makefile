@@ -478,6 +478,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6qp-sabresd.dtb \
 	imx6qp-sabresd-btwifi.dtb \
 	imx6qp-sabresd-hdcp.dtb \
+	imx6qp-sabresd-ldo.dtb \
 	imx6qp-zii-rdu2.dtb
 dtb-$(CONFIG_SOC_IMX6SL) += \
 	imx6sl-evk.dtb \
