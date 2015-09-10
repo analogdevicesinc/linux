@@ -70,6 +70,7 @@ static const struct reg_default wm8985_reg_defaults[] = {
 	{ 20, 0x002C },     /* R20 - EQ3 - peak 2 */
 	{ 21, 0x002C },     /* R21 - EQ4 - peak 3 */
 	{ 22, 0x002C },     /* R22 - EQ5 - high shelf */
+	{ 23, 0x0008 },     /* R23 - Class D Control */
 	{ 24, 0x0032 },     /* R24 - DAC Limiter 1 */
 	{ 25, 0x0000 },     /* R25 - DAC Limiter 2 */
 	{ 27, 0x0000 },     /* R27 - Notch Filter 1 */
@@ -194,25 +195,11 @@ struct wm8985_priv {
 	unsigned int bclk;
 };
 
-static const struct {
-	int div;
-	int ratio;
-} fs_ratios[] = {
-	{ 10, 128 },
-	{ 15, 192 },
-	{ 20, 256 },
-	{ 30, 384 },
-	{ 40, 512 },
-	{ 60, 768 },
-	{ 80, 1024 },
-	{ 120, 1536 }
-};
-
 static const int srates[] = { 48000, 32000, 24000, 16000, 12000, 8000 };
 
-static const int bclk_divs[] = {
-	1, 2, 4, 8, 16, 32
-};
+static const int mclk_divs[] = { 10, 15, 20, 30, 40, 60, 80, 120 };
+
+static const int bclk_divs[] = { 1, 2, 4, 8, 16, 32 };
 
 static int eqmode_get(struct snd_kcontrol *kcontrol,
 		      struct snd_ctl_elem_value *ucontrol);
@@ -276,7 +263,7 @@ static SOC_ENUM_SINGLE_DECL(eq5_cutoff, WM8985_EQ5_HIGH_SHELF, 5,
 				  eq5_cutoff_text);
 
 static const char *speaker_mode_text[] = { "Class A/B", "Class D" };
-static SOC_ENUM_SINGLE_DECL(speaker_mode, 0x17, 8, speaker_mode_text);
+static SOC_ENUM_SINGLE_DECL(speaker_mode,  WM8985_CLASS_D_CONTROL, 8, speaker_mode_text);
 
 static const char *depth_3d_text[] = {
 	"Off",
@@ -750,10 +737,10 @@ static int wm8985_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
-	int i;
+	int i, j;
 	struct snd_soc_codec *codec;
 	struct wm8985_priv *wm8985;
-	u16 blen, srate_idx;
+	u16 blen, srate_idx, mclk_idx, bclk_idx;
 	unsigned int tmp;
 	int srate_best;
 
@@ -806,37 +793,31 @@ static int wm8985_hw_params(struct snd_pcm_substream *substream,
 	dev_dbg(dai->dev, "Target BCLK = %uHz\n", wm8985->bclk);
 	dev_dbg(dai->dev, "SYSCLK = %uHz\n", wm8985->sysclk);
 
-	for (i = 0; i < ARRAY_SIZE(fs_ratios); ++i) {
-		if (wm8985->sysclk / params_rate(params)
-				== fs_ratios[i].ratio)
-			break;
+	mclk_idx = 0;
+	bclk_idx = 0;
+	srate_best = abs(wm8985->bclk -
+			wm8985->sysclk * 10 / mclk_divs[0] / bclk_divs[0]);
+	for (i = 0; i < ARRAY_SIZE(mclk_divs); ++i) {
+		for (j = 0; j < ARRAY_SIZE(bclk_divs); ++j) {
+			if (srate_best <= abs(wm8985->bclk -
+				wm8985->sysclk * 10 / mclk_divs[i] / bclk_divs[j]))
+				continue;
+			srate_best = abs(wm8985->bclk -
+				wm8985->sysclk * 10 / mclk_divs[i] / bclk_divs[j]);
+			mclk_idx = i;
+			bclk_idx = j;
+		}
 	}
 
-	if (i == ARRAY_SIZE(fs_ratios)) {
-		dev_err(dai->dev, "Unable to configure MCLK ratio %u/%u\n",
-			wm8985->sysclk, params_rate(params));
-		return -EINVAL;
-	}
-
-	dev_dbg(dai->dev, "MCLK ratio = %dfs\n", fs_ratios[i].ratio);
+	dev_dbg(dai->dev, "MCLK div = %dfs\n", mclk_divs[mclk_idx]);
 	snd_soc_update_bits(codec, WM8985_CLOCK_GEN_CONTROL,
-			    WM8985_MCLKDIV_MASK, i << WM8985_MCLKDIV_SHIFT);
+			    WM8985_MCLKDIV_MASK,
+			    mclk_idx << WM8985_MCLKDIV_SHIFT);
 
-	/* select the appropriate bclk divider */
-	tmp = (wm8985->sysclk / fs_ratios[i].div) * 10;
-	for (i = 0; i < ARRAY_SIZE(bclk_divs); ++i) {
-		if (wm8985->bclk == tmp / bclk_divs[i])
-			break;
-	}
-
-	if (i == ARRAY_SIZE(bclk_divs)) {
-		dev_err(dai->dev, "No matching BCLK divider found\n");
-		return -EINVAL;
-	}
-
-	dev_dbg(dai->dev, "BCLK div = %d\n", i);
+	dev_dbg(dai->dev, "BCLK div = %d\n", bclk_divs[bclk_idx]);
 	snd_soc_update_bits(codec, WM8985_CLOCK_GEN_CONTROL,
-			    WM8985_BCLKDIV_MASK, i << WM8985_BCLKDIV_SHIFT);
+			    WM8985_BCLKDIV_MASK,
+			    bclk_idx << WM8985_BCLKDIV_SHIFT);
 	return 0;
 }
 

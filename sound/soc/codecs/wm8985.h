@@ -35,6 +35,7 @@
 #define WM8985_EQ3_PEAK_2                       0x14
 #define WM8985_EQ4_PEAK_3                       0x15
 #define WM8985_EQ5_HIGH_SHELF                   0x16
+#define WM8985_CLASS_D_CONTROL                  0x17
 #define WM8985_DAC_LIMITER_1                    0x18
 #define WM8985_DAC_LIMITER_2                    0x19
 #define WM8985_NOTCH_FILTER_1                   0x1B
