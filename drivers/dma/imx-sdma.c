@@ -1633,8 +1633,8 @@ static int sdma_config(struct dma_chan *chan,
 			SDMA_WATERMARK_LEVEL_HWML;
 		sdmac->word_size = dmaengine_cfg->dst_addr_width;
 	} else if (sdmac->peripheral_type == IMX_DMATYPE_HDMI) {
-			sdmac->per_address = dmaengine_cfg->src_addr;
-			sdmac->per_address2 = dmaengine_cfg->dst_addr;
+			sdmac->per_address = dmaengine_cfg->dst_addr;
+			sdmac->per_address2 = dmaengine_cfg->src_addr;
 			sdmac->watermark_level = 0;
 	} else if (dmaengine_cfg->direction == DMA_MEM_TO_MEM) {
 			sdmac->word_size = dmaengine_cfg->dst_addr_width;
