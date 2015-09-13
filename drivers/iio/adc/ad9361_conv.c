@@ -34,7 +34,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st;
-	int ret, i, j, chan, len = 0;
+	int ret, i, j, chan, num_chan, len = 0;
 	u8 field[16][16];
 	u8 rx;
 
@@ -47,20 +47,23 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 
 	rx = ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
 
+	num_chan = (conv->chip_info->num_channels > 4) ? 4 :
+		conv->chip_info->num_channels;
+
 	ad9361_bist_prbs(phy, BIST_INJ_RX);
 
 	for (i = 0; i < 16; i++) {
 		for (j = 0; j < 16; j++) {
 			ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY,
 					DATA_CLK_DELAY(j) | RX_DATA_DELAY(i));
-			for (chan = 0; chan < 4; chan++)
+			for (chan = 0; chan < num_chan; chan++)
 				axiadc_write(st, ADI_REG_CHAN_STATUS(chan),
 					ADI_PN_ERR | ADI_PN_OOS);
 
 			mdelay(1);
 
 			if (axiadc_read(st, ADI_REG_STATUS) & ADI_STATUS) {
-				for (chan = 0, ret = 0; chan < 4; chan++)
+				for (chan = 0, ret = 0; chan < num_chan; chan++)
 					ret |= axiadc_read(st, ADI_REG_CHAN_STATUS(chan));
 			} else {
 				ret = 1;
