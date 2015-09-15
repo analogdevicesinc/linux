@@ -59,6 +59,11 @@ properties:
       IC (PMIC) on PMIC_STBY_REQ signal.
       As opposite to PMIC_STBY_REQ boards can implement PMIC_ON_REQ signal.
 
+  fsl,lpsr-mode:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description: |
+      some registers need to be saved and restored in lpsr mode for pfuze3000.
+
   regulators:
     type: object
     description: |
