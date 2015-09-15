@@ -469,7 +469,14 @@ static void imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 
 		usleep_range(200, 500);
 		break;
-	case IMX6Q:		/* Nothing to do */
+	case IMX6Q:
+		regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
+				   IMX6Q_GPR1_PCIE_SW_RST, 0);
+		/*
+		 * some delay are required by 6qp, after the SW_RST is
+		 * cleared, before access the cfg register.
+		 */
+		udelay(200);
 		break;
 	case IMX7D:
 		/* wait for more than 10us to release phy g_rst and btnrst */
@@ -976,6 +983,12 @@ static void pci_imx_pm_turn_off(struct imx6_pcie *imx6_pcie)
 				IMX6SX_GPR12_PCIE_PM_TURN_OFF);
 		regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR12,
 				IMX6SX_GPR12_PCIE_PM_TURN_OFF, 0);
+	} else if (imx6_pcie->variant == IMX6QP) {
+		regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR12,
+				IMX6Q_GPR12_PCIE_PM_TURN_OFF,
+				IMX6Q_GPR12_PCIE_PM_TURN_OFF);
+		regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR12,
+				IMX6Q_GPR12_PCIE_PM_TURN_OFF, 0);
 	} else {
 		pr_info("Info: don't support pm_turn_off yet.\n");
 		return;
@@ -996,21 +1009,30 @@ static int pci_imx_suspend_noirq(struct device *dev)
 
 	pci_imx_pm_turn_off(imx6_pcie);
 
-	if (imx6_pcie->variant == IMX7D || imx6_pcie->variant == IMX6SX) {
+	if (imx6_pcie->variant == IMX7D || imx6_pcie->variant == IMX6SX
+	    || imx6_pcie->variant == IMX6QP) {
 		/* Disable clks */
 		clk_disable_unprepare(imx6_pcie->pcie);
 		clk_disable_unprepare(imx6_pcie->pcie_phy);
 		clk_disable_unprepare(imx6_pcie->pcie_bus);
 		if (imx6_pcie->variant == IMX6SX)
 			clk_disable_unprepare(imx6_pcie->pcie_inbound_axi);
-		else
+		else if (imx6_pcie->variant == IMX7D)
 			/* turn off external osc input */
 			regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR12,
 					BIT(5), BIT(5));
+		else if (imx6_pcie->variant == IMX6QP) {
+			regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
+					IMX6Q_GPR1_PCIE_REF_CLK_EN, 0);
+			regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
+					IMX6Q_GPR1_PCIE_TEST_PD,
+					IMX6Q_GPR1_PCIE_TEST_PD);
+		}
 		release_bus_freq(BUS_FREQ_HIGH);
 
 		/* Power down PCIe PHY. */
-		regulator_disable(imx6_pcie->pcie_phy_regulator);
+		if (imx6_pcie->pcie_phy_regulator != NULL)
+			regulator_disable(imx6_pcie->pcie_phy_regulator);
 		if (gpio_is_valid(imx6_pcie->power_on_gpio))
 			gpio_set_value_cansleep(imx6_pcie->power_on_gpio, 0);
 	} else {
@@ -1034,7 +1056,8 @@ static int pci_imx_resume_noirq(struct device *dev)
 	struct imx6_pcie *imx6_pcie = dev_get_drvdata(dev);
 	struct pcie_port *pp = &imx6_pcie->pci->pp;
 
-	if (imx6_pcie->variant == IMX7D || imx6_pcie->variant == IMX6SX) {
+	if (imx6_pcie->variant == IMX7D || imx6_pcie->variant == IMX6SX ||
+	    imx6_pcie->variant == IMX6QP) {
 		if (imx6_pcie->variant == IMX7D)
 			regmap_update_bits(imx6_pcie->reg_src, 0x2c, BIT(6), 0);
 		else
