@@ -17,6 +17,8 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -459,15 +461,106 @@ static const struct iio_info ad7606_info_range = {
 	.attrs = &ad7606_attribute_group_range,
 };
 
+#ifdef CONFIG_OF
+static int ad7606_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct ad7606_platform_data *pdata;
+	int ret;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
+
+	ret = of_property_read_u8(np, "default-os",
+			(u8 *) &pdata->default_os);
+	if (ret < 0)
+		pdata->default_os = 0;
+
+	ret = of_property_read_u16(np, "default-range",
+			(u16 *) &pdata->default_range);
+	if (ret < 0)
+		pdata->default_range = 10000;
+
+	ret = of_get_named_gpio(np, "convst-gpio", 0);
+	if (ret < 0) {
+		dev_err(dev, "convst-gpio property not found\n");
+		goto error_free;
+	}
+	pdata->gpio_convst = ret;
+
+	ret = of_get_named_gpio(np, "reset-gpio", 0);
+	if (ret < 0)
+		pdata->gpio_reset = -1;
+	else
+		pdata->gpio_reset = ret;
+
+	ret = of_get_named_gpio(np, "range-gpio", 0);
+	if (ret < 0)
+		pdata->gpio_range = -1;
+	else
+		pdata->gpio_range = ret;
+
+	ret = of_get_named_gpio(np, "os0-gpio", 0);
+	if (ret < 0)
+		pdata->gpio_os0 = -1;
+	else
+		pdata->gpio_os0 = ret;
+
+	ret = of_get_named_gpio(np, "os1-gpio", 0);
+	if (ret < 0)
+		pdata->gpio_os1 = -1;
+	else
+		pdata->gpio_os1 = ret;
+
+	ret = of_get_named_gpio(np, "os2-gpio", 0);
+	if (ret < 0)
+		pdata->gpio_os2 = -1;
+	else
+		pdata->gpio_os2 = ret;
+
+	ret = of_get_named_gpio(np, "frstdata-gpio", 0);
+	if (ret < 0)
+		pdata->gpio_frstdata = -1;
+	else
+		pdata->gpio_frstdata = ret;
+
+	ret = of_get_named_gpio(np, "stby-gpio", 0);
+	if (ret < 0)
+		pdata->gpio_stby = -1;
+	else
+		pdata->gpio_stby = ret;
+
+	dev->platform_data = pdata;
+
+	return 1;
+
+error_free:
+	devm_kfree(dev, pdata);
+	return ret;
+};
+#else
+static int ad7606_parse_dt(struct device *dev)
+{
+	return 0;
+}
+#endif
+
 struct iio_dev *ad7606_probe(struct device *dev, int irq,
 			      void __iomem *base_address,
 			      unsigned id,
 			      const struct ad7606_bus_ops *bops)
 {
-	struct ad7606_platform_data *pdata = dev->platform_data;
+	struct ad7606_platform_data *pdata;
 	struct ad7606_state *st;
 	int ret;
 	struct iio_dev *indio_dev;
+
+	ret = ad7606_parse_dt(dev);
+	if (ret < 0)
+		return ERR_PTR(ret);
+
+	pdata = dev->platform_data;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
