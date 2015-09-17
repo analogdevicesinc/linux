@@ -5,6 +5,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/s32v234-pinctrl.h>
 
 /memreserve/ 0x80000000 0x00010000;
 

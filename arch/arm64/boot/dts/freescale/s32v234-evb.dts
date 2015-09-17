@@ -18,12 +18,39 @@
 
 &siul2 {
 	status = "okay";
+	s32v234-evb {
+
+		/* Format of pins: MSCR_IDX PAD_CONFIGURATION If you know the
+		 * IMCR_IDX instead of MSCR_IDX, add 512 to it as the Reference
+		 * Manual states.
+		 */
+
+		pinctrl_uart0: uart0grp {
+			fsl,pins = <
+				12  PAD_CTL_UART_TX
+				11  PAD_CTL_UART_RX_MSCR
+				712 PAD_CTL_UART_RX_IMCR
+			>;
+		};
+
+		pinctrl_uart1: uart1grp {
+			fsl,pins = <
+				14  PAD_CTL_UART_TX
+				13  PAD_CTL_UART_RX_MSCR
+				714 PAD_CTL_UART_RX_IMCR
+			>;
+		};
+	};
 };
 
 &uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0>;
 	status = "okay";
 };
 
 &uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1>;
 	status = "okay";
 };
