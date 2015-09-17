@@ -226,8 +226,16 @@ config ARCH_MXC
 
 config ARCH_S32
 	bool "NXP S32 SoC Family"
+	select PINCTRL
 	help
 	  This enables support for the NXP S32 family of processors.
+
+if ARCH_S32
+menu "S32 SOC selection"
+	config SOC_S32V234
+		bool "S32V234 SOC"
+endmenu
+endif
 
 endif
 
