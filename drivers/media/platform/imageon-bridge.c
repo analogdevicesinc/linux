@@ -221,10 +221,6 @@ static int imageon_bridge_probe(struct platform_device *pdev)
 
 	gpio_set_value_cansleep(bridge->gpio_rx_hotplug, 0);
 
-	mdelay(100);
-
-	gpio_set_value_cansleep(bridge->gpio_rx_hotplug, 1);
-
 	ret = imageon_bridge_load_input_edid(pdev, bridge);
 	if (ret < 0)
 		return ret;
@@ -273,6 +269,10 @@ static int imageon_bridge_probe(struct platform_device *pdev)
 	ret = v4l2_device_register_subdev_nodes(&bridge->v4l2_dev);
 	if (ret < 0)
 		return ret;
+
+	/* enable hotplug after 100 ms */
+	mdelay(100);
+	gpio_set_value_cansleep(bridge->gpio_rx_hotplug, 1);
 
 	return 0;
 }
