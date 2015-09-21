@@ -121,6 +121,10 @@ static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
 		ret = v4l2_subdev_call(subdev, pad, set_edid, &edid);
 		if (ret)
 			return ret;
+
+		/* enable hotplug after 100 ms */
+		mdelay(100);
+		gpio_set_value_cansleep(bridge->gpio_rx_hotplug, 1);
 	}
 
 	if (bridge->imageon_subdev[OUTPUT_SUBDEV].asd.match.of.node
@@ -276,10 +280,6 @@ static int imageon_bridge_probe(struct platform_device *pdev)
 	ret = v4l2_device_register_subdev_nodes(&bridge->v4l2_dev);
 	if (ret < 0)
 		goto err;
-
-	/* enable hotplug after 100 ms */
-	mdelay(100);
-	gpio_set_value_cansleep(bridge->gpio_rx_hotplug, 1);
 
 	return 0;
 
