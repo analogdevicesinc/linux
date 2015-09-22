@@ -5,6 +5,7 @@
 #include <linux/spinlock.h>
 #include <linux/clk-provider.h>
 #include <linux/clk.h>
+#include <soc/imx/src.h>
 
 extern spinlock_t imx_ccm_lock;
 
@@ -228,7 +229,17 @@ static inline struct clk *imx_clk_gate2_cgr(const char *name,
 static inline struct clk *imx_clk_gate3(const char *name, const char *parent,
 		void __iomem *reg, u8 shift)
 {
-	return clk_register_gate(NULL, name, parent,
+	/*
+	 * per design team's suggestion, clk root is NOT consuming
+	 * much power, and clk root enable/disable does NOT have domain
+	 * control, so they suggest to leave clk root always on when
+	 * M4 is enabled.
+	 */
+	if (imx_src_is_m4_enabled())
+		return clk_register_fixed_factor(NULL, name, parent,
+						 CLK_SET_RATE_PARENT, 1, 1);
+	else
+		return clk_register_gate(NULL, name, parent,
 			CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
 			reg, shift, 0, &imx_ccm_lock);
 }
