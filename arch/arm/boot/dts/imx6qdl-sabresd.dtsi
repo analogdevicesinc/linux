@@ -876,7 +876,7 @@
 
 		pinctrl_wdog: wdoggrp {
 			fsl,pins = <
-				MX6QDL_PAD_GPIO_1__WDOG2_B		0x1b0b0
+				MX6QDL_PAD_GPIO_1__WDOG2_B 0x80000000
 			>;
 		};
 	};
