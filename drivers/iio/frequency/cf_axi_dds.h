@@ -83,6 +83,7 @@ enum dds_data_select {
 #define ADI_TO_DRP_WDATA(x)	(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_DRP_STATUS	0x0074
+#define ADI_DRP_LOCKED		(1 << 17)
 #define ADI_DRP_STATUS		(1 << 16)
 #define ADI_DRP_RDATA(x)		(((x) & 0xFFFF) << 0)
 #define ADI_TO_DRP_RDATA(x)	(((x) >> 0) & 0xFFFF)

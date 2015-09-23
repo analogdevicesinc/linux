@@ -1042,6 +1042,8 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	struct resource *res;
 	unsigned int ctrl_2;
 	unsigned int rate;
+	unsigned int drp_status;
+	int timeout = 100;
 	int ret;
 
 	id = of_match_device(cf_axi_dds_of_match, &pdev->dev);
@@ -1147,6 +1149,20 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	indio_dev->info = &st->iio_info;
 
 	dds_write(st, ADI_REG_RSTN, 0x0);
+	if (PCORE_VERSION_MAJOR(st->version) > 7) {
+		dds_write(st, ADI_REG_RSTN, ADI_MMCM_RSTN);
+		do {
+			drp_status = dds_read(st, ADI_REG_DRP_STATUS);
+			if (drp_status & ADI_DRP_LOCKED)
+				break;
+			mdelay(1);
+		} while(timeout--);
+		if (timeout == -1) {
+			dev_err(&pdev->dev, "DRP unlocked.\n");
+			ret = -ETIMEDOUT;
+			goto err_converter_put;
+		}
+	}
 	dds_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
 
 	if (info)
