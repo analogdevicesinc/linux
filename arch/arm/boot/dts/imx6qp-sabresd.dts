@@ -92,6 +92,22 @@
 	status = "disabled";
 };
 
+&mxcfb1 {
+	prefetch;
+};
+
+&mxcfb2 {
+	prefetch;
+};
+
+&mxcfb3 {
+	prefetch;
+};
+
+&mxcfb4 {
+	prefetch;
+};
+
 &pre1 {
 	status = "okay";
 };
