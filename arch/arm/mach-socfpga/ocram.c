@@ -69,7 +69,7 @@ void socfpga_init_ocram_ecc(void)
 		return;
 	}
 
-	gp = of_get_named_gen_pool(np, "iram", 0);
+	gp = of_gen_pool_get(np, "iram", 0);
 	if (!gp) {
 		pr_err("SOCFPGA: OCRAM cannot find gen pool\n");
 		return;
