@@ -185,3 +185,7 @@
 	memory-region = <&memory>;
 	status = "okay";
 };
+
+&sata {
+	status = "okay";
+};
