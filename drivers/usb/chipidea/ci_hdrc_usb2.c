@@ -61,8 +61,12 @@ static int ci_hdrc_usb2_probe(struct platform_device *pdev)
 		*ci_pdata = *(struct ci_hdrc_platform_data *)match->data;
 		ci_pdata->usb_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy",
 					 0);
-		if (IS_ERR(ci_pdata->usb_phy))
-			return PTR_ERR(ci_pdata->usb_phy);
+		if (IS_ERR(ci_pdata->usb_phy)) {
+			if (PTR_ERR(ci_pdata->usb_phy) != -ENXIO)
+				return PTR_ERR(ci_pdata->usb_phy);
+			else
+				ci_pdata->usb_phy = NULL;
+		}
 	}
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
