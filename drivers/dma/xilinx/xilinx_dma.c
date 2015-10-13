@@ -432,9 +432,16 @@ static void xilinx_dma_free_descriptors(struct xilinx_dma_chan *chan)
 static void xilinx_dma_free_chan_resources(struct dma_chan *dchan)
 {
 	struct xilinx_dma_chan *chan = to_xilinx_chan(dchan);
+	unsigned long flags;
 
 	xilinx_dma_free_descriptors(chan);
 
+	/* Remove all segments from free segment list */
+	spin_lock_irqsave(&chan->lock, flags);
+	INIT_LIST_HEAD(&chan->free_seg_list);
+	spin_unlock_irqrestore(&chan->lock, flags);
+
+	/* Free memory that was allocated for the segments */
 	dma_free_coherent(chan->dev,
 			  sizeof(*chan->seg_v) * XILINX_DMA_NUM_DESCS,
 			  chan->seg_v, chan->seg_p);
@@ -507,9 +514,7 @@ static enum dma_status xilinx_dma_tx_status(struct dma_chan *dchan,
 
 	spin_lock_irqsave(&chan->lock, flags);
 	if (chan->has_sg) {
-		while (!list_empty(&desc->segments)) {
-			segment = list_first_entry(&desc->segments,
-					struct xilinx_dma_tx_segment, node);
+		list_for_each_entry(segment, &desc->segments, node) {
 			hw = &segment->hw;
 			residue += (hw->control - hw->status) &
 				   XILINX_DMA_MAX_TRANS_LEN;
