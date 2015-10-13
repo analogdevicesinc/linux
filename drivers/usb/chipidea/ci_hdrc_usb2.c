@@ -70,8 +70,13 @@ static int ci_hdrc_usb2_probe(struct platform_device *pdev)
 			ci_pdata->usb_phy = devm_usb_get_phy_by_phandle(dev,
 									"usb-phy",
 									0);
-			if (IS_ERR(ci_pdata->usb_phy))
-				return PTR_ERR(ci_pdata->usb_phy);
+			if (IS_ERR(ci_pdata->usb_phy)) {
+				if (PTR_ERR(ci_pdata->usb_phy) != -ENXIO &&
+				    PTR_ERR(ci_pdata->usb_phy) != -ENODEV)
+					return PTR_ERR(ci_pdata->usb_phy);
+
+				ci_pdata->usb_phy = NULL;
+			}
 		}
 	}
 
