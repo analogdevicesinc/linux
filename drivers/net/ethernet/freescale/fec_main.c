@@ -2978,6 +2978,7 @@ fec_enet_close(struct net_device *ndev)
 	}
 
 	phy_disconnect(ndev->phydev);
+	ndev->phydev = NULL;
 
 	if (fep->quirks & FEC_QUIRK_ERR006687)
 		imx6q_cpuidle_fec_irqs_unused();
