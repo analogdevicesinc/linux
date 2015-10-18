@@ -1926,8 +1926,9 @@ static struct caam_hash_template driver_hash[] = {
 			.setkey = axcbc_setkey,
 			.halg = {
 				.digestsize = XCBC_MAC_DIGEST_SIZE,
-				},
+				.statesize = sizeof(struct caam_export_state),
 			},
+		 },
 		.alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_XCBC_MAC,
 	},
 };
