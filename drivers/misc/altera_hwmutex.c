@@ -295,7 +295,6 @@ MODULE_DEVICE_TABLE(of, altera_mutex_match);
 static struct platform_driver altera_mutex_platform_driver = {
 	.driver = {
 		.name		= DRV_NAME,
-		.owner		= THIS_MODULE,
 		.of_match_table	= of_match_ptr(altera_mutex_match),
 	},
 	.remove			= altera_mutex_remove,
