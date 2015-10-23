@@ -90,7 +90,7 @@
 						#size-cells = <0x0>;
 
 						reset-gpios = <&pca9534 0 0>;
-						hpd = <&pca9534 2 0>;
+						hpd-gpios = <&pca9534 2 0>;
 
 						port@0 {
 							reg = <0x0>;
