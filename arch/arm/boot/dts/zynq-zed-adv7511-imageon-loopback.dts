@@ -78,7 +78,7 @@
 					};
 				};
 
-				i2c@2 { 
+				i2c@2 {
 					#size-cells = <0>;
 					#address-cells = <1>;
 					reg = <2>;
@@ -90,6 +90,7 @@
 						#size-cells = <0x0>;
 
 						reset-gpios = <&pca9534 0 0>;
+						hpd = <&pca9534 2 0>;
 
 						port@0 {
 							reg = <0x0>;
@@ -122,7 +123,6 @@
 		imageon_bridge {
 			compatible = "adi,imageon-v4l2-bridge-1.00.a";
 
-			rx_hotplug-gpios = <&pca9534 2 0>;
 			tx_pd-gpios = <&pca9534 4 0>;
 
 			interrupt-parent = <&gpio>;
@@ -131,7 +131,7 @@
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
-		 
+
 				port@0 {
 				    reg = <0>;
 				    imageon_input: endpoint {
