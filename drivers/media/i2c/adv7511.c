@@ -119,6 +119,7 @@ struct adv7511_config {
 };
 
 struct adv7511_state {
+	struct gpio_desc *pd_gpio;
 	struct adv7511_config cfg;
 	struct adv7511_platform_data pdata;
 	struct v4l2_subdev sd;
@@ -2273,6 +2274,11 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 	state = devm_kzalloc(&client->dev, sizeof(struct adv7511_state), GFP_KERNEL);
 	if (!state)
 		return -ENOMEM;
+
+	state->pd_gpio = devm_gpiod_get_optional(&client->dev, "powerdown", GPIOD_OUT_LOW);
+	if (IS_ERR(state->pd_gpio)) {
+		return PTR_ERR(state->pd_gpio);
+	}
 
 	if (client->dev.of_node) {
 		adv7511_get_ofdt_config(client, state);
