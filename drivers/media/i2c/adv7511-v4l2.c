@@ -97,6 +97,7 @@ struct adv7511_state {
 
 	/* Is the adv7511 powered on? */
 	bool power_on;
+	struct gpio_desc *pd_gpio;
 	/* Did we receive hotplug and rx-sense signals? */
 	bool have_monitor;
 	bool enabled_irq;
@@ -1800,12 +1801,20 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 	if (!state)
 		return -ENOMEM;
 
-	/* Platform data */
-	if (!pdata) {
-		v4l_err(client, "No platform data!\n");
-		return -ENODEV;
+	state->pd_gpio = devm_gpiod_get_optional(&client->dev, "powerdown", GPIOD_OUT_LOW);
+	if (IS_ERR(state->pd_gpio))
+		return PTR_ERR(state->pd_gpio);
+
+	if (client->dev.of_node) {
+		adv7511_get_ofdt_config(client, state);
+	} else {
+		/* Platform data */
+		if (!pdata) {
+			v4l_err(client, "No platform data!\n");
+			return -ENODEV;
+		}
+		memcpy(&state->pdata, pdata, sizeof(state->pdata));
 	}
-	memcpy(&state->pdata, pdata, sizeof(state->pdata));
 	state->fmt_code = MEDIA_BUS_FMT_RGB888_1X24;
 	state->colorspace = V4L2_COLORSPACE_SRGB;
 
