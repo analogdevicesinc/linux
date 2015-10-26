@@ -2,6 +2,7 @@
 
 /include/ "zynq-zed.dtsi"
 /include/ "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	fpga_axi: fpga-axi@0 {
@@ -33,6 +34,8 @@
 					adv7511@39 {
 						compatible = "adv7511-media";
 						reg = <0x39>;
+
+						powerdown-gpio = <&pca9534 4 GPIO_ACTIVE_HIGH>;
 
 						edid-addr = <0x50>;
 
@@ -122,8 +125,6 @@
 
 		imageon_bridge {
 			compatible = "adi,imageon-v4l2-bridge-1.00.a";
-
-			tx_pd-gpios = <&pca9534 4 0>;
 
 			interrupt-parent = <&gpio>;
 			interrupts = <86 0>;
