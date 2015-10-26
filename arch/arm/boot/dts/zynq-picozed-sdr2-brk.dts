@@ -1,5 +1,5 @@
 /dts-v1/;
-/include/ "zynq-picozed-sdr.dtsi"
+/include/ "zynq-picozed-sdr2.dtsi"
 
 
 &axi_i2c0 {

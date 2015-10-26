@@ -1,4 +1,4 @@
-#include "zynq-picozed-sdr-mc.dts"
+#include "zynq-picozed-sdr2-fmc.dts"
 
 &adc0_ad9361 {
 
