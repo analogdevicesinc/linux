@@ -92,6 +92,7 @@ struct adv7511_state {
 
 	/* Is the adv7511 powered on? */
 	bool power_on;
+	struct gpio_desc *pd_gpio;
 	/* Did we receive hotplug and rx-sense signals? */
 	bool have_monitor;
 	bool enabled_irq;
@@ -1783,6 +1784,10 @@ static int adv7511_probe(struct i2c_client *client)
 	state = devm_kzalloc(&client->dev, sizeof(struct adv7511_state), GFP_KERNEL);
 	if (!state)
 		return -ENOMEM;
+
+	state->pd_gpio = devm_gpiod_get_optional(&client->dev, "powerdown", GPIOD_OUT_LOW);
+	if (IS_ERR(state->pd_gpio))
+		return PTR_ERR(state->pd_gpio);
 
 	/* Platform data */
 	if (!pdata) {
