@@ -1,5 +1,5 @@
 /*
- * AD9467 SPI DAC driver for DDS PCORE/COREFPGA Module
+ * AD9467 SPI ADC driver for DDS PCORE/COREFPGA Module
  *
  * Copyright 2012-2014 Analog Devices Inc.
  *
@@ -1160,7 +1160,6 @@ static int ad9467_probe(struct spi_device *spi)
 			return ret;
 		clk_enabled = 1;
 		conv->adc_clk = clk_get_rate(clk);
-
 	}
 
 	spi_set_drvdata(spi, conv);
@@ -1173,7 +1172,6 @@ static int ad9467_probe(struct spi_device *spi)
 	if (!IS_ERR(conv->reset_gpio)) {
 		udelay(1);
 		ret = gpiod_direction_output(conv->reset_gpio, 1);
-
 	}
 
 	mdelay(10);
