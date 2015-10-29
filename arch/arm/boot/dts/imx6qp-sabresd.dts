@@ -92,6 +92,10 @@
 	status = "disabled";
 };
 
+&cpu0 {
+	arm-supply = <&sw2_reg>;
+};
+
 &iomuxc {
 	imx6qdl-sabresd {
 		pinctrl_usdhc2: usdhc2grp {
