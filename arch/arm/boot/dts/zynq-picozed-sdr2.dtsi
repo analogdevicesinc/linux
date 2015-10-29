@@ -1,7 +1,14 @@
+/*
+ * Avnet PicoZED SDR2 board DTS (Z7035/AD9361 SOM, AES-Z7PZ-SDR2-G)
+ *
+ * Copyright (C) 2015 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2.
+ */
 /include/ "zynq.dtsi"
 
 / {
-	model = "Avnet ZYNQ PicoZedSDR";
+	model = "Avnet ZYNQ PicoZed SDR2 (Z7035/AD9361)";
 	memory {
 		device_type = "memory";
 		reg = <0x00000000 0x40000000>;
