@@ -60,28 +60,32 @@
 		#size-cells = <1>;
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <4>;
-		compatible = "n25q128a11"; /* same as S25FL128 */
+		compatible = "n25q256a11"; /* same as S25FL256 */
 		reg = <0x0>;
 		spi-max-frequency = <50000000>;
-		partition@0x00000000 {
-			label = "boot";
-			reg = <0x00000000 0x00500000>;
+		partition@qspi-fsbl-uboot {
+			label = "qspi-fsbl-uboot";
+			reg = <0x0 0xE0000>; /* 896k */
 		};
-		partition@0x00500000 {
-			label = "bootenv";
-			reg = <0x00500000 0x00020000>;
+		partition@qspi-uboot-env {
+			label = "qspi-uboot-env";
+			reg = <0xE0000 0x20000>; /* 128k */
 		};
-		partition@0x00520000 {
-			label = "config";
-			reg = <0x00520000 0x00020000>;
+		partition@qspi-linux {
+			label = "qspi-linux";
+			reg = <0x100000 0x500000>; /* 5M */
 		};
-		partition@0x00540000 {
-			label = "image";
-			reg = <0x00540000 0x00a80000>;
+		partition@qspi-device-tree {
+			label = "qspi-device-tree";
+			reg = <0x600000 0x20000>; /* 128k */
 		};
-		partition@0x00fc0000 {
-			label = "spare";
-			reg = <0x00fc0000 0x00000000>;
+		partition@qspi-rootfs {
+			label = "qspi-rootfs";
+			reg = <0x620000 0xCE0000>; /* 12875k */
+		};
+		partition@qspi-bitstream {
+			label = "qspi-bitstream";
+			reg = <0x1300000 0xD00000>; /* 13 M */
 		};
 	};
 };
