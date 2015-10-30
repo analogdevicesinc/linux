@@ -367,6 +367,9 @@
 
 &usbotg1 {
 	dr_mode = "otg";
+	srp-disable;
+	hnp-disable;
+	adp-disable;
 	status = "okay";
 };
 
