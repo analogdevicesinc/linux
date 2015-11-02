@@ -3,6 +3,17 @@
 
 #include <dt-bindings/input/input.h>
 
+/ {
+	clocks {
+		ad9517_ref_clk: clock@3 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <25000000>;
+				clock-output-names = "ad9517_refclk";
+		};
+	};
+};
+
 &axi_i2c0 {
 
 	i2cswitch@74 {
@@ -282,5 +293,21 @@
 			linux,code = <3>;
 			gpios = <&gpio 63 0>;
 		};
+	};
+
+};
+
+&spi0 {
+	clk_ad9517: ad9517@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+//		compatible = "ad9517-3";
+		reg = <1>;
+		spi-max-frequency = <10000000>;
+		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;
+		clock-names = "refclk", "clkin";
+		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
+		firmware = "pzsdr-fmc-ad9517.stp";
 	};
 };
