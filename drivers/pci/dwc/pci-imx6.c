@@ -1387,11 +1387,7 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		 * reserved ddr memory after write the ddr_test_region
 		 * content to rc.
 		 */
-		if (imx6_pcie->variant == IMX7D)
-			pcie_arb_base_addr = ioremap_nocache(pp->mem_base,
-					test_region_size);
-		else
-			pcie_arb_base_addr = ioremap_cache(pp->mem_base,
+		pcie_arb_base_addr = ioremap_nocache(pp->mem_base,
 					test_region_size);
 
 		if (!pcie_arb_base_addr) {
