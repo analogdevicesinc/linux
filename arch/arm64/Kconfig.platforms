@@ -220,6 +220,11 @@ config ARCH_STRATIX10
 	help
 	  This enables support for Altera's Stratix 10 SoCFPGA Family.
 
+config ARCH_STRATIX10SWVP
+	bool "Altera Stratix10 Software Virtual Platform"
+	help
+	  This enables support for Altera Stratix10 Software Virtual Platform
+
 config ARCH_TEGRA
 	bool "NVIDIA Tegra SoC Family"
 	select ARCH_HAS_RESET_CONTROLLER
