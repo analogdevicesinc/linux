@@ -17,10 +17,10 @@
 #include <linux/platform_device.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
+#include <linux/perf/arm_pmu.h>
 #include <linux/slab.h>
 #include <asm/mach/map.h>
 #include <asm/cti.h>
-#include <asm/pmu.h>
 
 #include "core.h"
 #include "socfpga_cti.h"
