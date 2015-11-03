@@ -22,6 +22,18 @@
 	};
 };
 
+&can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can0>;
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
+	status = "okay";
+};
+
 &fec {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet>;
@@ -46,6 +58,40 @@
 		 * IMCR_IDX instead of MSCR_IDX, add 512 to it as the Reference
 		 * Manual states.
 		 */
+
+		pinctrl_can0: can0grp {
+			fsl,pins = <
+				S32V234_PAD_PA2__CAN_FD0_TXD
+				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
+				S32V234_PAD_PA3__CAN_FD0_RXD_IN
+				/*
+				 * Configure pin C12 as GPIO[6] in MSCR#6.
+				 * Effect: the S-pin at CAN is not longer
+				 * flowting at ~0.75V, but driven to low ~0.0V.
+				 */
+				S32V234_MSCR_PA6 (PAD_CTL_MUX_MODE_ALT0 \
+							| PAD_CTL_OBE \
+							| PAD_CTL_DSE_34 \
+							| PAD_CTL_PUS_33K_UP)
+			>;
+		};
+
+		pinctrl_can1: can1grp {
+			fsl,pins = <
+				S32V234_PAD_PA4__CAN_FD1_TXD
+				S32V234_PAD_PA5__CAN_FD1_RXD_OUT
+				S32V234_PAD_PA5__CAN_FD1_RXD_IN
+				/*
+				 * Configure pin C11 as GPIO[7] in MSCR#7.
+				 * Effect: the S-pin at CAN is not longer
+				 * flowting at ~0.39V, but driven to low ~0.0V.
+				 */
+				S32V234_MSCR_PA7 (PAD_CTL_MUX_MODE_ALT0 \
+							| PAD_CTL_OBE \
+							| PAD_CTL_DSE_34 \
+							| PAD_CTL_PUS_33K_UP)
+			>;
+		};
 
 		pinctrl_enet: enetgrp {
 			fsl,pins = <

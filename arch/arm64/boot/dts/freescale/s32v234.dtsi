@@ -17,6 +17,8 @@
 	#size-cells = <2>;
 
 	aliases {
+		can0 = &can0;
+		can1 = &can1;
 		serial0 = &uart0;
 		serial1 = &uart1;
 	};
@@ -190,6 +192,16 @@
 				status = "disabled";
 			};
 
+			can0: flexcan@40055000 {
+				compatible = "fsl,s32v234-flexcan";
+				reg = <0x0 0x40055000 0x0 0x1000>;
+				interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks S32V234_CLK_CAN>,
+					 <&clks S32V234_CLK_CAN>;
+				clock-names = "ipg", "per";
+				status = "disabled";
+			};
+
 			usdhc0: usdhc@4005d000 {
 				compatible = "fsl,s32v234-usdhc";
 				reg = <0x0 0x4005D000 0x0 0x1000>;
@@ -229,6 +241,16 @@
 				interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
 				clocks = <&clks S32V234_CLK_LIN>;
 				clock-names = "lin";
+				status = "disabled";
+			};
+
+			can1: flexcan@400be000 {
+				compatible = "fsl,s32v234-flexcan";
+				reg = <0x0 0x400be000 0x0 0x1000>;
+				interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks S32V234_CLK_CAN>,
+					 <&clks S32V234_CLK_CAN>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 		};

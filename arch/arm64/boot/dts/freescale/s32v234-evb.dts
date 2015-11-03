@@ -16,6 +16,18 @@
 	};
 };
 
+&can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can0>;
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
+	status = "okay";
+};
+
 &siul2 {
 	status = "okay";
 	s32v234-evb {
@@ -24,6 +36,22 @@
 		 * IMCR_IDX instead of MSCR_IDX, add 512 to it as the Reference
 		 * Manual states.
 		 */
+
+		pinctrl_can0: can0grp {
+			fsl,pins = <
+				S32V234_PAD_PA2__CAN_FD0_TXD
+				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
+				S32V234_PAD_PA3__CAN_FD0_RXD_IN
+			>;
+		};
+
+		pinctrl_can1: can1grp {
+			fsl,pins = <
+				S32V234_PAD_PA4__CAN_FD1_TXD
+				S32V234_PAD_PA5__CAN_FD1_RXD_OUT
+				S32V234_PAD_PA5__CAN_FD1_RXD_IN
+			>;
+		};
 
 		pinctrl_uart0: uart0grp {
 			fsl,pins = <
