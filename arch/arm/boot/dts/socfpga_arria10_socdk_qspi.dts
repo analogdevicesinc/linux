@@ -48,11 +48,11 @@
 
 				partition@qspi-boot {
 					label = "Boot and fpga data";
-					reg = <0x0 0x1B20000>;
+					reg = <0x0 0x2720000>;
 				};
 				partition@qspi-rootfs {
 					label = "Root Filesystem - JFFS2";
-					reg = <0x1B20000 0x64E0000>;
+					reg = <0x2720000 0x58E0000>;
 				};
 			};
 		};
