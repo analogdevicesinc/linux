@@ -1,7 +1,7 @@
 /*
  * ADI AXI-JESD204B GT Interface Module
  *
- * Copyright 2014 Analog Devices Inc.
+ * Copyright 2014-2015 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  *
@@ -27,58 +27,77 @@
 
 #include "cf_axi_jesd204b_gt.h"
 
-#define ADI_ES_HSIZE_FULL 	65
-#define ADI_ES_HSIZE_HALF 	129
-#define ADI_ES_HSIZE_QRTR 	257
-#define ADI_ES_HSIZE_OCT 	513
-#define ADI_ES_HSIZE_HEX 	1025
+#define JESD204B_GT_ES_HSIZE_FULL 	65
+#define JESD204B_GT_ES_HSIZE_HALF 	129
+#define JESD204B_GT_ES_HSIZE_QRTR 	257
+#define JESD204B_GT_ES_HSIZE_OCT 	513
+#define JESD204B_GT_ES_HSIZE_HEX 	1025
 
-#define ADI_ES_VSIZE		255
+#define JESD204B_GT_ES_VSIZE		255
+
+#define MAX_NUM_LINKS		6
+
+#define for_each_link_of_gt(_st, _i, _gt_link) \
+	for (_i = 0, _gt_link = &_st->gt_link[0]; _i < _st->num_links; \
+		_i++, _gt_link = &_st->gt_link[_i])
+
+#define for_each_lane_of_link(_st, _gt_link, _lane) \
+	for (_lane = _gt_link->first_lane; \
+		_lane < ((PCORE_VERSION_MAJOR(_st->version) < 7) ? 1 : \
+		_gt_link->first_lane + _gt_link->num_lanes); _lane++)
+
+#define for_each_lane_of_all_links(_st, _i, _gt_link, _lane) \
+		for_each_link_of_gt(_st, _i, _gt_link) \
+			for_each_lane_of_link(_st, _gt_link, _lane)
 
 struct child_clk {
 	struct device 		*dev;
 	struct clk_hw		hw;
-	unsigned long 		rate;
+	struct jesd204b_gt_link *link;
 	bool			enabled;
-	bool			tx;
-	unsigned			num;
+};
+
+struct jesd204b_gt_link {
+	struct clk 	*conv_clk;
+	struct clk 	*sysref_clk;
+	struct device_node *node;
+
+	u32		tx_offset;
+	u32		first_lane;
+	u32		num_lanes;
+	u32  		sys_clk_sel;
+	u32  		out_clk_sel;
+	u32		es_hsize;
+
+	bool		cpll_enable;
+	bool 		lpm_enable;
+	bool 		sysref_ext_enable;
+	bool 		gth_enable;
 };
 
 struct jesd204b_gt_state {
 	struct device 		*dev;
 	void __iomem		*regs;
-	struct clk 		*clk;
-	struct clk 		*adc_clk;
-	struct clk 		*adc_sysref;
-	struct clk 		*dac_clk;
-	struct clk 		*dac_sysref;
-	struct clk_onecell_data		clk_data;
-	struct child_clk		output[2];
-
+	struct clk_onecell_data	clk_data;
+	struct child_clk	output[MAX_NUM_LINKS];
+	struct jesd204b_gt_link gt_link[MAX_NUM_LINKS];
+	struct work_struct 	work;
+	struct bin_attribute 	bin;
+	struct delayed_work	sync_work;
+	struct completion       complete;
 
 	void			*buf_virt;
 	dma_addr_t		buf_phys;
-	struct bin_attribute 	bin;
-	unsigned			size;
-	unsigned			lanes;
-	int			lane;
-	int			prescale;
-	unsigned			vers_id;
-	unsigned			version;
-	struct work_struct 	work;
-	struct completion       complete;
-	unsigned long		flags;
-	unsigned long		rate;
-	unsigned			es_hsize;
-	unsigned			addr;
-	unsigned			rx_sys_clk_sel;
-	unsigned			rx_out_clk_sel;
-	unsigned			tx_sys_clk_sel;
-	unsigned			tx_out_clk_sel;
-	bool			use_cpll;
-	bool 			use_lpm;
 
-	struct delayed_work	sync_work;
+	unsigned		num_links;
+	int			lane;
+	int			es_last_lane;
+	int			prescale;
+	unsigned		vers_id;
+	unsigned		version;
+	bool			legacy;
+
+	unsigned		addr;
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct child_clk, hw)
@@ -87,28 +106,44 @@ struct jesd204b_gt_state {
  * IO accessors
  */
 
-static inline void jesd204b_gt_write(struct jesd204b_gt_state *st,
-				  unsigned reg, unsigned val)
-{
-	iowrite32(val, st->regs + reg);
-}
-
 static inline unsigned int jesd204b_gt_read(struct jesd204b_gt_state *st,
 					 unsigned reg)
 {
 	return ioread32(st->regs + reg);
 }
 
-static void jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
+static inline void jesd204b_gt_write(struct jesd204b_gt_state *st,
+				  unsigned reg, unsigned val)
+{
+	iowrite32(val, st->regs + reg);
+}
+
+static struct jesd204b_gt_link* jesd204b_get_rx_link_by_lane(struct jesd204b_gt_state *st, unsigned lane)
+{
+	struct jesd204b_gt_link *gt_link;
+	u32 tmp;
+
+	for_each_link_of_gt(st, tmp, gt_link) {
+		if (gt_link->tx_offset)
+			continue;
+		if (st->lane >= gt_link->first_lane &&
+			st->lane < (gt_link->first_lane + gt_link->num_lanes))
+			return gt_link;
+	}
+
+	return NULL;
+}
+
+static void jesd204b_gt_drp_write(struct jesd204b_gt_state *st, unsigned lane,
 				  unsigned reg, unsigned val)
 {
 	int timeout = 20;
 
-	jesd204b_gt_write(st, ADI_REG_DRP_CNTRL,
-			  ADI_DRP_ADDRESS(reg) | ADI_DRP_WDATA(val));
+	jesd204b_gt_write(st, JESD204B_GT_REG_DRP_CNTRL(lane),
+			  JESD204B_GT_DRP_ADDRESS(reg) | JESD204B_GT_DRP_WDATA(val));
 
 	do {
-		if (!(jesd204b_gt_read(st, ADI_REG_DRP_STATUS) & ADI_DRP_STATUS))
+		if (!(jesd204b_gt_read(st, JESD204B_GT_REG_DRP_STATUS(lane)) & JESD204B_GT_DRP_STATUS))
 			return;
 
 		mdelay(1);
@@ -117,24 +152,24 @@ static void jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
 	dev_err(st->dev, "%s: Timeout!", __func__);
 }
 
-static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st,
+static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st, unsigned lane,
 					 unsigned reg)
 {
 	int timeout = 20;
 	unsigned val;
 
-	jesd204b_gt_write(st, ADI_REG_DRP_CNTRL,
-		ADI_DRP_RWN | ADI_DRP_ADDRESS(reg) | ADI_DRP_WDATA(0xFFFF));
+	jesd204b_gt_write(st, JESD204B_GT_REG_DRP_CNTRL(lane),
+		JESD204B_GT_DRP_RWN | JESD204B_GT_DRP_ADDRESS(reg) | JESD204B_GT_DRP_WDATA(0xFFFF));
 
 	do {
-		val = jesd204b_gt_read(st, ADI_REG_DRP_STATUS);
+		val = jesd204b_gt_read(st, JESD204B_GT_REG_DRP_STATUS(lane));
 
-		if (val & ADI_DRP_STATUS) {
+		if (val & JESD204B_GT_DRP_STATUS) {
 			mdelay(1);
 			continue;
 		}
 
-		return ADI_TO_DRP_RDATA(val);
+		return JESD204B_GT_TO_DRP_RDATA(val);
 
 	} while (timeout--);
 
@@ -144,39 +179,40 @@ static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st,
 
 static int jesd204b_gt_set_lane(struct jesd204b_gt_state *st, unsigned lane)
 {
-	jesd204b_gt_write(st, ADI_REG_RX_LANESEL,
-		       ADI_RX_LANESEL(lane));
+	if ((PCORE_VERSION_MAJOR(st->version) < 7)) {
+		jesd204b_gt_write(st, JESD204B_GT_REG_LANESEL(lane),
+			JESD204B_GT_LANESEL(lane));
 
-	jesd204b_gt_read(st, ADI_REG_RX_LANESEL);
+		jesd204b_gt_read(st, JESD204B_GT_REG_LANESEL(lane));
+	}
 
 	return 0;
 }
 
 static int jesd204b_gt_set_lpm_dfe_mode(struct jesd204b_gt_state *st,
-					unsigned lpm)
+					unsigned lpm, unsigned lane)
 {
-	u32 i, type;
+	u32 type;
 
-	type = jesd204b_gt_read(st, ADI_REG_TRANSCEIVER_TYPE);
+	type = jesd204b_gt_read(st, JESD204B_GT_REG_TRANSCEIVER_TYPE(lane));
 
-	for (i = 0; i < st->lanes; i++) {
-		jesd204b_gt_set_lane(st, i);
-		if (type == ADI_TRANSCEIVER_GTH) {
-			if (lpm) {
-				jesd204b_gt_drp_write(st, 0x036, 0x0032);
-				jesd204b_gt_drp_write(st, 0x039, 0x1000);
-				jesd204b_gt_drp_write(st, 0x062, 0x1980);
-			} else {
-				jesd204b_gt_drp_write(st, 0x036, 0x0002);
-				jesd204b_gt_drp_write(st, 0x039, 0x0000);
-				jesd204b_gt_drp_write(st, 0x062, 0x0000);
-			}
+	jesd204b_gt_set_lane(st, lane);
+
+	if (type == JESD204B_GT_TRANSCEIVER_GTH) {
+		if (lpm) {
+			jesd204b_gt_drp_write(st, lane, 0x036, 0x0032);
+			jesd204b_gt_drp_write(st, lane, 0x039, 0x1000);
+			jesd204b_gt_drp_write(st, lane, 0x062, 0x1980);
 		} else {
-			if (lpm) {
-				jesd204b_gt_drp_write(st, 0x029, 0x0104);
-			} else {
-				jesd204b_gt_drp_write(st, 0x029, 0x0954);
-			}
+			jesd204b_gt_drp_write(st, lane, 0x036, 0x0002);
+			jesd204b_gt_drp_write(st, lane, 0x039, 0x0000);
+			jesd204b_gt_drp_write(st, lane, 0x062, 0x0000);
+		}
+	} else {
+		if (lpm) {
+			jesd204b_gt_drp_write(st, lane, 0x029, 0x0104);
+		} else {
+			jesd204b_gt_drp_write(st, lane, 0x029, 0x0954);
 		}
 	}
 
@@ -185,64 +221,75 @@ static int jesd204b_gt_set_lpm_dfe_mode(struct jesd204b_gt_state *st,
 
 static int jesd204b_gt_es(struct jesd204b_gt_state *st, unsigned lane)
 {
+	struct jesd204b_gt_link *gt_link = jesd204b_get_rx_link_by_lane(st, lane);
 	unsigned stat;
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_CNTRL,
-		ADI_EYESCAN_STOP);
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_CNTRL, 0);
+	if (gt_link == NULL)
+		return -ENODEV;
 
-	jesd204b_gt_set_lane(st, lane);
+	if ((PCORE_VERSION_MAJOR(st->version) < 7)) {
+		jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_CNTRL(0),
+			JESD204B_GT_EYESCAN_STOP);
+		jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_CNTRL(0), 0);
+		jesd204b_gt_set_lane(st, lane);
+		lane = 0;
+	} else {
+		jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_CNTRL(st->es_last_lane),
+			JESD204B_GT_EYESCAN_STOP);
+		jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_CNTRL(st->es_last_lane), 0);
+		st->es_last_lane = lane;
+	}
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_PRESCALE,
-		ADI_EYESCAN_PRESCALE(st->prescale));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_PRESCALE(lane),
+		JESD204B_GT_EYESCAN_PRESCALE(st->prescale));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_VOFFSET,
-		ADI_EYESCAN_VOFFSET_STEP(1) |
-		ADI_EYESCAN_VOFFSET_MAX(ADI_ES_VSIZE / 2) |
-		ADI_EYESCAN_VOFFSET_MIN(-1 * (ADI_ES_VSIZE / 2)));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_VOFFSET(lane),
+		JESD204B_GT_EYESCAN_VOFFSET_STEP(1) |
+		JESD204B_GT_EYESCAN_VOFFSET_MAX(JESD204B_GT_ES_VSIZE / 2) |
+		JESD204B_GT_EYESCAN_VOFFSET_MIN(-1 * (JESD204B_GT_ES_VSIZE / 2)));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_HOFFSET_1,
-		ADI_EYESCAN_HOFFSET_MAX(st->es_hsize / 2) |
-		ADI_EYESCAN_HOFFSET_MIN(-1 * (st->es_hsize / 2)));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_HOFFSET_1(lane),
+		JESD204B_GT_EYESCAN_HOFFSET_MAX(gt_link->es_hsize / 2) |
+		JESD204B_GT_EYESCAN_HOFFSET_MIN(-1 * (gt_link->es_hsize / 2)));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_HOFFSET_2,
-		ADI_EYESCAN_HOFFSET_STEP(1));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_HOFFSET_2(lane),
+		JESD204B_GT_EYESCAN_HOFFSET_STEP(1));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_DMA_STARTADDR, st->buf_phys);
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_DMA_STARTADDR(lane), st->buf_phys);
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_SDATA_1_0,
-		ADI_EYESCAN_SDATA1(0) |
-		ADI_EYESCAN_SDATA0(0));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_SDATA_1_0(lane),
+		JESD204B_GT_EYESCAN_SDATA1(0) |
+		JESD204B_GT_EYESCAN_SDATA0(0));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_SDATA_3_2,
-		ADI_EYESCAN_SDATA3(0xFFFF) |
-		ADI_EYESCAN_SDATA2(0xFF00));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_SDATA_3_2(lane),
+		JESD204B_GT_EYESCAN_SDATA3(0xFFFF) |
+		JESD204B_GT_EYESCAN_SDATA2(0xFF00));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_SDATA_4,
-		ADI_EYESCAN_SDATA4(0xFFFF));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_SDATA_4(lane),
+		JESD204B_GT_EYESCAN_SDATA4(0xFFFF));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_QDATA_1_0,
-		ADI_EYESCAN_QDATA1(0xFFFF) |
-		ADI_EYESCAN_QDATA0(0xFFFF));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_QDATA_1_0(lane),
+		JESD204B_GT_EYESCAN_QDATA1(0xFFFF) |
+		JESD204B_GT_EYESCAN_QDATA0(0xFFFF));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_QDATA_3_2,
-		ADI_EYESCAN_QDATA3(0xFFFF) |
-		ADI_EYESCAN_QDATA2(0xFFFF));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_QDATA_3_2(lane),
+		JESD204B_GT_EYESCAN_QDATA3(0xFFFF) |
+		JESD204B_GT_EYESCAN_QDATA2(0xFFFF));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_QDATA_4,
-		ADI_EYESCAN_QDATA4(0xFFFF));
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_QDATA_4(lane),
+		JESD204B_GT_EYESCAN_QDATA4(0xFFFF));
 
-	jesd204b_gt_write(st, ADI_REG_EYESCAN_CNTRL,
-		ADI_EYESCAN_INIT |
-		ADI_EYESCAN_START);
+	jesd204b_gt_write(st, JESD204B_GT_REG_EYESCAN_CNTRL(lane),
+		JESD204B_GT_EYESCAN_INIT |
+		JESD204B_GT_EYESCAN_START);
 
 	do {
 		msleep(50 * ((st->prescale & 0x1F) + 1));
-		stat = jesd204b_gt_read(st, ADI_REG_EYESCAN_STATUS);
-		if (stat & ADI_EYESCAN_DMAERR)
+		stat = jesd204b_gt_read(st, JESD204B_GT_REG_EYESCAN_STATUS(lane));
+		if (stat & JESD204B_GT_EYESCAN_DMAERR)
 			return -EIO;
 
-	} while (stat & ADI_EYESCAN_STATUS);
+	} while (stat & JESD204B_GT_EYESCAN_STATUS);
 
 	return 0;
 }
@@ -253,13 +300,11 @@ static void jesd204b_gt_work_func(struct work_struct *work)
 		container_of(work, struct jesd204b_gt_state, work);
 	int ret;
 
-	set_bit(0, &st->flags);
-		ret = jesd204b_gt_es(st, st->lane);
+	ret = jesd204b_gt_es(st, st->lane);
 	if (ret)
 		dev_warn(st->dev, "Eye Scan failed (%d)\n", ret);
 
 	complete_all(&st->complete);
-	clear_bit(0, &st->flags);
 }
 
 static ssize_t
@@ -280,7 +325,6 @@ jesd204b_gt_bin_read(struct file *filp, struct kobject *kobj,
 		count = st->bin.size - off;
 	if (unlikely(!count))
 		return count;
-
 
 	wait_for_completion(&st->complete);
 
@@ -354,32 +398,36 @@ static ssize_t jesd204b_gt_info_read(struct device *dev,
 			char *buf)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(dev);
+	struct jesd204b_gt_link *gt_link = jesd204b_get_rx_link_by_lane(st, st->lane);
 
-	return sprintf(buf, "x%d,y%d CDRDW: %d LPM: %d\n",
-		       st->es_hsize, ADI_ES_VSIZE, 40, st->use_lpm);
+	if (gt_link)
+		return sprintf(buf, "x%d,y%d CDRDW: %d LPM: %d\n",
+			gt_link->es_hsize, JESD204B_GT_ES_VSIZE, 40, gt_link->lpm_enable);
+
+
+	return -EINVAL;
 }
 
 static DEVICE_ATTR(info, S_IRUSR, jesd204b_gt_info_read, NULL);
 
-
 static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
-	return to_clk_priv(hw)->rate;
+	return parent_rate;
 }
 
 static int jesd204b_gt_status_error(struct device *dev,
-				   unsigned offs, unsigned mask)
+				   unsigned offs, unsigned lane, unsigned mask)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(dev);
-	unsigned val = jesd204b_gt_read(st, ADI_REG_RX_STATUS + offs);
+	unsigned val = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + offs);
 
 	if ((val & mask) != mask) {
 		dev_err(dev, "%s Error: %s%s%s\n",
 			offs ? "TX" : "RX",
-			(ADI_TO_RX_RST_DONE(val) != 0xFF) ? "RESET failed " : "",
-			(ADI_TO_RX_PLL_LOCKED(val) != 0xFF) ? "PLL Unlocked " : "",
-			(ADI_RX_STATUS & val) ? "" : "Interface Error"
+			(JESD204B_GT_TO_RST_DONE(val) != 0xFF) ? "RESET failed " : "",
+			(JESD204B_GT_TO_PLL_LOCKED(val) != 0xFF) ? "PLL Unlocked " : "",
+			(JESD204B_GT_STATUS & val) ? "" : "Interface Error"
        		);
 
 		return -EIO;
@@ -388,24 +436,37 @@ static int jesd204b_gt_status_error(struct device *dev,
 	return 0;
 }
 
+static void jesd204b_gt_sysref(struct jesd204b_gt_state *st,
+			struct jesd204b_gt_link *gt_link, unsigned lane)
+{
+	if (gt_link->sysref_ext_enable) {
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYSREF_CTL(lane) +
+			gt_link->tx_offset, JESD204B_GT_SYSREF_EXTERNAL);
+	} else {
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYSREF_CTL(lane) +
+			gt_link->tx_offset, JESD204B_GT_SYSREF_ON);
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYSREF_CTL(lane) +
+			gt_link->tx_offset, JESD204B_GT_SYSREF_OFF);
+	}
+}
+
 static void jesd204b_gt_clk_synchronize(struct child_clk *clk)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(clk->dev);
-	unsigned offs = (clk->tx ?
-		ADI_REG_TX_GT_RSTN - ADI_REG_RX_GT_RSTN : 0);
-	int ret;
+	struct jesd204b_gt_link *gt_link = clk->link;
+	int ret, lane;
 
 	if (!clk->enabled)
 		return;
 
-	ret = jesd204b_gt_read(st, ADI_REG_RX_STATUS + offs);
-	while (ret != 0x1ffff) {
-		jesd204b_gt_write(st, ADI_REG_RX_SYSREF_CTL + offs, ADI_RX_SYSREF);
-		jesd204b_gt_write(st, ADI_REG_RX_SYSREF_CTL + offs, 0);
-
-		msleep(100);
-		ret = jesd204b_gt_read(st, ADI_REG_RX_STATUS + offs);
-		dev_dbg(st->dev, "Resynchronizing\n");
+	for_each_lane_of_link(st, gt_link, lane) {
+		ret = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + gt_link->tx_offset);
+		while (ret != JESD204B_GT_STATUS_SYNC) {
+			jesd204b_gt_sysref(st, gt_link, lane);
+			msleep(100);
+			ret = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + gt_link->tx_offset);
+			dev_dbg(st->dev, "Resynchronizing\n");
+		}
 	}
 }
 
@@ -424,38 +485,46 @@ static void jesd204b_gt_sync_work_func(struct work_struct *work)
 static int jesd204b_gt_clk_enable(struct clk_hw *hw)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
-	unsigned offs = (to_clk_priv(hw)->tx ?
-		ADI_REG_TX_GT_RSTN - ADI_REG_RX_GT_RSTN : 0);
+	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
+	unsigned offs = gt_link->tx_offset;
 	int ret = 0;
+	unsigned lane;
 
-	jesd204b_gt_write(st, ADI_REG_RX_GT_RSTN + offs, 0);
-	jesd204b_gt_write(st, ADI_REG_RX_RSTN + offs, 0);
+	for_each_lane_of_link(st, gt_link, lane) {
+		jesd204b_gt_write(st, JESD204B_GT_REG_GT_RSTN(lane) + offs, 0);
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN(lane) + offs, 0);
+	}
 
 	mdelay(10);
 
-	ret = jesd204b_gt_read(st, ADI_REG_RX_STATUS + offs);
-	if (ADI_TO_RX_PLL_LOCKED(ret) != 0xFF)
-		dev_err(to_clk_priv(hw)->dev, "RX PLL NOT locked! (0x%X)\n", ret);
+	for_each_lane_of_link(st, gt_link, lane) {
+		ret = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + offs);
+		if (JESD204B_GT_TO_PLL_LOCKED(ret) != JESD204B_GT_STATUS_PLL_LOCKED)
+			dev_err(to_clk_priv(hw)->dev, "RX PLL NOT locked! (0x%X)\n", ret);
 
-	jesd204b_gt_write(st, ADI_REG_RX_SYSREF_CTL + offs, 0);
-	jesd204b_gt_write(st, ADI_REG_RX_SYNC_CTL + offs, ADI_RX_SYNC);
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYSREF_CTL(lane) + offs, 0);
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYNC_CTL(lane) + offs, JESD204B_GT_SYNC);
 
-	jesd204b_gt_write(st, ADI_REG_RX_GT_RSTN + offs, ADI_RX_GT_RSTN);
-	jesd204b_gt_write(st, ADI_REG_RX_RSTN + offs, ADI_RX_RSTN);
+		jesd204b_gt_write(st, JESD204B_GT_REG_GT_RSTN(lane) + offs, JESD204B_GT_GT_RSTN);
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN(lane) + offs, JESD204B_GT_RSTN);
+	}
 
 	mdelay(40);
 
-	jesd204b_gt_status_error(to_clk_priv(hw)->dev, offs,
-		ADI_RX_RST_DONE(~0) | ADI_RX_PLL_LOCKED(~0));
+	for_each_lane_of_link(st, gt_link, lane) {
+		jesd204b_gt_status_error(to_clk_priv(hw)->dev, offs, lane,
+			JESD204B_GT_RST_DONE(~0) | JESD204B_GT_PLL_LOCKED(~0));
 
-	jesd204b_gt_write(st, ADI_REG_RX_SYSREF_CTL + offs, ADI_RX_SYSREF);
-	jesd204b_gt_write(st, ADI_REG_RX_SYSREF_CTL + offs, 0);
+		jesd204b_gt_sysref(st, gt_link, lane);
+	}
 
 	mdelay(50);
 
-	ret = jesd204b_gt_status_error(to_clk_priv(hw)->dev, offs,
-		ADI_RX_RST_DONE(~0) | ADI_RX_PLL_LOCKED(~0) | ADI_RX_STATUS);
-
+	ret = 0;
+	for_each_lane_of_link(st, gt_link, lane) {
+		ret += jesd204b_gt_status_error(to_clk_priv(hw)->dev, offs, lane,
+			JESD204B_GT_RST_DONE(~0) | JESD204B_GT_PLL_LOCKED(~0) | JESD204B_GT_STATUS);
+	}
 	to_clk_priv(hw)->enabled = true;
 
 	return ret;
@@ -478,7 +547,9 @@ static const struct clk_ops clkout_ops = {
 	.is_enabled = jesd204b_gt_clk_is_enabled,
 };
 
-static struct clk *jesd204b_gt_clk_register(struct device *dev, const char *parent_name, unsigned num, bool tx)
+static struct clk *jesd204b_gt_clk_register(struct device *dev, struct device_node *node,
+					    const char *parent_name, unsigned num,
+					    struct jesd204b_gt_link *gt_link)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(dev);
 	struct clk_init_data init;
@@ -487,8 +558,8 @@ static struct clk *jesd204b_gt_clk_register(struct device *dev, const char *pare
 	const char *clk_name;
 	int ret;
 
-	ret = of_property_read_string_index(dev->of_node, "clock-output-names",
-		num, &clk_name);
+	ret = of_property_read_string_index(node, "clock-output-names",
+		st->legacy ? num : 0, &clk_name);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
@@ -500,15 +571,95 @@ static struct clk *jesd204b_gt_clk_register(struct device *dev, const char *pare
 
 	output->hw.init = &init;
 	output->dev = dev;
-	output->num = num;
-	output->tx = tx;
-	output->rate = st->rate;
+	output->link = gt_link;
 
 	/* register the clock */
 	clk = clk_register(dev, &output->hw);
 	st->clk_data.clks[num] = clk;
 
 	return clk;
+}
+
+static int jesd204b_gt_parse_link_node(struct jesd204b_gt_link *gt_link,
+				       struct device_node *np)
+{
+	int ret;
+
+	gt_link->conv_clk = of_clk_get_by_name(np, "conv");
+	if (IS_ERR(gt_link->conv_clk)) {
+		return -EPROBE_DEFER;
+	}
+	ret = clk_prepare_enable(gt_link->conv_clk);
+	if (ret < 0)
+		return ret;
+
+	gt_link->sysref_clk = of_clk_get_by_name(np, "sysref");
+	if (!IS_ERR(gt_link->sysref_clk)) {
+		ret = clk_prepare_enable(gt_link->sysref_clk);
+		if (ret < 0)
+			return ret;
+	}
+
+	of_property_read_u32(np, "adi,lanes", &gt_link->num_lanes);
+	of_property_read_u32(np, "adi,first-lane", &gt_link->first_lane);
+
+	if (of_property_read_bool(np, "adi,link-is-transmit-enable"))
+		gt_link->tx_offset = JESD204B_GT_REG_TX_OFFSET;
+	else
+		gt_link->tx_offset = 0;
+
+	of_property_read_u32(np, "adi,sys-clk-select",
+				&gt_link->sys_clk_sel);
+	of_property_read_u32(np, "adi,out-clk-select",
+				&gt_link->out_clk_sel);
+
+	gt_link->cpll_enable = of_property_read_bool(np,
+				"adi,use-cpll-enable");
+	gt_link->lpm_enable = of_property_read_bool(np,
+				"adi,use-lpm-enable");
+	gt_link->sysref_ext_enable = of_property_read_bool(np,
+				"adi,sysref-external-enable");
+	gt_link->node = np;
+
+	return 0;
+}
+
+static void jesd204b_gt_disable_unprepare_clocks(struct jesd204b_gt_state *st)
+{
+	struct jesd204b_gt_link *gt_link;
+	int i;
+
+	for_each_link_of_gt(st, i, gt_link) {
+		if (!IS_ERR(gt_link->conv_clk))
+			clk_disable_unprepare(gt_link->conv_clk);
+
+		if (!IS_ERR(gt_link->sysref_clk))
+			clk_disable_unprepare(gt_link->sysref_clk);
+	}
+}
+
+static void jesd204b_gt_unregister_clocks(struct jesd204b_gt_state *st)
+{
+	int i;
+
+	for (i = 0; i <	st->clk_data.clk_num; i++) {
+		if (!IS_ERR(st->clk_data.clks[i]))
+			clk_unregister(st->clk_data.clks[i]);
+	}
+}
+
+static void jesd204b_gt_unregister_clock_provider(struct platform_device *pdev)
+{
+	struct jesd204b_gt_state *st = platform_get_drvdata(pdev);
+
+	if (st->legacy) {
+		of_clk_del_provider(pdev->dev.of_node);
+	} else {
+		struct device_node *np;
+		for_each_child_of_node(pdev->dev.of_node, np) {
+			of_clk_del_provider(np);
+		}
+	}
 }
 
 /* Match table for of_platform binding */
@@ -521,18 +672,15 @@ MODULE_DEVICE_TABLE(of, jesd204b_gt_of_match);
 
 static int jesd204b_gt_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node, *link_np;
 	struct jesd204b_gt_state *st;
 	struct resource *mem; /* IO mem resources */
-	struct clk *clk;
+	struct jesd204b_gt_link *gt_link;
 	int ret;
+	u32 lane, tmp;
 
 	const struct of_device_id *of_id =
 			of_match_device(jesd204b_gt_of_match, &pdev->dev);
-
-	clk = devm_clk_get(&pdev->dev, "adc_clk");
-	if (IS_ERR(clk)) {
-		return -EPROBE_DEFER;
-	}
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (!st) {
@@ -540,145 +688,177 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	st->adc_clk = clk;
+	ret = of_get_child_count(np);
+	if (ret > MAX_NUM_LINKS)
+		return -EINVAL;
 
-	ret = clk_prepare_enable(st->adc_clk);
-	if (ret < 0)
-		return ret;
+	if (ret == 0) { /* Flat - for backward compatibility */
+		st->legacy = true;
+		st->gt_link[st->num_links].conv_clk = devm_clk_get(&pdev->dev, "adc_clk");
+		if (IS_ERR(st->gt_link[st->num_links].conv_clk)) {
+			return -EPROBE_DEFER;
+		}
 
-	st->adc_sysref = devm_clk_get(&pdev->dev, "adc_sysref");
-	if (!IS_ERR(st->adc_sysref))
-		clk_prepare_enable(st->adc_sysref);
+		ret = clk_prepare_enable(st->gt_link[st->num_links].conv_clk);
+		if (ret < 0)
+			return ret;
 
-	st->dac_clk = devm_clk_get(&pdev->dev, "dac_clk");
-	if (!IS_ERR(st->dac_clk))
-		clk_prepare_enable(st->dac_clk);
+		st->gt_link[st->num_links].sysref_clk = devm_clk_get(&pdev->dev, "adc_sysref");
+		if (!IS_ERR(st->gt_link[st->num_links].sysref_clk))
+			clk_prepare_enable(st->gt_link[st->num_links].sysref_clk);
 
-	st->dac_sysref = devm_clk_get(&pdev->dev, "dac_sysref");
-	if (!IS_ERR(st->dac_sysref))
-		clk_prepare_enable(st->dac_sysref);
+		ret = of_property_read_u32(np, "adi,rx-sys-clk-select",
+					&st->gt_link[st->num_links].sys_clk_sel);
+		ret += of_property_read_u32(np, "adi,rx-out-clk-select",
+					&st->gt_link[st->num_links].out_clk_sel);
+
+		if (ret == 0 && !IS_ERR(st->gt_link[st->num_links].conv_clk))
+			st->num_links++;
+
+		/* TX */
+
+		st->gt_link[st->num_links].conv_clk = devm_clk_get(&pdev->dev, "dac_clk");
+		if (!IS_ERR(st->gt_link[st->num_links].conv_clk))
+			clk_prepare_enable(st->gt_link[st->num_links].conv_clk);
+
+		st->gt_link[st->num_links].sysref_clk = devm_clk_get(&pdev->dev, "dac_sysref");
+		if (!IS_ERR(st->gt_link[st->num_links].sysref_clk))
+			clk_prepare_enable(st->gt_link[st->num_links].sysref_clk);
+
+		ret = of_property_read_u32(np, "adi,tx-sys-clk-select",
+					&st->gt_link[st->num_links].sys_clk_sel);
+		ret += of_property_read_u32(np, "adi,tx-out-clk-select",
+					&st->gt_link[st->num_links].out_clk_sel);
+
+		if (ret == 0 && !IS_ERR(st->gt_link[st->num_links].conv_clk)) {
+			st->gt_link[st->num_links].tx_offset = JESD204B_GT_REG_TX_OFFSET;
+			st->num_links++;
+		}
+
+		/* Common */
+
+		st->gt_link[0].cpll_enable = of_property_read_bool(np, "adi,use-cpll-enable");
+		st->gt_link[0].lpm_enable = of_property_read_bool(np, "adi,use-lpm-enable");
+		st->gt_link[0].sysref_ext_enable = of_property_read_bool(np, "adi,sysref-external-enable");
+
+		of_property_read_u32(np, "adi,lanes", &st->gt_link[0].num_lanes);
+		st->gt_link[0].node = np;
+
+		if (st->num_links > 1) {
+			st->gt_link[1].cpll_enable = st->gt_link[0].cpll_enable;
+			st->gt_link[1].lpm_enable = st->gt_link[0].lpm_enable;
+			st->gt_link[1].num_lanes = st->gt_link[0].num_lanes;
+			st->gt_link[1].sysref_ext_enable = st->gt_link[0].sysref_ext_enable;
+			st->gt_link[1].node = np;
+		}
+
+
+	} else {
+		for_each_child_of_node(np, link_np) {
+			ret = jesd204b_gt_parse_link_node(&st->gt_link[st->num_links++], link_np);
+			if (ret < 0)
+				goto disable_unprepare;
+		}
+	}
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
-	if (IS_ERR(st->regs))
-		return PTR_ERR(st->regs);
+	if (IS_ERR(st->regs)) {
+		ret = PTR_ERR(st->regs);
+		goto disable_unprepare;
+	}
 
 	st->dev = &pdev->dev;
-		platform_set_drvdata(pdev, st);
-
-	st->rate = clk_get_rate(clk);
+	st->version = jesd204b_gt_read(st, JESD204B_GT_REG_VERSION);
+	platform_set_drvdata(pdev, st);
 
 	if (of_id && of_id->data)
 		st->vers_id = (unsigned) of_id->data;
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "adi,rx-sys-clk-select", &st->rx_sys_clk_sel);
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "adi,rx-out-clk-select", &st->rx_out_clk_sel);
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "adi,tx-sys-clk-select", &st->tx_sys_clk_sel);
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "adi,tx-out-clk-select", &st->tx_out_clk_sel);
+	for_each_lane_of_all_links(st, tmp, gt_link, lane) {
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset, 0); /* resets (drp, pll) */
+		jesd204b_gt_write(st, JESD204B_GT_REG_GT_RSTN(lane) + gt_link->tx_offset, 0);
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN(lane) + gt_link->tx_offset, 0);
+		jesd204b_gt_write(st, JESD204B_GT_REG_USER_READY(lane) + gt_link->tx_offset, 0);
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYSREF_CTL(lane) + gt_link->tx_offset, 0);
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYNC_CTL(lane) + gt_link->tx_offset, 0);
 
-	st->use_cpll = of_property_read_bool(pdev->dev.of_node, "adi,use-cpll-enable");
-	st->use_lpm = of_property_read_bool(pdev->dev.of_node, "adi,use-lpm-enable");
+		jesd204b_gt_write(st, JESD204B_GT_REG_LPM_CPLL_PD(lane) + gt_link->tx_offset,
+				(gt_link->cpll_enable ? 0 : JESD204B_GT_CPLL_PD) |
+				JESD204B_GT_LPM_DFE(gt_link->lpm_enable));
 
-	of_property_read_u32(pdev->dev.of_node, "adi,lanes", &st->lanes);
+		jesd204b_gt_write(st, JESD204B_GT_REG_CLK_SEL(lane) + gt_link->tx_offset,
+				JESD204B_GT_SYS_CLK_SEL(gt_link->sys_clk_sel) |
+				JESD204B_GT_OUT_CLK_SEL(gt_link->out_clk_sel));
 
-	jesd204b_gt_write(st, ADI_REG_CPLL_PD,
-			(st->use_cpll ? 0 : ADI_CPLL_PD) |
-			(st->use_lpm ? ADI_LPM_EN : 0));
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
+				JESD204B_GT_DRP_RSTN); /* enable (drp) */
 
-	if (st->rx_sys_clk_sel || st->rx_out_clk_sel)
-		jesd204b_gt_write(st, ADI_REG_RX_CLK_SEL,
-				ADI_RX_SYS_CLK_SEL(st->rx_sys_clk_sel) |
-				ADI_RX_OUT_CLK_SEL(st->rx_out_clk_sel));
+		jesd204b_gt_set_lpm_dfe_mode(st, gt_link->lpm_enable, lane);
 
-	if (st->tx_sys_clk_sel || st->tx_out_clk_sel)
-		jesd204b_gt_write(st, ADI_REG_TX_CLK_SEL,
-			  ADI_RX_SYS_CLK_SEL(st->tx_sys_clk_sel) |
-			  ADI_RX_OUT_CLK_SEL(st->tx_out_clk_sel));
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
+				JESD204B_GT_DRP_RSTN | JESD204B_GT_GT_PLL_RSTN); /* enable (drp, pll) */
 
-	jesd204b_gt_write(st, ADI_REG_RSTN_1, 0); /* resets (drp, pll) */
+		jesd204b_gt_write(st, JESD204B_GT_REG_PLL_RSTN(lane) + gt_link->tx_offset,
+				JESD204B_GT_PLL_RSTN); /* enable (pll) */
 
-	jesd204b_gt_write(st, ADI_REG_RX_GT_RSTN, 0);
-	jesd204b_gt_write(st, ADI_REG_RX_RSTN, 0);
+		gt_link->es_hsize = jesd204b_gt_read(st, JESD204B_GT_REG_EYESCAN_RATE(0));
 
-	jesd204b_gt_write(st, ADI_REG_TX_GT_RSTN, 0);
-	jesd204b_gt_write(st, ADI_REG_TX_RSTN, 0);
-
-	jesd204b_gt_write(st, ADI_REG_RSTN_1,
-			  ADI_DRP_RSTN); /* enable (drp) */
-
-	jesd204b_gt_set_lpm_dfe_mode(st, st->use_lpm);
-
-	jesd204b_gt_write(st, ADI_REG_RSTN_1,
-			  ADI_DRP_RSTN | ADI_GT_PLL_RSTN); /* enable (drp, pll) */
-
-	mdelay(50);
-
-	if (st->rx_sys_clk_sel || st->rx_out_clk_sel) {
-		ret = jesd204b_gt_read(st, ADI_REG_RX_STATUS);
-		if (ADI_TO_RX_PLL_LOCKED(ret) != 0xFF)
-			dev_err(&pdev->dev, "RX PLL NOT locked! (0x%X)\n", ret);
+		switch (gt_link->es_hsize) {
+		case 0x1:
+			gt_link->es_hsize = JESD204B_GT_ES_HSIZE_FULL;
+			break;
+		case 0x2:
+			gt_link->es_hsize = JESD204B_GT_ES_HSIZE_HALF;
+			break;
+		case 0x4:
+			gt_link->es_hsize = JESD204B_GT_ES_HSIZE_QRTR;
+			break;
+		case 0x8:
+			gt_link->es_hsize = JESD204B_GT_ES_HSIZE_OCT;
+			break;
+		case 0x10:
+			gt_link->es_hsize = JESD204B_GT_ES_HSIZE_HEX;
+			break;
+		default:
+			ret = -EINVAL;
+			dev_err(&pdev->dev, "Failed get EYESCAN_RATE/RXOUT_DIV\n");
+			goto disable_unprepare;
+		}
 	}
 
-	if (st->tx_sys_clk_sel || st->tx_out_clk_sel) {
-		ret = jesd204b_gt_read(st, ADI_REG_TX_STATUS);
-		if (ADI_TO_TX_PLL_LOCKED(ret) != 0xFF)
-			dev_err(&pdev->dev, "TX PLL NOT locked! (0x%X)\n", ret);
+	mdelay(10);
+
+	for_each_lane_of_all_links(st, tmp, gt_link, lane) {
+		ret = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + gt_link->tx_offset);
+
+		if (JESD204B_GT_TO_PLL_LOCKED(ret) != JESD204B_GT_STATUS_PLL_LOCKED)
+			dev_err(&pdev->dev, "%s PLL NOT locked! (0x%X)\n", gt_link->tx_offset ? "TX" : "RX", ret);
+
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYSREF_CTL(lane) + gt_link->tx_offset, 0);
+		jesd204b_gt_write(st, JESD204B_GT_REG_SYNC_CTL(lane) + gt_link->tx_offset, JESD204B_GT_SYNC);
+		jesd204b_gt_write(st, JESD204B_GT_REG_USER_READY(lane) + gt_link->tx_offset, JESD204B_GT_USER_READY);
+
 	}
 
-	jesd204b_gt_write(st, ADI_REG_RX_SYSREF_CTL, 0);
-	jesd204b_gt_write(st, ADI_REG_RX_SYNC_CTL, ADI_RX_SYNC);
-
-	jesd204b_gt_write(st, ADI_REG_TX_SYSREF_CTL, 0);
-	jesd204b_gt_write(st, ADI_REG_TX_SYNC_CTL, ADI_TX_SYNC);
-
-
-	st->es_hsize = jesd204b_gt_read(st, ADI_REG_EYESCAN_RATE);
-
-	switch (st->es_hsize) {
-	case 0x1:
-		st->es_hsize = ADI_ES_HSIZE_FULL;
-		break;
-	case 0x2:
-		st->es_hsize = ADI_ES_HSIZE_HALF;
-		break;
-	case 0x4:
-		st->es_hsize = ADI_ES_HSIZE_QRTR;
-		break;
-	case 0x8:
-		st->es_hsize = ADI_ES_HSIZE_OCT;
-		break;
-	case 0x10:
-		st->es_hsize = ADI_ES_HSIZE_HEX;
-		break;
-	default:
-		ret = -EINVAL;
-		dev_err(&pdev->dev, "Failed get EYESCAN_RATE/RXOUT_DIV\n");
-		return ret;
-	}
-
-	st->size = st->es_hsize * ADI_ES_VSIZE *
-		(st->use_lpm ? sizeof(u32) : sizeof(u64));
 	st->prescale = 0;
-	st->buf_virt = dma_alloc_coherent(&pdev->dev, PAGE_ALIGN(st->size),
-					  &st->buf_phys, GFP_KERNEL);
-
-	if (st->buf_virt == NULL) {
-		dev_err(&pdev->dev, "Not enough dma memory for device\n");
-		ret = -ENOMEM;
-		return ret;
-	}
-
-	memset(st->buf_virt, 0, PAGE_ALIGN(st->size));
 
 	sysfs_bin_attr_init(&st->bin);
 	st->bin.attr.name = "eye_data";
 	st->bin.attr.mode = S_IRUSR;
 	st->bin.read = jesd204b_gt_bin_read;
-	st->bin.size = st->size;
+	st->bin.size = JESD204B_GT_ES_HSIZE_HEX * JESD204B_GT_ES_VSIZE * sizeof(u64);
+
+	st->buf_virt = dma_alloc_coherent(&pdev->dev, PAGE_ALIGN(st->bin.size),
+					  &st->buf_phys, GFP_KERNEL);
+
+	if (st->buf_virt == NULL) {
+		dev_err(&pdev->dev, "Not enough dma memory for device\n");
+		ret = -ENOMEM;
+		goto disable_unprepare;
+	}
+
+	memset(st->buf_virt, 0, PAGE_ALIGN(st->bin.size));
 
 	ret = sysfs_create_bin_file(&pdev->dev.kobj, &st->bin);
 	if (ret) {
@@ -698,34 +878,35 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 
 	st->clk_data.clks = devm_kzalloc(&pdev->dev,
 					 sizeof(*st->clk_data.clks) *
-					 2, GFP_KERNEL);
+					 MAX_NUM_LINKS, GFP_KERNEL);
 	if (!st->clk_data.clks) {
 		dev_err(&pdev->dev, "could not allocate memory\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto remove_sys_files;
 	}
 	st->clk_data.clk_num = 0;
 
-	if ((st->rx_sys_clk_sel || st->rx_out_clk_sel) && !IS_ERR(st->adc_clk)) {
-		clk = jesd204b_gt_clk_register(&pdev->dev,
-					       __clk_get_name(st->adc_clk),
-					       st->clk_data.clk_num, false);
-		if (IS_ERR(clk))
-				return PTR_ERR(clk);
+	for_each_link_of_gt(st, tmp, gt_link) {
+		struct clk *clk;
+		clk = jesd204b_gt_clk_register(&pdev->dev, gt_link->node,
+					       __clk_get_name(gt_link->conv_clk),
+					       st->clk_data.clk_num, gt_link);
+		if (IS_ERR(clk)) {
+			ret = PTR_ERR(clk);
+			goto unregister_clocks;
+		}
 		st->clk_data.clk_num++;
 	}
 
-	if ((st->tx_sys_clk_sel || st->tx_out_clk_sel) && !IS_ERR(st->dac_clk)) {
-		clk = jesd204b_gt_clk_register(&pdev->dev,
-					       __clk_get_name(st->dac_clk),
-					       st->clk_data.clk_num, true);
-		if (IS_ERR(clk))
-				return PTR_ERR(clk);
-		st->clk_data.clk_num++;
+	if (st->legacy) {
+		of_clk_add_provider(np, of_clk_src_onecell_get, &st->clk_data);
+	} else {
+		for_each_link_of_gt(st, tmp, gt_link) {
+	        if (!IS_ERR(st->clk_data.clks[tmp]))
+			of_clk_add_provider(gt_link->node, of_clk_src_simple_get,
+					    st->clk_data.clks[tmp]);
+		}
 	}
-	of_clk_add_provider(pdev->dev.of_node,
-			    of_clk_src_onecell_get, &st->clk_data);
-
-	st->version = jesd204b_gt_read(st, ADI_REG_VERSION);
 
 	dev_info(&pdev->dev, "AXI-JESD204B (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,",
 		PCORE_VERSION_MAJOR(st->version),
@@ -733,15 +914,27 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 		PCORE_VERSION_LETTER(st->version),
 		(unsigned long long)mem->start, st->regs);
 
-	if (!of_property_read_bool(pdev->dev.of_node,"adi,no-auto-resync-enable"))
+	if (!of_property_read_bool(np,"adi,no-auto-resync-enable"))
 		schedule_delayed_work(&st->sync_work, HZ);
 
 	return 0;
 
+unregister_clocks:
+	jesd204b_gt_unregister_clocks(st);
+
+remove_sys_files:
+	sysfs_remove_bin_file(&pdev->dev.kobj, &st->bin);
+	device_remove_file(&pdev->dev, &dev_attr_enable);
+	device_remove_file(&pdev->dev, &dev_attr_prescale);
+	device_remove_file(&pdev->dev, &dev_attr_reg_access);
+	device_remove_file(&pdev->dev, &dev_attr_info);
+
 err_dma_free:
-	dma_free_coherent(&pdev->dev, PAGE_ALIGN(st->size),
+	dma_free_coherent(&pdev->dev, PAGE_ALIGN(st->bin.size),
 			  st->buf_virt, st->buf_phys);
-	clk_disable_unprepare(clk);
+
+disable_unprepare:
+	jesd204b_gt_disable_unprepare_clocks(st);
 
 	return ret;
 }
@@ -760,11 +953,18 @@ static int jesd204b_gt_remove(struct platform_device *pdev)
 
 	cancel_delayed_work_sync(&st->sync_work);
 
-	dma_free_coherent(&pdev->dev, PAGE_ALIGN(st->size),
+	sysfs_remove_bin_file(&pdev->dev.kobj, &st->bin);
+	device_remove_file(&pdev->dev, &dev_attr_enable);
+	device_remove_file(&pdev->dev, &dev_attr_prescale);
+	device_remove_file(&pdev->dev, &dev_attr_reg_access);
+	device_remove_file(&pdev->dev, &dev_attr_info);
+
+	dma_free_coherent(&pdev->dev, PAGE_ALIGN(st->bin.size),
 			  st->buf_virt, st->buf_phys);
 
-	clk_disable_unprepare(st->clk);
-	clk_put(st->clk);
+	jesd204b_gt_unregister_clock_provider(pdev);
+	jesd204b_gt_unregister_clocks(st);
+	jesd204b_gt_disable_unprepare_clocks(st);
 
 	return 0;
 }
