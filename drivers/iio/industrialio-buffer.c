@@ -803,7 +803,7 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	}
 
 	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
-		ret = iio_buffer_disable(buffer, indio_dev);
+		ret2 = iio_buffer_disable(buffer, indio_dev);
 		if (ret2 && !ret)
 			ret = ret2;
 	}
