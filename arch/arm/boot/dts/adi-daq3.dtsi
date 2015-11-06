@@ -36,8 +36,8 @@
 		adi,rzero = <RZERO_3250_OHM>;
 		adi,cpole1 = <CPOLE1_16_PF>;
 
-		ad9528_0_c1: channel@1 {
-			reg = <1>;
+		ad9528_0_c13: channel@13 {
+			reg = <13>;
 			adi,extended-name = "ADC_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
@@ -124,7 +124,7 @@
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
 
 		/* Fix for an early DAQ3 design bug (swapped SERDIN+ / SERDIN- pins) */
-		adi,lanes2-3-swap-data;
+		//adi,lanes2-3-swap-data;
 	};
 
 	adc0_ad9680: ad9680@2 {
@@ -138,7 +138,7 @@
 		adi,spi-3wire-enable;
 		reg = <2>;
 
-		clocks = <&axi_ad9680_jesd>, <&clk0_ad9528 1>, <&clk0_ad9528 5>;
+		clocks = <&axi_ad9680_jesd>, <&clk0_ad9528 13>, <&clk0_ad9528 5>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
 };
