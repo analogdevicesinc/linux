@@ -361,7 +361,6 @@ static irqreturn_t xiic_process(int irq, void *dev_id)
 {
 	struct xiic_i2c *i2c = dev_id;
 	u32 pend, isr, ier;
-	unsigned long flags;
 	u32 clr = 0;
 
 	/* Get the interrupt Status from the IPIF. There is no clearing of
@@ -664,9 +663,6 @@ static void __xiic_start_xfer(struct xiic_i2c *i2c)
 
 static void xiic_start_xfer(struct xiic_i2c *i2c)
 {
-	unsigned long flags;
-
-
 	__xiic_start_xfer(i2c);
 }
 
