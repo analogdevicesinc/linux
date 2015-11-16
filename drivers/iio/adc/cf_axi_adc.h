@@ -316,6 +316,12 @@ enum adc_data_sel {
 
 #define CHIPID_AD9234			0xCE
 
+/*
+ * Analog Devices AD9649
+ */
+
+#define CHIPID_AD9649			0x6F
+
 /* debugfs direct register access */
 #define DEBUGFS_DRA_PCORE_REG_MAGIC	0x80000000
 
@@ -335,6 +341,7 @@ enum {
 	ID_AD9652,
 	ID_AD9234,
 	ID_AD9680_x2,
+	ID_AD9649,
 };
 
 struct axiadc_chip_info {
