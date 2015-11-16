@@ -55,6 +55,7 @@ struct ad9528_channel_spec {
  * @pll1_bypass_en: Bypass PLL1 - Single loop mode
  * @ref_mode: Reference selection mode.
  * @sysref_src: SYSREF pattern generator clock source
+ * @sysref_pattern_mode: SYSREF pattern mode
  * @sysref_k_div: SYSREF pattern generator K divider
  * @sysref_nshot_mode: SYSREF pattern NSHOT mode
  * @sysref_req_trigger_mode: SYSREF request trigger mode
@@ -107,6 +108,7 @@ struct ad9528_platform_data {
 	/* Reference */
 	unsigned char			ref_mode;
 	unsigned char			sysref_src;
+	unsigned char			sysref_pattern_mode;
 	unsigned short			sysref_k_div;
 	unsigned char			sysref_nshot_mode;
 	unsigned char			sysref_req_trigger_mode;
