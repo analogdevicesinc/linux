@@ -1205,6 +1205,11 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	pdata->ref_mode = tmp;
 	of_property_read_u32(np, "adi,sysref-src", &tmp);
 	pdata->sysref_src = tmp;
+
+	tmp = SYSREF_PATTERN_CONTINUOUS;
+	of_property_read_u32(np, "adi,sysref-pattern-mode", &tmp);
+	pdata->sysref_pattern_mode = tmp;
+
 	of_property_read_u32(np, "adi,sysref-k-div", &tmp);
 	pdata->sysref_k_div = tmp;
 
