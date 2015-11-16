@@ -952,7 +952,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	sysref_ctrl = AD9528_SYSREF_PATTERN_MODE(SYSREF_PATTERN_CONTINUOUS) |
+	sysref_ctrl = AD9528_SYSREF_PATTERN_MODE(pdata->sysref_pattern_mode) |
 			AD9528_SYSREF_SOURCE(pdata->sysref_src);
 	ret = ad9528_write(indio_dev, AD9528_SYSREF_CTRL, sysref_ctrl);
 	if (ret < 0)
@@ -1053,6 +1053,11 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	pdata->ref_mode = tmp;
 	of_property_read_u32(np, "adi,sysref-src", &tmp);
 	pdata->sysref_src = tmp;
+
+	tmp = SYSREF_PATTERN_CONTINUOUS;
+	of_property_read_u32(np, "adi,sysref-pattern-mode", &tmp);
+	pdata->sysref_pattern_mode = tmp;
+
 	of_property_read_u32(np, "adi,sysref-k-div", &tmp);
 	pdata->sysref_k_div = tmp;
 

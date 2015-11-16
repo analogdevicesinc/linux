@@ -55,6 +55,7 @@ struct ad9528_channel_spec {
  * @pll1_bypass_en: Bypass PLL1 - Single loop mode
  * @ref_mode: Reference selection mode.
  * @sysref_src: SYSREF pattern generator clock source
+ * @sysref_pattern_mode: SYSREF pattern mode
  * @sysref_k_div: SYSREF pattern generator K divider
  * @pll2_charge_pump_current_nA: Magnitude of PLL2 charge pump current (nA).
  * @pll2_ndiv_a_cnt: PLL2 Feedback N-divider, A Counter, range 0..4.
@@ -104,6 +105,7 @@ struct ad9528_platform_data {
 	/* Reference */
 	unsigned char			ref_mode;
 	unsigned char			sysref_src;
+	unsigned char			sysref_pattern_mode;
 	unsigned short			sysref_k_div;
 
 	/* PLL2 Setting */
