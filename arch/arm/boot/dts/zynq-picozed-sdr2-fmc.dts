@@ -302,7 +302,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-//		compatible = "ad9517-3";
+		compatible = "ad9517-3";
 		reg = <1>;
 		spi-max-frequency = <10000000>;
 		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;
