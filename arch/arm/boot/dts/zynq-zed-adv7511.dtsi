@@ -38,13 +38,12 @@
 		};
 
 		axi_vdma_0: axivdma@43000000 {
-			compatible = "xlnx,axi-vdma";
+			compatible = "xlnx,axi-vdma-1.00.a";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#dma-cells = <1>;
 			#dma-channels = <1>;
 			reg = <0x43000000 0x1000>;
-			xlnx,include-sg = <0x0>;
 			xlnx,num-fstores = <0x3>;
 			dma-channel@43000000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
