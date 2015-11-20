@@ -162,17 +162,6 @@ static void xilinx_spi_rx(struct xilinx_spi *xspi)
 	xspi->rx_ptr += xspi->bytes_per_word;
 }
 
-static void xilinx_spi_wait_and_rx(struct xilinx_spi *xspi)
-{
-		unsigned int sr;
-
-		do {
-			sr = xspi->read_fn(xspi->regs + XSPI_SR_OFFSET);
-		} while (sr & XSPI_SR_RX_EMPTY_MASK);
-
-		xilinx_spi_rx(xspi);
-}
-
 static void xspi_init_hw(struct xilinx_spi *xspi)
 {
 	void __iomem *regs_base = xspi->regs;
@@ -281,11 +270,11 @@ static int xilinx_spi_txrx_bufs(struct spi_device *spi, struct spi_transfer *t)
 
 	while (remaining_words) {
 		int n_words, tx_words, rx_words;
+		u32 sr;
 
 		n_words = min(remaining_words, xspi->buffer_size);
-		rx_words = n_words;
-		tx_words = n_words;
 
+		tx_words = n_words;
 		while (tx_words--)
 			xilinx_spi_tx(xspi);
 
@@ -296,22 +285,32 @@ static int xilinx_spi_txrx_bufs(struct spi_device *spi, struct spi_transfer *t)
 		if (use_irq) {
 			xspi->write_fn(cr, xspi->regs + XSPI_CR_OFFSET);
 			wait_for_completion(&xspi->done);
-
-			/* A transmit has just completed. Process received data and
-			 * check for more data to transmit. Always inhibit the
-			 * transmitter while the Isr refills the transmit register/FIFO,
-			 * or make sure it is stopped if we're done.
+			/* A transmit has just completed. Process received data
+			 * and check for more data to transmit. Always inhibit
+			 * the transmitter while the Isr refills the transmit
+			 * register/FIFO, or make sure it is stopped if we're
+			 * done.
 			 */
 			xspi->write_fn(cr | XSPI_CR_TRANS_INHIBIT,
-			       xspi->regs + XSPI_CR_OFFSET);
+				       xspi->regs + XSPI_CR_OFFSET);
+			sr = XSPI_SR_TX_EMPTY_MASK;
+		} else
+			sr = xspi->read_fn(xspi->regs + XSPI_SR_OFFSET);
 
-			/* Read out all the data from the Rx FIFO */
-			while (rx_words--)
+		/* Read out all the data from the Rx FIFO */
+		rx_words = n_words;
+		while (rx_words) {
+			if ((sr & XSPI_SR_TX_EMPTY_MASK) && (rx_words > 1)) {
 				xilinx_spi_rx(xspi);
-		} else {
-			/* Read data when it becomes available */
-			while (rx_words--)
-				xilinx_spi_wait_and_rx(xspi);
+				rx_words--;
+				continue;
+			}
+
+			sr = xspi->read_fn(xspi->regs + XSPI_SR_OFFSET);
+			if (!(sr & XSPI_SR_RX_EMPTY_MASK)) {
+				xilinx_spi_rx(xspi);
+				rx_words--;
+			}
 		}
 
 		remaining_words -= n_words;

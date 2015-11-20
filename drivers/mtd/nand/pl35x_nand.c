@@ -366,7 +366,7 @@ static int pl35x_nand_write_oob(struct mtd_info *mtd, struct nand_chip *chip,
 	chip->cmdfunc(mtd, NAND_CMD_PAGEPROG, -1, -1);
 	status = chip->waitfunc(mtd, chip);
 
-	return status & NAND_STATUS_FAIL ? -EIO : 0;
+	return (status & NAND_STATUS_FAIL) ? -EIO : 0;
 }
 
 /**
@@ -726,7 +726,7 @@ static void pl35x_nand_cmd_function(struct mtd_info *mtd, unsigned int command,
 	else
 		end_cmd = curr_cmd->end_cmd;
 
-	if ((command == NAND_CMD_READ0) && (command == NAND_CMD_SEQIN))
+	if (command == NAND_CMD_READ0 || command == NAND_CMD_SEQIN)
 		addrcycles = xnand->row_addr_cycles + xnand->col_addr_cycles;
 	else if (command == NAND_CMD_ERASE1)
 		addrcycles = xnand->row_addr_cycles;

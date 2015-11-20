@@ -302,11 +302,13 @@ static void macb_handle_link_change(struct net_device *dev)
 
 	spin_unlock_irqrestore(&bp->lock, flags);
 
-	if (!IS_ERR(bp->tx_clk))
-		macb_set_tx_clk(bp->tx_clk, phydev->speed, dev);
-
 	if (status_change) {
 		if (phydev->link) {
+			/* Update the TX clock rate if and only if the link is
+			 * up and there has been a link change.
+			 */
+			macb_set_tx_clk(bp->tx_clk, phydev->speed, dev);
+
 			netif_carrier_on(dev);
 			netdev_info(dev, "link up (%d/%s)\n",
 				    phydev->speed,
@@ -1925,6 +1927,8 @@ static void macb_init_hw(struct macb *bp)
 	macb_set_hwaddr(bp);
 
 	config = macb_mdc_clk_div(bp);
+	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII)
+		config |= GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL);
 	config |= macb_readl(bp, NCFGR) & (3 << 21);
 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
 	config |= MACB_BIT(PAE);		/* PAuse Enable */
@@ -2852,6 +2856,9 @@ static int macb_probe(struct platform_device *pdev)
 #else
 		macb_or_gem_writel(bp, USRIO, 0);
 #endif
+	else if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII)
+		macb_or_gem_writel(bp, NCFGR, gem_readl(bp, NCFGR) |
+				   GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL));
 	else
 #if defined(CONFIG_ARCH_AT91)
 		macb_or_gem_writel(bp, USRIO, MACB_BIT(CLKEN));
