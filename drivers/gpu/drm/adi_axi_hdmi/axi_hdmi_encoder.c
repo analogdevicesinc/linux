@@ -264,10 +264,14 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 			writel(AXI_HDMI_RESET_ENABLE, private->base + AXI_HDMI_REG_RESET);
 		else
 			writel(AXI_HDMI_LEGACY_CTRL_ENABLE, private->base + AXI_HDMI_LEGACY_REG_CTRL);
-		edid = adv7511_get_edid(encoder);
+
+		if ((!connector) || (!connector->edid_blob_ptr))
+			edid = NULL;
+		else
+			edid = (struct edid *)connector->edid_blob_ptr->data;
+
 		if (edid) {
 			config.hdmi_mode = drm_detect_hdmi_monitor(edid);
-			kfree(edid);
 		} else {
 			config.hdmi_mode = false;
 		}
@@ -338,7 +342,7 @@ static void axi_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 	h_de_max = h_de_min + mode->hdisplay;
 	v_de_min = mode->vtotal - mode->vsync_start;
 	v_de_max = v_de_min + mode->vdisplay;
-	
+
 	switch (private->version) {
 	case AXI_HDMI:
 		val = (mode->hdisplay << 16) | mode->htotal;
