@@ -3020,6 +3020,8 @@ struct auxadc_control {
 };
 
 struct gpo_control {
+	u32 gpo_manual_mode_enable_mask;
+	bool gpo_manual_mode_en;
 	bool gpo0_inactive_state_high_en;
 	bool gpo1_inactive_state_high_en;
 	bool gpo2_inactive_state_high_en;
@@ -3296,7 +3298,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[175];
+	struct ad9361_debugfs_entry debugfs_entry[177];
 	struct bin_attribute 	bin;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
