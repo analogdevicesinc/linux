@@ -451,6 +451,4 @@ struct adv7511 {
 	int gpio_pd;
 };
 
-struct edid *adv7511_get_edid(struct drm_encoder *encoder);
-
 #endif

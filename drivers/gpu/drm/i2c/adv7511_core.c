@@ -472,18 +472,6 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 	return count;
 }
 
-struct edid *adv7511_get_edid(struct drm_encoder *encoder)
-{
-	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
-
-	if (!adv7511->edid)
-		return NULL;
-
-	return kmemdup(adv7511->edid, sizeof(*adv7511->edid) +
-		       adv7511->edid->extensions * 128, GFP_KERNEL);
-}
-EXPORT_SYMBOL_GPL(adv7511_get_edid);
-
 static void adv7511_encoder_dpms(struct drm_encoder *encoder, int mode)
 {
 	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
