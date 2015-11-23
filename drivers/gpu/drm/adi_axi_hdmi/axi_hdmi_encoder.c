@@ -296,8 +296,8 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 				config.avi_infoframe.colorspace = HDMI_COLORSPACE_RGB;
 			}
 		}
-
-		sfuncs->set_config(encoder, &config);
+		if (sfuncs && sfuncs->set_config)
+			sfuncs->set_config(encoder, &config);
 		break;
 	default:
 		if (private->version == AXI_HDMI)
