@@ -43,14 +43,13 @@ static int xilinxphy_read_status(struct phy_device *phydev)
 
 	if (AUTONEG_ENABLE == phydev->autoneg) {
 		status = phy_read(phydev, MII_LPA);
-		status = status & MII_PHY_STATUS_SPD_MASK;
 
 		if (status & MII_PHY_STATUS_FULLDUPLEX)
 			phydev->duplex = DUPLEX_FULL;
 		else
 			phydev->duplex = DUPLEX_HALF;
 
-		switch (status) {
+		switch (status & MII_PHY_STATUS_SPD_MASK) {
 		case MII_PHY_STATUS_1000:
 			phydev->speed = SPEED_1000;
 			break;
@@ -93,10 +92,30 @@ static int xilinxphy_read_status(struct phy_device *phydev)
 	return 0;
 }
 
+static int xilinxphy_of_init(struct phy_device *phydev)
+{
+	struct device *dev = &phydev->dev;
+	struct device_node *of_node = dev->of_node;
+	u32 phytype;
+
+	if (!IS_ENABLED(CONFIG_OF_MDIO))
+		return 0;
+
+	if (!of_node)
+		return -ENODEV;
+
+	if (!of_property_read_u32(of_node, "xlnx,phy-type", &phytype))
+		if (phytype == XAE_PHY_TYPE_1000BASE_X)
+			phydev->dev_flags |= XAE_PHY_TYPE_1000BASE_X;
+
+	return 0;
+}
+
 static int xilinxphy_config_init(struct phy_device *phydev)
 {
 	int temp;
 
+	xilinxphy_of_init(phydev);
 	temp = phy_read(phydev, MII_BMCR);
 	temp &= XPCSPMA_PHY_CTRL_ISOLATE_DISABLE;
 	phy_write(phydev, MII_BMCR, temp);
