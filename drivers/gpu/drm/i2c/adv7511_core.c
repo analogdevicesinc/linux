@@ -680,8 +680,8 @@ static const struct regmap_config adv7511_regmap_config = {
 };
 
 /*
-	adi,input-id - 
-		0x00: 
+	adi,input-id -
+		0x00:
 		0x01:
 		0x02:
 		0x03:
@@ -696,7 +696,7 @@ static const struct regmap_config adv7511_regmap_config = {
 		0x00: Evently
 		0x01: Right
 		0x02: Left
-	adi,up-conversion - 
+	adi,up-conversion -
 		0x00: zero-order up conversion
 		0x01: first-order up conversion
 	adi,timing-generation-sequence -
@@ -725,7 +725,7 @@ static const struct regmap_config adv7511_regmap_config = {
 		0x02: Use input style 1
 		0x01: Use input style 2
 		0x03: Use Input style 3
-	adi,input-color-depth - Selects the input format color depth 
+	adi,input-color-depth - Selects the input format color depth
 		0x03: 8-bit per channel
 		0x01: 10-bit per channel
 		0x02: 12-bit per channel
