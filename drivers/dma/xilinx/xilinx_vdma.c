@@ -1300,6 +1300,7 @@ static int xilinx_vdma_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&xdev->common.channels);
 	dma_cap_set(DMA_SLAVE, xdev->common.cap_mask);
 	dma_cap_set(DMA_PRIVATE, xdev->common.cap_mask);
+	dma_cap_set(DMA_INTERLEAVE, xdev->common.cap_mask);
 
 	xdev->common.device_alloc_chan_resources =
 				xilinx_vdma_alloc_chan_resources;
