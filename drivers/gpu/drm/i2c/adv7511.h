@@ -372,7 +372,7 @@ struct adv7511_link_config {
 
 /**
 	adi,input-style = 1|2|3;
-	adi,input-id = 
+	adi,input-id =
 		"24-bit-rgb444-ycbcr444",
 		"16-20-24-bit-ycbcr422-separate-sync" |
 		"16-20-24-bit-ycbcr422-embedded-sync" |
@@ -450,7 +450,5 @@ struct adv7511 {
 
 	int gpio_pd;
 };
-
-struct edid *adv7511_get_edid(struct drm_encoder *encoder);
 
 #endif

@@ -188,7 +188,7 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	if (private->version == AXI_HDMI_LEGACY &&
 		of_property_read_bool(np, "adi,embedded-sync"))
 		private->version = AXI_HDMI_LEGACY_ES;
-	
+
 	private->encoder_slave = of_find_i2c_device_by_node(slave_node);
 	of_node_put(slave_node);
 
