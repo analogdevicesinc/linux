@@ -19,6 +19,7 @@
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_encoder_slave.h>
+#include <drm/drm_edid.h>
 
 #include "axi_hdmi_drv.h"
 
@@ -265,10 +266,10 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 		else
 			writel(AXI_HDMI_LEGACY_CTRL_ENABLE, private->base + AXI_HDMI_LEGACY_REG_CTRL);
 
-		if ((!connector) || (!connector->edid_blob_ptr))
+		if (!connector)
 			edid = NULL;
 		else
-			edid = (struct edid *)connector->edid_blob_ptr->data;
+			edid = drm_connector_get_edid(connector);
 
 		if (edid) {
 			config.hdmi_mode = drm_detect_hdmi_monitor(edid);
