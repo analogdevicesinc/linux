@@ -20,6 +20,7 @@ endif
 # hardware specific clock types
 # please keep this section sorted lexicographically by file path name
 obj-$(CONFIG_SND_BCM2708_SOC_ALLO_BOSS_DAC)	+= clk-allo-dac.o
+obj-$(CONFIG_COMMON_CLK_ADF4360)	+= clk-adf4360.o
 obj-$(CONFIG_COMMON_CLK_ALTERA_A10_FPLL) += clk-altera-a10-fpll.o
 obj-$(CONFIG_MACH_ASM9260)		+= clk-asm9260.o
 obj-$(CONFIG_COMMON_CLK_AXI_CLKGEN)	+= clk-axi-clkgen.o
