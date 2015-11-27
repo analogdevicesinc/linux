@@ -130,6 +130,8 @@
 	adi,rx-out-clk-select = <2>;
 	adi,use-cpll-enable;
 	adi,no-auto-resync-enable;
+	adi,lanes = <8>;
+
 };
 
 &axi_ad9625_1_gt {
@@ -142,6 +144,7 @@
 	adi,rx-out-clk-select = <2>;
 	adi,use-cpll-enable;
 	adi,no-auto-resync-enable;
+	adi,lanes = <8>;
 };
 
 &axi_ad9625_0_jesd {

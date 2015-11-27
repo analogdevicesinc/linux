@@ -74,6 +74,7 @@
 
 		adi,rx-sys-clk-select = <3>;
 		adi,rx-out-clk-select = <4>;
+		adi,lanes = <8>;
 
 		xlnx,pcore-cpll-fbdiv = <0x2>;
 		xlnx,pcore-device-type = <0x0>;

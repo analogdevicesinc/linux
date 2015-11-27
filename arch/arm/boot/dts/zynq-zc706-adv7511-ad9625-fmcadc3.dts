@@ -126,5 +126,6 @@
 		adi,rx-sys-clk-select = <0>;
 		adi,rx-out-clk-select = <2>;
 		adi,use-cpll-enable;
+		adi,lanes = <8>;
 	} ;
 };

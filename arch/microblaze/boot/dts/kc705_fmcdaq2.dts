@@ -61,6 +61,7 @@
 	xlnx,subclass = <1>;
 	xlnx,lanesync-enable;
 	xlnx,scramble-enable;
+	xlnx,lanes = <0x4>;
 };
 
 &axi_ad9680_core {
