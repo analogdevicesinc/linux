@@ -953,6 +953,7 @@ static const struct adp5589_kpad_platform_data adp5589_default_pdata = {
 static int adp5589_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
+	unsigned int dev_id;
 	struct adp5589_kpad *kpad;
 	const struct adp5589_kpad_platform_data *pdata =
 		dev_get_platdata(&client->dev);
@@ -974,7 +975,21 @@ static int adp5589_probe(struct i2c_client *client,
 
 	kpad->client = client;
 
-	switch (id->driver_data) {
+	if (id) {
+		dev_id = id->driver_data;
+	} else if (client->dev.of_node) {
+		const struct of_device_id *of_id;
+
+		of_id = of_match_node(client->dev.driver->of_match_table,
+			client->dev.of_node);
+		if (!of_id)
+			return -ENODEV;
+		dev_id = (unsigned int)of_id->data;
+	} else {
+		return -ENODEV;
+	}
+
+	switch (dev_id) {
 	case ADP5585_02:
 		kpad->support_row5 = true;
 		fallthrough;
@@ -1046,6 +1061,13 @@ static int __maybe_unused adp5589_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(adp5589_dev_pm_ops, adp5589_suspend, adp5589_resume);
 
+static const struct of_device_id adp5589_of_match[] = {
+	{ .compatible = "adi,adp5585", .data = (void *)ADP5585_01 },
+	{ .compatible = "adi,adp5585-02", .data = (void *)ADP5585_02 },
+	{ .compatible = "adi,adp5589", .data = (void *)ADP5589 },
+	{}
+};
+
 static const struct i2c_device_id adp5589_id[] = {
 	{"adp5589-keys", ADP5589},
 	{"adp5585-keys", ADP5585_01},
@@ -1059,6 +1081,7 @@ static struct i2c_driver adp5589_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.pm = &adp5589_dev_pm_ops,
+		.of_match_table = adp5589_of_match,
 	},
 	.probe = adp5589_probe,
 	.id_table = adp5589_id,
