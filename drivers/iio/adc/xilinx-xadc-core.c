@@ -858,6 +858,8 @@ static int xadc_read_raw(struct iio_dev *indio_dev,
 			case XADC_REG_VCCPINT:
 			case XADC_REG_VCCPAUX:
 			case XADC_REG_VCCO_DDR:
+			case XADC_REG_VREFP:
+			case XADC_REG_VREFN:
 				*val = 3000;
 				break;
 			default:
@@ -982,7 +984,7 @@ static const struct iio_event_spec xadc_voltage_events[] = {
 	}, \
 }
 
-#define XADC_CHAN_VOLTAGE(_chan, _scan_index, _addr, _ext, _alarm) { \
+#define XADC_CHAN_VOLTAGE(_chan, _scan_index, _addr, _ext, _alarm, _sign) { \
 	.type = IIO_VOLTAGE, \
 	.indexed = 1, \
 	.channel = (_chan), \
@@ -994,7 +996,7 @@ static const struct iio_event_spec xadc_voltage_events[] = {
 	.num_event_specs = (_alarm) ? ARRAY_SIZE(xadc_voltage_events) : 0, \
 	.scan_index = (_scan_index), \
 	.scan_type = { \
-		.sign = 'u', \
+		.sign = (_sign), \
 		.realbits = 12, \
 		.storagebits = 16, \
 		.shift = 4, \
@@ -1005,31 +1007,39 @@ static const struct iio_event_spec xadc_voltage_events[] = {
 
 static const struct iio_chan_spec xadc_channels[] = {
 	XADC_CHAN_TEMP(0, 8, XADC_REG_TEMP),
-	XADC_CHAN_VOLTAGE(0, 9, XADC_REG_VCCINT, "vccint", true),
-	XADC_CHAN_VOLTAGE(1, 10, XADC_REG_VCCINT, "vccaux", true),
-	XADC_CHAN_VOLTAGE(2, 14, XADC_REG_VCCBRAM, "vccbram", true),
-	XADC_CHAN_VOLTAGE(3, 5, XADC_REG_VCCPINT, "vccpint", true),
-	XADC_CHAN_VOLTAGE(4, 6, XADC_REG_VCCPAUX, "vccpaux", true),
-	XADC_CHAN_VOLTAGE(5, 7, XADC_REG_VCCO_DDR, "vccoddr", true),
-	XADC_CHAN_VOLTAGE(6, 12, XADC_REG_VREFP, "vrefp", false),
-	XADC_CHAN_VOLTAGE(7, 13, XADC_REG_VREFN, "vrefn", false),
-	XADC_CHAN_VOLTAGE(8, 11, XADC_REG_VPVN, NULL, false),
-	XADC_CHAN_VOLTAGE(9, 16, XADC_REG_VAUX(0), NULL, false),
-	XADC_CHAN_VOLTAGE(10, 17, XADC_REG_VAUX(1), NULL, false),
-	XADC_CHAN_VOLTAGE(11, 18, XADC_REG_VAUX(2), NULL, false),
-	XADC_CHAN_VOLTAGE(12, 19, XADC_REG_VAUX(3), NULL, false),
-	XADC_CHAN_VOLTAGE(13, 20, XADC_REG_VAUX(4), NULL, false),
-	XADC_CHAN_VOLTAGE(14, 21, XADC_REG_VAUX(5), NULL, false),
-	XADC_CHAN_VOLTAGE(15, 22, XADC_REG_VAUX(6), NULL, false),
-	XADC_CHAN_VOLTAGE(16, 23, XADC_REG_VAUX(7), NULL, false),
-	XADC_CHAN_VOLTAGE(17, 24, XADC_REG_VAUX(8), NULL, false),
-	XADC_CHAN_VOLTAGE(18, 25, XADC_REG_VAUX(9), NULL, false),
-	XADC_CHAN_VOLTAGE(19, 26, XADC_REG_VAUX(10), NULL, false),
-	XADC_CHAN_VOLTAGE(20, 27, XADC_REG_VAUX(11), NULL, false),
-	XADC_CHAN_VOLTAGE(21, 28, XADC_REG_VAUX(12), NULL, false),
-	XADC_CHAN_VOLTAGE(22, 29, XADC_REG_VAUX(13), NULL, false),
-	XADC_CHAN_VOLTAGE(23, 30, XADC_REG_VAUX(14), NULL, false),
-	XADC_CHAN_VOLTAGE(24, 31, XADC_REG_VAUX(15), NULL, false),
+	XADC_CHAN_VOLTAGE(0, 9, XADC_REG_VCCINT, "vccint", true, 'u'),
+	XADC_CHAN_VOLTAGE(1, 10, XADC_REG_VCCAUX, "vccaux", true, 'u'),
+	XADC_CHAN_VOLTAGE(2, 14, XADC_REG_VCCBRAM, "vccbram", true, 'u'),
+	XADC_CHAN_VOLTAGE(3, 5, XADC_REG_VCCPINT, "vccpint", true, 'u'),
+	XADC_CHAN_VOLTAGE(4, 6, XADC_REG_VCCPAUX, "vccpaux", true, 'u'),
+	XADC_CHAN_VOLTAGE(5, 7, XADC_REG_VCCO_DDR, "vccoddr", true, 'u'),
+	XADC_CHAN_VOLTAGE(6, 12, XADC_REG_VREFP, "vrefp", false, 'u'),
+	XADC_CHAN_VOLTAGE(7, 13, XADC_REG_VREFN, "vrefn", false, 's'),
+	XADC_CHAN_VOLTAGE(8, 11, XADC_REG_VPVN, NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(9, 16, XADC_REG_VAUX(0), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(10, 17, XADC_REG_VAUX(1), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(11, 18, XADC_REG_VAUX(2), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(12, 19, XADC_REG_VAUX(3), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(13, 20, XADC_REG_VAUX(4), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(14, 21, XADC_REG_VAUX(5), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(15, 22, XADC_REG_VAUX(6), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(16, 23, XADC_REG_VAUX(7), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(17, 24, XADC_REG_VAUX(8), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(18, 25, XADC_REG_VAUX(9), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(19, 26, XADC_REG_VAUX(10), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(20, 27, XADC_REG_VAUX(11), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(21, 28, XADC_REG_VAUX(12), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(22, 29, XADC_REG_VAUX(13), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(23, 30, XADC_REG_VAUX(14), NULL, false, 'u'),
+	XADC_CHAN_VOLTAGE(24, 31, XADC_REG_VAUX(15), NULL, false, 'u'),
+};
+
+static const char * const xadc_aux_names[] = {
+	"vpvn",
+	"vaux0", "vaux1", "vaux2", "vaux3",
+	"vaux4", "vaux5", "vaux6", "vaux7",
+	"vaux8", "vaux9", "vaux10", "vaux11",
+	"vaux12", "vaux13", "vaux14", "vaux15"
 };
 
 static const struct iio_info xadc_info = {
@@ -1126,6 +1136,7 @@ static int xadc_parse_dt(struct iio_dev *indio_dev, struct device_node *np,
 				chan->scan_index = 15 + reg;
 				chan->address = XADC_REG_VAUX(reg - 1);
 			}
+			chan->extend_name = xadc_aux_names[reg];
 			num_channels++;
 			chan++;
 		}
