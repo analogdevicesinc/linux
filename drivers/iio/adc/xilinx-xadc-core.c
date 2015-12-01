@@ -1034,6 +1034,14 @@ static const struct iio_chan_spec xadc_channels[] = {
 	XADC_CHAN_VOLTAGE(24, 31, XADC_REG_VAUX(15), NULL, false, 'u'),
 };
 
+static const char * const xadc_aux_names[] = {
+	"vpvn",
+	"vaux0", "vaux1", "vaux2", "vaux3",
+	"vaux4", "vaux5", "vaux6", "vaux7",
+	"vaux8", "vaux9", "vaux10", "vaux11",
+	"vaux12", "vaux13", "vaux14", "vaux15"
+};
+
 static const struct iio_info xadc_info = {
 	.read_raw = &xadc_read_raw,
 	.write_raw = &xadc_write_raw,
@@ -1128,6 +1136,7 @@ static int xadc_parse_dt(struct iio_dev *indio_dev, struct device_node *np,
 				chan->scan_index = 15 + reg;
 				chan->address = XADC_REG_VAUX(reg - 1);
 			}
+			chan->extend_name = xadc_aux_names[reg];
 			num_channels++;
 			chan++;
 		}
