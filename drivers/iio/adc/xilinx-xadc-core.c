@@ -858,6 +858,8 @@ static int xadc_read_raw(struct iio_dev *indio_dev,
 			case XADC_REG_VCCPINT:
 			case XADC_REG_VCCPAUX:
 			case XADC_REG_VCCO_DDR:
+			case XADC_REG_VREFP:
+			case XADC_REG_VREFN:
 				*val = 3000;
 				break;
 			default:
