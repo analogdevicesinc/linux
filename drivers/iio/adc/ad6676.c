@@ -414,16 +414,17 @@ static int ad6676_shuffle_setup(struct axiadc_converter *conv, struct ad6676_shu
 static int ad6676_calibrate(struct axiadc_converter *conv, unsigned cal)
 {
 	struct spi_device *spi = conv->spi;
-	int tout_i = 2, tout_o = 2;
+	int tout_i, tout_o = 2;
 	u32 done;
 
 	do {
 		ad6676_spi_write(spi, AD6676_CAL_CMD, cal);
+		tout_i = 2;
 
 		do {
 			mdelay(250);
 			done = ad6676_spi_read(spi, AD6676_CAL_DONE) & CAL_DONE;
-		} while (!done && tout_i--);
+		} while (tout_i-- && !done);
 
 		if (!done) {
 			dev_dbg(&spi->dev, "CAL timeout (0x%X)\n", cal);
