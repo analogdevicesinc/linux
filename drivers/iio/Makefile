@@ -26,6 +26,7 @@ obj-y += health/
 obj-y += humidity/
 obj-y += imu/
 obj-y += light/
+obj-y += logic/
 obj-y += magnetometer/
 obj-y += orientation/
 obj-y += potentiometer/
