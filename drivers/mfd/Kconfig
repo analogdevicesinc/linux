@@ -401,6 +401,20 @@ config MFD_MXC_HDMI
 	  This is the core driver for the Freescale i.MX6 on-chip HDMI.
 	  This MFD driver connects with the video and audio drivers for HDMI.
 
+config MFD_PF1550
+	tristate "Freescale Semiconductor PF1550 PMIC Support"
+	depends on I2C=y
+	select MFD_CORE
+	select REGMAP_I2C
+	select REGMAP_IRQ
+	help
+	  Say yes here to add support for Freescale Semiconductor PF1550.
+	  This is a companion Power Management IC with regulators, ONKEY,
+	  and charger control on chip.
+	  This driver provides common support for accessing the device;
+	  additional drivers must be enabled in order to use the functionality
+	  of the device.
+
 config MFD_HI6421_PMIC
 	tristate "HiSilicon Hi6421 PMU/Codec IC"
 	depends on OF
