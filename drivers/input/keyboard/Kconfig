@@ -438,6 +438,14 @@ config KEYBOARD_SNVS_PWRKEY
 	  To compile this driver as a module, choose M here; the
 	  module will be called snvs_pwrkey.
 
+config KEYBOARD_PF1550_ONKEY
+	tristate "PF1550 OnKey Driver"
+	depends on MFD_PF1550
+	depends on OF
+	help
+	  This is onkey driver for PF1550 pmic, onkey can trigger release
+	  and 1s(push hold), 2s, 3s, 4s, 8s interrupt for long press detect
+
 config KEYBOARD_IMX
 	tristate "IMX keypad support"
 	depends on ARCH_MXC
