@@ -647,6 +647,13 @@ config REGULATOR_PV88090
 	  Say y here to support the voltage regulators and convertors
 	  on PV88090
 
+config REGULATOR_PF1550
+	tristate "Freescale PF1550 regulator"
+	depends on MFD_PF1550
+	help
+	  This driver controls a PF1550 regulator via I2C bus.
+	  The regulators include three switch and three ldo.
+
 config REGULATOR_PWM
 	tristate "PWM voltage regulator"
 	depends on PWM
