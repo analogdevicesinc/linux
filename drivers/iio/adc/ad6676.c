@@ -996,8 +996,8 @@ static int ad6676_gpio_config(struct axiadc_converter *conv)
 		board_cfg[4].value = 1;
 		break;
 	case 24:
-		board_cfg[3].value = 0;
-		board_cfg[4].value = 1;
+		board_cfg[3].value = 1;
+		board_cfg[4].value = 0;
 		break;
 	case 32:
 		board_cfg[3].value = 0;
