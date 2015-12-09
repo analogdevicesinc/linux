@@ -497,12 +497,12 @@ static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 	ipg = of_clk_get(dev->of_node, pu_clks);
 
 	/* Get disp domain clks */
-	for (k = 0, i = pu_clks + ipg_clks; i < pu_clks + ipg_clks + disp_clks;
-		i++, k++) {
+	for (i = pu_clks + ipg_clks; i < pu_clks + ipg_clks + disp_clks;
+		i++) {
 		clk = of_clk_get(dev->of_node, i);
 		if (IS_ERR(clk))
 			break;
-		disp_domain->clk[k] = clk;
+		disp_domain->clk[k++] = clk;
 	}
 	disp_domain->num_clks = k;
 
