@@ -17,6 +17,7 @@ obj-$(CONFIG_AD7791) += ad7791.o
 obj-$(CONFIG_AD7793) += ad7793.o
 obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD799X) += ad799x.o
+obj-$(CONFIG_AD9963) += ad9963.o
 obj-$(CONFIG_ADM1177) += adm1177.o
 obj-$(CONFIG_ASPEED_ADC) += aspeed_adc.o
 
