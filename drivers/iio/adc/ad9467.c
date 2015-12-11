@@ -562,6 +562,11 @@ static const char *const testmodes[] = {
 	[TESTMODE_PN23_SEQ] = "pn_long",
 	[TESTMODE_PN9_SEQ] = "pn_short",
 	[TESTMODE_ONE_ZERO_TOGGLE] = "one_zero_toggle",
+	[TESTMODE_USER] = "user",
+	[TESTMODE_BIT_TOGGLE] = "bit_toggle",
+	[TESTMODE_SYNC] = "sync",
+	[TESTMODE_ONE_BIT_HIGH] = "one_bit_high",
+	[TESTMODE_MIXED_BIT_FREQUENCY] = "mixed_bit_frequency",
 	[TESTMODE_RAMP] = "ramp",
 };
 
