@@ -147,7 +147,7 @@ int imx_mmdc_get_ddr_type(void);
 #else
 static inline int imx_mmdc_get_ddr_type(void) { return 0; }
 #endif
-#ifdef CONFIG_HAVE_DDRC
+#ifdef CONFIG_HAVE_IMX_DDRC
 int imx_ddrc_get_ddr_type(void);
 #else
 static inline int imx_ddrc_get_ddr_type(void) { return 0; }
