@@ -589,6 +589,11 @@ static const char *const testmodes[] = {
 	[TESTMODE_PN23_SEQ] = "pn_long",
 	[TESTMODE_PN9_SEQ] = "pn_short",
 	[TESTMODE_ONE_ZERO_TOGGLE] = "one_zero_toggle",
+	[TESTMODE_USER] = "user",
+	[TESTMODE_BIT_TOGGLE] = "bit_toggle",
+	[TESTMODE_SYNC] = "sync",
+	[TESTMODE_ONE_BIT_HIGH] = "one_bit_high",
+	[TESTMODE_MIXED_BIT_FREQUENCY] = "mixed_bit_frequency",
 	[TESTMODE_RAMP] = "ramp",
 };
 
@@ -858,7 +863,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .max_rate = 80000000UL,
 		       .scale_table = ad9649_scale_table,
 		       .num_scales = ARRAY_SIZE(ad9649_scale_table),
-		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
+		       .max_testmode = TESTMODE_MIXED_BIT_FREQUENCY,
 		       .num_channels = 1,
 		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0, NULL, 0),
 		       },
