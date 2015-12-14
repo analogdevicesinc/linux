@@ -493,6 +493,7 @@ dtb-$(CONFIG_SOC_IMX6SX) += \
 	imx6sx-sdb-sai.dtb \
 	imx6sx-sdb.dtb \
 	imx6sx-sdb-btwifi.dtb \
+	imx6sx-sdb-emmc.dtb \
 	imx6sx-sdb-lcdif1.dtb \
 	imx6sx-sdb-ldo.dtb \
 	imx6sx-sdb-m4.dtb \
