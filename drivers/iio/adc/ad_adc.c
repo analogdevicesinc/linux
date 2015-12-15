@@ -66,6 +66,32 @@ static const struct adc_chip_info cn0363_chip_info = {
 	.num_channels = ARRAY_SIZE(cn0363_channels),
 };
 
+#define M2K_ADC_CHANNEL(_ch) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _ch, \
+	.address = _ch, \
+	.scan_index = _ch, \
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.scan_type = { \
+		.sign = 's', \
+		.realbits = 12, \
+		.storagebits = 16, \
+		.shift = 0, \
+		.endianness = IIO_LE, \
+	}, \
+}
+
+static const struct iio_chan_spec m2k_adc_channels[] = {
+	M2K_ADC_CHANNEL(0),
+	M2K_ADC_CHANNEL(1),
+};
+
+static const struct adc_chip_info m2k_adc_chip_info = {
+	.channels = m2k_adc_channels,
+	.num_channels = ARRAY_SIZE(m2k_adc_channels),
+};
+
 static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -100,6 +126,8 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 		else
 			ctrl &= ~ADI_ENABLE;
 
+		ctrl |= ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE;
+
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
 	}
 
@@ -112,7 +140,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = 25000;
+		*val = 100000000; /* FIXME use clock */
 		return IIO_VAL_INT;
 	default:
 		break;
@@ -260,6 +288,7 @@ static int adc_legacy_probe(struct platform_device *pdev,
 static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "xlnx,axi-ad-adc-1.00.a", },
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
+	{ .compatible = "adi,m2k-adc-1.00.a", .data = &m2k_adc_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
@@ -277,7 +306,7 @@ static int adc_probe(struct platform_device *pdev)
 	if (!id)
 		return -ENODEV;
 	info = id->data;
-	
+
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
@@ -351,7 +380,7 @@ static int adc_remove(struct platform_device *pdev)
 		iio_hw_consumer_free(st->frontend);
 
 	return 0;
-} 
+}
 
 static struct platform_driver adc_driver = {
 	.driver = {
