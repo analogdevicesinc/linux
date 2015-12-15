@@ -20,11 +20,11 @@
 		adi,pll1-bypass-enable;
 		adi,osc-in-diff-enable;
 
-		/* PLL2 config */
-		adi,pll2-ndiv-a-cnt = <0>;
-		adi,pll2-ndiv-b-cnt = <8>;
-		adi,pll2-vco-diff-m1 = <4>;
-		adi,pll2-n2-div = <8>;
+		/* PLL2 config for VCO = 3750MHz, N = 30*/
+		adi,pll2-ndiv-a-cnt = <2>; /* a = N % 4 */
+		adi,pll2-ndiv-b-cnt = <7>; /* b = N / 4 */
+		adi,pll2-vco-diff-m1 = <3>;
+		adi,pll2-n2-div = <10>; /* N / M1 */
 		adi,pll2-r1-div = <1>;
 		adi,pll2-charge-pump-current-nA = <805000>;
 
