@@ -1079,6 +1079,19 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361x2 = {
 	.scan_masks = ad9361_2x2_available_scan_masks,
 };
 
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9936 = {
+	.name = "AD9963",
+	.channel = {
+		CF_AXI_DDS_CHAN(0, 0, "1A"),
+		CF_AXI_DDS_CHAN(1, 0, "1B"),
+		CF_AXI_DDS_CHAN(2, 0, "2A"),
+		CF_AXI_DDS_CHAN(3, 0, "2B"),
+	},
+	.num_channels = 4,
+	.num_dds_channels = 4,
+	.num_buf_channels = 0,
+};
+
 static const struct iio_info cf_axi_dds_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = &cf_axi_dds_read_raw,
@@ -1215,6 +1228,12 @@ static const struct axidds_core_info ad9162_1_00_a_info = {
 	.rate = 1,
 };
 
+static const struct axidds_core_info ad9963_1_00_a_info = {
+	.version = PCORE_VERSION(9, 0, 'a'),
+	.standalone = true,
+	.rate = 0,
+	.chip_info = &cf_axi_dds_chip_info_ad9936,
+};
 
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
@@ -1236,6 +1255,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9162-1.0",
 	    .data = &ad9162_1_00_a_info,
+	},{
+	    .compatible = "adi,axi-ad9963-dds-1.00.a",
+	    .data = &ad9963_1_00_a_info,
 	},
 	{ },
 };
@@ -1398,28 +1420,32 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	cf_axi_dds_datasel(st, -1, DATA_SEL_DDS);
 
 	if (!st->dp_disable) {
-		unsigned scale;
+		unsigned scale, frequency;
 		if (PCORE_VERSION_MAJOR(st->version) > 6)
 			scale = 0x1000; /* 0.250 */
 		else
 			scale = 2; /* 0.250 */
 
-		of_property_read_u32(np, "adi,axi-dds-default-scale", &scale);
+		frequency = 40000000;
 
-		cf_axi_dds_default_setup(st, 0, 90000, 40000000, scale);
-		cf_axi_dds_default_setup(st, 1, 90000, 40000000, scale);
+		of_property_read_u32(np, "adi,axi-dds-default-scale", &scale);
+		of_property_read_u32(np, "adi,axi-dds-default-frequency",
+				     &frequency);
+
+		cf_axi_dds_default_setup(st, 0, 90000, frequency, scale);
+		cf_axi_dds_default_setup(st, 1, 90000, frequency, scale);
 
 
 		if (st->chip_info->num_dds_channels >= 4) {
-			cf_axi_dds_default_setup(st, 2, 0, 40000000, scale);
-			cf_axi_dds_default_setup(st, 3, 0, 40000000, scale);
+			cf_axi_dds_default_setup(st, 2, 0, frequency, scale);
+			cf_axi_dds_default_setup(st, 3, 0, frequency, scale);
 		}
 
 		if (st->chip_info->num_dds_channels >= 8) {
-			cf_axi_dds_default_setup(st, 4, 90000, 1000000, scale);
-			cf_axi_dds_default_setup(st, 5, 90000, 1000000, scale);
-			cf_axi_dds_default_setup(st, 6, 0, 1000000, scale);
-			cf_axi_dds_default_setup(st, 7, 0, 1000000, scale);
+			cf_axi_dds_default_setup(st, 4, 90000, frequency, scale);
+			cf_axi_dds_default_setup(st, 5, 90000, frequency, scale);
+			cf_axi_dds_default_setup(st, 6, 0, frequency, scale);
+			cf_axi_dds_default_setup(st, 7, 0, frequency, scale);
 		}
 
 		cf_axi_dds_update_chan_spec(st, st->chip_info->channel,
