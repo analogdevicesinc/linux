@@ -309,7 +309,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	}
 
 	m2k_fabric->usr_pow_gpio = devm_gpiod_get(&pdev->dev, "en-usr-pow",
-			GPIOD_OUT_LOW);
+			GPIOD_OUT_HIGH);
 	if (IS_ERR(m2k_fabric->usr_pow_gpio))
 		return PTR_ERR(m2k_fabric->usr_pow_gpio);
 
