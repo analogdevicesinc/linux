@@ -74,6 +74,11 @@
 		xlnx,slv-dwidth = <0x20>;
 		xlnx,use-wstrb = <0x0>;
 	};
+
+	mwipcore@43C00000 {
+		compatible = "mathworks,mwipcore-axi4lite-v1.00";
+		reg = <0x43C00000 0xffff>;
+	};
 };
 
 &spi0 {
