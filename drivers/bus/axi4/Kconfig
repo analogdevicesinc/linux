@@ -1,0 +1,26 @@
+#
+# axilite driver configuration
+#
+
+menuconfig AXI4
+	bool "AXI4 Driver Support"
+	depends on ARM_AMBA && USE_OF
+	default y
+	---help---
+	  This section contains all the AXI4 Drivers
+
+if AXI4
+
+config MWIPCORE
+	tristate "Mathwork IP Core Driver"
+	depends on ARM_AMBA && USE_OF
+	default m
+	help
+		Say Y here if you want to add support for the MathWorks IP
+		core driver
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mwipcore
+endif
