@@ -15,3 +15,5 @@ obj-$(CONFIG_ARM_CCI)		+= arm-cci.o
 obj-$(CONFIG_ARM_CCN)		+= arm-ccn.o
 
 obj-$(CONFIG_VEXPRESS_CONFIG)	+= vexpress-config.o
+
+obj-$(CONFIG_AXI4) += axi4/
