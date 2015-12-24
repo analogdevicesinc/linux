@@ -555,6 +555,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-sdb-reva-hdmi-audio.dtb \
 	imx7d-sdb-reva-m4.dtb \
 	imx7d-sdb-reva-qspi.dtb \
+	imx7d-sdb-reva-touch.dtb \
 	imx7d-sdb-reva-wm8960.dtb \
 	imx7s-colibri-eval-v3.dtb \
 	imx7s-warp.dtb \
