@@ -233,7 +233,10 @@ int __init imx7d_cpuidle_init(void)
 	cpuidle_pm_info->pbase = (phys_addr_t) wfi_iram_base_phys;
 	cpuidle_pm_info->pm_info_size = sizeof(*cpuidle_pm_info);
 	cpuidle_pm_info->resume_addr = virt_to_phys(ca7_cpu_resume);
-	cpuidle_pm_info->cpu1_wfi = 0;
+	if (num_online_cpus() == 1)
+		cpuidle_pm_info->cpu1_wfi = 1;
+	else
+		cpuidle_pm_info->cpu1_wfi = 0;
 	cpuidle_pm_info->lpi_enter = 0;
 	/* initialize the last cpu id to invalid here */
 	cpuidle_pm_info->last_cpu = -1;
