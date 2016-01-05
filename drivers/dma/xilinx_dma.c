@@ -869,130 +869,6 @@ err:
 }
 
 /**
- * xilinx_dma_prep_slave_sg - prepare descriptors for a DMA_SLAVE transaction
- * @chan: DMA channel
- * @sgl: scatterlist to transfer to/from
- * @sg_len: number of entries in @scatterlist
- * @direction: DMA direction
- * @flags: transfer ack flags
- */
-static struct dma_async_tx_descriptor *xilinx_dma_prep_dma_cyclic(
-	struct dma_chan *dchan, dma_addr_t buf_addr, size_t buf_len,
-	size_t period_len, enum dma_transfer_direction direction,
-	unsigned long flags)
-{
-	struct xilinx_dma_desc_hw *hw;
-	struct xilinx_dma_transfer *t;
-	struct xilinx_dma_chan *chan;
-	unsigned int num_periods;
-	unsigned int i;
-
-	if (!dchan)
-		return NULL;
-
-	chan = to_xilinx_chan(dchan);
-
-	if (chan->direction != direction)
-		return NULL;
-
-	num_periods = buf_len / period_len;
-
-	t = xilinx_dma_alloc_transfer(chan, num_periods);
-	if (!t)
-		return NULL;
-
-	for (i = 0; i < num_periods; ++i) {
-		hw = t->descs[i].hw;
-		hw->buf_addr = buf_addr;
-		hw->control = period_len;
-		hw->control |= XILINX_DMA_BD_SOP | XILINX_DMA_BD_EOP;
-		buf_addr += period_len;
-	}
-
-	t->cyclic = true;
-
-	return &t->async_tx;
-}
-
-
-/**
- * xilinx_dma_prep_slave_sg - prepare descriptors for a DMA_SLAVE transaction
- * @chan: DMA channel
- * @sgl: scatterlist to transfer to/from
- * @sg_len: number of entries in @scatterlist
- * @direction: DMA direction
- * @flags: transfer ack flags
- */
-static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
-	struct dma_chan *dchan, struct scatterlist *sgl, unsigned int sg_len,
-	enum dma_transfer_direction direction, unsigned long flags, void *context)
-{
-	struct xilinx_dma_desc_hw *hw;
-	struct xilinx_dma_transfer *t;
-	struct xilinx_dma_chan *chan;
-	unsigned int total_len = 0;
-	unsigned int num_descs = 0;
-	struct scatterlist *sg;
-	dma_addr_t dma_src;
-	size_t num_bytes;
-	size_t sg_used;
-	unsigned int i, j;
-
-	if (!dchan)
-		return NULL;
-
-	chan = to_xilinx_chan(dchan);
-
-	if (chan->direction != direction)
-		return NULL;
-
-	for_each_sg(sgl, sg, sg_len, i) {
-		total_len += sg_dma_len(sg);
-		num_descs += DIV_ROUND_UP(sg_dma_len(sg), chan->max_len);
-	}
-
-	t = xilinx_dma_alloc_transfer(chan, num_descs);
-	if (!t)
-		return NULL;
-
-	/*
-	 * Build transactions using information in the scatter gather list
-	 */
-	j = 0;
-	for_each_sg(sgl, sg, sg_len, i) {
-		sg_used = 0;
-
-		/* Loop until the entire scatterlist entry is used */
-		while (sg_used < sg_dma_len(sg)) {
-			/*
-			 * Calculate the maximum number of bytes to transfer,
-			 * making sure it is less than the hw limit
-			 */
-			num_bytes = min_t(size_t, sg_dma_len(sg) - sg_used,
-					chan->max_len);
-
-			dma_src = sg_dma_address(sg) + sg_used;
-
-			hw = t->descs[j].hw;
-			hw->buf_addr = dma_src;
-			hw->control = num_bytes;
-			sg_used += num_bytes;
-			j++;
-		}
-	}
-
-
-	/* Set EOP to the last link descriptor of new list and
-	   SOP to the first link descriptor. */
-	t->descs[0].hw->control |= XILINX_DMA_BD_SOP;
-	t->descs[t->num_descs-1].hw->control |= XILINX_DMA_BD_EOP;
-
-	t->async_tx.flags = flags;
-
-	return &t->async_tx;
-}
-
-/**
  * xilinx_vdma_prep_slave_sg - prepare descriptors for a DMA_SLAVE transaction
  * @chan: VDMA channel
  * @sgl: scatterlist to transfer to/from
@@ -1248,42 +1124,6 @@ static int xilinx_vdma_slave_config(struct dma_chan *dchan,
 	return 0;
 }
 
-
-/* Run-time device configuration for Axi DMA and Axi CDMA */
-static int xilinx_dma_slave_config(struct dma_chan *dchan,
-	struct dma_slave_config *config)
-{
-	struct xilinx_dma_chan *chan;
-	struct xilinx_dma_config *cfg = (struct xilinx_dma_config *)config;
-	u32 reg;
-
-	if (!dchan)
-		return -EINVAL;
-
-	chan = to_xilinx_chan(dchan);
-
-	/* Configure interrupt coalescing and delay counter
-	 * Use value XILINX_DMA_NO_CHANGE to signal no change
-	 */
-	reg = DMA_IN(&chan->regs->cr);
-
-	chan->config = *cfg;
-
-	if (cfg->coalesc <= XILINX_DMA_COALESCE_MAX) {
-		reg &= ~XILINX_DMA_XR_COALESCE_MASK;
-		reg |= cfg->coalesc << XILINX_DMA_COALESCE_SHIFT;
-	}
-
-	if (cfg->delay <= XILINX_DMA_DELAY_MAX) {
-		reg &= ~XILINX_DMA_XR_DELAY_MASK;
-		reg |= cfg->delay << XILINX_DMA_DELAY_SHIFT;
-	}
-
-	DMA_OUT(&chan->regs->cr, reg);
-
-	return 0;
-}
-
 static void xilinx_dma_chan_remove(struct xilinx_dma_chan *chan)
 {
 	irq_dispose_mapping(chan->irq);
@@ -1461,50 +1301,25 @@ static int xilinx_dma_of_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	/* Axi DMA and VDMA only do slave transfers
-	 */
-	if (of_device_is_compatible(node, "xlnx,axi-dma")) {
-		xdev->feature |= XILINX_DMA_IP_DMA;
-		value = (int *)of_get_property(node,
-				"xlnx,sg-include-stscntrl-strm",
-				NULL);
-		if (value) {
-			xdev->feature |= XILINX_DMA_FTR_HAS_SG;
-			if (be32_to_cpup(value) == 1)
-				xdev->feature = XILINX_DMA_FTR_STSCNTRL_STRM;
-		}
+	xdev->feature |= XILINX_DMA_IP_VDMA;
 
-		dma_cap_set(DMA_SLAVE, xdev->common.cap_mask);
-		dma_cap_set(DMA_PRIVATE, xdev->common.cap_mask);
-		dma_cap_set(DMA_CYCLIC, xdev->common.cap_mask);
-		xdev->common.device_prep_slave_sg = xilinx_dma_prep_slave_sg;
-		xdev->common.device_prep_dma_cyclic = xilinx_dma_prep_dma_cyclic;
-		xdev->common.device_terminate_all = xilinx_dma_terminate_all;
-		xdev->common.device_config = xilinx_dma_slave_config;
-		xdev->common.device_issue_pending = xilinx_dma_issue_pending;
-	}
+	of_property_read_u32(node, "xlnx,include-sg", &include_sg);
+	if (include_sg)
+	    xdev->feature |= XILINX_DMA_FTR_HAS_SG;
 
-	if (of_device_is_compatible(node, "xlnx,axi-vdma")) {
-		xdev->feature |= XILINX_DMA_IP_VDMA;
+	of_property_read_u32(node, "xlnx,num-fstores", &num_frames);
 
-		of_property_read_u32(node, "xlnx,include-sg", &include_sg);
-		if (include_sg)
-		    xdev->feature |= XILINX_DMA_FTR_HAS_SG;
+	value = (int *)of_get_property(node, "xlnx,flush-fsync", NULL);
+	if (value)
+		xdev->feature |= be32_to_cpup(value) <<
+			XILINX_VDMA_FTR_FLUSH_SHIFT;
 
-		of_property_read_u32(node, "xlnx,num-fstores", &num_frames);
-
-		value = (int *)of_get_property(node, "xlnx,flush-fsync", NULL);
-		if (value)
-			xdev->feature |= be32_to_cpup(value) <<
-				XILINX_VDMA_FTR_FLUSH_SHIFT;
-
-		dma_cap_set(DMA_SLAVE, xdev->common.cap_mask);
-		dma_cap_set(DMA_PRIVATE, xdev->common.cap_mask);
-		xdev->common.device_prep_slave_sg = xilinx_vdma_prep_slave_sg;
-		xdev->common.device_terminate_all = xilinx_dma_terminate_all;
-		xdev->common.device_config = xilinx_vdma_slave_config;
-		xdev->common.device_issue_pending = xilinx_dma_issue_pending;
-	}
+	dma_cap_set(DMA_SLAVE, xdev->common.cap_mask);
+	dma_cap_set(DMA_PRIVATE, xdev->common.cap_mask);
+	xdev->common.device_prep_slave_sg = xilinx_vdma_prep_slave_sg;
+	xdev->common.device_terminate_all = xilinx_dma_terminate_all;
+	xdev->common.device_config = xilinx_vdma_slave_config;
+	xdev->common.device_issue_pending = xilinx_dma_issue_pending;
 
 	xdev->common.device_alloc_chan_resources =
 				xilinx_dma_alloc_chan_resources;
@@ -1576,7 +1391,6 @@ static int xilinx_dma_of_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id xilinx_dma_of_ids[] = {
-	{ .compatible = "xlnx,axi-dma" },
 	{ .compatible = "xlnx,axi-vdma" },
 	{}
 };
