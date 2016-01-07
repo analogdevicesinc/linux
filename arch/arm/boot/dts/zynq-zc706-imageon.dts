@@ -137,8 +137,8 @@
 			reg = <0x75c00000 0x1000>;
 			dmas = <&ps7_dma 0>;
 			dma-names = "tx";
-			clocks = <&clkc 15>, <&audio_clock>, <&audio_clock>;
-			clock-names = "axi", "ref", "spdif";
+			clocks = <&clkc 15>, <&audio_clock>;
+			clock-names = "axi", "ref";
 		};
 
 		adv7511_hdmi_snd: adv7511_hdmi_snd {
