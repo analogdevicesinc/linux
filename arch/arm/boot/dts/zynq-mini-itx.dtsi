@@ -25,11 +25,11 @@
 	};
 };
 
-&usb {
-	xlnx,phy-reset-gpio = <&gpio 7 0>;
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 7 0>;
 };
 
-&qspi0 {
+&qspi {
 	primary_flash: ps7-qspi@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;

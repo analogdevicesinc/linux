@@ -76,12 +76,12 @@
 #include "adi-fmcomms5.dtsi"
 
 &adc0_ad9361 {
-	reset-gpios = <&gpio 100 0>;
-	sync-gpios = <&gpio 99 0>;
-	cal-sw1-gpios = <&gpio 107 0>;
-	cal-sw2-gpios = <&gpio 108 0>;
+	reset-gpios = <&gpio0 100 0>;
+	sync-gpios = <&gpio0 99 0>;
+	cal-sw1-gpios = <&gpio0 107 0>;
+	cal-sw2-gpios = <&gpio0 108 0>;
 };
 
 &adc1_ad9361 {
-	reset-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio0 113 0>;
 };

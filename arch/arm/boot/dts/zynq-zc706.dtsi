@@ -16,22 +16,22 @@
 		compatible = "gpio-leds";
 		ds8 {
 			label = "ds12:green";
-			gpios = <&gpio 61 0>;
+			gpios = <&gpio0 61 0>;
 		};
 
 		ds9 {
 			label = "ds15:green";
-			gpios = <&gpio 62 0>;
+			gpios = <&gpio0 62 0>;
 		};
 
 		ds10 {
 			label = "ds16:green";
-			gpios = <&gpio 63 0>;
+			gpios = <&gpio0 63 0>;
 		};
 
 		ds35 {
 			label = "ds17:green";
-			gpios = <&gpio 64 0>;
+			gpios = <&gpio0 64 0>;
 		};
 	};
 
@@ -44,24 +44,25 @@
 		sw7 {
 			label = "Left";
 			linux,code = <105>; // Left
-			gpios = <&gpio 58 0>;
+			gpios = <&gpio0 58 0>;
 		};
 
 		sw8 {
 			label = "Right";
 			linux,code = <106>; // Right
-			gpios = <&gpio 60 0>;
+			gpios = <&gpio0 60 0>;
 		};
 
 		sw9 {
 			label = "Select";
 			linux,code = <28>; // Enter
-			gpios = <&gpio 59 0>;
+			gpios = <&gpio0 59 0>;
 		};
 	};
 };
 
 &eth {
+	status = "okay";
 	phy-handle = <&phy0>;
 	phy-mode = "rgmii-id";
 
@@ -72,11 +73,11 @@
 	};
 };
 
-&usb {
-	xlnx,phy-reset-gpio = <&gpio 7 0>;
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 7 0>;
 };
 
-&qspi0 {
+&qspi {
 	status = "okay";
 	is-dual = <1>;
 	num-cs = <1>;

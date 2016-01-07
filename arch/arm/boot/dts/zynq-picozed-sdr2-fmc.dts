@@ -114,7 +114,7 @@
 			compatible = "xlnx,ps7-ethernet-1.00.a";
 			reg = <0xe000c000 0x1000>;
 			interrupts = <0 45 4>;
-			interrupt-parent = <&gic>;
+			interrupt-parent = <&intc>;
 			#address-cells = <0x1>;
 			#size-cells = <0x0>;
 
@@ -184,7 +184,7 @@
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = <0x75c00000 0x1000>;
-			dmas = <&ps7_dma 0>;
+			dmas = <&dmac_s 0>;
 			dma-names = "tx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
@@ -199,7 +199,7 @@
 		axi_i2s_0: axi-i2s@0x77600000 {
 			compatible = "adi,axi-i2s-1.00.a";
 			reg = <0x77600000 0x1000>;
-			dmas = <&ps7_dma 1 &ps7_dma 2>;
+			dmas = <&dmac_s 1 &dmac_s 2>;
 			dma-names = "tx", "rx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
@@ -216,22 +216,22 @@
 		compatible = "gpio-leds";
 		led0 {
 			label = "led0:red";
-			gpios = <&gpio 61 0>;
+			gpios = <&gpio0 61 0>;
 		};
 
 		led1 {
 			label = "led1:red";
-			gpios = <&gpio 59 0>;
+			gpios = <&gpio0 59 0>;
 		};
 
 		led2 {
 			label = "led2:red";
-			gpios = <&gpio 58 0>;
+			gpios = <&gpio0 58 0>;
 		};
 
 		led3 {
 			label = "led3:red";
-			gpios = <&gpio 60 0>;
+			gpios = <&gpio0 60 0>;
 		};
 	};
 
@@ -244,53 +244,53 @@
 		bt0 {
 			label = "BT0";
 			linux,code = <KEY_LEFT>;
-			gpios = <&gpio 54 0>;
+			gpios = <&gpio0 54 0>;
 		};
 
 		bt1 {
 			label = "BT1";
 			linux,code = <KEY_RIGHT>;
-			gpios = <&gpio 55 0>;
+			gpios = <&gpio0 55 0>;
 		};
 
 		bt2 {
 			label = "BT2";
 			linux,code = <KEY_ENTER>;
-			gpios = <&gpio 56 0>;
+			gpios = <&gpio0 56 0>;
 		};
 
 		bt3 {
 			label = "BT3";
 			linux,code = <KEY_ESC>;
-			gpios = <&gpio 57 0>;
+			gpios = <&gpio0 57 0>;
 		};
 
 		sw0 {
 			label = "SW0";
 			linux,input-type = <5>;
 			linux,code = <0>;
-			gpios = <&gpio 65 0>;
+			gpios = <&gpio0 65 0>;
 		};
 
 		sw1 {
 			label = "SW1";
 			linux,input-type = <5>;
 			linux,code = <1>;
-			gpios = <&gpio 62 0>;
+			gpios = <&gpio0 62 0>;
 		};
 
 		sw2 {
 			label = "SW2";
 			linux,input-type = <5>;
 			linux,code = <2>;
-			gpios = <&gpio 64 0>;
+			gpios = <&gpio0 64 0>;
 		};
 
 		sw3 {
 			label = "SW3";
 			linux,input-type = <5>;
 			linux,code = <3>;
-			gpios = <&gpio 63 0>;
+			gpios = <&gpio0 63 0>;
 		};
 	};
 

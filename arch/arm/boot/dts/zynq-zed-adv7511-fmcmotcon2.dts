@@ -12,12 +12,12 @@
 	};
 };
 
-&axi {
+&amba {
 	eth1: eth1@e000c000 {
 		compatible = "xlnx,ps7-ethernet-1.00.a";
 		reg = <0xe000c000 0x1000>;
 		interrupts = <0 45 4>;
-		interrupt-parent = <&gic>;
+		interrupt-parent = <&intc>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
@@ -44,7 +44,7 @@
 &fpga_axi {
 	fmc_i2c: i2c@41620000 {
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-		interrupt-parent = <&gic>;
+		interrupt-parent = <&intc>;
 		interrupts = <0 55 0x4>;
 		reg = <0x41620000 0x10000>;
 
@@ -59,7 +59,7 @@
 
 	ee2_i2c: i2c@41510000 {
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-		interrupt-parent = <&gic>;
+		interrupt-parent = <&intc>;
 		interrupts = <0 56 0x4>;
 		reg = <0x41510000 0x10000>;
 
@@ -188,7 +188,7 @@
 		reg = <0>;
 		spi-cpha;
 		spi-max-frequency = <1000000>;
-		sample-gpios = <&gpio 86 0>;
+		sample-gpios = <&gpio0 86 0>;
 		adi,entirely-configuration-mode-enable;
 	};
 };

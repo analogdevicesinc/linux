@@ -26,7 +26,7 @@
 &fpga_axi {
 	fmc_i2c: i2c@41620000 {
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-		interrupt-parent = <&gic>;
+		interrupt-parent = <&intc>;
 		interrupts = <0 55 0x4>;
 		reg = <0x41620000 0x10000>;
 

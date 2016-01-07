@@ -10,7 +10,7 @@
 		clocks = <&ad9361_clkin>;
 		clock-names = "clkin";
 		clock-output-names = "ADF5355";
-		gpios = <&gpio 112 0>;
+		gpios = <&gpio0 112 0>;
 		adi,charge-pump-current = <900>;
 		adi,muxout-select = <6>;
 //		adi,mute-till-lock-enable;

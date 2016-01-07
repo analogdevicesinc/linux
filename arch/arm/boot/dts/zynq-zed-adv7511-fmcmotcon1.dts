@@ -11,7 +11,7 @@
 
 		i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-			interrupt-parent = <&gic>;
+			interrupt-parent = <&intc>;
 			interrupts = <0 58 0x4>;
 			reg = <0x41600000 0x10000>;
 
@@ -78,7 +78,7 @@
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = <0x75c00000 0x1000>;
-			dmas = <&ps7_dma 0>;
+			dmas = <&dmac_s 0>;
 			dma-names = "tx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";

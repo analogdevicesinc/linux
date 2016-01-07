@@ -50,16 +50,16 @@
 		adi,shuffler-control = <1>;
 		adi,shuffler-thresh = <5>;
 
-		oen-gpios = <&gpio 95 0>;   /* 0 */
-		sela-gpios = <&gpio 94 0>;  /* 0 */
-		selb-gpios = <&gpio 93 0>;  /* 1 */
-		s0-gpios = <&gpio 92 0>;    /* 0 */
-		s1-gpios = <&gpio 91 0>;    /* 1 */
-		reset-gpios = <&gpio 90 0>; /* 1 */
-		agc1-gpios = <&gpio 89 0>;
-		agc2-gpios = <&gpio 88 0>;
-		agc3-gpios = <&gpio 87 0>;
-		agc4-gpios = <&gpio 86 0>;
+		oen-gpios = <&gpio0 95 0>;   /* 0 */
+		sela-gpios = <&gpio0 94 0>;  /* 0 */
+		selb-gpios = <&gpio0 93 0>;  /* 1 */
+		s0-gpios = <&gpio0 92 0>;    /* 0 */
+		s1-gpios = <&gpio0 91 0>;    /* 1 */
+		reset-gpios = <&gpio0 90 0>; /* 1 */
+		agc1-gpios = <&gpio0 89 0>;
+		agc2-gpios = <&gpio0 88 0>;
+		agc3-gpios = <&gpio0 87 0>;
+		agc4-gpios = <&gpio0 86 0>;
 
 	};
 };

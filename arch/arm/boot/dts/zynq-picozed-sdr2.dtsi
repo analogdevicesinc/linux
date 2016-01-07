@@ -37,7 +37,7 @@
 			compatible = "gpio-gate-clock";
 			clocks = <&usb_ulpi_fixed_clk>;
 			#clock-cells = <0>;
-			enable-gpios = <&gpio 9 1>; /* Active  Low */
+			enable-gpios = <&gpio0 9 1>; /* Active  Low */
 		};
 	};
 };
@@ -54,11 +54,11 @@
 	};
 };
 
-&usb {
-	xlnx,phy-reset-gpio = <&gpio 7 0>;
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 7 0>;
 };
 
-&qspi0 {
+&qspi {
 	status = "okay";
 	is-dual = <0>;
 	num-cs = <1>;
@@ -111,7 +111,7 @@
 
 		axi_i2c0: i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
-			interrupt-parent = <&gic>;
+			interrupt-parent = <&intc>;
 			interrupts = <0 58 4>;
 			reg = <0x41600000 0x10000>;
 			#address-cells = <1>;
@@ -395,10 +395,10 @@
 
 		/* Control GPIOs */
 
-		en_agc-gpios = <&gpio 98 0>;
-		sync-gpios = <&gpio 99 0>;
-		reset-gpios = <&gpio 100 0>;
-		enable-gpios = <&gpio 101 0>;
-		txnrx-gpios = <&gpio 102 0>;
+		en_agc-gpios = <&gpio0 98 0>;
+		sync-gpios = <&gpio0 99 0>;
+		reset-gpios = <&gpio0 100 0>;
+		enable-gpios = <&gpio0 101 0>;
+		txnrx-gpios = <&gpio0 102 0>;
 	};
 };

@@ -188,22 +188,22 @@
 #include "adi-daq2.dtsi"
 
 &adc0_ad9680 {
-	powerdown-gpios = <&gpio 96 0>;
-	fastdetect-a-gpios = <&gpio 89 0>;
-	fastdetect-b-gpios = <&gpio 90 0>;
+	powerdown-gpios = <&gpio0 96 0>;
+	fastdetect-a-gpios = <&gpio0 89 0>;
+	fastdetect-b-gpios = <&gpio0 90 0>;
 };
 
 &dac0_ad9144 {
-	txen-gpios = <&gpio 95 0>;
-	reset-gpios = <&gpio 94 0>;
-	irq-gpios = <&gpio 88 0>;
+	txen-gpios = <&gpio0 95 0>;
+	reset-gpios = <&gpio0 94 0>;
+	irq-gpios = <&gpio0 88 0>;
 };
 
 &clk0_ad9523 {
-	powerdown-gpios = <&gpio 93 0>;
-	sync-gpios = <&gpio 92 0>;
-	reset-gpios = <&gpio 91 0>;
-	status0-gpios = <&gpio 86 0>;
-	status1-gpios = <&gpio 87 0>;
+	powerdown-gpios = <&gpio0 93 0>;
+	sync-gpios = <&gpio0 92 0>;
+	reset-gpios = <&gpio0 91 0>;
+	status0-gpios = <&gpio0 86 0>;
+	status1-gpios = <&gpio0 87 0>;
 };
 

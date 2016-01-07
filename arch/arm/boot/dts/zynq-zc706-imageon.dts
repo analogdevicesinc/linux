@@ -11,7 +11,7 @@
 
 		axi_iic_imageon: i2c@43c40000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
-			interrupt-parent = <&gic>;
+			interrupt-parent = <&intc>;
 			interrupts = <0 55 4>;
 			reg = <0x43c40000 0x10000>;
 			bus-id = <1>;
@@ -21,7 +21,7 @@
 			mux@70 {
 				compatible = "nxp,pca9546";
 				reg = <0x70>;
-				reset-gpio = <&gpio 87 1>;
+				reset-gpio = <&gpio0 87 1>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 
@@ -60,7 +60,7 @@
 						#address-cells = <0x1>;
 						#size-cells = <0x0>;
 						reset-gpios = <&pca9534 0 0>;
-						interrupt-parent = <&gpio>;
+						interrupt-parent = <&gpio0>;
 						interrupts = <86 4>;
 
 						port@0 {
@@ -135,7 +135,7 @@
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = <0x75c00000 0x1000>;
-			dmas = <&ps7_dma 0>;
+			dmas = <&dmac_s 0>;
 			dma-names = "tx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
@@ -178,8 +178,4 @@
 		};
 
 	};
-};
-
-&usb {
-	dr_mode = "host";
 };

@@ -13,7 +13,7 @@
 
 		i2c@43C40000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-			interrupt-parent = <&gic>;
+			interrupt-parent = <&intc>;
 			interrupts = <0 55 0x4>;
 			reg = <0x43C40000 0x10000>;
 
@@ -23,7 +23,7 @@
 			mux@70 {
 				compatible = "nxp,pca9546";
 				reg = <0x70>;
-				reset-gpio = <&gpio 87 1>;
+				reset-gpio = <&gpio0 87 1>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				i2c@1 {
@@ -126,7 +126,7 @@
 		imageon_bridge {
 			compatible = "adi,imageon-v4l2-bridge-1.00.a";
 
-			interrupt-parent = <&gpio>;
+			interrupt-parent = <&gpio0>;
 			interrupts = <86 0>;
 
 			ports {
@@ -149,8 +149,4 @@
 			};
 		};
 	};
-};
-
-&usb {
-	dr_mode = "host";
 };

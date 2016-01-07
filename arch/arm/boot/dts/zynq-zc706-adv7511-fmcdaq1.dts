@@ -155,9 +155,9 @@
 #include "adi-daq1.dtsi"
 
 &clk0_ad9523 {
-	reset-gpios = <&gpio 86 0>;
+	reset-gpios = <&gpio0 86 0>;
 };
 
 &dac0_ad9122 {
-	reset-gpios = <&gpio 86 0>;
+	reset-gpios = <&gpio0 86 0>;
 };

@@ -19,22 +19,22 @@
 		compatible = "gpio-leds";
 		led0 {
 			label = "led0:green";
-			gpios = <&gpio 58 0>;
+			gpios = <&gpio0 58 0>;
 		};
 
 		led1 {
 			label = "led1:green";
-			gpios = <&gpio 59 0>;
+			gpios = <&gpio0 59 0>;
 		};
 
 		led2 {
 			label = "led2:green";
-			gpios = <&gpio 60 0>;
+			gpios = <&gpio0 60 0>;
 		};
 
 		led3 {
 			label = "led3:green";
-			gpios = <&gpio 61 0>;
+			gpios = <&gpio0 61 0>;
 		};
 	};
 
@@ -47,25 +47,25 @@
 		pb0 {
 			label = "Left";
 			linux,code = <105>; // Left
-			gpios = <&gpio 54 0>;
+			gpios = <&gpio0 54 0>;
 		};
 
 		pb1 {
 			label = "Right";
 			linux,code = <106>; // Right
-			gpios = <&gpio 55 0>;
+			gpios = <&gpio0 55 0>;
 		};
 
 		pb2 {
 			label = "Select";
 			linux,code = <28>; // Enter
-			gpios = <&gpio 56 0>;
+			gpios = <&gpio0 56 0>;
 		};
 
 		pb4 {
 			label = "Select";
 			linux,code = <28>; // Enter
-			gpios = <&gpio 57 0>;
+			gpios = <&gpio0 57 0>;
 		};
 	};
 };

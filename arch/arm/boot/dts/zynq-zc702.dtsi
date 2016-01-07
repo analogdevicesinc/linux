@@ -18,52 +18,52 @@
 		compatible = "gpio-leds";
 		ds12 {
 			label = "ds12:green";
-			gpios = <&gpio 8 0>;
+			gpios = <&gpio0 8 0>;
 		};
 
 		ds15 {
 			label = "ds15:green";
-			gpios = <&gpio 58 0>;
+			gpios = <&gpio0 58 0>;
 		};
 
 		ds16 {
 			label = "ds16:green";
-			gpios = <&gpio 59 0>;
+			gpios = <&gpio0 59 0>;
 		};
 
 		ds17 {
 			label = "ds17:green";
-			gpios = <&gpio 60 0>;
+			gpios = <&gpio0 60 0>;
 		};
 
 		ds18 {
 			label = "ds18:green";
-			gpios = <&gpio 61 0>;
+			gpios = <&gpio0 61 0>;
 		};
 
 		ds19 {
 			label = "ds19:green";
-			gpios = <&gpio 62 0>;
+			gpios = <&gpio0 62 0>;
 		};
 
 		ds20 {
 			label = "ds20:green";
-			gpios = <&gpio 63 0>;
+			gpios = <&gpio0 63 0>;
 		};
 
 		ds21 {
 			label = "ds21:green";
-			gpios = <&gpio 64 0>;
+			gpios = <&gpio0 64 0>;
 		};
 
 		ds22 {
 			label = "ds22:green";
-			gpios = <&gpio 65 0>;
+			gpios = <&gpio0 65 0>;
 		};
 
 		ds23 {
 			label = "ds23:green";
-			gpios = <&gpio 10 0>;
+			gpios = <&gpio0 10 0>;
 		};
 	};
 
@@ -76,39 +76,39 @@
 		sw5 {
 			label = "Left";
 			linux,code = <105>; // Left
-			gpios = <&gpio 54 0>;
+			gpios = <&gpio0 54 0>;
 		};
 
 		sw7 {
 			label = "Right";
 			linux,code = <106>; // Right
-			gpios = <&gpio 55 0>;
+			gpios = <&gpio0 55 0>;
 		};
 
 		sw15_0 {
 			label = "SW15_0";
 			linux,code = <0>; // SW_LID
 			linux,input-type = <0x5>; // EV_SW
-			gpios = <&gpio 56 0>;
+			gpios = <&gpio0 56 0>;
 		};
 
 		sw15_1 {
 			label = "SW15_1";
 			linux,code = <1>; // SW_TABLET_MODE
 			linux,input-type = <0x5>; // EV_SW
-			gpios = <&gpio 57 0>;
+			gpios = <&gpio0 57 0>;
 		};
 
 		sw13 {
 			label = "Select";
 			linux,code = <28>; // Enter
-			gpios = <&gpio 14 0>;
+			gpios = <&gpio0 14 0>;
 		};
 
 		sw14 {
 			label = "SW14";
 			linux,code = <1>; // Esc
-			gpios = <&gpio 12 0>;
+			gpios = <&gpio0 12 0>;
 		};
 	};
 };
@@ -124,11 +124,11 @@
 	};
 };
 
-&usb {
-	xlnx,phy-reset-gpio = <&gpio 7 0>;
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 7 0>;
 };
 
-&qspi0 {
+&qspi {
 	status = "okay";
 	is-dual = <0>;
 	num-cs = <1>;

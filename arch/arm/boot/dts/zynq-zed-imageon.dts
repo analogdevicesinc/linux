@@ -11,7 +11,7 @@
 
 		axi_iic_imageon: i2c@43c40000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
-			interrupt-parent = <&gic>;
+			interrupt-parent = <&intc>;
 			interrupts = <0 55 4>;
 			reg = <0x43c40000 0x10000>;
 			bus-id = <1>;
@@ -21,7 +21,7 @@
 			mux@70 {
 				compatible = "nxp,pca9546";
 				reg = <0x70>;
-				reset-gpio = <&gpio 87 1>;
+				reset-gpio = <&gpio0 87 1>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 
@@ -60,7 +60,7 @@
 						reg = <0x4c>;
 						#address-cells = <0x1>;
 						#size-cells = <0x0>;
-						interrupt-parent = <&gpio>;
+						interrupt-parent = <&gpio0>;
 						interrupts = <86 4>;
 
 						port@0 {
@@ -135,7 +135,7 @@
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = <0x75c00000 0x1000>;
-			dmas = <&ps7_dma 0>;
+			dmas = <&dmac_s 0>;
 			dma-names = "tx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
@@ -182,46 +182,42 @@
 		compatible = "gpio-leds";
 		ld0 {
 			label = "ld0:red";
-			gpios = <&gpio 73 0>;
+			gpios = <&gpio0 73 0>;
 		};
 
 		ld1 {
 			label = "ld1:red";
-			gpios = <&gpio 74 0>;
+			gpios = <&gpio0 74 0>;
 		};
 
 		ld2 {
 			label = "ld2:red";
-			gpios = <&gpio 75 0>;
+			gpios = <&gpio0 75 0>;
 		};
 
 		ld3 {
 			label = "ld3:red";
-			gpios = <&gpio 76 0>;
+			gpios = <&gpio0 76 0>;
 		};
 
 		ld4 {
 			label = "ld4:red";
-			gpios = <&gpio 77 0>;
+			gpios = <&gpio0 77 0>;
 		};
 
 		ld5 {
 			label = "ld5:red";
-			gpios = <&gpio 78 0>;
+			gpios = <&gpio0 78 0>;
 		};
 
 		ld6 {
 			label = "ld6:red";
-			gpios = <&gpio 79 0>;
+			gpios = <&gpio0 79 0>;
 		};
 
 		ld7 {
 			label = "ld7:red";
-			gpios = <&gpio 80 0>;
+			gpios = <&gpio0 80 0>;
 		};
 	};
-};
-
-&usb {
-	dr_mode = "host";
 };

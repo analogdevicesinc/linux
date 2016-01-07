@@ -79,18 +79,18 @@
 #include "adi-fmcomms3-up-down-converter.dtsi"
 
 &adc0_ad9361 {
-	en_agc-gpios = <&gpio 98 0>;
-	sync-gpios = <&gpio 99 0>;
-	reset-gpios = <&gpio 100 0>; /* Previously 84 */
-	enable-gpios = <&gpio 101 0>;
-	txnrx-gpios = <&gpio 102 0>;
+	en_agc-gpios = <&gpio0 98 0>;
+	sync-gpios = <&gpio0 99 0>;
+	reset-gpios = <&gpio0 100 0>; /* Previously 84 */
+	enable-gpios = <&gpio0 101 0>;
+	txnrx-gpios = <&gpio0 102 0>;
 };
 
 &lo_pll0_rx_adf4351 {
-	gpios = <&gpio 103 0>;
+	gpios = <&gpio0 103 0>;
 };
 
 &lo_pll0_tx_adf4351 {
-	gpios = <&gpio 104 0>;
+	gpios = <&gpio0 104 0>;
 };
 

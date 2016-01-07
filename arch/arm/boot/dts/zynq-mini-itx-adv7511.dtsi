@@ -7,7 +7,7 @@
 
 		i2c@0 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
-			interrupt-parent = <&gic>;
+			interrupt-parent = <&intc>;
 			interrupts = <0 58 4>;
 			reg = <0x41600000 0x10000>;
 			#address-cells = <1>;
@@ -54,7 +54,7 @@
 		fmc_spi: spi@e0006000 {
 			bus-num = <1>;
 			compatible = "cdns,spi-r1p6", "xlnx,zynq-spi-1.00.a", "xlnx,ps7-spi-1.00.a";
-			interrupt-parent = <&gic>;
+			interrupt-parent = <&intc>;
 			interrupts = < 0 26 4 >;
 			clock-names = "ref_clk", "aper_clk", "pclk";
 			clocks = <&clkc 25>, <&clkc 34>, <&clkc 34>;
@@ -111,7 +111,7 @@
 		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = <0x75c00000 0x1000>;
-			dmas = <&ps7_dma 0>;
+			dmas = <&dmac_s 0>;
 			dma-names = "tx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
