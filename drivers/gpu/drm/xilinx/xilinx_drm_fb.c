@@ -37,6 +37,7 @@ struct xilinx_drm_fbdev {
 	struct drm_fb_helper	fb_helper;
 	struct xilinx_drm_fb	*fb;
 	unsigned int align;
+	unsigned int vres_mult;
 };
 
 static inline struct xilinx_drm_fbdev *to_fbdev(struct drm_fb_helper *fb_helper)
@@ -134,6 +135,37 @@ xilinx_drm_fb_get_gem_obj(struct drm_framebuffer *base_fb, unsigned int plane)
 	return fb->obj[plane];
 }
 
+int xilinx_drm_fb_helper_pan_display(struct fb_var_screeninfo *var,
+			      struct fb_info *info)
+{
+	struct drm_fb_helper *fb_helper = info->par;
+	struct drm_device *dev = fb_helper->dev;
+	struct drm_mode_set *modeset;
+	int ret = 0;
+	int i;
+
+	if (__drm_modeset_lock_all(dev, !!oops_in_progress))
+		return -EBUSY;
+
+	for (i = 0; i < fb_helper->crtc_count; i++) {
+		modeset = &fb_helper->crtc_info[i].mode_set;
+
+		modeset->x = var->xoffset;
+		modeset->y = var->yoffset;
+
+		if (modeset->num_connectors) {
+			ret = drm_mode_set_config_internal(modeset);
+			if (!ret) {
+				drm_wait_one_vblank(dev, i);
+				info->var.xoffset = var->xoffset;
+				info->var.yoffset = var->yoffset;
+			}
+		}
+	}
+	drm_modeset_unlock_all(dev);
+	return ret;
+}
+
 static struct fb_ops xilinx_drm_fbdev_ops = {
 	.owner		= THIS_MODULE,
 	.fb_fillrect	= sys_fillrect,
@@ -142,7 +174,7 @@ static struct fb_ops xilinx_drm_fbdev_ops = {
 	.fb_check_var	= drm_fb_helper_check_var,
 	.fb_set_par	= drm_fb_helper_set_par,
 	.fb_blank	= drm_fb_helper_blank,
-	.fb_pan_display	= drm_fb_helper_pan_display,
+	.fb_pan_display	= xilinx_drm_fb_helper_pan_display,
 	.fb_setcmap	= drm_fb_helper_setcmap,
 };
 
@@ -181,6 +213,7 @@ static int xilinx_drm_fbdev_create(struct drm_fb_helper *fb_helper,
 				    fbdev->align);
 	mode_cmd.pixel_format = xilinx_drm_get_format(drm);
 
+	mode_cmd.height *= fbdev->vres_mult;
 	size = mode_cmd.pitches[0] * mode_cmd.height;
 	obj = drm_gem_cma_create(drm, size);
 	if (IS_ERR(obj))
@@ -216,6 +249,7 @@ static int xilinx_drm_fbdev_create(struct drm_fb_helper *fb_helper,
 
 	drm_fb_helper_fill_fix(fbi, base_fb->pitches[0], base_fb->depth);
 	drm_fb_helper_fill_var(fbi, fb_helper, base_fb->width, base_fb->height);
+	fbi->var.yres = base_fb->height / fbdev->vres_mult;
 
 	offset = fbi->var.xoffset * bytes_per_pixel;
 	offset += fbi->var.yoffset * base_fb->pitches[0];
@@ -249,6 +283,7 @@ static struct drm_fb_helper_funcs xilinx_drm_fb_helper_funcs = {
  * @num_crtc: number of CRTCs
  * @max_conn_count: maximum number of connectors
  * @align: alignment value for pitch
+ * @vres_mult: multiplier for virtual resolution
  *
  * This function is based on drm_fbdev_cma_init().
  *
@@ -257,7 +292,7 @@ static struct drm_fb_helper_funcs xilinx_drm_fb_helper_funcs = {
 struct drm_fb_helper *
 xilinx_drm_fb_init(struct drm_device *drm, unsigned int preferred_bpp,
 		   unsigned int num_crtc, unsigned int max_conn_count,
-		   unsigned int align)
+		   unsigned int align, unsigned int vres_mult)
 {
 	struct xilinx_drm_fbdev *fbdev;
 	struct drm_fb_helper *fb_helper;
@@ -268,6 +303,8 @@ xilinx_drm_fb_init(struct drm_device *drm, unsigned int preferred_bpp,
 		DRM_ERROR("Failed to allocate drm fbdev.\n");
 		return ERR_PTR(-ENOMEM);
 	}
+
+	fbdev->vres_mult = vres_mult;
 
 	fbdev->align = align;
 	fb_helper = &fbdev->fb_helper;

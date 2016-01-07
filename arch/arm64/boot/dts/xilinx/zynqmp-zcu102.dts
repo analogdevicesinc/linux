@@ -379,7 +379,7 @@ drivers/hwmon/pmbus/Makefile:11:obj-$(CONFIG_SENSORS_MAX20751)  += max20751.o
 				compatible = "silabs,si570";
 				reg = <0x5d>;
 				temperature-stability = <50>;
-				factory-fout = <156250000>;
+				factory-fout = <300000000>;
 				clock-frequency = <300000000>;
 			};
 		};
@@ -546,4 +546,38 @@ drivers/hwmon/pmbus/Makefile:11:obj-$(CONFIG_SENSORS_MAX20751)  += max20751.o
 &usb0 {
 	status = "okay";
 	dr_mode = "host";
+};
+
+&xilinx_drm {
+	status = "okay";
+	clocks = <&si570_1>;
+};
+
+&xlnx_dp {
+	status = "okay";
+};
+
+&xlnx_dp_sub {
+	status = "okay";
+	xlnx,vid-clk-pl;
+};
+
+&xlnx_dp_snd_pcm0 {
+	status = "okay";
+};
+
+&xlnx_dp_snd_pcm1 {
+	status = "okay";
+};
+
+&xlnx_dp_snd_card {
+	status = "okay";
+};
+
+&xlnx_dp_snd_codec0 {
+	status = "okay";
+};
+
+&xlnx_dpdma {
+	status = "okay";
 };

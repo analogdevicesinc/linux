@@ -38,6 +38,7 @@
 #define XILINX_DP_TX_ENHANCED_FRAME_EN			0x8
 #define XILINX_DP_TX_TRAINING_PATTERN_SET		0xc
 #define XILINX_DP_TX_SCRAMBLING_DISABLE			0x14
+#define XILINX_DP_TX_DOWNSPREAD_CTL			0x18
 #define XILINX_DP_TX_SW_RESET				0x1c
 #define XILINX_DP_TX_SW_RESET_STREAM1			(1 << 0)
 #define XILINX_DP_TX_SW_RESET_STREAM2			(1 << 1)
@@ -85,6 +86,7 @@
 #define XILINX_DP_TX_AUX_ADDRESS			0x108
 #define XILINX_DP_TX_CLK_DIVIDER			0x10c
 #define XILINX_DP_TX_CLK_DIVIDER_MHZ			1000000
+#define XILINX_DP_TX_CLK_DIVIDER_AUX_FILTER_SHIFT	8
 #define XILINX_DP_TX_INTR_SIGNAL_STATE			0x130
 #define XILINX_DP_TX_INTR_SIGNAL_STATE_HPD		(1 << 0)
 #define XILINX_DP_TX_INTR_SIGNAL_STATE_REQUEST		(1 << 1)
@@ -112,18 +114,8 @@
 #define XILINX_DP_TX_INTR_VBLANK_START			(1 << 13)
 #define XILINX_DP_TX_INTR_PIXEL0_MATCH			(1 << 14)
 #define XILINX_DP_TX_INTR_PIXEL1_MATCH			(1 << 15)
-#define XILINX_DP_TX_INTR_CHBUF5_UNDERFLW		(1 << 16)
-#define XILINX_DP_TX_INTR_CHBUF4_UNDERFLW		(1 << 17)
-#define XILINX_DP_TX_INTR_CHBUF3_UNDERFLW		(1 << 18)
-#define XILINX_DP_TX_INTR_CHBUF2_UNDERFLW		(1 << 19)
-#define XILINX_DP_TX_INTR_CHBUF1_UNDERFLW		(1 << 20)
-#define XILINX_DP_TX_INTR_CHBUF0_UNDERFLW		(1 << 21)
-#define XILINX_DP_TX_INTR_CHBUF5_OVERFLW		(1 << 22)
-#define XILINX_DP_TX_INTR_CHBUF4_OVERFLW		(1 << 23)
-#define XILINX_DP_TX_INTR_CHBUF3_OVERFLW		(1 << 24)
-#define XILINX_DP_TX_INTR_CHBUF2_OVERFLW		(1 << 25)
-#define XILINX_DP_TX_INTR_CHBUF1_OVERFLW		(1 << 26)
-#define XILINX_DP_TX_INTR_CHBUF0_OVERFLW		(1 << 27)
+#define XILINX_DP_TX_INTR_CHBUF_UNDERFLW_MASK		0x3f0000
+#define XILINX_DP_TX_INTR_CHBUF_OVERFLW_MASK		0xfc00000
 #define XILINX_DP_TX_INTR_CUST_TS_2			(1 << 28)
 #define XILINX_DP_TX_INTR_CUST_TS			(1 << 29)
 #define XILINX_DP_TX_INTR_EXT_VSYNC_TS			(1 << 30)
@@ -138,18 +130,8 @@
 							 XILINX_DP_TX_INTR_VBLANK_START | \
 							 XILINX_DP_TX_INTR_PIXEL0_MATCH | \
 							 XILINX_DP_TX_INTR_PIXEL1_MATCH | \
-							 XILINX_DP_TX_INTR_CHBUF5_UNDERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF4_UNDERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF3_UNDERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF2_UNDERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF1_UNDERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF0_UNDERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF5_OVERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF4_OVERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF3_OVERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF2_OVERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF1_OVERFLW | \
-							 XILINX_DP_TX_INTR_CHBUF0_OVERFLW | \
+							 XILINX_DP_TX_INTR_CHBUF_UNDERFLW_MASK | \
+							 XILINX_DP_TX_INTR_CHBUF_OVERFLW_MASK | \
 							 XILINX_DP_TX_INTR_CUST_TS_2 | \
 							 XILINX_DP_TX_INTR_CUST_TS | \
 							 XILINX_DP_TX_INTR_EXT_VSYNC_TS | \
@@ -500,7 +482,7 @@ static void xilinx_drm_dp_adjust_train(struct xilinx_drm_dp *dp,
  * @dp: DisplayPort IP core structure
  *
  * Update the training values based on the request from sink. The mapped values
- * are predefined, and values(vs, pe, pc) are from the reference codes.
+ * are predefined, and values(vs, pe, pc) are from the device manual.
  *
  * Return: 0 if vs and emph are updated successfully, or the error code returned
  * by drm_dp_dpcd_write().
@@ -508,11 +490,16 @@ static void xilinx_drm_dp_adjust_train(struct xilinx_drm_dp *dp,
 static int xilinx_drm_dp_update_vs_emph(struct xilinx_drm_dp *dp)
 {
 	u8 *train_set = dp->train_set;
-	u8 i, level;
+	u8 i, v_level, p_level;
 	int ret;
-	u8 vs[4] = { 0x3, 0x7, 0xb, 0xf };
-	u8 pe[4] = { 0x0, 0x3, 0x5, 0x6 };
-	u8 pc[4] = { 0x0, 0xe, 0x14, 0x1b };
+	static u8 vs[4][4] = { { 0x2a, 0x27, 0x24, 0x20 },
+			       { 0x27, 0x23, 0x20, 0xff },
+			       { 0x24, 0x20, 0xff, 0xff },
+			       { 0xff, 0xff, 0xff, 0xff } };
+	static u8 pe[4][4] = { { 0x2, 0x2, 0x2, 0x2 },
+			       { 0x1, 0x1, 0x1, 0xff },
+			       { 0x0, 0x0, 0xff, 0xff },
+			       { 0xff, 0xff, 0xff, 0xff } };
 
 	ret = drm_dp_dpcd_write(&dp->aux, DP_TRAINING_LANE0_SET, train_set,
 				dp->mode.lane_cnt);
@@ -520,28 +507,20 @@ static int xilinx_drm_dp_update_vs_emph(struct xilinx_drm_dp *dp)
 		return ret;
 
 	for (i = 0; i < dp->mode.lane_cnt; i++) {
-		level = (train_set[i] & DP_TRAIN_VOLTAGE_SWING_MASK) >>
-			DP_TRAIN_VOLTAGE_SWING_SHIFT;
+		v_level = (train_set[i] & DP_TRAIN_VOLTAGE_SWING_MASK) >>
+			  DP_TRAIN_VOLTAGE_SWING_SHIFT;
+		p_level = (train_set[i] & DP_TRAIN_PRE_EMPHASIS_MASK) >>
+			  DP_TRAIN_PRE_EMPHASIS_SHIFT;
+
 		xilinx_drm_writel(dp->iomem,
 				  XILINX_DP_TX_PHY_VOLTAGE_DIFF_LANE_0 + i * 4,
-				  vs[level]);
-
-		level = (train_set[i] & DP_TRAIN_PRE_EMPHASIS_MASK) >>
-			DP_TRAIN_PRE_EMPHASIS_SHIFT;
+				  vs[p_level][v_level]);
 		xilinx_drm_writel(dp->iomem,
-				  XILINX_DP_TX_PHY_PREEMPHASIS_LANE_0 + i * 4,
-				  pe[level]);
-	}
-
-	for (i = 0; i < dp->mode.lane_cnt; i++) {
-		level = (train_set[i] & DP_TRAIN_PRE_EMPHASIS_MASK) >>
-			DP_TRAIN_PRE_EMPHASIS_SHIFT;
+				  XILINX_DP_TX_PHY_PRECURSOR_LANE_0 + i * 4,
+				  pe[p_level][v_level]);
 		xilinx_drm_writel(dp->iomem,
 				  XILINX_DP_TX_PHY_POSTCURSOR_LANE_0 + i * 4,
-				  pc[level]);
-
-		xilinx_drm_writel(dp->iomem,
-				  XILINX_DP_TX_PHY_PRECURSOR_LANE_0 + i * 4, 0);
+				  0);
 	}
 
 	return 0;
@@ -679,7 +658,7 @@ static int xilinx_drm_dp_train(struct xilinx_drm_dp *dp)
 	u32 reg;
 	u8 bw_code = dp->mode.bw_code;
 	u8 lane_cnt = dp->mode.lane_cnt;
-	u8 aux_lane_cnt;
+	u8 aux_lane_cnt = lane_cnt;
 	bool enhanced;
 	int ret;
 
@@ -688,7 +667,16 @@ static int xilinx_drm_dp_train(struct xilinx_drm_dp *dp)
 	enhanced = drm_dp_enhanced_frame_cap(dp->dpcd);
 	if (enhanced) {
 		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_ENHANCED_FRAME_EN, 1);
-		aux_lane_cnt = lane_cnt | DP_LANE_COUNT_ENHANCED_FRAME_EN;
+		aux_lane_cnt |= DP_LANE_COUNT_ENHANCED_FRAME_EN;
+	}
+
+	if (dp->dpcd[3] & 0x1) {
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_DOWNSPREAD_CTL, 1);
+		drm_dp_dpcd_writeb(&dp->aux, DP_DOWNSPREAD_CTRL,
+				   DP_SPREAD_AMP_0_5);
+	} else {
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_DOWNSPREAD_CTL, 0);
+		drm_dp_dpcd_writeb(&dp->aux, DP_DOWNSPREAD_CTRL, 0);
 	}
 
 	ret = drm_dp_dpcd_writeb(&dp->aux, DP_LANE_COUNT_SET, aux_lane_cnt);
@@ -720,6 +708,7 @@ static int xilinx_drm_dp_train(struct xilinx_drm_dp *dp)
 		reg = XILINX_DP_TX_PHY_CLOCK_FEEDBACK_SETTING_270;
 		break;
 	case DP_LINK_BW_5_4:
+	default:
 		reg = XILINX_DP_TX_PHY_CLOCK_FEEDBACK_SETTING_540;
 		break;
 	}
@@ -764,6 +753,8 @@ static void xilinx_drm_dp_dpms(struct drm_encoder *encoder, int dpms)
 {
 	struct xilinx_drm_dp *dp = to_dp(encoder);
 	void __iomem *iomem = dp->iomem;
+	unsigned int i;
+	int ret;
 
 	if (dp->dpms == dpms)
 		return;
@@ -778,7 +769,13 @@ static void xilinx_drm_dp_dpms(struct drm_encoder *encoder, int dpms)
 			xilinx_drm_writel(iomem, XILINX_DP_TX_AUDIO_CONTROL, 1);
 
 		xilinx_drm_writel(iomem, XILINX_DP_TX_PHY_POWER_DOWN, 0);
-		drm_dp_dpcd_writeb(&dp->aux, DP_SET_POWER, DP_SET_POWER_D0);
+		for (i = 0; i < 3; i++) {
+			ret = drm_dp_dpcd_writeb(&dp->aux, DP_SET_POWER,
+						 DP_SET_POWER_D0);
+			if (ret == 1)
+				break;
+			usleep_range(300, 500);
+		}
 		xilinx_drm_dp_train(dp);
 		xilinx_drm_writel(iomem, XILINX_DP_TX_ENABLE_MAIN_STREAM, 1);
 
@@ -1016,6 +1013,8 @@ xilinx_drm_dp_detect(struct drm_encoder *encoder,
 
 	state = xilinx_drm_readl(dp->iomem, XILINX_DP_TX_INTR_SIGNAL_STATE);
 	if (state & XILINX_DP_TX_INTR_SIGNAL_STATE_HPD) {
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_SW_RESET,
+				  XILINX_DP_TX_SW_RESET_ALL);
 		ret = drm_dp_dpcd_read(&dp->aux, 0x0, dp->dpcd,
 				       sizeof(dp->dpcd));
 		if (ret < 0)
@@ -1070,6 +1069,7 @@ static int xilinx_drm_dp_encoder_init(struct platform_device *pdev,
 {
 	struct xilinx_drm_dp *dp = platform_get_drvdata(pdev);
 	int clock_rate;
+	u32 reg, w;
 
 	encoder->slave_priv = dp;
 	encoder->slave_funcs = &xilinx_drm_dp_encoder_funcs;
@@ -1083,8 +1083,22 @@ static int xilinx_drm_dp_encoder_init(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_CLK_DIVIDER,
-			  clock_rate / XILINX_DP_TX_CLK_DIVIDER_MHZ);
+	/* Allowable values for this register are: 8, 16, 24, 32, 40, 48 */
+	for (w = 8; w <= 48; w += 8) {
+		/* AUX pulse width should be between 0.4 to 0.6 usec */
+		if (w >= (4 * clock_rate / 10000000) &&
+		    w <= (6 * clock_rate / 10000000))
+			break;
+	}
+
+	if (w > 48) {
+		DRM_ERROR("aclk frequency too high\n");
+		return -EINVAL;
+	}
+	reg = w << XILINX_DP_TX_CLK_DIVIDER_AUX_FILTER_SHIFT;
+
+	reg |= clock_rate / XILINX_DP_TX_CLK_DIVIDER_MHZ;
+	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_CLK_DIVIDER, reg);
 	xilinx_drm_clr(dp->iomem, XILINX_DP_TX_PHY_CONFIG,
 		       XILINX_DP_TX_PHY_CONFIG_ALL_RESET);
 
@@ -1130,6 +1144,13 @@ static irqreturn_t xilinx_drm_dp_irq_handler(int irq, void *data)
 	status = xilinx_drm_readl(dp->iomem, reg);
 	if (!status)
 		return IRQ_NONE;
+
+	dev_dbg(dp->dev, "%s",
+		status & XILINX_DP_TX_INTR_CHBUF_UNDERFLW_MASK ?
+		"underflow interrupt\n" : "");
+	dev_dbg(dp->dev, "%s",
+		status & XILINX_DP_TX_INTR_CHBUF_OVERFLW_MASK ?
+		"overflow interrupt\n" : "");
 
 	xilinx_drm_writel(dp->iomem, reg, status);
 
