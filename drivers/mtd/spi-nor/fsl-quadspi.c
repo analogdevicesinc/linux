@@ -1006,6 +1006,10 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 
 	/* find the resources */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "QuadSPI");
+	if (!res) {
+		dev_err(dev, "QuadSPI get resource IORESOURCE_MEM failed\n");
+		return -ENODEV;
+	}
 	q->iobase = devm_ioremap_resource(dev, res);
 	if (IS_ERR(q->iobase))
 		return PTR_ERR(q->iobase);
@@ -1013,6 +1017,11 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	q->big_endian = of_property_read_bool(np, "big-endian");
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					"QuadSPI-memory");
+	if (!res) {
+		dev_err(dev,
+			"QuadSPI-memory get resource IORESOURCE_MEM failed\n");
+		return -ENODEV;
+	}
 	if (!devm_request_mem_region(dev, res->start, resource_size(res),
 				     res->name)) {
 		dev_err(dev, "can't request region for resource %pR\n", res);
