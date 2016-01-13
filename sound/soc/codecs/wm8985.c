@@ -192,6 +192,7 @@ struct wm8985_priv {
 	struct regulator_bulk_data supplies[WM8985_NUM_SUPPLIES];
 	enum wm8985_type dev_type;
 	unsigned int sysclk;
+	unsigned int lrclk;
 	unsigned int bclk;
 };
 
@@ -733,23 +734,75 @@ static int wm8985_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return 0;
 }
 
-static int wm8985_hw_params(struct snd_pcm_substream *substream,
-			    struct snd_pcm_hw_params *params,
-			    struct snd_soc_dai *dai)
+
+static void wm8985_configure_bclk(struct snd_soc_dai *dai)
 {
-	int i, j;
 	struct snd_soc_codec *codec;
 	struct wm8985_priv *wm8985;
-	u16 blen, srate_idx, mclk_idx, bclk_idx;
-	unsigned int tmp;
-	int srate_best;
+	u16 mclk_idx, bclk_idx;
+	int i, tmp;
 
 	codec = dai->codec;
 	wm8985 = snd_soc_codec_get_drvdata(codec);
 
-	wm8985->bclk = snd_soc_params_to_bclk(params);
-	if ((int)wm8985->bclk < 0)
-		return wm8985->bclk;
+	mclk_idx = 0;
+	bclk_idx = 0;
+
+	for (i = 0; i < ARRAY_SIZE(mclk_divs); ++i) {
+		if (wm8985->lrclk == (wm8985->sysclk * 10) / (mclk_divs[i] * 128) ) {
+			mclk_idx = i;
+			break;
+		}
+	}
+
+	if (i == ARRAY_SIZE(mclk_divs)) {
+		dev_err(dai->dev, "Unable to configure MCLK ratio %u/%u = %u\n",
+			wm8985->sysclk, wm8985->lrclk, wm8985->sysclk/wm8985->lrclk);
+		return;
+	}
+
+	dev_dbg(dai->dev, "MCLK div = %dfs (id %d)\n", mclk_divs[mclk_idx], mclk_idx);
+	snd_soc_update_bits(codec, WM8985_CLOCK_GEN_CONTROL,
+			    WM8985_MCLKDIV_MASK,
+			    mclk_idx << WM8985_MCLKDIV_SHIFT);
+
+
+	/* select the appropriate bclk divider */
+	tmp = (wm8985->sysclk / mclk_divs[mclk_idx]) * 10 * 2;
+	for (i = 0; i < ARRAY_SIZE(bclk_divs); ++i) {
+		if (wm8985->bclk == tmp / bclk_divs[i]) {
+			bclk_idx = i;
+			break;
+		}
+	}
+
+	if (i == ARRAY_SIZE(bclk_divs)) {
+		dev_err(dai->dev, "Unable to configure BCLK ratio\n");
+		return;
+	}
+
+	dev_dbg(dai->dev, "BCLK div = %d\n", bclk_divs[bclk_idx]);
+	snd_soc_update_bits(codec, WM8985_CLOCK_GEN_CONTROL,
+			    WM8985_BCLKDIV_MASK,
+			    bclk_idx << WM8985_BCLKDIV_SHIFT);
+
+	snd_soc_update_bits(codec, WM8985_CLOCK_GEN_CONTROL,
+			    WM8985_MS_MASK, 1 << WM8985_MS_SHIFT);
+
+}
+
+static int wm8985_hw_params(struct snd_pcm_substream *substream,
+			    struct snd_pcm_hw_params *params,
+			    struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec;
+	struct wm8985_priv *wm8985;
+	u16 blen, srate_idx;
+	int srate_best;
+	int i;
+
+	codec = dai->codec;
+	wm8985 = snd_soc_codec_get_drvdata(codec);
 
 	switch (params_width(params)) {
 	case 16:
@@ -770,6 +823,15 @@ static int wm8985_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	/* The bclk/lrclk ratio must be power of 2 due to HW limitation
+	   of the wm8985 codec. */
+	if (blen == 0) {
+		wm8985->bclk = params_rate(params) * 16 * 2;
+	} else {
+		wm8985->bclk = params_rate(params) * 32 * 2;
+	}
+
+
 	snd_soc_update_bits(codec, WM8985_AUDIO_INTERFACE,
 			    WM8985_WL_MASK, blen << WM8985_WL_SHIFT);
 
@@ -786,6 +848,10 @@ static int wm8985_hw_params(struct snd_pcm_substream *substream,
 		srate_best = abs(srates[i] - params_rate(params));
 	}
 
+
+	wm8985->lrclk = params_rate(params);
+	dev_dbg(dai->dev, "Target LRC = %d\n", wm8985->lrclk);
+
 	dev_dbg(dai->dev, "Selected SRATE = %d\n", srates[srate_idx]);
 	snd_soc_update_bits(codec, WM8985_ADDITIONAL_CONTROL,
 			    WM8985_SR_MASK, srate_idx << WM8985_SR_SHIFT);
@@ -793,31 +859,6 @@ static int wm8985_hw_params(struct snd_pcm_substream *substream,
 	dev_dbg(dai->dev, "Target BCLK = %uHz\n", wm8985->bclk);
 	dev_dbg(dai->dev, "SYSCLK = %uHz\n", wm8985->sysclk);
 
-	mclk_idx = 0;
-	bclk_idx = 0;
-	srate_best = abs(wm8985->bclk -
-			wm8985->sysclk * 10 / mclk_divs[0] / bclk_divs[0]);
-	for (i = 0; i < ARRAY_SIZE(mclk_divs); ++i) {
-		for (j = 0; j < ARRAY_SIZE(bclk_divs); ++j) {
-			if (srate_best <= abs(wm8985->bclk -
-				wm8985->sysclk * 10 / mclk_divs[i] / bclk_divs[j]))
-				continue;
-			srate_best = abs(wm8985->bclk -
-				wm8985->sysclk * 10 / mclk_divs[i] / bclk_divs[j]);
-			mclk_idx = i;
-			bclk_idx = j;
-		}
-	}
-
-	dev_dbg(dai->dev, "MCLK div = %dfs\n", mclk_divs[mclk_idx]);
-	snd_soc_update_bits(codec, WM8985_CLOCK_GEN_CONTROL,
-			    WM8985_MCLKDIV_MASK,
-			    mclk_idx << WM8985_MCLKDIV_SHIFT);
-
-	dev_dbg(dai->dev, "BCLK div = %d\n", bclk_divs[bclk_idx]);
-	snd_soc_update_bits(codec, WM8985_CLOCK_GEN_CONTROL,
-			    WM8985_BCLKDIV_MASK,
-			    bclk_idx << WM8985_BCLKDIV_SHIFT);
 	return 0;
 }
 
@@ -828,7 +869,7 @@ struct pll_div {
 };
 
 #define FIXED_PLL_SIZE ((1ULL << 24) * 10)
-static int pll_factors(struct pll_div *pll_div, unsigned int target,
+static int pll_factors(struct device *dev, struct pll_div *pll_div, unsigned int target,
 		       unsigned int source)
 {
 	u64 Kpart;
@@ -843,8 +884,8 @@ static int pll_factors(struct pll_div *pll_div, unsigned int target,
 	}
 
 	if (Ndiv < 6 || Ndiv > 12) {
-		printk(KERN_ERR "%s: WM8985 N value is not within"
-		       " the recommended range: %lu\n", __func__, Ndiv);
+		dev_dbg(dev, "%s: WM8985 N value is not within"
+			" the recommended range: %lu\n", __func__, Ndiv);
 		return -EINVAL;
 	}
 	pll_div->n = Ndiv;
@@ -863,21 +904,19 @@ static int pll_factors(struct pll_div *pll_div, unsigned int target,
 	return 0;
 }
 
-static int wm8985_set_pll(struct snd_soc_dai *dai, int pll_id,
+static int wm8985_set_pll(struct snd_soc_codec *codec, int pll_id,
 			  int source, unsigned int freq_in,
 			  unsigned int freq_out)
 {
 	int ret;
-	struct snd_soc_codec *codec;
 	struct pll_div pll_div;
 
-	codec = dai->codec;
 	if (!freq_in || !freq_out) {
 		/* disable the PLL */
 		snd_soc_update_bits(codec, WM8985_POWER_MANAGEMENT_1,
 				    WM8985_PLLEN_MASK, 0);
 	} else {
-		ret = pll_factors(&pll_div, freq_out * 4 * 2, freq_in);
+		ret = pll_factors(codec->dev, &pll_div, freq_out * 4 * 2, freq_in);
 		if (ret)
 			return ret;
 
@@ -918,13 +957,17 @@ static int wm8985_set_sysclk(struct snd_soc_dai *dai,
 	case WM8985_CLKSRC_PLL:
 		snd_soc_update_bits(codec, WM8985_CLOCK_GEN_CONTROL,
 				    WM8985_CLKSEL_MASK, WM8985_CLKSEL);
+
+		wm8985->sysclk = freq;
+		if (wm8985->lrclk != 0) {
+			wm8985_configure_bclk(dai);
+		}
 		break;
 	default:
 		dev_err(dai->dev, "Unknown clock source %d\n", clk_id);
 		return -EINVAL;
 	}
 
-	wm8985->sysclk = freq;
 	return 0;
 }
 
@@ -982,6 +1025,7 @@ static int wm8985_set_bias_level(struct snd_soc_codec *codec,
 		snd_soc_update_bits(codec, WM8985_POWER_MANAGEMENT_1,
 				    WM8985_VMIDSEL_MASK,
 				    2 << WM8985_VMIDSEL_SHIFT);
+
 		break;
 	case SND_SOC_BIAS_OFF:
 		/* disable thermal shutdown */
@@ -1060,14 +1104,13 @@ static const struct snd_soc_dai_ops wm8985_dai_ops = {
 	.hw_params = wm8985_hw_params,
 	.set_fmt = wm8985_set_fmt,
 	.set_sysclk = wm8985_set_sysclk,
-	.set_pll = wm8985_set_pll
 };
 
 #define WM8985_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | \
 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
 static struct snd_soc_dai_driver wm8985_dai = {
-	.name = "wm8985-hifi",
+	.name = "wm8985",
 	.playback = {
 		.stream_name = "Playback",
 		.channels_min = 2,
@@ -1089,7 +1132,9 @@ static struct snd_soc_dai_driver wm8985_dai = {
 static const struct snd_soc_codec_driver soc_codec_dev_wm8985 = {
 	.probe = wm8985_probe,
 	.set_bias_level = wm8985_set_bias_level,
+	.set_pll = wm8985_set_pll,
 	.suspend_bias_off = true,
+	.idle_bias_off = true,
 
 	.component_driver = {
 		.controls		= wm8985_common_snd_controls,
