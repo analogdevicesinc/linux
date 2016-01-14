@@ -25,20 +25,37 @@
 				    reg = <1>;
 
 				    adv7511: adv7511 {
-					compatible = "adi,adv7511";
-					reg = <0x39>;
+						compatible = "adi,adv7511";
+						reg = <0x39>;
 
-					adi,input-style = <0x02>;
-					adi,input-id = <0x01>;
-					adi,input-color-depth = <0x3>;
-					adi,sync-pulse = <0x03>;
-					adi,bit-justification = <0x01>;
-					adi,up-conversion = <0x00>;
-					adi,timing-generation-sequence = <0x00>;
-					adi,vsync-polarity = <0x02>;
-					adi,hsync-polarity = <0x02>;
-					adi,tdms-clock-inversion;
-					adi,clock-delay = <0x03>;
+						adi,input-style = <0x02>;
+						adi,input-id = <0x01>;
+						adi,input-color-depth = <0x3>;
+						adi,sync-pulse = <0x03>;
+						adi,bit-justification = <0x01>;
+						adi,up-conversion = <0x00>;
+						adi,timing-generation-sequence = <0x00>;
+						adi,vsync-polarity = <0x02>;
+						adi,hsync-polarity = <0x02>;
+						adi,tdms-clock-inversion;
+						adi,clock-delay = <0x03>;
+
+						ports {
+							#address-cells = <1>;
+							#size-cells = <0>;
+
+							port@0 {
+								reg = <0>;
+								adv7511_in: endpoint {
+									remote-endpoint = <&axi_hdmi_out>;
+								};
+							};
+
+							port@1 {
+								reg = <1>;
+							};
+						};
+
 				    };
 				};
 
@@ -95,11 +112,16 @@
 		axi_hdmi@70e00000 {
 			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
-			encoder-slave = <&adv7511>;
 			dmas = <&axi_vdma_0 0>;
 			dma-names = "video";
 			clocks = <&hdmi_clock>;
 			adi,is-rgb;
+
+			port {
+				axi_hdmi_out: endpoint {
+					remote-endpoint = <&adv7511_in>;
+				};
+			};
 		};
 
 		audio_clock: audio_clock {

@@ -29,6 +29,22 @@
 				adi,hsync-polarity = <0x02>;
 				adi,tdms-clock-inversion;
 				adi,clock-delay = <0x03>;
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						adv7511_in: endpoint {
+							remote-endpoint = <&axi_hdmi_out>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+					};
+				};
 			};
 
 			adau1761: adau1761@3b {
@@ -64,10 +80,15 @@
 		axi_hdmi@70e00000 {
 			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
-			encoder-slave = <&adv7511>;
 			dmas = <&axi_vdma_0 0>;
 			dma-names = "video";
 			clocks = <&hdmi_clock>;
+
+			port {
+				axi_hdmi_out: endpoint {
+					remote-endpoint = <&adv7511_in>;
+				};
+			};
 		};
 
 		audio_clock: audio_clock {
