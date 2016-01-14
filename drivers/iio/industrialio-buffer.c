@@ -222,12 +222,18 @@ int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
 	if (buffer->scan_mask == NULL)
 		return -ENOMEM;
 
+	buffer->channel_mask = kcalloc(BITS_TO_LONGS(indio_dev->num_channels),
+		sizeof(*buffer->channel_mask), GFP_KERNEL);
+	if (buffer->channel_mask == NULL)
+		return -ENOMEM;
+
 	return 0;
 }
 EXPORT_SYMBOL(iio_buffer_alloc_scanmask);
 
 void iio_buffer_free_scanmask(struct iio_buffer *buffer)
 {
+	kfree(buffer->channel_mask);
 	kfree(buffer->scan_mask);
 }
 EXPORT_SYMBOL(iio_buffer_free_scanmask);
@@ -279,7 +285,7 @@ static ssize_t iio_scan_el_show(struct device *dev,
 
 	/* Ensure ret is 0 or 1. */
 	ret = !!test_bit(to_iio_dev_attr(attr)->address,
-		       indio_dev->buffer->scan_mask);
+		       indio_dev->buffer->channel_mask);
 
 	return sprintf(buf, "%d\n", ret);
 }
@@ -324,13 +330,14 @@ static bool iio_validate_scan_mask(struct iio_dev *indio_dev,
  * buffers might request, hence this code only verifies that the
  * individual buffers request is plausible.
  */
-static int iio_scan_mask_set(struct iio_dev *indio_dev,
+static int iio_channel_mask_set(struct iio_dev *indio_dev,
 		      struct iio_buffer *buffer, int bit)
 {
 	const unsigned long *mask;
 	unsigned long *trialmask;
+	unsigned int ch;
 
-	trialmask = kmalloc(sizeof(*trialmask)*
+	trialmask = kzalloc(sizeof(*trialmask)*
 			    BITS_TO_LONGS(indio_dev->masklength),
 			    GFP_KERNEL);
 
@@ -340,8 +347,11 @@ static int iio_scan_mask_set(struct iio_dev *indio_dev,
 		WARN(1, "Trying to set scanmask prior to registering buffer\n");
 		goto err_invalid_mask;
 	}
-	bitmap_copy(trialmask, buffer->scan_mask, indio_dev->masklength);
-	set_bit(bit, trialmask);
+
+	set_bit(bit, buffer->channel_mask);
+
+	for_each_set_bit(ch, buffer->channel_mask, indio_dev->num_channels)
+		set_bit(indio_dev->channels[ch].scan_index, trialmask);
 
 	if (!iio_validate_scan_mask(indio_dev, trialmask))
 		goto err_invalid_mask;
@@ -360,14 +370,35 @@ static int iio_scan_mask_set(struct iio_dev *indio_dev,
 	return 0;
 
 err_invalid_mask:
+	clear_bit(bit, buffer->channel_mask);
 	kfree(trialmask);
 	return -EINVAL;
 }
 
-static int iio_scan_mask_clear(struct iio_buffer *buffer, int bit)
+static int iio_channel_mask_clear(struct iio_dev *indio_dev,
+	struct iio_buffer *buffer, int bit)
 {
-	clear_bit(bit, buffer->scan_mask);
+	unsigned int ch;
+
+	clear_bit(bit, buffer->channel_mask);
+
+	memset(buffer->scan_mask, 0, BITS_TO_LONGS(indio_dev->masklength));
+	for_each_set_bit(ch, buffer->channel_mask, indio_dev->num_channels)
+		set_bit(indio_dev->channels[ch].scan_index, buffer->scan_mask);
 	return 0;
+}
+
+static int iio_channel_mask_query(struct iio_dev *indio_dev,
+			struct iio_buffer *buffer, int bit)
+{
+	if (bit > indio_dev->num_channels)
+		return -EINVAL;
+
+	if (!buffer->channel_mask)
+		return 0;
+
+	/* Ensure return value is 0 or 1. */
+	return !!test_bit(bit, buffer->channel_mask);
 }
 
 static ssize_t iio_scan_el_store(struct device *dev,
@@ -389,15 +420,15 @@ static ssize_t iio_scan_el_store(struct device *dev,
 		ret = -EBUSY;
 		goto error_ret;
 	}
-	ret = iio_scan_mask_query(indio_dev, buffer, this_attr->address);
+	ret = iio_channel_mask_query(indio_dev, buffer, this_attr->address);
 	if (ret < 0)
 		goto error_ret;
 	if (!state && ret) {
-		ret = iio_scan_mask_clear(buffer, this_attr->address);
+		ret = iio_channel_mask_clear(indio_dev, buffer, this_attr->address);
 		if (ret)
 			goto error_ret;
 	} else if (state && !ret) {
-		ret = iio_scan_mask_set(indio_dev, buffer, this_attr->address);
+		ret = iio_channel_mask_set(indio_dev, buffer, this_attr->address);
 		if (ret)
 			goto error_ret;
 	}
@@ -443,7 +474,8 @@ error_ret:
 }
 
 static int iio_buffer_add_channel_sysfs(struct iio_dev *indio_dev,
-					const struct iio_chan_spec *chan)
+					const struct iio_chan_spec *chan,
+					unsigned int address)
 {
 	int ret, attrcount = 0;
 	struct iio_buffer *buffer = indio_dev->buffer;
@@ -475,7 +507,7 @@ static int iio_buffer_add_channel_sysfs(struct iio_dev *indio_dev,
 					     chan,
 					     &iio_scan_el_show,
 					     &iio_scan_el_store,
-					     chan->scan_index,
+					     address,
 					     0,
 					     &indio_dev->dev,
 					     &buffer->scan_el_dev_attr_list);
@@ -484,7 +516,7 @@ static int iio_buffer_add_channel_sysfs(struct iio_dev *indio_dev,
 					     chan,
 					     &iio_scan_el_ts_show,
 					     &iio_scan_el_ts_store,
-					     chan->scan_index,
+					     address,
 					     0,
 					     &indio_dev->dev,
 					     &buffer->scan_el_dev_attr_list);
@@ -1169,7 +1201,7 @@ int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 				continue;
 
 			ret = iio_buffer_add_channel_sysfs(indio_dev,
-							 &channels[i]);
+							 &channels[i], i);
 			if (ret < 0)
 				goto error_cleanup_dynamic;
 			attrcount += ret;
