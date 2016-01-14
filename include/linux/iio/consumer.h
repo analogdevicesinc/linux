@@ -271,4 +271,9 @@ int iio_read_channel_scale(struct iio_channel *chan, int *val,
 int iio_convert_raw_to_processed(struct iio_channel *chan, int raw,
 	int *processed, unsigned int scale);
 
+void iio_buffer_channel_enable(struct iio_buffer *buffer,
+	const struct iio_channel *chan);
+void iio_buffer_channel_disable(struct iio_buffer *buffer,
+	const struct iio_channel *chan);
+
 #endif
