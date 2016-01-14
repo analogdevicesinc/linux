@@ -89,6 +89,9 @@ struct iio_buffer {
 	/** @scan_mask: Bitmask used in masking scan mode elements. */
 	long *scan_mask;
 
+	/** @channel_mask: Bitmask used in masking scan mode elements (per channel). */
+	long *channel_mask;
+
 	/** @demux_list: List of operations required to demux the scan. */
 	struct list_head demux_list;
 
