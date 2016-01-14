@@ -12,6 +12,8 @@
 #ifndef LINUX_MMC_SDIO_H
 #define LINUX_MMC_SDIO_H
 
+#include <linux/mmc/host.h>
+
 /* SDIO commands                         type  argument     response */
 #define SD_IO_SEND_OP_COND          5 /* bcr  [23:0] OCR         R4  */
 #define SD_IO_RW_DIRECT            52 /* ac   [31:0] See below   R5  */
@@ -189,5 +191,7 @@
 #define SDIO_FBR_CSA_DATA	0x0F
 
 #define SDIO_FBR_BLKSIZE	0x10	/* block size (2 bytes) */
+
+void mmc_sdio_force_remove(struct mmc_host *host);
 
 #endif /* LINUX_MMC_SDIO_H */

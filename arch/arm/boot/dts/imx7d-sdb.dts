@@ -752,6 +752,7 @@
 	vmmc-supply = <&reg_brcm>;
 	fsl,tuning-step = <2>;
 	pm-ignore-notify;
+	cd-post;
 	wifi-host;
 	status = "okay";
 };
