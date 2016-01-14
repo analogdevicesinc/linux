@@ -14,6 +14,7 @@
 
 #include <linux/iio/iio.h>
 #include "iio_core.h"
+#include <linux/iio/buffer.h>
 #include <linux/iio/machine.h>
 #include <linux/iio/driver.h>
 #include <linux/iio/consumer.h>
@@ -746,3 +747,17 @@ err_unlock:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(iio_write_channel_raw);
+
+void iio_buffer_channel_enable(struct iio_buffer *buffer,
+	const struct iio_channel *chan)
+{
+	set_bit(chan->channel->scan_index, buffer->scan_mask);
+}
+EXPORT_SYMBOL(iio_buffer_channel_enable);
+
+void iio_buffer_channel_disable(struct iio_buffer *buffer,
+	const struct iio_channel *chan)
+{
+	clear_bit(chan->channel->scan_index, buffer->scan_mask);
+}
+EXPORT_SYMBOL(iio_buffer_channel_disable);

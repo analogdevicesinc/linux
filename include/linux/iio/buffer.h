@@ -191,6 +191,10 @@ static inline void iio_device_attach_buffer(struct iio_dev *indio_dev,
 	indio_dev->buffer = iio_buffer_get(buffer);
 }
 
+
+int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
+	struct iio_dev *indio_dev);
+void iio_buffer_free_scanmask(struct iio_buffer *buffer);
 #else /* CONFIG_IIO_BUFFER */
 
 static inline void iio_buffer_get(struct iio_buffer *buffer) {}
