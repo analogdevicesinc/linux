@@ -375,6 +375,28 @@ void iio_buffer_init(struct iio_buffer *buffer)
 }
 EXPORT_SYMBOL(iio_buffer_init);
 
+int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
+	struct iio_dev *indio_dev)
+{
+	unsigned int masklength = iio_get_masklength(indio_dev);
+
+	if (!masklength || buffer->scan_mask)
+		return 0;
+
+	buffer->scan_mask = bitmap_zalloc(masklength, GFP_KERNEL);
+	if (!buffer->scan_mask)
+		return -ENOMEM;
+
+	return 0;
+}
+EXPORT_SYMBOL(iio_buffer_alloc_scanmask);
+
+void iio_buffer_free_scanmask(struct iio_buffer *buffer)
+{
+	kfree(buffer->scan_mask);
+}
+EXPORT_SYMBOL(iio_buffer_free_scanmask);
+
 void iio_device_detach_buffers(struct iio_dev *indio_dev)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
@@ -2099,7 +2121,6 @@ static int __iio_buffer_alloc_sysfs_and_mask(struct iio_buffer *buffer,
 					     int index)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
-	unsigned int masklength = iio_get_masklength(indio_dev);
 	struct iio_dev_attr *p;
 	const struct iio_dev_attr *id_attr;
 	struct attribute **attr;
@@ -2162,14 +2183,10 @@ static int __iio_buffer_alloc_sysfs_and_mask(struct iio_buffer *buffer,
 				iio_dev_opaque->scan_index_timestamp =
 					channels[i].scan_index;
 		}
-		if (masklength && !buffer->scan_mask) {
-			buffer->scan_mask = bitmap_zalloc(masklength,
-							  GFP_KERNEL);
-			if (!buffer->scan_mask) {
-				ret = -ENOMEM;
-				goto error_cleanup_dynamic;
-			}
-		}
+
+		ret = iio_buffer_alloc_scanmask(buffer, indio_dev);
+		if (ret)
+			goto error_cleanup_dynamic;
 	}
 
 	attrn = buffer_attrcount + scan_el_attrcount;
@@ -2236,7 +2253,7 @@ error_free_buffer_attr_group_name:
 error_free_buffer_attrs:
 	kfree(buffer->buffer_group.attrs);
 error_free_scan_mask:
-	bitmap_free(buffer->scan_mask);
+	iio_buffer_free_scanmask(buffer);
 error_cleanup_dynamic:
 	iio_free_chan_devattr_list(&buffer->buffer_attr_list);
 
