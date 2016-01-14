@@ -387,6 +387,15 @@ int iio_read_channel_scale(struct iio_channel *chan, int *val,
 int iio_convert_raw_to_processed(struct iio_channel *chan, int raw,
 	int *processed, unsigned int scale);
 
+void iio_buffer_channel_enable(struct iio_buffer *buffer,
+	const struct iio_channel *chan);
+void iio_buffer_channel_disable(struct iio_buffer *buffer,
+	const struct iio_channel *chan);
+
+int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
+       struct iio_dev *indio_dev);
+void iio_buffer_free_scanmask(struct iio_buffer *buffer);
+
 /**
  * iio_get_channel_ext_info_count() - get number of ext_info attributes
  *				      connected to the channel.
