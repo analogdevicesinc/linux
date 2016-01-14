@@ -153,6 +153,7 @@ static int __of_iio_channel_get(struct iio_channel *channel,
 	if (index < 0)
 		goto err_put;
 	channel->channel = &indio_dev->channels[index];
+	channel->channel_index = index;
 
 	return 0;
 
