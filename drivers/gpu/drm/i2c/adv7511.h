@@ -10,6 +10,7 @@
 #define __ADV7511_H__
 
 #include <linux/hdmi.h>
+#include <linux/gpio/consumer.h>
 
 #define ADV7511_REG_CHIP_REVISION		0x00
 #define ADV7511_REG_N0				0x01
@@ -350,7 +351,6 @@ enum adv7511_up_conversion {
  * @hsync_polartity:		hsync input signal configuration
  * @timing_gen_seq:		Selects the order in which sync DE generation
  *				and sync adjustment are performt.
- * @gpio_pd:			GPIO controlling the PD (powerdown) pin
  **/
 struct adv7511_link_config {
 	enum adv7511_input_id id;
@@ -366,8 +366,6 @@ struct adv7511_link_config {
 
 	enum adv7511_sync_polarity vsync_polarity;
 	enum adv7511_sync_polarity hsync_polarity;
-
-	int gpio_pd;
 };
 
 /**
@@ -448,7 +446,7 @@ struct adv7511 {
 
 	struct edid *edid;
 
-	int gpio_pd;
+	struct gpio_desc *gpio_pd;
 };
 
 #endif

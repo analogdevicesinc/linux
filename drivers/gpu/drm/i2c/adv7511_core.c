@@ -774,10 +774,6 @@ static int adv7511_parse_dt(struct device_node *np,
 	if (ret)
 		return ret;
 
-	config->gpio_pd = of_get_gpio(np, 0);
-	if (config->gpio_pd == -EPROBE_DEFER)
-		return -EPROBE_DEFER;
-
 	return 0;
 }
 
@@ -807,15 +803,13 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	adv7511->dpms_mode = DRM_MODE_DPMS_OFF;
 	adv7511->status = connector_status_disconnected;
 
-	adv7511->gpio_pd = link_config.gpio_pd;
+	adv7511->gpio_pd = devm_gpiod_get_optional(dev, NULL, GPIOD_OUT_HIGH);
+	if (IS_ERR(adv7511->gpio_pd))
+		return PTR_ERR(adv7511->gpio_pd);
 
-	if (gpio_is_valid(adv7511->gpio_pd)) {
-		ret = devm_gpio_request_one(dev, adv7511->gpio_pd,
-					    GPIOF_OUT_INIT_HIGH, "PD");
-		if (ret)
-			return ret;
+	if (adv7511->gpio_pd) {
 		mdelay(5);
-		gpio_set_value_cansleep(adv7511->gpio_pd, 0);
+		gpiod_set_value_cansleep(adv7511->gpio_pd, 0);
 	}
 
 	adv7511->regmap = devm_regmap_init_i2c(i2c, &adv7511_regmap_config);
