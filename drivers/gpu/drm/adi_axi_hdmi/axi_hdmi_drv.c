@@ -15,6 +15,7 @@
 #include <linux/of_address.h>
 #include <linux/of_i2c.h>
 #include <linux/of_dma.h>
+#include <linux/of_graph.h>
 #include <linux/clk.h>
 
 #include <drm/drmP.h>
@@ -156,8 +157,10 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	const struct of_device_id *id;
 	struct device_node *np = pdev->dev.of_node;
 	struct axi_hdmi_private *private;
-	struct device_node *slave_node;
+	struct device_node *slave_node, *ep_node;
+	struct of_endpoint ep;
 	struct resource *res;
+	int ret;
 
 	private = devm_kzalloc(&pdev->dev, sizeof(*private), GFP_KERNEL);
 	if (!private)
@@ -172,7 +175,23 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	if (IS_ERR(private->hdmi_clock))
 		return -EPROBE_DEFER;
 
-	slave_node = of_parse_phandle(np, "encoder-slave", 0);
+	ep_node = of_graph_get_next_endpoint(np, NULL);
+	if (ep_node) {
+		ret = of_graph_parse_endpoint(ep_node, &ep);
+		if (ret) {
+			of_node_put(ep_node);
+			return ret;
+		}
+		if (ep.port != 0 && ep.id != 0) {
+			of_node_put(ep_node);
+			return -EINVAL;
+		}
+		slave_node = of_graph_get_remote_port_parent(ep_node);
+		of_node_put(ep_node);
+	} else {
+		slave_node = of_parse_phandle(np, "encoder-slave", 0);
+	}
+
 	if (!slave_node)
 		return -EINVAL;
 
