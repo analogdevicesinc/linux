@@ -793,15 +793,12 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	unsigned int val;
 	int ret;
 
-	if (dev->of_node) {
-		ret = adv7511_parse_dt(dev->of_node, &link_config);
-		if (ret)
-			return ret;
-	} else {
-		if (!dev->platform_data)
-			return -EINVAL;
-		link_config = *(struct adv7511_link_config *)dev->platform_data;
-	}
+	if (!dev->of_node)
+		return -EINVAL;
+
+	ret = adv7511_parse_dt(dev->of_node, &link_config);
+	if (ret)
+		return ret;
 
 	adv7511 = devm_kzalloc(dev, sizeof(*adv7511), GFP_KERNEL);
 	if (!adv7511)
