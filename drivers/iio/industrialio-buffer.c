@@ -210,6 +210,33 @@ void iio_buffer_init(struct iio_buffer *buffer)
 }
 EXPORT_SYMBOL(iio_buffer_init);
 
+int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
+	struct iio_dev *indio_dev)
+{
+	if (!indio_dev->masklength)
+		return 0;
+
+	buffer->scan_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
+		sizeof(*buffer->scan_mask), GFP_KERNEL);
+	if (buffer->scan_mask == NULL)
+		return -ENOMEM;
+
+	buffer->channel_mask = kcalloc(BITS_TO_LONGS(indio_dev->num_channels),
+		sizeof(*buffer->channel_mask), GFP_KERNEL);
+	if (buffer->channel_mask == NULL)
+		return -ENOMEM;
+
+	return 0;
+}
+EXPORT_SYMBOL(iio_buffer_alloc_scanmask);
+
+void iio_buffer_free_scanmask(struct iio_buffer *buffer)
+{
+	kfree(buffer->channel_mask);
+	kfree(buffer->scan_mask);
+}
+EXPORT_SYMBOL(iio_buffer_free_scanmask);
+
 /**
  * iio_buffer_set_attrs - Set buffer specific attributes
  * @buffer: The buffer for which we are setting attributes
@@ -1302,15 +1329,10 @@ int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 				indio_dev->scan_index_timestamp =
 					channels[i].scan_index;
 		}
-		if (indio_dev->masklength && buffer->scan_mask == NULL) {
-			buffer->scan_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
-						    sizeof(*buffer->scan_mask),
-						    GFP_KERNEL);
-			if (buffer->scan_mask == NULL) {
-				ret = -ENOMEM;
-				goto error_cleanup_dynamic;
-			}
-		}
+
+		ret = iio_buffer_alloc_scanmask(buffer, indio_dev);
+		if (ret)
+			goto error_cleanup_dynamic;
 	}
 
 	buffer->scan_el_group.name = iio_scan_elements_group_name;
@@ -1334,7 +1356,7 @@ int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 	return 0;
 
 error_free_scan_mask:
-	kfree(buffer->scan_mask);
+	iio_buffer_free_scanmask(buffer);
 error_cleanup_dynamic:
 	iio_free_chan_devattr_list(&buffer->scan_el_dev_attr_list);
 	kfree(indio_dev->buffer->buffer_group.attrs);
@@ -1347,7 +1369,7 @@ void iio_buffer_free_sysfs_and_mask(struct iio_dev *indio_dev)
 	if (!indio_dev->buffer)
 		return;
 
-	kfree(indio_dev->buffer->scan_mask);
+	iio_buffer_free_scanmask(indio_dev->buffer);
 	kfree(indio_dev->buffer->buffer_group.attrs);
 	kfree(indio_dev->buffer->scan_el_group.attrs);
 	iio_free_chan_devattr_list(&indio_dev->buffer->scan_el_dev_attr_list);

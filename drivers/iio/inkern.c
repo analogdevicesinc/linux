@@ -14,6 +14,7 @@
 
 #include <linux/iio/iio.h>
 #include "iio_core.h"
+#include <linux/iio/buffer.h>
 #include <linux/iio/machine.h>
 #include <linux/iio/driver.h>
 #include <linux/iio/consumer.h>
@@ -874,6 +875,32 @@ int iio_write_channel_raw(struct iio_channel *chan, int val)
 	return iio_write_channel_attribute(chan, val, 0, IIO_CHAN_INFO_RAW);
 }
 EXPORT_SYMBOL_GPL(iio_write_channel_raw);
+
+void iio_buffer_channel_enable(struct iio_buffer *buffer,
+	const struct iio_channel *chan)
+{
+	unsigned int ch;
+
+	set_bit(chan->channel_index, buffer->channel_mask);
+
+	memset(buffer->scan_mask, 0, BITS_TO_LONGS(chan->indio_dev->masklength));
+	for_each_set_bit(ch, buffer->channel_mask, chan->indio_dev->num_channels)
+		set_bit(chan->indio_dev->channels[ch].scan_index, buffer->scan_mask);
+}
+EXPORT_SYMBOL(iio_buffer_channel_enable);
+
+void iio_buffer_channel_disable(struct iio_buffer *buffer,
+	const struct iio_channel *chan)
+{
+	unsigned int ch;
+
+	clear_bit(chan->channel_index, buffer->channel_mask);
+
+	memset(buffer->scan_mask, 0, BITS_TO_LONGS(chan->indio_dev->masklength));
+	for_each_set_bit(ch, buffer->channel_mask, chan->indio_dev->num_channels)
+		set_bit(chan->indio_dev->channels[ch].scan_index, buffer->scan_mask);
+}
+EXPORT_SYMBOL(iio_buffer_channel_disable);
 
 unsigned int iio_get_channel_ext_info_count(struct iio_channel *chan)
 {
