@@ -169,6 +169,7 @@ static int __fwnode_iio_channel_get(struct iio_channel *channel,
 	if (index < 0)
 		goto err_put;
 	channel->channel = &indio_dev->channels[index];
+	channel->channel_index = index;
 
 	return 0;
 
@@ -954,16 +955,30 @@ int iio_write_channel_raw(struct iio_channel *chan, int val)
 EXPORT_SYMBOL_GPL(iio_write_channel_raw);
 
 void iio_buffer_channel_enable(struct iio_buffer *buffer,
-	const struct iio_channel *chan)
+			       const struct iio_channel *chan)
 {
-	set_bit(chan->channel->scan_index, buffer->scan_mask);
+	unsigned int masklength = iio_get_masklength(chan->indio_dev);
+	unsigned int ch;
+
+	set_bit(chan->channel_index, buffer->channel_mask);
+
+	memset(buffer->scan_mask, 0, BITS_TO_LONGS(masklength) * sizeof(*buffer->scan_mask));
+	for_each_set_bit(ch, buffer->channel_mask, chan->indio_dev->num_channels)
+		set_bit(chan->indio_dev->channels[ch].scan_index, buffer->scan_mask);
 }
 EXPORT_SYMBOL(iio_buffer_channel_enable);
 
 void iio_buffer_channel_disable(struct iio_buffer *buffer,
-	const struct iio_channel *chan)
+				const struct iio_channel *chan)
 {
-	clear_bit(chan->channel->scan_index, buffer->scan_mask);
+	unsigned int masklength = iio_get_masklength(chan->indio_dev);
+	unsigned int ch;
+
+	clear_bit(chan->channel_index, buffer->channel_mask);
+
+	memset(buffer->scan_mask, 0, BITS_TO_LONGS(masklength) * sizeof(*buffer->scan_mask));
+	for_each_set_bit(ch, buffer->channel_mask, chan->indio_dev->num_channels)
+		set_bit(chan->indio_dev->channels[ch].scan_index, buffer->scan_mask);
 }
 EXPORT_SYMBOL(iio_buffer_channel_disable);
 
