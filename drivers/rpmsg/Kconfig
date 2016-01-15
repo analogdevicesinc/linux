@@ -53,10 +53,12 @@ config RPMSG_VIRTIO
 
 config IMX_RPMSG_PINGPONG
 	tristate "IMX RPMSG pingpong driver -- loadable modules only"
+	default m
 	depends on RPMSG && m
 
 config IMX_RPMSG_TTY
 	tristate "IMX RPMSG tty driver -- loadable modules only"
+	default m
 	depends on RPMSG && m
 
 endmenu
