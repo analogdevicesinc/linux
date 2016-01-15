@@ -371,6 +371,9 @@ struct adv7511_link_config {
 
 	enum adv7511_sync_polarity vsync_polarity;
 	enum adv7511_sync_polarity hsync_polarity;
+
+	bool auto_csc_config;
+	bool rgb;
 };
 
 /**
@@ -448,6 +451,8 @@ struct adv7511 {
 	bool embedded_sync;
 	enum adv7511_sync_polarity vsync_polarity;
 	enum adv7511_sync_polarity hsync_polarity;
+	bool auto_csc_config;
+	bool rgb;
 
 	struct edid *edid;
 

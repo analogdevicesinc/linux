@@ -196,10 +196,9 @@ int adv7511_packet_disable(struct adv7511 *adv7511, unsigned int packet)
 	return 0;
 }
 
-static void adv7511_set_config(struct drm_encoder *encoder, void *c)
+static void _adv7511_set_config(struct adv7511 *adv7511,
+	struct adv7511_video_config *config)
 {
-	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
-	struct adv7511_video_config *config = c;
 	bool output_format_422, output_format_ycbcr;
 	unsigned int mode;
 	uint8_t infoframe[17];
@@ -249,6 +248,57 @@ static void adv7511_set_config(struct drm_encoder *encoder, void *c)
 	adv7511_packet_enable(adv7511, ADV7511_PACKET_ENABLE_AVI_INFOFRAME);
 }
 
+static void adv7511_set_config(struct drm_encoder *encoder, void *c)
+{
+	struct adv7511 *adv7511 = encoder_to_adv7511(encoder);
+
+	_adv7511_set_config(adv7511, c);
+}
+
+/* Coefficients for adv7511 color space conversion */
+static const uint16_t adv7511_csc_ycbcr_to_rgb[] = {
+	0x0734, 0x04ad, 0x0000, 0x1c1b,
+	0x1ddc, 0x04ad, 0x1f24, 0x0135,
+	0x0000, 0x04ad, 0x087c, 0x1b77,
+};
+
+static void adv7511_set_config_csc(struct adv7511 *adv7511,
+				   struct drm_connector *connector,
+				   bool rgb)
+{
+	struct adv7511_video_config config;
+
+	if (adv7511->edid)
+		config.hdmi_mode = drm_detect_hdmi_monitor(adv7511->edid);
+	else
+		config.hdmi_mode = false;
+
+	hdmi_avi_infoframe_init(&config.avi_infoframe);
+
+	config.avi_infoframe.scan_mode = HDMI_SCAN_MODE_UNDERSCAN;
+
+	if (rgb) {
+		config.csc_enable = false;
+		config.avi_infoframe.colorspace = HDMI_COLORSPACE_RGB;
+	} else {
+		config.csc_scaling_factor = ADV7511_CSC_SCALING_4;
+		config.csc_coefficents = adv7511_csc_ycbcr_to_rgb;
+
+		if ((connector->display_info.color_formats &
+		     DRM_COLOR_FORMAT_YCRCB422) &&
+		    config.hdmi_mode) {
+			config.csc_enable = false;
+			config.avi_infoframe.colorspace =
+				HDMI_COLORSPACE_YUV422;
+		} else {
+			config.csc_enable = true;
+			config.avi_infoframe.colorspace = HDMI_COLORSPACE_RGB;
+		}
+	}
+
+	_adv7511_set_config(adv7511, &config);
+}
+
 static void adv7511_set_link_config(struct adv7511 *adv7511,
 				    const struct adv7511_link_config *config)
 {
@@ -291,6 +341,8 @@ static void adv7511_set_link_config(struct adv7511 *adv7511,
 
 	adv7511->hsync_polarity = config->hsync_polarity;
 	adv7511->vsync_polarity = config->vsync_polarity;
+	adv7511->auto_csc_config = config->auto_csc_config;
+	adv7511->rgb = config->rgb;
 }
 
 /* -----------------------------------------------------------------------------
@@ -484,6 +536,9 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 
 	drm_mode_connector_update_edid_property(connector, edid);
 	count = drm_add_edid_modes(connector, edid);
+
+	if (adv7511->auto_csc_config)
+		adv7511_set_config_csc(adv7511, connector, adv7511->rgb);
 
 	return count;
 }
@@ -731,7 +786,7 @@ static struct drm_encoder_slave_funcs adv7511_encoder_funcs = {
  * Probe & remove
  */
 
-static int adv7511_parse_dt(struct device_node *np,
+static int adv7511_parse_dt_legacy(struct device_node *np,
 			    struct adv7511_link_config *config)
 {
 	int ret;
@@ -789,6 +844,116 @@ static int adv7511_parse_dt(struct device_node *np,
 	return 0;
 }
 
+static int adv7511_parse_dt(struct device_node *np,
+			    struct adv7511_link_config *config)
+{
+	static const unsigned int input_styles[4] = { 0, 2, 1, 3 };
+	enum hdmi_colorspace input_colorspace;
+	unsigned int input_clock;
+	bool embedded_sync;
+	int clock_delay = 0;
+	const char *str;
+	int ret;
+
+	memset(config, 0, sizeof(*config));
+
+	if (of_property_read_bool(np, "adi,input-color-depth"))
+		return adv7511_parse_dt_legacy(np, config);
+
+	of_property_read_u32(np, "adi,input-depth", &config->input_color_depth);
+	if (config->input_color_depth != 8 && config->input_color_depth != 10 &&
+	    config->input_color_depth != 12)
+		return -EINVAL;
+
+	ret = of_property_read_string(np, "adi,input-colorspace", &str);
+	if (ret < 0)
+		return ret;
+
+	if (!strcmp(str, "rgb"))
+		input_colorspace = HDMI_COLORSPACE_RGB;
+	else if (!strcmp(str, "yuv422"))
+		input_colorspace = HDMI_COLORSPACE_YUV422;
+	else if (!strcmp(str, "yuv444"))
+		input_colorspace = HDMI_COLORSPACE_YUV444;
+	else
+		return -EINVAL;
+
+	ret = of_property_read_string(np, "adi,input-clock", &str);
+	if (ret < 0)
+		return ret;
+
+	if (!strcmp(str, "1x"))
+		input_clock = ADV7511_INPUT_CLOCK_1X;
+	else if (!strcmp(str, "2x"))
+		input_clock = ADV7511_INPUT_CLOCK_2X;
+	else if (!strcmp(str, "ddr"))
+		input_clock = ADV7511_INPUT_CLOCK_DDR;
+	else
+		return -EINVAL;
+
+	if (input_colorspace == HDMI_COLORSPACE_YUV422 ||
+	    input_clock != ADV7511_INPUT_CLOCK_1X) {
+		ret = of_property_read_u32(np, "adi,input-style",
+					   &config->input_style);
+		if (ret)
+			return ret;
+
+		if (config->input_style < 1 || config->input_style > 3)
+			return -EINVAL;
+
+		ret = of_property_read_string(np, "adi,input-justification",
+					      &str);
+		if (ret < 0)
+			return ret;
+
+		if (!strcmp(str, "left"))
+			config->input_justification =
+				ADV7511_INPUT_JUSTIFICATION_LEFT;
+		else if (!strcmp(str, "evenly"))
+			config->input_justification =
+				ADV7511_INPUT_JUSTIFICATION_EVENLY;
+		else if (!strcmp(str, "right"))
+			config->input_justification =
+				ADV7511_INPUT_JUSTIFICATION_RIGHT;
+		else
+			return -EINVAL;
+	} else {
+		config->input_style = 1;
+		config->input_justification = ADV7511_INPUT_JUSTIFICATION_LEFT;
+	}
+
+	of_property_read_u32(np, "adi,clock-delay", &clock_delay);
+	if (clock_delay < -1200 || clock_delay > 1600)
+		return -EINVAL;
+
+	embedded_sync = of_property_read_bool(np, "adi,embedded-sync");
+
+	/* TODO Support input ID 6 */
+	if (input_colorspace != HDMI_COLORSPACE_YUV422)
+		config->id = input_clock == ADV7511_INPUT_CLOCK_DDR
+			 ? 5 : 0;
+	else if (input_clock == ADV7511_INPUT_CLOCK_DDR)
+		config->id = embedded_sync ? 8 : 7;
+	else if (input_clock == ADV7511_INPUT_CLOCK_2X)
+		config->id = embedded_sync ? 4 : 3;
+	else
+		config->id = embedded_sync ? 2 : 1;
+
+	/* Hardcode the sync pulse configurations for now. */
+	config->sync_pulse = ADV7511_INPUT_SYNC_PULSE_NONE;
+	config->vsync_polarity = ADV7511_SYNC_POLARITY_PASSTHROUGH;
+	config->hsync_polarity = ADV7511_SYNC_POLARITY_PASSTHROUGH;
+	config->rgb = input_colorspace == HDMI_COLORSPACE_RGB;
+	config->auto_csc_config = true;
+
+	config->clock_delay = (clock_delay + 1200) / 400;
+	config->input_color_depth = config->input_color_depth == 8 ? 3
+		    : (config->input_color_depth == 10 ? 1 : 2);
+	config->input_style = input_styles[config->input_style];
+
+	return 0;
+}
+
 static const int edid_i2c_addr = 0x7e;
 static const int packet_i2c_addr = 0x70;
 static const int cec_i2c_addr = 0x78;
@@ -819,7 +984,9 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	 * The power down GPIO is optional. If present, toggle it from active to
 	 * inactive to wake up the encoder.
 	 */
-	adv7511->gpio_pd = devm_gpiod_get_optional(dev, NULL, GPIOD_OUT_HIGH);
+	adv7511->gpio_pd = devm_gpiod_get_optional(dev, "pd", GPIOD_OUT_HIGH);
+	if (adv7511->gpio_pd == NULL)
+		adv7511->gpio_pd = devm_gpiod_get_optional(dev, NULL, GPIOD_OUT_HIGH);
 	if (IS_ERR(adv7511->gpio_pd))
 		return PTR_ERR(adv7511->gpio_pd);
 
