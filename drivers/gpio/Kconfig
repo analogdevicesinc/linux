@@ -1023,8 +1023,7 @@ config GPIO_MCP23S08
 
 config GPIO_A10SYCON
 	tristate "Altera Arria10 System Controller GPIO"
-	depends on ARCH_SOCFPGA
-	select MFD_A10SYCON
+	depends on MFD_A10SYCON
 	help
 	  Driver for Arria10 GPIO expansion which includes reads of
 	  pushbuttons and DIP switches as well as writes to LEDs and
