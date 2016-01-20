@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2015 Freescale Semiconductor, Inc.
+ * Copyright 2012-2016 Freescale Semiconductor, Inc.
  * Copyright (C) 2012 Marek Vasut <marex@denx.de>
  * on behalf of DENX Software Engineering GmbH
  *
