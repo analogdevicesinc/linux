@@ -39,7 +39,6 @@
 #define CQSPI_MAX_CHIPSELECT		16
 
 struct cqspi_flash_pdata {
-	struct mtd_info mtd;
 	struct spi_nor nor;
 	u32 clk_rate;
 	unsigned int read_delay;
@@ -770,7 +769,7 @@ static int cqspi_erase(struct spi_nor *nor, loff_t offs)
 	int ret;
 
 	/* Send write enable, then erase commands. */
-	ret = nor->write_reg(nor, SPINOR_OP_WREN, NULL, 0, 0);
+	ret = nor->write_reg(nor, SPINOR_OP_WREN, NULL, 0);
 	if (ret)
 		return ret;
 
@@ -942,7 +941,7 @@ static void cqspi_switch_cs(struct cqspi_st *cqspi, unsigned int cs)
 	reg &= ~(CQSPI_REG_SIZE_PAGE_MASK << CQSPI_REG_SIZE_PAGE_LSB);
 	reg &= ~(CQSPI_REG_SIZE_BLOCK_MASK << CQSPI_REG_SIZE_BLOCK_LSB);
 	reg |= (nor->page_size << CQSPI_REG_SIZE_PAGE_LSB);
-	reg |= (ilog2(nor->mtd->erasesize) << CQSPI_REG_SIZE_BLOCK_LSB);
+	reg |= (ilog2(nor->mtd.erasesize) << CQSPI_REG_SIZE_BLOCK_LSB);
 	reg &= ~CQSPI_REG_SIZE_ADDRESS_MASK;
 	reg |= (nor->addr_width - 1);
 	writel(reg, iobase + CQSPI_REG_SIZE);
@@ -997,8 +996,7 @@ static int cqspi_read_reg(struct spi_nor *nor, u8 opcode, u8 *buf, int len)
 	return ret;
 }
 
-static int cqspi_write_reg(struct spi_nor *nor, u8 opcode, u8 *buf, int len,
-			   int write_enable)
+static int cqspi_write_reg(struct spi_nor *nor, u8 opcode, u8 *buf, int len)
 {
 	int ret = 0;
 
@@ -1136,8 +1134,8 @@ static int cqspi_remove(struct platform_device *pdev)
 	cqspi_controller_disable(cqspi);
 
 	for (i = 0; i < CQSPI_MAX_CHIPSELECT; i++)
-		if (cqspi->f_pdata[i].mtd.name)
-			mtd_device_unregister(&cqspi->f_pdata[i].mtd);
+		if (cqspi->f_pdata[i].nor.mtd.name)
+			mtd_device_unregister(&cqspi->f_pdata[i].nor.mtd);
 
 	return 0;
 }
@@ -1149,7 +1147,6 @@ static int cqspi_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct cqspi_st *cqspi;
 	struct spi_nor *nor;
-	struct mtd_info *mtd;
 	struct resource *res;
 	struct resource *res_ahb;
 	int ret;
@@ -1233,12 +1230,9 @@ static int cqspi_probe(struct platform_device *pdev)
 			goto probe_failed;
 
 		nor = &f_pdata->nor;
-		mtd = &f_pdata->mtd;
 
-		nor->mtd = mtd;
 		nor->dev = dev;
 		nor->priv = cqspi;
-		mtd->priv = nor;
 
 		nor->read_reg = cqspi_read_reg;
 		nor->write_reg = cqspi_write_reg;
@@ -1256,7 +1250,8 @@ static int cqspi_probe(struct platform_device *pdev)
 			nor->read_dummy = CQSPI_DUMMY_CLKS_MAX;
 
 		ppdata.of_node = np;
-		ret = mtd_device_parse_register(mtd, NULL, &ppdata, NULL, 0);
+		ret = mtd_device_parse_register(&nor->mtd, NULL, &ppdata,
+						NULL, 0);
 		if (ret)
 			goto probe_failed;
 	}
