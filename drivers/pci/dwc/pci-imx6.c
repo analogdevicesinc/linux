@@ -638,10 +638,12 @@ static int imx6_pcie_establish_link(struct imx6_pcie *imx6_pcie)
 	 * started in Gen2 mode, there is a possibility the devices on the
 	 * bus will not be detected at all.  This happens with PCIe switches.
 	 */
-	tmp = dw_pcie_readl_dbi(pci, PCIE_RC_LCR);
-	tmp &= ~PCIE_RC_LCR_MAX_LINK_SPEEDS_MASK;
-	tmp |= PCIE_RC_LCR_MAX_LINK_SPEEDS_GEN1;
-	dw_pcie_writel_dbi(pci, PCIE_RC_LCR, tmp);
+	if (!IS_ENABLED(CONFIG_PCI_IMX6_COMPLIANCE_TEST)) {
+		tmp = dw_pcie_readl_dbi(pci, PCIE_RC_LCR);
+		tmp &= ~PCIE_RC_LCR_MAX_LINK_SPEEDS_MASK;
+		tmp |= PCIE_RC_LCR_MAX_LINK_SPEEDS_GEN1;
+		dw_pcie_writel_dbi(pci, PCIE_RC_LCR, tmp);
+	}
 
 	/* Start LTSSM. */
 	if (imx6_pcie->variant == IMX7D)
@@ -690,6 +692,16 @@ static int imx6_pcie_establish_link(struct imx6_pcie *imx6_pcie)
 		ret = imx6_pcie_wait_for_link(imx6_pcie);
 		if (ret) {
 			dev_err(dev, "Failed to bring link up!\n");
+			if (!IS_ENABLED(CONFIG_PCI_IMX6_COMPLIANCE_TEST)) {
+				clk_disable_unprepare(imx6_pcie->pcie);
+				clk_disable_unprepare(imx6_pcie->pcie_bus);
+				clk_disable_unprepare(imx6_pcie->pcie_phy);
+				if (is_imx6sx_pcie(imx6_pcie))
+					clk_disable_unprepare(imx6_pcie->pcie_inbound_axi);
+				release_bus_freq(BUS_FREQ_HIGH);
+				if (imx6_pcie->pcie_phy_regulator != NULL)
+					regulator_disable(imx6_pcie->pcie_phy_regulator);
+			}
 			goto err_reset_phy;
 		}
 	} else {
