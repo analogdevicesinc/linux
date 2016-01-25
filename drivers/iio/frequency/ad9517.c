@@ -1091,6 +1091,8 @@ static int ad9517_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, indio_dev);
 
+	dev_info(&spi->dev, "AD9517 successfully initialized");
+
 	return 0;
 
 err_of_clk_del_provider:
