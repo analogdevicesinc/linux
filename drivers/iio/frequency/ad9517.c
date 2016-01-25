@@ -235,9 +235,11 @@ static int ad9517_parse_firmware(struct ad9517_state *st,
 				 const char *data, unsigned size)
 {
 	unsigned addr, val1, val2;
-	const char *line = data;
+	char *line;
 	int ret;
 
+	line = vmalloc(size);
+	memcpy(line, data, size);
 	while (line) {
 		ret = sscanf(line, "\"%x\",\"%x\",\"%x\"", &addr, &val1, &val2);
 		if (ret == 3) {
@@ -249,6 +251,8 @@ static int ad9517_parse_firmware(struct ad9517_state *st,
 		if (line != NULL)
 		    line++;
 	}
+	vfree(line);
+
 	return 0;
 }
 
