@@ -154,6 +154,7 @@ static inline void imx_gpcv2_add_m4_wake_up_irq(u32 hwirq, bool enable) {}
 void __init imx_gpcv2_check_dt(void);
 void imx_gpcv2_set_lpm_mode(enum mxc_cpu_pwr_mode mode);
 void imx_gpcv2_set_cpu_power_gate_in_idle(bool pdn);
+void imx_gpcv2_enable_rbc(bool enable);
 unsigned long save_ttbr1(void);
 void restore_ttbr1(unsigned long ttbr1);
 void imx_gpc_mask_all(void);
