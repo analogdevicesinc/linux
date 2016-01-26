@@ -77,6 +77,10 @@ static struct regmap_irq_chip a10sycon_regmap_irq_chip = {
 
 int a10sycon_map_irq(struct a10sycon *a10sc, int irq)
 {
+	if (!a10sc->chip_irq) {
+		dev_err(a10sc->dev, "Chip IRQ not enabled.\n");
+		return -EINVAL;
+	}
 	return regmap_irq_get_virq(a10sc->irq_data, irq);
 }
 EXPORT_SYMBOL_GPL(a10sycon_map_irq);
@@ -144,6 +148,10 @@ int a10sycon_irq_init(struct a10sycon *a10sc)
 {
 	int ret;
 
+	if (!a10sc->chip_irq) {
+		dev_err(a10sc->dev, "Invalid Chip IRQ err\n");
+		return -ENODEV;
+	}
 	ret = regmap_add_irq_chip(a10sc->regmap, a10sc->chip_irq,
 				  IRQF_TRIGGER_LOW | IRQF_ONESHOT | IRQF_SHARED,
 				  -1, &a10sycon_regmap_irq_chip,
