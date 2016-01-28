@@ -205,6 +205,14 @@ config XTENSA_MX
 	bool
 	select IRQ_DOMAIN
 
+config XILINX_AXI_INTC
+	tristate "Xilinx AXI INTC"
+	depends on PCI && OF && !MICROBLAZE
+	select IRQ_DOMAIN
+	help
+		Support for the Xilinx AXI INTC controller for use behind a PCI to AXI
+		bridge.
+
 config IRQ_CROSSBAR
 	bool
 	help
