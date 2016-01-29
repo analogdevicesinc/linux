@@ -36,7 +36,7 @@ Optional properties:
   cells which is useful for some special boards or cards when the default
   tuning step can't find the proper delay window within limited tuning retries.
 - wifi-host : assigned as a wifi host.
-  This is required for some WiFi cards to do card detect
+  This is required for Broadcom BCM WiFi cards to do card detect
 
 Examples:
 
