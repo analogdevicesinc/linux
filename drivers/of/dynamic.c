@@ -236,6 +236,34 @@ void __of_attach_node(struct device_node *np)
 }
 
 /**
+ * of_create_root() - Plug a device node into the tree and global list.
+ */
+int of_create_root(struct device_node *root)
+{
+	struct device_node *np;
+	unsigned long flags;
+
+	mutex_lock(&of_mutex);
+	raw_spin_lock_irqsave(&devtree_lock, flags);
+
+	if(of_root)
+		return -EEXIST;
+
+	of_root = root;
+
+	raw_spin_unlock_irqrestore(&devtree_lock, flags);
+
+	for_each_of_allnodes(np)
+		__of_attach_node_sysfs(np);
+
+	mutex_unlock(&of_mutex);
+
+	return 0;
+}
+
+EXPORT_SYMBOL_GPL(of_create_root);
+
+/**
  * of_attach_node() - Plug a device node into the tree and global list.
  */
 int of_attach_node(struct device_node *np)
