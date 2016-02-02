@@ -79,6 +79,8 @@
 #define GPC_PGC_C0	0x800
 #define GPC_PGC_FM	0xa00
 #define ANADIG_SNVS_MISC_CTRL	0x380
+#define ANADIG_SNVS_MISC_CTRL_SET 0x384
+#define ANADIG_SNVS_MISC_CTRL_CLR 0x388
 #define ANADIG_DIGPROG	0x800
 #define DDRC_STAT	0x4
 #define DDRC_PWRCTL	0x30
@@ -330,11 +332,12 @@
 	ldr	r7, [r11, r6]
 	orr	r7, r7, #0x1
 	str	r7, [r11, r6]
+11:
 	/* turn off ddr power */
 	ldr	r11, [r0, #PM_INFO_MX7_ANATOP_V_OFFSET]
 	ldr	r7, =(0x1 << 29)
-	str	r7, [r11, #ANADIG_SNVS_MISC_CTRL]
-11:
+	str	r7, [r11, #ANADIG_SNVS_MISC_CTRL_SET]
+
 	ldr	r11, [r0, #PM_INFO_MX7_SRC_V_OFFSET]
 	ldr	r6, =0x1000
 	ldr	r7, [r11, r6]
@@ -361,7 +364,7 @@
 
 	/* turn on ddr power */
 	ldr	r7, =(0x1 << 29)
-	str	r7, [r1, #ANADIG_SNVS_MISC_CTRL]
+	str	r7, [r1, #ANADIG_SNVS_MISC_CTRL_CLR]
 
 	ldr	r6, =50
 	wait_delay
@@ -413,7 +416,7 @@
 	str	r7, [r11]
 12:
 	ldr	r7, =(0x1 << 30)
-	str	r7, [r1, #ANADIG_SNVS_MISC_CTRL]
+	str	r7, [r1, #ANADIG_SNVS_MISC_CTRL_SET]
 
 	/* need to delay ~5mS */
 	ldr	r6, =0x100000
