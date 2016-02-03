@@ -30,6 +30,7 @@
 #define SLCR_A9_CPU_RST_CTRL_OFFSET	0x244 /* CPU Software Reset Control */
 #define SLCR_REBOOT_STATUS_OFFSET	0x258 /* PS Reboot Status */
 #define SLCR_PSS_IDCODE			0x530 /* PS IDCODE */
+#define SLCR_L2C_RAM			0xA1C /* L2C_RAM in AR#54190 */
 #define SLCR_LVL_SHFTR_EN_OFFSET	0x900 /* Level Shifters Enable */
 #define SLCR_OCM_CFG_OFFSET		0x910 /* OCM Address Mapping */
 
@@ -265,6 +266,9 @@ int __init zynq_early_slcr_init(void)
 
 	/* unlock the SLCR so that registers can be changed */
 	zynq_slcr_unlock();
+
+	/* See AR#54190 design advisory */
+	regmap_update_bits(zynq_slcr_regmap, SLCR_L2C_RAM, 0x70707, 0x20202);
 
 	pr_info("%s mapped to %p\n", np->name, zynq_slcr_base);
 
