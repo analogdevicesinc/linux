@@ -233,6 +233,14 @@ void ci_handle_id_switch(struct ci_hdrc *ci)
 			 * external connector status.
 			 */
 			ret = hw_wait_vbus_lower_bsv(ci);
+		else if (ci->vbus_active)
+			/*
+			 * If the role switch happens(e.g. during
+			 * system sleep), and we lose vbus drop
+			 * event, disconnect gadget for it before
+			 * start host.
+			 */
+		       usb_gadget_vbus_disconnect(&ci->gadget);
 
 		ci_role_start(ci, role);
 		/* vbus change may have already occurred */
