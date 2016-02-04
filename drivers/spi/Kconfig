@@ -75,6 +75,14 @@ config SPI_ATMEL
 	  This selects a driver for the Atmel SPI Controller, present on
 	  many AT32 (AVR32) and AT91 (ARM) chips.
 
+config SPI_AXI_SPI_ENGINE
+	tristate "Analog Devices AXI SPI Engine controller"
+	depends on HAS_IOMEM
+	help
+	  This enables support for the Analog Devices AXI SPI Engine SPI controller.
+	  It is part of the SPI Engine framework that is used in some Analog Devices
+	  reference designs for FPGAs.
+
 config SPI_BCM2835
 	tristate "BCM2835 SPI controller"
 	depends on ARCH_BCM2835 || COMPILE_TEST
@@ -201,9 +209,6 @@ config SPI_EFM32
 	select SPI_BITBANG
 	help
 	  Driver for the spi controller found on Energy Micro's EFM32 SoCs.
-
-config SPI_ENGINE
-	tristate "SPI Engine controller"
 
 config SPI_EP93XX
 	tristate "Cirrus Logic EP93xx SPI controller"

@@ -7,7 +7,6 @@
  */
 
 #include <linux/clk.h>
-#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -67,11 +66,14 @@
 #define SPI_ENGINE_MISC_SYNC			0x0
 #define SPI_ENGINE_MISC_SLEEP			0x1
 
+#define SPI_ENGINE_TRANSFER_WRITE		0x1
+#define SPI_ENGINE_TRANSFER_READ		0x2
+
 #define SPI_ENGINE_CMD(inst, arg1, arg2) \
 	(((inst) << 12) | ((arg1) << 8) | (arg2))
 
-#define SPI_ENGINE_CMD_TRANSFER(write, read, n) \
-	SPI_ENGINE_CMD(SPI_ENGINE_INST_TRANSFER, ((read) << 1 | (write)), (n))
+#define SPI_ENGINE_CMD_TRANSFER(flags, n) \
+	SPI_ENGINE_CMD(SPI_ENGINE_INST_TRANSFER, (flags), (n))
 #define SPI_ENGINE_CMD_ASSERT(delay, cs) \
 	SPI_ENGINE_CMD(SPI_ENGINE_INST_ASSERT, (delay), (cs))
 #define SPI_ENGINE_CMD_WRITE(reg, val) \
@@ -146,7 +148,8 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	else
 		speed = spi->max_speed_hz;
 
-	clk_div = DIV_ROUND_UP(clk_get_rate(spi_engine->ref_clk), speed * 2);
+	clk_div = DIV_ROUND_UP(clk_get_rate(spi_engine->ref_clk),
+		speed * 2);
 	if (clk_div > 255)
 		clk_div = 255;
 	else if (clk_div > 0)
@@ -155,12 +158,53 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	return clk_div;
 }
 
-static unsigned int spi_engine_get_cs(struct spi_device *spi, bool active)
+static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
+	struct spi_transfer *xfer)
 {
-	if (active)
-		return 0xff ^ BIT(spi->chip_select);
-	else
-		return 0xff;
+	unsigned int len = xfer->len;
+
+	while (len) {
+		unsigned int n = min(len, 256U);
+		unsigned int flags = 0;
+
+		if (xfer->tx_buf)
+			flags |= SPI_ENGINE_TRANSFER_WRITE;
+		if (xfer->rx_buf)
+			flags |= SPI_ENGINE_TRANSFER_READ;
+
+		spi_engine_program_add_cmd(p, dry,
+			SPI_ENGINE_CMD_TRANSFER(flags, n - 1));
+		len -= n;
+	}
+}
+
+static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
+	struct spi_engine *spi_engine, unsigned int clk_div, unsigned int delay)
+{
+	unsigned int spi_clk = clk_get_rate(spi_engine->ref_clk);
+	unsigned int t;
+
+	if (delay == 0)
+		return;
+
+	t = DIV_ROUND_UP(delay * spi_clk, (clk_div + 1) * 2);
+	while (t) {
+		unsigned int n = min(t, 256U);
+
+		spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_SLEEP(n - 1));
+		t -= n;
+	}
+}
+
+static void spi_engine_gen_cs(struct spi_engine_program *p, bool dry,
+		struct spi_device *spi, bool assert)
+{
+	unsigned int mask = 0xff;
+
+	if (assert)
+		mask ^= BIT(spi->chip_select);
+
+	spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_ASSERT(1, mask));
 }
 
 static int spi_engine_compile_message(struct spi_engine *spi_engine,
@@ -169,7 +213,6 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 	struct spi_device *spi = msg->spi;
 	struct spi_transfer *xfer;
 	int clk_div, new_clk_div;
-	unsigned int len, n, i;
 	bool cs_change = true;
 
 	clk_div = -1;
@@ -187,39 +230,19 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 					clk_div));
 		}
 
-		if (cs_change) {
-			spi_engine_program_add_cmd(p, dry,
-				SPI_ENGINE_CMD_ASSERT(1,
-					spi_engine_get_cs(spi, true)));
-		}
+		if (cs_change)
+			spi_engine_gen_cs(p, dry, spi, true);
 
-		n = DIV_ROUND_UP(xfer->len, 256);
-		len = xfer->len;
-		for (i = 0; i < n; i++) {
-			spi_engine_program_add_cmd(p, dry,
-				SPI_ENGINE_CMD_TRANSFER(
-					xfer->tx_buf ? 1 : 0,
-					xfer->rx_buf ? 1 : 0,
-					min(len, 256U) - 1));
-			len -= 256;
-		}
-
-		if (xfer->delay_usecs) {
-			unsigned int delay = clk_get_rate(spi_engine->ref_clk);
-
-			spi_engine_program_add_cmd(p, dry,
-				SPI_ENGINE_CMD_SLEEP(delay));
-		}
+		spi_engine_gen_xfer(p, dry, xfer);
+		spi_engine_gen_sleep(p, dry, spi_engine, clk_div,
+			xfer->delay_usecs);
 
 		cs_change = xfer->cs_change;
 		if (list_is_last(&xfer->transfer_list, &msg->transfers))
 			cs_change = !cs_change;
 
-		if (cs_change) {
-			spi_engine_program_add_cmd(p, dry,
-				SPI_ENGINE_CMD_ASSERT(1,
-					spi_engine_get_cs(spi, false)));
-		}
+		if (cs_change)
+			spi_engine_gen_cs(p, dry, spi, false);
 	}
 
 	return 0;
@@ -428,8 +451,8 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 	if (pending & SPI_ENGINE_INT_SYNC) {
 		writel_relaxed(SPI_ENGINE_INT_SYNC,
 			spi_engine->base + SPI_ENGINE_REG_INT_PENDING);
-		spi_engine->completed_id =
-			readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SYNC_ID);
+		spi_engine->completed_id = readl_relaxed(
+			spi_engine->base + SPI_ENGINE_REG_SYNC_ID);
 	}
 
 	spin_lock(&spi_engine->lock);
@@ -452,9 +475,11 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 	if (pending & SPI_ENGINE_INT_SYNC) {
 		if (spi_engine->msg &&
 		    spi_engine->completed_id == spi_engine->sync_id) {
+			struct spi_message *msg = spi_engine->msg;
+
 			kfree(spi_engine->p);
-			spi_engine->msg->status = 0;
-			spi_engine->msg->actual_length = spi_engine->msg->frame_length;
+			msg->status = 0;
+			msg->actual_length = msg->frame_length;
 			spi_engine->msg = NULL;
 			spi_finalize_current_message(master);
 			disable_int |= SPI_ENGINE_INT_SYNC;
@@ -477,6 +502,7 @@ static int spi_engine_transfer_one_message(struct spi_master *master,
 {
 	struct spi_engine_program p_dry, *p;
 	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	unsigned int int_enable = 0;
 	unsigned long flags;
 	size_t size;
 
@@ -500,20 +526,21 @@ static int spi_engine_transfer_one_message(struct spi_master *master,
 	spi_engine->cmd_buf = p->instructions;
 	spi_engine->cmd_length = p->length;
 	if (spi_engine_write_cmd_fifo(spi_engine))
-		spi_engine->int_enable |= SPI_ENGINE_INT_CMD_ALMOST_EMPTY;
+		int_enable |= SPI_ENGINE_INT_CMD_ALMOST_EMPTY;
 
 	spi_engine_tx_next(spi_engine);
 	if (spi_engine_write_tx_fifo(spi_engine))
-		spi_engine->int_enable |= SPI_ENGINE_INT_SDO_ALMOST_EMPTY;
+		int_enable |= SPI_ENGINE_INT_SDO_ALMOST_EMPTY;
 
 	spi_engine_rx_next(spi_engine);
 	if (spi_engine->rx_length != 0)
-		spi_engine->int_enable |= SPI_ENGINE_INT_SDI_ALMOST_FULL;
+		int_enable |= SPI_ENGINE_INT_SDI_ALMOST_FULL;
 
-	spi_engine->int_enable |= SPI_ENGINE_INT_SYNC;
+	int_enable |= SPI_ENGINE_INT_SYNC;
 
-	writel_relaxed(spi_engine->int_enable,
+	writel_relaxed(int_enable,
 		spi_engine->base + SPI_ENGINE_REG_INT_ENABLE);
+	spi_engine->int_enable = int_enable;
 	spin_unlock_irqrestore(&spi_engine->lock, flags);
 
 	return 0;
@@ -539,11 +566,15 @@ static int spi_engine_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	master = spi_alloc_master(&pdev->dev, sizeof(*spi_engine));
+	spi_engine = devm_kzalloc(&pdev->dev, sizeof(*spi_engine), GFP_KERNEL);
+	if (!spi_engine)
+		return -ENOMEM;
+
+	master = spi_alloc_master(&pdev->dev, 0);
 	if (!master)
 		return -ENOMEM;
 
-	spi_engine = spi_master_get_devdata(master);
+	spi_master_set_devdata(master, spi_engine);
 
 	spin_lock_init(&spi_engine->lock);
 
@@ -603,6 +634,8 @@ static int spi_engine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_irq;
 
+	platform_set_drvdata(pdev, master);
+
 	return 0;
 err_free_irq:
 	free_irq(irq, master);
@@ -621,17 +654,16 @@ static int spi_engine_remove(struct platform_device *pdev)
 	struct spi_engine *spi_engine = spi_master_get_devdata(master);
 	int irq = platform_get_irq(pdev, 0);
 
-	spi_master_get(master);
 	spi_unregister_master(master);
+
+	free_irq(irq, master);
 
 	writel_relaxed(0xff, spi_engine->base + SPI_ENGINE_REG_INT_PENDING);
 	writel_relaxed(0x00, spi_engine->base + SPI_ENGINE_REG_INT_ENABLE);
 	writel_relaxed(0x01, spi_engine->base + SPI_ENGINE_REG_RESET);
 
-	free_irq(irq, master);
 	clk_disable_unprepare(spi_engine->ref_clk);
 	clk_disable_unprepare(spi_engine->clk);
-	spi_master_put(master);
 
 	return 0;
 }
