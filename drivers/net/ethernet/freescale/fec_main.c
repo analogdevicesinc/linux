@@ -976,6 +976,7 @@ fec_restart(struct net_device *ndev)
 		writel(val, fep->hwp + FEC_RACC);
 		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
 	}
+	writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
 #endif
 
 	/*
