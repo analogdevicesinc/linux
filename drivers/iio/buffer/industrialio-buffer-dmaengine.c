@@ -101,7 +101,7 @@ static int dmaengine_buffer_disable(struct iio_buffer *buf,
 
 	dmaengine_buffer = iio_buffer_to_dmaengine_buffer(buf);
 
-	dmaengine_terminate_all(dmaengine_buffer->chan);
+	dmaengine_terminate_sync(dmaengine_buffer->chan);
 
 	spin_lock_irq(&dmaengine_buffer->queue.list_lock);
 	list_splice_tail_init(&dmaengine_buffer->active, &block_list);
