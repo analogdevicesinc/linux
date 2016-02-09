@@ -171,7 +171,8 @@
 	status = "okay";
 
 	spidev@0 {
-		compatible = "spidev";
+		/* spidev causes a WARN_ON() so spoof with DAC compat */
+		compatible = "rohm,dh2228fv";
 		reg = <0>;	/* chip select */
 		spi-max-frequency = <1000000>;
 		enable-dma = <1>;
