@@ -8,13 +8,11 @@
 
 #include <linux/module.h>
 #include <linux/io.h>
-#include <linux/dmaengine.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-#include <linux/iio/buffer.h>
 
 #include "cf_axi_adc.h"
 
@@ -449,38 +447,10 @@ static const struct attribute_group mc_ctrl_attribute_group = {
 	.attrs = mc_ctrl_attributes,
 };
 
-static int mc_ctrl_update_scan_mode(struct iio_dev *indio_dev,
-		const unsigned long *scan_mask)
-{
-	struct axiadc_state *st = iio_priv(indio_dev);
-	unsigned i, ctrl;
-
-	for (i = 0; i < indio_dev->masklength; i++) {
-		ctrl = mc_ctrl_read(st, ADI_REG_CHAN_CNTRL(i));
-
-		if (test_bit(i, scan_mask))
-			ctrl |= ADI_ENABLE;
-		else
-			ctrl &= ~ADI_ENABLE;
-
-		mc_ctrl_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
-	}
-
-	return 0;
-}
-
 static const struct iio_info mc_ctrl_info = {
 	.debugfs_reg_access = &mc_ctrl_reg_access,
 	.attrs = &mc_ctrl_attribute_group,
-	.update_scan_mode = &mc_ctrl_update_scan_mode,
 };
-
-#define AIM_CHAN_NOCALIB(_chan, _si, _bits, _sign)	\
-	{ .type = IIO_VOLTAGE,				\
-	  .indexed = 1,					\
-	  .channel = _chan,				\
-	  .scan_index = _si,				\
-	  .scan_type =  IIO_ST(_sign, _bits, 16, 0)}
 
 static int mc_ctrl_probe(struct platform_device *pdev)
 {
@@ -513,38 +483,7 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
 
-	st->channels[0] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(0, 0, 16, 'u');
-	st->channels[1] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(1, 1, 16, 'u');
-	st->channels[2] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(2, 2, 16, 'u');
-	st->channels[3] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(3, 3, 16, 'u');
-	st->channels[4] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(4, 4, 16, 'u');
-	st->channels[5] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(5, 5, 16, 'u');
-	st->channels[6] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(6, 6, 16, 'u');
-	st->channels[7] = (struct iio_chan_spec)AIM_CHAN_NOCALIB(7, 7, 16, 'u');
-	
-	indio_dev->channels = st->channels;
-	indio_dev->num_channels = 8;
-	indio_dev->masklength = 8;
-
-	axiadc_configure_ring(indio_dev, "ad-mc-ctrl-dma");
-
-	ret = iio_buffer_register(indio_dev, indio_dev->channels,
-				  indio_dev->num_channels);
-	if (ret)
-		goto err_unconfigure_ring;
-
-	*indio_dev->buffer->scan_mask = (1UL << 2) - 1;
-
 	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto err_iio_buffer_unregister;
-
-	return 0;
-
-err_iio_buffer_unregister:
-	iio_buffer_unregister(indio_dev);
-err_unconfigure_ring:
-	axiadc_unconfigure_ring(indio_dev);
 
 	return ret;
 }
@@ -554,8 +493,6 @@ static int mc_ctrl_remove(struct platform_device *pdev)
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
 	iio_device_unregister(indio_dev);
-	iio_buffer_unregister(indio_dev);
-	axiadc_unconfigure_ring(indio_dev);
 
 	return 0;
 }
