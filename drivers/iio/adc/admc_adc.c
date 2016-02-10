@@ -89,12 +89,11 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD_MC_ADC] = {
 		.name = "AD-MC-ADC",
 		.max_rate = 1000000UL,
-		.num_channels = 4,
+		.num_channels = 3,
 		.channel = {
 			AIM_CHAN_NOCALIB(0, 0, 16, 'u'),
 			AIM_CHAN_NOCALIB(1, 1, 16, 'u'),
 			AIM_CHAN_NOCALIB(2, 2, 16, 'u'),
-			AIM_CHAN_NOCALIB(3, 3, 16, 'u'),
 		},
 	},
 };
