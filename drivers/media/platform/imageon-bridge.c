@@ -16,6 +16,7 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/of_irq.h>
+#include <linux/of_graph.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-of.h>
 #include <media/adv7604.h>
@@ -172,7 +173,7 @@ static struct imageon_bridge *imageon_bridge_parse_dt(struct device *dev)
 
 		bridge->imageon_subdev[index].asd.match_type = V4L2_ASYNC_MATCH_OF;
 		bridge->imageon_subdev[index].asd.match.of.node =
-			v4l2_of_get_remote_port_parent(next);
+			of_graph_get_remote_port_parent(next);
 	}
 
 	return bridge;
