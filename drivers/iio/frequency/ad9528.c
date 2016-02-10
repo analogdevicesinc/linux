@@ -1330,30 +1330,19 @@ static int ad9528_probe(struct spi_device *spi)
 			return ret;
 	}
 
-	st->pwrdown_gpio = devm_gpiod_get(&spi->dev, "status0");
-	if (!IS_ERR(st->pwrdown_gpio)) {
-		ret = gpiod_direction_output(st->pwrdown_gpio, 0);
-	}
+	st->pwrdown_gpio = devm_gpiod_get(&spi->dev, "status0", GPIOD_OUT_LOW);
+	st->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown",
+		GPIOD_OUT_HIGH);
 
-	st->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown");
-	if (!IS_ERR(st->pwrdown_gpio)) {
-		ret = gpiod_direction_output(st->pwrdown_gpio, 1);
-	}
-
-	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
+	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
 	if (!IS_ERR(st->reset_gpio)) {
-		ret = gpiod_direction_output(st->reset_gpio, 0);
 		udelay(1);
-
 		ret = gpiod_direction_output(st->reset_gpio, 1);
 	}
 
 	mdelay(10);
 
-	st->sync_gpio = devm_gpiod_get(&spi->dev, "sync");
-	if (!IS_ERR(st->sync_gpio)) {
-		ret = gpiod_direction_output(st->sync_gpio, 1);
-	}
+	st->sync_gpio = devm_gpiod_get(&spi->dev, "sync", GPIOD_OUT_HIGH);
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
