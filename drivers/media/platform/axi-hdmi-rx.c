@@ -16,6 +16,7 @@
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
+#include <linux/of_graph.h>
 
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-event.h>
@@ -905,14 +906,14 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 		goto err_dma_cleanup_ctx;
 	}
 
-	ep_node = v4l2_of_get_next_endpoint(pdev->dev.of_node, NULL);
+	ep_node = of_graph_get_next_endpoint(pdev->dev.of_node, NULL);
 	if (!ep_node) {
 		ret = -EINVAL;
 		goto err_device_unregister;
 	}
 
 	hdmi_rx->asd.match_type = V4L2_ASYNC_MATCH_OF;
-	hdmi_rx->asd.match.of.node = v4l2_of_get_remote_port_parent(ep_node);
+	hdmi_rx->asd.match.of.node = of_graph_get_remote_port_parent(ep_node);
 
 	hdmi_rx->asds[0] = &hdmi_rx->asd;
 	hdmi_rx->notifier.subdevs = hdmi_rx->asds;
