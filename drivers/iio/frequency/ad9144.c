@@ -405,15 +405,9 @@ static int ad9144_probe(struct spi_device *spi)
 	st->id = (enum chip_id) dev_id->driver_data;
 	conv = &st->conv;
 
-	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
-	if (!IS_ERR(conv->reset_gpio)) {
-		ret = gpiod_direction_output(conv->reset_gpio, 1);
-	}
+	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
 
-	conv->txen_gpio = devm_gpiod_get(&spi->dev, "txen");
-	if (!IS_ERR(conv->txen_gpio)) {
-		ret = gpiod_direction_output(conv->txen_gpio, 1);
-	}
+	conv->txen_gpio = devm_gpiod_get(&spi->dev, "txen", GPIOD_OUT_HIGH);
 
 	st->map = devm_regmap_init_spi(spi, &ad9144_regmap_config);
 	if (IS_ERR(st->map))
