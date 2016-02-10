@@ -668,8 +668,6 @@ static int axi_hdmi_rx_enum_input(struct file *file, void *priv_fh,
 
 static int axi_hdmi_rx_g_input(struct file *file, void *priv_fh, unsigned int *i)
 {
-	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
-
 	*i = 0;
 	return 0;
 }
