@@ -21,8 +21,6 @@
 
 #include "cf_axi_dds.h"
 
-#include <linux/amba/xilinx_dma.h>
-
 static int dds_buffer_submit_block(void *data, struct iio_dma_buffer_block *block)
 {
 	return iio_dmaengine_buffer_submit_block(block, DMA_TO_DEVICE);
