@@ -867,10 +867,7 @@ static int ad9122_probe(struct spi_device *spi)
 	if (conv == NULL)
 		return -ENOMEM;
 
-	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
-	if (!IS_ERR(conv->reset_gpio)) {
-		ret = gpiod_direction_output(conv->reset_gpio, 1);
-	}
+	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
 
 	id = ad9122_read(spi, AD9122_REG_CHIP_ID);
 	if (id != CHIPID_AD9122) {
