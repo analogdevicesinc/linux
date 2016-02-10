@@ -975,7 +975,7 @@ static int ad6676_gpio_config(struct axiadc_converter *conv)
 	struct ad6676_platform_data *pdata = conv_to_phy(conv)->pdata;
 	struct spi_device *spi = conv->spi;
 	struct gpio_board_cfg board_cfg[5];
-	struct gpio_desc	 *gpio;
+	enum gpiod_flags flags;
 	int i, ret;
 
 	board_cfg[0].gpio_name = "oen";
@@ -1016,12 +1016,12 @@ static int ad6676_gpio_config(struct axiadc_converter *conv)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(board_cfg); i++) {
-		gpio = devm_gpiod_get(&spi->dev, board_cfg[i].gpio_name);
-		if (!IS_ERR(gpio)) {
-			ret = gpiod_direction_output(gpio, board_cfg[i].value);
-			if (ret < 0)
-				return ret;
-		}
+		if (board_cfg[i].value)
+			flags = GPIOD_OUT_HIGH;
+		else
+			flags = GPIOD_OUT_LOW;
+
+		devm_gpiod_get(&spi->dev, board_cfg[i].gpio_name, flags);
 	}
 
 	return 0;
@@ -1132,10 +1132,7 @@ static int ad6676_probe(struct spi_device *spi)
 	ad6676_gpio_config(conv);
 
 	/* RESET here */
-	conv->pwrdown_gpio = devm_gpiod_get(&spi->dev, "reset");
-	if (!IS_ERR(conv->pwrdown_gpio)) {
-		ret = gpiod_direction_output(conv->pwrdown_gpio, 1);
-	}
+	conv->pwrdown_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
 
 	mdelay(100);
 
