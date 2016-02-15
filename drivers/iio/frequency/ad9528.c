@@ -1007,8 +1007,11 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	sysref_ctrl = AD9528_SYSREF_PATTERN_MODE(SYSREF_PATTERN_CONTINUOUS) |
-			AD9528_SYSREF_SOURCE(pdata->sysref_src);
+	sysref_ctrl = AD9528_SYSREF_PATTERN_MODE(pdata->sysref_pattern_mode) |
+		AD9528_SYSREF_SOURCE(pdata->sysref_src) |
+		AD9528_SYSREF_NSHOT_MODE(pdata->sysref_nshot_mode) |
+		AD9528_SYSREF_PATTERN_TRIGGER_CTRL(pdata->sysref_req_trigger_mode) |
+		(pdata->sysref_req_en ? AD9528_SYSREF_REQUEST_BY_PIN : 0);
 	ret = ad9528_write(indio_dev, AD9528_SYSREF_CTRL, sysref_ctrl);
 	if (ret < 0)
 		return ret;
@@ -1107,6 +1110,16 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	pdata->sysref_src = tmp;
 	of_property_read_u32(np, "adi,sysref-k-div", &tmp);
 	pdata->sysref_k_div = tmp;
+
+	tmp = 0;
+	of_property_read_u32(np, "adi,sysref-nshot-mode", &tmp);
+	pdata->sysref_nshot_mode = tmp;
+
+	pdata->sysref_req_en = of_property_read_bool(np, "adi,sysref-request-enable");
+
+	tmp = 0;
+	of_property_read_u32(np, "adi,sysref-request-trigger-mode", &tmp);
+	pdata->sysref_req_trigger_mode = tmp;
 
 	/* PLL2 Setting */
 	of_property_read_u32(np, "adi,pll2-charge-pump-current-nA",
