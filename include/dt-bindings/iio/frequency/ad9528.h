@@ -44,6 +44,21 @@
 #define SYSREF_PATTERN_PRBS		2
 #define SYSREF_PATTERN_STOP		3
 
+/* Sysref NSHOT Mode
+ * Use for adi,sysref-nshot-mode */
+#define SYSREF_NSHOT_1_PULSE		1
+#define SYSREF_NSHOT_2_PULSES		2
+#define SYSREF_NSHOT_4_PULSES		3
+#define SYSREF_NSHOT_6_PULSES		4
+#define SYSREF_NSHOT_8_PULSES		5
+
+/* Sysref Trigger Mode
+ * Use for adi,sysref-request-trigger-mode */
+#define SYSREF_LEVEL_HIGH		0
+#define SYSREF_EDGE_RISING		2
+#define SYSREF_EDGE_FALLING		3
+
+
 /* Rpole2 resistor
  * Use for adi,rpole2 */
 #define RPOLE2_900_OHM	0
