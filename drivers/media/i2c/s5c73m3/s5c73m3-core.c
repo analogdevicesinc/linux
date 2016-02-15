@@ -167,7 +167,7 @@ static int s5c73m3_i2c_read(struct i2c_client *client, u16 addr, u16 *data)
 	 */
 	ret = i2c_transfer(client->adapter, msg, 2);
 	if (ret == 2) {
-		*data = be16_to_cpup((u16 *)rbuf);
+		*data = be16_to_cpup((__be16 *)rbuf);
 		v4l2_dbg(4, s5c73m3_dbg, client,
 			 "%s: addr: 0x%04x, data: 0x%04x\n",
 			 __func__, addr, *data);
@@ -1251,6 +1251,7 @@ static int s5c73m3_oif_enum_frame_size(struct v4l2_subdev *sd,
 				   struct v4l2_subdev_pad_config *cfg,
 				   struct v4l2_subdev_frame_size_enum *fse)
 {
+	struct s5c73m3 *state = oif_sd_to_s5c73m3(sd);
 	int idx;
 
 	if (fse->pad == OIF_SOURCE_PAD) {
@@ -1260,11 +1261,25 @@ static int s5c73m3_oif_enum_frame_size(struct v4l2_subdev *sd,
 		switch (fse->code) {
 		case S5C73M3_JPEG_FMT:
 		case S5C73M3_ISP_FMT: {
-			struct v4l2_mbus_framefmt *mf =
-				v4l2_subdev_get_try_format(sd, cfg, OIF_ISP_PAD);
+			unsigned w, h;
 
-			fse->max_width = fse->min_width = mf->width;
-			fse->max_height = fse->min_height = mf->height;
+			if (fse->which == V4L2_SUBDEV_FORMAT_TRY) {
+				struct v4l2_mbus_framefmt *mf;
+
+				mf = v4l2_subdev_get_try_format(sd, cfg,
+								OIF_ISP_PAD);
+
+				w = mf->width;
+				h = mf->height;
+			} else {
+				const struct s5c73m3_frame_size *fs;
+
+				fs = state->oif_pix_size[RES_ISP];
+				w = fs->width;
+				h = fs->height;
+			}
+			fse->max_width = fse->min_width = w;
+			fse->max_height = fse->min_height = h;
 			return 0;
 		}
 		default:
@@ -1438,7 +1453,7 @@ static int s5c73m3_oif_set_power(struct v4l2_subdev *sd, int on)
 			state->apply_fiv = 1;
 			state->apply_fmt = 1;
 		}
-	} else if (!on == state->power) {
+	} else if (state->power == !on) {
 		ret = s5c73m3_set_af_softlanding(state);
 		if (!ret)
 			ret = __s5c73m3_power_off(state);

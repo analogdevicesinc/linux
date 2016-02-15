@@ -49,14 +49,15 @@ struct iio_buffer;
  * struct iio_buffer_access_funcs - access functions for buffers.
  * @store_to:		actually store stuff to the buffer
  * @read:		try to get a specified number of elements (must exist)
- * @data_available:	indicates whether data for reading from the buffer is
- *			available.
+ * @data_available:	indicates how much data is available for reading from
+ *			the buffer.
  * @request_update:	if a parameter change has been marked, update underlying
  *			storage.
  * @set_bytes_per_datum:set number of bytes per datum
  * @set_length:		set number of datums in buffer
  * @release:		called when the last reference to the buffer is dropped,
  *			should free all resources allocated by the buffer.
+ * @modes:		Supported operating modes by this buffer type
  *
  * The purpose of this structure is to make the buffer element
  * modular as event for a given driver, different usecases may require
@@ -69,7 +70,7 @@ struct iio_buffer;
 struct iio_buffer_access_funcs {
 	int (*store_to)(struct iio_buffer *buffer, const void *data);
 	int (*read)(struct iio_buffer *buffer, size_t n, char __user *buf);
-	bool (*data_available)(struct iio_buffer *buffer);
+	size_t (*data_available)(struct iio_buffer *buffer);
 	int (*remove_from)(struct iio_buffer *buffer, void *data);
 	int (*write)(struct iio_buffer *buffer, size_t n,
 		const char __user *buf);
@@ -96,7 +97,7 @@ struct iio_buffer_access_funcs {
 		struct iio_buffer_block *block);
 	int (*mmap)(struct iio_buffer *buffer,
 		struct vm_area_struct *vma);
-	
+
 	unsigned int modes;
 };
 
@@ -119,6 +120,7 @@ struct iio_buffer_access_funcs {
  * @demux_bounce:	[INTERN] buffer for doing gather from incoming scan.
  * @buffer_list:	[INTERN] entry in the devices list of current buffers.
  * @ref:		[INTERN] reference count of the buffer.
+ * @watermark:		[INTERN] number of datums to wait for poll/read.
  */
 struct iio_buffer {
 	int					length;
@@ -137,6 +139,7 @@ struct iio_buffer {
 	void					*demux_bounce;
 	struct list_head			buffer_list;
 	struct kref				ref;
+	unsigned int				watermark;
 };
 
 static inline int iio_buffer_write(struct iio_buffer *buffer, size_t n,

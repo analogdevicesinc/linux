@@ -99,7 +99,7 @@ static int ad7606_read_raw(struct iio_dev *indio_dev,
 
 		if (ret < 0)
 			return ret;
-		*val = (short) ret;
+		*val = (short)ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		*val = st->range * 2;
@@ -110,7 +110,7 @@ static int ad7606_read_raw(struct iio_dev *indio_dev,
 }
 
 static ssize_t ad7606_show_range(struct device *dev,
-			struct device_attribute *attr, char *buf)
+				 struct device_attribute *attr, char *buf)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7606_state *st = iio_priv(indio_dev);
@@ -119,7 +119,8 @@ static ssize_t ad7606_show_range(struct device *dev,
 }
 
 static ssize_t ad7606_store_range(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7606_state *st = iio_priv(indio_dev);
@@ -147,7 +148,8 @@ static IIO_DEVICE_ATTR(in_voltage_range, S_IRUGO | S_IWUSR,
 static IIO_CONST_ATTR(in_voltage_range_available, "5000 10000");
 
 static ssize_t ad7606_show_oversampling_ratio(struct device *dev,
-			struct device_attribute *attr, char *buf)
+					      struct device_attribute *attr,
+					      char *buf)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7606_state *st = iio_priv(indio_dev);
@@ -168,7 +170,8 @@ static int ad7606_oversampling_get_index(unsigned val)
 }
 
 static ssize_t ad7606_store_oversampling_ratio(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+					       struct device_attribute *attr,
+					       const char *buf, size_t count)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7606_state *st = iio_priv(indio_dev);
@@ -547,9 +550,9 @@ static int ad7606_parse_dt(struct device *dev)
 #endif
 
 struct iio_dev *ad7606_probe(struct device *dev, int irq,
-			      void __iomem *base_address,
-			      unsigned id,
-			      const struct ad7606_bus_ops *bops)
+			     void __iomem *base_address,
+			     unsigned id,
+			     const struct ad7606_bus_ops *bops)
 {
 	struct ad7606_platform_data *pdata;
 	struct ad7606_state *st;
@@ -622,7 +625,7 @@ struct iio_dev *ad7606_probe(struct device *dev, int irq,
 		dev_warn(st->dev, "failed to RESET: no RESET GPIO specified\n");
 
 	ret = request_irq(irq, ad7606_interrupt,
-		IRQF_TRIGGER_FALLING, st->chip_info->name, indio_dev);
+			  IRQF_TRIGGER_FALLING, st->chip_info->name, indio_dev);
 	if (ret)
 		goto error_free_gpios;
 
@@ -684,7 +687,7 @@ void ad7606_resume(struct iio_dev *indio_dev)
 	if (gpio_is_valid(st->pdata->gpio_stby)) {
 		if (gpio_is_valid(st->pdata->gpio_range))
 			gpio_set_value(st->pdata->gpio_range,
-					st->range == 10000);
+				       st->range == 10000);
 
 		gpio_set_value(st->pdata->gpio_stby, 1);
 		ad7606_reset(st);

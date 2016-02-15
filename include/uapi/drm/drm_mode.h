@@ -105,8 +105,16 @@
 
 struct drm_mode_modeinfo {
 	__u32 clock;
-	__u16 hdisplay, hsync_start, hsync_end, htotal, hskew;
-	__u16 vdisplay, vsync_start, vsync_end, vtotal, vscan;
+	__u16 hdisplay;
+	__u16 hsync_start;
+	__u16 hsync_end;
+	__u16 htotal;
+	__u16 hskew;
+	__u16 vdisplay;
+	__u16 vsync_start;
+	__u16 vsync_end;
+	__u16 vtotal;
+	__u16 vscan;
 
 	__u32 vrefresh;
 
@@ -124,8 +132,10 @@ struct drm_mode_card_res {
 	__u32 count_crtcs;
 	__u32 count_connectors;
 	__u32 count_encoders;
-	__u32 min_width, max_width;
-	__u32 min_height, max_height;
+	__u32 min_width;
+	__u32 max_width;
+	__u32 min_height;
+	__u32 max_height;
 };
 
 struct drm_mode_crtc {
@@ -135,7 +145,8 @@ struct drm_mode_crtc {
 	__u32 crtc_id; /**< Id */
 	__u32 fb_id; /**< Id of framebuffer */
 
-	__u32 x, y; /**< Position on the frameuffer */
+	__u32 x; /**< x Position on the framebuffer */
+	__u32 y; /**< y Position on the framebuffer */
 
 	__u32 gamma_size;
 	__u32 mode_valid;
@@ -153,12 +164,16 @@ struct drm_mode_set_plane {
 	__u32 flags; /* see above flags */
 
 	/* Signed dest location allows it to be partially off screen */
-	__s32 crtc_x, crtc_y;
-	__u32 crtc_w, crtc_h;
+	__s32 crtc_x;
+	__s32 crtc_y;
+	__u32 crtc_w;
+	__u32 crtc_h;
 
 	/* Source values are 16.16 fixed point */
-	__u32 src_x, src_y;
-	__u32 src_h, src_w;
+	__u32 src_x;
+	__u32 src_y;
+	__u32 src_h;
+	__u32 src_w;
 };
 
 struct drm_mode_get_plane {
@@ -244,7 +259,8 @@ struct drm_mode_get_connector {
 	__u32 connector_type_id;
 
 	__u32 connection;
-	__u32 mm_width, mm_height; /**< HxW in millimeters */
+	__u32 mm_width;  /**< width in millimeters */
+	__u32 mm_height; /**< height in millimeters */
 	__u32 subpixel;
 
 	__u32 pad;
@@ -327,7 +343,8 @@ struct drm_mode_get_blob {
 
 struct drm_mode_fb_cmd {
 	__u32 fb_id;
-	__u32 width, height;
+	__u32 width;
+	__u32 height;
 	__u32 pitch;
 	__u32 bpp;
 	__u32 depth;
@@ -336,10 +353,12 @@ struct drm_mode_fb_cmd {
 };
 
 #define DRM_MODE_FB_INTERLACED	(1<<0) /* for interlaced framebuffers */
+#define DRM_MODE_FB_MODIFIERS	(1<<1) /* enables ->modifer[] */
 
 struct drm_mode_fb_cmd2 {
 	__u32 fb_id;
-	__u32 width, height;
+	__u32 width;
+	__u32 height;
 	__u32 pixel_format; /* fourcc code from drm_fourcc.h */
 	__u32 flags; /* see above flags */
 
@@ -356,10 +375,18 @@ struct drm_mode_fb_cmd2 {
 	 * So it would consist of Y as offsets[0] and UV as
 	 * offsets[1].  Note that offsets[0] will generally
 	 * be 0 (but this is not required).
+	 *
+	 * To accommodate tiled, compressed, etc formats, a per-plane
+	 * modifier can be specified.  The default value of zero
+	 * indicates "native" format as specified by the fourcc.
+	 * Vendor specific modifier token.  This allows, for example,
+	 * different tiling/swizzling pattern on different planes.
+	 * See discussion above of DRM_FORMAT_MOD_xxx.
 	 */
 	__u32 handles[4];
 	__u32 pitches[4]; /* pitch for each plane */
 	__u32 offsets[4]; /* offset of each plane */
+	__u64 modifier[4]; /* ie, tiling, compressed (per plane) */
 };
 
 #define DRM_MODE_FB_DIRTY_ANNOTATE_COPY 0x01
@@ -547,6 +574,26 @@ struct drm_mode_atomic {
 	__u64 prop_values_ptr;
 	__u64 reserved;
 	__u64 user_data;
+};
+
+/**
+ * Create a new 'blob' data property, copying length bytes from data pointer,
+ * and returning new blob ID.
+ */
+struct drm_mode_create_blob {
+	/** Pointer to data to copy. */
+	__u64 data;
+	/** Length of data to copy. */
+	__u32 length;
+	/** Return: new property ID. */
+	__u32 blob_id;
+};
+
+/**
+ * Destroy a user-created blob property.
+ */
+struct drm_mode_destroy_blob {
+	__u32 blob_id;
 };
 
 #endif

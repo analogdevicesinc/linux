@@ -958,11 +958,11 @@ void omap3isp_ccdc_max_rate(struct isp_ccdc_device *ccdc,
 /*
  * ccdc_config_sync_if - Set CCDC sync interface configuration
  * @ccdc: Pointer to ISP CCDC device.
- * @pdata: Parallel interface platform data (may be NULL)
+ * @parcfg: Parallel interface platform data (may be NULL)
  * @data_size: Data size
  */
 static void ccdc_config_sync_if(struct isp_ccdc_device *ccdc,
-				struct isp_parallel_platform_data *pdata,
+				struct isp_parallel_cfg *parcfg,
 				unsigned int data_size)
 {
 	struct isp_device *isp = to_isp_device(ccdc);
@@ -1000,19 +1000,19 @@ static void ccdc_config_sync_if(struct isp_ccdc_device *ccdc,
 		break;
 	}
 
-	if (pdata && pdata->data_pol)
+	if (parcfg && parcfg->data_pol)
 		syn_mode |= ISPCCDC_SYN_MODE_DATAPOL;
 
-	if (pdata && pdata->hs_pol)
+	if (parcfg && parcfg->hs_pol)
 		syn_mode |= ISPCCDC_SYN_MODE_HDPOL;
 
 	/* The polarity of the vertical sync signal output by the BT.656
 	 * decoder is not documented and seems to be active low.
 	 */
-	if ((pdata && pdata->vs_pol) || ccdc->bt656)
+	if ((parcfg && parcfg->vs_pol) || ccdc->bt656)
 		syn_mode |= ISPCCDC_SYN_MODE_VDPOL;
 
-	if (pdata && pdata->fld_pol)
+	if (parcfg && parcfg->fld_pol)
 		syn_mode |= ISPCCDC_SYN_MODE_FLDPOL;
 
 	isp_reg_writel(isp, syn_mode, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_SYN_MODE);
@@ -1115,7 +1115,7 @@ static const u32 ccdc_sgbrg_pattern =
 static void ccdc_configure(struct isp_ccdc_device *ccdc)
 {
 	struct isp_device *isp = to_isp_device(ccdc);
-	struct isp_parallel_platform_data *pdata = NULL;
+	struct isp_parallel_cfg *parcfg = NULL;
 	struct v4l2_subdev *sensor;
 	struct v4l2_mbus_framefmt *format;
 	const struct v4l2_rect *crop;
@@ -1145,7 +1145,7 @@ static void ccdc_configure(struct isp_ccdc_device *ccdc)
 		if (!ret)
 			ccdc->bt656 = cfg.type == V4L2_MBUS_BT656;
 
-		pdata = &((struct isp_v4l2_subdevs_group *)sensor->host_priv)
+		parcfg = &((struct isp_bus_cfg *)sensor->host_priv)
 			->bus.parallel;
 	}
 
@@ -1175,10 +1175,10 @@ static void ccdc_configure(struct isp_ccdc_device *ccdc)
 	else
 		bridge = ISPCTRL_PAR_BRIDGE_DISABLE;
 
-	omap3isp_configure_bridge(isp, ccdc->input, pdata, shift, bridge);
+	omap3isp_configure_bridge(isp, ccdc->input, parcfg, shift, bridge);
 
 	/* Configure the sync interface. */
-	ccdc_config_sync_if(ccdc, pdata, depth_out);
+	ccdc_config_sync_if(ccdc, parcfg, depth_out);
 
 	syn_mode = isp_reg_readl(isp, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_SYN_MODE);
 
@@ -2133,7 +2133,7 @@ static int ccdc_enum_mbus_code(struct v4l2_subdev *sd,
 
 	case CCDC_PAD_SOURCE_OF:
 		format = __ccdc_get_format(ccdc, cfg, code->pad,
-					   V4L2_SUBDEV_FORMAT_TRY);
+					   code->which);
 
 		if (format->code == MEDIA_BUS_FMT_YUYV8_2X8 ||
 		    format->code == MEDIA_BUS_FMT_UYVY8_2X8) {
@@ -2164,7 +2164,7 @@ static int ccdc_enum_mbus_code(struct v4l2_subdev *sd,
 			return -EINVAL;
 
 		format = __ccdc_get_format(ccdc, cfg, code->pad,
-					   V4L2_SUBDEV_FORMAT_TRY);
+					   code->which);
 
 		/* A pixel code equal to 0 means that the video port doesn't
 		 * support the input format. Don't enumerate any pixel code.
@@ -2195,7 +2195,7 @@ static int ccdc_enum_frame_size(struct v4l2_subdev *sd,
 	format.code = fse->code;
 	format.width = 1;
 	format.height = 1;
-	ccdc_try_format(ccdc, cfg, fse->pad, &format, V4L2_SUBDEV_FORMAT_TRY);
+	ccdc_try_format(ccdc, cfg, fse->pad, &format, fse->which);
 	fse->min_width = format.width;
 	fse->min_height = format.height;
 
@@ -2205,7 +2205,7 @@ static int ccdc_enum_frame_size(struct v4l2_subdev *sd,
 	format.code = fse->code;
 	format.width = -1;
 	format.height = -1;
-	ccdc_try_format(ccdc, cfg, fse->pad, &format, V4L2_SUBDEV_FORMAT_TRY);
+	ccdc_try_format(ccdc, cfg, fse->pad, &format, fse->which);
 	fse->max_width = format.width;
 	fse->max_height = format.height;
 
@@ -2417,11 +2417,11 @@ static int ccdc_link_validate(struct v4l2_subdev *sd,
 
 	/* We've got a parallel sensor here. */
 	if (ccdc->input == CCDC_INPUT_PARALLEL) {
-		struct isp_parallel_platform_data *pdata =
-			&((struct isp_v4l2_subdevs_group *)
+		struct isp_parallel_cfg *parcfg =
+			&((struct isp_bus_cfg *)
 			  media_entity_to_v4l2_subdev(link->source->entity)
 			  ->host_priv)->bus.parallel;
-		parallel_shift = pdata->data_lane_shift * 2;
+		parallel_shift = parcfg->data_lane_shift * 2;
 	} else {
 		parallel_shift = 0;
 	}

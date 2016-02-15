@@ -31,7 +31,8 @@
 int
 xfs_break_layouts(
 	struct inode		*inode,
-	uint			*iolock)
+	uint			*iolock,
+	bool			with_imutex)
 {
 	struct xfs_inode	*ip = XFS_I(inode);
 	int			error;
@@ -40,8 +41,12 @@ xfs_break_layouts(
 
 	while ((error = break_layout(inode, false) == -EWOULDBLOCK)) {
 		xfs_iunlock(ip, *iolock);
+		if (with_imutex && (*iolock & XFS_IOLOCK_EXCL))
+			mutex_unlock(&inode->i_mutex);
 		error = break_layout(inode, true);
 		*iolock = XFS_IOLOCK_EXCL;
+		if (with_imutex)
+			mutex_lock(&inode->i_mutex);
 		xfs_ilock(ip, *iolock);
 	}
 
@@ -176,6 +181,11 @@ xfs_fs_map_blocks(
 		ASSERT(imap.br_startblock != DELAYSTARTBLOCK);
 
 		if (!nimaps || imap.br_startblock == HOLESTARTBLOCK) {
+			/*
+			 * xfs_iomap_write_direct() expects to take ownership of
+			 * the shared ilock.
+			 */
+			xfs_ilock(ip, XFS_ILOCK_SHARED);
 			error = xfs_iomap_write_direct(ip, offset, length,
 						       &imap, nimaps);
 			if (error)
@@ -301,7 +311,7 @@ xfs_fs_commit_blocks(
 	tp = xfs_trans_alloc(mp, XFS_TRANS_SETATTR_NOT_SIZE);
 	error = xfs_trans_reserve(tp, &M_RES(mp)->tr_ichange, 0, 0);
 	if (error) {
-		xfs_trans_cancel(tp, 0);
+		xfs_trans_cancel(tp);
 		goto out_drop_iolock;
 	}
 
@@ -316,7 +326,7 @@ xfs_fs_commit_blocks(
 	}
 
 	xfs_trans_set_sync(tp);
-	error = xfs_trans_commit(tp, 0);
+	error = xfs_trans_commit(tp);
 
 out_drop_iolock:
 	xfs_iunlock(ip, XFS_IOLOCK_EXCL);

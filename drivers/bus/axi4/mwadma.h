@@ -27,7 +27,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/dma-contiguous.h>
-#include <linux/amba/xilinx_dma.h>
+#include <linux/dma/xilinx_dma.h>
 #include "mwadma_ioctl.h"  /* IOCTL */
 
 #define DRIVER_NAME "mwipcore"

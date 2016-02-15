@@ -57,6 +57,7 @@ menu "Direct Digital Synthesis"
 config CF_AXI_DDS
 	tristate "Analog Devices CoreFPGA AXI DDS driver"
 	depends on SPI
+	select IIO_BUFFER_DMAENGINE
 	help
 	  Say yes here to build support for Analog Devices DDS chip
 	  AD9122, provides direct access via sysfs.

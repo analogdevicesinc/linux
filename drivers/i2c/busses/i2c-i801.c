@@ -60,6 +60,10 @@
  * BayTrail (SOC)		0x0f12	32	hard	yes	yes	yes
  * Sunrise Point-H (PCH) 	0xa123  32	hard	yes	yes	yes
  * Sunrise Point-LP (PCH)	0x9d23	32	hard	yes	yes	yes
+ * DNV (SOC)			0x19df	32	hard	yes	yes	yes
+ * Broxton (SOC)		0x5ad4	32	hard	yes	yes	yes
+ * Lewisburg (PCH)		0xa1a3	32	hard	yes	yes	yes
+ * Lewisburg Supersku (PCH)	0xa223	32	hard	yes	yes	yes
  *
  * Features supported by this driver:
  * Software PEC				no
@@ -88,12 +92,13 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/err.h>
+#include <linux/platform_device.h>
+#include <linux/platform_data/itco_wdt.h>
 
 #if (defined CONFIG_I2C_MUX_GPIO || defined CONFIG_I2C_MUX_GPIO_MODULE) && \
 		defined CONFIG_DMI
 #include <linux/gpio.h>
 #include <linux/i2c-mux-gpio.h>
-#include <linux/platform_device.h>
 #endif
 
 /* I801 SMBus address offsets */
@@ -113,6 +118,16 @@
 #define SMBPCICTL	0x004
 #define SMBPCISTS	0x006
 #define SMBHSTCFG	0x040
+#define TCOBASE		0x050
+#define TCOCTL		0x054
+
+#define ACPIBASE		0x040
+#define ACPIBASE_SMI_OFF	0x030
+#define ACPICTRL		0x044
+#define ACPICTRL_EN		0x080
+
+#define SBREG_BAR		0x10
+#define SBREG_SMBCTRL		0xc6000c
 
 /* Host status bits for SMBPCISTS */
 #define SMBPCISTS_INTS		0x08
@@ -124,6 +139,9 @@
 #define SMBHSTCFG_HST_EN	1
 #define SMBHSTCFG_SMB_SMI_EN	2
 #define SMBHSTCFG_I2C_EN	4
+
+/* TCO configuration bits for TCOCTL */
+#define TCOCTL_EN		0x0100
 
 /* Auxiliary control register bits, ICH4+ only */
 #define SMBAUXCTL_CRC		1
@@ -188,6 +206,10 @@
 #define PCI_DEVICE_ID_INTEL_WILDCATPOINT_LP_SMBUS	0x9ca2
 #define PCI_DEVICE_ID_INTEL_SUNRISEPOINT_H_SMBUS	0xa123
 #define PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_SMBUS	0x9d23
+#define PCI_DEVICE_ID_INTEL_DNV_SMBUS			0x19df
+#define PCI_DEVICE_ID_INTEL_BROXTON_SMBUS		0x5ad4
+#define PCI_DEVICE_ID_INTEL_LEWISBURG_SMBUS		0xa1a3
+#define PCI_DEVICE_ID_INTEL_LEWISBURG_SSKU_SMBUS	0xa223
 
 struct i801_mux_config {
 	char *gpio_chip;
@@ -221,9 +243,8 @@ struct i801_priv {
 	const struct i801_mux_config *mux_drvdata;
 	struct platform_device *mux_pdev;
 #endif
+	struct platform_device *tco_pdev;
 };
-
-static struct pci_driver i801_driver;
 
 #define FEATURE_SMBUS_PEC	(1 << 0)
 #define FEATURE_BLOCK_BUFFER	(1 << 1)
@@ -232,6 +253,7 @@ static struct pci_driver i801_driver;
 #define FEATURE_IRQ		(1 << 4)
 /* Not really a feature, but it's convenient to handle it as such */
 #define FEATURE_IDF		(1 << 15)
+#define FEATURE_TCO		(1 << 16)
 
 static const char *i801_feature_names[] = {
 	"SMBus PEC",
@@ -849,6 +871,10 @@ static const struct pci_device_id i801_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BRASWELL_SMBUS) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_SUNRISEPOINT_H_SMBUS) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_SMBUS) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_DNV_SMBUS) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BROXTON_SMBUS) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_LEWISBURG_SMBUS) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_LEWISBURG_SSKU_SMBUS) },
 	{ 0, }
 };
 
@@ -1134,13 +1160,102 @@ static inline unsigned int i801_get_adapter_class(struct i801_priv *priv)
 }
 #endif
 
+static const struct itco_wdt_platform_data tco_platform_data = {
+	.name = "Intel PCH",
+	.version = 4,
+};
+
+static DEFINE_SPINLOCK(p2sb_spinlock);
+
+static void i801_add_tco(struct i801_priv *priv)
+{
+	struct pci_dev *pci_dev = priv->pci_dev;
+	struct resource tco_res[3], *res;
+	struct platform_device *pdev;
+	unsigned int devfn;
+	u32 tco_base, tco_ctl;
+	u32 base_addr, ctrl_val;
+	u64 base64_addr;
+
+	if (!(priv->features & FEATURE_TCO))
+		return;
+
+	pci_read_config_dword(pci_dev, TCOBASE, &tco_base);
+	pci_read_config_dword(pci_dev, TCOCTL, &tco_ctl);
+	if (!(tco_ctl & TCOCTL_EN))
+		return;
+
+	memset(tco_res, 0, sizeof(tco_res));
+
+	res = &tco_res[ICH_RES_IO_TCO];
+	res->start = tco_base & ~1;
+	res->end = res->start + 32 - 1;
+	res->flags = IORESOURCE_IO;
+
+	/*
+	 * Power Management registers.
+	 */
+	devfn = PCI_DEVFN(PCI_SLOT(pci_dev->devfn), 2);
+	pci_bus_read_config_dword(pci_dev->bus, devfn, ACPIBASE, &base_addr);
+
+	res = &tco_res[ICH_RES_IO_SMI];
+	res->start = (base_addr & ~1) + ACPIBASE_SMI_OFF;
+	res->end = res->start + 3;
+	res->flags = IORESOURCE_IO;
+
+	/*
+	 * Enable the ACPI I/O space.
+	 */
+	pci_bus_read_config_dword(pci_dev->bus, devfn, ACPICTRL, &ctrl_val);
+	ctrl_val |= ACPICTRL_EN;
+	pci_bus_write_config_dword(pci_dev->bus, devfn, ACPICTRL, ctrl_val);
+
+	/*
+	 * We must access the NO_REBOOT bit over the Primary to Sideband
+	 * bridge (P2SB). The BIOS prevents the P2SB device from being
+	 * enumerated by the PCI subsystem, so we need to unhide/hide it
+	 * to lookup the P2SB BAR.
+	 */
+	spin_lock(&p2sb_spinlock);
+
+	devfn = PCI_DEVFN(PCI_SLOT(pci_dev->devfn), 1);
+
+	/* Unhide the P2SB device */
+	pci_bus_write_config_byte(pci_dev->bus, devfn, 0xe1, 0x0);
+
+	pci_bus_read_config_dword(pci_dev->bus, devfn, SBREG_BAR, &base_addr);
+	base64_addr = base_addr & 0xfffffff0;
+
+	pci_bus_read_config_dword(pci_dev->bus, devfn, SBREG_BAR + 0x4, &base_addr);
+	base64_addr |= (u64)base_addr << 32;
+
+	/* Hide the P2SB device */
+	pci_bus_write_config_byte(pci_dev->bus, devfn, 0xe1, 0x1);
+	spin_unlock(&p2sb_spinlock);
+
+	res = &tco_res[ICH_RES_MEM_OFF];
+	res->start = (resource_size_t)base64_addr + SBREG_SMBCTRL;
+	res->end = res->start + 3;
+	res->flags = IORESOURCE_MEM;
+
+	pdev = platform_device_register_resndata(&pci_dev->dev, "iTCO_wdt", -1,
+						 tco_res, 3, &tco_platform_data,
+						 sizeof(tco_platform_data));
+	if (IS_ERR(pdev)) {
+		dev_warn(&pci_dev->dev, "failed to create iTCO device\n");
+		return;
+	}
+
+	priv->tco_pdev = pdev;
+}
+
 static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
 	unsigned char temp;
 	int err, i;
 	struct i801_priv *priv;
 
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc(&dev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
@@ -1148,9 +1263,22 @@ static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	priv->adapter.owner = THIS_MODULE;
 	priv->adapter.class = i801_get_adapter_class(priv);
 	priv->adapter.algo = &smbus_algorithm;
+	priv->adapter.dev.parent = &dev->dev;
+	ACPI_COMPANION_SET(&priv->adapter.dev, ACPI_COMPANION(&dev->dev));
+	priv->adapter.retries = 3;
 
 	priv->pci_dev = dev;
 	switch (dev->device) {
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_H_SMBUS:
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_SMBUS:
+	case PCI_DEVICE_ID_INTEL_DNV_SMBUS:
+		priv->features |= FEATURE_I2C_BLOCK_READ;
+		priv->features |= FEATURE_IRQ;
+		priv->features |= FEATURE_SMBUS_PEC;
+		priv->features |= FEATURE_BLOCK_BUFFER;
+		priv->features |= FEATURE_TCO;
+		break;
+
 	case PCI_DEVICE_ID_INTEL_PATSBURG_SMBUS_IDF0:
 	case PCI_DEVICE_ID_INTEL_PATSBURG_SMBUS_IDF1:
 	case PCI_DEVICE_ID_INTEL_PATSBURG_SMBUS_IDF2:
@@ -1182,34 +1310,35 @@ static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	}
 	priv->features &= ~disable_features;
 
-	err = pci_enable_device(dev);
+	err = pcim_enable_device(dev);
 	if (err) {
 		dev_err(&dev->dev, "Failed to enable SMBus PCI device (%d)\n",
 			err);
-		goto exit;
+		return err;
 	}
+	pcim_pin_device(dev);
 
 	/* Determine the address of the SMBus area */
 	priv->smba = pci_resource_start(dev, SMBBAR);
 	if (!priv->smba) {
-		dev_err(&dev->dev, "SMBus base address uninitialized, "
-			"upgrade BIOS\n");
-		err = -ENODEV;
-		goto exit;
+		dev_err(&dev->dev,
+			"SMBus base address uninitialized, upgrade BIOS\n");
+		return -ENODEV;
 	}
 
 	err = acpi_check_resource_conflict(&dev->resource[SMBBAR]);
 	if (err) {
-		err = -ENODEV;
-		goto exit;
+		return -ENODEV;
 	}
 
-	err = pci_request_region(dev, SMBBAR, i801_driver.name);
+	err = pcim_iomap_regions(dev, 1 << SMBBAR,
+				 dev_driver_string(&dev->dev));
 	if (err) {
-		dev_err(&dev->dev, "Failed to request SMBus region "
-			"0x%lx-0x%Lx\n", priv->smba,
+		dev_err(&dev->dev,
+			"Failed to request SMBus region 0x%lx-0x%Lx\n",
+			priv->smba,
 			(unsigned long long)pci_resource_end(dev, SMBBAR));
-		goto exit;
+		return err;
 	}
 
 	pci_read_config_byte(priv->pci_dev, SMBHSTCFG, &temp);
@@ -1254,8 +1383,9 @@ static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	if (priv->features & FEATURE_IRQ) {
 		init_waitqueue_head(&priv->waitq);
 
-		err = request_irq(dev->irq, i801_isr, IRQF_SHARED,
-				  i801_driver.name, priv);
+		err = devm_request_irq(&dev->dev, dev->irq, i801_isr,
+				       IRQF_SHARED,
+				       dev_driver_string(&dev->dev), priv);
 		if (err) {
 			dev_err(&dev->dev, "Failed to allocate irq %d: %d\n",
 				dev->irq, err);
@@ -1265,18 +1395,14 @@ static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	dev_info(&dev->dev, "SMBus using %s\n",
 		 priv->features & FEATURE_IRQ ? "PCI interrupt" : "polling");
 
-	/* set up the sysfs linkage to our parent device */
-	priv->adapter.dev.parent = &dev->dev;
-
-	/* Retry up to 3 times on lost arbitration */
-	priv->adapter.retries = 3;
+	i801_add_tco(priv);
 
 	snprintf(priv->adapter.name, sizeof(priv->adapter.name),
 		"SMBus I801 adapter at %04lx", priv->smba);
 	err = i2c_add_adapter(&priv->adapter);
 	if (err) {
 		dev_err(&dev->dev, "Failed to add SMBus adapter\n");
-		goto exit_free_irq;
+		return err;
 	}
 
 	i801_probe_optional_slaves(priv);
@@ -1286,14 +1412,6 @@ static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	pci_set_drvdata(dev, priv);
 
 	return 0;
-
-exit_free_irq:
-	if (priv->features & FEATURE_IRQ)
-		free_irq(dev->irq, priv);
-	pci_release_region(dev, SMBBAR);
-exit:
-	kfree(priv);
-	return err;
 }
 
 static void i801_remove(struct pci_dev *dev)
@@ -1304,11 +1422,8 @@ static void i801_remove(struct pci_dev *dev)
 	i2c_del_adapter(&priv->adapter);
 	pci_write_config_byte(dev, SMBHSTCFG, priv->original_hstcfg);
 
-	if (priv->features & FEATURE_IRQ)
-		free_irq(dev->irq, priv);
-	pci_release_region(dev, SMBBAR);
+	platform_device_unregister(priv->tco_pdev);
 
-	kfree(priv);
 	/*
 	 * do not call pci_disable_device(dev) since it can cause hard hangs on
 	 * some systems during power-off (eg. Fujitsu-Siemens Lifebook E8010)
@@ -1330,7 +1445,7 @@ static int i801_resume(struct pci_dev *dev)
 {
 	pci_set_power_state(dev, PCI_D0);
 	pci_restore_state(dev);
-	return pci_enable_device(dev);
+	return 0;
 }
 #else
 #define i801_suspend NULL

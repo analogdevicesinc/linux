@@ -944,10 +944,9 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
 			cf->can_id |= CAN_ERR_BUSERROR | CAN_ERR_PROT;
 
 			if (es->leaf.error_factor & M16C_EF_ACKE)
-				cf->data[3] |= (CAN_ERR_PROT_LOC_ACK);
+				cf->data[3] = CAN_ERR_PROT_LOC_ACK;
 			if (es->leaf.error_factor & M16C_EF_CRCE)
-				cf->data[3] |= (CAN_ERR_PROT_LOC_CRC_SEQ |
-						CAN_ERR_PROT_LOC_CRC_DEL);
+				cf->data[3] = CAN_ERR_PROT_LOC_CRC_SEQ;
 			if (es->leaf.error_factor & M16C_EF_FORME)
 				cf->data[2] |= CAN_ERR_PROT_FORM;
 			if (es->leaf.error_factor & M16C_EF_STFE)
@@ -1102,7 +1101,7 @@ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
 
 	if (msg->u.rx_can_header.flag & (MSG_FLAG_ERROR_FRAME |
 					 MSG_FLAG_NERR)) {
-		netdev_err(priv->netdev, "Unknow error (flags: 0x%02x)\n",
+		netdev_err(priv->netdev, "Unknown error (flags: 0x%02x)\n",
 			   msg->u.rx_can_header.flag);
 
 		stats->rx_errors++;
@@ -1867,7 +1866,7 @@ static void kvaser_usb_remove_interfaces(struct kvaser_usb *dev)
 		if (!dev->nets[i])
 			continue;
 
-		unregister_netdev(dev->nets[i]->netdev);
+		unregister_candev(dev->nets[i]->netdev);
 	}
 
 	kvaser_usb_unlink_all_urbs(dev);

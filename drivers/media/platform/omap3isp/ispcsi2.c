@@ -548,7 +548,8 @@ int omap3isp_csi2_reset(struct isp_csi2_device *csi2)
 
 static int csi2_configure(struct isp_csi2_device *csi2)
 {
-	const struct isp_v4l2_subdevs_group *pdata;
+	struct isp_pipeline *pipe = to_isp_pipeline(&csi2->subdev.entity);
+	const struct isp_bus_cfg *buscfg;
 	struct isp_device *isp = csi2->isp;
 	struct isp_csi2_timing_cfg *timing = &csi2->timing[0];
 	struct v4l2_subdev *sensor;
@@ -565,14 +566,19 @@ static int csi2_configure(struct isp_csi2_device *csi2)
 
 	pad = media_entity_remote_pad(&csi2->pads[CSI2_PAD_SINK]);
 	sensor = media_entity_to_v4l2_subdev(pad->entity);
-	pdata = sensor->host_priv;
+	buscfg = sensor->host_priv;
 
 	csi2->frame_skip = 0;
 	v4l2_subdev_call(sensor, sensor, g_skip_frames, &csi2->frame_skip);
 
-	csi2->ctrl.vp_out_ctrl = pdata->bus.csi2.vpclk_div;
+	csi2->ctrl.vp_out_ctrl =
+		clamp_t(unsigned int, pipe->l3_ick / pipe->external_rate - 1,
+			1, 3);
+	dev_dbg(isp->dev, "%s: l3_ick %lu, external_rate %u, vp_out_ctrl %u\n",
+		__func__, pipe->l3_ick,  pipe->external_rate,
+		csi2->ctrl.vp_out_ctrl);
 	csi2->ctrl.frame_mode = ISP_CSI2_FRAME_IMMEDIATE;
-	csi2->ctrl.ecc_enable = pdata->bus.csi2.crc;
+	csi2->ctrl.ecc_enable = buscfg->bus.csi2.crc;
 
 	timing->ionum = 1;
 	timing->force_rx_mode = 1;
@@ -909,7 +915,7 @@ static int csi2_enum_mbus_code(struct v4l2_subdev *sd,
 		code->code = csi2_input_fmts[code->index];
 	} else {
 		format = __csi2_get_format(csi2, cfg, CSI2_PAD_SINK,
-					   V4L2_SUBDEV_FORMAT_TRY);
+					   code->which);
 		switch (code->index) {
 		case 0:
 			/* Passthrough sink pad code */
@@ -944,7 +950,7 @@ static int csi2_enum_frame_size(struct v4l2_subdev *sd,
 	format.code = fse->code;
 	format.width = 1;
 	format.height = 1;
-	csi2_try_format(csi2, cfg, fse->pad, &format, V4L2_SUBDEV_FORMAT_TRY);
+	csi2_try_format(csi2, cfg, fse->pad, &format, fse->which);
 	fse->min_width = format.width;
 	fse->min_height = format.height;
 
@@ -954,7 +960,7 @@ static int csi2_enum_frame_size(struct v4l2_subdev *sd,
 	format.code = fse->code;
 	format.width = -1;
 	format.height = -1;
-	csi2_try_format(csi2, cfg, fse->pad, &format, V4L2_SUBDEV_FORMAT_TRY);
+	csi2_try_format(csi2, cfg, fse->pad, &format, fse->which);
 	fse->max_width = format.width;
 	fse->max_height = format.height;
 

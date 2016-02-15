@@ -374,6 +374,8 @@ static int s5k5baf_fw_parse(struct device *dev, struct s5k5baf_fw **fw,
 	count -= S5K5BAG_FW_TAG_LEN;
 
 	d = devm_kzalloc(dev, count * sizeof(u16), GFP_KERNEL);
+	if (!d)
+		return -ENOMEM;
 
 	for (i = 0; i < count; ++i)
 		d[i] = le16_to_cpu(data[i]);
@@ -489,7 +491,7 @@ static void s5k5baf_write_arr_seq(struct s5k5baf *state, u16 addr,
 	v4l2_dbg(3, debug, c, "i2c_write_seq(count=%d): %*ph\n", count,
 		 min(2 * count, 64), seq);
 
-	buf[0] = __constant_cpu_to_be16(REG_CMD_BUF);
+	buf[0] = cpu_to_be16(REG_CMD_BUF);
 
 	while (count > 0) {
 		int n = min_t(int, count, ARRAY_SIZE(buf) - 1);
@@ -1052,7 +1054,7 @@ static int s5k5baf_set_power(struct v4l2_subdev *sd, int on)
 
 	mutex_lock(&state->lock);
 
-	if (!on != state->power)
+	if (state->power != !on)
 		goto out;
 
 	if (on) {

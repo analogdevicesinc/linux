@@ -115,7 +115,8 @@ static int xsw_s_stream(struct v4l2_subdev *subdev, int enable)
  */
 
 static struct v4l2_mbus_framefmt *
-xsw_get_pad_format(struct xswitch_device *xsw, struct v4l2_subdev_pad_config *cfg,
+xsw_get_pad_format(struct xswitch_device *xsw,
+		   struct v4l2_subdev_pad_config *cfg,
 		   unsigned int pad, u32 which)
 {
 	switch (which) {
@@ -129,7 +130,7 @@ xsw_get_pad_format(struct xswitch_device *xsw, struct v4l2_subdev_pad_config *cf
 }
 
 static int xsw_get_format(struct v4l2_subdev *subdev,
-			 struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_pad_config *cfg,
 			  struct v4l2_subdev_format *fmt)
 {
 	struct xswitch_device *xsw = to_xsw(subdev);
@@ -153,7 +154,7 @@ static int xsw_set_format(struct v4l2_subdev *subdev,
 			  struct v4l2_subdev_format *fmt)
 {
 	struct xswitch_device *xsw = to_xsw(subdev);
-	struct v4l2_mbus_framefmt *__format;
+	struct v4l2_mbus_framefmt *format;
 
 	/* The source pad format is always identical to the sink pad format and
 	 * can't be modified.
@@ -161,17 +162,17 @@ static int xsw_set_format(struct v4l2_subdev *subdev,
 	if (fmt->pad >= xsw->nsinks)
 		return xsw_get_format(subdev, cfg, fmt);
 
-	__format = xsw_get_pad_format(xsw, cfg, fmt->pad, fmt->which);
+	format = xsw_get_pad_format(xsw, cfg, fmt->pad, fmt->which);
 
-	__format->code = fmt->format.code;
-	__format->width = clamp_t(unsigned int, fmt->format.width,
-				  XVIP_MIN_WIDTH, XVIP_MAX_WIDTH);
-	__format->height = clamp_t(unsigned int, fmt->format.height,
-				   XVIP_MIN_HEIGHT, XVIP_MAX_HEIGHT);
-	__format->field = V4L2_FIELD_NONE;
-	__format->colorspace = V4L2_COLORSPACE_SRGB;
+	format->code = fmt->format.code;
+	format->width = clamp_t(unsigned int, fmt->format.width,
+				XVIP_MIN_WIDTH, XVIP_MAX_WIDTH);
+	format->height = clamp_t(unsigned int, fmt->format.height,
+				 XVIP_MIN_HEIGHT, XVIP_MAX_HEIGHT);
+	format->field = V4L2_FIELD_NONE;
+	format->colorspace = V4L2_COLORSPACE_SRGB;
 
-	fmt->format = *__format;
+	fmt->format = *format;
 
 	return 0;
 }
@@ -229,7 +230,7 @@ done:
 /**
  * xsw_init_formats - Initialize formats on all pads
  * @subdev: tpgper V4L2 subdevice
- * @cfg: V4L2 subdev pad configuration
+ * @fh: V4L2 subdev file handle
  *
  * Initialize all pad formats with default values. If fh is not NULL, try
  * formats are initialized on the file handle. Otherwise active formats are
@@ -240,7 +241,7 @@ done:
  * pad. In one pad mode this is the source pad.
  */
 static void xsw_init_formats(struct v4l2_subdev *subdev,
-			      struct v4l2_subdev_pad_config *cfg)
+			      struct v4l2_subdev_fh *fh)
 {
 	struct xswitch_device *xsw = to_xsw(subdev);
 	struct v4l2_subdev_format format;
@@ -250,18 +251,18 @@ static void xsw_init_formats(struct v4l2_subdev *subdev,
 		memset(&format, 0, sizeof(format));
 
 		format.pad = 0;
-		format.which = cfg ? V4L2_SUBDEV_FORMAT_TRY
+		format.which = fh ? V4L2_SUBDEV_FORMAT_TRY
 			     : V4L2_SUBDEV_FORMAT_ACTIVE;
 		format.format.width = 1920;
 		format.format.height = 1080;
 
-		xsw_set_format(subdev, cfg, &format);
+		xsw_set_format(subdev, fh ? fh->pad : NULL, &format);
 	}
 }
 
 static int xsw_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
-	xsw_init_formats(subdev, fh->pad);
+	xsw_init_formats(subdev, fh);
 
 	return 0;
 }

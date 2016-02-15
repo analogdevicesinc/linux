@@ -71,6 +71,7 @@ MODULE_PARM_DESC(rx_timeout, "Rx timeout, 1-255");
 #define CDNS_UART_IRRX_PWIDTH_OFFSET	0x3C  /* IR Min Received Pulse Width */
 #define CDNS_UART_IRTX_PWIDTH_OFFSET	0x40  /* IR Transmitted pulse Width */
 #define CDNS_UART_TXWM_OFFSET		0x44  /* TX FIFO Trigger Level */
+#define CDNS_UART_RXBS_OFFSET		0x48  /* RX FIFO byte status register */
 
 /* Control Register Bit Definitions */
 #define CDNS_UART_CR_STOPBRK	0x00000100  /* Stop TX break */
@@ -82,6 +83,11 @@ MODULE_PARM_DESC(rx_timeout, "Rx timeout, 1-255");
 #define CDNS_UART_CR_TXRST	0x00000002  /* TX logic reset */
 #define CDNS_UART_CR_RXRST	0x00000001  /* RX logic reset */
 #define CDNS_UART_CR_RST_TO	0x00000040  /* Restart Timeout Counter */
+
+/* RX FIFO byte status Register it Definitions */
+#define CDNS_UART_RXBS_PARITY    0x00000001 /* Parity error status */
+#define CDNS_UART_RXBS_FRAMING   0x00000002 /* Framing error status */
+#define CDNS_UART_RXBS_BRK       0x00000004 /* Overrun error status */
 
 /*
  * Mode Register:
@@ -132,8 +138,7 @@ MODULE_PARM_DESC(rx_timeout, "Rx timeout, 1-255");
 /* Goes in read_status_mask for break detection as the HW doesn't do it*/
 #define CDNS_UART_IXR_BRK	0x00002000
 
-#define CDNS_UART_BRK_DET	BIT(1)
-
+#define CDNS_UART_RXBS_SUPPORT BIT(1)
 /*
  * Modem Control register:
  * The read/write Modem Control register controls the interface with the modem
@@ -237,14 +242,18 @@ static void cdns_uart_handle_rx(void *dev_id, unsigned int isrstatus)
 	struct uart_port *port = (struct uart_port *)dev_id;
 	struct cdns_uart *cdns_uart = port->private_data;
 	unsigned int data;
+	unsigned int rxbs_status;
+	unsigned int status_mask;
 	unsigned int framerrprocessed = 0;
 	char status = TTY_NORMAL;
-	bool is_brk_support;
+	bool is_rxbs_support;
 
-	is_brk_support = cdns_uart->quirks & CDNS_UART_BRK_DET;
+	is_rxbs_support = cdns_uart->quirks & CDNS_UART_RXBS_SUPPORT;
 
 	while ((cdns_uart_readl(CDNS_UART_SR_OFFSET) &
 		CDNS_UART_SR_RXEMPTY) != CDNS_UART_SR_RXEMPTY) {
+		if (is_rxbs_support)
+			rxbs_status = cdns_uart_readl(CDNS_UART_RXBS_OFFSET);
 		data = cdns_uart_readl(CDNS_UART_FIFO_OFFSET);
 		port->icount.rx++;
 		/*
@@ -253,14 +262,14 @@ static void cdns_uart_handle_rx(void *dev_id, unsigned int isrstatus)
 		 * Most of the time, there's another non-zero byte at the
 		 * end of the sequence.
 		 */
-		if (!is_brk_support && (isrstatus & CDNS_UART_IXR_FRAMING)) {
+		if (!is_rxbs_support && (isrstatus & CDNS_UART_IXR_FRAMING)) {
 			if (!data) {
 				port->read_status_mask |= CDNS_UART_IXR_BRK;
 				framerrprocessed = 1;
 				continue;
 			}
 		}
-		if (is_brk_support && (isrstatus & CDNS_UART_IXR_BRK)) {
+		if (is_rxbs_support && (rxbs_status & CDNS_UART_RXBS_BRK)) {
 			port->icount.brk++;
 			status = TTY_BREAK;
 			if (uart_handle_break(port))
@@ -269,48 +278,61 @@ static void cdns_uart_handle_rx(void *dev_id, unsigned int isrstatus)
 
 		isrstatus &= port->read_status_mask;
 		isrstatus &= ~port->ignore_status_mask;
+		status_mask = port->read_status_mask;
+		status_mask &= ~port->ignore_status_mask;
 
-		if ((isrstatus & CDNS_UART_IXR_TOUT) ||
-		    (isrstatus & CDNS_UART_IXR_RXTRIG)) {
-			if (data &&
-			    (port->read_status_mask & CDNS_UART_IXR_BRK)) {
-				port->read_status_mask &= ~CDNS_UART_IXR_BRK;
-				port->icount.brk++;
-				if (uart_handle_break(port))
-					continue;
-			}
+		if (data &&
+		    (port->read_status_mask & CDNS_UART_IXR_BRK)) {
+			port->read_status_mask &= ~CDNS_UART_IXR_BRK;
+			port->icount.brk++;
+			if (uart_handle_break(port))
+				continue;
+		}
 
 #ifdef SUPPORT_SYSRQ
-			/*
-			 * uart_handle_sysrq_char() doesn't work if
-			 * spinlocked, for some reason
-			 */
-			 if (port->sysrq) {
-				spin_unlock(&port->lock);
-				if (uart_handle_sysrq_char(port,
-							(unsigned char)data)) {
-					spin_lock(&port->lock);
-					continue;
-				}
+		/*
+		 * uart_handle_sysrq_char() doesn't work if
+		 * spinlocked, for some reason
+		 */
+		 if (port->sysrq) {
+			spin_unlock(&port->lock);
+			if (uart_handle_sysrq_char(port,
+						(unsigned char)data)) {
 				spin_lock(&port->lock);
+				continue;
 			}
+			spin_lock(&port->lock);
+		}
 #endif
+		if (is_rxbs_support) {
+			if ((rxbs_status & CDNS_UART_RXBS_PARITY)
+				&& (status_mask & CDNS_UART_IXR_PARITY)) {
+				port->icount.parity++;
+				status = TTY_PARITY;
+			}
+			if ((rxbs_status & CDNS_UART_RXBS_FRAMING)
+				&& (status_mask & CDNS_UART_IXR_PARITY)) {
+				port->icount.frame++;
+				status = TTY_FRAME;
+			}
+		} else {
 			if (isrstatus & CDNS_UART_IXR_PARITY) {
 				port->icount.parity++;
 				status = TTY_PARITY;
 			}
 			if ((isrstatus & CDNS_UART_IXR_FRAMING) &&
-			    !framerrprocessed) {
+						!framerrprocessed) {
 				port->icount.frame++;
 				status = TTY_FRAME;
 			}
-			if (isrstatus & CDNS_UART_IXR_OVERRUN) {
-				port->icount.overrun++;
-				tty_insert_flip_char(&port->state->port, 0,
-						     TTY_OVERRUN);
-			}
-			tty_insert_flip_char(&port->state->port, data, status);
 		}
+		if (isrstatus & CDNS_UART_IXR_OVERRUN) {
+			port->icount.overrun++;
+			tty_insert_flip_char(&port->state->port, 0,
+					     TTY_OVERRUN);
+		}
+		tty_insert_flip_char(&port->state->port, data, status);
+		isrstatus = 0;
 	}
 	spin_unlock(&port->lock);
 	tty_flip_buffer_push(&port->state->port);
@@ -791,7 +813,7 @@ static int cdns_uart_startup(struct uart_port *port)
 	bool is_brk_support;
 	unsigned int retval = 0, status = 0;
 
-	is_brk_support = cdns_uart->quirks & CDNS_UART_BRK_DET;
+	is_brk_support = cdns_uart->quirks & CDNS_UART_RXBS_SUPPORT;
 	retval = request_irq(port->irq, cdns_uart_isr, 0, CDNS_UART_NAME,
 								(void *)port);
 	if (retval)
@@ -1123,7 +1145,8 @@ static void cdns_uart_console_putchar(struct uart_port *port, int ch)
 	cdns_uart_writel(ch, CDNS_UART_FIFO_OFFSET);
 }
 
-static void cdns_early_write(struct console *con, const char *s, unsigned n)
+static void __init cdns_early_write(struct console *con, const char *s,
+				    unsigned n)
 {
 	struct earlycon_device *dev = con->data;
 
@@ -1367,7 +1390,7 @@ static int cdns_uart_resume(struct device *device)
 static SIMPLE_DEV_PM_OPS(cdns_uart_dev_pm_ops, cdns_uart_suspend,
 		cdns_uart_resume);
 static const struct cdns_platform_data zynqmp_uart_def = {
-					.quirks = CDNS_UART_BRK_DET, };
+					.quirks = CDNS_UART_RXBS_SUPPORT, };
 /* Match table for of_platform binding */
 static const struct of_device_id cdns_uart_of_match[] = {
 	{ .compatible = "xlnx,xuartps", },

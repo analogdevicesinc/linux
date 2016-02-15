@@ -280,7 +280,8 @@ Possible BPF extensions are shown in the following table:
   rxhash                                skb->hash
   cpu                                   raw_smp_processor_id()
   vlan_tci                              skb_vlan_tag_get(skb)
-  vlan_pr                               skb_vlan_tag_present(skb)
+  vlan_avail                            skb_vlan_tag_present(skb)
+  vlan_tpid                             skb->vlan_proto
   rand                                  prandom_u32()
 
 These extensions can also be prefixed with '#'.
@@ -595,9 +596,9 @@ skb pointer). All constraints and restrictions from bpf_check_classic() apply
 before a conversion to the new layout is being done behind the scenes!
 
 Currently, the classic BPF format is being used for JITing on most of the
-architectures. Only x86-64 performs JIT compilation from eBPF instruction set,
-however, future work will migrate other JIT compilers as well, so that they
-will profit from the very same benefits.
+architectures. x86-64, aarch64 and s390x perform JIT compilation from eBPF
+instruction set, however, future work will migrate other JIT compilers as well,
+so that they will profit from the very same benefits.
 
 Some core changes of the new internal format:
 

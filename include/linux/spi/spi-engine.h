@@ -9,7 +9,7 @@
 #ifndef _INCLUDE_LINUX_SPI_SPI_ENGINE_H_
 #define _INCLUDE_LINUX_SPI_SPI_ENGINE_H_
 
-#ifdef CONFIG_SPI_ENGINE
+#ifdef CONFIG_SPI_AXI_SPI_ENGINE
 
 bool spi_engine_offload_supported(struct spi_device *spi);
 void spi_engine_offload_enable(struct spi_device *spi, bool enable);

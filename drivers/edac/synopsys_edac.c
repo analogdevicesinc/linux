@@ -512,7 +512,7 @@ static int synps_edac_mc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id synps_edac_match[] = {
+static const struct of_device_id synps_edac_match[] = {
 	{ .compatible = "xlnx,zynq-ddrc-a05", },
 	{ /* end of table */ }
 };
@@ -532,4 +532,4 @@ module_platform_driver(synps_edac_mc_driver);
 
 MODULE_AUTHOR("Xilinx Inc");
 MODULE_DESCRIPTION("Synopsys DDR ECC driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

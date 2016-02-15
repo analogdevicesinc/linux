@@ -144,9 +144,10 @@ int xilinx_drm_fb_helper_pan_display(struct fb_var_screeninfo *var,
 	int ret = 0;
 	int i;
 
-	if (__drm_modeset_lock_all(dev, !!oops_in_progress))
+	if (oops_in_progress)
 		return -EBUSY;
 
+	drm_modeset_lock_all(dev);
 	for (i = 0; i < fb_helper->crtc_count; i++) {
 		modeset = &fb_helper->crtc_info[i].mode_set;
 
@@ -156,7 +157,6 @@ int xilinx_drm_fb_helper_pan_display(struct fb_var_screeninfo *var,
 		if (modeset->num_connectors) {
 			ret = drm_mode_set_config_internal(modeset);
 			if (!ret) {
-				drm_wait_one_vblank(dev, i);
 				info->var.xoffset = var->xoffset;
 				info->var.yoffset = var->yoffset;
 			}
@@ -164,6 +164,35 @@ int xilinx_drm_fb_helper_pan_display(struct fb_var_screeninfo *var,
 	}
 	drm_modeset_unlock_all(dev);
 	return ret;
+}
+
+int
+xilinx_drm_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
+{
+	struct drm_fb_helper *fb_helper = info->par;
+	unsigned int i;
+	int ret = 0;
+
+	switch (cmd) {
+	case FBIO_WAITFORVSYNC:
+		for (i = 0; i < fb_helper->crtc_count; i++) {
+			struct drm_mode_set *mode_set;
+			struct drm_crtc *crtc;
+
+			mode_set = &fb_helper->crtc_info[i].mode_set;
+			crtc = mode_set->crtc;
+			ret = drm_crtc_vblank_get(crtc);
+			if (!ret) {
+				drm_crtc_wait_one_vblank(crtc);
+				drm_crtc_vblank_put(crtc);
+			}
+		}
+		return ret;
+	default:
+		return -ENOTTY;
+	}
+
+	return 0;
 }
 
 static struct fb_ops xilinx_drm_fbdev_ops = {
@@ -176,6 +205,7 @@ static struct fb_ops xilinx_drm_fbdev_ops = {
 	.fb_blank	= drm_fb_helper_blank,
 	.fb_pan_display	= xilinx_drm_fb_helper_pan_display,
 	.fb_setcmap	= drm_fb_helper_setcmap,
+	.fb_ioctl	= xilinx_drm_fb_ioctl,
 };
 
 /**

@@ -13,8 +13,9 @@
 #include "xattr.h"
 
 static size_t
-ext4_xattr_trusted_list(struct dentry *dentry, char *list, size_t list_size,
-		const char *name, size_t name_len, int type)
+ext4_xattr_trusted_list(const struct xattr_handler *handler,
+			struct dentry *dentry, char *list, size_t list_size,
+			const char *name, size_t name_len)
 {
 	const size_t prefix_len = XATTR_TRUSTED_PREFIX_LEN;
 	const size_t total_len = prefix_len + name_len + 1;
@@ -31,22 +32,24 @@ ext4_xattr_trusted_list(struct dentry *dentry, char *list, size_t list_size,
 }
 
 static int
-ext4_xattr_trusted_get(struct dentry *dentry, const char *name, void *buffer,
-		size_t size, int type)
+ext4_xattr_trusted_get(const struct xattr_handler *handler,
+		       struct dentry *dentry, const char *name, void *buffer,
+		       size_t size)
 {
 	if (strcmp(name, "") == 0)
 		return -EINVAL;
-	return ext4_xattr_get(dentry->d_inode, EXT4_XATTR_INDEX_TRUSTED,
+	return ext4_xattr_get(d_inode(dentry), EXT4_XATTR_INDEX_TRUSTED,
 			      name, buffer, size);
 }
 
 static int
-ext4_xattr_trusted_set(struct dentry *dentry, const char *name,
-		const void *value, size_t size, int flags, int type)
+ext4_xattr_trusted_set(const struct xattr_handler *handler,
+		       struct dentry *dentry, const char *name,
+		       const void *value, size_t size, int flags)
 {
 	if (strcmp(name, "") == 0)
 		return -EINVAL;
-	return ext4_xattr_set(dentry->d_inode, EXT4_XATTR_INDEX_TRUSTED,
+	return ext4_xattr_set(d_inode(dentry), EXT4_XATTR_INDEX_TRUSTED,
 			      name, value, size, flags);
 }
 

@@ -684,6 +684,9 @@ struct ext2_inode_info {
 	struct rw_semaphore xattr_sem;
 #endif
 	rwlock_t i_meta_lock;
+#ifdef CONFIG_FS_DAX
+	struct rw_semaphore dax_sem;
+#endif
 
 	/*
 	 * truncate_mutex is for serialising ext2_truncate() against
@@ -698,6 +701,14 @@ struct ext2_inode_info {
 	struct dquot *i_dquot[MAXQUOTAS];
 #endif
 };
+
+#ifdef CONFIG_FS_DAX
+#define dax_sem_down_write(ext2_inode)	down_write(&(ext2_inode)->dax_sem)
+#define dax_sem_up_write(ext2_inode)	up_write(&(ext2_inode)->dax_sem)
+#else
+#define dax_sem_down_write(ext2_inode)
+#define dax_sem_up_write(ext2_inode)
+#endif
 
 /*
  * Inode dynamic state flags
@@ -793,7 +804,6 @@ extern int ext2_fsync(struct file *file, loff_t start, loff_t end,
 		      int datasync);
 extern const struct inode_operations ext2_file_inode_operations;
 extern const struct file_operations ext2_file_operations;
-extern const struct file_operations ext2_dax_file_operations;
 
 /* inode.c */
 extern const struct address_space_operations ext2_aops;

@@ -4,7 +4,7 @@
  */
 #include "mwadma.h"  /* IOCTL */
 #include <linux/version.h>
-#include <linux/amba/xilinx_dma.h>
+#include <linux/dma/xilinx_dma.h>
 
 dev_t mwadma_dev_id = 0;
 

@@ -63,6 +63,7 @@ enum xiic_endian {
  * @state:	See STATE_
  * @rx_msg:	Current RX message
  * @rx_pos:	Position within current RX message
+ * @endianness: big/little-endian byte order
  */
 struct xiic_i2c {
 	void __iomem		*base;
@@ -402,7 +403,6 @@ static irqreturn_t xiic_process(int irq, void *dev_id)
 			xiic_wakeup(i2c, STATE_ERROR);
 		if (i2c->tx_msg)
 			xiic_wakeup(i2c, STATE_ERROR);
-
 	}
 	if (pend & XIIC_INTR_RX_FULL_MASK) {
 		/* Receive register/FIFO is full */
@@ -456,7 +456,6 @@ static irqreturn_t xiic_process(int irq, void *dev_id)
 			xiic_wakeup(i2c, STATE_DONE);
 		else
 			xiic_wakeup(i2c, STATE_ERROR);
-
 	}
 	if (pend & (XIIC_INTR_TX_EMPTY_MASK | XIIC_INTR_TX_HALF_MASK)) {
 		/* Transmit register/FIFO is empty or ½ empty */
@@ -601,7 +600,7 @@ static irqreturn_t xiic_isr(int irq, void *dev_id)
 {
 	struct xiic_i2c *i2c = dev_id;
 	u32 pend, isr, ier;
-	irqreturn_t ret = IRQ_HANDLED;
+	irqreturn_t ret = IRQ_NONE;
 	/* Do not processes a devices interrupts if the device has no
 	 * interrupts pending
 	 */
@@ -693,7 +692,6 @@ static int xiic_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 		i2c->tx_msg = NULL;
 		i2c->rx_msg = NULL;
 		i2c->nmsgs = 0;
-		dev_err(adap->dev.parent, "Controller timed out\n");
 		return -ETIMEDOUT;
 	}
 }

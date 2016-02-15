@@ -151,11 +151,9 @@ out:
 
 static void __init zynq_timer_init(void)
 {
-	zynq_early_slcr_init();
-
 	zynq_clock_init();
 	of_clk_init(NULL);
-	clocksource_of_init();
+	clocksource_probe();
 }
 
 static struct map_desc zynq_cortex_a9_scu_map __initdata = {
@@ -187,13 +185,8 @@ static void __init zynq_map_io(void)
 
 static void __init zynq_irq_init(void)
 {
-	gic_arch_extn.flags = IRQCHIP_SKIP_SET_WAKE | IRQCHIP_MASK_ON_SUSPEND;
+	zynq_early_slcr_init();
 	irqchip_init();
-}
-
-static void zynq_system_reset(enum reboot_mode mode, const char *cmd)
-{
-	zynq_slcr_system_reset();
 }
 
 static const char * const zynq_dt_match[] = {
@@ -212,8 +205,8 @@ DT_MACHINE_START(XILINX_EP107, "Xilinx Zynq Platform")
 	.l2c_aux_mask	= 0xffbfffff,
 # endif
 #else
-	.l2c_aux_val	= 0x00000000,
-	.l2c_aux_mask	= 0xffffffff,
+	.l2c_aux_val	= 0x00400000,
+	.l2c_aux_mask	= 0xffbfffff,
 #endif
 	.smp		= smp_ops(zynq_smp_ops),
 	.map_io		= zynq_map_io,
@@ -223,5 +216,4 @@ DT_MACHINE_START(XILINX_EP107, "Xilinx Zynq Platform")
 	.init_time	= zynq_timer_init,
 	.dt_compat	= zynq_dt_match,
 	.reserve	= zynq_memory_init,
-	.restart	= zynq_system_reset,
 MACHINE_END

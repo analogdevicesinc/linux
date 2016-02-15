@@ -103,6 +103,14 @@ config ARCH_MAY_HAVE_PC_FDC
 	depends on BROKEN
 	default y
 
+config PGTABLE_LEVELS
+	int
+	default 3 if 64BIT && PARISC_PAGE_SIZE_4KB
+	default 2
+
+config SYS_SUPPORTS_HUGETLBFS
+	def_bool y if PA20
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"

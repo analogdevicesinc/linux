@@ -27,7 +27,7 @@ static struct adv7511 *encoder_to_adv7511(struct drm_encoder *encoder)
 }
 
 /* ADI recommended values for proper operation. */
-static const struct reg_default adv7511_fixed_registers[] = {
+static const struct reg_sequence adv7511_fixed_registers[] = {
 	{ 0x98, 0x03 },
 	{ 0x9a, 0xe0 },
 	{ 0x9c, 0x30 },
@@ -371,7 +371,7 @@ static irqreturn_t adv7511_irq_handler(int irq, void *devid)
 {
 	struct adv7511 *adv7511 = devid;
 
-	if (adv7511_hpd(adv7511))
+	if (adv7511_hpd(adv7511) && adv7511->encoder)
 		drm_helper_hpd_irq_event(adv7511->encoder->dev);
 
 	wake_up_all(&adv7511->wq);

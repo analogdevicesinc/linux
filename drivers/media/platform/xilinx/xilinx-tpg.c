@@ -336,7 +336,8 @@ static int xtpg_s_stream(struct v4l2_subdev *subdev, int enable)
  */
 
 static struct v4l2_mbus_framefmt *
-__xtpg_get_pad_format(struct xtpg_device *xtpg, struct v4l2_subdev_pad_config *cfg,
+__xtpg_get_pad_format(struct xtpg_device *xtpg,
+		      struct v4l2_subdev_pad_config *cfg,
 		      unsigned int pad, u32 which)
 {
 	switch (which) {
@@ -434,11 +435,15 @@ static int xtpg_enum_frame_size(struct v4l2_subdev *subdev,
 static int xtpg_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
 	struct xtpg_device *xtpg = to_tpg(subdev);
+	struct v4l2_mbus_framefmt *format;
 
-	*v4l2_subdev_get_try_format(subdev, fh->pad, 0) = xtpg->default_format;
+	format = v4l2_subdev_get_try_format(subdev, fh->pad, 0);
+	*format = xtpg->default_format;
 
-	if (xtpg->npads == 2)
-		*v4l2_subdev_get_try_format(subdev, fh->pad, 1) = xtpg->default_format;
+	if (xtpg->npads == 2) {
+		format = v4l2_subdev_get_try_format(subdev, fh->pad, 1);
+		*format = xtpg->default_format;
+	}
 
 	return 0;
 }

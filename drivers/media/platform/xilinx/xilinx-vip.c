@@ -248,10 +248,17 @@ EXPORT_SYMBOL_GPL(xvip_cleanup_resources);
  * Return: 0 if the media bus code is found, or -EINVAL if the format index
  * is not valid.
  */
-int xvip_enum_mbus_code(struct v4l2_subdev *subdev, struct v4l2_subdev_pad_config *cfg,
+int xvip_enum_mbus_code(struct v4l2_subdev *subdev,
+			struct v4l2_subdev_pad_config *cfg,
 			struct v4l2_subdev_mbus_code_enum *code)
 {
 	struct v4l2_mbus_framefmt *format;
+
+	/* Enumerating frame sizes based on the active configuration isn't
+	 * supported yet.
+	 */
+	if (code->which == V4L2_SUBDEV_FORMAT_ACTIVE)
+		return -EINVAL;
 
 	if (code->index)
 		return -EINVAL;
@@ -279,10 +286,17 @@ EXPORT_SYMBOL_GPL(xvip_enum_mbus_code);
  * Return: 0 if the media bus frame size is found, or -EINVAL
  * if the index or the code is not valid.
  */
-int xvip_enum_frame_size(struct v4l2_subdev *subdev, struct v4l2_subdev_pad_config *cfg,
+int xvip_enum_frame_size(struct v4l2_subdev *subdev,
+			 struct v4l2_subdev_pad_config *cfg,
 			 struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct v4l2_mbus_framefmt *format;
+
+	/* Enumerating frame sizes based on the active configuration isn't
+	 * supported yet.
+	 */
+	if (fse->which == V4L2_SUBDEV_FORMAT_ACTIVE)
+		return -EINVAL;
 
 	format = v4l2_subdev_get_try_format(subdev, cfg, fse->pad);
 
@@ -307,4 +321,3 @@ int xvip_enum_frame_size(struct v4l2_subdev *subdev, struct v4l2_subdev_pad_conf
 	return 0;
 }
 EXPORT_SYMBOL_GPL(xvip_enum_frame_size);
-

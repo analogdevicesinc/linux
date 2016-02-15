@@ -33,7 +33,7 @@
 #define PAGE_SHIFT	16
 #endif
 #define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
-#define PAGE_MASK	(~((1 << PAGE_SHIFT) - 1))
+#define PAGE_MASK	(~(PAGE_SIZE - 1))
 
 /*
  * This is used for calculating the real page sizes
@@ -105,8 +105,6 @@ static inline void clear_user_page(void *addr, unsigned long vaddr,
 		flush_data_cache_page((unsigned long)addr);
 }
 
-extern void copy_user_page(void *vto, void *vfrom, unsigned long vaddr,
-	struct page *to);
 struct vm_area_struct;
 extern void copy_user_highpage(struct page *to, struct page *from,
 	unsigned long vaddr, struct vm_area_struct *vma);
@@ -202,8 +200,9 @@ static inline int pfn_valid(unsigned long pfn)
 {
 	/* avoid <linux/mm.h> include hell */
 	extern unsigned long max_mapnr;
+	unsigned long pfn_offset = ARCH_PFN_OFFSET;
 
-	return pfn >= ARCH_PFN_OFFSET && pfn < max_mapnr;
+	return pfn >= pfn_offset && pfn < max_mapnr;
 }
 
 #elif defined(CONFIG_SPARSEMEM)

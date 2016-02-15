@@ -35,7 +35,7 @@
 
 #include "remoteproc_internal.h"
 
-extern int __cpuinit zynq_cpun_start(u32 address, int cpu);
+extern int zynq_cpun_start(u32 address, int cpu);
 
 /* Module parameter */
 static char *firmware;
@@ -78,7 +78,6 @@ static int zynq_rproc_start(struct rproc *rproc)
 {
 	struct device *dev = rproc->dev.parent;
 	struct platform_device *pdev = to_platform_device(dev);
-	struct zynq_rproc_pdata *local = platform_get_drvdata(pdev);
 	int ret;
 
 	dev_dbg(dev, "%s\n", __func__);

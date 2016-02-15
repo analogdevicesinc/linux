@@ -273,33 +273,13 @@ static void xadc_zynq_unmask_worker(struct work_struct *work)
 		schedule_delayed_work(&xadc->zynq_unmask_work,
 				msecs_to_jiffies(XADC_ZYNQ_UNMASK_TIMEOUT));
 	}
-}
 
-static irqreturn_t xadc_zynq_threaded_interrupt_handler(int irq, void *devid)
-{
-	struct iio_dev *indio_dev = devid;
-	struct xadc *xadc = iio_priv(indio_dev);
-	unsigned int alarm;
-
-	spin_lock_irq(&xadc->lock);
-	alarm = xadc->zynq_alarm;
-	xadc->zynq_alarm = 0;
-	spin_unlock_irq(&xadc->lock);
-
-	xadc_handle_events(indio_dev, xadc_zynq_transform_alarm(alarm));
-
-	/* unmask the required interrupts in timer. */
-	schedule_delayed_work(&xadc->zynq_unmask_work,
-			msecs_to_jiffies(XADC_ZYNQ_UNMASK_TIMEOUT));
-
-	return IRQ_HANDLED;
 }
 
 static irqreturn_t xadc_zynq_interrupt_handler(int irq, void *devid)
 {
 	struct iio_dev *indio_dev = devid;
 	struct xadc *xadc = iio_priv(indio_dev);
-	irqreturn_t ret = IRQ_HANDLED;
 	uint32_t status;
 
 	xadc_read_reg(xadc, XADC_ZYNQ_REG_INTSTS, &status);
@@ -321,22 +301,28 @@ static irqreturn_t xadc_zynq_interrupt_handler(int irq, void *devid)
 
 	status &= XADC_ZYNQ_INT_ALARM_MASK;
 	if (status) {
-		xadc->zynq_alarm |= status;
 		xadc->zynq_masked_alarm |= status;
 		/*
 		 * mask the current event interrupt,
 		 * unmask it when the interrupt is no more active.
 		 */
 		xadc_zynq_update_intmsk(xadc, 0, 0);
-		ret = IRQ_WAKE_THREAD;
+
+		xadc_handle_events(indio_dev,
+				xadc_zynq_transform_alarm(status));
+
+		/* unmask the required interrupts in timer. */
+		schedule_delayed_work(&xadc->zynq_unmask_work,
+				msecs_to_jiffies(XADC_ZYNQ_UNMASK_TIMEOUT));
 	}
 	spin_unlock(&xadc->lock);
 
-	return ret;
+	return IRQ_HANDLED;
 }
 
 #define XADC_ZYNQ_TCK_RATE_MAX 50000000
 #define XADC_ZYNQ_IGAP_DEFAULT 20
+#define XADC_ZYNQ_PCAP_RATE_MAX 200000000
 
 static int xadc_zynq_setup(struct platform_device *pdev,
 	struct iio_dev *indio_dev, int irq)
@@ -355,6 +341,10 @@ static int xadc_zynq_setup(struct platform_device *pdev,
 	xadc->zynq_intmask = ~0;
 
 	pcap_rate = clk_get_rate(xadc->clk);
+
+	if (pcap_rate > XADC_ZYNQ_PCAP_RATE_MAX)
+		clk_set_rate(xadc->clk,
+			(unsigned long) XADC_ZYNQ_PCAP_RATE_MAX);
 
 	if (tck_rate > XADC_ZYNQ_TCK_RATE_MAX)
 		tck_rate = XADC_ZYNQ_TCK_RATE_MAX;
@@ -382,6 +372,9 @@ static int xadc_zynq_setup(struct platform_device *pdev,
 	xadc_write_reg(xadc, XADC_ZYNQ_REG_CFG, XADC_ZYNQ_CFG_ENABLE |
 			XADC_ZYNQ_CFG_REDGE | XADC_ZYNQ_CFG_WEDGE |
 			tck_div | XADC_ZYNQ_CFG_IGAP(igap));
+
+	if (pcap_rate > XADC_ZYNQ_PCAP_RATE_MAX)
+		clk_set_rate(xadc->clk, pcap_rate);
 
 	return 0;
 }
@@ -437,7 +430,6 @@ static const struct xadc_ops xadc_zynq_ops = {
 	.setup = xadc_zynq_setup,
 	.get_dclk_rate = xadc_zynq_get_dclk_rate,
 	.interrupt_handler = xadc_zynq_interrupt_handler,
-	.threaded_interrupt_handler = xadc_zynq_threaded_interrupt_handler,
 	.update_alarm = xadc_zynq_update_alarm,
 };
 
@@ -1015,23 +1007,23 @@ static const struct iio_chan_spec xadc_channels[] = {
 	XADC_CHAN_VOLTAGE(5, 7, XADC_REG_VCCO_DDR, "vccoddr", true),
 	XADC_CHAN_VOLTAGE(6, 12, XADC_REG_VREFP, "vrefp", false),
 	XADC_CHAN_VOLTAGE(7, 13, XADC_REG_VREFN, "vrefn", false),
-	XADC_CHAN_VOLTAGE(8, 11, XADC_REG_VPVN, NULL, false),
-	XADC_CHAN_VOLTAGE(9, 16, XADC_REG_VAUX(0), NULL, false),
-	XADC_CHAN_VOLTAGE(10, 17, XADC_REG_VAUX(1), NULL, false),
-	XADC_CHAN_VOLTAGE(11, 18, XADC_REG_VAUX(2), NULL, false),
-	XADC_CHAN_VOLTAGE(12, 19, XADC_REG_VAUX(3), NULL, false),
-	XADC_CHAN_VOLTAGE(13, 20, XADC_REG_VAUX(4), NULL, false),
-	XADC_CHAN_VOLTAGE(14, 21, XADC_REG_VAUX(5), NULL, false),
-	XADC_CHAN_VOLTAGE(15, 22, XADC_REG_VAUX(6), NULL, false),
-	XADC_CHAN_VOLTAGE(16, 23, XADC_REG_VAUX(7), NULL, false),
-	XADC_CHAN_VOLTAGE(17, 24, XADC_REG_VAUX(8), NULL, false),
-	XADC_CHAN_VOLTAGE(18, 25, XADC_REG_VAUX(9), NULL, false),
-	XADC_CHAN_VOLTAGE(19, 26, XADC_REG_VAUX(10), NULL, false),
-	XADC_CHAN_VOLTAGE(20, 27, XADC_REG_VAUX(11), NULL, false),
-	XADC_CHAN_VOLTAGE(21, 28, XADC_REG_VAUX(12), NULL, false),
-	XADC_CHAN_VOLTAGE(22, 29, XADC_REG_VAUX(13), NULL, false),
-	XADC_CHAN_VOLTAGE(23, 30, XADC_REG_VAUX(14), NULL, false),
-	XADC_CHAN_VOLTAGE(24, 31, XADC_REG_VAUX(15), NULL, false),
+	XADC_CHAN_VOLTAGE(8, 11, XADC_REG_VPVN, "vpvn", false),
+	XADC_CHAN_VOLTAGE(9, 16, XADC_REG_VAUX(0), "vaux0", false),
+	XADC_CHAN_VOLTAGE(10, 17, XADC_REG_VAUX(1), "vaux1", false),
+	XADC_CHAN_VOLTAGE(11, 18, XADC_REG_VAUX(2), "vaux2", false),
+	XADC_CHAN_VOLTAGE(12, 19, XADC_REG_VAUX(3), "vaux3", false),
+	XADC_CHAN_VOLTAGE(13, 20, XADC_REG_VAUX(4), "vaux4", false),
+	XADC_CHAN_VOLTAGE(14, 21, XADC_REG_VAUX(5), "vaux5", false),
+	XADC_CHAN_VOLTAGE(15, 22, XADC_REG_VAUX(6), "vaux6", false),
+	XADC_CHAN_VOLTAGE(16, 23, XADC_REG_VAUX(7), "vaux7", false),
+	XADC_CHAN_VOLTAGE(17, 24, XADC_REG_VAUX(8), "vaux8", false),
+	XADC_CHAN_VOLTAGE(18, 25, XADC_REG_VAUX(9), "vaux9", false),
+	XADC_CHAN_VOLTAGE(19, 26, XADC_REG_VAUX(10), "vaux10", false),
+	XADC_CHAN_VOLTAGE(20, 27, XADC_REG_VAUX(11), "vaux11", false),
+	XADC_CHAN_VOLTAGE(21, 28, XADC_REG_VAUX(12), "vaux12", false),
+	XADC_CHAN_VOLTAGE(22, 29, XADC_REG_VAUX(13), "vaux13", false),
+	XADC_CHAN_VOLTAGE(23, 30, XADC_REG_VAUX(14), "vaux14", false),
+	XADC_CHAN_VOLTAGE(24, 31, XADC_REG_VAUX(15), "vaux15", false),
 };
 
 static const struct iio_info xadc_info = {
@@ -1056,7 +1048,7 @@ static int xadc_parse_dt(struct iio_dev *indio_dev, struct device_node *np,
 	unsigned int *conf)
 {
 	struct xadc *xadc = iio_priv(indio_dev);
-	struct iio_chan_spec *channels, *chan;
+	struct iio_chan_spec *channels;
 	struct device_node *chan_node, *child;
 	unsigned int num_channels;
 	const char *external_mux;
@@ -1104,7 +1096,6 @@ static int xadc_parse_dt(struct iio_dev *indio_dev, struct device_node *np,
 		return -ENOMEM;
 
 	num_channels = 9;
-	chan = &channels[9];
 
 	chan_node = of_get_child_by_name(np, "xlnx,channels");
 	if (chan_node) {
@@ -1114,22 +1105,17 @@ static int xadc_parse_dt(struct iio_dev *indio_dev, struct device_node *np,
 				break;
 			}
 
+			channels[num_channels] = xadc_channels[reg + 9];
+			channels[num_channels].channel = num_channels - 1;
+
 			ret = of_property_read_u32(child, "reg", &reg);
 			if (ret || reg > 16)
 				continue;
 
 			if (of_property_read_bool(child, "xlnx,bipolar"))
-				chan->scan_type.sign = 's';
+				channels[num_channels].scan_type.sign = 's';
 
-			if (reg == 0) {
-				chan->scan_index = 11;
-				chan->address = XADC_REG_VPVN;
-			} else {
-				chan->scan_index = 15 + reg;
-				chan->address = XADC_REG_VAUX(reg - 1);
-			}
 			num_channels++;
-			chan++;
 		}
 	}
 	of_node_put(chan_node);
@@ -1224,9 +1210,8 @@ static int xadc_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_samplerate_trigger;
 
-	ret = request_threaded_irq(irq, xadc->ops->interrupt_handler,
-				xadc->ops->threaded_interrupt_handler,
-				0, dev_name(&pdev->dev), indio_dev);
+	ret = request_irq(irq, xadc->ops->interrupt_handler, 0,
+			dev_name(&pdev->dev), indio_dev);
 	if (ret)
 		goto err_clk_disable_unprepare;
 

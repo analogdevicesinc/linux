@@ -100,7 +100,8 @@ __xrgb2yuv_get_pad_format(struct xrgb2yuv_device *xrgb2yuv,
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&xrgb2yuv->xvip.subdev, cfg, pad);
+		return v4l2_subdev_get_try_format(&xrgb2yuv->xvip.subdev, cfg,
+						  pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &xrgb2yuv->formats[pad];
 	default:
@@ -125,25 +126,24 @@ static int xrgb2yuv_set_format(struct v4l2_subdev *subdev,
 			       struct v4l2_subdev_format *fmt)
 {
 	struct xrgb2yuv_device *xrgb2yuv = to_rgb2yuv(subdev);
-	struct v4l2_mbus_framefmt *__format;
+	struct v4l2_mbus_framefmt *format;
 
-	__format = __xrgb2yuv_get_pad_format(xrgb2yuv, cfg, fmt->pad,
-					     fmt->which);
+	format = __xrgb2yuv_get_pad_format(xrgb2yuv, cfg, fmt->pad, fmt->which);
 
 	if (fmt->pad == XVIP_PAD_SOURCE) {
-		fmt->format = *__format;
+		fmt->format = *format;
 		return 0;
 	}
 
-	xvip_set_format_size(__format, fmt);
+	xvip_set_format_size(format, fmt);
 
-	fmt->format = *__format;
+	fmt->format = *format;
 
 	/* Propagate the format to the source pad. */
-	__format = __xrgb2yuv_get_pad_format(xrgb2yuv, cfg, XVIP_PAD_SOURCE,
+	format = __xrgb2yuv_get_pad_format(xrgb2yuv, cfg, XVIP_PAD_SOURCE,
 					     fmt->which);
 
-	xvip_set_format_size(__format, fmt);
+	xvip_set_format_size(format, fmt);
 
 	return 0;
 }
@@ -155,14 +155,14 @@ static int xrgb2yuv_set_format(struct v4l2_subdev *subdev,
 static int xrgb2yuv_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
 	struct xrgb2yuv_device *xrgb2yuv = to_rgb2yuv(subdev);
-	struct v4l2_mbus_framefmt *__format;
+	struct v4l2_mbus_framefmt *format;
 
 	/* Initialize with default formats */
-	__format = v4l2_subdev_get_try_format(subdev, fh->pad, XVIP_PAD_SINK);
-	*__format = xrgb2yuv->default_formats[XVIP_PAD_SINK];
+	format = v4l2_subdev_get_try_format(subdev, fh->pad, XVIP_PAD_SINK);
+	*format = xrgb2yuv->default_formats[XVIP_PAD_SINK];
 
-	__format = v4l2_subdev_get_try_format(subdev, fh->pad, XVIP_PAD_SOURCE);
-	*__format = xrgb2yuv->default_formats[XVIP_PAD_SOURCE];
+	format = v4l2_subdev_get_try_format(subdev, fh->pad, XVIP_PAD_SOURCE);
+	*format = xrgb2yuv->default_formats[XVIP_PAD_SOURCE];
 
 	return 0;
 }

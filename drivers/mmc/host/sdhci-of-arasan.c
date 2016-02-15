@@ -20,6 +20,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/of_device.h>
 #include "sdhci-pltfm.h"
 
 #define SDHCI_ARASAN_CLK_CTRL_OFFSET	0x2c
@@ -51,6 +52,22 @@ static unsigned int sdhci_arasan_get_timeout_clock(struct sdhci_host *host)
 	return freq;
 }
 
+void arasan_tune_sdclk(struct sdhci_host *host)
+{
+	unsigned int clock;
+
+	clock = host->clock;
+
+	/*
+	 * As per controller erratum, program the SDCLK Frequency
+	 * Select of clock control register with a value, say
+	 * clock/2. Wait for the Internal clock stable and program
+	 * the desired frequency.
+	 */
+	host->ops->set_clock(host, clock/2);
+
+	host->ops->set_clock(host, host->clock);
+}
 static struct sdhci_ops sdhci_arasan_ops = {
 	.set_clock = sdhci_set_clock,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
@@ -58,13 +75,15 @@ static struct sdhci_ops sdhci_arasan_ops = {
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
+	.tune_clk = arasan_tune_sdclk,
 };
 
 static struct sdhci_pltfm_data sdhci_arasan_pdata = {
 	.ops = &sdhci_arasan_ops,
 	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
-			SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
+			SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN |
+			SDHCI_QUIRK2_STOP_WITH_TC,
 };
 
 #ifdef CONFIG_PM_SLEEP
@@ -171,6 +190,11 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 		goto clk_disable_all;
 	}
 
+	if (of_device_is_compatible(pdev->dev.of_node, "arasan,sdhci-4.9a")) {
+		host->quirks |= SDHCI_QUIRK_NO_HISPD_BIT;
+		host->quirks2 |= SDHCI_QUIRK2_HOST_NO_CMD23;
+	}
+
 	sdhci_get_of_property(pdev);
 	pltfm_host = sdhci_priv(host);
 	pltfm_host->priv = sdhci_arasan;
@@ -204,7 +228,6 @@ static int sdhci_arasan_remove(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_arasan_data *sdhci_arasan = pltfm_host->priv;
 
-	clk_disable_unprepare(pltfm_host->clk);
 	clk_disable_unprepare(sdhci_arasan->clk_ahb);
 
 	return sdhci_pltfm_unregister(pdev);
@@ -212,6 +235,8 @@ static int sdhci_arasan_remove(struct platform_device *pdev)
 
 static const struct of_device_id sdhci_arasan_of_match[] = {
 	{ .compatible = "arasan,sdhci-8.9a" },
+	{ .compatible = "arasan,sdhci-5.1" },
+	{ .compatible = "arasan,sdhci-4.9a" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_arasan_of_match);

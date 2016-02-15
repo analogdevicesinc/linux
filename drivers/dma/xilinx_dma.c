@@ -37,7 +37,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/of_address.h>
-#include <linux/amba/xilinx_dma.h>
+#include <linux/dma/xilinx_dma.h>
 #include <linux/debugfs.h>
 #include <linux/sched.h>
 #include <linux/of_dma.h>

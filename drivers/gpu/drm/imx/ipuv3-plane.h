@@ -34,7 +34,7 @@ struct ipu_plane {
 
 struct ipu_plane *ipu_plane_init(struct drm_device *dev, struct ipu_soc *ipu,
 				 int dma, int dp, unsigned int possible_crtcs,
-				 bool priv);
+				 enum drm_plane_type type);
 
 /* Init IDMAC, DMFC, DP */
 int ipu_plane_mode_set(struct ipu_plane *plane, struct drm_crtc *crtc,
@@ -42,7 +42,7 @@ int ipu_plane_mode_set(struct ipu_plane *plane, struct drm_crtc *crtc,
 		       struct drm_framebuffer *fb, int crtc_x, int crtc_y,
 		       unsigned int crtc_w, unsigned int crtc_h,
 		       uint32_t src_x, uint32_t src_y, uint32_t src_w,
-		       uint32_t src_h);
+		       uint32_t src_h, bool interlaced);
 
 void ipu_plane_enable(struct ipu_plane *plane);
 void ipu_plane_disable(struct ipu_plane *plane);

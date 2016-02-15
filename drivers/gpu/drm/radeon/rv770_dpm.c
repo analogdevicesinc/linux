@@ -193,7 +193,7 @@ void rv770_stop_dpm(struct radeon_device *rdev)
 	result = rv770_send_msg_to_smc(rdev, PPSMC_MSG_TwoLevelsDisabled);
 
 	if (result != PPSMC_Result_OK)
-		DRM_ERROR("Could not force DPM to low.\n");
+		DRM_DEBUG("Could not force DPM to low.\n");
 
 	WREG32_P(GENERAL_PWRMGT, 0, ~GLOBAL_PWRMGT_EN);
 
@@ -1418,7 +1418,7 @@ int rv770_resume_smc(struct radeon_device *rdev)
 int rv770_set_sw_state(struct radeon_device *rdev)
 {
 	if (rv770_send_msg_to_smc(rdev, PPSMC_MSG_SwitchToSwState) != PPSMC_Result_OK)
-		return -EINVAL;
+		DRM_DEBUG("rv770_set_sw_state failed\n");
 	return 0;
 }
 
@@ -2489,6 +2489,50 @@ void rv770_dpm_debugfs_print_current_performance_level(struct radeon_device *rde
 			seq_printf(m, "power level %d    sclk: %u mclk: %u vddc: %u\n",
 				   current_index, pl->sclk, pl->mclk, pl->vddc);
 		}
+	}
+}
+
+u32 rv770_dpm_get_current_sclk(struct radeon_device *rdev)
+{
+	struct radeon_ps *rps = rdev->pm.dpm.current_ps;
+	struct rv7xx_ps *ps = rv770_get_ps(rps);
+	struct rv7xx_pl *pl;
+	u32 current_index =
+		(RREG32(TARGET_AND_CURRENT_PROFILE_INDEX) & CURRENT_PROFILE_INDEX_MASK) >>
+		CURRENT_PROFILE_INDEX_SHIFT;
+
+	if (current_index > 2) {
+		return 0;
+	} else {
+		if (current_index == 0)
+			pl = &ps->low;
+		else if (current_index == 1)
+			pl = &ps->medium;
+		else /* current_index == 2 */
+			pl = &ps->high;
+		return  pl->sclk;
+	}
+}
+
+u32 rv770_dpm_get_current_mclk(struct radeon_device *rdev)
+{
+	struct radeon_ps *rps = rdev->pm.dpm.current_ps;
+	struct rv7xx_ps *ps = rv770_get_ps(rps);
+	struct rv7xx_pl *pl;
+	u32 current_index =
+		(RREG32(TARGET_AND_CURRENT_PROFILE_INDEX) & CURRENT_PROFILE_INDEX_MASK) >>
+		CURRENT_PROFILE_INDEX_SHIFT;
+
+	if (current_index > 2) {
+		return 0;
+	} else {
+		if (current_index == 0)
+			pl = &ps->low;
+		else if (current_index == 1)
+			pl = &ps->medium;
+		else /* current_index == 2 */
+			pl = &ps->high;
+		return  pl->mclk;
 	}
 }
 

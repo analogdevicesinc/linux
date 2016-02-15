@@ -23,12 +23,21 @@
 #define to_ipu_plane(x)	container_of(x, struct ipu_plane, base)
 
 static const uint32_t ipu_plane_formats[] = {
+	DRM_FORMAT_ARGB1555,
 	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_ABGR1555,
 	DRM_FORMAT_XBGR1555,
+	DRM_FORMAT_RGBA5551,
+	DRM_FORMAT_BGRA5551,
+	DRM_FORMAT_ARGB4444,
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_ABGR8888,
 	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_RGBA8888,
+	DRM_FORMAT_RGBX8888,
+	DRM_FORMAT_BGRA8888,
+	DRM_FORMAT_BGRA8888,
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_YVYU,
 	DRM_FORMAT_YUV420,
@@ -99,7 +108,7 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
 		       struct drm_framebuffer *fb, int crtc_x, int crtc_y,
 		       unsigned int crtc_w, unsigned int crtc_h,
 		       uint32_t src_x, uint32_t src_y,
-		       uint32_t src_w, uint32_t src_h)
+		       uint32_t src_w, uint32_t src_h, bool interlaced)
 {
 	struct device *dev = ipu_plane->base.dev->dev;
 	int ret;
@@ -175,8 +184,15 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
 		ipu_dp_set_window_pos(ipu_plane->dp, crtc_x, crtc_y);
 		/* Enable local alpha on partial plane */
 		switch (fb->pixel_format) {
+		case DRM_FORMAT_ARGB1555:
+		case DRM_FORMAT_ABGR1555:
+		case DRM_FORMAT_RGBA5551:
+		case DRM_FORMAT_BGRA5551:
+		case DRM_FORMAT_ARGB4444:
 		case DRM_FORMAT_ARGB8888:
 		case DRM_FORMAT_ABGR8888:
+		case DRM_FORMAT_RGBA8888:
+		case DRM_FORMAT_BGRA8888:
 			ipu_dp_set_global_alpha(ipu_plane->dp, false, 0, false);
 			break;
 		default:
@@ -213,6 +229,8 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
 	ret = ipu_plane_set_base(ipu_plane, fb, src_x, src_y);
 	if (ret < 0)
 		return ret;
+	if (interlaced)
+		ipu_cpmem_interlaced_scan(ipu_plane->ipu_ch, fb->pitches[0]);
 
 	ipu_plane->w = src_w;
 	ipu_plane->h = src_h;
@@ -312,7 +330,8 @@ static int ipu_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	ret = ipu_plane_mode_set(ipu_plane, crtc, &crtc->hwmode, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h,
-			src_x >> 16, src_y >> 16, src_w >> 16, src_h >> 16);
+			src_x >> 16, src_y >> 16, src_w >> 16, src_h >> 16,
+			false);
 	if (ret < 0) {
 		ipu_plane_put_resources(ipu_plane);
 		return ret;
@@ -362,7 +381,7 @@ static struct drm_plane_funcs ipu_plane_funcs = {
 
 struct ipu_plane *ipu_plane_init(struct drm_device *dev, struct ipu_soc *ipu,
 				 int dma, int dp, unsigned int possible_crtcs,
-				 bool priv)
+				 enum drm_plane_type type)
 {
 	struct ipu_plane *ipu_plane;
 	int ret;
@@ -380,10 +399,9 @@ struct ipu_plane *ipu_plane_init(struct drm_device *dev, struct ipu_soc *ipu,
 	ipu_plane->dma = dma;
 	ipu_plane->dp_flow = dp;
 
-	ret = drm_plane_init(dev, &ipu_plane->base, possible_crtcs,
-			     &ipu_plane_funcs, ipu_plane_formats,
-			     ARRAY_SIZE(ipu_plane_formats),
-			     priv);
+	ret = drm_universal_plane_init(dev, &ipu_plane->base, possible_crtcs,
+				       &ipu_plane_funcs, ipu_plane_formats,
+				       ARRAY_SIZE(ipu_plane_formats), type);
 	if (ret) {
 		DRM_ERROR("failed to initialize plane\n");
 		kfree(ipu_plane);

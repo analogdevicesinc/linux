@@ -39,7 +39,7 @@ struct ipu_di_signal_cfg {
 
 	struct videomode mode;
 
-	u32 pixel_fmt;
+	u32 bus_format;
 	u32 v_to_h_sync;
 
 #define IPU_DI_CLKMODE_SYNC	(1 << 0)
@@ -343,7 +343,6 @@ struct ipu_client_platformdata {
 	int di;
 	int dc;
 	int dp;
-	int dmfc;
 	int dma[2];
 };
 
