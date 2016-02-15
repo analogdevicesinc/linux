@@ -57,6 +57,9 @@ struct ad9528_channel_spec {
  * @sysref_src: SYSREF pattern generator clock source
  * @sysref_pattern_mode: SYSREF pattern mode
  * @sysref_k_div: SYSREF pattern generator K divider
+ * @sysref_nshot_mode: SYSREF pattern NSHOT mode
+ * @sysref_req_trigger_mode: SYSREF request trigger mode
+ * @sysref_req_en: SYSREF request pin mode enable (default SPI mode)
  * @pll2_charge_pump_current_nA: Magnitude of PLL2 charge pump current (nA).
  * @pll2_ndiv_a_cnt: PLL2 Feedback N-divider, A Counter, range 0..4.
  * @pll2_ndiv_b_cnt: PLL2 Feedback N-divider, B Counter, range 0..63.
@@ -107,6 +110,9 @@ struct ad9528_platform_data {
 	unsigned char			sysref_src;
 	unsigned char			sysref_pattern_mode;
 	unsigned short			sysref_k_div;
+	unsigned char			sysref_nshot_mode;
+	unsigned char			sysref_req_trigger_mode;
+	bool				sysref_req_en;
 
 	/* PLL2 Setting */
 	unsigned int			pll2_charge_pump_current_nA;
