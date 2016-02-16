@@ -19,6 +19,7 @@
 
 #include "common.h"
 #include "cpuidle.h"
+#include "hardware.h"
 
 static void __init imx6ul_enet_clk_init(void)
 {
@@ -127,7 +128,10 @@ static inline void imx6ul_enet_init(void)
 {
 	imx6ul_enet_clk_init();
 	imx6ul_enet_phy_init();
-	imx6_enet_mac_init("fsl,imx6ul-fec", "fsl,imx6ul-ocotp");
+	if (cpu_is_imx6ul())
+		imx6_enet_mac_init("fsl,imx6ul-fec", "fsl,imx6ul-ocotp");
+	else
+		imx6_enet_mac_init("fsl,imx6ul-fec", "fsl,imx6ull-ocotp");
 }
 
 static void __init imx6ul_init_machine(void)
@@ -156,7 +160,8 @@ static void __init imx6ul_init_irq(void)
 static void __init imx6ul_init_late(void)
 {
 	if (IS_ENABLED(CONFIG_ARM_IMX6Q_CPUFREQ)) {
-		imx6ul_opp_init();
+		if (cpu_is_imx6ul())
+			imx6ul_opp_init();
 		platform_device_register_simple("imx6q-cpufreq", -1, NULL, 0);
 	}
 
