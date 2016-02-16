@@ -279,9 +279,6 @@ static int xhci_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	/* USB-2 and USB-3 roothubs initialized, allow runtime pm suspend */
 	pm_runtime_put_noidle(&dev->dev);
 
-	/* USB-2 and USB-3 roothubs initialized, allow runtime pm suspend */
-	pm_runtime_put_noidle(&dev->dev);
-
 	return 0;
 
 put_usb3_hcd:
