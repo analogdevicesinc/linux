@@ -12,7 +12,9 @@
  *     - Add support for using channels as GPIOs
  */
 
-#include "ad5592r.h"
+#include "ad5592r-base.h"
+
+#include <dt-bindings/iio/adi,ad5592r.h>
 
 #include <linux/bitops.h>
 #include <linux/delay.h>
@@ -31,29 +33,29 @@ static int ad5592r_set_channel_modes(struct ad5592r_state *st)
 	   dac = 0, adc = 0, gpio_in = 0, gpio_out = 0;
 	u16 read_back;
 
-	for (i = 0; i < st->chip_info->num_channels; i++) {
-		switch (st->channel_info[i]) {
-		case AD5592R_MODE_DAC:
+	for (i = 0; i < st->num_channels; i++) {
+		switch (st->channel_modes[i]) {
+		case CH_MODE_DAC:
 			dac |= BIT(i);
 
 		/* fall-through */
-		case AD5592R_MODE_ADC:
+		case CH_MODE_ADC:
 			adc |= BIT(i);
 			break;
 
-		case AD5592R_MODE_GPIO_OUT:
+		case CH_MODE_GPIO_OUT:
 			gpio_out |= BIT(i);
 
 		/* fall-through */
-		case AD5592R_MODE_GPIO_IN:
+		case CH_MODE_GPIO_IN:
 			gpio_in |= BIT(i);
 			break;
 
-		case AD5592R_MODE_GPIO_OPEN_DRAIN:
+		case CH_MODE_GPIO_OPEN_DRAIN:
 			open_drain |= BIT(i);
 			break;
 
-		case AD5592R_MODE_GPIO_TRISTATE:
+		case CH_MODE_GPIO_TRISTATE:
 			tristate |= BIT(i);
 			break;
 
@@ -109,23 +111,24 @@ static int ad5592r_write_raw(struct iio_dev *iio_dev,
 	struct iio_chan_spec const *chan, int val, int val2, long mask)
 {
 	struct ad5592r_state *st = iio_priv(iio_dev);
-	int ret = -EINVAL;
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		if (val >= (1 << chan->scan_type.realbits) || val < 0)
 			return -EINVAL;
 
+		/* Warn if we try to write to a ADC channel */
+		WARN_ON(!chan->output);
+
 		mutex_lock(&iio_dev->mlock);
-		ret = st->ops->dac_write(st, chan->address, val);
+		ret = st->ops->write(st, chan->channel, val);
 		mutex_unlock(&iio_dev->mlock);
-		break;
+		return ret;
 
 	default:
-		break;
+		return -EINVAL;
 	}
-
-	return ret;
 }
 
 static int ad5592r_read_raw(struct iio_dev *iio_dev,
@@ -133,13 +136,17 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 			   int *val, int *val2, long m)
 {
 	struct ad5592r_state *st = iio_priv(iio_dev);
-	int ret = -EINVAL;
 	u16 read_val;
+	int ret;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
+		/* Note: we don't check that this channel is a ADC, because DAC
+		 * channels support read-back
+		 */
+
 		mutex_lock(&iio_dev->mlock);
-		ret = st->ops->adc_read(st, chan->channel, &read_val);
+		ret = st->ops->read(st, chan->channel, &read_val);
 		mutex_unlock(&iio_dev->mlock);
 		if (ret)
 			return ret;
@@ -152,15 +159,14 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 
 		read_val &= GENMASK(11, 0);
 
-		dev_dbg(st->dev, "ADC read: 0x%04hX\n", read_val);
+		dev_dbg(st->dev, "Channel %u read: 0x%04hX\n",
+				chan->channel, read_val);
 		*val = (int) read_val;
 		return IIO_VAL_INT;
 
 	default:
-		break;
+		return -EINVAL;
 	}
-
-	return ret;
 }
 
 static void ad5592r_reset(struct ad5592r_state *st)
@@ -172,15 +178,6 @@ static void ad5592r_reset(struct ad5592r_state *st)
 	udelay(250);
 	mutex_unlock(&iio_dev->mlock);
 }
-
-static const struct ad5592r_chip_info ad5592r_chip_info_tbl[] = {
-	[ID_AD5592R] = {
-		.num_channels = 8,
-	},
-	[ID_AD5593R] = {
-		.num_channels = 8,
-	},
-};
 
 static const struct iio_info ad5592r_info = {
 	.read_raw = ad5592r_read_raw,
@@ -196,7 +193,6 @@ static void ad5592r_setup_channel(struct iio_dev *iio_dev,
 	chan->output = output;
 	chan->channel = id;
 	chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
-	chan->address = id;
 	chan->scan_type.sign = 'u';
 	chan->scan_type.realbits = 12;
 	chan->scan_type.storagebits = 16;
@@ -205,14 +201,13 @@ static void ad5592r_setup_channel(struct iio_dev *iio_dev,
 static int ad5592r_alloc_channels(struct ad5592r_state *st)
 {
 	unsigned i, curr_channel = 0,
-		 num_channels = st->chip_info->num_channels;
+		 num_channels = st->num_channels;
 	struct iio_dev *iio_dev = iio_priv_to_dev(st);
 	struct iio_chan_spec *channels;
-	u8 channel_modes[8];
 	int ret;
 
-	ret = of_property_read_u8_array(st->dev->of_node, "channel-modes",
-			channel_modes, num_channels);
+	ret = device_property_read_u8_array(st->dev, "channel-modes",
+			st->channel_modes, num_channels);
 	if (ret)
 		return ret;
 
@@ -222,33 +217,32 @@ static int ad5592r_alloc_channels(struct ad5592r_state *st)
 		return -ENOMEM;
 
 	for (i = 0; i < num_channels; i++) {
-		switch (channel_modes[i]) {
-		case AD5592R_MODE_DAC:
+		switch (st->channel_modes[i]) {
+		case CH_MODE_DAC:
 			ad5592r_setup_channel(iio_dev, &channels[curr_channel],
 					true, curr_channel);
 			curr_channel++;
-			st->channel_info[i] = channel_modes[i];
 			break;
 
-		case AD5592R_MODE_ADC:
+		case CH_MODE_ADC:
 			ad5592r_setup_channel(iio_dev, &channels[curr_channel],
 					false, curr_channel);
 			curr_channel++;
 
 		/* fall-through */
 		default:
-			st->channel_info[i] = channel_modes[i];
 			continue;
 		}
 	}
 
 	iio_dev->num_channels = curr_channel;
 	iio_dev->channels = channels;
+
 	return 0;
 }
 
-int ad5592r_probe(struct device *dev, enum ad5592r_type type,
-		const char *name, const struct ad5592r_rw_ops *ops)
+int ad5592r_probe(struct device *dev, const char *name,
+		const struct ad5592r_rw_ops *ops)
 {
 	struct iio_dev *iio_dev;
 	struct ad5592r_state *st;
@@ -258,15 +252,11 @@ int ad5592r_probe(struct device *dev, enum ad5592r_type type,
 	if (!iio_dev)
 		return -ENOMEM;
 
-	dev_dbg(dev, "Probing AD5592R\n");
-
 	st = iio_priv(iio_dev);
 	st->dev = dev;
 	st->ops = ops;
-	st->chip_info = &ad5592r_chip_info_tbl[type];
+	st->num_channels = 8;
 	dev_set_drvdata(dev, iio_dev);
-
-	BUG_ON(st->chip_info->num_channels > 8);
 
 	iio_dev->dev.parent = dev;
 	iio_dev->name = name;
@@ -283,21 +273,21 @@ int ad5592r_probe(struct device *dev, enum ad5592r_type type,
 	if (ret)
 		return ret;
 
-	ret = iio_device_register(iio_dev);
-	if (ret)
-		return ret;
-
-	dev_dbg(dev, "Probed\n");
-	return 0;
+	return devm_iio_device_register(dev, iio_dev);
 }
 EXPORT_SYMBOL_GPL(ad5592r_probe);
 
 int ad5592r_remove(struct device *dev)
 {
 	struct iio_dev *iio_dev = dev_get_drvdata(dev);
+	struct ad5592r_state *st = iio_priv(iio_dev);
+	unsigned int i;
 
-	iio_device_unregister(iio_dev);
-	return 0;
+	/* Reset all channels */
+	for (i = 0; i < ARRAY_SIZE(st->channel_modes); i++)
+		st->channel_modes[i] = CH_MODE_UNUSED;
+
+	return ad5592r_set_channel_modes(st);
 }
 EXPORT_SYMBOL_GPL(ad5592r_remove);
 

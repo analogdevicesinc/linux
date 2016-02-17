@@ -1,74 +1,83 @@
 /*
- * AD5592R Digital <-> Analog converters driver
+ * AD5593R Digital <-> Analog converters driver
  *
- * Copyright 2014 Analog Devices Inc.
+ * Copyright 2015 Analog Devices Inc.
  * Author: Paul Cercueil <paul.cercueil@analog.com>
  *
  * Licensed under the GPL-2.
  */
 
-#include "ad5592r.h"
+#include "ad5592r-base.h"
 
 #include <linux/bitops.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
+#include <linux/of.h>
 
-#define MODE_CONF		(0 << 4)
-#define MODE_DAC_WRITE		(1 << 4)
-#define MODE_ADC_READBACK	(4 << 4)
-#define MODE_DAC_READBACK	(5 << 4)
-#define MODE_GPIO_READBACK	(6 << 4)
-#define MODE_REG_READBACK	(7 << 4)
+#define AD5593R_MODE_CONF		(0 << 4)
+#define AD5593R_MODE_DAC_WRITE		(1 << 4)
+#define AD5593R_MODE_ADC_READBACK	(4 << 4)
+#define AD5593R_MODE_DAC_READBACK	(5 << 4)
+#define AD5593R_MODE_GPIO_READBACK	(6 << 4)
+#define AD5593R_MODE_REG_READBACK	(7 << 4)
 
-static int ad5593r_dac_write(struct ad5592r_state *st, unsigned chan, u16 value)
+static int ad5593r_write(struct ad5592r_state *st, unsigned chan, u16 value)
 {
-	struct i2c_client *i2c = container_of(st->dev, struct i2c_client, dev);
+	struct i2c_client *i2c = to_i2c_client(st->dev);
 
-	value = cpu_to_be16(value);
-	return i2c_smbus_write_word_data(i2c, MODE_DAC_WRITE | chan, value);
+	return i2c_smbus_write_word_swapped(i2c,
+			AD5593R_MODE_DAC_WRITE | chan, value);
 }
 
-static int ad5593r_adc_read(struct ad5592r_state *st, unsigned chan, u16 *value)
+static int ad5593r_read(struct ad5592r_state *st, unsigned chan, u16 *value)
 {
-	struct i2c_client *i2c = container_of(st->dev, struct i2c_client, dev);
-	s32 val = i2c_smbus_write_word_data(i2c,
-			MODE_CONF | AD5592R_REG_ADC_SEQ,
-			cpu_to_be16(BIT(chan)));
+	struct i2c_client *i2c = to_i2c_client(st->dev);
+	s32 val;
+
+	val = i2c_smbus_write_word_swapped(i2c,
+			AD5593R_MODE_CONF | AD5592R_REG_ADC_SEQ, BIT(chan));
 	if (val < 0)
 		return (int) val;
 
-	i2c_smbus_read_word_data(i2c, MODE_ADC_READBACK); /* Invalid data */
-
-	val = i2c_smbus_read_word_data(i2c, MODE_ADC_READBACK);
+	/* Invalid data */
+	val = i2c_smbus_read_word_swapped(i2c, AD5593R_MODE_ADC_READBACK);
 	if (val < 0)
 		return (int) val;
 
-	*value = be16_to_cpu((u16) val);
+	val = i2c_smbus_read_word_swapped(i2c, AD5593R_MODE_ADC_READBACK);
+	if (val < 0)
+		return (int) val;
+
+	*value = (u16) val;
+
 	return 0;
 }
 
 static int ad5593r_reg_write(struct ad5592r_state *st, u8 reg, u16 value)
 {
-	struct i2c_client *i2c = container_of(st->dev, struct i2c_client, dev);
+	struct i2c_client *i2c = to_i2c_client(st->dev);
 
-	value = cpu_to_be16(value);
-	return i2c_smbus_write_word_data(i2c, MODE_CONF | reg, value);
+	return i2c_smbus_write_word_swapped(i2c,
+			AD5593R_MODE_CONF | reg, value);
 }
 
 static int ad5593r_reg_read(struct ad5592r_state *st, u8 reg, u16 *value)
 {
-	struct i2c_client *i2c = container_of(st->dev, struct i2c_client, dev);
-	s32 val = i2c_smbus_read_word_data(i2c, MODE_REG_READBACK | reg);
+	struct i2c_client *i2c = to_i2c_client(st->dev);
+	s32 val;
+
+	val = i2c_smbus_read_word_swapped(i2c, AD5593R_MODE_REG_READBACK | reg);
 	if (val < 0)
 		return (int) val;
 
-	*value = be16_to_cpu((u16) val);
+	*value = (u16) val;
+
 	return 0;
 }
 
 static const struct ad5592r_rw_ops ad5593r_rw_ops = {
-	.dac_write = ad5593r_dac_write,
-	.adc_read = ad5593r_adc_read,
+	.write = ad5593r_write,
+	.read = ad5593r_read,
 	.reg_write = ad5593r_reg_write,
 	.reg_read = ad5593r_reg_read,
 };
@@ -76,8 +85,7 @@ static const struct ad5592r_rw_ops ad5593r_rw_ops = {
 static int ad5593r_i2c_probe(struct i2c_client *i2c,
 		const struct i2c_device_id *id)
 {
-	return ad5592r_probe(&i2c->dev, id->driver_data,
-			id->name, &ad5593r_rw_ops);
+	return ad5592r_probe(&i2c->dev, id->name, &ad5593r_rw_ops);
 }
 
 static int ad5593r_i2c_remove(struct i2c_client *i2c)
@@ -86,15 +94,21 @@ static int ad5593r_i2c_remove(struct i2c_client *i2c)
 }
 
 static const struct i2c_device_id ad5593r_i2c_ids[] = {
-	{"ad5593r", ID_AD5593R},
-	{}
+	{ .name = "ad5593r", },
+	{},
 };
 MODULE_DEVICE_TABLE(i2c, ad5593r_i2c_ids);
+
+static const struct of_device_id ad5593r_of_match[] = {
+	{ .compatible = "adi,ad5593r", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, ad5593r_of_match);
 
 static struct i2c_driver ad5593r_driver = {
 	.driver = {
 		.name = "ad5593r",
-		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(ad5593r_of_match),
 	},
 	.probe = ad5593r_i2c_probe,
 	.remove = ad5593r_i2c_remove,
