@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
+#include <linux/regulator/consumer.h>
 
 static int ad5592r_set_channel_modes(struct ad5592r_state *st)
 {
@@ -139,34 +140,55 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 	u16 read_val;
 	int ret;
 
+	mutex_lock(&iio_dev->mlock);
+
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
 		/* Note: we don't check that this channel is a ADC, because DAC
 		 * channels support read-back
 		 */
 
-		mutex_lock(&iio_dev->mlock);
 		ret = st->ops->read(st, chan->channel, &read_val);
-		mutex_unlock(&iio_dev->mlock);
+
 		if (ret)
-			return ret;
+			goto unlock;
 
 		if ((read_val >> 12 & 0x7) != chan->channel) {
 			dev_err(st->dev, "Error while reading channel %u\n",
 					chan->channel);
-			return -EIO;
+			ret = -EIO;
+			goto unlock;
 		}
 
 		read_val &= GENMASK(11, 0);
 
 		dev_dbg(st->dev, "Channel %u read: 0x%04hX\n",
 				chan->channel, read_val);
-		*val = (int) read_val;
-		return IIO_VAL_INT;
 
+		*val = (int) read_val;
+		ret = IIO_VAL_INT;
+		break;
+	case IIO_CHAN_INFO_SCALE:
+		if (st->reg) {
+			ret = regulator_get_voltage(st->reg);
+			if (ret < 0)
+				goto unlock;
+
+			*val = ret / 1000;
+		} else {
+			*val = 2500;
+		}
+
+		*val2 = chan->scan_type.realbits;
+		ret = IIO_VAL_FRACTIONAL_LOG2;
+		break;
 	default:
 		return -EINVAL;
 	}
+
+unlock:
+	mutex_unlock(&iio_dev->mlock);
+	return ret;
 }
 
 static void ad5592r_reset(struct ad5592r_state *st)
@@ -192,7 +214,7 @@ static void ad5592r_setup_channel(struct iio_dev *iio_dev,
 	chan->indexed = 1;
 	chan->output = output;
 	chan->channel = id;
-	chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
+	chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE);
 	chan->scan_type.sign = 'u';
 	chan->scan_type.realbits = 12;
 	chan->scan_type.storagebits = 16;
@@ -258,22 +280,48 @@ int ad5592r_probe(struct device *dev, const char *name,
 	st->num_channels = 8;
 	dev_set_drvdata(dev, iio_dev);
 
+	st->reg = devm_regulator_get_optional(dev, "vref");
+	if (PTR_ERR(st->reg) != -ENODEV)
+		return PTR_ERR(st->reg);
+
+	if (IS_ERR(st->reg)) {
+		st->reg = NULL;
+	} else {
+		ret = regulator_enable(st->reg);
+		if (ret)
+			return ret;
+	}
+
 	iio_dev->dev.parent = dev;
 	iio_dev->name = name;
 	iio_dev->info = &ad5592r_info;
 	iio_dev->modes = INDIO_DIRECT_MODE;
 
 	ad5592r_reset(st);
+	ret = ops->reg_write(st, AD5592R_REG_PD,
+		     (st->reg == NULL) ? AD5592R_REG_PD_EN_REF : 0);
+	if (ret)
+		goto error_disable_reg;
 
 	ret = ad5592r_alloc_channels(st);
 	if (ret)
-		return ret;
+		goto error_disable_reg;
 
 	ret = ad5592r_set_channel_modes(st);
 	if (ret)
-		return ret;
+		goto error_disable_reg;
 
-	return devm_iio_device_register(dev, iio_dev);
+	ret = devm_iio_device_register(dev, iio_dev);
+	if (ret)
+		goto error_disable_reg;
+
+	return 0;
+
+error_disable_reg:
+	if (!IS_ERR(st->reg))
+		regulator_disable(st->reg);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(ad5592r_probe);
 
@@ -286,6 +334,9 @@ int ad5592r_remove(struct device *dev)
 	/* Reset all channels */
 	for (i = 0; i < ARRAY_SIZE(st->channel_modes); i++)
 		st->channel_modes[i] = CH_MODE_UNUSED;
+
+	if (st->reg)
+		regulator_disable(st->reg);
 
 	return ad5592r_set_channel_modes(st);
 }
