@@ -1,0 +1,12 @@
+#
+# FPGA Bridge Framework
+#
+
+	  
+config FPGA_PCIE_AXI_BRDIGE
+	tristate "FPGA PCIe AXI Bridge"
+	depends on FPGA_OVERLAY
+	depends on (!X86 || X86_PAT)
+	help
+	  Bridge from PCIe domain to AXI / OF Domain
+

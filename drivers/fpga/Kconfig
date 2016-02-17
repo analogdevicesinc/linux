@@ -34,5 +34,6 @@ config FPGA_OVERLAY
 	help
 	  FPGA Overlay manager to load/unload overlays for FPGA fabric.
 
+source "drivers/fpga/bridge/Kconfig"
 
 endmenu
