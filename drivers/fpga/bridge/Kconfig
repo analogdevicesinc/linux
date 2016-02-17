@@ -10,3 +10,12 @@ config FPGA_PCIE_AXI_BRDIGE
 	help
 	  Bridge from PCIe domain to AXI / OF Domain
 
+if FPGA_PCIE_AXI_BRDIGE
+
+config XILINX_PCIE_AXI_BRDIGE
+	tristate "XILINX PCIe AXI Bridge"
+	help
+	  Xilinx FPGA bridge from PCIe domain to AXI / OF Domain	
+	
+	
+endif #FPGA_PCIE_AXI_BRDIGE
