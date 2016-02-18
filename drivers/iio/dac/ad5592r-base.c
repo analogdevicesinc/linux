@@ -39,9 +39,14 @@ static int ad5592r_set_channel_modes(struct ad5592r_state *st)
 		switch (st->channel_modes[i]) {
 		case CH_MODE_DAC:
 			dac |= BIT(i);
+			break;
 
-		/* fall-through */
 		case CH_MODE_ADC:
+			adc |= BIT(i);
+			break;
+
+		case CH_MODE_DAC_AND_ADC:
+			dac |= BIT(i);
 			adc |= BIT(i);
 			break;
 
@@ -125,6 +130,8 @@ static int ad5592r_write_raw(struct iio_dev *iio_dev,
 
 		mutex_lock(&iio_dev->mlock);
 		ret = st->ops->write(st, chan->channel, val);
+		if (!ret)
+			cached_dac[chan->channel] = val;
 		mutex_unlock(&iio_dev->mlock);
 		return ret;
 
@@ -145,23 +152,25 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		/* Note: we don't check that this channel is a ADC, because DAC
-		 * channels support read-back
-		 */
 
-		ret = st->ops->read(st, chan->channel, &read_val);
+		if (!chan->output) {
+			ret = st->ops->read(st, chan->channel, &read_val);
 
-		if (ret)
-			goto unlock;
+			if (ret)
+				goto unlock;
 
-		if ((read_val >> 12 & 0x7) != chan->channel) {
-			dev_err(st->dev, "Error while reading channel %u\n",
-					chan->channel);
-			ret = -EIO;
-			goto unlock;
+			if ((read_val >> 12 & 0x7) != chan->channel) {
+				dev_err(st->dev, "Error while reading channel %u\n",
+						chan->channel);
+				ret = -EIO;
+				goto unlock;
+			}
+
+			read_val &= GENMASK(11, 0);
+
+		else {
+			read_val = cached_dac[chan->channel];
 		}
-
-		read_val &= GENMASK(11, 0);
 
 		dev_dbg(st->dev, "Channel %u read: 0x%04hX\n",
 				chan->channel, read_val);
@@ -171,6 +180,7 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 		break;
 
 	case IIO_CHAN_INFO_SCALE:
+
 		if (st->reg) {
 			ret = regulator_get_voltage(st->reg);
 			if (ret < 0)
@@ -230,7 +240,8 @@ static void ad5592r_setup_channel(struct iio_dev *iio_dev,
 	chan->indexed = 1;
 	chan->output = output;
 	chan->channel = id;
-	chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE);
+	chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				   BIT(IIO_CHAN_INFO_SCALE);
 	chan->scan_type.sign = 'u';
 	chan->scan_type.realbits = 12;
 	chan->scan_type.storagebits = 16;
@@ -258,16 +269,25 @@ static int ad5592r_alloc_channels(struct ad5592r_state *st)
 		switch (st->channel_modes[i]) {
 		case CH_MODE_DAC:
 			ad5592r_setup_channel(iio_dev, &channels[curr_channel],
-					true, curr_channel);
+					true, i);
 			curr_channel++;
 			break;
 
 		case CH_MODE_ADC:
 			ad5592r_setup_channel(iio_dev, &channels[curr_channel],
-					false, curr_channel);
+					false, i);
 			curr_channel++;
+			break;
 
-		/* fall-through */
+		case CH_MODE_DAC_AND_ADC:
+			ad5592r_setup_channel(iio_dev, &channels[curr_channel],
+					true, i);
+			curr_channel++;
+			ad5592r_setup_channel(iio_dev, &channels[curr_channel],
+					false, i);
+			curr_channel++;
+			break;
+
 		default:
 			continue;
 		}
