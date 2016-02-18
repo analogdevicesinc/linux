@@ -14,7 +14,24 @@
 #include <linux/of.h>
 #include <linux/spi/spi.h>
 
-static int ad5592r_write(struct ad5592r_state *st, unsigned chan, u16 value)
+static int ad5592r_spi_wnop_r16(struct ad5592r_state *st, u16 *buf)
+{
+	struct spi_device *spi = container_of(st->dev, struct spi_device, dev);
+	struct spi_transfer	t = {
+			.tx_buf		= &st->spi_msg_nop,
+			.rx_buf		= buf,
+			.len		= 2
+		};
+	struct spi_message	m;
+
+	st->spi_msg_nop = AD5592R_REG_NOOP << 11;
+
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+	return spi_sync(spi, &m);
+}
+
+static int ad5592r_write_dac(struct ad5592r_state *st, unsigned chan, u16 value)
 {
 	struct spi_device *spi = container_of(st->dev, struct spi_device, dev);
 
@@ -23,7 +40,7 @@ static int ad5592r_write(struct ad5592r_state *st, unsigned chan, u16 value)
 	return spi_write(spi, &st->spi_msg, sizeof(st->spi_msg));
 }
 
-static int ad5592r_read(struct ad5592r_state *st, unsigned chan, u16 *value)
+static int ad5592r_read_adc(struct ad5592r_state *st, unsigned chan, u16 *value)
 {
 	struct spi_device *spi = container_of(st->dev, struct spi_device, dev);
 	int ret;
@@ -35,11 +52,11 @@ static int ad5592r_read(struct ad5592r_state *st, unsigned chan, u16 *value)
 		return ret;
 
 	/* Invalid data */
-	ret = spi_read(spi, &st->spi_msg, sizeof(st->spi_msg));
+	ret = ad5592r_spi_wnop_r16(st, &st->spi_msg);
 	if (ret)
 		return ret;
 
-	ret = spi_read(spi, &st->spi_msg, sizeof(st->spi_msg));
+	ret = ad5592r_spi_wnop_r16(st, &st->spi_msg);
 	if (ret)
 		return ret;
 
@@ -69,7 +86,7 @@ static int ad5592r_reg_read(struct ad5592r_state *st, u8 reg, u16 *value)
 	if (ret)
 		return ret;
 
-	ret = spi_read(spi, &st->spi_msg, sizeof(st->spi_msg));
+	ret = ad5592r_spi_wnop_r16(st, &st->spi_msg);
 	if (ret)
 		return ret;
 
@@ -79,11 +96,30 @@ static int ad5592r_reg_read(struct ad5592r_state *st, u8 reg, u16 *value)
 	return 0;
 }
 
+static int ad5593r_gpio_read(struct ad5592r_state *st, u8 *value)
+{
+	int ret;
+
+	ret = ad5592r_reg_write(st, AD5592R_REG_GPIO_IN_EN, BIT(10) | st->gpio_in);
+	if (ret)
+		return ret;
+
+	ret = ad5592r_spi_wnop_r16(st, &st->spi_msg);
+	if (ret)
+		return ret;
+
+	if (value)
+		*value = (u8) be16_to_cpu(st->spi_msg);
+
+	return 0;
+}
+
 static const struct ad5592r_rw_ops ad5592r_rw_ops = {
-	.write = ad5592r_write,
-	.read = ad5592r_read,
+	.write_dac = ad5592r_write_dac,
+	.read_adc = ad5592r_read_adc,
 	.reg_write = ad5592r_reg_write,
 	.reg_read = ad5592r_reg_read,
+	.gpio_read = ad5593r_gpio_read,
 };
 
 static int ad5592r_spi_probe(struct spi_device *spi)

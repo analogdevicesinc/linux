@@ -12,6 +12,8 @@
 
 #include <linux/types.h>
 #include <linux/cache.h>
+#include <linux/mutex.h>
+#include <linux/gpio/driver.h>
 
 struct device;
 struct ad5592r_state;
@@ -37,20 +39,31 @@ enum ad5592r_registers {
 #define AD5592R_REG_PD_EN_REF		BIT(9)
 
 struct ad5592r_rw_ops {
-	int (*write)(struct ad5592r_state *st, unsigned chan, u16 value);
-	int (*read)(struct ad5592r_state *st, unsigned chan, u16 *value);
+	int (*write_dac)(struct ad5592r_state *st, unsigned chan, u16 value);
+	int (*read_adc)(struct ad5592r_state *st, unsigned chan, u16 *value);
 	int (*reg_write)(struct ad5592r_state *st, u8 reg, u16 value);
 	int (*reg_read)(struct ad5592r_state *st, u8 reg, u16 *value);
+	int (*gpio_read)(struct ad5592r_state *st, u8 *value);
 };
 
 struct ad5592r_state {
 	struct device *dev;
 	struct regulator *reg;
+#ifdef CONFIG_GPIOLIB
+	struct gpio_chip gpiochip;
+	struct mutex gpio_lock;	/* Protect cached gpio_out, gpio_val, etc. */
+#endif
 	unsigned int num_channels;
 	const struct ad5592r_rw_ops *ops;
-	u8 channel_modes[8];
 	u16 cached_dac[8];
+	u8 channel_modes[8];
+	u8 gpio_map;
+	u8 gpio_out;
+	u8 gpio_in;
+	u8 gpio_val;
+
 	__be16 spi_msg ____cacheline_aligned;
+	__be16 spi_msg_nop;
 };
 
 int ad5592r_probe(struct device *dev, const char *name,

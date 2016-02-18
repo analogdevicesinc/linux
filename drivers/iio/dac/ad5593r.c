@@ -21,7 +21,7 @@
 #define AD5593R_MODE_GPIO_READBACK	(6 << 4)
 #define AD5593R_MODE_REG_READBACK	(7 << 4)
 
-static int ad5593r_write(struct ad5592r_state *st, unsigned chan, u16 value)
+static int ad5593r_write_dac(struct ad5592r_state *st, unsigned chan, u16 value)
 {
 	struct i2c_client *i2c = to_i2c_client(st->dev);
 
@@ -29,7 +29,7 @@ static int ad5593r_write(struct ad5592r_state *st, unsigned chan, u16 value)
 			AD5593R_MODE_DAC_WRITE | chan, value);
 }
 
-static int ad5593r_read(struct ad5592r_state *st, unsigned chan, u16 *value)
+static int ad5593r_read_adc(struct ad5592r_state *st, unsigned chan, u16 *value)
 {
 	struct i2c_client *i2c = to_i2c_client(st->dev);
 	s32 val;
@@ -75,11 +75,26 @@ static int ad5593r_reg_read(struct ad5592r_state *st, u8 reg, u16 *value)
 	return 0;
 }
 
+static int ad5593r_gpio_read(struct ad5592r_state *st, u8 *value)
+{
+	struct i2c_client *i2c = to_i2c_client(st->dev);
+	s32 val;
+
+	val = i2c_smbus_read_word_swapped(i2c, AD5593R_MODE_GPIO_READBACK);
+	if (val < 0)
+		return (int) val;
+
+	*value = (u8) val;
+
+	return 0;
+}
+
 static const struct ad5592r_rw_ops ad5593r_rw_ops = {
-	.write = ad5593r_write,
-	.read = ad5593r_read,
+	.write_dac = ad5593r_write_dac,
+	.read_adc = ad5593r_read_adc,
 	.reg_write = ad5593r_reg_write,
 	.reg_read = ad5593r_reg_read,
+	.gpio_read = ad5593r_gpio_read,
 };
 
 static int ad5593r_i2c_probe(struct i2c_client *i2c,
