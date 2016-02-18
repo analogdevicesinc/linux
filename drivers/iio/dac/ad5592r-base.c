@@ -23,6 +23,7 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio/consumer.h>
 
 static int ad5592r_set_channel_modes(struct ad5592r_state *st)
 {
@@ -168,6 +169,7 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 		*val = (int) read_val;
 		ret = IIO_VAL_INT;
 		break;
+
 	case IIO_CHAN_INFO_SCALE:
 		if (st->reg) {
 			ret = regulator_get_voltage(st->reg);
@@ -182,6 +184,7 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 		*val2 = chan->scan_type.realbits;
 		ret = IIO_VAL_FRACTIONAL_LOG2;
 		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -191,14 +194,27 @@ unlock:
 	return ret;
 }
 
-static void ad5592r_reset(struct ad5592r_state *st)
+static int ad5592r_reset(struct ad5592r_state *st)
 {
+	struct gpio_desc *gpio;
 	struct iio_dev *iio_dev = iio_priv_to_dev(st);
 
-	mutex_lock(&iio_dev->mlock);
-	st->ops->reg_write(st, AD5592R_REG_RESET, 0xdac);
+	gpio = devm_gpiod_get_optional(st->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(gpio))
+		return PTR_ERR(gpio);
+
+	if (gpio) {
+		udelay(1);
+		gpiod_set_value(gpio, 1);
+	} else {
+		mutex_lock(&iio_dev->mlock);
+		st->ops->reg_write(st, AD5592R_REG_RESET, 0xdac);
+		mutex_unlock(&iio_dev->mlock);
+	}
+
 	udelay(250);
-	mutex_unlock(&iio_dev->mlock);
+
+	return 0;
 }
 
 static const struct iio_info ad5592r_info = {
@@ -297,7 +313,10 @@ int ad5592r_probe(struct device *dev, const char *name,
 	iio_dev->info = &ad5592r_info;
 	iio_dev->modes = INDIO_DIRECT_MODE;
 
-	ad5592r_reset(st);
+	ret = ad5592r_reset(st);
+	if (ret)
+		goto error_disable_reg;
+
 	ret = ops->reg_write(st, AD5592R_REG_PD,
 		     (st->reg == NULL) ? AD5592R_REG_PD_EN_REF : 0);
 	if (ret)
