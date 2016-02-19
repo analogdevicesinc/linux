@@ -38,7 +38,7 @@
 	memory {
 		device_type = "memory";
 		reg = <0x00000000 0x10000000>,
-			<0x15000000 0x00180000>,
+			<0x15000000 0x000c0000>,
 			<0x1520c000 0x00001000>;
 	};
 
@@ -75,7 +75,7 @@
 			tx-fifo-depth = <8192>;
 			address-bits = <48>;
 			max-frame-size = <1518>;
-			local-mac-address = [B2 94 3D 6E 11 8F];
+			local-mac-address = [B2 94 3D 6E 1A 05];
 			altr,enable-sup-addr = <0>;
 			altr,enable-hash = <0>;
 			phy-mode = "rgmii-id";
@@ -98,40 +98,73 @@
 			compatible = "altr,sysid-15.0", "altr,sysid-1.0";
 			reg = <0x1520e4d8 0x00000008>;
 			id = <0>;
-			timestamp = <1437060379>;
+			timestamp = <1455286667>;
 		};
 
-		sys_jesd204b_s1_connect: bridge@0x14000000 {
-			compatible = "ALTR,avalon-15.0", "simple-bus";
-			reg = <0x14000000 0x00000400>;
+		a5gt_base_sys_cpu_interconnect: bridge@0x20000000 {
+			compatible = "ALTR,avalon-15.1", "simple-bus";
+			reg = <0x20000000 0x01000000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x00000000 0x14000000 0x00000400>;
+			ranges = <0x00020000 0x20020000 0x00010000>,
+				<0x00010000 0x20010000 0x00010000>,
+				<0x00034000 0x20034000 0x00004000>,
+				<0x00030000 0x20030000 0x00004000>,
+				<0x00000000 0x20000000 0x00010000>;
 
-			sys_jesd204b_s1: jesd204b-altera@0x0 {
-				compatible = "adi,jesd204b-altera-1.00.a";
-				reg = <0x00000000 0x00000400>;
+			axi_ad9250_core0: axi-ad9250-hpc-0@0x20000 {
+				compatible = "xlnx,axi-ad9250-1.00.a";
+				reg = <0x00020000 0x00010000>;
+				dmas = <&rx_dma0 0>;
+				dma-names = "rx";
+				spibus-connected = <&adc0_ad9250>;
+			};
+
+			axi_ad9250_core1: axi-ad9250-hpc-1@0x10000 {
+				compatible = "xlnx,axi-ad9250-1.00.a";
+				reg = <0x00010000 0x00010000>;
+				dmas = <&rx_dma1 0>;
+				dma-names = "rx";
+				spibus-connected = <&adc1_ad9250>;
+			};
+
+			rx_dma0: rx-dmac@0x34000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00034000 0x00004000>;
+				interrupt-parent = <&sys_cpu>;
+				interrupts = <8>;
+				#dma-cells = <1>;
+				clocks = <&axi_dmac0_clkin>;
+				clock-names = "axi_dmac0_clkin";
+				dma-channel {
+					adi,buswidth = <64>;
+					adi,type = <0>;
+				};
+			};
+
+			rx_dma1: rx-dmac@0x30000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00030000 0x00004000>;
+				interrupt-parent = <&sys_cpu>;
+				interrupts = <15>;
+				#dma-cells = <1>;
+				clocks = <&axi_dmac1_clkin>;
+				clock-names = "axi_dmac1_clkin";
+				dma-channel {
+					adi,buswidth = <64>;
+					adi,type = <0>;
+				};
+			};
+
+			fmcjesdadc1_axi_jesd_xcvr: fmcjesdadc1_axi_jesd_xcvr@0x0 {
+				compatible = "adi,altera-xcvr-1.00.a";
+				reg = <0x00000000 0x00010000>;
 				clocks = <&clk_ad9517 0>;
-				clock-names = "out0";
-				rx_sw_rstn_s-gpios = <&sys_gpio_out 17 0>;
-				rx_sysref_s-gpios = <&sys_gpio_out 16 0>;
+				clock-names = "xcvr_clk";
 			};
 		};
 
-		sys_gpio_in: gpio@0x1520e4c0 {
-			compatible = "altr,pio-15.0", "altr,pio-1.0";
-			reg = <0x1520e4c0 0x00000010>;
-			interrupt-parent = <&sys_cpu>;
-			interrupts = <5>;
-			altr,gpio-bank-width = <32>;
-			altr,interrupt_type = <4>;
-			level_trigger = <1>;
-			resetvalue = <0>;
-			#gpio-cells = <2>;
-			gpio-controller;
-		};
-
-		sys_timer: timer@0x1520e4a0 {
+		a5gt_base_sys_timer: timer@0x1520e4a0 {
 			compatible = "altr,timer-15.0", "altr,timer-1.0";
 			reg = <0x1520e4a0 0x00000020>;
 			interrupt-parent = <&sys_cpu>;
@@ -139,65 +172,12 @@
 			clock-frequency = <100000000>;
 		};
 
-		sys_gpio_out: gpio@0x1520e520 {
-			compatible = "altr,pio-15.0", "altr,pio-1.0";
-			reg = <0x1520e520 0x00000010>;
-			altr,gpio-bank-width = <32>;
-			resetvalue = <0>;
-			#gpio-cells = <2>;
-			gpio-controller;
-		};
-
-		sys_timer_1ms: timer@0x1520e540 {
+		a5gt_base_sys_timer_2nd: timer@0x1520e540 {
 			compatible = "altr,timer-15.0", "altr,timer-1.0";
 			reg = <0x1520e540 0x00000020>;
 			interrupt-parent = <&sys_cpu>;
-			interrupts = <8>;
-			clock-frequency = <100000000>;
-		};
-
-		axi_ad9250_core1: axi-ad9250-hpc-1@0x15200000 {
-			compatible = "xlnx,axi-ad9250-1.00.a";
-			reg = <0x15200000 0x00004000>;
-			dmas = <&rx_dma1 0>;
-			dma-names = "rx";
-			spibus-connected = <&adc1_ad9250>;
-		};
-
-		rx_dma0: rx-dmac@0x15204000 {
-			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x15204000 0x00004000>;
-			interrupt-parent = <&sys_cpu>;
-			interrupts = <6>;
-			#dma-cells = <1>;
-			clocks = <&axi_dmac0_clkin>;
-			clock-names = "axi_dmac0_clkin";
-			dma-channel {
-				adi,buswidth = <64>;
-				adi,type = <0>;
-			};
-		};
-
-		axi_ad9250_core0: axi-ad9250-hpc-0@0x15208000 {
-			compatible = "xlnx,axi-ad9250-1.00.a";
-			reg = <0x15208000 0x00004000>;
-			dmas = <&rx_dma0 0>;
-			dma-names = "rx";
-			spibus-connected = <&adc0_ad9250>;
-		};
-
-		rx_dma1: rx-dmac@0x15400000 {
-			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x15400000 0x00004000>;
-			interrupt-parent = <&sys_cpu>;
 			interrupts = <7>;
-			#dma-cells = <1>;
-			clocks = <&axi_dmac1_clkin>;
-			clock-names = "axi_dmac1_clkin";
-			dma-channel {
-				adi,buswidth = <64>;
-				adi,type = <0>;
-			};
+			clock-frequency = <100000000>;
 		};
 
 		clocks {
