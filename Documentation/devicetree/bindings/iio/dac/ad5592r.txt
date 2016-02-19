@@ -1,19 +1,50 @@
-Analog Devices AD5592R DAC/ADC device driver
+Analog Devices AD5592R/AD5593R DAC/ADC device driver
 
-Required properties:
-	- compatible: Must be one of:
-		* "adi,ad5592r"
+Required properties for the AD5592R:
+	- compatible: Must be "adi,ad5592r"
 	- reg: SPI chip select number for the device
 	- spi-max-frequency: Max SPI frequency to use (< 30000000)
 	- spi-cpol: The AD5592R requires inverse clock polarity (CPOL) mode
-	- channel-modes: An array of eight 8-bit values (one per channel)
-	  describing the mode of each channel according to the following:
-		* 0 = unused (pulled down),
-		* 1 = DAC,
-		* 2 = ADC,
-		* 6 = tri-state
 
-Example:
+Required properties for the AD5593R:
+	- compatible: Must be "adi,ad5593r"
+	- reg: I2C address of the device
+
+Required properties for all supported chips:
+	- channel-modes: An array of eight 8-bit values (one per channel)
+	  describing the mode of each channel. Macros specifying the valid values
+	  can be found in <dt-bindings/iio/adi,ad5592r.h>.
+	  The following values are currently supported:
+		* CH_MODE_ADC			(the pin is ADC input)
+		* CH_MODE_DAC			(the pin is DAC output)
+		* CH_MODE_DAC_AND_ADC		(the pin is DAC output but can be
+						 monitored by an ADC)
+		* CH_MODE_UNUSED_PULL_DOWN  	(the pin is pulled down)
+		* CH_MODE_UNUSED_OUT_LOW 	(the pin is output low)
+		* CH_MODE_UNUSED_OUT_HIGH	(the pin is output high)
+		* CH_MODE_UNUSED_OUT_TRISTATE	(the pin is tristated output)
+		* CH_MODE_GPIO			(the pin is registered with GPIOLIB)
+		* CH_MODE_GPIO_OPEN_DRAIN	(the pin is configured open drain and
+						 registered with GPIOLIB)
+
+Optional properties:
+	- vref-supply: Phandle to the external reference voltage supply. This should
+	  only be set if there is an external reference voltage connected to the VREF
+	  pin. If the property is not set the internal 2.5V reference is used.
+	- reset-gpios : GPIO spec for the RESET pin. If specified, it will be
+	  asserted during driver probe.
+
+AD5592R Example:
+
+	#include <dt-bindings/iio/adi,ad5592r.h>
+
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-ad559x";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 
 	ad5592r@0 {
 		compatible = "adi,ad5592r";
@@ -21,5 +52,37 @@ Example:
 		spi-max-frequency = <1000000>;
 		spi-cpol;
 
-		channel-modes = /bits/ 8 <1 2 2 0 0 0 0 0>;
+		channel-modes = /bits/ 8 <
+			CH_MODE_DAC
+			CH_MODE_ADC
+			CH_MODE_DAC_AND_ADC
+			CH_MODE_DAC_AND_ADC
+			CH_MODE_UNUSED_PULL_DOWN
+			CH_MODE_GPIO
+			CH_MODE_GPIO
+			CH_MODE_GPIO
+		>;
+
+		vref-supply = <&vref>; /* optional */
+		reset-gpios = <&gpio0 86 0>;  /* optional */
+	};
+
+AD5593R Example:
+
+	#include <dt-bindings/iio/adi,ad5592r.h>
+
+	ad5593r@10 {
+		compatible = "adi,ad5593r";
+		reg = <0x10>;
+		channel-modes = /bits/ 8 <
+			CH_MODE_DAC
+			CH_MODE_ADC
+			CH_MODE_DAC_AND_ADC
+			CH_MODE_DAC_AND_ADC
+			CH_MODE_UNUSED_PULL_DOWN
+			CH_MODE_GPIO
+			CH_MODE_GPIO
+			CH_MODE_GPIO
+		>;
+
 	};
