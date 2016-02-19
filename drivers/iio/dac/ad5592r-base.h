@@ -37,6 +37,8 @@ enum ad5592r_registers {
 };
 
 #define AD5592R_REG_PD_EN_REF		BIT(9)
+#define AD5592R_REG_CTRL_ADC_RANGE	BIT(5)
+#define AD5592R_REG_CTRL_DAC_RANGE	BIT(4)
 
 struct ad5592r_rw_ops {
 	int (*write_dac)(struct ad5592r_state *st, unsigned chan, u16 value);
@@ -55,7 +57,9 @@ struct ad5592r_state {
 #endif
 	unsigned int num_channels;
 	const struct ad5592r_rw_ops *ops;
+	int scale_avail[2][2];
 	u16 cached_dac[8];
+	u16 cached_gp_ctrl;
 	u8 channel_modes[8];
 	u8 gpio_map;
 	u8 gpio_out;
