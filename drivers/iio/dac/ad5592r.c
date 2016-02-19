@@ -17,17 +17,18 @@
 static int ad5592r_spi_wnop_r16(struct ad5592r_state *st, u16 *buf)
 {
 	struct spi_device *spi = container_of(st->dev, struct spi_device, dev);
-	struct spi_transfer	t = {
-			.tx_buf		= &st->spi_msg_nop,
-			.rx_buf		= buf,
-			.len		= 2
+	struct spi_transfer t = {
+			.tx_buf	= &st->spi_msg_nop,
+			.rx_buf	= buf,
+			.len = 2
 		};
-	struct spi_message	m;
+	struct spi_message m;
 
-	st->spi_msg_nop = AD5592R_REG_NOOP << 11;
+	st->spi_msg_nop = 0; /* NOP */
 
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
+
 	return spi_sync(spi, &m);
 }
 
@@ -100,7 +101,8 @@ static int ad5593r_gpio_read(struct ad5592r_state *st, u8 *value)
 {
 	int ret;
 
-	ret = ad5592r_reg_write(st, AD5592R_REG_GPIO_IN_EN, BIT(10) | st->gpio_in);
+	ret = ad5592r_reg_write(st, AD5592R_REG_GPIO_IN_EN,
+				BIT(10) | st->gpio_in);
 	if (ret)
 		return ret;
 
