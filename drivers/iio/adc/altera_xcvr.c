@@ -55,6 +55,7 @@ struct altera_xcvr_state {
 	bool				ext_sysref_en;
 	bool				rx_en;
 	bool				tx_en;
+	struct delayed_work	delayed_work;
 };
 
 static inline void altera_xcvr_write(struct altera_xcvr_state *st,
@@ -190,18 +191,75 @@ static ssize_t altera_xcvr_sysfs_store(struct device *dev,
 	return count;
 }
 
+static void altera_xcvr_work_func(struct work_struct *work)
+{
+	struct altera_xcvr_state *st =
+			container_of(work, struct altera_xcvr_state, delayed_work.work);
+
+	altera_xcvr_write(st, ALTERA_XCVR_REG_RESETN, 0);
+	mdelay(10);
+	altera_xcvr_write(st, ALTERA_XCVR_REG_RESETN, ALTERA_XCVR_RESETN);
+	mdelay(10);
+
+	/* RX */
+	if (st->rx_en) {
+		if ((altera_xcvr_read(st, ALTERA_XCVR_REG_RX_STATUS) & 0xff) != 0xff) {
+			dev_err(st->dev, "RX transceiver NOT ready [%04x]!!\n",
+				   altera_xcvr_read(st, ALTERA_XCVR_REG_RX_STATUS));
+		}
+
+		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_RESETN, 0);
+		mdelay(10);
+		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_RESETN, ALTERA_XCVR_RX_RESETN);
+		mdelay(10);
+
+		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_SYSREF, 0);
+		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_SYNC, 0);
+		mdelay(10);
+		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_SYSREF,
+					(st->ext_sysref_en ? ALTERA_XCVR_RX_SYSREF_SEL : ALTERA_XCVR_RX_SYSREF));
+		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_SYNC, ALTERA_XCVR_RX_SYNC);
+		mdelay(100);
+
+		if ((altera_xcvr_read(st, ALTERA_XCVR_REG_RX_STATUS) & 0x1ff) != 0x1ff) {
+			dev_err(st->dev, "RX transceiver NOT ready [%04x]!!\n",
+				   altera_xcvr_read(st, ALTERA_XCVR_REG_RX_STATUS));
+		}
+	}
+
+	/* TX */
+	if (st->tx_en) {
+		if ((altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS) & 0xff) != 0xff) {
+			dev_err(st->dev, "TX transceiver NOT ready [%04x]!!\n",
+				   altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS));
+		}
+
+		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_RESETN, 0);
+		mdelay(10);
+		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_RESETN, ALTERA_XCVR_TX_RESETN);
+		mdelay(10);
+
+		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_SYSREF, 0);
+		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_SYNC, 0);
+		mdelay(100);
+		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_SYSREF,
+					(st->ext_sysref_en ? ALTERA_XCVR_TX_SYSREF_SEL : ALTERA_XCVR_TX_SYSREF));
+		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_SYNC, ALTERA_XCVR_TX_SYNC);
+		mdelay(100);
+
+		if ((altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS) & 0x1ff) != 0x1ff) {
+			dev_err(st->dev, "TX transceiver NOT ready [%04x]!!\n",
+				  altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS));
+		}
+	}
+}
+
 static int altera_xcvr_probe(struct platform_device *pdev)
 {
 	struct altera_xcvr_state *st;
 	struct resource *mem;
-	struct clk *clk;
 	int ret;
 	struct device_node *np = pdev->dev.of_node;
-
-	clk = devm_clk_get(&pdev->dev, "xcvr_clk");
-	if (IS_ERR(clk)) {
-		return -EPROBE_DEFER;
-	}
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (!st) {
@@ -221,62 +279,8 @@ static int altera_xcvr_probe(struct platform_device *pdev)
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
 
-	altera_xcvr_write(st, ALTERA_XCVR_REG_RESETN, 0);
-	mdelay(10);
-	altera_xcvr_write(st, ALTERA_XCVR_REG_RESETN, ALTERA_XCVR_RESETN);
-	mdelay(10);
-
-	/* RX */
-	if (st->rx_en) {
-		if ((altera_xcvr_read(st, ALTERA_XCVR_REG_RX_STATUS) & 0xff) != 0xff) {
-			dev_err(&pdev->dev, "RX transceiver NOT ready [%04x]!!\n",
-				   altera_xcvr_read(st, ALTERA_XCVR_REG_RX_STATUS));
-		}
-
-		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_RESETN, 0);
-		mdelay(10);
-		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_RESETN, ALTERA_XCVR_RX_RESETN);
-		mdelay(10);
-
-		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_SYSREF, 0);
-		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_SYNC, 0);
-		mdelay(10);
-		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_SYSREF,
-					(st->ext_sysref_en ? ALTERA_XCVR_RX_SYSREF_SEL : ALTERA_XCVR_RX_SYSREF));
-		altera_xcvr_write(st, ALTERA_XCVR_REG_RX_SYNC, ALTERA_XCVR_RX_SYNC);
-		mdelay(100);
-
-		if ((altera_xcvr_read(st, ALTERA_XCVR_REG_RX_STATUS) & 0x1ff) != 0x1ff) {
-			dev_err(&pdev->dev, "RX transceiver NOT ready [%04x]!!\n",
-				   altera_xcvr_read(st, ALTERA_XCVR_REG_RX_STATUS));
-		}
-	}
-
-	/* TX */
-	if (st->tx_en) {
-		if ((altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS) & 0xff) != 0xff) {
-			dev_err(&pdev->dev, "TX transceiver NOT ready [%04x]!!\n",
-				   altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS));
-		}
-
-		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_RESETN, 0);
-		mdelay(10);
-		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_RESETN, ALTERA_XCVR_TX_RESETN);
-		mdelay(10);
-
-		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_SYSREF, 0);
-		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_SYNC, 0);
-		mdelay(100);
-		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_SYSREF,
-					(st->ext_sysref_en ? ALTERA_XCVR_TX_SYSREF_SEL : ALTERA_XCVR_TX_SYSREF));
-		altera_xcvr_write(st, ALTERA_XCVR_REG_TX_SYNC, ALTERA_XCVR_TX_SYNC);
-		mdelay(100);
-
-		if ((altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS) & 0x1ff) != 0x1ff) {
-			dev_err(&pdev->dev, "TX transceiver NOT ready [%04x]!!\n",
-				  altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS));
-		}
-	}
+	INIT_DELAYED_WORK(&st->delayed_work, altera_xcvr_work_func);
+	schedule_delayed_work(&st->delayed_work, HZ * 5);
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &altera_xcvr_sysfs_group);
 	if (ret)
