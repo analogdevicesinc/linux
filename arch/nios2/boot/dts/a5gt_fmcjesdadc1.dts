@@ -159,8 +159,7 @@
 			fmcjesdadc1_axi_jesd_xcvr: fmcjesdadc1_axi_jesd_xcvr@0x0 {
 				compatible = "adi,altera-xcvr-1.00.a";
 				reg = <0x00000000 0x00010000>;
-				clocks = <&clk_ad9517 0>;
-				clock-names = "xcvr_clk";
+				adi,rx-enable;
 			};
 		};
 
