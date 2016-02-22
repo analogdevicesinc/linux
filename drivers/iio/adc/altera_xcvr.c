@@ -1,7 +1,7 @@
 /*
  * Altera XCVR Configuration Driver
  *
- * Copyright 2015 Analog Devices Inc.
+ * Copyright 2015-2016 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -12,7 +12,6 @@
 #include <linux/platform_device.h>
 
 #include <linux/clk.h>
-//#include <linux/clkdev.h>
 
 /* Registers Description */
 
