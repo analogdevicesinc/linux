@@ -172,6 +172,21 @@ static int ad5592r_reset(struct ad5592r_state *st)
 	return 0;
 }
 
+static int ad5592r_get_vref(struct ad5592r_state *st)
+{
+	int ret;
+
+	if (st->reg) {
+		ret = regulator_get_voltage(st->reg);
+		if (ret < 0)
+			return ret;
+
+		return ret / 1000;
+	} else {
+		return 2500;
+	}
+}
+
 static int ad5592r_set_channel_modes(struct ad5592r_state *st)
 {
 	const struct ad5592r_rw_ops *ops = st->ops;
@@ -384,22 +399,16 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 		break;
 
 	case IIO_CHAN_INFO_SCALE:
+
+		*val = ad5592r_get_vref(st);
+
 		if (chan->type == IIO_TEMP) {
-			*val = 376;
-			*val2 = 789751;
+			s64 tmp = *val * (3767897513LL / 25LL);
+			*val = div_s64_rem(tmp, 1000000000LL, val2);
+
 			ret = IIO_VAL_INT_PLUS_MICRO;
 		} else {
 			int mult;
-
-			if (st->reg) {
-				ret = regulator_get_voltage(st->reg);
-				if (ret < 0)
-					goto unlock;
-
-				*val = ret / 1000;
-			} else {
-				*val = 2500;
-			}
 
 			if (chan->output)
 				mult = !!(st->cached_gp_ctrl &
@@ -416,7 +425,13 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 		break;
 
 	case IIO_CHAN_INFO_OFFSET:
-		*val = -754;
+
+		ret = ad5592r_get_vref(st);
+
+		if (st->cached_gp_ctrl & AD5592R_REG_CTRL_ADC_RANGE)
+			*val = (-34365 * 25) / ret;
+		else
+			*val = (-75365 * 25) / ret;
 		ret =  IIO_VAL_INT;
 		break;
 	default:
@@ -559,7 +574,7 @@ int ad5592r_probe(struct device *dev, const char *name,
 {
 	struct iio_dev *iio_dev;
 	struct ad5592r_state *st;
-	int ret, vref_mV;
+	int ret;
 
 	iio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!iio_dev)
@@ -577,17 +592,10 @@ int ad5592r_probe(struct device *dev, const char *name,
 			return PTR_ERR(st->reg);
 
 		st->reg = NULL;
-		vref_mV = 2500;
 	} else {
 		ret = regulator_enable(st->reg);
 		if (ret)
 			return ret;
-
-		ret = regulator_get_voltage(st->reg);
-		if (ret < 0)
-			return ret;
-
-		vref_mV = ret / 1000;
 	}
 
 	iio_dev->dev.parent = dev;
@@ -595,7 +603,7 @@ int ad5592r_probe(struct device *dev, const char *name,
 	iio_dev->info = &ad5592r_info;
 	iio_dev->modes = INDIO_DIRECT_MODE;
 
-	ad5592r_init_scales(st, vref_mV);
+	ad5592r_init_scales(st, ad5592r_get_vref(st));
 
 	ret = ad5592r_reset(st);
 	if (ret)
