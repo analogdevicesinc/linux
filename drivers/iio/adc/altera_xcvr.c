@@ -66,11 +66,133 @@ static inline unsigned int altera_xcvr_read(struct altera_xcvr_state *st,
 	return ioread32(st->regs + reg);
 }
 
+static ssize_t altera_xcvr_sysfs_show(struct device *dev,
+									  struct device_attribute *attr,
+									  char *buf);
+static ssize_t altera_xcvr_sysfs_store(struct device *dev,
+									   struct device_attribute *attr,
+									   const char *buf, size_t count);
+
+static DEVICE_ATTR(altera_xcvr_version, S_IRUGO,
+				   altera_xcvr_sysfs_show, NULL);
+static DEVICE_ATTR(altera_xcvr_reset, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+static DEVICE_ATTR(altera_xcvr_rx_reset, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+static DEVICE_ATTR(altera_xcvr_rx_sysref, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+static DEVICE_ATTR(altera_xcvr_rx_sync, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+static DEVICE_ATTR(altera_xcvr_rx_status, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+static DEVICE_ATTR(altera_xcvr_tx_reset, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+static DEVICE_ATTR(altera_xcvr_tx_sysref, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+static DEVICE_ATTR(altera_xcvr_tx_sync, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+static DEVICE_ATTR(altera_xcvr_tx_status, S_IRUGO | S_IWUSR,
+				   altera_xcvr_sysfs_show, altera_xcvr_sysfs_store);
+
+static struct attribute *altera_xcvr_sysfs_attrs[] = {
+	&dev_attr_altera_xcvr_version.attr,
+	&dev_attr_altera_xcvr_reset.attr,
+	&dev_attr_altera_xcvr_rx_reset.attr,
+	&dev_attr_altera_xcvr_rx_sysref.attr,
+	&dev_attr_altera_xcvr_rx_sync.attr,
+	&dev_attr_altera_xcvr_rx_status.attr,
+	&dev_attr_altera_xcvr_tx_reset.attr,
+	&dev_attr_altera_xcvr_tx_sysref.attr,
+	&dev_attr_altera_xcvr_tx_sync.attr,
+	&dev_attr_altera_xcvr_tx_status.attr,
+	NULL
+};
+
+static const struct attribute_group altera_xcvr_sysfs_group = {
+	.attrs = altera_xcvr_sysfs_attrs,
+};
+
+static ssize_t altera_xcvr_sysfs_show(struct device *dev,
+									  struct device_attribute *attr,
+									  char *buf)
+{
+	struct altera_xcvr_state *st = dev_get_drvdata(dev);
+	signed reg = -1;
+	unsigned val = 0;
+
+	if (attr == &dev_attr_altera_xcvr_version)
+		reg = ALTERA_XCVR_REG_VERSION;
+	if (attr == &dev_attr_altera_xcvr_reset)
+		reg = ALTERA_XCVR_REG_RESETN;
+	if (attr == &dev_attr_altera_xcvr_rx_reset)
+		reg = ALTERA_XCVR_REG_RX_RESETN;
+	if (attr == &dev_attr_altera_xcvr_rx_sysref)
+		reg = ALTERA_XCVR_REG_RX_SYSREF;
+	if (attr == &dev_attr_altera_xcvr_rx_sync)
+		reg = ALTERA_XCVR_REG_RX_SYNC;
+	if (attr == &dev_attr_altera_xcvr_rx_status)
+		reg = ALTERA_XCVR_REG_RX_STATUS;
+	if (attr == &dev_attr_altera_xcvr_tx_reset)
+		reg = ALTERA_XCVR_REG_TX_RESETN;
+	if (attr == &dev_attr_altera_xcvr_tx_sysref)
+		reg = ALTERA_XCVR_REG_TX_SYSREF;
+	if (attr == &dev_attr_altera_xcvr_tx_sync)
+		reg = ALTERA_XCVR_REG_TX_SYNC;
+	if (attr == &dev_attr_altera_xcvr_tx_status)
+		reg = ALTERA_XCVR_REG_TX_STATUS;
+	if (reg == -1)
+		return -EINVAL;
+
+	val = altera_xcvr_read(st, reg);
+
+	return sprintf(buf, "0x%x\n", val);
+}
+
+static ssize_t altera_xcvr_sysfs_store(struct device *dev,
+									   struct device_attribute *attr,
+									   const char *buf, size_t count)
+{
+	struct altera_xcvr_state *st = dev_get_drvdata(dev);
+	signed reg = -1;
+	unsigned long val;
+	int ret;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	if (attr == &dev_attr_altera_xcvr_reset)
+		reg = ALTERA_XCVR_REG_RESETN;
+	else if (attr == &dev_attr_altera_xcvr_rx_reset)
+		reg = ALTERA_XCVR_REG_RX_RESETN;
+	else if (attr == &dev_attr_altera_xcvr_rx_sysref)
+		reg = ALTERA_XCVR_REG_RX_SYSREF;
+	else if (attr == &dev_attr_altera_xcvr_rx_sync)
+		reg = ALTERA_XCVR_REG_RX_SYNC;
+	else if (attr == &dev_attr_altera_xcvr_rx_status)
+		reg = ALTERA_XCVR_REG_RX_STATUS;
+	else if (attr == &dev_attr_altera_xcvr_tx_reset)
+		reg = ALTERA_XCVR_REG_TX_RESETN;
+	else if (attr == &dev_attr_altera_xcvr_tx_sysref)
+		reg = ALTERA_XCVR_REG_TX_SYSREF;
+	else if (attr == &dev_attr_altera_xcvr_tx_sync)
+		reg = ALTERA_XCVR_REG_TX_SYNC;
+	else if (attr == &dev_attr_altera_xcvr_tx_status)
+		reg = ALTERA_XCVR_REG_TX_STATUS;
+	if (reg == -1)
+		return -EINVAL;
+
+	altera_xcvr_write(st, reg, val);
+
+	return count;
+}
+
 static int altera_xcvr_probe(struct platform_device *pdev)
 {
 	struct altera_xcvr_state *st;
 	struct resource *mem;
 	struct clk *clk;
+	int ret;
 
 	clk = devm_clk_get(&pdev->dev, "xcvr_clk");
 	if (IS_ERR(clk)) {
@@ -133,6 +255,10 @@ static int altera_xcvr_probe(struct platform_device *pdev)
 			  altera_xcvr_read(st, ALTERA_XCVR_REG_TX_STATUS));
 	}
 
+	ret = sysfs_create_group(&pdev->dev.kobj, &altera_xcvr_sysfs_group);
+	if (ret)
+		dev_err(&pdev->dev, "Can't create the sysfs group\n");
+
 	dev_info(&pdev->dev, "Altera XCVR probed\n");
 
 	return 0;
@@ -140,6 +266,7 @@ static int altera_xcvr_probe(struct platform_device *pdev)
 
 static int altera_xcvr_remove(struct platform_device *pdev)
 {
+	sysfs_remove_group(&pdev->dev.kobj, &altera_xcvr_sysfs_group);
 
 	return 0;
 }
