@@ -190,10 +190,10 @@
 			daq2_axi_jesd_xcvr: daq2_axi_jesd_xcvr@0x0 {
 				compatible = "adi,altera-xcvr-1.00.a";
 				reg = <0x00000000 0x00010000>;
-				clocks = <&clk0_ad9523 1>;
-				clock-names = "xcvr_clk";
+				adi,external-sysref-enable;
+				adi,rx-enable;
+				adi,tx-enable;
 			};
-
 		};
 
 		a10gx_base_sys_timer: timer@0x10181420 {
