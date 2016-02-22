@@ -236,6 +236,7 @@ static int ad5592r_set_channel_modes(struct ad5592r_state *st)
 
 		case CH_MODE_GPIO:
 			st->gpio_map |= BIT(i);
+			st->gpio_in |= BIT(i); /* Default to input */
 			break;
 
 		default:
