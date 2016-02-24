@@ -338,10 +338,14 @@ static int ad5592r_write_raw(struct iio_dev *iio_dev,
 			else
 				return -EINVAL;
 
+			mutex_lock(&iio_dev->mlock);
+
 			ret = st->ops->reg_read(st, AD5592R_REG_CTRL,
 						&st->cached_gp_ctrl);
-			if (ret < 0)
+			if (ret < 0) {
+				mutex_unlock(&iio_dev->mlock);
 				return ret;
+			}
 
 			if (chan->output) {
 				if (gain)
@@ -361,6 +365,7 @@ static int ad5592r_write_raw(struct iio_dev *iio_dev,
 
 			ret = st->ops->reg_write(st, AD5592R_REG_CTRL,
 						 st->cached_gp_ctrl);
+			mutex_unlock(&iio_dev->mlock);
 			if (ret < 0)
 				return ret;
 
@@ -448,7 +453,7 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 		ret =  IIO_VAL_INT;
 		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
 	}
 
 unlock:

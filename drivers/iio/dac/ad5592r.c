@@ -51,7 +51,10 @@ static int ad5592r_read_adc(struct ad5592r_state *st, unsigned chan, u16 *value)
 	if (ret)
 		return ret;
 
-	/* Invalid data */
+	/*
+	 * Invalid data:
+	 * See Figure 40. Single-Channel ADC Conversion Sequence
+	 */
 	ret = ad5592r_spi_wnop_r16(st, &st->spi_msg);
 	if (ret)
 		return ret;
@@ -90,8 +93,7 @@ static int ad5592r_reg_read(struct ad5592r_state *st, u8 reg, u16 *value)
 	if (ret)
 		return ret;
 
-	if (value)
-		*value = be16_to_cpu(st->spi_msg);
+	*value = be16_to_cpu(st->spi_msg);
 
 	return 0;
 }
@@ -109,8 +111,7 @@ static int ad5593r_gpio_read(struct ad5592r_state *st, u8 *value)
 	if (ret)
 		return ret;
 
-	if (value)
-		*value = (u8) be16_to_cpu(st->spi_msg);
+	*value = (u8) be16_to_cpu(st->spi_msg);
 
 	return 0;
 }

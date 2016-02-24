@@ -39,11 +39,6 @@ static int ad5593r_read_adc(struct ad5592r_state *st, unsigned chan, u16 *value)
 	if (val < 0)
 		return (int) val;
 
-	/* Invalid data */
-	val = i2c_smbus_read_word_swapped(i2c, AD5593R_MODE_ADC_READBACK);
-	if (val < 0)
-		return (int) val;
-
 	val = i2c_smbus_read_word_swapped(i2c, AD5593R_MODE_ADC_READBACK);
 	if (val < 0)
 		return (int) val;
