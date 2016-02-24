@@ -1,7 +1,7 @@
 /*
  * AD5592R Digital <-> Analog converters driver
  *
- * Copyright 2014 Analog Devices Inc.
+ * Copyright 2014-2016 Analog Devices Inc.
  * Author: Paul Cercueil <paul.cercueil@analog.com>
  *
  * Licensed under the GPL-2.
@@ -43,7 +43,10 @@ static int ad5592r_gpio_get(struct gpio_chip *chip, unsigned offset)
 
 	mutex_unlock(&st->gpio_lock);
 
-	return (ret < 0) ? ret : !!(val & BIT(offset));
+	if (ret < 0)
+		return ret;
+
+	return !!(val & BIT(offset));
 }
 
 static void ad5592r_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
@@ -73,8 +76,12 @@ static int ad5592r_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 	st->gpio_in |= BIT(offset);
 
 	ret = st->ops->reg_write(st, AD5592R_REG_GPIO_OUT_EN, st->gpio_out);
-	ret |= st->ops->reg_write(st, AD5592R_REG_GPIO_IN_EN, st->gpio_in);
+	if (ret < 0)
+		goto err_unlock;
 
+	ret = st->ops->reg_write(st, AD5592R_REG_GPIO_IN_EN, st->gpio_in);
+
+err_unlock:
 	mutex_unlock(&st->gpio_lock);
 
 	return ret;
@@ -97,9 +104,16 @@ static int ad5592r_gpio_direction_output(struct gpio_chip *chip,
 	st->gpio_out |= BIT(offset);
 
 	ret = st->ops->reg_write(st, AD5592R_REG_GPIO_SET, st->gpio_val);
-	ret |= st->ops->reg_write(st, AD5592R_REG_GPIO_OUT_EN, st->gpio_out);
-	ret |= st->ops->reg_write(st, AD5592R_REG_GPIO_IN_EN, st->gpio_in);
+	if (ret < 0)
+		goto err_unlock;
 
+	ret = st->ops->reg_write(st, AD5592R_REG_GPIO_OUT_EN, st->gpio_out);
+	if (ret < 0)
+		goto err_unlock;
+
+	ret = st->ops->reg_write(st, AD5592R_REG_GPIO_IN_EN, st->gpio_in);
+
+err_unlock:
 	mutex_unlock(&st->gpio_lock);
 
 	return ret;
@@ -398,7 +412,6 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 		*val = (int) read_val;
 		ret = IIO_VAL_INT;
 		break;
-
 	case IIO_CHAN_INFO_SCALE:
 
 		*val = ad5592r_get_vref(st);
@@ -424,7 +437,6 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 			ret = IIO_VAL_FRACTIONAL_LOG2;
 		}
 		break;
-
 	case IIO_CHAN_INFO_OFFSET:
 
 		ret = ad5592r_get_vref(st);
@@ -630,7 +642,7 @@ int ad5592r_probe(struct device *dev, const char *name,
 	return ad5592r_gpio_init(st);
 
 error_disable_reg:
-	if (!IS_ERR(st->reg))
+	if (st->reg)
 		regulator_disable(st->reg);
 
 	return ret;

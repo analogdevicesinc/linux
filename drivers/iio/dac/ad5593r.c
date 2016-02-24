@@ -1,7 +1,7 @@
 /*
  * AD5593R Digital <-> Analog converters driver
  *
- * Copyright 2015 Analog Devices Inc.
+ * Copyright 2015-2016 Analog Devices Inc.
  * Author: Paul Cercueil <paul.cercueil@analog.com>
  *
  * Licensed under the GPL-2.

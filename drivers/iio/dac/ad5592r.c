@@ -1,7 +1,7 @@
 /*
  * AD5592R Digital <-> Analog converters driver
  *
- * Copyright 2015 Analog Devices Inc.
+ * Copyright 2015-2016 Analog Devices Inc.
  * Author: Paul Cercueil <paul.cercueil@analog.com>
  *
  * Licensed under the GPL-2.
@@ -14,6 +14,9 @@
 #include <linux/of.h>
 #include <linux/spi/spi.h>
 
+#define AD5592R_GPIO_READBACK_EN	BIT(10)
+#define AD5592R_LDAC_READBACK_EN	BIT(6)
+
 static int ad5592r_spi_wnop_r16(struct ad5592r_state *st, u16 *buf)
 {
 	struct spi_device *spi = container_of(st->dev, struct spi_device, dev);
@@ -22,14 +25,10 @@ static int ad5592r_spi_wnop_r16(struct ad5592r_state *st, u16 *buf)
 			.rx_buf	= buf,
 			.len = 2
 		};
-	struct spi_message m;
 
 	st->spi_msg_nop = 0; /* NOP */
 
-	spi_message_init(&m);
-	spi_message_add_tail(&t, &m);
-
-	return spi_sync(spi, &m);
+	return spi_sync_transfer(spi, &t, 1);
 }
 
 static int ad5592r_write_dac(struct ad5592r_state *st, unsigned chan, u16 value)
@@ -80,8 +79,8 @@ static int ad5592r_reg_read(struct ad5592r_state *st, u8 reg, u16 *value)
 	struct spi_device *spi = container_of(st->dev, struct spi_device, dev);
 	int ret;
 
-	st->spi_msg = cpu_to_be16(
-			(AD5592R_REG_LDAC << 11) | BIT(6) | (reg << 2));
+	st->spi_msg = cpu_to_be16((AD5592R_REG_LDAC << 11) |
+				   AD5592R_LDAC_READBACK_EN | (reg << 2));
 
 	ret = spi_write(spi, &st->spi_msg, sizeof(st->spi_msg));
 	if (ret)
@@ -102,7 +101,7 @@ static int ad5593r_gpio_read(struct ad5592r_state *st, u8 *value)
 	int ret;
 
 	ret = ad5592r_reg_write(st, AD5592R_REG_GPIO_IN_EN,
-				BIT(10) | st->gpio_in);
+				AD5592R_GPIO_READBACK_EN | st->gpio_in);
 	if (ret)
 		return ret;
 
