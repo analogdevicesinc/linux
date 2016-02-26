@@ -28,6 +28,9 @@ extern YYLTYPE yylloc;
 struct boot_info *the_boot_info;
 bool treesource_error;
 
+bool source_is_plugin;
+bool deprecated_plugin_syntax_warning;
+
 struct boot_info *dt_from_source(const char *fname)
 {
 	the_boot_info = NULL;
