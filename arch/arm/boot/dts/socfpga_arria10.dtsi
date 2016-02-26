@@ -83,6 +83,14 @@
 			};
 		};
 
+		base_fpga_region {
+			compatible = "fpga-region";
+			fpga-mgr = <&fpga_mgr>;
+
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
+		};
+
 		clkmgr@ffd04000 {
 				compatible = "altr,clk-mgr";
 				reg = <0xffd04000 0x1000>;
@@ -511,11 +519,13 @@
 			};
 		};
 
-		hps_0_fpgamgr: fpgamgr@0xffcfe400 {
+		fpga_mgr: fpga-mgr@ffd03000 {
 			compatible = "altr,socfpga-a10-fpga-mgr";
-			transport = "mmio";
-			reg = <0xffd03000 0x1000
-			       0xffcfe400 0x1000>;
+			reg = <0xffd03000 0x100
+			       0xffcfe400 0x20>;
+			clocks = <&l4_mp_clk>;
+			resets = <&rst FPGAMGR_RESET>;
+			reset-names = "fpgamgr";
 		};
 
 		i2c0: i2c@ffc02200 {
