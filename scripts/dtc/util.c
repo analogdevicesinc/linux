@@ -152,6 +152,7 @@ char get_escape_char(const char *s, int *i)
 	int	j = *i + 1;
 	char	val;
 
+	assert(c);
 	switch (c) {
 	case 'a':
 		val = '\a';
@@ -348,6 +349,7 @@ int utilfdt_decode_type(const char *fmt, int *type, int *size)
 void utilfdt_print_data(const char *data, int len)
 {
 	int i;
+	const char *p = data;
 	const char *s;
 
 	/* no data, don't print */
@@ -374,7 +376,6 @@ void utilfdt_print_data(const char *data, int len)
 			       i < (len - 1) ? " " : "");
 		printf(">");
 	} else {
-		const unsigned char *p = (const unsigned char *)data;
 		printf(" = [");
 		for (i = 0; i < len; i++)
 			printf("%02x%s", *p++, i < len - 1 ? " " : "");
