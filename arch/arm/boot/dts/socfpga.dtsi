@@ -92,6 +92,16 @@
 			};
 		};
 
+		base_fpga_region {
+			compatible = "fpga-region";
+			fpga-mgr = <&fpga_mgr>;
+			fpga-bridges = <&fpga_bridge0>, <&fpga_bridge1>;
+
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
+			ranges = <0 0xff200000 0x100000>;
+		};
+
 		can0: can@ffc00000 {
 			compatible = "bosch,d_can";
 			reg = <0xffc00000 0x1000>;
@@ -512,10 +522,26 @@
 				};
 		};
 
-		fpgamgr0: fpgamgr@ff706000 {
+		fpga_bridge0: fpga_bridge@ff400000 {
+			compatible = "altr,socfpga-lwhps2fpga-bridge";
+			reg = <0xff400000 0x100000>;
+			resets = <&rst LWHPS2FPGA_RESET>;
+			reset-names = "lwhps2fpga";
+			clocks = <&l4_main_clk>;
+		};
+
+		fpga_bridge1: fpga_bridge@ff500000 {
+			compatible = "altr,socfpga-hps2fpga-bridge";
+			reg = <0xff500000 0x10000>;
+			resets = <&rst HPS2FPGA_RESET>;
+			reset-names = "hps2fpga";
+			clocks = <&l4_main_clk>;
+		};
+
+		fpga_mgr: fpga_mgr@ff706000 {
 			compatible = "altr,socfpga-fpga-mgr";
 			reg = <0xff706000 0x1000
-			       0xffb90000 0x1000>;
+			       0xffb90000 0x4>;
 			interrupts = <0 175 4>;
 		};
 
