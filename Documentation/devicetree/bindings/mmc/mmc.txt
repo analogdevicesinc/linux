@@ -75,6 +75,9 @@ Optional SDIO properties:
 - keep-power-in-suspend: Preserves card power during a suspend/resume cycle
 - wakeup-source: Enables wake up of host system on SDIO IRQ assertion
 		 (Legacy property supported: "enable-sdio-wakeup")
+- pm-ignore-notify: Ignore mmc PM notify. This will prevent MMC core automatically
+		    to re-detect cards after sysem resume back.
+
 
 MMC power
 ---------
