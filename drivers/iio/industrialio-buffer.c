@@ -716,6 +716,7 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 	indio_dev->active_scan_mask = config->scan_mask;
 	indio_dev->scan_timestamp = config->scan_timestamp;
 	indio_dev->scan_bytes = config->scan_bytes;
+	indio_dev->currentmode = config->mode;
 
 	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
 		iio_update_demux(indio_dev);
@@ -748,8 +749,6 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 		}
 	}
 
-	indio_dev->currentmode = config->mode;
-
 	ret = iio_trigger_attach_poll_func(indio_dev);
 	if (ret)
 		goto err_buffer_disable;
@@ -774,6 +773,7 @@ err_buffer_disable:
 	if (indio_dev->setup_ops->postdisable)
 		indio_dev->setup_ops->postdisable(indio_dev);
 err_undo_config:
+	indio_dev->currentmode = INDIO_DIRECT_MODE;
 	indio_dev->active_scan_mask = NULL;
 
 	return ret;
@@ -810,8 +810,6 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 
 	iio_trigger_detach_poll_func(indio_dev);
 
-	indio_dev->currentmode = INDIO_DIRECT_MODE;
-
 	if (indio_dev->setup_ops->postdisable) {
 		ret2 = indio_dev->setup_ops->postdisable(indio_dev);
 		if (ret2 && !ret)
@@ -820,6 +818,7 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 
 	iio_free_scan_mask(indio_dev, indio_dev->active_scan_mask);
 	indio_dev->active_scan_mask = NULL;
+	indio_dev->currentmode = INDIO_DIRECT_MODE;
 
 	return ret;
 }
