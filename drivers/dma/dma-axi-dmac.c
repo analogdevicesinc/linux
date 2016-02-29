@@ -659,15 +659,23 @@ static int axi_dmac_parse_chan_dt_compat(struct device_node *of_node,
 	switch (tmp) {
 	case 0:
 		chan->direction = DMA_DEV_TO_MEM;
+		chan->src_type = AXI_DMAC_BUS_TYPE_AXI_STREAM;
+		chan->dest_type = AXI_DMAC_BUS_TYPE_AXI_MM;
 		break;
 	case 1:
 		chan->direction = DMA_MEM_TO_DEV;
+		chan->src_type = AXI_DMAC_BUS_TYPE_AXI_MM;
+		chan->dest_type = AXI_DMAC_BUS_TYPE_AXI_STREAM;
 		break;
 	case 2:
 		chan->direction = DMA_MEM_TO_MEM;
+		chan->src_type = AXI_DMAC_BUS_TYPE_AXI_MM;
+		chan->dest_type = AXI_DMAC_BUS_TYPE_AXI_MM;
 		break;
 	case 3:
 		chan->direction = DMA_DEV_TO_DEV;
+		chan->src_type = AXI_DMAC_BUS_TYPE_AXI_STREAM;
+		chan->dest_type = AXI_DMAC_BUS_TYPE_AXI_STREAM;
 		break;
 	default:
 		return -EINVAL;
