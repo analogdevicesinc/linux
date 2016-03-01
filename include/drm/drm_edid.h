@@ -24,6 +24,7 @@
 #define __DRM_EDID_H__
 
 #include <linux/types.h>
+#include <drm/drm_crtc.h>
 
 struct drm_device;
 struct i2c_adapter;
