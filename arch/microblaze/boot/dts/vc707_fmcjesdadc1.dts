@@ -53,7 +53,7 @@
 	clocks = <&clk_bus_0>;
 
 	dma-channel {
-		adi,buswidth = <64>;
+		adi,buswidth = <256>;
 		adi,type = <0>;
 	};
 };
@@ -63,7 +63,7 @@
 	clocks = <&clk_bus_0>;
 
 	dma-channel {
-		adi,buswidth = <64>;
+		adi,buswidth = <256>;
 		adi,type = <0>;
 	};
 };
