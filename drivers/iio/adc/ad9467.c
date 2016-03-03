@@ -947,8 +947,11 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct clk *clk;
-	int ret;
+	int ret, tmp = 1;
 	unsigned pll_stat;
+	const u32 sfdr_optim_regs[8] =
+		{0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935};
+	u32 sfdr_optim_vals[ARRAY_SIZE(sfdr_optim_regs)];
 
 	clk = devm_clk_get(&spi->dev, "adc_sysref");
 	if (!IS_ERR(clk)) {
@@ -966,6 +969,13 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 		conv->adc_clk = clk_get_rate(clk);
 	}
 
+#ifdef CONFIG_OF
+	if (spi->dev.of_node)
+		tmp = of_property_read_u32_array(
+			spi->dev.of_node, "adi,sfdr-optimization-config",
+			sfdr_optim_vals, ARRAY_SIZE(sfdr_optim_regs));
+#endif
+
 	ad9467_spi_write(spi, 0x000, 0x81);	// RESET
 	mdelay(5);
 	ad9467_spi_write(spi, 0x001, 0x01);	// RESET
@@ -976,6 +986,12 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	ret |= ad9467_spi_write(spi, 0x201, 0x00);	// full sample rate (decimation = 1)
 	ret |= ad9467_spi_write(spi, 0x550, 0x04);	// test pattern
 	ret |= ad9467_spi_write(spi, 0x561, 0x00);	// offset binary
+
+	if (tmp == 0) {
+		for (; tmp < ARRAY_SIZE(sfdr_optim_regs); tmp++)
+			ret |= ad9467_spi_write(spi, sfdr_optim_regs[tmp],
+						sfdr_optim_vals[tmp]);
+	}
 
 	ret |= ad9467_spi_write(spi, 0x580, 0x00);	// DID
 	ret |= ad9467_spi_write(spi, 0x581, 0x01);	// BID
