@@ -61,6 +61,7 @@ struct ad5592r_state {
 	u16 cached_dac[8];
 	u16 cached_gp_ctrl;
 	u8 channel_modes[8];
+	u8 channel_offstate[8];
 	u8 gpio_map;
 	u8 gpio_out;
 	u8 gpio_in;
