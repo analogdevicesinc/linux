@@ -26,14 +26,14 @@
 		adi,pll2-vco-diff-m1 = <3>;
 		adi,pll2-n2-div = <10>; /* N / M1 */
 		adi,pll2-r1-div = <1>;
-		adi,pll2-charge-pump-current-nA = <805000>;
+		adi,pll2-charge-pump-current-nA = <35000>;
 
 		/* SYSREF config */
 		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
 		adi,sysref-k-div = <8>;
 
 		adi,rpole2 = <RPOLE2_900_OHM>;
-		adi,rzero = <RZERO_3250_OHM>;
+		adi,rzero = <RZERO_1850_OHM>;
 		adi,cpole1 = <CPOLE1_16_PF>;
 
 		ad9528_0_c13: channel@13 {
@@ -137,6 +137,8 @@
 		spi-max-frequency = <10000000>;
 		adi,spi-3wire-enable;
 		reg = <2>;
+		/* Content of Registers: 0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935 */
+		adi,sfdr-optimization-config = <0xE 0xA0 0x50 0x09 0x18 0x00 0x1F 0x04>;
 
 		clocks = <&axi_ad9680_jesd>, <&clk0_ad9528 13>, <&clk0_ad9528 5>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
