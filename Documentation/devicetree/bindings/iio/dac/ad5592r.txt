@@ -74,40 +74,40 @@ AD5592R Example:
 
 		channel@0 {
 			reg = <0>;
-			mode = <CH_MODE_DAC>;
+			adi,mode = <CH_MODE_DAC>;
 		};
 		channel@1 {
 			reg = <1>;
-			mode = <CH_MODE_ADC>;
+			adi,mode = <CH_MODE_ADC>;
 		};
 		channel@2 {
 			reg = <2>;
-			mode = <CH_MODE_DAC_AND_ADC>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
 		};
 		channel@3 {
 			reg = <3>;
-			mode = <CH_MODE_DAC_AND_ADC>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 		channel@4 {
 			reg = <4>;
-			mode = <CH_MODE_UNUSED>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_UNUSED>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 		channel@5 {
 			reg = <5>;
-			mode = <CH_MODE_GPIO>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 		channel@6 {
 			reg = <6>;
-			mode = <CH_MODE_GPIO>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 		channel@7 {
 			reg = <7>;
-			mode = <CH_MODE_GPIO>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 	};
 
@@ -122,22 +122,22 @@ AD5593R Example:
 		reg = <0x10>;
 		channel@0 {
 			reg = <0>;
-			mode = <CH_MODE_DAC>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_DAC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 		channel@1 {
 			reg = <1>;
-			mode = <CH_MODE_ADC>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_ADC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 		channel@2 {
 			reg = <2>;
-			mode = <CH_MODE_DAC_AND_ADC>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 		channel@6 {
 			reg = <6>;
-			mode = <CH_MODE_GPIO>;
-			offstate = <CH_OFFSTATE_PULLDOWN>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
 		};
 	};

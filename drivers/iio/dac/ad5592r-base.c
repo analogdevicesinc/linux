@@ -691,8 +691,8 @@ int ad5592r_remove(struct device *dev)
 	struct ad5592r_state *st = iio_priv(iio_dev);
 
 	iio_device_unregister(iio_dev);
-	ad5592r_gpio_cleanup(st);
 	ad5592r_reset_channel_modes(st);
+	ad5592r_gpio_cleanup(st);
 
 	if (st->reg)
 		regulator_disable(st->reg);
