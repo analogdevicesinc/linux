@@ -720,6 +720,7 @@ void iio_dmabuf_exit(struct iio_dma_buffer_queue *queue)
 	queue->ops = NULL;
 	mutex_unlock(&queue->lock);
 }
+EXPORT_SYMBOL_GPL(iio_dmabuf_exit);
 
 struct iio_buffer *iio_dmabuf_allocate(struct device *dma_dev,
 	const struct iio_dma_buffer_ops *ops, void *driver_data)
