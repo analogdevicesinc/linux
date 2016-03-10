@@ -26,7 +26,7 @@
 			reg = <0xff809000 0x100>,
 				<0xffa00000 0x100000>;
 			interrupts = <0 100 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&l4_main_clk>;
+			clocks = <&qspi_clk>;
 			is-decoded-cs = <1>;
 			fifo-depth = <128>;
 			status = "okay";
