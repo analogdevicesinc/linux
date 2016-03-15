@@ -1755,6 +1755,7 @@ static int ci_udc_start(struct usb_gadget *gadget,
 	}
 
 	retval = hw_device_state(ci, ci->ep0out->qh.dma);
+	usb_udc_vbus_handler(&ci->gadget, true);
 	spin_unlock_irqrestore(&ci->lock, flags);
 	if (retval)
 		pm_runtime_put_sync(&ci->gadget.dev);
@@ -1956,10 +1957,12 @@ void ci_hdrc_gadget_destroy(struct ci_hdrc *ci)
 
 static int udc_id_switch_for_device(struct ci_hdrc *ci)
 {
-	if (ci->is_otg)
+	if (ci->is_otg) {
 		/* Clear and enable BSV irq */
 		hw_write_otgsc(ci, OTGSC_BSVIS | OTGSC_BSVIE,
 					OTGSC_BSVIS | OTGSC_BSVIE);
+		ci_handle_vbus_change(ci);
+	}
 
 	return 0;
 }
