@@ -7530,7 +7530,7 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_bool(iodev, np, "adi,mgc-rx1-ctrl-inp-enable",
 			   &pdata->gain_ctrl.mgc_rx1_ctrl_inp_en);
 	ad9361_of_get_bool(iodev, np, "adi,mgc-rx2-ctrl-inp-enable",
-			   &pdata->gain_ctrl.mgc_rx1_ctrl_inp_en);
+			   &pdata->gain_ctrl.mgc_rx2_ctrl_inp_en);
 	ad9361_of_get_u32(iodev, np, "adi,mgc-inc-gain-step", 2,
 			  &pdata->gain_ctrl.mgc_inc_gain_step);
 	ad9361_of_get_u32(iodev, np, "adi,mgc-dec-gain-step", 2,
