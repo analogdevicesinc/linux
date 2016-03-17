@@ -307,6 +307,13 @@ static struct mem_type mem_types[] __ro_after_init = {
 #endif
 		.domain    = DOMAIN_KERNEL,
 	},
+	[MT_MEMORY_RW_NS] = {
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
+			     L_PTE_XN,
+		.prot_l1   = PMD_TYPE_TABLE,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_SECT_XN,
+		.domain    = DOMAIN_KERNEL,
+	},
 	[MT_ROM] = {
 		.prot_sect = PMD_TYPE_SECT,
 		.domain    = DOMAIN_KERNEL,
@@ -657,6 +664,7 @@ static void __init build_mem_type_table(void)
 	}
 	kern_pgprot |= PTE_EXT_AF;
 	vecs_pgprot |= PTE_EXT_AF;
+	mem_types[MT_MEMORY_RW_NS].prot_pte |= PTE_EXT_AF | cp->pte;
 
 	/*
 	 * Set PXN for user mappings
@@ -682,6 +690,7 @@ static void __init build_mem_type_table(void)
 	mem_types[MT_MEMORY_RWX].prot_pte |= kern_pgprot;
 	mem_types[MT_MEMORY_RW].prot_sect |= ecc_mask | cp->pmd;
 	mem_types[MT_MEMORY_RW].prot_pte |= kern_pgprot;
+	mem_types[MT_MEMORY_RW_NS].prot_sect |= ecc_mask | cp->pmd;
 	mem_types[MT_MEMORY_RO].prot_sect |= ecc_mask | cp->pmd;
 	mem_types[MT_MEMORY_RO].prot_pte |= kern_pgprot;
 	mem_types[MT_MEMORY_DMA_READY].prot_pte |= kern_pgprot;

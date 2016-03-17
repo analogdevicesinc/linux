@@ -123,6 +123,7 @@ static inline u32 __raw_readl(const volatile void __iomem *addr)
 #define MT_DEVICE_NONSHARED	1
 #define MT_DEVICE_CACHED	2
 #define MT_DEVICE_WC		3
+#define MT_MEMORY_RW_NS		4
 /*
  * types 4 onwards can be found in asm/mach/map.h and are undefined
  * for ioremap
@@ -377,6 +378,8 @@ void __iomem *ioremap_cache(resource_size_t res_cookie, size_t size);
 void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size);
 #define ioremap_wc ioremap_wc
 #define ioremap_wt ioremap_wc
+
+void __iomem *ioremap_cache_ns(resource_size_t res_cookie, size_t size);
 
 void iounmap(volatile void __iomem *io_addr);
 #define iounmap iounmap

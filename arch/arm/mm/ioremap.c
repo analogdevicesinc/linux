@@ -385,6 +385,13 @@ void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size)
 }
 EXPORT_SYMBOL(ioremap_wc);
 
+void __iomem *ioremap_cache_ns(resource_size_t res_cookie, size_t size)
+{
+	return arch_ioremap_caller(res_cookie, size, MT_MEMORY_RW_NS,
+				   __builtin_return_address(0));
+}
+EXPORT_SYMBOL(ioremap_cache_ns);
+
 /*
  * Remap an arbitrary physical address space into the kernel virtual
  * address space as memory. Needed when the kernel wants to execute
