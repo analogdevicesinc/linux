@@ -13,6 +13,8 @@ struct iio_dma_buffer_queue {
 	struct list_head outgoing;
 	bool active;
 
+	unsigned int poll_wakup_flags;
+
 	void *driver_data;
 
 	unsigned int num_blocks;
