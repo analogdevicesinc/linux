@@ -51,6 +51,7 @@
 
 void socfpga_init_l2_ecc(void);
 void socfpga_init_ocram_ecc(void);
+void socfpga_init_arria10_l2_ecc(void);
 #define SYSMGR_SILICON_ID1_OFFSET 0x0
 #define SYSMGR_SILICON_ID1_REV_SHIFT 0
 #define SYSMGR_SILICON_ID1_REV_MASK 0x0000FFFF
