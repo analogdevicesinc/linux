@@ -1415,6 +1415,12 @@ static int mx6s_vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 		return -EINVAL;
 	}
 
+	if (f->fmt.pix.width == 0 || f->fmt.pix.height == 0) {
+		dev_err(csi_dev->dev, "width %d, height %d is too small.\n",
+			f->fmt.pix.width, f->fmt.pix.height);
+		return -EINVAL;
+	}
+
 	v4l2_fill_mbus_format(&format.format, pix, fmt->mbus_code);
 	ret = v4l2_subdev_call(sd, pad, set_fmt, NULL, &format);
 	v4l2_fill_pix_format(pix, &format.format);
