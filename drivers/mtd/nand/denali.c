@@ -1224,19 +1224,19 @@ static int denali_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 			/* When we have hw ecc fixup, don't check oob.
 			 * That code below looks jacked up anyway.  I mean,
 			 * look at it, wtf? */
-			if (!is_erased(buf, denali->mtd.writesize))
-				denali->mtd.ecc_stats.failed++;
+			if (!is_erased(buf, mtd->writesize))
+				mtd->ecc_stats.failed++;
 		} else {
-			read_oob_data(&denali->mtd, chip->oob_poi,
+			read_oob_data(mtd, chip->oob_poi,
 				denali->page);
 
 			/* check ECC failures that may have occurred on
 			 * erased pages */
 			if (check_erased_page) {
-				if (!is_erased(buf, denali->mtd.writesize))
-					denali->mtd.ecc_stats.failed++;
-				if (!is_erased(buf, denali->mtd.oobsize))
-					denali->mtd.ecc_stats.failed++;
+				if (!is_erased(buf, mtd->writesize))
+					mtd->ecc_stats.failed++;
+				if (!is_erased(buf, mtd->oobsize))
+					mtd->ecc_stats.failed++;
 			}
 		}
 	}
@@ -1685,14 +1685,14 @@ int denali_init(struct denali_nand_info *denali)
 				MAIN_ACCESS);
 	}
 
-	if (nand_scan_tail(&denali->mtd)) {
+	if (nand_scan_tail(mtd)) {
 		ret = -ENXIO;
 		goto failed_req_irq;
 	}
 
 	/* We use the parse function and pass the of_node bcs
 	   we want to pick up partitions from device tree */
-	ret = mtd_device_parse_register(&denali->mtd, NULL,
+	ret = mtd_device_parse_register(mtd, NULL,
 			&(struct mtd_part_parser_data){
 				.of_node = denali->dev->of_node,
 			},
