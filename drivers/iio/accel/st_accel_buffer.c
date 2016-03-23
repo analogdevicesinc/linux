@@ -84,7 +84,7 @@ static const struct iio_buffer_setup_ops st_accel_buffer_setup_ops = {
 int st_accel_allocate_ring(struct iio_dev *indio_dev)
 {
 	return iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-		&st_sensors_trigger_handler);
+		&st_sensors_trigger_handler, &st_accel_buffer_setup_ops);
 }
 
 void st_accel_deallocate_ring(struct iio_dev *indio_dev)

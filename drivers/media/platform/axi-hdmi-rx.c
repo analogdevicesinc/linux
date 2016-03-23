@@ -73,6 +73,8 @@ struct axi_hdmi_rx {
 	struct v4l2_async_subdev asd;
 	struct v4l2_async_subdev *asds[1];
 
+	u8 bus_width;
+
 	u8 edid_data[256];
 	u8 edid_blocks;
 };
@@ -599,8 +601,14 @@ static int axi_hdmi_rx_s_fmt_vid_cap(struct file *file, void *priv_fh,
 	case V4L2_PIX_FMT_UYVY:
 		fmt.format.code = MEDIA_BUS_FMT_UYVY8_1X16;
 		break;
-	default: /* CSC expects this */
+	case V4L2_PIX_FMT_YUYV:
 		fmt.format.code = MEDIA_BUS_FMT_YUYV8_1X16;
+		break;
+	default:
+		if (hdmi_rx->bus_width >= 24)
+			fmt.format.code = MEDIA_BUS_FMT_RGB888_1X24;
+		else /* CSC expects this */
+			fmt.format.code = MEDIA_BUS_FMT_YUYV8_1X16;
 		break;
 	}
 
@@ -633,7 +641,6 @@ static int axi_hdmi_rx_s_fmt_vid_cap(struct file *file, void *priv_fh,
 	ret = v4l2_subdev_call(s->subdev, pad, set_fmt, NULL, &fmt);
 	if (ret)
 		return ret;
-
 
 	s->pixelformat = pix->pixelformat;
 
@@ -857,6 +864,7 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 	struct device_node *ep_node;
 	struct axi_hdmi_rx *hdmi_rx;
 	struct resource *res;
+	struct v4l2_of_endpoint bus_cfg;
 	int ret;
 
 	hdmi_rx = devm_kzalloc(&pdev->dev, sizeof(*hdmi_rx), GFP_KERNEL);
@@ -909,6 +917,12 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_device_unregister;
 	}
+	bus_cfg.bus.parallel.bus_width = 0;
+	v4l2_of_parse_endpoint(ep_node, &bus_cfg);
+	if (bus_cfg.bus.parallel.bus_width)
+		hdmi_rx->bus_width = bus_cfg.bus.parallel.bus_width;
+	else
+		hdmi_rx->bus_width = 16;
 
 	hdmi_rx->asd.match_type = V4L2_ASYNC_MATCH_OF;
 	hdmi_rx->asd.match.of.node = of_graph_get_remote_port_parent(ep_node);

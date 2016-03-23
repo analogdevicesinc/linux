@@ -53,7 +53,7 @@ static int st_press_buffer_predisable(struct iio_dev *indio_dev)
 
 	err = st_sensors_set_enable(indio_dev, false);
 
-	kfree(pdata->buffer_data);
+	kfree(press_data->buffer_data);
 	return err;
 }
 
