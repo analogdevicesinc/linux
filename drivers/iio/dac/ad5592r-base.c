@@ -23,7 +23,6 @@
 
 #include "ad5592r-base.h"
 
-#ifdef CONFIG_GPIOLIB
 static struct ad5592r_state *gpiochip_to_ad5592r(struct gpio_chip *chip)
 {
 	return container_of(chip, struct ad5592r_state, gpiochip);
@@ -130,9 +129,6 @@ static int ad5592r_gpio_request(struct gpio_chip *chip, unsigned offset)
 		return -ENODEV;
 	}
 
-	if (offset >= chip->ngpio)
-		return -EINVAL;
-
 	return 0;
 }
 
@@ -163,10 +159,6 @@ static void ad5592r_gpio_cleanup(struct ad5592r_state *st)
 	if (st->gpio_map)
 		gpiochip_remove(&st->gpiochip);
 }
-#else
-static int ad5592r_gpio_init(struct ad5592r_state *st) { return 0 };
-static void ad5592r_gpio_cleanup(struct ad5592r_state *st) { };
-#endif /* CONFIG_GPIOLIB */
 
 static int ad5592r_reset(struct ad5592r_state *st)
 {
@@ -182,6 +174,7 @@ static int ad5592r_reset(struct ad5592r_state *st)
 		gpiod_set_value(gpio, 1);
 	} else {
 		mutex_lock(&iio_dev->mlock);
+		/* Writing this magic value resets the device */
 		st->ops->reg_write(st, AD5592R_REG_RESET, 0xdac);
 		mutex_unlock(&iio_dev->mlock);
 	}

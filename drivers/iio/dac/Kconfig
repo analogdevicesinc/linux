@@ -85,6 +85,7 @@ config AD5449
 config AD5592R
 	tristate "Analog Devices AD5592R ADC/DAC driver"
 	depends on SPI_MASTER
+	select GPIOLIB
 	help
 	  Say yes here to build support for Analog Devices AD5592R
 	  Digital to Analog / Analog to Digital Converter.
@@ -95,6 +96,7 @@ config AD5592R
 config AD5593R
 	tristate "Analog Devices AD5593R ADC/DAC driver"
 	depends on I2C
+	select GPIOLIB
 	help
 	  Say yes here to build support for Analog Devices AD5593R
 	  Digital to Analog / Analog to Digital Converter.

@@ -48,6 +48,9 @@ Optional properties:
 	  pin. If the property is not set the internal 2.5V reference is used.
 	- reset-gpios : GPIO spec for the RESET pin. If specified, it will be
 	  asserted during driver probe.
+	- gpio-controller: Marks the device node as a GPIO controller.
+	- #gpio-cells: Should be 2. The first cell is the GPIO number and the second
+	  cell specifies GPIO flags, as defined in <dt-bindings/gpio/gpio.h>.
 
 AD5592R Example:
 
@@ -64,13 +67,16 @@ AD5592R Example:
 	ad5592r@0 {
 		#size-cells = <0>;
 		#address-cells = <1>;
+		#gpio-cells = <2>;
 		compatible = "adi,ad5592r";
 		reg = <0>;
+
 		spi-max-frequency = <1000000>;
 		spi-cpol;
 
 		vref-supply = <&vref>; /* optional */
 		reset-gpios = <&gpio0 86 0>;  /* optional */
+		gpio-controller;
 
 		channel@0 {
 			reg = <0>;
@@ -118,8 +124,11 @@ AD5593R Example:
 	ad5593r@10 {
 		#size-cells = <0>;
 		#address-cells = <1>;
+		#gpio-cells = <2>;
 		compatible = "adi,ad5593r";
 		reg = <0x10>;
+		gpio-controller;
+
 		channel@0 {
 			reg = <0>;
 			adi,mode = <CH_MODE_DAC>;
