@@ -1690,13 +1690,8 @@ int denali_init(struct denali_nand_info *denali)
 		goto failed_req_irq;
 	}
 
-	/* We use the parse function and pass the of_node bcs
-	   we want to pick up partitions from device tree */
-	ret = mtd_device_parse_register(mtd, NULL,
-			&(struct mtd_part_parser_data){
-				.of_node = denali->dev->of_node,
-			},
-			0, 0);
+	mtd_set_of_node(mtd, denali->dev->of_node);
+	ret = mtd_device_register(mtd, NULL, 0);
 	if (ret) {
 		dev_err(denali->dev, "Spectra: Failed to register MTD: %d\n",
 				ret);
