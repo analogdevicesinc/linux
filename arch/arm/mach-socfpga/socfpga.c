@@ -171,7 +171,7 @@ static void socfpga_arria10_restart(enum reboot_mode mode, const char *cmd)
 	writel(temp, rst_manager_base_addr + SOCFPGA_A10_RSTMGR_CTRL);
 }
 
-static void __init socfpga_cyclone5_init(void)
+static void __init socfpga_init(void)
 {
 	of_platform_populate(NULL, of_default_bus_match_table,
 			     NULL, NULL);
@@ -191,7 +191,7 @@ DT_MACHINE_START(SOCFPGA, "Altera SOCFPGA")
 			L2C_AUX_CTRL_SHARED_OVERRIDE,
 	.l2c_aux_mask	= ~0,
 	.init_irq	= socfpga_init_irq,
-	.init_machine	= socfpga_cyclone5_init,
+	.init_machine	= socfpga_init,
 	.restart	= socfpga_cyclone5_restart,
 	.dt_compat	= altera_dt_match,
 MACHINE_END
@@ -205,6 +205,7 @@ DT_MACHINE_START(SOCFPGA_A10, "Altera SOCFPGA Arria10")
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
 	.init_irq	= socfpga_init_irq,
+	.init_machine	= socfpga_init,
 	.restart	= socfpga_arria10_restart,
 	.dt_compat	= altera_a10_dt_match,
 MACHINE_END
