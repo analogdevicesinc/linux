@@ -1137,6 +1137,8 @@ static int cqspi_remove(struct platform_device *pdev)
 		if (cqspi->f_pdata[i].nor.mtd.name)
 			mtd_device_unregister(&cqspi->f_pdata[i].nor.mtd);
 
+	clk_disable_unprepare(cqspi->clk);
+
 	return 0;
 }
 
@@ -1170,6 +1172,13 @@ static int cqspi_probe(struct platform_device *pdev)
 		ret = PTR_ERR(cqspi->clk);
 		goto probe_failed;
 	}
+
+	ret = clk_prepare_enable(cqspi->clk);
+	if (ret) {
+		dev_err(dev, "cannot enable qspi clk\n");
+		goto probe_failed;
+	}
+
 	cqspi->master_ref_clk_hz = clk_get_rate(cqspi->clk);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
