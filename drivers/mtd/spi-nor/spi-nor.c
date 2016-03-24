@@ -1175,9 +1175,6 @@ static int macronix_quad_enable(struct spi_nor *nor)
 		return -EINVAL;
 	}
 
-	if (!nor->shutdown)
-		nor->shutdown = spi_nor_shutdown;
-
 	return 0;
 }
 
