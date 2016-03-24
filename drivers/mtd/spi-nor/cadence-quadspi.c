@@ -1143,7 +1143,6 @@ static int cqspi_remove(struct platform_device *pdev)
 static int cqspi_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct mtd_part_parser_data ppdata;
 	struct device *dev = &pdev->dev;
 	struct cqspi_st *cqspi;
 	struct spi_nor *nor;
@@ -1249,9 +1248,8 @@ static int cqspi_probe(struct platform_device *pdev)
 		if (nor->read_dummy > CQSPI_DUMMY_CLKS_MAX)
 			nor->read_dummy = CQSPI_DUMMY_CLKS_MAX;
 
-		ppdata.of_node = np;
-		ret = mtd_device_parse_register(&nor->mtd, NULL, &ppdata,
-						NULL, 0);
+		mtd_set_of_node(&nor->mtd, np);
+		ret = mtd_device_register(&nor->mtd, NULL, 0);
 		if (ret)
 			goto probe_failed;
 	}
