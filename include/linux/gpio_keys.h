@@ -32,6 +32,8 @@ struct gpio_keys_button {
 	bool can_disable;
 	int value;
 	unsigned int irq;
+	unsigned int irq_flags;
+	struct gpio_desc *gpiod;
 };
 
 /**
