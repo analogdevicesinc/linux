@@ -68,24 +68,6 @@
 			};
 		};
 
-		fmc_spi: spi@e0006000 {
-			bus-num = <1>;
-			compatible = "cdns,spi-r1p6", "xlnx,zynq-spi-1.00.a", "xlnx,ps7-spi-1.00.a";
-			interrupt-parent = <&intc>;
-			interrupts = < 0 26 4 >;
-			clock-names = "ref_clk", "aper_clk", "pclk";
-			clocks = <&clkc 25>, <&clkc 34>, <&clkc 34>;
-			num-chip-select = <4>;
-			reg = < 0xe0006000 0x1000 >;
-			speed-hz = <100000000>;
-			xlnx,has-ss0 = <0x1>;
-			xlnx,has-ss1 = <0x1>;
-			xlnx,has-ss2 = <0x1>;
-			xlnx,spi-clk-freq-hz = <100000000>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-		};
-
 		axi_vdma_0: axivdma@43000000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
