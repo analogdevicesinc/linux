@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 Freescale Semiconductor, Inc.
+ * Copyright 2011-2016 Freescale Semiconductor, Inc.
  * Copyright 2011 Linaro Ltd.
  *
  * The code contained herein is licensed under the GNU General Public
@@ -805,7 +805,6 @@ static int imx6q_pm_enter(suspend_state_t state)
 		}
 	}
 #endif
-
 	switch (state) {
 	case PM_SUSPEND_STANDBY:
 		imx6_set_lpm(STOP_POWER_ON);
@@ -836,6 +835,7 @@ static int imx6q_pm_enter(suspend_state_t state)
 			imx6_enable_rbc(true);
 		imx_gpc_pre_suspend(true);
 		imx_anatop_pre_suspend();
+		imx6_console_save(console_saved_reg);
 		if (cpu_is_imx6sx() && imx_gpc_is_mf_mix_off()) {
 			ccm_ccgr4 = readl_relaxed(ccm_base + CCGR4);
 			ccm_ccgr6 = readl_relaxed(ccm_base + CCGR6);
@@ -876,6 +876,7 @@ static int imx6q_pm_enter(suspend_state_t state)
 		}
 		if (cpu_is_imx6q() || cpu_is_imx6dl())
 			imx_smp_prepare();
+		imx6_console_restore(console_saved_reg);
 		imx_anatop_post_resume();
 		imx_gpc_post_resume();
 		imx6_enable_rbc(false);
@@ -1099,7 +1100,7 @@ static int __init imx6q_suspend_init(const struct imx6_pm_socdata *socdata)
 	}
 
 	/* need to overwrite the value for some mmdc registers */
-	if ((cpu_is_imx6sx() || cpu_is_imx6ul()) &&
+	if ((cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()) &&
 		pm_info->ddr_type != IMX_DDR_TYPE_LPDDR2) {
 		pm_info->mmdc_val[20][1] = (pm_info->mmdc_val[20][1]
 			& 0xffff0000) | 0x0202;
@@ -1118,7 +1119,7 @@ static int __init imx6q_suspend_init(const struct imx6_pm_socdata *socdata)
 		pm_info->mmdc_val[32][1] = 0xa1310003;
 	}
 
-	if (cpu_is_imx6ul() &&
+	if ((cpu_is_imx6ul() || cpu_is_imx6ull()) &&
 		pm_info->ddr_type == IMX_DDR_TYPE_LPDDR2) {
 		pm_info->mmdc_val[0][1] = 0x8000;
 		pm_info->mmdc_val[2][1] = 0xa1390003;
@@ -1267,8 +1268,17 @@ void __init imx6sx_pm_init(void)
 
 void __init imx6ul_pm_init(void)
 {
+	struct device_node *np;
+
 	if (imx_mmdc_get_ddr_type() == IMX_DDR_TYPE_LPDDR2)
 		imx6_pm_common_init(&imx6ul_lpddr2_pm_data);
 	else
 		imx6_pm_common_init(&imx6ul_pm_data);
+
+	if (cpu_is_imx6ull()) {
+		np = of_find_node_by_path(
+			"/soc/aips-bus@02000000/spba-bus@02000000/serial@02020000");
+		if (np)
+			console_base = of_iomap(np, 0);
+	}
 }
