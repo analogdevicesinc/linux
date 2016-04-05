@@ -51,10 +51,8 @@ struct ad5592r_rw_ops {
 struct ad5592r_state {
 	struct device *dev;
 	struct regulator *reg;
-#ifdef CONFIG_GPIOLIB
 	struct gpio_chip gpiochip;
 	struct mutex gpio_lock;	/* Protect cached gpio_out, gpio_val, etc. */
-#endif
 	unsigned int num_channels;
 	const struct ad5592r_rw_ops *ops;
 	int scale_avail[2][2];

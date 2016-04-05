@@ -26,7 +26,10 @@ Required properties for all supported chips:
 				* CH_MODE_ADC (the pin is ADC input)
 				* CH_MODE_DAC (the pin is DAC output)
 				* CH_MODE_DAC_AND_ADC (the pin is DAC output
-					but can be monitored by an ADC)
+					but can be monitored by an ADC, since
+					there is no disadvantage this
+					this should be considered as the
+					preferred DAC mode)
 				* CH_MODE_GPIO (the pin is registered
 					with GPIOLIB)
 	 Optional properties:
