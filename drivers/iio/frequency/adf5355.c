@@ -253,7 +253,7 @@ static int adf5355_reg_access(struct iio_dev *indio_dev,
 	struct adf5355_state *st = iio_priv(indio_dev);
 	int ret;
 
-	if (reg > ADF5355_REG7)
+	if (reg > ADF5355_REG12)
 		return -EINVAL;
 
 	mutex_lock(&indio_dev->mlock);
