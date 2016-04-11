@@ -13,8 +13,9 @@
 
 /dts-v1/;
 
-/include/ "zynqmp.dtsi"
-/include/ "zynqmp-clk.dtsi"
+#include "zynqmp.dtsi"
+#include "zynqmp-clk.dtsi"
+
 / {
 	model = "ZynqMP zc1751-xm015-dc1 RevA";
 	compatible = "xlnx,zynqmp-zc1751", "xlnx,zynqmp";
@@ -23,6 +24,8 @@
 		ethernet0 = &gem3;
 		gpio0 = &gpio;
 		i2c0 = &i2c1;
+		mmc0 = &sdhci0;
+		mmc1 = &sdhci1;
 		rtc0 = &rtc;
 		serial0 = &uart0;
 		spi0 = &qspi;
@@ -30,7 +33,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=cdns,mmio,0xff000000,115200n8";
+		bootargs = "earlycon";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -103,9 +106,9 @@
 &i2c1 {
 	status = "okay";
 	clock-frequency = <400000>;
-	eeprom@54 {
+	eeprom@55 {
 		compatible = "at,24c64"; /* 24AA64 */
-		reg = <0x54>;
+		reg = <0x55>;
 	};
 };
 
@@ -173,6 +176,10 @@
 
 /* ULPI SMSC USB3320 */
 &usb0 {
+	status = "okay";
+};
+
+&dwc3_0 {
 	status = "okay";
 	dr_mode = "host";
 };

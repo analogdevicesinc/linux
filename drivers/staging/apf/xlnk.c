@@ -46,6 +46,7 @@
 #include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/list.h>
+#include <asm/cacheflush.h>
 
 #include "xlnk-ioctl.h"
 #include "xlnk.h"
@@ -83,12 +84,13 @@ static ssize_t xlnk_dev_size;
 static int xlnk_dev_vmas;
 
 #define XLNK_BUF_POOL_SIZE	256
-static void **xlnk_bufpool;
 static unsigned int xlnk_bufpool_size = XLNK_BUF_POOL_SIZE;
+static void *xlnk_bufpool[XLNK_BUF_POOL_SIZE];
+static void *xlnk_bufpool_alloc_point[XLNK_BUF_POOL_SIZE];
+static unsigned int xlnk_userbuf[XLNK_BUF_POOL_SIZE];
 static dma_addr_t xlnk_phyaddr[XLNK_BUF_POOL_SIZE];
 static size_t xlnk_buflen[XLNK_BUF_POOL_SIZE];
 static unsigned int  xlnk_bufcacheable[XLNK_BUF_POOL_SIZE];
-
 
 static int xlnk_open(struct inode *ip, struct file *filp);  /* Open */
 static int xlnk_release(struct inode *ip, struct file *filp);   /* Release */
@@ -136,13 +138,13 @@ struct xlnk_device_pack {
 
 };
 
-static struct xlnk_device_pack *xlnk_devpacks[16];
+static struct xlnk_device_pack *xlnk_devpacks[MAX_XLNK_DMAS];
 static void xlnk_devpacks_init(void)
 {
 	unsigned int i;
 
-	for (i = 0; i < 16; i++)
-		xlnk_devpacks[0] = NULL;
+	for (i = 0; i < MAX_XLNK_DMAS; i++)
+		xlnk_devpacks[i] = NULL;
 
 }
 
@@ -150,7 +152,7 @@ static void xlnk_devpacks_delete(struct xlnk_device_pack *devpack)
 {
 	unsigned int i;
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < MAX_XLNK_DMAS; i++) {
 		if (xlnk_devpacks[i] == devpack)
 			xlnk_devpacks[i] = NULL;
 	}
@@ -160,7 +162,7 @@ static void xlnk_devpacks_add(struct xlnk_device_pack *devpack)
 {
 	unsigned int i;
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < MAX_XLNK_DMAS; i++) {
 		if (xlnk_devpacks[i] == NULL) {
 			xlnk_devpacks[i] = devpack;
 			break;
@@ -172,7 +174,7 @@ static struct xlnk_device_pack *xlnk_devpacks_find(unsigned long base)
 {
 	unsigned int i;
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < MAX_XLNK_DMAS; i++) {
 		if (xlnk_devpacks[i]
 			&& xlnk_devpacks[i]->res[0].start == base)
 			return xlnk_devpacks[i];
@@ -197,7 +199,7 @@ static void xlnk_devpacks_free_all(void)
 	struct xlnk_device_pack *devpack;
 	unsigned int i;
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < MAX_XLNK_DMAS; i++) {
 		devpack = xlnk_devpacks[i];
 		if (devpack) {
 			platform_device_unregister(&devpack->pdev);
@@ -253,7 +255,6 @@ static int xlnk_probe(struct platform_device *pdev)
 	xlnk_dev_buf = NULL;
 	xlnk_dev_size = 0;
 	xlnk_dev_vmas = 0;
-	xlnk_bufpool = NULL;
 
 	/* use 2.6 device model */
 	err = alloc_chrdev_region(&dev, 0, 1, driver_name);
@@ -356,6 +357,19 @@ static int xlnk_buf_findnull(void)
 	return 0;
 }
 
+static int xlnk_buf_find_by_phys_addr(unsigned long addr)
+{
+	int i;
+
+	for (i = 1; i < xlnk_bufpool_size; i++) {
+		if (xlnk_phyaddr[i] <= addr &&
+		    xlnk_phyaddr[i] + xlnk_buflen[i] > addr)
+			return i;
+	}
+
+	return 0;
+}
+
 /**
  * allocate and return an id
  * id must be a positve number
@@ -363,23 +377,27 @@ static int xlnk_buf_findnull(void)
 static int xlnk_allocbuf(unsigned int len, unsigned int cacheable)
 {
 	int id;
+	void *kaddr;
+	dma_addr_t phys_addr_anchor;
+	unsigned int page_dst;
 
 	id = xlnk_buf_findnull();
 
-	if (id <= 0)
-		return -ENOMEM;
-
-	xlnk_bufpool[id] = dma_alloc_coherent(xlnk_dev, len,
-					      &xlnk_phyaddr[id],
-					      GFP_KERNEL | GFP_DMA);
-	xlnk_buflen[id] = len;
-	xlnk_bufcacheable[id] = cacheable;
-
-	if (!xlnk_bufpool[id]) {
-		dev_err(xlnk_dev, "%s: dma_alloc_coherent of %d byte buffer failed\n",
-			 __func__, len);
+	if (id <= 0 || id >= XLNK_BUF_POOL_SIZE) {
+		pr_err("No id could be found in range\n");
 		return -ENOMEM;
 	}
+	kaddr = kmalloc(len + PAGE_SIZE, GFP_KERNEL | GFP_DMA);
+	if (!kaddr)
+		return -ENOMEM;
+	phys_addr_anchor = virt_to_phys(kaddr);
+	xlnk_bufpool_alloc_point[id] = kaddr;
+	page_dst = (((phys_addr_anchor + (PAGE_SIZE - 1))
+		/ PAGE_SIZE) * PAGE_SIZE) - phys_addr_anchor;
+	xlnk_bufpool[id] = (void *)((uint8_t *)kaddr + page_dst);
+	xlnk_buflen[id] = len;
+	xlnk_bufcacheable[id] = cacheable;
+	xlnk_phyaddr[id] = phys_addr_anchor + page_dst;
 
 	return id;
 }
@@ -395,9 +413,6 @@ static int xlnk_init_bufpool(void)
 		dev_err(xlnk_dev, "%s: malloc failed\n", __func__);
 		return -ENOMEM;
 	}
-
-	xlnk_bufpool = kmalloc(sizeof(void *) * xlnk_bufpool_size,
-				   GFP_KERNEL);
 
 	xlnk_bufpool[0] = xlnk_dev_buf;
 	for (i = 1; i < xlnk_bufpool_size; i++)
@@ -415,9 +430,6 @@ static int xlnk_remove(struct platform_device *pdev)
 
 	kfree(xlnk_dev_buf);
 	xlnk_dev_buf = NULL;
-
-	kfree(xlnk_bufpool);
-	xlnk_bufpool = NULL;
 
 	devno = MKDEV(driver_major, 0);
 	cdev_del(&xlnk_cdev);
@@ -561,7 +573,7 @@ static int xlnk_devregister(char *name, unsigned int id,
 	devpack->pdev.id = id;
 
 	devpack->pdev.dev.dma_mask = &dma_mask;
-	devpack->pdev.dev.coherent_dma_mask = 0xFFFFFFFF;
+	devpack->pdev.dev.coherent_dma_mask = dma_mask;
 
 	devpack->res[0].start = base;
 	devpack->res[0].end = base + size - 1;
@@ -608,11 +620,11 @@ static int xlnk_dmaregister(char *name, unsigned int id,
 
 	struct xlnk_device_pack *devpack;
 
-	if (strcmp(name, "xilinx-axidma"))
+	if (chan_num < 1 || chan_num > 2) {
+		pr_err("%s: Expected either 1 or 2 channels, got %d\n",
+		       __func__, chan_num);
 		return -EINVAL;
-
-	if (chan_num < 1 || chan_num > 2)
-		return -EINVAL;
+	}
 
 	devpack = xlnk_devpacks_find(base);
 	if (devpack) {
@@ -625,8 +637,7 @@ static int xlnk_dmaregister(char *name, unsigned int id,
 	if (!devpack)
 		return -ENOMEM;
 
-	strcpy(devpack->name, name);
-	devpack->pdev.name = devpack->name;
+	devpack->pdev.name = "xilinx-axidma";
 
 	devpack->pdev.id = id;
 
@@ -634,7 +645,8 @@ static int xlnk_dmaregister(char *name, unsigned int id,
 	devpack->dma_chan_cfg[0].datawidth   = chan0_data_width;
 	devpack->dma_chan_cfg[0].irq = chan0_irq;
 	devpack->dma_chan_cfg[0].poll_mode   = chan0_poll_mode;
-	devpack->dma_chan_cfg[0].type = chan0_dir ?
+	devpack->dma_chan_cfg[0].type =
+		(chan0_dir == XLNK_DMA_FROM_DEVICE) ?
 					"axi-dma-s2mm-channel" :
 					"axi-dma-mm2s-channel";
 
@@ -643,11 +655,13 @@ static int xlnk_dmaregister(char *name, unsigned int id,
 		devpack->dma_chan_cfg[1].datawidth   = chan1_data_width;
 		devpack->dma_chan_cfg[1].irq = chan1_irq;
 		devpack->dma_chan_cfg[1].poll_mode   = chan1_poll_mode;
-		devpack->dma_chan_cfg[1].type = chan1_dir ?
+		devpack->dma_chan_cfg[1].type =
+			(chan1_dir == XLNK_DMA_FROM_DEVICE) ?
 						"axi-dma-s2mm-channel" :
 						"axi-dma-mm2s-channel";
 	}
 
+	devpack->dma_dev_cfg.name = devpack->name;
 	devpack->dma_dev_cfg.type = "axi-dma";
 	devpack->dma_dev_cfg.include_sg = 1;
 	devpack->dma_dev_cfg.sg_include_stscntrl_strm = 1;
@@ -657,7 +671,7 @@ static int xlnk_dmaregister(char *name, unsigned int id,
 	devpack->pdev.dev.platform_data = &devpack->dma_dev_cfg;
 
 	devpack->pdev.dev.dma_mask = &dma_mask;
-	devpack->pdev.dev.coherent_dma_mask = 0xFFFFFFFF;
+	devpack->pdev.dev.coherent_dma_mask = dma_mask;
 
 	devpack->res[0].start = base;
 	devpack->res[0].end = base + size - 1;
@@ -718,7 +732,7 @@ static int xlnk_mcdmaregister(char *name, unsigned int id,
 
 	devpack->pdev.dev.platform_data	 = &devpack->mcdma_dev_cfg;
 	devpack->pdev.dev.dma_mask = &dma_mask;
-	devpack->pdev.dev.coherent_dma_mask = 0xFFFFFFFF;
+	devpack->pdev.dev.coherent_dma_mask = dma_mask;
 	devpack->pdev.dev.release = xdma_if_device_release,
 
 	devpack->res[0].start = base;
@@ -766,10 +780,11 @@ static int xlnk_allocbuf_ioctl(struct file *filp, unsigned int code,
 	if (id <= 0)
 		return -ENOMEM;
 
-	put_user(id, temp_args.allocbuf.idptr);
-	put_user((u32)(xlnk_phyaddr[id]), temp_args.allocbuf.phyaddrptr);
+	temp_args.allocbuf.id = id;
+	temp_args.allocbuf.phyaddr = xlnk_phyaddr[id];
+	status = copy_to_user(args, &temp_args, sizeof(union xlnk_args));
 
-	return 0;
+	return status;
 }
 
 static int xlnk_freebuf(int id)
@@ -781,9 +796,7 @@ static int xlnk_freebuf(int id)
 	if (!xlnk_bufpool[id])
 		return -ENOMEM;
 
-	dma_free_coherent(xlnk_dev, xlnk_buflen[id], xlnk_bufpool[id],
-			  xlnk_phyaddr[id]);
-
+	kfree(xlnk_bufpool_alloc_point[id]);
 	xlnk_bufpool[id] = NULL;
 	xlnk_phyaddr[id] = (dma_addr_t)NULL;
 	xlnk_buflen[id] = 0;
@@ -1137,6 +1150,7 @@ static int xlnk_cachecontrol_ioctl(struct file *filp, unsigned int code,
 	union xlnk_args temp_args;
 	int status, size;
 	void *paddr, *kaddr;
+	int buf_id;
 
 	status = copy_from_user(&temp_args, (void __user *)args,
 						sizeof(union xlnk_args));
@@ -1156,17 +1170,17 @@ static int xlnk_cachecontrol_ioctl(struct file *filp, unsigned int code,
 
 	size = temp_args.cachecontrol.size;
 	paddr = temp_args.cachecontrol.phys_addr;
-	kaddr = phys_to_virt((unsigned int)paddr);
-
-	if (temp_args.cachecontrol.action == 0) {
-		/* flush cache */
-		outer_clean_range((unsigned int)paddr,
-				  (unsigned int)(paddr + size));
-	} else {
-		/* invalidate cache */
-		outer_inv_range((unsigned int)paddr,
-				(unsigned int)(paddr + size));
+	buf_id = xlnk_buf_find_by_phys_addr(paddr);
+	if (buf_id == 0) {
+		pr_err("Illegal cachecontrol on non-sds_alloc memory");
+		return -EINVAL;
 	}
+	kaddr = xlnk_bufpool[buf_id];
+
+	__cpuc_flush_dcache_area(kaddr, size);
+	outer_flush_range(paddr, paddr + size);
+	if (temp_args.cachecontrol.action == 1)
+		outer_inv_range(paddr, paddr + size);
 
 	return 0;
 }
@@ -1230,6 +1244,9 @@ static long xlnk_ioctl(struct file *filp, unsigned int code,
 	case XLNK_IOCRECRES: /* recover resource */
 		status = xlnk_recover_resource(args);
 		break;
+	default:
+		pr_err("xlnk- Unknown ioctl code emitted\n");
+		status = -EINVAL;
 	}
 
 	return status;
@@ -1263,8 +1280,10 @@ static int xlnk_mmap(struct file *filp, struct vm_area_struct *vma)
 					 vma->vm_end - vma->vm_start,
 					 vma->vm_page_prot);
 	}
-	if (status)
+	if (status) {
+		pr_err("xlnk_mmap failed with code %d\n", EAGAIN);
 		return -EAGAIN;
+	}
 
 	xlnk_vma_open(vma);
 	vma->vm_ops = &xlnk_vm_ops;

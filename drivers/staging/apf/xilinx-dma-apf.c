@@ -829,9 +829,11 @@ int xdma_submit(struct xdma_chan *chan,
 		sglist_dma = sglist;
 		sgcnt_dma = sgcnt;
 		if (user_flags & CF_FLAG_CACHE_FLUSH_INVALIDATE) {
-			kaddr = phys_to_virt((phys_addr_t)userbuf);
-			if (dmadir == DMA_TO_DEVICE) {
-				outer_clean_range((phys_addr_t)userbuf,
+			__cpuc_flush_dcache_area(kaddr, size);
+			outer_clean_range((phys_addr_t)userbuf,
+					  (u32)userbuf + size);
+			if (dmadir == DMA_FROM_DEVICE) {
+				outer_inv_range((phys_addr_t)userbuf,
 						(u32)userbuf + size);
 			}
 		}
@@ -900,13 +902,11 @@ EXPORT_SYMBOL(xdma_submit);
 int xdma_wait(struct xdma_head *dmahead, unsigned int user_flags)
 {
 	struct xdma_chan *chan = dmahead->chan;
-	void *kaddr, *paddr;
-	int size;
 	DEFINE_DMA_ATTRS(attrs);
 
-	if (chan->poll_mode) {
+	if (chan->poll_mode)
 		xilinx_chan_desc_cleanup(chan);
-	} else
+	else
 		wait_for_completion(&dmahead->cmp);
 
 	if (dmahead->is_dmabuf) {
@@ -920,16 +920,6 @@ int xdma_wait(struct xdma_head *dmahead, unsigned int user_flags)
 						 dmahead->dmadir, &attrs);
 
 		unpin_user_pages(dmahead->sglist, dmahead->sgcnt);
-	} else {
-		if (user_flags & CF_FLAG_CACHE_FLUSH_INVALIDATE) {
-			paddr = dmahead->userbuf;
-			size = dmahead->size;
-			kaddr = phys_to_virt((phys_addr_t)paddr);
-			if (dmahead->dmadir != DMA_TO_DEVICE) {
-				outer_inv_range((phys_addr_t)paddr,
-						(u32)paddr + size);
-			}
-		}
 	}
 	return 0;
 }
@@ -1061,9 +1051,9 @@ static int xdma_probe(struct platform_device *pdev)
 		chan->dev = xdev->dev;
 		chan->max_len = XDMA_MAX_TRANS_LEN;
 		chan->direction = dma_chan_dir;
-		sprintf(chan->name, "%schan%d", dev_name(&pdev->dev), chan->id);
-		pr_info("  chan%d name: %s\n", chan->id, chan->name);
-		pr_info("  chan%d direction: %s\n", chan->id,
+		sprintf(chan->name, "%s:%d", dma_config->name, chan->id);
+		pr_info("  chan %d name: %s\n", chan->id, chan->name);
+		pr_info("  chan %d direction: %s\n", chan->id,
 			dma_chan_dir == DMA_FROM_DEVICE ?
 				"FROM_DEVICE" : "TO_DEVICE");
 

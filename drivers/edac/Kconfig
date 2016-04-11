@@ -332,13 +332,6 @@ config EDAC_PL310_L2
 	  Support for parity error detection on L2 cache controller
 	  data and tag ram memory
 
-config EDAC_ZYNQ
-	tristate "ZYNQ DDR Memory Controller"
-	depends on EDAC_MM_EDAC && ARCH_ZYNQ
-	help
-	  This enables support for EDAC on the ECC memory used
-	  with the ZYNQ DDR memory controller.
-
 config EDAC_HIGHBANK_MC
 	tristate "Highbank Memory Controller"
 	depends on EDAC_MM_EDAC && ARCH_HIGHBANK
@@ -392,7 +385,7 @@ config EDAC_ALTERA_MC
 
 config EDAC_SYNOPSYS
 	tristate "Synopsys DDR Memory Controller"
-	depends on EDAC_MM_EDAC && ARCH_ZYNQ
+	depends on EDAC_MM_EDAC && (ARCH_ZYNQ || ARM64)
 	help
 	  Support for error detection and correction on the Synopsys DDR
 	  memory controller.
