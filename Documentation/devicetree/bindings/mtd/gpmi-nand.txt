@@ -8,8 +8,11 @@ Required properties:
     * imx23
     * imx28
     * imx6q
+    * imx6qp
     * imx6sx
+    * imx6ul
     * imx7d
+    * imx6ull
   - reg : should contain registers location and length for gpmi and bch.
   - reg-names: Should contain the reg names "gpmi-nand" and "bch"
   - interrupts : BCH interrupt number.
