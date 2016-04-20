@@ -3660,7 +3660,17 @@ static int ad9361_validate_trx_clock_chain(struct ad9361_rf_phy *phy,
 {
 	int i, data_clk;
 
-	data_clk = (phy->pdata->rx2tx2 ? 4 : 2) * rx_path_clks[RX_SAMPL_FREQ];
+	data_clk = (phy->pdata->rx2tx2 ? 4 : 2) /
+		   ((phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE) ? 1 : 2) *
+		   rx_path_clks[RX_SAMPL_FREQ];
+
+	/* CMOS Mode */
+	if (!(phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE) &&
+		(data_clk > 61440000UL)) {
+		dev_err(&phy->spi->dev,
+			"%s: Failed CMOS MODE DATA_CLK > 61.44MSPS", __func__);
+		return -EINVAL;
+	}
 
 	for (i = 1; i <= 3; i++) {
 		if (abs(rx_path_clks[ADC_FREQ] / i - data_clk) < 4)
