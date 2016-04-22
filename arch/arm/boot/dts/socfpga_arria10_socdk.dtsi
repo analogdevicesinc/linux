@@ -126,6 +126,10 @@
 			compatible = "altr,a10sr-reset";
 			#reset-cells = <1>;
 		};
+
+		ps_alarm {
+			compatible = "altr,a10sr-hwmon";
+		};
 	};
 };
 
