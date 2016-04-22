@@ -60,13 +60,71 @@
 #define ALTR_A10SR_IN_VALID_RANGE_HI      15
 
 #define ALTR_A10SR_PWR_GOOD1_REG      0x08    /* Power Good1 Read */
+/* Power Good #1 Register Bit Definitions */
+#define ALTR_A10SR_PG1_OP_FLAG_SHIFT    7       /* Power On Complete */
+#define ALTR_A10SR_PG1_1V8_SHIFT        6       /* 1.8V Power Good */
+#define ALTR_A10SR_PG1_2V5_SHIFT        5       /* 2.5V Power Good */
+#define ALTR_A10SR_PG1_3V3_SHIFT        4       /* 3.3V Power Good */
+#define ALTR_A10SR_PG1_5V0_SHIFT        3       /* 5.0V Power Good */
+#define ALTR_A10SR_PG1_0V9_SHIFT        2       /* 0.9V Power Good */
+#define ALTR_A10SR_PG1_0V95_SHIFT       1       /* 0.95V Power Good */
+#define ALTR_A10SR_PG1_1V0_SHIFT        0       /* 1.0V Power Good */
+
 #define ALTR_A10SR_PWR_GOOD2_REG      0x0A    /* Power Good2 Read */
+/* Power Good #2 Register Bit Definitions */
+#define ALTR_A10SR_PG2_HPS_SHIFT        7       /* HPS Power Good */
+#define ALTR_A10SR_PG2_HL_HPS_SHIFT     6       /* HILOHPS_VDD Power Good */
+#define ALTR_A10SR_PG2_HL_VDD_SHIFT     5       /* HILO VDD Power Good */
+#define ALTR_A10SR_PG2_HL_VDDQ_SHIFT    4       /* HILO VDDQ Power Good */
+#define ALTR_A10SR_PG2_FMCAVADJ_SHIFT   3       /* FMCA VADJ Power Good */
+#define ALTR_A10SR_PG2_FMCBVADJ_SHIFT   2       /* FMCB VADJ Power Good */
+#define ALTR_A10SR_PG2_FAC2MP_SHIFT     1       /* FAC2MP Power Good */
+#define ALTR_A10SR_PG2_FBC2MP_SHIFT     0       /* FBC2MP Power Good */
+
 #define ALTR_A10SR_PWR_GOOD3_REG      0x0C    /* Power Good3 Read */
+/* Power Good #3 Register Bit Definitions */
+#define ALTR_A10SR_PG3_FAM2C_SHIFT      7       /* FAM2C Power Good */
+#define ALTR_A10SR_PG3_10V_FAIL_SHIFT   6       /* 10V Fail n */
+#define ALTR_A10SR_PG3_BF_PR_SHIFT      5       /* BF Present n */
+#define ALTR_A10SR_PG3_FILE_PR_SHIFT    4       /* File Present n */
+#define ALTR_A10SR_PG3_FMCA_PR_SHIFT    3       /* FMCA Present n */
+#define ALTR_A10SR_PG3_FMCB_PR_SHIFT    2       /* FMCB Present n */
+#define ALTR_A10SR_PG3_PCIE_PR_SHIFT    1       /* PCIE Present n */
+#define ALTR_A10SR_PG3_PCIE_WAKE_SHIFT  0       /* PCIe Wake N */
+
 #define ALTR_A10SR_FMCAB_REG          0x0E    /* FMCA/B & PCIe Pwr Enable */
+/* FMCA/B & PCIe Power Bit Definitions */
+#define ALTR_A10SR_PCIE_EN_SHIFT        7       /* PCIe Pwr Enable */
+#define ALTR_A10SR_PCIE_AUXEN_SHIFT     6       /* PCIe Aux Pwr Enable */
+#define ALTR_A10SR_FMCA_EN_SHIFT        5       /* FMCA Pwr Enable */
+#define ALTR_A10SR_FMCA_AUXEN_SHIFT     4       /* FMCA Aux Pwr Enable */
+#define ALTR_A10SR_FMCB_EN_SHIFT        3       /* FMCB Pwr Enable */
+#define ALTR_A10SR_FMCB_AUXEN_SHIFT     2       /* FMCB Aux Pwr Enable */
+
 #define ALTR_A10SR_HPS_RST_REG        0x10    /* HPS Reset */
+#define ALTR_A10SR_HPS_UARTA_RSTN_SHIFT 7       /* UARTA Reset n */
+#define ALTR_A10SR_HPS_WARM_RSTN_SHIFT  6       /* WARM Reset n */
+#define ALTR_A10SR_HPS_WARM_RST1N_SHIFT 5       /* WARM Reset1 n */
+#define ALTR_A10SR_HPS_COLD_RSTN_SHIFT  4       /* COLD Reset n */
+#define ALTR_A10SR_HPS_NPOR_SHIFT       3       /* N Power On Reset */
+#define ALTR_A10SR_HPS_NRST_SHIFT       2       /* N Reset */
+#define ALTR_A10SR_HPS_ENET_RSTN_SHIFT  1       /* Ethernet Reset n */
+#define ALTR_A10SR_HPS_ENET_INTN_SHIFT  0       /* Ethernet IRQ n */
+
 #define ALTR_A10SR_USB_QSPI_REG       0x12    /* USB, BQSPI, FILE Reset */
+#define ALTR_A10SR_USB_RST_SHIFT        7       /* USB Reset */
+#define ALTR_A10SR_BQSPI_RST_N_SHIFT    6       /* BQSPI Reset n */
+#define ALTR_A10SR_FILE_RST_N_SHIFT     5       /* FILE Reset n */
+#define ALTR_A10SR_PCIE_PERST_N_SHIFT   4       /* PCIe PE Reset n */
+
 #define ALTR_A10SR_SFPA_REG           0x14    /* SFPA Control Reg */
 #define ALTR_A10SR_SFPB_REG           0x16    /* SFPB Control Reg */
+/* SFPA Bit Definitions */
+#define ALTR_A10SR_SFP_TXDIS_SHIFT      7       /* SFPA TX Disable */
+#define ALTR_A10SR_SFP_RATESEL10        0x60    /* SFPA_Rate Select [1:0] */
+#define ALTR_A10SR_SFP_LOS_SHIFT        4       /* SFPA LOS */
+#define ALTR_A10SR_SFP_FAULT_SHIFT      3       /* SFPA Fault */
+
 #define ALTR_A10SR_I2C_M_REG          0x18    /* I2C Master Select */
 #define ALTR_A10SR_WARM_RST_REG       0x1A    /* HPS Warm Reset */
 #define ALTR_A10SR_WR_KEY_REG         0x1C    /* HPS Warm Reset Key */
