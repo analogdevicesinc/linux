@@ -121,6 +121,10 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 		};
+
+		ps_alarm {
+			compatible = "altr,a10sr-hwmon";
+		};
 	};
 };
 
