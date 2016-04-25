@@ -176,8 +176,8 @@
 
 	ldr	r7, [r9, #ANADIG_DIGPROG]
 	and	r7, r7, #0x11
-	cmp	r7, #0x10
-	beq	20f
+	cmp	r7, #0x11
+	bne	20f
 
 	ldr	r7, =0x0
 	str	r7, [r5, #DDRPHY_CA_WLDSKEW_CON0]
@@ -306,8 +306,8 @@
 
 	ldr	r7, [r9, #ANADIG_DIGPROG]
 	and	r7, r7, #0x11
-	cmp	r7, #0x10
-	beq	22f
+	cmp	r7, #0x11
+	bne	22f
 
 	ldr	r7, =0x1d1d1d1d
 	str	r7, [r5, #DDRPHY_CA_WLDSKEW_CON0]
