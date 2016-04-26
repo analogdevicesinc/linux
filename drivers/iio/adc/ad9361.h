@@ -2800,6 +2800,9 @@
 #define MAX_CARRIER_FREQ_HZ		6000000000ULL
 #define MIN_CARRIER_FREQ_HZ		47000000ULL
 
+#define MAX_GAIN_TABLE_SIZE		90
+#define MAX_NUM_GAIN_TABLES		16 /* randomly picked */
+
 /*
  *	Driver
  */
@@ -3300,6 +3303,7 @@ struct ad9361_rf_phy {
 	struct ad9361_phy_platform_data *pdata;
 	struct ad9361_debugfs_entry debugfs_entry[177];
 	struct bin_attribute 	bin;
+	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
 	struct completion       complete;
@@ -3308,8 +3312,10 @@ struct ad9361_rf_phy {
 	u8			curr_ensm_state;
 	u8			cached_rx_rfpll_div;
 	u8			cached_tx_rfpll_div;
-	struct rx_gain_info rx_gain[RXGAIN_TBLS_END];
-	enum rx_gain_table_name current_table;
+	int			tx_quad_lpf_tia_match;
+	int			current_table;
+	struct gain_table_info  *gt_info;
+
 	bool 			ensm_pin_ctl_en;
 
 	bool			auto_cal_en;
