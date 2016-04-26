@@ -26,7 +26,6 @@
 		clock-names = "ad9361_ext_refclk";
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 
-
 		//adi,debug-mode-enable;
 		/* Digital Interface Control */
 
@@ -97,6 +96,8 @@
 		adi,tx-path-clock-frequencies = <983040000 122880000 122880000 61440000 30720000 30720000>;
 
 		/* Gain Control */
+
+		//adi,gaintable-name = "ad9361_std_gaintable";
 
 		/* adi,gc-rx[1|2]-mode:
 		 * 0 = RF_GAIN_MGC
