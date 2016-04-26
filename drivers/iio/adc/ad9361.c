@@ -5658,17 +5658,17 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 					      fract, vco_div));
 }
 
-static long ad9361_rfpll_round_rate(struct clk_hw *hw, unsigned long rate,
-				unsigned long *prate)
+static int ad9361_rfpll_determine_rate(struct clk_hw *hw,
+				  struct clk_rate_request *req)
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
-	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, rate);
+	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, req->rate);
 
-	if (ad9361_from_clk(rate) > MAX_CARRIER_FREQ_HZ ||
-		ad9361_from_clk(rate) < MIN_CARRIER_FREQ_HZ)
+	if (ad9361_from_clk(req->rate) > MAX_CARRIER_FREQ_HZ ||
+		ad9361_from_clk(req->rate) < MIN_CARRIER_FREQ_HZ)
 		return -EINVAL;
 
-	return rate;
+	return 0;
 }
 
 static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -5783,7 +5783,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 }
 
 static const struct clk_ops rfpll_clk_ops_int = {
-	.round_rate = ad9361_rfpll_round_rate,
+	.determine_rate = ad9361_rfpll_determine_rate,
 	.set_rate = ad9361_rfpll_set_rate,
 	.recalc_rate = ad9361_rfpll_recalc_rate,
 };
@@ -5805,7 +5805,7 @@ static int ad9361_rfpll_dummy_set_rate(struct clk_hw *hw, unsigned long rate,
 }
 
 static const struct clk_ops rfpll_dummy_clk_ops_int = {
-	.round_rate = ad9361_rfpll_round_rate,
+	.determine_rate = ad9361_rfpll_determine_rate,
 	.set_rate = ad9361_rfpll_dummy_set_rate,
 	.recalc_rate = ad9361_rfpll_dummy_recalc_rate,
 };
