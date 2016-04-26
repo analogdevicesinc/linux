@@ -8252,7 +8252,7 @@ static int ad9361_request_gt(struct ad9361_rf_phy *phy, char *filename)
 		name = filename;
 	}
 
-	dev_err(&phy->spi->dev, "request gaintable: %s\n", name);
+	dev_dbg(&phy->spi->dev, "request gaintable: %s\n", name);
 
 	ret = request_firmware(&fw, name, &phy->spi->dev);
 	if (ret) {
