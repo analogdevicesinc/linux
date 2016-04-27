@@ -3307,6 +3307,8 @@ struct ad9361_rf_phy {
 	struct iio_dev 		*indio_dev;
 	struct work_struct 	work;
 	struct completion       complete;
+	struct gain_table_info  *gt_info;
+	char			*bin_attr_buf;
 	u32 			ad9361_debugfs_entry_index;
 	u8 			prev_ensm_state;
 	u8			curr_ensm_state;
@@ -3314,7 +3316,6 @@ struct ad9361_rf_phy {
 	u8			cached_tx_rfpll_div;
 	int			tx_quad_lpf_tia_match;
 	int			current_table;
-	struct gain_table_info  *gt_info;
 
 	bool 			ensm_pin_ctl_en;
 
