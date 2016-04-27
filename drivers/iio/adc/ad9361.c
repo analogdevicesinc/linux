@@ -8134,7 +8134,10 @@ static struct gain_table_info * ad9361_parse_gt(struct ad9361_rf_phy *phy,
 			break;
 		}
 
-		if (line[0] == '#')
+		if (line[0] == '#') /* skip comment lines */
+			continue;
+
+		if (strstr(line, "list>")) /* skip <[/]list> */
 			continue;
 
 		if (!header_found) {
@@ -8143,7 +8146,7 @@ static struct gain_table_info * ad9361_parse_gt(struct ad9361_rf_phy *phy,
 			u64 start;
 			u64 end;
 
-			ret = sscanf(line, "<gaintable AD%i type=%s dest=%i start=%lli end=%lli>",
+			ret = sscanf(line, " <gaintable AD%i type=%s dest=%i start=%lli end=%lli>",
 				     &model , type, &dest, &start, &end);
 
 			if (ret == 5) {
@@ -8184,7 +8187,7 @@ static struct gain_table_info * ad9361_parse_gt(struct ad9361_rf_phy *phy,
 
 		if (header_found) {
 			int a,b,c,d;
-			ret = sscanf(line, "%i,%i,%i,%i", &a, &b, &c, &d);
+			ret = sscanf(line, " %i,%i,%i,%i", &a, &b, &c, &d);
 			if (ret == 4) {
 				if (i >= MAX_GAIN_TABLE_SIZE)
 					goto out;
@@ -8199,7 +8202,7 @@ static struct gain_table_info * ad9361_parse_gt(struct ad9361_rf_phy *phy,
 				table[table_num].tab[i][2] = d;
 				i++;
 				continue;
-			} else if (!strncmp(line, "</gaintable>", sizeof("</gaintable>") - 1)) {
+			} else if (strstr(line, "</gaintable>")) {
 				table[table_num].max_index = i;
 				header_found = false;
 				table_num++;
@@ -8220,6 +8223,9 @@ static struct gain_table_info * ad9361_parse_gt(struct ad9361_rf_phy *phy,
 	}
 
 done:
+	dev_dbg(&phy->spi->dev, "%s: table_num %d header_found %d",
+		__func__, table_num, header_found);
+
 	if (table_num > 0 && !header_found)
 		return table;
 	else
@@ -8294,26 +8300,33 @@ ad9361_gt_bin_write(struct file *filp, struct kobject *kobj,
 
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
-	int ret, i;
-	char name[40];
+	struct gain_table_info *table;
 
-	if (off || count > 40)
-		return -EINVAL;
-
-	for (i = 0; i < count; i++) {
-		if (!buf[i] || (buf[i] == '\n')) {
-			name[i] = 0;
-			break;
+	if (off == 0) {
+		if (phy->bin_attr_buf == NULL) {
+			phy->bin_attr_buf = devm_kzalloc(&phy->spi->dev,
+						bin_attr->size, GFP_KERNEL);
+			if (!phy->bin_attr_buf)
+				return -ENOMEM;
+		} else {
+			memset(phy->bin_attr_buf, 0, bin_attr->size);
 		}
-		name[i] = buf[i];
 	}
+
+	memcpy(phy->bin_attr_buf + off, buf, count);
+
+	if (strnstr(phy->bin_attr_buf, "</list>", off + count) == NULL)
+		return count;
+
+	table = ad9361_parse_gt(phy, phy->bin_attr_buf, off + count);
+	if (IS_ERR_OR_NULL(table))
+		return PTR_ERR(table);
 
 	mutex_lock(&phy->indio_dev->mlock);
-	ret = ad9361_request_gt(phy, name);
-	if (ret < 0) {
-		mutex_unlock(&phy->indio_dev->mlock);
-		return ret;
-	}
+	ad9361_free_gt(phy, phy->gt_info);
+
+	phy->current_table = -1;
+	phy->gt_info = table;
 
 	ad9361_load_gt(phy, ad9361_from_clk(
 		clk_get_rate(phy->clks[RX_RFPLL])),
@@ -8454,7 +8467,7 @@ static int ad9361_probe(struct spi_device *spi)
 	phy->bin_gt.attr.mode = S_IWUSR | S_IRUGO;
 	phy->bin_gt.write = ad9361_gt_bin_write;
 	phy->bin_gt.read = ad9361_gt_bin_read;
-	phy->bin_gt.size = 4096;
+	phy->bin_gt.size = 32768;
 
 	indio_dev->dev.parent = &spi->dev;
 
