@@ -56,6 +56,8 @@ drivers/clk/clk-axi-clkgen.o
 drivers/misc/mathworks/mathworks_generic_of.o
 drivers/misc/mathworks/mathworks_ip_common.o
 drivers/misc/mathworks/mathworks_ipcore.o
+drivers/misc/mathworks/mw_sharedmem_iio_channel.o
+drivers/misc/mathworks/mw_mm_iio_channel.o
 drivers/misc/mathworks/mw_stream_channel.o
 drivers/misc/mathworks/mw_stream_iio_channel.o
 
