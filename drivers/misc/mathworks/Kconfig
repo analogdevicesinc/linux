@@ -1,0 +1,95 @@
+#
+# mwgeneric driver configuration
+#
+
+menu "MathWorks IP Drivers"
+
+
+
+config MATHWORKS_IP_CORE
+	tristate "MathWorks IP Drivers"
+	depends on (OF) || PCI
+	default m
+	help
+		Say Y here if you want to add support for the MathWorks IP
+		drivers
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mathworks_ip_common
+
+if MATHWORKS_IP_CORE
+
+config MWIPCORE
+	tristate "Mathwork IP Core Driver"
+    depends on OF
+	default m
+	help
+		Say Y here if you want to add support for the MathWorks IP
+		core driver
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mwipcore
+if MWIPCORE
+
+config MWIPCORE_DMA_STREAMING
+	tristate "MathWorks DMA Streaming Driver"
+	depends on DMADEVICES
+	default m
+	help
+		Enable support for MathWorks raw DMA-based implementation
+		of streaming DMA
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mwipcore_dma_streaming
+
+config MWIPCORE_IIO_STREAMING
+	tristate "MathWorks IIO Streaming Driver"
+	depends on DMADEVICES
+	depends on IIO
+	select IIO_BUFFER
+	select IIO_BUFFER_DMAENGINE
+	default m
+	help
+		Enable support for MathWorks IIO-based implementation of
+		streaming DMA
+
+		To compile this driver as a module, choose M here:
+		the module will be called mwipcore_iio_streaming
+
+endif #if MWIPCORE
+
+config MATHWORKS_GENERIC_OF
+	tristate "MathWorks Generic OF Driver"
+	depends on OF_ADDRESS && OF_IRQ
+	default m
+	help
+		Say Y here if you want to add support for the MathWorks
+		Generic OF driver
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mathworks_generic_of
+
+config MATHWORKS_GENERIC_PCI
+	tristate "MathWorks Generic PCI Driver"
+	depends on PCI
+	default m
+	help
+		Say Y here if you want to add support for the MathWorks
+		Generic PCI driver
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mathworks_generic_pci
+				
+endif #if MWGENERIC
+endmenu
+
