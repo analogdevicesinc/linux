@@ -1,0 +1,115 @@
+/*
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx6ul-14x14-evk.dts"
+
+&cpu0 {
+	/*
+	 * on i.MX6UL, no separated VDD_ARM_IN and VDD_SOC_IN,
+	 * to align with other platform and use the same cpufreq
+	 * driver, still use the separated OPP define for arm
+	 * and soc.
+	 */
+	operating-points = <
+		/* kHz	uV */
+		696000  1275000
+		528000	1175000
+		396000	1175000
+		198000	1175000
+	>;
+	fsl,soc-operating-points = <
+		/* KHz	uV */
+		696000  1275000
+		528000	1175000
+		396000	1175000
+		198000	1175000
+	>;
+	arm-supply = <&sw1_reg>;
+	soc-supply = <&sw1_reg>;
+	fsl,arm-soc-shared = <1>;
+};
+
+&gpc {
+	fsl,ldo-bypass = <1>; /* use ldo-bypass */
+};
+
+&i2c1 {
+	pmic: pf1550@08 {
+		compatible = "fsl,pf1550";
+		interrupt-parent = <&gpio5>;
+		interrupts = <4 8>;
+		reg = <0x08>;
+		pinctrl-0 = <&pinctrl_pf1550>;
+
+		regulators {
+			compatible = "pf1550-regulator";
+
+			sw1_reg: SW1 {
+				regulator-name = "SW1";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <1387500>;
+				regulator-boot-on;
+				regulator-always-on;
+				regulator-ramp-delay = <6250>;
+			};
+
+			sw2_reg: SW2 {
+				regulator-name = "SW2";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <1387500>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			sw3_reg: SW3 {
+				regulator-name = "SW3";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			vref_reg: VREFDDR {
+				regulator-name = "VREFDDR";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			vldo1_reg: LDO1 {
+				regulator-name = "LDO1";
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+
+			vldo2_reg: LDO2 {
+				regulator-name = "LDO2";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+
+			vldo3_reg: LDO3 {
+				regulator-name = "LDO3";
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
+&sai2 {
+	status = "disabled";
+};
+
+&sound {
+	status = "disabled";
+};

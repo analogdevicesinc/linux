@@ -84,7 +84,7 @@
 		};
 	};
 
-	sound {
+	sound: sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "mx6ul-wm8960";
 		simple-audio-card,format = "i2s";
@@ -576,6 +576,12 @@
 			MX6UL_PAD_JTAG_TCK__SAI2_RX_DATA	0x11088
 			MX6UL_PAD_JTAG_TMS__SAI2_MCLK		0x17088
 			MX6UL_PAD_SNVS_TAMPER4__GPIO5_IO04	0x17059
+		>;
+	};
+
+	pinctrl_pf1550: pf1550 {
+		fsl,pins = <
+			 MX6UL_PAD_SNVS_TAMPER4__GPIO5_IO04      0x80000000
 		>;
 	};
 
