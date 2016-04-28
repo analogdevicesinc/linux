@@ -2,7 +2,20 @@
 # mwgeneric driver configuration
 #
 
-menu "Mathworks Generic IP Drivers"
+menu "Mathworks IP Drivers"
+
+config MWIPCORE
+	tristate "Mathwork IP Core Driver"
+	depends on OF
+	default m
+	help
+		Say Y here if you want to add support for the MathWorks IP
+		core driver
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mwipcore
 
 config MWGENERIC
 	tristate "Mathworks Generic Drivers"
@@ -21,7 +34,7 @@ if MWGENERIC
 
 config MWGENERIC_OF
 	tristate "Mathworks Generic OF Driver"
-	depends on OF_ADDRESS && OF_IRQ
+	depends on OF_ADDRESS && OF_IRQ && I2C
 	default m
 	help
 		Say Y here if you want to add support for the MathWorks Generic

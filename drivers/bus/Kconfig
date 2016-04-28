@@ -149,6 +149,4 @@ config VEXPRESS_CONFIG
 	  Platform configuration infrastructure for the ARM Ltd.
 	  Versatile Express.
 
-source "drivers/bus/axi4/Kconfig"
-
 endmenu
