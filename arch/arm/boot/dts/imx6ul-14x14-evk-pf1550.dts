@@ -46,8 +46,14 @@
 		reg = <0x08>;
 		pinctrl-0 = <&pinctrl_pf1550>;
 
+		onkey {
+			compatible = "fsl,pf1550-onkey";
+			linux,keycode = <KEY_POWER>;
+			wakeup;
+		};
+
 		regulators {
-			compatible = "pf1550-regulator";
+			compatible = "fsl,pf1550-regulator";
 
 			sw1_reg: SW1 {
 				regulator-name = "SW1";
