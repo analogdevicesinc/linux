@@ -4896,7 +4896,7 @@ static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
 			if (ret == 3)
 				continue;
 			else
-				tx = -1;
+				rx = -1;
 		}
 
 		if (rtx < 0) {
@@ -4949,10 +4949,16 @@ static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
 
 		ret = sscanf(line, "%d,%d", &txc, &rxc);
 		if (ret == 1) {
+			if (i >= ARRAY_SIZE(coef_tx))
+				return -EINVAL;
+
 			coef_tx[i] = coef_rx[i] = (short)txc;
 			i++;
 			continue;
 		} else if (ret == 2) {
+			if (i >= ARRAY_SIZE(coef_tx))
+				return -EINVAL;
+
 			coef_tx[i] = (short)txc;
 			coef_rx[i] = (short)rxc;
 			i++;
@@ -4960,29 +4966,36 @@ static int ad9361_parse_fir(struct ad9361_rf_phy *phy,
 		}
 	}
 
-	switch (tx) {
-	case FIR_TX1:
-	case FIR_TX2:
-	case FIR_TX1_TX2:
-		phy->tx_fir_int = tx_int;
-		ret = ad9361_load_fir_filter_coef(phy, tx, tx_gain, i, coef_tx);
+	if (tx != -1) {
+		switch (tx) {
+		case FIR_TX1:
+		case FIR_TX2:
+		case FIR_TX1_TX2:
+			phy->tx_fir_int = tx_int;
+			ret = ad9361_load_fir_filter_coef(phy, tx, tx_gain, i, coef_tx);
 
-		break;
-	default:
-		ret = -EINVAL;
+			break;
+		default:
+			ret = -EINVAL;
+		}
 	}
 
-	switch (rx | FIR_IS_RX) {
-	case FIR_RX1:
-	case FIR_RX2:
-	case FIR_RX1_RX2:
-		phy->rx_fir_dec = rx_dec;
-		ret = ad9361_load_fir_filter_coef(phy, rx | FIR_IS_RX,
-						  rx_gain, i, coef_rx);
-		break;
-	default:
-		ret = -EINVAL;
+	if (rx != -1) {
+		switch (rx | FIR_IS_RX) {
+		case FIR_RX1:
+		case FIR_RX2:
+		case FIR_RX1_RX2:
+			phy->rx_fir_dec = rx_dec;
+			ret = ad9361_load_fir_filter_coef(phy, rx | FIR_IS_RX,
+							  rx_gain, i, coef_rx);
+			break;
+		default:
+			ret = -EINVAL;
+		}
 	}
+
+	if (tx == -1 && rx == -1)
+		ret = -EINVAL;
 
 	if (ret < 0)
 		return ret;
