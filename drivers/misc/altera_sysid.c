@@ -118,13 +118,13 @@ static struct platform_driver altera_sysid_platform_driver = {
 		.owner		= THIS_MODULE,
 		.of_match_table	= of_match_ptr(altera_sysid_match),
 	},
+	.probe			= altera_sysid_probe,
 	.remove			= altera_sysid_remove,
 };
 
 static int __init altera_sysid_init(void)
 {
-	return platform_driver_probe(&altera_sysid_platform_driver,
-		altera_sysid_probe);
+	return platform_driver_register(&altera_sysid_platform_driver);
 }
 
 static void __exit altera_sysid_exit(void)
