@@ -121,6 +121,10 @@ enum pf1550_pmic_reg {
 	PF1550_CHARG_REG_LED_CNFG		= 0x9E,
 	PF1550_CHARG_REG_CHGR_KEY2		= 0x9F,
 
+	PF1550_TEST_REG_FMRADDR			= 0xC4,
+	PF1550_TEST_REG_FMRDATA			= 0xC5,
+	PF1550_TEST_REG_KEY3			= 0xDF,
+
 	PF1550_PMIC_REG_END			= 0xff,
 };
 
@@ -240,5 +244,8 @@ struct pf1550_dev {
 	struct regmap_irq_chip_data *irq_data_charger;
 	int irq;
 };
+
+int pf1550_read_otp(struct pf1550_dev *pf1550, unsigned int index,
+			unsigned int *val);
 
 #endif /* __LINUX_MFD_PF1550_H */
