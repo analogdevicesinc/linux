@@ -4,9 +4,27 @@
 
 menu "Mathworks IP Drivers"
 
+
+
+config MATHWORKS_IP_CORE
+	tristate "Mathworks IP Drivers"
+	depends on (OF_ADDRESS && OF_IRQ) || PCI
+	default m
+	help
+		Say Y here if you want to add support for the MathWorks IP
+		drivers
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mathworks_ip_common
+
+if MATHWORKS_IP_CORE
+
 config MWIPCORE
 	tristate "Mathwork IP Core Driver"
 	depends on OF
+	select MATHWORKS_IP_OF
 	default m
 	help
 		Say Y here if you want to add support for the MathWorks IP
@@ -17,46 +35,31 @@ config MWIPCORE
 		To compile this driver as a module, choose M here:
 		the module will be called mwipcore
 
-config MWGENERIC
-	tristate "Mathworks Generic Drivers"
-	depends on (OF_ADDRESS && OF_IRQ) || PCI
-	default m
-	help
-		Say Y here if you want to add support for the MathWorks Generic
-		drivers
-
-		If unsure, say N.
-
-		To compile this driver as a module, choose M here:
-		the module will be called mwgeneric_common
-
-if MWGENERIC
-
-config MWGENERIC_OF
+config MATHWORKS_GENERIC_OF
 	tristate "Mathworks Generic OF Driver"
-	depends on OF_ADDRESS && OF_IRQ && I2C
+	depends on OF_ADDRESS && OF_IRQ
 	default m
 	help
-		Say Y here if you want to add support for the MathWorks Generic
-		OF driver
+		Say Y here if you want to add support for the MathWorks
+		Generic OF driver
 
 		If unsure, say N.
 
 		To compile this driver as a module, choose M here:
-		the module will be called mwgeneric_of
+		the module will be called mathworks_generic_of
 
-config MWGENERIC_PCI
+config MATHWORKS_GENERIC_PCI
 	tristate "Mathworks Generic PCI Driver"
 	depends on PCI
 	default m
 	help
-		Say Y here if you want to add support for the MathWorks Generic
-		PCI driver
+		Say Y here if you want to add support for the MathWorks
+		Generic PCI driver
 
 		If unsure, say N.
 
 		To compile this driver as a module, choose M here:
-		the module will be called mwgeneric_pci
+		the module will be called mathworks_generic_pci
 				
 endif #if MWGENERIC
 endmenu
