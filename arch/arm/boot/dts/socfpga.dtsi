@@ -536,6 +536,18 @@
 			clocks = <&l4_main_clk>;
 		};
 
+		fpga_bridge2: fpga-bridge@ff600000 {
+			compatible = "altr,socfpga-fpga2hps-bridge";
+			reg = <0xff600000 0x100000>;
+			resets = <&rst FPGA2HPS_RESET>;
+			reset-names = "fpga2hps";
+			clocks = <&l4_main_clk>;
+		};
+
+		fpga_bridge3: fpga2sdram-bridge {
+			compatible = "altr,socfpga-fpga2sdram-bridge";
+		};
+
 		fpga_mgr: fpga-mgr@ff706000 {
 			compatible = "altr,socfpga-fpga-mgr";
 			reg = <0xff706000 0x1000
