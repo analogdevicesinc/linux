@@ -541,7 +541,7 @@
 		fpga_mgr: fpga-mgr@ff706000 {
 			compatible = "altr,socfpga-fpga-mgr";
 			reg = <0xff706000 0x1000
-			       0xffb90000 0x4>;
+			       0xffb90000 0x20>;
 			interrupts = <0 175 4>;
 		};
 
