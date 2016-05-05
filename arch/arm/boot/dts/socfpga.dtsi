@@ -522,7 +522,7 @@
 				};
 		};
 
-		fpga_bridge0: fpga_bridge@ff400000 {
+		fpga_bridge0: fpga-bridge@ff400000 {
 			compatible = "altr,socfpga-lwhps2fpga-bridge";
 			reg = <0xff400000 0x100000>;
 			resets = <&rst LWHPS2FPGA_RESET>;
@@ -530,7 +530,7 @@
 			clocks = <&l4_main_clk>;
 		};
 
-		fpga_bridge1: fpga_bridge@ff500000 {
+		fpga_bridge1: fpga-bridge@ff500000 {
 			compatible = "altr,socfpga-hps2fpga-bridge";
 			reg = <0xff500000 0x10000>;
 			resets = <&rst HPS2FPGA_RESET>;
@@ -538,7 +538,7 @@
 			clocks = <&l4_main_clk>;
 		};
 
-		fpga_mgr: fpga_mgr@ff706000 {
+		fpga_mgr: fpga-mgr@ff706000 {
 			compatible = "altr,socfpga-fpga-mgr";
 			reg = <0xff706000 0x1000
 			       0xffb90000 0x4>;
