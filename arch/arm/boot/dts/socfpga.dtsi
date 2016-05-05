@@ -92,14 +92,12 @@
 			};
 		};
 
-		base_fpga_region {
+		base_fpga_region: base-fpga-region {
 			compatible = "fpga-region";
 			fpga-mgr = <&fpga_mgr>;
-			fpga-bridges = <&fpga_bridge0>, <&fpga_bridge1>;
 
 			#address-cells = <0x1>;
 			#size-cells = <0x1>;
-			ranges = <0 0xff200000 0x100000>;
 		};
 
 		can0: can@ffc00000 {
