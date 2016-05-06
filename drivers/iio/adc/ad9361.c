@@ -4432,6 +4432,9 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 	}
 
+	ad9361_spi_write(spi, REG_FRACT_BB_FREQ_WORD_2, 0x12);
+	ad9361_spi_write(spi, REG_FRACT_BB_FREQ_WORD_3, 0x34);
+
 	ret = ad9361_set_trx_clock_chain(phy, pd->rx_path_clks,
 				   pd->tx_path_clks);
 	if (ret < 0)
