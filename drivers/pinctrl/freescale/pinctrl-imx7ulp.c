@@ -21,6 +21,58 @@
 #include "pinctrl-imx.h"
 
 enum imx7ulp_pads {
+	IMX7ULP_PAD_PTA0 = 0,
+	IMX7ULP_PAD_PTA1,
+	IMX7ULP_PAD_PTA2,
+	IMX7ULP_PAD_PTA3,
+	IMX7ULP_PAD_PTA4,
+	IMX7ULP_PAD_PTA5,
+	IMX7ULP_PAD_PTA6,
+	IMX7ULP_PAD_PTA7,
+	IMX7ULP_PAD_PTA8,
+	IMX7ULP_PAD_PTA9,
+	IMX7ULP_PAD_PTA10,
+	IMX7ULP_PAD_PTA11,
+	IMX7ULP_PAD_PTA12,
+	IMX7ULP_PAD_PTA13,
+	IMX7ULP_PAD_PTA14,
+	IMX7ULP_PAD_PTA15,
+	IMX7ULP_PAD_PTA16,
+	IMX7ULP_PAD_PTA17,
+	IMX7ULP_PAD_PTA18,
+	IMX7ULP_PAD_PTA19,
+	IMX7ULP_PAD_PTA20,
+	IMX7ULP_PAD_PTA21,
+	IMX7ULP_PAD_PTA22,
+	IMX7ULP_PAD_PTA23,
+	IMX7ULP_PAD_PTA24,
+	IMX7ULP_PAD_PTA25,
+	IMX7ULP_PAD_PTA26,
+	IMX7ULP_PAD_PTA27,
+	IMX7ULP_PAD_PTA28,
+	IMX7ULP_PAD_PTA29,
+	IMX7ULP_PAD_PTA30,
+	IMX7ULP_PAD_PTA31,
+	IMX7ULP_PAD_PTB0,
+	IMX7ULP_PAD_PTB1,
+	IMX7ULP_PAD_PTB2,
+	IMX7ULP_PAD_PTB3,
+	IMX7ULP_PAD_PTB4,
+	IMX7ULP_PAD_PTB5,
+	IMX7ULP_PAD_PTB6,
+	IMX7ULP_PAD_PTB7,
+	IMX7ULP_PAD_PTB8,
+	IMX7ULP_PAD_PTB9,
+	IMX7ULP_PAD_PTB10,
+	IMX7ULP_PAD_PTB11,
+	IMX7ULP_PAD_PTB12,
+	IMX7ULP_PAD_PTB13,
+	IMX7ULP_PAD_PTB14,
+	IMX7ULP_PAD_PTB15,
+	IMX7ULP_PAD_PTB16,
+	IMX7ULP_PAD_PTB17,
+	IMX7ULP_PAD_PTB18,
+	IMX7ULP_PAD_PTB19 = 51,
 	IMX7ULP_PAD_PTC0 = 0,
 	IMX7ULP_PAD_PTC1,
 	IMX7ULP_PAD_PTC2,
@@ -140,7 +192,63 @@ enum imx7ulp_pads {
 };
 
 /* Pad names for the pinmux subsystem */
-static const struct pinctrl_pin_desc imx7ulp_pinctrl_pads[] = {
+static const struct pinctrl_pin_desc imx7ulp_pinctrl_pads_0[] = {
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA0),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA1),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA2),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA3),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA4),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA5),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA6),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA7),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA8),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA9),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA10),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA11),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA12),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA13),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA14),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA15),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA16),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA17),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA18),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA19),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA20),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA21),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA22),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA23),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA24),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA25),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA26),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA27),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA28),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA29),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA30),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTA31),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB0),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB1),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB2),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB3),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB4),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB5),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB6),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB7),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB8),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB9),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB10),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB11),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB12),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB13),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB14),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB15),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB16),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB17),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB18),
+	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTB19),
+};
+
+/* Pad names for the pinmux subsystem */
+static const struct pinctrl_pin_desc imx7ulp_pinctrl_pads_1[] = {
 	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTC0),
 	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTC1),
 	IMX_PINCTRL_PIN(IMX7ULP_PAD_PTC2),
@@ -325,9 +433,9 @@ static int imx7ulp_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-static struct imx_pinctrl_soc_info imx7ulp_pinctrl_info = {
-	.pins = imx7ulp_pinctrl_pads,
-	.npins = ARRAY_SIZE(imx7ulp_pinctrl_pads),
+static struct imx_pinctrl_soc_info imx7ulp_pinctrl_info_0 = {
+	.pins = imx7ulp_pinctrl_pads_0,
+	.npins = ARRAY_SIZE(imx7ulp_pinctrl_pads_0),
 	.flags = ZERO_OFFSET_VALID | SHARE_MUX_CONF_REG,
 	.gpio_set_direction = imx7ulp_pmx_gpio_set_direction,
 	.mux_mask = BM_MUX_MODE,
@@ -338,15 +446,54 @@ static struct imx_pinctrl_soc_info imx7ulp_pinctrl_info = {
 	.fixup = imx7ulp_cfg_params_fixup,
 };
 
-static const struct of_device_id imx7ulp_pinctrl_of_match[] = {
-	{ .compatible = "fsl,imx7ulp-iomuxc1", },
+static struct imx_pinctrl_soc_info imx7ulp_pinctrl_info_1 = {
+	.pins = imx7ulp_pinctrl_pads_1,
+	.npins = ARRAY_SIZE(imx7ulp_pinctrl_pads_1),
+	.flags = ZERO_OFFSET_VALID | SHARE_MUX_CONF_REG,
+	.gpio_set_direction = imx7ulp_pmx_gpio_set_direction,
+	.mux_mask = BM_MUX_MODE,
+	.mux_shift = BP_MUX_MODE,
+	.generic_pinconf = true,
+	.decodes = imx7ulp_cfg_decodes,
+	.num_decodes = ARRAY_SIZE(imx7ulp_cfg_decodes),
+	.fixup = imx7ulp_cfg_params_fixup,
+};
+
+static struct of_device_id imx7ulp_pinctrl_of_match[] = {
+	{ .compatible = "fsl,imx7ulp-iomuxc-0", .data = &imx7ulp_pinctrl_info_0 },
+	{ .compatible = "fsl,imx7ulp-iomuxc-1", .data = &imx7ulp_pinctrl_info_1,},
 	{ /* sentinel */ }
 };
 
 static int imx7ulp_pinctrl_probe(struct platform_device *pdev)
 {
-	return imx_pinctrl_probe(pdev, &imx7ulp_pinctrl_info);
+	const struct of_device_id *match;
+	struct imx_pinctrl_soc_info *pinctrl_info;
+
+	match = of_match_device(imx7ulp_pinctrl_of_match, &pdev->dev);
+
+	if (!match)
+		return -ENODEV;
+
+	pinctrl_info = (struct imx_pinctrl_soc_info *) match->data;
+
+	return imx_pinctrl_probe(pdev, pinctrl_info);
 }
+
+static int __maybe_unused imx7ulp_pinctrl_suspend(struct device *dev)
+{
+	return imx_pinctrl_suspend(dev);
+}
+
+static int __maybe_unused imx7ulp_pinctrl_resume(struct device *dev)
+{
+	return imx_pinctrl_resume(dev);
+}
+
+static const struct dev_pm_ops imx7ulp_pinctrl_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(imx7ulp_pinctrl_suspend,
+		imx7ulp_pinctrl_resume)
+};
 
 static struct platform_driver imx7ulp_pinctrl_driver = {
 	.driver = {
