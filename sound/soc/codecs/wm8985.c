@@ -348,6 +348,8 @@ static const struct snd_kcontrol_new wm8985_common_snd_controls[] = {
 	SOC_DOUBLE_R("Speaker Switch", WM8985_LOUT2_SPK_VOLUME_CTRL,
 		WM8985_ROUT2_SPK_VOLUME_CTRL, 6, 1, 1),
 
+	SOC_DOUBLE_R("Line Switch", WM8985_OUT3_MIXER_CTRL, WM8985_OUT4_MONO_MIX_CTRL, 6, 1, 1),
+
 	SOC_SINGLE("High Pass Filter Switch", WM8985_ADC_CONTROL, 8, 1, 0),
 	SOC_ENUM("High Pass Filter Mode", filter_mode),
 	SOC_SINGLE("High Pass Filter Cutoff", WM8985_ADC_CONTROL, 4, 7, 0),
@@ -398,6 +400,22 @@ static const struct snd_kcontrol_new right_out_mixer[] = {
 	SOC_DAPM_SINGLE("Aux Switch", WM8985_RIGHT_MIXER_CTRL, 5, 1, 0),
 };
 
+static const struct snd_kcontrol_new left_out3_mixer[] = {
+	SOC_DAPM_SINGLE("LDAC Switch", WM8985_OUT3_MIXER_CTRL, 0, 1, 0),
+	SOC_DAPM_SINGLE("LMIX Switch", WM8985_OUT3_MIXER_CTRL, 1, 1, 0),
+	SOC_DAPM_SINGLE("LADC Switch", WM8985_OUT3_MIXER_CTRL, 2, 1, 0),
+	SOC_DAPM_SINGLE("OUT4 Switch", WM8985_OUT3_MIXER_CTRL, 3, 1, 0),
+};
+
+static const struct snd_kcontrol_new right_out4_mixer[] = {
+	SOC_DAPM_SINGLE("RDAC Switch", WM8985_OUT4_MONO_MIX_CTRL, 0, 1, 0),
+	SOC_DAPM_SINGLE("RMIX Switch", WM8985_OUT4_MONO_MIX_CTRL, 1, 1, 0),
+	SOC_DAPM_SINGLE("RADC Switch", WM8985_OUT4_MONO_MIX_CTRL, 2, 1, 0),
+	SOC_DAPM_SINGLE("LDAC Switch", WM8985_OUT4_MONO_MIX_CTRL, 3, 1, 0),
+	SOC_DAPM_SINGLE("LMIX Switch", WM8985_OUT4_MONO_MIX_CTRL, 4, 1, 0),
+	SOC_DAPM_SINGLE("OUT3 Switch", WM8985_OUT4_MONO_MIX_CTRL, 7, 1, 0),
+};
+
 static const struct snd_kcontrol_new left_input_mixer[] = {
 	SOC_DAPM_SINGLE("L2 Switch", WM8985_INPUT_CTRL, 2, 1, 0),
 	SOC_DAPM_SINGLE("MicN Switch", WM8985_INPUT_CTRL, 1, 1, 0),
@@ -438,6 +456,11 @@ static const struct snd_soc_dapm_widget wm8985_common_dapm_widgets[] = {
 	SND_SOC_DAPM_ADC("Right ADC", "Right Capture", WM8985_POWER_MANAGEMENT_2,
 		1, 0),
 
+	SND_SOC_DAPM_MIXER("Left Line Mixer", WM8985_POWER_MANAGEMENT_1,
+		6, 0, left_out3_mixer, ARRAY_SIZE(left_out3_mixer)),
+	SND_SOC_DAPM_MIXER("Right Line Mixer", WM8985_POWER_MANAGEMENT_1,
+		7, 0, right_out4_mixer, ARRAY_SIZE(right_out4_mixer)),
+
 	SND_SOC_DAPM_MIXER("Left Input Mixer", WM8985_POWER_MANAGEMENT_2,
 		2, 0, left_input_mixer, ARRAY_SIZE(left_input_mixer)),
 	SND_SOC_DAPM_MIXER("Right Input Mixer", WM8985_POWER_MANAGEMENT_2,
@@ -458,6 +481,11 @@ static const struct snd_soc_dapm_widget wm8985_common_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("Right Speaker Out", WM8985_POWER_MANAGEMENT_3,
 		6, 0, NULL, 0),
 
+	SND_SOC_DAPM_PGA("Left Line Out", WM8985_POWER_MANAGEMENT_3,
+		7, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("Right Line Out", WM8985_POWER_MANAGEMENT_3,
+		8, 0, NULL, 0),
+
 	SND_SOC_DAPM_SUPPLY("Mic Bias", WM8985_POWER_MANAGEMENT_1, 4, 0,
 			    NULL, 0),
 
@@ -470,7 +498,9 @@ static const struct snd_soc_dapm_widget wm8985_common_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("HPL"),
 	SND_SOC_DAPM_OUTPUT("HPR"),
 	SND_SOC_DAPM_OUTPUT("SPKL"),
-	SND_SOC_DAPM_OUTPUT("SPKR")
+	SND_SOC_DAPM_OUTPUT("SPKR"),
+	SND_SOC_DAPM_OUTPUT("LINEL"),
+	SND_SOC_DAPM_OUTPUT("LINER")
 };
 
 static const struct snd_soc_dapm_widget wm8985_dapm_widgets[] = {
@@ -511,6 +541,9 @@ static const struct snd_soc_dapm_route wm8985_common_dapm_routes[] = {
 	{ "Left Output Mixer", "PCM Switch", "Left DAC" },
 	{ "Left Output Mixer", "Line Switch", "Left Boost Mixer" },
 
+	{ "Right Line Mixer", "RDAC Switch", "LINER" },
+	{ "Left Line Mixer", "LDAC Switch", "LINEL" },
+
 	{ "Right Headphone Out", NULL, "Right Output Mixer" },
 	{ "HPR", NULL, "Right Headphone Out" },
 
@@ -522,6 +555,12 @@ static const struct snd_soc_dapm_route wm8985_common_dapm_routes[] = {
 
 	{ "Left Speaker Out", NULL, "Left Output Mixer" },
 	{ "SPKL", NULL, "Left Speaker Out" },
+
+	{ "Right Line Out", NULL, "Right Line Mixer" },
+	{ "LINER", NULL, "Right Line Out" },
+
+	{ "Left Line Out", NULL, "Left Line Mixer" },
+	{ "LINEL", NULL, "Left Line Out" },
 
 	{ "Right ADC", NULL, "Right Boost Mixer" },
 
