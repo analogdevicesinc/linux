@@ -1,18 +1,17 @@
 /*
- *  Copyright (C) 2012 Altera <www.altera.com>
+ * Copyright Altera Corporation (C) 2012-2014. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "skeleton.dtsi"
@@ -91,6 +90,16 @@
 				clocks = <&l4_main_clk>;
 				clock-names = "apb_pclk";
 			};
+		};
+
+		base_fpga_region {
+			compatible = "fpga-region";
+			fpga-mgr = <&fpga_mgr>;
+			fpga-bridges = <&fpga_bridge0>, <&fpga_bridge1>;
+
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
+			ranges = <0 0xff200000 0x100000>;
 		};
 
 		can0: can@ffc00000 {
@@ -513,10 +522,26 @@
 				};
 		};
 
-		fpgamgr0: fpgamgr@ff706000 {
+		fpga_bridge0: fpga_bridge@ff400000 {
+			compatible = "altr,socfpga-lwhps2fpga-bridge";
+			reg = <0xff400000 0x100000>;
+			resets = <&rst LWHPS2FPGA_RESET>;
+			reset-names = "lwhps2fpga";
+			clocks = <&l4_main_clk>;
+		};
+
+		fpga_bridge1: fpga_bridge@ff500000 {
+			compatible = "altr,socfpga-hps2fpga-bridge";
+			reg = <0xff500000 0x10000>;
+			resets = <&rst HPS2FPGA_RESET>;
+			reset-names = "hps2fpga";
+			clocks = <&l4_main_clk>;
+		};
+
+		fpga_mgr: fpga_mgr@ff706000 {
 			compatible = "altr,socfpga-fpga-mgr";
 			reg = <0xff706000 0x1000
-			       0xffb90000 0x1000>;
+			       0xffb90000 0x4>;
 			interrupts = <0 175 4>;
 		};
 
@@ -657,7 +682,7 @@
 		};
 
 		L2: l2-cache@fffef000 {
-			compatible = "arm,pl310-cache";
+			compatible = "arm,pl310-cache", "syscon";
 			reg = <0xfffef000 0x1000>;
 			interrupts = <0 38 0x04>;
 			cache-unified;
@@ -707,6 +732,97 @@
 			interrupts = <0 39 4>;
 		};
 
+		nand: nand@ff900000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "denali,denali-nand-dt";
+			reg = <0xff900000 0x100000>, <0xffb80000 0x10000>;
+			reg-names = "nand_data", "denali_reg";
+			interrupts = <0 144 4>;
+			dma-mask = <0xffffffff>;
+			clocks = <&nand_clk>;
+			have-hw-ecc-fixup;
+			status = "disabled";
+
+			partition@nand-boot {
+				/* 8MB for raw data. */
+				label = "NAND Flash Boot Area 8MB";
+				reg = <0x0 0x800000>;
+			};
+			partition@nand-rootfs {
+				/* 128MB jffs2 root filesystem. */
+				label = "NAND Flash jffs2 Root Filesystem 128MB";
+				reg = <0x800000 0x8000000>;
+			};
+			partition@nand-128 {
+				label = "NAND Flash 128 MB";
+				reg = <0x8800000 0x8000000>;
+			};
+			partition@nand-64 {
+				label = "NAND Flash 64 MB";
+				reg = <0x10800000 0x4000000>;
+			};
+			partition@nand-32 {
+				label = "NAND Flash 32 MB";
+				reg = <0x14800000 0x2000000>;
+			};
+			partition@nand-16 {
+				label = "NAND Flash 16 MB";
+				reg = <0x16800000 0x1000000>;
+			};
+		};
+
+		pmu {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "arm,cortex-a9-pmu";
+			interrupts = <0 176 4>, <0 177 4>;
+			ranges;
+
+			cti0: cti0@ff118000 {
+				compatible = "arm,coresight-cti";
+				reg = <0xff118000 0x100>;
+			};
+
+			cti1: cti1@ff119000 {
+				compatible = "arm,coresight-cti";
+				reg = <0xff119000 0x100>;
+			};
+		};
+
+
+		l2edac@xffd08140 {
+			compatible = "altr,l2-edac";
+			reg = <0xffd08140 0x4>;
+			interrupts = <0 36 1>, <0 37 1>;
+                };
+
+		ocramedac@ffd08144 {
+			compatible = "altr,ocram-edac";
+			reg = <0xffd08144 0x4>;
+			iram = <&ocram>;
+			interrupts = <0 178 1>, <0 179 1>;
+		};
+
+		l3regs@0xff800000 {
+			compatible = "altr,l3regs", "syscon";
+			reg = <0xff800000 0x1000>;
+		};
+
+		qspi: spi@ff705000 {
+			compatible = "cdns,qspi-nor";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xff705000 0x1000>,
+				<0xffa00000 0x1000>;
+			interrupts = <0 151 4>;
+			clocks = <&qspi_clk>;
+			is-decoded-cs = <1>;
+			fifo-depth = <128>;
+			status = "disabled";
+			m25p,fast-read;
+		};
+
 		spi0: spi@fff00000 {
 			compatible = "snps,dw-apb-ssi";
 			#address-cells = <1>;
@@ -714,7 +830,9 @@
 			reg = <0xfff00000 0x1000>;
 			interrupts = <0 154 4>;
 			num-cs = <4>;
-			clocks = <&spi_m_clk>;
+			tx-dma-channel = <&pdma 16>;
+			rx-dma-channel = <&pdma 17>;
+			clocks = <&per_base_clk>;
 			status = "disabled";
 		};
 
@@ -725,7 +843,9 @@
 			reg = <0xfff01000 0x1000>;
 			interrupts = <0 155 4>;
 			num-cs = <4>;
-			clocks = <&spi_m_clk>;
+			tx-dma-channel = <&pdma 20>;
+			rx-dma-channel = <&pdma 21>;
+			clocks = <&per_base_clk>;
 			status = "disabled";
 		};
 

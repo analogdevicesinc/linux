@@ -1,0 +1,60 @@
+/*
+ * Copyright (C) 2015 Altera Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+#include "socfpga_arria10_socdk.dtsi"
+
+/ {
+	soc {
+		qspi: spi@ff809000 {
+			compatible = "cdns,qspi-nor";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xff809000 0x100>,
+				<0xffa00000 0x100000>;
+			interrupts = <0 100 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&l4_main_clk>;
+			is-decoded-cs = <1>;
+			fifo-depth = <128>;
+			status = "okay";
+			m25p,fast-read;
+
+			flash0: n25q00@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "n25q00aa";
+				reg = <0>;
+				spi-max-frequency = <100000000>;
+
+				cdns,page-size = <256>;
+				cdns,block-size = <16>;
+				cdns,tshsl-ns = <50>;
+				cdns,tsd2d-ns = <50>;
+				cdns,tchsh-ns = <4>;
+				cdns,tslch-ns = <4>;
+
+				partition@qspi-boot {
+					label = "Boot and fpga data";
+					reg = <0x0 0x2720000>;
+				};
+				partition@qspi-rootfs {
+					label = "Root Filesystem - JFFS2";
+					reg = <0x2720000 0x58E0000>;
+				};
+			};
+		};
+	};
+};

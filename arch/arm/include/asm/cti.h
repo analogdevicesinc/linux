@@ -2,7 +2,7 @@
 #define __ASMARM_CTI_H
 
 #include	<asm/io.h>
-#include	<asm/hardware/coresight.h>
+#include	<linux/coresight.h>
 
 /* The registers' definition is from section 3.2 of
  * Embedded Cross Trigger Revision: r0p0
@@ -142,7 +142,7 @@ static inline void cti_irq_ack(struct cti *cti)
  */
 static inline void cti_unlock(struct cti *cti)
 {
-	__raw_writel(CS_LAR_KEY, cti->base + LOCKACCESS);
+	__raw_writel(CORESIGHT_UNLOCK, cti->base + LOCKACCESS);
 }
 
 /**
@@ -154,6 +154,6 @@ static inline void cti_unlock(struct cti *cti)
  */
 static inline void cti_lock(struct cti *cti)
 {
-	__raw_writel(~CS_LAR_KEY, cti->base + LOCKACCESS);
+	__raw_writel(~CORESIGHT_UNLOCK, cti->base + LOCKACCESS);
 }
 #endif

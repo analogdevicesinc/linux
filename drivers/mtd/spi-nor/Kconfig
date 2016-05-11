@@ -41,4 +41,10 @@ config SPI_NXP_SPIFI
 	  Flash. Enable this option if you have a device with a SPIFI
 	  controller and want to access the Flash as a mtd device.
 
+config SPI_CADENCE_QUADSPI
+	tristate "Cadence Quad SPI controller"
+	depends on ARCH_SOCFPGA
+	help
+	  This enables support for the Cadence Quad SPI controller and NOR flash.
+
 endif # MTD_SPI_NOR

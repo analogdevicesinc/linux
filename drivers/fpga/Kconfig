@@ -13,6 +13,13 @@ config FPGA
 
 if FPGA
 
+config FPGA_REGION
+       bool "FPGA Region"
+       depends on OF
+       help
+	 FPGA Regions allow loading FPGA images under control of
+	 the Device Tree.
+
 config FPGA_MGR_SOCFPGA
 	tristate "Altera SOCFPGA FPGA Manager"
 	depends on ARCH_SOCFPGA
@@ -23,6 +30,20 @@ config FPGA_MGR_ZYNQ_FPGA
 	tristate "Xilinx Zynq FPGA"
 	help
 	  FPGA manager driver support for Xilinx Zynq FPGAs.
+
+config FPGA_BRIDGE
+       bool "FPGA Bridge Framework"
+       depends on OF
+       help
+         Say Y here if you want to support bridges connected between host
+	 processors and FPGAs or between FPGAs.
+
+config SOCFPGA_FPGA_BRIDGE
+	bool "Altera SoCFPGA FPGA Bridges"
+	depends on ARCH_SOCFPGA && FPGA_BRIDGE
+	help
+	  Say Y to enable drivers for FPGA bridges for Altera SOCFPGA
+	  devices.
 
 endif # FPGA
 

@@ -2699,6 +2699,8 @@ static int nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 	struct mtd_oob_ops ops;
 	int ret;
 
+	nand_unlock(mtd, to, len);
+
 	nand_get_device(mtd, FL_WRITING);
 	memset(&ops, 0, sizeof(ops));
 	ops.len = len;
@@ -2824,6 +2826,8 @@ static int nand_write_oob(struct mtd_info *mtd, loff_t to,
 		return -EINVAL;
 	}
 
+	nand_unlock(mtd, to, ops->len);
+
 	nand_get_device(mtd, FL_WRITING);
 
 	switch (ops->mode) {
@@ -2896,6 +2900,8 @@ int nand_erase_nand(struct mtd_info *mtd, struct erase_info *instr,
 
 	if (check_offs_len(mtd, instr->addr, instr->len))
 		return -EINVAL;
+
+	nand_unlock(mtd, instr->addr, instr->len);
 
 	/* Grab the lock and see if the device is available */
 	nand_get_device(mtd, FL_ERASING);

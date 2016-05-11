@@ -43,8 +43,8 @@
 
 /* Common flag combinations */
 #define DW_MCI_DATA_ERROR_FLAGS	(SDMMC_INT_DRTO | SDMMC_INT_DCRC | \
-				 SDMMC_INT_HTO | SDMMC_INT_SBE  | \
-				 SDMMC_INT_EBE)
+				 SDMMC_INT_HTO | SDMMC_INT_FRUN | \
+				 SDMMC_INT_SBE  | SDMMC_INT_EBE)
 #define DW_MCI_CMD_ERROR_FLAGS	(SDMMC_INT_RTO | SDMMC_INT_RCRC | \
 				 SDMMC_INT_RESP_ERR)
 #define DW_MCI_ERROR_FLAGS	(DW_MCI_DATA_ERROR_FLAGS | \
@@ -2438,6 +2438,9 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			mci_writel(host, RINTSTS, SDMMC_INT_CD);
 			dw_mci_handle_cd(host);
 		}
+
+		if (pending & SDMMC_INT_HLE)
+			mci_writel(host, RINTSTS, SDMMC_INT_HLE);
 
 		/* Handle SDIO Interrupts */
 		for (i = 0; i < host->num_slots; i++) {

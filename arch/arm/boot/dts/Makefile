@@ -1,9 +1,15 @@
 ifeq ($(CONFIG_OF),y)
 
+ifeq ($(CONFIG_OF_OVERLAY),y)
+DTC_FLAGS += -@
+endif
+
 dtb-$(CONFIG_ARCH_ALPINE) += \
 	alpine-db.dtb
+
 dtb-$(CONFIG_MACH_ASM9260) += \
 	alphascale-asm9260-devkit.dtb
+
 # Keep at91 dtb files sorted alphabetically for each SoC
 dtb-$(CONFIG_SOC_SAM_V4_V5) += \
 	at91rm9200ek.dtb \
@@ -556,11 +562,15 @@ dtb-$(CONFIG_ARCH_SHMOBILE_MULTI) += \
 	sh73a0-kzm9g.dtb
 dtb-$(CONFIG_ARCH_SOCFPGA) += \
 	socfpga_arria5_socdk.dtb \
+	socfpga_arria10_socdk_qspi.dtb \
+	socfpga_arria10_socdk_nand.dtb \
 	socfpga_arria10_socdk_sdmmc.dtb \
+	socfpga_arria10_swvp.dtb \
 	socfpga_cyclone5_socdk.dtb \
 	socfpga_cyclone5_de0_sockit.dtb \
 	socfpga_cyclone5_sockit.dtb \
 	socfpga_cyclone5_socrates.dtb \
+	socfpga_cyclone5_trcom.dtb \
 	socfpga_vt.dtb
 dtb-$(CONFIG_ARCH_SPEAR13XX) += \
 	spear1310-evb.dtb \

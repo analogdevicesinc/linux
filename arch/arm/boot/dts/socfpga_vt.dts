@@ -1,18 +1,17 @@
 /*
- *  Copyright (C) 2013 Altera Corporation <www.altera.com>
+ * Copyright Altera Corporation (C) 2012-2014. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /dts-v1/;
@@ -56,6 +55,35 @@
 
 		timer0@ffc08000 {
 			clock-frequency = <7000000>;
+		};
+
+		qspi: spi@ff705000 {
+			status = "okay";
+			flash0: n25q128@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "n25q128";
+				reg = <0>;      /* chip select */
+				spi-max-frequency = <100000000>;
+				page-size = <256>;
+				block-size = <16>; /* 2^16, 64KB */
+				quad = <1>;        /* 1-support quad */
+				tshsl-ns = <200>;
+				tsd2d-ns = <255>;
+				tchsh-ns = <20>;
+				tslch-ns = <20>;
+
+				partition@0 {
+					/* 8MB for raw data. */
+					label = "Flash 0 Raw Data";
+					reg = <0x0 0x800000>;
+				};
+				partition@800000 {
+					/* 8MB for jffs2 data. */
+					label = "Flash 0 jffs2 Filesystem";
+					reg = <0x800000 0x800000>;
+				};
+			};
 		};
 
 		timer1@ffc09000 {

@@ -466,8 +466,12 @@ static void fixup_phandle_references(struct check *c, struct node *dt,
 
 		refnode = get_node_by_ref(dt, m->ref);
 		if (! refnode) {
-			FAIL(c, "Reference to non-existent node or label \"%s\"\n",
-			     m->ref);
+			if (!source_is_plugin)
+				FAIL(c, "Reference to non-existent node or "
+						"label \"%s\"\n", m->ref);
+			else /* mark the entry as unresolved */
+				*((cell_t *)(prop->val.val + m->offset)) =
+					cpu_to_fdt32(0xffffffff);
 			continue;
 		}
 
@@ -652,6 +656,15 @@ static void check_obsolete_chosen_interrupt_controller(struct check *c,
 }
 TREE_WARNING(obsolete_chosen_interrupt_controller, NULL);
 
+static void check_deprecated_plugin_syntax(struct check *c,
+					   struct node *dt)
+{
+	if (deprecated_plugin_syntax_warning)
+		FAIL(c, "Use '/dts-v1/ /plugin/'; syntax. /dts-v1/; /plugin/; "
+				"is going to be removed in next versions");
+}
+TREE_WARNING(deprecated_plugin_syntax, NULL);
+
 static struct check *check_table[] = {
 	&duplicate_node_names, &duplicate_property_names,
 	&node_name_chars, &node_name_format, &property_name_chars,
@@ -669,6 +682,7 @@ static struct check *check_table[] = {
 
 	&avoid_default_addr_size,
 	&obsolete_chosen_interrupt_controller,
+	&deprecated_plugin_syntax,
 
 	&always_fail,
 };

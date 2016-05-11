@@ -45,6 +45,29 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		hps0 {
+			label = "hps_led0";
+			gpios = <&porta 0 1>;
+		};
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&portb 11 1>;
+		};
+
+		hps2 {
+			label = "hps_led2";
+			gpios = <&porta 17 1>;
+		};
+
+		hps3 {
+			label = "hps_led3";
+			gpios = <&porta 18 1>;
+		};
+	};
 };
 
 &gmac1 {
@@ -59,10 +82,39 @@
 	txc-skew-ps = <2600>;
 	rxdv-skew-ps = <0>;
 	rxc-skew-ps = <2000>;
+	max-frame-size = <3800>;
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
 };
 
 &i2c0 {
 	status = "okay";
+	speed-mode = <0>;
+
+	/*
+	 * adjust the falling times to decrease the i2c frequency to 50Khz
+	 * because the LCD module does not work at the standard 100Khz
+	 */
+	i2c-sda-falling-time-ns = <5000>;
+	i2c-scl-falling-time-ns = <5000>;
+
+	lcd: lcd@28 {
+		compatible = "newhaven,nhd-0216k3z-nsw-bbw";
+		reg = <0x28>;
+		height = <2>;
+		width = <16>;
+		brightness = <8>;
+	};
 
 	eeprom@51 {
 		compatible = "atmel,24c32";
@@ -79,6 +131,41 @@
 &mmc0 {
 	vmmc-supply = <&regulator_3_3v>;
 	vqmmc-supply = <&regulator_3_3v>;
+};
+
+&qspi {
+	status = "okay";
+	flash0: n25q512a@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "n25q512a";
+		reg = <0>;      /* chip select */
+		spi-max-frequency = <100000000>;
+
+		cdns,page-size = <256>;
+		cdns,block-size = <16>;
+		cdns,read-delay = <4>;
+		cdns,tshsl-ns = <50>;
+		cdns,tsd2d-ns = <50>;
+		cdns,tchsh-ns = <4>;
+		cdns,tslch-ns = <4>;
+
+		partition@qspi-boot {
+			/* 8MB for raw data. */
+			label = "Flash 0 Raw Data";
+			reg = <0x0 0x800000>;
+		};
+
+		partition@qspi-rootfs {
+			/* 56MB for jffs2 data. */
+			label = "Flash 0 jffs2 Filesystem";
+			reg = <0x800000 0x3800000>;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
 };
 
 &usb1 {

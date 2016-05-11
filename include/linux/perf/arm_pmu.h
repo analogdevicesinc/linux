@@ -14,6 +14,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/perf_event.h>
+#include <linux/platform_device.h>
 
 #include <asm/cputype.h>
 
@@ -28,6 +29,9 @@
 struct arm_pmu_platdata {
 	irqreturn_t (*handle_irq)(int irq, void *dev,
 				  irq_handler_t pmu_handler);
+	int (*init)(struct platform_device *pdev);
+	int (*start)(struct platform_device *pdev);
+	int (*stop)(struct platform_device *pdev);
 };
 
 #ifdef CONFIG_ARM_PMU
