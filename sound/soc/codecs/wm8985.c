@@ -898,6 +898,10 @@ static int wm8985_hw_params(struct snd_pcm_substream *substream,
 	dev_dbg(dai->dev, "Target BCLK = %uHz\n", wm8985->bclk);
 	dev_dbg(dai->dev, "SYSCLK = %uHz\n", wm8985->sysclk);
 
+	if (wm8985->sysclk != 0) {
+		wm8985_configure_bclk(dai);
+	}
+
 	return 0;
 }
 
