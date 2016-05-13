@@ -349,6 +349,7 @@ static const struct snd_kcontrol_new wm8985_common_snd_controls[] = {
 		WM8985_ROUT2_SPK_VOLUME_CTRL, 6, 1, 1),
 
 	SOC_DOUBLE_R("Line Switch", WM8985_OUT3_MIXER_CTRL, WM8985_OUT4_MONO_MIX_CTRL, 6, 1, 1),
+	SOC_DOUBLE("Line Boost Switch", WM8985_OUTPUT_CTRL0, 3, 4, 1, 1),
 
 	SOC_SINGLE("High Pass Filter Switch", WM8985_ADC_CONTROL, 8, 1, 0),
 	SOC_ENUM("High Pass Filter Mode", filter_mode),
