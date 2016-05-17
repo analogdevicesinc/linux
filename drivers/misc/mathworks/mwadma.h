@@ -30,6 +30,8 @@
 #include <linux/dma/xilinx_dma.h>
 #include "mwadma_ioctl.h"  /* IOCTL */
 
+#include <linux/mathworks/mathworks_ip.h>
+
 #define DRIVER_NAME "mwipcore"
 #define MAX_DEVICES 4
 #define MAX_CHANNELS 8
@@ -62,8 +64,8 @@ enum mwadma_chan_status {
     flushable = 0x3 /* final transfer can be flushed, assumes running */
 };
 
-
-#define	IP2DEV(x)	(x->pdev->dev)
+#define IP2DEVP(x)  (x->mw_ip_info->dev)
+#define	IP2DEV(x)	(*IP2DEVP(x))
 
 struct mwadma_slist {
     struct list_head                list;
@@ -112,17 +114,10 @@ struct mwadma_chan {
 
 struct mwadma_dev {
     const char 		    	*name;
-    struct resource 	    *mem;
-    void __iomem 		    *regs;
-    struct platform_device 	*pdev;
     struct cdev      		cdev;
-    dev_t 			        dev_id;
-    int 		        	irq;
     struct fasync_struct 	*asyncq;
     unsigned long           signal_rate;
-    dma_addr_t              phys;
-    char                    *virt;
-    size_t                  size;
+    struct mathworks_ip_info *mw_ip_info;
     /* Transmit & Receive Channels */
     struct mwadma_chan      *rx;
     struct mwadma_chan      *tx;

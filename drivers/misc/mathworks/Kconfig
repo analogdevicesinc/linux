@@ -8,7 +8,7 @@ menu "Mathworks IP Drivers"
 
 config MATHWORKS_IP_CORE
 	tristate "Mathworks IP Drivers"
-	depends on (OF_ADDRESS && OF_IRQ) || PCI
+	depends on (OF) || PCI
 	default m
 	help
 		Say Y here if you want to add support for the MathWorks IP
@@ -23,8 +23,6 @@ if MATHWORKS_IP_CORE
 
 config MWIPCORE
 	tristate "Mathwork IP Core Driver"
-	depends on OF
-	select MATHWORKS_IP_OF
 	default m
 	help
 		Say Y here if you want to add support for the MathWorks IP
