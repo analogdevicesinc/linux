@@ -556,6 +556,18 @@ struct gov_attr_set {
 	int usage_count;
 };
 
+#define gov_attr_ro(_name)						\
+static struct governor_attr _name =					\
+__ATTR(_name, 0444, show_##_name, NULL)
+
+#define gov_attr_wo(_name)						\
+static struct governor_attr _name =					\
+__ATTR(_name, 0200, NULL, store_##_name)
+
+#define gov_attr_rw(_name)						\
+static struct governor_attr _name =					\
+__ATTR(_name, 0644, show_##_name, store_##_name)
+
 /* sysfs ops for cpufreq governors */
 extern const struct sysfs_ops governor_sysfs_ops;
 

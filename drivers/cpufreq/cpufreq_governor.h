@@ -70,14 +70,6 @@ static ssize_t show_##file_name						\
 	return sprintf(buf, "%u\n", dbs_data->file_name);		\
 }
 
-#define gov_attr_ro(_name)						\
-static struct governor_attr _name =					\
-__ATTR(_name, 0444, show_##_name, NULL)
-
-#define gov_attr_rw(_name)						\
-static struct governor_attr _name =					\
-__ATTR(_name, 0644, show_##_name, store_##_name)
-
 /* Common to all CPUs of a policy */
 struct policy_dbs_info {
 	struct cpufreq_policy *policy;

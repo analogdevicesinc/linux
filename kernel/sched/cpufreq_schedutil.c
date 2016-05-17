@@ -409,15 +409,15 @@ static inline struct sugov_tunables *to_sugov_tunables(struct gov_attr_set *attr
 	return container_of(attr_set, struct sugov_tunables, attr_set);
 }
 
-static ssize_t rate_limit_us_show(struct gov_attr_set *attr_set, char *buf)
+static ssize_t show_rate_limit_us(struct gov_attr_set *attr_set, char *buf)
 {
 	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
 
 	return sprintf(buf, "%u\n", tunables->rate_limit_us);
 }
 
-static ssize_t rate_limit_us_store(struct gov_attr_set *attr_set, const char *buf,
-				   size_t count)
+static ssize_t store_rate_limit_us(struct gov_attr_set *attr_set,
+				   const char *buf, size_t count)
 {
 	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
 	struct sugov_policy *sg_policy;
@@ -434,7 +434,7 @@ static ssize_t rate_limit_us_store(struct gov_attr_set *attr_set, const char *bu
 	return count;
 }
 
-static struct governor_attr rate_limit_us = __ATTR_RW(rate_limit_us);
+gov_attr_rw(rate_limit_us);
 
 static struct attribute *sugov_attributes[] = {
 	&rate_limit_us.attr,
