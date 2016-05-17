@@ -1235,12 +1235,6 @@ static int set_quad_mode(struct spi_nor *nor, const struct flash_info *info)
 		 * so we don't use it.  I.e. return zero instead.
 		 */
 		return 0;
-		status = micron_quad_enable(nor);
-		if (status) {
-			dev_err(nor->dev, "Micron quad-read not enabled\n");
-			return -EINVAL;
-		}
-		return status;
 	default:
 		status = spansion_quad_enable(nor);
 		if (status) {
