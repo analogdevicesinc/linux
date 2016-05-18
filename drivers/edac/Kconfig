@@ -391,6 +391,13 @@ config EDAC_ALTERA_OCRAM
 	  Support for error detection and correction on the
 	  Altera On-Chip RAM Memory for Altera SoCs.
 
+config EDAC_ALTERA_NAND
+	bool "Altera NAND FIFO ECC"
+	depends on EDAC_ALTERA=y && MTD_NAND_DENALI_DT=y
+	help
+	  Support for error detection and correction on the
+	  Altera NAND FIFO Memory for Altera SoCs.
+
 config EDAC_SYNOPSYS
 	tristate "Synopsys DDR Memory Controller"
 	depends on EDAC_MM_EDAC && ARCH_ZYNQ

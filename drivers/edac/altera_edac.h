@@ -230,7 +230,12 @@ struct altr_sdram_mc_data {
 #define ALTR_A10_ECC_INITCOMPLETEB      BIT(8)
 
 #define ALTR_A10_ECC_ERRINTEN_OFST      0x10
+#define ALTR_A10_ECC_ERRINTENS_OFST     0x14
+#define ALTR_A10_ECC_ERRINTENR_OFST     0x18
 #define ALTR_A10_ECC_SERRINTEN          BIT(0)
+
+#define ALTR_A10_ECC_INTMODE_OFST       0x1C
+#define ALTR_A10_ECC_INTMODE            BIT(0)
 
 #define ALTR_A10_ECC_INTSTAT_OFST       0x20
 #define ALTR_A10_ECC_SERRPENA           BIT(0)
@@ -255,6 +260,9 @@ struct altr_sdram_mc_data {
 #define A10_SYSMGR_ECC_INTSTAT_DERR_OFST  0xA0
 #define A10_SYSMGR_ECC_INTSTAT_L2         BIT(0)
 #define A10_SYSMGR_ECC_INTSTAT_OCRAM      BIT(1)
+#define A10_SYSMGR_ECC_INTSTAT_NAND_BUF   BIT(11)
+#define A10_SYSMGR_ECC_INTSTAT_NAND_WR    BIT(12)
+#define A10_SYSMGR_ECC_INTSTAT_NAND_RD    BIT(13)
 
 #define A10_SYSGMR_MPU_CLEAR_L2_ECC_OFST  0xA8
 #define A10_SYSGMR_MPU_CLEAR_L2_ECC_SB    BIT(15)
@@ -279,6 +287,9 @@ struct altr_sdram_mc_data {
 
 /* Arria 10 OCRAM ECC Management Group Defines */
 #define ALTR_A10_OCRAM_ECC_EN_CTL       (BIT(1) | BIT(0))
+
+/* Arria 10 NAND ECC Management Group Defines */
+#define ALTR_A10_NAND_ECC_EN_CTL        BIT(0)
 
 struct altr_edac_device_dev;
 
@@ -322,5 +333,13 @@ struct altr_arria10_edac {
 	int db_irq;
 	struct list_head	a10_ecc_devices;
 };
+
+struct a10_ecc_init_vars {
+	u8 ecc_str[32];
+	u32 irq_mask;
+};
+
+/* A10 ECC Controller memory initialization timeout */
+#define ALTR_A10_ECC_INIT_WATCHDOG_10US      10000
 
 #endif	/* #ifndef _ALTERA_EDAC_H */
