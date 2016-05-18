@@ -19,6 +19,7 @@
 
 #include <asm/cacheflush.h>
 #include <linux/ctype.h>
+#include <linux/delay.h>
 #include <linux/edac.h>
 #include <linux/genalloc.h>
 #include <linux/interrupt.h>
@@ -825,9 +826,10 @@ static struct platform_driver altr_edac_device_driver = {
 };
 module_platform_driver(altr_edac_device_driver);
 
-/*********************** OCRAM EDAC Device Functions *********************/
+/*********************** A10 Shared Device Functions *********************/
 
-#ifdef CONFIG_EDAC_ALTERA_OCRAM
+#if defined(CONFIG_EDAC_ALTERA_OCRAM) || defined(CONFIG_EDAC_ALTERA_NAND)
+
 /*
  *  Test for memory's ECC dependencies upon entry because platform specific
  *  startup should have initialized the memory and enabled the ECC.
@@ -848,6 +850,26 @@ static int altr_check_ecc_deps(struct altr_edac_device_dev *device)
 	return -ENODEV;
 }
 
+static irqreturn_t altr_edac_a10_ecc_irq(struct altr_edac_device_dev *dci,
+					 bool sberr)
+{
+	void __iomem  *base = dci->base;
+
+	if (sberr) {
+		writel(ALTR_A10_ECC_SERRPENA,
+		       base + ALTR_A10_ECC_INTSTAT_OFST);
+		edac_device_handle_ce(dci->edac_dev, 0, 0, dci->edac_dev_name);
+	} else {
+		writel(ALTR_A10_ECC_DERRPENA,
+		       base + ALTR_A10_ECC_INTSTAT_OFST);
+		edac_device_handle_ue(dci->edac_dev, 0, 0, dci->edac_dev_name);
+		panic("\nEDAC:ECC_DEVICE[Uncorrectable errors]\n");
+	}
+	return IRQ_HANDLED;
+}
+#endif	/* CONFIG_EDAC_ALTERA_OCRAM || CONFIG_EDAC_ALTERA_NAND */
+
+#ifdef CONFIG_EDAC_ALTERA_OCRAM
 static void *ocram_alloc_mem(size_t size, void **other)
 {
 	struct device_node *np;
@@ -880,24 +902,6 @@ static void *ocram_alloc_mem(size_t size, void **other)
 static void ocram_free_mem(void *p, size_t size, void *other)
 {
 	gen_pool_free((struct gen_pool *)other, (u32)p, size);
-}
-
-static irqreturn_t altr_edac_a10_ecc_irq(struct altr_edac_device_dev *dci,
-					 bool sberr)
-{
-	void __iomem  *base = dci->base;
-
-	if (sberr) {
-		writel(ALTR_A10_ECC_SERRPENA,
-		       base + ALTR_A10_ECC_INTSTAT_OFST);
-		edac_device_handle_ce(dci->edac_dev, 0, 0, dci->edac_dev_name);
-	} else {
-		writel(ALTR_A10_ECC_DERRPENA,
-		       base + ALTR_A10_ECC_INTSTAT_OFST);
-		edac_device_handle_ue(dci->edac_dev, 0, 0, dci->edac_dev_name);
-		panic("\nEDAC:ECC_DEVICE[Uncorrectable errors]\n");
-	}
-	return IRQ_HANDLED;
 }
 
 const struct edac_device_prv_data ocramecc_data = {
@@ -1042,13 +1046,6 @@ const struct edac_device_prv_data a10_l2ecc_data = {
 
 /********************* Arria10 EDAC Device Functions *************************/
 
-/*
- * The Arria10 EDAC Device Functions differ from the Cyclone5/Arria5
- * because 2 IRQs are shared among the all ECC peripherals. The ECC
- * manager manages the IRQs and the children.
- * Based on xgene_edac.c peripheral code.
- */
-
 static ssize_t altr_edac_a10_device_trig(struct file *file,
 					 const char __user *user_buf,
 					 size_t count, loff_t *ppos)
@@ -1074,6 +1071,13 @@ static ssize_t altr_edac_a10_device_trig(struct file *file,
 
 	return count;
 }
+
+/*
+ * The Arria10 EDAC Device Functions differ from the Cyclone5/Arria5
+ * because 2 IRQs are shared among the all ECC peripherals. The ECC
+ * manager manages the IRQs and the children.
+ * Based on xgene_edac.c peripheral code.
+ */
 
 static irqreturn_t altr_edac_a10_irq_handler(int irq, void *dev_id)
 {
