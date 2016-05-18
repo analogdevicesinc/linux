@@ -42,3 +42,23 @@
 		};
 	};
 };
+
+&eccmgr {
+	nandecc_buf@ff8c2000 {
+		compatible = "altr,socfpga-a10-nand-buf-ecc";
+		reg = <0xff8c2000 0x400>;
+		parent = <&nand>;
+	};
+
+	nandecc_rd@ff8c2400 {
+		compatible = "altr,socfpga-a10-nand-rd-ecc";
+		reg = <0xff8c2400 0x400>;
+		parent = <&nand>;
+	};
+
+	nandecc_wr@ff8c2800 {
+		compatible = "altr,socfpga-a10-nand-wr-ecc";
+		reg = <0xff8c2800 0x400>;
+		parent = <&nand>;
+	};
+};
