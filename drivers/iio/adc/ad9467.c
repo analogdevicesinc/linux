@@ -970,7 +970,8 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 		ret = clk_prepare_enable(clk);
 		if (ret < 0)
 			return ret;
-	}
+	} else
+		return -EPROBE_DEFER;
 
 	clk = devm_clk_get(&spi->dev, "adc_clk");
 	if (!IS_ERR(clk)) {
@@ -979,7 +980,8 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 			return ret;
 
 		conv->adc_clk = clk_get_rate(clk);
-	}
+	} else
+		return -EPROBE_DEFER;
 
 #ifdef CONFIG_OF
 	if (spi->dev.of_node)
@@ -1357,6 +1359,8 @@ static int ad9467_probe(struct spi_device *spi)
 		break;
 	case CHIPID_AD9234:
 		ret = ad9680_setup(spi, 1, 1, true);
+		if (ret == -EPROBE_DEFER)
+			goto out;
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize\n");
 			ret = -EIO;
@@ -1374,6 +1378,8 @@ static int ad9467_probe(struct spi_device *spi)
 				spi->dev.of_node, "adi,master-slave-2x-quirk");
 #endif
 		ret = ad9680_setup(spi, 1, 1, false);
+		if (ret == -EPROBE_DEFER)
+			goto out;
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize\n");
 			ret = -EIO;
