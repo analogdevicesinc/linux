@@ -229,6 +229,14 @@ config AD9361_EXT_BAND_CONTROL
 	  The functionality aims at trying to be a generic approach that would
 	  potentially benefit as many designs as possible.
 
+config AD9371
+	tristate "Analog Devices AD9371 RF Transceiver driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9371 RF Transceivers. Provides direct access
+	  via sysfs.
+
 config AD6676
 	tristate "Analog Devices AD6676 Wideband IF Receiver driver"
 	depends on SPI
