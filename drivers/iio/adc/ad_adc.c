@@ -12,6 +12,8 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 
+#include <linux/clk.h>
+
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
@@ -66,6 +68,34 @@ static const struct adc_chip_info cn0363_chip_info = {
 	.num_channels = ARRAY_SIZE(cn0363_channels),
 };
 
+#define AD9361_OBS_RX_CHANNEL(_ch, _mod, _si) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _ch, \
+	.modified = (_mod == 0) ? 0 : 1, \
+	.channel2 = _mod, \
+	.address = _ch, \
+	.scan_index = _si, \
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.scan_type = { \
+		.sign = 's', \
+		.realbits = 16, \
+		.storagebits = 16, \
+		.shift = 0, \
+		.endianness = IIO_LE, \
+	}, \
+}
+
+static const struct iio_chan_spec ad9371_obs_rx_channels[] = {
+	AD9361_OBS_RX_CHANNEL(0, IIO_MOD_I, 0),
+	AD9361_OBS_RX_CHANNEL(0, IIO_MOD_Q, 1),
+};
+
+static const struct adc_chip_info ad9371_obs_rx_chip_info = {
+	.channels = ad9371_obs_rx_channels,
+	.num_channels = ARRAY_SIZE(ad9371_obs_rx_channels),
+};
+
 static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -100,6 +130,8 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 		else
 			ctrl &= ~ADI_ENABLE;
 
+		ctrl |= ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE;
+
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
 	}
 
@@ -109,10 +141,15 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 static int axiadc_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
 {
+	struct axiadc_state *st = iio_priv(indio_dev);
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = 25000;
+		if (IS_ERR(st->clk)) {
+			*val = 100000000;
+		} else {
+			*val = clk_get_rate(st->clk);
+		}
 		return IIO_VAL_INT;
 	default:
 		break;
@@ -156,6 +193,7 @@ static const struct iio_info adc_info = {
 
 static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
+	{ .compatible = "adi,axi-ad9371-obs-1.0", .data = &ad9371_obs_rx_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
@@ -173,12 +211,21 @@ static int adc_probe(struct platform_device *pdev)
 	if (!id)
 		return -ENODEV;
 	info = id->data;
-	
+
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+
+	st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
+	if (IS_ERR(st->clk)) {
+		return PTR_ERR(st->clk);
+	} else {
+		ret = clk_prepare_enable(st->clk);
+		if (ret)
+			return ret;
+	}
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
@@ -186,6 +233,8 @@ static int adc_probe(struct platform_device *pdev)
 		return PTR_ERR(st->regs);
 
 	platform_set_drvdata(pdev, indio_dev);
+
+
 
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = pdev->dev.of_node->name;
@@ -238,7 +287,7 @@ static int adc_remove(struct platform_device *pdev)
 		iio_hw_consumer_free(st->frontend);
 
 	return 0;
-} 
+}
 
 static struct platform_driver adc_driver = {
 	.driver = {
