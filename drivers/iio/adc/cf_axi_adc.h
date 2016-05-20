@@ -371,6 +371,7 @@ struct axiadc_chip_info {
 struct axiadc_state {
 	struct device 			*dev_spi;
 	struct iio_info			iio_info;
+	struct clk 			*clk;
 	void __iomem			*regs;
 	void __iomem			*slave_regs;
 	unsigned				max_usr_channel;
