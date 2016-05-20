@@ -200,11 +200,13 @@ struct cf_axi_dds_state {
 	struct device 		*dev_spi;
 	struct clk 		*clk;
 	struct cf_axi_dds_chip_info	*chip_info;
+	struct gpio_desc		*plddrbypass_gpio;
 
 	bool			has_fifo_interface;
 	bool			standalone;
 	bool			dp_disable;
 	bool			enable;
+	bool			pl_dma_fifo_en;
 
 	struct iio_info		iio_info;
 	void __iomem		*regs;

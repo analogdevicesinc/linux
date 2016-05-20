@@ -21,6 +21,9 @@
 #include <linux/dmaengine.h>
 #include <linux/spi/spi.h>
 #include <linux/clk.h>
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/of_device.h>
 #include <linux/of_dma.h>
@@ -937,6 +940,49 @@ static const struct iio_info cf_axi_dds_info = {
 	.update_scan_mode = &cf_axi_dds_update_scan_mode,
 };
 
+static ssize_t cf_axi_dds_debugfs_read(struct file *file, char __user *userbuf,
+			      size_t count, loff_t *ppos)
+{
+	struct iio_dev *indio_dev = file->private_data;
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	char buf[80];
+
+	ssize_t len = sprintf(buf, "%d\n", st->pl_dma_fifo_en);
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+static ssize_t cf_axi_dds_debugfs_write(struct file *file,
+		     const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	struct iio_dev *indio_dev = file->private_data;
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	char buf[80], *p = buf;
+	int ret;
+
+	count = min_t(size_t, count, (sizeof(buf)-1));
+	if (copy_from_user(p, userbuf, count))
+		return -EFAULT;
+
+	p[count] = 0;
+
+	ret = strtobool(p, &st->pl_dma_fifo_en);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (!IS_ERR(st->plddrbypass_gpio)) {
+		gpiod_direction_output(st->plddrbypass_gpio, !st->pl_dma_fifo_en);
+	}
+
+	return count;
+}
+
+static const struct file_operations cf_axi_dds_debugfs_fops = {
+	.open = simple_open,
+	.read = cf_axi_dds_debugfs_read,
+	.write = cf_axi_dds_debugfs_write,
+};
+
 static int dds_converter_match(struct device *dev, void *data)
 {
 	return dev->driver && dev->of_node == data;
@@ -1278,6 +1324,9 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			}
 		}
 
+		st->pl_dma_fifo_en =
+			of_property_read_bool(np, "adi,axi-pl-fifo-enable");
+
 		ret = cf_axi_dds_configure_buffer(indio_dev);
 		if (ret)
 			goto err_converter_put;
@@ -1304,6 +1353,18 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		PCORE_VERSION_MINOR(st->version),
 		PCORE_VERSION_LETTER(st->version),
 		(unsigned long long)res->start, st->regs, st->chip_info->name);
+
+	st->plddrbypass_gpio = devm_gpiod_get(&pdev->dev, "plddrbypass", GPIOD_ASIS);
+	if (!IS_ERR(st->plddrbypass_gpio)) {
+
+		if (iio_get_debugfs_dentry(indio_dev))
+				debugfs_create_file("pl_ddr_fifo_enable", 0644,
+				iio_get_debugfs_dentry(indio_dev),
+				indio_dev, &cf_axi_dds_debugfs_fops);
+
+		ret = gpiod_direction_output(st->plddrbypass_gpio, !st->pl_dma_fifo_en);
+	}
+
 
 	platform_set_drvdata(pdev, indio_dev);
 
