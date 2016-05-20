@@ -95,3 +95,5 @@ obj-$(CONFIG_XILINX_AMS) += xilinx-ams.o
 
 ad9361_drv-y := ad9361.o
 obj-$(CONFIG_AD9361) += ad9361_drv.o
+
+obj-$(CONFIG_AD9371) += ad9371.o ad9371_conv.o mykonos/common.o  mykonos/mykonos.o  mykonos/mykonos_gpio.o  mykonos/mykonos_user.o
