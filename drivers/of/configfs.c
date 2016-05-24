@@ -45,7 +45,7 @@ static int create_overlay(struct cfs_overlay_item *overlay, void *blob)
 	int err;
 
 	/* unflatten the tree */
-	of_fdt_unflatten_tree(blob, NULL, &overlay->overlay);
+	of_fdt_unflatten_tree(blob, &overlay->overlay);
 	if (overlay->overlay == NULL) {
 		pr_err("%s: failed to unflatten tree\n", __func__);
 		err = -EINVAL;
