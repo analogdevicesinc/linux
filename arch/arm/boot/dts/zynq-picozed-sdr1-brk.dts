@@ -46,25 +46,25 @@
 
 		pb0 {
 			label = "Left";
-			linux,code = <105>; // Left
+			linux,code = <105>;
 			gpios = <&gpio0 54 0>;
 		};
 
 		pb1 {
 			label = "Right";
-			linux,code = <106>; // Right
+			linux,code = <106>;
 			gpios = <&gpio0 55 0>;
 		};
 
 		pb2 {
-			label = "Select";
-			linux,code = <28>; // Enter
+			label = "Up";
+			linux,code = <103>;
 			gpios = <&gpio0 56 0>;
 		};
 
-		pb4 {
-			label = "Select";
-			linux,code = <28>; // Enter
+		pb3 {
+			label = "Down";
+			linux,code = <108>;
 			gpios = <&gpio0 57 0>;
 		};
 	};
