@@ -67,5 +67,29 @@
 			linux,code = <108>;
 			gpios = <&gpio0 57 0>;
 		};
+
+		sw1 {
+			label = "F1";
+			linux,code = <59>;
+			gpios = <&gpio0 62 0>;
+		};
+
+		sw2 {
+			label = "F2";
+			linux,code = <60>;
+			gpios = <&gpio0 63 0>;
+		};
+
+		sw3 {
+			label = "F3";
+			linux,code = <61>;
+			gpios = <&gpio0 64 0>;
+		};
+
+		sw4 {
+			label = "F4";
+			linux,code = <62>;
+			gpios = <&gpio0 65 0>;
+		};
 	};
 };
