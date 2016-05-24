@@ -68,27 +68,31 @@
 			gpios = <&gpio0 57 0>;
 		};
 
-		sw1 {
-			label = "F1";
-			linux,code = <59>;
+		sw0 {
+			label = "SW0";
+			linux,input-type = <5>;
+			linux,code = <0>;
 			gpios = <&gpio0 62 0>;
 		};
 
-		sw2 {
-			label = "F2";
-			linux,code = <60>;
+		sw1 {
+			label = "SW1";
+			linux,input-type = <5>;
+			linux,code = <1>;
 			gpios = <&gpio0 63 0>;
 		};
 
-		sw3 {
-			label = "F3";
-			linux,code = <61>;
+		sw2 {
+			label = "SW2";
+			linux,input-type = <5>;
+			linux,code = <2>;
 			gpios = <&gpio0 64 0>;
 		};
 
-		sw4 {
-			label = "F4";
-			linux,code = <62>;
+		sw3 {
+			label = "SW3";
+			linux,input-type = <5>;
+			linux,code = <3>;
 			gpios = <&gpio0 65 0>;
 		};
 	};
