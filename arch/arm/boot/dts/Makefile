@@ -580,6 +580,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-sdb-reva-wm8960.dtb \
 	imx7s-colibri-eval-v3.dtb \
 	imx7s-warp.dtb \
+	imx7d-12x12-ddr3-arm2.dtb \
 	imx7d-12x12-lpddr3-arm2.dtb \
 	imx7d-12x12-lpddr3-arm2-m4.dtb \
 	imx7d-12x12-lpddr3-arm2-ecspi.dtb \
