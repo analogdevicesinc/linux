@@ -247,7 +247,7 @@ static int fsl_asoc_card_set_bias_level(struct snd_soc_card *card,
 	struct codec_priv *codec_priv = &priv->codec_priv;
 	struct device *dev = card->dev;
 	unsigned int pll_out;
-	int ret;
+	int ret = 0;
 	int i;
 
 	rtd = snd_soc_get_pcm_runtime(card, card->dai_link[0].name);
