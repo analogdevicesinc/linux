@@ -542,8 +542,8 @@ static const struct snd_soc_dapm_route wm8985_common_dapm_routes[] = {
 	{ "Left Output Mixer", "PCM Switch", "Left DAC" },
 	{ "Left Output Mixer", "Line Switch", "Left Boost Mixer" },
 
-	{ "Right Line Mixer", "RDAC Switch", "LINER" },
-	{ "Left Line Mixer", "LDAC Switch", "LINEL" },
+	{ "Right Line Mixer", "RDAC Switch", "Right DAC" },
+	{ "Left Line Mixer", "LDAC Switch", "Left DAC" },
 
 	{ "Right Headphone Out", NULL, "Right Output Mixer" },
 	{ "HPR", NULL, "Right Headphone Out" },
