@@ -278,19 +278,19 @@
 // ad9371_gpio_18}));    // 32 + 54
 
 &trx0_ad9371 {
-	reset-gpios = <&gpio 106 0>;
-	test-gpios = <&gpio 107 0>;
-	sysref_req-gpios = <&gpio 112 0>;
-	rx2_enable-gpios = <&gpio 108 0>;
-	rx1_enable-gpios = <&gpio 109 0>;
-	tx2_enable-gpios = <&gpio 110 0>;
-	tx1_enable-gpios = <&gpio 111 0>;
+	reset-gpios = <&gpio0 106 0>;
+	test-gpios = <&gpio0 107 0>;
+	sysref_req-gpios = <&gpio0 112 0>;
+	rx2_enable-gpios = <&gpio0 108 0>;
+	rx1_enable-gpios = <&gpio0 109 0>;
+	tx2_enable-gpios = <&gpio0 110 0>;
+	tx1_enable-gpios = <&gpio0 111 0>;
 };
 
 &clk0_ad9528 {
-	reset-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio0 113 0>;
 };
 
 &axi_ad9371_core_tx {
-	plddrbypass-gpios = <&gpio 114 0>;
+	plddrbypass-gpios = <&gpio0 114 0>;
 };
