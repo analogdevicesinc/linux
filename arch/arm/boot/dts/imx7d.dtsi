@@ -205,6 +205,7 @@
 		fsl,mf-mix-wakeup-irq = <0x54010000 0xc00 0x0 0x1040640>;
 		mipi-phy-supply = <&reg_1p0d>;
 		pcie-phy-supply = <&reg_1p0d>;
+		vcc-supply = <&reg_1p2>;
 	};
 
 	iomuxc_lpsr_gpr: lpsr-gpr@30270000 {
