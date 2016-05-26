@@ -668,4 +668,8 @@ config NETDEV_LEGACY_INIT
 	  Drivers that call netdev_boot_setup_check() should select this
 	  symbol, everything else no longer needs it.
 
+config IVSHMEM_NET
+	tristate "IVSHMEM virtual network device"
+	depends on PCI
+
 endif # NETDEVICES
