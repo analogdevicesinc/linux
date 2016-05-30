@@ -309,4 +309,9 @@ struct clk *imx_clk_cpu(const char *name, const char *parent_name,
 
 int imx_update_shared_mem(struct clk_hw *hw, bool enable);
 
+static inline int clk_on_imx6sx(void)
+{
+	return of_machine_is_compatible("fsl,imx6sx");
+}
+
 #endif

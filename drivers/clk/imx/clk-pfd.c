@@ -53,7 +53,7 @@ static void clk_pfd_do_shared_clks(struct clk_hw *hw, bool enable)
 {
 	struct clk_pfd *pfd = to_clk_pfd(hw);
 
-	if (imx_src_is_m4_enabled()) {
+	if (imx_src_is_m4_enabled() && clk_on_imx6sx()) {
 #ifdef CONFIG_SOC_IMX6SX
 		if (!amp_power_mutex || !shared_mem) {
 			if (enable)
