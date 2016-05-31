@@ -47,6 +47,21 @@ config MWIPCORE_DMA_STREAMING
 		To compile this driver as a module, choose M here:
 		the module will be called mwipcore_dma_streaming
 
+config MWIPCORE_IIO_STREAMING
+	tristate "Mathworks IIO Streaming Driver"
+	depends on DMADEVICES
+	select IIO
+	select IIO_BUFFER_DMAENGINE
+	select IIO_BUFFER_DMA
+	select IIO_BUFFER
+	default m
+	help
+		Enable support for MathWorks IIO-based implementation of
+		streaming DMA
+
+		To compile this driver as a module, choose M here:
+		the module will be called mwipcore_iio_streaming
+
 endif #if MWIPCORE
 
 config MATHWORKS_GENERIC_OF
