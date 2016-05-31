@@ -7,6 +7,8 @@ obj-$(CONFIG_MATHWORKS_GENERIC_OF) += mathworks_generic_of.o
 obj-$(CONFIG_MATHWORKS_GENERIC_PCI) += mathworks_generic_pci.o
 
 obj-$(CONFIG_MWIPCORE) += mwipcore.o
+obj-$(CONFIG_MWIPCORE_DMA_STREAMING) += mwipcore_dma_streaming.o
 
-mwipcore-objs := mwadma.o
+mwipcore_dma_streaming-objs := mw_stream_channel.o
+mwipcore-objs := mathworks_ipcore.o
 
