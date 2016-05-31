@@ -2933,11 +2933,11 @@ static int adv76xx_reset(struct adv76xx_state *state)
 	if (gpio_is_valid(state->reset_gpio)) {
 		/* ADV76XX can be reset by a low reset pulse of minimum 5 ms. */
 		gpio_set_value_cansleep(state->reset_gpio, 0);
-		mdelay(10);
+		usleep_range(5000, 10000);
 		gpio_set_value_cansleep(state->reset_gpio, 1);
 		/* It is recommended to wait 5 ms after the low pulse before */
 		/* an I2C write is performed to the ADV76XX. */
-		mdelay(10);
+		usleep_range(5000, 10000);
 	}
 
 	return 0;
