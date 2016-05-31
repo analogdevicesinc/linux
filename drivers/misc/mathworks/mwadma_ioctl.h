@@ -1,4 +1,11 @@
-/* Copyright 2013-2015 The MathWorks, Inc. */
+/*
+ * MathWorks AXI DMA IOCTLs
+ *
+ * Copyright 2013-2016 The MathWorks, Inc
+ *
+ * Licensed under the GPL-2.
+ */
+
 #ifndef _MWADMA_IOCTL_H_
 #define _MWADMA_IOCTL_H_
 
