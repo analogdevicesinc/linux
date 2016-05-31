@@ -32,6 +32,22 @@ config MWIPCORE
 
 		To compile this driver as a module, choose M here:
 		the module will be called mwipcore
+if MWIPCORE
+
+config MWIPCORE_DMA_STREAMING
+	tristate "Mathworks DMA Streaming Driver"
+	depends on DMADEVICES
+	default m
+	help
+		Enable support for MathWorks raw DMA-based implementation
+		of streaming DMA
+
+		If unsure, say N.
+
+		To compile this driver as a module, choose M here:
+		the module will be called mwipcore_dma_streaming
+
+endif #if MWIPCORE
 
 config MATHWORKS_GENERIC_OF
 	tristate "Mathworks Generic OF Driver"

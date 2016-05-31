@@ -29,6 +29,8 @@
 #define	MATHWORKS_IP_DEVNAME_LEN 32
 
 
+typedef void (*devm_action_fn)(void *);
+
 struct mw_dma_info {
 	void				*virt;
 	dma_addr_t			phys;
