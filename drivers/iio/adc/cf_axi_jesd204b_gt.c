@@ -64,6 +64,7 @@ enum refclk_ppm {
 };
 
 struct jesd204b_gt_link {
+	struct device 	*dev;
 	struct clk 	*conv_clk;
 	struct clk 	*sysref_clk;
 	struct clk 	*lane_rate_div40_clk;
@@ -164,32 +165,6 @@ static struct jesd204b_gt_link* jesd204b_get_rx_link_by_lane(struct jesd204b_gt_
 	return NULL;
 }
 
-static int jesd204b_gt_drp_write(struct jesd204b_gt_state *st, unsigned lane, unsigned dest,
-				  unsigned reg, unsigned val)
-{
-	int timeout = 20;
-
-	if (dest)
-		lane = 0;
-
-	dev_vdbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
-		 __func__, lane, dest, reg, val);
-
-	jesd204b_gt_write(st, JESD204B_GT_REG_DRP_CNTRL(lane) + dest,
-			  JESD204B_GT_DRP_ADDRESS(reg) | JESD204B_GT_DRP_WDATA(val));
-
-	do {
-		if (!(jesd204b_gt_read(st, JESD204B_GT_REG_DRP_STATUS(lane) + dest) & JESD204B_GT_DRP_STATUS))
-			return 0;
-
-		mdelay(1);
-	} while (timeout--);
-
-	dev_err(st->dev, "%s: Timeout!", __func__);
-
-	return -ETIMEDOUT;
-}
-
 static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st, unsigned lane, unsigned dest,
 					 unsigned reg)
 {
@@ -210,14 +185,45 @@ static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st, unsigned 
 			continue;
 		}
 
-		dev_vdbg(st->dev, "%s: lane %d reg 0x%X val 0x%X\n",
-			 __func__, lane, reg, JESD204B_GT_TO_DRP_RDATA(val));
+		dev_dbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
+			 __func__, lane, dest, reg, JESD204B_GT_TO_DRP_RDATA(val));
 
 		return JESD204B_GT_TO_DRP_RDATA(val);
 
 	} while (timeout--);
 
 	dev_err(st->dev, "%s: Timeout!", __func__);
+	return -ETIMEDOUT;
+}
+
+static int jesd204b_gt_drp_write(struct jesd204b_gt_state *st, unsigned lane, unsigned dest,
+				  unsigned reg, unsigned val)
+{
+	int timeout = 20;
+
+	if (dest)
+		lane = 0;
+
+	dev_dbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
+		 __func__, lane, dest, reg, val);
+
+	jesd204b_gt_write(st, JESD204B_GT_REG_DRP_CNTRL(lane) + dest,
+			  JESD204B_GT_DRP_ADDRESS(reg) | JESD204B_GT_DRP_WDATA(val));
+
+	do {
+		if (!(jesd204b_gt_read(st, JESD204B_GT_REG_DRP_STATUS(lane) + dest) & JESD204B_GT_DRP_STATUS)) {
+			if (val != jesd204b_gt_drp_read(st, lane, dest, reg))
+					dev_err(st->dev, "%s: MISMATCH lane %d dest 0x%X reg 0x%X val 0x%X\n",
+				__func__, lane, dest, reg, val);
+
+			return 0;
+		}
+
+		mdelay(1);
+	} while (timeout--);
+
+	dev_err(st->dev, "%s: Timeout!", __func__);
+
 	return -ETIMEDOUT;
 }
 
@@ -553,26 +559,29 @@ static void jesd204b_gt_link_work_func(struct work_struct *work)
 {
 	struct jesd204b_gt_link *gt_link =
 		container_of(work, struct jesd204b_gt_link, work);
+	unsigned long div40_rate;
 	int ret;
 
-
 	if (!IS_ERR(gt_link->lane_rate_div40_clk)) {
+
+		div40_rate = gt_link->lane_rate * (1000 / 40);
+
+		dev_dbg(gt_link->dev, "%s: setting MMCM on %s rate %lu\n",
+			__func__, gt_link->tx_offset ? "TX" : "RX", div40_rate);
+
 		if (__clk_is_enabled(gt_link->lane_rate_div40_clk))
 			clk_disable_unprepare(gt_link->lane_rate_div40_clk);
 
-		ret = clk_set_rate(gt_link->lane_rate_div40_clk,
-				   gt_link->lane_rate * (1000 / 40));
+		ret = clk_set_rate(gt_link->lane_rate_div40_clk, div40_rate);
 		if (ret < 0)
-			pr_err("%s: setting MMCM on %s rate %lu failed (%d)\n", __func__,
-				gt_link->tx_offset ? "TX" : "RX", gt_link->lane_rate * (1000 / 40), ret);
+			dev_err(gt_link->dev, "%s: setting MMCM on %s rate %lu failed (%d)\n",
+				__func__, gt_link->tx_offset ? "TX" : "RX", div40_rate, ret);
 
 		ret = clk_prepare_enable(gt_link->lane_rate_div40_clk);
 		if (ret < 0)
-			pr_err("%s: enabling MMCM rate %lu failed (%d)\n", __func__,
-				gt_link->lane_rate * (1000 / 40), ret);
-
+			dev_err(gt_link->dev, "%s: enabling MMCM rate %lu failed (%d)\n",
+				__func__, div40_rate, ret);
 	}
-
 }
 
 static int jesd204b_gt_clk_enable(struct clk_hw *hw)
@@ -580,29 +589,45 @@ static int jesd204b_gt_clk_enable(struct clk_hw *hw)
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
 	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
 	unsigned offs = gt_link->tx_offset;
-	int ret = 0;
+	int ret;
 	unsigned lane;
 
+	dev_dbg(st->dev, "%s: %s fist lane %d number of lanes %d", __func__,
+		offs ? "TX" : "RX", gt_link->first_lane, gt_link->num_lanes);
+
 	for_each_lane_of_link(st, gt_link, lane) {
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + offs, 0); /* resets (drp, pll) */
 		jesd204b_gt_write(st, JESD204B_GT_REG_GT_RSTN(lane) + offs, 0);
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN(lane) + offs, 0);
 		jesd204b_gt_write(st, JESD204B_GT_REG_USER_READY(lane) + offs, 0); /* MH */
+
+
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
+				JESD204B_GT_DRP_RSTN); /* enable (drp) FIXME */
+
+		if (!gt_link->tx_offset) {
+			jesd204b_gt_set_lpm_dfe_mode(st, gt_link->lpm_enable, lane,
+						     jesd204b_gt_pll_sel(gt_link));
+		}
+
+		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
+				JESD204B_GT_DRP_RSTN | JESD204B_GT_GT_PLL_RSTN); /* enable (drp, pll) */
+
+		jesd204b_gt_write(st, JESD204B_GT_REG_PLL_RSTN(lane) + gt_link->tx_offset,
+				JESD204B_GT_PLL_RSTN); /* enable (pll) */
 	}
 
-	mdelay(10);
+	mdelay(50);
 
 	for_each_lane_of_link(st, gt_link, lane) {
-		ret = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + offs);
-		if (JESD204B_GT_TO_PLL_LOCKED(ret) != JESD204B_GT_STATUS_PLL_LOCKED)
-			dev_err(to_clk_priv(hw)->dev, "RX PLL NOT locked! (0x%X)\n", ret);
+		jesd204b_gt_status_error(to_clk_priv(hw)->dev, offs, lane, JESD204B_GT_PLL_LOCKED(~0));
 
 		jesd204b_gt_write(st, JESD204B_GT_REG_SYSREF_CTL(lane) + offs, 0);
 		jesd204b_gt_write(st, JESD204B_GT_REG_SYNC_CTL(lane) + offs, JESD204B_GT_SYNC);
 
+		jesd204b_gt_write(st, JESD204B_GT_REG_USER_READY(lane) + offs, JESD204B_GT_USER_READY);
 		jesd204b_gt_write(st, JESD204B_GT_REG_GT_RSTN(lane) + offs, JESD204B_GT_GT_RSTN);
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN(lane) + offs, JESD204B_GT_RSTN);
-		jesd204b_gt_write(st, JESD204B_GT_REG_USER_READY(lane) + offs, JESD204B_GT_USER_READY); /* MH */
-
 	}
 
 	mdelay(40);
@@ -980,11 +1005,14 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	gt_link->lane_rate = rate;
 
-
 	for_each_lane_of_link(st, gt_link, lane) {
 
+		jesd204b_gt_write(st, JESD204B_GT_REG_USER_READY(lane) + offs, 0); /* MH */
+
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
-				  JESD204B_GT_GT_PLL_RSTN); /* resets (pll) */
+				  2); /* resets (pll) */
+		jesd204b_gt_write(st, JESD204B_GT_REG_PLL_RSTN(lane) + gt_link->tx_offset,
+				  0); /* resets (pll) */
 
 		dest = jesd204b_gt_pll_sel(gt_link);
 
@@ -994,11 +1022,6 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 				CPLL_FB_DIV_45_N1_MASK |
 				CPLL_FBDIV_N2_MASK,
 				(refclk_div << 8) | (fbdiv_45 << 7) | fbdiv);
-
-			ret = jesd204b_gt_drp_writef(st, lane, dest, RXOUT_DIV_ADDR,
-				offs ? TXOUT_DIV_MASK : RXOUT_DIV_MASK, out_div);
-
-
 		} else {
 
 			if (!pll_done) {
@@ -1014,20 +1037,19 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 				jesd204b_gt_drp_writef(st, lane, dest, QPLL_FBDIV_RATIO_ADDR,
 					QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
 
-				ret = jesd204b_gt_drp_writef(st, lane, dest, RXOUT_DIV_ADDR,
-					offs ? TXOUT_DIV_MASK : RXOUT_DIV_MASK, out_div);
-
 				pll_done = 1;
 			}
 		}
 
-
+		ret = jesd204b_gt_drp_writef(st, lane, CPLL, RXOUT_DIV_ADDR,
+				offs ? TXOUT_DIV_MASK : RXOUT_DIV_MASK, out_div);
 
 		jesd204b_gt_rxcdr_settings(st, gt_link, lane, out_div);
 
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
 				  JESD204B_GT_GT_PLL_RSTN | JESD204B_GT_GT_PLL_RSTN); /* resets (pll) */
-
+		jesd204b_gt_write(st, JESD204B_GT_REG_PLL_RSTN(lane) + gt_link->tx_offset,
+				  JESD204B_GT_PLL_RSTN); /* resets (pll) */
 	}
 
 	if (!IS_ERR(gt_link->lane_rate_div40_clk))
@@ -1348,7 +1370,7 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 		ret = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + gt_link->tx_offset);
 
 		if (JESD204B_GT_TO_PLL_LOCKED(ret) != JESD204B_GT_STATUS_PLL_LOCKED)
-			dev_err(&pdev->dev, "%s PLL NOT locked! (0x%X)\n", gt_link->tx_offset ? "TX" : "RX", ret);
+			dev_warn(&pdev->dev, "%s PLL NOT locked! (0x%X)\n", gt_link->tx_offset ? "TX" : "RX", ret);
 
 		jesd204b_gt_write(st, JESD204B_GT_REG_SYSREF_CTL(lane) + gt_link->tx_offset, 0);
 		jesd204b_gt_write(st, JESD204B_GT_REG_SYNC_CTL(lane) + gt_link->tx_offset, JESD204B_GT_SYNC);
@@ -1403,6 +1425,9 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 
 	for_each_link_of_gt(st, tmp, gt_link) {
 		struct clk *clk;
+
+		gt_link->dev = &pdev->dev;
+
 		clk = jesd204b_gt_clk_register(&pdev->dev, gt_link->node,
 					       __clk_get_name(gt_link->conv_clk),
 					       st->clk_data.clk_num, gt_link);
