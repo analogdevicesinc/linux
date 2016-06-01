@@ -73,6 +73,8 @@ struct ad9528_channel_spec {
  * @rzero_bypass_en: PLL2 loop filter Rzero bypass enable.
  * @num_channels: Array size of struct ad9528_channel_spec.
  * @channels: Pointer to channel array.
+ * @stat0_pin_sel: Status Monitor Pin 0 function selection.
+ * @stat1_pin_sel: Status Monitor Pin 1 function selection.
  * @name: Optional alternative iio device name.
  */
 
@@ -134,6 +136,9 @@ struct ad9528_platform_data {
 	struct ad9528_channel_spec	*channels;
 
 	char				name[SPI_NAME_SIZE];
+
+	unsigned char			stat0_pin_func_sel;
+	unsigned char			stat1_pin_func_sel;
 };
 
 #endif /* IIO_FREQUENCY_AD9528_H_ */
