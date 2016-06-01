@@ -59,6 +59,9 @@
 		adi,rzero = <RZERO_1850_OHM>;
 		adi,cpole1 = <CPOLE1_16_PF>;
 
+		adi,status-mon-pin0-function-select = <1>; /* PLL1 & PLL2 Locked */
+		adi,status-mon-pin1-function-select = <7>; /* REFA Correct */
+
 		ad9528_0_c13: channel@13 {
 			reg = <13>;
 			adi,extended-name = "DEV_CLK";
