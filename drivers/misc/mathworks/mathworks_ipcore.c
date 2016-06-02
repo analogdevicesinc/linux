@@ -46,6 +46,12 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
         return -ENOENT;
     }
 
+    status = of_property_read_u32(dev->of_node, "mathworks,rst-reg", &mwdev->rst_reg);
+    if(status) {
+    	/* Fall back to 0 if the property does not exist */
+    	mwdev->rst_reg = 0;
+    }
+
     mwdev->mw_ip_info->private = mwdev;
 
 	status = devm_mathworks_ip_register(mwdev->mw_ip_info);
