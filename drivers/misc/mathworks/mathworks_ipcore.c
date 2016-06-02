@@ -9,15 +9,30 @@
 
 #include "mathworks_ipcore.h"
 #include "mw_stream_channel.h"
+#include "mw_stream_iio_channel.h"
 
 #include <linux/version.h>
 
 /*
  * @brief mathworks_ipcore_of_match
  */
+
+struct mw_streamdev_info libiio_dev_info = {
+		.stream_mode = MWSTREAM_MODE_LIBIIO,
+};
+
+struct mw_streamdev_info dma_direct_dev_info = {
+		.stream_mode = MWSTREAM_MODE_DIRECT,
+};
+
+struct mw_streamdev_info nostream_dev_info = {
+		.stream_mode = MWSTREAM_MODE_NONE,
+};
+
 static const struct of_device_id mathworks_ipcore_of_match[]  = {
-    { .compatible = "mathworks,mwipcore-v2.00",},
-    { .compatible = "mathworks,mwipcore-axi4lite-v1.00",},
+	{ .compatible = "mathworks,mwipcore-v3.00", .data = &libiio_dev_info},
+	{ .compatible = "mathworks,mwipcore-v2.00", .data = &dma_direct_dev_info},
+    { .compatible = "mathworks,mwipcore-axi4lite-v1.00", .data = &nostream_dev_info},
     {},
 };
 
@@ -30,6 +45,9 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
     int                         status = 0;
     struct device 				*dev  = &op->dev;
     struct mathworks_ipcore_dev		*mwdev;
+    const struct of_device_id	*id;
+    struct mathworks_ip_ops	*ops;
+
 
     mwdev = (struct mathworks_ipcore_dev*)devm_kzalloc(dev, sizeof(struct mathworks_ipcore_dev),GFP_KERNEL);
 	if (!mwdev) {
@@ -37,7 +55,24 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
 		return -ENOMEM;
 	}
 
-    mwdev->mw_ip_info = devm_mathworks_ip_of_init(op,THIS_MODULE,&mwadma_ip_ops, true);
+	id = of_match_node(mathworks_ipcore_of_match, op->dev.of_node);
+	if (!id || !id->data)
+		return -ENODEV;
+	mwdev->info = id->data;
+
+	switch(mwdev->info->stream_mode){
+		case MWSTREAM_MODE_LIBIIO:
+			ops = &mw_stream_iio_ops;
+			break;
+
+		case MWSTREAM_MODE_DIRECT:
+		case MWSTREAM_MODE_NONE:
+		default:
+			ops = &mwadma_ip_ops;
+			break;
+	}
+
+    mwdev->mw_ip_info = devm_mathworks_ip_of_init(op,THIS_MODULE,ops, true);
     if (IS_ERR(mwdev->mw_ip_info))
     	return PTR_ERR(mwdev->mw_ip_info);
 
@@ -61,9 +96,21 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
 		return status;
 	}
    
-	status = mw_stream_channels_probe(mwdev);
-	if(status)
-		return status;
+	switch(mwdev->info->stream_mode){
+		case MWSTREAM_MODE_DIRECT:
+			status = mw_stream_channels_probe(mwdev);
+			if(status)
+				return status;
+			break;
+		case MWSTREAM_MODE_LIBIIO:
+			status = mw_stream_iio_channels_probe(mwdev);
+			if(status)
+				return status;
+			break;
+		case MWSTREAM_MODE_NONE:
+		default:
+			break;
+	}
 
     return status;
 }
