@@ -1849,11 +1849,10 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		mutex_unlock(&phy->indio_dev->mlock);
 
 		return count;
-	case DBGFS_LOOPBACK:
+	case DBGFS_LOOPBACK_TX_RX:
 		if (ret != 1)
 			return -EINVAL;
 		mutex_lock(&phy->indio_dev->mlock);
-//		ret = ad9371_bist_loopback(phy, val);
 		ret = MYKONOS_setRxFramerDataSource(phy->mykDevice, val);
 		mutex_unlock(&phy->indio_dev->mlock);
 		if (ret < 0)
@@ -1861,11 +1860,37 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
-	case DBGFS_BIST_PRBS:
+	case DBGFS_LOOPBACK_TX_OBS:
 		if (ret != 1)
 			return -EINVAL;
 		mutex_lock(&phy->indio_dev->mlock);
-//		ret = ad9371_bist_prbs(phy, val);
+		ret = MYKONOS_setObsRxFramerDataSource(phy->mykDevice, val);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_PRBS_RX:
+		if (ret != 1)
+			return -EINVAL;
+
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = MYKONOS_enableRxFramerPrbs(phy->mykDevice,
+						 (val > 0) ? val - 1 : 0, !!val);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_PRBS_OBS:
+		if (ret != 1)
+			return -EINVAL;
+
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = MYKONOS_enableObsRxFramerPrbs(phy->mykDevice,
+						    (val > 0) ? val - 1 : 0, !!val);
 		mutex_unlock(&phy->indio_dev->mlock);
 		if (ret < 0)
 			return ret;
@@ -1876,7 +1901,7 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		if (ret != 3)
 			return -EINVAL;
 		mutex_lock(&phy->indio_dev->mlock);
-		ret = MYKONOS_enableTxNco(phy->mykDevice, val, val2 / 1000, val3 / 1000);
+		ret = MYKONOS_enableTxNco(phy->mykDevice, val, val2, val3);
 		mutex_unlock(&phy->indio_dev->mlock);
 		if (ret < 0)
 			return ret;
@@ -1886,7 +1911,6 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 	default:
 		break;
 	}
-
 
 	if (entry->out_value) {
 		switch (entry->size) {
@@ -1944,8 +1968,10 @@ static int ad9371_register_debugfs(struct iio_dev *indio_dev)
 		return -ENODEV;
 
 	ad9371_add_debugfs_entry(phy, "initialize", DBGFS_INIT);
-	ad9371_add_debugfs_entry(phy, "loopback", DBGFS_LOOPBACK);
-	ad9371_add_debugfs_entry(phy, "bist_prbs", DBGFS_BIST_PRBS);
+	ad9371_add_debugfs_entry(phy, "loopback_tx_rx", DBGFS_LOOPBACK_TX_RX);
+	ad9371_add_debugfs_entry(phy, "loopback_tx_obs", DBGFS_LOOPBACK_TX_OBS);
+	ad9371_add_debugfs_entry(phy, "bist_prbs_rx", DBGFS_BIST_PRBS_RX);
+	ad9371_add_debugfs_entry(phy, "bist_prbs_obs", DBGFS_BIST_PRBS_OBS);
 	ad9371_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
 
 	for (i = 0; i < phy->ad9371_debugfs_entry_index; i++)
