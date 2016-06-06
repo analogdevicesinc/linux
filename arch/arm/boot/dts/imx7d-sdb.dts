@@ -601,7 +601,7 @@
 &lcdif {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lcdif>;
-	pinctrl-assert-gpios = <&extended_io 7 GPIO_ACTIVE_LOW>;
+	enable-gpio = <&extended_io 7 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	port {
