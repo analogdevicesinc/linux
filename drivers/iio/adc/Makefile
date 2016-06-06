@@ -28,6 +28,8 @@ obj-$(CONFIG_CF_AXI_FFT) += cf_axi_fft_core.o
 
 obj-$(CONFIG_AXI_JESD204B) += cf_axi_jesd204b.o cf_axi_jesd204b_v51.o cf_axi_jesd204b_gt.o
 
+obj-$(CONFIG_ALTERA_XCVR) += altera_xcvr.o
+
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_AXP288_ADC) += axp288_adc.o
 obj-$(CONFIG_BERLIN2_ADC) += berlin2-adc.o

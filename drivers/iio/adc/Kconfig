@@ -203,6 +203,9 @@ config CF_AXI_FFT
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
 
+config ALTERA_XCVR
+        tristate "ALTERA XCVR configuration driver"
+
 config AXP288_ADC
 	tristate "X-Powers AXP288 ADC driver"
 	depends on MFD_AXP20X
