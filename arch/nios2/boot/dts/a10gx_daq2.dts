@@ -1,0 +1,397 @@
+/dts-v1/;
+
+/ {
+	model = "ALTR,system_bd";
+	compatible = "ALTR,system_bd";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		a10gx_base_sys_cpu: cpu@0x0 {
+			device_type = "cpu";
+			compatible = "altr,nios2-15.1", "altr,nios2-1.1";
+			reg = <0x00000000>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			altr,exception-addr = <3221225504>;
+			altr,fast-tlb-miss-addr = <3491762176>;
+			altr,has-initda = <1>;
+			altr,has-mmu = <1>;
+			altr,has-mul = <1>;
+			altr,implementation = "fast";
+			altr,pid-num-bits = <8>;
+			altr,reset-addr = <3221225472>;
+			altr,tlb-num-entries = <128>;
+			altr,tlb-num-ways = <16>;
+			altr,tlb-ptr-sz = <7>;
+			clock-frequency = <100000000>;
+			dcache-line-size = <32>;
+			dcache-size = <32768>;
+			icache-line-size = <32>;
+			icache-size = <32768>;
+		};
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x10000000>,
+			<0x10140000 0x00028000>,
+			<0x10200000 0x00028000>;
+	};
+
+	sopc0: sopc@0 {
+		device_type = "soc";
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "ALTR,avalon", "simple-bus";
+		bus-frequency = <100000000>;
+
+		a10gx_base_sys_uart: serial@0x101814f0 {
+			compatible = "altr,juart-15.1", "altr,juart-1.0";
+			reg = <0x101814f0 0x00000008>;
+			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupts = <2>;
+		};
+
+		a10gx_base_sys_ethernet: ethernet@0x10181000 {
+			compatible = "altr,tse-msgdma-15.1", "altr,tse-msgdma-1.0", "altr,tse-1.0";
+			reg = <0x10181000 0x00000400>,
+				<0x101814a0 0x00000020>,
+				<0x10181440 0x00000020>,
+				<0x101814e0 0x00000008>,
+				<0x10181480 0x00000020>,
+				<0x10181460 0x00000020>;
+			reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
+			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupts = <3 1>;
+			interrupt-names = "rx_irq", "tx_irq";
+			ALTR,rx-fifo-depth = <4096>;
+			ALTR,tx-fifo-depth = <4096>;
+			rx-fifo-depth = <16384>;
+			tx-fifo-depth = <16384>;
+			address-bits = <48>;
+			max-frame-size = <1518>;
+			local-mac-address = [B2 94 3D 6E 11 8F];
+			altr,enable-sup-addr = <0>;
+			altr,enable-hash = <0>;
+			phy-mode = "sgmii";
+
+			a10gx_base_sys_ethernet_mdio: mdio {
+				compatible = "altr,tse-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				phy0: ethernet-phy@0 {
+					compatible = "marvell,88e1111";
+					reg = <0>;
+					device_type = "ethernet-phy";
+				};
+			};
+		};
+
+		a10gx_base_sys_id: sysid@0x101814e8 {
+			compatible = "altr,sysid-15.0", "altr,sysid-1.0";
+			reg = <0x101814e8 0x00000008>;
+			id = <182193580>;
+			timestamp = <1444826639>;
+		};
+
+		a10gx_base_sys_timer: timer@0x10181420 {
+			compatible = "altr,timer-15.0", "altr,timer-1.0";
+			reg = <0x10181420 0x00000020>;
+			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupts = <0>;
+			clock-frequency = <100000000>;
+		};
+
+		a10gx_base_sys_timer_2nd: timer@0x10181520 {
+			compatible = "altr,timer-15.1", "altr,timer-1.0";
+			reg = <0x10181520 0x00000020>;
+			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupts = <15>;
+			clock-frequency = <100000000>;
+		};
+
+		a10gx_base_sys_gpio_bd: gpio@0x101814d0 {
+			compatible = "altr,pio-15.1", "altr,pio-1.0";
+			reg = <0x101814d0 0x00000010>;
+			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupts = <5>;
+			altr,gpio-bank-width = <32>;
+			altr,interrupt-type = <4>;
+			altr,interrupt_type = <4>;
+			level_trigger = <1>;
+			resetvalue = <0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		a10gx_base_sys_gpio_in: gpio@0x101814c0 {
+			compatible = "altr,pio-15.1", "altr,pio-1.0";
+			reg = <0x101814c0 0x00000010>;
+			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupts = <8>;
+			altr,gpio-bank-width = <32>;
+			altr,interrupt-type = <4>;
+			altr,interrupt_type = <4>;
+			level_trigger = <1>;
+			resetvalue = <0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		a10gx_base_sys_gpio_out: gpio@0x10181500 {
+			compatible = "altr,pio-15.1", "altr,pio-1.0";
+			reg = <0x10181500 0x00000010>;
+			altr,gpio-bank-width = <32>;
+			resetvalue = <0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		clocks {
+			axi_ad9144_jesd: clock@0 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <1000000000>;
+				clock-output-names = "jesd_dac_clk";
+			};
+
+			axi_ad9680_jesd: clock@1 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <1000000000>;
+				clock-output-names = "jesd_adc_clk";
+			};
+
+			axi_dmac0_clkin: clock@2 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <250000000>;
+				clock-output-names = "axi_dmac0_clkin";
+			};
+
+			axi_dmac1_clkin: clock@3 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <250000000>;
+				clock-output-names = "axi_dmac1_clkin";
+			};
+		};
+
+		a10gx_base_sys_cpu_interconnect: bridge@0x10000000 {
+			compatible = "ALTR,avalon-15.1", "simple-bus";
+			reg = <0x10000000 0x00100000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00020000 0x10020000 0x00010000>,
+				<0x00038000 0x10038000 0x00004000>,
+				<0x00010000 0x10010000 0x00010000>,
+				<0x00034000 0x10034000 0x00004000>,
+				<0x00000000 0x10000000 0x00010000>,
+				<0x0003e400 0x1003e400 0x00000400>,
+				<0x0003e000 0x1003e000 0x00000400>,
+				<0x00030000 0x10030000 0x00004000>,
+				<0x0003d800 0x1003d800 0x00000800>,
+				<0x0003c000 0x1003c000 0x00001000>,
+				<0x0003d000 0x1003d000 0x00000800>;
+
+			axi_ad9144_core: axi-ad9144-hpc@0x20000 {
+				compatible = "adi,axi-ad9144-1.0";
+				reg = <0x00024000 0x00010000>;
+				dmas = <&daq2_axi_ad9144_dma 0>;
+				dma-names = "tx";
+				spibus-connected = <&dac0_ad9144>;
+			};
+
+			daq2_axi_ad9144_dma: daq2_axi_ad9144_dma@0x38000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00038000 0x00004000>;
+				interrupt-parent = <&a10gx_base_sys_cpu>;
+				interrupts = <7>;
+				#dma-cells = <1>;
+				clocks = <&axi_dmac1_clkin>;
+				clock-names = "axi_dmac1_clkin";
+				dma-channel {
+					adi,source-bus-width = <128>;
+					adi,destination-bus-width = <128>;
+					adi,type = <1>;
+					adi,cyclic;
+				};
+			};
+
+			axi_ad9680_core: axi-ad9680-hpc@0x10000 {
+				compatible = "adi,axi-ad9680-1.0";
+				reg = <0x00010000 0x00010000>;
+				dmas = <&daq2_axi_ad9680_dma 0>;
+				dma-names = "rx";
+				spibus-connected = <&adc0_ad9680>;
+			};
+
+			daq2_axi_ad9680_dma: daq2_axi_ad9680_dma@0x34000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00034000 0x00004000>;
+				interrupt-parent = <&a10gx_base_sys_cpu>;
+				interrupts = <6>;
+				#dma-cells = <1>;
+				clocks = <&axi_dmac0_clkin>;
+				clock-names = "axi_dmac0_clkin";
+				dma-channel {
+					adi,source-bus-width = <128>;
+					adi,destination-bus-width = <128>;
+					adi,type = <0>;
+				};
+			};
+
+			daq2_axi_jesd_xcvr: daq2_axi_jesd_xcvr@0x0 {
+				compatible = "adi,altera-xcvr-1.00.a";
+				reg = <0x00000000 0x00010000>,
+					<0x00030000 0x00004000>,
+					<0x0003c000 0x00001000>;
+				reg-names = "jesd-xcvr", "xcvr-reconfig-avmm", "xcvr-atx-pll";
+				adi,external-sysref-enable;
+				adi,tx-enable;
+				adi,tx-link-number = <0>;
+				adi,tx-lanes-per-link = <4>;
+				adi,rx-enable;
+				adi,rx-link-number = <1>;
+				adi,rx-lanes-per-link = <4>;
+			};
+		};
+
+		a10gx_base_sys_spi: spi@0x10181400 {
+			compatible = "altr,spi-15.1", "altr,spi-1.0";
+			reg = <0x10181400 0x00000020>;
+			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupts = <4>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			clk0_ad9523: ad9523-1@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				#clock-cells = <1>;
+				compatible = "ad9523-1";
+				reg = <0>;
+
+				sync-gpios = <&a10gx_base_sys_gpio_out 6 0>;
+
+				spi-max-frequency = <10000000>;
+				clock-output-names = "ad9523-1_out0", "ad9523-1_out1", "ad9523-1_out2", "ad9523-1_out3", "ad9523-1_out4", "ad9523-1_out5", "ad9523-1_out6", "ad9523-1_out7", "ad9523-1_out8", "ad9523-1_out9", "ad9523-1_out10", "ad9523-1_out11", "ad9523-1_out12", "ad9523-1_out13";
+				adi,vcxo-freq = <125000000>;
+				adi,spi-3wire-enable;
+				adi,pll1-bypass-enable;
+				adi,osc-in-diff-enable;
+
+				adi,pll2-charge-pump-current-nA = <413000>;
+				adi,pll2-ndiv-a-cnt = <0>;
+				adi,pll2-ndiv-b-cnt = <6>;
+
+				adi,pll2-r2-div = <1>;
+				adi,pll2-vco-diff-m1 = <3>;
+
+				adi,rpole2 = <0>;
+				adi,rzero = <7>;
+				adi,cpole1 = <2>;
+
+				ad9523_0_c1:channel@1 {
+					reg = <1>;
+					adi,extended-name = "ADC_CLK";
+					adi,driver-mode = <3>;
+					adi,divider-phase = <1>;
+					adi,channel-divider = <1>;
+				};
+				ad9523_0_c4:channel@4 {
+					reg = <4>;
+					adi,extended-name = "ADC_CLK_FMC";
+					adi,driver-mode = <3>;
+					adi,divider-phase = <1>;
+					adi,channel-divider = <2>;
+				};
+
+				ad9523_0_c5:channel@5 {
+					reg = <5>;
+					adi,extended-name = "ADC_SYSREF";
+					adi,driver-mode = <3>;
+					adi,divider-phase = <1>;
+					adi,channel-divider = <128>;
+				};
+
+				ad9523_0_c6:channel@6 {
+					reg = <6>;
+					adi,extended-name = "CLKD_ADC_SYSREF";
+					adi,driver-mode = <3>;
+					adi,divider-phase = <1>;
+					adi,channel-divider = <128>;
+				};
+
+				ad9523_0_c7:channel@7 {
+					reg = <7>;
+					adi,extended-name = "CLKD_DAC_SYSREF";
+					adi,driver-mode = <3>;
+					adi,divider-phase = <1>;
+					adi,channel-divider = <128>;
+				};
+
+				ad9523_0_c8:channel@8 {
+					reg = <8>;
+					adi,extended-name = "DAC_SYSREF";
+					adi,driver-mode = <3>;
+					adi,divider-phase = <1>;
+					adi,channel-divider = <128>;
+				};
+
+				ad9523_0_c9:channel@9 {
+					reg = <9>;
+					adi,extended-name = "FMC_DAC_REF_CLK";
+					adi,driver-mode = <3>;
+					adi,divider-phase = <1>;
+					adi,channel-divider = <2>;
+				};
+
+				ad9523_0_c13:channel@13 {
+					reg = <13>;
+					adi,extended-name = "DAC_CLK";
+					adi,driver-mode = <3>;
+					adi,divider-phase = <1>;
+					adi,channel-divider = <1>;
+				};
+			};
+
+			dac0_ad9144: ad9144@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "ad9144";
+				reg = <1>;
+				spi-max-frequency = <1000000>;
+				clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 8>;
+				clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+				adi,jesd-xbar-lane0-sel = <0>;
+				adi,jesd-xbar-lane1-sel = <3>;
+				adi,jesd-xbar-lane2-sel = <1>;
+				adi,jesd-xbar-lane3-sel = <2>;
+				txen-gpios = <&a10gx_base_sys_gpio_out 9 0>;
+				reset-gpios = <&a10gx_base_sys_gpio_out 8 0>;
+			};
+
+			adc0_ad9680: ad9680@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "ad9680";
+				reg = <2>;
+				spi-max-frequency = <1000000>;
+				clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 5>;
+				clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+				powerdown-gpios = <&a10gx_base_sys_gpio_out 10 0>;
+			};
+		};
+	};
+
+	chosen {
+		bootargs = "debug console=ttyJ0,115200";
+	};
+};
