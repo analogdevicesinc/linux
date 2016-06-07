@@ -46,26 +46,54 @@
 
 		pb0 {
 			label = "Left";
-			linux,code = <105>; // Left
+			linux,code = <105>;
 			gpios = <&gpio0 54 0>;
 		};
 
 		pb1 {
 			label = "Right";
-			linux,code = <106>; // Right
+			linux,code = <106>;
 			gpios = <&gpio0 55 0>;
 		};
 
 		pb2 {
-			label = "Select";
-			linux,code = <28>; // Enter
+			label = "Up";
+			linux,code = <103>;
 			gpios = <&gpio0 56 0>;
 		};
 
-		pb4 {
-			label = "Select";
-			linux,code = <28>; // Enter
+		pb3 {
+			label = "Down";
+			linux,code = <108>;
 			gpios = <&gpio0 57 0>;
+		};
+
+		sw0 {
+			label = "SW0";
+			linux,input-type = <5>;
+			linux,code = <0>;
+			gpios = <&gpio0 62 0>;
+		};
+
+		sw1 {
+			label = "SW1";
+			linux,input-type = <5>;
+			linux,code = <1>;
+			gpios = <&gpio0 63 0>;
+		};
+
+		sw2 {
+			label = "SW2";
+			linux,input-type = <5>;
+			linux,code = <2>;
+			gpios = <&gpio0 64 0>;
+		};
+
+		sw3 {
+			label = "SW3";
+			linux,input-type = <5>;
+			linux,code = <3>;
+			gpios = <&gpio0 65 0>;
 		};
 	};
 };

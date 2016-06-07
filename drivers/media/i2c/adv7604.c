@@ -167,6 +167,7 @@ struct adv76xx_state {
 	struct adv76xx_platform_data pdata;
 
 	struct gpio_desc *hpd_gpio[4];
+	struct gpio_desc *reset_gpio;
 
 	struct v4l2_subdev sd;
 	struct media_pad pads[ADV76XX_PAD_MAX];
@@ -190,8 +191,6 @@ struct adv76xx_state {
 	struct workqueue_struct *work_queues;
 	struct delayed_work delayed_work_enable_hotplug;
 	bool restart_stdi_once;
-
-	int reset_gpio;
 
 	/* i2c clients */
 	struct i2c_client *i2c_clients[ADV76XX_PAGE_MAX];
@@ -2857,7 +2856,7 @@ static int adv76xx_parse_dt(struct adv76xx_state *state)
 	struct device_node *endpoint;
 	struct device_node *np;
 	unsigned int flags;
-	u32 v;
+	u32 v = -1;
 
 	np = state->i2c_clients[ADV76XX_PAGE_IO]->dev.of_node;
 
@@ -2867,13 +2866,23 @@ static int adv76xx_parse_dt(struct adv76xx_state *state)
 		return -EINVAL;
 
 	v4l2_of_parse_endpoint(endpoint, &bus_cfg);
-
-	if (!of_property_read_u32(endpoint, "default-input", &v))
-		state->pdata.default_input = v;
-	else
-		state->pdata.default_input = -1;
-
 	of_node_put(endpoint);
+
+	if (of_property_read_u32(np, "default-input", &v)) {
+		/* not specified ... can we choose automatically? */
+		switch (state->info->type) {
+		case ADV7611:
+			v = 0;
+			break;
+		case ADV7612:
+			if (state->info->max_port == ADV76XX_PAD_HDMI_PORT_A)
+				v = 0;
+			/* else is unhobbled, leave unspecified */
+		default:
+			break;
+		}
+	}
+	state->pdata.default_input = v;
 
 	flags = bus_cfg.bus.parallel.flags;
 
@@ -2930,14 +2939,14 @@ static irqreturn_t adv76xx_irq_handler(int irq, void *devid)
 
 static int adv76xx_reset(struct adv76xx_state *state)
 {
-	if (gpio_is_valid(state->reset_gpio)) {
+	if (state->reset_gpio) {
 		/* ADV76XX can be reset by a low reset pulse of minimum 5 ms. */
-		gpio_set_value_cansleep(state->reset_gpio, 0);
-		mdelay(10);
-		gpio_set_value_cansleep(state->reset_gpio, 1);
+		gpiod_set_value_cansleep(state->reset_gpio, 0);
+		usleep_range(5000, 10000);
+		gpiod_set_value_cansleep(state->reset_gpio, 1);
 		/* It is recommended to wait 5 ms after the low pulse before */
 		/* an I2C write is performed to the ADV76XX. */
-		mdelay(10);
+		usleep_range(5000, 10000);
 	}
 
 	return 0;
@@ -3147,18 +3156,13 @@ static int adv76xx_probe(struct i2c_client *client,
 		if (state->hpd_gpio[i])
 			v4l_info(client, "Handling HPD %u GPIO\n", i);
 	}
-	state->reset_gpio = of_get_named_gpio(client->dev.of_node,
-								"reset-gpios", 0);
-	if (gpio_is_valid(state->reset_gpio)) {
-		err = devm_gpio_request_one(&client->dev,
-			state->reset_gpio, GPIOF_OUT_INIT_HIGH, "RESET_GPIO");
-		if (err < 0) {
-			v4l2_err(client, "Request reset gpio error\n");
-			return err;
-		} else {
-			adv76xx_reset(state);
-		}
-	}
+
+	state->reset_gpio = devm_gpiod_get_optional(&client->dev, "reset",
+								GPIOD_OUT_HIGH);
+	if (IS_ERR(state->reset_gpio))
+		return PTR_ERR(state->reset_gpio);
+
+	adv76xx_reset(state);
 
 	state->timings = cea640x480;
 	state->format = adv76xx_format_info(state, MEDIA_BUS_FMT_YUYV8_2X8);
