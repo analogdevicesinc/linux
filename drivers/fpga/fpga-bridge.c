@@ -74,12 +74,15 @@ EXPORT_SYMBOL_GPL(fpga_bridge_disable);
  * of_fpga_bridge_get - get an exclusive reference to a fpga bridge
  *
  * @np: node pointer of a FPGA bridge
+ * @info: fpga image specific information
  *
  * Return fpga_bridge struct if successful.
  * Return -EBUSY if someone already has a reference to the bridge.
  * Return -ENODEV if @np is not a FPGA Bridge.
  */
-struct fpga_bridge *of_fpga_bridge_get(struct device_node *np)
+struct fpga_bridge *of_fpga_bridge_get(struct device_node *np,
+				       struct fpga_image_info *info)
+
 {
 	struct device *dev;
 	struct fpga_bridge *bridge;
@@ -95,6 +98,8 @@ struct fpga_bridge *of_fpga_bridge_get(struct device_node *np)
 	bridge = to_fpga_bridge(dev);
 	if (!bridge)
 		goto err_dev;
+
+	bridge->info = info;
 
 	if (!mutex_trylock(&bridge->mutex)) {
 		ret = -EBUSY;
@@ -126,6 +131,7 @@ void fpga_bridge_put(struct fpga_bridge *bridge)
 {
 	dev_dbg(&bridge->dev, "put\n");
 
+	bridge->info = NULL;
 	module_put(bridge->dev.parent->driver->owner);
 	mutex_unlock(&bridge->mutex);
 	put_device(&bridge->dev);
@@ -213,6 +219,7 @@ EXPORT_SYMBOL_GPL(fpga_bridges_put);
  * fpga_bridges_get_to_list - get a bridge, add it to a list
  *
  * @np: node pointer of a FPGA bridge
+ * @info: fpga image specific information
  * @bridge_list: list of FPGA bridges
  *
  * Get an exclusive reference to the bridge and and it to the list.
@@ -220,12 +227,13 @@ EXPORT_SYMBOL_GPL(fpga_bridges_put);
  * Return 0 for success, error code from of_fpga_bridge_get() othewise.
  */
 int fpga_bridge_get_to_list(struct device_node *np,
+			    struct fpga_image_info *info,
 			    struct list_head *bridge_list)
 {
 	struct fpga_bridge *bridge;
 	unsigned long flags;
 
-	bridge = of_fpga_bridge_get(np);
+	bridge = of_fpga_bridge_get(np, info);
 	if (IS_ERR(bridge))
 		return PTR_ERR(bridge);
 
