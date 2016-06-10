@@ -1,0 +1,217 @@
+/*
+ *  Copyright (C) 2011 - 2014 Xilinx
+ *  Copyright (C) 2012 National Instruments Corp.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/dts-v1/;
+#include "zynq-7000.dtsi"
+
+/ {
+	model = "Zynq ZYBO Development Board";
+	compatible = "digilent,zynq-zybo", "xlnx,zynq-7000";
+
+	aliases {
+		ethernet0 = &gem0;
+		serial0 = &uart1;
+		spi0 = &qspi;
+		mmc0 = &sdhci0;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x20000000>;
+	};
+
+	chosen {
+		bootargs = "";
+		stdout-path = "serial0:115200n8";
+	};
+
+	usb_phy0: phy0 {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+		reset-gpios = <&gpio0 46 1>;
+	};
+};
+
+&clkc {
+	ps-clk-frequency = <50000000>;
+};
+
+&gem0 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethernet_phy>;
+
+	ethernet_phy: ethernet-phy@0 {
+		reg = <0>;
+	};
+};
+
+&qspi {
+	status = "okay";
+};
+
+&sdhci0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+	dr_mode = "host";
+	usb-phy = <&usb_phy0>;
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+		interrupt-parent = <&intc>;
+
+            pmod_i2c: i2c@43C00000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 0x4>;
+		reg = <0x43C00000 0x10000>;
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+            };
+		
+            rx_dma0: dma@43C10000 {
+                    compatible = "adi,axi-dmac-1.00.a";
+                    reg = <0x43C10000 0x10000>;
+                    #dma-cells = <1>;
+                    interrupts = <0 52 0>;
+                    clocks = <&clkc 15>;
+
+                    dma-channel {
+                            adi,buswidth = <64>;
+                            adi,type = <0>;
+                    };
+            };
+
+            rx_dma1: dma@43C20000 {
+                    compatible = "adi,axi-dmac-1.00.a";
+                    reg = <0x43C20000 0x10000>;
+                    #dma-cells = <1>;
+                    interrupts = <0 29 0>;
+                    clocks = <&clkc 15>;
+
+                    dma-channel {
+                            adi,buswidth = <64>;
+                            adi,type = <0>;
+                    };
+            };
+
+            rx_dma2: dma@43C30000 {
+                    compatible = "adi,axi-dmac-1.00.a";
+                    reg = <0x43C30000 0x10000>;
+                    #dma-cells = <1>;
+                    interrupts = <0 28 0>;
+                    clocks = <&clkc 15>;
+
+                    dma-channel {
+                            adi,buswidth = <64>;
+                            adi,type = <0>;
+                    };
+            };            
+            
+            axi_spi_engine_0: axi-spi-engine@0x43C40000{
+                    compatible = "adi,axi-spi-engine-1.00.a";
+                    reg = <0x43C40000 0x1000>;
+                    interrupt-parent = <&intc>;
+                    interrupts = <0 55 4>;
+                    clocks = <&clkc 15 &clkc 15>;
+                    clock-names = "s_axi_aclk", "spi_clk";
+                    num-cs = <1>;
+
+
+                    
+                    #address-cells = <0x1>;
+                    #size-cells = <0x0>;
+
+                    ad7980_0: AD7980-JB@0-jb {
+                            compatible = "adi,ad7980";
+                            reg = <0>;
+                            spi-cpha;
+                            spi-cpol;
+                            spi-max-frequency = <10000000>;
+
+			    dmas = <&rx_dma0 0>;
+			    dma-names = "rx";
+			    
+                    };
+            };
+
+            axi_spi_engine_1: axi-spi-engine@0x43C50000{
+                    compatible = "adi,axi-spi-engine-1.00.a";
+                    reg = <0x43C50000 0x1000>;
+                    interrupt-parent = <&intc>;
+                    interrupts = <0 54 4>;
+                    clocks = <&clkc 15 &clkc 15>;
+                    clock-names = "s_axi_aclk", "spi_clk";
+                    num-cs = <1>;
+
+
+                    
+                    #address-cells = <0x1>;
+                    #size-cells = <0x0>;
+
+		    ad7980_1: AD7980-JC@1-jc {
+                            compatible = "adi,ad7980";
+                            reg = <0>;
+                            spi-cpha;
+                            spi-cpol;
+                            spi-max-frequency = <10000000>;
+
+			    dmas = <&rx_dma1 0>;
+			    dma-names = "rx";
+			    
+                    };
+            };
+
+            axi_spi_engine_2: axi-spi-engine@0x43C60000{
+                    compatible = "adi,axi-spi-engine-1.00.a";
+                    reg = <0x43C60000 0x1000>;
+                    interrupt-parent = <&intc>;
+                    interrupts = <0 53 4>;
+                    clocks = <&clkc 15 &clkc 15>;
+                    clock-names = "s_axi_aclk", "spi_clk";
+                    num-cs = <1>;
+
+
+                    
+                    #address-cells = <0x1>;
+                    #size-cells = <0x0>;
+
+		    ad7980_2: AD7980-JD@2-jd {
+                            compatible = "adi,ad7980";
+                            reg = <0>;
+                            spi-cpha;
+                            spi-cpol;
+                            spi-max-frequency = <10000000>;
+
+			    dmas = <&rx_dma2 0>;
+			    dma-names = "rx";
+			    
+                    };
+            };
+
+            
+	};
+};
