@@ -28,6 +28,10 @@
 	status = "okay";
 };
 
+&edma {
+	status = "okay";
+};
+
 &siul2 {
 	status = "okay";
 	s32v234-evb {

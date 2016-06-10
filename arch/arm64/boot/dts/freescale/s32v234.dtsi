@@ -136,6 +136,25 @@
 			reg = <0x0 0x40000000 0x0 0x7d000>;
 			ranges;
 
+			edma: dma-controller@40002000 {
+				#dma-cells = <2>;
+				compatible = "fsl,s32v234-edma";
+				reg = <0x0 0x40002000 0x0 0x2000>,
+				      <0x0 0x40031000 0x0 0x1000>,
+				      <0x0 0x400A1000 0x0 0x1000>;
+				dma-channels = <32>;
+				interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "edma-tx_0-15",
+						  "edma-tx_16-31",
+						  "edma-err";
+				clock-names = "dmamux0", "dmamux1";
+				clocks = <&clks S32V234_CLK_SYS6>,
+					 <&clks S32V234_CLK_SYS6>;
+				status = "disabled";
+			};
+
 			fec: ethernet@40032000 {
 				compatible = "fsl,s32v234-fec";
 				reg = <0x0 0x40032000 0x0 0x1000>;
