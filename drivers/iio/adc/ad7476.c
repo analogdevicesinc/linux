@@ -22,6 +22,10 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 
+#include <linux/spi/spi-engine.h>
+
+#include "cf_axi_adc.h"
+
 struct ad7476_state;
 
 struct ad7476_chip_info {
@@ -56,6 +60,7 @@ enum ad7476_supported_device_ids {
 	ID_AD7468,
 	ID_AD7495,
 	ID_AD7940,
+	ID_AD7980,
 };
 
 static irqreturn_t ad7476_trigger_handler(int irq, void  *p)
@@ -193,6 +198,10 @@ static const struct ad7476_chip_info ad7476_chip_info_tbl[] = {
 		.channel[0] = AD7940_CHAN(14),
 		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
 	},
+	[ID_AD7980] = {
+		.channel[0] = AD7091R_CHAN(16),
+		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
+	},
 };
 
 static const struct iio_info ad7476_info = {
@@ -228,7 +237,12 @@ static int ad7476_probe(struct spi_device *spi)
 
 	/* Establish that the iio_dev is a child of the spi device */
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
+
+	if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else
+		indio_dev->name = spi_get_device_id(spi)->name;
+
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->chip_info->channel;
 	indio_dev->num_channels = 2;
@@ -241,10 +255,22 @@ static int ad7476_probe(struct spi_device *spi)
 	spi_message_init(&st->msg);
 	spi_message_add_tail(&st->xfer, &st->msg);
 
-	ret = iio_triggered_buffer_setup(indio_dev, NULL,
-			&ad7476_trigger_handler, NULL);
-	if (ret)
-		goto error_disable_reg;
+	if (spi_engine_offload_supported(spi)) {
+		//indio_dev->modes |= INDIO_BUFFER_HARDWARE;
+		indio_dev->num_channels = 1;
+		st->xfer.rx_buf = (void *)-1;
+		spi_engine_offload_load_msg(spi, &st->msg);
+		spi_engine_offload_enable(spi, true);
+
+		ret = axiadc_configure_ring_stream(indio_dev, NULL);
+		if (ret < 0)
+			return ret;
+	} else {
+		ret = iio_triggered_buffer_setup(indio_dev, NULL,
+				&ad7476_trigger_handler, NULL);
+		if (ret)
+			goto error_disable_reg;
+	}
 
 	if (st->chip_info->reset)
 		st->chip_info->reset(st);
@@ -295,6 +321,8 @@ static const struct spi_device_id ad7476_id[] = {
 	{"ad7910", ID_AD7467},
 	{"ad7920", ID_AD7466},
 	{"ad7940", ID_AD7940},
+	{"ad7940", ID_AD7940},
+	{"ad7980", ID_AD7980},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7476_id);
