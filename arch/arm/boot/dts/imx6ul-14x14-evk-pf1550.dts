@@ -52,6 +52,10 @@
 			wakeup;
 		};
 
+		charger {
+			compatible = "fsl,pf1550-charger";
+		};
+
 		regulators {
 			compatible = "fsl,pf1550-regulator";
 
