@@ -208,6 +208,9 @@
 				interrupts = <GIC_SPI 59 IRQ_TYPE_EDGE_RISING>;
 				clocks = <&clks S32V234_CLK_LIN>;
 				clock-names = "lin";
+				dmas = <&edma 0 20>,
+				       <&edma 0 19>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -260,6 +263,9 @@
 				interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
 				clocks = <&clks S32V234_CLK_LIN>;
 				clock-names = "lin";
+				dmas = <&edma 1 13>,
+				       <&edma 1 12>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
