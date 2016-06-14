@@ -143,10 +143,6 @@ static struct drm_driver axi_hdmi_driver = {
 static const struct of_device_id adv7511_encoder_of_match[] = {
 	{
 		.compatible = "adi,axi-hdmi-tx-1.00.a",
-		.data = (const void *)AXI_HDMI
-	}, {
-		.compatible = "adi,axi-hdmi-1.00.a",
-		.data = (const void *)AXI_HDMI_LEGACY
 	},
 	{},
 };
@@ -198,12 +194,7 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	private->is_rgb = of_property_read_bool(np, "adi,is-rgb");
 
 	id = of_match_node(adv7511_encoder_of_match, np);
-	private->version = (unsigned long)id->data;
 
-	if (private->version == AXI_HDMI_LEGACY &&
-		of_property_read_bool(np, "adi,embedded-sync"))
-		private->version = AXI_HDMI_LEGACY_ES;
-	
 	private->encoder_slave = of_find_i2c_device_by_node(slave_node);
 	of_node_put(slave_node);
 

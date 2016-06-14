@@ -24,18 +24,6 @@
 
 #include "../i2c/adv7511.h"
 
-#define AXI_HDMI_LEGACY_REG_CTRL		0x04
-#define AXI_HDMI_LEGACY_REG_HTIMING1		0x08
-#define AXI_HDMI_LEGACY_REG_HTIMING2		0x0C
-#define AXI_HDMI_LEGACY_REG_VTIMING1		0x10
-#define AXI_HDMI_LEGACY_REG_VTIMING2		0x14
-#define AXI_HDMI_LEGACY_REG_STATUS		0x10
-
-#define AXI_HDMI_LEGACY_ES_REG_HTIMING		0x08
-#define AXI_HDMI_LEGACY_ES_REG_VTIMING		0x0c
-
-#define AXI_HDMI_LEGACY_CTRL_ENABLE		BIT(0)
-
 #define AXI_HDMI_STATUS_VMDA_UNDERFLOW	BIT(4)
 #define AXI_HDMI_STATUS_VMDA_OVERFLOW	BIT(3)
 #define AXI_HDMI_STATUS_VMDA_BE_ERROR	BIT(2)
@@ -211,9 +199,6 @@ static void axi_hdmi_debugfs_init(struct axi_hdmi_encoder *encoder)
 {
 	struct axi_hdmi_private *priv = encoder->encoder.base.dev->dev_private;
 
-	if (priv->version != AXI_HDMI)
-		return;
-
 	encoder->regset.base = priv->base;
 	encoder->regset.regs = axi_hdmi_encoder_debugfs_regs;
 	encoder->regset.nregs = ARRAY_SIZE(axi_hdmi_encoder_debugfs_regs);
@@ -246,11 +231,13 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 			clk_prepare_enable(private->hdmi_clock);
 			private->clk_enabled = true;
 		}
-		if (private->version == AXI_HDMI)
-			writel(AXI_HDMI_RESET_ENABLE, private->base + AXI_HDMI_REG_RESET);
+		writel(AXI_HDMI_RESET_ENABLE, private->base + AXI_HDMI_REG_RESET);
+
+		if (!connector)
+			edid = NULL;
 		else
-			writel(AXI_HDMI_LEGACY_CTRL_ENABLE, private->base + AXI_HDMI_LEGACY_REG_CTRL);
-		edid = adv7511_get_edid(encoder);
+			edid = drm_connector_get_edid(connector);
+
 		if (edid) {
 			config.hdmi_mode = drm_detect_hdmi_monitor(edid);
 			kfree(edid);
@@ -282,10 +269,7 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 		sfuncs->set_config(encoder, &config);
 		break;
 	default:
-		if (private->version == AXI_HDMI)
-			writel(0, private->base + AXI_HDMI_REG_RESET);
-		else
-			writel(0, private->base + AXI_HDMI_LEGACY_REG_CTRL);
+		writel(0, private->base + AXI_HDMI_REG_RESET);
 		if (private->clk_enabled) {
 			clk_disable_unprepare(private->hdmi_clock);
 			private->clk_enabled = false;
@@ -324,42 +308,20 @@ static void axi_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 	h_de_max = h_de_min + mode->hdisplay;
 	v_de_min = mode->vtotal - mode->vsync_start;
 	v_de_max = v_de_min + mode->vdisplay;
-	
-	switch (private->version) {
-	case AXI_HDMI:
-		val = (mode->hdisplay << 16) | mode->htotal;
-		writel(val,  private->base + AXI_HDMI_REG_HTIMING1);
-		val = mode->hsync_end - mode->hsync_start;
-		writel(val,  private->base + AXI_HDMI_REG_HTIMING2);
-		val = (h_de_max << 16) | h_de_min;
-		writel(val,  private->base + AXI_HDMI_REG_HTIMING3);
 
-		val = (mode->vdisplay << 16) | mode->vtotal;
-		writel(val,  private->base + AXI_HDMI_REG_VTIMING1);
-		val = mode->vsync_end - mode->vsync_start;
-		writel(val,  private->base + AXI_HDMI_REG_VTIMING2);
-		val = (v_de_max << 16) | v_de_min;
-		writel(val,  private->base + AXI_HDMI_REG_VTIMING3);
-		break;
-	case AXI_HDMI_LEGACY_ES:
-		val = (mode->hdisplay << 16) | mode->htotal;
-		writel(val, private->base + AXI_HDMI_LEGACY_ES_REG_HTIMING);
-		val = (mode->vdisplay << 16) | mode->vtotal;
-		writel(val, private->base + AXI_HDMI_LEGACY_ES_REG_VTIMING);
-		break;
-	case AXI_HDMI_LEGACY:
-		val = (mode->hsync_end - mode->hsync_start) << 16 | mode->htotal;
-		writel(val, private->base + AXI_HDMI_LEGACY_REG_HTIMING1);
-		val = (h_de_min << 16) | h_de_max;
-		writel(val, private->base + AXI_HDMI_LEGACY_REG_HTIMING2);
-		val = (mode->vsync_end - mode->vsync_start) << 16 | mode->vtotal;
-		writel(val, private->base + AXI_HDMI_LEGACY_REG_VTIMING1);
-		val = (v_de_min << 16) | v_de_max;
-		writel(val, private->base + AXI_HDMI_LEGACY_REG_VTIMING2);
-		break;
-	default:
-		break;
-	}
+	val = (mode->hdisplay << 16) | mode->htotal;
+	writel(val,  private->base + AXI_HDMI_REG_HTIMING1);
+	val = mode->hsync_end - mode->hsync_start;
+	writel(val,  private->base + AXI_HDMI_REG_HTIMING2);
+	val = (h_de_max << 16) | h_de_min;
+	writel(val,  private->base + AXI_HDMI_REG_HTIMING3);
+
+	val = (mode->vdisplay << 16) | mode->vtotal;
+	writel(val,  private->base + AXI_HDMI_REG_VTIMING1);
+	val = mode->vsync_end - mode->vsync_start;
+	writel(val,  private->base + AXI_HDMI_REG_VTIMING2);
+	val = (v_de_max << 16) | v_de_min;
+	writel(val,  private->base + AXI_HDMI_REG_VTIMING3);
 
 	clk_set_rate(private->hdmi_clock, mode->clock * 1000);
 }
@@ -436,11 +398,9 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 	axi_hdmi_connector_init(dev, connector, encoder);
 	axi_hdmi_debugfs_init(axi_hdmi_encoder);
 
-	if (priv->version == AXI_HDMI) {
-		writel(AXI_HDMI_SOURCE_SEL_NORMAL, priv->base + AXI_HDMI_REG_SOURCE_SEL);
-		if (priv->is_rgb)
-				writel(AXI_HDMI_CTRL_CSC_BYPASS, priv->base + AXI_HDMI_REG_CTRL);
-	}
+	writel(AXI_HDMI_SOURCE_SEL_NORMAL, priv->base + AXI_HDMI_REG_SOURCE_SEL);
+	if (priv->is_rgb)
+		writel(AXI_HDMI_CTRL_CSC_BYPASS, priv->base + AXI_HDMI_REG_CTRL);
 
 	return encoder;
 }
