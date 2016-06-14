@@ -171,13 +171,6 @@ static void axi_hdmi_crtc_commit(struct drm_crtc *crtc)
 	axi_hdmi_crtc_update(crtc);
 }
 
-static bool axi_hdmi_crtc_mode_fixup(struct drm_crtc *crtc,
-	const struct drm_display_mode *mode,
-	struct drm_display_mode *adjusted_mode)
-{
-	return true;
-}
-
 static int axi_hdmi_crtc_mode_set(struct drm_crtc *crtc,
 	struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode,
 	int x, int y, struct drm_framebuffer *old_fb)
@@ -196,7 +189,6 @@ static struct drm_crtc_helper_funcs axi_hdmi_crtc_helper_funcs = {
 	.dpms		= axi_hdmi_crtc_dpms,
 	.prepare	= axi_hdmi_crtc_prepare,
 	.commit		= axi_hdmi_crtc_commit,
-	.mode_fixup	= axi_hdmi_crtc_mode_fixup,
 	.mode_set	= axi_hdmi_crtc_mode_set,
 	.mode_set_base	= axi_hdmi_crtc_mode_set_base,
 };
