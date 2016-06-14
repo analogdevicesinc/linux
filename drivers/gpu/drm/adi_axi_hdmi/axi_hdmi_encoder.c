@@ -350,18 +350,12 @@ static void axi_hdmi_encoder_prepare(struct drm_encoder *encoder)
 	axi_hdmi_encoder_dpms(encoder, DRM_MODE_DPMS_OFF);
 }
 
-static struct drm_crtc *axi_hdmi_encoder_get_crtc(struct drm_encoder *encoder)
-{
-	return encoder->crtc;
-}
-
 static struct drm_encoder_helper_funcs axi_hdmi_encoder_helper_funcs = {
 	.dpms		= axi_hdmi_encoder_dpms,
 	.mode_fixup	= axi_hdmi_encoder_mode_fixup,
 	.mode_set	= axi_hdmi_encoder_mode_set,
 	.prepare	= axi_hdmi_encoder_prepare,
 	.commit		= axi_hdmi_encoder_commit,
-	.get_crtc	= axi_hdmi_encoder_get_crtc,
 };
 
 static void axi_hdmi_encoder_destroy(struct drm_encoder *encoder)
