@@ -22,12 +22,6 @@ struct xlnx_pcm_dma_params {
 
 struct axi_hdmi_encoder;
 
-enum axi_hdmi_version {
-	AXI_HDMI,
-	AXI_HDMI_LEGACY,
-	AXI_HDMI_LEGACY_ES,
-};
-
 struct axi_hdmi_private {
 	struct drm_fbdev_cma *fbdev;
 	struct drm_crtc *crtc;
@@ -42,7 +36,6 @@ struct axi_hdmi_private {
 	struct dma_chan *dma;
 
 	bool is_rgb;
-	enum axi_hdmi_version version;
 };
 
 struct drm_crtc* axi_hdmi_crtc_create(struct drm_device *dev);
