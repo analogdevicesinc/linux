@@ -50,6 +50,9 @@
 			adau1761: adau1761@3b {
 				compatible = "adi,adau1761";
 				reg = <0x3b>;
+
+				clocks = <&audio_clock>;
+				clock-names = "mclk";
 			};
 		};
 
