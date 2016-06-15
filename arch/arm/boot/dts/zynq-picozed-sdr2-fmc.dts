@@ -84,6 +84,8 @@
 
 				clocks = <&audio_clock>;
 				clock-names = "mclk";
+
+				#sound-dai-cells = <0>;
 			};
 		};
 
@@ -227,12 +229,40 @@
 			dma-names = "tx", "rx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
+
+			#sound-dai-cells = <0>;
 		};
 
-		zed_sound: zed_sound {
-			compatible = "digilent,zed-sound";
-			audio-codec = <&adau1761>;
-			cpu-dai = <&axi_i2s_0>;
+		zed_sound {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "ZED ADAU1761";
+			simple-audio-card,widgets =
+				"Microphone", "Mic In",
+				"Headphone", "Headphone Out",
+				"Line", "Line In",
+				"Line", "Line Out";
+			simple-audio-card,routing =
+				"Line Out", "LOUT",
+				"Line Out", "ROUT",
+				"Headphone Out", "LHP",
+				"Headphone Out", "RHP",
+				"Mic In", "MICBIAS",
+				"LINN", "Mic In",
+				"RINN", "Mic In",
+				"LAUX", "Line In",
+				"RAUX", "Line In";
+
+			simple-audio-card,dai-link@0 {
+				format = "i2s";
+				cpu {
+					sound-dai = <&axi_i2s_0>;
+					frame-master;
+					bitclock-master;
+				};
+				codec {
+					sound-dai = <&adau1761>;
+				};
+			};
 		};
 	};
 
