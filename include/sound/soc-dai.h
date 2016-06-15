@@ -31,6 +31,7 @@ struct snd_compr_stream;
 #define SND_SOC_DAIFMT_DSP_B		SND_SOC_DAI_FORMAT_DSP_B
 #define SND_SOC_DAIFMT_AC97		SND_SOC_DAI_FORMAT_AC97
 #define SND_SOC_DAIFMT_PDM		SND_SOC_DAI_FORMAT_PDM
+#define SND_SOC_DAIFMT_SPDIF		SND_SOC_DAI_FORMAT_SPDIF
 
 /* left and right justified also known as MSB and LSB respectively */
 #define SND_SOC_DAIFMT_MSB		SND_SOC_DAIFMT_LEFT_J
