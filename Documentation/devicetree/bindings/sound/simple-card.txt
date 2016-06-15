@@ -49,7 +49,7 @@ Optional dai-link subnode properties:
 
 - format				: CPU/CODEC common audio format.
 					  "i2s", "right_j", "left_j" , "dsp_a"
-					  "dsp_b", "ac97", "pdm", "msb", "lsb"
+					  "dsp_b", "ac97", "pdm", "msb", "lsb", "spdif"
 - frame-master				: Indicates dai-link frame master.
 					  phandle to a cpu or codec subnode.
 - bitclock-master			: Indicates dai-link bit clock master.

@@ -3543,6 +3543,7 @@ unsigned int snd_soc_of_parse_daifmt(struct device_node *np,
 		{ "pdm",	SND_SOC_DAIFMT_PDM},
 		{ "msb",	SND_SOC_DAIFMT_MSB },
 		{ "lsb",	SND_SOC_DAIFMT_LSB },
+		{ "spdif",	SND_SOC_DAIFMT_SPDIF },
 	};
 
 	if (!prefix)
