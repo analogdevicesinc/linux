@@ -105,6 +105,7 @@ definitions:
         - pdm
         - msb
         - lsb
+        - spdif
 
   dai:
     type: object
