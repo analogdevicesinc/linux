@@ -32,6 +32,9 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
+
 #include "adt7x10.h"
 
 /*
@@ -379,6 +382,78 @@ static const struct attribute_group adt7x10_group = {
 	.attrs = adt7x10_attributes,
 };
 
+#ifdef CONFIG_IIO
+
+static const struct iio_chan_spec adt7x10_channels[] = {
+	{
+		.type = IIO_TEMP,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+	},
+};
+
+static int adt7x10_read_raw(struct iio_dev *indio_dev,
+			   struct iio_chan_spec const *channel, int *val,
+			   int *val2, long mask)
+{
+	struct adt7x10_data *data = iio_device_get_drvdata(indio_dev);
+	int ret;
+
+	switch (mask) {
+		case IIO_CHAN_INFO_PROCESSED:
+			switch (channel->type) {
+				case IIO_TEMP:	/* in milli °C */
+					ret = adt7x10_update_temp(indio_dev->dev.parent);
+					if (ret)
+						return ret;
+
+					*val = ADT7X10_REG_TO_TEMP(data, data->temp[0]);
+
+					return IIO_VAL_INT;
+				default:
+					return -EINVAL;
+			}
+	default:
+		return -EINVAL;
+	}
+}
+
+static const struct iio_info adt7x10_info = {
+	.read_raw = adt7x10_read_raw,
+	.driver_module = THIS_MODULE,
+};
+
+int adt7x10_register_iio(struct device *dev)
+{
+	struct iio_dev *indio_dev;
+	struct adt7x10_data *data = dev_get_drvdata(dev);
+
+	indio_dev = devm_iio_device_alloc(dev, 0);
+	if (!indio_dev)
+		return -ENOMEM;
+
+	indio_dev->dev.parent = dev;
+	indio_dev->name = dev_name(dev);
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->info = &adt7x10_info;
+
+	indio_dev->channels = adt7x10_channels;
+	indio_dev->num_channels = ARRAY_SIZE(adt7x10_channels);
+
+	iio_device_set_drvdata(indio_dev, data);
+
+	return iio_device_register(indio_dev);
+}
+#else
+
+int adt7x10_register_iio(struct device *dev, struct adt7x10_data *data)
+{
+	return 0;
+}
+
+#endif
+
+
+
 int adt7x10_probe(struct device *dev, const char *name, int irq,
 		  const struct adt7x10_ops *ops)
 {
@@ -452,7 +527,7 @@ int adt7x10_probe(struct device *dev, const char *name, int irq,
 			goto exit_hwmon_device_unregister;
 	}
 
-	return 0;
+	return adt7x10_register_iio(dev);
 
 exit_hwmon_device_unregister:
 	hwmon_device_unregister(data->hwmon_dev);
