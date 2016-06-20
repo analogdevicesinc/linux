@@ -90,7 +90,12 @@
 
 		#size-cells = <0>;
 		#address-cells = <1>;
-            };
+
+			adt7420@4b {
+				compatible = "adt7420";
+				reg = <0x4b>;
+			};
+		};
 		
             rx_dma0: dma@43C10000 {
                     compatible = "adi,axi-dmac-1.00.a";
