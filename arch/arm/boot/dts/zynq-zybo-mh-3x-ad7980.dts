@@ -153,8 +153,6 @@
                     ad7980_0: AD7980-JB@0-jb {
                             compatible = "adi,ad7980";
                             reg = <0>;
-                            spi-cpha;
-                            spi-cpol;
                             spi-max-frequency = <10000000>;
 
 			    dmas = <&rx_dma0 0>;
@@ -180,8 +178,6 @@
 		    ad7980_1: AD7980-JC@1-jc {
                             compatible = "adi,ad7980";
                             reg = <0>;
-                            spi-cpha;
-                            spi-cpol;
                             spi-max-frequency = <10000000>;
 
 			    dmas = <&rx_dma1 0>;
@@ -207,8 +203,6 @@
 		    ad7980_2: AD7980-JD@2-jd {
                             compatible = "adi,ad7980";
                             reg = <0>;
-                            spi-cpha;
-                            spi-cpol;
                             spi-max-frequency = <10000000>;
 
 			    dmas = <&rx_dma2 0>;
