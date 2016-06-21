@@ -125,7 +125,7 @@
                     compatible = "adi,axi-dmac-1.00.a";
                     reg = <0x43C20000 0x10000>;
                     #dma-cells = <1>;
-                    interrupts = <0 29 0>;
+                    interrupts = <0 36 0>;
                     clocks = <&clkc 15>;
 
                     dma-channel {
@@ -138,7 +138,7 @@
                     compatible = "adi,axi-dmac-1.00.a";
                     reg = <0x43C30000 0x10000>;
                     #dma-cells = <1>;
-                    interrupts = <0 28 0>;
+                    interrupts = <0 35 0>;
                     clocks = <&clkc 15>;
 
                     dma-channel {
