@@ -15,6 +15,7 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
+#include <linux/clk.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -38,6 +39,7 @@ struct ad7476_state {
 	struct spi_device		*spi;
 	const struct ad7476_chip_info	*chip_info;
 	struct regulator		*reg;
+	struct clk 			*clk;
 	struct spi_transfer		xfer;
 	struct spi_message		msg;
 	/*
@@ -134,6 +136,12 @@ static int ad7476_read_raw(struct iio_dev *indio_dev,
 		*val = scale_uv / 1000;
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (IS_ERR(st->clk))
+			return -ENODEV;
+		*val = clk_get_rate(st->clk);
+		return IIO_VAL_INT;
+		
 	}
 	return -EINVAL;
 }
@@ -158,6 +166,9 @@ static int ad7476_read_raw(struct iio_dev *indio_dev,
 #define AD7940_CHAN(bits) _AD7476_CHAN((bits), 15 - (bits), \
 		BIT(IIO_CHAN_INFO_RAW))
 #define AD7091R_CHAN(bits) _AD7476_CHAN((bits), 16 - (bits), 0)
+
+#define AD7980_CHAN(bits) _AD7476_CHAN((bits), 16 - (bits), \
+		BIT(IIO_CHAN_INFO_SAMP_FREQ))
 
 static const struct ad7476_chip_info ad7476_chip_info_tbl[] = {
 	[ID_AD7091R] = {
@@ -199,7 +210,7 @@ static const struct ad7476_chip_info ad7476_chip_info_tbl[] = {
 		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
 	},
 	[ID_AD7980] = {
-		.channel[0] = AD7091R_CHAN(16),
+		.channel[0] = AD7980_CHAN(16),
 		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
 	},
 };
@@ -256,15 +267,24 @@ static int ad7476_probe(struct spi_device *spi)
 	spi_message_add_tail(&st->xfer, &st->msg);
 
 	if (spi_engine_offload_supported(spi)) {
-		//indio_dev->modes |= INDIO_BUFFER_HARDWARE;
+		st->clk = devm_clk_get(&spi->dev, "sampl_clk");
+		if (IS_ERR(st->clk)) {
+			ret = PTR_ERR(st->clk);
+			goto error_disable_reg;
+		} else {
+			ret = clk_prepare_enable(st->clk);
+			if (ret)
+				goto error_disable_reg;
+		}
 		indio_dev->num_channels = 1;
+		
 		st->xfer.rx_buf = (void *)-1;
 		spi_engine_offload_load_msg(spi, &st->msg);
 		spi_engine_offload_enable(spi, true);
 
 		ret = axiadc_configure_ring_stream(indio_dev, NULL);
 		if (ret < 0)
-			return ret;
+			goto error_disable_reg;
 	} else {
 		ret = iio_triggered_buffer_setup(indio_dev, NULL,
 				&ad7476_trigger_handler, NULL);
@@ -281,7 +301,10 @@ static int ad7476_probe(struct spi_device *spi)
 	return 0;
 
 error_ring_unregister:
-	iio_triggered_buffer_cleanup(indio_dev);
+	if (st->xfer.rx_buf == (void *)-1)
+		axiadc_unconfigure_ring_stream(indio_dev);
+	else
+		iio_triggered_buffer_cleanup(indio_dev);
 error_disable_reg:
 	regulator_disable(st->reg);
 

@@ -42,6 +42,17 @@
 	};
 };
 
+/ {
+	clocks {
+		ad7980_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000>;
+			clock-output-names = "ad7980_sampl_clk";
+		};
+	};
+};
+
 &clkc {
 	ps-clk-frequency = <50000000>;
 };
@@ -154,6 +165,8 @@
                             compatible = "adi,ad7980";
                             reg = <0>;
                             spi-max-frequency = <10000000>;
+                            clocks = <&ad7980_clkin 0>;
+			    clock-names = "sampl_clk";
 
 			    dmas = <&rx_dma0 0>;
 			    dma-names = "rx";
@@ -179,7 +192,8 @@
                             compatible = "adi,ad7980";
                             reg = <0>;
                             spi-max-frequency = <10000000>;
-
+			    clocks = <&ad7980_clkin 0>;
+			    clock-names = "sampl_clk";
 			    dmas = <&rx_dma1 0>;
 			    dma-names = "rx";
 			    
@@ -204,7 +218,8 @@
                             compatible = "adi,ad7980";
                             reg = <0>;
                             spi-max-frequency = <10000000>;
-
+			    clocks = <&ad7980_clkin 0>;
+			    clock-names = "sampl_clk";
 			    dmas = <&rx_dma2 0>;
 			    dma-names = "rx";
 			    
