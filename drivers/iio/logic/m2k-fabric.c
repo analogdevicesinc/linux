@@ -55,6 +55,7 @@ struct m2k_fabric {
 	struct gpio_desc *switch_gpios[M2K_FABRIC_GPIO_MAX];
 	struct gpio_desc *usr_pow_gpio;
 
+	bool user_supply_powerdown;
 };
 
 static int m2k_fabric_switch_values_open[] = {
@@ -251,8 +252,31 @@ static const struct iio_enum m2k_fabric_output_impedance_enum = {
 	.get = m2k_fabric_get_output_impedance,
 };
 
+static ssize_t m2k_fabric_user_supply_read(struct iio_dev *indio_dev,
+	uintptr_t private, const struct iio_chan_spec *chan, char *buf)
+{
+	struct m2k_fabric *m2k_fabric = iio_priv(indio_dev);
 
+	return sprintf(buf, "%d\n", m2k_fabric->user_supply_powerdown);
+}
 
+static ssize_t m2k_fabric_user_supply_write(struct iio_dev *indio_dev,
+	 uintptr_t private, const struct iio_chan_spec *chan,
+	 const char *buf, size_t len)
+{
+	struct m2k_fabric *m2k_fabric = iio_priv(indio_dev);
+	bool state;
+	int ret;
+
+	ret = strtobool(buf, &state);
+	if (ret)
+		return ret;
+
+	gpiod_set_value(m2k_fabric->usr_pow_gpio, !state);
+	m2k_fabric->user_supply_powerdown = state;
+
+	return len;
+}
 
 static const struct iio_chan_spec_ext_info m2k_fabric_rx_ext_info[] = {
 	IIO_ENUM("calibration_mode", IIO_SHARED_BY_ALL,
@@ -274,6 +298,15 @@ static const struct iio_chan_spec_ext_info m2k_fabric_tx_ext_info[] = {
 	{}
 };
 
+static const struct iio_chan_spec_ext_info m2k_fabric_user_supply_ext_info[] = {
+	{
+		.name = "powerdown",
+		.read = m2k_fabric_user_supply_read,
+		.write = m2k_fabric_user_supply_write,
+		.shared = IIO_SEPARATE,
+	},
+	{}
+};
 
 #define M2K_FABRIC_TX_CHAN(x) { \
 	.type = IIO_VOLTAGE, \
@@ -299,6 +332,15 @@ static const struct iio_chan_spec m2k_fabric_chan_spec[] = {
 	M2K_FABRIC_RX_CHAN(1),
 	M2K_FABRIC_TX_CHAN(0),
 	M2K_FABRIC_TX_CHAN(1),
+	{
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = 2,
+		.extend_name = "user_supply",
+		.output = 1,
+		.scan_index = -1,
+		.ext_info = m2k_fabric_user_supply_ext_info,
+	}
 };
 
 
@@ -353,6 +395,8 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 			GPIOD_OUT_HIGH);
 	if (IS_ERR(m2k_fabric->usr_pow_gpio))
 		return PTR_ERR(m2k_fabric->usr_pow_gpio);
+
+	m2k_fabric->user_supply_powerdown = false;
 
 	mutex_init(&m2k_fabric->lock);
 
