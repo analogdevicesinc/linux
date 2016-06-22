@@ -25,6 +25,8 @@ ZRELADDR    := $(zreladdr-y)
 PARAMS_PHYS := $(params_phys-y)
 INITRD_PHYS := $(initrd_phys-y)
 
+DTC_FLAGS ?= -p 1024
+
 export ZRELADDR INITRD_PHYS PARAMS_PHYS
 
 targets := Image zImage xipImage bootpImage uImage
