@@ -1171,13 +1171,18 @@ static void mwadma_get_devname(struct mathworks_ip_info *mw_ip_info,char *devnam
 	snprintf(devname,MATHWORKS_IP_DEVNAME_LEN, "%s", mw_ip_info->name);
 }
 
-struct mathworks_ip_ops mwadma_ip_ops = {
+static struct mathworks_ip_ops mwadma_ip_ops = {
 	.get_devname = mwadma_get_devname,
 	.get_param = NULL,
 	.fops = &mwadma_cdev_fops,
 };
 
-EXPORT_SYMBOL_GPL(mwadma_ip_ops);
+struct mathworks_ip_ops* mw_stream_channel_get_ops(void) {
+	return &mwadma_ip_ops;
+}
+
+EXPORT_SYMBOL_GPL(mw_stream_channel_get_ops);
+
 /********************************
  * Channel Sysfs
  ********************************/
