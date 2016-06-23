@@ -13,6 +13,7 @@
 #include <linux/dma-contiguous.h>
 #include <linux/dma/xilinx_dma.h>
 #include <linux/interrupt.h>
+#include <linux/errno.h>
 
 #include "mathworks_ipcore.h"
 #include "mwadma_ioctl.h"  /* IOCTL */
@@ -97,15 +98,20 @@ struct mwadma_chan {
     unsigned int                buffer_interrupts;
 };
 
-/*********************************************************
-* API Symbols
-*********************************************************/
-extern struct mathworks_ip_ops mwadma_ip_ops;
 
 /*********************************************************
 * API functions
 *********************************************************/
-
+#if defined(CONFIG_MWIPCORE_DMA_STREAMING) || defined(CONFIG_MWIPCORE_DMA_STREAMING_MODULE)
+extern struct mathworks_ip_ops* mw_stream_channel_get_ops(void);
 extern int mw_stream_channels_probe(struct mathworks_ipcore_dev		*mw_ipcore_dev);
+#else
+static inline struct mathworks_ip_ops* mw_stream_channel_get_ops(void) {
+	return NULL;
+}
+static inline int mw_stream_channels_probe(struct mathworks_ipcore_dev	*mw_ipcore_dev) {
+	return -ENODEV;
+}
+#endif
 
 #endif /* _MW_STREAM_CHANNEL_H_ */
