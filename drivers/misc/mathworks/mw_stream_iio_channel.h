@@ -11,6 +11,7 @@
 
 #include <linux/device.h>
 #include <linux/iio/iio.h>
+#include <linux/errno.h>
 #include "mathworks_ipcore.h"
 
 struct mw_stream_iio_channel_info {
@@ -39,13 +40,14 @@ struct mw_stream_iio_chandev {
 };
 
 /*********************************************************
-* API Symbols
-*********************************************************/
-extern struct mathworks_ip_ops mw_stream_iio_ops;
-
-/*********************************************************
 * API functions
 *********************************************************/
+#if defined(CONFIG_MWIPCORE_IIO_STREAMING) || defined(CONFIG_MWIPCORE_IIO_STREAMING_MODULE)
 extern int mw_stream_iio_channels_probe(struct mathworks_ipcore_dev	*mwdev);
+#else
+static inline int mw_stream_iio_channels_probe(struct mathworks_ipcore_dev	*mwdev) {
+	return -ENODEV;
+}
+#endif
 
 #endif /* _MW_STREAM_IIO_CHANNEL_H_ */

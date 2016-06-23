@@ -513,18 +513,6 @@ int mw_stream_iio_channels_probe(struct mathworks_ipcore_dev *mwdev)
 
 EXPORT_SYMBOL_GPL(mw_stream_iio_channels_probe);
 
-static void mw_stream_iio_get_devname(struct mathworks_ip_info *mw_ip_info,char *devname){
-	snprintf(devname,MATHWORKS_IP_DEVNAME_LEN, "%s", mw_ip_info->name);
-}
-
-struct mathworks_ip_ops mw_stream_iio_ops = {
-	.get_devname = mw_stream_iio_get_devname,
-	.get_param = NULL,
-	.fops = &mathworks_ip_common_fops,
-};
-
-EXPORT_SYMBOL_GPL(mw_stream_iio_ops);
-
 static int __init mw_stream_iio_channel_init(void)
 {
 	return 0;
