@@ -36,6 +36,15 @@ static const struct of_device_id mathworks_ipcore_of_match[]  = {
     {},
 };
 
+static void mathworks_ipcore_get_devname(struct mathworks_ip_info *mw_ip_info,char *devname){
+	snprintf(devname,MATHWORKS_IP_DEVNAME_LEN, "%s", mw_ip_info->name);
+}
+
+static struct mathworks_ip_ops mathworks_ipcore_ops = {
+	.get_devname = mathworks_ipcore_get_devname,
+	.get_param = NULL,
+	.fops = &mathworks_ip_common_fops,
+};
 
 /*
  * @brief mathworks_ipcore_of_probe
@@ -61,15 +70,15 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
 	mwdev->info = id->data;
 
 	switch(mwdev->info->stream_mode){
-		case MWSTREAM_MODE_LIBIIO:
-			ops = &mw_stream_iio_ops;
-			break;
-
 		case MWSTREAM_MODE_DIRECT:
+			ops = mw_stream_channel_get_ops();
+			break;
+		case MWSTREAM_MODE_LIBIIO:
 		case MWSTREAM_MODE_NONE:
 		default:
-			ops = &mwadma_ip_ops;
+			ops = &mathworks_ipcore_ops;
 			break;
+
 	}
 
     mwdev->mw_ip_info = devm_mathworks_ip_of_init(op,THIS_MODULE,ops, true);
