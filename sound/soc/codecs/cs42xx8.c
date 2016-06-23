@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <sound/pcm_params.h>
@@ -45,6 +46,7 @@ struct cs42xx8_priv {
 	unsigned long sysclk;
 	u32 tx_channels;
 	int rate[2];
+	int reset_gpio;
 };
 
 /* -127.5dB to 0dB with step of 0.5dB */
@@ -504,7 +506,8 @@ EXPORT_SYMBOL_GPL(cs42xx8_of_match);
 
 int cs42xx8_probe(struct device *dev, struct regmap *regmap)
 {
-	const struct of_device_id *of_id;
+	const struct of_device_id *of_id = of_match_device(cs42xx8_of_match, dev);
+	struct device_node *np = dev->of_node;
 	struct cs42xx8_priv *cs42xx8;
 	int ret, val, i;
 
@@ -528,6 +531,16 @@ int cs42xx8_probe(struct device *dev, struct regmap *regmap)
 	if (!cs42xx8->drvdata) {
 		dev_err(dev, "failed to find driver data\n");
 		return -EINVAL;
+	}
+
+	cs42xx8->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
+	if (gpio_is_valid(cs42xx8->reset_gpio)) {
+		ret = devm_gpio_request_one(dev, cs42xx8->reset_gpio,
+				GPIOF_OUT_INIT_HIGH, "cs42xx8 reset");
+		if (ret) {
+			dev_err(dev, "unable to get reset gpio\n");
+			return ret;
+		}
 	}
 
 	cs42xx8->clk = devm_clk_get(dev, "mclk");
@@ -609,6 +622,9 @@ static int cs42xx8_runtime_resume(struct device *dev)
 		dev_err(dev, "failed to enable mclk: %d\n", ret);
 		return ret;
 	}
+
+	if (gpio_is_valid(cs42xx8->reset_gpio))
+		gpio_set_value_cansleep(cs42xx8->reset_gpio, 1);
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(cs42xx8->supplies),
 				    cs42xx8->supplies);
