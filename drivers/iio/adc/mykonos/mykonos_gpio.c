@@ -3,7 +3,7 @@
  *
  *\brief Contains Mykonos APIs for transceiver GPIO configuration and control.
  *
- * Mykonos API version: 1.1.9.3325
+ * Mykonos API version: 1.2.05.3475
  */
 
 
@@ -697,7 +697,7 @@ mykonosGpioErr_t MYKONOS_getRx1GainCtrlPin(mykonosDevice_t *device, uint8_t *inc
 {
     uint8_t readVal = 0x00;
 
-    const uint8_t MASK_GPIO_CH1 = 0x03;
+    const uint8_t MASK_GPIO_CH1 = 0x0F;
     const uint8_t MASK_EN_CH1 = 0x01;
     const uint8_t MASK_STEP_INC = 0xE0;
     const uint8_t MASK_STEP_DEC = 0x1C;
@@ -769,9 +769,9 @@ mykonosGpioErr_t MYKONOS_getRx1GainCtrlPin(mykonosDevice_t *device, uint8_t *inc
 
     *enable = readVal & MASK_EN_CH1;
 
-    *incStep = readVal & MASK_STEP_INC;
+    *incStep = (readVal & MASK_STEP_INC) >> 5;
 
-    *decStep = readVal & MASK_STEP_DEC;
+    *decStep = (readVal & MASK_STEP_DEC) >> 2;
 
     return MYKONOS_ERR_GPIO_OK;
 }
@@ -905,7 +905,7 @@ mykonosGpioErr_t MYKONOS_getRx2GainCtrlPin(mykonosDevice_t *device, uint8_t *inc
 {
     uint8_t readVal = 0x00;
 
-    const uint8_t MASK_GPIO_CH2 = 0xC0;
+    const uint8_t MASK_GPIO_CH2 = 0xF0;
     const uint8_t MASK_EN_CH2 = 0x02;
     const uint8_t MASK_STEP_INC = 0xE0;
     const uint8_t MASK_STEP_DEC = 0x1C;
@@ -975,11 +975,11 @@ mykonosGpioErr_t MYKONOS_getRx2GainCtrlPin(mykonosDevice_t *device, uint8_t *inc
     /* Getting Pin configuration assignment*/
     CMB_SPIReadByte(device->spiSettings, MYKONOS_ADDR_AGC_MANUAL_GAIN_CFG, &readVal);
 
-    *enable = readVal & MASK_EN_CH2;
+    *enable = (readVal & MASK_EN_CH2) >> 1;
 
-    *incStep = readVal & MASK_STEP_INC;
+    *incStep = (readVal & MASK_STEP_INC) >> 5;
 
-    *decStep = readVal & MASK_STEP_DEC;
+    *decStep = (readVal & MASK_STEP_DEC) >> 2;
 
     return MYKONOS_ERR_GPIO_OK;
 }
@@ -3131,7 +3131,7 @@ mykonosGpioErr_t MYKONOS_getGpioSourceCtrl(mykonosDevice_t *device, uint32_t *gp
     CMB_SPIReadByte(device->spiSettings, MYKONOS_ADDR_SOURCE_CONTROL_EXTRA_BITS, &readBytes[2]);
 
     /* Updating gpioConfig->gpioSetup->gpioOe output enable */
-    *gpioSrcCtrl = ((uint32_t)(readBytes[2] & 0x07) << 16) | ((uint32_t)(readBytes[1]) << 8) | (uint32_t)(readBytes[0]);
+    *gpioSrcCtrl = ((uint32_t)(readBytes[2] & 0x0F) << 16) | ((uint32_t)(readBytes[1]) << 8) | (uint32_t)(readBytes[0]);
 
     /* Return */
     return MYKONOS_ERR_GPIO_OK;

@@ -2,7 +2,7 @@
  * \file mykonos_macros.h
  * \brief Contains address and miscellaneous macro definitions for Mykonos API
  *
- * Mykonos API version: 1.1.9.3325
+ * Mykonos API version: 1.2.05.3475
  */
 
 #ifndef CLEMENTE_TDD_MACROS_H
