@@ -2,7 +2,7 @@
  * \file t_mykonos_gpio.h
  * \brief Mykonos GPIO error handling and type defines
  *
- * Mykonos API version: 1.1.9.3325
+ * Mykonos API version: 1.2.05.3475
  */
 
 #ifndef T_MYKONOSGPIO_H_

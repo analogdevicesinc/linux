@@ -2,7 +2,7 @@
  * \file mykonos.h
  * \brief Contains macro definitions and function prototypes for mykonos.c
  *
- * Mykonos API version: 1.1.9.3325
+ * Mykonos API version: 1.2.05.3475
  */
 
 #ifndef _MYKONOS_LIB_H_

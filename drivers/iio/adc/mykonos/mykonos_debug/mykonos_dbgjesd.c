@@ -3,7 +3,7 @@
  *
  * \brief Contains Mykonos APIs for Jesd debug facilities.
  *
- * Mykonos API version: 1.1.9.3325
+ * Mykonos API version: 1.2.05.3475
  */
 
 #include <stdint.h>
