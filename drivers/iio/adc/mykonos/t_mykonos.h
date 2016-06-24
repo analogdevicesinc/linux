@@ -2,7 +2,7 @@
  * \file t_mykonos.h
  * \brief Contains type definitions for Mykonos API
  *
- * Mykonos API version: 1.1.9.3325
+ * Mykonos API version: 1.2.05.3475
  */
 
 #ifndef _T_MYKONOS_LIB_H_
@@ -907,12 +907,12 @@ typedef struct
      *                  2   | ORX data path is not enabled
      *                  3   | Loopback switch closed
      *                  4   | VSWR init cal was not run
-     *                  5   | Path delay error
+     *                  5   | Path delay not setup
      *                  6   | Data measurement was aborted
      *                  7   | VSWR disabled
      *                  8   | If set, entered cal but not finished
      *                  9   | No GPIO configured in single ORx configuration
-     *                 10   | Unable to capture ORx data
+     *                 10   | Tx is not observable with any of the ORx Channels
      */
     uint32_t errorStatus;
     uint32_t trackCount;                /*!< Number of times VSWR tracking has run since last reset */
@@ -1342,18 +1342,18 @@ typedef struct
      * -------------------------|-----------------------
      *                      0   | NO ERROR
      *                      1   | TX Disabled
-     *                      2   | No initial calibration was run
-     *                      3   | Path delay not setup
-     *                      4   | Bad ORx feedback
-     *                      5   | Correlation is too small
-     *                      6   | No Apply control is possible
-     *                      7   | Control value is out of range
-     *                      8   | CLGC feature is disabled
-     *                      9   | TX Attenuation is capped
-     *                     10   | Data measurement is aborted
-     *                     11   | RESERVED
-     *                     12   | RESERVED
-     *                     13   | RESERVED
+     *                      2   | ORx is disabled
+     *                      3   | Loopback switch is clo
+     *                      4   | Data measurement aborted during capture
+     *                      5   | No initial calibration was done
+     *                      6   | Path delay not setup
+     *                      7   | No apply control is possible
+     *                      8   | Control value is out of range
+     *                      9   | CLGC feature is disabled
+     *                     10   | TX attenuation is capped
+     *                     11   | Gain measurement
+     *                     12   | No GPIO configured in single ORx configuration
+     *                     13   | Tx is not observable with any of the ORx Channels
      *                     14   | RESERVED
      *                     15   | RESERVED
      *                     16   | RESERVED
@@ -1377,7 +1377,7 @@ typedef struct
 {
     uint32_t errorCode;         /*!< error code from Tx LOL */
     uint32_t percentComplete;   /*!< percent of required data collected for the current cal. Range 0 to 100 */
-    uint32_t performanceMetric; /*!< metric of how well the tracking cal is performing */
+    uint32_t performanceMetric; /*!< Variance of the corrections, and gives an indication in dB on how much LO leakage is corrected on an average tracking pass.  */
     uint32_t iterCount;         /*!< running counter that increments each time the cal runs to completion */
     uint32_t updateCount;       /*!< running counter that increments each time the cal updates the correction/actuator hardware */
 } mykonosTxLolStatus_t;
@@ -1389,7 +1389,7 @@ typedef struct
 {
     uint32_t errorCode;         /*!< error code from Tx QEC */
     uint32_t percentComplete;   /*!< percent of required data collected for the current cal. Range 0 to 100 */
-    uint32_t performanceMetric; /*!< metric of how well the tracking cal is performing */
+    uint32_t performanceMetric; /*!< Number of codes adjusted which is the number of codes of correction made last time which can be converted to an IRR power metric as with Rx QEC, if desired. */
     uint32_t iterCount;         /*!< running counter that increments each time the cal runs to completion */
     uint32_t updateCount;       /*!< running counter that increments each time the cal updates the correction/actuator hardware */
 } mykonosTxQecStatus_t;
@@ -1401,7 +1401,7 @@ typedef struct
 {
     uint32_t errorCode;         /*!< error code from Rx QEC */
     uint32_t percentComplete;   /*!< percent of required data collected for the current cal. Range 0 to 100 */
-    uint32_t selfcheckIrrDb;    /*!<  */
+    uint32_t selfcheckIrrDb;    /*!< selfCheckIrrdDb - Power-weighted average Image Rejection Ratio (IRR) in dBc. */
     uint32_t iterCount;         /*!< running counter that increments each time the cal runs to completion */
     uint32_t updateCount;       /*!< running counter that increments each time the cal updates the correction/actuator hardware */
 } mykonosRxQecStatus_t;
@@ -1413,7 +1413,7 @@ typedef struct
 {
     uint32_t errorCode;         /*!< error code from Orx QEC */
     uint32_t percentComplete;   /*!< percent of required data collected for the current cal. Range 0 to 100 */
-    uint32_t selfcheckIrrDb;    /*!<  */
+    uint32_t selfcheckIrrDb;    /*!< selfCheckIrrdDb - Power-weighted average Image Rejection Ratio (IRR) in dBc. */
     uint32_t iterCount;         /*!< running counter that increments each time the cal runs to completion */
     uint32_t updateCount;       /*!< running counter that increments each time the cal updates the correction/actuator hardware */
 } mykonosOrxQecStatus_t;

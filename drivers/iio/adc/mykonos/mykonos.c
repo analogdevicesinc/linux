@@ -3,7 +3,7 @@
  *
  *\brief Contains Mykonos APIs for transceiver configuration and control
  *
- * Mykonos API version: 1.1.9.3325
+ * Mykonos API version: 1.2.05.3475
  */
 
 /**
@@ -62,7 +62,7 @@ static mykonosErr_t enableClgcTracking(mykonosDevice_t *device, uint8_t tx1Enabl
  * \param txHsDigClk_kHz Return value of the calculated HS Dig Clock required by the Tx profile
  *
  * \retval MYKONOS_ERR_TXPROFILE_IQRATE Profile IQ rate out of range
- * \retval MYKONOS_ERR_TXPROFILE_RFBW Profile RF bandwidth out of range
+ * \retval MYKONOS_ERR_TXPROFILE_RFBW Tx Profile RF bandwidth out of range
  * \retval MYKONOS_ERR_TXPROFILE_FILTER_INTERPOLATION Filter interpolation not valid
  * \retval MYKONOS_ERR_TXPROFILE_FIR_INT FIR filter not valid
  * \retval MYKONOS_ERR_OK All profile members are valid
@@ -1148,37 +1148,17 @@ mykonosErr_t MYKONOS_initialize(mykonosDevice_t *device)
     /* Default ObsRx to use manual gain control until AGC enabled by user */
     MYKONOS_setObsRxGainControlMode(device, MGC);
 
-    /* Disable GPIO select bits by setting to b11 */
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_CONFIGURATION_CONTROL_1, 3, 0x30, 4);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_DPD_SNIFFER_GPIO_SELECT, 0x3F);
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_ENSM_MANUAL_GAIN_LOCK_GPIO_SELECT, 0x0F, 0x0F, 0);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_GAIN_CHANGE_GPIO_SEL, 0xFF);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_MANUAL_GAIN_GPIO_SEL , 0xFF);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_ORX_SNRX_GPIO_SEL, 0x3F);
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_RSSI_CFG, 0x03, 0xC0, 6);
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_DPD_SNF_RSSI_CFG, 0x03, 0xC0, 6);
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_DPD_RSSI_CFG, 0x03, 0xC0, 6);
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_DIGITAL_DC_MIN_CAL_IDX, 0x03, 0xC0, 6);
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_RX_SLCR_PIN_CFG, 0x0F, 0x0F, 0);
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_DPD_SNF_RX_SLCR_PIN_CFG, 0x03, 0x03, 0);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_TX_TPC_GPIO_CFG, 0xFF);
-
     /* Enable automatically reset of RFDC offset correction if a data path overrange occurs */
     CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_RFDC_PROGRAM_SHIFT, 7, 0xE0, 5);
 
-    /* Set thresholds for the ARM calibrations */
+    /* Disable GPIO select bits by setting to b11 */
+    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_CONFIGURATION_CONTROL_1, 3, 0x30, 4);
+
+    /* Extra settings for ARM calibrations */
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_DIGITAL_DC_OFFSET_SHIFT, 0x11);
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_RX_LOOPBACK1_CNTRL_4, 0x04);
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_RX_LOOPBACK2_CNTRL_4, 0x04);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_SLOW_ULB_CNT_THRSH, 0x20);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_SLOW_HIGH_OVRG_CNT_THRSH, 0x20);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_SLOW_GAIN_UPDATE_CNT_1, 0x80);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_SLOW_GAIN_UPDATE_CNT_2, 0x00);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_SLOW_GAIN_UPDATE_CNT_3, 0x00);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_OVRLD_ADC_OVRLD_CFG, 0x18);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_OVRLD_PD_DEC_OVRLD_CFG, 0xF2);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_OVRLD_PD_DEC_OVRLD_UPPER_THRSH, 0xD7);
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_OVRLD_PD_DEC_OVRLD_LOWER_THRSH, 0xC0);
+    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AGC_ORX_SNRX_CFG_2, 0x20, 0x20, 0);
 
     /* Move to Alert ENSM state */
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_ENSM_CONFIG_7_0, 0x05);
@@ -2350,10 +2330,10 @@ mykonosErr_t MYKONOS_getRfPllFrequency(mykonosDevice_t *device, mykonosRfPllName
 }
 
 /**
- * \brief Checks if the PLLs are locked
- *
- * This function updates the pllLockStatus pointer with a lock status it per
- * PLL.
+ * \brief Checks if the PLLs are locked 
+ * 
+ * This function updates the pllLockStatus pointer with a lock status it per 
+ * PLL.  
  * pllLockStatus[0] = CLKPLL Locked
  * pllLockStatus[1] = RX_PLL Locked
  * pllLockStatus[2] = TX_PLL Locked
@@ -2947,7 +2927,7 @@ mykonosErr_t MYKONOS_programRxGainTable(mykonosDevice_t *device, uint8_t *gainTa
     uint16_t rx2DigGainAttenAddr = 0;
     uint8_t minGainIndex = 0;
     uint8_t startIndex = 0;
-    uint8_t i = 0;
+    int16_t i = 0;
     uint16_t tableRowIndex = 0;
     uint8_t retFlag = 0;
 
@@ -3158,82 +3138,82 @@ mykonosErr_t MYKONOS_programRxGainTable(mykonosDevice_t *device, uint8_t *gainTa
     addrIndex = 0;
     dataIndex = 0;
     for(i = startIndex; i >= ((startIndex + 1) - numGainIndexesInTable); i--)
+    {
+        tableRowIndex = (uint16_t)(startIndex - (uint8_t)i) << 2;
+
+        /* set current gain table index (address) */
+        addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_ADDR;
+        dataArray[dataIndex++] = (uint8_t)i;
+
+        /* Set Rx Front End gain[5:0] */
+        addrArray[addrIndex++] = rxFEGainAddr;
+        dataArray[dataIndex++] = gainTablePtr[tableRowIndex];
+
+        /* Set external control [5:0] OR LNA bypass if rxChannel == SNRX_GT */
+        addrArray[addrIndex++] = rxExtCtlLnaAddr;
+        dataArray[dataIndex++] = (rxChannel == SNRX_GT) ? (gainTablePtr[tableRowIndex + 1] << 4) :
+                                                          (gainTablePtr[tableRowIndex + 1]);
+
+        /* Set digital attenuation/gain[6:0] and set/clear attenuation bit */
+        addrArray[addrIndex++] = rxDigGainAttenAddr;
+        dataArray[dataIndex++] = ((gainTablePtr[tableRowIndex + 3] << 7) | gainTablePtr[tableRowIndex + 2]);
+
+        /* repeating gain table settings if Rx1 and Rx2 are selected for Rx2 configuration */
+        if (rxChannel == RX1_RX2_GT)
         {
-            tableRowIndex = (uint16_t)(startIndex - i) << 2;
-
-            /* set current gain table index (address) */
-            addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_ADDR;
-            dataArray[dataIndex++] = i;
-
             /* Set Rx Front End gain[5:0] */
-            addrArray[addrIndex++] = rxFEGainAddr;
+            addrArray[addrIndex++] = rx2FEGainAddr;
             dataArray[dataIndex++] = gainTablePtr[tableRowIndex];
 
-            /* Set external control [5:0] OR LNA bypass if rxChannel == SNRX_GT */
-            addrArray[addrIndex++] = rxExtCtlLnaAddr;
-            dataArray[dataIndex++] = (rxChannel == SNRX_GT) ? (gainTablePtr[tableRowIndex + 1] << 4) :
-                                                              (gainTablePtr[tableRowIndex + 1]);
+            /* Set external control [5:0] */
+            addrArray[addrIndex++] = rx2ExtCtlAddr;
+            dataArray[dataIndex++] = gainTablePtr[tableRowIndex + 1];
 
-            /* Set digital attenuation/gain[6:0] and set/clear attenuation bit */
-            addrArray[addrIndex++] = rxDigGainAttenAddr;
+            /* Set digital attenuation/gain[6:0] */
+            addrArray[addrIndex++] = rx2DigGainAttenAddr;
             dataArray[dataIndex++] = ((gainTablePtr[tableRowIndex + 3] << 7) | gainTablePtr[tableRowIndex + 2]);
-
-            /* repeating gain table settings if Rx1 and Rx2 are selected for Rx2 configuration */
-            if (rxChannel == RX1_RX2_GT)
-            {
-                /* Set Rx Front End gain[5:0] */
-                addrArray[addrIndex++] = rx2FEGainAddr;
-                dataArray[dataIndex++] = gainTablePtr[tableRowIndex];
-
-                /* Set external control [5:0] */
-                addrArray[addrIndex++] = rx2ExtCtlAddr;
-                dataArray[dataIndex++] = gainTablePtr[tableRowIndex + 1];
-
-                /* Set digital attenuation/gain[6:0] */
-                addrArray[addrIndex++] = rx2DigGainAttenAddr;
-                dataArray[dataIndex++] = ((gainTablePtr[tableRowIndex + 3] << 7) | gainTablePtr[tableRowIndex + 2]);
-            }
-
-            /* setting the write enable depending on rxChannel choice */
-            if (rxChannel == ORX_GT)
-            {
-                addrArray[addrIndex++] = MYKONOS_ADDR_CH3_GAIN_TABLE_CONFIGURATION;
-                dataArray[dataIndex++] = (ch3CtlReg | 0x02);
-                addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_CONFIGURATION;
-                dataArray[dataIndex++] = (ctlReg | 0x02);
-            }
-            else if (rxChannel == SNRX_GT)
-            {
-                addrArray[addrIndex++] = MYKONOS_ADDR_CH3_GAIN_TABLE_CONFIGURATION;
-                dataArray[dataIndex++] = (ch3CtlReg | 0x01);
-                addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_CONFIGURATION;
-                dataArray[dataIndex++] = (ctlReg | 0x02);
-            }
-            else if (rxChannel == LOOPBACK_GT)
-            {
-                addrArray[addrIndex++] = MYKONOS_ADDR_CH3_GAIN_TABLE_CONFIGURATION;
-                dataArray[dataIndex++] = (ch3CtlReg | 0x04);
-                addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_CONFIGURATION;
-                dataArray[dataIndex++] = (ctlReg | 0x02);
-            }
-            else
-            {
-                addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_CONFIGURATION;
-                dataArray[dataIndex++] = (ctlReg | 0x02);
-            }
-
-            if (addrIndex >= spiBufferSize)
-            {
-                CMB_SPIWriteBytes(device->spiSettings, &addrArray[0], &dataArray[0], addrIndex);
-                dataIndex = 0;
-                addrIndex = 0;
-            }
         }
 
-        if (addrIndex > 0)
+        /* setting the write enable depending on rxChannel choice */
+        if (rxChannel == ORX_GT)
+        {
+            addrArray[addrIndex++] = MYKONOS_ADDR_CH3_GAIN_TABLE_CONFIGURATION;
+            dataArray[dataIndex++] = (ch3CtlReg | 0x02);
+            addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_CONFIGURATION;
+            dataArray[dataIndex++] = (ctlReg | 0x02);
+        }
+        else if (rxChannel == SNRX_GT)
+        {
+            addrArray[addrIndex++] = MYKONOS_ADDR_CH3_GAIN_TABLE_CONFIGURATION;
+            dataArray[dataIndex++] = (ch3CtlReg | 0x01);
+            addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_CONFIGURATION;
+            dataArray[dataIndex++] = (ctlReg | 0x02);
+        }
+        else if (rxChannel == LOOPBACK_GT)
+        {
+            addrArray[addrIndex++] = MYKONOS_ADDR_CH3_GAIN_TABLE_CONFIGURATION;
+            dataArray[dataIndex++] = (ch3CtlReg | 0x04);
+            addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_CONFIGURATION;
+            dataArray[dataIndex++] = (ctlReg | 0x02);
+        }
+        else
+        {
+            addrArray[addrIndex++] = MYKONOS_ADDR_GAIN_TABLE_CONFIGURATION;
+            dataArray[dataIndex++] = (ctlReg | 0x02);
+        }
+
+        if (addrIndex >= spiBufferSize)
         {
             CMB_SPIWriteBytes(device->spiSettings, &addrArray[0], &dataArray[0], addrIndex);
+            dataIndex = 0;
+            addrIndex = 0;
         }
+    }
+
+    if (addrIndex > 0)
+    {
+        CMB_SPIWriteBytes(device->spiSettings, &addrArray[0], &dataArray[0], addrIndex);
+    }
 
 #endif
 
@@ -3263,7 +3243,7 @@ mykonosErr_t MYKONOS_programRxGainTable(mykonosDevice_t *device, uint8_t *gainTa
  *
  * \param device Pointer to the Mykonos data structure
  * \param gainIndex Desired Rx1 gain index
- *
+ * 
  * \return Returns enum MYKONOS_ERR, MYKONOS_ERR_OK=pass, !MYKONOS_ERR_OK=fail
  */
 mykonosErr_t MYKONOS_setRx1ManualGain(mykonosDevice_t *device, uint8_t gainIndex)
@@ -3309,7 +3289,7 @@ mykonosErr_t MYKONOS_setRx1ManualGain(mykonosDevice_t *device, uint8_t gainIndex
  *
  * \param device Pointer to the Mykonos data structure
  * \param gainIndex Desired Rx2 gain index
- *
+ * 
  * \return Returns enum MYKONOS_ERR, MYKONOS_ERR_OK=pass, !MYKONOS_ERR_OK=fail
  */
 mykonosErr_t MYKONOS_setRx2ManualGain(mykonosDevice_t *device, uint8_t gainIndex)
@@ -3342,18 +3322,18 @@ mykonosErr_t MYKONOS_setRx2ManualGain(mykonosDevice_t *device, uint8_t gainIndex
 /**
  * \brief Reads the Rx1 Gain Index for Manual or AGC gain control mode
  *
- * This function reads the Rx1 gain index for manual or AGC modes. If the
+ * This function reads the Rx1 gain index for manual or AGC modes. If the 
  * *rx1GainIndex pointer is nonzero, the read back gain index will
  * be returned in the parameter.  If the *rx1GainIndex pointer
  * is NULL, the device data structure will be updated with the new read back value
- *
+ * 
  * <B>Dependencies</B>
  * - device->spiSettings
  * - device->rxTxSettings->rxGainControl->rx1GainIndex
  *
  * \param device Pointer to the Mykonos data structure
  * \param rx1GainIndex uint8_t Pointer to the Rx1 gain index value
- *
+ * 
  * \return Returns enum MYKONOS_ERR, MYKONOS_ERR_OK=pass, !MYKONOS_ERR_OK=fail
  */
 mykonosErr_t MYKONOS_getRx1Gain(mykonosDevice_t *device, uint8_t *rx1GainIndex)
@@ -3389,18 +3369,18 @@ mykonosErr_t MYKONOS_getRx1Gain(mykonosDevice_t *device, uint8_t *rx1GainIndex)
 /**
  * \brief Reads the Rx2 Gain Index for Manual or AGC gain control mode
  *
- * This function reads the Rx2 gain index for manual or AGC modes. If the
+ * This function reads the Rx2 gain index for manual or AGC modes. If the 
  * *rx1GainIndex pointer is nonzero, the read back gain index will
  * be returned in the parameter.  If the *rx1GainIndex pointer
  * is NULL, the device data structure will be updated with the new read back value
- *
+ * 
  * <B>Dependencies</B>
  * - device->spiSettings
  * - device->rxTxSettings->rxGainControl->rx2GainIndex
  *
  * \param device Pointer to the Mykonos data structure
  * \param rx2GainIndex Desired Rx2 gain index
- *
+ * 
  * \return Returns enum MYKONOS_ERR, MYKONOS_ERR_OK=pass, !MYKONOS_ERR_OK=fail
  */
 mykonosErr_t MYKONOS_getRx2Gain(mykonosDevice_t *device, uint8_t *rx2GainIndex)
@@ -4849,7 +4829,7 @@ mykonosErr_t MYKONOS_setDefaultObsRxPath(mykonosDevice_t *device,  mykonosObsRxC
  *
  * \param device is structure pointer to the Mykonos data structure containing settings
  * \param obsRxCh is mykonosObsRxChannels_t enum type which selects the desired observation receive path to power up
- *
+ *         
  * \retval MYKONOS_ERR_OK Function completed successfully
  * \retval MYKONOS_ERR_PU_OBSRXPATH_INV_PARAM Invalid obsRxCh function parameter
  * \retval MYKONOS_ERR_PU_OBSRXPATH_ARMERROR ARM returned an error while trying to set the ObsRx Path source
@@ -5138,7 +5118,7 @@ mykonosErr_t MYKONOS_getObsRxGain(mykonosDevice_t *device, uint8_t *gainIndex)
         {
             *gainIndex = readObsRxGain;
         }
-
+        
         /* Store the gain index in the device's gain control data structure. */
 
         if (readObsRxPathEnabled == ORX1_EN)
@@ -6555,7 +6535,7 @@ mykonosErr_t MYKONOS_clearPaErrorFlag(mykonosDevice_t *device)
  *
  * To save codespace, these error strings are ifdef'd out unless the user
  * adds a define MYKONOS_VERBOSE to their workspace.  This function can be
- * useful for debug.  Each function also returns unique error codes to
+ * useful for debug.  Each function also returns unique error codes to 
  * make it easier to determine where the code broke.
  *
  * \param errorCode is enumerated error code value
@@ -6985,17 +6965,17 @@ const char* getMykonosErrorMessage(mykonosErr_t errorCode)
         case MYKONOS_ERR_ARMSTATE_PROFILE_ERROR: return "ARM has detected an illegal profile.\n";
         case MYKONOS_ERR_WAITARMCSTATE_TIMEOUT: return "Timeout occurred in MYKONOS_checkArmState().\n";
         case MYKONOS_ERR_GET_API_VERSION_NULL_PARAM: return "Null parameter passed to the function MYKONOS_getApiVersion().\n";
-        case MYKONOS_ERR_TXPROFILE_IQRATE: return "Profile IQ rate out of range.\n";
-        case MYKONOS_ERR_TXPROFILE_RFBW: return "Profile RF bandwidth out of range.\n";
-        case MYKONOS_ERR_TXPROFILE_FILTER_INTERPOLATION: return "Filter interpolation not valid.\n";
-        case MYKONOS_ERR_TXPROFILE_FIR_COEFS: return "FIR filter not valid.\n";
+        case MYKONOS_ERR_TXPROFILE_IQRATE: return "Tx Profile IQ rate out of range.\n";
+        case MYKONOS_ERR_TXPROFILE_RFBW: return "Tx Profile RF bandwidth out of range.\n";
+        case MYKONOS_ERR_TXPROFILE_FILTER_INTERPOLATION: return "Tx Filter interpolation not valid.\n";
+        case MYKONOS_ERR_TXPROFILE_FIR_COEFS: return "Tx FIR filter not valid.\n";
         case MYKONOS_ERR_RXPROFILE_RXCHANNEL: return " Rx channel is not valid.\n";
-        case MYKONOS_ERR_RXPROFILE_IQRATE: return "out of range IQ rate.\n";
-        case MYKONOS_ERR_RXPROFILE_RFBW: return "out of range RF bandwidth.\n";
-        case MYKONOS_ERR_RXPROFILE_FILTER_DECIMATION: return "not valid filter decimation setting.\n";
-        case MYKONOS_ERR_RXPROFILE_FIR_COEFS: return "FIR filter not valid.\n";
-        case MYKONOS_ERR_RXPROFILE_ADCDIV: return "not valid ADC divider.\n";
-        case MYKONOS_ERR_PROFILES_HSDIGCLK: return "profiles loaded are not valid.\n";
+        case MYKONOS_ERR_RXPROFILE_IQRATE: return "Receiver profile out of range IQ rate.\n";
+        case MYKONOS_ERR_RXPROFILE_RFBW: return "Receiver profile out of range RF bandwidth.\n";
+        case MYKONOS_ERR_RXPROFILE_FILTER_DECIMATION: return "Receiver profile not valid filter decimation setting.\n";
+        case MYKONOS_ERR_RXPROFILE_FIR_COEFS: return "Receiver profile FIR filter not valid.\n";
+        case MYKONOS_ERR_RXPROFILE_ADCDIV: return "Receiver profile not valid ADC divider.\n";
+        case MYKONOS_ERR_PROFILES_HSDIGCLK: return "Profile combinations loaded are not valid.\n";
         case MYKONOS_ERR_RESET_TXLOL_INV_PARAM: return "Selected channel is not valid.\n";
         case MYKONOS_ERR_RESET_TXLOL_ARMERROR: return "ARM command error in MYKONOS_resetExtTxLolChannel().\n";
         default: return "";
@@ -11757,6 +11737,13 @@ mykonosErr_t MYKONOS_checkArmState(mykonosDevice_t *device, mykonosArmState_t ar
                 retVal = MYKONOS_ERR_ARMSTATE_EXCEPTION;
                 endCheck = 1;
                 break;
+
+            case MYK_ARM_EXCEPTION | MYK_ARM_PROFILE_ERROR:
+                /* return error directly */
+                retVal = MYKONOS_ERR_ARMSTATE_EXCEPTION;
+                endCheck = 1;
+                break;
+
             default:
                 endCheck = 0;
                 break;
@@ -14476,28 +14463,29 @@ mykonosErr_t MYKONOS_loadAdcProfiles(mykonosDevice_t *device)
     const uint8_t ARM_CONFIG_OFFSET = 100; /* number of bytes written in MYKONOS_writeArmProfile() to ARM memory */
 
     const uint8_t NUM_ADCPROFILE_COEFS = 16;
-    const uint8_t NUM_ADC_PROFILES = 19;
-    static const uint16_t adcProfileLut [19][18] =
+    const uint8_t NUM_ADC_PROFILES = 20;
+    static const uint16_t adcProfileLut [20][18] =
     { /* Max RFBW, ADCCLK_MHz, adcProfile[16]*/
-        { 60,  983, 940, 557, 195, 100, 1280, 191, 1889, 165, 1035,  69,  793, 39, 47, 25, 19, 207},
-        { 75,  983, 905, 556, 190, 101, 1280, 286, 1889, 256, 1011, 107,  791, 36, 46, 24, 19, 205},
-        {100,  983, 885, 556, 196,  98, 1280, 495, 1897, 453, 1050, 202,  745, 32, 44, 24, 18, 203},
-        { 75, 1228, 752, 455, 193, 101, 1280, 191, 1929, 168, 1284,  86, 1001, 39, 48, 31, 24, 207},
-        {100, 1228, 736, 468, 191,  99, 1280, 331, 1988, 306, 1272, 153,  956, 36, 48, 30, 23, 205},
-        {160, 1228, 644, 518, 193,  99, 1280, 733, 2229, 856, 1303, 423,  904, 25, 48, 28, 22, 199},
-        {200, 1228, 452, 384, 199, 105, 1280, 694, 1826, 854, 1493, 626,  997, 23, 48, 38, 29, 227},
-        { 80, 1250, 744, 449, 191, 100, 1280, 211, 1937, 186, 1288,  95, 1001, 39, 48, 31, 24, 206}, /* TODO: Testing Only */
-        {102, 1250, 724, 460, 194, 101, 1280, 333, 1989, 308, 1315, 159,  998, 36, 48, 31, 24, 205}, /* TODO: Testing Only */
-        { 80, 1333, 691, 419, 195, 101, 1280, 184, 1927, 162, 1407,  91, 1085, 39, 48, 34, 26, 207}, /* TODO: Testing Only */
-        {217, 1333, 554, 308, 193, 101, 1280,1053, 1458, 850, 1441, 764,  935, 18, 28, 28, 23, 193}, /* TODO: Testing Only */
-        { 75, 1474, 636, 378, 192,  98, 1280, 166, 1919, 144, 1526,  87, 1169, 40, 48, 37, 28, 207},
-        {100, 1474, 621, 383, 193,  99, 1280, 233, 1947, 209, 1543, 128, 1167, 38, 48, 37, 28, 206},
-        {150, 1474, 590, 404, 191,  98, 1280, 495, 2070, 494, 1532, 294, 1118, 32, 48, 35, 27, 203},
-        { 40, 1536, 609, 362, 194, 101, 1280, 160, 1917, 139, 1607,  89, 1252, 40, 48, 39, 30, 207},
-        {100, 1536, 592, 366, 190, 102, 1280, 214, 1939, 192, 1580, 121, 1251, 38, 48, 38, 30, 206},
-        {150, 1536, 556, 385, 192, 101, 1280, 449, 2051, 452, 1608, 283, 1201, 32, 48, 37, 29, 203},
-        {200, 1536, 516, 414, 193, 101, 1280, 733, 2229, 856, 1629, 529, 1150, 25, 48, 35, 28, 199},
-        {240, 1536, 477, 299, 194, 101, 1280, 967, 1624, 878, 1660, 803, 1100, 19, 32, 33, 27, 194}
+        { 20,  491, 1493, 561, 197,  93, 1280, 111, 941,  33,   521,   8,  311, 40, 30, 16,  9, 200},
+        { 60,  983,  940, 557, 195, 100, 1280, 191, 1889, 165, 1035,  69,  793, 39, 47, 25, 19, 207},
+        { 75,  983,  905, 556, 190, 101, 1280, 286, 1889, 256, 1011, 107,  791, 36, 46, 24, 19, 205},
+        {100,  983,  885, 556, 196,  98, 1280, 495, 1897, 453, 1050, 202,  745, 32, 44, 24, 18, 203},
+        { 75, 1228,  752, 455, 193, 101, 1280, 191, 1929, 168, 1284,  86, 1001, 39, 48, 31, 24, 207},
+        {100, 1228,  736, 468, 191,  99, 1280, 331, 1988, 306, 1272, 153,  956, 36, 48, 30, 23, 205},
+        {160, 1228,  644, 518, 193,  99, 1280, 733, 2229, 856, 1303, 423,  904, 25, 48, 28, 22, 199},
+        {200, 1228,  452, 384, 199, 105, 1280, 694, 1826, 854, 1493, 626,  997, 23, 48, 38, 29, 227},
+        { 80, 1250,  744, 449, 191, 100, 1280, 211, 1937, 186, 1288,  95, 1001, 39, 48, 31, 24, 206}, /* TODO: Testing Only */
+        {102, 1250,  724, 460, 194, 101, 1280, 333, 1989, 308, 1315, 159,  998, 36, 48, 31, 24, 205}, /* TODO: Testing Only */
+        { 80, 1333,  691, 419, 195, 101, 1280, 184, 1927, 162, 1407,  91, 1085, 39, 48, 34, 26, 207}, /* TODO: Testing Only */
+        {217, 1333,  554, 308, 193, 101, 1280,1053, 1458, 850, 1441, 764,  935, 18, 28, 28, 23, 193}, /* TODO: Testing Only */
+        { 75, 1474,  636, 378, 192,  98, 1280, 166, 1919, 144, 1526,  87, 1169, 40, 48, 37, 28, 207},
+        {100, 1474,  621, 383, 193,  99, 1280, 233, 1947, 209, 1543, 128, 1167, 38, 48, 37, 28, 206},
+        {150, 1474,  590, 404, 191,  98, 1280, 495, 2070, 494, 1532, 294, 1118, 32, 48, 35, 27, 203},
+        { 40, 1536,  609, 362, 194, 101, 1280, 160, 1917, 139, 1607,  89, 1252, 40, 48, 39, 30, 207},
+        {100, 1536,  592, 366, 190, 102, 1280, 214, 1939, 192, 1580, 121, 1251, 38, 48, 38, 30, 206},
+        {150, 1536,  556, 385, 192, 101, 1280, 449, 2051, 452, 1608, 283, 1201, 32, 48, 37, 29, 203},
+        {200, 1536,  516, 414, 193, 101, 1280, 733, 2229, 856, 1629, 529, 1150, 25, 48, 35, 28, 199},
+        {240, 1536,  477, 299, 194, 101, 1280, 967, 1624, 878, 1660, 803, 1100, 19, 32, 33, 27, 194}
     };
 
 #if (MYKONOS_VERBOSE == 1)
