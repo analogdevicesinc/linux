@@ -3,7 +3,7 @@
  *
  * \brief Contains macro definitions and global structure declarations for mykonos_user.c
  *
- * Mykonos API version: 1.1.9.3325
+ * Mykonos API version: 1.2.05.3475
  */
 
 #ifndef _MYKONOSPROFILES_H_
