@@ -30,6 +30,8 @@
 #include <linux/regulator/machine.h>
 #include <linux/platform_device.h>
 
+#define PF1550_MAX_REGULATOR 7
+
 struct pf1550_desc {
 	struct regulator_desc desc;
 	unsigned char stby_reg;
@@ -39,6 +41,7 @@ struct pf1550_desc {
 struct pf1550_regulator_info {
 	struct device *dev;
 	struct pf1550_dev *pf1550;
+	struct pf1550_desc regulator_descs[PF1550_MAX_REGULATOR];
 	int irq;
 };
 
@@ -90,7 +93,15 @@ static int pf1550_set_ramp_delay(struct regulator_dev *rdev, int ramp_delay)
 	return ret;
 }
 
-static struct regulator_ops pf1550_sw_ops = {
+static struct regulator_ops pf1550_sw1_ops = {
+	.list_voltage = regulator_list_voltage_table,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.set_ramp_delay = pf1550_set_ramp_delay,
+};
+
+static struct regulator_ops pf1550_sw2_ops = {
 	.list_voltage = regulator_list_voltage_linear,
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
 	.get_voltage_sel = regulator_get_voltage_sel_regmap,
@@ -148,7 +159,7 @@ static struct regulator_ops pf1550_fixed_ops = {
 		.of_match = of_match_ptr(#_name),	\
 		.regulators_node = of_match_ptr("regulators"),	\
 		.n_voltages = ARRAY_SIZE(voltages),	\
-		.ops = &pf1550_sw_ops,	\
+		.ops = &pf1550_sw1_ops,	\
 		.type = REGULATOR_VOLTAGE,	\
 		.id = _chip ## _ ## _name,	\
 		.owner = THIS_MODULE,	\
@@ -166,7 +177,7 @@ static struct regulator_ops pf1550_fixed_ops = {
 		.of_match = of_match_ptr(#_name),	\
 		.regulators_node = of_match_ptr("regulators"),	\
 		.n_voltages = ((max) - (min)) / (step) + 1,	\
-		.ops = &pf1550_sw_ops,	\
+		.ops = &pf1550_sw2_ops,	\
 		.type = REGULATOR_VOLTAGE,	\
 		.id = _chip ## _ ## _name,	\
 		.owner = THIS_MODULE,	\
@@ -220,7 +231,7 @@ static struct regulator_ops pf1550_fixed_ops = {
 	.stby_mask = 0x2,	\
 }
 
-static const struct pf1550_desc pf1550_regulators[] = {
+static struct pf1550_desc pf1550_regulators[] = {
 	PF_SW3(PF1550, SW1, 600000, 1387500, 0x3f, 12500),
 	PF_SW3(PF1550, SW2, 600000, 1387500, 0x3f, 12500),
 	PF_SW3(PF1550, SW3, 1800000, 3300000, 0xf, 100000),
@@ -287,21 +298,36 @@ static int pf1550_regulator_probe(struct platform_device *pdev)
 
 	config.dev = iodev->dev;
 	config.regmap = iodev->regmap;
+	info->dev = &pdev->dev;
+	info->pf1550 = iodev;
+
+	memcpy(info->regulator_descs, pf1550_regulators,
+		sizeof(info->regulator_descs));
 
 	for (i = 0; i < ARRAY_SIZE(pf1550_regulators); i++) {
 		struct regulator_dev *rdev;
+		struct regulator_desc *desc;
+		unsigned int val;
 
-		rdev = devm_regulator_register(&pdev->dev,
-					&pf1550_regulators[i].desc, &config);
+		desc = &info->regulator_descs[i].desc;
+
+		if (desc->id == PF1550_SW2) {
+			pf1550_read_otp(info->pf1550, 0x1f, &val);
+			/* OTP_SW2_DVS_ENB == 1? */
+			if ((val & 0x8)) {
+				desc->volt_table = pf1550_sw12_volts;
+				desc->n_voltages = ARRAY_SIZE(pf1550_sw12_volts);
+				desc->ops = &pf1550_sw1_ops;
+			}
+		}
+
+		rdev = devm_regulator_register(&pdev->dev, desc, &config);
 		if (IS_ERR(rdev)) {
 			dev_err(&pdev->dev,
 				"Failed to initialize regulator-%d\n", i);
 			return PTR_ERR(rdev);
 		}
 	}
-
-	info->dev = &pdev->dev;
-	info->pf1550 = iodev;
 
 	platform_set_drvdata(pdev, info);
 

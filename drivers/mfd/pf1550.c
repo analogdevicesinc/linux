@@ -118,6 +118,34 @@ static const struct regmap_irq_chip pf1550_charger_irq_chip = {
 	.num_irqs		= ARRAY_SIZE(pf1550_charger_irqs),
 };
 
+int pf1550_read_otp(struct pf1550_dev *pf1550, unsigned int index,
+			   unsigned int *val)
+{
+	int ret = 0;
+
+	ret = regmap_write(pf1550->regmap, PF1550_PMIC_REG_KEY, 0x15);
+	if (ret)
+		goto read_err;
+	ret = regmap_write(pf1550->regmap, PF1550_CHARG_REG_CHGR_KEY2, 0x50);
+	if (ret)
+		goto read_err;
+	ret = regmap_write(pf1550->regmap, PF1550_TEST_REG_KEY3, 0xAB);
+	if (ret)
+		goto read_err;
+	ret = regmap_write(pf1550->regmap, PF1550_TEST_REG_FMRADDR, index);
+	if (ret)
+		goto read_err;
+	ret = regmap_read(pf1550->regmap, PF1550_TEST_REG_FMRDATA, val);
+	if (ret)
+		goto read_err;
+
+	return 0;
+
+read_err:
+	dev_err(pf1550->dev, "read otp reg %x found!\n", index);
+	return ret;
+}
+
 static int pf1550_i2c_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
