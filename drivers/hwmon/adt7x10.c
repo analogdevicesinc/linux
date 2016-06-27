@@ -432,7 +432,11 @@ int adt7x10_register_iio(struct device *dev)
 		return -ENOMEM;
 
 	indio_dev->dev.parent = dev;
-	indio_dev->name = dev_name(dev);
+	if (dev->of_node)
+		indio_dev->name = dev->of_node->name;
+	else
+		indio_dev->name = dev_name(dev);
+
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &adt7x10_info;
 
@@ -444,12 +448,10 @@ int adt7x10_register_iio(struct device *dev)
 	return iio_device_register(indio_dev);
 }
 #else
-
 int adt7x10_register_iio(struct device *dev, struct adt7x10_data *data)
 {
 	return 0;
 }
-
 #endif
 
 

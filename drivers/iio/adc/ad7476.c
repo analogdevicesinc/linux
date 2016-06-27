@@ -141,7 +141,7 @@ static int ad7476_read_raw(struct iio_dev *indio_dev,
 			return -ENODEV;
 		*val = clk_get_rate(st->clk);
 		return IIO_VAL_INT;
-		
+
 	}
 	return -EINVAL;
 }
@@ -277,7 +277,7 @@ static int ad7476_probe(struct spi_device *spi)
 				goto error_disable_reg;
 		}
 		indio_dev->num_channels = 1;
-		
+
 		st->xfer.rx_buf = (void *)-1;
 		spi_engine_offload_load_msg(spi, &st->msg);
 		spi_engine_offload_enable(spi, true);
