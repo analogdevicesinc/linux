@@ -321,6 +321,7 @@ static void pf1550_charger_irq_work(struct work_struct *work)
 						  struct pf1550_charger,
 						  irq_work);
 	int i, irq_type = -1;
+	unsigned int status;
 
 	if (!chg->charger)
 		return;
@@ -350,6 +351,11 @@ static void pf1550_charger_irq_work(struct work_struct *work)
 	default:
 		dev_err(chg->dev, "unknown interrupt occurred.\n");
 	}
+
+	if (regmap_read(chg->pf1550->regmap, PF1550_CHARG_REG_CHG_INT, &status))
+		dev_err(chg->dev, "Read CHG_INT error.\n");
+	if (regmap_write(chg->pf1550->regmap, PF1550_CHARG_REG_CHG_INT, status))
+		dev_err(chg->dev, "clear CHG_INT error.\n");
 
 	mutex_unlock(&chg->mutex);
 }
@@ -492,9 +498,9 @@ static int pf1550_reg_init(struct pf1550_charger *chg)
 	int ret;
 	unsigned int data;
 
-	/* Unmask charger interrupt */
+	/* Unmask charger interrupt, mask DPMI and reserved bit */
 	ret =  regmap_write(chg->pf1550->regmap, PF1550_CHARG_REG_CHG_INT_MASK,
-				0x11);
+				0x51);
 	if (ret) {
 		dev_err(chg->dev, "Error unmask charger interrupt: %d\n", ret);
 		return ret;
