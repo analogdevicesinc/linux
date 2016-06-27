@@ -98,7 +98,17 @@ static struct regulator_ops pf1550_sw_ops = {
 	.set_ramp_delay = pf1550_set_ramp_delay,
 };
 
-static struct regulator_ops pf1550_ldo_ops = {
+static struct regulator_ops pf1550_ldo1_ops = {
+	.enable = regulator_enable_regmap,
+	.disable = regulator_disable_regmap,
+	.is_enabled = regulator_is_enabled_regmap,
+	.list_voltage = regulator_list_voltage_table,
+	.map_voltage = regulator_map_voltage_ascend,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+};
+
+static struct regulator_ops pf1550_ldo2_ops = {
 	.enable = regulator_enable_regmap,
 	.disable = regulator_disable_regmap,
 	.is_enabled = regulator_is_enabled_regmap,
@@ -175,7 +185,7 @@ static struct regulator_ops pf1550_fixed_ops = {
 		.of_match = of_match_ptr(#_name),	\
 		.regulators_node = of_match_ptr("regulators"),	\
 		.n_voltages = ARRAY_SIZE(voltages),	\
-		.ops = &pf1550_ldo_ops,	\
+		.ops = &pf1550_ldo1_ops,	\
 		.type = REGULATOR_VOLTAGE,	\
 		.id = _chip ## _ ## _name,	\
 		.owner = THIS_MODULE,	\
@@ -195,7 +205,7 @@ static struct regulator_ops pf1550_fixed_ops = {
 		.of_match = of_match_ptr(#_name),	\
 		.regulators_node = of_match_ptr("regulators"),	\
 		.n_voltages = ((max) - (min)) / (step) + 1,	\
-		.ops = &pf1550_ldo_ops,	\
+		.ops = &pf1550_ldo2_ops,	\
 		.type = REGULATOR_VOLTAGE,	\
 		.id = _chip ## _ ## _name,	\
 		.owner = THIS_MODULE,	\
@@ -211,8 +221,8 @@ static struct regulator_ops pf1550_fixed_ops = {
 }
 
 static const struct pf1550_desc pf1550_regulators[] = {
-	PF_SW3(PF1550, SW1, 600000, 1387500, 0x3f, 125000),
-	PF_SW3(PF1550, SW2, 600000, 1387500, 0x3f, 125000),
+	PF_SW3(PF1550, SW1, 600000, 1387500, 0x3f, 12500),
+	PF_SW3(PF1550, SW2, 600000, 1387500, 0x3f, 12500),
 	PF_SW3(PF1550, SW3, 1800000, 3300000, 0xf, 100000),
 	PF_VREF(PF1550, VREFDDR, 1200000),
 	PF_LDO1(PF1550, LDO1, 0x1f, pf1550_ldo13_volts),
