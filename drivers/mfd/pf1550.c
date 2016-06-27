@@ -69,7 +69,7 @@ static const struct regmap_irq_chip pf1550_regulator_irq_chip = {
 	.status_base		= PF1550_PMIC_REG_SW_INT_STAT0,
 	.mask_base		= PF1550_PMIC_REG_SW_INT_MASK0,
 	.mask_invert		= false,
-	.num_regs		= 4,
+	.num_regs		= 23,
 	.irqs			= pf1550_regulator_irqs,
 	.num_irqs		= ARRAY_SIZE(pf1550_regulator_irqs),
 };
