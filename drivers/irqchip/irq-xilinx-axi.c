@@ -283,6 +283,7 @@ static const struct of_device_id xilinx_intc_of_match[] = {
     {},
 
 };
+MODULE_DEVICE_TABLE(of, xilinx_intc_of_match);
 
 static struct platform_driver xilinx_intc_driver = {
     .driver = {
