@@ -16,16 +16,17 @@ static int xilinx_pcie_axi_probe(struct pci_dev *pdev,
 				const struct pci_device_id *ident)
 {
 	int status = 0;
-    const struct firmware *fdt_self;
+	const struct firmware *fdt_self;
 
-    status = request_firmware(&fdt_self, firmware_file, &pdev->dev);
+	status = request_firmware(&fdt_self, firmware_file, &pdev->dev);
 	if (status)
 		return status;
 
-    status = pcie_axi_bridge_register(pdev, xilinx_pab_compat, fdt_self, &xilinx_pcie_axi_overlay_ops, NULL);
-    release_firmware(fdt_self);
+	status = pcie_axi_bridge_register(pdev, xilinx_pab_compat, fdt_self,
+		&xilinx_pcie_axi_overlay_ops, NULL);
+	release_firmware(fdt_self);
 
-    return status;
+	return status;
 }
 
 static void xilinx_pcie_axi_remove(struct pci_dev *pdev)
@@ -34,17 +35,17 @@ static void xilinx_pcie_axi_remove(struct pci_dev *pdev)
 }
 
 static struct pci_device_id xilinx_pcie_axi_ids[ ] = {
- { PCI_DEVICE(PCI_VENDOR_ID_XILINX, 0x7022) },
- { 0, },
+	{ PCI_DEVICE(PCI_VENDOR_ID_XILINX, 0x7022) },
+	{ 0, },
 };
 
 MODULE_DEVICE_TABLE(pci, xilinx_pcie_axi_ids);
 
 static struct pci_driver xilinx_pcie_axi_driver = {
- .name = DRIVER_NAME,
- .id_table = xilinx_pcie_axi_ids,
- .probe = xilinx_pcie_axi_probe,
- .remove = xilinx_pcie_axi_remove,
+	.name = DRIVER_NAME,
+	.id_table = xilinx_pcie_axi_ids,
+	.probe = xilinx_pcie_axi_probe,
+	.remove = xilinx_pcie_axi_remove,
 };
 
 module_pci_driver(xilinx_pcie_axi_driver);
