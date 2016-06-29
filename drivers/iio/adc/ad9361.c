@@ -897,7 +897,7 @@ static int ad9361_1rx1tx_channel_map(struct ad9361_rf_phy *phy, bool tx, int cha
 
 static int ad9361_reset(struct ad9361_rf_phy *phy)
 {
-	if (!IS_ERR(phy->pdata->reset_gpio)) {
+	if (phy->pdata->reset_gpio) {
 		gpiod_set_value(phy->pdata->reset_gpio, 0);
 		mdelay(1);
 		gpiod_set_value(phy->pdata->reset_gpio, 1);
@@ -4298,7 +4298,7 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 			MCS_REFCLK_SCALE_EN, 1);
 		break;
 	case 2:
-		if (IS_ERR(phy->pdata->sync_gpio))
+		if (!phy->pdata->sync_gpio)
 			break;
 		/*
 		 * NOTE: This is not a regular GPIO -
@@ -4313,7 +4313,7 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 			mcs_mask, MCS_BB_ENABLE | MCS_DIGITAL_CLK_ENABLE | MCS_RF_ENABLE);
 		break;
 	case 4:
-		if (IS_ERR(phy->pdata->sync_gpio))
+		if (!phy->pdata->sync_gpio)
 			break;
 		gpiod_set_value(phy->pdata->sync_gpio, 1);
 		gpiod_set_value(phy->pdata->sync_gpio, 0);
@@ -7376,8 +7376,8 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		if (ret != 1)
 			return -EINVAL;
 
-		if (!IS_ERR(phy->pdata->cal_sw1_gpio) &&
-			!IS_ERR(phy->pdata->cal_sw2_gpio)) {
+		if (phy->pdata->cal_sw1_gpio &&
+			phy->pdata->cal_sw2_gpio) {
 			mutex_lock(&phy->indio_dev->mlock);
 			gpiod_set_value(phy->pdata->cal_sw1_gpio, !!(val & BIT(0)));
 			gpiod_set_value(phy->pdata->cal_sw2_gpio, !!(val & BIT(1)));
@@ -8410,18 +8410,26 @@ static int ad9361_probe(struct spi_device *spi)
 	if (phy->pdata == NULL)
 		return -EINVAL;
 
-	phy->pdata->reset_gpio = devm_gpiod_get(&spi->dev, "reset",
+	phy->pdata->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
 		GPIOD_OUT_HIGH);
+	if (IS_ERR(phy->pdata->reset_gpio))
+		return PTR_ERR(phy->pdata->reset_gpio);
 
 	/* Optional: next three used for MCS synchronization */
-	phy->pdata->sync_gpio = devm_gpiod_get(&spi->dev, "sync",
+	phy->pdata->sync_gpio = devm_gpiod_get_optional(&spi->dev, "sync",
 		GPIOD_OUT_LOW);
+	if (IS_ERR(phy->pdata->sync_gpio))
+		return PTR_ERR(phy->pdata->sync_gpio);
 
-	phy->pdata->cal_sw1_gpio = devm_gpiod_get(&spi->dev, "cal-sw1",
+	phy->pdata->cal_sw1_gpio = devm_gpiod_get_optional(&spi->dev, "cal-sw1",
 		GPIOD_OUT_LOW);
+	if (IS_ERR(phy->pdata->cal_sw1_gpio))
+		return PTR_ERR(phy->pdata->cal_sw1_gpio);
 
-	phy->pdata->cal_sw2_gpio = devm_gpiod_get(&spi->dev, "cal-sw2",
+	phy->pdata->cal_sw2_gpio = devm_gpiod_get_optional(&spi->dev, "cal-sw2",
 		GPIOD_OUT_LOW);
+	if (IS_ERR(phy->pdata->cal_sw2_gpio))
+		return PTR_ERR(phy->pdata->cal_sw2_gpio);
 
 	phy->spi = spi;
 	phy->clk_refin = clk;
