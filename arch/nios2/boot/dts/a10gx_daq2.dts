@@ -257,7 +257,7 @@
 				adi,tx-link-number = <0>;
 				adi,tx-lanes-per-link = <4>;
 				adi,rx-enable;
-				adi,rx-link-number = <1>;
+				adi,rx-link-number = <0>;
 				adi,rx-lanes-per-link = <4>;
 			};
 		};
