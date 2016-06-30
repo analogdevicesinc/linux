@@ -811,6 +811,12 @@
 			>;
 		};
 
+		pinctrl_mipi_dsi_reset: mipi_dsi_reset_grp {
+			fsl,pins = <
+				MX7D_PAD_SAI1_TX_DATA__GPIO6_IO15 0x1b
+			>;
+		};
+
 		pinctrl_ecspi3: ecspi3grp {
 			fsl,pins = <
 				MX7D_PAD_SAI2_TX_SYNC__ECSPI3_MISO	0x2
