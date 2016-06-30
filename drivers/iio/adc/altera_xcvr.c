@@ -252,7 +252,7 @@ static int xcvr_calib_rx(struct xcvr_state *st)
 	unsigned read_val;
 	unsigned err = 0;
 
-    for (lane = 0; lane < st->tx_lanes_per_link; lane++)
+    for (lane = 0; lane < st->rx_lanes_per_link; lane++)
     {
         /* Get AVMM Interface from PreSICE through arbitration register */
 		addr = XCVR_REG_ARBITRATION(link) | (lane << XCVR_CFG_DPRIO_ADDR_WIDTH);
