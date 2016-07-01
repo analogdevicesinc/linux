@@ -684,6 +684,12 @@ static int axiadc_probe(struct platform_device *pdev)
 	}
 
 	conv = to_converter(st->dev_spi);
+	if (IS_ERR(conv)) {
+		dev_err(&pdev->dev, "Failed to get converter device: %d\n",
+				(int)PTR_ERR(conv));
+		return PTR_ERR(conv);
+	}
+
 	iio_device_set_drvdata(indio_dev, conv);
 	conv->indio_dev = indio_dev;
 

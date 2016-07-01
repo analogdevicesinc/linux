@@ -2937,7 +2937,7 @@ static irqreturn_t adv76xx_irq_handler(int irq, void *devid)
 	return IRQ_HANDLED;
 }
 
-static int adv76xx_reset(struct adv76xx_state *state)
+static void adv76xx_reset(struct adv76xx_state *state)
 {
 	if (state->reset_gpio) {
 		/* ADV76XX can be reset by a low reset pulse of minimum 5 ms. */
@@ -2948,8 +2948,6 @@ static int adv76xx_reset(struct adv76xx_state *state)
 		/* an I2C write is performed to the ADV76XX. */
 		usleep_range(5000, 10000);
 	}
-
-	return 0;
 }
 
 static const struct regmap_config adv76xx_regmap_cnf[] = {
