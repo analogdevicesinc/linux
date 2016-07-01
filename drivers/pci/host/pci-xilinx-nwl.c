@@ -101,8 +101,15 @@
 #define MSGF_MISC_SR_I_ADDR_ERR		BIT(6)
 #define MSGF_MISC_SR_E_ADDR_ERR		BIT(7)
 
-#define MSGF_MISC_SR_PCIE_CORE		GENMASK(18, 16)
-#define MSGF_MISC_SR_PCIE_CORE_ERR	GENMASK(31, 20)
+#define MSGF_MISC_SR_FATAL_AER		BIT(16)
+#define MSGF_MISC_SR_NON_FATAL_AER	BIT(17)
+#define MSGF_MISC_SR_CORR_AER		BIT(18)
+#define MSGF_MISC_SR_UR_DETECT		BIT(20)
+#define MSGF_MISC_SR_NON_FATAL_DEV	BIT(22)
+#define MSGF_MISC_SR_FATAL_DEV		BIT(23)
+#define MSGF_MISC_SR_LINK_DOWN		BIT(24)
+#define MSGF_MSIC_SR_LINK_AUTO_BWIDTH	BIT(25)
+#define MSGF_MSIC_SR_LINK_BWIDTH	BIT(26)
 
 #define MSGF_MISC_SR_MASKALL		(MSGF_MISC_SR_RXMSG_AVAIL | \
 					MSGF_MISC_SR_RXMSG_OVER | \
@@ -110,8 +117,15 @@
 					MSGF_MISC_SR_MASTER_ERR | \
 					MSGF_MISC_SR_I_ADDR_ERR | \
 					MSGF_MISC_SR_E_ADDR_ERR | \
-					MSGF_MISC_SR_PCIE_CORE | \
-					MSGF_MISC_SR_PCIE_CORE_ERR)
+					MSGF_MISC_SR_FATAL_AER | \
+					MSGF_MISC_SR_NON_FATAL_AER | \
+					MSGF_MISC_SR_CORR_AER | \
+					MSGF_MISC_SR_UR_DETECT | \
+					MSGF_MISC_SR_NON_FATAL_DEV | \
+					MSGF_MISC_SR_FATAL_DEV | \
+					MSGF_MISC_SR_LINK_DOWN | \
+					MSGF_MSIC_SR_LINK_AUTO_BWIDTH | \
+					MSGF_MSIC_SR_LINK_BWIDTH)
 
 /* Message rx fifo type mask bits */
 #define MSGF_RX_FIFO_TYPE_MSI	(1)
@@ -160,6 +174,7 @@
 
 #define INT_PCI_MSI_NR			(2 * 32)
 
+#define INTX_NUM			4
 /* Readin the PS_LINKUP */
 #define PS_LINKUP_OFFSET			0x00000238
 #define PCIE_PHY_LINKUP_BIT			BIT(0)
@@ -230,9 +245,9 @@ struct nwl_pcie {
 	void __iomem *breg_base;
 	void __iomem *pcireg_base;
 	void __iomem *ecam_base;
-	u32 phys_breg_base;
-	u32 phys_pcie_reg_base;
-	u32 phys_ecam_base;
+	phys_addr_t phys_breg_base;
+	phys_addr_t phys_pcie_reg_base;
+	phys_addr_t phys_ecam_base;
 	u32 breg_size;
 	u32 pcie_reg_size;
 	u32 ecam_size;
@@ -245,6 +260,7 @@ struct nwl_pcie {
 	bool enable_msi_fifo;
 	struct pci_bus *bus;
 	struct nwl_msi msi;
+	struct irq_domain *legacy_irq_domain;
 };
 
 static inline struct nwl_msi *to_nwl_msi(struct msi_controller *chip)
@@ -287,13 +303,6 @@ static bool nwl_pcie_valid_device(struct pci_bus *bus, unsigned int devfn)
 
 	/* Only one device down on each root port */
 	if (bus->number == pcie->root_busno && devfn > 0)
-		return false;
-
-	/*
-	 * Do not read more than one device on the bus directly attached
-	 * to root port.
-	 */
-	if (bus->primary == pcie->root_busno && devfn > 0)
 		return false;
 
 	return true;
@@ -497,8 +506,30 @@ static irqreturn_t nwl_pcie_misc_handler(int irq, void *data)
 		dev_err(pcie->dev,
 			"In Misc Egress address translation error\n");
 
-	if (misc_stat & MSGF_MISC_SR_PCIE_CORE_ERR)
-		dev_err(pcie->dev, "PCIe Core error\n");
+	if (misc_stat & MSGF_MISC_SR_FATAL_AER)
+		dev_err(pcie->dev, "Fatal Error in AER Capability\n");
+
+	if (misc_stat & MSGF_MISC_SR_NON_FATAL_AER)
+		dev_err(pcie->dev, "Non-Fatal Error in AER Capability\n");
+
+	if (misc_stat & MSGF_MISC_SR_CORR_AER)
+		dev_err(pcie->dev, "Correctable Error in AER Capability\n");
+
+	if (misc_stat & MSGF_MISC_SR_UR_DETECT)
+		dev_err(pcie->dev, "Unsupported request Detected\n");
+
+	if (misc_stat & MSGF_MISC_SR_NON_FATAL_DEV)
+		dev_err(pcie->dev, "Non-Fatal Error Detected\n");
+
+	if (misc_stat & MSGF_MISC_SR_FATAL_DEV)
+		dev_err(pcie->dev, "Fatal Error Detected\n");
+
+	if (misc_stat & MSGF_MSIC_SR_LINK_AUTO_BWIDTH)
+		dev_err(pcie->dev,
+			"Link Autonomous Bandwidth Management Status bit set\n");
+
+	if (misc_stat & MSGF_MSIC_SR_LINK_BWIDTH)
+		dev_err(pcie->dev, "Link Bandwidth Management Status bit set\n");
 
 	if (pcie->enable_msi_fifo) {
 		if (misc_stat & MSGF_MISC_SR_RXMSG_AVAIL) {
@@ -543,28 +574,40 @@ static irqreturn_t nwl_pcie_misc_handler(int irq, void *data)
 static irqreturn_t nwl_pcie_leg_handler(int irq, void *data)
 {
 	struct nwl_pcie *pcie = (struct nwl_pcie *)data;
-	u32 leg_stat;
+	unsigned long leg_stat;
+	u32 bit;
+	u32 virq;
 
 	/* Checking for legacy interrupts */
 	leg_stat = nwl_bridge_readl(pcie, MSGF_LEG_STATUS) &
 				MSGF_LEG_SR_MASKALL;
+
 	if (!leg_stat)
 		return IRQ_NONE;
 
-	if (leg_stat & MSGF_LEG_SR_INTA)
-		dev_dbg(pcie->dev, "legacy interruptA\n");
+	for_each_set_bit(bit, &leg_stat, 4) {
 
-	if (leg_stat & MSGF_LEG_SR_INTB)
-		dev_dbg(pcie->dev, "legacy interruptB\n");
-
-	if (leg_stat & MSGF_LEG_SR_INTC)
-		dev_dbg(pcie->dev, "legacy interruptC\n");
-
-	if (leg_stat & MSGF_LEG_SR_INTD)
-		dev_dbg(pcie->dev, "legacy interruptD\n");
+		virq = irq_find_mapping(pcie->legacy_irq_domain,
+					bit + 1);
+		if (virq)
+			generic_handle_irq(virq);
+	}
 
 	return IRQ_HANDLED;
 }
+
+static int nwl_legacy_map(struct irq_domain *domain, unsigned int irq,
+				irq_hw_number_t hwirq)
+{
+	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_simple_irq);
+	irq_set_chip_data(irq, domain->host_data);
+
+	return 0;
+}
+
+static const struct irq_domain_ops legacy_domain_ops = {
+	.map = nwl_legacy_map,
+};
 
 static void __nwl_pcie_msi_handler(struct nwl_pcie *pcie,
 					unsigned long reg, u32 val)
@@ -807,6 +850,42 @@ err:
 	return ret;
 }
 
+static void nwl_pcie_free_irq_domain(struct nwl_pcie *pcie)
+{
+	int i;
+	u32 irq;
+
+	for (i = 0; i < INTX_NUM; i++) {
+		irq = irq_find_mapping(pcie->legacy_irq_domain, i + 1);
+		if (irq > 0)
+			irq_dispose_mapping(irq);
+	}
+	if (pcie->legacy_irq_domain)
+		irq_domain_remove(pcie->legacy_irq_domain);
+}
+
+static int nwl_pcie_init_irq_domain(struct nwl_pcie *pcie)
+{
+	struct device_node *node = pcie->dev->of_node;
+	struct device_node *legacy_intc_node;
+
+	legacy_intc_node = of_get_next_child(node, NULL);
+	if (!legacy_intc_node) {
+		dev_err(pcie->dev, "No legacy intc node found\n");
+		return PTR_ERR(legacy_intc_node);
+	}
+
+	pcie->legacy_irq_domain = irq_domain_add_linear(legacy_intc_node, 4,
+							&legacy_domain_ops,
+							pcie);
+
+	if (!pcie->legacy_irq_domain) {
+		dev_err(pcie->dev, "failed to create IRQ domain\n");
+		return -ENOMEM;
+	}
+	return 0;
+}
+
 static int nwl_pcie_bridge_init(struct nwl_pcie *pcie)
 {
 	struct platform_device *pdev = to_platform_device(pcie->dev);
@@ -832,9 +911,6 @@ static int nwl_pcie_bridge_init(struct nwl_pcie *pcie)
 	nwl_bridge_writel(pcie, nwl_bridge_readl(pcie, BRCFG_PCIE_RX0) |
 			  CFG_DMA_REG_BAR, BRCFG_PCIE_RX0);
 
-	/* Enable the bridge config interrupt */
-	nwl_bridge_writel(pcie, nwl_bridge_readl(pcie, BRCFG_INTERRUPT) |
-			  BRCFG_INTERRUPT_MASK, BRCFG_INTERRUPT);
 	/* Enable Ingress subtractive decode translation */
 	nwl_bridge_writel(pcie, SET_ISUB_CONTROL, I_ISUB_CONTROL);
 
@@ -932,6 +1008,11 @@ static int nwl_pcie_bridge_init(struct nwl_pcie *pcie)
 			pcie->irq_intx);
 		return err;
 	}
+
+	/* Enable the bridge config interrupt */
+	nwl_bridge_writel(pcie, nwl_bridge_readl(pcie, BRCFG_INTERRUPT) |
+			  BRCFG_INTERRUPT_MASK, BRCFG_INTERRUPT);
+
 	/* Enable all legacy interrupts */
 	nwl_bridge_writel(pcie, MSGF_LEG_SR_MASKALL, MSGF_LEG_MASK);
 
@@ -985,6 +1066,7 @@ static int nwl_pcie_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct nwl_pcie *pcie;
 	struct pci_bus *bus;
+	struct pci_bus *child;
 	int err;
 
 	resource_size_t iobase = 0;
@@ -1019,6 +1101,11 @@ static int nwl_pcie_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	err = nwl_pcie_init_irq_domain(pcie);
+	if (err) {
+		dev_err(pcie->dev, "Failed creating IRQ Domain\n");
+		return err;
+	}
 	bus = pci_create_root_bus(&pdev->dev, pcie->root_busno,
 				  &nwl_pcie_ops, pcie, &res);
 	if (!bus)
@@ -1036,6 +1123,8 @@ static int nwl_pcie_probe(struct platform_device *pdev)
 	}
 	pci_scan_child_bus(bus);
 	pci_assign_unassigned_bus_resources(bus);
+	list_for_each_entry(child, &bus->children, node)
+		pcie_bus_configure_settings(child);
 	pci_bus_add_devices(bus);
 	platform_set_drvdata(pdev, pcie);
 
@@ -1044,6 +1133,9 @@ static int nwl_pcie_probe(struct platform_device *pdev)
 
 static int nwl_pcie_remove(struct platform_device *pdev)
 {
+	struct nwl_pcie *pcie = platform_get_drvdata(pdev);
+
+	nwl_pcie_free_irq_domain(pcie);
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;

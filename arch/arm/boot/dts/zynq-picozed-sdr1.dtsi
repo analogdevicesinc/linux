@@ -117,9 +117,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			adm1166: adm1166@68 {
-				compatible = "adi,adm1166";
-				reg = <0x68>;
+			ad7291@20 {
+				compatible = "adi,ad7291";
+				reg = <0x20>;
 			};
 		};
 

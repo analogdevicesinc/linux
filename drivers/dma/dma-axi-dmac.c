@@ -74,6 +74,7 @@
 #define AXI_DMAC_IRQ_EOT		BIT(1)
 
 #define AXI_DMAC_FLAG_CYCLIC		BIT(0)
+#define AXI_DMAC_FLAG_LAST		BIT(1)
 
 #undef SPEED_TEST
 
@@ -211,10 +212,12 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	sg = &desc->sg[desc->num_submitted];
 
 	desc->num_submitted++;
-	if (desc->num_submitted == desc->num_sgs)
+	if (desc->num_submitted == desc->num_sgs) {
 		chan->next_desc = NULL;
-	else
+		flags |= AXI_DMAC_FLAG_LAST;
+	} else {
 		chan->next_desc = desc;
+	}
 
 	sg->id = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_ID);
 
@@ -350,6 +353,13 @@ static int axi_dmac_terminate_all(struct dma_chan *c)
 	vchan_dma_desc_free_list(&chan->vchan, &head);
 
 	return 0;
+}
+
+static void axi_dmac_synchronize(struct dma_chan *c)
+{
+	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
+
+	vchan_synchronize(&chan->vchan);
 }
 
 static void axi_dmac_issue_pending(struct dma_chan *c)
@@ -762,6 +772,7 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	dma_dev->device_prep_dma_cyclic = axi_dmac_prep_dma_cyclic;
 	dma_dev->device_prep_interleaved_dma = axi_dmac_prep_interleaved;
 	dma_dev->device_terminate_all = axi_dmac_terminate_all;
+	dma_dev->device_synchronize = axi_dmac_synchronize;
 	dma_dev->dev = &pdev->dev;
 	dma_dev->chancnt = 1;
 	dma_dev->src_addr_widths = BIT(dmac->chan.src_width);
@@ -808,7 +819,7 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	axi_dmac_write(dmac, AXI_DMAC_REG_DMA_COUNT, SZ_8M);
 
 	printk("Check registers\n");
-	printk("CTRL: %x %x\n", AXI_DMAC_CTRL_ENABLE, axi_dmac_read(dmac, AXI_DMAC_REG_CTRL)); 
+	printk("CTRL: %x %x\n", AXI_DMAC_CTRL_ENABLE, axi_dmac_read(dmac, AXI_DMAC_REG_CTRL));
 	printk("ADDR: %x %x\n", dmac->test_phys, axi_dmac_read(dmac, AXI_DMAC_REG_DMA_ADDRESS));
 	printk("COUNT: %x %x\n", PAGE_SIZE, axi_dmac_read(dmac, AXI_DMAC_REG_DMA_COUNT));
 	printk("MASK: %x %x\n", 0, axi_dmac_read(dmac, AXI_DMAC_REG_IRQ_MASK));

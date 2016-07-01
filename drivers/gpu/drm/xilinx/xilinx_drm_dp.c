@@ -26,6 +26,8 @@
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/phy/phy.h>
+#include <linux/phy/phy-zynqmp.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 
@@ -128,14 +130,8 @@
 							 XILINX_DP_TX_INTR_EXT_PKT_TXD | \
 							 XILINX_DP_TX_INTR_LIV_ABUF_UNDRFLW | \
 							 XILINX_DP_TX_INTR_VBLANK_START | \
-							 XILINX_DP_TX_INTR_PIXEL0_MATCH | \
-							 XILINX_DP_TX_INTR_PIXEL1_MATCH | \
 							 XILINX_DP_TX_INTR_CHBUF_UNDERFLW_MASK | \
-							 XILINX_DP_TX_INTR_CHBUF_OVERFLW_MASK | \
-							 XILINX_DP_TX_INTR_CUST_TS_2 | \
-							 XILINX_DP_TX_INTR_CUST_TS | \
-							 XILINX_DP_TX_INTR_EXT_VSYNC_TS | \
-							 XILINX_DP_TX_INTR_VSYNC_TS)
+							 XILINX_DP_TX_INTR_CHBUF_OVERFLW_MASK)
 #define XILINX_DP_TX_REPLY_DATA_CNT			0x148
 #define XILINX_DP_SUB_TX_INTR_STATUS			0x3a0
 #define XILINX_DP_SUB_TX_INTR_MASK			0x3a4
@@ -235,6 +231,7 @@
 #define DP_HIGH_BIT_RATE				270000
 #define DP_HIGH_BIT_RATE2				540000
 #define DP_MAX_TRAINING_TRIES				5
+#define DP_MAX_LANES					4
 
 enum dp_version {
 	DP_V1_1A = 0x11,
@@ -312,6 +309,7 @@ struct xilinx_drm_dp {
 	struct xilinx_drm_dp_config config;
 	struct drm_dp_aux aux;
 	struct xilinx_drm_dp_sub *dp_sub;
+	struct phy *phy[DP_MAX_LANES];
 	struct clk *aclk;
 	struct clk *aud_clk;
 
@@ -319,7 +317,7 @@ struct xilinx_drm_dp {
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
 	struct xilinx_drm_dp_link_config link_config;
 	struct xilinx_drm_dp_mode mode;
-	u8 train_set[4];
+	u8 train_set[DP_MAX_LANES];
 };
 
 static inline struct xilinx_drm_dp *to_dp(struct drm_encoder *encoder)
@@ -454,6 +452,7 @@ static void xilinx_drm_dp_adjust_train(struct xilinx_drm_dp *dp,
 {
 	u8 *train_set = dp->train_set;
 	u8 voltage = 0, preemphasis = 0;
+	u8 max_preemphasis;
 	u8 i;
 
 	for (i = 0; i < dp->mode.lane_cnt; i++) {
@@ -470,7 +469,10 @@ static void xilinx_drm_dp_adjust_train(struct xilinx_drm_dp *dp,
 	if (voltage >= DP_TRAIN_VOLTAGE_SWING_LEVEL_3)
 		voltage |= DP_TRAIN_MAX_SWING_REACHED;
 
-	if (preemphasis >= DP_TRAIN_PRE_EMPH_LEVEL_3)
+	max_preemphasis = (dp->dp_sub) ? DP_TRAIN_PRE_EMPH_LEVEL_2 :
+					 DP_TRAIN_PRE_EMPH_LEVEL_3;
+
+	if (preemphasis >= max_preemphasis)
 		preemphasis |= DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
 
 	for (i = 0; i < dp->mode.lane_cnt; i++)
@@ -512,15 +514,20 @@ static int xilinx_drm_dp_update_vs_emph(struct xilinx_drm_dp *dp)
 		p_level = (train_set[i] & DP_TRAIN_PRE_EMPHASIS_MASK) >>
 			  DP_TRAIN_PRE_EMPHASIS_SHIFT;
 
-		xilinx_drm_writel(dp->iomem,
-				  XILINX_DP_TX_PHY_VOLTAGE_DIFF_LANE_0 + i * 4,
-				  vs[p_level][v_level]);
-		xilinx_drm_writel(dp->iomem,
-				  XILINX_DP_TX_PHY_PRECURSOR_LANE_0 + i * 4,
-				  pe[p_level][v_level]);
-		xilinx_drm_writel(dp->iomem,
-				  XILINX_DP_TX_PHY_POSTCURSOR_LANE_0 + i * 4,
-				  0);
+		if (dp->phy[i]) {
+			xpsgtr_margining_factor(dp->phy[i], p_level, v_level);
+			xpsgtr_override_deemph(dp->phy[i], p_level, v_level);
+
+		} else {
+			u32 reg;
+
+			reg = XILINX_DP_TX_PHY_VOLTAGE_DIFF_LANE_0 + i + 4;
+			xilinx_drm_writel(dp->iomem, reg, vs[p_level][v_level]);
+			reg = XILINX_DP_TX_PHY_PRECURSOR_LANE_0 + i + 4;
+			xilinx_drm_writel(dp->iomem, reg, pe[p_level][v_level]);
+			reg = XILINX_DP_TX_PHY_POSTCURSOR_LANE_0 + i + 4;
+			xilinx_drm_writel(dp->iomem, reg, 0);
+		}
 	}
 
 	return 0;
@@ -763,8 +770,6 @@ static void xilinx_drm_dp_dpms(struct drm_encoder *encoder, int dpms)
 
 	switch (dpms) {
 	case DRM_MODE_DPMS_ON:
-		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_SW_RESET,
-				  XILINX_DP_TX_SW_RESET_ALL);
 		if (dp->aud_clk)
 			xilinx_drm_writel(iomem, XILINX_DP_TX_AUDIO_CONTROL, 1);
 
@@ -777,6 +782,8 @@ static void xilinx_drm_dp_dpms(struct drm_encoder *encoder, int dpms)
 			usleep_range(300, 500);
 		}
 		xilinx_drm_dp_train(dp);
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_SW_RESET,
+				  XILINX_DP_TX_SW_RESET_ALL);
 		xilinx_drm_writel(iomem, XILINX_DP_TX_ENABLE_MAIN_STREAM, 1);
 
 		return;
@@ -802,7 +809,7 @@ static void xilinx_drm_dp_restore(struct drm_encoder *encoder)
 	/* no op */
 }
 
-#define XILINX_DP_SUB_TX_MIN_H_BACKPORCH	12
+#define XILINX_DP_SUB_TX_MIN_H_BACKPORCH	20
 
 static bool xilinx_drm_dp_mode_fixup(struct drm_encoder *encoder,
 				     const struct drm_display_mode *mode,
@@ -816,11 +823,13 @@ static bool xilinx_drm_dp_mode_fixup(struct drm_encoder *encoder,
 	 * This limitation may conflict with the sink device.
 	 */
 	if (dp->dp_sub && diff < XILINX_DP_SUB_TX_MIN_H_BACKPORCH) {
+		int vrefresh = (adjusted_mode->clock * 1000) /
+			       (adjusted_mode->vtotal * adjusted_mode->htotal);
+
 		diff = XILINX_DP_SUB_TX_MIN_H_BACKPORCH - diff;
 		adjusted_mode->htotal += diff;
 		adjusted_mode->clock = adjusted_mode->vtotal *
-				       adjusted_mode->htotal *
-				       adjusted_mode->vrefresh / 1000;
+				       adjusted_mode->htotal * vrefresh / 1000;
 	}
 
 	return true;
@@ -1114,8 +1123,6 @@ static int xilinx_drm_dp_encoder_init(struct platform_device *pdev,
 
 	reg |= clock_rate / XILINX_DP_TX_CLK_DIVIDER_MHZ;
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_CLK_DIVIDER, reg);
-	xilinx_drm_clr(dp->iomem, XILINX_DP_TX_PHY_CONFIG,
-		       XILINX_DP_TX_PHY_CONFIG_ALL_RESET);
 
 	if (dp->dp_sub)
 		xilinx_drm_writel(dp->iomem, XILINX_DP_SUB_TX_INTR_EN,
@@ -1127,27 +1134,6 @@ static int xilinx_drm_dp_encoder_init(struct platform_device *pdev,
 
 	return 0;
 }
-
-static int __maybe_unused xilinx_drm_dp_pm_suspend(struct device *dev)
-{
-	struct xilinx_drm_dp *dp = dev_get_drvdata(dev);
-
-	xilinx_drm_dp_dpms(dp->encoder, DRM_MODE_DPMS_OFF);
-
-	return 0;
-}
-
-static int __maybe_unused xilinx_drm_dp_pm_resume(struct device *dev)
-{
-	struct xilinx_drm_dp *dp = dev_get_drvdata(dev);
-
-	xilinx_drm_dp_dpms(dp->encoder, DRM_MODE_DPMS_ON);
-
-	return 0;
-}
-
-static SIMPLE_DEV_PM_OPS(xilinx_drm_dp_pm_ops, xilinx_drm_dp_pm_suspend,
-			 xilinx_drm_dp_pm_resume);
 
 static irqreturn_t xilinx_drm_dp_irq_handler(int irq, void *data)
 {
@@ -1174,14 +1160,15 @@ static irqreturn_t xilinx_drm_dp_irq_handler(int irq, void *data)
 		drm_helper_hpd_irq_event(dp->encoder->dev);
 
 	if (status & XILINX_DP_TX_INTR_HPD_IRQ) {
-		u8 align_status;
-		int ret;
+		u8 status[DP_LINK_STATUS_SIZE + 2];
 
-		ret = drm_dp_dpcd_readb(&dp->aux, DP_LANE_ALIGN_STATUS_UPDATED,
-					&align_status);
-		if ((ret == 1) && !(align_status & DP_INTERLANE_ALIGN_DONE))
+		drm_dp_dpcd_read(&dp->aux, DP_SINK_COUNT, status,
+				 DP_LINK_STATUS_SIZE + 2);
+
+		if (status[4] & DP_LINK_STATUS_UPDATED ||
+		    !drm_dp_clock_recovery_ok(&status[2], dp->mode.lane_cnt) ||
+		    !drm_dp_channel_eq_ok(&status[2], dp->mode.lane_cnt))
 			xilinx_drm_dp_train(dp);
-
 	}
 
 	return IRQ_HANDLED;
@@ -1337,7 +1324,7 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 {
 	struct xilinx_drm_dp *dp;
 	struct resource *res;
-	u32 version;
+	u32 version, i;
 	int irq, ret;
 
 	dp = devm_kzalloc(&pdev->dev, sizeof(*dp), GFP_KERNEL);
@@ -1391,16 +1378,54 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dp);
 
+	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_PHY_POWER_DOWN,
+			  XILINX_DP_TX_PHY_POWER_DOWN_ALL);
 	xilinx_drm_set(dp->iomem, XILINX_DP_TX_PHY_CONFIG,
 		       XILINX_DP_TX_PHY_CONFIG_ALL_RESET);
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_FORCE_SCRAMBLER_RESET, 1);
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_ENABLE, 0);
-	if (dp->dp_sub)
+
+	if (dp->dp_sub) {
+		for (i = 0; i < dp->config.max_lanes; i++) {
+			char phy_name[16];
+
+			snprintf(phy_name, sizeof(phy_name), "dp-phy%d", i);
+			dp->phy[i] = devm_phy_get(dp->dev, phy_name);
+			if (IS_ERR(dp->phy[i])) {
+				dev_err(dp->dev, "failed to get phy lane\n");
+				ret = PTR_ERR(dp->phy[i]);
+				goto error_dp_sub;
+			}
+
+			ret = phy_init(dp->phy[i]);
+			if (ret) {
+				dev_err(dp->dev,
+					"failed to init phy lane %d\n", i);
+				goto error_dp_sub;
+			}
+		}
+
 		xilinx_drm_writel(dp->iomem, XILINX_DP_SUB_TX_INTR_DS,
 				  XILINX_DP_TX_INTR_ALL);
-	else
+		xilinx_drm_clr(dp->iomem, XILINX_DP_TX_PHY_CONFIG,
+			       XILINX_DP_TX_PHY_CONFIG_ALL_RESET);
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_PHY_POWER_DOWN, 0);
+
+		/* Wait for PLL to be locked for the primary (1st) */
+		if (dp->phy[0]) {
+			ret = xpsgtr_wait_pll_lock(dp->phy[0]);
+			if (ret) {
+				dev_err(dp->dev, "failed to lock pll\n");
+				goto error_dp_sub;
+			}
+		}
+	} else {
 		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_INTR_MASK,
 				  XILINX_DP_TX_INTR_ALL);
+		xilinx_drm_clr(dp->iomem, XILINX_DP_TX_PHY_CONFIG,
+				XILINX_DP_TX_PHY_CONFIG_ALL_RESET);
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_PHY_POWER_DOWN, 0);
+	}
 
 	dp->aux.name = "Xilinx DP AUX";
 	dp->aux.dev = dp->dev;
@@ -1453,6 +1478,14 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 error:
 	drm_dp_aux_unregister(&dp->aux);
 error_dp_sub:
+	if (dp->dp_sub) {
+		for (i = 0; i < dp->config.max_lanes; i++) {
+			if (dp->phy[i]) {
+				phy_exit(dp->phy[i]);
+				dp->phy[i] = NULL;
+			}
+		}
+	}
 	xilinx_drm_dp_sub_put(dp->dp_sub);
 error_aud_clk:
 	if (dp->aud_clk)
@@ -1465,10 +1498,20 @@ error_aclk:
 static int xilinx_drm_dp_remove(struct platform_device *pdev)
 {
 	struct xilinx_drm_dp *dp = platform_get_drvdata(pdev);
+	unsigned int i;
 
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_ENABLE, 0);
 
 	drm_dp_aux_unregister(&dp->aux);
+
+	if (dp->dp_sub) {
+		for (i = 0; i < dp->config.max_lanes; i++) {
+			if (dp->phy[i]) {
+				phy_exit(dp->phy[i]);
+				dp->phy[i] = NULL;
+			}
+		}
+	}
 
 	xilinx_drm_dp_sub_put(dp->dp_sub);
 
@@ -1492,7 +1535,6 @@ static struct drm_platform_encoder_driver xilinx_drm_dp_driver = {
 		.driver			= {
 			.owner		= THIS_MODULE,
 			.name		= "xilinx-drm-dp",
-			.pm		= &xilinx_drm_dp_pm_ops,
 			.of_match_table	= xilinx_drm_dp_of_match,
 		},
 	},

@@ -34,6 +34,8 @@
 				adi,tdms-clock-inversion;
 				adi,clock-delay = <0x03>;
 
+				#sound-dai-cells = <0>;
+
 				ports {
 					#address-cells = <1>;
 					#size-cells = <0>;
@@ -103,12 +105,29 @@
 			dma-names = "tx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
+
+			#sound-dai-cells = <0>;
 		};
 
-		adv7511_hdmi_snd: adv7511_hdmi_snd {
-			compatible = "adv7511-hdmi-snd";
-			audio-codec = <&adv7511>;
-			cpu-dai = <&axi_spdif_tx_0>;
+		adv7511_hdmi_snd {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "HDMI monitor";
+			simple-audio-card,widgets =
+				"Speaker", "Speaker";
+			simple-audio-card,routing =
+				"Speaker", "TMDS";
+
+			simple-audio-card,dai-link@0 {
+				format = "spdif";
+				cpu {
+					sound-dai = <&axi_spdif_tx_0>;
+					frame-master;
+					bitclock-master;
+				};
+				codec {
+					sound-dai = <&adv7511>;
+				};
+			};
 		};
 
 		axi_dma_0: axidma@40400000 {
