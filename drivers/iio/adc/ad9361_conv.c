@@ -26,7 +26,7 @@
 
 #include "ad9361.h"
 
-#ifdef CONFIG_CF_AXI_ADC
+#if IS_ENABLED(CONFIG_CF_AXI_ADC)
 #include "cf_axi_adc.h"
 
 ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,

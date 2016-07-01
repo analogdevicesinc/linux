@@ -20,7 +20,8 @@ cf_axi_adc-y := cf_axi_adc_core.o cf_axi_adc_ring.o cf_axi_adc_ring_stream.o
 obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
 
 obj-$(CONFIG_AD6676) += ad6676.o
-obj-$(CONFIG_AD9361) += ad9361.o ad9361_conv.o
+ad9361_drv-y := ad9361.o ad9361_conv.o
+obj-$(CONFIG_AD9361) += ad9361_drv.o
 obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_ADMC) += admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o
 
