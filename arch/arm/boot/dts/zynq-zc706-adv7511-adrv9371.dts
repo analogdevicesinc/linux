@@ -61,7 +61,7 @@
 		clocks = <&clkc 16>;
 
 		dma-channel {
-			adi,buswidth = <64>;
+			adi,buswidth = <128>;
 			adi,type = <1>;
 			adi,cyclic;
 		};
