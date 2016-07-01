@@ -26,7 +26,7 @@
 
 #include "ad9371.h"
 
-#ifdef CONFIG_CF_AXI_ADC
+#if IS_ENABLED(CONFIG_CF_AXI_ADC)
 #include "cf_axi_adc.h"
 
 
