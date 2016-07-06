@@ -708,6 +708,9 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
+	mdelay(10);
+	axiadc_write(st, ADI_REG_RSTN, ADI_MMCM_RSTN);
+	mdelay(10);
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
