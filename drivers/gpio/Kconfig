@@ -1335,6 +1335,12 @@ config GPIO_74X164
 	  shift registers. This driver can be used to provide access
 	  to more gpio outputs.
 
+config GPIO_ADI_DAQ1
+	tristate "Analog Devices AD-FMCDAQ1-EBZ SPI-GPIO expander driver"
+	help
+	  Say yes here to enable support for the SPI-GPIO CPLD expander
+	  found on the Analog Devices AD-FMCDAQ1-EBZ card.
+
 config GPIO_MAX3191X
 	tristate "Maxim MAX3191x industrial serializer"
 	select CRC8
