@@ -37,7 +37,9 @@
 
 						powerdown-gpio = <&pca9534 4 GPIO_ACTIVE_HIGH>;
 
-						edid-addr = <0x50>;
+						edid-addr = <0x3F>;
+						pktmem-addr = <0x38>;
+						cec-addr = <0x3C>;
 
 						video-input {
 							input-id = <2>;
