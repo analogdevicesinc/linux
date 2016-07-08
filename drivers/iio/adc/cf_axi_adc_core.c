@@ -549,13 +549,16 @@ static const struct iio_info axiadc_info = {
 static int axiadc_attach_spi_client(struct device *dev, void *data)
 {
 	struct axiadc_spidev *axiadc_spidev = data;
+	int ret = 0;
 
+	device_lock(dev);
 	if ((axiadc_spidev->of_nspi == dev->of_node) && dev->driver) {
 		axiadc_spidev->dev_spi = dev;
-		return 1;
+		ret = 1;
 	}
+	device_unlock(dev);
 
-	return 0;
+	return ret;
 }
 
 static const struct axiadc_core_info ad9467_core_1_00_a_info = {
