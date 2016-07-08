@@ -19,11 +19,12 @@
 
 #define DRIVER_NAME "mathworks_generic_of"
 
-static void mathworks_generic_of_i2c_release(void *opaque){
-	struct mathworks_ip_info *thisIpcore = opaque;
-
-	sysfs_remove_link(&thisIpcore->char_device->kobj, "i2c_adapter");
+static void mwgen_of_unlink_i2c_device(struct mathworks_ip_info *thisIpcore){
 	sysfs_remove_link(&thisIpcore->char_device->kobj, "i2c_device");
+}
+
+static void mwgen_of_unlink_i2c_adapter(struct mathworks_ip_info *thisIpcore){
+	sysfs_remove_link(&thisIpcore->char_device->kobj, "i2c_adapter");
 }
 
 static int mathworks_generic_of_i2c_init(struct mathworks_ip_info *thisIpcore){
@@ -33,41 +34,44 @@ static int mathworks_generic_of_i2c_init(struct mathworks_ip_info *thisIpcore){
 
 	slave_node = of_parse_phandle(nodePointer, "i2c-controller", 0);
 	if (slave_node) {
-		dev_info(thisIpcore->dev, "%s : creating i2c link\n", nodePointer->name);
+		status = devm_add_action_helper(thisIpcore->dev, (devm_action_fn)of_node_put, slave_node);
+		if(status)
+			return status;
+
+		dev_info(thisIpcore->dev, "creating i2c link\n");
+
 		thisIpcore->i2c = of_find_i2c_device_by_node(slave_node);
 		if(thisIpcore->i2c == NULL){
-			dev_info(thisIpcore->dev, "%s : could not find i2c device\n", nodePointer->name);
-		} else {
-			dev_info(thisIpcore->dev, "%s : Adding link to %s[%s]\n", nodePointer->name, thisIpcore->i2c->adapter->name, thisIpcore->i2c->name);
-
-			/* add a link to the i2c device */
-			status = sysfs_create_link(&thisIpcore->char_device->kobj, &thisIpcore->i2c->dev.kobj, "i2c_device");
-			if (status)
-				return status;
-
-			/* add a link to the i2c bus */
-			status = sysfs_create_link(&thisIpcore->char_device->kobj, &thisIpcore->i2c->adapter->dev.kobj, "i2c_adapter");
-			if (status)
-				goto out_unlink_device;
-
+			dev_err(thisIpcore->dev, "could not find i2c device\n");
+			return -ENODEV;
 		}
-		of_node_put(slave_node);
-
-		/* Add the release logic */
-		status = devm_add_action(thisIpcore->dev, mathworks_generic_of_i2c_release, thisIpcore);
-		if(status){
-			mathworks_generic_of_i2c_release(thisIpcore);
+		status = devm_add_action_helper(thisIpcore->dev, (devm_action_fn)put_device, &thisIpcore->i2c->dev);
+		if(status)
 			return status;
-		}
+
+		dev_info(thisIpcore->dev, "Adding link to %s[%s]\n", thisIpcore->i2c->adapter->name, thisIpcore->i2c->name);
+
+		/* add a link to the i2c device */
+		status = sysfs_create_link(&thisIpcore->char_device->kobj, &thisIpcore->i2c->dev.kobj, "i2c_device");
+		if (status)
+			return status;
+		status = devm_add_action_helper(thisIpcore->dev, (devm_action_fn)mwgen_of_unlink_i2c_device, thisIpcore);
+		if(status)
+			return status;
+
+		/* add a link to the i2c bus */
+		status = sysfs_create_link(&thisIpcore->char_device->kobj, &thisIpcore->i2c->adapter->dev.kobj, "i2c_adapter");
+		if (status)
+			return status;
+		status = devm_add_action_helper(thisIpcore->dev, (devm_action_fn)mwgen_of_unlink_i2c_adapter, thisIpcore);
+		if(status)
+			return status;
+
 	} else {
 		thisIpcore->i2c = NULL;
 	}
 
 	return 0;
-
-out_unlink_device:
-	sysfs_remove_link(&thisIpcore->char_device->kobj, "i2c_device");
-	return status;
 }
 
 static int	mathworks_generic_of_get_param(struct mathworks_ip_info *thisIpcore, void *arg)
@@ -132,6 +136,13 @@ static int mathworks_generic_of_probe(struct platform_device *pdev)
 	if (IS_ERR(thisIpcore))
 		return PTR_ERR(thisIpcore);
 
+    status = devm_mathworks_ip_register(thisIpcore);
+  	if(status)
+  	{
+  		dev_err(&pdev->dev, "mwgeneric device registration failed: %d\n", status);
+  		return status;
+  	}
+
 #if defined(CONFIG_I2C)
 	status = mathworks_generic_of_i2c_init(thisIpcore);
   	if (status){
@@ -140,13 +151,6 @@ static int mathworks_generic_of_probe(struct platform_device *pdev)
   	}
 #endif
 
-    status = devm_mathworks_ip_register(thisIpcore);
-  	if(status)
-  	{
-  		dev_err(&pdev->dev, "mwgeneric device registration failed: %d\n", status);
-  		return status;
-  	}
-	
     return 0;
 }
 
