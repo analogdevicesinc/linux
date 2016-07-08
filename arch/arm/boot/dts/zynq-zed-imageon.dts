@@ -11,10 +11,12 @@
 
 		axi_iic_imageon: i2c@43c40000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+			reg = <0x43c40000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 55 4>;
-			reg = <0x43c40000 0x10000>;
-			bus-id = <1>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
 			#size-cells = <0>;
 			#address-cells = <1>;
 
