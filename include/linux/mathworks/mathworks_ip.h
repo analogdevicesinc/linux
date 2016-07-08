@@ -28,8 +28,20 @@
 #define MATHWORKS_IP_MAX_DEVTYPE 32
 #define	MATHWORKS_IP_DEVNAME_LEN 32
 
-
+/*********************************************************
+* Devm Helpers
+*********************************************************/
 typedef void (*devm_action_fn)(void *);
+
+static inline int devm_add_action_helper(struct device *dev, void (*action)(void *), void *data){
+	int status;
+	status = devm_add_action(dev, action, data);
+	if(status){
+		action(data);
+		dev_err(dev,"Failed to allocate memory for devm action\n");
+	}
+	return status;
+}
 
 struct mw_dma_info {
 	void				*virt;
