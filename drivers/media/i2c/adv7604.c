@@ -1548,8 +1548,9 @@ static unsigned int adv76xx_read_hdmi_pixelclock(struct v4l2_subdev *sd)
 	if (is_hdmi(sd)) {
 		/* adjust for deep color mode */
 		unsigned bits_per_channel = ((hdmi_read(sd, 0x0b) & 0x60) >> 4) + 8;
+		unsigned pixelrepetition = (hdmi_read(sd, 0x05) & 0x0f) + 1;
 
-		freq = freq * 8 / bits_per_channel;
+		freq = freq * 8 / bits_per_channel / pixelrepetition;
 	}
 
 	return freq;
