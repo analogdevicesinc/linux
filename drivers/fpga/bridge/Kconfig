@@ -2,7 +2,28 @@
 # FPGA Bridge Framework
 #
 
-	  
+config PZSDR_PCIE
+	tristate "PicoZed SDR PCIe support"
+	depends on PCI && (!X86 || X86_PAT)
+	depends on FPGA_OVERLAY
+	select FPGA_PCIE_AXI_BRIDGE
+	select XILINX_PCIE_AXI_BRIDGE
+	select IIO
+	select AD7291
+	select CF_AXI_ADC
+	select AD9361
+	select CF_AXI_DDS
+	select SPI
+	select SPI_XILINX
+	select GPIOLIB
+	select GPIO_XILINX
+	select I2C
+	select I2C_XILINX
+	select DMADEVICES
+	select AXI_DMAC
+	select XILINX_AXI_INTC
+	select COMMON_CLK
+
 config FPGA_PCIE_AXI_BRDIGE
 	tristate "FPGA PCIe AXI Bridge"
 	depends on FPGA_OVERLAY
