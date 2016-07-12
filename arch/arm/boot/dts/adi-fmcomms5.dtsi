@@ -54,7 +54,7 @@
 
 		/* ENSM Mode */
 		adi,frequency-division-duplex-mode-enable;
-		//adi,ensm-pin-pulse-mode-enable;
+		//adi,ensm-enable-pin-pulse-mode-enable;
 		//adi,ensm-enable-txnrx-control-enable;
 
 
@@ -277,7 +277,7 @@
 
 		/* ENSM Mode */
 		adi,frequency-division-duplex-mode-enable;
-		//adi,ensm-pin-pulse-mode-enable;
+		//adi,ensm-enable-pin-pulse-mode-enable;
 		//adi,ensm-enable-txnrx-control-enable;
 
 		adi,rx1-rx2-phase-inversion-enable;
