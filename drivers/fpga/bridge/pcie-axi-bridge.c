@@ -573,6 +573,12 @@ static int pab_addself(struct of_pcie_axi_bridge *info, const struct firmware *f
 	if(ret)
 		goto out;
 
+	ret = of_resolve_phandles(overlay);
+	if (ret) {
+		dev_err(&pdev->dev,"%s: Failed to resolve phandles: %d\n", __func__, ret);
+		goto out;
+	}
+
 	/* Update the bridge node based on the PCI device */
 	bridge_node = of_find_compatible_node(overlay, NULL, info->compat);
 	ret = devm_add_action(&pdev->dev, __of_put_node, bridge_node);
@@ -592,13 +598,6 @@ static int pab_addself(struct of_pcie_axi_bridge *info, const struct firmware *f
 		dev_err(&pdev->dev,"%s: Error creating the ranges\n", __func__);
 		goto out;
 	}
-
-	ret = of_resolve_phandles(overlay);
-	if (ret) {
-		dev_err(&pdev->dev,"%s: Failed to resolve phandles: %d\n", __func__, ret);
-		goto out;
-	}
-
 
 	info->pci_overlay_id = of_overlay_create(overlay);
 	if (info->pci_overlay_id < 0){
