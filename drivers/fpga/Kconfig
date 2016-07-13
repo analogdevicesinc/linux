@@ -28,7 +28,7 @@ endif # FPGA
 
 config FPGA_OVERLAY
 	tristate "FPGA Overlay Support"
-	depends on OF_DYNAMIC && OF_OVERLAY
+	depends on OF_OVERLAY
 	select OF_EARLY_FLATTREE
 	select OF_RESOLVE
 	help
