@@ -1,7 +1,7 @@
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/of_fdt.h>
-#include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/idr.h>
@@ -681,7 +681,8 @@ static int pab_of_init(struct pci_dev *pdev)
 /**
  *	of_pcie_axi_bridge - Create the bridge from PCIe to the OF domain
  */
-static struct of_pcie_axi_bridge *pab_of_create(struct pci_dev *pdev, const char *compat, const struct firmware *fdt_self)
+static struct of_pcie_axi_bridge *pab_of_create(struct pci_dev *pdev,
+	const char *compat, const struct firmware *fdt_self, bool populate)
 {
 	int ret;
 	struct of_pcie_axi_bridge *info;
@@ -711,6 +712,9 @@ static struct of_pcie_axi_bridge *pab_of_create(struct pci_dev *pdev, const char
 		return ERR_PTR(ret);
 	}
 
+	if (populate)
+		of_platform_default_populate(info->of_self, NULL, &pdev->dev);
+
 	dev_info(&pdev->dev,"Created PCIe AXI Bridge Device\n");
 
 	return info;
@@ -733,7 +737,8 @@ static void pab_of_remove(struct of_pcie_axi_bridge *info)
 /**
  *	pcie_axi_bridge_register - Register a PCIe device as an AXI Bridge
  */
-int pcie_axi_bridge_register(struct pci_dev *pdev, const char *compat, const struct firmware *fdt_self, struct fpga_overlay_ops *overlay_ops, void *priv)
+int pcie_axi_bridge_register(struct pci_dev *pdev, const char *compat, const struct firmware *fdt_self,
+	struct fpga_overlay_ops *overlay_ops, void *priv)
 {
 	struct of_pcie_axi_bridge *info;
 
@@ -754,15 +759,18 @@ int pcie_axi_bridge_register(struct pci_dev *pdev, const char *compat, const str
 
 	pci_set_master(pdev); /* enable DMA */
 
-	info = pab_of_create(pdev, compat, fdt_self);
+
+	info = pab_of_create(pdev, compat, fdt_self, overlay_ops ? false : true);
 	if (IS_ERR(info))
 		return PTR_ERR(info);
 
 	info->priv = priv;
 
-	info->overlay_dev = fpga_overlay_dev_register(&pdev->dev, "pcie axi bridge", overlay_ops, info);
-	if (IS_ERR(info->overlay_dev)) {
-		return PTR_ERR(info->overlay_dev);
+	if (overlay_ops) {
+		info->overlay_dev = fpga_overlay_dev_register(&pdev->dev, "pcie axi bridge", overlay_ops, info);
+		if (IS_ERR(info->overlay_dev)) {
+			return PTR_ERR(info->overlay_dev);
+		}
 	}
 
 	dev_set_drvdata(&pdev->dev, info);
@@ -783,7 +791,8 @@ void pcie_axi_bridge_unregister(struct pci_dev *pdev)
 	
 	list_del(&info->list);
 	dev_set_drvdata(&pdev->dev, NULL);
-	fpga_overlay_dev_unregister(info->overlay_dev);
+	if (info->overlay_dev)
+		fpga_overlay_dev_unregister(info->overlay_dev);
 	pab_of_remove(info);
     pci_clear_master(pdev); /* disable DMA */
 }

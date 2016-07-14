@@ -8,6 +8,16 @@
 static const char xilinx_pab_compat[] = "xlnx,pcie-axi-bridge";
 static char *firmware_file;
 
+struct xilinx_pcie_axi_data {
+	const char *firmware_file;
+	struct fpga_overlay_ops *ops;
+};
+
+#define XILINX_PCIE_AXI_DATA(fw, _ops) ((kernel_ulong_t)&(const struct xilinx_pcie_axi_data){ \
+	.firmware_file = fw, \
+	.ops = _ops, \
+})
+
 struct fpga_overlay_ops xilinx_pcie_axi_overlay_ops = {
 	.update_fragment = pab_update_overlay_fragment,
 };
@@ -15,19 +25,20 @@ struct fpga_overlay_ops xilinx_pcie_axi_overlay_ops = {
 static int xilinx_pcie_axi_probe(struct pci_dev *pdev,
 				const struct pci_device_id *ident)
 {
+	const struct xilinx_pcie_axi_data *data = (const void *)ident->driver_data;
 	const char *fw_file = firmware_file;
 	int status = 0;
 	const struct firmware *fdt_self;
 
 	if (!fw_file)
-		fw_file = (const char *)ident->driver_data;
+		fw_file = data->firmware_file;
 
 	status = request_firmware(&fdt_self, fw_file, &pdev->dev);
 	if (status)
 		return status;
 
 	status = pcie_axi_bridge_register(pdev, xilinx_pab_compat, fdt_self,
-		&xilinx_pcie_axi_overlay_ops, NULL);
+		data->ops, NULL);
 	release_firmware(fdt_self);
 
 	return status;
@@ -38,12 +49,15 @@ static void xilinx_pcie_axi_remove(struct pci_dev *pdev)
 	pcie_axi_bridge_unregister(pdev);
 }
 
-static struct pci_device_id xilinx_pcie_axi_ids[ ] = {
-	{ PCI_DEVICE(PCI_VENDOR_ID_XILINX, 0x7022),
-	  .driver_data = (kernel_ulong_t) "xilinx-pcie-axi-bridge.dtbo" },
-	{ PCI_DEVICE(PCI_VENDOR_ID_ANALOG_DEVICES, 0x9361),
-	  .driver_data = (kernel_ulong_t) "adi-picozed-sdr2-pcie.dtbo"},
-	{ 0, },
+static struct pci_device_id xilinx_pcie_axi_ids[] = {
+	{
+		PCI_DEVICE(PCI_VENDOR_ID_XILINX, 0x7022),
+		.driver_data = XILINX_PCIE_AXI_DATA("xilinx-pcie-axi-bridge.dtbo",
+			&xilinx_pcie_axi_overlay_ops),
+	}, {
+		PCI_DEVICE(PCI_VENDOR_ID_ANALOG_DEVICES, 0x9361),
+		.driver_data = XILINX_PCIE_AXI_DATA("adi-picozed-sdr2-pcie.dtbo", NULL),
+	}, { 0, },
 };
 
 MODULE_DEVICE_TABLE(pci, xilinx_pcie_axi_ids);
