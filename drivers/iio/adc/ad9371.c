@@ -2363,7 +2363,7 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 	mykonosFir_t *fir;
 	struct device *dev = &phy->spi->dev;
 	char clocks = 0, tx = 0, rx = 0,
-	     filter = 0, adcprof = 0, header = 0;
+	     filter = 0, adcprof = 0, lpbkadcprof = 0, header = 0;
 
 	char *line, *ptr = data;
 	unsigned int int32, int32_2;
@@ -2482,6 +2482,22 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 			continue;
 		}
 
+		if (!lpbkadcprof && (sscanf(line, " <lpbk-adc-profile num=%d>", &max) == 1)) {
+			lpbkadcprof = 1;
+			num = 0;
+			continue;
+		}
+
+		if (lpbkadcprof && strstr(line, "</lpbk-adc-profile>")) {
+			lpbkadcprof = 0;
+			if (num != 16 && num != 37)
+				dev_err(dev, "%s:%d: Invalid number (%d) of coefficients",
+					__func__, __LINE__, num);
+
+				num = 0;
+			continue;
+		}
+
 		if (clocks) {
 			GET_TOKEN(mykDevice->clocks, deviceClock_kHz);
 			GET_TOKEN(mykDevice->clocks, clkPllVcoFreq_kHz);
@@ -2489,7 +2505,7 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 			GET_TOKEN(mykDevice->clocks, clkPllHsDiv);
 		}
 
-		if (rx && !filter && !adcprof) {
+		if (rx && !filter && !adcprof && !lpbkadcprof) {
 			GET_TOKEN(rx_profile, adcDiv);
 			GET_TOKEN(rx_profile, rxFirDecimation);
 			GET_TOKEN(rx_profile, rxDec5Decimation);
@@ -2551,6 +2567,21 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 					return -EINVAL;
 
 				rx_profile->customAdcProfile[num++] = ret;
+				continue;
+			}
+		}
+
+		if (lpbkadcprof && rx) {
+			if (mykDevice->obsRx->customLoopbackAdcProfile == NULL) {
+				mykDevice->obsRx->customLoopbackAdcProfile =
+				devm_kzalloc(dev, 37 * sizeof(*mykDevice->obsRx->customLoopbackAdcProfile), GFP_KERNEL);
+			}
+
+			if (sscanf(line, " %d", &ret) == 1) {
+				if (num >= 37 || num > max)
+					return -EINVAL;
+
+				mykDevice->obsRx->customLoopbackAdcProfile[num++] = ret;
 				continue;
 			}
 		}
