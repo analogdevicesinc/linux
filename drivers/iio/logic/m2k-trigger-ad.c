@@ -300,14 +300,13 @@ static ssize_t axi_adc_trig_set_extinfo(struct iio_dev *indio_dev,
 
 	switch (priv) {
 	case TRIG_DELAY:
-		if (val < -8192) {
+		if (val < -8192 || val > 0) {
 			ret = -EINVAL;
 			goto out_unlock;
 		}
 
 		axi_adc_trig->trigger_ext_info[priv][chan->address] = val;
-		val += 8192;
-		axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, val);
+		axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, -val);
 		break;
 	case TRIG_LEVEL:
 		/*val = clamp(val, -2048, 2047);*/ /* FIXME add check for lvl + hyst */
@@ -512,7 +511,7 @@ static int axi_adc_trig_probe(struct platform_device *pdev)
 	axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_HYSTERESIS(1), 1);
 	axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_LIMIT(0), 0);
 	axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_LIMIT(1), 0);
-	axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, 8192);
+	axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, 0);
 
 	ret = devm_iio_device_register(&pdev->dev, indio_dev);
 	if (ret)
