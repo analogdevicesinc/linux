@@ -275,6 +275,8 @@ static const struct adv76xx_video_standards adv7604_prim_mode_gr[] = {
 static const struct adv76xx_video_standards adv76xx_prim_mode_hdmi_comp[] = {
 	{ V4L2_DV_BT_CEA_720X480P59_94, 0x0a, 0x00 },
 	{ V4L2_DV_BT_CEA_720X576P50, 0x0b, 0x00 },
+	{ V4L2_DV_BT_CEA_1280X720P24, 0x13, 0x04 },
+	{ V4L2_DV_BT_CEA_1280X720P25, 0x13, 0x03 },
 	{ V4L2_DV_BT_CEA_1280X720P50, 0x13, 0x01 },
 	{ V4L2_DV_BT_CEA_1280X720P60, 0x13, 0x00 },
 	{ V4L2_DV_BT_CEA_1920X1080P24, 0x1e, 0x04 },
@@ -300,8 +302,17 @@ static const struct adv76xx_video_standards adv76xx_prim_mode_hdmi_gr[] = {
 	{ V4L2_DV_BT_DMT_1024X768P70, 0x0d, 0x00 },
 	{ V4L2_DV_BT_DMT_1024X768P75, 0x0e, 0x00 },
 	{ V4L2_DV_BT_DMT_1024X768P85, 0x0f, 0x00 },
+	{ V4L2_DV_BT_DMT_1280X768P60, 0x10, 0x00 },
+	{ V4L2_DV_BT_DMT_1280X768P60_RB, 0x11, 0x00 },
 	{ V4L2_DV_BT_DMT_1280X1024P60, 0x05, 0x00 },
 	{ V4L2_DV_BT_DMT_1280X1024P75, 0x06, 0x00 },
+	{ V4L2_DV_BT_DMT_1360X768P60, 0x12, 0x00 },
+	{ V4L2_DV_BT_DMT_1366X768P60, 0x13, 0x00 },
+	{ V4L2_DV_BT_DMT_1400X1050P60, 0x14, 0x00 },
+	{ V4L2_DV_BT_DMT_1400X1050P75, 0x15, 0x00 },
+	{ V4L2_DV_BT_DMT_1600X1200P60, 0x16, 0x00 },
+	{ V4L2_DV_BT_DMT_1680X1050P60, 0x18, 0x00 },
+	{ V4L2_DV_BT_DMT_1920X1200P60_RB, 0x19, 0x00 },
 	{ },
 };
 
@@ -1549,6 +1560,7 @@ static unsigned int adv7611_read_hdmi_pixelclock(struct v4l2_subdev *sd)
 	b = hdmi_read(sd, 0x52);
 	if (a < 0 || b < 0)
 		return 0;
+
 	return ((a << 1) | (b >> 7)) * 1000000 + (b & 0x7f) * 1000000 / 128;
 }
 
