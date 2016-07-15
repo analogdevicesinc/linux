@@ -7,7 +7,6 @@
  *
  * http://wiki.analog.com/resources/fpga/xilinx/
  */
-
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -821,13 +820,12 @@ static long jesd204b_gt_rxcdr_settings(struct jesd204b_gt_state *st,
 		}
 	}
 
-	dest = jesd204b_gt_pll_sel(gt_link);
 
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG0_ADDR, cfg0);
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG1_ADDR, cfg1);
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG2_ADDR, cfg2);
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG3_ADDR, cfg3);
-	jesd204b_gt_drp_writef(st, lane, dest, RXCDR_CFG4_ADDR, RXCDR_CFG4_MASK, cfg4);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG0_ADDR, cfg0);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG1_ADDR, cfg1);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG2_ADDR, cfg2);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG3_ADDR, cfg3);
+	jesd204b_gt_drp_writef(st, lane, 0, RXCDR_CFG4_ADDR, RXCDR_CFG4_MASK, cfg4);
 
 	return 0;
 }
@@ -950,12 +948,138 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
 	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
+	unsigned pll_type;
 
 	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
 		__func__, parent_rate);
 
-	return gt_link->lane_rate;
+	if (!IS_ERR(gt_link->lane_rate_div40_clk))
+		return gt_link->lane_rate;
+
+	pll_type = jesd204b_gt_pll_sel(gt_link);
+
+	if (gt_link->cpll_enable) {
+		unsigned refclk_div_m, out_div, N1, N2, M;
+		refclk_div_m = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, CPLL_REFCLK_DIV_M_ADDR);
+		out_div = jesd204b_gt_drp_read(st, gt_link->first_lane, CPLL, RXOUT_DIV_ADDR);
+
+		switch ((refclk_div_m & CPLL_FB_DIV_45_N1_MASK) >> CPLL_FB_DIV_45_N1_OFFSET) {
+			case 0:
+				N1 = 4;
+				break;
+			case 1:
+				N1 = 5;
+				break;
+		}
+
+		switch ((refclk_div_m & CPLL_REFCLK_DIV_M_MASK) >> CPLL_REFCLK_DIV_M_OFFSET) {
+			case 0:
+				M = 2;
+				break;
+			case 16:
+				M = 1;
+				break;
+		}
+
+		switch (refclk_div_m & CPLL_FBDIV_N2_MASK) {
+			case 3:
+				N2 = 5;
+				break;
+			case 2:
+				N2 = 4;
+				break;
+			case 1:
+				N2 = 3;
+				break;
+			case 0:
+				N2 = 2;
+				break;
+			case 16:
+				N2 = 1;
+				break;
+		}
+
+
+		if (gt_link->tx_offset)
+			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
+		else
+			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
+
+		out_div = (1 << out_div);
+
+		dev_dbg(st->dev, "%s  CPLL %lu   %lu\n", __func__, gt_link->lane_rate,
+			((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div));
+
+		dev_dbg(st->dev, "%s  CPLL N1=%d N2=%d M=%d out_div=%d\n", __func__, N1, N2, M, out_div);
+
+
+		return ((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div);
+	} else {
+		unsigned refclk_div_m, fb_div, out_div, N, M;
+		refclk_div_m = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, QPLL_REFCLK_DIV_M_ADDR);
+		fb_div = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, QPLL_FBDIV_N_ADDR);
+		out_div = jesd204b_gt_drp_read(st, gt_link->first_lane, CPLL, RXOUT_DIV_ADDR);
+
+		switch ((refclk_div_m & QPLL_REFCLK_DIV_M_MASK) >> QPLL_REFCLK_DIV_M_OFFSET) {
+			case 16:
+				M = 1;
+				break;
+			case 0:
+				M = 2;
+				break;
+			case 1:
+				M = 3;
+				break;
+			case 2:
+				M = 4;
+				break;
+
+		}
+
+		switch (fb_div & QPLL_FBDIV_N_MASK) {
+			case 32:
+				N = 16;
+				break;
+			case 48:
+				N = 20;
+				break;
+			case 96:
+				N = 32;
+				break;
+			case 128:
+				N = 40;
+				break;
+			case 224:
+				N = 64;
+				break;
+			case 320:
+				N = 66;
+				break;
+			case 288:
+				N = 80;
+				break;
+			case 368:
+				N = 100;
+				break;
+		}
+
+		if (gt_link->tx_offset)
+			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
+		else
+			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
+
+		out_div = (1 << out_div);
+
+		dev_dbg(st->dev, "%s QPLL  %lu %lu\n", __func__, gt_link->lane_rate,
+			((parent_rate / 1000) * N) / (M * out_div));
+
+		dev_dbg(st->dev, "%s QPLL N=%d M=%d out_div=%d\n", __func__, N, M, out_div);
+
+		return ((parent_rate / 1000) * N) / (M * out_div);
+
+	}
 }
+
 
 static long jesd204b_gt_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long *prate)
