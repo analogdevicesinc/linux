@@ -152,7 +152,7 @@
 
 		axi_daq2_gt_rx0:link@0 {
 			#clock-cells = <0>;
-			clocks = <&clk0_ad9523 1>, <&clk0_ad9523 6>;
+			clocks = <&clk0_ad9523 4>, <&clk0_ad9523 6>;
 			clock-names = "conv", "sysref";
 			clock-output-names = "adc_gt_clk";
 			reg = <0>;
@@ -165,7 +165,7 @@
 
 		axi_daq2_gt_tx0:link@1 {
 			#clock-cells = <0>;
-			clocks = <&clk0_ad9523 7>, <&clk0_ad9523 13>;
+			clocks = <&clk0_ad9523 9>, <&clk0_ad9523 7>;
 			clock-names = "conv", "sysref";
 			clock-output-names = "dac_gt_clk";
 			reg = <0>;
