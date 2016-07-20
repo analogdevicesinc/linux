@@ -48,7 +48,7 @@
 			adi,pll2-ndiv-b-cnt = <6>;
 			adi,pll2-r2-div = <1>;
 			adi,pll2-vco-diff-m1 = <3>;
-			adi,pll2-vco-diff-m2 = <0>;
+			adi,pll2-vco-diff-m2 = <3>;
 
 			adi,rpole2 = <0>;
 			adi,rzero = <7>;
@@ -110,7 +110,7 @@
 			clock-names = "data_clk", "dac_clk", "ref_clk";
 			dac-fcenter-shift = <0>;
 			dac-interp-factor = <2>;
-			dac-data-rate = <245760000>;
+			dac-data-rate = <500000000>;
 			temp-sensor-calibration-temperature-mdeg = <25000>;
 			reset-gpios = <&gpio_daq1 1 0>;
 		};
