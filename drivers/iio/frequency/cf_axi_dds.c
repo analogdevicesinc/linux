@@ -1327,11 +1327,13 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		st->pl_dma_fifo_en =
 			of_property_read_bool(np, "adi,axi-pl-fifo-enable");
 
-		ret = cf_axi_dds_configure_buffer(indio_dev);
-		if (ret)
-			goto err_converter_put;
+		if (of_find_property(np, "dmas", NULL)) {
+			ret = cf_axi_dds_configure_buffer(indio_dev);
+			if (ret)
+				goto err_converter_put;
 
-		indio_dev->available_scan_masks = st->chip_info->scan_masks;
+			indio_dev->available_scan_masks = st->chip_info->scan_masks;
+		}
 
 	} else if (dds_read(st, ADI_REG_ID)){
 		u32 regs[2];

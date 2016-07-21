@@ -13,9 +13,11 @@
 
 		i2c@43C40000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			reg = <0x43C40000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 55 0x4>;
-			reg = <0x43C40000 0x10000>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
 
 			#size-cells = <0>;
 			#address-cells = <1>;
@@ -37,7 +39,9 @@
 
 						powerdown-gpio = <&pca9534 4 GPIO_ACTIVE_HIGH>;
 
-						edid-addr = <0x50>;
+						edid-addr = <0x3F>;
+						pktmem-addr = <0x38>;
+						cec-addr = <0x3C>;
 
 						video-input {
 							input-id = <2>;
