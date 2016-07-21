@@ -2157,23 +2157,23 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,rx-peak-agc-hb2-overload-duration-cnt", &phy->mykDevice->rx->rxAgcCtrl->peakAgc->hb2OverloadDurationCnt, 1);
 	AD9371_OF_PROP("adi,rx-peak-agc-hb2-overload-thresh-cnt", &phy->mykDevice->rx->rxAgcCtrl->peakAgc->hb2OverloadThreshCnt, 1);
 
-	AD9371_OF_PROP("adi,obs-peak-agc-apd-high-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdHighThresh, 31);
+	AD9371_OF_PROP("adi,obs-peak-agc-apd-high-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdHighThresh, 42);
 	AD9371_OF_PROP("adi,obs-peak-agc-apd-low-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdLowThresh, 22);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-high-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2HighThresh, 181);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-low-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2LowThresh, 128);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-very-low-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2VeryLowThresh, 64);
-	AD9371_OF_PROP("adi,obs-peak-agc-apd-high-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdHighThreshExceededCnt, 6);
-	AD9371_OF_PROP("adi,obs-peak-agc-apd-low-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdLowThreshExceededCnt, 4);
-	AD9371_OF_PROP("adi,obs-peak-agc-hb2-high-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2HighThreshExceededCnt, 6);
-	AD9371_OF_PROP("adi,obs-peak-agc-hb2-low-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2LowThreshExceededCnt, 4);
-	AD9371_OF_PROP("adi,obs-peak-agc-hb2-very-low-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2VeryLowThreshExceededCnt, 4);
+	AD9371_OF_PROP("adi,obs-peak-agc-apd-high-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdHighThreshExceededCnt, 3);
+	AD9371_OF_PROP("adi,obs-peak-agc-apd-low-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdLowThreshExceededCnt, 3);
+	AD9371_OF_PROP("adi,obs-peak-agc-hb2-high-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2HighThreshExceededCnt, 3);
+	AD9371_OF_PROP("adi,obs-peak-agc-hb2-low-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2LowThreshExceededCnt, 3);
+	AD9371_OF_PROP("adi,obs-peak-agc-hb2-very-low-thresh-exceeded-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2VeryLowThreshExceededCnt, 3);
 	AD9371_OF_PROP("adi,obs-peak-agc-apd-high-gain-step-attack", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdHighGainStepAttack, 4);
 	AD9371_OF_PROP("adi,obs-peak-agc-apd-low-gain-step-recovery", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdLowGainStepRecovery, 2);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-high-gain-step-attack", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2HighGainStepAttack, 4);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-low-gain-step-recovery", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2LowGainStepRecovery, 2);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-very-low-gain-step-recovery", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2VeryLowGainStepRecovery, 4);
-	AD9371_OF_PROP("adi,obs-peak-agc-apd-fast-attack", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdFastAttack, 1);
-	AD9371_OF_PROP("adi,obs-peak-agc-hb2-fast-attack", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2FastAttack, 1);
+	AD9371_OF_PROP("adi,obs-peak-agc-apd-fast-attack", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->apdFastAttack, 0);
+	AD9371_OF_PROP("adi,obs-peak-agc-hb2-fast-attack", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2FastAttack, 0);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-overload-detect-enable", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2OverloadDetectEnable, 1);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-overload-duration-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2OverloadDurationCnt, 1);
 	AD9371_OF_PROP("adi,obs-peak-agc-hb2-overload-thresh-cnt", &phy->mykDevice->obsRx->orxAgcCtrl->peakAgc->hb2OverloadThreshCnt, 1);
@@ -2193,10 +2193,10 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-upper-low-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdUpperLowThresh, 3);
 	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-lower-high-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdLowerHighThresh, 12);
 	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-lower-low-thresh", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdLowerLowThresh, 4);
-	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-upper-high-gain-step-attack", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdUpperHighGainStepAttack, 4);
-	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-upper-low-gain-step-attack", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdUpperLowGainStepAttack, 2);
-	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-lower-high-gain-step-recovery", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdLowerHighGainStepRecovery, 2);
-	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-lower-low-gain-step-recovery", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdLowerLowGainStepRecovery, 4);
+	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-upper-high-gain-step-attack", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdUpperHighGainStepAttack, 0);
+	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-upper-low-gain-step-attack", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdUpperLowGainStepAttack, 0);
+	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-lower-high-gain-step-recovery", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdLowerHighGainStepRecovery, 0);
+	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-lower-low-gain-step-recovery", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdLowerLowGainStepRecovery, 0);
 	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-meas-duration", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdMeasDuration, 8);
 	AD9371_OF_PROP("adi,obs-pwr-agc-pmd-meas-config", &phy->mykDevice->obsRx->orxAgcCtrl->powerAgc->pmdMeasConfig, 2);
 
@@ -2219,7 +2219,7 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,obs-agc-conf-agc-low-ths-prevent-gain-increase", &phy->mykDevice->obsRx->orxAgcCtrl->agcLowThsPreventGainIncrease, 1);
 	AD9371_OF_PROP("adi,obs-agc-conf-agc-gain-update-counter", &phy->mykDevice->obsRx->orxAgcCtrl->agcGainUpdateCounter, 30720);
 	AD9371_OF_PROP("adi,obs-agc-conf-agc-slow-loop-settling-delay", &phy->mykDevice->obsRx->orxAgcCtrl->agcSlowLoopSettlingDelay, 3);
-	AD9371_OF_PROP("adi,obs-agc-conf-agc-peak-wait-time", &phy->mykDevice->obsRx->orxAgcCtrl->agcPeakWaitTime, 2);
+	AD9371_OF_PROP("adi,obs-agc-conf-agc-peak-wait-time", &phy->mykDevice->obsRx->orxAgcCtrl->agcPeakWaitTime, 4);
 	AD9371_OF_PROP("adi,obs-agc-conf-agc-reset-on-rx-enable", &phy->mykDevice->obsRx->orxAgcCtrl->agcResetOnRxEnable, 0);
 	AD9371_OF_PROP("adi,obs-agc-conf-agc-enable-sync-pulse-for-gain-counter", &phy->mykDevice->obsRx->orxAgcCtrl->agcEnableSyncPulseForGainCounter, 0);
 
