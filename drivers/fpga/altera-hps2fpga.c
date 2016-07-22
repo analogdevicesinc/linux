@@ -34,6 +34,7 @@
 #include <linux/of_platform.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <linux/spinlock.h>
 
 #define ALT_L3_REMAP_OFST			0x0
 #define ALT_L3_REMAP_MPUZERO_MSK		0x00000001
@@ -48,8 +49,6 @@ struct altera_hps2fpga_data {
 	const char *name;
 	struct reset_control *bridge_reset;
 	struct regmap *l3reg;
-	/* The L3 REMAP register is write only, so keep a cached value. */
-	unsigned int l3_remap_value;
 	unsigned int remap_mask;
 	struct clk *clk;
 };
@@ -61,9 +60,14 @@ static int alt_hps2fpga_enable_show(struct fpga_bridge *bridge)
 	return reset_control_status(priv->bridge_reset);
 }
 
+/* The L3 REMAP register is write only, so keep a cached value. */
+static unsigned int l3_remap_shadow;
+static spinlock_t l3_remap_lock;
+
 static int _alt_hps2fpga_enable_set(struct altera_hps2fpga_data *priv,
 				    bool enable)
 {
+	unsigned long flags;
 	int ret;
 
 	/* bring bridge out of reset */
@@ -76,15 +80,17 @@ static int _alt_hps2fpga_enable_set(struct altera_hps2fpga_data *priv,
 
 	/* Allow bridge to be visible to L3 masters or not */
 	if (priv->remap_mask) {
-		priv->l3_remap_value |= ALT_L3_REMAP_MPUZERO_MSK;
+		spin_lock_irqsave(&l3_remap_lock, flags);
+		l3_remap_shadow |= ALT_L3_REMAP_MPUZERO_MSK;
 
 		if (enable)
-			priv->l3_remap_value |= priv->remap_mask;
+			l3_remap_shadow |= priv->remap_mask;
 		else
-			priv->l3_remap_value &= ~priv->remap_mask;
+			l3_remap_shadow &= ~priv->remap_mask;
 
 		ret = regmap_write(priv->l3reg, ALT_L3_REMAP_OFST,
-				   priv->l3_remap_value);
+				   l3_remap_shadow);
+		spin_unlock_irqrestore(&l3_remap_lock, flags);
 	}
 
 	return ret;
@@ -158,6 +164,8 @@ static int alt_fpga_bridge_probe(struct platform_device *pdev)
 		dev_err(dev, "could not enable clock\n");
 		return -EBUSY;
 	}
+
+	spin_lock_init(&l3_remap_lock);
 
 	ret = fpga_bridge_register(dev, priv->name, &altera_hps2fpga_br_ops,
 				   priv);
