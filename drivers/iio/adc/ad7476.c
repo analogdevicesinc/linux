@@ -146,6 +146,31 @@ static int ad7476_read_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+static int ad7476_write_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *chan, int val, int val2, long info)
+{
+	struct ad7476_state *st = iio_priv(indio_dev);
+	int ret = 0;
+
+	mutex_lock(&indio_dev->mlock);
+
+	switch (info) {
+		case IIO_CHAN_INFO_SAMP_FREQ:
+			if (IS_ERR(st->clk))
+				ret = -ENODEV;
+			else
+				ret = clk_set_rate(st->clk, val);
+
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+	}
+
+	mutex_unlock(&indio_dev->mlock);
+	return ret;
+}
+
 #define _AD7476_CHAN(bits, _shift, _info_mask_sep)		\
 	{							\
 	.type = IIO_VOLTAGE,					\
@@ -218,6 +243,7 @@ static const struct ad7476_chip_info ad7476_chip_info_tbl[] = {
 static const struct iio_info ad7476_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = &ad7476_read_raw,
+	.write_raw = &ad7476_write_raw,
 };
 
 static int ad7476_probe(struct spi_device *spi)
