@@ -44,9 +44,9 @@
 
 / {
 	clocks {
-		ad7980_clkin: clock@0 {
+		__ad7980_clkin: clock@0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
+			compatible = "_fixed-clock";
 			clock-frequency = <100000>;
 			clock-output-names = "ad7980_sampl_clk";
 		};
@@ -107,6 +107,16 @@
 				reg = <0x4b>;
 			};
 		};
+
+            ad7980_clkin: clkdiv@43C70000  {
+                    compatible = "adi,axi-clkdiv-1.00.a";
+                    reg = <0x43C70000 0x1000>;
+                    #clock-cells = <0>;
+                    clocks = <&clkc 15>;
+		    adi,pulse-width = <4>;
+		    adi,divider = <167>;
+
+            };
 		
             rx_dma0: dma@43C10000 {
                     compatible = "adi,axi-dmac-1.00.a";
@@ -164,7 +174,7 @@
                     ad7980_0: AD7980-JB@0-jb {
                             compatible = "adi,ad7980";
                             reg = <0>;
-                            spi-max-frequency = <10000000>;
+                            spi-max-frequency = <15000000>;
                             clocks = <&ad7980_clkin 0>;
 			    clock-names = "sampl_clk";
 
@@ -191,7 +201,7 @@
 		    ad7980_1: AD7980-JC@1-jc {
                             compatible = "adi,ad7980";
                             reg = <0>;
-                            spi-max-frequency = <10000000>;
+			    spi-max-frequency = <15000000>;
 			    clocks = <&ad7980_clkin 0>;
 			    clock-names = "sampl_clk";
 			    dmas = <&rx_dma1 0>;
@@ -208,8 +218,6 @@
                     clocks = <&clkc 15 &clkc 15>;
                     clock-names = "s_axi_aclk", "spi_clk";
                     num-cs = <1>;
-
-
                     
                     #address-cells = <0x1>;
                     #size-cells = <0x0>;
@@ -217,7 +225,7 @@
 		    ad7980_2: AD7980-JD@2-jd {
                             compatible = "adi,ad7980";
                             reg = <0>;
-                            spi-max-frequency = <10000000>;
+			    spi-max-frequency = <15000000>;
 			    clocks = <&ad7980_clkin 0>;
 			    clock-names = "sampl_clk";
 			    dmas = <&rx_dma2 0>;
