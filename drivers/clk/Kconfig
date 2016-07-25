@@ -140,6 +140,14 @@ config COMMON_CLK_AXI_CLKGEN
 	  Support for the Analog Devices axi-clkgen pcore clock generator for Xilinx
 	  FPGAs. It is commonly used in Analog Devices' reference designs.
 
+config COMMON_CLK_AXI_DIV_PULSE
+	tristate "AXI div pulse driver"
+	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
+	help
+	---help---
+	  Support for the Analog Devices axi-clkdiv pcore clock generator for Xilinx
+	  FPGAs. It is commonly used in Analog Devices' reference designs.
+
 config CLK_QORIQ
 	bool "Clock driver for Freescale QorIQ platforms"
 	depends on (PPC_E500MC || ARM || ARM64 || COMPILE_TEST) && OF
