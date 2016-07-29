@@ -7649,7 +7649,7 @@ static struct ad9361_phy_platform_data
 
 	tmp = 75;
 	of_property_read_u32(np, "adi,lvds-bias-mV", &tmp);
-	pdata->port_ctrl.lvds_bias_ctrl = (tmp / 75) & 0x7;
+	pdata->port_ctrl.lvds_bias_ctrl = ((tmp - 75) / 75) & 0x7;
 	pdata->port_ctrl.lvds_bias_ctrl |= (of_property_read_bool(np,
 			"adi,lvds-rx-onchip-termination-enable") << 5);
 
