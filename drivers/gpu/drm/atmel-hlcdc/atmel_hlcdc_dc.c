@@ -333,6 +333,10 @@ static const struct of_device_id atmel_hlcdc_of_match[] = {
 		.data = &atmel_hlcdc_dc_at91sam9x5,
 	},
 	{
+		.compatible = "atmel,sama5d2-hlcdc",
+		.data = &atmel_hlcdc_dc_sama5d4,
+	},
+	{
 		.compatible = "atmel,sama5d3-hlcdc",
 		.data = &atmel_hlcdc_dc_sama5d3,
 	},
@@ -342,6 +346,7 @@ static const struct of_device_id atmel_hlcdc_of_match[] = {
 	},
 	{ /* sentinel */ },
 };
+MODULE_DEVICE_TABLE(of, atmel_hlcdc_of_match);
 
 int atmel_hlcdc_dc_mode_valid(struct atmel_hlcdc_dc *dc,
 			      struct drm_display_mode *mode)
@@ -402,7 +407,7 @@ static irqreturn_t atmel_hlcdc_dc_irq_handler(int irq, void *data)
 }
 
 static struct drm_framebuffer *atmel_hlcdc_fb_create(struct drm_device *dev,
-		struct drm_file *file_priv, struct drm_mode_fb_cmd2 *mode_cmd)
+		struct drm_file *file_priv, const struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	return drm_fb_cma_create(dev, file_priv, mode_cmd);
 }
@@ -614,15 +619,6 @@ static void atmel_hlcdc_dc_connector_unplug_all(struct drm_device *dev)
 	mutex_unlock(&dev->mode_config.mutex);
 }
 
-static void atmel_hlcdc_dc_preclose(struct drm_device *dev,
-				    struct drm_file *file)
-{
-	struct drm_crtc *crtc;
-
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-		atmel_hlcdc_crtc_cancel_page_flip(crtc, file);
-}
-
 static void atmel_hlcdc_dc_lastclose(struct drm_device *dev)
 {
 	struct atmel_hlcdc_dc *dc = dev->dev_private;
@@ -693,7 +689,6 @@ static struct drm_driver atmel_hlcdc_dc_driver = {
 	.driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM |
 			   DRIVER_MODESET | DRIVER_PRIME |
 			   DRIVER_ATOMIC,
-	.preclose = atmel_hlcdc_dc_preclose,
 	.lastclose = atmel_hlcdc_dc_lastclose,
 	.irq_handler = atmel_hlcdc_dc_irq_handler,
 	.irq_preinstall = atmel_hlcdc_dc_irq_uninstall,
@@ -732,10 +727,6 @@ static int atmel_hlcdc_dc_drm_probe(struct platform_device *pdev)
 	ddev = drm_dev_alloc(&atmel_hlcdc_dc_driver, &pdev->dev);
 	if (!ddev)
 		return -ENOMEM;
-
-	ret = drm_dev_set_unique(ddev, dev_name(ddev->dev));
-	if (ret)
-		goto err_unref;
 
 	ret = atmel_hlcdc_dc_load(ddev);
 	if (ret)

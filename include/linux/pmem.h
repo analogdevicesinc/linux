@@ -42,6 +42,13 @@ static inline void arch_memcpy_to_pmem(void __pmem *dst, const void *src,
 	BUG();
 }
 
+static inline int arch_memcpy_from_pmem(void *dst, const void __pmem *src,
+		size_t n)
+{
+	BUG();
+	return -EFAULT;
+}
+
 static inline size_t arch_copy_from_iter_pmem(void __pmem *addr, size_t bytes,
 		struct iov_iter *i)
 {
@@ -53,21 +60,45 @@ static inline void arch_clear_pmem(void __pmem *addr, size_t size)
 {
 	BUG();
 }
-#endif
 
-/*
- * Architectures that define ARCH_HAS_PMEM_API must provide
- * implementations for arch_memcpy_to_pmem(), arch_wmb_pmem(),
- * arch_copy_from_iter_pmem(), arch_clear_pmem() and arch_has_wmb_pmem().
- */
-static inline void memcpy_from_pmem(void *dst, void __pmem const *src, size_t size)
+static inline void arch_wb_cache_pmem(void __pmem *addr, size_t size)
 {
-	memcpy(dst, (void __force const *) src, size);
+	BUG();
 }
+
+static inline void arch_invalidate_pmem(void __pmem *addr, size_t size)
+{
+	BUG();
+}
+#endif
 
 static inline bool arch_has_pmem_api(void)
 {
 	return IS_ENABLED(CONFIG_ARCH_HAS_PMEM_API);
+}
+
+static inline int default_memcpy_from_pmem(void *dst, void __pmem const *src,
+		size_t size)
+{
+	memcpy(dst, (void __force *) src, size);
+	return 0;
+}
+
+/*
+ * memcpy_from_pmem - read from persistent memory with error handling
+ * @dst: destination buffer
+ * @src: source buffer
+ * @size: transfer length
+ *
+ * Returns 0 on success negative error code on failure.
+ */
+static inline int memcpy_from_pmem(void *dst, void __pmem const *src,
+		size_t size)
+{
+	if (arch_has_pmem_api())
+		return arch_memcpy_from_pmem(dst, src, size);
+	else
+		return default_memcpy_from_pmem(dst, src, size);
 }
 
 /**
@@ -177,5 +208,33 @@ static inline void clear_pmem(void __pmem *addr, size_t size)
 		arch_clear_pmem(addr, size);
 	else
 		default_clear_pmem(addr, size);
+}
+
+/**
+ * invalidate_pmem - flush a pmem range from the cache hierarchy
+ * @addr:	virtual start address
+ * @size:	bytes to invalidate (internally aligned to cache line size)
+ *
+ * For platforms that support clearing poison this flushes any poisoned
+ * ranges out of the cache
+ */
+static inline void invalidate_pmem(void __pmem *addr, size_t size)
+{
+	if (arch_has_pmem_api())
+		arch_invalidate_pmem(addr, size);
+}
+
+/**
+ * wb_cache_pmem - write back processor cache for PMEM memory range
+ * @addr:	virtual start address
+ * @size:	number of bytes to write back
+ *
+ * Write back the processor cache range starting at 'addr' for 'size' bytes.
+ * This function requires explicit ordering with a wmb_pmem() call.
+ */
+static inline void wb_cache_pmem(void __pmem *addr, size_t size)
+{
+	if (arch_has_pmem_api())
+		arch_wb_cache_pmem(addr, size);
 }
 #endif /* __PMEM_H__ */

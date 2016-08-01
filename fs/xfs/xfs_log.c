@@ -1188,10 +1188,16 @@ xlog_iodone(xfs_buf_t *bp)
 	int			aborted = 0;
 
 	/*
-	 * Race to shutdown the filesystem if we see an error.
+	 * Race to shutdown the filesystem if we see an error or the iclog is in
+	 * IOABORT state. The IOABORT state is only set in DEBUG mode to inject
+	 * CRC errors into log recovery.
 	 */
-	if (XFS_TEST_ERROR(bp->b_error, l->l_mp,
-			XFS_ERRTAG_IODONE_IOERR, XFS_RANDOM_IODONE_IOERR)) {
+	if (XFS_TEST_ERROR(bp->b_error, l->l_mp, XFS_ERRTAG_IODONE_IOERR,
+			   XFS_RANDOM_IODONE_IOERR) ||
+	    iclog->ic_state & XLOG_STATE_IOABORT) {
+		if (iclog->ic_state & XLOG_STATE_IOABORT)
+			iclog->ic_state &= ~XLOG_STATE_IOABORT;
+
 		xfs_buf_ioerror_alert(bp, __func__);
 		xfs_buf_stale(bp);
 		xfs_force_shutdown(l->l_mp, SHUTDOWN_LOG_IO_ERROR);
@@ -1206,7 +1212,7 @@ xlog_iodone(xfs_buf_t *bp)
 	}
 
 	/* log I/O is always issued ASYNC */
-	ASSERT(XFS_BUF_ISASYNC(bp));
+	ASSERT(bp->b_flags & XBF_ASYNC);
 	xlog_state_done_syncing(iclog, aborted);
 
 	/*
@@ -1838,12 +1844,28 @@ xlog_sync(
 	/* calculcate the checksum */
 	iclog->ic_header.h_crc = xlog_cksum(log, &iclog->ic_header,
 					    iclog->ic_datap, size);
+#ifdef DEBUG
+	/*
+	 * Intentionally corrupt the log record CRC based on the error injection
+	 * frequency, if defined. This facilitates testing log recovery in the
+	 * event of torn writes. Hence, set the IOABORT state to abort the log
+	 * write on I/O completion and shutdown the fs. The subsequent mount
+	 * detects the bad CRC and attempts to recover.
+	 */
+	if (log->l_badcrc_factor &&
+	    (prandom_u32() % log->l_badcrc_factor == 0)) {
+		iclog->ic_header.h_crc &= 0xAAAAAAAA;
+		iclog->ic_state |= XLOG_STATE_IOABORT;
+		xfs_warn(log->l_mp,
+	"Intentionally corrupted log record at LSN 0x%llx. Shutdown imminent.",
+			 be64_to_cpu(iclog->ic_header.h_lsn));
+	}
+#endif
 
 	bp->b_io_length = BTOBB(count);
 	bp->b_fspriv = iclog;
-	XFS_BUF_ZEROFLAGS(bp);
-	XFS_BUF_ASYNC(bp);
-	bp->b_flags |= XBF_SYNCIO;
+	bp->b_flags &= ~(XBF_FUA | XBF_FLUSH);
+	bp->b_flags |= (XBF_ASYNC | XBF_SYNCIO | XBF_WRITE);
 
 	if (log->l_mp->m_flags & XFS_MOUNT_BARRIER) {
 		bp->b_flags |= XBF_FUA;
@@ -1870,12 +1892,11 @@ xlog_sync(
 
 	/* account for log which doesn't start at block #0 */
 	XFS_BUF_SET_ADDR(bp, XFS_BUF_ADDR(bp) + log->l_logBBstart);
+
 	/*
 	 * Don't call xfs_bwrite here. We do log-syncs even when the filesystem
 	 * is shutting down.
 	 */
-	XFS_BUF_WRITE(bp);
-
 	error = xlog_bdstrat(bp);
 	if (error) {
 		xfs_buf_ioerror_alert(bp, "xlog_sync");
@@ -1887,9 +1908,8 @@ xlog_sync(
 		xfs_buf_associate_memory(bp,
 				(char *)&iclog->ic_header + count, split);
 		bp->b_fspriv = iclog;
-		XFS_BUF_ZEROFLAGS(bp);
-		XFS_BUF_ASYNC(bp);
-		bp->b_flags |= XBF_SYNCIO;
+		bp->b_flags &= ~(XBF_FUA | XBF_FLUSH);
+		bp->b_flags |= (XBF_ASYNC | XBF_SYNCIO | XBF_WRITE);
 		if (log->l_mp->m_flags & XFS_MOUNT_BARRIER)
 			bp->b_flags |= XBF_FUA;
 
@@ -1898,7 +1918,6 @@ xlog_sync(
 
 		/* account for internal log which doesn't start at block #0 */
 		XFS_BUF_SET_ADDR(bp, XFS_BUF_ADDR(bp) + log->l_logBBstart);
-		XFS_BUF_WRITE(bp);
 		error = xlog_bdstrat(bp);
 		if (error) {
 			xfs_buf_ioerror_alert(bp, "xlog_sync (split)");
@@ -1989,75 +2008,81 @@ xlog_print_tic_res(
 	uint ophdr_spc = ticket->t_res_num_ophdrs * (uint)sizeof(xlog_op_header_t);
 
 	/* match with XLOG_REG_TYPE_* in xfs_log.h */
-	static char *res_type_str[XLOG_REG_TYPE_MAX] = {
-	    "bformat",
-	    "bchunk",
-	    "efi_format",
-	    "efd_format",
-	    "iformat",
-	    "icore",
-	    "iext",
-	    "ibroot",
-	    "ilocal",
-	    "iattr_ext",
-	    "iattr_broot",
-	    "iattr_local",
-	    "qformat",
-	    "dquot",
-	    "quotaoff",
-	    "LR header",
-	    "unmount",
-	    "commit",
-	    "trans header"
+#define REG_TYPE_STR(type, str)	[XLOG_REG_TYPE_##type] = str
+	static char *res_type_str[XLOG_REG_TYPE_MAX + 1] = {
+	    REG_TYPE_STR(BFORMAT, "bformat"),
+	    REG_TYPE_STR(BCHUNK, "bchunk"),
+	    REG_TYPE_STR(EFI_FORMAT, "efi_format"),
+	    REG_TYPE_STR(EFD_FORMAT, "efd_format"),
+	    REG_TYPE_STR(IFORMAT, "iformat"),
+	    REG_TYPE_STR(ICORE, "icore"),
+	    REG_TYPE_STR(IEXT, "iext"),
+	    REG_TYPE_STR(IBROOT, "ibroot"),
+	    REG_TYPE_STR(ILOCAL, "ilocal"),
+	    REG_TYPE_STR(IATTR_EXT, "iattr_ext"),
+	    REG_TYPE_STR(IATTR_BROOT, "iattr_broot"),
+	    REG_TYPE_STR(IATTR_LOCAL, "iattr_local"),
+	    REG_TYPE_STR(QFORMAT, "qformat"),
+	    REG_TYPE_STR(DQUOT, "dquot"),
+	    REG_TYPE_STR(QUOTAOFF, "quotaoff"),
+	    REG_TYPE_STR(LRHEADER, "LR header"),
+	    REG_TYPE_STR(UNMOUNT, "unmount"),
+	    REG_TYPE_STR(COMMIT, "commit"),
+	    REG_TYPE_STR(TRANSHDR, "trans header"),
+	    REG_TYPE_STR(ICREATE, "inode create")
 	};
+#undef REG_TYPE_STR
+#define TRANS_TYPE_STR(type)	[XFS_TRANS_##type] = #type
 	static char *trans_type_str[XFS_TRANS_TYPE_MAX] = {
-	    "SETATTR_NOT_SIZE",
-	    "SETATTR_SIZE",
-	    "INACTIVE",
-	    "CREATE",
-	    "CREATE_TRUNC",
-	    "TRUNCATE_FILE",
-	    "REMOVE",
-	    "LINK",
-	    "RENAME",
-	    "MKDIR",
-	    "RMDIR",
-	    "SYMLINK",
-	    "SET_DMATTRS",
-	    "GROWFS",
-	    "STRAT_WRITE",
-	    "DIOSTRAT",
-	    "WRITE_SYNC",
-	    "WRITEID",
-	    "ADDAFORK",
-	    "ATTRINVAL",
-	    "ATRUNCATE",
-	    "ATTR_SET",
-	    "ATTR_RM",
-	    "ATTR_FLAG",
-	    "CLEAR_AGI_BUCKET",
-	    "QM_SBCHANGE",
-	    "DUMMY1",
-	    "DUMMY2",
-	    "QM_QUOTAOFF",
-	    "QM_DQALLOC",
-	    "QM_SETQLIM",
-	    "QM_DQCLUSTER",
-	    "QM_QINOCREATE",
-	    "QM_QUOTAOFF_END",
-	    "SB_UNIT",
-	    "FSYNC_TS",
-	    "GROWFSRT_ALLOC",
-	    "GROWFSRT_ZERO",
-	    "GROWFSRT_FREE",
-	    "SWAPEXT"
+	    TRANS_TYPE_STR(SETATTR_NOT_SIZE),
+	    TRANS_TYPE_STR(SETATTR_SIZE),
+	    TRANS_TYPE_STR(INACTIVE),
+	    TRANS_TYPE_STR(CREATE),
+	    TRANS_TYPE_STR(CREATE_TRUNC),
+	    TRANS_TYPE_STR(TRUNCATE_FILE),
+	    TRANS_TYPE_STR(REMOVE),
+	    TRANS_TYPE_STR(LINK),
+	    TRANS_TYPE_STR(RENAME),
+	    TRANS_TYPE_STR(MKDIR),
+	    TRANS_TYPE_STR(RMDIR),
+	    TRANS_TYPE_STR(SYMLINK),
+	    TRANS_TYPE_STR(SET_DMATTRS),
+	    TRANS_TYPE_STR(GROWFS),
+	    TRANS_TYPE_STR(STRAT_WRITE),
+	    TRANS_TYPE_STR(DIOSTRAT),
+	    TRANS_TYPE_STR(WRITEID),
+	    TRANS_TYPE_STR(ADDAFORK),
+	    TRANS_TYPE_STR(ATTRINVAL),
+	    TRANS_TYPE_STR(ATRUNCATE),
+	    TRANS_TYPE_STR(ATTR_SET),
+	    TRANS_TYPE_STR(ATTR_RM),
+	    TRANS_TYPE_STR(ATTR_FLAG),
+	    TRANS_TYPE_STR(CLEAR_AGI_BUCKET),
+	    TRANS_TYPE_STR(SB_CHANGE),
+	    TRANS_TYPE_STR(DUMMY1),
+	    TRANS_TYPE_STR(DUMMY2),
+	    TRANS_TYPE_STR(QM_QUOTAOFF),
+	    TRANS_TYPE_STR(QM_DQALLOC),
+	    TRANS_TYPE_STR(QM_SETQLIM),
+	    TRANS_TYPE_STR(QM_DQCLUSTER),
+	    TRANS_TYPE_STR(QM_QINOCREATE),
+	    TRANS_TYPE_STR(QM_QUOTAOFF_END),
+	    TRANS_TYPE_STR(FSYNC_TS),
+	    TRANS_TYPE_STR(GROWFSRT_ALLOC),
+	    TRANS_TYPE_STR(GROWFSRT_ZERO),
+	    TRANS_TYPE_STR(GROWFSRT_FREE),
+	    TRANS_TYPE_STR(SWAPEXT),
+	    TRANS_TYPE_STR(CHECKPOINT),
+	    TRANS_TYPE_STR(ICREATE),
+	    TRANS_TYPE_STR(CREATE_TMPFILE)
 	};
+#undef TRANS_TYPE_STR
 
 	xfs_warn(mp, "xlog_write: reservation summary:");
 	xfs_warn(mp, "  trans type  = %s (%u)",
 		 ((ticket->t_trans_type <= 0 ||
 		   ticket->t_trans_type > XFS_TRANS_TYPE_MAX) ?
-		  "bad-trans-type" : trans_type_str[ticket->t_trans_type-1]),
+		  "bad-trans-type" : trans_type_str[ticket->t_trans_type]),
 		 ticket->t_trans_type);
 	xfs_warn(mp, "  unit res    = %d bytes",
 		 ticket->t_unit_res);
@@ -2076,7 +2101,7 @@ xlog_print_tic_res(
 		uint r_type = ticket->t_res_arr[i].r_type;
 		xfs_warn(mp, "region[%u]: %s - %u bytes", i,
 			    ((r_type <= 0 || r_type > XLOG_REG_TYPE_MAX) ?
-			    "bad-rtype" : res_type_str[r_type-1]),
+			    "bad-rtype" : res_type_str[r_type]),
 			    ticket->t_res_arr[i].r_len);
 	}
 
@@ -2791,11 +2816,19 @@ xlog_state_do_callback(
 		}
 	} while (!ioerrors && loopdidcallbacks);
 
-	/*
-	 * make one last gasp attempt to see if iclogs are being left in
-	 * limbo..
-	 */
 #ifdef DEBUG
+	/*
+	 * Make one last gasp attempt to see if iclogs are being left in limbo.
+	 * If the above loop finds an iclog earlier than the current iclog and
+	 * in one of the syncing states, the current iclog is put into
+	 * DO_CALLBACK and the callbacks are deferred to the completion of the
+	 * earlier iclog. Walk the iclogs in order and make sure that no iclog
+	 * is in DO_CALLBACK unless an earlier iclog is in one of the syncing
+	 * states.
+	 *
+	 * Note that SYNCING|IOABORT is a valid state so we cannot just check
+	 * for ic_state == SYNCING.
+	 */
 	if (funcdidcallbacks) {
 		first_iclog = iclog = log->l_iclog;
 		do {
@@ -2810,7 +2843,7 @@ xlog_state_do_callback(
 			 * IOERROR - give up hope all ye who enter here
 			 */
 			if (iclog->ic_state == XLOG_STATE_WANT_SYNC ||
-			    iclog->ic_state == XLOG_STATE_SYNCING ||
+			    iclog->ic_state & XLOG_STATE_SYNCING ||
 			    iclog->ic_state == XLOG_STATE_DONE_SYNC ||
 			    iclog->ic_state == XLOG_STATE_IOERROR )
 				break;
@@ -3946,7 +3979,7 @@ xfs_log_force_umount(
 	    log->l_flags & XLOG_ACTIVE_RECOVERY) {
 		mp->m_flags |= XFS_MOUNT_FS_SHUTDOWN;
 		if (mp->m_sb_bp)
-			XFS_BUF_DONE(mp->m_sb_bp);
+			mp->m_sb_bp->b_flags |= XBF_DONE;
 		return 0;
 	}
 
@@ -3976,7 +4009,7 @@ xfs_log_force_umount(
 	spin_lock(&log->l_icloglock);
 	mp->m_flags |= XFS_MOUNT_FS_SHUTDOWN;
 	if (mp->m_sb_bp)
-		XFS_BUF_DONE(mp->m_sb_bp);
+		mp->m_sb_bp->b_flags |= XBF_DONE;
 
 	/*
 	 * Mark the log and the iclogs with IO error flags to prevent any

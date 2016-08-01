@@ -19,6 +19,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
@@ -448,12 +449,6 @@ static int macb_mii_init(struct macb *bp)
 	bp->mii_bus->parent = &bp->dev->dev;
 	pdata = dev_get_platdata(&bp->pdev->dev);
 
-	bp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
-	if (!bp->mii_bus->irq) {
-		err = -ENOMEM;
-		goto err_out_free_mdiobus;
-	}
-
 	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
 
 	np = bp->pdev->dev.of_node;
@@ -478,9 +473,6 @@ static int macb_mii_init(struct macb *bp)
 				goto err_out_unregister_bus;
 		}
 	} else {
-		for (i = 0; i < PHY_MAX_ADDR; i++)
-			bp->mii_bus->irq[i] = PHY_POLL;
-
 		if (pdata)
 			bp->mii_bus->phy_mask = pdata->phy_mask;
 
@@ -488,7 +480,7 @@ static int macb_mii_init(struct macb *bp)
 	}
 
 	if (err)
-		goto err_out_free_mdio_irq;
+		goto err_out_free_mdiobus;
 
 	err = macb_mii_probe(bp->dev);
 	if (err)
@@ -498,8 +490,6 @@ static int macb_mii_init(struct macb *bp)
 
 err_out_unregister_bus:
 	mdiobus_unregister(bp->mii_bus);
-err_out_free_mdio_irq:
-	kfree(bp->mii_bus->irq);
 err_out_free_mdiobus:
 	mdiobus_free(bp->mii_bus);
 err_out:
@@ -1121,6 +1111,53 @@ static int macb_poll(struct napi_struct *napi, int budget)
 	return work_done;
 }
 
+static void macb_hresp_error_task(unsigned long data)
+{
+	struct macb *bp = (struct macb *)data;
+	struct net_device *dev = bp->dev;
+	struct macb_queue *queue = bp->queues;
+	unsigned int q;
+	u32 ctrl;
+
+	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
+		queue_writel(queue, IDR, MACB_RX_INT_FLAGS |
+					 MACB_TX_INT_FLAGS |
+					 MACB_BIT(HRESP));
+	}
+	ctrl = macb_readl(bp, NCR);
+	ctrl &= ~(MACB_BIT(RE) | MACB_BIT(TE));
+	macb_writel(bp, NCR, ctrl);
+
+	netif_tx_stop_all_queues(dev);
+	netif_carrier_off(dev);
+
+	bp->macbgem_ops.mog_init_rings(bp);
+
+	macb_writel(bp, RBQP, bp->rx_ring_dma);
+	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
+		queue_writel(queue, TBQP, queue->tx_ring_dma);
+		/* We only use the first queue at the moment. Remaining
+		 * queues must be tied-off before we enable the receiver.
+		 *
+		 * See the documentation for receive_q1_ptr for more info.
+		 */
+		if (q)
+			queue_writel(queue, RBQP, bp->rx_ring_tieoff_dma);
+
+		/* Enable interrupts */
+		queue_writel(queue, IER,
+			     MACB_RX_INT_FLAGS |
+			     MACB_TX_INT_FLAGS |
+			     MACB_BIT(HRESP));
+	}
+
+	ctrl |= MACB_BIT(RE) | MACB_BIT(TE);
+	macb_writel(bp, NCR, ctrl);
+
+	netif_carrier_on(dev);
+	netif_tx_start_all_queues(dev);
+}
+
 static irqreturn_t macb_interrupt(int irq, void *dev_id)
 {
 	struct macb_queue *queue = dev_id;
@@ -1139,6 +1176,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
 		/* close possible race with dev_close */
 		if (unlikely(!netif_running(dev))) {
 			queue_writel(queue, IDR, -1);
+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+				queue_writel(queue, ISR, -1);
 			break;
 		}
 
@@ -1209,11 +1248,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
 		}
 
 		if (status & MACB_BIT(HRESP)) {
-			/*
-			 * TODO: Reset the hardware, and maybe move the
-			 * netdev_err to a lower-priority context as well
-			 * (work queue?)
-			 */
+			tasklet_schedule(&bp->hresp_err_tasklet);
 			netdev_err(dev, "DMA bus error: HRESP not OK\n");
 
 			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
@@ -1694,6 +1729,8 @@ static void macb_reset_hw(struct macb *bp)
 	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
 		queue_writel(queue, IDR, -1);
 		queue_readl(queue, ISR);
+		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+			queue_writel(queue, ISR, -1);
 	}
 }
 
@@ -2467,7 +2504,8 @@ static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 	regs_buff[10] = macb_tx_dma(&bp->queues[0], tail);
 	regs_buff[11] = macb_tx_dma(&bp->queues[0], head);
 
-	regs_buff[12] = macb_or_gem_readl(bp, USRIO);
+	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED))
+		regs_buff[12] = macb_or_gem_readl(bp, USRIO);
 	if (macb_is_gem(bp)) {
 		regs_buff[13] = gem_readl(bp, DMACFG);
 	}
@@ -2847,19 +2885,21 @@ static int macb_init(struct platform_device *pdev)
 		dev->hw_features &= ~NETIF_F_SG;
 	dev->features = dev->hw_features;
 
-	val = 0;
-	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
-		val = GEM_BIT(RGMII);
-	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
-		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-		val = MACB_BIT(RMII);
-	else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-		val = MACB_BIT(MII);
+	if (!(bp->caps & MACB_CAPS_USRIO_DISABLED)) {
+		val = 0;
+		if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
+			val = GEM_BIT(RGMII);
+		else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
+			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+			val = MACB_BIT(RMII);
+		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+			val = MACB_BIT(MII);
 
-	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-		val |= MACB_BIT(CLKEN);
+		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
+			val |= MACB_BIT(CLKEN);
 
-	macb_or_gem_writel(bp, USRIO, val);
+		macb_or_gem_writel(bp, USRIO, val);
+	}
 
 	/* Set MII management clock divider */
 	val = macb_mdc_clk_div(bp);
@@ -3227,6 +3267,11 @@ static const struct macb_config emac_config = {
 	.init = at91ether_init,
 };
 
+static const struct macb_config np4_config = {
+	.caps = MACB_CAPS_USRIO_DISABLED,
+	.clk_init = macb_clk_init,
+	.init = macb_init,
+};
 
 static const struct macb_config zynqmp_config = {
 	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_JUMBO | MACB_CAPS_TSU | MACB_CAPS_PCS,
@@ -3247,6 +3292,7 @@ static const struct of_device_id macb_dt_ids[] = {
 	{ .compatible = "cdns,at32ap7000-macb" },
 	{ .compatible = "cdns,at91sam9260-macb", .data = &at91sam9260_config },
 	{ .compatible = "cdns,macb" },
+	{ .compatible = "cdns,np4-macb", .data = &np4_config },
 	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
 	{ .compatible = "cdns,gem", .data = &pc302gem_config },
 	{ .compatible = "atmel,sama5d2-gem", .data = &sama5d2_config },
@@ -3268,8 +3314,9 @@ static int macb_probe(struct platform_device *pdev)
 					      = macb_clk_init;
 	int (*init)(struct platform_device *) = macb_init;
 	struct device_node *np = pdev->dev.of_node;
+	struct device_node *phy_node;
 	const struct macb_config *macb_config = NULL;
-	struct clk *pclk, *hclk, *tx_clk;
+	struct clk *pclk, *hclk = NULL, *tx_clk = NULL;
 	unsigned int queue_mask, num_queues;
 	struct macb_platform_data *pdata;
 	bool native_io;
@@ -3357,6 +3404,16 @@ static int macb_probe(struct platform_device *pdev)
 	else
 		macb_get_hwaddr(bp);
 
+	/* Power up the PHY if there is a GPIO reset */
+	phy_node =  of_get_next_available_child(np, NULL);
+	if (phy_node) {
+		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
+		if (gpio_is_valid(gpio))
+			bp->reset_gpio = gpio_to_desc(gpio);
+		gpiod_set_value(bp->reset_gpio, GPIOD_OUT_HIGH);
+	}
+	of_node_put(phy_node);
+
 	err = of_get_phy_mode(np);
 	if (err < 0) {
 		pdata = dev_get_platdata(&pdev->dev);
@@ -3387,13 +3444,15 @@ static int macb_probe(struct platform_device *pdev)
 
 	netif_carrier_off(dev);
 
+	tasklet_init(&bp->hresp_err_tasklet, macb_hresp_error_task,
+		     (unsigned long) bp);
+
 	netdev_info(dev, "Cadence %s rev 0x%08x at 0x%08lx irq %d (%pM)\n",
 		    macb_is_gem(bp) ? "GEM" : "MACB", macb_readl(bp, MID),
 		    dev->base_addr, dev->irq, dev->dev_addr);
 
 	phydev = bp->phy_dev;
-	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
-		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
+	phy_attached_info(phydev);
 
 	return 0;
 
@@ -3423,8 +3482,11 @@ static int macb_remove(struct platform_device *pdev)
 		if (bp->phy_dev)
 			phy_disconnect(bp->phy_dev);
 		mdiobus_unregister(bp->mii_bus);
-		kfree(bp->mii_bus->irq);
 		mdiobus_free(bp->mii_bus);
+
+		/* Shutdown the PHY if there is a GPIO reset */
+		gpiod_set_value(bp->reset_gpio, GPIOD_OUT_LOW);
+
 		unregister_netdev(dev);
 		clk_disable_unprepare(bp->tx_clk);
 		clk_disable_unprepare(bp->hclk);

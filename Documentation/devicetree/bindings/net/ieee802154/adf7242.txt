@@ -24,7 +24,6 @@ Optional properties:
 	- adi,min-csma-back-off-exponent: Specifies the minimum back-off exponent
 	                                  used in the CSMA-CA algorithm
 	                                  (valid: [0-max], default: 1)
-
 Example:
 
 	adf7242@0 {

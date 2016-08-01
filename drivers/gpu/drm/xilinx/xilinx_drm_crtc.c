@@ -263,6 +263,16 @@ void xilinx_drm_crtc_destroy(struct drm_crtc *base_crtc)
 	xilinx_drm_plane_remove_manager(crtc->plane_manager);
 }
 
+/* crtc set config helper */
+int xilinx_drm_crtc_helper_set_config(struct drm_mode_set *set)
+{
+	struct drm_device *drm = set->crtc->dev;
+
+	xilinx_drm_set_config(drm, set);
+
+	return drm_crtc_helper_set_config(set);
+}
+
 /* cancel page flip functions */
 void xilinx_drm_crtc_cancel_page_flip(struct drm_crtc *base_crtc,
 				      struct drm_file *file)
@@ -429,7 +439,7 @@ unsigned int xilinx_drm_crtc_get_align(struct drm_crtc *base_crtc)
 
 static struct drm_crtc_funcs xilinx_drm_crtc_funcs = {
 	.destroy	= xilinx_drm_crtc_destroy,
-	.set_config	= drm_crtc_helper_set_config,
+	.set_config	= xilinx_drm_crtc_helper_set_config,
 	.page_flip	= xilinx_drm_crtc_page_flip,
 };
 
@@ -471,7 +481,7 @@ struct drm_crtc *xilinx_drm_crtc_create(struct drm_device *drm)
 	/* probe a plane manager */
 	crtc->plane_manager = xilinx_drm_plane_probe_manager(drm);
 	if (IS_ERR(crtc->plane_manager)) {
-		if ((int)crtc->plane_manager != -EPROBE_DEFER)
+		if (PTR_ERR(crtc->plane_manager) != -EPROBE_DEFER)
 			DRM_ERROR("failed to probe a plane manager\n");
 		return ERR_CAST(crtc->plane_manager);
 	}
@@ -524,7 +534,7 @@ struct drm_crtc *xilinx_drm_crtc_create(struct drm_device *drm)
 
 	/* initialize drm crtc */
 	ret = drm_crtc_init_with_planes(drm, &crtc->base, primary_plane,
-					NULL, &xilinx_drm_crtc_funcs);
+					NULL, &xilinx_drm_crtc_funcs, NULL);
 	if (ret) {
 		DRM_ERROR("failed to initialize crtc\n");
 		goto err_plane;

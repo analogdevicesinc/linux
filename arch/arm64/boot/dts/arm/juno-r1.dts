@@ -60,6 +60,28 @@
 			};
 		};
 
+		idle-states {
+			entry-method = "arm,psci";
+
+			CPU_SLEEP_0: cpu-sleep-0 {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x0010000>;
+				local-timer-stop;
+				entry-latency-us = <300>;
+				exit-latency-us = <1200>;
+				min-residency-us = <2000>;
+			};
+
+			CLUSTER_SLEEP_0: cluster-sleep-0 {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x1010000>;
+				local-timer-stop;
+				entry-latency-us = <300>;
+				exit-latency-us = <1200>;
+				min-residency-us = <2500>;
+			};
+		};
+
 		A57_0: cpu@0 {
 			compatible = "arm,cortex-a57","arm,armv8";
 			reg = <0x0 0x0>;
@@ -67,6 +89,7 @@
 			enable-method = "psci";
 			next-level-cache = <&A57_L2>;
 			clocks = <&scpi_dvfs 0>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 		};
 
 		A57_1: cpu@1 {
@@ -76,6 +99,7 @@
 			enable-method = "psci";
 			next-level-cache = <&A57_L2>;
 			clocks = <&scpi_dvfs 0>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 		};
 
 		A53_0: cpu@100 {
@@ -85,6 +109,7 @@
 			enable-method = "psci";
 			next-level-cache = <&A53_L2>;
 			clocks = <&scpi_dvfs 1>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 		};
 
 		A53_1: cpu@101 {
@@ -94,6 +119,7 @@
 			enable-method = "psci";
 			next-level-cache = <&A53_L2>;
 			clocks = <&scpi_dvfs 1>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 		};
 
 		A53_2: cpu@102 {
@@ -103,6 +129,7 @@
 			enable-method = "psci";
 			next-level-cache = <&A53_L2>;
 			clocks = <&scpi_dvfs 1>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 		};
 
 		A53_3: cpu@103 {
@@ -112,6 +139,7 @@
 			enable-method = "psci";
 			next-level-cache = <&A53_L2>;
 			clocks = <&scpi_dvfs 1>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 		};
 
 		A57_L2: l2-cache0 {
@@ -144,29 +172,12 @@
 	};
 
 	#include "juno-base.dtsi"
-
-	pcie-controller@40000000 {
-		compatible = "arm,juno-r1-pcie", "plda,xpressrich3-axi", "pci-host-ecam-generic";
-		device_type = "pci";
-		reg = <0 0x40000000 0 0x10000000>;	/* ECAM config space */
-		bus-range = <0 255>;
-		linux,pci-domain = <0>;
-		#address-cells = <3>;
-		#size-cells = <2>;
-		dma-coherent;
-		ranges = <0x01000000 0x00 0x5f800000 0x00 0x5f800000 0x0 0x00800000>,
-			 <0x02000000 0x00 0x50000000 0x00 0x50000000 0x0 0x08000000>,
-			 <0x42000000 0x40 0x00000000 0x40 0x00000000 0x1 0x00000000>;
-		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &gic 0 0 0 136 4>,
-				<0 0 0 2 &gic 0 0 0 137 4>,
-				<0 0 0 3 &gic 0 0 0 138 4>,
-				<0 0 0 4 &gic 0 0 0 139 4>;
-		msi-parent = <&v2m_0>;
-	};
 };
 
 &memtimer {
+	status = "okay";
+};
+
+&pcie_ctlr {
 	status = "okay";
 };

@@ -771,7 +771,7 @@ static ssize_t cache_read(struct file *filp, char __user *buf, size_t count,
 	if (count == 0)
 		return 0;
 
-	mutex_lock(&inode->i_mutex); /* protect against multiple concurrent
+	inode_lock(inode); /* protect against multiple concurrent
 			      * readers on this file */
  again:
 	spin_lock(&queue_lock);
@@ -784,7 +784,7 @@ static ssize_t cache_read(struct file *filp, char __user *buf, size_t count,
 	}
 	if (rp->q.list.next == &cd->queue) {
 		spin_unlock(&queue_lock);
-		mutex_unlock(&inode->i_mutex);
+		inode_unlock(inode);
 		WARN_ON_ONCE(rp->offset);
 		return 0;
 	}
@@ -838,7 +838,7 @@ static ssize_t cache_read(struct file *filp, char __user *buf, size_t count,
 	}
 	if (err == -EAGAIN)
 		goto again;
-	mutex_unlock(&inode->i_mutex);
+	inode_unlock(inode);
 	return err ? err :  count;
 }
 
@@ -881,7 +881,7 @@ static ssize_t cache_downcall(struct address_space *mapping,
 	char *kaddr;
 	ssize_t ret = -ENOMEM;
 
-	if (count >= PAGE_CACHE_SIZE)
+	if (count >= PAGE_SIZE)
 		goto out_slow;
 
 	page = find_or_create_page(mapping, 0, GFP_KERNEL);
@@ -892,7 +892,7 @@ static ssize_t cache_downcall(struct address_space *mapping,
 	ret = cache_do_downcall(kaddr, buf, count, cd);
 	kunmap(page);
 	unlock_page(page);
-	page_cache_release(page);
+	put_page(page);
 	return ret;
 out_slow:
 	return cache_slow_downcall(buf, count, cd);
@@ -909,9 +909,9 @@ static ssize_t cache_write(struct file *filp, const char __user *buf,
 	if (!cd->cache_parse)
 		goto out;
 
-	mutex_lock(&inode->i_mutex);
+	inode_lock(inode);
 	ret = cache_downcall(mapping, buf, count, cd);
-	mutex_unlock(&inode->i_mutex);
+	inode_unlock(inode);
 out:
 	return ret;
 }
@@ -1182,14 +1182,14 @@ int sunrpc_cache_pipe_upcall(struct cache_detail *detail, struct cache_head *h)
 	}
 
 	crq->q.reader = 0;
-	crq->item = cache_get(h);
 	crq->buf = buf;
 	crq->len = 0;
 	crq->readers = 0;
 	spin_lock(&queue_lock);
-	if (test_bit(CACHE_PENDING, &h->flags))
+	if (test_bit(CACHE_PENDING, &h->flags)) {
+		crq->item = cache_get(h);
 		list_add_tail(&crq->q.list, &detail->queue);
-	else
+	} else
 		/* Lost a race, no longer PENDING, so don't enqueue */
 		ret = -EAGAIN;
 	spin_unlock(&queue_lock);
@@ -1225,7 +1225,7 @@ int qword_get(char **bpp, char *dest, int bufsize)
 	if (bp[0] == '\\' && bp[1] == 'x') {
 		/* HEX STRING */
 		bp += 2;
-		while (len < bufsize) {
+		while (len < bufsize - 1) {
 			int h, l;
 
 			h = hex_to_bin(bp[0]);

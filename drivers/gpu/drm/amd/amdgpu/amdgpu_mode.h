@@ -35,6 +35,7 @@
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_fixed.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_fb_helper.h>
 #include <drm/drm_plane_helper.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
@@ -52,7 +53,7 @@ struct amdgpu_hpd;
 
 #define AMDGPU_MAX_HPD_PINS 6
 #define AMDGPU_MAX_CRTCS 6
-#define AMDGPU_MAX_AFMT_BLOCKS 7
+#define AMDGPU_MAX_AFMT_BLOCKS 9
 
 enum amdgpu_rmx_type {
 	RMX_OFF,
@@ -308,8 +309,8 @@ struct amdgpu_mode_info {
 	struct atom_context *atom_context;
 	struct card_info *atom_card_info;
 	bool mode_config_initialized;
-	struct amdgpu_crtc *crtcs[6];
-	struct amdgpu_afmt *afmt[7];
+	struct amdgpu_crtc *crtcs[AMDGPU_MAX_CRTCS];
+	struct amdgpu_afmt *afmt[AMDGPU_MAX_AFMT_BLOCKS];
 	/* DVI-I properties */
 	struct drm_property *coherent_mode_property;
 	/* DAC enable load detect */
@@ -389,7 +390,6 @@ struct amdgpu_crtc {
 	struct drm_display_mode native_mode;
 	u32 pll_id;
 	/* page flipping */
-	struct workqueue_struct *pflip_queue;
 	struct amdgpu_flip_work *pflip_works;
 	enum amdgpu_flip_status pflip_status;
 	int deferred_flip_completion;
@@ -556,7 +556,7 @@ int amdgpu_get_crtc_scanoutpos(struct drm_device *dev, unsigned int pipe,
 
 int amdgpu_framebuffer_init(struct drm_device *dev,
 			     struct amdgpu_framebuffer *rfb,
-			     struct drm_mode_fb_cmd2 *mode_cmd,
+			     const struct drm_mode_fb_cmd2 *mode_cmd,
 			     struct drm_gem_object *obj);
 
 int amdgpufb_remove(struct drm_device *dev, struct drm_framebuffer *fb);

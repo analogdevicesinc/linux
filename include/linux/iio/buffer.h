@@ -46,6 +46,12 @@ struct iio_buffer_block {
 struct iio_buffer;
 
 /**
+ * INDIO_BUFFER_FLAG_FIXED_WATERMARK - Watermark level of the buffer can not be
+ *   configured. It has a fixed value which will be buffer specific.
+ */
+#define INDIO_BUFFER_FLAG_FIXED_WATERMARK BIT(0)
+
+/**
  * struct iio_buffer_access_funcs - access functions for buffers.
  * @store_to:		actually store stuff to the buffer
  * @read:		try to get a specified number of elements (must exist)
@@ -55,9 +61,15 @@ struct iio_buffer;
  *			storage.
  * @set_bytes_per_datum:set number of bytes per datum
  * @set_length:		set number of datums in buffer
+ * @enable:             called if the buffer is attached to a device and the
+ *                      device starts sampling. Calls are balanced with
+ *                      @disable.
+ * @disable:            called if the buffer is attached to a device and the
+ *                      device stops sampling. Calles are balanced with @enable.
  * @release:		called when the last reference to the buffer is dropped,
  *			should free all resources allocated by the buffer.
  * @modes:		Supported operating modes by this buffer type
+ * @flags:		A bitmask combination of INDIO_BUFFER_FLAG_*
  *
  * The purpose of this structure is to make the buffer element
  * modular as event for a given driver, different usecases may require
@@ -81,10 +93,10 @@ struct iio_buffer_access_funcs {
 	int (*set_bytes_per_datum)(struct iio_buffer *buffer, size_t bpd);
 	int (*set_length)(struct iio_buffer *buffer, int length);
 
-	void (*release)(struct iio_buffer *buffer);
-
 	int (*enable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
 	int (*disable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
+
+	void (*release)(struct iio_buffer *buffer);
 
 	int (*alloc_blocks)(struct iio_buffer *buffer,
 		struct iio_buffer_block_alloc_req *req);
@@ -99,6 +111,7 @@ struct iio_buffer_access_funcs {
 		struct vm_area_struct *vma);
 
 	unsigned int modes;
+	unsigned int flags;
 };
 
 /**

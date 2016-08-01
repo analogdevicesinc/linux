@@ -7,6 +7,7 @@
  * the Free Software Foundation.
  */
 
+#include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/file.h>
@@ -16,15 +17,46 @@
 #include <linux/uaccess.h>
 #include <linux/sched.h>
 #include <linux/namei.h>
+#include <linux/fdtable.h>
+#include <linux/ratelimit.h>
 #include "overlayfs.h"
 
 #define OVL_COPY_UP_CHUNK_SIZE (1 << 20)
 
+static bool __read_mostly ovl_check_copy_up;
+module_param_named(check_copy_up, ovl_check_copy_up, bool,
+		   S_IWUSR | S_IRUGO);
+MODULE_PARM_DESC(ovl_check_copy_up,
+		 "Warn on copy-up when causing process also has a R/O fd open");
+
+static int ovl_check_fd(const void *data, struct file *f, unsigned int fd)
+{
+	const struct dentry *dentry = data;
+
+	if (f->f_inode == d_inode(dentry))
+		pr_warn_ratelimited("overlayfs: Warning: Copying up %pD, but open R/O on fd %u which will cease to be coherent [pid=%d %s]\n",
+				    f, fd, current->pid, current->comm);
+	return 0;
+}
+
+/*
+ * Check the fds open by this process and warn if something like the following
+ * scenario is about to occur:
+ *
+ *	fd1 = open("foo", O_RDONLY);
+ *	fd2 = open("foo", O_RDWR);
+ */
+static void ovl_do_check_copy_up(struct dentry *dentry)
+{
+	if (ovl_check_copy_up)
+		iterate_fd(current->files, 0, ovl_check_fd, dentry);
+}
+
 int ovl_copy_xattr(struct dentry *old, struct dentry *new)
 {
-	ssize_t list_size, size;
-	char *buf, *name, *value;
-	int error;
+	ssize_t list_size, size, value_size = 0;
+	char *buf, *name, *value = NULL;
+	int uninitialized_var(error);
 
 	if (!old->d_inode->i_op->getxattr ||
 	    !new->d_inode->i_op->getxattr)
@@ -41,29 +73,40 @@ int ovl_copy_xattr(struct dentry *old, struct dentry *new)
 	if (!buf)
 		return -ENOMEM;
 
-	error = -ENOMEM;
-	value = kmalloc(XATTR_SIZE_MAX, GFP_KERNEL);
-	if (!value)
-		goto out;
-
 	list_size = vfs_listxattr(old, buf, list_size);
 	if (list_size <= 0) {
 		error = list_size;
-		goto out_free_value;
+		goto out;
 	}
 
 	for (name = buf; name < (buf + list_size); name += strlen(name) + 1) {
-		size = vfs_getxattr(old, name, value, XATTR_SIZE_MAX);
-		if (size <= 0) {
+retry:
+		size = vfs_getxattr(old, name, value, value_size);
+		if (size == -ERANGE)
+			size = vfs_getxattr(old, name, NULL, 0);
+
+		if (size < 0) {
 			error = size;
-			goto out_free_value;
+			break;
 		}
+
+		if (size > value_size) {
+			void *new;
+
+			new = krealloc(value, size, GFP_KERNEL);
+			if (!new) {
+				error = -ENOMEM;
+				break;
+			}
+			value = new;
+			value_size = size;
+			goto retry;
+		}
+
 		error = vfs_setxattr(new, name, value, size, 0);
 		if (error)
-			goto out_free_value;
+			break;
 	}
-
-out_free_value:
 	kfree(value);
 out:
 	kfree(buf);
@@ -224,6 +267,7 @@ static int ovl_copy_up_locked(struct dentry *workdir, struct dentry *upperdir,
 
 	if (S_ISREG(stat->mode)) {
 		struct path upperpath;
+
 		ovl_path_upper(dentry, &upperpath);
 		BUG_ON(upperpath.dentry != NULL);
 		upperpath.dentry = newdentry;
@@ -237,9 +281,9 @@ static int ovl_copy_up_locked(struct dentry *workdir, struct dentry *upperdir,
 	if (err)
 		goto out_cleanup;
 
-	mutex_lock(&newdentry->d_inode->i_mutex);
+	inode_lock(newdentry->d_inode);
 	err = ovl_set_attr(newdentry, stat);
-	mutex_unlock(&newdentry->d_inode->i_mutex);
+	inode_unlock(newdentry->d_inode);
 	if (err)
 		goto out_cleanup;
 
@@ -297,6 +341,8 @@ int ovl_copy_up_one(struct dentry *parent, struct dentry *dentry,
 
 	if (WARN_ON(!workdir))
 		return -EROFS;
+
+	ovl_do_check_copy_up(lowerpath->dentry);
 
 	ovl_path_upper(parent, &parentpath);
 	upperdir = parentpath.dentry;

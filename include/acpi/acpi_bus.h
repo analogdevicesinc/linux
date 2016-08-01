@@ -87,6 +87,8 @@ acpi_evaluate_dsm_typed(acpi_handle handle, const u8 *uuid, int rev, int func,
 	  .package.elements = (eles)			\
 	}
 
+bool acpi_dev_present(const char *hid);
+
 #ifdef CONFIG_ACPI
 
 #include <linux/proc_fs.h>
@@ -392,13 +394,13 @@ struct acpi_data_node {
 
 static inline bool is_acpi_node(struct fwnode_handle *fwnode)
 {
-	return fwnode && (fwnode->type == FWNODE_ACPI
+	return !IS_ERR_OR_NULL(fwnode) && (fwnode->type == FWNODE_ACPI
 		|| fwnode->type == FWNODE_ACPI_DATA);
 }
 
 static inline bool is_acpi_device_node(struct fwnode_handle *fwnode)
 {
-	return fwnode && fwnode->type == FWNODE_ACPI;
+	return !IS_ERR_OR_NULL(fwnode) && fwnode->type == FWNODE_ACPI;
 }
 
 static inline struct acpi_device *to_acpi_device_node(struct fwnode_handle *fwnode)
@@ -631,7 +633,9 @@ static inline bool acpi_device_can_wakeup(struct acpi_device *adev)
 
 static inline bool acpi_device_can_poweroff(struct acpi_device *adev)
 {
-	return adev->power.states[ACPI_STATE_D3_COLD].flags.valid;
+	return adev->power.states[ACPI_STATE_D3_COLD].flags.valid ||
+		((acpi_gbl_FADT.header.revision < 6) &&
+		adev->power.states[ACPI_STATE_D3_HOT].flags.explicit_set);
 }
 
 #else	/* CONFIG_ACPI */

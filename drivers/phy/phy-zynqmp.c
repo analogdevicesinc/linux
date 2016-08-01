@@ -131,6 +131,19 @@
 #define L0_TX_ANA_TM_18			0x0048
 #define TX_ANA_TM_18_OFFSET		0x4000
 
+#define L0_TX_ANA_TM_118		0x01D8
+#define TX_ANA_TM_118_OFFSET		0x4000
+#define L0_TX_ANA_TM_118_FORCE_17_0	BIT(0)
+
+#define L0_TXPMD_TM_45			0x0CB4
+#define TXPMD_TM_45_OFFSET		0x4000
+#define L0_TXPMD_TM_45_OVER_DP_MAIN	BIT(0)
+#define L0_TXPMD_TM_45_ENABLE_DP_MAIN	BIT(1)
+#define L0_TXPMD_TM_45_OVER_DP_POST1	BIT(2)
+#define L0_TXPMD_TM_45_ENABLE_DP_POST1	BIT(3)
+#define L0_TXPMD_TM_45_OVER_DP_POST2	BIT(4)
+#define L0_TXPMD_TM_45_ENABLE_DP_POST2	BIT(5)
+
 #define L0_TXPMD_TM_48			0x0CC0
 #define TXPMD_TM_48_OFFSET		0x4000
 
@@ -268,12 +281,12 @@ int xpsgtr_override_deemph(struct phy *phy, u8 plvl, u8 vlvl)
 {
 	struct xpsgtr_phy *gtr_phy = phy_get_drvdata(phy);
 	struct xpsgtr_dev *gtr_dev = gtr_phy->data;
-	static u8 vs[4][4] = { { 0x2a, 0x27, 0x24, 0x20 },
-			       { 0x27, 0x23, 0x20, 0xff },
-			       { 0x24, 0x20, 0xff, 0xff },
+	static u8 pe[4][4] = { { 0x2, 0x2, 0x2, 0x2 },
+			       { 0x1, 0x1, 0x1, 0xff },
+			       { 0x0, 0x0, 0xff, 0xff },
 			       { 0xff, 0xff, 0xff, 0xff } };
 
-	writel(vs[plvl][vlvl],
+	writel(pe[plvl][vlvl],
 	       gtr_dev->serdes + gtr_phy->lane * TX_ANA_TM_18_OFFSET +
 	       L0_TX_ANA_TM_18);
 
@@ -285,12 +298,12 @@ int xpsgtr_margining_factor(struct phy *phy, u8 plvl, u8 vlvl)
 {
 	struct xpsgtr_phy *gtr_phy = phy_get_drvdata(phy);
 	struct xpsgtr_dev *gtr_dev = gtr_phy->data;
-	static u8 pe[4][4] = { { 0x2, 0x2, 0x2, 0x2 },
-			       { 0x1, 0x1, 0x1, 0xff },
-			       { 0x0, 0x0, 0xff, 0xff },
+	static u8 vs[4][4] = { { 0x2a, 0x27, 0x24, 0x20 },
+			       { 0x27, 0x23, 0x20, 0xff },
+			       { 0x24, 0x20, 0xff, 0xff },
 			       { 0xff, 0xff, 0xff, 0xff } };
 
-	writel(pe[plvl][vlvl],
+	writel(vs[plvl][vlvl],
 	       gtr_dev->serdes + gtr_phy->lane * TXPMD_TM_48_OFFSET +
 	       L0_TXPMD_TM_48);
 
@@ -759,6 +772,18 @@ static int xpsgtr_phy_init(struct phy *phy)
 		ret = xpsgtr_wait_pll_lock(phy);
 		if (ret != 0)
 			goto out;
+	} else {
+		offset = gtr_phy->lane * TXPMD_TM_45_OFFSET + L0_TXPMD_TM_45;
+		reg = L0_TXPMD_TM_45_OVER_DP_MAIN |
+		      L0_TXPMD_TM_45_ENABLE_DP_MAIN |
+		      L0_TXPMD_TM_45_OVER_DP_POST1 |
+		      L0_TXPMD_TM_45_OVER_DP_POST2 |
+		      L0_TXPMD_TM_45_ENABLE_DP_POST2;
+		writel(reg, gtr_dev->serdes + offset);
+		offset = gtr_phy->lane * TX_ANA_TM_118_OFFSET +
+			 L0_TX_ANA_TM_118;
+		writel(L0_TX_ANA_TM_118_FORCE_17_0,
+		       gtr_dev->serdes + offset);
 	}
 
 	/* Do ULPI reset for usb */

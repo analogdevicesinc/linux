@@ -28,7 +28,7 @@ extern void __iomem *mips_cm_l2sync_base;
  * This function returns the physical base address of the Coherence Manager
  * global control block, or 0 if no Coherence Manager is present. It provides
  * a default implementation which reads the CMGCRBase register where available,
- * and may be overriden by platforms which determine this address in a
+ * and may be overridden by platforms which determine this address in a
  * different way by defining a function with the same prototype except for the
  * name mips_cm_phys_base (without underscores).
  */
@@ -242,6 +242,10 @@ BUILD_CM_Cx_R_(tcid_8_priority,	0x80)
 #define  CM_GCR_BASE_CMDEFTGT_MEM		1
 #define  CM_GCR_BASE_CMDEFTGT_IOCU0		2
 #define  CM_GCR_BASE_CMDEFTGT_IOCU1		3
+
+/* GCR_RESET_EXT_BASE register fields */
+#define CM_GCR_RESET_EXT_BASE_EVARESET		BIT(31)
+#define CM_GCR_RESET_EXT_BASE_UEB		BIT(30)
 
 /* GCR_ACCESS register fields */
 #define CM_GCR_ACCESS_ACCESSEN_SHF		0

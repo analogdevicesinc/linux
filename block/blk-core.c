@@ -51,7 +51,7 @@ DEFINE_IDA(blk_queue_ida);
 /*
  * For the allocated request tables
  */
-struct kmem_cache *request_cachep = NULL;
+struct kmem_cache *request_cachep;
 
 /*
  * For queue allocation
@@ -646,7 +646,7 @@ struct request_queue *blk_alloc_queue(gfp_t gfp_mask)
 }
 EXPORT_SYMBOL(blk_alloc_queue);
 
-int blk_queue_enter(struct request_queue *q, gfp_t gfp)
+int blk_queue_enter(struct request_queue *q, bool nowait)
 {
 	while (true) {
 		int ret;
@@ -654,7 +654,7 @@ int blk_queue_enter(struct request_queue *q, gfp_t gfp)
 		if (percpu_ref_tryget_live(&q->q_usage_counter))
 			return 0;
 
-		if (!gfpflags_allow_blocking(gfp))
+		if (nowait)
 			return -EBUSY;
 
 		ret = wait_event_interruptible(q->mq_freeze_wq,
@@ -680,6 +680,13 @@ static void blk_queue_usage_counter_release(struct percpu_ref *ref)
 	wake_up_all(&q->mq_freeze_wq);
 }
 
+static void blk_rq_timed_out_timer(unsigned long data)
+{
+	struct request_queue *q = (struct request_queue *)data;
+
+	kblockd_schedule_work(&q->timeout_work);
+}
+
 struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 {
 	struct request_queue *q;
@@ -699,7 +706,7 @@ struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 		goto fail_id;
 
 	q->backing_dev_info.ra_pages =
-			(VM_MAX_READAHEAD * 1024) / PAGE_CACHE_SIZE;
+			(VM_MAX_READAHEAD * 1024) / PAGE_SIZE;
 	q->backing_dev_info.capabilities = BDI_CAP_CGROUP_WRITEBACK;
 	q->backing_dev_info.name = "block";
 	q->node = node_id;
@@ -841,6 +848,7 @@ blk_init_allocated_queue(struct request_queue *q, request_fn_proc *rfn,
 	if (blk_init_rl(&q->root_rl, q, GFP_KERNEL))
 		goto fail;
 
+	INIT_WORK(&q->timeout_work, blk_timeout_work);
 	q->request_fn		= rfn;
 	q->prep_rq_fn		= NULL;
 	q->unprep_rq_fn		= NULL;
@@ -1292,7 +1300,9 @@ static struct request *blk_old_get_request(struct request_queue *q, int rw,
 struct request *blk_get_request(struct request_queue *q, int rw, gfp_t gfp_mask)
 {
 	if (q->mq_ops)
-		return blk_mq_alloc_request(q, rw, gfp_mask, false);
+		return blk_mq_alloc_request(q, rw,
+			(gfp_mask & __GFP_DIRECT_RECLAIM) ?
+				0 : BLK_MQ_REQ_NOWAIT);
 	else
 		return blk_old_get_request(q, rw, gfp_mask);
 }
@@ -2060,8 +2070,7 @@ blk_qc_t generic_make_request(struct bio *bio)
 	do {
 		struct request_queue *q = bdev_get_queue(bio->bi_bdev);
 
-		if (likely(blk_queue_enter(q, __GFP_DIRECT_RECLAIM) == 0)) {
-
+		if (likely(blk_queue_enter(q, false) == 0)) {
 			ret = q->make_request_fn(q, bio);
 
 			blk_queue_exit(q);
@@ -2189,7 +2198,7 @@ int blk_insert_cloned_request(struct request_queue *q, struct request *rq)
 	if (q->mq_ops) {
 		if (blk_queue_io_stat(q))
 			blk_account_io_start(rq, true);
-		blk_mq_insert_request(rq, false, true, true);
+		blk_mq_insert_request(rq, false, true, false);
 		return 0;
 	}
 
@@ -2446,14 +2455,16 @@ struct request *blk_peek_request(struct request_queue *q)
 
 			rq = NULL;
 			break;
-		} else if (ret == BLKPREP_KILL) {
+		} else if (ret == BLKPREP_KILL || ret == BLKPREP_INVALID) {
+			int err = (ret == BLKPREP_INVALID) ? -EREMOTEIO : -EIO;
+
 			rq->cmd_flags |= REQ_QUIET;
 			/*
 			 * Mark this request as started so we don't trigger
 			 * any debug logic in the end I/O path.
 			 */
 			blk_start_request(rq);
-			__blk_end_request_all(rq, -EIO);
+			__blk_end_request_all(rq, err);
 		} else {
 			printk(KERN_ERR "%s: bad return=%d\n", __func__, ret);
 			break;
@@ -3518,6 +3529,30 @@ void blk_post_runtime_resume(struct request_queue *q, int err)
 	spin_unlock_irq(q->queue_lock);
 }
 EXPORT_SYMBOL(blk_post_runtime_resume);
+
+/**
+ * blk_set_runtime_active - Force runtime status of the queue to be active
+ * @q: the queue of the device
+ *
+ * If the device is left runtime suspended during system suspend the resume
+ * hook typically resumes the device and corrects runtime status
+ * accordingly. However, that does not affect the queue runtime PM status
+ * which is still "suspended". This prevents processing requests from the
+ * queue.
+ *
+ * This function can be used in driver's resume hook to correct queue
+ * runtime PM status and re-enable peeking requests from the queue. It
+ * should be called before first request is added to the queue.
+ */
+void blk_set_runtime_active(struct request_queue *q)
+{
+	spin_lock_irq(q->queue_lock);
+	q->rpm_status = RPM_ACTIVE;
+	pm_runtime_mark_last_busy(q->dev);
+	pm_request_autosuspend(q->dev);
+	spin_unlock_irq(q->queue_lock);
+}
+EXPORT_SYMBOL(blk_set_runtime_active);
 #endif
 
 int __init blk_dev_init(void)
@@ -3534,7 +3569,7 @@ int __init blk_dev_init(void)
 	request_cachep = kmem_cache_create("blkdev_requests",
 			sizeof(struct request), 0, SLAB_PANIC, NULL);
 
-	blk_requestq_cachep = kmem_cache_create("blkdev_queue",
+	blk_requestq_cachep = kmem_cache_create("request_queue",
 			sizeof(struct request_queue), 0, SLAB_PANIC, NULL);
 
 	return 0;

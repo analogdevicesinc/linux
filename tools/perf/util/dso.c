@@ -52,6 +52,11 @@ int dso__read_binary_type_filename(const struct dso *dso,
 			debuglink--;
 		if (*debuglink == '/')
 			debuglink++;
+
+		ret = -1;
+		if (!is_regular_file(filename))
+			break;
+
 		ret = filename__read_debuglink(filename, debuglink,
 					       size - (debuglink - filename));
 		}
@@ -1243,6 +1248,8 @@ struct dso *__dsos__addnew(struct dsos *dsos, const char *name)
 	if (dso != NULL) {
 		__dsos__add(dsos, dso);
 		dso__set_basename(dso);
+		/* Put dso here because __dsos_add already got it */
+		dso__put(dso);
 	}
 	return dso;
 }

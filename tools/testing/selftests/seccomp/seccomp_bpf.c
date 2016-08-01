@@ -1246,11 +1246,24 @@ TEST_F(TRACE_poke, getpid_runs_normally)
 # error "Do not know how to find your architecture's registers and syscalls"
 #endif
 
+/* Use PTRACE_GETREGS and PTRACE_SETREGS when available. This is useful for
+ * architectures without HAVE_ARCH_TRACEHOOK (e.g. User-mode Linux).
+ */
+#if defined(__x86_64__) || defined(__i386__)
+#define HAVE_GETREGS
+#endif
+
 /* Architecture-specific syscall fetching routine. */
 int get_syscall(struct __test_metadata *_metadata, pid_t tracee)
 {
-	struct iovec iov;
 	ARCH_REGS regs;
+#ifdef HAVE_GETREGS
+	EXPECT_EQ(0, ptrace(PTRACE_GETREGS, tracee, 0, &regs)) {
+		TH_LOG("PTRACE_GETREGS failed");
+		return -1;
+	}
+#else
+	struct iovec iov;
 
 	iov.iov_base = &regs;
 	iov.iov_len = sizeof(regs);
@@ -1258,6 +1271,7 @@ int get_syscall(struct __test_metadata *_metadata, pid_t tracee)
 		TH_LOG("PTRACE_GETREGSET failed");
 		return -1;
 	}
+#endif
 
 	return regs.SYSCALL_NUM;
 }
@@ -1266,13 +1280,16 @@ int get_syscall(struct __test_metadata *_metadata, pid_t tracee)
 void change_syscall(struct __test_metadata *_metadata,
 		    pid_t tracee, int syscall)
 {
-	struct iovec iov;
 	int ret;
 	ARCH_REGS regs;
-
+#ifdef HAVE_GETREGS
+	ret = ptrace(PTRACE_GETREGS, tracee, 0, &regs);
+#else
+	struct iovec iov;
 	iov.iov_base = &regs;
 	iov.iov_len = sizeof(regs);
 	ret = ptrace(PTRACE_GETREGSET, tracee, NT_PRSTATUS, &iov);
+#endif
 	EXPECT_EQ(0, ret);
 
 #if defined(__x86_64__) || defined(__i386__) || defined(__powerpc__) || \
@@ -1312,9 +1329,13 @@ void change_syscall(struct __test_metadata *_metadata,
 	if (syscall == -1)
 		regs.SYSCALL_RET = 1;
 
+#ifdef HAVE_GETREGS
+	ret = ptrace(PTRACE_SETREGS, tracee, 0, &regs);
+#else
 	iov.iov_base = &regs;
 	iov.iov_len = sizeof(regs);
 	ret = ptrace(PTRACE_SETREGSET, tracee, NT_PRSTATUS, &iov);
+#endif
 	EXPECT_EQ(0, ret);
 }
 
@@ -1476,15 +1497,15 @@ TEST_F(TRACE_syscall, syscall_dropped)
 #define SECCOMP_SET_MODE_FILTER 1
 #endif
 
-#ifndef SECCOMP_FLAG_FILTER_TSYNC
-#define SECCOMP_FLAG_FILTER_TSYNC 1
+#ifndef SECCOMP_FILTER_FLAG_TSYNC
+#define SECCOMP_FILTER_FLAG_TSYNC 1
 #endif
 
 #ifndef seccomp
-int seccomp(unsigned int op, unsigned int flags, struct sock_fprog *filter)
+int seccomp(unsigned int op, unsigned int flags, void *args)
 {
 	errno = 0;
-	return syscall(__NR_seccomp, op, flags, filter);
+	return syscall(__NR_seccomp, op, flags, args);
 }
 #endif
 
@@ -1592,7 +1613,7 @@ TEST(TSYNC_first)
 		TH_LOG("Kernel does not support PR_SET_NO_NEW_PRIVS!");
 	}
 
-	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FLAG_FILTER_TSYNC,
+	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC,
 		      &prog);
 	ASSERT_NE(ENOSYS, errno) {
 		TH_LOG("Kernel does not support seccomp syscall!");
@@ -1810,7 +1831,7 @@ TEST_F(TSYNC, two_siblings_with_ancestor)
 		self->sibling_count++;
 	}
 
-	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FLAG_FILTER_TSYNC,
+	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC,
 		      &self->apply_prog);
 	ASSERT_EQ(0, ret) {
 		TH_LOG("Could install filter on all threads!");
@@ -1871,7 +1892,7 @@ TEST_F(TSYNC, two_siblings_with_no_filter)
 		TH_LOG("Kernel does not support PR_SET_NO_NEW_PRIVS!");
 	}
 
-	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FLAG_FILTER_TSYNC,
+	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC,
 		      &self->apply_prog);
 	ASSERT_NE(ENOSYS, errno) {
 		TH_LOG("Kernel does not support seccomp syscall!");
@@ -1919,7 +1940,7 @@ TEST_F(TSYNC, two_siblings_with_one_divergence)
 		self->sibling_count++;
 	}
 
-	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FLAG_FILTER_TSYNC,
+	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC,
 		      &self->apply_prog);
 	ASSERT_EQ(self->sibling[0].system_tid, ret) {
 		TH_LOG("Did not fail on diverged sibling.");
@@ -1971,7 +1992,7 @@ TEST_F(TSYNC, two_siblings_not_under_filter)
 		TH_LOG("Kernel does not support SECCOMP_SET_MODE_FILTER!");
 	}
 
-	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FLAG_FILTER_TSYNC,
+	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC,
 		      &self->apply_prog);
 	ASSERT_EQ(ret, self->sibling[0].system_tid) {
 		TH_LOG("Did not fail on diverged sibling.");
@@ -2000,7 +2021,7 @@ TEST_F(TSYNC, two_siblings_not_under_filter)
 	/* Switch to the remaining sibling */
 	sib = !sib;
 
-	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FLAG_FILTER_TSYNC,
+	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC,
 		      &self->apply_prog);
 	ASSERT_EQ(0, ret) {
 		TH_LOG("Expected the remaining sibling to sync");
@@ -2023,7 +2044,7 @@ TEST_F(TSYNC, two_siblings_not_under_filter)
 	while (!kill(self->sibling[sib].system_tid, 0))
 		sleep(0.1);
 
-	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FLAG_FILTER_TSYNC,
+	ret = seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC,
 		      &self->apply_prog);
 	ASSERT_EQ(0, ret);  /* just us chickens */
 }

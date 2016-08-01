@@ -1267,13 +1267,6 @@ static int __init numa_parse_mdesc(void)
 	int i, j, err, count;
 	u64 node;
 
-	/* Some sane defaults for numa latency values */
-	for (i = 0; i < MAX_NUMNODES; i++) {
-		for (j = 0; j < MAX_NUMNODES; j++)
-			numa_latency[i][j] = (i == j) ?
-				LOCAL_DISTANCE : REMOTE_DISTANCE;
-	}
-
 	node = mdesc_node_by_name(md, MDESC_NODE_NULL, "latency-groups");
 	if (node == MDESC_NODE_NULL) {
 		mdesc_release(md);
@@ -1369,9 +1362,17 @@ static int __init numa_parse_sun4u(void)
 
 static int __init bootmem_init_numa(void)
 {
+	int i, j;
 	int err = -1;
 
 	numadbg("bootmem_init_numa()\n");
+
+	/* Some sane defaults for numa latency values */
+	for (i = 0; i < MAX_NUMNODES; i++) {
+		for (j = 0; j < MAX_NUMNODES; j++)
+			numa_latency[i][j] = (i == j) ?
+				LOCAL_DISTANCE : REMOTE_DISTANCE;
+	}
 
 	if (numa_enabled) {
 		if (tlb_type == hypervisor)
@@ -1768,6 +1769,7 @@ static void __init setup_page_offset(void)
 			max_phys_bits = 47;
 			break;
 		case SUN4V_CHIP_SPARC_M7:
+		case SUN4V_CHIP_SPARC_SN:
 		default:
 			/* M7 and later support 52-bit virtual addresses.  */
 			sparc64_va_hole_top =    0xfff8000000000000UL;
@@ -1985,6 +1987,7 @@ static void __init sun4v_linear_pte_xor_finalize(void)
 	 */
 	switch (sun4v_chip_type) {
 	case SUN4V_CHIP_SPARC_M7:
+	case SUN4V_CHIP_SPARC_SN:
 		pagecv_flag = 0x00;
 		break;
 	default:
@@ -2137,6 +2140,7 @@ void __init paging_init(void)
 	 */
 	switch (sun4v_chip_type) {
 	case SUN4V_CHIP_SPARC_M7:
+	case SUN4V_CHIP_SPARC_SN:
 		page_cache4v_flag = _PAGE_CP_4V;
 		break;
 	default:
@@ -2862,17 +2866,17 @@ void hugetlb_setup(struct pt_regs *regs)
 
 static struct resource code_resource = {
 	.name	= "Kernel code",
-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
+	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
 };
 
 static struct resource data_resource = {
 	.name	= "Kernel data",
-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
+	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
 };
 
 static struct resource bss_resource = {
 	.name	= "Kernel bss",
-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
+	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
 };
 
 static inline resource_size_t compute_kern_paddr(void *addr)
@@ -2908,7 +2912,7 @@ static int __init report_memory(void)
 		res->name = "System RAM";
 		res->start = pavail[i].phys_addr;
 		res->end = pavail[i].phys_addr + pavail[i].reg_size - 1;
-		res->flags = IORESOURCE_BUSY | IORESOURCE_MEM;
+		res->flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM;
 
 		if (insert_resource(&iomem_resource, res) < 0) {
 			pr_warn("Resource insertion failed.\n");

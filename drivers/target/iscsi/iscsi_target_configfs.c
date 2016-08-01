@@ -725,11 +725,8 @@ static ssize_t lio_target_nacl_cmdsn_depth_store(struct config_item *item,
 
 	if (iscsit_get_tpg(tpg) < 0)
 		return -EINVAL;
-	/*
-	 * iscsit_tpg_set_initiator_node_queue_depth() assumes force=1
-	 */
-	ret = iscsit_tpg_set_initiator_node_queue_depth(tpg,
-				config_item_name(acl_ci), cmdsn_depth, 1);
+
+	ret = core_tpg_set_initiator_node_queue_depth(se_nacl, cmdsn_depth);
 
 	pr_debug("LIO_Target_ConfigFS: %s/%s Set CmdSN Window: %u for"
 		"InitiatorName: %s\n", config_item_name(wwn_ci),
@@ -774,39 +771,12 @@ static int lio_target_init_nodeacl(struct se_node_acl *se_nacl,
 {
 	struct iscsi_node_acl *acl =
 		container_of(se_nacl, struct iscsi_node_acl, se_node_acl);
-	struct config_group *stats_cg = &se_nacl->acl_fabric_stat_group;
 
-	stats_cg->default_groups = kmalloc(sizeof(struct config_group *) * 2,
-				GFP_KERNEL);
-	if (!stats_cg->default_groups) {
-		pr_err("Unable to allocate memory for"
-				" stats_cg->default_groups\n");
-		return -ENOMEM;
-	}
-
-	stats_cg->default_groups[0] = &acl->node_stat_grps.iscsi_sess_stats_group;
-	stats_cg->default_groups[1] = NULL;
 	config_group_init_type_name(&acl->node_stat_grps.iscsi_sess_stats_group,
 			"iscsi_sess_stats", &iscsi_stat_sess_cit);
-
+	configfs_add_default_group(&acl->node_stat_grps.iscsi_sess_stats_group,
+			&se_nacl->acl_fabric_stat_group);
 	return 0;
-}
-
-static void lio_target_cleanup_nodeacl( struct se_node_acl *se_nacl)
-{
-	struct iscsi_node_acl *acl = container_of(se_nacl,
-			struct iscsi_node_acl, se_node_acl);
-	struct config_item *df_item;
-	struct config_group *stats_cg;
-	int i;
-
-	stats_cg = &acl->se_node_acl.acl_fabric_stat_group;
-	for (i = 0; stats_cg->default_groups[i]; i++) {
-		df_item = &stats_cg->default_groups[i]->cg_item;
-		stats_cg->default_groups[i] = NULL;
-		config_item_put(df_item);
-	}
-	kfree(stats_cg->default_groups);
 }
 
 /* End items for lio_target_acl_cit */
@@ -1263,42 +1233,11 @@ static struct se_wwn *lio_target_call_coreaddtiqn(
 	struct config_group *group,
 	const char *name)
 {
-	struct config_group *stats_cg;
 	struct iscsi_tiqn *tiqn;
 
 	tiqn = iscsit_add_tiqn((unsigned char *)name);
 	if (IS_ERR(tiqn))
 		return ERR_CAST(tiqn);
-	/*
-	 * Setup struct iscsi_wwn_stat_grps for se_wwn->fabric_stat_group.
-	 */
-	stats_cg = &tiqn->tiqn_wwn.fabric_stat_group;
-
-	stats_cg->default_groups = kmalloc(sizeof(struct config_group *) * 6,
-				GFP_KERNEL);
-	if (!stats_cg->default_groups) {
-		pr_err("Unable to allocate memory for"
-				" stats_cg->default_groups\n");
-		iscsit_del_tiqn(tiqn);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	stats_cg->default_groups[0] = &tiqn->tiqn_stat_grps.iscsi_instance_group;
-	stats_cg->default_groups[1] = &tiqn->tiqn_stat_grps.iscsi_sess_err_group;
-	stats_cg->default_groups[2] = &tiqn->tiqn_stat_grps.iscsi_tgt_attr_group;
-	stats_cg->default_groups[3] = &tiqn->tiqn_stat_grps.iscsi_login_stats_group;
-	stats_cg->default_groups[4] = &tiqn->tiqn_stat_grps.iscsi_logout_stats_group;
-	stats_cg->default_groups[5] = NULL;
-	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_instance_group,
-			"iscsi_instance", &iscsi_stat_instance_cit);
-	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_sess_err_group,
-			"iscsi_sess_err", &iscsi_stat_sess_err_cit);
-	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_tgt_attr_group,
-			"iscsi_tgt_attr", &iscsi_stat_tgt_attr_cit);
-	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_login_stats_group,
-			"iscsi_login_stats", &iscsi_stat_login_cit);
-	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_logout_stats_group,
-			"iscsi_logout_stats", &iscsi_stat_logout_cit);
 
 	pr_debug("LIO_Target_ConfigFS: REGISTER -> %s\n", tiqn->tiqn);
 	pr_debug("LIO_Target_ConfigFS: REGISTER -> Allocated Node:"
@@ -1306,21 +1245,40 @@ static struct se_wwn *lio_target_call_coreaddtiqn(
 	return &tiqn->tiqn_wwn;
 }
 
+static void lio_target_add_wwn_groups(struct se_wwn *wwn)
+{
+	struct iscsi_tiqn *tiqn = container_of(wwn, struct iscsi_tiqn, tiqn_wwn);
+
+	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_instance_group,
+			"iscsi_instance", &iscsi_stat_instance_cit);
+	configfs_add_default_group(&tiqn->tiqn_stat_grps.iscsi_instance_group,
+			&tiqn->tiqn_wwn.fabric_stat_group);
+
+	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_sess_err_group,
+			"iscsi_sess_err", &iscsi_stat_sess_err_cit);
+	configfs_add_default_group(&tiqn->tiqn_stat_grps.iscsi_sess_err_group,
+			&tiqn->tiqn_wwn.fabric_stat_group);
+
+	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_tgt_attr_group,
+			"iscsi_tgt_attr", &iscsi_stat_tgt_attr_cit);
+	configfs_add_default_group(&tiqn->tiqn_stat_grps.iscsi_tgt_attr_group,
+			&tiqn->tiqn_wwn.fabric_stat_group);
+
+	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_login_stats_group,
+			"iscsi_login_stats", &iscsi_stat_login_cit);
+	configfs_add_default_group(&tiqn->tiqn_stat_grps.iscsi_login_stats_group,
+			&tiqn->tiqn_wwn.fabric_stat_group);
+
+	config_group_init_type_name(&tiqn->tiqn_stat_grps.iscsi_logout_stats_group,
+			"iscsi_logout_stats", &iscsi_stat_logout_cit);
+	configfs_add_default_group(&tiqn->tiqn_stat_grps.iscsi_logout_stats_group,
+			&tiqn->tiqn_wwn.fabric_stat_group);
+}
+
 static void lio_target_call_coredeltiqn(
 	struct se_wwn *wwn)
 {
 	struct iscsi_tiqn *tiqn = container_of(wwn, struct iscsi_tiqn, tiqn_wwn);
-	struct config_item *df_item;
-	struct config_group *stats_cg;
-	int i;
-
-	stats_cg = &tiqn->tiqn_wwn.fabric_stat_group;
-	for (i = 0; stats_cg->default_groups[i]; i++) {
-		df_item = &stats_cg->default_groups[i]->cg_item;
-		stats_cg->default_groups[i] = NULL;
-		config_item_put(df_item);
-	}
-	kfree(stats_cg->default_groups);
 
 	pr_debug("LIO_Target_ConfigFS: DEREGISTER -> %s\n",
 			tiqn->tiqn);
@@ -1593,28 +1551,30 @@ static int lio_tpg_check_prot_fabric_only(
 }
 
 /*
- * Called with spin_lock_bh(struct se_portal_group->session_lock) held..
- *
- * Also, this function calls iscsit_inc_session_usage_count() on the
+ * This function calls iscsit_inc_session_usage_count() on the
  * struct iscsi_session in question.
  */
 static int lio_tpg_shutdown_session(struct se_session *se_sess)
 {
 	struct iscsi_session *sess = se_sess->fabric_sess_ptr;
+	struct se_portal_group *se_tpg = &sess->tpg->tpg_se_tpg;
 
+	spin_lock_bh(&se_tpg->session_lock);
 	spin_lock(&sess->conn_lock);
 	if (atomic_read(&sess->session_fall_back_to_erl0) ||
 	    atomic_read(&sess->session_logout) ||
 	    (sess->time2retain_timer_flags & ISCSI_TF_EXPIRED)) {
 		spin_unlock(&sess->conn_lock);
+		spin_unlock_bh(&se_tpg->session_lock);
 		return 0;
 	}
 	atomic_set(&sess->session_reinstatement, 1);
 	spin_unlock(&sess->conn_lock);
 
 	iscsit_stop_time2retain_timer(sess);
-	iscsit_stop_session(sess, 1, 1);
+	spin_unlock_bh(&se_tpg->session_lock);
 
+	iscsit_stop_session(sess, 1, 1);
 	return 1;
 }
 
@@ -1694,12 +1654,12 @@ const struct target_core_fabric_ops iscsi_ops = {
 	.aborted_task			= lio_aborted_task,
 	.fabric_make_wwn		= lio_target_call_coreaddtiqn,
 	.fabric_drop_wwn		= lio_target_call_coredeltiqn,
+	.add_wwn_groups			= lio_target_add_wwn_groups,
 	.fabric_make_tpg		= lio_target_tiqn_addtpg,
 	.fabric_drop_tpg		= lio_target_tiqn_deltpg,
 	.fabric_make_np			= lio_target_call_addnptotpg,
 	.fabric_drop_np			= lio_target_call_delnpfromtpg,
 	.fabric_init_nodeacl		= lio_target_init_nodeacl,
-	.fabric_cleanup_nodeacl		= lio_target_cleanup_nodeacl,
 
 	.tfc_discovery_attrs		= lio_target_discovery_auth_attrs,
 	.tfc_wwn_attrs			= lio_target_wwn_attrs,

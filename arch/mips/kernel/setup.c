@@ -623,7 +623,7 @@ static void __init request_crashkernel(struct resource *res)
 
 #define USE_PROM_CMDLINE	IS_ENABLED(CONFIG_MIPS_CMDLINE_FROM_BOOTLOADER)
 #define USE_DTB_CMDLINE		IS_ENABLED(CONFIG_MIPS_CMDLINE_FROM_DTB)
-#define EXTEND_WITH_PROM	IS_ENABLED(CONFIG_MIPS_CMDLINE_EXTEND)
+#define EXTEND_WITH_PROM	IS_ENABLED(CONFIG_MIPS_CMDLINE_DTB_EXTEND)
 
 static void __init arch_mem_init(char **cmdline_p)
 {
@@ -732,21 +732,23 @@ static void __init resource_init(void)
 			end = HIGHMEM_START - 1;
 
 		res = alloc_bootmem(sizeof(struct resource));
+
+		res->start = start;
+		res->end = end;
+		res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
+
 		switch (boot_mem_map.map[i].type) {
 		case BOOT_MEM_RAM:
 		case BOOT_MEM_INIT_RAM:
 		case BOOT_MEM_ROM_DATA:
 			res->name = "System RAM";
+			res->flags |= IORESOURCE_SYSRAM;
 			break;
 		case BOOT_MEM_RESERVED:
 		default:
 			res->name = "reserved";
 		}
 
-		res->start = start;
-		res->end = end;
-
-		res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
 		request_resource(&iomem_resource, res);
 
 		/*
@@ -782,6 +784,7 @@ static inline void prefill_possible_map(void) {}
 void __init setup_arch(char **cmdline_p)
 {
 	cpu_probe();
+	mips_cm_probe();
 	prom_init();
 
 	setup_early_fdc_console();

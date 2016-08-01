@@ -67,10 +67,13 @@
 			<19200000>;
 };
 
-&fimd {
-	status = "okay";
+&cpu0 {
+	cpu-supply = <&buck6_reg>;
 };
 
+&cpu4 {
+	cpu-supply = <&buck2_reg>;
+};
 
 &hdmi {
 	status = "okay";

@@ -153,6 +153,18 @@
 		};
 	};
 
+	rstcr: syscon@1e60000 {
+		compatible = "fsl,ls2080a-rstcr", "syscon";
+		reg = <0x0 0x1e60000 0x0 0x4>;
+	};
+
+	reboot {
+		compatible ="syscon-reboot";
+		regmap = <&rstcr>;
+		offset = <0x0>;
+		mask = <0x2>;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <1 13 0x8>, /* Physical Secure PPI, active-low */
@@ -191,6 +203,62 @@
 			reg = <0x0 0x21c0600 0x0 0x100>;
 			clocks = <&clockgen 4 3>;
 			interrupts = <0 32 0x4>; /* Level high type */
+		};
+
+		cluster1_core0_watchdog: wdt@c000000 {
+			compatible = "arm,sp805-wdt", "arm,primecell";
+			reg = <0x0 0xc000000 0x0 0x1000>;
+			clocks = <&clockgen 4 3>, <&clockgen 4 3>;
+			clock-names = "apb_pclk", "wdog_clk";
+		};
+
+		cluster1_core1_watchdog: wdt@c010000 {
+			compatible = "arm,sp805-wdt", "arm,primecell";
+			reg = <0x0 0xc010000 0x0 0x1000>;
+			clocks = <&clockgen 4 3>, <&clockgen 4 3>;
+			clock-names = "apb_pclk", "wdog_clk";
+		};
+
+		cluster2_core0_watchdog: wdt@c100000 {
+			compatible = "arm,sp805-wdt", "arm,primecell";
+			reg = <0x0 0xc100000 0x0 0x1000>;
+			clocks = <&clockgen 4 3>, <&clockgen 4 3>;
+			clock-names = "apb_pclk", "wdog_clk";
+		};
+
+		cluster2_core1_watchdog: wdt@c110000 {
+			compatible = "arm,sp805-wdt", "arm,primecell";
+			reg = <0x0 0xc110000 0x0 0x1000>;
+			clocks = <&clockgen 4 3>, <&clockgen 4 3>;
+			clock-names = "apb_pclk", "wdog_clk";
+		};
+
+		cluster3_core0_watchdog: wdt@c200000 {
+			compatible = "arm,sp805-wdt", "arm,primecell";
+			reg = <0x0 0xc200000 0x0 0x1000>;
+			clocks = <&clockgen 4 3>, <&clockgen 4 3>;
+			clock-names = "apb_pclk", "wdog_clk";
+		};
+
+		cluster3_core1_watchdog: wdt@c210000 {
+			compatible = "arm,sp805-wdt", "arm,primecell";
+			reg = <0x0 0xc210000 0x0 0x1000>;
+			clocks = <&clockgen 4 3>, <&clockgen 4 3>;
+			clock-names = "apb_pclk", "wdog_clk";
+		};
+
+		cluster4_core0_watchdog: wdt@c300000 {
+			compatible = "arm,sp805-wdt", "arm,primecell";
+			reg = <0x0 0xc300000 0x0 0x1000>;
+			clocks = <&clockgen 4 3>, <&clockgen 4 3>;
+			clock-names = "apb_pclk", "wdog_clk";
+		};
+
+		cluster4_core1_watchdog: wdt@c310000 {
+			compatible = "arm,sp805-wdt", "arm,primecell";
+			reg = <0x0 0xc310000 0x0 0x1000>;
+			clocks = <&clockgen 4 3>, <&clockgen 4 3>;
+			clock-names = "apb_pclk", "wdog_clk";
 		};
 
 		fsl_mc: fsl-mc@80c000000 {
@@ -388,7 +456,8 @@
 		};
 
 		pcie@3400000 {
-			compatible = "fsl,ls2080a-pcie", "snps,dw-pcie";
+			compatible = "fsl,ls2080a-pcie", "fsl,ls2085a-pcie",
+				     "snps,dw-pcie";
 			reg = <0x00 0x03400000 0x0 0x00100000   /* controller registers */
 			       0x10 0x00000000 0x0 0x00002000>; /* configuration space */
 			reg-names = "regs", "config";
@@ -411,7 +480,8 @@
 		};
 
 		pcie@3500000 {
-			compatible = "fsl,ls2080a-pcie", "snps,dw-pcie";
+			compatible = "fsl,ls2080a-pcie", "fsl,ls2085a-pcie",
+				     "snps,dw-pcie";
 			reg = <0x00 0x03500000 0x0 0x00100000   /* controller registers */
 			       0x12 0x00000000 0x0 0x00002000>; /* configuration space */
 			reg-names = "regs", "config";
@@ -434,7 +504,8 @@
 		};
 
 		pcie@3600000 {
-			compatible = "fsl,ls2080a-pcie", "snps,dw-pcie";
+			compatible = "fsl,ls2080a-pcie", "fsl,ls2085a-pcie",
+				     "snps,dw-pcie";
 			reg = <0x00 0x03600000 0x0 0x00100000   /* controller registers */
 			       0x14 0x00000000 0x0 0x00002000>; /* configuration space */
 			reg-names = "regs", "config";
@@ -457,7 +528,8 @@
 		};
 
 		pcie@3700000 {
-			compatible = "fsl,ls2080a-pcie", "snps,dw-pcie";
+			compatible = "fsl,ls2080a-pcie", "fsl,ls2085a-pcie",
+				     "snps,dw-pcie";
 			reg = <0x00 0x03700000 0x0 0x00100000   /* controller registers */
 			       0x16 0x00000000 0x0 0x00002000>; /* configuration space */
 			reg-names = "regs", "config";
@@ -501,6 +573,7 @@
 			reg = <0x0 0x3100000 0x0 0x10000>;
 			interrupts = <0 80 0x4>; /* Level high type */
 			dr_mode = "host";
+			snps,quirk-frame-length-adjustment = <0x20>;
 		};
 
 		usb1: usb3@3110000 {
@@ -509,6 +582,7 @@
 			reg = <0x0 0x3110000 0x0 0x10000>;
 			interrupts = <0 81 0x4>; /* Level high type */
 			dr_mode = "host";
+			snps,quirk-frame-length-adjustment = <0x20>;
 		};
 
 		ccn@4000000 {

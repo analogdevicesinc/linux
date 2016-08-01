@@ -520,14 +520,14 @@ xfsaild(
 		if (!xfs_ail_min(ailp) &&
 		    ailp->xa_target == ailp->xa_target_prev) {
 			spin_unlock(&ailp->xa_lock);
-			schedule();
+			freezable_schedule();
 			tout = 0;
 			continue;
 		}
 		spin_unlock(&ailp->xa_lock);
 
 		if (tout)
-			schedule_timeout(msecs_to_jiffies(tout));
+			freezable_schedule_timeout(msecs_to_jiffies(tout));
 
 		__set_current_state(TASK_RUNNING);
 

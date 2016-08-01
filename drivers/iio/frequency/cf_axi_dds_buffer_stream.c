@@ -16,14 +16,15 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
-#include <linux/iio/dma-buffer.h>
-#include <linux/iio/dmaengine.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 
 #include "cf_axi_dds.h"
 
-static int dds_buffer_submit_block(void *data, struct iio_dma_buffer_block *block)
+static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
+	struct iio_dma_buffer_block *block)
 {
-	return iio_dmaengine_buffer_submit_block(block, DMA_TO_DEVICE);
+	return iio_dmaengine_buffer_submit_block(queue, block, DMA_TO_DEVICE);
 }
 
 
@@ -69,7 +70,8 @@ static const struct iio_buffer_setup_ops dds_buffer_setup_ops = {
 };
 
 static const struct iio_dma_buffer_ops dds_buffer_dma_buffer_ops = {
-	.submit_block = dds_buffer_submit_block,
+	.submit = dds_buffer_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
 };
 
 int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)

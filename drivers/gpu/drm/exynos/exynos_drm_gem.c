@@ -14,6 +14,7 @@
 
 #include <linux/shmem_fs.h>
 #include <linux/dma-buf.h>
+#include <linux/pfn_t.h>
 #include <drm/exynos_drm.h>
 
 #include "exynos_drm_drv.h"
@@ -64,7 +65,7 @@ static int exynos_drm_alloc_buf(struct exynos_drm_gem *exynos_gem)
 		return -ENOMEM;
 	}
 
-	exynos_gem->cookie = dma_alloc_attrs(dev->dev, exynos_gem->size,
+	exynos_gem->cookie = dma_alloc_attrs(to_dma_dev(dev), exynos_gem->size,
 					     &exynos_gem->dma_addr, GFP_KERNEL,
 					     &exynos_gem->dma_attrs);
 	if (!exynos_gem->cookie) {
@@ -72,7 +73,7 @@ static int exynos_drm_alloc_buf(struct exynos_drm_gem *exynos_gem)
 		goto err_free;
 	}
 
-	ret = dma_get_sgtable_attrs(dev->dev, &sgt, exynos_gem->cookie,
+	ret = dma_get_sgtable_attrs(to_dma_dev(dev), &sgt, exynos_gem->cookie,
 				    exynos_gem->dma_addr, exynos_gem->size,
 				    &exynos_gem->dma_attrs);
 	if (ret < 0) {
@@ -97,7 +98,7 @@ static int exynos_drm_alloc_buf(struct exynos_drm_gem *exynos_gem)
 err_sgt_free:
 	sg_free_table(&sgt);
 err_dma_free:
-	dma_free_attrs(dev->dev, exynos_gem->size, exynos_gem->cookie,
+	dma_free_attrs(to_dma_dev(dev), exynos_gem->size, exynos_gem->cookie,
 		       exynos_gem->dma_addr, &exynos_gem->dma_attrs);
 err_free:
 	drm_free_large(exynos_gem->pages);
@@ -117,7 +118,7 @@ static void exynos_drm_free_buf(struct exynos_drm_gem *exynos_gem)
 	DRM_DEBUG_KMS("dma_addr(0x%lx), size(0x%lx)\n",
 			(unsigned long)exynos_gem->dma_addr, exynos_gem->size);
 
-	dma_free_attrs(dev->dev, exynos_gem->size, exynos_gem->cookie,
+	dma_free_attrs(to_dma_dev(dev), exynos_gem->size, exynos_gem->cookie,
 			(dma_addr_t)exynos_gem->dma_addr,
 			&exynos_gem->dma_attrs);
 
@@ -217,7 +218,7 @@ static struct exynos_drm_gem *exynos_drm_gem_init(struct drm_device *dev,
 		return ERR_PTR(ret);
 	}
 
-	DRM_DEBUG_KMS("created file object = 0x%x\n", (unsigned int)obj->filp);
+	DRM_DEBUG_KMS("created file object = %p\n", obj->filp);
 
 	return exynos_gem;
 }
@@ -279,6 +280,15 @@ int exynos_drm_gem_create_ioctl(struct drm_device *dev, void *data,
 	return 0;
 }
 
+int exynos_drm_gem_map_ioctl(struct drm_device *dev, void *data,
+			     struct drm_file *file_priv)
+{
+	struct drm_exynos_gem_map *args = data;
+
+	return exynos_drm_gem_dumb_map_offset(file_priv, dev, args->handle,
+					      &args->offset);
+}
+
 dma_addr_t *exynos_drm_gem_get_dma_addr(struct drm_device *dev,
 					unsigned int gem_handle,
 					struct drm_file *filp)
@@ -334,7 +344,7 @@ static int exynos_drm_gem_mmap_buffer(struct exynos_drm_gem *exynos_gem,
 	if (vm_size > exynos_gem->size)
 		return -EINVAL;
 
-	ret = dma_mmap_attrs(drm_dev->dev, vma, exynos_gem->pages,
+	ret = dma_mmap_attrs(to_dma_dev(drm_dev), vma, exynos_gem->cookie,
 			     exynos_gem->dma_addr, exynos_gem->size,
 			     &exynos_gem->dma_attrs);
 	if (ret < 0) {
@@ -380,7 +390,7 @@ int exynos_gem_map_sgt_with_dma(struct drm_device *drm_dev,
 
 	mutex_lock(&drm_dev->struct_mutex);
 
-	nents = dma_map_sg(drm_dev->dev, sgt->sgl, sgt->nents, dir);
+	nents = dma_map_sg(to_dma_dev(drm_dev), sgt->sgl, sgt->nents, dir);
 	if (!nents) {
 		DRM_ERROR("failed to map sgl with dma.\n");
 		mutex_unlock(&drm_dev->struct_mutex);
@@ -395,7 +405,7 @@ void exynos_gem_unmap_sgt_from_dma(struct drm_device *drm_dev,
 				struct sg_table *sgt,
 				enum dma_data_direction dir)
 {
-	dma_unmap_sg(drm_dev->dev, sgt->sgl, sgt->nents, dir);
+	dma_unmap_sg(to_dma_dev(drm_dev), sgt->sgl, sgt->nents, dir);
 }
 
 void exynos_drm_gem_free_object(struct drm_gem_object *obj)
@@ -490,7 +500,8 @@ int exynos_drm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	}
 
 	pfn = page_to_pfn(exynos_gem->pages[page_offset]);
-	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address, pfn);
+	ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address,
+			__pfn_to_pfn_t(pfn, PFN_DEV));
 
 out:
 	switch (ret) {

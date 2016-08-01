@@ -365,7 +365,22 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 	err_printf(m, "Reset count: %u\n", error->reset_count);
 	err_printf(m, "Suspend count: %u\n", error->suspend_count);
 	err_printf(m, "PCI ID: 0x%04x\n", dev->pdev->device);
+	err_printf(m, "PCI Revision: 0x%02x\n", dev->pdev->revision);
+	err_printf(m, "PCI Subsystem: %04x:%04x\n",
+		   dev->pdev->subsystem_vendor,
+		   dev->pdev->subsystem_device);
 	err_printf(m, "IOMMU enabled?: %d\n", error->iommu);
+
+	if (HAS_CSR(dev)) {
+		struct intel_csr *csr = &dev_priv->csr;
+
+		err_printf(m, "DMC loaded: %s\n",
+			   yesno(csr->dmc_payload != NULL));
+		err_printf(m, "DMC fw version: %d.%d\n",
+			   CSR_VERSION_MAJOR(csr->version),
+			   CSR_VERSION_MINOR(csr->version));
+	}
+
 	err_printf(m, "EIR: 0x%08x\n", error->eir);
 	err_printf(m, "IER: 0x%08x\n", error->ier);
 	if (INTEL_INFO(dev)->gen >= 8) {
@@ -721,7 +736,7 @@ static u32 capture_active_bo(struct drm_i915_error_buffer *err,
 	struct i915_vma *vma;
 	int i = 0;
 
-	list_for_each_entry(vma, head, mm_list) {
+	list_for_each_entry(vma, head, vm_link) {
 		capture_bo(err++, vma);
 		if (++i == count)
 			break;
@@ -744,7 +759,7 @@ static u32 capture_pinned_bo(struct drm_i915_error_buffer *err,
 		if (err == last)
 			break;
 
-		list_for_each_entry(vma, &obj->vma_list, vma_link)
+		list_for_each_entry(vma, &obj->vma_list, obj_link)
 			if (vma->vm == vm && vma->pin_count > 0)
 				capture_bo(err++, vma);
 	}
@@ -862,7 +877,7 @@ static void i915_record_ring_state(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	if (INTEL_INFO(dev)->gen >= 6) {
-		ering->rc_psmi = I915_READ(ring->mmio_base + 0x50);
+		ering->rc_psmi = I915_READ(RING_PSMI_CTL(ring->mmio_base));
 		ering->fault_reg = I915_READ(RING_FAULT_REG(ring));
 		if (INTEL_INFO(dev)->gen >= 8)
 			gen8_record_semaphore_state(dev_priv, error, ring, ering);
@@ -899,7 +914,7 @@ static void i915_record_ring_state(struct drm_device *dev,
 	ering->ctl = I915_READ_CTL(ring);
 
 	if (I915_NEED_GFX_HWS(dev)) {
-		int mmio;
+		i915_reg_t mmio;
 
 		if (IS_GEN7(dev)) {
 			switch (ring->id) {
@@ -1039,7 +1054,7 @@ static void i915_gem_record_rings(struct drm_device *dev,
 			if (request)
 				rbuf = request->ctx->engine[ring->id].ringbuf;
 			else
-				rbuf = ring->default_context->engine[ring->id].ringbuf;
+				rbuf = dev_priv->kernel_context->engine[ring->id].ringbuf;
 		} else
 			rbuf = ring->buffer;
 
@@ -1071,6 +1086,25 @@ static void i915_gem_record_rings(struct drm_device *dev,
 		list_for_each_entry(request, &ring->request_list, list) {
 			struct drm_i915_error_request *erq;
 
+			if (count >= error->ring[i].num_requests) {
+				/*
+				 * If the ring request list was changed in
+				 * between the point where the error request
+				 * list was created and dimensioned and this
+				 * point then just exit early to avoid crashes.
+				 *
+				 * We don't need to communicate that the
+				 * request list changed state during error
+				 * state capture and that the error state is
+				 * slightly incorrect as a consequence since we
+				 * are typically only interested in the request
+				 * list state at the point of error state
+				 * capture, not in any changes happening during
+				 * the capture.
+				 */
+				break;
+			}
+
 			erq = &error->ring[i].requests[count++];
 			erq->seqno = request->seqno;
 			erq->jiffies = request->emitted_jiffies;
@@ -1093,12 +1127,12 @@ static void i915_gem_capture_vm(struct drm_i915_private *dev_priv,
 	int i;
 
 	i = 0;
-	list_for_each_entry(vma, &vm->active_list, mm_list)
+	list_for_each_entry(vma, &vm->active_list, vm_link)
 		i++;
 	error->active_bo_count[ndx] = i;
 
 	list_for_each_entry(obj, &dev_priv->mm.bound_list, global_list) {
-		list_for_each_entry(vma, &obj->vma_list, vma_link)
+		list_for_each_entry(vma, &obj->vma_list, obj_link)
 			if (vma->vm == vm && vma->pin_count > 0)
 				i++;
 	}
@@ -1181,7 +1215,7 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 	if (IS_VALLEYVIEW(dev)) {
 		error->gtier[0] = I915_READ(GTIER);
 		error->ier = I915_READ(VLV_IER);
-		error->forcewake = I915_READ(FORCEWAKE_VLV);
+		error->forcewake = I915_READ_FW(FORCEWAKE_VLV);
 	}
 
 	if (IS_GEN7(dev))
@@ -1193,14 +1227,14 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 	}
 
 	if (IS_GEN6(dev)) {
-		error->forcewake = I915_READ(FORCEWAKE);
+		error->forcewake = I915_READ_FW(FORCEWAKE);
 		error->gab_ctl = I915_READ(GAB_CTL);
 		error->gfx_mode = I915_READ(GFX_MODE);
 	}
 
 	/* 2: Registers which belong to multiple generations */
 	if (INTEL_INFO(dev)->gen >= 7)
-		error->forcewake = I915_READ(FORCEWAKE_MT);
+		error->forcewake = I915_READ_FW(FORCEWAKE_MT);
 
 	if (INTEL_INFO(dev)->gen >= 6) {
 		error->derrmr = I915_READ(DERRMR);

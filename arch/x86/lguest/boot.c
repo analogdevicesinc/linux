@@ -1473,7 +1473,6 @@ __init void lguest_init(void)
 	pv_mmu_ops.lazy_mode.leave = lguest_leave_lazy_mmu_mode;
 	pv_mmu_ops.lazy_mode.flush = paravirt_flush_lazy_mmu;
 	pv_mmu_ops.pte_update = lguest_pte_update;
-	pv_mmu_ops.pte_update_defer = lguest_pte_update;
 
 #ifdef CONFIG_X86_LOCAL_APIC
 	/* APIC read/write intercepts */
@@ -1521,12 +1520,6 @@ __init void lguest_init(void)
 	 */
 	reserve_top_address(lguest_data.reserve_mem);
 
-	/*
-	 * If we don't initialize the lock dependency checker now, it crashes
-	 * atomic_notifier_chain_register, then paravirt_disable_iospace.
-	 */
-	lockdep_init();
-
 	/* Hook in our special panic hypercall code. */
 	atomic_notifier_chain_register(&panic_notifier_list, &paniced);
 
@@ -1536,7 +1529,7 @@ __init void lguest_init(void)
 	 */
 	cpu_detect(&new_cpu_data);
 	/* head.S usually sets up the first capability word, so do it here. */
-	new_cpu_data.x86_capability[0] = cpuid_edx(1);
+	new_cpu_data.x86_capability[CPUID_1_EDX] = cpuid_edx(1);
 
 	/* Math is always hard! */
 	set_cpu_cap(&new_cpu_data, X86_FEATURE_FPU);

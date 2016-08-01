@@ -353,9 +353,8 @@ static void txstate(struct musb *musb, struct musb_request *req)
 					 *	1	>0	Yes(FS bulk)
 					 */
 					if (!musb_ep->hb_mult ||
-						(musb_ep->hb_mult &&
-						 can_bulk_split(musb,
-						    musb_ep->type)))
+					    can_bulk_split(musb,
+							   musb_ep->type))
 						csr |= MUSB_TXCSR_AUTOSET;
 				}
 				csr &= ~MUSB_TXCSR_P_UNDERRUN;
@@ -1165,11 +1164,11 @@ static int musb_gadget_disable(struct usb_ep *ep)
 		musb_writew(epio, MUSB_RXMAXP, 0);
 	}
 
-	musb_ep->desc = NULL;
-	musb_ep->end_point.desc = NULL;
-
 	/* abort all pending DMA and requests */
 	nuke(musb_ep, -ESHUTDOWN);
+
+	musb_ep->desc = NULL;
+	musb_ep->end_point.desc = NULL;
 
 	schedule_work(&musb->irq_work);
 

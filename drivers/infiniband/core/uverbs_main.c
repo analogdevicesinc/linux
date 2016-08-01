@@ -48,6 +48,8 @@
 
 #include <asm/uaccess.h>
 
+#include <rdma/ib.h>
+
 #include "uverbs.h"
 
 MODULE_AUTHOR("Roland Dreier");
@@ -132,6 +134,17 @@ static int (*uverbs_ex_cmd_table[])(struct ib_uverbs_file *file,
 
 static void ib_uverbs_add_one(struct ib_device *device);
 static void ib_uverbs_remove_one(struct ib_device *device, void *client_data);
+
+int uverbs_dealloc_mw(struct ib_mw *mw)
+{
+	struct ib_pd *pd = mw->pd;
+	int ret;
+
+	ret = mw->device->dealloc_mw(mw);
+	if (!ret)
+		atomic_dec(&pd->usecnt);
+	return ret;
+}
 
 static void ib_uverbs_release_dev(struct kobject *kobj)
 {
@@ -224,7 +237,7 @@ static int ib_uverbs_cleanup_ucontext(struct ib_uverbs_file *file,
 		struct ib_mw *mw = uobj->object;
 
 		idr_remove_uobj(&ib_uverbs_mw_idr, uobj);
-		ib_dealloc_mw(mw);
+		uverbs_dealloc_mw(mw);
 		kfree(uobj);
 	}
 
@@ -672,15 +685,34 @@ out:
 	return ev_file;
 }
 
+static int verify_command_mask(struct ib_device *ib_dev, __u32 command)
+{
+	u64 mask;
+
+	if (command <= IB_USER_VERBS_CMD_OPEN_QP)
+		mask = ib_dev->uverbs_cmd_mask;
+	else
+		mask = ib_dev->uverbs_ex_cmd_mask;
+
+	if (mask & ((u64)1 << command))
+		return 0;
+
+	return -1;
+}
+
 static ssize_t ib_uverbs_write(struct file *filp, const char __user *buf,
 			     size_t count, loff_t *pos)
 {
 	struct ib_uverbs_file *file = filp->private_data;
 	struct ib_device *ib_dev;
 	struct ib_uverbs_cmd_hdr hdr;
+	__u32 command;
 	__u32 flags;
 	int srcu_key;
 	ssize_t ret;
+
+	if (WARN_ON_ONCE(!ib_safe_file_access(filp)))
+		return -EACCES;
 
 	if (count < sizeof hdr)
 		return -EINVAL;
@@ -696,34 +728,31 @@ static ssize_t ib_uverbs_write(struct file *filp, const char __user *buf,
 		goto out;
 	}
 
+	if (hdr.command & ~(__u32)(IB_USER_VERBS_CMD_FLAGS_MASK |
+				   IB_USER_VERBS_CMD_COMMAND_MASK)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	command = hdr.command & IB_USER_VERBS_CMD_COMMAND_MASK;
+	if (verify_command_mask(ib_dev, command)) {
+		ret = -EOPNOTSUPP;
+		goto out;
+	}
+
+	if (!file->ucontext &&
+	    command != IB_USER_VERBS_CMD_GET_CONTEXT) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 	flags = (hdr.command &
 		 IB_USER_VERBS_CMD_FLAGS_MASK) >> IB_USER_VERBS_CMD_FLAGS_SHIFT;
 
 	if (!flags) {
-		__u32 command;
-
-		if (hdr.command & ~(__u32)(IB_USER_VERBS_CMD_FLAGS_MASK |
-					   IB_USER_VERBS_CMD_COMMAND_MASK)) {
-			ret = -EINVAL;
-			goto out;
-		}
-
-		command = hdr.command & IB_USER_VERBS_CMD_COMMAND_MASK;
-
 		if (command >= ARRAY_SIZE(uverbs_cmd_table) ||
 		    !uverbs_cmd_table[command]) {
 			ret = -EINVAL;
-			goto out;
-		}
-
-		if (!file->ucontext &&
-		    command != IB_USER_VERBS_CMD_GET_CONTEXT) {
-			ret = -EINVAL;
-			goto out;
-		}
-
-		if (!(ib_dev->uverbs_cmd_mask & (1ull << command))) {
-			ret = -ENOSYS;
 			goto out;
 		}
 
@@ -738,20 +767,10 @@ static ssize_t ib_uverbs_write(struct file *filp, const char __user *buf,
 						 hdr.out_words * 4);
 
 	} else if (flags == IB_USER_VERBS_CMD_FLAG_EXTENDED) {
-		__u32 command;
-
 		struct ib_uverbs_ex_cmd_hdr ex_hdr;
 		struct ib_udata ucore;
 		struct ib_udata uhw;
 		size_t written_count = count;
-
-		if (hdr.command & ~(__u32)(IB_USER_VERBS_CMD_FLAGS_MASK |
-					   IB_USER_VERBS_CMD_COMMAND_MASK)) {
-			ret = -EINVAL;
-			goto out;
-		}
-
-		command = hdr.command & IB_USER_VERBS_CMD_COMMAND_MASK;
 
 		if (command >= ARRAY_SIZE(uverbs_ex_cmd_table) ||
 		    !uverbs_ex_cmd_table[command]) {
@@ -761,11 +780,6 @@ static ssize_t ib_uverbs_write(struct file *filp, const char __user *buf,
 
 		if (!file->ucontext) {
 			ret = -EINVAL;
-			goto out;
-		}
-
-		if (!(ib_dev->uverbs_ex_cmd_mask & (1ull << command))) {
-			ret = -ENOSYS;
 			goto out;
 		}
 
@@ -1047,7 +1061,7 @@ static int find_overflow_devnum(void)
 		ret = alloc_chrdev_region(&overflow_maj, 0, IB_UVERBS_MAX_DEVICES,
 					  "infiniband_verbs");
 		if (ret) {
-			printk(KERN_ERR "user_verbs: couldn't register dynamic device number\n");
+			pr_err("user_verbs: couldn't register dynamic device number\n");
 			return ret;
 		}
 	}
@@ -1268,14 +1282,14 @@ static int __init ib_uverbs_init(void)
 	ret = register_chrdev_region(IB_UVERBS_BASE_DEV, IB_UVERBS_MAX_DEVICES,
 				     "infiniband_verbs");
 	if (ret) {
-		printk(KERN_ERR "user_verbs: couldn't register device number\n");
+		pr_err("user_verbs: couldn't register device number\n");
 		goto out;
 	}
 
 	uverbs_class = class_create(THIS_MODULE, "infiniband_verbs");
 	if (IS_ERR(uverbs_class)) {
 		ret = PTR_ERR(uverbs_class);
-		printk(KERN_ERR "user_verbs: couldn't create class infiniband_verbs\n");
+		pr_err("user_verbs: couldn't create class infiniband_verbs\n");
 		goto out_chrdev;
 	}
 
@@ -1283,13 +1297,13 @@ static int __init ib_uverbs_init(void)
 
 	ret = class_create_file(uverbs_class, &class_attr_abi_version.attr);
 	if (ret) {
-		printk(KERN_ERR "user_verbs: couldn't create abi_version attribute\n");
+		pr_err("user_verbs: couldn't create abi_version attribute\n");
 		goto out_class;
 	}
 
 	ret = ib_register_client(&uverbs_client);
 	if (ret) {
-		printk(KERN_ERR "user_verbs: couldn't register client\n");
+		pr_err("user_verbs: couldn't register client\n");
 		goto out_class;
 	}
 

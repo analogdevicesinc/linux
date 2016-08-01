@@ -11,35 +11,23 @@ menuconfig XILINX_DMA_ENGINES
 
 if XILINX_DMA_ENGINES
 
-config XILINX_AXIDMA
-	tristate "Xilinx AXI DMA Engine"
-	select DMA_ENGINE
-	help
-	  Enable support for Xilinx Axi DMA (memory and device transfer).
-
 config XILINX_DMATEST
 	tristate "DMA Test client for AXI DMA"
-	depends on XILINX_AXIDMA
+	depends on XILINX_DMA
 	help
 	  Simple DMA test client. Say N unless you're debugging a
 	  DMA Device driver.
 
 config XILINX_VDMATEST
 	tristate "DMA Test client for VDMA"
-	depends on XILINX_VDMA
+	depends on XILINX_DMA
 	help
 	  Simple DMA test client. Say N unless you're debugging a
 	  DMA Device driver.
 
-config XILINX_AXICDMA
-	tristate "Xilinx AXI CDMA Engine"
-	select DMA_ENGINE
-	help
-	  Enable support for Xilinx Axi Central DMA (memory to memory transfer).
-
 config XILINX_CDMATEST
 	tristate "DMA Test client for CDMA"
-	depends on XILINX_AXICDMA
+	depends on XILINX_DMA
 	help
 	  Simple DMA test client. Say N unless you're debugging a
 	  DMA Device driver.
@@ -49,11 +37,4 @@ config XILINX_DPDMA
 	select DMA_ENGINE
 	help
 	  Enable support for Xilinx DisplayPort DMA.
-
-config XILINX_ZYNQMP_DMATEST
-	tristate "DMA Test client for Zynqmp DMA"
-	help
-	  Simple DMA test client. Say N unless you're debugging a
-	  DMA Device driver.
-
 endif # XILINX_DMA_ENGINES

@@ -64,8 +64,16 @@ static inline bool rt6_need_strict(const struct in6_addr *daddr)
 
 void ip6_route_input(struct sk_buff *skb);
 
-struct dst_entry *ip6_route_output(struct net *net, const struct sock *sk,
-				   struct flowi6 *fl6);
+struct dst_entry *ip6_route_output_flags(struct net *net, const struct sock *sk,
+					 struct flowi6 *fl6, int flags);
+
+static inline struct dst_entry *ip6_route_output(struct net *net,
+						 const struct sock *sk,
+						 struct flowi6 *fl6)
+{
+	return ip6_route_output_flags(net, sk, fl6, 0);
+}
+
 struct dst_entry *ip6_route_lookup(struct net *net, struct flowi6 *fl6,
 				   int flags);
 
@@ -92,6 +100,9 @@ void fib6_force_start_gc(struct net *net);
 
 struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
 				    const struct in6_addr *addr, bool anycast);
+
+struct rt6_info *ip6_dst_alloc(struct net *net, struct net_device *dev,
+			       int flags);
 
 /*
  *	support functions for ND

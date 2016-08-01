@@ -25,7 +25,7 @@
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
-#include <media/adv7604.h>
+#include <media/i2c/adv7604.h>
 
 #define AXI_HDMI_RX_REG_VERSION		0x000
 #define AXI_HDMI_RX_REG_ID		0x004
@@ -124,25 +124,24 @@ static const struct v4l2_file_operations axi_hdmi_rx_fops = {
 };
 
 static int axi_hdmi_rx_queue_setup(struct vb2_queue *q,
-	const void *parg, unsigned int *num_buffers,
-	unsigned int *num_planes, unsigned int sizes[], void *alloc_ctxs[])
+	unsigned int *num_buffers, unsigned int *num_planes,
+	unsigned int sizes[], void *alloc_ctxs[])
 {
-	const struct v4l2_format *fmt = parg;
 	struct axi_hdmi_rx *hdmi_rx = vb2_get_drv_priv(q);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
+	alloc_ctxs[0] = hdmi_rx->alloc_ctx;
+
 	if (*num_buffers < 1)
 		*num_buffers = 1;
-	*num_planes = 1;
 
-	if (fmt)
-		sizes[0] = fmt->fmt.pix.sizeimage;
-	else
+	if (*num_planes) {
+		if (sizes[0] < s->stride * s->height)
+			return -EINVAL;
+	} else {
 		sizes[0] = s->stride * s->height;
-	if (sizes[0] == 0)
-		return -EINVAL;
-
-	alloc_ctxs[0] = hdmi_rx->alloc_ctx;
+		*num_planes = 1;
+	}
 
 	return 0;
 }
@@ -176,7 +175,7 @@ static void axi_hdmi_rx_dma_done(void *arg)
 	list_del(&buf->head);
 	spin_unlock_irqrestore(&s->spinlock, flags);
 
-	v4l2_get_timestamp(&buf->vb.timestamp);
+	buf->vb.vb2_buf.timestamp = ktime_get_ns();
 	vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
 }
 

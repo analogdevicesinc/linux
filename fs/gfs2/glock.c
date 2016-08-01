@@ -446,7 +446,7 @@ __acquires(&gl->gl_lockref.lock)
 {
 	const struct gfs2_glock_operations *glops = gl->gl_ops;
 	struct gfs2_sbd *sdp = gl->gl_name.ln_sbd;
-	unsigned int lck_flags = gh ? gh->gh_flags : 0;
+	unsigned int lck_flags = (unsigned int)(gh ? gh->gh_flags : 0);
 	int ret;
 
 	lck_flags &= (LM_FLAG_TRY | LM_FLAG_TRY_1CB | LM_FLAG_NOEXP |
@@ -572,17 +572,24 @@ static void delete_work_func(struct work_struct *work)
 	struct inode *inode;
 	u64 no_addr = gl->gl_name.ln_number;
 
+	/* If someone's using this glock to create a new dinode, the block must
+	   have been freed by another node, then re-used, in which case our
+	   iopen callback is too late after the fact. Ignore it. */
+	if (test_bit(GLF_INODE_CREATING, &gl->gl_flags))
+		goto out;
+
 	ip = gl->gl_object;
 	/* Note: Unsafe to dereference ip as we don't hold right refs/locks */
 
 	if (ip)
-		inode = gfs2_ilookup(sdp->sd_vfs, no_addr, 1);
+		inode = gfs2_ilookup(sdp->sd_vfs, no_addr);
 	else
 		inode = gfs2_lookup_by_inum(sdp, no_addr, NULL, GFS2_BLKST_UNLINKED);
 	if (inode && !IS_ERR(inode)) {
 		d_prune_aliases(inode);
 		iput(inode);
 	}
+out:
 	gfs2_glock_put(gl);
 }
 
@@ -750,7 +757,7 @@ again:
  *
  */
 
-void gfs2_holder_init(struct gfs2_glock *gl, unsigned int state, unsigned flags,
+void gfs2_holder_init(struct gfs2_glock *gl, unsigned int state, u16 flags,
 		      struct gfs2_holder *gh)
 {
 	INIT_LIST_HEAD(&gh->gh_list);
@@ -774,7 +781,7 @@ void gfs2_holder_init(struct gfs2_glock *gl, unsigned int state, unsigned flags,
  *
  */
 
-void gfs2_holder_reinit(unsigned int state, unsigned flags, struct gfs2_holder *gh)
+void gfs2_holder_reinit(unsigned int state, u16 flags, struct gfs2_holder *gh)
 {
 	gh->gh_state = state;
 	gh->gh_flags = flags;
@@ -1015,6 +1022,7 @@ void gfs2_glock_dq(struct gfs2_holder *gh)
 		handle_callback(gl, LM_ST_UNLOCKED, 0, false);
 
 	list_del_init(&gh->gh_list);
+	clear_bit(HIF_HOLDER, &gh->gh_iflags);
 	if (find_first_holder(gl) == NULL) {
 		if (glops->go_unlock) {
 			GLOCK_BUG_ON(gl, test_and_set_bit(GLF_LOCK, &gl->gl_flags));
@@ -1080,7 +1088,7 @@ void gfs2_glock_dq_uninit(struct gfs2_holder *gh)
 
 int gfs2_glock_nq_num(struct gfs2_sbd *sdp, u64 number,
 		      const struct gfs2_glock_operations *glops,
-		      unsigned int state, int flags, struct gfs2_holder *gh)
+		      unsigned int state, u16 flags, struct gfs2_holder *gh)
 {
 	struct gfs2_glock *gl;
 	int error;
@@ -1417,14 +1425,14 @@ static struct shrinker glock_shrinker = {
 static void glock_hash_walk(glock_examiner examiner, const struct gfs2_sbd *sdp)
 {
 	struct gfs2_glock *gl;
-	struct rhash_head *pos, *next;
+	struct rhash_head *pos;
 	const struct bucket_table *tbl;
 	int i;
 
 	rcu_read_lock();
 	tbl = rht_dereference_rcu(gl_hash_table.tbl, &gl_hash_table);
 	for (i = 0; i < tbl->size; i++) {
-		rht_for_each_entry_safe(gl, pos, next, tbl, i, gl_node) {
+		rht_for_each_entry_rcu(gl, pos, tbl, i, gl_node) {
 			if ((gl->gl_name.ln_sbd == sdp) &&
 			    lockref_get_not_dead(&gl->gl_lockref))
 				examiner(gl);
@@ -1506,7 +1514,9 @@ void gfs2_gl_hash_clear(struct gfs2_sbd *sdp)
 	flush_workqueue(glock_workqueue);
 	glock_hash_walk(clear_glock, sdp);
 	flush_workqueue(glock_workqueue);
-	wait_event(sdp->sd_glock_wait, atomic_read(&sdp->sd_glock_disposal) == 0);
+	wait_event_timeout(sdp->sd_glock_wait,
+			   atomic_read(&sdp->sd_glock_disposal) == 0,
+			   HZ * 600);
 	glock_hash_walk(dump_glock_func, sdp);
 }
 
@@ -1539,7 +1549,7 @@ static const char *state2str(unsigned state)
 	return "??";
 }
 
-static const char *hflags2str(char *buf, unsigned flags, unsigned long iflags)
+static const char *hflags2str(char *buf, u16 flags, unsigned long iflags)
 {
 	char *p = buf;
 	if (flags & LM_FLAG_TRY)

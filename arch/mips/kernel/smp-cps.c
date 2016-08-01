@@ -202,6 +202,9 @@ static void boot_core(unsigned core)
 	/* Ensure its coherency is disabled */
 	write_gcr_co_coherence(0);
 
+	/* Start it with the legacy memory map and exception base */
+	write_gcr_co_reset_ext_base(CM_GCR_RESET_EXT_BASE_UEB);
+
 	/* Ensure the core can access the GCRs */
 	access = read_gcr_access();
 	access |= 1 << (CM_GCR_ACCESS_ACCESSEN_SHF + core);
@@ -469,8 +472,8 @@ static struct plat_smp_ops cps_smp_ops = {
 	.boot_secondary		= cps_boot_secondary,
 	.init_secondary		= cps_init_secondary,
 	.smp_finish		= cps_smp_finish,
-	.send_ipi_single	= gic_send_ipi_single,
-	.send_ipi_mask		= gic_send_ipi_mask,
+	.send_ipi_single	= mips_smp_send_ipi_single,
+	.send_ipi_mask		= mips_smp_send_ipi_mask,
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_disable		= cps_cpu_disable,
 	.cpu_die		= cps_cpu_die,

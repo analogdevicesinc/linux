@@ -98,7 +98,6 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 
 	/* zero vring */
 	size = vring_size(len, rvring->align);
-	memset(addr, 0, size);
 
 	dev_dbg(dev, "vring%d: va %p qsz %d notifyid %d\n",
 					id, addr, len, rvring->notifyid);
@@ -148,7 +147,7 @@ static void rproc_virtio_del_vqs(struct virtio_device *vdev)
 static int rproc_virtio_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 		       struct virtqueue *vqs[],
 		       vq_callback_t *callbacks[],
-		       const char *names[])
+		       const char * const names[])
 {
 	struct rproc *rproc = vdev_to_rproc(vdev);
 	int i, ret;

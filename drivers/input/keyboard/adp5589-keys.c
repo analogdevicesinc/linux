@@ -235,7 +235,7 @@ struct adp5589_kpad {
 	unsigned short gpimapsize;
 	unsigned extend_cfg;
 	bool is_adp5585;
-	bool adp5585_support_row5;
+	bool support_row5;
 #ifdef CONFIG_GPIOLIB
 	unsigned char gpiomap[ADP5589_MAXGPIO];
 	bool export_gpio;
@@ -485,7 +485,7 @@ static int adp5589_build_gpiomap(struct adp5589_kpad *kpad,
 	if (kpad->extend_cfg & C4_EXTEND_CFG)
 		pin_used[kpad->var->c4_extend_cfg] = true;
 
-	if (!kpad->adp5585_support_row5)
+	if (!kpad->support_row5)
 		pin_used[5] = true;
 
 	for (i = 0; i < kpad->var->maxgpio; i++)
@@ -505,7 +505,7 @@ static int adp5589_gpio_add(struct adp5589_kpad *kpad,
 	if (!gpio_data)
 		return 0;
 
-	kpad->gc.dev = dev;
+	kpad->gc.parent = dev;
 	kpad->gc.ngpio = adp5589_build_gpiomap(kpad, pdata);
 	if (kpad->gc.ngpio == 0) {
 		dev_info(dev, "No unused gpios left to export\n");
@@ -868,6 +868,34 @@ static int adp5589_keypad_add(struct adp5589_kpad *kpad, unsigned int revid,
 
 	if (pdata->keymapsize == 0)
 		return 0;
+
+	if (!i2c_check_functionality(client->adapter,
+				     I2C_FUNC_SMBUS_BYTE_DATA)) {
+		dev_err(&client->dev, "SMBUS Byte Data not Supported\n");
+		return -EIO;
+	}
+
+	if (!pdata) {
+		dev_err(&client->dev, "no platform data?\n");
+		return -EINVAL;
+	}
+
+	kpad = kzalloc(sizeof(*kpad), GFP_KERNEL);
+	if (!kpad)
+		return -ENOMEM;
+
+	switch (id->driver_data) {
+	case ADP5585_02:
+		kpad->support_row5 = true;
+	case ADP5585_01:
+		kpad->is_adp5585 = true;
+		kpad->var = &const_adp5585;
+		break;
+	case ADP5589:
+		kpad->support_row5 = true;
+		kpad->var = &const_adp5589;
+		break;
+	}
 
 	if (!((pdata->keypad_en_mask & kpad->var->row_mask) &&
 			(pdata->keypad_en_mask >> kpad->var->col_shift)) ||

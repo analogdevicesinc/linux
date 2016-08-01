@@ -55,7 +55,7 @@ xfs_rw_ilock(
 	int			type)
 {
 	if (type & XFS_IOLOCK_EXCL)
-		mutex_lock(&VFS_I(ip)->i_mutex);
+		inode_lock(VFS_I(ip));
 	xfs_ilock(ip, type);
 }
 
@@ -66,7 +66,7 @@ xfs_rw_iunlock(
 {
 	xfs_iunlock(ip, type);
 	if (type & XFS_IOLOCK_EXCL)
-		mutex_unlock(&VFS_I(ip)->i_mutex);
+		inode_unlock(VFS_I(ip));
 }
 
 static inline void
@@ -76,7 +76,7 @@ xfs_rw_ilock_demote(
 {
 	xfs_ilock_demote(ip, type);
 	if (type & XFS_IOLOCK_EXCL)
-		mutex_unlock(&VFS_I(ip)->i_mutex);
+		inode_unlock(VFS_I(ip));
 }
 
 /*
@@ -106,8 +106,8 @@ xfs_iozero(
 		unsigned offset, bytes;
 		void *fsdata;
 
-		offset = (pos & (PAGE_CACHE_SIZE -1)); /* Within page */
-		bytes = PAGE_CACHE_SIZE - offset;
+		offset = (pos & (PAGE_SIZE -1)); /* Within page */
+		bytes = PAGE_SIZE - offset;
 		if (bytes > count)
 			bytes = count;
 
@@ -156,9 +156,9 @@ xfs_update_prealloc_flags(
 	xfs_trans_ijoin(tp, ip, XFS_ILOCK_EXCL);
 
 	if (!(flags & XFS_PREALLOC_INVISIBLE)) {
-		ip->i_d.di_mode &= ~S_ISUID;
-		if (ip->i_d.di_mode & S_IXGRP)
-			ip->i_d.di_mode &= ~S_ISGID;
+		VFS_I(ip)->i_mode &= ~S_ISUID;
+		if (VFS_I(ip)->i_mode & S_IXGRP)
+			VFS_I(ip)->i_mode &= ~S_ISGID;
 		xfs_trans_ichgtime(tp, ip, XFS_ICHGTIME_MOD | XFS_ICHGTIME_CHG);
 	}
 
@@ -402,19 +402,26 @@ xfs_file_splice_read(
 	if (XFS_FORCED_SHUTDOWN(ip->i_mount))
 		return -EIO;
 
-	xfs_rw_ilock(ip, XFS_IOLOCK_SHARED);
-
 	trace_xfs_file_splice_read(ip, count, *ppos, ioflags);
 
-	/* for dax, we need to avoid the page cache */
-	if (IS_DAX(VFS_I(ip)))
-		ret = default_file_splice_read(infilp, ppos, pipe, count, flags);
-	else
-		ret = generic_file_splice_read(infilp, ppos, pipe, count, flags);
+	/*
+	 * DAX inodes cannot ues the page cache for splice, so we have to push
+	 * them through the VFS IO path. This means it goes through
+	 * ->read_iter, which for us takes the XFS_IOLOCK_SHARED. Hence we
+	 * cannot lock the splice operation at this level for DAX inodes.
+	 */
+	if (IS_DAX(VFS_I(ip))) {
+		ret = default_file_splice_read(infilp, ppos, pipe, count,
+					       flags);
+		goto out;
+	}
+
+	xfs_rw_ilock(ip, XFS_IOLOCK_SHARED);
+	ret = generic_file_splice_read(infilp, ppos, pipe, count, flags);
+	xfs_rw_iunlock(ip, XFS_IOLOCK_SHARED);
+out:
 	if (ret > 0)
 		XFS_STATS_ADD(ip->i_mount, xs_read_bytes, ret);
-
-	xfs_rw_iunlock(ip, XFS_IOLOCK_SHARED);
 	return ret;
 }
 
@@ -792,8 +799,8 @@ xfs_file_dio_aio_write(
 	/* see generic_file_direct_write() for why this is necessary */
 	if (mapping->nrpages) {
 		invalidate_inode_pages2_range(mapping,
-					      pos >> PAGE_CACHE_SHIFT,
-					      end >> PAGE_CACHE_SHIFT);
+					      pos >> PAGE_SHIFT,
+					      end >> PAGE_SHIFT);
 	}
 
 	if (ret > 0) {
@@ -1200,9 +1207,9 @@ xfs_find_get_desired_pgoff(
 
 	pagevec_init(&pvec, 0);
 
-	index = startoff >> PAGE_CACHE_SHIFT;
+	index = startoff >> PAGE_SHIFT;
 	endoff = XFS_FSB_TO_B(mp, map->br_startoff + map->br_blockcount);
-	end = endoff >> PAGE_CACHE_SHIFT;
+	end = endoff >> PAGE_SHIFT;
 	do {
 		int		want;
 		unsigned	nr_pages;
@@ -1330,31 +1337,31 @@ out:
 	return found;
 }
 
-STATIC loff_t
-xfs_seek_hole_data(
-	struct file		*file,
+/*
+ * caller must lock inode with xfs_ilock_data_map_shared,
+ * can we craft an appropriate ASSERT?
+ *
+ * end is because the VFS-level lseek interface is defined such that any
+ * offset past i_size shall return -ENXIO, but we use this for quota code
+ * which does not maintain i_size, and we want to SEEK_DATA past i_size.
+ */
+loff_t
+__xfs_seek_hole_data(
+	struct inode		*inode,
 	loff_t			start,
+	loff_t			end,
 	int			whence)
 {
-	struct inode		*inode = file->f_mapping->host;
 	struct xfs_inode	*ip = XFS_I(inode);
 	struct xfs_mount	*mp = ip->i_mount;
 	loff_t			uninitialized_var(offset);
-	xfs_fsize_t		isize;
 	xfs_fileoff_t		fsbno;
-	xfs_filblks_t		end;
-	uint			lock;
+	xfs_filblks_t		lastbno;
 	int			error;
 
-	if (XFS_FORCED_SHUTDOWN(mp))
-		return -EIO;
-
-	lock = xfs_ilock_data_map_shared(ip);
-
-	isize = i_size_read(inode);
-	if (start >= isize) {
+	if (start >= end) {
 		error = -ENXIO;
-		goto out_unlock;
+		goto out_error;
 	}
 
 	/*
@@ -1362,22 +1369,22 @@ xfs_seek_hole_data(
 	 * by fsbno to the end block of the file.
 	 */
 	fsbno = XFS_B_TO_FSBT(mp, start);
-	end = XFS_B_TO_FSB(mp, isize);
+	lastbno = XFS_B_TO_FSB(mp, end);
 
 	for (;;) {
 		struct xfs_bmbt_irec	map[2];
 		int			nmap = 2;
 		unsigned int		i;
 
-		error = xfs_bmapi_read(ip, fsbno, end - fsbno, map, &nmap,
+		error = xfs_bmapi_read(ip, fsbno, lastbno - fsbno, map, &nmap,
 				       XFS_BMAPI_ENTIRE);
 		if (error)
-			goto out_unlock;
+			goto out_error;
 
 		/* No extents at given offset, must be beyond EOF */
 		if (nmap == 0) {
 			error = -ENXIO;
-			goto out_unlock;
+			goto out_error;
 		}
 
 		for (i = 0; i < nmap; i++) {
@@ -1419,7 +1426,7 @@ xfs_seek_hole_data(
 			 * hole at the end of any file).
 		 	 */
 			if (whence == SEEK_HOLE) {
-				offset = isize;
+				offset = end;
 				break;
 			}
 			/*
@@ -1427,7 +1434,7 @@ xfs_seek_hole_data(
 			 */
 			ASSERT(whence == SEEK_DATA);
 			error = -ENXIO;
-			goto out_unlock;
+			goto out_error;
 		}
 
 		ASSERT(i > 1);
@@ -1438,14 +1445,14 @@ xfs_seek_hole_data(
 		 */
 		fsbno = map[i - 1].br_startoff + map[i - 1].br_blockcount;
 		start = XFS_FSB_TO_B(mp, fsbno);
-		if (start >= isize) {
+		if (start >= end) {
 			if (whence == SEEK_HOLE) {
-				offset = isize;
+				offset = end;
 				break;
 			}
 			ASSERT(whence == SEEK_DATA);
 			error = -ENXIO;
-			goto out_unlock;
+			goto out_error;
 		}
 	}
 
@@ -1457,7 +1464,39 @@ out:
 	 * situation in particular.
 	 */
 	if (whence == SEEK_HOLE)
-		offset = min_t(loff_t, offset, isize);
+		offset = min_t(loff_t, offset, end);
+
+	return offset;
+
+out_error:
+	return error;
+}
+
+STATIC loff_t
+xfs_seek_hole_data(
+	struct file		*file,
+	loff_t			start,
+	int			whence)
+{
+	struct inode		*inode = file->f_mapping->host;
+	struct xfs_inode	*ip = XFS_I(inode);
+	struct xfs_mount	*mp = ip->i_mount;
+	uint			lock;
+	loff_t			offset, end;
+	int			error = 0;
+
+	if (XFS_FORCED_SHUTDOWN(mp))
+		return -EIO;
+
+	lock = xfs_ilock_data_map_shared(ip);
+
+	end = i_size_read(inode);
+	offset = __xfs_seek_hole_data(inode, start, end, whence);
+	if (offset < 0) {
+		error = offset;
+		goto out_unlock;
+	}
+
 	offset = vfs_setpos(file, offset, inode->i_sb->s_maxbytes);
 
 out_unlock:
@@ -1603,9 +1642,8 @@ xfs_filemap_pmd_fault(
 /*
  * pfn_mkwrite was originally inteneded to ensure we capture time stamp
  * updates on write faults. In reality, it's need to serialise against
- * truncate similar to page_mkwrite. Hence we open-code dax_pfn_mkwrite()
- * here and cycle the XFS_MMAPLOCK_SHARED to ensure we serialise the fault
- * barrier in place.
+ * truncate similar to page_mkwrite. Hence we cycle the XFS_MMAPLOCK_SHARED
+ * to ensure we serialise the fault barrier in place.
  */
 static int
 xfs_filemap_pfn_mkwrite(
@@ -1628,6 +1666,8 @@ xfs_filemap_pfn_mkwrite(
 	size = (i_size_read(inode) + PAGE_SIZE - 1) >> PAGE_SHIFT;
 	if (vmf->pgoff >= size)
 		ret = VM_FAULT_SIGBUS;
+	else if (IS_DAX(inode))
+		ret = dax_pfn_mkwrite(vma, vmf);
 	xfs_iunlock(ip, XFS_MMAPLOCK_SHARED);
 	sb_end_pagefault(inode->i_sb);
 	return ret;

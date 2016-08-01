@@ -24,6 +24,11 @@
 
 #include <nvif/os.h>
 #include <nvif/class.h>
+#include <nvif/cl0002.h>
+#include <nvif/cl006b.h>
+#include <nvif/cl506f.h>
+#include <nvif/cl906f.h>
+#include <nvif/cla06f.h>
 #include <nvif/ioctl.h>
 
 /*XXX*/
@@ -187,6 +192,7 @@ nouveau_channel_ind(struct nouveau_drm *drm, struct nvif_device *device,
 		    u32 engine, struct nouveau_channel **pchan)
 {
 	static const u16 oclasses[] = { MAXWELL_CHANNEL_GPFIFO_A,
+					KEPLER_CHANNEL_GPFIFO_B,
 					KEPLER_CHANNEL_GPFIFO_A,
 					FERMI_CHANNEL_GPFIFO,
 					G82_CHANNEL_GPFIFO,
@@ -212,7 +218,7 @@ nouveau_channel_ind(struct nouveau_drm *drm, struct nvif_device *device,
 	do {
 		if (oclass[0] >= KEPLER_CHANNEL_GPFIFO_A) {
 			args.kepler.version = 0;
-			args.kepler.engine  = engine;
+			args.kepler.engines = engine;
 			args.kepler.ilength = 0x02000;
 			args.kepler.ioffset = 0x10000 + chan->push.vma.offset;
 			args.kepler.vm = 0;
@@ -378,7 +384,7 @@ nouveau_channel_init(struct nouveau_channel *chan, u32 vram, u32 gart)
 	/* allocate software object class (used for fences on <= nv05) */
 	if (device->info.family < NV_DEVICE_INFO_V0_CELSIUS) {
 		ret = nvif_object_init(&chan->user, 0x006e,
-				       NVIF_IOCTL_NEW_V0_SW_NV04,
+				       NVIF_CLASS_SW_NV04,
 				       NULL, 0, &chan->nvsw);
 		if (ret)
 			return ret;

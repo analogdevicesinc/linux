@@ -1,38 +1,43 @@
 config ARCH_SHMOBILE
 	bool
-	select ZONE_DMA if ARM_LPAE
+
+config ARCH_SHMOBILE_MULTI
+	bool
 
 config PM_RCAR
 	bool
-	select PM_GENERIC_DOMAINS if PM
+	select PM
+	select PM_GENERIC_DOMAINS
 
 config PM_RMOBILE
 	bool
+	select PM
 	select PM_GENERIC_DOMAINS
 
 config ARCH_RCAR_GEN1
 	bool
-	select PM_RCAR if PM || SMP
+	select PM_RCAR
 	select RENESAS_INTC_IRQPIN
 	select SYS_SUPPORTS_SH_TMU
 
 config ARCH_RCAR_GEN2
 	bool
-	select PM_RCAR if PM || SMP
+	select PM_RCAR
 	select RENESAS_IRQC
 	select SYS_SUPPORTS_SH_CMT
 	select PCI_DOMAINS if PCI
 
 config ARCH_RMOBILE
 	bool
-	select PM_RMOBILE if PM
+	select PM_RMOBILE
 	select SYS_SUPPORTS_SH_CMT
 	select SYS_SUPPORTS_SH_TMU
 
-menuconfig ARCH_SHMOBILE_MULTI
-	bool "Renesas ARM SoCs" if ARCH_MULTI_V7
-	depends on MMU
+menuconfig ARCH_RENESAS
+	bool "Renesas ARM SoCs"
+	depends on ARCH_MULTI_V7 && MMU
 	select ARCH_SHMOBILE
+	select ARCH_SHMOBILE_MULTI
 	select HAVE_ARM_SCU if SMP
 	select HAVE_ARM_TWD if SMP
 	select ARM_GIC
@@ -40,8 +45,9 @@ menuconfig ARCH_SHMOBILE_MULTI
 	select NO_IOPORT_MAP
 	select PINCTRL
 	select ARCH_REQUIRE_GPIOLIB
+	select ZONE_DMA if ARM_LPAE
 
-if ARCH_SHMOBILE_MULTI
+if ARCH_RENESAS
 
 #comment "Renesas ARM SoCs System Type"
 
@@ -51,7 +57,8 @@ config ARCH_EMEV2
 
 config ARCH_R7S72100
 	bool "RZ/A1H (R7S72100)"
-	select PM_GENERIC_DOMAINS if PM
+	select PM
+	select PM_GENERIC_DOMAINS
 	select SYS_SUPPORTS_SH_MTU2
 
 config ARCH_R8A73A4
@@ -95,6 +102,4 @@ config ARCH_SH73A0
 	bool "SH-Mobile AG5 (R8A73A00)"
 	select ARCH_RMOBILE
 	select RENESAS_INTC_IRQPIN
-
-comment "Renesas ARM SoCs System Configuration"
 endif

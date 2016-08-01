@@ -1512,7 +1512,10 @@ static int emac_devioctl(struct net_device *ndev, struct ifreq *ifrq, int cmd)
 
 	/* TODO: Add phy read and write and private statistics get feature */
 
-	return phy_mii_ioctl(priv->phydev, ifrq, cmd);
+	if (priv->phydev)
+		return phy_mii_ioctl(priv->phydev, ifrq, cmd);
+	else
+		return -EOPNOTSUPP;
 }
 
 static int match_first_device(struct device *dev, void *data)
@@ -1644,10 +1647,7 @@ static int emac_dev_open(struct net_device *ndev)
 		priv->speed = 0;
 		priv->duplex = ~0;
 
-		dev_info(emac_dev, "attached PHY driver [%s] "
-			"(mii_bus:phy_addr=%s, id=%x)\n",
-			priv->phydev->drv->name, dev_name(&priv->phydev->dev),
-			priv->phydev->phy_id);
+		phy_attached_info(priv->phydev);
 	}
 
 	if (!priv->phydev) {
@@ -1881,8 +1881,6 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
 		pdata->hw_ram_addr = auxdata->hw_ram_addr;
 	}
 
-	pdev->dev.platform_data = pdata;
-
 	return  pdata;
 }
 
@@ -2104,6 +2102,7 @@ static int davinci_emac_remove(struct platform_device *pdev)
 	cpdma_ctlr_destroy(priv->dma);
 
 	unregister_netdev(ndev);
+	pm_runtime_disable(&pdev->dev);
 	free_netdev(ndev);
 
 	return 0;

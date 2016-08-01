@@ -94,6 +94,10 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &crtc_state->base);
 
 	crtc_state->update_pipe = false;
+	crtc_state->disable_lp_wm = false;
+	crtc_state->disable_cxsr = false;
+	crtc_state->wm_changed = false;
+	crtc_state->fb_changed = false;
 
 	return &crtc_state->base;
 }
@@ -205,8 +209,6 @@ int intel_atomic_setup_scalers(struct drm_device *dev,
 				 * but since this plane is unchanged just do the
 				 * minimum required validation.
 				 */
-				if (plane->type == DRM_PLANE_TYPE_PRIMARY)
-					intel_crtc->atomic.wait_for_flips = true;
 				crtc_state->base.planes_changed = true;
 			}
 
@@ -307,5 +309,5 @@ void intel_atomic_state_clear(struct drm_atomic_state *s)
 {
 	struct intel_atomic_state *state = to_intel_atomic_state(s);
 	drm_atomic_state_default_clear(&state->base);
-	state->dpll_set = false;
+	state->dpll_set = state->modeset = false;
 }

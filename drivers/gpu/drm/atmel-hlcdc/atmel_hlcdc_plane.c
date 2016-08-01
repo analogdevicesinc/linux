@@ -558,7 +558,7 @@ static int atmel_hlcdc_plane_atomic_check(struct drm_plane *p,
 	if (!state->base.crtc || !fb)
 		return 0;
 
-	crtc_state = s->state->crtc_states[drm_crtc_index(s->crtc)];
+	crtc_state = drm_atomic_get_existing_crtc_state(s->state, s->crtc);
 	mode = &crtc_state->adjusted_mode;
 
 	state->src_x = s->src_x;
@@ -941,7 +941,7 @@ atmel_hlcdc_plane_create(struct drm_device *dev,
 	ret = drm_universal_plane_init(dev, &plane->base, 0,
 				       &layer_plane_funcs,
 				       desc->formats->formats,
-				       desc->formats->nformats, type);
+				       desc->formats->nformats, type, NULL);
 	if (ret)
 		return ERR_PTR(ret);
 

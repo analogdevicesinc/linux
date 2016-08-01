@@ -102,6 +102,7 @@ static int armada_drm_load(struct drm_device *dev, unsigned long flags)
 	dev->mode_config.preferred_depth = 24;
 	dev->mode_config.funcs = &armada_drm_mode_config_funcs;
 	drm_mm_init(&priv->linear, mem->start, resource_size(mem));
+	mutex_init(&priv->linear_lock);
 
 	ret = component_bind_all(dev->dev, dev);
 	if (ret)
@@ -187,9 +188,6 @@ static const struct file_operations armada_drm_fops = {
 
 static struct drm_driver armada_drm_driver = {
 	.load			= armada_drm_load,
-	.open			= NULL,
-	.preclose		= NULL,
-	.postclose		= NULL,
 	.lastclose		= armada_drm_lastclose,
 	.unload			= armada_drm_unload,
 	.set_busid		= drm_platform_set_busid,

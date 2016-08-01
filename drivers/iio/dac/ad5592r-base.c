@@ -124,7 +124,7 @@ static int ad5592r_gpio_request(struct gpio_chip *chip, unsigned offset)
 	struct ad5592r_state *st = gpiochip_to_ad5592r(chip);
 
 	if (!(st->gpio_map & BIT(offset))) {
-		dev_err(chip->dev, "GPIO %d is reserved by alternate function\n",
+		dev_err(chip->parent, "GPIO %d is reserved by alternate function\n",
 			offset);
 		return -ENODEV;
 	}
@@ -140,7 +140,7 @@ static int ad5592r_gpio_init(struct ad5592r_state *st)
 	st->gpiochip.label = dev_name(st->dev);
 	st->gpiochip.base = -1;
 	st->gpiochip.ngpio = 8;
-	st->gpiochip.dev = st->dev;
+	st->gpiochip.parent = st->dev;
 	st->gpiochip.can_sleep = true;
 	st->gpiochip.direction_input = ad5592r_gpio_direction_input;
 	st->gpiochip.direction_output = ad5592r_gpio_direction_output;

@@ -1488,7 +1488,6 @@ myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum)
 	}
 	myri10ge_vlan_rx(mgp->dev, va, skb);
 	skb_record_rx_queue(skb, ss - &mgp->ss[0]);
-	skb_mark_napi_id(skb, &ss->napi);
 
 	if (polling) {
 		int hlen;
@@ -1506,6 +1505,7 @@ myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum)
 		skb->data_len -= hlen;
 		skb->tail += hlen;
 		skb->protocol = eth_type_trans(skb, dev);
+		skb_mark_napi_id(skb, &ss->napi);
 		netif_receive_skb(skb);
 	}
 	else
@@ -2668,9 +2668,9 @@ static int myri10ge_close(struct net_device *dev)
 
 	del_timer_sync(&mgp->watchdog_timer);
 	mgp->running = MYRI10GE_ETH_STOPPING;
-	local_bh_disable(); /* myri10ge_ss_lock_napi needs bh disabled */
 	for (i = 0; i < mgp->num_slices; i++) {
 		napi_disable(&mgp->ss[i].napi);
+		local_bh_disable(); /* myri10ge_ss_lock_napi needs this */
 		/* Lock the slice to prevent the busy_poll handler from
 		 * accessing it.  Later when we bring the NIC up, myri10ge_open
 		 * resets the slice including this lock.
@@ -2679,8 +2679,8 @@ static int myri10ge_close(struct net_device *dev)
 			pr_info("Slice %d locked\n", i);
 			mdelay(1);
 		}
+		local_bh_enable();
 	}
-	local_bh_enable();
 	netif_carrier_off(dev);
 
 	netif_tx_stop_all_queues(dev);
@@ -3814,7 +3814,6 @@ static int myri10ge_alloc_slices(struct myri10ge_priv *mgp)
 		ss->dev = mgp->dev;
 		netif_napi_add(ss->dev, &ss->napi, myri10ge_poll,
 			       myri10ge_napi_weight);
-		napi_hash_add(&ss->napi);
 	}
 	return 0;
 abort:

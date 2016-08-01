@@ -108,36 +108,20 @@ struct xilinx_vdma_config {
 };
 
 /**
- * struct xilinx_cdma_config - CDMA Configuration structure
- * @coalesc: Interrupt coalescing threshold
- * @delay: Delay counter
- * @reset: Reset Channel
+ * enum xdma_ip_type: DMA IP type.
+ *
+ * XDMA_TYPE_AXIDMA: Axi dma ip.
+ * XDMA_TYPE_CDMA: Axi cdma ip.
+ * XDMA_TYPE_VDMA: Axi vdma ip.
+ *
  */
-struct xilinx_cdma_config {
-        int coalesc;
-        int delay;
-        int reset;
+enum xdma_ip_type {
+	XDMA_TYPE_AXIDMA = 0,
+	XDMA_TYPE_CDMA,
+	XDMA_TYPE_VDMA,
 };
 
-/**
- * struct xilinx_mcdma_config - DMA Multi channel configuration structure
- * @tdest: Channel to operate on
- * @tid:   Channel configuration
- * @tuser: Tuser configuration
- * @ax_user: ax_user value
- * @ax_cache: ax_cache value
- */
-struct xilinx_mcdma_config {
-	u8 tdest;
-	u8 tid;
-	u8 tuser;
-	u8 ax_user;
-	u8 ax_cache;
-};
 int xilinx_vdma_channel_set_config(struct dma_chan *dchan,
 					struct xilinx_vdma_config *cfg);
-int xilinx_cdma_channel_set_config(struct dma_chan *dchan,
-                                        struct xilinx_cdma_config *cfg);
-int xilinx_dma_channel_mcdma_set_config(struct dma_chan *dchan,
-					struct xilinx_mcdma_config *cfg);
+
 #endif

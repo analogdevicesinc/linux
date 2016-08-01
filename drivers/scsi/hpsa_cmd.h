@@ -1,5 +1,6 @@
 /*
  *    Disk Array driver for HP Smart Array SAS controllers
+ *    Copyright 2016 Microsemi Corporation
  *    Copyright 2014-2015 PMC-Sierra, Inc.
  *    Copyright 2000,2009-2015 Hewlett-Packard Development Company, L.P.
  *
@@ -12,7 +13,7 @@
  *    MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
  *    NON INFRINGEMENT.  See the GNU General Public License for more details.
  *
- *    Questions/Comments/Bugfixes to storagedev@pmcs.com
+ *    Questions/Comments/Bugfixes to esc.storagedev@microsemi.com
  *
  */
 #ifndef HPSA_CMD_H
@@ -289,8 +290,9 @@ struct SenseSubsystem_info {
 #define BMIC_IDENTIFY_CONTROLLER 0x11
 #define BMIC_SET_DIAG_OPTIONS 0xF4
 #define BMIC_SENSE_DIAG_OPTIONS 0xF5
-#define HPSA_DIAG_OPTS_DISABLE_RLD_CACHING 0x40000000
+#define HPSA_DIAG_OPTS_DISABLE_RLD_CACHING 0x80000000
 #define BMIC_SENSE_SUBSYSTEM_INFORMATION 0x66
+#define BMIC_SENSE_STORAGE_BOX_PARAMS 0x65
 
 /* Command List Structure */
 union SCSI3Addr {
@@ -840,6 +842,18 @@ struct bmic_sense_subsystem_info {
 	u8	secondary_array_serial_number[32];
 	u8	secondary_cache_serial_number[32];
 	u8	pad[332];
+};
+
+struct bmic_sense_storage_box_params {
+	u8	reserved[36];
+	u8	inquiry_valid;
+	u8	reserved_1[68];
+	u8	phys_box_on_port;
+	u8	reserved_2[22];
+	u16	connection_info;
+	u8	reserver_3[84];
+	u8	phys_connector[2];
+	u8	reserved_4[296];
 };
 
 #pragma pack()

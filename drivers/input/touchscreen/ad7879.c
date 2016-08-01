@@ -30,9 +30,9 @@
 #include <linux/spi/spi.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
-#include <linux/of.h>
 
-#include <linux/spi/ad7879.h>
+#include <linux/input/touchscreen.h>
+#include <linux/platform_data/ad7879.h>
 #include <linux/module.h>
 #include "ad7879.h"
 
@@ -95,8 +95,8 @@
 #define AD7879_TEMP_BIT			(1<<1)
 
 enum {
-	AD7879_SEQ_XPOS  = 0,
-	AD7879_SEQ_YPOS  = 1,
+	AD7879_SEQ_YPOS  = 0,
+	AD7879_SEQ_XPOS  = 1,
 	AD7879_SEQ_Z1    = 2,
 	AD7879_SEQ_Z2    = 3,
 	AD7879_NR_SENSE  = 4,
@@ -127,7 +127,6 @@ struct ad7879 {
 	u8			pen_down_acc_interval;
 	u8			median;
 	u16			x_plate_ohms;
-	u16			pressure_max;
 	u16			cmd_crtl1;
 	u16			cmd_crtl2;
 	u16			cmd_crtl3;
@@ -171,10 +170,10 @@ static int ad7879_report(struct ad7879 *ts)
 	 * filter.  The combination of these two techniques provides a robust
 	 * solution, discarding the spurious noise in the signal and keeping
 	 * only the data of interest.  The size of both filters is
-	 * programmable. (dev.platform_data, see linux/spi/ad7879.h) Other
-	 * user-programmable conversion controls include variable acquisition
-	 * time, and first conversion delay. Up to 16 averages can be taken
-	 * per conversion.
+	 * programmable. (dev.platform_data, see linux/platform_data/ad7879.h)
+	 * Other user-programmable conversion controls include variable
+	 * acquisition time, and first conversion delay. Up to 16 averages can
+	 * be taken per conversion.
 	 */
 
 	if (likely(x && z1)) {
@@ -187,7 +186,7 @@ static int ad7879_report(struct ad7879 *ts)
 		 * Sample found inconsistent, pressure is beyond
 		 * the maximum. Don't report it to user space.
 		 */
-		if (Rt > ts->pressure_max)
+		if (Rt > input_abs_get_max(input_dev, ABS_PRESSURE))
 			return -EINVAL;
 
 		/*
@@ -455,7 +454,7 @@ static int ad7879_gpio_add(struct ad7879 *ts,
 		ts->gc.ngpio = 1;
 		ts->gc.label = "AD7879-GPIO";
 		ts->gc.owner = THIS_MODULE;
-		ts->gc.dev = ts->dev;
+		ts->gc.parent = ts->dev;
 
 		ret = gpiochip_add(&ts->gc);
 		if (ret)
@@ -470,7 +469,7 @@ static void ad7879_gpio_remove(struct ad7879 *ts)
 {
 	const struct ad7879_platform_data *pdata = dev_get_platdata(ts->dev);
 
-	if (pdata->gpio_export)
+	if (pdata && pdata->gpio_export)
 		gpiochip_remove(&ts->gc);
 
 }
@@ -486,109 +485,80 @@ static inline void ad7879_gpio_remove(struct ad7879 *ts)
 }
 #endif
 
-#ifdef CONFIG_OF
-static struct ad7879_platform_data *ad7879_parse_dt(struct device *dev)
+static int ad7879_parse_dt(struct device *dev, struct ad7879 *ts)
 {
-	struct device_node *np = dev->of_node;
-	struct ad7879_platform_data *pdata;
-	u8 tmp;
+	int err;
+	u32 tmp;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
-		return NULL;
+	err = device_property_read_u32(dev, "adi,resistance-plate-x", &tmp);
+	if (err) {
+		dev_err(dev, "failed to get resistance-plate-x property\n");
+		return err;
 	}
+	ts->x_plate_ohms = (u16)tmp;
 
-	pdata->swap_xy = of_property_read_bool(np, "adi,swap-xy-axis-enable");
+	device_property_read_u8(dev, "adi,first-conversion-delay",
+				&ts->first_conversion_delay);
+	device_property_read_u8(dev, "adi,acquisition-time",
+				&ts->acquisition_time);
+	device_property_read_u8(dev, "adi,median-filter-size", &ts->median);
+	device_property_read_u8(dev, "adi,averaging", &ts->averaging);
+	device_property_read_u8(dev, "adi,conversion-interval",
+				&ts->pen_down_acc_interval);
 
-	of_property_read_u16(np, "adi,x-plate-ohms", &pdata->x_plate_ohms);
-	of_property_read_u16(np, "adi,x-min", &pdata->x_min);
-	of_property_read_u16(np, "adi,x-max", &pdata->x_max);
-	of_property_read_u16(np, "adi,y-min", &pdata->y_min);
-	of_property_read_u16(np, "adi,y.max", &pdata->y_max);
-	of_property_read_u16(np, "adi,pressure-min", &pdata->pressure_min);
-	of_property_read_u16(np, "adi,pressure-max", &pdata->pressure_max);
+	ts->swap_xy = device_property_read_bool(dev, "touchscreen-swapped-x-y");
 
-	tmp = 254; /* 9ms */
-	of_property_read_u8(np, "adi,pen-down-acquisition-interval", &tmp);
-	pdata->pen_down_acc_interval = tmp;
-
-	tmp = 3; /* 512us */
-	of_property_read_u8(np, "adi,first-conversion-delay", &tmp);
-	pdata->first_conversion_delay = tmp;
-
-	tmp = 1; /* 4us */
-	of_property_read_u8(np, "adi,acquisition-time", &tmp);
-	pdata->acquisition_time = tmp;
-
-	tmp = 1; /* take the average of 4 middle samples */
-	of_property_read_u8(np, "adi,averaging", &tmp);
-	pdata->averaging = tmp;
-
-	tmp = 2; /* do 8 measurements */
-	of_property_read_u8(np, "adi,median", &tmp);
-	pdata->median = tmp;
-
-	return pdata;
+	return 0;
 }
-#else
-static
-struct ad7879_platform_data *ad7879_parse_dt(struct device *dev)
-{
-	return NULL;
-}
-#endif
 
 struct ad7879 *ad7879_probe(struct device *dev, u8 devid, unsigned int irq,
 			    const struct ad7879_bus_ops *bops)
 {
-	struct ad7879_platform_data *pdata;
+	struct ad7879_platform_data *pdata = dev_get_platdata(dev);
 	struct ad7879 *ts;
 	struct input_dev *input_dev;
 	int err;
 	u16 revid;
 
 	if (!irq) {
-		dev_err(dev, "no IRQ?\n");
-		err = -EINVAL;
-		goto err_out;
+		dev_err(dev, "No IRQ specified\n");
+		return ERR_PTR(-EINVAL);
 	}
 
-	if (dev->of_node)
-		pdata = ad7879_parse_dt(dev);
-	else
-		pdata = dev_get_platdata(dev);
+	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
+	if (!ts)
+		return ERR_PTR(-ENOMEM);
 
-	if (!pdata) {
-		dev_err(dev, "no platform data?\n");
-		err = -EINVAL;
-		goto err_out;
+	if (pdata) {
+		/* Platform data use swapped axis (backward compatibility) */
+		ts->swap_xy = !pdata->swap_xy;
+
+		ts->x_plate_ohms = pdata->x_plate_ohms ? : 400;
+
+		ts->first_conversion_delay = pdata->first_conversion_delay;
+		ts->acquisition_time = pdata->acquisition_time;
+		ts->averaging = pdata->averaging;
+		ts->pen_down_acc_interval = pdata->pen_down_acc_interval;
+		ts->median = pdata->median;
+	} else if (dev->of_node) {
+		ad7879_parse_dt(dev, ts);
+	} else {
+		dev_err(dev, "No platform data\n");
+		return ERR_PTR(-EINVAL);
 	}
 
-	ts = kzalloc(sizeof(*ts), GFP_KERNEL);
-	input_dev = input_allocate_device();
-	if (!ts || !input_dev) {
-		err = -ENOMEM;
-		goto err_free_mem;
+	input_dev = devm_input_allocate_device(dev);
+	if (!input_dev) {
+		dev_err(dev, "Failed to allocate input device\n");
+		return ERR_PTR(-ENOMEM);
 	}
 
 	ts->bops = bops;
 	ts->dev = dev;
 	ts->input = input_dev;
 	ts->irq = irq;
-	ts->swap_xy = pdata->swap_xy;
 
 	setup_timer(&ts->timer, ad7879_timer, (unsigned long) ts);
-
-	ts->x_plate_ohms = pdata->x_plate_ohms ? : 400;
-	ts->pressure_max = pdata->pressure_max ? : ~0;
-
-	ts->first_conversion_delay = pdata->first_conversion_delay;
-	ts->acquisition_time = pdata->acquisition_time;
-	ts->averaging = pdata->averaging;
-	ts->pen_down_acc_interval = pdata->pen_down_acc_interval;
-	ts->median = pdata->median;
-
 	snprintf(ts->phys, sizeof(ts->phys), "%s/input0", dev_name(dev));
 
 	input_dev->name = "AD7879 Touchscreen";
@@ -609,21 +579,33 @@ struct ad7879 *ad7879_probe(struct device *dev, u8 devid, unsigned int irq,
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 
-	input_set_abs_params(input_dev, ABS_X,
-			pdata->x_min ? : 0,
-			pdata->x_max ? : MAX_12BIT,
-			0, 0);
-	input_set_abs_params(input_dev, ABS_Y,
-			pdata->y_min ? : 0,
-			pdata->y_max ? : MAX_12BIT,
-			0, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE,
-			pdata->pressure_min, pdata->pressure_max, 0, 0);
+	if (pdata) {
+		input_set_abs_params(input_dev, ABS_X,
+				pdata->x_min ? : 0,
+				pdata->x_max ? : MAX_12BIT,
+				0, 0);
+		input_set_abs_params(input_dev, ABS_Y,
+				pdata->y_min ? : 0,
+				pdata->y_max ? : MAX_12BIT,
+				0, 0);
+		input_set_abs_params(input_dev, ABS_PRESSURE,
+				pdata->pressure_min,
+				pdata->pressure_max ? : ~0,
+				0, 0);
+	} else {
+		input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, 0, 0);
+		input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
+		touchscreen_parse_properties(input_dev, false);
+		if (!input_abs_get_max(input_dev, ABS_PRESSURE)) {
+			dev_err(dev, "Touchscreen pressure is not specified\n");
+			return ERR_PTR(-EINVAL);
+		}
+	}
 
 	err = ad7879_write(ts, AD7879_REG_CTRL2, AD7879_RESET);
 	if (err < 0) {
 		dev_err(dev, "Failed to write %s\n", input_dev->name);
-		goto err_free_mem;
+		return ERR_PTR(err);
 	}
 
 	revid = ad7879_read(ts, AD7879_REG_REVID);
@@ -632,8 +614,7 @@ struct ad7879 *ad7879_probe(struct device *dev, u8 devid, unsigned int irq,
 	if (input_dev->id.product != devid) {
 		dev_err(dev, "Failed to probe %s (%x vs %x)\n",
 			input_dev->name, devid, revid);
-		err = -ENODEV;
-		goto err_free_mem;
+		return ERR_PTR(-ENODEV);
 	}
 
 	ts->cmd_crtl3 = AD7879_YPLUS_BIT |
@@ -653,23 +634,25 @@ struct ad7879 *ad7879_probe(struct device *dev, u8 devid, unsigned int irq,
 			AD7879_ACQ(ts->acquisition_time) |
 			AD7879_TMR(ts->pen_down_acc_interval);
 
-	err = request_threaded_irq(ts->irq, NULL, ad7879_irq,
-				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				   dev_name(dev), ts);
+	err = devm_request_threaded_irq(dev, ts->irq, NULL, ad7879_irq,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					dev_name(dev), ts);
 	if (err) {
-		dev_err(dev, "irq %d busy?\n", ts->irq);
-		goto err_free_mem;
+		dev_err(dev, "Failed to request IRQ: %d\n", err);
+		return ERR_PTR(err);
 	}
 
 	__ad7879_disable(ts);
 
 	err = sysfs_create_group(&dev->kobj, &ad7879_attr_group);
 	if (err)
-		goto err_free_irq;
+		goto err_out;
 
-	err = ad7879_gpio_add(ts, pdata);
-	if (err)
-		goto err_remove_attr;
+	if (pdata) {
+		err = ad7879_gpio_add(ts, pdata);
+		if (err)
+			goto err_remove_attr;
+	}
 
 	err = input_register_device(input_dev);
 	if (err)
@@ -681,11 +664,6 @@ err_remove_gpio:
 	ad7879_gpio_remove(ts);
 err_remove_attr:
 	sysfs_remove_group(&dev->kobj, &ad7879_attr_group);
-err_free_irq:
-	free_irq(ts->irq, ts);
-err_free_mem:
-	input_free_device(input_dev);
-	kfree(ts);
 err_out:
 	return ERR_PTR(err);
 }
@@ -695,9 +673,6 @@ void ad7879_remove(struct ad7879 *ts)
 {
 	ad7879_gpio_remove(ts);
 	sysfs_remove_group(&ts->dev->kobj, &ad7879_attr_group);
-	free_irq(ts->irq, ts);
-	input_unregister_device(ts->input);
-	kfree(ts);
 }
 EXPORT_SYMBOL(ad7879_remove);
 

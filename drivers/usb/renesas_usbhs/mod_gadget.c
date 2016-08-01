@@ -158,10 +158,14 @@ static void usbhsg_queue_done(struct usbhs_priv *priv, struct usbhs_pkt *pkt)
 	struct usbhs_pipe *pipe = pkt->pipe;
 	struct usbhsg_uep *uep = usbhsg_pipe_to_uep(pipe);
 	struct usbhsg_request *ureq = usbhsg_pkt_to_ureq(pkt);
+	unsigned long flags;
 
 	ureq->req.actual = pkt->actual;
 
-	usbhsg_queue_pop(uep, ureq, 0);
+	usbhs_lock(priv, flags);
+	if (uep)
+		__usbhsg_queue_pop(uep, ureq, 0);
+	usbhs_unlock(priv, flags);
 }
 
 static void usbhsg_queue_push(struct usbhsg_uep *uep,
@@ -561,7 +565,7 @@ static int usbhsg_pipe_disable(struct usbhsg_uep *uep)
 		if (!pkt)
 			break;
 
-		usbhsg_queue_pop(uep, usbhsg_pkt_to_ureq(pkt), -ECONNRESET);
+		usbhsg_queue_pop(uep, usbhsg_pkt_to_ureq(pkt), -ESHUTDOWN);
 	}
 
 	usbhs_pipe_disable(pipe);
@@ -1042,6 +1046,8 @@ int usbhs_mod_gadget_probe(struct usbhs_priv *priv)
 	struct usbhsg_gpriv *gpriv;
 	struct usbhsg_uep *uep;
 	struct device *dev = usbhs_priv_to_dev(priv);
+	struct renesas_usbhs_driver_pipe_config *pipe_configs =
+					usbhs_get_dparam(priv, pipe_configs);
 	int pipe_size = usbhs_get_dparam(priv, pipe_size);
 	int i;
 	int ret;
@@ -1111,13 +1117,16 @@ int usbhs_mod_gadget_probe(struct usbhs_priv *priv)
 			gpriv->gadget.ep0 = &uep->ep;
 			usb_ep_set_maxpacket_limit(&uep->ep, 64);
 			uep->ep.caps.type_control = true;
-		}
-		/* init normal pipe */
-		else {
-			usb_ep_set_maxpacket_limit(&uep->ep, 512);
-			uep->ep.caps.type_iso = true;
-			uep->ep.caps.type_bulk = true;
-			uep->ep.caps.type_int = true;
+		} else {
+			/* init normal pipe */
+			if (pipe_configs[i].type == USB_ENDPOINT_XFER_ISOC)
+				uep->ep.caps.type_iso = true;
+			if (pipe_configs[i].type == USB_ENDPOINT_XFER_BULK)
+				uep->ep.caps.type_bulk = true;
+			if (pipe_configs[i].type == USB_ENDPOINT_XFER_INT)
+				uep->ep.caps.type_int = true;
+			usb_ep_set_maxpacket_limit(&uep->ep,
+						   pipe_configs[i].bufsize);
 			list_add_tail(&uep->ep.ep_list, &gpriv->gadget.ep_list);
 		}
 		uep->ep.caps.dir_in = true;

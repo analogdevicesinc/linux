@@ -183,6 +183,7 @@ static int ext2_symlink (struct inode * dir, struct dentry * dentry,
 	if (l > sizeof (EXT2_I(inode)->i_data)) {
 		/* slow symlink */
 		inode->i_op = &ext2_symlink_inode_operations;
+		inode_nohighmem(inode);
 		if (test_opt(inode->i_sb, NOBH))
 			inode->i_mapping->a_ops = &ext2_nobh_aops;
 		else
@@ -397,7 +398,7 @@ static int ext2_rename (struct inode * old_dir, struct dentry * old_dentry,
 			ext2_set_link(old_inode, dir_de, dir_page, new_dir, 0);
 		else {
 			kunmap(dir_page);
-			page_cache_release(dir_page);
+			put_page(dir_page);
 		}
 		inode_dec_link_count(old_dir);
 	}
@@ -407,11 +408,11 @@ static int ext2_rename (struct inode * old_dir, struct dentry * old_dentry,
 out_dir:
 	if (dir_de) {
 		kunmap(dir_page);
-		page_cache_release(dir_page);
+		put_page(dir_page);
 	}
 out_old:
 	kunmap(old_page);
-	page_cache_release(old_page);
+	put_page(old_page);
 out:
 	return err;
 }
