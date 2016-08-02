@@ -152,7 +152,6 @@
 			phy-mode = "gmii";
 
 			phy1: phy@1 {
-				compatible = "marvell,88e1510"; /* Similar to 88e1512 */
 				device_type = "ethernet-phy";
 				reg = <0x1>;
 				marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x00>;
