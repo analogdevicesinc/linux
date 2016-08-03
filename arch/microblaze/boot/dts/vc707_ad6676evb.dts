@@ -1,0 +1,190 @@
+
+/dts-v1/;
+/include/ "vc707_ad6676evb_pl.dtsi"
+/ {
+	chosen {
+		bootargs = "console=ttyUL0,115200";
+		linux,stdout-path = &axi_uart;
+		stdout-path = &axi_uart;
+	};
+	aliases {
+		ethernet0 = &axi_ethernet_eth_buf;
+		i2c0 = &axi_iic_main;
+		serial0 = &axi_uart;
+		serial1 = &sys_mb_debug;
+		spi0 = &axi_spi;
+	};
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x40000000>;
+	};
+	clocks {
+		ad6676_clkin: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <200000000>;
+			clock-output-names = "clkin";
+		};
+	};
+};
+&axi_ethernet_eth_buf {
+	local-mac-address = [00 0a 35 00 00 03];
+	phy-handle = <&phy0 &phy1>;
+};
+
+&axi_ethernet_eth_buf_mdio {
+	phy0: phy@7 {
+		compatible = "marvell,88e1111";
+		device_type = "ethernet-phy";
+		reg = <7>;
+	};
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <1>;
+	};
+};
+
+&axi_spi {
+	status = "okay";
+
+	adc0_ad6676: ad6676@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad6676";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&axi_ad6676_jesd>, <&ad6676_clkin>;
+		clock-names = "jesd_clk", "ref_clk";
+
+		adi,adc-frequency-hz = <3200000000>;
+		adi,adc-frequency-fixed-enable;
+		adi,intermediate-frequency-hz = <250000000>;
+
+		adi,intermediate-frequency-min-hz = <150000000>;
+		adi,intermediate-frequency-max-hz = <450000000>;
+
+		adi,bandwidth-hz = <75000000>;
+		adi,margin-low-mhz = <5>;
+		adi,margin-high-mhz = <5>;
+		adi,margin-if-mhz = <0>;
+		adi,decimation = <16>;
+		adi,external-inductance-l-nh = <19>;
+		//adi,use-external-clk-enable;
+
+		adi,jesd-scrambling-enable;
+		adi,jesd-use-lvds-syncb-enable;
+		//adi,jesd-powerdown-sysref-enable;
+		adi,jesd-l-lanes = <2>;
+		adi,jesd-f-frames-per-multiframe = <16>;
+
+		adi,shuffler-control = <1>;
+		adi,shuffler-thresh = <5>;
+
+		oen-gpios = <&axi_gpio 9 8>;   /* 0 */
+		sela-gpios = <&axi_gpio 8 8>;  /* 0 */
+		selb-gpios = <&axi_gpio 7 8>;  /* 1 */
+		s0-gpios = <&axi_gpio 6 8>;    /* 0 */
+		s1-gpios = <&axi_gpio 5 8>;    /* 1 */
+		reset-gpios = <&axi_gpio 4 8>; /* 1 */
+		agc1-gpios = <&axi_gpio 3 8>;
+		agc2-gpios = <&axi_gpio 2 8>;
+		agc3-gpios = <&axi_gpio 1 8>;
+		agc4-gpios = <&axi_gpio 0 8>;
+
+	};
+};
+
+&axi_ad6676_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+	dma-channel {
+		adi,source-bus-width = <64>;
+		adi,destination-bus-width = <64>;
+		adi,type = <0>;
+	};
+};
+
+&axi_ad6676_core {
+	dmas = <&axi_ad6676_dma 0>;
+	dma-names = "rx";
+	spibus-connected = <&adc0_ad6676>;
+};
+
+&axi_ad6676_jesd {
+		#clock-cells = <0>;
+		clocks = <&axi_ad6676_gt 0>;
+		clock-names = "gt_clk";
+		clock-output-names = "jesd_clk";
+
+		xlnx,lanes = <0x2>;
+		xlnx,frames-per-multiframe = <16>;
+		xlnx,bytes-per-frame = <2>;
+		xlnx,subclass = <1>;
+		xlnx,lanesync-enable;
+		xlnx,scramble-enable;
+};
+
+&axi_ad6676_gt {
+		#clock-cells = <1>;
+		clocks = <&ad6676_clkin>;
+		clock-names = "adc_clk";
+		clock-output-names = "adc_gt_clk";
+
+		adi,rx-sys-clk-select = <0>;
+		adi,rx-out-clk-select = <4>;
+		adi,use-cpll-enable;
+		adi,lanes = <0x2>;
+};
+
+&axi_iic_main {
+	mux@74 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "pca9548";
+		reg = <0x74>;
+
+		fmc_i2c: i2c@1 { /* HPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <1>;
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+			eeprom@54 {
+				compatible = "at24,24c02";
+				reg = <0x54>;
+			};
+		};
+
+		mux2: i2c@2 { /* LPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <2>;
+
+
+		};
+	};
+};
+
+&axi_linear_flash {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	partition@0x00000000 {
+		label = "fpga";
+		reg = <0x00000000 0x1380000>;
+	};
+	partition@0x01380000 {
+		label = "boot";
+		reg = <0x01380000 0x80000>;
+	};
+	partition@0x01400000 {
+		label = "bootenv";
+		reg = <0x01400000 0x40000>;
+	};
+	partition@0x01440000 {
+		label = "image";
+		reg = <0x01440000 0xBC0000>;
+	};
+};

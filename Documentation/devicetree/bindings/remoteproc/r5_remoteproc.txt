@@ -1,0 +1,38 @@
+Xilinx ARM Cortex A53-R5 remoteproc driver
+==========================================
+
+ZynqMP family of devices use two Cortex R5 processors to help with various
+low power / real time tasks.
+
+This driver requires specific ZynqMP hardware design.
+
+ZynqMP R5 RemoteProc Device Node:
+=================================
+A zynqmp_r5_remoteproc device node is used to represent a R5 IP instance
+within ZynqMP SoC.
+
+Required properties:
+--------------------
+ - compatible : Should be "xlnx,zynqmp-r5-remoteproc-1.0"
+ - reg : Address and length of the register set for the device. It
+        contains in the same order as described reg-names
+ - reg-names: Contain the register set names. For direct control method,
+              ipi, rpu_base and apb_base must be provided
+ - interrupts : Interrupt mapping for remoteproc IPI
+ - interrupt-parent : Phandle for the interrupt controller
+
+Optional properties:
+--------------------
+ - core_conf : R5 core configuration (valid string - split0 or split1 or
+               lock-step), default is lock-step.
+
+Example:
+--------
+	zynqmp-r5-remoteproc@0 {
+		compatible = "xlnx,zynqmp-r5-remoteproc";
+		reg = <0x0 0xff340000 0x100>, <0x0 0xff9a0000 0x400>, <0x0 0xff5e0000 0x400>;
+		reg-names = "ipi", "rpu_base", "apb_base";
+		core_conf = "split0";
+		interrupt-parent = <&gic>;
+		interrupts = <0 29 4>;
+	} ;

@@ -315,6 +315,8 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
  * @bus_lock_spinlock: spinlock for SPI bus locking
  * @bus_lock_mutex: mutex for SPI bus locking
  * @bus_lock_flag: indicates that the SPI bus is locked for exclusive use
+ * @add_lock: protects against concurrent registration of slaves with the same
+ *	chip_select.
  * @setup: updates the device mode and clocking records used by a
  *	device's SPI controller; protocol code may call this.  This
  *	must fail if an unrecognized or unsupported mode is requested.
@@ -438,6 +440,10 @@ struct spi_master {
 #define SPI_MASTER_NO_TX	BIT(2)		/* can't do buffer write */
 #define SPI_MASTER_MUST_RX      BIT(3)		/* requires rx */
 #define SPI_MASTER_MUST_TX      BIT(4)		/* requires tx */
+#define SPI_MASTER_U_PAGE	BIT(5)		/* select upper flash */
+#define SPI_MASTER_QUAD_MODE	BIT(6)		/* support quad mode */
+#define SPI_DATA_STRIPE		BIT(7)		/* support data stripe */
+#define SPI_BOTH_FLASH		BIT(8)		/* enable both flashes */
 
 	/*
 	 * on some hardware transfer size may be constrained
@@ -451,6 +457,8 @@ struct spi_master {
 
 	/* flag indicating that the SPI bus is locked for exclusive use */
 	bool			bus_lock_flag;
+
+	struct mutex		add_lock;
 
 	/* Setup mode and clock, etc (spi driver may call many times).
 	 *
@@ -664,6 +672,7 @@ extern void spi_res_release(struct spi_master *master,
  * @len: size of rx and tx buffers (in bytes)
  * @speed_hz: Select a speed other than the device default for this
  *      transfer. If 0 the default (from @spi_device) is used.
+ * @dummy: number of dummy cycles.
  * @bits_per_word: select a bits_per_word other than the device default
  *      for this transfer. If 0 the default (from @spi_device) is used.
  * @cs_change: affects chipselect after this transfer completes
@@ -752,6 +761,7 @@ struct spi_transfer {
 	u8		bits_per_word;
 	u16		delay_usecs;
 	u32		speed_hz;
+	u32		dummy;
 
 	struct list_head transfer_list;
 };

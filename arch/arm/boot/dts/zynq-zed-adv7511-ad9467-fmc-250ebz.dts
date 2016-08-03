@@ -1,0 +1,41 @@
+/dts-v1/;
+
+/include/ "zynq-zed.dtsi"
+/include/ "zynq-zed-adv7511.dtsi"
+
+&fpga_axi {
+	rx_dma: rx-dmac@44A30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44A30000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 0>;
+		clocks = <&clkc 16>;
+
+		dma-channel {
+			adi,type = <0>;
+		};
+	};
+
+	cf_ad9467_core_0: cf-ad9467-core-lpc@44A00000 {
+		compatible = "xlnx,cf-ad9467-core-1.00.a";
+		reg = <0x44A00000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ad9467>;
+		xlnx,dphase-timeout = <0x8>;
+		xlnx,num-mem = <0x1>;
+		xlnx,num-reg = <0x1>;
+		xlnx,s-axi-min-size = <0x1ff>;
+		xlnx,slv-awidth = <0x20>;
+		xlnx,slv-dwidth = <0x20>;
+		xlnx,use-wstrb = <0x0>;
+	} ;
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-ad9467-fmc-250ebz.dtsi"

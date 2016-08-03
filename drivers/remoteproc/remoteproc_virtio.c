@@ -98,7 +98,6 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 
 	/* zero vring */
 	size = vring_size(len, rvring->align);
-	memset(addr, 0, size);
 
 	dev_dbg(dev, "vring%d: va %p qsz %d notifyid %d\n",
 					id, addr, len, rvring->notifyid);
@@ -140,6 +139,7 @@ static void rproc_virtio_del_vqs(struct virtio_device *vdev)
 
 	/* power down the remote processor before deleting vqs */
 	rproc_shutdown(rproc);
+	vdev->config->set_status(vdev, 0);
 
 	__rproc_virtio_del_vqs(vdev);
 }

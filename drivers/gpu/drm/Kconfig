@@ -227,6 +227,7 @@ config DRM_VGEM
 	  as used by Mesa's software renderer for enhanced performance.
 	  If M is selected the module will be called vgem.
 
+source "drivers/gpu/drm/adi_axi_hdmi/Kconfig"
 
 source "drivers/gpu/drm/exynos/Kconfig"
 
@@ -273,6 +274,10 @@ source "drivers/gpu/drm/panel/Kconfig"
 source "drivers/gpu/drm/bridge/Kconfig"
 
 source "drivers/gpu/drm/sti/Kconfig"
+
+source "drivers/gpu/drm/xilinx/Kconfig"
+
+source "drivers/gpu/drm/xylon/Kconfig"
 
 source "drivers/gpu/drm/amd/amdkfd/Kconfig"
 

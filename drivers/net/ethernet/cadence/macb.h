@@ -82,6 +82,8 @@
 #define GEM_SA3T		0x009C /* Specific3 Top */
 #define GEM_SA4B		0x00A0 /* Specific4 Bottom */
 #define GEM_SA4T		0x00A4 /* Specific4 Top */
+#define GEM_RXPTPUNI		0x00D4 /* PTP RX Unicast address */
+#define GEM_TXPTPUNI		0x00D8 /* PTP TX Unicast address */
 #define GEM_OTX			0x0100 /* Octets transmitted */
 #define GEM_OCTTXL		0x0100 /* Octets transmitted [31:0] */
 #define GEM_OCTTXH		0x0104 /* Octets transmitted [47:32] */
@@ -129,6 +131,21 @@
 #define GEM_RXIPCCNT		0x01a8 /* IP header Checksum Error Counter */
 #define GEM_RXTCPCCNT		0x01ac /* TCP Checksum Error Counter */
 #define GEM_RXUDPCCNT		0x01b0 /* UDP Checksum Error Counter */
+#define GEM_1588INCRSUBNS	0x01BC /* 1588 timer sub nsec increment */
+#define GEM_1588SMSB		0x01C0 /* 1588 timer seconds register[47:32] */
+#define GEM_1588S		0x01D0 /* 1588 timer seconds register[31:0] */
+#define GEM_1588NS		0x01D4 /* 1588 timer nano seconds register */
+#define GEM_1588ADJ		0x01D8 /* 1588 timer adjust register */
+#define GEM_1588INCR		0x01DC /* 1588 timer increment register */
+#define GEM_1588TXSEC		0x01E0 /* PTP event TX timestamp secs */
+#define GEM_1588TXNSEC		0x01E4 /* PTP event TX timestamp nsecs */
+#define GEM_1588RXSEC		0x01E8 /* PTP event RX timestamp secs */
+#define GEM_1588RXNSEC		0x01EC /* PTP event RX timestamp nsecs */
+#define GEM_1588PEERTXSEC	0x01F0 /* PTP peer event TX timestamp secs */
+#define GEM_1588PEERTXNSEC	0x01F4 /* PTP peer event TX timestamp nsecs */
+#define GEM_1588PEERRXSEC	0x01F8 /* PTP peer event RX timestamp secs */
+#define GEM_1588PEERRXNSEC	0x01FC /* PTP peer event RX timestamp nsecs */
+#define GEM_PCSCNTRL		0x0200 /* PCS Control */
 #define GEM_DCFG1		0x0280 /* Design Config 1 */
 #define GEM_DCFG2		0x0284 /* Design Config 2 */
 #define GEM_DCFG3		0x0288 /* Design Config 3 */
@@ -136,6 +153,8 @@
 #define GEM_DCFG5		0x0290 /* Design Config 5 */
 #define GEM_DCFG6		0x0294 /* Design Config 6 */
 #define GEM_DCFG7		0x0298 /* Design Config 7 */
+#define GEM_TXBDCNTRL		0x04CC /* TX descriptor control */
+#define GEM_RXBDCNTRL		0x04D0 /* RX descriptor control */
 
 #define GEM_ISR(hw_q)		(0x0400 + ((hw_q) << 2))
 #define GEM_TBQP(hw_q)		(0x0440 + ((hw_q) << 2))
@@ -171,6 +190,8 @@
 #define MACB_NCR_TPF_SIZE	1
 #define MACB_TZQ_OFFSET		12 /* Transmit zero quantum pause frame */
 #define MACB_TZQ_SIZE		1
+#define MACB_PTPUNI_OFFSET			20
+#define MACB_PTPUNI_SIZE			1
 
 /* Bitfields in NCFGR */
 #define MACB_SPD_OFFSET		0 /* Speed */
@@ -249,6 +270,10 @@
 #define GEM_RXBS_SIZE		8
 #define GEM_DDRP_OFFSET		24 /* disc_when_no_ahb */
 #define GEM_DDRP_SIZE		1
+#define GEM_RXBDEXT_OFFSET	28 /* Extended RX BD */
+#define GEM_RXBDEXT_SIZE	1
+#define GEM_TXBDEXT_OFFSET	29 /* Extended TX BD */
+#define GEM_TXBDEXT_SIZE	1
 
 
 /* Bitfields in NSR */
@@ -312,8 +337,6 @@
 #define MACB_PFR_SIZE		1
 #define MACB_PTZ_OFFSET		13 /* Enable pause time zero interrupt */
 #define MACB_PTZ_SIZE		1
-#define MACB_WOL_OFFSET		14 /* Enable wake-on-lan interrupt */
-#define MACB_WOL_SIZE		1
 
 /* Bitfields in MAN */
 #define MACB_DATA_OFFSET	0 /* data */
@@ -365,6 +388,10 @@
 #define MACB_REV_OFFSET				0
 #define MACB_REV_SIZE				16
 
+/* Bitfields in PCSCNTRL */
+#define GEM_PCSAUTONEG_OFFSET			12
+#define GEM_PCSAUTONEG_SIZE			1
+
 /* Bitfields in DCFG1. */
 #define GEM_IRQCOR_OFFSET			23
 #define GEM_IRQCOR_SIZE				1
@@ -376,6 +403,34 @@
 #define GEM_RX_PKT_BUFF_SIZE			1
 #define GEM_TX_PKT_BUFF_OFFSET			21
 #define GEM_TX_PKT_BUFF_SIZE			1
+
+/* Bitfields in DCFG5. */
+#define GEM_TSU_OFFSET				8
+#define GEM_TSU_SIZE				1
+
+/* Bitfields in 1588INCRSUBNS */
+#define GEM_SUBNSINCL_SHFT			24
+#define GEM_SUBNSINCL_MASK			0xFF
+#define GEM_SUBNSINCH_SHFT			8
+#define GEM_SUBNSINCH_MASK			0xFFFF00
+
+/* Bitfields in 1588INCRNS */
+#define GEM_NSINCR_OFFSET			0
+#define GEM_NSINCR_SIZE				8
+
+/* Bitfields in 1588ADJ */
+#define GEM_ADDSUB_OFFSET			31
+#define GEM_ADDSUB_SIZE				1
+
+/* Bitfields in TXBDCNTRL */
+#define GEM_TXBDCNTRL_MODE_ALL			0x00000030
+#define GEM_TXBDCNTRL_MODE_PTP_EVNT		0x00000010
+#define GEM_TXBDCNTRL_MODE_PTP_ALL		0x00000020
+
+/* Bitfields in RXBDCNTRL */
+#define GEM_RXBDCNTRL_MODE_ALL			0x00000030
+#define GEM_RXBDCNTRL_MODE_PTP_EVNT		0x00000010
+#define GEM_RXBDCNTRL_MODE_PTP_ALL		0x00000020
 
 /* Constants for CLK */
 #define MACB_CLK_DIV8				0
@@ -400,7 +455,7 @@
 /* Capability mask bits */
 #define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
 #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
-#define MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII	0x00000004
+#define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
 #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
 #define MACB_CAPS_USRIO_DISABLED		0x00000010
 #define MACB_CAPS_FIFO_MODE			0x10000000
@@ -408,6 +463,10 @@
 #define MACB_CAPS_SG_DISABLED			0x40000000
 #define MACB_CAPS_MACB_IS_GEM			0x80000000
 #define MACB_CAPS_JUMBO				0x00000010
+#define MACB_CAPS_TSU				0x00000020
+#define MACB_CAPS_PCS				0x00000040
+
+#define NS_PER_SEC				1000000000ULL
 
 /* Bit manipulation macros */
 #define MACB_BIT(name)					\
@@ -474,6 +533,10 @@
 struct macb_dma_desc {
 	u32	addr;
 	u32	ctrl;
+#ifdef CONFIG_MACB_EXT_BD
+	u32	tsl;
+	u32	tsh;
+#endif
 };
 
 /* DMA descriptor bitfields */
@@ -550,6 +613,11 @@ struct macb_dma_desc {
 #define GEM_TX_FRMLEN_OFFSET			0
 #define GEM_TX_FRMLEN_SIZE			14
 
+#define GEM_SEC_MASK		0xFFFFFFC0
+#define GEM_TSL_SEC_RS		30
+#define GEM_TSH_SEC_LS		2
+#define GEM_TSL_NSEC_MASK	0x3FFFFFFF
+
 /* Buffer descriptor constants */
 #define GEM_RX_CSUM_NONE			0
 #define GEM_RX_CSUM_IP_ONLY			1
@@ -558,6 +626,8 @@ struct macb_dma_desc {
 
 /* limit RX checksum offload to TCP and UDP packets */
 #define GEM_RX_CSUM_CHECKED_MASK		2
+
+#define GEM_RX_TS_MASK				0x4
 
 /* struct macb_tx_skb - data about an skb which is being transmitted
  * @skb: skb currently being transmitted, only set for the last buffer
@@ -777,6 +847,7 @@ struct macb_queue {
 	unsigned int		IDR;
 	unsigned int		IMR;
 	unsigned int		TBQP;
+	unsigned int		RBQP;
 
 	unsigned int		tx_head, tx_tail;
 	struct macb_dma_desc	*tx_ring;
@@ -796,6 +867,7 @@ struct macb {
 	unsigned int		rx_tail;
 	unsigned int		rx_prepared_head;
 	struct macb_dma_desc	*rx_ring;
+	struct macb_dma_desc	*rx_ring_tieoff;
 	struct sk_buff		**rx_skbuff;
 	void			*rx_buffers;
 	size_t			rx_buffer_size;
@@ -818,6 +890,7 @@ struct macb {
 	}			hw_stats;
 
 	dma_addr_t		rx_ring_dma;
+	dma_addr_t		rx_ring_tieoff_dma;
 	dma_addr_t		rx_buffers_dma;
 
 	struct macb_or_gem_ops	macbgem_ops;
@@ -845,7 +918,15 @@ struct macb {
 	unsigned int		rx_frm_len_mask;
 	unsigned int		jumbo_max_len;
 
-	u32			wol;
+	unsigned int		tsu_clk;
+	struct ptp_clock	*ptp_clock;
+	struct ptp_clock_info	ptp_caps;
+	int			rx_hwtstamp_filter;
+	int			phc_index;
+	unsigned int		ns_incr;
+	unsigned int		subns_incr;
+
+	struct tasklet_struct   hresp_err_tasklet;
 };
 
 static inline bool macb_is_gem(struct macb *bp)

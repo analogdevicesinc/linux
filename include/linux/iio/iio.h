@@ -27,16 +27,17 @@ enum iio_chan_info_enum {
 	IIO_CHAN_INFO_OFFSET,
 	IIO_CHAN_INFO_CALIBSCALE,
 	IIO_CHAN_INFO_CALIBBIAS,
-	IIO_CHAN_INFO_PEAK,
-	IIO_CHAN_INFO_PEAK_SCALE,
-	IIO_CHAN_INFO_QUADRATURE_CORRECTION_RAW,
-	IIO_CHAN_INFO_AVERAGE_RAW,
+	IIO_CHAN_INFO_CALIBPHASE,
 	IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY,
 	IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY,
 	IIO_CHAN_INFO_SAMP_FREQ,
 	IIO_CHAN_INFO_FREQUENCY,
 	IIO_CHAN_INFO_PHASE,
 	IIO_CHAN_INFO_HARDWAREGAIN,
+	IIO_CHAN_INFO_QUADRATURE_CORRECTION_RAW,
+	IIO_CHAN_INFO_AVERAGE_RAW,
+	IIO_CHAN_INFO_PEAK,
+	IIO_CHAN_INFO_PEAK_SCALE,
 	IIO_CHAN_INFO_HYSTERESIS,
 	IIO_CHAN_INFO_INT_TIME,
 	IIO_CHAN_INFO_ENABLE,
@@ -289,6 +290,11 @@ static inline s64 iio_get_time_ns(void)
 	return ktime_get_real_ns();
 }
 
+enum iio_device_direction {
+	IIO_DEVICE_DIRECTION_IN,
+	IIO_DEVICE_DIRECTION_OUT,
+};
+
 /* Device operating modes */
 #define INDIO_DIRECT_MODE		0x01
 #define INDIO_BUFFER_TRIGGERED		0x02
@@ -475,7 +481,7 @@ struct iio_buffer_setup_ops {
  * @flags:		[INTERN] file ops related flags including busy flag.
  * @debugfs_dentry:	[INTERN] device specific debugfs dentry.
  * @cached_reg_addr:	[INTERN] cached register address for debugfs reads.
- */
+**/
 struct iio_dev {
 	int				id;
 
@@ -485,6 +491,7 @@ struct iio_dev {
 
 	struct iio_event_interface	*event_interface;
 
+	enum iio_device_direction	direction;
 	struct iio_buffer		*buffer;
 	struct list_head		buffer_list;
 	int				scan_bytes;

@@ -1,0 +1,74 @@
+&fpga_axi {
+
+	rx_dma: dma@44a300000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 0>;
+		clocks = <&clkc 15>;
+
+		dma-channel {
+			adi,buswidth = <64>;
+			adi,type = <0>;
+		};
+	};
+
+	axi_generic_adc: axi-generic-adc@43c00000 {
+		compatible = "adi,cn0363-adc-1.00.a";
+		reg = <0x43c00000 0x10000>;
+
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		io-channels = <&ad7175 1>, <&ad7175 2>;
+	};
+
+	axi_spi_engine_0: axi-spi-engine@0x44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 4>;
+		clocks = <&clkc 15 &clkc 15>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <2>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad7175: adc@0 {
+			compatible = "adi,ad7175-2";
+			reg = <0>;
+			spi-cpha;
+			spi-cpol;
+			spi-max-frequency = <10000000>;
+			interrupt-parent = <&gpio0>;
+			interrupts = <88 4>;
+			#io-channel-cells = <1>;
+
+			adi,channels {
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				channel@0,1 {
+					reg = <0 1>;
+					adi,bipolar;
+				};
+
+				channel@2,3 {
+					reg = <2 3>;
+					adi,bipolar;
+				};
+
+				channel@0,4 {
+					reg = <0 4>;
+				};
+			};
+		};
+
+		rdac@1 {
+			compatible = "adi,ad5201";
+			reg = <1>;
+			spi-max-frequency = <5000000>;
+		};
+	};
+};

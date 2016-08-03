@@ -90,6 +90,9 @@ void sdhci_get_of_property(struct platform_device *pdev)
 	if (of_get_property(np, "no-1-8-v", NULL))
 		host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
 
+	if (of_get_property(np, "broken-tuning", NULL))
+		host->quirks2 |= SDHCI_QUIRK2_BROKEN_TUNING;
+
 	if (of_device_is_compatible(np, "fsl,p2020-rev1-esdhc"))
 		host->quirks |= SDHCI_QUIRK_BROKEN_DMA;
 
@@ -98,6 +101,9 @@ void sdhci_get_of_property(struct platform_device *pdev)
 	    of_device_is_compatible(np, "fsl,t4240-esdhc") ||
 	    of_device_is_compatible(np, "fsl,mpc8536-esdhc"))
 		host->quirks |= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL;
+
+	if (of_get_property(np, "broken-mmc-highspeed", NULL))
+		host->quirks |= SDHCI_QUIRK_NO_HISPD_BIT;
 
 	of_property_read_u32(np, "clock-frequency", &pltfm_host->clock);
 

@@ -22,6 +22,10 @@
  * GNU General Public License for more details.
  */
 
+#ifdef CONFIG_ARM64
+# define RPROC_CARVEOUT_USE_IOREMAP 1
+#endif
+
 #define pr_fmt(fmt)    "%s: " fmt, __func__
 
 #include <linux/kernel.h>
@@ -584,12 +588,31 @@ static int rproc_handle_carveout(struct rproc *rproc,
 	if (!carveout)
 		return -ENOMEM;
 
+#if defined(RPROC_CARVEOUT_USE_IOREMAP)
+	/*
+	 * WORKAROUND for handle multiple memory regions by using ioremap
+	 * This is a temporary solution until we have iommu/smmu ready
+	 */
+	va = devm_ioremap_nocache(dev, rsc->pa, rsc->len);
+	if (!va) {
+		dev_err(dev->parent, "Unable to map memory %08x size %08x\n",
+			rsc->pa, rsc->len);
+		ret = -ENOMEM;
+		goto free_carv;
+	}
+	/* In case of TCM, have to initialize the memory after ioremap,
+	 * otherwise, when loading segments to the memory, kernel will
+	 * report "Bad mode in Synchronous Abort handler detected" error.
+	 */
+	memset_io(va, 0, rsc->len);
+#else
 	va = dma_alloc_coherent(dev->parent, rsc->len, &dma, GFP_KERNEL);
 	if (!va) {
 		dev_err(dev->parent, "dma_alloc_coherent err: %d\n", rsc->len);
 		ret = -ENOMEM;
 		goto free_carv;
 	}
+#endif
 
 	dev_dbg(dev, "carveout va %p, dma %llx, len 0x%x\n", va,
 					(unsigned long long)dma, rsc->len);
@@ -692,10 +715,15 @@ static int rproc_count_vrings(struct rproc *rproc, struct fw_rsc_vdev *rsc,
  * enum fw_resource_type.
  */
 static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
-	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
+	[RSC_CARVEOUT] = NULL, /* Register carveouts separately */
 	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
 	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
 	[RSC_VDEV] = NULL, /* VDEVs were handled upon registrarion */
+	[RSC_MMU] = NULL, /* For firmware purpose */
+};
+
+static rproc_handle_resource_t rproc_carveout_handlers[RSC_LAST] = {
+	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
 };
 
 static rproc_handle_resource_t rproc_vdev_handler[RSC_LAST] = {
@@ -782,8 +810,10 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 
 	/* clean up carveout allocations */
 	list_for_each_entry_safe(entry, tmp, &rproc->carveouts, node) {
-		dma_free_coherent(dev->parent, entry->len, entry->va,
-				  entry->dma);
+
+#if !defined(RPROC_CARVEOUT_USE_IOREMAP)
+		dma_free_coherent(dev->parent, entry->len, entry->va, entry->dma);
+#endif
 		list_del(&entry->node);
 		kfree(entry);
 	}
@@ -861,7 +891,7 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 		goto clean_up;
 	}
 
-	memcpy(loaded_table, rproc->cached_table, tablesz);
+	memcpy_toio(loaded_table, rproc->cached_table, tablesz);
 
 	/* power up the remote processor */
 	ret = rproc->ops->start(rproc);
@@ -927,6 +957,12 @@ static void rproc_fw_config_virtio(const struct firmware *fw, void *context)
 
 	/* count the number of notify-ids */
 	rproc->max_notifyid = -1;
+
+	/* look for carveout areas and register them first */
+	ret = rproc_handle_resources(rproc, tablesz, rproc_carveout_handlers);
+	if (ret)
+		goto out;
+
 	ret = rproc_handle_resources(rproc, tablesz,
 				     rproc_count_vrings_handler);
 	if (ret)

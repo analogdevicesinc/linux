@@ -1,0 +1,4 @@
+/dts-v1/;
+
+/include/ "zynq-mini-itx.dtsi"
+/include/ "zynq-mini-itx-adv7511.dtsi"

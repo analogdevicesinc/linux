@@ -1032,13 +1032,21 @@ static void __clk_recalc_rates(struct clk_core *core, unsigned long msg)
 static unsigned long clk_core_get_rate(struct clk_core *core)
 {
 	unsigned long rate;
+	struct clk_core *_clk, *recalc_clk = NULL;
 
 	clk_prepare_lock();
 
-	if (core && (core->flags & CLK_GET_RATE_NOCACHE))
-		__clk_recalc_rates(core, 0);
+	_clk = core;
+	while (_clk) {
+		if (_clk->flags & CLK_GET_RATE_NOCACHE)
+			recalc_clk = _clk;
+		_clk = _clk->parent;
+	}
 
-	rate = clk_core_get_rate_nolock(core);
+	if (recalc_clk)
+		__clk_recalc_rates(recalc_clk, 0);
+
+		rate = clk_core_get_rate_nolock(core);
 	clk_prepare_unlock();
 
 	return rate;
@@ -1336,7 +1344,6 @@ static struct clk_core *clk_calc_new_rates(struct clk_core *core,
 		new_rate = parent->new_rate;
 		goto out;
 	}
-
 	/* some clocks must be gated to change parent */
 	if (parent != old_parent &&
 	    (core->flags & CLK_SET_PARENT_GATE) && core->prepare_count) {

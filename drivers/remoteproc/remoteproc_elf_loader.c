@@ -192,7 +192,7 @@ rproc_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 
 		/* put the segment where the remote processor expects it */
 		if (phdr->p_filesz)
-			memcpy(ptr, elf_data + phdr->p_offset, filesz);
+			memcpy_toio(ptr, elf_data + phdr->p_offset, filesz);
 
 		/*
 		 * Zero out remaining memory for this segment.
@@ -202,7 +202,7 @@ rproc_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 		 * this.
 		 */
 		if (memsz > filesz)
-			memset(ptr + filesz, 0, memsz - filesz);
+			memset_io(ptr + filesz, 0, memsz - filesz);
 	}
 
 	return ret;
@@ -320,12 +320,14 @@ rproc_elf_find_loaded_rsc_table(struct rproc *rproc, const struct firmware *fw)
 {
 	struct elf32_hdr *ehdr = (struct elf32_hdr *)fw->data;
 	struct elf32_shdr *shdr;
+	const u8 *elf_data = fw->data;
+	struct elf32_phdr *phdr = (struct elf32_phdr *)(elf_data + ehdr->e_phoff);
 
 	shdr = find_table(&rproc->dev, ehdr, fw->size);
 	if (!shdr)
 		return NULL;
 
-	return rproc_da_to_va(rproc, shdr->sh_addr, shdr->sh_size);
+	return rproc_da_to_va(rproc, shdr->sh_addr - phdr->p_vaddr + phdr->p_paddr, shdr->sh_size);
 }
 
 const struct rproc_fw_ops rproc_elf_fw_ops = {

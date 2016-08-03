@@ -1,0 +1,153 @@
+/dts-v1/;
+
+/include/ "zynq-zc706.dtsi"
+/include/ "zynq-zc706-adv7511.dtsi"
+
+/ {
+	clocks {
+		ad6676_clkin: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <200000000>;
+			clock-output-names = "clkin";
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	adc0_ad6676: ad6676@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad6676";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&axi_ad6676_jesd>, <&ad6676_clkin>;
+		clock-names = "jesd_clk", "ref_clk";
+
+		adi,adc-frequency-hz = <3200000000>;
+		adi,adc-frequency-fixed-enable;
+		adi,intermediate-frequency-hz = <250000000>;
+
+		adi,intermediate-frequency-min-hz = <150000000>;
+		adi,intermediate-frequency-max-hz = <450000000>;
+
+		adi,bandwidth-hz = <75000000>;
+		adi,margin-low-mhz = <5>;
+		adi,margin-high-mhz = <5>;
+		adi,margin-if-mhz = <0>;
+		adi,decimation = <16>;
+		adi,external-inductance-l-nh = <19>;
+		//adi,use-external-clk-enable;
+
+		adi,jesd-scrambling-enable;
+		adi,jesd-use-lvds-syncb-enable;
+		//adi,jesd-powerdown-sysref-enable;
+		adi,jesd-l-lanes = <2>;
+		adi,jesd-f-frames-per-multiframe = <16>;
+
+		adi,shuffler-control = <1>;
+		adi,shuffler-thresh = <5>;
+
+		oen-gpios = <&gpio0 95 0>;   /* 0 */
+		sela-gpios = <&gpio0 94 0>;  /* 0 */
+		selb-gpios = <&gpio0 93 0>;  /* 1 */
+		s0-gpios = <&gpio0 92 0>;    /* 0 */
+		s1-gpios = <&gpio0 91 0>;    /* 1 */
+		reset-gpios = <&gpio0 90 0>; /* 1 */
+		agc1-gpios = <&gpio0 89 0>;
+		agc2-gpios = <&gpio0 88 0>;
+		agc3-gpios = <&gpio0 87 0>;
+		agc4-gpios = <&gpio0 86 0>;
+
+	};
+};
+
+&i2c_mux {
+	i2c@5 { /* HPC IIC */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+
+		eeprom@54 {
+			compatible = "at24,24c02";
+			reg = <0x54>;
+		};
+	};
+
+	i2c@6 { /* LPC IIC */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <6>;
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+
+		eeprom@54 {
+			compatible = "at24,24c02";
+			reg = <0x54>;
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 0>;
+		clocks = <&clkc 16>;
+
+		dma-channel {
+			adi,buswidth = <64>;
+			adi,type = <0>;
+		};
+	};
+
+	axi_ad6676_core: axi-ad6676-hpc@44a10000 {
+		compatible = "adi,axi-ad9680-1.0";
+		reg = < 0x44a10000 0x10000 >;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad6676>;
+	} ;
+
+	axi_ad6676_jesd: axi-jesd204b-rx@44a91000 {
+		#clock-cells = <0>;
+		compatible = "xlnx,jesd204-5.1";
+		reg = < 0x44a91000 0x1000 >;
+
+		clocks = <&axi_gt 0>;
+		clock-names = "gt_clk";
+		clock-output-names = "jesd_clk";
+
+		xlnx,lanes = <0x2>;
+		xlnx,frames-per-multiframe = <16>;
+		xlnx,bytes-per-frame = <2>;
+		xlnx,subclass = <1>;
+		xlnx,lanesync-enable;
+		xlnx,scramble-enable;
+	} ;
+
+	axi_gt: axi-jesd-gt-rx-tx@44a60000 {
+		#clock-cells = <1>;
+		compatible = "xlnx,axi-jesd-gt-1.0";
+		reg = < 0x44a60000 0x10000 >;
+
+		clocks = <&ad6676_clkin>;
+		clock-names = "adc_clk";
+		clock-output-names = "adc_gt_clk";
+
+		adi,rx-sys-clk-select = <0>;
+		adi,rx-out-clk-select = <4>;
+		adi,use-cpll-enable;
+		adi,lanes = <2>;
+	} ;
+};

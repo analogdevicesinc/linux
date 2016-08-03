@@ -18,6 +18,7 @@ obj-$(CONFIG_GPIO_104_IDI_48)	+= gpio-104-idi-48.o
 obj-$(CONFIG_GPIO_74X164)	+= gpio-74x164.o
 obj-$(CONFIG_GPIO_74XX_MMIO)	+= gpio-74xx-mmio.o
 obj-$(CONFIG_GPIO_A10SYCON)	+= gpio-a10sycon.o
+obj-$(CONFIG_GPIO_ADI_DAQ1)		+= gpio-adi-daq1.o
 obj-$(CONFIG_GPIO_ADNP)		+= gpio-adnp.o
 obj-$(CONFIG_GPIO_ADP5520)	+= gpio-adp5520.o
 obj-$(CONFIG_GPIO_ADP5588)	+= gpio-adp5588.o

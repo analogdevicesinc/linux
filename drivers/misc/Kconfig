@@ -202,6 +202,14 @@ config ATMEL_SSC
 
 	  If unsure, say N.
 
+config XLNX_LCD
+	tristate "Device driver for Xilinx Character LCD"
+	depends on PPC_OF || MICROBLAZE
+	---help---
+	  This option enables device driver support for an Char LCD via GPIO
+
+	  If unsure, say N.
+
 config ENCLOSURE_SERVICES
 	tristate "Enclosure Services"
 	default n
@@ -821,6 +829,19 @@ config ALTERA_ILC
 	  This enables the Interrupt Latency Counter driver for the Altera
 	  SOCFPGA platform.
 
+config XILINX_TRAFGEN
+	tristate "Xilinx Traffic Generator"
+	help
+	  This option enables support for the Xilinx Traffic Generator driver.
+	  It is designed to generate AXI4 traffic which can be used to stress
+	  different modules/interconnect connected in the system. Different
+	  configurable options which are provided through sysfs entries allow
+	  allow the user to generate a wide variety of traffic based on their
+	  their requirements.
+
+	  If unsure, say N
+
+source "drivers/misc/jesd204b/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

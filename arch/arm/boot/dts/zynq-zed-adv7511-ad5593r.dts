@@ -1,0 +1,84 @@
+/dts-v1/;
+
+/include/ "zynq-zed.dtsi"
+/include/ "zynq-zed-adv7511.dtsi"
+
+/*
+ * USING:
+ * https://github.com/analogdevicesinc/hdl/tree/master/projects/cftl_std/zed
+ */
+
+/*
+ * I2C:
+ * JB3 SCL, JB4 SDA
+ */
+
+/*
+ * SPI:
+ * spi0_csn      # "JA1"
+ * spi0_mosi     # "JA2"
+ * spi0_miso     # "JA3"
+ * spi0_clk      # "JA4"
+ * gpio_cftl[0]] # "JA9"        GPIO 54 + 32 + 0
+ * gpio_cftl[1]] # "JA10"       GPIO 54 + 32 + 1
+ */
+
+#include <dt-bindings/iio/adi,ad5592r.h>
+
+/ {
+
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-ad559x";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+		regulator-always-on;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	ad5593r@10 {
+		compatible = "adi,ad5593r";
+		reg = <0x10>;
+		channel-modes = /bits/ 8 <
+			CH_MODE_DAC
+			CH_MODE_ADC
+			CH_MODE_DAC_AND_ADC
+			CH_MODE_DAC_AND_ADC
+			CH_MODE_UNUSED_PULL_DOWN
+			CH_MODE_GPIO
+			CH_MODE_GPIO
+			CH_MODE_GPIO
+		>;
+
+		vref-supply = <&vref>;
+		reset-gpios = <&gpio0 86 0>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	is-decoded-cs = <0>;
+
+	ad5592r@0 {
+		compatible = "adi,ad5592r";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+
+		channel-modes = /bits/ 8 <
+			CH_MODE_DAC
+			CH_MODE_ADC
+			CH_MODE_DAC_AND_ADC
+			CH_MODE_DAC_AND_ADC
+			CH_MODE_UNUSED_PULL_DOWN
+			CH_MODE_GPIO
+			CH_MODE_GPIO
+			CH_MODE_GPIO
+		>;
+	};
+};

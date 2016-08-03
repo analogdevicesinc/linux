@@ -150,6 +150,8 @@ static inline int spi_nor_read_dummy_cycles(struct spi_nor *nor)
 	case SPI_NOR_DUAL:
 	case SPI_NOR_QUAD:
 		return 8;
+	case SPI_NOR_QUAD_IO:
+		return 40;
 	case SPI_NOR_NORMAL:
 		return 0;
 	}
@@ -1403,6 +1405,9 @@ int spi_nor_scan(struct spi_nor *nor, const char *name, enum read_mode mode)
 
 	/* Default commands */
 	switch (nor->flash_read) {
+	case SPI_NOR_QUAD_IO:
+		nor->read_opcode = SPINOR_OP_READ_1_4_4;
+		break;
 	case SPI_NOR_QUAD:
 		nor->read_opcode = SPINOR_OP_READ_1_1_4;
 		break;
@@ -1430,6 +1435,9 @@ int spi_nor_scan(struct spi_nor *nor, const char *name, enum read_mode mode)
 		if (JEDEC_MFR(info) == SNOR_MFR_SPANSION) {
 			/* Dedicated 4-byte command set */
 			switch (nor->flash_read) {
+			case SPI_NOR_QUAD_IO:
+				nor->read_opcode = SPINOR_OP_READ4_1_4_4;
+				break;
 			case SPI_NOR_QUAD:
 				nor->read_opcode = SPINOR_OP_READ4_1_1_4;
 				break;

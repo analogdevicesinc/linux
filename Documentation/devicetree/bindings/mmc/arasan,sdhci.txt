@@ -22,6 +22,12 @@ Required Properties for "arasan,sdhci-5.1":
   - phys: From PHY bindings: Phandle for the Generic PHY for arasan.
   - phy-names:  MUST be "phy_arasan".
 
+Optional Properties:
+  - broken-tuning: Indicates tuning broken in Silicon 1.0 of
+			  Zynq Ultrascale+ MPSoC.
+  - broken-mmc-highspeed: Indicates to force
+				the controller to use in standard speed.
+
 Example:
 	sdhci@e0100000 {
 		compatible = "arasan,sdhci-8.9a";

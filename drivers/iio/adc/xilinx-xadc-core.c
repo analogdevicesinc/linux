@@ -95,6 +95,9 @@ static const unsigned int XADC_ZYNQ_UNMASK_TIMEOUT = 500;
 #define XADC_AXI_REG_IPIER		0x68
 #define XADC_AXI_ADC_REG_OFFSET		0x200
 
+/* AXI sysmon offset */
+#define XADC_AXI_SYSMON_REG_OFFSET	0x400
+
 #define XADC_AXI_RESET_MAGIC		0xa
 #define XADC_AXI_GIER_ENABLE		BIT(31)
 
@@ -322,6 +325,7 @@ static irqreturn_t xadc_zynq_interrupt_handler(int irq, void *devid)
 
 #define XADC_ZYNQ_TCK_RATE_MAX 50000000
 #define XADC_ZYNQ_IGAP_DEFAULT 20
+#define XADC_ZYNQ_PCAP_RATE_MAX 200000000
 
 static int xadc_zynq_setup(struct platform_device *pdev,
 	struct iio_dev *indio_dev, int irq)
@@ -340,6 +344,10 @@ static int xadc_zynq_setup(struct platform_device *pdev,
 	xadc->zynq_intmask = ~0;
 
 	pcap_rate = clk_get_rate(xadc->clk);
+
+	if (pcap_rate > XADC_ZYNQ_PCAP_RATE_MAX)
+		clk_set_rate(xadc->clk,
+			(unsigned long) XADC_ZYNQ_PCAP_RATE_MAX);
 
 	if (tck_rate > XADC_ZYNQ_TCK_RATE_MAX)
 		tck_rate = XADC_ZYNQ_TCK_RATE_MAX;
@@ -367,6 +375,9 @@ static int xadc_zynq_setup(struct platform_device *pdev,
 	xadc_write_reg(xadc, XADC_ZYNQ_REG_CFG, XADC_ZYNQ_CFG_ENABLE |
 			XADC_ZYNQ_CFG_REDGE | XADC_ZYNQ_CFG_WEDGE |
 			tck_div | XADC_ZYNQ_CFG_IGAP(igap));
+
+	if (pcap_rate > XADC_ZYNQ_PCAP_RATE_MAX)
+		clk_set_rate(xadc->clk, pcap_rate);
 
 	return 0;
 }
@@ -440,6 +451,26 @@ static int xadc_axi_write_adc_reg(struct xadc *xadc, unsigned int reg,
 	uint16_t val)
 {
 	xadc_write_reg(xadc, XADC_AXI_ADC_REG_OFFSET + reg * 4, val);
+
+	return 0;
+}
+
+/* AXI sysmon read/write methods */
+static int xadc_axi_read_sysmon_reg(struct xadc *xadc, unsigned int reg,
+	uint16_t *val)
+{
+	uint32_t val32;
+
+	xadc_read_reg(xadc, XADC_AXI_SYSMON_REG_OFFSET + reg * 4, &val32);
+	*val = val32 & 0xffff;
+
+	return 0;
+}
+
+static int xadc_axi_write_sysmon_reg(struct xadc *xadc, unsigned int reg,
+	uint16_t val)
+{
+	xadc_write_reg(xadc, XADC_AXI_SYSMON_REG_OFFSET + reg * 4, val);
 
 	return 0;
 }
@@ -520,6 +551,17 @@ static unsigned long xadc_axi_get_dclk(struct xadc *xadc)
 static const struct xadc_ops xadc_axi_ops = {
 	.read = xadc_axi_read_adc_reg,
 	.write = xadc_axi_write_adc_reg,
+	.setup = xadc_axi_setup,
+	.get_dclk_rate = xadc_axi_get_dclk,
+	.update_alarm = xadc_axi_update_alarm,
+	.interrupt_handler = xadc_axi_interrupt_handler,
+	.flags = XADC_FLAGS_BUFFERED,
+};
+
+/* AXI sysmon */
+static const struct xadc_ops sysmon_axi_ops = {
+	.read = xadc_axi_read_sysmon_reg,
+	.write = xadc_axi_write_sysmon_reg,
 	.setup = xadc_axi_setup,
 	.get_dclk_rate = xadc_axi_get_dclk,
 	.update_alarm = xadc_axi_update_alarm,
@@ -805,8 +847,6 @@ err:
 
 static const struct iio_buffer_setup_ops xadc_buffer_ops = {
 	.preenable = &xadc_preenable,
-	.postenable = &iio_triggered_buffer_postenable,
-	.predisable = &iio_triggered_buffer_predisable,
 	.postdisable = &xadc_postdisable,
 };
 
@@ -1034,6 +1074,7 @@ static const struct iio_info xadc_info = {
 static const struct of_device_id xadc_of_match_table[] = {
 	{ .compatible = "xlnx,zynq-xadc-1.00.a", (void *)&xadc_zynq_ops },
 	{ .compatible = "xlnx,axi-xadc-1.00.a", (void *)&xadc_axi_ops },
+	{ .compatible = "xlnx,axi-sysmon-1.3", (void *)&sysmon_axi_ops},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, xadc_of_match_table);

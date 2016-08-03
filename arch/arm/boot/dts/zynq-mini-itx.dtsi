@@ -1,0 +1,59 @@
+/include/ "zynq.dtsi"
+
+/ {
+	model = "Xilinx Zynq Mini-ITX";
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x40000000>;
+	};
+
+	chosen {
+		bootargs = "console=ttyPS0,115200 root=/dev/mmcblk0p2 rw earlyprintk rootfstype=ext4 rootwait";
+		linux,stdout-path = "/amba@0/uart@E0001000";
+	};
+};
+
+&eth {
+	phy-handle = <&phy0>;
+	phy-mode = "rgmii-id";
+
+	phy0: phy@0 {
+		device_type = "ethernet-phy";
+		reg = <0x0>;
+		marvell,reg-init=<3 16 0xff00 0x1e 3 17 0xfff0 0x0a>;
+	};
+};
+
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 7 0>;
+};
+
+&qspi {
+	primary_flash: ps7-qspi@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "st,m25p80";
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+		partition@0x00000000 {
+			label = "boot";
+			reg = <0x00000000 0x00500000>;
+		};
+		partition@0x00500000 {
+			label = "bootenv";
+			reg = <0x00500000 0x00020000>;
+		};
+		partition@0x00520000 {
+			label = "config";
+			reg = <0x00520000 0x00020000>;
+		};
+		partition@0x00540000 {
+			label = "image";
+			reg = <0x00540000 0x00a80000>;
+		};
+		partition@0x00fc0000 {
+			label = "spare";
+			reg = <0x00fc0000 0x00000000>;
+		};
+	};
+};

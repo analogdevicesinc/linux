@@ -1,0 +1,175 @@
+
+/dts-v1/;
+/include/ "kcu105_fmcdaq2_pl.dtsi"
+
+/ {
+	chosen {
+		bootargs = "console=ttyUL0,115200";
+		linux,stdout-path = &axi_uart;
+		stdout-path = &axi_uart;
+	};
+	aliases {
+		ethernet0 = &axi_ethernet_eth_buf;
+		i2c0 = &axi_iic_main;
+		serial0 = &axi_uart;
+		serial1 = &sys_mb_debug;
+		fmc_spi = &axi_spi;
+	};
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x80000000>;
+	};
+};
+&axi_ethernet_eth_buf {
+	local-mac-address = [00 0a 35 00 00 01];
+	phy-handle = <&phy0 &phy1>;
+};
+
+&axi_ethernet_eth_buf_mdio {
+	phy0: phy@7 {
+		compatible = "marvell,88e1111";
+		device_type = "ethernet-phy";
+		reg = <7>;
+	};
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <1>;
+	};
+};
+
+&axi_ad9144_core {
+	dmas = <&axi_ad9144_dma 0>;
+	dma-names = "tx";
+	spibus-connected = <&dac0_ad9144>;
+};
+
+&axi_ad9144_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+
+	dma-channel {
+		adi,source-bus-width = <128>;
+		adi,destination-bus-width = <128>;
+		adi,type = <1>;
+		adi,cyclic;
+	};
+
+};
+
+&axi_ad9144_jesd {
+	#clock-cells = <0>;
+	clocks = <&axi_daq2_gt 1>;
+	clock-names = "dac_gt_clk";
+	clock-output-names = "jesd_dac_clk";
+	xlnx,frames-per-multiframe = <32>;
+	xlnx,bytes-per-frame = <1>;
+	xlnx,subclass = <1>;
+	xlnx,lanesync-enable;
+	xlnx,scramble-enable;
+
+};
+
+&axi_ad9680_core {
+	dmas = <&axi_ad9680_dma 0>;
+	dma-names = "rx";
+	spibus-connected = <&adc0_ad9680>;
+};
+
+&axi_ad9680_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+
+	dma-channel {
+		adi,source-bus-width = <64>;
+		adi,destination-bus-width = <64>;
+		adi,type = <0>;
+	};
+
+};
+
+&axi_ad9680_jesd {
+	#clock-cells = <0>;
+	clocks = <&axi_daq2_gt 0>;
+	clock-names = "adc_gt_clk";
+	clock-output-names = "jesd_adc_clk";
+
+	xlnx,frames-per-multiframe = <32>;
+	xlnx,bytes-per-frame = <1>;
+	xlnx,subclass = <1>;
+	xlnx,lanesync-enable;
+	xlnx,scramble-enable;
+};
+
+&axi_daq2_gt {
+	#clock-cells = <1>;
+	clocks = <&clk0_ad9523 1>, <&clk0_ad9523 6>, <&clk0_ad9523 7>, <&clk0_ad9523 13>;
+	clock-names = "adc_clk", "adc_sysref", "dac_sysref", "dac_clk";
+	clock-output-names = "adc_gt_clk", "dac_gt_clk";
+
+	adi,rx-sys-clk-select = <3>;
+	adi,rx-out-clk-select = <4>;
+	adi,tx-sys-clk-select = <3>;
+	adi,tx-out-clk-select = <4>;
+
+	adi,lanes = <0x4>;
+	adi,use-lpm-enable;
+};
+
+&axi_iic_main {
+
+	mux@75 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "pca9544";
+		reg = <0x75>;
+
+		mux1: i2c@1 { /* HPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <1>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+			ad7291@2f {
+				compatible = "adi,ad7291";
+				reg = <0x2f>;
+			};
+
+		};
+
+		fmc_i2c: i2c@2 { /* LPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <2>;
+		};
+	};
+};
+
+#define fmc_spi axi_spi
+#include "adi-daq2.dtsi"
+
+&adc0_ad9680 {
+	powerdown-gpios = <&axi_gpio 10 8>;
+	fastdetect-a-gpios = <&axi_gpio 3 8>;
+	fastdetect-b-gpios = <&axi_gpio 4 8>;
+};
+
+&dac0_ad9144 {
+	txen-gpios = <&axi_gpio 9 8>;
+	reset-gpios = <&axi_gpio 8 8>;
+	irq-gpios = <&axi_gpio 2 8>;
+
+	adi,jesd-xbar-lane0-sel = <2>;
+	adi,jesd-xbar-lane1-sel = <3>;
+	adi,jesd-xbar-lane2-sel = <0>;
+	adi,jesd-xbar-lane3-sel = <1>;
+};
+
+&clk0_ad9523 {
+	sync-gpios = <&axi_gpio 6 8>;
+	status0-gpios = <&axi_gpio 0 8>;
+	status1-gpios = <&axi_gpio 1 8>;
+};

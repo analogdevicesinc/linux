@@ -102,6 +102,9 @@ struct device_node;
 
 void gic_cascade_irq(unsigned int gic_nr, unsigned int irq);
 int gic_cpu_if_down(unsigned int gic_nr);
+void gic_raise_softirq(const struct cpumask *mask, unsigned int irq);
+
+void gic_set_cpu(unsigned int cpu, unsigned int irq);
 
 /*
  * Subdrivers that need some preparatory work can initialize their

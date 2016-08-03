@@ -1,0 +1,227 @@
+
+/dts-v1/;
+/include/ "vc707_fmcadc5_pl.dtsi"
+/ {
+	chosen {
+		bootargs = "console=ttyUL0,115200";
+		linux,stdout-path = &axi_uart;
+		stdout-path = &axi_uart;
+	};
+	aliases {
+		ethernet0 = &axi_ethernet_eth_buf;
+		i2c0 = &axi_iic_main;
+		serial0 = &axi_uart;
+		serial1 = &sys_mb_debug;
+		spi0 = &axi_spi;
+	};
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x40000000>;
+	};
+  	clocks {
+		ad9625_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <2500000000>;
+			clock-output-names = "clkin";
+		};
+  	};
+
+	vcc5v0: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-5.0V";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+};
+&axi_ethernet_eth_buf {
+	local-mac-address = [00 0a 35 00 00 05];
+	phy-handle = <&phy0 &phy1>;
+};
+
+&axi_ethernet_eth_buf_mdio {
+	phy0: phy@7 {
+		compatible = "marvell,88e1111";
+		device_type = "ethernet-phy";
+		reg = <7>;
+	};
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <1>;
+	};
+};
+
+&axi_spi {
+	adc0_ad9625: ad9625@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad9625";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		clocks = <&axi_ad9625_0_jesd>, <&ad9625_clkin>;
+		clock-names = "jesd0_clk", "adc_clk";
+		powerdown-gpios = <&axi_gpio 3 8>;
+		reset-gpios = <&axi_gpio 2 8>;
+
+	};
+	adc1_ad9625: ad9625@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad9625";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		clocks = <&axi_ad9625_1_jesd>, <&ad9625_clkin>;
+		clock-names = "jesd1_clk", "adc_clk";
+		powerdown-gpios = <&axi_gpio 7 8>;
+		reset-gpios = <&axi_gpio 6 8>;
+	};
+
+	dac0_ad5662: ad5662-vt-a@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad5662";
+		reg = <2>;
+		spi-cpha;
+		spi-max-frequency = <1000000>;
+		vcc-supply = <&vcc5v0>;
+	};
+
+	dac1_ad5662: ad5662-vt-b@3 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad5662";
+		reg = <3>;
+		spi-cpha;
+		spi-max-frequency = <1000000>;
+		vcc-supply = <&vcc5v0>;
+	};
+};
+
+&axi_ad9625_0_core {
+	dmas = <&axi_ad9625_dma 0>;
+	dma-names = "rx";
+	spibus-connected = <&adc0_ad9625>;
+};
+
+&axi_ad9625_1_core {
+	spibus-connected = <&adc1_ad9625>;
+};
+
+&axi_ad9625_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+	dma-channel {
+		adi,source-bus-width = <64>;
+		adi,destination-bus-width = <64>;
+		adi,type = <0>;
+	};
+};
+
+&axi_ad9625_0_gt {
+	#clock-cells = <1>;
+	clocks = <&ad9625_clkin>;
+	clock-names = "adc_clk";
+	clock-output-names = "adc0_gt_clk";
+
+	adi,rx-sys-clk-select = <0>;
+	adi,rx-out-clk-select = <2>;
+	adi,use-cpll-enable;
+	adi,no-auto-resync-enable;
+	adi,lanes = <8>;
+
+};
+
+&axi_ad9625_1_gt {
+	#clock-cells = <1>;
+	clocks = <&ad9625_clkin>;
+	clock-names = "adc_clk";
+	clock-output-names = "adc1_gt_clk";
+
+	adi,rx-sys-clk-select = <0>;
+	adi,rx-out-clk-select = <2>;
+	adi,use-cpll-enable;
+	adi,no-auto-resync-enable;
+	adi,lanes = <8>;
+};
+
+&axi_ad9625_0_jesd {
+	#clock-cells = <0>;
+	clocks = <&axi_ad9625_0_gt 0>;
+	clock-names = "adc0_gt_clk";
+	clock-output-names = "jesd0_clk";
+
+	xlnx,frames-per-multiframe = <32>;
+	xlnx,bytes-per-frame = <1>;
+	xlnx,subclass = <1>;
+	xlnx,lanesync-enable;
+	xlnx,scramble-enable;
+};
+
+&axi_ad9625_1_jesd {
+	#clock-cells = <0>;
+	clocks = <&axi_ad9625_1_gt 0>;
+	clock-names = "adc1_gt_clk";
+	clock-output-names = "jesd1_clk";
+
+	xlnx,frames-per-multiframe = <32>;
+	xlnx,bytes-per-frame = <1>;
+	xlnx,subclass = <1>;
+	xlnx,lanesync-enable;
+	xlnx,scramble-enable;
+};
+
+&axi_iic_main {
+	mux@74 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "pca9548";
+		reg = <0x74>;
+
+		fmc_i2c: i2c@1 { /* HPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <1>;
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+			eeprom@54 {
+				compatible = "at24,24c02";
+				reg = <0x54>;
+			};
+		};
+
+		mux2: i2c@2 { /* LPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <2>;
+
+
+		};
+	};
+};
+
+&axi_linear_flash {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	partition@0x00000000 {
+		label = "fpga";
+		reg = <0x00000000 0x1380000>;
+	};
+	partition@0x01380000 {
+		label = "boot";
+		reg = <0x01380000 0x80000>;
+	};
+	partition@0x01400000 {
+		label = "bootenv";
+		reg = <0x01400000 0x40000>;
+	};
+	partition@0x01440000 {
+		label = "image";
+		reg = <0x01440000 0xBC0000>;
+	};
+};

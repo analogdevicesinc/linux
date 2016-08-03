@@ -131,8 +131,6 @@ done:
 
 static const struct iio_buffer_setup_ops ad7887_ring_setup_ops = {
 	.preenable = &ad7887_ring_preenable,
-	.postenable = &iio_triggered_buffer_postenable,
-	.predisable = &iio_triggered_buffer_predisable,
 	.postdisable = &ad7887_ring_postdisable,
 };
 
@@ -316,7 +314,8 @@ static int ad7887_probe(struct spi_device *spi)
 	}
 
 	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-			&ad7887_trigger_handler, &ad7887_ring_setup_ops);
+			&ad7887_trigger_handler, &ad7887_ring_setup_ops
+			);
 	if (ret)
 		goto error_disable_reg;
 

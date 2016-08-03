@@ -16,7 +16,6 @@ config PCI_MVEBU
 	depends on ARM
 	depends on OF
 
-
 config PCIE_XILINX_NWL
 	bool "NWL PCIe Core"
 	depends on ARCH_ZYNQMP
