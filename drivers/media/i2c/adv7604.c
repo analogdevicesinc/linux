@@ -281,8 +281,8 @@ static const struct adv76xx_video_standards adv7604_prim_mode_gr[] = {
 static const struct adv76xx_video_standards adv76xx_prim_mode_hdmi_comp[] = {
 	{ V4L2_DV_BT_CEA_720X480P59_94, 0x0a, 0x00 },
 	{ V4L2_DV_BT_CEA_720X576P50, 0x0b, 0x00 },
-	{ V4L2_DV_BT_CEA_1280X720P25, 0x13, 0x03 },
 	{ V4L2_DV_BT_CEA_1280X720P24, 0x13, 0x04 },
+	{ V4L2_DV_BT_CEA_1280X720P25, 0x13, 0x03 },
 	{ V4L2_DV_BT_CEA_1280X720P50, 0x13, 0x01 },
 	{ V4L2_DV_BT_CEA_1280X720P60, 0x13, 0x00 },
 	{ V4L2_DV_BT_CEA_1920X1080P24, 0x1e, 0x04 },
