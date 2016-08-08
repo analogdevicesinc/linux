@@ -27,6 +27,7 @@ extern YYLTYPE yylloc;
 
 struct boot_info *the_boot_info;
 bool treesource_error;
+unsigned int the_versionflags;
 
 struct boot_info *dt_from_source(const char *fname)
 {

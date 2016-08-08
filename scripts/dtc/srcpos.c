@@ -266,26 +266,22 @@ srcpos_string(struct srcpos *pos)
 {
 	const char *fname = "<no-file>";
 	char *pos_str;
-	int rc;
 
 	if (pos)
 		fname = pos->file->name;
 
 
 	if (pos->first_line != pos->last_line)
-		rc = asprintf(&pos_str, "%s:%d.%d-%d.%d", fname,
-			      pos->first_line, pos->first_column,
-			      pos->last_line, pos->last_column);
+		xasprintf(&pos_str, "%s:%d.%d-%d.%d", fname,
+			  pos->first_line, pos->first_column,
+			  pos->last_line, pos->last_column);
 	else if (pos->first_column != pos->last_column)
-		rc = asprintf(&pos_str, "%s:%d.%d-%d", fname,
-			      pos->first_line, pos->first_column,
-			      pos->last_column);
+		xasprintf(&pos_str, "%s:%d.%d-%d", fname,
+			  pos->first_line, pos->first_column,
+			  pos->last_column);
 	else
-		rc = asprintf(&pos_str, "%s:%d.%d", fname,
-			      pos->first_line, pos->first_column);
-
-	if (rc == -1)
-		die("Couldn't allocate in srcpos string");
+		xasprintf(&pos_str, "%s:%d.%d", fname,
+			  pos->first_line, pos->first_column);
 
 	return pos_str;
 }
