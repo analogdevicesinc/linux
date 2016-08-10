@@ -24,6 +24,8 @@
 #define PLL_DENOM_OFFSET		0x20
 #define PLL_AV_IMX7_NUM_OFFSET		0x20
 #define PLL_AV_IMX7_DENOM_OFFSET	0x30
+#define PLL_PLL2_NUM_OFFSET		0x20
+#define PLL_PLL2_DENOM_OFFSET		0x30
 
 #define PLL_VF610_NUM_OFFSET	0x20
 #define PLL_VF610_DENOM_OFFSET	0x30
@@ -460,6 +462,28 @@ static const struct clk_ops clk_pllv3_enet_ops = {
 	.recalc_rate	= clk_pllv3_enet_recalc_rate,
 };
 
+static unsigned long clk_pllv3_pll2_recalc_rate(struct clk_hw *hw,
+					   unsigned long parent_rate)
+{
+	struct clk_pllv3 *pll = to_clk_pllv3(hw);
+	u32 div = (readl_relaxed(pll->base) >> pll->div_shift)  & pll->div_mask;
+	u32 mfn = readl_relaxed(pll->base + pll->num_offset);
+	u32 mfd = readl_relaxed(pll->base + pll->denom_offset);
+	u64 temp64 = (u64)parent_rate;
+
+	temp64 *= mfn;
+	do_div(temp64, mfd);
+
+	return (parent_rate * ((div == 1) ? 22 : 20)) + (u32)temp64;
+}
+
+static const struct clk_ops clk_pllv3_pll2_ops = {
+	.prepare	= clk_pllv3_prepare,
+	.unprepare	= clk_pllv3_unprepare,
+	.is_prepared	= clk_pllv3_is_prepared,
+	.recalc_rate	= clk_pllv3_pll2_recalc_rate,
+};
+
 struct clk *imx_clk_pllv3(enum imx_pllv3_type type, const char *name,
 			  const char *parent_name, void __iomem *base,
 			  u32 div_mask)
@@ -483,6 +507,11 @@ struct clk *imx_clk_pllv3(enum imx_pllv3_type type, const char *name,
 		break;
 	case IMX_PLLV3_SYS_VF610:
 		ops = &clk_pllv3_vf610_ops;
+		break;
+	case IMX_PLLV3_PLL2:
+		pll->num_offset = PLL_PLL2_NUM_OFFSET;
+		pll->denom_offset = PLL_PLL2_DENOM_OFFSET;
+		ops = &clk_pllv3_pll2_ops;
 		break;
 	case IMX_PLLV3_USB_VF610:
 		pll->div_shift = 1;
