@@ -13,6 +13,7 @@ menu "Clock Generator/Distribution"
 config AD9523
 	tristate "Analog Devices AD9523 Low Jitter Clock Generator"
 	depends on SPI
+	depends on COMMON_CLK
 	help
 	  Say yes here to build support for Analog Devices AD9523 Low Jitter
 	  Clock Generator. The driver provides direct access via sysfs.
@@ -23,6 +24,7 @@ config AD9523
 config AD9528
 	tristate "Analog Devices AD9528 Low Jitter Clock Generator"
 	depends on SPI
+	depends on COMMON_CLK
 	help
 	  Say yes here to build support for Analog Devices AD9528 Low Jitter
 	  Clock Generator. The driver provides direct access via sysfs.
@@ -43,6 +45,7 @@ config AD9548
 config AD9517
 	tristate "Analog Devices AD9517 12-Output Clock Generator"
 	depends on SPI
+	depends on COMMON_CLK
 	help
 	  Say yes here to build support for Analog Devices AD9517
 	  12-Output Clock Generator.
@@ -57,6 +60,7 @@ menu "Direct Digital Synthesis"
 config CF_AXI_DDS
 	tristate "Analog Devices CoreFPGA AXI DDS driver"
 	depends on SPI
+	depends on COMMON_CLK
 	select IIO_BUFFER_DMAENGINE
 	help
 	  Say yes here to build support for Analog Devices DDS chip
@@ -105,6 +109,7 @@ config ADF4350
 config ADF5355
 	tristate "Analog Devices ADF5355/ADF4355 Wideband Synthesizers"
 	depends on SPI
+	depends on COMMON_CLK
 	help
 	  Say yes here to build support for Analog Devices ADF5355/ADF4355
 	  Wideband Synthesizers. The driver provides direct access via sysfs.
