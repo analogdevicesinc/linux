@@ -140,6 +140,9 @@
 /* The IP supports HS400 mode */
 #define ESDHC_FLAG_HS400		BIT(9)
 
+/* The IP state got lost in low power mode */
+#define ESDHC_FLAG_STATE_LOST_IN_LPMODE	BIT(10)
+
 /* A clock frequency higher than this rate requires strobe dll control */
 #define ESDHC_STROBE_DLL_CLK_FREQ	100000000
 
@@ -188,13 +191,14 @@ static struct esdhc_soc_data usdhc_imx6sl_data = {
 
 static struct esdhc_soc_data usdhc_imx6sx_data = {
 	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_STD_TUNING
-			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200,
+			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200
+			| ESDHC_FLAG_STATE_LOST_IN_LPMODE,
 };
 
 static struct esdhc_soc_data usdhc_imx7d_data = {
 	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_STD_TUNING
 			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200
-			| ESDHC_FLAG_HS400,
+			| ESDHC_FLAG_HS400 | ESDHC_FLAG_STATE_LOST_IN_LPMODE,
 };
 
 struct pltfm_imx_data {
@@ -1410,6 +1414,14 @@ static int sdhci_esdhc_imx_remove(struct platform_device *pdev)
 static int sdhci_esdhc_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct pltfm_imx_data *imx_data = sdhci_pltfm_priv(pltfm_host);
+
+	if ((imx_data->socdata->flags & ESDHC_FLAG_STATE_LOST_IN_LPMODE) &&
+	    (host->tuning_mode != SDHCI_TUNING_MODE_1)) {
+		mmc_retune_timer_stop(host->mmc);
+		mmc_retune_needed(host->mmc);
+	}
 
 	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
 		mmc_retune_needed(host->mmc);
