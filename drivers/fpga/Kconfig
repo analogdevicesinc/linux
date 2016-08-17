@@ -11,6 +11,13 @@ config FPGA
 	  kernel.  The FPGA framework adds a FPGA manager class and FPGA
 	  manager drivers.
 
+config FPGA_MGR_DEBUG_FS
+       bool "FPGA Manager DebugFS"
+       depends on FPGA && DEBUG_FS
+       help
+         Say Y here if you want to expose a DebugFS interface for the
+	 FPGA Manager Framework.
+
 if FPGA
 
 config FPGA_REGION
