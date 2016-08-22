@@ -27,6 +27,8 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/frequency/adf5355.h>
 
+#include <linux/clk/clkscale.h>
+
 /* REG0 Bit Definitions */
 #define ADF5355_REG0_INT(x)			(((x) & 0xFFFF) << 4)
 #define ADF5355_REG0_PRESCALER(x)		((x) << 20)
@@ -214,6 +216,7 @@ struct child_clk {
 	struct clk_hw		hw;
 	struct adf5355_state	*st;
 	bool			enabled;
+	struct clock_scale 	scale;
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct child_clk, hw)
@@ -752,7 +755,7 @@ static unsigned long adf5355_clk_recalc_rate(struct clk_hw *hw,
 
 	rate = adf5355_pll_fract_n_get_rate(to_clk_priv(hw)->st, 0);
 
-	return rate >> to_clk_priv(hw)->st->pdata->clock_shift;
+	return to_ccf_scaled(rate, &to_clk_priv(hw)->scale);
 }
 
 static long adf5355_clk_round_rate(struct clk_hw *hw, unsigned long rate,
@@ -769,8 +772,7 @@ static int adf5355_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (parent_rate != st->clkin)
 		adf5355_setup(st, parent_rate);
 
-	return adf5355_set_freq(st, (unsigned long long)rate <<
-		to_clk_priv(hw)->st->pdata->clock_shift, 0);
+	return adf5355_set_freq(st, from_ccf_scaled(rate, &to_clk_priv(hw)->scale), 0);
 }
 
 static int adf5355_clk_enable(struct clk_hw *hw)
@@ -934,11 +936,18 @@ static int adf5355_probe(struct spi_device *spi)
 		of_property_read_string(spi->dev.of_node, "clock-output-names",
 			&clk_name);
 
+		ret = of_clk_get_scale(spi->dev.of_node, NULL, &clk_priv->scale);
+
+		if (ret < 0) {
+			clk_priv->scale.mult = 1;
+			clk_priv->scale.div = (1 << pdata->clock_shift);
+		}
+
 		init.name = clk_name;
 		init.ops = &clkout_ops;
 		init.flags = 0;
 
-		parent_name = of_clk_get_parent_name(spi->dev.of_node, 0);
+		parent_name = __clk_get_name(clk);
 		init.parent_names = &parent_name;
 		init.num_parents = 1;
 
