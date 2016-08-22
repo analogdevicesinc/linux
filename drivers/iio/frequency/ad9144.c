@@ -284,7 +284,7 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 	return 0;
 }
 
-static unsigned long ad9144_get_data_clk(struct cf_axi_converter *conv)
+static unsigned long long ad9144_get_data_clk(struct cf_axi_converter *conv)
 {
 	return clk_get_rate(conv->clk[CLK_DAC]);
 }
