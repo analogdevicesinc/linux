@@ -248,7 +248,7 @@ static int cf_axi_dds_rate_change(struct notifier_block *nb,
 			reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i));
 			reg &= ~ADI_DDS_INCR(~0);
 			val64 = (u64) st->cached_freq[i] * 0xFFFFULL;
-			do_div(val64, st->dac_clk);
+			val64 = div64_u64(val64, st->dac_clk);
 			reg |= ADI_DDS_INCR(val64) | 1;
 			dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i), reg);
 		}
@@ -287,7 +287,7 @@ static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
 	st->cached_freq[chan] = freq;
 
 	val64 = (u64) freq * 0xFFFFULL;
-	do_div(val64, st->dac_clk);
+	val64 = div64_u64(val64, st->dac_clk);
 	val = ADI_DDS_INCR(val64) | 1;
 
 	val64 = (u64) phase * 0x10000ULL + (360000 / 2);
@@ -494,7 +494,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		reg &= ~ADI_DDS_INCR(~0);
 		val64 = (u64) val * 0xFFFFULL;
-		do_div(val64, st->dac_clk);
+		val64 = div64_u64(val64, st->dac_clk);
 		reg |= ADI_DDS_INCR(val64) | 1;
 		dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel), reg);
 
@@ -843,6 +843,19 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_dds_channels = 4,
 		.num_buf_channels = 2,
 	},
+	[ID_AD9162] = {
+		.name = "AD9162",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF(0),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+		},
+		.num_channels = 3,
+		.num_dds_channels = 2,
+		.num_buf_channels = 1,
+
+	},
+
 };
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
@@ -1078,6 +1091,13 @@ static const struct axidds_core_info ad9371_6_00_a_info = {
 	.chip_info = &cf_axi_dds_chip_info_ad9371,
 };
 
+static const struct axidds_core_info ad9162_1_00_a_info = {
+	.version = PCORE_VERSION(8, 0, 'a'),
+	.has_fifo_interface = true,
+	.rate = 1,
+};
+
+
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", },
@@ -1103,6 +1123,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9371-tx-1.0",
 	    .data = &ad9371_6_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9162-1.0",
+	    .data = &ad9162_1_00_a_info,
 	},
 	{ },
 };

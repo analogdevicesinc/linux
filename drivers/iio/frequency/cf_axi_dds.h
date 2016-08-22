@@ -10,6 +10,7 @@
 #define ADI_AXI_DDS_H_
 
 #include <linux/spi/spi.h>
+#include <linux/clk/clkscale.h>
 
 #define ADI_REG_VERSION		0x0000				/*Version and Scratch Registers */
 #define ADI_VERSION(x)		(((x) & 0xffffffff) << 0)	/* RO, Version number. */
@@ -183,6 +184,7 @@ enum {
 	ID_AD9739A,
 	ID_AD9144,
 	ID_AD9152,
+	ID_AD9162,
 };
 
 struct cf_axi_dds_chip_info {
@@ -212,7 +214,7 @@ struct cf_axi_dds_state {
 	void __iomem		*regs;
 	void __iomem		*slave_regs;
 	void __iomem		*master_regs;
-	u32			dac_clk;
+	u64			dac_clk;
 	unsigned 		ddr_dds_interp_en;
 	unsigned			cached_freq[8];
 	unsigned			version;
@@ -230,6 +232,7 @@ enum {
 struct cf_axi_converter {
 	struct spi_device 	*spi;
 	struct clk 	*clk[CLK_NUM];
+	struct clock_scale	clkscale[CLK_NUM];
 	void		*phy;
 	struct gpio_desc			*pwrdown_gpio;
 	struct gpio_desc			*reset_gpio;
@@ -246,7 +249,7 @@ struct cf_axi_converter {
 				 unsigned reg, unsigned val);
 	int		(*setup)(struct cf_axi_converter *conv);
 	int		(*get_fifo_status)(struct cf_axi_converter *conv);
-	unsigned long	(*get_data_clk)(struct cf_axi_converter *conv);
+	unsigned long long	(*get_data_clk)(struct cf_axi_converter *conv);
 
 	int (*read_raw)(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan,
