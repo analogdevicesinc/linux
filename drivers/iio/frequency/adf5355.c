@@ -118,12 +118,29 @@
 /* Specifications */
 #define ADF5355_MIN_VCO_FREQ		3400000000ULL /* Hz */
 #define ADF5355_MAX_VCO_FREQ		6800000000ULL /* Hz */
-
-#define ADF4355_MAX_OUT_FREQ		4400000000ULL /* Hz */
 #define ADF5355_MAX_OUT_FREQ		ADF5355_MAX_VCO_FREQ /* Hz */
 #define ADF5355_MIN_OUT_FREQ		(ADF5355_MIN_VCO_FREQ / 64) /* Hz */
 #define ADF5355_MAX_OUTB_FREQ		(ADF5355_MAX_VCO_FREQ * 2) /* Hz */
 #define ADF5355_MIN_OUTB_FREQ		(ADF5355_MIN_VCO_FREQ * 2) /* Hz */
+
+
+#define ADF4355_MIN_VCO_FREQ		3400000000ULL /* Hz */
+#define ADF4355_MAX_VCO_FREQ		6800000000ULL /* Hz */
+#define ADF4355_MAX_OUT_FREQ		ADF4355_MAX_VCO_FREQ /* Hz */
+#define ADF4355_MIN_OUT_FREQ		(ADF4355_MIN_VCO_FREQ / 64) /* Hz */
+
+
+#define ADF4355_3_MIN_VCO_FREQ		3300000000ULL /* Hz */
+#define ADF4355_3_MAX_VCO_FREQ		6600000000ULL /* Hz */
+#define ADF4355_3_MAX_OUT_FREQ		ADF4355_3_MAX_VCO_FREQ /* Hz */
+#define ADF4355_3_MIN_OUT_FREQ		(ADF4355_3_MIN_VCO_FREQ / 64) /* Hz */
+
+
+#define ADF4355_2_MIN_VCO_FREQ		3400000000ULL /* Hz */
+#define ADF4355_2_MAX_VCO_FREQ		6800000000ULL /* Hz */
+#define ADF4355_2_MAX_OUT_FREQ		4400000000ULL /* Hz */
+#define ADF4355_2_MIN_OUT_FREQ		(ADF4355_2_MIN_VCO_FREQ / 64) /* Hz */
+
 
 #define ADF5355_MAX_FREQ_PFD		125000000UL /* Hz */
 #define ADF5355_MAX_FREQ_REFIN		600000000UL /* Hz */
@@ -157,6 +174,13 @@ enum {
 	ADF5355_PWRDOWN,
 };
 
+enum {
+	ADF5355,
+	ADF4355,
+	ADF4355_2,
+	ADF4355_3,
+};
+
 struct adf5355_state {
 	struct spi_device	*spi;
 	struct regulator		*reg;
@@ -165,6 +189,7 @@ struct adf5355_state {
 	unsigned long long	freq_req;
 	unsigned long		clkin;
 	unsigned long		fpfd; /* Phase Frequency Detector */
+	unsigned long long	min_vco_freq;
 	unsigned long long	min_out_freq;
 	unsigned long long	max_out_freq;
 	u32			freq_req_chan;
@@ -404,12 +429,12 @@ static int adf5355_set_freq(struct adf5355_state *st, unsigned long long freq,
 	u32 cp_bleed;
 
 	if (channel == 0) {
-		if ((freq > st->max_out_freq) || (freq < ADF5355_MIN_OUT_FREQ))
+		if ((freq > st->max_out_freq) || (freq < st->min_out_freq))
 			return -EINVAL;
 
 		st->rf_div_sel = 0;
 
-		while (freq < ADF5355_MIN_VCO_FREQ) {
+		while (freq < st->min_vco_freq) {
 			freq <<= 1;
 			st->rf_div_sel++;
 		}
@@ -823,6 +848,34 @@ static int adf5355_probe(struct spi_device *spi)
 	st->clk = clk;
 
 	st->is_5355 = (spi_get_device_id(spi)->driver_data == 5355);
+
+	switch (spi_get_device_id(spi)->driver_data) {
+	case ADF5355:
+		st->is_5355 = true;
+		st->max_out_freq = ADF5355_MAX_OUT_FREQ;
+		st->min_out_freq = ADF5355_MIN_OUT_FREQ;
+		st->min_vco_freq = ADF5355_MIN_VCO_FREQ;
+		break;
+	case ADF4355:
+		st->is_5355 = false;
+		st->max_out_freq = ADF4355_MAX_OUT_FREQ;
+		st->min_out_freq = ADF4355_MIN_OUT_FREQ;
+		st->min_vco_freq = ADF4355_MIN_VCO_FREQ;
+		break;
+	case ADF4355_2:
+		st->is_5355 = false;
+		st->max_out_freq = ADF4355_2_MAX_OUT_FREQ;
+		st->min_out_freq = ADF4355_2_MIN_OUT_FREQ;
+		st->min_vco_freq = ADF4355_2_MIN_VCO_FREQ;
+		break;
+	case ADF4355_3:
+		st->is_5355 = false;
+		st->max_out_freq = ADF4355_3_MAX_OUT_FREQ;
+		st->min_out_freq = ADF4355_3_MIN_OUT_FREQ;
+		st->min_vco_freq = ADF4355_3_MIN_VCO_FREQ;
+		break;
+	}
+
 	st->max_out_freq = st->is_5355 ? ADF5355_MAX_OUT_FREQ : ADF4355_MAX_OUT_FREQ;
 
 	indio_dev->dev.parent = &spi->dev;
@@ -933,10 +986,12 @@ static int adf5355_remove(struct spi_device *spi)
 	return 0;
 }
 
+
 static const struct spi_device_id adf5355_id[] = {
-	{"adf5355", 5355},
-	{"adf4355-2", 4355},
-	{"adf4355-3", 4355},
+	{"adf5355", ADF5355},
+	{"adf4355", ADF4355},
+	{"adf4355-2", ADF4355_2},
+	{"adf4355-3", ADF4355_3},
 	{}
 };
 
