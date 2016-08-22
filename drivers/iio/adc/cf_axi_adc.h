@@ -339,6 +339,7 @@ enum adc_data_sel {
 #define AXIADC_MAX_CHANNEL		16
 
 #include <linux/spi/spi.h>
+#include <linux/clk/clkscale.h>
 
 enum {
 	ID_AD9467,
@@ -381,7 +382,7 @@ struct axiadc_state {
 	unsigned			pcore_version;
 	bool				has_fifo_interface;
 	bool			dp_disable;
-	unsigned long 		adc_clk;
+	unsigned long long		adc_clk;
 	bool				streaming_dma;
 	unsigned			have_slave_channels;
 
@@ -393,6 +394,7 @@ struct axiadc_state {
 struct axiadc_converter {
 	struct spi_device 	*spi;
 	struct clk 		*clk;
+	struct clock_scale		adc_clkscale;
 	void 			*phy;
 	struct gpio_desc		*pwrdown_gpio;
 	struct gpio_desc		*reset_gpio;

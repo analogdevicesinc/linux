@@ -918,8 +918,25 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 static int ad9625_setup(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	struct clk *clk;
 	unsigned pll_stat;
 	int ret;
+
+	clk = devm_clk_get(&spi->dev, "adc_sysref");
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+	}
+
+	clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+		of_clk_get_scale(spi->dev.of_node, "adc_clk", &conv->adc_clkscale);
+		conv->adc_clk = clk_get_rate_scaled(clk, &conv->adc_clkscale);
+	}
 
 	ret = ad9467_spi_write(spi, 0x000, 0x24);
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
@@ -944,6 +961,8 @@ static int ad9625_setup(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
+
+	conv->clk = clk;
 	mdelay(10);
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
@@ -1121,7 +1140,7 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 		if (!conv->clk)
 			return -ENODEV;
 
-		*val = conv->adc_clk = clk_get_rate(conv->clk);
+		*val = conv->adc_clk = clk_get_rate_scaled(conv->clk, &conv->adc_clkscale);
 
 		return IIO_VAL_INT;
 
@@ -1282,6 +1301,9 @@ static int ad9467_probe(struct spi_device *spi)
 		clk_enabled = 1;
 		conv->adc_clk = clk_get_rate(clk);
 	}
+
+	conv->adc_clkscale.mult = 1;
+	conv->adc_clkscale.div = 1;
 
 	spi_set_drvdata(spi, conv);
 	conv->clk = clk;
