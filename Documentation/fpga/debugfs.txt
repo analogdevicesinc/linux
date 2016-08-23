@@ -1,0 +1,33 @@
+FPGA Manager DebugFS interface for FPGA reprogramming.
+
+Alan Tull 2016
+
+Each FPGA gets its own directory such as <debugfs>/fpga_manager/fpga0 and
+three files:
+
+ - [RW] flags:          flags as defined in fpga-mgr.h.  For example:
+
+   $ echo 1 > /sys/kernel/debug/fpga_manager/fpga0/flags
+
+ - [RW] firmware_name:  Name of an FPGA image firmware file.  Writing initiates
+                        a complete FPGA programming cycle.  Note that the image
+                        file must be in a directory on the firmware search path
+                        such as /lib/firmware.
+
+   $ echo image.rbf > /sys/kernel/debug/fpga_manager/fpga0/firmware_name
+
+ - [WO] image:          Raw FPGA image data.  Writing the FPGA image data will
+                        initiate a complete FPGA programming cycle.  Data must
+                        be written in one chunk, for example:
+
+   $ dd bs=10M if=./image.rbf of=/sys/kernel/debug/fpga_manager/fpga0/image
+    (where image.rbf < 10M)
+
+To program the FPGA, write the flags (if needed), then use either the
+firmware_name or image file to program.
+
+This interface does not handle bridges or loading/unloading of soft IP device
+drivers.  This makes it really easy to mess things up by doing things like
+reprogramming the hardware out from under a driver or reprogramming while a
+bridge is enabled, causing gunk to go out on a cpu bus.  It should go without
+saying that this interface is for debug only.  Not intended for production use.
