@@ -90,12 +90,15 @@ struct xcvr_state {
 	void __iomem		*xcvr_reconfig_avmm_regs;
 	void __iomem		*xcvr_atx_pll_regs;
 	bool				ext_sysref_en;
-	bool				tx_en;
-	u32					tx_link_num;
-	u32					tx_lanes_per_link;
+	u32					delay_work_func;
 	bool				rx_en;
+	bool				rx_cfg_avmm_en;
 	u32					rx_link_num;
 	u32					rx_lanes_per_link;
+	bool				tx_en;
+	bool				tx_cfg_avmm_en;
+	u32					tx_link_num;
+	u32					tx_lanes_per_link;
 	struct delayed_work	delayed_work;
 };
 
@@ -452,9 +455,11 @@ static void altera_xcvr_work_func(struct work_struct *work)
 					(st->ext_sysref_en ? XCVR_RX_SYSREF_SEL : XCVR_RX_SYSREF));
 		mdelay(500);
 
-		if (xcvr_calib_rx(st)) {
-			dev_err(st->dev, "RX calib error\n");
-			err = 1;
+		if (st->rx_cfg_avmm_en) {
+			if (xcvr_calib_rx(st)) {
+				dev_err(st->dev, "RX calib error\n");
+				err = 1;
+			}
 		}
 
 		status = jesd_xcvr_read(st, XCVR_REG_RX_STATUS);
@@ -479,9 +484,11 @@ static void altera_xcvr_work_func(struct work_struct *work)
 					(st->ext_sysref_en ? XCVR_TX_SYSREF_SEL : XCVR_TX_SYSREF));
 		mdelay(500);
 
-		if (xcvr_calib_tx(st)) {
-			dev_err(st->dev, "TX calib error\n");
-			err = 1;
+		if (st->tx_cfg_avmm_en) {
+			if (xcvr_calib_tx(st)) {
+				dev_err(st->dev, "TX calib error\n");
+				err = 1;
+			}
 		}
 
 		status = jesd_xcvr_read(st, XCVR_REG_TX_STATUS);
@@ -493,7 +500,7 @@ static void altera_xcvr_work_func(struct work_struct *work)
 	}
 
 	if (err)
-		schedule_delayed_work(&st->delayed_work, HZ * 1);
+		schedule_delayed_work(&st->delayed_work, HZ * st->delay_work_func);
 }
 
 static int altera_xcvr_probe(struct platform_device *pdev)
@@ -511,23 +518,26 @@ static int altera_xcvr_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	st->ext_sysref_en = of_property_read_bool(np, "adi,external-sysref-enable");
-	st->rx_en = of_property_read_bool(np, "adi,rx-enable");
-	st->tx_en = of_property_read_bool(np, "adi,tx-enable");
-
 	mem_jesd_xcvr = platform_get_resource_byname(pdev, IORESOURCE_MEM, "jesd-xcvr");
 	st->jesd_xcvr_regs = devm_ioremap_resource(&pdev->dev, mem_jesd_xcvr);
 	if (IS_ERR(st->jesd_xcvr_regs))
 		return PTR_ERR(st->jesd_xcvr_regs);
 
-	mem_xcvr_reconfig_avmm = platform_get_resource_byname(pdev, IORESOURCE_MEM, "xcvr-reconfig-avmm");
-	st->xcvr_reconfig_avmm_regs = devm_ioremap_resource(&pdev->dev, mem_xcvr_reconfig_avmm);
-	if (IS_ERR(st->xcvr_reconfig_avmm_regs))
-		return PTR_ERR(st->xcvr_reconfig_avmm_regs);
+	st->ext_sysref_en = of_property_read_bool(np, "adi,external-sysref-enable");
+	st->rx_en = of_property_read_bool(np, "adi,rx-enable");
+	st->tx_en = of_property_read_bool(np, "adi,tx-enable");
+	of_property_read_u32(np, "adi,delay-work-function-seconds", &st->delay_work_func);
+
+	if (st->rx_en) {
+		of_property_read_u32(np, "adi,rx-link-number", &st->rx_link_num);
+		of_property_read_u32(np, "adi,rx-lanes-per-link", &st->rx_lanes_per_link);
+		st->rx_cfg_avmm_en = of_property_read_bool(np, "adi,rx-reconfig-avmm-enable");
+	}
 
 	if (st->tx_en) {
 		of_property_read_u32(np, "adi,tx-link-number", &st->tx_link_num);
 		of_property_read_u32(np, "adi,tx-lanes-per-link", &st->tx_lanes_per_link);
+		st->tx_cfg_avmm_en = of_property_read_bool(np, "adi,tx-reconfig-avmm-enable");
 		mem_xcvr_atx_pll = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 														"xcvr-atx-pll");
 		st->xcvr_atx_pll_regs = devm_ioremap_resource(&pdev->dev, mem_xcvr_atx_pll);
@@ -535,9 +545,11 @@ static int altera_xcvr_probe(struct platform_device *pdev)
 			return PTR_ERR(st->xcvr_atx_pll_regs);
 	}
 
-	if (st->rx_en) {
-		of_property_read_u32(np, "adi,rx-link-number", &st->rx_link_num);
-		of_property_read_u32(np, "adi,rx-lanes-per-link", &st->rx_lanes_per_link);
+	if (st->rx_cfg_avmm_en || st->tx_cfg_avmm_en) {
+		mem_xcvr_reconfig_avmm = platform_get_resource_byname(pdev, IORESOURCE_MEM, "xcvr-reconfig-avmm");
+		st->xcvr_reconfig_avmm_regs = devm_ioremap_resource(&pdev->dev, mem_xcvr_reconfig_avmm);
+		if (IS_ERR(st->xcvr_reconfig_avmm_regs))
+			return PTR_ERR(st->xcvr_reconfig_avmm_regs);
 	}
 
 	st->dev = &pdev->dev;
@@ -565,7 +577,7 @@ static int altera_xcvr_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&st->delayed_work, altera_xcvr_work_func);
-	schedule_delayed_work(&st->delayed_work, HZ * 5);
+	schedule_delayed_work(&st->delayed_work, HZ * st->delay_work_func);
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &altera_xcvr_sysfs_group);
 	if (ret)
