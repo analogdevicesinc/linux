@@ -500,7 +500,7 @@ static void altera_xcvr_work_func(struct work_struct *work)
 	}
 
 	if (err)
-		schedule_delayed_work(&st->delayed_work, HZ * st->delay_work_func);
+		schedule_delayed_work(&st->delayed_work, HZ * 3);
 }
 
 static int altera_xcvr_probe(struct platform_device *pdev)
