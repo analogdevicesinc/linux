@@ -74,7 +74,6 @@ static int mwadma_allocate_desc(struct mwadma_slist **new, struct mwadma_chan *m
 {
     struct scatterlist *this_sg;
     struct mwadma_slist * tmp;
-    void *sg_buff;
     int ret, i = 0;
     size_t ring_bytes;
 
@@ -102,14 +101,23 @@ static int mwadma_allocate_desc(struct mwadma_slist **new, struct mwadma_chan *m
         tmp->buffer_index = idx;
     }
 
-
     for_each_sg(tmp->sg_t->sgl, this_sg, mwchan->sg_entries, i)
     {
-        sg_buff = &(tmp->buf[(mwchan->bd_bytes)*i]);
-        if (ring_bytes > mwchan->bd_bytes) {
-            sg_set_buf(this_sg,sg_buff,mwchan->bd_bytes);
+        struct page *page;
+        void *vaddr;
+
+        vaddr = &(tmp->buf[(mwchan->bd_bytes)*i]);
+        if (!virt_addr_valid(vaddr)) {
+            page = vmalloc_to_page(vaddr);
+            pr_debug("Using vmalloc_to_page\n");
         } else {
-            sg_set_buf(this_sg,sg_buff,ring_bytes);
+            page = virt_to_page(vaddr);
+            pr_debug("Using virt_to_page\n");
+        }
+        if (ring_bytes > mwchan->bd_bytes) {
+            sg_set_page(this_sg,page,mwchan->bd_bytes,offset_in_page(vaddr));
+        } else {
+            sg_set_page(this_sg,page,ring_bytes,offset_in_page(vaddr));
         }
         ring_bytes -= mwchan->bd_bytes;
         if (ring_bytes < 0) {
