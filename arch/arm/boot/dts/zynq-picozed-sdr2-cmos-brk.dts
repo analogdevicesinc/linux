@@ -2,14 +2,9 @@
 
 &adc0_ad9361 {
 	/* Enable CMOS Mode */
+	adi,swap-ports-enable;
 	/delete-property/ adi,lvds-mode-enable;
 	/delete-property/ adi,lvds-rx-onchip-termination-enable;
 	adi,full-port-enable;
 	adi,digital-interface-tune-fir-disable;
-
-	/* Temporary workaround - HDL issue? need to investigate further */
-	adi,digital-interface-tune-skip-mode = <1>; /* SKIP TX */
-	adi,tx-fb-clock-delay = <0>;
-	adi,tx-data-delay = <9>;
-
 };
