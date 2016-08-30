@@ -531,7 +531,7 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 		code = (AD9528_CLK_DIST_DIV_PHASE_REV(ret) * 3141592) /
 			AD9528_CLK_DIST_DIV_REV(ret);
 		*val = code / 1000000;
-		*val2 = (code % 1000000) * 10;
+		*val2 = code % 1000000;
 		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		return -EINVAL;
