@@ -34,7 +34,7 @@
 
 		ad9523_0_c1:channel@1 {
 			reg = <1>;
-			adi,extended-name = "ADC_CLK";
+			adi,extended-name = "DAC_CLK";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <1>;
@@ -96,7 +96,7 @@
 
 		ad9523_0_c13:channel@13 {
 			reg = <13>;
-			adi,extended-name = "DAC_CLK";
+			adi,extended-name = "ADC_CLK";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <1>;
