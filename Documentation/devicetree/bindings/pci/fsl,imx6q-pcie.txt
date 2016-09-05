@@ -16,6 +16,7 @@ Required properties:
 	- "msi": The interrupt that is asserted when an MSI is received
 - clock-names: Must include the following additional entries:
 	- "pcie_phy"
+- ext_osc: use the external oscillator or not.
 
 Optional properties:
 - fsl,tx-deemph-gen1: Gen1 De-emphasis value. Default: 0
