@@ -836,6 +836,10 @@
 				interrupts = <0 99 IRQ_TYPE_LEVEL_HIGH>,
 					     <0 100 IRQ_TYPE_LEVEL_HIGH>,
 					     <0 101 IRQ_TYPE_LEVEL_HIGH>;
+				/* DCP clock always on */
+				clocks = <&clks IMX6SL_CLK_DUMMY>;
+				clock-names = "dcp";
+				status = "okay";
 			};
 		};
 
