@@ -40,10 +40,6 @@
 #define MMCM_REG_FILTER1	0x4e
 #define MMCM_REG_FILTER2	0x4f
 
-#define MMCM_CLKOUT_NOCOUNT	BIT(6)
-
-#define MMCM_CLK_DIV_NOCOUNT	BIT(12)
-
 struct axi_clkgen {
 	void __iomem *base;
 	struct clk_hw clk_hw;
@@ -320,7 +316,7 @@ static unsigned long axi_clkgen_recalc_rate(struct clk_hw *clk_hw,
 	unsigned long long tmp;
 
 	axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLKOUT0_2, &reg);
-	if (reg & MMCM_CLKOUT_NOCOUNT) {
+	if (reg & BIT(6)) {
 		dout = 1;
 	} else {
 		axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLKOUT0_1, &reg);
@@ -328,13 +324,13 @@ static unsigned long axi_clkgen_recalc_rate(struct clk_hw *clk_hw,
 	}
 
 	axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLK_DIV, &reg);
-	if (reg & MMCM_CLK_DIV_NOCOUNT)
+	if (reg & BIT(12))
 		d = 1;
 	else
 		d = (reg & 0x3f) + ((reg >> 6) & 0x3f);
 
 	axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLK_FB2, &reg);
-	if (reg & MMCM_CLKOUT_NOCOUNT) {
+	if (reg & BIT(6)) {
 		m = 1;
 	} else {
 		axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLK_FB1, &reg);
