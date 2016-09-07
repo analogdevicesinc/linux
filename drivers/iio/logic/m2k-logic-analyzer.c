@@ -123,7 +123,7 @@ static int m2k_la_txrx_read_raw(struct iio_dev *indio_dev,
 
 	div = m2k_la_read(m2k_la, reg) + 1;
 
-	*val = DIV_ROUND_CLOSEST(clk_get_rate(m2k_la->clk), div);
+	*val = DIV_ROUND_CLOSEST(clk_get_rate(m2k_la->clk), div*10) * 10;
 
 	return IIO_VAL_INT;
 }
