@@ -316,36 +316,25 @@ static unsigned long axi_clkgen_recalc_rate(struct clk_hw *clk_hw,
 {
 	struct axi_clkgen *axi_clkgen = clk_hw_to_axi_clkgen(clk_hw);
 	unsigned int d, m, dout;
-	unsigned int reg;
 	unsigned long long tmp;
+	unsigned int val;
 
-	axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLKOUT0_2, &reg);
-	if (reg & MMCM_CLKOUT_NOCOUNT) {
-		dout = 1;
-	} else {
-		axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLKOUT0_1, &reg);
-		dout = (reg & 0x3f) + ((reg >> 6) & 0x3f);
-	}
+	dout = axi_clkgen_get_div(axi_clkgen, MMCM_REG_CLKOUT0_1,
+		MMCM_REG_CLKOUT0_2);
+	m = axi_clkgen_get_div(axi_clkgen, MMCM_REG_CLK_FB1,
+		MMCM_REG_CLK_FB2);
 
-	axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLK_DIV, &reg);
-	if (reg & MMCM_CLK_DIV_NOCOUNT)
+	axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLK_DIV, &val);
+	if (val & BIT(12))
 		d = 1;
 	else
-		d = (reg & 0x3f) + ((reg >> 6) & 0x3f);
-
-	axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLK_FB2, &reg);
-	if (reg & MMCM_CLKOUT_NOCOUNT) {
-		m = 1;
-	} else {
-		axi_clkgen_mmcm_read(axi_clkgen, MMCM_REG_CLK_FB1, &reg);
-		m = (reg & 0x3f) + ((reg >> 6) & 0x3f);
-	}
+		d = (val & 0x3f) + ((val >> 6) & 0x3f);
 
 	if (d == 0 || dout == 0)
 		return 0;
 
-	tmp = (unsigned long long)(parent_rate / d) * m;
-	do_div(tmp, dout);
+	tmp = (unsigned long long)parent_rate * m;
+	tmp = DIV_ROUND_CLOSEST_ULL(tmp, dout * d);
 
 	return min_t(unsigned long long, tmp, ULONG_MAX);
 }
