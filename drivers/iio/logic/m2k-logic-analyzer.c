@@ -502,6 +502,28 @@ static const struct iio_info m2k_la_txrx_iio_info = {
 	.write_raw = m2k_la_txrx_write_raw,
 };
 
+static int m2k_la_tx_preenable(struct iio_dev *indio_dev)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	uint32_t mask = *indio_dev->buffer->channel_mask;
+
+	m2k_la_write(m2k_la, M2K_LA_REG_GPO_EN, ~mask);
+	return 0;
+}
+
+static int m2k_la_tx_postdisable(struct iio_dev *indio_dev)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+
+	m2k_la_write(m2k_la, M2K_LA_REG_GPO_EN, 0xffff);
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops m2k_la_tx_setup_ops = {
+	.preenable = m2k_la_tx_preenable,
+	.postdisable = m2k_la_tx_postdisable,
+};
+
 static int m2k_la_probe(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev, *indio_dev_tx, *indio_dev_rx;
@@ -565,6 +587,7 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_tx->channels = m2k_la_tx_chan_spec,
 	indio_dev_tx->num_channels = ARRAY_SIZE(m2k_la_tx_chan_spec);
 	indio_dev_tx->direction = IIO_DEVICE_DIRECTION_OUT;
+	indio_dev_tx->setup_ops = &m2k_la_tx_setup_ops;
 
 	buffer_tx = iio_dmaengine_buffer_alloc(&pdev->dev, "tx",
 			&m2k_la_dma_buffer_ops, indio_dev_tx);
