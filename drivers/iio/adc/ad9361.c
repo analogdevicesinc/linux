@@ -4365,6 +4365,33 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 	return 0;
 }
 
+static int ad9361_rssi_write_err_tbl(struct ad9361_rf_phy *phy)
+{
+	u8 i;
+
+	ad9361_spi_write(phy->spi,
+			REG_CONFIG, CALIB_TABLE_SELECT(0x3) | START_CALIB_TABLE_CLOCK);
+	for(i = 0; i < 4; i++) {
+		ad9361_spi_write(phy->spi, REG_WORD_ADDRESS, i);
+		ad9361_spi_write(phy->spi, REG_GAIN_DIFF_WORDERROR_WRITE,
+						 phy->pdata->rssi_lna_err_tbl[i]);
+		ad9361_spi_write(phy->spi, REG_CONFIG,
+			CALIB_TABLE_SELECT(0x3) | WRITE_LNA_ERROR_TABLE | START_CALIB_TABLE_CLOCK);
+	}
+	ad9361_spi_write(phy->spi, REG_CONFIG,
+			CALIB_TABLE_SELECT(0x3) | START_CALIB_TABLE_CLOCK);
+	for(i = 0; i < 15; i++) {
+		ad9361_spi_write(phy->spi, REG_WORD_ADDRESS, i);
+		ad9361_spi_write(phy->spi, REG_GAIN_DIFF_WORDERROR_WRITE,
+						 phy->pdata->rssi_mixer_err_tbl[i]);
+		ad9361_spi_write(phy->spi, REG_CONFIG,
+			CALIB_TABLE_SELECT(0x3) | WRITE_MIXER_ERROR_TABLE | START_CALIB_TABLE_CLOCK);
+	}
+	ad9361_spi_write(phy->spi, REG_CONFIG, 0x00);
+
+	return 0;
+}
+
 static int ad9361_rssi_gain_step_calib(struct ad9361_rf_phy *phy)
 {
 	/*
@@ -4372,8 +4399,6 @@ static int ad9361_rssi_gain_step_calib(struct ad9361_rf_phy *phy)
  	 * bandwidth and monitor the received data. Adjust the tone amplitude until
 	 * the received data is within a few dB of full scale but not overloading.
 	 */
-	u32 lna_error[4];
-	u32 mixer_error[15];
 	u64 lo_freq_hz;
 	u8  lo_index;
 	u8  i;
@@ -4430,33 +4455,19 @@ static int ad9361_rssi_gain_step_calib(struct ad9361_rf_phy *phy)
 	ad9361_spi_write(phy->spi, REG_CONFIG, CALIB_TABLE_SELECT(0x1) | READ_SELECT);
 	for(i = 0; i < 4; i++) {
 		ad9361_spi_write(phy->spi, REG_WORD_ADDRESS, i);
-		lna_error[i] = ad9361_spi_read(phy->spi, REG_GAIN_ERROR_READ);
+		phy->pdata->rssi_lna_err_tbl[i] =
+			ad9361_spi_read(phy->spi, REG_GAIN_ERROR_READ);
 	}
 	ad9361_spi_write(phy->spi, REG_CONFIG, CALIB_TABLE_SELECT(0x1));
 	for(i = 0; i < 15; i++) {
 		ad9361_spi_write(phy->spi, REG_WORD_ADDRESS, i);
-		mixer_error[i] = ad9361_spi_read(phy->spi, REG_GAIN_ERROR_READ);
+		phy->pdata->rssi_mixer_err_tbl[i] =
+			ad9361_spi_read(phy->spi, REG_GAIN_ERROR_READ);
 	}
 	ad9361_spi_write(phy->spi, REG_CONFIG, 0x00);
 
 	/* Programming gain step errors into the AD9361 in the field */
-	ad9361_spi_write(phy->spi,
-			REG_CONFIG, CALIB_TABLE_SELECT(0x3) | START_CALIB_TABLE_CLOCK);
-	for(i = 0; i < 4; i++) {
-		ad9361_spi_write(phy->spi, REG_WORD_ADDRESS, i);
-		ad9361_spi_write(phy->spi, REG_GAIN_DIFF_WORDERROR_WRITE, lna_error[i]);
-		ad9361_spi_write(phy->spi, REG_CONFIG,
-			CALIB_TABLE_SELECT(0x3) | WRITE_LNA_ERROR_TABLE | START_CALIB_TABLE_CLOCK);
-	}
-	ad9361_spi_write(phy->spi, REG_CONFIG,
-			CALIB_TABLE_SELECT(0x3) | START_CALIB_TABLE_CLOCK);
-	for(i = 0; i < 15; i++) {
-		ad9361_spi_write(phy->spi, REG_WORD_ADDRESS, i);
-		ad9361_spi_write(phy->spi, REG_GAIN_DIFF_WORDERROR_WRITE, mixer_error[i]);
-		ad9361_spi_write(phy->spi, REG_CONFIG,
-			CALIB_TABLE_SELECT(0x3) | WRITE_MIXER_ERROR_TABLE | START_CALIB_TABLE_CLOCK);
-	}
-	ad9361_spi_write(phy->spi, REG_CONFIG, 0x00);
+	ad9361_rssi_write_err_tbl(phy);
 
 	ad9361_ensm_restore_prev_state(phy);
 
@@ -4794,6 +4805,12 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 
 	phy->auto_cal_en = true;
 	phy->cal_threshold_freq = 100000000ULL; /* 100 MHz */
+
+	if (!pd->rssi_skip_err_tbl) {
+		ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
+		ad9361_rssi_write_err_tbl(phy);
+		ad9361_ensm_restore_prev_state(phy);
+	}
 
 	return 0;
 
@@ -6268,6 +6285,7 @@ enum ad9361_iio_dev_attr {
 	AD9361_ENSM_MODE_AVAIL,
 	AD9361_CALIB_MODE,
 	AD9361_CALIB_MODE_AVAIL,
+	AD9361_RSSI_GAIN_STEP_ERROR,
 	AD9361_RX_PATH_FREQ,
 	AD9361_TX_PATH_FREQ,
 	AD9361_TRX_RATE_GOV,
@@ -6572,6 +6590,20 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		else
 			ret = sprintf(buf, "%s\n", phy->auto_cal_en ? "auto" : "manual");
 		break;
+	case AD9361_RSSI_GAIN_STEP_ERROR:
+		ret = sprintf(buf, "lna_error: %d %d %d %d\n"
+			"mixer_error: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
+			phy->pdata->rssi_lna_err_tbl[0], phy->pdata->rssi_lna_err_tbl[1],
+			phy->pdata->rssi_lna_err_tbl[2], phy->pdata->rssi_lna_err_tbl[3],
+			phy->pdata->rssi_mixer_err_tbl[0], phy->pdata->rssi_mixer_err_tbl[1],
+			phy->pdata->rssi_mixer_err_tbl[2], phy->pdata->rssi_mixer_err_tbl[3],
+			phy->pdata->rssi_mixer_err_tbl[4], phy->pdata->rssi_mixer_err_tbl[5],
+			phy->pdata->rssi_mixer_err_tbl[6], phy->pdata->rssi_mixer_err_tbl[7],
+			phy->pdata->rssi_mixer_err_tbl[8], phy->pdata->rssi_mixer_err_tbl[9],
+			phy->pdata->rssi_mixer_err_tbl[10], phy->pdata->rssi_mixer_err_tbl[11],
+			phy->pdata->rssi_mixer_err_tbl[12], phy->pdata->rssi_mixer_err_tbl[13],
+			phy->pdata->rssi_mixer_err_tbl[14]);
+		break;
 	case AD9361_BBDC_OFFS_ENABLE:
 		ret = sprintf(buf, "%d\n", phy->bbdc_track_en);
 		break;
@@ -6630,6 +6662,11 @@ static IIO_DEVICE_ATTR(calib_mode_available, S_IRUGO,
 			ad9361_phy_show,
 			NULL,
 			AD9361_CALIB_MODE_AVAIL);
+
+static IIO_DEVICE_ATTR(rssi_gain_step_error, S_IRUGO,
+			ad9361_phy_show,
+			NULL,
+			AD9361_RSSI_GAIN_STEP_ERROR);
 
 static IIO_DEVICE_ATTR(rx_path_rates, S_IRUGO,
 			ad9361_phy_show,
@@ -6706,6 +6743,7 @@ static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
 	&iio_dev_attr_calib_mode.dev_attr.attr,
 	&iio_dev_attr_calib_mode_available.dev_attr.attr,
+	&iio_dev_attr_rssi_gain_step_error.dev_attr.attr,
 	&iio_dev_attr_tx_path_rates.dev_attr.attr,
 	&iio_dev_attr_rx_path_rates.dev_attr.attr,
 	&iio_dev_attr_trx_rate_governor.dev_attr.attr,
@@ -8088,6 +8126,17 @@ static struct ad9361_phy_platform_data
 			  &pdata->rssi_ctrl.rssi_wait);
 	ad9361_of_get_u32(iodev, np, "adi,rssi-duration", 1000,
 			  &pdata->rssi_ctrl.rssi_duration);
+
+	/* RSSI Gain Step Error Tables */
+
+	ret = of_property_read_u32_array(np, "adi,rssi-gain-step-lna-error-table",
+			      pdata->rssi_lna_err_tbl, 4);
+	ret |= of_property_read_u32_array(np, "adi,rssi-gain-step-mixer-error-table",
+			      pdata->rssi_mixer_err_tbl, 15);
+	if (ret)
+		pdata->rssi_skip_err_tbl = true;
+	else
+		pdata->rssi_skip_err_tbl = false;
 
 	/* Control Outs Control */
 
