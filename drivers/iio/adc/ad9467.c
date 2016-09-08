@@ -413,7 +413,8 @@ static irqreturn_t ad9680_event_handler(
 			IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING);
 	s64 timestamp = iio_get_time_ns();
 
-	iio_push_event(conv->indio_dev, event, timestamp);
+	if (conv->indio_dev)
+		iio_push_event(conv->indio_dev, event, timestamp);
 
 	return IRQ_HANDLED;
 }
