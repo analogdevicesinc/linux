@@ -2,7 +2,7 @@
  * \file mykonos_macros.h
  * \brief Contains address and miscellaneous macro definitions for Mykonos API
  *
- * Mykonos API version: 1.2.05.3475
+ * Mykonos API version: 1.3.0.3528
  */
 
 #ifndef CLEMENTE_TDD_MACROS_H
@@ -518,6 +518,7 @@ extern "C" {
 #define MYKONOS_ADDR_AUX_ADC_READ_LSB                       0xBC3
 #define MYKONOS_ADDR_AUX_ADC_SEL                            0xBC4
 #define MYKONOS_ADDR_AUX_ADC_BUFFER_CONFIG_0                0xBC5
+#define MYKONOS_ADDR_AUX_ADC_BUFFER_CONFIG_1                0xBC6
 
 #define MYKONOS_ADDR_TEMP_SENSOR_OFFSET                     0xBE0
 #define MYKONOS_ADDR_TEMP_SENSOR_CONTROL_LSB                0xBE1
@@ -648,6 +649,8 @@ extern "C" {
 #define MYKONOS_ARM_OBJECTID_CAL_STATUS                     0x42
 #define MYKONOS_ARM_OBJECTID_INIT_CAL_DONE                  0x43
 #define MYKONOS_ARM_OBJECTID_ORX_MODE                       0x61
+#define MYKONOS_ARM_OBJECTID_TRACKING_CAL_SUSPEND_RESUME    0x65
+#define MYKONOS_ARM_OBJECTID_TRACKING_CAL_CONTROL           0x66
 #define MYKONOS_ARM_OBJECTID_TRACKING_CAL_PENDING           0x67
 #define MYKONOS_ARM_OBJECTID_RADIO_CONTROL                  0x81
 #define MYKONOS_ARM_OBJECTID_CALSCHEDULER                   0x83
@@ -669,6 +672,11 @@ extern "C" {
 #define ORX2_ENABLE_ACK_SIGNALID  0x09
 #define SRX_ENABLE_ACK_SIGNALID   0x0A
 #define TX_OBS_SELECT_SIGNALID    0x0B
+
+#define DISABLE_DPD_ACTUATOR      0x03
+#define ENABLE_DPD_ACTUATOR       0x04
+#define SET_CLGC_DESIRED_GAIN_1   0x05
+#define SET_CLGC_DESIRED_GAIN_2   0x06
 
 #ifdef __cplusplus
 }

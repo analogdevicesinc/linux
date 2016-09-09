@@ -2,7 +2,7 @@
  * \file t_mykonos_gpio.h
  * \brief Mykonos GPIO error handling and type defines
  *
- * Mykonos API version: 1.2.05.3475
+ * Mykonos API version: 1.3.0.3528
  */
 
 #ifndef T_MYKONOSGPIO_H_
@@ -234,6 +234,21 @@ typedef enum
     MYK_CMOSPAD_DRV_4X  = 0x07,       /*!<   10pF  load @ 65MHz */
     MYK_CMOSPAD_DRV_5X  = 0x0F        /*!< 12.5pF  load @ 65MHz */
 } mykonosCmosPadDrvStr_t;
+
+
+/**
+ * \brief Enumerated list for Aux ADCs
+ */
+typedef enum
+{
+    MYK_AUXADC_0        = 0x00,       /*!< Aux ADC channel 0 */
+    MYK_AUXADC_1        = 0x01,       /*!< Aux ADC channel 1 */
+    MYK_AUXADC_2        = 0x02,       /*!< Aux ADC channel 2 */
+    MYK_AUXADC_3        = 0x03,       /*!< Aux ADC channel 3 */
+    MYK_AUXADC_0_DIV2   = 0x04,       /*!< Aux ADC channel 0 with the divider by 2 set */
+    MYK_TEMPSENSOR      = 0x10        /*!< Temperature sensor channel */
+} mykonosAuxAdcChannels_t;
+
 
 /**
  *  \brief Data structure to hold Gain compensation settings for the main receive channels

@@ -3,7 +3,7 @@
  *
  *\brief Contains Mykonos APIs for transceiver configuration and control
  *
- * Mykonos API version: 1.2.05.3475
+ * Mykonos API version: 1.3.0.3528
  */
 
 /**
@@ -297,6 +297,39 @@ mykonosErr_t MYKONOS_getDeviceRev(mykonosDevice_t *device, uint8_t *revision)
     CMB_SPIReadField(device->spiSettings, MYKONOS_ADDR_PRODUCT_ID, revision, 0x07, 0);
 
     return MYKONOS_ERR_OK;
+}
+
+
+/**
+ * \brief Reads back the Product ID for the Mykonos Device
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to Mykonos device data structure containing settings
+ * \param productId Return value of the Mykonos product Id
+ *
+ * \retval MYKONOS_ERR_GETPRODUCTID__NULL_PARAM recovery action for bad parameter check
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_getProductId(mykonosDevice_t *device, uint8_t *productId)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_getProductId()\n");
+#endif
+
+    if (productId == NULL)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETPRODUCTID_NULL_PARAM,
+                       getMykonosErrorMessage(MYKONOS_ERR_GETPRODUCTID_NULL_PARAM));
+        return MYKONOS_ERR_GETPRODUCTID_NULL_PARAM;
+    }
+
+    CMB_SPIReadField(device->spiSettings, MYKONOS_ADDR_PRODUCT_ID, productId, 0xF8, 3);
+
+    return retVal;
 }
 
 /**
@@ -1147,9 +1180,6 @@ mykonosErr_t MYKONOS_initialize(mykonosDevice_t *device)
 
     /* Default ObsRx to use manual gain control until AGC enabled by user */
     MYKONOS_setObsRxGainControlMode(device, MGC);
-
-    /* Enable automatically reset of RFDC offset correction if a data path overrange occurs */
-    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_RFDC_PROGRAM_SHIFT, 7, 0xE0, 5);
 
     /* Disable GPIO select bits by setting to b11 */
     CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_CONFIGURATION_CONTROL_1, 3, 0x30, 4);
@@ -6965,6 +6995,7 @@ const char* getMykonosErrorMessage(mykonosErr_t errorCode)
         case MYKONOS_ERR_ARMSTATE_PROFILE_ERROR: return "ARM has detected an illegal profile.\n";
         case MYKONOS_ERR_WAITARMCSTATE_TIMEOUT: return "Timeout occurred in MYKONOS_checkArmState().\n";
         case MYKONOS_ERR_GET_API_VERSION_NULL_PARAM: return "Null parameter passed to the function MYKONOS_getApiVersion().\n";
+        case MYKONOS_ERR_GETPRODUCTID_NULL_PARAM: return "Null parameter passed to the function MYKONOS_getProductId().\n";
         case MYKONOS_ERR_TXPROFILE_IQRATE: return "Tx Profile IQ rate out of range.\n";
         case MYKONOS_ERR_TXPROFILE_RFBW: return "Tx Profile RF bandwidth out of range.\n";
         case MYKONOS_ERR_TXPROFILE_FILTER_INTERPOLATION: return "Tx Filter interpolation not valid.\n";
@@ -6978,6 +7009,22 @@ const char* getMykonosErrorMessage(mykonosErr_t errorCode)
         case MYKONOS_ERR_PROFILES_HSDIGCLK: return "Profile combinations loaded are not valid.\n";
         case MYKONOS_ERR_RESET_TXLOL_INV_PARAM: return "Selected channel is not valid.\n";
         case MYKONOS_ERR_RESET_TXLOL_ARMERROR: return "ARM command error in MYKONOS_resetExtTxLolChannel().\n";
+        case MYKONOS_ERR_SETSTATEALL_TRACK_CAL_INV: return "Not valid calibration mask passed for trackCals.\n";
+        case MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG: return "ARM error flag set.\n";
+        case MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG: return "ARM error flag set.\n";
+        case MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR: return "ARM command error.\n";
+        case MYKONOS_ERR_GETSTATEALL_TRACK_NULL_PARAM: return "Null parameter passed for trackCals.\n";
+        case MYKONOS_ERR_SETSTATE_TRACK_CAL_INV: return "Not valid calibration passed.\n";
+        case MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG: return "ARM command error.\n";
+        case MYKONOS_ERR_GETSTATE_TRACK_NULL_PARAM: return "Null parameter passed to trackCalState.\n";
+        case MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG: return "ARM command error flag set.\n";
+        case MYKONOS_ERR_GETSTATE_TRACK_ARMERROR: return "ARM command error.\n";
+        case MYKONOS_ERR_SETCLGCGAIN_INV_TXCHANNEL: return "Tx channel is not valid (Valid ENUM values: TX1 or TX2 only).\n";
+        case MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG: return "ARM command flag error set.\n";
+        case MYKONOS_ERR_SETCLGCGAIN_INV_DESIREDGAIN: return "CLGC gain parameter is out of range, valid range is from -10000 to 10000.\n";
+        case MYKONOS_ERR_SETDPDACT_INV_TXCHANNEL: return "Tx channel is not valid (Valid ENUM values: TX1, TX2 or TX1_TX2).\n";
+        case MYKONOS_ERR_SETDPDACT_INV_STATE: return "Invalid Actuator state, valid states are 0-disable and 1-enable.\n";
+        case MYKONOS_ERR_SETDPDACT_ARMERRFLAG: return "ARM command flag error set.\n";
         default: return "";
     }
 
@@ -7967,7 +8014,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
     L = 0;
     ML = 0;
 
-    for(i = 0; i < 4; i++)
+    for (i = 0; i < 4; i++)
     {
         L += ((device->rx->framer->serializerLanesEnabled >> i) & 0x01);
     }
@@ -8130,38 +8177,38 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
     {
         regE0 = 0x01;
         regE2 = 0x03;
-        HD = 0x1;
+        HD = 0x01;
     }
     else if (ML == 21)
     {
-        regE0 = 0x3;
-        regE2 = 0x1;
+        regE0 = 0x03;
+        regE2 = 0x01;
     }
-    else if(ML == 22)
+    else if (ML == 22)
     {
-        regE0 = 0x3;
-        regE2 = 0x3;
+        regE0 = 0x03;
+        regE2 = 0x03;
     }
-    else if(ML == 24)
+    else if (ML == 24)
     {
-        regE0 = 0x5;
-        regE2 = 0xF;
-        HD = 0x1;
+        regE0 = 0x05;
+        regE2 = 0x0F;
+        HD = 0x01;
     }
-    else if(ML == 41)
+    else if (ML == 41)
     {
-        regE0 = 0xF;
-        regE2 = 0x1;
+        regE0 = 0x0F;
+        regE2 = 0x01;
     }
-    else if(ML == 42)
+    else if (ML == 42)
     {
-        regE0 = 0xF;
-        regE2 = 0x5;
+        regE0 = 0x0F;
+        regE2 = 0x05;
     }
-    else if(ML == 44)
+    else if (ML == 44)
     {
-        regE0 = 0xF;
-        regE2 = 0xF;
+        regE0 = 0x0F;
+        regE2 = 0x0F;
     }
     else
     {
@@ -8192,9 +8239,9 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
     subaddr[ 7] = 0x07; subdata[ 7] = ((CS & 0x3)<<6) | (N & 0x1F);             /* [7:6] = CS[1:0], N[4:0]-1 */
     subaddr[ 8] = 0x08; subdata[ 8] =  ((SUBCLASSV & 7) << 5) | (Np & 0x1F);     /* NP[4:0] -1 */
     subaddr[ 9] = 0x09; subdata[ 9] = ((JESDV & 7) <<5) | (S & 0x1F);             /* S[4:0]-1 */
-    subaddr[10] = 0x0a; subdata[10] = ((HD & 1) << 7) | (CF & 0x1F);             /* [7] = HD, CF[4:0] */
-    subaddr[11] = 0x0b; subdata[11] = 0x00;                                     /* reserved */
-    subaddr[12] = 0x0c; subdata[12] = 0x00;                                     /* reserved */
+    subaddr[10] = 0x0A; subdata[10] = ((HD & 1) << 7) | (CF & 0x1F);             /* [7] = HD, CF[4:0] */
+    subaddr[11] = 0x0B; subdata[11] = 0x00;                                     /* reserved */
+    subaddr[12] = 0x0C; subdata[12] = 0x00;                                     /* reserved */
 
     CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID0 & 0x1F) + (device->rx->framer->scramble) +
                (FramerL & 0x1F) + (FramerF & 0xFF) +  (K & 0x1F) +
@@ -8203,7 +8250,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
                (SUBCLASSV & 7) + (JESDV & 7);
 
     /* Checksum Lane 0 */
-    subaddr[13] = 0x0d; subdata[13] = CheckSum & 0xFF;
+    subaddr[13] = 0x0D; subdata[13] = CheckSum & 0xFF;
 
     /* in JESD204B ML=42 case, framer ip lanes 0 and 2 are used, write lane 1 id and checksum to ip lane 2 regs */
     if (ML == 42)
@@ -8233,40 +8280,40 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
 
         /* Checksum Lane 1 */
         subaddr[15] = 0x15; subdata[15] = CheckSum & 0xFF;
+
+        /* Lane 2 ID */
+        subaddr[16] = 0x1A; subdata[16] = LID2;
+
+        CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID2 & 0x1F) + (device->rx->framer->scramble) +
+                   (FramerL & 0x1F)+ (FramerF & 0xFF) +  (K & 0x1F) +
+                   (FramerM & 0xFF) + (CS & 0x3) +  (N & 0x1F) + (Np & 0x1F) +
+                   (S & 0x1F) + (HD & 1) +  (CF & 0x1F) +
+                   (SUBCLASSV & 7) + (JESDV & 7);
+
+        /* Checksum Lane 2 */
+        subaddr[17] = 0x1D; subdata[17] = CheckSum & 0xFF;
+
+        /* Lane 3 ID */
+        subaddr[18] = 0x22; subdata[18] = LID3;
+
+        CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID3 & 0x1F) + (device->rx->framer->scramble) +
+                   (FramerL & 0x1F)+ (FramerF & 0xFF) +  (K & 0x1F) +
+                   (FramerM & 0xFF) + (CS & 0x3) +  (N & 0x1F) + (Np & 0x1F) +
+                   (S & 0x1F) + (HD & 1) +  (CF & 0x1F) +
+                   (SUBCLASSV & 7) + (JESDV & 7);
+
+        subaddr[19] = 0x25; subdata[19] = CheckSum & 0xFF;
     }
 
-    /* Lane 2 ID */
-    subaddr[16] = 0x1a; subdata[16] = LID2;
-
-    CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID2 & 0x1F) + (device->rx->framer->scramble) +
-               (FramerL & 0x1F)+ (FramerF & 0xFF) +  (K & 0x1F) +
-               (FramerM & 0xFF) + (CS & 0x3) +  (N & 0x1F) + (Np & 0x1F) +
-               (S & 0x1F) + (HD & 1) +  (CF & 0x1F) +
-               (SUBCLASSV & 7) + (JESDV & 7);
-
-    /* Checksum Lane 2 */
-    subaddr[17] = 0x1d; subdata[17] = CheckSum & 0xFF;
-
-    /* Lane 3 ID */
-    subaddr[18] = 0x22; subdata[18] = LID3;
-
-    CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID3 & 0x1F) + (device->rx->framer->scramble) +
-               (FramerL & 0x1F)+ (FramerF & 0xFF) +  (K & 0x1F) +
-               (FramerM & 0xFF) + (CS & 0x3) +  (N & 0x1F) + (Np & 0x1F) +
-               (S & 0x1F) + (HD & 1) +  (CF & 0x1F) +
-               (SUBCLASSV & 7) + (JESDV & 7);
-
-    subaddr[19] = 0x25; subdata[19] = CheckSum & 0xFF;
-
-    subaddr[20] = 0xe0; subdata[20] = regE0; /* Enable converter n logic */
-    subaddr[21] = 0xe2; subdata[21] = regE2; /* Enable Lane n logic */
-    subaddr[22] = 0xe4; subdata[22] = 0x00;
-    subaddr[23] = 0xe6; subdata[23] = 0x00;
-    subaddr[24] = 0xf0; subdata[24] = 0x00;  /* #multiframes in ILAS */
-    subaddr[25] = 0xf2; subdata[25] = 0x00;
-    subaddr[26] = 0xf3; subdata[26] = 0x00;
-    subaddr[27] = 0xf4; subdata[27] = 0x00;
-    subaddr[28] = 0xc0; subdata[28] = 0x03;  /* Framer enable, both sides perform lane sync */
+    subaddr[20] = 0xE0; subdata[20] = regE0; /* Enable converter n logic */
+    subaddr[21] = 0xE2; subdata[21] = regE2; /* Enable Lane n logic */
+    subaddr[22] = 0xE4; subdata[22] = 0x00;
+    subaddr[23] = 0xE6; subdata[23] = 0x00;
+    subaddr[24] = 0xF0; subdata[24] = 0x00;  /* #multiframes in ILAS */
+    subaddr[25] = 0xF2; subdata[25] = 0x00;
+    subaddr[26] = 0xF3; subdata[26] = 0x00;
+    subaddr[27] = 0xF4; subdata[27] = 0x00;
+    subaddr[28] = 0xC0; subdata[28] = 0x03;  /* Framer enable, both sides perform lane sync */
 
     for ( i = 0; i <= 28; i++)
     {
@@ -10482,6 +10529,9 @@ mykonosErr_t MYKONOS_getRadioState(mykonosDevice_t *device, uint32_t *radioStatu
 *       [11]  | TRACK_TX2_CLGC
 *       [12]  | TRACK_TX1_VSWR
 *       [13]  | TRACK_TX2_VSWR
+*       [16]  | TRACK_ORX1_QEC_SNLO
+*       [17]  | TRACK_ORX2_QEC_SNLO
+*       [18]  | TRACK_SRX_QEC
 *
 *
 * <B>Dependencies</B>
@@ -10498,7 +10548,7 @@ mykonosErr_t MYKONOS_enableTrackingCals(mykonosDevice_t *device, uint32_t enable
 {
     mykonosErr_t retVal = MYKONOS_ERR_OK;
     uint8_t armData[4] = {0, 0, 0, 0};
-    uint8_t extData[4] = {MYKONOS_ARM_OBJECTID_CALSCHEDULER, 0x00, 0x00, 0x02}; //Target ARM Object ID, Offset LSB, Offset MSB, Length
+    uint8_t extData[4] = {MYKONOS_ARM_OBJECTID_CALSCHEDULER, 0x00, 0x00, 0x04}; //Target ARM Object ID, Offset LSB, Offset MSB, Length
     uint32_t timeoutMs = 0;
     uint8_t cmdStatusByte = 0;
     uint32_t radioStatus = 0;
@@ -10553,7 +10603,7 @@ mykonosErr_t MYKONOS_enableTrackingCals(mykonosDevice_t *device, uint32_t enable
     armData[1] = (uint8_t)((enableMask >>  8) & 0xFF);
     armData[2] = (uint8_t)((enableMask >> 16) & 0xFF);
     armData[3] = (uint8_t)((enableMask >> 24) & 0xFF);
-    retVal = MYKONOS_writeArmMem(device, MYKONOS_ADDR_ARM_START_DATA_ADDR, &armData[0], 4);
+    retVal = MYKONOS_writeArmMem(device, MYKONOS_ADDR_ARM_START_DATA_ADDR, &armData[0], sizeof(armData));
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
@@ -10731,6 +10781,465 @@ mykonosErr_t MYKONOS_rescheduleTrackingCal(mykonosDevice_t *device, mykonosTrack
     return retVal;
 }
 
+/**
+ * \brief Suspend or resume tracking calibrations in RADIO_ON.
+ *
+ * This function is used to suspend or resume active tracking calibrations based on the passed mask trackingCals.
+ *
+ * \pre Command can be called in Radio On.
+ *
+ * trackCals[bit]  |  Bit description
+ * ----------------|------------
+ *       [0]       | TRACK_RX1_QEC
+ *       [1]       | TRACK_RX2_QEC
+ *       [2]       | TRACK_ORX1_QEC
+ *       [3]       | TRACK_ORX2_QEC
+ *       [4]       | TRACK_TX1_LOL
+ *       [5]       | TRACK_TX2_LOL
+ *       [6]       | TRACK_TX1_QEC
+ *       [7]       | TRACK_TX2_QEC
+ *       [8]       | TRACK_TX1_DPD
+ *       [9]       | TRACK_TX2_DPD
+ *      [10]       | TRACK_TX1_CLGC
+ *      [11]       | TRACK_TX2_CLGC
+ *      [12]       | TRACK_TX1_VSWR
+ *      [13]       | TRACK_TX2_VSWR
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the device settings structure
+ * \param trackCals Selects the tracking calibrations to suspend or resume during the radio ON state.
+ * mykonosTrackingCalibrations_t enumerated types are or'd together to form the tracking calibration
+ * mask word. If the bit is high the calibration will resume, if the bit is low the calibration will be suspended.
+ *
+ * \retval MYKONOS_ERR_SETSTATEALL_TRACK_CAL_INV Not valid calibration mask passed for trackCals
+ * \retval MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG ARM error
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_setAllTrackCalState(mykonosDevice_t *device, uint32_t trackCals)
+{
+    uint32_t retVal = MYKONOS_ERR_OK;
+    uint8_t cfgData[4] = {0};
+    uint8_t extData[3] = {MYKONOS_ARM_OBJECTID_TRACKING_CAL_SUSPEND_RESUME, 0x0F, 0};
+    uint8_t cmdStatusByte = 0;
+    uint32_t enTrackCal = 0x00;
+    uint32_t timeoutMs = 1000;
+
+    const uint32_t TRACKING_MASK = 0x3FFF;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_OK, "MYKONOS_setAllTrackCalState()\n");
+#endif
+
+    /* reading enabled tracking calibrations */
+    retVal = MYKONOS_getEnabledTrackingCals(device, &enTrackCal);
+
+    /* trackingCalMask check */
+    if (((trackCals | enTrackCal) > enTrackCal) || (trackCals > TRACKING_MASK))
+    {
+        /* invalid cal mask error return, tracking cal not enable so we can not resume it */
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_SETSTATEALL_TRACK_CAL_INV,
+                getMykonosErrorMessage(MYKONOS_ERR_SETSTATEALL_TRACK_CAL_INV));
+        return MYKONOS_ERR_SETSTATEALL_TRACK_CAL_INV;
+    }
+
+    /* convert tracking mask to array of uint8_t type */
+    cfgData[0] = (uint8_t)(trackCals & 0xFF);
+    cfgData[1] = (uint8_t)((trackCals >> 8) & 0xFF);
+    cfgData[2] = (uint8_t)((trackCals >> 16) & 0x0FF);
+    cfgData[3] = (uint8_t)((trackCals >> 24) & 0xFF);
+
+    retVal = MYKONOS_writeArmMem(device, MYKONOS_ADDR_ARM_START_DATA_ADDR, &cfgData[0], sizeof(cfgData));
+
+    retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_SET_OPCODE, &extData[0], sizeof(extData));
+
+    /* check for completion */
+    retVal = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_SET_OPCODE, timeoutMs,  &cmdStatusByte);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        if (cmdStatusByte > 0)
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG));
+            return MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG;
+        }
+
+        return retVal;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG,
+                getMykonosErrorMessage(MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG));
+        return MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG;
+    }
+
+    return retVal;
+}
+
+/**
+ * \brief Get the Suspended or Resumed state for tracking calibrations
+ *
+ * This function is used to get the suspend or resume state of all active tracking calibrations and the state is stored in trackCals.
+ *
+ * \pre Command can be called in Radio On.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the device settings structure
+ * \param trackCals pointer to store the tracking calibration state.
+ * If the bit is set then the tracking calibration is resumed and if not set then the tracking cal is suspended, the bit field follows:
+ *
+ * trackCals[bit] |  Bit description
+ * ---------------|------------
+ *       [0]      | TRACK_RX1_QEC
+ *       [1]      | TRACK_RX2_QEC
+ *       [2]      | TRACK_ORX1_QEC
+ *       [3]      | TRACK_ORX2_QEC
+ *       [4]      | TRACK_TX1_LOL
+ *       [5]      | TRACK_TX2_LOL
+ *       [6]      | TRACK_TX1_QEC
+ *       [7]      | TRACK_TX2_QEC
+ *       [8]      | TRACK_TX1_DPD
+ *       [9]      | TRACK_TX2_DPD
+ *      [10]      | TRACK_TX1_CLGC
+ *      [11]      | TRACK_TX2_CLGC
+ *      [12]      | TRACK_TX1_VSWR
+ *      [13]      | TRACK_TX2_VSWR
+ *
+ * \retval MYKONOS_ERR_GETSTATEALL_TRACK_NULL_PARAM Null parameter passed for trackCals
+ * \retval MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG ARM error flag set.
+ * \retval MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR ARM command error.
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_getAllTrackCalState(mykonosDevice_t *device, uint32_t *trackCals)
+{
+    uint32_t retVal = MYKONOS_ERR_OK;
+    uint8_t extData = MYKONOS_ARM_OBJECTID_TRACKING_CAL_SUSPEND_RESUME;
+    uint8_t armData[4] = {0};
+    uint8_t cmdStatusByte = 0;
+    uint32_t timeoutMs = 1000;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_OK, "MYKONOS_getAllTrackCalState()\n");
+#endif
+
+    /* Check for passed parameter */
+    if (trackCals == NULL)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATEALL_TRACK_NULL_PARAM,
+                       getMykonosErrorMessage(MYKONOS_ERR_GETSTATEALL_TRACK_NULL_PARAM));
+        return MYKONOS_ERR_GETSTATEALL_TRACK_NULL_PARAM;
+    }
+
+    /* sending ARM command */
+    retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_GET_OPCODE, &extData, sizeof(extData));
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    /* check for completion */
+    retVal = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_GET_OPCODE, timeoutMs,  &cmdStatusByte);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        if (cmdStatusByte > 0)
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG,
+                    getMykonosErrorMessage(MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG));
+            return MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG;
+        }
+
+        return retVal;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG,
+                getMykonosErrorMessage(MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG));
+        return MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG;
+    }
+
+    /* read 32-bit tracking state from ARM memory */
+    retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_DATA_ADDR, &armData[0], sizeof(armData), 1);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR,
+                       getMykonosErrorMessage(MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR));
+        return MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR;
+    }
+
+    *trackCals = (uint32_t)armData[0] | ((uint32_t)armData[1] << 8) |
+            ((uint32_t)armData[2] << 16) | ((uint32_t)armData[3] << 24);
+
+    return retVal;
+}
+
+
+/**
+ * \brief Suspend or resume individual tracking calibration
+ *
+ * \pre The tracking calibration must have been enabled with MYKONOS_enableTrackingCals(), this command can be called in Radio On.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the device settings structure
+ * \param trackingCal Selects the tracking calibration to resume or suspend.
+ * \param trackCalState if set then the selected tracking calibration will be resumed and if not set then the tracking cal will be suspended
+ *
+ * \retval MYKONOS_ERR_SETSTATE_TRACK_CAL_INV Not valid calibration passed
+ * \retval MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG ARM error
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_setTrackingCalState(mykonosDevice_t *device, mykonosTrackingCalibrations_t trackingCal, uint8_t trackCalState)
+{
+    uint32_t retVal = MYKONOS_ERR_OK;
+    uint8_t extData[2] = {0};
+    uint8_t cmdStatusByte = 0;
+    uint8_t suspendTrack = 0x0F;
+    uint32_t timeoutMs = 1000;
+    uint32_t enTrackCal = 0x00;
+
+    const uint8_t CHANNEL_1 = 0x00;
+    const uint8_t CHANNEL_2 = 0x10;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_OK, "MYKONOS_setTrackingCalState()\n");
+#endif
+
+    if (trackCalState > 0)
+    {
+        suspendTrack = 0x2F;
+    }
+
+    /* reading enabled tracking calibrations */
+    retVal = MYKONOS_getEnabledTrackingCals(device, &enTrackCal);
+
+    /* trackingCalMask check */
+    if ((trackingCal & enTrackCal) != trackingCal)
+    {
+        /* invalid cal mask error return, tracking cal not enable so we can not resume or suspend it */
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_SETSTATE_TRACK_CAL_INV,
+                getMykonosErrorMessage(MYKONOS_ERR_SETSTATE_TRACK_CAL_INV));
+        return MYKONOS_ERR_SETSTATE_TRACK_CAL_INV;
+    }
+
+    switch (trackingCal)
+    {
+        case TRACK_RX1_QEC:
+            extData[1] = MYKONOS_ARM_OBJECTID_RXQEC_TRACKING & suspendTrack;
+            extData[1] |= CHANNEL_1;
+             break;
+
+        case TRACK_RX2_QEC:
+            extData[1] = MYKONOS_ARM_OBJECTID_RXQEC_TRACKING & suspendTrack;
+            extData[1] |= CHANNEL_2;
+            break;
+
+        case TRACK_ORX1_QEC:
+            extData[1] = MYKONOS_ARM_OBJECTID_ORXQEC_TRACKING & suspendTrack;
+            extData[1] |= CHANNEL_1;
+            break;
+
+        case TRACK_ORX2_QEC:
+             extData[1] = MYKONOS_ARM_OBJECTID_ORXQEC_TRACKING& suspendTrack;
+             extData[1] |= CHANNEL_2;
+             break;
+
+        case TRACK_TX1_LOL:
+            extData[1] = MYKONOS_ARM_OBJECTID_TXLOL_TRACKING & suspendTrack;
+            extData[1] |= CHANNEL_1;
+            break;
+
+        case TRACK_TX2_LOL:
+             extData[1] = MYKONOS_ARM_OBJECTID_TXLOL_TRACKING & suspendTrack;
+             extData[1] |= CHANNEL_2;
+             break;
+
+        case TRACK_TX1_QEC:
+            extData[1] = MYKONOS_ARM_OBJECTID_TXQEC_TRACKING & suspendTrack;
+            extData[1] |= CHANNEL_1;
+            break;
+
+        case TRACK_TX2_QEC:
+             extData[1] = MYKONOS_ARM_OBJECTID_TXQEC_TRACKING & suspendTrack;
+             extData[1] |= CHANNEL_2;
+             break;
+
+        case TRACK_TX1_DPD:
+             extData[1] = MYKONOS_ARM_OBJECTID_DPDCONFIG & suspendTrack;
+             extData[1] |= CHANNEL_1;
+             break;
+
+        case TRACK_TX2_DPD:
+             extData[1] = MYKONOS_ARM_OBJECTID_DPDCONFIG & suspendTrack;
+             extData[1] |= CHANNEL_2;
+             break;
+
+        case TRACK_TX1_CLGC:
+             extData[1] = MYKONOS_ARM_OBJECTID_CLGCCONFIG & suspendTrack;
+             extData[1] |= CHANNEL_1;
+             break;
+
+        case TRACK_TX2_CLGC:
+             extData[1] = MYKONOS_ARM_OBJECTID_CLGCCONFIG & suspendTrack;
+             extData[1] |= CHANNEL_2;
+             break;
+
+        case TRACK_TX1_VSWR:
+             extData[1] = MYKONOS_ARM_OBJECTID_VSWRCONFIG & suspendTrack;
+             extData[1] |= CHANNEL_1;
+             break;
+
+        case TRACK_TX2_VSWR:
+             extData[1] = MYKONOS_ARM_OBJECTID_VSWRCONFIG & suspendTrack;
+             extData[1] |= CHANNEL_2;
+             break;
+
+        default:
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_SETSTATE_TRACK_CAL_INV,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETSTATE_TRACK_CAL_INV));
+            return MYKONOS_ERR_SETSTATE_TRACK_CAL_INV;
+    }
+
+    extData[0] = MYKONOS_ARM_OBJECTID_TRACKING_CAL_SUSPEND_RESUME;
+
+    /* sending ARM command */
+    retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_SET_OPCODE, &extData[0], sizeof(extData));
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    /* check for completion */
+    retVal = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_SET_OPCODE, timeoutMs,  &cmdStatusByte);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        if (cmdStatusByte > 0)
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG));
+            return MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG;
+        }
+
+        return retVal;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG,
+                getMykonosErrorMessage(MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG));
+        return MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG;
+    }
+
+    return retVal;
+}
+
+
+/**
+ * \brief Get the Suspended or Resumed state for individual tracking calibration
+ *
+ * \pre Command can be called in Radio On.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the device settings structure
+ * \param trackingCal Selects the tracking calibration to get the resumed or suspended state.
+ * \param trackCalState pointer to store the tracking calibration state,
+ * if set then the selected tracking calibration is resumed and if not set then the tracking cal is suspended
+ *
+ * \retval MYKONOS_ERR_GETSTATE_TRACK_NULL_PARAM Null parameter passed to trackCalState
+ * \retval MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG ARM command error flag set.
+ * \retval MYKONOS_ERR_GETSTATE_TRACK_ARMERROR ARM command error.
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_getTrackingCalState(mykonosDevice_t *device, mykonosTrackingCalibrations_t trackingCal, uint8_t *trackCalState)
+{
+    uint32_t retVal = MYKONOS_ERR_OK;
+    uint8_t extData = MYKONOS_ARM_OBJECTID_TRACKING_CAL_SUSPEND_RESUME;
+    uint8_t armData[4] = {0};
+    uint8_t cmdStatusByte = 0;
+    uint32_t timeoutMs = 1000;
+    uint32_t trackMask = 0x00;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_OK, "MYKONOS_getTrackingCalState()\n");
+#endif
+
+    /* Check for passed parameter */
+    if (trackCalState == NULL)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATE_TRACK_NULL_PARAM,
+                       getMykonosErrorMessage(MYKONOS_ERR_GETSTATE_TRACK_NULL_PARAM));
+        return MYKONOS_ERR_GETSTATE_TRACK_NULL_PARAM;
+    }
+
+    /* sending ARM command */
+    retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_GET_OPCODE, &extData, sizeof(extData));
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    /* check for completion */
+    retVal = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_GET_OPCODE, timeoutMs,  &cmdStatusByte);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        if (cmdStatusByte > 0)
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG,
+                    getMykonosErrorMessage(MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG));
+            return MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG;
+        }
+
+        return retVal;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG,
+                getMykonosErrorMessage(MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG));
+        return MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG;
+    }
+
+    /* read 32-bit tracking state from ARM memory */
+    retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_DATA_ADDR, &armData[0], sizeof(armData), 1);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATE_TRACK_ARMERROR,
+                       getMykonosErrorMessage(MYKONOS_ERR_GETSTATE_TRACK_ARMERROR));
+        return MYKONOS_ERR_GETSTATE_TRACK_ARMERROR;
+    }
+
+    trackMask = (uint32_t)armData[0] | ((uint32_t)armData[1] << 8) |
+            ((uint32_t)armData[2] << 16) | ((uint32_t)armData[3] << 24);
+
+    if (trackMask & trackingCal)
+    {
+        *trackCalState = 1;
+    }
+    else
+    {
+        *trackCalState = 0;
+    }
+
+    return retVal;
+}
+
 
 /**
 * \brief Reads back which ARM tracking cals are enabled
@@ -10751,6 +11260,9 @@ mykonosErr_t MYKONOS_rescheduleTrackingCal(mykonosDevice_t *device, mykonosTrack
 *       [11]  | TRACK_TX2_CLGC
 *       [12]  | TRACK_TX1_VSWR
 *       [13]  | TRACK_TX2_VSWR
+*       [16]  | TRACK_ORX1_QEC_SNLO
+*       [17]  | TRACK_ORX1_QEC_SNLO
+*       [18]  | TRACK_SRX_QEC
 *
 * <B>Dependencies</B>
 * - device->spiSettings->chipSelectIndex
@@ -12763,6 +13275,96 @@ mykonosErr_t MYKONOS_saveDpdModel(mykonosDevice_t *device, mykonosTxChannels_t t
 }
 
 /**
+ * \brief This function sets the state of the DPD actuator.
+ *
+ *  This function can be called in either Radio On or Off state.
+ *
+ * \pre A AD9373 device is required for DPD to be enabled. DPD init cal has been run and DPD tracking enable.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device is structure pointer to the Mykonos data structure containing settings
+ * \param txChannel Desired Transmit channel to set the Actuator State (Valid ENUM values: TX1, TX2 or TX1_TX2)
+ * \param actState Desired actuator state for the DPD, valid states are 0-disable and 1-enable
+ *
+ * \retval MYKONOS_ERR_SETDPDACT_INV_TXCHANNEL ERROR: Tx channel is not valid (Valid ENUM values: TX1, TX2 or TX1_TX2)
+ * \retval MYKONOS_ERR_SETDPDACT_INV_STATE ERROR: Invalid Actuator state, valid states are 0-disable and 1-enable.
+ * \retval MYKONOS_ERR_SETDPDACT_ARMERRFLAG ERROR: ARM command flag error set
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_setDpdActState(mykonosDevice_t *device, mykonosTxChannels_t txChannel, uint8_t actState)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint32_t timeoutMs = 1000;
+    uint8_t extData[3] = {0};
+    uint8_t actuatorSet = 0x00;
+    uint8_t cmdStatusByte = 0;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_OK, "MYKONOS_setDpdActuator()\n");
+#endif
+
+    switch (txChannel)
+    {
+        case TX1: break;
+        case TX2: break;
+        case TX1_TX2: break;
+
+        default:
+            /* this function allow single channel gain only */
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETDPDACT_INV_TXCHANNEL,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETDPDACT_INV_TXCHANNEL));
+            return MYKONOS_ERR_SETDPDACT_INV_TXCHANNEL;
+    }
+    switch (actState)
+    {
+        case 0: actuatorSet = DISABLE_DPD_ACTUATOR; break;
+        case 1: actuatorSet = ENABLE_DPD_ACTUATOR; break;
+
+        default:
+            /* this function allow single channel gain only */
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETDPDACT_INV_STATE,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETDPDACT_INV_STATE));
+            return MYKONOS_ERR_SETDPDACT_INV_STATE;
+    }
+
+    extData[0] = MYKONOS_ARM_OBJECTID_TRACKING_CAL_CONTROL;
+    extData[1] = actuatorSet;
+    extData[2] = (uint8_t)txChannel;
+
+    retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_SET_OPCODE, &extData[0], sizeof(extData));
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    /* check for completion */
+    retVal = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_SET_OPCODE, timeoutMs,  &cmdStatusByte);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        if (cmdStatusByte > 0)
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETDPDACT_ARMERRFLAG,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETDPDACT_ARMERRFLAG));
+            return MYKONOS_ERR_SETDPDACT_ARMERRFLAG;
+        }
+
+        return retVal;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETDPDACT_ARMERRFLAG,
+                getMykonosErrorMessage(MYKONOS_ERR_SETDPDACT_ARMERRFLAG));
+        return MYKONOS_ERR_SETDPDACT_ARMERRFLAG;
+    }
+
+    return MYKONOS_ERR_OK;
+}
+
+
+/**
  * \brief This function, when called during RadioOff, will configure CLGC settings
  *
  *  A AD9373 device is required for CLGC to be enabled.  The CLGC has several user
@@ -13175,6 +13777,95 @@ static mykonosErr_t enableClgcTracking(mykonosDevice_t *device, uint8_t tx1Enabl
 
     return MYKONOS_ERR_OK;
 }
+
+
+/**
+ * \brief This function updates the CLGC desired gain parameter.
+ *
+ *  This function can be called in either Radio On or Off state.
+ *
+ * \pre A AD9373 device is required for CLGC to be enabled. CLGC init cal has been run and CLGC tracking enable.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device is structure pointer to the Mykonos data structure containing settings
+*  \param txChannel Desired Transmit channel to set the (Valid ENUM values: TX1 or TX2 only)
+ * \param gain Total gain and attenuation (dB * 100) for the selected channel txChannel
+ *
+ * \retval MYKONOS_ERR_SETCLGCGAIN_INV_TXCHANNEL ERROR: Tx channel is not valid (Valid ENUM values: TX1 or TX2 only)
+ * \retval MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG ERROR: ARM command flag error set
+ * \retval MYKONOS_ERR_SETCLGCGAIN_INV_DESIREDGAIN ERROR: CLGC gain parameter is out of range, valid range is from -10000 to 10000.
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_setClgcGain(mykonosDevice_t *device, mykonosTxChannels_t txChannel, int16_t gain)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint32_t timeoutMs = 1000;
+    uint8_t extData[4] = {0};
+    uint8_t clcgChannel = 0x00;
+    uint8_t cmdStatusByte = 0;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_OK, "MYKONOS_setClgcGain()\n");
+#endif
+
+    /* Range check for desired gain parameter */
+    if ((gain < -10000) || (gain > 10000))
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETCLGCGAIN_INV_DESIREDGAIN,
+                       getMykonosErrorMessage(MYKONOS_ERR_SETCLGCGAIN_INV_DESIREDGAIN));
+       return MYKONOS_ERR_SETCLGCGAIN_INV_DESIREDGAIN;
+    }
+
+    switch (txChannel)
+    {
+        case TX1: clcgChannel = SET_CLGC_DESIRED_GAIN_1; break;
+        case TX2: clcgChannel = SET_CLGC_DESIRED_GAIN_2; break;
+
+        default:
+            /* this function allow single channel gain only */
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETCLGCGAIN_INV_TXCHANNEL,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETCLGCGAIN_INV_TXCHANNEL));
+            return MYKONOS_ERR_SETCLGCGAIN_INV_TXCHANNEL;
+    }
+
+    extData[0] = MYKONOS_ARM_OBJECTID_TRACKING_CAL_CONTROL;
+    extData[1] = clcgChannel;
+    extData[2] = (gain & 0xFF);
+    extData[3] = ((gain >> 8) & 0xFF);
+
+    retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_SET_OPCODE, &extData[0], sizeof(extData));
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    /* check for completion */
+    retVal = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_SET_OPCODE, timeoutMs,  &cmdStatusByte);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        if (cmdStatusByte > 0)
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG));
+            return MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG;
+        }
+
+        return retVal;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG,
+                getMykonosErrorMessage(MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG));
+        return MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG;
+    }
+
+    return MYKONOS_ERR_OK;
+}
+
+
 
 /**
  * \brief This function, when called during RadioOff, will configure VSWR settings

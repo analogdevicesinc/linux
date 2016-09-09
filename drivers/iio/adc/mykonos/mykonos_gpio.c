@@ -3,7 +3,7 @@
  *
  *\brief Contains Mykonos APIs for transceiver GPIO configuration and control.
  *
- * Mykonos API version: 1.2.05.3475
+ * Mykonos API version: 1.3.0.3528
  */
 
 
@@ -15,6 +15,8 @@
  * PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
  */
 
+#include <stdint.h>
+#include <stddef.h>
 #include "common.h"
 #include "mykonos.h"
 #include "mykonos_gpio.h"
@@ -444,6 +446,9 @@ const char* getGpioMykonosErrorMessage(mykonosGpioErr_t errorCode)
 
         case MYKONOS_ERR_CMOS_DRV_INV_PARAM:
             return "Incorrect drive strength, valid settings are given by mykonosCmosPadDrvStr_t.\n";
+
+        case MYKONOS_ERR_SPI2_INV_GPIO:
+            return "if an invalid GPIO pin configuration is passed to MYKONOS_spi2GpioSetup().\n";
 
         default:
             return "";
@@ -2657,16 +2662,16 @@ mykonosGpioErr_t MYKONOS_setupAuxAdcs(mykonosDevice_t *device, uint8_t adcDecima
  * - device->spiSettings->chipSelectIndex
  *
  * \param device is a pointer to the device settings structure
- * \param auxAdcChannel desired Aux ADC input(0-3 and 16 = temperature sensor)
+ * \param auxAdcChannel desired Aux ADC input(0-4 and 16 = temperature sensor)
  *
  * \retval MYKONOS_ERR_GPIO_OK Function completed successfully
- * \retval MYKONOS_ERR_INV_AUX_ADC_CHAN_PARM Invalid AuxADC channel (valid 0-3 and 16)
+ * \retval MYKONOS_ERR_INV_AUX_ADC_CHAN_PARM Invalid AuxADC channel (valid 0-4 and 16)
  */
-mykonosGpioErr_t MYKONOS_setAuxAdcChannel(mykonosDevice_t *device, uint8_t auxAdcChannel)
+mykonosGpioErr_t MYKONOS_setAuxAdcChannel(mykonosDevice_t *device, mykonosAuxAdcChannels_t auxAdcChannel)
 {
     uint8_t currentAuxAdcChan = 0x00;
 
-    const uint8_t CHANNEL_MASK = 0x13;
+    const uint8_t CHANNEL_MASK = 0x17;
     const uint8_t POWER_UP_AUXADC = 0x00;
     const uint8_t POWER_DOWN_AUXADC = 0x01;
 
@@ -2688,6 +2693,16 @@ mykonosGpioErr_t MYKONOS_setAuxAdcChannel(mykonosDevice_t *device, uint8_t auxAd
         CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AUX_ADC_CFG, POWER_DOWN_AUXADC, 0x01, 0);
         CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AUX_ADC_SEL, auxAdcChannel);
         CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AUX_ADC_CFG, POWER_UP_AUXADC, 0x01, 0);
+    }
+
+    /* Invalid AuxADC channel, the only valid channel for external ref is channel 0 */
+    if (auxAdcChannel == MYK_AUXADC_0_DIV2)
+    {
+        CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AUX_ADC_BUFFER_CONFIG_1, 0x01, 0x04, 2);
+    }
+    else if (auxAdcChannel == MYK_AUXADC_0)
+    {
+        CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AUX_ADC_BUFFER_CONFIG_1, 0x00, 0x04, 2);
     }
 
     return MYKONOS_ERR_GPIO_OK;
@@ -4729,7 +4744,8 @@ mykonosGpioErr_t MYKONOS_getTempSensorConfig(mykonosDevice_t *device, mykonosTem
  *
  * \pre
  * MYKONOS_setupTempSensor() function to set the temperature sensor.
- * MYKONOS_setAuxAdcChannel() function with the AuxADC setting for Temperature sensor channel 0x10.
+ * MYKONOS_setAuxAdcChannel() function with the AuxADC setting for Temperature sensor channel MYK_TEMPSENSOR
+ * from the enum type mykonosAuxAdcChannels_t.
  *
  * \post
  * Internal temperature sensor will perform measurement and updated register values,
@@ -4776,7 +4792,7 @@ mykonosGpioErr_t MYKONOS_startTempMeasurement(mykonosDevice_t *device)
  * \pre Before using this function to read back the sensor value:
  *  MYKONOS_setupTempSensor() function is needed in order to set up the Temperature sensor.
  *  MYKONOS_setAuxAdcChannel() function has to be called in order to set the proper AuxADC
- *  channel. AuxADC channel 16 is used for the Temperature sensor.
+ *  channel. AuxADC channel MYK_TEMPSENSOR is used for the Temperature sensor.
  *  MYKONOS_startTempMeasurement() this function will start the Temperature sensor, this
  *  function is needed to be called for every reading that needs to be performed.
  *
@@ -5326,3 +5342,79 @@ mykonosGpioErr_t MYKONOS_getCmosDrv(mykonosDevice_t *device, mykonosCmosPadDrvSt
 
     return MYKONOS_ERR_GPIO_OK;
 }
+
+/**
+* \brief This API function configures and enables the secondary SPI port.
+*
+* This port allows control compatibility with BBPs that employ dual SPI ports.
+* The GPIO mapping for the SPI2 is fixed:
+*  SPI signal  |   GPIO
+* -------------|-------------------
+*  CSB_2       |   GPIO 3
+*  SCLK_2      |   GPIO 2
+*  SDO_2       |   GPIO 1
+*  SDO_2/SDI2  |   GPIO 0
+*
+* The secondary SPI port only has a small subset of registers that affect the
+* attenuation of the TX channels. It uses a fifth GPIO pin in order to decide
+* which TxAttenuation word is active. The Tx Attenuation words in the 2nd SPI
+* port are different than the first SPI port.  On the 2nd SPI port, each
+* transmitter has two Tx Attenuation words (an active word and an inactive
+* word).  The BBIC should write to the inactive TxAttenuation word. Then the
+* fifth GPIO pin should be asserted to make the inactive TxAttenuation word
+* active.  This allows the BBIC to tightly control in real time when the
+* TxAttenuation updates.
+*
+* <B>Dependencies</B>
+* - device->spiSettings
+* - device->spiSettings->chipSelectIndex
+*
+* \param device is a pointer to the device settings structure
+* \param enable This is parameter will enable the secondary SPI port: 1 = enable, 0 = disable
+* \param updateTxAttenPinSelect This parameter set the GPIO pin to be toggle for using the inactive attenuation words for both channels
+*  tx update  |   GPIO
+* ------------|-------------------
+*     0x00    |   GPIO 4
+*     0x01    |   GPIO 8
+*     0x02    |   GPIO 14
+*     0x03    |   none selected
+*
+* \retval MYKONOS_ERR_SPI2_INV_GPIO if an invalid GPIO pin configuration is passed
+* \retval MYKONOS_ERR_HAL_LAYER if HAL function error is passed
+* \retval MYKONOS_ERR_OK Function completed successfully
+*/
+mykonosGpioErr_t MYKONOS_spi2GpioSetup(mykonosDevice_t *device, uint8_t enable, uint8_t updateTxAttenPinSelect)
+{
+    uint8_t regWrite = 0;
+    uint8_t enableBit = 0;
+    mykonosErr_t error = MYKONOS_ERR_OK;
+    uint32_t halError = COMMONERR_OK;
+
+    const uint32_t SPI2_PIN_MASK = 0x03;
+
+#ifdef MYKONOS_VERBOSE
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_txGpioAttControl()\n");
+#endif
+
+    /* Error checking for correctness of GPIO to control attenuation word. */
+    if (updateTxAttenPinSelect & ~SPI2_PIN_MASK)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_SPI2_INV_GPIO,
+                getMykonosErrorMessage(MYKONOS_ERR_SPI2_INV_GPIO));
+        return MYKONOS_ERR_SPI2_INV_GPIO;
+    }
+
+    /* masking the enable bit and the required pin */
+    enableBit = (enable > 0) ? 1 : 0;
+    regWrite = (updateTxAttenPinSelect << 4) | (enableBit << 3);
+
+    /* Set the SPI2 enable and the GPIO pin associated. */
+    halError = CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_CONFIGURATION_CONTROL_1, regWrite, 0x38, 0);
+    if (halError)
+    {
+        return MYKONOS_ERR_HAL_LAYER;
+    }
+
+    return error;
+}
+
