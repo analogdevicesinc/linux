@@ -2,7 +2,7 @@
  * \file mykonos.h
  * \brief Contains macro definitions and function prototypes for mykonos.c
  *
- * Mykonos API version: 1.2.05.3475
+ * Mykonos API version: 1.3.0.3528
  */
 
 #ifndef _MYKONOS_LIB_H_
@@ -27,6 +27,7 @@ extern "C" {
  */
 mykonosErr_t MYKONOS_resetDevice(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_getDeviceRev(mykonosDevice_t *device, uint8_t *revision);
+mykonosErr_t MYKONOS_getProductId(mykonosDevice_t *device, uint8_t *productId);
 mykonosErr_t MYKONOS_setSpiSettings(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_verifyDeviceDataStructure(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_verifyProfiles(mykonosDevice_t *device);
@@ -61,10 +62,12 @@ mykonosErr_t MYKONOS_getDpdConfig(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_getDpdStatus(mykonosDevice_t *device, mykonosTxChannels_t txChannel, mykonosDpdStatus_t *dpdStatus);
 mykonosErr_t MYKONOS_restoreDpdModel(mykonosDevice_t *device, mykonosTxChannels_t txChannel, uint8_t *modelDataBuffer, uint32_t modelNumberBytes);
 mykonosErr_t MYKONOS_saveDpdModel(mykonosDevice_t *device, mykonosTxChannels_t txChannel, uint8_t *modelDataBuffer, uint32_t modelNumberBytes);
+mykonosErr_t MYKONOS_setDpdActState(mykonosDevice_t *device, mykonosTxChannels_t txChannel, uint8_t actState);
 
 mykonosErr_t MYKONOS_configClgc(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_getClgcConfig(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_getClgcStatus(mykonosDevice_t *device, mykonosTxChannels_t txChannel, mykonosClgcStatus_t *clgcStatus);
+mykonosErr_t MYKONOS_setClgcGain(mykonosDevice_t *device, mykonosTxChannels_t txChannel, int16_t gain);
 
 mykonosErr_t MYKONOS_configVswr(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_getVswrConfig(mykonosDevice_t *device);
@@ -82,6 +85,10 @@ mykonosErr_t MYKONOS_radioOff(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_getRadioState(mykonosDevice_t *device, uint32_t *radioStatus);
 mykonosErr_t MYKONOS_enableTrackingCals(mykonosDevice_t *device, uint32_t enableMask);
 mykonosErr_t MYKONOS_rescheduleTrackingCal(mykonosDevice_t *device, mykonosTrackingCalibrations_t trackingCal);
+mykonosErr_t MYKONOS_setAllTrackCalState(mykonosDevice_t *device, uint32_t trackingCalMask);
+mykonosErr_t MYKONOS_getAllTrackCalState(mykonosDevice_t *device, uint32_t *trackCals);
+mykonosErr_t MYKONOS_setTrackingCalState(mykonosDevice_t *device, mykonosTrackingCalibrations_t trackingCal, uint8_t trackCalState);
+mykonosErr_t MYKONOS_getTrackingCalState(mykonosDevice_t *device, mykonosTrackingCalibrations_t trackingCal, uint8_t *trackCalState);
 mykonosErr_t MYKONOS_getEnabledTrackingCals(mykonosDevice_t *device, uint32_t *enableMask);
 mykonosErr_t MYKONOS_getPendingTrackingCals(mykonosDevice_t *device, uint32_t *pendingCalMask);
 mykonosErr_t MYKONOS_getTxLolStatus(mykonosDevice_t *device, mykonosTxChannels_t txChannel, mykonosTxLolStatus_t *txLolStatus);
