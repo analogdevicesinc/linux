@@ -125,8 +125,8 @@ int ocrdma_query_device(struct ib_device *ibdev, struct ib_device_attr *attr,
 					IB_DEVICE_SYS_IMAGE_GUID |
 					IB_DEVICE_LOCAL_DMA_LKEY |
 					IB_DEVICE_MEM_MGT_EXTENSIONS;
-	attr->max_sge = min(dev->attr.max_send_sge, dev->attr.max_srq_sge);
-	attr->max_sge_rd = 0;
+	attr->max_sge = dev->attr.max_send_sge;
+	attr->max_sge_rd = attr->max_sge;
 	attr->max_cq = dev->attr.max_cq;
 	attr->max_cqe = dev->attr.max_cqe;
 	attr->max_mr = dev->attr.max_mr;
@@ -419,7 +419,7 @@ static struct ocrdma_pd *_ocrdma_alloc_pd(struct ocrdma_dev *dev,
 					  struct ib_udata *udata)
 {
 	struct ocrdma_pd *pd = NULL;
-	int status = 0;
+	int status;
 
 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
 	if (!pd)
@@ -468,7 +468,7 @@ static inline int is_ucontext_pd(struct ocrdma_ucontext *uctx,
 static int _ocrdma_dealloc_pd(struct ocrdma_dev *dev,
 			      struct ocrdma_pd *pd)
 {
-	int status = 0;
+	int status;
 
 	if (dev->pd_mgr->pd_prealloc_valid)
 		status = ocrdma_put_pd_num(dev, pd->id, pd->dpp_enabled);
@@ -596,7 +596,7 @@ map_err:
 
 int ocrdma_dealloc_ucontext(struct ib_ucontext *ibctx)
 {
-	int status = 0;
+	int status;
 	struct ocrdma_mm *mm, *tmp;
 	struct ocrdma_ucontext *uctx = get_ocrdma_ucontext(ibctx);
 	struct ocrdma_dev *dev = get_ocrdma_dev(ibctx->device);
@@ -623,7 +623,7 @@ int ocrdma_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
 	unsigned long vm_page = vma->vm_pgoff << PAGE_SHIFT;
 	u64 unmapped_db = (u64) dev->nic_info.unmapped_db;
 	unsigned long len = (vma->vm_end - vma->vm_start);
-	int status = 0;
+	int status;
 	bool found;
 
 	if (vma->vm_start & (PAGE_SIZE - 1))
@@ -1094,7 +1094,6 @@ struct ib_cq *ocrdma_create_cq(struct ib_device *ibdev,
 	spin_lock_init(&cq->comp_handler_lock);
 	INIT_LIST_HEAD(&cq->sq_head);
 	INIT_LIST_HEAD(&cq->rq_head);
-	cq->first_arm = true;
 
 	if (ib_ctx) {
 		uctx = get_ocrdma_ucontext(ib_ctx);
@@ -1286,7 +1285,7 @@ static int ocrdma_copy_qp_uresp(struct ocrdma_qp *qp,
 				struct ib_udata *udata, int dpp_offset,
 				int dpp_credit_lmt, int srq)
 {
-	int status = 0;
+	int status;
 	u64 usr_db;
 	struct ocrdma_create_qp_uresp uresp;
 	struct ocrdma_pd *pd = qp->pd;
@@ -1495,9 +1494,7 @@ int _ocrdma_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	 */
 	if (status < 0)
 		return status;
-	status = ocrdma_mbx_modify_qp(dev, qp, attr, attr_mask);
-
-	return status;
+	return ocrdma_mbx_modify_qp(dev, qp, attr, attr_mask);
 }
 
 int ocrdma_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
@@ -1950,7 +1947,7 @@ int ocrdma_modify_srq(struct ib_srq *ibsrq,
 		      enum ib_srq_attr_mask srq_attr_mask,
 		      struct ib_udata *udata)
 {
-	int status = 0;
+	int status;
 	struct ocrdma_srq *srq;
 
 	srq = get_ocrdma_srq(ibsrq);
@@ -2006,6 +2003,7 @@ static void ocrdma_build_ud_hdr(struct ocrdma_qp *qp,
 	else
 		ud_hdr->qkey = ud_wr(wr)->remote_qkey;
 	ud_hdr->rsvd_ahid = ah->id;
+	ud_hdr->hdr_type = ah->hdr_type;
 	if (ah->av->valid & OCRDMA_AV_VLAN_VALID)
 		hdr->cw |= (OCRDMA_FLAG_AH_VLAN_PR << OCRDMA_WQE_FLAGS_SHIFT);
 }
@@ -2718,19 +2716,30 @@ static bool ocrdma_poll_scqe(struct ocrdma_qp *qp, struct ocrdma_cqe *cqe,
 	return expand;
 }
 
-static int ocrdma_update_ud_rcqe(struct ib_wc *ibwc, struct ocrdma_cqe *cqe)
+static int ocrdma_update_ud_rcqe(struct ocrdma_dev *dev, struct ib_wc *ibwc,
+				 struct ocrdma_cqe *cqe)
 {
 	int status;
+	u16 hdr_type = 0;
 
 	status = (le32_to_cpu(cqe->flags_status_srcqpn) &
 		OCRDMA_CQE_UD_STATUS_MASK) >> OCRDMA_CQE_UD_STATUS_SHIFT;
 	ibwc->src_qp = le32_to_cpu(cqe->flags_status_srcqpn) &
 						OCRDMA_CQE_SRCQP_MASK;
-	ibwc->pkey_index = le32_to_cpu(cqe->ud.rxlen_pkey) &
-						OCRDMA_CQE_PKEY_MASK;
+	ibwc->pkey_index = 0;
 	ibwc->wc_flags = IB_WC_GRH;
 	ibwc->byte_len = (le32_to_cpu(cqe->ud.rxlen_pkey) >>
-					OCRDMA_CQE_UD_XFER_LEN_SHIFT);
+			  OCRDMA_CQE_UD_XFER_LEN_SHIFT) &
+			  OCRDMA_CQE_UD_XFER_LEN_MASK;
+
+	if (ocrdma_is_udp_encap_supported(dev)) {
+		hdr_type = (le32_to_cpu(cqe->ud.rxlen_pkey) >>
+			    OCRDMA_CQE_UD_L3TYPE_SHIFT) &
+			    OCRDMA_CQE_UD_L3TYPE_MASK;
+		ibwc->wc_flags |= IB_WC_WITH_NETWORK_HDR_TYPE;
+		ibwc->network_hdr_type = hdr_type;
+	}
+
 	return status;
 }
 
@@ -2793,12 +2802,15 @@ static bool ocrdma_poll_err_rcqe(struct ocrdma_qp *qp, struct ocrdma_cqe *cqe,
 static void ocrdma_poll_success_rcqe(struct ocrdma_qp *qp,
 				     struct ocrdma_cqe *cqe, struct ib_wc *ibwc)
 {
+	struct ocrdma_dev *dev;
+
+	dev = get_ocrdma_dev(qp->ibqp.device);
 	ibwc->opcode = IB_WC_RECV;
 	ibwc->qp = &qp->ibqp;
 	ibwc->status = IB_WC_SUCCESS;
 
 	if (qp->qp_type == IB_QPT_UD || qp->qp_type == IB_QPT_GSI)
-		ocrdma_update_ud_rcqe(ibwc, cqe);
+		ocrdma_update_ud_rcqe(dev, ibwc, cqe);
 	else
 		ibwc->byte_len = le32_to_cpu(cqe->rq.rxlen);
 
@@ -2911,12 +2923,9 @@ expand_cqe:
 	}
 stop_cqe:
 	cq->getp = cur_getp;
-	if (cq->deferred_arm || polled_hw_cqes) {
-		ocrdma_ring_cq_db(dev, cq->id, cq->deferred_arm,
-				  cq->deferred_sol, polled_hw_cqes);
-		cq->deferred_arm = false;
-		cq->deferred_sol = false;
-	}
+
+	if (polled_hw_cqes)
+		ocrdma_ring_cq_db(dev, cq->id, false, false, polled_hw_cqes);
 
 	return i;
 }
@@ -3000,13 +3009,7 @@ int ocrdma_arm_cq(struct ib_cq *ibcq, enum ib_cq_notify_flags cq_flags)
 	if (cq_flags & IB_CQ_SOLICITED)
 		sol_needed = true;
 
-	if (cq->first_arm) {
-		ocrdma_ring_cq_db(dev, cq_id, arm_needed, sol_needed, 0);
-		cq->first_arm = false;
-	}
-
-	cq->deferred_arm = true;
-	cq->deferred_sol = sol_needed;
+	ocrdma_ring_cq_db(dev, cq_id, arm_needed, sol_needed, 0);
 	spin_unlock_irqrestore(&cq->cq_lock, flags);
 
 	return 0;
@@ -3064,169 +3067,6 @@ pbl_err:
 pl_err:
 	kfree(mr);
 	return ERR_PTR(-ENOMEM);
-}
-
-#define MAX_KERNEL_PBE_SIZE 65536
-static inline int count_kernel_pbes(struct ib_phys_buf *buf_list,
-				    int buf_cnt, u32 *pbe_size)
-{
-	u64 total_size = 0;
-	u64 buf_size = 0;
-	int i;
-	*pbe_size = roundup(buf_list[0].size, PAGE_SIZE);
-	*pbe_size = roundup_pow_of_two(*pbe_size);
-
-	/* find the smallest PBE size that we can have */
-	for (i = 0; i < buf_cnt; i++) {
-		/* first addr may not be page aligned, so ignore checking */
-		if ((i != 0) && ((buf_list[i].addr & ~PAGE_MASK) ||
-				 (buf_list[i].size & ~PAGE_MASK))) {
-			return 0;
-		}
-
-		/* if configured PBE size is greater then the chosen one,
-		 * reduce the PBE size.
-		 */
-		buf_size = roundup(buf_list[i].size, PAGE_SIZE);
-		/* pbe_size has to be even multiple of 4K 1,2,4,8...*/
-		buf_size = roundup_pow_of_two(buf_size);
-		if (*pbe_size > buf_size)
-			*pbe_size = buf_size;
-
-		total_size += buf_size;
-	}
-	*pbe_size = *pbe_size > MAX_KERNEL_PBE_SIZE ?
-	    (MAX_KERNEL_PBE_SIZE) : (*pbe_size);
-
-	/* num_pbes = total_size / (*pbe_size);  this is implemented below. */
-
-	return total_size >> ilog2(*pbe_size);
-}
-
-static void build_kernel_pbes(struct ib_phys_buf *buf_list, int ib_buf_cnt,
-			      u32 pbe_size, struct ocrdma_pbl *pbl_tbl,
-			      struct ocrdma_hw_mr *hwmr)
-{
-	int i;
-	int idx;
-	int pbes_per_buf = 0;
-	u64 buf_addr = 0;
-	int num_pbes;
-	struct ocrdma_pbe *pbe;
-	int total_num_pbes = 0;
-
-	if (!hwmr->num_pbes)
-		return;
-
-	pbe = (struct ocrdma_pbe *)pbl_tbl->va;
-	num_pbes = 0;
-
-	/* go through the OS phy regions & fill hw pbe entries into pbls. */
-	for (i = 0; i < ib_buf_cnt; i++) {
-		buf_addr = buf_list[i].addr;
-		pbes_per_buf =
-		    roundup_pow_of_two(roundup(buf_list[i].size, PAGE_SIZE)) /
-		    pbe_size;
-		hwmr->len += buf_list[i].size;
-		/* number of pbes can be more for one OS buf, when
-		 * buffers are of different sizes.
-		 * split the ib_buf to one or more pbes.
-		 */
-		for (idx = 0; idx < pbes_per_buf; idx++) {
-			/* we program always page aligned addresses,
-			 * first unaligned address is taken care by fbo.
-			 */
-			if (i == 0) {
-				/* for non zero fbo, assign the
-				 * start of the page.
-				 */
-				pbe->pa_lo =
-				    cpu_to_le32((u32) (buf_addr & PAGE_MASK));
-				pbe->pa_hi =
-				    cpu_to_le32((u32) upper_32_bits(buf_addr));
-			} else {
-				pbe->pa_lo =
-				    cpu_to_le32((u32) (buf_addr & 0xffffffff));
-				pbe->pa_hi =
-				    cpu_to_le32((u32) upper_32_bits(buf_addr));
-			}
-			buf_addr += pbe_size;
-			num_pbes += 1;
-			total_num_pbes += 1;
-			pbe++;
-
-			if (total_num_pbes == hwmr->num_pbes)
-				goto mr_tbl_done;
-			/* if the pbl is full storing the pbes,
-			 * move to next pbl.
-			 */
-			if (num_pbes == (hwmr->pbl_size/sizeof(u64))) {
-				pbl_tbl++;
-				pbe = (struct ocrdma_pbe *)pbl_tbl->va;
-				num_pbes = 0;
-			}
-		}
-	}
-mr_tbl_done:
-	return;
-}
-
-struct ib_mr *ocrdma_reg_kernel_mr(struct ib_pd *ibpd,
-				   struct ib_phys_buf *buf_list,
-				   int buf_cnt, int acc, u64 *iova_start)
-{
-	int status = -ENOMEM;
-	struct ocrdma_mr *mr;
-	struct ocrdma_pd *pd = get_ocrdma_pd(ibpd);
-	struct ocrdma_dev *dev = get_ocrdma_dev(ibpd->device);
-	u32 num_pbes;
-	u32 pbe_size = 0;
-
-	if ((acc & IB_ACCESS_REMOTE_WRITE) && !(acc & IB_ACCESS_LOCAL_WRITE))
-		return ERR_PTR(-EINVAL);
-
-	mr = kzalloc(sizeof(*mr), GFP_KERNEL);
-	if (!mr)
-		return ERR_PTR(status);
-
-	num_pbes = count_kernel_pbes(buf_list, buf_cnt, &pbe_size);
-	if (num_pbes == 0) {
-		status = -EINVAL;
-		goto pbl_err;
-	}
-	status = ocrdma_get_pbl_info(dev, mr, num_pbes);
-	if (status)
-		goto pbl_err;
-
-	mr->hwmr.pbe_size = pbe_size;
-	mr->hwmr.fbo = *iova_start - (buf_list[0].addr & PAGE_MASK);
-	mr->hwmr.va = *iova_start;
-	mr->hwmr.local_rd = 1;
-	mr->hwmr.remote_wr = (acc & IB_ACCESS_REMOTE_WRITE) ? 1 : 0;
-	mr->hwmr.remote_rd = (acc & IB_ACCESS_REMOTE_READ) ? 1 : 0;
-	mr->hwmr.local_wr = (acc & IB_ACCESS_LOCAL_WRITE) ? 1 : 0;
-	mr->hwmr.remote_atomic = (acc & IB_ACCESS_REMOTE_ATOMIC) ? 1 : 0;
-	mr->hwmr.mw_bind = (acc & IB_ACCESS_MW_BIND) ? 1 : 0;
-
-	status = ocrdma_build_pbl_tbl(dev, &mr->hwmr);
-	if (status)
-		goto pbl_err;
-	build_kernel_pbes(buf_list, buf_cnt, pbe_size, mr->hwmr.pbl_table,
-			  &mr->hwmr);
-	status = ocrdma_reg_mr(dev, &mr->hwmr, pd->id, acc);
-	if (status)
-		goto mbx_err;
-
-	mr->ibmr.lkey = mr->hwmr.lkey;
-	if (mr->hwmr.remote_wr || mr->hwmr.remote_rd)
-		mr->ibmr.rkey = mr->hwmr.lkey;
-	return &mr->ibmr;
-
-mbx_err:
-	ocrdma_free_mr_pbl_tbl(dev, &mr->hwmr);
-pbl_err:
-	kfree(mr);
-	return ERR_PTR(status);
 }
 
 static int ocrdma_set_page(struct ib_mr *ibmr, u64 addr)

@@ -210,7 +210,7 @@ static int daq1_gpio_probe(struct spi_device *spi)
 	daq1->gpio_chip.get = daq1_gpio_get_value;
 	daq1->gpio_chip.set = daq1_gpio_set_value;
 	daq1->gpio_chip.ngpio = IN_OUT_NUM;
-	daq1->gpio_chip.dev = &spi->dev;
+	daq1->gpio_chip.parent = &spi->dev;
 	daq1->gpio_chip.owner = THIS_MODULE;
 
 	mutex_init(&daq1->lock);

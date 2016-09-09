@@ -247,6 +247,10 @@
 			     <1 10 0xf01>;
 	};
 
+	edac {
+		compatible = "arm,cortex-a53-edac";
+	};
+
 	amba_apu: amba_apu {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -623,10 +627,10 @@
 			compatible = "xlnx,zynqmp-gpio-1.0";
 			status = "disabled";
 			#gpio-cells = <0x2>;
-			#interrupt-cells = <2>;
-			interrupt-controller;
 			interrupt-parent = <&gic>;
 			interrupts = <0 16 4>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
 			reg = <0x0 0xff0a0000 0x1000>;
 			power-domains = <&pd_gpio>;
 		};
@@ -666,13 +670,16 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 			#interrupt-cells = <1>;
+			msi-controller;
 			device_type = "pci";
 			interrupt-parent = <&gic>;
 			interrupts = <0 118 4>,
+				     <0 117 4>,
 				     <0 116 4>,
 				     <0 115 4>,	/* MSI_1 [63...32] */
 				     <0 114 4>;	/* MSI_0 [31...0] */
-			interrupt-names = "misc", "intx", "msi_1", "msi_0";
+			interrupt-names = "misc","dummy","intx", "msi1", "msi0";
+			msi-parent = <&pcie>;
 			reg = <0x0 0xfd0e0000 0x1000>,
 			      <0x0 0xfd480000 0x1000>,
 			      <0x0 0xe0000000 0x1000000>;
@@ -959,11 +966,13 @@
 				xlnx,pixel-format = "rgb565";
 				plane0 {
 					dmas = <&xlnx_dpdma 3>;
-					dma-names = "dma";
+					dma-names = "dma0";
 				};
 				plane1 {
-					dmas = <&xlnx_dpdma 0>;
-					dma-names = "dma";
+					dmas = <&xlnx_dpdma 0>,
+					       <&xlnx_dpdma 1>,
+					       <&xlnx_dpdma 2>;
+					dma-names = "dma0", "dma1", "dma2";
 				};
 			};
 		};

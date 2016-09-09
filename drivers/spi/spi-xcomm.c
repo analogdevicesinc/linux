@@ -93,7 +93,7 @@ static int spi_xcomm_gpio_add(struct spi_xcomm *spi_xcomm)
 	spi_xcomm->gc.ngpio = 1;
 	spi_xcomm->gc.label = "SPI-XCOMM-GPIO";
 	spi_xcomm->gc.owner = THIS_MODULE;
-	spi_xcomm->gc.dev = &spi_xcomm->i2c->dev;
+	spi_xcomm->gc.parent = &spi_xcomm->i2c->dev;
 
 	return gpiochip_add(&spi_xcomm->gc);
 }

@@ -116,7 +116,7 @@ i915_gem_evict_something(struct drm_device *dev, struct i915_address_space *vm,
 
 search_again:
 	/* First see if there is a large enough contiguous idle region... */
-	list_for_each_entry(vma, &vm->inactive_list, mm_list) {
+	list_for_each_entry(vma, &vm->inactive_list, vm_link) {
 		if (mark_free(vma, &unwind_list))
 			goto found;
 	}
@@ -125,7 +125,7 @@ search_again:
 		goto none;
 
 	/* Now merge in the soon-to-be-expired objects... */
-	list_for_each_entry(vma, &vm->active_list, mm_list) {
+	list_for_each_entry(vma, &vm->active_list, vm_link) {
 		if (mark_free(vma, &unwind_list))
 			goto found;
 	}
@@ -199,6 +199,45 @@ found:
 	return ret;
 }
 
+int
+i915_gem_evict_for_vma(struct i915_vma *target)
+{
+	struct drm_mm_node *node, *next;
+
+	list_for_each_entry_safe(node, next,
+			&target->vm->mm.head_node.node_list,
+			node_list) {
+		struct i915_vma *vma;
+		int ret;
+
+		if (node->start + node->size <= target->node.start)
+			continue;
+		if (node->start >= target->node.start + target->node.size)
+			break;
+
+		vma = container_of(node, typeof(*vma), node);
+
+		if (vma->pin_count) {
+			if (!vma->exec_entry || (vma->pin_count > 1))
+				/* Object is pinned for some other use */
+				return -EBUSY;
+
+			/* We need to evict a buffer in the same batch */
+			if (vma->exec_entry->flags & EXEC_OBJECT_PINNED)
+				/* Overlapping fixed objects in the same batch */
+				return -EINVAL;
+
+			return -ENOSPC;
+		}
+
+		ret = i915_vma_unbind(vma);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 /**
  * i915_gem_evict_vm - Evict all idle vmas from a vm
  * @vm: Address space to cleanse
@@ -231,7 +270,7 @@ int i915_gem_evict_vm(struct i915_address_space *vm, bool do_idle)
 		WARN_ON(!list_empty(&vm->active_list));
 	}
 
-	list_for_each_entry_safe(vma, next, &vm->inactive_list, mm_list)
+	list_for_each_entry_safe(vma, next, &vm->inactive_list, vm_link)
 		if (vma->pin_count == 0)
 			WARN_ON(i915_vma_unbind(vma));
 

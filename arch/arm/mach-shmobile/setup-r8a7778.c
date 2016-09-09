@@ -15,14 +15,13 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/clk/shmobile.h>
+#include <linux/clk/renesas.h>
 #include <linux/io.h>
 #include <linux/irqchip.h>
 
 #include <asm/mach/arch.h>
 
 #include "common.h"
-#include "irqs.h"
 
 #define MODEMR 0xffcc0020
 

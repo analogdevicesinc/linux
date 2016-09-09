@@ -55,6 +55,11 @@
 #define RDMA_RESOLVE_TIMEOUT	(5000)	/* 5 seconds */
 #define RDMA_CONNECT_RETRY_MAX	(2)	/* retries if no listener backlog */
 
+#define RPCRDMA_BIND_TO		(60U * HZ)
+#define RPCRDMA_INIT_REEST_TO	(5U * HZ)
+#define RPCRDMA_MAX_REEST_TO	(30U * HZ)
+#define RPCRDMA_IDLE_DISC_TO	(5U * 60 * HZ)
+
 /*
  * Interface Adapter -- one per transport instance
  */
@@ -68,7 +73,6 @@ struct rpcrdma_ia {
 	struct completion	ri_done;
 	int			ri_async_rc;
 	unsigned int		ri_max_frmr_depth;
-	struct ib_device_attr	ri_devattr;
 	struct ib_qp_attr	ri_qp_attr;
 	struct ib_qp_init_attr	ri_qp_init_attr;
 };
@@ -88,18 +92,8 @@ struct rpcrdma_ep {
 	struct delayed_work	rep_connect_worker;
 };
 
-/*
- * Force a signaled SEND Work Request every so often,
- * in case the provider needs to do some housekeeping.
- */
-#define RPCRDMA_MAX_UNSIGNALED_SENDS	(32)
-
 #define INIT_CQCOUNT(ep) atomic_set(&(ep)->rep_cqcount, (ep)->rep_cqinit)
 #define DECR_CQCOUNT(ep) atomic_sub_return(1, &(ep)->rep_cqcount)
-
-/* Force completion handler to ignore the signal
- */
-#define RPCRDMA_IGNORE_COMPLETION	(0ULL)
 
 /* Pre-allocate extra Work Requests for handling backward receives
  * and sends. This is a fixed value because the Work Queues are
@@ -148,6 +142,8 @@ rdmab_to_msg(struct rpcrdma_regbuf *rb)
 	return (struct rpcrdma_msg *)rb->rg_base;
 }
 
+#define RPCRDMA_DEF_GFP		(GFP_NOIO | __GFP_NOWARN)
+
 /*
  * struct rpcrdma_rep -- this structure encapsulates state required to recv
  * and complete a reply, asychronously. It needs several pieces of
@@ -171,6 +167,7 @@ rdmab_to_msg(struct rpcrdma_regbuf *rb)
 struct rpcrdma_buffer;
 
 struct rpcrdma_rep {
+	struct ib_cqe		rr_cqe;
 	unsigned int		rr_len;
 	struct ib_device	*rr_device;
 	struct rpcrdma_xprt	*rr_rxprt;
@@ -204,9 +201,15 @@ struct rpcrdma_frmr {
 	struct scatterlist		*sg;
 	int				sg_nents;
 	struct ib_mr			*fr_mr;
+	struct ib_cqe			fr_cqe;
 	enum rpcrdma_frmr_state		fr_state;
+	struct completion		fr_linv_done;
 	struct work_struct		fr_work;
 	struct rpcrdma_xprt		*fr_xprt;
+	union {
+		struct ib_reg_wr	fr_regwr;
+		struct ib_send_wr	fr_invwr;
+	};
 };
 
 struct rpcrdma_fmr {
@@ -218,8 +221,7 @@ struct rpcrdma_mw {
 	union {
 		struct rpcrdma_fmr	fmr;
 		struct rpcrdma_frmr	frmr;
-	} r;
-	void			(*mw_sendcompletion)(struct ib_wc *);
+	};
 	struct list_head	mw_list;
 	struct list_head	mw_all;
 };
@@ -275,6 +277,7 @@ struct rpcrdma_req {
 	struct rpcrdma_regbuf	*rl_sendbuf;
 	struct rpcrdma_mr_seg	rl_segments[RPCRDMA_MAX_SEGS];
 
+	struct ib_cqe		rl_cqe;
 	struct list_head	rl_all;
 	bool			rl_backchannel;
 };
@@ -305,10 +308,13 @@ struct rpcrdma_buffer {
 	struct list_head	rb_send_bufs;
 	struct list_head	rb_recv_bufs;
 	u32			rb_max_requests;
+	atomic_t		rb_credits;	/* most recent credit grant */
 
 	u32			rb_bc_srv_max_requests;
 	spinlock_t		rb_reqslock;	/* protect rb_allreqs */
 	struct list_head	rb_allreqs;
+
+	u32			rb_bc_max_requests;
 };
 #define rdmab_to_ia(b) (&container_of((b), struct rpcrdma_xprt, rx_buf)->rx_ia)
 
@@ -364,6 +370,8 @@ struct rpcrdma_xprt;
 struct rpcrdma_memreg_ops {
 	int		(*ro_map)(struct rpcrdma_xprt *,
 				  struct rpcrdma_mr_seg *, int, bool);
+	void		(*ro_unmap_sync)(struct rpcrdma_xprt *,
+					 struct rpcrdma_req *);
 	int		(*ro_unmap)(struct rpcrdma_xprt *,
 				    struct rpcrdma_mr_seg *);
 	int		(*ro_open)(struct rpcrdma_ia *,
@@ -514,6 +522,10 @@ int rpcrdma_marshal_req(struct rpc_rqst *);
 
 /* RPC/RDMA module init - xprtrdma/transport.c
  */
+extern unsigned int xprt_rdma_max_inline_read;
+void xprt_rdma_format_addresses(struct rpc_xprt *xprt, struct sockaddr *sap);
+void xprt_rdma_free_addresses(struct rpc_xprt *xprt);
+void xprt_rdma_print_stats(struct rpc_xprt *xprt, struct seq_file *seq);
 int xprt_rdma_init(void);
 void xprt_rdma_cleanup(void);
 
@@ -529,11 +541,6 @@ void xprt_rdma_bc_free_rqst(struct rpc_rqst *);
 void xprt_rdma_bc_destroy(struct rpc_xprt *, unsigned int);
 #endif	/* CONFIG_SUNRPC_BACKCHANNEL */
 
-/* Temporary NFS request map cache. Created in svc_rdma.c  */
-extern struct kmem_cache *svc_rdma_map_cachep;
-/* WR context cache. Created in svc_rdma.c  */
-extern struct kmem_cache *svc_rdma_ctxt_cachep;
-/* Workqueue created in svc_rdma.c */
-extern struct workqueue_struct *svc_rdma_wq;
+extern struct xprt_class xprt_rdma_bc;
 
 #endif				/* _LINUX_SUNRPC_XPRT_RDMA_H */

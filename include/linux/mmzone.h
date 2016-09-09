@@ -63,6 +63,9 @@ enum {
 	MIGRATE_TYPES
 };
 
+/* In mm/page_alloc.c; keep in sync also with show_migration_types() there */
+extern char * const migratetype_names[MIGRATE_TYPES];
+
 #ifdef CONFIG_CMA
 #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
 #else
@@ -195,11 +198,6 @@ static inline int is_active_lru(enum lru_list lru)
 	return (lru == LRU_ACTIVE_ANON || lru == LRU_ACTIVE_FILE);
 }
 
-static inline int is_unevictable_lru(enum lru_list lru)
-{
-	return (lru == LRU_UNEVICTABLE);
-}
-
 struct zone_reclaim_stat {
 	/*
 	 * The pageout code in vmscan.c keeps track of how many of the
@@ -214,10 +212,12 @@ struct zone_reclaim_stat {
 };
 
 struct lruvec {
-	struct list_head lists[NR_LRU_LISTS];
-	struct zone_reclaim_stat reclaim_stat;
+	struct list_head		lists[NR_LRU_LISTS];
+	struct zone_reclaim_stat	reclaim_stat;
+	/* Evictions & activations on the inactive file list */
+	atomic_long_t			inactive_age;
 #ifdef CONFIG_MEMCG
-	struct zone *zone;
+	struct zone			*zone;
 #endif
 };
 
@@ -361,10 +361,10 @@ struct zone {
 	struct per_cpu_pageset __percpu *pageset;
 
 	/*
-	 * This is a per-zone reserve of pages that should not be
-	 * considered dirtyable memory.
+	 * This is a per-zone reserve of pages that are not available
+	 * to userspace allocations.
 	 */
-	unsigned long		dirty_balance_reserve;
+	unsigned long		totalreserve_pages;
 
 #ifndef CONFIG_SPARSEMEM
 	/*
@@ -492,9 +492,6 @@ struct zone {
 	spinlock_t		lru_lock;
 	struct lruvec		lruvec;
 
-	/* Evictions & activations on the inactive file list */
-	atomic_long_t		inactive_age;
-
 	/*
 	 * When free pages are below this point, additional steps are taken
 	 * when reading the number of free pages to avoid per-cpu counter
@@ -524,6 +521,8 @@ struct zone {
 	/* Set to true when the PG_migrate_skip bits should be cleared */
 	bool			compact_blockskip_flush;
 #endif
+
+	bool			contiguous;
 
 	ZONE_PADDING(_pad3_)
 	/* Zone statistics */
@@ -576,19 +575,17 @@ static inline bool zone_is_empty(struct zone *zone)
 /* Maximum number of zones on a zonelist */
 #define MAX_ZONES_PER_ZONELIST (MAX_NUMNODES * MAX_NR_ZONES)
 
+enum {
+	ZONELIST_FALLBACK,	/* zonelist with fallback */
 #ifdef CONFIG_NUMA
-
-/*
- * The NUMA zonelists are doubled because we need zonelists that restrict the
- * allocations to a single node for __GFP_THISNODE.
- *
- * [0]	: Zonelist with fallback
- * [1]	: No fallback (__GFP_THISNODE)
- */
-#define MAX_ZONELISTS 2
-#else
-#define MAX_ZONELISTS 1
+	/*
+	 * The NUMA zonelists are doubled because we need zonelists that
+	 * restrict the allocations to a single node for __GFP_THISNODE.
+	 */
+	ZONELIST_NOFALLBACK,	/* zonelist without fallback (__GFP_THISNODE) */
 #endif
+	MAX_ZONELISTS
+};
 
 /*
  * This struct contains information about a zone in a zonelist. It is stored
@@ -671,6 +668,12 @@ typedef struct pglist_data {
 					   mem_hotplug_begin/end() */
 	int kswapd_max_order;
 	enum zone_type classzone_idx;
+#ifdef CONFIG_COMPACTION
+	int kcompactd_max_order;
+	enum zone_type kcompactd_classzone_idx;
+	wait_queue_head_t kcompactd_wait;
+	struct task_struct *kcompactd;
+#endif
 #ifdef CONFIG_NUMA_BALANCING
 	/* Lock serializing the migrate rate limiting window */
 	spinlock_t numabalancing_migrate_lock;
@@ -689,6 +692,12 @@ typedef struct pglist_data {
 	 */
 	unsigned long first_deferred_pfn;
 #endif /* CONFIG_DEFERRED_STRUCT_PAGE_INIT */
+
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+	spinlock_t split_queue_lock;
+	struct list_head split_queue;
+	unsigned long split_queue_len;
+#endif
 } pg_data_t;
 
 #define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)
@@ -758,6 +767,8 @@ static inline struct zone *lruvec_zone(struct lruvec *lruvec)
 	return container_of(lruvec, struct zone, lruvec);
 #endif
 }
+
+extern unsigned long lruvec_lru_size(struct lruvec *lruvec, enum lru_list lru);
 
 #ifdef CONFIG_HAVE_MEMORY_PRESENT
 void memory_present(int nid, unsigned long start, unsigned long end);
@@ -829,6 +840,8 @@ static inline int is_highmem(struct zone *zone)
 /* These two functions are used to setup the per zone pages min values */
 struct ctl_table;
 int min_free_kbytes_sysctl_handler(struct ctl_table *, int,
+					void __user *, size_t *, loff_t *);
+int watermark_scale_factor_sysctl_handler(struct ctl_table *, int,
 					void __user *, size_t *, loff_t *);
 extern int sysctl_lowmem_reserve_ratio[MAX_NR_ZONES-1];
 int lowmem_reserve_ratio_sysctl_handler(struct ctl_table *, int,
@@ -1207,13 +1220,13 @@ unsigned long __init node_memmap_size_bytes(int, unsigned long, unsigned long);
  * the zone and PFN linkages are still valid. This is expensive, but walkers
  * of the full memmap are extremely rare.
  */
-int memmap_valid_within(unsigned long pfn,
+bool memmap_valid_within(unsigned long pfn,
 					struct page *page, struct zone *zone);
 #else
-static inline int memmap_valid_within(unsigned long pfn,
+static inline bool memmap_valid_within(unsigned long pfn,
 					struct page *page, struct zone *zone)
 {
-	return 1;
+	return true;
 }
 #endif /* CONFIG_ARCH_HAS_HOLES_MEMORYMODEL */
 

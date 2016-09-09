@@ -109,6 +109,7 @@ static bool adv7511_register_volatile(struct device *dev, unsigned int reg)
 	case ADV7511_REG_BKSV(3):
 	case ADV7511_REG_BKSV(4):
 	case ADV7511_REG_DDC_STATUS:
+	case ADV7511_REG_EDID_READ_CTRL:
 	case ADV7511_REG_BSTATUS(0):
 	case ADV7511_REG_BSTATUS(1):
 	case ADV7511_REG_CHIP_ID_HIGH:
@@ -358,9 +359,9 @@ static bool adv7511_hpd(struct adv7511 *adv7511)
 	if (ret < 0)
 		return false;
 
-	if (irq0 & ADV7511_INT0_HDP) {
+	if (irq0 & ADV7511_INT0_HPD) {
 		regmap_write(adv7511->regmap, ADV7511_REG_INT(0),
-			     ADV7511_INT0_HDP);
+			     ADV7511_INT0_HPD);
 		return true;
 	}
 
@@ -519,6 +520,12 @@ static int adv7511_get_modes(struct drm_encoder *encoder,
 			     ADV7511_INT0_EDID_READY | ADV7511_INT1_DDC_ERROR);
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 				   ADV7511_POWER_POWER_DOWN, 0);
+		if (adv7511->i2c_main->irq) {
+			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE1,
+				     ADV7511_INT0_EDID_READY);
+			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE2,
+				     ADV7511_INT1_DDC_ERROR);
+		}
 		adv7511->current_edid_segment = -1;
 	}
 
@@ -555,22 +562,35 @@ static void adv7511_encoder_dpms(struct drm_encoder *encoder, int mode)
 			     ADV7511_INT0_EDID_READY | ADV7511_INT1_DDC_ERROR);
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 				   ADV7511_POWER_POWER_DOWN, 0);
+		if (adv7511->i2c_main->irq) {
+			/*
+			 * Documentation says the INT_ENABLE registers are reset in
+			 * POWER_DOWN mode. My 7511w preserved the bits, however.
+			 * Still, let's be safe and stick to the documentation.
+			 */
+			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE1,
+					 ADV7511_INT0_EDID_READY);
+			regmap_write(adv7511->regmap, ADV7511_REG_INT_ENABLE2,
+					 ADV7511_INT1_DDC_ERROR);
+		}
+
 		/*
-		 * Per spec it is allowed to pulse the HDP signal to indicate
+		 * Per spec it is allowed to pulse the HPD signal to indicate
 		 * that the EDID information has changed. Some monitors do this
-		 * when they wakeup from standby or are enabled. When the HDP
+		 * when they wakeup from standby or are enabled. When the HPD 
 		 * goes low the adv7511 is reset and the outputs are disabled
 		 * which might cause the monitor to go to standby again. To
-		 * avoid this we ignore the HDP pin for the first few seconds
+		 * avoid this we ignore the HPD pin for the first few seconds
 		 * after enabeling the output.
 		 */
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
-				   ADV7511_REG_POWER2_HDP_SRC_MASK,
-				   ADV7511_REG_POWER2_HDP_SRC_NONE);
+				   ADV7511_REG_POWER2_HPD_SRC_MASK,
+				   ADV7511_REG_POWER2_HPD_SRC_NONE);
 		/* Most of the registers are reset during power down or
 		 * when HPD is low
 		 */
 		regcache_sync(adv7511->regmap);
+
 		break;
 	default:
 		/* TODO: setup additional power down modes */
@@ -617,10 +637,10 @@ adv7511_encoder_detect(struct drm_encoder *encoder,
 		if (adv7511->status == connector_status_connected)
 			status = connector_status_disconnected;
 	} else {
-		/* Renable HDP sensing */
+		/* Renable HPD sensing */
 		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
-				   ADV7511_REG_POWER2_HDP_SRC_MASK,
-				   ADV7511_REG_POWER2_HDP_SRC_BOTH);
+				   ADV7511_REG_POWER2_HPD_SRC_MASK,
+				   ADV7511_REG_POWER2_HPD_SRC_BOTH);
 	}
 
 	adv7511->status = status;
@@ -722,7 +742,7 @@ static void adv7511_encoder_mode_set(struct drm_encoder *encoder,
 	adv7511->f_tmds = mode->clock;
 }
 
-static struct drm_encoder_slave_funcs adv7511_encoder_funcs = {
+static const struct drm_encoder_slave_funcs adv7511_encoder_funcs = {
 	.set_config = adv7511_set_config,
 	.dpms = adv7511_encoder_dpms,
 	.mode_set = adv7511_encoder_mode_set,

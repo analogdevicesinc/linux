@@ -96,6 +96,7 @@ static inline void amdgpu_bo_unreserve(struct amdgpu_bo *bo)
  */
 static inline u64 amdgpu_bo_gpu_offset(struct amdgpu_bo *bo)
 {
+	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_SYSTEM);
 	return bo->tbo.offset;
 }
 
@@ -148,7 +149,6 @@ int amdgpu_bo_pin_restricted(struct amdgpu_bo *bo, u32 domain,
 			     u64 *gpu_addr);
 int amdgpu_bo_unpin(struct amdgpu_bo *bo);
 int amdgpu_bo_evict_vram(struct amdgpu_device *adev);
-void amdgpu_bo_force_delete(struct amdgpu_device *adev);
 int amdgpu_bo_init(struct amdgpu_device *adev);
 void amdgpu_bo_fini(struct amdgpu_device *adev);
 int amdgpu_bo_fbdev_mmap(struct amdgpu_bo *bo,

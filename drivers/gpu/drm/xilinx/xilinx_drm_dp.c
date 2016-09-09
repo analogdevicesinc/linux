@@ -205,6 +205,8 @@
 #define XILINX_DP_TX_PHY_POSTCURSOR_LANE_1		0x250
 #define XILINX_DP_TX_PHY_POSTCURSOR_LANE_2		0x254
 #define XILINX_DP_TX_PHY_POSTCURSOR_LANE_3		0x258
+#define XILINX_DP_SUB_TX_PHY_PRECURSOR_LANE_0		0x24c
+#define XILINX_DP_SUB_TX_PHY_PRECURSOR_LANE_1		0x250
 #define XILINX_DP_TX_PHY_STATUS				0x280
 #define XILINX_DP_TX_PHY_STATUS_PLL_LOCKED_SHIFT	4
 #define XILINX_DP_TX_PHY_STATUS_FPGA_PLL_LOCKED		(1 << 6)
@@ -452,7 +454,7 @@ static void xilinx_drm_dp_adjust_train(struct xilinx_drm_dp *dp,
 {
 	u8 *train_set = dp->train_set;
 	u8 voltage = 0, preemphasis = 0;
-	u8 max_preemphasis;
+	u8 max_voltage, max_preemphasis;
 	u8 i;
 
 	for (i = 0; i < dp->mode.lane_cnt; i++) {
@@ -466,14 +468,15 @@ static void xilinx_drm_dp_adjust_train(struct xilinx_drm_dp *dp,
 			preemphasis = p;
 	}
 
-	if (voltage >= DP_TRAIN_VOLTAGE_SWING_LEVEL_3)
-		voltage |= DP_TRAIN_MAX_SWING_REACHED;
-
+	max_voltage = (dp->dp_sub) ? DP_TRAIN_VOLTAGE_SWING_LEVEL_2 :
+				     DP_TRAIN_VOLTAGE_SWING_LEVEL_3;
+	if (voltage >= max_voltage)
+		voltage = max_voltage | DP_TRAIN_MAX_SWING_REACHED;
 	max_preemphasis = (dp->dp_sub) ? DP_TRAIN_PRE_EMPH_LEVEL_2 :
 					 DP_TRAIN_PRE_EMPH_LEVEL_3;
-
 	if (preemphasis >= max_preemphasis)
-		preemphasis |= DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
+		preemphasis = max_preemphasis |
+			      DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
 
 	for (i = 0; i < dp->mode.lane_cnt; i++)
 		train_set[i] = voltage | preemphasis;
@@ -515,9 +518,11 @@ static int xilinx_drm_dp_update_vs_emph(struct xilinx_drm_dp *dp)
 			  DP_TRAIN_PRE_EMPHASIS_SHIFT;
 
 		if (dp->phy[i]) {
+			u32 reg = XILINX_DP_SUB_TX_PHY_PRECURSOR_LANE_0 + i * 4;
+
 			xpsgtr_margining_factor(dp->phy[i], p_level, v_level);
 			xpsgtr_override_deemph(dp->phy[i], p_level, v_level);
-
+			xilinx_drm_writel(dp->iomem, reg, 0x2);
 		} else {
 			u32 reg;
 
@@ -731,16 +736,12 @@ static int xilinx_drm_dp_train(struct xilinx_drm_dp *dp)
 	memset(dp->train_set, 0, 4);
 
 	ret = xilinx_drm_dp_link_train_cr(dp);
-	if (ret) {
-		DRM_ERROR("failed to train clock recovery\n");
+	if (ret)
 		return ret;
-	}
 
 	ret = xilinx_drm_dp_link_train_ce(dp);
-	if (ret) {
-		DRM_ERROR("failed to train channel eq\n");
+	if (ret)
 		return ret;
-	}
 
 	xilinx_drm_writel(dp->iomem, XILINX_DP_TX_TRAINING_PATTERN_SET,
 			  DP_TRAINING_PATTERN_DISABLE);
@@ -781,7 +782,6 @@ static void xilinx_drm_dp_dpms(struct drm_encoder *encoder, int dpms)
 				break;
 			usleep_range(300, 500);
 		}
-		xilinx_drm_dp_train(dp);
 		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_SW_RESET,
 				  XILINX_DP_TX_SW_RESET_ALL);
 		xilinx_drm_writel(iomem, XILINX_DP_TX_ENABLE_MAIN_STREAM, 1);
@@ -984,11 +984,15 @@ static void xilinx_drm_dp_mode_set_stream(struct xilinx_drm_dp *dp,
  * xilinx_drm_dp_mode_configure - Configure the link values
  * @dp: DisplayPort IP core structure
  * @pclock: pixel clock for requested display mode
+ * @current_bw: current link rate
  *
  * Find the link configuration values, rate and lane count for requested pixel
  * clock @pclock.
+ *
+ * Return: Current link rate code, or -EINVAL.
  */
-static void xilinx_drm_dp_mode_configure(struct xilinx_drm_dp *dp, int pclock)
+static int xilinx_drm_dp_mode_configure(struct xilinx_drm_dp *dp, int pclock,
+					u8 current_bw)
 {
 	int max_rate = dp->link_config.max_rate;
 	u8 bws[3] = { DP_LINK_BW_1_62, DP_LINK_BW_2_7, DP_LINK_BW_5_4 };
@@ -998,9 +1002,13 @@ static void xilinx_drm_dp_mode_configure(struct xilinx_drm_dp *dp, int pclock)
 	u8 lane_cnt, i;
 	s8 clock;
 
-	for (i = 0; i < ARRAY_SIZE(bws); i++)
-		if (bws[i] == max_link_rate_code)
+	for (i = ARRAY_SIZE(bws) - 1; i >= 0; i--) {
+		if (current_bw && bws[i] >= current_bw)
+			continue;
+
+		if (bws[i] <= max_link_rate_code)
 			break;
+	}
 
 	for (lane_cnt = 1; lane_cnt <= max_lanes; lane_cnt <<= 1)
 		for (clock = i; clock >= 0; clock--) {
@@ -1012,9 +1020,13 @@ static void xilinx_drm_dp_mode_configure(struct xilinx_drm_dp *dp, int pclock)
 			if (pclock <= rate) {
 				dp->mode.bw_code = bws[clock];
 				dp->mode.lane_cnt = lane_cnt;
-				return;
+				return bws[clock];
 			}
 		}
+
+	DRM_ERROR("failed to configure link values\n");
+
+	return -EINVAL;
 }
 
 static void xilinx_drm_dp_mode_set(struct drm_encoder *encoder,
@@ -1022,10 +1034,26 @@ static void xilinx_drm_dp_mode_set(struct drm_encoder *encoder,
 				   struct drm_display_mode *adjusted_mode)
 {
 	struct xilinx_drm_dp *dp = to_dp(encoder);
+	int bw = 0;
+	unsigned int ret;
 
-	xilinx_drm_dp_mode_configure(dp, adjusted_mode->clock);
-	xilinx_drm_dp_mode_set_stream(dp, adjusted_mode);
-	xilinx_drm_dp_mode_set_transfer_unit(dp, adjusted_mode);
+	do {
+		bw = xilinx_drm_dp_mode_configure(dp, adjusted_mode->clock, bw);
+		if (bw < 0)
+			return;
+
+		xilinx_drm_dp_mode_set_stream(dp, adjusted_mode);
+		xilinx_drm_dp_mode_set_transfer_unit(dp, adjusted_mode);
+
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_PHY_POWER_DOWN, 0);
+		ret = xilinx_drm_dp_train(dp);
+		xilinx_drm_writel(dp->iomem, XILINX_DP_TX_PHY_POWER_DOWN,
+				  XILINX_DP_TX_PHY_POWER_DOWN_ALL);
+		if (!ret)
+			return;
+	} while (bw >= DP_LINK_BW_1_62);
+
+	DRM_ERROR("failed to train the DP link\n");
 }
 
 static enum drm_connector_status
@@ -1394,6 +1422,7 @@ static int xilinx_drm_dp_probe(struct platform_device *pdev)
 			if (IS_ERR(dp->phy[i])) {
 				dev_err(dp->dev, "failed to get phy lane\n");
 				ret = PTR_ERR(dp->phy[i]);
+				dp->phy[i] = NULL;
 				goto error_dp_sub;
 			}
 

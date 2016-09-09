@@ -2179,7 +2179,7 @@ static int perf_probe_event__sprintf(const char *group, const char *event,
 		strbuf_addf(result, " in %s", module);
 
 	if (pev->nargs > 0) {
-		strbuf_addstr(result, " with");
+		strbuf_add(result, " with", 5);
 		for (i = 0; i < pev->nargs; i++) {
 			ret = synthesize_perf_probe_arg(&pev->args[i],
 							buf, 128);
@@ -2326,8 +2326,11 @@ static int get_new_event_name(char *buf, size_t len, const char *base,
 		goto out;
 
 	if (!allow_suffix) {
-		pr_warning("Error: event \"%s\" already exists. "
-			   "(Use -f to force duplicates.)\n", buf);
+		pr_warning("Error: event \"%s\" already exists.\n"
+			   " Hint: Remove existing event by 'perf probe -d'\n"
+			   "       or force duplicates by 'perf probe -f'\n"
+			   "       or set 'force=yes' in BPF source.\n",
+			   buf);
 		ret = -EEXIST;
 		goto out;
 	}

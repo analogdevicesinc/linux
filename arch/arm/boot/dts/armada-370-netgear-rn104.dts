@@ -133,7 +133,7 @@
 				isl12057: isl12057@68 {
 					compatible = "isil,isl12057";
 					reg = <0x68>;
-					isil,irq2-can-wakeup-machine;
+					wakeup-source;
 				};
 
 				g762: g762@3e {
@@ -297,7 +297,7 @@
 
 	backup_led_pin: backup-led-pin {
 		marvell,pins = "mpp63";
-		marvell,function = "gpo";
+		marvell,function = "gpio";
 	};
 
 	power_led_pin: power-led-pin {

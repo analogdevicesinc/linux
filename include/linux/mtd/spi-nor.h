@@ -12,6 +12,7 @@
 
 #include <linux/bitops.h>
 #include <linux/mtd/cfi.h>
+#include <linux/mtd/mtd.h>
 
 /*
  * Manufacturer IDs
@@ -91,6 +92,7 @@
 #define SR_BP0			BIT(2)	/* Block protect 0 */
 #define SR_BP1			BIT(3)	/* Block protect 1 */
 #define SR_BP2			BIT(4)	/* Block protect 2 */
+#define SR_TB			BIT(5)	/* Top/Bottom protect */
 /* SR_BP3 only used on some Micron chip; must NOT be in SR_BP_BIT_MASK */
 #define SR_BP3			BIT(6)	/* Block protect 3 */
 #define	SR_BP_BIT_OFFSET	2	/* Offset to Block protect 0 */
@@ -135,16 +137,14 @@ enum spi_nor_ops {
 
 enum spi_nor_option_flags {
 	SNOR_F_USE_FSR		= BIT(0),
+	SNOR_F_HAS_SR_TB	= BIT(1),
 };
-
-struct mtd_info;
 
 /**
  * struct spi_nor - Structure for defining a the SPI NOR layer
  * @mtd:		point to a mtd_info structure
  * @lock:		the lock for the read/write/erase/lock/unlock operations
  * @dev:		point to a spi device, or a spi nor controller device.
- * @flash_node:		point to a device node describing this flash instance.
  * @page_size:		the page size of the SPI NOR
  * @addr_width:		number of address bytes
  * @erase_opcode:	the opcode for erasing a sector
@@ -164,7 +164,8 @@ struct mtd_info;
  * @read:		[DRIVER-SPECIFIC] read data from the SPI NOR
  * @write:		[DRIVER-SPECIFIC] write data to the SPI NOR
  * @erase:		[DRIVER-SPECIFIC] erase a sector of the SPI NOR
- *			at the offset @offs
+ *			at the offset @offs; if not provided by the driver,
+ *			spi-nor will send the erase opcode via write_reg()
  * @flash_lock:		[FLASH-SPECIFIC] lock a region of the SPI NOR
  * @flash_unlock:	[FLASH-SPECIFIC] unlock a region of the SPI NOR
  * @flash_is_locked:	[FLASH-SPECIFIC] check if a region of the SPI NOR is
@@ -212,6 +213,17 @@ struct spi_nor {
 
 	void *priv;
 };
+
+static inline void spi_nor_set_flash_node(struct spi_nor *nor,
+					  struct device_node *np)
+{
+	mtd_set_of_node(&nor->mtd, np);
+}
+
+static inline struct device_node *spi_nor_get_flash_node(struct spi_nor *nor)
+{
+	return mtd_get_of_node(&nor->mtd);
+}
 
 /**
  * spi_nor_scan() - scan the SPI NOR

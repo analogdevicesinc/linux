@@ -150,6 +150,7 @@ xfs_dir3_free_write_verify(
 }
 
 const struct xfs_buf_ops xfs_dir3_free_buf_ops = {
+	.name = "xfs_dir3_free",
 	.verify_read = xfs_dir3_free_read_verify,
 	.verify_write = xfs_dir3_free_write_verify,
 };
@@ -2234,6 +2235,9 @@ xfs_dir2_node_trim_free(
 
 	dp = args->dp;
 	tp = args->trans;
+
+	*rvalp = 0;
+
 	/*
 	 * Read the freespace block.
 	 */
@@ -2254,7 +2258,6 @@ xfs_dir2_node_trim_free(
 	 */
 	if (freehdr.nused > 0) {
 		xfs_trans_brelse(tp, bp);
-		*rvalp = 0;
 		return 0;
 	}
 	/*

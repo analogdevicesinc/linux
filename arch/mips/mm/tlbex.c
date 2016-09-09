@@ -12,7 +12,7 @@
  * Copyright (C) 2011  MIPS Technologies, Inc.
  *
  * ... and the days got worse and worse and now you see
- * I've gone completly out of my mind.
+ * I've gone completely out of my mind.
  *
  * They're coming to take me a away haha
  * they're coming to take me a away hoho hihi haha
@@ -240,9 +240,8 @@ static void output_pgtable_bits_defines(void)
 	pr_define("_PAGE_MODIFIED_SHIFT %d\n", _PAGE_MODIFIED_SHIFT);
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 	pr_define("_PAGE_HUGE_SHIFT %d\n", _PAGE_HUGE_SHIFT);
-	pr_define("_PAGE_SPLITTING_SHIFT %d\n", _PAGE_SPLITTING_SHIFT);
 #endif
-#ifdef CONFIG_CPU_MIPSR2
+#if defined(CONFIG_CPU_MIPSR2) || defined(CONFIG_CPU_MIPSR6)
 	if (cpu_has_rixi) {
 #ifdef _PAGE_NO_EXEC_SHIFT
 		pr_define("_PAGE_NO_EXEC_SHIFT %d\n", _PAGE_NO_EXEC_SHIFT);

@@ -103,7 +103,7 @@ static inline struct drm_encoder *connector_to_encoder(struct drm_connector *con
 static int axi_hdmi_connector_init(struct drm_device *dev,
 	struct drm_connector *connector, struct drm_encoder *encoder);
 
-static inline struct drm_encoder_slave_funcs *
+static inline const struct drm_encoder_slave_funcs *
 get_slave_funcs(struct drm_encoder *enc)
 {
 	if (!to_encoder_slave(enc))
@@ -236,7 +236,7 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 	struct axi_hdmi_encoder *axi_hdmi_encoder = to_axi_hdmi_encoder(encoder);
 	struct drm_connector *connector = &axi_hdmi_encoder->connector;
 	struct axi_hdmi_private *private = encoder->dev->dev_private;
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 	struct adv7511_video_config config;
 	struct edid *edid;
 
@@ -298,7 +298,7 @@ static void axi_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 static bool axi_hdmi_encoder_mode_fixup(struct drm_encoder *encoder,
 	const struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
 {
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 
 	if (sfuncs && sfuncs->mode_fixup)
 		return sfuncs->mode_fixup(encoder, mode, adjusted_mode);
@@ -309,7 +309,7 @@ static bool axi_hdmi_encoder_mode_fixup(struct drm_encoder *encoder,
 static void axi_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 	struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
 {
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 	struct axi_hdmi_private *private = encoder->dev->dev_private;
 	unsigned int h_de_min, h_de_max;
 	unsigned int v_de_min, v_de_max;
@@ -360,7 +360,7 @@ static struct drm_encoder_helper_funcs axi_hdmi_encoder_helper_funcs = {
 
 static void axi_hdmi_encoder_destroy(struct drm_encoder *encoder)
 {
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 	struct axi_hdmi_encoder *axi_hdmi_encoder =
 		to_axi_hdmi_encoder(encoder);
 
@@ -394,7 +394,7 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 	encoder->possible_crtcs = 1;
 
 	drm_encoder_init(dev, encoder, &axi_hdmi_encoder_funcs,
-			DRM_MODE_ENCODER_TMDS);
+			DRM_MODE_ENCODER_TMDS, NULL);
 	drm_encoder_helper_add(encoder, &axi_hdmi_encoder_helper_funcs);
 
 	encoder_drv =
@@ -417,7 +417,7 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 static int axi_hdmi_connector_get_modes(struct drm_connector *connector)
 {
 	struct drm_encoder *encoder = connector_to_encoder(connector);
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 	int count = 0;
 
 	if (sfuncs && sfuncs->get_modes)
@@ -454,7 +454,7 @@ static enum drm_connector_status axi_hdmi_connector_detect(
 {
 	enum drm_connector_status status = connector_status_unknown;
 	struct drm_encoder *encoder = connector_to_encoder(connector);
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 
 	if (sfuncs && sfuncs->detect)
 		status = sfuncs->detect(encoder, connector);
@@ -491,8 +491,6 @@ static int axi_hdmi_connector_init(struct drm_device *dev,
 	err = drm_connector_register(connector);
 	if (err)
 		goto err_connector;
-
-	connector->encoder = encoder;
 
 	err = drm_mode_connector_attach_encoder(connector, encoder);
 	if (err) {

@@ -1,5 +1,6 @@
 /*
  *    Disk Array driver for HP Smart Array SAS controllers
+ *    Copyright 2016 Microsemi Corporation
  *    Copyright 2014-2015 PMC-Sierra, Inc.
  *    Copyright 2000,2009-2015 Hewlett-Packard Development Company, L.P.
  *
@@ -12,7 +13,7 @@
  *    MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
  *    NON INFRINGEMENT.  See the GNU General Public License for more details.
  *
- *    Questions/Comments/Bugfixes to storagedev@pmcs.com
+ *    Questions/Comments/Bugfixes to esc.storagedev@microsemi.com
  *
  */
 
@@ -750,7 +751,6 @@ static ssize_t host_show_hp_ssd_smart_path_enabled(struct device *dev,
 }
 
 #define MAX_PATHS 8
-
 static ssize_t path_info_show(struct device *dev,
 	     struct device_attribute *attr, char *buf)
 {
@@ -792,10 +792,8 @@ static ssize_t path_info_show(struct device *dev,
 				hdev->bus, hdev->target, hdev->lun,
 				scsi_device_type(hdev->devtype));
 
-		if (hdev->external ||
-			hdev->devtype == TYPE_RAID ||
-			is_logical_device(hdev)) {
-			output_len += snprintf(buf + output_len,
+		if (hdev->devtype == TYPE_RAID || is_logical_device(hdev)) {
+			output_len += scnprintf(buf + output_len,
 						PAGE_SIZE - output_len,
 						"%s\n", active);
 			continue;
@@ -808,29 +806,29 @@ static ssize_t path_info_show(struct device *dev,
 			phys_connector[0] = '0';
 		if (phys_connector[1] < '0')
 			phys_connector[1] = '0';
-		if (hdev->phys_connector[i] > 0)
-			output_len += snprintf(buf + output_len,
+		output_len += scnprintf(buf + output_len,
 				PAGE_SIZE - output_len,
 				"PORT: %.2s ",
 				phys_connector);
-		if (hdev->devtype == TYPE_DISK && hdev->expose_device) {
+		if ((hdev->devtype == TYPE_DISK || hdev->devtype == TYPE_ZBC) &&
+			hdev->expose_device) {
 			if (box == 0 || box == 0xFF) {
-				output_len += snprintf(buf + output_len,
+				output_len += scnprintf(buf + output_len,
 					PAGE_SIZE - output_len,
 					"BAY: %hhu %s\n",
 					bay, active);
 			} else {
-				output_len += snprintf(buf + output_len,
+				output_len += scnprintf(buf + output_len,
 					PAGE_SIZE - output_len,
 					"BOX: %hhu BAY: %hhu %s\n",
 					box, bay, active);
 			}
 		} else if (box != 0 && box != 0xFF) {
-			output_len += snprintf(buf + output_len,
+			output_len += scnprintf(buf + output_len,
 				PAGE_SIZE - output_len, "BOX: %hhu %s\n",
 				box, active);
 		} else
-			output_len += snprintf(buf + output_len,
+			output_len += scnprintf(buf + output_len,
 				PAGE_SIZE - output_len, "%s\n", active);
 	}
 
@@ -1170,6 +1168,7 @@ static void hpsa_show_dev_msg(const char *level, struct ctlr_info *h,
 		snprintf(label, LABEL_SIZE, "enclosure");
 		break;
 	case TYPE_DISK:
+	case TYPE_ZBC:
 		if (dev->external)
 			snprintf(label, LABEL_SIZE, "external");
 		else if (!is_logical_dev_addr_mode(dev->scsi3addr))
@@ -1640,6 +1639,8 @@ static void hpsa_figure_phys_disk_ptrs(struct ctlr_info *h,
 				continue;
 			if (dev[j]->devtype != TYPE_DISK)
 				continue;
+			if (dev[j]->devtype != TYPE_ZBC)
+				continue;
 			if (is_logical_device(dev[j]))
 				continue;
 			if (dev[j]->ioaccel_handle != dd[i].ioaccel_handle)
@@ -1684,6 +1685,8 @@ static void hpsa_update_log_drive_phys_drive_ptrs(struct ctlr_info *h,
 		if (dev[i] == NULL)
 			continue;
 		if (dev[i]->devtype != TYPE_DISK)
+			continue;
+		if (dev[i]->devtype != TYPE_ZBC)
 			continue;
 		if (!is_logical_device(dev[i]))
 			continue;
@@ -3191,6 +3194,89 @@ out:
 	return rc;
 }
 
+/*
+ * get enclosure information
+ * struct ReportExtendedLUNdata *rlep - Used for BMIC drive number
+ * struct hpsa_scsi_dev_t *encl_dev - device entry for enclosure
+ * Uses id_physical_device to determine the box_index.
+ */
+static void hpsa_get_enclosure_info(struct ctlr_info *h,
+			unsigned char *scsi3addr,
+			struct ReportExtendedLUNdata *rlep, int rle_index,
+			struct hpsa_scsi_dev_t *encl_dev)
+{
+	int rc = -1;
+	struct CommandList *c = NULL;
+	struct ErrorInfo *ei = NULL;
+	struct bmic_sense_storage_box_params *bssbp = NULL;
+	struct bmic_identify_physical_device *id_phys = NULL;
+	struct ext_report_lun_entry *rle = &rlep->LUN[rle_index];
+	u16 bmic_device_index = 0;
+
+	bmic_device_index = GET_BMIC_DRIVE_NUMBER(&rle->lunid[0]);
+
+	if (bmic_device_index == 0xFF00 || MASKED_DEVICE(&rle->lunid[0])) {
+		rc = IO_OK;
+		goto out;
+	}
+
+	bssbp = kzalloc(sizeof(*bssbp), GFP_KERNEL);
+	if (!bssbp)
+		goto out;
+
+	id_phys = kzalloc(sizeof(*id_phys), GFP_KERNEL);
+	if (!id_phys)
+		goto out;
+
+	rc = hpsa_bmic_id_physical_device(h, scsi3addr, bmic_device_index,
+						id_phys, sizeof(*id_phys));
+	if (rc) {
+		dev_warn(&h->pdev->dev, "%s: id_phys failed %d bdi[0x%x]\n",
+			__func__, encl_dev->external, bmic_device_index);
+		goto out;
+	}
+
+	c = cmd_alloc(h);
+
+	rc = fill_cmd(c, BMIC_SENSE_STORAGE_BOX_PARAMS, h, bssbp,
+			sizeof(*bssbp), 0, RAID_CTLR_LUNID, TYPE_CMD);
+
+	if (rc)
+		goto out;
+
+	if (id_phys->phys_connector[1] == 'E')
+		c->Request.CDB[5] = id_phys->box_index;
+	else
+		c->Request.CDB[5] = 0;
+
+	rc = hpsa_scsi_do_simple_cmd_with_retry(h, c, PCI_DMA_FROMDEVICE,
+						NO_TIMEOUT);
+	if (rc)
+		goto out;
+
+	ei = c->err_info;
+	if (ei->CommandStatus != 0 && ei->CommandStatus != CMD_DATA_UNDERRUN) {
+		rc = -1;
+		goto out;
+	}
+
+	encl_dev->box[id_phys->active_path_number] = bssbp->phys_box_on_port;
+	memcpy(&encl_dev->phys_connector[id_phys->active_path_number],
+		bssbp->phys_connector, sizeof(bssbp->phys_connector));
+
+	rc = IO_OK;
+out:
+	kfree(bssbp);
+	kfree(id_phys);
+
+	if (c)
+		cmd_free(h, c);
+
+	if (rc != IO_OK)
+		hpsa_show_dev_msg(KERN_INFO, h, encl_dev,
+			"Error, could not get enclosure information\n");
+}
+
 static u64 hpsa_get_sas_address_from_report_physical(struct ctlr_info *h,
 						unsigned char *scsi3addr)
 {
@@ -3580,18 +3666,6 @@ static int hpsa_device_supports_aborts(struct ctlr_info *h,
 	return rc;
 }
 
-static void sanitize_inquiry_string(unsigned char *s, int len)
-{
-	bool terminated = false;
-
-	for (; len > 0; (--len, ++s)) {
-		if (*s == 0)
-			terminated = true;
-		if (terminated || *s < 0x20 || *s > 0x7e)
-			*s = ' ';
-	}
-}
-
 static int hpsa_update_device_info(struct ctlr_info *h,
 	unsigned char scsi3addr[], struct hpsa_scsi_dev_t *this_device,
 	unsigned char *is_OBDR_device)
@@ -3622,8 +3696,8 @@ static int hpsa_update_device_info(struct ctlr_info *h,
 		goto bail_out;
 	}
 
-	sanitize_inquiry_string(&inq_buff[8], 8);
-	sanitize_inquiry_string(&inq_buff[16], 16);
+	scsi_sanitize_inquiry_string(&inq_buff[8], 8);
+	scsi_sanitize_inquiry_string(&inq_buff[16], 16);
 
 	this_device->devtype = (inq_buff[0] & 0x1f);
 	memcpy(this_device->scsi3addr, scsi3addr, 8);
@@ -3636,7 +3710,8 @@ static int hpsa_update_device_info(struct ctlr_info *h,
 	hpsa_get_device_id(h, scsi3addr, this_device->device_id, 8,
 		sizeof(this_device->device_id));
 
-	if (this_device->devtype == TYPE_DISK &&
+	if ((this_device->devtype == TYPE_DISK ||
+		this_device->devtype == TYPE_ZBC) &&
 		is_logical_dev_addr_mode(scsi3addr)) {
 		int volume_offline;
 
@@ -4032,7 +4107,8 @@ static void hpsa_update_scsi_devices(struct ctlr_info *h)
 
 		/* skip masked non-disk devices */
 		if (MASKED_DEVICE(lunaddrbytes) && physical_device &&
-			(physdev_list->LUN[phys_dev_index].device_flags & 0x01))
+		   (physdev_list->LUN[phys_dev_index].device_type != 0x06) &&
+		   (physdev_list->LUN[phys_dev_index].device_flags & 0x01))
 			continue;
 
 		/* Get device type, vendor, model, device id */
@@ -4103,6 +4179,7 @@ static void hpsa_update_scsi_devices(struct ctlr_info *h)
 				ncurrent++;
 			break;
 		case TYPE_DISK:
+		case TYPE_ZBC:
 			if (this_device->physical_device) {
 				/* The disk is in HBA mode. */
 				/* Never use RAID mapper in HBA mode. */
@@ -4116,7 +4193,13 @@ static void hpsa_update_scsi_devices(struct ctlr_info *h)
 			break;
 		case TYPE_TAPE:
 		case TYPE_MEDIUM_CHANGER:
+			ncurrent++;
+			break;
 		case TYPE_ENCLOSURE:
+			if (!this_device->external)
+				hpsa_get_enclosure_info(h, lunaddrbytes,
+						physdev_list, phys_dev_index,
+						this_device);
 			ncurrent++;
 			break;
 		case TYPE_RAID:
@@ -4887,6 +4970,8 @@ static int hpsa_scsi_ioaccel_raid_map(struct ctlr_info *h,
 		return IO_ACCEL_INELIGIBLE;
 
 	c->phys_disk = dev->phys_disk[map_index];
+	if (!c->phys_disk)
+		return IO_ACCEL_INELIGIBLE;
 
 	disk_handle = dd[map_index].ioaccel_handle;
 	disk_block = le64_to_cpu(map->disk_starting_blk) +
@@ -5752,7 +5837,7 @@ static int hpsa_send_abort_ioaccel2(struct ctlr_info *h,
 }
 
 static int hpsa_send_abort_both_ways(struct ctlr_info *h,
-	unsigned char *scsi3addr, struct CommandList *abort, int reply_queue)
+	struct hpsa_scsi_dev_t *dev, struct CommandList *abort, int reply_queue)
 {
 	/*
 	 * ioccelerator mode 2 commands should be aborted via the
@@ -5761,14 +5846,16 @@ static int hpsa_send_abort_both_ways(struct ctlr_info *h,
 	 * Change abort to physical device reset when abort TMF is unsupported.
 	 */
 	if (abort->cmd_type == CMD_IOACCEL2) {
-		if (HPSATMF_IOACCEL_ENABLED & h->TMFSupportFlags)
+		if ((HPSATMF_IOACCEL_ENABLED & h->TMFSupportFlags) ||
+			dev->physical_device)
 			return hpsa_send_abort_ioaccel2(h, abort,
 						reply_queue);
 		else
-			return hpsa_send_reset_as_abort_ioaccel2(h, scsi3addr,
+			return hpsa_send_reset_as_abort_ioaccel2(h,
+							dev->scsi3addr,
 							abort, reply_queue);
 	}
-	return hpsa_send_abort(h, scsi3addr, abort, reply_queue);
+	return hpsa_send_abort(h, dev->scsi3addr, abort, reply_queue);
 }
 
 /* Find out which reply queue a command was meant to return on */
@@ -5906,7 +5993,7 @@ static int hpsa_eh_abort_handler(struct scsi_cmnd *sc)
 		cmd_free(h, abort);
 		return FAILED;
 	}
-	rc = hpsa_send_abort_both_ways(h, dev->scsi3addr, abort, reply_queue);
+	rc = hpsa_send_abort_both_ways(h, dev, abort, reply_queue);
 	atomic_inc(&h->abort_cmds_available);
 	wake_up_all(&h->abort_cmd_wait_queue);
 	if (rc != 0) {
@@ -6626,6 +6713,16 @@ static int fill_cmd(struct CommandList *c, u8 cmd, struct ctlr_info *h,
 			c->Request.Timeout = 0;
 			c->Request.CDB[0] = BMIC_READ;
 			c->Request.CDB[6] = BMIC_SENSE_SUBSYSTEM_INFORMATION;
+			c->Request.CDB[7] = (size >> 16) & 0xFF;
+			c->Request.CDB[8] = (size >> 8) & 0XFF;
+			break;
+		case BMIC_SENSE_STORAGE_BOX_PARAMS:
+			c->Request.CDBLen = 10;
+			c->Request.type_attr_dir =
+				TYPE_ATTR_DIR(cmd_type, ATTR_SIMPLE, XFER_READ);
+			c->Request.Timeout = 0;
+			c->Request.CDB[0] = BMIC_READ;
+			c->Request.CDB[6] = BMIC_SENSE_STORAGE_BOX_PARAMS;
 			c->Request.CDB[7] = (size >> 16) & 0xFF;
 			c->Request.CDB[8] = (size >> 8) & 0XFF;
 			break;

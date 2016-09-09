@@ -36,6 +36,7 @@ static struct {
 	bool cloexec;
 	bool clockid;
 	bool clockid_wrong;
+	bool lbr_flags;
 } perf_missing_features;
 
 static clockid_t clockid;
@@ -223,6 +224,11 @@ struct perf_evsel *perf_evsel__new_idx(struct perf_event_attr *attr, int idx)
 
 	if (evsel != NULL)
 		perf_evsel__init(evsel, attr, idx);
+
+	if (perf_evsel__is_bpf_output(evsel)) {
+		evsel->attr.sample_type |= PERF_SAMPLE_RAW;
+		evsel->attr.sample_period = 1;
+	}
 
 	return evsel;
 }
@@ -574,7 +580,9 @@ perf_evsel__config_callgraph(struct perf_evsel *evsel,
 			} else {
 				perf_evsel__set_sample_bit(evsel, BRANCH_STACK);
 				attr->branch_sample_type = PERF_SAMPLE_BRANCH_USER |
-							PERF_SAMPLE_BRANCH_CALL_STACK;
+							PERF_SAMPLE_BRANCH_CALL_STACK |
+							PERF_SAMPLE_BRANCH_NO_CYCLES |
+							PERF_SAMPLE_BRANCH_NO_FLAGS;
 			}
 		} else
 			 pr_warning("Cannot use LBR callstack with branch stack. "
@@ -895,6 +903,16 @@ void perf_evsel__config(struct perf_evsel *evsel, struct record_opts *opts)
 	if (evsel->precise_max)
 		perf_event_attr__set_max_precise_ip(attr);
 
+	if (opts->all_user) {
+		attr->exclude_kernel = 1;
+		attr->exclude_user   = 0;
+	}
+
+	if (opts->all_kernel) {
+		attr->exclude_kernel = 0;
+		attr->exclude_user   = 1;
+	}
+
 	/*
 	 * Apply event specific term settings,
 	 * it overloads any global configuration.
@@ -981,10 +999,23 @@ int perf_evsel__append_filter(struct perf_evsel *evsel,
 	return -1;
 }
 
-int perf_evsel__enable(struct perf_evsel *evsel, int ncpus, int nthreads)
+int perf_evsel__enable(struct perf_evsel *evsel)
 {
+	int nthreads = thread_map__nr(evsel->threads);
+	int ncpus = cpu_map__nr(evsel->cpus);
+
 	return perf_evsel__run_ioctl(evsel, ncpus, nthreads,
 				     PERF_EVENT_IOC_ENABLE,
+				     0);
+}
+
+int perf_evsel__disable(struct perf_evsel *evsel)
+{
+	int nthreads = thread_map__nr(evsel->threads);
+	int ncpus = cpu_map__nr(evsel->cpus);
+
+	return perf_evsel__run_ioctl(evsel, ncpus, nthreads,
+				     PERF_EVENT_IOC_DISABLE,
 				     0);
 }
 
@@ -1192,6 +1223,7 @@ static void __p_sample_type(char *buf, size_t size, u64 value)
 		bit_name(PERIOD), bit_name(STREAM_ID), bit_name(RAW),
 		bit_name(BRANCH_STACK), bit_name(REGS_USER), bit_name(STACK_USER),
 		bit_name(IDENTIFIER), bit_name(REGS_INTR), bit_name(DATA_SRC),
+		bit_name(WEIGHT),
 		{ .name = NULL, }
 	};
 #undef bit_name
@@ -1323,6 +1355,9 @@ fallback_missing_features:
 		evsel->attr.mmap2 = 0;
 	if (perf_missing_features.exclude_guest)
 		evsel->attr.exclude_guest = evsel->attr.exclude_host = 0;
+	if (perf_missing_features.lbr_flags)
+		evsel->attr.branch_sample_type &= ~(PERF_SAMPLE_BRANCH_NO_FLAGS |
+				     PERF_SAMPLE_BRANCH_NO_CYCLES);
 retry_sample_id:
 	if (perf_missing_features.sample_id_all)
 		evsel->attr.sample_id_all = 0;
@@ -1441,6 +1476,12 @@ try_fallback:
 	} else if (!perf_missing_features.sample_id_all) {
 		perf_missing_features.sample_id_all = true;
 		goto retry_sample_id;
+	} else if (!perf_missing_features.lbr_flags &&
+			(evsel->attr.branch_sample_type &
+			 (PERF_SAMPLE_BRANCH_NO_CYCLES |
+			  PERF_SAMPLE_BRANCH_NO_FLAGS))) {
+		perf_missing_features.lbr_flags = true;
+		goto fallback_missing_features;
 	}
 
 out_close:
@@ -1602,6 +1643,7 @@ int perf_evsel__parse_sample(struct perf_evsel *evsel, union perf_event *event,
 	data->stream_id = data->id = data->time = -1ULL;
 	data->period = evsel->attr.sample_period;
 	data->weight = 0;
+	data->cpumode = event->header.misc & PERF_RECORD_MISC_CPUMODE_MASK;
 
 	if (event->header.type != PERF_RECORD_SAMPLE) {
 		if (!evsel->attr.sample_id_all)
@@ -2272,6 +2314,29 @@ int perf_evsel__fprintf(struct perf_evsel *evsel,
 		printed += comma_fprintf(fp, &first, " %s=%" PRIu64,
 					 term, (u64)evsel->attr.sample_freq);
 	}
+
+	if (details->trace_fields) {
+		struct format_field *field;
+
+		if (evsel->attr.type != PERF_TYPE_TRACEPOINT) {
+			printed += comma_fprintf(fp, &first, " (not a tracepoint)");
+			goto out;
+		}
+
+		field = evsel->tp_format->format.fields;
+		if (field == NULL) {
+			printed += comma_fprintf(fp, &first, " (no trace field)");
+			goto out;
+		}
+
+		printed += comma_fprintf(fp, &first, " trace_fields: %s", field->name);
+
+		field = field->next;
+		while (field) {
+			printed += comma_fprintf(fp, &first, "%s", field->name);
+			field = field->next;
+		}
+	}
 out:
 	fputc('\n', fp);
 	return ++printed;
@@ -2280,6 +2345,8 @@ out:
 bool perf_evsel__fallback(struct perf_evsel *evsel, int err,
 			  char *msg, size_t msgsize)
 {
+	int paranoid;
+
 	if ((err == ENOENT || err == ENXIO || err == ENODEV) &&
 	    evsel->attr.type   == PERF_TYPE_HARDWARE &&
 	    evsel->attr.config == PERF_COUNT_HW_CPU_CYCLES) {
@@ -2299,6 +2366,22 @@ bool perf_evsel__fallback(struct perf_evsel *evsel, int err,
 
 		zfree(&evsel->name);
 		return true;
+	} else if (err == EACCES && !evsel->attr.exclude_kernel &&
+		   (paranoid = perf_event_paranoid()) > 1) {
+		const char *name = perf_evsel__name(evsel);
+		char *new_name;
+
+		if (asprintf(&new_name, "%s%su", name, strchr(name, ':') ? "" : ":") < 0)
+			return false;
+
+		if (evsel->name)
+			free(evsel->name);
+		evsel->name = new_name;
+		scnprintf(msg, msgsize,
+"kernel.perf_event_paranoid=%d, trying to fall back to excluding kernel samples", paranoid);
+		evsel->attr.exclude_kernel = 1;
+
+		return true;
 	}
 
 	return false;
@@ -2313,13 +2396,17 @@ int perf_evsel__open_strerror(struct perf_evsel *evsel, struct target *target,
 	case EPERM:
 	case EACCES:
 		return scnprintf(msg, size,
-		 "You may not have permission to collect %sstats.\n"
-		 "Consider tweaking /proc/sys/kernel/perf_event_paranoid:\n"
-		 " -1 - Not paranoid at all\n"
-		 "  0 - Disallow raw tracepoint access for unpriv\n"
-		 "  1 - Disallow cpu events for unpriv\n"
-		 "  2 - Disallow kernel profiling for unpriv",
-				 target->system_wide ? "system-wide " : "");
+		 "You may not have permission to collect %sstats.\n\n"
+		 "Consider tweaking /proc/sys/kernel/perf_event_paranoid,\n"
+		 "which controls use of the performance events system by\n"
+		 "unprivileged users (without CAP_SYS_ADMIN).\n\n"
+		 "The current value is %d:\n\n"
+		 "  -1: Allow use of (almost) all events by all users\n"
+		 ">= 0: Disallow raw tracepoint access by users without CAP_IOC_LOCK\n"
+		 ">= 1: Disallow CPU event access by users without CAP_SYS_ADMIN\n"
+		 ">= 2: Disallow kernel profiling by users without CAP_SYS_ADMIN",
+				 target->system_wide ? "system-wide " : "",
+				 perf_event_paranoid());
 	case ENOENT:
 		return scnprintf(msg, size, "The %s event is not supported.",
 				 perf_evsel__name(evsel));

@@ -92,7 +92,7 @@
 			linux,code = <171>;
 			label = "config";
 			debounce-interval = <1>;
-			gpio-key,wakeup;
+			wakeup-source;
 		};
 
 		camera-key {
@@ -107,7 +107,7 @@
 			linux,code = <116>;
 			label = "power";
 			debounce-interval = <1>;
-			gpio-key,wakeup;
+			wakeup-source;
 		};
 
 		ok-key {
@@ -560,16 +560,24 @@
 
 &serial_0 {
 	status = "okay";
+	/delete-property/dmas;
+	/delete-property/dma-names;
 };
 
 &serial_1 {
 	status = "okay";
+	/delete-property/dmas;
+	/delete-property/dma-names;
 };
 
 &serial_2 {
 	status = "okay";
+	/delete-property/dmas;
+	/delete-property/dma-names;
 };
 
 &serial_3 {
 	status = "okay";
+	/delete-property/dmas;
+	/delete-property/dma-names;
 };

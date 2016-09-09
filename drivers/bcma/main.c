@@ -136,7 +136,6 @@ static bool bcma_is_core_needed_early(u16 core_id)
 	return false;
 }
 
-#if defined(CONFIG_OF) && defined(CONFIG_OF_ADDRESS)
 static struct device_node *bcma_of_find_child_device(struct platform_device *parent,
 						     struct bcma_device *core)
 {
@@ -184,7 +183,7 @@ static unsigned int bcma_of_get_irq(struct platform_device *parent,
 	struct of_phandle_args out_irq;
 	int ret;
 
-	if (!parent || !parent->dev.of_node)
+	if (!IS_ENABLED(CONFIG_OF_IRQ) || !parent || !parent->dev.of_node)
 		return 0;
 
 	ret = bcma_of_irq_parse(parent, core, &out_irq, num);
@@ -202,23 +201,15 @@ static void bcma_of_fill_device(struct platform_device *parent,
 {
 	struct device_node *node;
 
+	if (!IS_ENABLED(CONFIG_OF_IRQ))
+		return;
+
 	node = bcma_of_find_child_device(parent, core);
 	if (node)
 		core->dev.of_node = node;
 
 	core->irq = bcma_of_get_irq(parent, core, 0);
 }
-#else
-static void bcma_of_fill_device(struct platform_device *parent,
-				struct bcma_device *core)
-{
-}
-static inline unsigned int bcma_of_get_irq(struct platform_device *parent,
-					   struct bcma_device *core, int num)
-{
-	return 0;
-}
-#endif /* CONFIG_OF */
 
 unsigned int bcma_core_irq(struct bcma_device *core, int num)
 {
@@ -350,7 +341,7 @@ static int bcma_register_devices(struct bcma_bus *bus)
 		bcma_register_core(bus, core);
 	}
 
-#ifdef CONFIG_BCMA_DRIVER_MIPS
+#ifdef CONFIG_BCMA_PFLASH
 	if (bus->drv_cc.pflash.present) {
 		err = platform_device_register(&bcma_pflash_dev);
 		if (err)
@@ -668,11 +659,36 @@ static int bcma_device_uevent(struct device *dev, struct kobj_uevent_env *env)
 			      core->id.rev, core->id.class);
 }
 
+static unsigned int bcma_bus_registered;
+
+/*
+ * If built-in, bus has to be registered early, before any driver calls
+ * bcma_driver_register.
+ * Otherwise registering driver would trigger BUG in driver_register.
+ */
+static int __init bcma_init_bus_register(void)
+{
+	int err;
+
+	if (bcma_bus_registered)
+		return 0;
+
+	err = bus_register(&bcma_bus_type);
+	if (!err)
+		bcma_bus_registered = 1;
+
+	return err;
+}
+#ifndef MODULE
+fs_initcall(bcma_init_bus_register);
+#endif
+
+/* Main initialization has to be done with SPI/mtd/NAND/SPROM available */
 static int __init bcma_modinit(void)
 {
 	int err;
 
-	err = bus_register(&bcma_bus_type);
+	err = bcma_init_bus_register();
 	if (err)
 		return err;
 
@@ -691,7 +707,7 @@ static int __init bcma_modinit(void)
 
 	return err;
 }
-fs_initcall(bcma_modinit);
+module_init(bcma_modinit);
 
 static void __exit bcma_modexit(void)
 {

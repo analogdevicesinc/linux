@@ -2804,8 +2804,15 @@
 #define MAX_SYNTH_FREF			80000000UL /* 80 MHz */
 #define MIN_SYNTH_FREF			10000000UL /* 10 MHz */
 #define MIN_VCO_FREQ_HZ			6000000000ULL
+
 #define MAX_CARRIER_FREQ_HZ		6000000000ULL
 #define MIN_CARRIER_FREQ_HZ		70000000ULL
+
+#define AD9363A_MAX_CARRIER_FREQ_HZ	3800000000ULL
+#define AD9363A_MIN_CARRIER_FREQ_HZ	325000000ULL
+
+#define AD9363B_MAX_CARRIER_FREQ_HZ	2700000000ULL
+#define AD9363B_MIN_CARRIER_FREQ_HZ	750000000ULL
 
 #define MAX_GAIN_TABLE_SIZE		90
 #define MAX_NUM_GAIN_TABLES		16 /* randomly picked */
@@ -3143,6 +3150,9 @@ struct ad9361_phy_platform_data {
 
 	struct gain_control	gain_ctrl;
 	struct rssi_control	rssi_ctrl;
+	u32	   rssi_lna_err_tbl[4];
+	u32	   rssi_mixer_err_tbl[15];
+	bool   rssi_skip_err_tbl;
 	struct port_control	port_ctrl;
 	struct ctrl_outs_control	ctrl_outs_ctrl;
 	struct elna_control	elna_ctrl;
@@ -3262,6 +3272,8 @@ enum {
 	ID_AD9361,
 	ID_AD9364,
 	ID_AD9361_2,
+	ID_AD9363A,
+	ID_AD9363B,
 };
 
 struct ad9361_rf_phy;

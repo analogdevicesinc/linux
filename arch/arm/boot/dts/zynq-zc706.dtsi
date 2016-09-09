@@ -67,7 +67,6 @@
 	phy-mode = "rgmii-id";
 
 	phy0: phy@7 {
-		compatible = "marvell,88e1116r";
 		device_type = "ethernet-phy";
 		reg = <0x7>;
 	};

@@ -80,10 +80,6 @@ EXPORT_SYMBOL(__debugger_break_match);
 EXPORT_SYMBOL(__debugger_fault_handler);
 #endif
 
-#if defined(CONFIG_XILINX_VIRTEX_5_FXT) && defined(CONFIG_PPC_FPU)
-u8 excep_state = 0;
-#endif
-
 /* Transactional Memory trap debug */
 #ifdef TM_DEBUG_SW
 #define TM_DEBUG(x...) printk(KERN_INFO x)
@@ -207,9 +203,8 @@ static int __kprobes __die(const char *str, struct pt_regs *regs, long err)
 #ifdef CONFIG_SMP
 	printk("SMP NR_CPUS=%d ", NR_CPUS);
 #endif
-#ifdef CONFIG_DEBUG_PAGEALLOC
-	printk("DEBUG_PAGEALLOC ");
-#endif
+	if (debug_pagealloc_enabled())
+		printk("DEBUG_PAGEALLOC ");
 #ifdef CONFIG_NUMA
 	printk("NUMA ");
 #endif
@@ -1152,6 +1147,7 @@ void __kprobes program_check_exception(struct pt_regs *regs)
 		goto bail;
 	}
 	if (reason & REASON_TRAP) {
+		unsigned long bugaddr;
 		/* Debugger is first in line to stop recursive faults in
 		 * rcu_lock, notify_die, or atomic_notifier_call_chain */
 		if (debugger_bpt(regs))
@@ -1162,8 +1158,15 @@ void __kprobes program_check_exception(struct pt_regs *regs)
 				== NOTIFY_STOP)
 			goto bail;
 
+		bugaddr = regs->nip;
+		/*
+		 * Fixup bugaddr for BUG_ON() in real mode
+		 */
+		if (!is_kernel_addr(bugaddr) && !(regs->msr & MSR_IR))
+			bugaddr += PAGE_OFFSET;
+
 		if (!(regs->msr & MSR_PR) &&  /* not user-mode */
-		    report_bug(regs->nip, regs) == BUG_TRAP_TYPE_WARN) {
+		    report_bug(bugaddr, regs) == BUG_TRAP_TYPE_WARN) {
 			regs->nip += 4;
 			goto bail;
 		}
@@ -1227,17 +1230,6 @@ void __kprobes program_check_exception(struct pt_regs *regs)
 	 */
 	if (!emulate_math(regs))
 		goto bail;
-
-#if defined(CONFIG_XILINX_VIRTEX_5_FXT) && defined(CONFIG_PPC_FPU)
-	if (reason & REASON_ILLEGAL) {
-		if (excep_state < 1) {
-			excep_state++;
-			return;
-		}
-		/* should never get here */
-		BUG();
-	}
-#endif 
 
 	/* Try to emulate it if we should. */
 	if (reason & (REASON_ILLEGAL | REASON_PRIVILEGED)) {
@@ -1328,13 +1320,6 @@ void nonrecoverable_exception(struct pt_regs *regs)
 	die("nonrecoverable exception", regs, SIGKILL);
 }
 
-void trace_syscall(struct pt_regs *regs)
-{
-	printk("Task: %p(%d), PC: %08lX/%08lX, Syscall: %3ld, Result: %s%ld    %s\n",
-	       current, task_pid_nr(current), regs->nip, regs->link, regs->gpr[0],
-	       regs->ccr&0x10000000?"Error=":"", regs->gpr[3], print_tainted());
-}
-
 void kernel_fp_unavailable_exception(struct pt_regs *regs)
 {
 	enum ctx_state prev_state = exception_enter();
@@ -1416,7 +1401,7 @@ void facility_unavailable_exception(struct pt_regs *regs)
 		 * is a read DSCR attempt through a mfspr instruction, we
 		 * just emulate the instruction instead. This code path will
 		 * always emulate all the mfspr instructions till the user
-		 * has attempted atleast one mtspr instruction. This way it
+		 * has attempted at least one mtspr instruction. This way it
 		 * preserves the same behaviour when the user is accessing
 		 * the DSCR through privilege level only SPR number (0x11)
 		 * which is emulated through illegal instruction exception.

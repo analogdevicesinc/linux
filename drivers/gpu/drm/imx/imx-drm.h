@@ -13,7 +13,7 @@ struct drm_plane;
 struct imx_drm_crtc;
 struct platform_device;
 
-int imx_drm_crtc_id(struct imx_drm_crtc *crtc);
+unsigned int imx_drm_crtc_id(struct imx_drm_crtc *crtc);
 
 struct imx_drm_crtc_helper_funcs {
 	int (*enable_vblank)(struct drm_crtc *crtc);
@@ -46,8 +46,6 @@ int imx_drm_set_bus_format_pins(struct drm_encoder *encoder,
 int imx_drm_set_bus_format(struct drm_encoder *encoder,
 		u32 bus_format);
 
-int imx_drm_encoder_get_mux_id(struct device_node *node,
-		struct drm_encoder *encoder);
 int imx_drm_encoder_parse_of(struct drm_device *drm,
 	struct drm_encoder *encoder, struct device_node *np);
 

@@ -66,6 +66,7 @@ void imx_gpc_check_dt(void);
 void imx_gpc_set_arm_power_in_lpm(bool power_off);
 void imx_gpc_set_arm_power_up_timing(u32 sw2iso, u32 sw);
 void imx_gpc_set_arm_power_down_timing(u32 sw2iso, u32 sw);
+void imx25_pm_init(void);
 
 enum mxc_cpu_pwr_mode {
 	WAIT_CLOCKED,		/* wfi only */
@@ -153,7 +154,7 @@ void imx_init_l2cache(void);
 static inline void imx_init_l2cache(void) {}
 #endif
 
-extern struct smp_operations imx_smp_ops;
-extern struct smp_operations ls1021a_smp_ops;
+extern const struct smp_operations imx_smp_ops;
+extern const struct smp_operations ls1021a_smp_ops;
 
 #endif

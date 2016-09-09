@@ -175,35 +175,24 @@ TRACE_EVENT(i915_vma_unbind,
 		      __entry->obj, __entry->offset, __entry->size, __entry->vm)
 );
 
-#define VM_TO_TRACE_NAME(vm) \
-	(i915_is_ggtt(vm) ? "G" : \
-		      "P")
-
-DECLARE_EVENT_CLASS(i915_va,
-	TP_PROTO(struct i915_address_space *vm, u64 start, u64 length, const char *name),
-	TP_ARGS(vm, start, length, name),
+TRACE_EVENT(i915_va_alloc,
+	TP_PROTO(struct i915_vma *vma),
+	TP_ARGS(vma),
 
 	TP_STRUCT__entry(
 		__field(struct i915_address_space *, vm)
 		__field(u64, start)
 		__field(u64, end)
-		__string(name, name)
 	),
 
 	TP_fast_assign(
-		__entry->vm = vm;
-		__entry->start = start;
-		__entry->end = start + length - 1;
-		__assign_str(name, name);
+		__entry->vm = vma->vm;
+		__entry->start = vma->node.start;
+		__entry->end = vma->node.start + vma->node.size - 1;
 	),
 
-	TP_printk("vm=%p (%s), 0x%llx-0x%llx",
-		  __entry->vm, __get_str(name),  __entry->start, __entry->end)
-);
-
-DEFINE_EVENT(i915_va, i915_va_alloc,
-	     TP_PROTO(struct i915_address_space *vm, u64 start, u64 length, const char *name),
-	     TP_ARGS(vm, start, length, name)
+	TP_printk("vm=%p (%c), 0x%llx-0x%llx",
+		  __entry->vm, i915_is_ggtt(__entry->vm) ? 'G' : 'P',  __entry->start, __entry->end)
 );
 
 DECLARE_EVENT_CLASS(i915_px_entry,
@@ -664,7 +653,7 @@ TRACE_EVENT(i915_flip_complete,
 );
 
 TRACE_EVENT_CONDITION(i915_reg_rw,
-	TP_PROTO(bool write, u32 reg, u64 val, int len, bool trace),
+	TP_PROTO(bool write, i915_reg_t reg, u64 val, int len, bool trace),
 
 	TP_ARGS(write, reg, val, len, trace),
 
@@ -679,7 +668,7 @@ TRACE_EVENT_CONDITION(i915_reg_rw,
 
 	TP_fast_assign(
 		__entry->val = (u64)val;
-		__entry->reg = reg;
+		__entry->reg = i915_mmio_reg_offset(reg);
 		__entry->write = write;
 		__entry->len = len;
 		),

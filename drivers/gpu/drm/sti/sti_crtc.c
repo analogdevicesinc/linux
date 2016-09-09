@@ -56,6 +56,7 @@ static bool sti_crtc_mode_fixup(struct drm_crtc *crtc,
 				struct drm_display_mode *adjusted_mode)
 {
 	/* accept the provided drm_display_mode, do not fix it up */
+	drm_mode_set_crtcinfo(adjusted_mode, CRTC_INTERLACE_HALVE_V);
 	return true;
 }
 
@@ -367,7 +368,7 @@ int sti_crtc_init(struct drm_device *drm_dev, struct sti_mixer *mixer,
 	int res;
 
 	res = drm_crtc_init_with_planes(drm_dev, crtc, primary, cursor,
-					&sti_crtc_funcs);
+					&sti_crtc_funcs, NULL);
 	if (res) {
 		DRM_ERROR("Can't initialze CRTC\n");
 		return -EINVAL;

@@ -133,9 +133,30 @@
 #define MII_88E3016_DISABLE_SCRAMBLER	0x0200
 #define MII_88E3016_AUTO_MDIX_CROSSOVER	0x0030
 
+#define MII_88E1510_GEN_CTRL_REG_1		0x14
+#define MII_88E1510_GEN_CTRL_REG_1_MODE_MASK	0x7
+#define MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII	0x1	/* SGMII to copper */
+#define MII_88E1510_GEN_CTRL_REG_1_RESET	0x8000	/* Soft reset */
+
 MODULE_DESCRIPTION("Marvell PHY driver");
 MODULE_AUTHOR("Andy Fleming");
 MODULE_LICENSE("GPL");
+
+struct marvell_hw_stat {
+	const char *string;
+	u8 page;
+	u8 reg;
+	u8 bits;
+};
+
+static struct marvell_hw_stat marvell_hw_stats[] = {
+	{ "phy_receive_errors", 0, 21, 16},
+	{ "phy_idle_errors", 0, 10, 8 },
+};
+
+struct marvell_priv {
+	u64 stats[ARRAY_SIZE(marvell_hw_stats)];
+};
 
 static int marvell_ack_interrupt(struct phy_device *phydev)
 {
@@ -264,6 +285,48 @@ static int marvell_config_aneg(struct phy_device *phydev)
 	return 0;
 }
 
+static int m88e1111_config_aneg(struct phy_device *phydev)
+{
+	int err;
+
+	/* The Marvell PHY has an errata which requires
+	 * that certain registers get written in order
+	 * to restart autonegotiation
+	 */
+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
+
+	err = marvell_set_polarity(phydev, phydev->mdix);
+	if (err < 0)
+		return err;
+
+	err = phy_write(phydev, MII_M1111_PHY_LED_CONTROL,
+			MII_M1111_PHY_LED_DIRECT);
+	if (err < 0)
+		return err;
+
+	err = genphy_config_aneg(phydev);
+	if (err < 0)
+		return err;
+
+	if (phydev->autoneg != AUTONEG_ENABLE) {
+		int bmcr;
+
+		/* A write to speed/duplex bits (that is performed by
+		 * genphy_config_aneg() call above) must be followed by
+		 * a software reset. Otherwise, the write has no effect.
+		 */
+		bmcr = phy_read(phydev, MII_BMCR);
+		if (bmcr < 0)
+			return bmcr;
+
+		err = phy_write(phydev, MII_BMCR, bmcr | BMCR_RESET);
+		if (err < 0)
+			return err;
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_OF_MDIO
 /*
  * Set and/or override some configuration registers based on the
@@ -284,10 +347,11 @@ static int marvell_of_reg_init(struct phy_device *phydev)
 	const __be32 *paddr;
 	int len, i, saved_page, current_page, page_changed, ret;
 
-	if (!phydev->dev.of_node)
+	if (!phydev->mdio.dev.of_node)
 		return 0;
 
-	paddr = of_get_property(phydev->dev.of_node, "marvell,reg-init", &len);
+	paddr = of_get_property(phydev->mdio.dev.of_node,
+				"marvell,reg-init", &len);
 	if (!paddr || len < (4 * sizeof(*paddr)))
 		return 0;
 
@@ -429,6 +493,12 @@ static int m88e1510_config_aneg(struct phy_device *phydev)
 	if (err < 0)
 		return err;
 
+	return 0;
+}
+
+static int marvell_config_init(struct phy_device *phydev)
+{
+	/* Set registers from marvell,reg-init DT property */
 	return marvell_of_reg_init(phydev);
 }
 
@@ -478,7 +548,7 @@ static int m88e1116r_config_init(struct phy_device *phydev)
 
 	mdelay(500);
 
-	return 0;
+	return marvell_config_init(phydev);
 }
 
 static int m88e3016_config_init(struct phy_device *phydev)
@@ -497,7 +567,7 @@ static int m88e3016_config_init(struct phy_device *phydev)
 	if (reg < 0)
 		return reg;
 
-	return 0;
+	return marvell_config_init(phydev);
 }
 
 static int m88e1111_config_init(struct phy_device *phydev)
@@ -606,6 +676,41 @@ static int m88e1111_config_init(struct phy_device *phydev)
 		return err;
 
 	return phy_write(phydev, MII_BMCR, BMCR_RESET);
+}
+
+static int m88e1510_config_init(struct phy_device *phydev)
+{
+	int err;
+	int temp;
+
+	/* SGMII-to-Copper mode initialization */
+	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
+		/* Select page 18 */
+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 18);
+		if (err < 0)
+			return err;
+
+		/* In reg 20, write MODE[2:0] = 0x1 (SGMII to Copper) */
+		temp = phy_read(phydev, MII_88E1510_GEN_CTRL_REG_1);
+		temp &= ~MII_88E1510_GEN_CTRL_REG_1_MODE_MASK;
+		temp |= MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII;
+		err = phy_write(phydev, MII_88E1510_GEN_CTRL_REG_1, temp);
+		if (err < 0)
+			return err;
+
+		/* PHY reset is necessary after changing MODE[2:0] */
+		temp |= MII_88E1510_GEN_CTRL_REG_1_RESET;
+		err = phy_write(phydev, MII_88E1510_GEN_CTRL_REG_1, temp);
+		if (err < 0)
+			return err;
+
+		/* Reset page selection */
+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0);
+		if (err < 0)
+			return err;
+	}
+
+	return marvell_config_init(phydev);
 }
 
 static int m88e1118_config_aneg(struct phy_device *phydev)
@@ -986,20 +1091,91 @@ static int m88e1318_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *w
 	return 0;
 }
 
+static int marvell_get_sset_count(struct phy_device *phydev)
+{
+	return ARRAY_SIZE(marvell_hw_stats);
+}
+
+static void marvell_get_strings(struct phy_device *phydev, u8 *data)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(marvell_hw_stats); i++) {
+		memcpy(data + i * ETH_GSTRING_LEN,
+		       marvell_hw_stats[i].string, ETH_GSTRING_LEN);
+	}
+}
+
+#ifndef UINT64_MAX
+#define UINT64_MAX              (u64)(~((u64)0))
+#endif
+static u64 marvell_get_stat(struct phy_device *phydev, int i)
+{
+	struct marvell_hw_stat stat = marvell_hw_stats[i];
+	struct marvell_priv *priv = phydev->priv;
+	int err, oldpage, val;
+	u64 ret;
+
+	oldpage = phy_read(phydev, MII_MARVELL_PHY_PAGE);
+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE,
+			stat.page);
+	if (err < 0)
+		return UINT64_MAX;
+
+	val = phy_read(phydev, stat.reg);
+	if (val < 0) {
+		ret = UINT64_MAX;
+	} else {
+		val = val & ((1 << stat.bits) - 1);
+		priv->stats[i] += val;
+		ret = priv->stats[i];
+	}
+
+	phy_write(phydev, MII_MARVELL_PHY_PAGE, oldpage);
+
+	return ret;
+}
+
+static void marvell_get_stats(struct phy_device *phydev,
+			      struct ethtool_stats *stats, u64 *data)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(marvell_hw_stats); i++)
+		data[i] = marvell_get_stat(phydev, i);
+}
+
+static int marvell_probe(struct phy_device *phydev)
+{
+	struct marvell_priv *priv;
+
+	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	phydev->priv = priv;
+
+	return 0;
+}
+
 static struct phy_driver marvell_drivers[] = {
 	{
 		.phy_id = MARVELL_PHY_ID_88E1101,
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1101",
 		.features = PHY_GBIT_FEATURES,
+		.probe = marvell_probe,
 		.flags = PHY_HAS_INTERRUPT,
+		.config_init = &marvell_config_init,
 		.config_aneg = &marvell_config_aneg,
 		.read_status = &genphy_read_status,
 		.ack_interrupt = &marvell_ack_interrupt,
 		.config_intr = &marvell_config_intr,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1112,
@@ -1007,6 +1183,7 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1112",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
 		.config_init = &m88e1111_config_init,
 		.config_aneg = &marvell_config_aneg,
 		.read_status = &genphy_read_status,
@@ -1014,7 +1191,9 @@ static struct phy_driver marvell_drivers[] = {
 		.config_intr = &marvell_config_intr,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1111,
@@ -1022,14 +1201,17 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1111",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
 		.config_init = &m88e1111_config_init,
-		.config_aneg = &marvell_config_aneg,
+		.config_aneg = &m88e1111_config_aneg,
 		.read_status = &marvell_read_status,
 		.ack_interrupt = &marvell_ack_interrupt,
 		.config_intr = &marvell_config_intr,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1118,
@@ -1037,6 +1219,7 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1118",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
 		.config_init = &m88e1118_config_init,
 		.config_aneg = &m88e1118_config_aneg,
 		.read_status = &genphy_read_status,
@@ -1044,7 +1227,9 @@ static struct phy_driver marvell_drivers[] = {
 		.config_intr = &marvell_config_intr,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = {.owner = THIS_MODULE,},
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1121R,
@@ -1052,6 +1237,8 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1121R",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
+		.config_init = &marvell_config_init,
 		.config_aneg = &m88e1121_config_aneg,
 		.read_status = &marvell_read_status,
 		.ack_interrupt = &marvell_ack_interrupt,
@@ -1059,7 +1246,9 @@ static struct phy_driver marvell_drivers[] = {
 		.did_interrupt = &m88e1121_did_interrupt,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1318S,
@@ -1067,6 +1256,8 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1318S",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
+		.config_init = &marvell_config_init,
 		.config_aneg = &m88e1318_config_aneg,
 		.read_status = &marvell_read_status,
 		.ack_interrupt = &marvell_ack_interrupt,
@@ -1076,7 +1267,9 @@ static struct phy_driver marvell_drivers[] = {
 		.set_wol = &m88e1318_set_wol,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1145,
@@ -1084,6 +1277,7 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1145",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
 		.config_init = &m88e1145_config_init,
 		.config_aneg = &marvell_config_aneg,
 		.read_status = &genphy_read_status,
@@ -1091,7 +1285,9 @@ static struct phy_driver marvell_drivers[] = {
 		.config_intr = &marvell_config_intr,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1149R,
@@ -1099,6 +1295,7 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1149R",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
 		.config_init = &m88e1149_config_init,
 		.config_aneg = &m88e1118_config_aneg,
 		.read_status = &genphy_read_status,
@@ -1106,7 +1303,9 @@ static struct phy_driver marvell_drivers[] = {
 		.config_intr = &marvell_config_intr,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1240,
@@ -1114,6 +1313,7 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1240",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
 		.config_init = &m88e1111_config_init,
 		.config_aneg = &marvell_config_aneg,
 		.read_status = &genphy_read_status,
@@ -1121,7 +1321,9 @@ static struct phy_driver marvell_drivers[] = {
 		.config_intr = &marvell_config_intr,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1116R,
@@ -1129,6 +1331,7 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1116R",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
 		.config_init = &m88e1116r_config_init,
 		.config_aneg = &genphy_config_aneg,
 		.read_status = &genphy_read_status,
@@ -1136,7 +1339,9 @@ static struct phy_driver marvell_drivers[] = {
 		.config_intr = &marvell_config_intr,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1510,
@@ -1144,6 +1349,8 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1510",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
+		.config_init = &m88e1510_config_init,
 		.config_aneg = &m88e1510_config_aneg,
 		.read_status = &marvell_read_status,
 		.ack_interrupt = &marvell_ack_interrupt,
@@ -1151,7 +1358,9 @@ static struct phy_driver marvell_drivers[] = {
 		.did_interrupt = &m88e1121_did_interrupt,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1540,
@@ -1159,6 +1368,8 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E1540",
 		.features = PHY_GBIT_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
+		.config_init = &marvell_config_init,
 		.config_aneg = &m88e1510_config_aneg,
 		.read_status = &marvell_read_status,
 		.ack_interrupt = &marvell_ack_interrupt,
@@ -1166,7 +1377,9 @@ static struct phy_driver marvell_drivers[] = {
 		.did_interrupt = &m88e1121_did_interrupt,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E3016,
@@ -1174,6 +1387,7 @@ static struct phy_driver marvell_drivers[] = {
 		.name = "Marvell 88E3016",
 		.features = PHY_BASIC_FEATURES,
 		.flags = PHY_HAS_INTERRUPT,
+		.probe = marvell_probe,
 		.config_aneg = &genphy_config_aneg,
 		.config_init = &m88e3016_config_init,
 		.aneg_done = &marvell_aneg_done,
@@ -1183,7 +1397,9 @@ static struct phy_driver marvell_drivers[] = {
 		.did_interrupt = &m88e1121_did_interrupt,
 		.resume = &genphy_resume,
 		.suspend = &genphy_suspend,
-		.driver = { .owner = THIS_MODULE },
+		.get_sset_count = marvell_get_sset_count,
+		.get_strings = marvell_get_strings,
+		.get_stats = marvell_get_stats,
 	},
 };
 

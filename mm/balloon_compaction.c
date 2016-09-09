@@ -13,10 +13,10 @@
 /*
  * balloon_page_enqueue - allocates a new page and inserts it into the balloon
  *			  page list.
- * @b_dev_info: balloon device decriptor where we will insert a new page to
+ * @b_dev_info: balloon device descriptor where we will insert a new page to
  *
  * Driver must call it to properly allocate a new enlisted balloon page
- * before definetively removing it from the guest system.
+ * before definitively removing it from the guest system.
  * This function returns the page address for the recently enqueued page or
  * NULL in the case we fail to allocate a new page this turn.
  */
@@ -61,6 +61,7 @@ struct page *balloon_page_dequeue(struct balloon_dev_info *b_dev_info)
 	bool dequeued_page;
 
 	dequeued_page = false;
+	spin_lock_irqsave(&b_dev_info->pages_lock, flags);
 	list_for_each_entry_safe(page, tmp, &b_dev_info->pages, lru) {
 		/*
 		 * Block others from accessing the 'page' while we get around
@@ -75,15 +76,14 @@ struct page *balloon_page_dequeue(struct balloon_dev_info *b_dev_info)
 				continue;
 			}
 #endif
-			spin_lock_irqsave(&b_dev_info->pages_lock, flags);
 			balloon_page_delete(page);
 			__count_vm_event(BALLOON_DEFLATE);
-			spin_unlock_irqrestore(&b_dev_info->pages_lock, flags);
 			unlock_page(page);
 			dequeued_page = true;
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&b_dev_info->pages_lock, flags);
 
 	if (!dequeued_page) {
 		/*

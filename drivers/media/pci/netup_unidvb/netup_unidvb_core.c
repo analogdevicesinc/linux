@@ -277,7 +277,6 @@ static irqreturn_t netup_unidvb_isr(int irq, void *dev_id)
 }
 
 static int netup_unidvb_queue_setup(struct vb2_queue *vq,
-				    const void *parg,
 				    unsigned int *nbuffers,
 				    unsigned int *nplanes,
 				    unsigned int sizes[],
@@ -388,7 +387,7 @@ static int netup_unidvb_dvb_init(struct netup_unidvb_dev *ndev,
 		vb2_dvb_alloc_frontend(
 			&ndev->frontends[num], 3) == NULL) {
 		dev_dbg(&ndev->pci_dev->dev,
-			"%s(): unable to to alllocate vb2_dvb_frontend\n",
+			"%s(): unable to allocate vb2_dvb_frontend\n",
 			__func__);
 		return -ENOMEM;
 	}
@@ -463,8 +462,8 @@ static int netup_unidvb_dvb_init(struct netup_unidvb_dev *ndev,
 	}
 
 	if (vb2_dvb_register_bus(&ndev->frontends[num],
-			THIS_MODULE, NULL,
-			&ndev->pci_dev->dev, adapter_nr, 1)) {
+				 THIS_MODULE, NULL,
+				 &ndev->pci_dev->dev, NULL, adapter_nr, 1)) {
 		dev_dbg(&ndev->pci_dev->dev,
 			"%s(): unable to register DVB bus %d\n",
 			__func__, num);
@@ -580,7 +579,7 @@ static void netup_unidvb_dma_worker(struct work_struct *work)
 			dev_dbg(&ndev->pci_dev->dev,
 				"%s(): buffer %p done, size %d\n",
 				__func__, buf, buf->size);
-			v4l2_get_timestamp(&buf->vb.timestamp);
+			buf->vb.vb2_buf.timestamp = ktime_get_ns();
 			vb2_set_plane_payload(&buf->vb.vb2_buf, 0, buf->size);
 			vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
 		}
@@ -772,10 +771,9 @@ static int netup_unidvb_initdev(struct pci_dev *pci_dev,
 
 	/* allocate device context */
 	ndev = kzalloc(sizeof(*ndev), GFP_KERNEL);
-
 	if (!ndev)
 		goto dev_alloc_err;
-	memset(ndev, 0, sizeof(*ndev));
+
 	ndev->old_fw = old_firmware;
 	ndev->wq = create_singlethread_workqueue(NETUP_UNIDVB_NAME);
 	if (!ndev->wq) {

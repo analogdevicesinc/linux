@@ -204,8 +204,13 @@ static void cx_auto_reboot_notify(struct hda_codec *codec)
 {
 	struct conexant_spec *spec = codec->spec;
 
-	if (codec->core.vendor_id != 0x14f150f2)
+	switch (codec->core.vendor_id) {
+	case 0x14f150f2: /* CX20722 */
+	case 0x14f150f4: /* CX20724 */
+		break;
+	default:
 		return;
+	}
 
 	/* Turn the CX20722 codec into D3 to avoid spurious noises
 	   from the internal speaker during (and after) reboot */
@@ -901,6 +906,9 @@ static int patch_conexant_auto(struct hda_codec *codec)
 		snd_hda_pick_fixup(codec, cxt5051_fixup_models,
 				   cxt5051_fixups, cxt_fixups);
 		break;
+	case 0x14f150f2:
+		codec->power_save_node = 1;
+		/* Fall through */
 	default:
 		codec->pin_amp_workaround = 1;
 		snd_hda_pick_fixup(codec, cxt5066_fixup_models,

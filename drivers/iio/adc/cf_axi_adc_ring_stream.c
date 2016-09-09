@@ -17,18 +17,19 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
-#include <linux/iio/dma-buffer.h>
-#include <linux/iio/dmaengine.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include "cf_axi_adc.h"
 
-static int axiadc_hw_submit_block(void *data, struct iio_dma_buffer_block *block)
+static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
+	struct iio_dma_buffer_block *block)
 {
-	struct iio_dev *indio_dev = data;
+	struct iio_dev *indio_dev = queue->driver_data;
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	block->block.bytes_used = block->block.size;
 
-	iio_dmaengine_buffer_submit_block(block, DMA_FROM_DEVICE);
+	iio_dmaengine_buffer_submit_block(queue, block, DMA_FROM_DEVICE);
 
 	axiadc_write(st, ADI_REG_STATUS, ~0);
 	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);
@@ -43,7 +44,8 @@ static int axiadc_hw_submit_block(void *data, struct iio_dma_buffer_block *block
 }
 
 static const struct iio_dma_buffer_ops axiadc_dma_buffer_ops = {
-	.submit_block = axiadc_hw_submit_block,
+	.submit = axiadc_hw_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
 };
 
 int axiadc_configure_ring_stream(struct iio_dev *indio_dev,

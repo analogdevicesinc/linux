@@ -387,7 +387,7 @@ static int ad7173_gpio_init(struct ad7173_state *st)
 		st->gpiochip.ngpio = 4;
 	else
 		st->gpiochip.ngpio = 2;
-	st->gpiochip.dev = &st->sd.spi->dev;
+	st->gpiochip.parent = &st->sd.spi->dev;
 	st->gpiochip.can_sleep = true;
 	st->gpiochip.direction_input = ad7173_gpio_direction_input;
 	st->gpiochip.direction_output = ad7173_gpio_direction_output;

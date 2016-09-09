@@ -37,7 +37,7 @@ static unsigned int mpls_encap_size(struct mpls_iptunnel_encap *en)
 	return en->labels * sizeof(struct mpls_shim_hdr);
 }
 
-int mpls_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+static int mpls_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 {
 	struct mpls_iptunnel_encap *tun_encap_info;
 	struct mpls_shim_hdr *hdr;
@@ -227,5 +227,6 @@ static void __exit mpls_iptunnel_exit(void)
 }
 module_exit(mpls_iptunnel_exit);
 
+MODULE_ALIAS_RTNL_LWT(MPLS);
 MODULE_DESCRIPTION("MultiProtocol Label Switching IP Tunnels");
 MODULE_LICENSE("GPL v2");

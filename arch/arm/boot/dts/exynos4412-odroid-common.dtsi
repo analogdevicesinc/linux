@@ -35,7 +35,7 @@
 			linux,code = <KEY_POWER>;
 			label = "power key";
 			debounce-interval = <10>;
-			gpio-key,wakeup;
+			wakeup-source;
 		};
 	};
 
@@ -175,10 +175,6 @@
 			<&clock CLK_SCLK_FIMC3>;
 	assigned-clock-parents = <&clock CLK_MOUT_MPLL_USER_T>;
 	assigned-clock-rates = <0>, <176000000>;
-};
-
-&g2d {
-	status = "okay";
 };
 
 &hdmi {

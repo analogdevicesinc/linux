@@ -291,9 +291,6 @@ ssize_t ib_uverbs_get_context(struct ib_uverbs_file *file,
 	struct ib_uverbs_get_context      cmd;
 	struct ib_uverbs_get_context_resp resp;
 	struct ib_udata                   udata;
-#ifdef CONFIG_INFINIBAND_ON_DEMAND_PAGING
-	struct ib_device_attr		  dev_attr;
-#endif
 	struct ib_ucontext		 *ucontext;
 	struct file			 *filp;
 	int ret;
@@ -342,10 +339,7 @@ ssize_t ib_uverbs_get_context(struct ib_uverbs_file *file,
 	ucontext->odp_mrs_count = 0;
 	INIT_LIST_HEAD(&ucontext->no_private_counters);
 
-	ret = ib_query_device(ib_dev, &dev_attr);
-	if (ret)
-		goto err_free;
-	if (!(dev_attr.device_cap_flags & IB_DEVICE_ON_DEMAND_PAGING))
+	if (!(ib_dev->attrs.device_cap_flags & IB_DEVICE_ON_DEMAND_PAGING))
 		ucontext->invalidate_range = NULL;
 
 #endif
@@ -408,7 +402,7 @@ static void copy_query_dev_fields(struct ib_uverbs_file *file,
 	resp->hw_ver		= attr->hw_ver;
 	resp->max_qp		= attr->max_qp;
 	resp->max_qp_wr		= attr->max_qp_wr;
-	resp->device_cap_flags	= attr->device_cap_flags;
+	resp->device_cap_flags	= lower_32_bits(attr->device_cap_flags);
 	resp->max_sge		= attr->max_sge;
 	resp->max_sge_rd	= attr->max_sge_rd;
 	resp->max_cq		= attr->max_cq;
@@ -447,8 +441,6 @@ ssize_t ib_uverbs_query_device(struct ib_uverbs_file *file,
 {
 	struct ib_uverbs_query_device      cmd;
 	struct ib_uverbs_query_device_resp resp;
-	struct ib_device_attr              attr;
-	int                                ret;
 
 	if (out_len < sizeof resp)
 		return -ENOSPC;
@@ -456,12 +448,8 @@ ssize_t ib_uverbs_query_device(struct ib_uverbs_file *file,
 	if (copy_from_user(&cmd, buf, sizeof cmd))
 		return -EFAULT;
 
-	ret = ib_query_device(ib_dev, &attr);
-	if (ret)
-		return ret;
-
 	memset(&resp, 0, sizeof resp);
-	copy_query_dev_fields(file, ib_dev, &resp, &attr);
+	copy_query_dev_fields(file, ib_dev, &resp, &ib_dev->attrs);
 
 	if (copy_to_user((void __user *) (unsigned long) cmd.response,
 			 &resp, sizeof resp))
@@ -986,11 +974,8 @@ ssize_t ib_uverbs_reg_mr(struct ib_uverbs_file *file,
 	}
 
 	if (cmd.access_flags & IB_ACCESS_ON_DEMAND) {
-		struct ib_device_attr attr;
-
-		ret = ib_query_device(pd->device, &attr);
-		if (ret || !(attr.device_cap_flags &
-				IB_DEVICE_ON_DEMAND_PAGING)) {
+		if (!(pd->device->attrs.device_cap_flags &
+		      IB_DEVICE_ON_DEMAND_PAGING)) {
 			pr_debug("ODP support not available\n");
 			ret = -EINVAL;
 			goto err_put;
@@ -1008,7 +993,6 @@ ssize_t ib_uverbs_reg_mr(struct ib_uverbs_file *file,
 	mr->pd      = pd;
 	mr->uobject = uobj;
 	atomic_inc(&pd->usecnt);
-	atomic_set(&mr->usecnt, 0);
 
 	uobj->object = mr;
 	ret = idr_add_uobj(&ib_uverbs_mr_idr, uobj);
@@ -1106,11 +1090,6 @@ ssize_t ib_uverbs_rereg_mr(struct ib_uverbs_file *file,
 		}
 	}
 
-	if (atomic_read(&mr->usecnt)) {
-		ret = -EBUSY;
-		goto put_uobj_pd;
-	}
-
 	old_pd = mr->pd;
 	ret = mr->device->rereg_user_mr(mr, cmd.flags, cmd.start,
 					cmd.length, cmd.hca_va,
@@ -1195,6 +1174,7 @@ ssize_t ib_uverbs_alloc_mw(struct ib_uverbs_file *file,
 	struct ib_uobject             *uobj;
 	struct ib_pd                  *pd;
 	struct ib_mw                  *mw;
+	struct ib_udata		       udata;
 	int                            ret;
 
 	if (out_len < sizeof(resp))
@@ -1216,7 +1196,12 @@ ssize_t ib_uverbs_alloc_mw(struct ib_uverbs_file *file,
 		goto err_free;
 	}
 
-	mw = pd->device->alloc_mw(pd, cmd.mw_type);
+	INIT_UDATA(&udata, buf + sizeof(cmd),
+		   (unsigned long)cmd.response + sizeof(resp),
+		   in_len - sizeof(cmd) - sizeof(struct ib_uverbs_cmd_hdr),
+		   out_len - sizeof(resp));
+
+	mw = pd->device->alloc_mw(pd, cmd.mw_type, &udata);
 	if (IS_ERR(mw)) {
 		ret = PTR_ERR(mw);
 		goto err_put;
@@ -1258,7 +1243,7 @@ err_copy:
 	idr_remove_uobj(&ib_uverbs_mw_idr, uobj);
 
 err_unalloc:
-	ib_dealloc_mw(mw);
+	uverbs_dealloc_mw(mw);
 
 err_put:
 	put_pd_read(pd);
@@ -1287,7 +1272,7 @@ ssize_t ib_uverbs_dealloc_mw(struct ib_uverbs_file *file,
 
 	mw = uobj->object;
 
-	ret = ib_dealloc_mw(mw);
+	ret = uverbs_dealloc_mw(mw);
 	if (!ret)
 		uobj->live = 0;
 
@@ -1845,7 +1830,10 @@ static int create_qp(struct ib_uverbs_file *file,
 		      sizeof(cmd->create_flags))
 		attr.create_flags = cmd->create_flags;
 
-	if (attr.create_flags & ~IB_QP_CREATE_BLOCK_MULTICAST_LOOPBACK) {
+	if (attr.create_flags & ~(IB_QP_CREATE_BLOCK_MULTICAST_LOOPBACK |
+				IB_QP_CREATE_CROSS_CHANNEL |
+				IB_QP_CREATE_MANAGED_SEND |
+				IB_QP_CREATE_MANAGED_RECV)) {
 		ret = -EINVAL;
 		goto err_put;
 	}
@@ -1988,7 +1976,8 @@ ssize_t ib_uverbs_create_qp(struct ib_uverbs_file *file,
 		   resp_size);
 	INIT_UDATA(&uhw, buf + sizeof(cmd),
 		   (unsigned long)cmd.response + resp_size,
-		   in_len - sizeof(cmd), out_len - resp_size);
+		   in_len - sizeof(cmd) - sizeof(struct ib_uverbs_cmd_hdr),
+		   out_len - resp_size);
 
 	memset(&cmd_ex, 0, sizeof(cmd_ex));
 	cmd_ex.user_handle = cmd.user_handle;
@@ -3103,6 +3092,14 @@ int ib_uverbs_ex_create_flow(struct ib_uverbs_file *file,
 	     !capable(CAP_NET_ADMIN)) || !capable(CAP_NET_RAW))
 		return -EPERM;
 
+	if (cmd.flow_attr.flags >= IB_FLOW_ATTR_FLAGS_RESERVED)
+		return -EINVAL;
+
+	if ((cmd.flow_attr.flags & IB_FLOW_ATTR_FLAGS_DONT_TRAP) &&
+	    ((cmd.flow_attr.type == IB_FLOW_ATTR_ALL_DEFAULT) ||
+	     (cmd.flow_attr.type == IB_FLOW_ATTR_MC_DEFAULT)))
+		return -EINVAL;
+
 	if (cmd.flow_attr.num_of_specs > IB_FLOW_SPEC_SUPPORT_LAYERS)
 		return -EINVAL;
 
@@ -3431,7 +3428,8 @@ ssize_t ib_uverbs_create_srq(struct ib_uverbs_file *file,
 
 	INIT_UDATA(&udata, buf + sizeof cmd,
 		   (unsigned long) cmd.response + sizeof resp,
-		   in_len - sizeof cmd, out_len - sizeof resp);
+		   in_len - sizeof cmd - sizeof(struct ib_uverbs_cmd_hdr),
+		   out_len - sizeof resp);
 
 	ret = __uverbs_create_xsrq(file, ib_dev, &xcmd, &udata);
 	if (ret)
@@ -3457,7 +3455,8 @@ ssize_t ib_uverbs_create_xsrq(struct ib_uverbs_file *file,
 
 	INIT_UDATA(&udata, buf + sizeof cmd,
 		   (unsigned long) cmd.response + sizeof resp,
-		   in_len - sizeof cmd, out_len - sizeof resp);
+		   in_len - sizeof cmd - sizeof(struct ib_uverbs_cmd_hdr),
+		   out_len - sizeof resp);
 
 	ret = __uverbs_create_xsrq(file, ib_dev, &cmd, &udata);
 	if (ret)
@@ -3601,9 +3600,9 @@ int ib_uverbs_ex_query_device(struct ib_uverbs_file *file,
 			      struct ib_udata *ucore,
 			      struct ib_udata *uhw)
 {
-	struct ib_uverbs_ex_query_device_resp resp;
+	struct ib_uverbs_ex_query_device_resp resp = { {0} };
 	struct ib_uverbs_ex_query_device  cmd;
-	struct ib_device_attr attr;
+	struct ib_device_attr attr = {0};
 	int err;
 
 	if (ucore->inlen < sizeof(cmd))
@@ -3624,14 +3623,11 @@ int ib_uverbs_ex_query_device(struct ib_uverbs_file *file,
 	if (ucore->outlen < resp.response_length)
 		return -ENOSPC;
 
-	memset(&attr, 0, sizeof(attr));
-
 	err = ib_dev->query_device(ib_dev, &attr, uhw);
 	if (err)
 		return err;
 
 	copy_query_dev_fields(file, ib_dev, &resp.base, &attr);
-	resp.comp_mask = 0;
 
 	if (ucore->outlen < resp.response_length + sizeof(resp.odp_caps))
 		goto end;
@@ -3644,9 +3640,6 @@ int ib_uverbs_ex_query_device(struct ib_uverbs_file *file,
 		attr.odp_caps.per_transport_caps.uc_odp_caps;
 	resp.odp_caps.per_transport_caps.ud_odp_caps =
 		attr.odp_caps.per_transport_caps.ud_odp_caps;
-	resp.odp_caps.reserved = 0;
-#else
-	memset(&resp.odp_caps, 0, sizeof(resp.odp_caps));
 #endif
 	resp.response_length += sizeof(resp.odp_caps);
 
@@ -3664,8 +3657,5 @@ int ib_uverbs_ex_query_device(struct ib_uverbs_file *file,
 
 end:
 	err = ib_copy_to_udata(ucore, &resp, resp.response_length);
-	if (err)
-		return err;
-
-	return 0;
+	return err;
 }

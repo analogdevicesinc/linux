@@ -666,9 +666,15 @@ static int bcm47xx_get_sprom_bcma(struct bcma_bus *bus, struct ssb_sprom *out)
 	switch (bus->hosttype) {
 	case BCMA_HOSTTYPE_PCI:
 		memset(out, 0, sizeof(struct ssb_sprom));
-		snprintf(buf, sizeof(buf), "pci/%u/%u/",
-			 bus->host_pci->bus->number + 1,
-			 PCI_SLOT(bus->host_pci->devfn));
+		/* On BCM47XX all PCI buses share the same domain */
+		if (config_enabled(CONFIG_BCM47XX))
+			snprintf(buf, sizeof(buf), "pci/%u/%u/",
+				 bus->host_pci->bus->number + 1,
+				 PCI_SLOT(bus->host_pci->devfn));
+		else
+			snprintf(buf, sizeof(buf), "pci/%u/%u/",
+				 pci_domain_nr(bus->host_pci->bus) + 1,
+				 bus->host_pci->bus->number);
 		bcm47xx_sprom_apply_prefix_alias(buf, sizeof(buf));
 		prefix = buf;
 		break;
@@ -708,11 +714,11 @@ void bcm47xx_sprom_register_fallbacks(void)
 {
 #if defined(CONFIG_BCM47XX_SSB)
 	if (ssb_arch_register_fallback_sprom(&bcm47xx_get_sprom_ssb))
-		pr_warn("Failed to registered ssb SPROM handler\n");
+		pr_warn("Failed to register ssb SPROM handler\n");
 #endif
 
 #if defined(CONFIG_BCM47XX_BCMA)
 	if (bcma_arch_register_fallback_sprom(&bcm47xx_get_sprom_bcma))
-		pr_warn("Failed to registered bcma SPROM handler\n");
+		pr_warn("Failed to register bcma SPROM handler\n");
 #endif
 }

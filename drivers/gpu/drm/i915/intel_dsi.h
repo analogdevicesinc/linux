@@ -34,6 +34,8 @@
 #define DSI_DUAL_LINK_FRONT_BACK	1
 #define DSI_DUAL_LINK_PIXEL_ALT		2
 
+int dsi_pixel_format_bpp(int pixel_format);
+
 struct intel_dsi_host;
 
 struct intel_dsi {
@@ -117,7 +119,7 @@ static inline struct intel_dsi_host *to_intel_dsi_host(struct mipi_dsi_host *h)
 
 #define for_each_dsi_port(__port, __ports_mask) \
 	for ((__port) = PORT_A; (__port) < I915_MAX_PORTS; (__port)++)	\
-		if ((__ports_mask) & (1 << (__port)))
+		for_each_if ((__ports_mask) & (1 << (__port)))
 
 static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)
 {
@@ -126,8 +128,7 @@ static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)
 
 extern void intel_enable_dsi_pll(struct intel_encoder *encoder);
 extern void intel_disable_dsi_pll(struct intel_encoder *encoder);
-extern u32 vlv_get_dsi_pclk(struct intel_encoder *encoder, int pipe_bpp);
-extern u32 bxt_get_dsi_pclk(struct intel_encoder *encoder, int pipe_bpp);
+extern u32 intel_dsi_get_pclk(struct intel_encoder *encoder, int pipe_bpp);
 extern void intel_dsi_reset_clocks(struct intel_encoder *encoder,
 							enum port port);
 

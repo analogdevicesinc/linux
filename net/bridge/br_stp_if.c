@@ -37,6 +37,7 @@ static inline port_id br_make_port_id(__u8 priority, __u16 port_no)
 void br_init_port(struct net_bridge_port *p)
 {
 	struct switchdev_attr attr = {
+		.orig_dev = p->dev,
 		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
 		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
 		.u.ageing_time = jiffies_to_clock_t(p->br->ageing_time),
@@ -101,7 +102,6 @@ void br_stp_enable_port(struct net_bridge_port *p)
 {
 	br_init_port(p);
 	br_port_state_selection(p->br);
-	br_log_state(p);
 	br_ifinfo_notify(RTM_NEWLINK, p);
 }
 
@@ -117,7 +117,6 @@ void br_stp_disable_port(struct net_bridge_port *p)
 	p->topology_change_ack = 0;
 	p->config_pending = 0;
 
-	br_log_state(p);
 	br_ifinfo_notify(RTM_NEWLINK, p);
 
 	del_timer(&p->message_age_timer);

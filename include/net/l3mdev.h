@@ -39,7 +39,7 @@ struct l3mdev_ops {
 
 #ifdef CONFIG_NET_L3_MASTER_DEV
 
-int l3mdev_master_ifindex_rcu(struct net_device *dev);
+int l3mdev_master_ifindex_rcu(const struct net_device *dev);
 static inline int l3mdev_master_ifindex(struct net_device *dev)
 {
 	int ifindex;
@@ -49,6 +49,24 @@ static inline int l3mdev_master_ifindex(struct net_device *dev)
 	rcu_read_unlock();
 
 	return ifindex;
+}
+
+static inline int l3mdev_master_ifindex_by_index(struct net *net, int ifindex)
+{
+	struct net_device *dev;
+	int rc = 0;
+
+	if (likely(ifindex)) {
+		rcu_read_lock();
+
+		dev = dev_get_by_index_rcu(net, ifindex);
+		if (dev)
+			rc = l3mdev_master_ifindex_rcu(dev);
+
+		rcu_read_unlock();
+	}
+
+	return rc;
 }
 
 /* get index of an interface to use for FIB lookups. For devices
@@ -161,11 +179,16 @@ struct dst_entry *l3mdev_rt6_dst_by_oif(struct net *net,
 
 #else
 
-static inline int l3mdev_master_ifindex_rcu(struct net_device *dev)
+static inline int l3mdev_master_ifindex_rcu(const struct net_device *dev)
 {
 	return 0;
 }
 static inline int l3mdev_master_ifindex(struct net_device *dev)
+{
+	return 0;
+}
+
+static inline int l3mdev_master_ifindex_by_index(struct net *net, int ifindex)
 {
 	return 0;
 }
