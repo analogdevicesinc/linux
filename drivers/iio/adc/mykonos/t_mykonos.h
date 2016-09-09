@@ -2,7 +2,7 @@
  * \file t_mykonos.h
  * \brief Contains type definitions for Mykonos API
  *
- * Mykonos API version: 1.2.05.3475
+ * Mykonos API version: 1.3.0.3528
  */
 
 #ifndef _T_MYKONOS_LIB_H_
@@ -370,6 +370,9 @@ typedef enum
 	MYKONOS_ERR_CFGCLGC_INV_DESIREDGAIN,
 	MYKONOS_ERR_CFGCLGC_INV_TXATTENLIMIT,
 	MYKONOS_ERR_CFGCLGC_INV_CLGC_CTRLRATIO,
+	MYKONOS_ERR_SETCLGCGAIN_INV_DESIREDGAIN,
+	MYKONOS_ERR_SETCLGCGAIN_INV_TXCHANNEL,
+	MYKONOS_ERR_SETCLGCGAIN_TRACK_ARMERRFLAG,
 	MYKONOS_ERR_CFGDPD_INV_DPD_ADDDELAY,
 	MYKONOS_ERR_CFGDPD_INV_PNSEQLEVEL,
 	MYKONOS_ERR_READARMCFG_ARMERRFLAG,
@@ -401,6 +404,9 @@ typedef enum
 	MYKONOS_ERR_GETINITCALSTATUS_ARMERROR,
 	MYKONOS_ERR_CFGDPD_INV_NUMWEIGHTS,
 	MYKONOS_ERR_CFGDPD_INV_MODELVERSION,
+	MYKONOS_ERR_SETDPDACT_INV_TXCHANNEL,
+	MYKONOS_ERR_SETDPDACT_INV_STATE,
+	MYKONOS_ERR_SETDPDACT_ARMERRFLAG,
 	MYKONOS_ERR_CFGCLGC_TXORX_PROFILE_INV,
 	MYKONOS_ERR_CFGCLGC_NULL_CLGCCFGSTRUCT,
 	MYKONOS_ERR_CFGCLGC_ARMSTATE_ERROR,
@@ -452,11 +458,26 @@ typedef enum
     MYKONOS_ERR_RESCHEDULE_TRACK_CAL_INV,
     MYKONOS_ERR_RESCHEDULE_TRACK_ARMERRFLAG,
 
+    MYKONOS_ERR_SETSTATEALL_TRACK_CAL_INV,
+    MYKONOS_ERR_SETSTATEALL_TRACK_ARMERRFLAG,
+
+    MYKONOS_ERR_GETSTATEALL_TRACK_NULL_PARAM,
+    MYKONOS_ERR_GETSTATEALL_TRACK_ARMERRFLAG,
+    MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR,
+
+    MYKONOS_ERR_SETSTATE_TRACK_CAL_INV,
+    MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG,
+
+    MYKONOS_ERR_GETSTATE_TRACK_NULL_PARAM,
+    MYKONOS_ERR_GETSTATE_TRACK_ARMERRFLAG,
+    MYKONOS_ERR_GETSTATE_TRACK_ARMERROR,
+
     MYKONOS_ERR_ARMSTATE_PROFILE_ERROR,
     MYKONOS_ERR_ARMSTATE_CAL_ERROR,
     MYKONOS_ERR_ARMSTATE_EXCEPTION,
     MYKONOS_ERR_WAITARMCSTATE_TIMEOUT,
 
+    MYKONOS_ERR_GETPRODUCTID_NULL_PARAM,
     MYKONOS_ERR_GET_API_VERSION_NULL_PARAM,
 
     MYKONOS_ERR_PROFILES_HSDIGCLK,
@@ -753,21 +774,25 @@ typedef enum
  */
 typedef enum
 {
-    TRACK_RX1_QEC   = 0x0001,
-    TRACK_RX2_QEC   = 0x0002,
-    TRACK_ORX1_QEC  = 0x0004,
-    TRACK_ORX2_QEC  = 0x0008,
-    TRACK_TX1_LOL   = 0x0010,
-    TRACK_TX2_LOL   = 0x0020,
-    TRACK_TX1_QEC   = 0x0040,
-    TRACK_TX2_QEC   = 0x0080,
-    TRACK_TX1_DPD   = 0x0100,
-    TRACK_TX2_DPD   = 0x0200,
-    TRACK_TX1_CLGC  = 0x0400,
-    TRACK_TX2_CLGC  = 0x0800,
-    TRACK_TX1_VSWR  = 0x1000,
-    TRACK_TX2_VSWR  = 0x2000
+    TRACK_RX1_QEC       = 0x00001,
+    TRACK_RX2_QEC       = 0x00002,
+    TRACK_ORX1_QEC      = 0x00004,
+    TRACK_ORX2_QEC      = 0x00008,
+    TRACK_TX1_LOL       = 0x00010,
+    TRACK_TX2_LOL       = 0x00020,
+    TRACK_TX1_QEC       = 0x00040,
+    TRACK_TX2_QEC       = 0x00080,
+    TRACK_TX1_DPD       = 0x00100,
+    TRACK_TX2_DPD       = 0x00200,
+    TRACK_TX1_CLGC      = 0x00400,
+    TRACK_TX2_CLGC      = 0x00800,
+    TRACK_TX1_VSWR      = 0x01000,
+    TRACK_TX2_VSWR      = 0x02000,
+    TRACK_ORX1_QEC_SNLO = 0x10000,
+    TRACK_ORX2_QEC_SNLO = 0x20000,
+    TRACK_SRX_QEC       = 0x40000
 } mykonosTrackingCalibrations_t;
+
 /**
  *  \brief Enum to set the GPIO3v3 mode
  */
@@ -913,6 +938,8 @@ typedef struct
      *                  8   | If set, entered cal but not finished
      *                  9   | No GPIO configured in single ORx configuration
      *                 10   | Tx is not observable with any of the ORx Channels
+     *                 11   | ORX_TRACKING_DISABLED  ORx tracking must be enabled
+     *
      */
     uint32_t errorStatus;
     uint32_t trackCount;                /*!< Number of times VSWR tracking has run since last reset */
@@ -1318,8 +1345,8 @@ typedef struct
      *                       9   | MODEL_ERROR_HIGH
      *                      10   | AM_AM_OUTLIERS
      *                      11   | INVALID_TX_PROFILE
-     *                      12   | ORX QEC tracking cal is disabled
-     *                      13   | Reserved
+     *                      12   | ORX_TRACKING_DISABLED ORx tracking must be enabled
+     *                      13   | Cal suspended
      *                      14   | Reserved
      *                      15   | Reserved
      *                      16   | Reserved
@@ -1354,8 +1381,8 @@ typedef struct
      *                     11   | Gain measurement
      *                     12   | No GPIO configured in single ORx configuration
      *                     13   | Tx is not observable with any of the ORx Channels
-     *                     14   | RESERVED
-     *                     15   | RESERVED
+     *                     14   | ORX_TRACKING_DISABLED  ORx tracking must be enabled
+     *                     15   | Cal suspended
      *                     16   | RESERVED
      *                     17   | RESERVED
      *                     18   | RESERVED
