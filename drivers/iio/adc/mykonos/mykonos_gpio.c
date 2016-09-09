@@ -15,8 +15,6 @@
  * PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
  */
 
-#include <stdint.h>
-#include <stddef.h>
 #include "common.h"
 #include "mykonos.h"
 #include "mykonos_gpio.h"
