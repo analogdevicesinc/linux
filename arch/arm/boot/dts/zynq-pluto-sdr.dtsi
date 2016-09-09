@@ -1,5 +1,5 @@
 /*
- * Avnet PicoZED SDR1 board DTS (Z7020/AD9364 SOM, AES-Z7PZ-SDR1-G)
+ * ZYNQ Pluto SDR (Z7010/AD9363)
  *
  * Copyright (C) 2016 Analog Devices Inc.
  *
@@ -8,7 +8,7 @@
 /include/ "zynq.dtsi"
 
 / {
-	model = "Avnet ZYNQ Pluto SDR (Z7010/AD9363)";
+	model = "ZYNQ Pluto SDR (Z7010/AD9363)";
 	memory {
 		device_type = "memory";
 		reg = <0x00000000 0x20000000>;
@@ -24,20 +24,6 @@
 			compatible = "fixed-clock";
 			clock-frequency = <40000000>;
 			clock-output-names = "ad9364_ext_refclk";
-		};
-
-		usb_ulpi_fixed_clk: clock@1 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <24000000>;
-			clock-output-names = "24MHz";
-		};
-
-		usb_ulpi_clk: clock@2 {
-			compatible = "gpio-gate-clock";
-			clocks = <&usb_ulpi_fixed_clk>;
-			#clock-cells = <0>;
-			enable-gpios = <&gpio0 9 1>; /* Active  Low */
 		};
 	};
 
@@ -115,10 +101,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			ad7291@20 {
-				compatible = "adi,ad7291";
-				reg = <0x20>;
-			};
 		};
 
 		rx_dma: dma@7c400000 {
@@ -181,7 +163,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9364";
+		compatible = "ad9363a";
 
 		/* SPI Setup */
 		reg = <0>;
@@ -213,10 +195,10 @@
 		adi,digital-interface-tune-fir-disable;
 
 		/* Temporary workaround - HDL issue? need to investigate further */
-		adi,digital-interface-tune-skip-mode = <1>; /* SKIP TX */
+		adi,digital-interface-tune-skip-mode = <0>; /* SKIP TX */
 		adi,tx-fb-clock-delay = <0>;
 		adi,tx-data-delay = <9>;
-		//adi,swap-ports-enable;
+		adi,swap-ports-enable;
 
 		/* Mode Setup */
 
