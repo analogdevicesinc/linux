@@ -1697,7 +1697,7 @@ static int find_table_index(struct ad9361_rf_phy *phy, int gain)
 	u32 i, nm1, n;
 
 	for (i = 0; i < phy->gt_info[ad9361_gt(phy)].max_index; i++) {
-		if (phy->gt_info[ad9361_gt(phy)].abs_gain_tbl[i] > gain) {
+		if (phy->gt_info[ad9361_gt(phy)].abs_gain_tbl[i] >= gain) {
 			nm1 = abs(phy->gt_info[ad9361_gt(phy)].abs_gain_tbl[
 				(i > 0) ? i - 1 : i] - gain);
 			n = abs(phy->gt_info[ad9361_gt(phy)].abs_gain_tbl[i]
