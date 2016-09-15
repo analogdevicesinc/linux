@@ -1,0 +1,12 @@
+Altera Partial Reconfiguration IP Core
+
+Required properties:
+- compatible : should contain "altr,pr-ip-core"
+- reg        : base address and size for memory mapped io.
+
+Example:
+
+	fpga_mgr: fpga-mgr@ff20c000 {
+		compatible = "altr,pr-ip-core";
+		reg = <0xff20c000 0x8>;
+	};
