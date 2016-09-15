@@ -348,6 +348,14 @@ The Device Tree Overlay will contain:
  * child nodes corresponding to hardware that will be loaded in this region of
    the FPGA.
 
+The Device Tree Overlay will optionally contain:
+ * "region-unfreeze-timeout-us"
+    Maximum time in microseconds to wait for bridges to successfully become
+    enabled after the region has been programmed.
+ * "region-freeze-timeout-us"
+    Maximum time in microseconds to wait for bridges to successfully become
+    disabled before the region has been programmed.
+
 Device Tree Example: Full Reconfiguration without Bridges
 =========================================================
 
@@ -382,6 +390,8 @@ fragment@0 {
 		#size-cells = <1>;
 
 		firmware-name = "zynq-gpio.bin";
+		region-unfreeze-timeout-us = <4>;
+		region-freeze-timeout-us = <4>;
 
 		gpio1: gpio@40000000 {
 			compatible = "xlnx,xps-gpio-1.00.a";
