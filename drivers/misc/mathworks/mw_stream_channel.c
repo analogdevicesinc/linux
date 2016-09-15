@@ -196,13 +196,7 @@ void mwadma_tx_cb_single_signal(struct mwadma_dev *mwdev)
     mwchan->transfer_count++;
     mwchan->status = ready;
     spin_unlock_bh(&mwchan->slock);
-
-    /* Signal userspace */
-    if (likely(mwdev->asyncq)) {
-        kill_fasync(&mwdev->asyncq, SIGIO, POLL_OUT);
-    }
     dev_dbg(dev, "Notify from %s : count:%d\n",__func__,ct++);
-    sysfs_notify(&dev->kobj, NULL, "dma_ch2");
     sysfs_notify_dirent(mwchan->irq_kn);
 }
 
@@ -271,13 +265,7 @@ void mwadma_rx_cb_single_signal(struct mwadma_dev *mwdev)
     spin_unlock_bh(&mwchan->slock);
 
     mwchan->completed = mwchan->prev;
-    /* Signal userspace */
-    if (likely(mwdev->asyncq))
-    {
-        kill_fasync(&mwdev->asyncq, SIGIO, POLL_IN);
-    }
     dev_dbg(dev, "Notify from %s : count:%d\n",__func__,ct++);
-    sysfs_notify(&dev->kobj, NULL, "dma_ch1");
     sysfs_notify_dirent(mwchan->irq_kn);
 }
 
@@ -349,7 +337,6 @@ void mwadma_rx_cb_continuous_signal(struct mwadma_dev *mwdev)
         kill_fasync(&mwdev->asyncq, SIGIO, POLL_IN);
     }
     dev_dbg(dev, "Notify from %s : count:%ld\n",__func__,current_transfers_completed);
-    sysfs_notify(&dev->kobj, NULL, "dma_ch1");
     sysfs_notify_dirent(mwchan->irq_kn);
 }
 
@@ -1139,7 +1126,6 @@ static void mwdma_test_loopback(struct mwadma_dev * mwdev,
 static ssize_t mwdma_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
 {
     dev_dbg(dev,"sysfs_notify :%s\n", attr->attr.name);
-    // sysfs_notify(&dev->kobj, NULL, attr->attr.name);
     return (sizeof(int));
 }
 
@@ -1198,7 +1184,6 @@ EXPORT_SYMBOL_GPL(mw_stream_channel_get_ops);
 static ssize_t mw_stream_chan_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
 {
     dev_dbg(dev,"sysfs_notify :%s\n", attr->attr.name);
-    // sysfs_notify(&dev->kobj, NULL, attr->attr.name);
     return (sizeof(int));
 }
 
