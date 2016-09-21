@@ -159,6 +159,7 @@ struct fsl_edma_chan {
 	struct fsl_edma_slave_config	fsc;
 	struct dma_pool			*tcd_pool;
 	char				chan_name[16];
+	u32				chn_real_count;
 };
 
 struct fsl_edma_desc {
@@ -446,8 +447,12 @@ static enum dma_status fsl_edma_tx_status(struct dma_chan *chan,
 	unsigned long flags;
 
 	status = dma_cookie_status(chan, cookie, txstate);
-	if (status == DMA_COMPLETE)
+	if (status == DMA_COMPLETE) {
+		spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
+		txstate->residue = fsl_chan->chn_real_count;
+		spin_unlock_irqrestore(&fsl_chan->vchan.lock, flags);
 		return status;
+	}
 
 	if (!txstate)
 		return fsl_chan->status;
@@ -691,6 +696,11 @@ static void fsl_edma_xfer_desc(struct fsl_edma_chan *fsl_chan)
 	fsl_chan->idle = false;
 }
 
+static void fsl_edma_get_realcnt(struct fsl_edma_chan *fsl_chan)
+{
+	fsl_chan->chn_real_count = fsl_edma_desc_residue(fsl_chan, NULL, true);
+}
+
 static irqreturn_t fsl_edma_tx_handler(int irq, void *dev_id)
 {
 	struct fsl_edma_engine *fsl_edma = dev_id;
@@ -713,6 +723,7 @@ static irqreturn_t fsl_edma_tx_handler(int irq, void *dev_id)
 
 			spin_lock(&fsl_chan->vchan.lock);
 			if (!fsl_chan->edesc->iscyclic) {
+				fsl_edma_get_realcnt(fsl_chan);
 				list_del(&fsl_chan->edesc->vdesc.node);
 				vchan_cookie_complete(&fsl_chan->edesc->vdesc);
 				fsl_chan->edesc = NULL;
