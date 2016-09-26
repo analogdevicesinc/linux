@@ -522,7 +522,13 @@ dtb-$(CONFIG_SOC_IMX6SX) += \
 	imx6sx-19x19-arm2-gpmi-weim.dtb \
 	imx6sx-udoo-neo-basic.dtb \
 	imx6sx-udoo-neo-extended.dtb \
-	imx6sx-udoo-neo-full.dtb
+	imx6sx-udoo-neo-full.dtb \
+	imx6sxscm-1gb-evb-ldo.dtb \
+	imx6sxscm-1gb-evb-lcdif1-ldo.dtb \
+	imx6sxscm-1gb-evb-m4-ldo.dtb \
+	imx6sxscm-1gb-evb-mqs-ldo.dtb \
+	imx6sxscm-1gb-evb-sai-ldo.dtb \
+	imx6sxscm-1gb-evb-btwifi-ldo.dtb
 dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ul-14x14-evk.dtb \
 	imx6ul-14x14-evk-btwifi.dtb \
