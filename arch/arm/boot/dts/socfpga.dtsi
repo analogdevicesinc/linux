@@ -708,6 +708,7 @@
 			arm,data-latency = <2 1 1>;
 			prefetch-data = <1>;
 			prefetch-instr = <1>;
+			arm,shared-override;
 		};
 
 		l3regs@0xff800000 {
