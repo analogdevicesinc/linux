@@ -74,6 +74,11 @@
 		clock-names = "sampl_clk";
 		mastercore-reg = <0x79024000 0x1000>;
 	};
+
+	mwipcore@43C00000 {
+		compatible = "mathworks,mwipcore-axi4lite-v1.00";
+		reg = <0x43C00000 0xffff>;
+	};
 };
 
 &spi0 {
