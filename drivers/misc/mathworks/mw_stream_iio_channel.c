@@ -58,6 +58,17 @@ static int mw_stream_iio_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
 
+	dev_dbg(&mwchan->dev, "buffer preenable\n");
+
+	switch(mwchan->reset_ip_mode) {
+		case MW_STREAM_RESET_IP_MODE_ENABLE:
+		case MW_STREAM_RESET_IP_MODE_ALL:
+			/* reset the ip core */
+			dev_dbg(&mwchan->dev, "resetting IP Core\n");
+			mw_ip_reset(mwchan->mwdev);
+			break;
+
+	}
 	if (mwchan->tlast_cntr_addr >= 0 && mwchan->tlast_mode == MW_STREAM_TLAST_MODE_AUTO) {
 		if(mwchan->reset_tlast_mode == MW_STREAM_TLAST_MODE_PREBUFFER) {
 			/* reset the IP core (TODO: only reset the TLAST register)*/
@@ -68,19 +79,82 @@ static int mw_stream_iio_buffer_preenable(struct iio_dev *indio_dev)
 	}
 	return 0;
 }
-
-static int mw_stream_iio_buffer_postdisable(struct iio_dev *indio_dev)
+static int mw_stream_iio_buffer_postenable(struct iio_dev *indio_dev)
 {
+	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
+
+	dev_dbg(&mwchan->dev, "buffer postenable\n");
 	return 0;
 }
 
+static int mw_stream_iio_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
+
+	dev_dbg(&mwchan->dev, "buffer predisable\n");
+
+	switch(mwchan->reset_ip_mode) {
+		case MW_STREAM_RESET_IP_MODE_DISABLE:
+		case MW_STREAM_RESET_IP_MODE_ALL:
+			/* reset the ip core */
+			dev_dbg(&mwchan->dev, "resetting IP Core\n");
+			mw_ip_reset(mwchan->mwdev);
+			break;
+	}
+	return 0;
+}
+
+static int mw_stream_iio_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
+
+	dev_dbg(&mwchan->dev, "buffer postdisable\n");
+	return 0;
+}
+
+
 static const struct iio_buffer_setup_ops mw_stream_iio_buffer_setup_ops = {
+
 	.preenable = &mw_stream_iio_buffer_preenable,
+	.postenable = &mw_stream_iio_buffer_postenable,
+	.predisable = &mw_stream_iio_buffer_predisable,
 	.postdisable = &mw_stream_iio_buffer_postdisable,
 };
 
 static const struct iio_dma_buffer_ops mw_stream_iio_buffer_dma_buffer_ops = {
 	.submit_block = mw_stream_iio_buffer_submit_block,
+};
+
+/*************
+ * Reset IP Modes
+ *************/
+static const char * const mw_stream_iio_channel_reset_ip_modes[] = { "none", "enable", "disable", "all" };
+
+static int mw_stream_iio_channel_get_reset_ip_mode(struct iio_dev *indio_dev,
+		const struct iio_chan_spec *chan)
+{
+	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
+
+	return mwchan->reset_ip_mode;
+}
+
+static int mw_stream_iio_channel_set_reset_ip_mode(struct iio_dev *indio_dev,
+		const struct iio_chan_spec *chan, unsigned int mode)
+{
+	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
+
+	mutex_lock(&indio_dev->mlock);
+	mwchan->reset_ip_mode = mode;
+	mutex_unlock(&indio_dev->mlock);
+
+	return 0;
+}
+
+static const struct iio_enum mw_stream_iio_channel_reset_ip_mode_enum = {
+	.items = mw_stream_iio_channel_reset_ip_modes,
+	.num_items = ARRAY_SIZE(mw_stream_iio_channel_reset_ip_modes),
+	.get = mw_stream_iio_channel_get_reset_ip_mode,
+	.set = mw_stream_iio_channel_set_reset_ip_mode,
 };
 
 /*************
@@ -155,6 +229,14 @@ static const struct iio_chan_spec_ext_info mw_stream_iio_ch_tlast_info[] = {
 	{ },
 };
 
+static const struct iio_chan_spec_ext_info mw_stream_iio_ch_ip_info[] = {
+	MW_STREAM_IIO_ENUM("reset_ip_mode", IIO_SHARED_BY_ALL, &mw_stream_iio_channel_reset_ip_mode_enum),
+	MW_STREAM_IIO_ENUM_AVAILABLE("reset_ip_mode", IIO_SHARED_BY_ALL, &mw_stream_iio_channel_reset_ip_mode_enum),
+	{ },
+};
+
+
+
 static int mw_stream_iio_channel_reg_access(struct iio_dev *indio_dev,
 			      unsigned reg, unsigned writeval,
 			      unsigned *readval)
@@ -201,6 +283,20 @@ static int devm_mw_stream_configure_buffer(struct iio_dev *indio_dev)
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
 	indio_dev->direction = mwchan->iio_direction;
 	indio_dev->setup_ops = &mw_stream_iio_buffer_setup_ops;
+
+	return 0;
+}
+
+static int mw_stream_setup_ip_channel(struct iio_dev *indio_dev, struct iio_chan_spec *channel){
+	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
+
+	channel->type = IIO_GENERIC_DATA;
+	channel->indexed = 1;
+	channel->extend_name = devm_kstrdup(&mwchan->dev, "ip_info", GFP_KERNEL);
+	if (!channel->extend_name)
+		return -ENOMEM;
+	channel->ext_info = mw_stream_iio_ch_ip_info;
+	channel->scan_index = -ENODEV;
 
 	return 0;
 }
@@ -329,6 +425,7 @@ static int devm_mw_stream_iio_register(struct iio_dev *indio_dev) {
 	mwchan->num_data_chan = mw_stream_count_data_channels(indio_dev);
 
 	indio_dev->num_channels = mwchan->num_data_chan;
+	indio_dev->num_channels++; /* info channel */
 	if (mwchan->tlast_cntr_addr != -EINVAL)
 		indio_dev->num_channels++;
 
@@ -340,6 +437,10 @@ static int devm_mw_stream_iio_register(struct iio_dev *indio_dev) {
 	if(status)
 		return status;
 	chIdx += mwchan->num_data_chan;
+
+	status = mw_stream_setup_ip_channel(indio_dev, (struct iio_chan_spec *)&indio_dev->channels[chIdx++]);
+	if(status)
+		return status;
 
 	if (mwchan->tlast_cntr_addr != -EINVAL) {
 		status = mw_stream_setup_tlast_channel(indio_dev, (struct iio_chan_spec *)&indio_dev->channels[chIdx++]);
