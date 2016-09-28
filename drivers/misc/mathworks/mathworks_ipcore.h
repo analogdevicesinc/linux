@@ -66,7 +66,13 @@ struct mathworks_ipcore_dev {
     void							*private;
 };
 
+/*********************************************************
+* API functions
+*********************************************************/
 
-
+static inline void mw_ip_reset(struct mathworks_ipcore_dev *mwdev)
+{
+	mw_ip_write32(mwdev->mw_ip_info, mwdev->rst_reg, 0x1);
+}
 
 #endif /* _MATHWORKS_IPCORE_H_ */
