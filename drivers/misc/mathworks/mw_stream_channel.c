@@ -1032,7 +1032,7 @@ static int mw_axidma_setupchannel(struct mwadma_dev *mwdev,
 
     /* Write to the IPCore_PacketSize_AXI4_Stream_Master 0x8 to specify the length*/
     /*reset pcore*/
-    mw_ip_write32(MWDEV_TO_MWIP(mwdev), mwdev->mw_ipcore_dev->rst_reg, 0x1);
+    mw_ip_reset(mwdev);
     /*reset pcore*/
     mw_ip_write32(MWDEV_TO_MWIP(mwdev), 0x8, usrbuf->counter);
     buf = MWDEV_TO_MWIP(mwdev)->dma_info.virt;
