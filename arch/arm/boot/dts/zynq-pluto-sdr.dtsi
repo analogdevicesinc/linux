@@ -37,6 +37,15 @@
 
 };
 
+&sdhci0 {
+	status = "disabled";
+};
+
+&watchdog0 {
+	status = "okay";
+	reset-on-timeout;
+};
+
 &usb0 {
 	xlnx,phy-reset-gpio = <&gpio0 7 0>;
 	dr_mode = "otg";
