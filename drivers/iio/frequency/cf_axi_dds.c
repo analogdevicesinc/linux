@@ -1032,6 +1032,14 @@ static const struct axidds_core_info ad9371_6_00_a_info = {
 	.chip_info = &cf_axi_dds_chip_info_ad9371,
 };
 
+static const struct axidds_core_info ad9371_9_00_a_info = {
+	.version = PCORE_VERSION(9, 0, 'a'),
+	.has_fifo_interface = true,
+	.standalone = true,
+	.rate = 3,
+	.chip_info = &cf_axi_dds_chip_info_ad9371,
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", },
@@ -1057,6 +1065,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9371-tx-1.0",
 	    .data = &ad9371_6_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9371-tx-2.0",
+	    .data = &ad9371_9_00_a_info,
 	},
 	{ },
 };
