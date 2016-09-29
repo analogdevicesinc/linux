@@ -571,6 +571,11 @@ static const struct axiadc_core_info ad9361_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
 };
 
+static const struct axiadc_core_info ad9361_10_00_a_info = {
+	.has_fifo_interface = true,
+	.version = PCORE_VERSION(10, 0, 'a'),
+};
+
 static const struct axiadc_core_info ad9643_6_00_a_info = {
 	.has_fifo_interface = true,
 	.version = PCORE_VERSION(9, 0, 'a'),
@@ -599,6 +604,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-ad6676-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9684-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
+	{ .compatible = "adi,axi-ad9371-rx-2.0", .data = &ad9361_10_00_a_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
