@@ -499,7 +499,11 @@ static int ad7291_probe(struct i2c_client *client,
 	if (pdata && pdata->use_external_ref)
 		chip->command |= AD7291_EXT_REF;
 
-	indio_dev->name = id->name;
+	if (client->dev.of_node)
+		indio_dev->name = client->dev.of_node->name;
+	else
+		indio_dev->name = id->name;
+
 	indio_dev->channels = ad7291_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ad7291_channels);
 
