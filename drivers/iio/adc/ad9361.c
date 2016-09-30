@@ -4322,6 +4322,12 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 
 	dev_dbg(&phy->spi->dev, "%s: MCS step %d", __func__, step);
 
+	switch(spi_get_device_id(phy->spi)->driver_data) {
+		case ID_AD9363A:
+		case ID_AD9363B:
+			return -ENODEV;
+	}
+
 	switch (step) {
 	case 1:
 		/* REVIST:
@@ -6864,27 +6870,34 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 		phy->fastlock.save_profile = readin;
 		break;
 	case LOEXT_EXTERNAL:
-		switch (chan->channel) {
-		case 0:
-			if (phy->clk_ext_lo_rx)
-				ret = clk_set_parent(phy->clks[RX_RFPLL],
-				       readin ? phy->clk_ext_lo_rx :
-				       phy->clks[RX_RFPLL_INT]);
-			else
-				ret = -ENODEV;
+		switch(spi_get_device_id(phy->spi)->driver_data) {
+		case ID_AD9363A:
+		case ID_AD9363B:
+			ret = -ENODEV;
 			break;
-
-		case 1:
-			if (phy->clk_ext_lo_tx)
-				ret = clk_set_parent(phy->clks[TX_RFPLL],
-				       readin ? phy->clk_ext_lo_tx :
-				       phy->clks[TX_RFPLL_INT]);
-			else
-				ret = -ENODEV;
-			break;
-
 		default:
-			ret = -EINVAL;
+			switch (chan->channel) {
+			case 0:
+				if (phy->clk_ext_lo_rx)
+					ret = clk_set_parent(phy->clks[RX_RFPLL],
+							     readin ? phy->clk_ext_lo_rx :
+							     phy->clks[RX_RFPLL_INT]);
+					else
+						ret = -ENODEV;
+				break;
+
+			case 1:
+				if (phy->clk_ext_lo_tx)
+					ret = clk_set_parent(phy->clks[TX_RFPLL],
+							     readin ? phy->clk_ext_lo_tx :
+							     phy->clks[TX_RFPLL_INT]);
+					else
+						ret = -ENODEV;
+					break;
+
+			default:
+				ret = -EINVAL;
+			}
 		}
 		break;
 
@@ -7881,7 +7894,6 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_u32(iodev, np, "adi,trx-synthesizer-target-fref-overwrite-hz",
 			  MAX_SYNTH_FREF, &pdata->trx_synth_max_fref);
 
-
 	tmpl = 2400000000ULL;
 	of_property_read_u64(np, "adi,rx-synthesizer-frequency-hz", &tmpl);
 	pdata->rx_synth_freq = tmpl;
@@ -7889,11 +7901,6 @@ static struct ad9361_phy_platform_data
 	tmpl = 2440000000ULL;
  	of_property_read_u64(np, "adi,tx-synthesizer-frequency-hz", &tmpl);
 	pdata->tx_synth_freq = tmpl;
-
-	ad9361_of_get_bool(iodev, np, "adi,external-tx-lo-enable",
-			   &pdata->use_ext_tx_lo);
-	ad9361_of_get_bool(iodev, np, "adi,external-rx-lo-enable",
-			   &pdata->use_ext_rx_lo);
 
 	ret = of_property_read_u32_array(np, "adi,dcxo-coarse-and-fine-tune",
 			      array, 2);
@@ -7906,10 +7913,16 @@ static struct ad9361_phy_platform_data
 		case ID_AD9363A:
 		case ID_AD9363B:
 			pdata->use_extclk = true;
+			pdata->use_ext_tx_lo = false;
+			pdata->use_ext_rx_lo = false;
 			break;
 		default:
 			ad9361_of_get_bool(iodev, np, "adi,xo-disable-use-ext-refclk-enable",
 					   &pdata->use_extclk);
+			ad9361_of_get_bool(iodev, np, "adi,external-tx-lo-enable",
+					   &pdata->use_ext_tx_lo);
+			ad9361_of_get_bool(iodev, np, "adi,external-rx-lo-enable",
+					   &pdata->use_ext_rx_lo);
 	}
 
 	ad9361_of_get_u32(iodev, np, "adi,clk-output-mode-select", CLKOUT_DISABLE,
