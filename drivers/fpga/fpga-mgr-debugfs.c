@@ -103,7 +103,7 @@ static ssize_t fpga_mgr_image_write_file(struct file *file,
 	char *buf;
 	int ret;
 
-	dev_info(&mgr->dev, "writing %d bytes to %s\n", count, mgr->name);
+	dev_info(&mgr->dev, "writing %zu bytes to %s\n", count, mgr->name);
 
 	buf = kzalloc(count, GFP_KERNEL);
 	if (!buf)
