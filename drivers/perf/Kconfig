@@ -36,6 +36,9 @@ config QCOM_L3_PMU
 	   Adds the L3 cache PMU into the perf events subsystem for
 	   monitoring L3 cache events.
 
+config IMX8_DDR_PERF
+	tristate "Freescale i.MX8 DDR perf monitor"
+
 config XGENE_PMU
         depends on ARCH_XGENE
         bool "APM X-Gene SoC PMU"
