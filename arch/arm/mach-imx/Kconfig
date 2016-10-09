@@ -605,6 +605,15 @@ comment "Cortex-A/Cortex-M asymmetric multiprocessing platforms"
 
 if ARCH_MULTI_V7 || ARM_SINGLE_ARMV7M
 
+config SOC_IMX6SLL
+	bool "i.MX6 SLL support"
+	select PINCTRL_IMX6SLL
+	select SOC_IMX6
+	select KEYBOARD_SNVS_PWRKEY
+
+	help
+	  This enables support for Freescale i.MX6 SLL processor.
+
 config SOC_VF610
 	bool "Vybrid Family VF610 support"
 	select ARM_GIC if ARCH_MULTI_V7
