@@ -20,6 +20,9 @@
 #include "common.h"
 #include "hardware.h"
 
+#define GPC_CNTR		0x000
+#define GPC_CNTR_L2_PGE		22
+
 #define GPC_IMR1		0x008
 #define GPC_PGC_MF_PDN		0x220
 #define GPC_PGC_CPU_PDN		0x2a0
@@ -470,6 +473,13 @@ static int __init imx_gpc_init(struct device_node *node,
 		if (!(gpc_mf_irqs[0] | gpc_mf_irqs[1] |
 			gpc_mf_irqs[2] | gpc_mf_irqs[3]))
 			pr_info("No wakeup source in Mega/Fast domain found!\n");
+	}
+
+	/* clear the L2_PGE bit on i.MX6SLL */
+	if (cpu_is_imx6sll()) {
+		val = readl_relaxed(gpc_base + GPC_CNTR);
+		val &= ~(1 << GPC_CNTR_L2_PGE);
+		writel_relaxed(val, gpc_base + GPC_CNTR);
 	}
 
 	/*
