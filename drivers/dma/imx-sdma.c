@@ -1327,6 +1327,8 @@ static int sdma_transfer_init(struct sdma_channel *sdmac,
 
 	sdmac->status = DMA_IN_PROGRESS;
 	sdmac->buf_tail = 0;
+	sdmac->buf_ptail = 0;
+	sdmac->chn_real_count = 0;
 	sdmac->flags = 0;
 	sdmac->direction = direction;
 	sdmac->flags = 0;
