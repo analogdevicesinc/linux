@@ -142,6 +142,7 @@ static int pf1550_onkey_probe(struct platform_device *pdev)
 	}
 
 	onkey->input = input;
+	onkey->pf1550 = pf1550;
 	platform_set_drvdata(pdev, onkey);
 
 	device_init_wakeup(&pdev->dev, onkey->wakeup);
@@ -159,6 +160,8 @@ static int pf1550_onkey_suspend(struct device *dev)
 			     PF1550_PMIC_REG_ONKEY_INT_MASK0,
 			     ONKEY_IRQ_PUSHI | ONKEY_IRQ_1SI | ONKEY_IRQ_2SI |
 			     ONKEY_IRQ_3SI | ONKEY_IRQ_4SI | ONKEY_IRQ_8SI);
+	else
+		enable_irq_wake(onkey->pf1550->irq);
 
 	return 0;
 }
@@ -173,6 +176,8 @@ static int pf1550_onkey_resume(struct device *dev)
 			     PF1550_PMIC_REG_ONKEY_INT_MASK0,
 			     ~(ONKEY_IRQ_PUSHI | ONKEY_IRQ_1SI | ONKEY_IRQ_2SI |
 			     ONKEY_IRQ_3SI | ONKEY_IRQ_4SI | ONKEY_IRQ_8SI));
+	else
+		disable_irq_wake(onkey->pf1550->irq);
 
 	return 0;
 }
