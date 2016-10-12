@@ -470,7 +470,10 @@ static int _setup_disp_channel1(struct fb_info *fbi)
 		if (mxc_fbi->alpha_chan_en)
 			params.mem_dp_bg_sync.alpha_chan_en = true;
 	}
-	ipu_init_channel(mxc_fbi->ipu, mxc_fbi->ipu_ch, &params);
+	if (ipu_init_channel(mxc_fbi->ipu, mxc_fbi->ipu_ch, &params) < 0) {
+		dev_err(fbi->device, "init ipu channel fail\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }
