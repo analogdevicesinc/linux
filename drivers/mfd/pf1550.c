@@ -101,7 +101,6 @@ static const struct regmap_irq pf1550_charger_irqs[] = {
 	{ .reg_offset = 0, .mask = CHARG_IRQ_BATI,		},
 	{ .reg_offset = 0, .mask = CHARG_IRQ_CHGI,		},
 	{ .reg_offset = 0, .mask = CHARG_IRQ_VBUSI,		},
-	{ .reg_offset = 0, .mask = CHARG_IRQ_DPMI,		},
 	{ .reg_offset = 0, .mask = CHARG_IRQ_THMI,		},
 };
 

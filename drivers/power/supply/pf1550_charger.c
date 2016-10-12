@@ -49,7 +49,6 @@ static struct pf1550_irq_info pf1550_charger_irqs[] = {
 	{ PF1550_CHARG_IRQ_BATI,		"BAT" },
 	{ PF1550_CHARG_IRQ_CHGI,		"CHG" },
 	{ PF1550_CHARG_IRQ_VBUSI,		"VBUS" },
-	{ PF1550_CHARG_IRQ_DPMI,		"DPM" },
 	{ PF1550_CHARG_IRQ_THMI,		"THM" },
 };
 
@@ -344,9 +343,6 @@ static void pf1550_charger_irq_work(struct work_struct *work)
 		break;
 	case PF1550_CHARG_IRQ_VBUSI:
 		pf1550_chg_vbus_isr(chg);
-		break;
-	case PF1550_CHARG_IRQ_DPMI:
-		dev_info(chg->dev, "DPM interrupt.\n");
 		break;
 	case PF1550_CHARG_IRQ_THMI:
 		dev_info(chg->dev, "Thermal interrupt.\n");
