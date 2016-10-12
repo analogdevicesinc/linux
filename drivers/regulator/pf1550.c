@@ -287,9 +287,13 @@ static irqreturn_t pf1550_regulator_irq_handler(int irq, void *data)
 static int pf1550_regulator_probe(struct platform_device *pdev)
 {
 	struct pf1550_dev *iodev = dev_get_drvdata(pdev->dev.parent);
+	struct device_node *np = pdev->dev.of_node;
 	struct pf1550_regulator_info *info;
 	int i, ret = 0;
 	struct regulator_config config = { };
+
+	if (!np)
+		return -ENODEV;
 
 	info = devm_kzalloc(&pdev->dev, sizeof(struct pf1550_regulator_info),
 				   GFP_KERNEL);
