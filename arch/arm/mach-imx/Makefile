@@ -36,7 +36,6 @@ AFLAGS_imx6ull_low_power_idle.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX6ULL) += imx6ull_low_power_idle.o
 AFLAGS_imx7d_low_power_idle.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX7D) += cpuidle-imx7d.o imx7d_low_power_idle.o
-obj-$(CONFIG_SOC_IMX6SLL) += mach-imx6sl.o
 endif
 
 ifdef CONFIG_SND_IMX_SOC
@@ -96,6 +95,8 @@ obj-$(CONFIG_SOC_IMX6Q) += mach-imx6q.o ddr3_freq_imx6.o smp_wfe_imx6.o \
 			   lpddr2_freq_imx6q.o
 AFLAGS_lpddr2_freq_imx6.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX6SL) += mach-imx6sl.o lpddr2_freq_imx6.o
+AFLAGS_lpddr2_freq_imx6sll.o :=-Wa,-march=armv7-a
+obj-$(CONFIG_SOC_IMX6SLL) += mach-imx6sl.o lpddr2_freq_imx6sll.o
 AFLAGS_lpddr2_freq_imx6sx.o :=-Wa,-march=armv7-a
 AFLAGS_ddr3_freq_imx6sx.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX6SX) += mach-imx6sx.o ddr3_freq_imx6sx.o \
