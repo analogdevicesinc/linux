@@ -304,7 +304,7 @@ static ipu_channel_t get_ipu_channel(struct fb_info *fbi)
 static unsigned int get_ipu_fmt(struct fb_info *fbi)
 {
 	mm_segment_t old_fs;
-	unsigned int fb_fmt;
+	unsigned int fb_fmt = 0;
 
 	if (fbi->fbops->fb_ioctl) {
 		old_fs = get_fs();
