@@ -1210,6 +1210,7 @@ static struct clk *jesd204b_gt_clk_register(struct device *dev, struct device_no
 
 	init.name = clk_name;
 	init.ops = &clkout_ops;
+	init.flags = 0;
 
 	init.parent_names = (parent_name ? &parent_name: NULL);
 	init.num_parents = (parent_name ? 1 : 0);
