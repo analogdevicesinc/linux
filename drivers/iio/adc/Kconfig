@@ -221,6 +221,11 @@ config ADMC
 config CF_AXI_FFT
 	tristate "Generic FFT driver"
 
+config CF_AXI_TDD
+	tristate "Analog Devices TDD HDL CORE driver"
+	help
+	  Say yes here to build support for Analog Devices TDD HDL CORE driver.
+
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
 	depends on COMMON_CLK
