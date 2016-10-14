@@ -340,8 +340,8 @@
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
-	cd-gpios = <&gpio4 26 0>;
-	wp-gpios = <&gpio4 25 0>;
+	cd-gpios = <&gpio4 26 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpio4 25 GPIO_ACTIVE_HIGH>;
 	keep-power-in-suspend;
 	enable-sdio-wakeup;
 	vmmc-supply = <&reg_sd1_vmmc>;
