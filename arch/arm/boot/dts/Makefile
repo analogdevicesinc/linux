@@ -568,7 +568,8 @@ dtb-$(CONFIG_SOC_IMX6ULL) += \
 	imx6ull-9x9-evk.dtb \
 	imx6ull-9x9-evk-btwifi.dtb
 dtb-$(CONFIG_SOC_IMX6SLL) += \
-	imx6sll-lpddr3-arm2.dtb
+	imx6sll-lpddr3-arm2.dtb \
+	imx6sll-lpddr3-arm2-spdif.dtb
 dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-cl-som-imx7.dtb \
 	imx7d-colibri-eval-v3.dtb \
