@@ -123,6 +123,7 @@ struct regmap;
 #define REGULATOR_EVENT_ENABLE			0x1000
 #define REGULATOR_EVENT_PRE_DO_ENABLE		0x2000
 #define REGULATOR_EVENT_PRE_DO_DISABLE		0x4000
+#define REGULATOR_EVENT_AFT_DO_ENABLE		0x8000
 
 /*
  * Regulator errors that can be queried using regulator_get_error_flags
