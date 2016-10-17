@@ -2849,6 +2849,8 @@ static const struct flash_info spi_nor_ids[] = {
 
 static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 {
+#define SPI_NOR_MAX_EDID_LEN	20
+
 	int			tmp;
 	u8			*id = nor->bouncebuf;
 	const struct flash_info	*info;
@@ -2876,8 +2878,12 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 	for (tmp = 0; tmp < ARRAY_SIZE(spi_nor_ids) - 1; tmp++) {
 		info = &spi_nor_ids[tmp];
 		if (info->id_len) {
-			if (!memcmp(info->id, id, info->id_len))
+			if (!memcmp(info->id, id, info->id_len)) {
+				if (id[0] == SNOR_MFR_MICRON)
+					dev_info(nor->dev, "SPI-NOR-UniqueID %*phN\n",
+						 SPI_NOR_MAX_EDID_LEN - info->id_len, &id[info->id_len]);
 				return &spi_nor_ids[tmp];
+			}
 		}
 	}
 	dev_err(nor->dev, "unrecognized JEDEC id bytes: %*ph\n",
