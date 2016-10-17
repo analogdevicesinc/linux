@@ -712,7 +712,12 @@ static int imx_mipi_regulator_notify(struct notifier_block *nb,
 	writel_relaxed(val | BIT(2), gpc_base + GPC_PGC_CPU_MAPPING);
 
 	switch (event) {
-	case REGULATOR_EVENT_PRE_DO_ENABLE:
+	case REGULATOR_EVENT_AFT_DO_ENABLE:
+		/*
+		 * For imx7d pcie phy, VDD18 turn on time has to wait
+		 * at least 0.1 .s after VDD10 turns on.
+		 */
+		udelay(1);
 		val = readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ);
 		writel_relaxed(val | BIT(0), gpc_base + GPC_PU_PGC_SW_PUP_REQ);
 		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ) & BIT(0))
@@ -726,6 +731,11 @@ static int imx_mipi_regulator_notify(struct notifier_block *nb,
 		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PDN_REQ) & BIT(0))
 			;
 		imx_gpcv2_set_m_core_pgc(false, GPC_PGC_MIPI_PHY);
+		/*
+		 * For imx7d pcie phy, VDD18 turn off time has to advance
+		 * at least 0.1 .s before VDD10 turns off.
+		 */
+		udelay(1);
 		break;
 	default:
 		break;
@@ -747,7 +757,12 @@ static int imx_pcie_regulator_notify(struct notifier_block *nb,
 	writel_relaxed(val | BIT(3), gpc_base + GPC_PGC_CPU_MAPPING);
 
 	switch (event) {
-	case REGULATOR_EVENT_PRE_DO_ENABLE:
+	case REGULATOR_EVENT_AFT_DO_ENABLE:
+		/*
+		 * For imx7d pcie phy, VDD18 turn on time has to wait
+		 * at least 0.1 .s after VDD10 turns on.
+		 */
+		udelay(1);
 		val = readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ);
 		writel_relaxed(val | BIT(1), gpc_base + GPC_PU_PGC_SW_PUP_REQ);
 		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ) & BIT(1))
@@ -761,6 +776,11 @@ static int imx_pcie_regulator_notify(struct notifier_block *nb,
 		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PDN_REQ) & BIT(1))
 			;
 		imx_gpcv2_set_m_core_pgc(false, GPC_PGC_PCIE_PHY);
+		/*
+		 * For imx7d pcie phy, VDD18 turn off time has to advance
+		 * at least 0.1 .s before VDD10 turns off.
+		 */
+		udelay(1);
 		break;
 	default:
 		break;
