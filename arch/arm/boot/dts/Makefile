@@ -572,7 +572,8 @@ dtb-$(CONFIG_SOC_IMX6SLL) += \
 	imx6sll-lpddr3-arm2.dtb \
 	imx6sll-lpddr3-arm2-csi.dtb \
 	imx6sll-lpddr3-arm2-ecspi.dtb \
-	imx6sll-lpddr3-arm2-spdif.dtb
+	imx6sll-lpddr3-arm2-spdif.dtb \
+	imx6sll-evk.dtb
 dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-cl-som-imx7.dtb \
 	imx7d-colibri-eval-v3.dtb \
