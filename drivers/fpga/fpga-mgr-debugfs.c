@@ -41,13 +41,16 @@ static ssize_t fpga_mgr_firmware_write_file(struct file *file,
 	if (!buf)
 		return -ENOMEM;
 
-	if (copy_from_user(buf, user_buf, count))
+	if (copy_from_user(buf, user_buf, count)) {
+		kfree(buf);
 		return -EFAULT;
+	}
 
 	buf[count] = 0;
 	if (buf[count - 1] == '\n')
 		buf[count - 1] = 0;
 
+	/* Release previous firmware name (if any). Save current one. */
 	kfree(debugfs->firmware_name);
 	debugfs->firmware_name = buf;
 
@@ -109,8 +112,10 @@ static ssize_t fpga_mgr_image_write_file(struct file *file,
 	if (!buf)
 		return -ENOMEM;
 
-	if (copy_from_user(buf, user_buf, count))
+	if (copy_from_user(buf, user_buf, count)) {
+		kfree(buf);
 		return -EFAULT;
+	}
 
 	/* If firmware interface was previously used, forget it. */
 	kfree(debugfs->firmware_name);
@@ -120,6 +125,8 @@ static ssize_t fpga_mgr_image_write_file(struct file *file,
 	if (ret)
 		dev_err(&mgr->dev,
 		       "fpga_mgr_buf_load returned with value %d\n", ret);
+
+	kfree(buf);
 
 	return count;
 }
