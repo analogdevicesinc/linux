@@ -2,8 +2,9 @@
 	clocks {
 		ad9361_clkin: clock@0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
+			compatible = "adjustable-clock";
 			clock-frequency = <40000000>;
+			clock-accuracy = <200000>; /* 200 ppm (ppb) */
 			clock-output-names = "ad9361_ext_refclk";
 		};
 	};
