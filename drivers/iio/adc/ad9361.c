@@ -3837,6 +3837,8 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 	if (ret < 0)
 		return ret;
 
+	phy->current_rx_path_clks[BBPLL_FREQ] = rx_path_clks[BBPLL_FREQ];
+
 	for (i = ADC_CLK, j = DAC_CLK, n = ADC_FREQ;
 		i <= RX_SAMPL_CLK; i++, j++, n++) {
 		ret = clk_set_rate(phy->clks[i], rx_path_clks[n]);
@@ -3845,12 +3847,14 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 				ret);
 			return ret;
 		}
+		phy->current_rx_path_clks[n] = rx_path_clks[n];
 		ret = clk_set_rate(phy->clks[j], tx_path_clks[n]);
 		if (ret < 0) {
 			dev_err(dev, "Failed to set BB ref clock rate (%d)\n",
 				ret);
 			return ret;
 		}
+		phy->current_tx_path_clks[n] = tx_path_clks[n];
 	}
 
 	/*
@@ -6304,6 +6308,7 @@ enum ad9361_iio_dev_attr {
 	AD9361_QUAD_ENABLE,
 	AD9361_DCXO_TUNE_COARSE,
 	AD9361_DCXO_TUNE_FINE,
+	AD9361_XO_CORRECTION,
 	AD9361_MCS_SYNC,
 };
 
@@ -6512,6 +6517,27 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		ret = ad9361_set_dcxo_tune(phy, phy->pdata->dcxo_coarse,
 					   phy->pdata->dcxo_fine);
 		break;
+	case AD9361_XO_CORRECTION:
+	{
+		unsigned long rx, tx;
+		ret = kstrtol(buf, 10, &readin);
+		if (ret)
+			break;
+		if (readin == clk_get_rate(phy->clk_refin))
+			break;
+
+		rx = phy->current_rx_lo_freq;
+		tx = phy->current_tx_lo_freq;
+
+		ret = clk_set_rate(phy->clk_refin, (unsigned long) readin);
+		if (ret < 0)
+			break;
+
+		ad9361_set_trx_clock_chain(phy, phy->current_rx_path_clks, phy->current_tx_path_clks);
+		clk_set_rate(phy->clks[RX_RFPLL], rx);
+		clk_set_rate(phy->clks[TX_RFPLL], tx);
+		break;
+	}
 	case AD9361_MCS_SYNC:
 		ret = kstrtol(buf, 10, &readin);
 		if (ret)
@@ -6631,6 +6657,9 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		else
 			ret = sprintf(buf, "%d\n", phy->pdata->dcxo_fine);
 		break;
+	case AD9361_XO_CORRECTION:
+		ret = sprintf(buf, "%lu\n", clk_get_rate(phy->clk_refin));
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -6734,6 +6763,11 @@ static IIO_DEVICE_ATTR(dcxo_tune_fine, S_IRUGO | S_IWUSR,
 			ad9361_phy_store,
 			AD9361_DCXO_TUNE_FINE);
 
+static IIO_DEVICE_ATTR(xo_correction, S_IRUGO | S_IWUSR,
+		       ad9361_phy_show,
+		       ad9361_phy_store,
+		       AD9361_XO_CORRECTION);
+
 static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
 			NULL,
 			ad9361_phy_store,
@@ -6759,6 +6793,7 @@ static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_in_voltage_quadrature_tracking_en.dev_attr.attr,
 	&iio_dev_attr_dcxo_tune_coarse.dev_attr.attr,
 	&iio_dev_attr_dcxo_tune_fine.dev_attr.attr,
+	&iio_dev_attr_xo_correction.dev_attr.attr,
 	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	NULL,
 };
