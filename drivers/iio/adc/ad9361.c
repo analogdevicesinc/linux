@@ -857,7 +857,6 @@ u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 	case ID_AD9363A:
-	case ID_AD9363B:
 		return clamp_t(u32, bw, 0, 20000000UL);
 	default:
 		return clamp_t(u32, bw, 0, 56000000UL);
@@ -870,11 +869,6 @@ int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, u64 freq)
 		case ID_AD9363A:
 			if (freq > AD9363A_MAX_CARRIER_FREQ_HZ ||
 				freq < AD9363A_MIN_CARRIER_FREQ_HZ)
-				return -EINVAL;
-			break;
-		case ID_AD9363B:
-			if (freq > AD9363B_MAX_CARRIER_FREQ_HZ ||
-				freq < AD9363B_MIN_CARRIER_FREQ_HZ)
 				return -EINVAL;
 			break;
 		default:
@@ -4328,7 +4322,6 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
-		case ID_AD9363B:
 			return -ENODEV;
 	}
 
@@ -6907,7 +6900,6 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	case LOEXT_EXTERNAL:
 		switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
-		case ID_AD9363B:
 			ret = -ENODEV;
 			break;
 		default:
@@ -7946,7 +7938,6 @@ static struct ad9361_phy_platform_data
 
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
-		case ID_AD9363B:
 			pdata->use_extclk = true;
 			pdata->use_ext_tx_lo = false;
 			pdata->use_ext_rx_lo = false;
@@ -8821,7 +8812,6 @@ static const struct spi_device_id ad9361_id[] = {
 	{"ad9364", ID_AD9364}, /* 1RX1TX */
 	{"ad9361-2x", ID_AD9361_2}, /* 2 x 2RX2TX */
 	{"ad9363a", ID_AD9363A}, /* 2RX2TX */
-	{"ad9363b", ID_AD9363B}, /* 2RX2TX */
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9361_id);
