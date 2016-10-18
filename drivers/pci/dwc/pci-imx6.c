@@ -449,22 +449,19 @@ static void imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 		goto err_pcie;
 	}
 
-	if (!IS_ENABLED(CONFIG_EP_MODE_IN_EP_RC_SYS) &&
-	    !IS_ENABLED(CONFIG_RC_MODE_IN_EP_RC_SYS)) {
-		if (imx6_pcie->ext_osc) {
-			clk_set_parent(imx6_pcie->pcie_ext,
-				       imx6_pcie->pcie_ext_src);
-			ret = clk_prepare_enable(imx6_pcie->pcie_ext);
-			if (ret) {
-				dev_err(dev, "unable to enable pcie_ext clock\n");
-				goto err_pcie_bus;
-			}
-		} else {
-			ret = clk_prepare_enable(imx6_pcie->pcie_bus);
-			if (ret) {
-				dev_err(dev, "unable to enable pcie_bus clock\n");
-				goto err_pcie_bus;
-			}
+	if (imx6_pcie->ext_osc) {
+		clk_set_parent(imx6_pcie->pcie_ext,
+				imx6_pcie->pcie_ext_src);
+		ret = clk_prepare_enable(imx6_pcie->pcie_ext);
+		if (ret) {
+			dev_err(dev, "unable to enable pcie_ext clock\n");
+			goto err_pcie_bus;
+		}
+	} else {
+		ret = clk_prepare_enable(imx6_pcie->pcie_bus);
+		if (ret) {
+			dev_err(dev, "unable to enable pcie_bus clock\n");
+			goto err_pcie_bus;
 		}
 	}
 
@@ -552,9 +549,7 @@ static void imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 err_ref_clk:
 	clk_disable_unprepare(imx6_pcie->pcie_phy);
 err_pcie_phy:
-	if (!IS_ENABLED(CONFIG_EP_MODE_IN_EP_RC_SYS)
-			&& !IS_ENABLED(CONFIG_RC_MODE_IN_EP_RC_SYS)
-			&& !imx6_pcie->ext_osc)
+	if (!imx6_pcie->ext_osc)
 		clk_disable_unprepare(imx6_pcie->pcie_bus);
 err_pcie_bus:
 	clk_disable_unprepare(imx6_pcie->pcie);
@@ -662,7 +657,8 @@ static int imx6_pcie_wait_for_link(struct imx6_pcie *imx6_pcie)
 
 	if (!IS_ENABLED(CONFIG_PCI_IMX6_COMPLIANCE_TEST)) {
 		clk_disable_unprepare(imx6_pcie->pcie);
-		clk_disable_unprepare(imx6_pcie->pcie_bus);
+		if (!imx6_pcie->ext_osc)
+			clk_disable_unprepare(imx6_pcie->pcie_bus);
 		clk_disable_unprepare(imx6_pcie->pcie_phy);
 		if (imx6_pcie->variant == IMX6SX)
 			clk_disable_unprepare(imx6_pcie->pcie_inbound_axi);
