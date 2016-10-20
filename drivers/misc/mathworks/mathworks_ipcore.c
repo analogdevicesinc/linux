@@ -17,22 +17,22 @@
  * @brief mathworks_ipcore_of_match
  */
 
-struct mw_streamdev_info libiio_dev_info = {
-		.stream_mode = MWSTREAM_MODE_LIBIIO,
+struct mw_dev_info subdev_dev_info = {
+		.stream_mode = MWSTREAM_MODE_SUBDEV,
 };
 
-struct mw_streamdev_info dma_direct_dev_info = {
-		.stream_mode = MWSTREAM_MODE_DIRECT,
+struct mw_dev_info dma_legacy_dev_info = {
+		.stream_mode = MWSTREAM_MODE_LEGACY,
 };
 
-struct mw_streamdev_info nostream_dev_info = {
+struct mw_dev_info nostream_legacy_dev_info = {
 		.stream_mode = MWSTREAM_MODE_NONE,
 };
 
 static const struct of_device_id mathworks_ipcore_of_match[]  = {
-	{ .compatible = "mathworks,mwipcore-v3.00", .data = &libiio_dev_info},
-	{ .compatible = "mathworks,mwipcore-v2.00", .data = &dma_direct_dev_info},
-    { .compatible = "mathworks,mwipcore-axi4lite-v1.00", .data = &nostream_dev_info},
+	{ .compatible = "mathworks,mwipcore-v3.00", .data = &subdev_dev_info},
+	{ .compatible = "mathworks,mwipcore-v2.00", .data = &dma_legacy_dev_info},
+    { .compatible = "mathworks,mwipcore-axi4lite-v1.00", .data = &nostream_legacy_dev_info},
     {},
 };
 
@@ -70,10 +70,10 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
 	mwdev->info = id->data;
 
 	switch(mwdev->info->stream_mode){
-		case MWSTREAM_MODE_DIRECT:
+		case MWSTREAM_MODE_LEGACY:
 			ops = mw_stream_channel_get_ops();
 			break;
-		case MWSTREAM_MODE_LIBIIO:
+		case MWSTREAM_MODE_SUBDEV:
 		case MWSTREAM_MODE_NONE:
 		default:
 			ops = &mathworks_ipcore_ops;
@@ -106,12 +106,12 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
 	}
    
 	switch(mwdev->info->stream_mode){
-		case MWSTREAM_MODE_DIRECT:
+		case MWSTREAM_MODE_LEGACY:
 			status = mw_stream_channels_probe(mwdev);
 			if(status)
 				return status;
 			break;
-		case MWSTREAM_MODE_LIBIIO:
+		case MWSTREAM_MODE_SUBDEV:
 			status = mw_stream_iio_channels_probe(mwdev);
 			if(status)
 				return status;
