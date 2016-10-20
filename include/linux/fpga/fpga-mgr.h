@@ -124,7 +124,7 @@ struct fpga_manager {
 	enum fpga_mgr_states state;
 	const struct fpga_manager_ops *mops;
 	void *priv;
-#ifdef CONFIG_FPGA_MGR_DEBUG_FS
+#if IS_ENABLED(CONFIG_FPGA_MGR_DEBUG_FS)
 	void *debugfs;
 #endif
 };

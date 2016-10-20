@@ -20,6 +20,8 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
+#if IS_ENABLED(CONFIG_FPGA_MGR_DEBUG_FS)
+
 static struct dentry *fpga_mgr_debugfs_root;
 
 struct fpga_mgr_debugfs {
@@ -187,3 +189,5 @@ void fpga_mgr_debugfs_uninit(void)
 {
 	debugfs_remove_recursive(fpga_mgr_debugfs_root);
 }
+
+#endif /* CONFIG_FPGA_MGR_DEBUG_FS */

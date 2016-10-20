@@ -15,7 +15,10 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifdef CONFIG_FPGA_MGR_DEBUG_FS
+#ifndef _LINUX_FPGA_MGR_DEBUGFS_H
+#define _LINUX_FPGA_MGR_DEBUGFS_H
+
+#if IS_ENABLED(CONFIG_FPGA_MGR_DEBUG_FS)
 
 void fpga_mgr_debugfs_add(struct fpga_manager *mgr);
 void fpga_mgr_debugfs_remove(struct fpga_manager *mgr);
@@ -30,3 +33,5 @@ void fpga_mgr_debugfs_init(void) {}
 void fpga_mgr_debugfs_uninit(void) {}
 
 #endif /* CONFIG_FPGA_MGR_DEBUG_FS */
+
+#endif /*_LINUX_FPGA_MGR_DEBUGFS_H */
