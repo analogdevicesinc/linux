@@ -277,6 +277,8 @@ static int devm_mw_stream_configure_buffer(struct iio_dev *indio_dev)
 	if (IS_ERR(buffer)) {
 		if(PTR_ERR(buffer) == -EPROBE_DEFER)
 			dev_info(&indio_dev->dev, "Deferring probe for DMA engine driver load\n");
+		else
+			dev_err(&indio_dev->dev, "Failed to allocate IIO DMA buffer: %ld\n", PTR_ERR(buffer));
 		return PTR_ERR(buffer);
 	}
 
