@@ -9,8 +9,8 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
-#include <linux/iio/dma-buffer.h>
-#include <linux/iio/dmaengine.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/idr.h>
 
 #include <linux/string.h>
@@ -37,20 +37,19 @@ static void mw_stream_iio_chan_ida_remove(void *opaque){
 	ida_simple_remove(&mw_stream_iio_channel_ida, mwchan->dev.id);
 }
 
-static int mw_stream_iio_buffer_submit_block(void *data, struct iio_dma_buffer_block *block)
+static int mw_stream_iio_buffer_submit_block(struct iio_dma_buffer_queue *queue, struct iio_dma_buffer_block *block)
 {
-	struct iio_dev *indio_dev = data;
+	struct iio_dev *indio_dev = queue->driver_data;
 	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
 	int direction;
 
 	if(mwchan->iio_direction == IIO_DEVICE_DIRECTION_IN) {
-		block->block.bytes_used = block->block.size;
 		direction = DMA_FROM_DEVICE;
 	} else {
 		direction = DMA_TO_DEVICE;
 	}
 
-	return iio_dmaengine_buffer_submit_block(block, direction);
+	return iio_dmaengine_buffer_submit_block(queue, block, direction);
 }
 
 
@@ -67,16 +66,19 @@ static int mw_stream_iio_buffer_preenable(struct iio_dev *indio_dev)
 			dev_dbg(&mwchan->dev, "resetting IP Core\n");
 			mw_ip_reset(mwchan->mwdev);
 			break;
-
+		default:
+			/* Do Nothing */
+			break;
 	}
 	if (mwchan->tlast_cntr_addr >= 0 && mwchan->tlast_mode == MW_STREAM_TLAST_MODE_AUTO) {
 		if(mwchan->reset_tlast_mode == MW_STREAM_TLAST_MODE_PREBUFFER) {
 			/* reset the IP core (TODO: only reset the TLAST register)*/
-			mw_ip_write32(mwchan->mwdev->mw_ip_info, mwchan->mwdev->rst_reg, 0x1);
+			mw_ip_reset(mwchan->mwdev);
 		}
 		/* Set the TLAST count */
 		mw_ip_write32(mwchan->mwdev->mw_ip_info, mwchan->tlast_cntr_addr, indio_dev->buffer->length);
 	}
+
 	return 0;
 }
 static int mw_stream_iio_buffer_postenable(struct iio_dev *indio_dev)
@@ -98,9 +100,14 @@ static int mw_stream_iio_buffer_predisable(struct iio_dev *indio_dev)
 		case MW_STREAM_RESET_IP_MODE_ALL:
 			/* reset the ip core */
 			dev_dbg(&mwchan->dev, "resetting IP Core\n");
+
 			mw_ip_reset(mwchan->mwdev);
 			break;
+		default:
+			/* Do Nothing */
+			break;
 	}
+
 	return 0;
 }
 
@@ -122,7 +129,8 @@ static const struct iio_buffer_setup_ops mw_stream_iio_buffer_setup_ops = {
 };
 
 static const struct iio_dma_buffer_ops mw_stream_iio_buffer_dma_buffer_ops = {
-	.submit_block = mw_stream_iio_buffer_submit_block,
+	.submit = mw_stream_iio_buffer_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
 };
 
 /*************
