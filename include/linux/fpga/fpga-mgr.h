@@ -164,7 +164,7 @@ struct fpga_manager {
 	struct fpga_compat_id *compat_id;
 	const struct fpga_manager_ops *mops;
 	void *priv;
-#ifdef CONFIG_FPGA_MGR_DEBUG_FS
+#if IS_ENABLED(CONFIG_FPGA_MGR_DEBUG_FS)
 	void *debugfs;
 #endif
 };
