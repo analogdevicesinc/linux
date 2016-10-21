@@ -1084,7 +1084,7 @@ static const struct axidds_core_info ad9739a_8_00_b_info = {
 };
 
 static const struct axidds_core_info ad9371_6_00_a_info = {
-	.version = PCORE_VERSION(8, 0, 'a'),
+	.version = PCORE_VERSION(9, 0, 'a'),
 	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
