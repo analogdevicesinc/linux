@@ -1103,7 +1103,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 		of_clk_add_provider(st->node, of_clk_src_simple_get,
 							st->out_clk);
 
-	dev_info(&pdev->dev, "AXI-JESD204B (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,",
+	dev_info(&pdev->dev, "AXI-ADXCVR (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,",
 		PCORE_VER_MAJOR(version),
 		PCORE_VER_MINOR(version),
 		PCORE_VER_LETTER(version),
