@@ -198,7 +198,7 @@ struct adxcvr_state {
 	u32					out_clk_sel;
 	bool				cpll_enable;
 	bool				lpm_enable;
-	bool				encoding;
+	uint16_t			encoding;
 	enum refclk_ppm		ppm;
 };
 
