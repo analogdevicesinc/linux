@@ -1121,11 +1121,6 @@ static bool is_pll_freq_available(unsigned int source, unsigned int target)
 	target *= 4;
 	Ndiv = target / source;
 
-	if (Ndiv < 6) {
-		source >>= 1;
-		Ndiv = target / source;
-	}
-
 	if ((Ndiv < 6) || (Ndiv > 12))
 		return false;
 
@@ -1235,6 +1230,9 @@ static int wm8960_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 
 	if (pll_id == WM8960_SYSCLK_AUTO)
 		return 0;
+
+	if (is_pll_freq_available(freq_in, freq_out))
+		return -EINVAL;
 
 	return wm8960_set_pll(codec, freq_in, freq_out);
 }
