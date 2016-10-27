@@ -568,7 +568,7 @@ static const struct axiadc_core_info ad9467_core_1_00_a_info = {
 
 static const struct axiadc_core_info ad9361_6_00_a_info = {
 	.has_fifo_interface = true,
-	.version = PCORE_VERSION(9, 0, 'a'),
+	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9643_6_00_a_info = {
