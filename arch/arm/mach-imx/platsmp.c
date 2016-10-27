@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Freescale Semiconductor, Inc.
+ * Copyright 2011-2015 Freescale Semiconductor, Inc.
  * Copyright 2011 Linaro Ltd.
  *
  * The code contained herein is licensed under the GNU General Public
@@ -24,7 +24,7 @@
 #include "hardware.h"
 
 u32 g_diag_reg;
-static void __iomem *scu_base;
+static void __iomem *imx_scu_base;
 
 static struct map_desc scu_io_desc __initdata = {
 	/* .virtual and .pfn are run-time assigned */
@@ -43,7 +43,7 @@ void __init imx_scu_map_io(void)
 	scu_io_desc.pfn = __phys_to_pfn(base);
 	iotable_init(&scu_io_desc, 1);
 
-	scu_base = IMX_IO_ADDRESS(base);
+	imx_scu_base = IMX_IO_ADDRESS(base);
 }
 
 static int imx_boot_secondary(unsigned int cpu, struct task_struct *idle)
@@ -53,15 +53,39 @@ static int imx_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	return 0;
 }
 
+#define MXC_ARCH_CA7           0xc07
+static unsigned long __mxc_arch_type;
+
+static inline bool arm_is_ca7(void)
+{
+       return __mxc_arch_type == MXC_ARCH_CA7;
+}
 /*
  * Initialise the CPU possible map early - this describes the CPUs
  * which may be present or become present in the system.
  */
 static void __init imx_smp_init_cpus(void)
 {
+	unsigned long arch_type;
 	int i, ncores;
 
-	ncores = scu_get_core_count(scu_base);
+	asm volatile(
+		".align 4\n"
+		"mrc p15, 0, %0, c0, c0, 0\n"
+		: "=r" (arch_type)
+	);
+	/* MIDR[15:4] defines ARCH type */
+	__mxc_arch_type = (arch_type >> 4) & 0xfff;
+
+	if (arm_is_ca7()) {
+		unsigned long val;
+
+		/* CA7 core number, [25:24] of CP15 L2CTLR */
+		asm volatile("mrc p15, 1, %0, c9, c0, 2" : "=r" (val));
+		ncores = ((val >> 24) & 0x3) + 1;
+	} else {
+		ncores = scu_get_core_count(imx_scu_base);
+	}
 
 	for (i = ncores; i < NR_CPUS; i++)
 		set_cpu_possible(i, false);
@@ -69,11 +93,15 @@ static void __init imx_smp_init_cpus(void)
 
 void imx_smp_prepare(void)
 {
-	scu_enable(scu_base);
+	if (arm_is_ca7())
+		return;
+	scu_enable(imx_scu_base);
 }
 
 static void __init imx_smp_prepare_cpus(unsigned int max_cpus)
 {
+	if (arm_is_ca7())
+		return;
 	imx_smp_prepare();
 
 	/*

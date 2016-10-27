@@ -311,6 +311,7 @@
 
 		timer {
 			compatible = "arm,armv7-timer";
+			arm,cpu-registers-not-fw-configured;
 			interrupt-parent = <&intc>;
 			interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
 				     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
@@ -564,7 +565,7 @@
 			};
 
 			src: src@30390000 {
-				compatible = "fsl,imx7d-src", "syscon";
+				compatible = "fsl,imx7d-src", "fsl,imx51-src", "syscon";
 				reg = <0x30390000 0x10000>;
 				interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 				#reset-cells = <1>;
