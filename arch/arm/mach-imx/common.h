@@ -92,9 +92,15 @@ void imx_smp_prepare(void);
 static inline void imx_scu_map_io(void) {}
 static inline void imx_smp_prepare(void) {}
 #endif
+void imx7_pm_map_io(void);
 void imx_src_init(void);
 void imx_gpc_pre_suspend(bool arm_power_off);
 void imx_gpc_post_resume(void);
+void imx_gpcv2_pre_suspend(bool arm_power_off);
+void imx_gpcv2_post_resume(void);
+void imx_gpcv2_set_core1_pdn_pup_by_software(bool pdn);
+unsigned int imx_gpcv2_is_mf_mix_off(void);
+void __init imx_gpcv2_check_dt(void);
 void imx_gpc_mask_all(void);
 void imx_gpc_restore_all(void);
 void imx_gpc_hwirq_mask(unsigned int hwirq);
@@ -112,14 +118,18 @@ int imx_cpu_kill(unsigned int cpu);
 
 #ifdef CONFIG_SUSPEND
 void v7_cpu_resume(void);
+void ca7_cpu_resume(void);
 void imx53_suspend(void __iomem *ocram_vbase);
 extern const u32 imx53_suspend_sz;
 void imx6_suspend(void __iomem *ocram_vbase);
+void imx7_suspend(void __iomem *ocram_vbase);
 #else
 static inline void v7_cpu_resume(void) {}
+static inline void ca7_cpu_resume(void) {}
 static inline void imx53_suspend(void __iomem *ocram_vbase) {}
 static const u32 imx53_suspend_sz;
 static inline void imx6_suspend(void __iomem *ocram_vbase) {}
+static inline void imx7_suspend(void __iomem *ocram_vbase) {}
 #endif
 
 void imx6_pm_ccm_init(const char *ccm_compat);

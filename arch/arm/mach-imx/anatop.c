@@ -21,6 +21,13 @@
 #define REG_SET		0x4
 #define REG_CLR		0x8
 
+#define ANADIG_ARM_PLL		0x60
+#define ANADIG_DDR_PLL		0x70
+#define ANADIG_SYS_PLL		0xb0
+#define ANADIG_ENET_PLL		0xe0
+#define ANADIG_AUDIO_PLL	0xf0
+#define ANADIG_VIDEO_PLL	0x130
+
 #define ANADIG_REG_2P5		0x130
 #define ANADIG_REG_CORE		0x140
 #define ANADIG_ANA_MISC0	0x150
@@ -74,6 +81,17 @@ static inline void imx_anatop_disconnect_high_snvs(bool enable)
 
 void imx_anatop_pre_suspend(void)
 {
+	if (cpu_is_imx7d()) {
+		/* PLL overwrite set */
+		regmap_write(anatop, ANADIG_ARM_PLL + REG_SET, 1 << 20);
+		regmap_write(anatop, ANADIG_DDR_PLL + REG_SET, 1 << 19);
+		regmap_write(anatop, ANADIG_SYS_PLL + REG_SET, 1 << 17);
+		regmap_write(anatop, ANADIG_ENET_PLL + REG_SET, 1 << 13);
+		regmap_write(anatop, ANADIG_AUDIO_PLL + REG_SET, 1 << 24);
+		regmap_write(anatop, ANADIG_VIDEO_PLL + REG_SET, 1 << 24);
+		return;
+	}
+
 	if (imx_mmdc_get_ddr_type() == IMX_DDR_TYPE_LPDDR2)
 		imx_anatop_enable_2p5_pulldown(true);
 	else
@@ -87,6 +105,17 @@ void imx_anatop_pre_suspend(void)
 
 void imx_anatop_post_resume(void)
 {
+	if (cpu_is_imx7d()) {
+		/* PLL overwrite set */
+		regmap_write(anatop, ANADIG_ARM_PLL + REG_CLR, 1 << 20);
+		regmap_write(anatop, ANADIG_DDR_PLL + REG_CLR, 1 << 19);
+		regmap_write(anatop, ANADIG_SYS_PLL + REG_CLR, 1 << 17);
+		regmap_write(anatop, ANADIG_ENET_PLL + REG_CLR, 1 << 13);
+		regmap_write(anatop, ANADIG_AUDIO_PLL + REG_CLR, 1 << 24);
+		regmap_write(anatop, ANADIG_VIDEO_PLL + REG_CLR, 1 << 24);
+		return;
+	}
+
 	if (imx_mmdc_get_ddr_type() == IMX_DDR_TYPE_LPDDR2)
 		imx_anatop_enable_2p5_pulldown(false);
 	else

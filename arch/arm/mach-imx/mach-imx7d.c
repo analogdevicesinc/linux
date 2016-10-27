@@ -104,6 +104,12 @@ static void __init imx7d_init_irq(void)
 	irqchip_init();
 }
 
+static void __init imx7d_map_io(void)
+{
+       debug_ll_io_init();
+       imx7_pm_map_io();
+}
+
 static const char *const imx7d_dt_compat[] __initconst = {
 	"fsl,imx7d",
 	"fsl,imx7s",
@@ -111,6 +117,7 @@ static const char *const imx7d_dt_compat[] __initconst = {
 };
 
 DT_MACHINE_START(IMX7D, "Freescale i.MX7 Dual (Device Tree)")
+	.map_io         = imx7d_map_io,
 	.init_irq	= imx7d_init_irq,
 	.init_machine	= imx7d_init_machine,
 	.dt_compat	= imx7d_dt_compat,
