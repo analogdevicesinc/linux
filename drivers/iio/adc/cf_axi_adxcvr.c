@@ -268,6 +268,7 @@ static int adxcvr_drp_write(struct adxcvr_state *st,
 {
 	bool ch_sel;
 	int timeout = 20;
+	unsigned int read_val;
 
 	switch (reg) {
 	case QPLL_CFG0_ADDR:
@@ -289,9 +290,10 @@ static int adxcvr_drp_write(struct adxcvr_state *st,
 	do {
 		if (!(adxcvr_read(st, ch_sel ? ADXCVR_REG_CH_STATUS : ADXCVR_REG_CM_STATUS)
 			  & (ch_sel ? ADXCVR_CH_BUSY : ADXCVR_CM_BUSY))) {
-			if (val != adxcvr_drp_read(st, reg))
-				dev_err(st->dev, "%s: MISMATCH reg 0x%X val 0x%X\n",
-						__func__, reg, val);
+			read_val = adxcvr_drp_read(st, reg);
+			if (val != read_val)
+				dev_err(st->dev, "%s: MISMATCH reg 0x%X val 0x%X != read 0x%X\n",
+						__func__, reg, val, read_val);
 			return 0;
 		}
 		mdelay(1);
