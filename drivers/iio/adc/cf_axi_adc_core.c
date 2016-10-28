@@ -590,7 +590,7 @@ static const struct axiadc_core_info ad9643_6_00_a_info = {
 
 static const struct axiadc_core_info ad9680_6_00_a_info = {
 	.has_fifo_interface = true,
-	.version = PCORE_VERSION(9, 0, 'a'),
+	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 /* Match table for of_platform binding */
