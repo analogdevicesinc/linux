@@ -254,6 +254,7 @@ static unsigned int adxcvr_drp_read(struct adxcvr_state *st,
 		}
 		dev_dbg(st->dev, "%s: reg 0x%X val 0x%X\n",
 				__func__, reg, val & 0xFFFF);
+
 		return ch_sel ? ADXCVR_CH_RDATA(val) : ADXCVR_CM_RDATA(val);
 	} while (timeout--);
 
@@ -693,12 +694,14 @@ static long adxcvr_calc_qpll_settings(struct adxcvr_state *st,
 						*out_div = _D[d][1];
 						*fbdiv = _N[n][1];
 						*fbdiv_ratio = (_N[n][0] == 66) ? 0 : 1;
-						*lowband = _lowBand;
 					}
-						dev_dbg(st->dev, "%s: M %d, D %d, N %d, ratio %d, lowband %d\n",
-							__func__, _M[m][0], _D[d][0],
-							_N[n][0], (_N[n][0] == 66) ? 0 : 1,
-							_lowBand);
+					if (lowband)
+						*lowband = _lowBand;
+
+					dev_dbg(st->dev, "%s: M %d, D %d, N %d, ratio %d, lowband %d\n",
+						__func__, _M[m][0], _D[d][0],
+						_N[n][0], (_N[n][0] == 66) ? 0 : 1,
+						_lowBand);
 
 					return laneRate_kHz;
 				}
@@ -782,10 +785,14 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 		return ((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div);
 	} else {
 		unsigned int refclk_div_m, fb_div, out_div, N, M;
+		unsigned long rate;
+		u32 set_lowband;
+		u32 lowband;
 
 		refclk_div_m = adxcvr_drp_read(st, QPLL_REFCLK_DIV_M_ADDR);
 		fb_div = adxcvr_drp_read(st, QPLL_FBDIV_N_ADDR);
 		out_div = adxcvr_drp_read(st, RXOUT_DIV_ADDR);
+		set_lowband = adxcvr_drp_read(st, QPLL_CFG0_ADDR) & QPLL_CFG0_BAND_MASK;
 
 		switch ((refclk_div_m & QPLL_REFCLK_DIV_M_MASK) >> QPLL_REFCLK_DIV_M_OFFSET) {
 		case 16:
@@ -841,7 +848,18 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 
 		dev_dbg(st->dev, "%s QPLL N=%d M=%d out_div=%d\n", __func__, N, M, out_div);
 
-		return ((parent_rate / 1000) * N) / (M * out_div);
+		rate = ((parent_rate / 1000) * N) / (M * out_div);
+
+		adxcvr_calc_qpll_settings(st, parent_rate / 1000, rate,
+						     NULL, NULL, NULL, NULL,
+						     &lowband);
+		lowband = lowband ? QPLL_CFG0_BAND_MASK : 0;
+
+		if (lowband !=  set_lowband)
+			adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
+							  QPLL_CFG0_BAND_MASK, lowband ? 1 : 0);
+
+		return rate;
 
 	}
 }
