@@ -915,6 +915,10 @@ static int wm8960_set_bias_level_out3(struct snd_soc_codec *codec,
 				}
 			}
 
+			ret = wm8960_configure_clocking(codec);
+			if (ret)
+				return ret;
+
 			/* Set VMID to 2x50k */
 			snd_soc_update_bits(codec, WM8960_POWER1, 0x180, 0x80);
 			break;
