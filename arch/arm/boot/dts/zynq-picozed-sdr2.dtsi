@@ -27,27 +27,27 @@
 			clock-output-names = "XO_40MHz";
 		};
 
-		ad9361_clkin: clock@1 {
-			#clock-cells = <0>;
-			compatible = "gpio-gate-clock";
-			clocks = <&xo_40mhz_fixed_clk>;
-			enable-gpios = <&gpio0 105 0>; /* Set to 1 for extern AD9361_CLK (J1 on PZSDRCC-FMC) */
-			clock-output-names = "ad9361_ext_refclk";
-		};
-
 		usb_ulpi_fixed_clk: clock@2 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
 			clock-frequency = <24000000>;
 			clock-output-names = "24MHz";
 		};
+	};
 
-		usb_ulpi_clk: clock@3 {
-			#clock-cells = <0>;
-			compatible = "gpio-gate-clock";
-			clocks = <&usb_ulpi_fixed_clk>;
-			enable-gpios = <&gpio0 9 1>; /* Active  Low */
-		};
+	ad9361_clkin: ad9361-refclk-gpio-gate@0 {
+		#clock-cells = <0>;
+		compatible = "gpio-gate-clock";
+		clocks = <&xo_40mhz_fixed_clk>;
+		enable-gpios = <&gpio0 105 0>; /* Set to 1 for extern AD9361_CLK (J1 on PZSDRCC-FMC) */
+		clock-output-names = "ad9361_ext_refclk";
+	};
+
+	usb_ulpi_clk: usb-ulpe-gpio-gate@0 {
+		#clock-cells = <0>;
+		compatible = "gpio-gate-clock";
+		clocks = <&usb_ulpi_fixed_clk>;
+		enable-gpios = <&gpio0 9 1>; /* Active  Low */
 	};
 };
 
@@ -116,6 +116,7 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
 		ranges;
+
 
 		axi_i2c0: i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
