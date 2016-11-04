@@ -132,7 +132,7 @@
 			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
 			interrupts = <0 57 0>;
-			clocksgit = <&clkc 16>;
+			clocks = <&clkc 16>;
 
 			dma-channel {
 				adi,source-bus-width = <64>;
