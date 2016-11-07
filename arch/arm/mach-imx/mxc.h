@@ -42,6 +42,7 @@
 #define MXC_CPU_IMX6ULL		0x65
 #define MXC_CPU_IMX6SLL		0x67
 #define MXC_CPU_IMX7D		0x72
+#define MXC_CPU_IMX7ULP		0xff /* TBD */
 
 #define IMX_DDR_TYPE_DDR3		0
 #define IMX_DDR_TYPE_LPDDR2		1
@@ -107,6 +108,11 @@ static inline bool cpu_is_imx6(void)
 static inline bool cpu_is_imx7d(void)
 {
 	return __mxc_cpu_type == MXC_CPU_IMX7D;
+}
+
+static inline bool cpu_is_imx7ulp(void)
+{
+	return __mxc_cpu_type == MXC_CPU_IMX7ULP;
 }
 
 struct cpu_op {
