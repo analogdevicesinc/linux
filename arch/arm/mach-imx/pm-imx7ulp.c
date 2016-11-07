@@ -34,6 +34,8 @@
 #include "common.h"
 #include "hardware.h"
 
+#define MU_SR		0x60
+
 #define PMPROT	0x8
 #define PMCTRL	0x10
 #define PMSTAT	0x18
@@ -77,11 +79,283 @@
 #define BP_PMCTRL_STOPM		0
 #define BP_PMCTRL_PSTOPO	16
 
+#define MX7ULP_MAX_MMDC_IO_NUM		36
+#define MX7ULP_MAX_MMDC_NUM		50
+
+#define TPM_SC		0x10
+#define TPM_MOD		0x18
+#define TPM_C0SC	0x20
+#define TPM_C0V		0x24
+
+#define PCC2_ENABLE_PCS_FIRC	((1 << 30) | (3 << 24))
+#define PCC2_ENABLE		(1 << 30)
+
+#define LPUART_BAUD	0x10
+#define LPUART_CTRL	0x18
+#define LPUART_FIFO	0x28
+#define LPUART_WATER	0x2c
+
+#define PTC2_LPUART4_TX_OFFSET	0x8
+#define PTC3_LPUART4_RX_OFFSET	0xc
+#define PTC2_LPUART4_TX_INPUT_OFFSET	0x248
+#define PTC3_LPUART4_RX_INPUT_OFFSET	0x24c
+#define LPUART4_MUX_VALUE	(4 << 8)
+#define LPUART4_INPUT_VALUE	(1)
+
+#define MU_B_SR_NMIC	(1 << 3)
+
+#define DGO_GPR3	0x60
+#define DGO_GPR4	0x64
+
 static void __iomem *smc1_base;
 static void __iomem *pmc0_base;
+static void __iomem *pmc1_base;
+static void __iomem *tpm5_base;
+static void __iomem *lpuart4_base;
+static void __iomem *iomuxc1_base;
+static void __iomem *pcc2_base;
+static void __iomem *pcc3_base;
+static void __iomem *mu_base;
+static void __iomem *scg1_base;
+static void __iomem *wdog1_base;
+static void __iomem *wdog2_base;
+static void __iomem *suspend_ocram_base;
+static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_vbase);
+
+static u32 tpm5_regs[4];
+static u32 lpuart4_regs[4];
+static u32 pcc2_regs[25][2] = {
+	{0x20, 0}, {0x3c, 0}, {0x40, 0}, {0x6c, 0},
+	{0x84, 0}, {0x8c, 0}, {0x90, 0}, {0x94, 0},
+	{0x98, 0}, {0x9c, 0}, {0xa4, 0}, {0xa8, 0},
+	{0xac, 0}, {0xb0, 0}, {0xb4, 0}, {0xb8, 0},
+	{0xc4, 0}, {0xcc, 0}, {0xd0, 0}, {0xd4, 0},
+	{0xd8, 0}, {0xdc, 0}, {0xe0, 0}, {0xf4, 0},
+	{0x10c, 0},
+};
+
+static u32 pcc3_regs[16][2] = {
+	{0x84, 0}, {0x88, 0}, {0x90, 0}, {0x94, 0},
+	{0x98, 0}, {0x9c, 0}, {0xa0, 0}, {0xa4, 0},
+	{0xa8, 0}, {0xac, 0}, {0xb8, 0}, {0xbc, 0},
+	{0xc0, 0}, {0xc4, 0}, {0x140, 0}, {0x144, 0},
+};
+
+static u32 scg1_offset[16] = {
+	0x14, 0x30, 0x40, 0x304,
+	0x500, 0x504, 0x508, 0x50c,
+	0x510, 0x514, 0x600, 0x604,
+	0x608, 0x60c, 0x610, 0x614,
+};
 
 extern unsigned long iram_tlb_base_addr;
 extern unsigned long iram_tlb_phys_addr;
+
+/*
+ * suspend ocram space layout:
+ * ======================== high address ======================
+ *                              .
+ *                              .
+ *                              .
+ *                              ^
+ *                              ^
+ *                              ^
+ *                      imx7ulp_suspend code
+ *              PM_INFO structure(imx7ulp_cpu_pm_info)
+ * ======================== low address =======================
+ */
+
+struct imx7ulp_pm_base {
+	phys_addr_t pbase;
+	void __iomem *vbase;
+};
+
+struct imx7ulp_pm_socdata {
+	u32 ddr_type;
+	const char *mmdc_compat;
+	const u32 mmdc_io_num;
+	const u32 *mmdc_io_offset;
+	const u32 mmdc_num;
+	const u32 *mmdc_offset;
+};
+
+static const u32 imx7ulp_mmdc_io_lpddr3_offset[] __initconst = {
+	0x128, 0xf8, 0xd8, 0x108,
+	0x104, 0x124, 0x80, 0x84,
+	0x88, 0x8c, 0x120, 0x10c,
+	0x110, 0x114, 0x118, 0x90,
+	0x94, 0x98, 0x9c, 0xe0,
+	0xe4,
+};
+
+static const u32 imx7ulp_mmdc_lpddr3_offset[] __initconst = {
+	0x01c, 0x800, 0x85c, 0x890,
+	0x848, 0x850, 0x81c, 0x820,
+	0x824, 0x828, 0x82c, 0x830,
+	0x834, 0x838, 0x8c0, 0x8b8,
+	0x004, 0x00c, 0x010, 0x038,
+	0x014, 0x018, 0x02c, 0x030,
+	0x040, 0x000, 0x83c, 0x01c,
+	0x01c, 0x01c, 0x01c, 0x01c,
+	0x01c, 0x01c, 0x01c, 0x01c,
+	0x01c, 0x020, 0x800, 0x004,
+	0x404, 0x01c,
+};
+
+static const u32 imx7ulp_lpddr3_script[] __initconst = {
+	0x00008000, 0xA1390003, 0x0D3900A0, 0x00400000,
+	0x40404040, 0x40404040, 0x33333333, 0x33333333,
+	0x33333333, 0x33333333, 0xf3333333, 0xf3333333,
+	0xf3333333, 0xf3333333, 0x24922492, 0x00000800,
+	0x00020052, 0x292C42F3, 0x00100A22, 0x00120556,
+	0x00C700DB, 0x00211718, 0x0F9F26D2, 0x009F0E10,
+	0x0000003F, 0xC3190000, 0x20000000, 0x003F8030,
+	0x003F8038, 0xFF0A8030, 0xFF0A8038, 0x04028030,
+	0x04028038, 0x83018030, 0x83018038, 0x01038030,
+	0x01038038, 0x00001800, 0xA1310000, 0x00020052,
+	0x00011006, 0x00000000,
+};
+
+static const struct imx7ulp_pm_socdata imx7ulp_lpddr3_pm_data __initconst = {
+	.mmdc_compat = "fsl,imx7ulp-mmdc",
+	.mmdc_io_num = ARRAY_SIZE(imx7ulp_mmdc_io_lpddr3_offset),
+	.mmdc_io_offset = imx7ulp_mmdc_io_lpddr3_offset,
+	.mmdc_num = ARRAY_SIZE(imx7ulp_mmdc_lpddr3_offset),
+	.mmdc_offset = imx7ulp_mmdc_lpddr3_offset,
+};
+
+/*
+ * This structure is for passing necessary data for low level ocram
+ * suspend code(arch/arm/mach-imx/suspend-imx7ulp.S), if this struct
+ * definition is changed, the offset definition in
+ * arch/arm/mach-imx/suspend-imx7ulp.S must be also changed accordingly,
+ * otherwise, the suspend to sram function will be broken!
+ */
+struct imx7ulp_cpu_pm_info {
+	u32 m4_reserve0;
+	u32 m4_reserve1;
+	u32 m4_reserve2;
+	phys_addr_t pbase; /* The physical address of pm_info. */
+	phys_addr_t resume_addr; /* The physical resume address for asm code */
+	u32 pm_info_size; /* Size of pm_info. */
+	struct imx7ulp_pm_base sim_base;
+	struct imx7ulp_pm_base mmdc_base;
+	struct imx7ulp_pm_base mmdc_io_base;
+	u32 scg1[16];
+	u32 ttbr1; /* Store TTBR1 */
+	u32 mmdc_io_num; /* Number of MMDC IOs which need saved/restored. */
+	u32 mmdc_io_val[MX7ULP_MAX_MMDC_IO_NUM][2]; /* To save offset and value */
+	u32 mmdc_num; /* Number of MMDC registers which need saved/restored. */
+	u32 mmdc_val[MX7ULP_MAX_MMDC_NUM][2];
+} __aligned(8);
+
+static struct imx7ulp_cpu_pm_info *pm_info;
+
+static const char * const low_power_ocram_match[] __initconst = {
+	"fsl,lpm-sram",
+	NULL
+};
+
+static struct map_desc imx7ulp_pm_io_desc[] __initdata = {
+	imx_map_entry(MX7ULP, AIPS1, MT_DEVICE),
+	imx_map_entry(MX7ULP, AIPS2, MT_DEVICE),
+};
+
+static void imx7ulp_scg1_save(void)
+{
+	int i;
+
+	for (i = 0; i < 16; i++)
+		pm_info->scg1[i] = readl_relaxed(scg1_base + scg1_offset[i]);
+}
+
+static void imx7ulp_pcc3_save(void)
+{
+	int i;
+
+	for (i = 0; i < 16; i++)
+		pcc3_regs[i][1] = readl_relaxed(pcc3_base + pcc3_regs[i][0]);
+}
+
+static void imx7ulp_pcc3_restore(void)
+{
+	int i;
+
+	for (i = 0; i < 16; i++)
+		writel_relaxed(pcc3_regs[i][1], pcc3_base + pcc3_regs[i][0]);
+}
+
+static void imx7ulp_pcc2_save(void)
+{
+	int i;
+
+	for (i = 0; i < 25; i++)
+		pcc2_regs[i][1] = readl_relaxed(pcc2_base + pcc2_regs[i][0]);
+}
+
+static void imx7ulp_pcc2_restore(void)
+{
+	int i;
+
+	for (i = 0; i < 25; i++)
+		writel_relaxed(pcc2_regs[i][1], pcc2_base + pcc2_regs[i][0]);
+}
+
+static void imx7ulp_lpuart_save(void)
+{
+	lpuart4_regs[0] = readl_relaxed(lpuart4_base + LPUART_BAUD);
+	lpuart4_regs[1] = readl_relaxed(lpuart4_base + LPUART_FIFO);
+	lpuart4_regs[2] = readl_relaxed(lpuart4_base + LPUART_WATER);
+	lpuart4_regs[3] = readl_relaxed(lpuart4_base + LPUART_CTRL);
+}
+
+static void imx7ulp_lpuart_restore(void)
+{
+	writel_relaxed(0x10101, scg1_base + 0x104);
+	writel_relaxed(LPUART4_MUX_VALUE,
+		iomuxc1_base + PTC2_LPUART4_TX_OFFSET);
+	writel_relaxed(LPUART4_MUX_VALUE,
+		iomuxc1_base + PTC3_LPUART4_RX_OFFSET);
+	writel_relaxed(LPUART4_INPUT_VALUE,
+		iomuxc1_base + PTC2_LPUART4_TX_INPUT_OFFSET);
+	writel_relaxed(LPUART4_INPUT_VALUE,
+		iomuxc1_base + PTC3_LPUART4_RX_INPUT_OFFSET);
+
+	writel_relaxed(lpuart4_regs[0], lpuart4_base + LPUART_BAUD);
+	writel_relaxed(lpuart4_regs[1], lpuart4_base + LPUART_FIFO);
+	writel_relaxed(lpuart4_regs[2], lpuart4_base + LPUART_WATER);
+	writel_relaxed(lpuart4_regs[3], lpuart4_base + LPUART_CTRL);
+}
+
+static void imx7ulp_tpm_save(void)
+{
+	tpm5_regs[0] = readl_relaxed(tpm5_base + TPM_SC);
+	tpm5_regs[1] = readl_relaxed(tpm5_base + TPM_MOD);
+	tpm5_regs[2] = readl_relaxed(tpm5_base + TPM_C0SC);
+	tpm5_regs[3] = readl_relaxed(tpm5_base + TPM_C0V);
+}
+
+static void imx7ulp_tpm_restore(void)
+{
+	writel_relaxed(tpm5_regs[0], tpm5_base + TPM_SC);
+	writel_relaxed(tpm5_regs[1], tpm5_base + TPM_MOD);
+	writel_relaxed(tpm5_regs[2], tpm5_base + TPM_C0SC);
+	writel_relaxed(tpm5_regs[3], tpm5_base + TPM_C0V);
+}
+
+static void imx7ulp_disable_wdog(void)
+{
+	writel_relaxed(0x0, wdog1_base);
+	writel_relaxed(0x0, wdog2_base);
+	writel_relaxed(0x4, wdog1_base + 0x8);
+	writel_relaxed(0x4, wdog2_base + 0x8);
+}
+
+static void imx7ulp_set_dgo(u32 val)
+{
+	writel_relaxed(val, pm_info->sim_base.vbase + DGO_GPR3);
+	writel_relaxed(val, pm_info->sim_base.vbase + DGO_GPR4);
+}
 
 int imx7ulp_set_lpm(enum imx7ulp_cpu_pwr_mode mode)
 {
@@ -123,20 +397,73 @@ int imx7ulp_set_lpm(enum imx7ulp_cpu_pwr_mode mode)
 	return 0;
 }
 
+static int imx7ulp_suspend_finish(unsigned long val)
+{
+	imx7ulp_suspend_in_ocram_fn(suspend_ocram_base);
+
+	return 0;
+}
+
+static int imx7ulp_pm_enter(suspend_state_t state)
+{
+	switch (state) {
+	case PM_SUSPEND_STANDBY:
+		imx7ulp_set_lpm(VLPS);
+
+		/* Zzz ... */
+		cpu_suspend(0, imx7ulp_suspend_finish);
+
+		imx7ulp_set_lpm(RUN);
+		break;
+	case PM_SUSPEND_MEM:
+		imx7ulp_scg1_save();
+		imx7ulp_pcc2_save();
+		imx7ulp_pcc3_save();
+		imx7ulp_tpm_save();
+		imx7ulp_lpuart_save();
+		imx7ulp_set_lpm(VLLS);
+
+		/* Zzz ... */
+		cpu_suspend(0, imx7ulp_suspend_finish);
+
+		imx7ulp_pcc2_restore();
+		imx7ulp_pcc3_restore();
+		imx7ulp_lpuart_restore();
+		imx7ulp_disable_wdog();
+		imx7ulp_set_dgo(0);
+		imx7ulp_tpm_restore();
+		imx7ulp_set_lpm(RUN);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int imx7ulp_pm_valid(suspend_state_t state)
+{
+	return (state == PM_SUSPEND_STANDBY || state == PM_SUSPEND_MEM);
+}
+
+static const struct platform_suspend_ops imx7ulp_pm_ops = {
+	.enter = imx7ulp_pm_enter,
+	.valid = imx7ulp_pm_valid,
+};
+
+static int __init imx7ulp_suspend_init(void)
+{
+	int ret = 0;
+
+	suspend_set_ops(&imx7ulp_pm_ops);
+
+	return ret;
+}
+
 static struct map_desc iram_tlb_io_desc __initdata = {
 	/* .virtual and .pfn are run-time assigned */
 	.length     = SZ_1M,
 	.type       = MT_MEMORY_RWX_NONCACHED,
-};
-
-static const char * const low_power_ocram_match[] __initconst = {
-	"fsl,lpm-sram",
-	NULL
-};
-
-static struct map_desc imx7ulp_pm_io_desc[] __initdata = {
-	imx_map_entry(MX7ULP, AIPS1, MT_DEVICE),
-	imx_map_entry(MX7ULP, AIPS2, MT_DEVICE),
 };
 
 static int __init imx7ulp_dt_find_lpsram(unsigned long node, const char *uname,
@@ -216,9 +543,14 @@ void __init imx7ulp_pm_map_io(void)
 	}
 }
 
-void __init imx7ulp_pm_init(void)
+void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
+				*socdata)
 {
 	struct device_node *np;
+	unsigned long sram_paddr;
+	const u32 *mmdc_offset_array;
+	const u32 *mmdc_io_offset_array;
+	int i, ret;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-smc1");
 	smc1_base = of_iomap(np, 0);
@@ -228,5 +560,136 @@ void __init imx7ulp_pm_init(void)
 	pmc0_base = of_iomap(np, 0);
 	WARN_ON(!pmc0_base);
 
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pmc1");
+	pmc1_base = of_iomap(np, 0);
+	WARN_ON(!pmc1_base);
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-tpm");
+	tpm5_base = of_iomap(np, 0);
+	WARN_ON(!tpm5_base);
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-lpuart");
+	lpuart4_base = of_iomap(np, 0);
+	WARN_ON(!lpuart4_base);
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pcc2");
+	pcc2_base = of_iomap(np, 0);
+	WARN_ON(!pcc2_base);
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pcc3");
+	pcc3_base = of_iomap(np, 0);
+	WARN_ON(!pcc3_base);
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-iomuxc-1");
+	iomuxc1_base = of_iomap(np, 0);
+	WARN_ON(!iomuxc1_base);
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-scg1");
+	scg1_base = of_iomap(np, 0);
+	WARN_ON(!scg1_base);
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-wdt");
+	wdog1_base = of_iomap(np, 0);
+	WARN_ON(!wdog1_base);
+
+	np = of_find_compatible_node(np, NULL, "fsl,imx7ulp-wdt");
+	wdog2_base = of_iomap(np, 0);
+	WARN_ON(!wdog2_base);
+
+	/*
+	 * 16KB is allocated for IRAM TLB, but only up 8k is for kernel TLB,
+	 * The lower 8K is not used, so use the lower 8K for IRAM code and
+	 * pm_info.
+	 *
+	 */
+	sram_paddr = iram_tlb_phys_addr;
+
+	/* Make sure sram_paddr is 8 byte aligned. */
+	if ((uintptr_t)(sram_paddr) & (FNCPY_ALIGN - 1))
+		sram_paddr += FNCPY_ALIGN - sram_paddr % (FNCPY_ALIGN);
+
+	/* Get the virtual address of the suspend code. */
+	suspend_ocram_base = (void *)IMX_IO_P2V(sram_paddr);
+
+	pm_info = suspend_ocram_base;
+	pm_info->pbase = sram_paddr;
+	pm_info->resume_addr = virt_to_phys(imx7ulp_cpu_resume);
+	pm_info->pm_info_size = sizeof(*pm_info);
+
+	pm_info->sim_base.pbase = MX7ULP_SIM_BASE_ADDR;
+	pm_info->sim_base.vbase = (void __iomem *)
+				IMX_IO_P2V(MX7ULP_SIM_BASE_ADDR);
+
+	pm_info->mmdc_base.pbase = MX7ULP_MMDC_BASE_ADDR;
+	pm_info->mmdc_base.vbase = (void __iomem *)
+				IMX_IO_P2V(MX7ULP_MMDC_BASE_ADDR);
+
+	pm_info->mmdc_io_base.pbase = MX7ULP_MMDC_IO_BASE_ADDR;
+	pm_info->mmdc_io_base.vbase = (void __iomem *)
+				IMX_IO_P2V(MX7ULP_MMDC_IO_BASE_ADDR);
+
+	pm_info->mmdc_io_num = socdata->mmdc_io_num;
+	mmdc_io_offset_array = socdata->mmdc_io_offset;
+	pm_info->mmdc_num = socdata->mmdc_num;
+	mmdc_offset_array = socdata->mmdc_offset;
+
+	for (i = 0; i < pm_info->mmdc_io_num; i++) {
+		pm_info->mmdc_io_val[i][0] =
+			mmdc_io_offset_array[i];
+		pm_info->mmdc_io_val[i][1] =
+			readl_relaxed(pm_info->mmdc_io_base.vbase +
+			mmdc_io_offset_array[i]);
+	}
+
+	/* initialize MMDC settings */
+	for (i = 0; i < pm_info->mmdc_num; i++)
+		pm_info->mmdc_val[i][0] =
+			mmdc_offset_array[i];
+
+	for (i = 0; i < pm_info->mmdc_num; i++)
+		pm_info->mmdc_val[i][1] = imx7ulp_lpddr3_script[i];
+
+	imx7ulp_suspend_in_ocram_fn = fncpy(
+		suspend_ocram_base + sizeof(*pm_info),
+		&imx7ulp_suspend,
+		MX7ULP_SUSPEND_OCRAM_SIZE - sizeof(*pm_info));
+
+	if (IS_ENABLED(CONFIG_SUSPEND)) {
+		ret = imx7ulp_suspend_init();
+		if (ret)
+			pr_warn("%s: No DDR LPM support with suspend %d!\n",
+				__func__, ret);
+	}
+}
+
+void __init imx7ulp_pm_init(void)
+{
+	imx7ulp_pm_common_init(&imx7ulp_lpddr3_pm_data);
 	imx7ulp_set_lpm(RUN);
+}
+
+static irqreturn_t imx7ulp_nmi_isr(int irq, void *param)
+{
+	writel_relaxed(readl_relaxed(mu_base + MU_SR) | MU_B_SR_NMIC,
+		mu_base + MU_SR);
+
+	return IRQ_HANDLED;
+}
+
+void imx7ulp_enable_nmi(void)
+{
+	struct device_node *np;
+	int irq, ret;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-nmi");
+	mu_base = of_iomap(np, 0);
+	WARN_ON(!mu_base);
+	irq = of_irq_get(np, 0);
+	ret = request_irq(irq, imx7ulp_nmi_isr,
+		IRQF_NO_SUSPEND, "imx7ulp-nmi", NULL);
+	if (ret) {
+		pr_err("%s: register interrupt %d failed, rc %d\n",
+			__func__, irq, ret);
+		return;
+	}
 }

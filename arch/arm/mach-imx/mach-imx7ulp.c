@@ -28,6 +28,7 @@ static void __init imx7ulp_init_machine(void)
 
 static void __init imx7ulp_init_irq(void)
 {
+	/* TBD */
 	mxc_set_cpu_type(MXC_CPU_IMX7ULP);
 
 	irqchip_init();
@@ -41,7 +42,7 @@ static void __init imx7ulp_map_io(void)
 
 static void __init imx7ulp_init_late(void)
 {
-
+	imx7ulp_enable_nmi();
 }
 
 static const char *const imx7ulp_dt_compat[] __initconst = {

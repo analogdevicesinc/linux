@@ -193,15 +193,19 @@ void v7_cpu_resume(void);
 void ca7_cpu_resume(void);
 void imx53_suspend(void __iomem *ocram_vbase);
 extern const u32 imx53_suspend_sz;
+void imx7ulp_cpu_resume(void);
 void imx6_suspend(void __iomem *ocram_vbase);
 void imx7_suspend(void __iomem *ocram_vbase);
+void imx7ulp_suspend(void __iomem *ocram_vbase);
 #else
 static inline void v7_cpu_resume(void) {}
 static inline void ca7_cpu_resume(void) {}
 static inline void imx53_suspend(void __iomem *ocram_vbase) {}
 static const u32 imx53_suspend_sz;
+static inline void imx7ulp_cpu_resume(void) {}
 static inline void imx6_suspend(void __iomem *ocram_vbase) {}
 static inline void imx7_suspend(void __iomem *ocram_vbase) {}
+static inline void imx7ulp_suspend(void __iomem *ocram_vbase) {}
 #endif
 
 void imx6_pm_ccm_init(const char *ccm_compat);
@@ -212,6 +216,7 @@ void imx6sx_pm_init(void);
 void imx6ul_pm_init(void);
 void imx6ull_pm_init(void);
 void imx7ulp_pm_init(void);
+void imx7ulp_enable_nmi(void);
 void imx6q_pm_set_ccm_base(void __iomem *base);
 
 #ifdef CONFIG_PM
