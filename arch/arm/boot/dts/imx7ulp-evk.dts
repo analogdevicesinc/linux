@@ -1,0 +1,94 @@
+/*
+ * Copyright 2016 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "imx7ulp.dtsi"
+
+/ {
+	model = "NXP i.MX7ULP EVK";
+	compatible = "fsl,imx7ulp-evk", "fsl,imx7ulp", "Generic DT based system";
+
+	chosen {
+		bootargs = "console=ttyLP0,115200 earlycon=lpuart32,0x402D0010,115200";
+		stdout-path = &lpuart4;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x60000000 0x40000000>;
+	};
+};
+
+&iomuxc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog_1>;
+
+	imx7ulp-evk {
+		pinctrl_hog_1: hoggrp-1 {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC10__PTC10	0x30100
+			>;
+		};
+
+		pinctrl_usdhc1: usdhc1grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTD1__SDHC0_CMD	0x843
+				IMX7ULP_PAD_PTD2__SDHC0_CLK	0x843
+				IMX7ULP_PAD_PTD7__SDHC0_D3	0x843
+				IMX7ULP_PAD_PTD8__SDHC0_D2	0x843
+				IMX7ULP_PAD_PTD9__SDHC0_D1	0x843
+				IMX7ULP_PAD_PTD10__SDHC0_D0	0x843
+			>;
+		};
+	};
+};
+
+&lpuart6 {
+	pinctrl-names = "default";
+	pinctrl-0 = < >;
+	status = "okay";
+};
+
+&lcdif {
+	status = "okay";
+	display = <&display0>;
+
+	display0: display {
+		bits-per-pixel = <16>;
+		bus-width = <24>;
+
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: timing0 {
+			clock-frequency = <9200000>;
+			hactive = <480>;
+			vactive = <272>;
+			hfront-porch = <8>;
+			hback-porch = <4>;
+			hsync-len = <41>;
+			vback-porch = <2>;
+			vfront-porch = <4>;
+			vsync-len = <10>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <0>;
+			};
+		};
+	};
+};
+
+&usdhc1 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	pinctrl-1 = <&pinctrl_usdhc1>;
+	non-removable;
+	status = "okay";
+};
