@@ -30,6 +30,14 @@ config XILINX_PREFETCH
 	  in many cases. This may not always be the best performance depending on
 	  the usage.
 
+config XILINX_RESET_CODE
+	bool "Extra Reset Code DBFS entry"
+	default n
+	depends on DEBUG_FS
+	help
+	  This option adds an extra DBFS entry debug/zynq_rst/code. Values written
+	  are passed via REG slcr.REBOOT_STATUS Bits 15:0
+
 endmenu
 
 endif
