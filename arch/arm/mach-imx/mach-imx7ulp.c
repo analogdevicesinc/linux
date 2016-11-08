@@ -42,6 +42,7 @@ static void __init imx7ulp_map_io(void)
 
 static void __init imx7ulp_init_late(void)
 {
+	imx7ulp_cpuidle_init();
 	imx7ulp_enable_nmi();
 }
 
