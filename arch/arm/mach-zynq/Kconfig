@@ -15,3 +15,20 @@ config ARCH_ZYNQ
 	select SOC_BUS
 	help
 	  Support for Xilinx Zynq ARM Cortex A9 Platform
+
+if ARCH_ZYNQ
+
+menu "Xilinx Specific Options"
+
+config XILINX_RESET_CODE
+	bool "Extra Reset Code DBFS entry"
+	default n
+	depends on DEBUG_FS
+	help
+	  This option adds an extra DBFS entry debug/zynq_rst/code. Values written
+	  are passed via REG slcr.REBOOT_STATUS Bits 15:0
+
+endmenu
+
+endif
+
