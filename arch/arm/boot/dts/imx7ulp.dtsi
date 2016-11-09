@@ -15,6 +15,10 @@
 	interrupt-parent = <&intc>;
 
 	aliases {
+		gpio0 = &gpio0;
+		gpio1 = &gpio1;
+		gpio2 = &gpio2;
+		gpio3 = &gpio3;
 		serial0 = &lpuart4;
 		serial1 = &lpuart6;
 		serial2 = &lpuart5;
@@ -406,6 +410,50 @@
 			compatible = "fsl,imx7ulp-iomuxc-1";
 			reg = <0x40ac0000 0x1000>;
 			fsl,mux_mask = <0xf00>;
+		};
+
+		gpio0: gpio@40ae0000 {
+			compatible = "fsl,vf610-gpio";
+			reg = <0x40ae0000 0x1000 0x400F0000 0x40>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			gpio-ranges = <&iomuxc1 0 0 32>;
+		};
+
+		gpio1: gpio@40af0000 {
+			compatible = "fsl,vf610-gpio";
+			reg = <0x40af0000 0x1000 0x400F0040 0x40>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			gpio-ranges = <&iomuxc1 0 32 32>;
+		};
+
+		gpio2: gpio@40b00000 {
+			compatible = "fsl,vf610-gpio";
+			reg = <0x40b00000 0x1000 0x400F0080 0x40>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			gpio-ranges = <&iomuxc1 0 64 32>;
+		};
+
+		gpio3: gpio@40b10000 {
+			compatible = "fsl,vf610-gpio";
+			reg = <0x40b10000 0x1000 0x400F00c0 0x40>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			gpio-ranges = <&iomuxc1 0 96 32>;
 		};
 
 		pmc0: pmc0@410a1000 {
