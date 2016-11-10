@@ -357,8 +357,8 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <10 0>;
 			reg = <0x44a70000 0x10000>;
-			fifo-size = <0x100>;
-			xlnx,num-ss-bits = <0x8>;
+			fifo-size = <0x10>;
+			num-cs = <0x8>;
 		};
 		axi_timer: timer@41c00000 {
 			clock-frequency = <100000000>;
