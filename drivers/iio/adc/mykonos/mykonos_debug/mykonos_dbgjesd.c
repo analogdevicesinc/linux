@@ -6,8 +6,7 @@
  * Mykonos API version: 1.3.1.3534
  */
 
-#include <stdint.h>
-#include <stddef.h>
+#include <linux/kernel.h>
 
 #include "mykonos_dbgjesd.h"
 #include "mykonos_macros.h"
