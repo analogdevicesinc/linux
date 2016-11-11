@@ -2,7 +2,7 @@
  * \file t_mykonos.h
  * \brief Contains type definitions for Mykonos API
  *
- * Mykonos API version: 1.3.0.3528
+ * Mykonos API version: 1.3.1.3534
  */
 
 #ifndef _T_MYKONOS_LIB_H_
@@ -78,6 +78,10 @@ typedef enum
     MYKONOS_ERR_OBSRXFIR_INV_GAIN_PARM,
     MYKONOS_ERR_SRXFIR_INV_GAIN_PARM,
     MYKONOS_ERR_TXFIR_INV_GAIN_PARM,
+    MYKONOS_ERR_READFIR_NULL_PARM,
+    MYKONOS_ERR_READFIR_COEFS_NULL,
+    MYKONOS_ERR_READFIR_INV_FIRNAME_PARM,
+    MYKONOS_ERR_READFIR_INV_NUMTAPS_PARM,
     MYKONOS_ERR_SETRX1GAIN_INV_GAIN_PARM,
     MYKONOS_ERR_SETRX2GAIN_INV_GAIN_PARM,
     MYKONOS_ERR_INITSER_INV_VCODIV_PARM,
@@ -385,6 +389,7 @@ typedef enum
 	MYKONOS_ERR_GETDPDSTATUS_ARMERRFLAG,
 	MYKONOS_ERR_GETDPDSTATUS_NULLPARAM,
 	MYKONOS_ERR_SETDEFOBSRXPATH_NULL_OBSRX_STRUCT,
+	MYKONOS_ERR_SETDEFOBSRXPATH_NULL_DEF_OBSRX_STRUCT,
 	MYKONOS_ERR_GETCLGCSTATUS_NULLPARAM,
 	MYKONOS_ERR_GETCLGCSTATUS_ARMERRFLAG,
 	MYKONOS_ERR_CHECKDEVSTRUCT_NULLDEVPOINTER,
@@ -857,8 +862,8 @@ typedef struct
  *  \brief Structure used within the DPD config structure to hold a int8_t complex number
  */
 typedef struct{
-  int8_t real;
-  int8_t imag;
+  int8_t real; /*!< real part of the complex number */
+  int8_t imag; /*!< imaginary part of the complex number */
 } int8_cpx;
 
 /**
@@ -1200,8 +1205,8 @@ typedef struct
 	uint8_t agcResetOnRxEnable;			/*!< [1] = Performs a reset of the AGC slow loop state machine when Rx is disabled. [0] = AGC slow loop state machine maintains its state when Rx is disabled. */
 	uint8_t	agcEnableSyncPulseForGainCounter; /*!< [1] = Allows sync of agcGainUpdateCounter to the time-slot boundary. GPIO setup required. [0] = agcGainUpdateCounter functions as normal */
 
-	mykonosPeakDetAgcCfg_t *peakAgc;
-	mykonosPowerMeasAgcCfg_t *powerAgc;
+	mykonosPeakDetAgcCfg_t *peakAgc;    /*!< pointer to structure for Peak AGC */
+	mykonosPowerMeasAgcCfg_t *powerAgc; /*!< pointer to structure for Power AGC */
 } mykonosAgcCfg_t;
 
 /**

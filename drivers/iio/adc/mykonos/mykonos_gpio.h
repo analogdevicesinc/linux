@@ -2,7 +2,7 @@
  * \file mykonos_gpio.h
  * \brief Contains macro definitions and function prototypes for mykonos_gpio.c
  *
- * Mykonos API version: 1.3.0.3528
+ * Mykonos API version: 1.3.1.3534
  */
 
 #ifndef MYKONOSGPIO_H_

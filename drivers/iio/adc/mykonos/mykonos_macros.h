@@ -2,7 +2,7 @@
  * \file mykonos_macros.h
  * \brief Contains address and miscellaneous macro definitions for Mykonos API
  *
- * Mykonos API version: 1.3.0.3528
+ * Mykonos API version: 1.3.1.3534
  */
 
 #ifndef CLEMENTE_TDD_MACROS_H
@@ -413,6 +413,8 @@ extern "C" {
 #define MYKONOS_ADDR_ORX_SNRX_OVRLD_PD_DEC_OVRLD_LOWER_THRSH    0x58C
 #define MYKONOS_ADDR_ORX_SNRX_OVRLD_PD_DEC_OVRLD_VERYLOW_THRSH  0x58D
 
+#define MYKONOS_ADDR_RX_ADC_FLASH_DELAY                     0x5B6
+#define MYKONOS_ADDR_RX_ADC_FLASH_CTRL                      0x5B7
 #define MYKONOS_ADDR_RX_ADC1_PRFL                           0x5DD
 #define MYKONOS_ADDR_RX_ADC2_PRFL                           0x5DE
 #define MYKONOS_ADDR_ORX_ADC_PRFL                           0x5DF
@@ -441,6 +443,11 @@ extern "C" {
 
 
 #define MYKONOS_ADDR_SNRX_LNA_BIAS_C                        0x81B
+
+
+#define MYKONOS_ADDR_ORX_ADC_FLASH_DELAY                     0x846
+#define MYKONOS_ADDR_ORX_ADC_FLASH_CTRL                      0x847
+
 #define MYKONOS_ADDR_TX_FILTER_CONFIGURATION                0x910
 #define MYKONOS_ADDR_TX1_ATTENUATION_0_READBACK             0x940
 #define MYKONOS_ADDR_TX1_ATTENUATION_1_READBACK             0x941
@@ -450,7 +457,7 @@ extern "C" {
 
 /* Mykonos PA Protection Block Registers */
 #define MYKONOS_ADDR_PA_PROTECTION_CONFIGURATION            0x955
-#define MYKONOS_ADDR_PA_PROECTION_ATTEN_CONTROL             0x956
+#define MYKONOS_ADDR_PA_PROTECTION_ATTEN_CONTROL            0x956
 #define MYKONOS_ADDR_PA_PROTECTION_THRESHOLD_LSB            0x957
 #define MYKONOS_ADDR_PA_PROTECTION_THRESHOLD_MSB            0x958
 #define MYKONOS_ADDR_PA_PROTECTION_POWER_READBACK_LSB       0x959
