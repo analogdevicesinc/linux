@@ -3,7 +3,7 @@
  *
  * \brief Contains definitions and structure declarations for mykonos_dbgjesd.c
  *
- * Mykonos API version: 1.3.0.3528
+ * Mykonos API version: 1.3.1.3534
  */
 
 #ifndef T_MYKONOS_DBGJESD_H_

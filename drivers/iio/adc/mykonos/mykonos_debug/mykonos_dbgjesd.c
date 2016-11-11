@@ -3,7 +3,7 @@
  *
  * \brief Contains Mykonos APIs for Jesd debug facilities.
  *
- * Mykonos API version: 1.3.0.3528
+ * Mykonos API version: 1.3.1.3534
  */
 
 #include <stdint.h>
@@ -424,7 +424,12 @@ mykonosDbgErr_t MYKONOS_deframerRstErrIrq(mykonosDevice_t *device, mykonosErrTyp
     {
         case MYK_CMM:
             /* CMM has no lane selection */
-            MYKONOS_jesdIndRdReg(device, jesdCore, errType, &regRd);
+            error = MYKONOS_jesdIndRdReg(device, jesdCore, errType, &regRd);
+            if (error != MYKONOS_ERR_DBG_OK)
+            {
+                return error;
+            }
+
             lane = MYK_LANE_0;
             rstIrqBit = 0x10 | regRd;
             break;
@@ -581,7 +586,6 @@ mykonosDbgErr_t MYKONOS_deframerRdErrCntr(mykonosDevice_t *device, mykonosLaneSe
  * \param errThrs is the value that will be written to the error threshold, valid error threshold is in the range 0x00 to 0xFF.
  *
  * \retval MYKONOS_ERR_DBG_OK Function completed successfully
- * \retval MYKONOS_ERR_DBG_ERROR_THRESHOLD Passed errThrs parameter is outside its boundaries
  */
 mykonosDbgErr_t MYKONOS_deframerSetErrThrs(mykonosDevice_t *device, uint8_t errThrs)
 {
@@ -589,19 +593,10 @@ mykonosDbgErr_t MYKONOS_deframerSetErrThrs(mykonosDevice_t *device, uint8_t errT
     mykonos_jesdcore_t jesdCore = MYK_DEFRAMER;
 
     const uint8_t DFM_ERROR_THRES = 0x7C;
-    const uint8_t THRES_MASK = 0xFF;
 
 #if MYKONOS_VERBOSE == 1
     CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DBG_OK, "MYKONOS_jesdGetErrThrs()\n");
 #endif
-
-    /* Check for valid errThrs */
-    if (errThrs & ~THRES_MASK)
-    {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DBG_ERROR_THRESHOLD,
-                getDbgJesdMykonosErrorMessage(MYKONOS_ERR_DBG_ERROR_THRESHOLD));
-        return MYKONOS_ERR_DBG_ERROR_THRESHOLD;
-    }
 
     /* Writing internal registers 0x7C */
     if ((error = MYKONOS_jesdIndWrReg(device, jesdCore, DFM_ERROR_THRES, errThrs)) != MYKONOS_ERR_DBG_OK)
