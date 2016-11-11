@@ -14,12 +14,12 @@ extern "C" {
 #endif
 
 /* turns verbose messaging on */
-#define MYKONOS_VERBOSE 1
-#define MYK_ENABLE_SPIWRITEARRAY 1
+#define MYKONOS_VERBOSE 0
+#define MYK_ENABLE_SPIWRITEARRAY 0
 
 /* 3 Bytes per SPI transaction * 341 transactions = ~1024 byte buffer size */
 /* Minimum MYK_SPIWRITEARRAY_BUFFERSIZE = 27 */
-#define MYK_SPIWRITEARRAY_BUFFERSIZE 341
+#define MYK_SPIWRITEARRAY_BUFFERSIZE 300
 /*
  *****************************************
  * Rx, ObsRx, and Sniffer gain tables
