@@ -2,7 +2,7 @@
  * \file mykonos.h
  * \brief Contains macro definitions and function prototypes for mykonos.c
  *
- * Mykonos API version: 1.3.0.3528
+ * Mykonos API version: 1.3.1.3534
  */
 
 #ifndef _MYKONOS_LIB_H_
@@ -159,6 +159,7 @@ mykonosErr_t MYKONOS_setObsRxFramerDataSource(mykonosDevice_t *device, uint8_t d
  *****************************************************************************
  */
 mykonosErr_t MYKONOS_programFir(mykonosDevice_t *device, mykonosfirName_t filterToProgram, mykonosFir_t *firFilter);
+mykonosErr_t MYKONOS_readFir(mykonosDevice_t *device, mykonosfirName_t filterToRead, mykonosFir_t *firFilter);
 
 /*
  *****************************************************************************
