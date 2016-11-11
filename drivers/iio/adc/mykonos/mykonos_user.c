@@ -5,7 +5,7 @@
  * Mykonos API version: 1.3.1.3534
  */
 
-#include <stdint.h>
+#include <linux/kernel.h>
 #include "t_mykonos.h"
 #include "mykonos_user.h"
 
