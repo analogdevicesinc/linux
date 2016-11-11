@@ -2779,9 +2779,9 @@
 #define MAX_LPF_GAIN			24
 #define MAX_DIG_GAIN			31
 
-#define MAX_BBPLL_FREF			70000000UL /* 70 MHz */
-#define MIN_BBPLL_FREQ			715000000UL /* 715 MHz */
-#define MAX_BBPLL_FREQ			1430000000UL /* 1430 MHz */
+#define MAX_BBPLL_FREF			70007000UL /* 70 MHz + 100ppm */
+#define MIN_BBPLL_FREQ			714928500UL /* 715 MHz - 100ppm */
+#define MAX_BBPLL_FREQ			1430143000UL /* 1430 MHz + 100ppm */
 #define MAX_BBPLL_DIV			64
 #define MIN_BBPLL_DIV			2
 
@@ -2801,8 +2801,8 @@
 #define RFPLL_MODULUS			8388593UL
 #define BBPLL_MODULUS			2088960UL
 
-#define MAX_SYNTH_FREF			80000000UL /* 80 MHz */
-#define MIN_SYNTH_FREF			10000000UL /* 10 MHz */
+#define MAX_SYNTH_FREF			80008000UL /* 80 MHz + 100ppm */
+#define MIN_SYNTH_FREF			9999000UL /* 10 MHz - 100ppm */
 #define MIN_VCO_FREQ_HZ			6000000000ULL
 
 #define MAX_CARRIER_FREQ_HZ		6000000000ULL
@@ -2810,9 +2810,6 @@
 
 #define AD9363A_MAX_CARRIER_FREQ_HZ	3800000000ULL
 #define AD9363A_MIN_CARRIER_FREQ_HZ	325000000ULL
-
-#define AD9363B_MAX_CARRIER_FREQ_HZ	2700000000ULL
-#define AD9363B_MIN_CARRIER_FREQ_HZ	750000000ULL
 
 #define MAX_GAIN_TABLE_SIZE		90
 #define MAX_NUM_GAIN_TABLES		16 /* randomly picked */
@@ -3273,7 +3270,6 @@ enum {
 	ID_AD9364,
 	ID_AD9361_2,
 	ID_AD9363A,
-	ID_AD9363B,
 };
 
 struct ad9361_rf_phy;
@@ -3346,6 +3342,8 @@ struct ad9361_rf_phy {
 	u64			current_rx_lo_freq;
 	bool			current_tx_use_tdd_table;
 	bool			current_rx_use_tdd_table;
+	unsigned long		current_rx_path_clks[NUM_RX_CLOCKS];
+	unsigned long		current_tx_path_clks[NUM_TX_CLOCKS];
 	unsigned long		flags;
 	unsigned long		cal_threshold_freq;
 	u32			current_rx_bw_Hz;

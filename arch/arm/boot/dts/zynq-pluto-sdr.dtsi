@@ -8,7 +8,7 @@
 /include/ "zynq.dtsi"
 
 / {
-	model = "ZYNQ Pluto SDR (Z7010/AD9363)";
+	model = "Analog Devices PlutoSDR (Z7010/AD9363)";
 	memory {
 		device_type = "memory";
 		reg = <0x00000000 0x20000000>;
@@ -21,8 +21,9 @@
 	clocks {
 		ad9364_clkin: clock@0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
+			compatible = "adjustable-clock";
 			clock-frequency = <40000000>;
+			clock-accuracy = <200000>; /* 200 ppm (ppb) */
 			clock-output-names = "ad9364_ext_refclk";
 		};
 	};
@@ -67,27 +68,19 @@
 		spi-max-frequency = <50000000>;
 		partition@qspi-fsbl-uboot {
 			label = "qspi-fsbl-uboot";
-			reg = <0x0 0xE0000>; /* 896k */
+			reg = <0x0 0x100000>; /* 1M */
 		};
 		partition@qspi-uboot-env {
 			label = "qspi-uboot-env";
-			reg = <0xE0000 0x20000>; /* 128k */
+			reg = <0x100000 0x20000>; /* 128k */
+		};
+		partition@qspi-nvmfs {
+			label = "qspi-nvmfs";
+			reg = <0x120000 0xE0000>; /* 1M */
 		};
 		partition@qspi-linux {
 			label = "qspi-linux";
-			reg = <0x100000 0x500000>; /* 5M */
-		};
-		partition@qspi-device-tree {
-			label = "qspi-device-tree";
-			reg = <0x600000 0x20000>; /* 128k */
-		};
-		partition@qspi-rootfs {
-			label = "qspi-rootfs";
-			reg = <0x620000 0xCE0000>; /* 12875k */
-		};
-		partition@qspi-bitstream {
-			label = "qspi-bitstream";
-			reg = <0x1300000 0xD00000>; /* 13 M */
+			reg = <0x200000 0x1E00000>; /* 30M */
 		};
 	};
 };

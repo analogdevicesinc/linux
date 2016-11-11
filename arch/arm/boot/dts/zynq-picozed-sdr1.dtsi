@@ -21,8 +21,9 @@
 	clocks {
 		ad9364_clkin: clock@0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
+			compatible = "adjustable-clock";
 			clock-frequency = <40000000>;
+			clock-accuracy = <200000>; /* 200 ppm (ppb) */
 			clock-output-names = "ad9364_ext_refclk";
 		};
 
@@ -32,14 +33,15 @@
 			clock-frequency = <24000000>;
 			clock-output-names = "24MHz";
 		};
-
-		usb_ulpi_clk: clock@2 {
-			compatible = "gpio-gate-clock";
-			clocks = <&usb_ulpi_fixed_clk>;
-			#clock-cells = <0>;
-			enable-gpios = <&gpio0 9 1>; /* Active  Low */
-		};
 	};
+
+	usb_ulpi_clk: usb-ulpi-gpio-gate@0 {
+		compatible = "gpio-gate-clock";
+		clocks = <&usb_ulpi_fixed_clk>;
+		#clock-cells = <0>;
+		enable-gpios = <&gpio0 9 1>; /* Active  Low */
+	};
+
 };
 
 &eth {

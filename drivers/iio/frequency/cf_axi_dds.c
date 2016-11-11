@@ -1033,7 +1033,7 @@ struct axidds_core_info {
 };
 
 static const struct axidds_core_info ad9122_6_00_a_info = {
-	.version = PCORE_VERSION(8, 0, 'a'),
+	.version = PCORE_VERSION(9, 0, 'a'),
 	.has_fifo_interface = true,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
@@ -1047,7 +1047,7 @@ static const struct axidds_core_info ad9361_1_00_a_info = {
 };
 
 static const struct axidds_core_info ad9361_6_00_a_info = {
-	.version = PCORE_VERSION(8, 0, 'a'),
+	.version = PCORE_VERSION(9, 0, 'a'),
 	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
@@ -1055,7 +1055,7 @@ static const struct axidds_core_info ad9361_6_00_a_info = {
 };
 
 static const struct axidds_core_info ad9364_6_00_a_info = {
-	.version = PCORE_VERSION(8, 0, 'a'),
+	.version = PCORE_VERSION(9, 0, 'a'),
 	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 1,
@@ -1063,7 +1063,7 @@ static const struct axidds_core_info ad9364_6_00_a_info = {
 };
 
 static const struct axidds_core_info ad9361x2_6_00_a_info = {
-	.version = PCORE_VERSION(8, 0, 'a'),
+	.version = PCORE_VERSION(9, 0, 'a'),
 	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
@@ -1077,7 +1077,7 @@ static const struct axidds_core_info ad9144_7_00_a_info = {
 };
 
 static const struct axidds_core_info ad9739a_8_00_b_info = {
-	.version = PCORE_VERSION(8, 0, 'b'),
+	.version = PCORE_VERSION(9, 0, 'b'),
 	.has_fifo_interface = true,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,

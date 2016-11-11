@@ -857,7 +857,6 @@ u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 	case ID_AD9363A:
-	case ID_AD9363B:
 		return clamp_t(u32, bw, 0, 20000000UL);
 	default:
 		return clamp_t(u32, bw, 0, 56000000UL);
@@ -870,11 +869,6 @@ int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, u64 freq)
 		case ID_AD9363A:
 			if (freq > AD9363A_MAX_CARRIER_FREQ_HZ ||
 				freq < AD9363A_MIN_CARRIER_FREQ_HZ)
-				return -EINVAL;
-			break;
-		case ID_AD9363B:
-			if (freq > AD9363B_MAX_CARRIER_FREQ_HZ ||
-				freq < AD9363B_MIN_CARRIER_FREQ_HZ)
 				return -EINVAL;
 			break;
 		default:
@@ -1095,7 +1089,7 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 }
 
 static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, u32 reg,
-				 u32 mask, bool done_state)
+				 u32 mask, u32 done_state)
 {
 	u32 timeout = 5000; /* RFDC_CAL can take long */
 	u32 state;
@@ -3741,15 +3735,31 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state,
 	}
 
 	if (rc) {
-		dev_err(dev, "Invalid ENSM state transition in %s mode\n",
-			phy->pdata->fdd ? "FDD" : "TDD");
-		goto out;
+		if ((phy->curr_ensm_state != ENSM_STATE_ALERT) && (val & (FORCE_RX_ON | FORCE_TX_ON))) {
+			u32 val2 = val;
+
+			val2 &= ~(FORCE_TX_ON | FORCE_RX_ON);
+			val2 |= TO_ALERT | FORCE_ALERT_STATE;
+			ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val2);
+
+			ad9361_check_cal_done(phy, REG_STATE, ENSM_STATE(~0), ENSM_STATE_ALERT);
+		} else {
+			dev_err(dev, "Invalid ENSM state transition in %s mode\n",
+				phy->pdata->fdd ? "FDD" : "TDD");
+			goto out;
+		}
 	}
 
 	 if (!phy->pdata->fdd && !pinctrl && !phy->pdata->tdd_use_dual_synth &&
-		 (ensm_state == ENSM_STATE_TX || ensm_state == ENSM_STATE_RX))
+		 (ensm_state == ENSM_STATE_TX || ensm_state == ENSM_STATE_RX)) {
 		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
 				  TXNRX_SPI_CTRL, ensm_state == ENSM_STATE_TX);
+
+		ad9361_check_cal_done(phy, (ensm_state == ENSM_STATE_TX) ?
+				      REG_TX_CP_OVERRANGE_VCO_LOCK :
+				      REG_RX_CP_OVERRANGE_VCO_LOCK,
+				      VCO_LOCK, 1);
+	}
 
 	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
 	if (rc)
@@ -3837,6 +3847,8 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 	if (ret < 0)
 		return ret;
 
+	phy->current_rx_path_clks[BBPLL_FREQ] = rx_path_clks[BBPLL_FREQ];
+
 	for (i = ADC_CLK, j = DAC_CLK, n = ADC_FREQ;
 		i <= RX_SAMPL_CLK; i++, j++, n++) {
 		ret = clk_set_rate(phy->clks[i], rx_path_clks[n]);
@@ -3845,12 +3857,14 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 				ret);
 			return ret;
 		}
+		phy->current_rx_path_clks[n] = rx_path_clks[n];
 		ret = clk_set_rate(phy->clks[j], tx_path_clks[n]);
 		if (ret < 0) {
 			dev_err(dev, "Failed to set BB ref clock rate (%d)\n",
 				ret);
 			return ret;
 		}
+		phy->current_tx_path_clks[n] = tx_path_clks[n];
 	}
 
 	/*
@@ -4324,7 +4338,6 @@ static int ad9361_mcs(struct ad9361_rf_phy *phy, unsigned step)
 
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
-		case ID_AD9363B:
 			return -ENODEV;
 	}
 
@@ -6304,6 +6317,7 @@ enum ad9361_iio_dev_attr {
 	AD9361_QUAD_ENABLE,
 	AD9361_DCXO_TUNE_COARSE,
 	AD9361_DCXO_TUNE_FINE,
+	AD9361_XO_CORRECTION,
 	AD9361_MCS_SYNC,
 };
 
@@ -6512,6 +6526,27 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		ret = ad9361_set_dcxo_tune(phy, phy->pdata->dcxo_coarse,
 					   phy->pdata->dcxo_fine);
 		break;
+	case AD9361_XO_CORRECTION:
+	{
+		unsigned long rx, tx;
+		ret = kstrtol(buf, 10, &readin);
+		if (ret)
+			break;
+		if (readin == clk_get_rate(phy->clk_refin))
+			break;
+
+		rx = phy->current_rx_lo_freq;
+		tx = phy->current_tx_lo_freq;
+
+		ret = clk_set_rate(phy->clk_refin, (unsigned long) readin);
+		if (ret < 0)
+			break;
+
+		ad9361_set_trx_clock_chain(phy, phy->current_rx_path_clks, phy->current_tx_path_clks);
+		clk_set_rate(phy->clks[RX_RFPLL], rx);
+		clk_set_rate(phy->clks[TX_RFPLL], tx);
+		break;
+	}
 	case AD9361_MCS_SYNC:
 		ret = kstrtol(buf, 10, &readin);
 		if (ret)
@@ -6631,6 +6666,9 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		else
 			ret = sprintf(buf, "%d\n", phy->pdata->dcxo_fine);
 		break;
+	case AD9361_XO_CORRECTION:
+		ret = sprintf(buf, "%lu\n", clk_get_rate(phy->clk_refin));
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -6734,6 +6772,11 @@ static IIO_DEVICE_ATTR(dcxo_tune_fine, S_IRUGO | S_IWUSR,
 			ad9361_phy_store,
 			AD9361_DCXO_TUNE_FINE);
 
+static IIO_DEVICE_ATTR(xo_correction, S_IRUGO | S_IWUSR,
+		       ad9361_phy_show,
+		       ad9361_phy_store,
+		       AD9361_XO_CORRECTION);
+
 static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
 			NULL,
 			ad9361_phy_store,
@@ -6759,6 +6802,7 @@ static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_in_voltage_quadrature_tracking_en.dev_attr.attr,
 	&iio_dev_attr_dcxo_tune_coarse.dev_attr.attr,
 	&iio_dev_attr_dcxo_tune_fine.dev_attr.attr,
+	&iio_dev_attr_xo_correction.dev_attr.attr,
 	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	NULL,
 };
@@ -6872,7 +6916,6 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	case LOEXT_EXTERNAL:
 		switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
-		case ID_AD9363B:
 			ret = -ENODEV;
 			break;
 		default:
@@ -7911,7 +7954,6 @@ static struct ad9361_phy_platform_data
 
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
-		case ID_AD9363B:
 			pdata->use_extclk = true;
 			pdata->use_ext_tx_lo = false;
 			pdata->use_ext_rx_lo = false;
@@ -8786,7 +8828,6 @@ static const struct spi_device_id ad9361_id[] = {
 	{"ad9364", ID_AD9364}, /* 1RX1TX */
 	{"ad9361-2x", ID_AD9361_2}, /* 2 x 2RX2TX */
 	{"ad9363a", ID_AD9363A}, /* 2RX2TX */
-	{"ad9363b", ID_AD9363B}, /* 2RX2TX */
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9361_id);
