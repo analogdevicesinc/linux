@@ -2,7 +2,7 @@
  * \file t_mykonos_gpio.h
  * \brief Mykonos GPIO error handling and type defines
  *
- * Mykonos API version: 1.3.0.3528
+ * Mykonos API version: 1.3.1.3534
  */
 
 #ifndef T_MYKONOSGPIO_H_
@@ -252,153 +252,110 @@ typedef enum
 
 /**
  *  \brief Data structure to hold Gain compensation settings for the main receive channels
- *
- * uint8_t rx1Offset, These parameter contains the Rx1 offset word used for the gain compensation
- * when the gain index is at its maximum setting.
- * It has a range of 0 to 0x1F with a resolution is 0.5dB per LSB.
- *
- * uint8_t rx2Offset, These parameter contains the Rx2 offset word used for the gain compensation
- * when the gain index is at its maximum setting.
- * It has a range of 0 to 0x1F with a resolution is 0.5dB per LSB.
- *
- * uint8_t compStep, These bits contains the value in dB that the total Rx gain changes
- * when there is an LSB change in the gain index according to the following settings:
- * compStep |  dB ramp
- * ---------|------------
- *    0     |   0.25dB
- *    1     |   0.5dB
- *    2     |   1.0dB
- *    3     |   2.0dB
- *    4     |   3.0dB
- *    5     |   4.0dB
- *    6     |   6.0dB
- *    7     |   Not valid defaulted to 0.25dB
- *
  **/
 typedef struct
 {
-    uint8_t rx1Offset;
-    uint8_t rx2Offset;
-    uint8_t compStep;
+    uint8_t rx1Offset;  /*!< These parameter contains the Rx1 offset word used for the gain compensation
+                        when the gain index is at its maximum setting.
+                         It has a range of 0 to 0x1F with a resolution is 0.5dB per LSB. */
+    uint8_t rx2Offset;  /*!< These parameter contains the Rx2 offset word used for the gain compensation
+                        when the gain index is at its maximum setting.
+                        It has a range of 0 to 0x1F with a resolution is 0.5dB per LSB. */
+    uint8_t compStep;   /*!< These bits contains the value in dB that the total Rx gain changes
+                         when there is an LSB change in the gain index according to the following settings:
+                         compStep |  dB ramp
+                         ---------|------------
+                            0     |   0.25dB
+                            1     |   0.5dB
+                            2     |   1.0dB
+                            3     |   2.0dB
+                            4     |   3.0dB
+                            5     |   4.0dB
+                            6     |   6.0dB
+                            7     |   Not valid defaulted to 0.25dB */
 } mykonosGainComp_t;
 
 /**
  *  \brief Data structure to hold Gain compensation settings for the observation channel
- *
- * uint8_t obsRxOffset, These parameter contains the Rx1 offset word used for the gain compensation
- * when the gain index is at its maximum setting.
- * It has a range of 0 to 0x1F with a resolution is 0.5dB per LSB.
- *
- * uint8_t compStep, These bits contains the value in dB that the total Rx gain changes
- * when there is an LSB change in the gain index according to the following settings:
- * compStep |  dB ramp
- * ---------|------------
- *    0     |   0.25dB
- *    1     |   0.5dB
- *    2     |   1.0dB
- *    3     |   2.0dB
- *    4     |   3.0dB
- *    5     |   4.0dB
- *    6     |   6.0dB
- *    7     |   Not valid defaulted to 0.25dB
- *
  **/
 typedef struct
 {
-    uint8_t obsRxOffset;
-    uint8_t compStep;
+    uint8_t obsRxOffset;    /*!< These parameter contains the Rx1 offset word used for the gain compensation
+                            when the gain index is at its maximum setting.
+                            It has a range of 0 to 0x1F with a resolution is 0.5dB per LSB. */
+    uint8_t compStep;       /*!< These bits contains the value in dB that the total Rx gain changes
+                            when there is an LSB change in the gain index according to the following settings:
+                            compStep |  dB ramp
+                            ---------|------------
+                               0     |   0.25dB
+                               1     |   0.5dB
+                               2     |   1.0dB
+                               3     |   2.0dB
+                               4     |   3.0dB
+                               5     |   4.0dB
+                               6     |   6.0dB
+                               7     |   Not valid defaulted to 0.25dB */
 } mykonosObsRxGainComp_t;
 
 /**
- *  \brief Data structure to hold floating point formatter settings for the floating point
+ * \brief Data structure to hold floating point formatter settings for the floating point
  *  number generation
- *
- * uint8_t roundMode, These parameter set the round modes for the significand.
- * The following settings are defined in the IEEE754 specification:
- * roundMode |  Round type
- * ----------|-----------------
- *      0    |  RoundTiesToEven
- *      1    |  RoundTowardsPositive
- *      2    |  RoundTowardsNegative
- *      3    |  RoundTowardsZero
- *      4    |  RoundTiesToAway
- *
- *
- * uint8_t dataFormat, These parameter sets the format of the 16-bit output on the JESD interface:
- * Setting this to 1 then the format is from MSB to LSB to {sign, significand, exponent}.
- * Clearing this bit sets the format to {sign, exponent, significand}.
- *
- * uint8_t encNan, if this parameter is set to 1 then the floating point formatter reserves the highest value
- * of exponent for NaN to be compatible to the IEEE754 specification.
- * Clearing this parameter increases the range of the exponent by one.
- *
- * uint8_t expBits, These parameter is used to indicate the number of exponent bits in the floating point number
- * according to the following settings:
- *  expBits|  Round type
- * --------|------------------------------------------------
- *    0    |  2 bit exponent, 13 bit significand, 1 bit sign
- *    1    |  3 bit exponent, 12 bit significand, 1 bit sign
- *    2    |  4 bit exponent, 11 bit significand, 1 bit sign
- *    3    |  5 bit exponent, 10 bit significand, 1 bit sign
- *
- * uint8_t leading, Setting this parameter hides the leading one in the the significand to be compatible to the IEEE754 specification.
- * Clearing this parameter causes the leading one to be at the MSB of the significand.
- *
  **/
 typedef struct
 {
-   uint8_t roundMode;
-   uint8_t dataFormat;
-   uint8_t encNan;
-   uint8_t expBits;
-   uint8_t leading;
+   uint8_t roundMode;   /*!<These parameter set the round modes for the significand.
+                        The following settings are defined in the IEEE754 specification:
+                        roundMode |  Round type
+                        ----------|-----------------
+                             0    |  RoundTiesToEven
+                             1    |  RoundTowardsPositive
+                             2    |  RoundTowardsNegative
+                             3    |  RoundTowardsZero
+                             4    |  RoundTiesToAway*/
+   uint8_t dataFormat;  /*!< These parameter sets the format of the 16-bit output on the JESD interface:
+                        Setting this to 1 then the format is from MSB to LSB to {sign, significand, exponent}.
+                        Clearing this bit sets the format to {sign, exponent, significand}.*/
+   uint8_t encNan;      /*!< if this parameter is set to 1 then the floating point formatter reserves the highest value
+                        of exponent for NaN to be compatible to the IEEE754 specification.
+                        Clearing this parameter increases the range of the exponent by one.*/
+   uint8_t expBits;     /*!<These parameter is used to indicate the number of exponent bits in the floating point number
+                        according to the following settings:
+                          expBits|  Round type
+                         --------|------------------------------------------------
+                            0    |  2 bit exponent, 13 bit significand, 1 bit sign
+                            1    |  3 bit exponent, 12 bit significand, 1 bit sign
+                            2    |  4 bit exponent, 11 bit significand, 1 bit sign
+                            3    |  5 bit exponent, 10 bit significand, 1 bit sign */
+   uint8_t leading;     /*!< Setting this parameter hides the leading one in the the significand to be compatible to the IEEE754 specification.
+                        Clearing this parameter causes the leading one to be at the MSB of the significand.*/
 }mykonosFloatPntFrmt_t;
 
 /**
  *  \brief Data structure used to configure the on-die Temperature Sensor
- *
- *  uint8_t tempDecimation, 3-bit value that controls the AuxADC decimation factor
- *  when used for temp sensor calculations; AuxADC_decimation = 256 * 2^tempDecimation
- *
- *  uint8_t offset, 8-bit offset that gets added to temp sensor code internally
- *
- *  uint8_t overrideFusedOffset, this bit overrides the factory-calibrated fuse offset
- *  and uses the value stored in the offset member
- *
- *  uint8_t tempWindow, 4-bit code with a resolution of 1?C/LSB, each time a temperature measurement is performed,
- *  the device compares the current temperature against the previous value.
- *
- *
  */
 typedef struct
 {
-    uint8_t tempDecimation;
-    uint8_t offset;
-    uint8_t overrideFusedOffset;
-    uint8_t tempWindow;
+    uint8_t tempDecimation;      /*!<3-bit value that controls the AuxADC decimation factor when used for temp sensor calculations;
+                                 AuxADC_decimation = 256 * 2^tempDecimation */
+    uint8_t offset;              /*!< 8-bit offset that gets added to temp sensor code internally */
+    uint8_t overrideFusedOffset; /*!< This bit overrides the factory-calibrated fuse offset
+                                 and uses the value stored in the offset member */
+    uint8_t tempWindow;          /*!<  4-bit code with a resolution of 1?C/LSB, each time a temperature measurement is performed,
+                                 the device compares the current temperature against the previous value.*/
 }mykonosTempSensorConfig_t;
 
 
 /**
  *  \brief Data structure used to store Temperature Sensor related values
- *
- *   int16_t tempCode, 16-bit signed temperature value (in deg C) that is read back
- *
- *   uint8_t windowExceeded, If the absolute value of the difference is greater than the value in temperature configuration
- *   tempWindow, the windowExceeded flag is set.
- *
- *   uint8_t windowHiLo, when windowExceeded member gets set,
- *   this bit is set to 1 if current value is greater than previous value,
- *   else reset
- *
- *   uint8_t tempValid, when the reading is complete and a valid temperature value stored in tempCode
  */
 typedef struct
 {
-    int16_t tempCode;
-    uint8_t windowExceeded;
-    uint8_t windowHiLo;
-    uint8_t tempValid;
+    int16_t tempCode;       /*!< 16-bit signed temperature value (in deg C) that is read back */
+    uint8_t windowExceeded; /*!< If the absolute value of the difference is greater than the value in temperature configuration
+                            tempWindow, the windowExceeded flag is set.*/
+    uint8_t windowHiLo;     /*!<when windowExceeded member gets set,
+                            this bit is set to 1 if current value is greater than previous value, else reset */
+    uint8_t tempValid;      /*!< When the reading is complete and a valid temperature value stored in tempCode*/
 }mykonosTempSensorStatus_t;
 
 
