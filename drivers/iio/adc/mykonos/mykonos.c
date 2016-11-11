@@ -33,8 +33,7 @@
  * as well for further instructions.
  */
 
-#include <stdint.h>
-#include <stddef.h>
+#include <linux/kernel.h>
 #include "common.h"
 #include "mykonos.h"
 #include "mykonos_gpio.h"
@@ -1900,7 +1899,7 @@ mykonosErr_t MYKONOS_initDigitalClocks(mykonosDevice_t *device)
     /* RF PLL variables */
     uint16_t integerWord;
     uint32_t fractionalWord;
-    uint32_t fractionalRemainder;
+    uint64_t fractionalRemainder;
     uint32_t scaledRefClk_Hz;
 
     /* common */
@@ -2065,12 +2064,10 @@ mykonosErr_t MYKONOS_initDigitalClocks(mykonosDevice_t *device)
 
     /* Calculate PLL integer and fractional words with integer math */
     scaledRefClk_Hz = scaledRefClk_kHz * 1000;
-    hsDigClk_Hz = (((uint64_t)(device->clocks->clkPllVcoFreq_kHz) * 10000) / vcoDivTimes10) / hsDiv;
-    integerWord = (uint16_t)(hsDigClk_Hz / scaledRefClk_Hz);
-    fractionalRemainder = hsDigClk_Hz % scaledRefClk_Hz;
+    hsDigClk_Hz = DIV_U64(DIV_U64((uint64_t)(device->clocks->clkPllVcoFreq_kHz) * 10000, vcoDivTimes10), hsDiv);
 
-    /* +1 >> 1 is rounding (add .5) */
-    fractionalWord = ((uint32_t)((((uint64_t)fractionalRemainder * 4177920) / (uint64_t)scaledRefClk_Hz) + 1) >> 1);
+    integerWord = (uint16_t) DIV_U64_REM(hsDigClk_Hz, scaledRefClk_Hz, &fractionalRemainder);
+    fractionalWord = (uint32_t)(DIV_U64(fractionalRemainder  * 4177920, (uint64_t)scaledRefClk_Hz) + 1 ) >> 1;
 
     /* if fractionalWord rounded up and == PLL modulus, fix it */
     if (fractionalWord == 2088960)
@@ -2349,7 +2346,7 @@ mykonosErr_t MYKONOS_getRfPllFrequency(mykonosDevice_t *device, mykonosRfPllName
         }
 
         /* round to nearest Hz for fractional word (fractional modulus = 2088960) */
-        *rfPllLoFrequency_Hz = (uint64_t)(((refclk_Hz * clkPllIntWord) + (((refclk_Hz * clkPllFracWord / 1044480) + 1) >> 1)) * hsDiv * vcoDivTimes10 / 10);
+	*rfPllLoFrequency_Hz = DIV_U64(((refclk_Hz * clkPllIntWord)  + ((DIV_U64(refclk_Hz * clkPllFracWord, 1044480) + 1) >> 1)) * hsDiv * vcoDivTimes10, 10);
     }
     else
     {
@@ -6664,8 +6661,8 @@ mykonosErr_t MYKONOS_enableTxNco(mykonosDevice_t *device, uint8_t enable, int32_
         CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_TX_TPC_CONFIG, 0x0A, 0x0F, 0);
 
         /* Set Tx NCO tuning words */
-        tx1NcoTuneWord = (int16_t)(((int64_t)(tx1ToneFreq_kHz) << 16) / device->tx->txProfile->iqRate_kHz * -1);
-        tx2NcoTuneWord = (int16_t)(((int64_t)(tx2ToneFreq_kHz) << 16) / device->tx->txProfile->iqRate_kHz * -1);
+	tx1NcoTuneWord = (int16_t)DIV_S64(((int64_t)(tx1ToneFreq_kHz) << 16), device->tx->txProfile->iqRate_kHz * -1);
+	tx2NcoTuneWord = (int16_t)DIV_S64(((int64_t)(tx2ToneFreq_kHz) << 16), device->tx->txProfile->iqRate_kHz * -1);
 
         CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_TX_ABBF_FREQ_CAL_NCO_I_MSB, ((tx1NcoTuneWord >> 8) & 0xFF));
         CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_TX_ABBF_FREQ_CAL_NCO_I_LSB, (tx1NcoTuneWord & 0xFF));
