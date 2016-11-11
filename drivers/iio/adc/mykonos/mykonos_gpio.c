@@ -3,7 +3,7 @@
  *
  *\brief Contains Mykonos APIs for transceiver GPIO configuration and control.
  *
- * Mykonos API version: 1.3.0.3528
+ * Mykonos API version: 1.3.1.3534
  */
 
 
@@ -15,6 +15,8 @@
  * PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
  */
 
+#include <stdint.h>
+#include <stddef.h>
 #include "common.h"
 #include "mykonos.h"
 #include "mykonos_gpio.h"
@@ -1728,7 +1730,7 @@ mykonosGpioErr_t MYKONOS_setTx1AttenCtrlPin(mykonosDevice_t *device, uint8_t ste
         }
 
         /* Setting TPC mode corresponding to the enable */
-        tpcMode = (enable > 0) ? 0x03 : 0x01;
+        tpcMode = 0x03;
 
         /* Setting TPC control for Tx2 using Tx1 */
         if (useTx1ForTx2 > 0)
@@ -1961,7 +1963,7 @@ mykonosGpioErr_t MYKONOS_setTx2AttenCtrlPin(mykonosDevice_t *device, uint8_t ste
         }
 
         /* Setting TPC mode corresponding to the enable */
-        tpcMode = (enable > 0) ? 0x0C : 0x01;
+        tpcMode = 0x0C;
     }
     else
     {
@@ -2825,8 +2827,8 @@ mykonosGpioErr_t MYKONOS_setupAuxDacs(mykonosDevice_t *device)
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AUX_DAC_LATCH_CONTROL, 0x01);
 
     /* Power up selected AuxDacs */
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_PDAUXDAC_MANUAL_IN_5_0, (~device->auxIo->auxDacEnable & 0x3F)); /* Power up enabled AuxDACs[5:0] */
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_PDAUXDAC_MANUAL_IN_9_6, ((~device->auxIo->auxDacEnable >> 6) & 0x0F)); /* Power up enabled AuxDACs[9:6] */
+    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_PDAUXDAC_MANUAL_IN_5_0, ((~device->auxIo->auxDacEnable) & 0x3F)); /* Power up enabled AuxDACs[5:0] */
+    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_PDAUXDAC_MANUAL_IN_9_6, (((~device->auxIo->auxDacEnable) >> 6) & 0x0F)); /* Power up enabled AuxDACs[9:6] */
 
     return error;
 }
