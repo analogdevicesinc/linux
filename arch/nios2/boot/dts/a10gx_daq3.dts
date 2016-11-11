@@ -216,7 +216,7 @@
 					<0x0003c000 0x00001000>;
 				reg-names = "jesd-xcvr", "xcvr-reconfig-avmm", "xcvr-atx-pll";
 				adi,external-sysref-enable;
-				adi,delay-work-function-seconds = <5>;
+				adi,delay-work-function-seconds = <10>;
 				adi,tx-enable;
 				adi,tx-reconfig-avmm-enable;
 				adi,tx-link-number = <0>;
