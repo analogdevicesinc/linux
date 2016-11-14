@@ -57,6 +57,7 @@ static int ultra_low_bus_freq_mode;
 static int high_bus_freq_mode;
 static int med_bus_freq_mode;
 static int bus_freq_scaling_initialized;
+static bool cancel_reduce_bus_freq;
 static struct device *busfreq_dev;
 static int busfreq_suspended;
 static int bus_freq_scaling_is_active;
@@ -661,7 +662,8 @@ static void reduce_bus_freq_handler(struct work_struct *work)
 {
 	mutex_lock(&bus_freq_mutex);
 
-	reduce_bus_freq();
+	if (!cancel_reduce_bus_freq)
+		reduce_bus_freq();
 
 	mutex_unlock(&bus_freq_mutex);
 }
@@ -671,13 +673,15 @@ static void reduce_bus_freq_handler(struct work_struct *work)
  * This mode will be activated only when none of the modules that
  * need a higher DDR or AHB frequency are active.
  */
-int set_low_bus_freq(void)
+static int set_low_bus_freq(void)
 {
 	if (busfreq_suspended)
 		return 0;
 
 	if (!bus_freq_scaling_initialized || !bus_freq_scaling_is_active)
 		return 0;
+
+	cancel_reduce_bus_freq = false;
 
 	/*
 	 * Check to see if we need to got from
@@ -697,6 +701,12 @@ int set_low_bus_freq(void)
 	return 0;
 }
 
+static inline void cancel_low_bus_freq_handler(void)
+{
+	cancel_delayed_work(&low_bus_freq_handler);
+	cancel_reduce_bus_freq = true;
+}
+
 /*
  * Set the DDR to either 528MHz or 400MHz for iMX6qd
  * or 400MHz for iMX6dl.
@@ -704,7 +714,7 @@ int set_low_bus_freq(void)
 static int set_high_bus_freq(int high_bus_freq)
 {
 	if (bus_freq_scaling_initialized && bus_freq_scaling_is_active)
-		cancel_delayed_work_sync(&low_bus_freq_handler);
+		cancel_low_bus_freq_handler();
 
 	if (busfreq_suspended)
 		return 0;
@@ -779,7 +789,8 @@ void request_bus_freq(enum bus_freq_mode mode)
 		mutex_unlock(&bus_freq_mutex);
 		return;
 	}
-	cancel_delayed_work_sync(&low_bus_freq_handler);
+
+	cancel_low_bus_freq_handler();
 
 	if ((mode == BUS_FREQ_HIGH) && (!high_bus_freq_mode)) {
 		set_high_bus_freq(1);
