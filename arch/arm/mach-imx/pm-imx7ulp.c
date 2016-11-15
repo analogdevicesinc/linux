@@ -239,6 +239,7 @@ struct imx7ulp_cpu_pm_info {
 	phys_addr_t resume_addr; /* The physical resume address for asm code */
 	u32 pm_info_size; /* Size of pm_info. */
 	struct imx7ulp_pm_base sim_base;
+	struct imx7ulp_pm_base scg1_base;
 	struct imx7ulp_pm_base mmdc_base;
 	struct imx7ulp_pm_base mmdc_io_base;
 	u32 scg1[16];
@@ -259,6 +260,7 @@ static const char * const low_power_ocram_match[] __initconst = {
 static struct map_desc imx7ulp_pm_io_desc[] __initdata = {
 	imx_map_entry(MX7ULP, AIPS1, MT_DEVICE),
 	imx_map_entry(MX7ULP, AIPS2, MT_DEVICE),
+	imx_map_entry(MX7ULP, AIPS3, MT_DEVICE),
 };
 
 static void imx7ulp_scg1_save(void)
@@ -525,12 +527,10 @@ void __init imx7ulp_pm_map_io(void)
 	 * Make sure the AIPS1 virtual address has a mapping in the
 	 * IRAM page table.
 	 */
-	for (i = 0; i < 4; i++) {
-		j = ((IMX_IO_P2V(MX7ULP_AIPS1_BASE_ADDR + i * 0x100000) >> 20) << 2) / 4;
-		*((unsigned long *)iram_tlb_base_addr + j) =
-			((MX7ULP_AIPS1_BASE_ADDR + i * 0x100000) & 0xFFF00000) |
-			TT_ATTRIB_NON_CACHEABLE_1M;
-	}
+	j = ((IMX_IO_P2V(MX7ULP_AIPS1_BASE_ADDR) >> 20) << 2) / 4;
+	*((unsigned long *)iram_tlb_base_addr + j) =
+		((MX7ULP_AIPS1_BASE_ADDR) & 0xFFF00000) |
+		TT_ATTRIB_NON_CACHEABLE_1M;
 	/*
 	 * Make sure the AIPS2 virtual address has a mapping in the
 	 * IRAM page table.
@@ -541,6 +541,14 @@ void __init imx7ulp_pm_map_io(void)
 			((MX7ULP_AIPS2_BASE_ADDR + i * 0x100000) & 0xFFF00000) |
 			TT_ATTRIB_NON_CACHEABLE_1M;
 	}
+	/*
+	 * Make sure the AIPS3 virtual address has a mapping in the
+	 * IRAM page table.
+	 */
+	j = ((IMX_IO_P2V(MX7ULP_AIPS3_BASE_ADDR) >> 20) << 2) / 4;
+	*((unsigned long *)iram_tlb_base_addr + j) =
+		((MX7ULP_AIPS3_BASE_ADDR) & 0xFFF00000) |
+		TT_ATTRIB_NON_CACHEABLE_1M;
 }
 
 void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
@@ -619,6 +627,10 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	pm_info->sim_base.pbase = MX7ULP_SIM_BASE_ADDR;
 	pm_info->sim_base.vbase = (void __iomem *)
 				IMX_IO_P2V(MX7ULP_SIM_BASE_ADDR);
+
+	pm_info->scg1_base.pbase = MX7ULP_SCG1_BASE_ADDR;
+	pm_info->scg1_base.vbase = (void __iomem *)
+				IMX_IO_P2V(MX7ULP_SCG1_BASE_ADDR);
 
 	pm_info->mmdc_base.pbase = MX7ULP_MMDC_BASE_ADDR;
 	pm_info->mmdc_base.vbase = (void __iomem *)
