@@ -75,6 +75,7 @@ int max17135_reg_read(int reg_num, unsigned int *reg_val)
 	*reg_val = result;
 	return PMIC_SUCCESS;
 }
+EXPORT_SYMBOL(max17135_reg_read);
 
 int max17135_reg_write(int reg_num, const unsigned int reg_val)
 {
@@ -92,6 +93,7 @@ int max17135_reg_write(int reg_num, const unsigned int reg_val)
 
 	return PMIC_SUCCESS;
 }
+EXPORT_SYMBOL(max17135_reg_write);
 
 #ifdef CONFIG_OF
 static struct max17135_platform_data *max17135_i2c_parse_dt_pdata(
