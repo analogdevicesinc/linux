@@ -49,6 +49,7 @@
 #define FXLS8471_BUF_SIZE		6
 
 struct fxls8471_data fxls8471_dev;
+EXPORT_SYMBOL(fxls8471_dev);
 
 static int fxls8471_position_setting[8][3][3] = {
 	{{0, -1, 0}, {1, 0, 0}, {0, 0, 1} },
