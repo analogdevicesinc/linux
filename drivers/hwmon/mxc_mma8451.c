@@ -556,6 +556,7 @@ static int mma8451_resume(struct device *dev)
 
 static const struct i2c_device_id mma8451_id[] = {
 	{"mma8451", 0},
+	{ /* sentinel */ }
 };
 
 MODULE_DEVICE_TABLE(i2c, mma8451_id);
