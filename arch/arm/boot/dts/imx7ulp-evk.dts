@@ -9,7 +9,6 @@
 /dts-v1/;
 
 #include "imx7ulp.dtsi"
-#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "NXP i.MX7ULP EVK";
@@ -46,6 +45,25 @@
 			startup-delay-us = <100>;
 			enable-active-high;
 		};
+
+		reg_usb_otg1_vbus: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_usb_otg1>;
+			regulator-name = "usb_otg1_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+	};
+
+	extcon_usb1: extcon_usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpio = <&gpio0 8 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_extcon_usb1>;
 	};
 
 	pf1550-rpmsg {
@@ -183,6 +201,18 @@
 			>;
 		};
 
+		pinctrl_usb_otg1: usbotg1grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC0__PTC0		0x30100
+			>;
+		};
+
+		pinctrl_extcon_usb1: extcon1grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC8__PTC8		0x30103
+			>;
+		};
+
 		pinctrl_usdhc1: usdhc1grp {
 			fsl,pins = <
 				IMX7ULP_PAD_PTE3__SDHC1_CMD	0x843
@@ -281,6 +311,15 @@
 };
 
 &rpmsg{
+	status = "okay";
+};
+
+&usbotg1 {
+	vbus-supply = <&reg_usb_otg1_vbus>;
+	extcon = <0>, <&extcon_usb1>;
+	srp-disable;
+	hnp-disable;
+	adp-disable;
 	status = "okay";
 };
 
