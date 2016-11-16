@@ -408,9 +408,10 @@ static int imx_mu_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&mu_work, mu_work_handler);
 	INIT_DELAYED_WORK(&rpmsg_work, rpmsg_work_handler);
+	/* bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now */
 	if (cpu_is_imx7ulp())
 		writel_relaxed(readl_relaxed(mu_base + MX7ULP_MU_CR) |
-			BIT(26) | BIT(27), mu_base + MX7ULP_MU_CR);
+			BIT(0) | BIT(26) | BIT(27), mu_base + MX7ULP_MU_CR);
 	else
 		writel_relaxed(readl_relaxed(mu_base + MU_ACR) |
 			BIT(26) | BIT(27), mu_base + MU_ACR);
