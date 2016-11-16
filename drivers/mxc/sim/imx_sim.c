@@ -1708,7 +1708,7 @@ static const struct of_device_id sim_imx_dt_ids[] = {
 	{ /* sentinel */ }
 };
 
-MODULE_DEVICE_TABLE(of, mlb150_imx_dt_ids);
+MODULE_DEVICE_TABLE(of, sim_imx_dt_ids);
 
 static int sim_probe(struct platform_device *pdev)
 {
