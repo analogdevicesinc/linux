@@ -128,7 +128,7 @@
 						 CTRL1_VSYNC_EDGE_IRQ)
 #define CTRL1_IRQ_STATUS_SHIFT			8
 
-#define CTRL2_OUTSTANDING_REQS__REQ_16		(3 << 21)
+#define CTRL2_OUTSTANDING_REQS__REQ_16		(4 << 21)
 
 #define TRANSFER_COUNT_SET_VCOUNT(x)	(((x) & 0xffff) << 16)
 #define TRANSFER_COUNT_GET_VCOUNT(x)	(((x) >> 16) & 0xffff)
