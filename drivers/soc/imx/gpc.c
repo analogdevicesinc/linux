@@ -59,7 +59,7 @@
 #define PGC_DOMAIN_FLAG_NO_PD		BIT(0)
 
 static void __iomem *gpc_base;
-static struct clk *ipg;
+static struct clk *ipg_clk;
 
 static inline bool cpu_is_imx6sx(void)
 {
@@ -115,6 +115,9 @@ static void _imx6_pm_domain_power_off(struct generic_pm_domain *genpd)
 
 	/* Wait ISO + ISO2SW IPG clock cycles */
 	udelay(DIV_ROUND_UP(iso + iso2sw, pd->ipg_rate_mhz));
+
+	while (readl_relaxed(gpc_base + GPC_CNTR) & GPU_VPU_PDN_REQ)
+		;
 }
 
 static int imx6_pm_domain_power_off(struct generic_pm_domain *genpd)
@@ -135,8 +138,8 @@ static int imx6_pm_domain_power_off(struct generic_pm_domain *genpd)
 static void _imx6_pm_domain_power_on(struct generic_pm_domain *genpd)
 {
 	struct imx_pm_domain *pd = to_imx_pm_domain(genpd);
-	int i, sw, sw2iso;
-	u32 val;
+	int i;
+	u32 val, ipg_rate = clk_get_rate(ipg_clk);
 
 	/* Enable reset clocks for all devices in the domain */
 	for (i = 0; i < pd->num_clks; i++)
@@ -146,17 +149,15 @@ static void _imx6_pm_domain_power_on(struct generic_pm_domain *genpd)
 	regmap_update_bits(pd->regmap, pd->reg_offs + GPC_PGC_CTRL_OFFS,
 			   0x1, 0x1);
 
-	/* Read ISO and ISO2SW power up delays */
-	regmap_read(pd->regmap, pd->reg_offs + GPC_PGC_PUPSCR_OFFS, &val);
-	sw = val & 0x3f;
-	sw2iso = (val >> 8) & 0x3f;
-
 	/* Request GPC to power up domain */
 	val = BIT(pd->cntr_pdn_bit + 1);
 	regmap_update_bits(pd->regmap, GPC_CNTR, val, val);
 
-	/* Wait ISO + ISO2SW IPG clock cycles */
-	udelay(DIV_ROUND_UP(sw + sw2iso, pd->ipg_rate_mhz));
+	while (readl_relaxed(gpc_base + GPC_CNTR) & GPU_VPU_PUP_REQ)
+		;
+	/* Wait power switch done */
+	udelay(2 * DEFAULT_IPG_RATE / ipg_rate +
+		GPC_PU_UP_DELAY_MARGIN);
 
 	/* Disable reset clocks for all devices in the domain */
 	for (i = 0; i < pd->num_clks; i++)
@@ -186,7 +187,7 @@ static int imx6_pm_dispmix_on(struct generic_pm_domain *genpd)
 {
 	struct imx_pm_domain *pd = to_imx_pm_domain(genpd);
 	u32 val = readl_relaxed(gpc_base + GPC_CNTR);
-	u32 ipg_rate = clk_get_rate(ipg);
+	u32 ipg_rate = clk_get_rate(ipg_clk);
 	int i;
 
 	if ((cpu_is_imx6sl() &&
@@ -494,7 +495,7 @@ static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 	}
 	pu_domain->num_clks = i;
 
-	ipg = of_clk_get(dev->of_node, pu_clks);
+	ipg_clk = of_clk_get(dev->of_node, pu_clks);
 
 	/* Get disp domain clks */
 	for (i = pu_clks + ipg_clks; i < pu_clks + ipg_clks + disp_clks;
@@ -641,7 +642,6 @@ static int imx_gpc_probe(struct platform_device *pdev)
 		struct imx_pm_domain *domain;
 		struct platform_device *pd_pdev;
 		struct device_node *np;
-		struct clk *ipg_clk;
 		unsigned int ipg_rate_mhz;
 		int domain_index;
 
