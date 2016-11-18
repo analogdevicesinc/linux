@@ -2218,7 +2218,7 @@ static int axienet_probe(struct platform_device *pdev)
 		lp->phy_node_int = of_parse_phandle(pdev->dev.of_node,
 						    "phy-handle", 1);
 		if (lp->phy_node_int)
-			phy_register_fixup_for_uid(0, 0xffffffff,
+			phy_register_fixup_for_uid(PHY_ANY_UID, 0xffffffff,
 						   axienet_pma_phy_fixup);
 	}
 
