@@ -42,7 +42,6 @@ struct clk *imx_clk_composite(const char *name, const char **parent_name,
 		mux->reg = reg;
 		mux->shift = PCG_PCS_SHIFT;
 		mux->mask = PCG_PCS_MASK;
-		mux->flags = CLK_MUX_INDEX_ONE;
 		/* mux->lock */
 	}
 
