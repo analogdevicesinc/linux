@@ -44,21 +44,19 @@
 #define PM_INFO_PBASE_OFFSET			0xc
 #define PM_INFO_RESUME_ADDR_OFFSET		0x10
 #define PM_INFO_PM_INFO_SIZE_OFFSET		0x14
-#define PM_INFO_PM_INFO_SIM_PBASE_OFFSET	0x18
-#define PM_INFO_PM_INFO_SIM_VBASE_OFFSET	0x1c
-#define PM_INFO_PM_INFO_SCG1_PBASE_OFFSET	0x20
-#define PM_INFO_PM_INFO_SCG1_VBASE_OFFSET	0x24
-#define PM_INFO_PM_INFO_MMDC_PBASE_OFFSET	0x28
-#define PM_INFO_PM_INFO_MMDC_VBASE_OFFSET	0x2c
-#define PM_INFO_PM_INFO_MMDC_IO_PBASE_OFFSET	0x30
-#define PM_INFO_PM_INFO_MMDC_IO_VBASE_OFFSET	0x34
-#define PM_INFO_PM_INFO_SCG1_VAL_OFFSET		0x38
-#define PM_INFO_MX7ULP_TTBR1_V_OFFSET		0x78
-#define PM_INFO_MMDC_IO_NUM_OFFSET		0x7c
-#define PM_INFO_MMDC_IO_VAL_OFFSET		0x80
+#define PM_INFO_PM_INFO_SIM_VBASE_OFFSET	0x18
+#define PM_INFO_PM_INFO_SCG1_VBASE_OFFSET	0x1c
+#define PM_INFO_PM_INFO_MMDC_VBASE_OFFSET	0x20
+#define PM_INFO_PM_INFO_GPIOC_VBASE_OFFSET	0x24
+#define PM_INFO_PM_INFO_MMDC_IO_VBASE_OFFSET	0x28
+#define PM_INFO_PM_INFO_SMC1_VBASE_OFFSET	0x2c
+#define PM_INFO_PM_INFO_SCG1_VAL_OFFSET		0x30
+#define PM_INFO_MX7ULP_TTBR1_V_OFFSET		0x70
+#define PM_INFO_MMDC_IO_NUM_OFFSET		0x74
+#define PM_INFO_MMDC_IO_VAL_OFFSET		0x78
 /* below offsets depends on MX7ULP_MAX_MMDC_IO_NUM(36) definition */
-#define PM_INFO_MMDC_NUM_OFFSET			0x1a0
-#define PM_INFO_MMDC_VAL_OFFSET			0x1a4
+#define PM_INFO_MMDC_NUM_OFFSET			0x198
+#define PM_INFO_MMDC_VAL_OFFSET			0x19c
 
 #define DGO_GPR3	0x60
 #define DGO_GPR4	0x64
@@ -86,6 +84,11 @@
 #define SCG_SOSCDIV	0x104
 
 #define PMC1_CTRL	0x24
+
+#define GPIO_PDOR	0x0
+#define GPIO_PDDR	0x14
+
+#define PMCTRL		0x10
 
 	.align 3
 
@@ -191,8 +194,8 @@
 
 	.macro	restore_mmdc_settings
 
-	ldr	r10, [r0, #PM_INFO_PM_INFO_MMDC_IO_PBASE_OFFSET]
-	ldr	r11, [r0, #PM_INFO_PM_INFO_MMDC_PBASE_OFFSET]
+	ldr	r10, =MX7ULP_MMDC_IO_BASE_ADDR
+	ldr	r11, =MX7ULP_MMDC_BASE_ADDR
 
 	/* resume mmdc iomuxc settings */
 	ldr	r6, [r0, #PM_INFO_MMDC_IO_NUM_OFFSET]
@@ -304,6 +307,22 @@ poll_dvfs_set:
 	ands	r7, r7, #(1 << 24)
 	beq	poll_dvfs_set
 
+	ldr	r10, [r0, #PM_INFO_PM_INFO_SMC1_VBASE_OFFSET]
+	ldr	r7, [r10, #PMCTRL]
+	and	r7, r7, #0x7
+	cmp	r7, #0x4
+	bne	wfi
+
+	/* turn off NVCC_DRAM_SW - PTC1 */
+	ldr	r10, [r0, #PM_INFO_PM_INFO_GPIOC_VBASE_OFFSET]
+	ldr	r7, [r10, #GPIO_PDDR]
+	orr	r7, #(1 << 1)
+	str	r7, [r10, #GPIO_PDDR]
+	ldr	r7, [r10, #GPIO_PDOR]
+	orr	r7, #(1 << 1)
+	str	r7, [r10, #GPIO_PDOR]
+
+wfi:
 	/* Zzz, enter stop mode */
 	wfi
 	nop
@@ -311,6 +330,25 @@ poll_dvfs_set:
 	nop
 	nop
 
+	ldr	r10, [r0, #PM_INFO_PM_INFO_SMC1_VBASE_OFFSET]
+	ldr	r7, [r10, #PMCTRL]
+	and	r7, r7, #0x7
+	cmp	r7, #0x4
+	bne	skip_gpio
+
+	/* turn on NVCC_DRAM_SW - PTC1 */
+	ldr	r10, [r0, #PM_INFO_PM_INFO_GPIOC_VBASE_OFFSET]
+	ldr	r7, [r10, #GPIO_PDOR]
+	bic	r7, #(1 << 1)
+	str	r7, [r10, #GPIO_PDOR]
+
+	/* gpioc needs 400us to ramp up, here use ~800us */
+	ldr	r7, =50000
+wait_gpio_up_vlps:
+	subs	r7, #0x1
+	bne	wait_gpio_up_vlps
+
+skip_gpio:
 	/* clear core0's entry and parameter */
 	ldr	r10, [r0, #PM_INFO_PM_INFO_SIM_VBASE_OFFSET]
 	mov	r7, #0x0
@@ -443,11 +481,36 @@ resume:
 	/* enable mmdc clock in pcc3 */
 	ldr	r11, =MX7ULP_PCC3_BASE_ADDR
 	ldr	r7, [r11, #0xac]
-	orr	r7, r7, #0x40000000
+	orr	r7, r7, #(1 << 30)
 	str	r7, [r11, #0xac]
 
-	restore_mmdc_settings
+	/* enable GPIO clock in pcc2 */
+	ldr	r11, =MX7ULP_PCC2_BASE_ADDR
+	ldr	r7, [r11, #0x3c]
+	orr	r7, r7, #(1 << 30)
+	str	r7, [r11, #0x3c]
 
+	/* enable PTC1 IOMUXC */
+	ldr	r11, =MX7ULP_IOMUXC1_BASE_ADDR
+	ldr	r7, =0x20100
+	str	r7, [r11, #0x4]
+
+	/* output PTC1 to 0 */
+	ldr	r11, =MX7ULP_GPIOC_BASE_ADDR
+	ldr	r7, [r11, #GPIO_PDDR]
+	orr	r7, #(1 << 1)
+	str	r7, [r11, #GPIO_PDDR]
+	ldr	r7, [r11, #GPIO_PDOR]
+	bic	r7, #(1 << 1)
+	str	r7, [r11, #GPIO_PDOR]
+
+	/* gpioc needs 400us to ramp up, here use ~800us */
+	ldr	r7, =50000
+wait_gpio_up_vlls:
+	subs	r7, #0x1
+	bne	wait_gpio_up_vlls
+
+	restore_mmdc_settings
 	mov	pc, lr
 ENDPROC(imx7ulp_suspend)
 

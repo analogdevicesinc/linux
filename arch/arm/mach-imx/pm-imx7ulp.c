@@ -107,6 +107,8 @@
 #define DGO_GPR3	0x60
 #define DGO_GPR4	0x64
 
+#define ADDR_1M_MASK	0xFFF00000
+
 static void __iomem *smc1_base;
 static void __iomem *pmc0_base;
 static void __iomem *pmc1_base;
@@ -120,7 +122,7 @@ static void __iomem *scg1_base;
 static void __iomem *wdog1_base;
 static void __iomem *wdog2_base;
 static void __iomem *suspend_ocram_base;
-static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_vbase);
+static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_base);
 
 static u32 tpm5_regs[4];
 static u32 lpuart4_regs[4];
@@ -148,6 +150,8 @@ static u32 scg1_offset[16] = {
 	0x608, 0x60c, 0x610, 0x614,
 };
 
+static u32 ptc1;
+
 extern unsigned long iram_tlb_base_addr;
 extern unsigned long iram_tlb_phys_addr;
 
@@ -164,12 +168,6 @@ extern unsigned long iram_tlb_phys_addr;
  *              PM_INFO structure(imx7ulp_cpu_pm_info)
  * ======================== low address =======================
  */
-
-struct imx7ulp_pm_base {
-	phys_addr_t pbase;
-	void __iomem *vbase;
-};
-
 struct imx7ulp_pm_socdata {
 	u32 ddr_type;
 	const char *mmdc_compat;
@@ -238,10 +236,12 @@ struct imx7ulp_cpu_pm_info {
 	phys_addr_t pbase; /* The physical address of pm_info. */
 	phys_addr_t resume_addr; /* The physical resume address for asm code */
 	u32 pm_info_size; /* Size of pm_info. */
-	struct imx7ulp_pm_base sim_base;
-	struct imx7ulp_pm_base scg1_base;
-	struct imx7ulp_pm_base mmdc_base;
-	struct imx7ulp_pm_base mmdc_io_base;
+	void __iomem *sim_base;
+	void __iomem *scg1_base;
+	void __iomem *mmdc_base;
+	void __iomem *gpio_base;
+	void __iomem *mmdc_io_base;
+	void __iomem *smc1_base;
 	u32 scg1[16];
 	u32 ttbr1; /* Store TTBR1 */
 	u32 mmdc_io_num; /* Number of MMDC IOs which need saved/restored. */
@@ -251,16 +251,15 @@ struct imx7ulp_cpu_pm_info {
 } __aligned(8);
 
 static struct imx7ulp_cpu_pm_info *pm_info;
+static void __iomem *aips1_base;
+static void __iomem *aips2_base;
+static void __iomem *aips3_base;
+static void __iomem *aips4_base;
+static void __iomem *aips5_base;
 
 static const char * const low_power_ocram_match[] __initconst = {
 	"fsl,lpm-sram",
 	NULL
-};
-
-static struct map_desc imx7ulp_pm_io_desc[] __initdata = {
-	imx_map_entry(MX7ULP, AIPS1, MT_DEVICE),
-	imx_map_entry(MX7ULP, AIPS2, MT_DEVICE),
-	imx_map_entry(MX7ULP, AIPS3, MT_DEVICE),
 };
 
 static void imx7ulp_scg1_save(void)
@@ -301,6 +300,16 @@ static void imx7ulp_pcc2_restore(void)
 
 	for (i = 0; i < 25; i++)
 		writel_relaxed(pcc2_regs[i][1], pcc2_base + pcc2_regs[i][0]);
+}
+
+static inline void imx7ulp_iomuxc_save(void)
+{
+	ptc1 = readl_relaxed(iomuxc1_base + 0x4);
+}
+
+static inline void imx7ulp_iomuxc_restore(void)
+{
+	writel_relaxed(ptc1, iomuxc1_base + 0x4);
 }
 
 static void imx7ulp_lpuart_save(void)
@@ -355,8 +364,8 @@ static void imx7ulp_disable_wdog(void)
 
 static void imx7ulp_set_dgo(u32 val)
 {
-	writel_relaxed(val, pm_info->sim_base.vbase + DGO_GPR3);
-	writel_relaxed(val, pm_info->sim_base.vbase + DGO_GPR4);
+	writel_relaxed(val, pm_info->sim_base + DGO_GPR3);
+	writel_relaxed(val, pm_info->sim_base + DGO_GPR4);
 }
 
 int imx7ulp_set_lpm(enum imx7ulp_cpu_pwr_mode mode)
@@ -423,17 +432,19 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 		imx7ulp_pcc3_save();
 		imx7ulp_tpm_save();
 		imx7ulp_lpuart_save();
+		imx7ulp_iomuxc_save();
 		imx7ulp_set_lpm(VLLS);
 
 		/* Zzz ... */
 		cpu_suspend(0, imx7ulp_suspend_finish);
 
+		imx7ulp_disable_wdog();
 		imx7ulp_pcc2_restore();
 		imx7ulp_pcc3_restore();
 		imx7ulp_lpuart_restore();
-		imx7ulp_disable_wdog();
 		imx7ulp_set_dgo(0);
 		imx7ulp_tpm_restore();
+		imx7ulp_iomuxc_restore();
 		imx7ulp_set_lpm(RUN);
 		break;
 	default:
@@ -481,8 +492,9 @@ static int __init imx7ulp_dt_find_lpsram(unsigned long node, const char *uname,
 		lpram_addr = be32_to_cpup(prop);
 
 		/* We need to create a 1M page table entry. */
-		iram_tlb_io_desc.virtual = IMX_IO_P2V(lpram_addr & 0xFFF00000);
-		iram_tlb_io_desc.pfn = __phys_to_pfn(lpram_addr & 0xFFF00000);
+		iram_tlb_io_desc.virtual =
+			IMX_IO_P2V(lpram_addr & ADDR_1M_MASK);
+		iram_tlb_io_desc.pfn = __phys_to_pfn(lpram_addr & ADDR_1M_MASK);
 		iram_tlb_phys_addr = lpram_addr;
 		iram_tlb_base_addr = IMX_IO_P2V(lpram_addr);
 		iotable_init(&iram_tlb_io_desc, 1);
@@ -493,9 +505,6 @@ static int __init imx7ulp_dt_find_lpsram(unsigned long node, const char *uname,
 
 void __init imx7ulp_pm_map_io(void)
 {
-	unsigned long i, j;
-
-	iotable_init(imx7ulp_pm_io_desc, ARRAY_SIZE(imx7ulp_pm_io_desc));
 	/*
 	 * Get the address of IRAM or OCRAM to be used by the low
 	 * power code from the device tree.
@@ -510,6 +519,17 @@ void __init imx7ulp_pm_map_io(void)
 
 	/* Set all entries to 0 except first 3 words reserved for M4. */
 	memset((void *)iram_tlb_base_addr, 0, MX7ULP_IRAM_TLB_SIZE);
+}
+
+void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
+				*socdata)
+{
+	struct device_node *np;
+	unsigned long sram_paddr;
+	const u32 *mmdc_offset_array;
+	const u32 *mmdc_io_offset_array;
+	unsigned long i, j;
+	int ret;
 
 	/*
 	 * Make sure the IRAM virtual address has a mapping in the IRAM
@@ -521,44 +541,53 @@ void __init imx7ulp_pm_map_io(void)
 	 */
 	j = ((iram_tlb_base_addr >> 20) << 2) / 4;
 	*((unsigned long *)iram_tlb_base_addr + j) =
-		(iram_tlb_phys_addr & 0xFFF00000) | TT_ATTRIB_NON_CACHEABLE_1M;
-
+		(iram_tlb_phys_addr & ADDR_1M_MASK) |
+		TT_ATTRIB_NON_CACHEABLE_1M;
 	/*
 	 * Make sure the AIPS1 virtual address has a mapping in the
 	 * IRAM page table.
 	 */
-	j = ((IMX_IO_P2V(MX7ULP_AIPS1_BASE_ADDR) >> 20) << 2) / 4;
+	aips1_base = ioremap(MX7ULP_AIPS1_BASE_ADDR, SZ_1M);
+	j = (((u32)aips1_base >> 20) << 2) / 4;
 	*((unsigned long *)iram_tlb_base_addr + j) =
-		((MX7ULP_AIPS1_BASE_ADDR) & 0xFFF00000) |
+		((MX7ULP_AIPS1_BASE_ADDR) & ADDR_1M_MASK) |
 		TT_ATTRIB_NON_CACHEABLE_1M;
 	/*
 	 * Make sure the AIPS2 virtual address has a mapping in the
 	 * IRAM page table.
 	 */
-	for (i = 0; i < 4; i++) {
-		j = ((IMX_IO_P2V(MX7ULP_AIPS2_BASE_ADDR + i * 0x100000) >> 20) << 2) / 4;
-		*((unsigned long *)iram_tlb_base_addr + j) =
-			((MX7ULP_AIPS2_BASE_ADDR + i * 0x100000) & 0xFFF00000) |
-			TT_ATTRIB_NON_CACHEABLE_1M;
-	}
+	aips2_base = ioremap(MX7ULP_AIPS2_BASE_ADDR, SZ_1M);
+	j = (((u32)aips2_base >> 20) << 2) / 4;
+	*((unsigned long *)iram_tlb_base_addr + j) =
+		((MX7ULP_AIPS2_BASE_ADDR) & ADDR_1M_MASK) |
+		TT_ATTRIB_NON_CACHEABLE_1M;
 	/*
 	 * Make sure the AIPS3 virtual address has a mapping in the
 	 * IRAM page table.
 	 */
-	j = ((IMX_IO_P2V(MX7ULP_AIPS3_BASE_ADDR) >> 20) << 2) / 4;
+	aips3_base = ioremap(MX7ULP_AIPS3_BASE_ADDR, SZ_1M);
+	j = (((u32)aips3_base >> 20) << 2) / 4;
 	*((unsigned long *)iram_tlb_base_addr + j) =
-		((MX7ULP_AIPS3_BASE_ADDR) & 0xFFF00000) |
+		((MX7ULP_AIPS3_BASE_ADDR) & ADDR_1M_MASK) |
 		TT_ATTRIB_NON_CACHEABLE_1M;
-}
-
-void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
-				*socdata)
-{
-	struct device_node *np;
-	unsigned long sram_paddr;
-	const u32 *mmdc_offset_array;
-	const u32 *mmdc_io_offset_array;
-	int i, ret;
+	/*
+	 * Make sure the AIPS4 virtual address has a mapping in the
+	 * IRAM page table.
+	 */
+	aips4_base = ioremap(MX7ULP_AIPS4_BASE_ADDR, SZ_1M);
+	j = (((u32)aips4_base >> 20) << 2) / 4;
+	*((unsigned long *)iram_tlb_base_addr + j) =
+		((MX7ULP_AIPS4_BASE_ADDR) & ADDR_1M_MASK) |
+		TT_ATTRIB_NON_CACHEABLE_1M;
+	/*
+	 * Make sure the AIPS5 virtual address has a mapping in the
+	 * IRAM page table.
+	 */
+	aips5_base = ioremap(MX7ULP_AIPS5_BASE_ADDR, SZ_1M);
+	j = (((u32)aips5_base >> 20) << 2) / 4;
+	*((unsigned long *)iram_tlb_base_addr + j) =
+		((MX7ULP_AIPS5_BASE_ADDR) & ADDR_1M_MASK) |
+		TT_ATTRIB_NON_CACHEABLE_1M;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-smc1");
 	smc1_base = of_iomap(np, 0);
@@ -624,21 +653,18 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	pm_info->resume_addr = virt_to_phys(imx7ulp_cpu_resume);
 	pm_info->pm_info_size = sizeof(*pm_info);
 
-	pm_info->sim_base.pbase = MX7ULP_SIM_BASE_ADDR;
-	pm_info->sim_base.vbase = (void __iomem *)
-				IMX_IO_P2V(MX7ULP_SIM_BASE_ADDR);
-
-	pm_info->scg1_base.pbase = MX7ULP_SCG1_BASE_ADDR;
-	pm_info->scg1_base.vbase = (void __iomem *)
-				IMX_IO_P2V(MX7ULP_SCG1_BASE_ADDR);
-
-	pm_info->mmdc_base.pbase = MX7ULP_MMDC_BASE_ADDR;
-	pm_info->mmdc_base.vbase = (void __iomem *)
-				IMX_IO_P2V(MX7ULP_MMDC_BASE_ADDR);
-
-	pm_info->mmdc_io_base.pbase = MX7ULP_MMDC_IO_BASE_ADDR;
-	pm_info->mmdc_io_base.vbase = (void __iomem *)
-				IMX_IO_P2V(MX7ULP_MMDC_IO_BASE_ADDR);
+	pm_info->gpio_base = aips1_base +
+		(MX7ULP_GPIOC_BASE_ADDR & ~ADDR_1M_MASK);
+	pm_info->scg1_base = aips2_base +
+		(MX7ULP_SCG1_BASE_ADDR & ~ADDR_1M_MASK);
+	pm_info->smc1_base = aips3_base +
+		(MX7ULP_SMC1_BASE_ADDR & ~ADDR_1M_MASK);
+	pm_info->mmdc_base = aips4_base +
+		(MX7ULP_MMDC_BASE_ADDR & ~ADDR_1M_MASK);
+	pm_info->mmdc_io_base = aips4_base +
+		(MX7ULP_MMDC_IO_BASE_ADDR & ~ADDR_1M_MASK);
+	pm_info->sim_base = aips5_base +
+		(MX7ULP_SIM_BASE_ADDR & ~ADDR_1M_MASK);
 
 	pm_info->mmdc_io_num = socdata->mmdc_io_num;
 	mmdc_io_offset_array = socdata->mmdc_io_offset;
@@ -649,7 +675,7 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 		pm_info->mmdc_io_val[i][0] =
 			mmdc_io_offset_array[i];
 		pm_info->mmdc_io_val[i][1] =
-			readl_relaxed(pm_info->mmdc_io_base.vbase +
+			readl_relaxed(pm_info->mmdc_io_base +
 			mmdc_io_offset_array[i]);
 	}
 
