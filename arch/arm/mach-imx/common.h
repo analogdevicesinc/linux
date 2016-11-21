@@ -243,4 +243,6 @@ static inline void imx_init_l2cache(void) {}
 extern const struct smp_operations imx_smp_ops;
 extern const struct smp_operations ls1021a_smp_ops;
 
+extern bool uart_from_osc;
+
 #endif
