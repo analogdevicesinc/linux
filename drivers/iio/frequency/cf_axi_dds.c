@@ -34,7 +34,7 @@
 #include "cf_axi_dds.h"
 #include "ad9122.h"
 
-unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
+static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 {
 	unsigned i;
 	u64 val64;
@@ -64,7 +64,8 @@ unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 	return i | val64;
 }
 
-int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val, int *r_val2)
+static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val,
+	int *r_val2)
 {
 	u64 val64;
 	int sign;
@@ -93,7 +94,7 @@ int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val, int *r_val2)
 }
 
 #ifdef CF_AXI_DDS_HAVE_TWOS_FMT
-unsigned cf_axi_dds_to_twos_fmt(int val, int val2)
+static unsigned cf_axi_dds_to_twos_fmt(int val, int val2)
 {
 	s64 sval64;
 	if (val < 0)
@@ -102,7 +103,7 @@ unsigned cf_axi_dds_to_twos_fmt(int val, int val2)
 	return div_s64(sval64, 1000000UL);
 }
 
-int cf_axi_dds_twos_fmt_to_iio(s16 val, int *r_val, int *r_val2)
+static int cf_axi_dds_twos_fmt_to_iio(s16 val, int *r_val, int *r_val2)
 {
 	*r_val = val;
 	*r_val2 = 14;
