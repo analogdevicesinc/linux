@@ -33,6 +33,7 @@
 		pinctrl_hog_1: hoggrp-1 {
 			fsl,pins = <
 				IMX7ULP_PAD_PTC10__PTC10	0x30100
+				IMX7ULP_PAD_PTC1__PTC1		0x20100
 			>;
 		};
 
