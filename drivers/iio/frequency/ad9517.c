@@ -551,7 +551,8 @@ static int ad9517_setup(struct ad9517_state *st)
 	bool uses_vco = false;
 	bool uses_clkin = false;
 
-	gpiod_set_value(st->gpio_sync, 1);
+	if (st->gpio_sync)
+		gpiod_set_value(st->gpio_sync, 1);
 
 	/* Setup PLL */
 	for (reg = AD9517_PFD_CP; reg <= AD9517_PLL8; reg++) {
@@ -742,7 +743,8 @@ static int ad9517_setup(struct ad9517_state *st)
 	st->div0123_freq = div0123_freq;
 	st->vco_divin_freq = vco_divin_freq;
 
-	gpiod_set_value(st->gpio_sync, 0);
+	if (st->gpio_sync)
+		gpiod_set_value(st->gpio_sync, 0);
 
 	return 0;
 }
