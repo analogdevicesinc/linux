@@ -307,12 +307,6 @@ poll_dvfs_set:
 	ands	r7, r7, #(1 << 24)
 	beq	poll_dvfs_set
 
-	ldr	r10, [r0, #PM_INFO_PM_INFO_SMC1_VBASE_OFFSET]
-	ldr	r7, [r10, #PMCTRL]
-	and	r7, r7, #0x7
-	cmp	r7, #0x4
-	bne	wfi
-
 	/* turn off NVCC_DRAM_SW - PTC1 */
 	ldr	r10, [r0, #PM_INFO_PM_INFO_GPIOC_VBASE_OFFSET]
 	ldr	r7, [r10, #GPIO_PDDR]
@@ -322,19 +316,50 @@ poll_dvfs_set:
 	orr	r7, #(1 << 1)
 	str	r7, [r10, #GPIO_PDOR]
 
-wfi:
+	/* switch NIC clock to FIRC */
+	ldr	r10, [r0, #PM_INFO_PM_INFO_SCG1_VBASE_OFFSET]
+	ldr	r7, [r10, #SCG_NICCCR]
+	bic	r7, #(1 << 28)
+	str	r7, [r10, #SCG_NICCCR]
+
+	/* switch RUN clock to FIRC */
+	ldr	r7, [r10, #SCG_RCCR]
+	bic	r7, #(0xf << 24)
+	orr	r7, #(0x3 << 24)
+	str	r7, [r10, #SCG_RCCR]
+
+	/* turn off SPLL and SPFD */
+	ldr	r7, [r10, #SCG_SPLLPFD]
+	mov	r8, r7
+	orr	r7, r7, #(0x1 << 31)
+	orr	r7, r7, #(0x1 << 23)
+	orr	r7, r7, #(0x1 << 15)
+	orr	r7, r7, #(0x1 << 7)
+	str	r7, [r10, #SCG_SPLLPFD]
+
+	ldr	r7, [r10, #SCG_SPLLCSR]
+	bic	r7, r7, #0x1
+	str	r7, [r10, #SCG_SPLLCSR]
+
+	/* turn off APLL and APFD */
+	ldr	r7, [r10, #SCG_APLLPFD]
+	mov	r9, r7
+	orr	r7, r7, #(0x1 << 31)
+	orr	r7, r7, #(0x1 << 23)
+	orr	r7, r7, #(0x1 << 15)
+	orr	r7, r7, #(0x1 << 7)
+	str	r7, [r10, #SCG_APLLPFD]
+
+	ldr	r7, [r10, #SCG_APLLCSR]
+	bic	r7, r7, #0x1
+	str	r7, [r10, #SCG_APLLCSR]
+
 	/* Zzz, enter stop mode */
 	wfi
 	nop
 	nop
 	nop
 	nop
-
-	ldr	r10, [r0, #PM_INFO_PM_INFO_SMC1_VBASE_OFFSET]
-	ldr	r7, [r10, #PMCTRL]
-	and	r7, r7, #0x7
-	cmp	r7, #0x4
-	bne	skip_gpio
 
 	/* turn on NVCC_DRAM_SW - PTC1 */
 	ldr	r10, [r0, #PM_INFO_PM_INFO_GPIOC_VBASE_OFFSET]
@@ -348,18 +373,44 @@ wait_gpio_up_vlps:
 	subs	r7, #0x1
 	bne	wait_gpio_up_vlps
 
-skip_gpio:
 	/* clear core0's entry and parameter */
 	ldr	r10, [r0, #PM_INFO_PM_INFO_SIM_VBASE_OFFSET]
 	mov	r7, #0x0
 	str	r7, [r10, #DGO_GPR3]
 	str	r7, [r10, #DGO_GPR4]
 
+	/* enable SPLL and SPFD */
 	ldr	r10, [r0, #PM_INFO_PM_INFO_SCG1_VBASE_OFFSET]
+	ldr	r7, [r10, #SCG_SPLLCSR]
+	orr	r7, r7, #1
+	str	r7, [r10, #SCG_SPLLCSR]
+wait_spll:
+	ldr	r7, [r10, #SCG_SPLLCSR]
+	ands	r7, r7, #(1 << 24)
+	beq	wait_spll
+
+	str	r8, [r10, #SCG_SPLLPFD]
+	/* switch RUN clock to SPLL */
+	ldr	r7, [r10, #SCG_RCCR]
+	bic	r7, #(0xf << 24)
+	orr	r7, #(0x6 << 24)
+	str	r7, [r10, #SCG_RCCR]
+
+	/* enable APLL and APFD */
+	ldr	r7, [r10, #SCG_APLLCSR]
+	orr	r7, r7, #1
+	str	r7, [r10, #SCG_APLLCSR]
 wait_apll:
 	ldr	r7, [r10, #SCG_APLLCSR]
 	ands	r7, r7, #(1 << 24)
 	beq	wait_apll
+
+	str	r9, [r10, #SCG_APLLPFD]
+
+	/* switch NIC clock to DDR */
+	ldr	r7, [r10, #SCG_NICCCR]
+	orr	r7, #(1 << 28)
+	str	r7, [r10, #SCG_NICCCR]
 
 	/* let DDR out of self-refresh */
 	ldr	r7, [r11, #MX7ULP_MMDC_MAPSR]
