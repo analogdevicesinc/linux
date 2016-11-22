@@ -140,6 +140,7 @@
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9364>;
+			adi,axi-decimation-core-available;
 		};
 
 		cf_ad9364_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
@@ -149,6 +150,7 @@
 			clock-names = "sampl_clk";
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
+			adi,axi-interpolation-core-available;
 		};
 
 		mwipcore@43C00000 {
