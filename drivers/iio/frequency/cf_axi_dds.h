@@ -100,6 +100,8 @@ enum dds_data_select {
 #define ADI_USR_CHANMAX(x)	(((x) & 0xFF) << 0)
 #define ADI_TO_USR_CHANMAX(x)	(((x) >> 0) & 0xFF)
 
+#define ADI_REG_DAC_GP_CONTROL	0x00BC
+
 #define ADI_REG_DAC_DP_DISABLE	0x00C0
 #define ADI_DAC_DP_DISABLE	(1 << 0)
 
@@ -212,9 +214,10 @@ struct cf_axi_dds_state {
 	void __iomem		*master_regs;
 	u32			dac_clk;
 	unsigned 		ddr_dds_interp_en;
-	unsigned			cached_freq[8];
-	unsigned			version;
-	unsigned			have_slave_channels;
+	unsigned		cached_freq[8];
+	unsigned		version;
+	unsigned		have_slave_channels;
+	unsigned		interpolation_factor;
 	struct notifier_block   clk_nb;
 };
 
