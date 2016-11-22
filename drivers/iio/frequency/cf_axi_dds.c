@@ -1067,7 +1067,6 @@ static void dds_converter_put(struct device *conv_dev)
 
 struct axidds_core_info {
 	unsigned int version;
-	bool has_fifo_interface;
 	bool standalone;
 	struct cf_axi_dds_chip_info *chip_info;
 	unsigned int data_format;
@@ -1076,14 +1075,12 @@ struct axidds_core_info {
 
 static const struct axidds_core_info ad9122_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
 };
 
 static const struct axidds_core_info ad9361_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9361,
@@ -1091,7 +1088,6 @@ static const struct axidds_core_info ad9361_6_00_a_info = {
 
 static const struct axidds_core_info ad9364_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 1,
 	.chip_info = &cf_axi_dds_chip_info_ad9364,
@@ -1099,7 +1095,6 @@ static const struct axidds_core_info ad9364_6_00_a_info = {
 
 static const struct axidds_core_info ad9361x2_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9361x2,
@@ -1107,13 +1102,11 @@ static const struct axidds_core_info ad9361x2_6_00_a_info = {
 
 static const struct axidds_core_info ad9144_7_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.rate = 1,
 };
 
 static const struct axidds_core_info ad9739a_8_00_b_info = {
 	.version = PCORE_VERSION(9, 0, 'b'),
-	.has_fifo_interface = true,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
 };
@@ -1215,7 +1208,6 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
 	}
 
-	st->has_fifo_interface = info->has_fifo_interface;
 	st->standalone = info->standalone;
 	st->version = dds_read(st, ADI_REG_VERSION);
 	st->dp_disable = dds_read(st, ADI_REG_DAC_DP_DISABLE);
