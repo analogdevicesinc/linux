@@ -1081,13 +1081,6 @@ static const struct axidds_core_info ad9122_6_00_a_info = {
 	.data_format = ADI_DATA_FORMAT,
 };
 
-static const struct axidds_core_info ad9361_1_00_a_info = {
-	.version = PCORE_VERSION(4, 0, 'a'),
-	.standalone = true,
-	.rate = 3,
-	.chip_info = &cf_axi_dds_chip_info_ad9361,
-};
-
 static const struct axidds_core_info ad9361_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
 	.has_fifo_interface = true,
@@ -1136,9 +1129,6 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9122-core-2.00.a", },
 	{ .compatible = "xlnx,axi-dac-4d-2c-1.00.a", },
 	{
-	    .compatible = "xlnx,axi-ad9361-dds-1.00.a",
-	    .data = &ad9361_1_00_a_info,
-	}, {
 	    .compatible = "adi,axi-ad9361x2-dds-6.00.a",
 	    .data = &ad9361x2_6_00_a_info,
 	}, {
