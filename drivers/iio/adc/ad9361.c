@@ -8658,7 +8658,8 @@ static int ad9361_probe(struct spi_device *spi)
 	struct clk *clk = NULL;
 	int ret, rev;
 
-	dev_info(&spi->dev, "%s : enter", __func__);
+	dev_info(&spi->dev, "%s : enter (%s)", __func__,
+		 spi_get_device_id(spi)->name);
 
 	clk = devm_clk_get(&spi->dev, NULL);
 	if (IS_ERR(clk)) {
