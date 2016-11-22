@@ -24,7 +24,7 @@ static const char *spll_pfd_sels[]	= { "spll_pfd0", "spll_pfd1", "spll_pfd2", "s
 static const char *spll_sels[]		= { "spll", "spll_pfd_sel", };
 static const char *apll_pfd_sels[]	= { "apll_pfd0", "apll_pfd1", "apll_pfd2", "apll_pfd3", };
 static const char *apll_sels[]		= { "apll", "apll_pfd_sel", };
-static const char *sys_sels[]		= { "dummy", "osc", "sirc", "firc", "ckil", "apll", "spll", "upll", };
+static const char *sys_sels[]		= { "dummy", "osc", "sirc", "firc", "ckil", "apll_sel", "spll_sel", "upll", };
 static const char *ddr_sels[]		= { "apll_pfd_sel", "upll", };
 static const char *nic_sels[]		= { "firc", "ddr_div", };
 static const char *periph_plat_sels[]	= { "dummy", "nic1_bus", "nic1_div", "ddr_div", "apll_pfd2", "apll_pfd1", "apll_pfd0", "upll", };
@@ -34,8 +34,6 @@ static struct clk *clks[IMX7ULP_CLK_END];
 static struct clk_onecell_data clk_data;
 
 static int const clks_init_on[] __initconst = {
-	IMX7ULP_CLK_SPLL_PFD0,
-	IMX7ULP_CLK_CORE_DIV,
 	IMX7ULP_CLK_BUS_DIV,
 	IMX7ULP_CLK_PLAT_DIV,
 	IMX7ULP_CLK_NIC0_DIV,
