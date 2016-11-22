@@ -57,8 +57,10 @@ struct clk_frac_divider {
 	struct clk_hw	hw;
 	void __iomem	*reg;
 	u8		mshift;
+	u8		mwidth;
 	u32		mmask;
 	u8		nshift;
+	u8		nwidth;
 	u32		nmask;
 };
 

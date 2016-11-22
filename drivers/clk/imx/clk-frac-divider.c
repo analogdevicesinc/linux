@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
  *
+ * Based on driver/clk/clk-fractional-divider.c
+ *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
  * Version 2 or later at the following locations:
@@ -9,11 +11,12 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
+#include <linux/bitops.h>
 #include <linux/clk-provider.h>
-#include <linux/slab.h>
-#include <linux/io.h>
 #include <linux/err.h>
-#include <linux/gcd.h>
+#include <linux/io.h>
+#include <linux/slab.h>
+#include <linux/rational.h>
 
 #include "clk.h"
 
@@ -41,33 +44,39 @@ static long clk_frac_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 					unsigned long *parent_rate)
 {
 	struct clk_frac_divider *fd = to_clk_frac_divider(hw);
-	unsigned long div;
-	unsigned maxn = (fd->nmask >> fd->nshift) + 2;
+	unsigned long scale;
+	unsigned long m, n;
+	u64 ret;
 
 	if (!rate || rate >= *parent_rate)
 		return *parent_rate;
 
-	div = gcd(*parent_rate, rate);
+	scale = fls_long(*parent_rate / rate - 1);
+	if (scale > 4)
+		rate <<= scale - fd->nwidth;
 
-	while ((*parent_rate / div) > maxn) {
-		div <<= 1;
-		rate <<= 1;
-	}
+	rational_best_approximation(rate, *parent_rate,
+			GENMASK(fd->mwidth - 1, 0), GENMASK(fd->nwidth - 1, 0),
+			&m, &n);
 
-	return rate;
+	ret = (u64)*parent_rate * m;
+	do_div(ret, n);
+
+	return ret;
 }
 
 static int clk_frac_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 					unsigned long parent_rate)
 {
 	struct clk_frac_divider *fd = to_clk_frac_divider(hw);
-	unsigned long div;
 	unsigned long m, n;
 	u32 val;
 
-	div = gcd(parent_rate, rate);
-	m = rate / div - 1;
-	n = parent_rate / div - 1;
+	rational_best_approximation(rate, parent_rate,
+			GENMASK(fd->mwidth - 1, 0), GENMASK(fd->nwidth - 1, 0),
+			&m, &n);
+	m = m - 1;
+	n = n - 1;
 	if (m && !n)
 		return -EINVAL;
 

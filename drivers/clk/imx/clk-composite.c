@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -56,8 +56,10 @@ struct clk *imx_clk_composite(const char *name, const char **parent_name,
 		/* init the div struct */
 		div->reg = reg;
 		div->mshift = 3;
+		div->mwidth = 1;
 		div->mmask  = (0x1) << 3;
 		div->nshift = 0;
+		div->nwidth = 3;
 		div->nmask  = 0x7;
 	}
 
