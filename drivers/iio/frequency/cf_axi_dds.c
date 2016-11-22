@@ -1123,7 +1123,6 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
 	{ .compatible = "adi,axi-ad9144-1.0", .data = &ad9144_7_00_a_info},
 	{ .compatible = "adi,axi-ad9739a-8.00.b", .data = &ad9739a_8_00_b_info},
-	{ .compatible = "xlnx,axi-dac-4d-2c-1.00.a", },
 	{
 	    .compatible = "adi,axi-ad9361x2-dds-6.00.a",
 	    .data = &ad9361x2_6_00_a_info,
