@@ -92,7 +92,8 @@ static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
 	.channel = _ch, \
 	.address = _ch, \
 	.scan_index = _ch, \
-	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) | \
+		BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO), \
 	.ext_info = m2k_chan_ext_info, \
 	.scan_type = { \
 		.sign = 's', \
@@ -188,6 +189,9 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 			break;
 		}
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
+		*val = st->oversampling_ratio;
+		return IIO_VAL_INT;
 	default:
 		break;
 	}
@@ -218,6 +222,12 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		else
 			reg = 7;
 		iowrite32(reg, st->slave_regs + 0x44);
+		return 0;
+	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
+		if (val == 0)
+			return -EINVAL;
+		st->oversampling_ratio = val;
+		iowrite32(val - 1, st->slave_regs + 0x40);
 		return 0;
 	default:
 		break;
