@@ -1120,12 +1120,9 @@ static const struct axidds_core_info ad9739a_8_00_b_info = {
 
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
-	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", },
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
 	{ .compatible = "adi,axi-ad9144-1.0", .data = &ad9144_7_00_a_info},
 	{ .compatible = "adi,axi-ad9739a-8.00.b", .data = &ad9739a_8_00_b_info},
-	{ .compatible = "xlnx,cf-ad9122x2-core-1.00.a", },
-	{ .compatible = "xlnx,cf-ad9122-core-2.00.a", },
 	{ .compatible = "xlnx,axi-dac-4d-2c-1.00.a", },
 	{
 	    .compatible = "adi,axi-ad9361x2-dds-6.00.a",
