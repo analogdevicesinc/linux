@@ -30,6 +30,8 @@
 
 #include "cf_axi_adc.h"
 
+const unsigned int decimation_factors_available[] = {1, 8};
+
 struct axiadc_core_info {
 	bool has_fifo_interface;
 	unsigned int version;
@@ -224,6 +226,112 @@ out_unlock:
 	return ret;
 }
 
+static int axiadc_decimation_set(struct axiadc_state *st,
+				 unsigned int decimation_factor)
+{
+	int ret = 0;
+	u32 reg;
+
+	switch (decimation_factor) {
+		case 1:
+		case 8:
+			reg = axiadc_read(st, ADI_REG_GP_CONTROL);
+
+			if (st->decimation_factor == 8)
+				reg |= BIT(0);
+			else
+				reg &= ~BIT(0);
+
+			axiadc_write(st, ADI_REG_GP_CONTROL, reg);
+			break;
+		default:
+			ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int axiadc_get_parent_sampling_frequency(struct axiadc_state *st, unsigned long *freq)
+{
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	int ret = 0;
+
+	if (conv->clk)
+		*freq = clk_get_rate(conv->clk);
+	else
+		ret = -ENODEV;
+
+	return ret;
+}
+
+static ssize_t axiadc_decimation_store(struct axiadc_state *st,
+				       unsigned long frequency)
+{
+	unsigned long parent, val;
+	int i, ret;
+
+	if (!frequency)
+		return -EINVAL;
+
+	ret = axiadc_get_parent_sampling_frequency(st, &parent);
+	if (ret < 0)
+		return ret;
+
+	val = DIV_ROUND_CLOSEST(parent, frequency);
+
+	for (i = 0; i < ARRAY_SIZE(decimation_factors_available); i++) {
+		if (val == decimation_factors_available[i]) {
+			st->decimation_factor = val;
+			return axiadc_decimation_set(st, val);
+		}
+	}
+
+	return -EINVAL;
+}
+
+static ssize_t axiadc_sampling_frequency_available(struct device *dev,
+						   struct device_attribute *attr,
+						   char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	unsigned long freq;
+	int i, ret;
+
+	if (!st->decimation_factor)
+		return -ENODEV;
+
+	mutex_lock(&indio_dev->mlock);
+	ret = axiadc_get_parent_sampling_frequency(st, &freq);
+	if (ret < 0) {
+		mutex_unlock(&indio_dev->mlock);
+		return ret;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(decimation_factors_available); i++)
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "%ld ",
+				freq / decimation_factors_available[i]);
+
+		ret += snprintf(buf + ret - 1, PAGE_SIZE - ret, "\n");
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
+static IIO_DEVICE_ATTR(in_voltage_sampling_frequency_available, S_IRUGO,
+		       axiadc_sampling_frequency_available,
+		       NULL,
+		       0);
+
+static struct attribute *axiadc_attributes[] = {
+	&iio_dev_attr_in_voltage_sampling_frequency_available.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group axiadc_dec_attribute_group = {
+	.attrs = axiadc_attributes,
+};
+
 static int axiadc_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val,
@@ -308,6 +416,10 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 			do_div(llval, ADI_TO_USR_DECIMATION_N(tmp));
 			*val = llval;
 		}
+
+		if (st->decimation_factor)
+			*val /= st->decimation_factor;
+
 		return IIO_VAL_INT;
 	default:
 		return conv->read_raw(indio_dev, chan, val, val2, m);
@@ -403,6 +515,13 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(chan->channel), tmp);
 		axiadc_toggle_scale_offset_en(st);
 		return 0;
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (st->decimation_factor)
+			return axiadc_decimation_store(st, val);
+
+		return conv->write_raw(indio_dev, chan, val, val2, mask);
+
 	default:
 		return conv->write_raw(indio_dev, chan, val, val2, mask);
 	}
@@ -761,6 +880,12 @@ static int axiadc_probe(struct platform_device *pdev)
 
 		if (ret < 0)
 			goto err_put_converter;
+	}
+
+	if (!st->dp_disable && of_property_read_bool(pdev->dev.of_node, "adi,axi-decimation-core-available")) {
+		st->decimation_factor = 1;
+		WARN_ON(st->iio_info.attrs != NULL);
+		st->iio_info.attrs = &axiadc_dec_attribute_group;
 	}
 
 	ret = iio_device_register(indio_dev);
