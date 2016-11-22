@@ -1141,7 +1141,6 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 {
 
 	struct device_node *np = pdev->dev.of_node;
-	unsigned int expected_version;
 	struct cf_axi_converter *conv = NULL;
 	const struct axidds_core_info *info;
 	const struct of_device_id *id;
@@ -1155,7 +1154,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	int ret;
 
 	id = of_match_device(cf_axi_dds_of_match, &pdev->dev);
-	if (!id)
+	if (!id || !id->data)
 		return -ENODEV;
 
 	info = id->data;
@@ -1176,7 +1175,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		goto err_iio_device_free;
 	}
 
-	if (info && info->standalone) {
+	if (info->standalone) {
 		st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
 		if (IS_ERR(st->clk)) {
 			ret = PTR_ERR(st->clk);
@@ -1216,26 +1215,17 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
 	}
 
-
-	if (info) {
-		st->has_fifo_interface = info->has_fifo_interface;
-		st->standalone = info->standalone;
-	}
-
+	st->has_fifo_interface = info->has_fifo_interface;
+	st->standalone = info->standalone;
 	st->version = dds_read(st, ADI_REG_VERSION);
 	st->dp_disable = dds_read(st, ADI_REG_DAC_DP_DISABLE);
 
-	if (info)
-		expected_version = info->version;
-	else
-		expected_version = PCORE_VERSION(4, 0, 'a');
-
 	if (PCORE_VERSION_MAJOR(st->version) >
-		PCORE_VERSION_MAJOR(expected_version)) {
+		PCORE_VERSION_MAJOR(info->version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
-			PCORE_VERSION_MAJOR(expected_version),
-			PCORE_VERSION_MINOR(expected_version),
-			PCORE_VERSION_LETTER(expected_version),
+			PCORE_VERSION_MAJOR(info->version),
+			PCORE_VERSION_MINOR(info->version),
+			PCORE_VERSION_LETTER(info->version),
 			PCORE_VERSION_MAJOR(st->version),
 			PCORE_VERSION_MINOR(st->version),
 			PCORE_VERSION_LETTER(st->version));
