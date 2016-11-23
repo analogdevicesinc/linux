@@ -31,11 +31,15 @@ static int reserved_mem_count;
 
 #if defined(CONFIG_HAVE_MEMBLOCK)
 #include <linux/memblock.h>
-int __init __weak early_init_dt_alloc_reserved_memory_arch(phys_addr_t size,
-	phys_addr_t align, phys_addr_t start, phys_addr_t end, bool nomap,
-	phys_addr_t *res_base)
+int __init __weak early_init_dt_alloc_reserved_memory_arch(unsigned long node,
+	phys_addr_t size, phys_addr_t align, phys_addr_t start, phys_addr_t end,
+	bool nomap, phys_addr_t *res_base)
 {
 	phys_addr_t base;
+	phys_addr_t highmem_start;
+
+	highmem_start = __pa(high_memory - 1) + 1;
+
 	/*
 	 * We use __memblock_alloc_base() because memblock_alloc_base()
 	 * panic()s on allocation failure.
@@ -53,15 +57,34 @@ int __init __weak early_init_dt_alloc_reserved_memory_arch(phys_addr_t size,
 		return -ENOMEM;
 	}
 
+	/*
+	 * Sanity check for the cma reserved region:If the reserved region
+	 * crosses the low/high memory boundary, try to fix it up and then
+	 * fall back to allocate the cma region from the low mememory space.
+	 */
+
+	if (IS_ENABLED(CONFIG_CMA)
+	    && of_flat_dt_is_compatible(node, "shared-dma-pool")
+	    && of_get_flat_dt_prop(node, "reusable", NULL) && !nomap) {
+		if (base < highmem_start && (base + size) > highmem_start) {
+			memblock_free(base, size);
+			base = memblock_alloc_range(size, align, start,
+						    highmem_start,
+						    MEMBLOCK_NONE);
+			if (!base)
+				return -ENOMEM;
+		}
+	}
+
 	*res_base = base;
 	if (nomap)
 		return memblock_remove(base, size);
 	return 0;
 }
 #else
-int __init __weak early_init_dt_alloc_reserved_memory_arch(phys_addr_t size,
-	phys_addr_t align, phys_addr_t start, phys_addr_t end, bool nomap,
-	phys_addr_t *res_base)
+int __init __weak early_init_dt_alloc_reserved_memory_arch(unsigned long node,
+	phys_addr_t size, phys_addr_t align, phys_addr_t start, phys_addr_t end,
+	bool nomap, phys_addr_t *res_base)
 {
 	pr_err("Reserved memory not supported, ignoring region 0x%llx%s\n",
 		  size, nomap ? " (nomap)" : "");
@@ -155,8 +178,8 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 			end = start + dt_mem_next_cell(dt_root_size_cells,
 						       &prop);
 
-			ret = early_init_dt_alloc_reserved_memory_arch(size,
-					align, start, end, nomap, &base);
+			ret = early_init_dt_alloc_reserved_memory_arch(node,
+					size, align, start, end, nomap, &base);
 			if (ret == 0) {
 				pr_debug("allocated memory for '%s' node: base %pa, size %ld MiB\n",
 					uname, &base,
@@ -167,8 +190,8 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 		}
 
 	} else {
-		ret = early_init_dt_alloc_reserved_memory_arch(size, align,
-							0, 0, nomap, &base);
+		ret = early_init_dt_alloc_reserved_memory_arch(node,
+					size, align, 0, 0, nomap, &base);
 		if (ret == 0)
 			pr_debug("allocated memory for '%s' node: base %pa, size %ld MiB\n",
 				uname, &base, (unsigned long)size / SZ_1M);
