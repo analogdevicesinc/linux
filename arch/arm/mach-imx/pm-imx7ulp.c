@@ -70,6 +70,8 @@
 #define BM_PMCTRL_RUNM		(3 << 8)
 #define BM_PMCTRL_STOPM		(7 << 0)
 
+#define BM_VLPS_RBBEN		(1 << 28)
+
 #define BM_CTRL_LDOEN		(1 << 31)
 #define BM_CTRL_LDOOKDIS	(1 << 30)
 
@@ -420,10 +422,16 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 	switch (state) {
 	case PM_SUSPEND_STANDBY:
 		imx7ulp_set_lpm(VLPS);
+		writel_relaxed(
+			readl_relaxed(pmc1_base + PMC_VLPS) | BM_VLPS_RBBEN,
+			pmc1_base + PMC_VLPS);
 
 		/* Zzz ... */
 		cpu_suspend(0, imx7ulp_suspend_finish);
 
+		writel_relaxed(
+			readl_relaxed(pmc1_base + PMC_VLPS) & ~BM_VLPS_RBBEN,
+			pmc1_base + PMC_VLPS);
 		imx7ulp_set_lpm(RUN);
 		break;
 	case PM_SUSPEND_MEM:
