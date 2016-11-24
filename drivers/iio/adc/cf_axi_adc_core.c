@@ -312,7 +312,6 @@ static ssize_t axiadc_sampling_frequency_available(struct device *dev,
 		ret += snprintf(buf + ret, PAGE_SIZE - ret, "%ld ",
 				freq / decimation_factors_available[i]);
 
-		ret += snprintf(buf + ret - 1, PAGE_SIZE - ret, "\n");
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
