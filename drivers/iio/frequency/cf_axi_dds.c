@@ -1066,7 +1066,6 @@ static void dds_converter_put(struct device *conv_dev)
 
 struct axidds_core_info {
 	unsigned int version;
-	bool has_fifo_interface;
 	bool standalone;
 	struct cf_axi_dds_chip_info *chip_info;
 	unsigned int data_format;
@@ -1075,21 +1074,12 @@ struct axidds_core_info {
 
 static const struct axidds_core_info ad9122_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
 };
 
-static const struct axidds_core_info ad9361_1_00_a_info = {
-	.version = PCORE_VERSION(4, 0, 'a'),
-	.standalone = true,
-	.rate = 3,
-	.chip_info = &cf_axi_dds_chip_info_ad9361,
-};
-
 static const struct axidds_core_info ad9361_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9361,
@@ -1097,7 +1087,6 @@ static const struct axidds_core_info ad9361_6_00_a_info = {
 
 static const struct axidds_core_info ad9364_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 1,
 	.chip_info = &cf_axi_dds_chip_info_ad9364,
@@ -1105,7 +1094,6 @@ static const struct axidds_core_info ad9364_6_00_a_info = {
 
 static const struct axidds_core_info ad9361x2_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9361x2,
@@ -1113,31 +1101,21 @@ static const struct axidds_core_info ad9361x2_6_00_a_info = {
 
 static const struct axidds_core_info ad9144_7_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.rate = 1,
 };
 
 static const struct axidds_core_info ad9739a_8_00_b_info = {
 	.version = PCORE_VERSION(9, 0, 'b'),
-	.has_fifo_interface = true,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
 };
 
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
-	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", },
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
 	{ .compatible = "adi,axi-ad9144-1.0", .data = &ad9144_7_00_a_info},
-	{ .compatible = "xlnx,cf-ad9739a-core-1.00.a", },
 	{ .compatible = "adi,axi-ad9739a-8.00.b", .data = &ad9739a_8_00_b_info},
-	{ .compatible = "xlnx,cf-ad9122x2-core-1.00.a", },
-	{ .compatible = "xlnx,cf-ad9122-core-2.00.a", },
-	{ .compatible = "xlnx,axi-dac-4d-2c-1.00.a", },
 	{
-	    .compatible = "xlnx,axi-ad9361-dds-1.00.a",
-	    .data = &ad9361_1_00_a_info,
-	}, {
 	    .compatible = "adi,axi-ad9361x2-dds-6.00.a",
 	    .data = &ad9361x2_6_00_a_info,
 	}, {
@@ -1155,7 +1133,6 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 {
 
 	struct device_node *np = pdev->dev.of_node;
-	unsigned int expected_version;
 	struct cf_axi_converter *conv = NULL;
 	const struct axidds_core_info *info;
 	const struct of_device_id *id;
@@ -1169,7 +1146,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	int ret;
 
 	id = of_match_device(cf_axi_dds_of_match, &pdev->dev);
-	if (!id)
+	if (!id || !id->data)
 		return -ENODEV;
 
 	info = id->data;
@@ -1190,7 +1167,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		goto err_iio_device_free;
 	}
 
-	if (info && info->standalone) {
+	if (info->standalone) {
 		st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
 		if (IS_ERR(st->clk)) {
 			ret = PTR_ERR(st->clk);
@@ -1230,26 +1207,16 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
 	}
 
-
-	if (info) {
-		st->has_fifo_interface = info->has_fifo_interface;
-		st->standalone = info->standalone;
-	}
-
+	st->standalone = info->standalone;
 	st->version = dds_read(st, ADI_REG_VERSION);
 	st->dp_disable = dds_read(st, ADI_REG_DAC_DP_DISABLE);
 
-	if (info)
-		expected_version = info->version;
-	else
-		expected_version = PCORE_VERSION(4, 0, 'a');
-
 	if (PCORE_VERSION_MAJOR(st->version) >
-		PCORE_VERSION_MAJOR(expected_version)) {
+		PCORE_VERSION_MAJOR(info->version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
-			PCORE_VERSION_MAJOR(expected_version),
-			PCORE_VERSION_MINOR(expected_version),
-			PCORE_VERSION_LETTER(expected_version),
+			PCORE_VERSION_MAJOR(info->version),
+			PCORE_VERSION_MINOR(info->version),
+			PCORE_VERSION_LETTER(info->version),
 			PCORE_VERSION_MAJOR(st->version),
 			PCORE_VERSION_MINOR(st->version),
 			PCORE_VERSION_LETTER(st->version));

@@ -203,7 +203,6 @@ struct cf_axi_dds_state {
 	struct clk 		*clk;
 	struct cf_axi_dds_chip_info	*chip_info;
 
-	bool			has_fifo_interface;
 	bool			standalone;
 	bool			dp_disable;
 	bool			enable;
