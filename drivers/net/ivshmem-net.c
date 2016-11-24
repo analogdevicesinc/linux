@@ -802,7 +802,7 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 	if (!devm_request_mem_region(&pdev->dev, shmaddr, shmlen, DRV_NAME))
 		return -EBUSY;
 
-	shm = devm_memremap(&pdev->dev, shmaddr, shmlen, MEMREMAP_WC);
+	shm = devm_memremap(&pdev->dev, shmaddr, shmlen, MEMREMAP_WB);
 	if (!shm)
 		return -ENOMEM;
 
