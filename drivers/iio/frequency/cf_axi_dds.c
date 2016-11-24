@@ -401,7 +401,6 @@ static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
 		ret += snprintf(buf + ret, PAGE_SIZE - ret, "%ld ",
 				freq / interpolation_factors_available[i]);
 
-		ret += snprintf(buf + ret - 1, PAGE_SIZE - ret, "\n");
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
