@@ -2814,10 +2814,18 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 				  TX_VCO_DIVIDER(~0), enable ? 7 :
 				  phy->cached_tx_rfpll_div);
 
+		if (enable)
+			phy->cached_synth_pd[0] |= TX_SYNTH_VCO_ALC_POWER_DOWN |
+						   TX_SYNTH_PTAT_POWER_DOWN |
+						   TX_SYNTH_VCO_POWER_DOWN;
+		else
+			phy->cached_synth_pd[0] &= ~(TX_SYNTH_VCO_ALC_POWER_DOWN |
+						   TX_SYNTH_PTAT_POWER_DOWN |
+						   TX_SYNTH_VCO_POWER_DOWN);
+
+
 		ret |= ad9361_spi_write(phy->spi, REG_TX_SYNTH_POWER_DOWN_OVERRIDE,
-				enable ? TX_SYNTH_VCO_ALC_POWER_DOWN |
-				TX_SYNTH_PTAT_POWER_DOWN |
-				TX_SYNTH_VCO_POWER_DOWN : 0);
+					phy->cached_synth_pd[0]);
 
 		ret |= ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
 				  TX_EXT_VCO_BUFFER_POWER_DOWN, !enable);
@@ -2832,10 +2840,17 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 				  RX_VCO_DIVIDER(~0), enable ? 7 :
 				  phy->cached_rx_rfpll_div);
 
+		if (enable)
+			phy->cached_synth_pd[1] |= RX_SYNTH_VCO_ALC_POWER_DOWN |
+						   RX_SYNTH_PTAT_POWER_DOWN |
+						   RX_SYNTH_VCO_POWER_DOWN;
+		else
+			phy->cached_synth_pd[1] &= ~(TX_SYNTH_VCO_ALC_POWER_DOWN |
+						    RX_SYNTH_PTAT_POWER_DOWN |
+						    RX_SYNTH_VCO_POWER_DOWN);
+
 		ret |= ad9361_spi_write(phy->spi, REG_RX_SYNTH_POWER_DOWN_OVERRIDE,
-				enable ? RX_SYNTH_VCO_ALC_POWER_DOWN |
-				RX_SYNTH_PTAT_POWER_DOWN |
-				RX_SYNTH_VCO_POWER_DOWN : 0);
+					phy->cached_synth_pd[1]);
 
 		ret |= ad9361_spi_writef(phy->spi, REG_ANALOG_POWER_DOWN_OVERRIDE,
 				  RX_EXT_VCO_BUFFER_POWER_DOWN, !enable);
@@ -2845,6 +2860,39 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 	}
 
 	return ret;
+}
+
+static int ad9361_synth_lo_powerdown(struct ad9361_rf_phy *phy,
+				     enum synth_pd_ctrl rx,
+				     enum synth_pd_ctrl tx)
+{
+
+	dev_dbg(&phy->spi->dev, "%s : RX(%d) TX(%d)",__func__, rx, tx);
+
+	switch (rx) {
+	case LO_OFF:
+		phy->cached_synth_pd[1] |= RX_LO_POWER_DOWN;
+		break;
+	case LO_ON:
+		phy->cached_synth_pd[1] &= ~RX_LO_POWER_DOWN;
+		break;
+	case LO_DONTCARE:
+		break;
+	}
+
+	switch (tx) {
+	case LO_OFF:
+		phy->cached_synth_pd[0] |= TX_LO_POWER_DOWN;
+		break;
+	case LO_ON:
+		phy->cached_synth_pd[0] &= ~TX_LO_POWER_DOWN;
+		break;
+	case LO_DONTCARE:
+		break;
+	}
+
+	return ad9361_spi_writem(phy->spi, REG_TX_SYNTH_POWER_DOWN_OVERRIDE,
+				 phy->cached_synth_pd, 2);
 }
 
 /* REFERENCE CLOCK DELAY UNIT COUNTER REGISTER */
@@ -4521,6 +4569,8 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	phy->current_rx_lo_freq = 0;
 	phy->current_tx_use_tdd_table = false;
 	phy->current_rx_use_tdd_table = false;
+	phy->cached_synth_pd[0] = 0;
+	phy->cached_synth_pd[1] = 0;
 
 	memset(&phy->fastlock, 0, sizeof(phy->fastlock));
 }
@@ -6838,6 +6888,7 @@ enum lo_ext_info {
 	LOEXT_LOAD,
 	LOEXT_SAVE,
 	LOEXT_EXTERNAL,
+	LOEXT_PD,
 };
 
 static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
@@ -6847,6 +6898,7 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	u64 readin;
+	bool res;
 	unsigned long tmp;
 	int ret = 0;
 
@@ -6854,9 +6906,26 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 		return -EINVAL;
 
 	if (private != LOEXT_LOAD) {
-		ret = kstrtoull(buf, 10, &readin);
-		if (ret)
-			return ret;
+
+	}
+
+	switch (private) {
+		case LOEXT_FREQ:
+		case LOEXT_STORE:
+		case LOEXT_RECALL:
+		case LOEXT_SAVE:
+			ret = kstrtoull(buf, 10, &readin);
+			if (ret)
+				return ret;
+			break;
+		case LOEXT_EXTERNAL:
+		case LOEXT_PD:
+			ret = strtobool(buf, &res);
+			if (ret < 0)
+				return ret;
+			break;
+		case LOEXT_LOAD:
+			break;
 	}
 
 	mutex_lock(&indio_dev->mlock);
@@ -6923,27 +6992,37 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 			case 0:
 				if (phy->clk_ext_lo_rx)
 					ret = clk_set_parent(phy->clks[RX_RFPLL],
-							     readin ? phy->clk_ext_lo_rx :
+							     res ? phy->clk_ext_lo_rx :
 							     phy->clks[RX_RFPLL_INT]);
-					else
-						ret = -ENODEV;
+				else
+					ret = -ENODEV;
 				break;
 
 			case 1:
 				if (phy->clk_ext_lo_tx)
 					ret = clk_set_parent(phy->clks[TX_RFPLL],
-							     readin ? phy->clk_ext_lo_tx :
+							     res ? phy->clk_ext_lo_tx :
 							     phy->clks[TX_RFPLL_INT]);
-					else
-						ret = -ENODEV;
-					break;
+				else
+					ret = -ENODEV;
+				break;
 
 			default:
 				ret = -EINVAL;
 			}
 		}
 		break;
+	case LOEXT_PD:
+		switch (chan->channel) {
+		case 0:
+			ret = ad9361_synth_lo_powerdown(phy, res ? LO_OFF : LO_ON, LO_DONTCARE);
+			break;
+		case 1:
+			ret = ad9361_synth_lo_powerdown(phy, LO_DONTCARE, res ? LO_OFF : LO_ON);
+			break;
+		}
 
+		break;
 	}
 	mutex_unlock(&indio_dev->mlock);
 
@@ -6999,6 +7078,9 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 		}
 		break;
+	case LOEXT_PD:
+		val = !!(phy->cached_synth_pd[chan->channel ? 0 : 1] & RX_LO_POWER_DOWN);
+		break;
 	default:
 		ret = 0;
 
@@ -7026,6 +7108,7 @@ static const struct iio_chan_spec_ext_info ad9361_phy_ext_info[] = {
 	_AD9361_EXT_LO_INFO("fastlock_load", LOEXT_LOAD),
 	_AD9361_EXT_LO_INFO("fastlock_save", LOEXT_SAVE),
 	_AD9361_EXT_LO_INFO("external", LOEXT_EXTERNAL),
+	_AD9361_EXT_LO_INFO("powerdown", LOEXT_PD),
 	{ },
 };
 
