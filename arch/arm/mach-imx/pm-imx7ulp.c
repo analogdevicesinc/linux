@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -121,8 +121,6 @@ static void __iomem *pcc2_base;
 static void __iomem *pcc3_base;
 static void __iomem *mu_base;
 static void __iomem *scg1_base;
-static void __iomem *wdog1_base;
-static void __iomem *wdog2_base;
 static void __iomem *suspend_ocram_base;
 static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_base);
 
@@ -356,14 +354,6 @@ static void imx7ulp_tpm_restore(void)
 	writel_relaxed(tpm5_regs[3], tpm5_base + TPM_C0V);
 }
 
-static void imx7ulp_disable_wdog(void)
-{
-	writel_relaxed(0x0, wdog1_base);
-	writel_relaxed(0x0, wdog2_base);
-	writel_relaxed(0x4, wdog1_base + 0x8);
-	writel_relaxed(0x4, wdog2_base + 0x8);
-}
-
 static void imx7ulp_set_dgo(u32 val)
 {
 	writel_relaxed(val, pm_info->sim_base + DGO_GPR3);
@@ -446,7 +436,6 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 		/* Zzz ... */
 		cpu_suspend(0, imx7ulp_suspend_finish);
 
-		imx7ulp_disable_wdog();
 		imx7ulp_pcc2_restore();
 		imx7ulp_pcc3_restore();
 		imx7ulp_lpuart_restore();
@@ -632,14 +621,6 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-scg1");
 	scg1_base = of_iomap(np, 0);
 	WARN_ON(!scg1_base);
-
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-wdt");
-	wdog1_base = of_iomap(np, 0);
-	WARN_ON(!wdog1_base);
-
-	np = of_find_compatible_node(np, NULL, "fsl,imx7ulp-wdt");
-	wdog2_base = of_iomap(np, 0);
-	WARN_ON(!wdog2_base);
 
 	/*
 	 * 16KB is allocated for IRAM TLB, but only up 8k is for kernel TLB,
