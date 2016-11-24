@@ -3095,6 +3095,12 @@ enum ad9361_clkout {
 	ADC_CLK_DIV_16,
 };
 
+enum synth_pd_ctrl {
+	LO_DONTCARE,
+	LO_OFF,
+	LO_ON,
+};
+
 struct ad9361_phy_platform_data {
 	bool			rx2tx2;
 	bool			fdd;
@@ -3322,6 +3328,7 @@ struct ad9361_rf_phy {
 	u8			curr_ensm_state;
 	u8			cached_rx_rfpll_div;
 	u8			cached_tx_rfpll_div;
+	u8			cached_synth_pd[2];
 	int			tx_quad_lpf_tia_match;
 	int			current_table;
 
