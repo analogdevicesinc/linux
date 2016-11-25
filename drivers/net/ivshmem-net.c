@@ -624,8 +624,6 @@ static irqreturn_t ivshm_net_int(int irq, void *data)
 
 static int ivshm_net_open(struct net_device *ndev)
 {
-	struct ivshm_net *in = netdev_priv(ndev);
-
 	netdev_reset_queue(ndev);
 	ndev->operstate = IF_OPER_UP;
 	ivshm_net_run(ndev);
