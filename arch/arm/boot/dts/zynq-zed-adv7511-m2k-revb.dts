@@ -210,7 +210,7 @@
 
 	m2k-adc@70200000 {
 		compatible = "adi,m2k-adc-1.00.a";
-		reg = <0x70200000 0x10000>;
+		reg = <0x70200000 0x10000>, <0x7c500000 0x10000>;
 		clocks = <&converter_clock>;
 		dmas = <&rx_dma0 0>;
 		dma-names = "rx";
@@ -218,7 +218,7 @@
 
 	m2k-dac@70204000 {
 		compatible = "adi,axi-ad9963-dds-1.00.a";
-		reg = <0x70204000 0x10000>;
+		reg = <0x70204000 0x10000>, <0x7c5a0000 0x10000>;
 		clocks = <&converter_clock>;
 		clock-names = "sampl_clk";
 		dmas = <&tx_dma 0>;

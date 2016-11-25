@@ -66,6 +66,26 @@ static const struct adc_chip_info cn0363_chip_info = {
 	.num_channels = ARRAY_SIZE(cn0363_channels),
 };
 
+static const char * const m2k_samp_freq_available[] = {
+	"1000",
+	"10000",
+	"100000",
+	"1000000",
+	"10000000",
+	"100000000"
+};
+
+static const struct iio_enum m2k_samp_freq_available_enum = {
+	.items = m2k_samp_freq_available,
+	.num_items = ARRAY_SIZE(m2k_samp_freq_available),
+};
+
+static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
+	IIO_ENUM_AVAILABLE_SHARED("sampling_frequency", IIO_SHARED_BY_ALL,
+		&m2k_samp_freq_available_enum),
+	{ },
+};
+
 #define M2K_ADC_CHANNEL(_ch) { \
 	.type = IIO_VOLTAGE, \
 	.indexed = 1, \
@@ -73,6 +93,7 @@ static const struct adc_chip_info cn0363_chip_info = {
 	.address = _ch, \
 	.scan_index = _ch, \
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.ext_info = m2k_chan_ext_info, \
 	.scan_type = { \
 		.sign = 's', \
 		.realbits = 12, \
@@ -137,11 +158,67 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 static int axiadc_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
 {
+	struct axiadc_state *st = iio_priv(indio_dev);
+	uint32_t reg;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = 100000000; /* FIXME use clock */
+		if (!st->slave_regs)
+			return -EINVAL;
+		reg = ioread32(st->slave_regs + 0x44);
+		 /* FIXME use clock */
+		switch (reg) {
+		case 1:
+			*val = 10000000;
+			break;
+		case 2:
+			*val = 1000000;
+			break;
+		case 3:
+			*val = 100000;
+			break;
+		case 6:
+			*val = 10000;
+			break;
+		case 7:
+			*val = 1000;
+			break;
+		default:
+			*val = 100000000;
+			break;
+		}
 		return IIO_VAL_INT;
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static int axiadc_write_raw(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, int val, int val2, long info)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	uint32_t reg;
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!st->slave_regs)
+			return -EINVAL;
+		if (val >= 100000000)
+			reg = 0;
+		else if (val >= 10000000)
+			reg = 1;
+		else if (val >= 1000000)
+			reg = 2;
+		else if (val >= 100000)
+			reg = 3;
+		else if (val >= 10000)
+			reg = 6;
+		else
+			reg = 7;
+		iowrite32(reg, st->slave_regs + 0x44);
+		return 0;
 	default:
 		break;
 	}
@@ -178,6 +255,7 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 
 static const struct iio_info adc_info = {
 	.read_raw = axiadc_read_raw,
+	.write_raw = axiadc_write_raw,
 	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = &adc_reg_access,
 	.update_scan_mode = axiadc_update_scan_mode,
@@ -317,6 +395,13 @@ static int adc_probe(struct platform_device *pdev)
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(st->regs))
 		return PTR_ERR(st->regs);
+
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (mem) {
+		st->slave_regs = devm_ioremap_resource(&pdev->dev, mem);
+		if (IS_ERR(st->slave_regs))
+			return PTR_ERR(st->slave_regs);
+	}
 
 	platform_set_drvdata(pdev, indio_dev);
 
