@@ -31,6 +31,8 @@
 #define JAILHOUSE_CFG_SHMEM_PTR	0x40
 #define JAILHOUSE_CFG_SHMEM_SZ	0x48
 
+#define IVSHMEM_INTX_ENABLE	0x1
+
 #define IVSHM_NET_STATE_RESET	0
 #define IVSHM_NET_STATE_INIT	1
 #define IVSHM_NET_STATE_READY	2
@@ -47,7 +49,7 @@
 #define IVSHM_NET_VQ_ALIGN 64
 
 struct ivshmem_regs {
-	u32 imask;
+	u32 intxctrl;
 	u32 istat;
 	u32 ivpos;
 	u32 doorbell;
@@ -869,6 +871,8 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 		goto err_int;
 
 	pci_set_master(pdev);
+	if (!in->using_msix)
+		writel(IVSHMEM_INTX_ENABLE, &in->ivshm_regs->intxctrl);
 
 	writel(IVSHM_NET_STATE_RESET, &in->ivshm_regs->lstate);
 
@@ -895,6 +899,7 @@ static void ivshm_net_remove(struct pci_dev *pdev)
 		free_irq(in->msix.vector, ndev);
 		pci_disable_msix(pdev);
 	} else {
+		writel(0, &in->ivshm_regs->intxctrl);
 		free_irq(pdev->irq, ndev);
 	}
 
