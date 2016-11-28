@@ -1,0 +1,214 @@
+/*
+ * Copyright 2016 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx7ulp-evk.dts"
+
+/ {
+
+	aips0: aips-bus@41000000 {
+		compatible = "fsl,aips-bus", "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x41000000 0x80000>;
+		ranges;
+
+		pcc0: pcc0@41026000 {
+			compatible  = "fsl,imx7ulp-pcc0";
+			reg = <0x41026000 0x1000>;
+		};
+
+		clks_m4: scg0@41027000 {
+			compatible = "fsl,imx7ulp-scg0";
+			reg = <0x41027000 0x1000>;
+			clocks = <&cm4_ckil>, <&cm4_osc>, <&cm4_sirc>, <&cm4_firc>;
+			clock-names = "cm4_ckil", "cm4_osc", "cm4_sirc", "cm4_firc";
+			#clock-cells = <1>;
+		};
+
+		sai0: sai@41037000 {
+			compatible = "fsl,imx7ulp-sai";
+			reg = <0x41037000 0x1000>;
+			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks_m4 IMX7ULP_CM4_CLK_SAI0_IPG>,
+				 <&clks_m4 IMX7ULP_CM4_CLK_DUMMY>,
+				 <&clks_m4 IMX7ULP_CM4_CLK_SAI0_ROOT>,
+				 <&clks_m4 IMX7ULP_CM4_CLK_DUMMY>,
+				 <&clks_m4 IMX7ULP_CM4_CLK_DUMMY>;
+			clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
+			dma-names = "rx", "tx";
+			dmas = <&edma0 0 59>, <&edma0 0 60>;
+			status = "disabled";
+		};
+	};
+
+	aips1: aips-bus@41080000 {
+		compatible = "fsl,aips-bus", "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x41080000 0x80000>;
+		ranges;
+
+		smc0: smc0@410a4000 {
+			compatible = "fsl,imx7ulp-smc0";
+			reg = <0x410a4000 0x1000>;
+		};
+
+		sai1: sai@410AA000 {
+			compatible = "fsl,imx7ulp-sai";
+			reg = <0x410AA000 0x1000>;
+			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks_m4 IMX7ULP_CM4_CLK_SAI1_IPG>,
+				 <&clks_m4 IMX7ULP_CM4_CLK_DUMMY>,
+				 <&clks_m4 IMX7ULP_CM4_CLK_SAI1_ROOT>,
+				 <&clks_m4 IMX7ULP_CM4_CLK_DUMMY>,
+				 <&clks_m4 IMX7ULP_CM4_CLK_DUMMY>;
+			clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
+			dma-names = "rx", "tx";
+			dmas = <&edma0 0 61>, <&edma0 0 62>;
+			status = "disabled";
+		};
+
+		pcc1: pcc1@410b2000 {
+			compatible  = "fsl,imx7ulp-pcc1";
+			reg = <0x410b2000 0x1000>;
+		};
+	};
+
+	clocks_m4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cm4_ckil: clock@6 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32768>;
+			clock-output-names = "cm4_ckil";
+		};
+
+		cm4_osc: clock@7 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <24000000>;
+			clock-output-names = "cm4_osc";
+		};
+
+		cm4_sirc: clock@8 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <16000000>;
+			clock-output-names = "cm4_sirc";
+		};
+
+		cm4_firc: clock@9 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <48000000>;
+			clock-output-names = "cm4_firc";
+		};
+	};
+
+
+	sound {
+		compatible = "fsl,imx7ulp-evk-wm8960",
+			     "fsl,imx-audio-wm8960";
+		model = "wm8960-audio";
+		cpu-dai = <&sai0>;
+		audio-codec = <&codec>;
+		codec-master;
+		/* JD3: hp detect high for headphone*/
+		hp-det = <3 0>;
+		hp-det-gpios = <&gpio3 0 0>;
+		mic-det-gpios = <&gpio3 0 0>;
+		audio-routing =
+			"Headphone Jack", "HP_L",
+			"Headphone Jack", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT1", "Mic Jack",
+			"LINPUT3", "Mic Jack",
+			"Mic Jack", "MICB";
+
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog_0_1>;
+	status = "okay";
+
+	imx7ulp-evk-0 {
+		pinctrl_hog_0_1: hoggrp-0-1 {
+			fsl,pins = <
+				IMX7ULP_PAD_PTA24__PTA24		0x127
+				IMX7ULP_PAD_PTB0__CLKOUT		0x900
+			>;
+		};
+
+		pinctrl_sai0: sai0_grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTA4__I2S0_MCLK        0x700
+				IMX7ULP_PAD_PTA5__I2S0_TX_BCLK     0x0700
+				IMX7ULP_PAD_PTA2__I2S0_RXD0        0x0700
+				IMX7ULP_PAD_PTA6__I2S0_TX_FS       0x0700
+				IMX7ULP_PAD_PTA7__I2S0_TXD0        0x0700
+			>;
+		};
+	};
+};
+
+&iomuxc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog_1 &pinctrl_hog_audio>;
+
+	imx7ulp-evk {
+		pinctrl_hog_audio: hoggrp-audio {
+			fsl,pins = <
+				IMX7ULP_PAD_PTF0__PTF0		0x30100
+			>;
+		};
+	};
+};
+
+&lpi2c7 {
+	status = "okay";
+
+	codec: wm8960@1a {
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		clocks = <&clks_m4 IMX7ULP_CLK_SCG0_CLKOUT>;
+		clock-names = "mclk";
+		wlf,shared-lrclk;
+		assigned-clocks = <&clks_m4 IMX7ULP_CM4_CLK_APLL_SEL>,
+				  <&clks_m4 IMX7ULP_CLK_SCG0_CLKOUT>;
+		assigned-clock-parents = <&clks_m4 IMX7ULP_CM4_CLK_APLL_VCO_POST_DIV2>,
+					 <&clks_m4 IMX7ULP_CM4_CLK_APLL_SEL>;
+	};
+};
+
+&clks_m4 {
+	assigned-clocks = <&clks_m4 IMX7ULP_CM4_CLK_APLL_VCO_PRE_SEL>,
+			  <&clks_m4 IMX7ULP_CM4_CLK_APLL_VCO>,
+			  <&clks_m4 IMX7ULP_CM4_CLK_APLL_VCO_POST_DIV1>,
+			  <&clks_m4 IMX7ULP_CM4_CLK_APLL_VCO_POST_DIV2>,
+			  <&clks_m4 IMX7ULP_CM4_CLK_APLL_PFD0_PRE_DIV>;
+	assigned-clock-parents = <&clks_m4 IMX7ULP_CM4_CLK_OSC>;
+	assigned-clock-rates = <0>, <540672000>, <49152000>, <12288000>, <270336000>;
+};
+
+&sai0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai0>;
+	assigned-clocks = <&clks_m4 IMX7ULP_CM4_CLK_SAI0_SEL>,
+			  <&clks_m4 IMX7ULP_CM4_CLK_SAI0_DIV>;
+	assigned-clock-parents = <&clks_m4 IMX7ULP_CM4_CLK_APLL_PFD0_PRE_DIV>;
+	assigned-clock-rates = <0>, <12288000>;
+	fsl,dataline = <0x1 0x1>;
+	status = "okay";
+};

@@ -113,6 +113,13 @@
 			>;
 		};
 
+		pinctrl_lpi2c7: lpi2c7grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTF12__LPI2C7_SCL	0x527
+				IMX7ULP_PAD_PTF13__LPI2C7_SDA	0x527
+			>;
+		};
+
 		pinctrl_usdhc1: usdhc1grp {
 			fsl,pins = <
 				IMX7ULP_PAD_PTE3__SDHC1_CMD	0x843
@@ -160,6 +167,13 @@
 			};
 		};
 	};
+};
+
+&lpi2c7 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c7>;
 };
 
 &lpuart4 { /* console */
