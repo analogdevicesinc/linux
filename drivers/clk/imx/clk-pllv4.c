@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -96,7 +96,7 @@ static int clk_pllv4_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	val = readl_relaxed(pll->base + pll->cfg_offset);
 	val &= ~pll->div_mask;
-	val |= div;
+	val |= (div << pll->div_shift);
 	writel_relaxed(val, pll->base + pll->cfg_offset);
 	writel_relaxed(mfn, pll->base + pll->num_offset);
 	writel_relaxed(mfd, pll->base + pll->denom_offset);

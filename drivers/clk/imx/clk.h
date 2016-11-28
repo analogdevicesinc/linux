@@ -88,6 +88,8 @@ struct clk *imx_clk_pllv3(enum imx_pllv3_type type, const char *name,
 
 struct clk *imx_clk_pllv4(const char *name,
 			  const char *parent_name, void __iomem *base);
+struct clk *imx_clk_pllv5(const char *name, const char *parent_name,
+			  void __iomem *base);
 
 struct clk *clk_register_gate2(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,

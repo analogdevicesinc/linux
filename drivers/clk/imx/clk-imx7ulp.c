@@ -33,6 +33,19 @@ static const char *periph_slow_sels[]	= { "dummy", "osc", "mpll", "firc", "ckil"
 static struct clk *clks[IMX7ULP_CLK_END];
 static struct clk_onecell_data clk_data;
 
+static const char *cm4_pll_pre_sels[]	= { "cm4_osc", "cm4_firc", };
+static const char *cm4_spll_pfd_sels[]	= { "cm4_spll_pfd0", "cm4_spll_pfd1", "cm4_spll_pfd2", "cm4_spll_pfd3", };
+static const char *cm4_spll_sels[]		= { "cm4_spll_vco", "cm4_spll_pfd_sel", };
+static const char *cm4_apll_pfd_sels[]	= { "cm4_apll_pfd0", "cm4_apll_pfd1", "cm4_apll_pfd2", "cm4_apll_pfd3", };
+static const char *cm4_apll_sels[]		= { "cm4_apll_vco_post_div2", "cm4_apll_pfd_sel", };
+static const char *cm4_sys_sels[]		= { "cm4_dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_apll_sel", "cm4_spll_sel", "cm4_dummy", };
+static const char *cm4_periph_plat_sels[]	= { "cm4_dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil" "cm4_plat_div", "cm4_spll_sel", "cm4_spll_pfd3", };
+static const char *cm4_periph_slow_sels[]	= { "cm4_dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_bus_div", "cm4_spll_pfd2", "cm4_apll_pfd0_pre_div", };
+static const char *scg0_clkout_sels[]   = { "dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_apll_sel", "cm4_spll_sel", "dummy"};
+static struct clk *clks_cm4[IMX7ULP_CM4_CLK_END];
+static struct clk_onecell_data clk_data_cm4;
+
+
 static int const clks_init_on[] __initconst = {
 	IMX7ULP_CLK_BUS_DIV,
 	IMX7ULP_CLK_PLAT_DIV,
@@ -168,3 +181,106 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 }
 
 CLK_OF_DECLARE(imx7ulp, "fsl,imx7ulp-scg1", imx7ulp_clocks_init);
+
+static struct clk_div_table apll_pfd0_div_table[] = {
+	{ .val = 1, .div = 1, },
+	{ .val = 0, .div = 2, },
+	{ /* sentinel */ }
+};
+
+static u32 share_count_sai0;
+static u32 share_count_sai1;
+
+static void __init imx7ulp_cm4_clocks_init(struct device_node *scg_node)
+{
+	struct device_node *np, *np_sim;
+	void __iomem *base;
+	void __iomem *base_sim;
+
+	clks_cm4[IMX7ULP_CM4_CLK_DUMMY]		= imx_clk_fixed("cm4_dummy", 0);
+
+	clks_cm4[IMX7ULP_CM4_CLK_CKIL]		= of_clk_get_by_name(scg_node, "cm4_ckil");
+	clks_cm4[IMX7ULP_CM4_CLK_OSC]		= of_clk_get_by_name(scg_node, "cm4_osc");
+	clks_cm4[IMX7ULP_CM4_CLK_SIRC] 		= of_clk_get_by_name(scg_node, "cm4_sirc");
+	clks_cm4[IMX7ULP_CM4_CLK_FIRC]		= of_clk_get_by_name(scg_node, "cm4_firc");
+
+	np = scg_node;
+	base = of_iomap(np, 0);
+	WARN_ON(!base);
+
+	np_sim = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-sim");
+	base_sim = of_iomap(np_sim, 0);
+	WARN_ON(!base_sim);
+
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_VCO_PRE_SEL] = imx_clk_mux("cm4_spll_vco_pre_sel", base + 0x608, 0, 1, cm4_pll_pre_sels, ARRAY_SIZE(cm4_pll_pre_sels));
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_VCO_PRE_SEL] = imx_clk_mux("cm4_apll_vco_pre_sel", base + 0x508, 0, 1, cm4_pll_pre_sels, ARRAY_SIZE(cm4_pll_pre_sels));
+	/*						 name		parent_name	reg		shift 	width */
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_VCO_PRE_DIV] = imx_clk_divider("cm4_spll_vco_pre_div", "cm4_spll_vco_pre_sel", base + 0x608,  8,	3);
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_VCO_PRE_DIV] = imx_clk_divider("cm4_apll_vco_pre_div", "cm4_apll_vco_pre_sel", base + 0x508,	8,	3);
+	/*					name	parent_name	base*/
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_VCO] = imx_clk_pllv5("cm4_spll_vco",  "cm4_spll_vco_pre_div", base + 0x600);
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_VCO] = imx_clk_pllv4("cm4_apll_vco",  "cm4_apll_vco_pre_div", base + 0x500);
+
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_VCO_POST_DIV1] = imx_clk_divider("cm4_apll_vco_post_div1", "cm4_apll_vco", base + 0x508,	24,	4);
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_VCO_POST_DIV2] = imx_clk_divider("cm4_apll_vco_post_div2", "cm4_apll_vco_post_div1", base + 0x508,	28,	4);
+
+	/* SPLL PFDs */
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_PFD0] = imx_clk_pfdv2("cm4_spll_pfd0", "cm4_spll_vco", base + 0x60C, 0);
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_PFD1] = imx_clk_pfdv2("cm4_spll_pfd1", "cm4_spll_vco", base + 0x60C, 1);
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_PFD2] = imx_clk_pfdv2("cm4_spll_pfd2", "cm4_spll_vco", base + 0x60C, 2);
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_PFD3] = imx_clk_pfdv2("cm4_spll_pfd3", "cm4_spll_vco", base + 0x60C, 3);
+	/* APLL PFDs */
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_PFD0] = imx_clk_pfdv2("cm4_apll_pfd0", "cm4_apll_vco", base + 0x50C, 0);
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_PFD1] = imx_clk_pfdv2("cm4_apll_pfd1", "cm4_apll_vco", base + 0x50C, 1);
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_PFD2] = imx_clk_pfdv2("cm4_apll_pfd2", "cm4_apll_vco", base + 0x50C, 2);
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_PFD3] = imx_clk_pfdv2("cm4_apll_pfd3", "cm4_apll_vco", base + 0x50C, 3);
+
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_PFD0_PRE_DIV] = clk_register_divider_table(NULL, "cm4_apll_pfd0_pre_div", "cm4_apll_pfd0", CLK_SET_RATE_PARENT | CLK_SET_RATE_GATE, base_sim + 0x2c, 5, 1, 0, apll_pfd0_div_table, &imx_ccm_lock);
+
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_PFD_SEL] = imx_clk_mux("cm4_spll_pfd_sel", base + 0x608, 14, 2, cm4_spll_pfd_sels, ARRAY_SIZE(cm4_spll_pfd_sels));
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_PFD_SEL] = imx_clk_mux("cm4_apll_pfd_sel", base + 0x508, 14, 2, cm4_apll_pfd_sels, ARRAY_SIZE(cm4_apll_pfd_sels));
+
+	clks_cm4[IMX7ULP_CM4_CLK_SPLL_SEL] = imx_clk_mux("cm4_spll_sel", base + 0x608, 1, 1, cm4_spll_sels, ARRAY_SIZE(cm4_spll_sels));
+	clks_cm4[IMX7ULP_CM4_CLK_APLL_SEL] = imx_clk_mux("cm4_apll_sel", base + 0x508, 1, 1, cm4_apll_sels, ARRAY_SIZE(cm4_apll_sels));
+
+	clks_cm4[IMX7ULP_CM4_CLK_SYS_SEL]  = imx_clk_mux("cm4_sys_sel", base + 0x14, 24, 4, cm4_sys_sels, ARRAY_SIZE(cm4_sys_sels));
+
+	clks_cm4[IMX7ULP_CM4_CLK_CORE_DIV] = imx_clk_divider("cm4_core_div", "cm4_sys_sel", base + 0x14, 16, 4);
+	clks_cm4[IMX7ULP_CM4_CLK_PLAT_DIV] = imx_clk_divider("cm4_plat_div", "cm4_core_div", base + 0x14, 12, 4);
+	clks_cm4[IMX7ULP_CM4_CLK_BUS_DIV]  = imx_clk_divider("cm4_bus_div",  "cm4_core_div", base + 0x14, 4, 4);
+	clks_cm4[IMX7ULP_CM4_CLK_SLOW_DIV] = imx_clk_divider("cm4_slow_div", "cm4_core_div", base + 0x14, 0, 4);
+
+	clks_cm4[IMX7ULP_CLK_SCG0_CLKOUT] = imx_clk_mux("scg0_clkout", base + 0x20, 24, 4, scg0_clkout_sels, ARRAY_SIZE(scg0_clkout_sels));
+
+	/* PCG0 */
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pcc0");
+	base = of_iomap(np, 0);
+	WARN_ON(!base);
+
+	clks_cm4[IMX7ULP_CM4_CLK_SAI0_SEL]  = imx_clk_mux("cm4_sai0_sel", base + 0xDC, 24, 3, cm4_periph_slow_sels, ARRAY_SIZE(cm4_periph_slow_sels));
+	clks_cm4[IMX7ULP_CM4_CLK_SAI0_DIV]  = imx_clk_divider("cm4_sai0_div", "cm4_sai0_sel", base + 0xDC, 0, 8);
+	clks_cm4[IMX7ULP_CM4_CLK_SAI0_ROOT] = imx_clk_gate2_shared("cm4_sai0_root", "cm4_sai0_div", base + 0xDC, 30, &share_count_sai0);
+	clks_cm4[IMX7ULP_CM4_CLK_SAI0_IPG]  = imx_clk_gate2_shared("cm4_sai0_ipg", "cm4_bus_div", base + 0xDC, 30, &share_count_sai0);
+
+	/* PCG1 */
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pcc1");
+	base = of_iomap(np, 0);
+	WARN_ON(!base);
+
+
+	clks_cm4[IMX7ULP_CM4_CLK_SAI1_SEL]  = imx_clk_mux("cm4_sai1_sel", base + 0xA8, 24, 3, cm4_periph_slow_sels, ARRAY_SIZE(cm4_periph_slow_sels));
+	clks_cm4[IMX7ULP_CM4_CLK_SAI1_DIV]  = imx_clk_divider("cm4_sai1_div", "cm4_sai1_sel", base + 0xA8, 0, 8);
+	clks_cm4[IMX7ULP_CM4_CLK_SAI1_ROOT] = imx_clk_gate2_shared("cm4_sai1_root", "cm4_sai1_div", base + 0xA8, 30, &share_count_sai1);
+	clks_cm4[IMX7ULP_CM4_CLK_SAI1_IPG] = imx_clk_gate2_shared("cm4_sai1_ipg", "cm4_bus_div", base + 0xA8, 30, &share_count_sai1);
+
+	imx_check_clocks(clks_cm4, ARRAY_SIZE(clks_cm4));
+
+	clk_data_cm4.clks = clks_cm4;
+	clk_data_cm4.clk_num = ARRAY_SIZE(clks_cm4);
+	of_clk_add_provider(scg_node, of_clk_src_onecell_get, &clk_data_cm4);
+
+	imx_clk_prepare_enable(clks_cm4[IMX7ULP_CM4_CLK_SYS_SEL]);
+
+	pr_info("i.MX7ULP cm4 clock tree init.\n");
+}
+CLK_OF_DECLARE(imx7ulp_cm4, "fsl,imx7ulp-scg0", imx7ulp_cm4_clocks_init);
