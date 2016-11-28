@@ -481,8 +481,7 @@ static int imx_wm8960_probe(struct platform_device *pdev)
 	ret = of_parse_phandle_with_fixed_args(pdev->dev.of_node, "gpr", 3,
 				0, &args);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to get gpr property\n");
-		goto fail;
+		dev_warn(&pdev->dev, "failed to get gpr property\n");
 	} else {
 		data->gpr = syscon_node_to_regmap(args.np);
 		if (IS_ERR(data->gpr)) {
