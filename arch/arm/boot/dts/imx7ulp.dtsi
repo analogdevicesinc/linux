@@ -307,6 +307,12 @@
 			clocks = <&clks IMX7ULP_CLK_WDG1>;
 			assigned-clocks = <&clks IMX7ULP_CLK_WDG1>;
 			assigned-clocks-parents = <&clks IMX7ULP_CLK_FIRC>;
+			/*
+			 * As the 1KHz LPO clock rate is not trimed,the actually clock
+			 * is about 667Hz, so the init timeout 60s should set 40*1000
+			 * in the TOVAL register.
+			 */
+			timeout-sec = <40>;
 		};
 
 		wdog2: wdog@40430000 {
@@ -316,6 +322,7 @@
 			clocks = <&clks IMX7ULP_CLK_WDG2>;
 			assigned-clocks = <&clks IMX7ULP_CLK_WDG2>;
 			assigned-clocks-parents = <&clks IMX7ULP_CLK_FIRC>;
+			timeout-sec = <40>;
 		};
 
 		clks: scg1@403E0000 {
