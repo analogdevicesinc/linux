@@ -292,13 +292,25 @@
 			nxp,sim = <&sim>;
 		};
 
-		usdhc1: usdhc@40370000 {
+		usdhc0: usdhc@40370000 {
 			compatible = "fsl,imx7ulp-usdhc";
 			reg = <0x40370000 0x10000>;
 			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks IMX7ULP_CLK_NIC1_BUS_DIV>,
 				 <&clks IMX7ULP_CLK_NIC1_DIV>,
 				 <&clks IMX7ULP_CLK_USDHC0>;
+			clock-names ="ipg", "ahb", "per";
+			bus-width = <4>;
+			status = "disabled";
+		};
+
+		usdhc1: usdhc@40380000 {
+			compatible = "fsl,imx7ulp-usdhc";
+			reg = <0x40380000 0x10000>;
+			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks IMX7ULP_CLK_NIC1_BUS_DIV>,
+				 <&clks IMX7ULP_CLK_NIC1_DIV>,
+				 <&clks IMX7ULP_CLK_USDHC1>;
 			clock-names ="ipg", "ahb", "per";
 			bus-width = <4>;
 			status = "disabled";

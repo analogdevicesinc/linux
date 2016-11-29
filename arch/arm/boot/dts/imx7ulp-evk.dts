@@ -37,7 +37,7 @@
 			>;
 		};
 
-		pinctrl_usdhc1: usdhc1grp {
+		pinctrl_usdhc0: usdhc0grp {
 			fsl,pins = <
 				IMX7ULP_PAD_PTD1__SDHC0_CMD	0x843
 				IMX7ULP_PAD_PTD2__SDHC0_CLK	0x843
@@ -48,7 +48,7 @@
 			>;
 		};
 
-		pinctrl_usdhc1_8bit: usdhc1grp_8bit {
+		pinctrl_usdhc0_8bit: usdhc0grp_8bit {
 			fsl,pins = <
 				IMX7ULP_PAD_PTD1__SDHC0_CMD	0x843
 				IMX7ULP_PAD_PTD2__SDHC0_CLK	0x843
@@ -101,10 +101,10 @@
 	};
 };
 
-&usdhc1 {
+&usdhc0 {
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&pinctrl_usdhc1>;
-	pinctrl-1 = <&pinctrl_usdhc1>;
+	pinctrl-0 = <&pinctrl_usdhc0>;
+	pinctrl-1 = <&pinctrl_usdhc0>;
 	non-removable;
 	status = "okay";
 };
