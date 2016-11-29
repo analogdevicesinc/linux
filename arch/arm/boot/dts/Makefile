@@ -628,6 +628,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-12x12-lpddr3-arm2-pcie.dtb \
 	imx7d-19x19-lpddr2-arm2.dtb
 dtb-$(CONFIG_SOC_IMX7ULP) += \
+	imx7ulp-14x14-arm2.dtb \
 	imx7ulp-evk.dtb \
 	imx7ulp-evk-emmc.dtb
 dtb-$(CONFIG_SOC_LS1021A) += \

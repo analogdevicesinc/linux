@@ -1,0 +1,59 @@
+/*
+ * Copyright 2016 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "imx7ulp.dtsi"
+
+/ {
+	model = "NXP i.MX7ULP 14x14 arm2";
+	compatible = "fsl,imx7ulp-14x14-arm2", "fsl,imx7ulp", "Generic DT based system";
+
+	chosen {
+		bootargs = "console=ttyLP0,115200 earlycon=lpuart32,0x402D0010,115200";
+		stdout-path = &lpuart4;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x60000000 0x40000000>;
+	};
+};
+
+&iomuxc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog_1>;
+
+	imx7ulp-evk {
+		pinctrl_hog_1: hoggrp-1 {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC10__PTC10	0x30100
+				IMX7ULP_PAD_PTC1__PTC1		0x20100
+			>;
+		};
+
+		pinctrl_usdhc1: usdhc1grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTE3__SDHC1_CMD	0x843
+				IMX7ULP_PAD_PTE2__SDHC1_CLK	0x843
+				IMX7ULP_PAD_PTE4__SDHC1_D3	0x843
+				IMX7ULP_PAD_PTE5__SDHC1_D2	0x843
+				IMX7ULP_PAD_PTE0__SDHC1_D1	0x843
+				IMX7ULP_PAD_PTE1__SDHC1_D0	0x843
+			>;
+		};
+	};
+};
+
+&usdhc1 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	pinctrl-1 = <&pinctrl_usdhc1>;
+	non-removable;
+	status = "okay";
+};
