@@ -119,7 +119,7 @@ static const struct watchdog_info imx7ulp_wdt_info = {
 			 | WDIOF_MAGICCLOSE,
 };
 
-static inline void imx7ulp_wdt_init(void __iomem *base)
+static inline void imx7ulp_wdt_init(void __iomem *base, unsigned int timeout)
 {
 	u32 val;
 
@@ -127,14 +127,15 @@ static inline void imx7ulp_wdt_init(void __iomem *base)
 
 	/*
 	 * if the wdog is in unlocked status, the UNLOCK
-	 * sequence should not be send.
+	 * sequence no need to be send.
 	 */
 	val = readl(base + WDOG_CS);
 	if (!(val & WDOG_CS_ULK)) {
-		writew(UNLOCK_SEQ0, base + WDOG_CNT);
-		writew(UNLOCK_SEQ1, base + WDOG_CNT);
+		writel(UNLOCK_SEQ0, base + WDOG_CNT);
+		writel(UNLOCK_SEQ1, base + WDOG_CNT);
 	}
-
+	/*set an initial timeout value in TOVAL */
+	writel(timeout, base + WDOG_TOVAL);
 	/* enable 32bit command sequence and reconfigure */
 	val = (1 << 13) | (1 << 8) | (1 << 5);
 	writel(val, base + WDOG_CS);
@@ -147,6 +148,7 @@ static int imx7ulp_wdt_probe(struct platform_device *pdev)
 	struct imx7ulp_wdt *wdt;
 	struct resource *res;
 	int err;
+	u32 timeout;
 
 	wdt = devm_kzalloc(&pdev->dev, sizeof(*wdt), GFP_KERNEL);
 	if (!wdt)
@@ -158,9 +160,6 @@ static int imx7ulp_wdt_probe(struct platform_device *pdev)
 	wdt->base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(wdt->base))
 		return PTR_ERR(wdt->base);
-
-	/* reconfigure the watchdog timer.*/
-	imx7ulp_wdt_init(wdt->base);
 
 	/* use the 1KHz LPO as the counter clock */
 	wdt->rate = 1000;
@@ -176,9 +175,15 @@ static int imx7ulp_wdt_probe(struct platform_device *pdev)
 	 * set the timeout_parm to 0 to get the timeout
 	 * from 'timeout-sec' property in dtb.
 	 */
-	watchdog_init_timeout(&wdt->wdd, 0, &pdev->dev);
-	/* set the initial timout value into TOVAL */
-	imx7ulp_wdt_set_timeout(&wdt->wdd, wdt->wdd.timeout);
+	err = watchdog_init_timeout(&wdt->wdd, 0, &pdev->dev);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to init the wdog timeout\n");
+		return err;
+	}
+
+	timeout = wdt->wdd.timeout * wdt->rate;
+	/* reconfigure the watchdog timer.*/
+	imx7ulp_wdt_init(wdt->base, timeout);
 
 	err = watchdog_register_device(&wdt->wdd);
 	if (err) {
@@ -222,14 +227,13 @@ static int imx7ulp_wdt_suspend(struct device *dev)
 static int imx7ulp_wdt_resume(struct device *dev)
 {
 	struct imx7ulp_wdt *wdt = dev_get_drvdata(dev);
+	u32 timeout = wdt->wdd.timeout * wdt->rate;
 
 	if (imx7ulp_wdt_is_enabled(wdt->base))
-		imx7ulp_wdt_init(wdt->base);
+		imx7ulp_wdt_init(wdt->base, timeout);
 
-	if (watchdog_active(&wdt->wdd)) {
-		imx7ulp_wdt_set_timeout(&wdt->wdd, wdt->wdd.timeout);
+	if (watchdog_active(&wdt->wdd))
 		imx7ulp_wdt_enable(wdt->base, true);
-	}
 
 	return 0;
 }
