@@ -552,6 +552,10 @@ config ADI
 	  and SSM (Silicon Secured Memory).  Intended consumers of this
 	  driver include crash and makedumpfile.
 
+config AXI_INTR_MONITOR
+	tristate "AXI Interrupt Monitor"
+	depends on HAS_IOMEM
+
 endmenu
 
 config RANDOM_TRUST_CPU
