@@ -19,9 +19,12 @@
 		gpio1 = &gpio1;
 		gpio2 = &gpio2;
 		gpio3 = &gpio3;
+		mmc0 = &usdhc0;
+		mmc1 = &usdhc1;
 		serial0 = &lpuart4;
-		serial1 = &lpuart6;
-		serial2 = &lpuart5;
+		serial1 = &lpuart5;
+		serial2 = &lpuart6;
+		serial3 = &lpuart7;
 		usbphy0 = &usbphy1;
 	};
 
@@ -246,6 +249,7 @@
 			assigned-clocks = <&clks IMX7ULP_CLK_LPUART4>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_OSC>;
 			assigned-clock-rates = <24000000>;
+			status = "disabled";
 		};
 
 		lpuart5: serial@402E0000 {
@@ -349,8 +353,10 @@
 			clock-names = "ckil", "osc", "sirc",
 				"firc", "upll", "mpll";
 			#clock-cells = <1>;
-			assigned-clocks = <&clks IMX7ULP_CLK_LPTPM5>;
-			assigned-clock-parents = <&clks IMX7ULP_CLK_OSC>;
+			assigned-clocks = <&clks IMX7ULP_CLK_LPTPM5>,
+					  <&clks IMX7ULP_CLK_USDHC1>;
+			assigned-clock-parents = <&clks IMX7ULP_CLK_OSC>,
+						 <&clks IMX7ULP_CLK_NIC1_DIV>;
 		};
 
 		pcc2: pcc2@403F0000 {
@@ -377,6 +383,30 @@
 		reg = <0x40800000 0x800000>;
 		ranges;
 
+		lpi2c6: lpi2c6@40A40000 {
+			compatible = "fsl,imx7ulp-lpi2c";
+			reg = <0x40A40000 0x10000>;
+			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks IMX7ULP_CLK_LPI2C6>;
+			clock-names = "ipg";
+			assigned-clocks = <&clks IMX7ULP_CLK_LPI2C6>;
+			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
+			assigned-clock-rates = <48000000>;
+			status = "disabled";
+		};
+
+		lpi2c7: lpi2c7@40A50000 {
+			compatible = "fsl,imx7ulp-lpi2c";
+			reg = <0x40A50000 0x10000>;
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks IMX7ULP_CLK_LPI2C7>;
+			clock-names = "ipg";
+			assigned-clocks = <&clks IMX7ULP_CLK_LPI2C7>;
+			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
+			assigned-clock-rates = <48000000>;
+			status = "disabled";
+		};
+
 		lpuart6: serial@40A60000 {
 			compatible = "fsl,imx7ulp-lpuart";
 			reg = <0x40A60000 0x1000>;
@@ -387,6 +417,20 @@
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
 			assigned-clock-rates = <48000000>;
 			dmas = <&edma0 0 22>, <&edma0 0 21>;
+			dma-names = "tx","rx";
+			status = "disabled";
+		};
+
+		lpuart7: serial@40A70000 {
+			compatible = "fsl,imx7ulp-lpuart";
+			reg = <0x40A70000 0x1000>;
+			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks IMX7ULP_CLK_LPUART7>;
+			clock-names = "ipg";
+			assigned-clocks = <&clks IMX7ULP_CLK_LPUART7>;
+			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
+			assigned-clock-rates = <50000000>;
+			dmas = <&edma0 0 24>, <&edma0 0 23>;
 			dma-names = "tx","rx";
 			status = "disabled";
 		};

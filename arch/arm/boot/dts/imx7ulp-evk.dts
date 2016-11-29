@@ -9,6 +9,7 @@
 /dts-v1/;
 
 #include "imx7ulp.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "NXP i.MX7ULP EVK";
@@ -19,9 +20,32 @@
 		stdout-path = &lpuart4;
 	};
 
+	bcmdhd_wlan_0: bcmdhd_wlan@0 {
+		compatible = "android,bcmdhd_wlan";
+		wlreg_on-supply = <&wlreg_on>;
+		bcmdhd_fw = "/lib/firmware/bcm/1DX_BCM4343W/fw_bcmdhd.bin";
+		bcmdhd_nv = "/lib/firmware/bcm/1DX_BCM4343W/bcmdhd.1DX.SDIO.cal";
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0x60000000 0x40000000>;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		wlreg_on: fixedregulator@100 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			regulator-name = "wlreg_on";
+			gpio = <&gpio2 6 GPIO_ACTIVE_HIGH>;
+			startup-delay-us = <100>;
+			enable-active-high;
+		};
 	};
 };
 
@@ -34,6 +58,32 @@
 			fsl,pins = <
 				IMX7ULP_PAD_PTC10__PTC10	0x30100
 				IMX7ULP_PAD_PTC1__PTC1		0x20100
+			>;
+		};
+
+		pinctrl_lpuart4: lpuart4grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC3__LPUART4_RX	0x400
+				IMX7ULP_PAD_PTC2__LPUART4_TX	0x400
+			>;
+		};
+
+		pinctrl_lpuart6: lpuart6grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTE10__LPUART6_TX	0x400
+				IMX7ULP_PAD_PTE11__LPUART6_RX	0x400
+				IMX7ULP_PAD_PTE9__LPUART6_RTS_B	0x400
+				IMX7ULP_PAD_PTE8__LPUART6_CTS_B	0x400
+				IMX7ULP_PAD_PTE7__PTE7		0x00 /* BT_REG_ON */
+			>;
+		};
+
+		pinctrl_lpuart7: lpuart7grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTF14__LPUART7_TX	0x400
+				IMX7ULP_PAD_PTF15__LPUART7_RX	0x400
+				IMX7ULP_PAD_PTF13__LPUART7_RTS_B	0x400
+				IMX7ULP_PAD_PTF12__LPUART7_CTS_B	0x400
 			>;
 		};
 
@@ -60,6 +110,23 @@
 				IMX7ULP_PAD_PTD8__SDHC0_D2	0x843
 				IMX7ULP_PAD_PTD9__SDHC0_D1	0x843
 				IMX7ULP_PAD_PTD10__SDHC0_D0	0x843
+			>;
+		};
+
+		pinctrl_usdhc1: usdhc1grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTE3__SDHC1_CMD	0x843
+				IMX7ULP_PAD_PTE2__SDHC1_CLK	0x843
+				IMX7ULP_PAD_PTE1__SDHC1_D0		0x843
+				IMX7ULP_PAD_PTE0__SDHC1_D1		0x843
+				IMX7ULP_PAD_PTE5__SDHC1_D2		0x843
+				IMX7ULP_PAD_PTE4__SDHC1_D3		0x843
+			>;
+		};
+
+		pinctrl_wifi: wifigrp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTE6__PTE6		0x43 /* WL_REG_ON */
 			>;
 		};
 	};
@@ -101,10 +168,39 @@
 	};
 };
 
+&lpuart4 { /* console */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart4>;
+	status = "okay";
+};
+
+&lpuart6 { /* BT */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart6>;
+	status = "okay";
+};
+
+&lpuart7 { /* Uart test */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart7>;
+	status = "disabled";
+};
+
 &usdhc0 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_usdhc0>;
 	pinctrl-1 = <&pinctrl_usdhc0>;
 	non-removable;
+	status = "okay";
+};
+
+&usdhc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc1 &pinctrl_wifi>;
+	non-removable;
+	keep-power-in-suspend;
+	cd-post;
+	pm-ignore-notify;
+	wifi-host;
 	status = "okay";
 };
