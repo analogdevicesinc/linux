@@ -432,4 +432,8 @@ config RASPBERRYPI_GPIOMEM
                 on the board. Calling mmap(/dev/gpiomem) will map the GPIO
                 register page to the user's pointer.
 
+config AXI_INTR_MONITOR
+	tristate "AXI Interrupt Monitor"
+	depends on HAS_IOMEM
+
 endmenu
