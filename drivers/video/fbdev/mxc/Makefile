@@ -1,5 +1,6 @@
 obj-$(CONFIG_FB_MXC_MIPI_DSI)			+= mipi_dsi.o
 obj-$(CONFIG_FB_MXC_MIPI_DSI_SAMSUNG)           += mipi_dsi_samsung.o
+obj-$(CONFIG_FB_MXC_MIPI_DSI_NORTHWEST)         += mipi_dsi_northwest.o
 obj-$(CONFIG_FB_MXC_TRULY_WVGA_SYNC_PANEL)      += mxcfb_hx8369_wvga.o
 obj-$(CONFIG_FB_MXC_TRULY_PANEL_TFT3P5079E)     += mxcfb_otm8018b_wvga.o
 obj-$(CONFIG_FB_MXC_TRULY_PANEL_TFT3P5581E)	+= mxcfb_hx8363_wvga.o
