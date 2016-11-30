@@ -554,4 +554,9 @@
 				"gpu2d_shader_clk", "gpu2d_axi_clk";
 		};
 	};
+
+  imx_ion {
+    compatible = "fsl,mxc-ion";
+    fsl,heap-id = <0>;
+  };
 };
