@@ -1,0 +1,23 @@
+ION Memory Manager (ION)
+
+ION is a memory manager that allows for sharing of buffers between different
+processes and between user space and kernel space. ION manages different
+memory spaces by separating the memory spaces into "heaps".
+
+Required properties for Ion
+
+- compatible: "fsl,mxc-ion"
+
+
+All child nodes of a fsl,mxc-ion node are interpreted as Ion heap
+configurations.
+
+Required properties for Ion heaps
+
+- fsl,heap-id: The ID of the ION heap.
+
+Example:
+  imx_ion {
+    compatible = "fsl,mxc-ion";
+    fsl,heap-id = <0>;
+  };
