@@ -69,6 +69,13 @@ config ALTERA_FREEZE_BRIDGE
 	  isolate one region of the FPGA from the busses while that
 	  region is being reprogrammed.
 
+config ALTERA_FREEZE_BRIDGE_PLAT
+	bool "Platform support of Altera FPGA Freeze Bridge"
+	depends on ALTERA_FREEZE_BRIDGE && OF
+	help
+	  Say Y to enable platform driver support for Altera FPGA
+	  Freeze bridges.
+
 endif # FPGA
 
 endmenu

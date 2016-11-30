@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "altera-freeze-bridge.h"
 #include <linux/delay.h>
+#include <linux/fpga/fpga-bridge.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
-#include <linux/of_device.h>
 #include <linux/module.h>
-#include <linux/fpga/fpga-bridge.h>
 
 #define FREEZE_CSR_STATUS_OFFSET		0
 #define FREEZE_CSR_CTRL_OFFSET			4
@@ -208,33 +208,17 @@ static struct fpga_bridge_ops altera_freeze_br_br_ops = {
 	.enable_show = altera_freeze_br_enable_show,
 };
 
-static const struct of_device_id altera_freeze_br_of_match[] = {
-	{ .compatible = "altr,freeze-bridge-controller", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, altera_freeze_br_of_match);
-
-static int altera_freeze_br_probe(struct platform_device *pdev)
+int altera_freeze_br_probe(struct device *dev, void __iomem *reg_base)
 {
-	struct device *dev = &pdev->dev;
-	struct device_node *np = pdev->dev.of_node;
 	struct altera_freeze_br_data *priv;
-	struct resource *res;
 	u32 status, revision;
-
-	if (!np)
-		return -ENODEV;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
 	priv->dev = dev;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	priv->base_addr = devm_ioremap_resource(dev, res);
-	if (IS_ERR(priv->base_addr))
-		return PTR_ERR(priv->base_addr);
+	priv->base_addr = reg_base;
 
 	status = readl(priv->base_addr + FREEZE_CSR_STATUS_OFFSET);
 	if (status & FREEZE_CSR_STATUS_UNFREEZE_REQ_DONE)
@@ -249,24 +233,15 @@ static int altera_freeze_br_probe(struct platform_device *pdev)
 	return fpga_bridge_register(dev, FREEZE_BRIDGE_NAME,
 				    &altera_freeze_br_br_ops, priv);
 }
+EXPORT_SYMBOL_GPL(altera_freeze_br_probe);
 
-static int altera_freeze_br_remove(struct platform_device *pdev)
+int altera_freeze_br_remove(struct device *dev)
 {
-	fpga_bridge_unregister(&pdev->dev);
+	fpga_bridge_unregister(dev);
 
 	return 0;
 }
-
-static struct platform_driver altera_freeze_br_driver = {
-	.probe = altera_freeze_br_probe,
-	.remove = altera_freeze_br_remove,
-	.driver = {
-		.name	= "altera_freeze_br",
-		.of_match_table = of_match_ptr(altera_freeze_br_of_match),
-	},
-};
-
-module_platform_driver(altera_freeze_br_driver);
+EXPORT_SYMBOL_GPL(altera_freeze_br_remove);
 
 MODULE_DESCRIPTION("Altera Freeze Bridge");
 MODULE_AUTHOR("Alan Tull <atull@opensource.altera.com>");
