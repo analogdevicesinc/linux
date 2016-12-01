@@ -126,6 +126,8 @@ static int ad9162_setup(struct ad9162_state *st,
 	dev_info(dev, "AD916x DAC Product Revision: %d\n", dac_chip_id.dev_revision);
 	dev_info(dev, "AD916x Revision: %d.%d.%d\n", revision[0], revision[1], revision[2]);
 
+	ad916x_dac_set_full_scale_current(ad916x_h, 20);
+
 	ad916x_dac_set_clk_frequency(ad916x_h, 5000000000ULL);
 	if (ret != 0)
 		return ret;
