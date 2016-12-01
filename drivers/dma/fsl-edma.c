@@ -208,7 +208,7 @@ void mux_configure32(struct fsl_edma_chan *fsl_chan, void __iomem *muxaddr,
     u32 val;
 
     if (enable)
-        val = EDMAMUX_CHCFG_ENBL << 16 | slot;
+        val = EDMAMUX_CHCFG_ENBL << 24 | slot;
     else
         val = EDMAMUX_CHCFG_DIS;
 
@@ -1054,7 +1054,9 @@ static int fsl_edma_probe(struct platform_device *pdev)
 		vchan_init(&fsl_chan->vchan, &fsl_edma->dma_dev);
 
 		edma_writew(fsl_edma, 0x0, fsl_edma->membase + EDMA_TCD_CSR(i));
+		fsl_chan->vchan.chan.chan_id = i;
 		fsl_edma_chan_mux(fsl_chan, 0, false);
+		fsl_chan->vchan.chan.chan_id = 0;
 	}
 
 	edma_writel(fsl_edma, ~0, fsl_edma->membase + EDMA_INTR);
