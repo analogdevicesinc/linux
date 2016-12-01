@@ -2098,7 +2098,7 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,jesd204-obs-framer-enable-auto-chan-xbar", &phy->mykDevice->obsRx->framer->enableAutoChanXbar, 0);
 	AD9371_OF_PROP("adi,jesd204-obs-framer-obs-rx-syncb-select", &phy->mykDevice->obsRx->framer->obsRxSyncbSelect, 1);
 	AD9371_OF_PROP("adi,jesd204-obs-framer-rx-syncb-mode", &phy->mykDevice->obsRx->framer->rxSyncbMode, 0);
-	AD9371_OF_PROP("adi,jesd204-obs-framer-over-sample", &phy->mykDevice->obsRx->framer->overSample, 1);
+	AD9371_OF_PROP("adi,jesd204-obs-framer-over-sample", &phy->mykDevice->obsRx->framer->overSample, 0);
 
 
 	AD9371_OF_PROP("adi,jesd204-deframer-bank-id", &phy->mykDevice->tx->deframer->bankId, 0);
