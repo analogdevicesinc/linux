@@ -70,13 +70,13 @@ static int mwadma_open(struct inode *inode, struct file *fp)
 /*
  * @brief mwadma_allocate_desc
  */
-static int mwadma_allocate_desc(struct mwadma_slist **new, struct mwadma_chan *mwchan, unsigned int idx)
+static int mwadma_allocate_desc(struct mwadma_slist **new, struct mwadma_chan *mwchan, unsigned int this_idx)
 {
     struct scatterlist *this_sg;
     struct mwadma_slist * tmp;
     int ret, i = 0;
     size_t ring_bytes;
-
+    
     ring_bytes = mwchan->length/mwchan->ring_total;
     tmp = (struct mwadma_slist *)kmalloc(sizeof(struct mwadma_slist),GFP_KERNEL);
     tmp->status = BD_UNALLOC;
@@ -91,25 +91,18 @@ static int mwadma_allocate_desc(struct mwadma_slist **new, struct mwadma_chan *m
         sg_free_table(tmp->sg_t);
         return -ENOMEM;
     }
-    if (mwchan->buf == NULL) {
-        tmp->buf = (char*)__get_free_pages(GFP_KERNEL|__GFP_ZERO, get_order(ring_bytes));
-        pr_err("Channel buffer was null. This should never happen.\n");
-    }
-    else {
-        /* set buffer at offset from larger buffer */
-        tmp->buf = &mwchan->buf[idx * ring_bytes];
-        tmp->buffer_index = idx;
-    }
-
+    /* set buffer at offset from larger buffer */
+    tmp->buf = &mwchan->buf[this_idx*ring_bytes];
+    tmp->buffer_index = this_idx;
+    sg_init_table(tmp->sg_t->sgl, mwchan->sg_entries);
     for_each_sg(tmp->sg_t->sgl, this_sg, mwchan->sg_entries, i)
     {
         struct page *page;
-        void *vaddr;
-
+        void * vaddr;
         vaddr = &(tmp->buf[(mwchan->bd_bytes)*i]);
         if (!virt_addr_valid(vaddr)) {
             page = vmalloc_to_page(vaddr);
-            pr_debug("Using vmalloc_to_page\n");
+            pr_debug("Using vmalloc\n");
         } else {
             page = virt_to_page(vaddr);
             pr_debug("Using virt_to_page\n");
@@ -182,7 +175,7 @@ static int mwadma_prep_desc(struct mwadma_dev *mwdev, struct mwadma_chan * mwcha
         list_add_tail(&(new->list),&(mwchan->scatter->list));
         mwadma_map_desc(mwdev, mwchan, new);
     }
-    mwchan->curr = list_entry(mwchan->scatter->list.prev, struct mwadma_slist, list); /*Before first index (last index)*/
+    mwchan->curr = mwchan->scatter; /*Head of the list*/
     mwchan->prev = list_entry(mwchan->curr->list.prev, struct mwadma_slist, list);
     return 0;
 }
@@ -193,9 +186,14 @@ void mwadma_tx_cb_single_signal(struct mwadma_dev *mwdev)
     struct device *dev = IP2DEVP(mwdev);
     static int ct = 1;
     spin_lock_bh(&mwchan->slock);
+    mwchan->transfer_queued--;
     mwchan->transfer_count++;
     mwchan->status = ready;
     spin_unlock_bh(&mwchan->slock);
+    /* Signal userspace */
+    if (likely(mwdev->asyncq)) {
+        kill_fasync(&mwdev->asyncq, SIGIO, POLL_OUT);
+    }
     dev_dbg(dev, "Notify from %s : count:%d\n",__func__,ct++);
     sysfs_notify_dirent(mwchan->irq_kn);
 }
@@ -235,6 +233,7 @@ void mwadma_tx_cb_continuous_signal_dataflow(struct mwadma_dev *mwdev)
         MW_DBG_text( ": Underflow condition\n");
     }
     mwchan->transfer_count++;
+    sysfs_notify_dirent(mwchan->irq_kn);
 }
 
 
@@ -248,6 +247,7 @@ void mwadma_tx_cb_continuous_signal(struct mwadma_dev *mwdev)
         kill_fasync(&mwdev->asyncq, SIGIO, POLL_OUT);
     }
     mwchan->transfer_count++;
+    sysfs_notify_dirent(mwchan->irq_kn);
 }
 
 
@@ -258,13 +258,17 @@ void mwadma_rx_cb_single_signal(struct mwadma_dev *mwdev)
     static int ct = 1;
 
     spin_lock_bh(&mwchan->slock);
+    mwchan->transfer_queued--;
     mwchan->transfer_count++;
     mwchan->completed = mwchan->prev;
     mwchan->next_index = mwchan->completed->buffer_index;
     mwchan->status = ready;
     spin_unlock_bh(&mwchan->slock);
-
     mwchan->completed = mwchan->prev;
+    /* Signal userspace */    
+    if (likely(mwdev->asyncq)) {
+        kill_fasync(&mwdev->asyncq, SIGIO, POLL_IN); 
+    }
     dev_dbg(dev, "Notify from %s : count:%d\n",__func__,ct++);
     sysfs_notify_dirent(mwchan->irq_kn);
 }
@@ -294,6 +298,7 @@ void mwadma_rx_cb_burst(struct mwadma_dev *mwdev)
 #ifdef DEBUG_IN_RATE
     mwchan->stop = ktime_get();
 #endif
+    sysfs_notify_dirent(mwchan->irq_kn);
 }
 
 void mwadma_rx_cb_continuous_signal(struct mwadma_dev *mwdev)
@@ -380,9 +385,6 @@ int mwadma_start(struct mwadma_dev *mwdev,struct mwadma_chan *mwchan)
     newList = list_entry(mwchan->curr->list.next,struct mwadma_slist,list);
     mwchan->prev = mwchan->curr;
     mwchan->curr = newList;
-    if (mwchan->direction == DMA_MEM_TO_DEV){
-        mwchan->transfer_queued--;
-    }
     spin_unlock_bh(&mwchan->slock);
     return ret;
 
@@ -529,7 +531,6 @@ static long mwadma_rx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
         case MWADMA_RX_GET_NEXT_INDEX:
             spin_lock_bh(&mwchan->slock);
             next_index = (unsigned long) mwchan->next_index;
-            mwchan->transfer_queued--; /* user space has consumed a signal */
             mwchan->next_index = (mwchan->next_index + 1) % mwchan->buffer_interrupts;
             spin_unlock_bh(&mwchan->slock);
             if(copy_to_user((unsigned long *) arg, &next_index, sizeof(unsigned long))) {
