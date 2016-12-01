@@ -132,12 +132,6 @@
 	};
 };
 
-&lpuart6 {
-	pinctrl-names = "default";
-	pinctrl-0 = < >;
-	status = "okay";
-};
-
 &lcdif {
 	status = "okay";
 	display = <&display0>;
