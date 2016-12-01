@@ -184,7 +184,7 @@ static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st, unsigned 
 			continue;
 		}
 
-		dev_dbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
+		dev_vdbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
 			 __func__, lane, dest, reg, JESD204B_GT_TO_DRP_RDATA(val));
 
 		return JESD204B_GT_TO_DRP_RDATA(val);
@@ -203,7 +203,7 @@ static int jesd204b_gt_drp_write(struct jesd204b_gt_state *st, unsigned lane, un
 	if (dest)
 		lane = 0;
 
-	dev_dbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
+	dev_vdbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
 		 __func__, lane, dest, reg, val);
 
 	jesd204b_gt_write(st, JESD204B_GT_REG_DRP_CNTRL(lane) + dest,
@@ -495,8 +495,8 @@ static int jesd204b_gt_status_error(struct device *dev,
 	unsigned val = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + offs);
 
 	if ((val & mask) != mask) {
-		dev_err(dev, "%s Error: %s%s%s\n",
-			offs ? "TX" : "RX",
+		dev_err(dev, "%s Error lane-%d: %s%s%s\n",
+			offs ? "TX" : "RX", lane,
 			(JESD204B_GT_TO_RST_DONE(val) != 0xFF) ? "RESET failed " : "",
 			(JESD204B_GT_TO_PLL_LOCKED(val) != 0xFF) ? "PLL Unlocked " : "",
 			(JESD204B_GT_STATUS & val) ? "" : "Interface Error"
@@ -537,7 +537,7 @@ static void jesd204b_gt_clk_synchronize(struct child_clk *clk)
 			jesd204b_gt_sysref(st, gt_link, lane);
 			msleep(100);
 			ret = jesd204b_gt_read(st, JESD204B_GT_REG_STATUS(lane) + gt_link->tx_offset);
-			dev_dbg(st->dev, "Resynchronizing\n");
+			dev_vdbg(st->dev, "Resynchronizing\n");
 		}
 	}
 }
@@ -950,8 +950,8 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
 	unsigned pll_type;
 
-	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
-		__func__, parent_rate);
+	dev_dbg(st->dev, "%s: Parent Rate %lu Hz, (%s, lane-%d ... lane-%d)",
+		__func__, parent_rate, gt_link->tx_offset ? "TX" : "RX", gt_link->first_lane, gt_link->num_lanes);
 
 	if (!IS_ERR(gt_link->lane_rate_div40_clk))
 		return gt_link->lane_rate;
@@ -1112,8 +1112,10 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 refclk_div, out_div, fbdiv_45, fbdiv, fbdiv_ratio, lowband;
 	int ret, pll_done = 0;
 
-	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
-		__func__, rate, parent_rate);
+	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz (%s, lane-%d ... lane-%d)",
+		__func__, rate, parent_rate, gt_link->tx_offset ? "TX" : "RX",
+		gt_link->first_lane, gt_link->num_lanes);
+
 
 	if (gt_link->cpll_enable)
 		ret = jesd204b_gt_calc_cpll_settings(st, parent_rate / 1000, rate,
