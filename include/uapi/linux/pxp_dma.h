@@ -226,6 +226,9 @@ struct pxp_proc_data {
 	bool lut_map_updated; /* Map recently changed */
 	bool combine_enable;
 
+	/* LUT cleanup */
+	u64 lut_sels;
+
 	/* the mode pxp's working against */
 	enum pxp_working_mode working_mode;
 	enum pxp_engine_ctrl engine_enable;
@@ -255,6 +258,7 @@ struct pxp_proc_data {
 	bool reagl_d_en;	/* enable reagl or reagl-d */
 	bool detection_only;
 	int lut;
+	bool lut_cleanup;
 	unsigned int lut_status_1;
 	unsigned int lut_status_2;
 

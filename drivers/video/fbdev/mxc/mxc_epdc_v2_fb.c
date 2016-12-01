@@ -211,6 +211,7 @@ struct mxc_epdc_fb_data {
 	u32 *lut_update_order;		/* Array size = number of luts */
 	u64 epdc_colliding_luts;
 	u64 luts_complete_wb;
+	u64 luts_complete;
 	struct completion updates_done;
 	struct delayed_work epdc_done_work;
 	struct workqueue_struct *epdc_submit_workqueue;
@@ -462,7 +463,7 @@ static int pxp_wfe_a_process(struct mxc_epdc_fb_data *fb_data,
 			     struct update_data_list *upd_data_list);
 static int pxp_wfe_b_process_update(struct mxc_epdc_fb_data *fb_data,
 			      struct mxcfb_rect *update_region);
-static int pxp_wfe_b_process_clear_workingbuffer(struct mxc_epdc_fb_data *fb_data,
+static int pxp_wfe_a_process_clear_workingbuffer(struct mxc_epdc_fb_data *fb_data,
 			      u32 src_width, u32 src_height);
 static int pxp_complete_update(struct mxc_epdc_fb_data *fb_data, u32 *hist_stat);
 
@@ -1000,7 +1001,6 @@ static inline bool epdc_any_luts_real_available(void)
 		return false;
 }
 
-
 static inline bool epdc_any_luts_available(void)
 {
 #ifdef EPDC_STANDARD_MODE
@@ -1036,19 +1036,22 @@ static inline void epdc_reset_used_lut(void)
 
 #ifdef EPDC_STANDARD_MODE
 /*
- * When all the 63 LUT are all marked as USED, a clean-up operation is required
- * to the working buffer. The cleanup operation can only be initiated when all
- * the LUT are at IDLE state on the EPDC. During the cleanup, none of the LUT
- * should not be activated on the EPDC.
+ * in previous flow, when all LUTs are used, the LUT cleanup operation
+ * need to wait for all the LUT to finish, it will not happen util last LUT
+ * is done. while in new flow, the cleanup operation does not need to wait
+ * for all LUTs to finish, instead it can start when there's LUT's done.
+ * The saved time is multiple LUT operation time.
  */
 static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
 {
 	while (!epdc_any_luts_available()) {
-
-		while (epdc_any_luts_active(fb_data->rev))
-				;
+		u64 luts_complete = fb_data->luts_complete;
 		pxp_clear_wb_work_func(fb_data);
+		used_luts &= ~luts_complete;
+		fb_data->luts_complete &= ~luts_complete;
 	}
+
+	used_luts |= 0x1;
 
 	if ((u32)used_luts != ~0UL)
 		*next_lut = ffz((u32)used_luts);
@@ -4129,6 +4132,8 @@ static void epdc_intr_work_func(struct work_struct *work)
 		epdc_clear_lut_complete_irq(fb_data->rev, i);
 
 		fb_data->luts_complete_wb |= 1ULL << i;
+		if (i != 0)
+			fb_data->luts_complete |= 1ULL << i;
 
 		fb_data->lut_update_order[i] = 0;
 
@@ -5835,7 +5840,7 @@ static int pxp_chan_init(struct mxc_epdc_fb_data *fb_data)
 	return 0;
 }
 
-static int pxp_wfe_b_process_clear_workingbuffer(struct mxc_epdc_fb_data *fb_data,
+static int pxp_wfe_a_process_clear_workingbuffer(struct mxc_epdc_fb_data *fb_data,
 			      u32 panel_width, u32 panel_height)
 {
 	dma_cookie_t cookie;
@@ -5848,7 +5853,7 @@ static int pxp_wfe_b_process_clear_workingbuffer(struct mxc_epdc_fb_data *fb_dat
 	int i, j = 0, ret;
 	int length;
 
-	dev_dbg(fb_data->dev, "Starting PxP WFE_B process for clearing WB.\n");
+	dev_dbg(fb_data->dev, "Starting PxP WFE_A process for clearing WB.\n");
 
 	/* First, check to see that we have acquired a PxP Channel object */
 	if (fb_data->pxp_chan == NULL) {
@@ -5890,64 +5895,71 @@ static int pxp_wfe_b_process_clear_workingbuffer(struct mxc_epdc_fb_data *fb_dat
 	txd->callback = pxp_dma_done;
 
 	proc_data->working_mode = PXP_MODE_STANDARD;
-	proc_data->engine_enable = PXP_ENABLE_WFE_B;
-	proc_data->lut_update = true;
+	proc_data->engine_enable = PXP_ENABLE_WFE_A;
+	proc_data->lut = 0;
+	proc_data->detection_only = 0;
+	proc_data->reagl_en = 0;
+	proc_data->partial_update = 0;
+	proc_data->alpha_en = 1;
+	proc_data->lut_sels = fb_data->luts_complete;
+	proc_data->lut_cleanup = 1;
 
-	pxp_conf->wfe_b_fetch_param[0].stride = panel_width;
-	pxp_conf->wfe_b_fetch_param[0].width = panel_width;
-	pxp_conf->wfe_b_fetch_param[0].height = panel_height;
-	pxp_conf->wfe_b_fetch_param[0].paddr = fb_data->phys_addr_black;
-	pxp_conf->wfe_b_fetch_param[1].stride = panel_width;
-	pxp_conf->wfe_b_fetch_param[1].width = panel_width;
-	pxp_conf->wfe_b_fetch_param[1].height = panel_height;
-	pxp_conf->wfe_b_fetch_param[1].paddr = fb_data->working_buffer_phys;
+	pxp_conf->wfe_a_fetch_param[0].stride = panel_width;
+	pxp_conf->wfe_a_fetch_param[0].width = panel_width;
+	pxp_conf->wfe_a_fetch_param[0].height = panel_height;
+	pxp_conf->wfe_a_fetch_param[0].paddr = fb_data->phys_addr_black;
+	pxp_conf->wfe_a_fetch_param[1].stride = panel_width;
+	pxp_conf->wfe_a_fetch_param[1].width = panel_width;
+	pxp_conf->wfe_a_fetch_param[1].height = panel_height;
+	pxp_conf->wfe_a_fetch_param[1].paddr = fb_data->working_buffer_phys;
+	pxp_conf->wfe_a_fetch_param[0].left = 0;
+	pxp_conf->wfe_a_fetch_param[0].top = 0;
+	pxp_conf->wfe_a_fetch_param[1].left = 0;
+	pxp_conf->wfe_a_fetch_param[1].top = 0;
 
-	pxp_conf->wfe_b_store_param[0].stride = panel_width;
-	pxp_conf->wfe_b_store_param[0].width = panel_width;
-	pxp_conf->wfe_b_store_param[0].height = panel_height;
-	pxp_conf->wfe_b_store_param[0].paddr = fb_data->working_buffer_phys;/*WB*/
-	pxp_conf->wfe_b_store_param[1].stride = panel_width;
-	pxp_conf->wfe_b_store_param[1].width = panel_width;
-	pxp_conf->wfe_b_store_param[1].height = panel_height;
-	pxp_conf->wfe_b_store_param[1].paddr = 0;
+	pxp_conf->wfe_a_store_param[0].stride = panel_width;
+	pxp_conf->wfe_a_store_param[0].width = panel_width;
+	pxp_conf->wfe_a_store_param[0].height = panel_height;
+	pxp_conf->wfe_a_store_param[0].paddr = fb_data->phys_addr_y4c;
+	pxp_conf->wfe_a_store_param[1].stride = panel_width;
+	pxp_conf->wfe_a_store_param[1].width = panel_width;
+	pxp_conf->wfe_a_store_param[1].height = panel_height;
+	pxp_conf->wfe_a_store_param[1].paddr = fb_data->working_buffer_phys;
+	pxp_conf->wfe_a_store_param[0].left = 0;
+	pxp_conf->wfe_a_store_param[0].top = 0;
+	pxp_conf->wfe_a_store_param[1].left = 0;
+	pxp_conf->wfe_a_store_param[1].top = 0;
 
 	desc = to_tx_desc(txd);
 	length = desc->len;
 
+	memcpy(&desc->proc_data, proc_data, sizeof(struct pxp_proc_data));
 	for (i = 0; i < length; i++) {
-		if (i == 0) {/* S0 */
-			memcpy(&desc->proc_data, proc_data, sizeof(struct pxp_proc_data));
-			pxp_conf->s0_param.paddr = sg_dma_address(&sg[0]);
-			memcpy(&desc->layer_param.s0_param, &pxp_conf->s0_param,
-				sizeof(struct pxp_layer_param));
+		if (i == 0 || i == 1) {/* wfe_a won't use s0 or output at all */
 			desc = desc->next;
-		} else if (i == 1) {
-			pxp_conf->out_param.paddr = sg_dma_address(&sg[1]);
-			memcpy(&desc->layer_param.out_param, &pxp_conf->out_param,
-				sizeof(struct pxp_layer_param));
-			desc = desc->next;
-		} else if ((pxp_conf->proc_data.engine_enable & PXP_ENABLE_WFE_B) && (j < 4)) {
+
+		} else if ((pxp_conf->proc_data.engine_enable & PXP_ENABLE_WFE_A) && (j < 4)) {
 			for (j = 0; j < 4; j++) {
 				if (j == 0) {
 					memcpy(&desc->layer_param.processing_param,
-					       &pxp_conf->wfe_b_fetch_param[0],
+					       &pxp_conf->wfe_a_fetch_param[0],
 					       sizeof(struct pxp_layer_param));
-					desc->layer_param.processing_param.flag = PXP_BUF_FLAG_WFE_B_FETCH0;
+					desc->layer_param.processing_param.flag = PXP_BUF_FLAG_WFE_A_FETCH0;
 				} else if (j == 1) {
 					memcpy(&desc->layer_param.processing_param,
-					       &pxp_conf->wfe_b_fetch_param[1],
+					       &pxp_conf->wfe_a_fetch_param[1],
 					       sizeof(struct pxp_layer_param));
-					desc->layer_param.processing_param.flag = PXP_BUF_FLAG_WFE_B_FETCH1;
+					desc->layer_param.processing_param.flag = PXP_BUF_FLAG_WFE_A_FETCH1;
 				} else if (j == 2) {
 					memcpy(&desc->layer_param.processing_param,
-					       &pxp_conf->wfe_b_store_param[0],
+					       &pxp_conf->wfe_a_store_param[0],
 					       sizeof(struct pxp_layer_param));
-					desc->layer_param.processing_param.flag = PXP_BUF_FLAG_WFE_B_STORE0;
+					desc->layer_param.processing_param.flag = PXP_BUF_FLAG_WFE_A_STORE0;
 				} else if (j == 3) {
 					memcpy(&desc->layer_param.processing_param,
-					       &pxp_conf->wfe_b_store_param[1],
+					       &pxp_conf->wfe_a_store_param[1],
 					       sizeof(struct pxp_layer_param));
-					desc->layer_param.processing_param.flag = PXP_BUF_FLAG_WFE_B_STORE1;
+					desc->layer_param.processing_param.flag = PXP_BUF_FLAG_WFE_A_STORE1;
 				}
 
 				desc = desc->next;
@@ -5977,14 +5989,16 @@ static int pxp_clear_wb_work_func(struct mxc_epdc_fb_data *fb_data)
 	unsigned int hist_stat;
 	int ret;
 
-	dev_dbg(fb_data->dev, "PxP WFE_B to clear working buffer.\n");
+	dev_dbg(fb_data->dev, "PxP WFE to clear working buffer.\n");
 
-	ret = pxp_wfe_b_process_clear_workingbuffer(fb_data, fb_data->cur_mode->vmode->xres, fb_data->cur_mode->vmode->yres);
+	mutex_lock(&fb_data->pxp_mutex);
+	ret = pxp_wfe_a_process_clear_workingbuffer(fb_data, fb_data->cur_mode->vmode->xres, fb_data->cur_mode->vmode->yres);
 	if (ret) {
 		dev_err(fb_data->dev, "Unable to submit PxP update task.\n");
 		mutex_unlock(&fb_data->pxp_mutex);
 		return ret;
 	}
+	mutex_unlock(&fb_data->pxp_mutex);
 
 	/* If needed, enable EPDC HW while ePxP is processing */
 	if ((fb_data->power_state == POWER_STATE_OFF)
@@ -5995,12 +6009,10 @@ static int pxp_clear_wb_work_func(struct mxc_epdc_fb_data *fb_data)
 	/* This is a blocking call, so upon return PxP tx should be done */
 	ret = pxp_complete_update(fb_data, &hist_stat);
 	if (ret) {
-		dev_err(fb_data->dev, "Unable to complete PxP update task: reagl/-d process\n");
+		dev_err(fb_data->dev, "Unable to complete PxP update task: clear wb process\n");
 		mutex_unlock(&fb_data->pxp_mutex);
 		return ret;
 	}
-
-	epdc_reset_used_lut();
 
 	return 0;
 }
@@ -6076,6 +6088,7 @@ static int pxp_legacy_process(struct mxc_epdc_fb_data *fb_data,
 	proc_data->srect.left = update_region->left;
 	proc_data->srect.width = update_region->width;
 	proc_data->srect.height = update_region->height;
+	proc_data->lut_cleanup = 0;
 
 	/*
 	 * Because only YUV/YCbCr image can be scaled, configure
@@ -6347,8 +6360,11 @@ static int pxp_wfe_a_process(struct mxc_epdc_fb_data *fb_data,
 	proc_data->working_mode = PXP_MODE_STANDARD;
 	proc_data->engine_enable = PXP_ENABLE_WFE_A;
 	proc_data->lut = upd_data_list->lut_num;
+	proc_data->alpha_en = 0;
+	proc_data->lut_sels = fb_data->luts_complete;
 	proc_data->lut_status_1 = __raw_readl(EPDC_STATUS_LUTS);
 	proc_data->lut_status_2 = __raw_readl(EPDC_STATUS_LUTS2);
+	proc_data->lut_cleanup = 0;
 
 	if (upd_data_list->update_desc->upd_data.flags & EPDC_FLAG_TEST_COLLISION) {
 		proc_data->detection_only = 1;
@@ -6521,6 +6537,7 @@ static int pxp_wfe_b_process_update(struct mxc_epdc_fb_data *fb_data,
 	proc_data->working_mode = PXP_MODE_STANDARD;
 	proc_data->engine_enable = PXP_ENABLE_WFE_B;
 	proc_data->lut_update = false;
+	proc_data->lut_cleanup = 0;
 
 	pxp_conf->wfe_b_fetch_param[0].stride = fb_data->cur_mode->vmode->xres;
 	pxp_conf->wfe_b_fetch_param[0].width = fb_data->cur_mode->vmode->xres;
