@@ -37,4 +37,4 @@
 		output-high;
 		line-name = "RF_GPIO0 PA ON";
 	};
-}
+};
