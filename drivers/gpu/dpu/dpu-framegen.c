@@ -1,0 +1,366 @@
+/*
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ */
+
+#include <linux/clk.h>
+#include <linux/io.h>
+#include <linux/module.h>
+#include <linux/mutex.h>
+#include <linux/platform_device.h>
+#include <linux/types.h>
+#include <video/dpu.h>
+#include "dpu-prv.h"
+
+#define FGSTCTRL		0x8
+#define FGSYNCMODE_MASK		0x6
+typedef enum {
+	/* No side-by-side synchronization. */
+	FGSYNCMODE__OFF = 0,
+	/* Framegen is master. */
+	FGSYNCMODE__MASTER = 1 << 1,
+	/* Runs in cyclic synchronization mode. */
+	FGSYNCMODE__SLAVE_CYC = 2 << 1,
+	/* Runs in one time synchronization mode. */
+	FGSYNCMODE__SLAVE_ONCE = 3 << 1,
+} fgsyncmode_t;
+#define HTCFG1			0xC
+#define HTOTAL(n)		((((n) - 1) & 0x3FFF) << 16)
+#define HACT(n)			((n) & 0x3FFF)
+#define HTCFG2			0x10
+#define HSEN			BIT(31)
+#define HSBP(n)			((((n) - 1) & 0x3FFF) << 16)
+#define HSYNC(n)		(((n) - 1) & 0x3FFF)
+#define VTCFG1			0x14
+#define VTOTAL(n)		((((n) - 1) & 0x3FFF) << 16)
+#define VACT(n)			((n) & 0x3FFF)
+#define VTCFG2			0x18
+#define VSEN			BIT(31)
+#define VSBP(n)			((((n) - 1) & 0x3FFF) << 16)
+#define VSYNC(n)		(((n) - 1) & 0x3FFF)
+#define INTCONFIG(n)		(0x1C + 4 * (n))
+#define EN			BIT(31)
+#define ROW(n)			(((n) & 0x3FFF) << 16)
+#define COL(n)			((n) & 0x3FFF)
+#define PKICKCONFIG		0x2C
+#define SKICKCONFIG		0x30
+#define SECSTATCONFIG		0x34
+#define FGSRCR1			0x38
+#define FGSRCR2			0x3C
+#define FGSRCR3			0x40
+#define FGSRCR4			0x44
+#define FGSRCR5			0x48
+#define FGSRCR6			0x4C
+#define FGKSDR			0x50
+#define PACFG			0x54
+#define STARTX(n)		(((n) + 1) & 0x3FFF)
+#define STARTY(n)		(((((n) + 1) & 0x3FFF)) << 16)
+#define SACFG			0x58
+#define FGINCTRL		0x5C
+#define FGDM_MASK		0x7
+#define ENPRIMALPHA		BIT(3)
+#define ENSECALPHA		BIT(4)
+#define FGINCTRLPANIC		0x60
+#define FGCCR			0x64
+#define CCALPHA(a)		(((a) & 0x1) << 30)
+#define CCRED(r)		(((r) & 0x3FF) << 20)
+#define CCGREEN(g)		(((g) & 0x3FF) << 10)
+#define CCBLUE(b)		((b) & 0x3FF)
+#define FGENABLE		0x68
+#define FGEN			BIT(0)
+#define FGSLR			0x6C
+#define FGENSTS			0x70
+#define ENSTS			BIT(0)
+#define FGTIMESTAMP		0x74
+#define LINEINDEX_MASK		0x3FFF
+#define LINEINDEX_SHIFT		0
+#define FRAMEINDEX_MASK		0xFFFFC000
+#define FRAMEINDEX_SHIFT	14
+#define FGCHSTAT		0x78
+#define FGCHSTATCLR		0x7C
+#define FGSKEWMON		0x80
+#define FGSFIFOMIN		0x84
+#define FGSFIFOMAX		0x88
+#define FGSFIFOFILLCLR		0x8C
+#define FGSREPD			0x90
+#define FGSRFTD			0x94
+
+struct dpu_framegen {
+	void __iomem *base;
+	struct clk *clk_pll;
+	struct clk *clk_disp;
+	struct mutex mutex;
+	int id;
+	bool inuse;
+	struct dpu_soc *dpu;
+};
+
+static inline u32 dpu_fg_read(struct dpu_framegen *fg, unsigned int offset)
+{
+	return readl(fg->base + offset);
+}
+
+static inline void dpu_fg_write(struct dpu_framegen *fg, u32 value,
+				unsigned int offset)
+{
+	writel(value, fg->base + offset);
+}
+
+void framegen_enable(struct dpu_framegen *fg)
+{
+	mutex_lock(&fg->mutex);
+	dpu_fg_write(fg, FGEN, FGENABLE);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_enable);
+
+void framegen_disable(struct dpu_framegen *fg)
+{
+	mutex_lock(&fg->mutex);
+	dpu_fg_write(fg, 0, FGENABLE);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_disable);
+
+void framegen_shdtokgen(struct dpu_framegen *fg)
+{
+	mutex_lock(&fg->mutex);
+	dpu_fg_write(fg, SHDTOKGEN, FGSLR);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_shdtokgen);
+
+void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
+{
+	const struct dpu_devtype *devtype = fg->dpu->devtype;
+	u32 hact, htotal, hsync, hsbp;
+	u32 vact, vtotal, vsync, vsbp;
+	u32 val;
+	unsigned long disp_clock_rate, pll_clock_rate = 0;
+
+	hact = m->crtc_hdisplay;
+	htotal = m->crtc_htotal;
+	hsync = m->crtc_hsync_end - m->crtc_hsync_start;
+	hsbp = m->crtc_htotal - m->crtc_hsync_start;
+
+	vact = m->crtc_vdisplay;
+	vtotal = m->crtc_vtotal;
+	vsync = m->crtc_vsync_end - m->crtc_vsync_start;
+	vsbp = m->crtc_vtotal - m->crtc_vsync_start;
+
+	mutex_lock(&fg->mutex);
+	/* video mode */
+	dpu_fg_write(fg, HACT(hact) | HTOTAL(htotal), HTCFG1);
+	dpu_fg_write(fg, HSYNC(hsync) | HSBP(hsbp) | HSEN, HTCFG2);
+	dpu_fg_write(fg, VACT(vact) | VTOTAL(vtotal), VTCFG1);
+	dpu_fg_write(fg, VSYNC(vsync) | VSBP(vsbp) | VSEN, VTCFG2);
+
+	/* skikconfig */
+	dpu_fg_write(fg, COL(hact - 40) | ROW(vact - 1) | EN, SKICKCONFIG);
+
+	/* primary position config */
+	dpu_fg_write(fg, STARTX(0) | STARTY(0), PACFG);
+
+	/* alpha */
+	val = dpu_fg_read(fg, FGINCTRL);
+	val &= ~(ENPRIMALPHA | ENSECALPHA);
+	dpu_fg_write(fg, val, FGINCTRL);
+
+	val = dpu_fg_read(fg, FGINCTRLPANIC);
+	val &= ~(ENPRIMALPHA | ENSECALPHA);
+	dpu_fg_write(fg, val, FGINCTRLPANIC);
+
+	/* constant color */
+	dpu_fg_write(fg, 0, FGCCR);
+	mutex_unlock(&fg->mutex);
+
+	disp_clock_rate = m->clock * 1000;
+
+	if (devtype->version == DPU_V1) {
+		/* FIXME: why the folders */
+		if (disp_clock_rate > 150000000)
+			pll_clock_rate = disp_clock_rate * 2;
+		else if (disp_clock_rate > 75000000)
+			pll_clock_rate = disp_clock_rate * 4;
+		else
+			pll_clock_rate = disp_clock_rate * 8;
+	} else if (devtype->version == DPU_V2) {
+		/* FIXME: why the hardcoded clock rate */
+		if (disp_clock_rate > 75000000)
+			pll_clock_rate = 1188000000;
+		else
+			pll_clock_rate = disp_clock_rate * 8;
+	}
+
+	clk_set_rate(fg->clk_pll, pll_clock_rate);
+	clk_set_rate(fg->clk_disp, disp_clock_rate);
+}
+EXPORT_SYMBOL_GPL(framegen_cfg_videomode);
+
+void framegen_pkickconfig(struct dpu_framegen *fg, bool enable)
+{
+	u32 val;
+
+	mutex_lock(&fg->mutex);
+	val = dpu_fg_read(fg, PKICKCONFIG);
+	if (enable)
+		val |= EN;
+	else
+		val &= ~EN;
+	dpu_fg_write(fg, val, PKICKCONFIG);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_pkickconfig);
+
+void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y)
+{
+	mutex_lock(&fg->mutex);
+	dpu_fg_write(fg, STARTX(x) | STARTY(y), SACFG);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_sacfg);
+
+void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode)
+{
+	u32 val;
+
+	mutex_lock(&fg->mutex);
+	val = dpu_fg_read(fg, FGINCTRL);
+	val &= ~FGDM_MASK;
+	val |= mode;
+	dpu_fg_write(fg, val, FGINCTRL);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_displaymode);
+
+void framegen_panic_displaymode(struct dpu_framegen *fg, fgdm_t mode)
+{
+	u32 val;
+
+	mutex_lock(&fg->mutex);
+	val = dpu_fg_read(fg, FGINCTRLPANIC);
+	val &= ~FGDM_MASK;
+	val |= mode;
+	dpu_fg_write(fg, val, FGINCTRLPANIC);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_panic_displaymode);
+
+void framegen_wait_done(struct dpu_framegen *fg)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(60);
+	u32 val;
+
+	mutex_lock(&fg->mutex);
+	do {
+		val = dpu_fg_read(fg, FGENSTS);
+	} while ((val & ENSTS) && time_before(jiffies, timeout));
+	mutex_unlock(&fg->mutex);
+
+	if (val & ENSTS)
+		dev_err(fg->dpu->dev, "failed to wait for FrameGen%d done\n",
+			fg->id);
+}
+EXPORT_SYMBOL_GPL(framegen_wait_done);
+
+void framegen_enable_clock(struct dpu_framegen *fg)
+{
+	clk_prepare_enable(fg->clk_pll);
+	clk_prepare_enable(fg->clk_disp);
+}
+EXPORT_SYMBOL_GPL(framegen_enable_clock);
+
+void framegen_disable_clock(struct dpu_framegen *fg)
+{
+	clk_disable_unprepare(fg->clk_pll);
+	clk_disable_unprepare(fg->clk_disp);
+}
+EXPORT_SYMBOL_GPL(framegen_disable_clock);
+
+struct dpu_framegen *dpu_fg_get(struct dpu_soc *dpu, int id)
+{
+	struct dpu_framegen *fg;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(fg_ids); i++)
+		if (fg_ids[i] == id)
+			break;
+
+	if (i == ARRAY_SIZE(fg_ids))
+		return ERR_PTR(-EINVAL);
+
+	fg = dpu->fg_priv[i];
+
+	mutex_lock(&fg->mutex);
+
+	if (fg->inuse) {
+		fg = ERR_PTR(-EBUSY);
+		goto out;
+	}
+
+	fg->inuse = true;
+out:
+	mutex_unlock(&fg->mutex);
+
+	return fg;
+}
+EXPORT_SYMBOL_GPL(dpu_fg_get);
+
+void dpu_fg_put(struct dpu_framegen *fg)
+{
+	mutex_lock(&fg->mutex);
+
+	fg->inuse = false;
+
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(dpu_fg_put);
+
+int dpu_fg_init(struct dpu_soc *dpu, unsigned int id,
+		unsigned long unused, unsigned long base)
+{
+	struct dpu_framegen *fg;
+	u32 val;
+
+	fg = devm_kzalloc(dpu->dev, sizeof(*fg), GFP_KERNEL);
+	if (!fg)
+		return -ENOMEM;
+
+	dpu->fg_priv[id] = fg;
+
+	fg->base = devm_ioremap(dpu->dev, base, SZ_256);
+	if (!fg->base)
+		return -ENOMEM;
+
+	fg->clk_pll = devm_clk_get(dpu->dev, id ? "pll1" : "pll0");
+	if (IS_ERR(fg->clk_pll))
+		return PTR_ERR(fg->clk_pll);
+
+	fg->clk_disp = devm_clk_get(dpu->dev, id ? "disp1" : "disp0");
+	if (IS_ERR(fg->clk_disp))
+		return PTR_ERR(fg->clk_disp);
+
+	fg->dpu = dpu;
+	fg->id = id;
+	mutex_init(&fg->mutex);
+
+	mutex_lock(&fg->mutex);
+	val = dpu_fg_read(fg, FGSTCTRL);
+	val &= ~FGSYNCMODE_MASK;
+	val |= FGSYNCMODE__OFF;
+	dpu_fg_write(fg, val, FGSTCTRL);
+
+	mutex_unlock(&fg->mutex);
+
+	return 0;
+}

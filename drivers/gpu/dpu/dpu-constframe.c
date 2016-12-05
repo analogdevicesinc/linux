@@ -1,0 +1,202 @@
+/*
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ */
+
+#include <linux/io.h>
+#include <linux/module.h>
+#include <linux/mutex.h>
+#include <linux/platform_device.h>
+#include <linux/types.h>
+#include <video/dpu.h>
+#include "dpu-prv.h"
+
+#define FRAMEDIMENSIONS		0xC
+#define WIDTH(w)		(((w) - 1) & 0x3FFF)
+#define HEIGHT(h)		((((h) - 1) & 0x3FFF) << 16)
+#define CONSTANTCOLOR		0x10
+#define RED(r)			(((r) & 0xFF) << 24)
+#define GREEN(g)		(((g) & 0xFF) << 16)
+#define BLUE(b)			(((b) & 0xFF) << 8)
+#define ALPHA(a)		((a) & 0xFF)
+#define CONTROLTRIGGER		0x14
+#define START			0x18
+#define STATUS			0x1C
+
+static const shadow_load_req_t cf_shdlreqs[] = {
+	SHLDREQID_CONSTFRAME0, SHLDREQID_CONSTFRAME1,
+	SHLDREQID_CONSTFRAME4, SHLDREQID_CONSTFRAME5,
+};
+
+struct dpu_constframe {
+	void __iomem *pec_base;
+	void __iomem *base;
+	struct mutex mutex;
+	int id;
+	bool inuse;
+	struct dpu_soc *dpu;
+	shadow_load_req_t shdlreq;
+};
+
+static inline void dpu_cf_write(struct dpu_constframe *cf, u32 value,
+				unsigned int offset)
+{
+	writel(value, cf->base + offset);
+}
+
+void constframe_shden(struct dpu_constframe *cf, bool enable)
+{
+	u32 val;
+
+	val = enable ? SHDEN : 0;
+
+	mutex_lock(&cf->mutex);
+	dpu_cf_write(cf, val, STATICCONTROL);
+	mutex_unlock(&cf->mutex);
+}
+EXPORT_SYMBOL_GPL(constframe_shden);
+
+void constframe_framedimensions(struct dpu_constframe *cf, unsigned int w,
+				unsigned int h)
+{
+	u32 val;
+
+	val = WIDTH(w) | HEIGHT(h);
+
+	mutex_lock(&cf->mutex);
+	dpu_cf_write(cf, val, FRAMEDIMENSIONS);
+	mutex_unlock(&cf->mutex);
+}
+EXPORT_SYMBOL_GPL(constframe_framedimensions);
+
+void constframe_constantcolor(struct dpu_constframe *cf, unsigned int r,
+			      unsigned int g, unsigned int b, unsigned int a)
+{
+	u32 val;
+
+	val = RED(r) | GREEN(g) | BLUE(b) | ALPHA(a);
+
+	mutex_lock(&cf->mutex);
+	dpu_cf_write(cf, val, CONSTANTCOLOR);
+	mutex_unlock(&cf->mutex);
+}
+EXPORT_SYMBOL_GPL(constframe_constantcolor);
+
+void constframe_controltrigger(struct dpu_constframe *cf, bool trigger)
+{
+	u32 val;
+
+	val = trigger ? SHDTOKGEN : 0;
+
+	mutex_lock(&cf->mutex);
+	dpu_cf_write(cf, val, CONTROLTRIGGER);
+	mutex_unlock(&cf->mutex);
+}
+EXPORT_SYMBOL_GPL(constframe_controltrigger);
+
+shadow_load_req_t constframe_to_shdldreq_t(struct dpu_constframe *cf)
+{
+	shadow_load_req_t t = 0;
+
+	switch (cf->id) {
+	case 0:
+		t = SHLDREQID_CONSTFRAME0;
+		break;
+	case 1:
+		t = SHLDREQID_CONSTFRAME1;
+		break;
+	case 4:
+		t = SHLDREQID_CONSTFRAME4;
+		break;
+	case 5:
+		t = SHLDREQID_CONSTFRAME5;
+		break;
+	}
+
+	return t;
+}
+EXPORT_SYMBOL_GPL(constframe_to_shdldreq_t);
+
+struct dpu_constframe *dpu_cf_get(struct dpu_soc *dpu, int id)
+{
+	struct dpu_constframe *cf;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cf_ids); i++)
+		if (cf_ids[i] == id)
+			break;
+
+	if (i == ARRAY_SIZE(cf_ids))
+		return ERR_PTR(-EINVAL);
+
+	cf = dpu->cf_priv[i];
+
+	mutex_lock(&cf->mutex);
+
+	if (cf->inuse) {
+		cf = ERR_PTR(-EBUSY);
+		goto out;
+	}
+
+	cf->inuse = true;
+out:
+	mutex_unlock(&cf->mutex);
+
+	return cf;
+}
+EXPORT_SYMBOL_GPL(dpu_cf_get);
+
+void dpu_cf_put(struct dpu_constframe *cf)
+{
+	mutex_lock(&cf->mutex);
+
+	cf->inuse = false;
+
+	mutex_unlock(&cf->mutex);
+}
+EXPORT_SYMBOL_GPL(dpu_cf_put);
+
+int dpu_cf_init(struct dpu_soc *dpu, unsigned int id,
+		unsigned long pec_base, unsigned long base)
+{
+	struct dpu_constframe *cf;
+	int i;
+
+	cf = devm_kzalloc(dpu->dev, sizeof(*cf), GFP_KERNEL);
+	if (!cf)
+		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(cf_ids); i++)
+		if (cf_ids[i] == id)
+			break;
+
+	dpu->cf_priv[i] = cf;
+
+	cf->pec_base = devm_ioremap(dpu->dev, pec_base, SZ_16);
+	if (!cf->pec_base)
+		return -ENOMEM;
+
+	cf->base = devm_ioremap(dpu->dev, base, SZ_32);
+	if (!cf->base)
+		return -ENOMEM;
+
+	cf->dpu = dpu;
+	cf->id = id;
+	cf->shdlreq = cf_shdlreqs[i];
+
+	mutex_init(&cf->mutex);
+
+	constframe_shden(cf, true);
+
+	return 0;
+}
