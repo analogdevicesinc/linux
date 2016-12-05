@@ -1362,6 +1362,7 @@ MODULE_DEVICE_TABLE(platform, mxsfb_devtype);
 static const struct of_device_id mxsfb_dt_ids[] = {
 	{ .compatible = "fsl,imx23-lcdif", .data = &mxsfb_devtype[0], },
 	{ .compatible = "fsl,imx28-lcdif", .data = &mxsfb_devtype[1], },
+	{ .compatible = "fsl,imx7ulp-lcdif", .data = &mxsfb_devtype[1], },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mxsfb_dt_ids);
