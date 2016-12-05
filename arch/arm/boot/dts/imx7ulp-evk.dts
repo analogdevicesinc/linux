@@ -31,6 +31,15 @@
 		reg = <0x60000000 0x40000000>;
 	};
 
+	backlight {
+		compatible = "gpio-backlight";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_backlight>;
+		gpios = <&gpio3 2 GPIO_ACTIVE_HIGH>;
+		default-on;
+		status = "okay";
+	};
+
 	regulators {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -156,6 +165,12 @@
 				IMX7ULP_PAD_PTE13__PTE13	0x30103		/* USDHC1 CD */
 				IMX7ULP_PAD_PTE12__PTE12	0x30103		/* USDHC1 WP */
 				IMX7ULP_PAD_PTE14__SDHC1_VS	0x843		/* USDHC1 VSEL */
+			>;
+		};
+
+		pinctrl_backlight: backlight_grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTF2__PTF2		0x20100
 			>;
 		};
 
