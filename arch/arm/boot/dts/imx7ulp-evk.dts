@@ -40,6 +40,13 @@
 		status = "okay";
 	};
 
+	mipi_dsi_reset: mipi-dsi-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio0 19 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	regulators {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -181,6 +188,12 @@
 			>;
 		};
 
+		pinctrl_mipi_dsi_reset: mipi_dsi_reset_grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC19__PTC19		0x20103
+			>;
+		};
+
 		pinctrl_lpuart4: lpuart4grp {
 			fsl,pins = <
 				IMX7ULP_PAD_PTC3__LPUART4_RX	0x400
@@ -288,6 +301,7 @@
 
 &lcdif {
 	status = "okay";
+	disp-dev = "mipi_dsi_northwest";
 	display = <&display0>;
 
 	display0: display {
@@ -358,6 +372,14 @@
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <1000000>;
 	};
+};
+
+&mipi_dsi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
+	lcd_panel = "TRULY-WVGA-TFT3P5581E";
+	resets = <&mipi_dsi_reset>;
+	status = "okay";
 };
 
 &lpuart4 { /* console */

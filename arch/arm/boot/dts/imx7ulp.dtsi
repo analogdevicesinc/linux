@@ -452,6 +452,16 @@
 			status = "disabled";
 		};
 
+		mipi_dsi: mipi_dsi@40A90000 {
+			compatible = "fsl,imx7ulp-mipi-dsi";
+			reg = <0x40A90000 0x10000>;
+			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks IMX7ULP_CLK_DSI>;
+			clock-names = "mipi_dsi_clk";
+			sim = <&sim>;
+			status = "disabled";
+		};
+
 		mmdc: mmdc@40ab0000 {
 			compatible = "fsl,imx7ulp-mmdc";
 			reg = <0x40ab0000 0x4000>;
