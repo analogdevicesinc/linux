@@ -1,5 +1,6 @@
 /*
  * Copyright 2016 Mans Rullgard <mans@mansr.com>
+ * Copyright (c) Siemens AG, 2016-2020
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +16,7 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/ivshmem.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
@@ -28,34 +30,28 @@
 
 #define DRV_NAME "ivshmem-net"
 
-#define JAILHOUSE_CFG_SHMEM_PTR	0x40
-#define JAILHOUSE_CFG_SHMEM_SZ	0x48
+#define IVSHM_NET_STATE_RESET		0
+#define IVSHM_NET_STATE_INIT		1
+#define IVSHM_NET_STATE_READY		2
+#define IVSHM_NET_STATE_RUN		3
 
-#define IVSHMEM_INTX_ENABLE	0x1
+#define IVSHM_NET_FLAG_RUN		0
 
-#define IVSHM_NET_STATE_RESET	0
-#define IVSHM_NET_STATE_INIT	1
-#define IVSHM_NET_STATE_READY	2
-#define IVSHM_NET_STATE_RUN	3
-
-#define IVSHM_NET_FLAG_RUN	0
-
-#define IVSHM_NET_MTU_MIN 256
-#define IVSHM_NET_MTU_MAX 65535
-#define IVSHM_NET_MTU_DEF 16384
+#define IVSHM_NET_MTU_MIN		256
+#define IVSHM_NET_MTU_MAX		65535
+#define IVSHM_NET_MTU_DEF		16384
 
 #define IVSHM_NET_FRAME_SIZE(s) ALIGN(18 + (s), SMP_CACHE_BYTES)
 
 #define IVSHM_NET_VQ_ALIGN 64
 
-struct ivshmem_regs {
-	u32 intxctrl;
-	u32 istat;
-	u32 ivpos;
-	u32 doorbell;
-	u32 lstate;
-	u32 rstate;
-};
+#define IVSHM_NET_SECTION_TX		0
+#define IVSHM_NET_SECTION_RX		1
+
+#define IVSHM_NET_MSIX_STATE		0
+#define IVSHM_NET_MSIX_TX_RX		1
+
+#define IVSHM_NET_NUM_VECTORS		2
 
 struct ivshm_net_queue {
 	struct vring vr;
@@ -73,7 +69,7 @@ struct ivshm_net_queue {
 };
 
 struct ivshm_net_stats {
-	u32 interrupts;
+	u32 tx_rx_interrupts;
 	u32 tx_packets;
 	u32 tx_notify;
 	u32 tx_pause;
@@ -97,8 +93,9 @@ struct ivshm_net {
 
 	struct napi_struct napi;
 
-	u32 lstate;
-	u32 rstate;
+	u32 state;
+	u32 last_peer_state;
+	u32 *state_table;
 
 	unsigned long flags;
 
@@ -107,17 +104,19 @@ struct ivshm_net {
 
 	struct ivshm_net_stats stats;
 
-	struct ivshmem_regs __iomem *ivshm_regs;
-	void *shm;
-	phys_addr_t shmaddr;
+	struct ivshm_regs __iomem *ivshm_regs;
+	void *shm[2];
 	resource_size_t shmlen;
 	u32 peer_id;
+
+	u32 tx_rx_vector;
 
 	struct pci_dev *pdev;
 };
 
 static void *ivshm_net_desc_data(struct ivshm_net *in,
 				 struct ivshm_net_queue *q,
+				 unsigned int region,
 				 struct vring_desc *desc,
 				 u32 *len)
 {
@@ -132,7 +131,7 @@ static void *ivshm_net_desc_data(struct ivshm_net *in,
 	if (offs >= in->shmlen)
 		return NULL;
 
-	data = in->shm + offs;
+	data = in->shm[region] + offs;
 
 	if (data < q->data || data >= q->end)
 		return NULL;
@@ -160,18 +159,17 @@ static void ivshm_net_init_queue(struct ivshm_net *in,
 static void ivshm_net_init_queues(struct net_device *ndev)
 {
 	struct ivshm_net *in = netdev_priv(ndev);
-	int ivpos = readl(&in->ivshm_regs->ivpos);
 	void *tx;
 	void *rx;
 	int i;
 
-	tx = in->shm +  ivpos * in->shmlen / 2;
-	rx = in->shm + !ivpos * in->shmlen / 2;
+	tx = in->shm[IVSHM_NET_SECTION_TX];
+	rx = in->shm[IVSHM_NET_SECTION_RX];
 
-	memset(tx, 0, in->shmlen / 2);
+	memset(tx, 0, in->shmlen);
 
-	ivshm_net_init_queue(in, &in->rx, rx, in->qlen);
 	ivshm_net_init_queue(in, &in->tx, tx, in->qlen);
+	ivshm_net_init_queue(in, &in->rx, rx, in->qlen);
 
 	swap(in->rx.vr.used, in->tx.vr.used);
 
@@ -191,14 +189,14 @@ static int ivshm_net_calc_qsize(struct net_device *ndev)
 	for (qlen = 4096; qlen > 32; qlen >>= 1) {
 		vrsize = vring_size(qlen, IVSHM_NET_VQ_ALIGN);
 		vrsize = ALIGN(vrsize, IVSHM_NET_VQ_ALIGN);
-		if (vrsize < in->shmlen / 16)
+		if (vrsize < in->shmlen / 8)
 			break;
 	}
 
-	if (vrsize > in->shmlen / 2)
+	if (vrsize > in->shmlen)
 		return -EINVAL;
 
-	qsize = in->shmlen / 2 - vrsize;
+	qsize = in->shmlen - vrsize;
 
 	if (qsize < 4 * IVSHM_NET_MTU_MIN)
 		return -EINVAL;
@@ -221,7 +219,8 @@ static void ivshm_net_notify_tx(struct ivshm_net *in, unsigned int num)
 	new = in->tx.last_avail_idx;
 
 	if (vring_need_event(evt, new, old)) {
-		writel(in->peer_id << 16, &in->ivshm_regs->doorbell);
+		writel(in->tx_rx_vector | (in->peer_id << 16),
+		       &in->ivshm_regs->doorbell);
 		in->stats.tx_notify++;
 	}
 }
@@ -243,7 +242,8 @@ static void ivshm_net_notify_rx(struct ivshm_net *in, unsigned int num)
 	new = in->rx.last_used_idx;
 
 	if (vring_need_event(evt, new, old)) {
-		writel(in->peer_id << 16, &in->ivshm_regs->doorbell);
+		writel(in->tx_rx_vector | (in->peer_id << 16),
+		       &in->ivshm_regs->doorbell);
 		in->stats.rx_notify++;
 	}
 }
@@ -320,7 +320,7 @@ static int ivshm_net_tx_frame(struct net_device *ndev, struct sk_buff *skb,
 	buf = tx->data + head;
 	skb_copy_and_csum_dev(skb, buf);
 
-	desc->addr = buf - in->shm;
+	desc->addr = buf - in->shm[IVSHM_NET_SECTION_TX];
 	desc->len = skb->len;
 	desc->flags = 0;
 
@@ -374,7 +374,8 @@ static void ivshm_net_tx_clean(struct net_device *ndev)
 
 		desc = &vr->desc[used->id];
 
-		data = ivshm_net_desc_data(in, &in->tx, desc, &len);
+		data = ivshm_net_desc_data(in, &in->tx, IVSHM_NET_SECTION_TX,
+					   desc, &len);
 		if (!data) {
 			netdev_err(ndev, "bad tx descriptor, data == NULL\n");
 			break;
@@ -466,7 +467,8 @@ static int ivshm_net_poll(struct napi_struct *napi, int budget)
 		if (!desc)
 			break;
 
-		data = ivshm_net_desc_data(in, &in->rx, desc, &len);
+		data = ivshm_net_desc_data(in, &in->rx, IVSHM_NET_SECTION_RX,
+					   desc, &len);
 		if (!data) {
 			netdev_err(ndev, "bad rx descriptor\n");
 			break;
@@ -535,15 +537,15 @@ static netdev_tx_t ivshm_net_xmit(struct sk_buff *skb, struct net_device *ndev)
 static void ivshm_net_set_state(struct ivshm_net *in, u32 state)
 {
 	virt_wmb();
-	WRITE_ONCE(in->lstate, state);
-	writel(state, &in->ivshm_regs->lstate);
+	WRITE_ONCE(in->state, state);
+	writel(state, &in->ivshm_regs->state);
 }
 
 static void ivshm_net_run(struct net_device *ndev)
 {
 	struct ivshm_net *in = netdev_priv(ndev);
 
-	if (in->lstate < IVSHM_NET_STATE_READY)
+	if (in->state < IVSHM_NET_STATE_READY)
 		return;
 
 	if (!netif_running(ndev))
@@ -575,15 +577,15 @@ static void ivshm_net_state_change(struct work_struct *work)
 {
 	struct ivshm_net *in = container_of(work, struct ivshm_net, state_work);
 	struct net_device *ndev = in->napi.dev;
-	u32 rstate = readl(&in->ivshm_regs->rstate);
+	u32 peer_state = READ_ONCE(in->state_table[in->peer_id]);
 
-	switch (in->lstate) {
+	switch (in->state) {
 	case IVSHM_NET_STATE_RESET:
 		/*
 		 * Wait for the remote to leave READY/RUN before transitioning
 		 * to INIT.
 		 */
-		if (rstate < IVSHM_NET_STATE_READY)
+		if (peer_state < IVSHM_NET_STATE_READY)
 			ivshm_net_set_state(in, IVSHM_NET_STATE_INIT);
 		break;
 
@@ -592,7 +594,7 @@ static void ivshm_net_state_change(struct work_struct *work)
 		 * Wait for the remote to leave RESET before performing the
 		 * initialization and moving to READY.
 		 */
-		if (rstate > IVSHM_NET_STATE_RESET) {
+		if (peer_state > IVSHM_NET_STATE_RESET) {
 			ivshm_net_init_queues(ndev);
 			ivshm_net_set_state(in, IVSHM_NET_STATE_READY);
 
@@ -607,7 +609,7 @@ static void ivshm_net_state_change(struct work_struct *work)
 		 * Link is up and we are running once the remote is in READY or
 		 * RUN.
 		 */
-		if (rstate >= IVSHM_NET_STATE_READY) {
+		if (peer_state >= IVSHM_NET_STATE_READY) {
 			netif_carrier_on(ndev);
 			ivshm_net_run(ndev);
 			break;
@@ -617,7 +619,7 @@ static void ivshm_net_state_change(struct work_struct *work)
 		/*
 		 * If the remote goes to RESET, we need to follow immediately.
 		 */
-		if (rstate == IVSHM_NET_STATE_RESET) {
+		if (peer_state == IVSHM_NET_STATE_RESET) {
 			netif_carrier_off(ndev);
 			ivshm_net_do_stop(ndev);
 		}
@@ -625,27 +627,40 @@ static void ivshm_net_state_change(struct work_struct *work)
 	}
 
 	virt_wmb();
-	WRITE_ONCE(in->rstate, rstate);
+	WRITE_ONCE(in->last_peer_state, peer_state);
 }
 
-static void ivshm_net_check_state(struct net_device *ndev)
+static void ivshm_net_check_state(struct ivshm_net *in)
 {
-	struct ivshm_net *in = netdev_priv(ndev);
-	u32 rstate = readl(&in->ivshm_regs->rstate);
-
-	if (rstate != in->rstate || !test_bit(IVSHM_NET_FLAG_RUN, &in->flags))
+	if (in->state_table[in->peer_id] != in->last_peer_state ||
+	    !test_bit(IVSHM_NET_FLAG_RUN, &in->flags))
 		queue_work(in->state_wq, &in->state_work);
 }
 
-static irqreturn_t ivshm_net_int(int irq, void *data)
+static irqreturn_t ivshm_net_int_state(int irq, void *data)
 {
-	struct net_device *ndev = data;
-	struct ivshm_net *in = netdev_priv(ndev);
+	struct ivshm_net *in = data;
 
-	in->stats.interrupts++;
+	ivshm_net_check_state(in);
 
-	ivshm_net_check_state(ndev);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t ivshm_net_int_tx_rx(int irq, void *data)
+{
+	struct ivshm_net *in = data;
+
+	in->stats.tx_rx_interrupts++;
+
 	napi_schedule_irqoff(&in->napi);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t ivshm_net_intx(int irq, void *data)
+{
+	ivshm_net_int_state(irq, data);
+	ivshm_net_int_tx_rx(irq, data);
 
 	return IRQ_HANDLED;
 }
@@ -717,7 +732,7 @@ static const struct net_device_ops ivshm_net_ops = {
 };
 
 static const char ivshm_net_stats[][ETH_GSTRING_LEN] = {
-	"interrupts",
+	"tx_rx_interrupts",
 	"tx_packets",
 	"tx_notify",
 	"tx_pause",
@@ -760,7 +775,7 @@ static void ivshm_net_get_ethtool_stats(struct net_device *ndev,
 	unsigned int n = 0;
 	unsigned int i;
 
-	st[n++] = in->stats.interrupts;
+	st[n++] = in->stats.tx_rx_interrupts;
 	st[n++] = in->stats.tx_packets;
 	st[n++] = in->stats.tx_notify;
 	st[n++] = in->stats.tx_pause;
@@ -789,8 +804,8 @@ static void ivshm_net_get_regs(struct net_device *ndev,
 	u32 *reg32 = p;
 	u16 *reg16;
 
-	*reg32++ = in->lstate;
-	*reg32++ = in->rstate;
+	*reg32++ = in->state;
+	*reg32++ = in->last_peer_state;
 	*reg32++ = in->qlen;
 
 	reg16 = (u16 *)reg32;
@@ -812,17 +827,28 @@ static const struct ethtool_ops ivshm_net_ethtool_ops = {
 	.get_regs		= ivshm_net_get_regs,
 };
 
-static int ivshm_net_probe(struct pci_dev *pdev,
-			   const struct pci_device_id *id)
+static u64 get_config_qword(struct pci_dev *pdev, unsigned int pos)
 {
+	u32 lo, hi;
+
+	pci_read_config_dword(pdev, pos, &lo);
+	pci_read_config_dword(pdev, pos + 4, &hi);
+	return lo | ((u64)hi << 32);
+}
+
+static int ivshm_net_probe(struct pci_dev *pdev,
+			   const struct pci_device_id *pci_id)
+{
+	phys_addr_t output_sections_addr, section_addr;
+	resource_size_t section_sz, output_section_sz;
+	void *state_table, *output_sections;
+	struct ivshm_regs __iomem *regs;
 	struct net_device *ndev;
 	struct ivshm_net *in;
-	struct ivshmem_regs __iomem *regs;
-	resource_size_t shmaddr;
-	resource_size_t shmlen;
+	unsigned int cap_pos;
 	char *device_name;
-	void *shm;
-	u32 ivpos;
+	int vendor_cap;
+	u32 id, dword;
 	int ret;
 
 	ret = pcim_enable_device(pdev);
@@ -839,39 +865,74 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 
 	regs = pcim_iomap_table(pdev)[0];
 
-	shmlen = pci_resource_len(pdev, 2);
-
-	if (shmlen) {
-		shmaddr = pci_resource_start(pdev, 2);
-	} else {
-		union { u64 v; u32 hl[2]; } val;
-
-		pci_read_config_dword(pdev, JAILHOUSE_CFG_SHMEM_PTR,
-				      &val.hl[0]);
-		pci_read_config_dword(pdev, JAILHOUSE_CFG_SHMEM_PTR + 4,
-				      &val.hl[1]);
-		shmaddr = val.v;
-
-		pci_read_config_dword(pdev, JAILHOUSE_CFG_SHMEM_SZ,
-				      &val.hl[0]);
-		pci_read_config_dword(pdev, JAILHOUSE_CFG_SHMEM_SZ + 4,
-				      &val.hl[1]);
-		shmlen = val.v;
-	}
-
-
-	if (!devm_request_mem_region(&pdev->dev, shmaddr, shmlen, DRV_NAME))
-		return -EBUSY;
-
-	shm = devm_memremap(&pdev->dev, shmaddr, shmlen, MEMREMAP_WB);
-	if (!shm)
-		return -ENOMEM;
-
-	ivpos = readl(&regs->ivpos);
-	if (ivpos > 1) {
-		dev_err(&pdev->dev, "invalid IVPosition %d\n", ivpos);
+	id = readl(&regs->id);
+	if (id > 1) {
+		dev_err(&pdev->dev, "invalid ID %d\n", id);
 		return -EINVAL;
 	}
+	if (readl(&regs->max_peers) > 2) {
+		dev_err(&pdev->dev, "only 2 peers supported\n");
+		return -EINVAL;
+	}
+
+	vendor_cap = pci_find_capability(pdev, PCI_CAP_ID_VNDR);
+	if (vendor_cap < 0) {
+		dev_err(&pdev->dev, "missing vendor capability\n");
+		return -EINVAL;
+	}
+
+	if (pci_resource_len(pdev, 2) > 0) {
+		section_addr = pci_resource_start(pdev, 2);
+	} else {
+		cap_pos = vendor_cap + IVSHM_CFG_ADDRESS;
+		section_addr = get_config_qword(pdev, cap_pos);
+	}
+
+	cap_pos = vendor_cap + IVSHM_CFG_STATE_TAB_SZ;
+	pci_read_config_dword(pdev, cap_pos, &dword);
+	section_sz = dword;
+
+	if (!devm_request_mem_region(&pdev->dev, section_addr, section_sz,
+				     DRV_NAME))
+		return -EBUSY;
+
+	state_table = devm_memremap(&pdev->dev, section_addr, section_sz,
+				    MEMREMAP_WB);
+	if (!state_table)
+		return -ENOMEM;
+
+	output_sections_addr = section_addr + section_sz;
+
+	cap_pos = vendor_cap + IVSHM_CFG_RW_SECTION_SZ;
+	section_sz = get_config_qword(pdev, cap_pos);
+	if (section_sz > 0) {
+		dev_info(&pdev->dev, "R/W section detected - "
+			 "unused by this driver version\n");
+		output_sections_addr += section_sz;
+	}
+
+	cap_pos = vendor_cap + IVSHM_CFG_OUTPUT_SECTION_SZ;
+	output_section_sz = get_config_qword(pdev, cap_pos);
+	if (output_section_sz == 0) {
+		dev_err(&pdev->dev, "Missing input/output sections\n");
+		return -EINVAL;
+	}
+
+	if (!devm_request_mem_region(&pdev->dev, output_sections_addr,
+				     output_section_sz * 2, DRV_NAME))
+		return -EBUSY;
+
+	output_sections = devm_memremap(&pdev->dev, output_sections_addr,
+					output_section_sz * 2, MEMREMAP_WB);
+	if (!output_sections)
+		return -ENOMEM;
+
+	section_addr = output_sections_addr + output_section_sz * id;
+	dev_info(&pdev->dev, "TX memory at %pa, size %pa\n",
+		 &section_addr, &output_section_sz);
+	section_addr = output_sections_addr + output_section_sz * !id;
+	dev_info(&pdev->dev, "RX memory at %pa, size %pa\n",
+		 &section_addr, &output_section_sz);
 
 	device_name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s[%s]", DRV_NAME,
 				     dev_name(&pdev->dev));
@@ -887,10 +948,16 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 
 	in = netdev_priv(ndev);
 	in->ivshm_regs = regs;
-	in->shm = shm;
-	in->shmaddr = shmaddr;
-	in->shmlen = shmlen;
-	in->peer_id = !ivpos;
+	in->state_table = state_table;
+
+	in->shm[IVSHM_NET_SECTION_TX] =
+		output_sections + output_section_sz * id;
+	in->shm[IVSHM_NET_SECTION_RX] =
+		output_sections + output_section_sz * !id;
+
+	in->shmlen = output_section_sz;
+
+	in->peer_id = !id;
 	in->pdev = pdev;
 	spin_lock_init(&in->tx_free_lock);
 	spin_lock_init(&in->tx_clean_lock);
@@ -919,24 +986,64 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 	if (ret)
 		goto err_wq;
 
-	ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_LEGACY | PCI_IRQ_MSIX);
+	ret = pci_alloc_irq_vectors(pdev, 1, 2, PCI_IRQ_INTX | PCI_IRQ_MSIX);
 	if (ret < 0)
 		goto err_alloc_irq;
 
-	ret = request_irq(pci_irq_vector(pdev, 0), ivshm_net_int, 0,
-			  device_name, ndev);
-	if (ret)
-		goto err_request_irq;
+	if (pdev->msix_enabled) {
+		if (ret != 2) {
+			ret = -EBUSY;
+			goto err_request_irq;
+		}
+
+		device_name = devm_kasprintf(&pdev->dev, GFP_KERNEL,
+					     "%s-state[%s]", DRV_NAME,
+					     dev_name(&pdev->dev));
+		if (!device_name) {
+			ret = -ENOMEM;
+			goto err_request_irq;
+		}
+
+		ret = request_irq(pci_irq_vector(pdev, IVSHM_NET_MSIX_STATE),
+				  ivshm_net_int_state, 0, device_name, in);
+		if (ret)
+			goto err_request_irq;
+
+		device_name = devm_kasprintf(&pdev->dev, GFP_KERNEL,
+					     "%s-tx-rx[%s]", DRV_NAME,
+					     dev_name(&pdev->dev));
+		if (!device_name) {
+			ret = -ENOMEM;
+			goto err_request_irq2;
+		}
+
+		ret = request_irq(pci_irq_vector(pdev, IVSHM_NET_MSIX_TX_RX),
+				  ivshm_net_int_tx_rx, 0, device_name, in);
+		if (ret)
+			goto err_request_irq2;
+
+		in->tx_rx_vector = IVSHM_NET_MSIX_TX_RX;
+	} else {
+		ret = request_irq(pci_irq_vector(pdev, 0), ivshm_net_intx, 0,
+				  device_name, in);
+		if (ret)
+			goto err_request_irq;
+
+		in->tx_rx_vector = 0;
+	}
 
 	pci_set_master(pdev);
-	if (!pdev->msix_enabled)
-		writel(IVSHMEM_INTX_ENABLE, &in->ivshm_regs->intxctrl);
 
-	writel(IVSHM_NET_STATE_RESET, &in->ivshm_regs->lstate);
-	ivshm_net_check_state(ndev);
+	pci_write_config_byte(pdev, vendor_cap + IVSHM_CFG_PRIV_CNTL, 0);
+	writel(IVSHM_INT_ENABLE, &in->ivshm_regs->int_control);
+
+	writel(IVSHM_NET_STATE_RESET, &in->ivshm_regs->state);
+	ivshm_net_check_state(in);
 
 	return 0;
 
+err_request_irq2:
+	free_irq(pci_irq_vector(pdev, IVSHM_NET_MSIX_STATE), in);
 err_request_irq:
 	pci_free_irq_vectors(pdev);
 err_alloc_irq:
@@ -954,11 +1061,15 @@ static void ivshm_net_remove(struct pci_dev *pdev)
 	struct net_device *ndev = pci_get_drvdata(pdev);
 	struct ivshm_net *in = netdev_priv(ndev);
 
-	writel(IVSHM_NET_STATE_RESET, &in->ivshm_regs->lstate);
+	writel(IVSHM_NET_STATE_RESET, &in->ivshm_regs->state);
+	writel(0, &in->ivshm_regs->int_control);
 
-	if (!pdev->msix_enabled)
-		writel(0, &in->ivshm_regs->intxctrl);
-	free_irq(pci_irq_vector(pdev, 0), ndev);
+	if (pdev->msix_enabled) {
+		free_irq(pci_irq_vector(pdev, IVSHM_NET_MSIX_STATE), in);
+		free_irq(pci_irq_vector(pdev, IVSHM_NET_MSIX_TX_RX), in);
+	} else {
+		free_irq(pci_irq_vector(pdev, 0), in);
+	}
 	pci_free_irq_vectors(pdev);
 
 	unregister_netdev(ndev);
@@ -968,8 +1079,8 @@ static void ivshm_net_remove(struct pci_dev *pdev)
 }
 
 static const struct pci_device_id ivshm_net_id_table[] = {
-	{ PCI_DEVICE(PCI_VENDOR_ID_REDHAT_QUMRANET, 0x1110),
-		(PCI_CLASS_OTHERS << 16) | (0x01 << 8), 0xffff00 },
+	{ PCI_DEVICE(PCI_VENDOR_ID_SIEMENS, PCI_DEVICE_ID_IVSHMEM),
+	  (PCI_CLASS_OTHERS << 16) | IVSHM_PROTO_NET, 0xffffff },
 	{ 0 }
 };
 MODULE_DEVICE_TABLE(pci, ivshm_net_id_table);
