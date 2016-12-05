@@ -29,11 +29,18 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog_1>;
 
-	imx7ulp-evk {
+	imx7ulp-14x14-arm2 {
 		pinctrl_hog_1: hoggrp-1 {
 			fsl,pins = <
 				IMX7ULP_PAD_PTC10__PTC10	0x30100
 				IMX7ULP_PAD_PTC1__PTC1		0x20100
+			>;
+		};
+
+		pinctrl_lpuart4: lpuart4grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC3__LPUART4_RX	0x400
+				IMX7ULP_PAD_PTC2__LPUART4_TX	0x400
 			>;
 		};
 
@@ -48,6 +55,12 @@
 			>;
 		};
 	};
+};
+
+&lpuart4 { /* console */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart4>;
+	status = "okay";
 };
 
 &usdhc1 {
