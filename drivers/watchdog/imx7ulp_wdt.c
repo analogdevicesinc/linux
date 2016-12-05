@@ -12,6 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/reboot.h>
 #include <linux/watchdog.h>
 
 #define WDOG_CS			0x0
@@ -36,6 +37,7 @@ struct imx7ulp_wdt {
 	void __iomem *base;
 	int rate;
 	struct watchdog_device wdd;
+	struct notifier_block restart_handler;
 };
 
 static inline void imx7ulp_wdt_enable(void __iomem *base, bool enable)
@@ -119,6 +121,25 @@ static const struct watchdog_info imx7ulp_wdt_info = {
 			 | WDIOF_MAGICCLOSE,
 };
 
+static int imx7ulp_wdt_restart_handler(struct notifier_block *this,
+			 unsigned long action, void *data)
+{
+	struct imx7ulp_wdt *wdt = container_of(this, struct imx7ulp_wdt, restart_handler);
+
+	local_irq_disable();
+
+	imx7ulp_wdt_enable(wdt->base, true);
+	imx7ulp_wdt_set_timeout(&wdt->wdd, 1);
+
+	local_irq_enable();
+
+	/* wait for wdog to fire */
+	while(true)
+		;
+
+	return NOTIFY_DONE;
+}
+
 static inline void imx7ulp_wdt_init(void __iomem *base, unsigned int timeout)
 {
 	u32 val;
@@ -191,6 +212,15 @@ static int imx7ulp_wdt_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	wdt->restart_handler.notifier_call = imx7ulp_wdt_restart_handler;
+	wdt->restart_handler.priority = 128;
+	err = register_restart_handler(&wdt->restart_handler);
+	if (err) {
+		dev_err(&pdev->dev, "cannot register restart handler\n");
+		watchdog_unregister_device(&wdt->wdd);
+		return err;
+	}
+
 	return 0;
 }
 
@@ -246,6 +276,7 @@ static const struct of_device_id imx7ulp_wdt_dt_ids[] = {
 	{ .compatible = "fsl,imx7ulp-wdt", },
 	{ /*sentinel */ }
 };
+MODULE_DEVICE_TABLE(of, imx7ulp_wdt_dt_ids);
 
 static struct platform_driver imx7ulp_wdt_driver = {
 	.probe		= imx7ulp_wdt_probe,
