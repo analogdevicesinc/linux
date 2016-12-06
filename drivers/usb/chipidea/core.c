@@ -593,11 +593,22 @@ static int ci_cable_notifier(struct notifier_block *nb, unsigned long event,
 {
 	struct ci_hdrc_cable *cbl = container_of(nb, struct ci_hdrc_cable, nb);
 	struct ci_hdrc *ci = cbl->ci;
+	struct extcon_dev *dev = ptr;
+	int ret;
 
-	cbl->connected = event;
-	cbl->changed = true;
+	/* Only support ID extcon now */
 
-	ci_irq(ci->irq, ci);
+	ret = extcon_get_state(dev, EXTCON_USB_HOST);
+	if (ret && !cbl->connected) {
+		cbl->connected = true;
+		cbl->changed = true;
+		ci_irq(ci->irq, ci);
+	} else if (!ret && cbl->connected) {
+		cbl->connected = false;
+		cbl->changed = true;
+		ci_irq(ci->irq, ci);
+	}
+
 	return NOTIFY_DONE;
 }
 
@@ -1210,6 +1221,29 @@ static void ci_controller_suspend(struct ci_hdrc *ci)
 	enable_irq(ci->irq);
 }
 
+/*
+ * Handle the wakeup interrupt triggered by extcon connector
+ * We need to call ci_irq again for extcon since the first
+ * interrupt (wakeup int) only let the controller be out of
+ * low power mode, but not handle any interrupts.
+ */
+static void ci_extcon_wakeup_int(struct ci_hdrc *ci)
+{
+	struct ci_hdrc_cable *cable_id, *cable_vbus;
+	u32 otgsc = hw_read_otgsc(ci, ~0);
+
+	cable_id = &ci->platdata->id_extcon;
+	cable_vbus = &ci->platdata->vbus_extcon;
+
+	if (!IS_ERR(cable_id->edev) && ci->is_otg &&
+		(otgsc & OTGSC_IDIE) && (otgsc & OTGSC_IDIS))
+		ci_irq(ci->irq, ci);
+
+	if (!IS_ERR(cable_vbus->edev) && ci->is_otg &&
+		(otgsc & OTGSC_BSVIE) && (otgsc & OTGSC_BSVIS))
+		ci_irq(ci->irq, ci);
+}
+
 static int ci_controller_resume(struct device *dev)
 {
 	struct ci_hdrc *ci = dev_get_drvdata(dev);
@@ -1242,6 +1276,7 @@ static int ci_controller_resume(struct device *dev)
 		enable_irq(ci->irq);
 		if (ci_otg_is_fsm_mode(ci))
 			ci_otg_fsm_wakeup_by_srp(ci);
+		ci_extcon_wakeup_int(ci);
 	}
 
 	return 0;
