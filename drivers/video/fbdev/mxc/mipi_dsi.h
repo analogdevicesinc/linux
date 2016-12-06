@@ -77,6 +77,7 @@ struct mipi_dsi_info {
 	int				irq;
 	struct clk			*dphy_clk;
 	struct clk			*cfg_clk;
+	struct clk			*esc_clk;
 	struct mxc_dispdrv_handle	*disp_mipi;
 	struct  fb_videomode		*mode;
 	struct regulator		*disp_power_on;
