@@ -157,7 +157,8 @@
 		mu: mu@40220000 {
 			compatible = "fsl,imx7ulp-mu", "fsl,imx6sx-mu";
 			reg = <0x40220000 0x1000>;
-			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
 		};
 

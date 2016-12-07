@@ -280,6 +280,7 @@ static struct imx_rpmsg_vproc imx_rpmsg_vprocs[] = {
 static const struct of_device_id imx_rpmsg_dt_ids[] = {
 	{ .compatible = "fsl,imx6sx-rpmsg", },
 	{ .compatible = "fsl,imx7d-rpmsg", },
+	{ .compatible = "fsl,imx7ulp-rpmsg", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_rpmsg_dt_ids);
@@ -310,6 +311,9 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 					rpdev->vring[0] = 0xBFFF0000;
 					rpdev->vring[1] = 0xBFFF8000;
 				}
+			} else {
+				rpdev->vring[0] = 0x9FFF0000;
+				rpdev->vring[1] = 0x9FFF8000;
 			}
 		} else {
 			break;
