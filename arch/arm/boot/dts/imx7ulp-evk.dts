@@ -61,6 +61,13 @@
 			>;
 		};
 
+		pinctrl_lpi2c5: lpi2c5grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC4__LPI2C5_SCL       0x527
+				IMX7ULP_PAD_PTC5__LPI2C5_SDA       0x527
+			>;
+		};
+
 		pinctrl_lpuart4: lpuart4grp {
 			fsl,pins = <
 				IMX7ULP_PAD_PTC3__LPUART4_RX	0x400
@@ -174,6 +181,29 @@
 	#size-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c7>;
+};
+
+&lpi2c5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c5>;
+	status = "okay";
+
+	fxas2100x@20 {
+		compatible = "fsl,fxas2100x";
+		reg = <0x20>;
+	};
+
+	fxos8700@1e {
+		compatible = "fsl,fxos8700";
+		reg = <0x1e>;
+	};
+
+	mpl3115@60 {
+		compatible = "fsl,mpl3115";
+		reg = <0x60>;
+	};
 };
 
 &lpuart4 { /* console */
