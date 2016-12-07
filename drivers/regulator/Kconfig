@@ -654,6 +654,14 @@ config REGULATOR_PF1550
 	  This driver controls a PF1550 regulator via I2C bus.
 	  The regulators include three switch and three ldo.
 
+config REGULATOR_PF1550_RPMSG
+	tristate "Freescale PF1550 rpmsg regulator driver"
+	depends on RPMSG
+	help
+	  This driver controls a PF1550 regulator which connected in M4
+	  side via RPMSG.The regulators include three switch and three
+	  ldo.
+
 config REGULATOR_PWM
 	tristate "PWM voltage regulator"
 	depends on PWM
