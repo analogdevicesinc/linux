@@ -283,6 +283,19 @@ ENTRY(imx7ulp_suspend)
 	/* store physical resume addr and pm_info address. */
 	str	r9, [r11, #DGO_GPR3]
 	str	r1, [r11, #DGO_GPR4]
+	ldr	r7, [r11, #DGO_CTRL0]
+	orr	r7, r7, #0xc
+	str	r7, [r11, #DGO_CTRL0]
+wait_dgo:
+	ldr	r7, [r11, #DGO_CTRL0]
+	and	r7, r7, #0x18000
+	cmp	r7, #0x18000
+	bne	wait_dgo
+
+	ldr	r7, [r11, #DGO_CTRL0]
+	orr	r7, r7, #0x18000
+	bic	r7, r7, #0xc
+	str	r7, [r11, #DGO_CTRL0]
 
 	disable_l1_dcache
 
