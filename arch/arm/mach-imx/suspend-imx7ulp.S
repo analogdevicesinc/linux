@@ -58,6 +58,7 @@
 #define PM_INFO_MMDC_NUM_OFFSET			0x198
 #define PM_INFO_MMDC_VAL_OFFSET			0x19c
 
+#define DGO_CTRL0	0x50
 #define DGO_GPR3	0x60
 #define DGO_GPR4	0x64
 
@@ -446,7 +447,8 @@ resume:
 	orr	r7, r7, #(1 << 14)
 	str	r7, [r6, #PMC1_CTRL]
 
-	ldr	r0, =0x20008000
+	ldr	r6, =MX7ULP_SIM_BASE_ADDR
+	ldr	r0, [r6, #DGO_GPR4]
 	/* get physical resume address from pm_info. */
 	ldr	lr, [r0, #PM_INFO_RESUME_ADDR_OFFSET]
 
