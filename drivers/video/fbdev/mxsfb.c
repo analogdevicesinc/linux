@@ -547,6 +547,13 @@ static void mxsfb_enable_controller(struct fb_info *fb_info)
 		}
 	}
 
+	if (host->dispdrv && host->dispdrv->drv->enable) {
+		ret = host->dispdrv->drv->enable(host->dispdrv, fb_info);
+		if (ret < 0)
+			dev_err(&host->pdev->dev, "failed to enable "
+				"dispdrv:%s\n", host->dispdrv->drv->name);
+	}
+
 	/* the pixel clock should be disabled before
 	 * trying to set its clock rate successfully.
 	 */
@@ -587,12 +594,6 @@ static void mxsfb_enable_controller(struct fb_info *fb_info)
 
 	host->enabled = 1;
 
-	if (host->dispdrv && host->dispdrv->drv->enable) {
-		ret = host->dispdrv->drv->enable(host->dispdrv, fb_info);
-		if (ret < 0)
-			dev_err(&host->pdev->dev, "failed to enable "
-				"dispdrv:%s\n", host->dispdrv->drv->name);
-	}
 }
 
 static void mxsfb_disable_controller(struct fb_info *fb_info)
@@ -603,6 +604,8 @@ static void mxsfb_disable_controller(struct fb_info *fb_info)
 	int ret;
 
 	dev_dbg(&host->pdev->dev, "%s\n", __func__);
+
+	writel(CTRL_RUN, host->base + LCDC_CTRL + REG_CLR);
 
 	if (host->dispdrv && host->dispdrv->drv->disable)
 		host->dispdrv->drv->disable(host->dispdrv, fb_info);
