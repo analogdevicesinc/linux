@@ -39,7 +39,6 @@ static const char *cm4_spll_sels[]		= { "cm4_spll_vco", "cm4_spll_pfd_sel", };
 static const char *cm4_apll_pfd_sels[]	= { "cm4_apll_pfd0", "cm4_apll_pfd1", "cm4_apll_pfd2", "cm4_apll_pfd3", };
 static const char *cm4_apll_sels[]		= { "cm4_apll_vco_post_div2", "cm4_apll_pfd_sel", };
 static const char *cm4_sys_sels[]		= { "cm4_dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_apll_sel", "cm4_spll_sel", "cm4_dummy", };
-static const char *cm4_periph_plat_sels[]	= { "cm4_dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil" "cm4_plat_div", "cm4_spll_sel", "cm4_spll_pfd3", };
 static const char *cm4_periph_slow_sels[]	= { "cm4_dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_bus_div", "cm4_spll_pfd2", "cm4_apll_pfd0_pre_div", };
 static const char *scg0_clkout_sels[]   = { "dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_apll_sel", "cm4_spll_sel", "dummy"};
 static struct clk *clks_cm4[IMX7ULP_CM4_CLK_END];
