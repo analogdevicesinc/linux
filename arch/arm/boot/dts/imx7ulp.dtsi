@@ -117,7 +117,7 @@
 
 	sram: sram@20000000 {
 		compatible = "fsl,lpm-sram";
-		reg = <0x20008000 0x4000>;
+		reg = <0x1fffc000 0x4000>;
 	};
 
 	ahbbridge0: ahb-bridge0@40000000 {
