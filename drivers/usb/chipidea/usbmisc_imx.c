@@ -600,6 +600,10 @@ static int usbmisc_imx7d_init(struct imx_usbmisc_data *data)
 	}
 	writel(reg, usbmisc->base);
 
+	/* SoC non-burst setting */
+	reg = readl(usbmisc->base);
+	writel(reg | MX6_BM_NON_BURST_SETTING, usbmisc->base);
+
 	reg = readl(usbmisc->base + MX7D_USBNC_USB_CTRL2);
 	reg &= ~MX7D_USB_VBUS_WAKEUP_SOURCE_MASK;
 	writel(reg | MX7D_USB_VBUS_WAKEUP_SOURCE_BVALID,
