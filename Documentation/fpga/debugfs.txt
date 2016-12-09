@@ -9,6 +9,12 @@ three files:
 
    $ echo 1 > /sys/kernel/debug/fpga_manager/fpga0/flags
 
+ - [RW] config_complete_timeout_us:	time out in microseconds to wait for
+					FPGA to go to operating state after
+					region has been programmed.
+
+   $ echo 4 > /sys/kernel/debug/fpga_manager/fpga0/config_complete_timeout_us
+
  - [RW] firmware_name:  Name of an FPGA image firmware file.  Writing initiates
                         a complete FPGA programming cycle.  Note that the image
                         file must be in a directory on the firmware search path
