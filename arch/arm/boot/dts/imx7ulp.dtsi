@@ -277,8 +277,8 @@
 			fsl,usbphy = <&usbphy1>;
 			fsl,usbmisc = <&usbmisc1 0>;
 			ahb-burst-config = <0x0>;
-			tx-burst-size-dword = <0x10>;
-			rx-burst-size-dword = <0x10>;
+			tx-burst-size-dword = <0x8>;
+			rx-burst-size-dword = <0x8>;
 			status = "disabled";
 		};
 
