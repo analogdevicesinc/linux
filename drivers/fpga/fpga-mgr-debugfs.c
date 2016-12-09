@@ -161,7 +161,12 @@ void fpga_mgr_debugfs_add(struct fpga_manager *mgr)
 			    &fpga_mgr_image_fops);
 
 	info = &debugfs->info;
+
 	debugfs_create_u32("flags", 0600, debugfs->debugfs_dir, &info->flags);
+
+	debugfs_create_u32("config_complete_timeout_us", 0600,
+			   debugfs->debugfs_dir,
+			   &info->config_complete_timeout_us);
 
 	mgr->debugfs = debugfs;
 }
