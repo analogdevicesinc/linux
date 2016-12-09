@@ -261,11 +261,10 @@ static const u32 imx7d_ddrc_phy_lpddr3_setting[][2] __initconst = {
 	{ 0x30, READ_DATA_FROM_HARDWARE },
 	{ 0x50, 0x01000008 },
 	{ 0x50, 0x00000008 },
-	{ 0xc0, 0x0e407304 },
-	{ 0xc0, 0x0e447304 },
-	{ 0xc0, 0x0e447306 },
+	{ 0xc0, 0x0e487304 },
 	{ 0xc0, 0x0e4c7304 },
-	{ 0xc0, 0x0e487306 },
+	{ 0xc0, 0x0e4c7306 },
+	{ 0xc0, 0x0e487304 },
 };
 
 static const u32 imx7d_ddrc_ddr3_setting[][2] __initconst = {
