@@ -1,38 +1,14 @@
 /*
- * dts file for Xilinx ZynqMP ZCU102 RevB
+ * dts file for FMCOMMS2/3 AD9361 on Xilinx ZynqMP ZCU102 RevB
  *
- * (C) Copyright 2016, Xilinx, Inc.
+ * Copyright (C) 2016 Analog Devices Inc.
  *
- * Michal Simek <michal.simek@xilinx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
+ * Licensed under the GPL-2.
  */
 
-#include "zynqmp-zcu102.dts"
+#include "zynqmp-zcu102-revB.dts"
 
-/ {
-	model = "ZynqMP ZCU102 RevB";
-};
-
-&gem3 {
-	phy-handle = <&phyc>;
-	phyc: phy@c {
-		reg = <0xc>;
-		ti,rx-internal-delay = <0x8>;
-		ti,tx-internal-delay = <0xa>;
-		ti,fifo-depth = <0x1>;
-	};
-	/* Cleanup from RevA */
-	/delete-node/ phy@21;
-};
-
-/* Different qspi 512Mbit version */
-
-/* Fix collision with u61 */
-&i2c0 {
+&i2c1 {
 	i2cswitch@75 {
 		i2c@0 {
 			#address-cells = <1>;
@@ -50,14 +26,6 @@
 			};
 
 		};
-
-		i2c@2 {
-			max15303@1b { /* u8 */
-				compatible = "max15303";
-				reg = <0x1b>;
-			};
-			/delete-node/ max15303@20;
-		};
 	};
 };
 
@@ -65,13 +33,13 @@
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
-		#address-cells = <0x1>;
+		#address-cells = <0x2>;
 		#size-cells = <0x1>;
-		ranges;
+		ranges = <0 0 0 0 0xffffffff>;
 
 		rx_dma: dma@80010000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x80010000 0x10000>;
+			reg = <0x0 0x80010000 0x10000>;
 			#dma-cells = <1>;
 			interrupts = <0 109 0>;
 			clocks = <&clk100>;
@@ -85,7 +53,7 @@
 
 		tx_dma: dma@80020000  {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x80020000 0x10000>;
+			reg = <0x0 0x80020000 0x10000>;
 			#dma-cells = <1>;
 			interrupts = <0 108 0>;
 			clocks = <&clk100>;
@@ -100,7 +68,7 @@
 
 		cf_ad9361_adc_core_0: cf-ad9361-lpc@80000000 {
 			compatible = "adi,axi-ad9361-6.00.a";
-			reg = <0x80000000 0x6000>;
+			reg = <0x0 0x80000000 0x6000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9361>;
@@ -108,7 +76,7 @@
 
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@80004000 {
 			compatible = "adi,axi-ad9361-dds-6.00.a";
-			reg = <0x80004000 0x1000>;
+			reg = <0x0 0x80004000 0x1000>;
 			clocks = <&adc0_ad9361 13>;
 			clock-names = "sampl_clk";
 			dmas = <&tx_dma 0>;
@@ -120,7 +88,6 @@
 &spi0 {
 	status = "okay";
 };
-
 
 #define fmc_spi spi0
 
