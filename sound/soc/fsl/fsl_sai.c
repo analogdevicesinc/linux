@@ -531,8 +531,6 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 			regmap_update_bits(sai->regmap, FSL_SAI_TCR5,
 				FSL_SAI_CR5_WNW_MASK | FSL_SAI_CR5_W0W_MASK |
 				FSL_SAI_CR5_FBT_MASK, val_cr5);
-			regmap_write(sai->regmap, FSL_SAI_TMR,
-				~0UL - ((1 << channels) - 1));
 		} else if (!sai->synchronous[RX] && sai->synchronous[TX] && tx) {
 			regmap_update_bits(sai->regmap, FSL_SAI_RCR4,
 				FSL_SAI_CR4_SYWD_MASK | FSL_SAI_CR4_FRSZ_MASK,
@@ -540,8 +538,6 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 			regmap_update_bits(sai->regmap, FSL_SAI_RCR5,
 				FSL_SAI_CR5_WNW_MASK | FSL_SAI_CR5_W0W_MASK |
 				FSL_SAI_CR5_FBT_MASK, val_cr5);
-			regmap_write(sai->regmap, FSL_SAI_RMR,
-				~0UL - ((1 << channels) - 1));
 		}
 	}
 
@@ -630,12 +626,17 @@ static int fsl_sai_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (tx)
 			udelay(10);
 
-		regmap_update_bits(sai->regmap, FSL_SAI_TCSR,
-				   FSL_SAI_CSR_TERE, FSL_SAI_CSR_TERE);
-		regmap_update_bits(sai->regmap, FSL_SAI_RCSR,
+		regmap_update_bits(sai->regmap, FSL_SAI_xCSR(tx),
 				   FSL_SAI_CSR_TERE, FSL_SAI_CSR_TERE);
 		regmap_update_bits(sai->regmap, FSL_SAI_xCSR(tx),
 				   FSL_SAI_CSR_SE, FSL_SAI_CSR_SE);
+		if (!sai->synchronous[TX] && sai->synchronous[RX] && !tx) {
+			regmap_update_bits(sai->regmap, FSL_SAI_xCSR((!tx)),
+				   FSL_SAI_CSR_TERE, FSL_SAI_CSR_TERE);
+		} else if (!sai->synchronous[RX] && sai->synchronous[TX] && tx) {
+			regmap_update_bits(sai->regmap, FSL_SAI_xCSR((!tx)),
+				   FSL_SAI_CSR_TERE, FSL_SAI_CSR_TERE);
+		}
 
 		regmap_update_bits(sai->regmap, FSL_SAI_xCSR(tx),
 				   FSL_SAI_CSR_xIE_MASK, FSL_SAI_FLAGS);
