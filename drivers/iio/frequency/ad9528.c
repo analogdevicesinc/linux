@@ -739,27 +739,18 @@ static long ad9528_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct iio_dev *indio_dev = to_ad9528_clk_output(hw)->indio_dev;
 	struct ad9528_state *st = iio_priv(indio_dev);
-	unsigned long clk, tmp1, tmp2;
+	unsigned long clk, tmp;
 	unsigned channel = to_ad9528_clk_output(hw)->num;
 
 	if (!rate)
 		return 0;
 
-	tmp1 = (st->vco_out_freq[AD9528_VCXO] / rate) * rate;
-	tmp2 = (st->vco_out_freq[AD9528_VCO] / rate) * rate;
+	clk = st->vco_out_freq[AD9528_VCO];
 
-	if (abs(tmp1 - rate) > abs(tmp2 - rate)) {
-		st->vco_out_map[channel] = AD9528_VCO;
-		clk = st->vco_out_freq[AD9528_VCO];
-	} else {
-		st->vco_out_map[channel] = AD9528_VCXO;
-		clk = st->vco_out_freq[AD9528_VCXO];
-	}
+	tmp = DIV_ROUND_CLOSEST(clk, rate);
+	tmp = clamp(tmp, 1UL, 256UL);
 
-	tmp1 = DIV_ROUND_CLOSEST(clk, rate);
-	tmp1 = clamp(tmp1, 1UL, 256UL);
-
-	return clk / tmp1;
+	return clk / tmp;
 }
 
 static int ad9528_clk_set_rate(struct clk_hw *hw, unsigned long rate,
