@@ -46,6 +46,10 @@
 	};
 };
 
+&clkc {
+	ps-clk-frequency = <33333333>;
+};
+
 &usb0 {
 	status = "okay";
 	dr_mode = "host"; /* This breaks OTG mode */

@@ -29,3 +29,12 @@
 		adi,profile-config1 = <0 1228800 0 771920 1198080 1198080 771920 781032 1197696 39832 771536 786032 1192696 44832 766536>; // Slave
 	};
 };
+
+&gpio0 {
+	rf_gpio_0 {
+		gpio-hog;
+		gpios = <110 0>;
+		output-high;
+		line-name = "RF_GPIO0 PA ON";
+	};
+};

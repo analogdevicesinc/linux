@@ -61,3 +61,4 @@ js-rtc-y = rtc.o
 
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
 obj-$(CONFIG_XILLYBUS)		+= xillybus/
+obj-$(CONFIG_AXI_INTR_MONITOR) += axi-intr-monitor.o

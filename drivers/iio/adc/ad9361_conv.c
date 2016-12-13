@@ -172,7 +172,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[7] = AIM_MC_CHAN(7, 7, 12, 'S'),
 	},
 	[ID_AD9364] = {
-		.name = "AD9361",
+		.name = "AD9364",
 		.max_rate = 61440000UL,
 		.max_testmode = 0,
 		.num_channels = 2,
