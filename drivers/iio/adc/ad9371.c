@@ -633,6 +633,7 @@ int ad9371_setup(struct ad9371_rf_phy *phy)
 	mykError = MYKONOS_setObsRxPathSource(mykDevice, OBS_INTERNALCALS);
 
 	MYKONOS_setupAuxAdcs(mykDevice, 4, 1);
+	MYKONOS_setupAuxDacs(mykDevice);
 
 	clk_set_rate(phy->clks[RX_SAMPL_CLK],
 		     mykDevice->rx->rxProfile->iqRate_kHz * 1000);
