@@ -387,6 +387,7 @@ int ad9371_setup(struct ad9371_rf_phy *phy)
 	uint8_t framerStatus = 0;
 	mykonosErr_t mykError;
 	unsigned long lane_rate_kHz;
+	long dev_clk, fmc_clk;
 	uint32_t initCalMask;
 
 	mykonosDevice_t *mykDevice = phy->mykDevice;
@@ -412,7 +413,18 @@ int ad9371_setup(struct ad9371_rf_phy *phy)
 	/**** Mykonos Initialization ***/
 	/*******************************/
 
-	/* Toggle RESETB pin on Mykonos device */
+	dev_clk = clk_round_rate(phy->dev_clk, mykDevice->clocks->deviceClock_kHz * 1000);
+	fmc_clk = clk_round_rate(phy->fmc_clk, mykDevice->clocks->deviceClock_kHz * 1000);
+
+	if (dev_clk > 0 && fmc_clk > 0 && fmc_clk == dev_clk &&
+		(dev_clk / 1000) == mykDevice->clocks->deviceClock_kHz) {
+		clk_set_rate(phy->fmc_clk, (unsigned long) dev_clk);
+		clk_set_rate(phy->dev_clk, (unsigned long) dev_clk);
+	} else {
+		dev_err(&phy->spi->dev, "Requesting device clock %u failed got %ld",
+			mykDevice->clocks->deviceClock_kHz * 1000, dev_clk);
+		return -EINVAL;
+	}
 
 	lane_rate_kHz = mykDevice->rx->rxProfile->iqRate_kHz *
 			mykDevice->rx->framer->M *
@@ -438,6 +450,7 @@ int ad9371_setup(struct ad9371_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
+	/* Toggle RESETB pin on Mykonos device */
 
 	mykError = ad9371_reset(phy);
 	if (mykError) {
@@ -3017,6 +3030,19 @@ static int ad9371_probe(struct spi_device *spi)
 	if (IS_ERR(phy->dev_clk)) {
 		return -EPROBE_DEFER;
 	}
+
+	phy->fmc_clk = of_clk_get_by_name(np, "fmc_clk");
+	if (IS_ERR(phy->fmc_clk)) {
+		return -EPROBE_DEFER;
+	}
+
+	ret = clk_prepare_enable(phy->fmc_clk);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(phy->dev_clk);
+	if (ret)
+		return ret;
 
 	ret = request_firmware(&phy->fw, FIRMWARE, &spi->dev);
 	if (ret) {
