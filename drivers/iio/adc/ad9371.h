@@ -146,6 +146,7 @@ struct ad9371_rf_phy {
 	const struct firmware 	*fw;
 	mykonosDevice_t 	*mykDevice;
 	struct clk 		*dev_clk;
+	struct clk 		*fmc_clk;
 	struct clk 		*jesd_rx_clk;
 	struct clk 		*jesd_tx_clk;
 	struct clk 		*jesd_rx_os_clk;
