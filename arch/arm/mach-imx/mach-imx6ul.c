@@ -72,6 +72,7 @@ static void __init imx6ul_enet_phy_init(void)
 #define OCOTP_CFG3			0x440
 #define OCOTP_CFG3_SPEED_SHIFT		16
 #define OCOTP_CFG3_SPEED_696MHZ		0x2
+#define OCOTP_CFG3_SPEED_1_GHZ		0x3
 
 static void __init imx6ul_opp_check_speed_grading(struct device *cpu_dev)
 {
@@ -79,7 +80,11 @@ static void __init imx6ul_opp_check_speed_grading(struct device *cpu_dev)
 	void __iomem *base;
 	u32 val;
 
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx6ul-ocotp");
+	if (cpu_is_imx6ul())
+		np = of_find_compatible_node(NULL, NULL, "fsl,imx6ul-ocotp");
+	else
+		np = of_find_compatible_node(NULL, NULL, "fsl,imx6ull-ocotp");
+
 	if (!np) {
 		pr_warn("failed to find ocotp node\n");
 		return;
@@ -95,17 +100,30 @@ static void __init imx6ul_opp_check_speed_grading(struct device *cpu_dev)
 	 * Speed GRADING[1:0] defines the max speed of ARM:
 	 * 2b'00: Reserved;
 	 * 2b'01: 528000000Hz;
-	 * 2b'10: 700000000Hz;
-	 * 2b'11: Reserved;
+	 * 2b'10: 700000000Hz(i.MX6UL), 800000000Hz(i.MX6ULL);
+	 * 2b'11: Reserved(i.MX6UL), 1GHz(i.MX6ULL);
 	 * We need to set the max speed of ARM according to fuse map.
 	 */
 	val = readl_relaxed(base + OCOTP_CFG3);
 	val >>= OCOTP_CFG3_SPEED_SHIFT;
 	val &= 0x3;
+	if (cpu_is_imx6ul()) {
+		if (val < OCOTP_CFG3_SPEED_696MHZ) {
+			if (dev_pm_opp_disable(cpu_dev, 696000000))
+				pr_warn("Failed to disable 696MHz OPP\n");
+		}
+	}
 
-	if (val != OCOTP_CFG3_SPEED_696MHZ) {
-		if (dev_pm_opp_disable(cpu_dev, 696000000))
-			pr_warn("Failed to disable 696MHz OPP\n");
+	if (cpu_is_imx6ull()) {
+		if (val != OCOTP_CFG3_SPEED_1_GHZ) {
+			if (dev_pm_opp_disable(cpu_dev, 996000000))
+				pr_warn("Failed to disable 996MHz OPP\n");
+		}
+
+		if (val != OCOTP_CFG3_SPEED_696MHZ) {
+			if (dev_pm_opp_disable(cpu_dev, 792000000))
+				pr_warn("Failed to disable 792MHz OPP\n");
+		}
 	}
 	iounmap(base);
 
@@ -175,8 +193,7 @@ static void __init imx6ul_init_irq(void)
 static void __init imx6ul_init_late(void)
 {
 	if (IS_ENABLED(CONFIG_ARM_IMX6Q_CPUFREQ)) {
-		if (cpu_is_imx6ul())
-			imx6ul_opp_init();
+		imx6ul_opp_init();
 		platform_device_register_simple("imx6q-cpufreq", -1, NULL, 0);
 	}
 
