@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011-2016 Freescale Semiconductor, Inc.
  * Copyright 2011 Linaro Ltd.
  *
  * The code contained herein is licensed under the GNU General Public
@@ -240,6 +240,12 @@ static void of_assigned_ldb_sels(struct device_node *node,
 #define CCM_CCDR		0x04
 #define CCM_CCSR		0x0c
 #define CCM_CS2CDR		0x2c
+#define CCM_CSCDR3		0x3c
+#define CCM_CCGR0		0x68
+#define CCM_CCGR3		0x74
+
+#define ANATOP_PLL3_PFD		0xf0
+
 
 #define CCDR_MMDC_CH1_MASK		BIT(16)
 #define CCSR_PLL3_SW_CLK_SEL		BIT(0)
@@ -397,6 +403,62 @@ static void init_ldb_clks(struct device_node *np, void __iomem *ccm_base)
 #define PFD1_CLKGATE		BIT(15)
 #define PFD2_CLKGATE		BIT(23)
 #define PFD3_CLKGATE		BIT(31)
+
+/*
+ * workaround for ERR010579, when switching the clock source of IPU clock
+ * root in CCM. even setting CCGR3[CG0]=0x0 to gate off clock before
+ * switching, IPU may hang due to no IPU clock from CCM.
+ */
+static void __init init_ipu_clk(void __iomem *anatop_base)
+{
+	u32 val, origin_podf;
+
+	/* gate off the IPU1_IPU clock */
+	val = readl_relaxed(ccm_base + CCM_CCGR3);
+	val &= ~0x3;
+	writel_relaxed(val, ccm_base + CCM_CCGR3);
+
+	/* gate off IPU DCIC1/2 clocks */
+	val = readl_relaxed(ccm_base + CCM_CCGR0);
+	val &= ~(0xf << 24);
+	writel_relaxed(val, ccm_base + CCM_CCGR0);
+
+	/* set IPU_PODF to 3'b000 */
+	val = readl_relaxed(ccm_base + CCM_CSCDR3);
+	origin_podf = val & (0x7 << 11);
+	val &= ~(0x7 << 11);
+	writel_relaxed(val, ccm_base + CCM_CSCDR3);
+
+	/* disable PLL3_PFD1 */
+	val = readl_relaxed(anatop_base + ANATOP_PLL3_PFD);
+	val &= ~(0x1 << 15);
+	writel_relaxed(val, anatop_base + ANATOP_PLL3_PFD);
+
+	/* switch IPU_SEL clock to PLL3_PFD1 */
+	val = readl_relaxed(ccm_base + CCM_CSCDR3);
+	val |= (0x3 << 9);
+	writel_relaxed(val, ccm_base + CCM_CSCDR3);
+
+	 /* restore the IPU PODF*/
+	val = readl_relaxed(ccm_base + CCM_CSCDR3);
+	val |= origin_podf;
+	writel_relaxed(val, ccm_base + CCM_CSCDR3);
+
+	/* enable PLL3_PFD1 */
+	val = readl_relaxed(anatop_base + ANATOP_PLL3_PFD);
+	val |= (0x1 << 15);
+	writel_relaxed(val, anatop_base + ANATOP_PLL3_PFD);
+
+	/* enable IPU1_IPU clock */
+	val = readl_relaxed(ccm_base + CCM_CCGR3);
+	val |= 0x3;
+	writel_relaxed(val, ccm_base + CCM_CCGR3);
+
+	/* enable IPU DCIC1/2 clock */
+	val = readl_relaxed(ccm_base + CCM_CCGR0);
+	val |= (0xf << 24);
+	writel_relaxed(val, ccm_base + CCM_CCGR0);
+}
 
 static void disable_anatop_clocks(void __iomem *anatop_base)
 {
@@ -880,6 +942,7 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 
 	clk_set_rate(clk[IMX6QDL_CLK_PLL3_PFD1_540M], 540000000);
 	if (clk_on_imx6dl()) {
+		init_ipu_clk(anatop_base);
 		clk_set_parent(clk[IMX6QDL_CLK_IPU1_SEL], clk[IMX6QDL_CLK_PLL3_PFD1_540M]);
 		clk_set_parent(clk[IMX6QDL_CLK_AXI_ALT_SEL], clk[IMX6QDL_CLK_PLL3_PFD1_540M]);
 		clk_set_parent(clk[IMX6QDL_CLK_AXI_SEL], clk[IMX6QDL_CLK_AXI_ALT_SEL]);
