@@ -57,6 +57,16 @@
 			gpio = <&gpio0 0 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
+
+		reg_vsd_3v3: regulator@1 {
+			compatible = "regulator-fixed";
+			reg = <1>;
+			regulator-name = "VSD_3V3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio1 0 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
 	};
 
 	extcon_usb1: extcon_usb1 {
@@ -130,8 +140,9 @@
 	imx7ulp-evk {
 		pinctrl_hog_1: hoggrp-1 {
 			fsl,pins = <
-				IMX7ULP_PAD_PTC10__PTC10	0x30100
+				IMX7ULP_PAD_PTC10__PTC10		0x30100		/* USDHC0 CD */
 				IMX7ULP_PAD_PTC1__PTC1		0x20100
+				IMX7ULP_PAD_PTD0__PTD0		0x30100		/* USDHC0 RST */
 			>;
 		};
 
@@ -171,7 +182,7 @@
 		pinctrl_usdhc0: usdhc0grp {
 			fsl,pins = <
 				IMX7ULP_PAD_PTD1__SDHC0_CMD	0x843
-				IMX7ULP_PAD_PTD2__SDHC0_CLK	0x843
+				IMX7ULP_PAD_PTD2__SDHC0_CLK	0x10843
 				IMX7ULP_PAD_PTD7__SDHC0_D3	0x843
 				IMX7ULP_PAD_PTD8__SDHC0_D2	0x843
 				IMX7ULP_PAD_PTD9__SDHC0_D1	0x843
@@ -347,10 +358,14 @@
 };
 
 &usdhc0 {
-	pinctrl-names = "default", "sleep";
+	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
 	pinctrl-0 = <&pinctrl_usdhc0>;
 	pinctrl-1 = <&pinctrl_usdhc0>;
-	non-removable;
+	pinctrl-2 = <&pinctrl_usdhc0>;
+	pinctrl-3 = <&pinctrl_usdhc0>;
+	cd-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&reg_vsd_3v3>;
+	vqmmc-supply = <&vldo2_reg>;
 	status = "okay";
 };
 

@@ -307,6 +307,8 @@
 				 <&clks IMX7ULP_CLK_USDHC0>;
 			clock-names ="ipg", "ahb", "per";
 			bus-width = <4>;
+			fsl,tuning-start-tap = <20>;
+			fsl,tuning-step= <2>;
 			status = "disabled";
 		};
 
