@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2015 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011-2016 Freescale Semiconductor, Inc.
 
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -100,6 +100,7 @@ unsigned int hdmi_set_blank_state(unsigned int state)
 }
 EXPORT_SYMBOL(hdmi_set_blank_state);
 
+#ifdef CONFIG_SND_SOC_IMX_HDMI_DMA
 static void hdmi_audio_abort_stream(struct snd_pcm_substream *substream)
 {
 	unsigned long flags;
@@ -130,6 +131,13 @@ int mxc_hdmi_abort_stream(void)
 	return 0;
 }
 EXPORT_SYMBOL(mxc_hdmi_abort_stream);
+#else
+int mxc_hdmi_abort_stream(void)
+{
+	return 0;
+}
+EXPORT_SYMBOL(mxc_hdmi_abort_stream);
+#endif
 
 int check_hdmi_state(void)
 {
@@ -148,6 +156,7 @@ int check_hdmi_state(void)
 }
 EXPORT_SYMBOL(check_hdmi_state);
 
+#ifdef CONFIG_SND_SOC_IMX_HDMI_DMA
 int mxc_hdmi_register_audio(struct snd_pcm_substream *substream)
 {
 	unsigned long flags, flags1;
@@ -175,6 +184,7 @@ int mxc_hdmi_register_audio(struct snd_pcm_substream *substream)
 	return ret;
 }
 EXPORT_SYMBOL(mxc_hdmi_register_audio);
+#endif
 
 void mxc_hdmi_unregister_audio(struct snd_pcm_substream *substream)
 {
