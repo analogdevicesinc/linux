@@ -168,7 +168,7 @@ static int pf1550_set_voltage(struct regulator_dev *reg,
 
 	msg.cmd = PF1550_SET_VOL;
 	msg.regulator = reg->desc->id;
-	msg.voltage = uV;
+	msg.voltage = minuV;
 
 	err = pf1550_send_message(&msg, info);
 	if (err)
