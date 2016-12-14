@@ -1,0 +1,41 @@
+/*
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx7ulp-evk.dts"
+
+&qspi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_qspi1_1>;
+	status = "okay";
+
+	flash0: mx25r6435f@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "macronix,mx25r6435f";
+		spi-max-frequency = <29000000>;
+	};
+};
+
+&iomuxc1 {
+	imx7ulp-evk {
+		pinctrl_qspi1_1: qspi1grp_1 {
+			fsl,pins = <
+				IMX7ULP_PAD_PTB7_LLWU0_P11__QSPIA_SS1_B    0x43 /* SS1 */
+				IMX7ULP_PAD_PTB8__QSPIA_SS0_B              0x43 /* SS0 */
+				IMX7ULP_PAD_PTB15__QSPIA_SCLK              0x43 /* SCLK */
+				IMX7ULP_PAD_PTB9_LLWU0_P12__QSPIA_DQS      0x43 /* DQS */
+				IMX7ULP_PAD_PTB16_LLWU0_P14__QSPIA_DATA3   0x43 /* D3 */
+				IMX7ULP_PAD_PTB17__QSPIA_DATA2             0x43 /* D2 */
+				IMX7ULP_PAD_PTB18__QSPIA_DATA1             0x43 /* D1 */
+				IMX7ULP_PAD_PTB19_LLWU0_P15__QSPIA_DATA0   0x43 /* D0 */
+			>;
+		};
+	};
+};
+

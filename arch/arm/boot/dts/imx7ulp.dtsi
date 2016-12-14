@@ -532,6 +532,9 @@
 			reg = <0x410A5000 0x10000>, <0xC0000000 0x10000000>;
 			reg-names = "QuadSPI", "QuadSPI-memory";
 			interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks IMX7ULP_CLK_DUMMY>,
+				 <&clks IMX7ULP_CLK_DUMMY>;
+			clock-names = "qspi_en", "qspi";
 			status = "disabled";
 		};
 
