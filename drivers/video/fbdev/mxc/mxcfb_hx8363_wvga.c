@@ -134,7 +134,7 @@ static struct fb_videomode truly_lcd_modedb[] = {
 	 40, 60,
 	 3, 3,
 	 8, 4,
-	 FB_SYNC_OE_LOW_ACT,
+	 0x0,
 	 FB_VMODE_NONINTERLACED,
 	 0,
 	},
