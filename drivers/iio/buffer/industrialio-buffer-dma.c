@@ -91,6 +91,9 @@
  * callback is called from within the custom callback.
  */
 
+static unsigned int iio_dma_buffer_max_block_size = SZ_16M;
+module_param_named(max_block_size, iio_dma_buffer_max_block_size, uint, 0644);
+
 static void iio_buffer_block_release(struct kref *kref)
 {
 	struct iio_dma_buffer_block *block = container_of(kref,
@@ -602,8 +605,8 @@ int iio_dma_buffer_alloc_blocks(struct iio_buffer *buffer,
 	/* 64 blocks ought to be enough for anybody ;) */
 	if (req->count > 64 - queue->num_blocks)
 		req->count = 64 - queue->num_blocks;
-	if (req->size > SZ_16M)
-		req->size = SZ_16M;
+	if (req->size > iio_dma_buffer_max_block_size)
+		req->size = iio_dma_buffer_max_block_size;
 
 	req->id = queue->num_blocks;
 
