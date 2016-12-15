@@ -67,6 +67,16 @@
 			gpio = <&gpio1 0 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
+
+		reg_vsd_3v3b: regulator@2 {
+			compatible = "regulator-fixed";
+			reg = <2>;
+			regulator-name = "VSD_3V3B";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
 	};
 
 	extcon_usb1: extcon_usb1 {
@@ -140,9 +150,12 @@
 	imx7ulp-evk {
 		pinctrl_hog_1: hoggrp-1 {
 			fsl,pins = <
-				IMX7ULP_PAD_PTC10__PTC10		0x30100		/* USDHC0 CD */
+				IMX7ULP_PAD_PTC10__PTC10	0x30100		/* USDHC0 CD */
 				IMX7ULP_PAD_PTC1__PTC1		0x20100
 				IMX7ULP_PAD_PTD0__PTD0		0x30100		/* USDHC0 RST */
+				IMX7ULP_PAD_PTE13__PTE13	0x30103		/* USDHC1 CD */
+				IMX7ULP_PAD_PTE12__PTE12	0x30103		/* USDHC1 WP */
+				IMX7ULP_PAD_PTE14__SDHC1_VS	0x843		/* USDHC1 VSEL */
 			>;
 		};
 
@@ -241,6 +254,12 @@
 				IMX7ULP_PAD_PTE0__SDHC1_D1		0x843
 				IMX7ULP_PAD_PTE5__SDHC1_D2		0x843
 				IMX7ULP_PAD_PTE4__SDHC1_D3		0x843
+			>;
+		};
+
+		pinctrl_usdhc1_rst: usdhc1grp_rst {
+			fsl,pins = <
+				IMX7ULP_PAD_PTE11__PTE11	0x30100	/* USDHC1 RST */
 			>;
 		};
 
@@ -370,8 +389,9 @@
 };
 
 &usdhc1 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_usdhc1 &pinctrl_wifi>;
+	pinctrl-1 = <&pinctrl_usdhc1 &pinctrl_wifi>;
 	non-removable;
 	keep-power-in-suspend;
 	cd-post;
