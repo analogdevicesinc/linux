@@ -146,15 +146,10 @@ static inline void imx7ulp_wdt_init(void __iomem *base, unsigned int timeout)
 
 	local_irq_disable();
 
-	/*
-	 * if the wdog is in unlocked status, the UNLOCK
-	 * sequence no need to be send.
-	 */
-	val = readl(base + WDOG_CS);
-	if (!(val & WDOG_CS_ULK)) {
-		writel(UNLOCK_SEQ0, base + WDOG_CNT);
-		writel(UNLOCK_SEQ1, base + WDOG_CNT);
-	}
+	/* unlock the wdog for reconfiguration */
+	writel_relaxed(UNLOCK_SEQ0, base + WDOG_CNT);
+	writel_relaxed(UNLOCK_SEQ1, base + WDOG_CNT);
+
 	/*set an initial timeout value in TOVAL */
 	writel(timeout, base + WDOG_TOVAL);
 	/* enable 32bit command sequence and reconfigure */
