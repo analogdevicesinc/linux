@@ -246,6 +246,28 @@ config FB_ALTERA_VIP
 	  This driver supports the Altera Video and Image Processing(VIP)
 	  Frame Reader
 
+config FB_ALTERA_VIP_FB2
+    tristate "Altera VIP Frame Buffer II framebuffer support"
+	depends on FB
+    select FB_CFB_FILLRECT
+    select FB_CFB_COPYAREA
+    select FB_CFB_IMAGEBLIT
+	---help---
+     This driver supports the Altera Video and Image Processing(VIP)
+     Frame Buffer II. This core driver only supports Arria 10 HW and newer
+	 families of FPGA
+
+config FB_ALTERA_VIP_FB2_PLAT
+	tristate "Altera VIP Frame Buffer II framebuffer support OF Device"
+	depends on FB && OF
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+    ---help---
+     This driver supports the Altera Video and Image Processing(VIP)
+     Frame Buffer II. This driver only supports Arria 10 HW
+     and newer families of FPGA on the OF Device
+
 config FB_GRVGA
 	tristate "Aeroflex Gaisler framebuffer support"
 	depends on FB && SPARC

@@ -12,6 +12,9 @@ obj-$(CONFIG_FB_WMT_GE_ROPS)   += wmt_ge_rops.o
 
 # Hardware specific drivers go first
 obj-$(CONFIG_FB_ALTERA_VIP)	  += altvipfb.o
+obj-$(CONFIG_FB_ALTERA_VIP_FB2) += altvipfb2.o
+obj-$(CONFIG_FB_ALTERA_VIP_FB2_PLAT) += altvipfb2_drv.o
+altvipfb2_drv-objs := altvipfb2-plat.o altvipfb2.o
 obj-$(CONFIG_FB_AMIGA)            += amifb.o c2p_planar.o
 obj-$(CONFIG_FB_ARC)              += arcfb.o
 obj-$(CONFIG_FB_CLPS711X)	  += clps711x-fb.o
