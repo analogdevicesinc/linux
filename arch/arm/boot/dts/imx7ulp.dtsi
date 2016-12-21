@@ -656,7 +656,7 @@
 		gpu: gpu@41800000 {
 			compatible = "fsl,imx6q-gpu";
 			reg = <0x41800000 0x80000>, <0x41880000 0x80000>,
-				<0x0 0x0>, <0x0 0x4000000>;
+				<0x60000000 0x40000000>, <0x0 0x4000000>;
 			reg-names = "iobase_3d", "iobase_2d",
 				"phys_baseaddr", "contiguous_mem";
 			interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
