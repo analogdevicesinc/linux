@@ -68,6 +68,7 @@ static u32 m4_wake_irqs[4];
 static bool m4_freq_low;
 struct irq_domain *domain;
 static bool m4_in_stop;
+static struct clk *clk;
 
 void imx_mu_set_m4_run_mode(void)
 {
@@ -363,7 +364,6 @@ static int imx_mu_probe(struct platform_device *pdev)
 	int ret;
 	u32 irq;
 	struct device_node *np;
-	struct clk *clk;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx6sx-mu");
 	mu_base = of_iomap(np, 0);
@@ -429,10 +429,40 @@ static const struct of_device_id imx_mu_ids[] = {
 	{ }
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int mu_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int mu_resume(struct device *dev)
+{
+	int ret;
+
+	if (!cpu_is_imx7ulp())
+		return 0;
+
+	ret = clk_prepare_enable(clk);
+	if (ret) {
+		dev_err(dev, "unable to enable mu clock\n");
+		return ret;
+	}
+
+	writel_relaxed(readl_relaxed(mu_base + MX7ULP_MU_CR) |
+			BIT(0) | BIT(26) | BIT(27), mu_base + MX7ULP_MU_CR);
+
+	return 0;
+}
+#endif
+static const struct dev_pm_ops mu_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(mu_suspend, mu_resume)
+};
+
 static struct platform_driver imx_mu_driver = {
 	.driver = {
 		.name   = "imx-mu",
 		.owner  = THIS_MODULE,
+		.pm = &mu_pm_ops,
 		.of_match_table = imx_mu_ids,
 	},
 	.probe = imx_mu_probe,
