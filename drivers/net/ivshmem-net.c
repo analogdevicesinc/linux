@@ -762,6 +762,7 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 	resource_size_t shmaddr;
 	resource_size_t shmlen;
 	int interrupt;
+	char *device_name;
 	void *shm;
 	u32 ivpos;
 	int err;
@@ -814,7 +815,10 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 		return -EINVAL;
 	}
 
-	dev_info(&pdev->dev, "shared memory size %pa\n", &shmlen);
+	device_name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s[%s]", DRV_NAME,
+				     dev_name(&pdev->dev));
+	if (!device_name)
+		return -ENOMEM;
 
 	ndev = alloc_etherdev(sizeof(*in));
 	if (!ndev)
@@ -837,7 +841,7 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 	if (err)
 		goto err_free;
 
-	in->state_wq = alloc_ordered_workqueue(DRV_NAME, 0);
+	in->state_wq = alloc_ordered_workqueue(device_name, 0);
 	if (!in->state_wq)
 		goto err_free;
 
@@ -866,7 +870,7 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 		in->using_msix = false;
 	}
 
-	err = request_irq(interrupt, ivshm_net_int, 0, DRV_NAME, ndev);
+	err = request_irq(interrupt, ivshm_net_int, 0, device_name, ndev);
 	if (err)
 		goto err_int;
 
