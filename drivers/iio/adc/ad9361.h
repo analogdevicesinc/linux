@@ -3153,9 +3153,10 @@ struct ad9361_phy_platform_data {
 
 	struct gain_control	gain_ctrl;
 	struct rssi_control	rssi_ctrl;
-	u32	   rssi_lna_err_tbl[4];
-	u32	   rssi_mixer_err_tbl[15];
-	bool   rssi_skip_err_tbl;
+	u32		rssi_lna_err_tbl[4];
+	u32		rssi_mixer_err_tbl[16];
+	u32		rssi_gain_step_calib_reg_val[5];
+	bool	rssi_skip_calib;
 	struct port_control	port_ctrl;
 	struct ctrl_outs_control	ctrl_outs_ctrl;
 	struct elna_control	elna_ctrl;
