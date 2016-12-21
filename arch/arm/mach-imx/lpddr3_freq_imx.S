@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright (C) 2015-2016 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 #define DDRC_MSTR		0x0
 #define DDRC_STAT		0x4
 #define DDRC_PWRCTL		0x30
+#define DDRC_RFSHTMG		0x64
 #define DDRC_DBG1		0x304
 #define DDRC_PSTAT		0x3fc
 #define DDRC_PCTRL_0		0x490
@@ -137,12 +138,16 @@
 	ldr	r7, =0x10010100
 	str	r7, [r5, #DDRPHY_PHY_CON1]
 10:
-	ldr	r7, =0x00020038
-	str	r7, [r5, #DDRPHY_RFSHTMG]
-
 	ldr	r6, =24000000
 	cmp	r0, r6
-	bne	6f
+	beq	16f
+
+	ldr	r7, =0x0005000B
+	str	r7, [r4, #DDRC_RFSHTMG]
+	b	6f
+16:
+	ldr	r7, =0x00010003
+	str	r7, [r4, #DDRC_RFSHTMG]
 
 	/* dram alt sel set to OSC */
 	ldr	r7, =0x10000000
@@ -214,7 +219,7 @@
 	str	r7, [r5, #DDRPHY_PHY_CON1]
 
 	ldr	r7, =0x00200038
-	str	r7, [r5, #DDRPHY_RFSHTMG]
+	str	r7, [r4, #DDRC_RFSHTMG]
 
 	/* dram root set to from dram main, div by 2 */
 	ldr	r7, =0x10000001
