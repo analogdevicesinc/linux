@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
@@ -66,6 +67,7 @@ struct pf1550_regulator_info {
 	struct device *dev;
 	struct pf1550_regulator_rpmsg *msg;
 	struct completion cmd_complete;
+	struct pm_qos_request pm_qos_req;
 	struct regulator_desc *regulators;
 };
 
@@ -97,8 +99,13 @@ static int pf1550_send_message(struct pf1550_regulator_rpmsg *msg,
 		return -EINVAL;
 	}
 
+	pm_qos_add_request(&info->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 0);
+
 	err = rpmsg_send(info->rpdev->ept, (void *)msg,
 			    sizeof(struct pf1550_regulator_rpmsg));
+
+	pm_qos_remove_request(&info->pm_qos_req);
+
 	if (err) {
 		dev_err(&info->rpdev->dev, "rpmsg_send failed: %d\n", err);
 		return err;
