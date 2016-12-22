@@ -338,8 +338,11 @@ struct mx6s_csi_dev {
 	struct v4l2_async_subdev	*async_subdevs[2];
 
 	bool csi_mux_mipi;
+	const bool *rx_fifo_rst;
 	struct mx6s_csi_mux csi_mux;
 };
+
+static const struct of_device_id mx6s_csi_dt_ids[];
 
 static inline int csi_read(struct mx6s_csi_dev *csi, unsigned int offset)
 {
@@ -598,6 +601,35 @@ static void csi_set_imagpara(struct mx6s_csi_dev *csi,
 
 	/* reflash the embeded DMA controller */
 	__raw_writel(cr3 | BIT_DMA_REFLASH_RFF, csi->regbase + CSI_CSICR3);
+}
+
+static void csi_error_recovery(struct mx6s_csi_dev *csi_dev)
+{
+	u32 cr1, cr3, cr18;
+	/* software reset */
+
+	/* Disable csi  */
+	cr18 = csi_read(csi_dev, CSI_CSICR18);
+	cr18 &= ~BIT_CSI_ENABLE;
+	csi_write(csi_dev, cr18, CSI_CSICR18);
+
+	/* Clear RX FIFO */
+	cr1 = csi_read(csi_dev, CSI_CSICR1);
+	csi_write(csi_dev, cr1 & ~BIT_FCC, CSI_CSICR1);
+	cr1 = csi_read(csi_dev, CSI_CSICR1);
+	csi_write(csi_dev, cr1 | BIT_CLR_RXFIFO, CSI_CSICR1);
+
+	cr1 = csi_read(csi_dev, CSI_CSICR1);
+	csi_write(csi_dev, cr1 | BIT_FCC, CSI_CSICR1);
+
+	/* DMA reflash */
+	cr3 = csi_read(csi_dev, CSI_CSICR3);
+	cr3 |= BIT_DMA_REFLASH_RFF;
+	csi_write(csi_dev, cr3, CSI_CSICR3);
+
+	/* Ensable csi  */
+	cr18 |= BIT_CSI_ENABLE;
+	csi_write(csi_dev, cr18, CSI_CSICR18);
 }
 
 /*
@@ -1040,7 +1072,7 @@ static irqreturn_t mx6s_csi_irq_handler(int irq, void *data)
 {
 	struct mx6s_csi_dev *csi_dev =  data;
 	unsigned long status;
-	u32 cr1, cr3, cr18;
+	u32 cr3, cr18;
 
 	spin_lock(&csi_dev->slock);
 
@@ -1056,37 +1088,16 @@ static irqreturn_t mx6s_csi_irq_handler(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	if (status & BIT_RFF_OR_INT)
+	if (status & BIT_RFF_OR_INT) {
 		dev_warn(csi_dev->dev, "%s Rx fifo overflow\n", __func__);
-	if (status & BIT_HRESP_ERR_INT)
+		if (*csi_dev->rx_fifo_rst)
+			csi_error_recovery(csi_dev);
+	}
+
+	if (status & BIT_HRESP_ERR_INT) {
 		dev_warn(csi_dev->dev, "%s Hresponse error detected\n",
 			__func__);
-
-	if (status & (BIT_RFF_OR_INT|BIT_HRESP_ERR_INT)) {
-		/* software reset */
-
-		/* Disable csi  */
-		cr18 = csi_read(csi_dev, CSI_CSICR18);
-		cr18 &= ~BIT_CSI_ENABLE;
-		csi_write(csi_dev, cr18, CSI_CSICR18);
-
-		/* Clear RX FIFO */
-		cr1 = csi_read(csi_dev, CSI_CSICR1);
-		csi_write(csi_dev, cr1 & ~BIT_FCC, CSI_CSICR1);
-		cr1 = csi_read(csi_dev, CSI_CSICR1);
-		csi_write(csi_dev, cr1 | BIT_CLR_RXFIFO, CSI_CSICR1);
-
-		cr1 = csi_read(csi_dev, CSI_CSICR1);
-		csi_write(csi_dev, cr1 | BIT_FCC, CSI_CSICR1);
-
-		/* DMA reflash */
-		cr3 = csi_read(csi_dev, CSI_CSICR3);
-		cr3 |= BIT_DMA_REFLASH_RFF;
-		csi_write(csi_dev, cr3, CSI_CSICR3);
-
-		/* Ensable csi  */
-		cr18 |= BIT_CSI_ENABLE;
-		csi_write(csi_dev, cr18, CSI_CSICR18);
+		csi_error_recovery(csi_dev);
 	}
 
 	if (status & BIT_ADDR_CH_ERR_INT) {
@@ -1768,6 +1779,7 @@ static int mx6sx_register_subdevs(struct mx6s_csi_dev *csi_dev)
 static int mx6s_csi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *of_id;
 	struct mx6s_csi_dev *csi_dev;
 	struct video_device *vdev;
 	struct resource *res;
@@ -1821,6 +1833,11 @@ static int mx6s_csi_probe(struct platform_device *pdev)
 	csi_dev->dev = dev;
 
 	mx6s_csi_mux_sel(csi_dev);
+
+	of_id = of_match_node(mx6s_csi_dt_ids, csi_dev->dev->of_node);
+	if (!of_id)
+		return -EINVAL;
+	csi_dev->rx_fifo_rst = of_id->data;
 
 	snprintf(csi_dev->v4l2_dev.name,
 		 sizeof(csi_dev->v4l2_dev.name), "CSI");
@@ -1920,8 +1937,16 @@ static const struct dev_pm_ops mx6s_csi_pm_ops = {
 	SET_RUNTIME_PM_OPS(mx6s_csi_runtime_suspend, mx6s_csi_runtime_resume, NULL)
 };
 
+static const u8 mx6s_fifo_rst = true;
+static const u8 mx6sl_fifo_rst = false;
+
 static const struct of_device_id mx6s_csi_dt_ids[] = {
-	{ .compatible = "fsl,imx6s-csi", },
+	{ .compatible = "fsl,imx6s-csi",
+	  .data = &mx6s_fifo_rst,
+	},
+	{ .compatible = "fsl,imx6sl-csi",
+	  .data = &mx6sl_fifo_rst,
+	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mx6s_csi_dt_ids);
