@@ -65,8 +65,9 @@
 		reg_usb_otg1_vbus: regulator@0 {
 			compatible = "regulator-fixed";
 			reg = <0>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&pinctrl_usb_otg1>;
+			pinctrl-1 = <&pinctrl_usb_otg1>;
 			regulator-name = "usb_otg1_vbus";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
@@ -98,8 +99,9 @@
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
 		id-gpio = <&gpio0 8 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pinctrl_extcon_usb1>;
+		pinctrl-1 = <&pinctrl_extcon_usb1>;
 	};
 
 	pf1550-rpmsg {
