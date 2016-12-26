@@ -1436,7 +1436,7 @@ static int mxsfb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	fb_info = framebuffer_alloc(sizeof(struct fb_info), &pdev->dev);
+	fb_info = framebuffer_alloc(0, &pdev->dev);
 	if (!fb_info) {
 		dev_err(&pdev->dev, "Failed to allocate fbdev\n");
 		devm_kfree(&pdev->dev, host);
