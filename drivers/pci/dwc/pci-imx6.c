@@ -79,6 +79,7 @@ struct imx6_pcie {
 	int			link_gen;
 	struct regulator	*vpcie;
 	struct regmap		*reg_src;
+	void __iomem		*phy_base;
 	struct regulator	*pcie_phy_regulator;
 	struct regulator	*pcie_bus_regulator;
 };
@@ -145,6 +146,12 @@ struct imx6_pcie {
  * FIELD: ref_usb2_en [1:1]
  * FIELD: ref_clkdiv2 [0:0]
  */
+
+/* iMX7 PCIe PHY registers */
+#define PCIE_PHY_CMN_REG15	0x54
+#define PCIE_PHY_CMN_REG15_DLY_4	(1 << 2)
+#define PCIE_PHY_CMN_REG15_PLL_PD	(1 << 5)
+#define PCIE_PHY_CMN_REG15_OVRD_PLL_PD	(1 << 7)
 
 static int pcie_phy_poll_ack(struct imx6_pcie *imx6_pcie, int exp_val)
 {
@@ -537,6 +544,21 @@ static void imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 		udelay(10);
 		regmap_update_bits(imx6_pcie->reg_src, 0x2c, BIT(6), 0);
 		regmap_update_bits(imx6_pcie->reg_src, 0x2c, BIT(1), 0);
+
+		/* Add the workaround for ERR010728 */
+		if (unlikely(imx6_pcie->phy_base == NULL)) {
+			pr_err("phy base shouldn't be null.\n");
+		} else {
+			writel(PCIE_PHY_CMN_REG15_DLY_4,
+			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG15);
+			writel(PCIE_PHY_CMN_REG15_DLY_4
+			       | PCIE_PHY_CMN_REG15_PLL_PD
+			       | PCIE_PHY_CMN_REG15_OVRD_PLL_PD,
+			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG15);
+			writel(PCIE_PHY_CMN_REG15_DLY_4,
+			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG15);
+		}
+
 		regmap_update_bits(imx6_pcie->reg_src, 0x2c, BIT(2), 0);
 
 		/* wait for phy pll lock firstly. */
@@ -1203,6 +1225,7 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct dw_pcie *pci;
 	struct imx6_pcie *imx6_pcie;
+	struct device_node *np;
 	struct resource *dbi_base;
 	struct device_node *node = dev->of_node;
 	int ret;
@@ -1227,6 +1250,14 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		ret = sysfs_create_group(&pdev->dev.kobj, &imx_pcie_attrgroup);
 		if (ret)
 			return -EINVAL;
+	}
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx-pcie-phy");
+	if (np != NULL) {
+		imx6_pcie->phy_base = of_iomap(np, 0);
+		WARN_ON(!imx6_pcie->phy_base);
+	} else {
+		imx6_pcie->phy_base = NULL;
 	}
 
 	dbi_base = platform_get_resource(pdev, IORESOURCE_MEM, 0);
