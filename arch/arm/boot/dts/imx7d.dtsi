@@ -236,6 +236,12 @@
 		status = "disabled";
 	};
 
+	pcie_phy: pcie-phy@306d0000 {
+		  compatible = "fsl,imx-pcie-phy";
+		  reg = <0x306d0000 0x10000>;
+		  status = "disabled";
+	};
+
 	epdc: epdc@306f0000 {
 		compatible = "fsl,imx7d-epdc";
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
