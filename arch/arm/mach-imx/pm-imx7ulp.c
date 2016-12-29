@@ -97,6 +97,9 @@
 #define LPUART_FIFO	0x28
 #define LPUART_WATER	0x2c
 
+#define GPIO_PDOR	0x0
+#define GPIO_PDDR	0x14
+
 #define PTC2_LPUART4_TX_OFFSET	0x8
 #define PTC3_LPUART4_RX_OFFSET	0xc
 #define PTC2_LPUART4_TX_INPUT_OFFSET	0x248
@@ -121,9 +124,11 @@ static void __iomem *pcc2_base;
 static void __iomem *pcc3_base;
 static void __iomem *mu_base;
 static void __iomem *scg1_base;
+static void __iomem *gpio_base[4];
 static void __iomem *suspend_ocram_base;
 static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_base);
 
+static u32 gpio_regs[4][2];
 static u32 tpm5_regs[4];
 static u32 lpuart4_regs[4];
 static u32 pcc2_regs[25][2] = {
@@ -261,6 +266,26 @@ static const char * const low_power_ocram_match[] __initconst = {
 	"fsl,lpm-sram",
 	NULL
 };
+
+static void imx7ulp_gpio_save(void)
+{
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		gpio_regs[i][0] = readl_relaxed(gpio_base[i] + GPIO_PDOR);
+		gpio_regs[i][1] = readl_relaxed(gpio_base[i] + GPIO_PDDR);
+	}
+}
+
+static void imx7ulp_gpio_restore(void)
+{
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		writel_relaxed(gpio_regs[i][0], gpio_base[i] + GPIO_PDOR);
+		writel_relaxed(gpio_regs[i][1], gpio_base[i] + GPIO_PDDR);
+	}
+}
 
 static void imx7ulp_scg1_save(void)
 {
@@ -425,6 +450,7 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 		imx7ulp_set_lpm(RUN);
 		break;
 	case PM_SUSPEND_MEM:
+		imx7ulp_gpio_save();
 		imx7ulp_scg1_save();
 		imx7ulp_pcc2_save();
 		imx7ulp_pcc3_save();
@@ -436,6 +462,7 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 		/* Zzz ... */
 		cpu_suspend(0, imx7ulp_suspend_finish);
 
+		imx7ulp_gpio_restore();
 		imx7ulp_pcc2_restore();
 		imx7ulp_pcc3_restore();
 		imx7ulp_lpuart_restore();
@@ -621,6 +648,13 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-scg1");
 	scg1_base = of_iomap(np, 0);
 	WARN_ON(!scg1_base);
+
+	np = NULL;
+	for (i = 0; i < 4; i++) {
+		np = of_find_compatible_node(np, NULL, "fsl,vf610-gpio");
+		gpio_base[i] = of_iomap(np, 1);
+		WARN_ON(!gpio_base[i]);
+	}
 
 	/*
 	 * 16KB is allocated for IRAM TLB, but only up 8k is for kernel TLB,
