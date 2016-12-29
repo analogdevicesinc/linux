@@ -1753,6 +1753,11 @@ static int overlayfb_check_var(struct fb_var_screeninfo *var,
 		}
 		break;
 	}
+
+        if (var->xres_virtual * var->yres_virtual * var->bits_per_pixel / 8 >
+            info->fix.smem_len)
+		return -EINVAL;
+
 	fill_fmt_bitfields(var, rgb);
 
 	return 0;
@@ -1810,6 +1815,34 @@ static int overlayfb_blank(int blank, struct fb_info *info)
 	return 0;
 }
 
+static int overlayfb_pan_display(struct fb_var_screeninfo *var,
+				 struct fb_info *info)
+{
+	int ret = 0;
+	unsigned int bytes_offset;
+	struct mxsfb_layer *ofb = (struct mxsfb_layer *)info->par;
+	struct mxsfb_info  *fbi = ofb->fbi;
+
+	init_completion(&fbi->flip_complete);
+
+	bytes_offset = info->fix.line_length * var->yoffset;
+	writel(info->fix.smem_start + bytes_offset,
+	       fbi->base + LCDC_AS_NEXT_BUF);
+
+	/* update on next VSYNC */
+	writel(CTRL1_CUR_FRAME_DONE_IRQ_EN,
+	       fbi->base + LCDC_CTRL1 + REG_SET);
+
+	ret = wait_for_completion_timeout(&fbi->flip_complete, HZ / 2);
+	if (!ret) {
+		dev_err(info->device,
+			"overlay wait for pane flip timeout\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static struct fb_ops overlay_fb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_open	= overlayfb_open,
@@ -1817,6 +1850,7 @@ static struct fb_ops overlay_fb_ops = {
 	.fb_check_var	= overlayfb_check_var,
 	.fb_set_par	= overlayfb_set_par,
 	.fb_blank	= overlayfb_blank,
+	.fb_pan_display = overlayfb_pan_display,
 	.fb_mmap 	= mxsfb_mmap,
 };
 
