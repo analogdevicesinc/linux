@@ -153,7 +153,13 @@ static int mipi_dsi_disp_init(struct mxc_dispdrv_handle *disp,
 {
 	struct mipi_dsi_info *mipi_dsi = mxc_dispdrv_getdata(disp);
 	struct device *dev = &mipi_dsi->pdev->dev;
+	struct device_node *np = dev->of_node;
+	struct reset_control *reset = NULL;
 	int ret = 0;
+
+	reset = of_reset_control_get(np, NULL);
+	if (IS_ERR(reset))
+		return PTR_ERR(reset);
 
 	ret = mipi_dsi_lcd_init(mipi_dsi, setting);
 	if (ret) {

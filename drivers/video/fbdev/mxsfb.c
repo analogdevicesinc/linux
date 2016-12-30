@@ -1284,7 +1284,7 @@ static int mxsfb_init_fbinfo(struct mxsfb_info *host)
 	return 0;
 }
 
-static void mxsfb_dispdrv_init(struct platform_device *pdev,
+static int mxsfb_dispdrv_init(struct platform_device *pdev,
 			      struct fb_info *fbi)
 {
 	struct mxsfb_info *host = fbi->par;
@@ -1299,13 +1299,17 @@ static void mxsfb_dispdrv_init(struct platform_device *pdev,
 
 	host->dispdrv = mxc_dispdrv_gethandle(disp_dev, &setting);
 	if (IS_ERR(host->dispdrv)) {
+		if (PTR_ERR(host->dispdrv) == -EPROBE_DEFER)
+			return PTR_ERR(host->dispdrv);
+
 		host->dispdrv = NULL;
 		dev_info(dev, "failed to find mxc display driver %s\n",
 			 disp_dev);
-	} else {
+	} else
 		dev_info(dev, "registered mxc display driver %s\n",
 			 disp_dev);
-	}
+
+	return 0;
 }
 
 static void mxsfb_free_videomem(struct mxsfb_info *host)
@@ -1502,7 +1506,13 @@ static int mxsfb_probe(struct platform_device *pdev)
 	if (ret != 0)
 		goto fb_pm_runtime_disable;
 
-	mxsfb_dispdrv_init(pdev, fb_info);
+	ret = mxsfb_dispdrv_init(pdev, fb_info);
+	if (ret != 0) {
+		if (ret == -EPROBE_DEFER)
+			dev_info(&pdev->dev,
+				 "Defer fb probe due to dispdrv not ready\n");
+		goto fb_pm_runtime_disable;
+	}
 
 	if (!host->dispdrv) {
 		pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
@@ -1540,10 +1550,12 @@ static int mxsfb_probe(struct platform_device *pdev)
 fb_unregister:
 	unregister_framebuffer(fb_info);
 fb_destroy:
-	if (host->enabled)
-		clk_disable_unprepare(host->clk_pix);
 	fb_destroy_modelist(&fb_info->modelist);
 fb_pm_runtime_disable:
+	clk_disable_pix(host);
+	clk_disable_axi(host);
+	clk_disable_disp_axi(host);
+
 	pm_runtime_disable(&host->pdev->dev);
 	devm_kfree(&pdev->dev, fb_info->pseudo_palette);
 fb_release:

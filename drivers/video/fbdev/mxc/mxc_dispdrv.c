@@ -89,7 +89,7 @@ EXPORT_SYMBOL_GPL(mxc_dispdrv_unregister);
 struct mxc_dispdrv_handle *mxc_dispdrv_gethandle(char *name,
 	struct mxc_dispdrv_setting *setting)
 {
-	int ret, found = 0;
+	int ret = -ENODEV, found = 0;
 	struct mxc_dispdrv_entry *entry;
 
 	mutex_lock(&dispdrv_lock);
@@ -106,7 +106,7 @@ struct mxc_dispdrv_handle *mxc_dispdrv_gethandle(char *name,
 	}
 	mutex_unlock(&dispdrv_lock);
 
-	return found ? (struct mxc_dispdrv_handle *)entry:ERR_PTR(-ENODEV);
+	return found ? (struct mxc_dispdrv_handle *)entry:ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(mxc_dispdrv_gethandle);
 
