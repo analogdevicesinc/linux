@@ -2,6 +2,7 @@
  * drivers/dma/fsl-edma.c
  *
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * Driver for the Freescale eDMA engine with flexible channel multiplexing
  * capability for DMA request sources. The eDMA block can be found on some
@@ -111,11 +112,18 @@
 #define EDMAMUX_CHCFG_SOURCE(n)		((n) & 0x3F)
 
 #define DMAMUX_NR	2
+#define FSL_EDMA_REG_NUM	3
+#define FSL_DMAMUX_SLOTS	32
+#define FSL_DMAMUX_REG_NUM	(DMAMUX_NR * FSL_DMAMUX_SLOTS)
 
 #define FSL_EDMA_BUSWIDTHS	BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | \
 				BIT(DMA_SLAVE_BUSWIDTH_2_BYTES) | \
 				BIT(DMA_SLAVE_BUSWIDTH_4_BYTES) | \
 				BIT(DMA_SLAVE_BUSWIDTH_8_BYTES)
+
+/* Controller will loss power in i.MX7ULP VLLS low power mode */
+#define FSL_EDMA_QUIRK_VLLS_MODE	(1 << 0)
+
 enum fsl_edma_pm_state {
 	RUNNING = 0,
 	SUSPENDED,
@@ -186,8 +194,40 @@ struct fsl_edma_engine {
 	void			(*mux_configure)(struct fsl_edma_chan *,
 						 void __iomem *muxaddr, u32 off,
 						 u32 slot, bool enable);
+	u32			edma_regs[FSL_EDMA_REG_NUM];
+	u32			dmamux_regs[FSL_DMAMUX_REG_NUM];
+	u32			quirks;
 	struct fsl_edma_chan	chans[];
 };
+
+static struct platform_device_id fsl_edma_devtype[] = {
+	{
+		.name = "vf610-edma",
+		.driver_data = 0,
+	}, {
+		.name = "imx7ulp-edma",
+		.driver_data = FSL_EDMA_QUIRK_VLLS_MODE,
+	}, {
+		/* sentinel */
+	}
+};
+MODULE_DEVICE_TABLE(platform, fsl_edma_devtype);
+
+enum fsl_edma_type {
+	VF610_EDMA,
+	IMX7ULP_EDMA,
+};
+
+static const struct of_device_id fsl_edma_dt_ids[] = {
+	{
+		.compatible = "fsl,vf610-edma",
+		.data = &fsl_edma_devtype[VF610_EDMA],
+	}, {
+		.compatible = "nxp,imx7ulp-edma",
+		.data = &fsl_edma_devtype[IMX7ULP_EDMA],
+	}, { /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, fsl_edma_dt_ids);
 
 void mux_configure8(struct fsl_edma_chan *fsl_chan, void __iomem *muxaddr,
 		    u32 off, u32 slot, bool enable)
@@ -343,7 +383,7 @@ static int fsl_edma_terminate_all(struct dma_chan *chan)
 	return 0;
 }
 
-static int fsl_edma_pause(struct dma_chan *chan)
+static int fsl_edma_device_pause(struct dma_chan *chan)
 {
 	struct fsl_edma_chan *fsl_chan = to_fsl_edma_chan(chan);
 	unsigned long flags;
@@ -358,7 +398,7 @@ static int fsl_edma_pause(struct dma_chan *chan)
 	return 0;
 }
 
-static int fsl_edma_resume(struct dma_chan *chan)
+static int fsl_edma_device_resume(struct dma_chan *chan)
 {
 	struct fsl_edma_chan *fsl_chan = to_fsl_edma_chan(chan);
 	unsigned long flags;
@@ -961,6 +1001,7 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct fsl_edma_engine *fsl_edma;
 	struct fsl_edma_chan *fsl_chan;
+	const struct of_device_id *of_id;
 	struct resource *res;
 	int len, chans;
 	int ret, i;
@@ -975,6 +1016,11 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	fsl_edma = devm_kzalloc(&pdev->dev, len, GFP_KERNEL);
 	if (!fsl_edma)
 		return -ENOMEM;
+
+	of_id = of_match_device(fsl_edma_dt_ids, &pdev->dev);
+	if (of_id)
+		pdev->id_entry = of_id->data;
+	fsl_edma->quirks = pdev->id_entry->driver_data;
 
 	fsl_edma->n_chans = chans;
 	mutex_init(&fsl_edma->fsl_edma_mutex);
@@ -1077,8 +1123,8 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	fsl_edma->dma_dev.device_prep_slave_sg = fsl_edma_prep_slave_sg;
 	fsl_edma->dma_dev.device_prep_dma_cyclic = fsl_edma_prep_dma_cyclic;
 	fsl_edma->dma_dev.device_config = fsl_edma_slave_config;
-	fsl_edma->dma_dev.device_pause = fsl_edma_pause;
-	fsl_edma->dma_dev.device_resume = fsl_edma_resume;
+	fsl_edma->dma_dev.device_pause = fsl_edma_device_pause;
+	fsl_edma->dma_dev.device_resume = fsl_edma_device_resume;
 	fsl_edma->dma_dev.device_terminate_all = fsl_edma_terminate_all;
 	fsl_edma->dma_dev.device_issue_pending = fsl_edma_issue_pending;
 
@@ -1136,6 +1182,56 @@ static int fsl_edma_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int fsl_edma_register_save(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct fsl_edma_engine *fsl_edma = platform_get_drvdata(pdev);
+	int i, j;
+
+	if (!(fsl_edma->quirks & FSL_EDMA_QUIRK_VLLS_MODE))
+		return 0;
+
+	/* save regs */
+	fsl_edma->edma_regs[0] =
+		edma_readl(fsl_edma, fsl_edma->membase + EDMA_CR);
+	fsl_edma->edma_regs[1] =
+		edma_readl(fsl_edma, fsl_edma->membase + EDMA_ERQ);
+	fsl_edma->edma_regs[2] =
+		edma_readl(fsl_edma, fsl_edma->membase + EDMA_EEI);
+	for (i = 0; i < fsl_edma->dmamux_nr; i++)
+		for (j = 0; j < fsl_edma->n_chans; j++)
+			fsl_edma->dmamux_regs[i * fsl_edma->n_chans + j] =
+				edma_readl(fsl_edma,
+					fsl_edma->muxbase[i] + j * 4);
+
+	return 0;
+}
+
+static int fsl_edma_register_restore(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct fsl_edma_engine *fsl_edma = platform_get_drvdata(pdev);
+	int i, j;
+
+	if (!(fsl_edma->quirks & FSL_EDMA_QUIRK_VLLS_MODE))
+		return 0;
+
+	/* restore the regs */
+	for (i = 0; i < fsl_edma->dmamux_nr; i++)
+		for (j = 0; j < fsl_edma->n_chans; j++)
+			edma_writel(fsl_edma,
+			  fsl_edma->dmamux_regs[i * fsl_edma->n_chans + j],
+			  fsl_edma->muxbase[i] + j * 4);
+	edma_writel(fsl_edma, fsl_edma->edma_regs[1],
+			fsl_edma->membase + EDMA_ERQ);
+	edma_writel(fsl_edma, fsl_edma->edma_regs[2],
+			fsl_edma->membase + EDMA_EEI);
+	edma_writel(fsl_edma, fsl_edma->edma_regs[0],
+			fsl_edma->membase + EDMA_CR);
+
+	return 0;
+}
+
 static int fsl_edma_suspend_late(struct device *dev)
 {
 	struct fsl_edma_engine *fsl_edma = dev_get_drvdata(dev);
@@ -1157,6 +1253,8 @@ static int fsl_edma_suspend_late(struct device *dev)
 		spin_unlock_irqrestore(&fsl_chan->vchan.lock, flags);
 	}
 
+	fsl_edma_register_save(dev);
+
 	return 0;
 }
 
@@ -1165,6 +1263,8 @@ static int fsl_edma_resume_early(struct device *dev)
 	struct fsl_edma_engine *fsl_edma = dev_get_drvdata(dev);
 	struct fsl_edma_chan *fsl_chan;
 	int i;
+
+	fsl_edma_register_restore(dev);
 
 	for (i = 0; i < fsl_edma->n_chans; i++) {
 		fsl_chan = &fsl_edma->chans[i];
@@ -1190,19 +1290,13 @@ static const struct dev_pm_ops fsl_edma_pm_ops = {
 	.resume_early   = fsl_edma_resume_early,
 };
 
-static const struct of_device_id fsl_edma_dt_ids[] = {
-	{ .compatible = "fsl,vf610-edma", },
-	{ .compatible = "nxp,imx7ulp-edma", },
-	{ /* sentinel */ }
-};
-MODULE_DEVICE_TABLE(of, fsl_edma_dt_ids);
-
 static struct platform_driver fsl_edma_driver = {
 	.driver		= {
 		.name	= "fsl-edma",
 		.of_match_table = fsl_edma_dt_ids,
 		.pm     = &fsl_edma_pm_ops,
 	},
+	.id_table	= fsl_edma_devtype,
 	.probe          = fsl_edma_probe,
 	.remove		= fsl_edma_remove,
 };
