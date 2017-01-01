@@ -748,10 +748,41 @@ static void ivshm_net_get_ethtool_stats(struct net_device *ndev,
 	memset(&in->stats, 0, sizeof(in->stats));
 }
 
+#define IVSHM_NET_REGS_LEN	(3 * sizeof(u32) + 6 * sizeof(u16))
+
+static int ivshm_net_get_regs_len(struct net_device *ndev)
+{
+	return IVSHM_NET_REGS_LEN;
+}
+
+static void ivshm_net_get_regs(struct net_device *ndev,
+			       struct ethtool_regs *regs, void *p)
+{
+	struct ivshm_net *in = netdev_priv(ndev);
+	u32 *reg32 = p;
+	u16 *reg16;
+
+	*reg32++ = in->lstate;
+	*reg32++ = in->rstate;
+	*reg32++ = in->qlen;
+
+	reg16 = (u16 *)reg32;
+
+	*reg16++ = in->tx.vr.avail ? in->tx.vr.avail->idx : 0;
+	*reg16++ = in->tx.vr.used ? in->tx.vr.used->idx : 0;
+	*reg16++ = in->tx.vr.avail ? vring_avail_event(&in->tx.vr) : 0;
+
+	*reg16++ = in->rx.vr.avail ? in->rx.vr.avail->idx : 0;
+	*reg16++ = in->rx.vr.used ? in->rx.vr.used->idx : 0;
+	*reg16++ = in->rx.vr.avail ? vring_avail_event(&in->rx.vr) : 0;
+}
+
 static const struct ethtool_ops ivshm_net_ethtool_ops = {
 	.get_sset_count		= ivshm_net_get_sset_count,
 	.get_strings		= ivshm_net_get_strings,
 	.get_ethtool_stats	= ivshm_net_get_ethtool_stats,
+	.get_regs_len		= ivshm_net_get_regs_len,
+	.get_regs		= ivshm_net_get_regs,
 };
 
 static int ivshm_net_probe(struct pci_dev *pdev,
