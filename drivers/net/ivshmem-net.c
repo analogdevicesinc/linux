@@ -554,6 +554,8 @@ static void ivshm_net_do_stop(struct net_device *ndev)
 {
 	struct ivshm_net *in = netdev_priv(ndev);
 
+	ivshm_net_set_state(in, IVSHM_NET_STATE_RESET);
+
 	if (!test_and_clear_bit(IVSHM_NET_FLAG_RUN, &in->flags))
 		return;
 
@@ -593,7 +595,6 @@ static void ivshm_net_state_change(struct work_struct *work)
 		} else {
 			netif_carrier_off(ndev);
 			ivshm_net_do_stop(ndev);
-			ivshm_net_set_state(in, IVSHM_NET_STATE_RESET);
 		}
 		break;
 	}
@@ -898,6 +899,8 @@ static void ivshm_net_remove(struct pci_dev *pdev)
 {
 	struct net_device *ndev = pci_get_drvdata(pdev);
 	struct ivshm_net *in = netdev_priv(ndev);
+
+	writel(IVSHM_NET_STATE_RESET, &in->ivshm_regs->lstate);
 
 	if (in->using_msix)  {
 		free_irq(in->msix.vector, ndev);
