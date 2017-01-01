@@ -911,6 +911,7 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 		writel(IVSHMEM_INTX_ENABLE, &in->ivshm_regs->intxctrl);
 
 	writel(IVSHM_NET_STATE_RESET, &in->ivshm_regs->lstate);
+	ivshm_net_check_state(ndev);
 
 	return 0;
 
