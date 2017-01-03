@@ -1557,11 +1557,23 @@ static void overlayfb_enable(struct mxsfb_layer *ofb)
 	uint32_t as_ctrl = 0x0;
 	struct mxsfb_info *fbi = ofb->fbi;
 
+	lock_fb_info(fbi->fb_info);
+	if (fbi->cur_blank == FB_BLANK_UNBLANK) {
+		mxsfb_disable_controller(fbi->fb_info);
+		writel(CTRL1_FIFO_CLEAR, fbi->base + LCDC_CTRL1 + REG_SET);
+	}
+
 	/* enable AS */
 	as_ctrl = readl(fbi->base + LCDC_AS_CTRL);
 	as_ctrl |= 0x1;
 
 	writel(as_ctrl, fbi->base + LCDC_AS_CTRL);
+
+	if (fbi->cur_blank == FB_BLANK_UNBLANK) {
+		writel(CTRL1_FIFO_CLEAR, fbi->base + LCDC_CTRL1 + REG_CLR);
+		mxsfb_enable_controller(fbi->fb_info);
+	}
+	unlock_fb_info(fbi->fb_info);
 }
 
 static void overlayfb_disable(struct mxsfb_layer *ofb)
@@ -1569,10 +1581,8 @@ static void overlayfb_disable(struct mxsfb_layer *ofb)
 	uint32_t as_ctrl = 0x0;
 	struct mxsfb_info *fbi = ofb->fbi;
 
-	as_ctrl = readl(fbi->base + LCDC_AS_CTRL);
-	as_ctrl &= 0xfffffffe;
-
 	writel(as_ctrl, fbi->base + LCDC_AS_CTRL);
+	writel(0x0, fbi->base + LCDC_AS_NEXT_BUF);
 }
 
 static void overlayfb_setup(struct mxsfb_layer *ofb)
