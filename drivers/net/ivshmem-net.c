@@ -123,14 +123,14 @@ static void *ivshm_net_desc_data(struct ivshm_net *in,
 				 struct vring_desc *desc,
 				 u32 *len)
 {
-	u64 addr = READ_ONCE(desc->addr);
+	u64 offs = READ_ONCE(desc->addr);
 	u32 dlen = READ_ONCE(desc->len);
 	void *data;
 
-	if (addr < in->shmaddr || desc->addr > in->shmaddr + in->shmlen)
+	if (offs >= in->shmlen)
 		return NULL;
 
-	data = in->shm + (addr - in->shmaddr);
+	data = in->shm + offs;
 
 	if (data < q->data || data >= q->end)
 		return NULL;
@@ -317,7 +317,7 @@ static int ivshm_net_tx_frame(struct net_device *ndev, struct sk_buff *skb)
 	buf = tx->data + head;
 	skb_copy_and_csum_dev(skb, buf);
 
-	desc->addr = in->shmaddr + (buf - in->shm);
+	desc->addr = buf - in->shm;
 	desc->len = skb->len;
 
 	avail = tx->last_avail_idx++ & (vr->num - 1);
