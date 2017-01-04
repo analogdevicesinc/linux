@@ -219,6 +219,7 @@ struct mxsfb_layer {
 	int			registered;
 	uint32_t		usage;
 	int			blank_state;
+	uint32_t 		global_alpha;
 
 	struct mxsfb_layer_ops	*ops;
 
@@ -1588,7 +1589,7 @@ static void overlayfb_disable(struct mxsfb_layer *ofb)
 static void overlayfb_setup(struct mxsfb_layer *ofb)
 {
 	uint32_t as_next_buf, as_ctrl = 0;
-	uint8_t format, alpha_ctrl;
+	uint8_t format, alpha_ctrl, global_alpha_en = 0;
 	struct mxsfb_info *fbi = ofb->fbi;
 	struct fb_var_screeninfo *var = &ofb->ol_fb->var;
 
@@ -1596,11 +1597,15 @@ static void overlayfb_setup(struct mxsfb_layer *ofb)
 	as_next_buf = ofb->video_mem_phys;
 	writel(as_next_buf, fbi->base + LCDC_AS_NEXT_BUF);
 
+	/* clear the LCDC_AS_CTRL */
+	writel(0x0, fbi->base + LCDC_AS_CTRL);
+
 	switch (var->grayscale) {
 	case 0: /* color */
 		switch (var->bits_per_pixel) {
 		case 16: /* RGB565 */
 			format = 0xE;
+			global_alpha_en = 1;
 			break;
 		case 32: /* ARGB8888 */
 			format = 0x0;
@@ -1618,6 +1623,7 @@ static void overlayfb_setup(struct mxsfb_layer *ofb)
 			break;
 		case V4L2_PIX_FMT_XRGB32:
 			format = 0x4;
+			global_alpha_en = 1;
 			break;
 		case V4L2_PIX_FMT_ARGB555:
 			format = 0x8;
@@ -1627,12 +1633,15 @@ static void overlayfb_setup(struct mxsfb_layer *ofb)
 			break;
 		case V4L2_PIX_FMT_RGB555:
 			format = 0xC;
+			global_alpha_en = 1;
 			break;
 		case V4L2_PIX_FMT_RGB444:
 			format = 0xD;
+			global_alpha_en = 1;
 			break;
 		case V4L2_PIX_FMT_RGB565:
 			format = 0xE;
+			global_alpha_en = 1;
 			break;
 		default:
 			return;
@@ -1641,9 +1650,11 @@ static void overlayfb_setup(struct mxsfb_layer *ofb)
 	}
 	as_ctrl |= ((format & 0xf) << 4);
 
-	/*XXX Only support embbeded alpha mode first */
-	alpha_ctrl = ALPHA_CTRL_EMBEDDED;
+	alpha_ctrl = global_alpha_en ? ALPHA_CTRL_OVERRIDE :
+				       ALPHA_CTRL_EMBEDDED;
 	as_ctrl |= ((alpha_ctrl & 0x3) << 1);
+	if (global_alpha_en)
+		as_ctrl |= ((ofb->global_alpha & 0xff) << 8);
 
 	writel(as_ctrl, fbi->base + LCDC_AS_CTRL);
 }
@@ -1894,6 +1905,7 @@ static void init_mxsfb_overlay(struct mxsfb_info *fbi,
 	ofb->ops = &ofb_ops;
 	ofb->usage = 0;
 	ofb->blank_state = -1;
+	ofb->global_alpha = 255;
 	ofb->fbi = fbi;
 }
 
