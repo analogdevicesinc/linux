@@ -1608,6 +1608,7 @@ static void overlayfb_setup(struct mxsfb_layer *ofb)
 		default:
 			return;
 		}
+		break;
 	case 1: /* grayscale */
 		return;
 	default:
