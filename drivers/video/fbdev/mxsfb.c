@@ -1555,7 +1555,6 @@ static int overlay_fmt_support(uint32_t fmt)
 
 static void overlayfb_enable(struct mxsfb_layer *ofb)
 {
-	uint32_t as_ctrl = 0x0;
 	struct mxsfb_info *fbi = ofb->fbi;
 
 	lock_fb_info(fbi->fb_info);
@@ -1564,11 +1563,7 @@ static void overlayfb_enable(struct mxsfb_layer *ofb)
 		writel(CTRL1_FIFO_CLEAR, fbi->base + LCDC_CTRL1 + REG_SET);
 	}
 
-	/* enable AS */
-	as_ctrl = readl(fbi->base + LCDC_AS_CTRL);
-	as_ctrl |= 0x1;
-
-	writel(as_ctrl, fbi->base + LCDC_AS_CTRL);
+	writel(0x1, fbi->base + LCDC_AS_CTRL + REG_SET);
 
 	if (fbi->cur_blank == FB_BLANK_UNBLANK) {
 		writel(CTRL1_FIFO_CLEAR, fbi->base + LCDC_CTRL1 + REG_CLR);
@@ -1579,11 +1574,9 @@ static void overlayfb_enable(struct mxsfb_layer *ofb)
 
 static void overlayfb_disable(struct mxsfb_layer *ofb)
 {
-	uint32_t as_ctrl = 0x0;
 	struct mxsfb_info *fbi = ofb->fbi;
 
-	writel(as_ctrl, fbi->base + LCDC_AS_CTRL);
-	writel(0x0, fbi->base + LCDC_AS_NEXT_BUF);
+	writel(0x1, fbi->base + LCDC_AS_CTRL + REG_CLR);
 }
 
 static void overlayfb_setup(struct mxsfb_layer *ofb)
@@ -1668,9 +1661,18 @@ static struct mxsfb_layer_ops ofb_ops = {
 static int overlayfb_open(struct fb_info *info, int user)
 {
 	struct mxsfb_layer *ofb = (struct mxsfb_layer*)info->par;
+	struct mxsfb_info  *fbi = ofb->fbi;
 
-	if (ofb->usage++ == 0)
-		info->var.activate &= ~FB_ACTIVATE_NXTOPEN;
+	if (ofb->usage++ == 0) {
+		memset((void*)&info->var, 0x0, sizeof(info->var));
+
+		ofb->ol_fb->var.xres		= fbi->fb_info->var.xres;
+		ofb->ol_fb->var.yres		= fbi->fb_info->var.yres;
+		ofb->ol_fb->var.xres_virtual	= fbi->fb_info->var.xres_virtual;
+		ofb->ol_fb->var.yres_virtual	= fbi->fb_info->var.yres;
+		ofb->ol_fb->var.bits_per_pixel	= fbi->fb_info->var.bits_per_pixel;
+		ofb->ol_fb->var.vmode		= FB_VMODE_NONINTERLACED;
+	}
 
 	return 0;
 }
@@ -1678,6 +1680,7 @@ static int overlayfb_open(struct fb_info *info, int user)
 static int overlayfb_release(struct fb_info *info, int user)
 {
 	struct mxsfb_layer *ofb = (struct mxsfb_layer*)info->par;
+	struct mxsfb_info *fbi = ofb->fbi;
 
 	BUG_ON(!ofb->usage);
 
@@ -1686,7 +1689,8 @@ static int overlayfb_release(struct fb_info *info, int user)
 			ofb->ops->disable(ofb);
 
 		ofb->blank_state = -1;
-		info->var.activate = FB_ACTIVATE_NXTOPEN;
+		writel(0x0, fbi->base + LCDC_AS_CTRL);
+		writel(0x0, fbi->base + LCDC_AS_NEXT_BUF);
 	}
 
 	return 0;
