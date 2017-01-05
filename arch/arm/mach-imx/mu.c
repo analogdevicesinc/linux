@@ -52,6 +52,8 @@
 #define MU_LPM_M4_WAIT_MODE	        0x5A5A0002
 #define MU_LPM_M4_STOP_MODE	        0x5A5A0003
 
+#define MAX_NUM 10	/* enlarge it if overflow happen */
+
 struct imx_mu_rpmsg_box {
 	const char *name;
 	struct blocking_notifier_head notifier;
@@ -61,14 +63,16 @@ static struct imx_mu_rpmsg_box mu_rpmsg_box = {
 	.name	= "m4",
 };
 
-static void __iomem *mu_base;
-static u32 m4_message;
+void __iomem *mu_base;
+static u32 m4_message[MAX_NUM];
+static u32 in_idx, out_idx;
 static struct delayed_work mu_work, rpmsg_work;
 static u32 m4_wake_irqs[4];
 static bool m4_freq_low;
 struct irq_domain *domain;
 static bool m4_in_stop;
 static struct clk *clk;
+static DEFINE_SPINLOCK(mu_lock);
 
 void imx_mu_set_m4_run_mode(void)
 {
@@ -181,10 +185,16 @@ static void mu_work_handler(struct work_struct *work)
 	int ret;
 	u32 irq, enable, idx, mask, virq;
 	struct of_phandle_args args;
+	u32 message;
+	unsigned long flags;
 
-	pr_debug("receive M4 message 0x%x\n", m4_message);
+	spin_lock_irqsave(&mu_lock, flags);
+	message = m4_message[out_idx % MAX_NUM];
+	spin_unlock_irqrestore(&mu_lock, flags);
 
-	switch (m4_message) {
+	pr_debug("receive M4 message 0x%x\n", message);
+
+	switch (message) {
 	case MU_LPM_M4_RUN_MODE:
 	case MU_LPM_M4_WAIT_MODE:
 		m4_in_stop = false;
@@ -214,12 +224,12 @@ static void mu_work_handler(struct work_struct *work)
 		m4_freq_low = true;
 		break;
 	default:
-		if ((m4_message & MU_LPM_M4_WAKEUP_SRC_MASK) ==
+		if ((message & MU_LPM_M4_WAKEUP_SRC_MASK) ==
 			MU_LPM_M4_WAKEUP_SRC_VAL) {
-			irq = (m4_message & MU_LPM_M4_WAKEUP_IRQ_MASK) >>
+			irq = (message & MU_LPM_M4_WAKEUP_IRQ_MASK) >>
 				MU_LPM_M4_WAKEUP_IRQ_SHIFT;
 
-			enable = (m4_message & MU_LPM_M4_WAKEUP_ENABLE_MASK) >>
+			enable = (message & MU_LPM_M4_WAKEUP_ENABLE_MASK) >>
 				MU_LPM_M4_WAKEUP_ENABLE_SHIFT;
 
 			/* to hwirq start from 0 */
@@ -251,7 +261,12 @@ static void mu_work_handler(struct work_struct *work)
 		}
 		break;
 	}
-	m4_message = 0;
+
+	spin_lock_irqsave(&mu_lock, flags);
+	m4_message[out_idx % MAX_NUM] = 0;
+	out_idx++;
+	spin_unlock_irqrestore(&mu_lock, flags);
+
 	/* enable RIE3 interrupt */
 	if (cpu_is_imx7ulp())
 		writel_relaxed(readl_relaxed(mu_base + MX7ULP_MU_CR) | BIT(27),
@@ -315,15 +330,29 @@ int imx_mu_rpmsg_unregister_nb(const char *name, struct notifier_block *nb)
 
 static void rpmsg_work_handler(struct work_struct *work)
 {
+	u32 message;
+	unsigned long flags;
 
-	blocking_notifier_call_chain(&(mu_rpmsg_box.notifier), 4,
-						(void *)m4_message);
-	m4_message = 0;
+	spin_lock_irqsave(&mu_lock, flags);
+	/* handle all incoming mu message */
+	while (in_idx != out_idx) {
+		message = m4_message[out_idx % MAX_NUM];
+		spin_unlock_irqrestore(&mu_lock, flags);
+
+		blocking_notifier_call_chain(&(mu_rpmsg_box.notifier), 4,
+						(void *)message);
+
+		spin_lock_irqsave(&mu_lock, flags);
+		m4_message[out_idx % MAX_NUM] = 0;
+		out_idx++;
+	}
+	spin_unlock_irqrestore(&mu_lock, flags);
 }
 
 static irqreturn_t imx_mu_isr(int irq, void *param)
 {
 	u32 irqs;
+	unsigned long flags;
 
 	if (cpu_is_imx7ulp())
 		irqs = readl_relaxed(mu_base + MX7ULP_MU_SR);
@@ -332,20 +361,37 @@ static irqreturn_t imx_mu_isr(int irq, void *param)
 
 	/* RPMSG */
 	if (irqs & (1 << 26)) {
+		spin_lock_irqsave(&mu_lock, flags);
 		/* get message from receive buffer */
 		if (cpu_is_imx7ulp())
-			m4_message = readl_relaxed(mu_base + MX7ULP_MU_RR1);
+			m4_message[in_idx % MAX_NUM] = readl_relaxed(mu_base +
+						MX7ULP_MU_RR1);
 		else
-			m4_message = readl_relaxed(mu_base + MU_ARR1_OFFSET);
+			m4_message[in_idx % MAX_NUM] = readl_relaxed(mu_base +
+						MU_ARR1_OFFSET);
+		in_idx++;
+		/*
+		 * Too many mu message not be handled in timely, can enlarge
+		 * MAX_NUM */
+		if (in_idx == out_idx) {
+			spin_unlock_irqrestore(&mu_lock, flags);
+			pr_err("MU overflow!\n");
+			return IRQ_HANDLED;
+		}
+		spin_unlock_irqrestore(&mu_lock, flags);
+
 		schedule_delayed_work(&rpmsg_work, 0);
 	}
 
 	if (irqs & (1 << 27)) {
+		spin_lock_irqsave(&mu_lock, flags);
 		/* get message from receive buffer */
 		if (cpu_is_imx7ulp())
-			m4_message = readl_relaxed(mu_base + MX7ULP_MU_RR0);
+			m4_message[in_idx % MAX_NUM] = readl_relaxed(mu_base +
+						MX7ULP_MU_RR0);
 		else
-			m4_message = readl_relaxed(mu_base + MU_ARR0_OFFSET);
+			m4_message[in_idx % MAX_NUM] = readl_relaxed(mu_base +
+						MU_ARR0_OFFSET);
 		/* disable RIE3 interrupt */
 		if (cpu_is_imx7ulp())
 			writel_relaxed(readl_relaxed(mu_base + MX7ULP_MU_CR)
@@ -353,6 +399,14 @@ static irqreturn_t imx_mu_isr(int irq, void *param)
 		else
 			writel_relaxed(readl_relaxed(mu_base + MU_ACR)
 					& (~BIT(27)), mu_base + MU_ACR);
+		in_idx++;
+		if (in_idx == out_idx) {
+			spin_unlock_irqrestore(&mu_lock, flags);
+			pr_err("MU overflow!\n");
+			return IRQ_HANDLED;
+		}
+		spin_unlock_irqrestore(&mu_lock, flags);
+
 		schedule_delayed_work(&mu_work, 0);
 	}
 
