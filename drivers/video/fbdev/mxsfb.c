@@ -1714,6 +1714,10 @@ static int overlayfb_check_var(struct fb_var_screeninfo *var,
 	struct mxsfb_info *fbi  = ofb->fbi;
 	const struct fb_bitfield *rgb = NULL;
 
+	/* lcdif doesn't support different bpp of AS and PS */
+	if (var->bits_per_pixel != fbi->fb_info->var.bits_per_pixel)
+		return -EINVAL;
+
 	/* overlay width & should be equal to fb0 */
 	if ((var->xres != fbi->fb_info->var.xres) ||
 	    (var->yres != fbi->fb_info->var.yres))
