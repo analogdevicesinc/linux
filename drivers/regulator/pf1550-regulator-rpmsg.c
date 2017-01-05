@@ -101,6 +101,9 @@ static int pf1550_send_message(struct pf1550_regulator_rpmsg *msg,
 
 	pm_qos_add_request(&info->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 0);
 
+	/* wait response from rpmsg */
+	reinit_completion(&info->cmd_complete);
+
 	err = rpmsg_send(info->rpdev->ept, (void *)msg,
 			    sizeof(struct pf1550_regulator_rpmsg));
 
@@ -110,8 +113,6 @@ static int pf1550_send_message(struct pf1550_regulator_rpmsg *msg,
 		dev_err(&info->rpdev->dev, "rpmsg_send failed: %d\n", err);
 		return err;
 	}
-	/* wait response from rpmsg */
-	reinit_completion(&info->cmd_complete);
 	err = wait_for_completion_timeout(&info->cmd_complete,
 					  msecs_to_jiffies(RPMSG_TIMEOUT));
 	if (!err) {
