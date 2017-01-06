@@ -491,16 +491,8 @@ static int mu_suspend(struct device *dev)
 
 static int mu_resume(struct device *dev)
 {
-	int ret;
-
 	if (!cpu_is_imx7ulp())
 		return 0;
-
-	ret = clk_prepare_enable(clk);
-	if (ret) {
-		dev_err(dev, "unable to enable mu clock\n");
-		return ret;
-	}
 
 	writel_relaxed(readl_relaxed(mu_base + MX7ULP_MU_CR) |
 			BIT(0) | BIT(26) | BIT(27), mu_base + MX7ULP_MU_CR);
