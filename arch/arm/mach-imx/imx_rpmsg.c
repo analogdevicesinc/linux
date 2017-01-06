@@ -322,10 +322,7 @@ static int set_vring_phy_buf(struct platform_device *pdev,
 			}
 		}
 	} else {
-		/* back compatible for the old single rpmsg instance */
-		rpdev->ivdev[0].vring[0] = 0x9FF00000;
-		rpdev->ivdev[0].vring[1] = 0x9FF08000;
-
+		return -ENOMEM;
 	}
 
 	return ret;
@@ -335,8 +332,6 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 {
 	int i, j, ret = 0;
 	struct device_node *np = pdev->dev.of_node;
-	struct resource *res;
-	resource_size_t size;
 
 	for (i = 0; i < ARRAY_SIZE(imx_rpmsg_vprocs); i++) {
 		struct imx_rpmsg_vproc *rpdev = &imx_rpmsg_vprocs[i];
@@ -351,30 +346,15 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		}
 
 		if (!strcmp(rpdev->rproc_name, "m4")) {
-			ret = of_device_is_compatible(np, "fsl,imx7d-rpmsg");
-			ret |= of_device_is_compatible(np, "fsl,imx6sx-rpmsg");
+			ret = set_vring_phy_buf(pdev, rpdev,
+						rpdev->vdev_nums);
 			if (ret) {
-				res = platform_get_resource(pdev,
-							    IORESOURCE_MEM, 0);
-
-				if (res) {
-					size = resource_size(res);
-					rpdev->ivdev[0].vring[0] = res->start;
-					rpdev->ivdev[0].vring[1] = res->start
-									+ size;
-				} else {
-					/* hardcodes here now. */
-					rpdev->ivdev[0].vring[0] = 0xBFFF0000;
-					rpdev->ivdev[0].vring[1] = 0xBFFF8000;
-				}
-			} else {
-				ret = set_vring_phy_buf(pdev, rpdev,
-							rpdev->vdev_nums);
-				if (ret)
-					break;
+				pr_err("No vring buffer.\n");
+				return -ENOMEM;
 			}
 		} else {
-			break;
+			pr_err("No remote m4 processor.\n");
+			return -ENODEV;
 		}
 
 		for (j = 0; j < rpdev->vdev_nums; j++) {
