@@ -418,11 +418,12 @@
 &rpmsg{
 	/*
 	 * 64K for one rpmsg instance, default using 2 rpmsg instances:
-	 * --0x9FF00000~0x9FF01FFF: pingpong
-	 * --0x9FF10000~0x9FF11FFF: pmic
+	 * --0x9FF00000~0x9FF0FFFF: pingpong
+	 * --0x9FF10000~0x9FF1FFFF: pmic
+	 * --0x9FF20000~0x9FF2FFFF: pm
 	 */
-	vdev-nums = <2>;
-	reg = <0x9FF00000 0x20000>;
+	vdev-nums = <3>;
+	reg = <0x9FF00000 0x30000>;
 	status = "okay";
 };
 
