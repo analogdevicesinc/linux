@@ -435,7 +435,7 @@
 			clock-names = "ipg";
 			assigned-clocks = <&clks IMX7ULP_CLK_LPUART7>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
-			assigned-clock-rates = <50000000>;
+			assigned-clock-rates = <48000000>;
 			dmas = <&edma0 0 24>, <&edma0 0 23>;
 			dma-names = "tx","rx";
 			status = "disabled";
