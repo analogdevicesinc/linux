@@ -150,72 +150,41 @@ static __attribute__((aligned (1024*4))) unsigned int active_matrix_data_8x8[64]
    0x03020706, 0x05010004, 0x03020706, 0x05010004
     };
 
-static __attribute__((aligned (1024*4))) unsigned int dither_data_8x8[64]={
-		1,
-		49*2,
-		13*2,
-		61*2,
-		4*2,
-		52*2,
-		16*2,
-		64*2,
-		33*2,
-		17*2,
-		45*2,
-		29*2,
-		36*2,
-		20*2,
-		48*2,
-		32*2,
-		9*2,
-		57*2,
-		5*2,
-		53*2,
-		12*2,
-		60*2,
-		8*2,
-		56*2,
-		41*2,
-		25*2,
-		37*2,
-		21*2,
-		44*2,
-		28*2,
-		40*2,
-		24*2,
-		3*2,
-		51*2,
-		15*2,
-		63*2,
-		2*2,
-		50*2,
-		14*2,
-		62*2,
-		35*2,
-		19*2,
-		47*2,
-		31*2,
-		34*2,
-		18*2,
-		46*2,
-		30*2,
-		11*2,
-		59*2,
-		7*2,
-		55*2,
-		10*2,
-		58*2,
-		6*2,
-		54*2,
-		43*2,
-		27*2,
-		39*2,
-		23*2,
-		42*2,
-		26*2,
-		38*2,
-		22*2
-		};
+static __attribute__((aligned (1024*4))) unsigned int bit1_dither_data_8x8[64]={
+
+	1,       49*2,    13*2,    61*2,    4*2,     52*2,    16*2,    64*2,
+	33*2,    17*2,    45*2,    29*2,    36*2,    20*2,    48*2,    32*2,
+	9*2,     57*2,    5*2,     53*2,    12*2,    60*2,    8*2,     56*2,
+	41*2,    25*2,    37*2,    21*2,    44*2,    28*2,    40*2,    24*2,
+	3*2,     51*2,    15*2,    63*2,    2*2,     50*2,    14*2,    62*2,
+	35*2,    19*2,    47*2,    31*2,    34*2,    18*2,    46*2,    30*2,
+	11*2,    59*2,    7*2,     55*2,    10*2,    58*2,    6*2,     54*2,
+	43*2,    27*2,    39*2,    23*2,    42*2,    26*2,    38*2,    22*2
+};
+
+static __attribute__((aligned (1024*4))) unsigned int bit2_dither_data_8x8[64]={
+
+	1,     49,    13,    61,    4,     52,    16,    64,
+	33,    17,    45,    29,    36,    20,    48,    32,
+	9,     57,    5,     53,    12,    60,    8,     56,
+	41,    25,    37,    21,    44,    28,    40,    24,
+	3,     51,    15,    63,    2,     50,    14,    62,
+	35,    19,    47,    31,    34,    18,    46,    30,
+	11,    59,    7,     55,    10,    58,    6,     54,
+	43,    27,    39,    23,    42,    26,    38,    22
+};
+
+static __attribute__((aligned (1024*4))) unsigned int bit4_dither_data_8x8[64]={
+
+	1,       49/4,    13/4,    61/4,    4/4,     52/4,    16/4,    64/4,
+	33/4,    17/4,    45/4,    29/4,    36/4,    20/4,    48/4,    32/4,
+	9/4,     57/4,    5/4,     53/4,    12/4,    60/4,    8/4,     56/4,
+	41/4,    25/4,    37/4,    21/4,    44/4,    28/4,    40/4,    24/4,
+	3/4,     51/4,    15/4,    63/4,    2/4,     50/4,    14/4,    62/4,
+	35/4,    19/4,    47/4,    31/4,    34/4,    18/4,    46/4,    30/4,
+	11/4,    59/4,    7/4,     55/4,    10/4,    58/4,    6/4,     54/4,
+	43/4,    27/4,    39/4,    23/4,    42/4,    26/4,    38/4,    22/4
+};
 
 static void pxp_dithering_configure(struct pxps *pxp);
 static void pxp_dithering_configure_v3p(struct pxps *pxp);
@@ -4361,33 +4330,100 @@ static void dither_store_config(struct pxps *pxp)
 
 static void pxp_set_final_lut_data(struct pxps *pxp)
 {
-	__raw_writel(
-			BF_PXP_DITHER_FINAL_LUT_DATA0_DATA0(0x0) |
-			BF_PXP_DITHER_FINAL_LUT_DATA0_DATA1(0x0) |
-			BF_PXP_DITHER_FINAL_LUT_DATA0_DATA2(0x0) |
-			BF_PXP_DITHER_FINAL_LUT_DATA0_DATA3(0x0),
-			pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA0);
+	struct pxp_config_data *pxp_conf = &pxp->pxp_conf_state;
+	struct pxp_proc_data *proc_data = &pxp_conf->proc_data;
 
-	__raw_writel(
-			BF_PXP_DITHER_FINAL_LUT_DATA1_DATA4(0x0) |
-			BF_PXP_DITHER_FINAL_LUT_DATA1_DATA5(0x0) |
-			BF_PXP_DITHER_FINAL_LUT_DATA1_DATA6(0x0) |
-			BF_PXP_DITHER_FINAL_LUT_DATA1_DATA7(0x0),
-			pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA1);
+	if(proc_data->quant_bit < 2) {
+		pxp_sram_init(pxp, DITHER0_LUT, (u32)bit1_dither_data_8x8, 64);
 
-	__raw_writel(
-			BF_PXP_DITHER_FINAL_LUT_DATA2_DATA8(0xff) |
-			BF_PXP_DITHER_FINAL_LUT_DATA2_DATA9(0xff) |
-			BF_PXP_DITHER_FINAL_LUT_DATA2_DATA10(0xff)|
-			BF_PXP_DITHER_FINAL_LUT_DATA2_DATA11(0xff),
-			pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA2);
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA0(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA1(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA2(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA3(0x0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA0);
 
-	__raw_writel(
-			BF_PXP_DITHER_FINAL_LUT_DATA3_DATA12(0xff) |
-			BF_PXP_DITHER_FINAL_LUT_DATA3_DATA13(0xff) |
-			BF_PXP_DITHER_FINAL_LUT_DATA3_DATA14(0xff) |
-			BF_PXP_DITHER_FINAL_LUT_DATA3_DATA15(0xff),
-			pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA3);
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA4(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA5(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA6(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA7(0x0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA1);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA8(0xf0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA9(0xf0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA10(0xf0)|
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA11(0xf0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA2);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA12(0xf0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA13(0xf0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA14(0xf0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA15(0xf0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA3);
+	} else if(proc_data->quant_bit < 4) {
+		pxp_sram_init(pxp, DITHER0_LUT, (u32)bit2_dither_data_8x8, 64);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA0(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA1(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA2(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA3(0x0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA0);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA4(0x50) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA5(0x50) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA6(0x50) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA7(0x50),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA1);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA8(0xa0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA9(0xa0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA10(0xa0)|
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA11(0xa0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA2);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA12(0xf0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA13(0xf0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA14(0xf0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA15(0xf0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA3);
+	} else {
+		pxp_sram_init(pxp, DITHER0_LUT, (u32)bit4_dither_data_8x8, 64);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA0(0x0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA1(0x10) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA2(0x20) |
+				BF_PXP_DITHER_FINAL_LUT_DATA0_DATA3(0x30),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA0);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA4(0x40) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA5(0x50) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA6(0x60) |
+				BF_PXP_DITHER_FINAL_LUT_DATA1_DATA7(0x70),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA1);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA8(0x80) |
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA9(0x90) |
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA10(0xa0)|
+				BF_PXP_DITHER_FINAL_LUT_DATA2_DATA11(0xb0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA2);
+
+		__raw_writel(
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA12(0xc0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA13(0xd0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA14(0xe0) |
+				BF_PXP_DITHER_FINAL_LUT_DATA3_DATA15(0xf0),
+				pxp->base + HW_PXP_DITHER_FINAL_LUT_DATA3);
+	}
 }
 
 static void pxp_dithering_process(struct pxps *pxp)
@@ -4398,28 +4434,6 @@ static void pxp_dithering_process(struct pxps *pxp)
 
 	if (pxp->devdata && pxp->devdata->pxp_dithering_configure)
 		pxp->devdata->pxp_dithering_configure(pxp);
-	pxp_sram_init(pxp, DITHER0_LUT, (u32)dither_data_8x8, 64);
-
-	__raw_writel(
-			BF_PXP_INIT_MEM_CTRL_ADDR(0) |
-			BF_PXP_INIT_MEM_CTRL_SELECT(0) |/*select the lut memory for access */
-			BF_PXP_INIT_MEM_CTRL_START(1),
-			pxp->base + HW_PXP_INIT_MEM_CTRL);
-
-
-	{
-		int i;
-		for (i = 0; i < 64; i++)
-			__raw_writel(
-					BF_PXP_INIT_MEM_DATA_DATA(dither_data_8x8[i]),
-					pxp->base + HW_PXP_INIT_MEM_DATA);
-	}
-
-	__raw_writel(
-			BF_PXP_INIT_MEM_CTRL_ADDR(0) |
-			BF_PXP_INIT_MEM_CTRL_SELECT(0) |/*select the lut memory for access*/
-			BF_PXP_INIT_MEM_CTRL_START(0),
-			pxp->base + HW_PXP_INIT_MEM_CTRL);
 
 	if (pxp_is_v3(pxp))
 		val = BF_PXP_DITHER_CTRL_ENABLE0            (1) |
@@ -4435,20 +4449,29 @@ static void pxp_dithering_process(struct pxps *pxp)
 		      BF_PXP_DITHER_CTRL_BUSY2              (0) |
 		      BF_PXP_DITHER_CTRL_BUSY1              (0) |
 		      BF_PXP_DITHER_CTRL_BUSY0              (0);
-	else if (pxp_is_v3p(pxp))
+	else if (pxp_is_v3p(pxp)) {
+		if (proc_data->dither_mode != 0 &&
+			proc_data->dither_mode != 3) {
+			dev_err(pxp->dev, "Not supported dithering mode. "
+					"Forced to be Orderred mode!\n");
+			proc_data->dither_mode = 3;
+		}
+
 		val = BF_PXP_DITHER_CTRL_ENABLE0            (1) |
 		      BF_PXP_DITHER_CTRL_ENABLE1            (1) |
 		      BF_PXP_DITHER_CTRL_ENABLE2            (1) |
-		      BF_PXP_DITHER_CTRL_DITHER_MODE2       (3) |
-		      BF_PXP_DITHER_CTRL_DITHER_MODE1       (3) |
+		      BF_PXP_DITHER_CTRL_DITHER_MODE2(proc_data->dither_mode) |
+		      BF_PXP_DITHER_CTRL_DITHER_MODE1(proc_data->dither_mode) |
 		      BF_PXP_DITHER_CTRL_DITHER_MODE0(proc_data->dither_mode) |
 		      BF_PXP_DITHER_CTRL_LUT_MODE           (0) |
 		      BF_PXP_DITHER_CTRL_IDX_MATRIX0_SIZE   (1) |
 		      BF_PXP_DITHER_CTRL_IDX_MATRIX1_SIZE   (1) |
 		      BF_PXP_DITHER_CTRL_IDX_MATRIX2_SIZE   (1) |
+		      BF_PXP_DITHER_CTRL_FINAL_LUT_ENABLE   (0) |
 		      BF_PXP_DITHER_CTRL_BUSY2              (0) |
 		      BF_PXP_DITHER_CTRL_BUSY1              (0) |
 		      BF_PXP_DITHER_CTRL_BUSY0              (0);
+	}
 	__raw_writel(val, pxp->base + HW_PXP_DITHER_CTRL);
 
 	switch(proc_data->dither_mode) {
@@ -4523,6 +4546,14 @@ static void pxp_dithering_configure_v3p(struct pxps *pxp)
 			BF_PXP_OUT_LRC_Y(store_ch0->height - 1),
 			pxp->base + HW_PXP_OUT_LRC);
 
+	__raw_writel(BF_PXP_OUT_AS_ULC_X(1) |
+			BF_PXP_OUT_AS_ULC_Y(1),
+			pxp->base + HW_PXP_OUT_AS_ULC);
+
+	__raw_writel(BF_PXP_OUT_AS_LRC_X(0) |
+			BF_PXP_OUT_AS_LRC_Y(0),
+			pxp->base + HW_PXP_OUT_AS_LRC);
+
 	__raw_writel(BF_PXP_OUT_PS_ULC_X(0) |
 			BF_PXP_OUT_PS_ULC_Y(0),
 			pxp->base + HW_PXP_OUT_PS_ULC);
@@ -4536,6 +4567,13 @@ static void pxp_dithering_configure_v3p(struct pxps *pxp)
 	__raw_writel(fetch_ch0->stride, pxp->base + HW_PXP_PS_PITCH);
 
 	__raw_writel(0x40000000, pxp->base + HW_PXP_CSC1_COEF0);
+
+	__raw_writel(BF_PXP_DITHER_STORE_SIZE_CH0_OUT_WIDTH(store_ch0->width-1)|
+		BF_PXP_DITHER_STORE_SIZE_CH0_OUT_HEIGHT(store_ch0->height-1),
+		pxp->base + HW_PXP_DITHER_STORE_SIZE_CH0);
+
+	__raw_writel(BF_PXP_DATA_PATH_CTRL0_MUX14_SEL(1),
+			pxp->base + HW_PXP_DATA_PATH_CTRL0_CLR);
 }
 
 static void pxp_start2(struct pxps *pxp)
