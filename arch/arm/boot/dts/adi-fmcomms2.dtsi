@@ -148,7 +148,8 @@
 
 		adi,agc-adc-small-overload-exceed-counter = <10>; /* 0..15 */
 		adi,agc-adc-large-overload-exceed-counter = <10>; /* 0..15 */
-		adi,agc-adc-large-overload-inc-steps = <2>; /* 0..15 */
+		adi,agc-adc-large-overload-inc-steps = <5>; /* 0..15 */
+		adi,agc-any-large-overload-inc-steps = <2>; /* 0..7 */
 		//adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable;
 		adi,agc-lmt-overload-large-exceed-counter = <10>; /* 0..15 */
 		adi,agc-lmt-overload-small-exceed-counter = <10>; /* 0..15 */
