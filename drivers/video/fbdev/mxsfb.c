@@ -1558,7 +1558,9 @@ static void overlayfb_enable(struct mxsfb_layer *ofb)
 {
 	struct mxsfb_info *fbi = ofb->fbi;
 
-	lock_fb_info(fbi->fb_info);
+	if (!lock_fb_info(fbi->fb_info))
+		return;
+
 	if (fbi->cur_blank == FB_BLANK_UNBLANK) {
 		mxsfb_disable_controller(fbi->fb_info);
 		writel(CTRL1_FIFO_CLEAR, fbi->base + LCDC_CTRL1 + REG_SET);
