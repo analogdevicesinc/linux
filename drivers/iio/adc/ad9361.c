@@ -4830,9 +4830,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	if (!pd->fdd)
-		ad9361_run_calibration(phy, TXMON_CAL);
-
 	ad9361_pp_port_setup(phy, true);
 
 	ret = ad9361_set_ensm_mode(phy, pd->fdd, pd->ensm_pin_ctrl);
