@@ -8197,9 +8197,6 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_u32(iodev, np, "adi,fagc-lp-thresh-increment-steps", 1,
 			&pdata->gain_ctrl.f_agc_lp_thresh_increment_steps); /* 0x117 1..8 */
 
-		/* Fast AGC - Lock Level */
-	ad9361_of_get_u32(iodev, np, "adi,fagc-lock-level", 10,
-			&pdata->gain_ctrl.f_agc_lock_level); /* 0x101 0..-127 dBFS */
 	ad9361_of_get_bool(iodev, np, "adi,fagc-lock-level-lmt-gain-increase-enable",
 			&pdata->gain_ctrl.f_agc_lock_level_lmt_gain_increase_en); /* 0x111:6 (split table)*/
 	ad9361_of_get_u32(iodev, np, "adi,fagc-lock-level-gain-increase-upper-limit", 5,
