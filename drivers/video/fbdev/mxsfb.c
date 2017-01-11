@@ -1986,8 +1986,8 @@ static void mxsfb_overlay_exit(struct mxsfb_info *fbi)
 			dma_free_writecombine(ofb->dev, ofb->video_mem_size,
 					ofb->video_mem, ofb->video_mem_phys);
 
-		framebuffer_release(ofb->ol_fb);
 		unregister_framebuffer(ofb->ol_fb);
+		framebuffer_release(ofb->ol_fb);
 	}
 }
 #else
