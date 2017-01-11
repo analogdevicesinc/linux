@@ -78,6 +78,9 @@
 
 #undef SPEED_TEST
 
+/* The maximum ID allocated by the hardware is 31 */
+#define AXI_DMAC_SG_UNUSED 32U
+
 struct axi_dmac_sg {
 	dma_addr_t src_addr;
 	dma_addr_t dest_addr;
@@ -86,6 +89,8 @@ struct axi_dmac_sg {
 	unsigned int dest_stride;
 	unsigned int src_stride;
 	unsigned int id;
+	bool last;
+	bool schedule_when_free;
 };
 
 struct axi_dmac_desc {
@@ -173,7 +178,7 @@ static int axi_dmac_dest_is_mem(struct axi_dmac_chan *chan)
 
 static bool axi_dmac_check_len(struct axi_dmac_chan *chan, unsigned int len)
 {
-	if (len == 0 || len > chan->max_length)
+	if (len == 0)
 		return false;
 	if ((len & chan->align_mask) != 0) /* Not aligned */
 		return false;
@@ -211,10 +216,20 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	}
 	sg = &desc->sg[desc->num_submitted];
 
+	/* Already queued in cyclic mode. Wait for it to finish */
+	if (sg->id != AXI_DMAC_SG_UNUSED) {
+		sg->schedule_when_free = true;
+		return;
+	}
+
 	desc->num_submitted++;
 	if (desc->num_submitted == desc->num_sgs) {
-		chan->next_desc = NULL;
-		flags |= AXI_DMAC_FLAG_LAST;
+		if (desc->cyclic) {
+			desc->num_submitted = 0; /* Start again */
+		} else {
+			chan->next_desc = NULL;
+			flags |= AXI_DMAC_FLAG_LAST;
+		}
 	} else {
 		chan->next_desc = desc;
 	}
@@ -233,9 +248,11 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 
 	/*
 	 * If the hardware supports cyclic transfers and there is no callback to
-	 * call, enable hw cyclic mode to avoid unnecessary interrupts.
+	 * call and only a single segment, enable hw cyclic mode to avoid
+	 * unnecessary interrupts.
 	 */
-	if (chan->hw_cyclic && desc->cyclic && !desc->vdesc.tx.callback)
+	if (chan->hw_cyclic && desc->cyclic && !desc->vdesc.tx.callback &&
+		desc->num_sgs == 1)
 		flags |= AXI_DMAC_FLAG_CYCLIC;
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_X_LENGTH, sg->x_len - 1);
@@ -250,31 +267,44 @@ static struct axi_dmac_desc *axi_dmac_active_desc(struct axi_dmac_chan *chan)
 		struct axi_dmac_desc, vdesc.node);
 }
 
-static void axi_dmac_transfer_done(struct axi_dmac_chan *chan,
+static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 	unsigned int completed_transfers)
 {
 	struct axi_dmac_desc *active;
 	struct axi_dmac_sg *sg;
+	bool start_next = false;
 
 	active = axi_dmac_active_desc(chan);
 	if (!active)
-		return;
+		return false;
 
-	if (active->cyclic) {
-		vchan_cyclic_callback(&active->vdesc);
-	} else {
-		do {
-			sg = &active->sg[active->num_completed];
-			if (!(BIT(sg->id) & completed_transfers))
-				break;
-			active->num_completed++;
-			if (active->num_completed == active->num_sgs) {
+	do {
+		sg = &active->sg[active->num_completed];
+		if (sg->id == AXI_DMAC_SG_UNUSED) /* Not yet submitted */
+			break;
+		if (!(BIT(sg->id) & completed_transfers))
+			break;
+		active->num_completed++;
+		sg->id = AXI_DMAC_SG_UNUSED;
+		if (sg->schedule_when_free) {
+			sg->schedule_when_free = false;
+			start_next = true;
+		}
+
+		if (active->num_completed == active->num_sgs) {
+			if (active->cyclic) {
+				active->num_completed = 0; /* wrap around */
+				if (sg->last)
+					vchan_cyclic_callback(&active->vdesc);
+			} else {
 				list_del(&active->vdesc.node);
 				vchan_cookie_complete(&active->vdesc);
 				active = axi_dmac_active_desc(chan);
 			}
-		} while (active);
-	}
+		}
+	} while (active);
+
+	return start_next;
 }
 
 #ifdef SPEED_TEST
@@ -315,6 +345,7 @@ static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
 {
 	struct axi_dmac *dmac = devid;
 	unsigned int pending;
+	bool start_next;
 
 	pending = axi_dmac_read(dmac, AXI_DMAC_REG_IRQ_PENDING);
 	if (!pending)
@@ -328,10 +359,10 @@ static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
 		unsigned int completed;
 
 		completed = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_DONE);
-		axi_dmac_transfer_done(&dmac->chan, completed);
+		start_next = axi_dmac_transfer_done(&dmac->chan, completed);
 	}
 	/* Space has become available in the descriptor queue */
-	if (pending & AXI_DMAC_IRQ_SOT)
+	if ((pending & AXI_DMAC_IRQ_SOT) || start_next)
 		axi_dmac_start_transfer(&dmac->chan);
 	spin_unlock(&dmac->chan.vchan.lock);
 
@@ -382,15 +413,63 @@ static void axi_dmac_issue_pending(struct dma_chan *c)
 static struct axi_dmac_desc *axi_dmac_alloc_desc(unsigned int num_sgs)
 {
 	struct axi_dmac_desc *desc;
+	unsigned int i;
 
 	desc = kzalloc(sizeof(struct axi_dmac_desc) +
 		sizeof(struct axi_dmac_sg) * num_sgs, GFP_NOWAIT);
 	if (!desc)
 		return NULL;
 
+	for (i = 0; i < num_sgs; i++)
+		desc->sg[i].id = AXI_DMAC_SG_UNUSED;
+
 	desc->num_sgs = num_sgs;
 
 	return desc;
+}
+
+static struct axi_dmac_sg *axi_dmac_fill_linear_sg(struct axi_dmac_chan *chan,
+	enum dma_transfer_direction direction, dma_addr_t addr,
+	unsigned int num_periods, unsigned int period_len,
+	struct axi_dmac_sg *sg)
+{
+	unsigned int num_segments, i;
+	unsigned int segment_size;
+	unsigned int len;
+
+	/* Split into multiple equally sized segments if necessary */
+	num_segments = DIV_ROUND_UP(period_len, chan->max_length);
+	segment_size = DIV_ROUND_UP(period_len, num_segments);
+	/* Take care of alignment */
+	segment_size = ((segment_size - 1) | chan->align_mask) + 1;
+
+	for (i = 0; i < num_periods; i++) {
+		len = period_len;
+
+		while (len > segment_size) {
+			if (direction == DMA_DEV_TO_MEM)
+				sg->dest_addr = addr;
+			else
+				sg->src_addr = addr;
+			sg->x_len = segment_size;
+			sg->y_len = 1;
+			sg++;
+			addr += segment_size;
+			len -= segment_size;
+		}
+
+		if (direction == DMA_DEV_TO_MEM)
+			sg->dest_addr = addr;
+		else
+			sg->src_addr = addr;
+		sg->x_len = len;
+		sg->y_len = 1;
+		sg->last = true;
+		sg++;
+		addr += len;
+	}
+
+	return sg;
 }
 
 static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
@@ -400,15 +479,20 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 {
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;
+	struct axi_dmac_sg *dsg;
 	struct scatterlist *sg;
+	unsigned int num_sgs;
 	unsigned int i;
 
 	if (direction != chan->direction)
 		return NULL;
 
-	desc = axi_dmac_alloc_desc(sg_len);
+	num_sgs = sg_nents_for_dma(sgl, sg_len, chan->max_length);
+	desc = axi_dmac_alloc_desc(num_sgs);
 	if (!desc)
 		return NULL;
+
+	dsg = desc->sg;
 
 	for_each_sg(sgl, sg, sg_len, i) {
 		if (!axi_dmac_check_addr(chan, sg_dma_address(sg)) ||
@@ -417,12 +501,8 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 			return NULL;
 		}
 
-		if (direction == DMA_DEV_TO_MEM)
-			desc->sg[i].dest_addr = sg_dma_address(sg);
-		else
-			desc->sg[i].src_addr = sg_dma_address(sg);
-		desc->sg[i].x_len = sg_dma_len(sg);
-		desc->sg[i].y_len = 1;
+		dsg = axi_dmac_fill_linear_sg(chan, direction, sg_dma_address(sg), 1,
+			sg_dma_len(sg), dsg);
 	}
 
 	desc->cyclic = false;
@@ -437,7 +517,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 {
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;
-	unsigned int num_periods, i;
+	unsigned int num_periods, num_segments;
 
 	if (direction != chan->direction)
 		return NULL;
@@ -450,20 +530,14 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 		return NULL;
 
 	num_periods = buf_len / period_len;
+	num_segments = DIV_ROUND_UP(period_len, chan->max_length);
 
-	desc = axi_dmac_alloc_desc(num_periods);
+	desc = axi_dmac_alloc_desc(num_periods * num_segments);
 	if (!desc)
 		return NULL;
 
-	for (i = 0; i < num_periods; i++) {
-		if (direction == DMA_DEV_TO_MEM)
-			desc->sg[i].dest_addr = buf_addr;
-		else
-			desc->sg[i].src_addr = buf_addr;
-		desc->sg[i].x_len = period_len;
-		desc->sg[i].y_len = 1;
-		buf_addr += period_len;
-	}
+	axi_dmac_fill_linear_sg(chan, direction, buf_addr, num_periods,
+		buf_len, desc->sg);
 
 	desc->cyclic = true;
 
@@ -765,7 +839,7 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	}
 
 	pdev->dev.dma_parms = &dmac->dma_parms;
-	dma_set_max_seg_size(&pdev->dev, dmac->chan.max_length);
+	dma_set_max_seg_size(&pdev->dev, UINT_MAX);
 
 	dma_dev = &dmac->dma_dev;
 	dma_cap_set(DMA_SLAVE, dma_dev->cap_mask);

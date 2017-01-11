@@ -48,7 +48,7 @@
 };
 
 &usb0 {
-	xlnx,phy-reset-gpio = <&gpio0 7 0>;
+	xlnx,phy-reset-gpio = <&gpio0 52 0>;
 	dr_mode = "otg";
 	status = "okay";
 	usb-phy = <&usb_phy0>;
