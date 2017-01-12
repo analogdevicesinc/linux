@@ -1042,7 +1042,8 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 	ret |= ad9467_spi_write(spi, 0x67, sel++);	// lane id
 	ret |= ad9467_spi_write(spi, 0x6e, 0x80 | (l - 1));	// scr, 2-lane
 	ret |= ad9467_spi_write(spi, 0x70, 0x1f);	// no. of frames per multi frame
-	ret |= ad9467_spi_write(spi, 0x3a, 0x1f);	// sysref enabled
+	ret |= ad9467_spi_write(spi, 0x3a, 0x01);	// sysref enabled
+	ret |= ad9467_spi_write(spi, 0x3a, 0x13);	// sysref enabled
 	ret |= ad9467_spi_write(spi, 0x5f, (0x16 | 0x0));	// enable
 	ret |= ad9467_spi_write(spi, 0x14, 0x00);	// offset binary
 	ret |= ad9467_spi_write(spi, 0x0d, 0x00);	// test patterns
