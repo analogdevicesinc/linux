@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 
@@ -200,6 +201,7 @@ struct adxcvr_state {
 	bool				lpm_enable;
 	uint16_t			encoding;
 	enum refclk_ppm		ppm;
+	struct gpio_desc	*sysref_gpio;
 };
 
 static inline unsigned int adxcvr_read(struct adxcvr_state *st,
@@ -1122,6 +1124,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (!IS_ERR(st->out_clk))
 		of_clk_add_provider(st->node, of_clk_src_simple_get,
 							st->out_clk);
+
+	st->sysref_gpio = devm_gpiod_get_optional(&pdev->dev, "sysref",
+											  GPIOD_OUT_HIGH);
 
 	dev_info(&pdev->dev, "AXI-ADXCVR (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,",
 		PCORE_VER_MAJOR(version),
