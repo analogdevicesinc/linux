@@ -45,6 +45,13 @@
 	imx6sll-evk-murata-v2 {
 		pinctrl_wifi: wifigrp {
 			fsl,pins = <
+				MX6SLL_PAD_SD3_CMD__SD3_CMD     0x170b9
+				MX6SLL_PAD_SD3_CLK__SD3_CLK     0x130b9
+				MX6SLL_PAD_SD3_DATA0__SD3_DATA0 0x170b9
+				MX6SLL_PAD_SD3_DATA1__SD3_DATA1 0x170b9
+				MX6SLL_PAD_SD3_DATA2__SD3_DATA2 0x170b9
+				MX6SLL_PAD_SD3_DATA3__SD3_DATA3 0x170b9
+
 				MX6SLL_PAD_KEY_COL0__GPIO3_IO24 0x17059 /* WL_REG_ON */
 				MX6SLL_PAD_KEY_COL1__GPIO3_IO26 0x17059 /* WL_HOST_WAKE */
 			>;
@@ -67,7 +74,7 @@
 
 &usdhc3 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usdhc3_100mhz &pinctrl_wifi>;
+	pinctrl-0 = <&pinctrl_wifi>;
 	no-1-8-v;
 	non-removable;
 	cd-post;
