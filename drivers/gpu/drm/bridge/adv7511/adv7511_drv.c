@@ -562,9 +562,7 @@ static int adv7511_get_modes(struct adv7511 *adv7511,
 	edid = drm_do_get_edid(connector, adv7511_get_edid_block, adv7511);
 
 	if (!adv7511->powered)
-		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
-				   ADV7511_POWER_POWER_DOWN,
-				   ADV7511_POWER_POWER_DOWN);
+		__adv7511_power_off(adv7511);
 
 
 	drm_mode_connector_update_edid_property(connector, edid);
