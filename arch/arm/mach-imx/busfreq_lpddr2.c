@@ -254,12 +254,12 @@ int update_lpddr2_freq_smp(int ddr_rate)
 	 */
 	ttbr1 = save_ttbr1();
 
+	curr_ddr_rate = ddr_rate;
+
 	/* Now change DDR frequency. */
 	mx6_change_lpddr2_freq_smp(ddr_rate, mmdc_settings_info);
 
 	restore_ttbr1(ttbr1);
-
-	curr_ddr_rate = ddr_rate;
 
 #ifdef CONFIG_SMP
 	wmb();
