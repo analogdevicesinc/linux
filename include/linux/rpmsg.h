@@ -43,6 +43,8 @@
 #include <linux/mutex.h>
 #include <linux/poll.h>
 
+#define VIRTIO_RPMSG_F_NS       0
+
 #define RPMSG_ADDR_ANY		0xFFFFFFFF
 
 struct rpmsg_device;
