@@ -367,6 +367,35 @@ skip_above_force_measure_ch1:
 
 	.endm
 
+	.macro	disable_l1_dcache
+
+	/*
+	 * Flush all data from the L1 data cache before disabling
+	 * SCTLR.C bit.
+	 */
+	push	{r0 - r11, lr}
+
+	ldr	r7, =v7_flush_kern_cache_all
+	mov	lr, pc
+	mov	pc, r7
+	pop	{r0 - r11, lr}
+
+	/* disable d-cache */
+	mrc	p15, 0, r6, c1, c0, 0
+	bic	r6, r6, #0x4
+	mcr	p15, 0, r6, c1, c0, 0
+	dsb
+	isb
+
+	push	{r0 - r11, lr}
+
+	ldr	r7, =v7_flush_kern_cache_all
+	mov	lr, pc
+	mov	pc, r7
+	pop	{r0 - r11, lr}
+
+	.endm
+
 /*
  *  mx6_lpddr2_freq_change
  *
@@ -379,6 +408,17 @@ skip_above_force_measure_ch1:
 ENTRY(mx6q_lpddr2_freq_change)
 mx6q_lpddr2_freq_change_start:
 	push	{r2-r10}
+
+	/*
+	  * Need to flush and disable L1 before
+	  * disabling L2, we need data to
+	  * coherent. Flushing L1 pushes
+	  * everyhting to L2. We sync L2 later, but
+	  * it can still have dirty lines.
+	  * While exiting, we need to enable L2 first
+	  * and then L1.
+	  */
+	disable_l1_dcache
 
 	/*
 	 * To ensure no page table walks occur in DDR, we
@@ -421,14 +461,6 @@ mx6q_lpddr2_freq_change_start:
 	/* flush the TLB */
 	ldr	r6, =0x0
 	mcr	p15, 0, r6, c8, c3, 0
-
-	/* Disable L1 data cache. */
-	mrc	p15, 0, r6, c1, c0, 0
-	bic	r6, r6, #0x4
-	mcr	p15, 0, r6, c1, c0, 0
-
-	dsb
-	isb
 
 #ifdef CONFIG_CACHE_L2X0
 	/*
