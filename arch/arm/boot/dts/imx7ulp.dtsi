@@ -1,5 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -550,6 +551,12 @@
 				 <&clks IMX7ULP_CLK_DUMMY>;
 			clock-names = "qspi_en", "qspi";
 			status = "disabled";
+		};
+
+		ocotp: ocotp@410a6000 {
+			compatible = "fsl,imx7ulp-ocotp";
+			reg = <0x410a6000 0x4000>;
+			clocks = <&clks IMX7ULP_CLK_DUMMY>;
 		};
 
 		gpu: gpu@41800000 {
