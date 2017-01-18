@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ * Copyright (C) 2017 NXP.
  */
 
 /*
@@ -20,6 +21,23 @@
  */
 #ifndef __LINUX_IMX_RPMSG_H__
 #define __LINUX_IMX_RPMSG_H__
+
+/* Category define */
+#define IMX_RMPSG_LIFECYCLE	1
+#define IMX_RPMSG_PMIC		2
+#define IMX_RPMSG_AUDIO		3
+/* rpmsg version */
+#define IMX_RMPSG_MAJOR		1
+#define IMX_RMPSG_MINOR		0
+
+struct imx_rpmsg_head {
+	u8 cate;
+	u8 major;
+	u8 minor;
+	u8 type;
+	u8 cmd;
+	u8 reserved[5];
+} __attribute__ ((packed));
 
 int imx_mu_rpmsg_send(unsigned int vq_id);
 int imx_mu_rpmsg_register_nb(const char *name, struct notifier_block *nb);

@@ -2,6 +2,7 @@
  * pf1550.c - regulator driver for the PF1550
  *
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright (C) 2017 NXP.
  * Robin Gong <yibin.gong@freescale.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,6 +19,7 @@
 
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/imx_rpmsg.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -56,10 +58,14 @@ enum pf1550_rpmsg_cmd {
 };
 
 enum pf1550_resp {
-	PF1550_NONE,
 	PF1550_SUCCESS,
+	PF1550_FAILED,
+	PF1550_UNSURPPORT,
+};
+
+enum pf1550_status {
 	PF1550_DISABLED,
-	PF1550_NOT_ALLOWED,
+	PF1550_ENABLED,
 };
 
 struct pf1550_regulator_info {
@@ -74,24 +80,30 @@ struct pf1550_regulator_info {
 static struct pf1550_regulator_info pf1550_info;
 
 struct pf1550_regulator_rpmsg {
-	enum pf1550_rpmsg_cmd cmd;
+	/* common head */
+	struct imx_rpmsg_head header;
+	/* pmic structure */
 	union {
-		enum pf1550_regs regulator;
-		u32 reg;
+		u8 regulator;
+		u8 reg;
 	};
-	enum pf1550_resp response;
+	u8 response;
+	u8 status;
 	union {
 		u32 voltage; /* uV */
 		u32 val;
 	};
-};
+} __attribute__ ((packed));
 
 static int pf1550_send_message(struct pf1550_regulator_rpmsg *msg,
 			       struct pf1550_regulator_info *info)
 {
 	int err;
 
-	msg->response = PF1550_NONE;
+	msg->header.cate = IMX_RPMSG_PMIC;
+	msg->header.major = IMX_RMPSG_MAJOR;
+	msg->header.minor = IMX_RMPSG_MINOR;
+	msg->header.type = 0;
 
 	if (!info->rpdev) {
 		dev_dbg(info->dev,
@@ -121,7 +133,7 @@ static int pf1550_send_message(struct pf1550_regulator_rpmsg *msg,
 	}
 
 	dev_dbg(&info->rpdev->dev, "cmd:%d, reg:%d, resp:%d.\n",
-		  msg->cmd, msg->regulator, msg->response);
+		  msg->header.cmd, msg->regulator, msg->response);
 
 	return 0;
 }
@@ -131,7 +143,7 @@ static int pf1550_enable(struct regulator_dev *reg)
 	struct pf1550_regulator_info *info = rdev_get_drvdata(reg);
 	struct pf1550_regulator_rpmsg msg;
 
-	msg.cmd = PF1550_ENABLE;
+	msg.header.cmd = PF1550_ENABLE;
 	msg.regulator = reg->desc->id;
 
 	return pf1550_send_message(&msg, info);
@@ -142,7 +154,7 @@ static int pf1550_disable(struct regulator_dev *reg)
 	struct pf1550_regulator_info *info = rdev_get_drvdata(reg);
 	struct pf1550_regulator_rpmsg msg;
 
-	msg.cmd = PF1550_DISABLE;
+	msg.header.cmd = PF1550_DISABLE;
 	msg.regulator = reg->desc->id;
 
 	return pf1550_send_message(&msg, info);
@@ -154,14 +166,14 @@ static int pf1550_is_enabled(struct regulator_dev *reg)
 	struct pf1550_regulator_rpmsg msg;
 	int err;
 
-	msg.cmd = PF1550_IS_ENABLED;
+	msg.header.cmd = PF1550_IS_ENABLED;
 	msg.regulator = reg->desc->id;
 
 	err = pf1550_send_message(&msg, info);
 	if (err)
 		return err;
 	/* Here SUCCESS means ENABLED */
-	if (info->msg->response == PF1550_SUCCESS)
+	if (info->msg->status == PF1550_ENABLED)
 		return 1;
 	else
 		return 0;
@@ -174,7 +186,7 @@ static int pf1550_set_voltage(struct regulator_dev *reg,
 	struct pf1550_regulator_rpmsg msg;
 	int err;
 
-	msg.cmd = PF1550_SET_VOL;
+	msg.header.cmd = PF1550_SET_VOL;
 	msg.regulator = reg->desc->id;
 	msg.voltage = minuV;
 
@@ -182,7 +194,7 @@ static int pf1550_set_voltage(struct regulator_dev *reg,
 	if (err)
 		return err;
 
-	if (info->msg->response == PF1550_NOT_ALLOWED) {
+	if (info->msg->response == PF1550_UNSURPPORT) {
 		dev_err(info->dev, "Voltages not allowed to set to %d!\n", uV);
 		return -EINVAL;
 	}
@@ -196,7 +208,7 @@ static int pf1550_get_voltage(struct regulator_dev *reg)
 	struct pf1550_regulator_rpmsg msg;
 	int err;
 
-	msg.cmd = PF1550_GET_VOL;
+	msg.header.cmd = PF1550_GET_VOL;
 	msg.regulator = reg->desc->id;
 	msg.voltage = 0;
 
@@ -301,7 +313,7 @@ static int rpmsg_regulator_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 
 	dev_dbg(&rpdev->dev, "get from%d: cmd:%d, reg:%d, resp:%d.\n",
-		  src, msg->cmd, msg->regulator, msg->response);
+		  src, msg->header.cmd, msg->regulator, msg->response);
 
 	pf1550_info.msg = msg;
 
@@ -361,7 +373,7 @@ static ssize_t pf1550_registers_show(struct device *dev,
 		snprintf(buf + bufpos, count - bufpos, "%.*x: ", 2, i);
 		bufpos += 4;
 
-		msg.cmd = PF1550_GET_REG;
+		msg.header.cmd = PF1550_GET_REG;
 		msg.reg = i;
 
 		err = pf1550_send_message(&msg, info);
@@ -404,7 +416,7 @@ static ssize_t pf1550_register_store(struct device *dev,
 	if (kstrtoul(start, 16, &value))
 		return -EINVAL;
 
-	msg.cmd = PF1550_SET_REG;
+	msg.header.cmd = PF1550_SET_REG;
 	msg.reg = reg;
 	msg.val = value;
 
