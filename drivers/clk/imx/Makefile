@@ -38,3 +38,4 @@ obj-$(CONFIG_SOC_VF610)  += clk-vf610.o
 # IMX Clock specific Makefile
 #
 obj-$(CONFIG_ARCH_FSL_IMX8QM)	+= clk-imx8qm.o clk-imx8.o clk-divider-scu.o clk-gate-scu.o clk-mux-scu.o
+obj-$(CONFIG_ARCH_FSL_IMX8QXP)	+= clk-imx8qxp.o clk-imx8.o clk-divider-scu.o clk-gate-scu.o clk-mux-scu.o
