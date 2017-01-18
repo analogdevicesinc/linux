@@ -266,4 +266,35 @@ config ARCH_ZYNQMP
 	help
 	  This enables support for Xilinx ZynqMP Family
 
+config ARCH_FSL_IMX8QM
+	bool "Freescale i.MX8QM SOC"
+	select PINCTRL
+	select PINCTRL_IMX
+	select PINCTRL_IMX8QM
+	select PM
+	select SOC_BUS
+	help
+	  This enables support for Freescale i.MX8QM SOC.
+
+config ARCH_FSL_IMX8QXP
+	bool "Freescale i.MX8QXP SOC"
+	select PINCTRL
+	select PINCTRL_IMX
+	select PINCTRL_IMX8QXP
+	select PM
+	select SOC_BUS
+	help
+	  This enables support for Freescale i.MX8QXP SOC.
+
+config ARCH_FSL_IMX8MQ
+	bool "Freescale i.MX8MQ SOC"
+	select ARCH_MXC
+	select SERIAL_IMX
+	select PINCTRL
+	select PINCTRL_IMX
+	select PM
+	select SOC_BUS
+	help
+	  This enables support for Freescale i.MX8MQ SOC.
+
 endmenu
