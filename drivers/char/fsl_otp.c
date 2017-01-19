@@ -571,8 +571,8 @@ static ssize_t fsl_otp_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 	mutex_lock(&otp_mutex);
 
-	if (fsl_otp->devtype == FSL_OTP_MX7ULP) {
-		phy_index = fsl_otp_word_physical(fsl_otp, index);
+	phy_index = fsl_otp_word_physical(fsl_otp, index);
+	if ((fsl_otp->devtype == FSL_OTP_MX7ULP) && (phy_index > 15)) {
 		fsl_otp->set_otp_timing();
 		ret = otp_wait_busy(0);
 		if (ret)
