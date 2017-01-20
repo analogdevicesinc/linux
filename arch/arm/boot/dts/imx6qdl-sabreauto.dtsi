@@ -400,11 +400,9 @@
 			  <&clks IMX6QDL_CLK_PLL4_POST_DIV>;
 	assigned-clock-parents = <&clks IMX6QDL_CLK_LVDS2_IN>,
 				 <&clks IMX6QDL_PLL4_BYPASS_SRC>,
-				 <&clks IMX6QDL_CLK_PLL3_USB_OTG>,
-				 <&clks IMX6QDL_CLK_PLL3_USB_OTG>;
+				 <&clks IMX6QDL_CLK_PLL2_PFD0_352M>,
+				 <&clks IMX6QDL_CLK_PLL2_PFD0_352M>;
 	assigned-clock-rates = <0>, <0>, <0>, <0>, <24576000>;
-	fsl,ldb-di0-parent = <&clks IMX6QDL_CLK_PLL2_PFD0_352M>;
-	fsl,ldb-di1-parent = <&clks IMX6QDL_CLK_PLL2_PFD0_352M>;
 };
 
 &dcic1 {

@@ -41,8 +41,10 @@
 };
 
 &clks {
-	fsl,ldb-di0-parent = <&clks IMX6QDL_CLK_MMDC_CH1_AXI>;
-	fsl,ldb-di1-parent = <&clks IMX6QDL_CLK_MMDC_CH1_AXI>;
+	assigned-clocks = <&clks IMX6QDL_CLK_LDB_DI0_SEL>,
+			  <&clks IMX6QDL_CLK_LDB_DI1_SEL>;
+	assigned-clock-parents = <&clks IMX6QDL_CLK_MMDC_CH1_AXI>,
+				 <&clks IMX6QDL_CLK_MMDC_CH1_AXI>;
 };
 
 &i2c2 {
