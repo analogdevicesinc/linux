@@ -1,5 +1,6 @@
 /*
  * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -395,8 +396,8 @@
 				reg = <0x02098000 0x4000>;
 				interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX6SLL_CLK_GPT_BUS>,
-					 <&clks IMX6SLL_CLK_GPT_SERIAL>;
-				clock-names = "ipg", "per";
+					 <&clks IMX6SLL_CLK_GPT_3M>;
+				clock-names = "ipg", "osc_per";
 			};
 
 			gpio1: gpio@0209c000 {
