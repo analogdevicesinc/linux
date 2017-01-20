@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -198,7 +199,8 @@
 #define IMX6SLL_CLK_EXTERN_AUDIO_PRED   170
 #define IMX6SLL_CLK_EXTERN_AUDIO_PODF   171
 #define IMX6SLL_CLK_EXTERN_AUDIO        172
+#define IMX6SLL_CLK_GPT_3M		173
 
-#define IMX6SLL_CLK_END			173
+#define IMX6SLL_CLK_END			174
 
 #endif /* __DT_BINDINGS_CLOCK_IMX6SLL_H */
