@@ -15,6 +15,7 @@
 
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/imx_rpmsg.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -26,8 +27,6 @@
 
 #define RPMSG_TIMEOUT 1000
 
-#define PM_RPMSG_LIFE_CYCLE	1
-#define PM_RPMSG_VERSION	1
 #define PM_RPMSG_TYPE		2
 
 enum pm_rpmsg_cmd {
@@ -56,12 +55,9 @@ static struct pm_rpmsg_info pm_rpmsg;
 static struct delayed_work heart_beat_work;
 
 struct pm_rpmsg_data {
-	u8 cmd;
-	u8 type;
-	u8 version;
-	u8 cat;
-	u32 data;
-};
+	struct imx_rpmsg_head header;
+	u8 data;
+} __attribute__ ((packed));
 
 static int pm_send_message(struct pm_rpmsg_data *msg,
 			struct pm_rpmsg_info *info)
@@ -89,10 +85,11 @@ void pm_vlls_notify_m4(bool enter)
 {
 	struct pm_rpmsg_data msg;
 
-	msg.cat = PM_RPMSG_LIFE_CYCLE;
-	msg.version = PM_RPMSG_VERSION;
-	msg.type = PM_RPMSG_TYPE;
-	msg.cmd = PM_RPMSG_MODE;
+	msg.header.cate = IMX_RMPSG_LIFECYCLE;
+	msg.header.major = IMX_RMPSG_MAJOR;
+	msg.header.minor = IMX_RMPSG_MINOR;
+	msg.header.type = PM_RPMSG_TYPE;
+	msg.header.cmd = PM_RPMSG_MODE;
 	msg.data = enter ? PM_RPMSG_VLLS : PM_RPMSG_RUN;
 
 	pm_send_message(&msg, &pm_rpmsg);
@@ -102,10 +99,11 @@ static void pm_heart_beat_work_handler(struct work_struct *work)
 {
 	struct pm_rpmsg_data msg;
 
-	msg.cat = PM_RPMSG_LIFE_CYCLE;
-	msg.version = PM_RPMSG_VERSION;
-	msg.type = PM_RPMSG_TYPE;
-	msg.cmd = PM_RPMSG_HEART_BEAT;
+	msg.header.cate = IMX_RMPSG_LIFECYCLE;
+	msg.header.major = IMX_RMPSG_MAJOR;
+	msg.header.minor = IMX_RMPSG_MINOR;
+	msg.header.type = PM_RPMSG_TYPE;
+	msg.header.cmd = PM_RPMSG_HEART_BEAT;
 	msg.data = 0;
 
 	pm_send_message(&msg, &pm_rpmsg);
