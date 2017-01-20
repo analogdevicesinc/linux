@@ -1301,9 +1301,12 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_S5C_UYVY_JPG:	descr = "S5C73MX interleaved UYVY/JPEG"; break;
 		case V4L2_PIX_FMT_MT21C:	descr = "Mediatek Compressed Format"; break;
 		default:
-			WARN(1, "Unknown pixelformat 0x%08x\n", fmt->pixelformat);
-			if (fmt->description[0])
+			if (!fmt->description[0])
+				WARN(1, "Unknown pixelformat 0x%08x\n", fmt->pixelformat);
+			else {
+				pr_debug("Custom device pixelformat 0x%08x '%s'\n", fmt->pixelformat, fmt->description);
 				return;
+			}
 			flags = 0;
 			snprintf(fmt->description, sz, "%c%c%c%c%s",
 					(char)(fmt->pixelformat & 0x7f),
