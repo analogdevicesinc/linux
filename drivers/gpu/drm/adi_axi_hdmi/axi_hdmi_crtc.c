@@ -49,6 +49,7 @@ static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
 
 	memset(&vdma_config, 0, sizeof(vdma_config));
 	vdma_config.park = 1;
+	vdma_config.coalesc = 0xff;
 	xilinx_vdma_channel_set_config(axi_hdmi_crtc->dma, &vdma_config);
 
 	offset = plane->state->crtc_x * fb->bits_per_pixel / 8 +
