@@ -20,7 +20,7 @@
 	leds {
 		compatible = "gpio-leds";
 		led0 {
-			label = "led0:blue";
+			label = "led0:green";
 			gpios = <&gpio0 15 0>;
 			linux,default-trigger = "heartbeat";
 		};
