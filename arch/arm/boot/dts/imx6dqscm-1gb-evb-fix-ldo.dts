@@ -19,6 +19,10 @@
 		busfreq {
 			fsl,max_ddr_freq = <400000000>;
 			status = "okay";
+			clocks = <&clks 171>, <&clks 6>, <&clks 11>, <&clks 104>, <&clks 172>, <&clks 58>,
+				 <&clks 18>, <&clks 60>, <&clks 20>, <&clks 3>, <&clks 140>;
+			clock-names = "pll2_bus", "pll2_pfd2_396m", "pll2_198m", "arm", "pll3_usb_otg", "periph",
+				      "periph_pre", "periph_clk2", "periph_clk2_sel", "osc", "mmdc";
 		};
 	};
 };
