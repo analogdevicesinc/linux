@@ -302,6 +302,21 @@ static void enter_lpm_imx6_smp(void)
 		else if (ddr_type == MMDC_MDMISC_DDR_TYPE_LPDDR2)
 			clk_set_parent(periph_pre_clk, pll2_400_clk);
 		clk_set_parent(periph_clk, periph_pre_clk);
+
+		/*
+		 * As periph_pre_clk's parent is not changed from
+		 * high mode to audio mode on lpddr2, the clk framework
+		 * will not update its children's freq, but we
+		 * change the mmdc_ch0_axi podf in asm code, so here
+		 * need to update mmdc rate to make sure clk
+		 * tree is right, although it will not do any
+		 * change to hardware. Calling get_rate will only call
+		 * the .rate_recalc which is all we need.
+		 */
+		if (high_bus_freq_mode && mmdc_clk)
+			if (ddr_type == IMX_DDR_TYPE_LPDDR2)
+				clk_get_rate(mmdc_clk);
+
 		audio_bus_freq_mode = 1;
 		low_bus_freq_mode = 0;
 		cur_bus_freq_mode = BUS_FREQ_AUDIO;
@@ -399,6 +414,20 @@ static void exit_lpm_imx6_smp(void)
 		clk_set_parent(axi_alt_sel_clk, pll3_pfd1_540m_clk);
 		clk_set_parent(axi_sel_clk, axi_alt_sel_clk);
 	}
+	/*
+	 * As periph_pre_clk's parent is not changed from
+	 * high mode to audio mode on lpddr2, the clk framework
+	 * will not update its children's freq, but we
+	 * change the mmdc_ch0_axi podf in asm code, so here
+	 * need to update mmdc rate to make sure clk
+	 * tree is right, although it will not do any
+	 * change to hardware. Calling get_rate will only call
+	 * the .rate_recalc which is all we need.
+	 */
+	if (audio_bus_freq_mode && mmdc_clk)
+		if (ddr_type == IMX_DDR_TYPE_LPDDR2)
+			clk_get_rate(mmdc_clk);
+
 	clk_disable_unprepare(pll2_400_clk);
 	if (audio_bus_freq_mode)
 		clk_disable_unprepare(pll2_400_clk);
@@ -1122,6 +1151,13 @@ static int busfreq_probe(struct platform_device *pdev)
 			dev_err(busfreq_dev,
 				"%s: failed to get mmdc clk for imx6sx/ul.\n", __func__);
 			return -EINVAL;
+		}
+	}
+
+	if (cpu_is_imx6q()) {
+		mmdc_clk = devm_clk_get(&pdev->dev, "mmdc");
+		if (IS_ERR(mmdc_clk)) {
+			mmdc_clk = NULL;
 		}
 	}
 
