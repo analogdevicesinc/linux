@@ -45,7 +45,7 @@ struct m2k_la {
 	unsigned int gpo;
 
 	unsigned int trigger_logic_mode;
-	unsigned int triggers[16];
+	unsigned int triggers[18];
 	unsigned int trigger_regs[5];
 	unsigned int trigger_num_enabled;
 	int trigger_delay;
