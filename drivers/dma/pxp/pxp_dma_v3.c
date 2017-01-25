@@ -197,6 +197,8 @@ static void pxp_wfe_b_process(struct pxps *pxp);
 static void pxp_wfe_b_configure(struct pxps *pxp);
 static void pxp_lut_status_set(struct pxps *pxp, unsigned int lut);
 static void pxp_lut_status_set_v3p(struct pxps *pxp, unsigned int lut);
+static void pxp_lut_status_clr(unsigned int lut);
+static void pxp_lut_status_clr_v3p(unsigned int lut);
 static void pxp_start2(struct pxps *pxp);
 static void pxp_data_path_config_v3p(struct pxps *pxp);
 static void pxp_soft_reset(struct pxps *pxp);
@@ -212,7 +214,8 @@ static void pxp_histogram_enable(struct pxps *pxp,
 				 unsigned int height);
 static void pxp_histogram_disable(struct pxps *pxp);
 static void pxp_lut_cleanup_multiple(struct pxps *pxp, u64 lut, bool set);
-static void pxp_luts_deactivate(u64 lut_status);
+static void pxp_lut_cleanup_multiple_v3p(struct pxps *pxp, u64 lut, bool set);
+static void pxp_luts_deactivate(struct pxps *pxp, u64 lut_status);
 
 enum {
 	DITHER0_LUT = 0x0,	/* Select the LUT memory for access */
@@ -239,7 +242,9 @@ struct pxp_devdata {
 	void (*pxp_wfe_a_configure)(struct pxps *pxp);
 	void (*pxp_wfe_a_process)(struct pxps *pxp);
 	void (*pxp_lut_status_set)(struct pxps *pxp, unsigned int lut);
+	void (*pxp_lut_status_clr)(unsigned int lut);
 	void (*pxp_dithering_configure)(struct pxps *pxp);
+	void (*pxp_lut_cleanup_multiple)(struct pxps *pxp, u64 lut, bool set);
 	void (*pxp_data_path_config)(struct pxps *pxp);
 	unsigned int version;
 };
@@ -249,6 +254,8 @@ static const struct pxp_devdata pxp_devdata[] = {
 		.pxp_wfe_a_configure = pxp_wfe_a_configure,
 		.pxp_wfe_a_process = pxp_wfe_a_process,
 		.pxp_lut_status_set = pxp_lut_status_set,
+		.pxp_lut_status_clr = pxp_lut_status_clr,
+		.pxp_lut_cleanup_multiple = pxp_lut_cleanup_multiple,
 		.pxp_dithering_configure = pxp_dithering_configure,
 		.pxp_data_path_config = NULL,
 		.version = 30,
@@ -257,6 +264,8 @@ static const struct pxp_devdata pxp_devdata[] = {
 		.pxp_wfe_a_configure = pxp_wfe_a_configure_v3p,
 		.pxp_wfe_a_process = pxp_wfe_a_process_v3p,
 		.pxp_lut_status_set = pxp_lut_status_set_v3p,
+		.pxp_lut_status_clr = pxp_lut_status_clr_v3p,
+		.pxp_lut_cleanup_multiple = pxp_lut_cleanup_multiple_v3p,
 		.pxp_dithering_configure = pxp_dithering_configure_v3p,
 		.pxp_data_path_config = pxp_data_path_config_v3p,
 		.version = 31,
@@ -370,6 +379,7 @@ static void dump_pxp_reg2(struct pxps *pxp)
 	for (i=0; i< ((0x33C0/0x10) + 1);i++) {
 		printk("0x%08x: 0x%08x\n", 0x10*i, __raw_readl(pxp->base + 0x10*i));
 	}
+j++;
 #endif
 }
 
@@ -1273,7 +1283,7 @@ static int pxp_config(struct pxps *pxp, struct pxp_channel *pxp_chan)
 			if (pxp->devdata && pxp->devdata->pxp_wfe_a_process)
 				pxp->devdata->pxp_wfe_a_process(pxp);
 
-			pxp_luts_deactivate(proc_data->lut_sels);
+			pxp_luts_deactivate(pxp, proc_data->lut_sels);
 		}
 
 		if ((proc_data->engine_enable & PXP_ENABLE_WFE_B) == PXP_ENABLE_WFE_B) {
@@ -2289,11 +2299,16 @@ static void pxp_wfe_a_configure(struct pxps *pxp)
 	__raw_writel(0, pxp->base + HW_PXP_WFE_A_STG2_5X6_OUT3_6);
 	__raw_writel(0, pxp->base + HW_PXP_WFE_A_STG2_5X6_OUT3_7);
 
-	pxp_lut_cleanup_multiple(pxp, proc_data->lut_sels, 1);
+	if (pxp->devdata && pxp->devdata->pxp_lut_cleanup_multiple)
+		pxp->devdata->pxp_lut_cleanup_multiple(pxp,
+					proc_data->lut_sels, 1);
 }
 
 static void pxp_wfe_a_configure_v3p(struct pxps *pxp)
 {
+	struct pxp_config_data *pxp_conf = &pxp->pxp_conf_state;
+	struct pxp_proc_data *proc_data = &pxp_conf->proc_data;
+
 	/* FETCH */
 	__raw_writel(
 		BF_PXP_WFB_FETCH_CTRL_BF1_EN(1) |
@@ -2363,16 +2378,6 @@ static void pxp_wfe_a_configure_v3p(struct pxps *pxp)
 		pxp->base + HW_PXP_WFB_ARRAY_PIXEL4_MASK);
 
 	__raw_writel(1, pxp->base + HW_PXP_WFB_ARRAY_REG2);
-
-	__raw_writel(
-		BF_PXP_WFB_ARRAY_FLAG0_MASK_SIGN_Y(0) |
-		BF_PXP_WFB_ARRAY_FLAG0_MASK_OFFSET_Y(0) |
-		BF_PXP_WFB_ARRAY_FLAG0_MASK_SIGN_X(0) |
-		BF_PXP_WFB_ARRAY_FLAG0_MASK_OFFSET_X(0) |
-		BF_PXP_WFB_ARRAY_FLAG0_MASK_BUF_SEL(2) |    // 0: Y4C  1: WB   2: sw_reg2
-		BF_PXP_WFB_ARRAY_FLAG0_MASK_H_OFS(0) |
-		BF_PXP_WFB_ARRAY_FLAG0_MASK_L_OFS(0),
-		pxp->base + HW_PXP_WFB_ARRAY_FLAG0_MASK);
 
 	/* STORE */
 	__raw_writel(
@@ -2451,6 +2456,13 @@ static void pxp_wfe_a_configure_v3p(struct pxps *pxp)
 	__raw_writel(BF_PXP_WFE_B_STORE_D_MASK4_L_CH0_D_MASK4_L_CH0(0x0), /* fetch Y4 */
 		pxp->base + HW_PXP_WFE_B_STORE_D_MASK4_L_CH0);
 
+	__raw_writel(0x0, pxp->base + HW_PXP_WFE_B_STORE_D_MASK5_H_CH0);
+	__raw_writel(0x0, pxp->base + HW_PXP_WFE_B_STORE_D_MASK5_L_CH0);
+	__raw_writel(0x0, pxp->base + HW_PXP_WFE_B_STORE_D_MASK6_H_CH0);
+	__raw_writel(0x0, pxp->base + HW_PXP_WFE_B_STORE_D_MASK6_L_CH0);
+	__raw_writel(0x0, pxp->base + HW_PXP_WFE_B_STORE_D_MASK7_H_CH0);
+	__raw_writel(0x0, pxp->base + HW_PXP_WFE_B_STORE_D_MASK7_L_CH0);
+
 	__raw_writel(
 		BF_PXP_WFE_B_STORE_D_SHIFT_L_CH0_D_SHIFT_WIDTH0(32) |
 		BF_PXP_WFE_B_STORE_D_SHIFT_L_CH0_D_SHIFT_FLAG0(1) |
@@ -2473,30 +2485,41 @@ static void pxp_wfe_a_configure_v3p(struct pxps *pxp)
 		pxp->base + HW_PXP_WFE_B_STORE_D_SHIFT_H_CH0);
 
 	__raw_writel(
-		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_WIDTH4(3)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_L_CH0_F_SHIFT_WIDTH0(1)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_L_CH0_F_SHIFT_FLAG0(1)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_L_CH0_F_SHIFT_WIDTH1(1)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_L_CH0_F_SHIFT_FLAG1(0)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_L_CH0_F_SHIFT_WIDTH2(32+6)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_L_CH0_F_SHIFT_FLAG2(1)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_L_CH0_F_SHIFT_WIDTH3(32+6)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_L_CH0_F_SHIFT_FLAG3(1),
+		pxp->base + HW_PXP_WFE_B_STORE_F_SHIFT_L_CH0);
+
+	__raw_writel(
+		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_WIDTH4(0)|
 		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_FLAG4(0)|
-		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_WIDTH5(5)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_WIDTH5(0)|
 		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_FLAG5(0)|
-		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_WIDTH6(32+2)|
-		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_FLAG6(1)|
-		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_WIDTH7(32+2)|
-		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_FLAG7(1),
+		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_WIDTH6(0)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_FLAG6(0)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_WIDTH7(0)|
+		BF_PXP_WFE_B_STORE_F_SHIFT_H_CH0_F_SHIFT_FLAG7(0),
 		pxp->base + HW_PXP_WFE_B_STORE_F_SHIFT_H_CH0);
 
 	__raw_writel(
-		BF_PXP_WFE_B_STORE_F_MASK_H_CH0_F_MASK4(0x10)|
-		BF_PXP_WFE_B_STORE_F_MASK_H_CH0_F_MASK5(0x20)|
-		BF_PXP_WFE_B_STORE_F_MASK_H_CH0_F_MASK6(0x40)|
-		BF_PXP_WFE_B_STORE_F_MASK_H_CH0_F_MASK7(0x80),
-		pxp->base + HW_PXP_WFE_B_STORE_F_MASK_H_CH0);
-
+		BF_PXP_WFE_B_STORE_F_MASK_L_CH0_F_MASK0(0x1) |
+		BF_PXP_WFE_B_STORE_F_MASK_L_CH0_F_MASK1(0x2) |
+		BF_PXP_WFE_B_STORE_F_MASK_L_CH0_F_MASK2(0x4) |
+		BF_PXP_WFE_B_STORE_F_MASK_L_CH0_F_MASK3(0x8),
+		pxp->base + HW_PXP_WFE_B_STORE_F_MASK_L_CH0);
 
 	__raw_writel(
-		BF_PXP_WFE_B_STORE_F_MASK_L_CH0_F_MASK0(0x0) |
-		BF_PXP_WFE_B_STORE_F_MASK_L_CH0_F_MASK1(0x0) |
-		BF_PXP_WFE_B_STORE_F_MASK_L_CH0_F_MASK2(0x0) |
-		BF_PXP_WFE_B_STORE_F_MASK_L_CH0_F_MASK3(0x0),
-		pxp->base + HW_PXP_WFE_B_STORE_F_MASK_L_CH0);
+		BF_PXP_WFE_B_STORE_F_MASK_H_CH0_F_MASK4(0x0)|
+		BF_PXP_WFE_B_STORE_F_MASK_H_CH0_F_MASK5(0x0)|
+		BF_PXP_WFE_B_STORE_F_MASK_H_CH0_F_MASK6(0x0)|
+		BF_PXP_WFE_B_STORE_F_MASK_H_CH0_F_MASK7(0x0),
+		pxp->base + HW_PXP_WFE_B_STORE_F_MASK_H_CH0);
+
 
 	/* ALU */
 	__raw_writel(BF_PXP_ALU_B_INST_ENTRY_ENTRY_ADDR(0),
@@ -2530,33 +2553,33 @@ static void pxp_wfe_a_configure_v3p(struct pxps *pxp)
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE1_MUX1);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE1_MUX2);
 	__raw_writel(0x03000000, pxp->base + HW_PXP_WFE_B_STAGE1_MUX3);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE1_MUX4);
+	__raw_writel(0x00000003, pxp->base + HW_PXP_WFE_B_STAGE1_MUX4);
 	__raw_writel(0x04000000, pxp->base + HW_PXP_WFE_B_STAGE1_MUX5);
-	__raw_writel(0x00090401, pxp->base + HW_PXP_WFE_B_STAGE1_MUX6);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE1_MUX7);
+	__raw_writel(0x0A090401, pxp->base + HW_PXP_WFE_B_STAGE1_MUX6);
+	__raw_writel(0x000B0B0A, pxp->base + HW_PXP_WFE_B_STAGE1_MUX7);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE1_MUX8);
 
 	__raw_writel(0x1901290C, pxp->base + HW_PXP_WFE_B_STAGE2_MUX0);
-	__raw_writel(0x01290C00, pxp->base + HW_PXP_WFE_B_STAGE2_MUX1);
-	__raw_writel(0x290C0019, pxp->base + HW_PXP_WFE_B_STAGE2_MUX2);
-	__raw_writel(0x00001901, pxp->base + HW_PXP_WFE_B_STAGE2_MUX3);
+	__raw_writel(0x01290C02, pxp->base + HW_PXP_WFE_B_STAGE2_MUX1);
+	__raw_writel(0x290C0219, pxp->base + HW_PXP_WFE_B_STAGE2_MUX2);
+	__raw_writel(0x00021901, pxp->base + HW_PXP_WFE_B_STAGE2_MUX3);
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STAGE2_MUX4);
 	__raw_writel(0x1901290C, pxp->base + HW_PXP_WFE_B_STAGE2_MUX5);
-	__raw_writel(0x01290C00, pxp->base + HW_PXP_WFE_B_STAGE2_MUX6);
-	__raw_writel(0x1B0C0019, pxp->base + HW_PXP_WFE_B_STAGE2_MUX7);
-	__raw_writel(0x1C002A0F, pxp->base + HW_PXP_WFE_B_STAGE2_MUX8);
-	__raw_writel(0x00002A0F, pxp->base + HW_PXP_WFE_B_STAGE2_MUX9);
+	__raw_writel(0x01290C02, pxp->base + HW_PXP_WFE_B_STAGE2_MUX6);
+	__raw_writel(0x1B0C0219, pxp->base + HW_PXP_WFE_B_STAGE2_MUX7);
+	__raw_writel(0x1C022A0F, pxp->base + HW_PXP_WFE_B_STAGE2_MUX8);
+	__raw_writel(0x02002A0F, pxp->base + HW_PXP_WFE_B_STAGE2_MUX9);
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STAGE2_MUX10);
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STAGE2_MUX11);
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STAGE2_MUX12);
 
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE3_MUX0);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE3_MUX1);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE3_MUX2);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE3_MUX3);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE3_MUX4);
+	__raw_writel(0x2a123a1d, pxp->base + HW_PXP_WFE_B_STAGE3_MUX0);
+	__raw_writel(0x00000013, pxp->base + HW_PXP_WFE_B_STAGE3_MUX1);
+	__raw_writel(0x2a123a1d, pxp->base + HW_PXP_WFE_B_STAGE3_MUX2);
+	__raw_writel(0x00000013, pxp->base + HW_PXP_WFE_B_STAGE3_MUX3);
+	__raw_writel(0x3b202c1d, pxp->base + HW_PXP_WFE_B_STAGE3_MUX4);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE3_MUX5);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE3_MUX6);
+	__raw_writel(0x003b202d, pxp->base + HW_PXP_WFE_B_STAGE3_MUX6);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE3_MUX7);
 	__raw_writel(0x07060504, pxp->base + HW_PXP_WFE_B_STAGE3_MUX8);
 	__raw_writel(0x00000008, pxp->base + HW_PXP_WFE_B_STAGE3_MUX9);
@@ -2580,10 +2603,10 @@ static void pxp_wfe_a_configure_v3p(struct pxps *pxp)
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG1_5X8_OUT1_6);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG1_5X8_OUT1_7);
 
-	__raw_writel(0x0000000F, pxp->base + HW_PXP_WFE_B_STAGE1_5X8_MASKS_0);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STAGE1_5X8_MASKS_0);
 
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG1_5X1_OUT0);
-	__raw_writel(0x0000000F, pxp->base + HW_PXP_WFE_B_STG1_5X1_MASKS);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG1_5X1_MASKS);
 
 	__raw_writel(0xFFFFFFFF, pxp->base + HW_PXP_WFE_B_STG1_8X1_OUT0_2);
 	__raw_writel(0xFFFFFFFF, pxp->base + HW_PXP_WFE_B_STG1_8X1_OUT0_3);
@@ -2629,40 +2652,40 @@ static void pxp_wfe_a_configure_v3p(struct pxps *pxp)
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG1_8X1_OUT4_7);
 
 	__raw_writel(0x00000700, pxp->base + HW_PXP_WFE_B_STG2_5X1_OUT0);
-	__raw_writel(0x0000F000, pxp->base + HW_PXP_WFE_B_STG2_5X1_OUT1);
+	__raw_writel(0x00007000, pxp->base + HW_PXP_WFE_B_STG2_5X1_OUT1);
 	__raw_writel(0x0000A000, pxp->base + HW_PXP_WFE_B_STG2_5X1_OUT2);
 	__raw_writel(0x000000C0, pxp->base + HW_PXP_WFE_B_STG2_5X1_OUT3);
-	__raw_writel(0x070F0F0F, pxp->base + HW_PXP_WFE_B_STG2_5X1_MASKS);
+	__raw_writel(0x070F1F1F, pxp->base + HW_PXP_WFE_B_STG2_5X1_MASKS);
 
-	__raw_writel(0x000F0F0F, pxp->base + HW_PXP_WFE_B_STAGE2_5X6_MASKS_0);
+	__raw_writel(0x001F1F1F, pxp->base + HW_PXP_WFE_B_STAGE2_5X6_MASKS_0);
 	__raw_writel(0x3f232120, pxp->base + HW_PXP_WFE_B_STAGE2_5X6_ADDR_0);
 
 	__raw_writel(0x04040404, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_0);
 	__raw_writel(0x04040404, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_1);
 	__raw_writel(0x04050505, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_2);
 	__raw_writel(0x04040404, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_3);
-	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_4);
-	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_5);
-	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_6);
-	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_7);
+	__raw_writel(0x04040404, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_4);
+	__raw_writel(0x04040404, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_5);
+	__raw_writel(0x04040404, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_6);
+	__raw_writel(0x04040404, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT0_7);
 
 	__raw_writel(0x05050505, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_0);
 	__raw_writel(0x05050505, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_1);
 	__raw_writel(0x05080808, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_2);
 	__raw_writel(0x05050505, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_3);
-	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_4);
-	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_5);
-	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_6);
-	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_7);
+	__raw_writel(0x05050505, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_4);
+	__raw_writel(0x05050505, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_5);
+	__raw_writel(0x05050505, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_6);
+	__raw_writel(0x05050505, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT1_7);
 
 	__raw_writel(0x07070707, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_0);
 	__raw_writel(0x07070707, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_1);
 	__raw_writel(0x070C0C0C, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_2);
 	__raw_writel(0x07070707, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_3);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_4);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_5);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_6);
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_7);
+	__raw_writel(0x0F0F0F0F, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_4);
+	__raw_writel(0x0F0F0F0F, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_5);
+	__raw_writel(0x0F0F0F0F, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_6);
+	__raw_writel(0x0F0F0F0F, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT2_7);
 
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT3_0);
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT3_1);
@@ -2673,25 +2696,47 @@ static void pxp_wfe_a_configure_v3p(struct pxps *pxp)
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT3_6);
 	__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG2_5X6_OUT3_7);
 
-	__raw_writel(0x00007F7F, pxp->base + HW_PXP_WFE_B_STG3_F8X1_MASKS);
+	__raw_writel(0x070F1F1F, pxp->base + HW_PXP_WFE_B_STG3_F8X1_MASKS);
 
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_0);
-	__raw_writel(0x00FF00FF, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_1);
+	__raw_writel(0x00000700, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_0);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_1);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_2);
-	__raw_writel(0x000000FF, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_3);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_3);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_4);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_5);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_6);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT0_7);
 
-	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_0);
-	__raw_writel(0xFF3FFF3F, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_1);
+	__raw_writel(0x00007000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_0);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_1);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_2);
-	__raw_writel(0xFFFFFF1F, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_3);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_3);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_4);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_5);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_6);
 	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT1_7);
+
+	__raw_writel(0x0000A000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT2_0);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT2_1);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT2_2);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT2_3);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT2_4);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT2_5);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT2_6);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT2_7);
+
+	__raw_writel(0x000000C0, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT3_0);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT3_1);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT3_2);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT3_3);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT3_4);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT3_5);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT3_6);
+	__raw_writel(0x00000000, pxp->base + HW_PXP_WFE_B_STG3_F8X1_OUT3_7);
+
+	if (pxp->devdata && pxp->devdata->pxp_lut_cleanup_multiple)
+		pxp->devdata->pxp_lut_cleanup_multiple(pxp,
+					proc_data->lut_sels, 1);
 }
 
 /*
@@ -3188,7 +3233,6 @@ static void pxp_wfe_b_configure(struct pxps *pxp)
 		pxp->base + HW_PXP_WFB_ARRAY_FLAG9_MASK);
 
 	pxp_sram_init(pxp, WFE_B, (u32)active_matrix_data_8x8, 64);
-
 
 	/* Store */
 	__raw_writel(
@@ -3895,9 +3939,26 @@ static void pxp_lut_cleanup_multiple(struct pxps *pxp, u64 lut, bool set)
 			__raw_writel((u32)lut, pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_0 + 0x4);
 			__raw_writel((u32)(lut>>32), pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_1 + 0x4);
 		} else {
-			pxp_luts_deactivate(lut);
+			pxp_luts_deactivate(pxp, lut);
 			__raw_writel(0, pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_0);
 			__raw_writel(0, pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_1);
+		}
+	}
+}
+
+static void pxp_lut_cleanup_multiple_v3p(struct pxps *pxp, u64 lut, bool set)
+{
+	struct pxp_config_data *pxp_conf = &pxp->pxp_conf_state;
+	struct pxp_proc_data *proc_data = &pxp_conf->proc_data;
+
+	if (proc_data->lut_cleanup == 1) {
+		if (set) {
+			__raw_writel((u32)lut, pxp->base + HW_PXP_WFE_B_STG1_8X1_OUT1_0 + 0x4);
+			__raw_writel((u32)(lut>>32), pxp->base + HW_PXP_WFE_B_STG1_8X1_OUT1_1 + 0x4);
+		} else {
+			pxp_luts_deactivate(pxp, lut);
+			__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG1_8X1_OUT1_0);
+			__raw_writel(0, pxp->base + HW_PXP_WFE_B_STG1_8X1_OUT1_1);
 		}
 	}
 }
@@ -3975,11 +4036,26 @@ static void pxp_lut_status_clr(unsigned int lut)
 	}
 }
 
+static void pxp_lut_status_clr_v3p(unsigned int lut)
+{
+	if(lut<32)
+		__raw_writel(
+				__raw_readl(pxp_reg_base + HW_PXP_WFE_B_STG1_8X1_OUT0_0) & (~(1 << lut)),
+				pxp_reg_base + HW_PXP_WFE_B_STG1_8X1_OUT0_0);
+	else
+	{
+		lut = lut -32;
+		__raw_writel(
+				__raw_readl(pxp_reg_base + HW_PXP_WFE_B_STG1_8X1_OUT0_1) & (~(1 << lut)),
+				pxp_reg_base + HW_PXP_WFE_B_STG1_8X1_OUT0_1);
+	}
+}
+
 /* this function should be called in the epdc
  * driver explicitly when some epdc lut becomes
  * idle. So it should be exported.
  */
-static void pxp_luts_deactivate(u64 lut_status)
+static void pxp_luts_deactivate(struct pxps *pxp, u64 lut_status)
 {
 	int i = 0;
 
@@ -3988,7 +4064,8 @@ static void pxp_luts_deactivate(u64 lut_status)
 
 	for (i = 0; i < 64; i++) {
 		if (lut_status & (1ULL << i))
-			pxp_lut_status_clr(i);
+			if (pxp->devdata && pxp->devdata->pxp_lut_status_clr)
+				pxp->devdata->pxp_lut_status_clr(i);
 	}
 }
 
@@ -3997,22 +4074,15 @@ static void pxp_histogram_enable(struct pxps *pxp,
 				 unsigned int width,
 				 unsigned int height)
 {
-	u32 val = 0;
-
 	__raw_writel(
 			BF_PXP_HIST_B_BUF_SIZE_HEIGHT(height)|
 			BF_PXP_HIST_B_BUF_SIZE_WIDTH(width),
 			pxp->base + HW_PXP_HIST_B_BUF_SIZE);
 
-	if (pxp_is_v3(pxp))
-		val = 64;
-	else if (pxp_is_v3p(pxp))
-		val = 64 + 4;
-
 	__raw_writel(
 			BF_PXP_HIST_B_MASK_MASK_EN(1)|
 			BF_PXP_HIST_B_MASK_MASK_MODE(0)|
-			BF_PXP_HIST_B_MASK_MASK_OFFSET(val)|
+			BF_PXP_HIST_B_MASK_MASK_OFFSET(64)|
 			BF_PXP_HIST_B_MASK_MASK_WIDTH(0)|
 			BF_PXP_HIST_B_MASK_MASK_VALUE0(1) |
 			BF_PXP_HIST_B_MASK_MASK_VALUE1(0),
@@ -4053,22 +4123,15 @@ static void pxp_collision_detection_enable(struct pxps *pxp,
 					   unsigned int width,
 					   unsigned int height)
 {
-	u32 val = 0;
-
 	__raw_writel(
 			BF_PXP_HIST_A_BUF_SIZE_HEIGHT(height)|
 			BF_PXP_HIST_A_BUF_SIZE_WIDTH(width),
 			pxp_reg_base + HW_PXP_HIST_A_BUF_SIZE);
 
-	if (pxp_is_v3(pxp))
-		val = 65;
-	else if (pxp_is_v3p(pxp))
-		val = 65 + 4;
-
 	__raw_writel(
 			BF_PXP_HIST_A_MASK_MASK_EN(1)|
 			BF_PXP_HIST_A_MASK_MASK_MODE(0)|
-			BF_PXP_HIST_A_MASK_MASK_OFFSET(val)|
+			BF_PXP_HIST_A_MASK_MASK_OFFSET(65)|
 			BF_PXP_HIST_A_MASK_MASK_WIDTH(0)|
 			BF_PXP_HIST_A_MASK_MASK_VALUE0(1) |
 			BF_PXP_HIST_A_MASK_MASK_VALUE1(0),
@@ -5060,7 +5123,8 @@ static int pxp_dispatch_thread(void *argv)
 			printk(KERN_EMERG "%s: task is timeout\n\n", __func__);
 			break;
 		}
-		pxp_lut_cleanup_multiple(pxp, 0, 0);
+		if (pxp->devdata && pxp->devdata->pxp_lut_cleanup_multiple)
+			pxp->devdata->pxp_lut_cleanup_multiple(pxp, 0, 0);
 	}
 
 	return 0;
