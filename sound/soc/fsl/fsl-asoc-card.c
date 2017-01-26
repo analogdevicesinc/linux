@@ -591,7 +591,9 @@ static int fsl_asoc_card_probe(struct platform_device *pdev)
 		   when frame size is not a power of 2 in case of wm8985 codec.
 		*/
 		codec_dai_name = "wm8985";
-		priv->dai_fmt = (SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_NB_NF);
+		if (strstr(cpu_np->name, "sai"))
+			priv->dai_fmt =
+				(SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_NB_NF);
 		priv->card.set_bias_level = fsl_asoc_card_set_bias_level;
 		priv->codec_priv.mclk_id = WM8985_CLKSRC_MCLK;
 		priv->codec_priv.fll_id = WM8985_CLKSRC_PLL;
