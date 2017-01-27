@@ -183,7 +183,11 @@ int xhci_reset(struct xhci_hcd *xhci)
 
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init, "// Reset the HC");
 	command = readl(&xhci->op_regs->command);
+#ifdef CONFIG_USB_DWC3_DUAL_ROLE
+	command |= CMD_LRESET;
+#else
 	command |= CMD_RESET;
+#endif
 	writel(command, &xhci->op_regs->command);
 
 	/* Existing Intel xHCI controllers require a delay of 1 mS,
@@ -198,7 +202,12 @@ int xhci_reset(struct xhci_hcd *xhci)
 
 	// Hack: reduce handshake timeout from 10s 0.5s due to unprogrammed vl805
 	ret = xhci_handshake(&xhci->op_regs->command,
-			CMD_RESET, 0, 500 * 1000);
+#ifdef CONFIG_USB_DWC3_DUAL_ROLE
+			CMD_LRESET,
+#else
+			CMD_RESET,
+#endif
+			0, 10 * 500 * 1000);
 	if (ret)
 		return ret;
 
