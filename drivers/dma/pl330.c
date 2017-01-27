@@ -469,6 +469,8 @@ struct pl330_dmac {
 
 	/* Size of MicroCode buffers for each channel. */
 	unsigned mcbufsz;
+	/* True if microcode must reside in cached memory. */
+	bool microcode_cached;
 	/* ioremap'ed address of PL330 registers. */
 	void __iomem	*base;
 	/* Populated by the PL330 core driver during pl330_add */
@@ -1787,19 +1789,44 @@ static int dmac_alloc_threads(struct pl330_dmac *pl330)
 	return 0;
 }
 
+static void *alloc_pl330_microcode_mem(struct pl330_dmac *pl330)
+{
+        int chans = pl330->pcfg.num_chan;
+
+        if (pl330->microcode_cached) {
+                pl330->mcode_cpu = kzalloc(chans * pl330->mcbufsz,
+                                           GFP_KERNEL);
+                pl330->mcode_bus = virt_to_phys(pl330->mcode_cpu);
+        } else
+                pl330->mcode_cpu =
+                        dma_alloc_coherent(pl330->ddma.dev,
+                                           chans * pl330->mcbufsz,
+                                           &pl330->mcode_bus, GFP_KERNEL);
+
+        return pl330->mcode_cpu;
+}
+
+static void free_pl330_microcode_mem(struct pl330_dmac *pl330)
+{
+        int chans = pl330->pcfg.num_chan;
+
+        if (pl330->microcode_cached)
+                kfree(pl330->mcode_cpu);
+        else
+                dma_free_coherent(pl330->ddma.dev,
+                                  chans * pl330->mcbufsz,
+                                  pl330->mcode_cpu, pl330->mcode_bus);
+}
+
 static int dmac_alloc_resources(struct pl330_dmac *pl330)
 {
-	int chans = pl330->pcfg.num_chan;
 	int ret;
 
 	/*
 	 * Alloc MicroCode buffer for 'chans' Channel threads.
 	 * A channel's buffer offset is (Channel_Id * MCODE_BUFF_PERCHAN)
 	 */
-	pl330->mcode_cpu = dma_alloc_attrs(pl330->ddma.dev,
-				chans * pl330->mcbufsz,
-				&pl330->mcode_bus, GFP_KERNEL,
-				DMA_ATTR_PRIVILEGED);
+	pl330->mcode_cpu = alloc_pl330_microcode_mem(pl330);
 	if (!pl330->mcode_cpu) {
 		dev_err(pl330->ddma.dev, "%s:%d Can't allocate memory!\n",
 			__func__, __LINE__);
@@ -1810,9 +1837,7 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 	if (ret) {
 		dev_err(pl330->ddma.dev, "%s:%d Can't to create channels for DMAC!\n",
 			__func__, __LINE__);
-		dma_free_coherent(pl330->ddma.dev,
-				chans * pl330->mcbufsz,
-				pl330->mcode_cpu, pl330->mcode_bus);
+		free_pl330_microcode_mem(pl330);
 		return ret;
 	}
 
@@ -1891,9 +1916,7 @@ static void pl330_del(struct pl330_dmac *pl330)
 	/* Free DMAC resources */
 	dmac_free_threads(pl330);
 
-	dma_free_coherent(pl330->ddma.dev,
-		pl330->pcfg.num_chan * pl330->mcbufsz, pl330->mcode_cpu,
-		pl330->mcode_bus);
+	free_pl330_microcode_mem(pl330);
 }
 
 /* forward declaration */
@@ -2835,7 +2858,12 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 
 	pl330->mcbufsz = 0;
 
-	/* get quirk */
+	if (adev->dev.of_node)
+		pl330->microcode_cached =
+			of_property_read_bool(adev->dev.of_node,
+					      "microcode-cached");
+
+ 	/* get quirk */
 	for (i = 0; i < ARRAY_SIZE(of_quirks); i++)
 		if (of_property_read_bool(np, of_quirks[i].quirk))
 			pl330->quirks |= of_quirks[i].id;
