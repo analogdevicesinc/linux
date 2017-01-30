@@ -1793,6 +1793,14 @@ static int overlayfb_check_var(struct fb_var_screeninfo *var,
 		case V4L2_PIX_FMT_RGB565:
 			rgb = def_rgb565;
 			break;
+		default:
+			/*
+			 * This should never be reached since the verification
+			 * is done in overlay_fmt_support(), but handle this in
+			 * case there will be a sync error between formats
+			 * supported in fmt_support and this function.
+			 */
+			 return -EINVAL;
 		}
 		break;
 	}
