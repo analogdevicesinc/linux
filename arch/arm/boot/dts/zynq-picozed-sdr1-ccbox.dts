@@ -158,6 +158,10 @@
 	status = "okay";
 };
 
+&aliases {
+	serial1 = &uart0;
+};
+
 &fpga_axi {
 		audio_clock: audio_clock {
 			compatible = "fixed-clock";
