@@ -4,6 +4,10 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
+&adm1166 {
+	reg = <0x6A>;
+};
+
 &axi_i2c0 {
 	ad7291-ccbox@2f {
 		compatible = "adi,ad7291";
