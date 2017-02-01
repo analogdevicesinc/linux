@@ -199,7 +199,7 @@
 /* AXI_JESD204B_REG_INIT_DATA3 */
 
 #define AXI_JESD204B_INIT3_ADJCNT(x)		(((x) >> 0) & 0xF) /* ADJCNT Adjustment step count */
-#define AXI_JESD204B_INIT3_PHYADJ(x)		(((x) >> 4) & 0x1) /* PHYADJ Adjustment request */
+#define AXI_JESD204B_INIT3_PHADJ(x)		(((x) >> 4) & 0x1) /* PHADJ Adjustment request */
 #define AXI_JESD204B_INIT3_ADJDIR(x)		(((x) >> 5) & 0x1) /* ADJDIR Adjustment direction */
 #define AXI_JESD204B_INIT3_JESDV(x)		(((x) >> 6) & 0x7) /* JESD204 Version */
 #define AXI_JESD204B_INIT3_SUBCLASSV(x)		(((x) >> 9) & 0x7) /* JESD204 subclass version */
