@@ -1338,7 +1338,6 @@ static int ad9467_remove(struct spi_device *spi)
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 
 	clk_disable_unprepare(conv->clk);
-	spi_set_drvdata(spi, NULL);
 
 	return 0;
 }
