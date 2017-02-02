@@ -77,13 +77,8 @@
 		regulator-always-on;
 	};
 
-	leds {
+	leds0 {
 		compatible = "gpio-leds";
-		status {
-			label = "Status";
-			gpios = <&gpio_exp 18 0>;
-			linux,default-trigger = "heartbeat";
-		};
 
 		led0 {
 			label = "led0:green";
@@ -92,6 +87,15 @@
 		};
 	};
 
+	leds1 {
+		compatible = "gpio-leds";
+
+		status {
+			label = "Status";
+			gpios = <&gpio_exp 18 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
 
 	gpio_keys {
 		compatible = "gpio-keys";
