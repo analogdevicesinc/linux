@@ -223,8 +223,7 @@ static int __devinit fft_of_probe(struct platform_device *op)
 	if (!request_mem_region(phys_addr, remap_size, KBUILD_MODNAME)) {
 		dev_err(dev, "Couldn't lock memory region at 0x%08llX\n",
 			(unsigned long long)phys_addr);
-		ret = -EBUSY;
-		goto failed1;
+		return -EBUSY;
 	}
 
 	st->regs = ioremap(phys_addr, remap_size);
@@ -261,8 +260,6 @@ static int __devinit fft_of_probe(struct platform_device *op)
 
 failed2:
 	release_mem_region(phys_addr, remap_size);
-failed1:
-	dev_set_drvdata(dev, NULL);
 
 	return ret;
 }
@@ -292,7 +289,6 @@ static int __devexit fft_of_remove(struct platform_device *op)
 	else
 		release_mem_region(r_mem.start, resource_size(&r_mem));
 
-	dev_set_drvdata(dev, NULL);
 	fft_state_glob = NULL;
 
 	return 0;

@@ -252,15 +252,7 @@ static int ad9548_probe(struct spi_device *spi)
 			break;
 		}
 
-	spi_set_drvdata(spi, NULL);
 	dev_info(&spi->dev, "Rev. 0x%X probed\n", ad9548_read(spi, 0x2));
-
-	return 0;
-}
-
-static int ad9548_remove(struct spi_device *spi)
-{
-	spi_set_drvdata(spi, NULL);
 
 	return 0;
 }
@@ -277,7 +269,6 @@ static struct spi_driver ad9548_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= ad9548_probe,
-	.remove		= ad9548_remove,
 	.id_table	= ad9548_id,
 };
 module_spi_driver(ad9548_driver);
