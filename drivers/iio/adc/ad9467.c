@@ -948,9 +948,9 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	ret |= ad9467_spi_write(spi, 0x581, 0x01);	// BID
 
 	ret |= ad9467_spi_write(spi, 0x583, 0x00);	// lane 0
-	ret |= ad9467_spi_write(spi, 0x585, 0x01);	// lane 1
-	ret |= ad9467_spi_write(spi, 0x587, 0x02);	// lane 2
-	ret |= ad9467_spi_write(spi, 0x589, 0x03);	// lane 3
+	ret |= ad9467_spi_write(spi, 0x584, 0x01);	// lane 1
+	ret |= ad9467_spi_write(spi, 0x585, 0x02);	// lane 2
+	ret |= ad9467_spi_write(spi, 0x586, 0x03);	// lane 3
 
 
 	ret |= ad9467_spi_write(spi, 0x570, 0x88);	// m=2, l=4, f= 1
