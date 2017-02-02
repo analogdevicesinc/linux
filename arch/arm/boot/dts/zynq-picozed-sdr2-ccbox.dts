@@ -176,7 +176,7 @@
 		axi_i2s_0: axi-i2s@0x77600000 {
 			compatible = "adi,axi-i2s-1.00.a";
 			reg = <0x77600000 0x1000>;
-			dmas = <&dmac_s 1 &dmac_s 2>;
+			dmas = <&dmac_s 0 &dmac_s 1>;
 			dma-names = "tx", "rx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
