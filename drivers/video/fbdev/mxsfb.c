@@ -4,6 +4,7 @@
  * This code is based on:
  * Author: Vitaly Wool <vital@embeddedalley.com>
  *
+ * Copyright 2017 NXP
  * Copyright 2008-2015 Freescale Semiconductor, Inc. All Rights Reserved.
  * Copyright 2008 Embedded Alley Solutions, Inc All Rights Reserved.
  *
@@ -633,6 +634,15 @@ static int mxsfb_check_var(struct fb_var_screeninfo *var,
 			/* real 24 bit */
 			rgb = def_rgb888;
 			break;
+		default:
+			/*
+			 * 32-bit output is possible through I/O muxing, if this
+			 * option is available on chip. Currently not
+			 * implemented.
+			 */
+			pr_debug("Currently unsupported output colour depth: %u\n",
+				 host->ld_intf_width);
+			return -EINVAL;
 		}
 		break;
 	default:
