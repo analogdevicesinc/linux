@@ -872,7 +872,8 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 	ret = device_reset(&pdev->dev);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to reset: %d\n", ret);
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "failed to reset: %d\n", ret);
 		goto dev_reset_fail;
 	}
 
