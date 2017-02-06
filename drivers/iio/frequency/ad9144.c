@@ -459,12 +459,6 @@ out:
 	return ret;
 }
 
-static int ad9144_remove(struct spi_device *spi)
-{
-	spi_set_drvdata(spi, NULL);
-	return 0;
-}
-
 static const struct spi_device_id ad9144_id[] = {
 	{ "ad9144", CHIPID_AD9144 },
 	{ "ad9152", CHIPID_AD9152 },
@@ -479,7 +473,6 @@ static struct spi_driver ad9144_driver = {
 		   .owner = THIS_MODULE,
 		   },
 	.probe = ad9144_probe,
-	.remove = ad9144_remove,
 	.id_table = ad9144_id,
 };
 

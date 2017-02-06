@@ -225,9 +225,9 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 
 	val = jesd204b_read(st, AXI_JESD204B_REG_RX_INIT_DATA_3);
 	ret += sprintf(buf + ret,
-		"ADJCNT: %d, PHYADJ: %d, ADJDIR: %d, JESDV: %d, SUBCLASS: %d\n",
+		"ADJCNT: %d, PHADJ: %d, ADJDIR: %d, JESDV: %d, SUBCLASS: %d\n",
 		AXI_JESD204B_INIT3_ADJCNT(val),
-		AXI_JESD204B_INIT3_PHYADJ(val),
+		AXI_JESD204B_INIT3_PHADJ(val),
 		AXI_JESD204B_INIT3_ADJDIR(val),
 		AXI_JESD204B_INIT3_JESDV(val),
 		AXI_JESD204B_INIT3_SUBCLASSV(val));

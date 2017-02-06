@@ -106,7 +106,7 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 	val1 = jesd204b_read(st, XLNX_JESD204_REG_SC2_ADJ_CTRL(lane));
 	val2 = jesd204b_read(st, XLNX_JESD204_REG_LANE_VERSION(lane));
 	ret += sprintf(buf + ret,
-		"ADJCNT: %d, PHYADJ: %d, ADJDIR: %d, JESDV: %d, SUBCLASS: %d\n",
+		"ADJCNT: %d, PHADJ: %d, ADJDIR: %d, JESDV: %d, SUBCLASS: %d\n",
 		XLNX_JESD204_LANE_ADJ_CNT(val1),
 		XLNX_JESD204_LANE_PHASE_ADJ_REQ(val1),
 		XLNX_JESD204_LANE_ADJ_CNT_DIR(val1),

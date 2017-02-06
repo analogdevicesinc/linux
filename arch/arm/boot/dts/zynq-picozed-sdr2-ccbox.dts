@@ -1,8 +1,12 @@
 /dts-v1/;
-/include/ "zynq-picozed-sdr1.dtsi"
+/include/ "zynq-picozed-sdr2.dtsi"
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+
+&adm1166 {
+	reg = <0x6A>;
+};
 
 &axi_i2c0 {
 	ad7291-ccbox@2f {
@@ -172,7 +176,7 @@
 		axi_i2s_0: axi-i2s@0x77600000 {
 			compatible = "adi,axi-i2s-1.00.a";
 			reg = <0x77600000 0x1000>;
-			dmas = <&dmac_s 1 &dmac_s 2>;
+			dmas = <&dmac_s 0 &dmac_s 1>;
 			dma-names = "tx", "rx";
 			clocks = <&clkc 15>, <&audio_clock>;
 			clock-names = "axi", "ref";
@@ -182,7 +186,7 @@
 
 		pzsdr_sound {
 			compatible = "simple-audio-card";
-			simple-audio-card,name = "PicoZed SDR1 ADAU1761";
+			simple-audio-card,name = "PicoZed SDR2 ADAU1761";
 			simple-audio-card,widgets =
 				"Microphone", "Mic In",
 				"Headphone", "Headphone Out",
