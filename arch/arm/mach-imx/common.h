@@ -214,6 +214,12 @@ static inline void imx7ulp_suspend(void __iomem *ocram_vbase) {}
 void pm_vlls_notify_m4(bool enter) {}
 #endif
 
+#ifdef CONFIG_SOC_IMX7ULP
+void pm_shutdown_notify_m4(void);
+#else
+static inline void pm_shutdown_notify_m4(void) {}
+#endif
+
 void imx6_pm_ccm_init(const char *ccm_compat);
 void imx6q_pm_init(void);
 void imx6dl_pm_init(void);

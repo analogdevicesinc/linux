@@ -41,6 +41,7 @@ enum pm_rpmsg_power_mode {
 	PM_RPMSG_WAIT,
 	PM_RPMSG_VLPS,
 	PM_RPMSG_VLLS,
+	PM_RPMSG_SHUTDOWN,
 };
 
 struct pm_rpmsg_info {
@@ -93,6 +94,21 @@ void pm_vlls_notify_m4(bool enter)
 	msg.data = enter ? PM_RPMSG_VLLS : PM_RPMSG_RUN;
 
 	pm_send_message(&msg, &pm_rpmsg);
+}
+
+void pm_shutdown_notify_m4(void)
+{
+	struct pm_rpmsg_data msg;
+
+	msg.header.cate = IMX_RMPSG_LIFECYCLE;
+	msg.header.major = IMX_RMPSG_MAJOR;
+	msg.header.minor = IMX_RMPSG_MINOR;
+	msg.header.type = PM_RPMSG_TYPE;
+	msg.header.cmd = PM_RPMSG_MODE;
+	msg.data = PM_RPMSG_SHUTDOWN;
+
+	pm_send_message(&msg, &pm_rpmsg);
+
 }
 
 static void pm_heart_beat_work_handler(struct work_struct *work)
