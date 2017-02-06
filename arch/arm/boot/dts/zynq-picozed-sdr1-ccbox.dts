@@ -154,6 +154,11 @@
 	};
 };
 
+&usb0 {
+	status = "okay";
+	dr_mode = "otg";
+};
+
 &uart0 {
 	status = "okay";
 };
