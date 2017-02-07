@@ -86,6 +86,12 @@ config FB_MXC_DCIC
 	depends on MXC_IPU_V3 || FB_MXS
 	select VIDEOMODE_HELPERS
 
+config FB_MXC_ADV7535
+	tristate "ADI ADV7535 support"
+	depends on I2C
+	help
+	  Driver support for the ADV7535 DSI-to-HDMI module
+
 config HANNSTAR_CABC
 	tristate "Hannstar CABC function"
 	help
