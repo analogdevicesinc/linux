@@ -96,6 +96,8 @@ struct mxc_edid_cfg {
 	u8 speaker_alloc;
 };
 
+extern const struct fb_videomode mxc_cea_mode[64];
+
 int mxc_edid_var_to_vic(struct fb_var_screeninfo *var);
 int mxc_edid_mode_to_vic(const struct fb_videomode *mode);
 int mxc_edid_read(struct i2c_adapter *adp, unsigned short addr,
