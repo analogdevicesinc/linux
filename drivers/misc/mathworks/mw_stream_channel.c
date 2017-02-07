@@ -368,6 +368,8 @@ static long mwadma_rx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
                 return -ENOMEM;
             }
             ret = mw_axidma_setupchannel(mwdev, mwchan, &usrbuf);
+            if (!ret)
+            	mwadma_stop(mwdev, mwchan);
             break;
         case MWADMA_RX_SINGLE:
             if(copy_from_user(&userval, (unsigned long *)arg, sizeof(userval)))
@@ -434,7 +436,7 @@ static long mwadma_rx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
             mwchan->transfer_count = 0;
             mwchan->error = 0;
             spin_unlock_bh(&mwchan->slock);
-
+            mwadma_stop(mwdev,mwchan);
             mwadma_start(mwdev,mwchan);
             dma_async_issue_pending(mwchan->chan);
             spin_lock_bh(&mwchan->slock);/*!!!LOCK!!!*/
@@ -488,7 +490,7 @@ static long mwadma_rx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
         default:
             return 1;
     }
-    return 0;
+    return ret;
 }
 
 
@@ -516,6 +518,8 @@ static long mwadma_tx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
                 return -ENOMEM;
             }
             ret = mw_axidma_setupchannel(mwdev, mwchan, &usrbuf);
+            if (!ret)
+            	mwadma_stop(mwdev, mwchan);
             break;
 
         case MWADMA_TX_ENQUEUE:
@@ -654,7 +658,7 @@ static long mwadma_tx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
         default:
             return 1;
     }
-    return 0;
+    return ret;
 }
 
 /*
