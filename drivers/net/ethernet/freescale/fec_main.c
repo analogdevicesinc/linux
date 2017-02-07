@@ -2112,6 +2112,8 @@ static int fec_enet_mii_init(struct platform_device *pdev)
 	if (node) {
 		err = of_mdiobus_register(fep->mii_bus, node);
 		of_node_put(node);
+	} else if (fep->phy_node) {
+		err = -EPROBE_DEFER;
 	} else {
 		err = mdiobus_register(fep->mii_bus);
 	}
@@ -3671,8 +3673,10 @@ fec_probe(struct platform_device *pdev)
 
 	init_completion(&fep->mdio_done);
 	ret = fec_enet_mii_init(pdev);
-	if (ret)
+	if (ret) {
+		dev_id = 0;
 		goto failed_mii_init;
+	}
 
 	/* Carrier starts down, phylib will bring it up */
 	netif_carrier_off(ndev);
