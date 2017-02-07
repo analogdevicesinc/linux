@@ -54,3 +54,10 @@
 	pm-ignore-notify;
 	wifi-host; /* add hook for SD card detect mechanism for BCMDHD driver */
 };
+
+&gpio_spi {
+	/* Murata: modify default setting so that BT_nPWD/BT_REG_ON
+	 * is low (0V) during kernel boot.
+	 */
+	registers-default = /bits/ 8 <0x47>;
+};
