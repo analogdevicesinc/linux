@@ -1209,6 +1209,8 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	ret |= ad9467_spi_write(spi, 0x550, 0x04);	// test pattern
 	ret |= ad9467_spi_write(spi, 0x561, 0x00);	// offset binary
 
+	ret |= ad9467_spi_write(spi, 0x120, 0x0a);	// SYSREF continuous
+
 	if (tmp == 0) {
 		for (; tmp < ARRAY_SIZE(sfdr_optim_regs); tmp++)
 			ret |= ad9467_spi_write(spi, sfdr_optim_regs[tmp],
