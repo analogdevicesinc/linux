@@ -208,7 +208,7 @@
 			assigned-clock-rates = <48000000>;
 		};
 
-		lpi2c5: lpi2c4@402C0000 {
+		lpi2c5: lpi2c5@402C0000 {
 			compatible = "fsl,imx7ulp-lpi2c";
 			reg = <0x402C0000 0x10000>;
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
