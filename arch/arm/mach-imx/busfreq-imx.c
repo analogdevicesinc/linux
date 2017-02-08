@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011-2016 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -172,10 +173,8 @@ static void imx6ull_lower_cpu_rate(bool enter)
 
 	if (enter) {
 		org_arm_rate = clk_get_rate(arm_clk);
-		if (cpu_is_imx6sll()) {
-			origin_arm_volt = regulator_get_voltage(arm_reg);
-			origin_soc_volt = regulator_get_voltage(soc_reg);
-		}
+		origin_arm_volt = regulator_get_voltage(arm_reg);
+		origin_soc_volt = regulator_get_voltage(soc_reg);
 	}
 
 	clk_set_parent(pll1_bypass_clk, pll1_bypass_src_clk);
@@ -195,7 +194,7 @@ static void imx6ull_lower_cpu_rate(bool enter)
 				pr_err("set soc reg voltage failed\n");
 		}
 	} else {
-		if (cpu_is_imx6sll() && uart_from_osc) {
+		if (uart_from_osc) {
 			ret = regulator_set_voltage_tol(soc_reg, origin_soc_volt, 0);
 			if (ret)
 				pr_err("set soc reg voltage failed\n");
