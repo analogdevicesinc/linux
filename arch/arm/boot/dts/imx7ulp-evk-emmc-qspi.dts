@@ -1,0 +1,18 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx7ulp-evk-qspi.dts"
+
+&usdhc0 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_usdhc0_8bit>;
+	pinctrl-1 = <&pinctrl_usdhc0_8bit>;
+	non-removable;
+	bus-width = <8>;
+	status = "okay";
+};
