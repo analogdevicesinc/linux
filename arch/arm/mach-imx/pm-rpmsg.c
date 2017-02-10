@@ -61,7 +61,7 @@ struct pm_rpmsg_data {
 } __attribute__ ((packed));
 
 static int pm_send_message(struct pm_rpmsg_data *msg,
-			struct pm_rpmsg_info *info)
+			struct pm_rpmsg_info *info, bool susp)
 {
 	int err;
 
@@ -70,14 +70,15 @@ static int pm_send_message(struct pm_rpmsg_data *msg,
 			"rpmsg channel not ready, m4 image ready?\n");
 		return -EINVAL;
 	}
-
-	pm_qos_add_request(&info->pm_qos_req,
-		PM_QOS_CPU_DMA_LATENCY, 0);
+	if (!susp)
+		pm_qos_add_request(&info->pm_qos_req,
+			PM_QOS_CPU_DMA_LATENCY, 0);
 
 	err = rpmsg_send(info->rpdev->ept, (void *)msg,
 			    sizeof(struct pm_rpmsg_data));
 
-	pm_qos_remove_request(&info->pm_qos_req);
+	if (!susp)
+		pm_qos_remove_request(&info->pm_qos_req);
 
 	return err;
 }
@@ -93,7 +94,7 @@ void pm_vlls_notify_m4(bool enter)
 	msg.header.cmd = PM_RPMSG_MODE;
 	msg.data = enter ? PM_RPMSG_VLLS : PM_RPMSG_RUN;
 
-	pm_send_message(&msg, &pm_rpmsg);
+	pm_send_message(&msg, &pm_rpmsg, true);
 }
 
 void pm_shutdown_notify_m4(void)
@@ -107,7 +108,7 @@ void pm_shutdown_notify_m4(void)
 	msg.header.cmd = PM_RPMSG_MODE;
 	msg.data = PM_RPMSG_SHUTDOWN;
 
-	pm_send_message(&msg, &pm_rpmsg);
+	pm_send_message(&msg, &pm_rpmsg, false);
 
 }
 
@@ -122,7 +123,7 @@ static void pm_heart_beat_work_handler(struct work_struct *work)
 	msg.header.cmd = PM_RPMSG_HEART_BEAT;
 	msg.data = 0;
 
-	pm_send_message(&msg, &pm_rpmsg);
+	pm_send_message(&msg, &pm_rpmsg, false);
 
 	schedule_delayed_work(&heart_beat_work,
 		msecs_to_jiffies(30000));
