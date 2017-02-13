@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pm_qos.h>
+#include <linux/reboot.h>
 #include <linux/rpmsg.h>
 #include <linux/uaccess.h>
 #include <linux/virtio.h>
@@ -41,6 +42,7 @@ enum pm_rpmsg_power_mode {
 	PM_RPMSG_WAIT,
 	PM_RPMSG_VLPS,
 	PM_RPMSG_VLLS,
+	PM_RPMSG_REBOOT,
 	PM_RPMSG_SHUTDOWN,
 };
 
@@ -49,6 +51,7 @@ struct pm_rpmsg_info {
 	struct device *dev;
 	struct pm_rpmsg_data *msg;
 	struct pm_qos_request pm_qos_req;
+	struct notifier_block restart_handler;
 };
 
 static struct pm_rpmsg_info pm_rpmsg;
@@ -112,6 +115,21 @@ void pm_shutdown_notify_m4(void)
 
 }
 
+void pm_reboot_notify_m4(void)
+{
+	struct pm_rpmsg_data msg;
+
+	msg.header.cate = IMX_RMPSG_LIFECYCLE;
+	msg.header.major = IMX_RMPSG_MAJOR;
+	msg.header.minor = IMX_RMPSG_MINOR;
+	msg.header.type = PM_RPMSG_TYPE;
+	msg.header.cmd = PM_RPMSG_MODE;
+	msg.data = PM_RPMSG_REBOOT;
+
+	pm_send_message(&msg, &pm_rpmsg, false);
+
+}
+
 static void pm_heart_beat_work_handler(struct work_struct *work)
 {
 	struct pm_rpmsg_data msg;
@@ -129,8 +147,18 @@ static void pm_heart_beat_work_handler(struct work_struct *work)
 		msecs_to_jiffies(30000));
 }
 
+static int pm_restart_handler(struct notifier_block *this, unsigned long mode,
+				void *cmd)
+{
+	pm_reboot_notify_m4();
+
+	return NOTIFY_DONE;
+}
+
 static int pm_rpmsg_probe(struct rpmsg_device *rpdev)
 {
+	int ret;
+
 	pm_rpmsg.rpdev = rpdev;
 
 	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
@@ -143,6 +171,12 @@ static int pm_rpmsg_probe(struct rpmsg_device *rpdev)
 		msecs_to_jiffies(10000));
 
 	pm_vlls_notify_m4(false);
+
+	pm_rpmsg.restart_handler.notifier_call = pm_restart_handler;
+	pm_rpmsg.restart_handler.priority = 128;
+	ret = register_restart_handler(&pm_rpmsg.restart_handler);
+	if (ret)
+		dev_err(&rpdev->dev, "cannot register restart handler\n");
 
 	return 0;
 }

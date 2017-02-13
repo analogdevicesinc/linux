@@ -26,7 +26,6 @@
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
 #include <linux/imx_rpmsg.h>
-#include "common.h"
 
 struct imx_virdev {
 	struct virtio_device vdev;
@@ -396,12 +395,6 @@ static int imx_rpmsg_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void imx_rpmsg_shutdown(struct platform_device *pdev)
-{
-	pm_shutdown_notify_m4();
-	pr_info("shutdown imx rpmsg.\n");
-}
-
 static struct platform_driver imx_rpmsg_driver = {
 	.driver = {
 		   .owner = THIS_MODULE,
@@ -410,7 +403,6 @@ static struct platform_driver imx_rpmsg_driver = {
 		   },
 	.probe = imx_rpmsg_probe,
 	.remove = imx_rpmsg_remove,
-	.shutdown = imx_rpmsg_shutdown,
 };
 
 static int __init imx_rpmsg_init(void)
