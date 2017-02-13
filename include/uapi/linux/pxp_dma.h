@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013-2015 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -227,7 +228,7 @@ struct pxp_proc_data {
 	bool combine_enable;
 
 	/* LUT cleanup */
-	u64 lut_sels;
+	__u64 lut_sels;
 
 	/* the mode pxp's working against */
 	enum pxp_working_mode working_mode;
