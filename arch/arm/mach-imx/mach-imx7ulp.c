@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -42,6 +43,9 @@ static void __init imx7ulp_map_io(void)
 
 static void __init imx7ulp_init_late(void)
 {
+	if (IS_ENABLED(CONFIG_ARM_IMX7ULP_CPUFREQ))
+		platform_device_register_simple("imx7ulp-cpufreq", -1, NULL, 0);
+
 	imx7ulp_cpuidle_init();
 	imx7ulp_enable_nmi();
 }
