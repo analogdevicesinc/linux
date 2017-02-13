@@ -81,6 +81,14 @@ config ARM_IMX6Q_CPUFREQ
 
 	  If in doubt, say N.
 
+config ARM_IMX7ULP_CPUFREQ
+	tristate "NXP i.MX7ULP cpufreq support"
+	depends on ARCH_MXC
+	help
+	  This adds cpufreq driver support for NXP i.MX7ULP series SoCs.
+
+	  If in doubt, say N.
+
 config ARM_KIRKWOOD_CPUFREQ
 	def_bool MACH_KIRKWOOD
 	help
