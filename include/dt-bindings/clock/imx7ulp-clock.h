@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -101,8 +102,11 @@
 #define IMX7ULP_CLK_SIRC		81
 
 #define IMX7ULP_CLK_SCG1_CLKOUT		82
+#define IMX7ULP_CLK_HSRUN_SYS_SEL	83
+#define IMX7ULP_CLK_HSRUN_CORE		84
+#define IMX7ULP_CLK_ARM			85
 
-#define IMX7ULP_CLK_END			83
+#define IMX7ULP_CLK_END			86
 
 /*cm4 clocks*/
 #define IMX7ULP_CM4_CLK_DUMMY		0

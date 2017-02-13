@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -25,6 +26,7 @@ static const char *spll_sels[]		= { "spll", "spll_pfd_sel", };
 static const char *apll_pfd_sels[]	= { "apll_pfd0", "apll_pfd1", "apll_pfd2", "apll_pfd3", };
 static const char *apll_sels[]		= { "apll", "apll_pfd_sel", };
 static const char *sys_sels[]		= { "dummy", "osc", "sirc", "firc", "ckil", "apll_sel", "spll_sel", "upll", };
+static const char *arm_sels[]		= { "core_div", "hsrun_core", };
 static const char *ddr_sels[]		= { "apll_pfd_sel", "upll", };
 static const char *nic_sels[]		= { "firc", "ddr_div", };
 static const char *periph_plat_sels[]	= { "dummy", "nic1_bus", "nic1_div", "ddr_div", "apll_pfd2", "apll_pfd1", "apll_pfd0", "upll", };
@@ -47,7 +49,7 @@ static struct clk_onecell_data clk_data_cm4;
 
 static int const clks_init_on[] __initconst = {
 	IMX7ULP_CLK_BUS_DIV,
-	IMX7ULP_CLK_PLAT_DIV,
+	IMX7ULP_CLK_ARM,
 	IMX7ULP_CLK_NIC0_DIV,
 	IMX7ULP_CLK_NIC1_DIV,
 	IMX7ULP_CLK_NIC1_BUS_DIV,
@@ -104,12 +106,16 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_SPLL_SEL] = imx_clk_mux("spll_sel", base + 0x608, 1, 1, spll_sels, ARRAY_SIZE(spll_sels));
 	clks[IMX7ULP_CLK_APLL_SEL] = imx_clk_mux("apll_sel", base + 0x508, 1, 1, apll_sels, ARRAY_SIZE(apll_sels));
 
-	clks[IMX7ULP_CLK_SYS_SEL] = imx_clk_mux("sys_sel", base + 0x14, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
+	clks[IMX7ULP_CLK_SYS_SEL] = imx_clk_mux_glitchless("sys_sel", base + 0x14, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
+	clks[IMX7ULP_CLK_HSRUN_SYS_SEL] = imx_clk_mux_glitchless("hsrun_sys_sel", base + 0x1c, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
 	clks[IMX7ULP_CLK_DDR_SEL] = imx_clk_mux("ddr_sel", base + 0x30, 24, 1, ddr_sels, ARRAY_SIZE(ddr_sels));
 	clks[IMX7ULP_CLK_NIC_SEL] = imx_clk_mux("nic_sel", base + 0x40, 28, 1, nic_sels, ARRAY_SIZE(nic_sels));
 
-	clks[IMX7ULP_CLK_CORE_DIV] = imx_clk_divider("core_div", "sys_sel", base + 0x14, 16, 4);
+	clks[IMX7ULP_CLK_CORE_DIV] = imx_clk_divider_flags("core_div", "sys_sel", base + 0x14, 16, 4, CLK_SET_RATE_PARENT);
+	clks[IMX7ULP_CLK_HSRUN_CORE] = imx_clk_divider_flags("hsrun_core", "hsrun_sys_sel", base + 0x1c, 16, 4, CLK_SET_RATE_PARENT);
 	clks[IMX7ULP_CLK_PLAT_DIV] = imx_clk_divider("plat_div", "core_div", base + 0x14, 12, 4);
+	/* Fake mux */
+	clks[IMX7ULP_CLK_ARM] = imx_clk_mux_glitchless("arm", base + 0x14, 5, 1, arm_sels, ARRAY_SIZE(arm_sels));
 
 	clks[IMX7ULP_CLK_DDR_DIV] = clk_register_divider(NULL, "ddr_div", "ddr_sel", CLK_SET_RATE_PARENT | CLK_SET_RATE_GATE, base + 0x30, 0, 3, CLK_DIVIDER_ONE_BASED, &imx_ccm_lock);
 	clks[IMX7ULP_CLK_NIC0_DIV] = imx_clk_divider("nic0_div", "nic_sel",  base + 0x40, 24, 4);
