@@ -388,7 +388,7 @@ static void imx7ulp_set_dgo(u32 val)
 
 int imx7ulp_set_lpm(enum imx7ulp_cpu_pwr_mode mode)
 {
-	u32 val1 = BM_PMPROT_AVLP | BM_PMPROT_AVLLS;
+	u32 val1 = BM_PMPROT_AHSRUN | BM_PMPROT_AVLP | BM_PMPROT_AVLLS;
 	u32 val2 = readl_relaxed(smc1_base + PMCTRL);
 	u32 val3 = readl_relaxed(pmc0_base + PMC_CTRL);
 
