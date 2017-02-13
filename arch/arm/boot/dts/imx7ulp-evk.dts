@@ -1,5 +1,6 @@
 /*
  * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -179,6 +180,10 @@
 		model = "rpmsg-audio";
 		cpu-dai = <&rpmsg_i2s>;
 	};
+};
+
+&cpu0 {
+	arm-supply= <&sw1_reg>;
 };
 
 &iomuxc1 {

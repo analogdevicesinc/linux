@@ -37,7 +37,24 @@
 		cpu0: cpu@0 {
 			compatible = "arm,cortex-a7";
 			device_type = "cpu";
+			clock-latency = <61036>; /* two CLK32 periods */
 			reg = <0>;
+
+		operating-points = <
+			/* KHz	uV */
+			531648	1025000
+			416072	925000
+		>;
+		clocks = <&clks IMX7ULP_CLK_ARM>,
+			 <&clks IMX7ULP_CLK_CORE_DIV>,
+			 <&clks IMX7ULP_CLK_SYS_SEL>,
+			 <&clks IMX7ULP_CLK_HSRUN_SYS_SEL>,
+			 <&clks IMX7ULP_CLK_HSRUN_CORE>,
+			 <&clks IMX7ULP_CLK_SPLL_PFD0>,
+			 <&clks IMX7ULP_CLK_SPLL_SEL>,
+			 <&clks IMX7ULP_CLK_FIRC>;
+		clock-names = "arm", "core_div", "sys_sel", "hsrun_sys_sel",
+			      "hsrun_core", "spll_pfd0", "spll_sel", "firc";
 		};
 	};
 
