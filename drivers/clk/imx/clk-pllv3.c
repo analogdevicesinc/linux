@@ -11,7 +11,6 @@
  */
 
 #include <linux/clk-provider.h>
-#include <linux/delay.h>
 #include <linux/imx_sema4.h>
 #include <linux/io.h>
 #include <linux/slab.h>
@@ -76,7 +75,6 @@ static int clk_pllv3_wait_lock(struct clk_pllv3 *pll)
 			break;
 		if (time_after(jiffies, timeout))
 			break;
-		usleep_range(50, 500);
 	} while (1);
 
 	return readl_relaxed(pll->base) & BM_PLL_LOCK ? 0 : -ETIMEDOUT;
