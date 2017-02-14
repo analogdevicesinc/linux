@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 
-obj-y += \
+obj-$(CONFIG_ARM)   += \
 	clk.o \
 	clk-busy.o \
 	clk-cpu.o \
@@ -34,3 +34,7 @@ obj-$(CONFIG_SOC_IMX6UL) += clk-imx6ul.o
 obj-$(CONFIG_SOC_IMX7D)  += clk-imx7d.o
 obj-$(CONFIG_SOC_IMX7ULP)  += clk-imx7ulp.o
 obj-$(CONFIG_SOC_VF610)  += clk-vf610.o
+#
+# IMX Clock specific Makefile
+#
+obj-$(CONFIG_ARCH_FSL_IMX8QM)	+= clk-imx8qm.o clk-imx8.o clk-divider-scu.o clk-gate-scu.o clk-mux-scu.o
