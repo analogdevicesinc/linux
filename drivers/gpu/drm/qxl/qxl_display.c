@@ -211,6 +211,7 @@ static void qxl_crtc_destroy(struct drm_crtc *crtc)
 	struct qxl_crtc *qxl_crtc = to_qxl_crtc(crtc);
 
 	drm_crtc_cleanup(crtc);
+	qxl_bo_unref(&qxl_crtc->cursor_bo);
 	kfree(qxl_crtc);
 }
 
@@ -221,7 +222,6 @@ static int qxl_crtc_page_flip(struct drm_crtc *crtc,
 {
 	struct drm_device *dev = crtc->dev;
 	struct qxl_device *qdev = dev->dev_private;
-	struct qxl_crtc *qcrtc = to_qxl_crtc(crtc);
 	struct qxl_framebuffer *qfb_src = to_qxl_framebuffer(fb);
 	struct qxl_framebuffer *qfb_old = to_qxl_framebuffer(crtc->primary->fb);
 	struct qxl_bo *bo_old = gem_to_qxl_bo(qfb_old->obj);
@@ -252,14 +252,14 @@ static int qxl_crtc_page_flip(struct drm_crtc *crtc,
 	qxl_draw_dirty_fb(qdev, qfb_src, bo, 0, 0,
 			  &norect, one_clip_rect, inc);
 
-	drm_vblank_get(dev, qcrtc->index);
+	drm_crtc_vblank_get(crtc);
 
 	if (event) {
 		spin_lock_irqsave(&dev->event_lock, flags);
-		drm_send_vblank_event(dev, qcrtc->index, event);
+		drm_crtc_send_vblank_event(crtc, event);
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 	}
-	drm_vblank_put(dev, qcrtc->index);
+	drm_crtc_vblank_put(crtc);
 
 	ret = qxl_bo_reserve(bo, false);
 	if (!ret) {
@@ -297,6 +297,52 @@ qxl_hide_cursor(struct qxl_device *qdev)
 	return 0;
 }
 
+static int qxl_crtc_apply_cursor(struct drm_crtc *crtc)
+{
+	struct qxl_crtc *qcrtc = to_qxl_crtc(crtc);
+	struct drm_device *dev = crtc->dev;
+	struct qxl_device *qdev = dev->dev_private;
+	struct qxl_cursor_cmd *cmd;
+	struct qxl_release *release;
+	int ret = 0;
+
+	if (!qcrtc->cursor_bo)
+		return 0;
+
+	ret = qxl_alloc_release_reserved(qdev, sizeof(*cmd),
+					 QXL_RELEASE_CURSOR_CMD,
+					 &release, NULL);
+	if (ret)
+		return ret;
+
+	ret = qxl_release_list_add(release, qcrtc->cursor_bo);
+	if (ret)
+		goto out_free_release;
+
+	ret = qxl_release_reserve_list(release, false);
+	if (ret)
+		goto out_free_release;
+
+	cmd = (struct qxl_cursor_cmd *)qxl_release_map(qdev, release);
+	cmd->type = QXL_CURSOR_SET;
+	cmd->u.set.position.x = qcrtc->cur_x + qcrtc->hot_spot_x;
+	cmd->u.set.position.y = qcrtc->cur_y + qcrtc->hot_spot_y;
+
+	cmd->u.set.shape = qxl_bo_physical_address(qdev, qcrtc->cursor_bo, 0);
+
+	cmd->u.set.visible = 1;
+	qxl_release_unmap(qdev, release, &cmd->release_info);
+
+	qxl_push_cursor_ring_release(qdev, release, QXL_CMD_CURSOR, false);
+	qxl_release_fence_buffer_objects(release);
+
+	return ret;
+
+out_free_release:
+	qxl_release_free(qdev, release);
+	return ret;
+}
+
 static int qxl_crtc_cursor_set2(struct drm_crtc *crtc,
 				struct drm_file *file_priv,
 				uint32_t handle,
@@ -318,7 +364,7 @@ static int qxl_crtc_cursor_set2(struct drm_crtc *crtc,
 	if (!handle)
 		return qxl_hide_cursor(qdev);
 
-	obj = drm_gem_object_lookup(crtc->dev, file_priv, handle);
+	obj = drm_gem_object_lookup(file_priv, handle);
 	if (!obj) {
 		DRM_ERROR("cannot find cursor object\n");
 		return -ENOENT;
@@ -401,7 +447,8 @@ static int qxl_crtc_cursor_set2(struct drm_crtc *crtc,
 	}
 	drm_gem_object_unreference_unlocked(obj);
 
-	qxl_bo_unref(&cursor_bo);
+	qxl_bo_unref (&qcrtc->cursor_bo);
+	qcrtc->cursor_bo = cursor_bo;
 
 	return ret;
 
@@ -465,12 +512,11 @@ static const struct drm_crtc_funcs qxl_crtc_funcs = {
 	.page_flip = qxl_crtc_page_flip,
 };
 
-static void qxl_user_framebuffer_destroy(struct drm_framebuffer *fb)
+void qxl_user_framebuffer_destroy(struct drm_framebuffer *fb)
 {
 	struct qxl_framebuffer *qxl_fb = to_qxl_framebuffer(fb);
 
-	if (qxl_fb->obj)
-		drm_gem_object_unreference_unlocked(qxl_fb->obj);
+	drm_gem_object_unreference_unlocked(qxl_fb->obj);
 	drm_framebuffer_cleanup(fb);
 	kfree(qxl_fb);
 }
@@ -527,12 +573,13 @@ int
 qxl_framebuffer_init(struct drm_device *dev,
 		     struct qxl_framebuffer *qfb,
 		     const struct drm_mode_fb_cmd2 *mode_cmd,
-		     struct drm_gem_object *obj)
+		     struct drm_gem_object *obj,
+		     const struct drm_framebuffer_funcs *funcs)
 {
 	int ret;
 
 	qfb->obj = obj;
-	ret = drm_framebuffer_init(dev, &qfb->base, &qxl_fb_funcs);
+	ret = drm_framebuffer_init(dev, &qfb->base, funcs);
 	if (ret) {
 		qfb->obj = NULL;
 		return ret;
@@ -656,6 +703,12 @@ static int qxl_crtc_mode_set(struct drm_crtc *crtc,
 			   bo->surf.stride, bo->surf.format);
 		qxl_io_create_primary(qdev, 0, bo);
 		bo->is_primary = true;
+
+		ret = qxl_crtc_apply_cursor(crtc);
+		if (ret) {
+			DRM_ERROR("could not set cursor after modeset");
+			ret = 0;
+		}
 	}
 
 	if (bo->is_primary) {
@@ -729,7 +782,6 @@ static int qdev_crtc_init(struct drm_device *dev, int crtc_id)
 
 	drm_crtc_init(dev, &qxl_crtc->base, &qxl_crtc_funcs);
 	qxl_crtc->index = crtc_id;
-	drm_mode_crtc_set_gamma_size(&qxl_crtc->base, 256);
 	drm_crtc_helper_add(&qxl_crtc->base, &qxl_crtc_helper_funcs);
 	return 0;
 }
@@ -993,13 +1045,15 @@ qxl_user_framebuffer_create(struct drm_device *dev,
 	struct qxl_framebuffer *qxl_fb;
 	int ret;
 
-	obj = drm_gem_object_lookup(dev, file_priv, mode_cmd->handles[0]);
+	obj = drm_gem_object_lookup(file_priv, mode_cmd->handles[0]);
+	if (!obj)
+		return NULL;
 
 	qxl_fb = kzalloc(sizeof(*qxl_fb), GFP_KERNEL);
 	if (qxl_fb == NULL)
 		return NULL;
 
-	ret = qxl_framebuffer_init(dev, qxl_fb, mode_cmd, obj);
+	ret = qxl_framebuffer_init(dev, qxl_fb, mode_cmd, obj, &qxl_fb_funcs);
 	if (ret) {
 		kfree(qxl_fb);
 		drm_gem_object_unreference_unlocked(obj);

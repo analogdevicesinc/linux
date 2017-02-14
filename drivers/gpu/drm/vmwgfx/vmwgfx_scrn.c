@@ -285,14 +285,17 @@ static int vmw_sou_crtc_set_config(struct drm_mode_set *set)
 	}
 
 	/* Only one active implicit frame-buffer at a time. */
+	mutex_lock(&dev_priv->global_kms_state_mutex);
 	if (sou->base.is_implicit &&
 	    dev_priv->implicit_fb && vfb &&
 	    !(dev_priv->num_implicit == 1 &&
 	      sou->base.active_implicit) &&
 	    dev_priv->implicit_fb != vfb) {
+		mutex_unlock(&dev_priv->global_kms_state_mutex);
 		DRM_ERROR("Multiple implicit framebuffers not supported.\n");
 		return -EINVAL;
 	}
+	mutex_unlock(&dev_priv->global_kms_state_mutex);
 
 	/* since they always map one to one these are safe */
 	connector = &sou->base.connector;
@@ -535,9 +538,6 @@ static int vmw_sou_init(struct vmw_private *dev_priv, unsigned unit)
 	drm_mode_crtc_set_gamma_size(crtc, 256);
 
 	drm_object_attach_property(&connector->base,
-				   dev->mode_config.dirty_info_property,
-				   1);
-	drm_object_attach_property(&connector->base,
 				   dev_priv->hotplug_mode_update_property, 1);
 	drm_object_attach_property(&connector->base,
 				   dev->mode_config.suggested_x_property, 0);
@@ -571,10 +571,6 @@ int vmw_kms_sou_init_display(struct vmw_private *dev_priv)
 	if (unlikely(ret != 0))
 		return ret;
 
-	ret = drm_mode_create_dirty_info_property(dev);
-	if (unlikely(ret != 0))
-		goto err_vblank_cleanup;
-
 	vmw_kms_create_implicit_placement_property(dev_priv, false);
 
 	for (i = 0; i < VMWGFX_NUM_DISPLAY_UNITS; ++i)
@@ -585,10 +581,6 @@ int vmw_kms_sou_init_display(struct vmw_private *dev_priv)
 	DRM_INFO("Screen Objects Display Unit initialized\n");
 
 	return 0;
-
-err_vblank_cleanup:
-	drm_vblank_cleanup(dev);
-	return ret;
 }
 
 int vmw_kms_sou_close_display(struct vmw_private *dev_priv)

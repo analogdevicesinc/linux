@@ -39,7 +39,14 @@
 
 #include <kvm/arm_vgic.h>
 
+
+#ifdef CONFIG_ARM_GIC_V3
+#define KVM_MAX_VCPUS VGIC_V3_MAX_CPUS
+#else
 #define KVM_MAX_VCPUS VGIC_V2_MAX_CPUS
+#endif
+
+#define KVM_REQ_VCPU_EXIT	8
 
 u32 *kvm_vcpu_reg(struct kvm_vcpu *vcpu, u8 reg_num, u32 mode);
 int __attribute_const__ kvm_target_cpu(void);
@@ -49,6 +56,9 @@ void kvm_reset_coprocs(struct kvm_vcpu *vcpu);
 struct kvm_arch {
 	/* VTTBR value associated with below pgd and vmid */
 	u64    vttbr;
+
+	/* The last vcpu id that ran on each physical CPU */
+	int __percpu *last_vcpu_ran;
 
 	/* Timer */
 	struct arch_timer_kvm	timer;
@@ -181,14 +191,15 @@ struct kvm_vcpu_arch {
 };
 
 struct kvm_vm_stat {
-	u32 remote_tlb_flush;
+	ulong remote_tlb_flush;
 };
 
 struct kvm_vcpu_stat {
-	u32 halt_successful_poll;
-	u32 halt_attempted_poll;
-	u32 halt_wakeup;
-	u32 hvc_exit_stat;
+	u64 halt_successful_poll;
+	u64 halt_attempted_poll;
+	u64 halt_poll_invalid;
+	u64 halt_wakeup;
+	u64 hvc_exit_stat;
 	u64 wfe_exit_stat;
 	u64 wfi_exit_stat;
 	u64 mmio_exit_user;
@@ -225,6 +236,10 @@ static inline void kvm_arch_mmu_notifier_invalidate_page(struct kvm *kvm,
 
 struct kvm_vcpu *kvm_arm_get_running_vcpu(void);
 struct kvm_vcpu __percpu **kvm_get_running_vcpus(void);
+void kvm_arm_halt_guest(struct kvm *kvm);
+void kvm_arm_resume_guest(struct kvm *kvm);
+void kvm_arm_halt_vcpu(struct kvm_vcpu *vcpu);
+void kvm_arm_resume_vcpu(struct kvm_vcpu *vcpu);
 
 int kvm_arm_copy_coproc_indices(struct kvm_vcpu *vcpu, u64 __user *uindices);
 unsigned long kvm_arm_num_coproc_regs(struct kvm_vcpu *vcpu);
@@ -234,8 +249,7 @@ int kvm_arm_coproc_set_reg(struct kvm_vcpu *vcpu, const struct kvm_one_reg *);
 int handle_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		int exception_index);
 
-static inline void __cpu_init_hyp_mode(phys_addr_t boot_pgd_ptr,
-				       phys_addr_t pgd_ptr,
+static inline void __cpu_init_hyp_mode(phys_addr_t pgd_ptr,
 				       unsigned long hyp_stack_ptr,
 				       unsigned long vector_ptr)
 {
@@ -244,18 +258,13 @@ static inline void __cpu_init_hyp_mode(phys_addr_t boot_pgd_ptr,
 	 * code. The init code doesn't need to preserve these
 	 * registers as r0-r3 are already callee saved according to
 	 * the AAPCS.
-	 * Note that we slightly misuse the prototype by casing the
+	 * Note that we slightly misuse the prototype by casting the
 	 * stack pointer to a void *.
-	 *
-	 * We don't have enough registers to perform the full init in
-	 * one go.  Install the boot PGD first, and then install the
-	 * runtime PGD, stack pointer and vectors. The PGDs are always
-	 * passed as the third argument, in order to be passed into
-	 * r2-r3 to the init code (yes, this is compliant with the
-	 * PCS!).
-	 */
 
-	kvm_call_hyp(NULL, 0, boot_pgd_ptr);
+	 * The PGDs are always passed as the third argument, in order
+	 * to be passed into r2-r3 to the init code (yes, this is
+	 * compliant with the PCS!).
+	 */
 
 	kvm_call_hyp((void*)hyp_stack_ptr, vector_ptr, pgd_ptr);
 }
@@ -265,7 +274,13 @@ static inline void __cpu_init_stage2(void)
 	kvm_call_hyp(__init_stage2_translation);
 }
 
-static inline int kvm_arch_dev_ioctl_check_extension(long ext)
+static inline void __cpu_reset_hyp_mode(unsigned long vector_ptr,
+					phys_addr_t phys_idmap_start)
+{
+	kvm_call_hyp((void *)virt_to_idmap(__kvm_hyp_reset), vector_ptr);
+}
+
+static inline int kvm_arch_dev_ioctl_check_extension(struct kvm *kvm, long ext)
 {
 	return 0;
 }
@@ -277,11 +292,11 @@ void kvm_mmu_wp_memory_region(struct kvm *kvm, int slot);
 
 struct kvm_vcpu *kvm_mpidr_to_vcpu(struct kvm *kvm, unsigned long mpidr);
 
-static inline void kvm_arch_hardware_disable(void) {}
 static inline void kvm_arch_hardware_unsetup(void) {}
 static inline void kvm_arch_sync_events(struct kvm *kvm) {}
 static inline void kvm_arch_vcpu_uninit(struct kvm_vcpu *vcpu) {}
 static inline void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu) {}
+static inline void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu) {}
 
 static inline void kvm_arm_init_debug(void) {}
 static inline void kvm_arm_setup_debug(struct kvm_vcpu *vcpu) {}

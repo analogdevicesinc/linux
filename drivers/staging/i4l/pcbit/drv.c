@@ -284,7 +284,7 @@ static int pcbit_command(isdn_ctrl *ctl)
 	default:
 		printk(KERN_DEBUG "pcbit_command: unknown command\n");
 		break;
-	};
+	}
 
 	return 0;
 }
@@ -359,11 +359,9 @@ static int pcbit_xmit(int driver, int chnum, int ack, struct sk_buff *skb)
 		 */
 #ifdef BLOCK_TIMER
 		if (chan->block_timer.function == NULL) {
-			init_timer(&chan->block_timer);
-			chan->block_timer.function =  &pcbit_block_timer;
-			chan->block_timer.data = (long) chan;
-			chan->block_timer.expires = jiffies + 1 * HZ;
-			add_timer(&chan->block_timer);
+			setup_timer(&chan->block_timer, &pcbit_block_timer,
+				    (long)chan);
+			mod_timer(&chan->block_timer, jiffies + 1 * HZ);
 		}
 #endif
 		return 0;
@@ -699,8 +697,8 @@ void pcbit_l3_receive(struct pcbit_dev *dev, ulong msg,
  */
 
 static char statbuf[STATBUF_LEN];
-static int stat_st = 0;
-static int stat_end = 0;
+static int stat_st;
+static int stat_end;
 
 static int pcbit_stat(u_char __user *buf, int len, int driver, int channel)
 {
@@ -804,11 +802,7 @@ static int set_protocol_running(struct pcbit_dev *dev)
 {
 	isdn_ctrl ctl;
 
-	init_timer(&dev->set_running_timer);
-
-	dev->set_running_timer.function = &set_running_timeout;
-	dev->set_running_timer.data = (ulong) dev;
-	dev->set_running_timer.expires = jiffies + SET_RUN_TIMEOUT;
+	setup_timer(&dev->set_running_timer, &set_running_timeout, (ulong)dev);
 
 	/* kick it */
 
@@ -817,7 +811,7 @@ static int set_protocol_running(struct pcbit_dev *dev)
 	writeb((0x80U | ((dev->rcv_seq & 0x07) << 3) | (dev->send_seq & 0x07)),
 	       dev->sh_mem + BANK4);
 
-	add_timer(&dev->set_running_timer);
+	mod_timer(&dev->set_running_timer, jiffies + SET_RUN_TIMEOUT);
 
 	wait_event(dev->set_running_wq, dev->l2_state == L2_RUNNING ||
 					dev->l2_state == L2_DOWN);
@@ -968,7 +962,7 @@ static int pcbit_ioctl(isdn_ctrl *ctl)
 	default:
 		printk("error: unknown ioctl\n");
 		break;
-	};
+	}
 	return 0;
 }
 

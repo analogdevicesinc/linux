@@ -65,11 +65,14 @@
 	};
 };
 
-&ldb {
+&clks {
 	assigned-clocks = <&clks IMX6QDL_CLK_LDB_DI0_SEL>,
 			  <&clks IMX6QDL_CLK_LDB_DI1_SEL>;
 	assigned-clock-parents = <&clks IMX6QDL_CLK_PLL3_USB_OTG>,
 				 <&clks IMX6QDL_CLK_PLL3_USB_OTG>;
+};
+
+&ldb {
 	status = "okay";
 
 	lvds0: lvds-channel@0 {
@@ -84,5 +87,21 @@
 				remote-endpoint = <&panel_in_lvds0>;
 			};
 		};
+	};
+};
+
+&pca9539 {
+	P04 {
+		gpio-hog;
+		gpios = <4 0>;
+		output-low;
+		line-name = "PCA9539-P04";
+	};
+
+	P05 {
+		gpio-hog;
+		gpios = <5 0>;
+		output-low;
+		line-name = "PCA9539-P05";
 	};
 };

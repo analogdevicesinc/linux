@@ -284,12 +284,14 @@ config FB_PM2_FIFO_DISCONNECT
 config FB_ARMCLCD
 	tristate "ARM PrimeCell PL110 support"
 	depends on ARM || ARM64 || COMPILE_TEST
-	depends on FB && ARM_AMBA
+	depends on FB && ARM_AMBA && HAS_IOMEM
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
 	select FB_MODE_HELPERS if OF
 	select VIDEOMODE_HELPERS if OF
+	select BACKLIGHT_LCD_SUPPORT if OF
+	select BACKLIGHT_CLASS_DEVICE if OF
 	help
 	  This framebuffer device driver is for the ARM PrimeCell PL110
 	  Colour LCD controller.  ARM PrimeCells provide the building
@@ -305,6 +307,8 @@ config PLAT_VERSATILE_CLCD
 	def_bool ARCH_VERSATILE || ARCH_REALVIEW || ARCH_VEXPRESS || ARCH_INTEGRATOR
 	depends on ARM
 	depends on FB_ARMCLCD && FB=y
+	select REGMAP
+	select MFD_SYSCON
 
 config FB_ACORN
 	bool "Acorn VIDC support"
@@ -761,7 +765,7 @@ config FB_VESA
 
 config FB_EFI
 	bool "EFI-based Framebuffer Support"
-	depends on (FB = y) && X86 && EFI
+	depends on (FB = y) && !IA64 && EFI
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
@@ -1993,7 +1997,6 @@ config FB_SH_MOBILE_LCDC
 	select FB_SYS_FOPS
 	select FB_DEFERRED_IO
 	select FB_BACKLIGHT
-	select SH_MIPI_DSI if SH_LCD_MIPI_DSI
 	---help---
 	  Frame buffer driver for the on-chip SH-Mobile LCD controller.
 
@@ -2184,7 +2187,7 @@ config FB_GOLDFISH
 
 config FB_COBALT
 	tristate "Cobalt server LCD frame buffer support"
-	depends on FB && (MIPS_COBALT || MIPS_SEAD3)
+	depends on FB && MIPS_COBALT
 
 config FB_SH7760
 	bool "SH7760/SH7763/SH7720/SH7721 LCDC support"
@@ -2444,7 +2447,6 @@ config FB_SIMPLE
 
 source "drivers/video/fbdev/omap/Kconfig"
 source "drivers/video/fbdev/omap2/Kconfig"
-source "drivers/video/fbdev/exynos/Kconfig"
 source "drivers/video/fbdev/mmp/Kconfig"
 
 config FB_SH_MOBILE_MERAM

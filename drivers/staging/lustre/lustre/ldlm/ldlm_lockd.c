@@ -15,11 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * version 2 along with this program; If not, see
- * http://www.sun.com/software/products/lustre/docs/GPLv2.pdf
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * http://www.gnu.org/licenses/gpl-2.0.html
  *
  * GPL HEADER END
  */
@@ -124,10 +120,10 @@ void ldlm_handle_bl_callback(struct ldlm_namespace *ns,
 	LDLM_DEBUG(lock, "client blocking AST callback handler");
 
 	lock_res_and_lock(lock);
-	lock->l_flags |= LDLM_FL_CBPENDING;
+	ldlm_set_cbpending(lock);
 
-	if (lock->l_flags & LDLM_FL_CANCEL_ON_BLOCK)
-		lock->l_flags |= LDLM_FL_CANCEL;
+	if (ldlm_is_cancel_on_block(lock))
+		ldlm_set_cancel(lock);
 
 	do_ast = !lock->l_readers && !lock->l_writers;
 	unlock_res_and_lock(lock);
@@ -172,7 +168,7 @@ static void ldlm_handle_cp_callback(struct ptlrpc_request *req,
 			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout(to);
 			if (lock->l_granted_mode == lock->l_req_mode ||
-			    lock->l_flags & LDLM_FL_DESTROYED)
+			    ldlm_is_destroyed(lock))
 				break;
 		}
 	}
@@ -215,7 +211,7 @@ static void ldlm_handle_cp_callback(struct ptlrpc_request *req,
 	}
 
 	lock_res_and_lock(lock);
-	if ((lock->l_flags & LDLM_FL_DESTROYED) ||
+	if (ldlm_is_destroyed(lock) ||
 	    lock->l_granted_mode == lock->l_req_mode) {
 		/* bug 11300: the lock has already been granted */
 		unlock_res_and_lock(lock);
@@ -291,7 +287,7 @@ static void ldlm_handle_cp_callback(struct ptlrpc_request *req,
 out:
 	if (rc < 0) {
 		lock_res_and_lock(lock);
-		lock->l_flags |= LDLM_FL_FAILED;
+		ldlm_set_failed(lock);
 		unlock_res_and_lock(lock);
 		wake_up(&lock->l_waitq);
 	}
@@ -360,8 +356,7 @@ static int __ldlm_bl_to_thread(struct ldlm_bl_work_item *blwi,
 	struct ldlm_bl_pool *blp = ldlm_state->ldlm_bl_pool;
 
 	spin_lock(&blp->blp_lock);
-	if (blwi->blwi_lock &&
-	    blwi->blwi_lock->l_flags & LDLM_FL_DISCARD_DATA) {
+	if (blwi->blwi_lock && ldlm_is_discard_data(blwi->blwi_lock)) {
 		/* add LDLM_FL_DISCARD_DATA requests to the priority list */
 		list_add_tail(&blwi->blwi_entry, &blp->blp_prio_list);
 	} else {
@@ -504,7 +499,7 @@ static int ldlm_handle_setinfo(struct ptlrpc_request *req)
 
 static inline void ldlm_callback_errmsg(struct ptlrpc_request *req,
 					const char *msg, int rc,
-					struct lustre_handle *handle)
+					const struct lustre_handle *handle)
 {
 	DEBUG_REQ((req->rq_no_reply || rc) ? D_WARNING : D_DLMTRACE, req,
 		  "%s: [nid %s] [rc %d] [lock %#llx]",
@@ -564,8 +559,11 @@ static int ldlm_callback_handler(struct ptlrpc_request *req)
 
 	switch (lustre_msg_get_opc(req->rq_reqmsg)) {
 	case LDLM_BL_CALLBACK:
-		if (OBD_FAIL_CHECK(OBD_FAIL_LDLM_BL_CALLBACK_NET))
+		if (OBD_FAIL_CHECK(OBD_FAIL_LDLM_BL_CALLBACK_NET)) {
+			if (cfs_fail_err)
+				ldlm_callback_reply(req, -(int)cfs_fail_err);
 			return 0;
+		}
 		break;
 	case LDLM_CP_CALLBACK:
 		if (OBD_FAIL_CHECK(OBD_FAIL_LDLM_CP_CALLBACK_NET))
@@ -626,24 +624,24 @@ static int ldlm_callback_handler(struct ptlrpc_request *req)
 		return 0;
 	}
 
-	if ((lock->l_flags & LDLM_FL_FAIL_LOC) &&
+	if (ldlm_is_fail_loc(lock) &&
 	    lustre_msg_get_opc(req->rq_reqmsg) == LDLM_BL_CALLBACK)
 		OBD_RACE(OBD_FAIL_LDLM_CP_BL_RACE);
 
 	/* Copy hints/flags (e.g. LDLM_FL_DISCARD_DATA) from AST. */
 	lock_res_and_lock(lock);
 	lock->l_flags |= ldlm_flags_from_wire(dlm_req->lock_flags &
-					      LDLM_AST_FLAGS);
+					      LDLM_FL_AST_MASK);
 	if (lustre_msg_get_opc(req->rq_reqmsg) == LDLM_BL_CALLBACK) {
 		/* If somebody cancels lock and cache is already dropped,
 		 * or lock is failed before cp_ast received on client,
 		 * we can tell the server we have no lock. Otherwise, we
 		 * should send cancel after dropping the cache.
 		 */
-		if (((lock->l_flags & LDLM_FL_CANCELING) &&
-		    (lock->l_flags & LDLM_FL_BL_DONE)) ||
-		    (lock->l_flags & LDLM_FL_FAILED)) {
-			LDLM_DEBUG(lock, "callback on lock %#llx - lock disappeared\n",
+		if ((ldlm_is_canceling(lock) && ldlm_is_bl_done(lock)) ||
+		    ldlm_is_failed(lock)) {
+			LDLM_DEBUG(lock,
+				   "callback on lock %#llx - lock disappeared",
 				   dlm_req->lock_handle[0].cookie);
 			unlock_res_and_lock(lock);
 			LDLM_LOCK_RELEASE(lock);
@@ -656,7 +654,7 @@ static int ldlm_callback_handler(struct ptlrpc_request *req)
 		 * Let ldlm_cancel_lru() be fast.
 		 */
 		ldlm_lock_remove_from_lru(lock);
-		lock->l_flags |= LDLM_FL_BL_AST;
+		ldlm_set_bl_ast(lock);
 	}
 	unlock_res_and_lock(lock);
 
@@ -674,7 +672,7 @@ static int ldlm_callback_handler(struct ptlrpc_request *req)
 	case LDLM_BL_CALLBACK:
 		CDEBUG(D_INODE, "blocking ast\n");
 		req_capsule_extend(&req->rq_pill, &RQF_LDLM_BL_CALLBACK);
-		if (!(lock->l_flags & LDLM_FL_CANCEL_ON_BLOCK)) {
+		if (!ldlm_is_cancel_on_block(lock)) {
 			rc = ldlm_callback_reply(req, 0);
 			if (req->rq_no_reply || rc)
 				ldlm_callback_errmsg(req, "Normal process", rc,
@@ -711,12 +709,12 @@ static struct ldlm_bl_work_item *ldlm_bl_get_work(struct ldlm_bl_pool *blp)
 	if (!list_empty(&blp->blp_list) &&
 	    (list_empty(&blp->blp_prio_list) || num_bl == 0))
 		blwi = list_entry(blp->blp_list.next,
-				      struct ldlm_bl_work_item, blwi_entry);
+				  struct ldlm_bl_work_item, blwi_entry);
 	else
 		if (!list_empty(&blp->blp_prio_list))
 			blwi = list_entry(blp->blp_prio_list.next,
-					      struct ldlm_bl_work_item,
-					      blwi_entry);
+					  struct ldlm_bl_work_item,
+					  blwi_entry);
 
 	if (blwi) {
 		if (++num_bl >= atomic_read(&blp->blp_num_threads))
@@ -746,7 +744,7 @@ static int ldlm_bl_thread_start(struct ldlm_bl_pool *blp)
 	init_completion(&bltd.bltd_comp);
 	bltd.bltd_num = atomic_read(&blp->blp_num_threads);
 	snprintf(bltd.bltd_name, sizeof(bltd.bltd_name),
-		"ldlm_bl_%02d", bltd.bltd_num);
+		 "ldlm_bl_%02d", bltd.bltd_num);
 	task = kthread_run(ldlm_bl_thread_main, &bltd, "%s", bltd.bltd_name);
 	if (IS_ERR(task)) {
 		CERROR("cannot start LDLM thread ldlm_bl_%02d: rc %ld\n",
@@ -791,8 +789,8 @@ static int ldlm_bl_thread_main(void *arg)
 		if (!blwi) {
 			atomic_dec(&blp->blp_busy_threads);
 			l_wait_event_exclusive(blp->blp_waitq,
-					 (blwi = ldlm_bl_get_work(blp)),
-					 &lwi);
+					       (blwi = ldlm_bl_get_work(blp)),
+					       &lwi);
 			busy = atomic_inc_return(&blp->blp_busy_threads);
 		} else {
 			busy = atomic_read(&blp->blp_busy_threads);
@@ -878,8 +876,6 @@ void ldlm_put_ref(void)
 	mutex_unlock(&ldlm_ref_mutex);
 }
 EXPORT_SYMBOL(ldlm_put_ref);
-
-extern unsigned int ldlm_cancel_unused_locks_before_replay;
 
 static ssize_t cancel_unused_locks_before_replay_show(struct kobject *kobj,
 						      struct attribute *attr,
@@ -1013,9 +1009,11 @@ static int ldlm_setup(void)
 		blp->blp_min_threads = LDLM_NTHRS_INIT;
 		blp->blp_max_threads = LDLM_NTHRS_MAX;
 	} else {
-		blp->blp_min_threads = blp->blp_max_threads =
-			min_t(int, LDLM_NTHRS_MAX, max_t(int, LDLM_NTHRS_INIT,
-							 ldlm_num_threads));
+		blp->blp_min_threads = min_t(int, LDLM_NTHRS_MAX,
+					     max_t(int, LDLM_NTHRS_INIT,
+						   ldlm_num_threads));
+
+		blp->blp_max_threads = blp->blp_min_threads;
 	}
 
 	for (i = 0; i < blp->blp_min_threads; i++) {
@@ -1097,16 +1095,17 @@ int ldlm_init(void)
 		return -ENOMEM;
 
 	ldlm_lock_slab = kmem_cache_create("ldlm_locks",
-			      sizeof(struct ldlm_lock), 0,
-			      SLAB_HWCACHE_ALIGN | SLAB_DESTROY_BY_RCU, NULL);
+					   sizeof(struct ldlm_lock), 0,
+					   SLAB_HWCACHE_ALIGN |
+					   SLAB_DESTROY_BY_RCU, NULL);
 	if (!ldlm_lock_slab) {
 		kmem_cache_destroy(ldlm_resource_slab);
 		return -ENOMEM;
 	}
 
 	ldlm_interval_slab = kmem_cache_create("interval_node",
-					sizeof(struct ldlm_interval),
-					0, SLAB_HWCACHE_ALIGN, NULL);
+					       sizeof(struct ldlm_interval),
+					       0, SLAB_HWCACHE_ALIGN, NULL);
 	if (!ldlm_interval_slab) {
 		kmem_cache_destroy(ldlm_resource_slab);
 		kmem_cache_destroy(ldlm_lock_slab);

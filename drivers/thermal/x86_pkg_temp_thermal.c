@@ -348,7 +348,8 @@ static void pkg_temp_thermal_threshold_work_fn(struct work_struct *work)
 	}
 	if (notify) {
 		pr_debug("thermal_zone_device_update\n");
-		thermal_zone_device_update(phdev->tzone);
+		thermal_zone_device_update(phdev->tzone,
+					   THERMAL_EVENT_UNSPECIFIED);
 	}
 }
 
@@ -555,7 +556,7 @@ static int pkg_temp_thermal_cpu_callback(struct notifier_block *nfb,
 {
 	unsigned int cpu = (unsigned long) hcpu;
 
-	switch (action) {
+	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_ONLINE:
 	case CPU_DOWN_FAILED:
 		get_core_online(cpu);

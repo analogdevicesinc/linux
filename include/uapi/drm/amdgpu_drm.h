@@ -34,6 +34,10 @@
 
 #include "drm.h"
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #define DRM_AMDGPU_GEM_CREATE		0x00
 #define DRM_AMDGPU_GEM_MMAP		0x01
 #define DRM_AMDGPU_CTX			0x02
@@ -73,6 +77,10 @@
 #define AMDGPU_GEM_CREATE_NO_CPU_ACCESS		(1 << 1)
 /* Flag that USWC attributes should be used for GTT */
 #define AMDGPU_GEM_CREATE_CPU_GTT_USWC		(1 << 2)
+/* Flag that the memory should be in VRAM and cleared */
+#define AMDGPU_GEM_CREATE_VRAM_CLEARED		(1 << 3)
+/* Flag that create shadow bo(GTT) while allocating vram bo */
+#define AMDGPU_GEM_CREATE_SHADOW		(1 << 4)
 
 struct drm_amdgpu_gem_create_in  {
 	/** the requested memory size */
@@ -477,11 +485,29 @@ struct drm_amdgpu_cs_chunk_data {
 #define AMDGPU_INFO_DEV_INFO			0x16
 /* visible vram usage */
 #define AMDGPU_INFO_VIS_VRAM_USAGE		0x17
+/* number of TTM buffer evictions */
+#define AMDGPU_INFO_NUM_EVICTIONS		0x18
 
 #define AMDGPU_INFO_MMR_SE_INDEX_SHIFT	0
 #define AMDGPU_INFO_MMR_SE_INDEX_MASK	0xff
 #define AMDGPU_INFO_MMR_SH_INDEX_SHIFT	8
 #define AMDGPU_INFO_MMR_SH_INDEX_MASK	0xff
+
+struct drm_amdgpu_query_fw {
+	/** AMDGPU_INFO_FW_* */
+	__u32 fw_type;
+	/**
+	 * Index of the IP if there are more IPs of
+	 * the same type.
+	 */
+	__u32 ip_instance;
+	/**
+	 * Index of the engine. Whether this is used depends
+	 * on the firmware type. (e.g. MEC, SDMA)
+	 */
+	__u32 index;
+	__u32 _pad;
+};
 
 /* Input structure for the INFO ioctl */
 struct drm_amdgpu_info {
@@ -518,21 +544,7 @@ struct drm_amdgpu_info {
 			__u32 flags;
 		} read_mmr_reg;
 
-		struct {
-			/** AMDGPU_INFO_FW_* */
-			__u32 fw_type;
-			/**
-			 * Index of the IP if there are more IPs of
-			 * the same type.
-			 */
-			__u32 ip_instance;
-			/**
-			 * Index of the engine. Whether this is used depends
-			 * on the firmware type. (e.g. MEC, SDMA)
-			 */
-			__u32 index;
-			__u32 _pad;
-		} query_fw;
+		struct drm_amdgpu_query_fw query_fw;
 	};
 };
 
@@ -637,9 +649,14 @@ struct drm_amdgpu_info_hw_ip {
  * Supported GPU families
  */
 #define AMDGPU_FAMILY_UNKNOWN			0
+#define AMDGPU_FAMILY_SI			110 /* Hainan, Oland, Verde, Pitcairn, Tahiti */
 #define AMDGPU_FAMILY_CI			120 /* Bonaire, Hawaii */
 #define AMDGPU_FAMILY_KV			125 /* Kaveri, Kabini, Mullins */
 #define AMDGPU_FAMILY_VI			130 /* Iceland, Tonga */
 #define AMDGPU_FAMILY_CZ			135 /* Carrizo, Stoney */
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

@@ -10,7 +10,6 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/kconfig.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/platform_device.h>
@@ -362,7 +361,7 @@ static void w5300_tx_timeout(struct net_device *ndev)
 	w5300_hw_reset(priv);
 	w5300_hw_start(priv);
 	ndev->stats.tx_errors++;
-	ndev->trans_start = jiffies;
+	netif_trans_update(ndev);
 	netif_wake_queue(ndev);
 }
 

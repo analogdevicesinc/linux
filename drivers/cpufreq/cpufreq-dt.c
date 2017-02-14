@@ -15,7 +15,6 @@
 #include <linux/cpu.h>
 #include <linux/cpu_cooling.h>
 #include <linux/cpufreq.h>
-#include <linux/cpufreq-dt.h>
 #include <linux/cpumask.h>
 #include <linux/err.h>
 #include <linux/module.h>
@@ -25,6 +24,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
+
+#include "cpufreq-dt.h"
 
 struct private_data {
 	struct device *cpu_dev;
@@ -147,7 +148,7 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 	struct clk *cpu_clk;
 	struct dev_pm_opp *suspend_opp;
 	unsigned int transition_latency;
-	bool opp_v1 = false;
+	bool fallback = false;
 	const char *name;
 	int ret;
 
@@ -167,14 +168,16 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 	/* Get OPP-sharing information from "operating-points-v2" bindings */
 	ret = dev_pm_opp_of_get_sharing_cpus(cpu_dev, policy->cpus);
 	if (ret) {
+		if (ret != -ENOENT)
+			goto out_put_clk;
+
 		/*
 		 * operating-points-v2 not supported, fallback to old method of
-		 * finding shared-OPPs for backward compatibility.
+		 * finding shared-OPPs for backward compatibility if the
+		 * platform hasn't set sharing CPUs.
 		 */
-		if (ret == -ENOENT)
-			opp_v1 = true;
-		else
-			goto out_put_clk;
+		if (dev_pm_opp_get_sharing_cpus(cpu_dev, policy->cpus))
+			fallback = true;
 	}
 
 	/*
@@ -214,11 +217,8 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 		goto out_free_opp;
 	}
 
-	if (opp_v1) {
-		struct cpufreq_dt_platform_data *pd = cpufreq_get_driver_data();
-
-		if (!pd || !pd->independent_clocks)
-			cpumask_setall(policy->cpus);
+	if (fallback) {
+		cpumask_setall(policy->cpus);
 
 		/*
 		 * OPP tables are initialized only for policy->cpu, do it for
@@ -355,6 +355,7 @@ static struct cpufreq_driver dt_cpufreq_driver = {
 
 static int dt_cpufreq_probe(struct platform_device *pdev)
 {
+	struct cpufreq_dt_platform_data *data = dev_get_platdata(&pdev->dev);
 	int ret;
 
 	/*
@@ -368,7 +369,8 @@ static int dt_cpufreq_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	dt_cpufreq_driver.driver_data = dev_get_platdata(&pdev->dev);
+	if (data && data->have_governor_per_policy)
+		dt_cpufreq_driver.flags |= CPUFREQ_HAVE_GOVERNOR_PER_POLICY;
 
 	ret = cpufreq_register_driver(&dt_cpufreq_driver);
 	if (ret)

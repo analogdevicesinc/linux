@@ -110,7 +110,7 @@ static int ext2_commit_chunk(struct page *page, loff_t pos, unsigned len)
 	return err;
 }
 
-static void ext2_check_page(struct page *page, int quiet)
+static bool ext2_check_page(struct page *page, int quiet)
 {
 	struct inode *dir = page->mapping->host;
 	struct super_block *sb = dir->i_sb;
@@ -148,7 +148,7 @@ static void ext2_check_page(struct page *page, int quiet)
 		goto Eend;
 out:
 	SetPageChecked(page);
-	return;
+	return true;
 
 	/* Too bad, we had an error */
 
@@ -190,8 +190,8 @@ Eend:
 			(unsigned long) le32_to_cpu(p->inode));
 	}
 fail:
-	SetPageChecked(page);
 	SetPageError(page);
+	return false;
 }
 
 static struct page * ext2_get_page(struct inode *dir, unsigned long n,
@@ -201,10 +201,10 @@ static struct page * ext2_get_page(struct inode *dir, unsigned long n,
 	struct page *page = read_mapping_page(mapping, n, NULL);
 	if (!IS_ERR(page)) {
 		kmap(page);
-		if (!PageChecked(page))
-			ext2_check_page(page, quiet);
-		if (PageError(page))
-			goto fail;
+		if (unlikely(!PageChecked(page))) {
+			if (PageError(page) || !ext2_check_page(page, quiet))
+				goto fail;
+		}
 	}
 	return page;
 
@@ -358,8 +358,8 @@ ext2_readdir(struct file *file, struct dir_context *ctx)
  * and the entry itself. Page is returned mapped and unlocked.
  * Entry is guaranteed to be valid.
  */
-struct ext2_dir_entry_2 *ext2_find_entry (struct inode * dir,
-			struct qstr *child, struct page ** res_page)
+struct ext2_dir_entry_2 *ext2_find_entry (struct inode *dir,
+			const struct qstr *child, struct page **res_page)
 {
 	const char *name = child->name;
 	int namelen = child->len;
@@ -435,7 +435,7 @@ struct ext2_dir_entry_2 * ext2_dotdot (struct inode *dir, struct page **p)
 	return de;
 }
 
-ino_t ext2_inode_by_name(struct inode *dir, struct qstr *child)
+ino_t ext2_inode_by_name(struct inode *dir, const struct qstr *child)
 {
 	ino_t res = 0;
 	struct ext2_dir_entry_2 *de;
@@ -471,7 +471,7 @@ void ext2_set_link(struct inode *dir, struct ext2_dir_entry_2 *de,
 	err = ext2_commit_chunk(page, pos, len);
 	ext2_put_page(page);
 	if (update_times)
-		dir->i_mtime = dir->i_ctime = CURRENT_TIME_SEC;
+		dir->i_mtime = dir->i_ctime = current_time(dir);
 	EXT2_I(dir)->i_flags &= ~EXT2_BTREE_FL;
 	mark_inode_dirty(dir);
 }
@@ -561,7 +561,7 @@ got_it:
 	de->inode = cpu_to_le32(inode->i_ino);
 	ext2_set_de_type (de, inode);
 	err = ext2_commit_chunk(page, pos, rec_len);
-	dir->i_mtime = dir->i_ctime = CURRENT_TIME_SEC;
+	dir->i_mtime = dir->i_ctime = current_time(dir);
 	EXT2_I(dir)->i_flags &= ~EXT2_BTREE_FL;
 	mark_inode_dirty(dir);
 	/* OFFSET_CACHE */
@@ -610,7 +610,7 @@ int ext2_delete_entry (struct ext2_dir_entry_2 * dir, struct page * page )
 		pde->rec_len = ext2_rec_len_to_disk(to - from);
 	dir->inode = 0;
 	err = ext2_commit_chunk(page, pos, to - from);
-	inode->i_ctime = inode->i_mtime = CURRENT_TIME_SEC;
+	inode->i_ctime = inode->i_mtime = current_time(inode);
 	EXT2_I(inode)->i_flags &= ~EXT2_BTREE_FL;
 	mark_inode_dirty(inode);
 out:
@@ -716,7 +716,7 @@ not_empty:
 const struct file_operations ext2_dir_operations = {
 	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,
-	.iterate	= ext2_readdir,
+	.iterate_shared	= ext2_readdir,
 	.unlocked_ioctl = ext2_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= ext2_compat_ioctl,

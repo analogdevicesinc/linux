@@ -415,10 +415,10 @@ static void do_rx(struct work_struct *work)
 		switch (cmd_evt) {
 		case LTE_GET_INFORMATION_RESULT:
 			if (set_mac_address(hci->data, r->cb_data) == 0) {
-				ret = r->callback(r->cb_data,
-						  r->buf,
-						  r->urb->actual_length,
-						  KERNEL_THREAD);
+				r->callback(r->cb_data,
+					    r->buf,
+					    r->urb->actual_length,
+					    KERNEL_THREAD);
 			}
 			break;
 
@@ -708,7 +708,7 @@ static void do_tx(struct work_struct *work)
 
 #define SDU_PARAM_LEN 12
 static int gdm_usb_sdu_send(void *priv_dev, void *data, int len,
-			    unsigned int dftEpsId, unsigned int epsId,
+			    unsigned int dft_eps_ID, unsigned int eps_ID,
 			    void (*cb)(void *data), void *cb_data,
 			    int dev_idx, int nic_type)
 {
@@ -746,8 +746,8 @@ static int gdm_usb_sdu_send(void *priv_dev, void *data, int len,
 	}
 
 	sdu->len = gdm_cpu_to_dev16(&udev->gdm_ed, send_len);
-	sdu->dftEpsId = gdm_cpu_to_dev32(&udev->gdm_ed, dftEpsId);
-	sdu->bearer_ID = gdm_cpu_to_dev32(&udev->gdm_ed, epsId);
+	sdu->dft_eps_ID = gdm_cpu_to_dev32(&udev->gdm_ed, dft_eps_ID);
+	sdu->bearer_ID = gdm_cpu_to_dev32(&udev->gdm_ed, eps_ID);
 	sdu->nic_type = gdm_cpu_to_dev32(&udev->gdm_ed, nic_type);
 
 	t_sdu->len = send_len + HCI_HEADER_SIZE;

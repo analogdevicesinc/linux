@@ -79,7 +79,7 @@ static int exofs_commit_chunk(struct page *page, loff_t pos, unsigned len)
 	return err;
 }
 
-static void exofs_check_page(struct page *page)
+static bool exofs_check_page(struct page *page)
 {
 	struct inode *dir = page->mapping->host;
 	unsigned chunk_size = exofs_chunk_size(dir);
@@ -114,7 +114,7 @@ static void exofs_check_page(struct page *page)
 		goto Eend;
 out:
 	SetPageChecked(page);
-	return;
+	return true;
 
 Ebadsize:
 	EXOFS_ERR("ERROR [exofs_check_page]: "
@@ -137,7 +137,7 @@ Espan:
 bad_entry:
 	EXOFS_ERR(
 		"ERROR [exofs_check_page]: bad entry in directory(0x%lx): %s - "
-		"offset=%lu, inode=0x%llu, rec_len=%d, name_len=%d\n",
+		"offset=%lu, inode=0x%llx, rec_len=%d, name_len=%d\n",
 		dir->i_ino, error, (page->index<<PAGE_SHIFT)+offs,
 		_LLU(le64_to_cpu(p->inode_no)),
 		rec_len, p->name_len);
@@ -150,8 +150,8 @@ Eend:
 		dir->i_ino, (page->index<<PAGE_SHIFT)+offs,
 		_LLU(le64_to_cpu(p->inode_no)));
 fail:
-	SetPageChecked(page);
 	SetPageError(page);
+	return false;
 }
 
 static struct page *exofs_get_page(struct inode *dir, unsigned long n)
@@ -161,10 +161,10 @@ static struct page *exofs_get_page(struct inode *dir, unsigned long n)
 
 	if (!IS_ERR(page)) {
 		kmap(page);
-		if (!PageChecked(page))
-			exofs_check_page(page);
-		if (PageError(page))
-			goto fail;
+		if (unlikely(!PageChecked(page))) {
+			if (PageError(page) || !exofs_check_page(page))
+				goto fail;
+		}
 	}
 	return page;
 
@@ -416,7 +416,7 @@ int exofs_set_link(struct inode *dir, struct exofs_dir_entry *de,
 	if (likely(!err))
 		err = exofs_commit_chunk(page, pos, len);
 	exofs_put_page(page);
-	dir->i_mtime = dir->i_ctime = CURRENT_TIME;
+	dir->i_mtime = dir->i_ctime = current_time(dir);
 	mark_inode_dirty(dir);
 	return err;
 }
@@ -503,7 +503,7 @@ got_it:
 	de->inode_no = cpu_to_le64(inode->i_ino);
 	exofs_set_de_type(de, inode);
 	err = exofs_commit_chunk(page, pos, rec_len);
-	dir->i_mtime = dir->i_ctime = CURRENT_TIME;
+	dir->i_mtime = dir->i_ctime = current_time(dir);
 	mark_inode_dirty(dir);
 	sbi->s_numfiles++;
 
@@ -554,7 +554,7 @@ int exofs_delete_entry(struct exofs_dir_entry *dir, struct page *page)
 	dir->inode_no = 0;
 	if (likely(!err))
 		err = exofs_commit_chunk(page, pos, to - from);
-	inode->i_ctime = inode->i_mtime = CURRENT_TIME;
+	inode->i_ctime = inode->i_mtime = current_time(inode);
 	mark_inode_dirty(inode);
 	sbi->s_numfiles--;
 out:
@@ -657,5 +657,5 @@ not_empty:
 const struct file_operations exofs_dir_operations = {
 	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,
-	.iterate	= exofs_readdir,
+	.iterate_shared	= exofs_readdir,
 };

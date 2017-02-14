@@ -22,6 +22,7 @@
 #include <linux/atomic.h>
 #include <linux/cpumask.h>
 #include <linux/reboot.h>
+#include <linux/irqdomain.h>
 #include <asm/processor.h>
 #include <asm/setup.h>
 #include <asm/mach_desc.h>
@@ -67,11 +68,13 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	int i;
 
 	/*
-	 * Initialise the present map, which describes the set of CPUs
-	 * actually populated at the present time.
+	 * if platform didn't set the present map already, do it now
+	 * boot cpu is set to present already by init/main.c
 	 */
-	for (i = 0; i < max_cpus; i++)
-		set_cpu_present(i, true);
+	if (num_present_cpus() <= 1) {
+		for (i = 0; i < max_cpus; i++)
+			set_cpu_present(i, true);
+	}
 }
 
 void __init smp_cpus_done(unsigned int max_cpus)
@@ -126,11 +129,6 @@ void start_kernel_secondary(void)
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
 
-	notify_cpu_starting(cpu);
-	set_cpu_online(cpu, true);
-
-	pr_info("## CPU%u LIVE ##: Executing Code...\n", cpu);
-
 	/* Some SMP H/w setup - for each cpu */
 	if (plat_smp_ops.init_per_cpu)
 		plat_smp_ops.init_per_cpu(cpu);
@@ -138,7 +136,10 @@ void start_kernel_secondary(void)
 	if (machine_desc->init_per_cpu)
 		machine_desc->init_per_cpu(cpu);
 
-	arc_local_timer_setup();
+	notify_cpu_starting(cpu);
+	set_cpu_online(cpu, true);
+
+	pr_info("## CPU%u LIVE ##: Executing Code...\n", cpu);
 
 	local_irq_enable();
 	preempt_disable();
@@ -346,14 +347,31 @@ irqreturn_t do_IPI(int irq, void *dev_id)
 
 /*
  * API called by platform code to hookup arch-common ISR to their IPI IRQ
+ *
+ * Note: If IPI is provided by platform (vs. say ARC MCIP), their intc setup/map
+ * function needs to call call irq_set_percpu_devid() for IPI IRQ, otherwise
+ * request_percpu_irq() below will fail
  */
 static DEFINE_PER_CPU(int, ipi_dev);
 
-int smp_ipi_irq_setup(int cpu, int irq)
+int smp_ipi_irq_setup(int cpu, irq_hw_number_t hwirq)
 {
 	int *dev = per_cpu_ptr(&ipi_dev, cpu);
+	unsigned int virq = irq_find_mapping(NULL, hwirq);
 
-	arc_request_percpu_irq(irq, cpu, do_IPI, "IPI Interrupt", dev);
+	if (!virq)
+		panic("Cannot find virq for root domain and hwirq=%lu", hwirq);
+
+	/* Boot cpu calls request, all call enable */
+	if (!cpu) {
+		int rc;
+
+		rc = request_percpu_irq(virq, do_IPI, "IPI Interrupt", dev);
+		if (rc)
+			panic("Percpu IRQ request failed for %u\n", virq);
+	}
+
+	enable_percpu_irq(virq, 0);
 
 	return 0;
 }

@@ -429,7 +429,7 @@ static int adau17x1_hw_params(struct snd_pcm_substream *substream,
 		ret = adau17x1_auto_pll(dai, params);
 		if (ret)
 			return ret;
-		/* Fallthrough */
+		/* Fall-through */
 	case ADAU17X1_CLK_SRC_PLL:
 		freq = adau->pll_freq;
 		break;

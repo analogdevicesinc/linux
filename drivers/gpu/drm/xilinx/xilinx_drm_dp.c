@@ -295,6 +295,7 @@ struct xilinx_drm_dp_config {
  * @config: IP core configuration from DTS
  * @aux: aux channel
  * @dp_sub: DisplayPort subsystem
+ * @phy: PHY handles for DP lanes
  * @aclk: clock source device for internal axi4-lite clock
  * @aud_clk: clock source device for audio clock
  * @dpms: current dpms state
@@ -454,7 +455,7 @@ static void xilinx_drm_dp_adjust_train(struct xilinx_drm_dp *dp,
 {
 	u8 *train_set = dp->train_set;
 	u8 voltage = 0, preemphasis = 0;
-	u8 max_voltage, max_preemphasis;
+	u8 max_preemphasis;
 	u8 i;
 
 	for (i = 0; i < dp->mode.lane_cnt; i++) {
@@ -468,15 +469,14 @@ static void xilinx_drm_dp_adjust_train(struct xilinx_drm_dp *dp,
 			preemphasis = p;
 	}
 
-	max_voltage = (dp->dp_sub) ? DP_TRAIN_VOLTAGE_SWING_LEVEL_2 :
-				     DP_TRAIN_VOLTAGE_SWING_LEVEL_3;
-	if (voltage >= max_voltage)
-		voltage = max_voltage | DP_TRAIN_MAX_SWING_REACHED;
+	if (voltage >= DP_TRAIN_VOLTAGE_SWING_LEVEL_3)
+		voltage |= DP_TRAIN_MAX_SWING_REACHED;
+
 	max_preemphasis = (dp->dp_sub) ? DP_TRAIN_PRE_EMPH_LEVEL_2 :
 					 DP_TRAIN_PRE_EMPH_LEVEL_3;
+
 	if (preemphasis >= max_preemphasis)
-		preemphasis = max_preemphasis |
-			      DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
+		preemphasis |= DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
 
 	for (i = 0; i < dp->mode.lane_cnt; i++)
 		train_set[i] = voltage | preemphasis;
@@ -999,8 +999,8 @@ static int xilinx_drm_dp_mode_configure(struct xilinx_drm_dp *dp, int pclock,
 	u8 max_lanes = dp->link_config.max_lanes;
 	u8 max_link_rate_code = drm_dp_link_rate_to_bw_code(max_rate);
 	u8 bpp = dp->config.bpp;
-	u8 lane_cnt, i;
-	s8 clock;
+	u8 lane_cnt;
+	s8 clock, i;
 
 	for (i = ARRAY_SIZE(bws) - 1; i >= 0; i--) {
 		if (current_bw && bws[i] >= current_bw)

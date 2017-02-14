@@ -3,24 +3,11 @@
 
 #include <linux/rhashtable.h>
 #include <linux/atomic.h>
+#include <linux/workqueue.h>
 #include <net/sock.h>
 
 #define NLGRPSZ(x)	(ALIGN(x, sizeof(unsigned long) * 8) / 8)
 #define NLGRPLONGS(x)	(NLGRPSZ(x)/sizeof(unsigned long))
-
-struct netlink_ring {
-	void			**pg_vec;
-	unsigned int		head;
-	unsigned int		frames_per_block;
-	unsigned int		frame_size;
-	unsigned int		frame_max;
-
-	unsigned int		pg_vec_order;
-	unsigned int		pg_vec_pages;
-	unsigned int		pg_vec_len;
-
-	atomic_t		pending;
-};
 
 struct netlink_sock {
 	/* struct sock has to be the first member of netlink_sock */
@@ -47,6 +34,7 @@ struct netlink_sock {
 
 	struct rhash_head	node;
 	struct rcu_head		rcu;
+	struct work_struct	work;
 };
 
 static inline struct netlink_sock *nlk_sk(struct sock *sk)

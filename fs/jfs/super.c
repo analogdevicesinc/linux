@@ -84,7 +84,7 @@ static void jfs_handle_error(struct super_block *sb)
 		panic("JFS (device %s): panic forced after error\n",
 			sb->s_id);
 	else if (sbi->flag & JFS_ERR_REMOUNT_RO) {
-		jfs_err("ERROR: (device %s): remounting filesystem as read-only\n",
+		jfs_err("ERROR: (device %s): remounting filesystem as read-only",
 			sb->s_id);
 		sb->s_flags |= MS_RDONLY;
 	}
@@ -641,7 +641,7 @@ static int jfs_freeze(struct super_block *sb)
 		}
 		rc = updateSuper(sb, FM_CLEAN);
 		if (rc) {
-			jfs_err("jfs_freeze: updateSuper failed\n");
+			jfs_err("jfs_freeze: updateSuper failed");
 			/*
 			 * Don't fail here. Everything succeeded except
 			 * marking the superblock clean, so there's really
@@ -830,7 +830,7 @@ out:
 	if (inode->i_size < off+len-towrite)
 		i_size_write(inode, off+len-towrite);
 	inode->i_version++;
-	inode->i_mtime = inode->i_ctime = CURRENT_TIME;
+	inode->i_mtime = inode->i_ctime = current_time(inode);
 	mark_inode_dirty(inode);
 	inode_unlock(inode);
 	return len - towrite;

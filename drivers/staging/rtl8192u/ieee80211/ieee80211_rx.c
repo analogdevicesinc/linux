@@ -746,7 +746,7 @@ static void RxReorderIndicatePacket(struct ieee80211_device *ieee,
 
 		// Indicate packets
 		if(index>REORDER_WIN_SIZE){
-			IEEE80211_DEBUG(IEEE80211_DL_ERR, "RxReorderIndicatePacket(): Rx Reorer buffer full!! \n");
+			IEEE80211_DEBUG(IEEE80211_DL_ERR, "RxReorderIndicatePacket(): Rx Reorder buffer full!! \n");
 			kfree(prxbIndicateArray);
 			return;
 		}
@@ -1027,7 +1027,7 @@ int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
 				ieee,
 				(PTS_COMMON_INFO *) &pRxTS,
 				hdr->addr2,
-				(u8)Frame_QoSTID((u8 *)(skb->data)),
+				Frame_QoSTID((u8 *)(skb->data)),
 				RX_DIR,
 				true))
 		{

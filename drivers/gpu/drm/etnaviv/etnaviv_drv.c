@@ -91,10 +91,8 @@ static void load_gpu(struct drm_device *dev)
 			int ret;
 
 			ret = etnaviv_gpu_init(g);
-			if (ret) {
-				dev_err(g->dev, "hw init failed: %d\n", ret);
+			if (ret)
 				priv->gpu[i] = NULL;
-			}
 		}
 	}
 }
@@ -314,7 +312,7 @@ static int etnaviv_ioctl_gem_cpu_prep(struct drm_device *dev, void *data,
 	if (args->op & ~(ETNA_PREP_READ | ETNA_PREP_WRITE | ETNA_PREP_NOSYNC))
 		return -EINVAL;
 
-	obj = drm_gem_object_lookup(dev, file, args->handle);
+	obj = drm_gem_object_lookup(file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
@@ -335,7 +333,7 @@ static int etnaviv_ioctl_gem_cpu_fini(struct drm_device *dev, void *data,
 	if (args->flags)
 		return -EINVAL;
 
-	obj = drm_gem_object_lookup(dev, file, args->handle);
+	obj = drm_gem_object_lookup(file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
@@ -356,7 +354,7 @@ static int etnaviv_ioctl_gem_info(struct drm_device *dev, void *data,
 	if (args->pad)
 		return -EINVAL;
 
-	obj = drm_gem_object_lookup(dev, file, args->handle);
+	obj = drm_gem_object_lookup(file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
@@ -441,7 +439,7 @@ static int etnaviv_ioctl_gem_wait(struct drm_device *dev, void *data,
 	if (!gpu)
 		return -ENXIO;
 
-	obj = drm_gem_object_lookup(dev, file, args->handle);
+	obj = drm_gem_object_lookup(file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
@@ -490,14 +488,12 @@ static const struct file_operations fops = {
 };
 
 static struct drm_driver etnaviv_drm_driver = {
-	.driver_features    = DRIVER_HAVE_IRQ |
-				DRIVER_GEM |
+	.driver_features    = DRIVER_GEM |
 				DRIVER_PRIME |
 				DRIVER_RENDER,
 	.open               = etnaviv_open,
 	.preclose           = etnaviv_preclose,
-	.set_busid          = drm_platform_set_busid,
-	.gem_free_object    = etnaviv_gem_free_object,
+	.gem_free_object_unlocked = etnaviv_gem_free_object,
 	.gem_vm_ops         = &vm_ops,
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
@@ -533,10 +529,8 @@ static int etnaviv_bind(struct device *dev)
 	int ret;
 
 	drm = drm_dev_alloc(&etnaviv_drm_driver, dev);
-	if (!drm)
-		return -ENOMEM;
-
-	drm->platformdev = to_platform_device(dev);
+	if (IS_ERR(drm))
+		return PTR_ERR(drm);
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {

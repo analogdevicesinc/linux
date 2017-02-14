@@ -65,6 +65,7 @@
 #define V9FS_MAGIC		0x01021997
 
 #define BDEVFS_MAGIC            0x62646576
+#define DAXFS_MAGIC             0x64646178
 #define BINFMTFS_MAGIC          0x42494e4d
 #define DEVPTS_SUPER_MAGIC	0x1cd1
 #define FUTEXFS_SUPER_MAGIC	0xBAD1DEA
@@ -78,5 +79,9 @@
 #define BTRFS_TEST_MAGIC	0x73727279
 #define NSFS_MAGIC		0x6e736673
 #define BPF_FS_MAGIC		0xcafe4a11
+/* Since UDF 2.01 is ISO 13346 based... */
+#define UDF_SUPER_MAGIC		0x15013346
+#define BALLOON_KVM_MAGIC	0x13661366
+#define ZSMALLOC_MAGIC		0x58295829
 
 #endif /* __LINUX_MAGIC_H__ */

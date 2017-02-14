@@ -190,15 +190,18 @@ static int submit_stpg(struct scsi_device *sdev, int group_id,
 				      ALUA_FAILOVER_RETRIES, NULL, req_flags);
 }
 
-struct alua_port_group *alua_find_get_pg(char *id_str, size_t id_size,
-					 int group_id)
+static struct alua_port_group *alua_find_get_pg(char *id_str, size_t id_size,
+						int group_id)
 {
 	struct alua_port_group *pg;
+
+	if (!id_str || !id_size || !strlen(id_str))
+		return NULL;
 
 	list_for_each_entry(pg, &port_group_list, node) {
 		if (pg->group_id != group_id)
 			continue;
-		if (pg->device_id_len != id_size)
+		if (!pg->device_id_len || pg->device_id_len != id_size)
 			continue;
 		if (strncmp(pg->device_id_str, id_str, id_size))
 			continue;
@@ -219,8 +222,8 @@ struct alua_port_group *alua_find_get_pg(char *id_str, size_t id_size,
  * Allocate a new port_group structure for a given
  * device.
  */
-struct alua_port_group *alua_alloc_pg(struct scsi_device *sdev,
-				      int group_id, int tpgs)
+static struct alua_port_group *alua_alloc_pg(struct scsi_device *sdev,
+					     int group_id, int tpgs)
 {
 	struct alua_port_group *pg, *tmp_pg;
 
@@ -232,14 +235,14 @@ struct alua_port_group *alua_alloc_pg(struct scsi_device *sdev,
 					    sizeof(pg->device_id_str));
 	if (pg->device_id_len <= 0) {
 		/*
-		 * Internal error: TPGS supported but no device
-		 * identifcation found. Disable ALUA support.
+		 * TPGS supported but no device identification found.
+		 * Generate private device identification.
 		 */
-		kfree(pg);
 		sdev_printk(KERN_INFO, sdev,
 			    "%s: No device descriptors found\n",
 			    ALUA_DH_NAME);
-		return ERR_PTR(-ENXIO);
+		pg->device_id_str[0] = '\0';
+		pg->device_id_len = 0;
 	}
 	pg->group_id = group_id;
 	pg->tpgs = tpgs;
@@ -354,9 +357,15 @@ static int alua_check_vpd(struct scsi_device *sdev, struct alua_dh_data *h,
 			return SCSI_DH_NOMEM;
 		return SCSI_DH_DEV_UNSUPP;
 	}
-	sdev_printk(KERN_INFO, sdev,
-		    "%s: device %s port group %x rel port %x\n",
-		    ALUA_DH_NAME, pg->device_id_str, group_id, rel_port);
+	if (pg->device_id_len)
+		sdev_printk(KERN_INFO, sdev,
+			    "%s: device %s port group %x rel port %x\n",
+			    ALUA_DH_NAME, pg->device_id_str,
+			    group_id, rel_port);
+	else
+		sdev_printk(KERN_INFO, sdev,
+			    "%s: port group %x rel port %x\n",
+			    ALUA_DH_NAME, group_id, rel_port);
 
 	/* Check for existing port group references */
 	spin_lock(&h->pg_lock);
@@ -574,6 +583,7 @@ static int alua_rtpg(struct scsi_device *sdev, struct alua_port_group *pg)
 			sdev_printk(KERN_ERR, sdev, "%s: rtpg retry\n",
 				    ALUA_DH_NAME);
 			scsi_print_sense_hdr(sdev, ALUA_DH_NAME, &sense_hdr);
+			kfree(buff);
 			return err;
 		}
 		sdev_printk(KERN_ERR, sdev, "%s: rtpg failed\n",
@@ -783,6 +793,7 @@ static void alua_rtpg_work(struct work_struct *work)
 		WARN_ON(pg->flags & ALUA_PG_RUN_RTPG);
 		WARN_ON(pg->flags & ALUA_PG_RUN_STPG);
 		spin_unlock_irqrestore(&pg->lock, flags);
+		kref_put(&pg->kref, release_port_group);
 		return;
 	}
 	if (pg->flags & ALUA_SYNC_STPG)
@@ -880,6 +891,7 @@ static void alua_rtpg_queue(struct alua_port_group *pg,
 		/* Do not queue if the worker is already running */
 		if (!(pg->flags & ALUA_PG_RUNNING)) {
 			kref_get(&pg->kref);
+			sdev = NULL;
 			start_queue = 1;
 		}
 	}
@@ -891,7 +903,8 @@ static void alua_rtpg_queue(struct alua_port_group *pg,
 	if (start_queue &&
 	    !queue_delayed_work(alua_wq, &pg->rtpg_work,
 				msecs_to_jiffies(ALUA_RTPG_DELAY_MSECS))) {
-		scsi_device_put(sdev);
+		if (sdev)
+			scsi_device_put(sdev);
 		kref_put(&pg->kref, release_port_group);
 	}
 }

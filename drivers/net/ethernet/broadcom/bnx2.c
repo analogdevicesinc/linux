@@ -49,8 +49,9 @@
 #include <linux/firmware.h>
 #include <linux/log2.h>
 #include <linux/aer.h>
+#include <linux/crash_dump.h>
 
-#if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
+#if IS_ENABLED(CONFIG_CNIC)
 #define BCM_CNIC 1
 #include "cnic_if.h"
 #endif
@@ -271,22 +272,25 @@ static inline u32 bnx2_tx_avail(struct bnx2 *bp, struct bnx2_tx_ring_info *txr)
 static u32
 bnx2_reg_rd_ind(struct bnx2 *bp, u32 offset)
 {
+	unsigned long flags;
 	u32 val;
 
-	spin_lock_bh(&bp->indirect_lock);
+	spin_lock_irqsave(&bp->indirect_lock, flags);
 	BNX2_WR(bp, BNX2_PCICFG_REG_WINDOW_ADDRESS, offset);
 	val = BNX2_RD(bp, BNX2_PCICFG_REG_WINDOW);
-	spin_unlock_bh(&bp->indirect_lock);
+	spin_unlock_irqrestore(&bp->indirect_lock, flags);
 	return val;
 }
 
 static void
 bnx2_reg_wr_ind(struct bnx2 *bp, u32 offset, u32 val)
 {
-	spin_lock_bh(&bp->indirect_lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&bp->indirect_lock, flags);
 	BNX2_WR(bp, BNX2_PCICFG_REG_WINDOW_ADDRESS, offset);
 	BNX2_WR(bp, BNX2_PCICFG_REG_WINDOW, val);
-	spin_unlock_bh(&bp->indirect_lock);
+	spin_unlock_irqrestore(&bp->indirect_lock, flags);
 }
 
 static void
@@ -304,8 +308,10 @@ bnx2_shmem_rd(struct bnx2 *bp, u32 offset)
 static void
 bnx2_ctx_wr(struct bnx2 *bp, u32 cid_addr, u32 offset, u32 val)
 {
+	unsigned long flags;
+
 	offset += cid_addr;
-	spin_lock_bh(&bp->indirect_lock);
+	spin_lock_irqsave(&bp->indirect_lock, flags);
 	if (BNX2_CHIP(bp) == BNX2_CHIP_5709) {
 		int i;
 
@@ -322,7 +328,7 @@ bnx2_ctx_wr(struct bnx2 *bp, u32 cid_addr, u32 offset, u32 val)
 		BNX2_WR(bp, BNX2_CTX_DATA_ADR, offset);
 		BNX2_WR(bp, BNX2_CTX_DATA, val);
 	}
-	spin_unlock_bh(&bp->indirect_lock);
+	spin_unlock_irqrestore(&bp->indirect_lock, flags);
 }
 
 #ifdef BCM_CNIC
@@ -4759,15 +4765,16 @@ bnx2_setup_msix_tbl(struct bnx2 *bp)
 	BNX2_WR(bp, BNX2_PCI_GRC_WINDOW3_ADDR, BNX2_MSIX_PBA_ADDR);
 }
 
-static int
-bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
+static void
+bnx2_wait_dma_complete(struct bnx2 *bp)
 {
 	u32 val;
-	int i, rc = 0;
-	u8 old_port;
+	int i;
 
-	/* Wait for the current PCI transaction to complete before
-	 * issuing a reset. */
+	/*
+	 * Wait for the current PCI transaction to complete before
+	 * issuing a reset.
+	 */
 	if ((BNX2_CHIP(bp) == BNX2_CHIP_5706) ||
 	    (BNX2_CHIP(bp) == BNX2_CHIP_5708)) {
 		BNX2_WR(bp, BNX2_MISC_ENABLE_CLR_BITS,
@@ -4790,6 +4797,21 @@ bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
 				break;
 		}
 	}
+
+	return;
+}
+
+
+static int
+bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
+{
+	u32 val;
+	int i, rc = 0;
+	u8 old_port;
+
+	/* Wait for the current PCI transaction to complete before
+	 * issuing a reset. */
+	bnx2_wait_dma_complete(bp);
 
 	/* Wait for the firmware to tell us it is ok to issue a reset. */
 	bnx2_fw_sync(bp, BNX2_DRV_MSG_DATA_WAIT0 | reset_code, 1, 1);
@@ -8574,6 +8596,15 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	bp = netdev_priv(dev);
 
 	pci_set_drvdata(pdev, dev);
+
+	/*
+	 * In-flight DMA from 1st kernel could continue going in kdump kernel.
+	 * New io-page table has been created before bnx2 does reset at open stage.
+	 * We have to wait for the in-flight DMA to complete to avoid it look up
+	 * into the newly created io-page table.
+	 */
+	if (is_kdump_kernel())
+		bnx2_wait_dma_complete(bp);
 
 	memcpy(dev->dev_addr, bp->mac_addr, ETH_ALEN);
 

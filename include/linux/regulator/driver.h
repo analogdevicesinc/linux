@@ -93,6 +93,9 @@ struct regulator_linear_range {
  * @get_current_limit: Get the configured limit for a current-limited regulator.
  * @set_input_current_limit: Configure an input limit.
  *
+ * @set_over_current_protection: Support capability of automatically shutting
+ *                               down when detecting an over current event.
+ *
  * @set_active_discharge: Set active discharge enable/disable of regulators.
  *
  * @set_mode: Set the configured operating mode for the regulator.
@@ -110,10 +113,14 @@ struct regulator_linear_range {
  *               stabilise after being enabled, in microseconds.
  * @set_ramp_delay: Set the ramp delay for the regulator. The driver should
  *		select ramp delay equal to or less than(closest) ramp_delay.
+ * @set_voltage_time: Time taken for the regulator voltage output voltage
+ *               to stabilise after being set to a new value, in microseconds.
+ *               The function receives the from and to voltage as input, it
+ *               should return the worst case.
  * @set_voltage_time_sel: Time taken for the regulator voltage output voltage
  *               to stabilise after being set to a new value, in microseconds.
- *               The function provides the from and to voltage selector, the
- *               function should return the worst case.
+ *               The function receives the from and to voltage selector as
+ *               input, it should return the worst case.
  * @set_soft_start: Enable soft start for the regulator.
  *
  * @set_suspend_voltage: Set the voltage for the regulator when the system
@@ -165,6 +172,8 @@ struct regulator_ops {
 	/* Time taken to enable or set voltage on the regulator */
 	int (*enable_time) (struct regulator_dev *);
 	int (*set_ramp_delay) (struct regulator_dev *, int ramp_delay);
+	int (*set_voltage_time) (struct regulator_dev *, int old_uV,
+				 int new_uV);
 	int (*set_voltage_time_sel) (struct regulator_dev *,
 				     unsigned int old_selector,
 				     unsigned int new_selector);
@@ -255,6 +264,8 @@ enum regulator_type {
  *
  * @vsel_reg: Register for selector when using regulator_regmap_X_voltage_
  * @vsel_mask: Mask for register bitfield used for selector
+ * @csel_reg: Register for TPS65218 LS3 current regulator
+ * @csel_mask: Mask for TPS65218 LS3 current regulator
  * @apply_reg: Register for initiate voltage change on the output when
  *                using regulator_set_voltage_sel_regmap
  * @apply_bit: Register bitfield used for initiate voltage change on the
@@ -292,7 +303,7 @@ struct regulator_desc {
 			    const struct regulator_desc *,
 			    struct regulator_config *);
 	int id;
-	bool continuous_voltage_range;
+	unsigned int continuous_voltage_range:1;
 	unsigned n_voltages;
 	const struct regulator_ops *ops;
 	int irq;

@@ -269,7 +269,7 @@ static int iic_smbus_quick(struct ibm_iic_private* dev, const struct i2c_msg* p)
 	ndelay(t->hd_sta);
 
 	/* Send address */
-	v = (u8)((p->addr << 1) | ((p->flags & I2C_M_RD) ? 1 : 0));
+	v = i2c_8bit_addr_from_msg(p);
 	for (i = 0, mask = 0x80; i < 8; ++i, mask >>= 1){
 		out_8(&iic->directcntl, sda);
 		ndelay(t->low / 2);
@@ -751,10 +751,8 @@ static int iic_probe(struct platform_device *ofdev)
 	adap->timeout = HZ;
 
 	ret = i2c_add_adapter(adap);
-	if (ret  < 0) {
-		dev_err(&ofdev->dev, "failed to register i2c adapter\n");
+	if (ret  < 0)
 		goto error_cleanup;
-	}
 
 	dev_info(&ofdev->dev, "using %s mode\n",
 		 dev->fast_mode ? "fast (400 kHz)" : "standard (100 kHz)");

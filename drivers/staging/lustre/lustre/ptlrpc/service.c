@@ -15,11 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * version 2 along with this program; If not, see
- * http://www.sun.com/software/products/lustre/docs/GPLv2.pdf
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * http://www.gnu.org/licenses/gpl-2.0.html
  *
  * GPL HEADER END
  */
@@ -838,6 +834,11 @@ static void ptlrpc_server_finish_request(struct ptlrpc_service_part *svcpt,
 {
 	ptlrpc_server_hpreq_fini(req);
 
+	if (req->rq_session.lc_thread) {
+		lu_context_exit(&req->rq_session);
+		lu_context_fini(&req->rq_session);
+	}
+
 	ptlrpc_server_drop_request(req);
 }
 
@@ -1004,6 +1005,10 @@ ptlrpc_at_remove_timed(struct ptlrpc_request *req)
 	array->paa_count--;
 }
 
+/*
+ * Attempt to extend the request deadline by sending an early reply to the
+ * client.
+ */
 static int ptlrpc_at_send_early_reply(struct ptlrpc_request *req)
 {
 	struct ptlrpc_service_part *svcpt = req->rq_rqbd->rqbd_svcpt;
@@ -1038,24 +1043,26 @@ static int ptlrpc_at_send_early_reply(struct ptlrpc_request *req)
 		return -ENOSYS;
 	}
 
-	/* Fake our processing time into the future to ask the clients
-	 * for some extra amount of time
+	/*
+	 * We want to extend the request deadline by at_extra seconds,
+	 * so we set our service estimate to reflect how much time has
+	 * passed since this request arrived plus an additional
+	 * at_extra seconds. The client will calculate the new deadline
+	 * based on this service estimate (plus some additional time to
+	 * account for network latency). See ptlrpc_at_recv_early_reply
 	 */
 	at_measured(&svcpt->scp_at_estimate, at_extra +
 		    ktime_get_real_seconds() - req->rq_arrival_time.tv_sec);
+	newdl = req->rq_arrival_time.tv_sec + at_get(&svcpt->scp_at_estimate);
 
 	/* Check to see if we've actually increased the deadline -
 	 * we may be past adaptive_max
 	 */
-	if (req->rq_deadline >= req->rq_arrival_time.tv_sec +
-	    at_get(&svcpt->scp_at_estimate)) {
+	if (req->rq_deadline >= newdl) {
 		DEBUG_REQ(D_WARNING, req, "Couldn't add any time (%ld/%lld), not sending early reply\n",
-			  olddl, req->rq_arrival_time.tv_sec +
-			  at_get(&svcpt->scp_at_estimate) -
-			  ktime_get_real_seconds());
+			  olddl, newdl - ktime_get_real_seconds());
 		return -ETIMEDOUT;
 	}
-	newdl = ktime_get_real_seconds() + at_get(&svcpt->scp_at_estimate);
 
 	reqcopy = ptlrpc_request_cache_alloc(GFP_NOFS);
 	if (!reqcopy)
@@ -1579,6 +1586,21 @@ ptlrpc_server_handle_req_in(struct ptlrpc_service_part *svcpt,
 	}
 
 	req->rq_svc_thread = thread;
+	if (thread) {
+		/* initialize request session, it is needed for request
+		 * processing by target
+		 */
+		rc = lu_context_init(&req->rq_session,
+				     LCT_SERVER_SESSION | LCT_NOREF);
+		if (rc) {
+			CERROR("%s: failure to initialize session: rc = %d\n",
+			       thread->t_name, rc);
+			goto err_req;
+		}
+		req->rq_session.lc_thread = thread;
+		lu_context_enter(&req->rq_session);
+		req->rq_svc_thread->t_env->le_ses = &req->rq_session;
+	}
 
 	ptlrpc_at_add_timed(req);
 
@@ -1612,7 +1634,6 @@ ptlrpc_server_handle_request(struct ptlrpc_service_part *svcpt,
 	struct timespec64 arrived;
 	unsigned long timediff_usecs;
 	unsigned long arrived_usecs;
-	int rc;
 	int fail_opc = 0;
 
 	request = ptlrpc_server_request_get(svcpt, false);
@@ -1649,21 +1670,6 @@ ptlrpc_server_handle_request(struct ptlrpc_service_part *svcpt,
 				    at_get(&svcpt->scp_at_estimate));
 	}
 
-	rc = lu_context_init(&request->rq_session, LCT_SESSION | LCT_NOREF);
-	if (rc) {
-		CERROR("Failure to initialize session: %d\n", rc);
-		goto out_req;
-	}
-	request->rq_session.lc_thread = thread;
-	request->rq_session.lc_cookie = 0x5;
-	lu_context_enter(&request->rq_session);
-
-	CDEBUG(D_NET, "got req %llu\n", request->rq_xid);
-
-	request->rq_svc_thread = thread;
-	if (thread)
-		request->rq_svc_thread->t_env->le_ses = &request->rq_session;
-
 	if (likely(request->rq_export)) {
 		if (unlikely(ptlrpc_check_req(request)))
 			goto put_conn;
@@ -1695,14 +1701,21 @@ ptlrpc_server_handle_request(struct ptlrpc_service_part *svcpt,
 	if (lustre_msg_get_opc(request->rq_reqmsg) != OBD_PING)
 		CFS_FAIL_TIMEOUT_MS(OBD_FAIL_PTLRPC_PAUSE_REQ, cfs_fail_val);
 
-	rc = svc->srv_ops.so_req_handler(request);
+	CDEBUG(D_NET, "got req %llu\n", request->rq_xid);
+
+	/* re-assign request and sesson thread to the current one */
+	request->rq_svc_thread = thread;
+	if (thread) {
+		LASSERT(request->rq_session.lc_thread);
+		request->rq_session.lc_thread = thread;
+		request->rq_session.lc_cookie = 0x55;
+		thread->t_env->le_ses = &request->rq_session;
+	}
+	svc->srv_ops.so_req_handler(request);
 
 	ptlrpc_rqphase_move(request, RQ_PHASE_COMPLETE);
 
 put_conn:
-	lu_context_exit(&request->rq_session);
-	lu_context_fini(&request->rq_session);
-
 	if (unlikely(ktime_get_real_seconds() > request->rq_deadline)) {
 		DEBUG_REQ(D_WARNING, request,
 			  "Request took longer than estimated (%lld:%llds); "
@@ -1756,7 +1769,6 @@ put_conn:
 			  request->rq_arrival_time.tv_sec);
 	}
 
-out_req:
 	ptlrpc_server_finish_active_request(svcpt, request);
 
 	return 1;
@@ -1976,11 +1988,12 @@ ptlrpc_wait_event(struct ptlrpc_service_part *svcpt,
 	cond_resched();
 
 	l_wait_event_exclusive_head(svcpt->scp_waitq,
-				ptlrpc_thread_stopping(thread) ||
-				ptlrpc_server_request_incoming(svcpt) ||
-				ptlrpc_server_request_pending(svcpt, false) ||
-				ptlrpc_rqbd_pending(svcpt) ||
-				ptlrpc_at_check(svcpt), &lwi);
+				    ptlrpc_thread_stopping(thread) ||
+				    ptlrpc_server_request_incoming(svcpt) ||
+				    ptlrpc_server_request_pending(svcpt,
+								  false) ||
+				    ptlrpc_rqbd_pending(svcpt) ||
+				    ptlrpc_at_check(svcpt), &lwi);
 
 	if (ptlrpc_thread_stopping(thread))
 		return -EINTR;
@@ -2043,7 +2056,7 @@ static int ptlrpc_main(void *arg)
 	}
 
 	rc = lu_context_init(&env->le_ctx,
-			     svc->srv_ctx_tags|LCT_REMEMBER|LCT_NOREF);
+			     svc->srv_ctx_tags | LCT_REMEMBER | LCT_NOREF);
 	if (rc)
 		goto out_srv_fini;
 
@@ -2343,7 +2356,7 @@ static void ptlrpc_svcpt_stop_threads(struct ptlrpc_service_part *svcpt)
 
 	while (!list_empty(&zombie)) {
 		thread = list_entry(zombie.next,
-					struct ptlrpc_thread, t_link);
+				    struct ptlrpc_thread, t_link);
 		list_del(&thread->t_link);
 		kfree(thread);
 	}
@@ -2392,7 +2405,6 @@ int ptlrpc_start_threads(struct ptlrpc_service *svc)
 	ptlrpc_stop_all_threads(svc);
 	return rc;
 }
-EXPORT_SYMBOL(ptlrpc_start_threads);
 
 int ptlrpc_start_thread(struct ptlrpc_service_part *svcpt, int wait)
 {
@@ -2533,8 +2545,8 @@ int ptlrpc_hr_init(void)
 		LASSERT(hrp->hrp_nthrs > 0);
 		hrp->hrp_thrs =
 			kzalloc_node(hrp->hrp_nthrs * sizeof(*hrt), GFP_NOFS,
-				cfs_cpt_spread_node(ptlrpc_hr.hr_cpt_table,
-						    i));
+				     cfs_cpt_spread_node(ptlrpc_hr.hr_cpt_table,
+							 i));
 		if (!hrp->hrp_thrs) {
 			rc = -ENOMEM;
 			goto out;
@@ -2587,7 +2599,8 @@ static void ptlrpc_wait_replies(struct ptlrpc_service_part *svcpt)
 						     NULL, NULL);
 
 		rc = l_wait_event(svcpt->scp_waitq,
-		     atomic_read(&svcpt->scp_nreps_difficult) == 0, &lwi);
+				  atomic_read(&svcpt->scp_nreps_difficult) == 0,
+				  &lwi);
 		if (rc == 0)
 			break;
 		CWARN("Unexpectedly long timeout %s %p\n",
@@ -2633,7 +2646,7 @@ ptlrpc_service_unlink_rqbd(struct ptlrpc_service *svc)
 		 * event with its 'unlink' flag set for each posted rqbd
 		 */
 		list_for_each_entry(rqbd, &svcpt->scp_rqbd_posted,
-					rqbd_list) {
+				    rqbd_list) {
 			rc = LNetMDUnlink(rqbd->rqbd_md_h);
 			LASSERT(rc == 0 || rc == -ENOENT);
 		}

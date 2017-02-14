@@ -23,7 +23,7 @@ static void nicvf_get_page(struct nicvf *nic)
 	if (!nic->rb_pageref || !nic->rb_page)
 		return;
 
-	atomic_add(nic->rb_pageref, &nic->rb_page->_count);
+	page_ref_add(nic->rb_page, nic->rb_pageref);
 	nic->rb_pageref = 0;
 }
 
@@ -104,7 +104,8 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
 		nic->rb_page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
 					   order);
 		if (!nic->rb_page) {
-			nic->drv_stats.rcv_buffer_alloc_failures++;
+			this_cpu_inc(nic->pnicvf->drv_stats->
+				     rcv_buffer_alloc_failures);
 			return -ENOMEM;
 		}
 		nic->rb_page_offset = 0;
@@ -270,7 +271,8 @@ refill:
 			      rbdr_idx, new_rb);
 next_rbdr:
 	/* Re-enable RBDR interrupts only if buffer allocation is success */
-	if (!nic->rb_alloc_fail && rbdr->enable)
+	if (!nic->rb_alloc_fail && rbdr->enable &&
+	    netif_running(nic->pnicvf->netdev))
 		nicvf_enable_intr(nic, NICVF_INTR_RBDR, rbdr_idx);
 
 	if (rbdr_idx)
@@ -361,6 +363,8 @@ static int nicvf_init_snd_queue(struct nicvf *nic,
 
 static void nicvf_free_snd_queue(struct nicvf *nic, struct snd_queue *sq)
 {
+	struct sk_buff *skb;
+
 	if (!sq)
 		return;
 	if (!sq->dmem.base)
@@ -371,6 +375,15 @@ static void nicvf_free_snd_queue(struct nicvf *nic, struct snd_queue *sq)
 				  sq->dmem.q_len * TSO_HEADER_SIZE,
 				  sq->tso_hdrs, sq->tso_hdrs_phys);
 
+	/* Free pending skbs in the queue */
+	smp_rmb();
+	while (sq->head != sq->tail) {
+		skb = (struct sk_buff *)sq->skbuff[sq->head];
+		if (skb)
+			dev_kfree_skb_any(skb);
+		sq->head++;
+		sq->head &= (sq->dmem.q_len - 1);
+	}
 	kfree(sq->skbuff);
 	nicvf_free_q_desc_mem(nic, &sq->dmem);
 }
@@ -479,6 +492,19 @@ void nicvf_config_vlan_stripping(struct nicvf *nic, netdev_features_t features)
 					      NIC_QSET_RQ_GEN_CFG, 0, rq_cfg);
 }
 
+static void nicvf_reset_rcv_queue_stats(struct nicvf *nic)
+{
+	union nic_mbx mbx = {};
+
+	/* Reset all RQ/SQ and VF stats */
+	mbx.reset_stat.msg = NIC_MBOX_MSG_RESET_STAT_COUNTER;
+	mbx.reset_stat.rx_stat_mask = 0x3FFF;
+	mbx.reset_stat.tx_stat_mask = 0x1F;
+	mbx.reset_stat.rq_stat_mask = 0xFFFF;
+	mbx.reset_stat.sq_stat_mask = 0xFFFF;
+	nicvf_send_msg_to_pf(nic, &mbx);
+}
+
 /* Configures receive queue */
 static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
 				   int qidx, bool enable)
@@ -528,9 +554,12 @@ static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
 	mbx.rq.cfg = (1ULL << 62) | (RQ_CQ_DROP << 8);
 	nicvf_send_msg_to_pf(nic, &mbx);
 
-	nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, 0, 0x00);
-	if (!nic->sqs_mode)
+	if (!nic->sqs_mode && (qidx == 0)) {
+		/* Enable checking L3/L4 length and TCP/UDP checksums */
+		nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, 0,
+				      (BIT(24) | BIT(23) | BIT(21)));
 		nicvf_config_vlan_stripping(nic, nic->netdev->features);
+	}
 
 	/* Enable Receive queue */
 	memset(&rq_cfg, 0, sizeof(struct rq_cfg));
@@ -762,10 +791,10 @@ int nicvf_set_qset_resources(struct nicvf *nic)
 	nic->qs = qs;
 
 	/* Set count of each queue */
-	qs->rbdr_cnt = RBDR_CNT;
-	qs->rq_cnt = RCV_QUEUE_CNT;
-	qs->sq_cnt = SND_QUEUE_CNT;
-	qs->cq_cnt = CMP_QUEUE_CNT;
+	qs->rbdr_cnt = DEFAULT_RBDR_CNT;
+	qs->rq_cnt = min_t(u8, MAX_RCV_QUEUES_PER_QS, num_online_cpus());
+	qs->sq_cnt = min_t(u8, MAX_SND_QUEUES_PER_QS, num_online_cpus());
+	qs->cq_cnt = max_t(u8, qs->rq_cnt, qs->sq_cnt);
 
 	/* Set queue lengths */
 	qs->rbdr_len = RCV_BUF_COUNT;
@@ -811,6 +840,11 @@ int nicvf_config_data_transfer(struct nicvf *nic, bool enable)
 
 		nicvf_free_resources(nic);
 	}
+
+	/* Reset RXQ's stats.
+	 * SQ's stats will get reset automatically once SQ is reset.
+	 */
+	nicvf_reset_rcv_queue_stats(nic);
 
 	return 0;
 }
@@ -938,6 +972,8 @@ static int nicvf_tso_count_subdescs(struct sk_buff *skb)
 	return num_edescs + sh->gso_segs;
 }
 
+#define POST_CQE_DESC_COUNT 2
+
 /* Get the number of SQ descriptors needed to xmit this skb */
 static int nicvf_sq_subdesc_required(struct nicvf *nic, struct sk_buff *skb)
 {
@@ -947,6 +983,10 @@ static int nicvf_sq_subdesc_required(struct nicvf *nic, struct sk_buff *skb)
 		subdesc_cnt = nicvf_tso_count_subdescs(skb);
 		return subdesc_cnt;
 	}
+
+	/* Dummy descriptors to get TSO pkt completion notification */
+	if (nic->t88 && nic->hw_tso && skb_shinfo(skb)->gso_size)
+		subdesc_cnt += POST_CQE_DESC_COUNT;
 
 	if (skb_shinfo(skb)->nr_frags)
 		subdesc_cnt += skb_shinfo(skb)->nr_frags;
@@ -965,14 +1005,21 @@ nicvf_sq_add_hdr_subdesc(struct nicvf *nic, struct snd_queue *sq, int qentry,
 	struct sq_hdr_subdesc *hdr;
 
 	hdr = (struct sq_hdr_subdesc *)GET_SQ_DESC(sq, qentry);
-	sq->skbuff[qentry] = (u64)skb;
-
 	memset(hdr, 0, SND_QUEUE_DESC_SIZE);
 	hdr->subdesc_type = SQ_DESC_TYPE_HEADER;
-	/* Enable notification via CQE after processing SQE */
-	hdr->post_cqe = 1;
-	/* No of subdescriptors following this */
-	hdr->subdesc_cnt = subdesc_cnt;
+
+	if (nic->t88 && nic->hw_tso && skb_shinfo(skb)->gso_size) {
+		/* post_cqe = 0, to avoid HW posting a CQE for every TSO
+		 * segment transmitted on 88xx.
+		 */
+		hdr->subdesc_cnt = subdesc_cnt - POST_CQE_DESC_COUNT;
+	} else {
+		sq->skbuff[qentry] = (u64)skb;
+		/* Enable notification via CQE after processing SQE */
+		hdr->post_cqe = 1;
+		/* No of subdescriptors following this */
+		hdr->subdesc_cnt = subdesc_cnt;
+	}
 	hdr->tot_len = len;
 
 	/* Offload checksum calculation to HW */
@@ -1001,7 +1048,7 @@ nicvf_sq_add_hdr_subdesc(struct nicvf *nic, struct snd_queue *sq, int qentry,
 		hdr->tso_max_paysize = skb_shinfo(skb)->gso_size;
 		/* For non-tunneled pkts, point this to L2 ethertype */
 		hdr->inner_l3_offset = skb_network_offset(skb) - 2;
-		nic->drv_stats.tx_tso++;
+		this_cpu_inc(nic->pnicvf->drv_stats->tx_tso);
 	}
 }
 
@@ -1021,6 +1068,55 @@ static inline void nicvf_sq_add_gather_subdesc(struct snd_queue *sq, int qentry,
 	gather->ld_type = NIC_SEND_LD_TYPE_E_LDD;
 	gather->size = size;
 	gather->addr = data;
+}
+
+/* Add HDR + IMMEDIATE subdescriptors right after descriptors of a TSO
+ * packet so that a CQE is posted as a notifation for transmission of
+ * TSO packet.
+ */
+static inline void nicvf_sq_add_cqe_subdesc(struct snd_queue *sq, int qentry,
+					    int tso_sqe, struct sk_buff *skb)
+{
+	struct sq_imm_subdesc *imm;
+	struct sq_hdr_subdesc *hdr;
+
+	sq->skbuff[qentry] = (u64)skb;
+
+	hdr = (struct sq_hdr_subdesc *)GET_SQ_DESC(sq, qentry);
+	memset(hdr, 0, SND_QUEUE_DESC_SIZE);
+	hdr->subdesc_type = SQ_DESC_TYPE_HEADER;
+	/* Enable notification via CQE after processing SQE */
+	hdr->post_cqe = 1;
+	/* There is no packet to transmit here */
+	hdr->dont_send = 1;
+	hdr->subdesc_cnt = POST_CQE_DESC_COUNT - 1;
+	hdr->tot_len = 1;
+	/* Actual TSO header SQE index, needed for cleanup */
+	hdr->rsvd2 = tso_sqe;
+
+	qentry = nicvf_get_nxt_sqentry(sq, qentry);
+	imm = (struct sq_imm_subdesc *)GET_SQ_DESC(sq, qentry);
+	memset(imm, 0, SND_QUEUE_DESC_SIZE);
+	imm->subdesc_type = SQ_DESC_TYPE_IMMEDIATE;
+	imm->len = 1;
+}
+
+static inline void nicvf_sq_doorbell(struct nicvf *nic, struct sk_buff *skb,
+				     int sq_num, int desc_cnt)
+{
+	struct netdev_queue *txq;
+
+	txq = netdev_get_tx_queue(nic->pnicvf->netdev,
+				  skb_get_queue_mapping(skb));
+
+	netdev_tx_sent_queue(txq, skb->len);
+
+	/* make sure all memory stores are done before ringing doorbell */
+	smp_wmb();
+
+	/* Inform HW to xmit all TSO segments */
+	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
+			      sq_num, desc_cnt);
 }
 
 /* Segment a TSO packet into 'gso_size' segments and append
@@ -1082,13 +1178,9 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
 	/* Save SKB in the last segment for freeing */
 	sq->skbuff[hdr_qentry] = (u64)skb;
 
-	/* make sure all memory stores are done before ringing doorbell */
-	smp_wmb();
+	nicvf_sq_doorbell(nic, skb, sq_num, desc_cnt);
 
-	/* Inform HW to xmit all TSO segments */
-	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
-			      sq_num, desc_cnt);
-	nic->drv_stats.tx_tso++;
+	this_cpu_inc(nic->pnicvf->drv_stats->tx_tso);
 	return 1;
 }
 
@@ -1096,7 +1188,7 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
 int nicvf_sq_append_skb(struct nicvf *nic, struct sk_buff *skb)
 {
 	int i, size;
-	int subdesc_cnt;
+	int subdesc_cnt, tso_sqe = 0;
 	int sq_num, qentry;
 	struct queue_set *qs;
 	struct snd_queue *sq;
@@ -1131,6 +1223,7 @@ int nicvf_sq_append_skb(struct nicvf *nic, struct sk_buff *skb)
 	/* Add SQ header subdesc */
 	nicvf_sq_add_hdr_subdesc(nic, sq, qentry, subdesc_cnt - 1,
 				 skb, skb->len);
+	tso_sqe = qentry;
 
 	/* Add SQ gather subdescs */
 	qentry = nicvf_get_nxt_sqentry(sq, qentry);
@@ -1154,12 +1247,13 @@ int nicvf_sq_append_skb(struct nicvf *nic, struct sk_buff *skb)
 	}
 
 doorbell:
-	/* make sure all memory stores are done before ringing doorbell */
-	smp_wmb();
+	if (nic->t88 && skb_shinfo(skb)->gso_size) {
+		qentry = nicvf_get_nxt_sqentry(sq, qentry);
+		nicvf_sq_add_cqe_subdesc(sq, qentry, tso_sqe, skb);
+	}
 
-	/* Inform HW to xmit new packet */
-	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
-			      sq_num, subdesc_cnt);
+	nicvf_sq_doorbell(nic, skb, sq_num, subdesc_cnt);
+
 	return 1;
 
 append_fail:
@@ -1184,13 +1278,23 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
 	int frag;
 	int payload_len = 0;
 	struct sk_buff *skb = NULL;
-	struct sk_buff *skb_frag = NULL;
-	struct sk_buff *prev_frag = NULL;
+	struct page *page;
+	int offset;
 	u16 *rb_lens = NULL;
 	u64 *rb_ptrs = NULL;
 
 	rb_lens = (void *)cqe_rx + (3 * sizeof(u64));
-	rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
+	/* Except 88xx pass1 on all other chips CQE_RX2_S is added to
+	 * CQE_RX at word6, hence buffer pointers move by word
+	 *
+	 * Use existing 'hw_tso' flag which will be set for all chips
+	 * except 88xx pass1 instead of a additional cache line
+	 * access (or miss) by using pci dev's revision.
+	 */
+	if (!nic->hw_tso)
+		rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
+	else
+		rb_ptrs = (void *)cqe_rx + (7 * sizeof(u64));
 
 	netdev_dbg(nic->netdev, "%s rb_cnt %d rb0_ptr %llx rb0_sz %d\n",
 		   __func__, cqe_rx->rb_cnt, cqe_rx->rb0_ptr, cqe_rx->rb0_sz);
@@ -1208,22 +1312,10 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
 			skb_put(skb, payload_len);
 		} else {
 			/* Add fragments */
-			skb_frag = nicvf_rb_ptr_to_skb(nic, *rb_ptrs,
-						       payload_len);
-			if (!skb_frag) {
-				dev_kfree_skb(skb);
-				return NULL;
-			}
-
-			if (!skb_shinfo(skb)->frag_list)
-				skb_shinfo(skb)->frag_list = skb_frag;
-			else
-				prev_frag->next = skb_frag;
-
-			prev_frag = skb_frag;
-			skb->len += payload_len;
-			skb->data_len += payload_len;
-			skb_frag->len = payload_len;
+			page = virt_to_page(phys_to_virt(*rb_ptrs));
+			offset = phys_to_virt(*rb_ptrs) - page_address(page);
+			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+					offset, payload_len, RCV_FRAG_LEN);
 		}
 		/* Next buffer pointer */
 		rb_ptrs++;
@@ -1349,8 +1441,6 @@ void nicvf_update_sq_stats(struct nicvf *nic, int sq_idx)
 /* Check for errors in the receive cmp.queue entry */
 int nicvf_check_cqe_rx_errs(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
 {
-	struct nicvf_hw_stats *stats = &nic->hw_stats;
-
 	if (!cqe_rx->err_level && !cqe_rx->err_opcode)
 		return 0;
 
@@ -1362,76 +1452,76 @@ int nicvf_check_cqe_rx_errs(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
 
 	switch (cqe_rx->err_opcode) {
 	case CQ_RX_ERROP_RE_PARTIAL:
-		stats->rx_bgx_truncated_pkts++;
+		this_cpu_inc(nic->drv_stats->rx_bgx_truncated_pkts);
 		break;
 	case CQ_RX_ERROP_RE_JABBER:
-		stats->rx_jabber_errs++;
+		this_cpu_inc(nic->drv_stats->rx_jabber_errs);
 		break;
 	case CQ_RX_ERROP_RE_FCS:
-		stats->rx_fcs_errs++;
+		this_cpu_inc(nic->drv_stats->rx_fcs_errs);
 		break;
 	case CQ_RX_ERROP_RE_RX_CTL:
-		stats->rx_bgx_errs++;
+		this_cpu_inc(nic->drv_stats->rx_bgx_errs);
 		break;
 	case CQ_RX_ERROP_PREL2_ERR:
-		stats->rx_prel2_errs++;
+		this_cpu_inc(nic->drv_stats->rx_prel2_errs);
 		break;
 	case CQ_RX_ERROP_L2_MAL:
-		stats->rx_l2_hdr_malformed++;
+		this_cpu_inc(nic->drv_stats->rx_l2_hdr_malformed);
 		break;
 	case CQ_RX_ERROP_L2_OVERSIZE:
-		stats->rx_oversize++;
+		this_cpu_inc(nic->drv_stats->rx_oversize);
 		break;
 	case CQ_RX_ERROP_L2_UNDERSIZE:
-		stats->rx_undersize++;
+		this_cpu_inc(nic->drv_stats->rx_undersize);
 		break;
 	case CQ_RX_ERROP_L2_LENMISM:
-		stats->rx_l2_len_mismatch++;
+		this_cpu_inc(nic->drv_stats->rx_l2_len_mismatch);
 		break;
 	case CQ_RX_ERROP_L2_PCLP:
-		stats->rx_l2_pclp++;
+		this_cpu_inc(nic->drv_stats->rx_l2_pclp);
 		break;
 	case CQ_RX_ERROP_IP_NOT:
-		stats->rx_ip_ver_errs++;
+		this_cpu_inc(nic->drv_stats->rx_ip_ver_errs);
 		break;
 	case CQ_RX_ERROP_IP_CSUM_ERR:
-		stats->rx_ip_csum_errs++;
+		this_cpu_inc(nic->drv_stats->rx_ip_csum_errs);
 		break;
 	case CQ_RX_ERROP_IP_MAL:
-		stats->rx_ip_hdr_malformed++;
+		this_cpu_inc(nic->drv_stats->rx_ip_hdr_malformed);
 		break;
 	case CQ_RX_ERROP_IP_MALD:
-		stats->rx_ip_payload_malformed++;
+		this_cpu_inc(nic->drv_stats->rx_ip_payload_malformed);
 		break;
 	case CQ_RX_ERROP_IP_HOP:
-		stats->rx_ip_ttl_errs++;
+		this_cpu_inc(nic->drv_stats->rx_ip_ttl_errs);
 		break;
 	case CQ_RX_ERROP_L3_PCLP:
-		stats->rx_l3_pclp++;
+		this_cpu_inc(nic->drv_stats->rx_l3_pclp);
 		break;
 	case CQ_RX_ERROP_L4_MAL:
-		stats->rx_l4_malformed++;
+		this_cpu_inc(nic->drv_stats->rx_l4_malformed);
 		break;
 	case CQ_RX_ERROP_L4_CHK:
-		stats->rx_l4_csum_errs++;
+		this_cpu_inc(nic->drv_stats->rx_l4_csum_errs);
 		break;
 	case CQ_RX_ERROP_UDP_LEN:
-		stats->rx_udp_len_errs++;
+		this_cpu_inc(nic->drv_stats->rx_udp_len_errs);
 		break;
 	case CQ_RX_ERROP_L4_PORT:
-		stats->rx_l4_port_errs++;
+		this_cpu_inc(nic->drv_stats->rx_l4_port_errs);
 		break;
 	case CQ_RX_ERROP_TCP_FLAG:
-		stats->rx_tcp_flag_errs++;
+		this_cpu_inc(nic->drv_stats->rx_tcp_flag_errs);
 		break;
 	case CQ_RX_ERROP_TCP_OFFSET:
-		stats->rx_tcp_offset_errs++;
+		this_cpu_inc(nic->drv_stats->rx_tcp_offset_errs);
 		break;
 	case CQ_RX_ERROP_L4_PCLP:
-		stats->rx_l4_pclp++;
+		this_cpu_inc(nic->drv_stats->rx_l4_pclp);
 		break;
 	case CQ_RX_ERROP_RBDR_TRUNC:
-		stats->rx_truncated_pkts++;
+		this_cpu_inc(nic->drv_stats->rx_truncated_pkts);
 		break;
 	}
 
@@ -1439,53 +1529,52 @@ int nicvf_check_cqe_rx_errs(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
 }
 
 /* Check for errors in the send cmp.queue entry */
-int nicvf_check_cqe_tx_errs(struct nicvf *nic,
-			    struct cmp_queue *cq, struct cqe_send_t *cqe_tx)
+int nicvf_check_cqe_tx_errs(struct nicvf *nic, struct cqe_send_t *cqe_tx)
 {
-	struct cmp_queue_stats *stats = &cq->stats;
-
 	switch (cqe_tx->send_status) {
 	case CQ_TX_ERROP_GOOD:
-		stats->tx.good++;
 		return 0;
 	case CQ_TX_ERROP_DESC_FAULT:
-		stats->tx.desc_fault++;
+		this_cpu_inc(nic->drv_stats->tx_desc_fault);
 		break;
 	case CQ_TX_ERROP_HDR_CONS_ERR:
-		stats->tx.hdr_cons_err++;
+		this_cpu_inc(nic->drv_stats->tx_hdr_cons_err);
 		break;
 	case CQ_TX_ERROP_SUBDC_ERR:
-		stats->tx.subdesc_err++;
+		this_cpu_inc(nic->drv_stats->tx_subdesc_err);
+		break;
+	case CQ_TX_ERROP_MAX_SIZE_VIOL:
+		this_cpu_inc(nic->drv_stats->tx_max_size_exceeded);
 		break;
 	case CQ_TX_ERROP_IMM_SIZE_OFLOW:
-		stats->tx.imm_size_oflow++;
+		this_cpu_inc(nic->drv_stats->tx_imm_size_oflow);
 		break;
 	case CQ_TX_ERROP_DATA_SEQUENCE_ERR:
-		stats->tx.data_seq_err++;
+		this_cpu_inc(nic->drv_stats->tx_data_seq_err);
 		break;
 	case CQ_TX_ERROP_MEM_SEQUENCE_ERR:
-		stats->tx.mem_seq_err++;
+		this_cpu_inc(nic->drv_stats->tx_mem_seq_err);
 		break;
 	case CQ_TX_ERROP_LOCK_VIOL:
-		stats->tx.lock_viol++;
+		this_cpu_inc(nic->drv_stats->tx_lock_viol);
 		break;
 	case CQ_TX_ERROP_DATA_FAULT:
-		stats->tx.data_fault++;
+		this_cpu_inc(nic->drv_stats->tx_data_fault);
 		break;
 	case CQ_TX_ERROP_TSTMP_CONFLICT:
-		stats->tx.tstmp_conflict++;
+		this_cpu_inc(nic->drv_stats->tx_tstmp_conflict);
 		break;
 	case CQ_TX_ERROP_TSTMP_TIMEOUT:
-		stats->tx.tstmp_timeout++;
+		this_cpu_inc(nic->drv_stats->tx_tstmp_timeout);
 		break;
 	case CQ_TX_ERROP_MEM_FAULT:
-		stats->tx.mem_fault++;
+		this_cpu_inc(nic->drv_stats->tx_mem_fault);
 		break;
 	case CQ_TX_ERROP_CK_OVERLAP:
-		stats->tx.csum_overlap++;
+		this_cpu_inc(nic->drv_stats->tx_csum_overlap);
 		break;
 	case CQ_TX_ERROP_CK_OFLOW:
-		stats->tx.csum_overflow++;
+		this_cpu_inc(nic->drv_stats->tx_csum_overflow);
 		break;
 	}
 

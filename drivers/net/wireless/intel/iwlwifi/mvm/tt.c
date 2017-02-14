@@ -204,20 +204,11 @@ void iwl_mvm_temp_notif(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb)
 	if (WARN_ON(ths_crossed >= IWL_MAX_DTS_TRIPS))
 		return;
 
-	/*
-	 * We are now handling a temperature notification from the firmware
-	 * in ASYNC and hold the mutex. thermal_notify_framework will call
-	 * us back through get_temp() which ought to send a SYNC command to
-	 * the firmware and hence to take the mutex.
-	 * Avoid the deadlock by unlocking the mutex here.
-	 */
 	if (mvm->tz_device.tzone) {
 		struct iwl_mvm_thermal_device *tz_dev = &mvm->tz_device;
 
-		mutex_unlock(&mvm->mutex);
 		thermal_notify_framework(tz_dev->tzone,
 					 tz_dev->fw_trips_index[ths_crossed]);
-		mutex_lock(&mvm->mutex);
 	}
 #endif /* CONFIG_THERMAL */
 }
@@ -250,11 +241,8 @@ static int iwl_mvm_get_temp_cmd(struct iwl_mvm *mvm)
 	};
 	u32 cmdid;
 
-	if (fw_has_api(&mvm->fw->ucode_capa, IWL_UCODE_TLV_API_WIDE_CMD_HDR))
-		cmdid = iwl_cmd_id(CMD_DTS_MEASUREMENT_TRIGGER_WIDE,
-				   PHY_OPS_GROUP, 0);
-	else
-		cmdid = CMD_DTS_MEASUREMENT_TRIGGER;
+	cmdid = iwl_cmd_id(CMD_DTS_MEASUREMENT_TRIGGER_WIDE,
+			   PHY_OPS_GROUP, 0);
 
 	if (!fw_has_capa(&mvm->fw->ucode_capa,
 			 IWL_UCODE_TLV_CAPA_EXTENDED_DTS_MEASURE))
@@ -269,9 +257,6 @@ int iwl_mvm_get_temp(struct iwl_mvm *mvm, s32 *temp)
 	static u16 temp_notif[] = { WIDE_ID(PHY_OPS_GROUP,
 					    DTS_MEASUREMENT_NOTIF_WIDE) };
 	int ret;
-
-	if (!fw_has_api(&mvm->fw->ucode_capa, IWL_UCODE_TLV_API_WIDE_CMD_HDR))
-		temp_notif[0] = DTS_MEASUREMENT_NOTIFICATION;
 
 	lockdep_assert_held(&mvm->mutex);
 
@@ -368,16 +353,14 @@ static void iwl_mvm_tt_smps_iterator(void *_data, u8 *mac,
 
 static void iwl_mvm_tt_tx_protection(struct iwl_mvm *mvm, bool enable)
 {
-	struct ieee80211_sta *sta;
 	struct iwl_mvm_sta *mvmsta;
 	int i, err;
 
 	for (i = 0; i < IWL_MVM_STATION_COUNT; i++) {
-		sta = rcu_dereference_protected(mvm->fw_id_to_mac_id[i],
-						lockdep_is_held(&mvm->mutex));
-		if (IS_ERR_OR_NULL(sta))
+		mvmsta = iwl_mvm_sta_from_staid_protected(mvm, i);
+		if (!mvmsta)
 			continue;
-		mvmsta = iwl_mvm_sta_from_mac80211(sta);
+
 		if (enable == mvmsta->tt_tx_protection)
 			continue;
 		err = iwl_mvm_tx_protection(mvm, mvmsta, enable);
@@ -796,9 +779,6 @@ static int iwl_mvm_tcool_get_cur_state(struct thermal_cooling_device *cdev,
 {
 	struct iwl_mvm *mvm = (struct iwl_mvm *)(cdev->devdata);
 
-	if (test_bit(IWL_MVM_STATUS_IN_D0I3, &mvm->status))
-		return -EBUSY;
-
 	*state = mvm->cooling_dev.cur_state;
 
 	return 0;
@@ -812,9 +792,6 @@ static int iwl_mvm_tcool_set_cur_state(struct thermal_cooling_device *cdev,
 
 	if (!mvm->ucode_loaded || !(mvm->cur_ucode == IWL_UCODE_REGULAR))
 		return -EIO;
-
-	if (test_bit(IWL_MVM_STATUS_IN_D0I3, &mvm->status))
-		return -EBUSY;
 
 	mutex_lock(&mvm->mutex);
 

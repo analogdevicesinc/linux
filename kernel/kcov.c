@@ -7,6 +7,7 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/printk.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
@@ -53,8 +54,15 @@ void notrace __sanitizer_cov_trace_pc(void)
 	/*
 	 * We are interested in code coverage as a function of a syscall inputs,
 	 * so we ignore code executed in interrupts.
+	 * The checks for whether we are in an interrupt are open-coded, because
+	 * 1. We can't use in_interrupt() here, since it also returns true
+	 *    when we are inside local_bh_disable() section.
+	 * 2. We don't want to use (in_irq() | in_serving_softirq() | in_nmi()),
+	 *    since that leads to slower generated code (three separate tests,
+	 *    one for each of the flags).
 	 */
-	if (!t || in_interrupt())
+	if (!t || (preempt_count() & (HARDIRQ_MASK | SOFTIRQ_OFFSET
+							| NMI_MASK)))
 		return;
 	mode = READ_ONCE(t->kcov_mode);
 	if (mode == KCOV_MODE_TRACE) {
@@ -264,7 +272,12 @@ static const struct file_operations kcov_fops = {
 
 static int __init kcov_init(void)
 {
-	if (!debugfs_create_file("kcov", 0600, NULL, NULL, &kcov_fops)) {
+	/*
+	 * The kcov debugfs file won't ever get removed and thus,
+	 * there is no need to protect it against removal races. The
+	 * use of debugfs_create_file_unsafe() is actually safe here.
+	 */
+	if (!debugfs_create_file_unsafe("kcov", 0600, NULL, NULL, &kcov_fops)) {
 		pr_err("failed to create kcov in debugfs\n");
 		return -ENOMEM;
 	}

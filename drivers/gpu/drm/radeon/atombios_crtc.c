@@ -276,14 +276,14 @@ void atombios_crtc_dpms(struct drm_crtc *crtc, int mode)
 			atombios_enable_crtc_memreq(crtc, ATOM_ENABLE);
 		atombios_blank_crtc(crtc, ATOM_DISABLE);
 		if (dev->num_crtcs > radeon_crtc->crtc_id)
-			drm_vblank_on(dev, radeon_crtc->crtc_id);
+			drm_crtc_vblank_on(crtc);
 		radeon_crtc_load_lut(crtc);
 		break;
 	case DRM_MODE_DPMS_STANDBY:
 	case DRM_MODE_DPMS_SUSPEND:
 	case DRM_MODE_DPMS_OFF:
 		if (dev->num_crtcs > radeon_crtc->crtc_id)
-			drm_vblank_off(dev, radeon_crtc->crtc_id);
+			drm_crtc_vblank_off(crtc);
 		if (radeon_crtc->enabled)
 			atombios_blank_crtc(crtc, ATOM_ENABLE);
 		if (ASIC_IS_DCE3(rdev) && !ASIC_IS_DCE6(rdev))
@@ -589,7 +589,8 @@ static u32 atombios_adjust_pll(struct drm_crtc *crtc,
 		if (ASIC_IS_DCE41(rdev) || ASIC_IS_DCE61(rdev) || ASIC_IS_DCE8(rdev))
 			radeon_crtc->pll_flags |= RADEON_PLL_USE_FRAC_FB_DIV;
 		/* use frac fb div on RS780/RS880 */
-		if ((rdev->family == CHIP_RS780) || (rdev->family == CHIP_RS880))
+		if (((rdev->family == CHIP_RS780) || (rdev->family == CHIP_RS880))
+		    && !radeon_crtc->ss_enabled)
 			radeon_crtc->pll_flags |= RADEON_PLL_USE_FRAC_FB_DIV;
 		if (ASIC_IS_DCE32(rdev) && mode->clock > 165000)
 			radeon_crtc->pll_flags |= RADEON_PLL_USE_FRAC_FB_DIV;
@@ -626,7 +627,9 @@ static u32 atombios_adjust_pll(struct drm_crtc *crtc,
 			if (radeon_crtc->ss.refdiv) {
 				radeon_crtc->pll_flags |= RADEON_PLL_USE_REF_DIV;
 				radeon_crtc->pll_reference_div = radeon_crtc->ss.refdiv;
-				if (ASIC_IS_AVIVO(rdev))
+				if (ASIC_IS_AVIVO(rdev) &&
+				    rdev->family != CHIP_RS780 &&
+				    rdev->family != CHIP_RS880)
 					radeon_crtc->pll_flags |= RADEON_PLL_USE_FRAC_FB_DIV;
 			}
 		}
@@ -1153,6 +1156,7 @@ static int dce4_crtc_do_set_base(struct drm_crtc *crtc,
 	u32 tmp, viewport_w, viewport_h;
 	int r;
 	bool bypass_lut = false;
+	char *format_name;
 
 	/* no fb bound */
 	if (!atomic && !crtc->primary->fb) {
@@ -1256,8 +1260,9 @@ static int dce4_crtc_do_set_base(struct drm_crtc *crtc,
 		bypass_lut = true;
 		break;
 	default:
-		DRM_ERROR("Unsupported screen format %s\n",
-			  drm_get_format_name(target_fb->pixel_format));
+		format_name = drm_get_format_name(target_fb->pixel_format);
+		DRM_ERROR("Unsupported screen format %s\n", format_name);
+		kfree(format_name);
 		return -EINVAL;
 	}
 
@@ -1375,6 +1380,11 @@ static int dce4_crtc_do_set_base(struct drm_crtc *crtc,
 		break;
 	}
 
+	/* Make sure surface address is updated at vertical blank rather than
+	 * horizontal blank
+	 */
+	WREG32(EVERGREEN_GRPH_FLIP_CONTROL + radeon_crtc->crtc_offset, 0);
+
 	WREG32(EVERGREEN_GRPH_PRIMARY_SURFACE_ADDRESS_HIGH + radeon_crtc->crtc_offset,
 	       upper_32_bits(fb_location));
 	WREG32(EVERGREEN_GRPH_SECONDARY_SURFACE_ADDRESS_HIGH + radeon_crtc->crtc_offset,
@@ -1427,14 +1437,8 @@ static int dce4_crtc_do_set_base(struct drm_crtc *crtc,
 	WREG32(EVERGREEN_VIEWPORT_SIZE + radeon_crtc->crtc_offset,
 	       (viewport_w << 16) | viewport_h);
 
-	/* pageflip setup */
-	/* make sure flip is at vb rather than hb */
-	tmp = RREG32(EVERGREEN_GRPH_FLIP_CONTROL + radeon_crtc->crtc_offset);
-	tmp &= ~EVERGREEN_GRPH_SURFACE_UPDATE_H_RETRACE_EN;
-	WREG32(EVERGREEN_GRPH_FLIP_CONTROL + radeon_crtc->crtc_offset, tmp);
-
-	/* set pageflip to happen only at start of vblank interval (front porch) */
-	WREG32(EVERGREEN_MASTER_UPDATE_MODE + radeon_crtc->crtc_offset, 3);
+	/* set pageflip to happen anywhere in vblank interval */
+	WREG32(EVERGREEN_MASTER_UPDATE_MODE + radeon_crtc->crtc_offset, 0);
 
 	if (!atomic && fb && fb != crtc->primary->fb) {
 		radeon_fb = to_radeon_framebuffer(fb);
@@ -1466,9 +1470,10 @@ static int avivo_crtc_do_set_base(struct drm_crtc *crtc,
 	uint64_t fb_location;
 	uint32_t fb_format, fb_pitch_pixels, tiling_flags;
 	u32 fb_swap = R600_D1GRPH_SWAP_ENDIAN_NONE;
-	u32 tmp, viewport_w, viewport_h;
+	u32 viewport_w, viewport_h;
 	int r;
 	bool bypass_lut = false;
+	char *format_name;
 
 	/* no fb bound */
 	if (!atomic && !crtc->primary->fb) {
@@ -1558,8 +1563,9 @@ static int avivo_crtc_do_set_base(struct drm_crtc *crtc,
 		bypass_lut = true;
 		break;
 	default:
-		DRM_ERROR("Unsupported screen format %s\n",
-			  drm_get_format_name(target_fb->pixel_format));
+		format_name = drm_get_format_name(target_fb->pixel_format);
+		DRM_ERROR("Unsupported screen format %s\n", format_name);
+		kfree(format_name);
 		return -EINVAL;
 	}
 
@@ -1580,6 +1586,11 @@ static int avivo_crtc_do_set_base(struct drm_crtc *crtc,
 		WREG32(AVIVO_D1VGA_CONTROL, 0);
 	else
 		WREG32(AVIVO_D2VGA_CONTROL, 0);
+
+	/* Make sure surface address is update at vertical blank rather than
+	 * horizontal blank
+	 */
+	WREG32(AVIVO_D1GRPH_FLIP_CONTROL + radeon_crtc->crtc_offset, 0);
 
 	if (rdev->family >= CHIP_RV770) {
 		if (radeon_crtc->crtc_id) {
@@ -1626,12 +1637,6 @@ static int avivo_crtc_do_set_base(struct drm_crtc *crtc,
 	viewport_h = (crtc->mode.vdisplay + 1) & ~1;
 	WREG32(AVIVO_D1MODE_VIEWPORT_SIZE + radeon_crtc->crtc_offset,
 	       (viewport_w << 16) | viewport_h);
-
-	/* pageflip setup */
-	/* make sure flip is at vb rather than hb */
-	tmp = RREG32(AVIVO_D1GRPH_FLIP_CONTROL + radeon_crtc->crtc_offset);
-	tmp &= ~AVIVO_D1GRPH_SURFACE_UPDATE_H_RETRACE_EN;
-	WREG32(AVIVO_D1GRPH_FLIP_CONTROL + radeon_crtc->crtc_offset, tmp);
 
 	/* set pageflip to happen only at start of vblank interval (front porch) */
 	WREG32(AVIVO_D1MODE_MASTER_UPDATE_MODE + radeon_crtc->crtc_offset, 3);

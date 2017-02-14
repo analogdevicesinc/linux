@@ -196,9 +196,13 @@ enum xgene_cle_ptree_dbptrs {
 #define IDT_DSTQID_POS		0
 #define IDT_DSTQID_LEN		12
 #define IDT_FPSEL_POS		12
-#define IDT_FPSEL_LEN		4
-#define IDT_NFPSEL_POS		16
-#define IDT_NFPSEL_LEN		4
+#define IDT_FPSEL_LEN		5
+#define IDT_NFPSEL_POS		17
+#define IDT_NFPSEL_LEN		5
+#define IDT_FPSEL1_POS		12
+#define IDT_FPSEL1_LEN		4
+#define IDT_NFPSEL1_POS		16
+#define IDT_NFPSEL1_LEN		4
 
 struct xgene_cle_ptree_branch {
 	bool valid;
@@ -292,6 +296,6 @@ struct xgene_enet_cle {
 	u32 jump_bytes;
 };
 
-extern struct xgene_cle_ops xgene_cle3in_ops;
+extern const struct xgene_cle_ops xgene_cle3in_ops;
 
 #endif /* __XGENE_ENET_CLE_H__ */

@@ -395,8 +395,11 @@ static int acp_hw_fini(void *handle)
 {
 	int i, ret;
 	struct device *dev;
-
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+
+	/* return early if no ACP */
+	if (!adev->acp.acp_genpd)
+		return 0;
 
 	for (i = 0; i < ACP_DEVS ; i++) {
 		dev = get_mfd_cell_dev(adev->acp.acp_cell[i].name, i);
@@ -421,29 +424,6 @@ static int acp_suspend(void *handle)
 
 static int acp_resume(void *handle)
 {
-	int i, ret;
-	struct acp_pm_domain *apd;
-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
-
-	/* return early if no ACP */
-	if (!adev->acp.acp_genpd)
-		return 0;
-
-	/* SMU block will power on ACP irrespective of ACP runtime status.
-	 * Power off explicitly based on genpd ACP runtime status so that ACP
-	 * hw and ACP-genpd status are in sync.
-	 * 'suspend_power_off' represents "Power status before system suspend"
-	*/
-	if (adev->acp.acp_genpd->gpd.suspend_power_off == true) {
-		apd = container_of(&adev->acp.acp_genpd->gpd,
-					struct acp_pm_domain, gpd);
-
-		for (i = 4; i >= 0 ; i--) {
-			ret = acp_suspend_tile(apd->cgs_dev, ACP_TILE_P1 + i);
-			if (ret)
-				pr_err("ACP tile %d tile suspend failed\n", i);
-		}
-	}
 	return 0;
 }
 
@@ -467,13 +447,6 @@ static int acp_soft_reset(void *handle)
 	return 0;
 }
 
-static void acp_print_status(void *handle)
-{
-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
-
-	dev_info(adev->dev, "ACP STATUS\n");
-}
-
 static int acp_set_clockgating_state(void *handle,
 				     enum amd_clockgating_state state)
 {
@@ -487,6 +460,7 @@ static int acp_set_powergating_state(void *handle,
 }
 
 const struct amd_ip_funcs acp_ip_funcs = {
+	.name = "acp_ip",
 	.early_init = acp_early_init,
 	.late_init = NULL,
 	.sw_init = acp_sw_init,
@@ -498,7 +472,6 @@ const struct amd_ip_funcs acp_ip_funcs = {
 	.is_idle = acp_is_idle,
 	.wait_for_idle = acp_wait_for_idle,
 	.soft_reset = acp_soft_reset,
-	.print_status = acp_print_status,
 	.set_clockgating_state = acp_set_clockgating_state,
 	.set_powergating_state = acp_set_powergating_state,
 };

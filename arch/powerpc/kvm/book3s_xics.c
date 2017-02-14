@@ -92,12 +92,16 @@ static int ics_deliver_irq(struct kvmppc_xics *xics, u32 irq, u32 level)
 	 * we are the only setter, thus concurrent access is undefined
 	 * to begin with.
 	 */
-	if (level == 1 || level == KVM_INTERRUPT_SET_LEVEL)
+	if ((level == 1 && state->lsi) || level == KVM_INTERRUPT_SET_LEVEL)
 		state->asserted = 1;
 	else if (level == 0 || level == KVM_INTERRUPT_UNSET) {
 		state->asserted = 0;
 		return 0;
 	}
+
+	/* Record which CPU this arrived on for passed-through interrupts */
+	if (state->host_irq)
+		state->intr_cpu = raw_smp_processor_id();
 
 	/* Attempt delivery */
 	icp_deliver_irq(xics, NULL, irq);
@@ -280,7 +284,7 @@ static inline bool icp_try_update(struct kvmppc_icp *icp,
 	if (!success)
 		goto bail;
 
-	XICS_DBG("UPD [%04x] - C:%02x M:%02x PP: %02x PI:%06x R:%d O:%d\n",
+	XICS_DBG("UPD [%04lx] - C:%02x M:%02x PP: %02x PI:%06x R:%d O:%d\n",
 		 icp->server_num,
 		 old.cppr, old.mfrr, old.pending_pri, old.xisr,
 		 old.need_resend, old.out_ee);
@@ -336,7 +340,7 @@ static bool icp_try_to_deliver(struct kvmppc_icp *icp, u32 irq, u8 priority,
 	union kvmppc_icp_state old_state, new_state;
 	bool success;
 
-	XICS_DBG("try deliver %#x(P:%#x) to server %#x\n", irq, priority,
+	XICS_DBG("try deliver %#x(P:%#x) to server %#lx\n", irq, priority,
 		 icp->server_num);
 
 	do {
@@ -812,7 +816,7 @@ static noinline int kvmppc_h_eoi(struct kvm_vcpu *vcpu, unsigned long xirr)
 	return H_SUCCESS;
 }
 
-static noinline int kvmppc_xics_rm_complete(struct kvm_vcpu *vcpu, u32 hcall)
+int kvmppc_xics_rm_complete(struct kvm_vcpu *vcpu, u32 hcall)
 {
 	struct kvmppc_xics *xics = vcpu->kvm->arch.xics;
 	struct kvmppc_icp *icp = vcpu->arch.icp;
@@ -841,6 +845,7 @@ static noinline int kvmppc_xics_rm_complete(struct kvm_vcpu *vcpu, u32 hcall)
 
 	return H_SUCCESS;
 }
+EXPORT_SYMBOL_GPL(kvmppc_xics_rm_complete);
 
 int kvmppc_xics_hcall(struct kvm_vcpu *vcpu, u32 req)
 {
@@ -892,6 +897,21 @@ EXPORT_SYMBOL_GPL(kvmppc_xics_hcall);
 
 /* -- Initialisation code etc. -- */
 
+static void xics_debugfs_irqmap(struct seq_file *m,
+				struct kvmppc_passthru_irqmap *pimap)
+{
+	int i;
+
+	if (!pimap)
+		return;
+	seq_printf(m, "========\nPIRQ mappings: %d maps\n===========\n",
+				pimap->n_mapped);
+	for (i = 0; i < pimap->n_mapped; i++)  {
+		seq_printf(m, "r_hwirq=%x, v_hwirq=%x\n",
+			pimap->mapped[i].r_hwirq, pimap->mapped[i].v_hwirq);
+	}
+}
+
 static int xics_debug_show(struct seq_file *m, void *private)
 {
 	struct kvmppc_xics *xics = m->private;
@@ -912,6 +932,8 @@ static int xics_debug_show(struct seq_file *m, void *private)
 	t_rm_reject = 0;
 	t_check_resend = 0;
 	t_reject = 0;
+
+	xics_debugfs_irqmap(m, kvm->arch.pimap);
 
 	seq_printf(m, "=========\nICP state\n=========\n");
 
@@ -1174,9 +1196,11 @@ static int xics_get_source(struct kvmppc_xics *xics, long irq, u64 addr)
 			prio = irqp->saved_priority;
 		}
 		val |= prio << KVM_XICS_PRIORITY_SHIFT;
-		if (irqp->asserted)
-			val |= KVM_XICS_LEVEL_SENSITIVE | KVM_XICS_PENDING;
-		else if (irqp->masked_pending || irqp->resend)
+		if (irqp->lsi) {
+			val |= KVM_XICS_LEVEL_SENSITIVE;
+			if (irqp->asserted)
+				val |= KVM_XICS_PENDING;
+		} else if (irqp->masked_pending || irqp->resend)
 			val |= KVM_XICS_PENDING;
 		ret = 0;
 	}
@@ -1228,9 +1252,13 @@ static int xics_set_source(struct kvmppc_xics *xics, long irq, u64 addr)
 	irqp->priority = prio;
 	irqp->resend = 0;
 	irqp->masked_pending = 0;
+	irqp->lsi = 0;
 	irqp->asserted = 0;
-	if ((val & KVM_XICS_PENDING) && (val & KVM_XICS_LEVEL_SENSITIVE))
-		irqp->asserted = 1;
+	if (val & KVM_XICS_LEVEL_SENSITIVE) {
+		irqp->lsi = 1;
+		if (val & KVM_XICS_PENDING)
+			irqp->asserted = 1;
+	}
 	irqp->exists = 1;
 	arch_spin_unlock(&ics->lock);
 	local_irq_restore(flags);
@@ -1246,14 +1274,15 @@ int kvm_set_irq(struct kvm *kvm, int irq_source_id, u32 irq, int level,
 {
 	struct kvmppc_xics *xics = kvm->arch.xics;
 
+	if (!xics)
+		return -ENODEV;
 	return ics_deliver_irq(xics, irq, level);
 }
 
-int kvm_set_msi(struct kvm_kernel_irq_routing_entry *irq_entry, struct kvm *kvm,
-		int irq_source_id, int level, bool line_status)
+int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *irq_entry,
+			      struct kvm *kvm, int irq_source_id,
+			      int level, bool line_status)
 {
-	if (!level)
-		return -1;
 	return kvm_set_irq(kvm, irq_source_id, irq_entry->gsi,
 			   level, line_status);
 }
@@ -1324,19 +1353,15 @@ static int kvmppc_xics_create(struct kvm_device *dev, u32 type)
 	xics->kvm = kvm;
 
 	/* Already there ? */
-	mutex_lock(&kvm->lock);
 	if (kvm->arch.xics)
 		ret = -EEXIST;
 	else
 		kvm->arch.xics = xics;
-	mutex_unlock(&kvm->lock);
 
 	if (ret) {
 		kfree(xics);
 		return ret;
 	}
-
-	xics_debugfs_init(xics);
 
 #ifdef CONFIG_KVM_BOOK3S_HV_POSSIBLE
 	if (cpu_has_feature(CPU_FTR_ARCH_206)) {
@@ -1349,9 +1374,17 @@ static int kvmppc_xics_create(struct kvm_device *dev, u32 type)
 	return 0;
 }
 
+static void kvmppc_xics_init(struct kvm_device *dev)
+{
+	struct kvmppc_xics *xics = (struct kvmppc_xics *)dev->private;
+
+	xics_debugfs_init(xics);
+}
+
 struct kvm_device_ops kvm_xics_ops = {
 	.name = "kvm-xics",
 	.create = kvmppc_xics_create,
+	.init = kvmppc_xics_init,
 	.destroy = kvmppc_xics_free,
 	.set_attr = xics_set_attr,
 	.get_attr = xics_get_attr,
@@ -1409,3 +1442,34 @@ int kvm_irq_map_chip_pin(struct kvm *kvm, unsigned irqchip, unsigned pin)
 {
 	return pin;
 }
+
+void kvmppc_xics_set_mapped(struct kvm *kvm, unsigned long irq,
+			    unsigned long host_irq)
+{
+	struct kvmppc_xics *xics = kvm->arch.xics;
+	struct kvmppc_ics *ics;
+	u16 idx;
+
+	ics = kvmppc_xics_find_ics(xics, irq, &idx);
+	if (!ics)
+		return;
+
+	ics->irq_state[idx].host_irq = host_irq;
+	ics->irq_state[idx].intr_cpu = -1;
+}
+EXPORT_SYMBOL_GPL(kvmppc_xics_set_mapped);
+
+void kvmppc_xics_clr_mapped(struct kvm *kvm, unsigned long irq,
+			    unsigned long host_irq)
+{
+	struct kvmppc_xics *xics = kvm->arch.xics;
+	struct kvmppc_ics *ics;
+	u16 idx;
+
+	ics = kvmppc_xics_find_ics(xics, irq, &idx);
+	if (!ics)
+		return;
+
+	ics->irq_state[idx].host_irq = 0;
+}
+EXPORT_SYMBOL_GPL(kvmppc_xics_clr_mapped);

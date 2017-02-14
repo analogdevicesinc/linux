@@ -175,7 +175,6 @@ typedef struct xlog_ticket {
 	char		   t_cnt;	 /* current count		 : 1  */
 	char		   t_clientid;	 /* who does this belong to;	 : 1  */
 	char		   t_flags;	 /* properties of reservation	 : 1  */
-	uint		   t_trans_type; /* transaction type             : 4  */
 
         /* reservation array fields */
 	uint		   t_res_num;                    /* num in array : 4 */
@@ -414,7 +413,8 @@ struct xlog {
 	/* log record crc error injection factor */
 	uint32_t		l_badcrc_factor;
 #endif
-
+	/* log recovery lsn tracking (for buffer submission */
+	xfs_lsn_t		l_recovery_lsn;
 };
 
 #define XLOG_BUF_CANCEL_BUCKET(log, blkno) \

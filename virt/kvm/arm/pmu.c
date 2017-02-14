@@ -305,7 +305,7 @@ void kvm_pmu_software_increment(struct kvm_vcpu *vcpu, u64 val)
 			continue;
 		type = vcpu_sys_reg(vcpu, PMEVTYPER0_EL0 + i)
 		       & ARMV8_PMU_EVTYPE_EVENT;
-		if ((type == ARMV8_PMU_EVTYPE_EVENT_SW_INCR)
+		if ((type == ARMV8_PMUV3_PERFCTR_SW_INCR)
 		    && (enable & BIT(i))) {
 			reg = vcpu_sys_reg(vcpu, PMEVCNTR0_EL0 + i) + 1;
 			reg = lower_32_bits(reg);
@@ -379,7 +379,8 @@ void kvm_pmu_set_counter_event_type(struct kvm_vcpu *vcpu, u64 data,
 	eventsel = data & ARMV8_PMU_EVTYPE_EVENT;
 
 	/* Software increment event does't need to be backed by a perf event */
-	if (eventsel == ARMV8_PMU_EVTYPE_EVENT_SW_INCR)
+	if (eventsel == ARMV8_PMUV3_PERFCTR_SW_INCR &&
+	    select_idx != ARMV8_PMU_CYCLE_IDX)
 		return;
 
 	memset(&attr, 0, sizeof(struct perf_event_attr));
@@ -391,7 +392,8 @@ void kvm_pmu_set_counter_event_type(struct kvm_vcpu *vcpu, u64 data,
 	attr.exclude_kernel = data & ARMV8_PMU_EXCLUDE_EL1 ? 1 : 0;
 	attr.exclude_hv = 1; /* Don't count EL2 events */
 	attr.exclude_host = 1; /* Don't count host events */
-	attr.config = eventsel;
+	attr.config = (select_idx == ARMV8_PMU_CYCLE_IDX) ?
+		ARMV8_PMUV3_PERFCTR_CPU_CYCLES : eventsel;
 
 	counter = kvm_pmu_get_counter_value(vcpu, select_idx);
 	/* The initial sample period (overflow count) of an event. */
@@ -423,6 +425,14 @@ static int kvm_arm_pmu_v3_init(struct kvm_vcpu *vcpu)
 	if (!kvm_arm_support_pmu_v3())
 		return -ENODEV;
 
+	/*
+	 * We currently require an in-kernel VGIC to use the PMU emulation,
+	 * because we do not support forwarding PMU overflow interrupts to
+	 * userspace yet.
+	 */
+	if (!irqchip_in_kernel(vcpu->kvm) || !vgic_initialized(vcpu->kvm))
+		return -ENODEV;
+
 	if (!test_bit(KVM_ARM_VCPU_PMU_V3, vcpu->arch.features) ||
 	    !kvm_arm_pmu_irq_initialized(vcpu))
 		return -ENXIO;
@@ -436,7 +446,14 @@ static int kvm_arm_pmu_v3_init(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
-static bool irq_is_valid(struct kvm *kvm, int irq, bool is_ppi)
+#define irq_is_ppi(irq) ((irq) >= VGIC_NR_SGIS && (irq) < VGIC_NR_PRIVATE_IRQS)
+
+/*
+ * For one VM the interrupt type must be same for each vcpu.
+ * As a PPI, the interrupt number is the same for all vcpus,
+ * while as an SPI it must be a separate number per vcpu.
+ */
+static bool pmu_irq_is_valid(struct kvm *kvm, int irq)
 {
 	int i;
 	struct kvm_vcpu *vcpu;
@@ -445,7 +462,7 @@ static bool irq_is_valid(struct kvm *kvm, int irq, bool is_ppi)
 		if (!kvm_arm_pmu_irq_initialized(vcpu))
 			continue;
 
-		if (is_ppi) {
+		if (irq_is_ppi(irq)) {
 			if (vcpu->arch.pmu.irq_num != irq)
 				return false;
 		} else {
@@ -456,7 +473,6 @@ static bool irq_is_valid(struct kvm *kvm, int irq, bool is_ppi)
 
 	return true;
 }
-
 
 int kvm_arm_pmu_v3_set_attr(struct kvm_vcpu *vcpu, struct kvm_device_attr *attr)
 {
@@ -471,14 +487,11 @@ int kvm_arm_pmu_v3_set_attr(struct kvm_vcpu *vcpu, struct kvm_device_attr *attr)
 		if (get_user(irq, uaddr))
 			return -EFAULT;
 
-		/*
-		 * The PMU overflow interrupt could be a PPI or SPI, but for one
-		 * VM the interrupt type must be same for each vcpu. As a PPI,
-		 * the interrupt number is the same for all vcpus, while as an
-		 * SPI it must be a separate number per vcpu.
-		 */
-		if (irq < VGIC_NR_SGIS || irq >= vcpu->kvm->arch.vgic.nr_irqs ||
-		    !irq_is_valid(vcpu->kvm, irq, irq < VGIC_NR_PRIVATE_IRQS))
+		/* The PMU overflow interrupt can be a PPI or a valid SPI. */
+		if (!(irq_is_ppi(irq) || vgic_valid_spi(vcpu->kvm, irq)))
+			return -EINVAL;
+
+		if (!pmu_irq_is_valid(vcpu->kvm, irq))
 			return -EINVAL;
 
 		if (kvm_arm_pmu_irq_initialized(vcpu))

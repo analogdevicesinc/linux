@@ -80,10 +80,44 @@
 #include "fw-api-stats.h"
 #include "fw-api-tof.h"
 
-/* Tx queue numbers */
+/* Tx queue numbers for non-DQA mode */
 enum {
 	IWL_MVM_OFFCHANNEL_QUEUE = 8,
 	IWL_MVM_CMD_QUEUE = 9,
+};
+
+/*
+ * DQA queue numbers
+ *
+ * @IWL_MVM_DQA_CMD_QUEUE: a queue reserved for sending HCMDs to the FW
+ * @IWL_MVM_DQA_AUX_QUEUE: a queue reserved for aux frames
+ * @IWL_MVM_DQA_P2P_DEVICE_QUEUE: a queue reserved for P2P device frames
+ * @IWL_MVM_DQA_GCAST_QUEUE: a queue reserved for P2P GO/SoftAP GCAST frames
+ * @IWL_MVM_DQA_BSS_CLIENT_QUEUE: a queue reserved for BSS activity, to ensure
+ *	that we are never left without the possibility to connect to an AP.
+ * @IWL_MVM_DQA_MIN_MGMT_QUEUE: first TXQ in pool for MGMT and non-QOS frames.
+ *	Each MGMT queue is mapped to a single STA
+ *	MGMT frames are frames that return true on ieee80211_is_mgmt()
+ * @IWL_MVM_DQA_MAX_MGMT_QUEUE: last TXQ in pool for MGMT frames
+ * @IWL_MVM_DQA_AP_PROBE_RESP_QUEUE: a queue reserved for P2P GO/SoftAP probe
+ *	responses
+ * @IWL_MVM_DQA_MIN_DATA_QUEUE: first TXQ in pool for DATA frames.
+ *	DATA frames are intended for !ieee80211_is_mgmt() frames, but if
+ *	the MGMT TXQ pool is exhausted, mgmt frames can be sent on DATA queues
+ *	as well
+ * @IWL_MVM_DQA_MAX_DATA_QUEUE: last TXQ in pool for DATA frames
+ */
+enum iwl_mvm_dqa_txq {
+	IWL_MVM_DQA_CMD_QUEUE = 0,
+	IWL_MVM_DQA_AUX_QUEUE = 1,
+	IWL_MVM_DQA_P2P_DEVICE_QUEUE = 2,
+	IWL_MVM_DQA_GCAST_QUEUE = 3,
+	IWL_MVM_DQA_BSS_CLIENT_QUEUE = 4,
+	IWL_MVM_DQA_MIN_MGMT_QUEUE = 5,
+	IWL_MVM_DQA_MAX_MGMT_QUEUE = 8,
+	IWL_MVM_DQA_AP_PROBE_RESP_QUEUE = 9,
+	IWL_MVM_DQA_MIN_DATA_QUEUE = 10,
+	IWL_MVM_DQA_MAX_DATA_QUEUE = 31,
 };
 
 enum iwl_mvm_tx_fifo {
@@ -95,9 +129,6 @@ enum iwl_mvm_tx_fifo {
 	IWL_MVM_TX_FIFO_CMD = 7,
 };
 
-#define IWL_MVM_STATION_COUNT	16
-
-#define IWL_MVM_TDLS_STA_COUNT	4
 
 /* commands */
 enum {
@@ -174,7 +205,7 @@ enum {
 	/* Phy */
 	PHY_CONFIGURATION_CMD = 0x6a,
 	CALIB_RES_NOTIF_PHY_DB = 0x6b,
-	/* PHY_DB_CMD = 0x6c, */
+	PHY_DB_CMD = 0x6c,
 
 	/* ToF - 802.11mc FTM */
 	TOF_CMD = 0x10,
@@ -279,6 +310,12 @@ enum {
 /* Please keep this enum *SORTED* by hex value.
  * Needed for binary search, otherwise a warning will be triggered.
  */
+enum iwl_mac_conf_subcmd_ids {
+	LINK_QUALITY_MEASUREMENT_CMD = 0x1,
+	LINK_QUALITY_MEASUREMENT_COMPLETE_NOTIF = 0xFE,
+	CHANNEL_SWITCH_NOA_NOTIF = 0xFF,
+};
+
 enum iwl_phy_ops_subcmd_ids {
 	CMD_DTS_MEASUREMENT_TRIGGER_WIDE = 0x0,
 	CTDP_CONFIG_CMD = 0x03,
@@ -287,7 +324,12 @@ enum iwl_phy_ops_subcmd_ids {
 	DTS_MEASUREMENT_NOTIF_WIDE = 0xFF,
 };
 
+enum iwl_system_subcmd_ids {
+	SHARED_MEM_CFG_CMD = 0x0,
+};
+
 enum iwl_data_path_subcmd_ids {
+	DQA_ENABLE_CMD = 0x0,
 	UPDATE_MU_GROUPS_CMD = 0x1,
 	TRIGGER_RX_QUEUES_NOTIF_CMD = 0x2,
 	MU_GROUP_MGMT_NOTIF = 0xFE,
@@ -298,13 +340,21 @@ enum iwl_prot_offload_subcmd_ids {
 	STORED_BEACON_NTF = 0xFF,
 };
 
+enum iwl_fmac_debug_cmds {
+	LMAC_RD_WR = 0x0,
+	UMAC_RD_WR = 0x1,
+};
+
 /* command groups */
 enum {
 	LEGACY_GROUP = 0x0,
 	LONG_GROUP = 0x1,
+	SYSTEM_GROUP = 0x2,
+	MAC_CONF_GROUP = 0x3,
 	PHY_OPS_GROUP = 0x4,
 	DATA_PATH_GROUP = 0x5,
 	PROT_OFFLOAD_GROUP = 0xb,
+	DEBUG_GROUP = 0xf,
 };
 
 /**
@@ -314,6 +364,14 @@ enum {
 struct iwl_cmd_response {
 	__le32 status;
 };
+
+/*
+ * struct iwl_dqa_enable_cmd
+ * @cmd_queue: the TXQ number of the command queue
+ */
+struct iwl_dqa_enable_cmd {
+	__le32 cmd_queue;
+} __packed; /* DQA_CONTROL_CMD_API_S_VER_1 */
 
 /*
  * struct iwl_tx_ant_cfg_cmd
@@ -430,13 +488,17 @@ struct iwl_nvm_access_cmd {
  * @block_size: the block size in powers of 2
  * @block_num: number of blocks specified in the command.
  * @device_phy_addr: virtual addresses from device side
+ *	32 bit address for API version 1, 64 bit address for API version 2.
 */
 struct iwl_fw_paging_cmd {
 	__le32 flags;
 	__le32 block_size;
 	__le32 block_num;
-	__le32 device_phy_addr[NUM_OF_FW_PAGING_BLOCKS];
-} __packed; /* FW_PAGING_BLOCK_CMD_API_S_VER_1 */
+	union {
+		__le32 addr32[NUM_OF_FW_PAGING_BLOCKS];
+		__le64 addr64[NUM_OF_FW_PAGING_BLOCKS];
+	} device_phy_addr;
+} __packed; /* FW_PAGING_BLOCK_CMD_API_S_VER_2 */
 
 /*
  * Fw items ID's
@@ -689,7 +751,7 @@ enum iwl_time_event_type {
 
 	/* P2P GO Events */
 	TE_P2P_GO_ASSOC_PROT,
-	TE_P2P_GO_REPETITIVE_NOA,
+	TE_P2P_GO_REPETITIVET_NOA,
 	TE_P2P_GO_CT_WINDOW,
 
 	/* WiDi Sync Events */
@@ -1921,8 +1983,10 @@ struct iwl_tdls_config_res {
 	struct iwl_tdls_config_sta_info_res sta_info[IWL_MVM_TDLS_STA_COUNT];
 } __packed; /* TDLS_CONFIG_RSP_API_S_VER_1 */
 
-#define TX_FIFO_MAX_NUM		8
-#define RX_FIFO_MAX_NUM		2
+#define TX_FIFO_MAX_NUM_9000		8
+#define TX_FIFO_MAX_NUM			15
+#define RX_FIFO_MAX_NUM			2
+#define TX_FIFO_INTERNAL_MAX_NUM	6
 
 /**
  * Shared memory configuration information from the FW
@@ -1940,7 +2004,28 @@ struct iwl_tdls_config_res {
  * @page_buff_addr: used by UMAC and performance debug (page miss analysis),
  *	when paging is not supported this should be 0
  * @page_buff_size: size of %page_buff_addr
+ * @rxfifo_addr: Start address of rxFifo
+ * @internal_txfifo_addr: start address of internalFifo
+ * @internal_txfifo_size: internal fifos' size
+ *
+ * NOTE: on firmware that don't have IWL_UCODE_TLV_CAPA_EXTEND_SHARED_MEM_CFG
+ *	 set, the last 3 members don't exist.
  */
+struct iwl_shared_mem_cfg_v1 {
+	__le32 shared_mem_addr;
+	__le32 shared_mem_size;
+	__le32 sample_buff_addr;
+	__le32 sample_buff_size;
+	__le32 txfifo_addr;
+	__le32 txfifo_size[TX_FIFO_MAX_NUM_9000];
+	__le32 rxfifo_size[RX_FIFO_MAX_NUM];
+	__le32 page_buff_addr;
+	__le32 page_buff_size;
+	__le32 rxfifo_addr;
+	__le32 internal_txfifo_addr;
+	__le32 internal_txfifo_size[TX_FIFO_INTERNAL_MAX_NUM];
+} __packed; /* SHARED_MEM_ALLOC_API_S_VER_2 */
+
 struct iwl_shared_mem_cfg {
 	__le32 shared_mem_addr;
 	__le32 shared_mem_size;
@@ -1951,7 +2036,10 @@ struct iwl_shared_mem_cfg {
 	__le32 rxfifo_size[RX_FIFO_MAX_NUM];
 	__le32 page_buff_addr;
 	__le32 page_buff_size;
-} __packed; /* SHARED_MEM_ALLOC_API_S_VER_1 */
+	__le32 rxfifo_addr;
+	__le32 internal_txfifo_addr;
+	__le32 internal_txfifo_size[TX_FIFO_INTERNAL_MAX_NUM];
+} __packed; /* SHARED_MEM_ALLOC_API_S_VER_3 */
 
 /**
  * VHT MU-MIMO group configuration
@@ -2001,5 +2089,114 @@ struct iwl_stored_beacon_notif {
 	__le32 byte_count;
 	u8 data[MAX_STORED_BEACON_SIZE];
 } __packed; /* WOWLAN_STROED_BEACON_INFO_S_VER_1 */
+
+#define LQM_NUMBER_OF_STATIONS_IN_REPORT 16
+
+enum iwl_lqm_cmd_operatrions {
+	LQM_CMD_OPERATION_START_MEASUREMENT = 0x01,
+	LQM_CMD_OPERATION_STOP_MEASUREMENT = 0x02,
+};
+
+enum iwl_lqm_status {
+	LQM_STATUS_SUCCESS = 0,
+	LQM_STATUS_TIMEOUT = 1,
+	LQM_STATUS_ABORT = 2,
+};
+
+/**
+ * Link Quality Measurement command
+ * @cmd_operatrion: command operation to be performed (start or stop)
+ *	as defined above.
+ * @mac_id: MAC ID the measurement applies to.
+ * @measurement_time: time of the total measurement to be performed, in uSec.
+ * @timeout: maximum time allowed until a response is sent, in uSec.
+ */
+struct iwl_link_qual_msrmnt_cmd {
+	__le32 cmd_operation;
+	__le32 mac_id;
+	__le32 measurement_time;
+	__le32 timeout;
+} __packed /* LQM_CMD_API_S_VER_1 */;
+
+/**
+ * Link Quality Measurement notification
+ *
+ * @frequent_stations_air_time: an array containing the total air time
+ *	(in uSec) used by the most frequently transmitting stations.
+ * @number_of_stations: the number of uniqe stations included in the array
+ *	(a number between 0 to 16)
+ * @total_air_time_other_stations: the total air time (uSec) used by all the
+ *	stations which are not included in the above report.
+ * @time_in_measurement_window: the total time in uSec in which a measurement
+ *	took place.
+ * @tx_frame_dropped: the number of TX frames dropped due to retry limit during
+ *	measurement
+ * @mac_id: MAC ID the measurement applies to.
+ * @status: return status. may be one of the LQM_STATUS_* defined above.
+ * @reserved: reserved.
+ */
+struct iwl_link_qual_msrmnt_notif {
+	__le32 frequent_stations_air_time[LQM_NUMBER_OF_STATIONS_IN_REPORT];
+	__le32 number_of_stations;
+	__le32 total_air_time_other_stations;
+	__le32 time_in_measurement_window;
+	__le32 tx_frame_dropped;
+	__le32 mac_id;
+	__le32 status;
+	__le32 reserved[3];
+} __packed; /* LQM_MEASUREMENT_COMPLETE_NTF_API_S_VER1 */
+
+/**
+ * Channel switch NOA notification
+ *
+ * @id_and_color: ID and color of the MAC
+ */
+struct iwl_channel_switch_noa_notif {
+	__le32 id_and_color;
+} __packed; /* CHANNEL_SWITCH_START_NTFY_API_S_VER_1 */
+
+/* Operation types for the debug mem access */
+enum {
+	DEBUG_MEM_OP_READ = 0,
+	DEBUG_MEM_OP_WRITE = 1,
+	DEBUG_MEM_OP_WRITE_BYTES = 2,
+};
+
+#define DEBUG_MEM_MAX_SIZE_DWORDS 32
+
+/**
+ * struct iwl_dbg_mem_access_cmd - Request the device to read/write memory
+ * @op: DEBUG_MEM_OP_*
+ * @addr: address to read/write from/to
+ * @len: in dwords, to read/write
+ * @data: for write opeations, contains the source buffer
+ */
+struct iwl_dbg_mem_access_cmd {
+	__le32 op;
+	__le32 addr;
+	__le32 len;
+	__le32 data[];
+} __packed; /* DEBUG_(U|L)MAC_RD_WR_CMD_API_S_VER_1 */
+
+/* Status responses for the debug mem access */
+enum {
+	DEBUG_MEM_STATUS_SUCCESS = 0x0,
+	DEBUG_MEM_STATUS_FAILED = 0x1,
+	DEBUG_MEM_STATUS_LOCKED = 0x2,
+	DEBUG_MEM_STATUS_HIDDEN = 0x3,
+	DEBUG_MEM_STATUS_LENGTH = 0x4,
+};
+
+/**
+ * struct iwl_dbg_mem_access_rsp - Response to debug mem commands
+ * @status: DEBUG_MEM_STATUS_*
+ * @len: read dwords (0 for write operations)
+ * @data: contains the read DWs
+ */
+struct iwl_dbg_mem_access_rsp {
+	__le32 status;
+	__le32 len;
+	__le32 data[];
+} __packed; /* DEBUG_(U|L)MAC_RD_WR_RSP_API_S_VER_1 */
 
 #endif /* __fw_api_h__ */

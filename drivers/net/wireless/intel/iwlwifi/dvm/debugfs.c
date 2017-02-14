@@ -335,7 +335,7 @@ static ssize_t iwl_dbgfs_channels_read(struct file *file, char __user *user_buf,
 	if (!buf)
 		return -ENOMEM;
 
-	supp_band = iwl_get_hw_mode(priv, IEEE80211_BAND_2GHZ);
+	supp_band = iwl_get_hw_mode(priv, NL80211_BAND_2GHZ);
 	if (supp_band) {
 		channels = supp_band->channels;
 
@@ -358,7 +358,7 @@ static ssize_t iwl_dbgfs_channels_read(struct file *file, char __user *user_buf,
 					IEEE80211_CHAN_NO_IR ?
 					"passive only" : "active/passive");
 	}
-	supp_band = iwl_get_hw_mode(priv, IEEE80211_BAND_5GHZ);
+	supp_band = iwl_get_hw_mode(priv, NL80211_BAND_5GHZ);
 	if (supp_band) {
 		channels = supp_band->channels;
 
@@ -2422,14 +2422,12 @@ int iwl_dbgfs_register(struct iwl_priv *priv, struct dentry *dbgfs_dir)
 	 */
 	if (priv->mac80211_registered) {
 		char buf[100];
-		struct dentry *mac80211_dir, *dev_dir, *root_dir;
+		struct dentry *mac80211_dir, *dev_dir;
 
 		dev_dir = dbgfs_dir->d_parent;
-		root_dir = dev_dir->d_parent;
 		mac80211_dir = priv->hw->wiphy->debugfsdir;
 
-		snprintf(buf, 100, "../../%s/%s", root_dir->d_name.name,
-			 dev_dir->d_name.name);
+		snprintf(buf, 100, "../../%pd2", dev_dir);
 
 		if (!debugfs_create_symlink("iwlwifi", mac80211_dir, buf))
 			goto err;

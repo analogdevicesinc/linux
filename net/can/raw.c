@@ -499,6 +499,9 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen % sizeof(struct can_filter) != 0)
 			return -EINVAL;
 
+		if (optlen > CAN_RAW_FILTER_MAX * sizeof(struct can_filter))
+			return -EINVAL;
+
 		count = optlen / sizeof(struct can_filter);
 
 		if (count > 1) {
@@ -755,7 +758,7 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 	if (err < 0)
 		goto free_skb;
 
-	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
+	sock_tx_timestamp(sk, sk->sk_tsflags, &skb_shinfo(skb)->tx_flags);
 
 	skb->dev = dev;
 	skb->sk  = sk;

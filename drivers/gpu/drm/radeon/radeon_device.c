@@ -30,6 +30,7 @@
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/radeon_drm.h>
+#include <linux/pm_runtime.h>
 #include <linux/vgaarb.h>
 #include <linux/vga_switcheroo.h>
 #include <linux/efi.h>
@@ -103,6 +104,14 @@ static const char radeon_family_name[][16] = {
 	"LAST",
 };
 
+#if defined(CONFIG_VGA_SWITCHEROO)
+bool radeon_has_atpx_dgpu_power_cntl(void);
+bool radeon_is_atpx_hybrid(void);
+#else
+static inline bool radeon_has_atpx_dgpu_power_cntl(void) { return false; }
+static inline bool radeon_is_atpx_hybrid(void) { return false; }
+#endif
+
 #define RADEON_PX_QUIRK_DISABLE_PX  (1 << 0)
 #define RADEON_PX_QUIRK_LONG_WAKEUP (1 << 1)
 
@@ -158,6 +167,11 @@ static void radeon_device_handle_px_quirks(struct radeon_device *rdev)
 	}
 
 	if (rdev->px_quirk_flags & RADEON_PX_QUIRK_DISABLE_PX)
+		rdev->flags &= ~RADEON_IS_PX;
+
+	/* disable PX is the system doesn't support dGPU power control or hybrid gfx */
+	if (!radeon_is_atpx_hybrid() &&
+	    !radeon_has_atpx_dgpu_power_cntl())
 		rdev->flags &= ~RADEON_IS_PX;
 }
 
@@ -630,6 +644,23 @@ void radeon_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc)
 /*
  * GPU helpers function.
  */
+
+/**
+ * radeon_device_is_virtual - check if we are running is a virtual environment
+ *
+ * Check if the asic has been passed through to a VM (all asics).
+ * Used at driver startup.
+ * Returns true if virtual or false if not.
+ */
+bool radeon_device_is_virtual(void)
+{
+#ifdef CONFIG_X86
+	return boot_cpu_has(X86_FEATURE_HYPERVISOR);
+#else
+	return false;
+#endif
+}
+
 /**
  * radeon_card_posted - check if the hw has already been initialized
  *
@@ -642,6 +673,11 @@ void radeon_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc)
 bool radeon_card_posted(struct radeon_device *rdev)
 {
 	uint32_t reg;
+
+	/* for pass through, always force asic_init for CI */
+	if (rdev->family >= CHIP_BONAIRE &&
+	    radeon_device_is_virtual())
+		return false;
 
 	/* required for EFI mode on macbook2,1 which uses an r5xx asic */
 	if (efi_enabled(EFI_BOOT) &&
@@ -1230,7 +1266,7 @@ static void radeon_switcheroo_set_state(struct pci_dev *pdev, enum vga_switchero
 		printk(KERN_INFO "radeon: switched off\n");
 		drm_kms_helper_poll_disable(dev);
 		dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
-		radeon_suspend_kms(dev, true, true);
+		radeon_suspend_kms(dev, true, true, false);
 		dev->switch_power_state = DRM_SWITCH_POWER_OFF;
 	}
 }
@@ -1505,6 +1541,9 @@ int radeon_device_init(struct radeon_device *rdev,
 	return 0;
 
 failed:
+	/* balance pm_runtime_get_sync() in radeon_driver_unload_kms() */
+	if (radeon_is_px(ddev))
+		pm_runtime_put_noidle(ddev->dev);
 	if (runtime)
 		vga_switcheroo_fini_domain_pm_ops(rdev->dev);
 	return r;
@@ -1555,7 +1594,8 @@ void radeon_device_fini(struct radeon_device *rdev)
  * Returns 0 for success or an error on failure.
  * Called at driver suspend.
  */
-int radeon_suspend_kms(struct drm_device *dev, bool suspend, bool fbcon)
+int radeon_suspend_kms(struct drm_device *dev, bool suspend,
+		       bool fbcon, bool freeze)
 {
 	struct radeon_device *rdev;
 	struct drm_crtc *crtc;
@@ -1630,7 +1670,10 @@ int radeon_suspend_kms(struct drm_device *dev, bool suspend, bool fbcon)
 	radeon_agp_suspend(rdev);
 
 	pci_save_state(dev->pdev);
-	if (suspend) {
+	if (freeze && rdev->family >= CHIP_CEDAR) {
+		rdev->asic->asic_reset(rdev, true);
+		pci_restore_state(dev->pdev);
+	} else if (suspend) {
 		/* Shut down the device */
 		pci_disable_device(dev->pdev);
 		pci_set_power_state(dev->pdev, PCI_D3hot);
@@ -1927,14 +1970,3 @@ static void radeon_debugfs_remove_files(struct radeon_device *rdev)
 	}
 #endif
 }
-
-#if defined(CONFIG_DEBUG_FS)
-int radeon_debugfs_init(struct drm_minor *minor)
-{
-	return 0;
-}
-
-void radeon_debugfs_cleanup(struct drm_minor *minor)
-{
-}
-#endif

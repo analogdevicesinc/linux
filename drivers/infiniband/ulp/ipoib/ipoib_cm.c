@@ -63,6 +63,8 @@ MODULE_PARM_DESC(cm_data_debug_level,
 #define IPOIB_CM_RX_DELAY       (3 * 256 * HZ)
 #define IPOIB_CM_RX_UPDATE_MASK (0x3)
 
+#define IPOIB_CM_RX_RESERVE     (ALIGN(IPOIB_HARD_LEN, 16) - IPOIB_ENCAP_LEN)
+
 static struct ib_qp_attr ipoib_cm_err_attr = {
 	.qp_state = IB_QPS_ERR
 };
@@ -146,15 +148,15 @@ static struct sk_buff *ipoib_cm_alloc_rx_skb(struct net_device *dev,
 	struct sk_buff *skb;
 	int i;
 
-	skb = dev_alloc_skb(IPOIB_CM_HEAD_SIZE + 12);
+	skb = dev_alloc_skb(ALIGN(IPOIB_CM_HEAD_SIZE + IPOIB_PSEUDO_LEN, 16));
 	if (unlikely(!skb))
 		return NULL;
 
 	/*
-	 * IPoIB adds a 4 byte header. So we need 12 more bytes to align the
+	 * IPoIB adds a IPOIB_ENCAP_LEN byte header, this will align the
 	 * IP header to a multiple of 16.
 	 */
-	skb_reserve(skb, 12);
+	skb_reserve(skb, IPOIB_CM_RX_RESERVE);
 
 	mapping[0] = ib_dma_map_single(priv->ca, skb->data, IPOIB_CM_HEAD_SIZE,
 				       DMA_FROM_DEVICE);
@@ -624,9 +626,9 @@ void ipoib_cm_handle_rx_wc(struct net_device *dev, struct ib_wc *wc)
 	if (wc->byte_len < IPOIB_CM_COPYBREAK) {
 		int dlen = wc->byte_len;
 
-		small_skb = dev_alloc_skb(dlen + 12);
+		small_skb = dev_alloc_skb(dlen + IPOIB_CM_RX_RESERVE);
 		if (small_skb) {
-			skb_reserve(small_skb, 12);
+			skb_reserve(small_skb, IPOIB_CM_RX_RESERVE);
 			ib_dma_sync_single_for_cpu(priv->ca, rx_ring[wr_id].mapping[0],
 						   dlen, DMA_FROM_DEVICE);
 			skb_copy_from_linear_data(skb, small_skb->data, dlen);
@@ -663,8 +665,7 @@ void ipoib_cm_handle_rx_wc(struct net_device *dev, struct ib_wc *wc)
 
 copied:
 	skb->protocol = ((struct ipoib_header *) skb->data)->proto;
-	skb_reset_mac_header(skb);
-	skb_pull(skb, IPOIB_ENCAP_LEN);
+	skb_add_pseudo_hdr(skb);
 
 	++dev->stats.rx_packets;
 	dev->stats.rx_bytes += skb->len;
@@ -766,7 +767,7 @@ void ipoib_cm_send(struct net_device *dev, struct sk_buff *skb, struct ipoib_cm_
 		ipoib_dma_unmap_tx(priv, tx_req);
 		dev_kfree_skb_any(skb);
 	} else {
-		dev->trans_start = jiffies;
+		netif_trans_update(dev);
 		++tx->tx_head;
 
 		if (++priv->tx_outstanding == ipoib_sendq_size) {
@@ -1318,6 +1319,8 @@ void ipoib_cm_destroy_tx(struct ipoib_cm_tx *tx)
 	}
 }
 
+#define QPN_AND_OPTIONS_OFFSET	4
+
 static void ipoib_cm_tx_start(struct work_struct *work)
 {
 	struct ipoib_dev_priv *priv = container_of(work, struct ipoib_dev_priv,
@@ -1326,6 +1329,7 @@ static void ipoib_cm_tx_start(struct work_struct *work)
 	struct ipoib_neigh *neigh;
 	struct ipoib_cm_tx *p;
 	unsigned long flags;
+	struct ipoib_path *path;
 	int ret;
 
 	struct ib_sa_path_rec pathrec;
@@ -1338,7 +1342,19 @@ static void ipoib_cm_tx_start(struct work_struct *work)
 		p = list_entry(priv->cm.start_list.next, typeof(*p), list);
 		list_del_init(&p->list);
 		neigh = p->neigh;
+
 		qpn = IPOIB_QPN(neigh->daddr);
+		/*
+		 * As long as the search is with these 2 locks,
+		 * path existence indicates its validity.
+		 */
+		path = __path_find(dev, neigh->daddr + QPN_AND_OPTIONS_OFFSET);
+		if (!path) {
+			pr_info("%s ignore not valid path %pI6\n",
+				__func__,
+				neigh->daddr + QPN_AND_OPTIONS_OFFSET);
+			goto free_neigh;
+		}
 		memcpy(&pathrec, &p->path->pathrec, sizeof pathrec);
 
 		spin_unlock_irqrestore(&priv->lock, flags);
@@ -1350,6 +1366,7 @@ static void ipoib_cm_tx_start(struct work_struct *work)
 		spin_lock_irqsave(&priv->lock, flags);
 
 		if (ret) {
+free_neigh:
 			neigh = p->neigh;
 			if (neigh) {
 				neigh->cm = NULL;
@@ -1486,6 +1503,10 @@ static ssize_t set_mode(struct device *d, struct device_attribute *attr,
 {
 	struct net_device *dev = to_net_dev(d);
 	int ret;
+	struct ipoib_dev_priv *priv = netdev_priv(dev);
+
+	if (test_bit(IPOIB_FLAG_GOING_DOWN, &priv->flags))
+		return -EPERM;
 
 	if (!rtnl_trylock())
 		return restart_syscall();

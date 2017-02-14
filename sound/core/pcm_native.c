@@ -2637,8 +2637,10 @@ static int snd_pcm_hwsync(struct snd_pcm_substream *substream)
 			break;
 		/* Fall through */
 	case SNDRV_PCM_STATE_PREPARED:
-	case SNDRV_PCM_STATE_SUSPENDED:
 		err = 0;
+		break;
+	case SNDRV_PCM_STATE_SUSPENDED:
+		err = -ESTRPIPE;
 		break;
 	case SNDRV_PCM_STATE_XRUN:
 		err = -EPIPE;
@@ -3161,7 +3163,7 @@ static unsigned int snd_pcm_playback_poll(struct file *file, poll_table * wait)
 
 	substream = pcm_file->substream;
 	if (PCM_RUNTIME_CHECK(substream))
-		return -ENXIO;
+		return POLLOUT | POLLWRNORM | POLLERR;
 	runtime = substream->runtime;
 
 	poll_wait(file, &runtime->sleep, wait);
@@ -3200,7 +3202,7 @@ static unsigned int snd_pcm_capture_poll(struct file *file, poll_table * wait)
 
 	substream = pcm_file->substream;
 	if (PCM_RUNTIME_CHECK(substream))
-		return -ENXIO;
+		return POLLIN | POLLRDNORM | POLLERR;
 	runtime = substream->runtime;
 
 	poll_wait(file, &runtime->sleep, wait);

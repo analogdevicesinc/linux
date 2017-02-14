@@ -48,9 +48,6 @@ struct posix_acl *hfsplus_get_posix_acl(struct inode *inode, int type)
 
 	hfsplus_destroy_attr_entry((hfsplus_attr_entry *)value);
 
-	if (!IS_ERR(acl))
-		set_cached_acl(inode, type, acl);
-
 	return acl;
 }
 
@@ -68,8 +65,8 @@ int hfsplus_set_posix_acl(struct inode *inode, struct posix_acl *acl,
 	case ACL_TYPE_ACCESS:
 		xattr_name = XATTR_NAME_POSIX_ACL_ACCESS;
 		if (acl) {
-			err = posix_acl_equiv_mode(acl, &inode->i_mode);
-			if (err < 0)
+			err = posix_acl_update_mode(inode, &inode->i_mode, &acl);
+			if (err)
 				return err;
 		}
 		err = 0;

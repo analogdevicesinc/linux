@@ -52,6 +52,7 @@
 
 #define MLX4_FLAG_V_IGNORE_FCS_MASK		0x2
 #define MLX4_IGNORE_FCS_MASK			0x1
+#define MLX4_TC_MAX_NUMBER			8
 
 void mlx4_init_mac_table(struct mlx4_dev *dev, struct mlx4_mac_table *table)
 {
@@ -1727,24 +1728,13 @@ int mlx4_SET_VLAN_FLTR_wrapper(struct mlx4_dev *dev, int slave,
 	return err;
 }
 
-int mlx4_common_dump_eth_stats(struct mlx4_dev *dev, int slave,
-			       u32 in_mod, struct mlx4_cmd_mailbox *outbox)
-{
-	return mlx4_cmd_box(dev, 0, outbox->dma, in_mod, 0,
-			    MLX4_CMD_DUMP_ETH_STATS, MLX4_CMD_TIME_CLASS_B,
-			    MLX4_CMD_NATIVE);
-}
-
 int mlx4_DUMP_ETH_STATS_wrapper(struct mlx4_dev *dev, int slave,
 				struct mlx4_vhcr *vhcr,
 				struct mlx4_cmd_mailbox *inbox,
 				struct mlx4_cmd_mailbox *outbox,
 				struct mlx4_cmd_info *cmd)
 {
-	if (slave != dev->caps.function)
-		return 0;
-	return mlx4_common_dump_eth_stats(dev, slave,
-					  vhcr->in_modifier, outbox);
+	return 0;
 }
 
 int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
@@ -2015,3 +2005,14 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(mlx4_get_module_info);
+
+int mlx4_max_tc(struct mlx4_dev *dev)
+{
+	u8 num_tc = dev->caps.max_tc_eth;
+
+	if (!num_tc)
+		num_tc = MLX4_TC_MAX_NUMBER;
+
+	return num_tc;
+}
+EXPORT_SYMBOL(mlx4_max_tc);

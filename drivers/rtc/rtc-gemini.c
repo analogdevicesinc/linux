@@ -28,7 +28,6 @@
 #include <linux/module.h>
 
 #define DRV_NAME        "rtc-gemini"
-#define DRV_VERSION     "0.2"
 
 MODULE_AUTHOR("Hans Ulli Kroll <ulli.kroll@googlemail.com>");
 MODULE_DESCRIPTION("RTC driver for Gemini SoC");
@@ -111,7 +110,7 @@ static int gemini_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	return 0;
 }
 
-static struct rtc_class_ops gemini_rtc_ops = {
+static const struct rtc_class_ops gemini_rtc_ops = {
 	.read_time     = gemini_rtc_read_time,
 	.set_time      = gemini_rtc_set_time,
 };

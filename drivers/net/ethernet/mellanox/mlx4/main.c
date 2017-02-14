@@ -292,6 +292,7 @@ static int _mlx4_dev_port(struct mlx4_dev *dev, int port,
 	dev->caps.pkey_table_len[port] = port_cap->max_pkeys;
 	dev->caps.port_width_cap[port] = port_cap->max_port_width;
 	dev->caps.eth_mtu_cap[port]    = port_cap->eth_mtu;
+	dev->caps.max_tc_eth	       = port_cap->max_tc_eth;
 	dev->caps.def_mac[port]        = port_cap->def_mac;
 	dev->caps.supported_type[port] = port_cap->supported_port_types;
 	dev->caps.suggested_type[port] = port_cap->suggested_type;
@@ -1101,6 +1102,14 @@ static int __set_port_type(struct mlx4_port_info *info,
 	int i;
 	int err = 0;
 
+	if ((port_type & mdev->caps.supported_type[info->port]) != port_type) {
+		mlx4_err(mdev,
+			 "Requested port type for port %d is not supported on this HCA\n",
+			 info->port);
+		err = -EINVAL;
+		goto err_sup;
+	}
+
 	mlx4_stop_sense(mdev);
 	mutex_lock(&priv->port_mutex);
 	info->tmp_type = port_type;
@@ -1146,7 +1155,7 @@ static int __set_port_type(struct mlx4_port_info *info,
 out:
 	mlx4_start_sense(mdev);
 	mutex_unlock(&priv->port_mutex);
-
+err_sup:
 	return err;
 }
 
@@ -2599,7 +2608,7 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
 	err = mlx4_init_uar_table(dev);
 	if (err) {
 		mlx4_err(dev, "Failed to initialize user access region table, aborting\n");
-		 return err;
+		return err;
 	}
 
 	err = mlx4_uar_alloc(dev, &priv->driver_uar);
@@ -2969,6 +2978,7 @@ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
 		mlx4_err(dev, "Failed to create mtu file for port %d\n", port);
 		device_remove_file(&info->dev->persist->pdev->dev,
 				   &info->port_attr);
+		devlink_port_unregister(&info->devlink_port);
 		info->port = -1;
 	}
 
@@ -2983,6 +2993,8 @@ static void mlx4_cleanup_port_info(struct mlx4_port_info *info)
 	device_remove_file(&info->dev->persist->pdev->dev, &info->port_attr);
 	device_remove_file(&info->dev->persist->pdev->dev,
 			   &info->port_mtu_attr);
+	devlink_port_unregister(&info->devlink_port);
+
 #ifdef CONFIG_RFS_ACCEL
 	free_irq_cpu_rmap(info->rmap);
 	info->rmap = NULL;
@@ -3222,6 +3234,7 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
 
 	INIT_LIST_HEAD(&priv->pgdir_list);
 	mutex_init(&priv->pgdir_mutex);
+	spin_lock_init(&priv->cmd.context_lock);
 
 	INIT_LIST_HEAD(&priv->bf_list);
 	mutex_init(&priv->bf_mutex);

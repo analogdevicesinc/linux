@@ -307,7 +307,7 @@ struct ad9523_state {
 	} data[2] ____cacheline_aligned;
 };
 
-static int ad9523_read(struct iio_dev *indio_dev, unsigned addr)
+static int ad9523_read(struct iio_dev *indio_dev, unsigned int addr)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
 	int ret;
@@ -341,7 +341,8 @@ static int ad9523_read(struct iio_dev *indio_dev, unsigned addr)
 	return ret;
 };
 
-static int ad9523_write(struct iio_dev *indio_dev, unsigned addr, unsigned val)
+static int ad9523_write(struct iio_dev *indio_dev,
+		unsigned int addr, unsigned int val)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
 	int ret;
@@ -374,11 +375,11 @@ static int ad9523_io_update(struct iio_dev *indio_dev)
 }
 
 static int ad9523_vco_out_map(struct iio_dev *indio_dev,
-			      unsigned ch, unsigned out)
+			      unsigned int ch, unsigned int out)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
 	int ret;
-	unsigned mask;
+	unsigned int mask;
 
 	switch (ch) {
 	case 0 ... 3:
@@ -428,7 +429,7 @@ static int ad9523_vco_out_map(struct iio_dev *indio_dev,
 }
 
 static int ad9523_set_clock_provider(struct iio_dev *indio_dev,
-			      unsigned ch, unsigned long freq)
+			      unsigned int ch, unsigned long freq)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
 	long tmp1, tmp2;
@@ -644,7 +645,7 @@ static int ad9523_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
-	unsigned code;
+	unsigned int code;
 	int ret;
 
 	mutex_lock(&st->lock);
@@ -680,7 +681,7 @@ static int ad9523_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
-	unsigned reg;
+	unsigned int reg;
 	int ret, tmp, code;
 
 	mutex_lock(&st->lock);
@@ -738,8 +739,8 @@ out:
 }
 
 static int ad9523_reg_access(struct iio_dev *indio_dev,
-			      unsigned reg, unsigned writeval,
-			      unsigned *readval)
+			      unsigned int reg, unsigned int writeval,
+			      unsigned int *readval)
 {
 	struct ad9523_state *st = iio_priv(indio_dev);
 	int ret;
@@ -885,7 +886,7 @@ static struct clk *ad9523_clk_register(struct iio_dev *indio_dev, unsigned num,
 	init.ops = &ad9523_clk_ops;
 
 	init.num_parents = 0;
-	init.flags = CLK_IS_ROOT;
+	init.flags = 0;
 	output->hw.init = &init;
 	output->indio_dev = indio_dev;
 	output->num = num;

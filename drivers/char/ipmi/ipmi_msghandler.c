@@ -474,12 +474,12 @@ static DEFINE_MUTEX(smi_watchers_mutex);
 
 static const char * const addr_src_to_str[] = {
 	"invalid", "hotmod", "hardcoded", "SPMI", "ACPI", "SMBIOS", "PCI",
-	"device-tree", "default"
+	"device-tree"
 };
 
 const char *ipmi_addr_src_to_str(enum ipmi_addr_src src)
 {
-	if (src > SI_DEFAULT)
+	if (src >= SI_LAST)
 		src = 0; /* Invalid */
 	return addr_src_to_str[src];
 }
@@ -2891,10 +2891,10 @@ int ipmi_register_smi(const struct ipmi_smi_handlers *handlers,
 		intf->curr_channel = IPMI_MAX_CHANNELS;
 	}
 
+	rv = ipmi_bmc_register(intf, i);
+
 	if (rv == 0)
 		rv = add_proc_entries(intf, i);
-
-	rv = ipmi_bmc_register(intf, i);
 
  out:
 	if (rv) {
@@ -2982,8 +2982,6 @@ int ipmi_unregister_smi(ipmi_smi_t intf)
 	int intf_num = intf->intf_num;
 	ipmi_user_t user;
 
-	ipmi_bmc_unregister(intf);
-
 	mutex_lock(&smi_watchers_mutex);
 	mutex_lock(&ipmi_interfaces_mutex);
 	intf->intf_num = -1;
@@ -3007,6 +3005,7 @@ int ipmi_unregister_smi(ipmi_smi_t intf)
 	mutex_unlock(&ipmi_interfaces_mutex);
 
 	remove_proc_entries(intf);
+	ipmi_bmc_unregister(intf);
 
 	/*
 	 * Call all the watcher interfaces to tell them that
@@ -3820,6 +3819,7 @@ static void handle_new_recv_msgs(ipmi_smi_t intf)
 	while (!list_empty(&intf->waiting_rcv_msgs)) {
 		smi_msg = list_entry(intf->waiting_rcv_msgs.next,
 				     struct ipmi_smi_msg, link);
+		list_del(&smi_msg->link);
 		if (!run_to_completion)
 			spin_unlock_irqrestore(&intf->waiting_rcv_msgs_lock,
 					       flags);
@@ -3829,11 +3829,14 @@ static void handle_new_recv_msgs(ipmi_smi_t intf)
 		if (rv > 0) {
 			/*
 			 * To preserve message order, quit if we
-			 * can't handle a message.
+			 * can't handle a message.  Add the message
+			 * back at the head, this is safe because this
+			 * tasklet is the only thing that pulls the
+			 * messages.
 			 */
+			list_add(&smi_msg->link, &intf->waiting_rcv_msgs);
 			break;
 		} else {
-			list_del(&smi_msg->link);
 			if (rv == 0)
 				/* Message handled */
 				ipmi_free_smi_msg(smi_msg);

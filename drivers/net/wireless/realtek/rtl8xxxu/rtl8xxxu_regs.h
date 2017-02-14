@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 - 2015 Jes Sorensen <Jes.Sorensen@redhat.com>
+ * Copyright (c) 2014 - 2016 Jes Sorensen <Jes.Sorensen@redhat.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -109,6 +109,9 @@
 #define  AFE_XTAL_GATE_DIG		BIT(17)
 #define  AFE_XTAL_BT_GATE		BIT(20)
 
+/*
+ * 0x0028 is also known as REG_AFE_CTRL2 on 8723bu/8192eu
+ */
 #define REG_AFE_PLL_CTRL		0x0028
 #define  AFE_PLL_ENABLE			BIT(0)
 #define  AFE_PLL_320_ENABLE		BIT(1)
@@ -192,6 +195,7 @@
 						   control */
 #define  MULTI_GPS_FUNC_EN		BIT(22)	/* GPS function enable */
 
+#define REG_AFE_CTRL4			0x0078	/* 8192eu/8723bu */
 #define REG_LDO_SW_CTRL			0x007c	/* 8192eu */
 
 #define REG_MCU_FW_DL			0x0080
@@ -209,10 +213,66 @@
 #define REG_HMBOX_EXT_1			0x008a
 #define REG_HMBOX_EXT_2			0x008c
 #define REG_HMBOX_EXT_3			0x008e
+
 /* Interrupt registers for 8192e/8723bu/8812 */
 #define REG_HIMR0			0x00b0
+#define	 IMR0_TXCCK			BIT(30)	/* TXRPT interrupt when CCX bit
+						   of the packet is set */
+#define	 IMR0_PSTIMEOUT			BIT(29)	/* Power Save Time Out Int */
+#define	 IMR0_GTINT4			BIT(28)	/* Set when GTIMER4 expires */
+#define	 IMR0_GTINT3			BIT(27)	/* Set when GTIMER3 expires */
+#define	 IMR0_TBDER			BIT(26)	/* Transmit Beacon0 Error */
+#define	 IMR0_TBDOK			BIT(25)	/* Transmit Beacon0 OK */
+#define	 IMR0_TSF_BIT32_TOGGLE		BIT(24)	/* TSF Timer BIT32 toggle
+						   indication interrupt */
+#define	 IMR0_BCNDMAINT0		BIT(20)	/* Beacon DMA Interrupt 0 */
+#define	 IMR0_BCNDERR0			BIT(16)	/* Beacon Queue DMA Error 0 */
+#define	 IMR0_HSISR_IND_ON_INT		BIT(15)	/* HSISR Indicator (HSIMR &
+						   HSISR is true) */
+#define	 IMR0_BCNDMAINT_E		BIT(14)	/* Beacon DMA Interrupt
+						   Extension for Win7 */
+#define	 IMR0_ATIMEND			BIT(12)	/* CTWidnow End or
+						   ATIM Window End */
+#define	 IMR0_HISR1_IND_INT		BIT(11)	/* HISR1 Indicator
+						   (HISR1 & HIMR1 is true) */
+#define	 IMR0_C2HCMD			BIT(10)	/* CPU to Host Command INT
+						   Status, Write 1 to clear */
+#define	 IMR0_CPWM2			BIT(9)	/* CPU power Mode exchange INT
+						   Status, Write 1 to clear */
+#define	 IMR0_CPWM			BIT(8)	/* CPU power Mode exchange INT
+						   Status, Write 1 to clear */
+#define	 IMR0_HIGHDOK			BIT(7)	/* High Queue DMA OK */
+#define	 IMR0_MGNTDOK			BIT(6)	/* Management Queue DMA OK */
+#define	 IMR0_BKDOK			BIT(5)	/* AC_BK DMA OK */
+#define	 IMR0_BEDOK			BIT(4)	/* AC_BE DMA OK */
+#define	 IMR0_VIDOK			BIT(3)	/* AC_VI DMA OK */
+#define	 IMR0_VODOK			BIT(2)	/* AC_VO DMA OK */
+#define	 IMR0_RDU			BIT(1)	/* Rx Descriptor Unavailable */
+#define	 IMR0_ROK			BIT(0)	/* Receive DMA OK */
 #define REG_HISR0			0x00b4
 #define REG_HIMR1			0x00b8
+#define	 IMR1_BCNDMAINT7		BIT(27)	/* Beacon DMA Interrupt 7 */
+#define	 IMR1_BCNDMAINT6		BIT(26)	/* Beacon DMA Interrupt 6 */
+#define	 IMR1_BCNDMAINT5		BIT(25)	/* Beacon DMA Interrupt 5 */
+#define	 IMR1_BCNDMAINT4		BIT(24)	/* Beacon DMA Interrupt 4 */
+#define	 IMR1_BCNDMAINT3		BIT(23)	/* Beacon DMA Interrupt 3 */
+#define	 IMR1_BCNDMAINT2		BIT(22)	/* Beacon DMA Interrupt 2 */
+#define	 IMR1_BCNDMAINT1		BIT(21)	/* Beacon DMA Interrupt 1 */
+#define	 IMR1_BCNDERR7			BIT(20)	/* Beacon Queue DMA Err Int 7 */
+#define	 IMR1_BCNDERR6			BIT(19)	/* Beacon Queue DMA Err Int 6 */
+#define	 IMR1_BCNDERR5			BIT(18)	/* Beacon Queue DMA Err Int 5 */
+#define	 IMR1_BCNDERR4			BIT(17)	/* Beacon Queue DMA Err Int 4 */
+#define	 IMR1_BCNDERR3			BIT(16)	/* Beacon Queue DMA Err Int 3 */
+#define	 IMR1_BCNDERR2			BIT(15)	/* Beacon Queue DMA Err Int 2 */
+#define	 IMR1_BCNDERR1			BIT(14)	/* Beacon Queue DMA Err Int 1 */
+#define	 IMR1_ATIMEND_E			BIT(13)	/* ATIM Window End Extension
+						   for Win7 */
+#define	 IMR1_TXERR			BIT(11)	/* Tx Error Flag Int Status,
+						   write 1 to clear */
+#define	 IMR1_RXERR			BIT(10)	/* Rx Error Flag Int Status,
+						   write 1 to clear */
+#define	 IMR1_TXFOVW			BIT(9)	/* Transmit FIFO Overflow */
+#define	 IMR1_RXFOVW			BIT(8)	/* Receive FIFO Overflow */
 #define REG_HISR1			0x00bc
 
 /*  Host suspend counter on FPGA platform */
@@ -383,7 +443,7 @@
 #define REG_RQPN			0x0200
 #define  RQPN_HI_PQ_SHIFT		0
 #define  RQPN_LO_PQ_SHIFT		8
-#define  RQPN_NORM_PQ_SHIFT		16
+#define  RQPN_PUB_PQ_SHIFT		16
 #define  RQPN_LOAD			BIT(31)
 
 #define REG_FIFOPAGE			0x0204
@@ -401,7 +461,11 @@
 #define REG_DWBCN1_CTRL_8723B		0x0228
 
 /* 0x0280 ~ 0x02FF	RXDMA Configuration */
-#define REG_RXDMA_AGG_PG_TH		0x0280
+#define REG_RXDMA_AGG_PG_TH		0x0280	/* 0-7 : USB DMA size bits
+						   8-14: USB DMA timeout
+						   15  : Aggregation enable
+						         Only seems to be used
+							 on 8723bu/8192eu */
 #define  RXDMA_USB_AGG_ENABLE		BIT(31)
 #define REG_RXPKT_NUM			0x0284
 #define  RXPKT_NUM_RXDMA_IDLE		BIT(17)
@@ -417,13 +481,20 @@
 
 /*  spec version 11 */
 /* 0x0400 ~ 0x047F	Protocol Configuration */
-#define REG_VOQ_INFORMATION		0x0400
-#define REG_VIQ_INFORMATION		0x0404
-#define REG_BEQ_INFORMATION		0x0408
-#define REG_BKQ_INFORMATION		0x040c
-#define REG_MGQ_INFORMATION		0x0410
-#define REG_HGQ_INFORMATION		0x0414
-#define REG_BCNQ_INFORMATION		0x0418
+/* 8192c, 8192d */
+#define REG_VOQ_INFO			0x0400
+#define REG_VIQ_INFO			0x0404
+#define REG_BEQ_INFO			0x0408
+#define REG_BKQ_INFO			0x040c
+/* 8188e, 8723a, 8812a, 8821a, 8192e, 8723b */
+#define REG_Q0_INFO			0x400
+#define REG_Q1_INFO			0x404
+#define REG_Q2_INFO			0x408
+#define REG_Q3_INFO			0x40c
+
+#define REG_MGQ_INFO			0x0410
+#define REG_HGQ_INFO			0x0414
+#define REG_BCNQ_INFO			0x0418
 
 #define REG_CPU_MGQ_INFORMATION		0x041c
 #define REG_FWHW_TXQ_CTRL		0x0420
@@ -494,6 +565,9 @@
 #define REG_DATA_SUBCHANNEL		0x0483
 /* 8723au */
 #define REG_INIDATA_RATE_SEL		0x0484
+/* MACID_SLEEP_1/3 for 8723b, 8192e, 8812a, 8821a */
+#define REG_MACID_SLEEP_3_8732B		0x0484
+#define REG_MACID_SLEEP_1_8732B		0x0488
 
 #define REG_POWER_STATUS		0x04a4
 #define REG_POWER_STAGE1		0x04b4
@@ -502,12 +576,20 @@
 #define REG_PKT_VO_VI_LIFE_TIME		0x04c0
 #define REG_PKT_BE_BK_LIFE_TIME		0x04c2
 #define REG_STBC_SETTING		0x04c4
+#define REG_QUEUE_CTRL			0x04c6
 #define REG_HT_SINGLE_AMPDU_8723B	0x04c7
 #define REG_PROT_MODE_CTRL		0x04c8
 #define REG_MAX_AGGR_NUM		0x04ca
 #define REG_RTS_MAX_AGGR_NUM		0x04cb
 #define REG_BAR_MODE_CTRL		0x04cc
 #define REG_RA_TRY_RATE_AGG_LMT		0x04cf
+/* MACID_DROP for 8723a */
+#define REG_MACID_DROP_8732A		0x04d0
+/* EARLY_MODE_CONTROL 8188e */
+#define REG_EARLY_MODE_CONTROL_8188E	0x04d0
+/* MACID_SLEEP_2 for 8723b, 8192e, 8812a, 8821a */
+#define REG_MACID_SLEEP_2_8732B		0x04d0
+#define REG_MACID_SLEEP			0x04d4
 #define REG_NQOS_SEQ			0x04dc
 #define REG_QOS_SEQ			0x04de
 #define REG_NEED_CPU_HANDLE		0x04e0
@@ -594,6 +676,7 @@
 #define REG_SCH_TXCMD			0x05d0
 
 /* define REG_FW_TSF_SYNC_CNT		0x04a0 */
+#define REG_SCH_TX_CMD			0x05f8
 #define REG_FW_RESET_TSF_CNT_1		0x05fc
 #define REG_FW_RESET_TSF_CNT_0		0x05fd
 #define REG_FW_BCN_DIS_CNT		0x05fe
@@ -754,6 +837,10 @@
 #define  FPGA_RF_MODE_OFDM		BIT(25)
 
 #define REG_FPGA0_TX_INFO		0x0804
+#define  FPGA0_TX_INFO_OFDM_PATH_A	BIT(0)
+#define  FPGA0_TX_INFO_OFDM_PATH_B	BIT(1)
+#define  FPGA0_TX_INFO_OFDM_PATH_C	BIT(2)
+#define  FPGA0_TX_INFO_OFDM_PATH_D	BIT(3)
 #define REG_FPGA0_PSD_FUNC		0x0808
 #define REG_FPGA0_TX_GAIN		0x080c
 #define REG_FPGA0_RF_TIMING1		0x0810
@@ -860,6 +947,10 @@
 #define  CCK0_SIDEBAND			BIT(4)
 
 #define REG_CCK0_AFE_SETTING		0x0a04
+#define  CCK0_AFE_RX_MASK		0x0f000000
+#define  CCK0_AFE_RX_ANT_AB		BIT(24)
+#define  CCK0_AFE_RX_ANT_A		0
+#define  CCK0_AFE_RX_ANT_B		(BIT(24) | BIT(26))
 
 #define REG_CONFIG_ANT_A		0x0b68
 #define REG_CONFIG_ANT_B		0x0b6c
@@ -1026,9 +1117,14 @@
 #define  USB_HIMR_ROK			BIT(0)	/*  Receive DMA OK Interrupt */
 
 #define REG_USB_SPECIAL_OPTION		0xfe55
+#define  USB_SPEC_USB_AGG_ENABLE	BIT(3)	/* Enable USB aggregation */
+#define  USB_SPEC_INT_BULK_SELECT	BIT(4)	/* Use interrupt endpoint to
+						   deliver interrupt packet.
+						   0: Use int, 1: use bulk */
+#define REG_USB_HRPWM			0xfe58
 #define REG_USB_DMA_AGG_TO		0xfe5b
-#define REG_USB_AGG_TO			0xfe5c
-#define REG_USB_AGG_TH			0xfe5d
+#define REG_USB_AGG_TIMEOUT		0xfe5c
+#define REG_USB_AGG_THRESH		0xfe5d
 
 #define REG_NORMAL_SIE_VID		0xfe60	/* 0xfe60 - 0xfe61 */
 #define REG_NORMAL_SIE_PID		0xfe62	/* 0xfe62 - 0xfe63 */
@@ -1111,6 +1207,7 @@
 #define RF6052_REG_T_METER_8723B	0x42
 #define RF6052_REG_UNKNOWN_43		0x43
 #define RF6052_REG_UNKNOWN_55		0x55
+#define RF6052_REG_UNKNOWN_56		0x56
 #define RF6052_REG_S0S1			0xb0
 #define RF6052_REG_UNKNOWN_DF		0xdf
 #define RF6052_REG_UNKNOWN_ED		0xed

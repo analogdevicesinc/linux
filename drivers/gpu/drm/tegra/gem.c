@@ -401,7 +401,7 @@ int tegra_bo_dumb_map_offset(struct drm_file *file, struct drm_device *drm,
 	struct drm_gem_object *gem;
 	struct tegra_bo *bo;
 
-	gem = drm_gem_object_lookup(drm, file, handle);
+	gem = drm_gem_object_lookup(file, handle);
 	if (!gem) {
 		dev_err(drm->dev, "failed to lookup GEM object\n");
 		return -EINVAL;
@@ -613,7 +613,7 @@ struct dma_buf *tegra_gem_prime_export(struct drm_device *drm,
 	exp_info.flags = flags;
 	exp_info.priv = gem;
 
-	return dma_buf_export(&exp_info);
+	return drm_gem_dmabuf_export(drm, &exp_info);
 }
 
 struct drm_gem_object *tegra_gem_prime_import(struct drm_device *drm,

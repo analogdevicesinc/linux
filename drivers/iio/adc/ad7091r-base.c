@@ -176,7 +176,7 @@ static irqreturn_t ad7091r_event_handler(int irq, void *private)
 	struct iio_dev *iio_dev = dev_get_drvdata(st->dev);
 	unsigned i, read_val;
 	int ret;
-	s64 timestamp = iio_get_time_ns();
+	s64 timestamp = iio_get_time_ns(iio_dev);
 
 	ret = regmap_read(st->map, AD7091R_REG_ALERT, &read_val);
 	if (ret)

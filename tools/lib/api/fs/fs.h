@@ -21,6 +21,7 @@ FS(sysfs)
 FS(procfs)
 FS(debugfs)
 FS(tracefs)
+FS(hugetlbfs)
 
 #undef FS
 
@@ -28,6 +29,8 @@ FS(tracefs)
 int filename__read_int(const char *filename, int *value);
 int filename__read_ull(const char *filename, unsigned long long *value);
 int filename__read_str(const char *filename, char **buf, size_t *sizep);
+
+int procfs__read_str(const char *entry, char **buf, size_t *sizep);
 
 int sysctl__read_int(const char *sysctl, int *value);
 int sysfs__read_int(const char *entry, int *value);

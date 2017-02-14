@@ -15,11 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * version 2 along with this program; If not, see
- * http://www.sun.com/software/products/lustre/docs/GPLv2.pdf
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * http://www.gnu.org/licenses/gpl-2.0.html
  *
  * GPL HEADER END
  */
@@ -143,7 +139,6 @@ int class_add_uuid(const char *uuid, __u64 nid)
 	}
 	return 0;
 }
-EXPORT_SYMBOL(class_add_uuid);
 
 /* Delete the nids for one uuid if specified, otherwise delete all */
 int class_del_uuid(const char *uuid)
@@ -163,8 +158,9 @@ int class_del_uuid(const char *uuid)
 				break;
 			}
 		}
-	} else
+	} else {
 		list_splice_init(&g_uuid_list, &deathrow);
+	}
 	spin_unlock(&g_uuid_lock);
 
 	if (uuid && list_empty(&deathrow)) {

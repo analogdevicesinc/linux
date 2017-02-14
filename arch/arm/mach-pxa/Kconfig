@@ -4,8 +4,20 @@ menu "Intel PXA2xx/PXA3xx Implementations"
 
 comment "Intel/Marvell Dev Platforms (sorted by hardware release time)"
 
+config MACH_PXA25X_DT
+	bool "Support PXA25x platforms from device tree"
+	select PINCTRL
+	select POWER_SUPPLY
+	select PXA25x
+	select USE_OF
+	help
+	  Include support for Marvell PXA25x based platforms using
+	  the device tree. Needn't select any other machine while
+	  MACH_PXA25x_DT is enabled.
+
 config MACH_PXA27X_DT
 	bool "Support PXA27x platforms from device tree"
+	select PINCTRL
 	select POWER_SUPPLY
 	select PXA27x
 	select USE_OF
@@ -17,6 +29,7 @@ config MACH_PXA27X_DT
 config MACH_PXA3XX_DT
 	bool "Support PXA3xx platforms from device tree"
 	select CPU_PXA300
+	select PINCTRL
 	select POWER_SUPPLY
 	select PXA3xx
 	select USE_OF

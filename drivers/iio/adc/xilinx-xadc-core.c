@@ -1145,6 +1145,9 @@ static int xadc_parse_dt(struct iio_dev *indio_dev, struct device_node *np,
 			if (ret || reg > 16)
 				continue;
 
+			channels[num_channels] = xadc_channels[reg + 9];
+			channels[num_channels].channel = num_channels - 1;
+
 			if (of_property_read_bool(child, "xlnx,bipolar"))
 				chan->scan_type.sign = 's';
 

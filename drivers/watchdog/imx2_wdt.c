@@ -24,6 +24,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -37,16 +38,23 @@
 
 #define IMX2_WDT_WCR		0x00		/* Control Register */
 #define IMX2_WDT_WCR_WT		(0xFF << 8)	/* -> Watchdog Timeout Field */
-#define IMX2_WDT_WCR_WRE	(1 << 3)	/* -> WDOG Reset Enable */
-#define IMX2_WDT_WCR_WDE	(1 << 2)	/* -> Watchdog Enable */
-#define IMX2_WDT_WCR_WDZST	(1 << 0)	/* -> Watchdog timer Suspend */
+#define IMX2_WDT_WCR_WDA	BIT(5)		/* -> External Reset WDOG_B */
+#define IMX2_WDT_WCR_SRS	BIT(4)		/* -> Software Reset Signal */
+#define IMX2_WDT_WCR_WRE	BIT(3)		/* -> WDOG Reset Enable */
+#define IMX2_WDT_WCR_WDE	BIT(2)		/* -> Watchdog Enable */
+#define IMX2_WDT_WCR_WDZST	BIT(0)		/* -> Watchdog timer Suspend */
 
 #define IMX2_WDT_WSR		0x02		/* Service Register */
 #define IMX2_WDT_SEQ1		0x5555		/* -> service sequence 1 */
 #define IMX2_WDT_SEQ2		0xAAAA		/* -> service sequence 2 */
 
 #define IMX2_WDT_WRSR		0x04		/* Reset Status Register */
-#define IMX2_WDT_WRSR_TOUT	(1 << 1)	/* -> Reset due to Timeout */
+#define IMX2_WDT_WRSR_TOUT	BIT(1)		/* -> Reset due to Timeout */
+
+#define IMX2_WDT_WICR		0x06		/* Interrupt Control Register */
+#define IMX2_WDT_WICR_WIE	BIT(15)		/* -> Interrupt Enable */
+#define IMX2_WDT_WICR_WTIS	BIT(14)		/* -> Interrupt Status */
+#define IMX2_WDT_WICR_WICT	0xFF		/* -> Interrupt Count Timeout */
 
 #define IMX2_WDT_WMCR		0x08		/* Misc Register */
 
@@ -59,6 +67,7 @@ struct imx2_wdt_device {
 	struct clk *clk;
 	struct regmap *regmap;
 	struct watchdog_device wdog;
+	bool ext_reset;
 };
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
@@ -77,11 +86,23 @@ static const struct watchdog_info imx2_wdt_info = {
 	.options = WDIOF_KEEPALIVEPING | WDIOF_SETTIMEOUT | WDIOF_MAGICCLOSE,
 };
 
+static const struct watchdog_info imx2_wdt_pretimeout_info = {
+	.identity = "imx2+ watchdog",
+	.options = WDIOF_KEEPALIVEPING | WDIOF_SETTIMEOUT | WDIOF_MAGICCLOSE |
+		   WDIOF_PRETIMEOUT,
+};
+
 static int imx2_wdt_restart(struct watchdog_device *wdog, unsigned long action,
 			    void *data)
 {
 	struct imx2_wdt_device *wdev = watchdog_get_drvdata(wdog);
 	unsigned int wcr_enable = IMX2_WDT_WCR_WDE;
+
+	/* Use internal reset or external - not both */
+	if (wdev->ext_reset)
+		wcr_enable |= IMX2_WDT_WCR_SRS; /* do not assert int reset */
+	else
+		wcr_enable |= IMX2_WDT_WCR_WDA; /* do not assert ext-reset */
 
 	/* Assert SRS signal */
 	regmap_write(wdev->regmap, IMX2_WDT_WCR, wcr_enable);
@@ -112,8 +133,12 @@ static inline void imx2_wdt_setup(struct watchdog_device *wdog)
 	val |= IMX2_WDT_WCR_WDZST;
 	/* Strip the old watchdog Time-Out value */
 	val &= ~IMX2_WDT_WCR_WT;
-	/* Generate reset if WDOG times out */
-	val &= ~IMX2_WDT_WCR_WRE;
+	/* Generate internal chip-level reset if WDOG times out */
+	if (!wdev->ext_reset)
+		val &= ~IMX2_WDT_WCR_WRE;
+	/* Or if external-reset assert WDOG_B reset only on time-out */
+	else
+		val |= IMX2_WDT_WCR_WRE;
 	/* Keep Watchdog Disabled */
 	val &= ~IMX2_WDT_WCR_WDE;
 	/* Set the watchdog's Time-Out value */
@@ -156,6 +181,35 @@ static int imx2_wdt_set_timeout(struct watchdog_device *wdog,
 	return 0;
 }
 
+static int imx2_wdt_set_pretimeout(struct watchdog_device *wdog,
+				   unsigned int new_pretimeout)
+{
+	struct imx2_wdt_device *wdev = watchdog_get_drvdata(wdog);
+
+	if (new_pretimeout >= IMX2_WDT_MAX_TIME)
+		return -EINVAL;
+
+	wdog->pretimeout = new_pretimeout;
+
+	regmap_update_bits(wdev->regmap, IMX2_WDT_WICR,
+			   IMX2_WDT_WICR_WIE | IMX2_WDT_WICR_WICT,
+			   IMX2_WDT_WICR_WIE | (new_pretimeout << 1));
+	return 0;
+}
+
+static irqreturn_t imx2_wdt_isr(int irq, void *wdog_arg)
+{
+	struct watchdog_device *wdog = wdog_arg;
+	struct imx2_wdt_device *wdev = watchdog_get_drvdata(wdog);
+
+	regmap_write_bits(wdev->regmap, IMX2_WDT_WICR,
+			  IMX2_WDT_WICR_WTIS, IMX2_WDT_WICR_WTIS);
+
+	watchdog_notify_pretimeout(wdog);
+
+	return IRQ_HANDLED;
+}
+
 static int imx2_wdt_start(struct watchdog_device *wdog)
 {
 	struct imx2_wdt_device *wdev = watchdog_get_drvdata(wdog);
@@ -175,6 +229,7 @@ static const struct watchdog_ops imx2_wdt_ops = {
 	.start = imx2_wdt_start,
 	.ping = imx2_wdt_ping,
 	.set_timeout = imx2_wdt_set_timeout,
+	.set_pretimeout = imx2_wdt_set_pretimeout,
 	.restart = imx2_wdt_restart,
 };
 
@@ -223,6 +278,12 @@ static int __init imx2_wdt_probe(struct platform_device *pdev)
 	wdog->max_hw_heartbeat_ms = IMX2_WDT_MAX_TIME * 1000;
 	wdog->parent		= &pdev->dev;
 
+	ret = platform_get_irq(pdev, 0);
+	if (ret > 0)
+		if (!devm_request_irq(&pdev->dev, ret, imx2_wdt_isr, 0,
+				      dev_name(&pdev->dev), wdog))
+			wdog->info = &imx2_wdt_pretimeout_info;
+
 	ret = clk_prepare_enable(wdev->clk);
 	if (ret)
 		return ret;
@@ -230,6 +291,8 @@ static int __init imx2_wdt_probe(struct platform_device *pdev)
 	regmap_read(wdev->regmap, IMX2_WDT_WRSR, &val);
 	wdog->bootstatus = val & IMX2_WDT_WRSR_TOUT ? WDIOF_CARDRESET : 0;
 
+	wdev->ext_reset = of_property_read_bool(pdev->dev.of_node,
+						"fsl,ext-reset-output");
 	wdog->timeout = clamp_t(unsigned, timeout, 1, IMX2_WDT_MAX_TIME);
 	if (wdog->timeout != timeout)
 		dev_warn(&pdev->dev, "Initial timeout out of range! Clamped from %u to %u\n",

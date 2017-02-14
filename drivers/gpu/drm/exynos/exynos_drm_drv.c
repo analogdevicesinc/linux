@@ -45,37 +45,11 @@ struct exynos_atomic_commit {
 	u32			crtcs;
 };
 
-static void exynos_atomic_wait_for_commit(struct drm_atomic_state *state)
-{
-	struct drm_crtc_state *crtc_state;
-	struct drm_crtc *crtc;
-	int i, ret;
-
-	for_each_crtc_in_state(state, crtc, crtc_state, i) {
-		struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
-
-		if (!crtc->state->enable)
-			continue;
-
-		ret = drm_crtc_vblank_get(crtc);
-		if (ret)
-			continue;
-
-		exynos_drm_crtc_wait_pending_update(exynos_crtc);
-		drm_crtc_vblank_put(crtc);
-	}
-}
-
 static void exynos_atomic_commit_complete(struct exynos_atomic_commit *commit)
 {
 	struct drm_device *dev = commit->dev;
 	struct exynos_drm_private *priv = dev->dev_private;
 	struct drm_atomic_state *state = commit->state;
-	struct drm_plane *plane;
-	struct drm_crtc *crtc;
-	struct drm_plane_state *plane_state;
-	struct drm_crtc_state *crtc_state;
-	int i;
 
 	drm_atomic_helper_commit_modeset_disables(dev, state);
 
@@ -89,25 +63,9 @@ static void exynos_atomic_commit_complete(struct exynos_atomic_commit *commit)
 	 * have the relevant clocks enabled to perform the update.
 	 */
 
-	for_each_crtc_in_state(state, crtc, crtc_state, i) {
-		struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+	drm_atomic_helper_commit_planes(dev, state, 0);
 
-		atomic_set(&exynos_crtc->pending_update, 0);
-	}
-
-	for_each_plane_in_state(state, plane, plane_state, i) {
-		struct exynos_drm_crtc *exynos_crtc =
-						to_exynos_crtc(plane->crtc);
-
-		if (!plane->crtc)
-			continue;
-
-		atomic_inc(&exynos_crtc->pending_update);
-	}
-
-	drm_atomic_helper_commit_planes(dev, state, false);
-
-	exynos_atomic_wait_for_commit(state);
+	drm_atomic_helper_wait_for_vblanks(dev, state);
 
 	drm_atomic_helper_cleanup_planes(dev, state);
 
@@ -159,12 +117,7 @@ static int exynos_drm_load(struct drm_device *dev, unsigned long flags)
 	DRM_INFO("Exynos DRM: using %s device for DMA mapping operations\n",
 		 dev_name(private->dma_dev));
 
-	/*
-	 * create mapping to manage iommu table and set a pointer to iommu
-	 * mapping structure to iommu_mapping of private data.
-	 * also this iommu_mapping can be used to check if iommu is supported
-	 * or not.
-	 */
+	/* create common IOMMU mapping for all devices attached to Exynos DRM */
 	ret = drm_create_iommu_mapping(dev);
 	if (ret < 0) {
 		DRM_ERROR("failed to create iommu mapping.\n");
@@ -211,13 +164,6 @@ static int exynos_drm_load(struct drm_device *dev, unsigned long flags)
 	 *	drm framework supports only one irq handler.
 	 */
 	dev->irq_enabled = true;
-
-	/*
-	 * with vblank_disable_allowed = true, vblank interrupt will be disabled
-	 * by drm timer once a current process gives up ownership of
-	 * vblank event.(after drm_vblank_put function is called)
-	 */
-	dev->vblank_disable_allowed = true;
 
 	/* init kms poll for handling hpd */
 	drm_kms_helper_poll_init(dev);
@@ -270,10 +216,12 @@ static int commit_is_pending(struct exynos_drm_private *priv, u32 crtcs)
 }
 
 int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
-			 bool async)
+			 bool nonblock)
 {
 	struct exynos_drm_private *priv = dev->dev_private;
 	struct exynos_atomic_commit *commit;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
 	int i, ret;
 
 	commit = kzalloc(sizeof(*commit), GFP_KERNEL);
@@ -295,10 +243,8 @@ int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
 	/* Wait until all affected CRTCs have completed previous commits and
 	 * mark them as pending.
 	 */
-	for (i = 0; i < dev->mode_config.num_crtc; ++i) {
-		if (state->crtcs[i])
-			commit->crtcs |= 1 << drm_crtc_index(state->crtcs[i]);
-	}
+	for_each_crtc_in_state(state, crtc, crtc_state, i)
+		commit->crtcs |= drm_crtc_mask(crtc);
 
 	wait_event(priv->wait, !commit_is_pending(priv, commit->crtcs));
 
@@ -306,14 +252,34 @@ int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
 	priv->pending |= commit->crtcs;
 	spin_unlock(&priv->lock);
 
-	drm_atomic_helper_swap_state(dev, state);
+	drm_atomic_helper_swap_state(state, true);
 
-	if (async)
+	if (nonblock)
 		schedule_work(&commit->work);
 	else
 		exynos_atomic_commit_complete(commit);
 
 	return 0;
+}
+
+int exynos_atomic_check(struct drm_device *dev,
+			struct drm_atomic_state *state)
+{
+	int ret;
+
+	ret = drm_atomic_helper_check_modeset(dev, state);
+	if (ret)
+		return ret;
+
+	ret = drm_atomic_normalize_zpos(dev, state);
+	if (ret)
+		return ret;
+
+	ret = drm_atomic_helper_check_planes(dev, state);
+	if (ret)
+		return ret;
+
+	return ret;
 }
 
 static int exynos_drm_open(struct drm_device *dev, struct drm_file *file)
@@ -414,11 +380,10 @@ static struct drm_driver exynos_drm_driver = {
 	.preclose		= exynos_drm_preclose,
 	.lastclose		= exynos_drm_lastclose,
 	.postclose		= exynos_drm_postclose,
-	.set_busid		= drm_platform_set_busid,
 	.get_vblank_counter	= drm_vblank_no_hw_counter,
 	.enable_vblank		= exynos_drm_crtc_enable_vblank,
 	.disable_vblank		= exynos_drm_crtc_disable_vblank,
-	.gem_free_object	= exynos_drm_gem_free_object,
+	.gem_free_object_unlocked = exynos_drm_gem_free_object,
 	.gem_vm_ops		= &exynos_drm_gem_vm_ops,
 	.dumb_create		= exynos_drm_gem_dumb_create,
 	.dumb_map_offset	= exynos_drm_gem_dumb_map_offset,
@@ -431,6 +396,7 @@ static struct drm_driver exynos_drm_driver = {
 	.gem_prime_import_sg_table	= exynos_drm_gem_prime_import_sg_table,
 	.gem_prime_vmap		= exynos_drm_gem_prime_vmap,
 	.gem_prime_vunmap	= exynos_drm_gem_prime_vunmap,
+	.gem_prime_mmap		= exynos_drm_gem_prime_mmap,
 	.ioctls			= exynos_ioctls,
 	.num_ioctls		= ARRAY_SIZE(exynos_ioctls),
 	.fops			= &exynos_drm_driver_fops,

@@ -116,6 +116,14 @@ static ssize_t i40e_dbg_command_read(struct file *filp, char __user *buffer,
 	return len;
 }
 
+static char *i40e_filter_state_string[] = {
+	"INVALID",
+	"NEW",
+	"ACTIVE",
+	"FAILED",
+	"REMOVE",
+};
+
 /**
  * i40e_dbg_dump_vsi_seid - handles dump vsi seid write into command datum
  * @pf: the i40e_pf created in command write
@@ -147,9 +155,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
 		dev_info(&pf->pdev->dev, "        vlan_features = 0x%08lx\n",
 			 (unsigned long int)nd->vlan_features);
 	}
-	if (vsi->active_vlans)
-		dev_info(&pf->pdev->dev,
-			 "    vlgrp: & = %p\n", vsi->active_vlans);
+	dev_info(&pf->pdev->dev,
+		 "    vlgrp: & = %p\n", vsi->active_vlans);
 	dev_info(&pf->pdev->dev,
 		 "    state = %li flags = 0x%08lx, netdev_registered = %i, current_netdev_flags = 0x%04x\n",
 		 vsi->state, vsi->flags,
@@ -161,10 +168,14 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
 			 pf->hw.mac.port_addr);
 	list_for_each_entry(f, &vsi->mac_filter_list, list) {
 		dev_info(&pf->pdev->dev,
-			 "    mac_filter_list: %pM vid=%d, is_netdev=%d is_vf=%d counter=%d\n",
+			 "    mac_filter_list: %pM vid=%d, is_netdev=%d is_vf=%d counter=%d, state %s\n",
 			 f->macaddr, f->vlan, f->is_netdev, f->is_vf,
-			 f->counter);
+			 f->counter, i40e_filter_state_string[f->state]);
 	}
+	dev_info(&pf->pdev->dev, "    active_filters %d, promisc_threshold %d, overflow promisc %s\n",
+		 vsi->active_filters, vsi->promisc_threshold,
+		 (test_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state) ?
+		  "ON" : "OFF"));
 	nstat = i40e_get_vsi_stats_struct(vsi);
 	dev_info(&pf->pdev->dev,
 		 "    net_stats: rx_packets = %lu, rx_bytes = %lu, rx_errors = %lu, rx_dropped = %lu\n",
@@ -269,13 +280,11 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
 			 rx_ring->queue_index,
 			 rx_ring->reg_idx);
 		dev_info(&pf->pdev->dev,
-			 "    rx_rings[%i]: rx_hdr_len = %d, rx_buf_len = %d, dtype = %d\n",
-			 i, rx_ring->rx_hdr_len,
-			 rx_ring->rx_buf_len,
-			 rx_ring->dtype);
+			 "    rx_rings[%i]: rx_buf_len = %d\n",
+			 i, rx_ring->rx_buf_len);
 		dev_info(&pf->pdev->dev,
-			 "    rx_rings[%i]: hsplit = %d, next_to_use = %d, next_to_clean = %d, ring_active = %i\n",
-			 i, ring_is_ps_enabled(rx_ring),
+			 "    rx_rings[%i]: next_to_use = %d, next_to_clean = %d, ring_active = %i\n",
+			 i,
 			 rx_ring->next_to_use,
 			 rx_ring->next_to_clean,
 			 rx_ring->ring_active);
@@ -327,9 +336,6 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
 			 tx_ring->queue_index,
 			 tx_ring->reg_idx);
 		dev_info(&pf->pdev->dev,
-			 "    tx_rings[%i]: dtype = %d\n",
-			 i, tx_ring->dtype);
-		dev_info(&pf->pdev->dev,
 			 "    tx_rings[%i]: next_to_use = %d, next_to_clean = %d, ring_active = %i\n",
 			 i,
 			 tx_ring->next_to_use,
@@ -366,8 +372,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
 		 "    work_limit = %d\n",
 		 vsi->work_limit);
 	dev_info(&pf->pdev->dev,
-		 "    max_frame = %d, rx_hdr_len = %d, rx_buf_len = %d dtype = %d\n",
-		 vsi->max_frame, vsi->rx_hdr_len, vsi->rx_buf_len, vsi->dtype);
+		 "    max_frame = %d, rx_buf_len = %d dtype = %d\n",
+		 vsi->max_frame, vsi->rx_buf_len, 0);
 	dev_info(&pf->pdev->dev,
 		 "    num_q_vectors = %i, base_vector = %i\n",
 		 vsi->num_q_vectors, vsi->base_vector);
@@ -592,13 +598,6 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_seid, int ring_id, int desc_n,
 					 "   d[%03x] = 0x%016llx 0x%016llx\n",
 					 i, txd->buffer_addr,
 					 txd->cmd_type_offset_bsz);
-			} else if (sizeof(union i40e_rx_desc) ==
-				   sizeof(union i40e_16byte_rx_desc)) {
-				rxd = I40E_RX_DESC(ring, i);
-				dev_info(&pf->pdev->dev,
-					 "   d[%03x] = 0x%016llx 0x%016llx\n",
-					 i, rxd->read.pkt_addr,
-					 rxd->read.hdr_addr);
 			} else {
 				rxd = I40E_RX_DESC(ring, i);
 				dev_info(&pf->pdev->dev,
@@ -620,13 +619,6 @@ static void i40e_dbg_dump_desc(int cnt, int vsi_seid, int ring_id, int desc_n,
 				 "vsi = %02i tx ring = %02i d[%03x] = 0x%016llx 0x%016llx\n",
 				 vsi_seid, ring_id, desc_n,
 				 txd->buffer_addr, txd->cmd_type_offset_bsz);
-		} else if (sizeof(union i40e_rx_desc) ==
-			   sizeof(union i40e_16byte_rx_desc)) {
-			rxd = I40E_RX_DESC(ring, desc_n);
-			dev_info(&pf->pdev->dev,
-				 "vsi = %02i rx ring = %02i d[%03x] = 0x%016llx 0x%016llx\n",
-				 vsi_seid, ring_id, desc_n,
-				 rxd->read.pkt_addr, rxd->read.hdr_addr);
 		} else {
 			rxd = I40E_RX_DESC(ring, desc_n);
 			dev_info(&pf->pdev->dev,
@@ -1062,6 +1054,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
 			struct i40e_dcbx_config *r_cfg =
 						&pf->hw.remote_dcbx_config;
 			int i, ret;
+			u32 switch_id;
 
 			bw_data = kzalloc(sizeof(
 				    struct i40e_aqc_query_port_ets_config_resp),
@@ -1071,8 +1064,12 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
 				goto command_write_done;
 			}
 
+			vsi = pf->vsi[pf->lan_vsi];
+			switch_id =
+				vsi->info.switch_id & I40E_AQ_VSI_SW_ID_MASK;
+
 			ret = i40e_aq_query_port_ets_config(&pf->hw,
-							    pf->mac_seid,
+							    switch_id,
 							    bw_data, NULL);
 			if (ret) {
 				dev_info(&pf->pdev->dev,
@@ -1433,84 +1430,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
 		buff = NULL;
 		kfree(desc);
 		desc = NULL;
-	} else if ((strncmp(cmd_buf, "add fd_filter", 13) == 0) ||
-		   (strncmp(cmd_buf, "rem fd_filter", 13) == 0)) {
-		struct i40e_fdir_filter fd_data;
-		u16 packet_len, i, j = 0;
-		char *asc_packet;
-		u8 *raw_packet;
-		bool add = false;
-		int ret;
-
-		if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
-			goto command_write_done;
-
-		if (strncmp(cmd_buf, "add", 3) == 0)
-			add = true;
-
-		if (add && (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED))
-			goto command_write_done;
-
-		asc_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE,
-				     GFP_KERNEL);
-		if (!asc_packet)
-			goto command_write_done;
-
-		raw_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE,
-				     GFP_KERNEL);
-
-		if (!raw_packet) {
-			kfree(asc_packet);
-			asc_packet = NULL;
-			goto command_write_done;
-		}
-
-		cnt = sscanf(&cmd_buf[13],
-			     "%hx %2hhx %2hhx %hx %2hhx %2hhx %hx %x %hd %511s",
-			     &fd_data.q_index,
-			     &fd_data.flex_off, &fd_data.pctype,
-			     &fd_data.dest_vsi, &fd_data.dest_ctl,
-			     &fd_data.fd_status, &fd_data.cnt_index,
-			     &fd_data.fd_id, &packet_len, asc_packet);
-		if (cnt != 10) {
-			dev_info(&pf->pdev->dev,
-				 "program fd_filter: bad command string, cnt=%d\n",
-				 cnt);
-			kfree(asc_packet);
-			asc_packet = NULL;
-			kfree(raw_packet);
-			goto command_write_done;
-		}
-
-		/* fix packet length if user entered 0 */
-		if (packet_len == 0)
-			packet_len = I40E_FDIR_MAX_RAW_PACKET_SIZE;
-
-		/* make sure to check the max as well */
-		packet_len = min_t(u16,
-				   packet_len, I40E_FDIR_MAX_RAW_PACKET_SIZE);
-
-		for (i = 0; i < packet_len; i++) {
-			cnt = sscanf(&asc_packet[j], "%2hhx ", &raw_packet[i]);
-			if (!cnt)
-				break;
-			j += 3;
-		}
-		dev_info(&pf->pdev->dev, "FD raw packet dump\n");
-		print_hex_dump(KERN_INFO, "FD raw packet: ",
-			       DUMP_PREFIX_OFFSET, 16, 1,
-			       raw_packet, packet_len, true);
-		ret = i40e_program_fdir_filter(&fd_data, raw_packet, pf, add);
-		if (!ret) {
-			dev_info(&pf->pdev->dev, "Filter command send Status : Success\n");
-		} else {
-			dev_info(&pf->pdev->dev,
-				 "Filter command send failed %d\n", ret);
-		}
-		kfree(raw_packet);
-		raw_packet = NULL;
-		kfree(asc_packet);
-		asc_packet = NULL;
 	} else if (strncmp(cmd_buf, "fd current cnt", 14) == 0) {
 		dev_info(&pf->pdev->dev, "FD current total filter count for this interface: %d\n",
 			 i40e_get_current_fd_count(pf));
@@ -1735,8 +1654,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
 		dev_info(&pf->pdev->dev, "  globr\n");
 		dev_info(&pf->pdev->dev, "  send aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3>\n");
 		dev_info(&pf->pdev->dev, "  send indirect aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3> <buffer_len>\n");
-		dev_info(&pf->pdev->dev, "  add fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
-		dev_info(&pf->pdev->dev, "  rem fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
 		dev_info(&pf->pdev->dev, "  fd current cnt");
 		dev_info(&pf->pdev->dev, "  lldp start\n");
 		dev_info(&pf->pdev->dev, "  lldp stop\n");

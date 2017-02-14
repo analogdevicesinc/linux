@@ -23,7 +23,7 @@
 #include <scsi/sas_ata.h>
 #include <scsi/libsas.h>
 
-#define DRV_VERSION "v1.3"
+#define DRV_VERSION "v1.6"
 
 #define HISI_SAS_MAX_PHYS	9
 #define HISI_SAS_MAX_QUEUES	32
@@ -54,6 +54,11 @@ enum {
 enum dev_status {
 	HISI_SAS_DEV_NORMAL,
 	HISI_SAS_DEV_EH,
+};
+
+enum {
+	HISI_SAS_INT_ABT_CMD = 0,
+	HISI_SAS_INT_ABT_DEV = 1,
 };
 
 enum hisi_sas_dev_type {
@@ -89,6 +94,13 @@ struct hisi_sas_port {
 
 struct hisi_sas_cq {
 	struct hisi_hba *hisi_hba;
+	int	rd_point;
+	int	id;
+};
+
+struct hisi_sas_dq {
+	struct hisi_hba *hisi_hba;
+	int	wr_point;
 	int	id;
 };
 
@@ -133,6 +145,9 @@ struct hisi_sas_hw {
 	int (*hw_init)(struct hisi_hba *hisi_hba);
 	void (*setup_itct)(struct hisi_hba *hisi_hba,
 			   struct hisi_sas_device *device);
+	int (*slot_index_alloc)(struct hisi_hba *hisi_hba, int *slot_idx,
+				struct domain_device *device);
+	struct hisi_sas_device *(*alloc_dev)(struct domain_device *device);
 	void (*sl_notify)(struct hisi_hba *hisi_hba, int phy_no);
 	int (*get_free_slot)(struct hisi_hba *hisi_hba, int *q, int *s);
 	void (*start_delivery)(struct hisi_hba *hisi_hba);
@@ -143,6 +158,9 @@ struct hisi_sas_hw {
 			struct hisi_sas_slot *slot);
 	int (*prep_stp)(struct hisi_hba *hisi_hba,
 			struct hisi_sas_slot *slot);
+	int (*prep_abort)(struct hisi_hba *hisi_hba,
+			  struct hisi_sas_slot *slot,
+			  int device_id, int abort_flag, int tag_to_abort);
 	int (*slot_complete)(struct hisi_hba *hisi_hba,
 			     struct hisi_sas_slot *slot, int abort);
 	void (*phy_enable)(struct hisi_hba *hisi_hba, int phy_no);
@@ -182,6 +200,7 @@ struct hisi_hba {
 	struct Scsi_Host *shost;
 
 	struct hisi_sas_cq cq[HISI_SAS_MAX_QUEUES];
+	struct hisi_sas_dq dq[HISI_SAS_MAX_QUEUES];
 	struct hisi_sas_phy phy[HISI_SAS_MAX_PHYS];
 	struct hisi_sas_port port[HISI_SAS_MAX_PHYS];
 
@@ -298,7 +317,7 @@ struct hisi_sas_command_table_stp {
 	u8	atapi_cdb[ATAPI_CDB_LEN];
 };
 
-#define HISI_SAS_SGE_PAGE_CNT SCSI_MAX_SG_SEGMENTS
+#define HISI_SAS_SGE_PAGE_CNT SG_CHUNK_SIZE
 struct hisi_sas_sge_page {
 	struct hisi_sas_sge sge[HISI_SAS_SGE_PAGE_CNT];
 };

@@ -112,14 +112,10 @@ struct brcmf_pub {
 
 	/* Internal brcmf items */
 	uint hdrlen;		/* Total BRCMF header length (proto + bus) */
-	uint rxsz;		/* Rx buffer size bus module should use */
 
 	/* Dongle media info */
 	char fwver[BRCMF_DRIVER_FIRMWARE_VERSION_LEN];
 	u8 mac[ETH_ALEN];		/* MAC address obtained from dongle */
-
-	/* Multicast data packets sent to dongle */
-	unsigned long tx_multicast;
 
 	struct mac_address addresses[BRCMF_MAX_IFS];
 
@@ -176,7 +172,6 @@ enum brcmf_netif_stop_reason {
  * @vif: points to cfg80211 specific interface information.
  * @ndev: associated network device.
  * @stats: interface specific network statistics.
- * @setmacaddr_work: worker object for setting mac address.
  * @multicast_work: worker object for multicast provisioning.
  * @ndoffload_work: worker object for neighbor discovery offload configuration.
  * @fws_desc: interface specific firmware-signalling descriptor.
@@ -193,7 +188,6 @@ struct brcmf_if {
 	struct brcmf_cfg80211_vif *vif;
 	struct net_device *ndev;
 	struct net_device_stats stats;
-	struct work_struct setmacaddr_work;
 	struct work_struct multicast_work;
 	struct work_struct ndoffload_work;
 	struct brcmf_fws_mac_descriptor *fws_desc;
@@ -208,10 +202,6 @@ struct brcmf_if {
 	u8 ipv6addr_idx;
 };
 
-struct brcmf_skb_reorder_data {
-	u8 *reorder;
-};
-
 int brcmf_netdev_wait_pend8021x(struct brcmf_if *ifp);
 
 /* Return pointer to interface name */
@@ -219,14 +209,14 @@ char *brcmf_ifname(struct brcmf_if *ifp);
 struct brcmf_if *brcmf_get_ifp(struct brcmf_pub *drvr, int ifidx);
 int brcmf_net_attach(struct brcmf_if *ifp, bool rtnl_locked);
 struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bsscfgidx, s32 ifidx,
-			      bool is_p2pdev, char *name, u8 *mac_addr);
-void brcmf_remove_interface(struct brcmf_if *ifp);
-int brcmf_get_next_free_bsscfgidx(struct brcmf_pub *drvr);
+			      bool is_p2pdev, const char *name, u8 *mac_addr);
+void brcmf_remove_interface(struct brcmf_if *ifp, bool rtnl_locked);
 void brcmf_txflowblock_if(struct brcmf_if *ifp,
 			  enum brcmf_netif_stop_reason reason, bool state);
 void brcmf_txfinalize(struct brcmf_if *ifp, struct sk_buff *txp, bool success);
 void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb);
 void brcmf_net_setcarrier(struct brcmf_if *ifp, bool on);
+void brcmf_c_set_joinpref_default(struct brcmf_if *ifp);
 int __init brcmf_core_init(void);
 void __exit brcmf_core_exit(void);
 

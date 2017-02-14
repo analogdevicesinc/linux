@@ -188,7 +188,8 @@ void r8712_free_stainfo(struct _adapter *padapter, struct sta_info *psta)
 	_r8712_init_sta_xmit_priv(&psta->sta_xmitpriv);
 	_r8712_init_sta_recv_priv(&psta->sta_recvpriv);
 	/* for A-MPDU Rx reordering buffer control,
-	 * cancel reordering_ctrl_timer */
+	 * cancel reordering_ctrl_timer
+	 */
 	for (i = 0; i < 16; i++) {
 		preorder_ctrl = &psta->recvreorder_ctrl[i];
 		del_timer(&preorder_ctrl->reordering_ctrl_timer);
@@ -216,8 +217,8 @@ void r8712_free_all_stainfo(struct _adapter *padapter)
 		phead = &(pstapriv->sta_hash[index]);
 		plist = phead->next;
 		while (!end_of_queue_search(phead, plist)) {
-			psta = LIST_CONTAINOR(plist,
-					      struct sta_info, hash_list);
+			psta = container_of(plist,
+					    struct sta_info, hash_list);
 			plist = plist->next;
 			if (pbcmc_stainfo != psta)
 				r8712_free_stainfo(padapter, psta);
@@ -241,7 +242,7 @@ struct sta_info *r8712_get_stainfo(struct sta_priv *pstapriv, u8 *hwaddr)
 	phead = &(pstapriv->sta_hash[index]);
 	plist = phead->next;
 	while (!end_of_queue_search(phead, plist)) {
-		psta = LIST_CONTAINOR(plist, struct sta_info, hash_list);
+		psta = container_of(plist, struct sta_info, hash_list);
 		if ((!memcmp(psta->hwaddr, hwaddr, ETH_ALEN))) {
 			/* if found the matched address */
 			break;

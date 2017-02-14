@@ -35,6 +35,8 @@
 #include "skl-sst-dsp.h"
 #include "skl-sst-ipc.h"
 
+static struct skl_machine_pdata skl_dmic_data;
+
 /*
  * initialize the PCI registers
  */
@@ -184,6 +186,7 @@ static int _skl_suspend(struct hdac_ext_bus *ebus)
 {
 	struct skl *skl = ebus_to_skl(ebus);
 	struct hdac_bus *bus = ebus_to_hbus(ebus);
+	struct pci_dev *pci = to_pci_dev(bus->dev);
 	int ret;
 
 	snd_hdac_ext_bus_link_power_down_all(ebus);
@@ -193,9 +196,12 @@ static int _skl_suspend(struct hdac_ext_bus *ebus)
 		return ret;
 
 	snd_hdac_bus_stop_chip(bus);
+	update_pci_dword(pci, AZX_PCIREG_PGCTL,
+		AZX_PGCTL_LSRMD_MASK, AZX_PGCTL_LSRMD_MASK);
 	skl_enable_miscbdcge(bus->dev, false);
 	snd_hdac_bus_enter_link_reset(bus);
 	skl_enable_miscbdcge(bus->dev, true);
+	skl_cleanup_resources(skl);
 
 	return 0;
 }
@@ -229,7 +235,12 @@ static int skl_suspend(struct device *dev)
 	 * running, we need to save the state for these and continue
 	 */
 	if (skl->supend_active) {
+		/* turn off the links and stop the CORB/RIRB DMA if it is On */
 		snd_hdac_ext_bus_link_power_down_all(ebus);
+
+		if (ebus->cmd_dma_state)
+			snd_hdac_bus_stop_cmd_io(&ebus->bus);
+
 		enable_irq_wake(bus->irq);
 		pci_save_state(pci);
 		pci_disable_device(pci);
@@ -237,6 +248,7 @@ static int skl_suspend(struct device *dev)
 		ret = _skl_suspend(ebus);
 		if (ret < 0)
 			return ret;
+		skl->skl_sst->fw_loaded = false;
 	}
 
 	if (IS_ENABLED(CONFIG_SND_SOC_HDAC_HDMI)) {
@@ -255,6 +267,7 @@ static int skl_resume(struct device *dev)
 	struct hdac_ext_bus *ebus = pci_get_drvdata(pci);
 	struct skl *skl  = ebus_to_skl(ebus);
 	struct hdac_bus *bus = ebus_to_hbus(ebus);
+	struct hdac_ext_link *hlink = NULL;
 	int ret;
 
 	/* Turned OFF in HDMI codec driver after codec reconfiguration */
@@ -276,8 +289,29 @@ static int skl_resume(struct device *dev)
 		ret = pci_enable_device(pci);
 		snd_hdac_ext_bus_link_power_up_all(ebus);
 		disable_irq_wake(bus->irq);
+		/*
+		 * turn On the links which are On before active suspend
+		 * and start the CORB/RIRB DMA if On before
+		 * active suspend.
+		 */
+		list_for_each_entry(hlink, &ebus->hlink_list, list) {
+			if (hlink->ref_count)
+				snd_hdac_ext_bus_link_power_up(hlink);
+		}
+
+		if (ebus->cmd_dma_state)
+			snd_hdac_bus_init_cmd_io(&ebus->bus);
 	} else {
 		ret = _skl_resume(ebus);
+
+		/* turn off the links which are off before suspend */
+		list_for_each_entry(hlink, &ebus->hlink_list, list) {
+			if (!hlink->ref_count)
+				snd_hdac_ext_bus_link_power_down(hlink);
+		}
+
+		if (!ebus->cmd_dma_state)
+			snd_hdac_bus_stop_cmd_io(&ebus->bus);
 	}
 
 	return ret;
@@ -370,6 +404,10 @@ static int skl_machine_device_register(struct skl *skl, void *driver_data)
 		platform_device_put(pdev);
 		return -EIO;
 	}
+
+	if (mach->pdata)
+		dev_set_drvdata(&pdev->dev, mach->pdata);
+
 	skl->i2s_dev = pdev;
 
 	return 0;
@@ -549,7 +587,7 @@ static int skl_first_init(struct hdac_ext_bus *ebus)
 		return -ENXIO;
 	}
 
-	snd_hdac_ext_bus_parse_capabilities(ebus);
+	snd_hdac_bus_parse_capabilities(bus);
 
 	if (skl_acquire_irq(ebus, 0) < 0)
 		return -EBUSY;
@@ -613,6 +651,7 @@ static int skl_probe(struct pci_dev *pci,
 	struct skl *skl;
 	struct hdac_ext_bus *ebus = NULL;
 	struct hdac_bus *bus = NULL;
+	struct hdac_ext_link *hlink = NULL;
 	int err;
 
 	/* we use ext core ops, so provide NULL for ops here */
@@ -629,21 +668,27 @@ static int skl_probe(struct pci_dev *pci,
 
 	skl->pci_id = pci->device;
 
+	device_disable_async_suspend(bus->dev);
+
 	skl->nhlt = skl_nhlt_init(bus->dev);
 
-	if (skl->nhlt == NULL)
-		goto out_free;
+	if (skl->nhlt == NULL) {
+		err = -ENODEV;
+		goto out_display_power_off;
+	}
 
 	skl_nhlt_update_topology_bin(skl);
 
 	pci_set_drvdata(skl->pci, ebus);
 
+	skl_dmic_data.dmic_num = skl_get_dmic_geo(skl);
+
 	/* check if dsp is there */
-	if (ebus->ppcap) {
+	if (bus->ppcap) {
 		err = skl_machine_device_register(skl,
 				  (void *)pci_id->driver_data);
 		if (err < 0)
-			goto out_free;
+			goto out_nhlt_free;
 
 		err = skl_init_dsp(skl);
 		if (err < 0) {
@@ -653,7 +698,7 @@ static int skl_probe(struct pci_dev *pci,
 		skl->skl_sst->enable_miscbdcge = skl_enable_miscbdcge;
 
 	}
-	if (ebus->mlcap)
+	if (bus->mlcap)
 		snd_hdac_ext_bus_get_ml_capabilities(ebus);
 
 	/* create device for soc dmic */
@@ -679,7 +724,13 @@ static int skl_probe(struct pci_dev *pci,
 		}
 	}
 
-	/*configure PM */
+	/*
+	 * we are done probling so decrement link counts
+	 */
+	list_for_each_entry(hlink, &ebus->hlink_list, list)
+		snd_hdac_ext_bus_link_put(ebus, hlink);
+
+	/* configure PM */
 	pm_runtime_put_noidle(bus->dev);
 	pm_runtime_allow(bus->dev);
 
@@ -693,6 +744,11 @@ out_dsp_free:
 	skl_free_dsp(skl);
 out_mach_free:
 	skl_machine_device_unregister(skl);
+out_nhlt_free:
+	skl_nhlt_free(skl->nhlt);
+out_display_power_off:
+	if (IS_ENABLED(CONFIG_SND_SOC_HDAC_HDMI))
+		snd_hdac_display_power(bus, false);
 out_free:
 	skl->init_failed = 1;
 	skl_free(ebus);
@@ -730,11 +786,9 @@ static void skl_remove(struct pci_dev *pci)
 	struct hdac_ext_bus *ebus = pci_get_drvdata(pci);
 	struct skl *skl = ebus_to_skl(ebus);
 
-	if (skl->tplg)
-		release_firmware(skl->tplg);
+	release_firmware(skl->tplg);
 
-	if (pci_dev_run_wake(pci))
-		pm_runtime_get_noresume(&pci->dev);
+	pm_runtime_get_noresume(&pci->dev);
 
 	/* codec removal, invoke bus_device_remove */
 	snd_hdac_ext_bus_device_remove(ebus);
@@ -743,21 +797,30 @@ static void skl_remove(struct pci_dev *pci)
 	skl_free_dsp(skl);
 	skl_machine_device_unregister(skl);
 	skl_dmic_device_unregister(skl);
+	skl_nhlt_free(skl->nhlt);
 	skl_free(ebus);
 	dev_set_drvdata(&pci->dev, NULL);
 }
 
 static struct sst_acpi_mach sst_skl_devdata[] = {
 	{ "INT343A", "skl_alc286s_i2s", "intel/dsp_fw_release.bin", NULL, NULL, NULL },
-	{ "INT343B", "skl_nau88l25_ssm4567_i2s", "intel/dsp_fw_release.bin",
-				NULL, NULL, NULL },
-	{ "MX98357A", "skl_nau88l25_max98357a_i2s", "intel/dsp_fw_release.bin",
-				NULL, NULL, NULL },
+	{ "INT343B", "skl_n88l25_s4567", "intel/dsp_fw_release.bin",
+				NULL, NULL, &skl_dmic_data },
+	{ "MX98357A", "skl_n88l25_m98357a", "intel/dsp_fw_release.bin",
+				NULL, NULL, &skl_dmic_data },
 	{}
 };
 
 static struct sst_acpi_mach sst_bxtp_devdata[] = {
 	{ "INT343A", "bxt_alc298s_i2s", "intel/dsp_fw_bxtn.bin", NULL, NULL, NULL },
+	{ "DLGS7219", "bxt_da7219_max98357a_i2s", "intel/dsp_fw_bxtn.bin", NULL, NULL, NULL },
+};
+
+static struct sst_acpi_mach sst_kbl_devdata[] = {
+	{ "INT343A", "kbl_alc286s_i2s", "intel/dsp_fw_kbl.bin", NULL, NULL, NULL },
+	{ "INT343B", "kbl_n88l25_s4567", "intel/dsp_fw_kbl.bin", NULL, NULL, &skl_dmic_data },
+	{ "MX98357A", "kbl_n88l25_m98357a", "intel/dsp_fw_kbl.bin", NULL, NULL, &skl_dmic_data },
+	{}
 };
 
 /* PCI IDs */
@@ -768,6 +831,9 @@ static const struct pci_device_id skl_ids[] = {
 	/* BXT-P */
 	{ PCI_DEVICE(0x8086, 0x5a98),
 		.driver_data = (unsigned long)&sst_bxtp_devdata},
+	/* KBL */
+	{ PCI_DEVICE(0x8086, 0x9D71),
+		.driver_data = (unsigned long)&sst_kbl_devdata},
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, skl_ids);

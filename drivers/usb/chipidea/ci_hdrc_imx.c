@@ -140,6 +140,9 @@ static struct imx_usbmisc_data *usbmisc_get_init_data(struct device *dev)
 	if (of_find_property(np, "disable-over-current", NULL))
 		data->disable_oc = 1;
 
+	if (of_find_property(np, "over-current-active-high", NULL))
+		data->oc_polarity = 1;
+
 	if (of_find_property(np, "external-vbus-divider", NULL))
 		data->evdo = 1;
 
@@ -291,10 +294,6 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
 	pdata.flags |= imx_platform_flag->flags;
 	if (pdata.flags & CI_HDRC_SUPPORTS_RUNTIME_PM)
 		data->supports_runtime_pm = true;
-
-	ret = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-	if (ret)
-		goto err_clk;
 
 	ret = imx_usbmisc_init(data->usbmisc_data);
 	if (ret) {

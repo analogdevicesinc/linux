@@ -157,13 +157,8 @@
  * PFNs are used to describe any physical page; this means
  * PFN 0 == physical address 0.
  */
-#if defined(__virt_to_phys)
-#define PHYS_OFFSET	PLAT_PHYS_OFFSET
-#define PHYS_PFN_OFFSET	((unsigned long)(PHYS_OFFSET >> PAGE_SHIFT))
 
-#define virt_to_pfn(kaddr) (__pa(kaddr) >> PAGE_SHIFT)
-
-#elif defined(CONFIG_ARM_PATCH_PHYS_VIRT)
+#if defined(CONFIG_ARM_PATCH_PHYS_VIRT)
 
 /*
  * Constants used to force the right instruction encodings and shifts
@@ -179,10 +174,6 @@ extern const void *__pv_table_begin, *__pv_table_end;
 
 #define PHYS_OFFSET	((phys_addr_t)__pv_phys_pfn_offset << PAGE_SHIFT)
 #define PHYS_PFN_OFFSET	(__pv_phys_pfn_offset)
-
-#define virt_to_pfn(kaddr) \
-	((((unsigned long)(kaddr) - PAGE_OFFSET) >> PAGE_SHIFT) + \
-	 PHYS_PFN_OFFSET)
 
 #define __pv_stub(from,to,instr,type)			\
 	__asm__("@ __pv_stub\n"				\
@@ -255,11 +246,11 @@ static inline unsigned long __phys_to_virt(phys_addr_t x)
 	return x - PHYS_OFFSET + PAGE_OFFSET;
 }
 
+#endif
+
 #define virt_to_pfn(kaddr) \
 	((((unsigned long)(kaddr) - PAGE_OFFSET) >> PAGE_SHIFT) + \
 	 PHYS_PFN_OFFSET)
-
-#endif
 
 /*
  * These are *only* valid on the kernel direct mapped RAM memory.
@@ -286,19 +277,43 @@ static inline void *phys_to_virt(phys_addr_t x)
 #define __va(x)			((void *)__phys_to_virt((phys_addr_t)(x)))
 #define pfn_to_kaddr(pfn)	__va((phys_addr_t)(pfn) << PAGE_SHIFT)
 
-extern unsigned long (*arch_virt_to_idmap)(unsigned long x);
+extern long long arch_phys_to_idmap_offset;
 
 /*
- * These are for systems that have a hardware interconnect supported alias of
- * physical memory for idmap purposes.  Most cases should leave these
+ * These are for systems that have a hardware interconnect supported alias
+ * of physical memory for idmap purposes.  Most cases should leave these
  * untouched.  Note: this can only return addresses less than 4GiB.
  */
+static inline bool arm_has_idmap_alias(void)
+{
+	return IS_ENABLED(CONFIG_MMU) && arch_phys_to_idmap_offset != 0;
+}
+
+#define IDMAP_INVALID_ADDR ((u32)~0)
+
+static inline unsigned long phys_to_idmap(phys_addr_t addr)
+{
+	if (IS_ENABLED(CONFIG_MMU) && arch_phys_to_idmap_offset) {
+		addr += arch_phys_to_idmap_offset;
+		if (addr > (u32)~0)
+			addr = IDMAP_INVALID_ADDR;
+	}
+	return addr;
+}
+
+static inline phys_addr_t idmap_to_phys(unsigned long idmap)
+{
+	phys_addr_t addr = idmap;
+
+	if (IS_ENABLED(CONFIG_MMU) && arch_phys_to_idmap_offset)
+		addr -= arch_phys_to_idmap_offset;
+
+	return addr;
+}
+
 static inline unsigned long __virt_to_idmap(unsigned long x)
 {
-	if (IS_ENABLED(CONFIG_MMU) && arch_virt_to_idmap)
-		return arch_virt_to_idmap(x);
-	else
-		return __virt_to_phys(x);
+	return phys_to_idmap(__virt_to_phys(x));
 }
 
 #define virt_to_idmap(x)	__virt_to_idmap((unsigned long)(x))

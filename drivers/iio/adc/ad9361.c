@@ -661,10 +661,10 @@ static inline void ad9361_timestamp_dis(void)
 	timestamp_en = false;
 }
 
-static inline void ad9361_add_timestamp(unsigned reg, unsigned read)
+static inline void ad9361_add_timestamp(struct iio_dev *indio_dev, unsigned reg, unsigned read)
 {
 	if (timestamp_en && (timestamp_cnt < 5000)) {
-		timestamps[timestamp_cnt].time = iio_get_time_ns();
+		timestamps[timestamp_cnt].time = iio_get_time_ns(indio_dev);
 		timestamps[timestamp_cnt].reg = reg;
 		timestamps[timestamp_cnt].read = read;
 

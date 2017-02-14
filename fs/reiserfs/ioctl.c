@@ -94,7 +94,7 @@ long reiserfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 			sd_attrs_to_i_attrs(flags, inode);
 			REISERFS_I(inode)->i_attrs = flags;
-			inode->i_ctime = CURRENT_TIME_SEC;
+			inode->i_ctime = current_time(inode);
 			mark_inode_dirty(inode);
 setflags_out:
 			mnt_drop_write_file(filp);
@@ -115,7 +115,7 @@ setflags_out:
 			err = -EFAULT;
 			goto setversion_out;
 		}
-		inode->i_ctime = CURRENT_TIME_SEC;
+		inode->i_ctime = current_time(inode);
 		mark_inode_dirty(inode);
 setversion_out:
 		mnt_drop_write_file(filp);
@@ -187,7 +187,11 @@ int reiserfs_unpack(struct inode *inode, struct file *filp)
 	}
 
 	/* we need to make sure nobody is changing the file size beneath us */
-	reiserfs_mutex_lock_safe(&inode->i_mutex, inode->i_sb);
+{
+	int depth = reiserfs_write_unlock_nested(inode->i_sb);
+	inode_lock(inode);
+	reiserfs_write_lock_nested(inode->i_sb, depth);
+}
 
 	reiserfs_write_lock(inode->i_sb);
 

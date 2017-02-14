@@ -614,8 +614,8 @@ static int qib_create_workqueues(struct qib_devdata *dd)
 
 			snprintf(wq_name, sizeof(wq_name), "qib%d_%d",
 				dd->unit, pidx);
-			ppd->qib_wq =
-				create_singlethread_workqueue(wq_name);
+			ppd->qib_wq = alloc_ordered_workqueue(wq_name,
+							      WQ_MEM_RECLAIM);
 			if (!ppd->qib_wq)
 				goto wq_error;
 		}
@@ -1090,7 +1090,7 @@ void qib_free_devdata(struct qib_devdata *dd)
 	qib_dbg_ibdev_exit(&dd->verbs_dev);
 #endif
 	free_percpu(dd->int_counter);
-	ib_dealloc_device(&dd->verbs_dev.rdi.ibdev);
+	rvt_dealloc_device(&dd->verbs_dev.rdi);
 }
 
 u64 qib_int_counter(struct qib_devdata *dd)
@@ -1183,7 +1183,7 @@ struct qib_devdata *qib_alloc_devdata(struct pci_dev *pdev, size_t extra)
 bail:
 	if (!list_empty(&dd->list))
 		list_del_init(&dd->list);
-	ib_dealloc_device(&dd->verbs_dev.rdi.ibdev);
+	rvt_dealloc_device(&dd->verbs_dev.rdi);
 	return ERR_PTR(ret);
 }
 

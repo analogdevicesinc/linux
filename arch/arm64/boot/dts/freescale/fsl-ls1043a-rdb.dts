@@ -49,6 +49,18 @@
 
 / {
 	model = "LS1043A RDB Board";
+
+	aliases {
+		crypto = &crypto;
+		serial0 = &duart0;
+		serial1 = &duart1;
+		serial2 = &duart2;
+		serial3 = &duart3;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
 };
 
 &i2c0 {
@@ -105,6 +117,19 @@
 			compatible = "fsl,ls1043ardb-cpld";
 			reg = <0x2 0x0 0x0000100>;
 		};
+};
+
+&dspi0 {
+	bus-num = <0>;
+	status = "okay";
+
+	flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "n25q128a13", "jedec,spi-nor";  /* 16MB */
+		reg = <0>;
+		spi-max-frequency = <1000000>; /* input clock */
+	};
 };
 
 &duart0 {

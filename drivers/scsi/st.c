@@ -1974,9 +1974,12 @@ static long read_tape(struct scsi_tape *STp, long count,
 					transfer = (int)cmdstatp->uremainder64;
 				else
 					transfer = 0;
-				if (STp->block_size == 0 &&
-				    cmdstatp->sense_hdr.sense_key == MEDIUM_ERROR)
-					transfer = bytes;
+				if (cmdstatp->sense_hdr.sense_key == MEDIUM_ERROR) {
+					if (STp->block_size == 0)
+						transfer = bytes;
+					/* Some drives set ILI with MEDIUM ERROR */
+					cmdstatp->flags &= ~SENSE_ILI;
+				}
 
 				if (cmdstatp->flags & SENSE_ILI) {	/* ILI */
 					if (STp->block_size == 0 &&
@@ -4919,9 +4922,8 @@ static int sgl_map_user_pages(struct st_buffer *STbp,
 	res = get_user_pages_unlocked(
 		uaddr,
 		nr_pages,
-		rw == READ,
-		0, /* don't force */
-		pages);
+		pages,
+		rw == READ ? FOLL_WRITE : 0); /* don't force */
 
 	/* Errors and no page mapped should return here */
 	if (res < nr_pages)

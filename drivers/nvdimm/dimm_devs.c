@@ -28,28 +28,30 @@ static DEFINE_IDA(dimm_ida);
  * Retrieve bus and dimm handle and return if this bus supports
  * get_config_data commands
  */
-static int __validate_dimm(struct nvdimm_drvdata *ndd)
+int nvdimm_check_config_data(struct device *dev)
 {
-	struct nvdimm *nvdimm;
+	struct nvdimm *nvdimm = to_nvdimm(dev);
 
-	if (!ndd)
-		return -EINVAL;
-
-	nvdimm = to_nvdimm(ndd->dev);
-
-	if (!nvdimm->dsm_mask)
-		return -ENXIO;
-	if (!test_bit(ND_CMD_GET_CONFIG_DATA, nvdimm->dsm_mask))
-		return -ENXIO;
+	if (!nvdimm->cmd_mask ||
+	    !test_bit(ND_CMD_GET_CONFIG_DATA, &nvdimm->cmd_mask)) {
+		if (nvdimm->flags & NDD_ALIASING)
+			return -ENXIO;
+		else
+			return -ENOTTY;
+	}
 
 	return 0;
 }
 
 static int validate_dimm(struct nvdimm_drvdata *ndd)
 {
-	int rc = __validate_dimm(ndd);
+	int rc;
 
-	if (rc && ndd)
+	if (!ndd)
+		return -EINVAL;
+
+	rc = nvdimm_check_config_data(ndd->dev);
+	if (rc)
 		dev_dbg(ndd->dev, "%pf: %s error: %d\n",
 				__builtin_return_address(0), __func__, rc);
 	return rc;
@@ -263,6 +265,18 @@ const char *nvdimm_name(struct nvdimm *nvdimm)
 }
 EXPORT_SYMBOL_GPL(nvdimm_name);
 
+struct kobject *nvdimm_kobj(struct nvdimm *nvdimm)
+{
+	return &nvdimm->dev.kobj;
+}
+EXPORT_SYMBOL_GPL(nvdimm_kobj);
+
+unsigned long nvdimm_cmd_mask(struct nvdimm *nvdimm)
+{
+	return nvdimm->cmd_mask;
+}
+EXPORT_SYMBOL_GPL(nvdimm_cmd_mask);
+
 void *nvdimm_provider_data(struct nvdimm *nvdimm)
 {
 	if (nvdimm)
@@ -277,10 +291,10 @@ static ssize_t commands_show(struct device *dev,
 	struct nvdimm *nvdimm = to_nvdimm(dev);
 	int cmd, len = 0;
 
-	if (!nvdimm->dsm_mask)
+	if (!nvdimm->cmd_mask)
 		return sprintf(buf, "\n");
 
-	for_each_set_bit(cmd, nvdimm->dsm_mask, BITS_PER_LONG)
+	for_each_set_bit(cmd, &nvdimm->cmd_mask, BITS_PER_LONG)
 		len += sprintf(buf + len, "%s ", nvdimm_cmd_name(cmd));
 	len += sprintf(buf + len, "\n");
 	return len;
@@ -340,7 +354,8 @@ EXPORT_SYMBOL_GPL(nvdimm_attribute_group);
 
 struct nvdimm *nvdimm_create(struct nvdimm_bus *nvdimm_bus, void *provider_data,
 		const struct attribute_group **groups, unsigned long flags,
-		unsigned long *dsm_mask)
+		unsigned long cmd_mask, int num_flush,
+		struct resource *flush_wpq)
 {
 	struct nvdimm *nvdimm = kzalloc(sizeof(*nvdimm), GFP_KERNEL);
 	struct device *dev;
@@ -355,7 +370,9 @@ struct nvdimm *nvdimm_create(struct nvdimm_bus *nvdimm_bus, void *provider_data,
 	}
 	nvdimm->provider_data = provider_data;
 	nvdimm->flags = flags;
-	nvdimm->dsm_mask = dsm_mask;
+	nvdimm->cmd_mask = cmd_mask;
+	nvdimm->num_flush = num_flush;
+	nvdimm->flush_wpq = flush_wpq;
 	atomic_set(&nvdimm->busy, 0);
 	dev = &nvdimm->dev;
 	dev_set_name(dev, "nmem%d", nvdimm->id);
@@ -369,40 +386,166 @@ struct nvdimm *nvdimm_create(struct nvdimm_bus *nvdimm_bus, void *provider_data,
 }
 EXPORT_SYMBOL_GPL(nvdimm_create);
 
+int alias_dpa_busy(struct device *dev, void *data)
+{
+	resource_size_t map_end, blk_start, new, busy;
+	struct blk_alloc_info *info = data;
+	struct nd_mapping *nd_mapping;
+	struct nd_region *nd_region;
+	struct nvdimm_drvdata *ndd;
+	struct resource *res;
+	int i;
+
+	if (!is_nd_pmem(dev))
+		return 0;
+
+	nd_region = to_nd_region(dev);
+	for (i = 0; i < nd_region->ndr_mappings; i++) {
+		nd_mapping  = &nd_region->mapping[i];
+		if (nd_mapping->nvdimm == info->nd_mapping->nvdimm)
+			break;
+	}
+
+	if (i >= nd_region->ndr_mappings)
+		return 0;
+
+	ndd = to_ndd(nd_mapping);
+	map_end = nd_mapping->start + nd_mapping->size - 1;
+	blk_start = nd_mapping->start;
+
+	/*
+	 * In the allocation case ->res is set to free space that we are
+	 * looking to validate against PMEM aliasing collision rules
+	 * (i.e. BLK is allocated after all aliased PMEM).
+	 */
+	if (info->res) {
+		if (info->res->start >= nd_mapping->start
+				&& info->res->start < map_end)
+			/* pass */;
+		else
+			return 0;
+	}
+
+ retry:
+	/*
+	 * Find the free dpa from the end of the last pmem allocation to
+	 * the end of the interleave-set mapping that is not already
+	 * covered by a blk allocation.
+	 */
+	busy = 0;
+	for_each_dpa_resource(ndd, res) {
+		if ((res->start >= blk_start && res->start < map_end)
+				|| (res->end >= blk_start
+					&& res->end <= map_end)) {
+			if (strncmp(res->name, "pmem", 4) == 0) {
+				new = max(blk_start, min(map_end + 1,
+							res->end + 1));
+				if (new != blk_start) {
+					blk_start = new;
+					goto retry;
+				}
+			} else
+				busy += min(map_end, res->end)
+					- max(nd_mapping->start, res->start) + 1;
+		} else if (nd_mapping->start > res->start
+				&& map_end < res->end) {
+			/* total eclipse of the PMEM region mapping */
+			busy += nd_mapping->size;
+			break;
+		}
+	}
+
+	/* update the free space range with the probed blk_start */
+	if (info->res && blk_start > info->res->start) {
+		info->res->start = max(info->res->start, blk_start);
+		if (info->res->start > info->res->end)
+			info->res->end = info->res->start - 1;
+		return 1;
+	}
+
+	info->available -= blk_start - nd_mapping->start + busy;
+
+	return 0;
+}
+
+static int blk_dpa_busy(struct device *dev, void *data)
+{
+	struct blk_alloc_info *info = data;
+	struct nd_mapping *nd_mapping;
+	struct nd_region *nd_region;
+	resource_size_t map_end;
+	int i;
+
+	if (!is_nd_pmem(dev))
+		return 0;
+
+	nd_region = to_nd_region(dev);
+	for (i = 0; i < nd_region->ndr_mappings; i++) {
+		nd_mapping  = &nd_region->mapping[i];
+		if (nd_mapping->nvdimm == info->nd_mapping->nvdimm)
+			break;
+	}
+
+	if (i >= nd_region->ndr_mappings)
+		return 0;
+
+	map_end = nd_mapping->start + nd_mapping->size - 1;
+	if (info->res->start >= nd_mapping->start
+			&& info->res->start < map_end) {
+		if (info->res->end <= map_end) {
+			info->busy = 0;
+			return 1;
+		} else {
+			info->busy -= info->res->end - map_end;
+			return 0;
+		}
+	} else if (info->res->end >= nd_mapping->start
+			&& info->res->end <= map_end) {
+		info->busy -= nd_mapping->start - info->res->start;
+		return 0;
+	} else {
+		info->busy -= nd_mapping->size;
+		return 0;
+	}
+}
+
 /**
  * nd_blk_available_dpa - account the unused dpa of BLK region
  * @nd_mapping: container of dpa-resource-root + labels
  *
- * Unlike PMEM, BLK namespaces can occupy discontiguous DPA ranges.
+ * Unlike PMEM, BLK namespaces can occupy discontiguous DPA ranges, but
+ * we arrange for them to never start at an lower dpa than the last
+ * PMEM allocation in an aliased region.
  */
-resource_size_t nd_blk_available_dpa(struct nd_mapping *nd_mapping)
+resource_size_t nd_blk_available_dpa(struct nd_region *nd_region)
 {
+	struct nvdimm_bus *nvdimm_bus = walk_to_nvdimm_bus(&nd_region->dev);
+	struct nd_mapping *nd_mapping = &nd_region->mapping[0];
 	struct nvdimm_drvdata *ndd = to_ndd(nd_mapping);
-	resource_size_t map_end, busy = 0, available;
+	struct blk_alloc_info info = {
+		.nd_mapping = nd_mapping,
+		.available = nd_mapping->size,
+		.res = NULL,
+	};
 	struct resource *res;
 
 	if (!ndd)
 		return 0;
 
-	map_end = nd_mapping->start + nd_mapping->size - 1;
-	for_each_dpa_resource(ndd, res)
-		if (res->start >= nd_mapping->start && res->start < map_end) {
-			resource_size_t end = min(map_end, res->end);
+	device_for_each_child(&nvdimm_bus->dev, &info, alias_dpa_busy);
 
-			busy += end - res->start + 1;
-		} else if (res->end >= nd_mapping->start
-				&& res->end <= map_end) {
-			busy += res->end - nd_mapping->start;
-		} else if (nd_mapping->start > res->start
-				&& nd_mapping->start < res->end) {
-			/* total eclipse of the BLK region mapping */
-			busy += nd_mapping->size;
-		}
+	/* now account for busy blk allocations in unaliased dpa */
+	for_each_dpa_resource(ndd, res) {
+		if (strncmp(res->name, "blk", 3) != 0)
+			continue;
 
-	available = map_end - nd_mapping->start + 1;
-	if (busy < available)
-		return available - busy;
-	return 0;
+		info.res = res;
+		info.busy = resource_size(res);
+		device_for_each_child(&nvdimm_bus->dev, &info, blk_dpa_busy);
+		info.available -= info.busy;
+	}
+
+	return info.available;
 }
 
 /**
@@ -434,21 +577,16 @@ resource_size_t nd_pmem_available_dpa(struct nd_region *nd_region,
 	map_start = nd_mapping->start;
 	map_end = map_start + nd_mapping->size - 1;
 	blk_start = max(map_start, map_end + 1 - *overlap);
-	for_each_dpa_resource(ndd, res)
+	for_each_dpa_resource(ndd, res) {
 		if (res->start >= map_start && res->start < map_end) {
 			if (strncmp(res->name, "blk", 3) == 0)
-				blk_start = min(blk_start, res->start);
-			else if (res->start != map_start) {
+				blk_start = min(blk_start,
+						max(map_start, res->start));
+			else if (res->end > map_end) {
 				reason = "misaligned to iset";
 				goto err;
-			} else {
-				if (busy) {
-					reason = "duplicate overlapping PMEM reservations?";
-					goto err;
-				}
+			} else
 				busy += resource_size(res);
-				continue;
-			}
 		} else if (res->end >= map_start && res->end <= map_end) {
 			if (strncmp(res->name, "blk", 3) == 0) {
 				/*
@@ -457,15 +595,14 @@ resource_size_t nd_pmem_available_dpa(struct nd_region *nd_region,
 				 * be used for BLK.
 				 */
 				blk_start = map_start;
-			} else {
-				reason = "misaligned to iset";
-				goto err;
-			}
+			} else
+				busy += resource_size(res);
 		} else if (map_start > res->start && map_start < res->end) {
 			/* total eclipse of the mapping */
 			busy += nd_mapping->size;
 			blk_start = map_start;
 		}
+	}
 
 	*overlap = map_end + 1 - blk_start;
 	available = blk_start - map_start;
@@ -474,10 +611,6 @@ resource_size_t nd_pmem_available_dpa(struct nd_region *nd_region,
 	return 0;
 
  err:
-	/*
-	 * Something is wrong, PMEM must align with the start of the
-	 * interleave set, and there can only be one allocation per set.
-	 */
 	nd_dbg_dpa(nd_region, ndd, res, "%s\n", reason);
 	return 0;
 }
@@ -546,3 +679,8 @@ int nvdimm_bus_check_dimm_count(struct nvdimm_bus *nvdimm_bus, int dimm_count)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(nvdimm_bus_check_dimm_count);
+
+void __exit nvdimm_devs_exit(void)
+{
+	ida_destroy(&dimm_ida);
+}

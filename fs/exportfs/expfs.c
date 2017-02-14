@@ -143,14 +143,18 @@ static struct dentry *reconnect_one(struct vfsmount *mnt,
 	if (err)
 		goto out_err;
 	dprintk("%s: found name: %s\n", __func__, nbuf);
-	inode_lock(parent->d_inode);
-	tmp = lookup_one_len(nbuf, parent, strlen(nbuf));
-	inode_unlock(parent->d_inode);
+	tmp = lookup_one_len_unlocked(nbuf, parent, strlen(nbuf));
 	if (IS_ERR(tmp)) {
 		dprintk("%s: lookup failed: %d\n", __func__, PTR_ERR(tmp));
 		goto out_err;
 	}
 	if (tmp != dentry) {
+		/*
+		 * Somebody has renamed it since exportfs_get_name();
+		 * great, since it could've only been renamed if it
+		 * got looked up and thus connected, and it would
+		 * remain connected afterwards.  We are done.
+		 */
 		dput(tmp);
 		goto out_reconnected;
 	}
@@ -308,7 +312,7 @@ static int get_name(const struct path *path, char *name, struct dentry *child)
 		goto out;
 
 	error = -EINVAL;
-	if (!file->f_op->iterate)
+	if (!file->f_op->iterate && !file->f_op->iterate_shared)
 		goto out_close;
 
 	buffer.sequence = 0;
@@ -424,10 +428,10 @@ struct dentry *exportfs_decode_fh(struct vfsmount *mnt, struct fid *fid,
 	if (!nop || !nop->fh_to_dentry)
 		return ERR_PTR(-ESTALE);
 	result = nop->fh_to_dentry(mnt->mnt_sb, fid, fh_len, fileid_type);
-	if (!result)
-		result = ERR_PTR(-ESTALE);
-	if (IS_ERR(result))
-		return result;
+	if (PTR_ERR(result) == -ENOMEM)
+		return ERR_CAST(result);
+	if (IS_ERR_OR_NULL(result))
+		return ERR_PTR(-ESTALE);
 
 	if (d_is_dir(result)) {
 		/*
@@ -537,6 +541,8 @@ struct dentry *exportfs_decode_fh(struct vfsmount *mnt, struct fid *fid,
 
  err_result:
 	dput(result);
+	if (err != -ENOMEM)
+		err = -ESTALE;
 	return ERR_PTR(err);
 }
 EXPORT_SYMBOL_GPL(exportfs_decode_fh);

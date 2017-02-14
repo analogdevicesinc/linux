@@ -148,9 +148,6 @@ struct ath10k_pci_pipe {
 
 	/* protects compl_free and num_send_allowed */
 	spinlock_t pipe_lock;
-
-	struct ath10k_pci *ar_pci;
-	struct tasklet_struct intr;
 };
 
 struct ath10k_pci_supp_chip {
@@ -164,6 +161,12 @@ struct ath10k_bus_ops {
 	int (*get_num_banks)(struct ath10k *ar);
 };
 
+enum ath10k_pci_irq_mode {
+	ATH10K_PCI_IRQ_AUTO = 0,
+	ATH10K_PCI_IRQ_LEGACY = 1,
+	ATH10K_PCI_IRQ_MSI = 2,
+};
+
 struct ath10k_pci {
 	struct pci_dev *pdev;
 	struct device *dev;
@@ -171,14 +174,8 @@ struct ath10k_pci {
 	void __iomem *mem;
 	size_t mem_len;
 
-	/*
-	 * Number of MSI interrupts granted, 0 --> using legacy PCI line
-	 * interrupts.
-	 */
-	int num_msi_intrs;
-
-	struct tasklet_struct intr_tq;
-	struct tasklet_struct msi_fw_err;
+	/* Operating interrupt mode */
+	enum ath10k_pci_irq_mode oper_irq_mode;
 
 	struct ath10k_pci_pipe pipe_info[CE_COUNT_MAX];
 
@@ -235,6 +232,12 @@ struct ath10k_pci {
 
 	const struct ath10k_bus_ops *bus_ops;
 
+	/* Chip specific pci reset routine used to do a safe reset */
+	int (*pci_soft_reset)(struct ath10k *ar);
+
+	/* Chip specific pci full reset function */
+	int (*pci_hard_reset)(struct ath10k *ar);
+
 	/* Keep this entry in the last, memory for struct ath10k_ahb is
 	 * allocated (ahb support enabled case) in the continuation of
 	 * this struct.
@@ -289,8 +292,7 @@ void ath10k_pci_free_pipes(struct ath10k *ar);
 void ath10k_pci_free_pipes(struct ath10k *ar);
 void ath10k_pci_rx_replenish_retry(unsigned long ptr);
 void ath10k_pci_ce_deinit(struct ath10k *ar);
-void ath10k_pci_init_irq_tasklets(struct ath10k *ar);
-void ath10k_pci_kill_tasklet(struct ath10k *ar);
+void ath10k_pci_init_napi(struct ath10k *ar);
 int ath10k_pci_init_pipes(struct ath10k *ar);
 int ath10k_pci_init_config(struct ath10k *ar);
 void ath10k_pci_rx_post(struct ath10k *ar);
@@ -298,6 +300,7 @@ void ath10k_pci_flush(struct ath10k *ar);
 void ath10k_pci_enable_legacy_irq(struct ath10k *ar);
 bool ath10k_pci_irq_pending(struct ath10k *ar);
 void ath10k_pci_disable_and_clear_legacy_irq(struct ath10k *ar);
+void ath10k_pci_irq_msi_fw_mask(struct ath10k *ar);
 int ath10k_pci_wait_for_target_init(struct ath10k *ar);
 int ath10k_pci_setup_resource(struct ath10k *ar);
 void ath10k_pci_release_resource(struct ath10k *ar);

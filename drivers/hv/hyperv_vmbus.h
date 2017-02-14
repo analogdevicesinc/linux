@@ -36,6 +36,11 @@
 #define HV_UTIL_TIMEOUT 30
 
 /*
+ * Timeout for guest-host handshake for services.
+ */
+#define HV_UTIL_NEGO_TIMEOUT 60
+
+/*
  * The below CPUID leaves are present if VersionAndFeatures.HypervisorPresent
  * is set by CPUID(HVCPUID_VERSION_FEATURES).
  */
@@ -490,7 +495,7 @@ struct hv_ring_buffer_debug_info {
 
 extern int hv_init(void);
 
-extern void hv_cleanup(void);
+extern void hv_cleanup(bool crash);
 
 extern int hv_post_message(union hv_connection_id connection_id,
 			 enum hv_message_type message_type,
@@ -517,14 +522,15 @@ extern unsigned int host_info_edx;
 /* Interface */
 
 
-int hv_ringbuffer_init(struct hv_ring_buffer_info *ring_info, void *buffer,
-		   u32 buflen);
+int hv_ringbuffer_init(struct hv_ring_buffer_info *ring_info,
+		       struct page *pages, u32 pagecnt);
 
 void hv_ringbuffer_cleanup(struct hv_ring_buffer_info *ring_info);
 
 int hv_ringbuffer_write(struct hv_ring_buffer_info *ring_info,
 		    struct kvec *kv_list,
-		    u32 kv_count, bool *signal, bool lock);
+		    u32 kv_count, bool *signal, bool lock,
+		    enum hv_signal_policy policy);
 
 int hv_ringbuffer_read(struct hv_ring_buffer_info *inring_info,
 		       void *buffer, u32 buflen, u32 *buffer_actual_len,
@@ -620,9 +626,21 @@ extern struct vmbus_channel_message_table_entry
 	channel_message_table[CHANNELMSG_COUNT];
 
 /* Free the message slot and signal end-of-message if required */
-static inline void vmbus_signal_eom(struct hv_message *msg)
+static inline void vmbus_signal_eom(struct hv_message *msg, u32 old_msg_type)
 {
-	msg->header.message_type = HVMSG_NONE;
+	/*
+	 * On crash we're reading some other CPU's message page and we need
+	 * to be careful: this other CPU may already had cleared the header
+	 * and the host may already had delivered some other message there.
+	 * In case we blindly write msg->header.message_type we're going
+	 * to lose it. We can still lose a message of the same type but
+	 * we count on the fact that there can only be one
+	 * CHANNELMSG_UNLOAD_RESPONSE and we don't care about other messages
+	 * on crash.
+	 */
+	if (cmpxchg(&msg->header.message_type, old_msg_type,
+		    HVMSG_NONE) != old_msg_type)
+		return;
 
 	/*
 	 * Make sure the write to MessageType (ie set to
@@ -666,8 +684,6 @@ int vmbus_connect(void);
 void vmbus_disconnect(void);
 
 int vmbus_post_msg(void *buffer, size_t buflen);
-
-void vmbus_set_event(struct vmbus_channel *channel);
 
 void vmbus_on_event(unsigned long data);
 void vmbus_on_msg_dpc(unsigned long data);

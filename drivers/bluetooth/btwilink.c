@@ -30,6 +30,7 @@
 
 #include <linux/ti_wilink_st.h>
 #include <linux/module.h>
+#include <linux/of.h>
 
 /* Bluetooth Driver Version */
 #define VERSION               "1.0"
@@ -51,7 +52,7 @@
  */
 struct ti_st {
 	struct hci_dev *hdev;
-	char reg_status;
+	int reg_status;
 	long (*st_write) (struct sk_buff *);
 	struct completion wait_reg_completion;
 };
@@ -83,7 +84,7 @@ static inline void ti_st_tx_complete(struct ti_st *hst, int pkt_type)
  * status.ti_st_open() function will wait for signal from this
  * API when st_register() function returns ST_PENDING.
  */
-static void st_reg_completion_cb(void *priv_data, char data)
+static void st_reg_completion_cb(void *priv_data, int data)
 {
 	struct ti_st *lhst = priv_data;
 
@@ -245,6 +246,7 @@ static int ti_st_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct ti_st *hst;
 	long len;
+	int pkt_type;
 
 	hst = hci_get_drvdata(hdev);
 
@@ -258,6 +260,7 @@ static int ti_st_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 	 * Freeing skb memory is taken care in shared transport layer,
 	 * so don't free skb memory here.
 	 */
+	pkt_type = hci_skb_pkt_type(skb);
 	len = hst->st_write(skb);
 	if (len < 0) {
 		kfree_skb(skb);
@@ -268,10 +271,18 @@ static int ti_st_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 
 	/* ST accepted our skb. So, Go ahead and do rest */
 	hdev->stat.byte_tx += len;
-	ti_st_tx_complete(hst, hci_skb_pkt_type(skb));
+	ti_st_tx_complete(hst, pkt_type);
 
 	return 0;
 }
+
+static const struct of_device_id btwilink_of_match[] = {
+{
+    .compatible = "btwilink",
+  },
+  {}
+};
+MODULE_DEVICE_TABLE(of, btwilink_of_match);
 
 static int bt_ti_probe(struct platform_device *pdev)
 {
@@ -308,7 +319,7 @@ static int bt_ti_probe(struct platform_device *pdev)
 	BT_DBG("HCI device registered (hdev %p)", hdev);
 
 	dev_set_drvdata(&pdev->dev, hst);
-	return err;
+	return 0;
 }
 
 static int bt_ti_remove(struct platform_device *pdev)
@@ -336,6 +347,8 @@ static struct platform_driver btwilink_driver = {
 	.remove = bt_ti_remove,
 	.driver = {
 		.name = "btwilink",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(btwilink_of_match),
 	},
 };
 

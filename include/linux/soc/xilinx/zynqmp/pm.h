@@ -23,7 +23,7 @@
 #define __SOC_ZYNQMP_PM_H__
 
 #define ZYNQMP_PM_VERSION_MAJOR	0
-#define ZYNQMP_PM_VERSION_MINOR	2
+#define ZYNQMP_PM_VERSION_MINOR	3
 
 #define ZYNQMP_PM_VERSION	((ZYNQMP_PM_VERSION_MAJOR << 16) | \
 					ZYNQMP_PM_VERSION_MINOR)
@@ -209,7 +209,7 @@ int zynqmp_pm_request_wakeup(const u32 node,
 int zynqmp_pm_set_wakeup_source(const u32 target,
 					const u32 wakeup_node,
 					const u32 enable);
-int zynqmp_pm_system_shutdown(const u32 restart);
+int zynqmp_pm_system_shutdown(const u32 type, const u32 subtype);
 
 /* API for suspending of RPU */
 int zynqmp_pm_force_powerdown(const u32 target,
@@ -231,9 +231,13 @@ int zynqmp_pm_set_max_latency(const u32 node,
 /* Miscellaneous API functions */
 int zynqmp_pm_get_api_version(u32 *version);
 int zynqmp_pm_set_configuration(const u32 physical_addr);
-int zynqmp_pm_get_node_status(const u32 node);
+int zynqmp_pm_get_node_status(const u32 node,
+				u32 *const status,
+				u32 *const requirements,
+				u32 *const usage);
 int zynqmp_pm_get_operating_characteristic(const u32 node,
-					const enum zynqmp_pm_opchar_type type);
+					const enum zynqmp_pm_opchar_type type,
+					u32 *const result);
 
 /* Direct-Control API functions */
 int zynqmp_pm_reset_assert(const enum zynqmp_pm_reset reset,
@@ -244,5 +248,8 @@ int zynqmp_pm_mmio_write(const u32 address,
 				     const u32 mask,
 				     const u32 value);
 int zynqmp_pm_mmio_read(const u32 address, u32 *value);
+int zynqmp_pm_fpga_load(const u64 address, const u32 size, const u32 flags);
+int zynqmp_pm_fpga_get_status(u32 *value);
+int zynqmp_pm_get_chipid(u32 *idcode, u32 *version);
 
 #endif /* __SOC_ZYNQMP_PM_H__ */

@@ -10,20 +10,7 @@
 #ifndef WILC_WLAN_IF_H
 #define WILC_WLAN_IF_H
 
-#include <linux/semaphore.h>
 #include <linux/netdevice.h>
-
-/********************************************
- *
- *      Debug Flags
- *
- ********************************************/
-
-#define N_INIT			0x00000001
-#define N_ERR			0x00000002
-#define N_TXQ			0x00000004
-#define N_INTR			0x00000008
-#define N_RXQ			0x00000010
 
 /********************************************
  *
@@ -34,15 +21,6 @@
 #define HIF_SDIO		(0)
 #define HIF_SPI			BIT(0)
 #define HIF_SDIO_GPIO_IRQ	BIT(2)
-
-/********************************************
- *
- *      Tx/Rx Buffer Size Defines
- *
- ********************************************/
-
-#define CE_TX_BUFFER_SIZE	(64 * 1024)
-#define CE_RX_BUFFER_SIZE	(384 * 1024)
 
 /********************************************
  *

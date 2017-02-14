@@ -175,6 +175,21 @@ void sh_pfc_write_raw_reg(void __iomem *mapped_reg, unsigned int reg_width,
 	BUG();
 }
 
+u32 sh_pfc_read_reg(struct sh_pfc *pfc, u32 reg, unsigned int width)
+{
+	return sh_pfc_read_raw_reg(sh_pfc_phys_to_virt(pfc, reg), width);
+}
+
+void sh_pfc_write_reg(struct sh_pfc *pfc, u32 reg, unsigned int width, u32 data)
+{
+	if (pfc->info->unlock_reg)
+		sh_pfc_write_raw_reg(
+			sh_pfc_phys_to_virt(pfc, pfc->info->unlock_reg), 32,
+			~data);
+
+	sh_pfc_write_raw_reg(sh_pfc_phys_to_virt(pfc, reg), width, data);
+}
+
 static void sh_pfc_config_reg_helper(struct sh_pfc *pfc,
 				     const struct pinmux_cfg_reg *crp,
 				     unsigned int in_pos,
@@ -479,6 +494,12 @@ static const struct of_device_id sh_pfc_of_table[] = {
 		.data = &r8a7791_pinmux_info,
 	},
 #endif
+#ifdef CONFIG_PINCTRL_PFC_R8A7792
+	{
+		.compatible = "renesas,pfc-r8a7792",
+		.data = &r8a7792_pinmux_info,
+	},
+#endif
 #ifdef CONFIG_PINCTRL_PFC_R8A7793
 	{
 		.compatible = "renesas,pfc-r8a7793",
@@ -495,6 +516,12 @@ static const struct of_device_id sh_pfc_of_table[] = {
 	{
 		.compatible = "renesas,pfc-r8a7795",
 		.data = &r8a7795_pinmux_info,
+	},
+#endif
+#ifdef CONFIG_PINCTRL_PFC_R8A7796
+	{
+		.compatible = "renesas,pfc-r8a7796",
+		.data = &r8a7796_pinmux_info,
 	},
 #endif
 #ifdef CONFIG_PINCTRL_PFC_SH73A0
@@ -583,18 +610,6 @@ static int sh_pfc_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int sh_pfc_remove(struct platform_device *pdev)
-{
-	struct sh_pfc *pfc = platform_get_drvdata(pdev);
-
-#ifdef CONFIG_PINCTRL_SH_PFC_GPIO
-	sh_pfc_unregister_gpiochip(pfc);
-#endif
-	sh_pfc_unregister_pinctrl(pfc);
-
-	return 0;
-}
-
 static const struct platform_device_id sh_pfc_id_table[] = {
 #ifdef CONFIG_PINCTRL_PFC_SH7203
 	{ "pfc-sh7203", (kernel_ulong_t)&sh7203_pinmux_info },
@@ -638,7 +653,6 @@ static const struct platform_device_id sh_pfc_id_table[] = {
 
 static struct platform_driver sh_pfc_driver = {
 	.probe		= sh_pfc_probe,
-	.remove		= sh_pfc_remove,
 	.id_table	= sh_pfc_id_table,
 	.driver		= {
 		.name	= DRV_NAME,

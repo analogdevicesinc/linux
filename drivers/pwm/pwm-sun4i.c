@@ -284,6 +284,12 @@ static const struct sun4i_pwm_data sun4i_pwm_data_a20 = {
 	.npwm = 2,
 };
 
+static const struct sun4i_pwm_data sun4i_pwm_data_h3 = {
+	.has_prescaler_bypass = true,
+	.has_rdy = true,
+	.npwm = 1,
+};
+
 static const struct of_device_id sun4i_pwm_dt_ids[] = {
 	{
 		.compatible = "allwinner,sun4i-a10-pwm",
@@ -297,6 +303,9 @@ static const struct of_device_id sun4i_pwm_dt_ids[] = {
 	}, {
 		.compatible = "allwinner,sun7i-a20-pwm",
 		.data = &sun4i_pwm_data_a20,
+	}, {
+		.compatible = "allwinner,sun8i-h3-pwm",
+		.data = &sun4i_pwm_data_h3,
 	}, {
 		/* sentinel */
 	},
@@ -354,7 +363,8 @@ static int sun4i_pwm_probe(struct platform_device *pdev)
 	val = sun4i_pwm_readl(pwm, PWM_CTRL_REG);
 	for (i = 0; i < pwm->chip.npwm; i++)
 		if (!(val & BIT_CH(PWM_ACT_STATE, i)))
-			pwm->chip.pwms[i].polarity = PWM_POLARITY_INVERSED;
+			pwm_set_polarity(&pwm->chip.pwms[i],
+					 PWM_POLARITY_INVERSED);
 	clk_disable_unprepare(pwm->clk);
 
 	return 0;

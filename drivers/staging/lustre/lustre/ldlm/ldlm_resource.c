@@ -15,11 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * version 2 along with this program; If not, see
- * http://www.sun.com/software/products/lustre/docs/GPLv2.pdf
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * http://www.gnu.org/licenses/gpl-2.0.html
  *
  * GPL HEADER END
  */
@@ -124,9 +120,15 @@ int ldlm_debugfs_setup(void)
 	}
 
 	rc = ldebugfs_add_vars(ldlm_debugfs_dir, ldlm_debugfs_list, NULL);
+	if (rc) {
+		CERROR("LProcFS failed in ldlm-init\n");
+		goto err_svc;
+	}
 
 	return 0;
 
+err_svc:
+	ldebugfs_remove(&ldlm_svc_debugfs_dir);
 err_ns:
 	ldebugfs_remove(&ldlm_ns_debugfs_dir);
 err_type:
@@ -447,8 +449,8 @@ static unsigned ldlm_res_hop_hash(struct cfs_hash *hs,
 				  const void *key, unsigned mask)
 {
 	const struct ldlm_res_id     *id  = key;
-	unsigned		val = 0;
-	unsigned		i;
+	unsigned int		val = 0;
+	unsigned int		i;
 
 	for (i = 0; i < RES_NAME_SIZE; i++)
 		val += id->name[i];
@@ -559,9 +561,9 @@ static struct cfs_hash_ops ldlm_ns_fid_hash_ops = {
 struct ldlm_ns_hash_def {
 	enum ldlm_ns_type nsd_type;
 	/** hash bucket bits */
-	unsigned	nsd_bkt_bits;
+	unsigned int	nsd_bkt_bits;
 	/** hash bits */
-	unsigned	nsd_all_bits;
+	unsigned int	nsd_all_bits;
 	/** hash operations */
 	struct cfs_hash_ops *nsd_hops;
 };
@@ -756,14 +758,13 @@ static void cleanup_resource(struct ldlm_resource *res, struct list_head *q,
 		 */
 		lock_res(res);
 		list_for_each(tmp, q) {
-			lock = list_entry(tmp, struct ldlm_lock,
-					      l_res_link);
-			if (lock->l_flags & LDLM_FL_CLEANED) {
+			lock = list_entry(tmp, struct ldlm_lock, l_res_link);
+			if (ldlm_is_cleaned(lock)) {
 				lock = NULL;
 				continue;
 			}
 			LDLM_LOCK_GET(lock);
-			lock->l_flags |= LDLM_FL_CLEANED;
+			ldlm_set_cleaned(lock);
 			break;
 		}
 
@@ -775,13 +776,13 @@ static void cleanup_resource(struct ldlm_resource *res, struct list_head *q,
 		/* Set CBPENDING so nothing in the cancellation path
 		 * can match this lock.
 		 */
-		lock->l_flags |= LDLM_FL_CBPENDING;
-		lock->l_flags |= LDLM_FL_FAILED;
+		ldlm_set_cbpending(lock);
+		ldlm_set_failed(lock);
 		lock->l_flags |= flags;
 
 		/* ... without sending a CANCEL message for local_only. */
 		if (local_only)
-			lock->l_flags |= LDLM_FL_LOCAL_ONLY;
+			ldlm_set_local_only(lock);
 
 		if (local_only && (lock->l_readers || lock->l_writers)) {
 			/* This is a little bit gross, but much better than the
@@ -791,8 +792,14 @@ static void cleanup_resource(struct ldlm_resource *res, struct list_head *q,
 			 */
 			unlock_res(res);
 			LDLM_DEBUG(lock, "setting FL_LOCAL_ONLY");
+			if (lock->l_flags & LDLM_FL_FAIL_LOC) {
+				set_current_state(TASK_UNINTERRUPTIBLE);
+				schedule_timeout(cfs_time_seconds(4));
+				set_current_state(TASK_RUNNING);
+			}
 			if (lock->l_completion_ast)
-				lock->l_completion_ast(lock, 0, NULL);
+				lock->l_completion_ast(lock, LDLM_FL_FAILED,
+						       NULL);
 			LDLM_LOCK_RELEASE(lock);
 			continue;
 		}
@@ -873,7 +880,8 @@ static int __ldlm_namespace_free(struct ldlm_namespace *ns, int force)
 		       ldlm_ns_name(ns), atomic_read(&ns->ns_bref));
 force_wait:
 		if (force)
-			lwi = LWI_TIMEOUT(obd_timeout * HZ / 4, NULL, NULL);
+			lwi = LWI_TIMEOUT(msecs_to_jiffies(obd_timeout *
+					  MSEC_PER_SEC) / 4, NULL, NULL);
 
 		rc = l_wait_event(ns->ns_waitq,
 				  atomic_read(&ns->ns_bref) == 0, &lwi);
@@ -1080,10 +1088,11 @@ ldlm_resource_get(struct ldlm_namespace *ns, struct ldlm_resource *parent,
 		  int create)
 {
 	struct hlist_node     *hnode;
-	struct ldlm_resource *res;
+	struct ldlm_resource *res = NULL;
 	struct cfs_hash_bd	 bd;
 	__u64		 version;
 	int		      ns_refcount = 0;
+	int rc;
 
 	LASSERT(!parent);
 	LASSERT(ns->ns_rs_hash);
@@ -1093,31 +1102,20 @@ ldlm_resource_get(struct ldlm_namespace *ns, struct ldlm_resource *parent,
 	hnode = cfs_hash_bd_lookup_locked(ns->ns_rs_hash, &bd, (void *)name);
 	if (hnode) {
 		cfs_hash_bd_unlock(ns->ns_rs_hash, &bd, 0);
-		res = hlist_entry(hnode, struct ldlm_resource, lr_hash);
-		/* Synchronize with regard to resource creation. */
-		if (ns->ns_lvbo && ns->ns_lvbo->lvbo_init) {
-			mutex_lock(&res->lr_lvb_mutex);
-			mutex_unlock(&res->lr_lvb_mutex);
-		}
-
-		if (unlikely(res->lr_lvb_len < 0)) {
-			ldlm_resource_putref(res);
-			res = NULL;
-		}
-		return res;
+		goto lvbo_init;
 	}
 
 	version = cfs_hash_bd_version_get(&bd);
 	cfs_hash_bd_unlock(ns->ns_rs_hash, &bd, 0);
 
 	if (create == 0)
-		return NULL;
+		return ERR_PTR(-ENOENT);
 
 	LASSERTF(type >= LDLM_MIN_TYPE && type < LDLM_MAX_TYPE,
 		 "type: %d\n", type);
 	res = ldlm_resource_new();
 	if (!res)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	res->lr_ns_bucket  = cfs_hash_bd_extra_get(ns->ns_rs_hash, &bd);
 	res->lr_name       = *name;
@@ -1135,7 +1133,7 @@ ldlm_resource_get(struct ldlm_namespace *ns, struct ldlm_resource *parent,
 		/* We have taken lr_lvb_mutex. Drop it. */
 		mutex_unlock(&res->lr_lvb_mutex);
 		kmem_cache_free(ldlm_resource_slab, res);
-
+lvbo_init:
 		res = hlist_entry(hnode, struct ldlm_resource, lr_hash);
 		/* Synchronize with regard to resource creation. */
 		if (ns->ns_lvbo && ns->ns_lvbo->lvbo_init) {
@@ -1144,8 +1142,9 @@ ldlm_resource_get(struct ldlm_namespace *ns, struct ldlm_resource *parent,
 		}
 
 		if (unlikely(res->lr_lvb_len < 0)) {
+			rc = res->lr_lvb_len;
 			ldlm_resource_putref(res);
-			res = NULL;
+			res = ERR_PTR(rc);
 		}
 		return res;
 	}
@@ -1156,8 +1155,6 @@ ldlm_resource_get(struct ldlm_namespace *ns, struct ldlm_resource *parent,
 
 	cfs_hash_bd_unlock(ns->ns_rs_hash, &bd, 1);
 	if (ns->ns_lvbo && ns->ns_lvbo->lvbo_init) {
-		int rc;
-
 		OBD_FAIL_TIMEOUT(OBD_FAIL_LDLM_CREATE_RESOURCE, 2);
 		rc = ns->ns_lvbo->lvbo_init(res);
 		if (rc < 0) {
@@ -1167,7 +1164,7 @@ ldlm_resource_get(struct ldlm_namespace *ns, struct ldlm_resource *parent,
 			res->lr_lvb_len = rc;
 			mutex_unlock(&res->lr_lvb_mutex);
 			ldlm_resource_putref(res);
-			return NULL;
+			return ERR_PTR(rc);
 		}
 	}
 
@@ -1273,9 +1270,9 @@ void ldlm_resource_add_lock(struct ldlm_resource *res, struct list_head *head,
 {
 	check_res_locked(res);
 
-	LDLM_DEBUG(lock, "About to add this lock:\n");
+	LDLM_DEBUG(lock, "About to add this lock:");
 
-	if (lock->l_flags & LDLM_FL_DESTROYED) {
+	if (ldlm_is_destroyed(lock)) {
 		CDEBUG(D_OTHER, "Lock destroyed, not adding to resource\n");
 		return;
 	}
@@ -1384,7 +1381,7 @@ void ldlm_resource_dump(int level, struct ldlm_resource *res)
 	if (!list_empty(&res->lr_granted)) {
 		CDEBUG(level, "Granted locks (in reverse order):\n");
 		list_for_each_entry_reverse(lock, &res->lr_granted,
-						l_res_link) {
+					    l_res_link) {
 			LDLM_DEBUG_LIMIT(level, lock, "###");
 			if (!(level & D_CANTMASK) &&
 			    ++granted > ldlm_dump_granted_max) {
@@ -1400,3 +1397,4 @@ void ldlm_resource_dump(int level, struct ldlm_resource *res)
 			LDLM_DEBUG_LIMIT(level, lock, "###");
 	}
 }
+EXPORT_SYMBOL(ldlm_resource_dump);

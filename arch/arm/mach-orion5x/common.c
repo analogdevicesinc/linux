@@ -66,8 +66,7 @@ static struct clk *tclk;
 
 void __init clk_init(void)
 {
-	tclk = clk_register_fixed_rate(NULL, "tclk", NULL, CLK_IS_ROOT,
-				       orion5x_tclk);
+	tclk = clk_register_fixed_rate(NULL, "tclk", NULL, 0, orion5x_tclk);
 
 	orion_clkdev_init(tclk);
 }
@@ -106,9 +105,9 @@ void __init orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data)
 /*****************************************************************************
  * Ethernet switch
  ****************************************************************************/
-void __init orion5x_eth_switch_init(struct dsa_platform_data *d, int irq)
+void __init orion5x_eth_switch_init(struct dsa_platform_data *d)
 {
-	orion_ge00_switch_init(d, irq);
+	orion_ge00_switch_init(d);
 }
 
 

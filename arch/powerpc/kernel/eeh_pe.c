@@ -249,7 +249,7 @@ static void *__eeh_pe_get(void *data, void *flag)
 	} else {
 		if (edev->pe_config_addr &&
 		    (edev->pe_config_addr == pe->addr))
-		return pe;
+			return pe;
 	}
 
 	/* Try BDF address */
@@ -581,6 +581,7 @@ void eeh_pe_state_mark(struct eeh_pe *pe, int state)
 {
 	eeh_pe_traverse(pe, __eeh_pe_state_mark, &state);
 }
+EXPORT_SYMBOL_GPL(eeh_pe_state_mark);
 
 static void *__eeh_pe_dev_mode_mark(void *data, void *flag)
 {

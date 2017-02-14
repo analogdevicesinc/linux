@@ -71,9 +71,7 @@ struct save_area * __init save_area_alloc(bool is_boot_cpu)
  */
 struct save_area * __init save_area_boot_cpu(void)
 {
-	if (list_empty(&dump_save_areas))
-		return NULL;
-	return list_first_entry(&dump_save_areas, struct save_area, list);
+	return list_first_entry_or_null(&dump_save_areas, struct save_area, list);
 }
 
 /*
@@ -173,7 +171,7 @@ int copy_oldmem_kernel(void *dst, void *src, size_t count)
 /*
  * Copy memory of the old, dumped system to a user space virtual address
  */
-int copy_oldmem_user(void __user *dst, void *src, size_t count)
+static int copy_oldmem_user(void __user *dst, void *src, size_t count)
 {
 	unsigned long from, len;
 	int rc;

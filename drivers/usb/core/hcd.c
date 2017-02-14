@@ -46,6 +46,7 @@
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <linux/usb/phy.h>
+#include <linux/usb/otg.h>
 
 #include "usb.h"
 
@@ -994,7 +995,7 @@ static void usb_bus_init (struct usb_bus *bus)
 	bus->bandwidth_allocated = 0;
 	bus->bandwidth_int_reqs  = 0;
 	bus->bandwidth_isoc_reqs = 0;
-	mutex_init(&bus->usb_address0_mutex);
+	mutex_init(&bus->devnum_next_mutex);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1118,6 +1119,7 @@ static int register_root_hub(struct usb_hcd *hcd)
 		/* Did the HC die before the root hub was registered? */
 		if (HCD_DEAD(hcd))
 			usb_hc_died (hcd);	/* This time clean up */
+		usb_dev->dev.of_node = parent_dev->of_node;
 	}
 	mutex_unlock(&usb_bus_idr_lock);
 
@@ -2516,11 +2518,17 @@ struct usb_hcd *usb_create_shared_hcd(const struct hc_driver *driver,
 	struct usb_hcd *hcd;
 
 	hcd = kzalloc(sizeof(*hcd) + driver->hcd_priv_size, GFP_KERNEL);
-	if (!hcd) {
-		dev_dbg (dev, "hcd alloc failed\n");
+	if (!hcd)
 		return NULL;
-	}
 	if (primary_hcd == NULL) {
+		hcd->address0_mutex = kmalloc(sizeof(*hcd->address0_mutex),
+				GFP_KERNEL);
+		if (!hcd->address0_mutex) {
+			kfree(hcd);
+			dev_dbg(dev, "hcd address0 mutex alloc failed\n");
+			return NULL;
+		}
+		mutex_init(hcd->address0_mutex);
 		hcd->bandwidth_mutex = kmalloc(sizeof(*hcd->bandwidth_mutex),
 				GFP_KERNEL);
 		if (!hcd->bandwidth_mutex) {
@@ -2532,6 +2540,7 @@ struct usb_hcd *usb_create_shared_hcd(const struct hc_driver *driver,
 		dev_set_drvdata(dev, hcd);
 	} else {
 		mutex_lock(&usb_port_peer_mutex);
+		hcd->address0_mutex = primary_hcd->address0_mutex;
 		hcd->bandwidth_mutex = primary_hcd->bandwidth_mutex;
 		hcd->primary_hcd = primary_hcd;
 		primary_hcd->primary_hcd = primary_hcd;
@@ -2588,24 +2597,23 @@ EXPORT_SYMBOL_GPL(usb_create_hcd);
  * Don't deallocate the bandwidth_mutex until the last shared usb_hcd is
  * deallocated.
  *
- * Make sure to only deallocate the bandwidth_mutex when the primary HCD is
- * freed.  When hcd_release() is called for either hcd in a peer set
- * invalidate the peer's ->shared_hcd and ->primary_hcd pointers to
- * block new peering attempts
+ * Make sure to deallocate the bandwidth_mutex only when the last HCD is
+ * freed.  When hcd_release() is called for either hcd in a peer set,
+ * invalidate the peer's ->shared_hcd and ->primary_hcd pointers.
  */
 static void hcd_release(struct kref *kref)
 {
 	struct usb_hcd *hcd = container_of (kref, struct usb_hcd, kref);
 
 	mutex_lock(&usb_port_peer_mutex);
-	if (usb_hcd_is_primary_hcd(hcd))
-		kfree(hcd->bandwidth_mutex);
 	if (hcd->shared_hcd) {
 		struct usb_hcd *peer = hcd->shared_hcd;
 
 		peer->shared_hcd = NULL;
-		if (peer->primary_hcd == hcd)
-			peer->primary_hcd = NULL;
+		peer->primary_hcd = NULL;
+	} else {
+		kfree(hcd->address0_mutex);
+		kfree(hcd->bandwidth_mutex);
 	}
 	mutex_unlock(&usb_port_peer_mutex);
 	kfree(hcd);
@@ -3024,7 +3032,7 @@ EXPORT_SYMBOL_GPL(usb_hcd_platform_shutdown);
 
 /*-------------------------------------------------------------------------*/
 
-#if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
+#if IS_ENABLED(CONFIG_USB_MON)
 
 const struct usb_mon_operations *mon_ops;
 

@@ -258,7 +258,7 @@ int ping_init_sock(struct sock *sk)
 	struct net *net = sock_net(sk);
 	kgid_t group = current_egid();
 	struct group_info *group_info;
-	int i, j, count;
+	int i;
 	kgid_t low, high;
 	int ret = 0;
 
@@ -270,16 +270,11 @@ int ping_init_sock(struct sock *sk)
 		return 0;
 
 	group_info = get_current_groups();
-	count = group_info->ngroups;
-	for (i = 0; i < group_info->nblocks; i++) {
-		int cp_count = min_t(int, NGROUPS_PER_BLOCK, count);
-		for (j = 0; j < cp_count; j++) {
-			kgid_t gid = group_info->blocks[i][j];
-			if (gid_lte(low, gid) && gid_lte(gid, high))
-				goto out_release_group;
-		}
+	for (i = 0; i < group_info->ngroups; i++) {
+		kgid_t gid = group_info->gid[i];
 
-		count -= cp_count;
+		if (gid_lte(low, gid) && gid_lte(gid, high))
+			goto out_release_group;
 	}
 
 	ret = -EACCES;
@@ -662,6 +657,10 @@ int ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
 	if (len > 0xFFFF)
 		return -EMSGSIZE;
 
+	/* Must have at least a full ICMP header. */
+	if (len < icmph_len)
+		return -EINVAL;
+
 	/*
 	 *	Check the flags.
 	 */
@@ -737,6 +736,7 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 		/* no remote port */
 	}
 
+	ipc.sockc.tsflags = sk->sk_tsflags;
 	ipc.addr = inet->inet_saddr;
 	ipc.opt = NULL;
 	ipc.oif = sk->sk_bound_dev_if;
@@ -744,10 +744,8 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	ipc.ttl = 0;
 	ipc.tos = -1;
 
-	sock_tx_timestamp(sk, &ipc.tx_flags);
-
 	if (msg->msg_controllen) {
-		err = ip_cmsg_send(sock_net(sk), msg, &ipc, false);
+		err = ip_cmsg_send(sk, msg, &ipc, false);
 		if (unlikely(err)) {
 			kfree(ipc.opt);
 			return err;
@@ -767,6 +765,8 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 		}
 		rcu_read_unlock();
 	}
+
+	sock_tx_timestamp(sk, ipc.sockc.tsflags, &ipc.tx_flags);
 
 	saddr = ipc.addr;
 	ipc.addr = faddr = daddr;
@@ -998,7 +998,7 @@ struct proto ping_prot = {
 	.init =		ping_init_sock,
 	.close =	ping_close,
 	.connect =	ip4_datagram_connect,
-	.disconnect =	udp_disconnect,
+	.disconnect =	__udp_disconnect,
 	.setsockopt =	ip_setsockopt,
 	.getsockopt =	ip_getsockopt,
 	.sendmsg =	ping_v4_sendmsg,

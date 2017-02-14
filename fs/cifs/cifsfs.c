@@ -37,6 +37,7 @@
 #include <linux/freezer.h>
 #include <linux/namei.h>
 #include <linux/random.h>
+#include <linux/xattr.h>
 #include <net/ipv6.h>
 #include "cifsfs.h"
 #include "cifspdu.h"
@@ -63,15 +64,15 @@ unsigned int global_secflags = CIFSSEC_DEF;
 unsigned int sign_CIFS_PDUs = 1;
 static const struct super_operations cifs_super_ops;
 unsigned int CIFSMaxBufSize = CIFS_MAX_MSGSIZE;
-module_param(CIFSMaxBufSize, uint, 0);
+module_param(CIFSMaxBufSize, uint, 0444);
 MODULE_PARM_DESC(CIFSMaxBufSize, "Network buffer size (not including header). "
 				 "Default: 16384 Range: 8192 to 130048");
 unsigned int cifs_min_rcv = CIFS_MIN_RCV_POOL;
-module_param(cifs_min_rcv, uint, 0);
+module_param(cifs_min_rcv, uint, 0444);
 MODULE_PARM_DESC(cifs_min_rcv, "Network buffers in pool. Default: 4 Range: "
 				"1 to 64");
 unsigned int cifs_min_small = 30;
-module_param(cifs_min_small, uint, 0);
+module_param(cifs_min_small, uint, 0444);
 MODULE_PARM_DESC(cifs_min_small, "Small network buffers in pool. Default: 30 "
 				 "Range: 2 to 256");
 unsigned int cifs_max_pending = CIFS_MAX_REQ;
@@ -86,6 +87,7 @@ extern mempool_t *cifs_req_poolp;
 extern mempool_t *cifs_mid_poolp;
 
 struct workqueue_struct	*cifsiod_wq;
+__u32 cifs_lock_secret;
 
 /*
  * Bumps refcount for cifs super block.
@@ -135,6 +137,7 @@ cifs_read_super(struct super_block *sb)
 
 	sb->s_magic = CIFS_MAGIC_NUMBER;
 	sb->s_op = &cifs_super_ops;
+	sb->s_xattr = cifs_xattr_handlers;
 	sb->s_bdi = &cifs_sb->bdi;
 	sb->s_blocksize = CIFS_MAX_MSGSIZE;
 	sb->s_blocksize_bits = 14;	/* default 2**14 = CIFS_MAX_MSGSIZE */
@@ -268,7 +271,7 @@ cifs_alloc_inode(struct super_block *sb)
 	cifs_inode->createtime = 0;
 	cifs_inode->epoch = 0;
 #ifdef CONFIG_CIFS_SMB2
-	get_random_bytes(cifs_inode->lease_key, SMB2_LEASE_KEY_SIZE);
+	generate_random_uuid(cifs_inode->lease_key);
 #endif
 	/*
 	 * Can not set i_flags here - they get immediately overwritten to zero
@@ -466,6 +469,8 @@ cifs_show_options(struct seq_file *s, struct dentry *root)
 		seq_puts(s, ",posixpaths");
 	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SET_UID)
 		seq_puts(s, ",setuids");
+	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_UID_FROM_ACL)
+		seq_puts(s, ",idsfromsid");
 	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SERVER_INUM)
 		seq_puts(s, ",serverino");
 	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_RWPIDFORWARD)
@@ -606,6 +611,9 @@ cifs_get_root(struct smb_vol *vol, struct super_block *sb)
 	char *s, *p;
 	char sep;
 
+	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_USE_PREFIX_PATH)
+		return dget(sb->s_root);
+
 	full_path = cifs_build_path_to_root(vol, cifs_sb,
 					    cifs_sb_master_tcon(cifs_sb));
 	if (full_path == NULL)
@@ -683,10 +691,14 @@ cifs_do_mount(struct file_system_type *fs_type,
 	cifs_sb->mountdata = kstrndup(data, PAGE_SIZE, GFP_KERNEL);
 	if (cifs_sb->mountdata == NULL) {
 		root = ERR_PTR(-ENOMEM);
-		goto out_cifs_sb;
+		goto out_free;
 	}
 
-	cifs_setup_cifs_sb(volume_info, cifs_sb);
+	rc = cifs_setup_cifs_sb(volume_info, cifs_sb);
+	if (rc) {
+		root = ERR_PTR(rc);
+		goto out_free;
+	}
 
 	rc = cifs_mount(cifs_sb, volume_info);
 	if (rc) {
@@ -694,7 +706,7 @@ cifs_do_mount(struct file_system_type *fs_type,
 			cifs_dbg(VFS, "cifs_mount failed w/return code = %d\n",
 				 rc);
 		root = ERR_PTR(rc);
-		goto out_mountdata;
+		goto out_free;
 	}
 
 	mnt_data.vol = volume_info;
@@ -737,9 +749,9 @@ out:
 	cifs_cleanup_volume_info(volume_info);
 	return root;
 
-out_mountdata:
+out_free:
+	kfree(cifs_sb->prepath);
 	kfree(cifs_sb->mountdata);
-out_cifs_sb:
 	kfree(cifs_sb);
 out_nls:
 	unload_nls(volume_info->local_nls);
@@ -886,46 +898,26 @@ const struct inode_operations cifs_dir_inode_ops = {
 	.link = cifs_hardlink,
 	.mkdir = cifs_mkdir,
 	.rmdir = cifs_rmdir,
-	.rename2 = cifs_rename2,
+	.rename = cifs_rename2,
 	.permission = cifs_permission,
-/*	revalidate:cifs_revalidate,   */
 	.setattr = cifs_setattr,
 	.symlink = cifs_symlink,
 	.mknod   = cifs_mknod,
-#ifdef CONFIG_CIFS_XATTR
-	.setxattr = cifs_setxattr,
-	.getxattr = cifs_getxattr,
 	.listxattr = cifs_listxattr,
-	.removexattr = cifs_removexattr,
-#endif
 };
 
 const struct inode_operations cifs_file_inode_ops = {
-/*	revalidate:cifs_revalidate, */
 	.setattr = cifs_setattr,
-	.getattr = cifs_getattr, /* do we need this anymore? */
+	.getattr = cifs_getattr,
 	.permission = cifs_permission,
-#ifdef CONFIG_CIFS_XATTR
-	.setxattr = cifs_setxattr,
-	.getxattr = cifs_getxattr,
 	.listxattr = cifs_listxattr,
-	.removexattr = cifs_removexattr,
-#endif
 };
 
 const struct inode_operations cifs_symlink_inode_ops = {
 	.readlink = generic_readlink,
 	.get_link = cifs_get_link,
 	.permission = cifs_permission,
-	/* BB add the following two eventually */
-	/* revalidate: cifs_revalidate,
-	   setattr:    cifs_notify_change, *//* BB do we need notify change */
-#ifdef CONFIG_CIFS_XATTR
-	.setxattr = cifs_setxattr,
-	.getxattr = cifs_getxattr,
 	.listxattr = cifs_listxattr,
-	.removexattr = cifs_removexattr,
-#endif
 };
 
 static int cifs_clone_file_range(struct file *src_file, loff_t off,
@@ -1083,7 +1075,7 @@ const struct file_operations cifs_file_direct_nobrl_ops = {
 };
 
 const struct file_operations cifs_dir_ops = {
-	.iterate = cifs_readdir,
+	.iterate_shared = cifs_readdir,
 	.release = cifs_closedir,
 	.read    = generic_read_dir,
 	.unlocked_ioctl  = cifs_ioctl,
@@ -1272,8 +1264,9 @@ init_cifs(void)
 	GlobalTotalActiveXid = 0;
 	GlobalMaxActiveXid = 0;
 	spin_lock_init(&cifs_tcp_ses_lock);
-	spin_lock_init(&cifs_file_list_lock);
 	spin_lock_init(&GlobalMid_Lock);
+
+	get_random_bytes(&cifs_lock_secret, sizeof(cifs_lock_secret));
 
 	if (cifs_max_pending < 2) {
 		cifs_max_pending = 2;
@@ -1307,7 +1300,7 @@ init_cifs(void)
 		goto out_destroy_mids;
 
 #ifdef CONFIG_CIFS_UPCALL
-	rc = register_key_type(&cifs_spnego_key_type);
+	rc = init_cifs_spnego();
 	if (rc)
 		goto out_destroy_request_bufs;
 #endif /* CONFIG_CIFS_UPCALL */
@@ -1330,7 +1323,7 @@ out_init_cifs_idmap:
 out_register_key_type:
 #endif
 #ifdef CONFIG_CIFS_UPCALL
-	unregister_key_type(&cifs_spnego_key_type);
+	exit_cifs_spnego();
 out_destroy_request_bufs:
 #endif
 	cifs_destroy_request_bufs();

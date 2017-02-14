@@ -463,10 +463,6 @@ int lnet_del_route(__u32 net, lnet_nid_t gw_nid);
 void lnet_destroy_routes(void);
 int lnet_get_route(int idx, __u32 *net, __u32 *hops,
 		   lnet_nid_t *gateway, __u32 *alive, __u32 *priority);
-int lnet_get_net_config(int idx, __u32 *cpt_count, __u64 *nid,
-			int *peer_timeout, int *peer_tx_credits,
-			int *peer_rtr_cr, int *max_tx_credits,
-			struct lnet_ioctl_net_config *net_config);
 int lnet_get_rtr_pool_cfg(int idx, struct lnet_ioctl_pool_cfg *pool_cfg);
 
 void lnet_router_debugfs_init(void);
@@ -478,9 +474,8 @@ int lnet_rtrpools_enable(void);
 void lnet_rtrpools_disable(void);
 void lnet_rtrpools_free(int keep_pools);
 lnet_remotenet_t *lnet_find_net_locked(__u32 net);
-int lnet_dyn_add_ni(lnet_pid_t requested_pid, char *nets,
-		    __s32 peer_timeout, __s32 peer_cr, __s32 peer_buf_cr,
-		    __s32 credits);
+int lnet_dyn_add_ni(lnet_pid_t requested_pid,
+		    struct lnet_ioctl_config_data *conf);
 int lnet_dyn_del_ni(__u32 net);
 int lnet_clear_lazy_portal(struct lnet_ni *ni, int portal, char *reason);
 
@@ -610,73 +605,20 @@ void lnet_counters_reset(void);
 
 unsigned int lnet_iov_nob(unsigned int niov, struct kvec *iov);
 int lnet_extract_iov(int dst_niov, struct kvec *dst,
-		     int src_niov, struct kvec *src,
+		     int src_niov, const struct kvec *src,
 		      unsigned int offset, unsigned int len);
 
 unsigned int lnet_kiov_nob(unsigned int niov, lnet_kiov_t *iov);
 int lnet_extract_kiov(int dst_niov, lnet_kiov_t *dst,
-		      int src_niov, lnet_kiov_t *src,
+		      int src_niov, const lnet_kiov_t *src,
 		      unsigned int offset, unsigned int len);
 
-void lnet_copy_iov2iov(unsigned int ndiov, struct kvec *diov,
-		       unsigned int doffset,
-			unsigned int nsiov, struct kvec *siov,
+void lnet_copy_iov2iter(struct iov_iter *to,
+			unsigned int nsiov, const struct kvec *siov,
 			unsigned int soffset, unsigned int nob);
-void lnet_copy_kiov2iov(unsigned int niov, struct kvec *iov,
-			unsigned int iovoffset,
-			 unsigned int nkiov, lnet_kiov_t *kiov,
+void lnet_copy_kiov2iter(struct iov_iter *to,
+			 unsigned int nkiov, const lnet_kiov_t *kiov,
 			 unsigned int kiovoffset, unsigned int nob);
-void lnet_copy_iov2kiov(unsigned int nkiov, lnet_kiov_t *kiov,
-			unsigned int kiovoffset,
-			 unsigned int niov, struct kvec *iov,
-			 unsigned int iovoffset, unsigned int nob);
-void lnet_copy_kiov2kiov(unsigned int ndkiov, lnet_kiov_t *dkiov,
-			 unsigned int doffset,
-			  unsigned int nskiov, lnet_kiov_t *skiov,
-			  unsigned int soffset, unsigned int nob);
-
-static inline void
-lnet_copy_iov2flat(int dlen, void *dest, unsigned int doffset,
-		   unsigned int nsiov, struct kvec *siov, unsigned int soffset,
-		   unsigned int nob)
-{
-	struct kvec diov = {/*.iov_base = */ dest, /*.iov_len = */ dlen};
-
-	lnet_copy_iov2iov(1, &diov, doffset,
-			  nsiov, siov, soffset, nob);
-}
-
-static inline void
-lnet_copy_kiov2flat(int dlen, void *dest, unsigned int doffset,
-		    unsigned int nsiov, lnet_kiov_t *skiov,
-		    unsigned int soffset, unsigned int nob)
-{
-	struct kvec diov = {/* .iov_base = */ dest, /* .iov_len = */ dlen};
-
-	lnet_copy_kiov2iov(1, &diov, doffset,
-			   nsiov, skiov, soffset, nob);
-}
-
-static inline void
-lnet_copy_flat2iov(unsigned int ndiov, struct kvec *diov, unsigned int doffset,
-		   int slen, void *src, unsigned int soffset, unsigned int nob)
-{
-	struct kvec siov = {/*.iov_base = */ src, /*.iov_len = */slen};
-
-	lnet_copy_iov2iov(ndiov, diov, doffset,
-			  1, &siov, soffset, nob);
-}
-
-static inline void
-lnet_copy_flat2kiov(unsigned int ndiov, lnet_kiov_t *dkiov,
-		    unsigned int doffset, int slen, void *src,
-		    unsigned int soffset, unsigned int nob)
-{
-	struct kvec siov = {/* .iov_base = */ src, /* .iov_len = */ slen};
-
-	lnet_copy_iov2kiov(ndiov, dkiov, doffset,
-			   1, &siov, soffset, nob);
-}
 
 void lnet_me_unlink(lnet_me_t *me);
 

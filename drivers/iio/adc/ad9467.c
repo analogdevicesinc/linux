@@ -437,7 +437,7 @@ static irqreturn_t ad9680_event_handler(
 {
 	u64 event = IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE, chn,
 			IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING);
-	s64 timestamp = iio_get_time_ns();
+	s64 timestamp = iio_get_time_ns(conv->indio_dev);
 
 	if (conv->indio_dev)
 		iio_push_event(conv->indio_dev, event, timestamp);

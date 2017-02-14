@@ -24,7 +24,7 @@
 #include <linux/kdebug.h>
 #include <linux/init.h>
 #include <linux/console.h>
-#include <linux/module.h>
+#include <linux/extable.h>
 #include <linux/hardirq.h>
 #include <linux/kprobes.h>
 #include <linux/uaccess.h>
@@ -250,6 +250,7 @@ static noinline void do_sigsegv(struct pt_regs *regs, int si_code)
 
 	report_user_fault(regs, SIGSEGV, 1);
 	si.si_signo = SIGSEGV;
+	si.si_errno = 0;
 	si.si_code = si_code;
 	si.si_addr = (void __user *)(regs->int_parm_long & __FAIL_ADDR_MASK);
 	force_sig_info(SIGSEGV, &si, current);
@@ -417,6 +418,8 @@ static inline int do_exception(struct pt_regs *regs, int access)
 		(struct gmap *) S390_lowcore.gmap : NULL;
 	if (gmap) {
 		current->thread.gmap_addr = address;
+		current->thread.gmap_write_flag = !!(flags & FAULT_FLAG_WRITE);
+		current->thread.gmap_int_code = regs->int_code & 0xffff;
 		address = __gmap_translate(gmap, address);
 		if (address == -EFAULT) {
 			fault = VM_FAULT_BADMAP;
@@ -455,7 +458,7 @@ retry:
 	 * make sure we exit gracefully rather than endlessly redo
 	 * the fault.
 	 */
-	fault = handle_mm_fault(mm, vma, address, flags);
+	fault = handle_mm_fault(vma, address, flags);
 	/* No reason to continue if interrupted by SIGKILL. */
 	if ((fault & VM_FAULT_RETRY) && fatal_signal_pending(current)) {
 		fault = VM_FAULT_SIGNAL;
@@ -623,7 +626,7 @@ void pfault_fini(void)
 	diag_stat_inc(DIAG_STAT_X258);
 	asm volatile(
 		"	diag	%0,0,0x258\n"
-		"0:\n"
+		"0:	nopr	%%r7\n"
 		EX_TABLE(0b,0b)
 		: : "a" (&refbk), "m" (refbk) : "cc");
 }
@@ -631,6 +634,29 @@ void pfault_fini(void)
 static DEFINE_SPINLOCK(pfault_lock);
 static LIST_HEAD(pfault_list);
 
+#define PF_COMPLETE	0x0080
+
+/*
+ * The mechanism of our pfault code: if Linux is running as guest, runs a user
+ * space process and the user space process accesses a page that the host has
+ * paged out we get a pfault interrupt.
+ *
+ * This allows us, within the guest, to schedule a different process. Without
+ * this mechanism the host would have to suspend the whole virtual cpu until
+ * the page has been paged in.
+ *
+ * So when we get such an interrupt then we set the state of the current task
+ * to uninterruptible and also set the need_resched flag. Both happens within
+ * interrupt context(!). If we later on want to return to user space we
+ * recognize the need_resched flag and then call schedule().  It's not very
+ * obvious how this works...
+ *
+ * Of course we have a lot of additional fun with the completion interrupt (->
+ * host signals that a page of a process has been paged in and the process can
+ * continue to run). This interrupt can arrive on any cpu and, since we have
+ * virtual cpus, actually appear before the interrupt that signals that a page
+ * is missing.
+ */
 static void pfault_interrupt(struct ext_code ext_code,
 			     unsigned int param32, unsigned long param64)
 {
@@ -639,10 +665,9 @@ static void pfault_interrupt(struct ext_code ext_code,
 	pid_t pid;
 
 	/*
-	 * Get the external interruption subcode & pfault
-	 * initial/completion signal bit. VM stores this 
-	 * in the 'cpu address' field associated with the
-         * external interrupt. 
+	 * Get the external interruption subcode & pfault initial/completion
+	 * signal bit. VM stores this in the 'cpu address' field associated
+	 * with the external interrupt.
 	 */
 	subcode = ext_code.subcode;
 	if ((subcode & 0xff00) != __SUBCODE_MASK)
@@ -658,7 +683,7 @@ static void pfault_interrupt(struct ext_code ext_code,
 	if (!tsk)
 		return;
 	spin_lock(&pfault_lock);
-	if (subcode & 0x0080) {
+	if (subcode & PF_COMPLETE) {
 		/* signal bit is set -> a page has been swapped in by VM */
 		if (tsk->thread.pfault_wait == 1) {
 			/* Initial interrupt was faster than the completion
@@ -687,8 +712,7 @@ static void pfault_interrupt(struct ext_code ext_code,
 			goto out;
 		if (tsk->thread.pfault_wait == 1) {
 			/* Already on the list with a reference: put to sleep */
-			__set_task_state(tsk, TASK_UNINTERRUPTIBLE);
-			set_tsk_need_resched(tsk);
+			goto block;
 		} else if (tsk->thread.pfault_wait == -1) {
 			/* Completion interrupt was faster than the initial
 			 * interrupt (pfault_wait == -1). Set pfault_wait
@@ -703,7 +727,11 @@ static void pfault_interrupt(struct ext_code ext_code,
 			get_task_struct(tsk);
 			tsk->thread.pfault_wait = 1;
 			list_add(&tsk->thread.list, &pfault_list);
-			__set_task_state(tsk, TASK_UNINTERRUPTIBLE);
+block:
+			/* Since this must be a userspace fault, there
+			 * is no kernel task state to trample. Rely on the
+			 * return to userspace schedule() to block. */
+			__set_current_state(TASK_UNINTERRUPTIBLE);
 			set_tsk_need_resched(tsk);
 		}
 	}
@@ -712,28 +740,21 @@ out:
 	put_task_struct(tsk);
 }
 
-static int pfault_cpu_notify(struct notifier_block *self, unsigned long action,
-			     void *hcpu)
+static int pfault_cpu_dead(unsigned int cpu)
 {
 	struct thread_struct *thread, *next;
 	struct task_struct *tsk;
 
-	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_DEAD:
-		spin_lock_irq(&pfault_lock);
-		list_for_each_entry_safe(thread, next, &pfault_list, list) {
-			thread->pfault_wait = 0;
-			list_del(&thread->list);
-			tsk = container_of(thread, struct task_struct, thread);
-			wake_up_process(tsk);
-			put_task_struct(tsk);
-		}
-		spin_unlock_irq(&pfault_lock);
-		break;
-	default:
-		break;
+	spin_lock_irq(&pfault_lock);
+	list_for_each_entry_safe(thread, next, &pfault_list, list) {
+		thread->pfault_wait = 0;
+		list_del(&thread->list);
+		tsk = container_of(thread, struct task_struct, thread);
+		wake_up_process(tsk);
+		put_task_struct(tsk);
 	}
-	return NOTIFY_OK;
+	spin_unlock_irq(&pfault_lock);
+	return 0;
 }
 
 static int __init pfault_irq_init(void)
@@ -747,7 +768,8 @@ static int __init pfault_irq_init(void)
 	if (rc)
 		goto out_pfault;
 	irq_subclass_register(IRQ_SUBCLASS_SERVICE_SIGNAL);
-	hotcpu_notifier(pfault_cpu_notify, 0);
+	cpuhp_setup_state_nocalls(CPUHP_S390_PFAULT_DEAD, "s390/pfault:dead",
+				  NULL, pfault_cpu_dead);
 	return 0;
 
 out_pfault:

@@ -36,6 +36,8 @@
 #include <drm/drm_crtc.h>
 #include <drm/drmP.h>
 
+#include "drm_crtc_helper_internal.h"
+
 struct drm_dp_aux_dev {
 	unsigned index;
 	struct drm_dp_aux *aux;
@@ -159,6 +161,12 @@ static ssize_t auxdev_read(struct file *file, char __user *buf, size_t count,
 		uint8_t localbuf[DP_AUX_MAX_PAYLOAD_BYTES];
 		ssize_t todo = min_t(size_t, bytes_pending, sizeof(localbuf));
 
+		if (signal_pending(current)) {
+			res = num_bytes_processed ?
+				num_bytes_processed : -ERESTARTSYS;
+			goto out;
+		}
+
 		res = drm_dp_dpcd_read(aux_dev->aux, *offset, localbuf, todo);
 		if (res <= 0) {
 			res = num_bytes_processed ? num_bytes_processed : res;
@@ -201,6 +209,12 @@ static ssize_t auxdev_write(struct file *file, const char __user *buf,
 	while (bytes_pending > 0) {
 		uint8_t localbuf[DP_AUX_MAX_PAYLOAD_BYTES];
 		ssize_t todo = min_t(size_t, bytes_pending, sizeof(localbuf));
+
+		if (signal_pending(current)) {
+			res = num_bytes_processed ?
+				num_bytes_processed : -ERESTARTSYS;
+			goto out;
+		}
 
 		if (__copy_from_user(localbuf,
 				     buf + num_bytes_processed, todo)) {
@@ -271,12 +285,7 @@ static int auxdev_wait_atomic_t(atomic_t *p)
 	schedule();
 	return 0;
 }
-/**
- * drm_dp_aux_unregister_devnode() - unregister a devnode for this aux channel
- * @aux: DisplayPort AUX channel
- *
- * Returns 0 on success or a negative error code on failure.
- */
+
 void drm_dp_aux_unregister_devnode(struct drm_dp_aux *aux)
 {
 	struct drm_dp_aux_dev *aux_dev;
@@ -302,14 +311,7 @@ void drm_dp_aux_unregister_devnode(struct drm_dp_aux *aux)
 	DRM_DEBUG("drm_dp_aux_dev: aux [%s] unregistering\n", aux->name);
 	kref_put(&aux_dev->refcount, release_drm_dp_aux_dev);
 }
-EXPORT_SYMBOL(drm_dp_aux_unregister_devnode);
 
-/**
- * drm_dp_aux_register_devnode() - register a devnode for this aux channel
- * @aux: DisplayPort AUX channel
- *
- * Returns 0 on success or a negative error code on failure.
- */
 int drm_dp_aux_register_devnode(struct drm_dp_aux *aux)
 {
 	struct drm_dp_aux_dev *aux_dev;
@@ -335,7 +337,6 @@ error:
 	drm_dp_aux_unregister_devnode(aux);
 	return res;
 }
-EXPORT_SYMBOL(drm_dp_aux_register_devnode);
 
 int drm_dp_aux_dev_init(void)
 {
@@ -343,8 +344,7 @@ int drm_dp_aux_dev_init(void)
 
 	drm_dp_aux_dev_class = class_create(THIS_MODULE, "drm_dp_aux_dev");
 	if (IS_ERR(drm_dp_aux_dev_class)) {
-		res = PTR_ERR(drm_dp_aux_dev_class);
-		goto out;
+		return PTR_ERR(drm_dp_aux_dev_class);
 	}
 	drm_dp_aux_dev_class->dev_groups = drm_dp_aux_groups;
 
@@ -358,11 +358,9 @@ out:
 	class_destroy(drm_dp_aux_dev_class);
 	return res;
 }
-EXPORT_SYMBOL(drm_dp_aux_dev_init);
 
 void drm_dp_aux_dev_exit(void)
 {
 	unregister_chrdev(drm_dev_major, "aux");
 	class_destroy(drm_dp_aux_dev_class);
 }
-EXPORT_SYMBOL(drm_dp_aux_dev_exit);

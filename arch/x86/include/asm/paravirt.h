@@ -15,17 +15,6 @@
 #include <linux/cpumask.h>
 #include <asm/frame.h>
 
-static inline int paravirt_enabled(void)
-{
-	return pv_info.paravirt_enabled;
-}
-
-static inline int paravirt_has_feature(unsigned int feature)
-{
-	WARN_ON_ONCE(!pv_info.paravirt_enabled);
-	return (pv_info.features & feature);
-}
-
 static inline void load_sp0(struct tss_struct *tss,
 			     struct thread_struct *thread)
 {
@@ -91,10 +80,6 @@ static inline unsigned long __read_cr4(void)
 {
 	return PVOP_CALL0(unsigned long, pv_cpu_ops.read_cr4);
 }
-static inline unsigned long __read_cr4_safe(void)
-{
-	return PVOP_CALL0(unsigned long, pv_cpu_ops.read_cr4_safe);
-}
 
 static inline void __write_cr4(unsigned long x)
 {
@@ -130,21 +115,31 @@ static inline void wbinvd(void)
 
 #define get_kernel_rpl()  (pv_info.kernel_rpl)
 
-static inline u64 paravirt_read_msr(unsigned msr, int *err)
+static inline u64 paravirt_read_msr(unsigned msr)
 {
-	return PVOP_CALL2(u64, pv_cpu_ops.read_msr, msr, err);
+	return PVOP_CALL1(u64, pv_cpu_ops.read_msr, msr);
 }
 
-static inline int paravirt_write_msr(unsigned msr, unsigned low, unsigned high)
+static inline void paravirt_write_msr(unsigned msr,
+				      unsigned low, unsigned high)
 {
-	return PVOP_CALL3(int, pv_cpu_ops.write_msr, msr, low, high);
+	return PVOP_VCALL3(pv_cpu_ops.write_msr, msr, low, high);
 }
 
-/* These should all do BUG_ON(_err), but our headers are too tangled. */
+static inline u64 paravirt_read_msr_safe(unsigned msr, int *err)
+{
+	return PVOP_CALL2(u64, pv_cpu_ops.read_msr_safe, msr, err);
+}
+
+static inline int paravirt_write_msr_safe(unsigned msr,
+					  unsigned low, unsigned high)
+{
+	return PVOP_CALL3(int, pv_cpu_ops.write_msr_safe, msr, low, high);
+}
+
 #define rdmsr(msr, val1, val2)			\
 do {						\
-	int _err;				\
-	u64 _l = paravirt_read_msr(msr, &_err);	\
+	u64 _l = paravirt_read_msr(msr);	\
 	val1 = (u32)_l;				\
 	val2 = _l >> 32;			\
 } while (0)
@@ -156,8 +151,7 @@ do {						\
 
 #define rdmsrl(msr, val)			\
 do {						\
-	int _err;				\
-	val = paravirt_read_msr(msr, &_err);	\
+	val = paravirt_read_msr(msr);		\
 } while (0)
 
 static inline void wrmsrl(unsigned msr, u64 val)
@@ -165,23 +159,23 @@ static inline void wrmsrl(unsigned msr, u64 val)
 	wrmsr(msr, (u32)val, (u32)(val>>32));
 }
 
-#define wrmsr_safe(msr, a, b)	paravirt_write_msr(msr, a, b)
+#define wrmsr_safe(msr, a, b)	paravirt_write_msr_safe(msr, a, b)
 
 /* rdmsr with exception handling */
-#define rdmsr_safe(msr, a, b)			\
-({						\
-	int _err;				\
-	u64 _l = paravirt_read_msr(msr, &_err);	\
-	(*a) = (u32)_l;				\
-	(*b) = _l >> 32;			\
-	_err;					\
+#define rdmsr_safe(msr, a, b)				\
+({							\
+	int _err;					\
+	u64 _l = paravirt_read_msr_safe(msr, &_err);	\
+	(*a) = (u32)_l;					\
+	(*b) = _l >> 32;				\
+	_err;						\
 })
 
 static inline int rdmsrl_safe(unsigned msr, unsigned long long *p)
 {
 	int err;
 
-	*p = paravirt_read_msr(msr, &err);
+	*p = paravirt_read_msr_safe(msr, &err);
 	return err;
 }
 
@@ -663,8 +657,6 @@ static inline void __set_fixmap(unsigned /* enum fixed_addresses */ idx,
 
 #if defined(CONFIG_SMP) && defined(CONFIG_PARAVIRT_SPINLOCKS)
 
-#ifdef CONFIG_QUEUED_SPINLOCKS
-
 static __always_inline void pv_queued_spin_lock_slowpath(struct qspinlock *lock,
 							u32 val)
 {
@@ -685,22 +677,6 @@ static __always_inline void pv_kick(int cpu)
 {
 	PVOP_VCALL1(pv_lock_ops.kick, cpu);
 }
-
-#else /* !CONFIG_QUEUED_SPINLOCKS */
-
-static __always_inline void __ticket_lock_spinning(struct arch_spinlock *lock,
-							__ticket_t ticket)
-{
-	PVOP_VCALLEE2(pv_lock_ops.lock_spinning, lock, ticket);
-}
-
-static __always_inline void __ticket_unlock_kick(struct arch_spinlock *lock,
-							__ticket_t ticket)
-{
-	PVOP_VCALL2(pv_lock_ops.unlock_kick, lock, ticket);
-}
-
-#endif /* CONFIG_QUEUED_SPINLOCKS */
 
 #endif /* SMP && PARAVIRT_SPINLOCKS */
 

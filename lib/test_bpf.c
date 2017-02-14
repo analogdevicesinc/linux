@@ -4831,7 +4831,7 @@ static struct bpf_test tests[] = {
 		{ },
 		INTERNAL,
 		{ 0x34 },
-		{ { 1, 0xbef } },
+		{ { ETH_HLEN, 0xbef } },
 		.fill_helper = bpf_fill_ld_abs_vlan_push_pop,
 	},
 	/*
@@ -5485,6 +5485,7 @@ static struct sk_buff *populate_skb(char *buf, int size)
 	skb->hash = SKB_HASH;
 	skb->queue_mapping = SKB_QUEUE_MAP;
 	skb->vlan_tci = SKB_VLAN_TCI;
+	skb->vlan_proto = htons(ETH_P_IP);
 	skb->dev = &dev;
 	skb->dev->ifindex = SKB_DEV_IFINDEX;
 	skb->dev->type = SKB_DEV_TYPE;
@@ -5621,7 +5622,10 @@ static struct bpf_prog *generate_filter(int which, int *err)
 		fp->type = BPF_PROG_TYPE_SOCKET_FILTER;
 		memcpy(fp->insnsi, fptr, fp->len * sizeof(struct bpf_insn));
 
-		bpf_prog_select_runtime(fp);
+		/* We cannot error here as we don't need type compatibility
+		 * checks.
+		 */
+		fp = bpf_prog_select_runtime(fp, err);
 		break;
 	}
 

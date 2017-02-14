@@ -73,8 +73,8 @@
 #define MPT3SAS_DRIVER_NAME		"mpt3sas"
 #define MPT3SAS_AUTHOR "Avago Technologies <MPT-FusionLinux.pdl@avagotech.com>"
 #define MPT3SAS_DESCRIPTION	"LSI MPT Fusion SAS 3.0 Device Driver"
-#define MPT3SAS_DRIVER_VERSION		"12.100.00.00"
-#define MPT3SAS_MAJOR_VERSION		12
+#define MPT3SAS_DRIVER_VERSION		"13.100.00.00"
+#define MPT3SAS_MAJOR_VERSION		13
 #define MPT3SAS_MINOR_VERSION		100
 #define MPT3SAS_BUILD_VERSION		0
 #define MPT3SAS_RELEASE_VERSION	00
@@ -90,7 +90,7 @@
 /*
  * Set MPT3SAS_SG_DEPTH value based on user input.
  */
-#define MPT_MAX_PHYS_SEGMENTS	SCSI_MAX_SG_SEGMENTS
+#define MPT_MAX_PHYS_SEGMENTS	SG_CHUNK_SIZE
 #define MPT_MIN_PHYS_SEGMENTS	16
 
 #ifdef CONFIG_SCSI_MPT3SAS_MAX_SGE
@@ -112,14 +112,12 @@
 #define MPT3SAS_SAS_QUEUE_DEPTH		254
 #define MPT3SAS_RAID_QUEUE_DEPTH	128
 
+#define MPT3SAS_RAID_MAX_SECTORS	8192
+
 #define MPT_NAME_LENGTH			32	/* generic length of strings */
 #define MPT_STRING_LENGTH		64
 
 #define MPT_MAX_CALLBACKS		32
-
-
-#define	 CAN_SLEEP			1
-#define  NO_SLEEP			0
 
 #define INTERNAL_CMDS_COUNT		10	/* reserved cmds */
 /* reserved for issuing internally framed scsi io cmds */
@@ -476,7 +474,7 @@ struct _sas_device {
 	u8	pfa_led_on;
 	u8	pend_sas_rphy_add;
 	u8	enclosure_level;
-	u8	connector_name[4];
+	u8	connector_name[5];
 	struct kref refcount;
 };
 
@@ -790,16 +788,6 @@ struct mpt3sas_port_facts {
 struct reply_post_struct {
 	Mpi2ReplyDescriptorsUnion_t	*reply_post_free;
 	dma_addr_t			reply_post_free_dma;
-};
-
-/**
- * enum mutex_type - task management mutex type
- * @TM_MUTEX_OFF: mutex is not required becuase calling function is acquiring it
- * @TM_MUTEX_ON: mutex is required
- */
-enum mutex_type {
-	TM_MUTEX_OFF = 0,
-	TM_MUTEX_ON = 1,
 };
 
 typedef void (*MPT3SAS_FLUSH_RUNNING_CMDS)(struct MPT3SAS_ADAPTER *ioc);
@@ -1227,14 +1215,15 @@ int mpt3sas_base_attach(struct MPT3SAS_ADAPTER *ioc);
 void mpt3sas_base_detach(struct MPT3SAS_ADAPTER *ioc);
 int mpt3sas_base_map_resources(struct MPT3SAS_ADAPTER *ioc);
 void mpt3sas_base_free_resources(struct MPT3SAS_ADAPTER *ioc);
-int mpt3sas_base_hard_reset_handler(struct MPT3SAS_ADAPTER *ioc, int sleep_flag,
+int mpt3sas_base_hard_reset_handler(struct MPT3SAS_ADAPTER *ioc,
 	enum reset_type type);
 
 void *mpt3sas_base_get_msg_frame(struct MPT3SAS_ADAPTER *ioc, u16 smid);
 void *mpt3sas_base_get_sense_buffer(struct MPT3SAS_ADAPTER *ioc, u16 smid);
 __le32 mpt3sas_base_get_sense_buffer_dma(struct MPT3SAS_ADAPTER *ioc,
 	u16 smid);
-void mpt3sas_base_flush_reply_queues(struct MPT3SAS_ADAPTER *ioc);
+
+void mpt3sas_base_sync_reply_irqs(struct MPT3SAS_ADAPTER *ioc);
 
 /* hi-priority queue */
 u16 mpt3sas_base_get_smid_hpr(struct MPT3SAS_ADAPTER *ioc, u8 cb_idx);
@@ -1288,7 +1277,11 @@ void mpt3sas_scsih_reset_handler(struct MPT3SAS_ADAPTER *ioc, int reset_phase);
 
 int mpt3sas_scsih_issue_tm(struct MPT3SAS_ADAPTER *ioc, u16 handle,
 	uint channel, uint id, uint lun, u8 type, u16 smid_task,
-	ulong timeout, enum mutex_type m_type);
+	ulong timeout);
+int mpt3sas_scsih_issue_locked_tm(struct MPT3SAS_ADAPTER *ioc, u16 handle,
+	uint channel, uint id, uint lun, u8 type, u16 smid_task,
+	ulong timeout);
+
 void mpt3sas_scsih_set_tm_flag(struct MPT3SAS_ADAPTER *ioc, u16 handle);
 void mpt3sas_scsih_clear_tm_flag(struct MPT3SAS_ADAPTER *ioc, u16 handle);
 void mpt3sas_expander_remove(struct MPT3SAS_ADAPTER *ioc, u64 sas_address);

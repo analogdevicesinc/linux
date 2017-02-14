@@ -150,22 +150,30 @@ static void enh_desc_get_ext_status(void *data, struct stmmac_extra_stats *x,
 			x->ipv4_pkt_rcvd++;
 		if (rdes4 & ERDES4_IPV6_PKT_RCVD)
 			x->ipv6_pkt_rcvd++;
-		if (message_type == RDES_EXT_SYNC)
-			x->rx_msg_type_sync++;
+
+		if (message_type == RDES_EXT_NO_PTP)
+			x->no_ptp_rx_msg_type_ext++;
+		else if (message_type == RDES_EXT_SYNC)
+			x->ptp_rx_msg_type_sync++;
 		else if (message_type == RDES_EXT_FOLLOW_UP)
-			x->rx_msg_type_follow_up++;
+			x->ptp_rx_msg_type_follow_up++;
 		else if (message_type == RDES_EXT_DELAY_REQ)
-			x->rx_msg_type_delay_req++;
+			x->ptp_rx_msg_type_delay_req++;
 		else if (message_type == RDES_EXT_DELAY_RESP)
-			x->rx_msg_type_delay_resp++;
+			x->ptp_rx_msg_type_delay_resp++;
 		else if (message_type == RDES_EXT_PDELAY_REQ)
-			x->rx_msg_type_pdelay_req++;
+			x->ptp_rx_msg_type_pdelay_req++;
 		else if (message_type == RDES_EXT_PDELAY_RESP)
-			x->rx_msg_type_pdelay_resp++;
+			x->ptp_rx_msg_type_pdelay_resp++;
 		else if (message_type == RDES_EXT_PDELAY_FOLLOW_UP)
-			x->rx_msg_type_pdelay_follow_up++;
-		else
-			x->rx_msg_type_ext_no_ptp++;
+			x->ptp_rx_msg_type_pdelay_follow_up++;
+		else if (message_type == RDES_PTP_ANNOUNCE)
+			x->ptp_rx_msg_type_announce++;
+		else if (message_type == RDES_PTP_MANAGEMENT)
+			x->ptp_rx_msg_type_management++;
+		else if (message_type == RDES_PTP_PKT_RESERVED_TYPE)
+			x->ptp_rx_msg_pkt_reserved_type++;
+
 		if (rdes4 & ERDES4_PTP_FRAME_TYPE)
 			x->ptp_frame_type++;
 		if (rdes4 & ERDES4_PTP_VER)
@@ -411,6 +419,26 @@ static int enh_desc_get_rx_timestamp_status(void *desc, u32 ats)
 	}
 }
 
+static void enh_desc_display_ring(void *head, unsigned int size, bool rx)
+{
+	struct dma_extended_desc *ep = (struct dma_extended_desc *)head;
+	int i;
+
+	pr_info("Extended %s descriptor ring:\n", rx ? "RX" : "TX");
+
+	for (i = 0; i < size; i++) {
+		u64 x;
+
+		x = *(u64 *)ep;
+		pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
+			i, (unsigned int)virt_to_phys(ep),
+			(unsigned int)x, (unsigned int)(x >> 32),
+			ep->basic.des2, ep->basic.des3);
+		ep++;
+	}
+	pr_info("\n");
+}
+
 const struct stmmac_desc_ops enh_desc_ops = {
 	.tx_status = enh_desc_get_tx_status,
 	.rx_status = enh_desc_get_rx_status,
@@ -430,4 +458,5 @@ const struct stmmac_desc_ops enh_desc_ops = {
 	.get_tx_timestamp_status = enh_desc_get_tx_timestamp_status,
 	.get_timestamp = enh_desc_get_timestamp,
 	.get_rx_timestamp_status = enh_desc_get_rx_timestamp_status,
+	.display_ring = enh_desc_display_ring,
 };

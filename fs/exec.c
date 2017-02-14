@@ -191,6 +191,7 @@ static struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
 {
 	struct page *page;
 	int ret;
+	unsigned int gup_flags = FOLL_FORCE;
 
 #ifdef CONFIG_STACK_GROWSUP
 	if (write) {
@@ -199,12 +200,16 @@ static struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
 			return NULL;
 	}
 #endif
+
+	if (write)
+		gup_flags |= FOLL_WRITE;
+
 	/*
 	 * We are doing an exec().  'current' is the process
 	 * doing the exec and bprm->mm is the new process's mm.
 	 */
-	ret = get_user_pages_remote(current, bprm->mm, pos, 1, write,
-			1, &page, NULL);
+	ret = get_user_pages_remote(current, bprm->mm, pos, 1, gup_flags,
+			&page, NULL);
 	if (ret <= 0)
 		return NULL;
 
@@ -243,10 +248,6 @@ static void put_arg_page(struct page *page)
 	put_page(page);
 }
 
-static void free_arg_page(struct linux_binprm *bprm, int i)
-{
-}
-
 static void free_arg_pages(struct linux_binprm *bprm)
 {
 }
@@ -267,7 +268,10 @@ static int __bprm_mm_init(struct linux_binprm *bprm)
 	if (!vma)
 		return -ENOMEM;
 
-	down_write(&mm->mmap_sem);
+	if (down_write_killable(&mm->mmap_sem)) {
+		err = -EINTR;
+		goto err_free;
+	}
 	vma->vm_mm = mm;
 
 	/*
@@ -294,6 +298,7 @@ static int __bprm_mm_init(struct linux_binprm *bprm)
 	return 0;
 err:
 	up_write(&mm->mmap_sem);
+err_free:
 	bprm->vma = NULL;
 	kmem_cache_free(vm_area_cachep, vma);
 	return err;
@@ -700,7 +705,9 @@ int setup_arg_pages(struct linux_binprm *bprm,
 		bprm->loader -= stack_shift;
 	bprm->exec -= stack_shift;
 
-	down_write(&mm->mmap_sem);
+	if (down_write_killable(&mm->mmap_sem))
+		return -EINTR;
+
 	vm_flags = VM_STACK_FLAGS;
 
 	/*
@@ -759,6 +766,39 @@ out_unlock:
 	return ret;
 }
 EXPORT_SYMBOL(setup_arg_pages);
+
+#else
+
+/*
+ * Transfer the program arguments and environment from the holding pages
+ * onto the stack. The provided stack pointer is adjusted accordingly.
+ */
+int transfer_args_to_stack(struct linux_binprm *bprm,
+			   unsigned long *sp_location)
+{
+	unsigned long index, stop, sp;
+	int ret = 0;
+
+	stop = bprm->p >> PAGE_SHIFT;
+	sp = *sp_location;
+
+	for (index = MAX_ARG_PAGES - 1; index >= stop; index--) {
+		unsigned int offset = index == stop ? bprm->p & ~PAGE_MASK : 0;
+		char *src = kmap(bprm->page[index]) + offset;
+		sp -= PAGE_SIZE - offset;
+		if (copy_to_user((void *) sp, src, PAGE_SIZE - offset) != 0)
+			ret = -EFAULT;
+		kunmap(bprm->page[index]);
+		if (ret)
+			goto out;
+	}
+
+	*sp_location = sp;
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(transfer_args_to_stack);
 
 #endif /* CONFIG_MMU */
 
@@ -850,15 +890,26 @@ int kernel_read_file(struct file *file, void **buf, loff_t *size,
 	if (ret)
 		return ret;
 
-	i_size = i_size_read(file_inode(file));
-	if (max_size > 0 && i_size > max_size)
-		return -EFBIG;
-	if (i_size <= 0)
-		return -EINVAL;
+	ret = deny_write_access(file);
+	if (ret)
+		return ret;
 
-	*buf = vmalloc(i_size);
-	if (!*buf)
-		return -ENOMEM;
+	i_size = i_size_read(file_inode(file));
+	if (max_size > 0 && i_size > max_size) {
+		ret = -EFBIG;
+		goto out;
+	}
+	if (i_size <= 0) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (id != READING_FIRMWARE_PREALLOC_BUFFER)
+		*buf = vmalloc(i_size);
+	if (!*buf) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	pos = 0;
 	while (pos < i_size) {
@@ -876,18 +927,23 @@ int kernel_read_file(struct file *file, void **buf, loff_t *size,
 
 	if (pos != i_size) {
 		ret = -EIO;
-		goto out;
+		goto out_free;
 	}
 
 	ret = security_kernel_post_read_file(file, *buf, i_size, id);
 	if (!ret)
 		*size = pos;
 
-out:
+out_free:
 	if (ret < 0) {
-		vfree(*buf);
-		*buf = NULL;
+		if (id != READING_FIRMWARE_PREALLOC_BUFFER) {
+			vfree(*buf);
+			*buf = NULL;
+		}
 	}
+
+out:
+	allow_write_access(file);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(kernel_read_file);
@@ -1387,11 +1443,16 @@ static void bprm_fill_uid(struct linux_binprm *bprm)
 	kuid_t uid;
 	kgid_t gid;
 
-	/* clear any previous set[ug]id data from a previous binary */
+	/*
+	 * Since this can be called multiple times (via prepare_binprm),
+	 * we must clear any previous work done when setting set[ug]id
+	 * bits from any earlier bprm->file uses (for example when run
+	 * first for a setuid script then again for its interpreter).
+	 */
 	bprm->cred->euid = current_euid();
 	bprm->cred->egid = current_egid();
 
-	if (bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)
+	if (!mnt_may_suid(bprm->file->f_path.mnt))
 		return;
 
 	if (task_no_new_privs(current))
@@ -1481,9 +1542,6 @@ int remove_arg_zero(struct linux_binprm *bprm)
 
 		kunmap_atomic(kaddr);
 		put_arg_page(page);
-
-		if (offset == PAGE_SIZE)
-			free_arg_page(bprm, (bprm->p >> PAGE_SHIFT) - 1);
 	} while (offset == PAGE_SIZE);
 
 	bprm->p++;

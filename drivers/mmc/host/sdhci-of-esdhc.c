@@ -66,6 +66,20 @@ static u32 esdhc_readl_fixup(struct sdhci_host *host,
 			return ret;
 		}
 	}
+	/*
+	 * The DAT[3:0] line signal levels and the CMD line signal level are
+	 * not compatible with standard SDHC register. The line signal levels
+	 * DAT[7:0] are at bits 31:24 and the command line signal level is at
+	 * bit 23. All other bits are the same as in the standard SDHC
+	 * register.
+	 */
+	if (spec_reg == SDHCI_PRESENT_STATE) {
+		ret = value & 0x000fffff;
+		ret |= (value >> 4) & SDHCI_DATA_LVL_MASK;
+		ret |= (value << 1) & SDHCI_CMD_LVL;
+		return ret;
+	}
+
 	ret = value;
 	return ret;
 }
@@ -481,7 +495,7 @@ static void esdhc_reset(struct sdhci_host *host, u8 mask)
 	sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static u32 esdhc_proctl;
 static int esdhc_of_suspend(struct device *dev)
 {
@@ -504,15 +518,11 @@ static int esdhc_of_resume(struct device *dev)
 	}
 	return ret;
 }
-
-static const struct dev_pm_ops esdhc_pmops = {
-	.suspend	= esdhc_of_suspend,
-	.resume		= esdhc_of_resume,
-};
-#define ESDHC_PMOPS (&esdhc_pmops)
-#else
-#define ESDHC_PMOPS NULL
 #endif
+
+static SIMPLE_DEV_PM_OPS(esdhc_of_dev_pm_ops,
+			esdhc_of_suspend,
+			esdhc_of_resume);
 
 static const struct sdhci_ops sdhci_esdhc_be_ops = {
 	.read_l = esdhc_be_readl,
@@ -587,7 +597,7 @@ static int sdhci_esdhc_probe(struct platform_device *pdev)
 
 	np = pdev->dev.of_node;
 
-	if (of_get_property(np, "little-endian", NULL))
+	if (of_property_read_bool(np, "little-endian"))
 		host = sdhci_pltfm_init(pdev, &sdhci_esdhc_le_pdata,
 					sizeof(struct sdhci_esdhc));
 	else
@@ -657,7 +667,7 @@ static struct platform_driver sdhci_esdhc_driver = {
 	.driver = {
 		.name = "sdhci-esdhc",
 		.of_match_table = sdhci_esdhc_of_match,
-		.pm = ESDHC_PMOPS,
+		.pm = &esdhc_of_dev_pm_ops,
 	},
 	.probe = sdhci_esdhc_probe,
 	.remove = sdhci_pltfm_unregister,

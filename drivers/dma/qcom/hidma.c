@@ -1,7 +1,7 @@
 /*
  * Qualcomm Technologies HIDMA DMA engine interface
  *
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,6 +111,7 @@ static void hidma_process_completed(struct hidma_chan *mchan)
 	struct dma_async_tx_descriptor *desc;
 	dma_cookie_t last_cookie;
 	struct hidma_desc *mdesc;
+	struct hidma_desc *next;
 	unsigned long irqflags;
 	struct list_head list;
 
@@ -122,28 +123,36 @@ static void hidma_process_completed(struct hidma_chan *mchan)
 	spin_unlock_irqrestore(&mchan->lock, irqflags);
 
 	/* Execute callbacks and run dependencies */
-	list_for_each_entry(mdesc, &list, node) {
+	list_for_each_entry_safe(mdesc, next, &list, node) {
 		enum dma_status llstat;
+		struct dmaengine_desc_callback cb;
+		struct dmaengine_result result;
 
 		desc = &mdesc->desc;
+		last_cookie = desc->cookie;
 
 		spin_lock_irqsave(&mchan->lock, irqflags);
 		dma_cookie_complete(desc);
 		spin_unlock_irqrestore(&mchan->lock, irqflags);
 
 		llstat = hidma_ll_status(mdma->lldev, mdesc->tre_ch);
-		if (desc->callback && (llstat == DMA_COMPLETE))
-			desc->callback(desc->callback_param);
+		dmaengine_desc_get_callback(desc, &cb);
 
-		last_cookie = desc->cookie;
 		dma_run_dependencies(desc);
+
+		spin_lock_irqsave(&mchan->lock, irqflags);
+		list_move(&mdesc->node, &mchan->free);
+
+		if (llstat == DMA_COMPLETE) {
+			mchan->last_success = last_cookie;
+			result.result = DMA_TRANS_NOERROR;
+		} else
+			result.result = DMA_TRANS_ABORTED;
+
+		spin_unlock_irqrestore(&mchan->lock, irqflags);
+
+		dmaengine_desc_callback_invoke(&cb, &result);
 	}
-
-	/* Free descriptors */
-	spin_lock_irqsave(&mchan->lock, irqflags);
-	list_splice_tail_init(&list, &mchan->free);
-	spin_unlock_irqrestore(&mchan->lock, irqflags);
-
 }
 
 /*
@@ -238,6 +247,19 @@ static void hidma_issue_pending(struct dma_chan *dmach)
 		hidma_ll_start(dmadev->lldev);
 }
 
+static inline bool hidma_txn_is_success(dma_cookie_t cookie,
+		dma_cookie_t last_success, dma_cookie_t last_used)
+{
+	if (last_success <= last_used) {
+		if ((cookie <= last_success) || (cookie > last_used))
+			return true;
+	} else {
+		if ((cookie <= last_success) && (cookie > last_used))
+			return true;
+	}
+	return false;
+}
+
 static enum dma_status hidma_tx_status(struct dma_chan *dmach,
 				       dma_cookie_t cookie,
 				       struct dma_tx_state *txstate)
@@ -246,8 +268,13 @@ static enum dma_status hidma_tx_status(struct dma_chan *dmach,
 	enum dma_status ret;
 
 	ret = dma_cookie_status(dmach, cookie, txstate);
-	if (ret == DMA_COMPLETE)
-		return ret;
+	if (ret == DMA_COMPLETE) {
+		bool is_success;
+
+		is_success = hidma_txn_is_success(cookie, mchan->last_success,
+						  dmach->cookie);
+		return is_success ? ret : DMA_ERROR;
+	}
 
 	if (mchan->paused && (ret == DMA_IN_PROGRESS)) {
 		unsigned long flags;
@@ -398,13 +425,14 @@ static int hidma_terminate_channel(struct dma_chan *chan)
 	hidma_process_completed(mchan);
 
 	spin_lock_irqsave(&mchan->lock, irqflags);
+	mchan->last_success = 0;
 	list_splice_init(&mchan->active, &list);
 	list_splice_init(&mchan->prepared, &list);
 	list_splice_init(&mchan->completed, &list);
 	spin_unlock_irqrestore(&mchan->lock, irqflags);
 
 	/* this suspends the existing transfer */
-	rc = hidma_ll_pause(dmadev->lldev);
+	rc = hidma_ll_disable(dmadev->lldev);
 	if (rc) {
 		dev_err(dmadev->ddev.dev, "channel did not pause\n");
 		goto out;
@@ -413,21 +441,16 @@ static int hidma_terminate_channel(struct dma_chan *chan)
 	/* return all user requests */
 	list_for_each_entry_safe(mdesc, tmp, &list, node) {
 		struct dma_async_tx_descriptor *txd = &mdesc->desc;
-		dma_async_tx_callback callback = mdesc->desc.callback;
-		void *param = mdesc->desc.callback_param;
 
 		dma_descriptor_unmap(txd);
-
-		if (callback)
-			callback(param);
-
+		dmaengine_desc_get_callback_invoke(txd, NULL);
 		dma_run_dependencies(txd);
 
 		/* move myself to free_list */
 		list_move(&mdesc->node, &mchan->free);
 	}
 
-	rc = hidma_ll_resume(dmadev->lldev);
+	rc = hidma_ll_enable(dmadev->lldev);
 out:
 	pm_runtime_mark_last_busy(dmadev->ddev.dev);
 	pm_runtime_put_autosuspend(dmadev->ddev.dev);
@@ -488,7 +511,7 @@ static int hidma_pause(struct dma_chan *chan)
 	dmadev = to_hidma_dev(mchan->chan.device);
 	if (!mchan->paused) {
 		pm_runtime_get_sync(dmadev->ddev.dev);
-		if (hidma_ll_pause(dmadev->lldev))
+		if (hidma_ll_disable(dmadev->lldev))
 			dev_warn(dmadev->ddev.dev, "channel did not stop\n");
 		mchan->paused = true;
 		pm_runtime_mark_last_busy(dmadev->ddev.dev);
@@ -507,7 +530,7 @@ static int hidma_resume(struct dma_chan *chan)
 	dmadev = to_hidma_dev(mchan->chan.device);
 	if (mchan->paused) {
 		pm_runtime_get_sync(dmadev->ddev.dev);
-		rc = hidma_ll_resume(dmadev->lldev);
+		rc = hidma_ll_enable(dmadev->lldev);
 		if (!rc)
 			mchan->paused = false;
 		else
@@ -528,6 +551,43 @@ static irqreturn_t hidma_chirq_handler(int chirq, void *arg)
 	 * HW doesn't send an interrupt by itself.
 	 */
 	return hidma_ll_inthandler(chirq, lldev);
+}
+
+static ssize_t hidma_show_values(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct hidma_dev *mdev = platform_get_drvdata(pdev);
+
+	buf[0] = 0;
+
+	if (strcmp(attr->attr.name, "chid") == 0)
+		sprintf(buf, "%d\n", mdev->chidx);
+
+	return strlen(buf);
+}
+
+static int hidma_create_sysfs_entry(struct hidma_dev *dev, char *name,
+				    int mode)
+{
+	struct device_attribute *attrs;
+	char *name_copy;
+
+	attrs = devm_kmalloc(dev->ddev.dev, sizeof(struct device_attribute),
+			     GFP_KERNEL);
+	if (!attrs)
+		return -ENOMEM;
+
+	name_copy = devm_kstrdup(dev->ddev.dev, name, GFP_KERNEL);
+	if (!name_copy)
+		return -ENOMEM;
+
+	attrs->attr.name = name_copy;
+	attrs->attr.mode = mode;
+	attrs->show = hidma_show_values;
+	sysfs_attr_init(&attrs->attr);
+
+	return device_create_file(dev->ddev.dev, attrs);
 }
 
 static int hidma_probe(struct platform_device *pdev)
@@ -644,6 +704,8 @@ static int hidma_probe(struct platform_device *pdev)
 
 	dmadev->irq = chirq;
 	tasklet_init(&dmadev->task, hidma_issue_task, (unsigned long)dmadev);
+	hidma_debug_init(dmadev);
+	hidma_create_sysfs_entry(dmadev, "chid", S_IRUGO);
 	dev_info(&pdev->dev, "HI-DMA engine driver registration complete\n");
 	platform_set_drvdata(pdev, dmadev);
 	pm_runtime_mark_last_busy(dmadev->ddev.dev);
@@ -651,6 +713,7 @@ static int hidma_probe(struct platform_device *pdev)
 	return 0;
 
 uninit:
+	hidma_debug_uninit(dmadev);
 	hidma_ll_uninit(dmadev->lldev);
 dmafree:
 	if (dmadev)
@@ -668,6 +731,8 @@ static int hidma_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(dmadev->ddev.dev);
 	dma_async_device_unregister(&dmadev->ddev);
 	devm_free_irq(dmadev->ddev.dev, dmadev->irq, dmadev->lldev);
+	tasklet_kill(&dmadev->task);
+	hidma_debug_uninit(dmadev);
 	hidma_ll_uninit(dmadev->lldev);
 	hidma_free(dmadev);
 
@@ -689,7 +754,6 @@ static const struct of_device_id hidma_match[] = {
 	{.compatible = "qcom,hidma-1.0",},
 	{},
 };
-
 MODULE_DEVICE_TABLE(of, hidma_match);
 
 static struct platform_driver hidma_driver = {

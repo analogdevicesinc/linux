@@ -79,6 +79,8 @@ static int e1000e_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
 
 	ew32(TIMINCA, timinca);
 
+	adapter->ptp_delta = delta;
+
 	spin_unlock_irqrestore(&adapter->systim_lock, flags);
 
 	return 0;
@@ -332,7 +334,7 @@ void e1000e_ptp_init(struct e1000_adapter *adapter)
 	if (IS_ERR(adapter->ptp_clock)) {
 		adapter->ptp_clock = NULL;
 		e_err("ptp_clock_register failed\n");
-	} else {
+	} else if (adapter->ptp_clock) {
 		e_info("registered PHC clock\n");
 	}
 }

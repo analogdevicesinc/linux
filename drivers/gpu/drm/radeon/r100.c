@@ -153,7 +153,7 @@ void r100_wait_for_vblank(struct radeon_device *rdev, int crtc)
  * bit to go high, when it does, we release the lock, and allow the
  * double buffered update to take place.
  */
-void r100_page_flip(struct radeon_device *rdev, int crtc_id, u64 crtc_base)
+void r100_page_flip(struct radeon_device *rdev, int crtc_id, u64 crtc_base, bool async)
 {
 	struct radeon_crtc *radeon_crtc = rdev->mode_info.crtcs[crtc_id];
 	u32 tmp = ((u32)crtc_base) | RADEON_CRTC_OFFSET__OFFSET_LOCK;
@@ -592,7 +592,8 @@ void r100_hpd_init(struct radeon_device *rdev)
 
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
 		struct radeon_connector *radeon_connector = to_radeon_connector(connector);
-		enable |= 1 << radeon_connector->hpd.hpd;
+		if (radeon_connector->hpd.hpd != RADEON_HPD_NONE)
+			enable |= 1 << radeon_connector->hpd.hpd;
 		radeon_hpd_set_polarity(rdev, radeon_connector->hpd.hpd);
 	}
 	radeon_irq_kms_enable_hpd(rdev, enable);
@@ -614,7 +615,8 @@ void r100_hpd_fini(struct radeon_device *rdev)
 
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
 		struct radeon_connector *radeon_connector = to_radeon_connector(connector);
-		disable |= 1 << radeon_connector->hpd.hpd;
+		if (radeon_connector->hpd.hpd != RADEON_HPD_NONE)
+			disable |= 1 << radeon_connector->hpd.hpd;
 	}
 	radeon_irq_kms_disable_hpd(rdev, disable);
 }
@@ -1069,11 +1071,7 @@ u32 r100_gfx_get_rptr(struct radeon_device *rdev,
 u32 r100_gfx_get_wptr(struct radeon_device *rdev,
 		      struct radeon_ring *ring)
 {
-	u32 wptr;
-
-	wptr = RREG32(RADEON_CP_RB_WPTR);
-
-	return wptr;
+	return RREG32(RADEON_CP_RB_WPTR);
 }
 
 void r100_gfx_set_wptr(struct radeon_device *rdev,
@@ -2555,7 +2553,7 @@ void r100_bm_disable(struct radeon_device *rdev)
 	mdelay(1);
 }
 
-int r100_asic_reset(struct radeon_device *rdev)
+int r100_asic_reset(struct radeon_device *rdev, bool hard)
 {
 	struct r100_mc_save save;
 	u32 status, tmp;

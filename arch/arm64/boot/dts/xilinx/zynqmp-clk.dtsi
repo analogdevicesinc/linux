@@ -16,6 +16,7 @@
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <100000000>;
+		u-boot,dm-pre-reloc;
 	};
 
 	clk125: clk125 {
@@ -116,6 +117,38 @@
 	clocks = <&clk600>, <&clk100>;
 };
 
+&lpd_dma_chan1 {
+	clocks = <&clk600>, <&clk100>;
+};
+
+&lpd_dma_chan2 {
+	clocks = <&clk600>, <&clk100>;
+};
+
+&lpd_dma_chan3 {
+	clocks = <&clk600>, <&clk100>;
+};
+
+&lpd_dma_chan4 {
+	clocks = <&clk600>, <&clk100>;
+};
+
+&lpd_dma_chan5 {
+	clocks = <&clk600>, <&clk100>;
+};
+
+&lpd_dma_chan6 {
+	clocks = <&clk600>, <&clk100>;
+};
+
+&lpd_dma_chan7 {
+	clocks = <&clk600>, <&clk100>;
+};
+
+&lpd_dma_chan8 {
+	clocks = <&clk600>, <&clk100>;
+};
+
 &nand0 {
 	clocks = <&clk100 &clk100>;
 };
@@ -186,6 +219,10 @@
 
 &usb1 {
 	clocks = <&clk250>, <&clk250>;
+};
+
+&watchdog0 {
+	clocks = <&clk250>;
 };
 
 &xilinx_drm {

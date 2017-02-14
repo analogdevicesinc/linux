@@ -112,17 +112,17 @@ MODULE_PARM_DESC(xeon_b2b_usd_bar2_addr64,
 
 module_param_named(xeon_b2b_usd_bar4_addr64,
 		   xeon_b2b_usd_addr.bar4_addr64, ullong, 0644);
-MODULE_PARM_DESC(xeon_b2b_usd_bar2_addr64,
+MODULE_PARM_DESC(xeon_b2b_usd_bar4_addr64,
 		 "XEON B2B USD BAR 4 64-bit address");
 
 module_param_named(xeon_b2b_usd_bar4_addr32,
 		   xeon_b2b_usd_addr.bar4_addr32, ullong, 0644);
-MODULE_PARM_DESC(xeon_b2b_usd_bar2_addr64,
+MODULE_PARM_DESC(xeon_b2b_usd_bar4_addr32,
 		 "XEON B2B USD split-BAR 4 32-bit address");
 
 module_param_named(xeon_b2b_usd_bar5_addr32,
 		   xeon_b2b_usd_addr.bar5_addr32, ullong, 0644);
-MODULE_PARM_DESC(xeon_b2b_usd_bar2_addr64,
+MODULE_PARM_DESC(xeon_b2b_usd_bar5_addr32,
 		 "XEON B2B USD split-BAR 5 32-bit address");
 
 module_param_named(xeon_b2b_dsd_bar2_addr64,
@@ -132,17 +132,17 @@ MODULE_PARM_DESC(xeon_b2b_dsd_bar2_addr64,
 
 module_param_named(xeon_b2b_dsd_bar4_addr64,
 		   xeon_b2b_dsd_addr.bar4_addr64, ullong, 0644);
-MODULE_PARM_DESC(xeon_b2b_dsd_bar2_addr64,
+MODULE_PARM_DESC(xeon_b2b_dsd_bar4_addr64,
 		 "XEON B2B DSD BAR 4 64-bit address");
 
 module_param_named(xeon_b2b_dsd_bar4_addr32,
 		   xeon_b2b_dsd_addr.bar4_addr32, ullong, 0644);
-MODULE_PARM_DESC(xeon_b2b_dsd_bar2_addr64,
+MODULE_PARM_DESC(xeon_b2b_dsd_bar4_addr32,
 		 "XEON B2B DSD split-BAR 4 32-bit address");
 
 module_param_named(xeon_b2b_dsd_bar5_addr32,
 		   xeon_b2b_dsd_addr.bar5_addr32, ullong, 0644);
-MODULE_PARM_DESC(xeon_b2b_dsd_bar2_addr64,
+MODULE_PARM_DESC(xeon_b2b_dsd_bar5_addr32,
 		 "XEON B2B DSD split-BAR 5 32-bit address");
 
 #ifndef ioread64
@@ -551,13 +551,15 @@ static ssize_t ndev_debugfs_read(struct file *filp, char __user *ubuf,
 				 size_t count, loff_t *offp)
 {
 	struct intel_ntb_dev *ndev;
+	struct pci_dev *pdev;
 	void __iomem *mmio;
 	char *buf;
 	size_t buf_size;
 	ssize_t ret, off;
-	union { u64 v64; u32 v32; u16 v16; } u;
+	union { u64 v64; u32 v32; u16 v16; u8 v8; } u;
 
 	ndev = filp->private_data;
+	pdev = ndev_pdev(ndev);
 	mmio = ndev->self_mmio;
 
 	buf_size = min(count, 0x800ul);
@@ -632,6 +634,41 @@ static ssize_t ndev_debugfs_read(struct file *filp, char __user *ubuf,
 			 "Doorbell Bell -\t\t%#llx\n", u.v64);
 
 	off += scnprintf(buf + off, buf_size - off,
+			 "\nNTB Window Size:\n");
+
+	pci_read_config_byte(pdev, XEON_PBAR23SZ_OFFSET, &u.v8);
+	off += scnprintf(buf + off, buf_size - off,
+			 "PBAR23SZ %hhu\n", u.v8);
+	if (!ndev->bar4_split) {
+		pci_read_config_byte(pdev, XEON_PBAR45SZ_OFFSET, &u.v8);
+		off += scnprintf(buf + off, buf_size - off,
+				 "PBAR45SZ %hhu\n", u.v8);
+	} else {
+		pci_read_config_byte(pdev, XEON_PBAR4SZ_OFFSET, &u.v8);
+		off += scnprintf(buf + off, buf_size - off,
+				 "PBAR4SZ %hhu\n", u.v8);
+		pci_read_config_byte(pdev, XEON_PBAR5SZ_OFFSET, &u.v8);
+		off += scnprintf(buf + off, buf_size - off,
+				 "PBAR5SZ %hhu\n", u.v8);
+	}
+
+	pci_read_config_byte(pdev, XEON_SBAR23SZ_OFFSET, &u.v8);
+	off += scnprintf(buf + off, buf_size - off,
+			 "SBAR23SZ %hhu\n", u.v8);
+	if (!ndev->bar4_split) {
+		pci_read_config_byte(pdev, XEON_SBAR45SZ_OFFSET, &u.v8);
+		off += scnprintf(buf + off, buf_size - off,
+				 "SBAR45SZ %hhu\n", u.v8);
+	} else {
+		pci_read_config_byte(pdev, XEON_SBAR4SZ_OFFSET, &u.v8);
+		off += scnprintf(buf + off, buf_size - off,
+				 "SBAR4SZ %hhu\n", u.v8);
+		pci_read_config_byte(pdev, XEON_SBAR5SZ_OFFSET, &u.v8);
+		off += scnprintf(buf + off, buf_size - off,
+				 "SBAR5SZ %hhu\n", u.v8);
+	}
+
+	off += scnprintf(buf + off, buf_size - off,
 			 "\nNTB Incoming XLAT:\n");
 
 	u.v64 = ioread64(mmio + bar2_off(ndev->xlat_reg->bar2_xlat, 2));
@@ -669,7 +706,7 @@ static ssize_t ndev_debugfs_read(struct file *filp, char __user *ubuf,
 				 "LMT45 -\t\t\t%#018llx\n", u.v64);
 	}
 
-	if (pdev_is_xeon(ndev->ntb.pdev)) {
+	if (pdev_is_xeon(pdev)) {
 		if (ntb_topo_is_b2b(ndev->ntb.topo)) {
 			off += scnprintf(buf + off, buf_size - off,
 					 "\nNTB Outgoing B2B XLAT:\n");
@@ -750,22 +787,22 @@ static ssize_t ndev_debugfs_read(struct file *filp, char __user *ubuf,
 		off += scnprintf(buf + off, buf_size - off,
 				 "\nXEON NTB Hardware Errors:\n");
 
-		if (!pci_read_config_word(ndev->ntb.pdev,
+		if (!pci_read_config_word(pdev,
 					  XEON_DEVSTS_OFFSET, &u.v16))
 			off += scnprintf(buf + off, buf_size - off,
 					 "DEVSTS -\t\t%#06x\n", u.v16);
 
-		if (!pci_read_config_word(ndev->ntb.pdev,
+		if (!pci_read_config_word(pdev,
 					  XEON_LINK_STATUS_OFFSET, &u.v16))
 			off += scnprintf(buf + off, buf_size - off,
 					 "LNKSTS -\t\t%#06x\n", u.v16);
 
-		if (!pci_read_config_dword(ndev->ntb.pdev,
+		if (!pci_read_config_dword(pdev,
 					   XEON_UNCERRSTS_OFFSET, &u.v32))
 			off += scnprintf(buf + off, buf_size - off,
 					 "UNCERRSTS -\t\t%#06x\n", u.v32);
 
-		if (!pci_read_config_dword(ndev->ntb.pdev,
+		if (!pci_read_config_dword(pdev,
 					   XEON_CORERRSTS_OFFSET, &u.v32))
 			off += scnprintf(buf + off, buf_size - off,
 					 "CORERRSTS -\t\t%#06x\n", u.v32);
@@ -1718,6 +1755,8 @@ static int xeon_setup_b2b_mw(struct intel_ntb_dev *ndev,
 					    XEON_B2B_MIN_SIZE);
 		if (!ndev->peer_mmio)
 			return -EIO;
+
+		ndev->peer_addr = pci_resource_start(pdev, b2b_bar);
 	}
 
 	return 0;
@@ -1982,6 +2021,7 @@ static int intel_ntb_init_pci(struct intel_ntb_dev *ndev, struct pci_dev *pdev)
 		goto err_mmio;
 	}
 	ndev->peer_mmio = ndev->self_mmio;
+	ndev->peer_addr = pci_resource_start(pdev, 0);
 
 	return 0;
 

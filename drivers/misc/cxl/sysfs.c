@@ -57,6 +57,15 @@ static ssize_t image_loaded_show(struct device *device,
 	return scnprintf(buf, PAGE_SIZE, "factory\n");
 }
 
+static ssize_t psl_timebase_synced_show(struct device *device,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct cxl *adapter = to_cxl_adapter(device);
+
+	return scnprintf(buf, PAGE_SIZE, "%i\n", adapter->psl_timebase_synced);
+}
+
 static ssize_t reset_adapter_store(struct device *device,
 				   struct device_attribute *attr,
 				   const char *buf, size_t count)
@@ -66,12 +75,31 @@ static ssize_t reset_adapter_store(struct device *device,
 	int val;
 
 	rc = sscanf(buf, "%i", &val);
-	if ((rc != 1) || (val != 1))
+	if ((rc != 1) || (val != 1 && val != -1))
 		return -EINVAL;
 
-	if ((rc = cxl_ops->adapter_reset(adapter)))
-		return rc;
-	return count;
+	/*
+	 * See if we can lock the context mapping that's only allowed
+	 * when there are no contexts attached to the adapter. Once
+	 * taken this will also prevent any context from getting activated.
+	 */
+	if (val == 1) {
+		rc =  cxl_adapter_context_lock(adapter);
+		if (rc)
+			goto out;
+
+		rc = cxl_ops->adapter_reset(adapter);
+		/* In case reset failed release context lock */
+		if (rc)
+			cxl_adapter_context_unlock(adapter);
+
+	} else if (val == -1) {
+		/* Perform a forced adapter reset */
+		rc = cxl_ops->adapter_reset(adapter);
+	}
+
+out:
+	return rc ? rc : count;
 }
 
 static ssize_t load_image_on_perst_show(struct device *device,
@@ -142,6 +170,7 @@ static struct device_attribute adapter_attrs[] = {
 	__ATTR_RO(psl_revision),
 	__ATTR_RO(base_image),
 	__ATTR_RO(image_loaded),
+	__ATTR_RO(psl_timebase_synced),
 	__ATTR_RW(load_image_on_perst),
 	__ATTR_RW(perst_reloads_same_image),
 	__ATTR(reset, S_IWUSR, NULL, reset_adapter_store),

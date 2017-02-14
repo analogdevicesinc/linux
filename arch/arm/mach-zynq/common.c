@@ -111,7 +111,6 @@ static void __init zynq_init_late(void)
  */
 static void __init zynq_init_machine(void)
 {
-	struct platform_device_info devinfo = { .name = "cpufreq-dt", };
 	struct soc_device_attribute *soc_dev_attr;
 	struct soc_device *soc_dev;
 	struct device *parent = NULL;
@@ -143,10 +142,9 @@ out:
 	 * Finished with the static registrations now; fill in the missing
 	 * devices
 	 */
-	of_platform_populate(NULL, of_default_bus_match_table, NULL, parent);
+	of_platform_default_populate(NULL, NULL, parent);
 
 	platform_device_register(&zynq_cpuidle_device);
-	platform_device_register_full(&devinfo);
 }
 
 static void __init zynq_timer_init(void)
@@ -185,6 +183,7 @@ static void __init zynq_map_io(void)
 
 static void __init zynq_irq_init(void)
 {
+	zynq_early_efuse_init();
 	zynq_early_slcr_init();
 	irqchip_init();
 }

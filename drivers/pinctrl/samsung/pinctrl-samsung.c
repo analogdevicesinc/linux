@@ -884,7 +884,8 @@ static int samsung_pinctrl_register(struct platform_device *pdev,
 	if (ret)
 		return ret;
 
-	drvdata->pctl_dev = pinctrl_register(ctrldesc, &pdev->dev, drvdata);
+	drvdata->pctl_dev = devm_pinctrl_register(&pdev->dev, ctrldesc,
+						  drvdata);
 	if (IS_ERR(drvdata->pctl_dev)) {
 		dev_err(&pdev->dev, "could not register pinctrl driver\n");
 		return PTR_ERR(drvdata->pctl_dev);
@@ -1040,17 +1041,9 @@ static int samsung_pinctrl_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 
-	if (!dev->of_node) {
-		dev_err(dev, "device tree node not found\n");
-		return -ENODEV;
-	}
-
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
-	if (!drvdata) {
-		dev_err(dev, "failed to allocate memory for driver's "
-				"private data\n");
+	if (!drvdata)
 		return -ENOMEM;
-	}
 
 	ctrl = samsung_pinctrl_get_soc_data(drvdata, pdev);
 	if (IS_ERR(ctrl)) {
@@ -1273,6 +1266,7 @@ static struct platform_driver samsung_pinctrl_driver = {
 	.driver = {
 		.name	= "samsung-pinctrl",
 		.of_match_table = samsung_pinctrl_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

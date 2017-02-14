@@ -119,8 +119,8 @@ static const u64 amd_perfmon_event_map[PERF_COUNT_HW_MAX] =
 {
   [PERF_COUNT_HW_CPU_CYCLES]			= 0x0076,
   [PERF_COUNT_HW_INSTRUCTIONS]			= 0x00c0,
-  [PERF_COUNT_HW_CACHE_REFERENCES]		= 0x0080,
-  [PERF_COUNT_HW_CACHE_MISSES]			= 0x0081,
+  [PERF_COUNT_HW_CACHE_REFERENCES]		= 0x077d,
+  [PERF_COUNT_HW_CACHE_MISSES]			= 0x077e,
   [PERF_COUNT_HW_BRANCH_INSTRUCTIONS]		= 0x00c2,
   [PERF_COUNT_HW_BRANCH_MISSES]			= 0x00c3,
   [PERF_COUNT_HW_STALLED_CYCLES_FRONTEND]	= 0x00d0, /* "Decoder empty" event */
@@ -370,13 +370,13 @@ static int amd_pmu_cpu_prepare(int cpu)
 	WARN_ON_ONCE(cpuc->amd_nb);
 
 	if (!x86_pmu.amd_nb_constraints)
-		return NOTIFY_OK;
+		return 0;
 
 	cpuc->amd_nb = amd_alloc_nb(cpu);
 	if (!cpuc->amd_nb)
-		return NOTIFY_BAD;
+		return -ENOMEM;
 
-	return NOTIFY_OK;
+	return 0;
 }
 
 static void amd_pmu_cpu_starting(int cpu)
@@ -662,7 +662,13 @@ static int __init amd_core_pmu_init(void)
 		pr_cont("Fam15h ");
 		x86_pmu.get_event_constraints = amd_get_event_constraints_f15h;
 		break;
-
+	case 0x17:
+		pr_cont("Fam17h ");
+		/*
+		 * In family 17h, there are no event constraints in the PMC hardware.
+		 * We fallback to using default amd_get_event_constraints.
+		 */
+		break;
 	default:
 		pr_err("core perfctr but no constraints; unknown hardware!\n");
 		return -ENODEV;

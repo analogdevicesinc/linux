@@ -1,6 +1,6 @@
 /* Broadcom NetXtreme-C/E network driver.
  *
- * Copyright (c) 2014-2015 Broadcom Corporation
+ * Copyright (c) 2014-2016 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,45 @@
 #include "bnxt_ethtool.h"
 
 #ifdef CONFIG_BNXT_SRIOV
+static int bnxt_hwrm_fwd_async_event_cmpl(struct bnxt *bp,
+					  struct bnxt_vf_info *vf, u16 event_id)
+{
+	struct hwrm_fwd_async_event_cmpl_output *resp = bp->hwrm_cmd_resp_addr;
+	struct hwrm_fwd_async_event_cmpl_input req = {0};
+	struct hwrm_async_event_cmpl *async_cmpl;
+	int rc = 0;
+
+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FWD_ASYNC_EVENT_CMPL, -1, -1);
+	if (vf)
+		req.encap_async_event_target_id = cpu_to_le16(vf->fw_fid);
+	else
+		/* broadcast this async event to all VFs */
+		req.encap_async_event_target_id = cpu_to_le16(0xffff);
+	async_cmpl = (struct hwrm_async_event_cmpl *)req.encap_async_event_cmpl;
+	async_cmpl->type =
+		cpu_to_le16(HWRM_ASYNC_EVENT_CMPL_TYPE_HWRM_ASYNC_EVENT);
+	async_cmpl->event_id = cpu_to_le16(event_id);
+
+	mutex_lock(&bp->hwrm_cmd_lock);
+	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+
+	if (rc) {
+		netdev_err(bp->dev, "hwrm_fwd_async_event_cmpl failed. rc:%d\n",
+			   rc);
+		goto fwd_async_event_cmpl_exit;
+	}
+
+	if (resp->error_code) {
+		netdev_err(bp->dev, "hwrm_fwd_async_event_cmpl error %d\n",
+			   resp->error_code);
+		rc = -1;
+	}
+
+fwd_async_event_cmpl_exit:
+	mutex_unlock(&bp->hwrm_cmd_lock);
+	return rc;
+}
+
 static int bnxt_vf_ndo_prep(struct bnxt *bp, int vf_id)
 {
 	if (!test_bit(BNXT_STATE_OPEN, &bp->state)) {
@@ -135,13 +174,20 @@ int bnxt_set_vf_mac(struct net_device *dev, int vf_id, u8 *mac)
 	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
 }
 
-int bnxt_set_vf_vlan(struct net_device *dev, int vf_id, u16 vlan_id, u8 qos)
+int bnxt_set_vf_vlan(struct net_device *dev, int vf_id, u16 vlan_id, u8 qos,
+		     __be16 vlan_proto)
 {
 	struct hwrm_func_cfg_input req = {0};
 	struct bnxt *bp = netdev_priv(dev);
 	struct bnxt_vf_info *vf;
 	u16 vlan_tag;
 	int rc;
+
+	if (bp->hwrm_spec_code < 0x10201)
+		return -ENOTSUPP;
+
+	if (vlan_proto != htons(ETH_P_8021Q))
+		return -EPROTONOSUPPORT;
 
 	rc = bnxt_vf_ndo_prep(bp, vf_id);
 	if (rc)
@@ -240,8 +286,9 @@ int bnxt_set_vf_link_state(struct net_device *dev, int vf_id, int link)
 		rc = -EINVAL;
 		break;
 	}
-	/* CHIMP TODO: send msg to VF to update new link state */
-
+	if (vf->flags & (BNXT_VF_LINK_UP | BNXT_VF_LINK_FORCED))
+		rc = bnxt_hwrm_fwd_async_event_cmpl(bp, vf,
+			HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE);
 	return rc;
 }
 
@@ -522,46 +569,6 @@ err_out1:
 	return rc;
 }
 
-static int bnxt_hwrm_fwd_async_event_cmpl(struct bnxt *bp,
-					  struct bnxt_vf_info *vf,
-					  u16 event_id)
-{
-	int rc = 0;
-	struct hwrm_fwd_async_event_cmpl_input req = {0};
-	struct hwrm_fwd_async_event_cmpl_output *resp = bp->hwrm_cmd_resp_addr;
-	struct hwrm_async_event_cmpl *async_cmpl;
-
-	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FWD_ASYNC_EVENT_CMPL, -1, -1);
-	if (vf)
-		req.encap_async_event_target_id = cpu_to_le16(vf->fw_fid);
-	else
-		/* broadcast this async event to all VFs */
-		req.encap_async_event_target_id = cpu_to_le16(0xffff);
-	async_cmpl = (struct hwrm_async_event_cmpl *)req.encap_async_event_cmpl;
-	async_cmpl->type =
-		cpu_to_le16(HWRM_ASYNC_EVENT_CMPL_TYPE_HWRM_ASYNC_EVENT);
-	async_cmpl->event_id = cpu_to_le16(event_id);
-
-	mutex_lock(&bp->hwrm_cmd_lock);
-	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-
-	if (rc) {
-		netdev_err(bp->dev, "hwrm_fwd_async_event_cmpl failed. rc:%d\n",
-			   rc);
-		goto fwd_async_event_cmpl_exit;
-	}
-
-	if (resp->error_code) {
-		netdev_err(bp->dev, "hwrm_fwd_async_event_cmpl error %d\n",
-			   resp->error_code);
-		rc = -1;
-	}
-
-fwd_async_event_cmpl_exit:
-	mutex_unlock(&bp->hwrm_cmd_lock);
-	return rc;
-}
-
 void bnxt_sriov_disable(struct bnxt *bp)
 {
 	u16 num_vfs = pci_num_vf(bp->pdev);
@@ -767,16 +774,12 @@ static int bnxt_vf_set_link(struct bnxt *bp, struct bnxt_vf_info *vf)
 
 		if (vf->flags & BNXT_VF_LINK_UP) {
 			/* if physical link is down, force link up on VF */
-			if (phy_qcfg_resp.link ==
-			    PORT_PHY_QCFG_RESP_LINK_NO_LINK) {
+			if (phy_qcfg_resp.link !=
+			    PORT_PHY_QCFG_RESP_LINK_LINK) {
 				phy_qcfg_resp.link =
 					PORT_PHY_QCFG_RESP_LINK_LINK;
-				if (phy_qcfg_resp.auto_link_speed)
-					phy_qcfg_resp.link_speed =
-						phy_qcfg_resp.auto_link_speed;
-				else
-					phy_qcfg_resp.link_speed =
-						phy_qcfg_resp.force_link_speed;
+				phy_qcfg_resp.link_speed = cpu_to_le16(
+					PORT_PHY_QCFG_RESP_LINK_SPEED_10GB);
 				phy_qcfg_resp.duplex =
 					PORT_PHY_QCFG_RESP_DUPLEX_FULL;
 				phy_qcfg_resp.pause =
@@ -859,8 +862,8 @@ void bnxt_update_vf_mac(struct bnxt *bp)
 	 *    default but the stored zero MAC will allow the VF user to change
 	 *    the random MAC address using ndo_set_mac_address() if he wants.
 	 */
-	if (!ether_addr_equal(resp->perm_mac_address, bp->vf.mac_addr))
-		memcpy(bp->vf.mac_addr, resp->perm_mac_address, ETH_ALEN);
+	if (!ether_addr_equal(resp->mac_address, bp->vf.mac_addr))
+		memcpy(bp->vf.mac_addr, resp->mac_address, ETH_ALEN);
 
 	/* overwrite netdev dev_addr with admin VF MAC */
 	if (is_valid_ether_addr(bp->vf.mac_addr))
@@ -869,6 +872,31 @@ update_vf_mac_exit:
 	mutex_unlock(&bp->hwrm_cmd_lock);
 }
 
+int bnxt_approve_mac(struct bnxt *bp, u8 *mac)
+{
+	struct hwrm_func_vf_cfg_input req = {0};
+	int rc = 0;
+
+	if (!BNXT_VF(bp))
+		return 0;
+
+	if (bp->hwrm_spec_code < 0x10202) {
+		if (is_valid_ether_addr(bp->vf.mac_addr))
+			rc = -EADDRNOTAVAIL;
+		goto mac_done;
+	}
+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_VF_CFG, -1, -1);
+	req.enables = cpu_to_le32(FUNC_VF_CFG_REQ_ENABLES_DFLT_MAC_ADDR);
+	memcpy(req.dflt_mac_addr, mac, ETH_ALEN);
+	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+mac_done:
+	if (rc) {
+		rc = -EADDRNOTAVAIL;
+		netdev_warn(bp->dev, "VF MAC address %pM not approved by the PF\n",
+			    mac);
+	}
+	return rc;
+}
 #else
 
 void bnxt_sriov_disable(struct bnxt *bp)
@@ -882,5 +910,10 @@ void bnxt_hwrm_exec_fwd_req(struct bnxt *bp)
 
 void bnxt_update_vf_mac(struct bnxt *bp)
 {
+}
+
+int bnxt_approve_mac(struct bnxt *bp, u8 *mac)
+{
+	return 0;
 }
 #endif

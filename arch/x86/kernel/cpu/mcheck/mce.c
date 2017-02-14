@@ -41,6 +41,7 @@
 #include <linux/debugfs.h>
 #include <linux/irq_work.h>
 #include <linux/export.h>
+#include <linux/jump_label.h>
 
 #include <asm/processor.h>
 #include <asm/traps.h>
@@ -161,7 +162,6 @@ void mce_log(struct mce *mce)
 	if (!mce_gen_pool_add(mce))
 		irq_work_queue(&mce_irq_work);
 
-	mce->finished = 0;
 	wmb();
 	for (;;) {
 		entry = mce_log_get_idx_check(mcelog.next);
@@ -194,7 +194,6 @@ void mce_log(struct mce *mce)
 	mcelog.entry[entry].finished = 1;
 	wmb();
 
-	mce->finished = 1;
 	set_bit(0, &mce_need_notify);
 }
 
@@ -224,6 +223,53 @@ void mce_unregister_decode_chain(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(mce_unregister_decode_chain);
 
+static inline u32 ctl_reg(int bank)
+{
+	return MSR_IA32_MCx_CTL(bank);
+}
+
+static inline u32 status_reg(int bank)
+{
+	return MSR_IA32_MCx_STATUS(bank);
+}
+
+static inline u32 addr_reg(int bank)
+{
+	return MSR_IA32_MCx_ADDR(bank);
+}
+
+static inline u32 misc_reg(int bank)
+{
+	return MSR_IA32_MCx_MISC(bank);
+}
+
+static inline u32 smca_ctl_reg(int bank)
+{
+	return MSR_AMD64_SMCA_MCx_CTL(bank);
+}
+
+static inline u32 smca_status_reg(int bank)
+{
+	return MSR_AMD64_SMCA_MCx_STATUS(bank);
+}
+
+static inline u32 smca_addr_reg(int bank)
+{
+	return MSR_AMD64_SMCA_MCx_ADDR(bank);
+}
+
+static inline u32 smca_misc_reg(int bank)
+{
+	return MSR_AMD64_SMCA_MCx_MISC(bank);
+}
+
+struct mca_msr_regs msr_ops = {
+	.ctl	= ctl_reg,
+	.status	= status_reg,
+	.addr	= addr_reg,
+	.misc	= misc_reg
+};
+
 static void print_mce(struct mce *m)
 {
 	int ret = 0;
@@ -246,6 +292,13 @@ static void print_mce(struct mce *m)
 		pr_cont("ADDR %llx ", m->addr);
 	if (m->misc)
 		pr_cont("MISC %llx ", m->misc);
+
+	if (mce_flags.smca) {
+		if (m->synd)
+			pr_cont("SYND %llx ", m->synd);
+		if (m->ipid)
+			pr_cont("IPID %llx ", m->ipid);
+	}
 
 	pr_cont("\n");
 	/*
@@ -290,7 +343,9 @@ static void wait_for_panic(void)
 
 static void mce_panic(const char *msg, struct mce *final, char *exp)
 {
-	int i, apei_err = 0;
+	int apei_err = 0;
+	struct llist_node *pending;
+	struct mce_evt_llist *l;
 
 	if (!fake_panic) {
 		/*
@@ -307,11 +362,10 @@ static void mce_panic(const char *msg, struct mce *final, char *exp)
 		if (atomic_inc_return(&mce_fake_panicked) > 1)
 			return;
 	}
+	pending = mce_gen_pool_prepare_records();
 	/* First print corrected ones that are still unlogged */
-	for (i = 0; i < MCE_LOG_LEN; i++) {
-		struct mce *m = &mcelog.entry[i];
-		if (!(m->status & MCI_STATUS_VAL))
-			continue;
+	llist_for_each_entry(l, pending, llnode) {
+		struct mce *m = &l->mce;
 		if (!(m->status & MCI_STATUS_UC)) {
 			print_mce(m);
 			if (!apei_err)
@@ -319,13 +373,11 @@ static void mce_panic(const char *msg, struct mce *final, char *exp)
 		}
 	}
 	/* Now print uncorrected but with the final one last */
-	for (i = 0; i < MCE_LOG_LEN; i++) {
-		struct mce *m = &mcelog.entry[i];
-		if (!(m->status & MCI_STATUS_VAL))
-			continue;
+	llist_for_each_entry(l, pending, llnode) {
+		struct mce *m = &l->mce;
 		if (!(m->status & MCI_STATUS_UC))
 			continue;
-		if (!final || memcmp(m, final, sizeof(struct mce))) {
+		if (!final || mce_cmp(m, final)) {
 			print_mce(m);
 			if (!apei_err)
 				apei_err = apei_write_mce(m);
@@ -356,11 +408,11 @@ static int msr_to_offset(u32 msr)
 
 	if (msr == mca_cfg.rip_msr)
 		return offsetof(struct mce, ip);
-	if (msr == MSR_IA32_MCx_STATUS(bank))
+	if (msr == msr_ops.status(bank))
 		return offsetof(struct mce, status);
-	if (msr == MSR_IA32_MCx_ADDR(bank))
+	if (msr == msr_ops.addr(bank))
 		return offsetof(struct mce, addr);
-	if (msr == MSR_IA32_MCx_MISC(bank))
+	if (msr == msr_ops.misc(bank))
 		return offsetof(struct mce, misc);
 	if (msr == MSR_IA32_MCG_STATUS)
 		return offsetof(struct mce, mcgstatus);
@@ -381,7 +433,7 @@ static u64 mce_rdmsrl(u32 msr)
 	}
 
 	if (rdmsrl_safe(msr, &v)) {
-		WARN_ONCE(1, "mce: Unable to read msr %d!\n", msr);
+		WARN_ONCE(1, "mce: Unable to read MSR 0x%x!\n", msr);
 		/*
 		 * Return zero in case the access faulted. This should
 		 * not happen normally but can happen if the CPU does
@@ -523,9 +575,10 @@ static struct notifier_block mce_srao_nb = {
 static void mce_read_aux(struct mce *m, int i)
 {
 	if (m->status & MCI_STATUS_MISCV)
-		m->misc = mce_rdmsrl(MSR_IA32_MCx_MISC(i));
+		m->misc = mce_rdmsrl(msr_ops.misc(i));
+
 	if (m->status & MCI_STATUS_ADDRV) {
-		m->addr = mce_rdmsrl(MSR_IA32_MCx_ADDR(i));
+		m->addr = mce_rdmsrl(msr_ops.addr(i));
 
 		/*
 		 * Mask the reported address by the reported granularity.
@@ -535,6 +588,23 @@ static void mce_read_aux(struct mce *m, int i)
 			m->addr >>= shift;
 			m->addr <<= shift;
 		}
+
+		/*
+		 * Extract [55:<lsb>] where lsb is the least significant
+		 * *valid* bit of the address bits.
+		 */
+		if (mce_flags.smca) {
+			u8 lsb = (m->addr >> 56) & 0x3f;
+
+			m->addr &= GENMASK_ULL(55, lsb);
+		}
+	}
+
+	if (mce_flags.smca) {
+		m->ipid = mce_rdmsrl(MSR_AMD64_SMCA_MCx_IPID(i));
+
+		if (m->status & MCI_STATUS_SYNDV)
+			m->synd = mce_rdmsrl(MSR_AMD64_SMCA_MCx_SYND(i));
 	}
 }
 
@@ -607,7 +677,7 @@ bool machine_check_poll(enum mcp_flags flags, mce_banks_t *b)
 		m.tsc = 0;
 
 		barrier();
-		m.status = mce_rdmsrl(MSR_IA32_MCx_STATUS(i));
+		m.status = mce_rdmsrl(msr_ops.status(i));
 		if (!(m.status & MCI_STATUS_VAL))
 			continue;
 
@@ -654,7 +724,7 @@ bool machine_check_poll(enum mcp_flags flags, mce_banks_t *b)
 		/*
 		 * Clear state for this bank.
 		 */
-		mce_wrmsrl(MSR_IA32_MCx_STATUS(i), 0);
+		mce_wrmsrl(msr_ops.status(i), 0);
 	}
 
 	/*
@@ -679,7 +749,7 @@ static int mce_no_way_out(struct mce *m, char **msg, unsigned long *validp,
 	char *tmp;
 
 	for (i = 0; i < mca_cfg.banks; i++) {
-		m->status = mce_rdmsrl(MSR_IA32_MCx_STATUS(i));
+		m->status = mce_rdmsrl(msr_ops.status(i));
 		if (m->status & MCI_STATUS_VAL) {
 			__set_bit(i, validp);
 			if (quirk_no_way_out)
@@ -830,9 +900,9 @@ static int mce_start(int *no_way_out)
 
 	atomic_add(*no_way_out, &global_nwo);
 	/*
-	 * global_nwo should be updated before mce_callin
+	 * Rely on the implied barrier below, such that global_nwo
+	 * is updated before mce_callin.
 	 */
-	smp_wmb();
 	order = atomic_inc_return(&mce_callin);
 
 	/*
@@ -957,7 +1027,7 @@ static void mce_clear_state(unsigned long *toclear)
 
 	for (i = 0; i < mca_cfg.banks; i++) {
 		if (test_bit(i, toclear))
-			mce_wrmsrl(MSR_IA32_MCx_STATUS(i), 0);
+			mce_wrmsrl(msr_ops.status(i), 0);
 	}
 }
 
@@ -994,11 +1064,12 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 	int i;
 	int worst = 0;
 	int severity;
+
 	/*
 	 * Establish sequential order between the CPUs entering the machine
 	 * check handler.
 	 */
-	int order;
+	int order = -1;
 	/*
 	 * If no_way_out gets set, there is no safe way to recover from this
 	 * MCE.  If mca_cfg.tolerant is cranked up, we'll try anyway.
@@ -1012,7 +1083,12 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 	DECLARE_BITMAP(toclear, MAX_NR_BANKS);
 	DECLARE_BITMAP(valid_banks, MAX_NR_BANKS);
 	char *msg = "Unknown";
-	int lmce = 0;
+
+	/*
+	 * MCEs are always local on AMD. Same is determined by MCG_STATUS_LMCES
+	 * on Intel.
+	 */
+	int lmce = 1;
 
 	/* If this CPU is offline, just bail out. */
 	if (cpu_is_offline(smp_processor_id())) {
@@ -1051,19 +1127,20 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 		kill_it = 1;
 
 	/*
-	 * Check if this MCE is signaled to only this logical processor
+	 * Check if this MCE is signaled to only this logical processor,
+	 * on Intel only.
 	 */
-	if (m.mcgstatus & MCG_STATUS_LMCES)
-		lmce = 1;
-	else {
-		/*
-		 * Go through all the banks in exclusion of the other CPUs.
-		 * This way we don't report duplicated events on shared banks
-		 * because the first one to see it will clear it.
-		 * If this is a Local MCE, then no need to perform rendezvous.
-		 */
+	if (m.cpuvendor == X86_VENDOR_INTEL)
+		lmce = m.mcgstatus & MCG_STATUS_LMCES;
+
+	/*
+	 * Go through all banks in exclusion of the other CPUs. This way we
+	 * don't report duplicated events on shared banks because the first one
+	 * to see it will clear it. If this is a Local MCE, then no need to
+	 * perform rendezvous.
+	 */
+	if (!lmce)
 		order = mce_start(&no_way_out);
-	}
 
 	for (i = 0; i < cfg->banks; i++) {
 		__clear_bit(i, toclear);
@@ -1076,7 +1153,7 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 		m.addr = 0;
 		m.bank = i;
 
-		m.status = mce_rdmsrl(MSR_IA32_MCx_STATUS(i));
+		m.status = mce_rdmsrl(msr_ops.status(i));
 		if ((m.status & MCI_STATUS_VAL) == 0)
 			continue;
 
@@ -1258,7 +1335,7 @@ static void __restart_timer(struct timer_list *t, unsigned long interval)
 
 	if (timer_pending(t)) {
 		if (time_before(when, t->expires))
-			mod_timer_pinned(t, when);
+			mod_timer(t, when);
 	} else {
 		t->expires = round_jiffies(when);
 		add_timer_on(t, smp_processor_id());
@@ -1420,7 +1497,6 @@ static void __mcheck_cpu_init_generic(void)
 	enum mcp_flags m_fl = 0;
 	mce_banks_t all_banks;
 	u64 cap;
-	int i;
 
 	if (!mca_cfg.bootlog)
 		m_fl = MCP_DONTLOG;
@@ -1436,14 +1512,19 @@ static void __mcheck_cpu_init_generic(void)
 	rdmsrl(MSR_IA32_MCG_CAP, cap);
 	if (cap & MCG_CTL_P)
 		wrmsr(MSR_IA32_MCG_CTL, 0xffffffff, 0xffffffff);
+}
+
+static void __mcheck_cpu_init_clear_banks(void)
+{
+	int i;
 
 	for (i = 0; i < mca_cfg.banks; i++) {
 		struct mce_bank *b = &mce_banks[i];
 
 		if (!b->init)
 			continue;
-		wrmsrl(MSR_IA32_MCx_CTL(i), b->ctl);
-		wrmsrl(MSR_IA32_MCx_STATUS(i), 0);
+		wrmsrl(msr_ops.ctl(i), b->ctl);
+		wrmsrl(msr_ops.status(i), 0);
 	}
 }
 
@@ -1495,7 +1576,7 @@ static int __mcheck_cpu_apply_quirks(struct cpuinfo_x86 *c)
 			 */
 			clear_bit(10, (unsigned long *)&mce_banks[4].ctl);
 		}
-		if (c->x86 <= 17 && cfg->bootlog < 0) {
+		if (c->x86 < 17 && cfg->bootlog < 0) {
 			/*
 			 * Lots of broken BIOS around that don't clear them
 			 * by default and leave crap in there. Don't log:
@@ -1578,17 +1659,6 @@ static int __mcheck_cpu_apply_quirks(struct cpuinfo_x86 *c)
 
 		if (c->x86 == 6 && c->x86_model == 45)
 			quirk_no_way_out = quirk_sandybridge_ifu;
-		/*
-		 * MCG_CAP.MCG_SER_P is necessary but not sufficient to know
-		 * whether this processor will actually generate recoverable
-		 * machine checks. Check to see if this is an E7 model Xeon.
-		 * We can't do a model number check because E5 and E7 use the
-		 * same model number. E5 doesn't support recovery, E7 does.
-		 */
-		if (mca_cfg.recovery || (mca_cfg.ser &&
-			!strncmp(c->x86_model_id,
-				 "Intel(R) Xeon(R) CPU E7-", 24)))
-			set_cpu_cap(c, X86_FEATURE_MCE_RECOVERY);
 	}
 	if (cfg->monarch_timeout < 0)
 		cfg->monarch_timeout = 0;
@@ -1628,11 +1698,19 @@ static void __mcheck_cpu_init_vendor(struct cpuinfo_x86 *c)
 		break;
 
 	case X86_VENDOR_AMD: {
-		u32 ebx = cpuid_ebx(0x80000007);
+		mce_flags.overflow_recov = !!cpu_has(c, X86_FEATURE_OVERFLOW_RECOV);
+		mce_flags.succor	 = !!cpu_has(c, X86_FEATURE_SUCCOR);
+		mce_flags.smca		 = !!cpu_has(c, X86_FEATURE_SMCA);
 
-		mce_flags.overflow_recov = !!(ebx & BIT(0));
-		mce_flags.succor	 = !!(ebx & BIT(1));
-		mce_flags.smca		 = !!(ebx & BIT(3));
+		/*
+		 * Install proper ops for Scalable MCA enabled processors
+		 */
+		if (mce_flags.smca) {
+			msr_ops.ctl	= smca_ctl_reg;
+			msr_ops.status	= smca_status_reg;
+			msr_ops.addr	= smca_addr_reg;
+			msr_ops.misc	= smca_misc_reg;
+		}
 		mce_amd_feature_init(c);
 
 		break;
@@ -1672,7 +1750,7 @@ static void __mcheck_cpu_init_timer(void)
 	struct timer_list *t = this_cpu_ptr(&mce_timer);
 	unsigned int cpu = smp_processor_id();
 
-	setup_timer(t, mce_timer_fn, cpu);
+	setup_pinned_timer(t, mce_timer_fn, cpu);
 	mce_start_timer(cpu, t);
 }
 
@@ -1717,6 +1795,7 @@ void mcheck_cpu_init(struct cpuinfo_x86 *c)
 
 	__mcheck_cpu_init_generic();
 	__mcheck_cpu_init_vendor(c);
+	__mcheck_cpu_init_clear_banks();
 	__mcheck_cpu_init_timer();
 }
 
@@ -2016,6 +2095,7 @@ void mce_disable_bank(int bank)
  * mce=bootlog Log MCEs from before booting. Disabled by default on AMD.
  * mce=nobootlog Don't log MCEs from before booting.
  * mce=bios_cmci_threshold Don't program the CMCI threshold
+ * mce=recovery force enable memcpy_mcsafe()
  */
 static int __init mcheck_enable(char *str)
 {
@@ -2082,7 +2162,7 @@ static void mce_disable_error_reporting(void)
 		struct mce_bank *b = &mce_banks[i];
 
 		if (b->init)
-			wrmsrl(MSR_IA32_MCx_CTL(i), 0);
+			wrmsrl(msr_ops.ctl(i), 0);
 	}
 	return;
 }
@@ -2121,6 +2201,7 @@ static void mce_syscore_resume(void)
 {
 	__mcheck_cpu_init_generic();
 	__mcheck_cpu_init_vendor(raw_cpu_ptr(&cpu_info));
+	__mcheck_cpu_init_clear_banks();
 }
 
 static struct syscore_ops mce_syscore_ops = {
@@ -2138,6 +2219,7 @@ static void mce_cpu_restart(void *data)
 	if (!mce_available(raw_cpu_ptr(&cpu_info)))
 		return;
 	__mcheck_cpu_init_generic();
+	__mcheck_cpu_init_clear_banks();
 	__mcheck_cpu_init_timer();
 }
 
@@ -2413,7 +2495,7 @@ static void mce_reenable_cpu(void *h)
 		struct mce_bank *b = &mce_banks[i];
 
 		if (b->init)
-			wrmsrl(MSR_IA32_MCx_CTL(i), b->ctl);
+			wrmsrl(msr_ops.ctl(i), b->ctl);
 	}
 }
 
@@ -2610,8 +2692,14 @@ static int __init mcheck_debugfs_init(void)
 static int __init mcheck_debugfs_init(void) { return -EINVAL; }
 #endif
 
+DEFINE_STATIC_KEY_FALSE(mcsafe_key);
+EXPORT_SYMBOL_GPL(mcsafe_key);
+
 static int __init mcheck_late_init(void)
 {
+	if (mca_cfg.recovery)
+		static_branch_inc(&mcsafe_key);
+
 	mcheck_debugfs_init();
 
 	/*

@@ -1,7 +1,7 @@
 /*
  *  Ralink RT288x SoC PCI register definitions
  *
- *  Copyright (C) 2009 John Crispin <blogic@openwrt.org>
+ *  Copyright (C) 2009 John Crispin <john@phrozen.org>
  *  Copyright (C) 2009 Gabor Juhos <juhosg@openwrt.org>
  *
  *  Parts of this file are based on Ralink's 2.6.21 BSP
@@ -16,7 +16,6 @@
 #include <linux/pci.h>
 #include <linux/io.h>
 #include <linux/init.h>
-#include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
 #include <linux/of_pci.h>
@@ -260,7 +259,6 @@ static const struct of_device_id rt288x_pci_match[] = {
 	{ .compatible = "ralink,rt288x-pci" },
 	{},
 };
-MODULE_DEVICE_TABLE(of, rt288x_pci_match);
 
 static struct platform_driver rt288x_pci_driver = {
 	.probe = rt288x_pci_probe,

@@ -821,7 +821,7 @@ static void encx24j600_set_multicast_list(struct net_device *dev)
 	}
 
 	if (oldfilter != priv->rxfilter)
-		queue_kthread_work(&priv->kworker, &priv->setrx_work);
+		kthread_queue_work(&priv->kworker, &priv->setrx_work);
 }
 
 static void encx24j600_hw_tx(struct encx24j600_priv *priv)
@@ -874,12 +874,12 @@ static netdev_tx_t encx24j600_tx(struct sk_buff *skb, struct net_device *dev)
 	netif_stop_queue(dev);
 
 	/* save the timestamp */
-	dev->trans_start = jiffies;
+	netif_trans_update(dev);
 
 	/* Remember the skb for deferred processing */
 	priv->tx_skb = skb;
 
-	queue_kthread_work(&priv->kworker, &priv->tx_work);
+	kthread_queue_work(&priv->kworker, &priv->tx_work);
 
 	return NETDEV_TX_OK;
 }
@@ -890,7 +890,7 @@ static void encx24j600_tx_timeout(struct net_device *dev)
 	struct encx24j600_priv *priv = netdev_priv(dev);
 
 	netif_err(priv, tx_err, dev, "TX timeout at %ld, latency %ld\n",
-		  jiffies, jiffies - dev->trans_start);
+		  jiffies, jiffies - dev_trans_start(dev));
 
 	dev->stats.tx_errors++;
 	netif_wake_queue(dev);
@@ -1037,9 +1037,9 @@ static int encx24j600_spi_probe(struct spi_device *spi)
 		goto out_free;
 	}
 
-	init_kthread_worker(&priv->kworker);
-	init_kthread_work(&priv->tx_work, encx24j600_tx_proc);
-	init_kthread_work(&priv->setrx_work, encx24j600_setrx_proc);
+	kthread_init_worker(&priv->kworker);
+	kthread_init_work(&priv->tx_work, encx24j600_tx_proc);
+	kthread_init_work(&priv->setrx_work, encx24j600_setrx_proc);
 
 	priv->kworker_task = kthread_run(kthread_worker_fn, &priv->kworker,
 					 "encx24j600");

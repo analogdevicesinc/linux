@@ -265,7 +265,7 @@ static int gid_ok(union ib_gid *gid, __be64 gid_prefix, __be64 id)
  *
  * The s_lock will be acquired around the qib_migrate_qp() call.
  */
-int qib_ruc_check_hdr(struct qib_ibport *ibp, struct qib_ib_header *hdr,
+int qib_ruc_check_hdr(struct qib_ibport *ibp, struct ib_header *hdr,
 		      int has_grh, struct rvt_qp *qp, u32 bth0)
 {
 	__be64 guid;
@@ -680,7 +680,7 @@ u32 qib_make_grh(struct qib_ibport *ibp, struct ib_grh *hdr,
 	return sizeof(struct ib_grh) / sizeof(u32);
 }
 
-void qib_make_ruc_header(struct rvt_qp *qp, struct qib_other_headers *ohdr,
+void qib_make_ruc_header(struct rvt_qp *qp, struct ib_other_headers *ohdr,
 			 u32 bth0, u32 bth2)
 {
 	struct qib_qp_priv *priv = qp->priv;
@@ -739,7 +739,7 @@ void qib_do_send(struct rvt_qp *qp)
 	struct qib_qp_priv *priv = qp->priv;
 	struct qib_ibport *ibp = to_iport(qp->ibqp.device, qp->port_num);
 	struct qib_pportdata *ppd = ppd_from_ibp(ibp);
-	int (*make_req)(struct rvt_qp *qp);
+	int (*make_req)(struct rvt_qp *qp, unsigned long *flags);
 	unsigned long flags;
 
 	if ((qp->ibqp.qp_type == IB_QPT_RC ||
@@ -781,7 +781,7 @@ void qib_do_send(struct rvt_qp *qp)
 			qp->s_hdrwords = 0;
 			spin_lock_irqsave(&qp->s_lock, flags);
 		}
-	} while (make_req(qp));
+	} while (make_req(qp, &flags));
 
 	spin_unlock_irqrestore(&qp->s_lock, flags);
 }

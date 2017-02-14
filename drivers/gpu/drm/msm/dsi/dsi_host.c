@@ -139,6 +139,7 @@ struct msm_dsi_host {
 
 	u32 err_work_state;
 	struct work_struct err_work;
+	struct work_struct hpd_work;
 	struct workqueue_struct *workqueue;
 
 	/* DSI 6G TX buffer*/
@@ -323,18 +324,6 @@ static int dsi_regulator_init(struct msm_dsi_host *msm_host)
 		pr_err("%s: failed to init regulator, ret=%d\n",
 						__func__, ret);
 		return ret;
-	}
-
-	for (i = 0; i < num; i++) {
-		if (regulator_can_change_voltage(s[i].consumer)) {
-			ret = regulator_set_voltage(s[i].consumer,
-				regs[i].min_voltage, regs[i].max_voltage);
-			if (ret < 0) {
-				pr_err("regulator %d set voltage failed, %d\n",
-					i, ret);
-				return ret;
-			}
-		}
 	}
 
 	return 0;
@@ -1078,7 +1067,7 @@ static int dsi_cmd_dma_add(struct msm_dsi_host *msm_host,
 	}
 
 	if (cfg_hnd->major == MSM_DSI_VER_MAJOR_6G) {
-		data = msm_gem_vaddr(msm_host->tx_gem_obj);
+		data = msm_gem_get_vaddr(msm_host->tx_gem_obj);
 		if (IS_ERR(data)) {
 			ret = PTR_ERR(data);
 			pr_err("%s: get vaddr failed, %d\n", __func__, ret);
@@ -1105,6 +1094,9 @@ static int dsi_cmd_dma_add(struct msm_dsi_host *msm_host,
 	/* Append 0xff to the end */
 	if (packet.size < len)
 		memset(data + packet.size, 0xff, len - packet.size);
+
+	if (cfg_hnd->major == MSM_DSI_VER_MAJOR_6G)
+		msm_gem_put_vaddr(msm_host->tx_gem_obj);
 
 	return len;
 }
@@ -1303,6 +1295,14 @@ static void dsi_sw_reset_restore(struct msm_dsi_host *msm_host)
 	wmb();	/* make sure dsi controller enabled again */
 }
 
+static void dsi_hpd_worker(struct work_struct *work)
+{
+	struct msm_dsi_host *msm_host =
+		container_of(work, struct msm_dsi_host, hpd_work);
+
+	drm_helper_hpd_irq_event(msm_host->dev);
+}
+
 static void dsi_err_worker(struct work_struct *work)
 {
 	struct msm_dsi_host *msm_host =
@@ -1489,7 +1489,7 @@ static int dsi_host_attach(struct mipi_dsi_host *host,
 
 	DBG("id=%d", msm_host->id);
 	if (msm_host->dev)
-		drm_helper_hpd_irq_event(msm_host->dev);
+		queue_work(msm_host->workqueue, &msm_host->hpd_work);
 
 	return 0;
 }
@@ -1503,7 +1503,7 @@ static int dsi_host_detach(struct mipi_dsi_host *host,
 
 	DBG("id=%d", msm_host->id);
 	if (msm_host->dev)
-		drm_helper_hpd_irq_event(msm_host->dev);
+		queue_work(msm_host->workqueue, &msm_host->hpd_work);
 
 	return 0;
 }
@@ -1555,7 +1555,7 @@ static int dsi_host_parse_lane_data(struct msm_dsi_host *msm_host,
 	u32 lane_map[4];
 	int ret, i, len, num_lanes;
 
-	prop = of_find_property(ep, "qcom,data-lane-map", &len);
+	prop = of_find_property(ep, "data-lanes", &len);
 	if (!prop) {
 		dev_dbg(dev, "failed to find data lane mapping\n");
 		return -EINVAL;
@@ -1570,7 +1570,7 @@ static int dsi_host_parse_lane_data(struct msm_dsi_host *msm_host,
 
 	msm_host->num_data_lanes = num_lanes;
 
-	ret = of_property_read_u32_array(ep, "qcom,data-lane-map", lane_map,
+	ret = of_property_read_u32_array(ep, "data-lanes", lane_map,
 					 num_lanes);
 	if (ret) {
 		dev_err(dev, "failed to read lane data\n");
@@ -1585,8 +1585,19 @@ static int dsi_host_parse_lane_data(struct msm_dsi_host *msm_host,
 		const int *swap = supported_data_lane_swaps[i];
 		int j;
 
+		/*
+		 * the data-lanes array we get from DT has a logical->physical
+		 * mapping. The "data lane swap" register field represents
+		 * supported configurations in a physical->logical mapping.
+		 * Translate the DT mapping to what we understand and find a
+		 * configuration that works.
+		 */
 		for (j = 0; j < num_lanes; j++) {
-			if (swap[j] != lane_map[j])
+			if (lane_map[j] < 0 || lane_map[j] > 3)
+				dev_err(dev, "bad physical lane entry %u\n",
+					lane_map[j]);
+
+			if (swap[lane_map[j]] != j)
 				break;
 		}
 
@@ -1606,20 +1617,13 @@ static int dsi_host_parse_dt(struct msm_dsi_host *msm_host)
 	struct device_node *endpoint, *device_node;
 	int ret;
 
-	ret = of_property_read_u32(np, "qcom,dsi-host-index", &msm_host->id);
-	if (ret) {
-		dev_err(dev, "%s: host index not specified, ret=%d\n",
-			__func__, ret);
-		return ret;
-	}
-
 	/*
-	 * Get the first endpoint node. In our case, dsi has one output port
-	 * to which the panel is connected. Don't return an error if a port
-	 * isn't defined. It's possible that there is nothing connected to
-	 * the dsi output.
+	 * Get the endpoint of the output port of the DSI host. In our case,
+	 * this is mapped to port number with reg = 1. Don't return an error if
+	 * the remote endpoint isn't defined. It's possible that there is
+	 * nothing connected to the dsi output.
 	 */
-	endpoint = of_graph_get_next_endpoint(np, NULL);
+	endpoint = of_graph_get_endpoint_by_regs(np, 1, -1);
 	if (!endpoint) {
 		dev_dbg(dev, "%s: no endpoint\n", __func__);
 		return 0;
@@ -1660,6 +1664,25 @@ err:
 	return ret;
 }
 
+static int dsi_host_get_id(struct msm_dsi_host *msm_host)
+{
+	struct platform_device *pdev = msm_host->pdev;
+	const struct msm_dsi_config *cfg = msm_host->cfg_hnd->cfg;
+	struct resource *res;
+	int i;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dsi_ctrl");
+	if (!res)
+		return -EINVAL;
+
+	for (i = 0; i < cfg->num_dsi; i++) {
+		if (cfg->io_start[i] == res->start)
+			return i;
+	}
+
+	return -EINVAL;
+}
+
 int msm_dsi_host_init(struct msm_dsi *msm_dsi)
 {
 	struct msm_dsi_host *msm_host = NULL;
@@ -1696,6 +1719,13 @@ int msm_dsi_host_init(struct msm_dsi *msm_dsi)
 		goto fail;
 	}
 
+	msm_host->id = dsi_host_get_id(msm_host);
+	if (msm_host->id < 0) {
+		ret = msm_host->id;
+		pr_err("%s: unable to identify DSI host index\n", __func__);
+		goto fail;
+	}
+
 	/* fixup base address by io offset */
 	msm_host->ctrl_base += msm_host->cfg_hnd->cfg->io_offset;
 
@@ -1727,6 +1757,7 @@ int msm_dsi_host_init(struct msm_dsi *msm_dsi)
 	/* setup workqueue */
 	msm_host->workqueue = alloc_ordered_workqueue("dsi_drm_work", 0);
 	INIT_WORK(&msm_host->err_work, dsi_err_worker);
+	INIT_WORK(&msm_host->hpd_work, dsi_hpd_worker);
 
 	msm_dsi->host = &msm_host->base;
 	msm_dsi->id = msm_host->id;
@@ -2257,9 +2288,9 @@ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
 	}
 
 	msm_host->mode = drm_mode_duplicate(msm_host->dev, mode);
-	if (IS_ERR(msm_host->mode)) {
+	if (!msm_host->mode) {
 		pr_err("%s: cannot duplicate mode\n", __func__);
-		return PTR_ERR(msm_host->mode);
+		return -ENOMEM;
 	}
 
 	return 0;

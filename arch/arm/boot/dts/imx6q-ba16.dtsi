@@ -323,6 +323,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie>;
 	reset-gpio = <&gpio7 12 GPIO_ACTIVE_HIGH>;
+	fsl,tx-swing-full = <103>;
+	fsl,tx-swing-low = <103>;
 	status = "okay";
 };
 
@@ -335,7 +337,7 @@
 &pwm2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm2>;
-	status = "okay";
+	status = "disabled";
 };
 
 &sata {
@@ -349,7 +351,7 @@
 &uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart3>;
-	fsl,uart-has-rtscts;
+	uart-has-rtscts;
 	status = "okay";
 };
 
@@ -390,7 +392,6 @@
 	pinctrl-0 = <&pinctrl_usdhc3 &pinctrl_usdhc3_reset>;
 	bus-width = <8>;
 	vmmc-supply = <&vdd_bperi>;
-	vqmmc-supply = <&vdd_bio>;
 	non-removable;
 	keep-power-in-suspend;
 	status = "okay";
@@ -399,6 +400,7 @@
 &wdog1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_wdog>;
+	fsl,ext-reset-output;
 };
 
 &iomuxc {
@@ -446,19 +448,19 @@
 		fsl,pins = <
 			MX6QDL_PAD_ENET_MDIO__ENET_MDIO       0x100b0
 			MX6QDL_PAD_ENET_MDC__ENET_MDC         0x100b0
-			MX6QDL_PAD_RGMII_TXC__RGMII_TXC       0x100b0
-			MX6QDL_PAD_RGMII_TD0__RGMII_TD0       0x100b0
-			MX6QDL_PAD_RGMII_TD1__RGMII_TD1       0x100b0
-			MX6QDL_PAD_RGMII_TD2__RGMII_TD2       0x100b0
-			MX6QDL_PAD_RGMII_TD3__RGMII_TD3       0x100b0
-			MX6QDL_PAD_RGMII_TX_CTL__RGMII_TX_CTL 0x100b0
+			MX6QDL_PAD_RGMII_TXC__RGMII_TXC       0x10030
+			MX6QDL_PAD_RGMII_TD0__RGMII_TD0       0x10030
+			MX6QDL_PAD_RGMII_TD1__RGMII_TD1       0x10030
+			MX6QDL_PAD_RGMII_TD2__RGMII_TD2       0x10030
+			MX6QDL_PAD_RGMII_TD3__RGMII_TD3       0x10030
+			MX6QDL_PAD_RGMII_TX_CTL__RGMII_TX_CTL 0x10030
 			MX6QDL_PAD_ENET_REF_CLK__ENET_TX_CLK  0x100b0
-			MX6QDL_PAD_RGMII_RXC__RGMII_RXC       0x1b0b0
-			MX6QDL_PAD_RGMII_RD0__RGMII_RD0       0x1b0b0
-			MX6QDL_PAD_RGMII_RD1__RGMII_RD1       0x1b0b0
-			MX6QDL_PAD_RGMII_RD2__RGMII_RD2       0x1b0b0
-			MX6QDL_PAD_RGMII_RD3__RGMII_RD3       0x1b0b0
-			MX6QDL_PAD_RGMII_RX_CTL__RGMII_RX_CTL 0x1b0b0
+			MX6QDL_PAD_RGMII_RXC__RGMII_RXC       0x1b030
+			MX6QDL_PAD_RGMII_RD0__RGMII_RD0       0x1b030
+			MX6QDL_PAD_RGMII_RD1__RGMII_RD1       0x1b030
+			MX6QDL_PAD_RGMII_RD2__RGMII_RD2       0x1b030
+			MX6QDL_PAD_RGMII_RD3__RGMII_RD3       0x1b030
+			MX6QDL_PAD_RGMII_RX_CTL__RGMII_RX_CTL 0x1b030
 			/* FEC Reset */
 			MX6QDL_PAD_ENET_TX_EN__GPIO1_IO28     0x1b0b0
 			/* AR8033 Interrupt */

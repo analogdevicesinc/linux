@@ -31,6 +31,12 @@
 #include "dmaengine.h"
 #include "mv_xor.h"
 
+enum mv_xor_type {
+	XOR_ORION,
+	XOR_ARMADA_38X,
+	XOR_ARMADA_37XX,
+};
+
 enum mv_xor_mode {
 	XOR_MODE_IN_REG,
 	XOR_MODE_IN_DESC,
@@ -200,14 +206,11 @@ mv_desc_run_tx_complete_actions(struct mv_xor_desc_slot *desc,
 	if (desc->async_tx.cookie > 0) {
 		cookie = desc->async_tx.cookie;
 
+		dma_descriptor_unmap(&desc->async_tx);
 		/* call the callback (must not sleep or submit new
 		 * operations to this channel)
 		 */
-		if (desc->async_tx.callback)
-			desc->async_tx.callback(
-				desc->async_tx.callback_param);
-
-		dma_descriptor_unmap(&desc->async_tx);
+		dmaengine_desc_get_callback_invoke(&desc->async_tx, NULL);
 	}
 
 	/* run dependent operations */
@@ -464,12 +467,90 @@ static int mv_xor_alloc_chan_resources(struct dma_chan *chan)
 	return mv_chan->slots_allocated ? : -ENOMEM;
 }
 
+/*
+ * Check if source or destination is an PCIe/IO address (non-SDRAM) and add
+ * a new MBus window if necessary. Use a cache for these check so that
+ * the MMIO mapped registers don't have to be accessed for this check
+ * to speed up this process.
+ */
+static int mv_xor_add_io_win(struct mv_xor_chan *mv_chan, u32 addr)
+{
+	struct mv_xor_device *xordev = mv_chan->xordev;
+	void __iomem *base = mv_chan->mmr_high_base;
+	u32 win_enable;
+	u32 size;
+	u8 target, attr;
+	int ret;
+	int i;
+
+	/* Nothing needs to get done for the Armada 3700 */
+	if (xordev->xor_type == XOR_ARMADA_37XX)
+		return 0;
+
+	/*
+	 * Loop over the cached windows to check, if the requested area
+	 * is already mapped. If this the case, nothing needs to be done
+	 * and we can return.
+	 */
+	for (i = 0; i < WINDOW_COUNT; i++) {
+		if (addr >= xordev->win_start[i] &&
+		    addr <= xordev->win_end[i]) {
+			/* Window is already mapped */
+			return 0;
+		}
+	}
+
+	/*
+	 * The window is not mapped, so we need to create the new mapping
+	 */
+
+	/* If no IO window is found that addr has to be located in SDRAM */
+	ret = mvebu_mbus_get_io_win_info(addr, &size, &target, &attr);
+	if (ret < 0)
+		return 0;
+
+	/*
+	 * Mask the base addr 'addr' according to 'size' read back from the
+	 * MBus window. Otherwise we might end up with an address located
+	 * somewhere in the middle of this area here.
+	 */
+	size -= 1;
+	addr &= ~size;
+
+	/*
+	 * Reading one of both enabled register is enough, as they are always
+	 * programmed to the identical values
+	 */
+	win_enable = readl(base + WINDOW_BAR_ENABLE(0));
+
+	/* Set 'i' to the first free window to write the new values to */
+	i = ffs(~win_enable) - 1;
+	if (i >= WINDOW_COUNT)
+		return -ENOMEM;
+
+	writel((addr & 0xffff0000) | (attr << 8) | target,
+	       base + WINDOW_BASE(i));
+	writel(size & 0xffff0000, base + WINDOW_SIZE(i));
+
+	/* Fill the caching variables for later use */
+	xordev->win_start[i] = addr;
+	xordev->win_end[i] = addr + size;
+
+	win_enable |= (1 << i);
+	win_enable |= 3 << (16 + (2 * i));
+	writel(win_enable, base + WINDOW_BAR_ENABLE(0));
+	writel(win_enable, base + WINDOW_BAR_ENABLE(1));
+
+	return 0;
+}
+
 static struct dma_async_tx_descriptor *
 mv_xor_prep_dma_xor(struct dma_chan *chan, dma_addr_t dest, dma_addr_t *src,
 		    unsigned int src_cnt, size_t len, unsigned long flags)
 {
 	struct mv_xor_chan *mv_chan = to_mv_xor_chan(chan);
 	struct mv_xor_desc_slot *sw_desc;
+	int ret;
 
 	if (unlikely(len < MV_XOR_MIN_BYTE_COUNT))
 		return NULL;
@@ -477,8 +558,13 @@ mv_xor_prep_dma_xor(struct dma_chan *chan, dma_addr_t dest, dma_addr_t *src,
 	BUG_ON(len > MV_XOR_MAX_BYTE_COUNT);
 
 	dev_dbg(mv_chan_to_devp(mv_chan),
-		"%s src_cnt: %d len: %u dest %pad flags: %ld\n",
+		"%s src_cnt: %d len: %zu dest %pad flags: %ld\n",
 		__func__, src_cnt, len, &dest, flags);
+
+	/* Check if a new window needs to get added for 'dest' */
+	ret = mv_xor_add_io_win(mv_chan, dest);
+	if (ret)
+		return NULL;
 
 	sw_desc = mv_chan_alloc_slot(mv_chan);
 	if (sw_desc) {
@@ -487,8 +573,13 @@ mv_xor_prep_dma_xor(struct dma_chan *chan, dma_addr_t dest, dma_addr_t *src,
 		mv_desc_init(sw_desc, dest, len, flags);
 		if (mv_chan->op_in_desc == XOR_MODE_IN_DESC)
 			mv_desc_set_mode(sw_desc);
-		while (src_cnt--)
+		while (src_cnt--) {
+			/* Check if a new window needs to get added for 'src' */
+			ret = mv_xor_add_io_win(mv_chan, src[src_cnt]);
+			if (ret)
+				return NULL;
 			mv_desc_set_src_addr(sw_desc, src_cnt, src[src_cnt]);
+		}
 	}
 
 	dev_dbg(mv_chan_to_devp(mv_chan),
@@ -697,8 +788,9 @@ static int mv_chan_memcpy_self_test(struct mv_xor_chan *mv_chan)
 		goto free_resources;
 	}
 
-	src_dma = dma_map_page(dma_chan->device->dev, virt_to_page(src), 0,
-				 PAGE_SIZE, DMA_TO_DEVICE);
+	src_dma = dma_map_page(dma_chan->device->dev, virt_to_page(src),
+			       (size_t)src & ~PAGE_MASK, PAGE_SIZE,
+			       DMA_TO_DEVICE);
 	unmap->addr[0] = src_dma;
 
 	ret = dma_mapping_error(dma_chan->device->dev, src_dma);
@@ -708,8 +800,9 @@ static int mv_chan_memcpy_self_test(struct mv_xor_chan *mv_chan)
 	}
 	unmap->to_cnt = 1;
 
-	dest_dma = dma_map_page(dma_chan->device->dev, virt_to_page(dest), 0,
-				  PAGE_SIZE, DMA_FROM_DEVICE);
+	dest_dma = dma_map_page(dma_chan->device->dev, virt_to_page(dest),
+				(size_t)dest & ~PAGE_MASK, PAGE_SIZE,
+				DMA_FROM_DEVICE);
 	unmap->addr[1] = dest_dma;
 
 	ret = dma_mapping_error(dma_chan->device->dev, dest_dma);
@@ -933,7 +1026,7 @@ static int mv_xor_channel_remove(struct mv_xor_chan *mv_chan)
 static struct mv_xor_chan *
 mv_xor_channel_add(struct mv_xor_device *xordev,
 		   struct platform_device *pdev,
-		   int idx, dma_cap_mask_t cap_mask, int irq, int op_in_desc)
+		   int idx, dma_cap_mask_t cap_mask, int irq)
 {
 	int ret = 0;
 	struct mv_xor_chan *mv_chan;
@@ -945,9 +1038,13 @@ mv_xor_channel_add(struct mv_xor_device *xordev,
 
 	mv_chan->idx = idx;
 	mv_chan->irq = irq;
-	mv_chan->op_in_desc = op_in_desc;
+	if (xordev->xor_type == XOR_ORION)
+		mv_chan->op_in_desc = XOR_MODE_IN_REG;
+	else
+		mv_chan->op_in_desc = XOR_MODE_IN_DESC;
 
 	dma_dev = &mv_chan->dmadev;
+	mv_chan->xordev = xordev;
 
 	/*
 	 * These source and destination dummy buffers are used to implement
@@ -1046,7 +1143,7 @@ mv_xor_channel_add(struct mv_xor_device *xordev,
 
 err_free_irq:
 	free_irq(mv_chan->irq, mv_chan);
- err_free_dma:
+err_free_dma:
 	dma_free_coherent(&pdev->dev, MV_XOR_POOL_SIZE,
 			  mv_chan->dma_desc_pool_virt, mv_chan->dma_desc_pool);
 	return ERR_PTR(ret);
@@ -1075,9 +1172,40 @@ mv_xor_conf_mbus_windows(struct mv_xor_device *xordev,
 		       dram->mbus_dram_target_id, base + WINDOW_BASE(i));
 		writel((cs->size - 1) & 0xffff0000, base + WINDOW_SIZE(i));
 
+		/* Fill the caching variables for later use */
+		xordev->win_start[i] = cs->base;
+		xordev->win_end[i] = cs->base + cs->size - 1;
+
 		win_enable |= (1 << i);
 		win_enable |= 3 << (16 + (2 * i));
 	}
+
+	writel(win_enable, base + WINDOW_BAR_ENABLE(0));
+	writel(win_enable, base + WINDOW_BAR_ENABLE(1));
+	writel(0, base + WINDOW_OVERRIDE_CTRL(0));
+	writel(0, base + WINDOW_OVERRIDE_CTRL(1));
+}
+
+static void
+mv_xor_conf_mbus_windows_a3700(struct mv_xor_device *xordev)
+{
+	void __iomem *base = xordev->xor_high_base;
+	u32 win_enable = 0;
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		writel(0, base + WINDOW_BASE(i));
+		writel(0, base + WINDOW_SIZE(i));
+		if (i < 4)
+			writel(0, base + WINDOW_REMAP_HIGH(i));
+	}
+	/*
+	 * For Armada3700 open default 4GB Mbus window. The dram
+	 * related configuration are done at AXIS level.
+	 */
+	writel(0xffff0000, base + WINDOW_SIZE(0));
+	win_enable |= 1;
+	win_enable |= 3 << 16;
 
 	writel(win_enable, base + WINDOW_BAR_ENABLE(0));
 	writel(win_enable, base + WINDOW_BAR_ENABLE(1));
@@ -1129,6 +1257,11 @@ static int mv_xor_resume(struct platform_device *dev)
 			       XOR_INTR_MASK(mv_chan));
 	}
 
+	if (xordev->xor_type == XOR_ARMADA_37XX) {
+		mv_xor_conf_mbus_windows_a3700(xordev);
+		return 0;
+	}
+
 	dram = mv_mbus_dram_info();
 	if (dram)
 		mv_xor_conf_mbus_windows(xordev, dram);
@@ -1137,8 +1270,9 @@ static int mv_xor_resume(struct platform_device *dev)
 }
 
 static const struct of_device_id mv_xor_dt_ids[] = {
-	{ .compatible = "marvell,orion-xor", .data = (void *)XOR_MODE_IN_REG },
-	{ .compatible = "marvell,armada-380-xor", .data = (void *)XOR_MODE_IN_DESC },
+	{ .compatible = "marvell,orion-xor", .data = (void *)XOR_ORION },
+	{ .compatible = "marvell,armada-380-xor", .data = (void *)XOR_ARMADA_38X },
+	{ .compatible = "marvell,armada-3700-xor", .data = (void *)XOR_ARMADA_37XX },
 	{},
 };
 
@@ -1152,7 +1286,6 @@ static int mv_xor_probe(struct platform_device *pdev)
 	struct resource *res;
 	unsigned int max_engines, max_channels;
 	int i, ret;
-	int op_in_desc;
 
 	dev_notice(&pdev->dev, "Marvell shared XOR driver\n");
 
@@ -1180,12 +1313,30 @@ static int mv_xor_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, xordev);
 
+
+	/*
+	 * We need to know which type of XOR device we use before
+	 * setting up. In non-dt case it can only be the legacy one.
+	 */
+	xordev->xor_type = XOR_ORION;
+	if (pdev->dev.of_node) {
+		const struct of_device_id *of_id =
+			of_match_device(mv_xor_dt_ids,
+					&pdev->dev);
+
+		xordev->xor_type = (uintptr_t)of_id->data;
+	}
+
 	/*
 	 * (Re-)program MBUS remapping windows if we are asked to.
 	 */
-	dram = mv_mbus_dram_info();
-	if (dram)
-		mv_xor_conf_mbus_windows(xordev, dram);
+	if (xordev->xor_type == XOR_ARMADA_37XX) {
+		mv_xor_conf_mbus_windows_a3700(xordev);
+	} else {
+		dram = mv_mbus_dram_info();
+		if (dram)
+			mv_xor_conf_mbus_windows(xordev, dram);
+	}
 
 	/* Not all platforms can gate the clock, so it is not
 	 * an error if the clock does not exists.
@@ -1199,12 +1350,16 @@ static int mv_xor_probe(struct platform_device *pdev)
 	 * order for async_tx to perform well. So we limit the number
 	 * of engines and channels so that we take into account this
 	 * constraint. Note that we also want to use channels from
-	 * separate engines when possible.
+	 * separate engines when possible.  For dual-CPU Armada 3700
+	 * SoC with single XOR engine allow using its both channels.
 	 */
 	max_engines = num_present_cpus();
-	max_channels = min_t(unsigned int,
-			     MV_XOR_MAX_CHANNELS,
-			     DIV_ROUND_UP(num_present_cpus(), 2));
+	if (xordev->xor_type == XOR_ARMADA_37XX)
+		max_channels =	num_present_cpus();
+	else
+		max_channels = min_t(unsigned int,
+				     MV_XOR_MAX_CHANNELS,
+				     DIV_ROUND_UP(num_present_cpus(), 2));
 
 	if (mv_xor_engine_count >= max_engines)
 		return 0;
@@ -1212,15 +1367,11 @@ static int mv_xor_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node) {
 		struct device_node *np;
 		int i = 0;
-		const struct of_device_id *of_id =
-			of_match_device(mv_xor_dt_ids,
-					&pdev->dev);
 
 		for_each_child_of_node(pdev->dev.of_node, np) {
 			struct mv_xor_chan *chan;
 			dma_cap_mask_t cap_mask;
 			int irq;
-			op_in_desc = (int)of_id->data;
 
 			if (i >= max_channels)
 				continue;
@@ -1237,7 +1388,7 @@ static int mv_xor_probe(struct platform_device *pdev)
 			}
 
 			chan = mv_xor_channel_add(xordev, pdev, i,
-						  cap_mask, irq, op_in_desc);
+						  cap_mask, irq);
 			if (IS_ERR(chan)) {
 				ret = PTR_ERR(chan);
 				irq_dispose_mapping(irq);
@@ -1266,8 +1417,7 @@ static int mv_xor_probe(struct platform_device *pdev)
 			}
 
 			chan = mv_xor_channel_add(xordev, pdev, i,
-						  cd->cap_mask, irq,
-						  XOR_MODE_IN_REG);
+						  cd->cap_mask, irq);
 			if (IS_ERR(chan)) {
 				ret = PTR_ERR(chan);
 				goto err_channel_add;

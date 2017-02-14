@@ -238,7 +238,7 @@ static int vnt_init_registers(struct vnt_private *priv)
 		priv->tx_antenna_mode = ANT_B;
 		priv->rx_antenna_sel = 1;
 
-		if (priv->tx_rx_ant_inv == true)
+		if (priv->tx_rx_ant_inv)
 			priv->rx_antenna_mode = ANT_A;
 		else
 			priv->rx_antenna_mode = ANT_B;
@@ -248,14 +248,14 @@ static int vnt_init_registers(struct vnt_private *priv)
 		if (antenna & EEP_ANTENNA_AUX) {
 			priv->tx_antenna_mode = ANT_A;
 
-			if (priv->tx_rx_ant_inv == true)
+			if (priv->tx_rx_ant_inv)
 				priv->rx_antenna_mode = ANT_B;
 			else
 				priv->rx_antenna_mode = ANT_A;
 		} else {
 			priv->tx_antenna_mode = ANT_B;
 
-		if (priv->tx_rx_ant_inv == true)
+		if (priv->tx_rx_ant_inv)
 			priv->rx_antenna_mode = ANT_A;
 		else
 			priv->rx_antenna_mode = ANT_B;
@@ -440,10 +440,8 @@ static bool vnt_alloc_bufs(struct vnt_private *priv)
 
 		/* allocate URBs */
 		tx_context->urb = usb_alloc_urb(0, GFP_KERNEL);
-		if (!tx_context->urb) {
-			dev_err(&priv->usb->dev, "alloc tx urb failed\n");
+		if (!tx_context->urb)
 			goto free_tx;
-		}
 
 		tx_context->in_use = false;
 	}
@@ -462,10 +460,8 @@ static bool vnt_alloc_bufs(struct vnt_private *priv)
 
 		/* allocate URBs */
 		rcb->urb = usb_alloc_urb(0, GFP_KERNEL);
-		if (!rcb->urb) {
-			dev_err(&priv->usb->dev, "Failed to alloc rx urb\n");
+		if (!rcb->urb)
 			goto free_rx_tx;
-		}
 
 		rcb->skb = dev_alloc_skb(priv->rx_buf_sz);
 		if (!rcb->skb)
@@ -479,10 +475,8 @@ static bool vnt_alloc_bufs(struct vnt_private *priv)
 	}
 
 	priv->interrupt_urb = usb_alloc_urb(0, GFP_KERNEL);
-	if (!priv->interrupt_urb) {
-		dev_err(&priv->usb->dev, "Failed to alloc int urb\n");
+	if (!priv->interrupt_urb)
 		goto free_rx_tx;
-	}
 
 	priv->int_buf.data_buf = kmalloc(MAX_INTERRUPT_SIZE, GFP_KERNEL);
 	if (!priv->int_buf.data_buf) {
@@ -662,7 +656,7 @@ static int vnt_config(struct ieee80211_hw *hw, u32 changed)
 			(conf->flags & IEEE80211_CONF_OFFCHANNEL)) {
 		vnt_set_channel(priv, conf->chandef.chan->hw_value);
 
-		if (conf->chandef.chan->band == IEEE80211_BAND_5GHZ)
+		if (conf->chandef.chan->band == NL80211_BAND_5GHZ)
 			bb_type = BB_TYPE_11A;
 		else
 			bb_type = BB_TYPE_11G;

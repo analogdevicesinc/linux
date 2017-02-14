@@ -9,7 +9,6 @@
  */
 
 #include <linux/init.h>
-#include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/of_fdt.h>
 #include <linux/err.h>
@@ -46,12 +45,9 @@ static int __init nios2_soc_device_init(void)
 		}
 	}
 
-	ret = of_platform_populate(NULL, of_default_bus_match_table,
-		NULL, NULL);
-
 	of_clk_init(clk_match);
 
-	return ret;
+	return 0;
 }
 
 device_initcall(nios2_soc_device_init);

@@ -38,7 +38,7 @@
 #include <linux/stop_machine.h>
 #include <linux/kvm_para.h>
 #include <linux/uaccess.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/mutex.h>
 #include <linux/init.h>
 #include <linux/sort.h>
@@ -72,14 +72,14 @@ static DEFINE_MUTEX(mtrr_mutex);
 u64 size_or_mask, size_and_mask;
 static bool mtrr_aps_delayed_init;
 
-static const struct mtrr_ops *mtrr_ops[X86_VENDOR_NUM];
+static const struct mtrr_ops *mtrr_ops[X86_VENDOR_NUM] __ro_after_init;
 
 const struct mtrr_ops *mtrr_if;
 
 static void set_mtrr(unsigned int reg, unsigned long base,
 		     unsigned long size, mtrr_type type);
 
-void set_mtrr_ops(const struct mtrr_ops *ops)
+void __init set_mtrr_ops(const struct mtrr_ops *ops)
 {
 	if (ops->vendor && ops->vendor < X86_VENDOR_NUM)
 		mtrr_ops[ops->vendor] = ops;
@@ -752,6 +752,9 @@ void __init mtrr_bp_init(void)
 			/* BIOS may override */
 			__mtrr_enabled = get_mtrr_state();
 
+			if (mtrr_enabled())
+				mtrr_bp_pat_init();
+
 			if (mtrr_cleanup(phys_addr)) {
 				changed_by_mtrr_cleanup = 1;
 				mtrr_if->set_all();
@@ -759,8 +762,16 @@ void __init mtrr_bp_init(void)
 		}
 	}
 
-	if (!mtrr_enabled())
+	if (!mtrr_enabled()) {
 		pr_info("MTRR: Disabled\n");
+
+		/*
+		 * PAT initialization relies on MTRR's rendezvous handler.
+		 * Skip PAT init until the handler can initialize both
+		 * features independently.
+		 */
+		pat_disable("MTRRs disabled, skipping PAT initialization too.");
+	}
 }
 
 void mtrr_ap_init(void)

@@ -18,6 +18,7 @@ Required properties:
 	"msi1, msi0": interrupt asserted when MSI is received
 	"intx": interrupt asserted when a legacy interrupt is received
 	"misc": interrupt asserted when miscellaneous is received
+- clocks: Should contain a clock specifier for the device
 - interrupt-map-mask and interrupt-map: standard PCI properties to define the
 	mapping of the PCI interface to interrupt numbers.
 - ranges: ranges for the PCI memory regions (I/O space region is not
@@ -51,13 +52,15 @@ nwl_pcie: pcie@fd0e0000 {
 			<0x0 0x0 0x0 0x2 &pcie_intc 0x2>,
 			<0x0 0x0 0x0 0x3 &pcie_intc 0x3>,
 			<0x0 0x0 0x0 0x4 &pcie_intc 0x4>;
+	clocks = <&clkc 23>
 
 	msi-parent = <&nwl_pcie>;
 	reg = <0x0 0xfd0e0000 0x0 0x1000>,
 	      <0x0 0xfd480000 0x0 0x1000>,
-	      <0x0 0xe0000000 0x0 0x1000000>;
+	      <0x80 0x00000000 0x0 0x1000000>;
 	reg-names = "breg", "pcireg", "cfg";
-	ranges = <0x02000000 0x00000000 0xe1000000 0x00000000 0xe1000000 0 0x0f000000>;
+	ranges = <0x02000000 0x00000000 0xe0000000 0x00000000 0xe0000000 0x00000000 0x10000000  /* non-prefetchable memory */
+		  0x43000000 0x00000006 0x00000000 0x00000006 0x00000000 0x00000002 0x00000000>;/* prefetchable memory */
 
 	pcie_intc: legacy-interrupt-controller {
 		interrupt-controller;

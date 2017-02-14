@@ -71,13 +71,9 @@ static struct property_entry spt_i2c_properties[] = {
 	{ },
 };
 
-static struct property_set spt_i2c_pset = {
-	.properties = spt_i2c_properties,
-};
-
 static const struct intel_lpss_platform_info spt_i2c_info = {
 	.clk_rate = 120000000,
-	.pset = &spt_i2c_pset,
+	.properties = spt_i2c_properties,
 };
 
 static struct property_entry uart_properties[] = {
@@ -87,14 +83,10 @@ static struct property_entry uart_properties[] = {
 	{ },
 };
 
-static struct property_set uart_pset = {
-	.properties = uart_properties,
-};
-
 static const struct intel_lpss_platform_info spt_uart_info = {
 	.clk_rate = 120000000,
 	.clk_con_id = "baudclk",
-	.pset = &uart_pset,
+	.properties = uart_properties,
 };
 
 static const struct intel_lpss_platform_info bxt_info = {
@@ -104,7 +96,7 @@ static const struct intel_lpss_platform_info bxt_info = {
 static const struct intel_lpss_platform_info bxt_uart_info = {
 	.clk_rate = 100000000,
 	.clk_con_id = "baudclk",
-	.pset = &uart_pset,
+	.properties = uart_properties,
 };
 
 static struct property_entry bxt_i2c_properties[] = {
@@ -114,13 +106,21 @@ static struct property_entry bxt_i2c_properties[] = {
 	{ },
 };
 
-static struct property_set bxt_i2c_pset = {
+static const struct intel_lpss_platform_info bxt_i2c_info = {
+	.clk_rate = 133000000,
 	.properties = bxt_i2c_properties,
 };
 
-static const struct intel_lpss_platform_info bxt_i2c_info = {
+static struct property_entry apl_i2c_properties[] = {
+	PROPERTY_ENTRY_U32("i2c-sda-hold-time-ns", 207),
+	PROPERTY_ENTRY_U32("i2c-sda-falling-time-ns", 171),
+	PROPERTY_ENTRY_U32("i2c-scl-falling-time-ns", 208),
+	{ },
+};
+
+static const struct intel_lpss_platform_info apl_i2c_info = {
 	.clk_rate = 133000000,
-	.pset = &bxt_i2c_pset,
+	.properties = apl_i2c_properties,
 };
 
 static const struct pci_device_id intel_lpss_pci_ids[] = {
@@ -158,14 +158,14 @@ static const struct pci_device_id intel_lpss_pci_ids[] = {
 	{ PCI_VDEVICE(INTEL, 0x1aee), (kernel_ulong_t)&bxt_uart_info },
 
 	/* APL */
-	{ PCI_VDEVICE(INTEL, 0x5aac), (kernel_ulong_t)&bxt_i2c_info },
-	{ PCI_VDEVICE(INTEL, 0x5aae), (kernel_ulong_t)&bxt_i2c_info },
-	{ PCI_VDEVICE(INTEL, 0x5ab0), (kernel_ulong_t)&bxt_i2c_info },
-	{ PCI_VDEVICE(INTEL, 0x5ab2), (kernel_ulong_t)&bxt_i2c_info },
-	{ PCI_VDEVICE(INTEL, 0x5ab4), (kernel_ulong_t)&bxt_i2c_info },
-	{ PCI_VDEVICE(INTEL, 0x5ab6), (kernel_ulong_t)&bxt_i2c_info },
-	{ PCI_VDEVICE(INTEL, 0x5ab8), (kernel_ulong_t)&bxt_i2c_info },
-	{ PCI_VDEVICE(INTEL, 0x5aba), (kernel_ulong_t)&bxt_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0x5aac), (kernel_ulong_t)&apl_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0x5aae), (kernel_ulong_t)&apl_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0x5ab0), (kernel_ulong_t)&apl_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0x5ab2), (kernel_ulong_t)&apl_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0x5ab4), (kernel_ulong_t)&apl_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0x5ab6), (kernel_ulong_t)&apl_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0x5ab8), (kernel_ulong_t)&apl_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0x5aba), (kernel_ulong_t)&apl_i2c_info },
 	{ PCI_VDEVICE(INTEL, 0x5abc), (kernel_ulong_t)&bxt_uart_info },
 	{ PCI_VDEVICE(INTEL, 0x5abe), (kernel_ulong_t)&bxt_uart_info },
 	{ PCI_VDEVICE(INTEL, 0x5ac0), (kernel_ulong_t)&bxt_uart_info },
@@ -193,6 +193,16 @@ static const struct pci_device_id intel_lpss_pci_ids[] = {
 	{ PCI_VDEVICE(INTEL, 0xa160), (kernel_ulong_t)&spt_i2c_info },
 	{ PCI_VDEVICE(INTEL, 0xa161), (kernel_ulong_t)&spt_i2c_info },
 	{ PCI_VDEVICE(INTEL, 0xa166), (kernel_ulong_t)&spt_uart_info },
+	/* KBL-H */
+	{ PCI_VDEVICE(INTEL, 0xa2a7), (kernel_ulong_t)&spt_uart_info },
+	{ PCI_VDEVICE(INTEL, 0xa2a8), (kernel_ulong_t)&spt_uart_info },
+	{ PCI_VDEVICE(INTEL, 0xa2a9), (kernel_ulong_t)&spt_info },
+	{ PCI_VDEVICE(INTEL, 0xa2aa), (kernel_ulong_t)&spt_info },
+	{ PCI_VDEVICE(INTEL, 0xa2e0), (kernel_ulong_t)&spt_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0xa2e1), (kernel_ulong_t)&spt_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0xa2e2), (kernel_ulong_t)&spt_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0xa2e3), (kernel_ulong_t)&spt_i2c_info },
+	{ PCI_VDEVICE(INTEL, 0xa2e6), (kernel_ulong_t)&spt_uart_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(pci, intel_lpss_pci_ids);

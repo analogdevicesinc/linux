@@ -65,6 +65,8 @@ static inline const char *intf_type(struct media_interface *intf)
 		return "v4l-subdev";
 	case MEDIA_INTF_T_V4L_SWRADIO:
 		return "v4l-swradio";
+	case MEDIA_INTF_T_V4L_TOUCH:
+		return "v4l-touch";
 	case MEDIA_INTF_T_ALSA_PCM_CAPTURE:
 		return "alsa-pcm-capture";
 	case MEDIA_INTF_T_ALSA_PCM_PLAYBACK:
@@ -219,7 +221,7 @@ int media_entity_pads_init(struct media_entity *entity, u16 num_pads,
 	entity->pads = pads;
 
 	if (mdev)
-		spin_lock(&mdev->lock);
+		mutex_lock(&mdev->graph_mutex);
 
 	for (i = 0; i < num_pads; i++) {
 		pads[i].entity = entity;
@@ -230,7 +232,7 @@ int media_entity_pads_init(struct media_entity *entity, u16 num_pads,
 	}
 
 	if (mdev)
-		spin_unlock(&mdev->lock);
+		mutex_unlock(&mdev->graph_mutex);
 
 	return 0;
 }
@@ -474,7 +476,7 @@ __must_check int __media_entity_pipeline_start(struct media_entity *entity,
 		bitmap_or(active, active, has_no_links, entity->num_pads);
 
 		if (!bitmap_full(active, entity->num_pads)) {
-			ret = -EPIPE;
+			ret = -ENOLINK;
 			dev_dbg(entity->graph_obj.mdev->dev,
 				"\"%s\":%u must be connected by an enabled link\n",
 				entity->name,
@@ -776,9 +778,9 @@ void media_entity_remove_links(struct media_entity *entity)
 	if (mdev == NULL)
 		return;
 
-	spin_lock(&mdev->lock);
+	mutex_lock(&mdev->graph_mutex);
 	__media_entity_remove_links(entity);
-	spin_unlock(&mdev->lock);
+	mutex_unlock(&mdev->graph_mutex);
 }
 EXPORT_SYMBOL_GPL(media_entity_remove_links);
 
@@ -835,17 +837,18 @@ int __media_entity_setup_link(struct media_link *link, u32 flags)
 
 	mdev = source->graph_obj.mdev;
 
-	if (mdev->link_notify) {
-		ret = mdev->link_notify(link, flags,
-					MEDIA_DEV_NOTIFY_PRE_LINK_CH);
+	if (mdev->ops && mdev->ops->link_notify) {
+		ret = mdev->ops->link_notify(link, flags,
+					     MEDIA_DEV_NOTIFY_PRE_LINK_CH);
 		if (ret < 0)
 			return ret;
 	}
 
 	ret = __media_entity_setup_link_notify(link, flags);
 
-	if (mdev->link_notify)
-		mdev->link_notify(link, flags, MEDIA_DEV_NOTIFY_POST_LINK_CH);
+	if (mdev->ops && mdev->ops->link_notify)
+		mdev->ops->link_notify(link, flags,
+				       MEDIA_DEV_NOTIFY_POST_LINK_CH);
 
 	return ret;
 }
@@ -980,9 +983,9 @@ void media_remove_intf_link(struct media_link *link)
 	if (mdev == NULL)
 		return;
 
-	spin_lock(&mdev->lock);
+	mutex_lock(&mdev->graph_mutex);
 	__media_remove_intf_link(link);
-	spin_unlock(&mdev->lock);
+	mutex_unlock(&mdev->graph_mutex);
 }
 EXPORT_SYMBOL_GPL(media_remove_intf_link);
 
@@ -1004,8 +1007,8 @@ void media_remove_intf_links(struct media_interface *intf)
 	if (mdev == NULL)
 		return;
 
-	spin_lock(&mdev->lock);
+	mutex_lock(&mdev->graph_mutex);
 	__media_remove_intf_links(intf);
-	spin_unlock(&mdev->lock);
+	mutex_unlock(&mdev->graph_mutex);
 }
 EXPORT_SYMBOL_GPL(media_remove_intf_links);

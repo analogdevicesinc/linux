@@ -48,9 +48,10 @@
 #define SOC_TPLG_PASS_PCM_DAI		4
 #define SOC_TPLG_PASS_GRAPH		5
 #define SOC_TPLG_PASS_PINS		6
+#define SOC_TPLG_PASS_BE_DAI		7
 
 #define SOC_TPLG_PASS_START	SOC_TPLG_PASS_MANIFEST
-#define SOC_TPLG_PASS_END	SOC_TPLG_PASS_PINS
+#define SOC_TPLG_PASS_END	SOC_TPLG_PASS_BE_DAI
 
 struct soc_tplg {
 	const struct firmware *fw;
@@ -1023,6 +1024,11 @@ static int soc_tplg_kcontrol_elems_load(struct soc_tplg *tplg,
 
 		control_hdr = (struct snd_soc_tplg_ctl_hdr *)tplg->pos;
 
+		if (control_hdr->size != sizeof(*control_hdr)) {
+			dev_err(tplg->dev, "ASoC: invalid control size\n");
+			return -EINVAL;
+		}
+
 		switch (control_hdr->ops.info) {
 		case SND_SOC_TPLG_CTL_VOLSW:
 		case SND_SOC_TPLG_CTL_STROBE:
@@ -1470,12 +1476,15 @@ widget:
 	if (widget == NULL) {
 		dev_err(tplg->dev, "ASoC: failed to create widget %s controls\n",
 			w->name);
+		ret = -ENOMEM;
 		goto hdr_err;
 	}
 
 	widget->dobj.type = SND_SOC_DOBJ_WIDGET;
 	widget->dobj.ops = tplg->ops;
 	widget->dobj.index = tplg->index;
+	kfree(template.sname);
+	kfree(template.name);
 	list_add(&widget->dobj.list, &tplg->comp->dobj_list);
 	return 0;
 
@@ -1499,10 +1508,17 @@ static int soc_tplg_dapm_widget_elems_load(struct soc_tplg *tplg,
 
 	for (i = 0; i < count; i++) {
 		widget = (struct snd_soc_tplg_dapm_widget *) tplg->pos;
+		if (widget->size != sizeof(*widget)) {
+			dev_err(tplg->dev, "ASoC: invalid widget size\n");
+			return -EINVAL;
+		}
+
 		ret = soc_tplg_dapm_widget_create(tplg, widget);
-		if (ret < 0)
+		if (ret < 0) {
 			dev_err(tplg->dev, "ASoC: failed to load widget %s\n",
 				widget->name);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -1540,6 +1556,25 @@ static void set_stream_info(struct snd_soc_pcm_stream *stream,
 	stream->rate_min = caps->rate_min;
 	stream->rate_max = caps->rate_max;
 	stream->formats = caps->formats;
+	stream->sig_bits = caps->sig_bits;
+}
+
+static void set_dai_flags(struct snd_soc_dai_driver *dai_drv,
+			  unsigned int flag_mask, unsigned int flags)
+{
+	if (flag_mask & SND_SOC_TPLG_DAI_FLGBIT_SYMMETRIC_RATES)
+		dai_drv->symmetric_rates =
+			flags & SND_SOC_TPLG_DAI_FLGBIT_SYMMETRIC_RATES ? 1 : 0;
+
+	if (flag_mask & SND_SOC_TPLG_DAI_FLGBIT_SYMMETRIC_CHANNELS)
+		dai_drv->symmetric_channels =
+			flags & SND_SOC_TPLG_DAI_FLGBIT_SYMMETRIC_CHANNELS ?
+			1 : 0;
+
+	if (flag_mask & SND_SOC_TPLG_DAI_FLGBIT_SYMMETRIC_SAMPLEBITS)
+		dai_drv->symmetric_samplebits =
+			flags & SND_SOC_TPLG_DAI_FLGBIT_SYMMETRIC_SAMPLEBITS ?
+			1 : 0;
 }
 
 static int soc_tplg_dai_create(struct soc_tplg *tplg,
@@ -1586,6 +1621,7 @@ static int soc_tplg_dai_create(struct soc_tplg *tplg,
 	return snd_soc_register_dai(tplg->comp, dai_drv);
 }
 
+/* create the FE DAI link */
 static int soc_tplg_link_create(struct soc_tplg *tplg,
 	struct snd_soc_tplg_pcm *pcm)
 {
@@ -1598,6 +1634,16 @@ static int soc_tplg_link_create(struct soc_tplg *tplg,
 
 	link->name = pcm->pcm_name;
 	link->stream_name = pcm->pcm_name;
+	link->id = pcm->pcm_id;
+
+	link->cpu_dai_name = pcm->dai_name;
+	link->codec_name = "snd-soc-dummy";
+	link->codec_dai_name = "snd-soc-dummy-dai";
+
+	/* enable DPCM */
+	link->dynamic = 1;
+	link->dpcm_playback = pcm->playback;
+	link->dpcm_capture = pcm->capture;
 
 	/* pass control to component driver for optional further init */
 	ret = soc_tplg_dai_link_load(tplg, link);
@@ -1639,8 +1685,6 @@ static int soc_tplg_pcm_elems_load(struct soc_tplg *tplg,
 	if (tplg->pass != SOC_TPLG_PASS_PCM_DAI)
 		return 0;
 
-	pcm = (struct snd_soc_tplg_pcm *)tplg->pos;
-
 	if (soc_tplg_check_elem_count(tplg,
 		sizeof(struct snd_soc_tplg_pcm), count,
 		hdr->payload_size, "PCM DAI")) {
@@ -1650,7 +1694,13 @@ static int soc_tplg_pcm_elems_load(struct soc_tplg *tplg,
 	}
 
 	/* create the FE DAIs and DAI links */
+	pcm = (struct snd_soc_tplg_pcm *)tplg->pos;
 	for (i = 0; i < count; i++) {
+		if (pcm->size != sizeof(*pcm)) {
+			dev_err(tplg->dev, "ASoC: invalid pcm size\n");
+			return -EINVAL;
+		}
+
 		soc_tplg_pcm_create(tplg, pcm);
 		pcm++;
 	}
@@ -1661,8 +1711,96 @@ static int soc_tplg_pcm_elems_load(struct soc_tplg *tplg,
 	return 0;
 }
 
+/* *
+ * soc_tplg_be_dai_config - Find and configure an existing BE DAI.
+ * @tplg: topology context
+ * @be: topology BE DAI configs.
+ *
+ * The BE dai should already be registered by the platform driver. The
+ * platform driver should specify the BE DAI name and ID for matching.
+ */
+static int soc_tplg_be_dai_config(struct soc_tplg *tplg,
+				  struct snd_soc_tplg_be_dai *be)
+{
+	struct snd_soc_dai_link_component dai_component = {0};
+	struct snd_soc_dai *dai;
+	struct snd_soc_dai_driver *dai_drv;
+	struct snd_soc_pcm_stream *stream;
+	struct snd_soc_tplg_stream_caps *caps;
+	int ret;
+
+	dai_component.dai_name = be->dai_name;
+	dai = snd_soc_find_dai(&dai_component);
+	if (!dai) {
+		dev_err(tplg->dev, "ASoC: BE DAI %s not registered\n",
+			be->dai_name);
+		return -EINVAL;
+	}
+
+	if (be->dai_id != dai->id) {
+		dev_err(tplg->dev, "ASoC: BE DAI %s id mismatch\n",
+			be->dai_name);
+		return -EINVAL;
+	}
+
+	dai_drv = dai->driver;
+	if (!dai_drv)
+		return -EINVAL;
+
+	if (be->playback) {
+		stream = &dai_drv->playback;
+		caps = &be->caps[SND_SOC_TPLG_STREAM_PLAYBACK];
+		set_stream_info(stream, caps);
+	}
+
+	if (be->capture) {
+		stream = &dai_drv->capture;
+		caps = &be->caps[SND_SOC_TPLG_STREAM_CAPTURE];
+		set_stream_info(stream, caps);
+	}
+
+	if (be->flag_mask)
+		set_dai_flags(dai_drv, be->flag_mask, be->flags);
+
+	/* pass control to component driver for optional further init */
+	ret = soc_tplg_dai_load(tplg, dai_drv);
+	if (ret < 0) {
+		dev_err(tplg->comp->dev, "ASoC: DAI loading failed\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int soc_tplg_be_dai_elems_load(struct soc_tplg *tplg,
+				      struct snd_soc_tplg_hdr *hdr)
+{
+	struct snd_soc_tplg_be_dai *be;
+	int count = hdr->count;
+	int i;
+
+	if (tplg->pass != SOC_TPLG_PASS_BE_DAI)
+		return 0;
+
+	/* config the existing BE DAIs */
+	for (i = 0; i < count; i++) {
+		be = (struct snd_soc_tplg_be_dai *)tplg->pos;
+		if (be->size != sizeof(*be)) {
+			dev_err(tplg->dev, "ASoC: invalid BE DAI size\n");
+			return -EINVAL;
+		}
+
+		soc_tplg_be_dai_config(tplg, be);
+		tplg->pos += (sizeof(*be) + be->priv.size);
+	}
+
+	dev_dbg(tplg->dev, "ASoC: Configure %d BE DAIs\n", count);
+	return 0;
+}
+
+
 static int soc_tplg_manifest_load(struct soc_tplg *tplg,
-	struct snd_soc_tplg_hdr *hdr)
+				  struct snd_soc_tplg_hdr *hdr)
 {
 	struct snd_soc_tplg_manifest *manifest;
 
@@ -1670,6 +1808,11 @@ static int soc_tplg_manifest_load(struct soc_tplg *tplg,
 		return 0;
 
 	manifest = (struct snd_soc_tplg_manifest *)tplg->pos;
+	if (manifest->size != sizeof(*manifest)) {
+		dev_err(tplg->dev, "ASoC: invalid manifest size\n");
+		return -EINVAL;
+	}
+
 	tplg->pos += sizeof(struct snd_soc_tplg_manifest);
 
 	if (tplg->comp && tplg->ops && tplg->ops->manifest)
@@ -1685,6 +1828,14 @@ static int soc_valid_header(struct soc_tplg *tplg,
 {
 	if (soc_tplg_get_hdr_offset(tplg) >= tplg->fw->size)
 		return 0;
+
+	if (hdr->size != sizeof(*hdr)) {
+		dev_err(tplg->dev,
+			"ASoC: invalid header size for type %d at offset 0x%lx size 0x%zx.\n",
+			hdr->type, soc_tplg_get_hdr_offset(tplg),
+			tplg->fw->size);
+		return -EINVAL;
+	}
 
 	/* big endian firmware objects not supported atm */
 	if (hdr->magic == cpu_to_be32(SND_SOC_TPLG_MAGIC)) {
@@ -1751,6 +1902,8 @@ static int soc_tplg_load_header(struct soc_tplg *tplg,
 		return soc_tplg_dapm_widget_elems_load(tplg, hdr);
 	case SND_SOC_TPLG_TYPE_PCM:
 		return soc_tplg_pcm_elems_load(tplg, hdr);
+	case SND_SOC_TPLG_TYPE_BE_DAI:
+		return soc_tplg_be_dai_elems_load(tplg, hdr);
 	case SND_SOC_TPLG_TYPE_MANIFEST:
 		return soc_tplg_manifest_load(tplg, hdr);
 	default:

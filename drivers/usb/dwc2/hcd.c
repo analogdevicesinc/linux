@@ -4703,6 +4703,7 @@ fail2:
 	spin_unlock_irqrestore(&hsotg->lock, flags);
 	urb->hcpriv = NULL;
 	kfree(qtd);
+	qtd = NULL;
 fail1:
 	if (qh_allocated) {
 		struct dwc2_qtd *qtd2, *qtd2_tmp;
@@ -5039,7 +5040,7 @@ int dwc2_hcd_init(struct dwc2_hsotg *hsotg, int irq)
 
 	/* Create new workqueue and init work */
 	retval = -ENOMEM;
-	hsotg->wq_otg = create_singlethread_workqueue("dwc2");
+	hsotg->wq_otg = alloc_ordered_workqueue("dwc2", 0);
 	if (!hsotg->wq_otg) {
 		dev_err(hsotg->dev, "Failed to create workqueue\n");
 		goto error2;

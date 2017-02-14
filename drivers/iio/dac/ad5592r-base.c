@@ -23,14 +23,9 @@
 
 #include "ad5592r-base.h"
 
-static struct ad5592r_state *gpiochip_to_ad5592r(struct gpio_chip *chip)
-{
-	return container_of(chip, struct ad5592r_state, gpiochip);
-}
-
 static int ad5592r_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
-	struct ad5592r_state *st = gpiochip_to_ad5592r(chip);
+	struct ad5592r_state *st = gpiochip_get_data(chip);
 	int ret = 0;
 	u8 val;
 
@@ -51,7 +46,7 @@ static int ad5592r_gpio_get(struct gpio_chip *chip, unsigned offset)
 
 static void ad5592r_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
-	struct ad5592r_state *st = gpiochip_to_ad5592r(chip);
+	struct ad5592r_state *st = gpiochip_get_data(chip);
 
 	mutex_lock(&st->gpio_lock);
 
@@ -67,7 +62,7 @@ static void ad5592r_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 
 static int ad5592r_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
-	struct ad5592r_state *st = gpiochip_to_ad5592r(chip);
+	struct ad5592r_state *st = gpiochip_get_data(chip);
 	int ret;
 
 	mutex_lock(&st->gpio_lock);
@@ -90,7 +85,7 @@ err_unlock:
 static int ad5592r_gpio_direction_output(struct gpio_chip *chip,
 					 unsigned offset, int value)
 {
-	struct ad5592r_state *st = gpiochip_to_ad5592r(chip);
+	struct ad5592r_state *st = gpiochip_get_data(chip);
 	int ret;
 
 	mutex_lock(&st->gpio_lock);
@@ -121,10 +116,10 @@ err_unlock:
 
 static int ad5592r_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
-	struct ad5592r_state *st = gpiochip_to_ad5592r(chip);
+	struct ad5592r_state *st = gpiochip_get_data(chip);
 
 	if (!(st->gpio_map & BIT(offset))) {
-		dev_err(chip->parent, "GPIO %d is reserved by alternate function\n",
+		dev_err(st->dev, "GPIO %d is reserved by alternate function\n",
 			offset);
 		return -ENODEV;
 	}
@@ -151,7 +146,7 @@ static int ad5592r_gpio_init(struct ad5592r_state *st)
 
 	mutex_init(&st->gpio_lock);
 
-	return gpiochip_add(&st->gpiochip);
+	return gpiochip_add_data(&st->gpiochip, st);
 }
 
 static void ad5592r_gpio_cleanup(struct ad5592r_state *st)
@@ -530,7 +525,7 @@ static int ad5592r_alloc_channels(struct ad5592r_state *st)
 
 	device_for_each_child_node(st->dev, child) {
 		ret = fwnode_property_read_u32(child, "reg", &reg);
-		if (ret || reg > ARRAY_SIZE(st->channel_modes))
+		if (ret || reg >= ARRAY_SIZE(st->channel_modes))
 			continue;
 
 		ret = fwnode_property_read_u32(child, "adi,mode", &tmp);

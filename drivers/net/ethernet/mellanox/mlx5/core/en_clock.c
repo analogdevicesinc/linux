@@ -93,6 +93,8 @@ int mlx5e_hwstamp_set(struct net_device *dev, struct ifreq *ifr)
 	/* RX HW timestamp */
 	switch (config.rx_filter) {
 	case HWTSTAMP_FILTER_NONE:
+		/* Reset CQE compression to Admin default */
+		mlx5e_modify_rx_cqe_compression(priv, priv->params.rx_cqe_compress_admin);
 		break;
 	case HWTSTAMP_FILTER_ALL:
 	case HWTSTAMP_FILTER_SOME:
@@ -108,6 +110,8 @@ int mlx5e_hwstamp_set(struct net_device *dev, struct ifreq *ifr)
 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+		/* Disable CQE compression */
+		mlx5e_modify_rx_cqe_compression(priv, false);
 		config.rx_filter = HWTSTAMP_FILTER_ALL;
 		break;
 	default:
@@ -269,7 +273,7 @@ void mlx5e_timestamp_init(struct mlx5e_priv *priv)
 
 	tstamp->ptp = ptp_clock_register(&tstamp->ptp_info,
 					 &priv->mdev->pdev->dev);
-	if (IS_ERR_OR_NULL(tstamp->ptp)) {
+	if (IS_ERR(tstamp->ptp)) {
 		mlx5_core_warn(priv->mdev, "ptp_clock_register failed %ld\n",
 			       PTR_ERR(tstamp->ptp));
 		tstamp->ptp = NULL;

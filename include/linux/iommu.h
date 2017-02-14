@@ -30,6 +30,7 @@
 #define IOMMU_WRITE	(1 << 1)
 #define IOMMU_CACHE	(1 << 2) /* DMA cache coherency */
 #define IOMMU_NOEXEC	(1 << 3)
+#define IOMMU_MMIO	(1 << 4) /* e.g. things like MSI doorbells */
 
 struct iommu_ops;
 struct iommu_group;
@@ -78,6 +79,7 @@ struct iommu_domain_geometry {
 struct iommu_domain {
 	unsigned type;
 	const struct iommu_ops *ops;
+	unsigned long pgsize_bitmap;	/* Bitmap of page sizes in use */
 	iommu_fault_handler_t handler;
 	void *handler_token;
 	struct iommu_domain_geometry geometry;
@@ -150,13 +152,13 @@ struct iommu_dm_region {
  * @domain_set_attr: Change domain attributes
  * @get_dm_regions: Request list of direct mapping requirements for a device
  * @put_dm_regions: Free list of direct mapping requirements for a device
+ * @apply_dm_region: Temporary helper call-back for iova reserved ranges
  * @domain_window_enable: Configure and enable a particular window for a domain
  * @domain_window_disable: Disable a particular window for a domain
  * @domain_set_windows: Set the number of windows for a domain
  * @domain_get_windows: Return the number of windows for a domain
  * @of_xlate: add OF master IDs to iommu grouping
- * @pgsize_bitmap: bitmap of supported page sizes
- * @priv: per-instance data private to the iommu driver
+ * @pgsize_bitmap: bitmap of all possible supported page sizes
  */
 struct iommu_ops {
 	bool (*capable)(enum iommu_cap);
@@ -185,6 +187,8 @@ struct iommu_ops {
 	/* Request/Free a list of direct mapping requirements for a device */
 	void (*get_dm_regions)(struct device *dev, struct list_head *list);
 	void (*put_dm_regions)(struct device *dev, struct list_head *list);
+	void (*apply_dm_region)(struct device *dev, struct iommu_domain *domain,
+				struct iommu_dm_region *region);
 
 	/* Window handling functions */
 	int (*domain_window_enable)(struct iommu_domain *domain, u32 wnd_nr,
@@ -198,7 +202,6 @@ struct iommu_ops {
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
 
 	unsigned long pgsize_bitmap;
-	void *priv;
 };
 
 #define IOMMU_GROUP_NOTIFY_ADD_DEVICE		1 /* Device added */
@@ -328,10 +331,32 @@ extern struct iommu_group *pci_device_group(struct device *dev);
 /* Generic device grouping function */
 extern struct iommu_group *generic_device_group(struct device *dev);
 
+/**
+ * struct iommu_fwspec - per-device IOMMU instance data
+ * @ops: ops for this device's IOMMU
+ * @iommu_fwnode: firmware handle for this device's IOMMU
+ * @iommu_priv: IOMMU driver private data for this device
+ * @num_ids: number of associated device IDs
+ * @ids: IDs which this device may present to the IOMMU
+ */
+struct iommu_fwspec {
+	const struct iommu_ops	*ops;
+	struct fwnode_handle	*iommu_fwnode;
+	void			*iommu_priv;
+	unsigned int		num_ids;
+	u32			ids[1];
+};
+
+int iommu_fwspec_init(struct device *dev, struct fwnode_handle *iommu_fwnode,
+		      const struct iommu_ops *ops);
+void iommu_fwspec_free(struct device *dev);
+int iommu_fwspec_add_ids(struct device *dev, u32 *ids, int num_ids);
+
 #else /* CONFIG_IOMMU_API */
 
 struct iommu_ops {};
 struct iommu_group {};
+struct iommu_fwspec {};
 
 static inline bool iommu_present(struct bus_type *bus)
 {
@@ -536,6 +561,23 @@ static inline int iommu_device_link(struct device *dev, struct device *link)
 
 static inline void iommu_device_unlink(struct device *dev, struct device *link)
 {
+}
+
+static inline int iommu_fwspec_init(struct device *dev,
+				    struct fwnode_handle *iommu_fwnode,
+				    const struct iommu_ops *ops)
+{
+	return -ENODEV;
+}
+
+static inline void iommu_fwspec_free(struct device *dev)
+{
+}
+
+static inline int iommu_fwspec_add_ids(struct device *dev, u32 *ids,
+				       int num_ids)
+{
+	return -ENODEV;
 }
 
 #endif /* CONFIG_IOMMU_API */

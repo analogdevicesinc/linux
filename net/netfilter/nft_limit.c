@@ -97,8 +97,10 @@ static int nft_limit_dump(struct sk_buff *skb, const struct nft_limit *limit,
 	u64 secs = div_u64(limit->nsecs, NSEC_PER_SEC);
 	u64 rate = limit->rate - limit->burst;
 
-	if (nla_put_be64(skb, NFTA_LIMIT_RATE, cpu_to_be64(rate)) ||
-	    nla_put_be64(skb, NFTA_LIMIT_UNIT, cpu_to_be64(secs)) ||
+	if (nla_put_be64(skb, NFTA_LIMIT_RATE, cpu_to_be64(rate),
+			 NFTA_LIMIT_PAD) ||
+	    nla_put_be64(skb, NFTA_LIMIT_UNIT, cpu_to_be64(secs),
+			 NFTA_LIMIT_PAD) ||
 	    nla_put_be32(skb, NFTA_LIMIT_BURST, htonl(limit->burst)) ||
 	    nla_put_be32(skb, NFTA_LIMIT_TYPE, htonl(type)) ||
 	    nla_put_be32(skb, NFTA_LIMIT_FLAGS, htonl(flags)))
@@ -143,7 +145,7 @@ static int nft_limit_pkts_init(const struct nft_ctx *ctx,
 	if (err < 0)
 		return err;
 
-	priv->cost = div_u64(priv->limit.nsecs, priv->limit.rate);
+	priv->cost = div64_u64(priv->limit.nsecs, priv->limit.rate);
 	return 0;
 }
 
@@ -168,7 +170,7 @@ static void nft_limit_pkt_bytes_eval(const struct nft_expr *expr,
 				     const struct nft_pktinfo *pkt)
 {
 	struct nft_limit *priv = nft_expr_priv(expr);
-	u64 cost = div_u64(priv->nsecs * pkt->skb->len, priv->rate);
+	u64 cost = div64_u64(priv->nsecs * pkt->skb->len, priv->rate);
 
 	if (nft_limit_eval(priv, cost))
 		regs->verdict.code = NFT_BREAK;

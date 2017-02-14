@@ -405,7 +405,7 @@ static int ccmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb,
 	u8 *pos;
 	u8 pn[6];
 	u64 pn64;
-	u8 aad[2 * AES_BLOCK_SIZE];
+	u8 aad[CCM_AAD_LEN];
 	u8 b_0[AES_BLOCK_SIZE];
 
 	if (info->control.hw_key &&
@@ -461,10 +461,8 @@ static int ccmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb,
 
 	pos += IEEE80211_CCMP_HDR_LEN;
 	ccmp_special_blocks(skb, pn, b_0, aad);
-	ieee80211_aes_ccm_encrypt(key->u.ccmp.tfm, b_0, aad, pos, len,
-				  skb_put(skb, mic_len), mic_len);
-
-	return 0;
+	return ieee80211_aes_ccm_encrypt(key->u.ccmp.tfm, b_0, aad, pos, len,
+					 skb_put(skb, mic_len), mic_len);
 }
 
 
@@ -504,25 +502,31 @@ ieee80211_crypto_ccmp_decrypt(struct ieee80211_rx_data *rx,
 	    !ieee80211_is_robust_mgmt_frame(skb))
 		return RX_CONTINUE;
 
-	data_len = skb->len - hdrlen - IEEE80211_CCMP_HDR_LEN - mic_len;
-	if (!rx->sta || data_len < 0)
-		return RX_DROP_UNUSABLE;
-
 	if (status->flag & RX_FLAG_DECRYPTED) {
 		if (!pskb_may_pull(rx->skb, hdrlen + IEEE80211_CCMP_HDR_LEN))
 			return RX_DROP_UNUSABLE;
+		if (status->flag & RX_FLAG_MIC_STRIPPED)
+			mic_len = 0;
 	} else {
 		if (skb_linearize(rx->skb))
 			return RX_DROP_UNUSABLE;
 	}
 
+	data_len = skb->len - hdrlen - IEEE80211_CCMP_HDR_LEN - mic_len;
+	if (!rx->sta || data_len < 0)
+		return RX_DROP_UNUSABLE;
+
 	if (!(status->flag & RX_FLAG_PN_VALIDATED)) {
+		int res;
+
 		ccmp_hdr2pn(pn, skb->data + hdrlen);
 
 		queue = rx->security_idx;
 
-		if (memcmp(pn, key->u.ccmp.rx_pn[queue],
-			   IEEE80211_CCMP_PN_LEN) <= 0) {
+		res = memcmp(pn, key->u.ccmp.rx_pn[queue],
+			     IEEE80211_CCMP_PN_LEN);
+		if (res < 0 ||
+		    (!res && !(status->flag & RX_FLAG_ALLOW_SAME_PN))) {
 			key->u.ccmp.replays++;
 			return RX_DROP_UNUSABLE;
 		}
@@ -633,7 +637,7 @@ static int gcmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
 	u8 *pos;
 	u8 pn[6];
 	u64 pn64;
-	u8 aad[2 * AES_BLOCK_SIZE];
+	u8 aad[GCM_AAD_LEN];
 	u8 j_0[AES_BLOCK_SIZE];
 
 	if (info->control.hw_key &&
@@ -690,10 +694,8 @@ static int gcmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
 
 	pos += IEEE80211_GCMP_HDR_LEN;
 	gcmp_special_blocks(skb, pn, j_0, aad);
-	ieee80211_aes_gcm_encrypt(key->u.gcmp.tfm, j_0, aad, pos, len,
-				  skb_put(skb, IEEE80211_GCMP_MIC_LEN));
-
-	return 0;
+	return ieee80211_aes_gcm_encrypt(key->u.gcmp.tfm, j_0, aad, pos, len,
+					 skb_put(skb, IEEE80211_GCMP_MIC_LEN));
 }
 
 ieee80211_tx_result
@@ -720,8 +722,7 @@ ieee80211_crypto_gcmp_decrypt(struct ieee80211_rx_data *rx)
 	struct sk_buff *skb = rx->skb;
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
 	u8 pn[IEEE80211_GCMP_PN_LEN];
-	int data_len;
-	int queue;
+	int data_len, queue, mic_len = IEEE80211_GCMP_MIC_LEN;
 
 	hdrlen = ieee80211_hdrlen(hdr->frame_control);
 
@@ -729,26 +730,31 @@ ieee80211_crypto_gcmp_decrypt(struct ieee80211_rx_data *rx)
 	    !ieee80211_is_robust_mgmt_frame(skb))
 		return RX_CONTINUE;
 
-	data_len = skb->len - hdrlen - IEEE80211_GCMP_HDR_LEN -
-		   IEEE80211_GCMP_MIC_LEN;
-	if (!rx->sta || data_len < 0)
-		return RX_DROP_UNUSABLE;
-
 	if (status->flag & RX_FLAG_DECRYPTED) {
 		if (!pskb_may_pull(rx->skb, hdrlen + IEEE80211_GCMP_HDR_LEN))
 			return RX_DROP_UNUSABLE;
+		if (status->flag & RX_FLAG_MIC_STRIPPED)
+			mic_len = 0;
 	} else {
 		if (skb_linearize(rx->skb))
 			return RX_DROP_UNUSABLE;
 	}
 
+	data_len = skb->len - hdrlen - IEEE80211_GCMP_HDR_LEN - mic_len;
+	if (!rx->sta || data_len < 0)
+		return RX_DROP_UNUSABLE;
+
 	if (!(status->flag & RX_FLAG_PN_VALIDATED)) {
+		int res;
+
 		gcmp_hdr2pn(pn, skb->data + hdrlen);
 
 		queue = rx->security_idx;
 
-		if (memcmp(pn, key->u.gcmp.rx_pn[queue],
-			   IEEE80211_GCMP_PN_LEN) <= 0) {
+		res = memcmp(pn, key->u.gcmp.rx_pn[queue],
+			     IEEE80211_GCMP_PN_LEN);
+		if (res < 0 ||
+		    (!res && !(status->flag & RX_FLAG_ALLOW_SAME_PN))) {
 			key->u.gcmp.replays++;
 			return RX_DROP_UNUSABLE;
 		}
@@ -772,7 +778,7 @@ ieee80211_crypto_gcmp_decrypt(struct ieee80211_rx_data *rx)
 	}
 
 	/* Remove GCMP header and MIC */
-	if (pskb_trim(skb, skb->len - IEEE80211_GCMP_MIC_LEN))
+	if (pskb_trim(skb, skb->len - mic_len))
 		return RX_DROP_UNUSABLE;
 	memmove(skb->data + IEEE80211_GCMP_HDR_LEN, skb->data, hdrlen);
 	skb_pull(skb, IEEE80211_GCMP_HDR_LEN);
@@ -1113,9 +1119,9 @@ ieee80211_crypto_aes_gmac_encrypt(struct ieee80211_tx_data *tx)
 	struct ieee80211_key *key = tx->key;
 	struct ieee80211_mmie_16 *mmie;
 	struct ieee80211_hdr *hdr;
-	u8 aad[20];
+	u8 aad[GMAC_AAD_LEN];
 	u64 pn64;
-	u8 nonce[12];
+	u8 nonce[GMAC_NONCE_LEN];
 
 	if (WARN_ON(skb_queue_len(&tx->skbs) != 1))
 		return TX_DROP;
@@ -1161,7 +1167,7 @@ ieee80211_crypto_aes_gmac_decrypt(struct ieee80211_rx_data *rx)
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
 	struct ieee80211_key *key = rx->key;
 	struct ieee80211_mmie_16 *mmie;
-	u8 aad[20], mic[16], ipn[6], nonce[12];
+	u8 aad[GMAC_AAD_LEN], mic[GMAC_MIC_LEN], ipn[6], nonce[GMAC_NONCE_LEN];
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 
 	if (!ieee80211_is_mgmt(hdr->frame_control))

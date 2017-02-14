@@ -28,7 +28,7 @@
 		};
 	};
 
-	ocp {
+	ocp@68000000 {
 		omap3_pmx_core2: pinmux@480025d8 {
 			compatible = "ti,omap3-padconf", "pinctrl-single";
 			reg = <0x480025d8 0x24>;
@@ -55,7 +55,7 @@
 			};
 		};
 
-		bandgap {
+		bandgap@48002524 {
 			reg = <0x48002524 0x4>;
 			compatible = "ti,omap34xx-bandgap";
 			#thermal-sensor-cells = <0>;

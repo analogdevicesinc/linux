@@ -63,7 +63,7 @@ enum {
 enum {
 	TIPC_LINK_UP_EVT       = 1,
 	TIPC_LINK_DOWN_EVT     = (1 << 1),
-	TIPC_LINK_SND_BC_ACK   = (1 << 2)
+	TIPC_LINK_SND_STATE    = (1 << 2)
 };
 
 /* Starting value for maximum packet size negotiation on unicast links
@@ -123,7 +123,7 @@ int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[]);
 int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq);
 int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
 		  struct sk_buff_head *xmitq);
-int tipc_link_build_ack_msg(struct tipc_link *l, struct sk_buff_head *xmitq);
+int tipc_link_build_state_msg(struct tipc_link *l, struct sk_buff_head *xmitq);
 void tipc_link_add_bc_peer(struct tipc_link *snd_l,
 			   struct tipc_link *uc_l,
 			   struct sk_buff_head *xmitq);
@@ -138,8 +138,8 @@ void tipc_link_bc_ack_rcv(struct tipc_link *l, u16 acked,
 void tipc_link_build_bc_sync_msg(struct tipc_link *l,
 				 struct sk_buff_head *xmitq);
 void tipc_link_bc_init_rcv(struct tipc_link *l, struct tipc_msg *hdr);
-void tipc_link_bc_sync_rcv(struct tipc_link *l,   struct tipc_msg *hdr,
-			   struct sk_buff_head *xmitq);
+int tipc_link_bc_sync_rcv(struct tipc_link *l,   struct tipc_msg *hdr,
+			  struct sk_buff_head *xmitq);
 int tipc_link_bc_nack_rcv(struct tipc_link *l, struct sk_buff *skb,
 			  struct sk_buff_head *xmitq);
 #endif

@@ -45,6 +45,7 @@
 #include "accommon.h"
 #include "acevents.h"
 #include "acnamesp.h"
+#include "acinterp.h"
 
 #define _COMPONENT          ACPI_EVENTS
 ACPI_MODULE_NAME("evrgnini")
@@ -227,7 +228,7 @@ acpi_ev_pci_config_region_setup(acpi_handle handle,
 
 				/* Install a handler for this PCI root bridge */
 
-				status = acpi_install_address_space_handler((acpi_handle) pci_root_node, ACPI_ADR_SPACE_PCI_CONFIG, ACPI_DEFAULT_HANDLER, NULL, NULL);
+				status = acpi_install_address_space_handler((acpi_handle)pci_root_node, ACPI_ADR_SPACE_PCI_CONFIG, ACPI_DEFAULT_HANDLER, NULL, NULL);
 				if (ACPI_FAILURE(status)) {
 					if (status == AE_SAME_HANDLER) {
 						/*
@@ -518,7 +519,6 @@ acpi_ev_initialize_region(union acpi_operand_object *region_obj,
 		return_ACPI_STATUS(AE_OK);
 	}
 
-	acpi_ev_associate_reg_method(region_obj);
 	region_obj->common.flags |= AOPOBJ_OBJECT_INITIALIZED;
 
 	node = region_obj->region.node->parent;
@@ -554,7 +554,8 @@ acpi_ev_initialize_region(union acpi_operand_object *region_obj,
 				 *
 				 * See acpi_ns_exec_module_code
 				 */
-				if (obj_desc->method.
+				if (!acpi_gbl_parse_table_as_term_list &&
+				    obj_desc->method.
 				    info_flags & ACPI_METHOD_MODULE_LEVEL) {
 					handler_obj =
 					    obj_desc->method.dispatch.handler;
@@ -597,9 +598,11 @@ acpi_ev_initialize_region(union acpi_operand_object *region_obj,
 					}
 				}
 
+				acpi_ex_exit_interpreter();
 				status =
 				    acpi_ev_execute_reg_method(region_obj,
 							       ACPI_REG_CONNECT);
+				acpi_ex_enter_interpreter();
 
 				if (acpi_ns_locked) {
 					status =

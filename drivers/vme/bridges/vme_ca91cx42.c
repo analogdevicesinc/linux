@@ -47,6 +47,8 @@ static const struct pci_device_id ca91cx42_ids[] = {
 	{ },
 };
 
+MODULE_DEVICE_TABLE(pci, ca91cx42_ids);
+
 static struct pci_driver ca91cx42_driver = {
 	.name = driver_name,
 	.id_table = ca91cx42_ids,
@@ -69,7 +71,7 @@ static u32 ca91cx42_LM_irqhandler(struct ca91cx42_driver *bridge, u32 stat)
 	for (i = 0; i < 4; i++) {
 		if (stat & CA91CX42_LINT_LM[i]) {
 			/* We only enable interrupts if the callback is set */
-			bridge->lm_callback[i](i);
+			bridge->lm_callback[i](bridge->lm_data[i]);
 			serviced |= CA91CX42_LINT_LM[i];
 		}
 	}
@@ -203,10 +205,6 @@ static int ca91cx42_irq_init(struct vme_bridge *ca91cx42_bridge)
 
 	/* Need pdev */
 	pdev = to_pci_dev(ca91cx42_bridge->parent);
-
-	INIT_LIST_HEAD(&ca91cx42_bridge->vme_error_handlers);
-
-	mutex_init(&ca91cx42_bridge->irq_mtx);
 
 	/* Disable interrupts from PCI to VME */
 	iowrite32(0, bridge->base + VINT_EN);
@@ -1414,7 +1412,7 @@ static int ca91cx42_lm_get(struct vme_lm_resource *lm,
  * Callback will be passed the monitor triggered.
  */
 static int ca91cx42_lm_attach(struct vme_lm_resource *lm, int monitor,
-	void (*callback)(int))
+	void (*callback)(void *), void *data)
 {
 	u32 lm_ctl, tmp;
 	struct ca91cx42_driver *bridge;
@@ -1442,6 +1440,7 @@ static int ca91cx42_lm_attach(struct vme_lm_resource *lm, int monitor,
 
 	/* Attach callback */
 	bridge->lm_callback[monitor] = callback;
+	bridge->lm_data[monitor] = data;
 
 	/* Enable Location Monitor interrupt */
 	tmp = ioread32(bridge->base + LINT_EN);
@@ -1481,6 +1480,7 @@ static int ca91cx42_lm_detach(struct vme_lm_resource *lm, int monitor)
 
 	/* Detach callback */
 	bridge->lm_callback[monitor] = NULL;
+	bridge->lm_data[monitor] = NULL;
 
 	/* If all location monitors disabled, disable global Location Monitor */
 	if ((tmp & (CA91CX42_LINT_LM0 | CA91CX42_LINT_LM1 | CA91CX42_LINT_LM2 |
@@ -1626,6 +1626,7 @@ static int ca91cx42_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		retval = -ENOMEM;
 		goto err_struct;
 	}
+	vme_init_bridge(ca91cx42_bridge);
 
 	ca91cx42_device = kzalloc(sizeof(struct ca91cx42_driver), GFP_KERNEL);
 
@@ -1686,7 +1687,6 @@ static int ca91cx42_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	}
 
 	/* Add master windows to list */
-	INIT_LIST_HEAD(&ca91cx42_bridge->master_resources);
 	for (i = 0; i < CA91C142_MAX_MASTER; i++) {
 		master_image = kmalloc(sizeof(struct vme_master_resource),
 			GFP_KERNEL);
@@ -1713,7 +1713,6 @@ static int ca91cx42_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	}
 
 	/* Add slave windows to list */
-	INIT_LIST_HEAD(&ca91cx42_bridge->slave_resources);
 	for (i = 0; i < CA91C142_MAX_SLAVE; i++) {
 		slave_image = kmalloc(sizeof(struct vme_slave_resource),
 			GFP_KERNEL);
@@ -1741,7 +1740,6 @@ static int ca91cx42_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	}
 
 	/* Add dma engines to list */
-	INIT_LIST_HEAD(&ca91cx42_bridge->dma_resources);
 	for (i = 0; i < CA91C142_MAX_DMA; i++) {
 		dma_ctrlr = kmalloc(sizeof(struct vme_dma_resource),
 			GFP_KERNEL);
@@ -1764,7 +1762,6 @@ static int ca91cx42_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	}
 
 	/* Add location monitor to list */
-	INIT_LIST_HEAD(&ca91cx42_bridge->lm_resources);
 	lm = kmalloc(sizeof(struct vme_lm_resource), GFP_KERNEL);
 	if (lm == NULL) {
 		dev_err(&pdev->dev, "Failed to allocate memory for "

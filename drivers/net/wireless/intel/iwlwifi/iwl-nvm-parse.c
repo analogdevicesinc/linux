@@ -67,6 +67,7 @@
 #include <linux/export.h>
 #include <linux/etherdevice.h>
 #include <linux/pci.h>
+#include <linux/acpi.h>
 #include "iwl-drv.h"
 #include "iwl-modparams.h"
 #include "iwl-nvm-parse.h"
@@ -288,6 +289,9 @@ static int iwl_init_channel_map(struct device *dev, const struct iwl_cfg *cfg,
 		    !data->sku_cap_band_52GHz_enable)
 			continue;
 
+		if (ch_flags & NVM_CHANNEL_160MHZ)
+			data->vht160_supported = true;
+
 		if (!lar_supported && !(ch_flags & NVM_CHANNEL_VALID)) {
 			/*
 			 * Channels might become valid later if lar is
@@ -308,7 +312,7 @@ static int iwl_init_channel_map(struct device *dev, const struct iwl_cfg *cfg,
 
 		channel->hw_value = nvm_chan[ch_idx];
 		channel->band = (ch_idx < num_2ghz_channels) ?
-				IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ;
+				NL80211_BAND_2GHZ : NL80211_BAND_5GHZ;
 		channel->center_freq =
 			ieee80211_channel_to_frequency(
 				channel->hw_value, channel->band);
@@ -320,7 +324,7 @@ static int iwl_init_channel_map(struct device *dev, const struct iwl_cfg *cfg,
 		 * is not used in mvm, and is used for backwards compatibility
 		 */
 		channel->max_power = IWL_DEFAULT_MAX_TX_POWER;
-		is_5ghz = channel->band == IEEE80211_BAND_5GHZ;
+		is_5ghz = channel->band == NL80211_BAND_5GHZ;
 
 		/* don't put limitations in case we're using LAR */
 		if (!lar_supported)
@@ -331,17 +335,20 @@ static int iwl_init_channel_map(struct device *dev, const struct iwl_cfg *cfg,
 			channel->flags = 0;
 
 		IWL_DEBUG_EEPROM(dev,
-				 "Ch. %d [%sGHz] %s%s%s%s%s%s%s(0x%02x %ddBm): Ad-Hoc %ssupported\n",
+				 "Ch. %d [%sGHz] flags 0x%x %s%s%s%s%s%s%s%s%s%s(%ddBm): Ad-Hoc %ssupported\n",
 				 channel->hw_value,
 				 is_5ghz ? "5.2" : "2.4",
+				 ch_flags,
 				 CHECK_AND_PRINT_I(VALID),
 				 CHECK_AND_PRINT_I(IBSS),
 				 CHECK_AND_PRINT_I(ACTIVE),
 				 CHECK_AND_PRINT_I(RADAR),
-				 CHECK_AND_PRINT_I(WIDE),
 				 CHECK_AND_PRINT_I(INDOOR_ONLY),
 				 CHECK_AND_PRINT_I(GO_CONCURRENT),
-				 ch_flags,
+				 CHECK_AND_PRINT_I(WIDE),
+				 CHECK_AND_PRINT_I(40MHZ),
+				 CHECK_AND_PRINT_I(80MHZ),
+				 CHECK_AND_PRINT_I(160MHZ),
 				 channel->max_power,
 				 ((ch_flags & NVM_CHANNEL_IBSS) &&
 				  !(ch_flags & NVM_CHANNEL_RADAR))
@@ -370,6 +377,10 @@ static void iwl_init_vht_hw_capab(const struct iwl_cfg *cfg,
 		       max_ampdu_exponent <<
 		       IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_SHIFT;
 
+	if (data->vht160_supported)
+		vht_cap->cap |= IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ |
+				IEEE80211_VHT_CAP_SHORT_GI_160;
+
 	if (cfg->vht_mu_mimo_supported)
 		vht_cap->cap |= IEEE80211_VHT_CAP_MU_BEAMFORMEE_CAPABLE;
 
@@ -387,6 +398,13 @@ static void iwl_init_vht_hw_capab(const struct iwl_cfg *cfg,
 		vht_cap->cap |= IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN;
 
 	switch (iwlwifi_mod_params.amsdu_size) {
+	case IWL_AMSDU_DEF:
+		if (cfg->mq_rx_supported)
+			vht_cap->cap |=
+				IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454;
+		else
+			vht_cap->cap |= IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_3895;
+		break;
 	case IWL_AMSDU_4K:
 		vht_cap->cap |= IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_3895;
 		break;
@@ -439,22 +457,22 @@ static void iwl_init_sbands(struct device *dev, const struct iwl_cfg *cfg,
 				&ch_section[NVM_CHANNELS_FAMILY_8000],
 				lar_supported);
 
-	sband = &data->bands[IEEE80211_BAND_2GHZ];
-	sband->band = IEEE80211_BAND_2GHZ;
+	sband = &data->bands[NL80211_BAND_2GHZ];
+	sband->band = NL80211_BAND_2GHZ;
 	sband->bitrates = &iwl_cfg80211_rates[RATES_24_OFFS];
 	sband->n_bitrates = N_RATES_24;
 	n_used += iwl_init_sband_channels(data, sband, n_channels,
-					  IEEE80211_BAND_2GHZ);
-	iwl_init_ht_hw_capab(cfg, data, &sband->ht_cap, IEEE80211_BAND_2GHZ,
+					  NL80211_BAND_2GHZ);
+	iwl_init_ht_hw_capab(cfg, data, &sband->ht_cap, NL80211_BAND_2GHZ,
 			     tx_chains, rx_chains);
 
-	sband = &data->bands[IEEE80211_BAND_5GHZ];
-	sband->band = IEEE80211_BAND_5GHZ;
+	sband = &data->bands[NL80211_BAND_5GHZ];
+	sband->band = NL80211_BAND_5GHZ;
 	sband->bitrates = &iwl_cfg80211_rates[RATES_52_OFFS];
 	sband->n_bitrates = N_RATES_52;
 	n_used += iwl_init_sband_channels(data, sband, n_channels,
-					  IEEE80211_BAND_5GHZ);
-	iwl_init_ht_hw_capab(cfg, data, &sband->ht_cap, IEEE80211_BAND_5GHZ,
+					  NL80211_BAND_5GHZ);
+	iwl_init_ht_hw_capab(cfg, data, &sband->ht_cap, NL80211_BAND_5GHZ,
 			     tx_chains, rx_chains);
 	if (data->sku_cap_11ac_enable && !iwlwifi_mod_params.disable_11ac)
 		iwl_init_vht_hw_capab(cfg, data, &sband->vht_cap,
@@ -547,11 +565,16 @@ static void iwl_set_hw_address_from_csr(struct iwl_trans *trans,
 	__le32 mac_addr0 = cpu_to_le32(iwl_read32(trans, CSR_MAC_ADDR0_STRAP));
 	__le32 mac_addr1 = cpu_to_le32(iwl_read32(trans, CSR_MAC_ADDR1_STRAP));
 
-	/* If OEM did not fuse address - get it from OTP */
-	if (!mac_addr0 && !mac_addr1) {
-		mac_addr0 = cpu_to_le32(iwl_read32(trans, CSR_MAC_ADDR0_OTP));
-		mac_addr1 = cpu_to_le32(iwl_read32(trans, CSR_MAC_ADDR1_OTP));
-	}
+	iwl_flip_hw_address(mac_addr0, mac_addr1, data->hw_addr);
+	/*
+	 * If the OEM fused a valid address, use it instead of the one in the
+	 * OTP
+	 */
+	if (is_valid_ether_addr(data->hw_addr))
+		return;
+
+	mac_addr0 = cpu_to_le32(iwl_read32(trans, CSR_MAC_ADDR0_OTP));
+	mac_addr1 = cpu_to_le32(iwl_read32(trans, CSR_MAC_ADDR1_OTP));
 
 	iwl_flip_hw_address(mac_addr0, mac_addr1, data->hw_addr);
 }
@@ -781,7 +804,7 @@ iwl_parse_nvm_mcc_info(struct device *dev, const struct iwl_cfg *cfg,
 	struct ieee80211_regdomain *regd;
 	int size_of_regd;
 	struct ieee80211_reg_rule *rule;
-	enum ieee80211_band band;
+	enum nl80211_band band;
 	int center_freq, prev_center_freq = 0;
 	int valid_rules = 0;
 	bool new_rule;
@@ -809,7 +832,7 @@ iwl_parse_nvm_mcc_info(struct device *dev, const struct iwl_cfg *cfg,
 	for (ch_idx = 0; ch_idx < num_of_ch; ch_idx++) {
 		ch_flags = (u16)__le32_to_cpup(channels + ch_idx);
 		band = (ch_idx < NUM_2GHZ_CHANNELS) ?
-		       IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ;
+		       NL80211_BAND_2GHZ : NL80211_BAND_5GHZ;
 		center_freq = ieee80211_channel_to_frequency(nvm_chan[ch_idx],
 							     band);
 		new_rule = false;
@@ -857,7 +880,7 @@ iwl_parse_nvm_mcc_info(struct device *dev, const struct iwl_cfg *cfg,
 		IWL_DEBUG_DEV(dev, IWL_DL_LAR,
 			      "Ch. %d [%sGHz] %s%s%s%s%s%s%s%s%s(0x%02x): Ad-Hoc %ssupported\n",
 			      center_freq,
-			      band == IEEE80211_BAND_5GHZ ? "5.2" : "2.4",
+			      band == NL80211_BAND_5GHZ ? "5.2" : "2.4",
 			      CHECK_AND_PRINT_I(VALID),
 			      CHECK_AND_PRINT_I(ACTIVE),
 			      CHECK_AND_PRINT_I(RADAR),
@@ -882,3 +905,91 @@ iwl_parse_nvm_mcc_info(struct device *dev, const struct iwl_cfg *cfg,
 	return regd;
 }
 IWL_EXPORT_SYMBOL(iwl_parse_nvm_mcc_info);
+
+#ifdef CONFIG_ACPI
+#define WRDD_METHOD		"WRDD"
+#define WRDD_WIFI		(0x07)
+#define WRDD_WIGIG		(0x10)
+
+static u32 iwl_wrdd_get_mcc(struct device *dev, union acpi_object *wrdd)
+{
+	union acpi_object *mcc_pkg, *domain_type, *mcc_value;
+	u32 i;
+
+	if (wrdd->type != ACPI_TYPE_PACKAGE ||
+	    wrdd->package.count < 2 ||
+	    wrdd->package.elements[0].type != ACPI_TYPE_INTEGER ||
+	    wrdd->package.elements[0].integer.value != 0) {
+		IWL_DEBUG_EEPROM(dev, "Unsupported wrdd structure\n");
+		return 0;
+	}
+
+	for (i = 1 ; i < wrdd->package.count ; ++i) {
+		mcc_pkg = &wrdd->package.elements[i];
+
+		if (mcc_pkg->type != ACPI_TYPE_PACKAGE ||
+		    mcc_pkg->package.count < 2 ||
+		    mcc_pkg->package.elements[0].type != ACPI_TYPE_INTEGER ||
+		    mcc_pkg->package.elements[1].type != ACPI_TYPE_INTEGER) {
+			mcc_pkg = NULL;
+			continue;
+		}
+
+		domain_type = &mcc_pkg->package.elements[0];
+		if (domain_type->integer.value == WRDD_WIFI)
+			break;
+
+		mcc_pkg = NULL;
+	}
+
+	if (mcc_pkg) {
+		mcc_value = &mcc_pkg->package.elements[1];
+		return mcc_value->integer.value;
+	}
+
+	return 0;
+}
+
+int iwl_get_bios_mcc(struct device *dev, char *mcc)
+{
+	acpi_handle root_handle;
+	acpi_handle handle;
+	struct acpi_buffer wrdd = {ACPI_ALLOCATE_BUFFER, NULL};
+	acpi_status status;
+	u32 mcc_val;
+
+	root_handle = ACPI_HANDLE(dev);
+	if (!root_handle) {
+		IWL_DEBUG_EEPROM(dev,
+				 "Could not retrieve root port ACPI handle\n");
+		return -ENOENT;
+	}
+
+	/* Get the method's handle */
+	status = acpi_get_handle(root_handle, (acpi_string)WRDD_METHOD,
+				 &handle);
+	if (ACPI_FAILURE(status)) {
+		IWL_DEBUG_EEPROM(dev, "WRD method not found\n");
+		return -ENOENT;
+	}
+
+	/* Call WRDD with no arguments */
+	status = acpi_evaluate_object(handle, NULL, NULL, &wrdd);
+	if (ACPI_FAILURE(status)) {
+		IWL_DEBUG_EEPROM(dev, "WRDC invocation failed (0x%x)\n",
+				 status);
+		return -ENOENT;
+	}
+
+	mcc_val = iwl_wrdd_get_mcc(dev, wrdd.pointer);
+	kfree(wrdd.pointer);
+	if (!mcc_val)
+		return -ENOENT;
+
+	mcc[0] = (mcc_val >> 8) & 0xff;
+	mcc[1] = mcc_val & 0xff;
+	mcc[2] = '\0';
+	return 0;
+}
+IWL_EXPORT_SYMBOL(iwl_get_bios_mcc);
+#endif

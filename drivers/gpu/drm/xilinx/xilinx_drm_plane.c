@@ -260,11 +260,6 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 
 	DRM_DEBUG_KMS("plane->id: %d\n", plane->id);
 
-	if (fb->pixel_format != plane->format) {
-		DRM_ERROR("unsupported pixel format %08x\n", fb->pixel_format);
-		return -EINVAL;
-	}
-
 	/* configure cresample */
 	if (plane->cresample)
 		xilinx_cresample_configure(plane->cresample, crtc_w, crtc_h);
@@ -284,6 +279,9 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 		unsigned int width = src_w / (i ? hsub : 1);
 		unsigned int height = src_h / (i ? vsub : 1);
 		unsigned int cpp = drm_format_plane_cpp(fb->pixel_format, i);
+
+		if (!cpp)
+			cpp = xilinx_drm_format_bpp(fb->pixel_format) >> 3;
 
 		obj = xilinx_drm_fb_get_gem_obj(fb, i);
 		if (!obj) {
@@ -326,6 +324,14 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 							 src_w, src_h);
 		if (ret)
 			return ret;
+
+		ret = xilinx_drm_dp_sub_layer_set_fmt(plane->manager->dp_sub,
+						      plane->dp_layer,
+						      fb->pixel_format);
+		if (ret) {
+			DRM_ERROR("failed to set dp_sub layer fmt\n");
+			return ret;
+		}
 	}
 
 	return 0;
@@ -733,6 +739,8 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 	const char *fmt;
 	int i;
 	int ret;
+	uint32_t *fmts = NULL;
+	unsigned int num_fmts = 0;
 
 	for (i = 0; i < manager->num_planes; i++)
 		if (!manager->planes[i])
@@ -879,6 +887,9 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 		plane->format =
 			xilinx_drm_dp_sub_layer_get_fmt(manager->dp_sub,
 							plane->dp_layer);
+		xilinx_drm_dp_sub_layer_get_fmts(manager->dp_sub,
+						 plane->dp_layer, &fmts,
+						 &num_fmts);
 	}
 
 	/* If there's no IP other than VDMA, pick the manager's format */
@@ -889,7 +900,8 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 	type = primary ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
 	ret = drm_universal_plane_init(manager->drm, &plane->base,
 				       possible_crtcs, &xilinx_drm_plane_funcs,
-				       &plane->format, 1, type, NULL);
+				       fmts ? fmts : &plane->format,
+				       num_fmts ? num_fmts : 1, type, NULL);
 	if (ret) {
 		DRM_ERROR("failed to initialize plane\n");
 		goto err_init;

@@ -587,15 +587,16 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
 	size = ALIGN(size + sizeof(u32), sizeof(u64));
 	size -= sizeof(u32);
 
-	rec = (struct syscall_trace_enter *)perf_trace_buf_prepare(size,
-				sys_data->enter_event->event.type, NULL, &rctx);
+	rec = perf_trace_buf_alloc(size, NULL, &rctx);
 	if (!rec)
 		return;
 
 	rec->nr = syscall_nr;
 	syscall_get_arguments(current, regs, 0, sys_data->nb_args,
 			       (unsigned long *)&rec->args);
-	perf_trace_buf_submit(rec, size, rctx, 0, 1, regs, head, NULL);
+	perf_trace_buf_submit(rec, size, rctx,
+			      sys_data->enter_event->event.type, 1, regs,
+			      head, NULL);
 }
 
 static int perf_sysenter_enable(struct trace_event_call *call)
@@ -609,8 +610,7 @@ static int perf_sysenter_enable(struct trace_event_call *call)
 	if (!sys_perf_refcount_enter)
 		ret = register_trace_sys_enter(perf_syscall_enter, NULL);
 	if (ret) {
-		pr_info("event trace: Could not activate"
-				"syscall entry trace point");
+		pr_info("event trace: Could not activate syscall entry trace point");
 	} else {
 		set_bit(num, enabled_perf_enter_syscalls);
 		sys_perf_refcount_enter++;
@@ -660,14 +660,14 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
 	size = ALIGN(sizeof(*rec) + sizeof(u32), sizeof(u64));
 	size -= sizeof(u32);
 
-	rec = (struct syscall_trace_exit *)perf_trace_buf_prepare(size,
-				sys_data->exit_event->event.type, NULL, &rctx);
+	rec = perf_trace_buf_alloc(size, NULL, &rctx);
 	if (!rec)
 		return;
 
 	rec->nr = syscall_nr;
 	rec->ret = syscall_get_return_value(current, regs);
-	perf_trace_buf_submit(rec, size, rctx, 0, 1, regs, head, NULL);
+	perf_trace_buf_submit(rec, size, rctx, sys_data->exit_event->event.type,
+			      1, regs, head, NULL);
 }
 
 static int perf_sysexit_enable(struct trace_event_call *call)
@@ -681,8 +681,7 @@ static int perf_sysexit_enable(struct trace_event_call *call)
 	if (!sys_perf_refcount_exit)
 		ret = register_trace_sys_exit(perf_syscall_exit, NULL);
 	if (ret) {
-		pr_info("event trace: Could not activate"
-				"syscall exit trace point");
+		pr_info("event trace: Could not activate syscall exit trace point");
 	} else {
 		set_bit(num, enabled_perf_exit_syscalls);
 		sys_perf_refcount_exit++;

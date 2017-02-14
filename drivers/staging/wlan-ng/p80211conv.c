@@ -75,8 +75,8 @@
 #include "p80211ioctl.h"
 #include "p80211req.h"
 
-static u8 oui_rfc1042[] = { 0x00, 0x00, 0x00 };
-static u8 oui_8021h[] = { 0x00, 0x00, 0xf8 };
+static const u8 oui_rfc1042[] = { 0x00, 0x00, 0x00 };
+static const u8 oui_8021h[] = { 0x00, 0x00, 0xf8 };
 
 /*----------------------------------------------------------------
 * p80211pb_ether_to_80211
@@ -104,7 +104,7 @@ static u8 oui_8021h[] = { 0x00, 0x00, 0xf8 };
 *	May be called in interrupt or non-interrupt context
 *----------------------------------------------------------------
 */
-int skb_ether_to_p80211(wlandevice_t *wlandev, u32 ethconv,
+int skb_ether_to_p80211(struct wlandevice *wlandev, u32 ethconv,
 			struct sk_buff *skb, union p80211_hdr *p80211_hdr,
 			struct p80211_metawep *p80211_wep)
 {
@@ -232,7 +232,7 @@ int skb_ether_to_p80211(wlandevice_t *wlandev, u32 ethconv,
 }
 
 /* jkriegl: from orinoco, modified */
-static void orinoco_spy_gather(wlandevice_t *wlandev, char *mac,
+static void orinoco_spy_gather(struct wlandevice *wlandev, char *mac,
 			       struct p80211_rxmeta *rxmeta)
 {
 	int i;
@@ -243,7 +243,6 @@ static void orinoco_spy_gather(wlandevice_t *wlandev, char *mac,
 
 	for (i = 0; i < wlandev->spy_number; i++) {
 		if (!memcmp(wlandev->spy_address[i], mac, ETH_ALEN)) {
-			memcpy(wlandev->spy_address[i], mac, ETH_ALEN);
 			wlandev->spy_stat[i].level = rxmeta->signal;
 			wlandev->spy_stat[i].noise = rxmeta->noise;
 			wlandev->spy_stat[i].qual =
@@ -275,10 +274,10 @@ static void orinoco_spy_gather(wlandevice_t *wlandev, char *mac,
 *	May be called in interrupt or non-interrupt context
 *----------------------------------------------------------------
 */
-int skb_p80211_to_ether(wlandevice_t *wlandev, u32 ethconv,
+int skb_p80211_to_ether(struct wlandevice *wlandev, u32 ethconv,
 			struct sk_buff *skb)
 {
-	netdevice_t *netdev = wlandev->netdev;
+	struct net_device *netdev = wlandev->netdev;
 	u16 fc;
 	unsigned int payload_length;
 	unsigned int payload_offset;

@@ -32,7 +32,6 @@
 #include <linux/tty.h>
 #include <linux/sysrq.h>
 #include <linux/delay.h>
-#include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/screen_info.h>
 #include <linux/vga_switcheroo.h>
@@ -43,7 +42,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
 
-#include "nouveau_drm.h"
+#include "nouveau_drv.h"
 #include "nouveau_gem.h"
 #include "nouveau_bo.h"
 #include "nouveau_fbcon.h"
@@ -386,8 +385,6 @@ nouveau_fbcon_create(struct drm_fb_helper *helper,
 		}
 	}
 
-	mutex_lock(&dev->struct_mutex);
-
 	info = drm_fb_helper_alloc_fbi(helper);
 	if (IS_ERR(info)) {
 		ret = PTR_ERR(info);
@@ -426,8 +423,6 @@ nouveau_fbcon_create(struct drm_fb_helper *helper,
 
 	/* Use default scratch pixmap (info->pixmap.flags = FB_PIXMAP_SYSTEM) */
 
-	mutex_unlock(&dev->struct_mutex);
-
 	if (chan)
 		nouveau_fbcon_accel_init(dev);
 	nouveau_fbcon_zfill(dev, fbcon);
@@ -441,7 +436,6 @@ nouveau_fbcon_create(struct drm_fb_helper *helper,
 	return 0;
 
 out_unlock:
-	mutex_unlock(&dev->struct_mutex);
 	if (chan)
 		nouveau_bo_vma_del(nvbo, &fbcon->nouveau_fb.vma);
 	nouveau_bo_unmap(nvbo);
@@ -557,6 +551,8 @@ nouveau_fbcon_init(struct drm_device *dev)
 	if (ret)
 		goto fini;
 
+	if (fbcon->helper.fbdev)
+		fbcon->helper.fbdev->pixmap.buf_align = 4;
 	return 0;
 
 fini:

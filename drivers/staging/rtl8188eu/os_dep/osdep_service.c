@@ -11,11 +11,6 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
  ******************************************************************************/
 
 
@@ -60,21 +55,13 @@ void *rtw_malloc2d(int h, int w, int size)
 	return a;
 }
 
-u32 _rtw_down_sema(struct semaphore *sema)
-{
-	if (down_interruptible(sema))
-		return _FAIL;
-	return _SUCCESS;
-}
-
 void	_rtw_init_queue(struct __queue *pqueue)
 {
 	INIT_LIST_HEAD(&(pqueue->queue));
 	spin_lock_init(&(pqueue->lock));
 }
 
-struct net_device *rtw_alloc_etherdev_with_old_priv(int sizeof_priv,
-						    void *old_priv)
+struct net_device *rtw_alloc_etherdev_with_old_priv(void *old_priv)
 {
 	struct net_device *pnetdev;
 	struct rtw_netdev_priv_indicator *pnpi;
@@ -85,7 +72,6 @@ struct net_device *rtw_alloc_etherdev_with_old_priv(int sizeof_priv,
 
 	pnpi = netdev_priv(pnetdev);
 	pnpi->priv = old_priv;
-	pnpi->sizeof_priv = sizeof_priv;
 
 RETURN:
 	return pnetdev;

@@ -29,7 +29,6 @@
 #include <linux/slab.h>
 
 #include "../core.h"
-#include "../../gpio/gpiolib.h"
 #include "pinctrl-sunxi.h"
 
 static struct irq_chip sunxi_pinctrl_edge_irq_chip;
@@ -933,18 +932,15 @@ int sunxi_pinctrl_init(struct platform_device *pdev,
 	pctrl_desc->pctlops = &sunxi_pctrl_ops;
 	pctrl_desc->pmxops =  &sunxi_pmx_ops;
 
-	pctl->pctl_dev = pinctrl_register(pctrl_desc,
-					  &pdev->dev, pctl);
+	pctl->pctl_dev = devm_pinctrl_register(&pdev->dev, pctrl_desc, pctl);
 	if (IS_ERR(pctl->pctl_dev)) {
 		dev_err(&pdev->dev, "couldn't register pinctrl driver\n");
 		return PTR_ERR(pctl->pctl_dev);
 	}
 
 	pctl->chip = devm_kzalloc(&pdev->dev, sizeof(*pctl->chip), GFP_KERNEL);
-	if (!pctl->chip) {
-		ret = -ENOMEM;
-		goto pinctrl_error;
-	}
+	if (!pctl->chip)
+		return -ENOMEM;
 
 	last_pin = pctl->desc->pins[pctl->desc->npins - 1].pin.number;
 	pctl->chip->owner = THIS_MODULE;
@@ -966,7 +962,7 @@ int sunxi_pinctrl_init(struct platform_device *pdev,
 
 	ret = gpiochip_add_data(pctl->chip, pctl);
 	if (ret)
-		goto pinctrl_error;
+		return ret;
 
 	for (i = 0; i < pctl->desc->npins; i++) {
 		const struct sunxi_desc_pin *pin = pctl->desc->pins + i;
@@ -1044,7 +1040,5 @@ clk_error:
 	clk_disable_unprepare(clk);
 gpiochip_error:
 	gpiochip_remove(pctl->chip);
-pinctrl_error:
-	pinctrl_unregister(pctl->pctl_dev);
 	return ret;
 }

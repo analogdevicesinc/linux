@@ -32,6 +32,7 @@
 #include <drm/drmP.h>
 #include <drm/vmwgfx_drm.h>
 #include <drm/drm_hashtab.h>
+#include <drm/drm_auth.h>
 #include <linux/suspend.h>
 #include <drm/ttm/ttm_bo_driver.h>
 #include <drm/ttm/ttm_object.h>
@@ -42,7 +43,7 @@
 
 #define VMWGFX_DRIVER_DATE "20160210"
 #define VMWGFX_DRIVER_MAJOR 2
-#define VMWGFX_DRIVER_MINOR 10
+#define VMWGFX_DRIVER_MINOR 11
 #define VMWGFX_DRIVER_PATCHLEVEL 0
 #define VMWGFX_FILE_PAGE_OFFSET 0x00100000
 #define VMWGFX_FIFO_STATIC_SIZE (1024*1024)
@@ -66,10 +67,10 @@
 			VMWGFX_NUM_GB_SURFACE +\
 			VMWGFX_NUM_GB_SCREEN_TARGET)
 
-#define VMW_PL_GMR TTM_PL_PRIV0
-#define VMW_PL_FLAG_GMR TTM_PL_FLAG_PRIV0
-#define VMW_PL_MOB TTM_PL_PRIV1
-#define VMW_PL_FLAG_MOB TTM_PL_FLAG_PRIV1
+#define VMW_PL_GMR (TTM_PL_PRIV + 0)
+#define VMW_PL_FLAG_GMR (TTM_PL_FLAG_PRIV << 0)
+#define VMW_PL_MOB (TTM_PL_PRIV + 1)
+#define VMW_PL_FLAG_MOB (TTM_PL_FLAG_PRIV << 1)
 
 #define VMW_RES_CONTEXT ttm_driver_type0
 #define VMW_RES_SURFACE ttm_driver_type1
@@ -386,6 +387,7 @@ struct vmw_private {
 	spinlock_t hw_lock;
 	spinlock_t cap_lock;
 	bool has_dx;
+	bool assume_16bpp;
 
 	/*
 	 * VGA registers.
@@ -412,6 +414,7 @@ struct vmw_private {
 	struct drm_property *implicit_placement_property;
 	unsigned num_implicit;
 	struct vmw_framebuffer *implicit_fb;
+	struct mutex global_kms_state_mutex;
 
 	/*
 	 * Context and surface management.
@@ -1234,4 +1237,10 @@ static inline void vmw_mmio_write(u32 value, u32 *addr)
 {
 	WRITE_ONCE(*addr, value);
 }
+
+/**
+ * Add vmw_msg module function
+ */
+extern int vmw_host_log(const char *log);
+
 #endif

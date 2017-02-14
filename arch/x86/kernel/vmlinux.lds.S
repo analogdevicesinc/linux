@@ -97,6 +97,7 @@ SECTIONS
 		_stext = .;
 		TEXT_TEXT
 		SCHED_TEXT
+		CPUIDLE_TEXT
 		LOCK_TEXT
 		KPROBES_TEXT
 		ENTRY_TEXT
@@ -334,7 +335,7 @@ SECTIONS
 		__brk_limit = .;
 	}
 
-	. = ALIGN(PAGE_SIZE);
+	. = ALIGN(PAGE_SIZE);		/* keep VO_INIT_SIZE page aligned */
 	_end = .;
 
         STABS_DEBUG
