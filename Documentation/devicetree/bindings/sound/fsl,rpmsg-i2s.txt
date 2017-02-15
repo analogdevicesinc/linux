@@ -1,0 +1,20 @@
+Freescale rpmsg i2s interface.
+
+The rpmsg i2s is based on RPMSG that used communicating with M4 core,
+which provides a synchronous audio interface that supports fullduplex
+serial interfaces with frame synchronization such as I2S.
+
+Required properties:
+
+  - compatible		: Compatible list, contains "fsl,imx7ulp-rpmsg-i2s".
+
+  - fsl,audioindex      : This is an index indicating the audio device index in
+			  the M4 side.
+
+Example:
+rpmsg_i2s: rpmsg-i2s {
+	compatible = "fsl,imx7ulp-rpmsg-i2s";
+	/* the audio device index in m4 domain */
+	fsl,audioindex = <0> ;
+	status = "okay";
+};

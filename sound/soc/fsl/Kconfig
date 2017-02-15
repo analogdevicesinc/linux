@@ -57,6 +57,15 @@ config SND_SOC_FSL_ESAI
 	  This option is only useful for out-of-tree drivers since
 	  in-tree drivers select it automatically.
 
+config SND_SOC_FSL_RPMSG_I2S
+	tristate "I2S base on the RPMSG support"
+	depends on RPMSG
+	help
+	  Say Y if you want to add rpmsg i2s support for the Freescale CPUs.
+	  which is depends on the rpmsg.
+	  This option is only useful for out-of-tree drivers since
+	  in-tree drivers select it automatically.
+
 config SND_SOC_FSL_UTILS
 	tristate
 
