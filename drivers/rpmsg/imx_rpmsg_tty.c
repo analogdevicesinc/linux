@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ * Copyright (C) 2015-2016 Freescale Semiconductor, Inc.
+ * Copyright (C) 2017 NXP
  *
  * derived from the omap-rpmsg implementation.
  * Remote processor messaging transport - tty driver
@@ -205,7 +206,7 @@ static void rpmsg_tty_remove(struct rpmsg_device *rpdev)
 }
 
 static struct rpmsg_device_id rpmsg_driver_tty_id_table[] = {
-	{ .name	= "rpmsg-openamp-demo-channel" },
+	{ .name	= "rpmsg-virtual-tty-channel" },
 	{ },
 };
 MODULE_DEVICE_TABLE(rpmsg, rpmsg_driver_tty_id_table);
