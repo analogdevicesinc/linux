@@ -323,6 +323,17 @@ config SND_SOC_IMX_WM8962_ANDROID
 	  Say Y if you want to add support for SoC audio on an i.MX board with
 	  a wm8962 codec in android.
 
+config SND_SOC_IMX_RPMSG
+	tristate "SoC Audio support for i.MX boards with rpmsg"
+	depends on OF && I2C && INPUT
+	select SND_SOC_IMX_PCM_RPMSG
+	select SND_SOC_FSL_RPMSG_I2S
+	help
+	  SoC Audio support for i.MX boards with rpmsg.
+	  There should be rpmsg devices defined in other core
+	  Say Y if you want to add support for SoC audio on an i.MX board with
+	  a rpmsg devices.
+
 config SND_SOC_IMX_ES8328
 	tristate "SoC Audio support for i.MX boards with the ES8328 codec"
 	depends on OF && (I2C || SPI)

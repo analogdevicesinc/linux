@@ -1,0 +1,13 @@
+Freescale i.MX audio complex with rpmsg devices
+
+Required properties:
+- compatible : "fsl,imx-audio-rpmsg"
+- model : The user-visible name of this sound complex
+- cpu-dai : The phandle of the i.MX rpmsg i2s device.
+
+Example:
+sound-rpmsg {
+	compatible = "fsl,imx-audio-rpmsg";
+	model = "rpmsg-audio";
+	cpu-dai = <&rpmsg_i2s>;
+};
