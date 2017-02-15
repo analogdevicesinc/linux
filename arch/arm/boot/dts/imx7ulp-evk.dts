@@ -166,6 +166,19 @@
 				regulator-always-on;
 		};
 	};
+
+	rpmsg_i2s: rpmsg-i2s {
+		compatible = "fsl,imx7ulp-rpmsg-i2s";
+		/* the audio device index in m4 domain */
+		fsl,audioindex = <0> ;
+		status = "okay";
+	};
+
+	sound-rpmsg {
+		compatible = "fsl,imx-audio-rpmsg";
+		model = "rpmsg-audio";
+		cpu-dai = <&rpmsg_i2s>;
+	};
 };
 
 &iomuxc1 {
@@ -421,9 +434,10 @@
 	 * --0x9FF00000~0x9FF0FFFF: pingpong
 	 * --0x9FF10000~0x9FF1FFFF: pmic
 	 * --0x9FF20000~0x9FF2FFFF: pm
+	 * --0x9FF30000~0x9FF3FFFF: audio
 	 */
-	vdev-nums = <3>;
-	reg = <0x9FF00000 0x30000>;
+	vdev-nums = <4>;
+	reg = <0x9FF00000 0x40000>;
 	status = "okay";
 };
 
