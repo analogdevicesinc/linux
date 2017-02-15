@@ -34,6 +34,7 @@
 #include <sound/pcm.h>
 #include <sound/soc.h>
 #include <sound/asoundef.h>
+#include <sound/hdmi-codec.h>
 
 #include <video/mxc_hdmi.h>
 
@@ -63,15 +64,15 @@ static void dumpregs(struct snd_soc_dai *dai)
 		(hdmi_readb(HDMI_AUD_N2) << 8) |
 		hdmi_readb(HDMI_AUD_N1);
 
-	dev_debug(dai->dev, "HDMI_PHY_CONF0      0x%02x\n",
+	dev_dbg(dai->dev, "HDMI_PHY_CONF0      0x%02x\n",
 			hdmi_readb(HDMI_PHY_CONF0));
-	dev_debug(dai->dev, "HDMI_MC_CLKDIS      0x%02x\n",
+	dev_dbg(dai->dev, "HDMI_MC_CLKDIS      0x%02x\n",
 			hdmi_readb(HDMI_MC_CLKDIS));
-	dev_debug(dai->dev, "HDMI_AUD_N[1-3]     0x%06x (%d)\n",
+	dev_dbg(dai->dev, "HDMI_AUD_N[1-3]     0x%06x (%d)\n",
 			n, n);
-	dev_debug(dai->dev, "HDMI_AUD_CTS[1-3]   0x%06x (%d)\n",
+	dev_dbg(dai->dev, "HDMI_AUD_CTS[1-3]   0x%06x (%d)\n",
 			cts, cts);
-	dev_debug(dai->dev, "HDMI_FC_AUDSCONF    0x%02x\n",
+	dev_dbg(dai->dev, "HDMI_FC_AUDSCONF    0x%02x\n",
 			hdmi_readb(HDMI_FC_AUDSCONF));
 }
 #else
@@ -600,6 +601,33 @@ static const struct snd_soc_component_driver fsl_hdmi_component = {
 	.name		= "fsl-hdmi",
 };
 
+/* HDMI audio codec callbacks */
+static int fsl_hdmi_audio_hw_params(struct device *dev, void *data,
+			 struct hdmi_codec_daifmt *fmt,
+			 struct hdmi_codec_params *hparms)
+{
+	dev_dbg(dev, "[%s]: %u Hz, %d bit, %d channels\n", __func__,
+			hparms->sample_rate, hparms->sample_width, hparms->cea.channels);
+
+	return 0;
+}
+
+static void fsl_hdmi_audio_shutdown(struct device *dev, void *data)
+{
+	dev_dbg(dev, "[%s]\n", __func__);
+}
+
+static const struct hdmi_codec_ops fsl_hdmi_audio_codec_ops = {
+	.hw_params = fsl_hdmi_audio_hw_params,
+	.audio_shutdown = fsl_hdmi_audio_shutdown,
+};
+
+static struct hdmi_codec_pdata codec_data = {
+	.ops = &fsl_hdmi_audio_codec_ops,
+	.i2s = 1,
+	.max_i2s_channels = 8,
+};
+
 static int fsl_hdmi_dai_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -654,8 +682,9 @@ static int fsl_hdmi_dai_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	hdmi_data->codec_dev = platform_device_register_simple(
-			"hdmi-audio-codec", -1, NULL, 0);
+	hdmi_data->codec_dev = platform_device_register_data(&pdev->dev,
+			HDMI_CODEC_DRV_NAME, PLATFORM_DEVID_NONE,
+			&codec_data, sizeof(codec_data));
 	if (IS_ERR(hdmi_data->codec_dev)) {
 		dev_err(&pdev->dev, "failed to register HDMI audio codec\n");
 		ret = PTR_ERR(hdmi_data->codec_dev);
