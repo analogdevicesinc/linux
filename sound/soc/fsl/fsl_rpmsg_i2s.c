@@ -200,7 +200,7 @@ static int fsl_rpmsg_i2s_suspend(struct device *dev)
 	rpmsg_tx->header.cmd = I2S_TX_SUSPEND;
 	i2s_send_message(rpmsg_tx, i2s_info);
 
-	rpmsg_tx->header.cmd = I2S_RX_SUSPEND;
+	rpmsg_rx->header.cmd = I2S_RX_SUSPEND;
 	i2s_send_message(rpmsg_rx, i2s_info);
 
 	return 0;
@@ -219,7 +219,7 @@ static int fsl_rpmsg_i2s_resume(struct device *dev)
 	rpmsg_tx->header.cmd = I2S_TX_RESUME;
 	i2s_send_message(rpmsg_tx, i2s_info);
 
-	rpmsg_tx->header.cmd = I2S_RX_RESUME;
+	rpmsg_rx->header.cmd = I2S_RX_RESUME;
 	i2s_send_message(rpmsg_rx, i2s_info);
 
 	return 0;
