@@ -451,7 +451,6 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 		imx7ulp_set_lpm(RUN);
 		break;
 	case PM_SUSPEND_MEM:
-		pm_vlls_notify_m4(true);
 		imx7ulp_gpio_save();
 		imx7ulp_scg1_save();
 		imx7ulp_pcc2_save();
@@ -472,7 +471,6 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 		imx7ulp_tpm_restore();
 		imx7ulp_iomuxc_restore();
 		imx7ulp_set_lpm(RUN);
-		pm_vlls_notify_m4(false);
 		break;
 	default:
 		return -EINVAL;

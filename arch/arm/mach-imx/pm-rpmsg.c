@@ -28,7 +28,8 @@
 
 #define RPMSG_TIMEOUT 1000
 
-#define PM_RPMSG_TYPE		2
+#define PM_RPMSG_TYPE		0
+#define HEATBEAT_RPMSG_TYPE	2
 
 enum pm_rpmsg_cmd {
 	PM_RPMSG_MODE,
@@ -52,6 +53,7 @@ struct pm_rpmsg_info {
 	struct pm_rpmsg_data *msg;
 	struct pm_qos_request pm_qos_req;
 	struct notifier_block restart_handler;
+	struct completion cmd_complete;
 };
 
 static struct pm_rpmsg_info pm_rpmsg;
@@ -64,7 +66,7 @@ struct pm_rpmsg_data {
 } __attribute__ ((packed));
 
 static int pm_send_message(struct pm_rpmsg_data *msg,
-			struct pm_rpmsg_info *info, bool susp)
+			struct pm_rpmsg_info *info, bool ack)
 {
 	int err;
 
@@ -73,20 +75,42 @@ static int pm_send_message(struct pm_rpmsg_data *msg,
 			"rpmsg channel not ready, m4 image ready?\n");
 		return -EINVAL;
 	}
-	if (!susp)
-		pm_qos_add_request(&info->pm_qos_req,
+	pm_qos_add_request(&info->pm_qos_req,
 			PM_QOS_CPU_DMA_LATENCY, 0);
+
+	reinit_completion(&info->cmd_complete);
 
 	err = rpmsg_send(info->rpdev->ept, (void *)msg,
 			    sizeof(struct pm_rpmsg_data));
 
-	if (!susp)
-		pm_qos_remove_request(&info->pm_qos_req);
+	pm_qos_remove_request(&info->pm_qos_req);
+
+	if (err) {
+		dev_err(&info->rpdev->dev, "rpmsg_send failed: %d\n", err);
+		return err;
+	}
+
+	if (ack) {
+		err = wait_for_completion_timeout(&info->cmd_complete,
+					msecs_to_jiffies(RPMSG_TIMEOUT));
+		if (!err) {
+			dev_err(&info->rpdev->dev, "rpmsg_send timeout!\n");
+			return -ETIMEDOUT;
+		}
+
+		if (info->msg->data != 0) {
+			dev_err(&info->rpdev->dev, "rpmsg not ack %d!\n",
+				info->msg->data);
+			return -EINVAL;
+		}
+
+		err = 0;
+	}
 
 	return err;
 }
 
-void pm_vlls_notify_m4(bool enter)
+static int pm_vlls_notify_m4(bool enter)
 {
 	struct pm_rpmsg_data msg;
 
@@ -97,7 +121,7 @@ void pm_vlls_notify_m4(bool enter)
 	msg.header.cmd = PM_RPMSG_MODE;
 	msg.data = enter ? PM_RPMSG_VLLS : PM_RPMSG_RUN;
 
-	pm_send_message(&msg, &pm_rpmsg, true);
+	return pm_send_message(&msg, &pm_rpmsg, true);
 }
 
 void pm_shutdown_notify_m4(void)
@@ -111,7 +135,7 @@ void pm_shutdown_notify_m4(void)
 	msg.header.cmd = PM_RPMSG_MODE;
 	msg.data = PM_RPMSG_SHUTDOWN;
 
-	pm_send_message(&msg, &pm_rpmsg, false);
+	pm_send_message(&msg, &pm_rpmsg, true);
 
 }
 
@@ -126,7 +150,7 @@ void pm_reboot_notify_m4(void)
 	msg.header.cmd = PM_RPMSG_MODE;
 	msg.data = PM_RPMSG_REBOOT;
 
-	pm_send_message(&msg, &pm_rpmsg, false);
+	pm_send_message(&msg, &pm_rpmsg, true);
 
 }
 
@@ -137,10 +161,9 @@ static void pm_heart_beat_work_handler(struct work_struct *work)
 	msg.header.cate = IMX_RMPSG_LIFECYCLE;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
-	msg.header.type = PM_RPMSG_TYPE;
+	msg.header.type = HEATBEAT_RPMSG_TYPE;
 	msg.header.cmd = PM_RPMSG_HEART_BEAT;
 	msg.data = 0;
-
 	pm_send_message(&msg, &pm_rpmsg, false);
 
 	schedule_delayed_work(&heart_beat_work,
@@ -164,6 +187,8 @@ static int pm_rpmsg_probe(struct rpmsg_device *rpdev)
 	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
 			rpdev->src, rpdev->dst);
 
+	init_completion(&pm_rpmsg.cmd_complete);
+
 	INIT_DELAYED_WORK(&heart_beat_work,
 		pm_heart_beat_work_handler);
 
@@ -184,6 +209,12 @@ static int pm_rpmsg_probe(struct rpmsg_device *rpdev)
 static int pm_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 			void *priv, u32 src)
 {
+	struct pm_rpmsg_data *msg = (struct pm_rpmsg_data *)data;
+
+	pm_rpmsg.msg = msg;
+
+	complete(&pm_rpmsg.cmd_complete);
+
 	return 0;
 }
 
@@ -206,12 +237,45 @@ static struct rpmsg_driver pm_rpmsg_driver = {
 	.remove		= pm_rpmsg_remove,
 };
 
-static int __init pm_rpmsg_init(void)
+#ifdef CONFIG_PM_SLEEP
+static int pm_heartbeat_suspend(struct device *dev)
 {
+	return pm_vlls_notify_m4(true);
+}
+
+static int pm_heartbeat_resume(struct device *dev)
+{
+	return pm_vlls_notify_m4(false);
+}
+#endif
+
+static int pm_heartbeat_probe(struct platform_device *pdev)
+{
+	platform_set_drvdata(pdev, &pm_rpmsg);
+
 	return register_rpmsg_driver(&pm_rpmsg_driver);
 }
 
-module_init(pm_rpmsg_init);
+static const struct of_device_id pm_heartbeat_id[] = {
+	{"fsl,heartbeat-rpmsg",},
+	{},
+};
+MODULE_DEVICE_TABLE(of, pm_heartbeat_id);
+
+static SIMPLE_DEV_PM_OPS(pm_heartbeat_ops, pm_heartbeat_suspend,
+			 pm_heartbeat_resume);
+
+static struct platform_driver pm_heartbeat_driver = {
+	.driver = {
+		.name = "heartbeat-rpmsg",
+		.owner = THIS_MODULE,
+		.of_match_table = pm_heartbeat_id,
+		.pm = &pm_heartbeat_ops,
+		},
+	.probe = pm_heartbeat_probe,
+};
+
+module_platform_driver(pm_heartbeat_driver);
 
 MODULE_DESCRIPTION("Freescale PM rpmsg driver");
 MODULE_AUTHOR("Anson Huang <Anson.Huang@nxp.com>");
