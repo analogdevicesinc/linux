@@ -367,8 +367,8 @@ static const int ad9265_scale_table[][2] = {
 };
 
 static const int ad9680_scale_table[][2] = {
-	{1200, 0x08}, {1300, 0x09}, {1400, 0x0A}, {1500, 0x0B},
-	{1600, 0x00}, {1700, 0x0C}, {1800, 0x0D}, {1900, 0x0F},
+	{1460, 0x08}, {1580, 0x09}, {1700, 0x0A}, {1820, 0x0B},
+	{1940, 0x00}, {2060, 0x0C},
 };
 
 static const int ad9467_scale_table[][2] = {
