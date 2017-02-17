@@ -1936,6 +1936,8 @@ static void init_mxsfb_overlay(struct mxsfb_info *fbi,
 	ofb->blank_state = -1;
 	ofb->global_alpha = 255;
 	ofb->fbi = fbi;
+
+	sprintf(ofb->ol_fb->fix.id, "FG");
 }
 
 static int mxsfb_overlay_map_video_memory(struct mxsfb_info *fbi,
