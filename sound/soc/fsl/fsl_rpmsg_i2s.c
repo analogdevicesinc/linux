@@ -196,6 +196,7 @@ static int fsl_rpmsg_i2s_suspend(struct device *dev)
 	struct i2s_rpmsg_s *rpmsg_tx;
 	struct i2s_rpmsg_s *rpmsg_rx;
 
+	flush_workqueue(i2s_info->rpmsg_wq);
 	rpmsg_tx = &i2s_info->send_msg[SNDRV_PCM_STREAM_PLAYBACK];
 	rpmsg_rx = &i2s_info->send_msg[SNDRV_PCM_STREAM_CAPTURE];
 

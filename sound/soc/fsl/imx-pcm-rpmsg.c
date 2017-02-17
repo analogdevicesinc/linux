@@ -149,6 +149,8 @@ static int imx_rpmsg_pcm_close(struct snd_pcm_substream *substream)
 		rpmsg->header.cmd = I2S_TX_CLOSE;
 	else
 		rpmsg->header.cmd = I2S_RX_CLOSE;
+
+	flush_workqueue(i2s_info->rpmsg_wq);
 	i2s_info->send_message(rpmsg, i2s_info);
 
 	kfree(prtd);
