@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 # Freescale pin control drivers
 obj-$(CONFIG_PINCTRL_IMX)	+= pinctrl-imx.o
+obj-$(CONFIG_PINCTRL_IMX_MEMMAP)+= pinctrl-memmap.o
+obj-$(CONFIG_PINCTRL_IMX_SCU)	+= pinctrl-scu.o
 obj-$(CONFIG_PINCTRL_IMX1_CORE)	+= pinctrl-imx1-core.o
 obj-$(CONFIG_PINCTRL_IMX1)	+= pinctrl-imx1.o
 obj-$(CONFIG_PINCTRL_IMX21)	+= pinctrl-imx21.o
