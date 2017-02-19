@@ -1,0 +1,57 @@
+* Freescale i.MX8QM IOMUX Controller
+
+Required properties:
+- compatible: "fsl,imx8qm-iomuxc"
+- fsl,pins: each entry consists of 2 integers. Its format is
+  <pin_id pin_config>.
+
+pin_config definition:
+- i.MX8QM have different pad types, please refer to below pad
+  register definitions, the pinctrl driver will just write the
+  pin_config into the hardware register.
+
+typedef union _hw_pad_iomux
+{
+    uint32_t U;
+    struct _hw_pad_iomux_bitfields0
+    {
+        uint32_t GP : 19; /*!< [18:0] GP controls. */
+        uint32_t WAKEUP : 3; /*!< [21:19] Wakeup controls. */
+        uint32_t WAKEUP_ENB : 1; /*!< [22] Wakeup write enable. */
+        uint32_t LPCONFIG : 2; /*!< [24:23] Low-power config. */
+        uint32_t CONFIG : 2; /*!< [26:25] Config. */
+        uint32_t IFMUX : 3; /*!< [29:27] Mux. */
+        uint32_t GP_ENB : 1; /*!< [30] GP write enable. */
+        uint32_t IFMUX_ENB : 1; /*!< [31] Mux write enable. */
+    } B;
+    struct _hw_pad_iomux_28fdsoi
+    {
+        uint32_t DSE : 3; /*!< [2:0] Drive strength. */
+        uint32_t _reserved1 : 2; /*!< [4:3] */
+        uint32_t PS : 2; /*!< [6:5] Pull select. */
+        uint32_t _reserved2 : 12; /*!< [18:7] */
+        uint32_t WAKEUP : 3; /*!< [21:19] Wakeup controls. */
+        uint32_t WAKEUP_ENB : 1; /*!< [22] Wakeup write enable. */
+        uint32_t LPCONFIG : 2; /*!< [24:23] Low-power config. */
+        uint32_t CONFIG : 2; /*!< [26:25] Config. */
+        uint32_t IFMUX : 3; /*!< [29:27] Mux. */
+        uint32_t GP_ENB : 1; /*!< [30] GP write enable. */
+        uint32_t IFMUX_ENB : 1; /*!< [31] Mux write enable. */
+    } FDS0I28;
+    struct _hw_pad_iomux_28fdsoi_comp
+    {
+        uint32_t COMPEN : 3; /*!< [2:0] Mode. */
+        uint32_t FASTFRZ : 1; /*!< [3] Fast freeze. */
+        uint32_t _reserved1 : 1; /*!< [4] */
+        uint32_t RASRCP : 4; /*!< [8:5] PMOS comp. */
+        uint32_t RASRCN : 4; /*!< [12:9] NMOS comp. */
+        uint32_t NASRC_SEL : 1; /*!< [13] Read NASRC select. */
+        uint32_t COMPOK  : 1; /*!< [14] Comp status. */
+        uint32_t NASRC : 4; /*!< [18:15] NASRC value. */
+        uint32_t _reserved2 : 4; /*!< [22:19] */
+        uint32_t LPCONFIG : 2; /*!< [24:23] Low-power config. */
+        uint32_t _reserved3 : 5; /*!< [29:25] */
+        uint32_t GP_ENB : 1; /*!< [30] GP write enable. */
+        uint32_t IFMUX_ENB : 1; /*!< [31] Mux write enable. */
+    } FDS0I28_COMP;
+} hw_pad_iomux_t;
