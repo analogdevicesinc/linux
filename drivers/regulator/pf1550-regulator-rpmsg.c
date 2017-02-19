@@ -74,6 +74,7 @@ struct pf1550_regulator_info {
 	struct pf1550_regulator_rpmsg *msg;
 	struct completion cmd_complete;
 	struct pm_qos_request pm_qos_req;
+	struct mutex lock;
 	struct regulator_desc *regulators;
 };
 
@@ -100,42 +101,47 @@ static int pf1550_send_message(struct pf1550_regulator_rpmsg *msg,
 {
 	int err;
 
-	msg->header.cate = IMX_RPMSG_PMIC;
-	msg->header.major = IMX_RMPSG_MAJOR;
-	msg->header.minor = IMX_RMPSG_MINOR;
-	msg->header.type = 0;
-
 	if (!info->rpdev) {
 		dev_dbg(info->dev,
 			 "rpmsg channel not ready, m4 image ready?\n");
 		return -EINVAL;
 	}
 
+	mutex_lock(&info->lock);
 	pm_qos_add_request(&info->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 0);
+
+	msg->header.cate = IMX_RPMSG_PMIC;
+	msg->header.major = IMX_RMPSG_MAJOR;
+	msg->header.minor = IMX_RMPSG_MINOR;
+	msg->header.type = 0;
 
 	/* wait response from rpmsg */
 	reinit_completion(&info->cmd_complete);
 
 	err = rpmsg_send(info->rpdev->ept, (void *)msg,
 			    sizeof(struct pf1550_regulator_rpmsg));
-
-	pm_qos_remove_request(&info->pm_qos_req);
-
 	if (err) {
 		dev_err(&info->rpdev->dev, "rpmsg_send failed: %d\n", err);
-		return err;
+		goto err_out;
 	}
 	err = wait_for_completion_timeout(&info->cmd_complete,
 					  msecs_to_jiffies(RPMSG_TIMEOUT));
 	if (!err) {
 		dev_err(&info->rpdev->dev, "rpmsg_send timeout!\n");
-		return -ETIMEDOUT;
+		err = -ETIMEDOUT;
+		goto err_out;
 	}
+
+	err = 0;
+
+err_out:
+	pm_qos_remove_request(&info->pm_qos_req);
+	mutex_unlock(&info->lock);
 
 	dev_dbg(&info->rpdev->dev, "cmd:%d, reg:%d, resp:%d.\n",
 		  msg->header.cmd, msg->regulator, msg->response);
 
-	return 0;
+	return err;
 }
 
 static int pf1550_enable(struct regulator_dev *reg)
@@ -327,6 +333,7 @@ static int rpmsg_regulator_probe(struct rpmsg_device *rpdev)
 	pf1550_info.rpdev = rpdev;
 
 	init_completion(&pf1550_info.cmd_complete);
+	mutex_init(&pf1550_info.lock);
 
 	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
 			rpdev->src, rpdev->dst);
@@ -469,6 +476,7 @@ static int pf1550_regulator_probe(struct platform_device *pdev)
 		return i;
 	}
 #endif
+
 	platform_set_drvdata(pdev, &pf1550_info);
 
 	return 0;
