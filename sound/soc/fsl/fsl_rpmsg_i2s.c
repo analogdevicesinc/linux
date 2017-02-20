@@ -71,14 +71,14 @@ static int i2s_send_message(struct i2s_rpmsg_s *msg,
 static struct snd_soc_dai_driver fsl_rpmsg_i2s_dai = {
 	.playback = {
 		.stream_name = "CPU-Playback",
-		.channels_min = 1,
+		.channels_min = 2,
 		.channels_max = 2,
 		.rates = FSL_RPMSG_I2S_RATES,
 		.formats = FSL_RPMSG_I2S_FORMATS,
 	},
 	.capture = {
 		.stream_name = "CPU-Capture",
-		.channels_min = 1,
+		.channels_min = 2,
 		.channels_max = 2,
 		.rates = FSL_RPMSG_I2S_RATES,
 		.formats = FSL_RPMSG_I2S_FORMATS,
