@@ -112,6 +112,9 @@
 		};
 	};
 
+	sound-rpmsg {
+		status = "disabled";
+	};
 
 	sound {
 		compatible = "fsl,imx7ulp-evk-wm8960",
