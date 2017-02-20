@@ -54,6 +54,7 @@ struct pm_rpmsg_info {
 	struct pm_qos_request pm_qos_req;
 	struct notifier_block restart_handler;
 	struct completion cmd_complete;
+	struct mutex lock;
 };
 
 static struct pm_rpmsg_info pm_rpmsg;
@@ -75,6 +76,8 @@ static int pm_send_message(struct pm_rpmsg_data *msg,
 			"rpmsg channel not ready, m4 image ready?\n");
 		return -EINVAL;
 	}
+
+	mutex_lock(&info->lock);
 	pm_qos_add_request(&info->pm_qos_req,
 			PM_QOS_CPU_DMA_LATENCY, 0);
 
@@ -83,11 +86,9 @@ static int pm_send_message(struct pm_rpmsg_data *msg,
 	err = rpmsg_send(info->rpdev->ept, (void *)msg,
 			    sizeof(struct pm_rpmsg_data));
 
-	pm_qos_remove_request(&info->pm_qos_req);
-
 	if (err) {
 		dev_err(&info->rpdev->dev, "rpmsg_send failed: %d\n", err);
-		return err;
+		goto err_out;
 	}
 
 	if (ack) {
@@ -95,17 +96,23 @@ static int pm_send_message(struct pm_rpmsg_data *msg,
 					msecs_to_jiffies(RPMSG_TIMEOUT));
 		if (!err) {
 			dev_err(&info->rpdev->dev, "rpmsg_send timeout!\n");
-			return -ETIMEDOUT;
+			err = -ETIMEDOUT;
+			goto err_out;
 		}
 
 		if (info->msg->data != 0) {
 			dev_err(&info->rpdev->dev, "rpmsg not ack %d!\n",
 				info->msg->data);
-			return -EINVAL;
+			err = -EINVAL;
+			goto err_out;
 		}
 
 		err = 0;
 	}
+
+err_out:
+	pm_qos_remove_request(&info->pm_qos_req);
+	mutex_unlock(&info->lock);
 
 	return err;
 }
@@ -188,12 +195,13 @@ static int pm_rpmsg_probe(struct rpmsg_device *rpdev)
 			rpdev->src, rpdev->dst);
 
 	init_completion(&pm_rpmsg.cmd_complete);
+	mutex_init(&pm_rpmsg.lock);
 
 	INIT_DELAYED_WORK(&heart_beat_work,
 		pm_heart_beat_work_handler);
 
 	schedule_delayed_work(&heart_beat_work,
-		msecs_to_jiffies(10000));
+			msecs_to_jiffies(10000));
 
 	pm_vlls_notify_m4(false);
 
