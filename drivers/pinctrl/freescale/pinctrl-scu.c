@@ -87,14 +87,11 @@ int imx_pinctrl_parse_pin(struct imx_pinctrl_soc_info *info,
 			  unsigned int *pin_id, struct imx_pin *pin,
 			  const __be32 **list_p, u32 generic_config)
 {
-	const __be32 *list = *list_p;
 	struct imx_pin_scu *pin_scu = &pin->pin_conf.pin_scu;
 
-	pin->pin = be32_to_cpu(*list++);
+	pin->pin = be32_to_cpu(*((*list_p)++));
 	*pin_id = pin->pin;
-	pin_scu->all = be32_to_cpu(*list++);
-
-	*list_p = list;
+	pin_scu->all = be32_to_cpu(*((*list_p)++));
 
 	dev_dbg(info->dev, "%s: 0x%x",
 		 info->pins[pin->pin].name, pin_scu->all);
