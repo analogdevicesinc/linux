@@ -71,6 +71,7 @@ extern unsigned long iram_tlb_phys_addr;
 struct mmdc_settings_info {
 	u32 size;
 	void *settings;
+	int freq;
 } __aligned(8);
 static struct mmdc_settings_info *mmdc_settings_info;
 void (*mx6_change_lpddr2_freq_smp)(u32 ddr_freq, struct mmdc_settings_info
@@ -201,6 +202,7 @@ int update_lpddr2_freq_smp(int ddr_rate)
 
 	mmdc_settings_info->size = mmdc_settings_size;
 	mmdc_settings_info->settings = iram_mmdc_settings;
+	mmdc_settings_info->freq = curr_ddr_rate;
 
 	/* ensure that all Cores are in WFE. */
 	local_irq_disable();
@@ -351,7 +353,7 @@ int init_mmdc_lpddr2_settings_mx6q(struct platform_device *busfreq_pdev)
 			&wfe_smp_freq_change, wfe_code_size);
 #endif
 	iram_settings_size = (void *)ddr_freq_change_iram_base + wfe_code_size + 0x8;
-	iram_mmdc_settings = (void *)iram_settings_size + 0x8;
+	iram_mmdc_settings = (void *)iram_settings_size + sizeof(*mmdc_settings_info);
 	iram_ddr_freq_chage = (void *)iram_mmdc_settings + (mmdc_settings_size * 8) + 0x8;
 	mmdc_settings_info = (struct mmdc_settings_info *)iram_settings_size;
 

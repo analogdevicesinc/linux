@@ -238,6 +238,13 @@ set_timmings_100MHz:
 	set_mmdc_misc_ralat_2_cycles
 
 common_to_lower_equal_100MHz:
+
+	/* if MMDC is not in 400MHz mode, skip double mu count */
+	ldr	r5, [r1, #0x8]
+	ldr	r6, =400000000
+	cmp	r5, r6
+	bne	skip_lower_force_measure_ch1
+
 	/*
 	 * Prior to reducing the DDR frequency (at 528/400 MHz),
 	 * read the Measure unit count bits (MU_UNIT_DEL_NUM)
