@@ -1287,7 +1287,7 @@ static int xadc_probe(struct platform_device *pdev)
 
 	ret = clk_prepare_enable(xadc->clk);
 	if (ret)
-		goto err_free_samplerate_trigger;
+		goto err_clk_disable_unprepare;
 
 	/*
 	 * Make sure not to exceed the maximum samplerate since otherwise the
