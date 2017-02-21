@@ -1255,7 +1255,7 @@ static int xadc_probe(struct platform_device *pdev)
 
 	ret = clk_prepare_enable(xadc->clk);
 	if (ret)
-		goto err_free_samplerate_trigger;
+		goto err_clk_disable_unprepare;
 
 	ret = devm_request_irq(&pdev->dev, irq, xadc->ops->interrupt_handler, 0,
 			       dev_name(&pdev->dev), indio_dev);
