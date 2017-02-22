@@ -870,14 +870,17 @@ static void mipi_dsi_shutdown(struct platform_device *pdev)
 {
 	struct mipi_dsi_info *mipi_dsi = dev_get_drvdata(&pdev->dev);
 
-	mipi_display_enter_sleep(mipi_dsi->disp_mipi);
+	if (mipi_dsi->lcd_inited) {
+		clk_prepare_enable(mipi_dsi->esc_clk);
+		mipi_display_enter_sleep(mipi_dsi->disp_mipi);
 
-	writel(0x1, mipi_dsi->mmio_base + DPHY_PD_PLL);
-	writel(0x1, mipi_dsi->mmio_base + DPHY_PD_DPHY);
+		writel(0x1, mipi_dsi->mmio_base + DPHY_PD_PLL);
+		writel(0x1, mipi_dsi->mmio_base + DPHY_PD_DPHY);
 
-	clk_disable_unprepare(mipi_dsi->esc_clk);
+		clk_disable_unprepare(mipi_dsi->esc_clk);
 
-	mipi_dsi->lcd_inited = 0;
+		mipi_dsi->lcd_inited = 0;
+	}
 }
 
 static const struct of_device_id imx_mipi_dsi_dt_ids[] = {
