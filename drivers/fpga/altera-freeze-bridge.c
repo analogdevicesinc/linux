@@ -28,6 +28,7 @@
 #define FREEZE_CSR_REG_VERSION			12
 
 #define FREEZE_CSR_SUPPORTED_VERSION		2
+#define FREEZE_CSR_OFFICIAL_VERSION		0xad000003
 
 #define FREEZE_CSR_STATUS_FREEZE_REQ_DONE	BIT(0)
 #define FREEZE_CSR_STATUS_UNFREEZE_REQ_DONE	BIT(1)
@@ -223,10 +224,12 @@ int altera_freeze_br_probe(struct device *dev, void __iomem *reg_base)
 		priv->enable = 1;
 
 	revision = readl(priv->base_addr + FREEZE_CSR_REG_VERSION);
-	if (revision != FREEZE_CSR_SUPPORTED_VERSION)
+	if ((revision != FREEZE_CSR_SUPPORTED_VERSION) &&
+	    (revision != FREEZE_CSR_OFFICIAL_VERSION))
 		dev_warn(dev,
-			 "%s Freeze Controller unexpected revision %d != %d\n",
-			 __func__, revision, FREEZE_CSR_SUPPORTED_VERSION);
+			 "%s unexpected revision 0x%x != 0x%x != 0x%x\n",
+			 __func__, revision, FREEZE_CSR_SUPPORTED_VERSION,
+			 FREEZE_CSR_OFFICIAL_VERSION);
 
 	return fpga_bridge_register(dev, dev_name(dev),
 				    &altera_freeze_br_br_ops, priv);
