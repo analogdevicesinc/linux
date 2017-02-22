@@ -248,12 +248,29 @@ static struct rpmsg_driver pm_rpmsg_driver = {
 #ifdef CONFIG_PM_SLEEP
 static int pm_heartbeat_suspend(struct device *dev)
 {
-	return pm_vlls_notify_m4(true);
+	int err;
+
+	err = pm_vlls_notify_m4(true);
+	if (err)
+		return err;
+
+	cancel_delayed_work_sync(&heart_beat_work);
+
+	return 0;
 }
 
 static int pm_heartbeat_resume(struct device *dev)
 {
-	return pm_vlls_notify_m4(false);
+	int err;
+
+	err = pm_vlls_notify_m4(true);
+	if (err)
+		return err;
+
+	schedule_delayed_work(&heart_beat_work,
+			msecs_to_jiffies(10000));
+
+	return 0;
 }
 #endif
 
