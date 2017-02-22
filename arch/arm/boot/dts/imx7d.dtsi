@@ -195,39 +195,9 @@
 		compatible = "fsl,imx6q-caam-snvs";
 		reg = <0x30370000 0x10000>;
 	};
-
-	gpc: gpc@303a0000 {
-		compatible = "fsl,imx7d-gpc";
-		reg = <0x303a0000 0x10000>;
-		interrupt-controller;
-		interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
-		#interrupt-cells = <3>;
-		interrupt-parent = <&intc>;
-		fsl,mf-mix-wakeup-irq = <0x54010000 0xc00 0x0 0x1040640>;
-		mipi-phy-supply = <&reg_1p0d>;
-		pcie-phy-supply = <&reg_1p0d>;
-		vcc-supply = <&reg_1p2>;
-	};
-
 	iomuxc_lpsr_gpr: lpsr-gpr@30270000 {
 		compatible = "fsl,imx7d-lpsr-gpr";
 		reg = <0x30270000 0x10000>;
-	};
-};
-
-&anatop {
-	reg_1p2: regulator-vdd1p2@220 {
-		compatible = "fsl,anatop-regulator";
-		regulator-name = "vdd1p2";
-		regulator-min-microvolt = <1100000>;
-		regulator-max-microvolt = <1300000>;
-		anatop-reg-offset = <0x220>;
-		anatop-vol-bit-shift = <8>;
-		anatop-vol-bit-width = <5>;
-		anatop-min-bit-val = <8>;
-		anatop-min-voltage = <1100000>;
-		anatop-max-voltage = <1300000>;
-		anatop-enable-bit = <31>;
 	};
 };
 
