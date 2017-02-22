@@ -548,17 +548,17 @@ static int imx_gpcv2_domain_alloc(struct irq_domain *domain,
 				  unsigned int irq,
 				  unsigned int nr_irqs, void *data)
 {
-	struct of_phandle_args *args = data;
-	struct of_phandle_args parent_args;
+	struct irq_fwspec *fwspec = data;
+	struct irq_fwspec parent_fwspec;
 	irq_hw_number_t hwirq;
 	int i;
 
-	if (args->args_count != 3)
+	if (fwspec->param_count != 3)
 		return -EINVAL;	/* Not GIC compliant */
-	if (args->args[0] != 0)
+	if (fwspec->param[0] != 0)
 		return -EINVAL;	/* No PPI should point to this domain */
 
-	hwirq = args->args[1];
+	hwirq = fwspec->param[1];
 	if (hwirq >= GPC_MAX_IRQS)
 		return -EINVAL;	/* Can't deal with this */
 
@@ -566,9 +566,14 @@ static int imx_gpcv2_domain_alloc(struct irq_domain *domain,
 		irq_domain_set_hwirq_and_chip(domain, irq + i, hwirq + i,
 					      &imx_gpcv2_chip, NULL);
 
-	parent_args = *args;
-	parent_args.np = irq_domain_get_of_node(domain);
-	return irq_domain_alloc_irqs_parent(domain, irq, nr_irqs, &parent_args);
+	parent_fwspec.fwnode = domain->parent->fwnode;
+	parent_fwspec.param_count = 3;
+	parent_fwspec.param[0] = 0;
+	parent_fwspec.param[1] = hwirq;
+	parent_fwspec.param[2] = fwspec->param[2];
+
+	return irq_domain_alloc_irqs_parent(domain, irq, nr_irqs,
+					    &parent_fwspec);
 }
 
 static struct irq_domain_ops imx_gpcv2_domain_ops = {
