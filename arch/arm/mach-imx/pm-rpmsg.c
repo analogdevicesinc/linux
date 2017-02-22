@@ -54,6 +54,7 @@ struct pm_rpmsg_info {
 	struct pm_qos_request pm_qos_req;
 	struct notifier_block restart_handler;
 	struct completion cmd_complete;
+	bool first_flag;
 	struct mutex lock;
 };
 
@@ -165,6 +166,12 @@ static void pm_heart_beat_work_handler(struct work_struct *work)
 {
 	struct pm_rpmsg_data msg;
 
+	/* Notify M4 side A7 in RUN mode at boot time */
+	if (pm_rpmsg.first_flag) {
+		pm_vlls_notify_m4(false);
+		pm_rpmsg.first_flag = false;
+	}
+
 	msg.header.cate = IMX_RMPSG_LIFECYCLE;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -200,10 +207,9 @@ static int pm_rpmsg_probe(struct rpmsg_device *rpdev)
 	INIT_DELAYED_WORK(&heart_beat_work,
 		pm_heart_beat_work_handler);
 
+	pm_rpmsg.first_flag = true;
 	schedule_delayed_work(&heart_beat_work,
-			msecs_to_jiffies(10000));
-
-	pm_vlls_notify_m4(false);
+			msecs_to_jiffies(100));
 
 	pm_rpmsg.restart_handler.notifier_call = pm_restart_handler;
 	pm_rpmsg.restart_handler.priority = 128;
