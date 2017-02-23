@@ -290,6 +290,7 @@ struct i2s_info {
 
 	struct workqueue_struct  *rpmsg_wq;
 	struct work_of_rpmsg	 work_list[WORK_MAX_NUM];
+	int                      work_index;
 	int                      num_period[2];
 	void                     *callback_param[2];
 	int (*send_message)(struct i2s_rpmsg_s *msg, struct i2s_info *info);
