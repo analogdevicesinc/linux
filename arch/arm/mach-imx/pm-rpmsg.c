@@ -34,6 +34,7 @@
 enum pm_rpmsg_cmd {
 	PM_RPMSG_MODE,
 	PM_RPMSG_HEART_BEAT,
+	PM_RPMSG_HEART_BEAT_OFF,
 };
 
 enum pm_rpmsg_power_mode {
@@ -61,6 +62,8 @@ struct pm_rpmsg_info {
 static struct pm_rpmsg_info pm_rpmsg;
 
 static struct delayed_work heart_beat_work;
+
+static bool heartbeat_off;
 
 struct pm_rpmsg_data {
 	struct imx_rpmsg_head header;
@@ -162,6 +165,20 @@ void pm_reboot_notify_m4(void)
 
 }
 
+void  pm_heartbeat_off_notify_m4(bool enter)
+{
+	struct pm_rpmsg_data msg;
+
+	msg.header.cate = IMX_RMPSG_LIFECYCLE;
+	msg.header.major = IMX_RMPSG_MAJOR;
+	msg.header.minor = IMX_RMPSG_MINOR;
+	msg.header.type = PM_RPMSG_TYPE;
+	msg.header.cmd = PM_RPMSG_HEART_BEAT_OFF;
+	msg.data = enter ? 0 : 1;
+
+	pm_send_message(&msg, &pm_rpmsg, true);
+}
+
 static void pm_heart_beat_work_handler(struct work_struct *work)
 {
 	struct pm_rpmsg_data msg;
@@ -169,19 +186,24 @@ static void pm_heart_beat_work_handler(struct work_struct *work)
 	/* Notify M4 side A7 in RUN mode at boot time */
 	if (pm_rpmsg.first_flag) {
 		pm_vlls_notify_m4(false);
+
+		pm_heartbeat_off_notify_m4(heartbeat_off);
+
 		pm_rpmsg.first_flag = false;
 	}
 
-	msg.header.cate = IMX_RMPSG_LIFECYCLE;
-	msg.header.major = IMX_RMPSG_MAJOR;
-	msg.header.minor = IMX_RMPSG_MINOR;
-	msg.header.type = HEATBEAT_RPMSG_TYPE;
-	msg.header.cmd = PM_RPMSG_HEART_BEAT;
-	msg.data = 0;
-	pm_send_message(&msg, &pm_rpmsg, false);
+	if (!heartbeat_off) {
+		msg.header.cate = IMX_RMPSG_LIFECYCLE;
+		msg.header.major = IMX_RMPSG_MAJOR;
+		msg.header.minor = IMX_RMPSG_MINOR;
+		msg.header.type = HEATBEAT_RPMSG_TYPE;
+		msg.header.cmd = PM_RPMSG_HEART_BEAT;
+		msg.data = 0;
+		pm_send_message(&msg, &pm_rpmsg, false);
 
-	schedule_delayed_work(&heart_beat_work,
-		msecs_to_jiffies(30000));
+		schedule_delayed_work(&heart_beat_work,
+			msecs_to_jiffies(30000));
+	}
 }
 
 static int pm_restart_handler(struct notifier_block *this, unsigned long mode,
@@ -305,6 +327,14 @@ static struct platform_driver pm_heartbeat_driver = {
 		},
 	.probe = pm_heartbeat_probe,
 };
+
+static int __init setup_heartbeat(char *str)
+{
+	heartbeat_off = true;
+
+	return 1;
+};
+__setup("heartbeat_off", setup_heartbeat);
 
 module_platform_driver(pm_heartbeat_driver);
 
