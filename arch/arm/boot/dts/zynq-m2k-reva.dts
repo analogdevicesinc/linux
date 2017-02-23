@@ -101,15 +101,14 @@
 		compatible = "gpio-keys";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		autorepeat;
 
-		power {
+		button {
 			interrupt-parent = <&gpio0>;
-			label = "Power";
-			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_POWER>;
-			gpio-key,wakeup;
+			interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+			label = "Button";
+			linux,code = <BTN_MISC>;
 		};
+
 	};
 };
 
