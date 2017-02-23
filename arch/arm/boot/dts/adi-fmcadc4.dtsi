@@ -57,7 +57,7 @@
 			adi,extended-name = "ADC2-sysref";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1>;
+			adi,channel-divider = <32>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
@@ -84,7 +84,7 @@
 			adi,extended-name = "ADC1-sysref";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1>;
+			adi,channel-divider = <32>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
@@ -93,7 +93,7 @@
 			adi,extended-name = "FPGA-sysref";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1>;
+			adi,channel-divider = <32>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 	};
