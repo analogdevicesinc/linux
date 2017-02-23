@@ -511,6 +511,8 @@ static int mipi_dsi_enable(struct mxc_dispdrv_handle *disp,
 			return -EINVAL;
 		}
 
+		reset_dsi_domains(mipi_dsi, 0);
+
 		ret = mipi_display_exit_sleep(mipi_dsi->disp_mipi);
 		if (ret) {
 			dev_err(&mipi_dsi->pdev->dev, "exit sleep failed\n");
@@ -702,6 +704,10 @@ static void mipi_dsi_disable(struct mxc_dispdrv_handle *disp,
 	}
 
 	clk_disable_unprepare(mipi_dsi->esc_clk);
+
+	reset_dsi_domains(mipi_dsi, 1);
+	regmap_update_bits(mipi_dsi->regmap, SIM_SOPT1CFG,
+			   DSI_PLL_EN, 0x0);
 }
 
 static int mipi_dsi_setup(struct mxc_dispdrv_handle *disp,
