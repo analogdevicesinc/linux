@@ -1860,6 +1860,7 @@ static int overlayfb_set_par(struct fb_info *info)
 		clk_enable_axi(fbi);
 		clk_enable_disp_axi(fbi);
 	}
+	unlock_fb_info(fbi->fb_info);
 
 	if (ofb->blank_state == FB_BLANK_UNBLANK)
 		ofb->ops->disable(ofb);
@@ -1869,12 +1870,14 @@ static int overlayfb_set_par(struct fb_info *info)
 	if (ofb->blank_state == FB_BLANK_UNBLANK)
 		ofb->ops->enable(ofb);
 
+	if (!lock_fb_info(fbi->fb_info))
+		return -EINVAL;
+
 	if (fbi->cur_blank != FB_BLANK_UNBLANK) {
 		clk_disable_disp_axi(fbi);
 		clk_disable_axi(fbi);
 		clk_disable_pix(fbi);
 	}
-
 	unlock_fb_info(fbi->fb_info);
 
 	if ((var->activate & FB_ACTIVATE_FORCE) &&
@@ -1900,6 +1903,7 @@ static int overlayfb_blank(int blank, struct fb_info *info)
 		clk_enable_axi(fbi);
 		clk_enable_disp_axi(fbi);
 	}
+	unlock_fb_info(fbi->fb_info);
 
 	switch (blank) {
 	case FB_BLANK_POWERDOWN:
@@ -1913,12 +1917,14 @@ static int overlayfb_blank(int blank, struct fb_info *info)
 		break;
 	}
 
+	if (!lock_fb_info(fbi->fb_info))
+		return -EINVAL;
+
 	if (fbi->cur_blank != FB_BLANK_UNBLANK) {
 		clk_disable_disp_axi(fbi);
 		clk_disable_axi(fbi);
 		clk_disable_pix(fbi);
 	}
-
 	unlock_fb_info(fbi->fb_info);
 
 	ofb->blank_state = blank;
