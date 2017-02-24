@@ -243,6 +243,13 @@
 #define		I2S_RESP_SUCCESS	0x2
 #define		I2S_RESP_FAILED		0x3
 
+#define		RPMSG_S16_LE		0x0
+#define		RPMSG_S24_LE		0x1
+
+#define		RPMSG_CH_LEFT		0x0
+#define		RPMSG_CH_RIGHT		0x1
+#define		RPMSG_CH_STEREO		0x2
+
 struct i2s_param_s {
 	unsigned char audioindex;
 	unsigned char format;

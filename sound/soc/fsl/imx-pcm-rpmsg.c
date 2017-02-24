@@ -33,7 +33,7 @@ static const struct snd_pcm_hardware imx_rpmsg_pcm_hardware = {
 		SNDRV_PCM_INFO_PAUSE |
 		SNDRV_PCM_INFO_RESUME,
 	.buffer_bytes_max = IMX_SAI_DMABUF_SIZE,
-	.period_bytes_min = 128,
+	.period_bytes_min = 512,
 	.period_bytes_max = 65535, /* Limited by SDMA engine */
 	.periods_min = 2,
 	.periods_max = 255,
@@ -49,28 +49,37 @@ static int imx_rpmsg_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct fsl_rpmsg_i2s *rpmsg_i2s = dev_get_drvdata(cpu_dai->dev);
 	struct i2s_info  *i2s_info =  &rpmsg_i2s->i2s_info;
-	struct i2s_rpmsg_s *rpmsg = &i2s_info->send_msg[substream->stream];
+	struct i2s_rpmsg_s *rpmsg_tx = &i2s_info->send_msg[SNDRV_PCM_STREAM_PLAYBACK];
+	struct i2s_rpmsg_s *rpmsg_rx = &i2s_info->send_msg[SNDRV_PCM_STREAM_CAPTURE];
 
-	rpmsg->param.rate     = params_rate(params);
-	if (SNDRV_PCM_FORMAT_S16_LE ==  params_format(params))
-		rpmsg->param.format   = 0;
-	else
-		rpmsg->param.format   = 1;
+	rpmsg_tx->param.rate     = params_rate(params);
+	rpmsg_rx->param.rate     = params_rate(params);
+	if (SNDRV_PCM_FORMAT_S16_LE ==  params_format(params)) {
+		rpmsg_tx->param.format   = RPMSG_S16_LE;
+		rpmsg_rx->param.format   = RPMSG_S16_LE;
+	} else {
+		rpmsg_tx->param.format   = RPMSG_S24_LE;
+		rpmsg_rx->param.format   = RPMSG_S24_LE;
+	}
 
-	if (params_channels(params) == 1)
-		rpmsg->param.channels = 0;
-	else
-		rpmsg->param.channels = 2;
+	if (params_channels(params) == 1) {
+		rpmsg_tx->param.channels = RPMSG_CH_LEFT;
+		rpmsg_rx->param.channels = RPMSG_CH_LEFT;
+	} else {
+		rpmsg_tx->param.channels = RPMSG_CH_STEREO;
+		rpmsg_rx->param.channels = RPMSG_CH_STEREO;
+	}
 
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	runtime->dma_bytes = params_buffer_bytes(params);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		rpmsg->header.cmd = I2S_TX_HW_PARAM;
-	else
-		rpmsg->header.cmd = I2S_RX_HW_PARAM;
-
-	i2s_info->send_message(rpmsg, i2s_info);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		rpmsg_tx->header.cmd = I2S_TX_HW_PARAM;
+		i2s_info->send_message(rpmsg_tx, i2s_info);
+	} else {
+		rpmsg_rx->header.cmd = I2S_RX_HW_PARAM;
+		i2s_info->send_message(rpmsg_rx, i2s_info);
+	}
 
 	return 0;
 }
