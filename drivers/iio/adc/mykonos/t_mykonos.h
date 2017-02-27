@@ -2,8 +2,15 @@
  * \file t_mykonos.h
  * \brief Contains type definitions for Mykonos API
  *
- * Mykonos API version: 1.3.1.3534
+ * Mykonos API version: 1.4.0.3546
  */
+
+/**
+* \page Disclaimer Legal Disclaimer
+* Copyright 2015-2017 Analog Devices Inc.
+* Released under the AD9371 API license, for more information see the "LICENSE.txt" file in this zip file.
+*
+*/
 
 #ifndef _T_MYKONOS_LIB_H_
 #define _T_MYKONOS_LIB_H_
@@ -280,6 +287,7 @@ typedef enum
 	MYKONOS_ERR_TIMEDOUT_ARMMAILBOXBUSY,
 	MYKONOS_ERR_PU_OBSRXPATH_ARMERROR,
 	MYKONOS_ERR_EN_TRACKING_CALS_ARMSTATE_ERROR,
+	MYKONOS_ERR_SET_RADIOCTRL_PINS_ARMERROR,
 	MYKONOS_ERR_EN_TRACKING_CALS_ARMERROR,
 	MYKONOS_ERR_SETRFPLL_ARMERROR,
 	MYKONOS_ERR_INIT_INV_TXINPUTHB_PARM,
@@ -342,6 +350,7 @@ typedef enum
 	MYKONOS_ERR_GETRFPLL_NULLPARAM,
 	MYKONOS_ERR_INITARM_INV_VCODIV,
 	MYKONOS_ERR_GET_PLLFREQ_INV_HSDIV,
+	MYKONOS_ERR_GET_PLLFREQ_INV_VCODIV,
 	MYKONOS_ERR_GET_PLLFREQ_INV_REFCLKDIV,
 	MYKONOS_ERR_SETORXGAIN_INV_ORX1GAIN,
 	MYKONOS_ERR_SETORXGAIN_INV_ORX2GAIN,
@@ -366,7 +375,6 @@ typedef enum
  	MYKONOS_ERR_WRITEARMCFG_ARMERRFLAG,
 	MYKONOS_ERR_CFGDPD_TXORX_PROFILE_INV,
 	MYKONOS_ERR_CFGDPD_NULL_DPDCFGSTRUCT,
-	MYKONOS_ERR_CFGDPD_ARMSTATE_ERROR,
 	MYKONOS_ERR_CFGDPD_INV_DPDDAMPING,
 	MYKONOS_ERR_CFGDPD_INV_DPDSAMPLES,
 	MYKONOS_ERR_CFGDPD_INV_DPDOUTLIERTHRESH,
@@ -414,7 +422,6 @@ typedef enum
 	MYKONOS_ERR_SETDPDACT_ARMERRFLAG,
 	MYKONOS_ERR_CFGCLGC_TXORX_PROFILE_INV,
 	MYKONOS_ERR_CFGCLGC_NULL_CLGCCFGSTRUCT,
-	MYKONOS_ERR_CFGCLGC_ARMSTATE_ERROR,
 	MYKONOS_ERR_GETCLGCCFG_TXORX_PROFILE_INV,
 	MYKONOS_ERR_GETCLGCCFG_NULL_CFGSTRUCT,
 	MYKONOS_ERR_CALCDIGCLK_NULLDEV_PARAM,
@@ -498,7 +505,32 @@ typedef enum
     MYKONOS_ERR_TXPROFILE_FIR_COEFS,
     MYKONOS_ERR_TXPROFILE_DACDIV,
     MYKONOS_ERR_RESET_TXLOL_INV_PARAM,
-    MYKONOS_ERR_RESET_TXLOL_ARMERROR
+    MYKONOS_ERR_RESET_TXLOL_ARMERROR,
+	MYKONOS_ERR_SETRFPLL_LF_INV_STABILITY,
+	MYKONOS_ERR_SETRFPLL_LF_PLLNAME,
+	MYKONOS_ERR_SETRFPLL_LF_INV_TXRX_LOOPBANDWIDTH,
+	MYKONOS_ERR_SETRFPLL_LF_INV_SNF_LOOPBANDWIDTH,
+	MYKONOS_ERR_SETRFPLL_LF_ARMERROR,
+	MYKONOS_ERR_GETRFPLL_LF_ARMERROR,
+	MYKONOS_ERR_GETRFPLL_LF_NULLPARAM,
+	MYKONOS_ERR_GETRFPLL_LF_INV_PLLNAME,
+    MYKONOS_ERR_DC_OFFSET_INV_CHAN,
+    MYKONOS_ERR_SET_RF_DC_OFFSET_INV_MEASURECNT,
+    MYKONOS_ERR_SET_RF_DC_OFFSET_MEASURECNT_MIN_LIMIT,
+    MYKONOS_ERR_GET_RF_DC_OFFSET_NULL_MEASURECNT,
+    MYKONOS_ERR_RF_DC_OFFSET_INV_ENABLE_MASK,
+    MYKONOS_ERR_RF_DC_OFFSET_NULL_ENABLE_MASK,
+    MYKONOS_ERR_SET_DIG_DC_OFFSET_INV_MSHIFT,
+    MYKONOS_ERR_GET_DIG_DC_OFFSET_NULL_MSHIFT,
+    MYKONOS_ERR_DIG_DC_OFFSET_INV_ENABLE_MASK,
+    MYKONOS_ERR_DIG_DC_OFFSET_NULL_ENABLE_MASK,
+    MYKONOS_ERR_CFGCLGC_INV_THRESHOLD,
+    MYKONOS_ERR_RESETDPD_INV_TXCHANNEL,
+    MYKONOS_ERR_RESETDPD_ARMERRFLAG,
+    MYKONOS_ERR_RESETDPD_WRONG_PARAM,
+    MYKONOS_WRN_RADIO_ON_NOT_MODIFIABLE,
+
+    MYKONOS_ERR_END
 } mykonosErr_t;
 
 /**
@@ -806,7 +838,7 @@ typedef enum
     GPIO3V3_LEVELTRANSLATE_MODE     = 1,    /*!< Level translate mode, signal level on low voltage GPIO output on GPIO3v3 pins */
     GPIO3V3_INVLEVELTRANSLATE_MODE  = 2,    /*!< Inverted Level translate mode, inverse of signal level on low voltage GPIO output on GPIO3v3 pins */
     GPIO3V3_BITBANG_MODE            = 3,    /*!< Manual mode, API function sets output pin levels and reads input pin levels */
-    GPIO3V3_EXTATTEN_LUT_MODE       = 4,    /*!< GPIO3v3 output level follows Rx1/Rx2 gain table external control 6bit field. */
+    GPIO3V3_EXTATTEN_LUT_MODE       = 4     /*!< GPIO3v3 output level follows Rx1/Rx2 gain table external control 6bit field. */
 } mykonosGpio3v3Mode_t;
 
 /**
@@ -833,6 +865,29 @@ typedef enum
     MYK_ARM_CAL_ERROR       = 0x40,    /*!< ARM has detected an error in the tracking calibrations */
     MYK_ARM_EXCEPTION       = 0x80     /*!< ARM system problem has been detected */
 } mykonosArmState_t;
+
+/**
+ *  \brief Enum for channel selection for DC offset settings.
+ */
+typedef enum
+{
+    MYK_DC_OFFSET_RX_CHN = 0x01,                /*!< Select Rx channel */
+    MYK_DC_OFFSET_ORX_CHN = 0x02,               /*!< Select ORx channel */
+    MYK_DC_OFFSET_SNF_CHN = 0x04                /*!< Select Sniffer channel */
+}mykonosDcOffsetChannels_t;
+
+/**
+ *  \brief Enum of Rx channels  for configuring (Enable /disable) DC offsets.
+ */
+typedef enum
+{
+    MYK_DC_OFFSET_ALL_OFF = 0x00,               /*!< Disable all the channels */
+    MYK_DC_OFFSET_RX1 = 0x01,                   /*!< Enables Rx1  */
+    MYK_DC_OFFSET_RX2 = 0x02,                   /*!< Enables Rx2  */
+    MYK_DC_OFFSET_SNF = 0x04,                   /*!< Enables Sniffer  */
+    MYK_DC_OFFSET_ORX = 0x08,                   /*!< Enables ORx  */
+    MYK_DC_OFFSET_AVAILABLE = 0x0F              /*!< Enables all the channels  */
+}mykonosRxDcOffsettEn_t;
 
 /**
  *  \brief Data structure to hold 3.3 VDC GPIO settings
@@ -894,8 +949,8 @@ typedef struct
  *
  *  This information is loaded into the ARM memory using the
  *  MYKONOS_configClgc() function before running the CLGC init or tracking
- *  calibrations.  These values can only be changed when the ARM is in the
- *  radioOff state.
+ *  calibrations.
+ *  These values can be changed when the ARM is in the radioOff or radioOn states.
  */
 typedef struct
 {
@@ -908,10 +963,24 @@ typedef struct
     uint8_t allowTx1AttenUpdates;   /*!< 0= allow CLGC to run, but Tx1Atten will not be updated. User can still read back power measurements.  1=CLGC runs, and Tx1Atten automatically updated */
     uint8_t allowTx2AttenUpdates;   /*!< 0= allow CLGC to run, but Tx2Atten will not be updated. User can still read back power measurements.  1=CLGC runs, and Tx2Atten automatically updated */
 
-    int16_t  additionalDelayOffset; /*!< 16th of an ORx sample (16=1sample), (default 0, valid -64 to 64) */
+    int16_t additionalDelayOffset; /*!< 16th of an ORx sample (16=1sample), (default 0, valid -64 to 64) */
     uint16_t pathDelayPnSeqLevel;   /*!< Default 255 (-30dBFs=(20Log10(value/8192)), (valid range  1 to 8191) */
+
+    uint16_t tx1RelThreshold;       /*!< Threshold for Tx1 in order to stop tracking, value = 100 * dB, default 6db then value = 600 */
+    uint16_t tx2RelThreshold;       /*!< Threshold for Tx2 in order to stop tracking, value = 100 * dB, default 6db then value = 600 */
+    uint8_t tx1RelThresholdEn;      /*!< Threshold feature enable for Tx1, 0 = disable, 1 = enable, default = 0 */
+    uint8_t tx2RelThresholdEn;      /*!< Threshold feature enable for Tx2, 0 = disable, 1 = enable, default = 0 */
 } mykonosClgcConfig_t;
 
+
+/**
+ *  \brief Structure to configure VSWR (Only valid for AD9373 device)
+ *
+ *  This information is loaded into the ARM memory using the
+ *  MYKONOS_configVswr() function before running the VSWR init or tracking
+ *  calibrations.
+ *  These values can be changed when the ARM is in the radioOff states.
+ */
 typedef struct
 {
     /* VSWR init cal parameters */
@@ -923,8 +992,8 @@ typedef struct
     uint8_t tx2VswrSwitchGpio3p3Pin;    /*!< 3p3V GPIO pin to use to control VSWR switch for Tx2 (valid 0-11) (output from Mykonos) */
     uint8_t tx1VswrSwitchPolarity;      /*!< 3p3v GPIO pin polarity for forward path of Tx1, opposite used for reflection path (1 = high level, 0 = low level) */
     uint8_t tx2VswrSwitchPolarity;      /*!< 3p3v GPIO pin polarity for forward path of Tx2, opposite used for reflection path (1 = high level, 0 = low level) */
-    uint8_t tx1VswrSwitchDelay_ms;      /*!< Delay for Tx1 after flipping the VSWR switch until measurement is made. In ms resolution */
-    uint8_t tx2VswrSwitchDelay_ms;      /*!< Delay for Tx2 after flipping the VSWR switch until measurement is made. In ms resolution */
+    uint8_t tx1VswrSwitchDelay_us;      /*!< Delay for Tx1 after flipping the VSWR switch until measurement is made. In us resolution with a range from 0 to 255us */
+    uint8_t tx2VswrSwitchDelay_us;      /*!< Delay for Tx2 after flipping the VSWR switch until measurement is made. In us resolution with a range from 0 to 255us */
 } mykonosVswrConfig_t;
 
 typedef struct
@@ -993,6 +1062,7 @@ typedef struct
     uint8_t obsRxSyncbSelect; 			/*!< Selects SYNCb input source. Where, 0 = use RXSYNCB for this framer, 1 = use OBSRX_SYNCB for this framer */
     uint8_t rxSyncbMode;                /*!< Flag for determining if CMOS mode for RX Sync signal is used. Where, if > 0 = CMOS, '0' = LVDS */
     uint8_t overSample;                 /*!< Selects framer bit repeat or oversampling mode for lane rate matching. Where, 0 = bitRepeat mode (changes effective lanerate), 1 = overSample (maintains same lane rate between ObsRx framer and Rx framer and oversamples the ADC samples) */
+    uint8_t enableManualLaneXbar;       /*!< Flag for determining if API will calculate the appropriate settings for framer lane outputs to physical lanes. Where, if '0' = API will set automatic lane crossbar, '1' = set to manual mode and the value in serializerLaneCrossbar will be used */
 } mykonosJesd204bFramerConfig_t;
 
 /* NO Doxygen content required for this data structure as this is used internally */
@@ -1045,6 +1115,7 @@ typedef struct
     uint8_t newSysrefOnRelink;			/*!< Flag for determining if SYSREF on relink should be set. Where, if > 0 = set, '0' = not set */
     uint8_t enableAutoChanXbar;			/*!< Flag for determining if auto channel select for the xbar should be set. Where, if > 0 = set, '0' = not set */
     uint8_t txSyncbMode;                /*!< Flag for determining if CMOS mode for TX Sync signal is used. Where, if > 0 = CMOS, '0' = LVDS */
+    uint8_t enableManualLaneXbar;       /*!< Flag for determining if API will calculate the appropriate settings for deframer lane in to physical lanes. Where, if '0' = API will set automatic lane crossbar, '1' = set to manual mode and the value in deserializerLaneCrossbar will be used */
 } mykonosJesd204bDeframerConfig_t;
 
 /**
@@ -1387,8 +1458,8 @@ typedef struct
      *                     12   | No GPIO configured in single ORx configuration
      *                     13   | Tx is not observable with any of the ORx Channels
      *                     14   | ORX_TRACKING_DISABLED  ORx tracking must be enabled
-     *                     15   | Cal suspended
-     *                     16   | RESERVED
+     *                     15   | PA Protection Activated
+     *                     16   | Relative Threshold Violated
      *                     17   | RESERVED
      *                     18   | RESERVED
      *                     19   | RESERVED

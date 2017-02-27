@@ -2,8 +2,15 @@
  * \file mykonos_gpio.h
  * \brief Contains macro definitions and function prototypes for mykonos_gpio.c
  *
- * Mykonos API version: 1.3.1.3534
+ * Mykonos API version: 1.4.0.3546
  */
+
+/**
+* \page Disclaimer Legal Disclaimer
+* Copyright 2015-2017 Analog Devices Inc.
+* Released under the AD9371 API license, for more information see the "LICENSE.txt" file in this zip file.
+*
+*/
 
 #ifndef MYKONOSGPIO_H_
 #define MYKONOSGPIO_H_
@@ -103,7 +110,6 @@ mykonosGpioErr_t MYKONOS_readGpInterruptStatus(mykonosDevice_t *device, uint16_t
  *****************************************************************************
  */
 mykonosGpioErr_t MYKONOS_setArmGpioPins(mykonosDevice_t *device);
-mykonosGpioErr_t MYKONOS_setRadioControlPinMode(mykonosDevice_t *device);
 
 /*
  *****************************************************************************

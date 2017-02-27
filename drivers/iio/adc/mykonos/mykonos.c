@@ -3,7 +3,7 @@
  *
  *\brief Contains Mykonos APIs for transceiver configuration and control
  *
- * Mykonos API version: 1.3.1.3534
+ * Mykonos API version: 1.4.0.3546
  */
 
 /**
@@ -17,14 +17,6 @@
  */
 
 /**
- * \page Disclaimer Legal Disclaimer
- * WARRANTY DISCLAIMER: THE SOFTWARE AND ANY RELATED INFORMATION AND/OR ADVICE IS PROVIDED ON AN
- * "AS IS" BASIS, WITHOUT REPRESENTATIONS, GUARANTEES OR WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED,
- * ORAL OR WRITTEN, INCLUDING WITHOUT LIMITATION, WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
- * PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
- */
-
-/**
  * \page Use Suggested Use
  * The purpose of this API library is to add abstraction for the low level
  * SPI control and calculations necessary to control the Mykonos family of transceiver devices
@@ -33,7 +25,13 @@
  * as well for further instructions.
  */
 
-#include <linux/kernel.h>
+/**
+* \page Disclaimer Legal Disclaimer
+* Copyright 2015-2017 Analog Devices Inc.
+* Released under the AD9371 API license, for more information see the "LICENSE.txt" file in this zip file.
+*
+*/
+
 #include "common.h"
 #include "mykonos.h"
 #include "mykonos_gpio.h"
@@ -2115,6 +2113,7 @@ mykonosErr_t MYKONOS_initDigitalClocks(mykonosDevice_t *device)
     return MYKONOS_ERR_OK;
 }
 
+
 /**
  * \brief Sets the RF PLL local oscillator frequency (RF carrier frequency).
  *
@@ -2294,16 +2293,16 @@ mykonosErr_t MYKONOS_getRfPllFrequency(mykonosDevice_t *device, mykonosRfPllName
         switch (clkPllRefClkDiv)
         {
             case 0:
-                refclk_Hz = (uint64_t)(device->clocks->deviceClock_kHz * 1000);
+                refclk_Hz = ((uint64_t)device->clocks->deviceClock_kHz * 1000);
                 break;
             case 1:
-                refclk_Hz = (uint64_t)((device->clocks->deviceClock_kHz * 1000) >> 1);
+                refclk_Hz = (((uint64_t)device->clocks->deviceClock_kHz * 1000) >> 1);
                 break; /* div 2 */
             case 2:
-                refclk_Hz = (uint64_t)((device->clocks->deviceClock_kHz * 1000) >> 2);
+                refclk_Hz = (((uint64_t)device->clocks->deviceClock_kHz * 1000) >> 2);
                 break; /* div 4 */
             case 3:
-                refclk_Hz = (uint64_t)((device->clocks->deviceClock_kHz * 1000) << 1);
+                refclk_Hz = (((uint64_t)device->clocks->deviceClock_kHz * 1000) << 1);
                 break; /* times 2 */
             default:
             {
@@ -2327,6 +2326,12 @@ mykonosErr_t MYKONOS_getRfPllFrequency(mykonosDevice_t *device, mykonosRfPllName
             case 3:
                 vcoDivTimes10 = 30;
                 break;
+            default:
+            {
+                CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GET_PLLFREQ_INV_VCODIV,
+                        getMykonosErrorMessage(MYKONOS_ERR_GET_PLLFREQ_INV_VCODIV));
+                return MYKONOS_ERR_GET_PLLFREQ_INV_VCODIV;
+            }
         }
 
         switch (hsDivReg)
@@ -4647,7 +4652,7 @@ mykonosErr_t MYKONOS_setObsRxAgcMinMaxGainIndex(mykonosDevice_t *device, mykonos
             return MYKONOS_ERR_AGC_MIN_MAX_ORX_CHANNEL;
     }
 
-    if (obsCheck & obsActive)
+    if (obsCheck == obsActive)
     {
         CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_ORX_SNRX_MAX_GAIN_INDEX, maxGainIndex);
         CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AGC_ORX_SNRX_MIN_GAIN_INDEX, minGainIndex);
@@ -7475,6 +7480,8 @@ const char* getMykonosErrorMessage(mykonosErr_t errorCode)
             return "ARM Command Error in MYKONOS_setObsRxPathSource()\n";
         case MYKONOS_ERR_EN_TRACKING_CALS_ARMSTATE_ERROR:
             return "Device not in radioOff/IDLE state. Error in MYKONOS_enableTrackingCals()\n";
+        case MYKONOS_ERR_SET_RADIOCTRL_PINS_ARMERROR:
+            return "ARM command Error in MYKONOS_setRadioControlPinMode()\n";
         case MYKONOS_ERR_EN_TRACKING_CALS_ARMERROR:
             return "ARM Command Error in MYKONOS_enableTrackingCals()\n";
         case MYKONOS_ERR_SETRFPLL_ARMERROR:
@@ -7587,6 +7594,8 @@ const char* getMykonosErrorMessage(mykonosErr_t errorCode)
             return "CLKPLL refclk divider was read back as an invalid setting in MYKONOS_getRfPllFrequency()\n";
         case MYKONOS_ERR_GET_PLLFREQ_INV_HSDIV:
             return "CLKPLL HSDIV divider was read back as an invalid setting in MYKONOS_getRfPllFrequency()\n";
+        case MYKONOS_ERR_GET_PLLFREQ_INV_VCODIV:
+            return "CLKPLL VCODIV divider was read back as an invalid setting in MYKONOS_getRfPllFrequency()\n";
         case MYKONOS_ERR_GET_RX1_DEC_POWER_NULL_PARM:
             return "MYKONOS_getRx1DecPower() has a null *rx1DecPower_mdBFS parameter\n";
         case MYKONOS_ERR_GET_RX1_DEC_POWER_NUM_SAMPLES:
@@ -7617,8 +7626,6 @@ const char* getMykonosErrorMessage(mykonosErr_t errorCode)
             return "MYKONOS_saveDpdModelL() invalid txChannel specified\n";
         case MYKONOS_ERR_EN_CLGCTRACKING_ARMSTATE_ERROR:
             return "ARM is not in the RadioOff state before MYKONOS_enableClgcTracking(), call MYKONOS_radioOff()\n";
-        case MYKONOS_ERR_CFGDPD_ARMSTATE_ERROR:
-            return "MYKONOS_configDpd() was called while ARM was not in radioOff state\n";
         case MYKONOS_ERR_CFGDPD_TXORX_PROFILE_INV:
             return "Tx or ORx profile is not valid, both are necessary for DPD features in MYKONOS_configDpd()\n";
         case MYKONOS_ERR_CFGDPD_NULL_DPDCFGSTRUCT:
@@ -7703,8 +7710,6 @@ const char* getMykonosErrorMessage(mykonosErr_t errorCode)
             return "Tx and ObsRx profiles must be valid to use the CLGC feature in MYKONOS_configClgc()\n";
         case MYKONOS_ERR_CFGCLGC_NULL_CLGCCFGSTRUCT:
             return "CLGC config structure is NULL in device->tx->clgcConfig in MYKONOS_configClgc()\n";
-        case MYKONOS_ERR_CFGCLGC_ARMSTATE_ERROR:
-            return "CLGC config could not be set because ARM is not in radioOff or ready state in MYKONOS_configClgc()\n";
         case MYKONOS_ERR_GETCLGCCFG_TXORX_PROFILE_INV:
             return "Could not read back CLGC status because Tx and ORx profiles are not valid\n";
         case MYKONOS_ERR_GETCLGCCFG_NULL_CFGSTRUCT:
@@ -7873,8 +7878,49 @@ const char* getMykonosErrorMessage(mykonosErr_t errorCode)
             return "Invalid Actuator state, valid states are 0-disable and 1-enable.\n";
         case MYKONOS_ERR_SETDPDACT_ARMERRFLAG:
             return "ARM command flag error set.\n";
+        case MYKONOS_ERR_SETRFPLL_LF_PLLNAME:
+        	return "Invalid pllName requested in MYKONOS_setRfPllLoopFilter()\n";
+        case MYKONOS_ERR_SETRFPLL_LF_INV_STABILITY:
+        	return "Invalid stability value requested in MYKONOS_setRfPllLoopFilter()\n";
+        case MYKONOS_ERR_SETRFPLL_LF_ARMERROR:
+        	return "ARM Command Error in MYKONOS_setRfPllLoopFilter()\n";			
+        case MYKONOS_ERR_SETRFPLL_LF_INV_TXRX_LOOPBANDWIDTH:
+        	return "Invalid Tx/Rx value bandwith requested in MYKONOS_setRfPllLoopFilter()\n";
+        case MYKONOS_ERR_SETRFPLL_LF_INV_SNF_LOOPBANDWIDTH:
+        	return "Invalid Sniffer value bandwith in MYKONOS_setRfPllLoopFilter()\n";
+        case MYKONOS_ERR_GETRFPLL_LF_INV_PLLNAME:
+        	return "Invalid pllName requested in MYKONOS_getRfPllLoopFilter()\n";
+        case MYKONOS_ERR_GETRFPLL_LF_ARMERROR:
+        	return "ARM Command Error in MYKONOS_getRfPllLoopFilter()\n";
+        case MYKONOS_ERR_GETRFPLL_LF_NULLPARAM:
+        	return "NULL pointer in function parameter for MYKONOS_getRfPllLoopFilter()\n";
+        case MYKONOS_ERR_SET_RF_DC_OFFSET_INV_MEASURECNT:
+            return "Invalid value passed as parameter for measureCount to function MYKONOS_setRfDcOffsetCnt().\n";
+        case MYKONOS_ERR_SET_RF_DC_OFFSET_MEASURECNT_MIN_LIMIT:
+            return "The measureCount value passed to function MYKONOS_setRfDcOffsetCnt() is less than the minimum limit allowed.\n";
+        case MYKONOS_ERR_DC_OFFSET_INV_CHAN:
+            return "Invalid channel passed as parameter, for valid channel refer mykonosDcOffsetChannels_t enum.\n";
+        case MYKONOS_ERR_GET_RF_DC_OFFSET_NULL_MEASURECNT:
+            return "Null parameter passed for measureCount MYKONOS_getRfDcOffsetCnt().\n";
+        case MYKONOS_ERR_SET_DIG_DC_OFFSET_INV_MSHIFT:
+            return "Invalid MShift value passed as parameter to function MYKONOS_setDigDcOffsetMShift().\n";
+        case MYKONOS_ERR_GET_DIG_DC_OFFSET_NULL_MSHIFT:
+            return "MShift passed to the function MYKONOS_getDigDcOffsetMShift() is NULL.\n";
+        case MYKONOS_ERR_DIG_DC_OFFSET_INV_ENABLE_MASK:
+            return "Invalid enable mask passed to the function MYKONOS_setDigDcOffsetEn().\n";
+        case MYKONOS_ERR_DIG_DC_OFFSET_NULL_ENABLE_MASK:
+            return "Enable mask passed to the function MYKONOS_getDigDcOffsetEn() is NULL.\n";
+        case MYKONOS_ERR_RESETDPD_WRONG_PARAM:
+            return "reset parameter passed to function MYKONOS_resetDpd() is not valid, possible values are: 1 or 2. \n";
+        case MYKONOS_ERR_RESETDPD_ARMERRFLAG:
+            return "ARM command flag error set in function MYKONOS_resetDpd().\n";
+        case  MYKONOS_ERR_CFGCLGC_INV_THRESHOLD:
+            return "tx1RelThreshold or tx2RelThreshold parameter is out of range in function MYKONOS_configClgc().\n";
+        case MYKONOS_ERR_RESETDPD_INV_TXCHANNEL:
+            return "Tx channel is not valid (Valid ENUM values: TX1, TX2 or TX1_TX2 in function MYKONOS_resetDpd().\n";
+
         default:
-            return "";
+            return "Unknown error was encountered.\n";
     }
 
 #endif
@@ -7903,15 +7949,15 @@ static mykonosErr_t MYKONOS_calculateScaledDeviceClk_kHz(mykonosDevice_t *device
 {
     uint32_t deviceClock_kHz = 0;
 
-#if (MYKONOS_VERBOSE == 1)
-    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_calculateScaledDeviceClk_kHz()\n");
-#endif
-
     if ((device == NULL) || (device->clocks == NULL))
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, 0, MYKONOS_ERR_NULL_DEVICE_PARAM, getMykonosErrorMessage(MYKONOS_ERR_NULL_DEVICE_PARAM));
         return MYKONOS_ERR_NULL_DEVICE_PARAM;
     }
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_calculateScaledDeviceClk_kHz()\n");
+#endif
 
     deviceClock_kHz = device->clocks->deviceClock_kHz;
 
@@ -8672,25 +8718,24 @@ mykonosErr_t MYKONOS_setupDeserializers(mykonosDevice_t *device)
             return MYKONOS_ERR_INITDES_INV_VCODIV_PARM;
     }
 
-    if (hsclkRate_kHz > MAX_HSCLKRATE_KHZ)
-    {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DESER_INV_HSCLK_PARM,
-                getMykonosErrorMessage(MYKONOS_ERR_DESER_INV_HSCLK_PARM));
-        return MYKONOS_ERR_DESER_INV_HSCLK_PARM;
-    }
-
     /* The deserializer clock needs to be in the range 3.8GHz to 6.144 GHz in reg x107.  The rest of the division is in xDD */
     if (hsclkRate_kHz <= 6144000)
     {
         rxcdr_div = 1;
     }
-    else if (hsclkRate_kHz > 6144000 && hsclkRate_kHz <= MAX_HSCLKRATE_KHZ)
+    else if ((hsclkRate_kHz > 6144000) && (hsclkRate_kHz <= MAX_HSCLKRATE_KHZ))
     {
         rxcdr_div = 2;
     }
-    else if (hsclkRate_kHz > MAX_HSCLKRATE_KHZ)
+    else if ((hsclkRate_kHz > MAX_HSCLKRATE_KHZ) && (hsclkRate_kHz < 24576000))
     {
         rxcdr_div = 4;
+    }
+    else
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DESER_INV_HSCLK_PARM,
+                getMykonosErrorMessage(MYKONOS_ERR_DESER_INV_HSCLK_PARM));
+        return MYKONOS_ERR_DESER_INV_HSCLK_PARM;
     }
 
     switch (rxcdr_div)
@@ -8701,11 +8746,10 @@ mykonosErr_t MYKONOS_setupDeserializers(mykonosDevice_t *device)
         case 2:
             rxcdr_div_bitfield = 1;
             break;
-        case 4:
-            rxcdr_div_bitfield = 2;
-            break;
+
         default:
-            rxcdr_div_bitfield = 0;
+            /* Default case is when rxcdr_div == 4 */
+            rxcdr_div_bitfield = 2;
             break;
     }
 
@@ -8938,80 +8982,88 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
         CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_FRAMER_ADC_XBAR_SEL, framerADC_XBar);
     }
 
-    if (ML == 42)
+    if (device->rx->framer->enableManualLaneXbar == 1)
     {
-        /* uses framer outputs 0 and 2 instead of 0 and 1...fix framer lane XBar */
-        /* only 2 lane cases here */
-        switch ((device->rx->framer->serializerLanesEnabled & 0x0F))
-        {
-            case 3:
-                framerLaneXbar = 0x08;
-                break;
-            case 5:
-                framerLaneXbar = 0x20;
-                break;
-            case 6:
-                framerLaneXbar = 0x20;
-                break;
-            case 9:
-                framerLaneXbar = 0x80;
-                break;
-            case 10:
-                framerLaneXbar = 0x80;
-                break;
-            case 12:
-                framerLaneXbar = 0x80;
-                break;
-            default:
-                /* default to valid setting for Lane 0 */
-                framerLaneXbar = 0x08;
-                break;
-        }
+        framerLaneXbar = device->rx->framer->serializerLaneCrossbar;
     }
     else
     {
-        switch ((device->rx->framer->serializerLanesEnabled & 0x0F))
+        if (ML == 42)
         {
-            /* all 4 lanes get framer 0 output */
-            case 1:
-                framerLaneXbar = 0x00;
-                break;
-            case 2:
-                framerLaneXbar = 0x00;
-                break;
-            case 3:
-                framerLaneXbar = 0x04;
-                break;
-            case 4:
-                framerLaneXbar = 0x00;
-                break;
-            case 5:
-                framerLaneXbar = 0x10;
-                break;
-            case 6:
-                framerLaneXbar = 0x10;
-                break;
-            case 8:
-                framerLaneXbar = 0x00;
-                break;
-            case 9:
-                framerLaneXbar = 0x40;
-                break;
-            case 10:
-                framerLaneXbar = 0x40;
-                break;
-            case 12:
-                framerLaneXbar = 0x40;
-                break;
-            case 15:
-                framerLaneXbar = 0xE4;
-                break;
-            default:
-                /* default to valid setting for all Lanes */
-                framerLaneXbar = 0xE4;
-                break;
+            /* uses framer outputs 0 and 2 instead of 0 and 1...fix framer lane XBar */
+            /* only 2 lane cases here */
+            switch ((device->rx->framer->serializerLanesEnabled & 0x0F))
+            {
+                case 3:
+                    framerLaneXbar = 0x08;
+                    break;
+                case 5:
+                    framerLaneXbar = 0x20;
+                    break;
+                case 6:
+                    framerLaneXbar = 0x20;
+                    break;
+                case 9:
+                    framerLaneXbar = 0x80;
+                    break;
+                case 10:
+                    framerLaneXbar = 0x80;
+                    break;
+                case 12:
+                    framerLaneXbar = 0x80;
+                    break;
+                default:
+                    /* default to valid setting for Lane 0 */
+                    framerLaneXbar = 0x08;
+                    break;
+            }
+        }
+        else
+        {
+            switch ((device->rx->framer->serializerLanesEnabled & 0x0F))
+            {
+                /* all 4 lanes get framer 0 output */
+                case 1:
+                    framerLaneXbar = 0x00;
+                    break;
+                case 2:
+                    framerLaneXbar = 0x00;
+                    break;
+                case 3:
+                    framerLaneXbar = 0x04;
+                    break;
+                case 4:
+                    framerLaneXbar = 0x00;
+                    break;
+                case 5:
+                    framerLaneXbar = 0x10;
+                    break;
+                case 6:
+                    framerLaneXbar = 0x10;
+                    break;
+                case 8:
+                    framerLaneXbar = 0x00;
+                    break;
+                case 9:
+                    framerLaneXbar = 0x40;
+                    break;
+                case 10:
+                    framerLaneXbar = 0x40;
+                    break;
+                case 12:
+                    framerLaneXbar = 0x40;
+                    break;
+                case 15:
+                    framerLaneXbar = 0xE4;
+                    break;
+                default:
+                    /* default to valid setting for all Lanes */
+                    framerLaneXbar = 0xE4;
+                    break;
+            }
         }
     }
+
     /* Framer: Set Lane Crossbar */
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_FRAMER_LANE_XBAR_SEL, framerLaneXbar);
 
@@ -9406,78 +9458,85 @@ mykonosErr_t MYKONOS_setupJesd204bObsRxFramer(mykonosDevice_t *device)
     framerADC_XBar = 0xB1;
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_OBS_FRAMER_ADC_XBAR_SEL, framerADC_XBar);
 
-    if (ML == 42)
+    if (device->obsRx->framer->enableManualLaneXbar == 1)
     {
-        /* uses framer outputs 0 and 2 instead of 0 and 1...fix framer lane XBar */
-        /* only 2 lane cases here */
-        switch ((device->obsRx->framer->serializerLanesEnabled & 0x0F))
-        {
-            case 3:
-                framerLaneXbar = 0x08;
-                break;
-            case 5:
-                framerLaneXbar = 0x20;
-                break;
-            case 6:
-                framerLaneXbar = 0x20;
-                break;
-            case 9:
-                framerLaneXbar = 0x80;
-                break;
-            case 10:
-                framerLaneXbar = 0x80;
-                break;
-            case 12:
-                framerLaneXbar = 0x80;
-                break;
-            default:
-                /* default to valid setting for Lane 0 */
-                framerLaneXbar = 0x08;
-                break;
-        }
+        framerLaneXbar = device->obsRx->framer->serializerLaneCrossbar;
     }
     else
     {
-        switch ((device->obsRx->framer->serializerLanesEnabled & 0x0F))
+        if (ML == 42)
         {
-            /* all 4 lanes get framer 0 output */
-            case 1:
-                framerLaneXbar = 0x00;
-                break;
-            case 2:
-                framerLaneXbar = 0x00;
-                break;
-            case 3:
-                framerLaneXbar = 0x04;
-                break;
-            case 4:
-                framerLaneXbar = 0x00;
-                break;
-            case 5:
-                framerLaneXbar = 0x10;
-                break;
-            case 6:
-                framerLaneXbar = 0x10;
-                break;
-            case 8:
-                framerLaneXbar = 0x00;
-                break;
-            case 9:
-                framerLaneXbar = 0x40;
-                break;
-            case 10:
-                framerLaneXbar = 0x40;
-                break;
-            case 12:
-                framerLaneXbar = 0x40;
-                break;
-            case 15:
-                framerLaneXbar = 0xE4;
-                break;
-            default:
-                /* default to valid setting for all Lanes */
-                framerLaneXbar = 0xE4;
-                break;
+            /* uses framer outputs 0 and 2 instead of 0 and 1...fix framer lane XBar */
+            /* only 2 lane cases here */
+            switch ((device->obsRx->framer->serializerLanesEnabled & 0x0F))
+            {
+                case 3:
+                    framerLaneXbar = 0x08;
+                    break;
+                case 5:
+                    framerLaneXbar = 0x20;
+                    break;
+                case 6:
+                    framerLaneXbar = 0x20;
+                    break;
+                case 9:
+                    framerLaneXbar = 0x80;
+                    break;
+                case 10:
+                    framerLaneXbar = 0x80;
+                    break;
+                case 12:
+                    framerLaneXbar = 0x80;
+                    break;
+                default:
+                    /* default to valid setting for Lane 0 */
+                    framerLaneXbar = 0x08;
+                    break;
+            }
+        }
+        else
+        {
+            switch ((device->obsRx->framer->serializerLanesEnabled & 0x0F))
+            {
+                /* all 4 lanes get framer 0 output */
+                case 1:
+                    framerLaneXbar = 0x00;
+                    break;
+                case 2:
+                    framerLaneXbar = 0x00;
+                    break;
+                case 3:
+                    framerLaneXbar = 0x04;
+                    break;
+                case 4:
+                    framerLaneXbar = 0x00;
+                    break;
+                case 5:
+                    framerLaneXbar = 0x10;
+                    break;
+                case 6:
+                    framerLaneXbar = 0x10;
+                    break;
+                case 8:
+                    framerLaneXbar = 0x00;
+                    break;
+                case 9:
+                    framerLaneXbar = 0x40;
+                    break;
+                case 10:
+                    framerLaneXbar = 0x40;
+                    break;
+                case 12:
+                    framerLaneXbar = 0x40;
+                    break;
+                case 15:
+                    framerLaneXbar = 0xE4;
+                    break;
+                default:
+                    /* default to valid setting for all Lanes */
+                    framerLaneXbar = 0xE4;
+                    break;
+            }
         }
     }
 
@@ -9966,23 +10025,30 @@ mykonosErr_t MYKONOS_setupJesd204bDeframer(mykonosDevice_t *device)
     /* Deframer: Set DAC Crossbar */
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_DEFRAMER_DAC_XBAR_SEL, 0xB1);
 
-    /* Lane crossbar  - Allow user to reorder lanes in deframer->deserializerLaneCrossbar, but this code still */
-    /* maps used lanes to deframer inputs */
-    deframerInput = 0;
-    for (lane = 0; lane < 4; lane++)
+    if (device->tx->deframer->enableManualLaneXbar == 1)
     {
-        if ((device->tx->deframer->deserializerLanesEnabled >> lane) & 1)
-        {
-            laneXbar |= (((device->tx->deframer->deserializerLaneCrossbar >> (lane << 1)) & 3) << (deframerInput << 1));
-            deframerInput += 1;
-        }
+        laneXbar = device->tx->deframer->deserializerLaneCrossbar;
     }
-
-    if (ML == 42)
+    else
     {
-        /* M4L2 uses internal deframer ports 0 and 2 */
-        /* swap bits 3:2 and 5:4, keep 1:0 and 7:6 in place */
-        laneXbar = (laneXbar & 0xC3U) | ((laneXbar & 0x30) >> 2) | ((laneXbar & 0x0C) << 2);
+        /* Lane crossbar  - Allow user to reorder lanes in deframer->deserializerLaneCrossbar, but this code still */
+        /* maps used lanes to deframer inputs */
+        deframerInput = 0;
+        for (lane = 0; lane < 4; lane++)
+        {
+            if ((device->tx->deframer->deserializerLanesEnabled >> lane) & 1)
+            {
+                laneXbar |= (((device->tx->deframer->deserializerLaneCrossbar >> (lane << 1)) & 3) << (deframerInput << 1));
+                deframerInput += 1;
+            }
+        }
+
+        if (ML == 42)
+        {
+            /* M4L2 uses internal deframer ports 0 and 2 */
+            /* swap bits 3:2 and 5:4, keep 1:0 and 7:6 in place */
+            laneXbar = (laneXbar & 0xC3U) | ((laneXbar & 0x30) >> 2) | ((laneXbar & 0x0C) << 2);
+        }
     }
 
     /* Deframer: Set Lane Crossbar */
@@ -10334,7 +10400,7 @@ mykonosErr_t MYKONOS_enableSysrefToDeframer(mykonosDevice_t *device, uint8_t ena
  *
  * framerStatus |  Description
  * -------------|-----------------------------------------------------------------------------
- *         [7]  | SYSREF phase error – a new SYSREF had different timing than the first that set the LMFC timing.
+ *         [7]  | SYSREF phase error ? a new SYSREF had different timing than the first that set the LMFC timing.
  *         [6]  | Framer lane FIFO read/write pointer delta has changed.  Can help debug issues with deterministic latency.
  *         [5]  | Framer has received the SYSREF and has retimed its LMFC
  *       [4:2]  | Framer ILAS state: 0=CGS, 1= 1st Multframe, 2= 2nd Multiframe, 3= 3rd Multiframe, 4= 4th multiframe, 5= Last multiframe, 6=invalid, 7= ILAS complete
@@ -10375,7 +10441,7 @@ mykonosErr_t MYKONOS_readRxFramerStatus(mykonosDevice_t *device, uint8_t *framer
  *
  * obsFramerStatus |  Description
  * ----------------|-----------------------------------------------------------------------------
- *            [7]  | SYSREF phase error – a new SYSREF had different timing than the first that set the LMFC timing.
+ *            [7]  | SYSREF phase error ? a new SYSREF had different timing than the first that set the LMFC timing.
  *            [6]  | Framer lane FIFO read/write pointer delta has changed.  Can help debug issues with deterministic latency.
  *            [5]  | Framer has received the SYSREF and has retimed its LMFC
  *          [4:2]  | Framer ILAS state: 0=CGS, 1= 1st Multframe, 2= 2nd Multiframe, 3= 3rd Multiframe, 4= 4th multiframe, 5= Last multiframe, 6=invalid, 7= ILAS complete
@@ -11977,13 +12043,6 @@ mykonosErr_t MYKONOS_getAllTrackCalState(mykonosDevice_t *device, uint32_t *trac
         return retVal;
     }
 
-    if (cmdStatusByte > 0)
-    {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR,
-                getMykonosErrorMessage(MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR));
-        return MYKONOS_ERR_GETSTATEALL_TRACK_ARMERROR;
-    }
-
     *trackCals = (uint32_t)armData[0] | ((uint32_t)armData[1] << 8) | ((uint32_t)armData[2] << 16) | ((uint32_t)armData[3] << 24);
 
     return retVal;
@@ -12135,15 +12194,6 @@ mykonosErr_t MYKONOS_setTrackingCalState(mykonosDevice_t *device, mykonosTrackin
                     getMykonosErrorMessage(MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG));
             return MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG;
         }
-
-        return retVal;
-    }
-
-    if (cmdStatusByte > 0)
-    {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG,
-                getMykonosErrorMessage(MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG));
-        return MYKONOS_ERR_SETSTATE_TRACK_ARMERRFLAG;
     }
 
     return retVal;
@@ -12221,13 +12271,6 @@ mykonosErr_t MYKONOS_getTrackingCalState(mykonosDevice_t *device, mykonosTrackin
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
-    }
-
-    if (cmdStatusByte > 0)
-    {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETSTATE_TRACK_ARMERROR,
-                getMykonosErrorMessage(MYKONOS_ERR_GETSTATE_TRACK_ARMERROR));
-        return MYKONOS_ERR_GETSTATE_TRACK_ARMERROR;
     }
 
     trackMask = (uint32_t)armData[0] | ((uint32_t)armData[1] << 8) | ((uint32_t)armData[2] << 16) | ((uint32_t)armData[3] << 24);
@@ -13139,6 +13182,8 @@ mykonosErr_t MYKONOS_verifyArmChecksum(mykonosDevice_t *device)
     uint32_t calculatedChecksum = 0x00000000;
     uint8_t buildData[4];
     uint8_t calcData[4];
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+
     const uint8_t CHECKSUM_BYTES = 0x4;
 
 #if (MYKONOS_VERBOSE == 1)
@@ -13146,8 +13191,11 @@ mykonosErr_t MYKONOS_verifyArmChecksum(mykonosDevice_t *device)
 #endif
 
     /* disabling auto increment and reading four (4) bytes at ARM checksum memory location */
-    MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_BUILD_CHKSUM_ADDR, buildData, CHECKSUM_BYTES, 0);
-
+    retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_BUILD_CHKSUM_ADDR, buildData, CHECKSUM_BYTES, 0);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
     /* determining build time checksum */
     buildTimeChecksum = (((uint32_t)buildData[3] << 24) | ((uint32_t)buildData[2] << 16) | ((uint32_t)buildData[1] << 8) | (uint32_t)buildData[0]);
 
@@ -13157,7 +13205,11 @@ mykonosErr_t MYKONOS_verifyArmChecksum(mykonosDevice_t *device)
     /* determining calculated checksum */
     do
     {
-        MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_CALC_CHKSUM_ADDR, calcData, CHECKSUM_BYTES, 0);
+        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_CALC_CHKSUM_ADDR, calcData, CHECKSUM_BYTES, 0);
+        if (retVal != MYKONOS_ERR_OK)
+        {
+            return retVal;
+        }
         calculatedChecksum = (((uint32_t)calcData[3] << 24) | ((uint32_t)calcData[2] << 16) | ((uint32_t)calcData[1] << 8) | (uint32_t)calcData[0]);
     } while ((!calculatedChecksum) && (!CMB_hasTimeoutExpired()));
 
@@ -13316,22 +13368,23 @@ mykonosErr_t MYKONOS_getArmVersion(mykonosDevice_t *device, uint8_t *majorVer, u
 }
 
 /**
- * \brief This function, when called during RadioOff, will configure DPD settings
+ * \brief This function will configure DPD settings
  *
  *  A AD9373 device is required for DPD to be enabled.  The DPD has several user
  *  adjustable settings that can be configured before running the runInitCals
  *  with the calMask set for the DPD init cal. Call this function with desired
  *  settings set before running the DPD init cal or enabling DPD tracking.
  *
+ *  This function can be called in either Radio On or Off state.
+ *
  * <B>Dependencies</B>
  * - device->spiSettings->chipSelectIndex
  * - device->profilesValid
  * - device->tx->dpdConfig (All members)
  *
- * \retval MYKONOS_ERR_OK Function completed successfully
+ *
  * \retval MYKONOS_ERR_CFGDPD_TXORX_PROFILE_INV ERROR: to use these features, a valid Tx and ORx profile must exist in the device data structure
  * \retval MYKONOS_ERR_CFGDPD_NULL_DPDCFGSTRUCT ERROR: device->tx->dpdConfig is a NULL pointer
- * \retval MYKONOS_ERR_CFGDPD_ARMSTATE_ERROR ERROR: To set these settings, the ARM must be in the radioOff (IDLE) state.
  * \retval MYKONOS_ERR_CFGDPD_INV_DPDDAMPING ERROR: damping parameter is out of range
  * \retval MYKONOS_ERR_CFGDPD_INV_DPDSAMPLES ERROR: samples parameter is out of range
  * \retval MYKONOS_ERR_CFGDPD_INV_NUMWEIGHTS ERROR: numWeights parameter is out of range (0-3)
@@ -13339,17 +13392,17 @@ mykonosErr_t MYKONOS_getArmVersion(mykonosDevice_t *device, uint8_t *majorVer, u
  * \retval MYKONOS_ERR_CFGDPD_INV_DPDOUTLIERTHRESH ERROR: outlierThreshold parameter is out of range
  * \retval MYKONOS_ERR_CFGDPD_INV_DPD_ADDDELAY ERROR: additionalDelayOffset parameter is out of range
  * \retval MYKONOS_ERR_CFGDPD_INV_PNSEQLEVEL ERROR: pathDelayPnSeqLevel parameter is out of range
- *
+ * \retval MYKONOS_ERR_OK Function completed successfully
  */
 mykonosErr_t MYKONOS_configDpd(mykonosDevice_t *device)
 {
-    uint32_t radioStatus = 0;
     mykonosErr_t retVal = MYKONOS_ERR_OK;
     uint8_t armFieldValue[6] = {0};
     uint8_t byteOffset = 0;
     uint16_t negPnLevel = 0;
     uint8_t highPowerModelUpdate = 0;
     uint8_t robustModeling = 0;
+    uint32_t radioStatus = 0;
 
 #if (MYKONOS_VERBOSE == 1)
     CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_configDpd()\n");
@@ -13368,21 +13421,6 @@ mykonosErr_t MYKONOS_configDpd(mykonosDevice_t *device)
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGDPD_NULL_DPDCFGSTRUCT,
                 getMykonosErrorMessage(MYKONOS_ERR_CFGDPD_NULL_DPDCFGSTRUCT));
         return MYKONOS_ERR_CFGDPD_NULL_DPDCFGSTRUCT;
-    }
-
-    /* read radio state to make sure ARM is in radioOff /IDLE */
-    retVal = MYKONOS_getRadioState(device, &radioStatus);
-    if (retVal != MYKONOS_ERR_OK)
-    {
-        return retVal;
-    }
-
-    /* throw error if not in radioOff/IDLE state */
-    if (((radioStatus & 0x03) != MYKONOS_ARM_SYSTEMSTATE_IDLE) && ((radioStatus & 0x03) != MYKONOS_ARM_SYSTEMSTATE_READY))
-    {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGDPD_ARMSTATE_ERROR,
-                getMykonosErrorMessage(MYKONOS_ERR_CFGDPD_ARMSTATE_ERROR));
-        return MYKONOS_ERR_CFGDPD_ARMSTATE_ERROR;
     }
 
     /* check DPD damping and samples parameters */
@@ -13484,34 +13522,51 @@ mykonosErr_t MYKONOS_configDpd(mykonosDevice_t *device)
         return MYKONOS_ERR_CFGDPD_INV_DPD_ADDDELAY;
     }
 
-    armFieldValue[0] = (device->tx->dpdConfig->additionalDelayOffset & 0xFF);
-    armFieldValue[1] = ((device->tx->dpdConfig->additionalDelayOffset >> 8) & 0xFF);
-    byteOffset = 2;
-    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_DPDINIT_CONFIG, byteOffset, &armFieldValue[0], 2);
+    /* read radio state to make sure ARM is in radioOff /IDLE */
+    retVal = MYKONOS_getRadioState(device, &radioStatus);
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
     }
 
-    if ((device->tx->dpdConfig->pathDelayPnSeqLevel < 1) || (device->tx->dpdConfig->pathDelayPnSeqLevel > 8191))
+    /* Radio state check */
+    if (((radioStatus & 0x03) == MYKONOS_ARM_SYSTEMSTATE_IDLE) | ((radioStatus & 0x03) == MYKONOS_ARM_SYSTEMSTATE_READY))
     {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGDPD_INV_PNSEQLEVEL,
-                getMykonosErrorMessage(MYKONOS_ERR_CFGDPD_INV_PNSEQLEVEL));
-        return MYKONOS_ERR_CFGDPD_INV_PNSEQLEVEL;
+        armFieldValue[0] = (device->tx->dpdConfig->additionalDelayOffset & 0xFF);
+        armFieldValue[1] = ((device->tx->dpdConfig->additionalDelayOffset >> 8) & 0xFF);
+        byteOffset = 2;
+        retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_DPDINIT_CONFIG, byteOffset, &armFieldValue[0], 2);
+        if (retVal != MYKONOS_ERR_OK)
+        {
+            return retVal;
+        }
+
+        if ((device->tx->dpdConfig->pathDelayPnSeqLevel < 1) || (device->tx->dpdConfig->pathDelayPnSeqLevel > 8191))
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGDPD_INV_PNSEQLEVEL,
+                    getMykonosErrorMessage(MYKONOS_ERR_CFGDPD_INV_PNSEQLEVEL));
+            return MYKONOS_ERR_CFGDPD_INV_PNSEQLEVEL;
+        }
+
+        /* Set Path Delay PN sequence amplitude - positive and negative */
+        armFieldValue[0] = (device->tx->dpdConfig->pathDelayPnSeqLevel & 0xFF);
+        armFieldValue[1] = ((device->tx->dpdConfig->pathDelayPnSeqLevel >> 8) & 0xFF);
+
+        negPnLevel = ((~device->tx->dpdConfig->pathDelayPnSeqLevel) + 1); /* times -1 */
+        armFieldValue[2] = (negPnLevel & 0xFF);
+        armFieldValue[3] = (((negPnLevel) >> 8) & 0xFF);
+        byteOffset = 10;
+        retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_DPDINIT_CONFIG, byteOffset, &armFieldValue[0], 4);
+        if (retVal != MYKONOS_ERR_OK)
+        {
+            return retVal;
+        }
     }
-
-    /* Set Path Delay PN sequence amplitude - positive and negative */
-    armFieldValue[0] = (device->tx->dpdConfig->pathDelayPnSeqLevel & 0xFF);
-    armFieldValue[1] = ((device->tx->dpdConfig->pathDelayPnSeqLevel >> 8) & 0xFF);
-
-    negPnLevel = ((~device->tx->dpdConfig->pathDelayPnSeqLevel) + 1); /* times -1 */
-    armFieldValue[2] = (negPnLevel & 0xFF);
-    armFieldValue[3] = (((negPnLevel) >> 8) & 0xFF);
-    byteOffset = 10;
-    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_DPDINIT_CONFIG, byteOffset, &armFieldValue[0], 4);
-    if (retVal != MYKONOS_ERR_OK)
+    else
     {
-        return retVal;
+        /* record warning about not updated members */
+        CMB_writeToLog(ADIHAL_LOG_WARNING, device->spiSettings->chipSelectIndex, MYKONOS_WRN_RADIO_ON_NOT_MODIFIABLE,
+                           getMykonosErrorMessage(MYKONOS_WRN_RADIO_ON_NOT_MODIFIABLE));
     }
 
     return MYKONOS_ERR_OK;
@@ -13767,7 +13822,7 @@ static mykonosErr_t enableDpdTracking(mykonosDevice_t *device, uint8_t tx1Enable
 }
 
 /**
- * \brief This function called during RadioOff, will allow loading of the DPD model file.
+ * \brief This function will allow loading of the DPD model file.
  *
  *  This function writes a copy of the user's DPD model to ARM memory and instructs the ARM to install that DPD model
  *  into hardware.  Note that initializing the device will over write DPD model data.  Note that the DPD model being
@@ -13786,7 +13841,6 @@ static mykonosErr_t enableDpdTracking(mykonosDevice_t *device, uint8_t tx1Enable
  *
  *
  * \retval MYKONOS_ERR_OK Function completed successfully
- * \retval MYKONOS_ERR_RESTDPDMOD_ARMSTATE ARM is not in the RadioOff state, call MYKONOS_radioOff()
  * \retval MYKONOS_ERR_RESTDPDMOD_WRONGBUFFERSIZE User suppled modelNumberBytes size is incorrect. TX1 or TX2 = 172,  TX1_TX2 = 344
  * \retval MYKONOS_ERR_RESTDPDMOD_INVALID_TXCHANNEL User supplied txChannel does not match TX1 or TX2 or TX1_TX2
  * \retval MYKONOS_ERR_RESTDPDMOD_ARMERRFLAG ARM returned error for Set ARM Command
@@ -13803,6 +13857,7 @@ mykonosErr_t MYKONOS_restoreDpdModel(mykonosDevice_t *device, mykonosTxChannels_
     uint8_t extendedData[4] = {0};
     uint8_t cmdStatusByte = 0;
 
+    const uint8_t RESTORE = 0x08;
     const uint32_t timeoutMs = 1000;
 
 #if (MYKONOS_VERBOSE == 1)
@@ -13814,13 +13869,6 @@ mykonosErr_t MYKONOS_restoreDpdModel(mykonosDevice_t *device, mykonosTxChannels_
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
-    }
-
-    /* throw error if not in radioOff/IDLE state */
-    if (((radioStatus & 0x03) != MYKONOS_ARM_SYSTEMSTATE_IDLE) && ((radioStatus & 0x03) != MYKONOS_ARM_SYSTEMSTATE_READY))
-    {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_RESTDPDMOD_ARMSTATE, getMykonosErrorMessage(MYKONOS_ERR_RESTDPDMOD_ARMSTATE)); /* radio not off or initialized */
-        return MYKONOS_ERR_RESTDPDMOD_ARMSTATE;
     }
 
     /* retrieve the model buffer byte count */
@@ -14011,8 +14059,8 @@ mykonosErr_t MYKONOS_restoreDpdModel(mykonosDevice_t *device, mykonosTxChannels_
 
     /* instruct ARM to load DPD Model */
     extendedData[0] = MYKONOS_ARM_OBJECTID_GS_TRACKCALS;
-    extendedData[1] = MYKONOS_ARM_DPD_INIT_MODEL;
-    extendedData[2] = txChannel;
+    extendedData[1] = MYKONOS_ARM_DPD_RESET;
+    extendedData[2] = txChannel + RESTORE;
 
     retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_SET_OPCODE, &extendedData[0], sizeof(extendedData));
     if (retVal != MYKONOS_ERR_OK)
@@ -14036,8 +14084,9 @@ mykonosErr_t MYKONOS_restoreDpdModel(mykonosDevice_t *device, mykonosTxChannels_
     return MYKONOS_ERR_OK;
 }
 
+
 /**
- * \brief This function called during RadioOff, will allow retrevial of the DPD model file.
+ * \brief This function called during RadioOff, will allow retrieval of the DPD model file.
  *
  *  This function reads a copy of the DPD model from ARM memory to user memory specified by the modelDataBuffer pointer.
  *  The user must provide the correct buffer size with the modelNumberBytes argument.
@@ -14111,7 +14160,7 @@ mykonosErr_t MYKONOS_saveDpdModel(mykonosDevice_t *device, mykonosTxChannels_t t
         }
 
         /* retrieve the arm TX1 model buffer address */
-        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_PROG_ADDR + MYKONOS_ADDR_TX1_DPD_MODEL_INDIRECT_PTR, &armData[0], 4, 1);
+        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_PROG_ADDR + MYKONOS_ADDR_TX1_DPD_MODEL_WORKING_PTR, &armData[0], 4, 1);
         if (retVal != MYKONOS_ERR_OK)
         {
             return retVal;
@@ -14153,7 +14202,7 @@ mykonosErr_t MYKONOS_saveDpdModel(mykonosDevice_t *device, mykonosTxChannels_t t
         }
 
         /* retrieve the arm TX2 model buffer address */
-        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_PROG_ADDR + MYKONOS_ADDR_TX2_DPD_MODEL_INDIRECT_PTR, &armData[0], 4, 1);
+        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_PROG_ADDR + MYKONOS_ADDR_TX2_DPD_MODEL_WORKING_PTR, &armData[0], 4, 1);
         if (retVal != MYKONOS_ERR_OK)
         {
             return retVal;
@@ -14196,7 +14245,7 @@ mykonosErr_t MYKONOS_saveDpdModel(mykonosDevice_t *device, mykonosTxChannels_t t
         }
 
         /* retrieve the arm TX1 model buffer address */
-        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_PROG_ADDR + MYKONOS_ADDR_TX1_DPD_MODEL_INDIRECT_PTR, &armData[0], 4, 1);
+        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_PROG_ADDR + MYKONOS_ADDR_TX1_DPD_MODEL_WORKING_PTR, &armData[0], 4, 1);
         if (retVal != MYKONOS_ERR_OK)
         {
             return retVal;
@@ -14228,7 +14277,7 @@ mykonosErr_t MYKONOS_saveDpdModel(mykonosDevice_t *device, mykonosTxChannels_t t
         modelDataBuffer += rmsSize;
 
         /* retrieve the arm TX2 model buffer address */
-        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_PROG_ADDR + MYKONOS_ADDR_TX2_DPD_MODEL_INDIRECT_PTR, &armData[0], 4, 1);
+        retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_PROG_ADDR + MYKONOS_ADDR_TX2_DPD_MODEL_WORKING_PTR, &armData[0], 4, 1);
         if (retVal != MYKONOS_ERR_OK)
         {
             return retVal;
@@ -14367,12 +14416,101 @@ mykonosErr_t MYKONOS_setDpdActState(mykonosDevice_t *device, mykonosTxChannels_t
 }
 
 /**
- * \brief This function, when called during RadioOff, will configure CLGC settings
+ * \brief This function resets the DPD model.
+ *
+ *  This function allows the user to reset the DPD actuator and prior model in radioOn or radioOff mode.
+ *  The reset can restore prior model if the parameter passed is set to 2: this resets DPD first and then restores the previously loaded
+ *  model into ARM memory for use with subsequent iterations of DPD.
+ *
+ *  If reset is 1 then the reset function just reset the DPD actuator and not use any model.
+ *
+ * \pre A AD9373 device is required for DPD to be enabled. DPD init cal has been run and DPD tracking enable.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device is structure pointer to the Mykonos data structure containing settings
+ * \param txChannel Desired Transmit channel to be reseted (Valid ENUM values: TX1, TX2 or TX1_TX2)
+ * \param reset is the required reset condition that is needed, the available options are:
+ *
+ *  reset | reset action
+ * -------|-------------
+ *    1   | Reset DPD and not use any stored model
+ *    2   | Reset DPD and use previous stored model
+ *
+ * \retval MYKONOS_ERR_RESETDPD_INV_TXCHANNEL: Tx channel is not valid (Valid ENUM values: TX1, TX2 or TX1_TX2)
+ * \retval MYKONOS_ERR_RESETDPD_WRONG_PARAM ERROR: reset parameter is not valid (Valid values:  1 or 2)
+ * \retval MYKONOS_ERR_RESETDPD_ARMERRFLAG ERROR: ARM command flag error set
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_resetDpd(mykonosDevice_t *device,  mykonosTxChannels_t txChannel, uint8_t reset)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint32_t timeoutMs = 1000;
+    uint8_t extData[3] = {0};
+    uint8_t cmdStatusByte = 0;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_resetDpd()\n");
+#endif
+
+    switch (txChannel)
+    {
+        case TX1:
+            break;
+        case TX2:
+            break;
+        case TX1_TX2:
+            break;
+
+        default:
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_RESETDPD_INV_TXCHANNEL,
+                    getMykonosErrorMessage(MYKONOS_ERR_RESETDPD_INV_TXCHANNEL));
+            return MYKONOS_ERR_RESETDPD_INV_TXCHANNEL;
+    }
+
+    if ((reset != 1) & (reset != 2))
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_RESETDPD_WRONG_PARAM,
+                getMykonosErrorMessage(MYKONOS_ERR_RESETDPD_WRONG_PARAM));
+        return MYKONOS_ERR_RESETDPD_WRONG_PARAM;
+    }
+
+    /* instruct ARM to reset DPD Model */
+    extData[0] = MYKONOS_ARM_OBJECTID_GS_TRACKCALS;
+    extData[1] = MYKONOS_ARM_DPD_RESET;  /* TODO: change name to MYKONOS_ARM_DPD_RESET */
+    extData[2] = (reset << 2) + txChannel;
+
+    retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_SET_OPCODE, &extData[0], sizeof(extData));
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    /* wait max of 1sec for command to complete */
+    retVal = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_SET_OPCODE, timeoutMs, &cmdStatusByte);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        if (cmdStatusByte > 0)
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_RESETDPD_ARMERRFLAG,
+                    getMykonosErrorMessage(MYKONOS_ERR_RESETDPD_ARMERRFLAG));
+            return MYKONOS_ERR_RESETDPD_ARMERRFLAG;
+        }
+        return retVal;
+    }
+
+    return MYKONOS_ERR_OK;
+}
+/**
+ * \brief This function will configure CLGC settings
  *
  *  A AD9373 device is required for CLGC to be enabled.  The CLGC has several user
  *  adjustable settings that can be configured before running the runInitCals
  *  with the calMask set for the CLGC init cal. Call this function with desired
  *  settings set before running the CLGC init cal or enabling CLGC tracking.
+ *
+ *  This function can be called in either Radio On or Off state.
  *
  * <B>Dependencies</B>
  * - device->spiSettings->chipSelectIndex
@@ -14381,18 +14519,19 @@ mykonosErr_t MYKONOS_setDpdActState(mykonosDevice_t *device, mykonosTxChannels_t
  *
  * \retval MYKONOS_ERR_CFGCLGC_TXORX_PROFILE_INV ERROR: Tx and ObsRx profiles must be valid to use the CLGC feature
  * \retval MYKONOS_ERR_CFGCLGC_NULL_CLGCCFGSTRUCT ERROR: CLGC config structure pointer is null in device->tx->clgcConfig
- * \retval MYKONOS_ERR_CFGCLGC_ARMSTATE_ERROR ERROR: ARM is not in the IDLE(radioOff) or Ready state.
  * \retval MYKONOS_ERR_CFGCLGC_INV_DESIREDGAIN ERROR: CLGC tx1DesiredGain or tx2DesiredGain parameter is out of range
  * \retval MYKONOS_ERR_CFGCLGC_INV_TXATTENLIMIT ERROR: CLGC tx1AttenLimit or tx2AttenLimit parameter is out of range
  * \retval MYKONOS_ERR_CFGCLGC_INV_CLGC_CTRLRATIO ERROR: clgcControlRatio parameter is out of range
+ * \retval MYKONOS_ERR_CFGCLGC_INV_THRESHOLD Error: tx1RelThreshold or tx2RelThreshold parameter is out of range
+ * \retval MYKONOS_ERR_OK Function completed successfully
  */
 mykonosErr_t MYKONOS_configClgc(mykonosDevice_t *device)
 {
-    uint32_t radioStatus = 0;
     mykonosErr_t retVal = MYKONOS_ERR_OK;
     uint8_t armFieldValue[4] = {0};
     uint8_t byteOffset = 0;
     uint16_t negPnLevel = 0;
+    uint32_t radioStatus = 0x00;
 
 #if (MYKONOS_VERBOSE == 1)
     CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_configClgc()\n");
@@ -14413,21 +14552,6 @@ mykonosErr_t MYKONOS_configClgc(mykonosDevice_t *device)
         return MYKONOS_ERR_CFGCLGC_NULL_CLGCCFGSTRUCT;
     }
 
-    /* read radio state to make sure ARM is in radioOff /IDLE */
-    retVal = MYKONOS_getRadioState(device, &radioStatus);
-    if (retVal != MYKONOS_ERR_OK)
-    {
-        return retVal;
-    }
-
-    /* throw error if not in radioOff/IDLE state */
-    if (((radioStatus & 0x03) != MYKONOS_ARM_SYSTEMSTATE_IDLE) && ((radioStatus & 0x03) != MYKONOS_ARM_SYSTEMSTATE_READY))
-    {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGCLGC_ARMSTATE_ERROR,
-                getMykonosErrorMessage(MYKONOS_ERR_CFGCLGC_ARMSTATE_ERROR));
-        return MYKONOS_ERR_CFGCLGC_ARMSTATE_ERROR;
-    }
-
     /* set CLGC desired gain parameter */
     if ((device->tx->clgcConfig->tx1DesiredGain < -10000) || (device->tx->clgcConfig->tx1DesiredGain > 10000) || (device->tx->clgcConfig->tx2DesiredGain < -10000)
             || (device->tx->clgcConfig->tx2DesiredGain > 10000))
@@ -14443,7 +14567,7 @@ mykonosErr_t MYKONOS_configClgc(mykonosDevice_t *device)
     armFieldValue[3] = ((device->tx->clgcConfig->tx2DesiredGain >> 8) & 0xFF);
 
     byteOffset = 0;
-    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], 4);
+    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], sizeof(armFieldValue));
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
@@ -14463,7 +14587,7 @@ mykonosErr_t MYKONOS_configClgc(mykonosDevice_t *device)
     armFieldValue[3] = ((device->tx->clgcConfig->tx2AttenLimit >> 8) & 0xFF);
 
     byteOffset = 8;
-    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], 4);
+    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], sizeof(armFieldValue));
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
@@ -14484,24 +14608,53 @@ mykonosErr_t MYKONOS_configClgc(mykonosDevice_t *device)
     armFieldValue[3] = ((device->tx->clgcConfig->tx2ControlRatio >> 8) & 0xFF);
 
     byteOffset = 12;
-    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], 4);
+    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], sizeof(armFieldValue));
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
     }
 
-    /* set CLGC additional delay offset parameter (init cal)*/
-    if ((device->tx->clgcConfig->additionalDelayOffset < -64) || (device->tx->clgcConfig->additionalDelayOffset > 64))
+    /* set enable threshold for channel 1 */
+    armFieldValue[0] = (device->tx->clgcConfig->tx1RelThresholdEn > 0) ? 1 : 0;
+    byteOffset = 0x24;
+    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], 1);
+    if (retVal != MYKONOS_ERR_OK)
     {
-        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGCLGC_INV_CLGC_ADDDELAY,
-                getMykonosErrorMessage(MYKONOS_ERR_CFGCLGC_INV_CLGC_ADDDELAY));
-        return MYKONOS_ERR_CFGCLGC_INV_CLGC_ADDDELAY;
+        return retVal;
     }
 
-    armFieldValue[0] = (device->tx->clgcConfig->additionalDelayOffset & 0xFF);
-    armFieldValue[1] = ((device->tx->clgcConfig->additionalDelayOffset >> 8) & 0xFF);
-    byteOffset = 2;
-    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCINIT_CONFIG, byteOffset, &armFieldValue[0], 2);
+    /* set enable threshold for channel 2 */
+    armFieldValue[0] = (device->tx->clgcConfig->tx2RelThresholdEn > 0) ? 1 : 0;
+    byteOffset = 0x26;
+    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], 1);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    /* set thresholds */
+    if ((device->tx->clgcConfig->tx1RelThreshold > 10000) || (device->tx->clgcConfig->tx2RelThreshold > 10000))
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGCLGC_INV_THRESHOLD,
+                getMykonosErrorMessage(MYKONOS_ERR_CFGCLGC_INV_THRESHOLD));
+        return MYKONOS_ERR_CFGCLGC_INV_THRESHOLD;
+    }
+
+    /* set threshold for channel 1 */
+    armFieldValue[0] = (device->tx->clgcConfig->tx1RelThreshold & 0xFF);
+    armFieldValue[1] = ((device->tx->clgcConfig->tx1RelThreshold >> 8) & 0xFF);
+    byteOffset = 0x28;
+    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], 2);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    /* set threshold for channel 2 */
+    armFieldValue[0] = (device->tx->clgcConfig->tx2RelThreshold & 0xFF);
+    armFieldValue[1] = ((device->tx->clgcConfig->tx2RelThreshold >> 8) & 0xFF);
+    byteOffset = 0x2A;
+    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armFieldValue[0], 2);
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
@@ -14514,24 +14667,66 @@ mykonosErr_t MYKONOS_configClgc(mykonosDevice_t *device)
         return MYKONOS_ERR_CFGCLGC_INV_PNSEQLEVEL;
     }
 
-    /* Set Path Delay PN sequence amplitude - positive and negative (init cal)*/
-    armFieldValue[0] = (device->tx->clgcConfig->pathDelayPnSeqLevel & 0xFF);
-    armFieldValue[1] = ((device->tx->clgcConfig->pathDelayPnSeqLevel >> 8) & 0xFF);
-
-    negPnLevel = ((~device->tx->clgcConfig->pathDelayPnSeqLevel) + 1); /* times -1 */
-    armFieldValue[2] = (negPnLevel & 0xFF);
-    armFieldValue[3] = (((negPnLevel) >> 8) & 0xFF);
-    byteOffset = 10;
-    retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCINIT_CONFIG, byteOffset, &armFieldValue[0], 4);
+    /* read radio state to make sure ARM is in radioOff /IDLE */
+    retVal = MYKONOS_getRadioState(device, &radioStatus);
     if (retVal != MYKONOS_ERR_OK)
     {
         return retVal;
     }
 
-    retVal = enableClgcTracking(device, ((device->tx->clgcConfig->allowTx1AttenUpdates > 0) ? 1 : 0), ((device->tx->clgcConfig->allowTx2AttenUpdates > 0) ? 1 : 0));
-    if (retVal != MYKONOS_ERR_OK)
+    /* Radio state check */
+    if (((radioStatus & 0x03) == MYKONOS_ARM_SYSTEMSTATE_IDLE) | ((radioStatus & 0x03) == MYKONOS_ARM_SYSTEMSTATE_READY))
     {
-        return retVal;
+        /* set CLGC additional delay offset parameter (init cal)*/
+        if ((device->tx->clgcConfig->additionalDelayOffset < -64) || (device->tx->clgcConfig->additionalDelayOffset > 64))
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGCLGC_INV_CLGC_ADDDELAY,
+                    getMykonosErrorMessage(MYKONOS_ERR_CFGCLGC_INV_CLGC_ADDDELAY));
+            return MYKONOS_ERR_CFGCLGC_INV_CLGC_ADDDELAY;
+        }
+
+        armFieldValue[0] = (device->tx->clgcConfig->additionalDelayOffset & 0xFF);
+        armFieldValue[1] = ((device->tx->clgcConfig->additionalDelayOffset >> 8) & 0xFF);
+        byteOffset = 2;
+        retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCINIT_CONFIG, byteOffset, &armFieldValue[0], 2);
+        if (retVal != MYKONOS_ERR_OK)
+        {
+            return retVal;
+        }
+
+        if ((device->tx->clgcConfig->pathDelayPnSeqLevel < 1) || (device->tx->clgcConfig->pathDelayPnSeqLevel > 8191))
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CFGCLGC_INV_PNSEQLEVEL,
+                    getMykonosErrorMessage(MYKONOS_ERR_CFGCLGC_INV_PNSEQLEVEL));
+            return MYKONOS_ERR_CFGCLGC_INV_PNSEQLEVEL;
+        }
+
+        /* Can not be changed in radio on */
+        /* Set Path Delay PN sequence amplitude - positive and negative (init cal)*/
+        armFieldValue[0] = (device->tx->clgcConfig->pathDelayPnSeqLevel & 0xFF);
+        armFieldValue[1] = ((device->tx->clgcConfig->pathDelayPnSeqLevel >> 8) & 0xFF);
+
+        negPnLevel = ((~device->tx->clgcConfig->pathDelayPnSeqLevel) + 1); /* times -1 */
+        armFieldValue[2] = (negPnLevel & 0xFF);
+        armFieldValue[3] = (((negPnLevel) >> 8) & 0xFF);
+        byteOffset = 10;
+        retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCINIT_CONFIG, byteOffset, &armFieldValue[0], sizeof(armFieldValue));
+        if (retVal != MYKONOS_ERR_OK)
+        {
+            return retVal;
+        }
+
+        retVal = enableClgcTracking(device, ((device->tx->clgcConfig->allowTx1AttenUpdates > 0) ? 1 : 0), ((device->tx->clgcConfig->allowTx2AttenUpdates > 0) ? 1 : 0));
+        if (retVal != MYKONOS_ERR_OK)
+        {
+            return retVal;
+        }
+    }
+    else
+    {
+        /* record warning about not updated members */
+        CMB_writeToLog(ADIHAL_LOG_WARNING, device->spiSettings->chipSelectIndex, MYKONOS_WRN_RADIO_ON_NOT_MODIFIABLE,
+                           getMykonosErrorMessage(MYKONOS_WRN_RADIO_ON_NOT_MODIFIABLE));
     }
 
     return MYKONOS_ERR_OK;
@@ -14611,6 +14806,45 @@ mykonosErr_t MYKONOS_getClgcConfig(mykonosDevice_t *device)
     }
 
     device->tx->clgcConfig->pathDelayPnSeqLevel = (((uint16_t)(armMem[1]) << 8) | (uint16_t)(armMem[0]));
+
+    /* need to figure out if this are the right addresses */
+    byteOffset = 0x24;
+    retVal = MYKONOS_readArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armMem[0], 1);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    device->tx->clgcConfig->tx1RelThresholdEn = (uint8_t)armMem[0];
+
+    byteOffset = 0x26;
+    retVal = MYKONOS_readArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armMem[0], 1);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    device->tx->clgcConfig->tx2RelThresholdEn = (uint8_t)armMem[0];
+
+    byteOffset = 0x28;
+    retVal = MYKONOS_readArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armMem[0], 2);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    device->tx->clgcConfig->tx1RelThreshold = (((uint16_t)(armMem[1]) << 8) | (uint16_t)(armMem[0]));
+
+    byteOffset = 0x2A;
+    retVal = MYKONOS_readArmConfig(device, MYKONOS_ARM_OBJECTID_CLGCCONFIG, byteOffset, &armMem[0], 2);
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+    device->tx->clgcConfig->tx2RelThreshold = (((uint16_t)(armMem[1]) << 8) | (uint16_t)(armMem[0]));
+
+
 
     return MYKONOS_ERR_OK;
 }
@@ -14717,7 +14951,7 @@ mykonosErr_t MYKONOS_getClgcStatus(mykonosDevice_t *device, mykonosTxChannels_t 
     clgcStatus->orxRms = (int32_t)(((uint32_t)(armData[47]) << 24) | ((uint32_t)(armData[46]) << 16) | ((uint32_t)(armData[45]) << 8) | (uint32_t)(armData[44]));
     clgcStatus->trackCount = ((uint32_t)(armData[51]) << 24) | ((uint32_t)(armData[50]) << 16) | ((uint32_t)(armData[49]) << 8) | (uint32_t)(armData[48]);
 
-    return MYKONOS_ERR_OK;
+    return retVal;
 }
 
 /**
@@ -14895,6 +15129,7 @@ mykonosErr_t MYKONOS_configVswr(mykonosDevice_t *device)
     uint8_t armFieldValue[16] = {0};
     uint8_t byteOffset = 0;
     uint16_t negPnLevel = 0;
+
     const uint8_t ENABLE_VSWR = 1;
 
 #if (MYKONOS_VERBOSE == 1)
@@ -14951,9 +15186,9 @@ mykonosErr_t MYKONOS_configVswr(mykonosDevice_t *device)
     armFieldValue[9] = 0;
     armFieldValue[10] = (device->tx->vswrConfig->tx2VswrSwitchPolarity > 0) ? 1 : 0;
     armFieldValue[11] = 0;
-    armFieldValue[12] = device->tx->vswrConfig->tx1VswrSwitchDelay_ms; /* support full 0 to 255 ms range */
+    armFieldValue[12] = device->tx->vswrConfig->tx1VswrSwitchDelay_us; /* support full 0 to 255 us range */
     armFieldValue[13] = 0;
-    armFieldValue[14] = device->tx->vswrConfig->tx2VswrSwitchDelay_ms; /* support full 0 to 255 ms range */
+    armFieldValue[14] = device->tx->vswrConfig->tx2VswrSwitchDelay_us; /* support full 0 to 255 us range */
     armFieldValue[15] = 0;
     byteOffset = 0;
     retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_VSWRCONFIG, byteOffset, &armFieldValue[0], 16);
@@ -14994,6 +15229,7 @@ mykonosErr_t MYKONOS_configVswr(mykonosDevice_t *device)
     armFieldValue[2] = (negPnLevel & 0xFF);
     armFieldValue[3] = (((negPnLevel) >> 8) & 0xFF);
     byteOffset = 10;
+
     /* Set for Tx1 channel */
     retVal = MYKONOS_writeArmConfig(device, MYKONOS_ARM_OBJECTID_VSWRINIT_CONFIG, byteOffset, &armFieldValue[0], 4);
     if (retVal != MYKONOS_ERR_OK)
@@ -15066,8 +15302,8 @@ mykonosErr_t MYKONOS_getVswrConfig(mykonosDevice_t *device)
     device->tx->vswrConfig->tx2VswrSwitchGpio3p3Pin = armMem[2];
     device->tx->vswrConfig->tx1VswrSwitchPolarity = armMem[4];
     device->tx->vswrConfig->tx2VswrSwitchPolarity = armMem[6];
-    device->tx->vswrConfig->tx1VswrSwitchDelay_ms = armMem[8];
-    device->tx->vswrConfig->tx2VswrSwitchDelay_ms = armMem[10];
+    device->tx->vswrConfig->tx1VswrSwitchDelay_us = armMem[8];
+    device->tx->vswrConfig->tx2VswrSwitchDelay_us = armMem[10];
 
     byteOffset = 2;
     retVal = MYKONOS_readArmConfig(device, MYKONOS_ARM_OBJECTID_VSWRINIT_CONFIG, byteOffset, &armMem[0], 2);
@@ -15540,12 +15776,8 @@ mykonosErr_t MYKONOS_readArmConfig(mykonosDevice_t *device, uint8_t objectId, ui
     }
 
     retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_DATA_ADDR, &data[0], byteCount, AUTO_INCREMENT);
-    if (retVal != MYKONOS_ERR_OK)
-    {
-        return retVal;
-    }
 
-    return MYKONOS_ERR_OK;
+    return retVal;
 }
 
 /**
@@ -16672,4 +16904,714 @@ mykonosErr_t MYKONOS_resetExtTxLolChannel(mykonosDevice_t *device, mykonosTxChan
 
     return retVal;
 }
+
+/**
+ * \brief Configures the Radio power up/down control for Rx and Tx paths to be controlled by pins
+ *        (TX1/2_ENABLE, RX1/2_ENABLE, and GPIO pins) or an API function call.
+ *
+ * The BBP should not have to call this as it will automatically be setup at the end of the
+ * MYKONOS_loadArmFromBinary() function call.  If the BBP wishes to change the radio power up/down
+ * control method this function can be called again to change the configuration while
+ * the ARM is in the radioOff state.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ * - device->auxIo->armGpio->useRx2EnablePin
+ * - device->auxIo->armGpio->useTx2EnablePin
+ * - device->auxIo->armGpio->txRxPinMode
+ * - device->auxIo->armGpio->orxPinMode
+ *
+ * \param device is a pointer to the device settings structure
+ *
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ * \retval MYKONOS_ERR_SET_RADIOCTRL_PINS_ARMERROR ARM returned an error and did not accept the command.
+ */
+mykonosErr_t MYKONOS_setRadioControlPinMode(mykonosDevice_t *device)
+{
+    uint8_t extData[4] = {0x81, 0, 0, 4}; /*Object ID 0x81 (radio control structure), offset lsb, offset msb, length*/
+    uint8_t armRadioControlStruct[4] = {0};
+    uint32_t timeoutMs = 0;
+    uint8_t cmdStatusByte = 0;
+    mykonosErr_t retval = MYKONOS_ERR_OK;
+
+#if MYKONOS_VERBOSE == 1
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_setRadioControlPinMode()\n");
+#endif
+
+    /* write ARM radio control structure to enable pin mode/command mode */
+    if (device->auxIo->armGpio->useRx2EnablePin > 0)
+    {
+        armRadioControlStruct[0] = 0x01;
+    }
+
+    if (device->auxIo->armGpio->useTx2EnablePin > 0)
+    {
+        armRadioControlStruct[1] = 0x01;
+    }
+
+    if (device->auxIo->armGpio->txRxPinMode > 0)
+    {
+        armRadioControlStruct[2] = 0x01;
+    }
+
+    if (device->auxIo->armGpio->orxPinMode > 0)
+    {
+        armRadioControlStruct[3] = 0x01;
+    }
+
+    retval = MYKONOS_writeArmMem(device, MYKONOS_ADDR_ARM_START_DATA_ADDR, &armRadioControlStruct[0], sizeof(armRadioControlStruct));
+    if (retval != MYKONOS_ERR_OK)
+    {
+        return retval;
+    }
+
+    retval = MYKONOS_sendArmCommand(device, MYKONOS_ARM_WRITECFG_OPCODE, &extData[0], sizeof(extData));
+    if (retval != MYKONOS_ERR_OK)
+    {
+        return retval;
+    }
+
+    timeoutMs = 1000;
+    retval = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_WRITECFG_OPCODE, timeoutMs, &cmdStatusByte);
+    if (retval != MYKONOS_ERR_OK)
+    {
+        return retval;
+    }
+
+    if (cmdStatusByte > 0)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_SET_RADIOCTRL_PINS_ARMERROR,
+                getMykonosErrorMessage(MYKONOS_ERR_SET_RADIOCTRL_PINS_ARMERROR));
+        return MYKONOS_ERR_SET_RADIOCTRL_PINS_ARMERROR;
+    }
+
+    return MYKONOS_ERR_OK;
+}
+
+/**
+ * \brief Sets the measure count which is the number of samples taken before DC offset correction is applied for the given Rf channel.
+ *   This value cannot be changed after ARM initialization.
+ *   channel can be one of the following ( ::mykonosDcOffsetChannels_t ).
+ *
+ *     Channel             |  Channel description
+ * ------------------------|--------------------------------
+ *  MYK_DC_OFFSET_RX_CHN   | Selects Rx channel
+ *  MYK_DC_OFFSET_ORX_CHN  | Selects ORx channel
+ *  MYK_DC_OFFSET_SNF_CHN  | Selects Sniffer channel
+ *
+ * The total duration 'tCount' is calculated as,
+ * [tCount = (measureCount * 1024) / IQ data rate of the channel].
+ * There is a minimum limit for the value of measureCount, the value passed should satisfy the condition 'tCount > 800us'.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the Mykonos device data structure containing settings
+ * \param channel receive channel to be selected.
+ * \param measureCount value to be configured for the selected channel which is the number of samples taken before DC offset correction is applied.
+ *
+ * \retval MYKONOS_ERR_DC_OFFSET_INV_CHAN channel passed to the function is invalid, refer mykonosDcOffsetChannels_t enum for valid channels.
+ * \retval MYKONOS_ERR_SET_RF_DC_OFFSET_INV_MEASURECNT measurement count value passed is invalid
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ * \retval MYKONOS_ERR_SET_RF_DC_OFFSET_MEASURECNT_MIN_LIMIT The measureCount value passed is less than the minimum limit allowed.
+ */
+mykonosErr_t MYKONOS_setRfDcOffsetCnt(mykonosDevice_t *device, mykonosDcOffsetChannels_t channel, uint16_t measureCount)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint16_t REG_ADDRESS_H = 0;                                         /* Address for Higher byte  */
+    uint16_t REG_ADDRESS_L = 0;                                         /* Address for Lower byte  */
+    uint16_t MEASURE_CNT_RANGE = 0xFFFF;                                /* Mask for measure count range checking */
+
+    const uint8_t  MEASURE_CNT_H = (measureCount & 0xFF00) >> 8;         /* Higher byte of the measure count */
+    const uint8_t  MEASURE_CNT_L = measureCount & 0x00FF;                /* Lower byte of the measure count */
+
+    /* Calculation of Total Duration [ tCount = (measureCount * 0x400) / IQ data rate cycles ] */
+    const uint8_t FACTOR = 10;
+    uint32_t tCount = (measureCount << FACTOR);                          /* precalculations for Total duration in us */
+    uint32_t IQ_RATE = 0;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_setRfDcOffsetCnt()\n");
+#endif
+
+    /* check for channel and update the appropriate register address */
+    switch (channel)
+    {
+        case MYK_DC_OFFSET_RX_CHN:
+            REG_ADDRESS_H = MYKONOS_ADDR_RFDC_MEASURE_COUNT_2;
+            REG_ADDRESS_L = MYKONOS_ADDR_RFDC_MEASURE_COUNT_1;
+            IQ_RATE = device->rx->rxProfile->iqRate_kHz / 1000;          /* IQ Rate to calculate total duration */
+            break;
+        case MYK_DC_OFFSET_ORX_CHN:
+            REG_ADDRESS_H = MYKONOS_ADDR_RFDC_ORX_MEASURE_COUNT_2;
+            REG_ADDRESS_L = MYKONOS_ADDR_RFDC_ORX_MEASURE_COUNT_1;
+            IQ_RATE = device->obsRx->orxProfile->iqRate_kHz / 1000;      /* IQ Rate to calculate total duration */
+            break;
+        case MYK_DC_OFFSET_SNF_CHN:
+            REG_ADDRESS_H = MYKONOS_ADDR_RFDC_SNF_MEASURE_COUNT_2;
+            REG_ADDRESS_L = MYKONOS_ADDR_RFDC_SNF_MEASURE_COUNT_1;
+            /* measureCount for Sniffer should be 10 bit */
+            MEASURE_CNT_RANGE= 0x03FF;
+            IQ_RATE = device->obsRx->snifferProfile->iqRate_kHz / 1000;  /* IQ Rate to calculate total duration */
+            break;
+
+        default:
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DC_OFFSET_INV_CHAN,
+                           getMykonosErrorMessage(MYKONOS_ERR_DC_OFFSET_INV_CHAN));
+            return MYKONOS_ERR_DC_OFFSET_INV_CHAN;
+    }
+
+    tCount = (tCount / IQ_RATE);                                          /* Calculating total duration in us */
+    if (tCount < 800)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SET_RF_DC_OFFSET_MEASURECNT_MIN_LIMIT,
+                       getMykonosErrorMessage(MYKONOS_ERR_SET_RF_DC_OFFSET_MEASURECNT_MIN_LIMIT));
+        return MYKONOS_ERR_SET_RF_DC_OFFSET_MEASURECNT_MIN_LIMIT ;
+    }
+
+    if ((measureCount < 0x11) || (measureCount & ~MEASURE_CNT_RANGE))
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SET_RF_DC_OFFSET_INV_MEASURECNT,
+                       getMykonosErrorMessage(MYKONOS_ERR_SET_RF_DC_OFFSET_INV_MEASURECNT));
+        return MYKONOS_ERR_SET_RF_DC_OFFSET_INV_MEASURECNT ;
+    }
+
+    CMB_SPIWriteField(device->spiSettings, REG_ADDRESS_H, MEASURE_CNT_H, ((MEASURE_CNT_RANGE >>8) & 0xFF),0);
+    CMB_SPIWriteByte(device->spiSettings, REG_ADDRESS_L, MEASURE_CNT_L);
+
+    return retVal;
+}
+
+/**
+ * \brief retrieves the measure count which is the number of samples taken before DC offset correction is applied for the given Rf channel.
+ *   channel can be one of the following ( ::mykonosDcOffsetChannels_t ).
+ *
+ *     Channel             |  Channel description
+ * ------------------------|--------------------------------
+ *  MYK_DC_OFFSET_RX_CHN   | Selects Rx channel
+ *  MYK_DC_OFFSET_ORX_CHN  | Selects ORx channel
+ *  MYK_DC_OFFSET_SNF_CHN  | Selects Sniffer channel
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the Mykonos device data structure containing settings
+ * \param channel receive channel to be selected.
+ * \param measureCount pointer to the variable to store the read value.
+ *
+ * \retval MYKONOS_ERR_DC_OFFSET_INV_CHAN channel passed to the function is invalid, refer mykonosDcOffsetChannels_t enum for valid channels.
+ * \retval MYKONOS_ERR_SET_RF_DC_OFFSET_NULL_MEASURECNT passed pointer of measureCount is NULL
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_getRfDcOffsetCnt(mykonosDevice_t *device, mykonosDcOffsetChannels_t channel, uint16_t *measureCount)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint16_t REG_ADDRESS_H = 0;                                                         /* Address for Higher byte  */
+    uint16_t REG_ADDRESS_L = 0;                                                         /* Address for Lower byte  */
+    uint16_t MEASURE_CNT_RANGE = 0xFFFF;                                                /* Mask for measure count range checking */
+    uint16_t mCount = 0;                                                                /* Temporary variable to store readback from register. */
+    uint8_t readbackData = 0;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_getRfDcOffsetCnt()\n");
+#endif
+
+    switch (channel)
+    {
+        case MYK_DC_OFFSET_RX_CHN:
+            REG_ADDRESS_H = MYKONOS_ADDR_RFDC_MEASURE_COUNT_2;
+            REG_ADDRESS_L = MYKONOS_ADDR_RFDC_MEASURE_COUNT_1;
+            break;
+        case MYK_DC_OFFSET_ORX_CHN:
+            REG_ADDRESS_H = MYKONOS_ADDR_RFDC_ORX_MEASURE_COUNT_2;
+            REG_ADDRESS_L = MYKONOS_ADDR_RFDC_ORX_MEASURE_COUNT_1;
+            break;
+        case MYK_DC_OFFSET_SNF_CHN:
+            REG_ADDRESS_H = MYKONOS_ADDR_RFDC_SNF_MEASURE_COUNT_2;
+            REG_ADDRESS_L = MYKONOS_ADDR_RFDC_SNF_MEASURE_COUNT_1;
+            /* measureCount for Sniffer should be 10 bit */
+            MEASURE_CNT_RANGE= 0x03FF;
+            break;
+
+        default:
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DC_OFFSET_INV_CHAN,
+                           getMykonosErrorMessage(MYKONOS_ERR_DC_OFFSET_INV_CHAN));
+            return MYKONOS_ERR_DC_OFFSET_INV_CHAN;
+    }
+
+    if (measureCount == NULL)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GET_RF_DC_OFFSET_NULL_MEASURECNT,
+                getMykonosErrorMessage(MYKONOS_ERR_GET_RF_DC_OFFSET_NULL_MEASURECNT));
+        return MYKONOS_ERR_GET_RF_DC_OFFSET_NULL_MEASURECNT;
+    }
+
+    /* Store Higher byte of measureCount */
+    CMB_SPIReadField(device->spiSettings, REG_ADDRESS_H, &readbackData, ((MEASURE_CNT_RANGE >>8) & 0xFF),0);
+    mCount = readbackData;
+    mCount = mCount << 8;
+
+    /* Store Lower byte of measureCount */
+    readbackData = 0;
+    CMB_SPIReadByte(device->spiSettings, REG_ADDRESS_L, &readbackData);
+    mCount = mCount | readbackData;
+
+    *measureCount = mCount;
+
+    return retVal;
+}
+
+/**
+ * \brief Sets M-Shift value which is the Corner frequency of Rx notch filter for the given channel.
+ *   channel can be one of the following ( ::mykonosDcOffsetChannels_t ).
+ *
+ *     Channel             |  Channel description
+ * ------------------------|--------------------------------
+ *  MYK_DC_OFFSET_RX_CHN   | Selects Rx channel
+ *  MYK_DC_OFFSET_ORX_CHN  | Selects ORx channel
+ *  MYK_DC_OFFSET_SNF_CHN  | Selects Sniffer channel
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the Mykonos device data structure containing settings
+ * \param channel receive channel to be selected.
+ * \param mShift value to be configured for the given channel
+ *
+ * \retval MYKONOS_ERR_DC_OFFSET_INV_CHAN channel passed to the function is invalid, refer mykonosDcOffsetChannels_t enum for valid channels.
+ * \retval MYKONOS_ERR_SET_DIG_DC_OFFSET_INV_MSHIFT mShift value passed is invalid.
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_setDigDcOffsetMShift(mykonosDevice_t *device, mykonosDcOffsetChannels_t channel, uint8_t mShift)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint16_t REG_ADDRESS = 0;
+
+    const uint8_t MSHIFT_MIN_RANGE= 0x08;
+    const uint8_t MSHIFT_MAX_RANGE= 0x14;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_setDigDcOffsetMShift()\n");
+#endif
+
+    if ((mShift < MSHIFT_MIN_RANGE) || (mShift > MSHIFT_MAX_RANGE))
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SET_DIG_DC_OFFSET_INV_MSHIFT,
+                       getMykonosErrorMessage(MYKONOS_ERR_SET_DIG_DC_OFFSET_INV_MSHIFT));
+        return MYKONOS_ERR_SET_DIG_DC_OFFSET_INV_MSHIFT;
+    }
+
+    /* check channel and set the address */
+    switch (channel)
+    {
+        case MYK_DC_OFFSET_RX_CHN:
+            REG_ADDRESS = MYKONOS_ADDR_DIGITAL_DC_OFFSET_SHIFT;
+            break;
+        case MYK_DC_OFFSET_ORX_CHN:
+            REG_ADDRESS = MYKONOS_ADDR_DIGITAL_DC_OFFSET_CH3_DPD_M_SHIFT;
+            break;
+        case MYK_DC_OFFSET_SNF_CHN:
+            REG_ADDRESS = MYKONOS_ADDR_DIGITAL_DC_OFFSET_SNF;
+            break;
+
+        default:
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DC_OFFSET_INV_CHAN,
+                           getMykonosErrorMessage(MYKONOS_ERR_DC_OFFSET_INV_CHAN));
+            return MYKONOS_ERR_DC_OFFSET_INV_CHAN;
+    }
+
+    CMB_SPIWriteField(device->spiSettings, REG_ADDRESS, mShift, 0x1F, 0);
+
+    return retVal;
+}
+
+/**
+ * \brief retrieves the M-Shift value which is the Corner frequency of Rx notch filter for the given channel.
+ *   channel can be one of the following ( ::mykonosDcOffsetChannels_t ).
+ *
+ *     Channel             |  Channel description
+ * ------------------------|--------------------------------
+ *  MYK_DC_OFFSET_RX_CHN   | Selects Rx channel
+ *  MYK_DC_OFFSET_ORX_CHN  | Selects ORx channel
+ *  MYK_DC_OFFSET_SNF_CHN  | Selects Sniffer channel
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the Mykonos device data structure containing settings
+ * \param channel receive channel to be selected.
+ * \param mShift Pointer to the variable to store mshift value of the given channel
+ *
+ * \retval MYKONOS_ERR_DC_OFFSET_INV_CHAN channel passed to the function is invalid, refer mykonosDcOffsetChannels_t enum for valid channels.
+ * \retval MYKONOS_ERR_GET_DIG_DC_OFFSET_NULL_MSHIFT mShift pointer is NULL
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_getDigDcOffsetMShift(mykonosDevice_t *device, mykonosDcOffsetChannels_t channel, uint8_t *mShift)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint16_t REG_ADDRESS = 0x0;
+    uint8_t readbackData = 0x0;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_getDigDcOffsetMShift()\n");
+#endif
+
+    if (mShift == NULL)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GET_DIG_DC_OFFSET_NULL_MSHIFT,
+                getMykonosErrorMessage(MYKONOS_ERR_GET_DIG_DC_OFFSET_NULL_MSHIFT));
+        return MYKONOS_ERR_GET_DIG_DC_OFFSET_NULL_MSHIFT;
+    }
+
+    /* check for the channel and set the address */
+    switch (channel)
+    {
+        case MYK_DC_OFFSET_RX_CHN:
+            REG_ADDRESS = MYKONOS_ADDR_DIGITAL_DC_OFFSET_SHIFT;
+            break;
+        case MYK_DC_OFFSET_ORX_CHN:
+            REG_ADDRESS = MYKONOS_ADDR_DIGITAL_DC_OFFSET_CH3_DPD_M_SHIFT;
+            break;
+        case MYK_DC_OFFSET_SNF_CHN:
+            REG_ADDRESS = MYKONOS_ADDR_DIGITAL_DC_OFFSET_SNF;
+            break;
+
+        default:
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DC_OFFSET_INV_CHAN,
+                           getMykonosErrorMessage(MYKONOS_ERR_DC_OFFSET_INV_CHAN));
+            return MYKONOS_ERR_DC_OFFSET_INV_CHAN;
+    }
+
+    CMB_SPIReadField(device->spiSettings, REG_ADDRESS, &readbackData, 0x1F,0);
+
+    *mShift = readbackData;
+
+    return retVal;
+}
+
+/**
+ * \brief Sets the RF PLL loop filter bandwith.
+ *
+ * \pre Command should be called in Radio Off state.  ARM must be  initialized.
+ *
+ * \post Loop filter should lock successfully
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ * - device->spiSettings
+ *
+ * \param device is structure pointer to the MYKONOS data structure containing settings
+ * \param pllName Name of the PLL to configure.RX_PLL and TX_PLL can be configured.SNIFFER_PLL can not be configured.
+ * \param loopBandwidth_kHz Desired RF pll bandwith to be set. The valid values range of loopBandwidth_kHz for Rx and Tx is 50 to 750.For SRX valid values lies from 500 to 750.
+ * \param stability PLL Loop stability to be set.The valid values range of stability is from 3 to 15.
+ *
+ * \return MYKONOS_ERR_OK Function completed successfully
+ * \return MYKONOS_ERR_SETRFPLL_LF_ARMERROR ARM Command to set RF PLL loop filter bandwidth failed
+ * \return MYKONOS_ERR_SETRFPLL_LF_INV_TXRX_LOOPBANDWIDTH Invalid Tx/Rx value bandwith
+ * \return MYKONOS_ERR_SETRFPLL_LF_PLLNAME Invalid pllName requested
+ * \return MYKONOS_ERR_SETRFPLL_LF_INV_STABILITY Invalid stability range, valid range is 3-15
+ */
+mykonosErr_t MYKONOS_setRfPllLoopFilter(mykonosDevice_t *device, mykonosRfPllName_t pllName, uint16_t loopBandwidth_kHz, uint8_t stability)
+{
+    const uint8_t SETCMD_OPCODE = 0x0A;
+    const uint8_t SET_PLL_BANDWIDTH = 0x6D;
+    const  uint16_t LOOP_BW_HIGH = 750;
+
+    uint16_t LOOP_BW_LOW = 50;
+    uint8_t extData[4] = {0};
+    uint8_t cmdStatusByte = 0;
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    mykonosErr_t errLoopBw = MYKONOS_ERR_OK;
+    uint32_t timeoutMs = 1000;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_OK, "MYKONOS_setRfPllLoopFilter()\n");
+#endif
+
+    switch (pllName)
+    {
+        case RX_PLL:
+        	extData[1] = 0x00;
+        	LOOP_BW_LOW = 50;
+        	errLoopBw = MYKONOS_ERR_SETRFPLL_LF_INV_TXRX_LOOPBANDWIDTH;
+        	break;
+        case TX_PLL:
+        	extData[1] = 0x10;
+        	LOOP_BW_LOW = 50;
+        	errLoopBw = MYKONOS_ERR_SETRFPLL_LF_INV_TXRX_LOOPBANDWIDTH;
+        	break;
+        case SNIFFER_PLL:
+#if 0 /* Set for Sniffer PLL loop bandwidth is not supported */
+        	extData[1] = 0x20;
+        	LOOP_BW_LOW = 500;
+        	errLoopBw = MYKONOS_ERR_SETRFPLL_LF_INV_SNF_LOOPBANDWIDTH;
+        	break;
+#endif
+        default:
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETRFPLL_LF_PLLNAME,
+                    getMykonosErrorMessage(MYKONOS_ERR_SETRFPLL_LF_PLLNAME));
+            return MYKONOS_ERR_SETRFPLL_LF_PLLNAME;
+        }
+    }
+
+    /* Range check for loopBandwidth - Should be between 50kHz and 750kHz for TX/RX and between 500kHz and 750 for SRX*/
+	if((loopBandwidth_kHz< LOOP_BW_LOW) || (loopBandwidth_kHz >LOOP_BW_HIGH))
+	{
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, errLoopBw,
+                getMykonosErrorMessage(errLoopBw));
+    	return errLoopBw;
+	}
+
+    /* Range check for stability - Should be between 3 and 15 */
+    if((stability < 3) || (stability > 15))
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETRFPLL_LF_INV_STABILITY,
+                getMykonosErrorMessage(MYKONOS_ERR_SETRFPLL_LF_INV_STABILITY));
+    	return MYKONOS_ERR_SETRFPLL_LF_INV_STABILITY;
+    }
+
+    /* Generate payload for SET command */
+    extData[0] = SET_PLL_BANDWIDTH;
+    /*left shift and truncate left side*/
+    extData[1] |= stability;
+    extData[2] = (uint8_t)(loopBandwidth_kHz & 0xFF);  //full first byte
+    extData[3] = (uint8_t)(loopBandwidth_kHz >> 8); //two extra bits
+
+    /* executing the SET command */
+    retVal = MYKONOS_sendArmCommand(device, SETCMD_OPCODE, &extData[0], sizeof(extData));
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        return retVal;
+    }
+
+   /* waiting for command to complete */
+    retVal = MYKONOS_waitArmCmdStatus(device, SETCMD_OPCODE, timeoutMs, &cmdStatusByte);
+
+   /* performing command status check */
+    if (retVal != MYKONOS_ERR_OK)
+    {
+        if (cmdStatusByte > 0)
+        {
+			CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SETRFPLL_LF_ARMERROR,
+					getMykonosErrorMessage(MYKONOS_ERR_SETRFPLL_LF_ARMERROR));
+			return MYKONOS_ERR_SETRFPLL_LF_ARMERROR;
+        }
+
+        return retVal;
+    }
+
+    return retVal;
+}
+
+
+
+/**
+ * \brief Gets the RF PLL loop filter bandwidth and stability.
+ *
+ * This function is used to get the RF PLL loop bandwidth.  It can get the RX PLL, TX PLL
+ * Sniffer PLL.
+ *
+ * \pre Command can be called in Radio Off state or On state.  ARM must be  initialized.
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ * - device->spiSettings
+ * - device->clocks->deviceClock_kHz
+ *
+ * \param device is structure pointer to the MYKONOS data structure containing settings
+ * \param pllName Name of the PLL for which to read the frequency
+ * \param loopBandwidth_kHz RF PLL loop bandwidth for the PLL specified
+ * \param stability RF PLL loop stability
+ *
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ * \retval MYKONOS_ERR_GETRFPLL_LF_INV_PLLNAME Invalid PLL name, can not get PLL frequency.  Use PLL name ENUM.
+ * \retval MYKONOS_ERR_GETRFPLL_LF_ARMERROR ARM Command to get RF PLL frequency failed
+ * \retval MYKONOS_ERR_GETRFPLL_LF_NULLPARAM input parameter is NULL
+ */
+mykonosErr_t MYKONOS_getRfPllLoopFilter(mykonosDevice_t *device, mykonosRfPllName_t pllName, uint16_t *loopBandwidth_kHz, uint8_t *stability)
+{
+    const uint8_t GET_PLL_BANDWIDTH = 0x6D;
+
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint8_t armData[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    uint8_t extData[2] = {GET_PLL_BANDWIDTH, 0};
+    uint32_t timeoutMs = 0;
+    uint8_t cmdStatusByte = 0;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex,  MYKONOS_ERR_OK, "MYKONOS_getRfPllLoopFilter()\n");
+#endif
+
+    /* Check for NULL */
+    if ((loopBandwidth_kHz == NULL)|| (stability == NULL))
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETRFPLL_LF_NULLPARAM,
+                       getMykonosErrorMessage(MYKONOS_ERR_GETRFPLL_LF_NULLPARAM));
+        return MYKONOS_ERR_GETRFPLL_LF_NULLPARAM;
+    }
+
+    switch(pllName)
+    {
+        case RX_PLL:      extData[1] = 0x00; break;
+        case TX_PLL:      extData[1] = 0x10; break;
+        case SNIFFER_PLL: extData[1] = 0x20; break;
+        default:
+        {
+            CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETRFPLL_LF_INV_PLLNAME,
+                           getMykonosErrorMessage(MYKONOS_ERR_GETRFPLL_LF_INV_PLLNAME));
+            return MYKONOS_ERR_GETRFPLL_LF_INV_PLLNAME;
+        }
+    }
+	/* executing the GET command */
+	retVal = MYKONOS_sendArmCommand(device, MYKONOS_ARM_GET_OPCODE, &extData[0], sizeof(extData));
+	if (retVal != MYKONOS_ERR_OK)
+	{
+		return retVal;
+	}
+
+	timeoutMs = 1000;
+
+    /* waiting for command to complete */
+	retVal = MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_GET_OPCODE, timeoutMs, &cmdStatusByte);
+
+    /* performing command status check */
+	if (retVal != MYKONOS_ERR_OK)
+	{
+		if (cmdStatusByte > 0)
+		{
+			CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GETRFPLL_LF_ARMERROR,
+						   getMykonosErrorMessage(MYKONOS_ERR_GETRFPLL_LF_ARMERROR));
+			return MYKONOS_ERR_GETRFPLL_LF_ARMERROR;
+		}
+
+		return retVal;
+	}
+
+    /* Read from ARM memory */
+	retVal = MYKONOS_readArmMem(device, MYKONOS_ADDR_ARM_START_DATA_ADDR, &armData[0], 8, 1);
+	if (retVal != MYKONOS_ERR_OK)
+	{
+		return retVal;
+	}
+
+    /* Assign to variables */
+    *stability = armData[3];
+    *loopBandwidth_kHz = (((uint16_t)armData[1]) << 8) | ((uint16_t)armData[0]);
+
+    return MYKONOS_ERR_OK;
+}
+
+/**
+ * \brief Enable/ Disable Digital DC Offset channels using the channel mask.
+ *  The mask can be a combination of the following channel values ( ::mykonosRxDcOffsettEn_t ).
+ *
+ *     Channel              |  Value  |  Channel description
+ * -------------------------|---------|--------------------------
+ *  MYK_DC_OFFSET_ALL_OFF   |   0x00  | Disable all the channels
+ *  MYK_DC_OFFSET_RX1       |   0x01  | Enables Rx1
+ *  MYK_DC_OFFSET_RX2       |   0x02  | Enables Rx1
+ *  MYK_DC_OFFSET_SNF       |   0x04  | Enables Sniffer
+ *  MYK_DC_OFFSET_ORX       |   0x08  | Enables ORx
+ *  MYK_DC_OFFSET_AVAILABLE |   0x0F  | Enables all the channels
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the Mykonos device data structure containing settings
+ * \param enableMask with bits of channels to be enabled.
+ *
+ * \retval MYKONOS_ERR_DIG_DC_OFFSET_INV_ENABLE_MASK enable mask passed to the function is invalid, refer mykonosRxDcOffsettEn_t enum.
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_setDigDcOffsetEn(mykonosDevice_t *device, uint8_t enableMask)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint16_t REG_ADDRESS = 0x00;
+    uint8_t dataToWrite = 0x00;
+
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_setDigDcOffsetEn()\n");
+#endif
+
+    if (enableMask & ~MYK_DC_OFFSET_AVAILABLE)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DIG_DC_OFFSET_INV_ENABLE_MASK,
+                getMykonosErrorMessage(MYKONOS_ERR_DIG_DC_OFFSET_INV_ENABLE_MASK));
+        return MYKONOS_ERR_DIG_DC_OFFSET_INV_ENABLE_MASK;
+    }
+
+    REG_ADDRESS = MYKONOS_ADDR_DIGITAL_DC_OFFSET_CONFIG;                           /* Address for Rx Digital tracking Enable bits register */
+    if (enableMask & (MYK_DC_OFFSET_RX1 | MYK_DC_OFFSET_RX2))                      /* Enable / Disable  Rx1 and/or Rx2 */
+    {
+        dataToWrite |= ((enableMask & (MYK_DC_OFFSET_RX1 | MYK_DC_OFFSET_RX2)) << 1 );
+    }
+    CMB_SPIWriteField(device->spiSettings, REG_ADDRESS, dataToWrite, 0x06,0);      /* Write RX enable bits to the register */
+
+    dataToWrite = 0x0;                                                             /* Reset dataToWrite */
+    REG_ADDRESS = MYKONOS_DIGITAL_DC_OFFSET_CH3_TRACKING;                          /* Address for ORx and Sniffer Digital trackingEnable bits register */
+    if (enableMask & (MYK_DC_OFFSET_SNF | MYK_DC_OFFSET_ORX))                                                /* Check for channel  ORx and/or Sniffer */
+    {
+        dataToWrite |= ((enableMask & (MYK_DC_OFFSET_SNF | MYK_DC_OFFSET_ORX))>>2);
+    }
+    CMB_SPIWriteField(device->spiSettings, REG_ADDRESS, dataToWrite, 0x03,0);      /* Write Loopback, ORx and Sniffer enable bits to the register */
+
+    return retVal;
+}
+
+/**
+ * \brief reads Enable/ Disable channels Digital DC Offset and returns a mask of it.
+ * The mask returned will be a combination of the following channel values ( ::mykonosRxDcOffsettEn_t ).
+ *
+ *    Channel               |  Value  |  Channel description
+ * -------------------------|---------|--------------------------
+ *  MYK_DC_OFFSET_ALL_OFF   |   0x00  | All channels are disabled
+ *  MYK_DC_OFFSET_RX1       |   0x01  | Rx1 is enabled
+ *  MYK_DC_OFFSET_RX2       |   0x02  | Rx2 is enabled
+ *  MYK_DC_OFFSET_SNF       |   0x04  | Sniffer is enabled
+ *  MYK_DC_OFFSET_ORX       |   0x08  | ORx is enabled
+ *  MYK_DC_OFFSET_AVAILABLE |   0x0F  | All channels are enabled
+ *
+ * <B>Dependencies</B>
+ * - device->spiSettings->chipSelectIndex
+ *
+ * \param device Pointer to the Mykonos device data structure containing settings
+ * \param enableMask pointer to the variable to store Enable mask of channels
+ *
+ * \retval MYKONOS_ERR_DIG_DC_OFFSET_NULL_ENABLE_MASK enableMask is NULL
+ * \retval MYKONOS_ERR_OK Function completed successfully
+ */
+mykonosErr_t MYKONOS_getDigDcOffsetEn(mykonosDevice_t *device,uint8_t *enableMask)
+{
+    mykonosErr_t retVal = MYKONOS_ERR_OK;
+    uint16_t REG_ADDRESS = 0;
+    uint8_t readbackData = 0;
+    uint8_t enableMaskData = 0;
+
+#if (MYKONOS_VERBOSE == 1)
+    CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_OK, "MYKONOS_getDigDcOffsetEn()\n");
+#endif
+
+    if (enableMask == NULL)
+    {
+        CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DIG_DC_OFFSET_NULL_ENABLE_MASK,
+                getMykonosErrorMessage(MYKONOS_ERR_DIG_DC_OFFSET_NULL_ENABLE_MASK));
+        return MYKONOS_ERR_DIG_DC_OFFSET_NULL_ENABLE_MASK;
+    }
+
+    REG_ADDRESS = MYKONOS_ADDR_DIGITAL_DC_OFFSET_CONFIG;                            /* register address of Rx1 and Rx2 enable bits*/
+    CMB_SPIReadField(device->spiSettings, REG_ADDRESS, &readbackData, 0x06,0);
+    enableMaskData |= (readbackData>>1);                                            /* adjust bits to match channel :refer enum mykonosRfDcOffsettEn_t. */
+
+    readbackData = 0x00;
+    REG_ADDRESS = MYKONOS_DIGITAL_DC_OFFSET_CH3_TRACKING;                           /* register address of Orx and sniffer enable bits*/
+    CMB_SPIReadField(device->spiSettings, REG_ADDRESS, &readbackData, 0x03,0);
+    enableMaskData |= (readbackData<<2);                                            /* adjust bits to match channel :refer enum mykonosRfDcOffsettEn_t. */
+
+    *enableMask = enableMaskData;
+
+    return retVal;
+}
+
 
