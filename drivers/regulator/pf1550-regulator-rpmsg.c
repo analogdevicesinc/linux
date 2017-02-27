@@ -382,6 +382,7 @@ static ssize_t pf1550_registers_show(struct device *dev,
 
 		msg.header.cmd = PF1550_GET_REG;
 		msg.reg = i;
+		msg.val = 0;
 
 		err = pf1550_send_message(&msg, info);
 		if (err)
