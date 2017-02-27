@@ -3,7 +3,14 @@
  *
  * \brief Contains macro definitions and global structure declarations for mykonos_user.c
  *
- * Mykonos API version: 1.3.1.3534
+ * Mykonos API version: 1.4.0.3546
+ */
+
+/**
+* \page Disclaimer Legal Disclaimer
+* Copyright 2015-2017 Analog Devices Inc.
+* Released under the AD9371 API license, for more information see the "LICENSE.txt" file in this zip file.
+*
  */
 
 #ifndef _MYKONOSPROFILES_H_
