@@ -2142,6 +2142,7 @@ static int mxsfb_probe(struct platform_device *pdev)
 	if (IS_ERR(host->clk_axi)) {
 		host->clk_axi = NULL;
 		ret = PTR_ERR(host->clk_axi);
+		dev_err(&pdev->dev, "Failed to get axi clock: %d\n", ret);
 		goto fb_release;
 	}
 
@@ -2149,6 +2150,7 @@ static int mxsfb_probe(struct platform_device *pdev)
 	if (IS_ERR(host->clk_disp_axi)) {
 		host->clk_disp_axi = NULL;
 		ret = PTR_ERR(host->clk_disp_axi);
+		dev_err(&pdev->dev, "Failed to get disp_axi clock: %d\n", ret);
 		goto fb_release;
 	}
 
@@ -2160,6 +2162,7 @@ static int mxsfb_probe(struct platform_device *pdev)
 					       GFP_KERNEL);
 	if (!fb_info->pseudo_palette) {
 		ret = -ENOMEM;
+		dev_err(&pdev->dev, "Failed to allocate pseudo_palette memory\n");
 		goto fb_release;
 	}
 
@@ -2168,8 +2171,10 @@ static int mxsfb_probe(struct platform_device *pdev)
 	pm_runtime_enable(&host->pdev->dev);
 
 	ret = mxsfb_init_fbinfo(host);
-	if (ret != 0)
+	if (ret != 0) {
+		dev_err(&pdev->dev, "Failed to initialize fbinfo: %d\n", ret);
 		goto fb_pm_runtime_disable;
+	}
 
 	ret = mxsfb_dispdrv_init(pdev, fb_info);
 	if (ret != 0) {
