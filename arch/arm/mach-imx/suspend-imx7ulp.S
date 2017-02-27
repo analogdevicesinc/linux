@@ -321,15 +321,6 @@ poll_dvfs_set:
 	ands	r7, r7, #(1 << 24)
 	beq	poll_dvfs_set
 
-	/* turn off NVCC_DRAM_SW - PTC1 */
-	ldr	r10, [r0, #PM_INFO_PM_INFO_GPIOC_VBASE_OFFSET]
-	ldr	r7, [r10, #GPIO_PDDR]
-	orr	r7, #(1 << 1)
-	str	r7, [r10, #GPIO_PDDR]
-	ldr	r7, [r10, #GPIO_PDOR]
-	orr	r7, #(1 << 1)
-	str	r7, [r10, #GPIO_PDOR]
-
 	/* switch NIC clock to FIRC */
 	ldr	r10, [r0, #PM_INFO_PM_INFO_SCG1_VBASE_OFFSET]
 	ldr	r7, [r10, #SCG_NICCCR]
@@ -374,18 +365,6 @@ poll_dvfs_set:
 	nop
 	nop
 	nop
-
-	/* turn on NVCC_DRAM_SW - PTC1 */
-	ldr	r10, [r0, #PM_INFO_PM_INFO_GPIOC_VBASE_OFFSET]
-	ldr	r7, [r10, #GPIO_PDOR]
-	bic	r7, #(1 << 1)
-	str	r7, [r10, #GPIO_PDOR]
-
-	/* gpioc needs 400us to ramp up, here use ~800us */
-	ldr	r7, =50000
-wait_gpio_up_vlps:
-	subs	r7, #0x1
-	bne	wait_gpio_up_vlps
 
 	/* clear core0's entry and parameter */
 	ldr	r10, [r0, #PM_INFO_PM_INFO_SIM_VBASE_OFFSET]
@@ -555,26 +534,6 @@ resume:
 	ldr	r7, [r11, #0x3c]
 	orr	r7, r7, #(1 << 30)
 	str	r7, [r11, #0x3c]
-
-	/* enable PTC1 IOMUXC */
-	ldr	r11, =MX7ULP_IOMUXC1_BASE_ADDR
-	ldr	r7, =0x20100
-	str	r7, [r11, #0x4]
-
-	/* output PTC1 to 0 */
-	ldr	r11, =MX7ULP_GPIOC_BASE_ADDR
-	ldr	r7, [r11, #GPIO_PDDR]
-	orr	r7, #(1 << 1)
-	str	r7, [r11, #GPIO_PDDR]
-	ldr	r7, [r11, #GPIO_PDOR]
-	bic	r7, #(1 << 1)
-	str	r7, [r11, #GPIO_PDOR]
-
-	/* gpioc needs 400us to ramp up, here use ~800us */
-	ldr	r7, =50000
-wait_gpio_up_vlls:
-	subs	r7, #0x1
-	bne	wait_gpio_up_vlls
 
 	restore_mmdc_settings
 	mov	pc, lr
