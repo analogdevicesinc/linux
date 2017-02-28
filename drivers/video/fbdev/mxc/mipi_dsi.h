@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2011-2015 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright (C) 2011-2016 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2017 NXP.
  */
 
 /*
@@ -70,6 +71,7 @@ struct mipi_dsi_info {
 	const struct mipi_dsi_bus_mux	*bus_mux;
 	int				dsi_power_on;
 	int				lcd_inited;
+	int				encoder;
 	u32				dphy_pll_config;
 	int				dev_id;
 	int				disp_id;
