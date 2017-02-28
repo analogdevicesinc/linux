@@ -248,6 +248,7 @@
 				 <&clks IMX6QDL_CLK_LVDS1_GATE>,
 				 <&clks IMX6QDL_CLK_PCIE_REF_125M>;
 			clock-names = "pcie", "pcie_bus", "pcie_phy";
+			fsl,max-link-speed = <2>;
 			status = "disabled";
 		};
 

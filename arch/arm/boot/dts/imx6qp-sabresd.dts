@@ -88,10 +88,6 @@
 	};
 };
 
-&pcie {
-	status = "disabled";
-};
-
 &iomuxc {
 	imx6qdl-sabresd {
 		pinctrl_usdhc2: usdhc2grp {

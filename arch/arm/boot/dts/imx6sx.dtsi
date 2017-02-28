@@ -1536,6 +1536,7 @@
 			clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_inbound_axi";
 			pcie-phy-supply = <&reg_pcie_phy>;
 			power-domains = <&gpc 2>;
+			fsl,max-link-speed = <2>;
 			status = "disabled";
 		};
 	};
