@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2010-2016 Freescale Semiconductor, Inc.
  *
+ * Copyright 2017 NXP
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -1263,6 +1265,8 @@ static int pxp_config(struct pxps *pxp, struct pxp_channel *pxp_chan)
 
 		if ((proc_data->engine_enable & PXP_ENABLE_WFE_A) == PXP_ENABLE_WFE_A)
 		{
+			pxp_luts_deactivate(pxp, proc_data->lut_sels);
+
 			if (proc_data->lut_cleanup == 0) {
 				/* We should enable histogram in standard mode
 				 * in wfe_a processing for waveform mode selection
@@ -1282,8 +1286,6 @@ static int pxp_config(struct pxps *pxp, struct pxp_channel *pxp_chan)
 				pxp->devdata->pxp_wfe_a_configure(pxp);
 			if (pxp->devdata && pxp->devdata->pxp_wfe_a_process)
 				pxp->devdata->pxp_wfe_a_process(pxp);
-
-			pxp_luts_deactivate(pxp, proc_data->lut_sels);
 		}
 
 		if ((proc_data->engine_enable & PXP_ENABLE_WFE_B) == PXP_ENABLE_WFE_B) {
