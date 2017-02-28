@@ -37,3 +37,7 @@
 &ov5640 {
 	status = "disabled";
 };
+
+&crypto {
+	status = "disabled";
+};
