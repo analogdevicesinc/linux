@@ -329,6 +329,12 @@
 				IMX7ULP_PAD_PTE6__PTE6		0x20043 /* WL_REG_ON */
 			>;
 		};
+
+		pinctrl_dsi_hdmi: dsi_hdmi_grp {
+			fsl,pins = <
+				IMX7ULP_PAD_PTC18__PTC18	0x10103		/* DSI_HDMI_INT */
+			>;
+		};
 	};
 };
 
@@ -397,6 +403,21 @@
 	pinctrl-0 = <&pinctrl_lpi2c5>;
 	pinctrl-1 = <&pinctrl_lpi2c5>;
 	status = "okay";
+
+	adv7535: adv7535@3d {
+		compatible = "adi,adv7535";
+		reg = <0x3d>; /* PD pin is low */
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_dsi_hdmi>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <18 IRQ_TYPE_EDGE_FALLING>;
+		video-mode = <1>; /*
+			           * Only support CEA modes.
+			           * Reference mxc_edid.c
+			           */
+		bpp = <24>;
+		status = "disabled";
+	};
 
 	fxas2100x@20 {
 		compatible = "fsl,fxas2100x";
