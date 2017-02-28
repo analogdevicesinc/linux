@@ -201,6 +201,16 @@ config AD9467
 	  AD9680, AD9652, AD9234 high speed ADCs. Provides direct access
 	  via sysfs.
 
+config AD9963
+	tristate "Analog Devices AD9963 ADC/DAC driver"
+	depends on SPI
+	select REGMAP_SPI
+	select ADMC
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9963 ADC/DAC. Provides direct access
+	  via sysfs.
+
 config ADMC
 	tristate "Analog Devices Motor Control (AD-FMCMOTCON) drivers"
 	depends on SPI
