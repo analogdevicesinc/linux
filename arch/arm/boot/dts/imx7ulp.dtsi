@@ -488,6 +488,8 @@
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks IMX7ULP_CLK_DSI>;
 			clock-names = "mipi_dsi_clk";
+			data-lanes-num = <2>;
+			max-data-rate  = <800000000>;
 			sim = <&sim>;
 			status = "disabled";
 		};
