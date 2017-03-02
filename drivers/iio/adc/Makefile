@@ -36,6 +36,8 @@ obj-$(CONFIG_CF_AXI_TDD) += cf_axi_tdd.o
 
 obj-$(CONFIG_AXI_FMCADC5_SYNC) += axi_fmcadc5_sync.o
 
+obj-$(CONFIG_ALTERA_XCVR) += altera_adxcvr.o
+
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_AT91_SAMA5D2_ADC) += at91-sama5d2_adc.o
 obj-$(CONFIG_AXP288_ADC) += axp288_adc.o
