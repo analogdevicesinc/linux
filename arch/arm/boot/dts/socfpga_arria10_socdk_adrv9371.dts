@@ -51,82 +51,73 @@
 	};
 
 	soc {
-
-		arria10_hps_0_bridges: bridge@0xff200000 {
+		sys_hps_bridges: bridge@0xff200000 {
 			compatible = "altr,bridge-16.0", "simple-bus";
 			reg = <0xff200000 0x00200000>;
 			#address-cells = <2>;
 			#size-cells = <1>;
-			ranges = <0x00000001 0x00030000 0xff230000 0x00000400>,
-				<0x00000001 0x00050000 0xff250000 0x00000400>,
-				<0x00000001 0x00060000 0xff260000 0x00000400>,
-				<0x00000001 0x00010000 0xff210000 0x00000800>,
-				<0x00000001 0x00064000 0xff264000 0x00004000>,
+			ranges = <0x00000001 0x00018000 0xff218000 0x00000800>,
+				<0x00000001 0x0001b000 0xff21b000 0x00000800>,
+				<0x00000001 0x0001d000 0xff21d000 0x00000800>,
+				<0x00000001 0x00019000 0xff219000 0x00000400>,
+				<0x00000001 0x0001c000 0xff21c000 0x00000400>,
+				<0x00000001 0x0001e000 0xff21e000 0x00000400>,
+				<0x00000001 0x0001a000 0xff21a000 0x00001000>,
+				<0x00000001 0x00010000 0xff210000 0x00001000>,
+				<0x00000001 0x00012000 0xff212000 0x00001000>,
+				<0x00000001 0x00014000 0xff214000 0x00001000>,
+				<0x00000001 0x00016000 0xff216000 0x00001000>,
 				<0x00000001 0x00011000 0xff211000 0x00001000>,
+				<0x00000001 0x00013000 0xff213000 0x00001000>,
+				<0x00000001 0x00015000 0xff215000 0x00001000>,
+				<0x00000001 0x00017000 0xff217000 0x00001000>,
+				<0x00000001 0x00000000 0xff200000 0x00000010>,
 				<0x00000001 0x00000020 0xff200020 0x00000010>,
-				<0x00000001 0x00000040 0xff200040 0x00000020>,
-				<0x00000001 0x00001000 0xff201000 0x00000020>,
-				<0x00000001 0x000a0000 0xff2a0000 0x00004000>,
-				<0x00000001 0x00080000 0xff280000 0x00004000>,
+				<0x00000001 0x00090000 0xff290000 0x00000010>,
 				<0x00000001 0x00020000 0xff220000 0x00010000>,
+				<0x00000001 0x00030000 0xff230000 0x00010000>,
 				<0x00000001 0x00040000 0xff240000 0x00010000>,
-				<0x00000001 0x00070000 0xff270000 0x00010000>,
-				<0x00000001 0x00090000 0xff290000 0x00004000>,
-				<0x00000001 0x00000000 0xff200000 0x00000020>;
+				<0x00000001 0x00050000 0xff250000 0x00004000>,
+				<0x00000001 0x00060000 0xff260000 0x00004000>,
+				<0x00000001 0x00070000 0xff270000 0x00004000>,
+				<0x00000001 0x00080000 0xff280000 0x00010000>,
+				<0x00000001 0x00000040 0xff200040 0x00000020>;
 
-			gpio_o: gpio@0x100000040 {
+			sys_gpio_out: sys-gpio-out@0x100000020 {
 				compatible = "altr,pio-16.0", "altr,pio-1.0";
-				reg = <0x00000001 0x00000040 0x00000020>;
+				reg = <0x00000001 0x00000020 0x00000010>;
 				altr,gpio-bank-width = <32>;
 				resetvalue = <0>;
 				#gpio-cells = <2>;
 				gpio-controller;
 			};
 
-			xcvr_core: xcvr_core@0x00020000 {
-				compatible = "adi,altera-xcvr-1.00.a";
+			axi_ad9371_tx_xcvr: axi-ad9371-tx-xcvr@0x100020000 {
+				compatible = "adi,altera-adxcvr-1.00.a";
 				reg = <0x00000001 0x00020000 0x00010000>,
-					<0x00000001 0x00064000 0x00004000>,
-					<0x00000001 0x00011000 0x00001000>;
-				reg-names = "jesd-xcvr", "xcvr-reconfig-avmm", "xcvr-atx-pll";
-				adi,external-sysref-enable;
-				adi,delay-work-function-seconds = <30>;
-				adi,rx-enable;
-				adi,rx-link-number = <0>;
-				adi,rx-lanes-per-link = <2>;
+					<0x00000001 0x0001a000 0x00001000>;
+				reg-names = "adxcvr", "atx-pll";
+				adi,delay-work-seconds = <30>;
 				adi,tx-enable;
-				adi,tx-reconfig-avmm-enable;
 				adi,tx-link-number = <0>;
 				adi,tx-lanes-per-link = <4>;
 			};
 
-			axi_adc_dma: axi_adc_dma@0x000a0000 {
-				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x00000001 0x000a0000 0x00004000>;
-				interrupt-parent = <&intc>;
-				interrupts = <0 29 4>;
-				#dma-cells = <1>;
-				clocks = <&axi_dmac_clk>;
-				clock-names = "axi_dmac_clkin";
-
-				dma-channel {
-					adi,source-bus-width = <64>;
-					adi,destination-bus-width = <128>;
-					adi,type = <0>;
-				};
+			axi_ad9371_rx_xcvr: axi-ad9371-rx-xcvr@0x100030000 {
+				compatible = "adi,altera-adxcvr-1.00.a";
+				reg = <0x00000001 0x00030000 0x00010000>;
+				reg-names = "adxcvr";
 			};
 
-			axi_ad9371_rx: axi-ad9371-rx-hpc@0x00070000 {
-				compatible = "adi,axi-ad9371-rx-2.0";
-				reg = <0x00000001 0x00070000 0x00008000>;
-				dmas = <&axi_adc_dma 0>;
-				dma-names = "rx";
-				spibus-connected = <&trx0_ad9371>;
+			axi_ad9371_rx_os_xcvr: axi-ad9371-rx-os-xcvr@0x100040000 {
+				compatible = "adi,altera-adxcvr-1.00.a";
+				reg = <0x00000001 0x00040000 0x00010000>;
+				reg-names = "adxcvr";
 			};
 
-			axi_dac_dma: axi_dac_dma@0x00080000 {
+			axi_ad9371_tx_dma: axi-ad9371-tx-dma@0x100050000 {
 				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x00000001 0x00080000 0x00004000>;
+				reg = <0x00000001 0x00050000 0x00004000>;
 				interrupt-parent = <&intc>;
 				interrupts = <0 30 4>;
 				#dma-cells = <1>;
@@ -141,30 +132,9 @@
 				};
 			};
 
-			axi_ad9371_tx: axi-ad9371-tx-hpc@0x00074000 {
-				compatible = "adi,axi-ad9371-tx-2.0";
-				reg = <0x00000001 0x00074000 0x00004000>;
-				dmas = <&axi_dac_dma 0>;
-				dma-names = "tx";
-				clocks = <&trx0_ad9371 2>;
-				clock-names = "sampl_clk";
-				spibus-connected = <&trx0_ad9371>;
-			};
-
-			axi_os_jesd_xcvr: axi_os_jesd_xcvr@0x00040000 {
-				compatible = "adi,altera-xcvr-1.00.a";
-				reg = <0x00000001 0x00040000 0x00010000>;
-				reg-names = "jesd-xcvr";
-				adi,external-sysref-enable;
-				adi,delay-work-function-seconds = <30>;
-				adi,rx-enable;
-				adi,rx-link-number = <0>;
-				adi,rx-lanes-per-link = <2>;
-			};
-
-			axi_os_adc_dma: axi_os_adc_dma@0x00090000 {
+			axi_ad9371_rx_dma: axi-ad9371-rx-dma@0x100060000 {
 				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x00000001 0x00090000 0x00004000>;
+				reg = <0x00000001 0x00060000 0x00004000>;
 				interrupt-parent = <&intc>;
 				interrupts = <0 31 4>;
 				#dma-cells = <1>;
@@ -178,20 +148,54 @@
 				};
 			};
 
-			xcvr_rx_os_core: axi-ad9371-rx-obs-hpc@0x00078000 {
+			axi_ad9371_rx_os_dma: axi-ad9371-rx-os-dma@0x100070000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00000001 0x00070000 0x00004000>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 32 4>;
+				#dma-cells = <1>;
+				clocks = <&axi_dmac_clk>;
+				clock-names = "axi_dmac_clkin";
+
+				dma-channel {
+					adi,source-bus-width = <64>;
+					adi,destination-bus-width = <128>;
+					adi,type = <0>;
+				};
+			};
+
+			axi_ad9371_rx: axi-ad9371-rx-hpc@0x00080000 {
+				compatible = "adi,axi-ad9371-rx-2.0";
+				reg = <0x00000001 0x00080000 0x00008000>;
+				dmas = <&axi_ad9371_rx_dma 0>;
+				dma-names = "rx";
+				spibus-connected = <&trx0_ad9371>;
+			};
+
+			axi_ad9371_tx: axi-ad9371-tx-hpc@0x00084000 {
+				compatible = "adi,axi-ad9371-tx-2.0";
+				reg = <0x00000001 0x00084000 0x00004000>;
+				dmas = <&axi_ad9371_tx_dma 0>;
+				dma-names = "tx";
+				clocks = <&trx0_ad9371 2>;
+				clock-names = "sampl_clk";
+				spibus-connected = <&trx0_ad9371>;
+			};
+
+			xcvr_rx_os_core: axi-ad9371-rx-obs-hpc@0x00088000 {
 				compatible = "adi,axi-ad9371-obs-1.0";
-				reg = <0x00000001 0x00078000 0x00001000>;
-				dmas = <&axi_os_adc_dma 0>;
+				reg = <0x00000001 0x00088000 0x00001000>;
+				dmas = <&axi_ad9371_rx_os_dma 0>;
 				dma-names = "rx";
 				clocks = <&trx0_ad9371 1>;
 				clock-names = "sampl_clk";
 			};
 
-			spi: spi@0x00000000 {
+			sys_spi: spi@0x100000040 {
 				compatible = "altr,spi-16.0", "altr,spi-1.0";
-				reg = <0x00000001 0x00000000 0x00000020>;
+				reg = <0x00000001 0x00000040 0x00000020>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 20 4>;
+				interrupts = <0 26 4>;
 				#address-cells = <0x1>;
 				#size-cells = <0x0>;
 
@@ -201,7 +205,7 @@
 					#clock-cells = <1>;
 					compatible = "ad9528";
 
-					reset-gpios = <&gpio_o 16 0>;
+					reset-gpios = <&sys_gpio_out 16 0>;
 
 					spi-max-frequency = <10000000>;
 					reg = <1>;
@@ -286,13 +290,13 @@
 					#clock-cells = <1>;
 					compatible = "ad9371";
 
-					reset-gpios = <&gpio_o 18 0>;
-					test-gpios = <&gpio_o 19 0>;
-					sysref_req-gpios = <&gpio_o 17 0>;
-					rx2_enable-gpios = <&gpio_o 20 0>;
-					rx1_enable-gpios = <&gpio_o 21 0>;
-					tx2_enable-gpios = <&gpio_o 22 0>;
-					tx1_enable-gpios = <&gpio_o 23 0>;
+					reset-gpios = <&sys_gpio_out 18 0>;
+					test-gpios = <&sys_gpio_out 19 0>;
+					sysref_req-gpios = <&sys_gpio_out 17 0>;
+					rx2_enable-gpios = <&sys_gpio_out 20 0>;
+					rx1_enable-gpios = <&sys_gpio_out 21 0>;
+					tx2_enable-gpios = <&sys_gpio_out 22 0>;
+					tx1_enable-gpios = <&sys_gpio_out 23 0>;
 
 					/* SPI Setup */
 					reg = <0>;
