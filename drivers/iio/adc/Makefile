@@ -33,7 +33,7 @@ obj-$(CONFIG_CF_AXI_FFT) += cf_axi_fft_core.o
 
 obj-$(CONFIG_AXI_JESD204B) += cf_axi_jesd204b.o cf_axi_jesd204b_v51.o cf_axi_jesd204b_gt.o
 
-obj-$(CONFIG_ALTERA_XCVR) += altera_xcvr.o
+obj-$(CONFIG_ALTERA_XCVR) += altera_xcvr.o altera_adxcvr.o
 
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_AT91_SAMA5D2_ADC) += at91-sama5d2_adc.o
