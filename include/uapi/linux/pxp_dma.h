@@ -45,15 +45,15 @@ typedef unsigned char bool;
 /*! @{ */
 #define PXP_PIX_FMT_RGB332  fourcc('R', 'G', 'B', '1')	/*!<  8  RGB-3-3-2    */
 #define PXP_PIX_FMT_RGB555  fourcc('R', 'G', 'B', 'O')	/*!< 16  RGB-5-5-5    */
-#define PXP_PIX_FMT_RGB565  fourcc('R', 'G', 'B', 'P')	/*!< 1 6  RGB-5-6-5   */
+#define PXP_PIX_FMT_RGB565  fourcc('R', 'G', 'B', 'P')	/*!< 16  RGB-5-6-5    */
 #define PXP_PIX_FMT_RGB666  fourcc('R', 'G', 'B', '6')	/*!< 18  RGB-6-6-6    */
 #define PXP_PIX_FMT_BGR666  fourcc('B', 'G', 'R', '6')	/*!< 18  BGR-6-6-6    */
 #define PXP_PIX_FMT_BGR24   fourcc('B', 'G', 'R', '3')	/*!< 24  BGR-8-8-8    */
 #define PXP_PIX_FMT_RGB24   fourcc('R', 'G', 'B', '3')	/*!< 24  RGB-8-8-8    */
-#define PXP_PIX_FMT_BGR32   fourcc('B', 'G', 'R', '4')	/*!< 32  BGR-8-8-8-8  */
-#define PXP_PIX_FMT_BGRA32  fourcc('B', 'G', 'R', 'A')	/*!< 32  BGR-8-8-8-8  */
-#define PXP_PIX_FMT_RGB32   fourcc('R', 'G', 'B', '4')	/*!< 32  RGB-8-8-8-8  */
-#define PXP_PIX_FMT_RGBA32  fourcc('R', 'G', 'B', 'A')	/*!< 32  RGB-8-8-8-8  */
+#define PXP_PIX_FMT_XBGR32  fourcc('X', 'B', 'G', 'R')	/*!< 32  XBGR-8-8-8-8 */
+#define PXP_PIX_FMT_BGRA32  fourcc('B', 'G', 'R', 'A')	/*!< 32  BGRA-8-8-8-8 */
+#define PXP_PIX_FMT_XRGB32  fourcc('X', 'R', 'G', 'B')	/*!< 32  XRGB-8-8-8-8 */
+#define PXP_PIX_FMT_RGBA32  fourcc('R', 'G', 'B', 'A')	/*!< 32  RGBA-8-8-8-8 */
 #define PXP_PIX_FMT_ABGR32  fourcc('A', 'B', 'G', 'R')	/*!< 32  ABGR-8-8-8-8 */
 /*! @} */
 /*! @name YUV Interleaved Formats */

@@ -1586,7 +1586,7 @@ static int mxc_epdc_fb_set_par(struct fb_info *info)
 			pxp_conf->s0_param.pixel_fmt = PXP_PIX_FMT_RGB24;
 			break;
 		case 32:
-			pxp_conf->s0_param.pixel_fmt = PXP_PIX_FMT_RGB32;
+			pxp_conf->s0_param.pixel_fmt = PXP_PIX_FMT_XRGB32;
 			break;
 		default:
 			pxp_conf->s0_param.pixel_fmt = PXP_PIX_FMT_RGB565;
