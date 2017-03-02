@@ -44,15 +44,26 @@ typedef unsigned char bool;
 /*! @name RGB Formats */
 /*! @{ */
 #define PXP_PIX_FMT_RGB332  fourcc('R', 'G', 'B', '1')	/*!<  8  RGB-3-3-2    */
+#define PXP_PIX_FMT_RGB444  fourcc('R', '4', '4', '4')	/* 16  xxxxrrrr ggggbbbb */
+#define PXP_PIX_FMT_ARGB444 fourcc('A', 'R', '1', '2')	/* 16  aaaarrrr ggggbbbb */
+#define PXP_PIX_FMT_RGBA444 fourcc('R', 'A', '1', '2')	/* 16  rrrrgggg bbbbaaaa */
+#define PXP_PIX_FMT_XRGB444 fourcc('X', 'R', '1', '2')	/* 16  xxxxrrrr ggggbbbb */
 #define PXP_PIX_FMT_RGB555  fourcc('R', 'G', 'B', 'O')	/*!< 16  RGB-5-5-5    */
+#define PXP_PIX_FMT_ARGB555 fourcc('A', 'R', '1', '5')	/*!< 16  ARGB-1-5-5-5 */
+#define PXP_PIX_FMT_RGBA555 fourcc('R', 'A', '1', '5')	/*!< 16  RGBA-5-5-5-1 */
+#define PXP_PIX_FMT_XRGB555 fourcc('X', 'R', '1', '5')	/*!< 16  XRGB-1-5-5-5 */
 #define PXP_PIX_FMT_RGB565  fourcc('R', 'G', 'B', 'P')	/*!< 16  RGB-5-6-5    */
+#define PXP_PIX_FMT_BGR565  fourcc('B', 'G', 'R', 'P')	/*!< 16  BGR-5-6-5    */
 #define PXP_PIX_FMT_RGB666  fourcc('R', 'G', 'B', '6')	/*!< 18  RGB-6-6-6    */
 #define PXP_PIX_FMT_BGR666  fourcc('B', 'G', 'R', '6')	/*!< 18  BGR-6-6-6    */
 #define PXP_PIX_FMT_BGR24   fourcc('B', 'G', 'R', '3')	/*!< 24  BGR-8-8-8    */
 #define PXP_PIX_FMT_RGB24   fourcc('R', 'G', 'B', '3')	/*!< 24  RGB-8-8-8    */
 #define PXP_PIX_FMT_XBGR32  fourcc('X', 'B', 'G', 'R')	/*!< 32  XBGR-8-8-8-8 */
+#define PXP_PIX_FMT_BGRX32  fourcc('B', 'G', 'R', 'X')	/*!< 32  BGRX-8-8-8-8 */
 #define PXP_PIX_FMT_BGRA32  fourcc('B', 'G', 'R', 'A')	/*!< 32  BGRA-8-8-8-8 */
 #define PXP_PIX_FMT_XRGB32  fourcc('X', 'R', 'G', 'B')	/*!< 32  XRGB-8-8-8-8 */
+#define PXP_PIX_FMT_RGBX32  fourcc('R', 'G', 'B', 'X')	/*!< 32  RGBX-8-8-8-8 */
+#define PXP_PIX_FMT_ARGB32  fourcc('A', 'R', 'G', 'B')	/*!< 32  ARGB-8-8-8-8 */
 #define PXP_PIX_FMT_RGBA32  fourcc('R', 'G', 'B', 'A')	/*!< 32  RGBA-8-8-8-8 */
 #define PXP_PIX_FMT_ABGR32  fourcc('A', 'B', 'G', 'R')	/*!< 32  ABGR-8-8-8-8 */
 /*! @} */
@@ -64,6 +75,8 @@ typedef unsigned char bool;
 #define PXP_PIX_FMT_YVYU    fourcc('Y', 'V', 'Y', 'U')  /*!< 16 YVU 4:2:2 */
 #define PXP_PIX_FMT_Y41P    fourcc('Y', '4', '1', 'P')	/*!< 12 YUV 4:1:1 */
 #define PXP_PIX_FMT_VUY444  fourcc('V', 'U', 'Y', 'A')	/*!< 32 VUYA 8:8:8 */
+#define PXP_PIX_FMT_YUV444  fourcc('A', 'Y', 'U', 'V') /*!< 32 AYUV 8:8:8 */
+#define PXP_PIX_FMT_YVU444  fourcc('A', 'Y', 'V', 'U') /*!< 32 AYUV 8:8:8 */
 /* two planes -- one Y, one Cb + Cr interleaved  */
 #define PXP_PIX_FMT_NV12    fourcc('N', 'V', '1', '2')	/* 12  Y/CbCr 4:2:0  */
 #define PXP_PIX_FMT_NV21    fourcc('N', 'V', '2', '1')	/* 12  Y/CbCr 4:2:0  */
