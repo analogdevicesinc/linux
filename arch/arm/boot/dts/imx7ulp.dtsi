@@ -223,6 +223,7 @@
 			assigned-clocks = <&clks IMX7ULP_CLK_LPI2C4>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
 			assigned-clock-rates = <48000000>;
+			status = "disabled";
 		};
 
 		lpi2c5: lpi2c5@402C0000 {

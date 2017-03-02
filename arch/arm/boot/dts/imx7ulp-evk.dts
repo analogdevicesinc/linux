@@ -369,6 +369,7 @@
 	#size-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c7>;
+	status = "okay";
 
 	focaltech@38 {
 		compatible = "focaltech,fts";
