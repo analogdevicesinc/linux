@@ -215,28 +215,29 @@ static void dump_pxp_reg(struct pxps *pxp)
 
 static bool is_yuv(u32 pix_fmt)
 {
-	if ((pix_fmt == PXP_PIX_FMT_YUYV) |
-	    (pix_fmt == PXP_PIX_FMT_UYVY) |
-	    (pix_fmt == PXP_PIX_FMT_YVYU) |
-	    (pix_fmt == PXP_PIX_FMT_VYUY) |
-	    (pix_fmt == PXP_PIX_FMT_Y41P) |
-	    (pix_fmt == PXP_PIX_FMT_VUY444) |
-	    (pix_fmt == PXP_PIX_FMT_NV12) |
-	    (pix_fmt == PXP_PIX_FMT_NV21) |
-	    (pix_fmt == PXP_PIX_FMT_NV16) |
-	    (pix_fmt == PXP_PIX_FMT_NV61) |
-	    (pix_fmt == PXP_PIX_FMT_GREY) |
-	    (pix_fmt == PXP_PIX_FMT_GY04) |
-	    (pix_fmt == PXP_PIX_FMT_YVU410P) |
-	    (pix_fmt == PXP_PIX_FMT_YUV410P) |
-	    (pix_fmt == PXP_PIX_FMT_YVU420P) |
-	    (pix_fmt == PXP_PIX_FMT_YUV420P) |
-	    (pix_fmt == PXP_PIX_FMT_YUV420P2) |
-	    (pix_fmt == PXP_PIX_FMT_YVU422P) |
-	    (pix_fmt == PXP_PIX_FMT_YUV422P)) {
-		return true;
-	} else {
-		return false;
+	switch (pix_fmt) {
+		case PXP_PIX_FMT_YUYV:
+		case PXP_PIX_FMT_UYVY:
+		case PXP_PIX_FMT_YVYU:
+		case PXP_PIX_FMT_VYUY:
+		case PXP_PIX_FMT_Y41P:
+		case PXP_PIX_FMT_VUY444:
+		case PXP_PIX_FMT_NV12:
+		case PXP_PIX_FMT_NV21:
+		case PXP_PIX_FMT_NV16:
+		case PXP_PIX_FMT_NV61:
+		case PXP_PIX_FMT_GREY:
+		case PXP_PIX_FMT_GY04:
+		case PXP_PIX_FMT_YVU410P:
+		case PXP_PIX_FMT_YUV410P:
+		case PXP_PIX_FMT_YVU420P:
+		case PXP_PIX_FMT_YUV420P:
+		case PXP_PIX_FMT_YUV420P2:
+		case PXP_PIX_FMT_YVU422P:
+		case PXP_PIX_FMT_YUV422P:
+			return true;
+		default:
+			return false;
 	}
 }
 
