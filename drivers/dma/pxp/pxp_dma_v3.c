@@ -419,14 +419,12 @@ static bool is_yuv(u32 pix_fmt)
 	}
 }
 
-static void pxp_set_ctrl(struct pxps *pxp)
+static u32 pxp_parse_ps_fmt(struct pxps *pxp)
 {
 	struct pxp_config_data *pxp_conf = &pxp->pxp_conf_state;
 	struct pxp_proc_data *proc_data = &pxp_conf->proc_data;
-	u32 ctrl;
 	u32 fmt_ctrl;
 
-	/* Configure S0 input format */
 	switch (pxp_conf->s0_param.pixel_fmt) {
 	case PXP_PIX_FMT_RGB32:
 		fmt_ctrl = BV_PXP_PS_CTRL_FORMAT__RGB888;
@@ -482,14 +480,18 @@ static void pxp_set_ctrl(struct pxps *pxp)
 		fmt_ctrl = BV_PXP_PS_CTRL_FORMAT__YVU2P422;
 		break;
 	default:
+		pr_debug("PS doesn't support this format\n");
 		fmt_ctrl = 0;
 	}
 
-	ctrl = BF_PXP_PS_CTRL_FORMAT(fmt_ctrl) |
-		(proc_data->need_yuv_swap ? BM_PXP_PS_CTRL_WB_SWAP : 0);
-	__raw_writel(ctrl, pxp->base + HW_PXP_PS_CTRL_SET);
+	return fmt_ctrl;
+}
 
-	/* Configure output format based on out_channel format */
+static u32 pxp_parse_out_fmt(struct pxps *pxp)
+{
+	struct pxp_config_data *pxp_conf = &pxp->pxp_conf_state;
+	u32 fmt_ctrl;
+
 	switch (pxp_conf->out_param.pixel_fmt) {
 	case PXP_PIX_FMT_RGB32:
 		fmt_ctrl = BV_PXP_OUT_CTRL_FORMAT__RGB888;
@@ -531,8 +533,29 @@ static void pxp_set_ctrl(struct pxps *pxp)
 		fmt_ctrl = BV_PXP_OUT_CTRL_FORMAT__YVU2P422;
 		break;
 	default:
+		pr_debug("OUT doesn't support this format\n");
 		fmt_ctrl = 0;
 	}
+
+	return fmt_ctrl;
+}
+
+static void pxp_set_ctrl(struct pxps *pxp)
+{
+	struct pxp_config_data *pxp_conf = &pxp->pxp_conf_state;
+	struct pxp_proc_data *proc_data = &pxp_conf->proc_data;
+	u32 ctrl;
+	u32 fmt_ctrl;
+
+	/* Configure S0 input format */
+	fmt_ctrl = pxp_parse_ps_fmt(pxp);
+
+	ctrl = BF_PXP_PS_CTRL_FORMAT(fmt_ctrl) |
+		(proc_data->need_yuv_swap ? BM_PXP_PS_CTRL_WB_SWAP : 0);
+	__raw_writel(ctrl, pxp->base + HW_PXP_PS_CTRL_SET);
+
+	/* Configure output format based on out_channel format */
+	fmt_ctrl = pxp_parse_out_fmt(pxp);
 
 	ctrl = BF_PXP_OUT_CTRL_FORMAT(fmt_ctrl);
 	__raw_writel(ctrl, pxp->base + HW_PXP_OUT_CTRL);
