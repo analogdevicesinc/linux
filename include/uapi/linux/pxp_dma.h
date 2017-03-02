@@ -205,6 +205,9 @@ struct pxp_proc_data {
 	int rot_pos;
 	int yuv;
 
+	/* to support YUYV and YVYU formats */
+	bool need_yuv_swap;
+
 	/* Source rectangle (srect) defines the sub-rectangle
 	 * within S0 to undergo processing.
 	 */

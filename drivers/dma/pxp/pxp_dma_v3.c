@@ -425,7 +425,6 @@ static void pxp_set_ctrl(struct pxps *pxp)
 	struct pxp_proc_data *proc_data = &pxp_conf->proc_data;
 	u32 ctrl;
 	u32 fmt_ctrl;
-	int need_swap = 0;   /* to support YUYV and YVYU formats */
 
 	/* Configure S0 input format */
 	switch (pxp_conf->s0_param.pixel_fmt) {
@@ -461,14 +460,14 @@ static void pxp_set_ctrl(struct pxps *pxp)
 		break;
 	case PXP_PIX_FMT_YUYV:
 		fmt_ctrl = BV_PXP_PS_CTRL_FORMAT__UYVY1P422;
-		need_swap = 1;
+		proc_data->need_yuv_swap = true;
 		break;
 	case PXP_PIX_FMT_VYUY:
 		fmt_ctrl = BV_PXP_PS_CTRL_FORMAT__VYUY1P422;
 		break;
 	case PXP_PIX_FMT_YVYU:
 		fmt_ctrl = BV_PXP_PS_CTRL_FORMAT__VYUY1P422;
-		need_swap = 1;
+		proc_data->need_yuv_swap = true;
 		break;
 	case PXP_PIX_FMT_NV12:
 		fmt_ctrl = BV_PXP_PS_CTRL_FORMAT__YUV2P420;
@@ -487,7 +486,7 @@ static void pxp_set_ctrl(struct pxps *pxp)
 	}
 
 	ctrl = BF_PXP_PS_CTRL_FORMAT(fmt_ctrl) |
-		(need_swap ? BM_PXP_PS_CTRL_WB_SWAP : 0);
+		(proc_data->need_yuv_swap ? BM_PXP_PS_CTRL_WB_SWAP : 0);
 	__raw_writel(ctrl, pxp->base + HW_PXP_PS_CTRL_SET);
 
 	/* Configure output format based on out_channel format */
