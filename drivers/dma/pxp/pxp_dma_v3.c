@@ -5196,6 +5196,31 @@ static int pxp_init_interrupt(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef	CONFIG_MXC_FPGA_M4_TEST
+static void pxp_config_m4(struct platform_device *pdev)
+{
+	fpga_tcml_base = ioremap(FPGA_TCML_ADDR, SZ_32K);
+	if (fpga_tcml_base == NULL) {
+		dev_err(&pdev->dev,
+			"get fpga_tcml_base error.\n");
+		goto exit;
+	}
+	pinctrl_base = ioremap(PINCTRL, SZ_4K);
+	if (pinctrl_base == NULL) {
+		dev_err(&pdev->dev,
+			"get fpga_tcml_base error.\n");
+		goto exit;
+	}
+
+	__raw_writel(0xC0000000, pinctrl_base + 0x08);
+	__raw_writel(0x3, pinctrl_base + PIN_DOUT);
+	int i;
+	for (i = 0; i < 1024 * 32 / 4; i++) {
+		*(((unsigned int *)(fpga_tcml_base)) + i) = cm4_image[i];
+	}
+}
+#endif
+
 static int pxp_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
@@ -5288,31 +5313,11 @@ static int pxp_probe(struct platform_device *pdev)
 	}
 
 #ifdef	CONFIG_MXC_FPGA_M4_TEST
-	fpga_tcml_base = ioremap(FPGA_TCML_ADDR, SZ_32K);
-	if (fpga_tcml_base == NULL) {
-		dev_err(&pdev->dev,
-			"get fpga_tcml_base error.\n");
-		goto exit;
-	}
-	pinctrl_base = ioremap(PINCTRL, SZ_4K);
-	if (pinctrl_base == NULL) {
-		dev_err(&pdev->dev,
-			"get fpga_tcml_base error.\n");
-		goto exit;
-	}
-
-	__raw_writel(0xC0000000, pinctrl_base + 0x08);
-	__raw_writel(0x3, pinctrl_base + PIN_DOUT);
-	int i;
-	for (i = 0; i < 1024 * 32 / 4; i++) {
-		*(((unsigned int *)(fpga_tcml_base)) + i) = cm4_image[i];
-	}
+	pxp_config_m4(pdev);
 #endif
 	register_pxp_device();
 
 	pm_runtime_enable(pxp->dev);
-
-
 exit:
 	if (err)
 		dev_err(&pdev->dev, "Exiting (unsuccessfully) pxp_probe()\n");
