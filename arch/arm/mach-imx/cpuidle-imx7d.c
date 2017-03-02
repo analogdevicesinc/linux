@@ -105,13 +105,8 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 	} else {
 		imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
 		cpu_pm_enter();
-
-		if (atomic_inc_return(&master_lpi) < num_online_cpus()) {
-			imx_set_cpu_jump(dev->cpu, ca7_cpu_resume);
-			/* initialize the last cpu id to invalid here */
-			cpuidle_pm_info->last_cpu = -1;
-			cpu_suspend(0, imx7d_idle_finish);
-		} else {
+		if (atomic_inc_return(&master_lpi) == num_online_cpus() &&
+			cpuidle_pm_info->last_cpu == -1) {
 			imx_gpcv2_set_cpu_power_gate_in_idle(true);
 			cpu_cluster_pm_enter();
 
@@ -120,6 +115,11 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 
 			cpu_cluster_pm_exit();
 			imx_gpcv2_set_cpu_power_gate_in_idle(false);
+			/* initialize the last cpu id to invalid here */
+			cpuidle_pm_info->last_cpu = -1;
+		} else {
+			imx_set_cpu_jump(dev->cpu, ca7_cpu_resume);
+			cpu_suspend(0, imx7d_idle_finish);
 		}
 		atomic_dec(&master_lpi);
 
