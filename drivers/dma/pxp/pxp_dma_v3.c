@@ -5187,9 +5187,6 @@ static int pxp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pxp);
 	pxp->irq = irq;
 
-	pxp->pxp_ongoing = 0;
-	pxp->lut_state = 0;
-
 	spin_lock_init(&pxp->lock);
 	mutex_init(&pxp->clk_mutex);
 
