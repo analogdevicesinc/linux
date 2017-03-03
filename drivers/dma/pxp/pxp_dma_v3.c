@@ -179,6 +179,9 @@ struct pxps {
 #define PXP_2D_NODE_TYPE_ALU	2
 #define PXP_2D_NODE_TYPE_OUTPUT	3
 
+#define DISTANCE_INFINITY	0xffff
+#define NO_PATH_NODE		0xffffffff
+
 /* 4 to 1 mux */
 struct mux {
 	uint32_t id;
@@ -200,7 +203,15 @@ struct vetex_node {
 	struct edge_node *first;
 };
 
+struct path_node {
+	struct list_head node;
+	uint32_t id;
+	uint32_t distance;
+	uint32_t prev_node;
+};
+
 static struct vetex_node adj_list[PXP_2D_NODE_NUM];
+static struct path_node path_table[PXP_2D_NODE_NUM][PXP_2D_NODE_NUM];
 
 static bool adj_array[PXP_2D_NODE_NUM][PXP_2D_NODE_NUM] = {
       /* 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 */
@@ -5552,6 +5563,62 @@ static int pxp_create_initial_graph(struct platform_device *pdev)
 	return 0;
 }
 
+/* Calculate the shortest paths start via
+ * 'from' node to other nodes
+ */
+static void pxp_find_shortest_path(unsigned int from)
+{
+	int i;
+	struct edge_node *enode;
+	struct path_node *pnode, *adjnode;
+	struct list_head queue;
+
+	INIT_LIST_HEAD(&queue);
+	list_add_tail(&path_table[from][from].node, &queue);
+
+	while(!list_empty(&queue)) {
+		pnode = list_entry(queue.next, struct path_node, node);
+		enode = adj_list[pnode->id].first;
+		while (enode) {
+			adjnode = &path_table[from][enode->adjvex];
+
+			if (adjnode->distance == DISTANCE_INFINITY) {
+				adjnode->distance  = pnode->distance + 1;
+				adjnode->prev_node = pnode->id;
+				list_add_tail(&adjnode->node, &queue);
+			}
+
+			enode = enode->next;
+		}
+		list_del_init(&pnode->node);
+	}
+
+	for (i = 0; i < PXP_2D_NODE_NUM; i++)
+		printk(KERN_DEBUG "From %u: to %d (id = %d, distance = 0x%x, prev_node = %d\n",
+			from, i, path_table[from][i].id, path_table[from][i].distance,
+			path_table[from][i].prev_node);
+}
+
+static int pxp_gen_shortest_paths(struct platform_device *pdev)
+{
+	int i, j;
+
+	for (i = 0; i < PXP_2D_NODE_NUM; i++) {
+		for (j = 0; j < PXP_2D_NODE_NUM; j++) {
+			path_table[i][j].id = j;
+			path_table[i][j].distance = DISTANCE_INFINITY;
+			path_table[i][j].prev_node = NO_PATH_NODE;
+			INIT_LIST_HEAD(&path_table[i][j].node);
+		}
+
+		path_table[i][i].distance = 0;
+
+		pxp_find_shortest_path(i);
+	}
+
+	return 0;
+}
+
 #ifdef	CONFIG_MXC_FPGA_M4_TEST
 static void pxp_config_m4(struct platform_device *pdev)
 {
@@ -5678,6 +5745,8 @@ static int pxp_probe(struct platform_device *pdev)
 		kmem_cache_destroy(edge_node_cache);
 		goto exit;
 	}
+
+	pxp_gen_shortest_paths(pdev);
 
 #ifdef	CONFIG_MXC_FPGA_M4_TEST
 	pxp_config_m4(pdev);
