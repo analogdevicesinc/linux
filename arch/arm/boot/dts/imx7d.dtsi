@@ -182,6 +182,7 @@
 		compatible = "fsl,imx7d-ocotp", "syscon";
 		reg = <0x30350000 0x10000>;
 		clocks = <&clks IMX7D_OCOTP_CLK>;
+		status = "okay";
 	};
 
 	tempmon: tempmon {
