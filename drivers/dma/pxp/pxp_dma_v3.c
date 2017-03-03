@@ -49,6 +49,7 @@
 #include <linux/of.h>
 
 #include "regs-pxp_v3.h"
+#include "reg_bitfields.h"
 
 #ifdef CONFIG_MXC_FPGA_M4_TEST
 #include "cm4_image.c"
@@ -84,6 +85,7 @@ static LIST_HEAD(head);
 static int timeout_in_ms = 600;
 static unsigned int block_size;
 static struct kmem_cache *tx_desc_cache;
+static struct kmem_cache *edge_node_cache;
 static struct pxp_collision_info col_info;
 
 struct pxp_dma {
@@ -131,6 +133,179 @@ struct pxps {
 
 #define PXP_DEF_BUFS	2
 #define PXP_MIN_PIX	8
+
+/* define all the pxp 2d nodes */
+#define PXP_2D_NODE_PS			0
+#define PXP_2D_NODE_AS			1
+#define PXP_2D_NODE_INPUT_FETCH0	2
+#define PXP_2D_NODE_INPUT_FETCH1	3
+#define PXP_2D_NODE_CSC1		4
+#define PXP_2D_NODE_ROTATION1		5
+#define PXP_2D_NODE_ALPHA0_S0		6
+#define PXP_2D_NODE_ALPHA0_S1		7
+#define PXP_2D_NODE_ALPHA1_S0		8
+#define PXP_2D_NODE_ALPHA1_S1		9
+#define PXP_2D_NODE_CSC2		10
+#define PXP_2D_NODE_LUT			11
+#define PXP_2D_NODE_ROTATION0		12
+#define PXP_2D_NODE_OUT			13
+#define PXP_2D_NODE_INPUT_STORE0	14
+#define PXP_2D_NODE_INPUT_STORE1	15
+#define PXP_2D_NODE_NUM			16
+
+#define PXP_2D_NODE_ALPHA0_S0_S1	0xaa
+#define PXP_2D_NODE_ALPHA1_S0_S1	0xbb
+
+#define PXP_MUX_NODE_BASE		50
+#define PXP_MUX_NODE_MUX0		(PXP_MUX_NODE_BASE + 0)
+#define PXP_MUX_NODE_MUX1		(PXP_MUX_NODE_BASE + 1)
+#define PXP_MUX_NODE_MUX2		(PXP_MUX_NODE_BASE + 2)
+#define PXP_MUX_NODE_MUX3		(PXP_MUX_NODE_BASE + 3)
+#define PXP_MUX_NODE_MUX4		(PXP_MUX_NODE_BASE + 4)
+#define PXP_MUX_NODE_MUX5		(PXP_MUX_NODE_BASE + 5)
+#define PXP_MUX_NODE_MUX6		(PXP_MUX_NODE_BASE + 6)
+#define PXP_MUX_NODE_MUX7		(PXP_MUX_NODE_BASE + 7)
+#define PXP_MUX_NODE_MUX8		(PXP_MUX_NODE_BASE + 8)
+#define PXP_MUX_NODE_MUX9		(PXP_MUX_NODE_BASE + 9)
+#define PXP_MUX_NODE_MUX10		(PXP_MUX_NODE_BASE + 10)
+#define PXP_MUX_NODE_MUX11		(PXP_MUX_NODE_BASE + 11)
+#define PXP_MUX_NODE_MUX12		(PXP_MUX_NODE_BASE + 12)
+#define PXP_MUX_NODE_MUX13		(PXP_MUX_NODE_BASE + 13)
+#define PXP_MUX_NODE_MUX14		(PXP_MUX_NODE_BASE + 14)
+#define PXP_MUX_NODE_MUX15		(PXP_MUX_NODE_BASE + 15)
+
+/* define pxp 2d node types */
+#define PXP_2D_NODE_TYPE_INPUT	1
+#define PXP_2D_NODE_TYPE_ALU	2
+#define PXP_2D_NODE_TYPE_OUTPUT	3
+
+/* 4 to 1 mux */
+struct mux {
+	uint32_t id;
+	uint8_t mux_inputs[4];
+	uint8_t mux_outputs[2];
+};
+
+/* Adjacent list structure */
+struct edge_node {
+	uint32_t adjvex;
+	uint32_t prev_vnode;
+	struct edge_node *next;
+	uint32_t mux_used;
+	struct mux_config muxes;
+};
+
+struct vetex_node {
+	uint8_t type;
+	struct edge_node *first;
+};
+
+static struct vetex_node adj_list[PXP_2D_NODE_NUM];
+
+static bool adj_array[PXP_2D_NODE_NUM][PXP_2D_NODE_NUM] = {
+      /* 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 */
+	{0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 0  */
+	{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, /* 1  */
+	{0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0}, /* 2  */
+	{0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1}, /* 3  */
+	{0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 4  */
+	{0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0}, /* 5  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0}, /* 6  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0}, /* 7  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0}, /* 8  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0}, /* 9  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0}, /* 10 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0}, /* 11 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}, /* 12 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 13 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 14 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 15 */
+};
+
+static struct mux muxes[16] = {
+	{
+		/* mux0 */
+		.id = 0,
+		.mux_inputs = {PXP_2D_NODE_PS, PXP_2D_NODE_INPUT_FETCH0, PXP_2D_NODE_INPUT_FETCH1, 0xff},
+		.mux_outputs = {PXP_2D_NODE_ROTATION1, 0xff},
+	}, {
+		/* mux1 */
+		.id = 1,
+		.mux_inputs = {PXP_2D_NODE_INPUT_FETCH0, PXP_2D_NODE_ROTATION1, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_ALPHA1_S1, PXP_MUX_NODE_MUX5},
+	}, {
+		/* mux2 */
+		.id = 2,
+		.mux_inputs = {PXP_2D_NODE_INPUT_FETCH1, PXP_2D_NODE_ROTATION1, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_ALPHA1_S0, 0xff},
+	}, {
+		/* mux3 */
+		.id = 3,
+		.mux_inputs = {PXP_2D_NODE_CSC1, PXP_2D_NODE_ROTATION1, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_ALPHA0_S0, 0xff},
+	}, {
+		/* mux4 is not used in ULT1 */
+		.id = 4,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux5 */
+		.id = 5,
+		.mux_inputs = {PXP_MUX_NODE_MUX1, PXP_2D_NODE_ALPHA1_S0_S1, 0xff, 0xff},
+		.mux_outputs = {PXP_MUX_NODE_MUX7, 0xff},
+	}, {
+		/* mux6 */
+		.id = 6,
+		.mux_inputs = {PXP_2D_NODE_ALPHA1_S0_S1, PXP_2D_NODE_ALPHA0_S0_S1, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_CSC2, 0xff},
+	}, {
+		/* mux7 */
+		.id = 7,
+		.mux_inputs = {PXP_MUX_NODE_MUX5, PXP_2D_NODE_CSC2, 0xff, 0xff},
+		.mux_outputs = {PXP_MUX_NODE_MUX9, PXP_MUX_NODE_MUX10},
+	}, {
+		/* mux8 */
+		.id = 8,
+		.mux_inputs = {PXP_2D_NODE_CSC2, PXP_2D_NODE_ALPHA0_S0_S1, 0xff, 0xff},
+		.mux_outputs = {PXP_MUX_NODE_MUX9, PXP_MUX_NODE_MUX10},
+	}, {
+		/* mux9 */
+		.id = 9,
+		.mux_inputs = {PXP_MUX_NODE_MUX7, PXP_MUX_NODE_MUX8, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_LUT, 0xff},
+	}, {
+		/* mux10 */
+		.id = 10,
+		.mux_inputs = {PXP_MUX_NODE_MUX7, PXP_2D_NODE_LUT, 0xff, 0xff},
+		.mux_outputs = {PXP_MUX_NODE_MUX12, PXP_MUX_NODE_MUX15},
+	}, {
+		/* mux11 */
+		.id = 11,
+		.mux_inputs = {PXP_2D_NODE_LUT, PXP_MUX_NODE_MUX8, 0xff, 0xff},
+		.mux_outputs = {PXP_MUX_NODE_MUX12, PXP_MUX_NODE_MUX14},
+	}, {
+		/* mux12 */
+		.id = 12,
+		.mux_inputs = {PXP_MUX_NODE_MUX10, PXP_MUX_NODE_MUX11, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_ROTATION0, 0xff},
+	}, {
+		/* mux13 */
+		.id = 13,
+		.mux_inputs = {PXP_2D_NODE_INPUT_FETCH1, 0xff, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_INPUT_STORE1, 0xff},
+	}, {
+		/* mux14 */
+		.id = 14,
+		.mux_inputs = {PXP_2D_NODE_ROTATION0, PXP_MUX_NODE_MUX11, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_OUT, 0xff},
+	}, {
+		/* mux15 */
+		.id = 15,
+		.mux_inputs = {PXP_2D_NODE_INPUT_FETCH0, PXP_MUX_NODE_MUX10, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_NODE_INPUT_STORE0, 0xff},
+	},
+};
+
 static void __iomem *pxp_reg_base;
 
 static __attribute__((aligned (1024*4))) unsigned int active_matrix_data_8x8[64]={
@@ -5232,6 +5407,151 @@ static void pxp_init_timer(struct pxps *pxp)
 	pxp->clk_timer.data = (unsigned long)pxp;
 }
 
+static bool is_mux_node(uint32_t node_id)
+{
+	if ((node_id < PXP_MUX_NODE_MUX0) ||
+	    (node_id > PXP_MUX_NODE_MUX15))
+		return false;
+
+	return true;
+}
+
+static bool search_mux_chain(uint32_t mux_id,
+			     struct edge_node *enode)
+{
+	bool found = false;
+	uint32_t i, j, next_mux = 0;
+	uint32_t output;
+	uint32_t mux_config;
+
+	for (i = 0; i < 2; i++) {
+		output = muxes[mux_id].mux_outputs[i];
+		if (output == 0xff)
+			break;
+
+		if ((output == enode->adjvex)) {
+			/* found */
+			found = true;
+			break;
+		} else if (is_mux_node(output)) {
+			next_mux = output - PXP_MUX_NODE_BASE;
+			found = search_mux_chain(next_mux, enode);
+			if (found) {
+				for (j = 0; j < 4; j++) {
+					if (muxes[next_mux].mux_inputs[j] == (mux_id + PXP_MUX_NODE_BASE))
+						break;
+				}
+				BUG_ON(j > 4);
+
+				set_bit(next_mux, (unsigned long *)&enode->mux_used);
+				mux_config = *(uint32_t *)&enode->muxes;
+				mux_config |= j << (next_mux * 2);
+				enode->muxes = *(struct mux_config*)&mux_config;
+				break;
+			}
+		}
+	}
+
+	return found;
+}
+
+static void enode_mux_config(unsigned int vnode_id,
+			     struct edge_node *enode)
+{
+	uint32_t i, j;
+	bool via_mux = false, need_search = false;
+	uint32_t mux_config;
+
+	BUG_ON(vnode_id >= PXP_2D_NODE_NUM);
+	BUG_ON(enode->adjvex >= PXP_2D_NODE_NUM);
+
+	for (i = 0; i < 16; i++) {
+		for (j = 0; j < 4; j++) {
+			if (muxes[i].mux_inputs[j] == 0xff)
+				break;
+
+			if (muxes[i].mux_inputs[j] == vnode_id)
+				need_search = true;
+			else if (muxes[i].mux_inputs[j] == PXP_2D_NODE_ALPHA0_S0_S1) {
+				if ((vnode_id == PXP_2D_NODE_ALPHA0_S0) ||
+				    (vnode_id == PXP_2D_NODE_ALPHA0_S1))
+					need_search = true;
+			} else if (muxes[i].mux_inputs[j] == PXP_2D_NODE_ALPHA1_S0_S1) {
+				if ((vnode_id == PXP_2D_NODE_ALPHA1_S0) ||
+				    (vnode_id == PXP_2D_NODE_ALPHA1_S1))
+					need_search = true;
+			}
+
+			if (need_search) {
+				via_mux = search_mux_chain(i, enode);
+				need_search = false;
+				break;
+			}
+		}
+
+		if (via_mux) {
+			set_bit(i, (unsigned long *)&enode->mux_used);
+			mux_config = *(uint32_t *)&enode->muxes;
+			mux_config |= j << (i * 2);
+			enode->muxes = *(struct mux_config*)&mux_config;
+			break;
+		}
+	}
+}
+
+static int pxp_create_initial_graph(struct platform_device *pdev)
+{
+	int i, j, first;
+	struct edge_node *enode, *curr = NULL;
+
+	for (i = 0; i < PXP_2D_NODE_NUM; i++) {
+		switch (i) {
+		case PXP_2D_NODE_PS:
+		case PXP_2D_NODE_AS:
+		case PXP_2D_NODE_INPUT_FETCH0:
+		case PXP_2D_NODE_INPUT_FETCH1:
+			adj_list[i].type = PXP_2D_NODE_TYPE_INPUT;
+			break;
+		case PXP_2D_NODE_OUT:
+		case PXP_2D_NODE_INPUT_STORE0:
+		case PXP_2D_NODE_INPUT_STORE1:
+			adj_list[i].type = PXP_2D_NODE_TYPE_OUTPUT;
+			break;
+		default:
+			adj_list[i].type = PXP_2D_NODE_TYPE_ALU;
+			break;
+		}
+
+		first = -1;
+
+		for (j = 0; j < PXP_2D_NODE_NUM; j++) {
+			if (adj_array[i][j]) {
+				enode = kmem_cache_alloc(edge_node_cache,
+							 GFP_KERNEL | __GFP_ZERO);
+				if (!enode) {
+					dev_err(&pdev->dev, "allocate edge node failed\n");
+					return -ENOMEM;
+				}
+				enode->adjvex = j;
+				enode->prev_vnode = i;
+
+				if (unlikely(first == -1)) {
+					first = j;
+					adj_list[i].first = enode;
+				} else
+					curr->next = enode;
+
+				curr = enode;
+				enode_mux_config(i, enode);
+				dev_dbg(&pdev->dev, "(%d -> %d): mux_used 0x%x, mux_config 0x%x\n\n",
+					 i, j, enode->mux_used, *(unsigned int*)&enode->muxes);
+			}
+		}
+	}
+
+	return 0;
+}
+
 #ifdef	CONFIG_MXC_FPGA_M4_TEST
 static void pxp_config_m4(struct platform_device *pdev)
 {
@@ -5338,9 +5658,26 @@ static int pxp_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	err = pxp_create_attrs(pdev);
-	if (err)
+	edge_node_cache = kmem_cache_create("edge_node", sizeof(struct edge_node),
+					    0, SLAB_HWCACHE_ALIGN, NULL);
+	if (!edge_node_cache) {
+		err = -ENOMEM;
+		kmem_cache_destroy(tx_desc_cache);
 		goto exit;
+	}
+
+	err = pxp_create_attrs(pdev);
+	if (err) {
+		kmem_cache_destroy(tx_desc_cache);
+		kmem_cache_destroy(edge_node_cache);
+		goto exit;
+	}
+
+	if ((err = pxp_create_initial_graph(pdev))) {
+		kmem_cache_destroy(tx_desc_cache);
+		kmem_cache_destroy(edge_node_cache);
+		goto exit;
+	}
 
 #ifdef	CONFIG_MXC_FPGA_M4_TEST
 	pxp_config_m4(pdev);
@@ -5360,6 +5697,7 @@ static int pxp_remove(struct platform_device *pdev)
 
 	unregister_pxp_device();
 	kmem_cache_destroy(tx_desc_cache);
+	kmem_cache_destroy(edge_node_cache);
 	kthread_stop(pxp->dispatch);
 	cancel_work_sync(&pxp->work);
 	del_timer_sync(&pxp->clk_timer);
