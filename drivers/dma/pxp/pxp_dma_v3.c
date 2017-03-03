@@ -5223,6 +5223,15 @@ static void pxp_remove_attrs(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_block_size);
 }
 
+static void pxp_init_timer(struct pxps *pxp)
+{
+	INIT_WORK(&pxp->work, clkoff_callback);
+
+	init_timer(&pxp->clk_timer);
+	pxp->clk_timer.function = pxp_clkoff_timer;
+	pxp->clk_timer.data = (unsigned long)pxp;
+}
+
 #ifdef	CONFIG_MXC_FPGA_M4_TEST
 static void pxp_config_m4(struct platform_device *pdev)
 {
@@ -5313,10 +5322,7 @@ static int pxp_probe(struct platform_device *pdev)
 	dump_pxp_reg(pxp);
 	pxp_clk_disable(pxp);
 
-	INIT_WORK(&pxp->work, clkoff_callback);
-	init_timer(&pxp->clk_timer);
-	pxp->clk_timer.function = pxp_clkoff_timer;
-	pxp->clk_timer.data = (unsigned long)pxp;
+	pxp_init_timer(pxp);
 
 	init_waitqueue_head(&pxp->thread_waitq);
 	/* allocate a kernel thread to dispatch pxp conf */
