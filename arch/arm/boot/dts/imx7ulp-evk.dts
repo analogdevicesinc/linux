@@ -93,15 +93,6 @@
 			enable-active-high;
 		};
 
-		reg_vsd_3v3b: regulator@2 {
-			compatible = "regulator-fixed";
-			reg = <2>;
-			regulator-name = "VSD_3V3B";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
 	};
 
 	extcon_usb1: extcon_usb1 {
