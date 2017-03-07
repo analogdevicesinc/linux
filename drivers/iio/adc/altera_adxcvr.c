@@ -43,13 +43,39 @@
 #define XCVR_CAPAB_ATX_PLL_CAL_BSY_MASK		0x02
 #define XCVR_CAPAB_ATX_PLL_CAL_DONE		0x00
 
+
+
+#define XCVR_REG_CALIB_PMA_EN(link)		(0x400 | ((link) << 16))
+#define XCVR_CALIB_TX_TERM_VOD_MASK		0x20
+#define XCVR_CALIB_TX_TERM_VOD_EN		0x20
+#define XCVR_CALIB_CMU_CDR_PLL_EN_MASK		0x02
+#define XCVR_CALIB_CMU_CDR_PLL_EN		0x02
+
+#define XCVR_REG_CAPAB_PMA(link)		(0xA04 | ((link) << 16))
+#define XCVR_CAPAB_RX_CAL_BUSY_EN_MASK		0x20
+#define XCVR_CAPAB_RX_CAL_BUSY_EN		0x20
+#define XCVR_CAPAB_RX_CAL_BUSY_DIS		0x00
+#define XCVR_CAPAB_RX_CAL_BUSY_MASK		0x02
+#define XCVR_CAPAB_RX_CAL_DONE			0x00
+#define XCVR_CAPAB_TX_CAL_BUSY_EN_MASK		0x10
+#define XCVR_CAPAB_TX_CAL_BUSY_EN		0x10
+#define XCVR_CAPAB_TX_CAL_BUSY_DIS		0x00
+#define XCVR_CAPAB_TX_CAL_BUSY_MASK		0x01
+#define XCVR_CAPAB_TX_CAL_DONE			0x00
+
+#define XCVR_REG_RATE_SWITCH_FLAG(link)		(0x598 | ((link) << 16))
+#define XCVR_RATE_SWITCH_FLAG_MASK		0x80
+#define XCVR_RATE_SWITCH_FLAG_NO_RATE_SWITCH	0x80
+
 struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*adxcvr_regs;
 	void __iomem		*atx_pll_regs;
+	void __iomem		*adxcfg_regs[4];
 	bool			tx_en;
-	u32			tx_link_num;
-	u32			tx_lanes_per_link;
+	bool			rx_en;
+	u32			link_num;
+	u32			lanes_per_link;
 	u32			delay_work_seconds;
 	struct delayed_work	delayed_work;
 };
@@ -80,9 +106,24 @@ static inline unsigned int atx_pll_read(struct adxcvr_state *st,
 	return ioread32(st->atx_pll_regs + reg);
 }
 
+static inline void adxcfg_write(struct adxcvr_state *st,
+				unsigned lane,
+				unsigned reg,
+				unsigned val)
+{
+	iowrite32(val, st->adxcfg_regs[lane] + reg);
+}
+
+static inline unsigned int adxcfg_read(struct adxcvr_state *st,
+				       unsigned lane,
+				       unsigned reg)
+{
+	return ioread32(st->adxcfg_regs[lane] + reg);
+}
+
 static int atx_pll_calib(struct adxcvr_state *st)
 {
-	unsigned link = st->tx_link_num;
+	unsigned link = st->link_num;
 	unsigned addr;
 	unsigned mask;
 	unsigned val;
@@ -124,6 +165,133 @@ static int atx_pll_calib(struct adxcvr_state *st)
 		dev_err(st->dev, "Link %d ATX PLL calibration error\n", link);
 		return 1;
 	}
+}
+
+static int xcvr_calib_tx(struct adxcvr_state *st)
+{
+	unsigned link = st->link_num;
+	unsigned lane;
+	unsigned addr;
+	unsigned mask;
+	unsigned val;
+	unsigned write_val;
+	unsigned read_val;
+	unsigned err = 0;
+
+	for (lane = 0; lane < st->lanes_per_link; lane++) {
+		/* Get AVMM Interface from PreSICE through arbitration register */
+		addr = XCVR_REG_ARBITRATION(link);
+		mask = XCVR_ARBITRATION_MASK;
+		val = XCVR_ARBITRATION_GET_AVMM;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		/* Perform TX termination & Vod calibration through
+		   PMA calibration enable register */
+		addr = XCVR_REG_CALIB_PMA_EN(link);
+		mask = XCVR_CALIB_TX_TERM_VOD_MASK;
+		val = XCVR_CALIB_TX_TERM_VOD_EN;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		/* Disable rx_cal_busy and enable tx_cal_busy output through
+		   capability register */
+		addr = XCVR_REG_CAPAB_PMA(link);
+		mask = XCVR_CAPAB_RX_CAL_BUSY_EN_MASK | XCVR_CAPAB_TX_CAL_BUSY_EN_MASK;
+		val = XCVR_CAPAB_RX_CAL_BUSY_DIS | XCVR_CAPAB_TX_CAL_BUSY_EN;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		/* Release AVMM Interface to PreSICE */
+		addr = XCVR_REG_ARBITRATION(link);
+		mask = XCVR_ARBITRATION_MASK;
+		val = XCVR_ARBITRATION_RELEASE_AVMM;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		mdelay(100);	// Wait 100ms for cal_busy to de-assert
+
+		/* Read PMA calibration status from capability register */
+		addr = XCVR_REG_CAPAB_PMA(link);
+		read_val = adxcfg_read(st, lane, addr);
+		if ((read_val & XCVR_CAPAB_TX_CAL_BUSY_MASK) == XCVR_CAPAB_TX_CAL_DONE) {
+			dev_info(st->dev, "Link %d ch %d TX termination and VOD calib OK\n",
+					 link, lane);
+		} else {
+			dev_err(st->dev, "Link %d ch %d TX termination and VOD calib error\n",
+					link, lane);
+			err |= 1;
+		}
+	}
+
+	return err;
+}
+
+static int xcvr_calib_rx(struct adxcvr_state *st)
+{
+	unsigned link = st->link_num;
+	unsigned lane;
+	unsigned addr;
+	unsigned mask;
+	unsigned val;
+	unsigned write_val;
+	unsigned read_val;
+	unsigned err = 0;
+
+	for (lane = 0; lane < st->lanes_per_link; lane++) {
+		/* Get AVMM Interface from PreSICE through arbitration register */
+		addr = XCVR_REG_ARBITRATION(link);
+		mask = XCVR_ARBITRATION_MASK;
+		val = XCVR_ARBITRATION_GET_AVMM;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		/* Perform CDR/CMU PLL and RX offset cancellation calibration through
+		   PMA calibration enable register */
+		addr = XCVR_REG_CALIB_PMA_EN(link);
+		mask = XCVR_CALIB_CMU_CDR_PLL_EN_MASK;
+		val = XCVR_CALIB_CMU_CDR_PLL_EN;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		/* Set rate switch flag register for CDR charge pump calibration */
+		addr = XCVR_REG_RATE_SWITCH_FLAG(link);
+		mask = XCVR_RATE_SWITCH_FLAG_MASK;
+		val = XCVR_RATE_SWITCH_FLAG_NO_RATE_SWITCH;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		/* Disable tx_cal_busy and enable rx_cal_busy output through
+		   capability register */
+		addr = XCVR_REG_CAPAB_PMA(link);
+		mask = XCVR_CAPAB_RX_CAL_BUSY_EN_MASK | XCVR_CAPAB_TX_CAL_BUSY_EN_MASK;
+		val = XCVR_CAPAB_RX_CAL_BUSY_EN | XCVR_CAPAB_TX_CAL_BUSY_DIS;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		/* Release AVMM Interface to PreSICE */
+		addr = XCVR_REG_ARBITRATION(link);
+		mask = XCVR_ARBITRATION_MASK;
+		val = XCVR_ARBITRATION_RELEASE_AVMM;
+		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
+		adxcfg_write(st, lane, addr, write_val);
+
+		mdelay(100);	// Wait 100ms for cal_busy to de-assert
+
+		/* Read PMA calibration status from capability register */
+		addr = XCVR_REG_CAPAB_PMA(link);// | (lane << XCVR_CFG_DPRIO_ADDR_WIDTH);
+		read_val = adxcfg_read(st, lane, addr);
+		if ((read_val & XCVR_CAPAB_RX_CAL_BUSY_MASK) == XCVR_CAPAB_RX_CAL_DONE) {
+			dev_info(st->dev, "Link %d ch %d CDR/CMU PLL & RX offset calib OK\n",
+					 link, lane);
+		} else {
+			dev_err(st->dev, "Link %d ch %d CDR/CMU PLL & RX offset calib error\n",
+					link, lane);
+			err |= 1;
+		}
+	}
+
+	return err;
 }
 
 static ssize_t adxcvr_sysfs_show(struct device *dev,
@@ -195,6 +363,7 @@ static ssize_t adxcvr_sysfs_store(struct device *dev,
 
 static void adxcvr_work_func(struct work_struct *work)
 {
+
 	struct adxcvr_state *st =
 		container_of(work, struct adxcvr_state, delayed_work.work);
 	unsigned status;
@@ -205,9 +374,20 @@ static void adxcvr_work_func(struct work_struct *work)
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 	mdelay(50);
 
-	if (st->tx_en)
+	if (st->tx_en) {
 		if (atx_pll_calib(st)) {
 			dev_err(st->dev, "ATX PLL NOT ready\n");
+			err = 1;
+		}
+		if (xcvr_calib_tx(st)) {
+			dev_err(st->dev, "TX calib error\n");
+			err = 1;
+		}
+	}
+
+	if (st->rx_en)
+		if (xcvr_calib_rx(st)) {
+			dev_err(st->dev, "RX calib error\n");
 			err = 1;
 		}
 
@@ -226,7 +406,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct resource *mem_adxcvr;
 	struct resource *mem_atx_pll;
+	struct resource *mem_adxcfg[4];
 	struct adxcvr_state *st;
+	char adxcfg_name[16];
+	int lane;
 	int ret;
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
@@ -241,18 +424,31 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (IS_ERR(st->adxcvr_regs))
 		return PTR_ERR(st->adxcvr_regs);
 
+	of_property_read_u32(np, "adi,link-number",
+			     &st->link_num);
+	of_property_read_u32(np, "adi,lanes-per-link",
+			     &st->lanes_per_link);
+
+	for (lane = 0; lane < st->lanes_per_link; lane++) {
+		sprintf(adxcfg_name, "adxcfg-%d", lane);
+		mem_adxcfg[lane] = platform_get_resource_byname(pdev,
+						IORESOURCE_MEM, adxcfg_name);
+		st->adxcfg_regs[lane] = devm_ioremap_resource(&pdev->dev,
+						mem_adxcfg[lane]);
+		if (IS_ERR(st->adxcfg_regs[lane]))
+			return PTR_ERR(st->adxcfg_regs[lane]);
+	}
+
 	st->tx_en = of_property_read_bool(np, "adi,tx-enable");
+	st->rx_en = of_property_read_bool(np, "adi,rx-enable");
 
 	if (st->tx_en) {
 		mem_atx_pll = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "atx-pll");
-		st->atx_pll_regs = devm_ioremap_resource(&pdev->dev, mem_atx_pll);
+		st->atx_pll_regs = devm_ioremap_resource(&pdev->dev,
+							 mem_atx_pll);
 		if (IS_ERR(st->atx_pll_regs))
 			return PTR_ERR(st->atx_pll_regs);
-		of_property_read_u32(np, "adi,tx-link-number",
-				&st->tx_link_num);
-		of_property_read_u32(np, "adi,tx-lanes-per-link",
-				&st->tx_lanes_per_link);
 	}
 
 	of_property_read_u32(np, "adi,delay-work-seconds",
