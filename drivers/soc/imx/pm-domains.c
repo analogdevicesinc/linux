@@ -100,6 +100,10 @@ static int __init imx8_init_pm_domains(void)
 	sc_rsrc_t rsrc_id;
 	uint32_t mu_id;
 
+	/* skip pm domains for non-SCFW system */
+	if (!of_find_compatible_node(NULL, NULL, "nxp,imx8-pd"))
+		return 0;
+
 	pr_info("***** imx8_init_pm_domains *****\n");
 
 	for_each_compatible_node(np, NULL, "nxp,imx8-pd") {
