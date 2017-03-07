@@ -632,11 +632,6 @@ void dw_pcie_setup_rc(struct pcie_port *pp)
 	val |= 0x00ff0100;
 	dw_pcie_writel_dbi(pci, PCI_PRIMARY_BUS, val);
 
-	/* program correct class for RC */
-	val = dw_pcie_readl_dbi(pci, PCI_CLASS_REVISION);
-	val |= PCI_CLASS_BRIDGE_PCI << 16;
-	dw_pcie_writel_dbi(pci, val, PCI_CLASS_REVISION);
-
 	/* setup command register */
 	val = dw_pcie_readl_dbi(pci, PCI_COMMAND);
 	val &= 0xffff0000;
