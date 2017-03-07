@@ -28,22 +28,22 @@
 
 #include "pm-domain-imx8.h"
 
-static sc_ipc_t pm_ipcHandle;
+static sc_ipc_t pm_ipc_handle;
 
 static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 {
 	struct imx8_pm_domain *pd;
-	sc_err_t sciErr;
+	sc_err_t sci_err;
 
 	pd = container_of(domain, struct imx8_pm_domain, pd);
 
 	if (pd->rsrc_id == SC_R_LAST)
 		return 0;
 
-	sciErr = sc_pm_set_resource_power_mode(pm_ipcHandle, pd->rsrc_id,
+	sci_err = sc_pm_set_resource_power_mode(pm_ipc_handle, pd->rsrc_id,
 		(power_on) ? SC_PM_PW_MODE_ON : SC_PM_PW_MODE_OFF);
 
-	if (sciErr)
+	if (sci_err)
 		pr_err("Failed power operation on resource %d\n", pd->rsrc_id);
 
 	return 0;
@@ -96,7 +96,7 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 static int __init imx8_init_pm_domains(void)
 {
 	struct device_node *np;
-	sc_err_t sciErr;
+	sc_err_t sci_err;
 	sc_rsrc_t rsrc_id;
 	uint32_t mu_id;
 
@@ -126,13 +126,13 @@ static int __init imx8_init_pm_domains(void)
 		imx8_add_pm_domains(np, &imx8_pd->pd);
 	}
 
-	sciErr = sc_ipc_getMuID(&mu_id);
-	if (sciErr != SC_ERR_NONE) {
+	sci_err = sc_ipc_getMuID(&mu_id);
+	if (sci_err != SC_ERR_NONE) {
 		pr_info("Cannot obtain MU ID\n");
-		return sciErr;
+		return sci_err;
 	}
 
-	sciErr = sc_ipc_open(&pm_ipcHandle, mu_id);
+	sci_err = sc_ipc_open(&pm_ipc_handle, mu_id);
 
 	return 0;
 }
