@@ -95,24 +95,40 @@
 			axi_ad9371_tx_xcvr: axi-ad9371-tx-xcvr@0x100020000 {
 				compatible = "adi,altera-adxcvr-1.00.a";
 				reg = <0x00000001 0x00020000 0x00010000>,
-					<0x00000001 0x0001a000 0x00001000>;
-				reg-names = "adxcvr", "atx-pll";
+					<0x00000001 0x0001a000 0x00001000>,
+					<0x00000001 0x00010000 0x00001000>,
+					<0x00000001 0x00012000 0x00001000>,
+					<0x00000001 0x00014000 0x00001000>,
+					<0x00000001 0x00016000 0x00001000>;
+				reg-names = "adxcvr", "atx-pll", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
 				adi,delay-work-seconds = <30>;
 				adi,tx-enable;
-				adi,tx-link-number = <0>;
-				adi,tx-lanes-per-link = <4>;
+				adi,link-number = <0>;
+				adi,lanes-per-link = <4>;
 			};
 
 			axi_ad9371_rx_xcvr: axi-ad9371-rx-xcvr@0x100030000 {
 				compatible = "adi,altera-adxcvr-1.00.a";
-				reg = <0x00000001 0x00030000 0x00010000>;
-				reg-names = "adxcvr";
+				reg = <0x00000001 0x00030000 0x00010000>,
+					<0x00000001 0x00011000 0x00001000>,
+					<0x00000001 0x00013000 0x00001000>;
+				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1";
+				adi,delay-work-seconds = <30>;
+				adi,rx-enable;
+				adi,link-number = <0>;
+				adi,lanes-per-link = <2>;
 			};
 
 			axi_ad9371_rx_os_xcvr: axi-ad9371-rx-os-xcvr@0x100040000 {
 				compatible = "adi,altera-adxcvr-1.00.a";
-				reg = <0x00000001 0x00040000 0x00010000>;
-				reg-names = "adxcvr";
+				reg = <0x00000001 0x00040000 0x00010000>,
+					<0x00000001 0x00015000 0x00001000>,
+					<0x00000001 0x00017000 0x00001000>;
+				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1";
+				adi,delay-work-seconds = <30>;
+				adi,rx-enable;
+				adi,link-number = <0>;
+				adi,lanes-per-link = <2>;
 			};
 
 			axi_ad9371_tx_dma: axi-ad9371-tx-dma@0x100050000 {
