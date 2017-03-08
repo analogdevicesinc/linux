@@ -58,6 +58,22 @@
 		};
 	};
 };
+/* Murata: declare UART4 interface for Bluetooth. */
+&uart4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart4_1>;
+	fsl,uart-has-rtscts;
+	status = "okay";
+	/* for DTE mode, add below change */
+	/* fsl,dte-mode; */
+	/* pinctrl-0 = <&pinctrl_uart4dte_1>; */
+};
+
+&pinctrl_uart4_1 {
+	fsl,pins = <
+		MX6SL_PAD_SD3_DAT3__GPIO5_IO17          0x13069 /* BT_REG_ON */
+	>;
+};
 
 &usdhc1 {
 	pinctrl-names = "default";
