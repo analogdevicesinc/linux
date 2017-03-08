@@ -368,7 +368,7 @@ static int set_geometry_for_large_oob(struct gpmi_nand_data *this)
 {
 	struct bch_geometry *geo = &this->bch_geometry;
 	struct mtd_info *mtd = &this->nand.mtd;
-	struct nand_chip *chip = mtd->priv;
+	struct nand_chip *chip = mtd_to_nand(mtd);
 	unsigned int block_mark_bit_offset;
 	unsigned int max_ecc;
 	unsigned int bbm_chunk;
@@ -606,7 +606,7 @@ static int legacy_set_geometry(struct gpmi_nand_data *this)
 int common_nfc_set_geometry(struct gpmi_nand_data *this)
 {
 	struct mtd_info *mtd = &this->nand.mtd;
-	struct nand_chip *chip = mtd->priv;
+	struct nand_chip *chip = mtd_to_nand(mtd);
 
 	if (chip->ecc_strength_ds > this->devdata->bch_max_ecc_strength) {
 		dev_err(this->dev,
