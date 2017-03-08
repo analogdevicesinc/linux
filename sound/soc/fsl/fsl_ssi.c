@@ -845,6 +845,7 @@ static int fsl_ssi_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 	u32 scr_val;
 	int enabled;
+	u8 i2smode = ssi_private->i2s_mode;
 
 	regmap_read(regs, CCSR_SSI_SCR, &scr_val);
 	enabled = scr_val & CCSR_SSI_SCR_SSIEN;
@@ -872,7 +873,6 @@ static int fsl_ssi_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (!fsl_ssi_is_ac97(ssi_private)) {
-		u8 i2smode;
 		/*
 		 * Switch to normal net mode in order to have a frame sync
 		 * signal every 32 bits instead of 16 bits
@@ -880,13 +880,13 @@ static int fsl_ssi_hw_params(struct snd_pcm_substream *substream,
 		if (fsl_ssi_is_i2s_cbm_cfs(ssi_private) && sample_size == 16)
 			i2smode = CCSR_SSI_SCR_I2S_MODE_NORMAL |
 				CCSR_SSI_SCR_NET;
-		else
-			i2smode = ssi_private->i2s_mode;
-
-		regmap_update_bits(regs, CCSR_SSI_SCR,
-				CCSR_SSI_SCR_NET | CCSR_SSI_SCR_I2S_MODE_MASK,
-				channels == 1 ? 0 : i2smode);
+		if (channels == 1)
+			i2smode = 0;
 	}
+
+	regmap_update_bits(regs, CCSR_SSI_SCR,
+			   CCSR_SSI_SCR_NET | CCSR_SSI_SCR_I2S_MODE_MASK,
+			   i2smode);
 
 	/*
 	 * FIXME: The documentation says that SxCCR[WL] should not be
@@ -1000,7 +1000,6 @@ static int _fsl_ssi_set_dai_fmt(struct device *dev,
 	default:
 		return -EINVAL;
 	}
-	scr |= ssi_private->i2s_mode;
 
 	/* DAI clock inversion */
 	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
