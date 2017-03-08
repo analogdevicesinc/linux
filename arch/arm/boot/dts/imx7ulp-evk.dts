@@ -386,6 +386,7 @@
 		focaltech,keys = <139 102 158>;
 		focaltech,key-y-coord = <2000>;
 		focaltech,key-x-coords = <200 600 800>;
+		focaltech,swap-xy;
 	};
 };
 
