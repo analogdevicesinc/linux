@@ -1,4 +1,3 @@
-
 /*
  * Secure Memory / Keystore Exemplification Module
  * Copyright (C) 2012-2015 Freescale Semiconductor, Inc. All Rights Reserved
@@ -106,6 +105,14 @@ int caam_sm_example_init(struct platform_device *pdev)
 	 */
 	ctrldev = &pdev->dev;
 	ctrlpriv = dev_get_drvdata(ctrldev);
+
+	/*
+	 * If ctrlpriv is NULL, it's probably because the caam driver wasn't
+	 * properly initialized (e.g. RNG4 init failed). Thus, bail out here.
+	 */
+	if (!ctrlpriv)
+		return -ENODEV;
+
 	ksdev = ctrlpriv->smdev;
 	kspriv = dev_get_drvdata(ksdev);
 	if (kspriv == NULL)
