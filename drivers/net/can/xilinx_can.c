@@ -1464,7 +1464,6 @@ static int xcan_get_berr_counter(const struct net_device *ndev,
 	return 0;
 }
 
-
 static const struct net_device_ops xcan_netdev_ops = {
 	.ndo_open	= xcan_open,
 	.ndo_stop	= xcan_close,
@@ -1481,15 +1480,15 @@ static const struct net_device_ops xcan_netdev_ops = {
  */
 static int __maybe_unused xcan_suspend(struct device *dev)
 {
-	struct net_device *ndev = dev_get_drvdata(dev);
+	struct net_device *netdev = dev_get_drvdata(dev);
 
-	if (netif_running(ndev)) {
-		netif_stop_queue(ndev);
-		netif_device_detach(ndev);
-		xcan_chip_stop(ndev);
+	if (!device_may_wakeup(dev)) {
+		if (netif_running(netdev))
+			xcan_close(netdev);
+		return pm_runtime_force_suspend(dev);
 	}
 
-	return pm_runtime_force_suspend(dev);
+	return 0;
 }
 
 /**
@@ -1501,24 +1500,14 @@ static int __maybe_unused xcan_suspend(struct device *dev)
  */
 static int __maybe_unused xcan_resume(struct device *dev)
 {
-	struct net_device *ndev = dev_get_drvdata(dev);
 	int ret;
+	struct net_device *netdev = dev_get_drvdata(dev);
 
-	ret = pm_runtime_force_resume(dev);
-	if (ret) {
-		dev_err(dev, "pm_runtime_force_resume failed on resume\n");
+	if (!device_may_wakeup(dev)) {
+		ret = pm_runtime_force_resume(dev);
+		if (netif_running(netdev))
+			xcan_open(netdev);
 		return ret;
-	}
-
-	if (netif_running(ndev)) {
-		ret = xcan_chip_start(ndev);
-		if (ret) {
-			dev_err(dev, "xcan_chip_start failed on resume\n");
-			return ret;
-		}
-
-		netif_device_attach(ndev);
-		netif_start_queue(ndev);
 	}
 
 	return 0;
