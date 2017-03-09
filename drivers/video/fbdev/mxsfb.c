@@ -2068,6 +2068,10 @@ static void mxsfb_overlay_init(struct mxsfb_info *fbi)
 		dev_err(ofb->dev, "failed to map video mem for overlay\n");
 		goto fb_unregister;
 	}
+
+	/* setup the initial params for overlay fb */
+	overlayfb_set_par(ofb->ol_fb);
+
 	ofb->registered = 1;
 
 	return;
