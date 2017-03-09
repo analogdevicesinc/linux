@@ -32,4 +32,11 @@ config IMX7_PM_DOMAINS
 	select PM_GENERIC_DOMAINS
 	default y if SOC_IMX7D
 
+config HAVE_IMX_MU
+	bool
+
+config HAVE_IMX_RPMSG
+	select RPMSG_VIRTIO
+	select RPMSG
+	bool
 endmenu

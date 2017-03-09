@@ -52,21 +52,12 @@
 #define MU_LPM_M4_WAIT_MODE	        0x5A5A0002
 #define MU_LPM_M4_STOP_MODE	        0x5A5A0003
 
-#define MAX_NUM 10	/* enlarge it if overflow happen */
+#define MAX_NUM 10     /*  enlarge it if overflow happen */
 
-struct imx_mu_rpmsg_box {
-	const char *name;
-	struct blocking_notifier_head notifier;
-};
-
-static struct imx_mu_rpmsg_box mu_rpmsg_box = {
-	.name	= "m4",
-};
-
-void __iomem *mu_base;
+static void __iomem *mu_base;
 static u32 m4_message[MAX_NUM];
 static u32 in_idx, out_idx;
-static struct delayed_work mu_work, rpmsg_work;
+static struct delayed_work mu_work;
 static u32 m4_wake_irqs[4];
 static bool m4_freq_low;
 struct irq_domain *domain;
@@ -276,11 +267,6 @@ static void mu_work_handler(struct work_struct *work)
 			mu_base + MU_ACR);
 }
 
-int imx_mu_rpmsg_send(unsigned int rpmsg)
-{
-	return imx_mu_send_message(MU_RPMSG_HANDSHAKE_INDEX, rpmsg);
-}
-
 int imx_mu_lpm_ready(bool ready)
 {
 	u32 val;
@@ -301,54 +287,6 @@ int imx_mu_lpm_ready(bool ready)
 	return 0;
 }
 
-int imx_mu_rpmsg_register_nb(const char *name, struct notifier_block *nb)
-{
-	if ((name == NULL) || (nb == NULL))
-		return -EINVAL;
-
-	if (!strcmp(mu_rpmsg_box.name, name))
-		blocking_notifier_chain_register(&(mu_rpmsg_box.notifier), nb);
-	else
-		return -ENOENT;
-
-	return 0;
-}
-
-int imx_mu_rpmsg_unregister_nb(const char *name, struct notifier_block *nb)
-{
-	if ((name == NULL) || (nb == NULL))
-		return -EINVAL;
-
-	if (!strcmp(mu_rpmsg_box.name, name))
-		blocking_notifier_chain_unregister(&(mu_rpmsg_box.notifier),
-				nb);
-	else
-		return -ENOENT;
-
-	return 0;
-}
-
-static void rpmsg_work_handler(struct work_struct *work)
-{
-	u32 message;
-	unsigned long flags;
-
-	spin_lock_irqsave(&mu_lock, flags);
-	/* handle all incoming mu message */
-	while (in_idx != out_idx) {
-		message = m4_message[out_idx % MAX_NUM];
-		spin_unlock_irqrestore(&mu_lock, flags);
-
-		blocking_notifier_call_chain(&(mu_rpmsg_box.notifier), 4,
-						(void *)message);
-
-		spin_lock_irqsave(&mu_lock, flags);
-		m4_message[out_idx % MAX_NUM] = 0;
-		out_idx++;
-	}
-	spin_unlock_irqrestore(&mu_lock, flags);
-}
-
 static irqreturn_t imx_mu_isr(int irq, void *param)
 {
 	u32 irqs;
@@ -358,30 +296,6 @@ static irqreturn_t imx_mu_isr(int irq, void *param)
 		irqs = readl_relaxed(mu_base + MX7ULP_MU_SR);
 	else
 		irqs = readl_relaxed(mu_base + MU_ASR);
-
-	/* RPMSG */
-	if (irqs & (1 << 26)) {
-		spin_lock_irqsave(&mu_lock, flags);
-		/* get message from receive buffer */
-		if (cpu_is_imx7ulp())
-			m4_message[in_idx % MAX_NUM] = readl_relaxed(mu_base +
-						MX7ULP_MU_RR1);
-		else
-			m4_message[in_idx % MAX_NUM] = readl_relaxed(mu_base +
-						MU_ARR1_OFFSET);
-		in_idx++;
-		/*
-		 * Too many mu message not be handled in timely, can enlarge
-		 * MAX_NUM */
-		if (in_idx == out_idx) {
-			spin_unlock_irqrestore(&mu_lock, flags);
-			pr_err("MU overflow!\n");
-			return IRQ_HANDLED;
-		}
-		spin_unlock_irqrestore(&mu_lock, flags);
-
-		schedule_delayed_work(&rpmsg_work, 0);
-	}
 
 	if (irqs & (1 << 27)) {
 		spin_lock_irqsave(&mu_lock, flags);
@@ -429,7 +343,7 @@ static int imx_mu_probe(struct platform_device *pdev)
 	else
 		irq = platform_get_irq(pdev, 0);
 	ret = request_irq(irq, imx_mu_isr,
-		IRQF_EARLY_RESUME, "imx-mu", &mu_rpmsg_box);
+			  IRQF_EARLY_RESUME | IRQF_SHARED, "imx-mu", NULL);
 	if (ret) {
 		pr_err("%s: register interrupt %d failed, rc %d\n",
 			__func__, irq, ret);
@@ -461,7 +375,6 @@ static int imx_mu_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&mu_work, mu_work_handler);
-	INIT_DELAYED_WORK(&rpmsg_work, rpmsg_work_handler);
 	/* bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now */
 	if (cpu_is_imx7ulp())
 		writel_relaxed(readl_relaxed(mu_base + MX7ULP_MU_CR) |
@@ -469,7 +382,6 @@ static int imx_mu_probe(struct platform_device *pdev)
 	else
 		writel_relaxed(readl_relaxed(mu_base + MU_ACR) |
 			BIT(26) | BIT(27), mu_base + MU_ACR);
-	BLOCKING_INIT_NOTIFIER_HEAD(&(mu_rpmsg_box.notifier));
 
 	pr_info("MU is ready for cross core communication!\n");
 

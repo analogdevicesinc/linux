@@ -84,7 +84,6 @@ obj-$(CONFIG_HAVE_IMX_MMDC) += mmdc.o
 obj-$(CONFIG_HAVE_IMX_DDRC) += ddrc.o
 obj-$(CONFIG_HAVE_IMX_SRC) += src.o
 obj-$(CONFIG_HAVE_IMX_MU) += mu.o
-obj-$(CONFIG_HAVE_IMX_RPMSG) += imx_rpmsg.o
 ifneq ($(CONFIG_SOC_IMX6)$(CONFIG_SOC_IMX7)$(CONFIG_SOC_LS1021A),)
 AFLAGS_headsmp.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SMP) += headsmp.o platsmp.o
