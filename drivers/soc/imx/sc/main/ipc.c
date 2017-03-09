@@ -15,12 +15,12 @@
 #include <linux/of_fdt.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/mx8_mu.h>
 
 #include <soc/imx8/sc/svc/irq/api.h>
 #include <soc/imx8/sc/ipc.h>
 #include <soc/imx8/sc/sci.h>
 
-#include "../../mu/mx8_mu.h"
 #include "rpc.h"
 
 /* Local Defines */
