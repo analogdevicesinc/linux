@@ -2760,6 +2760,8 @@ static void epdc_submit_work_func(struct work_struct *work)
 	struct update_marker_data *next_marker, *temp_marker;
 	struct mxc_epdc_fb_data *fb_data =
 		container_of(work, struct mxc_epdc_fb_data, epdc_submit_work);
+	struct pxp_config_data *pxp_conf = &fb_data->pxp_conf;
+	struct pxp_proc_data *proc_data = &pxp_conf->proc_data;
 	struct update_data_list *upd_data_list = NULL;
 	struct mxcfb_rect adj_update_region, *upd_region;
 	bool end_merge = false;
@@ -2907,22 +2909,22 @@ static void epdc_submit_work_func(struct work_struct *work)
 	 *   - FB unrotated
 	 *   - FB pixel format = 8-bit grayscale
 	 *   - No look-up transformations (inversion, posterization, etc.)
-	 *
-	 * Note: A bug with EPDC stride prevents us from skipping
-	 * PxP in versions 2.0 and earlier of EPDC.
+	 *   - No scaling/flip
 	 */
-	is_transform = upd_data_list->update_desc->upd_data.flags &
+	is_transform = ((upd_data_list->update_desc->upd_data.flags &
 		(EPDC_FLAG_ENABLE_INVERSION | EPDC_FLAG_USE_DITHERING_Y1 |
 		EPDC_FLAG_USE_DITHERING_Y4 | EPDC_FLAG_FORCE_MONOCHROME |
-		EPDC_FLAG_USE_CMAP) ? true : false;
+		EPDC_FLAG_USE_CMAP)) && (proc_data->scaling == 0) &&
+		(proc_data->hflip == 0) && (proc_data->vflip == 0)) ?
+		true : false;
 
 	/*XXX if we use external mode, we should first use pxp
 	 * to update upd buffer data to working buffer first.
 	 */
 	if ((fb_data->epdc_fb_var.rotate == FB_ROTATE_UR) &&
 		(fb_data->epdc_fb_var.grayscale == GRAYSCALE_8BIT) &&
-		!is_transform && (fb_data->rev > 20) &&
-		!fb_data->restrict_width && !fb_data->epdc_wb_mode) {
+		!is_transform && (proc_data->dither_mode == 0) &&
+		!fb_data->restrict_width) {
 
 		/* If needed, enable EPDC HW while ePxP is processing */
 		if ((fb_data->power_state == POWER_STATE_OFF)
@@ -6315,6 +6317,7 @@ static int pxp_wfe_a_process(struct mxc_epdc_fb_data *fb_data,
 	u32 wv_mode = upd_data_list->update_desc->upd_data.waveform_mode;
 	int i, j = 0, ret;
 	int length;
+	bool is_transform;
 
 	dev_dbg(fb_data->dev, "Starting PxP WFE_A process.\n");
 
@@ -6392,12 +6395,22 @@ static int pxp_wfe_a_process(struct mxc_epdc_fb_data *fb_data,
 	if (proc_data->dither_mode) {
 		pxp_conf->wfe_a_fetch_param[0].paddr = fb_data->phys_addr_y4;
 	} else {
-#ifdef USE_PS_AS_OUTPUT
-	pxp_conf->wfe_a_fetch_param[0].paddr = upd_data_list->phys_addr + upd_data_list->update_desc->epdc_offs;
+		is_transform = ((upd_data_list->update_desc->upd_data.flags &
+			(EPDC_FLAG_ENABLE_INVERSION | EPDC_FLAG_USE_DITHERING_Y1 |
+			EPDC_FLAG_USE_DITHERING_Y4 | EPDC_FLAG_FORCE_MONOCHROME |
+			EPDC_FLAG_USE_CMAP)) && (proc_data->scaling == 0) &&
+			(proc_data->hflip == 0) && (proc_data->vflip == 0)) ?
+			true : false;
 
-#else
-	pxp_conf->wfe_a_fetch_param[0].paddr = sg_dma_address(&sg[0]);
-#endif
+		if ((fb_data->epdc_fb_var.rotate == FB_ROTATE_UR) &&
+			(fb_data->epdc_fb_var.grayscale == GRAYSCALE_8BIT) &&
+			!is_transform && (proc_data->dither_mode == 0) &&
+			!fb_data->restrict_width) {
+				pxp_conf->wfe_a_fetch_param[0].paddr =
+					sg_dma_address(&sg[0]);
+		} else
+			pxp_conf->wfe_a_fetch_param[0].paddr =
+				upd_data_list->phys_addr + upd_data_list->update_desc->epdc_offs;
 	}
 
 	/* fetch1 is working buffer */
