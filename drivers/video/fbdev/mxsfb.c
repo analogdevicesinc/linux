@@ -2033,6 +2033,9 @@ static int mxsfb_overlay_map_video_memory(struct mxsfb_info *fbi,
 		return -ENOMEM;
 	}
 
+	/* clear overlay fb memory buffer */
+	memset(ofb->video_mem, 0x0, ofb->video_mem_size);
+
 	ofb->ol_fb->fix.smem_start = ofb->video_mem_phys;
 	ofb->ol_fb->fix.smem_len   = ofb->video_mem_size;
 	ofb->ol_fb->screen_base    = ofb->video_mem;
