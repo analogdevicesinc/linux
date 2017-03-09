@@ -128,15 +128,26 @@ static void parse_variadic(int n, u8 *buf, ...)
 
 static int hx8363bl_brightness;
 
+#define ACTIVE_HIGH_NAME	"TRUULY-WVGA-SYNC-HIGH"
+#define ACTIVE_LOW_NAME		"TRUULY-WVGA-SYNC-LOW"
+
 static struct fb_videomode truly_lcd_modedb[] = {
 	{
-	 "TRUULY-WVGA", 50, 480, 854, 41042,
-	 40, 60,
-	 3, 3,
-	 8, 4,
-	 0x0,
-	 FB_VMODE_NONINTERLACED,
-	 0,
+		ACTIVE_HIGH_NAME, 50, 480, 854, 41042,
+		40, 60,
+		3, 3,
+		8, 4,
+		0x0,
+		FB_VMODE_NONINTERLACED,
+		0,
+	}, {
+		ACTIVE_LOW_NAME, 50, 480, 854, 41042,
+		40, 60,
+		3, 3,
+		8, 4,
+		FB_SYNC_OE_LOW_ACT,
+		FB_VMODE_NONINTERLACED,
+		0,
 	},
 };
 

@@ -44,6 +44,12 @@ Required properties:
 - interrupts:	Should contain LCDIF interrupts
 - display:	phandle to display node (see below for details)
 
+Optional properties:
+- disp-dev: Display device driver name
+- disp-videomode: Display device video mode name; this is used if the panel
+  supports multiple video modes, in order to chose the right one (see below for
+  examples)
+
 * display node
 
 Required properties:
@@ -83,4 +89,47 @@ lcdif@80030000 {
 			};
 		};
 	};
+};
+
+Examples - optional properties:
+
+Snippet from imx7d-sdb-mipi-dsi.dts:
+
+&lcdif {
+	disp-dev = "mipi_dsi_samsung";
+	disp-videomode = "TRUULY-WVGA-SYNC-LOW";
+};
+
+&mipi_dsi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
+	lcd_panel = "TRULY-WVGA-TFT3P5581E";
+	resets = <&mipi_dsi_reset>;
+	status = "okay";
+};
+
+In the above example, the panel supports 2 video modes (snippet from
+drivers/video/fbdev/mxc/mxcfb_hx8363_wvga.c):
+
+#define ACTIVE_HIGH_NAME	"TRUULY-WVGA-SYNC-HIGH"
+#define ACTIVE_LOW_NAME		"TRUULY-WVGA-SYNC-LOW"
+
+static struct fb_videomode truly_lcd_modedb[] = {
+	{
+		ACTIVE_HIGH_NAME, 50, 480, 854, 41042,
+		40, 60,
+		3, 3,
+		8, 4,
+		0x0,
+		FB_VMODE_NONINTERLACED,
+		0,
+	}, {
+		ACTIVE_LOW_NAME, 50, 480, 854, 41042,
+		40, 60,
+		3, 3,
+		8, 4,
+		FB_SYNC_OE_LOW_ACT,
+		FB_VMODE_NONINTERLACED,
+		0,
+	},
 };

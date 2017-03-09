@@ -233,6 +233,8 @@ struct mxsfb_layer {
 	struct mxsfb_info	*fbi;
 };
 
+#define NAME_LEN	32
+
 struct mxsfb_info {
 	struct fb_info *fb_info;
 	struct platform_device *pdev;
@@ -255,11 +257,13 @@ struct mxsfb_info {
 	struct completion flip_complete;
 	int cur_blank;
 	int restore_blank;
-	char disp_dev[32];
+	char disp_dev[NAME_LEN];
 	struct mxc_dispdrv_handle *dispdrv;
 	int id;
 	struct fb_var_screeninfo var;
 	struct pm_qos_request pm_qos_req;
+
+	char disp_videomode[NAME_LEN];
 
 #ifdef CONFIG_FB_MXC_OVERLAY
 	struct mxsfb_layer overlay;
@@ -1277,7 +1281,7 @@ static int mxsfb_init_fbinfo_dt(struct mxsfb_info *host)
 	struct device_node *display_np;
 	struct device_node *timings_np;
 	struct display_timings *timings = NULL;
-	const char *disp_dev;
+	const char *disp_dev, *disp_videomode;
 	u32 width;
 	int i;
 	int ret = 0;
@@ -1325,6 +1329,13 @@ static int mxsfb_init_fbinfo_dt(struct mxsfb_info *host)
 	ret = of_property_read_string(np, "disp-dev", &disp_dev);
 	if (!ret) {
 		memcpy(host->disp_dev, disp_dev, strlen(disp_dev));
+
+		if (!of_property_read_string(np, "disp-videomode",
+					    &disp_videomode)) {
+			memcpy(host->disp_videomode, disp_videomode,
+			       strlen(disp_videomode));
+		}
+
 		/* Timing is from encoder driver */
 		goto put_display_node;
 	}
@@ -1439,7 +1450,20 @@ static int mxsfb_dispdrv_init(struct platform_device *pdev,
 	memcpy(disp_dev, host->disp_dev, strlen(host->disp_dev));
 	disp_dev[strlen(host->disp_dev)] = '\0';
 
+	/* Use videomode name from dtb, if any given */
+	if (host->disp_videomode) {
+		setting.dft_mode_str = kmalloc(NAME_LEN, GFP_KERNEL);
+		if (setting.dft_mode_str) {
+			memset(setting.dft_mode_str, 0x0, NAME_LEN);
+			memcpy(setting.dft_mode_str, host->disp_videomode,
+			       strlen(host->disp_videomode));
+		}
+	}
+
 	host->dispdrv = mxc_dispdrv_gethandle(disp_dev, &setting);
+
+	kfree(setting.dft_mode_str);
+
 	if (IS_ERR(host->dispdrv)) {
 		if (PTR_ERR(host->dispdrv) == -EPROBE_DEFER)
 			return PTR_ERR(host->dispdrv);
