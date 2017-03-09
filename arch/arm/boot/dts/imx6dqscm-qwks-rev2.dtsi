@@ -142,6 +142,11 @@
 	regulator-allow-bypass;
 };
 
+&reg_pu {
+	vin-supply = <&sw1c_reg>;
+	regulator-allow-bypass;
+};
+
 &clks {
 	assigned-clocks = <&clks IMX6QDL_CLK_LDB_DI0_SEL>,
 			  <&clks IMX6QDL_CLK_LDB_DI1_SEL>;
