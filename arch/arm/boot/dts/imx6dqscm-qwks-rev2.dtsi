@@ -216,7 +216,7 @@
 
 			sw3a_reg: sw3a {
 				regulator-min-microvolt = <400000>;
-				regulator-max-microvolt = <1200000>;
+				regulator-max-microvolt = <1250000>;
 				regulator-boot-on;
 				regulator-always-on;
 			};
