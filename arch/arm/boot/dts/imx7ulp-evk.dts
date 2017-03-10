@@ -367,14 +367,14 @@
 &lpi2c7 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpi2c7>;
+	pinctrl-names = "default",  "sleep";
+	pinctrl-0 = <&pinctrl_lpi2c7 &pinctrl_focaltech>;
+	pinctrl-1 = <&pinctrl_lpi2c7 &pinctrl_focaltech>;
 	status = "okay";
 
 	focaltech@38 {
 		compatible = "focaltech,fts";
 		reg = <0x38>;
-		pinctrl-0 = <&pinctrl_focaltech>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <0 0x02>;
 		focaltech,reset-gpio = <&gpio3 1 0x01>;
