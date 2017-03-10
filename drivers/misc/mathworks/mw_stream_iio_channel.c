@@ -12,6 +12,8 @@
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
 #include <linux/idr.h>
+#include <linux/device.h>
+#include <linux/errno.h>
 
 #include <linux/string.h>
 #include <linux/mathworks/mathworks_ip.h>
@@ -31,6 +33,39 @@ static DEFINE_IDA(mw_stream_iio_channel_ida);
 	.read = iio_enum_available_read, \
 	.private = (uintptr_t)(_e), \
 }
+
+struct mw_stream_iio_channel_info {
+	enum iio_device_direction 		iio_direction;
+};
+
+enum mw_stream_iio_tlast_mode {
+	MW_STREAM_TLAST_MODE_AUTO = 0,
+	MW_STREAM_TLAST_MODE_USER_LOGIC,
+};
+
+enum mw_stream_iio_reset_tlast_mode {
+	MW_STREAM_TLAST_MODE_PREBUFFER = 0,
+	MW_STREAM_TLAST_MODE_NEVER,
+};
+
+enum mw_stream_iio_reset_ip_mode {
+	MW_STREAM_RESET_IP_MODE_NONE = 0,
+	MW_STREAM_RESET_IP_MODE_ENABLE,
+	MW_STREAM_RESET_IP_MODE_DISABLE,
+	MW_STREAM_RESET_IP_MODE_ALL,
+};
+
+struct mw_stream_iio_chandev {
+	struct mathworks_ipcore_dev 			*mwdev;
+	struct device							dev;
+	enum iio_device_direction 				iio_direction;
+	const char								*dmaname;
+	enum mw_stream_iio_tlast_mode			tlast_mode;
+	enum mw_stream_iio_reset_tlast_mode		reset_tlast_mode;
+	enum mw_stream_iio_reset_ip_mode		reset_ip_mode;
+	int										tlast_cntr_addr;
+	int										num_data_chan;
+};
 
 static void mw_stream_iio_chan_ida_remove(void *opaque){
 	struct mw_stream_iio_chandev* mwchan = opaque;

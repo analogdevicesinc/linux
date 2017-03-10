@@ -51,10 +51,9 @@ config MWIPCORE_DMA_STREAMING
 config MWIPCORE_IIO_STREAMING
 	tristate "MathWorks IIO Streaming Driver"
 	depends on DMADEVICES
-	select IIO
-	select IIO_BUFFER_DMAENGINE
-	select IIO_BUFFER_DMA
+	depends on IIO
 	select IIO_BUFFER
+	select IIO_BUFFER_DMAENGINE
 	default m
 	help
 		Enable support for MathWorks IIO-based implementation of
