@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -5510,17 +5511,15 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 	 * Initialize OL0 channel parameters
 	 * No overlay will be used for PxP operation
 	 */
-	for (i = 0; i < 8; i++) {
-		pxp_conf->ol_param[i].combine_enable = false;
-		pxp_conf->ol_param[i].width = 0;
-		pxp_conf->ol_param[i].height = 0;
-		pxp_conf->ol_param[i].pixel_fmt = PXP_PIX_FMT_RGB565;
-		pxp_conf->ol_param[i].color_key_enable = false;
-		pxp_conf->ol_param[i].color_key = -1;
-		pxp_conf->ol_param[i].global_alpha_enable = false;
-		pxp_conf->ol_param[i].global_alpha = 0;
-		pxp_conf->ol_param[i].local_alpha_enable = false;
-	}
+	pxp_conf->ol_param[0].combine_enable = false;
+	pxp_conf->ol_param[0].width = 0;
+	pxp_conf->ol_param[0].height = 0;
+	pxp_conf->ol_param[0].pixel_fmt = PXP_PIX_FMT_RGB565;
+	pxp_conf->ol_param[0].color_key_enable = false;
+	pxp_conf->ol_param[0].color_key = -1;
+	pxp_conf->ol_param[0].global_alpha_enable = false;
+	pxp_conf->ol_param[0].global_alpha = 0;
+	pxp_conf->ol_param[0].local_alpha_enable = false;
 
 	/*
 	 * Initialize Output channel parameters

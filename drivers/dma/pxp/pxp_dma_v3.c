@@ -1242,11 +1242,8 @@ static int pxp_config(struct pxps *pxp, struct pxp_channel *pxp_chan)
 {
 	struct pxp_config_data *pxp_conf_data = &pxp->pxp_conf_state;
 	struct pxp_proc_data *proc_data = &pxp_conf_data->proc_data;
-	int ol_nr;
-	int i;
 
 	if ((proc_data->working_mode & PXP_MODE_STANDARD) == PXP_MODE_STANDARD) {
-
 		/* now only test dithering feature */
 		if ((proc_data->engine_enable & PXP_ENABLE_DITHER) == PXP_ENABLE_DITHER) {
 			pxp_dithering_process(pxp);
@@ -1261,7 +1258,7 @@ static int pxp_config(struct pxps *pxp, struct pxp_channel *pxp_chan)
 					pxp->base + HW_PXP_CTRL_SET);
 				return 0;
 			}
-}
+		}
 
 		if ((proc_data->engine_enable & PXP_ENABLE_WFE_A) == PXP_ENABLE_WFE_A)
 		{
@@ -1301,28 +1298,21 @@ static int pxp_config(struct pxps *pxp, struct pxp_channel *pxp_chan)
 	pxp_set_s0param(pxp);
 	pxp_set_s0crop(pxp);
 	pxp_set_scaling(pxp);
-	ol_nr = pxp_conf_data->layer_nr - 2;
+	pxp_set_s0colorkey(pxp);
 
-	if (ol_nr == 0) {
+	if (pxp_conf_data->layer_nr == 2) {
 		/* disable AS engine */
 		__raw_writel(BF_PXP_OUT_AS_ULC_X(1) |
 				BF_PXP_OUT_AS_ULC_Y(1),
 				pxp->base + HW_PXP_OUT_AS_ULC);
-
 		__raw_writel(BF_PXP_OUT_AS_LRC_X(0) |
 				BF_PXP_OUT_AS_LRC_Y(0),
 				pxp->base + HW_PXP_OUT_AS_LRC);
-	} else {
-		while (ol_nr > 0) {
-			i = pxp_conf_data->layer_nr - 2 - ol_nr;
-			pxp_set_oln(i, pxp);
-			pxp_set_olparam(i, pxp);
-			/* only the color key in higher overlay will take effect. */
-			pxp_set_olcolorkey(i, pxp);
-			ol_nr--;
-		}
-	}
-	pxp_set_s0colorkey(pxp);
+	} else
+		pxp_set_oln(0, pxp);
+	pxp_set_olparam(0, pxp);
+	pxp_set_olcolorkey(0, pxp);
+
 	pxp_set_csc(pxp);
 	pxp_set_bg(pxp);
 	pxp_set_lut(pxp);
@@ -1412,7 +1402,7 @@ static void __pxpdma_dostart(struct pxp_channel *pxp_chan)
 
 	memset(&pxp->pxp_conf_state.s0_param, 0,  sizeof(struct pxp_layer_param));
 	memset(&pxp->pxp_conf_state.out_param, 0,  sizeof(struct pxp_layer_param));
-	memset(pxp->pxp_conf_state.ol_param, 0,  sizeof(struct pxp_layer_param) * 8);
+	memset(pxp->pxp_conf_state.ol_param, 0,  sizeof(struct pxp_layer_param));
 	memset(&pxp->pxp_conf_state.proc_data, 0,  sizeof(struct pxp_proc_data));
 	/* S0 */
 	desc = list_first_entry(&head, struct pxp_tx_desc, list);

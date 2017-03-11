@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2010-2015 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1065,25 +1066,17 @@ static void pxp_set_s0buf(struct pxps *pxp)
  */
 static int pxp_config(struct pxps *pxp, struct pxp_channel *pxp_chan)
 {
-	struct pxp_config_data *pxp_conf_data = &pxp->pxp_conf_state;
-	int ol_nr;
-	int i;
-
 	/* Configure PxP regs */
 	pxp_set_ctrl(pxp);
 	pxp_set_s0param(pxp);
 	pxp_set_s0crop(pxp);
 	pxp_set_scaling(pxp);
-	ol_nr = pxp_conf_data->layer_nr - 2;
-	while (ol_nr > 0) {
-		i = pxp_conf_data->layer_nr - 2 - ol_nr;
-		pxp_set_oln(i, pxp);
-		pxp_set_olparam(i, pxp);
-		/* only the color key in higher overlay will take effect. */
-		pxp_set_olcolorkey(i, pxp);
-		ol_nr--;
-	}
 	pxp_set_s0colorkey(pxp);
+
+	pxp_set_oln(0, pxp);
+	pxp_set_olparam(0, pxp);
+	pxp_set_olcolorkey(0, pxp);
+
 	pxp_set_csc(pxp);
 	pxp_set_bg(pxp);
 	pxp_set_lut(pxp);

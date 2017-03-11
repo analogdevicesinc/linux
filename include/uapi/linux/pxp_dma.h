@@ -270,7 +270,7 @@ struct pxp_proc_data {
 
 struct pxp_config_data {
 	struct pxp_layer_param s0_param;
-	struct pxp_layer_param ol_param[8];
+	struct pxp_layer_param ol_param[1];
 	struct pxp_layer_param out_param;
 	struct pxp_layer_param wfe_a_fetch_param[2];
 	struct pxp_layer_param wfe_a_store_param[2];
