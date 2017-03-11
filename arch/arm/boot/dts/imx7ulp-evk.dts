@@ -300,8 +300,8 @@
 
 		pinctrl_focaltech: focaltechgrp {
 			fsl,pins = <
-				IMX7ULP_PAD_PTF0__PTF0		0x20100
-				IMX7ULP_PAD_PTF1__PTF1		0x20100
+				IMX7ULP_PAD_PTF0__PTF0		0x10143
+				IMX7ULP_PAD_PTF1__PTF1		0x20143
 			>;
 		};
 
