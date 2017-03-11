@@ -1265,82 +1265,81 @@ static int pxp_config(struct pxps *pxp, struct pxp_channel *pxp_chan)
 	struct pxp_config_data *pxp_conf_data = &pxp->pxp_conf_state;
 	struct pxp_proc_data *proc_data = &pxp_conf_data->proc_data;
 
-	if ((proc_data->working_mode & PXP_MODE_STANDARD) == PXP_MODE_STANDARD) {
-		/* now only test dithering feature */
-		if ((proc_data->engine_enable & PXP_ENABLE_DITHER) == PXP_ENABLE_DITHER) {
-			pxp_dithering_process(pxp);
-			if (pxp_is_v3p(pxp)) {
-				__raw_writel(
-					BM_PXP_CTRL_ENABLE         |
-					BM_PXP_CTRL_ENABLE_DITHER  |
-					BM_PXP_CTRL_ENABLE_CSC2    |
-					BM_PXP_CTRL_ENABLE_LUT     |
-					BM_PXP_CTRL_ENABLE_ROTATE0 |
-					BM_PXP_CTRL_ENABLE_PS_AS_OUT,
-					pxp->base + HW_PXP_CTRL_SET);
-				return 0;
-			}
+	switch (proc_data->op_type) {
+	case PXP_OP_2D:
+		/* Configure PxP regs */
+		pxp_set_ctrl(pxp);
+
+		pxp_set_s0param(pxp);
+		pxp_set_s0crop(pxp);
+		pxp_set_scaling(pxp);
+		pxp_set_s0colorkey(pxp);
+		if (pxp_conf_data->layer_nr == 2) {
+			/* disable AS engine */
+			__raw_writel(BF_PXP_OUT_AS_ULC_X(1) |
+					BF_PXP_OUT_AS_ULC_Y(1),
+					pxp->base + HW_PXP_OUT_AS_ULC);
+			__raw_writel(BF_PXP_OUT_AS_LRC_X(0) |
+					BF_PXP_OUT_AS_LRC_Y(0),
+					pxp->base + HW_PXP_OUT_AS_LRC);
+		} else
+			pxp_set_oln(0, pxp);
+		pxp_set_olparam(0, pxp);
+		pxp_set_olcolorkey(0, pxp);
+
+		pxp_set_csc(pxp);
+		pxp_set_bg(pxp);
+		pxp_set_lut(pxp);
+
+		pxp_set_s0buf(pxp);
+		pxp_set_outbuf(pxp);
+		break;
+	case PXP_OP_DITHER:
+		pxp_dithering_process(pxp);
+		if (pxp_is_v3p(pxp)) {
+			__raw_writel(
+				BM_PXP_CTRL_ENABLE         |
+				BM_PXP_CTRL_ENABLE_DITHER  |
+				BM_PXP_CTRL_ENABLE_CSC2    |
+				BM_PXP_CTRL_ENABLE_LUT     |
+				BM_PXP_CTRL_ENABLE_ROTATE0 |
+				BM_PXP_CTRL_ENABLE_PS_AS_OUT,
+				pxp->base + HW_PXP_CTRL_SET);
+			return 0;
 		}
+		break;
+	case PXP_OP_WFE_A:
+		pxp_luts_deactivate(pxp, proc_data->lut_sels);
 
-		if ((proc_data->engine_enable & PXP_ENABLE_WFE_A) == PXP_ENABLE_WFE_A)
-		{
-			pxp_luts_deactivate(pxp, proc_data->lut_sels);
-
-			if (proc_data->lut_cleanup == 0) {
-				/* We should enable histogram in standard mode
-				 * in wfe_a processing for waveform mode selection
-				 */
-				pxp_histogram_enable(pxp, pxp_conf_data->wfe_a_fetch_param[0].width,
+		if (proc_data->lut_cleanup == 0) {
+			/* We should enable histogram in standard mode
+			 * in wfe_a processing for waveform mode selection
+			 */
+			pxp_histogram_enable(pxp, pxp_conf_data->wfe_a_fetch_param[0].width,
 					pxp_conf_data->wfe_a_fetch_param[0].height);
 
-				pxp_luts_activate(pxp, (u64)proc_data->lut_status_1 |
+			pxp_luts_activate(pxp, (u64)proc_data->lut_status_1 |
 					((u64)proc_data->lut_status_2 << 32));
 
-				/* collision detection should be always enable in standard mode */
-				pxp_collision_detection_enable(pxp, pxp_conf_data->wfe_a_fetch_param[0].width,
-							pxp_conf_data->wfe_a_fetch_param[0].height);
-			}
-
-			if (pxp->devdata && pxp->devdata->pxp_wfe_a_configure)
-				pxp->devdata->pxp_wfe_a_configure(pxp);
-			if (pxp->devdata && pxp->devdata->pxp_wfe_a_process)
-				pxp->devdata->pxp_wfe_a_process(pxp);
+			/* collision detection should be always enable in standard mode */
+			pxp_collision_detection_enable(pxp, pxp_conf_data->wfe_a_fetch_param[0].width,
+					pxp_conf_data->wfe_a_fetch_param[0].height);
 		}
 
-		if ((proc_data->engine_enable & PXP_ENABLE_WFE_B) == PXP_ENABLE_WFE_B) {
-			pxp_wfe_b_configure(pxp);
-			pxp_wfe_b_process(pxp);
-		}
+		if (pxp->devdata && pxp->devdata->pxp_wfe_a_configure)
+			pxp->devdata->pxp_wfe_a_configure(pxp);
+		if (pxp->devdata && pxp->devdata->pxp_wfe_a_process)
+			pxp->devdata->pxp_wfe_a_process(pxp);
 
-		return 0;
+		break;
+	case PXP_OP_WFE_B:
+		pxp_wfe_b_configure(pxp);
+		pxp_wfe_b_process(pxp);
+		break;
+	default:
+		pr_err("Invalid pxp operation type passed\n");
+		return -EINVAL;
 	}
-
-	/* Configure PxP regs */
-	pxp_set_ctrl(pxp);
-	pxp_set_s0param(pxp);
-	pxp_set_s0crop(pxp);
-	pxp_set_scaling(pxp);
-	pxp_set_s0colorkey(pxp);
-
-	if (pxp_conf_data->layer_nr == 2) {
-		/* disable AS engine */
-		__raw_writel(BF_PXP_OUT_AS_ULC_X(1) |
-				BF_PXP_OUT_AS_ULC_Y(1),
-				pxp->base + HW_PXP_OUT_AS_ULC);
-		__raw_writel(BF_PXP_OUT_AS_LRC_X(0) |
-				BF_PXP_OUT_AS_LRC_Y(0),
-				pxp->base + HW_PXP_OUT_AS_LRC);
-	} else
-		pxp_set_oln(0, pxp);
-	pxp_set_olparam(0, pxp);
-	pxp_set_olcolorkey(0, pxp);
-
-	pxp_set_csc(pxp);
-	pxp_set_bg(pxp);
-	pxp_set_lut(pxp);
-
-	pxp_set_s0buf(pxp);
-	pxp_set_outbuf(pxp);
 
 	return 0;
 }
