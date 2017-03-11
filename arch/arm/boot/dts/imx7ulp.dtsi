@@ -586,14 +586,13 @@
 				<GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "irq_3d", "irq_2d";
 			clocks = <&clks IMX7ULP_CLK_GPU3D>,
-				<&clks IMX7ULP_CLK_NIC1_DIV>,
+				<&clks IMX7ULP_CLK_DUMMY>,
 				<&clks IMX7ULP_CLK_GPU_DIV>,
 				<&clks IMX7ULP_CLK_GPU2D>,
-				<&clks IMX7ULP_CLK_NIC1_DIV>,
 				<&clks IMX7ULP_CLK_NIC1_DIV>;
 			clock-names = "gpu3d_clk", "gpu3d_shader_clk",
 				"gpu3d_axi_clk", "gpu2d_clk",
-				"gpu2d_shader_clk", "gpu2d_axi_clk";
+				"gpu2d_axi_clk";
 		};
 	};
 
