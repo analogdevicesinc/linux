@@ -109,6 +109,7 @@ static int imx6sx_enter_wait(struct cpuidle_device *dev,
 
 	imx6_set_lpm(WAIT_UNCLOCKED);
 	if ((index == 1) || ((mode != BUS_FREQ_LOW) && index == 2)) {
+		index = 1;
 		cpu_do_idle();
 	} else {
 			/* Need to notify there is a cpu pm operation. */

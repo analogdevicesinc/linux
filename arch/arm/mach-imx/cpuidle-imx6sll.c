@@ -97,6 +97,7 @@ static int imx6sll_enter_wait(struct cpuidle_device *dev,
 
 	imx6_set_lpm(WAIT_UNCLOCKED);
 	if ((index == 1) || ((mode != BUS_FREQ_LOW) && index == 2)) {
+		index = 1;
 		cpu_do_idle();
 	} else {
 		imx_gpc_switch_pupscr_clk(true);

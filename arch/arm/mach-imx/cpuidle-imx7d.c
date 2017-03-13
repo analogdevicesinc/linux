@@ -94,6 +94,7 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 	int mode = get_bus_freq_mode();
 
 	if ((index == 1) || ((mode != BUS_FREQ_LOW) && index == 2)) {
+		index = 1;
 		if (atomic_inc_return(&master_wait) == num_online_cpus())
 			imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
 

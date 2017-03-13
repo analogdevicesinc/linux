@@ -98,6 +98,7 @@ static int imx6ul_enter_wait(struct cpuidle_device *dev,
 	imx6_set_lpm(WAIT_UNCLOCKED);
 	if ((index == 1) || ((mode != BUS_FREQ_LOW) && index == 2)) {
 		cpu_do_idle();
+		index = 1;
 	} else {
 		/*
 		 * i.MX6UL TO1.0 ARM power up uses IPG/2048 as clock source,
