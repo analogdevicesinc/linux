@@ -145,6 +145,8 @@ static int mipi_dsi_lcd_init(struct mipi_dsi_info *mipi_dsi,
 		return err;
 	}
 
+	setting->fbi->mode = mipi_dsi->mode;
+
 	return 0;
 }
 
