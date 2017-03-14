@@ -22,8 +22,8 @@ if NET_VENDOR_FREESCALE
 config FEC
 	tristate "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
 	depends on (M523x || M527x || M5272 || M528x || M520x || M532x || \
-		   ARCH_MXC || SOC_IMX28)
-	default ARCH_MXC || SOC_IMX28 if ARM
+		   ARM || ARM64)
+	default y
 	select PHYLIB
 	imply PTP_1588_CLOCK
 	---help---
