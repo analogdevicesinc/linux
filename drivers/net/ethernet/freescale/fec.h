@@ -464,6 +464,9 @@ struct bufdesc_ex {
  */
 #define FEC_QUIRK_BUG_WAITMODE		(1 << 16)
 
+/* PHY fixup flag define */
+#define FEC_QUIRK_AR8031_FIXUP		(1 << 0)
+
 struct bufdesc_prop {
 	int qid;
 	/* Address of Rx and Tx buffers */
@@ -560,6 +563,7 @@ struct fec_enet_private {
 	int	wol_flag;
 	int	wake_irq;
 	u32	quirks;
+	u32	fixups;
 
 	struct	napi_struct napi;
 	int	csum_flags;
@@ -613,6 +617,8 @@ void fec_ptp_start_cyclecounter(struct net_device *ndev);
 int fec_ptp_set(struct net_device *ndev, struct ifreq *ifr);
 int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr);
 uint fec_ptp_check_pps_event(struct fec_enet_private *fep);
+void fec_enet_register_fixup(struct net_device *ndev);
+int of_fec_enet_parse_fixup(struct device_node *np);
 
 /****************************************************************************/
 #endif /* FEC_H */

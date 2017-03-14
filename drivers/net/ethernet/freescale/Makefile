@@ -4,7 +4,7 @@
 #
 
 obj-$(CONFIG_FEC) += fec.o
-fec-objs :=fec_main.o fec_ptp.o
+fec-objs :=fec_main.o fec_fixup.o fec_ptp.o
 
 obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
 ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)

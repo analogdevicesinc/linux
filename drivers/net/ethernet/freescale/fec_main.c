@@ -3687,6 +3687,9 @@ fec_probe(struct platform_device *pdev)
 	if (ret)
 		goto failed_register;
 
+	fep->fixups = of_fec_enet_parse_fixup(np);
+	fec_enet_register_fixup(ndev);
+
 	device_init_wakeup(&ndev->dev, fep->wol_flag &
 			   FEC_WOL_HAS_MAGIC_PACKET);
 
