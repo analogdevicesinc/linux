@@ -5,6 +5,13 @@ Required properties:
 - reg : Address and length of the register set for the device
 - interrupts : Should contain fec interrupt
 - phy-mode : See ethernet.txt file in the same directory
+- clock-name: Should be the names of the clocks
+  - "ipg" for MAC ipg_clk_s, ipg_clk_mac_s that are for register accessing
+  - "ahb" for MAC ipg_clk, ipg_clk_mac that are bus clock
+  - "ptp" for IEEE1588 timer clock
+  - "enet_clk_ref" for MAC transmit/receiver reference clock
+  - "enet_out" output clock for external device
+- clocks: Phandles to input clocks.
 
 Optional properties:
 - phy-reset-gpios : Should specify the gpio for phy reset
@@ -37,6 +44,9 @@ Optional properties:
 - fsl,wakeup_irq : The property define the wakeup irq index in enet irq source.
 - stop-mode : If present, indicates soc need to set gpr bit to request stop
   mode.
+- fsl,ar8031-phy-fixup : If present, indicates board need to do phy fixup setting.
+- mii-exclusive: If present, each MAC has their exclusive MDIO bus in current board
+  design, otherwise mutiple MACs share one MDIO bus to reduce Pins utilize.
 
 Optional subnodes:
 - mdio : specifies the mdio bus in the FEC, used as a container for phy nodes
