@@ -210,6 +210,7 @@ struct hw_bank {
  * @in_lpm: if the core in low power mode
  * @wakeup_int: if wakeup interrupt occur
  * @rev: The revision number for controller
+ * @mutex: protect code from concorrent running
  */
 struct ci_hdrc {
 	struct device			*dev;
@@ -277,6 +278,7 @@ struct ci_hdrc {
 	u32				pm_portsc;
 	u32				pm_usbmode;
 	struct work_struct		power_lost_work;
+	struct mutex			mutex;
 };
 
 static inline struct ci_role_driver *ci_role(struct ci_hdrc *ci)
