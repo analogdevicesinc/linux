@@ -3,7 +3,8 @@
  *
  * Author: Timur Tabi <timur@freescale.com>
  *
- * Copyright 2007-2015 Freescale Semiconductor, Inc.
+ * Copyright 2007-2015, Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
@@ -944,7 +945,7 @@ static int _fsl_ssi_set_dai_fmt(struct device *dev,
 	fsl_ssi_setup_reg_vals(ssi_private);
 
 	regmap_read(regs, CCSR_SSI_SCR, &scr);
-	scr &= ~(CCSR_SSI_SCR_SYN | CCSR_SSI_SCR_I2S_MODE_MASK);
+	scr &= ~CCSR_SSI_SCR_SYN;
 	scr |= CCSR_SSI_SCR_SYNC_TX_FS;
 
 	mask = CCSR_SSI_STCR_TXBIT0 | CCSR_SSI_STCR_TFDIR | CCSR_SSI_STCR_TXDIR |
