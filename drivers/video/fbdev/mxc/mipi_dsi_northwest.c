@@ -164,11 +164,13 @@ static int mipi_dsi_disp_init(struct mxc_dispdrv_handle *disp,
 	ret = mipi_dsi_lcd_init(mipi_dsi, setting);
 	if (ret) {
 		dev_err(dev, "failed to init mipi dsi lcd\n");
-		return ret;
+		goto out;
 	}
 
 	dev_info(dev, "MIPI DSI dispdv inited\n");
 
+out:
+	reset_control_put(reset);
 	return ret;
 }
 
