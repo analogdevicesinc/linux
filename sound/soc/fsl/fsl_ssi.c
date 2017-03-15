@@ -848,16 +848,6 @@ static int fsl_ssi_hw_params(struct snd_pcm_substream *substream,
 	int enabled;
 	u8 i2smode = ssi_private->i2s_mode;
 
-	regmap_read(regs, CCSR_SSI_SCR, &scr_val);
-	enabled = scr_val & CCSR_SSI_SCR_SSIEN;
-
-	/*
-	 * If we're in synchronous mode, and the SSI is already enabled,
-	 * then STCCR is already set properly.
-	 */
-	if (enabled && ssi_private->cpu_dai_drv.symmetric_rates)
-		return 0;
-
 	if (fsl_ssi_is_i2s_master(ssi_private)) {
 		ret = fsl_ssi_set_bclk(substream, cpu_dai, hw_params);
 		if (ret)
@@ -872,6 +862,16 @@ static int fsl_ssi_hw_params(struct snd_pcm_substream *substream,
 			ssi_private->baudclk_streams |= BIT(substream->stream);
 		}
 	}
+
+	regmap_read(regs, CCSR_SSI_SCR, &scr_val);
+	enabled = scr_val & CCSR_SSI_SCR_SSIEN;
+
+	/*
+	 * If we're in synchronous mode, and the SSI is already enabled,
+	 * then STCCR is already set properly.
+	 */
+	if (enabled && ssi_private->cpu_dai_drv.symmetric_rates)
+		return 0;
 
 	if (!fsl_ssi_is_ac97(ssi_private)) {
 		/*
