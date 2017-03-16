@@ -1272,3 +1272,5 @@ config TOUCHSCREEN_ROHM_BU21023
 	  module will be called bu21023_ts.
 
 endif
+
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
