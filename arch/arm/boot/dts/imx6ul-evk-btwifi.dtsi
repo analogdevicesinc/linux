@@ -32,12 +32,10 @@
 };
 
 &iomuxc {
-	imx6ul-evk-murata-v2 {
-		pinctrl_wifi: wifigrp {
-			fsl,pins = <
-				MX6UL_PAD_SNVS_TAMPER1__GPIO5_IO01 0x03029
-			>;
-		};
+	pinctrl_wifi: wifigrp {
+		fsl,pins = <
+			MX6UL_PAD_SNVS_TAMPER1__GPIO5_IO01 0x03029
+		>;
 	};
 };
 
