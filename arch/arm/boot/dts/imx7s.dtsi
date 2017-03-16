@@ -838,6 +838,7 @@
 				clocks = <&clks IMX7D_CLK_DUMMY>,
 					<&clks IMX7D_CAN1_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				stop-mode = <&gpr 0x10 1 0x10 17>;
 				status = "disabled";
 			};
 
@@ -848,6 +849,7 @@
 				clocks = <&clks IMX7D_CLK_DUMMY>,
 					<&clks IMX7D_CAN2_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				stop-mode = <&gpr 0x10 2 0x10 18>;
 				status = "disabled";
 			};
 
