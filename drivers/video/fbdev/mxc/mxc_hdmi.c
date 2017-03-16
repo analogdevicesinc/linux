@@ -2733,13 +2733,14 @@ static long mxc_hdmi_ioctl(struct file *file,
 				sizeof(g_hdmi->hdmi_data)) ? -EFAULT : 0;
 		break;
 	case HDMI_IOC_GET_CPU_TYPE:
-		*argp = g_hdmi->cpu_type;
+		ret = put_user(g_hdmi->cpu_type, argp);
 		break;
 	default:
 		pr_debug("Unsupport cmd %d\n", cmd);
 		break;
-     }
-     return ret;
+	}
+
+	return ret;
 }
 
 static int mxc_hdmi_release(struct inode *inode, struct file *file)
