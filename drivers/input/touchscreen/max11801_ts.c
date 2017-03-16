@@ -114,26 +114,28 @@ static int max11801_dcm_write_command(struct i2c_client *client, int command)
 	return i2c_smbus_write_byte(client, command);
 }
 
-static u32 max11801_dcm_sample_aux(struct i2c_client *client)
+static int max11801_dcm_sample_aux(struct i2c_client *client)
 {
 	int ret;
 	int aux = 0;
-	u32 sample_data;
+	int sample_data;
 
 	/* AUX_measurement */
 	max11801_dcm_write_command(client, AUX_measurement);
 	mdelay(5);
 	ret = i2c_smbus_read_i2c_block_data(client, FIFO_RD_AUX_MSB,
 						1, &aux_buf[0]);
-	if (ret < 1) {
-		dev_err(&client->dev, "FIFO_RD_AUX_MSB read fails\n");
+	if (ret < 0) {
+		dev_err(&client->dev, "FIFO_RD_AUX_MSB read failed (%d)\n",
+			ret);
 		return ret;
 	}
 	mdelay(5);
 	ret = i2c_smbus_read_i2c_block_data(client, FIFO_RD_AUX_LSB,
 						1, &aux_buf[1]);
-	if (ret < 1) {
-		dev_err(&client->dev, "FIFO_RD_AUX_LSB read fails\n");
+	if (ret < 0) {
+		dev_err(&client->dev, "FIFO_RD_AUX_LSB read failed (%d)\n",
+			ret);
 		return ret;
 	}
 
@@ -149,14 +151,12 @@ static u32 max11801_dcm_sample_aux(struct i2c_client *client)
 	return sample_data;
 }
 
-u32 max11801_read_adc(void)
+int max11801_read_adc(void)
 {
-	u32 adc_data;
+	int adc_data;
 
-	if (!max11801_client) {
-		pr_err("FAIL  max11801_client not initialize\n");
-		return -1;
-	}
+	if (!max11801_client)
+		return -ENODEV;
 	adc_data = max11801_dcm_sample_aux(max11801_client);
 
 	return adc_data;

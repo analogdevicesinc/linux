@@ -193,7 +193,7 @@ static enum power_supply_property max8903_battery_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 };
 
-extern u32 max11801_read_adc(void);
+extern int max11801_read_adc(void);
 
 static void max8903_charger_update_status(struct max8903_data *data)
 {
@@ -227,6 +227,7 @@ static void max8903_charger_update_status(struct max8903_data *data)
 u32 calibration_voltage(struct max8903_data *data)
 {
 	u32 voltage_data = 0;
+	int adc_val = 0;
 	int i;
 	int offset;
 
@@ -238,8 +239,13 @@ u32 calibration_voltage(struct max8903_data *data)
 		offset = offset_charger;
 
 	/* simple average */
-	for (i = 0; i < ADC_SAMPLE_COUNT; i++)
-		voltage_data += max11801_read_adc()-offset;
+	for (i = 0; i < ADC_SAMPLE_COUNT; i++) {
+		adc_val = max11801_read_adc();
+		/* Check if touch driver is probed */
+		if (max11801_read_adc() < 0)
+			break;
+		voltage_data += adc_val - offset;
+	}
 	voltage_data = voltage_data / ADC_SAMPLE_COUNT;
 	dev_dbg(data->dev, "volt: %d\n", voltage_data);
 
