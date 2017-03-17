@@ -427,6 +427,15 @@ config KEYBOARD_MPR121
 	  To compile this driver as a module, choose M here: the
 	  module will be called mpr121_touchkey.
 
+config KEYBOARD_RPMSG
+	tristate "i.MX Rpmsg Keys Driver"
+	depends on (SOC_IMX7ULP)
+	depends on RPMSG
+	depends on OF
+	help
+	  This is rpmsg keys driver on i.mx7ulp, because some keys located
+	  in M4 side.
+
 config KEYBOARD_SNVS_PWRKEY
 	tristate "IMX SNVS Power Key Driver"
 	depends on (SOC_IMX6SX || SOC_IMX6UL || SOC_IMX7)
