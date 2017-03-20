@@ -1128,7 +1128,7 @@ static void imx_uart_dma_exit(struct imx_port *sport)
 		sport->dma_chan_rx = NULL;
 
 		if (sport->rx_buf.buf) {
-			dma_free_coherent(NULL, IMX_RXBD_NUM * RX_BUF_SIZE,
+			dma_free_coherent(sport->port.dev, IMX_RXBD_NUM * RX_BUF_SIZE,
 						(void *)sport->rx_buf.buf,
 						sport->rx_buf.dmaaddr);
 			sport->rx_buf.buf = NULL;
@@ -1167,7 +1167,7 @@ static int imx_uart_dma_init(struct imx_port *sport)
 		goto err;
 	}
 
-	sport->rx_buf.buf = dma_alloc_coherent(NULL, IMX_RXBD_NUM * RX_BUF_SIZE,
+	sport->rx_buf.buf = dma_alloc_coherent(sport->port.dev, IMX_RXBD_NUM * RX_BUF_SIZE,
 					&sport->rx_buf.dmaaddr, GFP_KERNEL);
 	if (!sport->rx_buf.buf) {
 		dev_err(dev, "cannot alloc DMA buffer.\n");
