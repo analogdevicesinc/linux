@@ -301,13 +301,20 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 			return -EINVAL;
 	}
 
-	/* PLL out clock = refclk * CM / (CN * CO)
-	 * refclock = 24MHz
-	 * pll vco = 24 * 40 / (3 * 1) = 320MHz
-	 */
-	CN = 0x10; /* 3  */
-	CM = 0xc8; /* 40 */
-	CO = 0x0;  /* 1  */
+	if (!mipi_dsi->encoder) {
+		/* PLL out clock = refclk * CM / (CN * CO)
+		 * refclock = 24MHz
+		 * pll vco = 24 * 40 / (3 * 1) = 320MHz
+		 */
+		CN = 0x10; /* 3  */
+		CM = 0xc8; /* 40 */
+		CO = 0x0;  /* 1  */
+	} else {
+		/* pll vco = 24 * 63 / (5 * 1) = 302.4MHz */
+		CN = 0x1C; /* 5  */
+		CM = 0xDF; /* 63 */
+		CO = 0x0;  /* 1  */
+	}
 
 	writel(CN, mipi_dsi->mmio_base + DPHY_CN);
 	writel(CM, mipi_dsi->mmio_base + DPHY_CM);
@@ -406,9 +413,15 @@ static int mipi_dsi_dpi_init(struct mipi_dsi_info *mipi_dsi)
 	writel(mipi_dsi->encoder ? 0x0 : 0x2,
 	       mipi_dsi->mmio_base + DPI_VIDEO_MODE);
 
-	writel(mode->right_margin * (bpp >> 3), mipi_dsi->mmio_base + DPI_HFP);
-	writel(mode->left_margin * (bpp >> 3), mipi_dsi->mmio_base + DPI_HBP);
-	writel(mode->hsync_len * (bpp >> 3), mipi_dsi->mmio_base + DPI_HSA);
+	writel(mipi_dsi->encoder ?
+	       0x10 : mode->right_margin * (bpp >> 3),
+	       mipi_dsi->mmio_base + DPI_HFP);
+	writel(mipi_dsi->encoder ?
+	       0x60 : mode->left_margin * (bpp >> 3),
+	       mipi_dsi->mmio_base + DPI_HBP);
+	writel(mipi_dsi->encoder ?
+	       0xf0 : mode->hsync_len * (bpp >> 3),
+	       mipi_dsi->mmio_base + DPI_HSA);
 	writel(0x0, mipi_dsi->mmio_base + DPI_ENABLE_MULT_PKTS);
 
 	writel(mode->upper_margin, mipi_dsi->mmio_base + DPI_VBP);
@@ -504,7 +517,7 @@ static int mipi_dsi_enable(struct mxc_dispdrv_handle *disp,
 		pm_runtime_get_sync(&mipi_dsi->pdev->dev);
 
 	if (!mipi_dsi->lcd_inited) {
-		ret = clk_set_rate(mipi_dsi->esc_clk, 60000000);
+		ret = clk_set_rate(mipi_dsi->esc_clk, 80000000);
 		if (ret) {
 			dev_err(&mipi_dsi->pdev->dev,
 					"clk enable error: %d!\n", ret);
