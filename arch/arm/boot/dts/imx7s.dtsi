@@ -769,6 +769,8 @@
 				clocks = <&clks IMX7D_UART2_ROOT_CLK>,
 					<&clks IMX7D_UART2_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 24 4 0>, <&sdma 25 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -780,6 +782,8 @@
 				clocks = <&clks IMX7D_UART3_ROOT_CLK>,
 					<&clks IMX7D_UART3_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 26 4 0>, <&sdma 27 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -901,6 +905,8 @@
 				clocks = <&clks IMX7D_UART4_ROOT_CLK>,
 					<&clks IMX7D_UART4_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 28 4 0>, <&sdma 29 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -912,6 +918,8 @@
 				clocks = <&clks IMX7D_UART5_ROOT_CLK>,
 					<&clks IMX7D_UART5_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 30 4 0>, <&sdma 31 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -923,6 +931,8 @@
 				clocks = <&clks IMX7D_UART6_ROOT_CLK>,
 					<&clks IMX7D_UART6_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 32 4 0>, <&sdma 33 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -934,6 +944,8 @@
 				clocks = <&clks IMX7D_UART7_ROOT_CLK>,
 					<&clks IMX7D_UART7_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 34 4 0>, <&sdma 35 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
