@@ -113,7 +113,7 @@
                     reg = <0x43C70000 0x1000>;
                     #clock-cells = <0>;
                     clocks = <&clkc 15>;
-		    adi,pulse-width = <4>;
+		    adi,pulse-width = <72>;
 		    adi,divider = <167>;
 
             };
