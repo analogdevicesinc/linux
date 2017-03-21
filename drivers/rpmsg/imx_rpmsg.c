@@ -458,7 +458,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 
 	ret = request_irq(irq, imx_mu_rpmsg_isr,
 			  IRQF_EARLY_RESUME | IRQF_SHARED,
-			  "imx-mu-rpmsg", &mu_rpmsg_box);
+			  "imx-mu-rpmsg", dev);
 	if (ret) {
 		pr_err("%s: register interrupt %d failed, rc %d\n",
 			__func__, irq, ret);
@@ -541,19 +541,6 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int imx_rpmsg_remove(struct platform_device *pdev)
-{
-	int i, j;
-
-	for (i = 0; i < ARRAY_SIZE(imx_rpmsg_vprocs); i++) {
-		struct imx_rpmsg_vproc *rpdev = &imx_rpmsg_vprocs[i];
-
-		for (j = 0; j < rpdev->vdev_nums; j++)
-			unregister_virtio_device(&rpdev->ivdev[j].vdev);
-	}
-	return 0;
-}
-
 static struct platform_driver imx_rpmsg_driver = {
 	.driver = {
 		   .owner = THIS_MODULE,
@@ -561,7 +548,6 @@ static struct platform_driver imx_rpmsg_driver = {
 		   .of_match_table = imx_rpmsg_dt_ids,
 		   },
 	.probe = imx_rpmsg_probe,
-	.remove = imx_rpmsg_remove,
 };
 
 static int __init imx_rpmsg_init(void)
@@ -577,15 +563,7 @@ static int __init imx_rpmsg_init(void)
 	return ret;
 }
 
-static void __exit imx_rpmsg_exit(void)
-{
-	pr_info("imx rpmsg driver is unregistered.\n");
-	platform_driver_unregister(&imx_rpmsg_driver);
-}
-
-module_exit(imx_rpmsg_exit);
-module_init(imx_rpmsg_init);
-
 MODULE_AUTHOR("Freescale Semiconductor, Inc.");
 MODULE_DESCRIPTION("iMX remote processor messaging virtio device");
 MODULE_LICENSE("GPL v2");
+subsys_initcall(imx_rpmsg_init);
