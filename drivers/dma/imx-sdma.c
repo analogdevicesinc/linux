@@ -1369,8 +1369,12 @@ static int sdma_alloc_chan_resources(struct dma_chan *chan)
 	struct imx_dma_data default_data;
 	int prio, ret;
 
-	clk_enable(sdmac->sdma->clk_ipg);
-	clk_enable(sdmac->sdma->clk_ahb);
+	ret = clk_enable(sdmac->sdma->clk_ipg);
+	if (ret)
+		return ret;
+	ret = clk_enable(sdmac->sdma->clk_ahb);
+	if (ret)
+		goto disable_clk_ipg;
 
 	/*
 	 * dmatest(memcpy) will never call slave_config before prep, so we need
@@ -1407,13 +1411,6 @@ static int sdma_alloc_chan_resources(struct dma_chan *chan)
 	sdmac->event_id1 = data->dma_request2;
 	sdmac->src_dualfifo = data->src_dualfifo;
 	sdmac->dst_dualfifo = data->dst_dualfifo;
-
-	ret = clk_enable(sdmac->sdma->clk_ipg);
-	if (ret)
-		return ret;
-	ret = clk_enable(sdmac->sdma->clk_ahb);
-	if (ret)
-		goto disable_clk_ipg;
 
 	ret = sdma_set_channel_priority(sdmac, prio);
 	if (ret)
