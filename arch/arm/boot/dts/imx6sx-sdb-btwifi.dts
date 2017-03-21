@@ -16,6 +16,13 @@
 #include "imx6sx-sdb.dts"
 
 / {
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio6 11 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	regulators {
 		wlreg_on: fixedregulator@100 {
 			compatible = "regulator-fixed";
@@ -83,6 +90,7 @@
 	pinctrl-0 = <&pinctrl_uart3
 		     &pinctrl_bt>;
 	fsl,uart-has-rtscts;
+	resets = <&modem_reset>;
 	status = "okay";
 };
 

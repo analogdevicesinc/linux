@@ -16,6 +16,13 @@
 #include "imx6sl-evk.dts"
 
 / {
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio5 17 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	regulators {
 		wlreg_on: fixedregulator@100 {
 			compatible = "regulator-fixed";
@@ -37,6 +44,12 @@
 &iomuxc {
 	imx6sl-evk-murata-v1_sdext {
 		/* Only MUX SD1_DAT0..3 lines so UART4 can be MUXed on higher data lines. */
+		pinctrl_btreg: btreggrp {
+			fsl,pins = <
+				MX6SL_PAD_SD3_DAT3__GPIO5_IO17          0x13069 /* BT_REG_ON */
+			>;
+		};
+
 		pinctrl_wifi: wifigrp {
 			fsl,pins = <
 				MX6SL_PAD_SD1_CMD__SD1_CMD		0x17059
@@ -61,18 +74,14 @@
 /* Murata: declare UART4 interface for Bluetooth. */
 &uart4 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart4_1>;
+	pinctrl-0 = <&pinctrl_uart4_1
+		     &pinctrl_btreg>;
 	fsl,uart-has-rtscts;
+	resets = <&modem_reset>;
 	status = "okay";
 	/* for DTE mode, add below change */
 	/* fsl,dte-mode; */
 	/* pinctrl-0 = <&pinctrl_uart4dte_1>; */
-};
-
-&pinctrl_uart4_1 {
-	fsl,pins = <
-		MX6SL_PAD_SD3_DAT3__GPIO5_IO17          0x13069 /* BT_REG_ON */
-	>;
 };
 
 &usdhc1 {

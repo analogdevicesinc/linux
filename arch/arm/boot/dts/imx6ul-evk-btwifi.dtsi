@@ -13,6 +13,13 @@
  */
 
 / {
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio_spi 4 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	regulators {
 		wlreg_on: fixedregulator@100 {
 			compatible = "regulator-fixed";
@@ -41,6 +48,10 @@
 
 &reg_sd1_vmmc {
 	regulator-always-on;
+};
+
+&uart2 {
+	resets = <&modem_reset>;
 };
 
 &usdhc1 {

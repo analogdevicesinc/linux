@@ -52,6 +52,13 @@
 		reg = <0x80000000 0x80000000>;
 	};
 
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio4 23 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	spi4 {
 		compatible = "spi-gpio";
 		pinctrl-names = "default";
@@ -717,6 +724,7 @@
 	assigned-clocks = <&clks IMX7D_UART6_ROOT_SRC>;
 	assigned-clock-parents = <&clks IMX7D_PLL_SYS_MAIN_240M_CLK>;
 	uart-has-rtscts;
+	resets = <&modem_reset>;
 	status = "okay";
 };
 
@@ -810,7 +818,6 @@
 
 		pinctrl_hog_1: hoggrp-1 {
 			fsl,pins = <
-				MX7D_PAD_ECSPI2_SS0__GPIO4_IO23		0x80000000  /* bt reg on */
 				MX7D_PAD_EPDC_BDR0__GPIO2_IO28	0x59 /* headphone detect */
 			>;
 		};
@@ -1094,6 +1101,7 @@
 				MX7D_PAD_ECSPI1_SCLK__UART6_DCE_RX	0x79
 				MX7D_PAD_ECSPI1_SS0__UART6_DCE_CTS	0x79
 				MX7D_PAD_ECSPI1_MISO__UART6_DCE_RTS	0x79
+				MX7D_PAD_ECSPI2_SS0__GPIO4_IO23	0x19  /* BT_REG_ON */
 			>;
 		};
 
