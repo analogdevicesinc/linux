@@ -10,6 +10,7 @@
 #include <dt-bindings/clock/imx7ulp-clock.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
 #include "skeleton.dtsi"
 #include "imx7ulp-pinfunc.h"
 
@@ -192,6 +193,16 @@
 			compatible = "fsl,imx7ulp-rpmsg";
 			memory-region = <&rpmsg_reserved>;
 			status = "disabled";
+		};
+
+		pwm0: tpm@40250000 {
+			compatible = "nxp,tpm-pwm";
+			reg = <0x40250000 0x1000>;
+			nxp,pwm-number = <6>;
+			assigned-clocks = <&clks IMX7ULP_CLK_LPTPM4>;
+			assigned-clock-parents = <&clks IMX7ULP_CLK_OSC>;
+			clocks = <&clks IMX7ULP_CLK_LPTPM4>;
+			#pwm-cells = <2>;
 		};
 
 		tpm5: tpm@40260000 {
