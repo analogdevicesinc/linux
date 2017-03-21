@@ -5212,9 +5212,6 @@ static int pxp_probe(struct platform_device *pdev)
 	if (err)
 		goto exit;
 
-	/* enable all the possible irq raised by PXP */
-	__raw_writel(0xffff, pxp->base + HW_PXP_IRQ_MASK);
-
 	/* Initialize DMA engine */
 	err = pxp_dma_init(pxp);
 	if (err < 0)
@@ -5228,6 +5225,10 @@ static int pxp_probe(struct platform_device *pdev)
 
 	device_create_file(&pdev->dev, &dev_attr_block_size);
 	pxp_clk_enable(pxp);
+	pxp_soft_reset(pxp);
+	/* enable all the possible irq raised by PXP */
+	__raw_writel(0xffff, pxp->base + HW_PXP_IRQ_MASK);
+
 	dump_pxp_reg(pxp);
 	pxp_clk_disable(pxp);
 
@@ -5321,7 +5322,9 @@ static int pxp_resume(struct device *dev)
 
 	pxp_clk_enable(pxp);
 	/* Pull PxP out of reset */
-	__raw_writel(0, pxp->base + HW_PXP_CTRL);
+	pxp_soft_reset(pxp);
+	/* enable all the possible irq raised by PXP */
+	__raw_writel(0xffff, pxp->base + HW_PXP_IRQ_MASK);
 	pxp_clk_disable(pxp);
 
 	return 0;
