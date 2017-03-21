@@ -342,9 +342,9 @@ static struct imx_rpmsg_vproc imx_rpmsg_vprocs[] = {
 };
 
 static const struct of_device_id imx_rpmsg_dt_ids[] = {
-	{ .compatible = "fsl,imx6sx-rpmsg", },
-	{ .compatible = "fsl,imx7d-rpmsg", },
-	{ .compatible = "fsl,imx7ulp-rpmsg", },
+	{ .compatible = "fsl,imx6sx-rpmsg",  .data = (void *)IMX6SX, },
+	{ .compatible = "fsl,imx7d-rpmsg",   .data = (void *)IMX7D, },
+	{ .compatible = "fsl,imx7ulp-rpmsg", .data = (void *)IMX7ULP, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_rpmsg_dt_ids);
