@@ -746,13 +746,11 @@ static void sdma_update_channel_loop(struct sdma_channel *sdmac)
 	struct sdma_desc *desc = sdmac->desc;
 	int error = 0;
 	enum dma_status	old_status = sdmac->status;
-	unsigned long flags;
 
 	/*
 	 * loop mode. Iterate over descriptors, re-setup them and
 	 * call callback function.
 	 */
-	spin_lock_irqsave(&sdmac->vc.lock, flags);
 	while (desc) {
 		bd = &desc->bd[desc->buf_tail];
 
@@ -784,17 +782,16 @@ static void sdma_update_channel_loop(struct sdma_channel *sdmac)
 
 		if (error)
 			sdmac->status = old_status;
-		spin_unlock_irqrestore(&sdmac->vc.lock, flags);
 		/*
 		* The callback is called from the interrupt context in order
 		* to reduce latency and to avoid the risk of altering the
 		* SDMA transaction status by the time the client tasklet is
 		* executed.
                 */
+		spin_unlock(&sdmac->vc.lock);
 		dmaengine_desc_get_callback_invoke(&desc->vd.tx, NULL);
-		spin_lock_irqsave(&sdmac->vc.lock, flags);
+		spin_lock(&sdmac->vc.lock);
 	}
-	spin_unlock_irqrestore(&sdmac->vc.lock, flags);
 }
 
 static void mxc_sdma_handle_channel_normal(struct sdma_channel *data)
