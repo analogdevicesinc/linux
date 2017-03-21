@@ -689,7 +689,7 @@ static int sdma_load_script(struct sdma_engine *sdma, void *buf, int size,
 	buf_virt = gen_pool_dma_alloc(sdma->iram_pool, size, &buf_phys);
 	if (!buf_virt) {
 		use_iram = false;
-		buf_virt = dma_alloc_coherent(NULL, size, &buf_phys, GFP_KERNEL);
+		buf_virt = dma_alloc_coherent(sdma->dev, size, &buf_phys, GFP_KERNEL);
 		if (!buf_virt)
 			return -ENOMEM;
 	}
@@ -711,7 +711,7 @@ static int sdma_load_script(struct sdma_engine *sdma, void *buf, int size,
 	if (use_iram)
 		gen_pool_free(sdma->iram_pool, (unsigned long)buf_virt, size);
 	else
-		dma_free_coherent(NULL, size, buf_virt, buf_phys);
+		dma_free_coherent(sdma->dev, size, buf_virt, buf_phys);
 
 	return ret;
 }
@@ -1220,7 +1220,8 @@ static int sdma_alloc_bd(struct sdma_desc *desc)
 				      &desc->bd_phys);
 	if (!desc->bd) {
 		desc->bd_iram = false;
-		desc->bd = dma_alloc_coherent(NULL, bd_size, &desc->bd_phys, GFP_ATOMIC);
+		desc->bd = dma_alloc_coherent(desc->sdmac->sdma->dev, bd_size,
+				&desc->bd_phys, GFP_ATOMIC);
 		if (!desc->bd)
 			return ret;
 	}
@@ -1243,8 +1244,8 @@ static void sdma_free_bd(struct sdma_desc *desc)
 			gen_pool_free(desc->sdmac->sdma->iram_pool,
 				     (unsigned long)desc->bd, bd_size);
 		else
-			dma_free_coherent(NULL, bd_size, desc->bd,
-					  desc->bd_phys);
+			dma_free_coherent(desc->sdmac->sdma->dev, bd_size,
+					desc->bd, desc->bd_phys);
 		spin_lock_irqsave(&desc->sdmac->vc.lock, flags);
 		desc->sdmac->bd_size_sum -= bd_size;
 		spin_unlock_irqrestore(&desc->sdmac->vc.lock, flags);
@@ -1259,7 +1260,8 @@ static int sdma_request_channel0(struct sdma_engine *sdma)
 	sdma->bd0 = gen_pool_dma_alloc(sdma->iram_pool, PAGE_SIZE, &sdma->bd0_phys);
 	if (!sdma->bd0) {
 		sdma->bd0_iram = false;
-		sdma->bd0 = dma_alloc_coherent(NULL, PAGE_SIZE, &sdma->bd0_phys, GFP_KERNEL);
+		sdma->bd0 = dma_alloc_coherent(sdma->dev, PAGE_SIZE,
+					&sdma->bd0_phys, GFP_KERNEL);
 		if (!sdma->bd0) {
 			ret = -ENOMEM;
 			goto out;
@@ -2049,7 +2051,7 @@ static int sdma_init(struct sdma_engine *sdma)
 
 	sdma->channel_control = gen_pool_dma_alloc(sdma->iram_pool, ccbsize, &ccb_phys);
 	if (!sdma->channel_control) {
-		sdma->channel_control = dma_alloc_coherent(NULL, ccbsize,
+		sdma->channel_control = dma_alloc_coherent(sdma->dev, ccbsize,
 						&ccb_phys, GFP_KERNEL);
 		if (!sdma->channel_control) {
 			ret = -ENOMEM;
