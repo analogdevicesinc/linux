@@ -50,9 +50,6 @@ struct ad9162_state {
 
 static const char *clk_names[3] = { "jesd_dac_clk", "dac_clk", "dac_sysref" };
 
-
-
-
 static int ad9162_read(struct spi_device *spi, unsigned reg)
 {
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
@@ -74,6 +71,11 @@ static int ad9162_write(struct spi_device *spi, unsigned reg, unsigned val)
 static int ad9162_get_temperature_code(struct cf_axi_converter *conv)
 {
 	return 0;
+}
+
+static unsigned long long ad9162_get_data_clk(struct cf_axi_converter *conv)
+{
+	return clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]);
 }
 
 static int ad9162_setup(struct ad9162_state *st,
@@ -128,7 +130,7 @@ static int ad9162_setup(struct ad9162_state *st,
 
 	ad916x_dac_set_full_scale_current(ad916x_h, 20);
 
-	ad916x_dac_set_clk_frequency(ad916x_h, 5000000000ULL);
+	ad916x_dac_set_clk_frequency(ad916x_h, ad9162_get_data_clk(&st->conv));
 	if (ret != 0)
 		return ret;
 
@@ -202,11 +204,6 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 		conv->clk[i] = clk;
 	}
 	return 0;
-}
-
-static unsigned long long ad9162_get_data_clk(struct cf_axi_converter *conv)
-{
-	return clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]);
 }
 
 static int ad9162_read_raw(struct iio_dev *indio_dev,
@@ -333,6 +330,95 @@ static int spi_xfer_dummy(void *user_data, uint8_t *wbuf, uint8_t *rbuf, int len
 }
 
 
+static ssize_t ad9162_attr_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9162_state *st = container_of(conv, struct ad9162_state, conv);
+	ad916x_handle_t *ad916x_h = &st->dac_h;
+	unsigned long long readin;
+	int ret;
+
+	ret = kstrtoull(buf, 10, &readin);
+	if (ret)
+		return ret;
+
+	mutex_lock(&indio_dev->mlock);
+
+	switch ((u32)this_attr->address) {
+		case 0:
+			ret = ad916x_nco_set(ad916x_h, 0, readin, 0, 0);
+			break;
+		case 1:
+			ret = ad916x_fir85_set_enable(ad916x_h, !!readin);
+			break;
+		default:
+			ret = -EINVAL;
+	}
+
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret ? ret : len;
+}
+
+static ssize_t ad9162_attr_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9162_state *st = container_of(conv, struct ad9162_state, conv);
+	ad916x_handle_t *ad916x_h = &st->dac_h;
+	int ret = 0;
+	u64 freq;
+	u16 ampl;
+
+	mutex_lock(&indio_dev->mlock);
+	switch ((u32)this_attr->address) {
+		case 0:
+			ad916x_nco_get(ad916x_h, 0, &freq, &ampl, &ret);
+			ret = sprintf(buf, "%llu\n", freq);
+			break;
+		case 1:
+			ad916x_fir85_get_enable(ad916x_h, &ret);
+			ret = sprintf(buf, "%d\n", !!ret);
+			break;
+		default:
+			ret = -EINVAL;
+	}
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
+
+static IIO_DEVICE_ATTR(out_altvoltage2_frequency_nco, S_IRUGO | S_IWUSR,
+		       ad9162_attr_show,
+		       ad9162_attr_store,
+		       0);
+
+
+static IIO_DEVICE_ATTR(out_voltage_fir85_enable,
+		       S_IRUGO | S_IWUSR,
+		       ad9162_attr_show,
+		       ad9162_attr_store,
+		       1);
+
+static struct attribute *ad9162_attributes[] = {
+	&iio_dev_attr_out_altvoltage2_frequency_nco.dev_attr.attr,
+	&iio_dev_attr_out_voltage_fir85_enable.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ad9162_attribute_group = {
+	.attrs = ad9162_attributes,
+};
+
+
 static int ad9162_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
@@ -375,6 +461,7 @@ static int ad9162_probe(struct spi_device *spi)
 	conv->get_data_clk = ad9162_get_data_clk;
 	conv->write_raw = ad9162_write_raw;
 	conv->read_raw = ad9162_read_raw;
+	conv->attrs = &ad9162_attribute_group;
 	conv->spi = spi;
 	conv->id = ID_AD9162;
 
@@ -387,7 +474,7 @@ static int ad9162_probe(struct spi_device *spi)
 
 	st->dac_h.user_data = st->map;
 	st->dac_h.sdo = SPI_SDIO;
-	st->dac_h.dac_freq_hz = 5000000000ULL;
+	st->dac_h.dac_freq_hz = ad9162_get_data_clk(conv);
 	st->dac_h.dev_xfer = spi_xfer_dummy;
 	st->dac_h.delay_us = delay_us;
 	st->dac_h.event_handler = NULL;
