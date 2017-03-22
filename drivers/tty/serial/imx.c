@@ -1262,7 +1262,7 @@ static int imx_startup(struct uart_port *port)
 	unsigned long flags, temp;
 
 	/* some modem may need reset */
-	if (!(tty_port->flags & ASYNC_SUSPENDED)) {
+	if (!tty_port_suspended(tty_port)) {
 		retval = device_reset(sport->port.dev);
 		if (retval && retval != -ENOENT)
 			return retval;
