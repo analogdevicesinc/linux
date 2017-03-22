@@ -400,7 +400,7 @@
 		focaltech,reset-gpio = <&gpio3 1 0x01>;
 		focaltech,irq-gpio = <&gpio3 0 0x02>;
 		focaltech,max-touch-number = <5>;
-		focaltech,display-coords =  <0 0 1080 1920>;
+		focaltech,display-coords =  <0 0 272 480>;
 
 		focaltech,have-key;
 		focaltech,key-number = <3>;
