@@ -332,6 +332,7 @@ static int imx_mu_probe(struct platform_device *pdev)
 	int ret;
 	u32 irq;
 	struct device_node *np;
+	struct device *dev = &pdev->dev;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx6sx-mu");
 	mu_base = of_iomap(np, 0);
@@ -343,7 +344,7 @@ static int imx_mu_probe(struct platform_device *pdev)
 	else
 		irq = platform_get_irq(pdev, 0);
 	ret = request_irq(irq, imx_mu_isr,
-			  IRQF_EARLY_RESUME | IRQF_SHARED, "imx-mu", NULL);
+			  IRQF_EARLY_RESUME | IRQF_SHARED, "imx-mu", dev);
 	if (ret) {
 		pr_err("%s: register interrupt %d failed, rc %d\n",
 			__func__, irq, ret);
