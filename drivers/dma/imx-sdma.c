@@ -774,12 +774,6 @@ static void sdma_update_channel_loop(struct sdma_channel *sdmac)
 		desc->buf_ptail = desc->buf_tail;
 		desc->buf_tail = (desc->buf_tail + 1) % desc->num_bd;
 
-		if (sdmac->peripheral_type == IMX_DMATYPE_UART) {
-			/* restore mode.count after counter readed */
-			sdmac->chn_real_count = bd->mode.count;
-			bd->mode.count = sdmac->chn_count;
-		}
-
 		if (error)
 			sdmac->status = old_status;
 		/*
