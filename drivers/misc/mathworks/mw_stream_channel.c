@@ -397,16 +397,7 @@ start_failed:
  */
 static int mwadma_stop(struct mwadma_dev *mwdev, struct mwadma_chan *mwchan)
 {
-    struct xilinx_dma_config config;
-
-    config.coalesc = 0;
-    config.delay = 0;
-    #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,18,00)
-    dmaengine_device_control(mwchan->chan, DMA_TERMINATE_ALL, (unsigned long)&config);
-    #else
     dmaengine_terminate_all(mwchan->chan);
-    #endif
-    dev_dbg(IP2DEVP(mwdev),"DMA STOP\nIterations = %lu\n",mwchan->transfer_count);
     return 0;
 }
 
@@ -826,9 +817,6 @@ static void mwadma_mmap_dma_open(struct vm_area_struct *vma)
 static void mwadma_free_channel(struct mwadma_dev *mwdev, struct mwadma_chan *mwchan)
 {
     struct mwadma_slist *slist, *_slist;
-    #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,18,00)
-    struct xilinx_dma_config config;
-    #endif
     unsigned long flags;
 
     spin_lock_irqsave(&mwchan->slock, flags);
@@ -840,11 +828,7 @@ static void mwadma_free_channel(struct mwadma_dev *mwdev, struct mwadma_chan *mw
         kfree(&slist->list);
     }
     spin_unlock_irqrestore(&mwchan->slock, flags);
-    #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,18,00)
-    dmaengine_device_control(mwchan->chan, DMA_TERMINATE_ALL, (struct xilinx_dma_config *)&config);
-    #else
     dmaengine_terminate_all(mwchan->chan);
-    #endif
     dev_dbg(IP2DEVP(mwdev), "MWADMA Free channel done.");
 }
 
@@ -1014,7 +998,6 @@ static int mw_axidma_setupchannel(struct mwadma_dev *mwdev,
     int status = 0;
     static int idx = 0;
     char *buf;
-    struct xilinx_dma_config    config;
     if ( (mwdev == NULL) || (mwchan == NULL) ) {
         return -EINVAL;
     }
@@ -1059,14 +1042,7 @@ static int mw_axidma_setupchannel(struct mwadma_dev *mwdev,
     dev_dbg(IP2DEVP(mwdev), "Buffer Interrupts      :%d\n", mwchan->buffer_interrupts);
     /* Get channel for DMA */
     mutex_init(&mwchan->lock);
-    config.coalesc = 0;
-    config.delay = 0;
-    #if LINUX_VERSION_CODE <= KERNEL_VERSION(3,18,00)
-    dmaengine_device_control(mwchan->chan, DMA_SLAVE_CONFIG, (unsigned long)&config);
-    #else
-    /* xilinx_dma_channel_set_config(mwchan->chan, (unsigned long)&config); */
-    dmaengine_slave_config(mwchan->chan, (struct dma_slave_config *)&config);
-    #endif
+
     dev_dbg(IP2DEVP(mwdev),"Name:%s, mwchan:0x%p, mwchan->chan:0x%p\n",
             dma_chan_name(mwchan->chan), mwchan, mwchan->chan);
 
