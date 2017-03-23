@@ -96,6 +96,37 @@ static const struct adc_chip_info ad9371_obs_rx_chip_info = {
 	.num_channels = ARRAY_SIZE(ad9371_obs_rx_channels),
 };
 
+
+#define AD7980_CHANNEL(_ch, _mod, _si) { \
+.type = IIO_VOLTAGE, \
+.indexed = 1, \
+.channel = _ch, \
+.modified = (_mod == 0) ? 0 : 1, \
+.channel2 = _mod, \
+.address = _ch, \
+.scan_index = _si, \
+.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+.scan_type = { \
+	.sign = 'u', \
+	.realbits = 16, \
+	.storagebits = 16, \
+	.shift = 0, \
+	.endianness = IIO_BE, \
+}, \
+}
+
+static const struct iio_chan_spec ad7980_channels[] = {
+	AD7980_CHANNEL(0, 0, 0),
+	AD7980_CHANNEL(1, 0, 1),
+	AD7980_CHANNEL(2, 0, 2),
+
+};
+
+static const struct adc_chip_info ad7980_3x_chip_info = {
+	.channels = ad7980_channels,
+	.num_channels = ARRAY_SIZE(ad7980_channels),
+};
+
 static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -158,6 +189,31 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+static int axiadc_write_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *chan, int val, int val2, long info)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	int ret = 0;
+
+	mutex_lock(&indio_dev->mlock);
+
+	switch (info) {
+		case IIO_CHAN_INFO_SAMP_FREQ:
+			if (IS_ERR(st->clk))
+				ret = -ENODEV;
+			else
+				ret = clk_set_rate(st->clk, val);
+
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+	}
+
+	mutex_unlock(&indio_dev->mlock);
+	return ret;
+}
+
 static inline void adc_write(struct axiadc_state *st,
 	unsigned reg, unsigned val)
 {
@@ -187,6 +243,7 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 
 static const struct iio_info adc_info = {
 	.read_raw = axiadc_read_raw,
+	.write_raw = axiadc_write_raw,
 	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = &adc_reg_access,
 	.update_scan_mode = axiadc_update_scan_mode,
@@ -298,6 +355,7 @@ static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "xlnx,axi-ad-adc-1.00.a", },
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
 	{ .compatible = "adi,axi-ad9371-obs-1.0", .data = &ad9371_obs_rx_chip_info },
+	{ .compatible = "adi,axi-ad7980-3x-1.0", .data = &ad7980_3x_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
@@ -368,7 +426,7 @@ static int adc_probe(struct platform_device *pdev)
 		indio_dev->num_channels = info->num_channels;
 		ret = axiadc_configure_ring_stream(indio_dev, "rx");
 		if (ret)
-				goto err_free_frontend;
+			goto err_free_frontend;
 	}
 
 	ret = iio_device_register(indio_dev);
