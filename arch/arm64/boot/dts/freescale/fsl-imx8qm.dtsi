@@ -648,6 +648,26 @@
 				power-domains = <&pd_dma>;
 			};
 		};
+		pd_gpu: gpu-power-domain {
+			compatible = "nxp,imx8-pd";
+			reg = <SC_R_LAST>;
+			#power-domain-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pd_gpu0: gpu0 {
+				name = "gpu0";
+				reg = <SC_R_GPU_0_PID0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_gpu>;
+			};
+			pd_gpu1: gpu1 {
+				name = "gpu1";
+				reg = <SC_R_GPU_1_PID0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_gpu>;
+			};
+		};
 
 		pd_vpu: vpu-power-domain {
 			compatible = "nxp,imx8-pd";
@@ -995,28 +1015,37 @@
 		power-domains = <&pd_lsio_gpt0>;
 	};
 
-	gpu: gpu@53100000 {
-		compatible = "fsl,imx8qm-gpu", "fsl,imx8x-gpu";
-		reg = <0x0 0x53100000 0 0x40000>,
-			<0x0 0x54100000 0x0 0x40000>,
-			<0x0 0x80000000 0x0 0x08000000>,
-			<0x0 0x0 0x0 0x2000000>;
-		reg-names = "iobase_3d_0","iobase_3d_1",
-			"phys_baseaddr", "contiguous_mem";
-		interrupts = <0 64 0x4>, <0 65 0x4>;
-		interrupt-names = "irq_3d_0", "irq_3d_1";
-		clocks = <&clk IMX8QM_GPU0_CORE_CLK>,
-			<&clk IMX8QM_GPU0_SHADER_CLK>,
-			<&clk IMX8QM_GPU1_CORE_CLK>,
-			<&clk IMX8QM_GPU1_SHADER_CLK>;
-		clock-names = "clk_core_3d_0", "clk_shader_3d_0",
-			"clk_core_3d_1", "clk_shader_3d_1";
-		assigned-clocks = <&clk IMX8QM_GPU0_CORE_CLK>,
-			<&clk IMX8QM_GPU0_SHADER_CLK>,
-			<&clk IMX8QM_GPU1_CORE_CLK>,
-			<&clk IMX8QM_GPU1_SHADER_CLK>;
-		assigned-clock-rates = <800000000>, <100000000>,
-			<800000000>, <100000000>;
+	gpu_3d0: gpu@53100000 {
+		compatible = "fsl,imx8-gpu";
+		reg = <0x0 0x53100000 0 0x40000>;
+		interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QM_GPU0_CORE_CLK>, <&clk IMX8QM_GPU0_SHADER_CLK>;
+		clock-names = "core", "shader";
+		assigned-clocks = <&clk IMX8QM_GPU0_CORE_CLK>, <&clk IMX8QM_GPU0_SHADER_CLK>;
+		assigned-clock-rates = <800000000>, <1000000000>;
+		fsl,sc_gpu_pid = <SC_R_GPU_0_PID0>;
+		power-domains = <&pd_gpu0>;
+		status = "disabled";
+	};
+
+	gpu_3d1: gpu@54100000 {
+		compatible = "fsl,imx8-gpu";
+		reg = <0x0 0x54100000 0x0 0x40000>;
+		interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QM_GPU1_CORE_CLK>, <&clk IMX8QM_GPU1_SHADER_CLK>;
+		clock-names = "core", "shader";
+		assigned-clocks = <&clk IMX8QM_GPU1_CORE_CLK>, <&clk IMX8QM_GPU1_SHADER_CLK>;
+		assigned-clock-rates = <800000000>, <1000000000>;
+		fsl,sc_gpu_pid = <SC_R_GPU_1_PID0>;
+		power-domains = <&pd_gpu1>;
+		status = "disabled";
+	};
+
+	imx8_gpu_ss: imx8_gpu_ss {
+		compatible = "fsl,imx8qm-gpu", "fsl,imx8-gpu-ss";
+		cores = <&gpu_3d0>, <&gpu_3d1>;
+		reg = <0x0 0x80000000 0x0 0x80000000>, <0x0 0x0 0x0 0x8000000>;
+		reg-names = "phys_baseaddr", "contiguous_mem";
 		status = "disabled";
 	};
 
