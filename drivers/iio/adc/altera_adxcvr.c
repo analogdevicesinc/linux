@@ -279,7 +279,7 @@ static int xcvr_calib_rx(struct adxcvr_state *st)
 		mdelay(100);	// Wait 100ms for cal_busy to de-assert
 
 		/* Read PMA calibration status from capability register */
-		addr = XCVR_REG_CAPAB_PMA(link);// | (lane << XCVR_CFG_DPRIO_ADDR_WIDTH);
+		addr = XCVR_REG_CAPAB_PMA(link);
 		read_val = adxcfg_read(st, lane, addr);
 		if ((read_val & XCVR_CAPAB_RX_CAL_BUSY_MASK) == XCVR_CAPAB_RX_CAL_DONE) {
 			dev_info(st->dev, "Link %d ch %d CDR/CMU PLL & RX offset calib OK\n",
@@ -366,13 +366,11 @@ static void adxcvr_work_func(struct work_struct *work)
 
 	struct adxcvr_state *st =
 		container_of(work, struct adxcvr_state, delayed_work.work);
-	unsigned status;
+	unsigned status = 0;
+	int timeout = 1000;
 	unsigned int err = 0;
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
-	mdelay(50);
-	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-	mdelay(50);
 
 	if (st->tx_en) {
 		if (atx_pll_calib(st)) {
@@ -391,8 +389,15 @@ static void adxcvr_work_func(struct work_struct *work)
 			err = 1;
 		}
 
-	status = adxcvr_read(st, ADXCVR_REG_STATUS);
-	if (status != ADXCVR_STATUS) {
+	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+	do {
+		status = adxcvr_read(st, ADXCVR_REG_STATUS);
+		if (status == ADXCVR_STATUS)
+			break;
+		mdelay(1);
+	} while (timeout--);
+
+	if (timeout < 0) {
 		dev_err(st->dev, "Link activation error\n");
 		err = 1;
 	}
