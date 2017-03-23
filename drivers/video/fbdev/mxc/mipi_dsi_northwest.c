@@ -89,6 +89,12 @@ enum mipi_dsi_payload {
 	DSI_PAYLOAD_VIDEO,
 };
 
+struct pll_divider {
+	unsigned int cm;  /* multiplier */
+	unsigned int cn;  /* predivider */
+	unsigned int co;  /* outdivider */
+};
+
 static DECLARE_COMPLETION(dsi_rx_done);
 static DECLARE_COMPLETION(dsi_tx_done);
 
@@ -270,9 +276,9 @@ static void dphy_calc_dividers(int *cm, int *cn, int *co)
 static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 {
 	uint32_t bpp, time_out = 100;
-	uint32_t CN, CM, CO;
 	uint32_t lock;
 	uint32_t req_bit_clk;
+	struct pll_divider div;
 	struct fb_videomode *mode = mipi_dsi->mode;
 	struct mipi_lcd_config *lcd_config = mipi_dsi->lcd_config;
 
@@ -306,19 +312,19 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 		 * refclock = 24MHz
 		 * pll vco = 24 * 40 / (3 * 1) = 320MHz
 		 */
-		CN = 0x10; /* 3  */
-		CM = 0xc8; /* 40 */
-		CO = 0x0;  /* 1  */
+		div.cn = 0x10; /* 3  */
+		div.cm = 0xc8; /* 40 */
+		div.co = 0x0;  /* 1  */
 	} else {
 		/* pll vco = 24 * 63 / (5 * 1) = 302.4MHz */
-		CN = 0x1C; /* 5  */
-		CM = 0xDF; /* 63 */
-		CO = 0x0;  /* 1  */
+		div.cn = 0x1C; /* 5  */
+		div.cm = 0xDF; /* 63 */
+		div.co = 0x0;  /* 1  */
 	}
 
-	writel(CN, mipi_dsi->mmio_base + DPHY_CN);
-	writel(CM, mipi_dsi->mmio_base + DPHY_CM);
-	writel(CO, mipi_dsi->mmio_base + DPHY_CO);
+	writel(div.cn, mipi_dsi->mmio_base + DPHY_CN);
+	writel(div.cm, mipi_dsi->mmio_base + DPHY_CM);
+	writel(div.co, mipi_dsi->mmio_base + DPHY_CO);
 
 	writel(0x25, mipi_dsi->mmio_base + DPHY_TST);
 	writel(0x0, mipi_dsi->mmio_base + DPHY_PD_PLL);
