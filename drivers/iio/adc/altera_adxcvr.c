@@ -17,6 +17,10 @@
 /* ADXCVR Registers */
 
 #define ADXCVR_REG_VERSION			0x0000
+#define VERSION(major, minor, letter)		((major << 16) | (minor << 8) | letter)
+#define VERSION_MAJOR(version)			(version >> 16)
+#define VERSION_MINOR(version)			((version >> 8) & 0xff)
+#define VERSION_LETTER(version)			(version & 0xff)
 
 #define ADXCVR_REG_ID				0x0004
 
@@ -72,6 +76,7 @@ struct adxcvr_state {
 	void __iomem		*adxcvr_regs;
 	void __iomem		*atx_pll_regs;
 	void __iomem		*adxcfg_regs[4];
+	unsigned int 		version;
 	bool			tx_en;
 	bool			rx_en;
 	u32			link_num;
@@ -429,6 +434,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (IS_ERR(st->adxcvr_regs))
 		return PTR_ERR(st->adxcvr_regs);
 
+	st->version = adxcvr_read(st, ADXCVR_REG_VERSION);
+
 	of_property_read_u32(np, "adi,link-number",
 			     &st->link_num);
 	of_property_read_u32(np, "adi,lanes-per-link",
@@ -469,7 +476,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "Can't create the sysfs group\n");
 
-	dev_info(&pdev->dev, "Altera ADXCVR probed\n");
+	dev_info(&pdev->dev, "Altera ADXCVR (%d.%.2d.%c) probed\n",
+			VERSION_MAJOR(st->version),
+			VERSION_MINOR(st->version),
+			VERSION_LETTER(st->version));
 
 	return 0;
 }
