@@ -306,10 +306,10 @@ static ssize_t adxcvr_sysfs_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t count);
 
-static DEVICE_ATTR(adxcvr_resetn, S_IRUGO,
-		   adxcvr_sysfs_show, NULL);
-static DEVICE_ATTR(adxcvr_status, S_IRUGO,
+static DEVICE_ATTR(adxcvr_resetn, S_IWUSR | S_IRUGO,
 		   adxcvr_sysfs_show, adxcvr_sysfs_store);
+static DEVICE_ATTR(adxcvr_status, S_IRUGO,
+		   adxcvr_sysfs_show, NULL);
 
 static struct attribute *adxcvr_sysfs_attrs[] = {
 	&dev_attr_adxcvr_resetn.attr,
@@ -356,8 +356,6 @@ static ssize_t adxcvr_sysfs_store(struct device *dev,
 
 	if (attr == &dev_attr_adxcvr_resetn)
 		reg = ADXCVR_REG_RESETN;
-	if (attr == &dev_attr_adxcvr_status)
-		reg = ADXCVR_REG_STATUS;
 	if (reg == -1)
 		return -EINVAL;
 
