@@ -47,16 +47,20 @@
 #define PM_INFO_PM_INFO_SIM_VBASE_OFFSET	0x18
 #define PM_INFO_PM_INFO_SCG1_VBASE_OFFSET	0x1c
 #define PM_INFO_PM_INFO_MMDC_VBASE_OFFSET	0x20
-#define PM_INFO_PM_INFO_GPIOC_VBASE_OFFSET	0x24
-#define PM_INFO_PM_INFO_MMDC_IO_VBASE_OFFSET	0x28
-#define PM_INFO_PM_INFO_SMC1_VBASE_OFFSET	0x2c
-#define PM_INFO_PM_INFO_SCG1_VAL_OFFSET		0x30
-#define PM_INFO_MX7ULP_TTBR1_V_OFFSET		0x70
-#define PM_INFO_MMDC_IO_NUM_OFFSET		0x74
-#define PM_INFO_MMDC_IO_VAL_OFFSET		0x78
+#define PM_INFO_PM_INFO_MMDC_IO_VBASE_OFFSET	0x24
+#define PM_INFO_PM_INFO_SMC1_VBASE_OFFSET	0x28
+#define PM_INFO_PM_INFO_SCG1_VAL_OFFSET		0x2c
+#define PM_INFO_MX7ULP_TTBR1_V_OFFSET		0x6c
+#define PM_INFO_MX7ULP_GPIO_REG_OFFSET		0x70
+#define PM_INFO_IOMUX_NUM_OFFSET		0x90
+#define PM_INFO_IOMUX_VAL_OFFSET		0x94
+#define PM_INFO_SELECT_INPUT_NUM_OFFSET		0x264
+#define PM_INFO_SELECT_INPUT_VAL_OFFSET		0x268
+#define PM_INFO_MMDC_IO_NUM_OFFSET		0x3a0
+#define PM_INFO_MMDC_IO_VAL_OFFSET		0x3a4
 /* below offsets depends on MX7ULP_MAX_MMDC_IO_NUM(36) definition */
-#define PM_INFO_MMDC_NUM_OFFSET			0x198
-#define PM_INFO_MMDC_VAL_OFFSET			0x19c
+#define PM_INFO_MMDC_NUM_OFFSET			0x4c4
+#define PM_INFO_MMDC_VAL_OFFSET			0x4c8
 
 #define DGO_CTRL0	0x50
 #define DGO_GPR3	0x60
@@ -86,10 +90,15 @@
 
 #define PMC1_CTRL	0x24
 
-#define GPIO_PDOR	0x0
-#define GPIO_PDDR	0x14
+#define GPIO_PDOR		0x0
+#define GPIO_PDDR		0x14
+#define GPIO_PORT_NUM		0x4
+#define GPIO_PORT_OFFSET	0x40
 
 #define PMCTRL		0x10
+
+#define IOMUX_OFFSET		0x0
+#define SELECT_INPUT_OFFSET	0x200
 
 	.align 3
 
@@ -434,11 +443,6 @@ resume:
 	mcr     p15, 0, r6, c1, c0, 0
 	isb
 
-	ldr	r6, =MX7ULP_PMC1_BASE_ADDR
-	ldr	r7, [r6, #PMC1_CTRL]
-	orr	r7, r7, #(1 << 14)
-	str	r7, [r6, #PMC1_CTRL]
-
 	ldr	r6, =MX7ULP_SIM_BASE_ADDR
 	ldr	r0, [r6, #DGO_GPR4]
 	/* get physical resume address from pm_info. */
@@ -535,7 +539,52 @@ resume:
 	orr	r7, r7, #(1 << 30)
 	str	r7, [r11, #0x3c]
 
+	/* restore gpio settings */
+	ldr	r10, =MX7ULP_GPIOC_BASE_ADDR
+	ldr	r7, =PM_INFO_MX7ULP_GPIO_REG_OFFSET
+	add	r7, r7, r0
+	ldr	r6, =GPIO_PORT_NUM
+12:
+	ldr	r9, [r7], #0x4
+	str	r9, [r10, #GPIO_PDOR]
+	ldr	r9, [r7], #0x4
+	str	r9, [r10, #GPIO_PDDR]
+	add     r10, r10, #GPIO_PORT_OFFSET
+	subs	r6, r6, #0x1
+	bne	12b
+
+	/* restore iomuxc settings */
+	ldr	r10, =MX7ULP_IOMUXC1_BASE_ADDR
+	add	r10, r10, #IOMUX_OFFSET
+	ldr	r6, [r0, #PM_INFO_IOMUX_NUM_OFFSET]
+	ldr	r7, =PM_INFO_IOMUX_VAL_OFFSET
+	add	r7, r7, r0
+13:
+	ldr	r9, [r7], #0x4
+	str	r9, [r10], #0x4
+	subs	r6, r6, #0x1
+	bne	13b
+
+	/* restore select input settings */
+	ldr	r10, =MX7ULP_IOMUXC1_BASE_ADDR
+	add	r10, r10, #SELECT_INPUT_OFFSET
+	ldr	r6, [r0, #PM_INFO_SELECT_INPUT_NUM_OFFSET]
+	ldr	r7, =PM_INFO_SELECT_INPUT_VAL_OFFSET
+	add	r7, r7, r0
+14:
+	ldr	r9, [r7], #0x4
+	str	r9, [r10], #0x4
+	subs	r6, r6, #0x1
+	bne	14b
+
+	/* isoack */
+	ldr	r6, =MX7ULP_PMC1_BASE_ADDR
+	ldr	r7, [r6, #PMC1_CTRL]
+	orr	r7, r7, #(1 << 14)
+	str	r7, [r6, #PMC1_CTRL]
+
 	restore_mmdc_settings
+
 	mov	pc, lr
 ENDPROC(imx7ulp_suspend)
 

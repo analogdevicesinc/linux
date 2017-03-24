@@ -84,6 +84,11 @@
 
 #define MX7ULP_MAX_MMDC_IO_NUM		36
 #define MX7ULP_MAX_MMDC_NUM		50
+#define MX7ULP_MAX_IOMUX_NUM		116
+#define MX7ULP_MAX_SELECT_INPUT_NUM	78
+
+#define IOMUX_START		0x0
+#define SELECT_INPUT_START	0x200
 
 #define TPM_SC		0x10
 #define TPM_MOD		0x18
@@ -129,7 +134,6 @@ static void __iomem *gpio_base[4];
 static void __iomem *suspend_ocram_base;
 static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_base);
 
-static u32 gpio_regs[4][2];
 static u32 tpm5_regs[4];
 static u32 lpuart4_regs[4];
 static u32 pcc2_regs[25][2] = {
@@ -155,8 +159,6 @@ static u32 scg1_offset[16] = {
 	0x510, 0x514, 0x600, 0x604,
 	0x608, 0x60c, 0x610, 0x614,
 };
-
-static u32 ptc1;
 
 extern unsigned long iram_tlb_base_addr;
 extern unsigned long iram_tlb_phys_addr;
@@ -245,11 +247,15 @@ struct imx7ulp_cpu_pm_info {
 	void __iomem *sim_base;
 	void __iomem *scg1_base;
 	void __iomem *mmdc_base;
-	void __iomem *gpio_base;
 	void __iomem *mmdc_io_base;
 	void __iomem *smc1_base;
 	u32 scg1[16];
 	u32 ttbr1; /* Store TTBR1 */
+	u32 gpio[4][2];
+	u32 iomux_num; /* Number of IOs which need saved/restored. */
+	u32 iomux_val[MX7ULP_MAX_IOMUX_NUM]; /* To save value */
+	u32 select_input_num; /* Number of select input which need saved/restored. */
+	u32 select_input_val[MX7ULP_MAX_SELECT_INPUT_NUM]; /* To save value */
 	u32 mmdc_io_num; /* Number of MMDC IOs which need saved/restored. */
 	u32 mmdc_io_val[MX7ULP_MAX_MMDC_IO_NUM][2]; /* To save offset and value */
 	u32 mmdc_num; /* Number of MMDC registers which need saved/restored. */
@@ -273,18 +279,8 @@ static void imx7ulp_gpio_save(void)
 	int i;
 
 	for (i = 0; i < 4; i++) {
-		gpio_regs[i][0] = readl_relaxed(gpio_base[i] + GPIO_PDOR);
-		gpio_regs[i][1] = readl_relaxed(gpio_base[i] + GPIO_PDDR);
-	}
-}
-
-static void imx7ulp_gpio_restore(void)
-{
-	int i;
-
-	for (i = 0; i < 4; i++) {
-		writel_relaxed(gpio_regs[i][0], gpio_base[i] + GPIO_PDOR);
-		writel_relaxed(gpio_regs[i][1], gpio_base[i] + GPIO_PDDR);
+		pm_info->gpio[i][0] = readl_relaxed(gpio_base[i] + GPIO_PDOR);
+		pm_info->gpio[i][1] = readl_relaxed(gpio_base[i] + GPIO_PDDR);
 	}
 }
 
@@ -330,12 +326,19 @@ static void imx7ulp_pcc2_restore(void)
 
 static inline void imx7ulp_iomuxc_save(void)
 {
-	ptc1 = readl_relaxed(iomuxc1_base + 0x4);
-}
+	int i;
 
-static inline void imx7ulp_iomuxc_restore(void)
-{
-	writel_relaxed(ptc1, iomuxc1_base + 0x4);
+	pm_info->iomux_num = MX7ULP_MAX_IOMUX_NUM;
+	pm_info->select_input_num = MX7ULP_MAX_SELECT_INPUT_NUM;
+
+	for (i = 0; i < pm_info->iomux_num; i++)
+		pm_info->iomux_val[i] =
+			readl_relaxed(iomuxc1_base +
+				IOMUX_START + i * 0x4);
+	for (i = 0; i < pm_info->select_input_num; i++)
+		pm_info->select_input_val[i] =
+			readl_relaxed(iomuxc1_base +
+				SELECT_INPUT_START + i * 0x4);
 }
 
 static void imx7ulp_lpuart_save(void)
@@ -463,13 +466,11 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 		/* Zzz ... */
 		cpu_suspend(0, imx7ulp_suspend_finish);
 
-		imx7ulp_gpio_restore();
 		imx7ulp_pcc2_restore();
 		imx7ulp_pcc3_restore();
 		imx7ulp_lpuart_restore();
 		imx7ulp_set_dgo(0);
 		imx7ulp_tpm_restore();
-		imx7ulp_iomuxc_restore();
 		imx7ulp_set_lpm(RUN);
 		break;
 	default:
@@ -677,8 +678,6 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	pm_info->resume_addr = virt_to_phys(imx7ulp_cpu_resume);
 	pm_info->pm_info_size = sizeof(*pm_info);
 
-	pm_info->gpio_base = aips1_base +
-		(MX7ULP_GPIOC_BASE_ADDR & ~ADDR_1M_MASK);
 	pm_info->scg1_base = aips2_base +
 		(MX7ULP_SCG1_BASE_ADDR & ~ADDR_1M_MASK);
 	pm_info->smc1_base = aips3_base +
