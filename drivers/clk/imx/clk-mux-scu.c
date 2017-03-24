@@ -50,7 +50,6 @@ struct clk_mux_scu {
 
 struct clk_mux_gpr_scu {
 	struct clk_hw hw;
-	spinlock_t	*lock;
 	sc_rsrc_t	rsrc_id;
 	sc_ctrl_t	gpr_id;
 };
@@ -266,18 +265,13 @@ void clk_unregister_mux_scu(struct clk *clk)
 static u8 clk_mux_gpr_scu_get_parent(struct clk_hw *hw)
 {
 	struct clk_mux_gpr_scu *gpr_mux = to_clk_mux_gpr_scu(hw);
-	unsigned long flags = 0;
 	u32 val = 0;
 
 	if (!ccm_ipc_handle)
 		return 0;
 
-	spin_lock_irqsave(gpr_mux->lock, flags);
-
 	sc_misc_get_control(ccm_ipc_handle,
 		gpr_mux->rsrc_id, gpr_mux->gpr_id, &val);
-
-	spin_unlock_irqrestore(gpr_mux->lock, flags);
 
 	return (u8)val;
 }
@@ -285,17 +279,12 @@ static u8 clk_mux_gpr_scu_get_parent(struct clk_hw *hw)
 static int clk_mux_gpr_scu_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_mux_gpr_scu *gpr_mux = to_clk_mux_gpr_scu(hw);
-	unsigned long flags = 0;
 
 	if (!ccm_ipc_handle)
 		return -1;
 
-	spin_lock_irqsave(gpr_mux->lock, flags);
-
 	sc_misc_set_control(ccm_ipc_handle,
 		gpr_mux->rsrc_id, gpr_mux->gpr_id, index);
-
-	spin_unlock_irqrestore(gpr_mux->lock, flags);
 
 	return 0;
 }
@@ -329,7 +318,6 @@ struct clk *clk_register_mux_gpr_scu(struct device *dev, const char *name,
 	init.num_parents = num_parents;
 	init.flags = 0;
 
-	gpr_scu_mux->lock = &imx_ccm_lock;
 	gpr_scu_mux->hw.init = &init;
 	gpr_scu_mux->rsrc_id = rsrc_id;
 	gpr_scu_mux->gpr_id = gpr_id;
