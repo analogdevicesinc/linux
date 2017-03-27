@@ -165,6 +165,7 @@ isee	ISEE 2007 S.L.
 isil	Intersil
 issi	Integrated Silicon Solutions Inc.
 itead	ITEAD Intelligent Systems Co.Ltd
+ite	ITE Tech. Inc.
 iwave  iWave Systems Technologies Pvt. Ltd.
 jdi	Japan Display Inc.
 jedec	JEDEC Solid State Technology Association
