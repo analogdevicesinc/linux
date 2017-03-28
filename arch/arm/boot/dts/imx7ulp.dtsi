@@ -43,8 +43,8 @@
 
 		operating-points = <
 			/* KHz	uV */
-			531648	1025000
-			416072	925000
+			531648	1125000
+			416072	1025000
 		>;
 		clocks = <&clks IMX7ULP_CLK_ARM>,
 			 <&clks IMX7ULP_CLK_CORE_DIV>,
