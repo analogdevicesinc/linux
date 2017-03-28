@@ -108,7 +108,8 @@ static int imx7ulp_set_target(struct cpufreq_policy *policy, unsigned int index)
 		clk_set_rate(spll_pfd0, new_freq * 1000);
 		clk_set_parent(sys_sel, spll_sel);
 		clk_set_parent(arm_clk, core_div);
-		pm_qos_remove_request(&pm_qos_hsrun);
+		if (old_freq > MAX_RUN_FREQ)
+			pm_qos_remove_request(&pm_qos_hsrun);
 	}
 
 	/* scaling down? scaling voltage after frequency */
