@@ -32,6 +32,10 @@
 	status = "disabled";
 };
 
+&dmac_s {
+	status = "disabled";
+};
+
 &watchdog0 {
 	status = "okay";
 	reset-on-timeout;
