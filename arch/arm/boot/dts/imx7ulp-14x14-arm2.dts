@@ -15,7 +15,7 @@
 	compatible = "fsl,imx7ulp-14x14-arm2", "fsl,imx7ulp", "Generic DT based system";
 
 	chosen {
-		bootargs = "console=ttyLP0,115200 earlycon=lpuart32,0x402D0010,115200";
+		bootargs = "console=ttyLP0,115200 earlycon=lpuart32,0x402D0000,115200";
 		stdout-path = &lpuart4;
 	};
 
