@@ -163,12 +163,17 @@ static int adf4360_probe(struct spi_device *spi)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
+	spi_set_drvdata(spi, adf4360);
+
 	return of_clk_add_provider(spi->dev.of_node, of_clk_src_simple_get, clk);
 }
 
 static int adf4360_remove(struct spi_device *spi)
 {
+	struct adf4360 *adf4360 = spi_get_drvdata(spi);
+
 	of_clk_del_provider(spi->dev.of_node);
+	adf4360_write_reg(adf4360, ADF4360_REG_CTRL, BIT(21) | BIT(20));
 
 	return 0;
 }
