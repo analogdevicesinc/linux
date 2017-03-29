@@ -239,7 +239,7 @@ static int ad9963_m2k_setup(struct ad9963 *ad9963)
 	regmap_write(ad9963->regmap, AD9963_REG_TX_DATA_INF, 0x11);
 	regmap_write(ad9963->regmap, AD9963_REG_RX_DATA_INF0, 0x23);
 	regmap_write(ad9963->regmap, AD9963_REG_RX_DATA_INF1, 0x01);
-	regmap_write(ad9963->regmap, AD9963_REG_DAC12_CONFIG, 0xf2);
+	regmap_write(ad9963->regmap, AD9963_REG_DAC12_CONFIG, 0x32);
 
 	regmap_write(ad9963->regmap, AD9963_REG_AUX_ADC_CTRL0, 0x80);
 	regmap_write(ad9963->regmap, 0x66, 0x00);
