@@ -309,14 +309,6 @@
 			dds-connected = <&dds>;
 		};
 
-		logic_analyzer_clkgen: clock@7000000 {
-			compatible = "adi,axi-clkgen-2.00.a";
-			reg = <0x70000000 0x10000>;
-			clocks = <&clkc 15>;
-
-			#clock-cells = <0>;
-		};
-
 		logic_analyzer_rx_dma: dma@7c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c400000 0x10000>;
@@ -352,7 +344,7 @@
 			compatible = "adi,m2k-logic-analyzer";
 			reg = <0x70100000 0x10000>;
 
-			clocks = <&logic_analyzer_clkgen 0>;
+			clocks = <&clkc 17>;
 
 			dmas = <&logic_analyzer_tx_dma 0>, <&logic_analyzer_rx_dma 0>;
 			dma-names = "tx", "rx";
