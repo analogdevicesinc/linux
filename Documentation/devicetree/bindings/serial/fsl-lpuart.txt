@@ -8,14 +8,22 @@ Required properties:
     on LS1021A SoC with 32-bit big-endian register organization
   - "fsl,imx7ulp-lpuart" for lpuart compatible with the one integrated
     on i.MX7ULP SoC with 32-bit little-endian register organization
+  - "fsl,imx8qm-lpuart"for lpuart  compatible with the one integrated
+    on i.MX8QM SoC with 32-bit little-endian register organization, which
+    is based on i.MX7ULP lpuart IP but add EEOP new feature.
 - reg : Address and length of the register set for the device
 - interrupts : Should contain uart interrupt
 - clocks : phandle + clock specifier pairs, one for each entry in clock-names
-- clock-names : should contain: "ipg" - the uart clock
+- clock-names : should contain: "ipg" - the uart peripheral register accessing
+  clock source, if "per" clock missing, the "ipg" clock also is the uart module
+  clock.
 
 Optional properties:
 - dmas: A list of two dma specifiers, one for each entry in dma-names.
 - dma-names: should contain "tx" and "rx".
+- clocks : phandle + clock specifier pairs, one for each entry in clock-names
+- clock-names : "per" - the uart module clock.
+  clock.
 
 Note: Optional properties for DMA support. Write them both or both not.
 
