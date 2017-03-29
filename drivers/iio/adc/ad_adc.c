@@ -254,10 +254,18 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	mutex_lock(&indio_dev->mlock);
-	if (readval == NULL)
-		adc_write(st, reg & 0xFFFF, writeval);
-	else
-		*readval = adc_read(st, reg & 0xFFFF);
+
+	if (reg & 0x80000000) {
+		if (readval == NULL)
+			iowrite32(writeval, st->slave_regs + (reg & 0xffff));
+		else
+			*readval = ioread32(st->slave_regs + (reg & 0xffff));
+	} else {
+		if (readval == NULL)
+			adc_write(st, reg & 0xFFFF, writeval);
+		else
+			*readval = adc_read(st, reg & 0xFFFF);
+	}
 	mutex_unlock(&indio_dev->mlock);
 
 	return 0;
