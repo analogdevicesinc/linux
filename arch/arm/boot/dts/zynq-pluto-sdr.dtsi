@@ -161,6 +161,7 @@
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			adi,axi-interpolation-core-available;
+			adi,axi-dds-default-scale = <0>;
 		};
 
 		mwipcore@43C00000 {
