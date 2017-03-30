@@ -177,6 +177,8 @@
 		compatible = "wlf,wm8960";
 		reg = <0x1a>;
 		wlf,shared-lrclk;
+		clocks = <&clks IMX6UL_CLK_SAI2>;
+		clock-names = "mclk";
 	};
 
 	ov5640: ov5640@3c {
