@@ -68,7 +68,7 @@ static void populate_mux_pd(struct clk_mux_scu *clk)
 	if (np) {
 		pd_args.np = np;
 		pd_args.args_count = 0;
-		of_genpd_add_provider_simple(np, clk->pd);
+		clk->pd = genpd_get_from_provider(&pd_args);
 	}
 }
 
