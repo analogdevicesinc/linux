@@ -194,7 +194,7 @@
 	phy-mode = "rgmii";
 	phy-handle = <&ethphy1>;
 	fsl,magic-packet;
-	status = "disabled";
+	status = "okay";
 
 	mdio {
 		#address-cells = <1>;
@@ -979,7 +979,7 @@
 	keep-power-in-suspend;
 	enable-sdio-wakeup;
 	vmmc-supply = <&reg_sd1_vmmc>;
-	status = "disabled";
+	status = "okay";
 };
 
 &usdhc2 {
@@ -993,7 +993,7 @@
 	keep-power-in-suspend;
 	enable-sdio-wakeup;
 	vmmc-supply = <&reg_sd2_vmmc>;
-	status = "disabled";
+	status = "okay";
 };
 
 &usdhc3 {
@@ -1007,7 +1007,7 @@
 	bus-width = <8>;
 	non-removable;
 	keep-power-in-suspend;
-	status = "disabled";
+	status = "okay";
 };
 
 &wdog1 {
