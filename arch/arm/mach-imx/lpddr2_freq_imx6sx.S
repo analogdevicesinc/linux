@@ -21,6 +21,13 @@
 #define CCM_CDHIPR	0x48
 
 #define L2_CACHE_SYNC	0x730
+#define PL310_AUX_CTRL          0x104
+#define PL310_DCACHE_LOCKDOWN_BASE 0x900
+#define PL310_AUX_16WAY_BIT	0x10000
+#define PL310_LOCKDOWN_NBREGS   8
+#define PL310_LOCKDOWN_SZREG    4
+#define PL310_8WAYS_MASK        0x00FF
+#define PL310_16WAYS_UPPERMASK  0xFF00
 
 #define MMDC0_MDPDC	0x4
 #define MMDC0_MAPSR	0x404
@@ -285,8 +292,17 @@ ENTRY(imx6_up_lpddr2_freq_change)
 	dsb
 	isb
 
-	/* Disable L2. */
-	str	r6, [r7, #0x100]
+	ldr	r3, [r7, #PL310_AUX_CTRL]
+	tst	r3, #PL310_AUX_16WAY_BIT
+	mov	r3, #PL310_8WAYS_MASK
+	orrne	r3, #PL310_16WAYS_UPPERMASK
+	mov	r6, #PL310_LOCKDOWN_NBREGS
+	add	r5, r7, #PL310_DCACHE_LOCKDOWN_BASE
+1:	/* lock Dcache and Icache */
+	str	r3, [r5], #PL310_LOCKDOWN_SZREG
+	str	r3, [r5], #PL310_LOCKDOWN_SZREG
+	subs	r6, r6, #1
+	bne	1b
 #endif
 
 skip_disable_l2:
@@ -394,10 +410,18 @@ skip_power_down:
 	beq	skip_enable_l2
 
 #ifdef CONFIG_CACHE_L2X0
-	/* Enable L2. */
 	ldr	r7, =IMX_IO_P2V(MX6Q_L2_BASE_ADDR)
-	ldr	r6, =0x1
-	str	r6, [r7, #0x100]
+	ldr	r3, [r7, #PL310_AUX_CTRL]
+	tst	r3, #PL310_AUX_16WAY_BIT
+	mov	r6, #PL310_LOCKDOWN_NBREGS
+	mov	r3, #0x00	/* 8 ways mask */
+	orrne	r3, #0x0000	/* 16 ways mask */
+	add	r5, r7, #PL310_DCACHE_LOCKDOWN_BASE
+1:	/* lock Dcache and Icache */
+	str	r3, [r5], #PL310_LOCKDOWN_SZREG
+	str	r3, [r5], #PL310_LOCKDOWN_SZREG
+	subs	r6, r6, #1
+	bne	1b
 #endif
 
 skip_enable_l2:
