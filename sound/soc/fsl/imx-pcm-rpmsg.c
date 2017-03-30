@@ -140,6 +140,11 @@ static int imx_rpmsg_pcm_open(struct snd_pcm_substream *substream)
 
 	substream->runtime->private_data = prtd;
 
+	ret = snd_pcm_hw_constraint_integer(substream->runtime,
+					    SNDRV_PCM_HW_PARAM_PERIODS);
+	if (ret < 0)
+		return ret;
+
 	return ret;
 }
 
