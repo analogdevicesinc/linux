@@ -22,6 +22,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
+#include <linux/of_pci.h>
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -1442,22 +1443,31 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		struct timeval tv1s, tv1e, tv2s, tv2e;
 		u32 tv_count1, tv_count2;
 		struct device_node *np = node;
-		struct of_pci_range range;
-		struct of_pci_range_parser parser;
-		unsigned long restype;
 		struct pcie_port *pp = &pci->pp;
+		LIST_HEAD(res);
+		struct resource_entry *win, *tmp;
 
-		if (of_pci_range_parser_init(&parser, np)) {
+		ret = of_pci_get_host_bridge_resources(np, 0, 0xff, &res,
+						       &pp->io_base);
+		if (ret)
+			return ret;
+
+		ret = devm_request_pci_bus_resources(&pdev->dev, &res);
+		if (ret) {
 			dev_err(dev, "missing ranges property\n");
-			return -EINVAL;
+			pci_free_resource_list(&res);
+			return ret;
 		}
 
-		/* Get the memory ranges from DT */
-		for_each_of_pci_range(&parser, &range) {
-			restype = range.flags & IORESOURCE_TYPE_BITS;
-			if (restype == IORESOURCE_MEM) {
-				of_pci_range_to_resource(&range, np, pp->mem);
+		/* Get the I/O and memory ranges from DT */
+		resource_list_for_each_entry_safe(win, tmp, &res) {
+			switch (resource_type(win->res)) {
+			case IORESOURCE_MEM:
+				pp->mem = win->res;
 				pp->mem->name = "MEM";
+				pp->mem_size = resource_size(pp->mem);
+				pp->mem_bus_addr = pp->mem->start - win->offset;
+				break;
 			}
 		}
 
