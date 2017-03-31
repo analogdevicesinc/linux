@@ -215,6 +215,18 @@ config FSL_EDMA
 	  multiplexing capability for DMA request sources(slot).
 	  This module can be found on Freescale Vybrid and LS-1 SoCs.
 
+config FSL_EDMA_V3
+	tristate "Freescale eDMA v3 engine support"
+	depends on OF
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Support the Freescale eDMA v3 engine with programmable channel.
+	  This driver is based on FSL_EDMA but big changes come such as
+	  different interrupt for different channel, different register
+	  scope for different channel.
+	  This module can be found on Freescale i.MX8QM.
+
 config FSL_RAID
         tristate "Freescale RAID engine Support"
         depends on FSL_SOC && !ASYNC_TX_ENABLE_CHANNEL_SWITCH
