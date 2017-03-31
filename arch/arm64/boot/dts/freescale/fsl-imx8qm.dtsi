@@ -368,7 +368,7 @@
 				#power-domain-cells = <0>;
 				power-domains = <&pd_conn>;
 			};
-			pd_conn_sdch1: cPD_CONN_SDHC_1 {
+			pd_conn_sdch1: PD_CONN_SDHC_1 {
 				reg = <SC_R_SDHC_1>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_conn>;
@@ -696,39 +696,48 @@
 				power-domains = <&pd_dma>;
 			};
 		};
-		pd_gpu: gpu-power-domain {
+		pd_gpu: PD_GPU {
 			compatible = "nxp,imx8-pd";
 			reg = <SC_R_LAST>;
 			#power-domain-cells = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_gpu0: gpu0 {
-				name = "gpu0";
+			pd_gpu0: PD_GPU0 {
 				reg = <SC_R_GPU_0_PID0>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_gpu>;
 			};
-			pd_gpu1: gpu1 {
-				name = "gpu1";
+			pd_gpu1: PD_GPU1 {
 				reg = <SC_R_GPU_1_PID0>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_gpu>;
 			};
 		};
 
-		pd_vpu: vpu-power-domain {
+		pd_vpu: PD_VPU {
 			compatible = "nxp,imx8-pd";
-			reg = <SC_R_VPU_PID0>;
+			reg = <SC_R_VPU>;
 			#power-domain-cells = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_vpu_core: vpu_core {
-				name = "vpu_core";
+			pd_vpu_core: VPU_CORE {
 				reg = <SC_R_VPUCORE>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_vpu>;
+			};
+
+			pd_vpu_enc: VPU_ENC {
+				reg = <SC_R_VPU_ENC_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_vpu_core>;
+			};
+
+			pd_vpu_dec: VPU_DEC {
+				reg = <SC_R_VPU_DEC_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_vpu_core>;
 			};
 		};
 	};
@@ -1344,7 +1353,7 @@
 			<&clk IMX8QM_VPU_UART_CLK>;
 		assigned-clock-rates = <800000000>, <600000000>,
 			<600000000>, <80000000>;
-		power-domains = <&pd_vpu_core>;
+		power-domains = <&pd_vpu_dec>;
 		status = "disabled";
 	};
 
