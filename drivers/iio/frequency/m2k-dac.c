@@ -185,7 +185,7 @@ static ssize_t m2k_dac_write_dma_sync(struct device *dev,
 	return len;
 }
 
-static IIO_DEVICE_ATTR(dma_sync, S_IRUGO,
+static IIO_DEVICE_ATTR(dma_sync, 0664,
 	m2k_dac_read_dma_sync, m2k_dac_write_dma_sync, 0);
 
 static struct attribute *m2k_dac_attributes[] = {
