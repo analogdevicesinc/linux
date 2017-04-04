@@ -161,7 +161,7 @@
                     ad7980_0: AD7980-JB@0-jb {
                             compatible = "adi,ad7980";
                             reg = <0>;
-                            spi-max-frequency = <50000000>;
+			    spi-max-frequency = <25000000>;
                             clocks = <&ad7980_clkin 0>;
 			    clock-names = "sampl_clk";
 
@@ -188,7 +188,7 @@
 		    ad7980_1: AD7980-JC@1-jc {
                             compatible = "adi,ad7980";
                             reg = <0>;
-			    spi-max-frequency = <50000000>;
+			    spi-max-frequency = <25000000>;
 			    clocks = <&ad7980_clkin 0>;
 			    clock-names = "sampl_clk";
 // 			    dmas = <&rx_dma1 0>;
@@ -212,7 +212,7 @@
 		    ad7980_2: AD7980-JD@2-jd {
                             compatible = "adi,ad7980";
                             reg = <0>;
-			    spi-max-frequency = <50000000>;
+			    spi-max-frequency = <25000000>;
 			    clocks = <&ad7980_clkin 0>;
 			    clock-names = "sampl_clk";
 // 			    dmas = <&rx_dma2 0>;
