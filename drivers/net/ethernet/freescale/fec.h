@@ -554,6 +554,7 @@ struct fec_enet_private {
 	phy_interface_t	phy_interface;
 	struct device_node *phy_node;
 	int	link;
+	bool	fixed_link;
 	int	full_duplex;
 	int	speed;
 	struct	completion mdio_done;
