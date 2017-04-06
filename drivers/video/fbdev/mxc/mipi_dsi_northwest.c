@@ -772,13 +772,6 @@ static void mipi_dsi_disable(struct mxc_dispdrv_handle *disp,
 	if (!mipi_dsi->encoder)
 		mipi_display_enter_sleep(mipi_dsi->disp_mipi);
 
-	if (fbi->state == FBINFO_STATE_SUSPENDED) {
-		writel(0x1, mipi_dsi->mmio_base + DPHY_PD_PLL);
-		writel(0x1, mipi_dsi->mmio_base + DPHY_PD_DPHY);
-
-		mipi_dsi->lcd_inited = 0;
-	}
-
 	clk_disable_unprepare(mipi_dsi->esc_clk);
 
 	reset_dsi_domains(mipi_dsi, 1);
@@ -1041,6 +1034,19 @@ static int mipi_dsi_runtime_resume(struct device *dev)
 
 static int mipi_dsi_suspend(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mipi_dsi_info *mipi_dsi = dev_get_drvdata(&pdev->dev);
+
+	if (unlikely(mipi_dsi->lcd_inited)) {
+		clk_prepare_enable(mipi_dsi->esc_clk);
+
+		writel(0x1, mipi_dsi->mmio_base + DPHY_PD_PLL);
+		writel(0x1, mipi_dsi->mmio_base + DPHY_PD_DPHY);
+
+		clk_disable_unprepare(mipi_dsi->esc_clk);
+		mipi_dsi->lcd_inited = 0;
+	}
+
 	pinctrl_pm_select_sleep_state(dev);
 
 	return 0;
