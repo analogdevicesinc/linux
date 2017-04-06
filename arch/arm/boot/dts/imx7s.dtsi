@@ -534,7 +534,7 @@
 					 anatop-reg-offset = <0x220>;
 					 anatop-vol-bit-shift = <8>;
 					 anatop-vol-bit-width = <5>;
-					 anatop-min-bit-val = <8>;
+					 anatop-min-bit-val = <0x14>;
 					 anatop-min-voltage = <1100000>;
 					 anatop-max-voltage = <1300000>;
 					 anatop-enable-bit = <31>;
