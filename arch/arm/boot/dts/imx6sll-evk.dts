@@ -685,10 +685,10 @@
 	pinctrl-0 = <&pinctrl_lcdif_dat
 		     &pinctrl_lcdif_ctrl>;
 	lcd-supply = <&reg_lcd>;
-	display = <&display>;
+	display = <&display0>;
 	status = "okay";
 
-	display: display {
+	display0: display@0 {
 		bits-per-pixel = <16>;
 		bus-width = <24>;
 

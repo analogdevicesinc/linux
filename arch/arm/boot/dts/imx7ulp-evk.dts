@@ -337,7 +337,7 @@
 	disp-dev = "mipi_dsi_northwest";
 	display = <&display0>;
 
-	display0: display {
+	display0: display@0 {
 		bits-per-pixel = <16>;
 		bus-width = <24>;
 
