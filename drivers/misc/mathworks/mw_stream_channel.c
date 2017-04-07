@@ -72,79 +72,28 @@ static int mwadma_open(struct inode *inode, struct file *fp)
  */
 static int mwadma_allocate_desc(struct mwadma_slist **new, struct mwadma_chan *mwchan, unsigned int this_idx)
 {
-    struct scatterlist *this_sg;
-    struct mwadma_slist * tmp;
-    int ret, i = 0;
+    struct mwadma_slist *tmp;
     size_t ring_bytes;
     
     ring_bytes = mwchan->length/mwchan->ring_total;
-    tmp = (struct mwadma_slist *)kmalloc(sizeof(struct mwadma_slist),GFP_KERNEL);
-    tmp->status = BD_UNALLOC;
-    tmp->sg_t = (struct sg_table *)kmalloc(sizeof(struct sg_table),GFP_KERNEL);
-    if (tmp->sg_t == NULL) {
-        pr_err("Error in sgtable KMALLOC\n");
-        return -ENOMEM;
-    }
-    ret = sg_alloc_table(tmp->sg_t, mwchan->sg_entries, GFP_ATOMIC);
-    if (ret) {
-        pr_err("Error in sg_alloc_table\n");
-        sg_free_table(tmp->sg_t);
-        return -ENOMEM;
-    }
+    tmp = devm_kmalloc(&mwchan->dev, sizeof(struct mwadma_slist),GFP_KERNEL);
+    if (!tmp)
+    	return -ENOMEM;
+
     /* set buffer at offset from larger buffer */
-    tmp->buf = &mwchan->buf[this_idx*ring_bytes];
+    tmp->phys = mwchan->phys+this_idx*ring_bytes;
+    tmp->length = mwchan->bd_bytes;
     tmp->buffer_index = this_idx;
-    sg_init_table(tmp->sg_t->sgl, mwchan->sg_entries);
-    for_each_sg(tmp->sg_t->sgl, this_sg, mwchan->sg_entries, i)
-    {
-        struct page *page;
-        void * vaddr;
-        vaddr = &(tmp->buf[(mwchan->bd_bytes)*i]);
-        if (!virt_addr_valid(vaddr)) {
-            page = vmalloc_to_page(vaddr);
-            pr_debug("Using vmalloc\n");
-        } else {
-            page = virt_to_page(vaddr);
-            pr_debug("Using virt_to_page\n");
-        }
-        if (ring_bytes > mwchan->bd_bytes) {
-            sg_set_page(this_sg,page,mwchan->bd_bytes,offset_in_page(vaddr));
-        } else {
-            sg_set_page(this_sg,page,ring_bytes,offset_in_page(vaddr));
-        }
-        ring_bytes -= mwchan->bd_bytes;
-        if (ring_bytes < 0) {
-            pr_err("Error occurred, SG entries do not match the size of one ring buffer\n");
-        }
-    }
-    tmp->status = BD_ALLOC;
     *new = tmp;
     return 0;
 }
 
 /*
- * @brief mwadma_unmap_desc
+ * @brief mwadma_free_desc
  */
-static void mwadma_unmap_desc(struct mwadma_dev *mwdev, struct mwadma_chan *mwchan, struct mwadma_slist *input_slist)
+static void mwadma_free_desc(struct mwadma_slist *desc, struct mwadma_chan *mwchan)
 {
-    dma_unmap_sg(IP2DEVP(mwdev), input_slist->sg_t->sgl, mwchan->sg_entries, mwchan->direction);
-    input_slist->status = BD_UNALLOC;
-}
-
-/*
- * @brief mwadma_map_desc
- */
-static int mwadma_map_desc(struct mwadma_dev *mwdev, struct mwadma_chan *mwchan, struct mwadma_slist *ipsl)
-{
-    int retVal;
-    retVal = dma_map_sg(IP2DEVP(mwdev), ipsl->sg_t->sgl, mwchan->sg_entries, mwchan->direction);
-    if (retVal == 0)  {
-        dev_err(IP2DEVP(mwdev),"no buffers available\n");
-        ipsl->status = BD_UNALLOC;
-        return -ENOMEM;
-    }
-    ipsl->status = BD_MAPPED;
-    return 0;
+	devm_kfree(&mwchan->dev, desc);
 }
 
 /*
@@ -162,7 +111,6 @@ static int mwadma_prep_desc(struct mwadma_dev *mwdev, struct mwadma_chan * mwcha
         dev_err(IP2DEVP(mwdev), "Failed in mwadma_allocate_desc");
         return -ENOMEM;
     }
-    mwadma_map_desc(mwdev, mwchan, mwchan->scatter);
     /* New List of BD RING */
     INIT_LIST_HEAD(&(mwchan->scatter->list));
     for(i = 1; i < mwchan->ring_total; i++) /* POOL_SIZE - 1 */
@@ -173,7 +121,6 @@ static int mwadma_prep_desc(struct mwadma_dev *mwdev, struct mwadma_chan * mwcha
             return -ENOMEM;
         }
         list_add_tail(&(new->list),&(mwchan->scatter->list));
-        mwadma_map_desc(mwdev, mwchan, new);
     }
     mwchan->curr = mwchan->scatter; /*Head of the list*/
     mwchan->prev = list_entry(mwchan->curr->list.prev, struct mwadma_slist, list);
@@ -351,10 +298,8 @@ void mwadma_rx_cb_continuous_signal(struct mwadma_dev *mwdev)
 int mwadma_start(struct mwadma_dev *mwdev,struct mwadma_chan *mwchan)
 {
     int ret = 0;
-    unsigned int nents;
     struct mwadma_slist *newList;
     struct dma_async_tx_descriptor *thisDesc;
-    struct sg_table *thisSgt;
     struct dma_chan *chan;
 
     dev_dbg(IP2DEVP(mwdev),"In %s\n",__func__);
@@ -364,11 +309,8 @@ int mwadma_start(struct mwadma_dev *mwdev,struct mwadma_chan *mwchan)
         goto start_failed;
     }
     chan     = mwchan->chan;
-    thisSgt  = mwchan->curr->sg_t;
-    nents    = mwchan->sg_entries;
-    thisDesc = dmaengine_prep_slave_sg(chan, thisSgt->sgl, nents, mwchan->direction, mwchan->flags);
+    thisDesc = dmaengine_prep_slave_single(chan, mwchan->curr->phys, mwchan->curr->length, mwchan->direction, mwchan->flags);
     if (NULL == thisDesc) {
-        mwadma_unmap_desc(mwdev, mwchan, mwchan->curr);
         dev_err(IP2DEVP(mwdev), "Unable to prepare scatter-gather descriptor.\n");
         goto start_failed;
     }
@@ -522,7 +464,7 @@ static long mwadma_rx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
         case MWADMA_RX_GET_NEXT_INDEX:
             spin_lock_bh(&mwchan->slock);
             next_index = (unsigned long) mwchan->next_index;
-            mwchan->next_index = (mwchan->next_index + 1) % mwchan->buffer_interrupts;
+            mwchan->next_index = (mwchan->next_index + 1) % mwchan->ring_total;
             spin_unlock_bh(&mwchan->slock);
             if(copy_to_user((unsigned long *) arg, &next_index, sizeof(unsigned long))) {
                 return -EACCES;
@@ -816,19 +758,15 @@ static void mwadma_mmap_dma_open(struct vm_area_struct *vma)
  */
 static void mwadma_free_channel(struct mwadma_dev *mwdev, struct mwadma_chan *mwchan)
 {
-    struct mwadma_slist *slist, *_slist;
-    unsigned long flags;
+	struct mwadma_slist *curr, *next;
 
-    spin_lock_irqsave(&mwchan->slock, flags);
-    list_for_each_entry_safe(slist, _slist, &mwchan->scatter->list, list) {
-        mwadma_unmap_desc(mwdev, mwchan, slist);
-        sg_free_table(slist->sg_t);
-        kfree(slist->sg_t);
-        list_del(&slist->list);
-        kfree(&slist->list);
-    }
-    spin_unlock_irqrestore(&mwchan->slock, flags);
-    dmaengine_terminate_all(mwchan->chan);
+	spin_lock_bh(&mwchan->slock);
+	list_for_each_entry_safe(curr, next, &(mwchan->scatter->list), list){
+		list_del(&curr->list);
+		mwadma_free_desc(curr, mwchan);
+	}
+    spin_unlock_bh(&mwchan->slock);
+	dmaengine_terminate_all(mwchan->chan);
     dev_dbg(IP2DEVP(mwdev), "MWADMA Free channel done.");
 }
 
@@ -982,7 +920,7 @@ static int mw_axidma_alloc(struct mwadma_dev *mwdev, size_t bufferSize)
 
     else {
         dev_info(IP2DEVP(mwdev), "Address of buffer = 0x%p, Length = %u Bytes\n",\
-                (void *)virt_to_phys(MWDEV_TO_MWIP(mwdev)->dma_info.virt),(unsigned int)bufferSize);
+                (void *)MWDEV_TO_MWIP(mwdev)->dma_info.phys,(unsigned int)bufferSize);
         MWDEV_TO_MWIP(mwdev)->dma_info.size = bufferSize;
     }
     return 0;
@@ -998,33 +936,29 @@ static int mw_axidma_setupchannel(struct mwadma_dev *mwdev,
     int status = 0;
     static int idx = 0;
     char *buf;
+    dma_addr_t phys;
     if ( (mwdev == NULL) || (mwchan == NULL) ) {
         return -EINVAL;
     }
     mwchan->flags               = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
     mwchan->ring_total          = usrbuf->total_rings;
     mwchan->length              = usrbuf->bytes_per_ring * usrbuf->total_rings;
-
-    mwchan->bd_bytes            = usrbuf->desc_length;
-    mwchan->buffer_interrupts   = mwchan->ring_total;
-
-    if (usrbuf->bytes_per_ring % usrbuf->desc_length)
-        mwchan->sg_entries          = (size_t)(usrbuf->bytes_per_ring/usrbuf->desc_length) + 1;
-    else {
-        mwchan->sg_entries          = (size_t)(usrbuf->bytes_per_ring/usrbuf->desc_length);
-    }
+    mwchan->bd_bytes            = usrbuf->bytes_per_ring;
 
     /* Write to the IPCore_PacketSize_AXI4_Stream_Master 0x8 to specify the length*/
     /*reset pcore*/
     mw_ip_reset(mwdev->mw_ipcore_dev);
     /*reset pcore*/
     mw_ip_write32(MWDEV_TO_MWIP(mwdev), 0x8, usrbuf->counter);
-    buf = MWDEV_TO_MWIP(mwdev)->dma_info.virt;
-    mwchan->buf                 = &(buf[mwdev->channel_offset]);
-    if (mwchan->buf == NULL) {
-        dev_err(IP2DEVP(mwdev), "Buffer is NULL. Failed to allocate memory\n");
-        return -ENOMEM;
+    if (MWDEV_TO_MWIP(mwdev)->dma_info.virt == NULL) {
+		dev_err(IP2DEVP(mwdev), "Buffer is NULL. Failed to allocate memory\n");
+		return -ENOMEM;
 	}
+    buf = MWDEV_TO_MWIP(mwdev)->dma_info.virt;
+    phys = MWDEV_TO_MWIP(mwdev)->dma_info.phys;
+    mwchan->buf                 = &(buf[mwdev->channel_offset]);
+
+    mwchan->phys = (phys + mwdev->channel_offset);
     mwchan->offset              =  mwdev->channel_offset;
     mwdev->channel_offset              =  mwdev->channel_offset + mwchan->length;
     /*
@@ -1038,8 +972,6 @@ static int mw_axidma_setupchannel(struct mwadma_dev *mwdev,
     dev_dbg(IP2DEVP(mwdev), "Channel direction      :%d\n", mwchan->direction);
     dev_dbg(IP2DEVP(mwdev), "Total number of rings  :%d\n", mwchan->ring_total);
     dev_dbg(IP2DEVP(mwdev), "Buffer Descriptor size :%d\n", mwchan->bd_bytes);
-    dev_dbg(IP2DEVP(mwdev), "Channel SG Entries     :%d\n", mwchan->sg_entries);
-    dev_dbg(IP2DEVP(mwdev), "Buffer Interrupts      :%d\n", mwchan->buffer_interrupts);
     /* Get channel for DMA */
     mutex_init(&mwchan->lock);
 
