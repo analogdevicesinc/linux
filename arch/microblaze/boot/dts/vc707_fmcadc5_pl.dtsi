@@ -145,11 +145,12 @@
 			reg = <0x44a10000 0x10000>;
 			xlnx,s-axi-min-size = <0x0000FFFF>;
 		};
+
 		axi_ad9625_0_gt: axi-jesd-gt-rx0@44a60000 {
-			compatible = "adi,axi-jesd-gt-1.0";
+			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x44a60000 0x10000>;
-			xlnx,s-axi-min-size = <0x0000FFFF>;
 		};
+
 		axi_ad9625_0_jesd: axi-jesd204b-rx0@44a91000 {
 			compatible = "xlnx,jesd204-6.0";
 			reg = <0x44a91000 0x1000>;
@@ -176,16 +177,18 @@
 			xlnx,use-jspat = "false";
 			xlnx,use-rpat = "false";
 		};
+
 		axi_ad9625_1_core: axi-ad9625-1@44b10000 {
 			compatible = "adi,axi-ad9625-1.0";
 			reg = <0x44b10000 0x10000>;
 			xlnx,s-axi-min-size = <0x0000FFFF>;
 		};
+
 		axi_ad9625_1_gt: axi-jesd-gt-rx1@44b60000 {
 			compatible = "adi,axi-jesd-gt-1.0";
 			reg = <0x44b60000 0x10000>;
-			xlnx,s-axi-min-size = <0x0000FFFF>;
 		};
+
 		axi_ad9625_1_jesd: axi-jesd204b-rx1@44b91000 {
 			compatible = "xlnx,jesd204-6.0";
 			reg = <0x44b91000 0x1000>;

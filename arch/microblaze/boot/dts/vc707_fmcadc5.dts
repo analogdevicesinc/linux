@@ -123,28 +123,23 @@
 &axi_ad9625_0_gt {
 	#clock-cells = <1>;
 	clocks = <&ad9625_clkin>;
-	clock-names = "adc_clk";
+	clock-names = "conv";
 	clock-output-names = "adc0_gt_clk";
 
-	adi,rx-sys-clk-select = <0>;
-	adi,rx-out-clk-select = <2>;
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
 	adi,use-cpll-enable;
-	adi,no-auto-resync-enable;
-	adi,lanes = <8>;
-
 };
 
 &axi_ad9625_1_gt {
 	#clock-cells = <1>;
 	clocks = <&ad9625_clkin>;
-	clock-names = "adc_clk";
+	clock-names = "conv";
 	clock-output-names = "adc1_gt_clk";
 
-	adi,rx-sys-clk-select = <0>;
-	adi,rx-out-clk-select = <2>;
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
 	adi,use-cpll-enable;
-	adi,no-auto-resync-enable;
-	adi,lanes = <8>;
 };
 
 &axi_ad9625_0_jesd {
