@@ -40,11 +40,10 @@ enum mwadma_chan_status {
 
 struct mwadma_slist {
     struct list_head                list;
-    char                            *buf;
+    dma_addr_t						phys;
+    size_t							length;
     struct dma_async_tx_descriptor  *desc;
     dma_cookie_t                    cookie;
-    struct sg_table                 *sg_t;
-    int                             status;
     /* i*ring_length for each ring gives you
      * offset into large shared buffer */
     unsigned int                    buffer_index;
@@ -78,6 +77,7 @@ struct mwadma_chan {
     enum dma_transfer_direction direction;
     dma_async_tx_callback       callback;
     char                        *buf;
+    dma_addr_t					phys;
     enum mwadma_chan_status     status;
     unsigned long               length;
     unsigned long               transfer_count;
@@ -94,8 +94,6 @@ struct mwadma_chan {
     ktime_t                     stop;
     unsigned int                ring_total;
     unsigned int                bd_bytes;
-    unsigned int                sg_entries;
-    unsigned int                buffer_interrupts;
 };
 
 
