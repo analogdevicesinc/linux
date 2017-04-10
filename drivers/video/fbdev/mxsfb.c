@@ -1717,7 +1717,6 @@ static int overlayfb_open(struct fb_info *info, int user)
 static int overlayfb_release(struct fb_info *info, int user)
 {
 	struct mxsfb_layer *ofb = (struct mxsfb_layer*)info->par;
-	struct mxsfb_info *fbi = ofb->fbi;
 
 	BUG_ON(!atomic_read(&ofb->usage));
 
@@ -1726,8 +1725,6 @@ static int overlayfb_release(struct fb_info *info, int user)
 			ofb->ops->disable(ofb);
 
 		ofb->blank_state = -1;
-		writel(0x0, fbi->base + LCDC_AS_CTRL);
-		writel(0x0, fbi->base + LCDC_AS_NEXT_BUF);
 	}
 
 	return 0;
