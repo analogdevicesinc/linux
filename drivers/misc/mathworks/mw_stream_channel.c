@@ -1250,18 +1250,33 @@ int mw_stream_channels_probe(struct mathworks_ipcore_dev *mw_ipcore_dev) {
 		dev_dbg(IP2DEVP(mwdev), "DMA Channels not found in device tree\n");
 		return 0;
 	}
-	if (nchan < 0){
-		dev_err(IP2DEVP(mwdev), "Invalid dma-names specification\n");
+	if (nchan < 0) {
+		dev_err(IP2DEVP(mwdev), "Invalid dma-names specification. Incorrect dma-names property.\n");
 		return nchan;
 	}
 
 	mwdev->tx = mw_stream_chan_probe(mwdev, DMA_MEM_TO_DEV, "mm2s");
-	if (IS_ERR(mwdev->tx))
+	if (IS_ERR(mwdev->tx) && (PTR_ERR(mwdev->tx) == -EPROBE_DEFER))
 		return PTR_ERR(mwdev->tx);
 	mwdev->rx = mw_stream_chan_probe(mwdev, DMA_DEV_TO_MEM, "s2mm");
-	if (IS_ERR(mwdev->rx))
+	if (IS_ERR(mwdev->rx) && (PTR_ERR(mwdev->rx) == -EPROBE_DEFER))
 		return PTR_ERR(mwdev->rx);
 
+	if (nchan < 2) {
+		if(IS_ERR(mwdev->tx) && IS_ERR(mwdev->rx)) {
+			dev_err(IP2DEVP(mwdev),"MM2S/S2MM not found for nchan=%d\n",nchan);
+			return PTR_ERR(mwdev->tx);
+		}
+	} else {
+		if (IS_ERR(mwdev->tx)) {
+			dev_err(IP2DEVP(mwdev),"MM2S not found for nchan=%d\n",nchan);
+			return PTR_ERR(mwdev->tx);
+		}
+		if (IS_ERR(mwdev->rx)) {
+			dev_err(IP2DEVP(mwdev),"S2MM not found for nchan=%d\n",nchan);
+			return PTR_ERR(mwdev->rx);
+		}
+	}
 	status = sysfs_create_group(&dev->kobj, &mwdma_attr_group);
 	if (status) {
 		dev_err(IP2DEVP(mwdev), "Error creating the sysfs devices\n");
