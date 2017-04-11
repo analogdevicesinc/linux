@@ -1999,6 +1999,15 @@ static void init_mxsfb_overlay(struct mxsfb_info *fbi,
 	ofb->ol_fb->var.vmode		= FB_VMODE_NONINTERLACED;
 	ofb->ol_fb->var.nonstd		= 0;
 
+	/* Copy timings of primary fb */
+	ofb->ol_fb->var.pixclock	= fbi->fb_info->var.pixclock;
+	ofb->ol_fb->var.left_margin	= fbi->fb_info->var.left_margin;
+	ofb->ol_fb->var.right_margin	= fbi->fb_info->var.right_margin;
+	ofb->ol_fb->var.upper_margin	= fbi->fb_info->var.upper_margin;
+	ofb->ol_fb->var.lower_margin	= fbi->fb_info->var.lower_margin;
+	ofb->ol_fb->var.hsync_len	= fbi->fb_info->var.hsync_len;
+	ofb->ol_fb->var.vsync_len	= fbi->fb_info->var.vsync_len;
+
 	ofb->ol_fb->fbops = &overlay_fb_ops;
 	ofb->ol_fb->node  = -1;
 	ofb->ol_fb->par	  = ofb;
