@@ -2086,6 +2086,7 @@ static void mxsfb_overlay_init(struct mxsfb_info *fbi)
 	}
 
 	/* setup the initial params for overlay fb */
+	overlayfb_check_var(&ofb->ol_fb->var, ofb->ol_fb);
 	overlayfb_set_par(ofb->ol_fb);
 
 	ofb->registered = 1;
