@@ -1701,8 +1701,6 @@ static int overlayfb_open(struct fb_info *info, int user)
 	struct mxsfb_info  *fbi = ofb->fbi;
 
 	if (atomic_inc_return(&ofb->usage) == 1) {
-		memset((void*)&info->var, 0x0, sizeof(info->var));
-
 		ofb->ol_fb->var.xres		= fbi->fb_info->var.xres;
 		ofb->ol_fb->var.yres		= fbi->fb_info->var.yres;
 		ofb->ol_fb->var.xres_virtual	= fbi->fb_info->var.xres_virtual;
