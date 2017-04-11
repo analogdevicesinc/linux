@@ -56,6 +56,10 @@
 	usb-phy = <&usb_phy0>;
 };
 
+&clkc {
+	fclk-enable = <0x9>;
+};
+
 &qspi {
 	status = "okay";
 	is-dual = <0>;
