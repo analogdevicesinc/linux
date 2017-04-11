@@ -63,8 +63,8 @@
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9625_0_jesd>, <&ad9625_clkin>;
 		clock-names = "jesd0_clk", "adc_clk";
-		powerdown-gpios = <&axi_gpio 3 8>;
-		reset-gpios = <&axi_gpio 2 8>;
+		powerdown-gpios = <&axi_gpio 35 8>;
+		reset-gpios = <&axi_gpio 34 8>;
 
 	};
 	adc1_ad9625: ad9625@1 {
@@ -75,8 +75,8 @@
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9625_1_jesd>, <&ad9625_clkin>;
 		clock-names = "jesd1_clk", "adc_clk";
-		powerdown-gpios = <&axi_gpio 7 8>;
-		reset-gpios = <&axi_gpio 6 8>;
+		powerdown-gpios = <&axi_gpio 39 8>;
+		reset-gpios = <&axi_gpio 38 8>;
 	};
 
 	dac0_ad5662: ad5662-vt-a@2 {
