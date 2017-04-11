@@ -331,6 +331,9 @@ static void __init zynq_clk_setup(struct device_node *np)
 
 	/* CPU clocks */
 	tmp = clk_readl(SLCR_621_TRUE) & 1;
+
+	printk("621: %d %x\n", tmp,  clk_readl(SLCR_621_TRUE));
+
 	clk = clk_register_mux(NULL, "cpu_mux", cpu_parents, 4,
 			CLK_SET_RATE_NO_REPARENT, SLCR_ARM_CLK_CTRL, 4, 2, 0,
 			&armclk_lock);
@@ -553,6 +556,7 @@ static void __init zynq_clk_setup(struct device_node *np)
 			&dbgclk_lock);
 
 	/* leave debug clocks in the state the bootloader set them up to */
+#if 0
 	tmp = clk_readl(SLCR_DBG_CLK_CTRL);
 	if (tmp & DBG_CLK_CTRL_CLKACT_TRC)
 		if (clk_prepare_enable(clks[dbg_trc]))
@@ -560,7 +564,7 @@ static void __init zynq_clk_setup(struct device_node *np)
 	if (tmp & DBG_CLK_CTRL_CPU_1XCLKACT)
 		if (clk_prepare_enable(clks[dbg_apb]))
 			pr_warn("%s: debug APB clk enable failed\n", __func__);
-
+#endif
 	/* One gated clock for all APER clocks. */
 	clks[dma] = clk_register_gate(NULL, clk_output_name[dma],
 			clk_output_name[cpu_2x], 0, SLCR_APER_CLK_CTRL, 0, 0,
@@ -663,6 +667,8 @@ void __init zynq_clock_init(void)
 
 	of_node_put(slcr);
 	of_node_put(np);
+
+	zynq_clk_topswitch_disable();
 
 	return;
 

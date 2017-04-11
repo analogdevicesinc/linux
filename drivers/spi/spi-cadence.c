@@ -559,10 +559,14 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	master->set_cs = cdns_spi_chipselect;
 	master->mode_bits = SPI_CPOL | SPI_CPHA;
 
+#if 0
 	/* Set to default valid value */
 	aper_clk_rate = clk_get_rate(xspi->pclk) / 2 * 3;
 	if (aper_clk_rate > clk_get_rate(xspi->ref_clk))
 		clk_set_rate(xspi->ref_clk, aper_clk_rate);
+#endif
+//	clk_set_rate(xspi->ref_clk, 50000000);
+
 
 	xspi->clk_rate = clk_get_rate(xspi->ref_clk);
 	master->max_speed_hz = xspi->clk_rate / 4;
