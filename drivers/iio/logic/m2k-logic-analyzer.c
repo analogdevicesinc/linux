@@ -489,11 +489,26 @@ static const struct iio_dma_buffer_ops m2k_la_dma_buffer_ops = {
 	.abort = iio_dmaengine_buffer_abort,
 };
 
+static int m2k_la_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+	unsigned int writeval, unsigned int *readval)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	reg &= 0xffff;
+
+	if (readval == NULL)
+		m2k_la_write(m2k_la, reg, writeval);
+	else
+		*readval = m2k_la_read(m2k_la, reg);
+
+	return 0;
+}
+
 static const struct iio_info m2k_la_iio_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = m2k_la_read_raw,
 	.write_raw = m2k_la_write_raw,
-/*	.debugfs_reg_access = m2k_la_reg_access,*/
+	.debugfs_reg_access = m2k_la_reg_access,
 };
 
 static const struct iio_info m2k_la_txrx_iio_info = {
