@@ -28,6 +28,14 @@
 
 };
 
+&cpu0 {
+	operating-points = <
+		/* kHz    uV */
+		500000  1000000
+		250000  1000000
+	>;
+};
+
 &sdhci0 {
 	status = "disabled";
 };
