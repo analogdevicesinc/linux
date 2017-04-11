@@ -40,6 +40,8 @@ struct m2k_la {
 
 	struct clk *clk;
 
+	bool powerdown;
+
 	struct mutex lock;
 	unsigned int io_sel;
 	unsigned int gpo;
@@ -345,7 +347,52 @@ static const struct iio_enum m2k_la_direction_enum = {
 	.get = m2k_la_get_direction,
 };
 
+static ssize_t m2k_la_read_powerdown(struct iio_dev *indio_dev,
+	uintptr_t private, const struct iio_chan_spec *chan, char *buf)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	return sprintf(buf, "%d\n", m2k_la->powerdown);
+}
+
+static ssize_t m2k_la_write_powerdown(struct iio_dev *indio_dev,
+	 uintptr_t private, const struct iio_chan_spec *chan, const char *buf,
+	 size_t len)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+	bool powerdown;
+	int ret;
+
+	ret = strtobool(buf, &powerdown);
+	if (ret)
+		return ret;
+
+	mutex_lock(&m2k_la->lock);
+
+	if (powerdown == m2k_la->powerdown)
+		goto out_unlock;
+
+	if (powerdown)
+		clk_disable_unprepare(m2k_la->clk);
+	else
+		clk_prepare_enable(m2k_la->clk);
+
+	m2k_la->powerdown = powerdown;
+
+out_unlock:
+	mutex_unlock(&m2k_la->lock);
+
+	return len;
+}
+
+
 static const struct iio_chan_spec_ext_info m2k_la_ext_info[] = {
+	{
+		.name = "powerdown",
+		.read = m2k_la_read_powerdown,
+		.write = m2k_la_write_powerdown,
+		.shared = IIO_SHARED_BY_ALL,
+	},
 	IIO_ENUM("direction", IIO_SEPARATE, &m2k_la_direction_enum),
 	IIO_ENUM_AVAILABLE("direction", &m2k_la_direction_enum),
 	{}
@@ -570,6 +617,8 @@ static int m2k_la_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return -EINVAL;
 
+	m2k_la->powerdown = false;
+
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	m2k_la->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(m2k_la->regs))
@@ -649,7 +698,8 @@ static int m2k_la_remove(struct platform_device *pdev)
 //	iio_device_unregister(indio_dev_rx);
 //	iio_device_unregister(indio_dev_tx);
 	iio_device_unregister(indio_dev);
-	clk_disable_unprepare(m2k_la->clk);
+	if (!m2k_la->powerdown)
+		clk_disable_unprepare(m2k_la->clk);
 
 	return 0;
 }
