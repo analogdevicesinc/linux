@@ -593,6 +593,13 @@ int videobuf_qbuf(struct videobuf_queue *q, struct v4l2_buffer *b)
 		    buf->baddr != b->m.userptr)
 			q->ops->buf_release(q, buf);
 		buf->baddr = b->m.userptr;
+		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT
+		    || q->type == V4L2_BUF_TYPE_VBI_OUTPUT
+		    || q->type == V4L2_BUF_TYPE_SLICED_VBI_OUTPUT
+		    || q->type == V4L2_BUF_TYPE_SDR_OUTPUT) {
+			buf->field = b->field;
+			buf->ts = b->timestamp;
+		}
 		break;
 	case V4L2_MEMORY_OVERLAY:
 		buf->boff = b->m.offset;
