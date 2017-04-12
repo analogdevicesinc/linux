@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
+#include <linux/timer.h>
 
 #define SPI_ENGINE_VERSION_MAJOR(x)	((x >> 16) & 0xff)
 #define SPI_ENGINE_VERSION_MINOR(x)	((x >> 8) & 0xff)
@@ -91,6 +92,8 @@ struct spi_engine {
 	struct clk *clk;
 	struct clk *ref_clk;
 
+	struct spi_controller *ctrl;
+
 	spinlock_t lock;
 
 	void __iomem *base;
@@ -112,6 +115,8 @@ struct spi_engine {
 	unsigned int completed_id;
 
 	unsigned int int_enable;
+
+	struct timer_list watchdog_timer;
 };
 
 static void spi_engine_program_add_cmd(struct spi_engine_program *p,
@@ -438,6 +443,18 @@ static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine)
 	return spi_engine->rx_length != 0;
 }
 
+static void spi_engine_complete_message(struct spi_controller *host, int status)
+{
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
+	struct spi_message *msg = spi_engine->msg;
+
+	kfree(spi_engine->p);
+	msg->status = status;
+	msg->actual_length = msg->frame_length;
+	spi_engine->msg = NULL;
+	spi_finalize_current_message(host);
+}
+
 static irqreturn_t spi_engine_irq(int irq, void *devid)
 {
 	struct spi_controller *host = devid;
@@ -474,13 +491,11 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 	if (pending & SPI_ENGINE_INT_SYNC) {
 		if (spi_engine->msg &&
 		    spi_engine->completed_id == spi_engine->sync_id) {
-			struct spi_message *msg = spi_engine->msg;
 
-			kfree(spi_engine->p);
-			msg->status = 0;
-			msg->actual_length = msg->frame_length;
-			spi_engine->msg = NULL;
-			spi_finalize_current_message(host);
+			del_timer(&spi_engine->watchdog_timer);
+
+			spi_engine_complete_message(host, 0);
+
 			disable_int |= SPI_ENGINE_INT_SYNC;
 		}
 	}
@@ -496,6 +511,19 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 	return IRQ_HANDLED;
 }
 
+static void spi_engine_timeout(struct timer_list *t)
+{
+	struct spi_engine *spi_engine = from_timer(spi_engine, t, watchdog_timer);
+	struct spi_controller *host = spi_engine->ctrl;
+
+	spin_lock(&spi_engine->lock);
+	if (spi_engine->msg) {
+		dev_err(&host->dev, "Timeout occured while waiting for transfer to complete. Hardware is probably broken.\n");
+		spi_engine_complete_message(host, -ETIMEDOUT);
+	}
+	spin_unlock(&spi_engine->lock);
+}
+
 static int spi_engine_transfer_one_message(struct spi_controller *host,
 	struct spi_message *msg)
 {
@@ -504,6 +532,8 @@ static int spi_engine_transfer_one_message(struct spi_controller *host,
 	unsigned int int_enable = 0;
 	unsigned long flags;
 	size_t size;
+
+	del_timer_sync(&spi_engine->watchdog_timer);
 
 	p_dry.length = 0;
 	spi_engine_compile_message(spi_engine, msg, true, &p_dry);
@@ -542,6 +572,8 @@ static int spi_engine_transfer_one_message(struct spi_controller *host,
 	spi_engine->int_enable = int_enable;
 	spin_unlock_irqrestore(&spi_engine->lock, flags);
 
+	mod_timer(&spi_engine->watchdog_timer, jiffies + 5*HZ);
+
 	return 0;
 }
 
@@ -566,6 +598,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	spi_controller_set_devdata(host, spi_engine);
+	spi_engine->ctrl = host;
 
 	spin_lock_init(&spi_engine->lock);
 
@@ -619,6 +652,8 @@ static int spi_engine_probe(struct platform_device *pdev)
 	host->max_speed_hz = clk_get_rate(spi_engine->ref_clk) / 2;
 	host->transfer_one_message = spi_engine_transfer_one_message;
 	host->num_chipselect = 8;
+
+	timer_setup(&spi_engine->watchdog_timer, spi_engine_timeout, 0);
 
 	ret = spi_register_controller(host);
 	if (ret)
