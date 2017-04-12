@@ -25,6 +25,7 @@ struct adc_chip_info {
 	bool has_frontend;
 	const struct iio_chan_spec *channels;
 	unsigned int num_channels;
+	unsigned int ctrl_flags;
 };
 
 #define CN0363_CHANNEL(_address, _type, _ch, _mod, _rb) { \
@@ -94,6 +95,7 @@ static const struct iio_chan_spec ad9371_obs_rx_channels[] = {
 static const struct adc_chip_info ad9371_obs_rx_chip_info = {
 	.channels = ad9371_obs_rx_channels,
 	.num_channels = ARRAY_SIZE(ad9371_obs_rx_channels),
+	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
 static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
@@ -130,7 +132,7 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 		else
 			ctrl &= ~ADI_ENABLE;
 
-		ctrl |= ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE;
+		ctrl |= st->adc_def_output_mode;
 
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
 	}
@@ -146,7 +148,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (IS_ERR(st->clk)) {
-			*val = 100000000;
+			return -ENODEV;
 		} else {
 			*val = clk_get_rate(st->clk);
 		}
@@ -247,12 +249,12 @@ static int adc_probe(struct platform_device *pdev)
 
 	st->pcore_version = adc_read(st, ADI_REG_VERSION);
 
-
 	if (info->has_frontend) {
 		st->frontend = iio_hw_consumer_alloc(&pdev->dev);
 		if (IS_ERR(st->frontend))
 				return PTR_ERR(st->frontend);
 		indio_dev->setup_ops = &axiadc_hw_consumer_setup_ops;
+
 	}
 
 	indio_dev->channels = info->channels;
@@ -285,6 +287,9 @@ static int adc_remove(struct platform_device *pdev)
 	axiadc_unconfigure_ring_stream(indio_dev);
 	if (st->frontend)
 		iio_hw_consumer_free(st->frontend);
+
+	if (!IS_ERR(st->clk))
+		clk_disable_unprepare(st->clk);
 
 	return 0;
 }
