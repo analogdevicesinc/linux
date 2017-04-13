@@ -1766,6 +1766,10 @@ static int do_test(const char *alg, u32 type, u32 mask, int m, u32 num_mb)
 		ret = min(ret, tcrypt_test("hmac(streebog512)"));
 		break;
 
+	case 117:
+		ret += tcrypt_test("rsa");
+		break;
+
 	case 150:
 		ret = min(ret, tcrypt_test("ansi_cprng"));
 		break;
