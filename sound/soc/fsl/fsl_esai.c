@@ -2,6 +2,7 @@
  * Freescale ESAI ALSA SoC Digital Audio Interface (DAI) driver
  *
  * Copyright (C) 2014-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2. This program is licensed "as is" without any warranty of any
@@ -602,7 +603,7 @@ static int fsl_esai_trigger(struct snd_pcm_substream *substream, int cmd,
 				   ESAI_xFCR_xFEN_MASK, ESAI_xFCR_xFEN);
 
 		/* Write initial words reqiured by ESAI as normal procedure */
-		for (i = 0; tx && i < channels; i++)
+		for (i = 0; tx && i < pins * esai_priv->slots; i++)
 			regmap_write(esai_priv->regmap, REG_ESAI_ETDR, 0x0);
 
 		regmap_update_bits(esai_priv->regmap, REG_ESAI_xCR(tx),
