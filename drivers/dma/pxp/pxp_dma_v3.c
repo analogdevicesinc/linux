@@ -5196,6 +5196,33 @@ static int pxp_init_interrupt(struct platform_device *pdev)
 	return 0;
 }
 
+static int pxp_create_attrs(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	if ((ret = device_create_file(&pdev->dev, &dev_attr_clk_off_timeout))) {
+		dev_err(&pdev->dev,
+			"Unable to create file from clk_off_timeout\n");
+		return ret;
+	}
+
+	if ((ret = device_create_file(&pdev->dev, &dev_attr_block_size))) {
+		device_remove_file(&pdev->dev, &dev_attr_clk_off_timeout);
+
+		dev_err(&pdev->dev,
+			"Unable to create file from block_size\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static void pxp_remove_attrs(struct platform_device *pdev)
+{
+	device_remove_file(&pdev->dev, &dev_attr_clk_off_timeout);
+	device_remove_file(&pdev->dev, &dev_attr_block_size);
+}
+
 #ifdef	CONFIG_MXC_FPGA_M4_TEST
 static void pxp_config_m4(struct platform_device *pdev)
 {
@@ -5278,13 +5305,6 @@ static int pxp_probe(struct platform_device *pdev)
 	if (err < 0)
 		goto exit;
 
-	if (device_create_file(&pdev->dev, &dev_attr_clk_off_timeout)) {
-		dev_err(&pdev->dev,
-			"Unable to create file from clk_off_timeout\n");
-		goto exit;
-	}
-
-	device_create_file(&pdev->dev, &dev_attr_block_size);
 	pxp_clk_enable(pxp);
 	pxp_soft_reset(pxp);
 	if (pxp->devdata && pxp->devdata->pxp_data_path_config)
@@ -5312,6 +5332,10 @@ static int pxp_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	err = pxp_create_attrs(pdev);
+	if (err)
+		goto exit;
+
 #ifdef	CONFIG_MXC_FPGA_M4_TEST
 	pxp_config_m4(pdev);
 #endif
@@ -5335,8 +5359,7 @@ static int pxp_remove(struct platform_device *pdev)
 	del_timer_sync(&pxp->clk_timer);
 	clk_disable_unprepare(pxp->ipg_clk);
 	clk_disable_unprepare(pxp->axi_clk);
-	device_remove_file(&pdev->dev, &dev_attr_clk_off_timeout);
-	device_remove_file(&pdev->dev, &dev_attr_block_size);
+	pxp_remove_attrs(pdev);
 	dma_async_device_unregister(&(pxp->pxp_dma.dma));
 
 	return 0;
