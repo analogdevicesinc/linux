@@ -359,6 +359,7 @@
 	pinctrl-assert-gpios = <&gpio4 23 GPIO_ACTIVE_HIGH>;
 	port = <1>;
 	sven_low_active;
+	status = "okay";
 };
 
 &tsc {
