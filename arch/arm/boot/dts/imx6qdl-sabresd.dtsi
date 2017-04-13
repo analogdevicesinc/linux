@@ -1096,6 +1096,13 @@
 };
 
 &ssi2 {
+	assigned-clocks = <&clks IMX6QDL_CLK_PLL4>,
+			  <&clks IMX6QDL_PLL4_BYPASS>,
+			  <&clks IMX6QDL_CLK_SSI2_SEL>;
+	assigned-clock-parents = <&clks IMX6QDL_CLK_OSC>,
+				 <&clks IMX6QDL_CLK_PLL4>,
+				 <&clks IMX6QDL_CLK_PLL4_AUDIO_DIV>;
+	assigned-clock-rates = <786432000>, <0>, <0>;
 	status = "okay";
 };
 
