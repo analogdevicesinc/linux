@@ -5155,25 +5155,59 @@ static int pxp_dispatch_thread(void *argv)
 	return 0;
 }
 
+static int pxp_init_interrupt(struct platform_device *pdev)
+{
+	int legacy_irq, std_irq, err;
+	struct pxps *pxp = platform_get_drvdata(pdev);
+
+	legacy_irq = platform_get_irq(pdev, 0);
+	if (legacy_irq < 0) {
+		dev_err(&pdev->dev, "failed to get pxp legacy irq: %d\n",
+			legacy_irq);
+		return legacy_irq;
+	}
+
+	std_irq = platform_get_irq(pdev, 1);
+	if (std_irq < 0) {
+		dev_err(&pdev->dev, "failed to get pxp standard irq: %d\n",
+			std_irq);
+		return std_irq;
+	}
+
+	err = devm_request_irq(&pdev->dev, legacy_irq, pxp_irq, 0,
+				"pxp-dmaengine-legacy", pxp);
+	if (err) {
+		dev_err(&pdev->dev, "Request pxp legacy irq failed: %d\n", err);
+		return err;
+	}
+
+	err = devm_request_irq(&pdev->dev, std_irq, pxp_irq, 0,
+				"pxp-dmaengine-std", pxp);
+	if (err) {
+		dev_err(&pdev->dev, "Request pxp standard irq failed: %d\n", err);
+		return err;
+	}
+
+	pxp->irq = legacy_irq;
+
+	/* enable all the possible irq raised by PXP */
+	__raw_writel(0xffff, pxp->base + HW_PXP_IRQ_MASK);
+
+	return 0;
+}
+
 static int pxp_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
 			of_match_device(imx_pxpdma_dt_ids, &pdev->dev);
 	struct pxps *pxp;
 	struct resource *res;
-	int irq, std_irq;
 	int err = 0;
 
 	if (of_id)
 		pdev->id_entry = of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	irq = platform_get_irq(pdev, 0);
-	std_irq = platform_get_irq(pdev, 1);
-	if (!res || irq < 0 || std_irq < 0) {
-		err = -ENODEV;
-		goto exit;
-	}
 
 	pxp = devm_kzalloc(&pdev->dev, sizeof(*pxp), GFP_KERNEL);
 	if (!pxp) {
@@ -5185,7 +5219,6 @@ static int pxp_probe(struct platform_device *pdev)
 	pxp->dev = &pdev->dev;
 
 	platform_set_drvdata(pdev, pxp);
-	pxp->irq = irq;
 
 	spin_lock_init(&pxp->lock);
 	mutex_init(&pxp->clk_mutex);
@@ -5210,14 +5243,9 @@ static int pxp_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	err = devm_request_irq(&pdev->dev, pxp->irq, pxp_irq, 0,
-				"pxp-dmaengine", pxp);
-	if (err)
-		goto exit;
-
-	err = devm_request_irq(&pdev->dev, std_irq, pxp_irq, 0,
-				"pxp-dmaengine-std", pxp);
-	if (err)
+	/* Initialize PXP Interrupt */
+	err = pxp_init_interrupt(pdev);
+	if (err < 0)
 		goto exit;
 
 	/* Initialize DMA engine */
@@ -5236,8 +5264,6 @@ static int pxp_probe(struct platform_device *pdev)
 	pxp_soft_reset(pxp);
 	if (pxp->devdata && pxp->devdata->pxp_data_path_config)
 		pxp->devdata->pxp_data_path_config(pxp);
-	/* enable all the possible irq raised by PXP */
-	__raw_writel(0xffff, pxp->base + HW_PXP_IRQ_MASK);
 
 	dump_pxp_reg(pxp);
 	pxp_clk_disable(pxp);
