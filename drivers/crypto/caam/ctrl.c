@@ -396,14 +396,13 @@ start_rng:
 	clrsetbits_32(&r4tst->rtmctl, RTMCTL_PRGM, RTMCTL_SAMP_MODE_RAW_ES_SC);
 }
 
-/**
- * caam_get_era() - Return the ERA of the SEC on SoC, based
- * on the SEC_VID register.
- * Returns the ERA number (1..4) or -ENOTSUPP if the ERA is unknown.
- * @caam_id - the value of the SEC_VID register
- **/
-int caam_get_era(u64 caam_id)
+static void detect_era(struct caam_drv_private *ctrlpriv)
 {
+	int ret, i;
+	u32 caam_era;
+	u32 caam_id_ms;
+	char *era_source;
+	struct device_node *caam_node;
 	struct sec_vid sec_vid;
 	static const struct {
 		u16 ip_id;
@@ -437,19 +436,74 @@ int caam_get_era(u64 caam_id)
 		{0x0A12, 5, 8},
 		{0x0A16, 3, 8},
 	};
-	int i;
 
-	sec_vid.ip_id = caam_id >> SEC_VID_IPID_SHIFT;
-	sec_vid.maj_rev = (caam_id & SEC_VID_MAJ_MASK) >> SEC_VID_MAJ_SHIFT;
+	/* If the user or bootloader has set the property we'll use that */
+	caam_node = of_find_compatible_node(NULL, NULL, "fsl,sec-v4.0");
+	ret = of_property_read_u32(caam_node, "fsl,sec-era", &caam_era);
+	of_node_put(caam_node);
+
+	if (!ret) {
+		era_source = "device tree";
+		goto era_found;
+	}
+
+	/* If ccbvid has the era, use that (era 6 and onwards) */
+	caam_era = rd_reg32(&ctrlpriv->ctrl->perfmon.ccb_id);
+	caam_era = caam_era >> CCB_VID_ERA_SHIFT & CCB_VID_ERA_MASK;
+
+	if (caam_era) {
+		era_source = "CCBVID";
+		goto era_found;
+	}
+
+	/* If we can match caamvid to known versions, use that */
+	caam_id_ms = rd_reg32(&ctrlpriv->ctrl->perfmon.caam_id_ms);
+	sec_vid.ip_id = caam_id_ms >> SEC_VID_IPID_SHIFT;
+	sec_vid.maj_rev = (caam_id_ms & SEC_VID_MAJ_MASK) >> SEC_VID_MAJ_SHIFT;
 
 	for (i = 0; i < ARRAY_SIZE(caam_eras); i++)
 		if (caam_eras[i].ip_id == sec_vid.ip_id &&
-		    caam_eras[i].maj_rev == sec_vid.maj_rev)
-			return caam_eras[i].era;
+		    caam_eras[i].maj_rev == sec_vid.maj_rev) {
+			caam_era = caam_eras[i].era;
+			era_source = "CAAMVID";
+			goto era_found;
+		}
 
-	return -ENOTSUPP;
+	ctrlpriv->era = -ENOTSUPP;
+	return;
+
+era_found:
+	ctrlpriv->era = caam_era;
+	pr_info("ERA source: %s.\n", era_source);
 }
-EXPORT_SYMBOL(caam_get_era);
+
+static void handle_imx6_err005766(struct caam_drv_private *ctrlpriv)
+{
+	/*
+	 * ERRATA:  mx6 devices have an issue wherein AXI bus transactions
+	 * may not occur in the correct order. This isn't a problem running
+	 * single descriptors, but can be if running multiple concurrent
+	 * descriptors. Reworking the driver to throttle to single requests
+	 * is impractical, thus the workaround is to limit the AXI pipeline
+	 * to a depth of 1 (from it's default of 4) to preclude this situation
+	 * from occurring.
+	 */
+
+	u32 mcr_val;
+
+	if (ctrlpriv->era != IMX_ERR005766_ERA)
+		return;
+
+	if (of_machine_is_compatible("fsl,imx6q") ||
+	    of_machine_is_compatible("fsl,imx6dl") ||
+	    of_machine_is_compatible("fsl,imx6qp")) {
+		pr_info("AXI pipeline throttling enabled.\n");
+		mcr_val = rd_reg32(&ctrlpriv->ctrl->mcr);
+		wr_reg32(&ctrlpriv->ctrl->mcr,
+			 (mcr_val & ~(MCFGR_AXIPIPE_MASK)) |
+			 ((1 << MCFGR_AXIPIPE_SHIFT) & MCFGR_AXIPIPE_MASK));
+	}
+}
 
 static const struct of_device_id caam_match[] = {
 	{
@@ -598,6 +652,8 @@ static int caam_probe(struct platform_device *pdev)
 			 BLOCK_OFFSET * DECO_BLOCK_NUMBER
 			 );
 
+	detect_era(ctrlpriv);
+
 	/* Get CAAM-SM node and of_iomap() and save */
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx6q-caam-sm");
 
@@ -621,20 +677,7 @@ static int caam_probe(struct platform_device *pdev)
 			      (sizeof(dma_addr_t) == sizeof(u64) ?
 			       MCFGR_LONG_PTR : 0));
 
-#ifdef CONFIG_ARCH_MX6
-	/*
-	 * ERRATA:  mx6 devices have an issue wherein AXI bus transactions
-	 * may not occur in the correct order. This isn't a problem running
-	 * single descriptors, but can be if running multiple concurrent
-	 * descriptors. Reworking the driver to throttle to single requests
-	 * is impractical, thus the workaround is to limit the AXI pipeline
-	 * to a depth of 1 (from it's default of 4) to preclude this situation
-	 * from occurring.
-	 */
-	wr_reg32(&topregs->ctrl.mcr,
-		 (rd_reg32(&topregs->ctrl.mcr) & ~(MCFGR_AXIPIPE_MASK)) |
-		 ((1 << MCFGR_AXIPIPE_SHIFT) & MCFGR_AXIPIPE_MASK));
-#endif
+	handle_imx6_err005766(ctrlpriv);
 
 	/*
 	 *  Read the Compile Time paramters and SCFGR to determine
@@ -806,9 +849,8 @@ static int caam_probe(struct platform_device *pdev)
 	caam_id = (u64)rd_reg32(&ctrl->perfmon.caam_id_ms) << 32 |
 		  (u64)rd_reg32(&ctrl->perfmon.caam_id_ls);
 
-	/* Report "alive" for developer to see */
 	dev_info(dev, "device ID = 0x%016llx (Era %d)\n", caam_id,
-		 caam_get_era(caam_id));
+		 ctrlpriv->era);
 	dev_info(dev, "job rings = %d, qi = %d, dpaa2 = %s\n",
 		 ctrlpriv->total_jobrs, ctrlpriv->qi_present,
 		 caam_dpaa2 ? "yes" : "no");

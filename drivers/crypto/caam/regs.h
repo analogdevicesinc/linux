@@ -284,7 +284,10 @@ struct sec_vid {
 
 #define SEC_VID_IPID_SHIFT      16
 #define SEC_VID_MAJ_SHIFT       8
-#define SEC_VID_MAJ_MASK        0xFF00
+#define SEC_VID_MAJ_MASK        0x0000FF00
+
+#define CCB_VID_ERA_SHIFT       24
+#define CCB_VID_ERA_MASK        0x000000FF
 
 struct caam_perfmon {
 	/* Performance Monitor Registers			f00-f9f */
