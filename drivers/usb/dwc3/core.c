@@ -192,6 +192,30 @@ void dwc3_set_mode(struct dwc3 *dwc, u32 mode)
 	queue_work(system_freezable_wq, &dwc->drd_work);
 }
 
+static int dwc3_set_suspend_clk(struct dwc3 *dwc)
+{
+	u32 reg, scale;
+
+	/*
+	 * DWC3_GCTL.PWRDNSCALE: The USB3 suspend_clk input replaces
+	 * pipe3_rx_pclk as a clock source to a small part of the USB3
+	 * core that operates when the SS PHY is in its lowest power
+	 * (P3) state, and therefore does not provide a clock.
+	 * The Power Down Scale field specifies how many suspend_clk
+	 * periods fit into a 16 kHz clock period. When performing the
+	 * division, round up the remainder.
+	 */
+	if (!device_property_read_u32(dwc->dev, "snps,power-down-scale",
+								&scale)) {
+		reg = dwc3_readl(dwc->regs, DWC3_GCTL);
+		reg &= ~(DWC3_GCTL_PWRDNSCALE_MASK);
+		reg |= DWC3_GCTL_PWRDNSCALE(scale);
+		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+	}
+
+	return 0;
+}
+
 u32 dwc3_core_fifo_space(struct dwc3_ep *dep, u8 type)
 {
 	struct dwc3		*dwc = dep->dwc;
@@ -806,6 +830,9 @@ static int dwc3_core_init(struct dwc3 *dwc)
 			goto err0;
 		dwc->ulpi_ready = true;
 	}
+
+	/* Set suspend_clk */
+	dwc3_set_suspend_clk(dwc);
 
 	if (!dwc->phys_ready) {
 		ret = dwc3_core_get_phy(dwc);
