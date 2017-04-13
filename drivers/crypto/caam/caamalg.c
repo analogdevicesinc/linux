@@ -677,6 +677,33 @@ static int ablkcipher_setkey(struct crypto_ablkcipher *ablkcipher,
 	return 0;
 }
 
+
+static int ablkcipher_des_setkey(struct crypto_ablkcipher *ablkcipher,
+				 const u8 *key, unsigned int keylen)
+{
+	u32 tmp[DES_EXPKEY_WORDS];
+	u32 flags;
+	int ret;
+
+	if (keylen != DES_KEY_SIZE) {
+		crypto_ablkcipher_set_flags(ablkcipher,
+					    CRYPTO_TFM_RES_BAD_KEY_LEN);
+		return -EINVAL;
+	}
+
+	ret = des_ekey(tmp, key);
+
+	flags = crypto_ablkcipher_get_flags(ablkcipher);
+	if (!ret && (flags & CRYPTO_TFM_REQ_WEAK_KEY)) {
+		crypto_ablkcipher_set_flags(ablkcipher,
+					    CRYPTO_TFM_RES_WEAK_KEY);
+		return -EINVAL;
+	}
+
+	return ablkcipher_setkey(ablkcipher, key, keylen);
+}
+
+
 static int xts_ablkcipher_setkey(struct crypto_ablkcipher *ablkcipher,
 				 const u8 *key, unsigned int keylen)
 {
@@ -1901,7 +1928,7 @@ static struct caam_alg_template driver_algs[] = {
 		.blocksize = DES_BLOCK_SIZE,
 		.type = CRYPTO_ALG_TYPE_ABLKCIPHER,
 		.template_ablkcipher = {
-			.setkey = ablkcipher_setkey,
+			.setkey = ablkcipher_des_setkey,
 			.encrypt = ablkcipher_encrypt,
 			.decrypt = ablkcipher_decrypt,
 			.geniv = "eseqiv",
