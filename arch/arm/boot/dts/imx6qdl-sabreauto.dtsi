@@ -170,6 +170,7 @@
 			regulator-max-microvolt = <3300000>;
 			gpio = <&gpio7 8 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
+			off-on-delay = <20000>;
 			/* remove below line to enable this regulator */
 			status = "disabled";
 		};

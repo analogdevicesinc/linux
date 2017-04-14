@@ -58,6 +58,7 @@
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
 			gpio = <&gpio2 11 GPIO_ACTIVE_LOW>;
+			off-on-delay = <20000>;
 		};
 
 		reg_usb_otg1_vbus: usb_otg1_vbus {

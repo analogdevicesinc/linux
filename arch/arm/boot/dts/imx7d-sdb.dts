@@ -151,6 +151,7 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio5 2 GPIO_ACTIVE_HIGH>;
 		startup-delay-us = <200000>;
+		off-on-delay = <20000>;
 		enable-active-high;
 	};
 
