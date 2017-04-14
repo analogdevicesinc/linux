@@ -84,6 +84,7 @@ of_get_fixed_voltage_config(struct device *dev,
 		return ERR_PTR(config->gpio);
 
 	of_property_read_u32(np, "startup-delay-us", &config->startup_delay);
+	of_property_read_u32(np, "off-on-delay", &config->off_on_delay);
 
 	config->enable_high = of_property_read_bool(np, "enable-active-high");
 	config->gpio_is_open_drain = of_property_read_bool(np,
@@ -134,6 +135,7 @@ static int reg_fixed_voltage_probe(struct platform_device *pdev)
 	drvdata->desc.ops = &fixed_voltage_ops;
 
 	drvdata->desc.enable_time = config->startup_delay;
+	drvdata->desc.off_on_delay = config->off_on_delay;
 
 	if (config->input_supply) {
 		drvdata->desc.supply_name = devm_kstrdup(&pdev->dev,
