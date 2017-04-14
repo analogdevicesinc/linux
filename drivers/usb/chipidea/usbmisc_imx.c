@@ -1,5 +1,6 @@
 /*
- * Copyright 2012-2015 Freescale Semiconductor, Inc.
+ * Copyright 2012-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -564,16 +565,17 @@ static int usbmisc_imx7d_set_wakeup
 	struct imx_usbmisc *usbmisc = dev_get_drvdata(data->dev);
 	unsigned long flags;
 	u32 val;
-	u32 wakeup_setting = (MX6_BM_WAKEUP_ENABLE |
-		MX6_BM_VBUS_WAKEUP | MX6_BM_ID_WAKEUP);
+	u32 wakeup_setting = MX6_BM_WAKEUP_ENABLE;
 
 	spin_lock_irqsave(&usbmisc->lock, flags);
 	val = readl(usbmisc->base);
 	if (enabled) {
+		wakeup_setting |= imx6q_finalize_wakeup_setting(data);
 		writel(val | wakeup_setting, usbmisc->base);
 	} else {
 		if (val & MX6_BM_WAKEUP_INTR)
 			dev_dbg(data->dev, "wakeup int\n");
+		wakeup_setting |= MX6_BM_VBUS_WAKEUP | MX6_BM_ID_WAKEUP;
 		writel(val & ~wakeup_setting, usbmisc->base);
 	}
 	spin_unlock_irqrestore(&usbmisc->lock, flags);
