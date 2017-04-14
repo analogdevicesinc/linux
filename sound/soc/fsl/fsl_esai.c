@@ -815,28 +815,6 @@ static bool fsl_esai_check_xrun(struct snd_pcm_substream *substream)
 	return saisr & (ESAI_SAISR_TUE | ESAI_SAISR_ROE) ;
 }
 
-static int stop_lock_stream(struct snd_pcm_substream *substream)
-{
-	if (substream) {
-		snd_pcm_stream_lock_irq(substream);
-		if (substream->runtime->status->state == SNDRV_PCM_STATE_RUNNING
-			&& substream->ops)
-			substream->ops->trigger(substream, SNDRV_PCM_TRIGGER_STOP);
-	}
-	return 0;
-}
-
-static int start_unlock_stream(struct snd_pcm_substream *substream)
-{
-	if (substream) {
-		if (substream->runtime->status->state == SNDRV_PCM_STATE_RUNNING
-			&& substream->ops)
-			substream->ops->trigger(substream, SNDRV_PCM_TRIGGER_START);
-		snd_pcm_stream_unlock_irq(substream);
-	}
-	return 0;
-}
-
 /*
  *Here is ESAI underrun reset step:
  *1. Read "TUE" and got TUE=1
@@ -856,13 +834,11 @@ static void fsl_esai_reset(struct snd_pcm_substream *substream, bool stop)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct fsl_esai *esai_priv = snd_soc_dai_get_drvdata(cpu_dai);
+	unsigned long flags = 0;
 	u32 saisr;
 
-	if (stop) {
-		stop_lock_stream(esai_priv->substream[0]);
-		stop_lock_stream(esai_priv->substream[1]);
-	}
-
+	if (stop)
+		imx_stop_lock_pcm_streams(esai_priv->substream, 2, &flags);
 
 	regmap_update_bits(esai_priv->regmap, REG_ESAI_ECR,
 				ESAI_ECR_ESAIEN_MASK | ESAI_ECR_ERST_MASK,
@@ -900,10 +876,8 @@ static void fsl_esai_reset(struct snd_pcm_substream *substream, bool stop)
 
 	regmap_read(esai_priv->regmap, REG_ESAI_SAISR, &saisr);
 
-	if (stop) {
-		start_unlock_stream(esai_priv->substream[1]);
-		start_unlock_stream(esai_priv->substream[0]);
-	}
+	if (stop)
+		imx_start_unlock_pcm_streams(esai_priv->substream, 2, &flags);
 }
 
 static int fsl_esai_probe(struct platform_device *pdev)

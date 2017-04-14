@@ -24,6 +24,7 @@
 #include <sound/pcm_params.h>
 
 #include "fsl_asrc.h"
+#include "imx-pcm.h"
 
 #define IDEAL_RATIO_DECIMAL_DEPTH 26
 
@@ -851,28 +852,6 @@ static bool fsl_asrc_check_xrun(struct snd_pcm_substream *substream)
 	return ret;
 }
 
-static int stop_lock_stream(struct snd_pcm_substream *substream,
-			    unsigned long *flags)
-{
-	if (substream) {
-		snd_pcm_stream_lock_irqsave(substream, *flags);
-		if (substream->runtime->status->state == SNDRV_PCM_STATE_RUNNING)
-			substream->ops->trigger(substream, SNDRV_PCM_TRIGGER_STOP);
-	}
-	return 0;
-}
-
-static int start_unlock_stream(struct snd_pcm_substream *substream,
-			       unsigned long *flags)
-{
-	if (substream) {
-		if (substream->runtime->status->state == SNDRV_PCM_STATE_RUNNING)
-			substream->ops->trigger(substream, SNDRV_PCM_TRIGGER_START);
-		snd_pcm_stream_unlock_irqrestore(substream, *flags);
-	}
-	return 0;
-}
-
 static void fsl_asrc_reset(struct snd_pcm_substream *substream, bool stop)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -881,12 +860,10 @@ static void fsl_asrc_reset(struct snd_pcm_substream *substream, bool stop)
 	struct snd_dmaengine_dai_dma_data *dma_params_be = NULL;
 	struct snd_soc_dpcm *dpcm;
 	struct snd_pcm_substream *be_substream;
-	unsigned long flags0, flags1;
+	unsigned long flags = 0;
 
-	if (stop) {
-		stop_lock_stream(asrc_priv->substream[0], &flags0);
-		stop_lock_stream(asrc_priv->substream[1], &flags1);
-	}
+	if (stop)
+		imx_stop_lock_pcm_streams(asrc_priv->substream, 2, &flags);
 
 	/* find the be for this fe stream */
 	list_for_each_entry(dpcm, &rtd->dpcm[substream->stream].be_clients, list_be) {
@@ -902,10 +879,8 @@ static void fsl_asrc_reset(struct snd_pcm_substream *substream, bool stop)
 		break;
 	}
 
-	if (stop) {
-		start_unlock_stream(asrc_priv->substream[1], &flags1);
-		start_unlock_stream(asrc_priv->substream[0], &flags0);
-	}
+	if (stop)
+		imx_start_unlock_pcm_streams(asrc_priv->substream, 2, &flags);
 }
 
 /**
