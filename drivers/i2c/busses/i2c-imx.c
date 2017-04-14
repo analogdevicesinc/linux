@@ -1361,6 +1361,22 @@ static int i2c_imx_xfer(struct i2c_adapter *adapter,
 		return result;
 	}
 
+	/*
+	 * workaround for ERR010027: ensure that the I2C BUS is idle
+	 * before switching to master mode and attempting a Start cycle
+	 */
+	result =  i2c_imx_bus_busy(i2c_imx, 0, false);
+	if (result) {
+		/* timeout */
+		if ((result == -ETIMEDOUT) && (i2c_imx->layerscape_bus_recover == 1))
+			i2c_imx_recovery_for_layerscape(i2c_imx);
+		else {
+			if (enable_runtime_pm)
+				pm_runtime_disable(i2c_imx->adapter.dev.parent);
+			return result;
+		}
+	}
+
 	result = i2c_imx_xfer_common(adapter, msgs, num, false);
 
 	pm_runtime_mark_last_busy(i2c_imx->adapter.dev.parent);
