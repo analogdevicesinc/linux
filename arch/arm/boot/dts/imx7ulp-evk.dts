@@ -421,6 +421,7 @@
 			           * Only support CEA modes.
 			           * Reference mxc_edid.c
 			           */
+		dsi-traffic-mode = <0>;
 		bpp = <24>;
 		status = "disabled";
 	};
