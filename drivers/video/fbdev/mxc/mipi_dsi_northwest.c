@@ -416,18 +416,28 @@ static int mipi_dsi_dpi_init(struct mipi_dsi_info *mipi_dsi)
 	writel(pixel_fmt, mipi_dsi->mmio_base + DPI_PIXEL_FORMAT);
 	writel(0x0, mipi_dsi->mmio_base + DPI_VSYNC_POLARITY);
 	writel(0x0, mipi_dsi->mmio_base + DPI_HSYNC_POLARITY);
-	writel(mipi_dsi->encoder ? 0x0 : 0x2,
+	writel(mipi_dsi->traffic_mode,
 	       mipi_dsi->mmio_base + DPI_VIDEO_MODE);
 
-	writel(mipi_dsi->encoder ?
-	       0x10 : mode->right_margin * (bpp >> 3),
-	       mipi_dsi->mmio_base + DPI_HFP);
-	writel(mipi_dsi->encoder ?
-	       0x60 : mode->left_margin * (bpp >> 3),
-	       mipi_dsi->mmio_base + DPI_HBP);
-	writel(mipi_dsi->encoder ?
-	       0xf0 : mode->hsync_len * (bpp >> 3),
-	       mipi_dsi->mmio_base + DPI_HSA);
+	switch (mipi_dsi->traffic_mode) {
+	case DSI_NON_BURST_WITH_SYNC_PULSE:
+		writel(0x10, mipi_dsi->mmio_base + DPI_HFP);
+		writel(0x60, mipi_dsi->mmio_base + DPI_HBP);
+		writel(0xf0, mipi_dsi->mmio_base + DPI_HSA);
+		break;
+	case DSI_BURST_MODE:
+		writel(mode->right_margin * (bpp >> 3),
+		       mipi_dsi->mmio_base + DPI_HFP);
+		writel(mode->left_margin * (bpp >> 3),
+		       mipi_dsi->mmio_base + DPI_HBP);
+		writel(mode->hsync_len * (bpp >> 3),
+		       mipi_dsi->mmio_base + DPI_HSA);
+		break;
+	default:
+		pr_debug("unsupport traffic mode: %d\n",
+			 mipi_dsi->traffic_mode);
+		return -EINVAL;
+	}
 	writel(0x0, mipi_dsi->mmio_base + DPI_ENABLE_MULT_PKTS);
 
 	writel(mode->upper_margin, mipi_dsi->mmio_base + DPI_VBP);

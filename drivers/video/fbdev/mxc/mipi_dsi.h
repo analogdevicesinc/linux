@@ -25,6 +25,10 @@
 
 #define	DSI_CMD_BUF_MAXSIZE         (128)
 
+#define DSI_NON_BURST_WITH_SYNC_PULSE  0
+#define DSI_NON_BURST_WITH_SYNC_EVENT  1
+#define DSI_BURST_MODE                 2
+
 /* DPI interface pixel color coding map */
 enum mipi_dsi_dpi_fmt {
 	MIPI_RGB565_PACKED = 0,
