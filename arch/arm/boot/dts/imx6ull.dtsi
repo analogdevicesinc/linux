@@ -119,6 +119,8 @@
 				 <&clks IMX6UL_CLK_OSC>;
 			clock-names = "arm", "pll2_bus",  "pll2_pfd2_396m", "secondary_sel", "step",
 				      "pll1_sw", "pll1_sys", "pll1_bypass", "pll1", "pll1_bypass_src", "osc";
+			arm-supply = <&reg_arm>;
+			soc-supply = <&reg_soc>;
 		};
 	};
 

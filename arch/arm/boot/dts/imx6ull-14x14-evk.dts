@@ -148,8 +148,6 @@
 };
 
 &cpu0 {
-	arm-supply = <&reg_arm>;
-	soc-supply = <&reg_soc>;
 	dc-supply = <&reg_gpio_dvfs>;
 };
 
