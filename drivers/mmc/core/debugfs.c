@@ -58,6 +58,9 @@ static int mmc_ios_show(struct seq_file *s, void *data)
 	struct mmc_ios	*ios = &host->ios;
 	const char *str;
 
+	if (host->card)
+		mmc_get_card(host->card);
+
 	seq_printf(s, "clock:\t\t%u Hz\n", ios->clock);
 	if (host->actual_clock)
 		seq_printf(s, "actual clock:\t%u Hz\n", host->actual_clock);
@@ -194,6 +197,9 @@ static int mmc_ios_show(struct seq_file *s, void *data)
 	}
 	seq_printf(s, "driver type:\t%u (%s)\n", ios->drv_type, str);
 
+	if (host->card)
+		mmc_put_card(host->card);
+
 	return 0;
 }
 
@@ -213,7 +219,11 @@ static int mmc_clock_opt_get(void *data, u64 *val)
 {
 	struct mmc_host *host = data;
 
+	if (host->card)
+		mmc_get_card(host->card);
 	*val = host->ios.clock;
+	if (host->card)
+		mmc_put_card(host->card);
 
 	return 0;
 }
