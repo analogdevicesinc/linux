@@ -183,6 +183,7 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 		imx_clk_prepare_enable(clks[clks_init_on[i]]);
         imx_clk_set_parent(clks[IMX7ULP_CLK_GPU2D], clks[IMX7ULP_CLK_APLL_PFD2]);
         imx_clk_set_parent(clks[IMX7ULP_CLK_GPU3D], clks[IMX7ULP_CLK_APLL_PFD2]);
+        imx_clk_set_rate(clks[IMX7ULP_CLK_APLL_PFD2], 350000000);
 
 	pr_info("i.MX7ULP clock tree init done.\n");
 }
