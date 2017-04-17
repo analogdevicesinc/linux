@@ -917,6 +917,13 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		memcpy(mipi_dsi->mode, &mxc_cea_mode[vmode_index],
 		       sizeof(struct fb_videomode));
 
+		ret = of_property_read_u32(remote, "dsi-traffic-mode",
+					   &mipi_dsi->traffic_mode);
+		if (ret < 0 || mipi_dsi->traffic_mode > 2) {
+			devm_kfree(&pdev->dev, mipi_dsi->mode);
+			return -EINVAL;
+		}
+
 		mipi_dsi->lcd_config = devm_kzalloc(&pdev->dev,
 						sizeof(struct mipi_lcd_config),
 						GFP_KERNEL);
@@ -926,7 +933,9 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		}
 
 		mipi_dsi->encoder = 1;
-	}
+	} else
+		/* Default, using 'BURST-MODE' for mipi panel */
+		mipi_dsi->traffic_mode = 2;
 
 	ret = of_property_read_string(np, "lcd_panel", &lcd_panel);
 	if (ret) {
