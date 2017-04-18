@@ -291,7 +291,7 @@ static int pm_heartbeat_resume(struct device *dev)
 {
 	int err;
 
-	err = pm_vlls_notify_m4(true);
+	err = pm_vlls_notify_m4(false);
 	if (err)
 		return err;
 
