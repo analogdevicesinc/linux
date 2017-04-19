@@ -3379,6 +3379,8 @@ struct ad9361_rf_phy {
 	u16 			auxdac2_value;
 	u32			tx1_atten_cached;
 	u32			tx2_atten_cached;
+	u8			bist_loopback_mode;
+	u8			bist_config;
 
 	struct ad9361_fastlock	fastlock;
 };
