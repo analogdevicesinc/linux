@@ -2188,6 +2188,9 @@ static int __init caam_algapi_hash_init(void)
 		} else
 			list_add_tail(&t_alg->entry, &hash_list);
 
+		if ((alg->alg_type & OP_ALG_ALGSEL_MASK) == OP_ALG_ALGSEL_AES)
+			continue;
+
 		/* register unkeyed version */
 		t_alg = caam_hash_alloc(alg, false);
 		if (IS_ERR(t_alg)) {
