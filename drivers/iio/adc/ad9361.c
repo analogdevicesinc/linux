@@ -991,6 +991,8 @@ int ad9361_bist_loopback(struct ad9361_rf_phy *phy, unsigned mode)
 
 	reg = ad9361_spi_read(phy->spi, REG_OBSERVE_CONFIG);
 
+	phy->bist_loopback_mode = mode;
+
 	switch (mode) {
 	case 0:
 		ad9361_hdl_loopback(phy, false);
@@ -1042,6 +1044,8 @@ int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
 		break;
 	};
 
+	phy->bist_config = reg;
+
 	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
 }
 EXPORT_SYMBOL(ad9361_bist_prbs);
@@ -1084,6 +1088,8 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 
 	reg1 = ((mask << 2) & reg_mask);
 	ad9361_spi_write(phy->spi, REG_BIST_AND_DATA_PORT_TEST_CONFIG, reg1);
+
+	phy->bist_config = reg;
 
 	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
 }
@@ -4597,6 +4603,8 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	phy->current_rx_use_tdd_table = false;
 	phy->cached_synth_pd[0] = 0;
 	phy->cached_synth_pd[1] = 0;
+	phy->bist_loopback_mode = 0;
+	phy->bist_config = 0;
 
 	memset(&phy->fastlock, 0, sizeof(phy->fastlock));
 }
