@@ -41,7 +41,7 @@ enum bus_freq_mode {
 	BUS_FREQ_ULTRA_LOW,
 };
 
-#ifdef CONFIG_CPU_FREQ
+#if defined(CONFIG_CPU_FREQ) && !defined(CONFIG_ARM64)
 void request_bus_freq(enum bus_freq_mode mode);
 void release_bus_freq(enum bus_freq_mode mode);
 int register_busfreq_notifier(struct notifier_block *nb);
