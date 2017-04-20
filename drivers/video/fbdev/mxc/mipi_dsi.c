@@ -839,6 +839,11 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	int mux;
 	int ret = 0;
 
+	if (!np) {
+		dev_err(&pdev->dev, "failed to find device tree node\n");
+		return -ENODEV;
+	}
+
 	mipi_dsi = devm_kzalloc(&pdev->dev, sizeof(*mipi_dsi), GFP_KERNEL);
 	if (!mipi_dsi)
 		return -ENOMEM;
