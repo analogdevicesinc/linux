@@ -2,6 +2,8 @@
  * Copyright (C) 2014-2016 Freescale Semiconductor, Inc.
  * Copyright 2017 NXP
  *
+ * Copyright 2017 NXP
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -6408,9 +6410,19 @@ static int pxp_wfe_a_process(struct mxc_epdc_fb_data *fb_data,
 		if ((fb_data->epdc_fb_var.rotate == FB_ROTATE_UR) &&
 			(fb_data->epdc_fb_var.grayscale == GRAYSCALE_8BIT) &&
 			!is_transform && (proc_data->dither_mode == 0) &&
+			!(upd_data_list->update_desc->upd_data.flags &
+			EPDC_FLAG_USE_ALT_BUFFER) &&
 			!fb_data->restrict_width) {
-				pxp_conf->wfe_a_fetch_param[0].paddr =
+			sg_dma_address(&sg[0]) = fb_data->info.fix.smem_start;
+			sg_set_page(&sg[0],
+				virt_to_page(fb_data->info.screen_base),
+				fb_data->info.fix.smem_len,
+				offset_in_page(fb_data->info.screen_base));
+			pxp_conf->wfe_a_fetch_param[0].paddr =
 					sg_dma_address(&sg[0]);
+
+			pxp_conf->wfe_a_fetch_param[0].left = update_region->left;
+			pxp_conf->wfe_a_fetch_param[0].top = update_region->top;
 		} else
 			pxp_conf->wfe_a_fetch_param[0].paddr =
 				upd_data_list->phys_addr + upd_data_list->update_desc->epdc_offs;
