@@ -1,0 +1,30 @@
+Freescale i.MX audio complex with Freescale DAI transceiver.
+Currently supports Freescale SAI or ESAI digital audio interface.
+
+Required properties:
+
+  - compatible		: "fsl,imx-audio-xtor"
+
+  - model		: The user-visible name of this sound complex
+
+  - cpu-dai		: The phandle of the i.MX DAI, currently supports
+			  SAI or ESAI controller
+
+Optional properties:
+
+  - asrc-controller	: The phandle of the i.MX ASRC controller associated with DAI.
+
+Examples:
+
+sound-xtor-sai {
+	compatible = "fsl,imx-audio-xtor";
+	model = "xtor-audio-sai";
+	cpu-dai = <&sai0>;
+	asrc-controller = <&asrc0>;
+};
+
+sound-xtor-esai {
+	compatible = "fsl,imx-audio-xtor";
+	model = "xtor-audio-esai";
+	cpu-dai = <&esai0>;
+};

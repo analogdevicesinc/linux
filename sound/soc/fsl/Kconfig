@@ -354,6 +354,17 @@ config SND_SOC_IMX_ES8328
 	  Say Y if you want to add support for the ES8328 audio codec connected
 	  via SSI/I2S over either SPI or I2C.
 
+config SND_SOC_IMX_XTOR
+	tristate "SoC Audio support for i.MX boards with xtor codec"
+	select SND_SOC_IMX_PCM_DMA
+	select SND_SOC_FSL_ESAI
+	select SND_SOC_FSL_SAI
+	select SND_SOC_FSL_UTILS
+	help
+	  SoC Audio support for i.MX boards with xtor codec
+	  Say Y if you want to add support for SoC audio on
+	  an i.MX board with a xtor codec.
+
 config SND_SOC_IMX_SGTL5000
 	tristate "SoC Audio support for i.MX boards with sgtl5000"
 	depends on OF && I2C
