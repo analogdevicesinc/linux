@@ -60,6 +60,8 @@ struct sii902x_data {
 static void sii902x_poweron(void);
 static void sii902x_poweroff(void);
 
+static int sii902x_in_init_state;
+
 #ifdef DEBUG
 static void dump_fb_videomode(struct fb_videomode *m)
 {
@@ -329,6 +331,13 @@ static int sii902x_fb_event(struct notifier_block *nb, unsigned long val, void *
 
 	dev_dbg(&sii902x.client->dev, "%s event=0x%lx\n", __func__, val);
 
+	if (sii902x_in_init_state) {
+		if (val == FB_EVENT_FB_REGISTERED && !sii902x.fbi)
+			sii902x.fbi = fbi;
+
+		return 0;
+	}
+
 	switch (val) {
 	case FB_EVENT_FB_REGISTERED:
 		if (sii902x.fbi == NULL)
@@ -387,6 +396,7 @@ static int sii902x_probe(struct i2c_client *client,
 {
 	int i, dat, ret;
 	struct fb_info edid_fbi;
+	struct fb_info *init_fbi = sii902x.fbi;
 
 	memset(&sii902x, 0, sizeof(sii902x));
 
@@ -465,7 +475,15 @@ static int sii902x_probe(struct i2c_client *client,
 	}
 
 	mxsfb_get_of_property();
-	fb_register_client(&nb);
+
+	if (init_fbi) {
+		sii902x.fbi = init_fbi;
+
+		/* Manually trigger a plugin/plugout interrupter to check cable state */
+		schedule_delayed_work(&(sii902x.det_work), msecs_to_jiffies(50));
+	}
+
+	sii902x_in_init_state = 0;
 
 	return 0;
 }
@@ -498,6 +516,14 @@ static void sii902x_poweroff(void)
 
 	return;
 }
+
+static int __init sii902x_init(void)
+{
+	sii902x_in_init_state = 1;
+
+	return fb_register_client(&nb);
+}
+fs_initcall_sync(sii902x_init);
 
 static const struct i2c_device_id sii902x_id[] = {
 	{ DRV_NAME, 0},
