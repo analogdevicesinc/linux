@@ -1,0 +1,18 @@
+NXP Audio Clock Mux (ACM)
+
+The Audio Clock Mux (ACM) is a collection of control registers and multiplexers
+that are used to route the audio source clocks to the audio peripherals.
+Each audio peripheral has its dedicated audio clock mux and control register.
+
+Required properties:
+
+  - compatible	: Contains "nxp,imx8qm-acm".
+  - reg		: Offset and length of the register set for the device.
+
+Example:
+
+acm:  acm@59e00000 {
+	compatible = "nxp,imx8qm-acm";
+	reg = <0x0 0x59e00000 0x0 0x1D0000>;
+	status = "okay";
+};
