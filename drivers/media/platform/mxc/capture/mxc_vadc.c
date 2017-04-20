@@ -524,6 +524,13 @@ static int vadc_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int vadc_set_fmt(struct v4l2_subdev *sd,
+			struct v4l2_subdev_pad_config *cfg,
+			struct v4l2_subdev_format *format)
+{
+	return vadc_get_fmt(sd, cfg, format);
+}
+
 static int vadc_enum_framesizes(struct v4l2_subdev *sd,
 			       struct v4l2_subdev_pad_config *cfg,
 			       struct v4l2_subdev_frame_size_enum *fse)
@@ -579,6 +586,7 @@ static const struct v4l2_subdev_video_ops vadc_video_ops = {
 
 static const struct v4l2_subdev_pad_ops vadc_pad_ops = {
 	.get_fmt	       = vadc_get_fmt,
+	.set_fmt	       = vadc_set_fmt,
 	.enum_mbus_code        = vadc_enum_mbus_code,
 	.enum_frame_size       = vadc_enum_framesizes,
 	.enum_frame_interval   = vadc_enum_frameintervals,
