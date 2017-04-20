@@ -398,6 +398,8 @@ static int sii902x_probe(struct i2c_client *client,
 	ret = device_reset(&sii902x.client->dev);
 	if (ret)
 		dev_warn(&sii902x.client->dev, "No reset pin found\n");
+	if (ret == -EPROBE_DEFER)
+		return ret;
 
 	/* Set 902x in hardware TPI mode on and jump out of D3 state */
 	if (i2c_smbus_write_byte_data(sii902x.client, 0xc7, 0x00) < 0) {
