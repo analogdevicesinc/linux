@@ -401,6 +401,9 @@ static const struct fb_bitfield def_rgb565[] = {
 };
 
 #ifdef CONFIG_FB_MXC_OVERLAY
+static u32 saved_as_ctrl;
+static u32 saved_as_next_buf;
+
 static const struct fb_bitfield def_argb555[] = {
 	[RED] = {
 		.offset = 10,
@@ -2110,9 +2113,48 @@ static void mxsfb_overlay_exit(struct mxsfb_info *fbi)
 		framebuffer_release(ofb->ol_fb);
 	}
 }
+
+static void mxsfb_overlay_resume(struct mxsfb_info *fbi)
+{
+	if (fbi->cur_blank != FB_BLANK_UNBLANK) {
+		clk_enable_pix(fbi);
+		clk_enable_axi(fbi);
+		clk_enable_disp_axi(fbi);
+	}
+
+	writel(saved_as_ctrl, fbi->base + LCDC_AS_CTRL);
+	writel(saved_as_next_buf, fbi->base + LCDC_AS_NEXT_BUF);
+
+	if (fbi->cur_blank != FB_BLANK_UNBLANK) {
+		clk_disable_disp_axi(fbi);
+		clk_disable_axi(fbi);
+		clk_disable_pix(fbi);
+	}
+
+}
+
+static void mxsfb_overlay_suspend(struct mxsfb_info *fbi)
+{
+	if (fbi->cur_blank != FB_BLANK_UNBLANK) {
+		clk_enable_pix(fbi);
+		clk_enable_axi(fbi);
+		clk_enable_disp_axi(fbi);
+	}
+
+	saved_as_ctrl = readl(fbi->base + LCDC_AS_CTRL);
+	saved_as_next_buf = readl(fbi->base + LCDC_AS_NEXT_BUF);
+
+	if (fbi->cur_blank != FB_BLANK_UNBLANK) {
+		clk_disable_disp_axi(fbi);
+		clk_disable_axi(fbi);
+		clk_disable_pix(fbi);
+	}
+}
 #else
 static void mxsfb_overlay_init(struct mxsfb_info *fbi) {}
 static void mxsfb_overlay_exit(struct mxsfb_info *fbi) {}
+static void mxsfb_overlay_resume(struct mxsfb_info *fbi) {}
+static void mxsfb_overlay_suspend(struct mxsfb_info *fbi) {}
 #endif
 
 static int mxsfb_probe(struct platform_device *pdev)
@@ -2367,6 +2409,7 @@ static int mxsfb_suspend(struct device *pdev)
 	int saved_blank;
 
 	console_lock();
+	mxsfb_overlay_suspend(host);
 	fb_set_suspend(fb_info, 1);
 	saved_blank = host->cur_blank;
 	mxsfb_blank(FB_BLANK_POWERDOWN, fb_info);
@@ -2388,6 +2431,7 @@ static int mxsfb_resume(struct device *pdev)
 	console_lock();
 	mxsfb_blank(host->restore_blank, fb_info);
 	fb_set_suspend(fb_info, 0);
+	mxsfb_overlay_resume(host);
 	console_unlock();
 
 	return 0;
