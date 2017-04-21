@@ -103,6 +103,10 @@ static int clk_pfd_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 val;
 	u8 frac;
 
+	/* PFD can NOT change rate without gating */
+	WARN_ON(!(readl_relaxed(pfd->reg) &
+		(1 << ((pfd->idx + 1) * 8 - 1))));
+
 	tmp = tmp * 18 + rate / 2;
 	do_div(tmp, rate);
 	frac = tmp;
