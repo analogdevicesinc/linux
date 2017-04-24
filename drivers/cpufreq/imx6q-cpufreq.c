@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2013-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,7 +25,7 @@
 #define DC_VOLTAGE_MAX		1400000
 #define FREQ_1P2_GHZ		1200000000
 #define FREQ_396_MHZ		396000
-#define FREQ_696_MHZ		696000
+#define FREQ_528_MHZ		528000
 #define FREQ_198_MHZ		198000
 #define FREQ_24_MHZ		24000
 
@@ -399,10 +400,10 @@ static int imx6q_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * On i.MX6UL EVK board, if the SOC is run in overide frequency,
+	 * On i.MX6UL/ULL EVK board, if the SOC is run in overide frequency,
 	 * the dc_regulator voltage should not be touched.
 	 */
-	if (freq_table[num - 1].frequency == FREQ_696_MHZ)
+	if (freq_table[num - 1].frequency > FREQ_528_MHZ)
 		ignore_dc_reg = true;
 	if (!IS_ERR(dc_reg) && !ignore_dc_reg)
 		regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MIN, 0);
