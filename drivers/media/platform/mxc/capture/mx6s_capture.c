@@ -285,7 +285,7 @@ struct mx6s_buf_internal {
 /* buffer for one video frame */
 struct mx6s_buffer {
 	/* common v4l buffer stuff -- must be first */
-	struct vb2_buffer			vb;
+	struct vb2_v4l2_buffer			vb;
 	struct mx6s_buf_internal	internal;
 };
 
@@ -692,8 +692,9 @@ out:
 
 static void mx6s_videobuf_queue(struct vb2_buffer *vb)
 {
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct mx6s_csi_dev *csi_dev = vb2_get_drv_priv(vb->vb2_queue);
-	struct mx6s_buffer *buf = container_of(vb, struct mx6s_buffer, vb);
+	struct mx6s_buffer *buf = container_of(vbuf, struct mx6s_buffer, vb);
 	unsigned long flags;
 
 	dev_dbg(csi_dev->dev, "%s (vb=0x%p) 0x%p %lu\n", __func__,
@@ -913,7 +914,7 @@ static int mx6s_start_streaming(struct vb2_queue *vq, unsigned int count)
 	buf = list_first_entry(&csi_dev->capture, struct mx6s_buffer,
 			       internal.queue);
 	buf->internal.bufnum = 0;
-	vb = &buf->vb;
+	vb = &buf->vb.vb2_buf;
 	vb->state = VB2_BUF_STATE_ACTIVE;
 
 	phys = vb2_dma_contig_plane_dma_addr(vb, 0);
@@ -925,7 +926,7 @@ static int mx6s_start_streaming(struct vb2_queue *vq, unsigned int count)
 	buf = list_first_entry(&csi_dev->capture, struct mx6s_buffer,
 			       internal.queue);
 	buf->internal.bufnum = 1;
-	vb = &buf->vb;
+	vb = &buf->vb.vb2_buf;
 	vb->state = VB2_BUF_STATE_ACTIVE;
 
 	phys = vb2_dma_contig_plane_dma_addr(vb, 0);
@@ -951,15 +952,15 @@ static void mx6s_stop_streaming(struct vb2_queue *vq)
 	list_for_each_entry_safe(buf, tmp,
 				&csi_dev->active_bufs, internal.queue) {
 		list_del_init(&buf->internal.queue);
-		if (buf->vb.state == VB2_BUF_STATE_ACTIVE)
-			vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
+		if (buf->vb.vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_ERROR);
 	}
 
 	list_for_each_entry_safe(buf, tmp,
 				&csi_dev->capture, internal.queue) {
 		list_del_init(&buf->internal.queue);
-		if (buf->vb.state == VB2_BUF_STATE_ACTIVE)
-			vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
+		if (buf->vb.vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_ERROR);
 	}
 
 	INIT_LIST_HEAD(&csi_dev->capture);
@@ -1006,7 +1007,7 @@ static void mx6s_csi_frame_done(struct mx6s_csi_dev *csi_dev,
 	} else {
 		buf = mx6s_ibuf_to_buf(ibuf);
 
-		vb = &buf->vb;
+		vb = &buf->vb.vb2_buf;
 		phys = vb2_dma_contig_plane_dma_addr(vb, 0);
 		if (bufnum == 1) {
 			if (csi_read(csi_dev, CSI_CSIDMASA_FB2) != phys) {
@@ -1061,7 +1062,7 @@ static void mx6s_csi_frame_done(struct mx6s_csi_dev *csi_dev,
 
 	list_move_tail(csi_dev->capture.next, &csi_dev->active_bufs);
 
-	vb = &buf->vb;
+	vb = &buf->vb.vb2_buf;
 	vb->state = VB2_BUF_STATE_ACTIVE;
 
 	phys = vb2_dma_contig_plane_dma_addr(vb, 0);
