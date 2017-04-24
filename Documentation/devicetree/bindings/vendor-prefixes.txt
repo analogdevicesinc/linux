@@ -210,6 +210,7 @@ micron	Micron Technology Inc.
 minix	MINIX Technology Ltd.
 miramems	MiraMEMS Sensing Technology Co., Ltd.
 mitsubishi	Mitsubishi Electric Corporation
+mixel	Mixel, Inc.
 mosaixtech	Mosaix Technologies, Inc.
 motorola	Motorola, Inc.
 moxa	Moxa Inc.
