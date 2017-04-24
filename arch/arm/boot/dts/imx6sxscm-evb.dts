@@ -85,6 +85,7 @@
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3000000>;
 			gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>;
+			off-on-delay = <20000>;
 			enable-active-high;
 		};
 
@@ -136,7 +137,7 @@
 			regulator-name = "peri_3v3";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
-			gpios = <&gpio4 16 GPIO_ACTIVE_HIGH>;
+			gpio = <&gpio4 16 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 			regulator-always-on;
 		};
@@ -548,7 +549,7 @@
 	display = <&display0>;
 	status = "disabled";
 
-	display0: display {
+	display0: display@0 {
 		bits-per-pixel = <16>;
 		bus-width = <24>;
 
@@ -578,7 +579,7 @@
 	disp-dev = "ldb";
 	status = "okay";
 
-	display1: display {
+	display1: display@1 {
 		bits-per-pixel = <16>;
 		bus-width = <18>;
 	};
@@ -630,6 +631,12 @@
 	status = "okay";
 };
 
+&sai1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai1>;
+	status = "disabled";
+};
+
 &spdif {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_spdif>;
@@ -668,7 +675,7 @@
 	wifi-host;
 	no-1-8-v;
 	keep-power-in-suspend;
-	enable-sdio-wakeup;
+	wakeup-source;
 	status = "okay";
 };
 
@@ -681,7 +688,7 @@
 	cd-gpios = <>;
 	wp-gpios = <>;
 	keep-power-in-suspend;
-	enable-sdio-wakeup;
+	wakeup-source;
 	pm-ignore-notify;
 	vmmc-supply = <>;
 	status = "okay";

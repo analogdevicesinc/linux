@@ -14,5 +14,6 @@
 };
 
 &rpmsg{
-	reg = <0x9FFF0000 0x8000>;
+	vdev-nums = <1>;
+	reg = <0x9FFF0000 0x10000>;
 };

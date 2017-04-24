@@ -28,7 +28,7 @@
 	internal_scm_flash: m25p80@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "micron,n25q128a13";
+		compatible = "micron,n25q128a13", "jedec,spi-nor";
 		spi-max-frequency = <20000000>;
 		reg = <0>;
 	};
@@ -140,7 +140,7 @@
 
 			vgen6_reg: vgen6 {
 				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <3150000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-always-on;
 			};
 		};
