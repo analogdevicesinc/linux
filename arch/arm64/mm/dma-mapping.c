@@ -32,6 +32,10 @@
 
 #include <asm/cacheflush.h>
 
+EXPORT_SYMBOL(__dma_map_area);
+EXPORT_SYMBOL(__dma_unmap_area);
+EXPORT_SYMBOL(__dma_flush_area);
+
 static int swiotlb __ro_after_init;
 
 static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
