@@ -7,6 +7,13 @@
  */
 
 / {
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio4 9 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	regulators {
 		wlreg_on: fixedregulator@100 {
 			compatible = "regulator-fixed";
@@ -26,6 +33,7 @@
 	bcmdhd_wlan_0: bcmdhd_wlan@0 {
 		compatible = "android,bcmdhd_wlan";
 		wlreg_on-supply = <&wlreg_on>;
+		gpios = <&gpio7 9 0>; /* WL_HOST_WAKE */
 	};
 };
 
@@ -90,6 +98,7 @@
 				MX6SX_PAD_SD2_DATA3__USDHC2_DATA3	0x17069
 				/* Murata Module control signals */
 				MX6SX_PAD_NAND_DATA04__GPIO4_IO_8	0x13069
+				MX6SX_PAD_SD3_DATA7__GPIO7_IO_9         0x13069
 			>;
 		};
 	};
@@ -100,6 +109,7 @@
 	pinctrl-0 = <&pinctrl_uart6
 		     &pinctrl_bt>;
 	fsl,uart-has-rtscts;
+	resets = <&modem_reset>;
 	status = "okay";
 };
 

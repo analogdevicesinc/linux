@@ -7,6 +7,13 @@
  */
 
 / {
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio6 1 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	regulators {
 		wlreg_on: fixedregulator@100 {
 			compatible = "regulator-fixed";
@@ -22,6 +29,7 @@
 	bcmdhd_wlan_0: bcmdhd_wlan@0 {
 		compatible = "android,bcmdhd_wlan";
 		wlreg_on-supply = <&wlreg_on>;
+		gpios = <&gpio6 4 0>; /* WL_HOST_WAKE */
 	};
 };
 
@@ -30,6 +38,7 @@
 	pinctrl-0 = <&pinctrl_uart4
 		     &pinctrl_bt>;
 	fsl,uart-has-rtscts;
+	resets = <&modem_reset>;
 	status = "okay";
 };
 
