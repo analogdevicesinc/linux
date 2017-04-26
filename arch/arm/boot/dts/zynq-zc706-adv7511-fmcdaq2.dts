@@ -63,6 +63,8 @@
 		dmas = <&tx_dma 0>;
 		dma-names = "tx";
 		spibus-connected = <&dac0_ad9144>;
+		adi,axi-pl-fifo-enable;
+
 		xlnx,component-name = "system_axi_ad9144_core_0";
 		xlnx,edk-iptype = "PERIPHERAL";
 		xlnx,pcore-dac-dp-disable = <0x0>;
