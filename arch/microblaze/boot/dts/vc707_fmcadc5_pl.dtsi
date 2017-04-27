@@ -489,5 +489,11 @@
 			xlnx,use-uart = <0x1>;
 			xlnx,xmtc = <0x0>;
 		};
+		axi_fmcadc5_sync: axi-fmcadc5-sync@44a20000 {
+			compatible = "adi,axi-fmcadc5-sync-1.0";
+			reg = <0x44a20000 0x10000>;
+			adi,ad9625-device-select-0 = <1>;
+			adi,ad9625-device-select-1 = <2>;
+		};
 	};
 };
