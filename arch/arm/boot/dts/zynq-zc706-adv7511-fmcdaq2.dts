@@ -204,15 +204,3 @@
 	status0-gpios = <&gpio0 86 0>;
 	status1-gpios = <&gpio0 87 0>;
 };
-
-&clk0_ad9523 {
-	adi,pll2-vco-diff-m1 = <4>;
-};
-
-&ad9523_0_c4 {
-	adi,channel-divider = <4>;	// ADC_CLK_FMC
-};
-
-&ad9523_0_c13 {
-	adi,channel-divider = <2>;	// ADC_CLK
-};
