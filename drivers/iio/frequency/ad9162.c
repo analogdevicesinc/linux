@@ -1,7 +1,7 @@
 /*
  * AD9162 SPI DAC driver for AXI DDS PCORE/COREFPGA Module
  *
- * Copyright 2016 Analog Devices Inc.
+ * Copyright 2016-2017 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -45,6 +45,8 @@ struct ad9162_state {
 	enum chip_id id;
 	struct regmap *map;
 	ad916x_handle_t dac_h;
+	bool complex_mode;
+	unsigned interpolation;
 
 };
 
@@ -75,7 +77,9 @@ static int ad9162_get_temperature_code(struct cf_axi_converter *conv)
 
 static unsigned long long ad9162_get_data_clk(struct cf_axi_converter *conv)
 {
-	return clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]);
+	struct ad9162_state *st = container_of(conv, struct ad9162_state, conv);
+
+	return div_u64(clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]), st->interpolation);
 }
 
 static int ad9162_setup(struct ad9162_state *st,
@@ -130,19 +134,23 @@ static int ad9162_setup(struct ad9162_state *st,
 
 	ad916x_dac_set_full_scale_current(ad916x_h, 20);
 
-	ad916x_dac_set_clk_frequency(ad916x_h, ad9162_get_data_clk(&st->conv));
+	ad916x_dac_set_clk_frequency(ad916x_h,
+				     clk_get_rate_scaled(st->conv.clk[CLK_DAC],
+				     &st->conv.clkscale[CLK_DAC]));
 	if (ret != 0)
 		return ret;
 
+	st->complex_mode = true;
+	st->interpolation = 2;
+
 	appJesdConfig.jesd_L = 8;
-	appJesdConfig.jesd_M = 2;
+	appJesdConfig.jesd_M = (st->complex_mode ? 2 : 1);
 	appJesdConfig.jesd_F = 1;
 	appJesdConfig.jesd_S = 2;
 	appJesdConfig.jesd_HD = ((appJesdConfig.jesd_F == 1) ? 1 : 0);
 
-
 	ad916x_jesd_config_datapath(ad916x_h, appJesdConfig,
-				    2, &jesdLaneRate);
+				    st->interpolation, &jesdLaneRate);
 	if (ret != 0)
 		return ret;
 
@@ -176,6 +184,7 @@ static int ad9162_setup(struct ad9162_state *st,
 	dev_info(dev, "frame_sync_stat: %x \n", link_status.frame_sync_stat);
 	dev_info(dev, "good_checksum_stat: %x \n", link_status.good_checksum_stat);
 	dev_info(dev, "init_lane_sync_stat: %x \n", link_status.init_lane_sync_stat);
+	dev_info(dev, "%d lanes @ %llu GBps\n", appJesdConfig.jesd_L, jesdLaneRate);
 
 	msleep(100);
 
@@ -262,6 +271,11 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 
 static int ad9162_prepare(struct cf_axi_converter *conv)
 {
+	struct cf_axi_dds_state *st = iio_priv(conv->indio_dev);
+	struct ad9162_state *ad9162 = container_of(conv, struct ad9162_state, conv);
+
+	/* FIXME This needs documenation */
+	dds_write(st, 0x428, ad9162->complex_mode ? 1 : 0);
 	return 0;
 }
 
@@ -452,8 +466,6 @@ static int ad9162_probe(struct spi_device *spi)
 	if (IS_ERR(st->map))
 		return PTR_ERR(st->map);
 
-
-
 	conv->write = ad9162_write;
 	conv->read = ad9162_read;
 	conv->setup = ad9162_prepare;
@@ -471,17 +483,13 @@ static int ad9162_probe(struct spi_device *spi)
 		goto out;
 	}
 
-
 	st->dac_h.user_data = st->map;
 	st->dac_h.sdo = SPI_SDIO;
-	st->dac_h.dac_freq_hz = ad9162_get_data_clk(conv);
 	st->dac_h.dev_xfer = spi_xfer_dummy;
 	st->dac_h.delay_us = delay_us;
 	st->dac_h.event_handler = NULL;
 	st->dac_h.tx_en_pin_ctrl = NULL;
 	st->dac_h.reset_pin_ctrl = NULL;
-
-
 
 	ret = ad9162_setup(st, pdata);
 	if (ret < 0) {
