@@ -1830,27 +1830,35 @@ static void  mxc_hdmi_default_edid_cfg(struct mxc_hdmi *hdmi)
 
 static void  mxc_hdmi_default_modelist(struct mxc_hdmi *hdmi)
 {
-	u32 i;
-	const struct fb_videomode *mode;
+	struct fb_modelist *modelist;
+	struct fb_videomode *m;
 
 	dev_dbg(&hdmi->pdev->dev, "%s\n", __func__);
 
-	/* If not EDID data read, set up default modelist  */
+	/* If no EDID data read, set up default modelist; since we don't know
+	 * the supported modes of the current sink, we will use only one mode in
+	 * this modelist:
+	 * the default_mode set up at init (usually got from cmdline)
+	 */
 	dev_info(&hdmi->pdev->dev, "create default modelist\n");
 
-	console_lock();
+	/* If the current modelist is already default, don't re-create it*/
+	if (list_is_singular(&hdmi->fbi->modelist)) {
+		modelist = list_entry((&hdmi->fbi->modelist)->next,
+				struct fb_modelist, list);
+		m = &modelist->mode;
+		if (fb_mode_is_equal(m, &hdmi->default_mode)) {
+			dev_info(&hdmi->pdev->dev,
+				"Modelist is already default, no need to re-create!\n");
+			return;
+		}
 
-	fb_destroy_modelist(&hdmi->fbi->modelist);
-
-	/*Add all no interlaced CEA mode to default modelist */
-	for (i = 0; i < ARRAY_SIZE(mxc_cea_mode); i++) {
-		mode = &mxc_cea_mode[i];
-		if (!(mode->vmode & FB_VMODE_INTERLACED) && (mode->xres != 0))
-			fb_add_videomode(mode, &hdmi->fbi->modelist);
 	}
 
+	console_lock();
+	fb_destroy_modelist(&hdmi->fbi->modelist);
+	fb_add_videomode(&hdmi->default_mode, &hdmi->fbi->modelist);
 	fb_new_modelist(hdmi->fbi);
-
 	console_unlock();
 }
 
