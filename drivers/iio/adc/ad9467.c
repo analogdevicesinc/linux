@@ -913,6 +913,8 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED",
 		 pll_stat & 0x01 ? "Ready" : "Fail");
 
+	conv->sample_rate_read_only = true;
+
 	return ret;
 }
 
@@ -951,6 +953,8 @@ static int ad9625_setup(struct spi_device *spi)
 
 	dev_info(&spi->dev, "AD9625 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
+
+	conv->sample_rate_read_only = true;
 
 	return ret;
 }
@@ -1034,6 +1038,8 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 
 	dev_info(&spi->dev, "AD9680 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
+
+	conv->sample_rate_read_only = true;
 
 	return ret;
 }
@@ -1170,6 +1176,9 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 
 		if (chan->extend_name)
 			return -ENODEV;
+
+		if (conv->sample_rate_read_only)
+			return -EPERM;
 
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {

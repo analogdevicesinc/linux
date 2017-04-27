@@ -404,6 +404,9 @@ struct axiadc_converter {
 	unsigned			scratch_reg[AXIADC_MAX_CHANNEL];
 	unsigned long 		adc_clk;
 	const struct axiadc_chip_info	*chip_info;
+
+	bool			sample_rate_read_only;
+
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);
