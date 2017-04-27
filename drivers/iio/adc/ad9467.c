@@ -1204,6 +1204,8 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 
 	ret = clk_set_rate(jesd_clk, lane_rate_kHz);
 
+	conv->sample_rate_read_only = true;
+
 	return ret;
 }
 
