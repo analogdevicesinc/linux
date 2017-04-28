@@ -177,10 +177,13 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 
 		axiadc_set_pnsel(st, i, (mode == TESTMODE_PN9_SEQ) ?
 				ADC_PN9 : ADC_PN23A);
-		axiadc_write(st, ADI_REG_CHAN_STATUS(i), ~0);
 	}
 
-	mdelay(1); /* FIXME */
+	mdelay(1);
+
+	for (i = 0; i < conv->chip_info->num_channels; i++)
+		axiadc_write(st, ADI_REG_CHAN_STATUS(i), ~0);
+
 	mutex_unlock(&indio_dev->mlock);
 
 	return count;
