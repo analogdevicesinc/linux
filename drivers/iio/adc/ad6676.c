@@ -136,6 +136,25 @@ static int ad6676_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 	return 0;
 }
 
+static int ad6676_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+	unsigned int writeval, unsigned int *readval)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct spi_device *spi = conv->spi;
+	int ret;
+
+	if (readval == NULL) {
+		return ad6676_spi_write(spi, reg, writeval);
+	} else {
+		ret = ad6676_spi_read(spi, reg);
+		if (ret < 0)
+			return ret;
+		*readval = ret;
+	}
+
+	return 0;
+}
+
 static int ad6676_set_splitreg(struct spi_device *spi, u32 reg, u32 val)
 {
 	int ret;
@@ -1183,8 +1202,7 @@ static int ad6676_probe(struct spi_device *spi)
 	if (ret < 0)
 		goto out;
 
-	conv->write = ad6676_spi_write;
-	conv->read = ad6676_spi_read;
+	conv->reg_access = ad6676_reg_access;
 	conv->write_raw = ad6676_write_raw;
 	conv->read_raw = ad6676_read_raw;
 	conv->post_setup = ad6676_post_setup;
