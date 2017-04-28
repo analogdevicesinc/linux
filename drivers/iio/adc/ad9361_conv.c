@@ -680,7 +680,6 @@ int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 	conv->chip_info = &axiadc_chip_info_tbl[
 		(spi_get_device_id(spi)->driver_data == ID_AD9361_2) ?
 		ID_AD9361_2 : phy->pdata->rx2tx2 ? ID_AD9361 : ID_AD9364];
-	conv->adc_output_mode = OUTPUT_MODE_TWOS_COMPLEMENT;
 	conv->write = ad9361_spi_write;
 	conv->read = ad9361_spi_read;
 	conv->write_raw = ad9361_write_raw;
