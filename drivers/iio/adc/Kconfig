@@ -210,9 +210,6 @@ config ADMC
 	  AD-FMCMOTCON1 device drivers. Provides direct access
 	  via sysfs.
 
-config CF_AXI_FFT
-	tristate "Generic FFT driver"
-
 config CF_AXI_TDD
 	tristate "Analog Devices TDD HDL CORE driver"
 	help

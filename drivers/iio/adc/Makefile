@@ -26,8 +26,6 @@ obj-$(CONFIG_AD9361) += ad9361_drv.o
 obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_ADMC) += admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o
 
-obj-$(CONFIG_CF_AXI_FFT) += cf_axi_fft_core.o
-
 obj-$(CONFIG_CF_AXI_TDD) += cf_axi_tdd.o
 
 obj-$(CONFIG_AXI_JESD204B) += cf_axi_jesd204b.o cf_axi_jesd204b_v51.o cf_axi_jesd204b_gt.o
