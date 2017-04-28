@@ -1,0 +1,16 @@
+
+menuconfig JESD204
+	tristate "JESD204 High-Speed Serial Interface Support"
+
+if JESD204
+
+config AXI_ADXCVR
+	tristate "Analog Devices AXI ADXCVR PHY Support"
+	depends on COMMON_CLK
+
+config AXI_JESD204B
+	tristate "Generic AXI JESD204B configuration driver"
+	depends on COMMON_CLK
+
+endif
+
