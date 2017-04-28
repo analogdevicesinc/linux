@@ -134,7 +134,7 @@ enum adc_pn_sel {
 	ADC_PN23 = 6,
 	ADC_PN31 = 7,
 	ADC_PN_CUSTOM = 9,
-	ADC_PN_END = 10,
+	ADC_PN_OFF = 10,
 };
 
 enum adc_data_sel {
@@ -442,8 +442,8 @@ struct axiadc_converter {
 			int state);
 
 	int (*post_setup)(struct iio_dev *indio_dev);
-	int (*testmode_set)(struct iio_dev *indio_dev, unsigned chan,
-			unsigned mode);
+	int (*set_pnsel)(struct iio_dev *indio_dev, unsigned chan,
+			enum adc_pn_sel sel);
 };
 
 

@@ -153,7 +153,8 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 	struct iio_dev *indio_dev = file->private_data;
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
-	unsigned i, mode = TESTMODE_OFF;
+	enum adc_pn_sel mode;
+	unsigned int i;
 	char buf[80], *p = buf;
 
 	count = min_t(size_t, count, (sizeof(buf)-1));
@@ -163,20 +164,20 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 	p[count] = 0;
 
 	if (sysfs_streq(p, "PN9"))
-		mode = TESTMODE_PN9_SEQ;
+		mode = ADC_PN9;
 	else if (sysfs_streq(p, "PN23"))
-		mode = TESTMODE_PN23_SEQ;
+		mode = ADC_PN23A;
 	else
-		mode = TESTMODE_OFF;
+		mode = ADC_PN_OFF;
 
 	mutex_lock(&indio_dev->mlock);
 
 	for (i = 0; i < conv->chip_info->num_channels; i++) {
-		if (conv->testmode_set)
-			conv->testmode_set(indio_dev, i, mode);
+		if (conv->set_pnsel)
+			conv->set_pnsel(indio_dev, i, mode);
 
-		axiadc_set_pnsel(st, i, (mode == TESTMODE_PN9_SEQ) ?
-				ADC_PN9 : ADC_PN23A);
+		if (mode != ADC_PN_OFF)
+			axiadc_set_pnsel(st, i, mode);
 	}
 
 	mdelay(1);
