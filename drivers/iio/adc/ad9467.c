@@ -104,10 +104,23 @@ static int ad9467_testmode_set(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int ad9467_test_and_outputmode_set(struct iio_dev *indio_dev,
-					  unsigned chan, unsigned mode)
+static unsigned int ad9467_pnsel_to_testmode(enum adc_pn_sel sel)
+{
+	switch (sel) {
+	case ADC_PN9:
+		return TESTMODE_PN9_SEQ;
+	case ADC_PN23A:
+		return TESTMODE_PN23_SEQ;
+	default:
+		return TESTMODE_OFF;
+	}
+}
+
+static int ad9467_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
+	enum adc_pn_sel sel)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	unsigned int mode = ad9467_pnsel_to_testmode(sel);
 	int ret;
 
 	if (mode == TESTMODE_OFF)
@@ -149,10 +162,11 @@ static int ad9680_testmode_set(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int ad9680_test_and_outputmode_set(struct iio_dev *indio_dev,
-					  unsigned chan, unsigned mode)
+static int ad9680_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
+	enum adc_pn_sel sel)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	unsigned int mode = ad9467_pnsel_to_testmode(sel);
 	int ret;
 
 	if (mode == TESTMODE_OFF)
@@ -1401,10 +1415,10 @@ static int ad9467_probe(struct spi_device *spi)
 	case CHIPID_AD9680:
 	case CHIPID_AD9234:
 	case CHIPID_AD9684:
-		conv->testmode_set = ad9680_test_and_outputmode_set;
+		conv->set_pnsel = ad9680_set_pnsel;
 		break;
 	default:
-		conv->testmode_set = ad9467_test_and_outputmode_set;
+		conv->set_pnsel = ad9467_set_pnsel;
 		break;
 	}
 

@@ -596,11 +596,24 @@ static int ad6676_testmode_set(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int ad6676_test_and_outputmode_set(struct iio_dev *indio_dev,
-					  unsigned chan, unsigned mode)
+static int ad6676_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
+	enum adc_pn_sel sel)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	unsigned int mode;
 	int ret;
+
+	switch (sel) {
+	case ADC_PN9:
+		mode = TESTGENMODE_PN9_SEQ;
+		break;
+	case ADC_PN23A:
+		mode = TESTGENMODE_PN23_SEQ;
+		break;
+	default:
+		mode = TESTGENMODE_OFF;
+		break;
+	}
 
 	if (mode == TESTGENMODE_OFF)
 		ret = ad6676_spi_write(conv->spi, AD6676_DP_CTRL,
@@ -1175,7 +1188,7 @@ static int ad6676_probe(struct spi_device *spi)
 	conv->write_raw = ad6676_write_raw;
 	conv->read_raw = ad6676_read_raw;
 	conv->post_setup = ad6676_post_setup;
-	conv->testmode_set = ad6676_test_and_outputmode_set;
+	conv->set_pnsel = ad6676_set_pnsel;
 	conv->attrs = &ad6676_attribute_group;
 
 	return 0;
