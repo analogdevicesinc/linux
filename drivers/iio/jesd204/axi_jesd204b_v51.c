@@ -25,7 +25,7 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 
-#include "cf_axi_jesd204b_v51.h"
+#include "axi_jesd204b_v51.h"
 
 struct jesd204b_state {
 	struct device 		*dev;

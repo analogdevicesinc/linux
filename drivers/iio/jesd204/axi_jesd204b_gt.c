@@ -24,7 +24,7 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 
-#include "cf_axi_jesd204b_gt.h"
+#include "axi_jesd204b_gt.h"
 
 #define JESD204B_GT_ES_HSIZE_FULL 	65
 #define JESD204B_GT_ES_HSIZE_HALF 	129
