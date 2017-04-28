@@ -1,1181 +1,448 @@
 /*
- * ADI AXI-ADXCVR Module
+ * ADI AXI-FMCADC5-SYNC Module
  *
  * Copyright 2016 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  *
- * https://wiki.analog.com/resources/fpga/docs/axi_adxcvr
+ * https://wiki.analog.com/resources/fpga/docs/axi_fmcadc5_sync
  */
+
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
-#include <linux/clk.h>
-#include <linux/clk-provider.h>
 
-#define PCORE_VER(major, minor, letter)	((major << 16) | (minor << 8) | letter)
-#define PCORE_VER_MAJOR(version)		(version >> 16)
-#define PCORE_VER_MINOR(version)		((version >> 8) & 0xff)
-#define PCORE_VER_LETTER(version)		(version & 0xff)
+/* register addresses & data (direct access) */
 
-#define ADXCVR_REG_VERSION			0x0000
-#define ADXCVR_VERSION(x)			(((x) & 0xffffffff) << 0)
-#define ADXCVR_VERSION_IS(x, y, z)	((x) << 16 | (y) << 8 | (z))
-#define ADXCVR_VERSION_MAJOR(x)		((x) >> 16)
+#define I5G_VERSION_ADDR			(0x0000 << 2)
+#define I5G_IDENTIFIER_ADDR			(0x0001 << 2)
+#define I5G_SCRATCH_ADDR			(0x0002 << 2)
+#define I5G_SPI_REQUEST_ADDR    		(0x0010 << 2)
+#define I5G_SPI_GRANT_ADDR 			(0x0011 << 2)
+#define I5G_SPI_SELECT_N_ADDR			(0x0012 << 2)
+#define I5G_SPI_TRANSMIT_ADDR			(0x0013 << 2)
+#define I5G_SPI_RECEIVE_ADDR 			(0x0014 << 2)
+#define I5G_SPI_BUSY_ADDR    			(0x0015 << 2)
+#define I5G_DELAY_ADDR				(0x0020 << 2)
+#define I5G_DELAY_VERIFY_ADDR			(0x0021 << 2)
+#define I5G_DELAY_LOCKED_ADDR			(0x0022 << 2)
+#define I5G_SYNC_CONTROL_ADDR			(0x0030 << 2)
+#define I5G_SYNC_STATUS_ADDR			(0x0031 << 2)
+#define I5G_SYSREF_CONTROL_ADDR			(0x0040 << 2)
+#define I5G_SYSREF_REQUEST_ADDR			(0x0041 << 2)
+#define I5G_CAL_CNT_ADDR			(0x0050 << 2)
+#define I5G_CAL_ENABLE_ADDR			(0x0051 << 2)
 
-#define ADXCVR_REG_ID				0x0004
+/* register addresses & data (direct access) */
 
-#define ADXCVR_REG_SCRATCH			0x0008
+#define I5G_VERSION      			0x040063	/* version (4.0a) */
+#define I5G_SPI_REQUEST_ACCESS  		0x000001 	/* request access */
+#define I5G_SPI_REQUEST_RELEASE 		0x000000 	/* release access */
+#define I5G_SPI_ACCESS_ENABLED			0x000001 	/* request enabled */
+#define I5G_SPI_ACCESS_DISABLED			0x000000 	/* request disabled */
+#define I5G_SPI_BUSY         			0x000001 	/* access busy */
+#define I5G_DELAY_LOCKED     			0x000001 	/* delay is locked */
+#define I5G_SYNC_SET              		0x000007 	/* dual mode and disabled */
+#define I5G_SYNC_RELEASE          		0x000004 	/* dual mode and enabled */
+#define I5G_SYNC_OOS              		0x000000 	/* out-of-sync */
+#define I5G_SYSREF_SET              		0x000021 	/* one-shot and disabled */
+#define I5G_SYSREF_RELEASE          		0x000020 	/* one-shot and enabled */
+#define I5G_SYSREF_REQUEST          		0x000001 	/* sysref-request */
+#define I5G_SYSREF_BUSY				0x000001 	/* sysref-busy */
+#define I5G_CAL_CNT_10M				0x000004	/* 100/((n+1)*2) */
+#define I5G_CAL_ENABLE				0x000001	/* enable */
+#define I5G_CAL_DISABLE				0x000000	/* enable */
 
-#define ADXCVR_REG_RESETN			0x0010
-#define ADXCVR_RESETN				(1 << 0)
+/* register addresses & data (indirect access) */
 
-#define ADXCVR_REG_STATUS			0x0014
-#define ADXCVR_STATUS				(1 << 0)
+#define	I5G_AD9625_ID_ADDR 			0x000001	/* identifier address */
+#define	I5G_AD9625_ID_DATA 			0x000041	/* refer data sheet for details */
+#define	I5G_AD9625_ST_ADDR 			0x000072	/* sysref time-stamp address [7:6] */
+#define	I5G_AD9625_ST_DATA 			0x00008b	/* sysref timestamping enabled (2'b10) */
+#define I5G_AD9625_SG_ADDR 			0x00013c	/* sysref guard band [7:5] */
+#define I5G_AD9625_SS_ADDR 			0x000100	/* sysref status reporting [2] */
+#define I5G_AD9625_SS_MASK 			0x000004 	/* setup violations mask */
+#define I5G_AD9625_SS_SET  			0x000004 	/* setup violations detected */
+#define I5G_AD9625_IO_ADDR 			0x0000ff	/* internal update address [0] */
+#define I5G_AD9625_IO_DATA 			0x000001 	/* register update(1), self-clearing */
+#define I5G_AD9625_SC_ADDR 			0x00003a	/* sysref control address */
 
-#define ADXCVR_REG_CONTROL			0x0020
-#define ADXCVR_LPM_DFE_N			(1 << 12)
-#define ADXCVR_RATE(x)				(((x) & 0x7) << 8)
-#define ADXCVR_SYSCLK_SEL(x)		(((x) & 0x3) << 4)
-#define ADXCVR_OUTCLK_SEL(x)		(((x) & 0x7) << 0)
+/* [6] run(0)/clear(1), [3] @pos(0)/@neg(1), [2] continous(0)/one-shot(1), [1] disable(0)/enable(0) */
 
-#define ADXCVR_REG_CM_SEL			0x0040
+#define I5G_AD9625_SC_ENABLE(sel)  		((sel == 1) ? 0x00000e : 0x000006)
+#define I5G_AD9625_SC_RECEIVED(sel)  		((sel == 1) ? 0x00000c : 0x000004)
+#define I5G_AD9625_SC_CLEAR(sel)		((sel == 1) ? 0x00004e : 0x000046)
 
-#define ADXCVR_REG_CM_CONTROL		0x0044
-#define ADXCVR_CM_WR				(1 << 28)
-#define ADXCVR_CM_ADDR(x)			(((x) & 0xFFF) << 16)
-#define ADXCVR_CM_WDATA(x)			(((x) & 0xFFFF) << 0)
+/* state and such */
 
-#define ADXCVR_REG_CM_STATUS		0x0048
-#define ADXCVR_CM_BUSY				(1 << 16)
-#define ADXCVR_CM_RDATA(x)			(((x) & 0xFFFF) << 0)
-
-#define ADXCVR_REG_CH_SEL			0x0060
-
-#define ADXCVR_REG_CH_CONTROL		0x0064
-#define ADXCVR_CH_WR				(1 << 28)
-#define ADXCVR_CH_ADDR(x)			(((x) & 0xFFF) << 16)
-#define ADXCVR_CH_WDATA(x)			(((x) & 0xFFFF) << 0)
-
-#define ADXCVR_REG_CH_STATUS		0x0068
-#define ADXCVR_CH_BUSY				(1 << 16)
-#define ADXCVR_CH_RDATA(x)			(((x) & 0xFFFF) << 0)
-
-#define ADXCVR_BROADCAST			0xff
-
-#define TXOUT_DIV_ADDR				0x88
-#define TXOUT_DIV_MASK				0x70
-#define TXOUT_DIV_OFFSET			0x4
-#define TXOUT_DIV_WIDTH				0x3
-#define TXOUT_DIV_DEFAULT			0x0
-
-#define RXOUT_DIV_ADDR				0x88
-#define RXOUT_DIV_MASK				0x7
-#define RXOUT_DIV_OFFSET			0x0
-#define RXOUT_DIV_WIDTH				0x3
-#define RXOUT_DIV_DEFAULT			0x0
-
-#define RXCDR_CFG0_ADDR				0xa8
-#define RXCDR_CFG0_MASK				0xffff
-#define RXCDR_CFG0_OFFSET			0x0
-#define RXCDR_CFG0_WIDTH			0x10
-#define RXCDR_CFG0_DEFAULT			0x0
-
-#define RXCDR_CFG1_ADDR				0xa9
-#define RXCDR_CFG1_MASK				0xffff
-#define RXCDR_CFG1_OFFSET			0x0
-#define RXCDR_CFG1_WIDTH			0x10
-#define RXCDR_CFG1_DEFAULT			0x0
-
-#define RXCDR_CFG2_ADDR				0xaa
-#define RXCDR_CFG2_MASK				0xffff
-#define RXCDR_CFG2_OFFSET			0x0
-#define RXCDR_CFG2_WIDTH			0x10
-#define RXCDR_CFG2_DEFAULT			0x0
-
-#define RXCDR_CFG3_ADDR				0xab
-#define RXCDR_CFG3_MASK				0xffff
-#define RXCDR_CFG3_OFFSET			0x0
-#define RXCDR_CFG3_WIDTH			0x10
-#define RXCDR_CFG3_DEFAULT			0x0
-
-#define RXCDR_CFG4_ADDR				0xac
-#define RXCDR_CFG4_MASK				0xff
-#define RXCDR_CFG4_OFFSET			0x0
-#define RXCDR_CFG4_WIDTH			0x8
-#define RXCDR_CFG4_DEFAULT			0x0
-
-#define RX_DFE_LPM_CFG_ADDR			0x29
-#define RX_DFE_LPM_CFG_MASK			0xffff
-#define RX_DFE_LPM_CFG_OFFSET		0x0
-#define RX_DFE_LPM_CFG_WIDTH		0x10
-#define RX_DFE_LPM_CFG_DEFAULT		0x0
-
-#define QPLL_CFG0_ADDR				0x32
-#define QPLL_CFG0_MASK				0xffff
-#define QPLL_CFG0_BAND_MASK			0x40
-#define QPLL_CFG0_OFFSET			0x0
-#define QPLL_CFG0_WIDTH				0x10
-#define QPLL_CFG0_DEFAULT			0x0
-
-#define QPLL_CFG1_ADDR				0x33
-#define QPLL_CFG1_MASK				0x7ff
-#define QPLL_CFG1_OFFSET			0x0
-#define QPLL_CFG1_WIDTH				0xb
-#define QPLL_CFG1_DEFAULT			0x0
-
-#define QPLL_REFCLK_DIV_M_ADDR		0x33
-#define QPLL_REFCLK_DIV_M_MASK		0xf800
-#define QPLL_REFCLK_DIV_M_OFFSET	0xb
-#define QPLL_REFCLK_DIV_M_WIDTH		0x5
-#define QPLL_REFCLK_DIV_M_DEFAULT	0x0
-
-#define QPLL_FBDIV_N_ADDR			0x36
-#define QPLL_FBDIV_N_MASK			0x3ff
-#define QPLL_FBDIV_N_OFFSET			0x0
-#define QPLL_FBDIV_N_WIDTH			0xa
-#define QPLL_FBDIV_N_DEFAULT		0x0
-
-#define QPLL_FBDIV_RATIO_ADDR		0x37
-#define QPLL_FBDIV_RATIO_MASK		0x40
-#define QPLL_FBDIV_RATIO_OFFSET		0x6
-#define QPLL_FBDIV_RATIO_WIDTH		0x1
-#define QPLL_FBDIV_RATIO_DEFAULT	0x0
-
-#define CPLL_CFG0_ADDR				0x5c
-#define CPLL_CFG0_MASK				0xff00
-#define CPLL_CFG0_OFFSET			0x8
-#define CPLL_CFG0_WIDTH				0x8
-#define CPLL_CFG0_DEFAULT			0x0
-
-#define CPLL_CFG1_ADDR				0x5d
-#define CPLL_CFG1_MASK				0xffff
-#define CPLL_CFG1_OFFSET			0x0
-#define CPLL_CFG1_WIDTH				0x10
-#define CPLL_CFG1_DEFAULT			0x0
-
-#define CPLL_REFCLK_DIV_M_ADDR		0x5e
-#define CPLL_REFCLK_DIV_M_MASK		0x1f00
-#define CPLL_REFCLK_DIV_M_OFFSET	0x8
-#define CPLL_REFCLK_DIV_M_WIDTH		0x5
-#define CPLL_REFCLK_DIV_M_DEFAULT	0x0
-
-#define CPLL_FB_DIV_45_N1_ADDR		0x5e
-#define CPLL_FB_DIV_45_N1_MASK		0x80
-#define CPLL_FB_DIV_45_N1_OFFSET	0x7
-#define CPLL_FB_DIV_45_N1_WIDTH		0x1
-#define CPLL_FB_DIV_45_N1_DEFAULT	0x0
-
-#define CPLL_FBDIV_N2_ADDR			0x5e
-#define CPLL_FBDIV_N2_MASK			0x7f
-#define CPLL_FBDIV_N2_OFFSET		0x0
-#define CPLL_FBDIV_N2_WIDTH			0x7
-#define CPLL_FBDIV_N2_DEFAULT		0x0
-
-#define ENC_8B10B					810
-
-enum refclk_ppm {
-	PM_200,
-	PM_700,
-	PM_1250,
-};
-
-struct adxcvr_state {
+struct s_i5g {
 	struct device		*dev;
 	void __iomem		*regs;
-	struct clk			*conv_clk;
-	struct clk			*sysref_clk;
-	struct clk			*lane_rate_div40_clk;
-	struct clk			*out_clk;
-	struct clk_hw		out_clk_hw;
-	bool				out_clk_enabled;
-	struct work_struct	work;
-	struct device_node *node;
-	unsigned long		lane_rate;
-	bool				gth_enable;
-	bool				tx_enable;
-	u32					sys_clk_sel;
-	u32					out_clk_sel;
-	bool				cpll_enable;
-	bool				lpm_enable;
-	uint16_t			encoding;
-	enum refclk_ppm		ppm;
-	struct gpio_desc	*sysref_gpio;
+	struct device_node 	*node;
+	int			ad9625_cs_0;
+	int			ad9625_cs_1;
+	int			sysref_delay;
 };
 
-static inline unsigned int adxcvr_read(struct adxcvr_state *st,
-									   unsigned int reg)
-{
-	dev_vdbg(st->dev, "%s: reg 0x%X val 0x%X\n", __func__,
-			 reg, ioread32(st->regs + reg));
+/* simple read */
 
-	return ioread32(st->regs + reg);
+static inline int i5g_read(struct s_i5g *st, int reg) {
+
+	return(ioread32(st->regs + reg));
 }
 
-static inline void adxcvr_write(struct adxcvr_state *st,
-								unsigned int reg,
-								unsigned int val)
-{
-	dev_vdbg(st->dev, "%s: reg 0x%X val 0x%X\n", __func__,
-			 reg, val);
+/* simple write */
+
+static inline void i5g_write(struct s_i5g *st, int reg, int val) {
 
 	iowrite32(val, st->regs + reg);
+	return;
 }
 
-static unsigned int adxcvr_drp_read(struct adxcvr_state *st,
-									unsigned int reg)
-{
-	bool ch_sel;
-	int timeout = 20;
-	unsigned int val;
+/* indirect access, returns within 32 clock cycles as long as a clock is present, no need to timeout */
 
-	switch (reg) {
-	case QPLL_CFG0_ADDR:
-	case QPLL_CFG1_ADDR:
-	case QPLL_FBDIV_N_ADDR:
-	case QPLL_FBDIV_RATIO_ADDR:
-		ch_sel = false;
-		break;
-	default:
-		ch_sel = true;
+static inline int i5g_spi_access(struct s_i5g *st, int data) {
+
+	i5g_write(st, I5G_SPI_TRANSMIT_ADDR, data);
+	while (i5g_read(st, I5G_SPI_BUSY_ADDR) == I5G_SPI_BUSY) {}
+	return(i5g_read(st, I5G_SPI_RECEIVE_ADDR));
+}
+
+/* indirect read, straight forward just send 3 bytes and return the last byte */
+
+static inline int i5g_spi_read(struct s_i5g *st, int sel, int reg) {
+
+	int val;
+
+	i5g_write(st, I5G_SPI_SELECT_N_ADDR, ~sel);
+	val = i5g_spi_access(st, ((reg>>8) | 0x80));
+	val = i5g_spi_access(st, reg);
+	val = i5g_spi_access(st, 0);
+	i5g_write(st, I5G_SPI_SELECT_N_ADDR, -1);
+	return(val);
+}
+
+/* simple write, in this case just send 3 bytes */
+
+static inline void i5g_spi_write(struct s_i5g *st, int sel, int reg, int val) {
+
+	i5g_write(st, I5G_SPI_SELECT_N_ADDR, ~sel);
+	i5g_spi_access(st, ((reg>>8) | 0x00));
+	i5g_spi_access(st, reg);
+	i5g_spi_access(st, val);
+	i5g_write(st, I5G_SPI_SELECT_N_ADDR, -1);
+	return;
+}
+
+/* device spi settings - clear & enable violations reporting */
+
+static inline void i5g_ad9625_setup(struct s_i5g *st, int sel, int band) {
+
+	/* clear the sysref violations */
+
+	i5g_spi_write(st, sel, I5G_AD9625_SG_ADDR, (band << 5));
+	i5g_spi_write(st, sel, I5G_AD9625_ST_ADDR, I5G_AD9625_ST_DATA);
+	i5g_spi_write(st, sel, I5G_AD9625_SC_ADDR, I5G_AD9625_SC_CLEAR(sel));
+	i5g_spi_write(st, sel, I5G_AD9625_IO_ADDR, I5G_AD9625_IO_DATA);
+
+	/* enable the sysref violations */
+
+	i5g_spi_write(st, sel, I5G_AD9625_SC_ADDR, I5G_AD9625_SC_ENABLE(sel));
+	i5g_spi_write(st, sel, I5G_AD9625_IO_ADDR, I5G_AD9625_IO_DATA);
+	return;
+}
+
+/* device spi status - sysref received and violations we need */
+
+static inline int i5g_ad9625_status(struct s_i5g *st, int sel, int band, int status) {
+
+	int data;
+
+	/* sysref received */
+
+	data = i5g_spi_read(st, sel, I5G_AD9625_SC_ADDR);
+	if (data != I5G_AD9625_SC_RECEIVED(sel)) {
+		dev_info(st->dev, "sysref status mismatch (%d, %d, %x)!\n", sel, band, data);
 	}
 
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_SEL : ADXCVR_REG_CM_SEL,
-				 ADXCVR_BROADCAST);
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_CONTROL : ADXCVR_REG_CM_CONTROL,
-				 ADXCVR_CM_ADDR(reg));
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_CONTROL : ADXCVR_REG_CM_CONTROL,
-				 ch_sel ? ADXCVR_CH_ADDR(reg) : ADXCVR_CM_ADDR(reg));
-	do {
-		val = adxcvr_read(st, ch_sel ?
-						  ADXCVR_REG_CH_STATUS : ADXCVR_REG_CM_STATUS);
-		if (val & (ch_sel ? ADXCVR_CH_BUSY : ADXCVR_CM_BUSY)) {
-			mdelay(1);
-			continue;
-		}
-		dev_dbg(st->dev, "%s: reg 0x%X val 0x%X\n",
-				__func__, reg, val & 0xFFFF);
+	/* sysref violations */
 
-		return ch_sel ? ADXCVR_CH_RDATA(val) : ADXCVR_CM_RDATA(val);
-	} while (timeout--);
-
-	dev_err(st->dev, "%s: Timeout!", __func__);
-
-	return -ETIMEDOUT;
-}
-
-static int adxcvr_drp_write(struct adxcvr_state *st,
-							unsigned int reg,
-							unsigned int val)
-{
-	bool ch_sel;
-	int timeout = 20;
-	unsigned int read_val;
-
-	switch (reg) {
-	case QPLL_CFG0_ADDR:
-	case QPLL_CFG1_ADDR:
-	case QPLL_FBDIV_N_ADDR:
-	case QPLL_FBDIV_RATIO_ADDR:
-		ch_sel = false;
-		break;
-	default:
-		ch_sel = true;
+	data = i5g_spi_read(st, sel, I5G_AD9625_SS_ADDR);
+	if ((data & I5G_AD9625_SS_MASK) == I5G_AD9625_SS_SET) {
+		return(status | (0x1 << band));
 	}
 
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_SEL : ADXCVR_REG_CM_SEL,
-			ADXCVR_BROADCAST);
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_CONTROL : ADXCVR_REG_CM_CONTROL,
-			ch_sel ? (ADXCVR_CH_WR | ADXCVR_CH_ADDR(reg) | ADXCVR_CH_WDATA(val)) :
-			(ADXCVR_CM_WR | ADXCVR_CM_ADDR(reg) | ADXCVR_CM_WDATA(val)));
-
-	do {
-		if (!(adxcvr_read(st, ch_sel ? ADXCVR_REG_CH_STATUS : ADXCVR_REG_CM_STATUS)
-			  & (ch_sel ? ADXCVR_CH_BUSY : ADXCVR_CM_BUSY))) {
-			read_val = adxcvr_drp_read(st, reg);
-			if (val != read_val)
-				dev_err(st->dev, "%s: MISMATCH reg 0x%X val 0x%X != read 0x%X\n",
-						__func__, reg, val, read_val);
-			return 0;
-		}
-		mdelay(1);
-	} while (timeout--);
-
-	dev_err(st->dev, "%s: Timeout!", __func__);
-
-	return -ETIMEDOUT;
+	return(status);
 }
 
-static int __adxcvr_drp_writef(struct adxcvr_state *st,
-							   u32 reg,
-							   u32 mask,
-							   u32 offset,
-							   u32 val)
-{
-	u32 tmp;
-	int ret;
+/* check violation band, mostly a gimmick function- but helps you understand the logic of synchronization */
 
-	if (!mask)
-		return -EINVAL;
+static inline int i5g_status_check(int status) {
 
-	ret = adxcvr_drp_read(st, reg);
-	if (ret < 0)
-		return ret;
+	if (status == 0x3e) return(0); /* sysref at or within 235ps */
+	if (status == 0x3c) return(0); /* sysref at or within 270ps */
+	if (status == 0x38) return(0); /* sysref at or within 305ps */
 
-	tmp = ret;
-
-	tmp &= ~mask;
-	tmp |= ((val << offset) & mask);
-
-	return adxcvr_drp_write(st, reg, tmp);
+	return(-1);
 }
 
-#define adxcvr_drp_writef(st, reg, mask, val) \
-	__adxcvr_drp_writef(st, reg, mask, __ffs(mask), val)
+/* the mean thing that brutally overtakes everything else to synchronize the devices for interleaving */
+/* if you need to resync, try re-entry to this function */
+/* if handling differently by individual components, this is the part you need to copy over */
 
-static int adxcvr_set_lpm_dfe_mode(struct adxcvr_state *st,
-								   unsigned int lpm)
-{
-	if (st->gth_enable) {
-		if (lpm) {
-			adxcvr_drp_write(st, 0x036, 0x0032);
-			adxcvr_drp_write(st, 0x039, 0x1000);
-			adxcvr_drp_write(st, 0x062, 0x1980);
-		} else {
-			adxcvr_drp_write(st, 0x036, 0x0002);
-			adxcvr_drp_write(st, 0x039, 0x0000);
-			adxcvr_drp_write(st, 0x062, 0x0000);
-		}
-	} else {
-		if (lpm)
-			adxcvr_drp_write(st, 0x029, 0x0104);
-		else
-			adxcvr_drp_write(st, 0x029, 0x0954);
+static int i5g_intlv(struct s_i5g *st) {
+
+	int delay;
+	int band;
+	int status_1;
+	int status_2;
+	int data;
+	int timeout;
+
+	/* make sure everyone else is in the game and has individually achieved sync */
+
+	data = i5g_read(st, I5G_SYNC_STATUS_ADDR);
+	if (data == I5G_SYNC_OOS) {
+		dev_info(st->dev, "link out-of-sync (%x), deferring probe!\n", data);
+		return(-EPROBE_DEFER);
 	}
 
-	return 0;
-}
+	/* request indirect access (this overrides the default access) */
 
-static int adxcvr_status_error(struct device *dev)
-{
-	struct adxcvr_state *st = dev_get_drvdata(dev);
-	int timeout = 100;
-	unsigned int status;
-
-	do {
-		mdelay(1);
-		status = adxcvr_read(st, ADXCVR_REG_STATUS);
-	} while ((timeout--) && (status == 0));
-
-	if (!status) {
-		dev_err(dev, "%s Error", st->tx_enable ? "TX" : "RX");
-		return -EIO;
-	}
-
-	return 0;
-}
-
-static void adxcvr_work_func(struct work_struct *work)
-{
-	struct adxcvr_state *st =
-		container_of(work, struct adxcvr_state, work);
-
-	unsigned long div40_rate;
-	int ret;
-
-	if (!IS_ERR(st->lane_rate_div40_clk)) {
-
-		div40_rate = st->lane_rate * (1000 / 40);
-
-		dev_dbg(st->dev, "%s: setting MMCM on %s rate %lu\n",
-			__func__, st->tx_enable ? "TX" : "RX", div40_rate);
-
-		if (__clk_is_enabled(st->lane_rate_div40_clk))
-			clk_disable_unprepare(st->lane_rate_div40_clk);
-
-		ret = clk_set_rate(st->lane_rate_div40_clk, div40_rate);
-		if (ret < 0)
-			dev_err(st->dev, "%s: setting MMCM on %s rate %lu failed (%d)\n",
-				__func__, st->tx_enable ? "TX" : "RX", div40_rate, ret);
-
-		ret = clk_prepare_enable(st->lane_rate_div40_clk);
-		if (ret < 0)
-			dev_err(st->dev, "%s: enabling MMCM rate %lu failed (%d)\n",
-				__func__, div40_rate, ret);
-	}
-}
-
-static int adxcvr_clk_enable(struct clk_hw *hw)
-{
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
-	int ret;
-
-	dev_dbg(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
-
-	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
-
-	if (!st->tx_enable)
-		adxcvr_set_lpm_dfe_mode(st, st->lpm_enable);
-
-	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-
-	mdelay(100);
-
-	ret = adxcvr_status_error(st->dev);
-
-	return ret;
-}
-
-static void adxcvr_clk_disable(struct clk_hw *hw)
-{
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
-
-	st->out_clk_enabled = false;
-}
-
-static int adxcvr_clk_is_enabled(struct clk_hw *hw)
-{
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
-
-	return st->out_clk_enabled;
-}
-
-static long adxcvr_gth_rxcdr_settings(struct adxcvr_state *st,
-			u32 rxout_div)
-{
-	u16 cfg0, cfg1, cfg2, cfg3, cfg4;
-
-	if (st->tx_enable)
-		return 0; /* Do Nothing */
-
-	switch (st->ppm) {
-	case PM_200:
-		cfg0 = 0x0018;
-		break;
-	case PM_700:
-	case PM_1250:
-		cfg0 = 0x8018;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (st->encoding == ENC_8B10B) {
-
-		cfg1 = 0xC208;
-		cfg3 = 0x07FE;
-		cfg3 = 0x0020;
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			cfg2 = 0x2000;
-			break;
-		case 1: /* 2 */
-			cfg2 = 0x1000;
-			break;
-		case 2: /* 4 */
-			cfg2 = 0x0800;
-			break;
-		case 3: /* 8 */
-			cfg2 = 0x0400;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-	} else {
-		dev_warn(st->dev, "%s: GTH PRBS CDR not implemented\n", __func__);
-	}
-
-	adxcvr_drp_write(st, RXCDR_CFG0_ADDR, cfg0);
-	adxcvr_drp_write(st, RXCDR_CFG1_ADDR, cfg1);
-	adxcvr_drp_write(st, RXCDR_CFG2_ADDR, cfg2);
-	adxcvr_drp_write(st, RXCDR_CFG3_ADDR, cfg3);
-	adxcvr_drp_write(st, RXCDR_CFG4_ADDR, cfg4);
-
-	return 0;
-}
-
-static long adxcvr_rxcdr_settings(struct adxcvr_state *st,
-			u32 rxout_div)
-{
-	u16 cfg0, cfg1, cfg2, cfg3, cfg4;
-
-	if (st->tx_enable)
-		return 0; /* Do Nothing */
-
-	if (st->gth_enable)
-		return adxcvr_gth_rxcdr_settings(st, rxout_div);
-
-	cfg2 = 0x23FF;
-	cfg0 = 0x0020;
-
-	switch (st->ppm) {
-	case PM_200:
-		cfg3 = 0x0000;
-		break;
-	case PM_700:
-	case PM_1250:
-		cfg3 = 0x8000;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (st->encoding == ENC_8B10B) {
-
-		cfg4 = 0x03;
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			cfg1 = 0x1040;
-			break;
-		case 1: /* 2 */
-			cfg1 = 0x1020;
-			break;
-		case 2: /* 4 */
-			cfg1 = 0x1010;
-			break;
-		case 3: /* 8 */
-			cfg1 = 0x1008;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-	} else {
-
-		if (st->lane_rate > 6600000 && rxout_div == 1)
-			cfg4 = 0x0B;
-		else
-			cfg4 = 0x03;
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			if (st->lpm_enable) {
-				if (st->lane_rate  > 6600000) {
-					if (st->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x1040;
-				} else {
-					cfg1 = 0x1020;
-				}
-			} else { /* DFE */
-				if (st->lane_rate  > 6600000) {
-					if (st->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x1040;
-				} else {
-					if (st->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x2040;
-				}
-			}
-			break;
-		case 1: /* 2 */
-			cfg1 = 0x4020;
-			break;
-		case 2: /* 4 */
-			cfg1 = 0x4010;
-			break;
-		case 3: /* 8 */
-			cfg1 = 0x4008;
-			break;
-		default:
-			return -EINVAL;
+	timeout = 100;
+	i5g_write(st, I5G_SPI_REQUEST_ADDR, I5G_SPI_REQUEST_ACCESS);
+	while (i5g_read(st, I5G_SPI_GRANT_ADDR) == I5G_SPI_ACCESS_DISABLED) {
+		timeout = timeout - 1;
+		if (timeout == 0) {
+			dev_err(st->dev, "request for device access denied!\n");
+			return(-ETIMEDOUT);
 		}
 	}
 
+	/* check we got the right devices */
 
-	adxcvr_drp_write(st, RXCDR_CFG0_ADDR, cfg0);
-	adxcvr_drp_write(st, RXCDR_CFG1_ADDR, cfg1);
-	adxcvr_drp_write(st, RXCDR_CFG2_ADDR, cfg2);
-	adxcvr_drp_write(st, RXCDR_CFG3_ADDR, cfg3);
-	adxcvr_drp_writef(st, RXCDR_CFG4_ADDR, RXCDR_CFG4_MASK, cfg4);
+	data = i5g_spi_read(st, st->ad9625_cs_0, I5G_AD9625_ID_ADDR);
+	if (data != I5G_AD9625_ID_DATA) {
+		dev_err(st->dev, "unsupported device (%x) at (%d)!\n", data, st->ad9625_cs_0);
+		return(-ENODEV);
+	}
 
-	return 0;
-}
+	data = i5g_spi_read(st, st->ad9625_cs_1, I5G_AD9625_ID_ADDR);
+	if (data != I5G_AD9625_ID_DATA) {
+		dev_err(st->dev, "unsupported device (%x) at (%d)!\n", data, st->ad9625_cs_1);
+		return(-ENODEV);
+	}
 
-static long adxcvr_calc_cpll_settings(struct adxcvr_state *st,
-					   unsigned long refclk_kHz,
-					   unsigned long laneRate_kHz,
-					   u32 *refclk_div, u32 *out_div,
-					   u32 *fbdiv_45, u32 *fbdiv)
-{
-	u32 n1, n2, d, m;
-	u32 pllFreq_kHz;
+	/* check delay is locked */
 
-	/* Possible Xilinx GTX PLL parameters for Virtex 7 CPLL.  Find one that works for the desired laneRate. */
-	/* Attribute encoding, DRP encoding */
-	const u8 _N1[][2] = {{5, 1}, {4, 0} };
-	const u8 _N2[][2] = {{5, 3}, {4, 2}, {3, 1}, {2, 0}, {1, 16} };
-	const u8 _D[][2] = {{1, 0}, {2, 1}, {4, 2}, {8, 3} };
-	const u8 _M[][2] = {{1, 16}, {2, 0} };
+	data = i5g_read(st, I5G_DELAY_LOCKED_ADDR);
+	if (data != I5G_DELAY_LOCKED) {
+		dev_err(st->dev, "sysref delay controller is out-of-lock (%d)!\n", data);
+		return(-ENODEV);
+	}
 
-	for (m = 0; m < ARRAY_SIZE(_M); m++) {
-		for (d = 0; d < ARRAY_SIZE(_D); d++) {
-			for (n1 = 0; n1 < ARRAY_SIZE(_N1); n1++) {
-				for (n2 = 0; n2 < ARRAY_SIZE(_N2); n2++) {
-					pllFreq_kHz = refclk_kHz * _N1[n1][0] * _N2[n2][0] / _M[m][0];
+	/* so far so good, let's try synchronization */
+	/* set dual mode, this allows both devices to see the same sync (importantly deassertion) */
+	/* disable syncs, bring the link down (back to cgs) and initialize delay */
 
-					if ((pllFreq_kHz > 3300000) || (pllFreq_kHz < 1600000)) /* GTH 3.75 GHz */
-						continue;
+	i5g_write(st, I5G_SYNC_CONTROL_ADDR, I5G_SYNC_SET);
+	i5g_write(st, I5G_SYSREF_CONTROL_ADDR, I5G_SYSREF_SET);
 
-					if ((pllFreq_kHz * 2 / _D[d][0]) == laneRate_kHz) {
-						if (refclk_div && out_div && fbdiv_45 && fbdiv) {
-							*refclk_div = _M[m][1];
-							*out_div = _D[d][1];
-							*fbdiv_45 = _N1[n1][1];
-							*fbdiv = _N2[n2][1];
-						}
+	/* quick facts about clocks & sysref and all this mess! */
+	/* device clock is 2.5G, fpga gets 625M, recovered clock is 156.25M */
+	/* 625M is derived from the device 2.5G clock */
+	/* 156.25 is derived from the recoverd (CDR) clock */
+	/* sysref is generated by fpga(!) at 156.25M */
+	/* we need to make sure that device 1 samples sysref first followed by device 2 */
+	/* sysref must meet setup time of device 1 only (device 2 follows) */
+	/* ad9625 features a sysref monitoring routine that tells us where it is w.r.t the 2.5G clock */
+	/* 2.5G == 400 ps, sysref setup requirement is 200ps (not a good candidate is it?), hold is -100ps */
+	/* i.e. actual sysref is 100ps, but has a significant internal delay (guessing ~150ps or so) */
+	/* most likely chance to miss the edge, (remember there is still a possibility of device 2 getting it) */
+	/* ideally you want the sysref setup time to be less than half the sampling clock in this case */
+	/* so we swap the edges and allow us a full 400 ps for showing up before the sampling edge */
+	/* ignore hold, sysref is being generated by a 156.25M clock (/16) */
+	/* move sysref until we find the ideal spot that hit the devices, at that point get out */
 
-						dev_dbg(st->dev, "%s: M %d, D %d, N1 %d, N2 %d\n",
-							__func__, _M[m][0], _D[d][0],
-							_N1[n1][0], _N2[n2][0]);
+	st->sysref_delay = -1;
+	for (delay = 0; delay < 32; delay++) {
 
-						return laneRate_kHz;
-					}
-				}
-			}
+		/* change the delay */
+
+		i5g_write(st, I5G_DELAY_ADDR, delay);
+		data = i5g_read(st, I5G_DELAY_VERIFY_ADDR);
+		if (data != delay) {
+			dev_info(st->dev, "delay data mismatch(%d, %d)!\n", delay, data);
+		}
+
+		/* change the guard band (does not affect actual timing) */
+
+		status_1 = 0;
+		status_2 = 0;
+		for (band = 0; band < 6; band++) {
+
+			/* get the devices ready */
+
+			i5g_ad9625_setup(st, st->ad9625_cs_0, band);
+			i5g_ad9625_setup(st, st->ad9625_cs_1, band);
+
+			/* send the sysref */
+
+			i5g_write(st, I5G_SYSREF_REQUEST_ADDR, I5G_SYSREF_REQUEST);
+			while (i5g_read(st, I5G_SYSREF_REQUEST_ADDR) == I5G_SYSREF_BUSY) {}
+
+			/* check the sysref violations */
+
+			status_1 = i5g_ad9625_status(st, st->ad9625_cs_0, band, status_1);
+			status_2 = i5g_ad9625_status(st, st->ad9625_cs_1, band, status_2);
+		}
+
+		/* all we need is to keep the sysref edge close to the sampling clock edge */
+		/* here we are keeping sysref within 305ps ~ 235ps */
+		/* if you are experimenting, walk this through and print the bands */
+
+		if ((i5g_status_check(status_1) == 0) && (i5g_status_check(status_2) == 0)) {
+			st->sysref_delay = delay;
+			dev_info(st->dev, "sysref synchronization @%d, status(%02x, %02x)!\n", delay, status_1, status_2);
+			break;
 		}
 	}
 
-	dev_dbg(st->dev, "%s: Failed to find matching dividers for %lu kHz rate\n",
-		__func__, laneRate_kHz);
+	/* set delay, enable syncs back and check status */
 
-	return -EINVAL;
-}
+	i5g_write(st, I5G_SYNC_CONTROL_ADDR, I5G_SYNC_RELEASE);
+	i5g_write(st, I5G_SYSREF_CONTROL_ADDR, I5G_SYSREF_RELEASE);
 
-static long adxcvr_calc_qpll_settings(struct adxcvr_state *st,
-					   unsigned long refclk_kHz,
-					   unsigned long laneRate_kHz,
-					   u32 *refclk_div, u32 *out_div,
-					   u32 *fbdiv, u32 *fbdiv_ratio,
-					   u32 *lowband)
-{
-	/* Calculate the FPGA GTX PLL settings M, D, N1, N2 */
-	u32 n, d, m;
-	u32 pllVcoFreq_kHz;
-	u32 pllOutFreq_kHz;
+	/* give it some time */
 
-	/* Possible Xilinx GTX QPLL parameters for Virtex 7 QPLL.  Find one that works for the desired laneRate. */
-	/* Attribute encoding, DRP encoding */
-	const u16 _N[][2] = {{16, 32}, {20, 48}, {32, 96}, {40, 128},
-			     {64, 224}, {66, 320}, {80, 288}, {100, 368} };
-	const u8 _D[][2] = {{1, 0}, {2, 1}, {4, 2}, {8, 3}, {16, 4} };
-	const u8 _M[][2] = {{1, 16}, {2, 0}, {3, 1}, {4, 2} };
-	u8 _lowBand = 0;
+	mdelay(1);
 
-	for (m = 0; m < ARRAY_SIZE(_M); m++) {
-		for (d = 0; d < ARRAY_SIZE(_D); d++) {
-			for (n = 0; n < ARRAY_SIZE(_N); n++) {
+	/* is anything wrong? */
 
-				pllVcoFreq_kHz = refclk_kHz * _N[n][0] / _M[m][0];
-				pllOutFreq_kHz = pllVcoFreq_kHz / 2;
+	data = i5g_read(st, I5G_SYNC_STATUS_ADDR);
+	if (data == I5G_SYNC_OOS) {
+		dev_err(st->dev, "resync failed, may need to reset the transceiver chain (%x)!\n", data);
+	}
 
-				if ((pllVcoFreq_kHz >= 5930000) && (pllVcoFreq_kHz <= 8000000)) {
-					/* low band = 5.93G to 8.0GHz VCO */
-					_lowBand = 1;
-				} else if ((pllVcoFreq_kHz >= 9800000) && (pllVcoFreq_kHz <= 12500000)) {
-					/* high band = 9.8G to 12.5GHz VCO */
-					_lowBand = 0;
-				} else {
-					continue; /* if Pll out of range, not valid case, keep trying */
-				}
+	/* release indirect access (this overrides the default access) */
 
-				if ((pllOutFreq_kHz * 2 / _D[d][0]) == laneRate_kHz) {
-					if (refclk_div && out_div && fbdiv_ratio && fbdiv && lowband) {
-						*refclk_div = _M[m][1];
-						*out_div = _D[d][1];
-						*fbdiv = _N[n][1];
-						*fbdiv_ratio = (_N[n][0] == 66) ? 0 : 1;
-					}
-					if (lowband)
-						*lowband = _lowBand;
-
-					dev_dbg(st->dev, "%s: M %d, D %d, N %d, ratio %d, lowband %d\n",
-						__func__, _M[m][0], _D[d][0],
-						_N[n][0], (_N[n][0] == 66) ? 0 : 1,
-						_lowBand);
-
-					return laneRate_kHz;
-				}
-
-			}
+	timeout = 100;
+	i5g_write(st, I5G_SPI_REQUEST_ADDR, I5G_SPI_REQUEST_RELEASE);
+	while (i5g_read(st, I5G_SPI_GRANT_ADDR) == I5G_SPI_ACCESS_ENABLED) {
+		timeout = timeout - 1;
+		if (timeout == 0) {
+			dev_err(st->dev, "request for device release failed!\n");
+			return(-ETIMEDOUT);
 		}
 	}
 
-	dev_dbg(st->dev, "%s: Failed to find matching dividers for %lu kHz rate\n",
-		__func__, laneRate_kHz);
+	/* that's all folks! */
 
-	return -EINVAL;
+	return(0);
 }
 
-static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
-											unsigned long parent_rate)
-{
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+/* calibrate the data paths */
 
-	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
-		__func__, parent_rate);
+static int i5g_calibrate(struct s_i5g *st) {
 
-	if (!IS_ERR(st->lane_rate_div40_clk))
-		return st->lane_rate;
+	/* calibrate gain and offset */
 
-	if (st->cpll_enable) {
-		unsigned int refclk_div_m, out_div, N1, N2, M;
+	i5g_write(st, I5G_CAL_CNT_ADDR, I5G_CAL_CNT_10M);
+	i5g_write(st, I5G_CAL_ENABLE_ADDR, I5G_CAL_ENABLE);
+	i5g_write(st, I5G_CAL_ENABLE_ADDR, I5G_CAL_DISABLE);
 
-		refclk_div_m = adxcvr_drp_read(st, CPLL_REFCLK_DIV_M_ADDR);
-		out_div = adxcvr_drp_read(st, RXOUT_DIV_ADDR);
-
-		switch ((refclk_div_m & CPLL_FB_DIV_45_N1_MASK) >> CPLL_FB_DIV_45_N1_OFFSET) {
-		case 0:
-			N1 = 4;
-			break;
-		case 1:
-			N1 = 5;
-			break;
-		}
-
-		switch ((refclk_div_m & CPLL_REFCLK_DIV_M_MASK) >> CPLL_REFCLK_DIV_M_OFFSET) {
-		case 0:
-			M = 2;
-			break;
-		case 16:
-			M = 1;
-			break;
-		}
-
-		switch (refclk_div_m & CPLL_FBDIV_N2_MASK) {
-		case 3:
-			N2 = 5;
-			break;
-		case 2:
-			N2 = 4;
-			break;
-		case 1:
-			N2 = 3;
-			break;
-		case 0:
-			N2 = 2;
-			break;
-		case 16:
-			N2 = 1;
-			break;
-		}
-
-		if (st->tx_enable)
-			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
-		else
-			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
-
-		out_div = (1 << out_div);
-
-		dev_dbg(st->dev, "%s  CPLL %lu   %lu\n", __func__, st->lane_rate,
-			((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div));
-
-		dev_dbg(st->dev, "%s  CPLL N1=%d N2=%d M=%d out_div=%d\n", __func__, N1, N2, M, out_div);
-
-		return ((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div);
-	} else {
-		unsigned int refclk_div_m, fb_div, out_div, N, M;
-		unsigned long rate;
-		u32 set_lowband;
-		u32 lowband;
-
-		refclk_div_m = adxcvr_drp_read(st, QPLL_REFCLK_DIV_M_ADDR);
-		fb_div = adxcvr_drp_read(st, QPLL_FBDIV_N_ADDR);
-		out_div = adxcvr_drp_read(st, RXOUT_DIV_ADDR);
-		set_lowband = adxcvr_drp_read(st, QPLL_CFG0_ADDR) & QPLL_CFG0_BAND_MASK;
-
-		switch ((refclk_div_m & QPLL_REFCLK_DIV_M_MASK) >> QPLL_REFCLK_DIV_M_OFFSET) {
-		case 16:
-			M = 1;
-			break;
-		case 0:
-			M = 2;
-			break;
-		case 1:
-			M = 3;
-			break;
-		case 2:
-			M = 4;
-			break;
-		}
-
-		switch (fb_div & QPLL_FBDIV_N_MASK) {
-		case 32:
-			N = 16;
-			break;
-		case 48:
-			N = 20;
-			break;
-		case 96:
-			N = 32;
-			break;
-		case 128:
-			N = 40;
-			break;
-		case 224:
-			N = 64;
-			break;
-		case 320:
-			N = 66;
-			break;
-		case 288:
-			N = 80;
-			break;
-		case 368:
-			N = 100;
-			break;
-		}
-
-		if (st->tx_enable)
-			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
-		else
-			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
-
-		out_div = (1 << out_div);
-
-		dev_dbg(st->dev, "%s QPLL  %lu %lu\n", __func__, st->lane_rate,
-			((parent_rate / 1000) * N) / (M * out_div));
-
-		dev_dbg(st->dev, "%s QPLL N=%d M=%d out_div=%d\n", __func__, N, M, out_div);
-
-		rate = ((parent_rate / 1000) * N) / (M * out_div);
-
-		adxcvr_calc_qpll_settings(st, parent_rate / 1000, rate,
-						     NULL, NULL, NULL, NULL,
-						     &lowband);
-		lowband = lowband ? QPLL_CFG0_BAND_MASK : 0;
-
-		if (lowband !=  set_lowband)
-			adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
-							  QPLL_CFG0_BAND_MASK, lowband ? 1 : 0);
-
-		return rate;
-
-	}
+	return(0);
 }
 
+/* match table for of_platform binding */
 
-static long adxcvr_clk_round_rate(struct clk_hw *hw, unsigned long rate,
-								  unsigned long *prate)
-{
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
-	int ret;
-
-	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
-		__func__, rate, *prate);
-
-	if (st->cpll_enable)
-		ret = adxcvr_calc_cpll_settings(st, *prate / 1000, rate,
-						      NULL, NULL, NULL, NULL);
-	else
-		ret = adxcvr_calc_qpll_settings(st, *prate / 1000, rate,
-						     NULL, NULL, NULL, NULL,
-						     NULL);
-
-	return ret;
-}
-
-static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
-							   unsigned long parent_rate)
-{
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
-	u32 refclk_div, out_div, fbdiv_45, fbdiv, fbdiv_ratio, lowband;
-	int ret, pll_done = 0;
-
-	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
-		__func__, rate, parent_rate);
-
-	if (st->cpll_enable)
-		ret = adxcvr_calc_cpll_settings(st, parent_rate / 1000, rate,
-						     &refclk_div, &out_div,
-						     &fbdiv_45, &fbdiv);
-	else
-		ret = adxcvr_calc_qpll_settings(st, parent_rate / 1000, rate,
-						     &refclk_div, &out_div,
-						     &fbdiv, &fbdiv_ratio,
-						     &lowband);
-	if (ret < 0)
-		return ret;
-
-	st->lane_rate = rate;
-
-	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
-
-	if (st->cpll_enable) {
-		adxcvr_drp_writef(st, CPLL_REFCLK_DIV_M_ADDR,
-						  CPLL_REFCLK_DIV_M_MASK |
-						  CPLL_FB_DIV_45_N1_MASK |
-						  CPLL_FBDIV_N2_MASK,
-						  (refclk_div << 8) | (fbdiv_45 << 7) | fbdiv);
-	} else {
-
-		if (!pll_done) {
-			adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
-							  QPLL_CFG0_BAND_MASK, lowband);
-
-			adxcvr_drp_writef(st, QPLL_REFCLK_DIV_M_ADDR,
-							  QPLL_REFCLK_DIV_M_MASK, refclk_div);
-
-			adxcvr_drp_writef(st, QPLL_FBDIV_N_ADDR,
-							  QPLL_FBDIV_N_MASK, fbdiv);
-
-			adxcvr_drp_writef(st, QPLL_FBDIV_RATIO_ADDR,
-							  QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
-
-			pll_done = 1;
-		}
-	}
-
-	ret = adxcvr_drp_writef(st, RXOUT_DIV_ADDR,
-							st->tx_enable ? TXOUT_DIV_MASK : RXOUT_DIV_MASK, out_div);
-
-	adxcvr_rxcdr_settings(st, out_div);
-
-	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-
-	if (!IS_ERR(st->lane_rate_div40_clk))
-		schedule_work(&st->work);
-
-	return ret;
-}
-
-static const struct clk_ops clkout_ops = {
-	.recalc_rate = adxcvr_clk_recalc_rate,
-	.enable = adxcvr_clk_enable,
-	.disable = adxcvr_clk_disable,
-	.is_enabled = adxcvr_clk_is_enabled,
-	.round_rate = adxcvr_clk_round_rate,
-	.set_rate = adxcvr_clk_set_rate,
-
-};
-
-static struct clk *adxcvr_clk_register(struct device *dev,
-									   struct device_node *node,
-									   const char *parent_name,
-									   unsigned int num)
-{
-	struct adxcvr_state *st = dev_get_drvdata(dev);
-	struct clk_init_data init;
-	struct clk *clk;
-	const char *clk_name;
-	int ret;
-
-	ret = of_property_read_string_index(node, "clock-output-names",
-		0, &clk_name);
-	if (ret < 0)
-		return ERR_PTR(ret);
-
-	init.name = clk_name;
-	init.ops = &clkout_ops;
-	init.flags = 0;
-
-	init.parent_names = (parent_name ? &parent_name : NULL);
-	init.num_parents = (parent_name ? 1 : 0);
-
-	st->out_clk_hw.init = &init;
-
-	/* register the clock */
-	clk = clk_register(dev, &st->out_clk_hw);
-	st->out_clk = clk;
-
-	return clk;
-}
-
-static int adxcvr_parse_dt(struct adxcvr_state *st,
-						   struct device_node *np)
-{
-	int ret;
-
-	st->conv_clk = of_clk_get_by_name(np, "conv");
-	if (IS_ERR(st->conv_clk))
-		return -EPROBE_DEFER;
-
-	ret = clk_prepare_enable(st->conv_clk);
-	if (ret < 0)
-		return ret;
-
-	st->sysref_clk = of_clk_get_by_name(np, "sysref");
-	if (!IS_ERR(st->sysref_clk)) {
-		ret = clk_prepare_enable(st->sysref_clk);
-		if (ret < 0)
-			return ret;
-	}
-
-	st->lane_rate_div40_clk = of_clk_get_by_name(np, "div40");
-
-	st->gth_enable =
-		of_property_read_bool(np, "adi,transceiver-gth-enable");
-	st->tx_enable =
-		of_property_read_bool(np, "adi,link-is-transmit-enable");
-
-	of_property_read_u32(np, "adi,sys-clk-select",
-				&st->sys_clk_sel);
-	of_property_read_u32(np, "adi,out-clk-select",
-				&st->out_clk_sel);
-
-	st->cpll_enable = of_property_read_bool(np,
-				"adi,use-cpll-enable");
-	st->lpm_enable = of_property_read_bool(np,
-				"adi,use-lpm-enable");
-
-	st->node = np;
-
-	st->encoding = ENC_8B10B;
-	st->ppm = PM_200; /* TODO use clock accuracy */
-
-	INIT_WORK(&st->work, adxcvr_work_func);
-
-	return 0;
-}
-
-static void adxcvr_disable_unprepare_clocks(struct adxcvr_state *st)
-{
-	if (!IS_ERR(st->conv_clk))
-		clk_disable_unprepare(st->conv_clk);
-
-	if (!IS_ERR(st->sysref_clk))
-		clk_disable_unprepare(st->sysref_clk);
-}
-
-static void adxcvr_unregister_clock(struct adxcvr_state *st)
-{
-	if (!IS_ERR(st->out_clk))
-		clk_unregister(st->out_clk);
-}
-
-static void adxcvr_unregister_clock_provider(struct platform_device *pdev)
-{
-	of_clk_del_provider(pdev->dev.of_node);
-}
-
-/* Match table for of_platform binding */
-static const struct of_device_id adxcvr_of_match[] = {
-	{ .compatible = "adi,axi-adxcvr-1.0", .data = (void *) 1},
+static const struct of_device_id fmcadc5_sync_of_match[] = {
+	{ .compatible = "adi,axi-fmcadc5-sync-1.0", .data = (void *) 1},
 	{ /* end of list */ },
 };
-MODULE_DEVICE_TABLE(of, adxcvr_of_match);
+MODULE_DEVICE_TABLE(of, fmcadc5_sync_of_match);
 
-static int adxcvr_probe(struct platform_device *pdev)
-{
+/* probe function */
+
+static int fmcadc5_sync_probe(struct platform_device *pdev) {
+
 	struct device_node *np = pdev->dev.of_node;
-	struct adxcvr_state *st;
-	struct resource *mem; /* IO mem resources */
-	unsigned int version;
-	struct clk *clk;
-	int ret;
+	struct s_i5g *st;
+	struct resource *mem;
+	int data;
+	int status;
+
+	/* get the structure ready */
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (!st) {
-		dev_err(&pdev->dev, "Not enough memory for device\n");
-		return -ENOMEM;
+		dev_err(&pdev->dev, "not enough memory for device!\n");
+		return(-ENOMEM);
 	}
 
-	ret = adxcvr_parse_dt(st, np);
-	if (ret < 0)
-		goto disable_unprepare;
+	/* read settings from device tree */
+
+	of_property_read_u32(np, "adi,ad9625-device-select-0", &st->ad9625_cs_0);
+	of_property_read_u32(np, "adi,ad9625-device-select-1", &st->ad9625_cs_1);
+
+	/* get the key & open the doors to the hardware */
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(st->regs)) {
-		ret = PTR_ERR(st->regs);
-		goto disable_unprepare;
+		return PTR_ERR(st->regs);
 	}
 
 	st->dev = &pdev->dev;
-	version = adxcvr_read(st, ADXCVR_REG_VERSION);
 	platform_set_drvdata(pdev, st);
+	dev_info(&pdev->dev, "HW address 0x%08llX mapped to 0x%p\n", (unsigned long long)mem->start, st->regs);
 
-	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+	/* check version, give up if not an exact match */
 
-	adxcvr_write(st, ADXCVR_REG_CONTROL,
-				 ((st->lpm_enable ? ADXCVR_LPM_DFE_N : 0) |
-				  ADXCVR_SYSCLK_SEL(st->sys_clk_sel) |
-				  ADXCVR_OUTCLK_SEL(st->out_clk_sel)));
-
-	st->out_clk = devm_kzalloc(&pdev->dev,
-					 sizeof(st->out_clk), GFP_KERNEL);
-	if (!st->out_clk) {
-		dev_err(&pdev->dev, "Could not allocate memory\n");
-		ret = -ENOMEM;
-		goto disable_unprepare;
+	data = i5g_read(st, I5G_VERSION_ADDR);
+	if (data != I5G_VERSION) {
+		dev_err(&pdev->dev, "unsupported core version (%x)!\n", data);
+		return(-ENODEV);
 	}
 
-	clk = adxcvr_clk_register(&pdev->dev, st->node,
-							  __clk_get_name(st->conv_clk), 0);
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		goto unregister_clock;
+	/* interleave & calibrate */
+
+	status = i5g_intlv(st);
+	if (status == 0) {
+		status = i5g_calibrate(st);
 	}
 
-	if (!IS_ERR(st->out_clk))
-		of_clk_add_provider(st->node, of_clk_src_simple_get,
-							st->out_clk);
+	/* done (at least all that we could do), goodbye */
 
-	st->sysref_gpio = devm_gpiod_get_optional(&pdev->dev, "sysref",
-											  GPIOD_OUT_HIGH);
-
-	dev_info(&pdev->dev, "AXI-ADXCVR (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,",
-		PCORE_VER_MAJOR(version),
-		PCORE_VER_MINOR(version),
-		PCORE_VER_LETTER(version),
-		(unsigned long long)mem->start, st->regs);
-
-	return 0;
-
-unregister_clock:
-	adxcvr_unregister_clock(st);
-
-disable_unprepare:
-	adxcvr_disable_unprepare_clocks(st);
-
-	return ret;
+	return(status);
 }
 
-/**
- * adxcvr_remove - unbinds the driver from the AIM device.
- * @of_dev:	pointer to OF device structure
- *
- * This function is called if a device is physically removed from the system or
- * if the driver module is being unloaded. It frees any resources allocated to
- * the device.
- */
-static int adxcvr_remove(struct platform_device *pdev)
-{
-	struct adxcvr_state *st = platform_get_drvdata(pdev);
+/* remove and release resources */
 
-	adxcvr_unregister_clock_provider(pdev);
-	adxcvr_unregister_clock(st);
-	adxcvr_disable_unprepare_clocks(st);
+static int fmcadc5_sync_remove(struct platform_device *pdev) {
 
-	return 0;
+	/* anything to do here - free some stuff? */
+
+	return(0);
 }
 
-static struct platform_driver adxcvr_of_driver = {
+/* register driver */
+
+static struct platform_driver fmcadc5_sync_of_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.owner = THIS_MODULE,
-		.of_match_table = adxcvr_of_match,
+		.of_match_table = fmcadc5_sync_of_match,
 	},
-	.probe		= adxcvr_probe,
-	.remove		= adxcvr_remove,
+	.probe		= fmcadc5_sync_probe,
+	.remove		= fmcadc5_sync_remove,
 };
+module_platform_driver(fmcadc5_sync_of_driver);
 
-module_platform_driver(adxcvr_of_driver);
+/* cosmetic stuff */
 
-MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
-MODULE_DESCRIPTION("Analog Devices AXI-ADXCVR Module");
+MODULE_AUTHOR("Rejeesh Kutty <rejeesh.kutty@analog.com>");
+MODULE_DESCRIPTION("Analog Devices AXI-FMCADC5-SYNC (I5G) Module");
 MODULE_LICENSE("GPL v2");
+
