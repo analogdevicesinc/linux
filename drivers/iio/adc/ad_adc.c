@@ -154,104 +154,7 @@ static const struct iio_info adc_info = {
 	.update_scan_mode = axiadc_update_scan_mode,
 };
 
-// Modifed to add real bits, shift, etc
-#define AIM_CHAN_NOCALIB(_chan, _si, _real_bits, _storage_bits, _shift, _sign)		  \
-	{ .type = IIO_VOLTAGE,					  \
-	  .indexed = 1,						 \
-	  .channel = _chan,					 \
-	  .scan_index = _si,						\
-	  .scan_type =  IIO_ST(_sign, _real_bits, _storage_bits, _shift)}
-
-/*
- * Don't use this for new devices, this is only in here for backwards
- * compatibility and might be dropped at some point
- */
-struct adc_legacy_chip_info {
-	const char *name;
-	struct iio_chan_spec channels[2];
-	unsigned int num_channels;
-};
-
-static const struct adc_legacy_chip_info adc_legacy_chip_info_table[] = {
-	{
-		.name = "ad7476a",
-		.num_channels = 2,
-		.channels = {
-			AIM_CHAN_NOCALIB(0, 0, 16, 32, 0, 'u'),
-			AIM_CHAN_NOCALIB(1, 1, 16, 32, 16, 'u'),
-		},
-	}, {
-		.name = "ad7091r",
-		.num_channels = 1,
-		.channels = {
-			AIM_CHAN_NOCALIB(0, 0, 16, 32, 16, 'u'),
-		},
-	}, {
-		.name = "ad7780",
-		.num_channels = 1,
-		.channels = {
-			AIM_CHAN_NOCALIB(0, 0, 24, 32, 8, 'u'),
-		},
-	}, {
-		.name = "ad7980",
-		.num_channels = 1,
-		.channels = {
-			AIM_CHAN_NOCALIB(0, 0, 16, 32, 16, 'u'),
-		},
-	}
-};
-
-static int adc_legacy_probe(struct platform_device *pdev,
-	struct iio_dev *indio_dev)
-{
-	const struct adc_legacy_chip_info *info = NULL;
-	struct axiadc_state *st = iio_priv(indio_dev);
-	struct device_node *np = pdev->dev.of_node;
-	const char *adc_name;
-	unsigned int i;
-	int ret;
-
-	ret = of_property_read_string(np, "adc-name-id", &adc_name);
-	switch (ret) {
-	case -EINVAL:
-		dev_err(&pdev->dev, "Failed to select ADC. Property not found in devicetree.\n");
-		return ret;
-	case -ENODATA:
-		dev_err(&pdev->dev, "Failed to select ADC. Property found in devicetree, but has no value\n");
-		return ret;
-	case -EILSEQ:
-		dev_err(&pdev->dev, "Failed to select ADC. Property found but noy NULL terminated\n");
-		return ret;
-	default:
-		break;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(adc_legacy_chip_info_table); i++) {
-		if (strcmp(adc_legacy_chip_info_table[i].name, adc_name) == 0) {
-			info = &adc_legacy_chip_info_table[i];
-			break;
-		}
-	}
-
-	if (info == NULL) {
-		dev_err(&pdev->dev, "ADC not found in supported drivers list\n");
-		return -ENODEV;
-	}
-
-	indio_dev->channels = info->channels;
-	indio_dev->num_channels = info->num_channels;
-	st->streaming_dma = of_property_read_bool(np, "adi,streaming-dma");
-
-	if (st->streaming_dma)
-		axiadc_configure_ring_stream(indio_dev, "ad-adc-dma");
-	else
-		axiadc_configure_ring(indio_dev, "ad-adc-dma");
-
-	return 0;
-}
-
 static const struct of_device_id adc_of_match[] = {
-	{ .compatible = "xlnx,axi-ad-adc-1.00.a", },
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
 	{ /* end of list */ },
 };
@@ -296,32 +199,18 @@ static int adc_probe(struct platform_device *pdev)
 	st->pcore_version = adc_read(st, ADI_REG_VERSION);
 
 
-	if (info == NULL) {
-		ret = adc_legacy_probe(pdev, indio_dev);
-		if (ret)
-			return ret;
-	} else {
-		if (info->has_frontend) {
-			st->frontend = iio_hw_consumer_alloc(&pdev->dev);
-			if (IS_ERR(st->frontend))
-					return PTR_ERR(st->frontend);
-			indio_dev->setup_ops = &axiadc_hw_consumer_setup_ops;
-		}
-
-		indio_dev->channels = info->channels;
-		indio_dev->num_channels = info->num_channels;
-		ret = axiadc_configure_ring_stream(indio_dev, "rx");
-		if (ret)
-				goto err_free_frontend;
+	if (info->has_frontend) {
+		st->frontend = iio_hw_consumer_alloc(&pdev->dev);
+		if (IS_ERR(st->frontend))
+				return PTR_ERR(st->frontend);
+		indio_dev->setup_ops = &axiadc_hw_consumer_setup_ops;
 	}
 
-	ret = iio_buffer_register(indio_dev,
-				  indio_dev->channels,
-				  indio_dev->num_channels);
+	indio_dev->channels = info->channels;
+	indio_dev->num_channels = info->num_channels;
+	ret = axiadc_configure_ring_stream(indio_dev, "rx");
 	if (ret)
-		goto err_unconfigure_ring;
-
-	*indio_dev->buffer->scan_mask = (1UL << 2) - 1;
+		goto err_free_frontend;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
@@ -330,10 +219,7 @@ static int adc_probe(struct platform_device *pdev)
 	return 0;
 
 err_unconfigure_ring:
-	if (st->streaming_dma)
-		axiadc_unconfigure_ring_stream(indio_dev);
-	else
-		axiadc_unconfigure_ring(indio_dev);
+	axiadc_unconfigure_ring_stream(indio_dev);
 err_free_frontend:
 	if (st->frontend)
 		iio_hw_consumer_free(st->frontend);
@@ -347,7 +233,7 @@ static int adc_remove(struct platform_device *pdev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	axiadc_unconfigure_ring(indio_dev);
+	axiadc_unconfigure_ring_stream(indio_dev);
 	if (st->frontend)
 		iio_hw_consumer_free(st->frontend);
 
