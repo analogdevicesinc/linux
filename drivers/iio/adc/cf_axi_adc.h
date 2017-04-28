@@ -240,8 +240,6 @@ enum adc_data_sel {
 #define CHIPID_AD9250			0xB9
 #define AD9250_REG_VREF_MASK		0x1F
 #define AD9250_DEF_OUTPUT_MODE		0x00
-#define AD9250_AXIADC_PCORE_DATA_SEL	0x28
-#define AD9250_AXIADC_PCORE_DATA_SEL_F	(1 << 0)
 
 /*
  * Analog Devices AD9683 14-Bit, 170/250 MSPS ADC, JESD204B
@@ -249,7 +247,6 @@ enum adc_data_sel {
 
 #define CHIPID_AD9683			0xC3
 #define AD9683_DEF_OUTPUT_MODE		0x00
-#define AD9683_AXIADC_PCORE_DATA_SEL	0x28
 #define AD9683_SIGNEXTEND		(1 << 0)
 
 /*
@@ -258,7 +255,6 @@ enum adc_data_sel {
 
 #define CHIPID_AD9625			0x41
 #define AD9625_DEF_OUTPUT_MODE		0x00
-#define AD9625_AXIADC_PCORE_DATA_SEL	0x24
 #define AD9625_SIGNEXTEND		(1 << 0)
 
 /*
