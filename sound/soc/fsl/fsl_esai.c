@@ -230,6 +230,21 @@ static int fsl_esai_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 	unsigned long clk_rate;
 	int ret;
 
+	if (esai_priv->synchronous && !tx) {
+		switch (clk_id) {
+		case ESAI_HCKR_FSYS:
+			fsl_esai_set_dai_sysclk(dai, ESAI_HCKT_FSYS,
+								freq, dir);
+			break;
+		case ESAI_HCKR_EXTAL:
+			fsl_esai_set_dai_sysclk(dai, ESAI_HCKT_EXTAL,
+								freq, dir);
+			break;
+		default:
+			return -EINVAL;
+		}
+	}
+
 	/* Bypass divider settings if the requirement doesn't change */
 	if (freq == esai_priv->hck_rate[tx] && dir == esai_priv->hck_dir[tx])
 		return 0;
@@ -538,9 +553,20 @@ static int fsl_esai_hw_params(struct snd_pcm_substream *substream,
 
 	bclk = params_rate(params) * slot_width * esai_priv->slots;
 
-	ret = fsl_esai_set_bclk(dai, tx, bclk);
+	ret = fsl_esai_set_bclk(dai, esai_priv->synchronous ? true : tx, bclk);
 	if (ret)
 		return ret;
+
+	if (esai_priv->synchronous && !tx) {
+		/* Use Normal mode to support monaural audio */
+		regmap_update_bits(esai_priv->regmap, REG_ESAI_TCR,
+			   ESAI_xCR_xMOD_MASK, params_channels(params) > 1 ?
+			   ESAI_xCR_xMOD_NETWORK : 0);
+
+		mask = ESAI_xCR_xSWS_MASK | ESAI_xCR_PADC;
+		val = ESAI_xCR_xSWS(slot_width, width) | ESAI_xCR_PADC;
+		regmap_update_bits(esai_priv->regmap, REG_ESAI_TCR, mask, val);
+	}
 
 	/* Use Normal mode to support monaural audio */
 	regmap_update_bits(esai_priv->regmap, REG_ESAI_xCR(tx),
