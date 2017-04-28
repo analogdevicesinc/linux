@@ -1,0 +1,32 @@
+
+if JESD204
+
+config ALTERA_ARRIA10_JESD204_PHY
+	tristate "Altera Arria10 JESD204 PHY Support"
+	depends on COMMON_CLK
+
+config AXI_ADXCVR
+	tristate "Analog Devices AXI ADXCVR PHY Support"
+	depends on COMMON_CLK
+	select XILINX_TRANSCEIVER
+
+config AXI_JESD204B
+	tristate "Generic AXI JESD204B configuration driver"
+	depends on COMMON_CLK
+	select XILINX_TRANSCEIVER
+
+config AXI_JESD204_TX
+	tristate "Analog Devices AXI JESD204B TX Support"
+	depends on COMMON_CLK
+	select REGMAP_MMIO
+
+config AXI_JESD204_RX
+	tristate "Analog Devices AXI JESD204B RX Support"
+	depends on COMMON_CLK
+	select REGMAP_MMIO
+
+config XILINX_TRANSCEIVER
+	tristate
+
+endif
+
