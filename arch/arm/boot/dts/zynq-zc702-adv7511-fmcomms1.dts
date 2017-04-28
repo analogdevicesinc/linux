@@ -36,30 +36,17 @@
 		reg = <0x79020000 0x10000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
+
 		spibus-connected = <&adc0_ad9467>;
-		xlnx,dphase-timeout = <0x8>;
-		xlnx,num-mem = <0x1>;
-		xlnx,num-reg = <0x1>;
-		xlnx,s-axi-min-size = <0x1ff>;
-		xlnx,slv-awidth = <0x20>;
-		xlnx,slv-dwidth = <0x20>;
-		xlnx,use-wstrb = <0x0>;
 	};
 
 	cf_ad9122_core_0: cf-ad9122-core-lpc@74204000 {
 		compatible = "adi,axi-ad9122-6.00.a";
 		reg = <0x74204000 0x10000>;
-		spibus-connected = <&dac0_ad9122>;
 		dmas = <&tx_dma 0>;
 		dma-names = "tx";
-		dac-sample-frequency = <491520000>;
-		xlnx,dphase-timeout = <0x8>;
-		xlnx,num-mem = <0x1>;
-		xlnx,num-reg = <0x1>;
-		xlnx,s-axi-min-size = <0x1ff>;
-		xlnx,slv-awidth = <0x20>;
-		xlnx,slv-dwidth = <0x20>;
-		xlnx,use-wstrb = <0x0>;
+
+		spibus-connected = <&dac0_ad9122>;
 	};
 };
 
