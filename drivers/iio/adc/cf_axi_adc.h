@@ -393,9 +393,9 @@ struct axiadc_converter {
 
 	bool			sample_rate_read_only;
 
-	int		(*read)(struct spi_device *spi, unsigned reg);
-	int		(*write)(struct spi_device *spi,
-				 unsigned reg, unsigned val);
+	int (*reg_access)(struct iio_dev *indio_dev, unsigned int reg,
+		unsigned int writeval, unsigned int *readval);
+
 	int		(*setup)(struct spi_device *spi, unsigned mode);
 
 	struct iio_chan_spec const	*channels;

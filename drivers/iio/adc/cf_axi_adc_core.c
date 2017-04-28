@@ -36,27 +36,6 @@ struct axiadc_core_info {
 	unsigned int version;
 };
 
-static int axiadc_spi_read(struct axiadc_state *st, unsigned reg)
-{
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
-
-	if (IS_ERR(conv))
-		return PTR_ERR(conv);
-
-	return conv->read(conv->spi, reg);
-}
-
-static int axiadc_spi_write(struct axiadc_state *st, unsigned reg, unsigned val)
-{
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
-
-	if (IS_ERR(conv))
-		return PTR_ERR(conv);
-
-	return conv->write(conv->spi, reg, val);
-}
-
-
 int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel)
 {
 	unsigned reg;
@@ -204,29 +183,23 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 	int ret;
 
 	mutex_lock(&indio_dev->mlock);
-	if (readval == NULL) {
-		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
-			axiadc_write(st, reg & 0xFFFF, writeval);
-			ret = 0;
-		} else {
-			ret = axiadc_spi_write(st, reg, writeval);
-			axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-		}
+
+	if (!(reg & DEBUGFS_DRA_PCORE_REG_MAGIC)) {
+		struct axiadc_converter *conv = to_converter(st->dev_spi);
+		if (IS_ERR(conv))
+			ret = PTR_ERR(conv);
+		else
+			ret = conv->reg_access(indio_dev, reg, writeval, readval);
 	} else {
-		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
+		if (readval == NULL)
+			axiadc_write(st, reg & 0xFFFF, writeval);
+		else
 			*readval = axiadc_read(st, reg & 0xFFFF);
-		} else {
-			ret = axiadc_spi_read(st, reg);
-			if (ret < 0)
-				goto out_unlock;
-			*readval = ret;
-		}
 		ret = 0;
 	}
-out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 
-	return ret;
+	return 0;
 }
 
 static int axiadc_decimation_set(struct axiadc_state *st,
