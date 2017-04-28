@@ -77,6 +77,27 @@ static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 	return -ENODEV;
 }
 
+static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+	unsigned int writeval, unsigned int *readval)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct spi_device *spi = conv->spi;
+	int ret;
+
+	if (readval == NULL) {
+		ret = ad9467_spi_write(spi, reg, writeval);
+		ad9467_spi_write(spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		return ret;
+	} else {
+		ret = ad9467_spi_read(spi, reg);
+		if (ret < 0)
+			return ret;
+		*readval = ret;
+	}
+
+	return 0;
+}
+
 static int ad9467_outputmode_set(struct spi_device *spi, unsigned mode)
 {
 	int ret;
@@ -1401,8 +1422,7 @@ static int ad9467_probe(struct spi_device *spi)
 	if (ret < 0)
 		goto out;
 
-	conv->write = ad9467_spi_write;
-	conv->read = ad9467_spi_read;
+	conv->reg_access = ad9467_reg_access;
 	conv->write_raw = ad9467_write_raw;
 	conv->read_raw = ad9467_read_raw;
 	conv->read_event_value = ad9680_read_thresh,
