@@ -76,14 +76,6 @@
 #define ADI_DRP_RDATA(x)			(((x) & 0xFFFF) << 0)
 #define ADI_TO_DRP_RDATA(x)		(((x) >> 0) & 0xFFFF)
 
-#define ADI_REG_DMA_CNTRL		0x0080
-#define ADI_DMA_STREAM			(1 << 1)
-#define ADI_DMA_START			(1 << 0)
-
-#define ADI_REG_DMA_COUNT		0x0084
-#define ADI_DMA_COUNT(x)			(((x) & 0xFFFFFFFF) << 0)
-#define ADI_TO_DMA_COUNT(x)		(((x) >> 0) & 0xFFFFFFFF)
-
 #define ADI_REG_DMA_STATUS		0x0088
 #define ADI_DMA_OVF			(1 << 2)
 #define ADI_DMA_UNF			(1 << 1)
@@ -381,10 +373,8 @@ struct axiadc_state {
 	unsigned			id;
 	unsigned			pcore_version;
 	unsigned			decimation_factor;
-	bool				has_fifo_interface;
 	bool				dp_disable;
 	unsigned long 			adc_clk;
-	bool				streaming_dma;
 	unsigned			have_slave_channels;
 
 	struct iio_hw_consumer		*frontend;
@@ -520,8 +510,6 @@ int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel);
 enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 			       int channel, const char **name);
 
-int axiadc_configure_ring(struct iio_dev *indio_dev, const char *dma_name);
-void axiadc_unconfigure_ring(struct iio_dev *indio_dev);
 int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 	const char *dma_name);
 void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev);

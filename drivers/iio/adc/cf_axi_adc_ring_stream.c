@@ -34,12 +34,6 @@ static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
 	axiadc_write(st, ADI_REG_STATUS, ~0);
 	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);
 
-	if (!st->has_fifo_interface) {
-		axiadc_write(st, ADI_REG_DMA_CNTRL, 0);
-		axiadc_write(st, ADI_REG_DMA_COUNT, block->block.bytes_used);
-		axiadc_write(st, ADI_REG_DMA_CNTRL, ADI_DMA_START | 2);
-	}
-
 	return 0;
 }
 

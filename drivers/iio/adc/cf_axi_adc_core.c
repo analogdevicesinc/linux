@@ -33,7 +33,6 @@
 const unsigned int decimation_factors_available[] = {1, 8};
 
 struct axiadc_core_info {
-	bool has_fifo_interface;
 	unsigned int version;
 };
 
@@ -682,22 +681,18 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
 }
 
 static const struct axiadc_core_info ad9467_core_1_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9361_6_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9643_6_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9680_6_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
@@ -787,20 +782,6 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	st->dp_disable = axiadc_read(st, ADI_REG_ADC_DP_DISABLE);
 
-	if (!st->dp_disable) {
-		st->streaming_dma = of_property_read_bool(pdev->dev.of_node,
-				"adi,streaming-dma");
-
-		/* FIFO interface only supports streaming DMA */
-		if (info)
-			st->has_fifo_interface = info->has_fifo_interface;
-		else
-			st->has_fifo_interface = false;
-
-		if (st->has_fifo_interface)
-			st->streaming_dma = true;
-	}
-
 	conv = to_converter(st->dev_spi);
 	if (IS_ERR(conv)) {
 		dev_err(&pdev->dev, "Failed to get converter device: %d\n",
@@ -869,11 +850,7 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID)) {
 
-		if (st->streaming_dma)
-			ret = axiadc_configure_ring_stream(indio_dev, NULL);
-		else
-			ret = axiadc_configure_ring(indio_dev, NULL);
-
+		ret = axiadc_configure_ring_stream(indio_dev, NULL);
 		if (ret < 0)
 			goto err_put_converter;
 	}
@@ -909,12 +886,8 @@ static int axiadc_probe(struct platform_device *pdev)
 	return 0;
 
 err_unconfigure_ring:
-	if (!st->dp_disable) {
-		if (st->streaming_dma)
+	if (!st->dp_disable)
 			axiadc_unconfigure_ring_stream(indio_dev);
-		else
-			axiadc_unconfigure_ring(indio_dev);
-	}
 err_put_converter:
 	put_device(axiadc_spidev.dev_spi);
 	module_put(axiadc_spidev.dev_spi->driver->owner);
@@ -936,12 +909,8 @@ static int axiadc_remove(struct platform_device *pdev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	if (!st->dp_disable) {
-		if (st->streaming_dma)
-			axiadc_unconfigure_ring_stream(indio_dev);
-		else
-			axiadc_unconfigure_ring(indio_dev);
-	}
+	if (!st->dp_disable)
+		axiadc_unconfigure_ring_stream(indio_dev);
 	put_device(st->dev_spi);
 	module_put(st->dev_spi->driver->owner);
 
