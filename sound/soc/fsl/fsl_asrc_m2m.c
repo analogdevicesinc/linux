@@ -134,14 +134,12 @@ static int fsl_allocate_dma_buf(struct fsl_asrc_pair *pair)
 		pair_err("failed to allocate input DMA buffer\n");
 		return -ENOMEM;
 	}
-	input->dma_paddr = virt_to_dma(NULL, input->dma_vaddr);
 
 	output->dma_vaddr = kzalloc(output->length, GFP_KERNEL);
 	if (!output->dma_vaddr) {
 		pair_err("failed to allocate output DMA buffer\n");
 		goto exit;
 	}
-	output->dma_paddr = virt_to_dma(NULL, output->dma_vaddr);
 
 	return 0;
 
@@ -812,6 +810,7 @@ static int fsl_asrc_open(struct inode *inode, struct file *file)
 	struct fsl_asrc_pair *pair;
 	struct fsl_asrc_m2m *m2m;
 	int ret;
+	int i;
 
 	ret = signal_pending(current);
 	if (ret) {
@@ -839,7 +838,11 @@ static int fsl_asrc_open(struct inode *inode, struct file *file)
 
 	file->private_data = pair;
 
-	pm_runtime_get_sync(dev);
+	clk_prepare_enable(asrc_priv->mem_clk);
+	clk_prepare_enable(asrc_priv->ipg_clk);
+	clk_prepare_enable(asrc_priv->spba_clk);
+	for (i = 0; i < ASRC_CLK_MAX_NUM; i++)
+		clk_prepare_enable(asrc_priv->asrck_clk[i]);
 
 	return 0;
 out:
@@ -853,8 +856,8 @@ static int fsl_asrc_close(struct inode *inode, struct file *file)
 	struct fsl_asrc_pair *pair = file->private_data;
 	struct fsl_asrc_m2m *m2m = pair->private;
 	struct fsl_asrc *asrc_priv = pair->asrc_priv;
-	struct device *dev = &asrc_priv->pdev->dev;
 	unsigned long lock_flags;
+	int i;
 
 	if (m2m->asrc_active) {
 		m2m->asrc_active = 0;
@@ -890,7 +893,11 @@ static int fsl_asrc_close(struct inode *inode, struct file *file)
 	spin_unlock_irqrestore(&asrc_priv->lock, lock_flags);
 	file->private_data = NULL;
 
-	pm_runtime_put_sync(dev);
+	for (i = 0; i < ASRC_CLK_MAX_NUM; i++)
+		clk_disable_unprepare(asrc_priv->asrck_clk[i]);
+	clk_disable_unprepare(asrc_priv->spba_clk);
+	clk_disable_unprepare(asrc_priv->ipg_clk);
+	clk_disable_unprepare(asrc_priv->mem_clk);
 
 	return 0;
 }

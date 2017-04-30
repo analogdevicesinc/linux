@@ -293,7 +293,6 @@
 
 
 struct dma_block {
-	dma_addr_t dma_paddr;
 	void *dma_vaddr;
 	unsigned int length;
 };
