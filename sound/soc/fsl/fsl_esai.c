@@ -916,6 +916,7 @@ static int fsl_esai_probe(struct platform_device *pdev)
 	void __iomem *regs;
 	int irq, ret;
 	u32 buffer_size;
+	unsigned long irqflag = 0;
 
 	esai_priv = devm_kzalloc(&pdev->dev, sizeof(*esai_priv), GFP_KERNEL);
 	if (!esai_priv)
@@ -966,7 +967,11 @@ static int fsl_esai_probe(struct platform_device *pdev)
 		return irq;
 	}
 
-	ret = devm_request_irq(&pdev->dev, irq, esai_isr, 0,
+	/* ESAI shared interrupt */
+	if (of_property_read_bool(np, "shared-interrupt"))
+		irqflag = IRQF_SHARED;
+
+	ret = devm_request_irq(&pdev->dev, irq, esai_isr, irqflag,
 			       esai_priv->name, esai_priv);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to claim irq %u\n", irq);

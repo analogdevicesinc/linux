@@ -924,6 +924,7 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	int irq, ret, i;
 	int index;
 	u32 buffer_size;
+	unsigned long irqflag = 0;
 
 	sai = devm_kzalloc(&pdev->dev, sizeof(*sai), GFP_KERNEL);
 	if (!sai)
@@ -993,7 +994,12 @@ static int fsl_sai_probe(struct platform_device *pdev)
 		return irq;
 	}
 
-	ret = devm_request_irq(&pdev->dev, irq, fsl_sai_isr, 0, np->name, sai);
+	/* SAI shared interrupt */
+	if (of_property_read_bool(np, "shared-interrupt"))
+		irqflag = IRQF_SHARED;
+
+	ret = devm_request_irq(&pdev->dev, irq, fsl_sai_isr, irqflag,
+				np->name, sai);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to claim irq %u\n", irq);
 		return ret;
