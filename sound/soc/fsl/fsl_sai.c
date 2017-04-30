@@ -339,13 +339,22 @@ static int fsl_sai_set_dai_fmt_tr(struct snd_soc_dai *cpu_dai,
 
 static int fsl_sai_set_dai_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 {
+	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
 	int ret;
+
+	if (sai->i2s_xtor)
+		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+		      SND_SOC_DAIFMT_CBS_CFS;
 
 	ret = fsl_sai_set_dai_fmt_tr(cpu_dai, fmt, FSL_FMT_TRANSMITTER);
 	if (ret) {
 		dev_err(cpu_dai->dev, "Cannot set tx format: %d\n", ret);
 		return ret;
 	}
+
+	if (sai->i2s_xtor)
+		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+		      SND_SOC_DAIFMT_CBM_CFM;
 
 	ret = fsl_sai_set_dai_fmt_tr(cpu_dai, fmt, FSL_FMT_RECEIVER);
 	if (ret)
@@ -987,6 +996,9 @@ static int fsl_sai_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "dataline setting error, Mask is 0x%x\n", sai->soc->dataline);
 		return -EINVAL;
 	}
+
+	/* I2S XTOR mode */
+	sai->i2s_xtor = (of_find_property(np, "fsl,i2s-xtor", NULL) != NULL);
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
