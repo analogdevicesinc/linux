@@ -54,8 +54,13 @@ static inline int imx_rpmsg_platform_register(struct device *dev)
 
 #if IS_ENABLED(CONFIG_SND_SOC_IMX_PCM_DMA)
 int imx_pcm_dma_init(struct platform_device *pdev, size_t size);
+int imx_pcm_platform_register(struct device *dev);
 #else
 static inline int imx_pcm_dma_init(struct platform_device *pdev, size_t size)
+{
+	return -ENODEV;
+}
+static inline int imx_pcm_platform_register(struct device *dev);
 {
 	return -ENODEV;
 }
