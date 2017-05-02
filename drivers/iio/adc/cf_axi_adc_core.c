@@ -708,7 +708,6 @@ static int axiadc_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct axiadc_spidev axiadc_spidev;
 	struct axiadc_converter *conv;
-	unsigned int expected_version;
 	int ret;
 
 	dev_dbg(&pdev->dev, "Device Tree Probing \'%s\'\n",
@@ -791,17 +790,12 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
 
-	if (info)
-		expected_version = info->version;
-	else
-		expected_version = PCORE_VERSION(4, 0, 'a');
-
 	if (PCORE_VERSION_MAJOR(st->pcore_version) >
-		PCORE_VERSION_MAJOR(expected_version)) {
+		PCORE_VERSION_MAJOR(info->version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
-			PCORE_VERSION_MAJOR(expected_version),
-			PCORE_VERSION_MINOR(expected_version),
-			PCORE_VERSION_LETTER(expected_version),
+			PCORE_VERSION_MAJOR(info->version),
+			PCORE_VERSION_MINOR(info->version),
+			PCORE_VERSION_LETTER(info->version),
 			PCORE_VERSION_MAJOR(st->pcore_version),
 			PCORE_VERSION_MINOR(st->pcore_version),
 			PCORE_VERSION_LETTER(st->pcore_version));
