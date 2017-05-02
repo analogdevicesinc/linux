@@ -1,0 +1,297 @@
+/*
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/* First 128KB is for PSCI ATF. */
+/memreserve/ 0x80000000 0x00020000;
+
+#include "fsl-imx8qm.dtsi"
+
+/ {
+	model = "Freescale i.MX8QM ARM2";
+	compatible = "fsl,imx8qm-arm2", "fsl,imx8qm";
+
+	chosen {
+		bootargs = "console=ttyLP0,115200 earlycon=lpuart32,0x5a060000,115200";
+		stdout-path = &lpuart0;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_leds>;
+		user {
+			label = "heartbeat";
+			gpios = <&gpio2 15 0>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
+	};
+};
+
+&iomuxc {
+	imx8qm-arm2 {
+		pinctrl_fec1: fec1grp {
+			fsl,pins = <
+				SC_P_ENET0_MDC		0xc6000048
+				SC_P_ENET0_MDIO		0xc6000048
+				SC_P_ENET0_RGMII_TX_CTL	0xc6000048
+				SC_P_ENET0_RGMII_TXC	0xc6000048
+				SC_P_ENET0_RGMII_TXD0	0xc6000048
+				SC_P_ENET0_RGMII_TXD1	0xc6000048
+				SC_P_ENET0_RGMII_TXD2	0xc6000048
+				SC_P_ENET0_RGMII_TXD3	0xc6000048
+				SC_P_ENET0_RGMII_RXC	0xc6000048
+				SC_P_ENET0_RGMII_RX_CTL	0xc6000048
+				SC_P_ENET0_RGMII_RXD0	0xc6000048
+				SC_P_ENET0_RGMII_RXD1	0xc6000048
+				SC_P_ENET0_RGMII_RXD2	0xc6000048
+				SC_P_ENET0_RGMII_RXD3	0xc6000048
+			>;
+		};
+
+		pinctrl_lpuart0: lpuart0grp {
+			fsl,pins = <
+				SC_P_UART0_RX		0xc600004c
+				SC_P_UART0_TX		0xc600004c
+				SC_P_UART0_RTS_B	0xc600004c
+				SC_P_UART0_CTS_B	0xc600004c
+			>;
+		};
+
+		pinctrl_usdhc1: usdhc1grp {
+			fsl,pins = <
+				SC_P_EMMC0_CLK		0xc6000021
+				SC_P_EMMC0_CMD		0xc0000021
+				SC_P_EMMC0_DATA0	0xc0000021
+				SC_P_EMMC0_DATA1	0xc0000021
+				SC_P_EMMC0_DATA2	0xc0000021
+				SC_P_EMMC0_DATA3	0xc0000021
+				SC_P_EMMC0_DATA4	0xc0000021
+				SC_P_EMMC0_DATA5	0xc0000021
+				SC_P_EMMC0_DATA6	0xc0000021
+				SC_P_EMMC0_DATA7	0xc0000021
+				SC_P_EMMC0_RESET_B	0xc0000021
+			>;
+		};
+
+		pinctrl_usdhc2: usdhc2grp {
+			fsl,pins = <
+				SC_P_USDHC1_CLK		0xc6000021
+				SC_P_USDHC1_CMD		0xc0000021
+				SC_P_USDHC1_DATA0	0xc0000021
+				SC_P_USDHC1_DATA1	0xc0000021
+				SC_P_USDHC1_DATA2	0xc0000021
+				SC_P_USDHC1_DATA3	0xc0000021
+				SC_P_USDHC1_DATA6	0xd8000021
+				SC_P_USDHC1_DATA7	0xd8000021
+			>;
+		};
+
+		pinctrl_lpspi0: lpspi0grp {
+			fsl,pins = <
+				SC_P_SPI0_SCK		0xc600004c
+				SC_P_SPI0_SDO		0xc600004c
+				SC_P_SPI0_SDI		0xc600004c
+				SC_P_SPI0_CS0		0xc600004c
+				SC_P_SPI0_CS1		0xc600004c
+			>;
+		};
+
+		pinctrl_flexspi0: flexspi0grp {
+			fsl,pins = <
+				SC_P_QSPI0A_DATA0       0xc600004c
+				SC_P_QSPI0A_DATA1      0xc600004c
+				SC_P_QSPI0A_DATA2      0xc600004c
+				SC_P_QSPI0A_DATA3      0xc600004c
+				SC_P_QSPI0A_DQS        0xc600004c
+				SC_P_QSPI0A_SS0_B      0xc600004c
+				SC_P_QSPI0A_SS1_B      0xc600004c
+				SC_P_QSPI0A_SCLK       0xc600004c
+				SC_P_QSPI0B_SCLK       0xc600004c
+				SC_P_QSPI0B_DATA0      0xc600004c
+				SC_P_QSPI0B_DATA1      0xc600004c
+				SC_P_QSPI0B_DATA2      0xc600004c
+				SC_P_QSPI0B_DATA3      0xc600004c
+				SC_P_QSPI0B_DQS        0xc600004c
+				SC_P_QSPI0B_SS0_B      0xc600004c
+				SC_P_QSPI0B_SS1_B      0xc600004c
+			>;
+		};
+
+		pinctrl_gpio_leds: gpioledsgrp {
+			fsl,pins = <
+				SC_P_SPDIF0_TX		0xd8000021
+			>;
+		};
+	};
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+&gpio5 {
+	status = "okay";
+};
+
+&framebuffer1 {
+	status = "okay";
+};
+
+&framebuffer3 {
+	status = "okay";
+};
+
+&imxdpu0 {
+	status = "okay";
+};
+
+&imxdpu1 {
+	status = "okay";
+};
+
+&lvds0 {
+	status = "okay";
+};
+
+&lvds1 {
+	status = "okay";
+};
+
+&usdhc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	bus-width = <8>;
+	non-removable;
+	status = "okay";
+};
+
+&usdhc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc2>;
+	bus-width = <4>;
+	cd-gpios = <&gpio5 22 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpio5 21 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&usbotg1 {
+	srp-disable;
+	hnp-disable;
+	adp-disable;
+	disable-over-current;
+	status = "okay";
+};
+
+&fec1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_fec1>;
+	phy-mode = "rgmii";
+	phy-handle = <&ethphy0>;
+	fsl,ar8031-phy-fixup;
+	fsl,magic-packet;
+	status = "okay";
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethphy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <0>;
+		};
+	};
+};
+
+&flexspi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexspi0>;
+	status = "okay";
+
+	flash0: mt35xu512aba@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "micron,mt35xu512aba";
+		spi-max-frequency = <29000000>;
+		spi-nor,ddr-quad-read-dummy = <8>;
+	};
+};
+
+&i2c1 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&i2c1_lvds0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+	status = "okay";
+
+	it6263-0@4c {
+		compatible = "ITE,it6263";
+		reg = <0x4c>;
+	};
+};
+
+&i2c1_lvds1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+	status = "okay";
+
+	it6263-1@4c {
+		compatible = "ITE,it6263";
+		reg = <0x4c>;
+	};
+};
+
+&lpspi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi0>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+	};
+};
+
+&lpuart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart0>;
+	status = "okay";
+};
+
+&lpuart1 {
+	status = "okay";
+};
+
+&A53_0 {
+	operating-points = <
+		/* kHz    uV */
+		1296000 1150000
+	>;
+	clocks = <&clk IMX8QM_A53_DIV>;
+};
