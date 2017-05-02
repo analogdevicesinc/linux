@@ -122,6 +122,10 @@ typedef unsigned char bool;
 
 #define PXP_IOC_FILL_DATA    _IOWR(PXP_IOC_MAGIC, 7, struct pxp_mem_desc)
 
+#define ALPHA_MODE_ROP		0x1
+#define ALPHA_MODE_LEGACY	0x2
+#define ALPHA_MODE_PORTER_DUFF	0x3
+
 /* Order significant! */
 enum pxp_channel_status {
 	PXP_CHANNEL_FREE,
@@ -180,6 +184,29 @@ struct rect {
 	int height;
 };
 
+#define ALPHA_MODE_STRAIGHT	0x0
+#define ALPHA_MODE_INVERSED	0x1
+
+#define GLOBAL_ALPHA_MODE_ON	0x0
+#define GLOBAL_ALPHA_MODE_OFF	0x1
+#define GLOBAL_ALPHA_MODE_SCALE	0x2
+
+#define FACTOR_MODE_ONE		0x0
+#define FACTOR_MODE_ZERO	0x1
+#define FACTOR_MODE_STRAIGHT	0x2
+#define FACTOR_MODE_INVERSED	0x3
+
+#define COLOR_MODE_STRAIGHT	0x0
+#define COLOR_MODE_MULTIPLY	0x1
+
+struct pxp_alpha {
+	unsigned int alpha_mode;
+	unsigned int global_alpha_mode;
+	unsigned int global_alpha_value;
+	unsigned int factor_mode;
+	unsigned int color_mode;
+};
+
 struct pxp_layer_param {
 	unsigned short left;
 	unsigned short top;
@@ -204,6 +231,8 @@ struct pxp_layer_param {
 	bool local_alpha_enable;
 	int comp_mask;
 
+	struct pxp_alpha alpha;
+
 	dma_addr_t paddr;
 };
 
@@ -224,9 +253,7 @@ struct pxp_proc_data {
 	int rotate;
 	int rot_pos;
 	int yuv;
-
-	/* to support YUYV and YVYU formats */
-	bool need_yuv_swap;
+	unsigned int alpha_mode;
 
 	/* Source rectangle (srect) defines the sub-rectangle
 	 * within S0 to undergo processing.
@@ -240,6 +267,7 @@ struct pxp_proc_data {
 
 	/* Current S0 configuration */
 	unsigned int bgcolor;
+	unsigned char fill_en;
 
 	/* Output overlay support */
 	int overlay_state;
