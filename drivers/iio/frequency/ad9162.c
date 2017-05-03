@@ -46,6 +46,7 @@ struct ad9162_state {
 	struct regmap *map;
 	ad916x_handle_t dac_h;
 	bool complex_mode;
+	bool iq_swap;
 	unsigned interpolation;
 
 };
@@ -142,6 +143,7 @@ static int ad9162_setup(struct ad9162_state *st,
 
 	st->complex_mode = true;
 	st->interpolation = 2;
+	st->iq_swap = true;
 
 	appJesdConfig.jesd_L = 8;
 	appJesdConfig.jesd_M = (st->complex_mode ? 2 : 1);
@@ -275,7 +277,8 @@ static int ad9162_prepare(struct cf_axi_converter *conv)
 	struct ad9162_state *ad9162 = container_of(conv, struct ad9162_state, conv);
 
 	/* FIXME This needs documenation */
-	dds_write(st, 0x428, ad9162->complex_mode ? 1 : 0);
+	dds_write(st, 0x428, (ad9162->complex_mode ? 0x1 : 0x0) |
+		  (ad9162->iq_swap ? 0x2 : 0x0 ));
 	return 0;
 }
 
