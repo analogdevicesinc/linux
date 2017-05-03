@@ -1160,7 +1160,7 @@ static int ad9361_gt(struct ad9361_rf_phy *phy)
 
 static unsigned long ad9361_to_clk(u64 freq)
 {
-	return (unsigned long)(freq >> 1);
+	return (unsigned long) min(freq >> 1, (u64) ULONG_MAX);
 }
 
 static u64 ad9361_from_clk(unsigned long freq)
