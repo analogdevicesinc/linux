@@ -1853,6 +1853,7 @@ static int do_test(const char *alg, u32 type, u32 mask, int m, u32 num_mb)
 		break;
 	case 193:
 		ret = min(ret, tcrypt_test("ffdhe2048(dh)"));
+		ret += tcrypt_test("tls10(hmac(sha1),cbc(aes))");
 		break;
 	case 200:
 		test_cipher_speed("ecb(aes)", ENCRYPT, sec, NULL, 0,

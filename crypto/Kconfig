@@ -858,6 +858,26 @@ config CRYPTO_ESSIV
 	  combined with ESSIV the only feasible mode for h/w accelerated
 	  block encryption)
 
+config CRYPTO_TLS
+	tristate "TLS support"
+	select CRYPTO_AEAD
+	select CRYPTO_BLKCIPHER
+	select CRYPTO_MANAGER
+	select CRYPTO_HASH
+	select CRYPTO_NULL
+	select CRYPTO_AUTHENC
+	help
+	  Support for TLS 1.0 record encryption and decryption
+
+	  This module adds support for encryption/decryption of TLS 1.0 frames
+	  using blockcipher algorithms. The name of the resulting algorithm is
+	  "tls10(hmac(<digest>),cbc(<cipher>))". By default, the generic base
+	  algorithms are used (e.g. aes-generic, sha1-generic), but hardware
+	  accelerated versions will be used automatically if available.
+
+	  User-space applications (OpenSSL, GnuTLS) can offload TLS 1.0
+	  operations through AF_ALG or cryptodev interfaces
+
 endmenu
 
 menu "Hashes, digests, and MACs"
