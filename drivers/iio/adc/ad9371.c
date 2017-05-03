@@ -508,16 +508,21 @@ int ad9371_setup(struct ad9371_rf_phy *phy)
 	/*************************/
 	/**** Load Mykonos ARM ***/
 	/*************************/
-	if (pllLockStatus & 0x01) {
-		mykError = MYKONOS_initArm(mykDevice);
-		mykError = MYKONOS_loadArmFromBinary(mykDevice,
-						     (u8 *) phy->fw->data,
-						     phy->fw->size);
-		if (mykError != MYKONOS_ERR_OK) {
-			dev_err(&phy->spi->dev, "%s (%d)",
-				getMykonosErrorMessage(mykError), mykError);
-			return -EFAULT;
-		}
+
+	mykError = MYKONOS_initArm(mykDevice);
+	if (mykError != MYKONOS_ERR_OK) {
+		dev_err(&phy->spi->dev, "%s (%d)",
+			getMykonosErrorMessage(mykError), mykError);
+		return -EFAULT;
+	}
+
+	mykError = MYKONOS_loadArmFromBinary(mykDevice,
+					     (u8 *) phy->fw->data,
+					     phy->fw->size);
+	if (mykError != MYKONOS_ERR_OK) {
+		dev_err(&phy->spi->dev, "%s (%d)",
+			getMykonosErrorMessage(mykError), mykError);
+		return -EFAULT;
 	}
 
 	/*******************************/
