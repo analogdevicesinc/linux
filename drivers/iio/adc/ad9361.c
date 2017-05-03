@@ -6980,7 +6980,6 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	u64 readin;
 	bool res;
-	unsigned long tmp;
 	int ret = 0;
 
 	if (phy->curr_ensm_state == ENSM_STATE_SLEEP)
@@ -7014,11 +7013,11 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	case LOEXT_FREQ:
 		switch (chan->channel) {
 		case 0:
-			tmp = clk_set_rate(phy->clks[RX_RFPLL],
+			ret = clk_set_rate(phy->clks[RX_RFPLL],
 					ad9361_to_clk(readin));
 			break;
 		case 1:
-			tmp = clk_set_rate(phy->clks[TX_RFPLL],
+			ret = clk_set_rate(phy->clks[TX_RFPLL],
 					ad9361_to_clk(readin));
 			if (test_bit(0, &phy->flags))
 				wait_for_completion(&phy->complete);
