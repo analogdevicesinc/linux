@@ -9,7 +9,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9523-1";
+		compatible = "adi,ad9523-1";
 		reg = <0>;
 		spi-cpol;
 		spi-cpha;
@@ -107,7 +107,7 @@
 	dac0_ad9144: ad9144@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad9144";
+		compatible = "adi,ad9144";
 		reg = <1>;
 		spi-cpol;
 		spi-cpha;
@@ -124,7 +124,7 @@
 	adc0_ad9680: ad9680@2 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad9680";
+		compatible = "adi,ad9680";
 		reg = <2>;
 		spi-max-frequency = <1000000>;
 		spi-cpol;
