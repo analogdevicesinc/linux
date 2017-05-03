@@ -39,7 +39,6 @@
 #define FSL_SAI_RDR1    0xa4 /* SAI Receive Data */
 #define FSL_SAI_RFR0    0xc0 /* SAI Receive FIFO */
 #define FSL_SAI_RFR1    0xc4 /* SAI Receive FIFO */
-#define FSL_SAI_RFR	0xc0 /* SAI Receive FIFO */
 #define FSL_SAI_RMR	0xe0 /* SAI Receive Mask */
 
 #define FSL_SAI_xCSR(tx)	(tx ? FSL_SAI_TCSR : FSL_SAI_RCSR)
@@ -160,7 +159,7 @@ struct fsl_sai {
 	struct clk *bus_clk;
 	struct clk *mclk_clk[FSL_SAI_MCLK_MAX];
 
-	bool is_slave_mode;
+	bool slave_mode[2];
 	bool is_lsb_first;
 	bool is_dsp_mode;
 	bool sai_on_imx;
