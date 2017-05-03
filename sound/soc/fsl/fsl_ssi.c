@@ -726,8 +726,14 @@ static int fsl_ssi_set_bclk(struct snd_pcm_substream *substream,
 	/* Prefer the explicitly set bitclock frequency */
 	if (ssi_private->bitclk_freq)
 		freq = ssi_private->bitclk_freq;
-	else
-		freq = params_channels(hw_params) * 32 * params_rate(hw_params);
+	else {
+		if (params_channels(hw_params) == 1)
+			freq = 2 * params_width(hw_params) *
+					params_rate(hw_params);
+		else
+			freq = params_channels(hw_params) * 32 *
+					params_rate(hw_params);
+	}
 
 	/* Don't apply it to any non-baudclk circumstance */
 	if (IS_ERR(ssi_private->baudclk))
