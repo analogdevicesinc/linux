@@ -1390,8 +1390,10 @@
 		interrupts = <GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8QM_AUD_SAI_0_IPG>,
 			<&clk IMX8QM_AUD_SAI_0_MCLK>,
-			<&clk IMX8QM_CLK_DUMMY>, <&clk IMX8QM_CLK_DUMMY>;
-		clock-names = "bus", "mclk1", "mclk2", "mclk3";
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_CLK_DUMMY>;
+		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dma-names = "rx", "tx";
 		dmas = <&edma2 12 0 1>, <&edma2 13 0 0>;
 		status = "disabled";
@@ -1427,7 +1429,7 @@
 			"asrck_4", "asrck_5", "asrck_6", "asrck_7",
 			"asrck_8", "asrck_9", "asrck_a", "asrck_b",
 			"asrck_c", "asrck_d", "asrck_e", "asrck_f",
-			"dma";
+			"spba";
 		dmas = <&edma2 0 0 0>, <&edma2 1 0 0>, <&edma2 2 0 0>,
 			<&edma2 3 0 1>, <&edma2 4 0 1>, <&edma2 5 0 1>;
 		dma-names = "rxa", "rxb", "rxc",
