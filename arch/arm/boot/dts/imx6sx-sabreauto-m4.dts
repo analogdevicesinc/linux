@@ -58,6 +58,8 @@
 };
 
 &rpmsg{
+	vdev-nums = <1>;
+	reg = <0xbfff0000 0x10000>;
 	status = "okay";
 };
 
