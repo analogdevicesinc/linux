@@ -29,7 +29,7 @@ static const struct snd_pcm_hardware snd_imx_hardware = {
 		SNDRV_PCM_INFO_RESUME,
 	.buffer_bytes_max = FSL_ASRC_DMABUF_SIZE,
 	.period_bytes_min = 128,
-	.period_bytes_max = 65535, /* Limited by SDMA engine */
+	.period_bytes_max = 65532, /* Limited by SDMA engine */
 	.periods_min = 2,
 	.periods_max = 255,
 	.fifo_size = 0,
