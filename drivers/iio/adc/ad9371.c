@@ -960,6 +960,9 @@ static ssize_t ad9371_phy_rx_write(struct iio_dev *indio_dev,
 		case CHAN_RX2:
 			mask = TRACK_RX2_QEC;
 			break;
+		case CHAN_OBS:
+			mask = TRACK_ORX1_QEC | TRACK_ORX2_QEC;
+			break;
 		default:
 			ret = -EINVAL;
 		}
@@ -1247,6 +1250,7 @@ static const struct iio_chan_spec_ext_info ad9371_phy_obs_rx_ext_info[] = {
 	IIO_ENUM("gain_control_mode", false, &ad9371_agc_modes_available),
 	IIO_ENUM_AVAILABLE("rf_port_select", &ad9371_rf_obs_rx_port_available),
 	IIO_ENUM("rf_port_select", false, &ad9371_rf_obs_rx_port_available),
+	_AD9371_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_AD9371_EXT_RX_INFO("rssi", RSSI),
 	_AD9371_EXT_RX_INFO("temp_comp_gain", TEMPCOMP_GAIN),
 	_AD9371_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
