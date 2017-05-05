@@ -87,7 +87,7 @@ static mykonosFir_t snifferRxFir= {
 	&snifferFirCoefs[0]/* A pointer to an array of filter coefficients*/
 };
 
-int ad9371_string_to_val(const char *buf, int *val)
+static int ad9371_string_to_val(const char *buf, int *val)
 {
 	int ret, integer, fract;
 
@@ -186,7 +186,7 @@ static int ad9371_fir_cpy(mykonosFir_t *fir_src, mykonosFir_t *fir_dest)
 
 #define DEVM_ALLOC_INIT(x) DEVM_ALLOC_INIT_N(x, 1)
 
-int ad9371_alloc_mykonos_device(struct ad9371_rf_phy *phy)
+static int ad9371_alloc_mykonos_device(struct ad9371_rf_phy *phy)
 {
 	struct device *dev = &phy->spi->dev;
 
@@ -247,7 +247,7 @@ err_out:
 }
 
 
-int ad9371_sysref_req(struct ad9371_rf_phy *phy, enum ad9371_sysref_req_mode mode)
+static int ad9371_sysref_req(struct ad9371_rf_phy *phy, enum ad9371_sysref_req_mode mode)
 {
 	int ret;
 
@@ -271,7 +271,7 @@ int ad9371_sysref_req(struct ad9371_rf_phy *phy, enum ad9371_sysref_req_mode mod
 	return ret;
 }
 
-int ad9371_set_radio_state(struct ad9371_rf_phy *phy, enum ad9371_radio_states state)
+static int ad9371_set_radio_state(struct ad9371_rf_phy *phy, enum ad9371_radio_states state)
 {
 	int ret;
 
@@ -313,7 +313,7 @@ int ad9371_set_radio_state(struct ad9371_rf_phy *phy, enum ad9371_radio_states s
 	return ret;
 }
 
-int ad9371_init_cal(struct ad9371_rf_phy *phy, uint32_t initCalMask)
+static int ad9371_init_cal(struct ad9371_rf_phy *phy, uint32_t initCalMask)
 {
 
 	uint8_t errorFlag = 0;
@@ -375,7 +375,7 @@ int ad9371_init_cal(struct ad9371_rf_phy *phy, uint32_t initCalMask)
 	return 0;
 }
 
-int ad9371_setup(struct ad9371_rf_phy *phy)
+static int ad9371_setup(struct ad9371_rf_phy *phy)
 {
 	int ret;
 	uint8_t mcsStatus = 0;
@@ -1264,7 +1264,7 @@ static const struct iio_chan_spec_ext_info ad9371_phy_tx_ext_info[] = {
 	{ },
 };
 
-int ad9371_gainindex_to_gain(struct ad9371_rf_phy *phy, int channel,
+static int ad9371_gainindex_to_gain(struct ad9371_rf_phy *phy, int channel,
 			     unsigned index, int *val, int *val2)
 {
 	int code;
@@ -1353,7 +1353,7 @@ static int find_table_index(struct ad9371_rf_phy *phy, mykonosGainTable_t table,
 	return -EINVAL;
 }
 
-int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
+static int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
 			     int val, int val2, unsigned *index)
 {
 	int ret, gain = ((abs(val) * 1000) + (abs(val2) / 1000));
