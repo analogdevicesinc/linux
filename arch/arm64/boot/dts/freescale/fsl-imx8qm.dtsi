@@ -742,6 +742,10 @@
 		};
 	};
 
+	rtc: rtc {
+		compatible = "fsl,imx-sc-rtc";
+	};
+
 	i2c0: i2c@5a800000 {
 		compatible = "fsl,imx8qm-lpi2c", "fsl,imx7ulp-lpi2c";
 		reg = <0x0 0x5a800000 0x0 0x4000>;
