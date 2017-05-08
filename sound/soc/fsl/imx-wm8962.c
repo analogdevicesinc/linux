@@ -4,6 +4,7 @@
  * Based on imx-sgtl5000.c
  * Copyright (C) 2012 Freescale Semiconductor, Inc.
  * Copyright (C) 2012 Linaro Ltd.
+ * Copyright 2017 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -263,7 +264,8 @@ static int imx_wm8962_set_bias_level(struct snd_soc_card *card,
 	switch (level) {
 	case SND_SOC_BIAS_PREPARE:
 		if (dapm->bias_level == SND_SOC_BIAS_STANDBY) {
-			if (sample_format == SNDRV_PCM_FORMAT_S24_LE)
+			if (sample_format == SNDRV_PCM_FORMAT_S24_LE
+				|| sample_format == SNDRV_PCM_FORMAT_S20_3LE)
 				pll_out = sample_rate * 384;
 			else
 				pll_out = sample_rate * 256;
@@ -353,7 +355,8 @@ static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
-	if (sample_format == SNDRV_PCM_FORMAT_S24_LE)
+	if (sample_format == SNDRV_PCM_FORMAT_S24_LE
+		|| sample_format == SNDRV_PCM_FORMAT_S20_3LE)
 		pll_out = sample_rate * 384;
 	else
 		pll_out = sample_rate * 256;
