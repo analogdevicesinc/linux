@@ -66,6 +66,7 @@ typedef unsigned char bool;
 #define PXP_PIX_FMT_ARGB32  fourcc('A', 'R', 'G', 'B')	/*!< 32  ARGB-8-8-8-8 */
 #define PXP_PIX_FMT_RGBA32  fourcc('R', 'G', 'B', 'A')	/*!< 32  RGBA-8-8-8-8 */
 #define PXP_PIX_FMT_ABGR32  fourcc('A', 'B', 'G', 'R')	/*!< 32  ABGR-8-8-8-8 */
+#define PXP_PIX_FMT_RGB32	PXP_PIX_FMT_XRGB32
 /*! @} */
 /*! @name YUV Interleaved Formats */
 /*! @{ */
