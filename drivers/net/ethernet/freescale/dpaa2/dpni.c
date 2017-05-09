@@ -1653,6 +1653,29 @@ int dpni_get_statistics(struct fsl_mc_io *mc_io,
 }
 
 /**
+ * dpni_reset_statistics() - Clears DPNI statistics
+ * @mc_io:		Pointer to MC portal's I/O object
+ * @cmd_flags:		Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:		Token of DPNI object
+ *
+ * Return:  '0' on Success; Error code otherwise.
+ */
+int dpni_reset_statistics(struct fsl_mc_io *mc_io,
+			  u32 cmd_flags,
+			  u16 token)
+{
+	struct fsl_mc_command cmd = { 0 };
+
+	/* prepare command */
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_RESET_STATISTICS,
+					  cmd_flags,
+					  token);
+
+	/* send command to mc*/
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
  * dpni_set_taildrop() - Set taildrop per queue or TC
  * @mc_io:	Pointer to MC portal's I/O object
  * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'

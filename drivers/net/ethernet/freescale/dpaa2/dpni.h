@@ -505,6 +505,10 @@ int dpni_get_statistics(struct fsl_mc_io	*mc_io,
 			u8			page,
 			union dpni_statistics	*stat);
 
+int dpni_reset_statistics(struct fsl_mc_io	*mc_io,
+			  u32			cmd_flags,
+			  u16			token);
+
 #define DPNI_LINK_OPT_AUTONEG		0x0000000000000001ULL
 #define DPNI_LINK_OPT_HALF_DUPLEX	0x0000000000000002ULL
 #define DPNI_LINK_OPT_PAUSE		0x0000000000000004ULL
