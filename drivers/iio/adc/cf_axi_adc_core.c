@@ -188,6 +188,8 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 		struct axiadc_converter *conv = to_converter(st->dev_spi);
 		if (IS_ERR(conv))
 			ret = PTR_ERR(conv);
+		else if (!conv->reg_access)
+			ret = -ENODEV;
 		else
 			ret = conv->reg_access(indio_dev, reg, writeval, readval);
 	} else {
