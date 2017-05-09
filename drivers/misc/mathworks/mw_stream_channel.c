@@ -949,11 +949,15 @@ static int mw_axidma_setupchannel(struct mwadma_dev *mwdev,
     mwchan->length              = usrbuf->bytes_per_ring * usrbuf->total_rings;
     mwchan->bd_bytes            = usrbuf->bytes_per_ring;
 
-    /* Write to the IPCore_PacketSize_AXI4_Stream_Master 0x8 to specify the length*/
-    /*reset pcore*/
-    mw_ip_reset(mwdev->mw_ipcore_dev);
-    /*reset pcore*/
-    mw_ip_write32(MWDEV_TO_MWIP(mwdev), 0x8, usrbuf->counter);
+
+    if (mwchan->direction == DMA_DEV_TO_MEM) {
+    	/*reset pcore*/
+    	mw_ip_reset(mwdev->mw_ipcore_dev);
+        /* Write to the IPCore_PacketSize_AXI4_Stream_Master 0x8 to specify the length*/
+        /*reset pcore*/
+    	mw_ip_write32(MWDEV_TO_MWIP(mwdev), 0x8, usrbuf->counter);
+    }
+
     if (MWDEV_TO_MWIP(mwdev)->dma_info.virt == NULL) {
 		dev_err(IP2DEVP(mwdev), "Buffer is NULL. Failed to allocate memory\n");
 		return -ENOMEM;
