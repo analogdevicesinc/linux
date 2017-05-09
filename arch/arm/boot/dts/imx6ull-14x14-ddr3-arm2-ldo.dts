@@ -25,11 +25,17 @@
 		396000	1175000
 		198000	1175000
 	>;
-	arm-supply = <&reg_arm>;
-	soc-supply = <&reg_soc>;
 	fsl,arm-soc-shared = <0>;
 };
 
 &gpc {
 	fsl,ldo-bypass = <0>; /* use ldo-enable, u-boot will check it and configure */
+};
+
+&reg_arm {
+	/delete-property/ vin-supply;
+};
+
+&reg_soc {
+	/delete-property/ vin-supply;
 };
