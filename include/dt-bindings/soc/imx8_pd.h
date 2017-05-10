@@ -141,6 +141,8 @@
 #define PD_AUD_GPT_10               audio_gpt10
 #define PD_AUD_AMIX                 audio_amix
 #define PD_AUD_MQS_0                audio_mqs0
+#define PD_AUD_HIFI                 audio_hifi
+#define PD_AUD_OCRAM                audio_ocram
 
 #define PD_IMAGING                  imaging_power_domain
 

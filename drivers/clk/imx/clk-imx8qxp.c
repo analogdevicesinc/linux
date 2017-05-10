@@ -33,6 +33,63 @@
 #define STR_VALUE(arg)      #arg
 #define FUNCTION_NAME(name) STR_VALUE(name)
 
+static const char *aud_clk_sels[] = {
+	"aud_acm_aud_rec_clk0_clk",
+	"aud_acm_aud_rec_clk1_clk",
+	"ext_aud_mclk0",
+	"ext_aud_mclk1",
+	"esai0_rx_clk",
+	"esai0_rx_hf_clk",
+	"esai0_tx_clk",
+	"esai0_tx_hf_clk",
+	"spdif0_rx",
+	"sai0_rx_bclk",
+	"sai0_tx_bclk",
+	"sai1_rx_bclk",
+	"sai1_tx_bclk",
+	"sai2_rx_bclk",
+	"sai3_rx_bclk",
+};
+
+static const char *mclk_out_sels[] = {
+	"aud_acm_aud_rec_clk0_clk",
+	"aud_acm_aud_rec_clk1_clk",
+	"dummy",
+	"dummy",
+	"spdif0_rx",
+	"dummy",
+	"dummy",
+	"sai4_rx_bclk",
+};
+
+static const char *sai_mclk_sels[] = {
+	"aud_acm_aud_pll_clk0_clk",
+	"aud_acm_aud_pll_clk1_clk",
+	"acm_aud_clk0_clk",
+	"acm_aud_clk1_clk",
+};
+
+static const char *esai_mclk_sels[] = {
+	"aud_acm_aud_pll_clk0_clk",
+	"aud_acm_aud_pll_clk1_clk",
+	"acm_aud_clk0_clk",
+	"acm_aud_clk1_clk",
+};
+
+static const char *spdif_mclk_sels[] = {
+	"aud_acm_aud_pll_clk0_clk",
+	"aud_acm_aud_pll_clk1_clk",
+	"acm_aud_clk0_clk",
+	"acm_aud_clk1_clk",
+};
+
+static const char *mqs_mclk_sels[] = {
+	"aud_acm_aud_pll_clk0_clk",
+	"aud_acm_aud_pll_clk1_clk",
+	"acm_aud_clk0_clk",
+	"acm_aud_clk1_clk",
+};
+
 static struct clk *clks[IMX8QXP_CLK_END];
 static struct clk_onecell_data clk_data;
 
@@ -43,6 +100,8 @@ static const char *enet1_rmii_tx_sels[] = { "enet1_ref_div", "dummy", };
 static void __init imx8qxp_clocks_init(struct device_node *ccm_node)
 {
 	int i;
+	struct device_node *np_acm;
+	void __iomem *base_acm;
 
 	pr_info("***** imx8qxp_clocks_init *****\n");
 
@@ -55,7 +114,16 @@ static void __init imx8qxp_clocks_init(struct device_node *ccm_node)
 	/* ARM core */
 	clks[IMX8QXP_A35_DIV] = imx_clk_divider_scu("a35_div", SC_R_A35, SC_PM_CLK_CPU);
 
+	/* User Defined PLLs dividers */
+	clks[IMX8QXP_AUD_PLL0_DIV] = imx_clk_divider_scu("audio_pll0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_PLL);
+	clks[IMX8QXP_AUD_PLL1_DIV] = imx_clk_divider_scu("audio_pll1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_PLL);
+
+	/* User Defined PLLs clocks */
+	clks[IMX8QXP_AUD_PLL0]     = imx_clk_gate_scu("audio_pll0_clk", "audio_pll0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_PLL, NULL, 0, 0);
+	clks[IMX8QXP_AUD_PLL1]     = imx_clk_gate_scu("audio_pll1_clk", "audio_pll1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_PLL, NULL, 0, 0);
+
 	clks[IMX8QXP_IPG_DMA_CLK_ROOT] = imx_clk_fixed("ipg_dma_clk_root", SC_120MHZ);
+	clks[IMX8QXP_IPG_AUD_CLK_ROOT] = imx_clk_fixed("ipg_aud_clk_root", SC_150MHZ);
 	clks[IMX8QXP_AXI_CONN_CLK_ROOT] = imx_clk_fixed("axi_conn_clk_root", SC_333MHZ);
 	clks[IMX8QXP_AHB_CONN_CLK_ROOT] = imx_clk_fixed("ahb_conn_clk_root", SC_166MHZ);
 	clks[IMX8QXP_IPG_CONN_CLK_ROOT] = imx_clk_fixed("ipg_conn_clk_root", SC_83MHZ);
@@ -398,6 +466,95 @@ static void __init imx8qxp_clocks_init(struct device_node *ccm_node)
 	clks[IMX8QXP_HSIO_PHY_X1_APB_CLK] = imx_clk_gate2_scu("hsio_phy_x1_apb_clk", "per_hsio_clk_root", (void __iomem *)(HSIO_PHY_X1_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_A));
 	clks[IMX8QXP_HSIO_GPIO_CLK] = imx_clk_gate2_scu("hsio_gpio_clk", "per_hsio_clk_root", (void __iomem *)(HSIO_GPIO_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_A));
 	clks[IMX8QXP_HSIO_PHY_X1_PCLK] = imx_clk_gate2_scu("hsio_phy_x1_pclk", "dummy", (void __iomem *)(HSIO_PHY_X1_LPCG), 0, FUNCTION_NAME(PD_HSIO_PCIE_A));
+
+	/* Audio */
+	clks[IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV] = imx_clk_divider2_scu("aud_acm_aud_pll_clk0_div", "audio_pll0_clk", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC0);
+	clks[IMX8QXP_AUD_ACM_AUD_PLL_CLK1_DIV] = imx_clk_divider2_scu("aud_acm_aud_pll_clk1_div", "audio_pll1_clk", SC_R_AUDIO_PLL_1, SC_PM_CLK_MISC0);
+	clks[IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV] = imx_clk_divider2_scu("aud_acm_aud_rec_clk0_div", "audio_pll0_clk", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC1);
+	clks[IMX8QXP_AUD_ACM_AUD_REC_CLK1_DIV] = imx_clk_divider2_scu("aud_acm_aud_rec_clk1_div", "audio_pll1_clk", SC_R_AUDIO_PLL_1, SC_PM_CLK_MISC1);
+	clks[IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK] = imx_clk_gate_scu("aud_acm_aud_pll_clk0_clk", "aud_acm_aud_pll_clk0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC0, (void __iomem *)(AUD_PLL_CLK0_LPCG), 0, 0);
+	clks[IMX8QXP_AUD_ACM_AUD_PLL_CLK1_CLK] = imx_clk_gate_scu("aud_acm_aud_pll_clk1_clk", "aud_acm_aud_pll_clk1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_MISC0, (void __iomem *)(AUD_PLL_CLK1_LPCG), 0, 0);
+	clks[IMX8QXP_AUD_ACM_AUD_REC_CLK0_CLK] = imx_clk_gate_scu("aud_acm_aud_rec_clk0_clk", "aud_acm_aud_rec_clk0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC1, (void __iomem *)(AUD_REC_CLK0_LPCG), 0, 0);
+	clks[IMX8QXP_AUD_ACM_AUD_REC_CLK1_CLK] = imx_clk_gate_scu("aud_acm_aud_rec_clk1_clk", "aud_acm_aud_rec_clk1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_MISC1, (void __iomem *)(AUD_REC_CLK1_LPCG), 0, 0);
+
+	np_acm = of_find_compatible_node(NULL, NULL, "nxp,imx8qm-acm");
+	base_acm = of_iomap(np_acm, 0);
+	WARN_ON(!base_acm);
+
+	clks[IMX8QXP_EXT_AUD_MCLK0]	= imx_clk_fixed("ext_aud_mclk0", 0);
+	clks[IMX8QXP_EXT_AUD_MCLK1]	= imx_clk_fixed("ext_aud_mclk1", 0);
+	clks[IMX8QXP_ESAI0_RX_CLK]	= imx_clk_fixed("esai0_rx_clk", 0);
+	clks[IMX8QXP_ESAI0_RX_HF_CLK]	= imx_clk_fixed("esai0_rx_hf_clk", 0);
+	clks[IMX8QXP_ESAI0_TX_CLK]	= imx_clk_fixed("esai0_tx_clk", 0);
+	clks[IMX8QXP_ESAI0_TX_HF_CLK]	= imx_clk_fixed("esai0_tx_hf_clk", 0);
+	clks[IMX8QXP_SPDIF0_RX]		= imx_clk_fixed("spdif0_rx", 0);
+	clks[IMX8QXP_SAI0_RX_BCLK]	= imx_clk_fixed("sai0_rx_bclk", 0);
+	clks[IMX8QXP_SAI0_TX_BCLK]	= imx_clk_fixed("sai0_tx_bclk", 0);
+	clks[IMX8QXP_SAI1_RX_BCLK]	= imx_clk_fixed("sai1_rx_bclk", 0);
+	clks[IMX8QXP_SAI1_TX_BCLK]	= imx_clk_fixed("sai1_tx_bclk", 0);
+	clks[IMX8QXP_SAI2_RX_BCLK]	= imx_clk_fixed("sai2_rx_bclk", 0);
+	clks[IMX8QXP_SAI3_RX_BCLK]	= imx_clk_fixed("sai3_rx_bclk", 0);
+	clks[IMX8QXP_SAI4_RX_BCLK]	= imx_clk_fixed("sai4_rx_bclk", 0);
+
+	clks[IMX8QXP_ACM_AUD_CLK0_SEL]      = imx_clk_mux_scu("acm_aud_clk0_sel",    base_acm+0x000000, 0, 5, aud_clk_sels, ARRAY_SIZE(aud_clk_sels), FUNCTION_NAME(PD_AUDIO));
+	clks[IMX8QXP_ACM_AUD_CLK0_CLK]      = imx_clk_gate_scu("acm_aud_clk0_clk", "acm_aud_clk0_sel", SC_R_AUDIO_CLK_0, SC_PM_CLK_SLV_BUS, NULL, 0, 0);
+	clks[IMX8QXP_ACM_AUD_CLK1_SEL]      = imx_clk_mux_scu("acm_aud_clk1_sel",    base_acm+0x010000, 0, 5, aud_clk_sels, ARRAY_SIZE(aud_clk_sels), FUNCTION_NAME(PD_AUDIO));
+	clks[IMX8QXP_ACM_AUD_CLK1_CLK]      = imx_clk_gate_scu("acm_aud_clk1_clk", "acm_aud_clk1_sel", SC_R_AUDIO_CLK_1, SC_PM_CLK_SLV_BUS, NULL, 0, 0);
+	clks[IMX8QXP_ACM_MCLKOUT0_SEL]      = imx_clk_mux_scu("acm_mclkout0_sel",    base_acm+0x020000, 0, 3, mclk_out_sels, ARRAY_SIZE(mclk_out_sels), FUNCTION_NAME(PD_AUDIO));
+	clks[IMX8QXP_ACM_MCLKOUT1_SEL]      = imx_clk_mux_scu("acm_mclkout1_sel",    base_acm+0x030000, 0, 3, mclk_out_sels, ARRAY_SIZE(mclk_out_sels), FUNCTION_NAME(PD_AUDIO));
+	clks[IMX8QXP_ACM_ASRC0_MUX_CLK_SEL] = imx_clk_mux_scu("acm_asrc0_mclk_sel",  base_acm+0x040000, 0, 2, NULL, 0, FUNCTION_NAME(PD_AUD_ASRC_0));
+	clks[IMX8QXP_ACM_ASRC0_MUX_CLK_CLK] = imx_clk_gate_scu("aud_asrc0_mux_clk", "acm_asrc0_mclk_sel", SC_R_ASRC_0, SC_PM_CLK_PER, NULL, 0, 0);
+	clks[IMX8QXP_ACM_ASRC1_MUX_CLK_SEL] = imx_clk_mux_scu("acm_asrc1_mclk_sel",  base_acm+0x050000, 0, 2, NULL, 0, FUNCTION_NAME(PD_AUD_ASRC_1));
+	clks[IMX8QXP_ACM_ASRC1_MUX_CLK_CLK] = imx_clk_gate_scu("aud_asrc1_mux_clk", "acm_asrc1_mclk_sel", SC_R_ASRC_1, SC_PM_CLK_PER, NULL, 0, 0);
+	clks[IMX8QXP_ACM_ESAI0_MCLK_SEL]    = imx_clk_mux_scu("acm_esai0_mclk_sel",  base_acm+0x060000, 0, 2, esai_mclk_sels, ARRAY_SIZE(esai_mclk_sels), FUNCTION_NAME(PD_AUD_ESAI_0));
+	clks[IMX8QXP_ACM_SAI0_MCLK_SEL]     = imx_clk_mux_scu("acm_sai0_mclk_sel",   base_acm+0x0E0000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_0));
+	clks[IMX8QXP_ACM_SAI1_MCLK_SEL]     = imx_clk_mux_scu("acm_sai1_mclk_sel",   base_acm+0x0F0000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_1));
+	clks[IMX8QXP_ACM_SAI2_MCLK_SEL]     = imx_clk_mux_scu("acm_sai2_mclk_sel",   base_acm+0x100000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_2));
+	clks[IMX8QXP_ACM_SAI3_MCLK_SEL]     = imx_clk_mux_scu("acm_sai3_mclk_sel",   base_acm+0x110000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_3));
+	clks[IMX8QXP_ACM_SAI4_MCLK_SEL]     = imx_clk_mux_scu("acm_sai4_mclk_sel",   base_acm+0x140000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_4));
+	clks[IMX8QXP_ACM_SAI5_MCLK_SEL]     = imx_clk_mux_scu("acm_sai5_mclk_sel",   base_acm+0x150000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_5));
+	clks[IMX8QXP_ACM_SPDIF0_TX_CLK_SEL] = imx_clk_mux_scu("acm_spdif0_mclk_sel", base_acm+0x1A0000, 0, 2, spdif_mclk_sels, ARRAY_SIZE(spdif_mclk_sels), FUNCTION_NAME(PD_AUD_SPDIF_0));
+	clks[IMX8QXP_ACM_MQS_TX_CLK_SEL]    = imx_clk_mux_scu("acm_mqs_mclk_sel",    base_acm+0x1C0000, 0, 2, mqs_mclk_sels, ARRAY_SIZE(mqs_mclk_sels), FUNCTION_NAME(PD_AUD_MQS_0));
+
+	clks[IMX8QXP_AUD_AMIX_IPG]       = imx_clk_gate2_scu("aud_amix_ipg_clk",   "ipg_aud_clk_root", (void __iomem *)(AUD_AMIX_LPCG), 0, FUNCTION_NAME(PD_AUD_AMIX));
+	clks[IMX8QXP_AUD_ESAI_0_IPG]     = imx_clk_gate2_scu("aud_esai0_ipg_clk",  "ipg_aud_clk_root", (void __iomem *)(AUD_ESAI_0_LPCG), 16, FUNCTION_NAME(PD_AUD_ESAI_0));
+	clks[IMX8QXP_AUD_ESAI_0_EXTAL_IPG] = imx_clk_gate2_scu("aud_esai0_extal_clk", "acm_esai0_mclk_sel", (void __iomem *)(AUD_ESAI_0_LPCG), 0, FUNCTION_NAME(PD_AUD_ESAI_0));
+	clks[IMX8QXP_AUD_SAI_0_IPG]      = imx_clk_gate2_scu("aud_sai0_ipg_clk",   "ipg_aud_clk_root", (void __iomem *)(AUD_SAI_0_LPCG), 16, FUNCTION_NAME(PD_AUD_SAI_0));
+	clks[IMX8QXP_AUD_SAI_0_MCLK]     = imx_clk_gate2_scu("aud_sai0_mclk_clk",  "acm_sai0_mclk_sel", (void __iomem *)(AUD_SAI_0_LPCG), 0, FUNCTION_NAME(PD_AUD_SAI_0));
+	clks[IMX8QXP_AUD_SAI_1_IPG]      = imx_clk_gate2_scu("aud_sai1_ipg_clk",   "ipg_aud_clk_root", (void __iomem *)(AUD_SAI_1_LPCG), 16, FUNCTION_NAME(PD_AUD_SAI_1));
+	clks[IMX8QXP_AUD_SAI_1_MCLK]     = imx_clk_gate2_scu("aud_sai1_mclk_clk",  "acm_sai1_mclk_sel", (void __iomem *)(AUD_SAI_1_LPCG), 0, FUNCTION_NAME(PD_AUD_SAI_1));
+	clks[IMX8QXP_AUD_SAI_2_IPG]      = imx_clk_gate2_scu("aud_sai2_ipg_clk",   "ipg_aud_clk_root", (void __iomem *)(AUD_SAI_2_LPCG), 16, FUNCTION_NAME(PD_AUD_SAI_2));
+	clks[IMX8QXP_AUD_SAI_2_MCLK]     = imx_clk_gate2_scu("aud_sai2_mclk_clk",  "acm_sai2_mclk_sel", (void __iomem *)(AUD_SAI_2_LPCG), 0, FUNCTION_NAME(PD_AUD_SAI_2));
+	clks[IMX8QXP_AUD_SAI_3_IPG]      = imx_clk_gate2_scu("aud_sai3_ipg_clk",   "ipg_aud_clk_root", (void __iomem *)(AUD_SAI_3_LPCG), 16, FUNCTION_NAME(PD_AUD_SAI_3));
+	clks[IMX8QXP_AUD_SAI_3_MCLK]     = imx_clk_gate2_scu("aud_sai3_mclk_clk",  "acm_sai3_mclk_sel", (void __iomem *)(AUD_SAI_3_LPCG), 0, FUNCTION_NAME(PD_AUD_SAI_3));
+	clks[IMX8QXP_AUD_SAI_4_IPG]      = imx_clk_gate2_scu("aud_sai4_ipg_clk",   "ipg_aud_clk_root", (void __iomem *)(AUD_SAI_4_LPCG), 16, FUNCTION_NAME(PD_AUD_SAI_4));
+	clks[IMX8QXP_AUD_SAI_4_MCLK]     = imx_clk_gate2_scu("aud_sai4_mclk_clk",  "acm_sai4_mclk_sel", (void __iomem *)(AUD_SAI_4_LPCG), 0, FUNCTION_NAME(PD_AUD_SAI_4));
+	clks[IMX8QXP_AUD_SAI_5_IPG]      = imx_clk_gate2_scu("aud_sai5_ipg_clk",   "ipg_aud_clk_root", (void __iomem *)(AUD_SAI_5_LPCG), 16, FUNCTION_NAME(PD_AUD_SAI_5));
+	clks[IMX8QXP_AUD_SAI_5_MCLK]     = imx_clk_gate2_scu("aud_sai5_mclk_clk",  "acm_sai5_mclk_sel", (void __iomem *)(AUD_SAI_5_LPCG), 0, FUNCTION_NAME(PD_AUD_SAI_5));
+	clks[IMX8QXP_AUD_MQS_IPG]        = imx_clk_gate2_scu("aud_mqs_ipg",        "ipg_aud_clk_root", (void __iomem *)(AUD_MQS_LPCG), 16, FUNCTION_NAME(PD_AUD_MQS_0));
+	clks[IMX8QXP_AUD_MQS_HMCLK]      = imx_clk_gate2_scu("aud_mqs_hm_clk",     "ipg_aud_clk_root", (void __iomem *)(AUD_MQS_LPCG), 0, FUNCTION_NAME(PD_AUD_MQS_0));
+	clks[IMX8QXP_AUD_GPT5_IPG]       = imx_clk_gate2_scu("aud_gpt5_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_5_LPCG), 16, FUNCTION_NAME(PD_AUD_GPT_5));
+	clks[IMX8QXP_AUD_GPT5_CLKIN]     = imx_clk_gate2_scu("aud_gpt5_clkin", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_5_LPCG), 0, FUNCTION_NAME(PD_AUD_GPT_5));
+	clks[IMX8QXP_AUD_GPT6_IPG]       = imx_clk_gate2_scu("aud_gpt6_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_6_LPCG), 16, FUNCTION_NAME(PD_AUD_GPT_6));
+	clks[IMX8QXP_AUD_GPT6_CLKIN]     = imx_clk_gate2_scu("aud_gpt6_clkin", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_6_LPCG), 0, FUNCTION_NAME(PD_AUD_GPT_6));
+	clks[IMX8QXP_AUD_GPT7_IPG]       = imx_clk_gate2_scu("aud_gpt7_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_7_LPCG), 16, FUNCTION_NAME(PD_AUD_GPT_7));
+	clks[IMX8QXP_AUD_GPT7_CLKIN]     = imx_clk_gate2_scu("aud_gpt7_clkin", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_7_LPCG), 0, FUNCTION_NAME(PD_AUD_GPT_7));
+	clks[IMX8QXP_AUD_GPT8_IPG]       = imx_clk_gate2_scu("aud_gpt8_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_8_LPCG), 16, FUNCTION_NAME(PD_AUD_GPT_8));
+	clks[IMX8QXP_AUD_GPT8_CLKIN]     = imx_clk_gate2_scu("aud_gpt8_clkin", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_8_LPCG), 0, FUNCTION_NAME(PD_AUD_GPT_8));
+	clks[IMX8QXP_AUD_GPT9_IPG]       = imx_clk_gate2_scu("aud_gpt9_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_9_LPCG), 16, FUNCTION_NAME(PD_AUD_GPT_9));
+	clks[IMX8QXP_AUD_GPT9_CLKIN]     = imx_clk_gate2_scu("aud_gpt9_clkin", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_9_LPCG), 0, FUNCTION_NAME(PD_AUD_GPT_9));
+	clks[IMX8QXP_AUD_GPT10_IPG]      = imx_clk_gate2_scu("aud_gpt10_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_10_LPCG), 16, FUNCTION_NAME(PD_AUD_GPT_10));
+	clks[IMX8QXP_AUD_GPT10_CLKIN]    = imx_clk_gate2_scu("aud_gpt10_clkin", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_10_LPCG), 0, FUNCTION_NAME(PD_AUD_GPT_10));
+	clks[IMX8QXP_AUD_MCLKOUT0]       = imx_clk_gate2_scu("aud_mclkout0", "ipg_aud_clk_root", (void __iomem *)(AUD_MCLKOUT0_LPCG), 0, FUNCTION_NAME(PD_AUDIO));
+	clks[IMX8QXP_AUD_MCLKOUT1]       = imx_clk_gate2_scu("aud_mclkout1", "ipg_aud_clk_root", (void __iomem *)(AUD_MCLKOUT1_LPCG), 0, FUNCTION_NAME(PD_AUDIO));
+	clks[IMX8QXP_AUD_SPDIF_0_GCLKW]  = imx_clk_gate2_scu("spdif0_gclkw", "ipg_aud_clk_root", (void __iomem *)(AUD_SPDIF_0_LPCG), 16, FUNCTION_NAME(PD_AUD_SPDIF_0));
+	clks[IMX8QXP_AUD_SPDIF_0_TX_CLK] = imx_clk_gate2_scu("spdif0_tx_clk", "ipg_aud_clk_root", (void __iomem *)(AUD_SPDIF_0_LPCG), 0, FUNCTION_NAME(PD_AUD_SPDIF_0));
+	clks[IMX8QXP_AUD_ASRC_0_IPG]     = imx_clk_gate2_scu("aud_asrc0_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_ASRC_0_LPCG), 16, FUNCTION_NAME(PD_AUD_ASRC_0));
+	clks[IMX8QXP_AUD_ASRC_1_IPG]     = imx_clk_gate2_scu("aud_asrc1_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_ASRC_1_LPCG), 16, FUNCTION_NAME(PD_AUD_ASRC_1));
+	clks[IMX8QXP_AUD_HIFI_ADB_ACLK]  = imx_clk_gate2_scu("aud_hifi_adb_aclk", "ipg_aud_clk_root", (void __iomem *)(AUD_HIFI_LPCG), 16, FUNCTION_NAME(PD_AUD_HIFI));
+	clks[IMX8QXP_AUD_HIFI_IPG]       = imx_clk_gate2_scu("aud_hifi_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_HIFI_LPCG), 20, FUNCTION_NAME(PD_AUD_HIFI));
+	clks[IMX8QXP_AUD_HIFI_CORE_CLK]  = imx_clk_gate2_scu("aud_hifi_core_clk", "ipg_aud_clk_root", (void __iomem *)(AUD_HIFI_LPCG), 28, FUNCTION_NAME(PD_AUD_HIFI));
+	clks[IMX8QXP_AUD_OCRAM_IPG]      = imx_clk_gate2_scu("aud_ocram_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_OCRAM_LPCG), 16, FUNCTION_NAME(PD_AUD_OCRAM));
 
 	for (i = 0; i < ARRAY_SIZE(clks); i++)
 		if (IS_ERR(clks[i]))
