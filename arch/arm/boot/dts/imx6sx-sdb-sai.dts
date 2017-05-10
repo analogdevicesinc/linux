@@ -43,7 +43,7 @@
 
 / {
 	sound {
-		audio-cpu = <&sai1>;
+		cpu-dai = <&sai1>;
 	};
 };
 
