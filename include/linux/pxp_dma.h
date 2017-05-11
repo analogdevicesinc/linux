@@ -67,8 +67,8 @@ void pxp_txd_ack(struct dma_async_tx_descriptor *txd,
 int register_pxp_device(void);
 void unregister_pxp_device(void);
 #else
-int register_pxp_device(void) { return 0; }
-void unregister_pxp_device(void) {}
+static int register_pxp_device(void) { return 0; }
+static void unregister_pxp_device(void) {}
 #endif
 void pxp_fill(
         u32 bpp,
