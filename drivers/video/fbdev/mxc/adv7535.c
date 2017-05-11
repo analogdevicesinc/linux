@@ -326,13 +326,13 @@ static __init int adv7535_init(void)
 {
 	u8 err = 0;
 
-	pr_info("In adv7535_init\n");
 
 	err = i2c_add_driver(&adv7535_i2c_driver);
 	if (err != 0)
 		pr_err("%s: i2c driver register failed, error = %d\n",
 			__func__, err);
 
+	pr_debug("%s (ret=%d)\n", __func__, err);
 	return err;
 }
 
