@@ -925,7 +925,7 @@ static int __init mipi_dsi_init(void)
 		return err;
 	}
 
-	pr_info("MIPI DSI driver module loaded\n");
+	pr_debug("MIPI DSI driver module loaded: %s\n", mipi_dsi_driver.driver.name);
 
 	return 0;
 }
