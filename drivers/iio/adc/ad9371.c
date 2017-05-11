@@ -901,8 +901,8 @@ static const char * const ad9371_obs_rx_port[] = {
 	"ORX1_TX_LO", "ORX2_TX_LO", "ORX1_SN_LO", "ORX2_SN_LO"
 };
 
-static const u8 ad9371_obs_rx_port_lut[] = {
-	OBS_RXOFF, OBS_INTERNALCALS, OBS_SNIFFER,  OBS_SNIFFER_A, OBS_SNIFFER_C, OBS_SNIFFER_C,
+static const mykonosObsRxChannels_t ad9371_obs_rx_port_lut[] = {
+	OBS_RXOFF, OBS_INTERNALCALS, OBS_SNIFFER,  OBS_SNIFFER_A, OBS_SNIFFER_B, OBS_SNIFFER_C,
 	OBS_RX1_TXLO, OBS_RX2_TXLO, OBS_RX1_SNIFFERLO, OBS_RX2_SNIFFERLO
 };
 
@@ -923,8 +923,18 @@ static int ad9371_get_obs_rx_path(struct iio_dev *indio_dev,
 				  const struct iio_chan_spec *chan)
 {
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
+	mykonosObsRxChannels_t src;
+	int ret, i;
 
-	return phy->obs_rx_path_source;
+	ret = MYKONOS_getObsRxPathSource(phy->mykDevice, &src);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < ARRAY_SIZE(ad9371_obs_rx_port_lut); i++)
+		if (ad9371_obs_rx_port_lut[i] == src)
+			return i;
+
+	return -EINVAL;
 }
 
 static const struct iio_enum ad9371_rf_obs_rx_port_available = {
