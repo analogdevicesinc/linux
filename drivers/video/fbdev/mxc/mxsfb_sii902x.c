@@ -421,14 +421,14 @@ static int sii902x_probe(struct i2c_client *client,
 	/* read device ID */
 	for (i = 10; i > 0; i--) {
 		dat = i2c_smbus_read_byte_data(sii902x.client, 0x1B);
-		printk(KERN_DEBUG "Sii902x: read id = 0x%02X", dat);
+		dev_dbg(&sii902x.client->dev, "Sii902x: read id = 0x%02X", dat);
 		if (dat == 0xb0) {
 			dat = i2c_smbus_read_byte_data(sii902x.client, 0x1C);
-			printk(KERN_DEBUG "-0x%02X", dat);
+			dev_dbg(&sii902x.client->dev, "-0x%02X", dat);
 			dat = i2c_smbus_read_byte_data(sii902x.client, 0x1D);
-			printk(KERN_DEBUG "-0x%02X", dat);
+			dev_dbg(&sii902x.client->dev, "-0x%02X", dat);
 			dat = i2c_smbus_read_byte_data(sii902x.client, 0x30);
-			printk(KERN_DEBUG "-0x%02X\n", dat);
+			dev_dbg(&sii902x.client->dev, "-0x%02X\n", dat);
 			break;
 		}
 	}
@@ -441,10 +441,13 @@ static int sii902x_probe(struct i2c_client *client,
 	/* enable hmdi audio */
 	sii902x_audio_setup();
 
-	/* try to read edid */
-	ret = sii902x_read_edid(&edid_fbi);
-	if (ret < 0)
-		dev_warn(&sii902x.client->dev, "Can not read edid\n");
+	/* try to read edid, only if cable is plugged in */
+	dat = i2c_smbus_read_byte_data(sii902x.client, 0x3D);
+	if (dat & 0x04) {
+		ret = sii902x_read_edid(&edid_fbi);
+		if (ret < 0)
+			dev_warn(&sii902x.client->dev, "Can not read edid\n");
+	}
 
 	if (sii902x.client->irq) {
 		ret = request_irq(sii902x.client->irq, sii902x_detect_handler,
