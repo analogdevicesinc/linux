@@ -18,6 +18,7 @@
 #define I5G_VERSION_ADDR			(0x0000 << 2)
 #define I5G_IDENTIFIER_ADDR			(0x0001 << 2)
 #define I5G_SCRATCH_ADDR			(0x0002 << 2)
+#define I5G_TIMER_ADDR				(0x0003 << 2)
 #define I5G_SPI_REQUEST_ADDR    		(0x0010 << 2)
 #define I5G_SPI_GRANT_ADDR 			(0x0011 << 2)
 #define I5G_SPI_SELECT_N_ADDR			(0x0012 << 2)
@@ -31,8 +32,18 @@
 #define I5G_SYNC_STATUS_ADDR			(0x0031 << 2)
 #define I5G_SYSREF_CONTROL_ADDR			(0x0040 << 2)
 #define I5G_SYSREF_REQUEST_ADDR			(0x0041 << 2)
-#define I5G_CAL_CNT_ADDR			(0x0050 << 2)
-#define I5G_CAL_ENABLE_ADDR			(0x0051 << 2)
+#define I5G_VCAL_CNT_ADDR			(0x0050 << 2)
+#define I5G_VCAL_ENABLE_ADDR			(0x0051 << 2)
+#define I5G_CAL_ENABLE_ADDR			(0x0060 << 2)
+#define I5G_CAL_MAX_0_ADDR			(0x0064 << 2)
+#define I5G_CAL_MIN_0_ADDR			(0x0065 << 2)
+#define I5G_CAL_MAX_1_ADDR			(0x0066 << 2)
+#define I5G_CAL_MIN_1_ADDR			(0x0067 << 2)
+#define I5G_COR_ENABLE_ADDR			(0x0061 << 2)
+#define I5G_COR_SCALE_0_ADDR			(0x0068 << 2)
+#define I5G_COR_OFFSET_0_ADDR			(0x0069 << 2)
+#define I5G_COR_SCALE_1_ADDR			(0x006a << 2)
+#define I5G_COR_OFFSET_1_ADDR			(0x006b << 2)
 
 /* register addresses & data (direct access) */
 
@@ -50,9 +61,13 @@
 #define I5G_SYSREF_RELEASE          		0x000020 	/* one-shot and enabled */
 #define I5G_SYSREF_REQUEST          		0x000001 	/* sysref-request */
 #define I5G_SYSREF_BUSY				0x000001 	/* sysref-busy */
-#define I5G_CAL_CNT_10M				0x000004	/* 100/((n+1)*2) */
+#define I5G_VCAL_CNT_10M			0x000004	/* 100/((n+1)*2) */
+#define I5G_VCAL_ENABLE				0x000001	/* enable */
+#define I5G_VCAL_DISABLE			0x000000	/* enable */
 #define I5G_CAL_ENABLE				0x000001	/* enable */
 #define I5G_CAL_DISABLE				0x000000	/* enable */
+#define I5G_COR_ENABLE				0x000001	/* enable */
+#define I5G_COR_DISABLE				0x000000	/* enable */
 
 /* register addresses & data (indirect access) */
 
@@ -73,6 +88,10 @@
 #define I5G_AD9625_SC_ENABLE(sel)  		((sel == 1) ? 0x00000e : 0x000006)
 #define I5G_AD9625_SC_RECEIVED(sel)  		((sel == 1) ? 0x00000c : 0x000004)
 #define I5G_AD9625_SC_CLEAR(sel)		((sel == 1) ? 0x00004e : 0x000046)
+
+/* default is ms, we need finer delays (10ns) */
+
+#define I5G_TIMER_US(d)				((d*100)-1)
 
 /* state and such */
 
@@ -190,6 +209,7 @@ static inline int i5g_status_check(int status) {
 /* the mean thing that brutally overtakes everything else to synchronize the devices for interleaving */
 /* if you need to resync, try re-entry to this function */
 /* if handling differently by individual components, this is the part you need to copy over */
+/* remove probe based return codes, let user space fix the data path and re-enter again */
 
 static int i5g_intlv(struct s_i5g *st) {
 
@@ -205,7 +225,7 @@ static int i5g_intlv(struct s_i5g *st) {
 	data = i5g_read(st, I5G_SYNC_STATUS_ADDR);
 	if (data == I5G_SYNC_OOS) {
 		dev_info(st->dev, "link out-of-sync (%x), deferring probe!\n", data);
-		return(-EPROBE_DEFER);
+		return(-1);
 	}
 
 	/* request indirect access (this overrides the default access) */
@@ -215,8 +235,8 @@ static int i5g_intlv(struct s_i5g *st) {
 	while (i5g_read(st, I5G_SPI_GRANT_ADDR) == I5G_SPI_ACCESS_DISABLED) {
 		timeout = timeout - 1;
 		if (timeout == 0) {
-			dev_err(st->dev, "request for device access denied!\n");
-			return(-ETIMEDOUT);
+			dev_info(st->dev, "request for device access denied!\n");
+			return(0);
 		}
 	}
 
@@ -224,22 +244,22 @@ static int i5g_intlv(struct s_i5g *st) {
 
 	data = i5g_spi_read(st, st->ad9625_cs_0, I5G_AD9625_ID_ADDR);
 	if (data != I5G_AD9625_ID_DATA) {
-		dev_err(st->dev, "unsupported device (%x) at (%d)!\n", data, st->ad9625_cs_0);
-		return(-ENODEV);
+		dev_info(st->dev, "unsupported device (%x) at (%d)!\n", data, st->ad9625_cs_0);
+		return(0);
 	}
 
 	data = i5g_spi_read(st, st->ad9625_cs_1, I5G_AD9625_ID_ADDR);
 	if (data != I5G_AD9625_ID_DATA) {
-		dev_err(st->dev, "unsupported device (%x) at (%d)!\n", data, st->ad9625_cs_1);
-		return(-ENODEV);
+		dev_info(st->dev, "unsupported device (%x) at (%d)!\n", data, st->ad9625_cs_1);
+		return(0);
 	}
 
 	/* check delay is locked */
 
 	data = i5g_read(st, I5G_DELAY_LOCKED_ADDR);
 	if (data != I5G_DELAY_LOCKED) {
-		dev_err(st->dev, "sysref delay controller is out-of-lock (%d)!\n", data);
-		return(-ENODEV);
+		dev_info(st->dev, "sysref delay controller is out-of-lock (%d)!\n", data);
+		return(0);
 	}
 
 	/* so far so good, let's try synchronization */
@@ -322,7 +342,7 @@ static int i5g_intlv(struct s_i5g *st) {
 
 	data = i5g_read(st, I5G_SYNC_STATUS_ADDR);
 	if (data == I5G_SYNC_OOS) {
-		dev_err(st->dev, "resync failed, may need to reset the transceiver chain (%x)!\n", data);
+		dev_info(st->dev, "resync failed, may need to reset the transceiver chain (%x)!\n", data);
 	}
 
 	/* release indirect access (this overrides the default access) */
@@ -332,8 +352,8 @@ static int i5g_intlv(struct s_i5g *st) {
 	while (i5g_read(st, I5G_SPI_GRANT_ADDR) == I5G_SPI_ACCESS_ENABLED) {
 		timeout = timeout - 1;
 		if (timeout == 0) {
-			dev_err(st->dev, "request for device release failed!\n");
-			return(-ETIMEDOUT);
+			dev_info(st->dev, "request for device release failed!\n");
+			return(0);
 		}
 	}
 
@@ -342,18 +362,126 @@ static int i5g_intlv(struct s_i5g *st) {
 	return(0);
 }
 
-/* calibrate the data paths */
+/* export interleaving to user space */
+
+static ssize_t i5g_intlv_u(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
+
+	struct s_i5g *st;
+
+	st = dev_get_drvdata(dev);
+	i5g_intlv(st);
+	return(count);
+}
+
+static DEVICE_ATTR(i5g_intlv, S_IWUSR, NULL, i5g_intlv_u);
+
+/* calibrate the data paths, poor man's version (see hdl for more details) */
+/* during boot, the lowest frequency component must be present at full scale */
+/* assumes a solid linear frequency response on all the discrete components (500K to 9G) */
+/* make this function re-entrant if needs to be called again */
+/* remove probe based return codes, let user space fix the data path and re-enter again */
 
 static int i5g_calibrate(struct s_i5g *st) {
 
+	int n;
+	int16_t cal_max_0;
+	int16_t cal_min_0;
+	int16_t cal_max_1;
+	int16_t cal_min_1;
+	int16_t cal_offset_0;
+	int16_t cal_offset_1;
+	uint16_t cal_scale_0;
+	uint16_t cal_scale_1;
+
 	/* calibrate gain and offset */
 
-	i5g_write(st, I5G_CAL_CNT_ADDR, I5G_CAL_CNT_10M);
-	i5g_write(st, I5G_CAL_ENABLE_ADDR, I5G_CAL_ENABLE);
-	i5g_write(st, I5G_CAL_ENABLE_ADDR, I5G_CAL_DISABLE);
+	i5g_write(st, I5G_VCAL_ENABLE_ADDR, I5G_VCAL_ENABLE);
+	i5g_write(st, I5G_COR_ENABLE_ADDR, I5G_COR_DISABLE);
+
+	/* loop to get an average */
+
+	cal_max_0 = 0;
+	cal_min_0 = 0;
+	cal_max_1 = 0;
+	cal_min_1 = 0;
+
+	for (n = 0; n < 16; n++) {
+
+		i5g_write(st, I5G_CAL_ENABLE_ADDR, I5G_CAL_ENABLE);
+		i5g_write(st, I5G_TIMER_ADDR, I5G_TIMER_US(100));
+		while (i5g_read(st, I5G_TIMER_ADDR) != 0) {}
+
+		i5g_write(st, I5G_CAL_ENABLE_ADDR, I5G_CAL_DISABLE);
+		if (i5g_read(st, I5G_CAL_ENABLE_ADDR) != I5G_CAL_DISABLE) {
+			dev_info(st->dev, "calibration failed, expect mismatch!\n");
+		}
+
+		cal_max_0 = cal_max_0 + i5g_read(st, I5G_CAL_MAX_0_ADDR);
+		cal_min_0 = cal_min_0 + i5g_read(st, I5G_CAL_MIN_0_ADDR);
+		cal_max_1 = cal_max_1 + i5g_read(st, I5G_CAL_MAX_1_ADDR);
+		cal_min_1 = cal_min_1 + i5g_read(st, I5G_CAL_MIN_1_ADDR);
+	}
+
+	/* if you keep dither, need to filter out post adc-core */
+
+	i5g_write(st, I5G_VCAL_ENABLE_ADDR, I5G_VCAL_DISABLE);
+	i5g_write(st, I5G_COR_ENABLE_ADDR, I5G_COR_DISABLE);
+
+	/* peaks -divide or shift? */
+
+	cal_max_0 = cal_max_0/16;
+	cal_min_0 = cal_min_0/16;
+	cal_max_1 = cal_max_1/16;
+	cal_min_1 = cal_min_1/16;
+
+	/* offsets -divide or shift? -multiply or subtract? */
+
+	cal_offset_0 = -1*((cal_max_0 + cal_min_0)/2);
+	cal_offset_1 = -1*((cal_max_1 + cal_min_1)/2);
+
+	i5g_write(st, I5G_COR_OFFSET_0_ADDR, cal_offset_0);
+	i5g_write(st, I5G_COR_OFFSET_1_ADDR, cal_offset_1);
+	i5g_write(st, I5G_COR_ENABLE_ADDR, I5G_COR_ENABLE);
+
+	/* scale */
+
+	cal_scale_0 = (uint16_t)(cal_max_0 - cal_min_0);
+	cal_scale_1 = (uint16_t)(cal_max_1 - cal_min_1);
+
+	if (cal_scale_1 > cal_scale_0) {
+		cal_scale_0 = ((uint32_t)(cal_scale_1*32768))/cal_scale_0;
+		cal_scale_1 = 32768;
+	} else {
+		cal_scale_1 = ((uint32_t)(cal_scale_0*32768))/cal_scale_1;
+		cal_scale_0 = 32768;
+	}
+
+	i5g_write(st, I5G_COR_SCALE_0_ADDR, cal_scale_0);
+	i5g_write(st, I5G_COR_SCALE_1_ADDR, cal_scale_1);
+	i5g_write(st, I5G_COR_ENABLE_ADDR, I5G_COR_ENABLE);
+
+	/* fyi */
+
+	dev_info(st->dev, "calibration values (0) (%d, %d)!\n", cal_max_0, cal_min_0);
+	dev_info(st->dev, "correction values (0) (%d, %d)!\n", cal_offset_0, cal_scale_0);
+	dev_info(st->dev, "calibration values (1) (%d, %d)!\n", cal_max_1, cal_min_1);
+	dev_info(st->dev, "correction values (1) (%d, %d)!\n", cal_offset_1, cal_scale_1);
 
 	return(0);
 }
+
+/* export calibration to user space */
+
+static ssize_t i5g_calibrate_u(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
+
+	struct s_i5g *st;
+
+	st = dev_get_drvdata(dev);
+	i5g_calibrate(st);
+	return(count);
+}
+
+static DEVICE_ATTR(i5g_calibrate, S_IWUSR, NULL, i5g_calibrate_u);
 
 /* match table for of_platform binding */
 
@@ -371,7 +499,6 @@ static int fmcadc5_sync_probe(struct platform_device *pdev) {
 	struct s_i5g *st;
 	struct resource *mem;
 	int data;
-	int status;
 
 	/* get the structure ready */
 
@@ -408,14 +535,18 @@ static int fmcadc5_sync_probe(struct platform_device *pdev) {
 
 	/* interleave & calibrate */
 
-	status = i5g_intlv(st);
-	if (status == 0) {
-		status = i5g_calibrate(st);
+	if (i5g_intlv(st) != 0) {
+		return(-EPROBE_DEFER);
 	}
+
+	i5g_calibrate(st);
+
+	device_create_file(&pdev->dev, &dev_attr_i5g_calibrate);
+	device_create_file(&pdev->dev, &dev_attr_i5g_intlv);
 
 	/* done (at least all that we could do), goodbye */
 
-	return(status);
+	return(0);
 }
 
 /* remove and release resources */
