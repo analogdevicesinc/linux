@@ -1055,6 +1055,9 @@ static ssize_t ad9371_phy_rx_read(struct iio_dev *indio_dev,
 		case CHAN_RX2:
 			mask = TRACK_RX2_QEC;
 			break;
+		case CHAN_OBS:
+			mask = TRACK_ORX1_QEC | TRACK_ORX2_QEC;
+			break;
 		default:
 			ret = -EINVAL;
 		}
