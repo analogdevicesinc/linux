@@ -1022,7 +1022,7 @@ static int __init mipi_dsi_init(void)
 		pr_err("mipi_dsi_driver register failed\n");
 		return -ENODEV;
 	}
-	pr_info("MIPI DSI driver module loaded\n");
+	pr_debug("MIPI DSI driver module loaded: %s\n", mipi_dsi_driver.driver.name);
 	return 0;
 }
 
