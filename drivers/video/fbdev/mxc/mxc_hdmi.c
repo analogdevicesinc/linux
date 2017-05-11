@@ -222,7 +222,7 @@ static inline int cpu_is_imx6dl(struct mxc_hdmi *hdmi)
 	return hdmi->cpu_type == IMX6DL_HDMI;
 }
 #ifdef DEBUG
-static void dump_fb_videomode(struct fb_videomode *m)
+static void dump_fb_videomode(const struct fb_videomode *m)
 {
 	pr_debug("fb_videomode = %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
 		m->refresh, m->xres, m->yres, m->pixclock, m->left_margin,
@@ -230,7 +230,7 @@ static void dump_fb_videomode(struct fb_videomode *m)
 		m->hsync_len, m->vsync_len, m->sync, m->vmode, m->flag);
 }
 #else
-static void dump_fb_videomode(struct fb_videomode *m)
+static void dump_fb_videomode(const struct fb_videomode *m)
 {}
 #endif
 
@@ -2598,17 +2598,16 @@ static int mxc_hdmi_disp_init(struct mxc_dispdrv_handle *disp,
 
 	/* Find a nearest mode in default modelist */
 	fb_var_to_videomode(&m, &hdmi->fbi->var);
-	dump_fb_videomode(&m);
 
 	hdmi->dft_mode_set = false;
-	/* Save default video mode */
-	memcpy(&hdmi->default_mode, &m, sizeof(struct fb_videomode));
-
 	mode = fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
 	if (!mode) {
 		pr_err("%s: could not find mode in modelist\n", __func__);
 		return -1;
 	}
+	dump_fb_videomode(mode);
+	/* Save default video mode */
+	memcpy(&hdmi->default_mode, mode, sizeof(struct fb_videomode));
 
 	fb_videomode_to_var(&hdmi->fbi->var, mode);
 
