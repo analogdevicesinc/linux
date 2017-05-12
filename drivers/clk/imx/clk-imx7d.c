@@ -513,7 +513,7 @@ static void __init imx7d_clocks_init(struct device_node *ccm_node)
 	base = of_iomap(np, 0);
 	WARN_ON(!base);
 
-	clks[IMX7D_ARM_A7_ROOT_SRC] = imx_clk_mux_flags_bus("arm_a7_src", base + 0x8000, 24, 3, arm_a7_sel, ARRAY_SIZE(arm_a7_sel), CLK_SET_RATE_NO_REPARENT | CLK_OPS_PARENT_ENABLE);
+	clks[IMX7D_ARM_A7_ROOT_SRC] = imx_clk_mux2("arm_a7_src", base + 0x8000, 24, 3, arm_a7_sel, ARRAY_SIZE(arm_a7_sel));
 	clks[IMX7D_ARM_M4_ROOT_SRC] = imx_clk_mux2("arm_m4_src", base + 0x8080, 24, 3, arm_m4_sel, ARRAY_SIZE(arm_m4_sel));
 	clks[IMX7D_ARM_M0_ROOT_SRC] = imx_clk_mux2("arm_m0_src", base + 0x8100, 24, 3, arm_m0_sel, ARRAY_SIZE(arm_m0_sel));
 	clks[IMX7D_MAIN_AXI_ROOT_SRC] = imx_clk_mux2("axi_src", base + 0x8800, 24, 3, axi_sel, ARRAY_SIZE(axi_sel));
