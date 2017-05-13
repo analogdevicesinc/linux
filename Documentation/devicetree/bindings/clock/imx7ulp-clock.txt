@@ -1,0 +1,59 @@
+* Clock bindings for Freescale i.MX7ULP
+
+i.MX7ULP Clock functions are under joint control of the System
+Clock Generation (SCG) modules, Peripheral Clock Control (PCC)
+modules, and Core Mode Controller (CMC)1 blocks
+
+The clocking scheme provides clear separation between M4 domain
+and A7 domain. Except for a few clock sources shared between two
+domains, such as the System Oscillator clock, the Slow IRC (SIRC),
+and and the Fast IRC clock (FIRCLK), clock sources and clock
+management are separated and contained within each domain.
+
+M4 clock management consists of SCG0, PCC0, PCC1, and CMC0 modules.
+A7 clock management consists of SCG1, PCC2, PCC3, and CMC1 modules.
+
+Note: this binding doc is only for A7 clock domain.
+
+Required properties:
+
+- compatible:	Should be "fsl,imx7ulp-scg0" or "fsl,imx7ulp-scg1".
+- reg : 	Should contain registers location and length.
+- #clock-cells:	Should be <1>.
+- clocks:	Should contain the fixed input clocks.
+- clock-name:   Should contain the following clock names:"cm4_rosc",
+		"cm4_sosc", "cm4_sirc", "cm4_firc" for scg0.
+Or
+		Should contain the following clock names:"rsoc", "sosc",
+		"sirc", "firc", "upll", "mpll" for scg1.
+
+The clock consumer should specify the desired clock by having the clock
+ID in its "clocks" phandle cell.
+See include/dt-bindings/clock/imx7ulp-clock.h
+for the full list of i.MX7ULP clock IDs.
+
+Examples:
+
+#include <dt-bindings/clock/imx7ulp-clock.h>
+
+clks: scg1@403e0000 {
+	compatible = "fsl,imx7ulp-clock";
+	reg = <0x403e0000 0x10000>;
+	clocks = <&rsoc>, <&sosc>, <&sirc>,
+		 <&firc>, <&upll>, <&mpll>;
+	clock-names = "rsoc", "sosc", "sirc",
+		      "firc", "upll", "mpll";
+	#clock-cells = <1>;
+};
+
+usdhc1: usdhc@40380000 {
+	compatible = "fsl,imx7ulp-usdhc";
+	reg = <0x40380000 0x10000>;
+	interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&clks IMX7ULP_CLK_NIC1_BUS_DIV>,
+		 <&clks IMX7ULP_CLK_NIC1_DIV>,
+		 <&clks IMX7ULP_CLK_USDHC1>;
+	clock-names ="ipg", "ahb", "per";
+	bus-width = <4>;
+	status = "disabled";
+};
