@@ -1,0 +1,43 @@
+* NXP i.MX8QM/i.MX8QXP IRQSteer Interrupt Controllers
+
+Required properties:
+- compatible: "nxp,imx-irqsteer".
+- reg: should contain IC registers location and length.
+- interrupts: an interrupt to the parent interrupt controller.
+- interrupt-controller: identifies the node as an interrupt controller.
+- interrupt-parent: gic interrupt controller, link to parent
+- #interrupt-cells: the number of cells to define an interrupt, should be 2.
+  The first cell is the IRQ number, the second cell is used to specify
+  one of the supported IRQ types:
+      IRQ_TYPE_EDGE_RISING = low-to-high edge triggered,
+      IRQ_TYPE_EDGE_FALLING = high-to-low edge triggered,
+      IRQ_TYPE_LEVEL_HIGH = active high level-sensitive,
+      IRQ_TYPE_LEVEL_LOW = active low level-sensitive.
+
+Optional properties:
+- nxp,irqsteer_chans: specify the interrupt channel number, default is 1.
+
+Examples:
+
+	irqsteer_hdmi: irqsteer@56260000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x56260000 0x0 0x1000>;
+		interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		power-domains = <&pd_hdmi_i2c0>;
+	};
+
+	i2c0_hdmi: i2c@56266000 {
+		compatible = "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x56266000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_hdmi>;
+		clocks = <&clk IMX8QM_HDMI_I2C0_CLK>;
+		clock-names = "per";
+		assigned-clocks = <&clk IMX8QM_HDMI_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_hdmi_i2c0>;
+		status = "disabled";
+	};
