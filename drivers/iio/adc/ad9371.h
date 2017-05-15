@@ -27,8 +27,7 @@ struct ad9371_phy_platform_data {
 
 	u64			rx_synth_freq;
 	u64			tx_synth_freq;
-	struct gpio_desc			*reset_gpio;
-
+	struct gpio_desc	*reset_gpio;
 };
 
 enum debugfs_cmd {
@@ -174,6 +173,7 @@ struct ad9371_rf_phy {
 	bool			radio_state;
 	bool			saved_radio_state;
 	u32			init_cal_mask;
+	u32			cal_mask;
 	u32			rf_bandwith[3];
 };
 
