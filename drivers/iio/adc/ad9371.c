@@ -106,6 +106,7 @@ static int ad9371_string_to_val(const char *buf, int *val)
 enum ad9371_iio_dev_attr {
 	AD9371_ENSM_MODE,
 	AD9371_ENSM_MODE_AVAIL,
+	AD9371_INIT_CAL,
 };
 
 int ad9371_spi_read(struct spi_device *spi, unsigned reg)
@@ -674,18 +675,46 @@ static ssize_t ad9371_phy_store(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
+	bool enable;
 	int ret = 0;
 	u32 val;
 
 	mutex_lock(&indio_dev->mlock);
 
-	switch ((u32)this_attr->address) {
+	switch ((u32)this_attr->address & 0xFF) {
 	case AD9371_ENSM_MODE:
 		if (sysfs_streq(buf, "radio_on"))
 			val = RADIO_ON;
 		else if (sysfs_streq(buf, "radio_off"))
 			val = RADIO_OFF;
 		break;
+	case AD9371_INIT_CAL:
+
+		ret = strtobool(buf, &enable);
+		if (ret)
+			break;
+
+		val = (u32)this_attr->address >> 8;
+
+		if (val) {
+			if (enable)
+				phy->cal_mask |= val;
+			else
+				phy->cal_mask &= ~val;
+		} else if (enable) {
+			ad9371_set_radio_state(phy, RADIO_FORCE_OFF);
+
+			ret  = ad9371_init_cal(phy, phy->cal_mask);
+			if (ret != MYKONOS_ERR_OK) {
+				dev_err(&phy->spi->dev, "%s (%d)",
+					getMykonosErrorMessage(ret), ret);
+				ret = -EFAULT;
+			}
+
+			ad9371_set_radio_state(phy, RADIO_RESTORE_STATE);
+		}
+		break;
+
 	default:
 		ret = -EINVAL;
 	}
@@ -706,14 +735,21 @@ static ssize_t ad9371_phy_show(struct device *dev,
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
 	int ret = 0;
+	u32 val;
 
 	mutex_lock(&indio_dev->mlock);
-	switch ((u32)this_attr->address) {
+	switch ((u32)this_attr->address & 0xFF) {
 	case AD9371_ENSM_MODE:
 		ret = sprintf(buf, "%s\n", phy->radio_state ? "radio_on" : "radio_off");
 		break;
 	case AD9371_ENSM_MODE_AVAIL:
 		ret = sprintf(buf, "%s\n", "radio_on radio_off");
+		break;
+	case AD9371_INIT_CAL:
+		val = (u32)this_attr->address >> 8;
+
+		if (val)
+			ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
 		break;
 	default:
 		ret = -EINVAL;
@@ -733,9 +769,58 @@ static IIO_DEVICE_ATTR(ensm_mode_available, S_IRUGO,
 		       NULL,
 		       AD9371_ENSM_MODE_AVAIL);
 
+static IIO_DEVICE_ATTR(calibrate, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL);
+
+static IIO_DEVICE_ATTR(calibrate_dpd_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (DPD_INIT << 8));
+
+static IIO_DEVICE_ATTR(calibrate_clgc_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (CLGC_INIT << 8));
+
+static IIO_DEVICE_ATTR(calibrate_vswr_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (VSWR_INIT << 8));
+
+static IIO_DEVICE_ATTR(calibrate_rx_qec_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (RX_QEC_INIT << 8));
+
+static IIO_DEVICE_ATTR(calibrate_tx_qec_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (TX_QEC_INIT << 8));
+
+static IIO_DEVICE_ATTR(calibrate_tx_lol_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (TX_LO_LEAKAGE_INTERNAL << 8));
+
+static IIO_DEVICE_ATTR(calibrate_tx_lol_ext_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (TX_LO_LEAKAGE_EXTERNAL << 8));
+
+
 static struct attribute *ad9371_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
+	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_calibrate_dpd_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_clgc_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_vswr_en.dev_attr.attr,
 	NULL,
 };
 
