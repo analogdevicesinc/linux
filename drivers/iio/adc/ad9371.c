@@ -2808,7 +2808,7 @@ static struct gain_table_info * ad9371_parse_gt(struct ad9371_rf_phy *phy,
 				if (i >= MAX_RX_GAIN_TABLE_NUMINDEXES)
 					goto out;
 
-				if ((i > 0) && (a < table[dest].abs_gain_tbl[i - 1]))
+				if ((i > 0) && (a > table[dest].abs_gain_tbl[i - 1]))
 					dev_warn(&phy->spi->dev,
 						"Gain table must be monotonic");
 
