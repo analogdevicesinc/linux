@@ -330,3 +330,11 @@
 	>;
 	clocks = <&clk IMX8QM_A53_DIV>;
 };
+
+&A72_0 {
+	operating-points = <
+		/* kHz    uV */
+		1800000 1150000
+	>;
+	clocks = <&clk IMX8QM_A72_DIV>;
+};

@@ -14,12 +14,19 @@
  */
 
 #include "fsl-imx8qm-lpddr4-arm2.dts"
-#include "fsl-imx8-ca72.dtsi"
 
-&A72_0 {
-	operating-points = <
-		/* kHz    uV */
-		1800000 1150000
-	>;
-	clocks = <&clk IMX8QM_A72_DIV>;
+&A53_0 {
+	device_type = "";
+};
+
+&A53_1 {
+	device_type = "";
+};
+
+&A53_2 {
+	device_type = "";
+};
+
+&A53_3 {
+	device_type = "";
 };
