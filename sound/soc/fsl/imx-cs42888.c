@@ -50,12 +50,22 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct imx_priv *priv = &card_priv;
 	struct device *dev = &priv->pdev->dev;
-	u32 dai_format = 0;
+	u32 channels = params_channels(params);
+
+	bool enable_tdm = channels > 1 && channels % 2;
+	u32 dai_format = SND_SOC_DAIFMT_NB_NF |
+		(enable_tdm ? SND_SOC_DAIFMT_DSP_A : SND_SOC_DAIFMT_LEFT_J);
+
 	int ret = 0;
 
 	if (priv->is_codec_master) {
-		dai_format = SND_SOC_DAIFMT_LEFT_J | SND_SOC_DAIFMT_NB_NF |
-			     SND_SOC_DAIFMT_CBM_CFM;
+		/* TDM is not supported by codec in master mode */
+		if (enable_tdm) {
+			dev_err(dev, "%d channels are not supported in codec master mode\n",
+				channels);
+			return -EINVAL;
+		}
+		dai_format |= SND_SOC_DAIFMT_CBM_CFM;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 			ret = snd_soc_dai_set_sysclk(cpu_dai, ESAI_HCKT_EXTAL,
 				       priv->mclk_freq, SND_SOC_CLOCK_IN);
@@ -75,8 +85,7 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 		}
 
 	} else {
-		dai_format = SND_SOC_DAIFMT_LEFT_J | SND_SOC_DAIFMT_NB_NF |
-			     SND_SOC_DAIFMT_CBS_CFS;
+		dai_format |= SND_SOC_DAIFMT_CBS_CFS;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 			ret = snd_soc_dai_set_sysclk(cpu_dai, ESAI_HCKT_EXTAL,
 				       priv->mclk_freq, SND_SOC_CLOCK_OUT);
@@ -103,13 +112,55 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 	/* set i.MX active slot mask */
-	snd_soc_dai_set_tdm_slot(cpu_dai, 0x3, 0x3, 2, 32);
+	if (enable_tdm)
+		/*
+		 * Per datasheet, the codec expects 8 slots and 32 bits
+		 * for every slot in TDM mode.
+		 */
+		snd_soc_dai_set_tdm_slot(cpu_dai,
+					 BIT(channels) - 1, BIT(channels) - 1,
+					 8, 32);
+	else
+		snd_soc_dai_set_tdm_slot(cpu_dai, 0x3, 0x3, 2, 32);
 
 	/* set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai, dai_format);
 	if (ret) {
 		dev_err(dev, "failed to set codec dai fmt: %d\n", ret);
 		return ret;
+	}
+	return 0;
+}
+
+static int imx_cs42888_hw_rule_rate_by_channels(struct snd_pcm_hw_params *params,
+						struct snd_pcm_hw_rule *rule)
+{
+	struct snd_interval *c = hw_param_interval(params,
+						   SNDRV_PCM_HW_PARAM_CHANNELS);
+	struct snd_interval *r = hw_param_interval(params,
+						   SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval t;
+	snd_interval_any(&t);
+	if (r->min > 48000) {
+		if (c->min > 2 && c->min % 2)
+			return -EINVAL;
+	}
+	return 0;
+}
+
+static int imx_cs42888_hw_rule_channels_by_rate(struct snd_pcm_hw_params *params,
+						struct snd_pcm_hw_rule *rule)
+{
+	struct snd_interval *c = hw_param_interval(params,
+						   SNDRV_PCM_HW_PARAM_CHANNELS);
+	struct snd_interval *r = hw_param_interval(params,
+						   SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval t;
+	snd_interval_any(&t);
+	if (c->min > 2 && c->min % 2) {
+		t.min = t.max = 48000;
+		t.integer = 1;
+		return snd_interval_refine(r, &t);
 	}
 	return 0;
 }
@@ -134,6 +185,15 @@ static int imx_cs42888_surround_startup(struct snd_pcm_substream *substream)
 							&constraint_rates);
 		if (ret)
 			return ret;
+
+		snd_pcm_hw_rule_add(substream->runtime, 0,
+				    SNDRV_PCM_HW_PARAM_RATE,
+				    imx_cs42888_hw_rule_rate_by_channels,
+				    0, SNDRV_PCM_HW_PARAM_CHANNELS, -1);
+		snd_pcm_hw_rule_add(substream->runtime, 0,
+				    SNDRV_PCM_HW_PARAM_CHANNELS,
+				    imx_cs42888_hw_rule_channels_by_rate,
+				    0, SNDRV_PCM_HW_PARAM_RATE, -1);
 	} else
 		dev_warn(dev, "mclk may be not supported %d\n", priv->mclk_freq);
 
