@@ -1,0 +1,144 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/* First 128KB is for PSCI ATF. */
+/memreserve/ 0x80000000 0x00020000;
+#include "fsl-imx8qxp.dtsi"
+
+/ {
+	model = "Freescale i.MX8QXP LPDDR4 ARM2";
+	compatible = "fsl,imx8qxp-lpddr4-arm2", "fsl,imx8qxp";
+
+	chosen {
+		bootargs = "console=ttyLP0,115200 earlycon=lpuart32,0x5a060000,115200";
+		stdout-path = &lpuart0;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reg_sd1_vmmc: sd1_vmmc {
+			compatible = "regulator-fixed";
+			regulator-name = "SD1_SPWR";
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3000000>;
+			gpio = <&gpio4 19 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+	};
+};
+
+&iomuxc {
+	imx8qxp-lpddr4-arm2 {
+
+		pinctrl_lpi2c1: lpi1cgrp {
+			fsl,pins = <
+				SC_P_USB_SS3_TC0	0xc6000020
+				SC_P_USB_SS3_TC3	0xc6000020
+			>;
+		};
+
+		pinctrl_lpi2c3: lpi2cgrp {
+			fsl,pins = <
+				SC_P_SPI3_CS1		0xce000020
+				SC_P_MCLK_IN0		0xce000020
+			>;
+		};
+
+		pinctrl_lpuart0: lpuart0grp {
+			fsl,pins = <
+				SC_P_UART0_RX		0xc600004c
+				SC_P_UART0_TX		0xc600004c
+			>;
+		};
+
+		pinctrl_usdhc1: usdhc1grp {
+			fsl,pins = <
+				SC_P_EMMC0_CLK		0xc6000021
+				SC_P_EMMC0_CMD		0xc0000021
+				SC_P_EMMC0_DATA0	0xc0000021
+				SC_P_EMMC0_DATA1	0xc0000021
+				SC_P_EMMC0_DATA2	0xc0000021
+				SC_P_EMMC0_DATA3	0xc0000021
+				SC_P_EMMC0_DATA4	0xc0000021
+				SC_P_EMMC0_DATA5	0xc0000021
+				SC_P_EMMC0_DATA6	0xc0000021
+				SC_P_EMMC0_DATA7	0xc0000021
+				SC_P_EMMC0_RESET_B	0xc0000021
+			>;
+		};
+
+		pinctrl_usdhc2_rst: usdhc2_rst_grp {
+			fsl,pins = <
+				SC_P_USDHC1_RESET_B	0xe6000048
+			>;
+		};
+
+		pinctrl_usdhc2: usdhc2grp {
+			fsl,pins = <
+				SC_P_USDHC1_CLK		0xc6000021
+				SC_P_USDHC1_CMD		0xc6000021
+				SC_P_USDHC1_DATA0	0xc6000021
+				SC_P_USDHC1_DATA1	0xc6000021
+				SC_P_USDHC1_DATA2	0xc6000021
+				SC_P_USDHC1_DATA3	0xc6000021
+				SC_P_USDHC1_VSELECT	0xc6000021
+				SC_P_USDHC1_WP		0xe6000021
+				SC_P_USDHC1_CD_B	0xe6000021
+			>;
+		};
+	};
+};
+
+&i2c1 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c1>;
+	status = "okay";
+};
+
+&i2c3 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c3>;
+	status = "okay";
+};
+
+&lpuart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart0>;
+	status = "okay";
+};
+
+&usdhc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	bus-width = <8>;
+	non-removable;
+	status = "okay";
+};
+
+&usdhc2 {
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_rst>;
+	bus-width = <4>;
+	cd-gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpio4 21 GPIO_ACTIVE_HIGH>;
+	vmmc-supply = <&reg_sd1_vmmc>;
+	status = "okay";
+};
