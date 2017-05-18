@@ -205,6 +205,9 @@ static struct imx_usbmisc_data *usbmisc_get_init_data(struct device *dev)
 	if (of_find_property(np, "over-current-active-high", NULL))
 		data->oc_polarity = 1;
 
+	if (of_find_property(np, "power-polarity-active-high", NULL))
+		data->pwr_polarity = 1;
+
 	if (of_find_property(np, "external-vbus-divider", NULL))
 		data->evdo = 1;
 
