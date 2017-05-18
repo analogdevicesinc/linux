@@ -180,7 +180,7 @@ config USB_MV_OTG
 
 config USB_MXS_PHY
 	tristate "Freescale MXS USB PHY support"
-	depends on ARCH_MXC || ARCH_MXS
+	depends on ARCH_MXC || ARCH_MXS || ARCH_MXC_ARM64
 	select STMP_DEVICE
 	select USB_PHY
 	help
