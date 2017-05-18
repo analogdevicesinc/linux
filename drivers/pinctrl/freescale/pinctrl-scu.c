@@ -61,7 +61,12 @@ int imx_pinconf_backend_set(struct pinctrl_dev *pctldev, unsigned pin_id,
 	sc_ipc_t ipc = pinctrl_ipcHandle;
 	struct imx_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	const struct imx_pinctrl_soc_info *info = ipctl->info;
-	unsigned int val = configs[0];
+	/*
+	 * Mux should be done in pmx set, but we do not have a good api
+	 * to handle that in scfw, so config it in pad conf func
+	 */
+	unsigned int mux = configs[0];
+	unsigned int val = configs[1];
 
 	if (ipc == -1) {
 		printk("IPC handle not initialized!\n");
@@ -74,8 +79,10 @@ int imx_pinconf_backend_set(struct pinctrl_dev *pctldev, unsigned pin_id,
 	if (info->flags & IMX8_ENABLE_PAD_CONFIG)
 		val |= BM_IMX8_GP_ENABLE;
 
-	if (info->flags & SHARE_MUX_CONF_REG)
+	if (info->flags & SHARE_MUX_CONF_REG) {
+		val |= (mux << 27) & (0x7 << 27);
 		err = sc_pad_set(ipc, pin_id, val);
+	}
 
 	if (err != SC_ERR_NONE)
 		return -EIO;
@@ -91,10 +98,11 @@ int imx_pinctrl_parse_pin(struct imx_pinctrl_soc_info *info,
 
 	pin->pin = be32_to_cpu(*((*list_p)++));
 	*pin_id = pin->pin;
-	pin_scu->all = be32_to_cpu(*((*list_p)++));
+	pin_scu->mux = be32_to_cpu(*((*list_p)++));
+	pin_scu->config = be32_to_cpu(*((*list_p)++));
 
-	dev_dbg(info->dev, "%s: 0x%x",
-		 info->pins[pin->pin].name, pin_scu->all);
+	dev_dbg(info->dev, "%s: 0x%lx 0x%lx",
+		 info->pins[pin->pin].name, pin_scu->mux, pin_scu->config);
 
 	return 0;
 }

@@ -40,7 +40,8 @@ struct imx_pin_memmap {
 };
 
 struct imx_pin_scu {
-	unsigned int all;
+	unsigned long mux;
+	unsigned long config;
 };
 
 struct imx_pin {
