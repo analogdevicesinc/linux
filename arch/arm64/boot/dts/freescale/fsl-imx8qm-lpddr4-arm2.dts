@@ -213,6 +213,7 @@
 	srp-disable;
 	hnp-disable;
 	adp-disable;
+	power-polarity-active-high;
 	disable-over-current;
 	status = "okay";
 };
