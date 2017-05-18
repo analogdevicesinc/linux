@@ -248,7 +248,7 @@
 				#power-domain-cells = <0>;
 				power-domains = <&pd_conn>;
 			};
-			pd_conn_sdch1: cPD_CONN_SDHC_1 {
+			pd_conn_sdch1: PD_CONN_SDHC_1 {
 				reg = <SC_R_SDHC_1>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_conn>;
