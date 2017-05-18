@@ -29,6 +29,9 @@
 
 	aliases {
 		serial0 = &lpuart0;
+		mmc0 = &usdhc1;
+		mmc1 = &usdhc2;
+		mmc2 = &usdhc3;
 	};
 
 	memory@80000000 {
