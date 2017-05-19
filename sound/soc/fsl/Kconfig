@@ -106,7 +106,7 @@ config SND_POWERPC_SOC
 
 config SND_IMX_SOC
 	tristate "SoC Audio for Freescale i.MX CPUs"
-	depends on ARCH_MXC || COMPILE_TEST
+	depends on ARCH_MXC || ARCH_MXC_ARM64 || COMPILE_TEST
 	help
 	  Say Y or M if you want to add support for codecs attached to
 	  the i.MX CPUs.
