@@ -1256,7 +1256,7 @@
 				<GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8QM_ENET0_IPG_CLK>, <&clk IMX8QM_ENET0_AHB_CLK>, <&clk IMX8QM_ENET0_TX_CLK>,
+		clocks = <&clk IMX8QM_ENET0_IPG_CLK>, <&clk IMX8QM_ENET0_AHB_CLK>, <&clk IMX8QM_ENET0_RGMII_TX_CLK>,
 			<&clk IMX8QM_ENET0_PTP_CLK>;
 		clock-names = "ipg", "ahb", "enet_clk_ref", "ptp";
 		assigned-clocks = <&clk IMX8QM_ENET0_REF_DIV>, <&clk IMX8QM_ENET0_PTP_CLK>;
@@ -1274,7 +1274,7 @@
 				<GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8QM_ENET1_IPG_CLK>, <&clk IMX8QM_ENET1_AHB_CLK>, <&clk IMX8QM_ENET1_TX_CLK>,
+		clocks = <&clk IMX8QM_ENET1_IPG_CLK>, <&clk IMX8QM_ENET1_AHB_CLK>, <&clk IMX8QM_ENET1_RGMII_TX_CLK>,
 			<&clk IMX8QM_ENET1_PTP_CLK>;
 		clock-names = "ipg", "ahb", "enet_clk_ref", "ptp";
 		assigned-clocks = <&clk IMX8QM_ENET1_REF_DIV>, <&clk IMX8QM_ENET1_PTP_CLK>;
