@@ -37,8 +37,8 @@ static struct clk *clks[IMX8QXP_CLK_END];
 static struct clk_onecell_data clk_data;
 
 static const char *enet_sels[] = { "enet_25MHz", "enet_125MHz", };
-static const char *enet0_rmii_tx_sels[] = { "enet0_root_div", "dummy", };
-static const char *enet1_rmii_tx_sels[] = { "enet1_root_div", "dummy", };
+static const char *enet0_rmii_tx_sels[] = { "enet0_ref_div", "dummy", };
+static const char *enet1_rmii_tx_sels[] = { "enet1_ref_div", "dummy", };
 
 static void __init imx8qxp_clocks_init(struct device_node *ccm_node)
 {
@@ -261,7 +261,7 @@ static void __init imx8qxp_clocks_init(struct device_node *ccm_node)
 	clks[IMX8QXP_ENET1_REF_DIV] = imx_clk_divider3_scu("enet1_ref_div", "enet1_root_clk", SC_R_ENET_1, SC_C_CLKDIV);
 	clks[IMX8QXP_ENET0_BYPASS_DIV] = imx_clk_divider_scu("enet0_bypass_div", SC_R_ENET_0, SC_PM_CLK_BYPASS);
 	clks[IMX8QXP_ENET0_RGMII_DIV] = imx_clk_divider_scu("enet0_rgmii_div", SC_R_ENET_0, SC_PM_CLK_MISC0);
-	clks[IMX8QXP_ENET1_ROOT_DIV] = imx_clk_divider_scu("enet1_root_div", SC_R_ENET_0, SC_PM_CLK_PER);
+	clks[IMX8QXP_ENET1_ROOT_DIV] = imx_clk_divider_scu("enet1_root_div", SC_R_ENET_1, SC_PM_CLK_PER);
 	clks[IMX8QXP_ENET1_BYPASS_DIV] = imx_clk_divider_scu("enet1_bypass_div", SC_R_ENET_1, SC_PM_CLK_BYPASS);
 	clks[IMX8QXP_ENET1_RGMII_DIV] = imx_clk_divider_scu("enet1_rgmii_div", SC_R_ENET_1, SC_PM_CLK_MISC0);
 	clks[IMX8QXP_ENET0_AHB_CLK]   = imx_clk_gate2_scu("enet0_ahb_clk", "axi_conn_clk_root", (void __iomem *)(ENET_0_LPCG), 8, FUNCTION_NAME(PD_CONN_ENET_0));
@@ -272,8 +272,8 @@ static void __init imx8qxp_clocks_init(struct device_node *ccm_node)
 	clks[IMX8QXP_ENET1_IPG_CLK]   = imx_clk_gate2_scu("enet1_ipg_clk", "enet1_ipg_s_clk", (void __iomem *)(ENET_1_LPCG), 16, FUNCTION_NAME(PD_CONN_ENET_1));
 	clks[IMX8QXP_ENET0_ROOT_CLK] = imx_clk_gate_scu("enet0_root_clk", "enet0_root_div", SC_R_ENET_0, SC_PM_CLK_PER, NULL, 0, 0);
 	clks[IMX8QXP_ENET1_ROOT_CLK] = imx_clk_gate_scu("enet1_root_clk", "enet1_root_div", SC_R_ENET_1, SC_PM_CLK_PER, NULL, 0, 0);
-	clks[IMX8QXP_ENET0_TX_CLK] = imx_clk_gate2_scu("enet0_tx_clk", "enet0_ref_div", (void __iomem *)(ENET_0_LPCG), 4, FUNCTION_NAME(PD_CONN_ENET_0));
-	clks[IMX8QXP_ENET1_TX_CLK] = imx_clk_gate2_scu("enet1_tx_src_clk", "enet1_ref_div", (void __iomem *)(ENET_1_LPCG), 4, FUNCTION_NAME(PD_CONN_ENET_1));
+	clks[IMX8QXP_ENET0_TX_CLK] = imx_clk_gate2_scu("enet0_tx_2x_clk", "enet0_ref_div", (void __iomem *)(ENET_0_LPCG), 4, FUNCTION_NAME(PD_CONN_ENET_0));
+	clks[IMX8QXP_ENET1_TX_CLK] = imx_clk_gate2_scu("enet1_tx_2x_clk", "enet1_ref_div", (void __iomem *)(ENET_1_LPCG), 4, FUNCTION_NAME(PD_CONN_ENET_1));
 	clks[IMX8QXP_ENET0_PTP_CLK] = imx_clk_gate2_scu("enet0_ptp_clk", "enet0_ref_div", (void __iomem *)(ENET_0_LPCG), 0, FUNCTION_NAME(PD_CONN_ENET_0));
 	clks[IMX8QXP_ENET1_PTP_CLK] = imx_clk_gate2_scu("enet1_ptp_clk", "enet1_ref_div", (void __iomem *)(ENET_1_LPCG), 0, FUNCTION_NAME(PD_CONN_ENET_1));
 	clks[IMX8QXP_ENET0_REF_25MHZ_125MHZ_SEL] = imx_clk_mux_gpr_scu("enet0_ref_25_125_sel", enet_sels, ARRAY_SIZE(enet_sels), SC_R_ENET_0, SC_C_SEL_125);
