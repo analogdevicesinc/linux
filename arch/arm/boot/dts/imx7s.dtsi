@@ -452,8 +452,9 @@
 				reg = <0x302d0000 0x10000>;
 				interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX7D_GPT1_ROOT_CLK>,
-					 <&clks IMX7D_GPT1_ROOT_CLK>;
-				clock-names = "ipg", "per";
+					<&clks IMX7D_GPT1_ROOT_CLK>,
+					<&clks IMX7D_GPT_3M_CLK>;
+				clock-names = "ipg", "per", "osc_per";
 			};
 
 			gpt2: gpt@302e0000 {
