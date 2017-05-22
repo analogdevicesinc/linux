@@ -7422,12 +7422,6 @@ static int pxp_probe(struct platform_device *pdev)
 
 	pxp_soft_reset(pxp);
 	pxp_writel(0x0, HW_PXP_CTRL);
-
-	/* Initialize PXP Interrupt */
-	err = pxp_init_interrupt(pdev);
-	if (err < 0)
-		goto exit;
-
 	/* Initialize DMA engine */
 	err = pxp_dma_init(pxp);
 	if (err < 0)
@@ -7435,6 +7429,12 @@ static int pxp_probe(struct platform_device *pdev)
 
 	pxp_clk_enable(pxp);
 	pxp_soft_reset(pxp);
+
+	/* Initialize PXP Interrupt */
+	err = pxp_init_interrupt(pdev);
+	if (err < 0)
+		goto exit;
+
 	if (pxp->devdata && pxp->devdata->pxp_data_path_config)
 		pxp->devdata->pxp_data_path_config(pxp);
 
