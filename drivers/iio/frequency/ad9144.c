@@ -157,8 +157,7 @@ static int ad9144_setup(struct ad9144_state *st,
 	regmap_write(map, 0x459, 0x20);	// jesd204b, 1 samples per converter per device
 	regmap_write(map, 0x45a, 0x80);	// HD mode, no CS bits
 	regmap_write(map, 0x45d, 0x49);	// check-sum of 0x450 to 0x45c
-	if (st->id == CHIPID_AD9152)
-		regmap_write(map, 0x478, 0x01);	// ilas mf count
+	regmap_write(map, 0x478, 0x01);	// ilas mf count
 	regmap_write(map, 0x46c, 0x0f);	// enable deskew for all lanes
 	regmap_write(map, 0x476, 0x01);	// frame - bytecount (1)
 	regmap_write(map, 0x47d, 0x0f);	// enable all lanes
