@@ -16,7 +16,8 @@
 /dts-v1/;
 
 /* First 128KB is for PSCI ATF. */
-/memreserve/ 0x80000000 0x00020000;
+/* Last 3M is for M4/RPMSG */
+/memreserve/ 0x80000000 0x00400000;
 
 #include "fsl-imx8qm.dtsi"
 
