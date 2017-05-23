@@ -178,7 +178,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9363a";
+		compatible = "adi,ad9363a";
 
 		/* SPI Setup */
 		reg = <0>;

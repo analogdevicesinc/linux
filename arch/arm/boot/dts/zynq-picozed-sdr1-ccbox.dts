@@ -190,19 +190,12 @@
 			simple-audio-card,name = "PicoZed SDR1 ADAU1761";
 			simple-audio-card,widgets =
 				"Microphone", "Mic In",
-				"Headphone", "Headphone Out",
-				"Line", "Line In",
-				"Line", "Line Out";
+				"Headphone", "Headphone Out";
 			simple-audio-card,routing =
-				"Line Out", "LOUT",
-				"Line Out", "ROUT",
 				"Headphone Out", "LHP",
 				"Headphone Out", "RHP",
 				"Mic In", "MICBIAS",
-				"LINN", "Mic In",
-				"RINN", "Mic In",
-				"LAUX", "Line In",
-				"RAUX", "Line In";
+				"LINN", "Mic In";
 
 			simple-audio-card,dai-link@0 {
 				format = "i2s";

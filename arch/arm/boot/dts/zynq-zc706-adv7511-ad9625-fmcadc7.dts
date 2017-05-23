@@ -38,7 +38,7 @@
 	adc0_ad9625: ad9625@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad9625";
+		compatible = "adi,ad9625";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		clocks = <&axi_ad9625_jesd>, <&ad9625_clkin>;
@@ -47,7 +47,7 @@
 
 	ad9625_clkin: adf4355@1 {
 		#clock-cells = <0>;
-		compatible = "adf4355-2";
+		compatible = "adi,adf4355-2";
 		reg = <1>;
 		spi-max-frequency = <10000000>;
 		clocks = <&adf4351_clkin>;

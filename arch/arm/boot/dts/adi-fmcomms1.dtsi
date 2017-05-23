@@ -3,12 +3,12 @@
 	spi_xcomm0: spi_xcomm0@58 {
 		#size-cells = <0>;
 		#address-cells = <1>;
-		compatible = "spi-xcomm";
+		compatible = "adi,spi-xcomm";
 		reg = <0x58>;
 		clksync0_ad9548: ad9548-lpc@6 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "ad9548";
+			compatible = "adi,ad9548";
 			reg = <2>;
 			spi-3wire;
 			spi-max-frequency = <10000000>;
@@ -17,7 +17,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#clock-cells = <1>;
-			compatible = "ad9523-1";
+			compatible = "adi,ad9523-1";
 			reg = <3>;
 			spi-max-frequency = <10000000>;
 			spi-3wire;
@@ -107,7 +107,7 @@
 		adc0_ad9467: ad9467@1 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "ad9643";
+			compatible = "adi,ad9643";
 			reg = <1>;
 			spi-max-frequency = <10000000>;
 			spi-3wire;
@@ -118,7 +118,7 @@
 		dac0_ad9122: ad9122@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "ad9122";
+			compatible = "adi,ad9122";
 			reg = <0>;
 			spi-max-frequency = <10000000>;
 			clocks = <&clk0_ad9523 6>, <&clk0_ad9523 12>, <&clk0_ad9523 10>;
@@ -133,7 +133,7 @@
 		vga0_ad8366: ad8366-lpc@6 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "ad8366";
+			compatible = "adi,ad8366";
 			reg = <6>;
 			spi-3wire;
 			spi-max-frequency = <10000000>;
@@ -142,7 +142,7 @@
 		lo_pll0_rx_adf4351: adf4351-rx-lpc@4 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "adf4351";
+			compatible = "adi,adf4351";
 			reg = <4>;
 			spi-max-frequency = <10000000>;
 			clocks = <&clk0_ad9523 9>;
@@ -158,7 +158,7 @@
 		lo_pll0_tx_adf4351: adf4351-tx-lpc@5 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "adf4351";
+			compatible = "adi,adf4351";
 			reg = <5>;
 			spi-max-frequency = <10000000>;
 			clocks = <&clk0_ad9523 5>;
