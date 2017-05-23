@@ -8,6 +8,7 @@ obj-$(CONFIG_PHY_LPC18XX_USB_OTG)	+= phy-lpc18xx-usb-otg.o
 obj-$(CONFIG_PHY_XGENE)			+= phy-xgene.o
 obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
 obj-$(CONFIG_PHY_MIXEL_LVDS)		+= phy-mixel-lvds.o
+obj-$(CONFIG_PHY_MIXEL_LVDS_COMBO)	+= phy-mixel-lvds-combo.o
 obj-$(CONFIG_ARCH_SUNXI)		+= allwinner/
 obj-$(CONFIG_ARCH_MESON)		+= amlogic/
 obj-$(CONFIG_LANTIQ)			+= lantiq/

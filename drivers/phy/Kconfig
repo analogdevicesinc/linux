@@ -46,6 +46,12 @@ config PHY_MIXEL_LVDS
 	select GENERIC_PHY
 	default ARCH_FSL_IMX8QM
 
+config PHY_MIXEL_LVDS_COMBO
+	bool
+	depends on OF
+	select GENERIC_PHY
+	default ARCH_FSL_IMX8QXP
+
 source "drivers/phy/allwinner/Kconfig"
 source "drivers/phy/amlogic/Kconfig"
 source "drivers/phy/broadcom/Kconfig"
