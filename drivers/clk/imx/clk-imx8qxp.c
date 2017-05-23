@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/types.h>
+#include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 
 #include <soc/imx8/imx8qxp/lpcg.h>
@@ -97,11 +98,16 @@ static const char *enet_sels[] = { "enet_25MHz", "enet_125MHz", };
 static const char *enet0_rmii_tx_sels[] = { "enet0_ref_div", "dummy", };
 static const char *enet1_rmii_tx_sels[] = { "enet1_ref_div", "dummy", };
 
-static void __init imx8qxp_clocks_init(struct device_node *ccm_node)
+static int imx8qxp_clk_probe(struct platform_device *pdev)
 {
-	int i;
+	struct device_node *ccm_node = pdev->dev.of_node;
 	struct device_node *np_acm;
 	void __iomem *base_acm;
+	int i, ret;
+
+	ret = imx8_clk_mu_init();
+	if (ret)
+		return ret;
 
 	pr_info("***** imx8qxp_clocks_init *****\n");
 
@@ -564,18 +570,24 @@ static void __init imx8qxp_clocks_init(struct device_node *ccm_node)
 	clk_data.clks = clks;
 	clk_data.clk_num = ARRAY_SIZE(clks);
 	of_clk_add_provider(ccm_node, of_clk_src_onecell_get, &clk_data);
-}
-
-static int __init imx8qxp_post_clk_init(void)
-{
-	int i;
-
-	/* Initialize the clk rate for all the possible clocks now. */
-	for (i = 0; i < IMX8QXP_CLK_END; i++)
-		clk_get_rate(clks[i]);
 
 	return 0;
 }
-postcore_initcall(imx8qxp_post_clk_init);
 
-CLK_OF_DECLARE(imx8qxp, "fsl,imx8qxp-clk", imx8qxp_clocks_init);
+static const struct of_device_id imx8qxp_match[] = {
+	{ .compatible = "fsl,imx8qxp-clk", }
+};
+
+static struct platform_driver imx8qxp_clk_driver = {
+	.driver = {
+		.name = "imx8qxp-clk",
+		.of_match_table = imx8qxp_match,
+	},
+	.probe = imx8qxp_clk_probe,
+};
+
+static int __init imx8qxp_clk_init(void)
+{
+	return platform_driver_register(&imx8qxp_clk_driver);
+}
+core_initcall(imx8qxp_clk_init);

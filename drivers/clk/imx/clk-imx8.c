@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/errno.h>
 #include <soc/imx8/sc/sci.h>
 
 #include "clk-imx8.h"
@@ -20,7 +21,7 @@
 spinlock_t imx_ccm_lock;
 sc_ipc_t ccm_ipc_handle;
 
-static int __init notify_imx8_clk(void)
+int imx8_clk_mu_init(void)
 {
 	uint32_t mu_id;
 	sc_err_t sciErr;
@@ -30,16 +31,15 @@ static int __init notify_imx8_clk(void)
 	sciErr = sc_ipc_getMuID(&mu_id);
 	if (sciErr != SC_ERR_NONE) {
 		pr_info("Cannot obtain MU ID\n");
-		return sciErr;
+		return -EPROBE_DEFER;
 	}
 
 	sciErr = sc_ipc_open(&ccm_ipc_handle, mu_id);
 
 	if (sciErr != SC_ERR_NONE) {
 		pr_info("Cannot open MU channel to SCU\n");
-		return sciErr;
+		return -EPROBE_DEFER;
 	}
 
 	return 0;
 }
-core_initcall(notify_imx8_clk);
