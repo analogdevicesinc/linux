@@ -1,5 +1,30 @@
 menu "i.MX SoC drivers"
 
+menuconfig ARCH_MXC_ARM64
+	bool "NXP i.MX family"
+	depends on ARM64
+	help
+	  Support for NXP MXC/iMX-based ARM64 family of processors
+
+if ARCH_MXC_ARM64
+
+config ARCH_FSL_IMX8QM
+	bool "i.MX8QM"
+	select HAVE_IMX_MU
+	select HAVE_IMX_RPMSG
+
+config ARCH_FSL_IMX8QXP
+	bool "i.MX8QXP"
+	select HAVE_IMX_MU
+	select HAVE_IMX_RPMSG
+
+config ARCH_FSL_IMX8MQ
+	bool "i.MX8MQ"
+	select HAVE_IMX_MU
+	select HAVE_IMX_RPMSG
+
+endif
+
 config IMX7_PM_DOMAINS
 	bool "i.MX7 PM domains"
 	depends on SOC_IMX7D || (COMPILE_TEST && OF)
