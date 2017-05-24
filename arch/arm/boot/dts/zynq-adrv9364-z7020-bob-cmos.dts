@@ -1,4 +1,4 @@
-#include  "zynq-picozed-sdr1-brk.dts"
+#include  "zynq-adrv9364-z7020-bob.dts"
 
 &adc0_ad9364 {
 	/* Enable CMOS Mode */

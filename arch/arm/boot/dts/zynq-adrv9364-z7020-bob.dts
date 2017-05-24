@@ -1,9 +1,9 @@
 /dts-v1/;
-/include/ "zynq-picozed-sdr1.dtsi"
+/include/ "zynq-adrv9364-z7020.dtsi"
 
 
 &axi_i2c0 {
-	ad7291-brk@2C {
+	ad7291-bob@2C {
 		compatible = "adi,ad7291";
 		reg = <0x2c>;
 	};

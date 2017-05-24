@@ -1,14 +1,14 @@
 /*
- * Avnet PicoZED SDR1 board DTS (Z7020/AD9364 SOM, AES-Z7PZ-SDR1-G)
+ * Analog Devices ADRV9361-Z7035 board DTS (Z7035/AD9361 SOM)
  *
- * Copyright (C) 2016 Analog Devices Inc.
+ * Copyright (C) 2015-2017 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
 /include/ "zynq.dtsi"
 
 / {
-	model = "Avnet ZYNQ PicoZed SDR1 (Z7020/AD9364)";
+	model = "Analog Devices ADRV9361-Z7035 (Z7035/AD9361)";
 	memory {
 		device_type = "memory";
 		reg = <0x00000000 0x40000000>;
@@ -19,15 +19,15 @@
 	};
 
 	clocks {
-		ad9364_clkin: clock@0 {
+		xo_40mhz_fixed_clk: clock@0 {
 			#clock-cells = <0>;
 			compatible = "adjustable-clock";
 			clock-frequency = <40000000>;
 			clock-accuracy = <200000>; /* 200 ppm (ppb) */
-			clock-output-names = "ad9364_ext_refclk";
+			clock-output-names = "XO_40MHz";
 		};
 
-		usb_ulpi_fixed_clk: clock@1 {
+		usb_ulpi_fixed_clk: clock@2 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
 			clock-frequency = <24000000>;
@@ -35,13 +35,20 @@
 		};
 	};
 
-	usb_ulpi_clk: usb-ulpi-gpio-gate@0 {
-		compatible = "gpio-gate-clock";
-		clocks = <&usb_ulpi_fixed_clk>;
+	ad9361_clkin: ad9361-refclk-gpio-gate@0 {
 		#clock-cells = <0>;
-		enable-gpios = <&gpio0 9 1>; /* Active  Low */
+		compatible = "gpio-gate-clock";
+		clocks = <&xo_40mhz_fixed_clk>;
+		enable-gpios = <&gpio0 105 0>; /* Set to 1 for extern AD9361_CLK (J1 on PZSDRCC-FMC) */
+		clock-output-names = "ad9361_ext_refclk";
 	};
 
+	usb_ulpi_clk: usb-ulpe-gpio-gate@0 {
+		#clock-cells = <0>;
+		compatible = "gpio-gate-clock";
+		clocks = <&usb_ulpi_fixed_clk>;
+		enable-gpios = <&gpio0 9 1>; /* Active  Low */
+	};
 };
 
 &eth {
@@ -110,6 +117,7 @@
 		#size-cells = <0x1>;
 		ranges;
 
+
 		axi_i2c0: i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			reg = <0x41600000 0x10000>;
@@ -121,9 +129,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			ad7291@20 {
-				compatible = "adi,ad7291";
-				reg = <0x20>;
+			adm1166: adm1166@68 {
+				compatible = "adi,adm1166";
+				reg = <0x68>;
 			};
 		};
 
@@ -156,18 +164,18 @@
 			};
 		};
 
-		cf_ad9364_adc_core_0: cf-ad9361-lpc@79020000 {
+		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
 			compatible = "adi,axi-ad9361-6.00.a";
 			reg = <0x79020000 0x6000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
-			spibus-connected = <&adc0_ad9364>;
+			spibus-connected = <&adc0_ad9361>;
 		};
 
-		cf_ad9364_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
-			compatible = "adi,axi-ad9364-dds-6.00.a";
+		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
+			compatible = "adi,axi-ad9361-dds-6.00.a";
 			reg = <0x79024000 0x1000>;
-			clocks = <&adc0_ad9364 13>;
+			clocks = <&adc0_ad9361 13>;
 			clock-names = "sampl_clk";
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
@@ -183,11 +191,11 @@
 &spi0 {
 	status = "okay";
 
-	adc0_ad9364: ad9361-phy@0 {
+	adc0_ad9361: ad9361-phy@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9364";
+		compatible = "ad9361";
 
 		/* SPI Setup */
 		reg = <0>;
@@ -195,8 +203,8 @@
 		spi-max-frequency = <10000000>;
 
 		/* Clocks */
-		clocks = <&ad9364_clkin 0>;
-		clock-names = "ad9364_ext_refclk";
+		clocks = <&ad9361_clkin 0>;
+		clock-names = "ad9361_ext_refclk";
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 
 		/* Digital Interface Control */
@@ -221,6 +229,7 @@
 
 		/* Mode Setup */
 
+		adi,2rx-2tx-mode-enable;
 		//adi,split-gain-table-mode-enable;
 
 		/* ENSM Mode */
@@ -330,32 +339,32 @@
 		/* Fast AGC */
 
 		adi,fagc-dec-pow-measurement-duration = <64>; /* 64 Samples */
-                //adi,fagc-allow-agc-gain-increase-enable;
-                adi,fagc-lp-thresh-increment-steps = <1>;
-                adi,fagc-lp-thresh-increment-time = <5>;
+		//adi,fagc-allow-agc-gain-increase-enable;
+		adi,fagc-lp-thresh-increment-steps = <1>;
+		adi,fagc-lp-thresh-increment-time = <5>;
 
-                adi,fagc-energy-lost-stronger-sig-gain-lock-exit-cnt = <8>;
-                adi,fagc-final-overrange-count = <3>;
-                //adi,fagc-gain-increase-after-gain-lock-enable;
-                adi,fagc-gain-index-type-after-exit-rx-mode = <0>;
-                adi,fagc-lmt-final-settling-steps = <1>;
-                adi,fagc-lock-level = <10>;
-                adi,fagc-lock-level-gain-increase-upper-limit = <5>;
-                adi,fagc-lock-level-lmt-gain-increase-enable;
+		adi,fagc-energy-lost-stronger-sig-gain-lock-exit-cnt = <8>;
+		adi,fagc-final-overrange-count = <3>;
+		//adi,fagc-gain-increase-after-gain-lock-enable;
+		adi,fagc-gain-index-type-after-exit-rx-mode = <0>;
+		adi,fagc-lmt-final-settling-steps = <1>;
+		adi,fagc-lock-level = <10>;
+		adi,fagc-lock-level-gain-increase-upper-limit = <5>;
+		adi,fagc-lock-level-lmt-gain-increase-enable;
 
-                adi,fagc-lpf-final-settling-steps = <1>;
-                adi,fagc-optimized-gain-offset = <5>;
-                adi,fagc-power-measurement-duration-in-state5 = <64>;
-                adi,fagc-rst-gla-engergy-lost-goto-optim-gain-enable;
-                adi,fagc-rst-gla-engergy-lost-sig-thresh-below-ll = <10>;
-                adi,fagc-rst-gla-engergy-lost-sig-thresh-exceeded-enable;
-                adi,fagc-rst-gla-if-en-agc-pulled-high-mode = <0>;
-                adi,fagc-rst-gla-large-adc-overload-enable;
-                adi,fagc-rst-gla-large-lmt-overload-enable;
-                adi,fagc-rst-gla-stronger-sig-thresh-above-ll = <10>;
-                adi,fagc-rst-gla-stronger-sig-thresh-exceeded-enable;
-                adi,fagc-state-wait-time-ns = <260>;
-                adi,fagc-use-last-lock-level-for-set-gain-enable;
+		adi,fagc-lpf-final-settling-steps = <1>;
+		adi,fagc-optimized-gain-offset = <5>;
+		adi,fagc-power-measurement-duration-in-state5 = <64>;
+		adi,fagc-rst-gla-engergy-lost-goto-optim-gain-enable;
+		adi,fagc-rst-gla-engergy-lost-sig-thresh-below-ll = <10>;
+		adi,fagc-rst-gla-engergy-lost-sig-thresh-exceeded-enable;
+		adi,fagc-rst-gla-if-en-agc-pulled-high-mode = <0>;
+		adi,fagc-rst-gla-large-adc-overload-enable;
+		adi,fagc-rst-gla-large-lmt-overload-enable;
+		adi,fagc-rst-gla-stronger-sig-thresh-above-ll = <10>;
+		adi,fagc-rst-gla-stronger-sig-thresh-exceeded-enable;
+		adi,fagc-state-wait-time-ns = <260>;
+		adi,fagc-use-last-lock-level-for-set-gain-enable;
 
 		/* RSSI */
 

@@ -1,5 +1,5 @@
 /dts-v1/;
-/include/ "zynq-picozed-sdr2.dtsi"
+/include/ "zynq-adrv9361-z7035.dtsi"
 
 #include <dt-bindings/input/input.h>
 

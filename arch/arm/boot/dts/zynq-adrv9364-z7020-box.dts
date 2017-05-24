@@ -1,5 +1,5 @@
 /dts-v1/;
-/include/ "zynq-picozed-sdr1.dtsi"
+/include/ "zynq-adrv9364-z7020.dtsi"
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -187,7 +187,7 @@
 
 		pzsdr_sound {
 			compatible = "simple-audio-card";
-			simple-audio-card,name = "PicoZed SDR1 ADAU1761";
+			simple-audio-card,name = "ADRV9364-Z7020 ADAU1761";
 			simple-audio-card,widgets =
 				"Microphone", "Mic In",
 				"Headphone", "Headphone Out",
