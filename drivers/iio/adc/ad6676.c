@@ -18,6 +18,7 @@
 #include <linux/of.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
+#include <linux/math64.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -202,8 +203,8 @@ static u32 ad6676_get_fif(struct axiadc_converter *conv)
 	mix1 = mix1 * pdata->base.f_adc_hz;
 	mix2 = mix2 * pdata->base.f_adc_hz;
 
-	do_div(mix1, 64);
-	do_div(mix2, phy->m);
+	div_s64(mix1, 64);
+	div_s64(mix2, phy->m);
 
 	return mix1 + mix2;
 }
