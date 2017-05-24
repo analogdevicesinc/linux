@@ -1,0 +1,17 @@
+* IMX8QM/QXP SoC Temperature Sensor
+
+Required properties:
+- compatible :
+- "nxp,imx8qm-sc-tsens"
+- "nxp,imx8qxp-sc-tsens"
+
+- reg: Address range of the thermal registers
+- #thermal-sensor-cells : Should be 1. See ./thermal.txt for a description.
+- tsens-num: the number of temp sensor on this SOC.
+
+Example:
+tsens: thermal-sensor@ {
+		compatible = "nxp,imx8qm-sc-tsens";
+		tsens-num = <5>;
+		#thermal-sensor-cells = <1>;
+};
