@@ -740,7 +740,6 @@ static long ad9528_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	struct iio_dev *indio_dev = to_ad9528_clk_output(hw)->indio_dev;
 	struct ad9528_state *st = iio_priv(indio_dev);
 	unsigned long clk, tmp;
-	unsigned channel = to_ad9528_clk_output(hw)->num;
 
 	if (!rate)
 		return 0;
