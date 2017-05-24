@@ -14,7 +14,7 @@
 
 		a10gx_base_sys_cpu: cpu@0x0 {
 			device_type = "cpu";
-			compatible = "altr,nios2-15.1", "altr,nios2-1.1";
+			compatible = "altr,nios2-16.0", "altr,nios2-1.1";
 			reg = <0x00000000>;
 			interrupt-controller;
 			#interrupt-cells = <1>;
@@ -87,7 +87,6 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				phy0: ethernet-phy@0 {
-					//compatible = "marvell,88e1111";
 					reg = <0>;
 					device_type = "ethernet-phy";
 				};
@@ -275,50 +274,9 @@
 			};
 		};
 
-		rx_dma: rx-dmac@0x28000 {
+		rx_dma: rx-dmac@0x10060000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x10034000 0x00004000>;
-			#dma-cells = <1>;
-			interrupt-parent = <&a10gx_base_sys_cpu>;
-			interrupts = <10>;
-			clocks = <&axi_dmac_clk>;
-			clock-names = "axi_dmac_clkin";
-
-			dma-channel {
-				adi,source-bus-width = <64>;
-				adi,destination-bus-width = <256>;
-				adi,type = <0>;
-			};
-		};
-
-		axi_ad9371_core_rx: axi-ad9371-rx-hpc@0x40000 {
-			compatible = "adi,axi-ad9371-rx-1.0";
-			reg = <0x10000000 0x8000>;
-			dmas = <&rx_dma 0>;
-			dma-names = "rx";
-			spibus-connected = <&trx0_ad9371>;
-		};
-
-		xcvr_core: xcvr_core@0x1003e400 {
-			compatible = "adi,altera-xcvr-1.00.a";
-			reg = <0x10040000 0x00010000>,
-				<0x10050000 0x00004000>,
-				<0x1003c000 0x00001000>;
-			reg-names = "jesd-xcvr", "xcvr-reconfig-avmm", "xcvr-atx-pll";
-			adi,external-sysref-enable;
-			adi,delay-work-function-seconds = <30>;
-			adi,rx-enable;
-			adi,rx-link-number = <0>;
-			adi,rx-lanes-per-link = <2>;
-			adi,tx-enable;
-			adi,tx-reconfig-avmm-enable;
-			adi,tx-link-number = <0>;
-			adi,tx-lanes-per-link = <4>;
-		};
-
-		rx_obs_dma: rx-obs-dmac@0x10500000 {
-			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x10500000 0x00004000>;
+			reg = <0x10060000 0x00004000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&a10gx_base_sys_cpu>;
 			interrupts = <12>;
@@ -330,32 +288,85 @@
 				adi,destination-bus-width = <256>;
 				adi,type = <0>;
 			};
+		};
+
+		axi_ad9371_core_rx: axi-ad9371-rx-hpc@0x10080000 {
+			compatible = "adi,axi-ad9371-rx-2.0";
+			reg = <0x10080000 0x8000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&trx0_ad9371>;
+		};
+
+
+		axi_ad9371_tx_xcvr: axi-ad9371-tx-xcvr@0x10020000 {
+			compatible = "adi,altera-adxcvr-1.00.a";
+			reg = <0x10020000 0x00010000>,
+				<0x1001a000 0x00001000>,
+				<0x10010000 0x00001000>,
+				<0x10012000 0x00001000>,
+				<0x10014000 0x00001000>,
+				<0x10016000 0x00001000>;
+			reg-names = "adxcvr", "atx-pll", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
+			adi,delay-work-seconds = <60>;
+			adi,tx-enable;
+			adi,link-number = <0>;
+			adi,lanes-per-link = <4>;
+		};
+
+		axi_ad9371_rx_xcvr: axi-ad9371-rx-xcvr@0x10030000 {
+			compatible = "adi,altera-adxcvr-1.00.a";
+			reg = <0x10030000 0x00010000>,
+				<0x10011000 0x00001000>,
+				<0x10013000 0x00001000>;
+			reg-names = "adxcvr", "adxcfg-0", "adxcfg-1";
+			adi,delay-work-seconds = <60>;
+			adi,rx-enable;
+			adi,link-number = <0>;
+			adi,lanes-per-link = <2>;
+		};
+
+		axi_ad9371_rx_os_xcvr: axi-ad9371-rx-os-xcvr@0x10040000 {
+			compatible = "adi,altera-adxcvr-1.00.a";
+			reg = <0x10040000 0x00010000>,
+				<0x10015000 0x00001000>,
+				<0x10017000 0x00001000>;
+			reg-names = "adxcvr", "adxcfg-0", "adxcfg-1";
+			adi,delay-work-seconds = <60>;
+			adi,rx-enable;
+			adi,link-number = <0>;
+			adi,lanes-per-link = <2>;
+		};
+
+		rx_obs_dma: rx-obs-dmac@0x10070000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x10070000 0x00004000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupts = <13>;
+			clocks = <&axi_dmac_clk>;
+			clock-names = "axi_dmac_clkin";
+
+			dma-channel {
+				adi,source-bus-width = <64>;
+				adi,destination-bus-width = <256>;
+				adi,type = <0>;
+			};
 
 		};
 
-		axi_ad9371_core_rx_obs: axi-ad9371-rx-obs-hpc@0x40000 {
+		axi_ad9371_core_rx_obs: axi-ad9371-rx-obs-hpc@0x10088000 {
 			compatible = "adi,axi-ad9371-obs-1.0";
-			reg = <0x10008000 0x1000>;
+			reg = <0x10088000 0x1000>;
 			dmas = <&rx_obs_dma 0>;
 			dma-names = "rx";
 			clocks = <&trx0_ad9371 1>;
 			clock-names = "sampl_clk";
 		};
 
-		xcvr_rx_os_core: xcvr_rx_os_core@0x1013e400 {
-			compatible = "adi,altera-xcvr-1.00.a";
-			reg = <0x10020000 0x00010000>;
-			reg-names = "jesd-xcvr";
-			adi,external-sysref-enable;
-			adi,delay-work-function-seconds = <30>;
-			adi,rx-enable;
-			adi,rx-link-number = <0>;
-			adi,rx-lanes-per-link = <2>;
-		};
-
-		tx_dma: tx-dmac@0x10010000 {
+		tx_dma: tx-dmac@0x10050000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x10010000 0x00004000>;
+			reg = <0x10050000 0x00004000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&a10gx_base_sys_cpu>;
 			interrupts = <11>;
@@ -370,9 +381,9 @@
 			};
 		};
 
-		axi_ad9371_core_tx: axi-ad9371-tx-hpc@44a04000 {
-			compatible = "adi,axi-ad9371-tx-1.0";
-			reg = <0x10004000 0x4000>;
+		axi_ad9371_core_tx: axi-ad9371-tx-hpc@0x10084000 {
+			compatible = "adi,axi-ad9371-tx-2.0";
+			reg = <0x10084000 0x4000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			clocks = <&trx0_ad9371 2>;
