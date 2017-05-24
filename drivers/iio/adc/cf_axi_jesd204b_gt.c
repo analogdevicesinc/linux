@@ -727,7 +727,6 @@ static long jesd204b_gt_rxcdr_settings(struct jesd204b_gt_state *st,
 			u32 rxout_div)
 {
 	u16 cfg0, cfg1, cfg2, cfg3, cfg4;
-	u32 dest;
 
 	if (gt_link->tx_offset) {
 		return 0; /* Do Nothing */
