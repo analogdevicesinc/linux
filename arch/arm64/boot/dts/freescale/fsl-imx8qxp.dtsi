@@ -632,6 +632,33 @@
 			};
 		};
 
+		pd_mipi_dsi1: PD_MIPI_1_DSI {
+			compatible = "nxp,imx8-pd";
+			reg = <SC_R_MIPI_1>;
+			#power-domain-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pd_mipi_dsi_1_i2c0: PD_MIPI_1_DSI_I2C0 {
+				name = "mipi1_dsi_i2c0";
+				reg = <SC_R_MIPI_1_I2C_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_mipi_dsi1>;
+			};
+			pd_mipi_dsi_1_i2c1: PD_MIPI_1_DSI_I2C1 {
+				name = "mipi1_dsi_i2c1";
+				reg = <SC_R_MIPI_1_I2C_1>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_mipi_dsi1>;
+			};
+			pd_mipi_1_pwm0: PD_MIPI_1_DSI_PWM0 {
+				name = "mipi1_dsi_pwm0";
+				reg = <SC_R_MIPI_1_PWM_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_mipi_dsi1>;
+			};
+		};
+
 		pd_isi_ch0: PD_ISI_CH0 {
 			compatible = "nxp,imx8-pd";
 			reg = <SC_R_ISI_CH0>;
