@@ -96,6 +96,9 @@ i.mx specific properties
 - osc-clkgate-delay: the delay between powering up the xtal 24MHz clock
   and release the clock to the digital logic inside the analog block,
   0 <= osc-clkgate-delay <= 7.
+- power-polarity-active-high: add this property if port power function of ehci
+  is used to enable vbus, and the vbus power supply chip enable signal is high
+  active.
 
 Examples:
 
