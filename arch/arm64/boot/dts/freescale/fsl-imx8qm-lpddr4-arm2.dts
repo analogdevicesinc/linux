@@ -92,6 +92,22 @@
 			>;
 		};
 
+		pinctrl_lpuart1: lpuart1grp {
+			fsl,pins = <
+				SC_P_UART1_RX_DMA_UART1_RX		0x0600004c
+				SC_P_UART1_TX_DMA_UART1_TX		0x0600004c
+				SC_P_UART1_CTS_B_DMA_UART1_CTS_B	0x0600004c
+				SC_P_UART1_RTS_B_DMA_UART1_RTS_B	0x0600004c
+			>;
+		};
+
+		pinctrl_lpuart3: lpuart3grp {
+			fsl,pins = <
+				SC_P_M41_GPIO0_00_DMA_UART3_RX		0x0600004c
+				SC_P_M41_GPIO0_01_DMA_UART3_TX		0x0600004c
+			>;
+		};
+
 		pinctrl_usdhc1: usdhc1grp {
 			fsl,pins = <
 				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000021
@@ -315,13 +331,21 @@
 	};
 };
 
-&lpuart0 {
+&lpuart0 { /* console */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart0>;
 	status = "okay";
 };
 
-&lpuart1 {
+&lpuart1 { /* BT */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart1>;
+	status = "okay";
+};
+
+&lpuart3 { /* GPS */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart3>;
 	status = "okay";
 };
 
