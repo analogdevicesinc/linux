@@ -200,7 +200,6 @@
 				"Headphone Out", "RHP",
 				"Mic In", "MICBIAS",
 				"LINN", "Mic In";
-
 			simple-audio-card,dai-link@0 {
 				format = "i2s";
 				cpu {

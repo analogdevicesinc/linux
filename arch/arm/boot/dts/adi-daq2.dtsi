@@ -112,7 +112,7 @@
 		spi-cpol;
 		spi-cpha;
 		spi-max-frequency = <1000000>;
-		clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 8>;
+		clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 8>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
 
 		adi,jesd-xbar-lane0-sel = <2>;
@@ -129,7 +129,7 @@
 		spi-max-frequency = <1000000>;
 		spi-cpol;
 		spi-cpha;
-		clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 5>;
+		clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 5>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
 };

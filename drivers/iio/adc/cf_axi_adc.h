@@ -170,6 +170,7 @@ enum adc_data_sel {
 #define AXIADC_MAX_CHANNEL		16
 
 #include <linux/spi/spi.h>
+#include <linux/clk/clkscale.h>
 
 struct axiadc_chip_info {
 	char				*name;
@@ -186,6 +187,7 @@ struct axiadc_chip_info {
 struct axiadc_state {
 	struct device 			*dev_spi;
 	struct iio_info			iio_info;
+	struct clk 			*clk;
 	void __iomem			*regs;
 	void __iomem			*slave_regs;
 	unsigned				max_usr_channel;
@@ -195,7 +197,7 @@ struct axiadc_state {
 	unsigned			pcore_version;
 	unsigned			decimation_factor;
 	bool				dp_disable;
-	unsigned long 			adc_clk;
+	unsigned long long		adc_clk;
 	unsigned			have_slave_channels;
 
 	struct iio_hw_consumer		*frontend;
@@ -206,6 +208,7 @@ struct axiadc_state {
 struct axiadc_converter {
 	struct spi_device 	*spi;
 	struct clk 		*clk;
+	struct clock_scale		adc_clkscale;
 	void 			*phy;
 	struct gpio_desc		*pwrdown_gpio;
 	struct gpio_desc		*reset_gpio;
@@ -220,8 +223,7 @@ struct axiadc_converter {
 
 	int (*reg_access)(struct iio_dev *indio_dev, unsigned int reg,
 		unsigned int writeval, unsigned int *readval);
-
-	int		(*setup)(struct spi_device *spi, unsigned mode);
+	int (*setup)(struct spi_device *spi, unsigned mode);
 
 	struct iio_chan_spec const	*channels;
 	int				num_channels;
