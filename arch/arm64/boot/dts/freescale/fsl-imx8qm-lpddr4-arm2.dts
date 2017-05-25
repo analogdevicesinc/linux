@@ -83,6 +83,20 @@
 			>;
 		};
 
+		pinctrl_hdmi_lpi2c0: hdmilpi2c0grp {
+			fsl,pins = <
+				SC_P_HDMI_TX0_TS_SCL_HDMI_TX0_I2C0_SCL  0xc600004c
+				SC_P_HDMI_TX0_TS_SDA_HDMI_TX0_I2C0_SDA  0xc600004c
+			>;
+		};
+
+		pinctrl_lpi2c1: lpi2c1grp {
+			fsl,pins = <
+				SC_P_GPT0_CLK_DMA_I2C1_SCL              0xc600004c
+				SC_P_GPT0_CAPTURE_DMA_I2C1_SDA          0xc600004c
+			>;
+		};
+
 		pinctrl_lpuart0: lpuart0grp {
 			fsl,pins = <
 				SC_P_UART0_RX_DMA_UART0_RX		0x0600004c
@@ -285,10 +299,50 @@
 	};
 };
 
+&i2c0_hdmi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hdmi_lpi2c0>;
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
 &i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c1>;
 	status = "okay";
+
+	pca9557_a: gpio@18 {
+		compatible = "nxp,pca9557";
+		reg = <0x18>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	pca9557_b: gpio@19 {
+		compatible = "nxp,pca9557";
+		reg = <0x19>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	pca9557_c: gpio@1b {
+		compatible = "nxp,pca9557";
+		reg = <0x1b>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	pca9557_d: gpio@1f {
+		compatible = "nxp,pca9557";
+		reg = <0x1f>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &i2c1_lvds0 {

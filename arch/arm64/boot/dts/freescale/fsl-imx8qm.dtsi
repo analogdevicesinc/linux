@@ -155,6 +155,21 @@
 					power-domains =<&pd_lvds0>;
 				};
 			};
+
+			pd_hdmi: PD_HDMI {
+				reg = <SC_R_HDMI>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_dc0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_hdmi_i2c0: PD_HDMI_I2C_0 {
+					reg = <SC_R_HDMI_I2C_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_hdmi>;
+				};
+			};
+
 		};
 
 		pd_dc1: PD_DC_1 {
@@ -773,6 +788,7 @@
 		clock-names = "per";
 		assigned-clocks = <&clk IMX8QM_I2C1_CLK>;
 		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_dma_lpi2c1>;
 		status = "disabled";
 	};
 
@@ -812,6 +828,29 @@
 		assigned-clocks = <&clk IMX8QM_I2C4_CLK>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd_dma_lpi2c4>;
+		status = "disabled";
+	};
+
+	irqsteer_hdmi: irqsteer@56260000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x56260000 0x0 0x1000>;
+		interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		power-domains = <&pd_hdmi_i2c0>;
+	};
+
+	i2c0_hdmi: i2c@56266000 {
+		compatible = "fsl,imx8dv-lpi2c";
+		reg = <0x0 0x56266000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_hdmi>;
+		clocks = <&clk IMX8QM_HDMI_I2C0_CLK>;
+		clock-names = "per";
+		assigned-clocks = <&clk IMX8QM_HDMI_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_hdmi_i2c0>;
 		status = "disabled";
 	};
 
