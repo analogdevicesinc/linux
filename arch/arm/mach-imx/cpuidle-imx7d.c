@@ -105,10 +105,10 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 		atomic_dec(&master_wait);
 		imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
 	} else {
-		imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
 		cpu_pm_enter();
 		if (atomic_inc_return(&master_lpi) == num_online_cpus() &&
 			cpuidle_pm_info->last_cpu == -1) {
+			imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
 			imx_gpcv2_set_cpu_power_gate_in_idle(true);
 			cpu_cluster_pm_enter();
 
