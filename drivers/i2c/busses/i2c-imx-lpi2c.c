@@ -107,7 +107,8 @@ enum lpi2c_imx_pincfg {
 
 struct lpi2c_imx_struct {
 	struct i2c_adapter	adapter;
-	struct clk		*clk;
+	struct clk		*clk_per;
+	struct clk		*clk_ipg;
 	void __iomem		*base;
 	__u8			*rx_buf;
 	__u8			*tx_buf;
@@ -222,7 +223,7 @@ static int lpi2c_imx_config(struct lpi2c_imx_struct *lpi2c_imx)
 
 	lpi2c_imx_set_mode(lpi2c_imx);
 
-	clk_rate = clk_get_rate(lpi2c_imx->clk);
+	clk_rate = clk_get_rate(lpi2c_imx->clk_per);
 	if (lpi2c_imx->mode == HS || lpi2c_imx->mode == ULTRA_FAST)
 		filt = 0;
 	else
@@ -274,9 +275,15 @@ static int lpi2c_imx_master_enable(struct lpi2c_imx_struct *lpi2c_imx)
 	unsigned int temp;
 	int ret;
 
-	ret = clk_enable(lpi2c_imx->clk);
+	ret = clk_enable(lpi2c_imx->clk_ipg);
 	if (ret)
 		return ret;
+
+	ret = clk_enable(lpi2c_imx->clk_per);
+	if (ret) {
+		clk_disable(lpi2c_imx->clk_ipg);
+		return ret;
+	}
 
 	temp = MCR_RST;
 	writel(temp, lpi2c_imx->base + LPI2C_MCR);
@@ -293,7 +300,8 @@ static int lpi2c_imx_master_enable(struct lpi2c_imx_struct *lpi2c_imx)
 	return 0;
 
 clk_disable:
-	clk_disable(lpi2c_imx->clk);
+	clk_disable(lpi2c_imx->clk_per);
+	clk_disable(lpi2c_imx->clk_ipg);
 
 	return ret;
 }
@@ -306,7 +314,8 @@ static int lpi2c_imx_master_disable(struct lpi2c_imx_struct *lpi2c_imx)
 	temp &= ~MCR_MEN;
 	writel(temp, lpi2c_imx->base + LPI2C_MCR);
 
-	clk_disable(lpi2c_imx->clk);
+	clk_disable(lpi2c_imx->clk_per);
+	clk_disable(lpi2c_imx->clk_ipg);
 
 	return 0;
 }
@@ -581,10 +590,16 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	strlcpy(lpi2c_imx->adapter.name, pdev->name,
 		sizeof(lpi2c_imx->adapter.name));
 
-	lpi2c_imx->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(lpi2c_imx->clk)) {
+	lpi2c_imx->clk_per = devm_clk_get(&pdev->dev, "per");
+	if (IS_ERR(lpi2c_imx->clk_per)) {
 		dev_err(&pdev->dev, "can't get I2C peripheral clock\n");
-		return PTR_ERR(lpi2c_imx->clk);
+		return PTR_ERR(lpi2c_imx->clk_per);
+	}
+
+	lpi2c_imx->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(lpi2c_imx->clk_ipg)) {
+		dev_err(&pdev->dev, "can't get I2C ipg clock\n");
+		return PTR_ERR(lpi2c_imx->clk_ipg);
 	}
 
 	ret = of_property_read_u32(pdev->dev.of_node,
@@ -602,9 +617,16 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	i2c_set_adapdata(&lpi2c_imx->adapter, lpi2c_imx);
 	platform_set_drvdata(pdev, lpi2c_imx);
 
-	ret = clk_prepare_enable(lpi2c_imx->clk);
+	ret = clk_prepare_enable(lpi2c_imx->clk_per);
 	if (ret) {
-		dev_err(&pdev->dev, "clk enable failed %d\n", ret);
+		dev_err(&pdev->dev, "clk prepare enable failed %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare(lpi2c_imx->clk_ipg);
+	if (ret) {
+		clk_disable_unprepare(lpi2c_imx->clk_per);
+		dev_err(&pdev->dev, "clk prepare failed %d\n", ret);
 		return ret;
 	}
 
@@ -612,7 +634,7 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	lpi2c_imx->txfifosize = 1 << (temp & 0x0f);
 	lpi2c_imx->rxfifosize = 1 << ((temp >> 8) & 0x0f);
 
-	clk_disable(lpi2c_imx->clk);
+	clk_disable(lpi2c_imx->clk_per);
 
 	ret = i2c_add_adapter(&lpi2c_imx->adapter);
 	if (ret)
@@ -623,7 +645,8 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	return 0;
 
 clk_unprepare:
-	clk_unprepare(lpi2c_imx->clk);
+	clk_unprepare(lpi2c_imx->clk_ipg);
+	clk_unprepare(lpi2c_imx->clk_per);
 
 	return ret;
 }
@@ -634,7 +657,8 @@ static int lpi2c_imx_remove(struct platform_device *pdev)
 
 	i2c_del_adapter(&lpi2c_imx->adapter);
 
-	clk_unprepare(lpi2c_imx->clk);
+	clk_unprepare(lpi2c_imx->clk_ipg);
+	clk_unprepare(lpi2c_imx->clk_per);
 
 	return 0;
 }
