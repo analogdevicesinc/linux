@@ -860,12 +860,21 @@
 		status = "disabled";
 	};
 
+	irqsteer_lvds0: irqsteer@562400000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x56240000 0x0 0x1000>;
+		interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		power-domains = <&pd_lvds0>;
+	};
+
 	i2c1_lvds0: i2c@56247000 {
 		compatible = "fsl,imx8qm-lpi2c";
 		reg = <0x0 0x56247000 0x0 0x1000>;
-		interrupts = <0 57 4>;
-		fsl,irq-steer = <0x56240000>;
-		fsl,irq-num = <0x200>;
+		interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_lvds0>;
 		clocks = <&clk IMX8QM_LVDS0_I2C0_CLK>,
 			 <&clk IMX8QM_LVDS0_I2C0_IPG_CLK>;
 		clock-names = "per", "ipg";
@@ -875,12 +884,21 @@
 		status = "disabled";
 	};
 
+	irqsteer_lvds1: irqsteer@572400000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x57240000 0x0 0x1000>;
+		interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		power-domains = <&pd_lvds1>;
+	};
+
 	i2c1_lvds1: i2c@57247000 {
 		compatible = "fsl,imx8qm-lpi2c";
 		reg = <0x0 0x57247000 0x0 0x1000>;
-		interrupts = <0 58 4>;
-		fsl,irq-steer = <0x57240000>;
-		fsl,irq-num = <0x200>;
+		interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_lvds1>;
 		clocks = <&clk IMX8QM_LVDS1_I2C0_CLK>,
 			 <&clk IMX8QM_LVDS1_I2C0_IPG_CLK>;
 		clock-names = "per", "ipg";
