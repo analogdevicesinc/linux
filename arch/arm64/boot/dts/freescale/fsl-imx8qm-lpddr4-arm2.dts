@@ -122,6 +122,12 @@
 			>;
 		};
 
+		pinctrl_isl29023: isl29023grp {
+			fsl,pins = <
+				SC_P_ADC_IN2_LSIO_GPIO3_IO20		0x00000021
+			>;
+		};
+
 		pinctrl_usdhc1: usdhc1grp {
 			fsl,pins = <
 				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000021
@@ -342,6 +348,31 @@
 		reg = <0x1f>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	fxas2100x@20 {
+		compatible = "fsl,fxas2100x";
+		reg = <0x20>;
+	};
+
+	fxos8700@1d {
+		compatible = "fsl,fxos8700";
+		reg = <0x1d>;
+	};
+
+	isl29023@44 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_isl29023>;
+		compatible = "fsl,isl29023";
+		reg = <0x44>;
+		rext = <499>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <20 2>;
+	};
+
+	mpl3115@60 {
+		compatible = "fsl,mpl3115";
+		reg = <0x60>;
 	};
 };
 
