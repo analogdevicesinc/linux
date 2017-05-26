@@ -982,7 +982,6 @@ static void lpuart_dma_rx_complete(void *arg)
 	struct dma_tx_state state;
 	int count;
 
-	async_tx_ack(sport->dma_rx_desc);
 	mod_timer(&sport->lpuart_timer, jiffies + sport->dma_rx_timeout);
 
 	spin_lock_irqsave(&sport->port.lock, flags);
@@ -1013,7 +1012,6 @@ static void lpuart_timer_func(unsigned long data)
 	dmaengine_tx_status(sport->dma_rx_chan, sport->dma_rx_cookie, &state);
 	dmaengine_terminate_all(sport->dma_rx_chan);
 	count = sport->rxdma_len - state.residue;
-	async_tx_ack(sport->dma_rx_desc);
 
 	spin_lock_irqsave(&sport->port.lock, flags);
 
