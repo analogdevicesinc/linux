@@ -399,7 +399,7 @@ static int jesd204b_probe(struct platform_device *pdev)
 
 	init.name = clk_name;
 	init.ops = &clkout_ops;
-	init.flags = 0;
+	init.flags = CLK_SET_RATE_PARENT;
 
 	parent_name = of_clk_get_parent_name(pdev->dev.of_node, 0);
 	init.parent_names = &parent_name;

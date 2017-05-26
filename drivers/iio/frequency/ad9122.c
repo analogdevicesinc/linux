@@ -371,7 +371,7 @@ static int ad9122_get_clks(struct cf_axi_converter *conv)
 	return 0;
 }
 
-static unsigned long ad9122_get_data_clk(struct cf_axi_converter *conv)
+static unsigned long long ad9122_get_data_clk(struct cf_axi_converter *conv)
 {
 	return clk_get_rate(conv->clk[CLK_DATA]);
 }
@@ -571,7 +571,7 @@ static int ad9122_set_interpol_fcent_freq(struct cf_axi_converter *conv,
 {
 
 	return __ad9122_set_interpol(conv, conv->interp_factor,
-		(freq * 2) / ad9122_get_data_clk(conv), 0);
+		(freq * 2) / (u32) ad9122_get_data_clk(conv), 0);
 }
 
 static unsigned long ad9122_get_interpol_freq(struct cf_axi_converter *conv)

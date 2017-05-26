@@ -1,3 +1,14 @@
+/ {
+	clocks {
+		adc_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <25000>;
+			clock-output-names = "sampl_clk";
+		};
+	};
+};
+
 &fpga_axi {
 
 	rx_dma: dma@44a300000 {
@@ -17,6 +28,8 @@
 		compatible = "adi,cn0363-adc-1.00.a";
 		reg = <0x43c00000 0x10000>;
 
+		clocks = <&adc_clkin>;
+		clock-names = "sampl_clk";
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 

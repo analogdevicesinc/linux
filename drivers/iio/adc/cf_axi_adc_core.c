@@ -36,6 +36,14 @@ struct axiadc_core_info {
 	unsigned int version;
 };
 
+static int axiadc_chan_to_regoffset(struct iio_chan_spec const *chan)
+{
+	if (chan->modified)
+		return chan->scan_index;
+
+	return chan->channel;
+}
+
 int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel)
 {
 	unsigned reg;
@@ -320,17 +328,19 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	int ret, sign;
-	unsigned tmp, phase = 0;
+	unsigned tmp, phase = 0, channel;
 	unsigned long long llval;
+
+	channel = axiadc_chan_to_regoffset(chan);
 
 	switch (m) {
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
 	case IIO_CHAN_INFO_CALIBSCALE:
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(channel));
 		/*  format is 1.1.14 (sign, integer and fractional bits) */
 
-		if (!((phase + chan->channel) % 2)) {
+		if (!((phase + channel) % 2)) {
 			tmp = ADI_TO_IQCOR_COEFF_1(tmp);
 		} else {
 			tmp = ADI_TO_IQCOR_COEFF_2(tmp);
@@ -358,7 +368,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT_PLUS_MICRO;
 
 	case IIO_CHAN_INFO_CALIBBIAS:
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(channel));
 		*val = (short)ADI_TO_DCFILT_OFFSET(tmp);
 
 		return IIO_VAL_INT;
@@ -367,13 +377,13 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		 * approx: F_cut = C * Fsample / (2 * pi)
 		 */
 
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(channel));
 		if (!(tmp & ADI_DCFILT_ENB)) {
 			*val = 0;
 			return IIO_VAL_INT;
 		}
 
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(channel));
 		llval = ADI_TO_DCFILT_COEFF(tmp) * (unsigned long long)conv->adc_clk;
 		do_div(llval, 102944); /* 2 * pi * 0x4000 */
 		*val = llval;
@@ -389,7 +399,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 
 		if (chan->extend_name) {
 			tmp = axiadc_read(st,
-				ADI_REG_CHAN_USR_CNTRL_2(chan->channel));
+				ADI_REG_CHAN_USR_CNTRL_2(channel));
 
 			llval = ADI_TO_USR_DECIMATION_M(tmp) * conv->adc_clk;
 			do_div(llval, ADI_TO_USR_DECIMATION_N(tmp));
@@ -416,8 +426,10 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
-	unsigned fract, tmp, phase = 0;
+	unsigned fract, tmp, phase = 0, channel;
 	unsigned long long llval;
+
+	channel = axiadc_chan_to_regoffset(chan);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBPHASE:
@@ -446,9 +458,9 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		do_div(llval, 1000000UL);
 		fract |= llval;
 
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(channel));
 
-		if (!((chan->channel + phase) % 2)) {
+		if (!((channel + phase) % 2)) {
 			tmp &= ~ADI_IQCOR_COEFF_1(~0);
 			tmp |= ADI_IQCOR_COEFF_1(fract);
 		} else {
@@ -456,7 +468,7 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			tmp |= ADI_IQCOR_COEFF_2(fract);
 		}
 
-		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(chan->channel), tmp);
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(channel), tmp);
 
 		axiadc_toggle_scale_offset_en(st);
 
@@ -467,11 +479,11 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		 * approx: C = 2 * pi * F_cut / Fsample
 		 */
 
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(channel));
 
 		if (val == 0 && val2 == 0) {
 			tmp &= ~ADI_DCFILT_ENB;
-			axiadc_write(st, ADI_REG_CHAN_CNTRL(chan->channel), tmp);
+			axiadc_write(st, ADI_REG_CHAN_CNTRL(channel), tmp);
 			return 0;
 		}
 
@@ -480,18 +492,18 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		llval = 102944ULL * val; /* 2 * pi * 0x4000 * val */
 		do_div(llval, conv->adc_clk);
 
-		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(chan->channel),
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(channel),
 			     ADI_DCFILT_COEFF(clamp_t(unsigned short, llval, 1, 0x4000)));
-		axiadc_write(st, ADI_REG_CHAN_CNTRL(chan->channel), tmp);
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(channel), tmp);
 
 		return 0;
 
 	case IIO_CHAN_INFO_CALIBBIAS:
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(channel));
 		tmp &= ~ADI_DCFILT_OFFSET(~0);
 		tmp |= ADI_DCFILT_OFFSET((short)val);
 
-		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(chan->channel), tmp);
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(channel), tmp);
 		axiadc_toggle_scale_offset_en(st);
 		return 0;
 
@@ -686,6 +698,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-ad9680-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9625-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad6676-1.0", .data = &ad9680_6_00_a_info },
+	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
 	{ .compatible = "adi,axi-ad9684-1.0", .data = &ad9680_6_00_a_info },
 	{ /* end of list */ },
 };
