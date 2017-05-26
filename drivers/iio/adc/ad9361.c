@@ -3538,10 +3538,10 @@ static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy,
 
 static int ad9361_get_temp(struct ad9361_rf_phy *phy)
 {
-	u32 val;
+	s32 val;
 
 	ad9361_spi_writef(phy->spi, REG_AUXADC_CONFIG, AUXADC_POWER_DOWN, 1);
-	val = ad9361_spi_read(phy->spi, REG_TEMPERATURE);
+	val = (s8) ad9361_spi_read(phy->spi, REG_TEMPERATURE);
 	ad9361_spi_writef(phy->spi, REG_AUXADC_CONFIG, AUXADC_POWER_DOWN, 0);
 
 	return DIV_ROUND_CLOSEST(val * 1000000, 1140);
