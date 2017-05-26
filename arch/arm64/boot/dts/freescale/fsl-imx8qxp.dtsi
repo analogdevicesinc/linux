@@ -16,6 +16,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "fsl-imx8-ca35.dtsi"
 #include <dt-bindings/soc/imx_rsrc.h>
+#include <dt-bindings/soc/imx8_hsio.h>
 #include <dt-bindings/soc/imx8_pd.h>
 #include <dt-bindings/clock/imx8qxp-clock.h>
 #include <dt-bindings/pinctrl/pads-imx8qxp.h>
@@ -584,9 +585,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_pcie: hsio-pcie-pd {
-				name = "hsio-pcie-pd";
-				reg = <SC_R_PCIE_A>;
+			pd_pcie: PD_HSIO_PCIE_B {
+				reg = <SC_R_PCIE_B>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_hsio>;
 			};
@@ -1398,6 +1398,60 @@
 	display-subsystem {
 		compatible = "fsl,imx-display-subsystem";
 		ports = <&dpu_disp0>, <&dpu_disp1>;
+	};
+
+	dma_cap: dma_cap {
+		compatible = "dma-capability";
+		only-dma-mask32 = <1>;
+	};
+
+	hsio: hsio@5f080000 {
+		compatible = "fsl,imx8qm-hsio", "syscon";
+		reg = <0x0 0x5f080000 0x0 0xF0000>; /* lpcg, csr, msic, gpio */
+	};
+
+	pcieb: pcie@0x5f010000 {
+		/*
+		 * pcieb phyx1 lane1 in default, adjust it refer to the
+		 * exact hw design.
+		 */
+		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
+		reg = <0x0 0x5f010000 0x0 0x10000>, /* Controller reg*/
+		      <0x0 0x7ff00000 0x0 0x10000>; /* PCI cfg space */
+		reg-names = "dbi", "config";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x81000000 0 0x00000000 0x0 0x7ff80000 0 0x00010000 /* downstream I/O */
+			  0x82000000 0 0x70000000 0x0 0x70000000 0 0x0ff00000>; /* non-prefetchable memory */
+		num-lanes = <1>;
+
+		#interrupt-cells = <1>;
+		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "msi";
+
+		/*
+		 * Set these clocks in default, then clocks should be
+		 * refined for exact hw design of imx8 pcie.
+		 */
+		clocks = <&clk IMX8QXP_HSIO_PCIE_MSTR_AXI_CLK>,
+			 <&clk IMX8QXP_HSIO_PCIE_SLV_AXI_CLK>,
+			 <&clk IMX8QXP_HSIO_PHY_X1_PCLK>,
+			 <&clk IMX8QXP_HSIO_PCIE_DBI_AXI_CLK>;
+		clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_inbound_axi";
+
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map =  <0 0 0 1 &gic 0 105 4>,
+				 <0 0 0 2 &gic 0 106 4>,
+				 <0 0 0 3 &gic 0 107 4>,
+				 <0 0 0 4 &gic 0 108 4>;
+		power-domains = <&pd_pcie>;
+		fsl,max-link-speed = <3>;
+		hsio-cfg = <PCIEAX2PCIEBX1>;
+		hsio = <&hsio>;
+		ctrl-id = <1>; /* pcieb */
+		cpu-base-addr = <0x80000000>;
+		status = "disabled";
 	};
 };
 

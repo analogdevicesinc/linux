@@ -281,6 +281,14 @@
 				SC_P_USDHC1_CD_B_LSIO_GPIO4_IO22	0x06000021
 			>;
 		};
+
+		pinctrl_pcieb: pcieagrp{
+			fsl,pins = <
+				SC_P_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO00		0x06000021
+				SC_P_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO01	0x06000021
+				SC_P_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO02		0x06000021
+			>;
+		};
 	};
 };
 
@@ -417,5 +425,13 @@
 };
 
 &dpu1 {
+	status = "okay";
+};
+
+&pcieb{
+	ext_osc = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcieb>;
+	reset-gpio = <&gpio4 0 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };

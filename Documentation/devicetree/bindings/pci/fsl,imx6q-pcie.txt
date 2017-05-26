@@ -9,6 +9,7 @@ Required properties:
 	- "fsl,imx6sx-pcie",
 	- "fsl,imx6qp-pcie"
 	- "fsl,imx7d-pcie"
+	- "fsl,imx8qm-pcie"
 - reg: base address and length of the PCIe controller
 - interrupts: A list of interrupt outputs of the controller. Must contain an
   entry for each entry in the interrupt-names property.
@@ -50,6 +51,23 @@ Additional required properties for imx7d-pcie:
 - reset-names: Must contain the following entires:
 	       - "pciephy"
 	       - "apps"
+
+Additional required properties for imx8 pcie:
+- hsio : should be <&hsio>.
+   The phandle points to the hsio region containing the hsio
+   such as the pcie and sata control registers.
+- hsio-cfg: hsio configration mode when the pcie node is supported.
+  mode 1: pciea 2 lanes and one sata ahci port.
+  mode 2: pciea 1 lane, pcieb 1 lane and one sata ahci port.
+  mode 3: pciea 2 lanes, pcieb 1 lane.
+- ctrl-id: used to distinguish pciea or pcieb.
+  0: pciea, 1: pcieb.
+- cpu-base-addr: the base cpu address mapped from hsio address.
+	Example:
+		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
+		hsio = <&hsio>;
+		ctrl-id = <0>; /* pciea */
+		cpu-base-addr = <0x40000000>;
 
 Example:
 

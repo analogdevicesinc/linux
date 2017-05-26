@@ -46,3 +46,18 @@ Example:
 		dma-names = "rx-tx";
 		...
 	};
+
+* DMA capability limitation
+
+Specify the DMA capability limitations.
+For example, some SoCs only support up to 32bit DMA capability, although
+they are 64bit SoCs.
+
+- only-dma-mask32: 1 means that the SoCs only suppot up to 32bit DMA
+  capability.
+
+Example:
+	dma_cap: dma_cap {
+		compatible = "dma-capability";
+		only-dma-mask32 = <1>;
+	};
