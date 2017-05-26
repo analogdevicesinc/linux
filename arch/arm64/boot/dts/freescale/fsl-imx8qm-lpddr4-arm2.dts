@@ -486,3 +486,15 @@
 	>;
 	clocks = <&clk IMX8QM_A72_DIV>;
 };
+
+&gpu_3d0 {
+	status = "okay";
+};
+
+&gpu_3d1 {
+	status = "okay";
+};
+
+&imx8_gpu_ss {
+	status = "okay";
+};

@@ -253,3 +253,11 @@
 	vmmc-supply = <&reg_sd1_vmmc>;
 	status = "okay";
 };
+
+&gpu_3d0 {
+	status = "okay";
+};
+
+&imx8_gpu_ss {
+	status = "okay";
+};
