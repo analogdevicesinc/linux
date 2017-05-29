@@ -128,7 +128,14 @@
 		adi,sys-clk-select = <0>;
 		adi,out-clk-select = <2>;
 		adi,use-cpll-enable;
+	};
+};
 
-		sysref-gpios = <&gpio0 88 0>;
+&gpio0 {
+	sysref_enable {
+		gpio-hog;
+		gpios = <88 0>;
+		output-high;
+		line-name = "sysref-enable";
 	};
 };
