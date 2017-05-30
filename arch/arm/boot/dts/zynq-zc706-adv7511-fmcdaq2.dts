@@ -117,8 +117,8 @@
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = < 0x44a50000 0x1000 >;
 		#clock-cells = <0>;
-		clocks = <&clk0_ad9523 4>, <&clk0_ad9523 6>;//, <&clk0_ad9523 4>;
-		clock-names = "conv", "sysref";
+		clocks = <&clk0_ad9523 4>;//, <&clk0_ad9523 4>;
+		clock-names = "conv";
 		clock-output-names = "adc_gt_clk";
 		adi,sys-clk-select = <0>;
 		adi,out-clk-select = <4>;
@@ -132,8 +132,8 @@
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = < 0x44a60000 0x1000 >;
 		#clock-cells = <0>;
-		clocks = <&clk0_ad9523 9>, <&clk0_ad9523 7>;//, <&clk0_ad9523 9>;
-		clock-names = "conv", "sysref";
+		clocks = <&clk0_ad9523 9>;//, <&clk0_ad9523 9>;
+		clock-names = "conv";
 		clock-output-names = "dac_gt_clk";
 		adi,link-is-transmit-enable;
 		adi,sys-clk-select = <3>;

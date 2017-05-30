@@ -186,8 +186,8 @@
 		reg = <0x44a60000 0x1000>;
 
 		#clock-cells = <0>;
-		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_rx_clkgen 0>;
-		clock-names = "conv", "sysref", "div40";
+		clocks = <&clk0_ad9528 1>, <&axi_rx_clkgen 0>;
+		clock-names = "conv", "div40";
 		clock-output-names = "rx_gt_clk";
 		adi,sys-clk-select = <0>;
 		adi,out-clk-select = <3>;
@@ -202,8 +202,8 @@
 		reg = <0x44a70000 0x1000>;
 
 		#clock-cells = <0>;
-		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_rx_os_clkgen 0>;
-		clock-names = "conv", "sysref", "div40";
+		clocks = <&clk0_ad9528 1>, <&axi_rx_os_clkgen 0>;
+		clock-names = "conv", "div40";
 		clock-output-names = "rx_os_gt_clk";
 		adi,sys-clk-select = <0>;
 		adi,out-clk-select = <3>;
@@ -218,8 +218,8 @@
 		reg = <0x44a80000 0x1000>;
 
 		#clock-cells = <0>;
-		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_tx_clkgen 0>;
-		clock-names = "conv", "sysref", "div40";
+		clocks = <&clk0_ad9528 1>, <&axi_tx_clkgen 0>;
+		clock-names = "conv", "div40";
 		clock-output-names = "tx_gt_clk";
 		adi,link-is-transmit-enable;
 		adi,sys-clk-select = <3>;

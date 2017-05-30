@@ -184,7 +184,6 @@ struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*regs;
 	struct clk			*conv_clk;
-	struct clk			*sysref_clk;
 	struct clk			*lane_rate_div40_clk;
 	struct clk_hw		out_clk_hw;
 	bool				out_clk_enabled;
@@ -986,15 +985,6 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 static int adxcvr_parse_dt(struct adxcvr_state *st,
 						   struct device_node *np)
 {
-	int ret;
-
-	st->sysref_clk = of_clk_get_by_name(np, "sysref");
-	if (!IS_ERR(st->sysref_clk)) {
-		ret = clk_prepare_enable(st->sysref_clk);
-		if (ret < 0)
-			return ret;
-	}
-
 	st->gth_enable =
 		of_property_read_bool(np, "adi,transceiver-gth-enable");
 	st->tx_enable =
@@ -1022,9 +1012,6 @@ static void adxcvr_disable_unprepare_clocks(struct adxcvr_state *st)
 {
 	if (!IS_ERR(st->conv_clk))
 		clk_disable_unprepare(st->conv_clk);
-
-	if (!IS_ERR(st->sysref_clk))
-		clk_disable_unprepare(st->sysref_clk);
 }
 
 static void adxcvr_unregister_clock_provider(struct platform_device *pdev)

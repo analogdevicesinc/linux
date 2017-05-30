@@ -103,8 +103,8 @@
 
 &axi_ad9680_adxcvr {
 	#clock-cells = <0>;
-	clocks = <&clk0_ad9523 4>, <&clk0_ad9523 6>;
-	clock-names = "conv", "sysref";
+	clocks = <&clk0_ad9523 4>;
+	clock-names = "conv";
 	clock-output-names = "adc_gt_clk";
 	adi,sys-clk-select = <3>;
 	adi,out-clk-select = <4>;
@@ -113,8 +113,8 @@
 
 &axi_ad9144_adxcvr {
 	#clock-cells = <0>;
-	clocks = <&clk0_ad9523 9>, <&clk0_ad9523 7>;
-	clock-names = "conv", "sysref";
+	clocks = <&clk0_ad9523 9>;
+	clock-names = "conv";
 	clock-output-names = "dac_gt_clk";
 	adi,link-is-transmit-enable;
 	adi,sys-clk-select = <3>;

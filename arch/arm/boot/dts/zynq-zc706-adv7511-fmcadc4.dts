@@ -61,8 +61,8 @@
 		reg = < 0x44a60000 0x1000 >;
 		#clock-cells = <0>;
 
-		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 9>;
-		clock-names = "conv", "sysref";
+		clocks = <&clk0_ad9528 1>;
+		clock-names = "conv";
 		clock-output-names = "adc_gt_clk";
 
 		adi,sys-clk-select = <3>;
