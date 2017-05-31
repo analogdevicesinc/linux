@@ -1,7 +1,7 @@
 /*
- * AD9371 RF Transceiver
+ * AD9371/5 RF Transceiver
  *
- * Copyright 2016 Analog Devices Inc.
+ * Copyright 2016-2017 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -215,6 +215,12 @@ static int ad9371_alloc_mykonos_device(struct ad9371_rf_phy *phy)
 	DEVM_ALLOC_INIT_N(phy->mykDevice->tx->txProfile->txFir->coefs, 96);
 	DEVM_ALLOC_INIT(phy->mykDevice->tx->deframer);
 
+	if (IS_AD9375(phy)) {
+		DEVM_ALLOC_INIT(phy->mykDevice->tx->dpdConfig);
+		DEVM_ALLOC_INIT(phy->mykDevice->tx->clgcConfig);
+		DEVM_ALLOC_INIT(phy->mykDevice->tx->vswrConfig);
+	}
+
 	DEVM_ALLOC_INIT(phy->mykDevice->obsRx->orxProfile);
 	DEVM_ALLOC_INIT(phy->mykDevice->obsRx->orxProfile->rxFir);
 	DEVM_ALLOC_INIT_N(phy->mykDevice->obsRx->orxProfile->rxFir->coefs, 72);
@@ -274,6 +280,7 @@ static int ad9371_sysref_req(struct ad9371_rf_phy *phy, enum ad9371_sysref_req_m
 
 static int ad9371_set_radio_state(struct ad9371_rf_phy *phy, enum ad9371_radio_states state)
 {
+	u32 radioStatus;
 	int ret;
 
 	switch (state) {
@@ -296,6 +303,23 @@ static int ad9371_set_radio_state(struct ad9371_rf_phy *phy, enum ad9371_radio_s
 		if (ret == MYKONOS_ERR_OK) {
 			phy->radio_state = false;
 		}
+
+		/* read radio state to make sure ARM is in radioOff /IDLE */
+		ret = MYKONOS_getRadioState(phy->mykDevice, &radioStatus);
+		if (ret != MYKONOS_ERR_OK)
+		{
+			return ret;
+		}
+
+		/* throw error if not in radioOff/IDLE state */
+		if ((radioStatus & 0x03) != MYKONOS_ARM_SYSTEMSTATE_IDLE)
+		{
+			dev_err(&phy->spi->dev, "%s: failed: %s\n", __func__,
+				getMykonosErrorMessage(MYKONOS_ERR_EN_TRACKING_CALS_ARMSTATE_ERROR));
+			return -EFAULT;
+		}
+
+
 		phy->saved_radio_state = true;
 		break;
 	case RADIO_RESTORE_STATE:
@@ -310,6 +334,89 @@ static int ad9371_set_radio_state(struct ad9371_rf_phy *phy, enum ad9371_radio_s
 		}
 		break;
 	}
+
+	return ret;
+}
+
+#define AD9375_DPD_STATUS_POLL_LIMIT_MS	500
+
+static int ad9371_get_dpd_status(struct ad9371_rf_phy *phy, int chan)
+{
+	s64 time_elapsed;
+	int ret;
+
+	time_elapsed = ktime_ms_delta(ktime_get(), phy->time_prev_dpd[chan]);
+
+	if (time_elapsed < AD9375_DPD_STATUS_POLL_LIMIT_MS)
+		return 0;
+
+	ret = MYKONOS_getDpdStatus(phy->mykDevice, (chan == CHAN_TX2) ?
+				   TX2 : TX1, &phy->dpdStatus[chan]);
+	phy->time_prev_dpd[chan] = ktime_get();
+
+	if (ret) {
+		dev_err(&phy->spi->dev, "%s: %s (%d)", __func__,
+			getMykonosErrorMessage(ret), ret);
+		return ret;
+	}
+
+	if (phy->dpdStatus[chan].dpdErrorStatus)
+		dev_dbg(&phy->spi->dev, "%s: status error (%d)\n", __func__,
+			phy->dpdStatus[chan].dpdErrorStatus);
+
+	return ret;
+}
+
+static int ad9371_get_clgc_status(struct ad9371_rf_phy *phy, int chan)
+{
+	s64 time_elapsed;
+	int ret;
+
+	time_elapsed = ktime_ms_delta(ktime_get(), phy->time_prev_clgc[chan]);
+
+	if (time_elapsed < AD9375_DPD_STATUS_POLL_LIMIT_MS)
+		return 0;
+
+	ret = MYKONOS_getClgcStatus(phy->mykDevice, (chan == CHAN_TX2) ? TX2 : TX1,
+				    &phy->clgcStatus[chan]);
+	phy->time_prev_clgc[chan] = ktime_get();
+
+	if (ret) {
+		dev_err(&phy->spi->dev, "%s: %s (%d)", __func__,
+			getMykonosErrorMessage(ret), ret);
+		return ret;
+	}
+
+	if (phy->clgcStatus[chan].errorStatus)
+		dev_dbg(&phy->spi->dev, "%s: status error (%d)\n", __func__,
+			phy->clgcStatus[chan].errorStatus);
+
+	return ret;
+}
+
+static int ad9371_get_vswr_status(struct ad9371_rf_phy *phy, int chan)
+{
+	s64 time_elapsed;
+	int ret;
+
+	time_elapsed = ktime_ms_delta(ktime_get(), phy->time_prev_vswr[chan]);
+
+	if (time_elapsed < AD9375_DPD_STATUS_POLL_LIMIT_MS)
+		return 0;
+
+	ret = MYKONOS_getVswrStatus(phy->mykDevice, (chan == CHAN_TX2) ?
+				    TX2 : TX1, &phy->vswrStatus[chan]);
+	phy->time_prev_vswr[chan] = ktime_get();
+
+	if (ret) {
+		dev_err(&phy->spi->dev, "%s: %s (%d)", __func__,
+			getMykonosErrorMessage(ret), ret);
+		return ret;
+	}
+
+	if (phy->vswrStatus[chan].errorStatus)
+		dev_dbg(&phy->spi->dev, "%s: status error (%d)\n", __func__,
+			phy->vswrStatus[chan].errorStatus);
 
 	return ret;
 }
@@ -484,6 +591,13 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 		return -EFAULT;
 	}
 
+	MYKONOS_getProductId(phy->mykDevice, &phy->device_id);
+	if (phy->device_id != AD937x_PRODID(phy)) {
+		dev_err(&phy->spi->dev, "Failed product ID, expected 0x%X got 0x%X",
+			AD937x_PRODID(phy), phy->device_id );
+		return -ENODEV;
+	}
+
 	/*******************************/
 	/***** CLKPLL Status Check *****/
 	/*******************************/
@@ -552,6 +666,33 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	if ((pllLockStatus & 0x0F) != 0x0F) {
 		dev_err(&phy->spi->dev, "PLLs unlocked %x", pllLockStatus & 0x0F);
 		return -EFAULT;
+	}
+
+	if (IS_AD9375(phy)) {
+		mykError = MYKONOS_configDpd(mykDevice);
+		if (mykError != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(mykError), mykError);
+			return -EFAULT;
+		}
+
+		mykError = MYKONOS_configClgc(mykDevice);
+		if (mykError != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(mykError), mykError);
+			return -EFAULT;
+		}
+
+		mykError = MYKONOS_configVswr(mykDevice);
+		if (mykError != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(mykError), mykError);
+			return -EFAULT;
+		}
+
+		phy->dpd_actuator_en[0] = true;
+		phy->dpd_actuator_en[1] = true;
+
 	}
 
 	/*****************************************************/
@@ -1010,8 +1151,9 @@ static int ad9371_set_obs_rx_path(struct iio_dev *indio_dev,
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
-	phy->obs_rx_path_source = mode;
 	ret = MYKONOS_setObsRxPathSource(phy->mykDevice, ad9371_obs_rx_port_lut[mode]);
+	if (!ret)
+		phy->obs_rx_path_source = mode;
 
 	return ret;
 
@@ -1041,6 +1183,22 @@ static const struct iio_enum ad9371_rf_obs_rx_port_available = {
 	.get = ad9371_get_obs_rx_path,
 	.set = ad9371_set_obs_rx_path,
 };
+
+static void ad9371_orx_qec_verify_force_enable(struct ad9371_rf_phy *phy)
+{
+	/*
+	* Note that TRACK_ORX1_QEC, TRACK_ORX2_QEC mask bits must be set in
+	* order to have successful DPD, CLGC, and VSWR tracking.
+	*/
+
+	if (phy->tracking_cal_mask &
+		(TRACK_TX1_DPD | TRACK_TX1_CLGC | TRACK_TX1_VSWR))
+		phy->tracking_cal_mask |= TRACK_ORX1_QEC;
+
+	if (phy->tracking_cal_mask &
+		(TRACK_TX2_DPD | TRACK_TX2_CLGC | TRACK_TX2_VSWR))
+		phy->tracking_cal_mask |= TRACK_ORX2_QEC;
+}
 
 static ssize_t ad9371_phy_rx_write(struct iio_dev *indio_dev,
 				   uintptr_t private,
@@ -1079,6 +1237,8 @@ static ssize_t ad9371_phy_rx_write(struct iio_dev *indio_dev,
 			phy->tracking_cal_mask |= mask;
 		else
 			phy->tracking_cal_mask &= ~mask;
+
+		ad9371_orx_qec_verify_force_enable(phy);
 
 		ad9371_set_radio_state(phy, RADIO_FORCE_OFF);
 		ret = MYKONOS_enableTrackingCals(phy->mykDevice, phy->tracking_cal_mask);
@@ -1216,6 +1376,14 @@ static ssize_t ad9371_phy_rx_read(struct iio_dev *indio_dev,
 	.private = _ident, \
 }
 
+static const mykonosTrackingCalibrations_t tx_track_cal_mask[][2] = {
+	[TX_QEC] = {TRACK_TX1_QEC, TRACK_TX2_QEC},
+	[TX_LOL] = {TRACK_TX1_LOL, TRACK_TX2_LOL},
+	[TX_DPD] = {TRACK_TX1_DPD, TRACK_TX2_DPD},
+	[TX_CLGC] = {TRACK_TX1_CLGC, TRACK_TX2_CLGC},
+	[TX_VSWR] = {TRACK_TX1_VSWR, TRACK_TX2_VSWR},
+};
+
 static ssize_t ad9371_phy_tx_read(struct iio_dev *indio_dev,
 				  uintptr_t private,
 				  const struct iio_chan_spec *chan,
@@ -1223,53 +1391,180 @@ static ssize_t ad9371_phy_tx_read(struct iio_dev *indio_dev,
 {
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
 	u32 mask;
-	int ret = 0;
+	int val, ret = 0;
+
+	if (chan->channel > CHAN_TX2)
+		return -EINVAL;
 
 	mutex_lock(&indio_dev->mlock);
 	switch (private) {
 	case TX_QEC:
-		switch (chan->channel) {
-		case CHAN_TX1:
-			mask = TRACK_TX1_QEC;
-			break;
-		case CHAN_TX2:
-			mask = TRACK_TX2_QEC;
-			break;
-		default:
-			ret = -EINVAL;
-		}
-		break;
 	case TX_LOL:
-		switch (chan->channel) {
-		case CHAN_TX1:
-			mask = TRACK_TX1_LOL;
-			break;
-		case CHAN_TX2:
-			mask = TRACK_TX2_LOL;
-			break;
-		default:
-			ret = -EINVAL;
-		}
+	case TX_DPD:
+	case TX_CLGC:
+	case TX_VSWR:
+		mask = tx_track_cal_mask[private][chan->channel];
+		val = !!(mask & phy->tracking_cal_mask);
 		break;
 	case TX_RF_BANDWIDTH:
 		switch (chan->channel) {
 		case CHAN_TX1:
 		case CHAN_TX2:
-			ret = phy->rf_bandwith[2];
+			val = phy->rf_bandwith[2];
 			break;
 		default:
 			ret = -EINVAL;
 		}
-
-		if (ret > 0)
-			ret = sprintf(buf, "%u\n", ret);
-
+		break;
+	case TX_DPD_ACT_EN:
+		val = phy->dpd_actuator_en[chan->channel];
+		break;
+	case TX_DPD_TRACKCNT:
+		ret = ad9371_get_dpd_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->dpdStatus[chan->channel].dpdTrackCount;
+		break;
+	case TX_DPD_MODEL_ERR:
+		ret = ad9371_get_dpd_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->dpdStatus[chan->channel].dpdModelErrorPercent;
+		break;
+	case TX_DPD_EXT_PATH_DLY:
+		ret = ad9371_get_dpd_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->dpdStatus[chan->channel].dpdExtPathDelay;
+		break;
+	case TX_DPD_STATUS:
+		ret = ad9371_get_dpd_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->dpdStatus[chan->channel].dpdErrorStatus;
+		break;
+	case TX_DPD_RESET:
+		val = 0;
+		break;
+	case TX_CLGC_TRACKCNT:
+		ret = ad9371_get_clgc_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->clgcStatus[chan->channel].trackCount;
+		break;
+	case TX_CLGC_DES_GAIN:
+		ret = ad9371_get_clgc_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->clgcStatus[chan->channel].desiredGain;
+		break;
+	case TX_CLGC_CUR_GAIN:
+		ret = ad9371_get_clgc_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->clgcStatus[chan->channel].currentGain;
+		break;
+	case TX_CLGC_TX_GAIN:
+		ret = ad9371_get_clgc_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->clgcStatus[chan->channel].txGain;
+		break;
+	case TX_CLGC_TX_RMS:
+		ret = ad9371_get_clgc_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->clgcStatus[chan->channel].txRms;
+		break;
+	case TX_CLGC_ORX_RMS:
+		ret = ad9371_get_clgc_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->clgcStatus[chan->channel].orxRms;
+		break;
+	case TX_CLGC_STATUS:
+		ret = ad9371_get_clgc_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->clgcStatus[chan->channel].errorStatus;
+		break;
+	case TX_VSWR_TRACKCNT:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].trackCount;
+		break;
+	case TX_VSWR_FW_GAIN:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].forwardGainRms_dB;
+		break;
+	case TX_VSWR_FW_GAIN_REAL:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].forwardGainReal;
+		break;
+	case TX_VSWR_FW_GAIN_IMAG:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].forwardGainImag;
+		break;
+	case TX_VSWR_REF_GAIN:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].reflectedGainRms_dB;
+		break;
+	case TX_VSWR_REF_GAIN_REAL:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].reflectedGainReal;
+		break;
+	case TX_VSWR_REF_GAIN_IMAG:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].reflectedGainImag;
+		break;
+	case TX_VSWR_FW_TX:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].vswr_forward_tx_rms;
+		break;
+	case TX_VSWR_FW_ORX:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].vswr_forward_orx_rms;
+		break;
+	case TX_VSWR_REF_TX:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].vswr_reflection_tx_rms;
+		break;
+	case TX_VSWR_REF_ORX:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].vswr_reflection_orx_rms;
+		break;
+	case TX_VSWR_STATUS:
+		ret = ad9371_get_vswr_status(phy, chan->channel);
+		if (ret)
+			break;
+		val = phy->vswrStatus[chan->channel].errorStatus;
 		break;
 
 	}
 
-	if (ret == 0)
-		ret = sprintf(buf, "%d\n", !!(mask & phy->tracking_cal_mask));
+	if (!ret)
+		ret = sprintf(buf, "%d\n", val);
 
 	mutex_unlock(&indio_dev->mlock);
 
@@ -1283,48 +1578,91 @@ static ssize_t ad9371_phy_tx_write(struct iio_dev *indio_dev,
 {
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
 	bool enable;
+	long res;
 	int ret = 0;
 	u32 mask;
 
-	ret = strtobool(buf, &enable);
+	if (chan->channel > CHAN_TX2)
+		return -EINVAL;
+
+
 
 	mutex_lock(&indio_dev->mlock);
 
 	switch (private) {
 	case TX_QEC:
-		switch (chan->channel) {
-		case CHAN_TX1:
-			mask = TRACK_TX1_QEC;
-			break;
-		case CHAN_TX2:
-			mask = TRACK_TX2_QEC;
-			break;
-		default:
-			ret = -EINVAL;
-		}
-		break;
 	case TX_LOL:
-		switch (chan->channel) {
-		case CHAN_TX1:
-			mask = TRACK_TX1_LOL;
+	case TX_DPD:
+	case TX_CLGC:
+	case TX_VSWR:
+		ret = strtobool(buf, &enable);
+		if (ret)
 			break;
-		case CHAN_TX2:
-			mask = TRACK_TX2_LOL;
-			break;
-		default:
-			ret = -EINVAL;
-		}
+
+		mask = tx_track_cal_mask[private][chan->channel];
+
+		if (enable)
+			phy->tracking_cal_mask |= mask;
+		else
+			phy->tracking_cal_mask &= ~mask;
+
+		ad9371_orx_qec_verify_force_enable(phy);
+
+		ad9371_set_radio_state(phy, RADIO_FORCE_OFF);
+		ret = MYKONOS_enableTrackingCals(phy->mykDevice, phy->tracking_cal_mask);
+		ad9371_set_radio_state(phy, RADIO_RESTORE_STATE);
+
 		break;
+	case TX_DPD_ACT_EN:
+		ret = strtobool(buf, &enable);
+		if (ret)
+			break;
+
+		ret = MYKONOS_setDpdActState(phy->mykDevice,
+					     chan->channel + 1, enable);
+		if (!ret)
+			phy->dpd_actuator_en[chan->channel] = enable;
+		break;
+	case TX_DPD_RESET:
+		ret = kstrtoul(buf, 0, &res);
+		if (ret)
+			break;
+		ret = MYKONOS_resetDpd(phy->mykDevice,
+				       chan->channel + 1, res);
+		break;
+	case TX_CLGC_DES_GAIN:
+		ret = kstrtol(buf, 0, &res);
+		if (ret)
+			break;
+		ret = MYKONOS_setClgcGain(phy->mykDevice,
+				       chan->channel + 1, res);
+		break;
+	case TX_DPD_TRACKCNT:
+	case TX_DPD_MODEL_ERR:
+	case TX_DPD_EXT_PATH_DLY:
+	case TX_CLGC_TRACKCNT:
+	case TX_CLGC_CUR_GAIN:
+	case TX_CLGC_TX_GAIN:
+	case TX_CLGC_TX_RMS:
+	case TX_CLGC_ORX_RMS:
+	case TX_VSWR_TRACKCNT:
+	case TX_VSWR_FW_GAIN:
+	case TX_VSWR_FW_GAIN_REAL:
+	case TX_VSWR_FW_GAIN_IMAG:
+	case TX_VSWR_REF_GAIN:
+	case TX_VSWR_REF_GAIN_REAL:
+	case TX_VSWR_REF_GAIN_IMAG:
+	case TX_VSWR_FW_TX:
+	case TX_VSWR_FW_ORX:
+	case TX_VSWR_REF_TX:
+	case TX_VSWR_REF_ORX:
+	case TX_DPD_STATUS:
+	case TX_CLGC_STATUS:
+	case TX_VSWR_STATUS:
+		ret = -EINVAL;
+		break;
+
 	}
-
-	if (enable)
-		phy->tracking_cal_mask |= mask;
-	else
-		phy->tracking_cal_mask &= ~mask;
-
-	ad9371_set_radio_state(phy, RADIO_FORCE_OFF);
-	ret = MYKONOS_enableTrackingCals(phy->mykDevice, phy->tracking_cal_mask);
-	ad9371_set_radio_state(phy, RADIO_RESTORE_STATE);
 
 	mutex_unlock(&indio_dev->mlock);
 
@@ -1372,6 +1710,34 @@ static const struct iio_chan_spec_ext_info ad9371_phy_tx_ext_info[] = {
 	_AD9371_EXT_TX_INFO("quadrature_tracking_en", TX_QEC),
 	_AD9371_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
 	_AD9371_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
+	_AD9371_EXT_TX_INFO("dpd_tracking_en", TX_DPD),
+	_AD9371_EXT_TX_INFO("clgc_tracking_en", TX_CLGC),
+	_AD9371_EXT_TX_INFO("vswr_tracking_en", TX_VSWR),
+	_AD9371_EXT_TX_INFO("dpd_actuator_en", TX_DPD_ACT_EN),
+	_AD9371_EXT_TX_INFO("dpd_reset_en", TX_DPD_RESET),
+	_AD9371_EXT_TX_INFO("dpd_track_count", TX_DPD_TRACKCNT),
+	_AD9371_EXT_TX_INFO("dpd_model_error", TX_DPD_MODEL_ERR),
+	_AD9371_EXT_TX_INFO("dpd_external_path_delay", TX_DPD_EXT_PATH_DLY),
+	_AD9371_EXT_TX_INFO("dpd_status", TX_DPD_STATUS),
+	_AD9371_EXT_TX_INFO("clgc_track_count", TX_CLGC_TRACKCNT),
+	_AD9371_EXT_TX_INFO("clgc_desired_gain", TX_CLGC_DES_GAIN),
+	_AD9371_EXT_TX_INFO("clgc_current_gain", TX_CLGC_CUR_GAIN),
+	_AD9371_EXT_TX_INFO("clgc_tx_gain", TX_CLGC_TX_GAIN),
+	_AD9371_EXT_TX_INFO("clgc_tx_rms", TX_CLGC_TX_RMS),
+	_AD9371_EXT_TX_INFO("clgc_orx_rms", TX_CLGC_ORX_RMS),
+	_AD9371_EXT_TX_INFO("clgc_status", TX_CLGC_STATUS),
+	_AD9371_EXT_TX_INFO("vswr_track_count", TX_VSWR_TRACKCNT),
+	_AD9371_EXT_TX_INFO("vswr_forward_gain", TX_VSWR_FW_GAIN),
+	_AD9371_EXT_TX_INFO("vswr_forward_gain_real", TX_VSWR_FW_GAIN_REAL),
+	_AD9371_EXT_TX_INFO("vswr_forward_gain_imag", TX_VSWR_FW_GAIN_IMAG),
+	_AD9371_EXT_TX_INFO("vswr_reflected_gain", TX_VSWR_REF_GAIN),
+	_AD9371_EXT_TX_INFO("vswr_reflected_gain_real", TX_VSWR_REF_GAIN_REAL),
+	_AD9371_EXT_TX_INFO("vswr_reflected_gain_imag", TX_VSWR_REF_GAIN_IMAG),
+	_AD9371_EXT_TX_INFO("vswr_forward_tx", TX_VSWR_FW_TX),
+	_AD9371_EXT_TX_INFO("vswr_forward_orx", TX_VSWR_FW_ORX),
+	_AD9371_EXT_TX_INFO("vswr_reflected_tx", TX_VSWR_REF_TX),
+	_AD9371_EXT_TX_INFO("vswr_reflected_orx", TX_VSWR_REF_ORX),
+	_AD9371_EXT_TX_INFO("vswr_status", TX_VSWR_STATUS),
 	{ },
 };
 
@@ -1949,7 +2315,7 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 	struct ad9371_debugfs_entry *entry = file->private_data;
 	struct ad9371_rf_phy *phy = entry->phy;
 	u32 val2, val3, val4;
-	u64 val;
+	s64 val;
 	char buf[80];
 	int ret;
 
@@ -1959,7 +2325,7 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 
 	buf[count] = 0;
 
-	ret = sscanf(buf, "%llu %i %i %i", &val, &val2, &val3, &val4);
+	ret = sscanf(buf, "%lld %i %i %i", &val, &val2, &val3, &val4);
 	if (ret < 1)
 		return -EINVAL;
 
@@ -2119,7 +2485,7 @@ static int ad9371_register_debugfs(struct iio_dev *indio_dev)
 
 static int __ad9371_of_get_u32(struct iio_dev *indio_dev,
 			       struct device_node *np, const char *propname,
-			       u64 defval, void *out_value, u32 size)
+			       s64 defval, void *out_value, u32 size)
 {
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
 	u32 tmp;
@@ -2194,7 +2560,8 @@ static struct ad9371_phy_platform_data
 			TX_ATTENUATION_DELAY | RX_GAIN_DELAY | FLASH_CAL |
 			PATH_DELAY | TX_LO_LEAKAGE_INTERNAL | TX_QEC_INIT |
 			LOOPBACK_RX_LO_DELAY | LOOPBACK_RX_RX_QEC_INIT |
-			RX_LO_DELAY | RX_QEC_INIT);
+			RX_LO_DELAY | RX_QEC_INIT |
+			(IS_AD9375(phy) ? DPD_INIT | CLGC_INIT | VSWR_INIT: 0));
 
 	AD9371_OF_PROP("adi,jesd204-rx-framer-bank-id", &phy->mykDevice->rx->framer->bankId, 0);
 	AD9371_OF_PROP("adi,jesd204-rx-framer-device-id", &phy->mykDevice->rx->framer->deviceId, 0);
@@ -2394,6 +2761,8 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,tx-profile-rf-bandwidth_hz", &phy->mykDevice->tx->txProfile->rfBandwidth_Hz, 200000000);
 	AD9371_OF_PROP("adi,tx-profile-tx-dac-3db-corner_khz", &phy->mykDevice->tx->txProfile->txDac3dBCorner_kHz, 189477);
 	AD9371_OF_PROP("adi,tx-profile-tx-bbf-3db-corner_khz", &phy->mykDevice->tx->txProfile->txBbf3dBCorner_kHz, 100000);
+	if (IS_AD9375(phy))
+		AD9371_OF_PROP("adi,tx-profile-enable-dpd-data-path", &phy->mykDevice->tx->txProfile->enableDpdDataPath, 1);
 
 	AD9371_OF_PROP("adi,clocks-device-clock_khz", &phy->mykDevice->clocks->deviceClock_kHz, 122880);
 	AD9371_OF_PROP("adi,clocks-clk-pll-vco-freq_khz", &phy->mykDevice->clocks->clkPllVcoFreq_kHz, 9830400);
@@ -2407,16 +2776,59 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,tx-settings-tx1-atten_mdb", &phy->mykDevice->tx->tx1Atten_mdB, 10000);
 	AD9371_OF_PROP("adi,tx-settings-tx2-atten_mdb", &phy->mykDevice->tx->tx2Atten_mdB, 10000);
 
+	if (IS_AD9375(phy)) {
+		AD9371_OF_PROP("adi,dpd-damping", &phy->mykDevice->tx->dpdConfig->damping, 5);
+		AD9371_OF_PROP("adi,dpd-num-weights", &phy->mykDevice->tx->dpdConfig->numWeights, 1);
+		AD9371_OF_PROP("adi,dpd-model-version", &phy->mykDevice->tx->dpdConfig->modelVersion, 2);
+		AD9371_OF_PROP("adi,dpd-high-power-model-update", &phy->mykDevice->tx->dpdConfig->highPowerModelUpdate, 1);
+		AD9371_OF_PROP("adi,dpd-model-prior-weight", &phy->mykDevice->tx->dpdConfig->modelPriorWeight, 20);
+		AD9371_OF_PROP("adi,dpd-robust-modeling", &phy->mykDevice->tx->dpdConfig->robustModeling, 0);
+		AD9371_OF_PROP("adi,dpd-samples", &phy->mykDevice->tx->dpdConfig->samples, 512);
+		AD9371_OF_PROP("adi,dpd-outlier-threshold", &phy->mykDevice->tx->dpdConfig->outlierThreshold, 4096);
+		AD9371_OF_PROP("adi,dpd-additional-delay-offset", &phy->mykDevice->tx->dpdConfig->additionalDelayOffset, 0);
+		AD9371_OF_PROP("adi,dpd-path-delay-pn-seq-level", &phy->mykDevice->tx->dpdConfig->pathDelayPnSeqLevel, 255);
+		AD9371_OF_PROP("adi,dpd-weights0-real", &phy->mykDevice->tx->dpdConfig->weights[0].real, 64);
+		AD9371_OF_PROP("adi,dpd-weights0-imag", &phy->mykDevice->tx->dpdConfig->weights[0].imag, 0);
+		AD9371_OF_PROP("adi,dpd-weights1-real", &phy->mykDevice->tx->dpdConfig->weights[1].real, 0);
+		AD9371_OF_PROP("adi,dpd-weights1-imag", &phy->mykDevice->tx->dpdConfig->weights[1].imag, 0);
+		AD9371_OF_PROP("adi,dpd-weights2-real", &phy->mykDevice->tx->dpdConfig->weights[2].real, 0);
+		AD9371_OF_PROP("adi,dpd-weights2-imag", &phy->mykDevice->tx->dpdConfig->weights[2].imag, 0);
+
+		AD9371_OF_PROP("adi,clgc-tx1-desired-gain", &phy->mykDevice->tx->clgcConfig->tx1DesiredGain, -2000);
+		AD9371_OF_PROP("adi,clgc-tx2-desired-gain", &phy->mykDevice->tx->clgcConfig->tx2DesiredGain, -2000);
+		AD9371_OF_PROP("adi,clgc-tx1-atten-limit", &phy->mykDevice->tx->clgcConfig->tx1AttenLimit, 0);
+		AD9371_OF_PROP("adi,clgc-tx2-atten-limit", &phy->mykDevice->tx->clgcConfig->tx2AttenLimit, 0);
+		AD9371_OF_PROP("adi,clgc-tx1-control-ratio", &phy->mykDevice->tx->clgcConfig->tx1ControlRatio, 75);
+		AD9371_OF_PROP("adi,clgc-tx2-control-ratio", &phy->mykDevice->tx->clgcConfig->tx2ControlRatio, 75);
+		AD9371_OF_PROP("adi,clgc-allow-tx1-atten-updates", &phy->mykDevice->tx->clgcConfig->allowTx1AttenUpdates, 0);
+		AD9371_OF_PROP("adi,clgc-allow-tx2-atten-updates", &phy->mykDevice->tx->clgcConfig->allowTx2AttenUpdates, 0);
+		AD9371_OF_PROP("adi,clgc-additional-delay-offset", &phy->mykDevice->tx->clgcConfig->additionalDelayOffset, 0);
+		AD9371_OF_PROP("adi,clgc-path-delay-pn-seq-level", &phy->mykDevice->tx->clgcConfig->pathDelayPnSeqLevel, 255);
+		AD9371_OF_PROP("adi,clgc-tx1-rel-threshold", &phy->mykDevice->tx->clgcConfig->tx1RelThreshold, 600);
+		AD9371_OF_PROP("adi,clgc-tx2-rel-threshold", &phy->mykDevice->tx->clgcConfig->tx2RelThreshold, 600);
+		AD9371_OF_PROP("adi,clgc-tx1-rel-threshold-en", &phy->mykDevice->tx->clgcConfig->tx1RelThresholdEn, 0);
+		AD9371_OF_PROP("adi,clgc-tx2-rel-threshold-en", &phy->mykDevice->tx->clgcConfig->tx2RelThresholdEn, 0);
+
+		AD9371_OF_PROP("adi,vswr-additional-delay-offset", &phy->mykDevice->tx->vswrConfig->additionalDelayOffset, 0);
+		AD9371_OF_PROP("adi,vswr-path-delay-pn-seq-level", &phy->mykDevice->tx->vswrConfig->pathDelayPnSeqLevel, 255);
+		AD9371_OF_PROP("adi,vswr-tx1-vswr-switch-gpio3p3-pin", &phy->mykDevice->tx->vswrConfig->tx1VswrSwitchGpio3p3Pin, 0);
+		AD9371_OF_PROP("adi,vswr-tx2-vswr-switch-gpio3p3-pin", &phy->mykDevice->tx->vswrConfig->tx2VswrSwitchGpio3p3Pin, 1);
+		AD9371_OF_PROP("adi,vswr-tx1-vswr-switch-polarity", &phy->mykDevice->tx->vswrConfig->tx1VswrSwitchPolarity, 0);
+		AD9371_OF_PROP("adi,vswr-tx2-vswr-switch-polarity", &phy->mykDevice->tx->vswrConfig->tx2VswrSwitchPolarity, 0);
+		AD9371_OF_PROP("adi,vswr-tx1-vswr-switch-delay_us", &phy->mykDevice->tx->vswrConfig->tx1VswrSwitchDelay_us, 50);
+		AD9371_OF_PROP("adi,vswr-tx2-vswr-switch-delay_us", &phy->mykDevice->tx->vswrConfig->tx2VswrSwitchDelay_us, 50);
+	}
+
 	AD9371_OF_PROP("adi,rx-settings-rx-channels-enable", &phy->mykDevice->rx->rxChannels, 3);
 	AD9371_OF_PROP("adi,rx-settings-rx-pll-use-external-lo", &phy->mykDevice->rx->rxPllUseExternalLo, 0);
 	AD9371_OF_PROP("adi,rx-settings-rx-pll-lo-frequency_hz", &phy->mykDevice->rx->rxPllLoFrequency_Hz, 2500000000U);
 	AD9371_OF_PROP("adi,rx-settings-real-if-data", &phy->mykDevice->rx->realIfData, 0);
 
-	AD9371_OF_PROP("adi,obs-settings-obs-rx-channels-enable", &phy->mykDevice->obsRx->obsRxChannelsEnable, 31);
+	AD9371_OF_PROP("adi,obs-settings-obs-rx-channels-enable", &phy->mykDevice->obsRx->obsRxChannelsEnable, MYK_ORX1_ORX2 | MYK_SNRXA_B_C);
 	AD9371_OF_PROP("adi,obs-settings-obs-rx-lo-source", &phy->mykDevice->obsRx->obsRxLoSource, 0);
 	AD9371_OF_PROP("adi,obs-settings-sniffer-pll-lo-frequency_hz", &phy->mykDevice->obsRx->snifferPllLoFrequency_Hz, 2600000000U);
 	AD9371_OF_PROP("adi,obs-settings-real-if-data", &phy->mykDevice->obsRx->realIfData, 0);
-	AD9371_OF_PROP("adi,obs-settings-default-obs-rx-channel", &phy->mykDevice->obsRx->defaultObsRxChannel, 0);
+	AD9371_OF_PROP("adi,obs-settings-default-obs-rx-channel", &phy->mykDevice->obsRx->defaultObsRxChannel, OBS_INTERNALCALS);
 
 	AD9371_OF_PROP("adi,arm-gpio-use-rx2-enable-pin", &phy->mykDevice->auxIo->armGpio->useRx2EnablePin, 0);
 	AD9371_OF_PROP("adi,arm-gpio-use-tx2-enable-pin", &phy->mykDevice->auxIo->armGpio->useTx2EnablePin, 0);
@@ -2497,11 +2909,12 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 	mykonosFir_t *fir;
 	struct device *dev = &phy->spi->dev;
 	char clocks = 0, tx = 0, rx = 0,
-	     filter = 0, adcprof = 0, lpbkadcprof = 0, header = 0;
+	     filter = 0, adcprof = 0, lpbkadcprof = 0, header = 0,
+	     dpdconfig = 0, clgcconfig = 0, vswrconfig = 0;
 
 	char *line, *ptr = data;
 	unsigned int int32, int32_2;
-	int ret, num, version, type, max;
+	int ret, num, version = 0, type, max, sint32, retval;
 
 #define GET_TOKEN(x, n) \
 	{ret = sscanf(line, " <" #n "=%u>", &int32);\
@@ -2510,17 +2923,27 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 		continue;\
 	}}
 
+#define GET_STOKEN(x, n) \
+	{ret = sscanf(line, " <" #n "=%d>", &sint32);\
+		if (ret == 1) { \
+			x->n = sint32;\
+			continue;\
+		}}
+
 	while ((line = strsep(&ptr, "\n"))) {
 		if (line >= data + size) {
 			break;
 		}
+
+		line = skip_spaces(line);
 
 		if (line[0] == '#' || line[0] == '\r' ||  line[0] == '\0')
 			continue;
 
 		if (!header && strstr(line, "<profile AD937")) {
 			ret = sscanf(line, " <profile AD%d version=%d", &type, &version);
-			if (ret == 2 && version == 0 && type == 9371)
+
+			if (ret == 2 && version == 0 && (type == 9371 || type == 9375))
 				header = 1;
 			else
 				dev_err(dev, "%s: Invalid Version %d or Model %d",
@@ -2536,6 +2959,40 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 
 		if (clocks && strstr(line, "</clocks>")) {
 			clocks = 0;
+			retval = 0;
+			continue;
+		}
+
+		if (!dpdconfig && strstr(line, "<DpdConfig>")) {
+			dpdconfig = IS_AD9375(phy);
+			continue;
+		}
+
+		if (dpdconfig && strstr(line, "</DpdConfig>")) {
+			dpdconfig = 0;
+			retval = 1;
+			continue;
+		}
+
+		if (!clgcconfig && strstr(line, "<ClgcConfig>")) {
+			clgcconfig = IS_AD9375(phy);
+			continue;
+		}
+
+		if (clgcconfig && strstr(line, "</ClgcConfig>")) {
+			clgcconfig = 0;
+			retval = 1;
+			continue;
+		}
+
+		if (!vswrconfig && strstr(line, "<VswrConfig>")) {
+			vswrconfig = IS_AD9375(phy);
+			continue;
+		}
+
+		if (vswrconfig && strstr(line, "</VswrConfig>")) {
+			vswrconfig = 0;
+			retval = 1;
 			continue;
 		}
 
@@ -2632,6 +3089,51 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 			continue;
 		}
 
+		if (dpdconfig) {
+			GET_TOKEN(mykDevice->tx->dpdConfig, damping);
+			GET_TOKEN(mykDevice->tx->dpdConfig, numWeights);
+			GET_TOKEN(mykDevice->tx->dpdConfig, modelVersion);
+			GET_TOKEN(mykDevice->tx->dpdConfig, robustModeling);
+			GET_TOKEN(mykDevice->tx->dpdConfig, samples);
+			GET_TOKEN(mykDevice->tx->dpdConfig, outlierThreshold);
+			GET_STOKEN(mykDevice->tx->dpdConfig, additionalDelayOffset);
+			GET_TOKEN(mykDevice->tx->dpdConfig, pathDelayPnSeqLevel);
+			GET_STOKEN(mykDevice->tx->dpdConfig, weights[0].real);
+			GET_STOKEN(mykDevice->tx->dpdConfig, weights[0].imag);
+			GET_STOKEN(mykDevice->tx->dpdConfig, weights[1].real);
+			GET_STOKEN(mykDevice->tx->dpdConfig, weights[1].imag);
+			GET_STOKEN(mykDevice->tx->dpdConfig, weights[2].real);
+			GET_STOKEN(mykDevice->tx->dpdConfig, weights[2].imag);
+		}
+
+		if (clgcconfig) {
+			GET_STOKEN(mykDevice->tx->clgcConfig, tx1DesiredGain);
+			GET_STOKEN(mykDevice->tx->clgcConfig, tx2DesiredGain);
+			GET_TOKEN(mykDevice->tx->clgcConfig, tx1AttenLimit);
+			GET_TOKEN(mykDevice->tx->clgcConfig, tx2AttenLimit);
+			GET_TOKEN(mykDevice->tx->clgcConfig, tx1ControlRatio);
+			GET_TOKEN(mykDevice->tx->clgcConfig, tx2ControlRatio);
+			GET_TOKEN(mykDevice->tx->clgcConfig, allowTx1AttenUpdates);
+			GET_TOKEN(mykDevice->tx->clgcConfig, allowTx2AttenUpdates);
+			GET_STOKEN(mykDevice->tx->clgcConfig, additionalDelayOffset);
+			GET_TOKEN(mykDevice->tx->clgcConfig, pathDelayPnSeqLevel);
+			GET_TOKEN(mykDevice->tx->clgcConfig, tx1RelThreshold);
+			GET_TOKEN(mykDevice->tx->clgcConfig, tx2RelThreshold);
+			GET_TOKEN(mykDevice->tx->clgcConfig, tx1RelThresholdEn);
+			GET_TOKEN(mykDevice->tx->clgcConfig, tx2RelThresholdEn);
+		}
+
+		if (vswrconfig) {
+			GET_STOKEN(mykDevice->tx->vswrConfig, additionalDelayOffset);
+			GET_TOKEN(mykDevice->tx->vswrConfig, pathDelayPnSeqLevel);
+			GET_TOKEN(mykDevice->tx->vswrConfig, tx1VswrSwitchGpio3p3Pin);
+			GET_TOKEN(mykDevice->tx->vswrConfig, tx2VswrSwitchGpio3p3Pin);
+			GET_TOKEN(mykDevice->tx->vswrConfig, tx1VswrSwitchPolarity);
+			GET_TOKEN(mykDevice->tx->vswrConfig, tx2VswrSwitchPolarity);
+			GET_TOKEN(mykDevice->tx->vswrConfig, tx1VswrSwitchDelay_us);
+			GET_TOKEN(mykDevice->tx->vswrConfig, tx2VswrSwitchDelay_us);
+		}
+
 		if (clocks) {
 			GET_TOKEN(mykDevice->clocks, deviceClock_kHz);
 			GET_TOKEN(mykDevice->clocks, clkPllVcoFreq_kHz);
@@ -2721,7 +3223,7 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 		}
 
 		if (header && strstr(line, "</profile>")) {
-			return size;
+			return retval;
 		}
 
 		/* We should never end up here */
@@ -2765,15 +3267,47 @@ ad9371_profile_bin_write(struct file *filp, struct kobject *kobj,
 	if (ret < 0)
 		return ret;
 
+
 	mutex_lock(&phy->indio_dev->mlock);
-	clk_disable_unprepare(phy->jesd_rx_clk);
-	clk_disable_unprepare(phy->jesd_rx_os_clk);
-	clk_disable_unprepare(phy->jesd_tx_clk);
 
-	ret = ad9371_setup(phy);
-	if (ret)
+	if (IS_AD9375(phy) && ret == 1) {
+		ad9371_set_radio_state(phy, RADIO_FORCE_OFF);
+
+		ret = MYKONOS_configDpd(phy->mykDevice);
+		if (ret != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out_unlock;
+		}
+
+		ret = MYKONOS_configClgc(phy->mykDevice);
+		if (ret != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out_unlock;
+		}
+
+		ret = MYKONOS_configVswr(phy->mykDevice);
+		if (ret != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out_unlock;
+		}
+
+		ad9371_set_radio_state(phy, RADIO_RESTORE_STATE);
+	} else {
+		clk_disable_unprepare(phy->jesd_rx_clk);
+		clk_disable_unprepare(phy->jesd_rx_os_clk);
+		clk_disable_unprepare(phy->jesd_tx_clk);
+
 		ret = ad9371_setup(phy);
-
+		if (ret)
+			ret = ad9371_setup(phy);
+	}
+out_unlock:
 	mutex_unlock(&phy->indio_dev->mlock);
 
 	return (ret < 0) ? ret : count;
@@ -3244,8 +3778,8 @@ static int ad9371_probe(struct spi_device *spi)
 	MYKONOS_getArmVersion(phy->mykDevice, &vers[0], &vers[1], &vers[2]);
 	MYKONOS_getDeviceRev(phy->mykDevice, &rev);
 
-	dev_info(&spi->dev, "%s : AD9371 Rev %d, Firmware %u.%u.%u successfully initialized",
-		 __func__, rev, vers[0], vers[1], vers[2]);
+	dev_info(&spi->dev, "%s : AD937%d Rev %d, Firmware %u.%u.%u successfully initialized",
+		 __func__, AD937x_PARTID(phy), rev, vers[0], vers[1], vers[2]);
 
 	return 0;
 
@@ -3276,6 +3810,7 @@ static int ad9371_remove(struct spi_device *spi)
 
 static const struct spi_device_id ad9371_id[] = {
 	{"ad9371", ID_AD9371},
+	{"ad9375", ID_AD9375},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9371_id);
