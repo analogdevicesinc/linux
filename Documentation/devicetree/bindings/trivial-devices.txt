@@ -58,6 +58,7 @@ epson,rx8025		High-Stability. I2C-Bus INTERFACE REAL TIME CLOCK MODULE
 epson,rx8581		I2C-BUS INTERFACE REAL TIME CLOCK MODULE
 fsl,fxas2100x		FXAS2100X: Gyroscope sensor
 fsl,fxos8700		FXOS8700: Accelerometer + Magnetometer Combo
+fsl,isl29023		ISL29023: Intersil ISL29023 ambient light sensor
 fsl,mag3110		MAG3110: Xtrinsic High Accuracy, 3D Magnetometer
 fsl,mc13892		MC13892: Power Management Integrated Circuit (PMIC) for i.MX35/51
 fsl,mma7660		MMA7660FC: 3-Axis Orientation/Motion Detection Sensor
