@@ -14,6 +14,12 @@ config AXI_JESD204B
 	depends on COMMON_CLK
 	select XILINX_TRANSCEIVER
 
+config AXI_JESD204_TX
+	tristate "Analog Devices AXI JESD204B TX Support"
+
+config AXI_JESD204_RX
+	tristate "Analog Devices AXI JESD204B RX Support"
+
 config XILINX_TRANSCEIVER
 	tristate
 
