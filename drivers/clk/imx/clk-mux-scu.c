@@ -68,6 +68,8 @@ static void populate_mux_pd(struct clk_mux_scu *clk)
 		pd_args.np = np;
 		pd_args.args_count = 0;
 		clk->pd = genpd_get_from_provider(&pd_args);
+		if (IS_ERR(clk->pd))
+			pr_warn("%s: failed to get pd\n", __func__);
 	}
 }
 
@@ -83,7 +85,7 @@ static u8 clk_mux_get_parent_scu(struct clk_hw *hw)
 	if (mux->pd == NULL && mux->pd_name)
 		populate_mux_pd(mux);
 
-	if (!mux->pd)
+	if (IS_ERR_OR_NULL(mux->pd))
 		return 0;
 
 	if (mux->pd->status != GPD_STATE_ACTIVE)
@@ -132,7 +134,7 @@ static int clk_mux_set_parent_scu(struct clk_hw *hw, u8 index)
 	if (mux->pd == NULL && mux->pd_name)
 		populate_mux_pd(mux);
 
-	if (!mux->pd)
+	if (IS_ERR_OR_NULL(mux->pd))
 		return -1;
 
 	if (mux->pd->status != GPD_STATE_ACTIVE)

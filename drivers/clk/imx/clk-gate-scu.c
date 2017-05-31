@@ -198,6 +198,8 @@ static void populate_gate_pd(struct clk_gate2_scu *clk)
 		pd_args.np = np;
 		pd_args.args_count = 0;
 		clk->pd = genpd_get_from_provider(&pd_args);
+		if (IS_ERR(clk->pd))
+			pr_warn("%s: failed to get pd\n", __func__);
 	}
 }
 
@@ -213,7 +215,7 @@ static int clk_gate2_scu_enable(struct clk_hw *hw)
 	if (gate->pd == NULL && gate->pd_name)
 		populate_gate_pd(gate);
 
-	if (!gate->pd)
+	if (IS_ERR_OR_NULL(gate->pd))
 		return -1;
 
 	if (gate->pd->status != GPD_STATE_ACTIVE)
@@ -240,7 +242,7 @@ static void clk_gate2_scu_disable(struct clk_hw *hw)
 	if (gate->pd == NULL && gate->pd_name)
 		populate_gate_pd(gate);
 
-	if (!gate->pd)
+	if (IS_ERR_OR_NULL(gate->pd))
 		return;
 
 	if (gate->pd->status != GPD_STATE_ACTIVE)
@@ -261,7 +263,7 @@ static int clk_gate2_scu_is_enabled(struct clk_hw *hw)
 	if (gate->pd == NULL && gate->pd_name)
 		populate_gate_pd(gate);
 
-	if (!gate->pd)
+	if (IS_ERR_OR_NULL(gate->pd))
 		return 0;
 
 	if (gate->pd->status != GPD_STATE_ACTIVE)
