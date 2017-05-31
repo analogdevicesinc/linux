@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/of.h>
+#include <linux/rational.h>
 
 #include <linux/clk.h>
 #include <linux/clkdev.h>
@@ -248,6 +249,9 @@
 /* Helpers to avoid excess line breaks */
 #define AD_IFE(_pde, _a, _b) ((pdata->_pde) ? _a : _b)
 #define AD_IF(_pde, _a) AD_IFE(_pde, _a, 0)
+
+#define AD9523_VCO_FREQ_MIN	2940000
+#define AD9523_VCO_FREQ_MAX 3100000
 
 enum {
 	AD9523_STAT_PLL1_LD,
@@ -782,6 +786,97 @@ static const struct iio_info ad9523_info = {
 	.attrs = &ad9523_attribute_group,
 };
 
+static bool ad9523_pll2_valid_div(unsigned int div)
+{
+	if (div < 16)
+		return false;
+
+	switch (div) {
+	case 18:
+	case 19:
+	case 23:
+	case 27:
+		return false;
+	}
+
+	return true;
+}
+
+static int ad9523_calc_dividers(unsigned int vcxo_freq, unsigned int m1_freq,
+	unsigned int m2_freq, struct ad9523_platform_data *pdata)
+{
+	unsigned long n2[2], r2[2];
+	unsigned int fpfd;
+	unsigned int m_freq, vco_freq;
+	unsigned int m, m1, m2;
+
+	m1_freq /= 1000;
+	m2_freq /= 1000;
+	vcxo_freq /= 1000;
+
+	if (m1_freq != 0)
+		m_freq = m1_freq;
+	else
+		m_freq = m2_freq;
+
+	for (m = 3; m <= 5; m++) {
+		vco_freq = m_freq * m;
+		if (AD9523_VCO_FREQ_MIN <= vco_freq &&
+		    AD9523_VCO_FREQ_MAX >= vco_freq)
+			break;
+	}
+
+	if (m == 6)
+		return -EINVAL;
+
+	if (m1_freq != 0) {
+		m1 = m;
+		if (m2_freq != 0) {
+			m2 = vco_freq / m2_freq;
+			if (m2 < 3 || m2 > 5 || vco_freq % m2_freq > 1)
+				return -EINVAL;
+		} else {
+			m2 = 3;
+		}
+	} else {
+		m1 = 3;
+		m2 = m;
+	}
+
+	rational_best_approximation(vco_freq, vcxo_freq, 255, 31,
+		&n2[0], &r2[0]);
+
+	pdata->pll2_freq_doubler_en = false;
+
+	if (vco_freq != vcxo_freq * n2[0] / r2[0]) {
+		rational_best_approximation(vco_freq, vcxo_freq*2, 255, 31,
+			&n2[1], &r2[1]);
+
+		if (abs((int)(vco_freq / n2[0]) - (int)(vcxo_freq / r2[0])) >
+		    abs((int)(vco_freq / n2[1] / 2) - (int)(vcxo_freq / r2[1]))) {
+			n2[0] = n2[1];
+			r2[0] = r2[1];
+			pdata->pll2_freq_doubler_en = true;
+		}
+	}
+
+	fpfd = vcxo_freq * (pdata->pll2_freq_doubler_en ? 2 : 1) / r2[0];
+
+	while (fpfd > 259000 || !ad9523_pll2_valid_div(n2[0])) {
+		fpfd /= 2;
+		n2[0] *= 2;
+		r2[0] *= 2;
+	}
+
+	pdata->pll2_r2_div = r2[0];
+	pdata->pll2_vco_div_m1 = m1;
+	pdata->pll2_vco_div_m2 = m2;
+	pdata->pll2_ndiv_a_cnt = n2[0] % 4;
+	pdata->pll2_ndiv_b_cnt = n2[0] / 4;
+
+	return 0;
+}
+
 static long ad9523_get_clk_attr(struct clk_hw *hw, long mask)
 {
 	struct iio_dev *indio_dev = to_ad9523_clk_output(hw)->indio_dev;
@@ -1136,6 +1231,7 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 	struct ad9523_channel_spec *chan;
 	unsigned int tmp, cnt = 0;
 	const char *str;
+	u32 m1_freq, m2_freq;
 	int ret;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
@@ -1198,22 +1294,82 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,pll2-charge-pump-current-nA",
 			     &pdata->pll2_charge_pump_current_nA);
 
-	of_property_read_u32(np, "adi,pll2-ndiv-a-cnt", &tmp);
-	pdata->pll2_ndiv_a_cnt = tmp;
-	of_property_read_u32(np, "adi,pll2-ndiv-b-cnt", &tmp);
-	pdata->pll2_ndiv_b_cnt = tmp;
+	m1_freq = m2_freq = 0;
+	of_property_read_u32(np, "adi,pll2-m1-freq", &m1_freq);
+	of_property_read_u32(np, "adi,pll2-m2-freq", &m2_freq);
 
-	pdata->pll2_freq_doubler_en =
-		of_property_read_bool(np, "adi,pll2-freq-doubler-enable");
+	if (m1_freq == 0 && m2_freq == 0) {
+		of_property_read_u32(np, "adi,pll2-ndiv-a-cnt", &tmp);
+		pdata->pll2_ndiv_a_cnt = tmp;
+		of_property_read_u32(np, "adi,pll2-ndiv-b-cnt", &tmp);
+		pdata->pll2_ndiv_b_cnt = tmp;
 
-	of_property_read_u32(np, "adi,pll2-r2-div", &tmp);
-	pdata->pll2_r2_div = tmp;
-	tmp = 0;
-	of_property_read_u32(np, "adi,pll2-vco-diff-m1", &tmp);
-	pdata->pll2_vco_diff_m1 = tmp;
-	tmp = 0;
-	of_property_read_u32(np, "adi,pll2-vco-diff-m2", &tmp);
-	pdata->pll2_vco_diff_m2 = tmp;
+		pdata->pll2_freq_doubler_en =
+			of_property_read_bool(np, "adi,pll2-freq-doubler-enable");
+
+		tmp = 1;
+		of_property_read_u32(np, "adi,pll2-r2-div", &tmp);
+		pdata->pll2_r2_div = tmp;
+		tmp = 3;
+		of_property_read_u32(np, "adi,pll2-vco-diff-m1", &tmp);
+		of_property_read_u32(np, "adi,pll2-vco-div-m1", &tmp);
+		pdata->pll2_vco_div_m1 = tmp;
+		tmp = 3;
+		of_property_read_u32(np, "adi,pll2-vco-diff-m2", &tmp);
+		of_property_read_u32(np, "adi,pll2-vco-div-m2", &tmp);
+		pdata->pll2_vco_div_m2 = tmp;
+	} else {
+		ad9523_calc_dividers(pdata->vcxo_freq, m1_freq, m2_freq, pdata);
+	}
+
+	if (pdata->pll2_ndiv_b_cnt < 3 || pdata->pll2_ndiv_b_cnt > 63) {
+		dev_err(dev, "PLL2 B divider must be in the range 3-63\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	switch (pdata->pll2_ndiv_b_cnt) {
+	case 3:
+		if (pdata->pll2_ndiv_a_cnt > 0) {
+			dev_err(dev, "When PLL2 B counter == 3 A counter must be == 0\n");
+			return ERR_PTR(-EINVAL);
+		}
+		break;
+	case 4:
+		if (pdata->pll2_ndiv_a_cnt > 1) {
+			dev_err(dev, "When PLL2 B counter == 4 A counter must be <= 1\n");
+			return ERR_PTR(-EINVAL);
+		}
+		break;
+	case 5:
+	case 6:
+		if (pdata->pll2_ndiv_a_cnt > 2) {
+			dev_err(dev, "When PLL2 B counter == %d A counter must be <= 2\n",
+				pdata->pll2_ndiv_b_cnt);
+			return ERR_PTR(-EINVAL);
+		}
+		break;
+	default:
+		if (pdata->pll2_ndiv_a_cnt > 3) {
+			dev_err(dev, "A counter must be <= 3\n");
+			return ERR_PTR(-EINVAL);
+		}
+		break;
+	}
+
+	if (pdata->pll2_r2_div < 1 || pdata->pll2_r2_div > 31) {
+		dev_err(dev, "PLL2 R2 divider must be in the range of 1-31\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (pdata->pll2_vco_div_m1 < 3 || pdata->pll2_vco_div_m1 > 5) {
+		dev_err(dev, "PLL2 M1 divider must be in the range of 3-5\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (pdata->pll2_vco_div_m2 < 3 || pdata->pll2_vco_div_m2 > 5) {
+		dev_err(dev, "PLL2 M2 divider must be in the range of 3-5\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	/* Loop Filter PLL2 */
 
