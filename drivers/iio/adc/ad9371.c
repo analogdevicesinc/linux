@@ -1257,7 +1257,7 @@ static ssize_t ad9371_phy_rx_write(struct iio_dev *indio_dev,
 			ret = MYKONOS_setRx1TempGainComp(phy->mykDevice, val);
 			break;
 		case CHAN_RX2:
-			ret = MYKONOS_setRx1TempGainComp(phy->mykDevice, val);
+			ret = MYKONOS_setRx2TempGainComp(phy->mykDevice, val);
 			break;
 		case CHAN_OBS:
 			ret = MYKONOS_setObsRxTempGainComp(phy->mykDevice, val);
@@ -1330,7 +1330,7 @@ static ssize_t ad9371_phy_rx_read(struct iio_dev *indio_dev,
 			ret = MYKONOS_getRx1TempGainComp(phy->mykDevice, &val_s16);
 			break;
 		case CHAN_RX2:
-			ret = MYKONOS_getRx1TempGainComp(phy->mykDevice, &val_s16);
+			ret = MYKONOS_getRx2TempGainComp(phy->mykDevice, &val_s16);
 			break;
 		case CHAN_OBS:
 			ret = MYKONOS_getObsRxTempGainComp(phy->mykDevice, &val_s16);
