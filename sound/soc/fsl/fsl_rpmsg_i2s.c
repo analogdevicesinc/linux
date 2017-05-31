@@ -178,11 +178,17 @@ static int fsl_rpmsg_i2s_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int fsl_rpmsg_i2s_runtime_resume(struct device *dev)
 {
+	struct fsl_rpmsg_i2s *rpmsg_i2s = dev_get_drvdata(dev);
+
+	pm_qos_add_request(&rpmsg_i2s->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 0);
 	return 0;
 }
 
 static int fsl_rpmsg_i2s_runtime_suspend(struct device *dev)
 {
+	struct fsl_rpmsg_i2s *rpmsg_i2s = dev_get_drvdata(dev);
+
+	pm_qos_remove_request(&rpmsg_i2s->pm_qos_req);
 	return 0;
 }
 #endif

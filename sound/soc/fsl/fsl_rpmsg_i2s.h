@@ -309,6 +309,7 @@ struct i2s_info {
 struct fsl_rpmsg_i2s {
 	struct platform_device *pdev;
 	struct i2s_info        i2s_info;
+	struct pm_qos_request pm_qos_req;
 };
 
 #endif /* __FSL_RPMSG_I2S_H */
