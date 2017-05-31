@@ -58,7 +58,36 @@ enum ad9371_tx_ext_info {
 	TX_QEC,
 	TX_LOL,
 	TX_RF_BANDWIDTH,
+	TX_DPD,
+	TX_CLGC,
+	TX_VSWR,
+	TX_DPD_ACT_EN,
+	TX_DPD_RESET,
+	TX_DPD_TRACKCNT,
+	TX_DPD_MODEL_ERR,
+	TX_DPD_EXT_PATH_DLY,
+	TX_DPD_STATUS,
+	TX_CLGC_TRACKCNT,
+	TX_CLGC_DES_GAIN,
+	TX_CLGC_CUR_GAIN,
+	TX_CLGC_TX_GAIN,
+	TX_CLGC_TX_RMS,
+	TX_CLGC_ORX_RMS,
+	TX_CLGC_STATUS,
+	TX_VSWR_TRACKCNT,
+	TX_VSWR_FW_GAIN,
+	TX_VSWR_FW_GAIN_REAL,
+	TX_VSWR_FW_GAIN_IMAG,
+	TX_VSWR_REF_GAIN,
+	TX_VSWR_REF_GAIN_REAL,
+	TX_VSWR_REF_GAIN_IMAG,
+	TX_VSWR_FW_TX,
+	TX_VSWR_FW_ORX,
+	TX_VSWR_REF_TX,
+	TX_VSWR_REF_ORX,
+	TX_VSWR_STATUS,
 };
+
 
 enum ad9371_iio_voltage_in {
 	CHAN_RX1,
@@ -85,9 +114,14 @@ enum ad9371_iio_voltage_out {
 	CHAN_AUXDAC9,
 };
 
-enum {
-	ID_AD9371,
+enum ad937x_device_id {
+	ID_AD9371 = 0x0103,
+	ID_AD9375 = 0x0506,
 };
+
+#define AD937x_PARTID(phy) ((int)(spi_get_device_id(phy->spi)->driver_data >> 8))
+#define AD937x_PRODID(phy) ((int)(spi_get_device_id(phy->spi)->driver_data & 0xFF))
+#define IS_AD9375(phy)	(spi_get_device_id(phy->spi)->driver_data == ID_AD9375)
 
 enum ad9371_sysref_req_mode {
 	SYSREF_CONT_ON,
@@ -155,7 +189,7 @@ struct ad9371_rf_phy {
 	struct ad9371_clock	clk_priv[NUM_AD9371_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9371_phy_platform_data *pdata;
-	struct ad9371_debugfs_entry debugfs_entry[300];
+	struct ad9371_debugfs_entry debugfs_entry[338];
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
@@ -164,6 +198,16 @@ struct ad9371_rf_phy {
 	struct gpio_desc	*sysref_req_gpio;
 	struct gain_table_info  gt_info[LOOPBACK_GT + 1];
 
+	ktime_t			time_prev_dpd[2];
+	ktime_t			time_prev_clgc[2];
+	ktime_t			time_prev_vswr[2];
+
+	mykonosDpdStatus_t 	dpdStatus[2];
+	mykonosClgcStatus_t 	clgcStatus[2];
+	mykonosVswrStatus_t 	vswrStatus[2];
+	bool			dpd_actuator_en[2];
+
+	u8 			device_id;
 	char			*bin_gt_attr_buf;
 	char			*bin_attr_buf;
 	u32 			ad9371_debugfs_entry_index;
