@@ -90,7 +90,8 @@
 #define		MIPI_CSI_1_LPCG		0x58243000
 
 /* Display MIPI SS */
-#define		DI_MIPI_LPCG		0x56030000
+#define		DI_MIPI0_LPCG		0x56223000
+#define		DI_MIPI1_LPCG		0x56243000
 
 /* Imaging SS */
 #define IMG_JPEG_ENC_LPCG		0x585F0000
