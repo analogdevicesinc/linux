@@ -515,6 +515,9 @@ struct drm_plane {
 
 	enum drm_plane_type type;
 
+	/* Value of true:1 means HDR is supported */
+	bool hdr_supported;
+
 	/**
 	 * @index: Position inside the mode_config.list, can be used as an array
 	 * index. It is invariant over the lifetime of the plane.
