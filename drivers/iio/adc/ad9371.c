@@ -855,9 +855,10 @@ static ssize_t ad9371_phy_store(struct device *dev,
 			val = RADIO_ON;
 		else if (sysfs_streq(buf, "radio_off"))
 			val = RADIO_OFF;
+
+		ret = ad9371_set_radio_state(phy, val);
 		break;
 	case AD9371_INIT_CAL:
-
 		ret = strtobool(buf, &enable);
 		if (ret)
 			break;
@@ -882,13 +883,9 @@ static ssize_t ad9371_phy_store(struct device *dev,
 			ad9371_set_radio_state(phy, RADIO_RESTORE_STATE);
 		}
 		break;
-
 	default:
 		ret = -EINVAL;
 	}
-
-	if (!ret)
-		ret = ad9371_set_radio_state(phy, val);
 
 	mutex_unlock(&indio_dev->mlock);
 
