@@ -664,7 +664,6 @@ static long jesd204b_gt_gth_rxcdr_settings(struct jesd204b_gt_state *st,
 			u32 rxout_div)
 {
 	u16 cfg0, cfg1, cfg2, cfg3, cfg4;
-	u32 dest;
 
 	if (gt_link->tx_offset) {
 		return 0; /* Do Nothing */
@@ -709,13 +708,11 @@ static long jesd204b_gt_gth_rxcdr_settings(struct jesd204b_gt_state *st,
 		dev_warn(st->dev, "%s: GTH PRBS CDR not implemented\n",__func__);
 	}
 
-	dest = jesd204b_gt_pll_sel(gt_link);
-
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG0_ADDR, cfg0);
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG1_ADDR, cfg1);
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG2_ADDR, cfg2);
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG3_ADDR, cfg3);
-	jesd204b_gt_drp_write(st, lane, dest, RXCDR_CFG4_ADDR, cfg4);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG0_ADDR, cfg0);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG1_ADDR, cfg1);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG2_ADDR, cfg2);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG3_ADDR, cfg3);
+	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG4_ADDR, cfg4);
 
 	return 0;
 }
