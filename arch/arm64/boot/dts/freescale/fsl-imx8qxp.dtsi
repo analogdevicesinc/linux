@@ -416,12 +416,12 @@
 				power-domains =<&pd_audio>;
 			};
 			pd_hifi: PD_AUD_HIFI {
-				reg = <SC_R_HIFI>;
+				reg = <SC_R_DSP>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_audio>;
 			};
 			pd_hifi_ram: PD_AUD_OCRAM {
-				reg = <SC_R_HIFI_RAM>;
+				reg = <SC_R_DSP_RAM>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_audio>;
 			};

@@ -65,7 +65,7 @@ long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv)
 	srambuf = kmalloc(filesize, GFP_KERNEL);
 	vfs_llseek(fpInfile, 0, SEEK_SET);
 
-	kernel_read(fpInfile, 0, srambuf, filesize);
+	kernel_read(fpInfile, srambuf, filesize, NULL);
 	filp_close(fpInfile, NULL);
 
 	ret_val = xtlib_split_pi_library_size(
@@ -1196,7 +1196,7 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 
 	/* start the core */
 	sc_pm_cpu_start(hifi4_priv->hifi_ipcHandle,
-					SC_R_HIFI, true, hifi4_priv->iram);
+					SC_R_DSP, true, hifi4_priv->iram);
 }
 
 /* Initialization of the MU code. */
@@ -1301,13 +1301,13 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	};
 
 	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
-			SC_R_HIFI, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
+			SC_R_DSP, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
 		dev_err(&pdev->dev, "Error power on HIFI\n");
 		return -EIO;
 	}
 
 	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
-			SC_R_HIFI_RAM, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
+			SC_R_DSP_RAM, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
 		dev_err(&pdev->dev, "Error power on HIFI RAM\n");
 		return -EIO;
 	}
