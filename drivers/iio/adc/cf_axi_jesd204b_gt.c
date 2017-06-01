@@ -937,6 +937,7 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
 	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
 	unsigned pll_type;
+	unsigned out_div;
 
 	dev_dbg(st->dev, "%s: Parent Rate %lu Hz, (%s, lane-%d ... lane-%d)",
 		__func__, parent_rate, gt_link->tx_offset ? "TX" : "RX", gt_link->first_lane, gt_link->num_lanes);
@@ -945,11 +946,18 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 		return gt_link->lane_rate;
 
 	pll_type = jesd204b_gt_pll_sel(gt_link);
+	out_div = jesd204b_gt_drp_read(st, gt_link->first_lane, CPLL, RXOUT_DIV_ADDR);
+
+	if (gt_link->tx_offset)
+		out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
+	else
+		out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
+
+	out_div = (1 << out_div);
 
 	if (gt_link->cpll_enable) {
-		unsigned refclk_div_m, out_div, N1, N2, M;
+		unsigned refclk_div_m, N1, N2, M;
 		refclk_div_m = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, CPLL_REFCLK_DIV_M_ADDR);
-		out_div = jesd204b_gt_drp_read(st, gt_link->first_lane, CPLL, RXOUT_DIV_ADDR);
 
 		switch ((refclk_div_m & CPLL_FB_DIV_45_N1_MASK) >> CPLL_FB_DIV_45_N1_OFFSET) {
 			case 0:
@@ -988,13 +996,6 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 		}
 
 
-		if (gt_link->tx_offset)
-			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
-		else
-			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
-
-		out_div = (1 << out_div);
-
 		dev_dbg(st->dev, "%s  CPLL %lu   %lu\n", __func__, gt_link->lane_rate,
 			((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div));
 
@@ -1003,10 +1004,9 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 
 		return ((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div);
 	} else {
-		unsigned refclk_div_m, fb_div, out_div, N, M;
+		unsigned refclk_div_m, fb_div, N, M;
 		refclk_div_m = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, QPLL_REFCLK_DIV_M_ADDR);
 		fb_div = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, QPLL_FBDIV_N_ADDR);
-		out_div = jesd204b_gt_drp_read(st, gt_link->first_lane, CPLL, RXOUT_DIV_ADDR);
 
 		switch ((refclk_div_m & QPLL_REFCLK_DIV_M_MASK) >> QPLL_REFCLK_DIV_M_OFFSET) {
 			case 16:
@@ -1050,13 +1050,6 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 				N = 100;
 				break;
 		}
-
-		if (gt_link->tx_offset)
-			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
-		else
-			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
-
-		out_div = (1 << out_div);
 
 		dev_dbg(st->dev, "%s QPLL  %lu %lu\n", __func__, gt_link->lane_rate,
 			((parent_rate / 1000) * N) / (M * out_div));
