@@ -894,7 +894,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, out_clk_hw);
 	u32 refclk_div, out_div, fbdiv_45, fbdiv, fbdiv_ratio, lowband;
-	int ret, pll_done = 0;
+	int ret;
 
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
@@ -922,22 +922,17 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 						  CPLL_FBDIV_N2_MASK,
 						  (refclk_div << 8) | (fbdiv_45 << 7) | fbdiv);
 	} else {
+		adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
+						  QPLL_CFG0_BAND_MASK, lowband);
 
-		if (!pll_done) {
-			adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
-							  QPLL_CFG0_BAND_MASK, lowband);
+		adxcvr_drp_writef(st, QPLL_REFCLK_DIV_M_ADDR,
+						  QPLL_REFCLK_DIV_M_MASK, refclk_div);
 
-			adxcvr_drp_writef(st, QPLL_REFCLK_DIV_M_ADDR,
-							  QPLL_REFCLK_DIV_M_MASK, refclk_div);
+		adxcvr_drp_writef(st, QPLL_FBDIV_N_ADDR,
+						  QPLL_FBDIV_N_MASK, fbdiv);
 
-			adxcvr_drp_writef(st, QPLL_FBDIV_N_ADDR,
-							  QPLL_FBDIV_N_MASK, fbdiv);
-
-			adxcvr_drp_writef(st, QPLL_FBDIV_RATIO_ADDR,
-							  QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
-
-			pll_done = 1;
-		}
+		adxcvr_drp_writef(st, QPLL_FBDIV_RATIO_ADDR,
+						  QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
 	}
 
 	ret = adxcvr_drp_writef(st, RXOUT_DIV_ADDR,
