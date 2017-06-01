@@ -39,27 +39,19 @@
 #define ADXCVR_SYSCLK_SEL(x)		(((x) & 0x3) << 4)
 #define ADXCVR_OUTCLK_SEL(x)		(((x) & 0x7) << 0)
 
-#define ADXCVR_REG_CM_SEL			0x0040
+#define ADXCVR_REG_DRP_SEL(x)		(0x0040 + (x))
 
-#define ADXCVR_REG_CM_CONTROL		0x0044
-#define ADXCVR_CM_WR				(1 << 28)
-#define ADXCVR_CM_ADDR(x)			(((x) & 0xFFF) << 16)
-#define ADXCVR_CM_WDATA(x)			(((x) & 0xFFFF) << 0)
+#define ADXCVR_REG_DRP_CTRL(x)		(0x0044 + (x))
+#define ADXCVR_DRP_CTRL_WR			(1 << 28)
+#define ADXCVR_DRP_CTRL_ADDR(x)		(((x) & 0xFFF) << 16)
+#define ADXCVR_DRP_CTRL_WDATA(x)	(((x) & 0xFFFF) << 0)
 
-#define ADXCVR_REG_CM_STATUS		0x0048
-#define ADXCVR_CM_BUSY				(1 << 16)
-#define ADXCVR_CM_RDATA(x)			(((x) & 0xFFFF) << 0)
+#define ADXCVR_REG_DRP_STATUS(x)	(0x0048 + (x))
+#define ADXCVR_DRP_STATUS_BUSY		(1 << 16)
+#define ADXCVR_DRP_STATUS_RDATA(x)	(((x) & 0xFFFF) << 0)
 
-#define ADXCVR_REG_CH_SEL			0x0060
-
-#define ADXCVR_REG_CH_CONTROL		0x0064
-#define ADXCVR_CH_WR				(1 << 28)
-#define ADXCVR_CH_ADDR(x)			(((x) & 0xFFF) << 16)
-#define ADXCVR_CH_WDATA(x)			(((x) & 0xFFFF) << 0)
-
-#define ADXCVR_REG_CH_STATUS		0x0068
-#define ADXCVR_CH_BUSY				(1 << 16)
-#define ADXCVR_CH_RDATA(x)			(((x) & 0xFFFF) << 0)
+#define ADXCVR_DRP_PORT_COMMON		0x00
+#define ADXCVR_DRP_PORT_CHANNEL		0x20
 
 #define ADXCVR_BROADCAST			0xff
 
@@ -218,41 +210,17 @@ static inline void adxcvr_write(struct adxcvr_state *st,
 	iowrite32(val, st->regs + reg);
 }
 
-static unsigned int adxcvr_drp_read(struct adxcvr_state *st,
-									unsigned int reg)
+static int adxcvr_drp_wait_idle(struct adxcvr_state *st, unsigned int drp_port)
 {
-	bool ch_sel;
-	int timeout = 20;
 	unsigned int val;
+	int timeout = 20;
 
-	switch (reg) {
-	case QPLL_CFG0_ADDR:
-	case QPLL_CFG1_ADDR:
-	case QPLL_FBDIV_N_ADDR:
-	case QPLL_FBDIV_RATIO_ADDR:
-		ch_sel = false;
-		break;
-	default:
-		ch_sel = true;
-	}
-
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_SEL : ADXCVR_REG_CM_SEL,
-				 ADXCVR_BROADCAST);
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_CONTROL : ADXCVR_REG_CM_CONTROL,
-				 ADXCVR_CM_ADDR(reg));
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_CONTROL : ADXCVR_REG_CM_CONTROL,
-				 ch_sel ? ADXCVR_CH_ADDR(reg) : ADXCVR_CM_ADDR(reg));
 	do {
-		val = adxcvr_read(st, ch_sel ?
-						  ADXCVR_REG_CH_STATUS : ADXCVR_REG_CM_STATUS);
-		if (val & (ch_sel ? ADXCVR_CH_BUSY : ADXCVR_CM_BUSY)) {
-			mdelay(1);
-			continue;
-		}
-		dev_dbg(st->dev, "%s: reg 0x%X val 0x%X\n",
-				__func__, reg, val & 0xFFFF);
+		val = adxcvr_read(st, ADXCVR_REG_DRP_STATUS(drp_port));
+		if (!(val & ADXCVR_DRP_STATUS_BUSY))
+			return ADXCVR_DRP_STATUS_RDATA(val);
 
-		return ch_sel ? ADXCVR_CH_RDATA(val) : ADXCVR_CM_RDATA(val);
+		mdelay(1);
 	} while (timeout--);
 
 	dev_err(st->dev, "%s: Timeout!", __func__);
@@ -260,46 +228,66 @@ static unsigned int adxcvr_drp_read(struct adxcvr_state *st,
 	return -ETIMEDOUT;
 }
 
-static int adxcvr_drp_write(struct adxcvr_state *st,
-							unsigned int reg,
-							unsigned int val)
+static unsigned int adxcvr_drp_read(struct adxcvr_state *st,
+									unsigned int reg)
 {
-	bool ch_sel;
-	int timeout = 20;
-	unsigned int read_val;
+	unsigned int drp_port;
+	int ret;
 
 	switch (reg) {
 	case QPLL_CFG0_ADDR:
 	case QPLL_CFG1_ADDR:
 	case QPLL_FBDIV_N_ADDR:
 	case QPLL_FBDIV_RATIO_ADDR:
-		ch_sel = false;
+		drp_port = ADXCVR_DRP_PORT_COMMON;
 		break;
 	default:
-		ch_sel = true;
+		drp_port = ADXCVR_DRP_PORT_CHANNEL;
 	}
 
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_SEL : ADXCVR_REG_CM_SEL,
-			ADXCVR_BROADCAST);
-	adxcvr_write(st, ch_sel ? ADXCVR_REG_CH_CONTROL : ADXCVR_REG_CM_CONTROL,
-			ch_sel ? (ADXCVR_CH_WR | ADXCVR_CH_ADDR(reg) | ADXCVR_CH_WDATA(val)) :
-			(ADXCVR_CM_WR | ADXCVR_CM_ADDR(reg) | ADXCVR_CM_WDATA(val)));
+	adxcvr_write(st, ADXCVR_REG_DRP_SEL(drp_port), ADXCVR_BROADCAST);
+	adxcvr_write(st, ADXCVR_REG_DRP_CTRL(drp_port), ADXCVR_DRP_CTRL_ADDR(reg));
 
-	do {
-		if (!(adxcvr_read(st, ch_sel ? ADXCVR_REG_CH_STATUS : ADXCVR_REG_CM_STATUS)
-			  & (ch_sel ? ADXCVR_CH_BUSY : ADXCVR_CM_BUSY))) {
-			read_val = adxcvr_drp_read(st, reg);
-			if (val != read_val)
-				dev_err(st->dev, "%s: MISMATCH reg 0x%X val 0x%X != read 0x%X\n",
-						__func__, reg, val, read_val);
-			return 0;
-		}
-		mdelay(1);
-	} while (timeout--);
+	ret = adxcvr_drp_wait_idle(st, drp_port);
+	if (ret >= 0)
+		dev_dbg(st->dev, "%s: reg 0x%X val 0x%X\n", __func__,
+			reg, ret & 0xFFFF);
 
-	dev_err(st->dev, "%s: Timeout!", __func__);
+	return ret;
+}
 
-	return -ETIMEDOUT;
+static int adxcvr_drp_write(struct adxcvr_state *st,
+							unsigned int reg,
+							unsigned int val)
+{
+	unsigned int drp_port;
+	unsigned int read_val;
+	int ret;
+
+	switch (reg) {
+	case QPLL_CFG0_ADDR:
+	case QPLL_CFG1_ADDR:
+	case QPLL_FBDIV_N_ADDR:
+	case QPLL_FBDIV_RATIO_ADDR:
+		drp_port = ADXCVR_DRP_PORT_COMMON;
+		break;
+	default:
+		drp_port = ADXCVR_DRP_PORT_CHANNEL;
+	}
+
+	adxcvr_write(st, ADXCVR_REG_DRP_SEL(drp_port), ADXCVR_BROADCAST);
+	adxcvr_write(st, ADXCVR_REG_DRP_CTRL(drp_port), (ADXCVR_DRP_CTRL_WR |
+		ADXCVR_DRP_CTRL_ADDR(reg) | ADXCVR_DRP_CTRL_WDATA(val)));
+
+	ret = adxcvr_drp_wait_idle(st, drp_port);
+	if (ret < 0)
+		return ret;
+
+	read_val = adxcvr_drp_read(st, reg);
+	if (val != read_val)
+		dev_err(st->dev, "%s: MISMATCH reg 0x%X val 0x%X != read 0x%X\n",
+				__func__, reg, val, read_val);
+	return 0;
 }
 
 static int __adxcvr_drp_writef(struct adxcvr_state *st,
