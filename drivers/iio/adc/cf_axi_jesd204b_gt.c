@@ -85,8 +85,6 @@ struct jesd204b_gt_link {
 	bool 		gth_enable;
 	bool		encoding;
 
-	u32 		qpll;
-
 	enum refclk_ppm ppm;
 };
 
@@ -125,10 +123,8 @@ static inline unsigned jesd204b_gt_pll_sel(struct jesd204b_gt_link *gt_link)
 {
 	if (gt_link->cpll_enable)
 		return CPLL;
-	else if (gt_link->qpll == 0)
-		return QPLL0;
 	else
-		return QPLL1;
+		return QPLL;
 }
 
 static inline unsigned int jesd204b_gt_read(struct jesd204b_gt_state *st,
