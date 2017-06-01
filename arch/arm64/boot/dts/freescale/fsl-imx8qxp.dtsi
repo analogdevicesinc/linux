@@ -75,6 +75,14 @@
 		status = "okay";
 	};
 
+	mu13: mu13@5d280000 {
+		compatible = "fsl,imx8-mu-hifi";
+		reg = <0x0 0x5d280000 0x0 0x10000>;
+		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
+		fsl,hifi_ap_mu_id = <13>;
+		status = "okay";
+	};
+
 	clk: clk {
 		compatible = "fsl,imx8qxp-clk";
 		#clock-cells = <1>;
@@ -404,6 +412,16 @@
 			};
 			pd_mqs0: PD_AUD_MQS_0 {
 				reg = <SC_R_MQS_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_audio>;
+			};
+			pd_hifi: PD_AUD_HIFI {
+				reg = <SC_R_HIFI>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_audio>;
+			};
+			pd_hifi_ram: PD_AUD_OCRAM {
+				reg = <SC_R_HIFI_RAM>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_audio>;
 			};
@@ -962,5 +980,16 @@
 		fsl,num-rx-queues=<3>;
 		power-domains = <&pd_conn_enet1>;
 		status = "disabled";
+	};
+
+	hifi4: hifi4@586e8000 {
+		compatible = "fsl,imx8qxp-hifi4";
+		reg = <0x0 0x596e8000 0x0 0x88000>;
+		clocks = <&clk IMX8QXP_AUD_HIFI_IPG>,
+			<&clk IMX8QXP_AUD_OCRAM_IPG>,
+			<&clk IMX8QXP_AUD_HIFI_CORE_CLK>;
+		clock-names = "ipg", "ocram", "core";
+		fsl,hifi4-firmware = "imx/hifi/hifi4.bin";
+		power-domains = <&pd_hifi>;
 	};
 };
