@@ -263,7 +263,7 @@ static int jesd204b_gt_set_lane(struct jesd204b_gt_state *st, unsigned lane)
 }
 
 static int jesd204b_gt_set_lpm_dfe_mode(struct jesd204b_gt_state *st,
-					unsigned lpm, unsigned lane, unsigned dest)
+					unsigned lpm, unsigned lane)
 {
 	u32 type;
 
@@ -273,19 +273,19 @@ static int jesd204b_gt_set_lpm_dfe_mode(struct jesd204b_gt_state *st,
 
 	if (type == JESD204B_GT_TRANSCEIVER_GTH) {
 		if (lpm) {
-			jesd204b_gt_drp_write(st, lane, dest, 0x036, 0x0032);
-			jesd204b_gt_drp_write(st, lane, dest, 0x039, 0x1000);
-			jesd204b_gt_drp_write(st, lane, dest, 0x062, 0x1980);
+			jesd204b_gt_drp_write(st, lane, 0, 0x036, 0x0032);
+			jesd204b_gt_drp_write(st, lane, 0, 0x039, 0x1000);
+			jesd204b_gt_drp_write(st, lane, 0, 0x062, 0x1980);
 		} else {
-			jesd204b_gt_drp_write(st, lane, dest, 0x036, 0x0002);
-			jesd204b_gt_drp_write(st, lane, dest, 0x039, 0x0000);
-			jesd204b_gt_drp_write(st, lane, dest, 0x062, 0x0000);
+			jesd204b_gt_drp_write(st, lane, 0, 0x036, 0x0002);
+			jesd204b_gt_drp_write(st, lane, 0, 0x039, 0x0000);
+			jesd204b_gt_drp_write(st, lane, 0, 0x062, 0x0000);
 		}
 	} else {
 		if (lpm) {
-			jesd204b_gt_drp_write(st, lane, dest, 0x029, 0x0104);
+			jesd204b_gt_drp_write(st, lane, 0, 0x029, 0x0104);
 		} else {
-			jesd204b_gt_drp_write(st, lane, dest, 0x029, 0x0954);
+			jesd204b_gt_drp_write(st, lane, 0, 0x029, 0x0954);
 		}
 	}
 
@@ -604,10 +604,8 @@ static int jesd204b_gt_clk_enable(struct clk_hw *hw)
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
 				JESD204B_GT_DRP_RSTN); /* enable (drp) FIXME */
 
-		if (!gt_link->tx_offset) {
-			jesd204b_gt_set_lpm_dfe_mode(st, gt_link->lpm_enable, lane,
-						     jesd204b_gt_pll_sel(gt_link));
-		}
+		if (!gt_link->tx_offset)
+			jesd204b_gt_set_lpm_dfe_mode(st, gt_link->lpm_enable, lane);
 
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
 				JESD204B_GT_DRP_RSTN | JESD204B_GT_GT_PLL_RSTN); /* enable (drp, pll) */
@@ -1450,10 +1448,8 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
 				JESD204B_GT_DRP_RSTN); /* enable (drp) */
 
-		if (!gt_link->tx_offset) {
-			jesd204b_gt_set_lpm_dfe_mode(st, gt_link->lpm_enable, lane,
-						     jesd204b_gt_pll_sel(gt_link));
-		}
+		if (!gt_link->tx_offset)
+			jesd204b_gt_set_lpm_dfe_mode(st, gt_link->lpm_enable, lane);
 
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
 				JESD204B_GT_DRP_RSTN | JESD204B_GT_GT_PLL_RSTN); /* enable (drp, pll) */
