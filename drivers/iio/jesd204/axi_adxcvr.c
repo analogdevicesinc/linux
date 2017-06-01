@@ -13,6 +13,8 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 
+#include "xilinx_transceiver.h"
+
 #define PCORE_VER(major, minor, letter)	((major << 16) | (minor << 8) | letter)
 #define PCORE_VER_MAJOR(version)		(version >> 16)
 #define PCORE_VER_MINOR(version)		((version >> 8) & 0xff)
@@ -55,123 +57,6 @@
 
 #define ADXCVR_BROADCAST			0xff
 
-#define TXOUT_DIV_ADDR				0x88
-#define TXOUT_DIV_MASK				0x70
-#define TXOUT_DIV_OFFSET			0x4
-#define TXOUT_DIV_WIDTH				0x3
-#define TXOUT_DIV_DEFAULT			0x0
-
-#define RXOUT_DIV_ADDR				0x88
-#define RXOUT_DIV_MASK				0x7
-#define RXOUT_DIV_OFFSET			0x0
-#define RXOUT_DIV_WIDTH				0x3
-#define RXOUT_DIV_DEFAULT			0x0
-
-#define RXCDR_CFG0_ADDR				0xa8
-#define RXCDR_CFG0_MASK				0xffff
-#define RXCDR_CFG0_OFFSET			0x0
-#define RXCDR_CFG0_WIDTH			0x10
-#define RXCDR_CFG0_DEFAULT			0x0
-
-#define RXCDR_CFG1_ADDR				0xa9
-#define RXCDR_CFG1_MASK				0xffff
-#define RXCDR_CFG1_OFFSET			0x0
-#define RXCDR_CFG1_WIDTH			0x10
-#define RXCDR_CFG1_DEFAULT			0x0
-
-#define RXCDR_CFG2_ADDR				0xaa
-#define RXCDR_CFG2_MASK				0xffff
-#define RXCDR_CFG2_OFFSET			0x0
-#define RXCDR_CFG2_WIDTH			0x10
-#define RXCDR_CFG2_DEFAULT			0x0
-
-#define RXCDR_CFG3_ADDR				0xab
-#define RXCDR_CFG3_MASK				0xffff
-#define RXCDR_CFG3_OFFSET			0x0
-#define RXCDR_CFG3_WIDTH			0x10
-#define RXCDR_CFG3_DEFAULT			0x0
-
-#define RXCDR_CFG4_ADDR				0xac
-#define RXCDR_CFG4_MASK				0xff
-#define RXCDR_CFG4_OFFSET			0x0
-#define RXCDR_CFG4_WIDTH			0x8
-#define RXCDR_CFG4_DEFAULT			0x0
-
-#define RX_DFE_LPM_CFG_ADDR			0x29
-#define RX_DFE_LPM_CFG_MASK			0xffff
-#define RX_DFE_LPM_CFG_OFFSET		0x0
-#define RX_DFE_LPM_CFG_WIDTH		0x10
-#define RX_DFE_LPM_CFG_DEFAULT		0x0
-
-#define QPLL_CFG0_ADDR				0x32
-#define QPLL_CFG0_MASK				0xffff
-#define QPLL_CFG0_BAND_MASK			0x40
-#define QPLL_CFG0_OFFSET			0x0
-#define QPLL_CFG0_WIDTH				0x10
-#define QPLL_CFG0_DEFAULT			0x0
-
-#define QPLL_CFG1_ADDR				0x33
-#define QPLL_CFG1_MASK				0x7ff
-#define QPLL_CFG1_OFFSET			0x0
-#define QPLL_CFG1_WIDTH				0xb
-#define QPLL_CFG1_DEFAULT			0x0
-
-#define QPLL_REFCLK_DIV_M_ADDR		0x33
-#define QPLL_REFCLK_DIV_M_MASK		0xf800
-#define QPLL_REFCLK_DIV_M_OFFSET	0xb
-#define QPLL_REFCLK_DIV_M_WIDTH		0x5
-#define QPLL_REFCLK_DIV_M_DEFAULT	0x0
-
-#define QPLL_FBDIV_N_ADDR			0x36
-#define QPLL_FBDIV_N_MASK			0x3ff
-#define QPLL_FBDIV_N_OFFSET			0x0
-#define QPLL_FBDIV_N_WIDTH			0xa
-#define QPLL_FBDIV_N_DEFAULT		0x0
-
-#define QPLL_FBDIV_RATIO_ADDR		0x37
-#define QPLL_FBDIV_RATIO_MASK		0x40
-#define QPLL_FBDIV_RATIO_OFFSET		0x6
-#define QPLL_FBDIV_RATIO_WIDTH		0x1
-#define QPLL_FBDIV_RATIO_DEFAULT	0x0
-
-#define CPLL_CFG0_ADDR				0x5c
-#define CPLL_CFG0_MASK				0xff00
-#define CPLL_CFG0_OFFSET			0x8
-#define CPLL_CFG0_WIDTH				0x8
-#define CPLL_CFG0_DEFAULT			0x0
-
-#define CPLL_CFG1_ADDR				0x5d
-#define CPLL_CFG1_MASK				0xffff
-#define CPLL_CFG1_OFFSET			0x0
-#define CPLL_CFG1_WIDTH				0x10
-#define CPLL_CFG1_DEFAULT			0x0
-
-#define CPLL_REFCLK_DIV_M_ADDR		0x5e
-#define CPLL_REFCLK_DIV_M_MASK		0x1f00
-#define CPLL_REFCLK_DIV_M_OFFSET	0x8
-#define CPLL_REFCLK_DIV_M_WIDTH		0x5
-#define CPLL_REFCLK_DIV_M_DEFAULT	0x0
-
-#define CPLL_FB_DIV_45_N1_ADDR		0x5e
-#define CPLL_FB_DIV_45_N1_MASK		0x80
-#define CPLL_FB_DIV_45_N1_OFFSET	0x7
-#define CPLL_FB_DIV_45_N1_WIDTH		0x1
-#define CPLL_FB_DIV_45_N1_DEFAULT	0x0
-
-#define CPLL_FBDIV_N2_ADDR			0x5e
-#define CPLL_FBDIV_N2_MASK			0x7f
-#define CPLL_FBDIV_N2_OFFSET		0x0
-#define CPLL_FBDIV_N2_WIDTH			0x7
-#define CPLL_FBDIV_N2_DEFAULT		0x0
-
-#define ENC_8B10B					810
-
-enum refclk_ppm {
-	PM_200,
-	PM_700,
-	PM_1250,
-};
-
 struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*regs;
@@ -181,15 +66,20 @@ struct adxcvr_state {
 	bool				out_clk_enabled;
 	struct work_struct	work;
 	unsigned long		lane_rate;
-	bool				gth_enable;
 	bool				tx_enable;
 	u32					sys_clk_sel;
 	u32					out_clk_sel;
+
+	struct xilinx_xcvr	xcvr;
+
 	bool				cpll_enable;
 	bool				lpm_enable;
-	uint16_t			encoding;
-	enum refclk_ppm		ppm;
 };
+
+static struct adxcvr_state *xcvr_to_adxcvr(struct xilinx_xcvr *xcvr)
+{
+	return container_of(xcvr, struct adxcvr_state, xcvr);
+}
 
 static inline unsigned int adxcvr_read(struct adxcvr_state *st,
 									   unsigned int reg)
@@ -228,52 +118,27 @@ static int adxcvr_drp_wait_idle(struct adxcvr_state *st, unsigned int drp_port)
 	return -ETIMEDOUT;
 }
 
-static unsigned int adxcvr_drp_read(struct adxcvr_state *st,
-									unsigned int reg)
+static int adxcvr_drp_read(struct xilinx_xcvr *xcvr, unsigned int drp_port,
+	unsigned int reg)
 {
-	unsigned int drp_port;
+	struct adxcvr_state *st = xcvr_to_adxcvr(xcvr);
 	int ret;
-
-	switch (reg) {
-	case QPLL_CFG0_ADDR:
-	case QPLL_CFG1_ADDR:
-	case QPLL_FBDIV_N_ADDR:
-	case QPLL_FBDIV_RATIO_ADDR:
-		drp_port = ADXCVR_DRP_PORT_COMMON;
-		break;
-	default:
-		drp_port = ADXCVR_DRP_PORT_CHANNEL;
-	}
 
 	adxcvr_write(st, ADXCVR_REG_DRP_SEL(drp_port), ADXCVR_BROADCAST);
 	adxcvr_write(st, ADXCVR_REG_DRP_CTRL(drp_port), ADXCVR_DRP_CTRL_ADDR(reg));
 
 	ret = adxcvr_drp_wait_idle(st, drp_port);
-	if (ret >= 0)
-		dev_dbg(st->dev, "%s: reg 0x%X val 0x%X\n", __func__,
-			reg, ret & 0xFFFF);
+	if (ret < 0)
+		return ret;
 
-	return ret;
+	return ret & 0xffff;
 }
 
-static int adxcvr_drp_write(struct adxcvr_state *st,
-							unsigned int reg,
-							unsigned int val)
+static int adxcvr_drp_write(struct xilinx_xcvr *xcvr, unsigned int drp_port,
+	unsigned int reg, unsigned int val)
 {
-	unsigned int drp_port;
-	unsigned int read_val;
+	struct adxcvr_state *st = xcvr_to_adxcvr(xcvr);
 	int ret;
-
-	switch (reg) {
-	case QPLL_CFG0_ADDR:
-	case QPLL_CFG1_ADDR:
-	case QPLL_FBDIV_N_ADDR:
-	case QPLL_FBDIV_RATIO_ADDR:
-		drp_port = ADXCVR_DRP_PORT_COMMON;
-		break;
-	default:
-		drp_port = ADXCVR_DRP_PORT_CHANNEL;
-	}
 
 	adxcvr_write(st, ADXCVR_REG_DRP_SEL(drp_port), ADXCVR_BROADCAST);
 	adxcvr_write(st, ADXCVR_REG_DRP_CTRL(drp_port), (ADXCVR_DRP_CTRL_WR |
@@ -283,62 +148,13 @@ static int adxcvr_drp_write(struct adxcvr_state *st,
 	if (ret < 0)
 		return ret;
 
-	read_val = adxcvr_drp_read(st, reg);
-	if (val != read_val)
-		dev_err(st->dev, "%s: MISMATCH reg 0x%X val 0x%X != read 0x%X\n",
-				__func__, reg, val, read_val);
 	return 0;
 }
 
-static int __adxcvr_drp_writef(struct adxcvr_state *st,
-							   u32 reg,
-							   u32 mask,
-							   u32 offset,
-							   u32 val)
-{
-	u32 tmp;
-	int ret;
-
-	if (!mask)
-		return -EINVAL;
-
-	ret = adxcvr_drp_read(st, reg);
-	if (ret < 0)
-		return ret;
-
-	tmp = ret;
-
-	tmp &= ~mask;
-	tmp |= ((val << offset) & mask);
-
-	return adxcvr_drp_write(st, reg, tmp);
-}
-
-#define adxcvr_drp_writef(st, reg, mask, val) \
-	__adxcvr_drp_writef(st, reg, mask, __ffs(mask), val)
-
-static int adxcvr_set_lpm_dfe_mode(struct adxcvr_state *st,
-								   unsigned int lpm)
-{
-	if (st->gth_enable) {
-		if (lpm) {
-			adxcvr_drp_write(st, 0x036, 0x0032);
-			adxcvr_drp_write(st, 0x039, 0x1000);
-			adxcvr_drp_write(st, 0x062, 0x1980);
-		} else {
-			adxcvr_drp_write(st, 0x036, 0x0002);
-			adxcvr_drp_write(st, 0x039, 0x0000);
-			adxcvr_drp_write(st, 0x062, 0x0000);
-		}
-	} else {
-		if (lpm)
-			adxcvr_drp_write(st, 0x029, 0x0104);
-		else
-			adxcvr_drp_write(st, 0x029, 0x0954);
-	}
-
-	return 0;
-}
+static const struct xilinx_xcvr_drp_ops adxcvr_drp_ops = {
+	.read = adxcvr_drp_read,
+	.write = adxcvr_drp_write,
+};
 
 static int adxcvr_status_error(struct device *dev)
 {
@@ -400,7 +216,8 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 
 	if (!st->tx_enable)
-		adxcvr_set_lpm_dfe_mode(st, st->lpm_enable);
+		xilinx_xcvr_configure_lpm_dfe_mode(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL,
+				st->lpm_enable);
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 
@@ -427,426 +244,49 @@ static int adxcvr_clk_is_enabled(struct clk_hw *hw)
 	return st->out_clk_enabled;
 }
 
-static long adxcvr_gth_rxcdr_settings(struct adxcvr_state *st,
-			u32 rxout_div)
-{
-	u16 cfg0, cfg1, cfg2, cfg3, cfg4;
-
-	if (st->tx_enable)
-		return 0; /* Do Nothing */
-
-	switch (st->ppm) {
-	case PM_200:
-		cfg0 = 0x0018;
-		break;
-	case PM_700:
-	case PM_1250:
-		cfg0 = 0x8018;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (st->encoding == ENC_8B10B) {
-
-		cfg1 = 0xC208;
-		cfg3 = 0x07FE;
-		cfg3 = 0x0020;
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			cfg2 = 0x2000;
-			break;
-		case 1: /* 2 */
-			cfg2 = 0x1000;
-			break;
-		case 2: /* 4 */
-			cfg2 = 0x0800;
-			break;
-		case 3: /* 8 */
-			cfg2 = 0x0400;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-	} else {
-		dev_warn(st->dev, "%s: GTH PRBS CDR not implemented\n", __func__);
-	}
-
-	adxcvr_drp_write(st, RXCDR_CFG0_ADDR, cfg0);
-	adxcvr_drp_write(st, RXCDR_CFG1_ADDR, cfg1);
-	adxcvr_drp_write(st, RXCDR_CFG2_ADDR, cfg2);
-	adxcvr_drp_write(st, RXCDR_CFG3_ADDR, cfg3);
-	adxcvr_drp_write(st, RXCDR_CFG4_ADDR, cfg4);
-
-	return 0;
-}
-
-static long adxcvr_rxcdr_settings(struct adxcvr_state *st,
-			u32 rxout_div)
-{
-	u16 cfg0, cfg1, cfg2, cfg3, cfg4;
-
-	if (st->tx_enable)
-		return 0; /* Do Nothing */
-
-	if (st->gth_enable)
-		return adxcvr_gth_rxcdr_settings(st, rxout_div);
-
-	cfg2 = 0x23FF;
-	cfg0 = 0x0020;
-
-	switch (st->ppm) {
-	case PM_200:
-		cfg3 = 0x0000;
-		break;
-	case PM_700:
-	case PM_1250:
-		cfg3 = 0x8000;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (st->lane_rate > 6600000 && rxout_div == 1)
-		cfg4 = 0x0B;
-	else
-		cfg4 = 0x03;
-
-	if (st->encoding == ENC_8B10B) {
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			cfg1 = 0x1040;
-			break;
-		case 1: /* 2 */
-			cfg1 = 0x1020;
-			break;
-		case 2: /* 4 */
-			cfg1 = 0x1010;
-			break;
-		case 3: /* 8 */
-			cfg1 = 0x1008;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-	} else {
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			if (st->lpm_enable) {
-				if (st->lane_rate  > 6600000) {
-					if (st->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x1040;
-				} else {
-					cfg1 = 0x1020;
-				}
-			} else { /* DFE */
-				if (st->lane_rate  > 6600000) {
-					if (st->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x1040;
-				} else {
-					if (st->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x2040;
-				}
-			}
-			break;
-		case 1: /* 2 */
-			cfg1 = 0x4020;
-			break;
-		case 2: /* 4 */
-			cfg1 = 0x4010;
-			break;
-		case 3: /* 8 */
-			cfg1 = 0x4008;
-			break;
-		default:
-			return -EINVAL;
-		}
-	}
-
-
-	adxcvr_drp_write(st, RXCDR_CFG0_ADDR, cfg0);
-	adxcvr_drp_write(st, RXCDR_CFG1_ADDR, cfg1);
-	adxcvr_drp_write(st, RXCDR_CFG2_ADDR, cfg2);
-	adxcvr_drp_write(st, RXCDR_CFG3_ADDR, cfg3);
-	adxcvr_drp_writef(st, RXCDR_CFG4_ADDR, RXCDR_CFG4_MASK, cfg4);
-
-	return 0;
-}
-
-static long adxcvr_calc_cpll_settings(struct adxcvr_state *st,
-					   unsigned long refclk_kHz,
-					   unsigned long laneRate_kHz,
-					   u32 *refclk_div, u32 *out_div,
-					   u32 *fbdiv_45, u32 *fbdiv)
-{
-	u32 n1, n2, d, m;
-	u32 pllFreq_kHz;
-
-	/* Possible Xilinx GTX PLL parameters for Virtex 7 CPLL.  Find one that works for the desired laneRate. */
-	/* Attribute encoding, DRP encoding */
-	const u8 _N1[][2] = {{5, 1}, {4, 0} };
-	const u8 _N2[][2] = {{5, 3}, {4, 2}, {3, 1}, {2, 0}, {1, 16} };
-	const u8 _D[][2] = {{1, 0}, {2, 1}, {4, 2}, {8, 3} };
-	const u8 _M[][2] = {{1, 16}, {2, 0} };
-
-	for (m = 0; m < ARRAY_SIZE(_M); m++) {
-		for (d = 0; d < ARRAY_SIZE(_D); d++) {
-			for (n1 = 0; n1 < ARRAY_SIZE(_N1); n1++) {
-				for (n2 = 0; n2 < ARRAY_SIZE(_N2); n2++) {
-					pllFreq_kHz = refclk_kHz * _N1[n1][0] * _N2[n2][0] / _M[m][0];
-
-					if ((pllFreq_kHz > 3300000) || (pllFreq_kHz < 1600000)) /* GTH 3.75 GHz */
-						continue;
-
-					if ((pllFreq_kHz * 2 / _D[d][0]) == laneRate_kHz) {
-						if (refclk_div && out_div && fbdiv_45 && fbdiv) {
-							*refclk_div = _M[m][1];
-							*out_div = _D[d][1];
-							*fbdiv_45 = _N1[n1][1];
-							*fbdiv = _N2[n2][1];
-						}
-
-						dev_dbg(st->dev, "%s: M %d, D %d, N1 %d, N2 %d\n",
-							__func__, _M[m][0], _D[d][0],
-							_N1[n1][0], _N2[n2][0]);
-
-						return laneRate_kHz;
-					}
-				}
-			}
-		}
-	}
-
-	dev_dbg(st->dev, "%s: Failed to find matching dividers for %lu kHz rate\n",
-		__func__, laneRate_kHz);
-
-	return -EINVAL;
-}
-
-static long adxcvr_calc_qpll_settings(struct adxcvr_state *st,
-					   unsigned long refclk_kHz,
-					   unsigned long laneRate_kHz,
-					   u32 *refclk_div, u32 *out_div,
-					   u32 *fbdiv, u32 *fbdiv_ratio,
-					   u32 *lowband)
-{
-	/* Calculate the FPGA GTX PLL settings M, D, N1, N2 */
-	u32 n, d, m;
-	u32 pllVcoFreq_kHz;
-	u32 pllOutFreq_kHz;
-
-	/* Possible Xilinx GTX QPLL parameters for Virtex 7 QPLL.  Find one that works for the desired laneRate. */
-	/* Attribute encoding, DRP encoding */
-	const u16 _N[][2] = {{16, 32}, {20, 48}, {32, 96}, {40, 128},
-			     {64, 224}, {66, 320}, {80, 288}, {100, 368} };
-	const u8 _D[][2] = {{1, 0}, {2, 1}, {4, 2}, {8, 3}, {16, 4} };
-	const u8 _M[][2] = {{1, 16}, {2, 0}, {3, 1}, {4, 2} };
-	u8 _lowBand = 0;
-
-	for (m = 0; m < ARRAY_SIZE(_M); m++) {
-		for (d = 0; d < ARRAY_SIZE(_D); d++) {
-			for (n = 0; n < ARRAY_SIZE(_N); n++) {
-
-				pllVcoFreq_kHz = refclk_kHz * _N[n][0] / _M[m][0];
-				pllOutFreq_kHz = pllVcoFreq_kHz / 2;
-
-				if ((pllVcoFreq_kHz >= 5930000) && (pllVcoFreq_kHz <= 8000000)) {
-					/* low band = 5.93G to 8.0GHz VCO */
-					_lowBand = 1;
-				} else if ((pllVcoFreq_kHz >= 9800000) && (pllVcoFreq_kHz <= 12500000)) {
-					/* high band = 9.8G to 12.5GHz VCO */
-					_lowBand = 0;
-				} else {
-					continue; /* if Pll out of range, not valid case, keep trying */
-				}
-
-				if ((pllOutFreq_kHz * 2 / _D[d][0]) == laneRate_kHz) {
-					if (refclk_div && out_div && fbdiv_ratio && fbdiv && lowband) {
-						*refclk_div = _M[m][1];
-						*out_div = _D[d][1];
-						*fbdiv = _N[n][1];
-						*fbdiv_ratio = (_N[n][0] == 66) ? 0 : 1;
-					}
-					if (lowband)
-						*lowband = _lowBand;
-
-					dev_dbg(st->dev, "%s: M %d, D %d, N %d, ratio %d, lowband %d\n",
-						__func__, _M[m][0], _D[d][0],
-						_N[n][0], (_N[n][0] == 66) ? 0 : 1,
-						_lowBand);
-
-					return laneRate_kHz;
-				}
-
-			}
-		}
-	}
-
-	dev_dbg(st->dev, "%s: Failed to find matching dividers for %lu kHz rate\n",
-		__func__, laneRate_kHz);
-
-	return -EINVAL;
-}
-
 static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
-											unsigned long parent_rate)
+	unsigned long parent_rate)
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, out_clk_hw);
+	unsigned int *rx_out_div;
+	unsigned int *tx_out_div;
+	unsigned int out_div;
 
 	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
 		__func__, parent_rate);
 
-	if (st->cpll_enable) {
-		unsigned int refclk_div_m, out_div, N1, N2, M;
-
-		refclk_div_m = adxcvr_drp_read(st, CPLL_REFCLK_DIV_M_ADDR);
-		out_div = adxcvr_drp_read(st, RXOUT_DIV_ADDR);
-
-		switch ((refclk_div_m & CPLL_FB_DIV_45_N1_MASK) >> CPLL_FB_DIV_45_N1_OFFSET) {
-		case 0:
-			N1 = 4;
-			break;
-		case 1:
-			N1 = 5;
-			break;
-		}
-
-		switch ((refclk_div_m & CPLL_REFCLK_DIV_M_MASK) >> CPLL_REFCLK_DIV_M_OFFSET) {
-		case 0:
-			M = 2;
-			break;
-		case 16:
-			M = 1;
-			break;
-		}
-
-		switch (refclk_div_m & CPLL_FBDIV_N2_MASK) {
-		case 3:
-			N2 = 5;
-			break;
-		case 2:
-			N2 = 4;
-			break;
-		case 1:
-			N2 = 3;
-			break;
-		case 0:
-			N2 = 2;
-			break;
-		case 16:
-			N2 = 1;
-			break;
-		}
-
-		if (st->tx_enable)
-			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
-		else
-			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
-
-		out_div = (1 << out_div);
-
-		dev_dbg(st->dev, "%s  CPLL %lu   %lu\n", __func__, st->lane_rate,
-			((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div));
-
-		dev_dbg(st->dev, "%s  CPLL N1=%d N2=%d M=%d out_div=%d\n", __func__, N1, N2, M, out_div);
-
-		return ((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div);
+	if (st->tx_enable) {
+		rx_out_div = NULL;
+		tx_out_div = &out_div;
 	} else {
-		unsigned int refclk_div_m, fb_div, out_div, N, M;
-		unsigned long rate;
-		u32 set_lowband;
-		u32 lowband;
+		rx_out_div = &out_div;
+		tx_out_div = NULL;
+	}
 
-		refclk_div_m = adxcvr_drp_read(st, QPLL_REFCLK_DIV_M_ADDR);
-		fb_div = adxcvr_drp_read(st, QPLL_FBDIV_N_ADDR);
-		out_div = adxcvr_drp_read(st, RXOUT_DIV_ADDR);
-		set_lowband = adxcvr_drp_read(st, QPLL_CFG0_ADDR) & QPLL_CFG0_BAND_MASK;
+	xilinx_xcvr_read_out_div(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL,
+		rx_out_div, tx_out_div);
 
-		switch ((refclk_div_m & QPLL_REFCLK_DIV_M_MASK) >> QPLL_REFCLK_DIV_M_OFFSET) {
-		case 16:
-			M = 1;
-			break;
-		case 0:
-			M = 2;
-			break;
-		case 1:
-			M = 3;
-			break;
-		case 2:
-			M = 4;
-			break;
-		}
+	if (st->cpll_enable) {
+		struct xilinx_xcvr_cpll_config cpll_conf;
 
-		switch (fb_div & QPLL_FBDIV_N_MASK) {
-		case 32:
-			N = 16;
-			break;
-		case 48:
-			N = 20;
-			break;
-		case 96:
-			N = 32;
-			break;
-		case 128:
-			N = 40;
-			break;
-		case 224:
-			N = 64;
-			break;
-		case 320:
-			N = 66;
-			break;
-		case 288:
-			N = 80;
-			break;
-		case 368:
-			N = 100;
-			break;
-		}
+		xilinx_xcvr_cpll_read_config(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL,
+			&cpll_conf);
+		return xilinx_xcvr_cpll_calc_lane_rate(&st->xcvr, parent_rate,
+			&cpll_conf, out_div);
 
-		if (st->tx_enable)
-			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
-		else
-			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
+	} else {
+		struct xilinx_xcvr_qpll_config qpll_conf;
 
-		out_div = (1 << out_div);
-
-		dev_dbg(st->dev, "%s QPLL  %lu %lu\n", __func__, st->lane_rate,
-			((parent_rate / 1000) * N) / (M * out_div));
-
-		dev_dbg(st->dev, "%s QPLL N=%d M=%d out_div=%d\n", __func__, N, M, out_div);
-
-		rate = ((parent_rate / 1000) * N) / (M * out_div);
-
-		adxcvr_calc_qpll_settings(st, parent_rate / 1000, rate,
-						     NULL, NULL, NULL, NULL,
-						     &lowband);
-		lowband = lowband ? QPLL_CFG0_BAND_MASK : 0;
-
-		if (lowband !=  set_lowband)
-			adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
-							  QPLL_CFG0_BAND_MASK, lowband ? 1 : 0);
-
-		return rate;
-
+		xilinx_xcvr_qpll_read_config(&st->xcvr, ADXCVR_DRP_PORT_COMMON,
+			&qpll_conf);
+		return xilinx_xcvr_qpll_calc_lane_rate(&st->xcvr, parent_rate,
+			&qpll_conf, out_div);
 	}
 }
 
-
 static long adxcvr_clk_round_rate(struct clk_hw *hw, unsigned long rate,
-								  unsigned long *prate)
+	unsigned long *prate)
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, out_clk_hw);
@@ -855,15 +295,15 @@ static long adxcvr_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, *prate);
 
+	/* Just check if we can support the requested rate */
 	if (st->cpll_enable)
-		ret = adxcvr_calc_cpll_settings(st, *prate / 1000, rate,
-						      NULL, NULL, NULL, NULL);
+		ret = xilinx_xcvr_calc_cpll_config(&st->xcvr, *prate, rate,
+			NULL, NULL);
 	else
-		ret = adxcvr_calc_qpll_settings(st, *prate / 1000, rate,
-						     NULL, NULL, NULL, NULL,
-						     NULL);
+		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr, *prate, rate,
+			NULL, NULL);
 
-	return ret;
+	return ret < 0 ? ret : rate;
 }
 
 static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -871,59 +311,55 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, out_clk_hw);
-	u32 refclk_div, out_div, fbdiv_45, fbdiv, fbdiv_ratio, lowband;
+	struct xilinx_xcvr_cpll_config cpll_conf;
+	struct xilinx_xcvr_qpll_config qpll_conf;
+	unsigned int out_div;
 	int ret;
 
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
 
 	if (st->cpll_enable)
-		ret = adxcvr_calc_cpll_settings(st, parent_rate / 1000, rate,
-						     &refclk_div, &out_div,
-						     &fbdiv_45, &fbdiv);
+		ret = xilinx_xcvr_calc_cpll_config(&st->xcvr, parent_rate, rate,
+			&cpll_conf, &out_div);
 	else
-		ret = adxcvr_calc_qpll_settings(st, parent_rate / 1000, rate,
-						     &refclk_div, &out_div,
-						     &fbdiv, &fbdiv_ratio,
-						     &lowband);
+		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr, parent_rate, rate,
+			&qpll_conf, &out_div);
 	if (ret < 0)
 		return ret;
 
-	st->lane_rate = rate;
-
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 
-	if (st->cpll_enable) {
-		adxcvr_drp_writef(st, CPLL_REFCLK_DIV_M_ADDR,
-						  CPLL_REFCLK_DIV_M_MASK |
-						  CPLL_FB_DIV_45_N1_MASK |
-						  CPLL_FBDIV_N2_MASK,
-						  (refclk_div << 8) | (fbdiv_45 << 7) | fbdiv);
-	} else {
-		adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
-						  QPLL_CFG0_BAND_MASK, lowband);
+	if (st->cpll_enable)
+		ret = xilinx_xcvr_cpll_write_config(&st->xcvr,
+			ADXCVR_DRP_PORT_CHANNEL, &cpll_conf);
+	else
+		ret = xilinx_xcvr_qpll_write_config(&st->xcvr,
+			ADXCVR_DRP_PORT_COMMON, &qpll_conf);
+	if (ret < 0)
+		return ret;
 
-		adxcvr_drp_writef(st, QPLL_REFCLK_DIV_M_ADDR,
-						  QPLL_REFCLK_DIV_M_MASK, refclk_div);
+	ret = xilinx_xcvr_write_out_div(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL,
+		st->tx_enable ? -1 : out_div,
+		st->tx_enable ? out_div : -1);
+	if (ret < 0)
+		return ret;
 
-		adxcvr_drp_writef(st, QPLL_FBDIV_N_ADDR,
-						  QPLL_FBDIV_N_MASK, fbdiv);
-
-		adxcvr_drp_writef(st, QPLL_FBDIV_RATIO_ADDR,
-						  QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
+	if (!st->tx_enable) {
+		ret = xilinx_xcvr_configure_cdr(&st->xcvr,
+			ADXCVR_DRP_PORT_CHANNEL, rate, out_div, st->lpm_enable);
+		if (ret < 0)
+			return ret;
 	}
 
-	ret = adxcvr_drp_writef(st, RXOUT_DIV_ADDR,
-							st->tx_enable ? TXOUT_DIV_MASK : RXOUT_DIV_MASK, out_div);
-
-	adxcvr_rxcdr_settings(st, out_div);
-
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+
+	st->lane_rate = rate;
 
 	if (!IS_ERR(st->lane_rate_div40_clk))
 		schedule_work(&st->work);
 
-	return ret;
+	return 0;
 }
 
 static const struct clk_ops clkout_ops = {
@@ -970,8 +406,9 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 static int adxcvr_parse_dt(struct adxcvr_state *st,
 						   struct device_node *np)
 {
-	st->gth_enable =
-		of_property_read_bool(np, "adi,transceiver-gth-enable");
+	bool gth_enable;
+
+	gth_enable = of_property_read_bool(np, "adi,transceiver-gth-enable");
 	st->tx_enable =
 		of_property_read_bool(np, "adi,link-is-transmit-enable");
 
@@ -985,10 +422,14 @@ static int adxcvr_parse_dt(struct adxcvr_state *st,
 	st->lpm_enable = of_property_read_bool(np,
 				"adi,use-lpm-enable");
 
-	st->encoding = ENC_8B10B;
-	st->ppm = PM_200; /* TODO use clock accuracy */
-
 	INIT_WORK(&st->work, adxcvr_work_func);
+
+	if (gth_enable)
+		st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
+	else
+		st->xcvr.type = XILINX_XCVR_TYPE_S7_GTX2;
+	st->xcvr.encoding = ENC_8B10B;
+	st->xcvr.refclk_ppm = PM_200; /* TODO use clock accuracy */
 
 	return 0;
 }
@@ -999,6 +440,23 @@ static const struct of_device_id adxcvr_of_match[] = {
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adxcvr_of_match);
+
+static void adxcvr_enforce_settings(struct adxcvr_state *st)
+{
+	unsigned long lane_rate, parent_rate;
+
+	/*
+	 * Make sure filter settings, etc. are correct for the supplied reference
+	 * clock. This is done since the reference clock might differ from the
+	 * one specified during HDL synthesis.
+	 */
+
+	parent_rate = clk_get_rate(st->conv_clk);
+
+	lane_rate = adxcvr_clk_recalc_rate(&st->out_clk_hw, parent_rate);
+
+	adxcvr_clk_set_rate(&st->out_clk_hw, lane_rate, parent_rate);
+}
 
 static int adxcvr_probe(struct platform_device *pdev)
 {
@@ -1026,6 +484,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	st->xcvr.dev = &pdev->dev;
+	st->xcvr.drp_ops = &adxcvr_drp_ops;
+
 	ret = adxcvr_parse_dt(st, np);
 	if (ret < 0)
 		goto disable_unprepare;
@@ -1047,6 +508,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 				 ((st->lpm_enable ? ADXCVR_LPM_DFE_N : 0) |
 				  ADXCVR_SYSCLK_SEL(st->sys_clk_sel) |
 				  ADXCVR_OUTCLK_SEL(st->out_clk_sel)));
+
+	adxcvr_enforce_settings(st);
 
 	ret = adxcvr_clk_register(&pdev->dev, np, __clk_get_name(st->conv_clk));
 	if (ret)
