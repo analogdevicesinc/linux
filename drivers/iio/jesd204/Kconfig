@@ -12,6 +12,7 @@ config AXI_ADXCVR
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
 	depends on COMMON_CLK
+	select XILINX_TRANSCEIVER
 
 config XILINX_TRANSCEIVER
 	tristate

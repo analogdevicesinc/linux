@@ -25,6 +25,7 @@
 #include <linux/clk-provider.h>
 
 #include "axi_jesd204b_gt.h"
+#include "xilinx_transceiver.h"
 
 #define JESD204B_GT_ES_HSIZE_FULL 	65
 #define JESD204B_GT_ES_HSIZE_HALF 	129
@@ -56,12 +57,6 @@ struct child_clk {
 	bool			enabled;
 };
 
-enum refclk_ppm {
-	PM_200,
-	PM_700,
-	PM_1250,
-};
-
 struct jesd204b_gt_link {
 	struct device 	*dev;
 	struct clk 	*conv_clk;
@@ -82,10 +77,6 @@ struct jesd204b_gt_link {
 	bool		cpll_enable;
 	bool 		lpm_enable;
 	bool 		sysref_ext_enable;
-	bool 		gth_enable;
-	bool		encoding;
-
-	enum refclk_ppm ppm;
 };
 
 struct jesd204b_gt_state {
@@ -111,6 +102,8 @@ struct jesd204b_gt_state {
 	bool			legacy;
 
 	unsigned		addr;
+
+	struct xilinx_xcvr	xcvr;
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct child_clk, hw)
@@ -154,12 +147,18 @@ static struct jesd204b_gt_link* jesd204b_get_rx_link_by_lane(struct jesd204b_gt_
 	return NULL;
 }
 
-static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st,
+static struct jesd204b_gt_state *xcvr_to_gt_state(struct xilinx_xcvr *xcvr)
+{
+	return container_of(xcvr, struct jesd204b_gt_state, xcvr);
+}
+
+static int jesd204b_gt_drp_read(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int reg)
 {
+	struct jesd204b_gt_state *st = xcvr_to_gt_state(xcvr);
 	int timeout = 20;
 	unsigned int drp_addr;
-	unsigned val;
+	unsigned int val;
 
 	if (drp_port == JESD204B_GT_DRP_PORT_COMMON)
 		drp_addr = 0x4050;
@@ -177,20 +176,17 @@ static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st,
 			continue;
 		}
 
-		dev_vdbg(st->dev, "%s:  drp_port %d reg 0x%X val 0x%X\n",
-			 __func__, drp_port, reg, JESD204B_GT_TO_DRP_RDATA(val));
-
 		return JESD204B_GT_TO_DRP_RDATA(val);
 
 	} while (timeout--);
 
-	dev_err(st->dev, "%s: Timeout!", __func__);
 	return -ETIMEDOUT;
 }
 
-static int jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
+static int jesd204b_gt_drp_write(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int reg, unsigned int val)
 {
+	struct jesd204b_gt_state *st = xcvr_to_gt_state(xcvr);
 	unsigned int drp_addr;
 	int timeout = 20;
 
@@ -199,52 +195,23 @@ static int jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
 	else
 		drp_addr = JESD204B_GT_REG_DRP_CNTRL(drp_port);
 
-	dev_vdbg(st->dev, "%s: drp_port %d reg 0x%X val 0x%X\n",
-		 __func__, drp_port, reg, val);
-
 	jesd204b_gt_write(st, drp_addr,
 			  JESD204B_GT_DRP_ADDRESS(reg) | JESD204B_GT_DRP_WDATA(val));
 
 	do {
-		if (!(jesd204b_gt_read(st, drp_addr + 4) & JESD204B_GT_DRP_STATUS)) {
-			if (val != jesd204b_gt_drp_read(st, drp_port, reg))
-					dev_err(st->dev, "%s: MISMATCH drp_port %d reg 0x%X val 0x%X\n",
-				__func__, drp_port, reg, val);
-
+		if (!(jesd204b_gt_read(st, drp_addr + 4) & JESD204B_GT_DRP_STATUS))
 			return 0;
-		}
 
 		mdelay(1);
 	} while (timeout--);
 
-	dev_err(st->dev, "%s: Timeout!", __func__);
-
 	return -ETIMEDOUT;
 }
 
-static int __jesd204b_gt_drp_writef(struct jesd204b_gt_state *st,
-	unsigned int drp_port, u32 reg, u32 mask, u32 offset, u32 val)
-{
-	u32 tmp;
-	int ret;
-
-	if (!mask)
-		return -EINVAL;
-
-	ret = jesd204b_gt_drp_read(st, drp_port, reg);
-	if (ret < 0)
-		return ret;
-
-	tmp = ret;
-
-	tmp &= ~mask;
-	tmp |= ((val << offset) & mask);
-
-	return jesd204b_gt_drp_write(st, drp_port, reg, tmp);
-}
-
-#define jesd204b_gt_drp_writef(st, drp_port, reg, mask, val) \
-	__jesd204b_gt_drp_writef(st, drp_port, reg, mask, __ffs(mask), val)
+static const struct xilinx_xcvr_drp_ops jesd204b_gt_drp_ops = {
+	.read = jesd204b_gt_drp_read,
+	.write = jesd204b_gt_drp_write,
+};
 
 static int jesd204b_gt_set_lane(struct jesd204b_gt_state *st, unsigned lane)
 {
@@ -261,31 +228,9 @@ static int jesd204b_gt_set_lane(struct jesd204b_gt_state *st, unsigned lane)
 static int jesd204b_gt_set_lpm_dfe_mode(struct jesd204b_gt_state *st,
 					unsigned lpm, unsigned lane)
 {
-	u32 type;
-
-	type = jesd204b_gt_read(st, JESD204B_GT_REG_TRANSCEIVER_TYPE(lane));
-
 	jesd204b_gt_set_lane(st, lane);
 
-	if (type == JESD204B_GT_TRANSCEIVER_GTH) {
-		if (lpm) {
-			jesd204b_gt_drp_write(st, lane, 0x036, 0x0032);
-			jesd204b_gt_drp_write(st, lane, 0x039, 0x1000);
-			jesd204b_gt_drp_write(st, lane, 0x062, 0x1980);
-		} else {
-			jesd204b_gt_drp_write(st, lane, 0x036, 0x0002);
-			jesd204b_gt_drp_write(st, lane, 0x039, 0x0000);
-			jesd204b_gt_drp_write(st, lane, 0x062, 0x0000);
-		}
-	} else {
-		if (lpm) {
-			jesd204b_gt_drp_write(st, lane, 0x029, 0x0104);
-		} else {
-			jesd204b_gt_drp_write(st, lane, 0x029, 0x0954);
-		}
-	}
-
-	return 0;
+	return xilinx_xcvr_configure_lpm_dfe_mode(&st->xcvr, lane, lpm);
 }
 
 static int jesd204b_gt_es(struct jesd204b_gt_state *st, unsigned lane)
@@ -655,288 +600,16 @@ static int jesd204b_gt_clk_is_enabled(struct clk_hw *hw)
 	return to_clk_priv(hw)->enabled;
 }
 
-static long jesd204b_gt_gth_rxcdr_settings(struct jesd204b_gt_state *st,
-			struct jesd204b_gt_link *gt_link, unsigned lane,
-			u32 rxout_div)
-{
-	u16 cfg0, cfg1, cfg2, cfg3, cfg4;
-
-	if (gt_link->tx_offset) {
-		return 0; /* Do Nothing */
-	}
-
-	switch (gt_link->ppm) {
-	case PM_200:
-		cfg0 = 0x0018;
-		break;
-	case PM_700:
-	case PM_1250:
-		cfg0 = 0x8018;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (gt_link->encoding == ENC_8B10B) {
-
-		cfg1 = 0xC208;
-		cfg3 = 0x07FE;
-		cfg3 = 0x0020;
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			cfg2 = 0x2000;
-			break;
-		case 1: /* 2 */
-			cfg2 = 0x1000;
-			break;
-		case 2: /* 4 */
-			cfg2 = 0x0800;
-			break;
-		case 3: /* 8 */
-			cfg2 = 0x0400;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-	} else {
-		dev_warn(st->dev, "%s: GTH PRBS CDR not implemented\n",__func__);
-	}
-
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG0_ADDR, cfg0);
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG1_ADDR, cfg1);
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG2_ADDR, cfg2);
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG3_ADDR, cfg3);
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG4_ADDR, cfg4);
-
-	return 0;
-}
-
-static long jesd204b_gt_rxcdr_settings(struct jesd204b_gt_state *st,
-			struct jesd204b_gt_link *gt_link, unsigned lane,
-			u32 rxout_div)
-{
-	u16 cfg0, cfg1, cfg2, cfg3, cfg4;
-
-	if (gt_link->tx_offset) {
-		return 0; /* Do Nothing */
-	}
-
-	if (gt_link->gth_enable)
-		return jesd204b_gt_gth_rxcdr_settings(st, gt_link,
-						      lane, rxout_div);
-
-	cfg2 = 0x23FF;
-	cfg0 = 0x0020;
-
-	switch (gt_link->ppm) {
-	case PM_200:
-		cfg3 = 0x0000;
-		break;
-	case PM_700:
-	case PM_1250:
-		cfg3 = 0x8000;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (gt_link->lane_rate > 6600000 && rxout_div == 1) {
-		cfg4 = 0x0B;
-	} else {
-		cfg4 = 0x03;
-	}
-
-	if (gt_link->encoding == ENC_8B10B) {
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			cfg1 = 0x1040;
-			break;
-		case 1: /* 2 */
-			cfg1 = 0x1020;
-			break;
-		case 2: /* 4 */
-			cfg1 = 0x1010;
-			break;
-		case 3: /* 8 */
-			cfg1 = 0x1008;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-	} else {
-
-		switch (rxout_div) {
-		case 0: /* 1 */
-			if (gt_link->lpm_enable) {
-				if (gt_link->lane_rate  > 6600000) {
-					if (gt_link->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x1040;
-				} else {
-					cfg1 = 0x1020;
-				}
-			} else { /* DFE */
-				if (gt_link->lane_rate  > 6600000) {
-					if (gt_link->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x1040;
-				} else {
-					if (gt_link->ppm == PM_1250)
-						cfg1 = 0x1020;
-					else
-						cfg1 = 0x2040;
-				}
-			}
-			break;
-		case 1: /* 2 */
-			cfg1 = 0x4020;
-			break;
-		case 2: /* 4 */
-			cfg1 = 0x4010;
-			break;
-		case 3: /* 8 */
-			cfg1 = 0x4008;
-			break;
-		default:
-			return -EINVAL;
-		}
-	}
-
-
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG0_ADDR, cfg0);
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG1_ADDR, cfg1);
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG2_ADDR, cfg2);
-	jesd204b_gt_drp_write(st, lane, RXCDR_CFG3_ADDR, cfg3);
-	jesd204b_gt_drp_writef(st, lane, RXCDR_CFG4_ADDR, RXCDR_CFG4_MASK, cfg4);
-
-	return 0;
-}
-
-static long jesd204b_gt_calc_cpll_settings(struct jesd204b_gt_state *st,
-					   unsigned long refclk_kHz,
-					   unsigned long laneRate_kHz,
-					   u32 *refclk_div, u32 *out_div,
-					   u32 *fbdiv_45, u32 *fbdiv)
-{
-	u32 n1, n2, d, m;
-	u32 pllFreq_kHz;
-
-	//possible Xilinx GTX PLL parameters for Virtex 7 CPLL.  Find one that works for the desired laneRate.
-	/* Attribute encoding, DRP encoding */
-	const u8 _N1[][2] = {{5, 1}, {4, 0}};
-	const u8 _N2[][2] = {{5, 3}, {4, 2}, {3, 1}, {2, 0}, {1, 16}};
-	const u8  _D[][2] = {{1, 0}, {2, 1}, {4, 2}, {8, 3}};
-	const u8  _M[][2] = {{1, 16}, {2, 0}};
-
-	for (m = 0; m < ARRAY_SIZE(_M); m++) {
-		for (d = 0; d < ARRAY_SIZE(_D); d++) {
-			for (n1 = 0; n1 < ARRAY_SIZE(_N1); n1++) {
-				for (n2 = 0; n2 < ARRAY_SIZE(_N2); n2++) {
-					pllFreq_kHz = refclk_kHz * _N1[n1][0] * _N2[n2][0] / _M[m][0];
-
-					if ((pllFreq_kHz > 3300000) || (pllFreq_kHz < 1600000)) /* GTH 3.75 GHz */
-						continue;
-
-					if ((pllFreq_kHz * 2 / _D[d][0]) == laneRate_kHz) {
-						if (refclk_div && out_div && fbdiv_45 && fbdiv) {
-							*refclk_div = _M[m][1];
-							*out_div = _D[d][1];
-							*fbdiv_45 = _N1[n1][1];
-							*fbdiv = _N2[n2][1];
-						}
-
-						dev_dbg(st->dev, "%s: M %d, D %d, N1 %d, N2 %d\n",
-							__func__, _M[m][0], _D[d][0],
-							_N1[n1][0], _N2[n2][0]);
-
-						return laneRate_kHz;
-					}
-				}
-			}
-		}
-	}
-
-	dev_dbg(st->dev, "%s: Failed to find matching dividers for %lu kHz rate\n",
-		__func__, laneRate_kHz);
-
-	return -EINVAL;
-}
-
-static long jesd204b_gt_calc_qpll_settings(struct jesd204b_gt_state *st,
-					   unsigned long refclk_kHz,
-					   unsigned long laneRate_kHz,
-					   u32 *refclk_div, u32 *out_div,
-					   u32 *fbdiv, u32 *fbdiv_ratio,
-					   u32 *lowband)
-{
-	// calculate the FPGA GTX PLL settings M, D, N1, N2
-	u32 n, d, m;
-	u32 pllVcoFreq_kHz;
-	u32 pllOutFreq_kHz;
-
-	//possible Xilinx GTX QPLL parameters for Virtex 7 QPLL.  Find one that works for the desired laneRate.
-	/* Attribute encoding, DRP encoding */
-	const u16 _N[][2] = {{16, 32}, {20, 48}, {32, 96}, {40, 128},
-			     {64, 224}, {66, 320}, {80, 288}, {100, 368}};
-	const u8 _D[][2] = {{1, 0}, {2, 1}, {4, 2}, {8, 3}, {16, 4}};
-	const u8 _M[][2] = {{1, 16}, {2, 0}, {3, 1}, {4, 2}};
-	u8 _lowBand = 0;
-
-	for (m = 0; m < ARRAY_SIZE(_M); m++) {
-		for (d = 0; d < ARRAY_SIZE(_D); d++) {
-			for (n = 0; n < ARRAY_SIZE(_N); n++) {
-
-				pllVcoFreq_kHz = refclk_kHz * _N[n][0] / _M[m][0];
-				pllOutFreq_kHz = pllVcoFreq_kHz / 2;
-
-				if ((pllVcoFreq_kHz >= 5930000) && (pllVcoFreq_kHz <= 8000000)) {
-					// low band = 5.93G to 8.0GHz VCO
-					_lowBand = 1;
-				} else if ((pllVcoFreq_kHz >= 9800000) && (pllVcoFreq_kHz <= 12500000)) {
-					//high band = 9.8G to 12.5GHz VCO
-					_lowBand = 0;
-				} else {
-					continue; //if Pll out of range, not valid case, keep trying
-				}
-
-				if ((pllOutFreq_kHz * 2 / _D[d][0]) == laneRate_kHz) {
-					if (refclk_div && out_div && fbdiv_ratio && fbdiv && lowband) {
-						*refclk_div = _M[m][1];
-						*out_div = _D[d][1];
-						*fbdiv = _N[n][1];
-						*fbdiv_ratio = (_N[n][0] == 66) ? 0 : 1;
-						*lowband = _lowBand;
-					}
-						dev_dbg(st->dev, "%s: M %d, D %d, N %d, ratio %d, lowband %d\n",
-							__func__, _M[m][0], _D[d][0],
-							_N[n][0], (_N[n][0] == 66) ? 0 : 1,
-							_lowBand);
-
-					return laneRate_kHz;
-				}
-
-			}
-		}
-	}
-
-	dev_dbg(st->dev, "%s: Failed to find matching dividers for %lu kHz rate\n",
-		__func__, laneRate_kHz);
-
-	return -EINVAL;
-}
-
 static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
 	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
-	unsigned out_div;
+	unsigned int *rx_out_div;
+	unsigned int *tx_out_div;
+	unsigned int out_div;
+	unsigned long lane_rate;
+	int ret;
 
 	dev_dbg(st->dev, "%s: Parent Rate %lu Hz, (%s, lane-%d ... lane-%d)",
 		__func__, parent_rate, gt_link->tx_offset ? "TX" : "RX", gt_link->first_lane, gt_link->num_lanes);
@@ -944,119 +617,56 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 	if (!IS_ERR(gt_link->lane_rate_div40_clk))
 		return gt_link->lane_rate;
 
-	out_div = jesd204b_gt_drp_read(st, gt_link->first_lane, RXOUT_DIV_ADDR);
+	if (gt_link->tx_offset) {
+		rx_out_div = NULL;
+		tx_out_div = &out_div;
+	} else {
+		rx_out_div = &out_div;
+		tx_out_div = NULL;
+	}
 
-	if (gt_link->tx_offset)
-		out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
-	else
-		out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
-
-	out_div = (1 << out_div);
+	ret = xilinx_xcvr_read_out_div(&st->xcvr, gt_link->first_lane,
+		rx_out_div, tx_out_div);
+	if (ret < 0)
+		return ret;
 
 	if (gt_link->cpll_enable) {
-		unsigned refclk_div_m, N1, N2, M;
-		refclk_div_m = jesd204b_gt_drp_read(st, gt_link->first_lane, CPLL_REFCLK_DIV_M_ADDR);
+		struct xilinx_xcvr_cpll_config cpll_conf;
 
-		switch ((refclk_div_m & CPLL_FB_DIV_45_N1_MASK) >> CPLL_FB_DIV_45_N1_OFFSET) {
-			case 0:
-				N1 = 4;
-				break;
-			case 1:
-				N1 = 5;
-				break;
-		}
+		ret = xilinx_xcvr_cpll_read_config(&st->xcvr,
+			gt_link->first_lane, &cpll_conf);
+		if (ret < 0)
+			return ret;
 
-		switch ((refclk_div_m & CPLL_REFCLK_DIV_M_MASK) >> CPLL_REFCLK_DIV_M_OFFSET) {
-			case 0:
-				M = 2;
-				break;
-			case 16:
-				M = 1;
-				break;
-		}
+		lane_rate = xilinx_xcvr_cpll_calc_lane_rate(&st->xcvr, parent_rate,
+			&cpll_conf, out_div); 
 
-		switch (refclk_div_m & CPLL_FBDIV_N2_MASK) {
-			case 3:
-				N2 = 5;
-				break;
-			case 2:
-				N2 = 4;
-				break;
-			case 1:
-				N2 = 3;
-				break;
-			case 0:
-				N2 = 2;
-				break;
-			case 16:
-				N2 = 1;
-				break;
-		}
+		dev_dbg(st->dev, "%s  CPLL %lu   %lu\n", __func__,
+			gt_link->lane_rate, lane_rate);
 
+		dev_dbg(st->dev, "%s  CPLL N1=%d N2=%d M=%d out_div=%d\n",
+			__func__, cpll_conf.fb_div_N1, cpll_conf.fb_div_N2,
+			cpll_conf.refclk_div, out_div);
 
-		dev_dbg(st->dev, "%s  CPLL %lu   %lu\n", __func__, gt_link->lane_rate,
-			((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div));
-
-		dev_dbg(st->dev, "%s  CPLL N1=%d N2=%d M=%d out_div=%d\n", __func__, N1, N2, M, out_div);
-
-
-		return ((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div);
 	} else {
-		unsigned refclk_div_m, fb_div, N, M;
-		refclk_div_m = jesd204b_gt_drp_read(st, JESD204B_GT_DRP_PORT_COMMON, QPLL_REFCLK_DIV_M_ADDR);
-		fb_div = jesd204b_gt_drp_read(st, JESD204B_GT_DRP_PORT_COMMON, QPLL_FBDIV_N_ADDR);
+		struct xilinx_xcvr_qpll_config qpll_conf;
 
-		switch ((refclk_div_m & QPLL_REFCLK_DIV_M_MASK) >> QPLL_REFCLK_DIV_M_OFFSET) {
-			case 16:
-				M = 1;
-				break;
-			case 0:
-				M = 2;
-				break;
-			case 1:
-				M = 3;
-				break;
-			case 2:
-				M = 4;
-				break;
+		ret = xilinx_xcvr_qpll_read_config(&st->xcvr,
+			JESD204B_GT_DRP_PORT_COMMON, &qpll_conf);
+		if (ret < 0)
+			return ret;
 
-		}
+		lane_rate = xilinx_xcvr_qpll_calc_lane_rate(&st->xcvr, parent_rate,
+			&qpll_conf, out_div); 
 
-		switch (fb_div & QPLL_FBDIV_N_MASK) {
-			case 32:
-				N = 16;
-				break;
-			case 48:
-				N = 20;
-				break;
-			case 96:
-				N = 32;
-				break;
-			case 128:
-				N = 40;
-				break;
-			case 224:
-				N = 64;
-				break;
-			case 320:
-				N = 66;
-				break;
-			case 288:
-				N = 80;
-				break;
-			case 368:
-				N = 100;
-				break;
-		}
+		dev_dbg(st->dev, "%s QPLL  %lu %lu\n", __func__,
+			gt_link->lane_rate, lane_rate);
 
-		dev_dbg(st->dev, "%s QPLL  %lu %lu\n", __func__, gt_link->lane_rate,
-			((parent_rate / 1000) * N) / (M * out_div));
-
-		dev_dbg(st->dev, "%s QPLL N=%d M=%d out_div=%d\n", __func__, N, M, out_div);
-
-		return ((parent_rate / 1000) * N) / (M * out_div);
-
+		dev_dbg(st->dev, "%s QPLL N=%d M=%d out_div=%d\n", __func__,
+			qpll_conf.fb_div, qpll_conf.refclk_div, out_div);
 	}
+
+	return lane_rate;
 }
 
 
@@ -1071,14 +681,16 @@ static long jesd204b_gt_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 		__func__, rate, *prate);
 
 	if (gt_link->cpll_enable)
-		ret = jesd204b_gt_calc_cpll_settings(st, *prate / 1000, rate,
-						      NULL, NULL, NULL, NULL);
+		ret = xilinx_xcvr_calc_cpll_config(&st->xcvr, *prate / 1000, rate,
+				NULL, NULL);
 	else
-		ret = jesd204b_gt_calc_qpll_settings(st, *prate / 1000, rate,
-						     NULL, NULL, NULL, NULL,
-						     NULL);
+		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr, *prate / 1000, rate,
+				NULL, NULL);
 
-	return ret;
+	if (ret < 0)
+		return ret;
+
+	return rate;
 }
 
 static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -1087,26 +699,23 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
 	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
 	unsigned offs = gt_link->tx_offset;
-	u32 lane;
-	u32 refclk_div, out_div, fbdiv_45, fbdiv, fbdiv_ratio, lowband;
+	struct xilinx_xcvr_cpll_config cpll_conf;
+	struct xilinx_xcvr_qpll_config qpll_conf;
+	unsigned int out_div;
 	int ret, pll_done = 0;
+	u32 lane;
 
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz (%s, lane-%d ... lane-%d)",
 		__func__, rate, parent_rate, gt_link->tx_offset ? "TX" : "RX",
 		gt_link->first_lane, gt_link->num_lanes);
 
-
 	if (gt_link->cpll_enable)
-		ret = jesd204b_gt_calc_cpll_settings(st, parent_rate / 1000, rate,
-						     &refclk_div, &out_div,
-						     &fbdiv_45, &fbdiv);
+		ret = xilinx_xcvr_calc_cpll_config(&st->xcvr, parent_rate, rate,
+				&cpll_conf, &out_div);
 	else
-		ret = jesd204b_gt_calc_qpll_settings(st, parent_rate / 1000, rate,
-						     &refclk_div, &out_div,
-						     &fbdiv, &fbdiv_ratio,
-						     &lowband);
-	if (ret < 0)
-		return ret;
+		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr, parent_rate, rate,
+				&qpll_conf, &out_div);
+
 
 	gt_link->lane_rate = rate;
 
@@ -1120,35 +729,22 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 				  0); /* resets (pll) */
 
 		if (gt_link->cpll_enable) {
-			jesd204b_gt_drp_writef(st, lane,
-				CPLL_REFCLK_DIV_M_ADDR,
-				CPLL_REFCLK_DIV_M_MASK |
-				CPLL_FB_DIV_45_N1_MASK |
-				CPLL_FBDIV_N2_MASK,
-				(refclk_div << 8) | (fbdiv_45 << 7) | fbdiv);
+			xilinx_xcvr_cpll_write_config(&st->xcvr, lane,
+				&cpll_conf);
 		} else {
-
 			if (!pll_done) {
-				jesd204b_gt_drp_writef(st, JESD204B_GT_DRP_PORT_COMMON,
-					QPLL_CFG0_ADDR, QPLL_CFG0_BAND_MASK, lowband);
-
-				jesd204b_gt_drp_writef(st, JESD204B_GT_DRP_PORT_COMMON,
-					QPLL_REFCLK_DIV_M_ADDR, QPLL_REFCLK_DIV_M_MASK, refclk_div);
-
-				jesd204b_gt_drp_writef(st, JESD204B_GT_DRP_PORT_COMMON,
-					QPLL_FBDIV_N_ADDR, QPLL_FBDIV_N_MASK, fbdiv);
-
-				jesd204b_gt_drp_writef(st, JESD204B_GT_DRP_PORT_COMMON,
-					QPLL_FBDIV_RATIO_ADDR, QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
-
+				xilinx_xcvr_qpll_write_config(&st->xcvr,
+				    JESD204B_GT_DRP_PORT_COMMON, &qpll_conf);
 				pll_done = 1;
 			}
 		}
 
-		ret = jesd204b_gt_drp_writef(st, lane, RXOUT_DIV_ADDR,
-				offs ? TXOUT_DIV_MASK : RXOUT_DIV_MASK, out_div);
+		xilinx_xcvr_write_out_div(&st->xcvr, lane,
+			offs ? -1 : out_div, offs ? out_div : -1);
 
-		jesd204b_gt_rxcdr_settings(st, gt_link, lane, out_div);
+		if (!offs)
+			xilinx_xcvr_configure_cdr(&st->xcvr, lane, rate,
+			    out_div, gt_link->lpm_enable);
 
 		jesd204b_gt_write(st, JESD204B_GT_REG_RSTN_1(lane) + gt_link->tx_offset,
 				  JESD204B_GT_GT_PLL_RSTN | JESD204B_GT_GT_PLL_RSTN); /* resets (pll) */
@@ -1249,9 +845,6 @@ static int jesd204b_gt_parse_link_node(struct jesd204b_gt_link *gt_link,
 				"adi,sysref-external-enable");
 	gt_link->node = np;
 
-	gt_link->encoding = ENC_8B10B;
-	gt_link->ppm = PM_200; /* TODO use clock accuracy */
-
 	INIT_WORK(&gt_link->work, jesd204b_gt_link_work_func);
 
 	return 0;
@@ -1309,6 +902,7 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 	struct jesd204b_gt_state *st;
 	struct resource *mem; /* IO mem resources */
 	struct jesd204b_gt_link *gt_link;
+	u32 type;
 	int ret;
 	u32 lane, tmp;
 
@@ -1375,17 +969,12 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 		of_property_read_u32(np, "adi,lanes", &st->gt_link[0].num_lanes);
 		st->gt_link[0].node = np;
 
-		st->gt_link[0].encoding = ENC_8B10B;
-		st->gt_link[0].ppm = PM_200;
-
 		if (st->num_links > 1) {
 			st->gt_link[1].cpll_enable = st->gt_link[0].cpll_enable;
 			st->gt_link[1].lpm_enable = st->gt_link[0].lpm_enable;
 			st->gt_link[1].num_lanes = st->gt_link[0].num_lanes;
 			st->gt_link[1].sysref_ext_enable = st->gt_link[0].sysref_ext_enable;
 			st->gt_link[1].node = np;
-			st->gt_link[1].encoding = ENC_8B10B;
-			st->gt_link[1].ppm = PM_200;
 		}
 
 	} else {
@@ -1407,6 +996,19 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 
 	st->dev = &pdev->dev;
 	st->version = jesd204b_gt_read(st, JESD204B_GT_REG_VERSION);
+
+	type = jesd204b_gt_read(st, JESD204B_GT_REG_TRANSCEIVER_TYPE(0));
+
+	st->xcvr.dev = &pdev->dev;
+	st->xcvr.drp_ops = &jesd204b_gt_drp_ops;
+	if (type == JESD204B_GT_TRANSCEIVER_GTH)
+		st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
+	else
+		st->xcvr.type = XILINX_XCVR_TYPE_S7_GTX2;
+	st->xcvr.encoding = ENC_8B10B;
+	st->xcvr.refclk_ppm = PM_200; /* TODO use clock accuracy */
+
+
 	platform_set_drvdata(pdev, st);
 
 	if (of_id && of_id->data)
