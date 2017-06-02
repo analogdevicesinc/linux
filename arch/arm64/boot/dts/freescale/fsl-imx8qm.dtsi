@@ -1019,38 +1019,6 @@
 		status = "disabled";
 	};
 
-	imxdpu0: imxdpu0@0x56180000 {
-		compatible = "fsl,imx8qm-imxdpuv1";
-		reg = <0x0 0x56000000 0x0 0x1000000>;
-		interrupts = <0 40 0x4>, <0 41 0x4>, <0 42 0x4>,
-			<0 43 0x4>, <0 44 0x4>, <0 45 0x4>, <0 46 0x4>,
-			<0 47 0x4>, <0 48 0x4>, <0 49 0x4>, <0 50 0x4>;
-		interrupt-names = "irq_grp00", "irq_grp01", "irq_grp02",
-			"irq_grp03", "irq_grp04", "irq_grp05", "irq_grp06",
-			"irq_grp07", "irq_grp08", "irq_grp09", "irq_grp10";
-		clocks = <&clk IMX8QM_DC0_PLL0_CLK>, <&clk IMX8QM_DC0_PLL1_CLK>,
-			<&clk IMX8QM_DC0_DISP0_CLK>, <&clk IMX8QM_DC0_DISP1_CLK>;
-		clock-names = "clk_pll0", "clk_pll1", "clk_disp0", "clk_disp1";
-		power-domains = <&pd_dc0>;
-		status = "disabled";
-	};
-
-	imxdpu1:  imxdpu1@0x57180000 {
-		compatible = "fsl,imx8qm-imxdpuv1";
-		reg = <0x0 0x57000000 0x0 0x1000000>;
-		interrupts = <0 152 0x4>, <0 153 0x4>, <0 154 0x4>,
-			<0 155 0x4>, <0 156 0x4>, <0 157 0x4>, <0 158 0x4>,
-			<0 159 0x4>, <0 160 0x4>, <0 161 0x4>,<0 162 0x4>;
-		interrupt-names = "irq_grp00", "irq_grp01", "irq_grp02",
-			"irq_grp03", "irq_grp04", "irq_grp05", "irq_grp06",
-			"irq_grp07", "irq_grp08", "irq_grp09", "irq_grp10";
-		clocks = <&clk IMX8QM_DC1_PLL0_CLK>, <&clk IMX8QM_DC1_PLL1_CLK>,
-			<&clk IMX8QM_DC1_DISP0_CLK>, <&clk IMX8QM_DC1_DISP1_CLK>;
-		clock-names = "clk_pll0", "clk_pll1", "clk_disp0", "clk_disp1";
-		power-domains = <&pd_dc1>;
-		status = "disabled";
-	};
-
 	lvds0: lvds@56241000 {
 		compatible = "fsl,imx8qm-lvds";
 		reg = <0x0 0x56241000 0x0 0x1000>;
