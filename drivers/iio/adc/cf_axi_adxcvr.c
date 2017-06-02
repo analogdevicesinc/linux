@@ -1095,14 +1095,6 @@ static int adxcvr_probe(struct platform_device *pdev)
 				  ADXCVR_SYSCLK_SEL(st->sys_clk_sel) |
 				  ADXCVR_OUTCLK_SEL(st->out_clk_sel)));
 
-	st->out_clk = devm_kzalloc(&pdev->dev,
-					 sizeof(st->out_clk), GFP_KERNEL);
-	if (!st->out_clk) {
-		dev_err(&pdev->dev, "Could not allocate memory\n");
-		ret = -ENOMEM;
-		goto disable_unprepare;
-	}
-
 	clk = adxcvr_clk_register(&pdev->dev, np, __clk_get_name(st->conv_clk));
 	if (IS_ERR(clk)) {
 		ret = PTR_ERR(clk);
