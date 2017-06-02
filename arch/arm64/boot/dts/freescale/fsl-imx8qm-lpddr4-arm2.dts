@@ -310,14 +310,6 @@
 	status = "okay";
 };
 
-&framebuffer1 {
-	status = "okay";
-};
-
-&framebuffer3 {
-	status = "okay";
-};
-
 &imxdpu0 {
 	status = "okay";
 };
