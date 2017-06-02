@@ -1019,36 +1019,6 @@
 		status = "disabled";
 	};
 
-	lvds0: lvds@56241000 {
-		compatible = "fsl,imx8qm-lvds";
-		reg = <0x0 0x56241000 0x0 0x1000>;
-		interrupts = <0 57 4>;
-		clocks =
-			<&clk IMX8QM_LVDS0_PIXEL_CLK>,
-			<&clk IMX8QM_LVDS0_PHY_CLK>;
-		clock-names = "clk_pixel", "clk_phy";
-		power-domains = <&pd_lvds0>;
-		instance = <0>;
-		data-width = <24>;
-		data-mapping = "jeida";
-		status = "disabled";
-	};
-
-	lvds1: lvds@57241000 {
-		compatible = "fsl,imx8qm-lvds";
-		reg = <0x0 0x57241000 0x0 0x1000>;
-		interrupts = <0 58 4>;
-		clocks =
-			<&clk IMX8QM_LVDS1_PIXEL_CLK>,
-			<&clk IMX8QM_LVDS1_PHY_CLK>;
-		clock-names = "clk_pixel", "clk_phy";
-		power-domains = <&pd_lvds1>;
-		instance = <1>;
-		data-width = <24>;
-		data-mapping = "jeida";
-		status = "disabled";
-	};
-
 	mipi0: mipi@56220000 {
 		compatible = "fsl,imx8qm-mipi_dsi";
 		reg = <0x0 0x56220000 0x0 0x10000>;
