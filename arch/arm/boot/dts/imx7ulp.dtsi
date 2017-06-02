@@ -229,8 +229,9 @@
 			compatible = "fsl,imx7ulp-lpi2c";
 			reg = <0x402B0000 0x10000>;
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks IMX7ULP_CLK_LPI2C4>;
-			clock-names = "ipg";
+			clocks = <&clks IMX7ULP_CLK_LPI2C4>,
+				 <&clks IMX7ULP_CLK_NIC1_BUS_DIV>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clks IMX7ULP_CLK_LPI2C4>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
 			assigned-clock-rates = <48000000>;
@@ -241,8 +242,9 @@
 			compatible = "fsl,imx7ulp-lpi2c";
 			reg = <0x402C0000 0x10000>;
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks IMX7ULP_CLK_LPI2C5>;
-			clock-names = "ipg";
+			clocks = <&clks IMX7ULP_CLK_LPI2C5>,
+				 <&clks IMX7ULP_CLK_NIC1_BUS_DIV>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clks IMX7ULP_CLK_LPI2C5>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
 			assigned-clock-rates = <48000000>;
@@ -423,8 +425,9 @@
 			compatible = "fsl,imx7ulp-lpi2c";
 			reg = <0x40A40000 0x10000>;
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks IMX7ULP_CLK_LPI2C6>;
-			clock-names = "ipg";
+			clocks = <&clks IMX7ULP_CLK_LPI2C6>,
+				 <&clks IMX7ULP_CLK_NIC1_BUS_DIV>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clks IMX7ULP_CLK_LPI2C6>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
 			assigned-clock-rates = <48000000>;
@@ -435,8 +438,9 @@
 			compatible = "fsl,imx7ulp-lpi2c";
 			reg = <0x40A50000 0x10000>;
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks IMX7ULP_CLK_LPI2C7>;
-			clock-names = "ipg";
+			clocks = <&clks IMX7ULP_CLK_LPI2C7>,
+				 <&clks IMX7ULP_CLK_NIC1_BUS_DIV>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clks IMX7ULP_CLK_LPI2C7>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC>;
 			assigned-clock-rates = <48000000>;
