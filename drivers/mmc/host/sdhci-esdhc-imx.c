@@ -1026,6 +1026,8 @@ static void esdhc_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 	case MMC_TIMING_UHS_SDR25:
 	case MMC_TIMING_UHS_SDR50:
 	case MMC_TIMING_UHS_SDR104:
+	case MMC_TIMING_SD_HS:
+	case MMC_TIMING_MMC_HS:
 	case MMC_TIMING_MMC_HS200:
 		writel(m, host->ioaddr + ESDHC_MIX_CTRL);
 		break;
@@ -1053,7 +1055,6 @@ static void esdhc_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 		esdhc_set_strobe_dll(host);
 		break;
 	case MMC_TIMING_LEGACY:
-	default:
 		esdhc_reset_tuning(host);
 		break;
 	}
