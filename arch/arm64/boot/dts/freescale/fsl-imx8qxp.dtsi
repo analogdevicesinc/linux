@@ -1056,6 +1056,39 @@
 		power-domains = <&pd_conn_usbotg0>;
 	};
 
+	dma_apbh: dma-apbh@5b810000 {
+		compatible = "fsl,imx28-dma-apbh";
+		reg = <0x0 0x5b810000 0x0 0x2000>;
+		interrupts = <GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "gpmi0", "gpmi1", "gpmi2", "gpmi3";
+		#dma-cells = <1>;
+		dma-channels = <4>;
+		clocks = <&clk IMX8QXP_APBHDMA_CLK>;
+		power-domains = <&pd_conn_nand>;
+	};
+
+	gpmi: gpmi-nand@5b812000{
+		compatible = "fsl,imx8qxp-gpmi-nand";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x0 0x5b812000 0x0 0x2000>, <0x0 0x5b814000 0x0 0x2000>;
+		reg-names = "gpmi-nand", "bch";
+		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "bch";
+		clocks = <&clk IMX8QXP_GPMI_BCH_IO_CLK>,
+			<&clk IMX8QXP_GPMI_APB_CLK>,
+			<&clk IMX8QXP_GPMI_BCH_CLK>,
+			<&clk IMX8QXP_GPMI_APB_BCH_CLK>;
+		clock-names = "gpmi_io", "gpmi_apb", "gpmi_bch", "gpmi_apb_bch";
+		dmas = <&dma_apbh 0>;
+		dma-names = "rx-tx";
+		power-domains = <&pd_conn_nand>;
+		status = "disabled";
+	};
+
 	gpio0: gpio@5d080000 {
 		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
 		reg = <0x0 0x5d080000 0x0 0x10000>;
