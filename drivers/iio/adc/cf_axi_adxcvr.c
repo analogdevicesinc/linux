@@ -959,8 +959,7 @@ static const struct clk_ops clkout_ops = {
 
 static struct clk *adxcvr_clk_register(struct device *dev,
 									   struct device_node *node,
-									   const char *parent_name,
-									   unsigned int num)
+									   const char *parent_name)
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
 	struct clk_init_data init;
@@ -1104,8 +1103,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 		goto disable_unprepare;
 	}
 
-	clk = adxcvr_clk_register(&pdev->dev, np,
-							  __clk_get_name(st->conv_clk), 0);
+	clk = adxcvr_clk_register(&pdev->dev, np, __clk_get_name(st->conv_clk));
 	if (IS_ERR(clk)) {
 		ret = PTR_ERR(clk);
 		goto unregister_clock;
