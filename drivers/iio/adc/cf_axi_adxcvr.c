@@ -190,7 +190,6 @@ struct adxcvr_state {
 	struct clk			*out_clk;
 	struct clk_hw		lane_clk_hw;
 	struct work_struct	work;
-	struct device_node *node;
 	unsigned long		lane_rate;
 	bool				gth_enable;
 	bool				tx_enable;
@@ -1008,8 +1007,6 @@ static int adxcvr_parse_dt(struct adxcvr_state *st,
 	st->lpm_enable = of_property_read_bool(np,
 				"adi,use-lpm-enable");
 
-	st->node = np;
-
 	st->encoding = ENC_8B10B;
 	st->ppm = PM_200; /* TODO use clock accuracy */
 
@@ -1088,7 +1085,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 		goto disable_unprepare;
 	}
 
-	clk = adxcvr_clk_register(&pdev->dev, st->node,
+	clk = adxcvr_clk_register(&pdev->dev, np,
 							  __clk_get_name(st->conv_clk), 0);
 	if (IS_ERR(clk)) {
 		ret = PTR_ERR(clk);
@@ -1096,7 +1093,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	}
 
 	if (!IS_ERR(st->out_clk))
-		of_clk_add_provider(st->node, of_clk_src_simple_get,
+		of_clk_add_provider(np, of_clk_src_simple_get,
 							st->out_clk);
 
 	st->sysref_gpio = devm_gpiod_get_optional(&pdev->dev, "sysref",
