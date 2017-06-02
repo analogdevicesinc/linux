@@ -29,7 +29,7 @@ config DRM_IMX_LDB
 	select DRM_PANEL
 	help
 	  Choose this to enable the internal LVDS Display Bridge (LDB)
-	  found on i.MX53 and i.MX6 processors.
+	  found on i.MX53, i.MX6 and i.MX8 processors.
 
 config DRM_IMX_IPUV3
 	tristate
