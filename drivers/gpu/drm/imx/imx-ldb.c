@@ -241,9 +241,8 @@ static void imx_ldb_encoder_enable(struct drm_encoder *encoder)
 		else if (imx_ldb_ch == &ldb->channel[1])
 			lvds_mux = &ldb->lvds_mux[1];
 
-		if (lvds_mux)
-			regmap_update_bits(ldb->regmap, lvds_mux->reg, lvds_mux->mask,
-					   mux << lvds_mux->shift);
+		regmap_update_bits(ldb->regmap, lvds_mux->reg, lvds_mux->mask,
+				   mux << lvds_mux->shift);
 	}
 
 	regmap_write(ldb->regmap, IOMUXC_GPR2, ldb->ldb_ctrl);
@@ -264,12 +263,6 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	unsigned long di_clk = mode->clock * 1000;
 	int mux = drm_of_encoder_active_port_id(imx_ldb_ch->child, encoder);
 	u32 bus_format = imx_ldb_ch->bus_format;
-
-	if (mux < 0) {
-		dev_warn(ldb->dev,
-			 "%s: cannot get valid mux id\n", __func__);
-		return;
-	}
 
 	if (mode->clock > 170000) {
 		dev_warn(ldb->dev,
