@@ -187,7 +187,6 @@ struct adxcvr_state {
 	struct clk			*conv_clk;
 	struct clk			*sysref_clk;
 	struct clk			*lane_rate_div40_clk;
-	struct clk			*out_clk;
 	struct clk_hw		out_clk_hw;
 	bool				out_clk_enabled;
 	struct work_struct	work;
@@ -982,9 +981,10 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 
 	/* register the clock */
 	clk = devm_clk_register(dev, &st->out_clk_hw);
-	st->out_clk = clk;
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
 
-	return PTR_ERR_OR_ZERO(clk);
+	return of_clk_add_provider(node, of_clk_src_simple_get, clk);
 }
 
 static int adxcvr_parse_dt(struct adxcvr_state *st,
@@ -1090,10 +1090,6 @@ static int adxcvr_probe(struct platform_device *pdev)
 	ret = adxcvr_clk_register(&pdev->dev, np, __clk_get_name(st->conv_clk));
 	if (ret)
 		return ret;
-
-	if (!IS_ERR(st->out_clk))
-		of_clk_add_provider(np, of_clk_src_simple_get,
-							st->out_clk);
 
 	st->sysref_gpio = devm_gpiod_get_optional(&pdev->dev, "sysref",
 											  GPIOD_OUT_HIGH);
