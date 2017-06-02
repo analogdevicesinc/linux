@@ -135,6 +135,7 @@ enum mxs_dma_id {
 	IMX23_DMA,
 	IMX28_DMA,
 	IMX7D_DMA,
+	IMX8QXP_DMA,
 };
 
 struct mxs_dma_engine {
@@ -171,6 +172,9 @@ static struct mxs_dma_type mxs_dma_types[] = {
 	}, {
 		.id = IMX7D_DMA,
 		.type = MXS_DMA_APBH,
+	}, {
+		.id = IMX8QXP_DMA,
+		.type = MXS_DMA_APBH,
 	}
 };
 
@@ -191,6 +195,9 @@ static const struct platform_device_id mxs_dma_ids[] = {
 		.name = "imx7d-dma-apbh",
 		.driver_data = (kernel_ulong_t) &mxs_dma_types[4],
 	}, {
+		.name = "imx8qxp-dma-apbh",
+		.driver_data = (kernel_ulong_t) &mxs_dma_types[5],
+	}, {
 		/* end of list */
 	}
 };
@@ -201,6 +208,7 @@ static const struct of_device_id mxs_dma_dt_ids[] = {
 	{ .compatible = "fsl,imx28-dma-apbh", .data = &mxs_dma_ids[2], },
 	{ .compatible = "fsl,imx28-dma-apbx", .data = &mxs_dma_ids[3], },
 	{ .compatible = "fsl,imx7d-dma-apbh", .data = &mxs_dma_ids[4], },
+	{ .compatible = "fsl,imx8qxp-dma-apbh", .data = &mxs_dma_ids[5], },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mxs_dma_dt_ids);
@@ -758,6 +766,9 @@ static bool mxs_dma_filter_fn(struct dma_chan *chan, void *fn_param)
 	struct mxs_dma_chan *mxs_chan = to_mxs_dma_chan(chan);
 	struct mxs_dma_engine *mxs_dma = mxs_chan->mxs_dma;
 	int chan_irq;
+
+	if (!mxs_dma)
+		return false;
 
 	if (mxs_dma->dma_device.dev->of_node != param->of_node)
 		return false;
