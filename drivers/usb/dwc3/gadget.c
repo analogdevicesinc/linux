@@ -274,7 +274,11 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 {
 	const struct usb_endpoint_descriptor *desc = dep->endpoint.desc;
 	struct dwc3		*dwc = dep->dwc;
-	u32			timeout = 1000;
+				/*
+				 * FIXME need check why 500 times check
+				 * is not enough.
+				 */
+	u32			timeout = 20000;
 	u32			reg;
 
 	int			cmd_status = 0;
