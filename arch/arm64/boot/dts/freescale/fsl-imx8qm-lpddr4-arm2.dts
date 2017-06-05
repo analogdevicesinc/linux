@@ -471,22 +471,6 @@
 	status = "okay";
 };
 
-&A53_0 {
-	operating-points = <
-		/* kHz    uV */
-		1296000 1150000
-	>;
-	clocks = <&clk IMX8QM_A53_DIV>;
-};
-
-&A72_0 {
-	operating-points = <
-		/* kHz    uV */
-		1800000 1150000
-	>;
-	clocks = <&clk IMX8QM_A72_DIV>;
-};
-
 &gpu_3d0 {
 	status = "okay";
 };

@@ -1639,3 +1639,19 @@
 		status = "disabled";
 	};
 };
+
+&A53_0 {
+	operating-points = <
+		/* kHz    uV */
+		1200000 1150000
+	>;
+	clocks = <&clk IMX8QM_A53_DIV>;
+};
+
+&A72_0 {
+	operating-points = <
+		/* kHz    uV */
+		1584000 1150000
+	>;
+	clocks = <&clk IMX8QM_A72_DIV>;
+};
