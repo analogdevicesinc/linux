@@ -129,4 +129,10 @@ config SPI_STM32_QUADSPI
 	  This enables support for the STM32 Quad SPI controller.
 	  We only connect the NOR to this controller.
 
+config SPI_FSL_FLEXSPI
+	tristate "Freescale Flex SPI controller"
+	help
+	  This enables support for the Flex SPI controller in master mode.
+	  We only connect the NOR to this controller now.
+
 endif # MTD_SPI_NOR
