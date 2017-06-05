@@ -991,6 +991,8 @@ static int fsl_esai_probe(struct platform_device *pdev)
 	else
 		esai_priv->fifo_depth = 64;
 
+	esai_priv->dma_params_rx.filter_data = "rx";
+	esai_priv->dma_params_tx.filter_data = "tx";
 	esai_priv->dma_params_tx.maxburst = 16;
 	esai_priv->dma_params_rx.maxburst = 16;
 	esai_priv->dma_params_tx.addr = res->start + REG_ESAI_ETDR;
@@ -1051,7 +1053,7 @@ static int fsl_esai_probe(struct platform_device *pdev)
 	if (of_property_read_u32(np, "fsl,dma-buffer-size", &buffer_size))
 		buffer_size = IMX_ESAI_DMABUF_SIZE;
 
-	ret = imx_pcm_dma_init(pdev, buffer_size);
+	ret = imx_pcm_platform_register(&pdev->dev);
 	if (ret)
 		dev_err(&pdev->dev, "failed to init imx pcm dma: %d\n", ret);
 
