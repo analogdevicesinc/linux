@@ -915,11 +915,18 @@
 			reg = <1>;
 
 			dpu1_disp1_lvds0: lvds0-endpoint {
+				remote-endpoint = <&ldb1_lvds0>;
 			};
 
 			dpu1_disp1_lvds1: lvds1-endpoint {
+				remote-endpoint = <&ldb1_lvds1>;
 			};
 		};
+	};
+
+	lvds_region1: lvds_region@56240000 {
+		compatible = "fsl,imx8qm-lvds-region", "syscon";
+		reg = <0x0 0x56240000 0x0 0x10000>;
 	};
 
 	ldb1_phy: ldb_phy@56241000 {
@@ -940,6 +947,52 @@
 		ldb1_phy2: port@1 {
 			reg = <1>;
 			#phy-cells = <0>;
+		};
+	};
+
+	ldb1: ldb@562410e0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-ldb";
+		clocks = <&clk IMX8QM_LVDS0_PIXEL_CLK>,
+			 <&clk IMX8QM_LVDS0_BYPASS_CLK>;
+		clock-names = "pixel", "bypass";
+		power-domains = <&pd_lvds0>;
+		gpr = <&lvds_region1>;
+		status = "disabled";
+
+		lvds-channel@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			phys = <&ldb1_phy1>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb1_lvds0: endpoint {
+					remote-endpoint = <&dpu1_disp1_lvds0>;
+				};
+			};
+		};
+
+		lvds-channel@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			phys = <&ldb1_phy2>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb1_lvds1: endpoint {
+					remote-endpoint = <&dpu1_disp1_lvds1>;
+				};
+			};
 		};
 	};
 
@@ -989,11 +1042,18 @@
 			reg = <1>;
 
 			dpu2_disp1_lvds0: lvds0-endpoint {
+				remote-endpoint = <&ldb2_lvds0>;
 			};
 
 			dpu2_disp1_lvds1: lvds1-endpoint {
+				remote-endpoint = <&ldb2_lvds1>;
 			};
 		};
+	};
+
+	lvds_region2: lvds_region@57240000 {
+		compatible = "fsl,imx8qm-lvds-region", "syscon";
+		reg = <0x0 0x57240000 0x0 0x10000>;
 	};
 
 	ldb2_phy: ldb_phy@57241000 {
@@ -1014,6 +1074,52 @@
 		ldb2_phy2: port@1 {
 			reg = <1>;
 			#phy-cells = <0>;
+		};
+	};
+
+	ldb2: ldb@572410e0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-ldb";
+		clocks = <&clk IMX8QM_LVDS1_PIXEL_CLK>,
+			 <&clk IMX8QM_LVDS1_BYPASS_CLK>;
+		clock-names = "pixel", "bypass";
+		power-domains = <&pd_lvds1>;
+		gpr = <&lvds_region2>;
+		status = "disabled";
+
+		lvds-channel@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			phys = <&ldb2_phy1>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb2_lvds0: endpoint {
+					remote-endpoint = <&dpu2_disp1_lvds0>;
+				};
+			};
+		};
+
+		lvds-channel@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			phys = <&ldb2_phy2>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb2_lvds1: endpoint {
+					remote-endpoint = <&dpu2_disp1_lvds1>;
+				};
+			};
 		};
 	};
 
