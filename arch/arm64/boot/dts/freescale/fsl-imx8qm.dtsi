@@ -1713,6 +1713,12 @@
 		clock-names = "qspi_en", "qspi";
 		status = "disabled";
 	};
+
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dpu1_disp0>, <&dpu1_disp1>,
+			<&dpu2_disp0>, <&dpu2_disp1>;
+	};
 };
 
 &A53_0 {
