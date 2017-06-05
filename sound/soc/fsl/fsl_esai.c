@@ -12,18 +12,74 @@
 #include <linux/clk.h>
 #include <linux/dmaengine.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/pcm_params.h>
 
 #include "fsl_esai.h"
+#include "fsl_acm.h"
 #include "imx-pcm.h"
 
 #define FSL_ESAI_FORMATS	(SNDRV_PCM_FMTBIT_S8 | \
 				SNDRV_PCM_FMTBIT_S16_LE | \
 				SNDRV_PCM_FMTBIT_S20_3LE | \
 				SNDRV_PCM_FMTBIT_S24_LE)
+
+#define EDMA_CH_CSR			0x00
+#define EDMA_CH_ES			0x04
+#define EDMA_CH_INT			0x08
+#define EDMA_CH_SBR			0x0C
+#define EDMA_CH_PRI			0x10
+#define EDMA_TCD_SADDR			0x20
+#define EDMA_TCD_SOFF			0x24
+#define EDMA_TCD_ATTR			0x26
+#define EDMA_TCD_NBYTES			0x28
+#define EDMA_TCD_SLAST			0x2C
+#define EDMA_TCD_DADDR			0x30
+#define EDMA_TCD_DOFF			0x34
+#define EDMA_TCD_CITER_ELINK		0x36
+#define EDMA_TCD_CITER			0x36
+#define EDMA_TCD_DLAST_SGA		0x38
+#define EDMA_TCD_CSR			0x3C
+#define EDMA_TCD_BITER_ELINK		0x3E
+#define EDMA_TCD_BITER			0x3E
+
+#define GPT_CR				0x00
+#define GPT_PR				0x04
+#define GPT_SR				0x08
+#define GPT_IR				0x0C
+
+#define GPT5_ADDR			0x590b0000
+#define GPT6_ADDR			0x590c0000
+#define GPT7_ADDR			0x590d0000
+#define GPT8_ADDR			0x590e0000
+
+#define EDMA_GPT6_ADDR			0x59360000
+#define EDMA_GPT8_ADDR			0x59380000
+
+struct fsl_edma3_hw_tcd {
+	__le32	saddr;
+	__le16	soff;
+	__le16	attr;
+	__le32	nbytes;
+	__le32	slast;
+	__le32	daddr;
+	__le16	doff;
+	__le16	citer;
+	__le32	dlast_sga;
+	__le16	csr;
+	__le16	biter;
+};
+
+struct fsl_edma3_sw_tcd {
+	dma_addr_t			ptcd;
+	struct fsl_edma3_hw_tcd		*vtcd;
+};
 
 /**
  * fsl_esai: ESAI private data
@@ -57,6 +113,16 @@ struct fsl_esai {
 	struct clk *extalclk;
 	struct clk *fsysclk;
 	struct clk *spbaclk;
+	struct fsl_edma3_sw_tcd	tcd_sw[4];
+	struct dma_pool	*tcd_pool;
+	struct snd_dma_buffer buf;
+	void __iomem *base_gpt0;
+	void __iomem *base_gpt1;
+	void __iomem *base_gpt2;
+	void __iomem *base_gpt3;
+	void __iomem *base_edma_gpt1;
+	void __iomem *base_edma_gpt3;
+	void __iomem *base_acm;
 	u32 fifo_depth;
 	u32 slot_width;
 	u32 slots;
@@ -68,6 +134,7 @@ struct fsl_esai {
 	bool sck_div[2];
 	bool slave_mode;
 	bool synchronous;
+	bool dma_workaround;
 	char name[32];
 };
 
@@ -535,6 +602,142 @@ err_spbaclk:
 	return ret;
 }
 
+static int configure_gpt_dma(struct snd_pcm_substream *substream,
+			      struct snd_soc_dai *dai)
+{
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	struct fsl_esai *esai_priv = snd_soc_dai_get_drvdata(dai);
+
+	if (tx) {
+		writel_relaxed(ESAI0_IPD_ESAI_TX_B,
+				esai_priv->base_acm + GPT0_CAPIN1_SEL_OFF);
+		writel_relaxed(ESAI0_IPD_ESAI_TX_B,
+				esai_priv->base_acm + GPT1_CAPIN1_SEL_OFF);
+
+		writel(le32_to_cpu(esai_priv->tcd_sw[0].vtcd->saddr),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_SADDR);
+		writel(le32_to_cpu(esai_priv->tcd_sw[0].vtcd->daddr),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_DADDR);
+		writew(le16_to_cpu(esai_priv->tcd_sw[0].vtcd->attr),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_ATTR);
+		writew(le16_to_cpu(esai_priv->tcd_sw[0].vtcd->soff),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_SOFF);
+		writel(le32_to_cpu(esai_priv->tcd_sw[0].vtcd->nbytes),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_NBYTES);
+		writel(le32_to_cpu(esai_priv->tcd_sw[0].vtcd->slast),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_SLAST);
+		writew(le16_to_cpu(esai_priv->tcd_sw[0].vtcd->citer),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_CITER);
+		writew(le16_to_cpu(esai_priv->tcd_sw[0].vtcd->biter),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_BITER);
+		writew(le16_to_cpu(esai_priv->tcd_sw[0].vtcd->doff),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_DOFF);
+		writel(le32_to_cpu(esai_priv->tcd_sw[0].vtcd->dlast_sga),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_DLAST_SGA);
+		writew(le16_to_cpu(esai_priv->tcd_sw[0].vtcd->csr),
+				esai_priv->base_edma_gpt1 + EDMA_TCD_CSR);
+
+		writel(0x0, esai_priv->base_edma_gpt1 + EDMA_CH_SBR);
+		writel(0x1, esai_priv->base_edma_gpt1 + EDMA_CH_CSR);
+
+		/* configure this gpt for dma tx*/
+		writel_relaxed(0x8, esai_priv->base_gpt0 + GPT_IR);
+		writel_relaxed(0x7<<12, esai_priv->base_gpt0 + GPT_PR);
+		writel_relaxed(0x20441, esai_priv->base_gpt0 + GPT_CR);
+
+		/* configure this gpt for dma tx request clearn*/
+		writel_relaxed(0x8, esai_priv->base_gpt1 + GPT_IR);
+		writel_relaxed(0x7<<12, esai_priv->base_gpt1 + GPT_PR);
+		writel_relaxed(0x10441, esai_priv->base_gpt1 + GPT_CR);
+
+	} else {
+		writel_relaxed(ESAI0_IPD_ESAI_RX_B,
+				esai_priv->base_acm + GPT2_CAPIN1_SEL_OFF);
+		writel_relaxed(ESAI0_IPD_ESAI_RX_B,
+				esai_priv->base_acm + GPT3_CAPIN1_SEL_OFF);
+
+		writel(le32_to_cpu(esai_priv->tcd_sw[2].vtcd->saddr),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_SADDR);
+		writel(le32_to_cpu(esai_priv->tcd_sw[2].vtcd->daddr),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_DADDR);
+		writew(le16_to_cpu(esai_priv->tcd_sw[2].vtcd->attr),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_ATTR);
+		writew(le16_to_cpu(esai_priv->tcd_sw[2].vtcd->soff),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_SOFF);
+		writel(le32_to_cpu(esai_priv->tcd_sw[2].vtcd->nbytes),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_NBYTES);
+		writel(le32_to_cpu(esai_priv->tcd_sw[2].vtcd->slast),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_SLAST);
+		writew(le16_to_cpu(esai_priv->tcd_sw[2].vtcd->citer),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_CITER);
+		writew(le16_to_cpu(esai_priv->tcd_sw[2].vtcd->biter),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_BITER);
+		writew(le16_to_cpu(esai_priv->tcd_sw[2].vtcd->doff),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_DOFF);
+		writel(le32_to_cpu(esai_priv->tcd_sw[2].vtcd->dlast_sga),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_DLAST_SGA);
+		writew(le16_to_cpu(esai_priv->tcd_sw[2].vtcd->csr),
+				esai_priv->base_edma_gpt3 + EDMA_TCD_CSR);
+
+		writel(0x0, esai_priv->base_edma_gpt3 + EDMA_CH_SBR);
+		writel(0x1, esai_priv->base_edma_gpt3 + EDMA_CH_CSR);
+
+		/* configure this gpt for dma tx*/
+		writel_relaxed(0x8, esai_priv->base_gpt2 + GPT_IR);
+		writel_relaxed(0x7<<12, esai_priv->base_gpt2 + GPT_PR);
+		writel_relaxed(0x20441, esai_priv->base_gpt2 + GPT_CR);
+
+		/* configure this gpt for dma tx request clearn*/
+		writel_relaxed(0x8, esai_priv->base_gpt3 + GPT_IR);
+		writel_relaxed(0x7<<12, esai_priv->base_gpt3 + GPT_PR);
+		writel_relaxed(0x10441, esai_priv->base_gpt3 + GPT_CR);
+
+	}
+
+	return 0;
+}
+
+
+static int clear_gpt_dma(struct snd_pcm_substream *substream,
+			      struct snd_soc_dai *dai)
+{
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	struct fsl_esai *esai_priv = snd_soc_dai_get_drvdata(dai);
+	u32 val;
+
+	if (tx) {
+		val = readl(esai_priv->base_edma_gpt1 + EDMA_CH_CSR);
+		val &= ~0x1;
+		writel(val, esai_priv->base_edma_gpt1 + EDMA_CH_CSR);
+
+		/* disable gpt */
+		writel_relaxed(0, esai_priv->base_gpt0 + GPT_IR);
+		writel_relaxed(0, esai_priv->base_gpt0 + GPT_PR);
+		writel_relaxed(0, esai_priv->base_gpt0 + GPT_CR);
+
+		writel_relaxed(0, esai_priv->base_gpt1 + GPT_IR);
+		writel_relaxed(0, esai_priv->base_gpt1 + GPT_PR);
+		writel_relaxed(0, esai_priv->base_gpt1 + GPT_CR);
+
+	} else {
+		val = readl(esai_priv->base_edma_gpt3 + EDMA_CH_CSR);
+		val &= ~0x1;
+		writel(val, esai_priv->base_edma_gpt3 + EDMA_CH_CSR);
+
+		/* disable gpt */
+		writel_relaxed(0, esai_priv->base_gpt2 + GPT_IR);
+		writel_relaxed(0, esai_priv->base_gpt2 + GPT_PR);
+		writel_relaxed(0, esai_priv->base_gpt2 + GPT_CR);
+
+		writel_relaxed(0, esai_priv->base_gpt3 + GPT_IR);
+		writel_relaxed(0, esai_priv->base_gpt3 + GPT_PR);
+		writel_relaxed(0, esai_priv->base_gpt3 + GPT_CR);
+	}
+
+	return 0;
+}
+
+
 static int fsl_esai_hw_params(struct snd_pcm_substream *substream,
 			      struct snd_pcm_hw_params *params,
 			      struct snd_soc_dai *dai)
@@ -547,6 +750,9 @@ static int fsl_esai_hw_params(struct snd_pcm_substream *substream,
 	u32 slot_width = width;
 	u32 bclk, mask, val;
 	int ret;
+
+	if (esai_priv->dma_workaround)
+		configure_gpt_dma(substream,  dai);
 
 	/* Override slot_width if being specifically set */
 	if (esai_priv->slot_width)
@@ -667,11 +873,23 @@ static int fsl_esai_trigger(struct snd_pcm_substream *substream, int cmd,
 	return 0;
 }
 
+static int fsl_esai_hw_free(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *cpu_dai)
+{
+	struct fsl_esai *esai_priv = snd_soc_dai_get_drvdata(cpu_dai);
+
+	if (esai_priv->dma_workaround)
+		clear_gpt_dma(substream,  cpu_dai);
+
+	return 0;
+}
+
 static const struct snd_soc_dai_ops fsl_esai_dai_ops = {
 	.startup = fsl_esai_startup,
 	.shutdown = fsl_esai_shutdown,
 	.trigger = fsl_esai_trigger,
 	.hw_params = fsl_esai_hw_params,
+	.hw_free = fsl_esai_hw_free,
 	.set_sysclk = fsl_esai_set_dai_sysclk,
 	.set_fmt = fsl_esai_set_dai_fmt,
 	.set_tdm_slot = fsl_esai_set_dai_tdm_slot,
@@ -917,6 +1135,8 @@ static int fsl_esai_probe(struct platform_device *pdev)
 	int irq, ret;
 	u32 buffer_size;
 	unsigned long irqflag = 0;
+	int *buffer;
+	int i;
 
 	esai_priv = devm_kzalloc(&pdev->dev, sizeof(*esai_priv), GFP_KERNEL);
 	if (!esai_priv)
@@ -1001,12 +1221,21 @@ static int fsl_esai_probe(struct platform_device *pdev)
 	/* From imx6ull, the channel swap issue in underrun/overrun is
 	 * fixed in hardware. So remove the workaround.
 	 */
-	if (!of_device_is_compatible(pdev->dev.of_node, "fsl,imx6ull-esai")) {
+	if (of_device_is_compatible(pdev->dev.of_node, "fsl,imx35-esai") ||
+	of_device_is_compatible(pdev->dev.of_node,  "fsl,vf610-esai")) {
 		esai_priv->dma_params_tx.check_xrun = fsl_esai_check_xrun;
 		esai_priv->dma_params_rx.check_xrun = fsl_esai_check_xrun;
 		esai_priv->dma_params_tx.device_reset = fsl_esai_reset;
 		esai_priv->dma_params_rx.device_reset = fsl_esai_reset;
 	}
+
+	/* In imx8qxp rev1, the dma request signal is not revert. For esai
+	 * dma request is low valid, but edma assert it as high level valid.
+	 * so we need to use GPT to transfer the dma request signal.
+	 *
+	 */
+	if (of_device_is_compatible(pdev->dev.of_node, "fsl,imx8qxp-v1-esai"))
+		esai_priv->dma_workaround = true;
 
 	esai_priv->synchronous =
 		of_property_read_bool(np, "fsl,esai-synchronous");
@@ -1053,6 +1282,67 @@ static int fsl_esai_probe(struct platform_device *pdev)
 	if (of_property_read_u32(np, "fsl,dma-buffer-size", &buffer_size))
 		buffer_size = IMX_ESAI_DMABUF_SIZE;
 
+	/*workaround for esai issue in imx8qxp*/
+	if (esai_priv->dma_workaround) {
+		esai_priv->tcd_pool = dma_pool_create("tcd_pool_esai",
+					&esai_priv->pdev->dev,
+				sizeof(struct fsl_edma3_hw_tcd), 32, 0);
+
+		esai_priv->buf.area = dma_alloc_writecombine(
+					&esai_priv->pdev->dev,
+					0x1000,
+					&esai_priv->buf.addr, GFP_KERNEL);
+
+		buffer = (int *)esai_priv->buf.area;
+		buffer[0] = 0x8;
+
+		esai_priv->tcd_sw[0].vtcd = dma_pool_alloc(esai_priv->tcd_pool,
+				GFP_ATOMIC, &esai_priv->tcd_sw[0].ptcd);
+		esai_priv->tcd_sw[1].vtcd = dma_pool_alloc(esai_priv->tcd_pool,
+				GFP_ATOMIC, &esai_priv->tcd_sw[1].ptcd);
+		esai_priv->tcd_sw[2].vtcd = dma_pool_alloc(esai_priv->tcd_pool,
+				GFP_ATOMIC, &esai_priv->tcd_sw[2].ptcd);
+		esai_priv->tcd_sw[3].vtcd = dma_pool_alloc(esai_priv->tcd_pool,
+				GFP_ATOMIC, &esai_priv->tcd_sw[3].ptcd);
+
+		for (i = 0; i < 4; i++) {
+			esai_priv->tcd_sw[i].vtcd->saddr = esai_priv->buf.addr;
+			esai_priv->tcd_sw[i].vtcd->attr  = 0x0202;
+			esai_priv->tcd_sw[i].vtcd->soff  = 0x0;
+			esai_priv->tcd_sw[i].vtcd->nbytes = 0x4;
+			esai_priv->tcd_sw[i].vtcd->slast     = 0x0;
+			esai_priv->tcd_sw[i].vtcd->citer     = 0x1;
+			esai_priv->tcd_sw[i].vtcd->biter     = 0x1;
+			esai_priv->tcd_sw[i].vtcd->doff      = 0x0;
+			esai_priv->tcd_sw[i].vtcd->csr       = 0x10;
+		}
+
+		esai_priv->tcd_sw[0].vtcd->daddr = GPT5_ADDR + GPT_SR;
+		esai_priv->tcd_sw[1].vtcd->daddr = GPT6_ADDR + GPT_SR;
+		esai_priv->tcd_sw[2].vtcd->daddr = GPT7_ADDR + GPT_SR;
+		esai_priv->tcd_sw[3].vtcd->daddr = GPT8_ADDR + GPT_SR;
+
+		esai_priv->tcd_sw[0].vtcd->dlast_sga =
+					esai_priv->tcd_sw[1].ptcd;
+		esai_priv->tcd_sw[1].vtcd->dlast_sga =
+					esai_priv->tcd_sw[0].ptcd;
+		esai_priv->tcd_sw[2].vtcd->dlast_sga =
+					esai_priv->tcd_sw[3].ptcd;
+		esai_priv->tcd_sw[3].vtcd->dlast_sga =
+					esai_priv->tcd_sw[2].ptcd;
+
+		esai_priv->base_gpt0 = ioremap(GPT5_ADDR, SZ_64K);
+		esai_priv->base_gpt1 = ioremap(GPT6_ADDR, SZ_64K);
+		esai_priv->base_gpt2 = ioremap(GPT7_ADDR, SZ_64K);
+		esai_priv->base_gpt3 = ioremap(GPT8_ADDR, SZ_64K);
+
+		esai_priv->base_edma_gpt1 = ioremap(EDMA_GPT6_ADDR, SZ_64K);
+		esai_priv->base_edma_gpt3 = ioremap(EDMA_GPT8_ADDR, SZ_64K);
+
+		esai_priv->base_acm = of_iomap(of_find_compatible_node(
+					NULL, NULL, "nxp,imx8qm-acm"), 0);
+	}
+
 	ret = imx_pcm_platform_register(&pdev->dev);
 	if (ret)
 		dev_err(&pdev->dev, "failed to init imx pcm dma: %d\n", ret);
@@ -1060,7 +1350,37 @@ static int fsl_esai_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static int fsl_esai_remove(struct platform_device *pdev)
+{
+	struct fsl_esai *esai_priv = dev_get_drvdata(&pdev->dev);
+
+	if (esai_priv->dma_workaround) {
+		dma_free_writecombine(&esai_priv->pdev->dev,
+				0x1000,
+				esai_priv->buf.area,
+				esai_priv->buf.addr);
+
+		dma_pool_free(esai_priv->tcd_pool,
+				esai_priv->tcd_sw[0].vtcd,
+				esai_priv->tcd_sw[0].ptcd);
+		dma_pool_free(esai_priv->tcd_pool,
+				esai_priv->tcd_sw[1].vtcd,
+				esai_priv->tcd_sw[1].ptcd);
+		dma_pool_free(esai_priv->tcd_pool,
+				esai_priv->tcd_sw[2].vtcd,
+				esai_priv->tcd_sw[2].ptcd);
+		dma_pool_free(esai_priv->tcd_pool,
+				esai_priv->tcd_sw[3].vtcd,
+				esai_priv->tcd_sw[3].ptcd);
+
+		dma_pool_destroy(esai_priv->tcd_pool);
+	}
+
+	return 0;
+}
+
 static const struct of_device_id fsl_esai_dt_ids[] = {
+	{ .compatible = "fsl,imx8qxp-v1-esai", },
 	{ .compatible = "fsl,imx6ull-esai", },
 	{ .compatible = "fsl,imx35-esai", },
 	{ .compatible = "fsl,vf610-esai", },
@@ -1110,6 +1430,7 @@ static const struct dev_pm_ops fsl_esai_pm_ops = {
 
 static struct platform_driver fsl_esai_driver = {
 	.probe = fsl_esai_probe,
+	.remove = fsl_esai_remove,
 	.driver = {
 		.name = "fsl-esai-dai",
 		.pm = &fsl_esai_pm_ops,
