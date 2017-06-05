@@ -843,7 +843,13 @@
 		interrupt-controller;
 		interrupt-parent = <&gic>;
 		#interrupt-cells = <2>;
-		power-domains = <&pd_hdmi_i2c0>;
+		clocks = <&clk IMX8QM_HDMI_DIG_PLL_CLK>,
+				<&clk IMX8QM_HDMI_LIS_IPG_CLK>;
+		clock-names = "pll", "ipg";
+		assigned-clocks =  <&clk IMX8QM_HDMI_DIG_PLL_CLK>,
+				<&clk IMX8QM_HDMI_LIS_IPG_CLK>;
+		assigned-clock-rates = <675000000>, <84000000>;
+		power-domains = <&pd_hdmi>;
 	};
 
 	i2c0_hdmi: i2c@56266000 {
@@ -867,6 +873,8 @@
 		interrupt-controller;
 		interrupt-parent = <&gic>;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_LVDS0_LIS_IPG_CLK>;
+		clock-names = "ipg";
 		power-domains = <&pd_lvds0>;
 	};
 
@@ -891,6 +899,8 @@
 		interrupt-controller;
 		interrupt-parent = <&gic>;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_LVDS1_LIS_IPG_CLK>;
+		clock-names = "ipg";
 		power-domains = <&pd_lvds1>;
 	};
 
