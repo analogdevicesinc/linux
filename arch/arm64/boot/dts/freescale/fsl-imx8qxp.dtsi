@@ -1200,6 +1200,11 @@
 		power-domains = <&pd_esai0>;
 		status = "disabled";
 	};
+
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dpu_disp0>, <&dpu_disp1>;
+	};
 };
 
 &A35_0 {
