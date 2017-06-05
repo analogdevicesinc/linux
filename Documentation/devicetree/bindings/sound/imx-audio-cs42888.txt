@@ -1,7 +1,9 @@
 Freescale i.MX audio complex with CS42888 codec
 
 Required properties:
-- compatible : "fsl,imx-audio-cs42888"
+- compatible : "fsl,imx-audio-cs42888", or
+		"fsl,imx8qm-sabreauto-cs42888" or
+		"fsl,imx8qxp-sabreauto-cs42888"
 - model : The user-visible name of this sound complex
 - esai-controller : The phandle of the i.MX SSI controller
 - audio-codec : The phandle of the CS42888 audio codec
