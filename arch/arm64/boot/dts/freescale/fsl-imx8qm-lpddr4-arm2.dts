@@ -41,10 +41,73 @@
 			linux,default-trigger = "heartbeat";
 		};
 	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reg_audio: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <2>;
+			regulator-name = "cs42888_supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-always-on;
+		};
+	};
+
+	sound-cs42888 {
+		compatible = "fsl,imx8qm-sabreauto-cs42888",
+				"fsl,imx-audio-cs42888";
+		model = "imx-cs42888";
+		esai-controller = <&esai0>;
+		audio-codec = <&codec>;
+		asrc-controller = <&asrc0>;
+	};
+};
+
+&acm {
+	status = "okay";
+};
+
+&asrc0 {
+	fsl,asrc-rate  = <48000>;
+	status = "okay";
+};
+
+&esai0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_esai0>;
+	assigned-clocks = <&clk IMX8QM_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX8QM_AUD_PLL0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
+			<&clk IMX8QM_AUD_ESAI_0_EXTAL_IPG>;
+	assigned-clock-parents = <&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_CLK>;
+	assigned-clock-rates = <0>, <786432000>, <24576000>, <24576000>, <24576000>;
+	status = "okay";
 };
 
 &iomuxc {
 	imx8qm-arm2 {
+
+		pinctrl_esai0: esai0grp {
+			fsl,pins = <
+				SC_P_ESAI0_FSR_AUD_ESAI0_FSR		0xc600004c
+				SC_P_ESAI0_FST_AUD_ESAI0_FST		0xc600004c
+				SC_P_ESAI0_SCKR_AUD_ESAI0_SCKR		0xc600004c
+				SC_P_ESAI0_SCKT_AUD_ESAI0_SCKT		0xc600004c
+				SC_P_ESAI0_TX0_AUD_ESAI0_TX0		0xc600004c
+				SC_P_ESAI0_TX1_AUD_ESAI0_TX1		0xc600004c
+				SC_P_ESAI0_TX2_RX3_AUD_ESAI0_TX2_RX3	0xc600004c
+				SC_P_ESAI0_TX3_RX2_AUD_ESAI0_TX3_RX2	0xc600004c
+				SC_P_ESAI0_TX4_RX1_AUD_ESAI0_TX4_RX1	0xc600004c
+				SC_P_ESAI0_TX5_RX0_AUD_ESAI0_TX5_RX0	0xc600004c
+				SC_P_MCLK_OUT0_AUD_ACM_MCLK_OUT0	0xc600004c
+			>;
+		};
+
 		pinctrl_fec1: fec1grp {
 			fsl,pins = <
 				SC_P_ENET0_MDC_CONN_ENET0_MDC			0x06000048
@@ -349,6 +412,18 @@
 	pinctrl-0 = <&pinctrl_hdmi_lpi2c0>;
 	clock-frequency = <100000>;
 	status = "okay";
+
+	codec: cs42888@48 {
+		compatible = "cirrus,cs42888";
+		reg = <0x48>;
+		clocks = <&clk IMX8QM_AUD_MCLKOUT0>;
+		clock-names = "mclk";
+		VA-supply = <&reg_audio>;
+		VD-supply = <&reg_audio>;
+		VLS-supply = <&reg_audio>;
+		VLC-supply = <&reg_audio>;
+		reset-gpio = <&pca9557_a 2 1>;
+	};
 };
 
 &i2c1 {
