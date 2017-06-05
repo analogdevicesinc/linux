@@ -28,11 +28,6 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			next-level-cache = <&A35_L2>;
-			operating-points = <
-				/* kHz    uV */
-				1000000 1150000
-			>;
-			clocks = <&clk IMX8QXP_A35_DIV>;
 		};
 
 		A35_1: cpu@1 {

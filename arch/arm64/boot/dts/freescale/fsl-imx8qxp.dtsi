@@ -1005,3 +1005,11 @@
 		power-domains = <&pd_hifi>;
 	};
 };
+
+&A35_0 {
+	operating-points = <
+		/* kHz    uV */
+		1200000 1150000
+	>;
+	clocks = <&clk IMX8QXP_A35_DIV>;
+};
