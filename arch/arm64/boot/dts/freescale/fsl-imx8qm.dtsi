@@ -1353,7 +1353,7 @@
 		clocks = <&clk IMX8QM_GPU0_CORE_CLK>, <&clk IMX8QM_GPU0_SHADER_CLK>;
 		clock-names = "core", "shader";
 		assigned-clocks = <&clk IMX8QM_GPU0_CORE_CLK>, <&clk IMX8QM_GPU0_SHADER_CLK>;
-		assigned-clock-rates = <650000000>, <700000000>;
+		assigned-clock-rates = <800000000>, <1000000000>;
 		fsl,sc_gpu_pid = <SC_R_GPU_0_PID0>;
 		power-domains = <&pd_gpu0>;
 		status = "disabled";
@@ -1366,7 +1366,7 @@
 		clocks = <&clk IMX8QM_GPU1_CORE_CLK>, <&clk IMX8QM_GPU1_SHADER_CLK>;
 		clock-names = "core", "shader";
 		assigned-clocks = <&clk IMX8QM_GPU1_CORE_CLK>, <&clk IMX8QM_GPU1_SHADER_CLK>;
-		assigned-clock-rates = <650000000>, <700000000>;
+		assigned-clock-rates = <800000000>, <1000000000>;
 		fsl,sc_gpu_pid = <SC_R_GPU_1_PID0>;
 		power-domains = <&pd_gpu1>;
 		status = "disabled";
