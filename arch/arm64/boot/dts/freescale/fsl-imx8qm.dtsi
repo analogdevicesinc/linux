@@ -29,6 +29,8 @@
 	#size-cells = <2>;
 
 	aliases {
+		dpu0 = &dpu1;
+		dpu1 = &dpu2;
 		ethernet0 = &fec1;
 		ethernet1 = &fec2;
 		serial0 = &lpuart0;
@@ -865,6 +867,112 @@
 
 	rtc: rtc {
 		compatible = "fsl,imx-sc-rtc";
+	};
+
+	dpu1_intsteer: dpu_intsteer@56000000 {
+		compatible = "fsl,imx8qm-dpu-intsteer", "syscon";
+		reg = <0x0 0x56000000 0x0 0x10000>;
+	};
+
+	dpu1: dpu@56180000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-dpu";
+		reg = <0x0 0x56180000 0x0 0x40000>;
+		intsteer = <&dpu1_intsteer>;
+		interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "irq_common",
+				  "irq_stream0a",
+				  "irq_stream0b",	/* to M4? */
+				  "irq_stream1a",
+				  "irq_stream1b",	/* to M4? */
+				  "irq_reserved0",
+				  "irq_reserved1",
+				  "irq_blit";
+		clocks = <&clk IMX8QM_DC0_PLL0_CLK>,
+			 <&clk IMX8QM_DC0_PLL1_CLK>,
+			 <&clk IMX8QM_DC0_DISP0_CLK>,
+			 <&clk IMX8QM_DC0_DISP1_CLK>;
+		clock-names = "pll0", "pll1", "disp0", "disp1";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+
+		dpu1_disp0: port@0 {
+			reg = <0>;
+
+			dpu1_disp0_mipi_dsi: mipi-dsi-endpoint {
+			};
+		};
+
+		dpu1_disp1: port@1 {
+			reg = <1>;
+
+			dpu1_disp1_lvds0: lvds0-endpoint {
+			};
+
+			dpu1_disp1_lvds1: lvds1-endpoint {
+			};
+		};
+	};
+
+	dpu2_intsteer: dpu_intsteer@57000000 {
+		compatible = "fsl,imx8qm-dpu-intsteer", "syscon";
+		reg = <0x0 0x57000000 0x0 0x10000>;
+	};
+
+	dpu2: dpu@57180000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-dpu";
+		reg = <0x0 0x57180000 0x0 0x40000>;
+		intsteer = <&dpu2_intsteer>;
+		interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "irq_common",
+				  "irq_stream0a",
+				  "irq_stream0b",	/* to M4? */
+				  "irq_stream1a",
+				  "irq_stream1b",	/* to M4? */
+				  "irq_reserved0",
+				  "irq_reserved1",
+				  "irq_blit";
+		clocks = <&clk IMX8QM_DC1_PLL0_CLK>,
+			 <&clk IMX8QM_DC1_PLL1_CLK>,
+			 <&clk IMX8QM_DC1_DISP0_CLK>,
+			 <&clk IMX8QM_DC1_DISP1_CLK>;
+		clock-names = "pll0", "pll1", "disp0", "disp1";
+		power-domains = <&pd_dc1>;
+		status = "disabled";
+
+		dpu2_disp0: port@0 {
+			reg = <0>;
+
+			dpu2_disp0_mipi_dsi: mipi-dsi-endpoint {
+			};
+		};
+
+		dpu2_disp1: port@1 {
+			reg = <1>;
+
+			dpu2_disp1_lvds0: lvds0-endpoint {
+			};
+
+			dpu2_disp1_lvds1: lvds1-endpoint {
+			};
+		};
 	};
 
 	i2c0: i2c@5a800000 {
