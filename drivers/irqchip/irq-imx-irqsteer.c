@@ -32,7 +32,7 @@ struct irqsteer_irqchip_data {
 	int irq;
 	int channum;
 	struct irq_domain *domain;
-	unsigned long irqstat[];
+	unsigned int irqstat[];
 };
 
 static void imx_irqsteer_irq_unmask(struct irq_data *d)
@@ -130,7 +130,7 @@ static void imx_irqsteer_irq_handler(struct irq_desc *desc)
 	imx_irqsteer_update_irqstat(irqsteer_data);
 
 	irqnum = irqsteer_data->channum * 32;
-	for_each_set_bit(pos, irqsteer_data->irqstat, irqnum) {
+	for_each_set_bit(pos, (unsigned long *)irqsteer_data->irqstat, irqnum) {
 		virq = irq_find_mapping(irqsteer_data->domain, pos);
 		if (virq)
 			generic_handle_irq(virq);
@@ -153,7 +153,8 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 		channum = 1;
 
 	irqsteer_data = devm_kzalloc(&pdev->dev, sizeof(*irqsteer_data) +
-				     channum * 4,
+				     channum *
+				     sizeof(irqsteer_data->irqstat[0]),
 				     GFP_KERNEL);
 	if (!irqsteer_data)
 		return -ENOMEM;
