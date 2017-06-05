@@ -139,6 +139,7 @@ struct fsl_edma3_chan {
 	int				hw_chanid;
 	int				priority;
 	int				is_rxchan;
+	int				is_remote;
 	struct dma_pool			*tcd_pool;
 	u32				chn_real_count;
 	char				txirq_name[32];
@@ -189,6 +190,10 @@ static void fsl_edma3_enable_request(struct fsl_edma3_chan *fsl_chan)
 		else
 			val |= EDMA_CH_SBR_WR;
 	}
+
+	if (fsl_chan->is_remote)
+		val &= ~(EDMA_CH_SBR_RD | EDMA_CH_SBR_WR);
+
 	writel(val, addr + EDMA_CH_SBR);
 
 	val = readl(addr + EDMA_CH_CSR);
@@ -686,7 +691,7 @@ static struct dma_chan *fsl_edma3_xlate(struct of_phandle_args *dma_spec,
 	struct dma_chan *chan, *_chan;
 	struct fsl_edma3_chan *fsl_chan;
 
-	if (dma_spec->args_count != 3)
+	if (dma_spec->args_count != 4)
 		return NULL;
 
 	mutex_lock(&fsl_edma3->fsl_edma3_mutex);
@@ -701,6 +706,7 @@ static struct dma_chan *fsl_edma3_xlate(struct of_phandle_args *dma_spec,
 			chan->device->privatecnt++;
 			fsl_chan->priority = dma_spec->args[1];
 			fsl_chan->is_rxchan = dma_spec->args[2];
+			fsl_chan->is_remote = dma_spec->args[3];
 			mutex_unlock(&fsl_edma3->fsl_edma3_mutex);
 			return chan;
 		}
