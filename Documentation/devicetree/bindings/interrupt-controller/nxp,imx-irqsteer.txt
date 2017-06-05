@@ -3,6 +3,7 @@
 Required properties:
 - compatible: "nxp,imx-irqsteer".
 - reg: should contain IC registers location and length.
+- clocks : ipg clock for irqsteer.
 - interrupts: an interrupt to the parent interrupt controller.
 - interrupt-controller: identifies the node as an interrupt controller.
 - interrupt-parent: gic interrupt controller, link to parent

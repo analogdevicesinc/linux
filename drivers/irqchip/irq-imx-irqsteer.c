@@ -8,6 +8,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
@@ -27,6 +28,7 @@ struct irqsteer_irqchip_data {
 	spinlock_t lock;
 	struct platform_device	*pdev;
 	void __iomem *regs;
+	struct clk *ipg_clk;
 	int irq;
 	int channum;
 	struct irq_domain *domain;
@@ -170,9 +172,22 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	irqsteer_data->ipg_clk = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(irqsteer_data->ipg_clk)) {
+		ret = PTR_ERR(irqsteer_data->ipg_clk);
+		dev_err(&pdev->dev, "failed to get ipg clk: %d\n", ret);
+		return ret;
+	}
+
 	irqsteer_data->channum = channum;
 	irqsteer_data->pdev = pdev;
 	spin_lock_init(&irqsteer_data->lock);
+
+	ret = clk_prepare_enable(irqsteer_data->ipg_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable ipg clk: %d\n", ret);
+		return ret;
+	}
 
 	imx_irqsteer_init(irqsteer_data);
 
@@ -204,6 +219,7 @@ static int imx_irqsteer_remove(struct platform_device *pdev)
 	irq_domain_remove(irqsteer_data->domain);
 
 	platform_set_drvdata(pdev, NULL);
+	clk_disable_unprepare(irqsteer_data->ipg_clk);
 
 	return 0;
 }
