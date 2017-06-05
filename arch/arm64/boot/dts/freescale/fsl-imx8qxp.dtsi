@@ -31,6 +31,7 @@
 		ethernet0 = &fec1;
 		ethernet1 = &fec2;
 		serial0 = &lpuart0;
+		serial3 = &lpuart3;
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		mmc2 = &usdhc3;
@@ -608,42 +609,78 @@
 			pd_mipi_dsi_i2c0: PD_MIPI_0_DSI_I2C0 {
 				name = "mipi0_dsi_i2c0";
 				reg = <SC_R_MIPI_0_I2C_0>;
+				#power-domain-cells = <0>;
 				power-domains =<&pd_mipi_dsi>;
 			};
 			pd_mipi_dsi_i2c1: PD_MIPI_0_DSI_I2C1 {
 				name = "mipi0_dsi_i2c1";
 				reg = <SC_R_MIPI_0_I2C_1>;
+				#power-domain-cells = <0>;
 				power-domains =<&pd_mipi_dsi>;
 			};
 			pd_mipi_pwm0: PD_MIPI_0_DSI_PWM0 {
 				name = "mipi0_dsi_pwm0";
 				reg = <SC_R_MIPI_0_PWM_0>;
+				#power-domain-cells = <0>;
 				power-domains =<&pd_mipi_dsi>;
 			};
 		};
 
-		pd_mipi_csi: PD_MIPI_CSI0 {
+		pd_isi_ch0: PD_ISI_CH0 {
 			compatible = "nxp,imx8-pd";
-			reg = <SC_R_CSI_0>;
+			reg = <SC_R_ISI_CH0>;
 			#power-domain-cells = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_mipi_csi_i2c0: PD_MIPI_CSI0_I2C {
-				name = "mipi_csi0_i2c";
-				reg = <SC_R_CSI_0_I2C_0>;
-				power-domains =<&pd_mipi_csi>;
-			};
-			pd_mipi_csi_pwm0: PD_MIPI_CSI0_PWM {
-				name = "mipi_csi0_pwm";
-				reg = <SC_R_CSI_0_PWM_0>;
-				power-domains =<&pd_mipi_dsi>;
+			pd_mipi_csi: PD_MIPI_CSI0 {
+				reg = <SC_R_CSI_0>;
+				#power-domain-cells = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+
+				pd_mipi_csi_i2c0: PD_MIPI_CSI0_I2C {
+					name = "mipi_csi0_i2c";
+					reg = <SC_R_CSI_0_I2C_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_mipi_csi>;
+				};
+
+				pd_mipi_csi_pwm0: PD_MIPI_CSI0_PWM {
+					name = "mipi_csi0_pwm";
+					reg = <SC_R_CSI_0_PWM_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_mipi_csi>;
+				};
 			};
 		};
 	};
 
-	rtc: rtc {
-		compatible = "fsl,imx-sc-rtc";
+	irqsteer_csi: irqsteer@58220000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x58220000 0x0 0x1000>;
+		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QXP_CSI0_IPG_CLK>;
+		clock-names = "ipg";
+		power-domains = <&pd_mipi_csi>;
+	};
+
+	i2c0_csi0: i2c@58226000 {
+		compatible = "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x58226000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_csi>;
+		clocks = <&clk IMX8QXP_CSI0_I2C0_CLK>,
+			<&clk IMX8QXP_CSI0_I2C0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QXP_CSI0_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_mipi_csi_i2c0>;
+		status = "disabled";
 	};
 
 	i2c0: i2c@5a800000 {
@@ -653,7 +690,7 @@
 		interrupt-parent = <&gic>;
 		clocks = <&clk IMX8QXP_I2C0_CLK>;
 		clock-names = "per";
-		assigned-clock-names = <&clk IMX8QXP_I2C0_CLK>;
+		assigned-clocks = <&clk IMX8QXP_I2C0_CLK>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd_dma_lpi2c0>;
 		status = "disabled";
@@ -664,10 +701,12 @@
 		reg = <0x0 0x5a810000 0x0 0x4000>;
 		interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&clk IMX8QXP_I2C1_CLK>;
-		clock-names = "per";
-		assigned-clock-names = <&clk IMX8QXP_I2C1_CLK>;
+		clocks = <&clk IMX8QXP_I2C1_CLK>,
+			<&clk IMX8QXP_I2C1_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QXP_I2C1_CLK>;
 		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_dma_lpi2c1>;
 		status = "disabled";
 	};
 
@@ -678,7 +717,7 @@
 		interrupt-parent = <&gic>;
 		clocks = <&clk IMX8QXP_I2C2_CLK>;
 		clock-names = "per";
-		assigned-clock-names = <&clk IMX8QXP_I2C2_CLK>;
+		assigned-clocks = <&clk IMX8QXP_I2C2_CLK>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd_dma_lpi2c2>;
 		status = "disabled";
@@ -689,9 +728,10 @@
 		reg = <0x0 0x5a830000 0x0 0x4000>;
 		interrupts = <GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&clk IMX8QXP_I2C3_CLK>;
-		clock-names = "per";
-		assigned-clock-names = <&clk IMX8QXP_I2C3_CLK>;
+		clocks = <&clk IMX8QXP_I2C3_CLK>,
+			<&clk IMX8QXP_I2C3_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QXP_I2C3_CLK>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd_dma_lpi2c3>;
 		status = "disabled";
@@ -812,6 +852,19 @@
 		status = "disabled";
 	};
 
+	lpuart3: serial@5a090000 {
+		compatible = "fsl,imx8qm-lpuart";
+		reg = <0x0 0x5a090000 0x0 0x1000>;
+		interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&clk IMX8QXP_UART3_CLK>, <&clk IMX8QXP_UART3_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QXP_UART3_CLK>;
+		assigned-clock-rates = <80000000>;
+		power-domains = <&pd_dma_lpuart3>;
+		status = "disabled";
+	};
+
 	edma2: dma-controller@591F0000 {
 		compatible = "fsl,imx8qm-edma";
 		reg = <0x0 0x59200000 0x0 0x10000>, /* asrc0 */
@@ -825,11 +878,13 @@
 			<0x0 0x59280000 0x0 0x10000>, /* spdif0 rx */
 			<0x0 0x59290000 0x0 0x10000>, /* spdif0 tx */
 			<0x0 0x592c0000 0x0 0x10000>, /* sai0 rx */
-			<0x0 0x592d0000 0x0 0x10000>; /* sai0 tx */
+			<0x0 0x592d0000 0x0 0x10000>, /* sai0 tx */
+			<0x0 0x59350000 0x0 0x10000>,
+			<0x0 0x59370000 0x0 0x10000>;
 		#dma-cells = <4>;
 		shared-interrupt;
-		dma-channels = <12>;
-		interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc0 */
+		dma-channels = <14>;
+		interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc 0 */
 				<GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH>,
@@ -840,13 +895,17 @@
 				<GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
 				<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
-				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma-chan0-tx", "edma-chan1-tx", /* asrc0 */
 				"edma-chan2-tx", "edma-chan3-tx",
 				"edma-chan4-tx", "edma-chan5-tx",
 				"edma-chan6-tx", "edma-chan7-tx", /* esai0 */
 				"edma-chan8-tx", "edma-chan9-tx", /* spdif0 */
-				"edma-chan12-tx", "edma-chan13-tx"; /* sai0 */
+				"edma-chan12-tx", "edma-chan13-tx", /* sai0 */
+				"edma-chan21-tx",		/* gpt5 */
+				"edma-chan23-tx";		/* gpt7 */
 		status = "okay";
 	};
 
@@ -1003,6 +1062,20 @@
 		clock-names = "ipg", "ocram", "core";
 		fsl,hifi4-firmware = "imx/hifi/hifi4.bin";
 		power-domains = <&pd_hifi>;
+	};
+
+	esai0: esai@59010000 {
+		compatible = "fsl,imx6ull-esai";
+		reg = <0x0 0x59010000 0x0 0x10000>;
+		interrupts = <GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QXP_AUD_ESAI_0_IPG>,
+			<&clk IMX8QXP_AUD_ESAI_0_EXTAL_IPG>,
+			<&clk IMX8QXP_AUD_ESAI_0_IPG>;
+		clock-names = "core", "extal", "fsys";
+		dmas = <&edma2 6 0 1 0>, <&edma2 7 0 0 0>;
+		dma-names = "rx", "tx";
+		power-domains = <&pd_esai0>;
+		status = "disabled";
 	};
 };
 

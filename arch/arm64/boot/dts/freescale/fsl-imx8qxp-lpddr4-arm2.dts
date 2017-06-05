@@ -42,11 +42,96 @@
 			gpio = <&gpio4 19 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
+
+		reg_audio: fixedregulator@0 {
+			compatible = "regulator-fixed";
+			reg = <2>;
+			regulator-name = "cs42888_supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-always-on;
+		};
+
+		reg_baseboard: fixedregulator@1 {
+			compatible = "regulator-fixed";
+			reg = <2>;
+			regulator-name = "baseboard_supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-always-on;
+			gpio = <&gpio5 9 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
 	};
+
+	sound-cs42888 {
+		compatible = "fsl,imx8qm-sabreauto-cs42888",
+				"fsl,imx-audio-cs42888";
+		model = "imx-cs42888";
+		esai-controller = <&esai0>;
+		audio-codec = <&codec>;
+		asrc-controller = <&asrc0>;
+		status = "okay";
+	};
+
+};
+
+&acm {
+	status = "okay";
+};
+
+&asrc0 {
+	fsl,asrc-rate  = <48000>;
+	status = "okay";
+};
+
+&esai0 {
+	compatible = "fsl,imx8qxp-v1-esai";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_esai0>;
+	assigned-clocks = <&clk IMX8QXP_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX8QXP_AUD_PLL0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>,
+			<&clk IMX8QXP_AUD_ESAI_0_EXTAL_IPG>;
+	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
+	assigned-clock-rates = <0>, <786432000>, <24576000>, <24576000>, <24576000>;
+	dmas = <&edma2 23 0 1 1>, <&edma2 21 0 0 1>;
+	status = "okay";
 };
 
 &iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog>;
 	imx8qxp-lpddr4-arm2 {
+		pinctrl_hog: hoggrp {
+			fsl,pins = <
+				SC_P_ENET0_REFCLK_125M_25M_LSIO_GPIO5_IO09 0xc600004c
+			>;
+		};
+
+		pinctrl_csi0_lpi2c0: csi0lpi2c0grp {
+			fsl,pins = <
+				SC_P_MIPI_CSI0_I2C0_SCL_MIPI_CSI0_I2C0_SCL	0xc2000020
+				SC_P_MIPI_CSI0_I2C0_SDA_MIPI_CSI0_I2C0_SDA	0xc2000020
+			>;
+		};
+
+		pinctrl_esai0: esai0grp {
+			fsl,pins = <
+				SC_P_ESAI0_FSR_ADMA_ESAI0_FSR		0xc600004c
+				SC_P_ESAI0_FST_ADMA_ESAI0_FST		0xc600004c
+				SC_P_ESAI0_SCKR_ADMA_ESAI0_SCKR		0xc600004c
+				SC_P_ESAI0_SCKT_ADMA_ESAI0_SCKT		0xc600004c
+				SC_P_ESAI0_TX0_ADMA_ESAI0_TX0		0xc600004c
+				SC_P_ESAI0_TX1_ADMA_ESAI0_TX1		0xc600004c
+				SC_P_ESAI0_TX2_RX3_ADMA_ESAI0_TX2_RX3	0xc600004c
+				SC_P_ESAI0_TX3_RX2_ADMA_ESAI0_TX3_RX2	0xc600004c
+				SC_P_ESAI0_TX4_RX1_ADMA_ESAI0_TX4_RX1	0xc600004c
+				SC_P_ESAI0_TX5_RX0_ADMA_ESAI0_TX5_RX0	0xc600004c
+				SC_P_MCLK_OUT0_ADMA_ACM_MCLK_OUT0	0xc600004c
+			>;
+		};
 
 		pinctrl_fec1: fec1grp {
 			fsl,pins = <
@@ -102,6 +187,13 @@
 			fsl,pins = <
 				SC_P_UART0_RX_ADMA_UART0_RX	0x0600004c
 				SC_P_UART0_TX_ADMA_UART0_TX	0x0600004c
+			>;
+		};
+
+		pinctrl_lpuart3: lpuart3grp {
+			fsl,pins = <
+				SC_P_FLEXCAN2_RX_ADMA_UART3_RX	0x0600004c
+				SC_P_FLEXCAN2_TX_ADMA_UART3_TX	0x0600004c
 			>;
 		};
 
@@ -214,7 +306,31 @@
 	status = "disabled";
 };
 
+&i2c0_csi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_csi0_lpi2c0>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	codec: cs42888@48 {
+		compatible = "cirrus,cs42888";
+		reg = <0x48>;
+		clocks = <&clk IMX8QXP_AUD_MCLKOUT0>;
+		clock-names = "mclk";
+		VA-supply = <&reg_audio>;
+		VD-supply = <&reg_audio>;
+		VLS-supply = <&reg_audio>;
+		VLC-supply = <&reg_audio>;
+		reset-gpio = <&pca9557_a 2 1>;
+		status = "okay";
+	};
+};
+
 &i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c1>;
@@ -222,16 +338,31 @@
 };
 
 &i2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c3>;
 	status = "okay";
+
+	pca9557_a: gpio@18 {
+		compatible = "nxp,pca9557";
+		reg = <0x18>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &lpuart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart0>;
 	status = "okay";
+};
+
+&lpuart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart3>;
+	status = "disabled";
 };
 
 &usdhc1 {
