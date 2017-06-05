@@ -826,7 +826,7 @@
 			<0x0 0x59290000 0x0 0x10000>, /* spdif0 tx */
 			<0x0 0x592c0000 0x0 0x10000>, /* sai0 rx */
 			<0x0 0x592d0000 0x0 0x10000>; /* sai0 tx */
-		#dma-cells = <3>;
+		#dma-cells = <4>;
 		shared-interrupt;
 		dma-channels = <12>;
 		interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc0 */
@@ -868,7 +868,7 @@
 			<&clk IMX8QXP_CLK_DUMMY>;
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dma-names = "rx", "tx";
-		dmas = <&edma2 12 0 1>, <&edma2 13 0 0>;
+		dmas = <&edma2 12 0 1 0>, <&edma2 13 0 0 0>;
 		status = "disabled";
 		power-domains = <&pd_sai0>;
 	};
@@ -903,8 +903,8 @@
 			"asrck_8", "asrck_9", "asrck_a", "asrck_b",
 			"asrck_c", "asrck_d", "asrck_e", "asrck_f",
 			"spba";
-		dmas = <&edma2 0 0 0>, <&edma2 1 0 0>, <&edma2 2 0 0>,
-			<&edma2 3 0 1>, <&edma2 4 0 1>, <&edma2 5 0 1>;
+		dmas = <&edma2 0 0 0 0>, <&edma2 1 0 0 0>, <&edma2 2 0 0 0>,
+			<&edma2 3 0 1 0>, <&edma2 4 0 1 0>, <&edma2 5 0 1 0>;
 		dma-names = "rxa", "rxb", "rxc",
 				"txa", "txb", "txc";
 		fsl,asrc-rate  = <8000>;
