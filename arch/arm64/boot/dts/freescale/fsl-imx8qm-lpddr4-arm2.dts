@@ -154,6 +154,20 @@
 			>;
 		};
 
+		pinctrl_lvds0_lpi2c1: lvds0lpi2c1grp {
+			fsl,pins = <
+				SC_P_LVDS0_I2C1_SCL_LVDS0_I2C1_SCL	0xc600004c
+				SC_P_LVDS0_I2C1_SDA_LVDS0_I2C1_SDA	0xc600004c
+			>;
+		};
+
+		pinctrl_lvds1_lpi2c1: lvds1lpi2c1grp {
+			fsl,pins = <
+				SC_P_LVDS1_I2C1_SCL_LVDS1_I2C1_SCL	0xc600004c
+				SC_P_LVDS1_I2C1_SDA_LVDS1_I2C1_SDA	0xc600004c
+			>;
+		};
+
 		pinctrl_hdmi_lpi2c0: hdmilpi2c0grp {
 			fsl,pins = <
 				SC_P_HDMI_TX0_TS_SCL_HDMI_TX0_I2C0_SCL  0xc600004c
