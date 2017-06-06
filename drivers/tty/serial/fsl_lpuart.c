@@ -16,6 +16,7 @@
 
 #include <linux/clk.h>
 #include <linux/console.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/dmapool.h>
@@ -1895,6 +1896,9 @@ lpuart32_set_termios(struct uart_port *port, struct ktermios *termios,
 	lpuart32_write(&sport->port, ctrl, UARTCTRL);
 
 	spin_unlock_irqrestore(&sport->port.lock, flags);
+
+	/* wait baud rate stable */
+	usleep_range(1000, 2000);
 }
 
 static const char *lpuart_type(struct uart_port *port)
