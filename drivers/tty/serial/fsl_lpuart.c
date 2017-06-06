@@ -377,19 +377,46 @@ static void lpuart32_stop_rx(struct uart_port *port)
 	lpuart32_write(port, temp & ~UARTCTRL_RE, UARTCTRL);
 }
 
+static void lpuart_recal_min_trans_size(struct lpuart_port *sport)
+{
+	struct circ_buf *xmit = &sport->port.state->xmit;
+	u32 txcount, rxcount;
+
+	sport->dma_tx_bytes = uart_circ_chars_pending(xmit);
+
+	/* lpuart32 and loopback mode re-calculate the trans size */
+	if (!lpuart_is_32(sport) || !(sport->port.mctrl & TIOCM_LOOP))
+		return;
+
+	txcount = lpuart32_read(&sport->port, UARTWATER);
+	txcount = txcount >> UARTWATER_TXCNT_OFF;
+	txcount &= UARTWATER_COUNT_MASK;
+	rxcount = lpuart32_read(&sport->port, UARTWATER);
+	rxcount = rxcount >> UARTWATER_RXCNT_OFF;
+	txcount = min_t(unsigned int, sport->txfifo_size - txcount,
+			sport->rxfifo_size - rxcount);
+	sport->dma_tx_bytes = min_t(unsigned int, txcount, sport->dma_tx_bytes);
+}
+
 static void lpuart_dma_tx(struct lpuart_port *sport)
 {
 	struct circ_buf *xmit = &sport->port.state->xmit;
 	struct scatterlist *sgl = sport->tx_sgl;
 	struct device *dev = sport->port.dev;
+	u32 toend_cnt;
 	int ret;
 
 	if (sport->dma_tx_in_progress)
 		return;
 
-	sport->dma_tx_bytes = uart_circ_chars_pending(xmit);
+	lpuart_recal_min_trans_size(sport);
+	if (!sport->dma_tx_bytes)
+		return;
 
-	if (xmit->tail < xmit->head || xmit->head == 0) {
+	toend_cnt = CIRC_CNT_TO_END(xmit->head, xmit->tail, UART_XMIT_SIZE);
+
+	if (xmit->tail < xmit->head || xmit->head == 0 ||
+	   (sport->port.mctrl & TIOCM_LOOP && sport->dma_tx_bytes <= toend_cnt)) {
 		sport->dma_tx_nents = 1;
 		sg_init_one(sgl, xmit->buf + xmit->tail, sport->dma_tx_bytes);
 	} else {
@@ -397,7 +424,8 @@ static void lpuart_dma_tx(struct lpuart_port *sport)
 		sg_init_table(sgl, 2);
 		sg_set_buf(sgl, xmit->buf + xmit->tail,
 				UART_XMIT_SIZE - xmit->tail);
-		sg_set_buf(sgl + 1, xmit->buf, xmit->head);
+		sg_set_buf(sgl + 1, xmit->buf, sport->dma_tx_bytes -
+				(UART_XMIT_SIZE - xmit->tail));
 	}
 
 	ret = dma_map_sg(dev, sgl, sport->dma_tx_nents, DMA_TO_DEVICE);
