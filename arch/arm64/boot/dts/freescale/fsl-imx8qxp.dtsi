@@ -657,6 +657,35 @@
 		};
 	};
 
+	tsens: thermal-sensor {
+		compatible = "nxp,imx8qxp-sc-tsens";
+		/* number of the temp sensor on the chip */
+		tsens-num = <1>;
+		#thermal-sensor-cells = <1>;
+	};
+
+	thermal-zones {
+		/* cpu thermal */
+		cpu-thermal0 {
+			polling-delay-passive = <250>;
+			polling-delay = <2000>;
+			/*the slope and offset of the temp sensor */
+			thermal-sensors = <&tsens 0>;
+			trips {
+				cpu_alert0: trip0 {
+					temperature = <85000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				cpu_crit0: trip1 {
+					temperature = <110000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+		};
+	};
+
 	irqsteer_csi: irqsteer@58220000 {
 		compatible = "nxp,imx-irqsteer";
 		reg = <0x0 0x58220000 0x0 0x1000>;
