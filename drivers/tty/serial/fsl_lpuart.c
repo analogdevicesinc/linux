@@ -1054,6 +1054,7 @@ static void lpuart_dma_rx_free(struct uart_port *port)
 	dma_unmap_single(sport->port.dev, sport->dma_rx_buf_bus,
 			sport->rxdma_len, DMA_FROM_DEVICE);
 
+	devm_kfree(sport->port.dev, sport->dma_rx_buf_virt);
 	sport->dma_rx_buf_bus = 0;
 	sport->dma_rx_buf_virt = NULL;
 }
@@ -1492,8 +1493,8 @@ static void lpuart_shutdown(struct uart_port *port)
 			sport->dma_rx_in_progress = false;
 			dmaengine_terminate_all(sport->dma_rx_chan);
 		}
-		lpuart_dma_rx_free(&sport->port);
 		del_timer_sync(&sport->lpuart_timer);
+		lpuart_dma_rx_free(&sport->port);
 	}
 
 	if (sport->lpuart_dma_tx_use) {
@@ -1539,8 +1540,8 @@ static void lpuart32_shutdown(struct uart_port *port)
 			sport->dma_rx_in_progress = false;
 			dmaengine_terminate_all(sport->dma_rx_chan);
 		}
-		lpuart_dma_rx_free(&sport->port);
 		del_timer_sync(&sport->lpuart_timer);
+		lpuart_dma_rx_free(&sport->port);
 	}
 
 	if (sport->lpuart_dma_tx_use) {
