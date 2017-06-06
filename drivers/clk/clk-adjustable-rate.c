@@ -66,6 +66,10 @@ static int clk_adjustable_rate_set_rate(struct clk_hw *hw, unsigned long rate,
 static long clk_adjustable_rate_round_rate(struct clk_hw *hw, unsigned long rate,
 				   unsigned long *parent_rate)
 {
+	if (rate > to_clk_adjustable_rate(hw)->max_rate ||
+		rate < to_clk_adjustable_rate(hw)->min_rate)
+		return -EINVAL;
+
 	return rate;
 }
 
