@@ -985,10 +985,9 @@ static void lpuart_copy_rx_to_tty(struct lpuart_port *sport,
 	copied = tty_insert_flip_string(tty,
 			((unsigned char *)(sport->dma_rx_buf_virt)), count);
 
-	if (copied != count) {
-		WARN_ON(1);
-		dev_err(sport->port.dev, "RxData copy to tty layer failed\n");
-	}
+	if (copied != count)
+		sport->port.icount.buf_overrun += count - copied;
+	sport->port.icount.rx += copied;
 }
 
 static void lpuart_dma_stop(struct lpuart_port *sport)
