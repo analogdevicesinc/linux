@@ -43,6 +43,7 @@
 #define CMD_SEQ_LOAD		(0x03 << CMD_SHIFT)
 #define CMD_FIFO_LOAD		(0x04 << CMD_SHIFT)
 #define CMD_SEQ_FIFO_LOAD	(0x05 << CMD_SHIFT)
+#define CMD_MOVEB		(0x07 << CMD_SHIFT)
 #define CMD_STORE		(0x0a << CMD_SHIFT)
 #define CMD_SEQ_STORE		(0x0b << CMD_SHIFT)
 #define CMD_FIFO_STORE		(0x0c << CMD_SHIFT)
