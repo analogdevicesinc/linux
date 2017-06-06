@@ -465,17 +465,15 @@ static void lpuart_dma_tx_complete(void *arg)
 
 	sport->port.icount.tx += sport->dma_tx_bytes;
 	sport->dma_tx_in_progress = false;
-	spin_unlock_irqrestore(&sport->port.lock, flags);
 
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(&sport->port);
 
 	if (waitqueue_active(&sport->dma_wait)) {
 		wake_up(&sport->dma_wait);
+		spin_unlock_irqrestore(&sport->port.lock, flags);
 		return;
 	}
-
-	spin_lock_irqsave(&sport->port.lock, flags);
 
 	if (!uart_circ_empty(xmit) && !uart_tx_stopped(&sport->port))
 		lpuart_dma_tx(sport);
@@ -1025,8 +1023,12 @@ static void lpuart_dma_rx_complete(void *arg)
 	sport->dma_rx_in_progress = false;
 	dmaengine_tx_status(sport->dma_rx_chan, sport->dma_rx_cookie, &state);
 	count = sport->rxdma_len - state.residue;
+	spin_unlock_irqrestore(&sport->port.lock, flags);
+
 	lpuart_copy_rx_to_tty(sport, port, count);
 	tty_flip_buffer_push(port);
+
+	spin_lock_irqsave(&sport->port.lock, flags);
 
 	/* For end of packet, clear the idle flag to avoid to trigger
 	 * the next transfer. Only i.MX8x lpuart support EEOP.
