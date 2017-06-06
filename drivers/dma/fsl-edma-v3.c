@@ -421,6 +421,11 @@ static void fsl_edma3_set_tcd_regs(struct fsl_edma3_chan *fsl_chan,
 
 	writel(le32_to_cpu(tcd->dlast_sga), addr + EDMA_TCD_DLAST_SGA);
 
+	/* Must clear CHa_CSR[DONE] bit before enable TCDa_CSR[ESG] */
+	if ((EDMA_TCD_CSR_E_SG | le16_to_cpu(tcd->csr)) &&
+		EDMA_CH_CSR_DONE | readl(addr + EDMA_CH_CSR))
+		writel(EDMA_CH_CSR_DONE, addr + EDMA_CH_CSR);
+
 	writew(le16_to_cpu(tcd->csr), addr + EDMA_TCD_CSR);
 }
 
