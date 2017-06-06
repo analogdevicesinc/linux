@@ -214,6 +214,15 @@ config IMX_THERMAL
 	  cpufreq is used as the cooling device to throttle CPUs when the
 	  passive trip is crossed.
 
+config IMX_SC_THERMAL
+	tristate "thermal sensor driver for NXP i.MX8 SoCs"
+	depends on THERMAL_OF && ARCH_MXC_ARM64
+	help
+	  Support for Temperature Monitor (TEMPMON) found on NXP i.MX SOCs
+	  with system controller.
+	  cpufreq is used as the cooling device to throttle CPUs when the
+	  passive trip is crossed.
+
 config MAX77620_THERMAL
 	tristate "Temperature sensor driver for Maxim MAX77620 PMIC"
 	depends on MFD_MAX77620
