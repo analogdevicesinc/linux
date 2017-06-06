@@ -1008,12 +1008,6 @@ static int adxcvr_parse_dt(struct adxcvr_state *st,
 	return 0;
 }
 
-static void adxcvr_disable_unprepare_clocks(struct adxcvr_state *st)
-{
-	if (!IS_ERR(st->conv_clk))
-		clk_disable_unprepare(st->conv_clk);
-}
-
 /* Match table for of_platform binding */
 static const struct of_device_id adxcvr_of_match[] = {
 	{ .compatible = "adi,axi-adxcvr-1.0", .data = (void *) 1},
@@ -1082,7 +1076,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	return 0;
 
 disable_unprepare:
-	adxcvr_disable_unprepare_clocks(st);
+	clk_disable_unprepare(st->conv_clk);
 
 	return ret;
 }
@@ -1100,7 +1094,7 @@ static int adxcvr_remove(struct platform_device *pdev)
 	struct adxcvr_state *st = platform_get_drvdata(pdev);
 
 	of_clk_del_provider(pdev->dev.of_node);
-	adxcvr_disable_unprepare_clocks(st);
+	clk_disable_unprepare(st->conv_clk);
 
 	return 0;
 }
