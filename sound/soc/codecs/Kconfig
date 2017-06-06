@@ -35,6 +35,9 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_ADAU7002
 	select SND_SOC_ADS117X
 	select SND_SOC_AK4104 if SPI_MASTER
+	select SND_SOC_AK4458
+	select SND_SOC_AK4458_I2C if I2C
+	select SND_SOC_AK4458_SPI if SPI_MASTER
 	select SND_SOC_AK4535 if I2C
 	select SND_SOC_AK4554
 	select SND_SOC_AK4613 if I2C
@@ -370,6 +373,21 @@ config SND_SOC_ADS117X
 config SND_SOC_AK4104
 	tristate "AKM AK4104 CODEC"
 	depends on SPI_MASTER
+
+config SND_SOC_AK4458
+	tristate
+
+config SND_SOC_AK4458_I2C
+	tristate "AKM AK4458 DAC I2c"
+	depends on I2C
+	select SND_SOC_AK4458
+	select REGMAP_I2C
+
+config SND_SOC_AK4458_SPI
+	tristate "AKM AK4458 DAC SPI"
+	depends on SPI_MASTER
+	select SND_SOC_AK4458
+	select REGMAP_SPI
 
 config SND_SOC_AK4535
 	tristate
