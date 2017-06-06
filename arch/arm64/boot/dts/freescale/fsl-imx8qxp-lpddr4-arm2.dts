@@ -401,3 +401,7 @@
 	disable-over-current;
 	status = "okay";
 };
+
+&dpu1 {
+	status = "okay";
+};
