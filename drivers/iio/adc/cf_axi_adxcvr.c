@@ -996,6 +996,12 @@ static int adxcvr_parse_dt(struct adxcvr_state *st,
 	if (IS_ERR(st->conv_clk))
 		return PTR_ERR(st->conv_clk);
 
+	st->lane_rate_div40_clk = of_clk_get_by_name(np, "div40");
+	if (IS_ERR(st->lane_rate_div40_clk)) {
+		if (PTR_ERR(st->lane_rate_div40_clk) != -ENOENT)
+			return PTR_ERR(st->lane_rate_div40_clk);
+	}
+
 	ret = clk_prepare_enable(st->conv_clk);
 	if (ret < 0)
 		return ret;
@@ -1006,8 +1012,6 @@ static int adxcvr_parse_dt(struct adxcvr_state *st,
 		if (ret < 0)
 			return ret;
 	}
-
-	st->lane_rate_div40_clk = of_clk_get_by_name(np, "div40");
 
 	st->gth_enable =
 		of_property_read_bool(np, "adi,transceiver-gth-enable");
