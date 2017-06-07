@@ -994,7 +994,7 @@ static int adxcvr_parse_dt(struct adxcvr_state *st,
 
 	st->conv_clk = of_clk_get_by_name(np, "conv");
 	if (IS_ERR(st->conv_clk))
-		return -EPROBE_DEFER;
+		return PTR_ERR(st->conv_clk);
 
 	ret = clk_prepare_enable(st->conv_clk);
 	if (ret < 0)
