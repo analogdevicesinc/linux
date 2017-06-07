@@ -720,9 +720,6 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
 		__func__, parent_rate);
 
-	if (!IS_ERR(st->lane_rate_div40_clk))
-		return st->lane_rate;
-
 	if (st->cpll_enable) {
 		unsigned int refclk_div_m, out_div, N1, N2, M;
 
