@@ -69,6 +69,9 @@ struct adxcvr_state {
 	u32					sys_clk_sel;
 	u32					out_clk_sel;
 
+	struct clk *clks[2];
+	struct clk_onecell_data clk_lookup;
+
 	struct xilinx_xcvr	xcvr;
 
 	bool				cpll_enable;
@@ -362,17 +365,25 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 	const char *parent_name)
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
+	unsigned int out_clk_divider, out_clk_multiplier;
 	struct clk_init_data init;
-	struct clk *clk;
-	const char *clk_name;
+	const char *clk_names[2];
+	unsigned int num_clks;
+	unsigned int i;
 	int ret;
 
-	ret = of_property_read_string_index(node, "clock-output-names",
-		0, &clk_name);
-	if (ret < 0)
-		return ret;
+	num_clks = of_property_count_strings(node, "clock-output-names");
+	if (num_clks < 1 || num_clks > 2)
+		return -EINVAL;
 
-	init.name = clk_name;
+	for (i = 0; i < num_clks; i++) {
+		ret = of_property_read_string_index(node, "clock-output-names",
+			i, &clk_names[i]);
+		if (ret < 0)
+			return ret;
+	}
+
+	init.name = clk_names[0];
 	init.ops = &clkout_ops;
 	init.flags = 0;
 
@@ -382,11 +393,48 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 	st->lane_clk_hw.init = &init;
 
 	/* register the clock */
-	clk = devm_clk_register(dev, &st->lane_clk_hw);
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
+	st->clks[0] = devm_clk_register(dev, &st->lane_clk_hw);
+	if (IS_ERR(st->clks[0]))
+		return PTR_ERR(st->clks[0]);
 
-	return of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	/* Backwards compatibility */
+	if (num_clks == 1)
+		return of_clk_add_provider(node, of_clk_src_simple_get, st->clks[0]);
+
+	switch (st->out_clk_sel) {
+	case 1:
+	case 2:
+		/* lane rate / 40 */
+		out_clk_divider = 2; /* 40 */
+		out_clk_multiplier = 50; /* 1000 */
+		parent_name = clk_names[0];
+		break;
+	case 3:
+		out_clk_divider = 1;
+		out_clk_multiplier = 1;
+		break;
+	case 4:
+		out_clk_divider = 2;
+		out_clk_multiplier = 1;
+		break;
+	default:
+		/* No clock */
+		return 0;
+	}
+
+	st->clks[1] = clk_register_fixed_factor(dev, clk_names[1],
+		parent_name, 0, out_clk_multiplier, out_clk_divider);
+
+	st->clk_lookup.clks = st->clks;
+	st->clk_lookup.clk_num = ARRAY_SIZE(st->clks);
+
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get,
+		&st->clk_lookup);
+
+	if (ret)
+		clk_unregister_fixed_factor(st->clks[1]);
+
+	return ret;
 }
 
 static int adxcvr_parse_dt(struct adxcvr_state *st,
@@ -529,6 +577,9 @@ static int adxcvr_remove(struct platform_device *pdev)
 
 	of_clk_del_provider(pdev->dev.of_node);
 	clk_disable_unprepare(st->conv_clk);
+
+	if (st->clks[1])
+		clk_unregister_fixed_factor(st->clks[1]);
 
 	return 0;
 }
