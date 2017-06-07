@@ -35,13 +35,11 @@ struct jesd204b_state {
 	u32			vers_id;
 	u32			addr;
 	u32			transmit;
-	unsigned long		rate;
 };
 
 struct child_clk {
 	struct clk_hw		hw;
 	struct jesd204b_state	*st;
-	unsigned long 		rate;
 	bool			enabled;
 
 };
@@ -124,7 +122,7 @@ static ssize_t jesd204b_laneinfo_read(struct device *dev,
 	ret += sprintf(buf + ret, "LECNT: 0x%X\n",
 		       jesd204b_read(st, XLNX_JESD204_REG_TM_LINK_ERR_CNT(lane)));
 
-	ret += sprintf(buf + ret, "FC: %lu\n", st->rate);
+	ret += sprintf(buf + ret, "FC: %lu\n", clk_get_rate(st->clk));
 
 	return ret;
 }
@@ -282,7 +280,6 @@ static int jesd204b_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, st);
 
 	st->clk = clk;
-	st->rate = clk_get_rate(clk);
 
 	if (of_id && of_id->data)
 		st->vers_id = (unsigned) of_id->data;
@@ -387,7 +384,6 @@ static int jesd204b_probe(struct platform_device *pdev)
 
 	/* struct child_clk assignments */
 	clk_priv->hw.init = &init;
-	clk_priv->rate = st->rate;
 	clk_priv->st = st;
 
 	ret = of_property_read_string(pdev->dev.of_node, "clock-output-names",
