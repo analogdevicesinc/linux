@@ -6,6 +6,7 @@
 #include <linux/init.h>
 #include <linux/irqchip/arm-gic-v3.h>
 #include <linux/linkage.h>
+#include <asm-generic/export.h>
 #include <asm/assembler.h>
 #include <asm/virt.h>
 
@@ -238,4 +239,5 @@ __hyp_stub_trap:	W(b)	__hyp_stub_do_trap
 __hyp_stub_irq:		W(b)	.
 __hyp_stub_fiq:		W(b)	.
 ENDPROC(__hyp_stub_vectors)
+EXPORT_SYMBOL_GPL(__hyp_stub_vectors)
 
