@@ -35,16 +35,10 @@ struct jesd204b_state {
 	u32			vers_id;
 	u32			addr;
 	u32			transmit;
+
+	/* Used for probe ordering */
+	struct clk_hw		dummy_clk;
 };
-
-struct child_clk {
-	struct clk_hw		hw;
-	struct jesd204b_state	*st;
-	bool			enabled;
-
-};
-
-#define to_clk_priv(_hw) container_of(_hw, struct child_clk, hw)
 
 /*
  * IO accessors
@@ -206,35 +200,7 @@ static ssize_t jesd204b_reg_read(struct device *dev,
 
 static DEVICE_ATTR(reg_access, S_IWUSR | S_IRUSR, jesd204b_reg_read, jesd204b_reg_write);
 
-static unsigned long jesd204b_clk_recalc_rate(struct clk_hw *hw,
-		unsigned long parent_rate)
-{
-	return parent_rate;
-}
-
-static int jesd204b_clk_enable(struct clk_hw *hw)
-{
-	to_clk_priv(hw)->enabled = true;
-
-	return 0;
-}
-
-static void jesd204b_clk_disable(struct clk_hw *hw)
-{
-	to_clk_priv(hw)->enabled = false;
-}
-
-static int jesd204b_clk_is_enabled(struct clk_hw *hw)
-{
-	return to_clk_priv(hw)->enabled;
-}
-
-static const struct clk_ops clkout_ops = {
-	.recalc_rate = jesd204b_clk_recalc_rate,
-	.enable = jesd204b_clk_enable,
-	.disable = jesd204b_clk_disable,
-	.is_enabled = jesd204b_clk_is_enabled,
-};
+static const struct clk_ops clkout_ops = {};
 
 /* Match table for of_platform binding */
 static const struct of_device_id jesd204b_of_match[] = {
@@ -250,7 +216,6 @@ static int jesd204b_probe(struct platform_device *pdev)
 	struct jesd204b_state *st;
 	struct resource *mem; /* IO mem resources */
 	struct clk *clk;
-	struct child_clk *clk_priv;
 	struct clk_init_data init;
 	const char *parent_name;
 	const char *clk_name;
@@ -375,17 +340,6 @@ static int jesd204b_probe(struct platform_device *pdev)
 		break;
 	}
 
-	clk_priv = devm_kzalloc(&pdev->dev, sizeof(*clk_priv), GFP_KERNEL);
-	if (!clk_priv) {
-		dev_err(&pdev->dev, "%s: could not allocate fixed factor clk\n", __func__);
-		ret = -ENOMEM;
-		return ret;
-	}
-
-	/* struct child_clk assignments */
-	clk_priv->hw.init = &init;
-	clk_priv->st = st;
-
 	ret = of_property_read_string(pdev->dev.of_node, "clock-output-names",
 		&clk_name);
 	if (ret < 0)
@@ -399,9 +353,11 @@ static int jesd204b_probe(struct platform_device *pdev)
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
 
-	clk_out = clk_register(&pdev->dev, &clk_priv->hw);
+	st->dummy_clk.init = &init;
+
+	clk_out = clk_register(&pdev->dev, &st->dummy_clk);
 	if (IS_ERR(clk_out))
-		kfree(clk_priv);
+		return PTR_ERR(clk_out);
 
 	of_clk_add_provider(pdev->dev.of_node, of_clk_src_simple_get, clk_out);
 
