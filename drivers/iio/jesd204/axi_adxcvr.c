@@ -313,11 +313,13 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 		container_of(hw, struct adxcvr_state, out_clk_hw);
 	struct xilinx_xcvr_cpll_config cpll_conf;
 	struct xilinx_xcvr_qpll_config qpll_conf;
-	unsigned int out_div;
+	unsigned int out_div, clk25_div;
 	int ret;
 
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
+
+	clk25_div = DIV_ROUND_CLOSEST(parent_rate, 25000000);
 
 	if (st->cpll_enable)
 		ret = xilinx_xcvr_calc_cpll_config(&st->xcvr, parent_rate, rate,
@@ -350,7 +352,15 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 			ADXCVR_DRP_PORT_CHANNEL, rate, out_div, st->lpm_enable);
 		if (ret < 0)
 			return ret;
+
+		ret = xilinx_xcvr_write_rx_clk25_div(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL,
+			clk25_div);
+	} else {
+		ret = xilinx_xcvr_write_tx_clk25_div(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL,
+			clk25_div);
 	}
+	if (ret < 0)
+		return ret;
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 
