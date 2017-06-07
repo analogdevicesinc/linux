@@ -119,11 +119,6 @@
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 8>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
-
-		adi,jesd-xbar-lane0-sel = <2>;
-		adi,jesd-xbar-lane1-sel = <3>;
-		adi,jesd-xbar-lane2-sel = <0>;
-		adi,jesd-xbar-lane3-sel = <1>;
 	};
 
 	adc0_ad9680: ad9680@2 {
