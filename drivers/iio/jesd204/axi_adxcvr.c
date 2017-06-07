@@ -62,7 +62,7 @@ struct adxcvr_state {
 	void __iomem		*regs;
 	struct clk			*conv_clk;
 	struct clk			*lane_rate_div40_clk;
-	struct clk_hw		out_clk_hw;
+	struct clk_hw		lane_clk_hw;
 	struct work_struct	work;
 	unsigned long		lane_rate;
 	bool				tx_enable;
@@ -203,7 +203,7 @@ static void adxcvr_work_func(struct work_struct *work)
 static int adxcvr_clk_enable(struct clk_hw *hw)
 {
 	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	int ret;
 
 	dev_dbg(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
@@ -227,7 +227,7 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 	unsigned long parent_rate)
 {
 	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	unsigned int *rx_out_div;
 	unsigned int *tx_out_div;
 	unsigned int out_div;
@@ -268,7 +268,7 @@ static long adxcvr_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long *prate)
 {
 	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	int ret;
 
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
@@ -289,7 +289,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 							   unsigned long parent_rate)
 {
 	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	struct xilinx_xcvr_cpll_config cpll_conf;
 	struct xilinx_xcvr_qpll_config qpll_conf;
 	unsigned int out_div, clk25_div;
@@ -379,10 +379,10 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 
-	st->out_clk_hw.init = &init;
+	st->lane_clk_hw.init = &init;
 
 	/* register the clock */
-	clk = devm_clk_register(dev, &st->out_clk_hw);
+	clk = devm_clk_register(dev, &st->lane_clk_hw);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
@@ -439,9 +439,9 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 
 	parent_rate = clk_get_rate(st->conv_clk);
 
-	lane_rate = adxcvr_clk_recalc_rate(&st->out_clk_hw, parent_rate);
+	lane_rate = adxcvr_clk_recalc_rate(&st->lane_clk_hw, parent_rate);
 
-	adxcvr_clk_set_rate(&st->out_clk_hw, lane_rate, parent_rate);
+	adxcvr_clk_set_rate(&st->lane_clk_hw, lane_rate, parent_rate);
 }
 
 static int adxcvr_probe(struct platform_device *pdev)
