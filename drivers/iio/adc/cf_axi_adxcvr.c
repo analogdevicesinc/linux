@@ -1079,10 +1079,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 	int ret;
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
-	if (!st) {
-		dev_err(&pdev->dev, "Not enough memory for device\n");
+	if (!st)
 		return -ENOMEM;
-	}
 
 	ret = adxcvr_parse_dt(st, np);
 	if (ret < 0)
