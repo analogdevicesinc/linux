@@ -794,6 +794,18 @@
 		};
 	};
 
+	irqsteer_mipi_lvds0: irqsteer@56220000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x56220000 0x0 0x1000>;
+		interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QXP_MIPI0_LIS_IPG_CLK>;
+		clock-names = "ipg";
+		power-domains = <&pd_mipi_dsi0>;
+	};
+
 	ldb1_phy: ldb_phy@56221000 {
 		compatible = "mixel,lvds-combo-phy";
 		reg = <0x0 0x56221000 0x0 0x100>, <0x0 0x56228000 0x0 0x1000>;
@@ -804,6 +816,32 @@
 		status = "disabled";
 	};
 
+	i2c0_mipi_lvds0: i2c@56226000 {
+		compatible = "fsl,imx8qxp-lpi2c", "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x56226000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_mipi_lvds0>;
+		clocks = <&clk IMX8QXP_MIPI0_I2C0_CLK>,
+			 <&clk IMX8QXP_MIPI0_I2C0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QXP_MIPI0_I2C0_DIV>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_mipi_dsi_0_i2c0>;
+		status = "disabled";
+	};
+
+	irqsteer_mipi_lvds1: irqsteer@56240000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x56240000 0x0 0x1000>;
+		interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QXP_MIPI1_LIS_IPG_CLK>;
+		clock-names = "ipg";
+		power-domains = <&pd_mipi_dsi1>;
+	};
+
 	ldb2_phy: ldb_phy@56241000 {
 		compatible = "mixel,lvds-combo-phy";
 		reg = <0x0 0x56241000 0x0 0x100>, <0x0 0x56248000 0x0 0x1000>;
@@ -811,6 +849,20 @@
 		clocks = <&clk IMX8QXP_MIPI1_LVDS_PHY_CLK>;
 		clock-names = "phy";
 		power-domains = <&pd_mipi_dsi1>;
+		status = "disabled";
+	};
+
+	i2c0_mipi_lvds1: i2c@56246000 {
+		compatible = "fsl,imx8qxp-lpi2c", "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x56246000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_mipi_lvds1>;
+		clocks = <&clk IMX8QXP_MIPI1_I2C0_CLK>,
+			 <&clk IMX8QXP_MIPI1_I2C0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QXP_MIPI1_I2C0_DIV>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_mipi_dsi_1_i2c0>;
 		status = "disabled";
 	};
 
