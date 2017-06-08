@@ -1246,12 +1246,6 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	if (IS_ERR(jesd_clk) && PTR_ERR(jesd_clk) != -ENOENT)
 		return PTR_ERR(jesd_clk);
 
-	if (!IS_ERR(jesd_clk)) {
-		ret = clk_prepare_enable(jesd_clk);
-		if (ret < 0)
-			return ret;
-	}
-
 #ifdef CONFIG_OF
 	if (spi->dev.of_node)
 		tmp = of_property_read_u32_array(
@@ -1299,10 +1293,6 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 		ret |= ad9467_spi_write(spi, 0x56e, 0x00);	// low line rate mode must be disabled
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);	// write enable
 
-	ret = clk_prepare_enable(conv->clk);
-	if (ret < 0)
-		return ret;
-
 	conv->clk = clk;
 
 	mdelay(20);
@@ -1311,8 +1301,13 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	dev_info(&spi->dev, "AD9680 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
-
 	ret = clk_set_rate(jesd_clk, lane_rate_kHz);
+	if (ret < 0)
+		return ret;
+
+	ret = clk_prepare_enable(jesd_clk);
+	if (ret < 0)
+		return ret;
 
 	conv->sample_rate_read_only = true;
 
