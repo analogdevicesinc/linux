@@ -89,4 +89,9 @@ int xilinx_xcvr_read_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 int xilinx_xcvr_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 	int rx_out_div, int tx_out_div);
 
+int xilinx_xcvr_write_rx_clk25_div(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int div);
+int xilinx_xcvr_write_tx_clk25_div(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int div);
+
 #endif
