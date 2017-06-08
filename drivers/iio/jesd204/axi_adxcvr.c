@@ -213,10 +213,6 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 
-	if (!st->tx_enable)
-		xilinx_xcvr_configure_lpm_dfe_mode(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL,
-				st->lpm_enable);
-
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 
 	mdelay(100);
@@ -542,6 +538,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 				 ((st->lpm_enable ? ADXCVR_LPM_DFE_N : 0) |
 				  ADXCVR_SYSCLK_SEL(st->sys_clk_sel) |
 				  ADXCVR_OUTCLK_SEL(st->out_clk_sel)));
+
+	if (!st->tx_enable)
+		xilinx_xcvr_configure_lpm_dfe_mode(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL,
+			st->lpm_enable);
 
 	adxcvr_enforce_settings(st);
 
