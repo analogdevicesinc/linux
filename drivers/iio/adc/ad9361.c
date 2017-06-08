@@ -7736,6 +7736,8 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		ad9361_clear_state(phy);
 		ret = ad9361_setup(phy);
 		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
 
 		return count;
 	case DBGFS_LOOPBACK:
