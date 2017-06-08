@@ -60,6 +60,12 @@
 #define CPLL_FB_DIV_45_N1_MASK		0x0080
 #define CPLL_FBDIV_N2_MASK		0x007f
 
+#define RX_CLK25_DIV			0x11
+#define RX_CLK25_DIV_OFFSET		6
+#define RX_CLK25_DIV_MASK		0x07c0
+
+#define TX_CLK25_DIV			0x6a
+#define TX_CLK25_DIV_MASK		0x1f
 
 static int xilinx_xcvr_drp_read(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int reg)
@@ -721,6 +727,33 @@ int xilinx_xcvr_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 	return xilinx_xcvr_drp_update(xcvr, drp_port, OUT_DIV_ADDR, mask, val);
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_write_out_div);
+
+int xilinx_xcvr_write_rx_clk25_div(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int div)
+{
+	if (div == 0 || div > 32)
+		return -EINVAL;
+
+	div--;
+	div <<= RX_CLK25_DIV_OFFSET;
+
+	return xilinx_xcvr_drp_update(xcvr, drp_port, RX_CLK25_DIV,
+		RX_CLK25_DIV_MASK, div);
+}
+EXPORT_SYMBOL_GPL(xilinx_xcvr_write_rx_clk25_div);
+
+int xilinx_xcvr_write_tx_clk25_div(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int div)
+{
+	if (div == 0 || div > 32)
+		return -EINVAL;
+
+	div--;
+
+	return xilinx_xcvr_drp_update(xcvr, drp_port, TX_CLK25_DIV,
+		TX_CLK25_DIV_MASK, div);
+}
+EXPORT_SYMBOL_GPL(xilinx_xcvr_write_tx_clk25_div);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("Xilinx high-speed transceiver dynamic reconfiguration");
