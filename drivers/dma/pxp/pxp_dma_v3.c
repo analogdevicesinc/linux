@@ -2304,23 +2304,27 @@ static int pxp_fetch_config(struct pxp_pixmap *input,
 		shift_bypass = (flags & FETCH_SHIFT) ? 0 : 1;
 		expand_en    = (flags & FETCH_EXPAND) ? 1 : 0;
 
-		if (!shift_bypass && expand_en) {
-			if (is_yuv(input->format)) {
-				in_fmt  = PXP_PIX_FMT_YVU444;
-				out_fmt = PXP_PIX_FMT_YUV444;
+		if (!shift_bypass) {
+			if (expand_en) {
+				if (is_yuv(input->format)) {
+					in_fmt  = PXP_PIX_FMT_YVU444;
+					out_fmt = PXP_PIX_FMT_YUV444;
+				} else {
+					in_fmt  = PXP_PIX_FMT_ABGR32;
+					out_fmt = PXP_PIX_FMT_ARGB32;
+				}
 			} else {
-				in_fmt  = PXP_PIX_FMT_ABGR32;
-				out_fmt = PXP_PIX_FMT_ARGB32;
+				in_fmt  = input->format;
+				out_fmt = is_yuv(input->format) ?
+						 PXP_PIX_FMT_YUV444 :
+						 PXP_PIX_FMT_ARGB32;
 			}
-		} else if  (!shift_bypass) {
-			in_fmt  = input->format;
-			out_fmt = is_yuv(input->format) ? PXP_PIX_FMT_YUV444 :
-							  PXP_PIX_FMT_ARGB32;
+
+			shift_offset = pxp_fetch_shift_calc(in_fmt, out_fmt,
+							    &shift_width);
 		}
 	}
 	shift_ctrl = pxp_fetch_shift_ctrl_config(input, shift_bypass, expand_en);
-	if (!shift_bypass)
-		shift_offset = pxp_fetch_shift_calc(in_fmt, out_fmt, &shift_width);
 
 	offset = input->crop.y * input->pitch +
 		 input->crop.x * (input->bpp >> 3);
