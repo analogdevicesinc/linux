@@ -558,10 +558,14 @@ static int ad9144_probe(struct spi_device *spi)
 		goto out;
 	}
 
-	ret = ad9144_setup(st, pdata);
+	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
+	lane_rate_kHz = (lane_rate_kHz / 1000) * 10;	// FIXME for other configurations
+	lane_rate_kHz /= st->interpolation;
+	ret = clk_set_rate(conv->clk[0], lane_rate_kHz);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to setup device\n");
-		goto out;
+		dev_err(&spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
+			lane_rate_kHz, ret);
+		return ret;
 	}
 
 	ret = clk_prepare_enable(conv->clk[0]);
@@ -570,15 +574,10 @@ static int ad9144_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
-	lane_rate_kHz = (lane_rate_kHz / 1000) * 10;	// FIXME for other configurations
-	lane_rate_kHz /= st->interpolation;
-
-	ret = clk_set_rate(conv->clk[0], lane_rate_kHz);
+	ret = ad9144_setup(st, pdata);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
-			lane_rate_kHz, ret);
-		return ret;
+		dev_err(&spi->dev, "Failed to setup device\n");
+		goto out;
 	}
 
 	spi_set_drvdata(spi, conv);
