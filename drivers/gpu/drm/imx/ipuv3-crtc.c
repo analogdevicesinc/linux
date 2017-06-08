@@ -28,6 +28,7 @@
 
 #include <video/imx-ipu-v3.h>
 #include "imx-drm.h"
+#include "ipuv3-kms.h"
 #include "ipuv3-plane.h"
 
 #define DRIVER_DESC		"i.MX IPUv3 Graphics"
@@ -428,6 +429,12 @@ static int ipu_drm_bind(struct device *dev, struct device *master, void *data)
 	ret = ipu_crtc_init(ipu_crtc, pdata, drm);
 	if (ret)
 		return ret;
+
+	if (!drm->mode_config.funcs)
+		drm->mode_config.funcs = &ipuv3_drm_mode_config_funcs;
+	if (!drm->mode_config.helper_private)
+		drm->mode_config.helper_private =
+					&ipuv3_drm_mode_config_helpers;
 
 	dev_set_drvdata(dev, ipu_crtc);
 
