@@ -1337,10 +1337,8 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 			of_match_device(jesd204b_gt_of_match, &pdev->dev);
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
-	if (!st) {
-		dev_err(&pdev->dev, "Not enough memory for device\n");
+	if (!st)
 		return -ENOMEM;
-	}
 
 	ret = of_get_child_count(np);
 	if (ret > MAX_NUM_LINKS)
@@ -1543,7 +1541,6 @@ static int jesd204b_gt_probe(struct platform_device *pdev)
 					 sizeof(*st->clk_data.clks) *
 					 MAX_NUM_LINKS, GFP_KERNEL);
 	if (!st->clk_data.clks) {
-		dev_err(&pdev->dev, "could not allocate memory\n");
 		ret = -ENOMEM;
 		goto remove_sys_files;
 	}
