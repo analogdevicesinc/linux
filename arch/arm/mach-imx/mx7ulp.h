@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright NXP 2017.
  */
 
 /*
@@ -44,6 +45,16 @@
 #define MX7ULP_IOMUXC1_BASE__SIZE	0x1000
 #define MX7ULP_MMDC_IO_BASE_ADDR	0x40ad0000
 #define MX7ULP_MMDC_IO_SIZE		0x1000
+
+/* below is just used for static mapping of the AIPSx's memory region */
+#define MX7ULP_AIPS_VIRT_BASE(x)	(0xf4000000 + ((x) * SZ_1M))
+
+#define mx7ulp_aips_map_entry(index, _type) {				\
+	.virtual = MX7ULP_AIPS_VIRT_BASE(index),			\
+	.pfn = __phys_to_pfn(MX7ULP_AIPS ## index ## _BASE_ADDR),	\
+	.length	= SZ_1M,						\
+	.type = _type,							\
+}
 
 #define TT_ATTRIB_NON_CACHEABLE_1M	0x802
 #define MX7ULP_IRAM_TLB_SIZE		0x4000

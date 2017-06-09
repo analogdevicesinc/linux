@@ -16,6 +16,15 @@
 #include "cpuidle.h"
 #include "hardware.h"
 
+/* static IO mapping, and ioremap() could always share the same mapping. */
+static struct map_desc mx7ulp_io_desc[] __initdata = {
+	mx7ulp_aips_map_entry(1, MT_DEVICE),
+	mx7ulp_aips_map_entry(2, MT_DEVICE),
+	mx7ulp_aips_map_entry(3, MT_DEVICE),
+	mx7ulp_aips_map_entry(4, MT_DEVICE),
+	mx7ulp_aips_map_entry(5, MT_DEVICE),
+};
+
 static void __init imx7ulp_init_machine(void)
 {
 	struct device *parent;
@@ -38,6 +47,7 @@ static void __init imx7ulp_init_irq(void)
 
 static void __init imx7ulp_map_io(void)
 {
+	iotable_init(mx7ulp_io_desc, ARRAY_SIZE(mx7ulp_io_desc));
 	imx7ulp_pm_map_io();
 }
 
