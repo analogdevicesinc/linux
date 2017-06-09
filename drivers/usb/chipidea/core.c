@@ -593,22 +593,11 @@ static int ci_cable_notifier(struct notifier_block *nb, unsigned long event,
 {
 	struct ci_hdrc_cable *cbl = container_of(nb, struct ci_hdrc_cable, nb);
 	struct ci_hdrc *ci = cbl->ci;
-	struct extcon_dev *dev = ptr;
-	int ret;
 
-	/* Only support ID extcon now */
+	cbl->connected = event;
+	cbl->changed = true;
 
-	ret = extcon_get_state(dev, EXTCON_USB_HOST);
-	if (ret && !cbl->connected) {
-		cbl->connected = true;
-		cbl->changed = true;
-		ci_irq(ci->irq, ci);
-	} else if (!ret && cbl->connected) {
-		cbl->connected = false;
-		cbl->changed = true;
-		ci_irq(ci->irq, ci);
-	}
-
+	ci_irq(ci->irq, ci);
 	return NOTIFY_DONE;
 }
 
