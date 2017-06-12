@@ -113,12 +113,23 @@ static int imx_pcm_open(struct snd_pcm_substream *substream)
 		chan = dma_request_slave_channel(rtd->cpu_dai->dev,
 						 dma_data->filter_data);
 		ret = snd_dmaengine_pcm_open(substream, chan);
+		if (ret)
+			return ret;
 	} else {
 		ret = snd_dmaengine_pcm_open_request_chan(substream,
 							  imx_dma_filter_fn,
 							  dma_data->filter_data);
+		if (ret)
+			return ret;
 	}
-	return ret;
+
+	ret = snd_pcm_hw_constraint_integer(substream->runtime,
+					    SNDRV_PCM_HW_PARAM_PERIODS);
+	if (ret < 0)
+		return ret;
+
+
+	return 0;
 }
 
 static int imx_pcm_mmap(struct snd_pcm_substream *substream,
