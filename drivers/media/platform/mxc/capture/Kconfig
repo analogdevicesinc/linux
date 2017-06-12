@@ -48,7 +48,7 @@ config MXC_CAMERA_OV5642
 
 config MXC_CAMERA_OV5640_MIPI
 	tristate "OmniVision ov5640 camera support using mipi"
-	depends on !VIDEO_MXC_EMMA_CAMERA && I2C
+	depends on !VIDEO_MXC_EMMA_CAMERA && I2C && MXC_MIPI_CSI2
 	---help---
 	  If you plan to use the ov5640 Camera with mipi interface in your MXC system, say Y here.
 
