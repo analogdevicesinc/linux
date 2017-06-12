@@ -1241,12 +1241,17 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
 	ret = clk_set_rate(jesd_clk, lane_rate_kHz);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
+			lane_rate_kHz, ret);
 		return ret;
+	}
 
 	ret = clk_prepare_enable(jesd_clk);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
+	}
 
 	conv->sample_rate_read_only = true;
 
