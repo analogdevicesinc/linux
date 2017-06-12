@@ -569,23 +569,27 @@ config SOC_IMX6ULL
 	help
 	  This enables support for Freescale i.MX6 ULL processor.
 
+config SOC_IMX7
+	bool
+	select CPU_V7
+	select ARM_GIC
+	select HAVE_IMX_MU
+	select HAVE_IMX_RPMSG
+	select RPMSG
+
 config SOC_IMX7D
 	bool "i.MX7 Dual support"
+	select SOC_IMX7
 	select PCI_DOMAINS if PCI
 	select PINCTRL_IMX7D
-	select ARM_GIC
 	select HAVE_ARM_ARCH_TIMER
 	select HAVE_IMX_ANATOP
 	select HAVE_IMX_MMDC
 	select HAVE_IMX_DDRC
 	select HAVE_IMX_SRC
 	select IMX_GPCV2
-	select HAVE_IMX_MU
-	select HAVE_IMX_RPMSG
-	select RPMSG
 	select KEYBOARD_SNVS_PWRKEY
 	select HAVE_IMX_GPCV2
-	select CPU_V7
 	select ARM_ERRATA_814220
 
 	help
@@ -616,14 +620,9 @@ config SOC_IMX6SLL
 
 config SOC_IMX7ULP
 	bool "i.MX7ULP support"
-	select CPU_V7
-	select ARM_GIC
+	select SOC_IMX7
 	select CLKSRC_IMX_TPM
-	select HAVE_IMX_MU
 	select PINCTRL_IMX7ULP
-	select HAVE_IMX_RPMSG
-	select RPMSG
-
 	help
 	  This enables support for Freescale i.MX7 Ultra Low Power processor.
 
