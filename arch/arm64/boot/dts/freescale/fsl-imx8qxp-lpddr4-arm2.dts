@@ -169,6 +169,20 @@
 			>;
 		};
 
+		pinctrl_i2c0_mipi_lvds0: mipi_lvds0_i2c0_grp {
+			fsl,pins = <
+				SC_P_MIPI_DSI0_I2C0_SCL_MIPI_DSI0_I2C0_SCL 0xc6000020
+				SC_P_MIPI_DSI0_I2C0_SDA_MIPI_DSI0_I2C0_SDA 0xc6000020
+			>;
+		};
+
+		pinctrl_i2c0_mipi_lvds1: mipi_lvds1_i2c0_grp {
+			fsl,pins = <
+				SC_P_MIPI_DSI1_I2C0_SCL_MIPI_DSI1_I2C0_SCL 0xc6000020
+				SC_P_MIPI_DSI1_I2C0_SDA_MIPI_DSI1_I2C0_SDA 0xc6000020
+			>;
+		};
+
 		pinctrl_lpi2c1: lpi1cgrp {
 			fsl,pins = <
 				SC_P_USB_SS3_TC0_ADMA_I2C1_SCL	0x06000020
