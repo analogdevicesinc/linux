@@ -454,7 +454,8 @@ static int ad9144_probe(struct spi_device *spi)
 
 	ret = ad9144_get_clks(conv);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to get clocks\n");
+		if (ret != -EPROBE_DEFER)
+			dev_err(&spi->dev, "Failed to get clocks\n");
 		goto out;
 	}
 
