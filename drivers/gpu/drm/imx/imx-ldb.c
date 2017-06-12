@@ -31,8 +31,10 @@
 #include <video/of_videomode.h>
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-mixel-lvds.h>
+#include <linux/phy/phy-mixel-lvds-combo.h>
 #include <linux/regmap.h>
 #include <linux/videodev2.h>
+#include <soc/imx8/sc/sci.h>
 
 #include "imx-drm.h"
 
@@ -58,6 +60,7 @@
 #define LDB_CH1_DATA_WIDTH_24BIT	(1 << 26)
 #define LDB_CH0_DATA_WIDTH_30BIT	(2 << 24)
 #define LDB_CH1_DATA_WIDTH_30BIT	(2 << 26)
+#define LDB_CH_SEL			(1 << 28)
 
 struct imx_ldb;
 
@@ -106,9 +109,12 @@ struct devtype {
 	bool capable_10bit;
 	bool visible_phy;
 	bool has_mux;
+	bool has_ch_sel;
 	bool is_imx8;
 	bool use_mixel_phy;
+	bool use_mixel_combo_phy;
 	bool padding_quirks;
+	bool pixel_link_quirks;
 
 	/* pixel rate in KHz */
 	unsigned int max_prate_single_mode;
@@ -131,13 +137,18 @@ struct imx_ldb {
 	bool capable_10bit;
 	bool visible_phy;
 	bool has_mux;
+	bool has_ch_sel;
 	bool is_imx8;
 	bool use_mixel_phy;
+	bool use_mixel_combo_phy;
 	bool padding_quirks;
+	bool pixel_link_quirks;
 
 	/* pixel rate in KHz */
 	unsigned int max_prate_single_mode;
 	unsigned int max_prate_dual_mode;
+
+	int id;
 };
 
 static void imx_ldb_ch_set_bus_format(struct imx_ldb_channel *imx_ldb_ch,
@@ -372,6 +383,9 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 						     di_clk / 2);
 			mixel_phy_lvds_set_phy_speed(ldb->channel[1].phy,
 						     di_clk / 2);
+		} else if (ldb->use_mixel_combo_phy) {
+			mixel_phy_combo_lvds_set_phy_speed(ldb->channel[0].phy,
+						     di_clk / 2);
 		}
 	} else {
 		serial_clk = 7000UL * mode->clock;
@@ -380,6 +394,16 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 
 		if (ldb->use_mixel_phy)
 			mixel_phy_lvds_set_phy_speed(imx_ldb_ch->phy, di_clk);
+		else if (ldb->use_mixel_combo_phy)
+			mixel_phy_combo_lvds_set_phy_speed(imx_ldb_ch->phy,
+							   di_clk);
+	}
+
+	if (ldb->has_ch_sel) {
+		if (imx_ldb_ch == &ldb->channel[0])
+			ldb->ldb_ctrl &= ~LDB_CH_SEL;
+		if (imx_ldb_ch == &ldb->channel[1])
+			ldb->ldb_ctrl |= LDB_CH_SEL;
 	}
 
 	/* FIXME - assumes straight connections DI0 --> CH0, DI1 --> CH1 */
@@ -422,6 +446,21 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 				mixel_phy_lvds_set_hsync_pol(
 					ldb->channel[1].phy, true);
 			}
+		} else if (ldb->use_mixel_combo_phy) {
+			/* VSYNC */
+			if (mode->flags & DRM_MODE_FLAG_NVSYNC)
+				mixel_phy_combo_lvds_set_vsync_pol(
+					ldb->channel[0].phy, false);
+			else if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+				mixel_phy_combo_lvds_set_vsync_pol(
+					ldb->channel[0].phy, true);
+			/* HSYNC */
+			if (mode->flags & DRM_MODE_FLAG_NHSYNC)
+				mixel_phy_combo_lvds_set_hsync_pol(
+					ldb->channel[0].phy, false);
+			else if (mode->flags & DRM_MODE_FLAG_PHSYNC)
+				mixel_phy_combo_lvds_set_hsync_pol(
+					ldb->channel[0].phy, true);
 		}
 	} else {
 		if (ldb->use_mixel_phy) {
@@ -438,6 +477,25 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 								false);
 			else if (mode->flags & DRM_MODE_FLAG_PHSYNC)
 				mixel_phy_lvds_set_hsync_pol(imx_ldb_ch->phy,
+								true);
+		} else if (ldb->use_mixel_combo_phy) {
+			/* VSYNC */
+			if (mode->flags & DRM_MODE_FLAG_NVSYNC)
+				mixel_phy_combo_lvds_set_vsync_pol(
+								imx_ldb_ch->phy,
+								false);
+			else if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+				mixel_phy_combo_lvds_set_vsync_pol(
+								imx_ldb_ch->phy,
+								true);
+			/* HSYNC */
+			if (mode->flags & DRM_MODE_FLAG_NHSYNC)
+				mixel_phy_combo_lvds_set_hsync_pol(
+								imx_ldb_ch->phy,
+								false);
+			else if (mode->flags & DRM_MODE_FLAG_PHSYNC)
+				mixel_phy_combo_lvds_set_hsync_pol(
+								imx_ldb_ch->phy,
 								true);
 		}
 	}
@@ -760,14 +818,28 @@ static struct devtype imx8qm_ldb_devtype = {
 	.max_prate_dual_mode = 300000,
 };
 
+static struct devtype imx8qxp_ldb_devtype = {
+	.ctrl_reg = 0x10e0,
+	.bus_mux = NULL,
+	.visible_phy = true,
+	.has_ch_sel = true,
+	.is_imx8 = true,
+	.use_mixel_combo_phy = true,
+	.padding_quirks = true,
+	.pixel_link_quirks = true,
+	.max_prate_single_mode = 150000,
+	.max_prate_dual_mode = 300000,
+};
+
 /*
- * For a device declaring compatible = "fsl,imx8qm-ldb", "fsl,imx6q-ldb",
- * "fsl,imx53-ldb", of_match_device will walk through this list and take the
- * first entry matching any of its compatible values.
- * Therefore, the more generic entries (in this case fsl,imx53-ldb) need
- * to be ordered last.
+ * For a device declaring compatible = "fsl,imx8qxp-ldb", "fsl,imx8qm-ldb",
+ * "fsl,imx6q-ldb",  "fsl,imx53-ldb", of_match_device will walk through this
+ * list and take the first entry matching any of its compatible values.
+ * Therefore, the more generic entries (in this case fsl,imx53-ldb) need to be
+ * ordered last.
  */
 static const struct of_device_id imx_ldb_dt_ids[] = {
+	{ .compatible = "fsl,imx8qxp-ldb", .data = &imx8qxp_ldb_devtype, },
 	{ .compatible = "fsl,imx8qm-ldb", .data = &imx8qm_ldb_devtype, },
 	{ .compatible = "fsl,imx6q-ldb", .data = &imx6q_ldb_devtype, },
 	{ .compatible = "fsl,imx53-ldb", .data = &imx53_ldb_devtype, },
@@ -815,6 +887,49 @@ static int imx_ldb_panel_ddc(struct device *dev,
 	return 0;
 }
 
+static void ldb_pixel_link_config(int id)
+{
+	sc_err_t sciErr;
+	sc_ipc_t ipcHndl = 0;
+	u32 mu_id;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("Cannot obtain MU ID\n");
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return;
+	}
+
+	if (id == 0) {
+		sc_misc_set_control(ipcHndl, SC_R_MIPI_0, SC_C_MODE, 1);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_MIPI_%d MODE failed %d!\n", id, sciErr);
+		sc_misc_set_control(ipcHndl, SC_R_MIPI_0, SC_C_DUAL_MODE, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_MIPI_%d DUAL_MODE failed %d!\n", id, sciErr);
+		sc_misc_set_control(ipcHndl, SC_R_MIPI_0, SC_C_PXL_LINK_SEL, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_MIPI_%d PXL_LINK_SEL failed %d!\n", id, sciErr);
+	} else {
+		sc_misc_set_control(ipcHndl, SC_R_MIPI_1, SC_C_MODE, 1);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_MIPI_%d MODE failed %d!\n", id, sciErr);
+		sc_misc_set_control(ipcHndl, SC_R_MIPI_1, SC_C_DUAL_MODE, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_MIPI_%d DUAL_MODE failed %d!\n", id, sciErr);
+		sc_misc_set_control(ipcHndl, SC_R_MIPI_1, SC_C_PXL_LINK_SEL, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_MIPI_%d PXL_LINK_SEL failed %d!\n", id, sciErr);
+	}
+
+	sc_ipc_close(mu_id);
+}
+
 static int imx_ldb_bind(struct device *dev, struct device *master, void *data)
 {
 	struct drm_device *drm = data;
@@ -844,15 +959,23 @@ static int imx_ldb_bind(struct device *dev, struct device *master, void *data)
 	imx_ldb->capable_10bit = devtype->capable_10bit;
 	imx_ldb->visible_phy = devtype->visible_phy;
 	imx_ldb->has_mux = devtype->has_mux;
+	imx_ldb->has_ch_sel = devtype->has_ch_sel;
 	imx_ldb->is_imx8 = devtype->is_imx8;
 	imx_ldb->use_mixel_phy = devtype->use_mixel_phy;
+	imx_ldb->use_mixel_combo_phy = devtype->use_mixel_combo_phy;
 	imx_ldb->padding_quirks = devtype->padding_quirks;
+	imx_ldb->pixel_link_quirks = devtype->pixel_link_quirks;
 	imx_ldb->max_prate_single_mode = devtype->max_prate_single_mode;
 	imx_ldb->max_prate_dual_mode = devtype->max_prate_dual_mode;
 
 	dual = of_property_read_bool(np, "fsl,dual-channel");
-	if (dual)
+	if (dual) {
+		if (imx_ldb->has_ch_sel) {
+			dev_info(dev, "do not suppurt dual channel mode\n");
+			return -EINVAL;
+		}
 		imx_ldb->ldb_ctrl |= LDB_SPLIT_MODE_EN;
+	}
 
 	if (imx_ldb->is_imx8) {
 		imx_ldb->clk_pixel = devm_clk_get(imx_ldb->dev, "pixel");
@@ -993,6 +1116,11 @@ get_phy:
 	}
 
 	dev_set_drvdata(dev, imx_ldb);
+
+	if (imx_ldb->pixel_link_quirks) {
+		imx_ldb->id = of_alias_get_id(np, "ldb");
+		ldb_pixel_link_config(imx_ldb->id);
+	}
 
 	return 0;
 }
