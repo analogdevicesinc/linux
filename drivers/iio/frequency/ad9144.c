@@ -473,7 +473,7 @@ static int ad9144_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, conv);
 
-	dev_info(&spi->dev, "Probed.\n");
+	dev_dbg(&spi->dev, "Probed.\n");
 	return 0;
 out:
 	return ret;
