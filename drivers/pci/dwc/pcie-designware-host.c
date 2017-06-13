@@ -83,16 +83,16 @@ irqreturn_t dw_handle_msi_irq(struct pcie_port *pp)
 
 void dw_pcie_msi_init(struct pcie_port *pp)
 {
-	u64 msi_target;
+	dma_addr_t msi_addr;
 
-	pp->msi_data = __get_free_pages(GFP_KERNEL, 0);
-	msi_target = virt_to_phys((void *)pp->msi_data);
+	dma_alloc_coherent(NULL, 64, &msi_addr, GFP_KERNEL);
+	pp->msi_target = (u64)msi_addr;
 
 	/* program the msi_data */
 	dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_LO, 4,
-			    (u32)(msi_target & 0xffffffff));
+			    (u32)(pp->msi_target & 0xffffffff));
 	dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_HI, 4,
-			    (u32)(msi_target >> 32 & 0xffffffff));
+			    (u32)(pp->msi_target >> 32 & 0xffffffff));
 }
 
 void dw_pcie_msi_cfg_store(struct pcie_port *pp)
@@ -109,8 +109,7 @@ void dw_pcie_msi_cfg_restore(struct pcie_port *pp)
 	int i;
 
 	for (i = 0; i < MAX_MSI_CTRLS; i++) {
-		dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_LO, 4,
-				virt_to_phys((void *)pp->msi_data));
+		dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_LO, 4, pp->msi_target);
 		dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_HI, 4, 0);
 		dw_pcie_wr_own_conf(pp, PCIE_MSI_INTR0_ENABLE + i * 12, 4,
 				pp->msi_enable[i]);
@@ -204,15 +203,12 @@ no_valid_irq:
 static void dw_msi_setup_msg(struct pcie_port *pp, unsigned int irq, u32 pos)
 {
 	struct msi_msg msg;
-	u64 msi_target;
 
 	if (pp->ops->get_msi_addr)
-		msi_target = pp->ops->get_msi_addr(pp);
-	else
-		msi_target = virt_to_phys((void *)pp->msi_data);
+		pp->msi_target = pp->ops->get_msi_addr(pp);
 
-	msg.address_lo = (u32)(msi_target & 0xffffffff);
-	msg.address_hi = (u32)(msi_target >> 32 & 0xffffffff);
+	msg.address_lo = (u32)(pp->msi_target & 0xffffffff);
+	msg.address_hi = (u32)(pp->msi_target >> 32 & 0xffffffff);
 
 	if (pp->ops->get_msi_data)
 		msg.data = pp->ops->get_msi_data(pp, pos);

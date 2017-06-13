@@ -148,6 +148,9 @@ void dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index, int type,
 {
 	u32 retries, val;
 
+	if (cpu_addr >= pci->pp.mem_base)
+		cpu_addr = cpu_addr + pci->pp.cpu_addr_offset;
+
 	if (pci->ops->cpu_addr_fixup)
 		cpu_addr = pci->ops->cpu_addr_fixup(cpu_addr);
 
