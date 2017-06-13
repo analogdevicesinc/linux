@@ -1,8 +1,9 @@
 /*
  * Freescale UUT driver
  *
- * Copyright 2008-2014 Freescale Semiconductor, Inc.
+ * Copyright 2008-2016 Freescale Semiconductor, Inc.
  * Copyright 2008-2009 Embedded Alley Solutions, Inc All Rights Reserved.
+ * Copyright 2017 NXP
  */
 
 /*
@@ -13,6 +14,21 @@
  * http://www.opensource.org/licenses/gpl-license.html
  * http://www.gnu.org/copyleft/gpl.html
  */
+
+static bool is_utp_device(struct fsg_dev *fsg)
+{
+	struct usb_device_descriptor *pdesc;
+
+	if (!fsg || !fsg->common || !fsg->common->cdev)
+		return false;
+
+	pdesc = &fsg->common->cdev->desc;
+	if (pdesc->idVendor == UTP_IDVENDOR &&
+		pdesc->idProduct == UTP_IDPRODUCT)
+		return true;
+
+	return false;
+}
 
 static u64 get_be64(u8 *buf)
 {

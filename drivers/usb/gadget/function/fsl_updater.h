@@ -1,8 +1,9 @@
 /*
  * Freescale UUT driver
  *
- * Copyright 2008-2014 Freescale Semiconductor, Inc.
+ * Copyright 2008-2016 Freescale Semiconductor, Inc.
  * Copyright 2008-2009 Embedded Alley Solutions, Inc All Rights Reserved.
+ * Copyright 2017 NXP
  */
 
 /*
@@ -35,6 +36,7 @@ static ssize_t utp_file_write(struct file *file,
 			      size_t size,
 			      loff_t *off);
 
+static bool is_utp_device(struct fsg_dev *fsg);
 static long utp_ioctl(struct file *file,
 	      unsigned int cmd, unsigned long arg);
 static struct utp_user_data *utp_user_data_alloc(size_t size);
@@ -55,6 +57,9 @@ static int utp_handle_message(struct fsg_dev *fsg,
 
 #define UTP_MINOR		222
 /* MISC_DYNAMIC_MINOR would be better, but... */
+
+#define UTP_IDVENDOR		0x066F
+#define UTP_IDPRODUCT		0x37FF
 
 #define UTP_COMMAND_SIZE	80
 

@@ -1117,7 +1117,9 @@ static int do_request_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 #endif
 
 #ifdef CONFIG_FSL_UTP
-	if (utp_get_sense(common->fsg) == 0) {  /* got the sense from the UTP */
+	if (is_utp_device(common->fsg) &&
+			utp_get_sense(common->fsg) == 0) {
+		/* got the sense from the UTP */
 		sd = UTP_CTX(common->fsg)->sd;
 		sdinfo = UTP_CTX(common->fsg)->sdinfo;
 		valid = 0;
@@ -1145,7 +1147,8 @@ static int do_request_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 	buf[12] = ASC(sd);
 	buf[13] = ASCQ(sd);
 #ifdef CONFIG_FSL_UTP
-	put_unaligned_be32(UTP_CTX(common->fsg)->sdinfo_h, &buf[8]);
+	if (is_utp_device(common->fsg))
+		put_unaligned_be32(UTP_CTX(common->fsg)->sdinfo_h, &buf[8]);
 #endif
 	return 18;
 }
@@ -1634,17 +1637,19 @@ static void send_status(struct fsg_common *common)
 	} else if (sd != SS_NO_SENSE) {
 		DBG(common, "sending command-failure status\n");
 #ifdef CONFIG_FSL_UTP
-/*
- * mfgtool host frequently reset bus during transfer
- *  - the response in csw to request sense will be 1 due to UTP change
- *    some storage information
- *  - host will reset the bus if response to request sense is 1
- *  - change the response to 0 if CONFIG_FSL_UTP is defined
- */
-		status = US_BULK_STAT_OK;
-#else
-		status = US_BULK_STAT_FAIL;
+		/*
+		 * mfgtool host frequently reset bus during transfer
+		 *  - the response in csw to request sense will be 1
+		 *    due to UTP change some storage information
+		 *  - host will reset the bus if response to request sense is 1
+		 *  - change the response to 0 if CONFIG_FSL_UTP is defined
+		 */
+		if (is_utp_device(common->fsg))
+			status = US_BULK_STAT_OK;
+		else
 #endif
+			status = US_BULK_STAT_FAIL;
+
 		VDBG(common, "  sense data: SK x%02x, ASC x%02x, ASCQ x%02x;"
 				"  info x%x\n",
 				SK(sd), ASC(sd), ASCQ(sd), sdinfo);
@@ -1835,7 +1840,8 @@ static int do_scsi_command(struct fsg_common *common)
 	common->short_packet_received = 0;
 
 #ifdef CONFIG_FSL_UTP
-	reply = utp_handle_message(common->fsg, common->cmnd, reply);
+	if (is_utp_device(common->fsg))
+		reply = utp_handle_message(common->fsg, common->cmnd, reply);
 
 	if (reply != -EINVAL)
 		return reply;
@@ -2989,7 +2995,8 @@ static int fsg_bind(struct usb_configuration *c, struct usb_function *f)
 	fsg->interface_number = i;
 
 #ifdef CONFIG_FSL_UTP
-	utp_init(fsg);
+	if (is_utp_device(common->fsg))
+		utp_init(fsg);
 #endif
 
 	/* Find all the endpoints we will use */
@@ -3057,7 +3064,8 @@ static void fsg_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_free_all_descriptors(&fsg->function);
 
 #ifdef CONFIG_FSL_UTP
-	utp_exit(fsg);
+	if (is_utp_device(common->fsg))
+		utp_exit(fsg);
 #endif
 
 }
