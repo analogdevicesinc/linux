@@ -125,12 +125,12 @@ static ssize_t utp_file_read(struct file *file,
 	if (free)
 		utp_user_data_free(uud);
 	else {
-		pr_info("sizeof = %d, size = %d\n",
+		pr_info("sizeof = %zd, size = %zd\n",
 			sizeof(uud->data),
 			uud->data.size);
 
-		pr_err("Will not free utp_user_data, because buffer size = %d,"
-			"need to put %d\n", size, size_to_put);
+		pr_err("Will not free utp_user_data, because buffer size = %zd need to put %zd\n",
+					size, size_to_put);
 	}
 
 	/*
@@ -207,7 +207,7 @@ static int utp_do_read(struct fsg_dev *fsg, void *data, size_t size)
 	if (unlikely(amount_left == 0))
 		return -EIO;		/* No default reply*/
 
-	pr_debug("%s: sending %d\n", __func__, size);
+	pr_debug("%s: sending %zd\n", __func__, size);
 	for (;;) {
 		/* Figure out how much we need to read:
 		 * Try to read the remaining amount.
@@ -236,7 +236,7 @@ static int utp_do_read(struct fsg_dev *fsg, void *data, size_t size)
 		}
 
 		/* Perform the read */
-		pr_info("Copied to %p, %d bytes started from %d\n",
+		pr_info("Copied to %p, %d bytes started from %zd\n",
 				bh->buf, amount, size - amount_left);
 		/* from upt buffer to file_storeage buffer */
 		memcpy(bh->buf, data + size - amount_left, amount);
