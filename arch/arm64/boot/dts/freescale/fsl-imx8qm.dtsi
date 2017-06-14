@@ -2031,11 +2031,15 @@
 	ddr_pmu0: ddr_pmu@5c020000 {
 		compatible = "fsl,imx8-ddr-pmu";
 		reg = <0x0 0x5c020000 0x0 0x10000>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	ddr_pmu1: ddr_pmu@5c120000 {
 		compatible = "fsl,imx8-ddr-pmu";
 		reg = <0x0 0x5c120000 0x0 0x10000>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	vpu: vpu@2c000000 {
