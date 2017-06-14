@@ -1077,6 +1077,7 @@ struct snd_soc_dai_link {
 
 	/* DPCM used FE & BE merged format */
 	unsigned int dpcm_merged_format:1;
+	unsigned int dpcm_merged_chan:1;
 
 	/* pmdown_time is ignored at stop */
 	unsigned int ignore_pmdown_time:1;
