@@ -51,6 +51,7 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 	struct imx_priv *priv = &card_priv;
 	struct device *dev = &priv->pdev->dev;
 	u32 channels = params_channels(params);
+	u32 max_tdm_rate;
 
 	bool enable_tdm = channels > 1 && channels % 2;
 	u32 dai_format = SND_SOC_DAIFMT_NB_NF |
@@ -112,7 +113,16 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 	/* set i.MX active slot mask */
-	if (enable_tdm)
+	if (enable_tdm) {
+		/* 2 required by ESAI BCLK divisors, 8 slots, 32 width */
+		max_tdm_rate = priv->mclk_freq / (2*8*32);
+		if (params_rate(params) > max_tdm_rate) {
+			dev_err(dev,
+				"maximum supported sampling rate for %d channels is %dKHz\n",
+				channels, max_tdm_rate / 1000);
+			return -EINVAL;
+		}
+
 		/*
 		 * Per datasheet, the codec expects 8 slots and 32 bits
 		 * for every slot in TDM mode.
@@ -120,7 +130,7 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 		snd_soc_dai_set_tdm_slot(cpu_dai,
 					 BIT(channels) - 1, BIT(channels) - 1,
 					 8, 32);
-	else
+	} else
 		snd_soc_dai_set_tdm_slot(cpu_dai, 0x3, 0x3, 2, 32);
 
 	/* set codec DAI configuration */
@@ -128,39 +138,6 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 	if (ret) {
 		dev_err(dev, "failed to set codec dai fmt: %d\n", ret);
 		return ret;
-	}
-	return 0;
-}
-
-static int imx_cs42888_hw_rule_rate_by_channels(struct snd_pcm_hw_params *params,
-						struct snd_pcm_hw_rule *rule)
-{
-	struct snd_interval *c = hw_param_interval(params,
-						   SNDRV_PCM_HW_PARAM_CHANNELS);
-	struct snd_interval *r = hw_param_interval(params,
-						   SNDRV_PCM_HW_PARAM_RATE);
-	struct snd_interval t;
-	snd_interval_any(&t);
-	if (r->min > 48000) {
-		if (c->min > 2 && c->min % 2)
-			return -EINVAL;
-	}
-	return 0;
-}
-
-static int imx_cs42888_hw_rule_channels_by_rate(struct snd_pcm_hw_params *params,
-						struct snd_pcm_hw_rule *rule)
-{
-	struct snd_interval *c = hw_param_interval(params,
-						   SNDRV_PCM_HW_PARAM_CHANNELS);
-	struct snd_interval *r = hw_param_interval(params,
-						   SNDRV_PCM_HW_PARAM_RATE);
-	struct snd_interval t;
-	snd_interval_any(&t);
-	if (c->min > 2 && c->min % 2) {
-		t.min = t.max = 48000;
-		t.integer = 1;
-		return snd_interval_refine(r, &t);
 	}
 	return 0;
 }
@@ -185,15 +162,6 @@ static int imx_cs42888_surround_startup(struct snd_pcm_substream *substream)
 							&constraint_rates);
 		if (ret)
 			return ret;
-
-		snd_pcm_hw_rule_add(substream->runtime, 0,
-				    SNDRV_PCM_HW_PARAM_RATE,
-				    imx_cs42888_hw_rule_rate_by_channels,
-				    0, SNDRV_PCM_HW_PARAM_CHANNELS, -1);
-		snd_pcm_hw_rule_add(substream->runtime, 0,
-				    SNDRV_PCM_HW_PARAM_CHANNELS,
-				    imx_cs42888_hw_rule_channels_by_rate,
-				    0, SNDRV_PCM_HW_PARAM_RATE, -1);
 	} else
 		dev_warn(dev, "mclk may be not supported %d\n", priv->mclk_freq);
 
