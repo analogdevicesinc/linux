@@ -405,6 +405,7 @@ static struct snd_soc_dai_link imx_wm8960_dai[] = {
 		.ignore_pmdown_time = 1,
 		.dpcm_playback = 1,
 		.dpcm_capture = 1,
+		.dpcm_merged_chan = 1,
 	},
 	{
 		.name = "HiFi-ASRC-BE",

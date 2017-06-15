@@ -712,6 +712,7 @@ audmux_bypass:
 		data->dai[1].ignore_pmdown_time = 1;
 		data->dai[1].dpcm_playback = 1;
 		data->dai[1].dpcm_capture = 1;
+		data->dai[1].dpcm_merged_chan = 1;
 
 		data->dai[2].name = "HiFi-ASRC-BE";
 		data->dai[2].stream_name = "HiFi-ASRC-BE";
