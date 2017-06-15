@@ -134,9 +134,16 @@ static u32 imx_init_revision_from_scu(void)
 	return rev;
 }
 
+bool TKT340553_SW_WORKAROUND;
+
 static u32 imx8qm_soc_revision(void)
 {
-	return imx_init_revision_from_scu();
+	u32 rev = imx_init_revision_from_scu();
+
+	if (rev == IMX_CHIP_REVISION_1_0)
+		TKT340553_SW_WORKAROUND = true;
+
+	return rev;
 }
 
 static u32 imx8qxp_soc_revision(void)
