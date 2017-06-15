@@ -1253,13 +1253,6 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 	imx6_pcie->variant =
 		(enum imx6_pcie_variants)of_device_get_match_data(dev);
 
-	if (IS_ENABLED(CONFIG_EP_MODE_IN_EP_RC_SYS)) {
-		/* add attributes for device */
-		ret = sysfs_create_group(&pdev->dev.kobj, &imx_pcie_attrgroup);
-		if (ret)
-			return -EINVAL;
-	}
-
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx-pcie-phy");
 	if (np != NULL) {
 		imx6_pcie->phy_base = of_iomap(np, 0);
@@ -1452,6 +1445,11 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		struct pcie_port *pp = &pci->pp;
 		LIST_HEAD(res);
 		struct resource_entry *win, *tmp;
+
+		/* add attributes for device */
+		ret = sysfs_create_group(&pdev->dev.kobj, &imx_pcie_attrgroup);
+		if (ret)
+			return -EINVAL;
 
 		ret = of_pci_get_host_bridge_resources(np, 0, 0xff, &res,
 						       &pp->io_base);
