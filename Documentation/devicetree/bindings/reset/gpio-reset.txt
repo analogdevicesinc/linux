@@ -14,6 +14,7 @@ Required properties:
 Optional properties:
 - reset-delay-us: delay in microseconds. The gpio reset line will be asserted for
                   this duration to reset.
+- reset-post-delay-ms: delay in milliseconds to wait after reset.
 - initially-in-reset: boolean. If not set, the initial state should be a
                       deasserted reset line. If this property exists, the
                       reset line should be kept in reset.

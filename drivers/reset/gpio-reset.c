@@ -21,6 +21,7 @@ struct gpio_reset_data {
 	unsigned int gpio;
 	bool active_low;
 	s32 delay_us;
+	s32 post_delay_ms;
 };
 
 static void gpio_reset_set(struct reset_controller_dev *rcdev, int asserted)
@@ -47,6 +48,10 @@ static int gpio_reset(struct reset_controller_dev *rcdev, unsigned long id)
 	udelay(drvdata->delay_us);
 	gpio_reset_set(rcdev, 0);
 
+	if (drvdata->post_delay_ms < 0)
+		return 0;
+
+	msleep(drvdata->post_delay_ms);
 	return 0;
 }
 
@@ -115,6 +120,13 @@ static int gpio_reset_probe(struct platform_device *pdev)
 		drvdata->delay_us = -1;
 	else if (drvdata->delay_us < 0)
 		dev_warn(&pdev->dev, "reset delay too high\n");
+
+	/* It is optional.
+	 * Some devices need some milliseconds to wait after reset.
+	 */
+	ret = of_property_read_u32(np, "reset-post-delay-ms", &drvdata->post_delay_ms);
+	if (ret < 0)
+		drvdata->post_delay_ms = -1;
 
 	initially_in_reset = of_property_read_bool(np, "initially-in-reset");
 	if (drvdata->active_low ^ initially_in_reset)
