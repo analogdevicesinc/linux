@@ -60,7 +60,7 @@ static inline int imx_pcm_dma_init(struct platform_device *pdev, size_t size)
 {
 	return -ENODEV;
 }
-static inline int imx_pcm_platform_register(struct device *dev);
+static inline int imx_pcm_platform_register(struct device *dev)
 {
 	return -ENODEV;
 }
