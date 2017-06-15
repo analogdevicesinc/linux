@@ -9,6 +9,18 @@
 
 #include "imx7ulp-evk.dts"
 
+/ {
+	regulators {
+		compatible = "simple-bus";
+
+		dummy: regulator-dummy {
+		compatible = "regulator-fixed";
+		regulator-name = "dummy";
+		regulator-always-on;
+		};
+	};
+};
+
 &qspi1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_qspi1_1>;
@@ -21,6 +33,24 @@
 		compatible = "macronix,mx25r6435f";
 		spi-max-frequency = <29000000>;
 	};
+};
+
+&rpmsg{
+	status = "disabled";
+};
+
+&cpu0 {
+	arm-supply= <&dummy>;
+	operating-points = <
+		/* KHz  uV */
+		503666  1025000
+	>;
+};
+
+&usdhc0 {
+	vqmmc-supply = <&dummy>;
+	no-1-8-v;
+	non-removable;
 };
 
 &iomuxc {

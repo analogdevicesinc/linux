@@ -579,7 +579,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "fsl,imx7ulp-qspi";
-			reg = <0x410A5000 0x10000>, <0xC0000000 0x10000000>;
+			reg = <0x410A5000 0x1000>, <0xC0000000 0x10000000>;
 			reg-names = "QuadSPI", "QuadSPI-memory";
 			interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks IMX7ULP_CLK_DUMMY>,
