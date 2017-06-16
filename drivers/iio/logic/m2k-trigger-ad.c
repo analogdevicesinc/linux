@@ -29,7 +29,8 @@
 #define AXI_ADC_TRIG_REG_HYSTERESIS(x)		(0x1C + ((x) * 0x10))
 #define AXI_ADC_TRIG_REG_TRIGGER_MIX(x)		(0x20 + ((x) * 0x10))
 #define AXI_ADC_TRIG_REG_TRIGGER_OUT_MIX	0x34
-#define AXI_ADC_TRIG_REG_DELAY			0x38
+#define AXI_ADC_TRIG_REG_FIFO_DEPTH		0x38
+#define AXI_ADC_TRIG_REG_DELAY			0x40
 
 /* AXI_ADC_TRIG_REG_CONFIG_TRIGGER */
 #define CONF_LOW_LEVEL				0
@@ -300,13 +301,20 @@ static ssize_t axi_adc_trig_set_extinfo(struct iio_dev *indio_dev,
 
 	switch (priv) {
 	case TRIG_DELAY:
-		if (val < -8192 || val > 0) {
+		if (val < -8192) {
 			ret = -EINVAL;
 			goto out_unlock;
 		}
 
+		if (val < 0) {
+		    axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_FIFO_DEPTH, -val);
+		    axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, 0);
+		} else {
+		    axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_FIFO_DEPTH, 0);
+		    axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, val);
+		}
+
 		axi_adc_trig->trigger_ext_info[priv][chan->address] = val;
-		axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, -val);
 		break;
 	case TRIG_LEVEL:
 		/*val = clamp(val, -2048, 2047);*/ /* FIXME add check for lvl + hyst */
