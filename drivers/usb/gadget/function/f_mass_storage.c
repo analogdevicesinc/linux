@@ -2491,6 +2491,18 @@ static int fsg_main_thread(void *common_)
 	/* Allow the thread to be frozen */
 	set_freezable();
 
+	/*
+	 * Arrange for userspace references to be interpreted as kernel
+	 * pointers.  That way we can pass a kernel pointer to a routine
+	 * that expects a __user pointer and it will work okay.
+	 */
+#ifdef CONFIG_FSL_UTP
+	if (!is_utp_device(common->fsg))
+		set_fs(get_ds());
+#else
+	set_fs(get_ds());
+#endif
+
 	/* The main loop */
 	while (common->state != FSG_STATE_TERMINATED) {
 		if (exception_in_progress(common) || signal_pending(current)) {
