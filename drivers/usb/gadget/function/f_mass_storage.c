@@ -2995,7 +2995,7 @@ static int fsg_bind(struct usb_configuration *c, struct usb_function *f)
 	fsg->interface_number = i;
 
 #ifdef CONFIG_FSL_UTP
-	if (is_utp_device(common->fsg))
+	if (is_utp_device(fsg))
 		utp_init(fsg);
 #endif
 
