@@ -42,6 +42,7 @@ struct m2k_la {
 	struct clk *clk;
 
 	bool powerdown;
+	unsigned int clocksource;
 
 	struct mutex lock;
 	unsigned int io_sel;
@@ -421,6 +422,39 @@ static const struct iio_enum m2k_la_output_mode_enum = {
 	.get = m2k_la_get_output_mode,
 };
 
+static int m2k_la_set_clocksource(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	mutex_lock(&m2k_la->lock);
+	m2k_la_write(m2k_la, M2K_LA_REG_CLOCK_SEL, val);
+	m2k_la->clocksource = val;
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_clocksource(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	return m2k_la->clocksource;
+}
+
+static const char * const m2k_la_clocksource_items[] = {
+	"internal",
+	"external",
+};
+
+static const struct iio_enum m2k_la_clocksource_enum = {
+	.items = m2k_la_clocksource_items,
+	.num_items = ARRAY_SIZE(m2k_la_clocksource_items),
+	.set = m2k_la_set_clocksource,
+	.get = m2k_la_get_clocksource,
+};
+
 static const struct iio_chan_spec_ext_info m2k_la_ext_info[] = {
 	{
 		.name = "powerdown",
@@ -428,6 +462,10 @@ static const struct iio_chan_spec_ext_info m2k_la_ext_info[] = {
 		.write = m2k_la_write_powerdown,
 		.shared = IIO_SHARED_BY_ALL,
 	},
+	IIO_ENUM("clocksource", IIO_SHARED_BY_ALL, &m2k_la_clocksource_enum),
+	IIO_ENUM_AVAILABLE_SHARED("clocksource", IIO_SHARED_BY_ALL,
+		&m2k_la_clocksource_enum),
+
 	IIO_ENUM("direction", IIO_SEPARATE, &m2k_la_direction_enum),
 	IIO_ENUM_AVAILABLE("direction", &m2k_la_direction_enum),
 	IIO_ENUM("outputmode", IIO_SEPARATE, &m2k_la_output_mode_enum),
@@ -666,6 +704,8 @@ static int m2k_la_probe(struct platform_device *pdev)
 	m2k_la_write(m2k_la, M2K_LA_REG_IO_SEL, m2k_la->io_sel);
 	m2k_la_write(m2k_la, M2K_LA_REG_GPO_EN, 0xffff);
 	m2k_la_write(m2k_la, M2K_LA_REG_OUTPUT_MODE, 0x0);
+
+	m2k_la_write(m2k_la, M2K_LA_REG_CLOCK_SEL, 0x0);
 
 	m2k_la_update_logic_mode(m2k_la);
 
