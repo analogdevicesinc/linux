@@ -25,6 +25,7 @@
 #define M2K_LA_REG_GPO_EN		0x34
 #define M2K_LA_REG_GPO			0x38
 #define M2K_LA_REG_GPI			0x3c
+#define M2K_LA_REG_OUTPUT_MODE		0x40
 
 #define M2K_LA_TRIGGER_EDGE_ANY		0
 #define M2K_LA_TRIGGER_EDGE_RISING	1
@@ -45,6 +46,7 @@ struct m2k_la {
 	struct mutex lock;
 	unsigned int io_sel;
 	unsigned int gpo;
+	unsigned int output_mode;
 
 	unsigned int trigger_logic_mode;
 	unsigned int triggers[18];
@@ -385,6 +387,39 @@ out_unlock:
 	return len;
 }
 
+static int m2k_la_set_output_mode(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	mutex_lock(&m2k_la->lock);
+	m2k_la->output_mode &= ~BIT(chan->address);
+	m2k_la->output_mode |= val << chan->address;
+	m2k_la_write(m2k_la, M2K_LA_REG_OUTPUT_MODE, m2k_la->output_mode);
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_output_mode(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	return (m2k_la->output_mode >> chan->address) & 1;
+}
+
+static const char * const m2k_la_output_mode_items[] = {
+	"push-pull",
+	"open-drain",
+};
+
+static const struct iio_enum m2k_la_output_mode_enum = {
+	.items = m2k_la_output_mode_items,
+	.num_items = ARRAY_SIZE(m2k_la_output_mode_items),
+	.set = m2k_la_set_output_mode,
+	.get = m2k_la_get_output_mode,
+};
 
 static const struct iio_chan_spec_ext_info m2k_la_ext_info[] = {
 	{
@@ -395,6 +430,8 @@ static const struct iio_chan_spec_ext_info m2k_la_ext_info[] = {
 	},
 	IIO_ENUM("direction", IIO_SEPARATE, &m2k_la_direction_enum),
 	IIO_ENUM_AVAILABLE("direction", &m2k_la_direction_enum),
+	IIO_ENUM("outputmode", IIO_SEPARATE, &m2k_la_output_mode_enum),
+	IIO_ENUM_AVAILABLE("outputmode", &m2k_la_output_mode_enum),
 	{}
 };
 
@@ -628,6 +665,7 @@ static int m2k_la_probe(struct platform_device *pdev)
 	m2k_la->io_sel = 0xffff;
 	m2k_la_write(m2k_la, M2K_LA_REG_IO_SEL, m2k_la->io_sel);
 	m2k_la_write(m2k_la, M2K_LA_REG_GPO_EN, 0xffff);
+	m2k_la_write(m2k_la, M2K_LA_REG_OUTPUT_MODE, 0x0);
 
 	m2k_la_update_logic_mode(m2k_la);
 
