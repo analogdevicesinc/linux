@@ -19,13 +19,14 @@
 #define M2K_LA_REG_DIVIDER_PG		0x0c
 #define M2K_LA_REG_IO_SEL		0x10
 #define M2K_LA_REG_TRIGGER_ENABLE(x)	(0x14 + (x) * 4)
-#define M2K_LA_REG_TRIGGER_DELAY	0x28
+#define M2K_LA_REG_FIFO_DEPTH		0x28
 #define M2K_LA_REG_TRIGGER_LOGIC_MODE	0x2c
 #define M2K_LA_REG_CLOCK_SEL		0x30
 #define M2K_LA_REG_GPO_EN		0x34
 #define M2K_LA_REG_GPO			0x38
 #define M2K_LA_REG_GPI			0x3c
 #define M2K_LA_REG_OUTPUT_MODE		0x40
+#define M2K_LA_REG_TRIGGER_DELAY	0x44
 
 #define M2K_LA_TRIGGER_EDGE_ANY		0
 #define M2K_LA_TRIGGER_EDGE_RISING	1
@@ -274,14 +275,18 @@ static ssize_t m2k_la_set_trigger_delay(struct iio_dev *indio_dev,
 	if (ret < 0)
 		return ret;
 
-	if (val < -8192 || val > 8192)
+	if (val < -8192)
 		return -EINVAL;
 
-
 	mutex_lock(&m2k_la->lock);
+	if (val < 0) {
+	    m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, -val);
+	    m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, 0);
+	} else {
+	    m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, 0);
+	    m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, val);
+	}
 	m2k_la->trigger_delay = val;
-	val += 8192;
-	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, val);
 	mutex_unlock(&m2k_la->lock);
 
 	return len;
@@ -706,6 +711,8 @@ static int m2k_la_probe(struct platform_device *pdev)
 	m2k_la_write(m2k_la, M2K_LA_REG_OUTPUT_MODE, 0x0);
 
 	m2k_la_write(m2k_la, M2K_LA_REG_CLOCK_SEL, 0x0);
+	m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, 0x0);
+	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, 0x0);
 
 	m2k_la_update_logic_mode(m2k_la);
 
