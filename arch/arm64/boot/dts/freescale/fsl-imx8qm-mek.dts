@@ -579,3 +579,9 @@
 &isi_3 {
 	status = "okay";
 };
+
+&sata {
+	pinctrl-0 = <&pinctrl_pciea>;
+	clkreq-gpio = <&gpio4 27 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
