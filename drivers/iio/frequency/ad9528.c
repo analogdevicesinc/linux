@@ -1084,10 +1084,8 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	int ret;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+	if (!pdata)
 		return NULL;
-	}
 
 	pdata->spi3wire = of_property_read_bool(np, "adi,spi-3wire-enable");
 
@@ -1199,10 +1197,8 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 	pdata->num_channels = cnt;
 	pdata->channels = devm_kzalloc(dev, sizeof(*chan) * cnt, GFP_KERNEL);
-	if (!pdata->channels) {
-		dev_err(dev, "could not allocate memory\n");
+	if (!pdata->channels)
 		return NULL;
-	}
 
 	cnt = 0;
 	for_each_child_of_node(np, chan_np) {
