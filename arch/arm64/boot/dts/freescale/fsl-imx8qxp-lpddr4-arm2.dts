@@ -204,6 +204,15 @@
 			>;
 		};
 
+		pinctrl_lpuart1: lpuart1grp {
+			fsl,pins = <
+				SC_P_UART1_TX_ADMA_UART1_TX		0x0600004c
+				SC_P_UART1_RX_ADMA_UART1_RX		0x0600004c
+				SC_P_UART1_RTS_B_ADMA_UART1_RTS_B	0x0600004c
+				SC_P_UART1_CTS_B_ADMA_UART1_CTS_B	0x0600004c
+			>;
+		};
+
 		pinctrl_lpuart3: lpuart3grp {
 			fsl,pins = <
 				SC_P_FLEXCAN2_RX_ADMA_UART3_RX	0x0600004c
@@ -378,6 +387,12 @@
 &lpuart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart0>;
+	status = "okay";
+};
+
+&lpuart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart1>;
 	status = "okay";
 };
 
