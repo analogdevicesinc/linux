@@ -1160,7 +1160,7 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	pdata->spi3wire = of_property_read_bool(np, "adi,spi-3wire-enable");
 
@@ -1224,6 +1224,8 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 	pdata->pll2_freq_doubler_en =
 		of_property_read_bool(np, "adi,pll2-freq-doubler-enable");
 
+
+	tmp = 1;
 	of_property_read_u32(np, "adi,pll2-r2-div", &tmp);
 	pdata->pll2_r2_div = tmp;
 	tmp = 3;
@@ -1232,6 +1234,55 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 	tmp = 3;
 	of_property_read_u32(np, "adi,pll2-vco-diff-m2", &tmp);
 	pdata->pll2_vco_diff_m2 = tmp;
+
+	if (pdata->pll2_ndiv_b_cnt < 3 || pdata->pll2_ndiv_b_cnt > 63) {
+		dev_err(dev, "PLL2 B divider must be in the range 3-63\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	switch (pdata->pll2_ndiv_b_cnt) {
+	case 3:
+		if (pdata->pll2_ndiv_a_cnt > 0) {
+			dev_err(dev, "When PLL2 B counter == 3 A counter must be == 0\n");
+			return ERR_PTR(-EINVAL);
+		}
+		break;
+	case 4:
+		if (pdata->pll2_ndiv_a_cnt > 1) {
+			dev_err(dev, "When PLL2 B counter == 4 A counter must be <= 1\n");
+			return ERR_PTR(-EINVAL);
+		}
+		break;
+	case 5:
+	case 6:
+		if (pdata->pll2_ndiv_a_cnt > 2) {
+			dev_err(dev, "When PLL2 B counter == %d A counter must be <= 2\n",
+				pdata->pll2_ndiv_b_cnt);
+			return ERR_PTR(-EINVAL);
+		}
+		break;
+	default:
+		if (pdata->pll2_ndiv_a_cnt > 3) {
+			dev_err(dev, "A counter must be <= 3\n");
+			return ERR_PTR(-EINVAL);
+		}
+		break;
+	}
+
+	if (pdata->pll2_r2_div < 1 || pdata->pll2_r2_div > 31) {
+		dev_err(dev, "PLL2 R2 divider must be in the range of 1-31\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (pdata->pll2_vco_diff_m1 < 3 || pdata->pll2_vco_diff_m1 > 5) {
+		dev_err(dev, "PLL2 M1 divider must be in the range of 3-5\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (pdata->pll2_vco_diff_m2 < 3 || pdata->pll2_vco_diff_m2 > 5) {
+		dev_err(dev, "PLL2 M2 divider must be in the range of 3-5\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	/* Loop Filter PLL2 */
 
@@ -1254,7 +1305,7 @@ static struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 	pdata->num_channels = cnt;
 	pdata->channels = devm_kzalloc(dev, sizeof(*chan) * cnt, GFP_KERNEL);
 	if (!pdata->channels)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	cnt = 0;
 	for_each_child_of_node(np, chan_np) {
@@ -1302,10 +1353,13 @@ static int ad9523_probe(struct spi_device *spi)
 	struct ad9523_state *st;
 	int ret;
 
-	if (spi->dev.of_node)
+	if (spi->dev.of_node) {
 		pdata = ad9523_parse_dt(&spi->dev);
-	else
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+	} else {
 		pdata = spi->dev.platform_data;
+	}
 
 	if (!pdata) {
 		dev_err(&spi->dev, "no platform data?\n");
