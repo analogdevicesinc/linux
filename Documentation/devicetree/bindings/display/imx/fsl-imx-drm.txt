@@ -130,6 +130,8 @@ Required properties:
   Documentation/devicetree/bindings/clock/imx8qm-clock.txt, and in
   Documentation/devicetree/bindings/clock/imx8qxp-clock.txt.
 - power-domains: phandle pointing to power domain.
+- fsl,dpr-channels: phandles to the DPR channels attached to this DPU,
+  sorted by memory map addresses.  Only valid for i.MX8qm and i.MX8qxp.
 Optional properties:
 - port@[0-1]: Port nodes with endpoint definitions as defined in
   Documentation/devicetree/bindings/media/video-interfaces.txt.
@@ -166,6 +168,9 @@ dpu: dpu@56180000 {
 		 <&clk IMX8QM_DC0_DISP1_CLK>;
 	clock-names = "pll0", "pll1", "disp0", "disp1";
 	power-domains = <&pd_dc0>;
+	fsl,dpr-channels = <&dpr1_channel1>, <&dpr1_channel2>,
+			   <&dpr1_channel3>, <&dpr2_channel1>,
+			   <&dpr2_channel2>, <&dpr2_channel3>;
 
 	dpu1_disp1: port@1 {
 		reg = <1>;

@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <video/dpu.h>
+#include <video/imx8-prefetch.h>
 #include "dpu-prv.h"
 
 #define FD_NUM_V1			4
@@ -102,11 +103,13 @@ struct dpu_fetchdecode {
 	struct mutex mutex;
 	int id;
 	bool inuse;
+	bool pin_off;
 	struct dpu_soc *dpu;
 	fetchtype_t fetchtype;
 	shadow_load_req_t shdlreq;
 	/* see DPU_PLANE_SRC_xxx */
 	unsigned int stream_id;
+	struct dprc *dprc;
 };
 
 static inline u32 dpu_pec_fd_read(struct dpu_fetchdecode *fd,
@@ -675,6 +678,144 @@ void fetchdecode_set_stream_id(struct dpu_fetchdecode *fd, unsigned int id)
 }
 EXPORT_SYMBOL_GPL(fetchdecode_set_stream_id);
 
+void
+fetchdecode_configure_prefetch(struct dpu_fetchdecode *fd,
+			       unsigned int stream_id,
+			       unsigned int width, unsigned int height,
+			       unsigned int x_offset, unsigned int y_offset,
+			       unsigned int stride, u32 format, u64 modifier,
+			       unsigned long baddr, unsigned long uv_baddr,
+			       bool start, bool aux_start)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return;
+
+	dprc_configure(fd->dprc,
+			stream_id, width, height, x_offset, y_offset, stride,
+			format, modifier, baddr, uv_baddr, start, aux_start);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_configure_prefetch);
+
+void fetchdecode_enable_prefetch(struct dpu_fetchdecode *fd)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return;
+
+	dprc_enable(fd->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_enable_prefetch);
+
+void fetchdecode_disable_prefetch(struct dpu_fetchdecode *fd)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return;
+
+	dprc_disable(fd->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_disable_prefetch);
+
+void fetchdecode_reg_update_prefetch(struct dpu_fetchdecode *fd)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return;
+
+	dprc_reg_update(fd->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_reg_update_prefetch);
+
+void fetchdecode_prefetch_irq_handle(struct dpu_fetchdecode *fd)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return;
+
+	dprc_irq_handle(fd->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_prefetch_irq_handle);
+
+void fetchdecode_prefetch_enable_first_frame_irq(struct dpu_fetchdecode *fd)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return;
+
+	dprc_enable_ctrl_done_irq(fd->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_prefetch_enable_first_frame_irq);
+
+bool fetchdecode_has_prefetch(struct dpu_fetchdecode *fd)
+{
+	return !!fd->dprc;
+}
+EXPORT_SYMBOL_GPL(fetchdecode_has_prefetch);
+
+bool fetchdecode_prefetch_format_supported(struct dpu_fetchdecode *fd,
+					   u32 format, u64 modifier)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return false;
+
+	return dprc_format_supported(fd->dprc, format, modifier);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_prefetch_format_supported);
+
+bool fetchdecode_prefetch_stride_supported(struct dpu_fetchdecode *fd,
+					   unsigned int stride,
+					   unsigned int uv_stride,
+					   unsigned int width,
+					   u32 format)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return false;
+
+	return dprc_stride_supported(fd->dprc,
+					stride, uv_stride, width, format);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_prefetch_stride_supported);
+
+bool fetchdecode_prefetch_crop_supported(struct dpu_fetchdecode *fd,
+					 u64 modifier, u32 y_offset)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return false;
+
+	return dprc_crop_supported(fd->dprc, modifier, y_offset);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_prefetch_crop_supported);
+
+bool fetchdecode_prefetch_stride_double_check(struct dpu_fetchdecode *fd,
+					      unsigned int stride,
+					      unsigned int uv_stride,
+					      unsigned int width,
+					      u32 format,
+					      dma_addr_t baseaddr,
+					      dma_addr_t uv_baseaddr)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return false;
+
+	return dprc_stride_double_check(fd->dprc,
+					stride, uv_stride, width, format,
+					baseaddr, uv_baseaddr);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_prefetch_stride_double_check);
+
+void fetchdecode_pin_off(struct dpu_fetchdecode *fd)
+{
+	fd->pin_off = true;
+}
+EXPORT_SYMBOL_GPL(fetchdecode_pin_off);
+
+void fetchdecode_unpin_off(struct dpu_fetchdecode *fd)
+{
+	fd->pin_off = false;
+}
+EXPORT_SYMBOL_GPL(fetchdecode_unpin_off);
+
+bool fetchdecode_is_pinned_off(struct dpu_fetchdecode *fd)
+{
+	return fd->pin_off;
+}
+EXPORT_SYMBOL_GPL(fetchdecode_is_pinned_off);
+
 struct dpu_fetchdecode *dpu_fd_get(struct dpu_soc *dpu, int id)
 {
 	struct dpu_fetchdecode *fd;
@@ -779,4 +920,12 @@ int dpu_fd_init(struct dpu_soc *dpu, unsigned int id,
 	_dpu_fd_init(dpu, id);
 
 	return 0;
+}
+
+void fetchdecode_get_dprc(struct dpu_fetchdecode *fd, void *data)
+{
+	if (WARN_ON(!fd))
+		return;
+
+	fd->dprc = data;
 }

@@ -15,6 +15,7 @@
 #include <linux/clk.h>
 #include <linux/fb.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
@@ -26,6 +27,7 @@
 #include <linux/regmap.h>
 #include <soc/imx8/sc/sci.h>
 #include <video/dpu.h>
+#include <video/imx8-prefetch.h>
 #include "dpu-prv.h"
 
 static bool display_plane_video_proc = true;
@@ -264,6 +266,7 @@ static const struct dpu_unit fds_v2 = {
 	.ids = fd_ids,
 	.pec_ofss = fd_pec_ofss_v2,
 	.ofss = fd_ofss_v2,
+	.dprc_ids = fd_dprc_ids,
 };
 
 static const struct dpu_unit fes_v1 = {
@@ -512,6 +515,7 @@ static const struct dpu_devtype dpu_type_v1 = {
 	.intsteer_map_size = ARRAY_SIZE(intsteer_map_v1),
 	.unused_irq = unused_irq_v1,
 	.has_capture = true,
+	.has_prefetch = false,
 	.pixel_link_quirks = false,
 	.pixel_link_nhvsync = false,
 	.version = DPU_V1,
@@ -537,6 +541,7 @@ static const struct dpu_devtype dpu_type_v2 = {
 	.sw2hw_irq_map = sw2hw_irq_map_v2,
 	.sw2hw_block_id_map = sw2hw_block_id_map_v2,
 	.has_capture = false,
+	.has_prefetch = true,
 	.pixel_link_quirks = true,
 	.pixel_link_nhvsync = true,
 	.version = DPU_V2,
@@ -714,6 +719,7 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 		struct platform_device *pdev, unsigned long dpu_base)
 {
 	const struct dpu_devtype *devtype = dpu->devtype;
+	const struct dpu_unit *fds = devtype->fds;
 
 	DPU_UNITS_INIT(cf);
 	DPU_UNITS_INIT(dec);
@@ -726,6 +732,25 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 	DPU_UNITS_INIT(lb);
 	DPU_UNITS_INIT(tcon);
 	DPU_UNITS_INIT(vs);
+
+	/* get DPR channel for submodules */
+	if (devtype->has_prefetch) {
+		struct dpu_fetchdecode *fd;
+		struct dprc *dprc;
+		int i;
+
+		for (i = 0; i < fds->num; i++) {
+			dprc = dprc_lookup_by_phandle(dpu->dev,
+						      "fsl,dpr-channels",
+						      fds->dprc_ids[i]);
+			if (!dprc)
+				return -EPROBE_DEFER;
+
+			fd = dpu_fd_get(dpu, i);
+			fetchdecode_get_dprc(fd, dprc);
+			dpu_fd_put(fd);
+		}
+	}
 
 	return 0;
 }
@@ -1238,6 +1263,18 @@ irq_set_chained_handler_and_data(dpu->irq_##name, NULL, NULL)
 	irq_domain_remove(dpu->domain);
 }
 
+static irqreturn_t dpu_dpr1_irq_handler(int irq, void *desc)
+{
+	struct dpu_soc *dpu = desc;
+	const struct dpu_unit *fds = dpu->devtype->fds;
+	int i;
+
+	for (i = 0; i < fds->num; i++)
+		fetchdecode_prefetch_irq_handle(dpu->fd_priv[i]);
+
+	return IRQ_HANDLED;
+}
+
 static void dpu_debug_ip_identity(struct dpu_soc *dpu)
 {
 	struct device *dev = dpu->dev;
@@ -1482,6 +1519,25 @@ static int dpu_probe(struct platform_device *pdev)
 	if (IS_ERR(dpu->intsteer_regmap)) {
 		dev_err(dpu->dev, "failed to get intsteer regmap\n");
 		return PTR_ERR(dpu->intsteer_regmap);
+	}
+
+	/* DPR irqs */
+	if (dpu->devtype->has_prefetch) {
+		dpu->irq_dpr0 = platform_get_irq(pdev, 8);
+		dpu->irq_dpr1 = platform_get_irq(pdev, 9);
+
+		dev_dbg(dpu->dev, "irq_dpr0: %d\n", dpu->irq_dpr0);
+		dev_dbg(dpu->dev, "irq_dpr1: %d\n", dpu->irq_dpr1);
+
+		if (dpu->irq_dpr0 < 0 || dpu->irq_dpr1 < 0)
+			return -ENODEV;
+
+		ret = devm_request_irq(dpu->dev, dpu->irq_dpr1,
+				dpu_dpr1_irq_handler, 0, pdev->name, dpu);
+		if (ret) {
+			dev_err(dpu->dev, "request dpr1 interrupt failed\n");
+			return ret;
+		}
 	}
 
 	spin_lock_init(&dpu->lock);

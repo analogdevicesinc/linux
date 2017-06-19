@@ -500,6 +500,39 @@ u32 fetchdecode_get_vproc_mask(struct dpu_fetchdecode *fd);
 bool fetchdecode_need_fetcheco(struct dpu_fetchdecode *fd, u32 fmt);
 unsigned int fetchdecode_get_stream_id(struct dpu_fetchdecode *fd);
 void fetchdecode_set_stream_id(struct dpu_fetchdecode *fd, unsigned int id);
+void
+fetchdecode_configure_prefetch(struct dpu_fetchdecode *fd,
+			       unsigned int stream_id,
+			       unsigned int width, unsigned int height,
+			       unsigned int x_offset, unsigned int y_offset,
+			       unsigned int stride, u32 format, u64 modifier,
+			       unsigned long baddr, unsigned long uv_baddr,
+			       bool start, bool aux_start);
+void fetchdecode_enable_prefetch(struct dpu_fetchdecode *fd);
+void fetchdecode_disable_prefetch(struct dpu_fetchdecode *fd);
+void fetchdecode_reg_update_prefetch(struct dpu_fetchdecode *fd);
+void fetchdecode_prefetch_irq_handle(struct dpu_fetchdecode *fd);
+void fetchdecode_prefetch_enable_first_frame_irq(struct dpu_fetchdecode *fd);
+bool fetchdecode_has_prefetch(struct dpu_fetchdecode *fd);
+bool fetchdecode_prefetch_format_supported(struct dpu_fetchdecode *fd,
+					   u32 format, u64 modifier);
+bool fetchdecode_prefetch_stride_supported(struct dpu_fetchdecode *fd,
+					   unsigned int stride,
+					   unsigned int uv_stride,
+					   unsigned int width,
+					   u32 format);
+bool fetchdecode_prefetch_crop_supported(struct dpu_fetchdecode *fd,
+					 u64 modifier, u32 y_offset);
+bool fetchdecode_prefetch_stride_double_check(struct dpu_fetchdecode *fd,
+					      unsigned int stride,
+					      unsigned int uv_stride,
+					      unsigned int width,
+					      u32 format,
+					      dma_addr_t baseaddr,
+					      dma_addr_t uv_baseaddr);
+void fetchdecode_pin_off(struct dpu_fetchdecode *fd);
+void fetchdecode_unpin_off(struct dpu_fetchdecode *fd);
+bool fetchdecode_is_pinned_off(struct dpu_fetchdecode *fd);
 struct dpu_fetchdecode *dpu_fd_get(struct dpu_soc *dpu, int id);
 void dpu_fd_put(struct dpu_fetchdecode *fd);
 

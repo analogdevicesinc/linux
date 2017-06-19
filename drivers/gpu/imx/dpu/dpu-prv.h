@@ -155,6 +155,7 @@ struct dpu_unit {
 	const unsigned int *ids;
 	const unsigned long *pec_ofss;	/* PixEngCFG */
 	const unsigned long *ofss;
+	const unsigned int *dprc_ids;
 };
 
 struct cm_reg_ofs {
@@ -193,6 +194,7 @@ struct dpu_devtype {
 	const unsigned int *sw2hw_irq_map;	/* NULL means linear */
 	const unsigned int *sw2hw_block_id_map;	/* NULL means linear */
 	bool has_capture;
+	bool has_prefetch;
 	bool pixel_link_quirks;
 	bool pixel_link_nhvsync;	/* HSYNC and VSYNC high active */
 	unsigned int version;
@@ -217,6 +219,8 @@ struct dpu_soc {
 	int			irq_reserved0;
 	int			irq_reserved1;
 	int			irq_blit;
+	int			irq_dpr0;
+	int			irq_dpr1;
 	struct irq_domain	*domain;
 
 	struct dpu_constframe	*cf_priv[4];
@@ -269,6 +273,8 @@ DECLARE_DPU_UNIT_INIT_FUNC(lb);
 DECLARE_DPU_UNIT_INIT_FUNC(tcon);
 DECLARE_DPU_UNIT_INIT_FUNC(vs);
 
+void fetchdecode_get_dprc(struct dpu_fetchdecode *fd, void *data);
+
 static const unsigned int cf_ids[] = {0, 1, 4, 5};
 static const unsigned int dec_ids[] = {0, 1};
 static const unsigned int ed_ids[] = {0, 1, 4, 5};
@@ -280,6 +286,8 @@ static const unsigned int hs_ids[] = {4, 5, 9};
 static const unsigned int lb_ids[] = {0, 1, 2, 3, 4, 5, 6};
 static const unsigned int tcon_ids[] = {0, 1};
 static const unsigned int vs_ids[] = {4, 5, 9};
+
+static const unsigned int fd_dprc_ids[] = {3, 4};
 
 struct dpu_pixel_format {
 	u32 pixel_format;
