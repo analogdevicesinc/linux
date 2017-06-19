@@ -3,6 +3,8 @@ config IMX_DPU_CORE
 	depends on ARCH_FSL_IMX8QM || ARCH_FSL_IMX8QXP
 	select RESET_CONTROLLER
 	select GENERIC_IRQ_CHIP
+	select IMX8_PRG
+	select IMX8_DPRC
 	help
 	  Choose this if you have a Freescale i.MX8QM or i.MX8QXP system and
 	  want to use the Display Processing Unit. This option only enables
