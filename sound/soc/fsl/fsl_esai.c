@@ -85,6 +85,7 @@ struct fsl_esai_soc_data {
 	bool imx;
 	bool dma_workaround;
 	bool channel_swap_workaround;
+	bool constrain_period_size;
 };
 
 /**
@@ -148,18 +149,21 @@ static struct fsl_esai_soc_data fsl_esai_vf610 = {
 	.imx = false,
 	.dma_workaround = false,
 	.channel_swap_workaround = true,
+	.constrain_period_size = false,
 };
 
 static struct fsl_esai_soc_data fsl_esai_imx35 = {
 	.imx = true,
 	.dma_workaround = false,
 	.channel_swap_workaround = true,
+	.constrain_period_size = false,
 };
 
 static struct fsl_esai_soc_data fsl_esai_imx6ull = {
 	.imx = true,
 	.dma_workaround = false,
 	.channel_swap_workaround = false,
+	.constrain_period_size = false,
 };
 
 /* In imx8qxp rev1, the dma request signal is not revert. For esai
@@ -170,12 +174,14 @@ static struct fsl_esai_soc_data fsl_esai_imx8qxp_v1 = {
 	.imx = true,
 	.dma_workaround = true,
 	.channel_swap_workaround = false,
+	.constrain_period_size = true,
 };
 
 static struct fsl_esai_soc_data fsl_esai_imx8qm = {
 	.imx = true,
 	.dma_workaround = false,
 	.channel_swap_workaround = false,
+	.constrain_period_size = true,
 };
 
 static irqreturn_t esai_isr(int irq, void *devid)
@@ -588,6 +594,7 @@ static int fsl_esai_startup(struct snd_pcm_substream *substream,
 			    struct snd_soc_dai *dai)
 {
 	struct fsl_esai *esai_priv = snd_soc_dai_get_drvdata(dai);
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	int ret;
 
 	/*
@@ -627,6 +634,17 @@ static int fsl_esai_startup(struct snd_pcm_substream *substream,
 	}
 
 	esai_priv->substream[substream->stream] = substream;
+
+	if (esai_priv->soc->constrain_period_size) {
+		if (tx)
+			snd_pcm_hw_constraint_step(substream->runtime, 0,
+				SNDRV_PCM_HW_PARAM_PERIOD_SIZE,
+				esai_priv->dma_params_tx.maxburst);
+		else
+			snd_pcm_hw_constraint_step(substream->runtime, 0,
+				SNDRV_PCM_HW_PARAM_PERIOD_SIZE,
+				esai_priv->dma_params_rx.maxburst);
+	}
 
 	return 0;
 
