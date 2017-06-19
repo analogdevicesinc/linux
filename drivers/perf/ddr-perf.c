@@ -30,6 +30,7 @@
 #define CNTL_CSV_MASK		(0xFF << CNTL_CSV_SHIFT)
 
 #define EVENT_CYCLES_ID		0
+#define EVENT_CYCLES_COUNTER	0
 #define NUM_COUNTER		4
 #define MAX_EVENT		3
 
@@ -85,6 +86,7 @@ struct ddr_pmu {
 	struct	device *dev;
 	struct perf_event *active_events[NUM_COUNTER];
 	int total_events;
+	bool cycles_active;
 };
 
 static ssize_t ddr_perf_cpumask_show(struct device *dev,
@@ -170,7 +172,7 @@ static u32 ddr_perf_alloc_counter(struct ddr_pmu *pmu, int event)
 
 	/* Always map cycle event to counter 0 */
 	if (event == EVENT_CYCLES_ID)
-		return 0;
+		return EVENT_CYCLES_COUNTER;
 
 	for (i = 1; i < NUM_COUNTER; i++)
 		if (pmu->active_events[i] == NULL)
@@ -261,6 +263,9 @@ static void ddr_perf_event_enable(struct ddr_pmu *pmu, int config,
 	}
 
 	writel(val, pmu->base + reg);
+
+	if (config == EVENT_CYCLES_ID)
+		pmu->cycles_active = enable;
 }
 
 static void ddr_perf_event_start(struct perf_event *event, int flags)
@@ -272,6 +277,13 @@ static void ddr_perf_event_start(struct perf_event *event, int flags)
 	local64_set(&hwc->prev_count, 0);
 
 	ddr_perf_event_enable(pmu, event->attr.config, counter, true);
+	/*
+	 * If the cycles counter wasn't explicitly selected,
+	 * we will enable it now.
+	 */
+	if (counter > 0 && !pmu->cycles_active)
+		ddr_perf_event_enable(pmu, EVENT_CYCLES_ID,
+				      EVENT_CYCLES_COUNTER, true);
 }
 
 static int ddr_perf_event_add(struct perf_event *event, int flags)
@@ -320,6 +332,11 @@ static void ddr_perf_event_del(struct perf_event *event, int flags)
 	ddr_perf_free_counter(pmu, counter);
 	pmu->total_events--;
 	hwc->idx = -1;
+
+	/* If all events have stopped, stop the cycles counter as well */
+	if ((pmu->total_events == 0) && pmu->cycles_active)
+		ddr_perf_event_enable(pmu, EVENT_CYCLES_ID,
+				      EVENT_CYCLES_COUNTER, false);
 }
 
 static int ddr_perf_init(struct ddr_pmu *pmu, void __iomem *base,
