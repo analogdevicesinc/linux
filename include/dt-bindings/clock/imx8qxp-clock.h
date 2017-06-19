@@ -562,5 +562,9 @@
 #define IMX8QXP_MIPI1_DSI_PHY_DIV				508
 #define IMX8QXP_MIPI1_DSI_PHY_CLK				509
 
-#define IMX8QXP_CLK_END						510
+/* DC part3 */
+#define IMX8QXP_DC0_DPR1_APB_CLK				510
+#define IMX8QXP_DC0_DPR1_B_CLK					511
+
+#define IMX8QXP_CLK_END						512
 #endif /* __DT_BINDINGS_CLOCK_IMX8QXP_H */

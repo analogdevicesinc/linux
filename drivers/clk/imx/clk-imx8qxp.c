@@ -440,6 +440,8 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_DC0_DPR0_APB_CLK] = imx_clk_gate2_scu("dc0_dpr0_apb_clk", "cfg_dc_clk_root", (void __iomem *)(DC_0_LPCG + 0x18), 16, FUNCTION_NAME(PD_DC_0));
 	clks[IMX8QXP_DC0_DPR0_B_CLK] = imx_clk_gate2_scu("dc0_dpr0_b_clk", "axi_ext_dc_clk_root", (void __iomem *)(DC_0_LPCG + 0x18), 20, FUNCTION_NAME(PD_DC_0));
 	clks[IMX8QXP_DC0_RTRAM0_CLK] = imx_clk_gate2_scu("dc0_rtrm0_clk", "axi_int_dc_clk_root", (void __iomem *)(DC_0_LPCG + 0x1C), 0, FUNCTION_NAME(PD_DC_0));
+	clks[IMX8QXP_DC0_DPR1_APB_CLK] = imx_clk_gate2_scu("dc0_dpr1_apb_clk", "cfg_dc_clk_root", (void __iomem *)(DC_0_LPCG + 0x2C), 16, FUNCTION_NAME(PD_DC_0));
+	clks[IMX8QXP_DC0_DPR1_B_CLK] = imx_clk_gate2_scu("dc0_dpr1_b_clk", "axi_ext_dc_clk_root", (void __iomem *)(DC_0_LPCG + 0x2C), 20, FUNCTION_NAME(PD_DC_0));
 	clks[IMX8QXP_DC0_RTRAM1_CLK] = imx_clk_gate2_scu("dc0_rtrm1_clk", "axi_int_dc_clk_root", (void __iomem *)(DC_0_LPCG + 0x30), 0, FUNCTION_NAME(PD_DC_0));
 
 	/* Display interface - MIPI-LVDS SS */
