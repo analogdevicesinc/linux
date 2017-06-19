@@ -1478,10 +1478,13 @@ static int ad9523_probe(struct spi_device *spi)
 	struct ad9523_state *st;
 	int ret;
 
-	if (spi->dev.of_node)
+	if (spi->dev.of_node) {
 		pdata = ad9523_parse_dt(&spi->dev);
-	else
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+	} else {
 		pdata = spi->dev.platform_data;
+	}
 
 	if (!pdata) {
 		dev_err(&spi->dev, "no platform data?\n");
