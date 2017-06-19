@@ -1579,13 +1579,6 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 	if (of_property_read_u32(node, "cpu-base-addr", &imx6_pcie->cpu_base))
 		imx6_pcie->cpu_base = 0;
 
-	if (IS_ENABLED(CONFIG_EP_MODE_IN_EP_RC_SYS)) {
-		/* add attributes for device */
-		ret = sysfs_create_group(&pdev->dev.kobj, &imx_pcie_attrgroup);
-		if (ret)
-			return -EINVAL;
-	}
-
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx-pcie-phy");
 	if (np != NULL) {
 		imx6_pcie->phy_base = of_iomap(np, 0);
