@@ -646,6 +646,13 @@ static int fsl_esai_startup(struct snd_pcm_substream *substream,
 				esai_priv->dma_params_rx.maxburst);
 	}
 
+	if (esai_priv->soc->dma_workaround) {
+		snd_pcm_hw_constraint_minmax(substream->runtime,
+				SNDRV_PCM_HW_PARAM_CHANNELS, 1, 2);
+		snd_pcm_hw_constraint_minmax(substream->runtime,
+				SNDRV_PCM_HW_PARAM_RATE, 48000, 48000);
+	}
+
 	return 0;
 
 err_fsysclk:
