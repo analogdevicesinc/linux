@@ -954,6 +954,180 @@
 		reg = <0x0 0x56000000 0x0 0x10000>;
 	};
 
+	prg1: prg@56040000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x56040000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG0_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG0_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	prg2: prg@56050000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x56050000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG1_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG1_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	prg3: prg@56060000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x56060000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG2_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG2_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	prg4: prg@56070000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x56070000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG3_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG3_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	prg5: prg@56080000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x56080000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG4_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG4_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	prg6: prg@56090000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x56090000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG5_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG5_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	prg7: prg@560a0000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x560a0000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG6_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG6_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	prg8: prg@560b0000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x560b0000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG7_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG7_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	prg9: prg@560c0000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x0 0x560c0000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_DC0_PRG8_APB_CLK>,
+			 <&clk IMX8QXP_DC0_PRG8_RTRAM_CLK>;
+		clock-names = "apb", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	dpr1_channel1: dpr-channel@560d0000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x0 0x560d0000 0x0 0x10000>;
+		fsl,sc-resource = <SC_R_DC_0_BLIT0>;
+		fsl,prgs = <&prg1>;
+		clocks = <&clk IMX8QXP_DC0_DPR0_APB_CLK>,
+			 <&clk IMX8QXP_DC0_DPR0_B_CLK>,
+			 <&clk IMX8QXP_DC0_RTRAM0_CLK>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	dpr1_channel2: dpr-channel@560e0000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x0 0x560e0000 0x0 0x10000>;
+		fsl,sc-resource = <SC_R_DC_0_BLIT1>;
+		fsl,prgs = <&prg2>;
+		clocks = <&clk IMX8QXP_DC0_DPR0_APB_CLK>,
+			 <&clk IMX8QXP_DC0_DPR0_B_CLK>,
+			 <&clk IMX8QXP_DC0_RTRAM0_CLK>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	dpr1_channel3: dpr-channel@560f0000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x0 0x560f0000 0x0 0x10000>;
+		fsl,sc-resource = <SC_R_DC_0_FRAC0>;
+		fsl,prgs = <&prg3>;
+		clocks = <&clk IMX8QXP_DC0_DPR0_APB_CLK>,
+			 <&clk IMX8QXP_DC0_DPR0_B_CLK>,
+			 <&clk IMX8QXP_DC0_RTRAM0_CLK>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	dpr2_channel1: dpr-channel@56100000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x0 0x56100000 0x0 0x10000>;
+		fsl,sc-resource = <SC_R_DC_0_VIDEO0>;
+		fsl,prgs = <&prg4>, <&prg5>;
+		clocks = <&clk IMX8QXP_DC0_DPR1_APB_CLK>,
+			 <&clk IMX8QXP_DC0_DPR1_B_CLK>,
+			 <&clk IMX8QXP_DC0_RTRAM1_CLK>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	dpr2_channel2: dpr-channel@56110000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x0 0x56110000 0x0 0x10000>;
+		fsl,sc-resource = <SC_R_DC_0_VIDEO1>;
+		fsl,prgs = <&prg6>, <&prg7>;
+		clocks = <&clk IMX8QXP_DC0_DPR1_APB_CLK>,
+			 <&clk IMX8QXP_DC0_DPR1_B_CLK>,
+			 <&clk IMX8QXP_DC0_RTRAM1_CLK>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
+	dpr2_channel3: dpr-channel@56120000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x0 0x56120000 0x0 0x10000>;
+		fsl,sc-resource = <SC_R_DC_0_WARP>;
+		fsl,prgs = <&prg8>, <&prg9>;
+		clocks = <&clk IMX8QXP_DC0_DPR1_APB_CLK>,
+			 <&clk IMX8QXP_DC0_DPR1_B_CLK>,
+			 <&clk IMX8QXP_DC0_RTRAM1_CLK>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
 	dpu1: dpu@56180000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -986,6 +1160,9 @@
 			 <&clk IMX8QXP_DC0_DISP1_CLK>;
 		clock-names = "pll0", "pll1", "disp0", "disp1";
 		power-domains = <&pd_dc0>;
+		fsl,dpr-channels = <&dpr1_channel1>, <&dpr1_channel2>,
+				   <&dpr1_channel3>, <&dpr2_channel1>,
+				   <&dpr2_channel2>, <&dpr2_channel3>;
 		status = "disabled";
 
 		dpu_disp0: port@0 {
