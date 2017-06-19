@@ -65,6 +65,11 @@ static int imx_sii902x_startup(struct snd_pcm_substream *substream)
 	if (ret)
 		return ret;
 
+	ret = snd_pcm_hw_constraint_minmax(runtime, SNDRV_PCM_HW_PARAM_CHANNELS,
+							1, 2);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
