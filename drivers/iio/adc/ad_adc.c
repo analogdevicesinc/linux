@@ -92,6 +92,7 @@ static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
 	.channel = _ch, \
 	.address = _ch, \
 	.scan_index = _ch, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE), \
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) | \
 		BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO), \
 	.ext_info = m2k_chan_ext_info, \
@@ -156,6 +157,74 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
+{
+	unsigned i;
+	u64 val64;
+
+	if (val > 1) {
+		val = 1;
+		val2 = 999999;
+	} else if (val < -1) {
+		val = -1;
+		val2 = 999999;
+	}
+
+	/*  format is 1.1.14 (sign, integer and fractional bits) */
+	switch (val) {
+	case 1:
+		i = 0x4000;
+		break;
+	case -1:
+		i = 0xC000;
+		break;
+	default: /* val = 0 */
+		i = 0;
+		if (val2 < 0) {
+			i = 0x8000;
+			val2 *= -1;
+		}
+		break;
+	}
+
+	val64 = (unsigned long long)val2 * 0x4000UL + (1000000UL / 2);
+		do_div(val64, 1000000UL);
+
+	if (i & 0x4000 && val64 == 0x4000)
+		val64 = 0x3fff;
+
+	return i | val64;
+}
+
+static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val,
+	int *r_val2)
+{
+	u64 val64;
+	int sign;
+
+	if (val & 0x8000)
+		sign = -1;
+	else
+		sign = 1;
+
+	if (val & 0x4000)
+		*r_val = 1 * sign;
+	else
+		*r_val = 0;
+
+	val &= ~0xC000;
+
+	val64 = val * 1000000ULL + (0x4000 / 2);
+	do_div(val64, 0x4000);
+
+	if (*r_val == 0)
+		*r_val2 = val64 * sign;
+	else
+		*r_val2 = val64;
+
+	return IIO_VAL_INT_PLUS_MICRO;
+}
+
 static int axiadc_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
 {
@@ -192,6 +261,10 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		*val = st->oversampling_ratio;
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		reg = ioread32(st->regs + ADI_REG_CHAN_CNTRL_2(chan->channel));
+		reg >>= 16;
+		return cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 	default:
 		break;
 	}
@@ -228,6 +301,11 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		st->oversampling_ratio = val;
 		iowrite32(val - 1, st->slave_regs + 0x40);
+		return 0;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		reg = cf_axi_dds_to_signed_mag_fmt(val, val2);
+		reg <<= 16;
+		iowrite32(reg, st->regs + ADI_REG_CHAN_CNTRL_2(chan->channel));
 		return 0;
 	default:
 		break;
@@ -396,6 +474,7 @@ static int adc_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct axiadc_state *st;
 	struct resource *mem;
+	unsigned int i;
 	int ret;
 
 	id = of_match_node(adc_of_match, pdev->dev.of_node);
@@ -452,6 +531,15 @@ static int adc_probe(struct platform_device *pdev)
 		ret = axiadc_configure_ring_stream(indio_dev, "rx");
 		if (ret)
 				goto err_free_frontend;
+	}
+
+	for (i = 0; i < indio_dev->num_channels; i++) {
+		if (indio_dev->channels[i].info_mask_separate &
+			BIT(IIO_CHAN_INFO_CALIBSCALE)) {
+			unsigned int chan = indio_dev->channels[i].channel;
+			iowrite32(0x40000000, st->regs + ADI_REG_CHAN_CNTRL_2(chan));
+			iowrite32(ADI_IQCOR_ENB, st->regs + ADI_REG_CHAN_CNTRL(chan));
+		}
 	}
 
 	ret = iio_device_register(indio_dev);
