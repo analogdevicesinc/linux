@@ -334,7 +334,7 @@
 	phy-handle = <&ethphy1>;
 	fsl,ar8031-phy-fixup;
 	fsl,magic-packet;
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c0_csi0 {
