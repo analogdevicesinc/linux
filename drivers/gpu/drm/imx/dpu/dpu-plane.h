@@ -39,6 +39,7 @@ struct dpu_plane_state {
 	unsigned int		base_w;
 	unsigned int		base_h;
 	bool			is_top;
+	bool			use_prefetch;
 };
 
 static const lb_prim_sel_t cf_stages[] = {LB_PRIM_SEL__CONSTFRAME0,

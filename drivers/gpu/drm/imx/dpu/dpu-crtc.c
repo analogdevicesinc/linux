@@ -333,6 +333,7 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_plane_state *old_dpstate;
 		struct drm_plane_state *plane_state;
 		struct dpu_plane *dplane;
+		struct drm_plane *plane;
 		struct dpu_plane_res *res;
 		struct dpu_fetchdecode *fd;
 		struct dpu_fetcheco *fe;
@@ -342,6 +343,7 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_extdst *ed;
 		extdst_src_sel_t ed_src;
 		int fd_id, lb_id;
+		bool crtc_disabling_on_primary = false;
 
 		old_dpstate = old_dcstate->dpu_plane_states[i];
 		if (!old_dpstate)
@@ -367,9 +369,6 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		vs = fetchdecode_get_vscaler(fd);
 
 		layerblend_pixengcfg_clken(lb, CLKEN__DISABLE);
-		fetchdecode_source_buffer_disable(fd);
-		fetchdecode_pixengcfg_dynamic_src_sel(fd, FD_SRC_DISABLE);
-		fetcheco_source_buffer_disable(fe);
 		hscaler_pixengcfg_clken(hs, CLKEN__DISABLE);
 		vscaler_pixengcfg_clken(vs, CLKEN__DISABLE);
 		hscaler_mode(hs, SCALER_NEUTRAL);
@@ -379,6 +378,24 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 			ed_src = dplane->stream_id ?
 				ED_SRC_CONSTFRAME1 : ED_SRC_CONSTFRAME0;
 			extdst_pixengcfg_src_sel(ed, ed_src);
+		}
+
+		plane = old_dpstate->base.plane;
+		if (!crtc->state->enable &&
+		    plane->type == DRM_PLANE_TYPE_PRIMARY)
+			crtc_disabling_on_primary = true;
+
+		if (crtc_disabling_on_primary && old_dpstate->use_prefetch) {
+			fetchdecode_pin_off(fd);
+			if (fetcheco_is_enabled(fe))
+				fetcheco_pin_off(fe);
+		} else {
+			fetchdecode_source_buffer_disable(fd);
+			fetchdecode_pixengcfg_dynamic_src_sel(fd,
+								FD_SRC_DISABLE);
+			fetcheco_source_buffer_disable(fe);
+			fetchdecode_unpin_off(fd);
+			fetcheco_unpin_off(fe);
 		}
 	}
 }
@@ -449,11 +466,12 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 			return;
 
 		fd = res->fd[fd_id];
-		if (!fetchdecode_is_enabled(fd))
+		if (!fetchdecode_is_enabled(fd) ||
+		     fetchdecode_is_pinned_off(fd))
 			fetchdecode_set_stream_id(fd, DPU_PLANE_SRC_DISABLED);
 
 		fe = fetchdecode_get_fetcheco(fd);
-		if (!fetcheco_is_enabled(fe))
+		if (!fetcheco_is_enabled(fe) || fetcheco_is_pinned_off(fe))
 			fetcheco_set_stream_id(fe, DPU_PLANE_SRC_DISABLED);
 
 		hs = fetchdecode_get_hscaler(fd);
