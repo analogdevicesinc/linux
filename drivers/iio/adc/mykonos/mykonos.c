@@ -13365,9 +13365,9 @@ mykonosErr_t MYKONOS_loadArmConcurrent(mykonosDevice_t *device, uint8_t *binary,
 
 #if (MYK_ENABLE_SPIWRITEARRAY == 0)
 
-        for (i = 0; i < byteCount; i++)
+	for (i = 0; i < count; i++)
         {
-            CMB_SPIWriteByte(device->spiSettings, (MYKONOS_ADDR_ARM_DATA_BYTE_0 | (((address & 0x3) + i) % 4)), data[i]);
+		CMB_SPIWriteByte(device->spiSettings, (MYKONOS_ADDR_ARM_DATA_BYTE_0 | (((address & 0x3) + i) % 4)), binary[i]);
         }
 
 #elif (MYK_ENABLE_SPIWRITEARRAY == 1)
