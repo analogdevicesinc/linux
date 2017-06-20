@@ -407,6 +407,10 @@ static int of_parse_gpr(struct platform_device *pdev,
 	int ret;
 	struct of_phandle_args args;
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "fsl,imx7d-12x12-lpddr3-arm2-wm8958"))
+		return 0;
+
 	ret = of_parse_phandle_with_fixed_args(pdev->dev.of_node,
 					       "gpr", 3, 0, &args);
 	if (ret) {
@@ -561,6 +565,7 @@ static int imx_wm8958_remove(struct platform_device *pdev)
 
 static const struct of_device_id imx_wm8958_dt_ids[] = {
 	{ .compatible = "fsl,imx-audio-wm8958", },
+	{ .compatible = "fsl,imx7d-12x12-lpddr3-arm2-wm8958", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_wm8958_dt_ids);
