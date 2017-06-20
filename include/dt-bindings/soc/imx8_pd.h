@@ -145,6 +145,16 @@
 #define PD_AUD_OCRAM                audio_ocram
 
 #define PD_IMAGING                  imaging_power_domain
+#define PD_IMAGING_JPEG_DEC         imaging_jpeg_dec
+#define PD_IMAGING_JPEG_ENC         imaging_jpeg_enc
+#define PD_IMAGING_PDMA0            PD_IMAGING
+#define PD_IMAGING_PDMA1            imaging_pdma1
+#define PD_IMAGING_PDMA2            imaging_pdma2
+#define PD_IMAGING_PDMA3            imaging_pdma3
+#define PD_IMAGING_PDMA4            imaging_pdma4
+#define PD_IMAGING_PDMA5            imaging_pdma5
+#define PD_IMAGING_PDMA6            imaging_pdma6
+#define PD_IMAGING_PDMA7            imaging_pdma7
 
 #define PD_MIPI_0_DSI               mipi0_dsi_power_domain
 #define PD_MIPI_0_DSI_I2C0          mipi0_dsi_i2c0
