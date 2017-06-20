@@ -119,13 +119,7 @@ struct jesd204b_gt_state {
  * IO accessors
  */
 
-static inline unsigned jesd204b_gt_pll_sel(struct jesd204b_gt_link *gt_link)
-{
-	if (gt_link->cpll_enable)
-		return CPLL;
-	else
-		return QPLL;
-}
+#define JESD204B_GT_DRP_PORT_COMMON 0x100
 
 static inline unsigned int jesd204b_gt_read(struct jesd204b_gt_state *st,
 					 unsigned reg)
@@ -160,28 +154,31 @@ static struct jesd204b_gt_link* jesd204b_get_rx_link_by_lane(struct jesd204b_gt_
 	return NULL;
 }
 
-static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st, unsigned lane, unsigned dest,
-					 unsigned reg)
+static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st,
+	unsigned int drp_port, unsigned int reg)
 {
 	int timeout = 20;
+	unsigned int drp_addr;
 	unsigned val;
 
-	if (dest)
-		lane = 0;
+	if (drp_port == JESD204B_GT_DRP_PORT_COMMON)
+		drp_addr = 0x4050;
+	else
+		drp_addr = JESD204B_GT_REG_DRP_CNTRL(drp_port);
 
-	jesd204b_gt_write(st, JESD204B_GT_REG_DRP_CNTRL(lane) + dest,
+	jesd204b_gt_write(st, drp_addr,
 		JESD204B_GT_DRP_RWN | JESD204B_GT_DRP_ADDRESS(reg) | JESD204B_GT_DRP_WDATA(0xFFFF));
 
 	do {
-		val = jesd204b_gt_read(st, JESD204B_GT_REG_DRP_STATUS(lane) + dest);
+		val = jesd204b_gt_read(st, drp_addr + 4);
 
 		if (val & JESD204B_GT_DRP_STATUS) {
 			mdelay(1);
 			continue;
 		}
 
-		dev_vdbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
-			 __func__, lane, dest, reg, JESD204B_GT_TO_DRP_RDATA(val));
+		dev_vdbg(st->dev, "%s:  drp_port %d reg 0x%X val 0x%X\n",
+			 __func__, drp_port, reg, JESD204B_GT_TO_DRP_RDATA(val));
 
 		return JESD204B_GT_TO_DRP_RDATA(val);
 
@@ -191,25 +188,28 @@ static unsigned int jesd204b_gt_drp_read(struct jesd204b_gt_state *st, unsigned 
 	return -ETIMEDOUT;
 }
 
-static int jesd204b_gt_drp_write(struct jesd204b_gt_state *st, unsigned lane, unsigned dest,
-				  unsigned reg, unsigned val)
+static int jesd204b_gt_drp_write(struct jesd204b_gt_state *st,
+	unsigned int drp_port, unsigned int reg, unsigned int val)
 {
+	unsigned int drp_addr;
 	int timeout = 20;
 
-	if (dest)
-		lane = 0;
+	if (drp_port == JESD204B_GT_DRP_PORT_COMMON)
+		drp_addr = 0x4050;
+	else
+		drp_addr = JESD204B_GT_REG_DRP_CNTRL(drp_port);
 
-	dev_vdbg(st->dev, "%s: lane %d dest 0x%X reg 0x%X val 0x%X\n",
-		 __func__, lane, dest, reg, val);
+	dev_vdbg(st->dev, "%s: drp_port %d reg 0x%X val 0x%X\n",
+		 __func__, drp_port, reg, val);
 
-	jesd204b_gt_write(st, JESD204B_GT_REG_DRP_CNTRL(lane) + dest,
+	jesd204b_gt_write(st, drp_addr,
 			  JESD204B_GT_DRP_ADDRESS(reg) | JESD204B_GT_DRP_WDATA(val));
 
 	do {
-		if (!(jesd204b_gt_read(st, JESD204B_GT_REG_DRP_STATUS(lane) + dest) & JESD204B_GT_DRP_STATUS)) {
-			if (val != jesd204b_gt_drp_read(st, lane, dest, reg))
-					dev_err(st->dev, "%s: MISMATCH lane %d dest 0x%X reg 0x%X val 0x%X\n",
-				__func__, lane, dest, reg, val);
+		if (!(jesd204b_gt_read(st, drp_addr + 4) & JESD204B_GT_DRP_STATUS)) {
+			if (val != jesd204b_gt_drp_read(st, drp_port, reg))
+					dev_err(st->dev, "%s: MISMATCH drp_port %d reg 0x%X val 0x%X\n",
+				__func__, drp_port, reg, val);
 
 			return 0;
 		}
@@ -222,8 +222,8 @@ static int jesd204b_gt_drp_write(struct jesd204b_gt_state *st, unsigned lane, un
 	return -ETIMEDOUT;
 }
 
-static int __jesd204b_gt_drp_writef(struct jesd204b_gt_state *st, unsigned lane, unsigned dest, u32 reg,
-				 u32 mask, u32 offset, u32 val)
+static int __jesd204b_gt_drp_writef(struct jesd204b_gt_state *st,
+	unsigned int drp_port, u32 reg, u32 mask, u32 offset, u32 val)
 {
 	u32 tmp;
 	int ret;
@@ -231,7 +231,7 @@ static int __jesd204b_gt_drp_writef(struct jesd204b_gt_state *st, unsigned lane,
 	if (!mask)
 		return -EINVAL;
 
-	ret = jesd204b_gt_drp_read(st, lane, dest, reg);
+	ret = jesd204b_gt_drp_read(st, drp_port, reg);
 	if (ret < 0)
 		return ret;
 
@@ -240,11 +240,11 @@ static int __jesd204b_gt_drp_writef(struct jesd204b_gt_state *st, unsigned lane,
 	tmp &= ~mask;
 	tmp |= ((val << offset) & mask);
 
-	return jesd204b_gt_drp_write(st, lane, dest, reg, tmp);
+	return jesd204b_gt_drp_write(st, drp_port, reg, tmp);
 }
 
-#define jesd204b_gt_drp_writef(st, lane, dest, reg, mask, val) \
-	__jesd204b_gt_drp_writef(st, lane, dest, reg, mask, __ffs(mask), val)
+#define jesd204b_gt_drp_writef(st, drp_port, reg, mask, val) \
+	__jesd204b_gt_drp_writef(st, drp_port, reg, mask, __ffs(mask), val)
 
 static int jesd204b_gt_set_lane(struct jesd204b_gt_state *st, unsigned lane)
 {
@@ -269,19 +269,19 @@ static int jesd204b_gt_set_lpm_dfe_mode(struct jesd204b_gt_state *st,
 
 	if (type == JESD204B_GT_TRANSCEIVER_GTH) {
 		if (lpm) {
-			jesd204b_gt_drp_write(st, lane, 0, 0x036, 0x0032);
-			jesd204b_gt_drp_write(st, lane, 0, 0x039, 0x1000);
-			jesd204b_gt_drp_write(st, lane, 0, 0x062, 0x1980);
+			jesd204b_gt_drp_write(st, lane, 0x036, 0x0032);
+			jesd204b_gt_drp_write(st, lane, 0x039, 0x1000);
+			jesd204b_gt_drp_write(st, lane, 0x062, 0x1980);
 		} else {
-			jesd204b_gt_drp_write(st, lane, 0, 0x036, 0x0002);
-			jesd204b_gt_drp_write(st, lane, 0, 0x039, 0x0000);
-			jesd204b_gt_drp_write(st, lane, 0, 0x062, 0x0000);
+			jesd204b_gt_drp_write(st, lane, 0x036, 0x0002);
+			jesd204b_gt_drp_write(st, lane, 0x039, 0x0000);
+			jesd204b_gt_drp_write(st, lane, 0x062, 0x0000);
 		}
 	} else {
 		if (lpm) {
-			jesd204b_gt_drp_write(st, lane, 0, 0x029, 0x0104);
+			jesd204b_gt_drp_write(st, lane, 0x029, 0x0104);
 		} else {
-			jesd204b_gt_drp_write(st, lane, 0, 0x029, 0x0954);
+			jesd204b_gt_drp_write(st, lane, 0x029, 0x0954);
 		}
 	}
 
@@ -704,11 +704,11 @@ static long jesd204b_gt_gth_rxcdr_settings(struct jesd204b_gt_state *st,
 		dev_warn(st->dev, "%s: GTH PRBS CDR not implemented\n",__func__);
 	}
 
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG0_ADDR, cfg0);
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG1_ADDR, cfg1);
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG2_ADDR, cfg2);
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG3_ADDR, cfg3);
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG4_ADDR, cfg4);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG0_ADDR, cfg0);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG1_ADDR, cfg1);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG2_ADDR, cfg2);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG3_ADDR, cfg3);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG4_ADDR, cfg4);
 
 	return 0;
 }
@@ -809,11 +809,11 @@ static long jesd204b_gt_rxcdr_settings(struct jesd204b_gt_state *st,
 	}
 
 
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG0_ADDR, cfg0);
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG1_ADDR, cfg1);
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG2_ADDR, cfg2);
-	jesd204b_gt_drp_write(st, lane, 0, RXCDR_CFG3_ADDR, cfg3);
-	jesd204b_gt_drp_writef(st, lane, 0, RXCDR_CFG4_ADDR, RXCDR_CFG4_MASK, cfg4);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG0_ADDR, cfg0);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG1_ADDR, cfg1);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG2_ADDR, cfg2);
+	jesd204b_gt_drp_write(st, lane, RXCDR_CFG3_ADDR, cfg3);
+	jesd204b_gt_drp_writef(st, lane, RXCDR_CFG4_ADDR, RXCDR_CFG4_MASK, cfg4);
 
 	return 0;
 }
@@ -936,7 +936,6 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 {
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
 	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
-	unsigned pll_type;
 	unsigned out_div;
 
 	dev_dbg(st->dev, "%s: Parent Rate %lu Hz, (%s, lane-%d ... lane-%d)",
@@ -945,8 +944,7 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 	if (!IS_ERR(gt_link->lane_rate_div40_clk))
 		return gt_link->lane_rate;
 
-	pll_type = jesd204b_gt_pll_sel(gt_link);
-	out_div = jesd204b_gt_drp_read(st, gt_link->first_lane, CPLL, RXOUT_DIV_ADDR);
+	out_div = jesd204b_gt_drp_read(st, gt_link->first_lane, RXOUT_DIV_ADDR);
 
 	if (gt_link->tx_offset)
 		out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
@@ -957,7 +955,7 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 
 	if (gt_link->cpll_enable) {
 		unsigned refclk_div_m, N1, N2, M;
-		refclk_div_m = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, CPLL_REFCLK_DIV_M_ADDR);
+		refclk_div_m = jesd204b_gt_drp_read(st, gt_link->first_lane, CPLL_REFCLK_DIV_M_ADDR);
 
 		switch ((refclk_div_m & CPLL_FB_DIV_45_N1_MASK) >> CPLL_FB_DIV_45_N1_OFFSET) {
 			case 0:
@@ -1005,8 +1003,8 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 		return ((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div);
 	} else {
 		unsigned refclk_div_m, fb_div, N, M;
-		refclk_div_m = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, QPLL_REFCLK_DIV_M_ADDR);
-		fb_div = jesd204b_gt_drp_read(st, gt_link->first_lane, pll_type, QPLL_FBDIV_N_ADDR);
+		refclk_div_m = jesd204b_gt_drp_read(st, JESD204B_GT_DRP_PORT_COMMON, QPLL_REFCLK_DIV_M_ADDR);
+		fb_div = jesd204b_gt_drp_read(st, JESD204B_GT_DRP_PORT_COMMON, QPLL_FBDIV_N_ADDR);
 
 		switch ((refclk_div_m & QPLL_REFCLK_DIV_M_MASK) >> QPLL_REFCLK_DIV_M_OFFSET) {
 			case 16:
@@ -1089,7 +1087,7 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct jesd204b_gt_state *st = dev_get_drvdata(to_clk_priv(hw)->dev);
 	struct jesd204b_gt_link *gt_link = to_clk_priv(hw)->link;
 	unsigned offs = gt_link->tx_offset;
-	u32 lane, dest;
+	u32 lane;
 	u32 refclk_div, out_div, fbdiv_45, fbdiv, fbdiv_ratio, lowband;
 	int ret, pll_done = 0;
 
@@ -1121,10 +1119,9 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 		jesd204b_gt_write(st, JESD204B_GT_REG_PLL_RSTN(lane) + gt_link->tx_offset,
 				  0); /* resets (pll) */
 
-		dest = jesd204b_gt_pll_sel(gt_link);
-
 		if (gt_link->cpll_enable) {
-			jesd204b_gt_drp_writef(st, lane, dest, CPLL_REFCLK_DIV_M_ADDR,
+			jesd204b_gt_drp_writef(st, lane,
+				CPLL_REFCLK_DIV_M_ADDR,
 				CPLL_REFCLK_DIV_M_MASK |
 				CPLL_FB_DIV_45_N1_MASK |
 				CPLL_FBDIV_N2_MASK,
@@ -1132,23 +1129,23 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 		} else {
 
 			if (!pll_done) {
-				jesd204b_gt_drp_writef(st, lane, dest, QPLL_CFG0_ADDR,
-					QPLL_CFG0_BAND_MASK, lowband);
+				jesd204b_gt_drp_writef(st, JESD204B_GT_DRP_PORT_COMMON,
+					QPLL_CFG0_ADDR, QPLL_CFG0_BAND_MASK, lowband);
 
-				jesd204b_gt_drp_writef(st, lane, dest, QPLL_REFCLK_DIV_M_ADDR,
-					QPLL_REFCLK_DIV_M_MASK, refclk_div);
+				jesd204b_gt_drp_writef(st, JESD204B_GT_DRP_PORT_COMMON,
+					QPLL_REFCLK_DIV_M_ADDR, QPLL_REFCLK_DIV_M_MASK, refclk_div);
 
-				jesd204b_gt_drp_writef(st, lane, dest, QPLL_FBDIV_N_ADDR,
-					QPLL_FBDIV_N_MASK, fbdiv);
+				jesd204b_gt_drp_writef(st, JESD204B_GT_DRP_PORT_COMMON,
+					QPLL_FBDIV_N_ADDR, QPLL_FBDIV_N_MASK, fbdiv);
 
-				jesd204b_gt_drp_writef(st, lane, dest, QPLL_FBDIV_RATIO_ADDR,
-					QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
+				jesd204b_gt_drp_writef(st, JESD204B_GT_DRP_PORT_COMMON,
+					QPLL_FBDIV_RATIO_ADDR, QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
 
 				pll_done = 1;
 			}
 		}
 
-		ret = jesd204b_gt_drp_writef(st, lane, CPLL, RXOUT_DIV_ADDR,
+		ret = jesd204b_gt_drp_writef(st, lane, RXOUT_DIV_ADDR,
 				offs ? TXOUT_DIV_MASK : RXOUT_DIV_MASK, out_div);
 
 		jesd204b_gt_rxcdr_settings(st, gt_link, lane, out_div);
