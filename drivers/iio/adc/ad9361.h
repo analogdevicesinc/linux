@@ -2866,6 +2866,7 @@ struct gain_control {
 	u16 lmt_overload_low_thresh; /* 16..800 mV, 0x108 */
 	u16 dec_pow_measuremnt_duration; /* Samples, 0x15C */
 	u8 low_power_thresh; /* -64..0 dBFS, 0x114 */
+	bool use_rx_fir_out_for_dec_pwr_meas; /* clears 0x15C:6 USE_HB1_OUT_FOR_DEC_PWR_MEAS */
 
 	bool dig_gain_en; /* should be turned off, since ADI GT doesn't use dig gain */
 	u8 max_dig_gain; /* 0..31 */
