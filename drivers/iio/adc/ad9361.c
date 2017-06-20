@@ -3180,7 +3180,8 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 	ad9361_spi_write(spi, REG_TX_SYMBOL_ATTEN_CONFIG, 0x00); // Tx Symbol Gain Control
 
 	ad9361_spi_writef(spi, REG_DEC_POWER_MEASURE_DURATION_0,
-			  USE_HB1_OUT_FOR_DEC_PWR_MEAS, 1); // Power Measurement Duration
+			  USE_HB1_OUT_FOR_DEC_PWR_MEAS,
+			  !ctrl->use_rx_fir_out_for_dec_pwr_meas); // USE HB1 or FIR output for power measurements
 
 	ad9361_spi_writef(spi, REG_DEC_POWER_MEASURE_DURATION_0,
 			  ENABLE_DEC_PWR_MEAS, 1); // Power Measurement Duration
@@ -8212,6 +8213,8 @@ static struct ad9361_phy_platform_data
 			  &pdata->gain_ctrl.dig_gain_en);
 	ad9361_of_get_u32(iodev, np, "adi,gc-max-dig-gain", 15,
 			  &pdata->gain_ctrl.max_dig_gain);
+	ad9361_of_get_bool(iodev, np, "adi,gc-use-rx-fir-out-for-dec-pwr-meas-enable",
+			   &pdata->gain_ctrl.use_rx_fir_out_for_dec_pwr_meas);
 
 	ad9361_of_get_bool(iodev, np, "adi,mgc-rx1-ctrl-inp-enable",
 			   &pdata->gain_ctrl.mgc_rx1_ctrl_inp_en);
