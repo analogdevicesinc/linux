@@ -292,6 +292,7 @@ config ARCH_FSL_IMX8MQ
 	select SERIAL_IMX
 	select PINCTRL
 	select PINCTRL_IMX
+	select PINCTRL_IMX8MQ
 	select PM
 	select SOC_BUS
 	help
