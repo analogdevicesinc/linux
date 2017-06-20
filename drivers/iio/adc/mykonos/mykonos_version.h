@@ -2,7 +2,7 @@
  * \file mykonos_version.h
  * \brief Contains the version number for the Mykonos API
  *
- * Mykonos API version: 1.4.0.3546
+ * Mykonos API version: 1.5.1.3565
  */
 
 /**
@@ -20,9 +20,9 @@ extern "C" {
 #endif
 
 #define MYKONOS_CURRENT_SI_VERSION 1    		/*!< Mykonos current silicon version */
-#define MYKONOS_CURRENT_MAJOR_VERSION 4			/*!< Mykonos current ARM major version */
-#define MYKONOS_CURRENT_MINOR_VERSION 0			/*!< Mykonos current ARM minor version */
-#define MYKONOS_CURRENT_BUILD_VERSION 3546		/*!< Mykonos current API build version */
+#define MYKONOS_CURRENT_MAJOR_VERSION 5			/*!< Mykonos current ARM major version */
+#define MYKONOS_CURRENT_MINOR_VERSION 1			/*!< Mykonos current ARM minor version */
+#define MYKONOS_CURRENT_BUILD_VERSION 3565		/*!< Mykonos current API build version */
 
 #ifdef __cplusplus
 }

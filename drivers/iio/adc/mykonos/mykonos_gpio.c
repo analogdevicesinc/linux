@@ -3,7 +3,7 @@
  *
  *\brief Contains Mykonos APIs for transceiver GPIO configuration and control.
  *
- * Mykonos API version: 1.4.0.3546
+ * Mykonos API version: 1.5.1.3565
  */
 
 /**
@@ -631,7 +631,7 @@ mykonosGpioErr_t MYKONOS_setRx1GainCtrlPin(mykonosDevice_t *device, uint8_t incS
     if (enable > 0)
     {
         /* Error checking for correct step. */
-        if ((incStep > MAX_STEP) || (decStep > MAX_STEP))
+        if ((uint8_t)(incStep > MAX_STEP) || (uint8_t)(decStep > MAX_STEP))
         {
             CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_MGCRX1_STEP_INV_PARAM,
                     getGpioMykonosErrorMessage(MYKONOS_ERR_MGCRX1_STEP_INV_PARAM));
@@ -667,7 +667,7 @@ mykonosGpioErr_t MYKONOS_setRx1GainCtrlPin(mykonosDevice_t *device, uint8_t incS
     }
 
     /* Setting increment step. */
-    wrtStep = ((incStep<<SHIFT_INC) | (decStep<<SHIFT_DEC) | (enable<<SHIFT_CH1)) & 0xFF;
+    wrtStep = (uint8_t)(incStep<<SHIFT_INC) | (uint8_t)(decStep<<SHIFT_DEC) | (uint8_t)(enable<<SHIFT_CH1);
 
     /* Set the GPIO input pin configuration and the step size. */
     CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AGC_MANUAL_GAIN_CFG, wrtStep, 0xFD, 0);
@@ -839,7 +839,7 @@ mykonosGpioErr_t MYKONOS_setRx2GainCtrlPin(mykonosDevice_t *device, uint8_t incS
     if (enable > 0)
     {
         /* Error checking for correct step. */
-        if ((incStep > MAX_STEP) || (decStep > MAX_STEP))
+        if ((uint8_t)(incStep > MAX_STEP) || (uint8_t)(decStep > MAX_STEP))
         {
             CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_MGCRX2_STEP_INV_PARAM,
                     getGpioMykonosErrorMessage(MYKONOS_ERR_MGCRX2_STEP_INV_PARAM));
@@ -875,7 +875,7 @@ mykonosGpioErr_t MYKONOS_setRx2GainCtrlPin(mykonosDevice_t *device, uint8_t incS
     }
 
     /* Setting increment step. */
-    wrtStep = ((incStep<<SHIFT_INC) | (decStep<<SHIFT_DEC) | (enable<<SHIFT_CH2)) & 0xFF;
+    wrtStep = (uint8_t)(incStep<<SHIFT_INC) | (uint8_t)(decStep<<SHIFT_DEC) | (uint8_t)(enable<<SHIFT_CH2);
 
     /* Set the GPIO input pin configuration and the step size. */
     CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AGC_MANUAL_GAIN_CFG, wrtStep, 0xFE, 0);
@@ -1693,7 +1693,7 @@ mykonosGpioErr_t MYKONOS_setTx1AttenCtrlPin(mykonosDevice_t *device, uint8_t ste
 #endif
 
     /* If enable then check for the next otherwise go directly to disable */
-    if(enable > 0)
+    if (enable > 0)
     {
         /* Error checking for correct step. */
         if (stepSize >  TX_INCDEC_MASK)
@@ -1926,7 +1926,7 @@ mykonosGpioErr_t MYKONOS_setTx2AttenCtrlPin(mykonosDevice_t *device, uint8_t ste
 #endif
 
     /* If enable then check for the next otherwise go directly to disable */
-    if(enable > 0)
+    if (enable > 0)
     {
         /* Error checking for correct step. */
         if (stepSize >  TX_INCDEC_MASK)
@@ -1969,8 +1969,8 @@ mykonosGpioErr_t MYKONOS_setTx2AttenCtrlPin(mykonosDevice_t *device, uint8_t ste
     }
     else
     {
-          /* Setting TPC mode corresponding for no Pin control */
-          tpcMode = 0x05;
+        /* Setting TPC mode corresponding for no Pin control */
+        tpcMode = 0x05;
     }
 
     /* Setting increment step. */
@@ -2369,7 +2369,7 @@ mykonosGpioErr_t MYKONOS_setArmGpioPins(mykonosDevice_t *device)
     CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GPIO_OK, "MYKONOS_setArmGpioPins()\n");
 #endif
 
-    if (device->auxIo->armGpio == 0)
+    if (device->auxIo->armGpio == NULL)
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SET_ARMGPIO_INV_POINTER,
                 getGpioMykonosErrorMessage(MYKONOS_ERR_SET_ARMGPIO_INV_POINTER));
@@ -2415,8 +2415,8 @@ mykonosGpioErr_t MYKONOS_setArmGpioPins(mykonosDevice_t *device)
         /* if output signal */
         if ((signalId[i] >= RX1_ENABLE_ACK_SIGNALID) && (gpioConfig[2] != 0))
         {
-            gpioOe |= (((gpioConfig[2] >> 4) & 0x01) << (gpioConfig[2] & 0x0F)); /* 1 = output */
-            gpioUsedMask |= (1 << (gpioConfig[2] & 0x0F));
+            gpioOe |= (uint32_t)(((gpioConfig[2] >> 4) & 0x01) << (gpioConfig[2] & 0x0F)); /* 1 = output */
+            gpioUsedMask |= (uint32_t)(1 << (gpioConfig[2] & 0x0F));
         }
 
         /* if input signal and orx Pin mode enabled - currently only input pins are orx pin mode control */
@@ -2432,8 +2432,8 @@ mykonosGpioErr_t MYKONOS_setArmGpioPins(mykonosDevice_t *device)
         }
 
         timeoutMs = 1000;
-        retval = (mykonosGpioErr_t)MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_SET_OPCODE, timeoutMs, &cmdStatusByte);
-        if (retval != MYKONOS_ERR_GPIO_OK)
+
+        if (( retval = (mykonosGpioErr_t)MYKONOS_waitArmCmdStatus(device, MYKONOS_ARM_SET_OPCODE, timeoutMs, &cmdStatusByte)) != MYKONOS_ERR_GPIO_OK)
         {
             return retval;
         }
@@ -2447,8 +2447,7 @@ mykonosGpioErr_t MYKONOS_setArmGpioPins(mykonosDevice_t *device)
     }
 
     /* Mykonos SPI regs to set GPIO OE direction only for pins used by ARM */
-    retval = MYKONOS_setGpioOe(device, gpioOe, gpioUsedMask);
-    if (retval != MYKONOS_ERR_GPIO_OK)
+    if ((retval = MYKONOS_setGpioOe(device, gpioOe, gpioUsedMask)) != MYKONOS_ERR_GPIO_OK)
     {
         return retval;
     }
@@ -2506,7 +2505,7 @@ mykonosGpioErr_t MYKONOS_setupAuxAdcs(mykonosDevice_t *device, uint8_t adcDecima
     uint32_t hsDigClk_kHz = 0;
     uint32_t auxAdcDiv = 0;
     uint32_t auxAdcClk_kHz = 40000;
-    uint32_t vcoDiv = device->clocks->clkPllVcoDiv;
+    uint32_t vcoDiv = (uint32_t)device->clocks->clkPllVcoDiv;
     uint8_t vcoDivTimes10 = 10;
 
     const uint8_t AUXADC_POWER_BIT_MASK = 0x80;
@@ -2515,7 +2514,7 @@ mykonosGpioErr_t MYKONOS_setupAuxAdcs(mykonosDevice_t *device, uint8_t adcDecima
     CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GPIO_OK, "MYKONOS_setupAuxAdcs()\n");
 #endif
 
-    if(enable == 0)
+    if (enable == 0)
     {
         CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AUX_ADC_BUFFER_CONFIG_0, 0xCF);
         CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AUX_ADC_CFG, 0x01);
@@ -2548,12 +2547,12 @@ mykonosGpioErr_t MYKONOS_setupAuxAdcs(mykonosDevice_t *device, uint8_t adcDecima
         hsDigClk_kHz = (device->clocks->clkPllVcoFreq_kHz / vcoDivTimes10 / device->clocks->clkPllHsDiv) * 10;
         auxAdcDiv = ((hsDigClk_kHz / 2) / (auxAdcClk_kHz)) - 1;
 
-        if(auxAdcDiv > 63)
+        if (auxAdcDiv > 63)
         {
             auxAdcDiv = 63;
         }
 
-        if(adcDecimation > 0x07)
+        if (adcDecimation > 0x07)
         {
             CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_INV_AUX_ADC_DEC_PARM,
                     getGpioMykonosErrorMessage(MYKONOS_ERR_INV_AUX_ADC_DEC_PARM));
@@ -2598,7 +2597,7 @@ mykonosGpioErr_t MYKONOS_setAuxAdcChannel(mykonosDevice_t *device, mykonosAuxAdc
     CMB_writeToLog(ADIHAL_LOG_MESSAGE, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GPIO_OK, "MYKONOS_setAuxAdcChannel()\n");
 #endif
 
-    if ((auxAdcChannel & ~CHANNEL_MASK) > 0)
+    if (((uint8_t)auxAdcChannel & ~CHANNEL_MASK) > 0)
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_INV_AUX_ADC_CHAN_PARM,
                 getGpioMykonosErrorMessage(MYKONOS_ERR_INV_AUX_ADC_CHAN_PARM));
@@ -2607,10 +2606,10 @@ mykonosGpioErr_t MYKONOS_setAuxAdcChannel(mykonosDevice_t *device, mykonosAuxAdc
 
     /* Read current selected channel, if different power down AUXADC and change AUXADC */
     CMB_SPIReadByte(device->spiSettings, MYKONOS_ADDR_AUX_ADC_SEL, &currentAuxAdcChan);
-    if (currentAuxAdcChan != auxAdcChannel)
+    if (currentAuxAdcChan != (uint8_t)auxAdcChannel)
     {
         CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AUX_ADC_CFG, POWER_DOWN_AUXADC, 0x01, 0);
-        CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AUX_ADC_SEL, auxAdcChannel);
+        CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AUX_ADC_SEL, ((auxAdcChannel & MYK_AUXADC_0_DIV2) ? 0: auxAdcChannel));
         CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_AUX_ADC_CFG, POWER_UP_AUXADC, 0x01, 0);
     }
 
@@ -2746,8 +2745,8 @@ mykonosGpioErr_t MYKONOS_setupAuxDacs(mykonosDevice_t *device)
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_AUX_DAC_LATCH_CONTROL, 0x01);
 
     /* Power up selected AuxDacs */
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_PDAUXDAC_MANUAL_IN_5_0, ((~device->auxIo->auxDacEnable) & 0x3F)); /* Power up enabled AuxDACs[5:0] */
-    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_PDAUXDAC_MANUAL_IN_9_6, (((~device->auxIo->auxDacEnable) >> 6) & 0x0F)); /* Power up enabled AuxDACs[9:6] */
+    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_PDAUXDAC_MANUAL_IN_5_0, (~device->auxIo->auxDacEnable & 0x3F)); /* Power up enabled AuxDACs[5:0] */
+    CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_PDAUXDAC_MANUAL_IN_9_6, (((uint16_t)(~device->auxIo->auxDacEnable) >> 6) & 0x0F)); /* Power up enabled AuxDACs[9:6] */
 
     return error;
 }
@@ -2849,27 +2848,24 @@ mykonosGpioErr_t MYKONOS_setupGpio(mykonosDevice_t *device)
     }
 
     /* write GPIO pin direction registers */
-    error = MYKONOS_setGpioOe(device, device->auxIo->gpio->gpioOe, oEnMask);
-
-    /* Check and return if error */
-    if (error)
+    if ((error = MYKONOS_setGpioOe(device, device->auxIo->gpio->gpioOe, oEnMask)) != MYKONOS_ERR_GPIO_OK)
     {
         return error;
     }
 
     /* write GPIO source control mode */
-    if ((device->auxIo->gpio->gpioSrcCtrl3_0 > 15) || (device->auxIo->gpio->gpioSrcCtrl7_4 > 15) ||
-        (device->auxIo->gpio->gpioSrcCtrl11_8 > 15) || (device->auxIo->gpio->gpioSrcCtrl15_12 > 15) ||
-        (device->auxIo->gpio->gpioSrcCtrl18_16 > 15))
+    if (((uint8_t)device->auxIo->gpio->gpioSrcCtrl3_0 > 15) || ((uint8_t)device->auxIo->gpio->gpioSrcCtrl7_4 > 15) ||
+        ((uint8_t)device->auxIo->gpio->gpioSrcCtrl11_8 > 15) || ((uint8_t)device->auxIo->gpio->gpioSrcCtrl15_12 > 15) ||
+        ((uint8_t)device->auxIo->gpio->gpioSrcCtrl18_16 > 15))
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SET_GPIO_1V8_INV_MODE,
                 getGpioMykonosErrorMessage(MYKONOS_ERR_SET_GPIO_1V8_INV_MODE));
         return MYKONOS_ERR_SET_GPIO_1V8_INV_MODE;
     }
 
-    srcWrite = device->auxIo->gpio->gpioSrcCtrl3_0 + (device->auxIo->gpio->gpioSrcCtrl7_4 << 4) +
-            (device->auxIo->gpio->gpioSrcCtrl11_8 << 8) + (device->auxIo->gpio->gpioSrcCtrl15_12 << 12) +
-            (device->auxIo->gpio->gpioSrcCtrl18_16 << 16);
+    srcWrite = (uint32_t)device->auxIo->gpio->gpioSrcCtrl3_0 + ((uint32_t)device->auxIo->gpio->gpioSrcCtrl7_4 << 4) +
+            ((uint32_t)device->auxIo->gpio->gpioSrcCtrl11_8 << 8) + ((uint32_t)device->auxIo->gpio->gpioSrcCtrl15_12 << 12) +
+            ((uint32_t)device->auxIo->gpio->gpioSrcCtrl18_16 << 16);
 
     error = MYKONOS_setGpioSourceCtrl(device, srcWrite);
 
@@ -2925,8 +2921,7 @@ mykonosGpioErr_t MYKONOS_setGpioOe(mykonosDevice_t *device, uint32_t gpioOutEn, 
     CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_GPIO_DIR_CTL_18_16, ((gpioOutEn >> 16) & 0xFF), ((gpioUsedMask >> 16) & 0xFF), 0);
 
     /* Updating gpioConfig->gpioSetup->gpioOe output enable */
-    error = MYKONOS_getGpioOe(device, &gpioOutEn);
-    if (error)
+    if ((error = MYKONOS_getGpioOe(device, &gpioOutEn)) != MYKONOS_ERR_GPIO_OK)
     {
         return error;
     }
@@ -3028,11 +3023,11 @@ mykonosGpioErr_t MYKONOS_setGpioSourceCtrl(mykonosDevice_t *device, uint32_t gpi
     CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_SOURCE_CONTROL_EXTRA_BITS, ((gpioSrcCtrl >> 16) & 0x0F));
 
     /* Updating gpioConfig->gpioSetup source control */
-    device->auxIo->gpio->gpioSrcCtrl3_0 = gpioSrcCtrl & 0x0F;
-    device->auxIo->gpio->gpioSrcCtrl7_4 = (gpioSrcCtrl >> 4) & 0x0F;
-    device->auxIo->gpio->gpioSrcCtrl11_8 = (gpioSrcCtrl >> 8) & 0x0F;
-    device->auxIo->gpio->gpioSrcCtrl15_12 = (gpioSrcCtrl >> 12) & 0x0F;
-    device->auxIo->gpio->gpioSrcCtrl18_16 = (gpioSrcCtrl >> 16) & 0x0F;
+    device->auxIo->gpio->gpioSrcCtrl3_0 = (mykonosGpioMode_t)(gpioSrcCtrl & 0x0F);
+    device->auxIo->gpio->gpioSrcCtrl7_4 = (mykonosGpioMode_t)((gpioSrcCtrl >> 4) & 0x0F);
+    device->auxIo->gpio->gpioSrcCtrl11_8 = (mykonosGpioMode_t)((gpioSrcCtrl >> 8) & 0x0F);
+    device->auxIo->gpio->gpioSrcCtrl15_12 = (mykonosGpioMode_t)((gpioSrcCtrl >> 12) & 0x0F);
+    device->auxIo->gpio->gpioSrcCtrl18_16 = (mykonosGpioMode_t)((gpioSrcCtrl >> 16) & 0x0F);
 
     /* Return */
     return MYKONOS_ERR_GPIO_OK;
@@ -3114,12 +3109,12 @@ mykonosGpioErr_t MYKONOS_setupGpio3v3(mykonosDevice_t *device)
     else
     {
         /* write GPIO pin direction registers */
-        error = MYKONOS_setGpio3v3Oe(device, device->auxIo->gpio3v3->gpio3v3Oe);
+        if ((error = MYKONOS_setGpio3v3Oe(device, device->auxIo->gpio3v3->gpio3v3Oe)) != MYKONOS_ERR_GPIO_OK)
 
         /* write GPIO3v3 mode */
-        if ((device->auxIo->gpio3v3->gpio3v3SrcCtrl3_0 > 15) ||
-                (device->auxIo->gpio3v3->gpio3v3SrcCtrl7_4 > 15) ||
-                (device->auxIo->gpio3v3->gpio3v3SrcCtrl11_8 > 15))
+        if (((uint8_t)device->auxIo->gpio3v3->gpio3v3SrcCtrl3_0 > 15) ||
+                ((uint8_t)device->auxIo->gpio3v3->gpio3v3SrcCtrl7_4 > 15) ||
+                ((uint8_t)device->auxIo->gpio3v3->gpio3v3SrcCtrl11_8 > 15))
         {
             CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_SET_GPIO_3V3_INV_MODE,
                     getGpioMykonosErrorMessage(MYKONOS_ERR_SET_GPIO_3V3_INV_MODE));
@@ -3808,7 +3803,7 @@ mykonosGpioErr_t MYKONOS_setRxSlicerCtrl(mykonosDevice_t *device, uint8_t slicer
         }
         else
         {
-            regWr |= ((slicerStep << STEP_SHIFT) & 0xFF);
+            regWr |= (uint8_t)(slicerStep << STEP_SHIFT);
         }
     }
 
@@ -3911,6 +3906,7 @@ mykonosGpioErr_t MYKONOS_getRxSlicerCtrl(mykonosDevice_t *device, uint8_t *slice
 
         default:
             *rx2Pins = GPIO_11_12_13;
+            break;
     }
 
     *rx1Pins = (mykonosRxSlicer_t)((regRd & RX1_MASK) >> RX1_SHIFT);
@@ -4000,7 +3996,7 @@ mykonosGpioErr_t MYKONOS_setObsRxSlicerCtrl(mykonosDevice_t *device, uint8_t sli
         }
         else
         {
-            regWr |= ((slicerStep << STEP_SHIFT) & 0xFF);
+            regWr |= (uint8_t)((slicerStep << STEP_SHIFT));
         }
     }
 
@@ -4098,7 +4094,7 @@ mykonosGpioErr_t MYKONOS_getObsRxSlicerCtrl(mykonosDevice_t *device, uint8_t *sl
  * \brief Floating point formatter enable and setup function.
  *
  * The floating point formatter block is a function that works in conjunction with the gain
- * compensating block, as the gain compensation requires increased dynamic range (total gain range on AD9370 is 42dB)
+ * compensating block, as the gain compensation requires increased dynamic range (total gain range on AD9371 is 42dB)
  * which increases the bitwidth in the digital datapath.
  *
  * <B>Dependencies</B>
@@ -4186,9 +4182,9 @@ mykonosGpioErr_t MYKONOS_setFloatPointFrmt (mykonosDevice_t *device, mykonosFloa
         return MYKONOS_ERR_FLOATFRMT_INV_LEADING;
     }
 
-    regWr1 = ((floatFrmt->roundMode << ROUND_SHIFT) | (floatFrmt->dataFormat << DATA_FRMT_SHIFT) |
+    regWr1 = (uint8_t)((floatFrmt->roundMode << ROUND_SHIFT) | (floatFrmt->dataFormat << DATA_FRMT_SHIFT) |
              (floatFrmt->encNan << ENCODE_SHIFT) | (floatFrmt->expBits << EXPBITS_SHIFT) |
-             (floatFrmt->leading << LEADING_SHIFT)) & 0xFF;
+             (floatFrmt->leading << LEADING_SHIFT));
 
 
     /* Write gain compensation setup to device */
@@ -4322,7 +4318,7 @@ mykonosGpioErr_t MYKONOS_setRxEnFloatPntFrmt (mykonosDevice_t *device, uint8_t r
 
         /* Enabling floating point formatter for Rx1 and Rx2 */
         regWr = 0x11;
-        regWr |= ((rx1Att << RX1ATT_SHIFT) | (rx2Att << RX2ATT_SHIFT)) & 0xFF;
+        regWr |= (uint8_t)((rx1Att << RX1ATT_SHIFT) | (rx2Att << RX2ATT_SHIFT));
     }
 
     /* Writing floating point formatter enables for Rx1 and Rx2 */
@@ -4336,7 +4332,7 @@ mykonosGpioErr_t MYKONOS_setRxEnFloatPntFrmt (mykonosDevice_t *device, uint8_t r
  * \brief Floating point formatter setup function.
  *
  * The floating point formatter block is a function that works in conjunction with the gain
- * compensating block, as the gain compensation requires increased dynamic range (total gain range on AD9370 is 42dB)
+ * compensating block, as the gain compensation requires increased dynamic range (total gain range on AD9371 is 42dB)
  * which increases the bitwidth in the digital datapath.
  *
  * <B>Dependencies</B>
@@ -4458,7 +4454,7 @@ mykonosGpioErr_t MYKONOS_setOrxEnFloatPntFrmt (mykonosDevice_t *device, uint8_t 
 
         /* Enabling floating point formatter for Rx1 and Rx2 */
         regWr = 0x01;
-        regWr |= (orxAtt << ORXATT_SHIFT) & 0xFF;
+        regWr |= (uint8_t)(orxAtt << ORXATT_SHIFT);
     }
 
     /* Writing floating point formatter enable for ORX channel */
@@ -4473,7 +4469,7 @@ mykonosGpioErr_t MYKONOS_setOrxEnFloatPntFrmt (mykonosDevice_t *device, uint8_t 
  * \brief Floating point formatter enable and setup function.
  *
  * The floating point formatter block is a function that works in conjunction with the gain
- * compensating block, as the gain compensation requires increased dynamic range (total gain range on AD9370 is 42dB)
+ * compensating block, as the gain compensation requires increased dynamic range (total gain range on AD9371 is 42dB)
  * which increases the bitwidth in the digital datapath.
  *
  * <B>Dependencies</B>
@@ -4857,6 +4853,10 @@ mykonosGpioErr_t MYKONOS_setGpioDrv(mykonosDevice_t *device, uint32_t gpioDrv)
     {
         reg0 = (uint8_t)(gpioDrv & 0xFF);
     }
+    else
+    {
+        reg0 = 0x00;
+    }
 
     if (gpioDrv & (uint32_t)MYKGPIO18)
     {
@@ -4909,7 +4909,7 @@ mykonosGpioErr_t MYKONOS_setGpioDrv(mykonosDevice_t *device, uint32_t gpioDrv)
  * \retval MYKONOS_ERR_GETGPIODRV_NULL_PARAM null parameter passed to the function.
  * \retval MYKONOS_ERR_GPIO_OK Function completed successfully
  */
-mykonosGpioErr_t MYKONOS_getGpioDrv(mykonosDevice_t *device, mykonosGpioSelect_t *gpioDrv)
+mykonosGpioErr_t MYKONOS_getGpioDrv(mykonosDevice_t *device, uint32_t *gpioDrv)
 {
     mykonosGpioErr_t error = MYKONOS_ERR_GPIO_OK;
     uint8_t reg0 = 0x00;
@@ -4963,7 +4963,7 @@ mykonosGpioErr_t MYKONOS_getGpioDrv(mykonosDevice_t *device, mykonosGpioSelect_t
         gpioDrvRd |= (uint32_t)MYKGPIO12 | (uint32_t)MYKGPIO11;
     }
 
-    *gpioDrv = gpioDrvRd;
+    *gpioDrv = (mykonosGpioSelect_t)gpioDrvRd;
 
     return error;
 }
@@ -5016,7 +5016,7 @@ mykonosGpioErr_t MYKONOS_setGpioSlewRate(mykonosDevice_t *device, mykonosGpioSel
 #endif
 
     /* Error checking for correct number of GPIOs. */
-    if ((gpioSelect > GPIO_MASK) || (slewRate > SLEWRATE_MASK))
+    if (((uint32_t)gpioSelect > GPIO_MASK) || ((uint8_t)slewRate > SLEWRATE_MASK))
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GPIO_SLEW_RATE_INV_PARAM,
                 getGpioMykonosErrorMessage(MYKONOS_ERR_GPIO_SLEW_RATE_INV_PARAM));
@@ -5028,61 +5028,61 @@ mykonosGpioErr_t MYKONOS_setGpioSlewRate(mykonosDevice_t *device, mykonosGpioSel
     CMB_SPIReadByte(device->spiSettings, MYKONOS_GPIO_SLEW_CTL_2, &reg2);
     CMB_SPIReadByte(device->spiSettings, MYKONOS_GPIO_SLEW_CTL_3, &reg3);
 
-    if (gpioSelect & MYKGPIO18)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO18)
     {
-        reg0 = (reg0 & ~(SLEWRATE_MASK << SHIFT4NIBLE)) | (slewRate << SHIFT4NIBLE);
+        reg0 = (reg0 & ~(SLEWRATE_MASK << SHIFT4NIBLE)) | ((uint8_t)slewRate << SHIFT4NIBLE);
     }
-    if ((gpioSelect & MYKGPIO17) || (gpioSelect & MYKGPIO16))
+    if (((uint32_t)gpioSelect & (uint32_t)MYKGPIO17) || ((uint32_t)gpioSelect & (uint32_t)MYKGPIO16))
     {
-        reg0 = (reg0 & ~(SLEWRATE_MASK << SHIFT3NIBLE)) | (slewRate << SHIFT3NIBLE);
+        reg0 = (reg0 & ~(SLEWRATE_MASK << SHIFT3NIBLE)) | ((uint8_t)slewRate << SHIFT3NIBLE);
     }
-    if ((gpioSelect & MYKGPIO15) || (gpioSelect & MYKGPIO8))
+    if (((uint32_t)gpioSelect & (uint32_t)MYKGPIO15) || ((uint32_t)gpioSelect & (uint32_t)MYKGPIO8))
     {
-        reg0 = (reg0 & ~(SLEWRATE_MASK << SHIFT2NIBLE)) | (slewRate << SHIFT2NIBLE);
+        reg0 = (reg0 & ~(SLEWRATE_MASK << SHIFT2NIBLE)) | ((uint8_t)slewRate << SHIFT2NIBLE);
     }
-    if ((gpioSelect & MYKGPIO14) || (gpioSelect & MYKGPIO13))
+    if (((uint32_t)gpioSelect & (uint32_t)MYKGPIO14) || ((uint32_t)gpioSelect & (uint32_t)MYKGPIO13))
     {
-        reg0 = (reg0 & ~(SLEWRATE_MASK)) | slewRate;
+        reg0 = (reg0 & ~(SLEWRATE_MASK)) | (uint8_t)slewRate;
     }
-    if ((gpioSelect & MYKGPIO11) || (gpioSelect & MYKGPIO12))
+    if (((uint32_t)gpioSelect & (uint32_t)MYKGPIO11) || ((uint32_t)gpioSelect & (uint32_t)MYKGPIO12))
     {
-        reg1 = (reg1 & ~(SLEWRATE_MASK << SHIFT4NIBLE)) | (slewRate << SHIFT4NIBLE);
+        reg1 = (reg1 & ~(SLEWRATE_MASK << SHIFT4NIBLE)) | ((uint8_t)slewRate << SHIFT4NIBLE);
     }
-    if ((gpioSelect & MYKGPIO9) || (gpioSelect & MYKGPIO10))
+    if (((uint32_t)gpioSelect & (uint32_t)MYKGPIO9) || ((uint32_t)gpioSelect & (uint32_t)MYKGPIO10))
     {
-        reg1 = (reg1 & ~(SLEWRATE_MASK << SHIFT3NIBLE)) | (slewRate << SHIFT3NIBLE);
+        reg1 = (reg1 & ~(SLEWRATE_MASK << SHIFT3NIBLE)) | ((uint8_t)slewRate << SHIFT3NIBLE);
     }
-    if (gpioSelect & MYKGPIO7)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO7)
     {
-        reg1 = (reg1 & ~(SLEWRATE_MASK << SHIFT2NIBLE)) | (slewRate << SHIFT2NIBLE);
+        reg1 = (reg1 & ~(SLEWRATE_MASK << SHIFT2NIBLE)) | ((uint8_t)slewRate << SHIFT2NIBLE);
     }
-    if (gpioSelect & MYKGPIO6)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO6)
     {
-        reg1 = (reg1 & ~(SLEWRATE_MASK)) | slewRate;
+        reg1 = (reg1 & ~(SLEWRATE_MASK)) | (uint8_t)slewRate;
     }
-    if (gpioSelect & MYKGPIO5)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO5)
     {
-        reg2 = (reg2 & ~(SLEWRATE_MASK << SHIFT4NIBLE)) | (slewRate << SHIFT4NIBLE);
+        reg2 = (reg2 & ~(SLEWRATE_MASK << SHIFT4NIBLE)) | ((uint8_t)slewRate << SHIFT4NIBLE);
     }
-    if (gpioSelect & MYKGPIO4)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO4)
     {
-        reg2 = (reg2 & ~(SLEWRATE_MASK << SHIFT3NIBLE)) | (slewRate << SHIFT3NIBLE);
+        reg2 = (reg2 & ~(SLEWRATE_MASK << SHIFT3NIBLE)) | ((uint8_t)slewRate << SHIFT3NIBLE);
     }
-    if (gpioSelect & MYKGPIO3)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO3)
     {
-        reg2 = (reg2 & ~(SLEWRATE_MASK << SHIFT2NIBLE)) | (slewRate << SHIFT2NIBLE);
+        reg2 = (reg2 & ~(SLEWRATE_MASK << SHIFT2NIBLE)) | ((uint8_t)slewRate << SHIFT2NIBLE);
     }
-    if (gpioSelect & MYKGPIO2)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO2)
     {
-        reg2 = (reg2 & ~(SLEWRATE_MASK)) | slewRate;
+        reg2 = (reg2 & ~(SLEWRATE_MASK)) | (uint8_t)slewRate;
     }
-    if (gpioSelect & MYKGPIO1)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO1)
     {
-        reg3 = (reg3 & ~(SLEWRATE_MASK << SHIFT2NIBLE)) | (slewRate << SHIFT2NIBLE);
+        reg3 = (reg3 & ~(SLEWRATE_MASK << SHIFT2NIBLE)) | ((uint8_t)slewRate << SHIFT2NIBLE);
     }
-    if (gpioSelect & MYKGPIO0)
+    if ((uint32_t)gpioSelect & (uint32_t)MYKGPIO0)
     {
-        reg3 = (reg3 & ~(SLEWRATE_MASK)) | slewRate;
+        reg3 = (reg3 & ~(SLEWRATE_MASK)) | (uint8_t)slewRate;
     }
 
     /* Prepare registers */
@@ -5144,51 +5144,51 @@ mykonosGpioErr_t MYKONOS_getGpioSlewRate(mykonosDevice_t *device, mykonosGpioSel
     switch (gpioSelect)
     {
         case MYKGPIO18:
-            slewSetting = (reg0 & (SLEWRATE_MASK << SHIFT4NIBLE)) >> SHIFT4NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg0 & (SLEWRATE_MASK << SHIFT4NIBLE)) >> SHIFT4NIBLE);
             break;
         case MYKGPIO17:
         case MYKGPIO16:
-            slewSetting = (reg0 & (SLEWRATE_MASK << SHIFT3NIBLE)) >> SHIFT3NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg0 & (SLEWRATE_MASK << SHIFT3NIBLE)) >> SHIFT3NIBLE);
             break;
         case MYKGPIO15:
         case MYKGPIO8:
-            slewSetting = (reg0 & (SLEWRATE_MASK << SHIFT2NIBLE)) >> SHIFT2NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg0 & (SLEWRATE_MASK << SHIFT2NIBLE)) >> SHIFT2NIBLE);
             break;
         case MYKGPIO14:
         case MYKGPIO13:
-            slewSetting = (reg0 & (SLEWRATE_MASK));
+            slewSetting = (mykonosGpioSlewRate_t)(reg0 & (SLEWRATE_MASK));
             break;
         case MYKGPIO11:
         case MYKGPIO12:
-            slewSetting = (reg1 & (SLEWRATE_MASK << SHIFT4NIBLE)) >> SHIFT4NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg1 & (SLEWRATE_MASK << SHIFT4NIBLE)) >> SHIFT4NIBLE);
             break;
         case MYKGPIO9:
         case MYKGPIO10:
-            slewSetting = (reg1 & (SLEWRATE_MASK << SHIFT3NIBLE)) >> SHIFT3NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg1 & (SLEWRATE_MASK << SHIFT3NIBLE)) >> SHIFT3NIBLE);
             break;
         case MYKGPIO7:
-            slewSetting = (reg1 & (SLEWRATE_MASK << SHIFT2NIBLE)) >> SHIFT2NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg1 & (SLEWRATE_MASK << SHIFT2NIBLE)) >> SHIFT2NIBLE);
             break;
         case MYKGPIO6:
-            slewSetting = (reg1 & (SLEWRATE_MASK));
+            slewSetting = (mykonosGpioSlewRate_t)(reg1 & (SLEWRATE_MASK));
             break;
         case MYKGPIO5:
-            slewSetting = (reg2 & (SLEWRATE_MASK << SHIFT4NIBLE)) >> SHIFT4NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg2 & (SLEWRATE_MASK << SHIFT4NIBLE)) >> SHIFT4NIBLE);
             break;
         case MYKGPIO4:
-            slewSetting = (reg2 & (SLEWRATE_MASK << SHIFT3NIBLE)) >> SHIFT3NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg2 & (SLEWRATE_MASK << SHIFT3NIBLE)) >> SHIFT3NIBLE);
             break;
         case MYKGPIO3:
-            slewSetting = (reg2 & (SLEWRATE_MASK << SHIFT2NIBLE)) >> SHIFT2NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg2 & (SLEWRATE_MASK << SHIFT2NIBLE)) >> SHIFT2NIBLE);
             break;
         case MYKGPIO2:
-            slewSetting = (reg2 & (SLEWRATE_MASK));
+            slewSetting = (mykonosGpioSlewRate_t)(reg2 & (SLEWRATE_MASK));
             break;
         case MYKGPIO1:
-            slewSetting = (reg3 & (SLEWRATE_MASK << SHIFT2NIBLE)) >> SHIFT2NIBLE;
+            slewSetting = (mykonosGpioSlewRate_t)((reg3 & (SLEWRATE_MASK << SHIFT2NIBLE)) >> SHIFT2NIBLE);
             break;
         case MYKGPIO0:
-            slewSetting = (reg3 & (SLEWRATE_MASK));
+            slewSetting = (mykonosGpioSlewRate_t)(reg3 & (SLEWRATE_MASK));
             break;
         default:
             CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_GPIO_SLEW_RATE_INV_PARAM,
@@ -5239,7 +5239,6 @@ mykonosGpioErr_t MYKONOS_setCmosDrv(mykonosDevice_t *device, mykonosCmosPadDrvSt
             CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CMOS_DRV_INV_PARAM,
                 getGpioMykonosErrorMessage(MYKONOS_ERR_CMOS_DRV_INV_PARAM));
             return MYKONOS_ERR_CMOS_DRV_INV_PARAM;
-            break;
     }
 
     CMB_SPIWriteField(device->spiSettings, MYKONOS_GPIO_SLEW_CTL_3, cmosDrv, (~CMOS_DRV_MASK), CMOS_DRV_SHIFT);
@@ -5280,7 +5279,7 @@ mykonosGpioErr_t MYKONOS_getCmosDrv(mykonosDevice_t *device, mykonosCmosPadDrvSt
 
     CMB_SPIReadByte(device->spiSettings, MYKONOS_GPIO_SLEW_CTL_3, &regRd);
 
-    *cmosDrv = ((regRd & CMOS_DRV_MASK) >> CMOS_DRV_SHIFT);
+    *cmosDrv = (mykonosCmosPadDrvStr_t)((regRd & CMOS_DRV_MASK) >> CMOS_DRV_SHIFT);
 
     return MYKONOS_ERR_GPIO_OK;
 }
@@ -5329,8 +5328,6 @@ mykonosGpioErr_t MYKONOS_spi2GpioSetup(mykonosDevice_t *device, uint8_t enable, 
 {
     uint8_t regWrite = 0;
     uint8_t enableBit = 0;
-    mykonosGpioErr_t error = MYKONOS_ERR_OK;
-    uint32_t halError = COMMONERR_OK;
 
     const uint32_t SPI2_PIN_MASK = 0x03;
 
@@ -5348,15 +5345,11 @@ mykonosGpioErr_t MYKONOS_spi2GpioSetup(mykonosDevice_t *device, uint8_t enable, 
 
     /* masking the enable bit and the required pin */
     enableBit = (enable > 0) ? 1 : 0;
-    regWrite = ((updateTxAttenPinSelect << 4) | (enableBit << 3)) & 0xFF;
+    regWrite = (uint8_t)((updateTxAttenPinSelect << 4) | (enableBit << 3));
 
     /* Set the SPI2 enable and the GPIO pin associated. */
-    halError = CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_CONFIGURATION_CONTROL_1, regWrite, 0x38, 0);
-    if (halError)
-    {
-        return MYKONOS_ERR_HAL_LAYER;
-    }
+    CMB_SPIWriteField(device->spiSettings, MYKONOS_ADDR_CONFIGURATION_CONTROL_1, regWrite, 0x38, 0);
 
-    return error;
+    return MYKONOS_ERR_GPIO_OK;
 }
 

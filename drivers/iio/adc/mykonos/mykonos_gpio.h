@@ -2,7 +2,7 @@
  * \file mykonos_gpio.h
  * \brief Contains macro definitions and function prototypes for mykonos_gpio.c
  *
- * Mykonos API version: 1.4.0.3546
+ * Mykonos API version: 1.5.1.3565
  */
 
 /**
@@ -29,8 +29,8 @@ extern "C" {
  */
 
 /* GPIO CMOS and SPI setting Functions */
-mykonosGpioErr_t MYKONOS_setGpioDrv(mykonosDevice_t *device, mykonosGpioSelect_t gpioDrv);
-mykonosGpioErr_t MYKONOS_getGpioDrv(mykonosDevice_t *device, mykonosGpioSelect_t *gpioDrv);
+mykonosGpioErr_t MYKONOS_setGpioDrv(mykonosDevice_t *device, uint32_t gpioDrv);
+mykonosGpioErr_t MYKONOS_getGpioDrv(mykonosDevice_t *device, uint32_t *gpioDrv);
 
 mykonosGpioErr_t MYKONOS_setGpioSlewRate(mykonosDevice_t *device, mykonosGpioSelect_t gpioSelect, mykonosGpioSlewRate_t slewRate);
 mykonosGpioErr_t MYKONOS_getGpioSlewRate(mykonosDevice_t *device, mykonosGpioSelect_t gpioSelect, mykonosGpioSlewRate_t *slewRate);
