@@ -352,10 +352,8 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	unsigned int tmp;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+	if (!pdata)
 		return NULL;
-	}
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,jesd-xbar-lane0-sel", &tmp);
