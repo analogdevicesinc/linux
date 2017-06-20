@@ -3,7 +3,7 @@
  *
  * \brief Contains Mykonos APIs for Jesd debug facilities.
  *
- * Mykonos API version: 1.4.0.3546
+ * Mykonos API version: 1.5.1.3565
  */
 
 /**
@@ -146,7 +146,6 @@ mykonosDbgErr_t MYKONOS_jesdIndWrReg(mykonosDevice_t *device, mykonos_jesdcore_t
             CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DBG_ILLEGAL_JESD_CORE,
                     getDbgJesdMykonosErrorMessage(MYKONOS_ERR_DBG_ILLEGAL_JESD_CORE));
              return MYKONOS_ERR_DBG_ILLEGAL_JESD_CORE;
-        break;
     }
 
     /* Perform indirect write */
@@ -206,7 +205,6 @@ mykonosDbgErr_t MYKONOS_jesdIndRdReg(mykonosDevice_t *device, mykonos_jesdcore_t
             CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DBG_ILLEGAL_JESD_CORE,
                     getDbgJesdMykonosErrorMessage(MYKONOS_ERR_DBG_ILLEGAL_JESD_CORE));
              return MYKONOS_ERR_DBG_ILLEGAL_JESD_CORE;
-        break;
     }
 
     /* Perform indirect read */
@@ -321,7 +319,7 @@ mykonosDbgErr_t MYKONOS_deframerGetErrLane(mykonosDevice_t *device, mykonosErrTy
     }
 
     /* Read error and store it in lane */
-    error = MYKONOS_jesdIndRdReg(device, jesdCore, errType, lane);
+    error = MYKONOS_jesdIndRdReg(device, jesdCore, (uint8_t)errType, lane);
 
     return error;
 }
@@ -381,7 +379,7 @@ mykonosDbgErr_t MYKONOS_deframerRstErrCntr(mykonosDevice_t *device, mykonosErrTy
     }
 
     /* Perform reset counter */
-    error = MYKONOS_jesdIndWrReg(device, jesdCore, errType, (rstCntBit | ((uint8_t)lane)));
+    error = MYKONOS_jesdIndWrReg(device, jesdCore, (uint8_t)errType, (rstCntBit | ((uint8_t)lane)));
 
     return error;
 }
@@ -431,8 +429,7 @@ mykonosDbgErr_t MYKONOS_deframerRstErrIrq(mykonosDevice_t *device, mykonosErrTyp
     {
         case MYK_CMM:
             /* CMM has no lane selection */
-            error = (mykonosDbgErr_t)MYKONOS_jesdIndRdReg(device, jesdCore, errType, &regRd);
-            if (error != MYKONOS_ERR_DBG_OK)
+            if(MYKONOS_ERR_DBG_OK != (error = MYKONOS_jesdIndRdReg(device, jesdCore, (uint8_t)errType, &regRd)))
             {
                 return error;
             }
@@ -453,21 +450,21 @@ mykonosDbgErr_t MYKONOS_deframerRstErrIrq(mykonosDevice_t *device, mykonosErrTyp
     }
 
     /* Reset selected IRQ */
-    if ((error = (mykonosDbgErr_t)MYKONOS_jesdIndRdReg(device, jesdCore, errType, &regRd)) != MYKONOS_ERR_DBG_OK)
+    if ((error = MYKONOS_jesdIndRdReg(device, jesdCore, (uint8_t)errType, &regRd)) != MYKONOS_ERR_DBG_OK)
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, error,
                 getDbgJesdMykonosErrorMessage(error));
         return error;
     }
 
-    if ((error = (mykonosDbgErr_t)MYKONOS_jesdIndWrReg(device, jesdCore, errType, (rstIrqBit | ((uint8_t)lane)))) != MYKONOS_ERR_DBG_OK)
+    if ((error = MYKONOS_jesdIndWrReg(device, jesdCore, (uint8_t)errType, (rstIrqBit | ((uint8_t)lane)))) != MYKONOS_ERR_DBG_OK)
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, error,
                 getDbgJesdMykonosErrorMessage(error));
         return error;
     }
 
-    if ((error = (mykonosDbgErr_t)MYKONOS_jesdIndRdReg(device, jesdCore, errType, &regRd)) != MYKONOS_ERR_DBG_OK)
+    if ((error = MYKONOS_jesdIndRdReg(device, jesdCore, (uint8_t)errType, &regRd)) != MYKONOS_ERR_DBG_OK)
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, error,
                 getDbgJesdMykonosErrorMessage(error));
@@ -554,7 +551,7 @@ mykonosDbgErr_t MYKONOS_deframerRdErrCntr(mykonosDevice_t *device, mykonosLaneSe
         return error;
     }
 
-    if ((error = MYKONOS_jesdIndRdReg(device, jesdCore, ERR_CNT_ADDR, &laneErr->nitCntr)))
+    if ((error = MYKONOS_jesdIndRdReg(device, jesdCore, ERR_CNT_ADDR, &laneErr->nitCntr))!= MYKONOS_ERR_DBG_OK)
     {
         return error;
     }
@@ -718,7 +715,7 @@ mykonosDbgErr_t MYKONOS_deframerSetSyncMask(mykonosDevice_t *device, uint8_t err
     }
     regRd &= ~(MASK);
 
-    regWr = regRd | (errSyncMask << SYNC_SHIFT);
+    regWr = (uint8_t)(regRd | (errSyncMask << SYNC_SHIFT));
 
     if ((error = MYKONOS_jesdIndWrReg(device, jesdCore, SYNC_MASK_CTRL, regWr)) != MYKONOS_ERR_DBG_OK)
     {
@@ -991,7 +988,7 @@ mykonosDbgErr_t MYKONOS_deframerGetIrq(mykonosDevice_t *device, uint8_t *errIrq)
     }
 
     /* Reading main IRQ */
-    if ((error = MYKONOS_jesdIndRdReg(device, jesdCore, IRQ_MSK_CTRL_ADDR, &regRd)))
+    if ((error = MYKONOS_jesdIndRdReg(device, jesdCore, IRQ_MSK_CTRL_ADDR, &regRd))!= MYKONOS_ERR_DBG_OK)
     {
         return error;
     }
@@ -1000,7 +997,7 @@ mykonosDbgErr_t MYKONOS_deframerGetIrq(mykonosDevice_t *device, uint8_t *errIrq)
 
 
     /* Reading CMMIRQ */
-    if ((error = MYKONOS_jesdIndRdReg(device, jesdCore, CMMIRQ_CTRL, &regRd)))
+    if ((error = MYKONOS_jesdIndRdReg(device, jesdCore, CMMIRQ_CTRL, &regRd))!= MYKONOS_ERR_DBG_OK)
     {
         return error;
     }
