@@ -2,7 +2,7 @@
  * \file mykonos.h
  * \brief Contains macro definitions and function prototypes for mykonos.c
  *
- * Mykonos API version: 1.4.0.3546
+ * Mykonos API version: 1.5.1.3565
  */
 
 /**
@@ -61,9 +61,10 @@ mykonosErr_t MYKONOS_getRfPllLoopFilter(mykonosDevice_t *device, mykonosRfPllNam
  */
 mykonosErr_t MYKONOS_initArm(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_loadArmFromBinary(mykonosDevice_t *device, uint8_t *binary, uint32_t count);
+mykonosErr_t MYKONOS_loadArmConcurrent(mykonosDevice_t *device, uint8_t *binary, uint32_t count);
 mykonosErr_t MYKONOS_verifyArmChecksum(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_checkArmState(mykonosDevice_t *device, mykonosArmState_t armStateCheck);
-mykonosErr_t MYKONOS_getArmVersion(mykonosDevice_t *device, uint8_t *majorVer, uint8_t *minorVer, uint8_t *rcVer);
+mykonosErr_t MYKONOS_getArmVersion(mykonosDevice_t *device, uint8_t *majorVer, uint8_t *minorVer, uint8_t *rcVer, mykonosBuild_t *buildType);
 
 mykonosErr_t MYKONOS_configDpd(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_getDpdConfig(mykonosDevice_t *device);
@@ -71,7 +72,14 @@ mykonosErr_t MYKONOS_getDpdStatus(mykonosDevice_t *device, mykonosTxChannels_t t
 mykonosErr_t MYKONOS_restoreDpdModel(mykonosDevice_t *device, mykonosTxChannels_t txChannel, uint8_t *modelDataBuffer, uint32_t modelNumberBytes);
 mykonosErr_t MYKONOS_saveDpdModel(mykonosDevice_t *device, mykonosTxChannels_t txChannel, uint8_t *modelDataBuffer, uint32_t modelNumberBytes);
 mykonosErr_t MYKONOS_setDpdActState(mykonosDevice_t *device, mykonosTxChannels_t txChannel, uint8_t actState);
-mykonosErr_t MYKONOS_resetDpd(mykonosDevice_t *device,  mykonosTxChannels_t txChannel, uint8_t reset);
+mykonosErr_t MYKONOS_resetDpd(mykonosDevice_t *device, mykonosTxChannels_t txChannel, mykonosDpdResetMode_t reset);
+mykonosErr_t MYKONOS_setDpdBypassConfig(mykonosDevice_t *device, mykonosDpdBypassConfig_t *actConfig);
+mykonosErr_t MYKONOS_getDpdBypassConfig(mykonosDevice_t *device, mykonosDpdBypassConfig_t *actConfig);
+mykonosErr_t MYKONOS_setDpdActuatorCheck(mykonosDevice_t *device, mykonosDpdActuatorCheck_t *actCheck);
+mykonosErr_t MYKONOS_getDpdActuatorCheck(mykonosDevice_t *device, mykonosDpdActuatorCheck_t *actCheck);
+
+mykonosErr_t MYKONOS_setClgcAttenTuningConfig(mykonosDevice_t *device, mykonosClgcAttenTuningConfig_t *attRangeCfg);
+mykonosErr_t MYKONOS_getClgcAttenTuningConfig(mykonosDevice_t *device, mykonosClgcAttenTuningConfig_t *attRangeCfg);
 
 mykonosErr_t MYKONOS_configClgc(mykonosDevice_t *device);
 mykonosErr_t MYKONOS_getClgcConfig(mykonosDevice_t *device);
@@ -108,6 +116,11 @@ mykonosErr_t MYKONOS_getOrxQecStatus(mykonosDevice_t *device, mykonosObsRxChanne
 
 mykonosErr_t MYKONOS_setSnifferChannel(mykonosDevice_t *device, mykonosSnifferChannel_t snifferChannel);
 mykonosErr_t MYKONOS_setRadioControlPinMode(mykonosDevice_t *device);
+
+mykonosErr_t MYKONOS_setPathDelay(mykonosDevice_t *device, mykonosPathdelay_t *pathDelay);
+mykonosErr_t MYKONOS_getPathDelay(mykonosDevice_t *device, mykonosPathDelaySel_t select, mykonosPathdelay_t *pathDelay);
+
+mykonosErr_t MYKONOS_getDpdErrorCounters(mykonosDevice_t *device,  mykonosTxChannels_t txChannel, mykonosDpdErrorCounters_t *dpdErrCnt);
 
 /* Low level ARM functions */
 mykonosErr_t MYKONOS_readArmMem(mykonosDevice_t *device, uint32_t address, uint8_t *returnData, uint32_t bytesToRead, uint8_t autoIncrement);
