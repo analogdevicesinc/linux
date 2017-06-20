@@ -564,12 +564,22 @@ static int ad9144_probe(struct spi_device *spi)
 		goto out;
 	}
 
-	clk_prepare_enable(conv->clk[0]);
+	ret = clk_prepare_enable(conv->clk[0]);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
+		return ret;
+	}
 
 	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
 	lane_rate_kHz = (lane_rate_kHz / 1000) * 10;	// FIXME for other configurations
 	lane_rate_kHz /= st->interpolation;
-	clk_set_rate(conv->clk[0], lane_rate_kHz);
+
+	ret = clk_set_rate(conv->clk[0], lane_rate_kHz);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
+			lane_rate_kHz, ret);
+		return ret;
+	}
 
 	spi_set_drvdata(spi, conv);
 
