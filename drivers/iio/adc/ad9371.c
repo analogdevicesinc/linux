@@ -3627,6 +3627,8 @@ static int ad9371_probe(struct spi_device *spi)
 	struct clk *clk = NULL;
 	int ret;
 	u8 vers[3], rev;
+	mykonosBuild_t buildType;
+	u32 api_vers[4];
 
 	struct device_node *np = spi->dev.of_node;
 
@@ -3775,11 +3777,13 @@ static int ad9371_probe(struct spi_device *spi)
 	if (ret < 0)
 		dev_warn(&spi->dev, "%s: failed to register debugfs", __func__);
 
-	MYKONOS_getArmVersion(phy->mykDevice, &vers[0], &vers[1], &vers[2]);
+	MYKONOS_getArmVersion(phy->mykDevice, &vers[0], &vers[1], &vers[2], &buildType);
+	MYKONOS_getApiVersion(phy->mykDevice, &api_vers[0], &api_vers[1], &api_vers[2], &api_vers[3]);
 	MYKONOS_getDeviceRev(phy->mykDevice, &rev);
 
-	dev_info(&spi->dev, "%s : AD937%d Rev %d, Firmware %u.%u.%u successfully initialized",
-		 __func__, AD937x_PARTID(phy), rev, vers[0], vers[1], vers[2]);
+	dev_info(&spi->dev, "%s : AD937%d Rev %d, Firmware %u.%u.%u API version: %u.%u.%u.%u successfully initialized",
+		 __func__, AD937x_PARTID(phy), rev, vers[0], vers[1], vers[2],
+		 api_vers[0], api_vers[1], api_vers[2], api_vers[3]);
 
 	return 0;
 
