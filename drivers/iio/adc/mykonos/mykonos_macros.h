@@ -2,7 +2,7 @@
  * \file mykonos_macros.h
  * \brief Contains address and miscellaneous macro definitions for Mykonos API
  *
- * Mykonos API version: 1.4.0.3546
+ * Mykonos API version: 1.5.1.3565
  */
 
 /**
@@ -196,12 +196,9 @@ extern "C" {
 #define MYKONOS_ADDR_CLK_SYNTH_VCO_VAR_CTL2                 0x15F
 
 /* DPD Registers */
-#define MYKONOS_ADDR_TX1_DPD_RMS_INDIRECT_PTR               0x168
-#define MYKONOS_ADDR_TX2_DPD_RMS_INDIRECT_PTR               0x16C
 #define MYKONOS_ADDR_TX1_DPD_MODEL_INDIRECT_PTR             0x178
 #define MYKONOS_ADDR_TX2_DPD_MODEL_INDIRECT_PTR             0x17C
 #define MYKONOS_ADDR_DPD_RMS_BUF_SIZE                       0x180
-#define MYKONOS_ADDR_DPD_MODEL_BUF_SIZE                     0x182
 #define MYKONOS_ADDR_TX1_DPD_MODEL_WORKING_PTR              0x188
 #define MYKONOS_ADDR_TX2_DPD_MODEL_WORKING_PTR              0x18C
 
@@ -701,6 +698,7 @@ extern "C" {
 #define ENABLE_DPD_ACTUATOR       0x04
 #define SET_CLGC_DESIRED_GAIN_1   0x05
 #define SET_CLGC_DESIRED_GAIN_2   0x06
+#define SET_PATH_DELAY            0x08
 
 #ifdef __cplusplus
 }
