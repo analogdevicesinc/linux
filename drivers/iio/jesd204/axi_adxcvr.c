@@ -211,7 +211,6 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 
 	dev_dbg(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
 
-	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 
@@ -220,6 +219,14 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 	ret = adxcvr_status_error(st->dev);
 
 	return ret;
+}
+
+static void adxcvr_clk_disable(struct clk_hw *hw)
+{
+	struct adxcvr_state *st =
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
+
+	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 }
 
 static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
@@ -308,8 +315,6 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (ret < 0)
 		return ret;
 
-	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
-
 	if (st->cpll_enable)
 		ret = xilinx_xcvr_cpll_write_config(&st->xcvr,
 			ADXCVR_DRP_PORT_CHANNEL, &cpll_conf);
@@ -340,8 +345,6 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (ret < 0)
 		return ret;
 
-	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-
 	st->lane_rate = rate;
 
 	if (!IS_ERR(st->lane_rate_div40_clk))
@@ -353,6 +356,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 static const struct clk_ops clkout_ops = {
 	.recalc_rate = adxcvr_clk_recalc_rate,
 	.enable = adxcvr_clk_enable,
+	.disable = adxcvr_clk_disable,
 	.round_rate = adxcvr_clk_round_rate,
 	.set_rate = adxcvr_clk_set_rate,
 };
