@@ -863,7 +863,7 @@ u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 	}
 }
 
-int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, u64 freq)
+int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, bool is_tx, u64 freq)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
@@ -872,7 +872,8 @@ int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, u64 freq)
 				return -EINVAL;
 			break;
 		default:
-			if (freq > MAX_CARRIER_FREQ_HZ || freq < MIN_CARRIER_FREQ_HZ)
+			if (freq > MAX_CARRIER_FREQ_HZ || freq < (is_tx ?
+				MIN_TX_CARRIER_FREQ_HZ : MIN_RX_CARRIER_FREQ_HZ))
 				return -EINVAL;
 	}
 
@@ -5860,14 +5861,15 @@ static u64 ad9361_calc_rfpll_freq(u64 parent_rate,
 	return rate >> (vco_div + 1);
 }
 
-static int ad9361_calc_rfpll_divder(struct ad9361_rf_phy *phy, u64 freq,
-			     u64 parent_rate, u32 *integer,
-			     u32 *fract, int *vco_div, u64 *vco_freq)
+static int ad9361_calc_rfpll_divder(struct ad9361_rf_phy *phy,
+				    struct refclk_scale *clk_priv, u64 freq,
+				    u64 parent_rate, u32 *integer,
+				    u32 *fract, int *vco_div, u64 *vco_freq)
 {
 	u64 tmp;
 	int div, ret;
 
-	ret = ad9361_validate_rfpll(phy, freq);
+	ret = ad9361_validate_rfpll(phy, clk_priv->source == TX_RFPLL_INT, freq);
 	if (ret)
 		return ret;
 
@@ -5947,7 +5949,8 @@ static int ad9361_rfpll_determine_rate(struct clk_hw *hw,
 	int ret;
 	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, req->rate);
 
-	ret = ad9361_validate_rfpll(phy, ad9361_from_clk(req->rate));
+	ret = ad9361_validate_rfpll(phy, clk_priv->source == TX_RFPLL_INT,
+				    ad9361_from_clk(req->rate));
 	if (ret)
 		return ret;
 
@@ -5970,7 +5973,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	ad9361_fastlock_prepare(phy, clk_priv->source == TX_RFPLL_INT, 0, false);
 
-	ret = ad9361_calc_rfpll_divder(phy, ad9361_from_clk(rate), parent_rate,
+	ret = ad9361_calc_rfpll_divder(phy, clk_priv, ad9361_from_clk(rate), parent_rate,
 				&integer, &fract, &vco_div, &vco);
 	if (ret < 0)
 		return ret;
@@ -6047,7 +6050,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 			}
 
 			if (phy->current_tx_lo_freq != phy->current_rx_lo_freq) {
-				ad9361_calc_rfpll_divder(phy, ad9361_from_clk(_rate),
+				ad9361_calc_rfpll_divder(phy, clk_priv, ad9361_from_clk(_rate),
 					parent_rate, &integer, &fract, &vco_div, &vco);
 
 				ad9361_fastlock_prepare(phy, clk_priv->source == RX_RFPLL_INT, 0, false);
