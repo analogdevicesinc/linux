@@ -376,6 +376,8 @@ static int jesd204b_remove(struct platform_device *pdev)
 {
 	struct jesd204b_state *st = platform_get_drvdata(pdev);
 
+	of_clk_del_provider(pdev->dev.of_node);
+
 	clk_disable_unprepare(st->clk);
 	clk_put(st->clk);
 
