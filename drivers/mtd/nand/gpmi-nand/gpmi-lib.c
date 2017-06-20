@@ -1147,12 +1147,13 @@ int gpmi_is_ready(struct gpmi_nand_data *this, unsigned chip)
 	if (GPMI_IS_MX23(this)) {
 		mask = MX23_BM_GPMI_DEBUG_READY0 << chip;
 		reg = readl(r->gpmi_regs + HW_GPMI_DEBUG);
-	} else if (GPMI_IS_MX28(this) || GPMI_IS_MX6(this)) {
+	} else if (GPMI_IS_MX28(this) || GPMI_IS_MX6(this) ||
+			GPMI_IS_MX8(this)) {
 		/*
 		 * In the imx6, all the ready/busy pins are bound
 		 * together. So we only need to check chip 0.
 		 */
-		if (GPMI_IS_MX6(this))
+		if (GPMI_IS_MX6(this) || GPMI_IS_MX8(this))
 			chip = 0;
 
 		/* MX28 shares the same R/B register as MX6Q. */
