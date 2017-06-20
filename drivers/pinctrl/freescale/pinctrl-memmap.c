@@ -33,7 +33,7 @@
 #define IOMUXC_IBE	(1 << 16)
 #define IOMUXC_OBE	(1 << 17)
 
-int imx_pmx_set_one_pin(struct imx_pinctrl *ipctl, struct imx_pin *pin)
+int imx_pmx_set_one_pin_mem(struct imx_pinctrl *ipctl, struct imx_pin *pin)
 {
 	const struct imx_pinctrl_soc_info *info = ipctl->info;
 	unsigned int pin_id = pin->pin;
@@ -108,7 +108,7 @@ int imx_pmx_set_one_pin(struct imx_pinctrl *ipctl, struct imx_pin *pin)
 	return 0;
 }
 
-int imx_pinconf_backend_get(struct pinctrl_dev *pctldev,
+int imx_pinconf_backend_get_mem(struct pinctrl_dev *pctldev,
 			    unsigned pin_id, unsigned long *config)
 {
 	struct imx_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
@@ -129,7 +129,7 @@ int imx_pinconf_backend_get(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-int imx_pinconf_backend_set(struct pinctrl_dev *pctldev,
+int imx_pinconf_backend_set_mem(struct pinctrl_dev *pctldev,
 			    unsigned pin_id, unsigned long *configs,
 			    unsigned num_configs)
 {
@@ -166,7 +166,7 @@ int imx_pinconf_backend_set(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-int imx_pinctrl_parse_pin(struct imx_pinctrl_soc_info *info,
+int imx_pinctrl_parse_pin_mem(struct imx_pinctrl_soc_info *info,
 			  unsigned int *grp_pin_id, struct imx_pin *pin,
 			  const __be32 **list_p, u32 generic_config)
 {
