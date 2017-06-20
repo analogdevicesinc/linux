@@ -418,7 +418,7 @@ typedef enum {
 	CLKEN__FULL = 0x3,
 } pixengcfg_clken_t;
 
-int dpu_map_irq(struct dpu_soc *dpu, int irq);
+int dpu_map_inner_irq(struct dpu_soc *dpu, int irq);
 
 /* Constant Frame Unit */
 struct dpu_constframe;

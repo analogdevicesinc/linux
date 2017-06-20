@@ -768,7 +768,8 @@ static inline unsigned int dpu_get_min_intsteer_num(enum dpu_irq_line irq_line)
 	return 64 * irq_line;
 }
 
-static void dpu_irq_handle(struct irq_desc *desc, enum dpu_irq_line irq_line)
+static void
+dpu_inner_irq_handle(struct irq_desc *desc, enum dpu_irq_line irq_line)
 {
 	struct dpu_soc *dpu = irq_desc_get_handler_data(desc);
 	const struct dpu_devtype *devtype = dpu->devtype;
@@ -802,20 +803,20 @@ static void dpu_irq_handle(struct irq_desc *desc, enum dpu_irq_line irq_line)
 	chained_irq_exit(chip, desc);
 }
 
-#define DPU_IRQ_HANDLER_DEFINE(name1, name2)			\
+#define DPU_INNER_IRQ_HANDLER_DEFINE(name1, name2)		\
 static void dpu_##name1##_irq_handler(struct irq_desc *desc)	\
 {								\
-	dpu_irq_handle(desc, DPU_IRQ_LINE_##name2);		\
+	dpu_inner_irq_handle(desc, DPU_IRQ_LINE_##name2);		\
 }
 
-DPU_IRQ_HANDLER_DEFINE(cm, CM)
-DPU_IRQ_HANDLER_DEFINE(stream0a, STREAM0A)
-DPU_IRQ_HANDLER_DEFINE(stream1a, STREAM1A)
-DPU_IRQ_HANDLER_DEFINE(reserved0, RESERVED0)
-DPU_IRQ_HANDLER_DEFINE(reserved1, RESERVED1)
-DPU_IRQ_HANDLER_DEFINE(blit, BLIT)
+DPU_INNER_IRQ_HANDLER_DEFINE(cm, CM)
+DPU_INNER_IRQ_HANDLER_DEFINE(stream0a, STREAM0A)
+DPU_INNER_IRQ_HANDLER_DEFINE(stream1a, STREAM1A)
+DPU_INNER_IRQ_HANDLER_DEFINE(reserved0, RESERVED0)
+DPU_INNER_IRQ_HANDLER_DEFINE(reserved1, RESERVED1)
+DPU_INNER_IRQ_HANDLER_DEFINE(blit, BLIT)
 
-int dpu_map_irq(struct dpu_soc *dpu, int irq)
+int dpu_map_inner_irq(struct dpu_soc *dpu, int irq)
 {
 	const unsigned int *sw2hw_irq_map = dpu->devtype->sw2hw_irq_map;
 	int virq, mapped_irq;
@@ -830,7 +831,7 @@ int dpu_map_irq(struct dpu_soc *dpu, int irq)
 
 	return virq;
 }
-EXPORT_SYMBOL_GPL(dpu_map_irq);
+EXPORT_SYMBOL_GPL(dpu_map_inner_irq);
 
 static int platform_remove_devices_fn(struct device *dev, void *unused)
 {
@@ -1083,7 +1084,7 @@ err_get_plane_res:
 #define LINE_TO_MASK_OFFSET(n)	((15 - ((n) / 32)) * 4)
 #define LINE_TO_MASK_SHIFT(n)	((n) % 32)
 
-static void dpu_irq_gc_mask_set_bit(struct irq_data *d)
+static void dpu_inner_irq_gc_mask_set_bit(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
@@ -1103,7 +1104,7 @@ static void dpu_irq_gc_mask_set_bit(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-static void dpu_irq_gc_mask_clr_bit(struct irq_data *d)
+static void dpu_inner_irq_gc_mask_clr_bit(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
@@ -1125,7 +1126,8 @@ static void dpu_irq_gc_mask_clr_bit(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-static void dpu_intsteer_enable_line(struct dpu_soc *dpu, unsigned int line)
+static void
+dpu_inner_intsteer_enable_line(struct dpu_soc *dpu, unsigned int line)
 {
 	unsigned int offset = LINE_TO_MASK_OFFSET(line);
 	unsigned int shift = LINE_TO_MASK_SHIFT(line);
@@ -1134,7 +1136,7 @@ static void dpu_intsteer_enable_line(struct dpu_soc *dpu, unsigned int line)
 			   BIT(shift), BIT(shift));
 }
 
-static void dpu_intsteer_enable_lines(struct dpu_soc *dpu)
+static void dpu_inner_intsteer_enable_lines(struct dpu_soc *dpu)
 {
 	const struct dpu_devtype *devtype = dpu->devtype;
 	int i;
@@ -1143,11 +1145,11 @@ static void dpu_intsteer_enable_lines(struct dpu_soc *dpu)
 		if (devtype->intsteer_map[i] == NA)
 			continue;
 
-		dpu_intsteer_enable_line(dpu, devtype->intsteer_map[i]);
+		dpu_inner_intsteer_enable_line(dpu, devtype->intsteer_map[i]);
 	}
 }
 
-static int dpu_irq_init(struct dpu_soc *dpu)
+static int dpu_inner_irq_init(struct dpu_soc *dpu)
 {
 	const struct dpu_devtype *devtype = dpu->devtype;
 	const struct cm_reg_ofs *ofs = devtype->cm_reg_ofs;
@@ -1155,7 +1157,7 @@ static int dpu_irq_init(struct dpu_soc *dpu)
 	struct irq_chip_type *ct;
 	int ret, i;
 
-	dpu_intsteer_enable_lines(dpu);
+	dpu_inner_intsteer_enable_lines(dpu);
 
 	dpu->domain = irq_domain_add_linear(dpu->dev->of_node,
 					    devtype->intsteer_map_size,
@@ -1193,39 +1195,39 @@ static int dpu_irq_init(struct dpu_soc *dpu)
 		gc->unused = devtype->unused_irq[i / 32];
 		ct = gc->chip_types;
 		ct->chip.irq_ack = irq_gc_ack_set_bit;
-		ct->chip.irq_mask = dpu_irq_gc_mask_clr_bit;
-		ct->chip.irq_unmask = dpu_irq_gc_mask_set_bit;
+		ct->chip.irq_mask = dpu_inner_irq_gc_mask_clr_bit;
+		ct->chip.irq_unmask = dpu_inner_irq_gc_mask_set_bit;
 		ct->regs.ack = USERINTERRUPTCLEAR(ofs, i / 32);
 		ct->regs.mask = USERINTERRUPTENABLE(ofs, i / 32);
 	}
 
-#define DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(name)	\
+#define DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA1(name)	\
 irq_set_chained_handler_and_data(dpu->irq_##name, dpu_##name##_irq_handler, dpu)
 
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(cm);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(stream0a);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(stream1a);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(reserved0);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(reserved1);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(blit);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA1(cm);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA1(stream0a);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA1(stream1a);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA1(reserved0);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA1(reserved1);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA1(blit);
 
 	return 0;
 }
 
-static void dpu_irq_exit(struct dpu_soc *dpu)
+static void dpu_inner_irq_exit(struct dpu_soc *dpu)
 {
 	const struct dpu_devtype *devtype = dpu->devtype;
 	unsigned int i, irq;
 
-#define DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(name)	\
+#define DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA2(name)	\
 irq_set_chained_handler_and_data(dpu->irq_##name, NULL, NULL)
 
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(cm);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(stream0a);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(stream1a);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(reserved0);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(reserved1);
-	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(blit);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA2(cm);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA2(stream0a);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA2(stream1a);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA2(reserved0);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA2(reserved1);
+	DPU_INNER_IRQ_SET_CHAINED_HANDLER_AND_DATA2(blit);
 
 	for (i = 0; i < devtype->intsteer_map_size; i++) {
 		irq = irq_linear_revmap(dpu->domain, i);
@@ -1455,6 +1457,7 @@ static int dpu_probe(struct platform_device *pdev)
 	dpu->devtype = devtype;
 	dpu->id = of_alias_get_id(np, "dpu");
 
+	/* inner irqs */
 	dpu->irq_cm = platform_get_irq(pdev, 0);
 	dpu->irq_stream0a = platform_get_irq(pdev, 1);
 	dpu->irq_stream1a = platform_get_irq(pdev, 3);
@@ -1503,9 +1506,9 @@ static int dpu_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dpu);
 
-	ret = dpu_irq_init(dpu);
+	ret = dpu_inner_irq_init(dpu);
 	if (ret)
-		goto failed_irq;
+		goto failed_inner_irq;
 
 	ret = dpu_submodules_init(dpu, pdev, dpu_base);
 	if (ret)
@@ -1529,8 +1532,8 @@ static int dpu_probe(struct platform_device *pdev)
 
 failed_add_clients:
 failed_submodules_init:
-	dpu_irq_exit(dpu);
-failed_irq:
+	dpu_inner_irq_exit(dpu);
+failed_inner_irq:
 	return ret;
 }
 
@@ -1539,7 +1542,7 @@ static int dpu_remove(struct platform_device *pdev)
 	struct dpu_soc *dpu = platform_get_drvdata(pdev);
 
 	platform_device_unregister_children(pdev);
-	dpu_irq_exit(dpu);
+	dpu_inner_irq_exit(dpu);
 
 	return 0;
 }
@@ -1560,7 +1563,7 @@ static int dpu_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dpu_soc *dpu = platform_get_drvdata(pdev);
 
-	dpu_intsteer_enable_lines(dpu);
+	dpu_inner_intsteer_enable_lines(dpu);
 
 	if (dpu->devtype->pixel_link_quirks)
 		dpu_pixel_link_init(dpu->id);

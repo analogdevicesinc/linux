@@ -619,7 +619,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 		}
 	}
 
-	dpu_crtc->vbl_irq = dpu_map_irq(dpu, stream_id ?
+	dpu_crtc->vbl_irq = dpu_map_inner_irq(dpu, stream_id ?
 				IRQ_DISENGCFG_FRAMECOMPLETE1 :
 				IRQ_DISENGCFG_FRAMECOMPLETE0);
 	ret = devm_request_irq(dev, dpu_crtc->vbl_irq, dpu_vbl_irq_handler, 0,
@@ -630,7 +630,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	}
 	disable_irq(dpu_crtc->vbl_irq);
 
-	dpu_crtc->safety_shdld_irq = dpu_map_irq(dpu, stream_id ?
+	dpu_crtc->safety_shdld_irq = dpu_map_inner_irq(dpu, stream_id ?
 			IRQ_EXTDST5_SHDLOAD : IRQ_EXTDST4_SHDLOAD);
 	ret = devm_request_irq(dev, dpu_crtc->safety_shdld_irq,
 				dpu_safety_shdld_irq_handler, 0, "imx_drm",
@@ -643,7 +643,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	}
 	disable_irq(dpu_crtc->safety_shdld_irq);
 
-	dpu_crtc->content_shdld_irq = dpu_map_irq(dpu, stream_id ?
+	dpu_crtc->content_shdld_irq = dpu_map_inner_irq(dpu, stream_id ?
 			IRQ_EXTDST1_SHDLOAD : IRQ_EXTDST0_SHDLOAD);
 	ret = devm_request_irq(dev, dpu_crtc->content_shdld_irq,
 				dpu_content_shdld_irq_handler, 0, "imx_drm",
@@ -656,7 +656,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	}
 	disable_irq(dpu_crtc->content_shdld_irq);
 
-	dpu_crtc->dec_shdld_irq = dpu_map_irq(dpu, stream_id ?
+	dpu_crtc->dec_shdld_irq = dpu_map_inner_irq(dpu, stream_id ?
 			IRQ_DISENGCFG_SHDLOAD1 : IRQ_DISENGCFG_SHDLOAD0);
 	ret = devm_request_irq(dev, dpu_crtc->dec_shdld_irq,
 				dpu_dec_shdld_irq_handler, 0, "imx_drm",
