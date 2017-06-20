@@ -1185,7 +1185,9 @@
 			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
+			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "irq_common",
 				  "irq_stream0a",
 				  "irq_stream0b",	/* to M4? */
@@ -1193,7 +1195,9 @@
 				  "irq_stream1b",	/* to M4? */
 				  "irq_reserved0",
 				  "irq_reserved1",
-				  "irq_blit";
+				  "irq_blit",
+				  "irq_dpr0",
+				  "irq_dpr1";
 		clocks = <&clk IMX8QM_DC0_PLL0_CLK>,
 			 <&clk IMX8QM_DC0_PLL1_CLK>,
 			 <&clk IMX8QM_DC0_DISP0_CLK>,
@@ -1473,7 +1477,9 @@
 			     <GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+			     <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "irq_common",
 				  "irq_stream0a",
 				  "irq_stream0b",	/* to M4? */
@@ -1481,7 +1487,9 @@
 				  "irq_stream1b",	/* to M4? */
 				  "irq_reserved0",
 				  "irq_reserved1",
-				  "irq_blit";
+				  "irq_blit",
+				  "irq_dpr0",
+				  "irq_dpr1";
 		clocks = <&clk IMX8QM_DC1_PLL0_CLK>,
 			 <&clk IMX8QM_DC1_PLL1_CLK>,
 			 <&clk IMX8QM_DC1_DISP0_CLK>,
