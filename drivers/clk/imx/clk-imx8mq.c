@@ -481,6 +481,7 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MQ_CLK_AUDIO_AHB_PRE_DIV] = imx_clk_divider2("audio_ahb_pre_div", "audio_ahb_cg", base + 0x9100, 16, 3);
 	clks[IMX8MQ_CLK_AHB_DIV] = imx_clk_divider2("ahb_div", "ahb_pre_div", base + 0x9000, 0, 6);
 	clks[IMX8MQ_CLK_AUDIO_AHB_DIV] = imx_clk_divider2("audio_ahb_div", "audio_ahb_pre_div", base + 0x9100, 0, 6);
+	clks[IMX8MQ_IPG_CLK_ROOT] = imx_clk_divider2("ipg", "ahb_src", base + 0x9080, 0, 2);
 
 	/* IP */
 	clks[IMX8MQ_CLK_DRAM_ALT_SRC] = imx_clk_mux2("dram_alt_src", base + 0xa000, 24, 3, imx8mq_dram_alt_sels, ARRAY_SIZE(imx8mq_dram_alt_sels));
@@ -766,6 +767,8 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MQ_CLK_VPU_DEC_ROOT] = imx_clk_gate4("vpu_dec_root_clk", "vpu_bus_div", base + 0x4630, 0);
 	clks[IMX8MQ_CLK_CSI1_ROOT] = imx_clk_gate4("csi1_root_clk", "csi1_core_div", base + 0x4650, 0);
 	clks[IMX8MQ_CLK_CSI2_ROOT] = imx_clk_gate4("csi2_root_clk", "csi2_core_div", base + 0x4660, 0);
+	clks[IMX8MQ_CLK_SDMA1_ROOT] = imx_clk_gate4("sdma1_clk", "ipg", base + 0x43a0, 0);
+	clks[IMX8MQ_CLK_SDMA2_ROOT] = imx_clk_gate4("sdma2_clk", "ipg", base + 0x43b0, 0);
 
 	clks[IMX8MQ_GPT_3M_CLK] = imx_clk_fixed_factor("gpt_3m", "osc_25m", 1, 8);
 

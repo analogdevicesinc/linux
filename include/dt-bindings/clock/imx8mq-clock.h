@@ -579,6 +579,8 @@
 
 #define IMX8MQ_GPT_3M_CLK			453
 
-#define IMX8MQ_CLK_END				454
+#define IMX8MQ_IPG_CLK_ROOT			454
+
+#define IMX8MQ_CLK_END				455
 
 #endif /* __DT_BINDINGS_CLOCK_IMX8MQ_H */
