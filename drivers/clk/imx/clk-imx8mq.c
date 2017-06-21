@@ -268,6 +268,7 @@ static int const clks_init_on[] __initconst = {
 	IMX8MQ_CLK_NOC_CG, IMX8MQ_CLK_NOC_APB_CG,
 	IMX8MQ_CLK_USB_BUS_CG, IMX8MQ_CLK_NAND_USDHC_BUS_CG,
 	IMX8MQ_CLK_MAIN_AXI_CG, IMX8MQ_CLK_A53_CG,
+	IMX8MQ_CLK_AUDIO_AHB_DIV,
 };
 
 static struct clk_onecell_data clk_data;
@@ -760,10 +761,10 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MQ_CLK_WDOG1_ROOT] = imx_clk_gate4("wdog1_root_clk", "wdog_div", base + 0x4530, 0);
 	clks[IMX8MQ_CLK_WDOG2_ROOT] = imx_clk_gate4("wdog2_root_clk", "wdog_div", base + 0x4540, 0);
 	clks[IMX8MQ_CLK_VPU_ROOT] = imx_clk_gate4("vpu_root_clk", "vpu_div", base + 0x4550, 0);
-	clks[IMX8MQ_CLK_VPU_G1_ROOT] = imx_clk_gate4("vpu_g1_root_clk", "vpu_g1_div", base + 0x560, 0);
+	clks[IMX8MQ_CLK_VPU_G1_ROOT] = imx_clk_gate4("vpu_g1_root_clk", "vpu_g1_div", base + 0x4560, 0);
 	clks[IMX8MQ_CLK_GPU_ROOT] = imx_clk_gate4("gpu_root_clk", "gpu_core_div", base + 0x4570, 0);
-	clks[IMX8MQ_CLK_VPU_G2_ROOT] = imx_clk_gate4("vpu_g2_root_clk", "vpu_g2_div", base + 0x5a0, 0);
-	clks[IMX8MQ_CLK_DISP_ROOT] = imx_clk_gate4("disp_root_clk", "disp_dc8000_div", base + 0x5d0, 0);
+	clks[IMX8MQ_CLK_VPU_G2_ROOT] = imx_clk_gate4("vpu_g2_root_clk", "vpu_g2_div", base + 0x45a0, 0);
+	clks[IMX8MQ_CLK_DISP_ROOT] = imx_clk_gate4("disp_root_clk", "disp_dc8000_div", base + 0x45d0, 0);
 	clks[IMX8MQ_CLK_VPU_DEC_ROOT] = imx_clk_gate4("vpu_dec_root_clk", "vpu_bus_div", base + 0x4630, 0);
 	clks[IMX8MQ_CLK_CSI1_ROOT] = imx_clk_gate4("csi1_root_clk", "csi1_core_div", base + 0x4650, 0);
 	clks[IMX8MQ_CLK_CSI2_ROOT] = imx_clk_gate4("csi2_root_clk", "csi2_core_div", base + 0x4660, 0);
