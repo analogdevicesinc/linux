@@ -32,12 +32,12 @@ struct clk_sccg_pll {
 	void __iomem	*base;
 };
 
-#define to_clk_sccg_pll(_hw) container_of(_hw, struct clk_sccg_pll, hw);
+#define to_clk_sccg_pll(_hw) container_of(_hw, struct clk_sccg_pll, hw)
 
 static int clk_pll1_is_prepared(struct clk_hw *hw)
 {
-	u32 val;
 	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
+	u32 val;
 
 	val = readl_relaxed(pll->base + PLL_CFG0);
 	return (val & (1 << PLL_PD)) ? 0 : 1;
@@ -46,8 +46,8 @@ static int clk_pll1_is_prepared(struct clk_hw *hw)
 static unsigned long clk_pll1_recalc_rate(struct clk_hw *hw,
 					 unsigned long parent_rate)
 {
-	u32 val, divf;
 	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
+	u32 val, divf;
 
 	val = readl_relaxed(pll->base + PLL_CFG2);
 	divf = (val >> PLL_DIVF1_SHIFT) & PLL_DIVF_MASK;
@@ -58,8 +58,8 @@ static unsigned long clk_pll1_recalc_rate(struct clk_hw *hw,
 static long clk_pll1_round_rate(struct clk_hw *hw, unsigned long rate,
 			       unsigned long *prate)
 {
-	u32 div;
 	unsigned long parent_rate = *prate;
+	u32 div;
 
 	div = rate / (parent_rate * 2);
 
@@ -69,9 +69,9 @@ static long clk_pll1_round_rate(struct clk_hw *hw, unsigned long rate,
 static int clk_pll1_set_rate(struct clk_hw *hw, unsigned long rate,
 			    unsigned long parent_rate)
 {
+	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
 	u32 val;
 	u32 divf;
-	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
 
 	divf = rate / (parent_rate * 2);
 
@@ -86,8 +86,8 @@ static int clk_pll1_set_rate(struct clk_hw *hw, unsigned long rate,
 
 static int clk_pll1_prepare(struct clk_hw *hw)
 {
-	u32 val;
 	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
+	u32 val;
 
 	val = readl_relaxed(pll->base);
 	val &= ~(1 << PLL_PD);
@@ -100,8 +100,8 @@ static int clk_pll1_prepare(struct clk_hw *hw)
 
 static void clk_pll1_unprepare(struct clk_hw *hw)
 {
-	u32 val;
 	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
+	u32 val;
 
 	val = readl_relaxed(pll->base);
 	val |= (1 << PLL_PD);
@@ -111,8 +111,8 @@ static void clk_pll1_unprepare(struct clk_hw *hw)
 static unsigned long clk_pll2_recalc_rate(struct clk_hw *hw,
 					 unsigned long parent_rate)
 {
-	u32 val, divf;
 	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
+	u32 val, divf;
 
 	val = readl_relaxed(pll->base + PLL_CFG2);
 	divf = (val >> PLL_DIVF2_SHIFT) & PLL_DIVF_MASK;
