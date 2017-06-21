@@ -26,6 +26,7 @@
 	#size-cells = <2>;
 
 	aliases {
+		ethernet0 = &fec1;
 		serial0 = &uart1;
 		serial1 = &uart2;
 		serial2 = &uart3;
@@ -440,6 +441,32 @@
 		#dma-cells = <3>;
 		fsl,sdma-ram-script-name = "imx/sdma/sdma-imx7d.bin";
 		status = "okay";
+	};
+
+	fec1: ethernet@30be0000 {
+		compatible = "fsl,imx8qm-fec", "fsl,imx6sx-fec";
+		reg = <0x0 0x30be0000 0x0 0x10000>;
+		interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_ENET1_ROOT>,
+			<&clk IMX8MQ_CLK_ENET1_ROOT>,
+			<&clk IMX8MQ_CLK_ENET_TIMER_DIV>,
+			<&clk IMX8MQ_CLK_ENET_REF_DIV>,
+			<&clk IMX8MQ_CLK_ENET_PHY_REF_DIV>;
+		clock-names = "ipg", "ahb", "ptp",
+			"enet_clk_ref", "enet_out";
+		assigned-clocks = <&clk IMX8MQ_CLK_ENET_AXI_SRC>,
+				  <&clk IMX8MQ_CLK_ENET_TIMER_SRC>,
+				  <&clk IMX8MQ_CLK_ENET_REF_SRC>;
+		assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_266M>,
+					 <&clk IMX8MQ_SYS2_PLL_100M>,
+					 <&clk IMX8MQ_SYS2_PLL_125M>;
+		stop-mode = <&gpr 0x10 3>;
+		fsl,num-tx-queues=<3>;
+		fsl,num-rx-queues=<3>;
+		fsl,wakeup_irq = <2>;
+		status = "disabled";
 	};
 
 	gpu: gpu@38000000 {

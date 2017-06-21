@@ -34,6 +34,24 @@
 	pinctrl-names = "default";
 
 	imx8mq-evk {
+		pinctrl_fec1: fec1grp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_ENET_MDC_ENET1_MDC		0x3
+				MX8MQ_IOMUXC_ENET_MDIO_ENET1_MDIO	0x23
+				MX8MQ_IOMUXC_ENET_TD3_ENET1_RGMII_TD3	0x1f
+				MX8MQ_IOMUXC_ENET_TD2_ENET1_RGMII_TD2	0x1f
+				MX8MQ_IOMUXC_ENET_TD1_ENET1_RGMII_TD1	0x1f
+				MX8MQ_IOMUXC_ENET_TD0_ENET1_RGMII_TD0	0x1f
+				MX8MQ_IOMUXC_ENET_TXC_ENET1_RGMII_TXC	0x1f
+				MX8MQ_IOMUXC_ENET_RD3_ENET1_RGMII_RD3	0x1f
+				MX8MQ_IOMUXC_ENET_RD2_ENET1_RGMII_RD2	0x1f
+				MX8MQ_IOMUXC_ENET_RD1_ENET1_RGMII_RD1	0x1f
+				MX8MQ_IOMUXC_ENET_RD0_ENET1_RGMII_RD0	0x1f
+				MX8MQ_IOMUXC_ENET_RXC_ENET1_RGMII_RXC	0x1f
+				MX8MQ_IOMUXC_ENET_RX_CTL_ENET1_RGMII_RX_CTL	0x1f
+				MX8MQ_IOMUXC_ENET_TX_CTL_ENET1_RGMII_TX_CTL	0x1f
+			>;
+		};
 
 		pinctrl_uart1: uart1grp {
 			fsl,pins = <
@@ -52,6 +70,26 @@
 			fsl,pins = <
 				MX8MQ_IOMUXC_SD2_CD_B_GPIO2_IO12	0x16
 			>;
+		};
+	};
+};
+
+&fec1 {
+	pinctrl-names = "default";
+	inctrl-0 = <&pinctrl_fec1>;
+	phy-mode = "rgmii";
+	phy-handle = <&ethphy0>;
+	fsl,ar8031-phy-fixup;
+	fsl,magic-packet;
+	status = "okay";
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethphy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <0>;
 		};
 	};
 };
