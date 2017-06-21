@@ -7232,10 +7232,17 @@ static int ad9361_set_rf_port(struct iio_dev *indio_dev,
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 
-	if (chan->output)
+	if (chan->output) {
+		if (phy->pdata->rf_tx_output_sel_lock &&
+			mode != phy->pdata->rf_tx_output_sel)
+			return -EINVAL;
 		phy->pdata->rf_tx_output_sel = mode;
-	else
+	} else {
+		if (phy->pdata->rf_rx_input_sel_lock &&
+			mode != phy->pdata->rf_rx_input_sel)
+			return -EINVAL;
 		phy->pdata->rf_rx_input_sel = mode;
+	}
 
 	return ad9361_rf_port_setup(phy, chan->output,
 				   phy->pdata->rf_rx_input_sel,
@@ -8099,6 +8106,12 @@ static struct ad9361_phy_platform_data
 			  &pdata->rf_rx_input_sel);
 	ad9361_of_get_u32(iodev, np, "adi,tx-rf-port-input-select", 0,
 			  &pdata->rf_tx_output_sel);
+
+	ad9361_of_get_bool(iodev, np, "adi,rx-rf-port-input-select-lock-enable",
+			   &pdata->rf_rx_input_sel_lock);
+
+	ad9361_of_get_bool(iodev, np, "adi,tx-rf-port-input-select-lock-enable",
+			   &pdata->rf_tx_output_sel_lock);
 
 	ad9361_of_get_bool(iodev, np, "adi,rx1-rx2-phase-inversion-enable",
 			   &pdata->rx1rx2_phase_inversion_en);

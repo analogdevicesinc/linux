@@ -239,6 +239,7 @@
 		 */
 
 		adi,rx-rf-port-input-select = <0>; /* (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced */
+		adi,rx-rf-port-input-select-lock-enable;
 
 		/* adi,tx-rf-port-input-select:
 		 * 0	TX1A, TX2A
@@ -246,6 +247,8 @@
 		 */
 
 		adi,tx-rf-port-input-select = <0>; /* TX1A, TX2A */
+		adi,tx-rf-port-input-select-lock-enable;
+
 		//adi,update-tx-gain-in-alert-enable;
 		adi,tx-attenuation-mdB = <10000>;
 
