@@ -257,7 +257,7 @@ config IMX_DMA
 
 config IMX_SDMA
 	tristate "i.MX SDMA support"
-	depends on ARCH_MXC
+	depends on ARCH_MXC || ARCH_FSL_IMX8MQ
 	select DMA_ENGINE
 	select DMA_VIRTUAL_CHANNELS
 	help
