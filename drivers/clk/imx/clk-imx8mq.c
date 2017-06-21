@@ -808,6 +808,12 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	/* increase NOC clock to achieve best DDR access performance */
 	clk_set_rate(clks[IMX8MQ_CLK_NOC_DIV], clk_get_rate(clks[IMX8MQ_SYS1_PLL_800M]));
 
+	/* set pcie root's parent clk source */
+	clk_set_parent(clks[IMX8MQ_CLK_PCIE1_CTRL_SRC], clks[IMX8MQ_SYS2_PLL_250M]);
+	clk_set_parent(clks[IMX8MQ_CLK_PCIE1_PHY_SRC], clks[IMX8MQ_SYS2_PLL_100M]);
+	clk_set_parent(clks[IMX8MQ_CLK_PCIE2_CTRL_SRC], clks[IMX8MQ_SYS2_PLL_250M]);
+	clk_set_parent(clks[IMX8MQ_CLK_PCIE2_PHY_SRC], clks[IMX8MQ_SYS2_PLL_100M]);
+
 	pr_info("i.MX8MQ clock driver init done\n");
 }
 
