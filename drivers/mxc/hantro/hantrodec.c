@@ -21,7 +21,7 @@
 *
 *****************************************************************************/
 
-#include "hantrodec.h"
+#include <linux/hantrodec.h>
 #include "dwl_defs.h"
 
 #include <asm/io.h>

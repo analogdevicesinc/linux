@@ -21,8 +21,8 @@
 *
 *****************************************************************************/
 
-#ifndef _HANTRODEC_H_
-#define _HANTRODEC_H_
+#ifndef _UAPI_HANTRODEC_H_
+#define _UAPI_HANTRODEC_H_
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
@@ -90,4 +90,4 @@ struct core_desc {
 
 #define HANTRODEC_IOC_MAXNR 29
 
-#endif /* !_HANTRODEC_H_ */
+#endif /* !_UAPI_HANTRODEC_H_ */
