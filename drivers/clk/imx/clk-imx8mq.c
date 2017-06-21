@@ -262,6 +262,14 @@ static const char *imx8mq_pcie2_aux_sels[] = {"osc_25m", "sys2_pll_200m", "sys2_
 static const char *imx8mq_ecspi3_sels[] = {"osc_25m", "sys2_pll_200m", "sys1_pll_40m", "sys1_pll_160m",
 					   "sys1_pll_800m", "sys3_pll2_out", "sys2_pll_250m", "audio_pll2_out", };
 
+
+static int const clks_init_on[] __initconst = {
+	IMX8MQ_DRAM_PLL_OUT, IMX8MQ_CLK_AHB_CG,
+	IMX8MQ_CLK_NOC_CG, IMX8MQ_CLK_NOC_APB_CG,
+	IMX8MQ_CLK_USB_BUS_CG, IMX8MQ_CLK_NAND_USDHC_BUS_CG,
+	IMX8MQ_CLK_MAIN_AXI_CG, IMX8MQ_CLK_A53_CG,
+};
+
 static struct clk_onecell_data clk_data;
 
 static void __init imx8mq_clocks_init(struct device_node *ccm_node)
@@ -771,8 +779,8 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 
 	/* enable all the clocks just for bringup */
-	for (i = 0; i < IMX8MQ_CLK_END; i++)
-		clk_prepare_enable(clks[i]);
+	for (i = 0; i < ARRAY_SIZE(clks_init_on);  i++)
+		clk_prepare_enable(clks[clks_init_on[i]]);
 
 	clk_set_parent(clks[IMX8MQ_CLK_AHB_SRC], clks[IMX8MQ_SYS1_PLL_133M]);
 	clk_set_parent(clks[IMX8MQ_CLK_AUDIO_AHB_SRC], clks[IMX8MQ_SYS2_PLL_1000M]);
