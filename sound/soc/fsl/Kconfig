@@ -282,6 +282,19 @@ config SND_SOC_IMX_WM8960
 	  Say Y if you want to add support for SoC audio on an i.MX board with
 	  a wm8960 codec.
 
+config SND_SOC_IMX_WM8524
+	tristate "SoC Audio support for i.MX boards with wm8524"
+	depends on OF && I2C
+	select SND_SOC_WM8524
+	select SND_SOC_IMX_PCM_DMA
+	select SND_SOC_FSL_SAI
+	select SND_SOC_FSL_UTILS
+	select SND_KCTL_JACK
+	help
+	  SoC Audio support for i.MX boards with WM8524
+	  Say Y if you want to add support for SoC audio on an i.MX board with
+	  a wm8524 codec.
+
 config SND_SOC_IMX_SII902X
 	tristate "SoC Audio support for i.MX boards with sii902x"
 	depends on OF && I2C
@@ -422,7 +435,7 @@ config SND_SOC_FSL_ASOC_CARD
 	help
 	 ALSA SoC Audio support with ASRC feature for Freescale SoCs that have
 	 ESAI/SAI/SSI and connect with external CODECs such as WM8962, CS42888,
-	 CS4271, CS4272 and SGTL5000.
+	 CS4271, CS4272, and SGTL5000.
 	 Say Y if you want to add support for Freescale Generic ASoC Sound Card.
 
 config SND_SOC_IMX_SI476X

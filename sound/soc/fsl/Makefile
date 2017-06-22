@@ -13,9 +13,7 @@ obj-$(CONFIG_SND_SOC_P1022_RDK) += snd-soc-p1022-rdk.o
 
 # Freescale SSI/DMA/SAI/SPDIF Support
 snd-soc-fsl-acm-objs := fsl_acm.o
-snd-soc-fsl-asoc-card-objs := fsl-asoc-card.o
 snd-soc-fsl-asrc-objs := fsl_asrc.o fsl_asrc_dma.o
-snd-soc-fsl-hifi4-objs := fsl_hifi4.o
 snd-soc-fsl-sai-objs := fsl_sai.o
 snd-soc-fsl-ssi-y := fsl_ssi.o
 snd-soc-fsl-ssi-$(CONFIG_DEBUG_FS) += fsl_ssi_dbg.o
@@ -24,9 +22,9 @@ snd-soc-fsl-esai-objs := fsl_esai.o
 snd-soc-fsl-utils-objs := fsl_utils.o
 snd-soc-fsl-dma-objs := fsl_dma.o
 snd-soc-fsl-rpmsg-i2s-objs := fsl_rpmsg_i2s.o
-obj-$(CONFIG_SND_SOC_FSL_ACM) += snd-soc-fsl-acm.o
-obj-$(CONFIG_SND_SOC_FSL_ASOC_CARD) += snd-soc-fsl-asoc-card.o
 snd-soc-fsl-hdmi-objs := fsl_hdmi.o
+snd-soc-fsl-asoc-card-objs := fsl-asoc-card.o
+obj-$(CONFIG_SND_SOC_FSL_ACM) += snd-soc-fsl-acm.o
 obj-$(CONFIG_SND_SOC_FSL_ASRC) += snd-soc-fsl-asrc.o
 obj-$(CONFIG_SND_SOC_FSL_HIFI4) += snd-soc-fsl-hifi4.o
 obj-$(CONFIG_SND_SOC_FSL_SAI) += snd-soc-fsl-sai.o
@@ -37,6 +35,7 @@ obj-$(CONFIG_SND_SOC_FSL_UTILS) += snd-soc-fsl-utils.o
 obj-$(CONFIG_SND_SOC_FSL_HDMI) += snd-soc-fsl-hdmi.o
 obj-$(CONFIG_SND_SOC_POWERPC_DMA) += snd-soc-fsl-dma.o
 obj-$(CONFIG_SND_SOC_FSL_RPMSG_I2S) += snd-soc-fsl-rpmsg-i2s.o
+obj-$(CONFIG_SND_SOC_FSL_ASOC_CARD) += snd-soc-fsl-asoc-card.o
 
 # MPC5200 Platform Support
 obj-$(CONFIG_SND_MPC52xx_DMA) += mpc5200_dma.o
@@ -68,6 +67,7 @@ snd-soc-imx-cs42888-objs := imx-cs42888.o
 snd-soc-imx-sgtl5000-objs := imx-sgtl5000.o
 snd-soc-imx-wm8958-objs := imx-wm8958.o
 snd-soc-imx-wm8960-objs := imx-wm8960.o
+snd-soc-imx-wm8524-objs := imx-wm8524.o
 snd-soc-imx-wm8962-objs := imx-wm8962.o
 snd-soc-imx-xtor-objs := imx-xtor.o
 snd-soc-imx-sii902x-objs := imx-sii902x.o
@@ -87,6 +87,7 @@ obj-$(CONFIG_SND_SOC_IMX_CS42888) += snd-soc-imx-cs42888.o
 obj-$(CONFIG_SND_SOC_IMX_SGTL5000) += snd-soc-imx-sgtl5000.o
 obj-${CONFIG_SND_SOC_IMX_WM8958} += snd-soc-imx-wm8958.o
 obj-$(CONFIG_SND_SOC_IMX_WM8960) += snd-soc-imx-wm8960.o
+obj-$(CONFIG_SND_SOC_IMX_WM8524) += snd-soc-imx-wm8524.o
 obj-$(CONFIG_SND_SOC_IMX_WM8962) += snd-soc-imx-wm8962.o
 obj-$(CONFIG_SND_SOC_IMX_XTOR) += snd-soc-imx-xtor.o
 obj-$(CONFIG_SND_SOC_IMX_RPMSG) += snd-soc-imx-rpmsg.o

@@ -1,0 +1,29 @@
+Freescale i.MX audio complex with WM8524 codec
+
+Required properties:
+
+  - compatible		: "fsl,imx-audio-wm8524"
+
+  - model		: The user-visible name of this sound complex
+
+  - audio-cpu		: The phandle of CPU DAI
+
+  - audio-codec		: The phandle of the WM8962 audio codec
+
+  - audio-routing	: A list of the connections between audio components.
+			  Each entry is a pair of strings, the first being the
+			  connection's sink, the second being the connection's
+			  source. Valid names could be power supplies, WM8524
+			  pins, and the jacks on the board:
+
+Example:
+
+sound {
+	compatible = "fsl,imx-audio-wm8524";
+	model = "wm8524-audio";
+	audio-cpu = <&sai2>;
+	audio-codec = <&codec>;
+	audio-routing =
+		"Line Out Jack", "LINEVOUTL",
+		"Line Out Jack", "LINEVOUTR";
+};
