@@ -89,6 +89,7 @@ config FB_MXC_DCIC
 config FB_MXC_ADV7535
 	tristate "ADI ADV7535 support"
 	depends on I2C
+	depends on FB_MXC_MIPI_DSI
 	help
 	  Driver support for the ADV7535 DSI-to-HDMI module
 
