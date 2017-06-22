@@ -1,6 +1,25 @@
 if VIDEO_MXC_CAPTURE
+
 config VIDEO_V4L2_MXC_INT_DEVICE
        tristate
+
+config VIDEO_MXC_CSI_CAMERA
+	tristate "CSI camera support"
+	depends on VIDEO_MXC_CAPTURE && VIDEO_V4L2
+	---help---
+		This is the video4linux2 capture driver based on CSI module.
+
+config MXC_VADC
+	tristate "mxc VADC support"
+	depends on VIDEO_MXC_CAPTURE && VIDEO_V4L2
+	---help---
+		If you plan to use the VADC with your MXC system, say Y here.
+
+config MXC_MIPI_CSI
+	tristate "mxc mipi csi driver"
+	depends on VIDEO_MXC_CAPTURE && VIDEO_V4L2
+	---help---
+		This is a V4L2 driver for i.MX7D SoC MIPI-CSI2 receiver devices.
 
 menu "MXC Camera/V4L2 PRP Features support"
 config VIDEO_MXC_IPU_CAMERA
@@ -15,6 +34,12 @@ config MXC_CAMERA_OV5640
         ---help---
           If you plan to use the ov5640 Camera with your MXC system, say Y here.
 
+config MXC_CAMERA_OV5640_V2
+	tristate "OmniVision ov5640 camera support"
+	depends on VIDEO_MXC_CAPTURE && I2C
+	---help---
+	  If you plan to use the ov5640 Camera with your MXC system, say Y here.
+
 config MXC_CAMERA_OV5642
 	tristate "OmniVision ov5642 camera support"
 	depends on !VIDEO_MXC_EMMA_CAMERA && I2C
@@ -26,6 +51,18 @@ config MXC_CAMERA_OV5640_MIPI
 	depends on !VIDEO_MXC_EMMA_CAMERA && I2C
 	---help---
 	  If you plan to use the ov5640 Camera with mipi interface in your MXC system, say Y here.
+
+config MXC_CAMERA_OV5640_MIPI_V2
+	tristate "OmniVision ov5640 camera support using mipi"
+	depends on MXC_MIPI_CSI && I2C
+	---help---
+	  If you plan to use the ov5640 Camera with mipi interface in your MXC system, say Y here.
+
+config MXC_CAMERA_OV5647_MIPI
+	tristate "OmniVision ov5647 camera support using mipi"
+	depends on MXC_MIPI_CSI && I2C
+	---help---
+	  If you plan to use the ov5647 Camera with mipi interface in your MXC system, say Y here.
 
 config MXC_TVIN_ADV7180
 	tristate "Analog Device adv7180 TV Decoder Input support"
