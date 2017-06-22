@@ -1266,7 +1266,7 @@ static struct file_operations hantrodec_fops = {
  Return type     : int
 ------------------------------------------------------------------------------*/
 
-int __init hantrodec_init(void) {
+int hantrodec_init(void) {
   int result, i;
 
   PDEBUG("module init\n");
@@ -1557,7 +1557,7 @@ err:
  Return type     : int
 ------------------------------------------------------------------------------*/
 
-void __exit hantrodec_cleanup(void) {
+void hantrodec_cleanup(void) {
   hantrodec_t *dev = &hantrodec_data;
   int n =0;
   /* reset hardware */
