@@ -162,16 +162,12 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	val |= PLL_NEWDIV_VAL;
 	writel_relaxed(val, pll->base + PLL_CFG0);
 
-	/* wait for the new divfi and divff reload successfully */
-	while (!(readl_relaxed(pll->base + PLL_CFG0) & PLL_NEWDIV_ACK))
-		;
 	/* clear the NEV_DIV_VAL */
 	val = readl_relaxed(pll->base + PLL_CFG0);
 	val &= ~PLL_NEWDIV_VAL;
 	writel_relaxed(val, pll->base + PLL_CFG0);
 
-	/* wait for PLL is locked */
-	return clk_wait_lock(pll);
+	return 0;
 }
 
 static const struct clk_ops clk_frac_pll_ops = {
