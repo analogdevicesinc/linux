@@ -603,6 +603,9 @@ void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y);
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_panic_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_wait_done(struct dpu_framegen *fg);
+void framegen_read_timestamp(struct dpu_framegen *fg,
+			     u32 *frame_index, u32 *line_index);
+void framegen_wait_for_frame_counter_moving(struct dpu_framegen *fg);
 void framegen_enable_clock(struct dpu_framegen *fg);
 void framegen_disable_clock(struct dpu_framegen *fg);
 struct dpu_framegen *dpu_fg_get(struct dpu_soc *dpu, int id);

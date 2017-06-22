@@ -365,6 +365,52 @@ void framegen_wait_done(struct dpu_framegen *fg)
 }
 EXPORT_SYMBOL_GPL(framegen_wait_done);
 
+static inline u32 framegen_frame_index(u32 stamp)
+{
+	return (stamp & FRAMEINDEX_MASK) >> FRAMEINDEX_SHIFT;
+}
+
+static inline u32 framegen_line_index(u32 stamp)
+{
+	return (stamp & LINEINDEX_MASK) >> LINEINDEX_SHIFT;
+}
+
+void framegen_read_timestamp(struct dpu_framegen *fg,
+			     u32 *frame_index, u32 *line_index)
+{
+	u32 stamp;
+
+	mutex_lock(&fg->mutex);
+	stamp = dpu_fg_read(fg, FGTIMESTAMP);
+	*frame_index = framegen_frame_index(stamp);
+	*line_index = framegen_line_index(stamp);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_read_timestamp);
+
+void framegen_wait_for_frame_counter_moving(struct dpu_framegen *fg)
+{
+	u32 frame_index, line_index, last_frame_index;
+	unsigned long timeout = jiffies + msecs_to_jiffies(30);
+
+	framegen_read_timestamp(fg, &frame_index, &line_index);
+	do {
+		last_frame_index = frame_index;
+		framegen_read_timestamp(fg, &frame_index, &line_index);
+	} while (last_frame_index == frame_index &&
+						time_before(jiffies, timeout));
+
+	if (last_frame_index == frame_index)
+		dev_err(fg->dpu->dev,
+			"failed to wait for FrameGen%d frame counter moving\n",
+			fg->id);
+	else
+		dev_dbg(fg->dpu->dev,
+			"FrameGen%d frame counter moves - last %u, curr %d\n",
+			fg->id, last_frame_index, frame_index);
+}
+EXPORT_SYMBOL_GPL(framegen_wait_for_frame_counter_moving);
+
 void framegen_enable_clock(struct dpu_framegen *fg)
 {
 	clk_prepare_enable(fg->clk_pll);
