@@ -653,6 +653,7 @@ void dpu_lb_put(struct dpu_layerblend *lb);
 /* Timing Controller Unit */
 struct dpu_tcon;
 int tcon_set_fmt(struct dpu_tcon *tcon, u32 bus_format);
+void tcon_set_operation_mode(struct dpu_tcon *tcon);
 void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m);
 struct dpu_tcon *dpu_tcon_get(struct dpu_soc *dpu, int id);
 void dpu_tcon_put(struct dpu_tcon *tcon);
