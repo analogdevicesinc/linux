@@ -246,10 +246,17 @@
 			xlnx,use-jspat = "false";
 			xlnx,use-rpat = "false";
 		};
-		axi_daq2_gt: axi-jesd-gt-rx@44a60000 {
-			compatible = "adi,axi-jesd-gt-1.0";
-			reg = <0x44a60000 0x10000>;
-			xlnx,s-axi-min-size = <0x0000FFFF>;
+		axi_ad9680_adxcvr: axi-ad9680-adxcvr@44a50000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = < 0x44a50000 0x1000 >;
+		};
+		axi_ad9144_adxcvr: axi-ad9144-adxcvr@44a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = < 0x44a60000 0x1000 >;
 		};
 		axi_ethernet: ethernet@40e00000 {
 			compatible = "xlnx,xps-ethernetlite-1.00.a";

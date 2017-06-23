@@ -246,35 +246,18 @@
 			xlnx,use-jspat = "false";
 			xlnx,use-rpat = "false";
 		};
-	axi_ad9680_adxcvr: axi-ad9680-adxcvr@44a50000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "adi,axi-adxcvr-1.0";
-		reg = < 0x44a50000 0x1000 >;
-		#clock-cells = <0>;
-		clocks = <&clk0_ad9523 4>, <&clk0_ad9523 6>;//, <&clk0_ad9523 4>;
-		clock-names = "conv", "sysref";
-		clock-output-names = "adc_gt_clk";
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <4>;
-		adi,use-lpm-enable;
-		adi,use-cpll-enable;
-	};
-
-	axi_ad9144_adxcvr: axi-ad9144-adxcvr@44a60000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "adi,axi-adxcvr-1.0";
-		reg = < 0x44a60000 0x1000 >;
-		#clock-cells = <0>;
-		clocks = <&clk0_ad9523 9>, <&clk0_ad9523 7>;//, <&clk0_ad9523 9>;
-		clock-names = "conv", "sysref";
-		clock-output-names = "dac_gt_clk";
-		adi,link-is-transmit-enable;
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <4>;
-		adi,use-lpm-enable;
-	};
+		axi_ad9680_adxcvr: axi-ad9680-adxcvr@44a50000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = < 0x44a50000 0x1000 >;
+		};
+		axi_ad9144_adxcvr: axi-ad9144-adxcvr@44a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = < 0x44a60000 0x1000 >;
+		};
 		axi_ethernet_dma: dma@41e10000 {
 			axistream-connected = <&axi_ethernet_eth_buf>;
 			axistream-control-connected = <&axi_ethernet_eth_buf>;
