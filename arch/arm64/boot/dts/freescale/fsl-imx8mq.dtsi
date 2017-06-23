@@ -142,6 +142,12 @@
 		};
 	};
 
+	power: power-controller {
+		compatible = "fsl,imx8mq-pm-domain";
+		num-domains = <14>;
+		#power-domain-cells = <1>;
+	};
+
 	gpio1: gpio@30200000 {
 		compatible = "fsl,imx8mq-gpio", "fsl,imx35-gpio";
 		reg = <0x0 0x30200000 0x0 0x10000>;
