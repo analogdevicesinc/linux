@@ -390,7 +390,7 @@ config MV_XOR_V2
 
 config MXS_DMA
 	bool "MXS DMA support"
-	depends on ARCH_MXS || ARCH_MXC || COMPILE_TEST
+	depends on ARCH_MXS || ARCH_MXC || ARCH_MXC_ARM64 || COMPILE_TEST
 	select STMP_DEVICE
 	select DMA_ENGINE
 	help
