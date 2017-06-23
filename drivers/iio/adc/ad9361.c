@@ -7202,6 +7202,9 @@ static int ad9361_set_agc_mode(struct iio_dev *indio_dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	struct rf_gain_ctrl gc = {0};
 
+	if (phy->agc_mode[chan->channel] == mode)
+		return 0;
+
 	gc.ant = ad9361_1rx1tx_channel_map(phy, false, chan->channel + 1);
 	gc.mode = phy->agc_mode[chan->channel] = mode;
 
