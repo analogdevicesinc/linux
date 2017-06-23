@@ -2457,19 +2457,21 @@ static int sdma_resume(struct device *dev)
 	ret = sdma_get_firmware(sdma, sdma->fw_name);
 	if (ret) {
 		dev_warn(&pdev->dev, "failed to get firware\n");
-		return ret;
+		goto out;
 	}
 
 	ret = sdma_save_restore_context(sdma, false);
 	if (ret) {
 		dev_err(sdma->dev, "restore context error!\n");
-		return ret;
+		goto out;
 	}
 
+	ret = 0;
+out:
 	clk_disable(sdma->clk_ipg);
 	clk_disable(sdma->clk_ahb);
 
-	return 0;
+	return ret;
 }
 #endif
 
