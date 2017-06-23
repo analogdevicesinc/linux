@@ -162,6 +162,12 @@ static const unsigned long fd_ofss_v2[] = {0x6c00, 0x7800};
 static const unsigned long fd_pec_ofss_v1[] = {0xb60, 0xb80, 0xb00, 0xb20};
 static const unsigned long fd_pec_ofss_v2[] = {0xa80, 0xaa0};
 
+/* Fetch ECO Unit */
+static const unsigned long fe_ofss_v1[] = {0x9400, 0xa000, 0x8800, 0x1c00};
+static const unsigned long fe_ofss_v2[] = {0x7400, 0x8000, 0x6800, 0x1c00};
+static const unsigned long fe_pec_ofss_v1[] = {0xb70, 0xb90, 0xb50, 0x870};
+static const unsigned long fe_pec_ofss_v2[] = {0xa90, 0xab0, 0xa70, 0x850};
+
 /* Frame Generator Unit */
 static const unsigned long fg_ofss_v1[] = {0x10c00, 0x12800};
 static const unsigned long fg_ofss_v2[] = {0xb800, 0xd400};
@@ -258,6 +264,22 @@ static const struct dpu_unit fds_v2 = {
 	.ids = fd_ids,
 	.pec_ofss = fd_pec_ofss_v2,
 	.ofss = fd_ofss_v2,
+};
+
+static const struct dpu_unit fes_v1 = {
+	.name = "FetchECO",
+	.num = ARRAY_SIZE(fe_ids),
+	.ids = fe_ids,
+	.pec_ofss = fe_pec_ofss_v1,
+	.ofss = fe_ofss_v1,
+};
+
+static const struct dpu_unit fes_v2 = {
+	.name = "FetchECO",
+	.num = ARRAY_SIZE(fe_ids),
+	.ids = fe_ids,
+	.pec_ofss = fe_pec_ofss_v2,
+	.ofss = fe_ofss_v2,
 };
 
 static const struct dpu_unit fgs_v1 = {
@@ -453,13 +475,13 @@ static const unsigned int sw2hw_irq_map_v2[] = {
 /* FIXME: overkill for some N/As, revive them when needed */
 static const unsigned int sw2hw_block_id_map_v2[] = {
 	/*   0     1     2     3     4     5     6     7 */
-	  0x00,   NA,   NA,   NA,   NA,   NA,   NA, 0x07,
+	  0x00,   NA,   NA, 0x03,   NA,   NA,   NA, 0x07,
 	/*   8     9    10    11    12    13    14    15 */
 	  0x08,   NA, 0x0a,   NA, 0x0c,   NA, 0x0e,   NA,
 	/*  16    17    18    19    20    21    22    23 */
 	  0x10,   NA, 0x12,   NA,   NA,   NA,   NA,   NA,
 	/*  24    25    26    27    28    29    30    31 */
-	    NA,   NA, 0x14,   NA, 0x16,   NA, 0x18,   NA,
+	    NA,   NA, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19,
 	/*  32    33    34    35    36    37    38    39 */
 	  0x1a,   NA,   NA, 0x1b, 0x1c, 0x1d,   NA,   NA,
 	/*  40    41    42    43    44    45    46    47 */
@@ -478,6 +500,7 @@ static const struct dpu_devtype dpu_type_v1 = {
 	.decs = &decs_v1,
 	.eds = &eds_v1,
 	.fds = &fds_v1,
+	.fes = &fes_v1,
 	.fgs = &fgs_v1,
 	.fls = &fls_v1,
 	.hss = &hss_v1,
@@ -500,6 +523,7 @@ static const struct dpu_devtype dpu_type_v2 = {
 	.decs = &decs_v2,
 	.eds = &eds_v2,
 	.fds = &fds_v2,
+	.fes = &fes_v2,
 	.fgs = &fgs_v2,
 	.fls = &fls_v2,
 	.hss = &hss_v2,
@@ -650,6 +674,7 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 	DPU_UNITS_INIT(dec);
 	DPU_UNITS_INIT(ed);
 	DPU_UNITS_INIT(fd);
+	DPU_UNITS_INIT(fe);
 	DPU_UNITS_INIT(fg);
 	DPU_UNITS_INIT(fl);
 	DPU_UNITS_INIT(hs);
@@ -1387,6 +1412,7 @@ static int dpu_probe(struct platform_device *pdev)
 	DPU_UNITS_ADDR_DBG(dec);
 	DPU_UNITS_ADDR_DBG(ed);
 	DPU_UNITS_ADDR_DBG(fd);
+	DPU_UNITS_ADDR_DBG(fe);
 	DPU_UNITS_ADDR_DBG(fg);
 	DPU_UNITS_ADDR_DBG(fl);
 	DPU_UNITS_ADDR_DBG(hs);

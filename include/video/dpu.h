@@ -499,6 +499,36 @@ void fetchdecode_set_stream_id(struct dpu_fetchdecode *fd, unsigned int id);
 struct dpu_fetchdecode *dpu_fd_get(struct dpu_soc *dpu, int id);
 void dpu_fd_put(struct dpu_fetchdecode *fd);
 
+/* Fetch ECO Unit */
+struct dpu_fetcheco;
+void fetcheco_shden(struct dpu_fetcheco *fe, bool enable);
+void fetcheco_baseaddress(struct dpu_fetcheco *fe, dma_addr_t paddr);
+void fetcheco_source_bpp(struct dpu_fetcheco *fe, int bpp);
+void fetcheco_source_stride(struct dpu_fetcheco *fe, int stride);
+void fetcheco_src_buf_dimensions(struct dpu_fetcheco *fe, unsigned int w,
+				 unsigned int h, u32 fmt);
+void fetcheco_set_fmt(struct dpu_fetcheco *fe, u32 fmt);
+void fetcheco_layeroffset(struct dpu_fetcheco *fe, unsigned int x,
+			  unsigned int y);
+void fetcheco_clipoffset(struct dpu_fetcheco *fe, unsigned int x,
+			 unsigned int y);
+void fetcheco_clipdimensions(struct dpu_fetcheco *fe, unsigned int w,
+			     unsigned int h);
+void fetcheco_source_buffer_enable(struct dpu_fetcheco *fe);
+void fetcheco_source_buffer_disable(struct dpu_fetcheco *fe);
+bool fetcheco_is_enabled(struct dpu_fetcheco *fe);
+void fetcheco_framedimensions(struct dpu_fetcheco *fe, unsigned int w,
+			      unsigned int h);
+void fetcheco_frameresampling(struct dpu_fetcheco *fe, unsigned int x,
+			      unsigned int y);
+void fetcheco_controltrigger(struct dpu_fetcheco *fe, bool trigger);
+int fetcheco_fetchtype(struct dpu_fetcheco *fe, fetchtype_t *type);
+dpu_block_id_t fetcheco_get_block_id(struct dpu_fetcheco *fe);
+unsigned int fetcheco_get_stream_id(struct dpu_fetcheco *fe);
+void fetcheco_set_stream_id(struct dpu_fetcheco *fe, unsigned int id);
+struct dpu_fetcheco *dpu_fe_get(struct dpu_soc *dpu, int id);
+void dpu_fe_put(struct dpu_fetcheco *fe);
+
 /* Fetch Layer Unit */
 struct dpu_fetchlayer;
 void fetchlayer_shden(struct dpu_fetchlayer *fl, bool enable);
