@@ -1032,9 +1032,18 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	struct clk *clk;
 	int ret;
 	unsigned pll_stat;
 	static int sel = 0;
+
+	clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+		conv->adc_clk = clk_get_rate_scaled(clk, &conv->adc_clkscale);
+	}
 
 	ret = ad9467_spi_write(spi, 0x5f, (0x16 | 0x1));	// trail bits, ilas normal & pd
 	ret |= ad9467_spi_write(spi, 0x5e, m << 4 | l);	// m=2, l=2
@@ -1054,6 +1063,8 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 	ret = clk_prepare_enable(conv->clk);
 	if (ret < 0)
 		return ret;
+
+	conv->clk = clk;
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
