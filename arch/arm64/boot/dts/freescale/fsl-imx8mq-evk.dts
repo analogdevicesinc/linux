@@ -760,6 +760,10 @@
 	power-supply = <&sw1c_reg>;
 };
 
+&gpu {
+	status = "okay";
+};
+
 &vpu {
 	status = "okay";
 };
