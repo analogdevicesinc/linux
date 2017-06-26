@@ -1997,6 +1997,7 @@
 		fsl,num-tx-queues=<3>;
 		fsl,num-rx-queues=<3>;
 		power-domains = <&pd_conn_enet0>;
+		iommus = <&smmu 0x12 0x7f80>;
 		status = "disabled";
 	};
 
@@ -2015,6 +2016,7 @@
 		fsl,num-tx-queues=<3>;
 		fsl,num-rx-queues=<3>;
 		power-domains = <&pd_conn_enet1>;
+		iommus = <&smmu 0x12 0x7f80>;
 		status = "disabled";
 	};
 
