@@ -32,7 +32,8 @@
 	modem_reset: modem-reset {
 		compatible = "gpio-reset";
 		reset-gpios = <&gpio3 5 GPIO_ACTIVE_LOW>;
-		reset-delay-us = <1000>;
+		reset-delay-us = <2000>;
+		reset-post-delay-ms = <40>;
 		#reset-cells = <0>;
 	};
 
