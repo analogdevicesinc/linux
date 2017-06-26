@@ -596,7 +596,7 @@
 		reg-names = "regs_hantro";
 		interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "irq_hantro_g1", "irq_hantro_g2";
-		clocks = <&clk IMX8MQ_CLK_VPU_G1_ROOT>, <&clk IMX8MQ_CLK_VPU_G2_ROOT>, <&clk IMX8MQ_CLK_VPU_BUS_DIV>;
+		clocks = <&clk IMX8MQ_CLK_VPU_G1_ROOT>, <&clk IMX8MQ_CLK_VPU_G2_ROOT>, <&clk IMX8MQ_CLK_VPU_DEC_ROOT>;
 		clock-names = "clk_hantro_g1", "clk_hantro_g2", "clk_hantro_bus";
 		assigned-clocks = <&clk IMX8MQ_CLK_VPU_G1_SRC>, <&clk IMX8MQ_CLK_VPU_G2_SRC>, <&clk IMX8MQ_CLK_VPU_BUS_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_VPU_PLL_OUT>, <&clk IMX8MQ_VPU_PLL_OUT>, <&clk IMX8MQ_SYS1_PLL_800M>;

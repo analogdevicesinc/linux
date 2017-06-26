@@ -404,7 +404,7 @@ int GetDecCoreID(hantrodec_t *dev, struct file* filp,
       break;
     }
   }
-  printk("GetDecCoreID=%d\n",core_id);
+  PDEBUG("GetDecCoreID=%d\n",core_id);
   return core_id;
 }
 
@@ -458,15 +458,17 @@ long ReserveDecoder(hantrodec_t *dev, struct file* filp, unsigned long format) {
 #if 1
   if(IS_G1(dev->hw_id[Core]))
   	{
-	  if (0 == hantrodec_choose_core(1)) 
-	    printk("G1 is reserved\n");
+	  if (0 == hantrodec_choose_core(1)) {
+	    PDEBUG("G1 is reserved\n");
+      }
 	  else
 	  	return -1;
   	}
   else
   	{
-      if (0 == hantrodec_choose_core(0))
-        printk("G2 is reserved\n");
+      if (0 == hantrodec_choose_core(0)){
+        PDEBUG("G2 is reserved\n");
+      }
 	  else
 	  	return -1;
   	}
@@ -1846,71 +1848,10 @@ static int hantro_dev_probe(struct platform_device *pdev)
         err = -ENOENT;
         goto error;
     }
-#if 1 //1 eagle : temporary code for zebu
+#if 1 //eagle : config code for bringup
 {
-    //#define CLK_RATE  (600000000)    //600MHZ
-#define CLKG1_RATE  (600000000)    //600MHZ
-#define CLKG2_RATE  (300000000)    //300MHZ
     int ret;
     volatile u8* iobase;
-
-    /*
-    mw 0x303a00f8 0x100
-    mw 0x38320000 0x3			// BLK_SFT_RSTN_CSR	0x00	VPUMIX G1/G2 block soft reset  control
-    mw 0x38320004 0x3			// BLK_CLK_EN_CSR	0x04	VPUMIX G1/G2 block clock enable control
-    */
-#if 0  //only needed by zebu
-    printk("will set 0x303a00f8 and 0x303a00EC \r\n");
-    iobase = (volatile u8 *) ioremap_nocache(0x303a0000,0x10000);
-    iowrite32(0x100,iobase+0xf8);
-    //iobase[0xf8]=0x100;
-    iowrite32(0x0000ffffl, iobase+0xEC);
-    iounmap(iobase);
-#endif
-    //printk("will set 0x3832000X, reset g1 and g2 \r\n");
-    iobase = (volatile u8 *) ioremap_nocache(0x38320000,0x10000);
-    //iobase[0]=0x3;
-    //iobase[0x4]=0x3;
-    iowrite32(0x3,iobase);
-    iowrite32(0x3,iobase+4);
-    {
-        unsigned int val=0;
-        iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
-        iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
-
-        val=ioread32(iobase + 0x10);
-        //printk("g2 fuse before set: 0x%X \n",val);  
-        iowrite32(0xFFFFFFFF, iobase + 0x10); // all G2 fuse dec enable
-        val=ioread32(iobase + 0x10);
-        //printk("g2 fuse after set : 0x%X \n",val);    
-        // G1 use, set to 1; G2 use, set to 0, choose the one you are using
-
-#if 0
-        //iowrite32(0x1, iobase + 0x14);  // VPUMIX only use G1
-        val=ioread32(iobase + 0x14);
-        printk("vpumix before set: 0x%X \n",val);  
-        iowrite32(0x0, iobase + 0x14); // VPUMIX only use G2
-        val=ioread32(iobase + 0x14);
-        printk("vpumix after set: 0x%X \n",val);  
-#endif
-    }
-    iounmap(iobase);  
-    //printk("enable hantro power \r\n");
-    //  pm_runtime_enable(hantro_dev);
-    //  ret=pm_runtime_get_sync(hantro_dev);
-    //  printk("turn power ret: %d \r\n",ret);
-
-#if 0
-    clk_prepare(hantro_clk_g1);
-    ret=clk_set_rate(hantro_clk_g1,CLKG1_RATE);
-    printk("set g1 rate: %d , ret: %d \r\n",CLKG1_RATE,ret);
-    clk_unprepare(hantro_clk_g1);
-
-    clk_prepare(hantro_clk_g2);
-    ret=clk_set_rate(hantro_clk_g2,CLKG2_RATE);
-    printk("set g2 rate: %d , ret: %d \r\n",CLKG2_RATE,ret);
-    clk_unprepare(hantro_clk_g2);
-#endif
 
     //printk("enable g1 and g2 clock  \r\n");
     ret=clk_prepare(hantro_clk_g1);
@@ -1929,14 +1870,38 @@ static int hantro_dev_probe(struct platform_device *pdev)
     //printk("g2 clk: get rate: %d \r\n",(int)clk_get_rate(hantro_clk_g2));
     //printk("hantro bus clk: get rate: %d \r\n",(int)clk_get_rate(hantro_clk_bus));
 
-#if 0
-    printk("set g1 rate: %d , ret: %d \r\n",CLKG1_RATE,ret);
-    ret=clk_set_rate(hantro_clk_g1,CLKG1_RATE);
-    printk("set g2 rate: %d , ret: %d \r\n",CLKG2_RATE,ret);
-    ret=clk_set_rate(hantro_clk_g2,CLKG2_RATE);
-    printk("g1 clk: get rate: %d \r\n",(int)clk_get_rate(hantro_clk_g1));
-    printk("g2 clk: get rate: %d \r\n",(int)clk_get_rate(hantro_clk_g2));
-#endif
+    //printk("will set 0x3832000X, reset g1 and g2 \r\n");
+    iobase = (volatile u8 *) ioremap_nocache(0x38320000,0x10000);
+    //iobase[0]=0x3;
+    //iobase[0x4]=0x3;
+    iowrite32(0x3,iobase);
+    iowrite32(0x3,iobase+4);
+    {
+        unsigned int val=0;
+        iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
+        iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
+
+        val=ioread32(iobase + 0x10);
+        //printk("g2 fuse before set: 0x%X \n",val);  
+        iowrite32(0xFFFFFFFF, iobase + 0x10); // all G2 fuse dec enable
+        val=ioread32(iobase + 0x10);
+        //printk("g2 fuse after set : 0x%X \n",val);    
+        // G1 use, set to 1; G2 use, set to 0, choose the one you are using
+
+        /*
+        //iowrite32(0x1, iobase + 0x14);  // VPUMIX only use G1
+        val=ioread32(iobase + 0x14);
+        printk("vpumix before set: 0x%X \n",val);  
+        iowrite32(0x0, iobase + 0x14); // VPUMIX only use G2
+        val=ioread32(iobase + 0x14);
+        printk("vpumix after set: 0x%X \n",val);  
+        */
+    }
+    iounmap(iobase);  
+    //printk("enable hantro power \r\n");
+    //  pm_runtime_enable(hantro_dev);
+    //  ret=pm_runtime_get_sync(hantro_dev);
+    //  printk("turn power ret: %d \r\n",ret);
 
 }
 
