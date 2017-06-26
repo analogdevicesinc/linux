@@ -15,10 +15,13 @@
 
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+
+#define ANADIG_DIGPROG		0x6c
 
 struct imx8_soc_data {
 	char *name;
@@ -27,6 +30,7 @@ struct imx8_soc_data {
 
 u32 imx8qm_soc_revision(void);
 u32 imx8qxp_soc_revision(void);
+u32 imx8mq_soc_revision(void);
 
 struct imx8_soc_data imx8qm_soc_data = {
 	.name = "i.MX8QM",
@@ -38,11 +42,37 @@ struct imx8_soc_data imx8qxp_soc_data = {
 	.soc_revision = imx8qxp_soc_revision,
 };
 
+struct imx8_soc_data imx8mq_soc_data = {
+	.name = "i.MX8MQ",
+	.soc_revision = imx8mq_soc_revision,
+};
+
 static const struct of_device_id imx8_soc_match[] = {
 	{ .compatible = "fsl,imx8qm", .data = &imx8qm_soc_data, },
 	{ .compatible = "fsl,imx8qxp", .data = &imx8qxp_soc_data, },
+	{ .compatible = "fsl,imx8mq", .data = &imx8mq_soc_data, },
 	{ }
 };
+
+static u32 __init imx_init_revision_from_anatop(void)
+{
+	struct device_node *np;
+	void __iomem *anatop_base;
+	u32 digprog;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx8mq-anatop");
+	anatop_base = of_iomap(np, 0);
+	WARN_ON(!anatop_base);
+	digprog = readl_relaxed(anatop_base + ANADIG_DIGPROG);
+	iounmap(anatop_base);
+
+	/*
+	 * Bit[7:4] is the base layer revision,
+	 * Bit[3:0] is the metal layer revision
+	 * e.g. 0x10 stands for Tapeout 1.0
+	 */
+	return digprog & 0xff;
+}
 
 u32 imx8qm_soc_revision(void)
 {
@@ -56,6 +86,11 @@ u32 imx8qxp_soc_revision(void)
 	/*FIX ME later */
 
 	return 0x10;
+}
+
+u32 imx8mq_soc_revision(void)
+{
+	return imx_init_revision_from_anatop();
 }
 
 static int __init imx8_soc_init(void)
