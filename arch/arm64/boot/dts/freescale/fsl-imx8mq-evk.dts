@@ -77,6 +77,20 @@
 			>;
 		};
 
+		pinctrl_i2c1: i2c1grp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_I2C1_SCL_I2C1_SCL			0x4000007f
+				MX8MQ_IOMUXC_I2C1_SDA_I2C1_SDA			0x4000007f
+			>;
+		};
+
+		pinctrl_i2c2: i2c2grp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_I2C2_SCL_I2C2_SCL			0x4000007f
+				MX8MQ_IOMUXC_I2C2_SDA_I2C2_SDA			0x4000007f
+			>;
+		};
+
 		pinctrl_uart1: uart1grp {
 			fsl,pins = <
 				MX8MQ_IOMUXC_UART1_RXD_UART1_DCE_RX		0x79
@@ -136,6 +150,20 @@
 			reg = <0>;
 		};
 	};
+};
+
+&i2c1 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	status = "okay";
+};
+
+&i2c2 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c2>;
+	status = "disabled";
 };
 
 &uart1 { /* console */

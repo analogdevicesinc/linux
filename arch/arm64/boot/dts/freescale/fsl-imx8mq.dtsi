@@ -590,6 +590,46 @@
 		fsl,heap-id = <0>;
 	};
 
+	i2c1: i2c@30a20000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx21-i2c";
+		reg = <0x0 0x30a20000 0x0 0x10000>;
+		interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_I2C1_ROOT>;
+		status = "disabled";
+	};
+
+	i2c2: i2c@30a30000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx21-i2c";
+		reg = <0x0 0x30a30000 0x0 0x10000>;
+		interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_I2C2_ROOT>;
+		status = "disabled";
+	};
+
+	i2c3: i2c@30a40000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx21-i2c";
+		reg = <0x0 0x30a40000 0x0 0x10000>;
+		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_I2C3_ROOT>;
+		status = "disabled";
+	};
+
+	i2c4: i2c@30a50000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx21-i2c";
+		reg = <0x0 0x30a50000 0x0 0x10000>;
+		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_I2C4_ROOT>;
+		status = "disabled";
+	};
+
 	vpu: vpu@38300000 {
 		compatible = "nxp,imx8mq-hantro";
 		reg = <0x0 0x38300000 0x0 0x200000>;
