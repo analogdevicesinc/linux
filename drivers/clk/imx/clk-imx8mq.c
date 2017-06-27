@@ -806,6 +806,9 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clk_set_parent(clks[IMX8MQ_CLK_AUDIO_AHB_SRC], clks[IMX8MQ_SYS2_PLL_1000M]);
 	clk_set_rate(clks[IMX8MQ_CLK_AUDIO_AHB_DIV], 500000000);
 
+	/* increase NOC clock to achieve best DDR access performance */
+	clk_set_rate(clks[IMX8MQ_CLK_NOC_DIV], clk_get_rate(clks[IMX8MQ_SYS1_PLL_800M]));
+
 	pr_info("i.MX8MQ clock driver init done\n");
 }
 
