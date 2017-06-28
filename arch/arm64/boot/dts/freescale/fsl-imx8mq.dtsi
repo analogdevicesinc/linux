@@ -560,10 +560,12 @@
 			"enet_clk_ref", "enet_out";
 		assigned-clocks = <&clk IMX8MQ_CLK_ENET_AXI_SRC>,
 				  <&clk IMX8MQ_CLK_ENET_TIMER_SRC>,
-				  <&clk IMX8MQ_CLK_ENET_REF_SRC>;
+				  <&clk IMX8MQ_CLK_ENET_REF_SRC>,
+				  <&clk IMX8MQ_CLK_ENET_TIMER_DIV>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_266M>,
 					 <&clk IMX8MQ_SYS2_PLL_100M>,
 					 <&clk IMX8MQ_SYS2_PLL_125M>;
+		assigned-clock-rates = <0>, <0>, <125000000>, <100000000>;
 		stop-mode = <&gpr 0x10 3>;
 		fsl,num-tx-queues=<3>;
 		fsl,num-rx-queues=<3>;

@@ -67,14 +67,15 @@
 				MX8MQ_IOMUXC_ENET_TD2_ENET1_RGMII_TD2	0x1f
 				MX8MQ_IOMUXC_ENET_TD1_ENET1_RGMII_TD1	0x1f
 				MX8MQ_IOMUXC_ENET_TD0_ENET1_RGMII_TD0	0x1f
+				MX8MQ_IOMUXC_ENET_RD3_ENET1_RGMII_RD3	0x91
+				MX8MQ_IOMUXC_ENET_RD2_ENET1_RGMII_RD2	0x91
+				MX8MQ_IOMUXC_ENET_RD1_ENET1_RGMII_RD1	0x91
+				MX8MQ_IOMUXC_ENET_RD0_ENET1_RGMII_RD0	0x91
 				MX8MQ_IOMUXC_ENET_TXC_ENET1_RGMII_TXC	0x1f
-				MX8MQ_IOMUXC_ENET_RD3_ENET1_RGMII_RD3	0x1f
-				MX8MQ_IOMUXC_ENET_RD2_ENET1_RGMII_RD2	0x1f
-				MX8MQ_IOMUXC_ENET_RD1_ENET1_RGMII_RD1	0x1f
-				MX8MQ_IOMUXC_ENET_RD0_ENET1_RGMII_RD0	0x1f
-				MX8MQ_IOMUXC_ENET_RXC_ENET1_RGMII_RXC	0x1f
-				MX8MQ_IOMUXC_ENET_RX_CTL_ENET1_RGMII_RX_CTL	0x1f
+				MX8MQ_IOMUXC_ENET_RXC_ENET1_RGMII_RXC	0x91
+				MX8MQ_IOMUXC_ENET_RX_CTL_ENET1_RGMII_RX_CTL	0x91
 				MX8MQ_IOMUXC_ENET_TX_CTL_ENET1_RGMII_TX_CTL	0x1f
+				MX8MQ_IOMUXC_GPIO1_IO09_GPIO1_IO9	0x19
 			>;
 		};
 
@@ -141,10 +142,9 @@
 
 &fec1 {
 	pinctrl-names = "default";
-	inctrl-0 = <&pinctrl_fec1>;
-	phy-mode = "rgmii";
+	pinctrl-0 = <&pinctrl_fec1>;
+	phy-mode = "rgmii-id";
 	phy-handle = <&ethphy0>;
-	fsl,ar8031-phy-fixup;
 	fsl,magic-packet;
 	status = "okay";
 
@@ -155,6 +155,8 @@
 		ethphy0: ethernet-phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <0>;
+			at803x,led-act-blind-workaround;
+			at803x,eee-disabled;
 		};
 	};
 };
