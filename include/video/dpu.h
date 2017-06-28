@@ -476,7 +476,9 @@ void fetchdecode_set_burstlength(struct dpu_fetchdecode *fd, dma_addr_t baddr,
 				 bool use_prefetch);
 void fetchdecode_baseaddress(struct dpu_fetchdecode *fd, dma_addr_t paddr);
 void fetchdecode_source_bpp(struct dpu_fetchdecode *fd, int bpp);
-void fetchdecode_source_stride(struct dpu_fetchdecode *fd, int stride);
+void fetchdecode_source_stride(struct dpu_fetchdecode *fd, unsigned int width,
+			       int bpp, unsigned int stride,
+			       dma_addr_t baddr, bool use_prefetch);
 void fetchdecode_src_buf_dimensions(struct dpu_fetchdecode *fd, unsigned int w,
 				    unsigned int h);
 void fetchdecode_set_fmt(struct dpu_fetchdecode *fd, u32 fmt);

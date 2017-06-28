@@ -269,9 +269,28 @@ void fetchdecode_source_bpp(struct dpu_fetchdecode *fd, int bpp)
 }
 EXPORT_SYMBOL_GPL(fetchdecode_source_bpp);
 
-void fetchdecode_source_stride(struct dpu_fetchdecode *fd, int stride)
+void fetchdecode_source_stride(struct dpu_fetchdecode *fd, unsigned int width,
+			       int bpp, unsigned int stride,
+			       dma_addr_t baddr, bool use_prefetch)
 {
+	unsigned int burst_size;
 	u32 val;
+
+	if (use_prefetch) {
+		/*
+		 * address TKT343664:
+		 * fetch unit base address has to align to burst size
+		 */
+		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = min(burst_size, 128U);
+
+		stride = width * (bpp >> 3);
+		/*
+		 * address TKT339017:
+		 * fixup for burst size vs stride mismatch
+		 */
+		stride = round_up(stride, burst_size);
+	}
 
 	mutex_lock(&fd->mutex);
 	val = dpu_fd_read(fd, SOURCEBUFFERATTRIBUTES0);

@@ -354,7 +354,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	fetchdecode_source_bpp(fd, bpp);
-	fetchdecode_source_stride(fd, fb->pitches[0]);
+	fetchdecode_source_stride(fd, src_w, bpp, fb->pitches[0],
+				  drm_plane_state_to_baseaddr(state), false);
 	fetchdecode_src_buf_dimensions(fd, src_w, src_h);
 	fetchdecode_set_fmt(fd, fb->format->format);
 	fetchdecode_source_buffer_enable(fd);
