@@ -483,6 +483,24 @@ static int ad9371_init_cal(struct ad9371_rf_phy *phy, uint32_t initCalMask)
 	return 0;
 }
 
+static const char * const ad9371_ilas_mismatch_table[] = {
+	"device ID",
+	"bank ID",
+	"lane ID",
+	"lanes per converter",
+	"scrambling",
+	"octets per frame",
+	"frames per multiframe",
+	"number of converters",
+	"sample resolution",
+	"control bits per sample",
+	"bits per sample",
+	"samples per frame",
+	"control words per frame",
+	"high density",
+	"checksum"
+};
+
 static int ad9371_setup(struct ad9371_rf_phy *phy)
 {
 	int ret;
@@ -491,12 +509,13 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 
 	uint8_t deframerStatus = 0;
 	uint8_t obsFramerStatus = 0;
-//	uint16_t mismatch = 0;
+	uint16_t mismatch = 0;
 	uint8_t framerStatus = 0;
 	mykonosErr_t mykError;
 	unsigned long lane_rate_kHz;
 	long dev_clk, fmc_clk;
 	uint32_t initCalMask;
+	unsigned int i;
 
 	mykonosDevice_t *mykDevice = phy->mykDevice;
 
@@ -782,9 +801,15 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 		dev_warn(&phy->spi->dev, "deframerStatus (0x%X)", deframerStatus);
 
 
-	/* FIXME: There are some knwon and harmless mismatches LID/DID/etc.
 	mykError = MYKONOS_jesd204bIlasCheck(mykDevice, &mismatch);
-	*/
+	if (mismatch) {
+		dev_warn(&phy->spi->dev, "ILAS mismatch: %04x\n", mismatch);
+		for (i = 0; i < ARRAY_SIZE(ad9371_ilas_mismatch_table); i++) {
+			if (mismatch & BIT(i))
+				dev_warn(&phy->spi->dev, "ILAS %s did not match\n",
+					ad9371_ilas_mismatch_table[i]);
+		}
+	}
 
 	/*** < User: When links have been verified, proceed > ***/
 
