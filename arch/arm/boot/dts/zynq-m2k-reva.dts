@@ -70,8 +70,8 @@
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 
-		gpio = <&gpio0 87 0>;
-		enabale-active-high;
+		gpio = <&gpio0 55 0>;
+		enable-active-high;
 
 		regulator-boot-on;
 		regulator-always-on;
@@ -109,15 +109,6 @@
 			linux,code = <BTN_MISC>;
 		};
 
-	};
-};
-
-&gpio0 {
-	analog_pwr_en {
-		gpio-hog;
-		gpios = <55 0>;
-		output-high;
-		line-name = "analog_power_en";
 	};
 };
 
