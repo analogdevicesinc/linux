@@ -30,7 +30,7 @@
 		clock-div = <4>;
 	};
 
-	m2k-fabric {
+	m2k_fabric: m2k-fabric {
 		compatible = "adi,m2k-fabric";
 		adi,revc;
 
@@ -87,7 +87,7 @@
 		};
 	};
 
-	leds1 {
+	led_gpio_exp: leds1 {
 		compatible = "gpio-leds";
 
 		status {
@@ -209,7 +209,7 @@
 				vref-supply = <&ref_1V2>;
 			};
 
-			current_limiter@5a {
+			current_limiter: current_limiter@5a {
 				compatible = "adi,adm1177";
 				reg = <0x5a>;
 				adi,r-sense-mohm = <50>; /* 50 mOhm */

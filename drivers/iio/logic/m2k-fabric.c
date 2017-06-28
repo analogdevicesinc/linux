@@ -65,6 +65,8 @@ struct m2k_fabric {
 	bool awg_powerdown[2];
 
 	bool revb;
+	bool revc;
+	bool revd;
 };
 
 static int m2k_fabric_switch_values_open[] = {
@@ -135,9 +137,13 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 				values[M2K_FABRIC_GPIO_EN_AWG2] = 1;
 			values[M2K_FABRIC_GPIO_EN_AWG1_50OHM] = !values[M2K_FABRIC_GPIO_EN_AWG1];
 			values[M2K_FABRIC_GPIO_EN_AWG2_50OHM] = !values[M2K_FABRIC_GPIO_EN_AWG2];
-		} else {
+		} else if (m2k_fabric->revc) {
 			values[M2K_FABRIC_GPIO_EN_SC1] = m2k_fabric->sc_powerdown[0];
 			values[M2K_FABRIC_GPIO_EN_SC2] = m2k_fabric->sc_powerdown[1];
+			values[M2K_FABRIC_GPIO_EN_AWG1] = m2k_fabric->awg_powerdown[0];
+			values[M2K_FABRIC_GPIO_EN_AWG2] = m2k_fabric->awg_powerdown[1];
+		} else  if (m2k_fabric->revd) {
+			values[M2K_FABRIC_GPIO_EN_SC1] = m2k_fabric->sc_powerdown[0];
 			values[M2K_FABRIC_GPIO_EN_AWG1] = m2k_fabric->awg_powerdown[0];
 			values[M2K_FABRIC_GPIO_EN_AWG2] = m2k_fabric->awg_powerdown[1];
 		}
@@ -155,9 +161,13 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 			values[M2K_FABRIC_GPIO_EN_AWG2] = 1;
 			values[M2K_FABRIC_GPIO_EN_AWG1_50OHM] = 1;
 			values[M2K_FABRIC_GPIO_EN_AWG2_50OHM] = 1;
-		} else {
+		} else if (m2k_fabric->revc) {
 			values[M2K_FABRIC_GPIO_EN_SC1] = 0;
 			values[M2K_FABRIC_GPIO_EN_SC2] = 0;
+			values[M2K_FABRIC_GPIO_EN_AWG1] = 0;
+			values[M2K_FABRIC_GPIO_EN_AWG2] = 0;
+		} else  if (m2k_fabric->revd) {
+			values[M2K_FABRIC_GPIO_EN_SC1] = 0;
 			values[M2K_FABRIC_GPIO_EN_AWG1] = 0;
 			values[M2K_FABRIC_GPIO_EN_AWG2] = 0;
 		}
@@ -165,6 +175,9 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 	}
 
 	ngpios = M2K_FABRIC_GPIO_MAX;
+
+	if (m2k_fabric->revd)
+		ngpios = M2K_FABRIC_GPIO_MAX - 1; /* skip [M2K_FABRIC_GPIO_EN_SC2 */
 
 	/* Open up all first to avoid shorts */
 	gpiod_set_array_value_cansleep(ngpios,
@@ -405,7 +418,7 @@ static const struct iio_chan_spec m2k_fabric_chan_spec_revb[] = {
 	}
 };
 
-static const struct iio_chan_spec_ext_info m2k_fabric_rx_ext_info[] = {
+static const struct iio_chan_spec_ext_info m2k_fabric_rx_ext_info_revc[] = {
 	IIO_ENUM("calibration_mode", IIO_SHARED_BY_ALL,
 		&m2k_fabric_calibration_mode_enum),
 	IIO_ENUM_AVAILABLE_SHARED("calibration_mode", IIO_SHARED_BY_ALL,
@@ -441,7 +454,7 @@ static const struct iio_chan_spec_ext_info m2k_fabric_tx_ext_info[] = {
 	.channel = (x), \
 	.address = (x), \
 	.scan_index = 0, \
-	.ext_info = m2k_fabric_rx_ext_info, \
+	.ext_info = m2k_fabric_rx_ext_info_revc, \
 }
 
 #define M2K_FABRIC_TX_CHAN(x) { \
@@ -454,9 +467,50 @@ static const struct iio_chan_spec_ext_info m2k_fabric_tx_ext_info[] = {
 	.ext_info = m2k_fabric_tx_ext_info, \
 }
 
-static const struct iio_chan_spec m2k_fabric_chan_spec[] = {
+static const struct iio_chan_spec m2k_fabric_chan_spec_revc[] = {
 	M2K_FABRIC_RX_CHAN(0),
 	M2K_FABRIC_RX_CHAN(1),
+	M2K_FABRIC_TX_CHAN(0),
+	M2K_FABRIC_TX_CHAN(1),
+	{
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = 2,
+		.extend_name = "user_supply",
+		.output = 1,
+		.scan_index = -1,
+		.ext_info = m2k_fabric_user_supply_ext_info,
+	}
+};
+
+static const struct iio_chan_spec_ext_info m2k_fabric_rx_ext_info_revd[] = {
+	IIO_ENUM("calibration_mode", IIO_SHARED_BY_ALL,
+		&m2k_fabric_calibration_mode_enum),
+	IIO_ENUM_AVAILABLE_SHARED("calibration_mode", IIO_SHARED_BY_ALL,
+		&m2k_fabric_calibration_mode_enum),
+	IIO_ENUM("gain", IIO_SEPARATE, &m2k_fabric_adc_gain_enum),
+	IIO_ENUM_AVAILABLE("gain", &m2k_fabric_adc_gain_enum),
+	{
+		.name = "powerdown",
+		.read = m2k_fabric_powerdown_read,
+		.write = m2k_fabric_powerdown_write,
+		.shared = IIO_SHARED_BY_TYPE,
+	},
+	{}
+};
+
+#define M2K_FABRIC_RX_CHAN_REVD(x) { \
+.type = IIO_VOLTAGE, \
+.indexed = 1, \
+.channel = (x), \
+.address = (x), \
+.scan_index = 0, \
+.ext_info = m2k_fabric_rx_ext_info_revd, \
+}
+
+static const struct iio_chan_spec m2k_fabric_chan_spec_revd[] = {
+	M2K_FABRIC_RX_CHAN_REVD(0),
+	M2K_FABRIC_RX_CHAN_REVD(1),
 	M2K_FABRIC_TX_CHAN(0),
 	M2K_FABRIC_TX_CHAN(1),
 	{
@@ -490,7 +544,7 @@ static const char * const m2k_fabric_gpio_names_revb[] = {
 	[M2K_FABRIC_GPIO_EN_AWG2_50OHM] = "en-awg2-50ohm",
 };
 
-static const char * const m2k_fabric_gpio_names[] = {
+static const char * const m2k_fabric_gpio_names_revc[] = {
 	[M2K_FABRIC_GPIO_EN_SC1_LG] = "en-sc1-lg",
 	[M2K_FABRIC_GPIO_EN_SC1_HG] = "en-sc1-hg",
 	[M2K_FABRIC_GPIO_EN_SC2_LG] = "en-sc2-lg",
@@ -506,6 +560,21 @@ static const char * const m2k_fabric_gpio_names[] = {
 	[M2K_FABRIC_GPIO_EN_SC2] = "en-sc2",
 };
 
+static const char * const m2k_fabric_gpio_names_revd[] = {
+	[M2K_FABRIC_GPIO_EN_SC1_LG] = "en-sc1-lg",
+	[M2K_FABRIC_GPIO_EN_SC1_HG] = "en-sc1-hg",
+	[M2K_FABRIC_GPIO_EN_SC2_LG] = "en-sc2-lg",
+	[M2K_FABRIC_GPIO_EN_SC2_HG] = "en-sc2-hg",
+	[M2K_FABRIC_GPIO_EN_SC_CAL1] = "en-sc-cal1",
+	[M2K_FABRIC_GPIO_EN_SC1_CAL2] = "en-sc1-cal2",
+	[M2K_FABRIC_GPIO_EN_SC2_CAL2] = "en-sc2-cal2",
+	[M2K_FABRIC_GPIO_SC_CAL_MUX0] = "sc-cal-mux0",
+	[M2K_FABRIC_GPIO_SC_CAL_MUX1] = "sc-cal-mux1",
+	[M2K_FABRIC_GPIO_EN_AWG1] = "en-awg1",
+	[M2K_FABRIC_GPIO_EN_AWG2] = "en-awg2",
+	[M2K_FABRIC_GPIO_EN_SC1] = "en-sc",
+};
+
 static int m2k_fabric_probe(struct platform_device *pdev)
 {
 	const char * const * gpio_names;
@@ -513,7 +582,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	struct m2k_fabric *m2k_fabric;
 	struct iio_dev *indio_dev;
 	unsigned int i;
-	bool revb, revc;
+	bool revb, revc, revd;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*m2k_fabric));
 	if (!indio_dev)
@@ -523,20 +592,26 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 
 	revb = of_property_read_bool(pdev->dev.of_node, "adi,revb");
 	revc = of_property_read_bool(pdev->dev.of_node, "adi,revc");
+	revd = of_property_read_bool(pdev->dev.of_node, "adi,revd");
 
-	if (!revb && !revc) {
+	if (!revb && !revc && !revd) {
 		dev_err(&pdev->dev, "Unsupported revision\n");
 		return -EINVAL;
 	}
 
 	m2k_fabric->revb = revb;
+	m2k_fabric->revc = revc;
+	m2k_fabric->revd = revd;
 
 	if (m2k_fabric->revb) {
 		gpio_names = m2k_fabric_gpio_names_revb;
 		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revb);
-	} else {
-		gpio_names = m2k_fabric_gpio_names;
-		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names);
+	} else if (m2k_fabric->revc) {
+		gpio_names = m2k_fabric_gpio_names_revc;
+		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revc);
+	} else if (m2k_fabric->revd) {
+		gpio_names = m2k_fabric_gpio_names_revd;
+		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revd);
 	}
 
 	for (i = 0; i < num_gpio_names; i++) {
@@ -571,9 +646,12 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	if (m2k_fabric->revb) {
 		indio_dev->channels = m2k_fabric_chan_spec_revb;
 		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec_revb);
-	} else {
-		indio_dev->channels = m2k_fabric_chan_spec;
-		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec);
+	} else if (m2k_fabric->revc) {
+		indio_dev->channels = m2k_fabric_chan_spec_revc;
+		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec_revc);
+	} else if (m2k_fabric->revd) {
+		indio_dev->channels = m2k_fabric_chan_spec_revd;
+		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec_revd);
 	}
 
 	platform_set_drvdata(pdev, indio_dev);
