@@ -1192,6 +1192,8 @@
 	ddr_pmu0: ddr_pmu@5c020000 {
 		compatible = "fsl,imx8-ddr-pmu";
 		reg = <0x0 0x5c020000 0x0 0x10000>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	lpuart0: serial@5a060000 {
