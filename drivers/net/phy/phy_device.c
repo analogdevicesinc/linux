@@ -1392,15 +1392,7 @@ int genphy_restart_aneg(struct phy_device *phydev)
 }
 EXPORT_SYMBOL(genphy_restart_aneg);
 
-/**
- * genphy_config_aneg - restart auto-negotiation or write BMCR
- * @phydev: target phy_device struct
- *
- * Description: If auto-negotiation is enabled, we configure the
- *   advertising, and then restart auto-negotiation.  If it is not
- *   enabled, then we write the BMCR.
- */
-int genphy_config_aneg(struct phy_device *phydev)
+int genphy_config_aneg_check(struct phy_device *phydev)
 {
 	int err, changed;
 
@@ -1428,11 +1420,28 @@ int genphy_config_aneg(struct phy_device *phydev)
 			changed = 1; /* do restart aneg */
 	}
 
+	return changed;
+}
+EXPORT_SYMBOL(genphy_config_aneg_check);
+
+/**
+ * genphy_config_aneg - restart auto-negotiation or write BMCR
+ * @phydev: target phy_device struct
+ *
+ * Description: If auto-negotiation is enabled, we configure the
+ *   advertising, and then restart auto-negotiation.  If it is not
+ *   enabled, then we write the BMCR.
+ */
+int genphy_config_aneg(struct phy_device *phydev)
+{
+	int result;
+
 	/* Only restart aneg if we are advertising something different
 	 * than we were before.
 	 */
-	if (changed > 0)
-		return genphy_restart_aneg(phydev);
+	result = genphy_config_aneg_check(phydev);
+	if (result > 0)
+		result = genphy_restart_aneg(phydev);
 
 	return 0;
 }
