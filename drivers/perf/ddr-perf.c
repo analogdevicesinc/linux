@@ -449,11 +449,13 @@ static int ddr_perf_probe(struct platform_device *pdev)
 					pmu);
 	if (ret < 0) {
 		pr_err("Request irq failed: %d", ret);
-		goto ddr_perf_err;
+		goto ddr_perf_irq_err;
 	}
 
 	return 0;
 
+ddr_perf_irq_err:
+	perf_pmu_unregister(&(pmu->pmu));
 ddr_perf_err:
 	pr_warn("i.MX8 DDR Perf PMU failed (%d), disabled\n", ret);
 	kfree(pmu);
