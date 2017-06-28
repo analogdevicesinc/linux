@@ -43,6 +43,7 @@ struct decode_info {
 	void *out_buf_addr;
 	int   out_buf_size;
 	int   out_buf_off;
+	unsigned int cycles;
 };
 
 struct prop_info {
