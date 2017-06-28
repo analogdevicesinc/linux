@@ -553,19 +553,6 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 		return -EINVAL;
 	}
 
-
-	// FIXME
-	ret = clk_set_rate(phy->jesd_rx_clk, 2457600);
-	if (ret < 0)
-		return ret;
-	ret = clk_set_rate(phy->jesd_rx_os_clk, 2457600);
-	if (ret < 0)
-		return ret;
-	ret = clk_set_rate(phy->jesd_tx_clk, 2457600);
-	if (ret < 0)
-		return ret;
-
-
 	lane_rate_kHz = mykDevice->rx->rxProfile->iqRate_kHz *
 			mykDevice->rx->framer->M *
 			(20 / hweight8(mykDevice->rx->framer->serializerLanesEnabled));
