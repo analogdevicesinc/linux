@@ -55,6 +55,7 @@ struct icm_cdc_iobuf_t {
 	u32 out_buf_size_max;		/* init by APU */
 	u32 out_cur_offset;		/* init by APU, updated by DPU */
 	s32 ret;
+	u32 cycles;		        /* consumed cycles during executing */
 };
 
 struct icm_cdc_uinp_t {
@@ -256,6 +257,13 @@ struct hifi4_mem_msg {
 #define OUTPUT_BUF_SIZE		16384
 #define FIRMWARE_DATA_BUF_SIZE	0x100000
 #define SCRATCH_DATA_BUF_SIZE	0x100000
+
+#define MEMORY_REMAP_OFFSET	0x39000000
+
+#define SC_C_OFS_SEL    39
+#define SC_C_OFS_AUDIO  40
+#define SC_C_OFS_PERIPH 41
+#define SC_C_OFS_IRQ    42
 
 static void hifi4_load_firmware(const struct firmware *fw, void *context);
 u32 icm_intr_send(struct fsl_hifi4 *hifi4_priv, u32 msg);

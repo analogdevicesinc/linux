@@ -646,6 +646,7 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 
 	decode_info.in_buf_off = codec_iobuf_info->inp_cur_offset;
 	decode_info.out_buf_off = codec_iobuf_info->out_cur_offset;
+	decode_info.cycles = codec_iobuf_info->cycles;
 
 	ret = copy_to_user(user, &decode_info, sizeof(decode_info));
 	if (ret) {
@@ -1015,6 +1016,8 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 						ext_msg->inp_cur_offset;
 				codec_iobuf_info->out_cur_offset =
 						ext_msg->out_cur_offset;
+				codec_iobuf_info->cycles =
+						ext_msg->cycles;
 			}
 			complete(&hifi4_priv->cmd_complete);
 			hifi4_priv->is_done = 1;
@@ -1173,12 +1176,21 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 			shdr->sh_addr == 0 || shdr->sh_size == 0)
 			continue;
 
-		if (strtab)
+		if (strtab) {
 			dev_dbg(dev, "%sing %s @ 0x%08lx (%ld bytes)\n",
 			  (shdr->sh_type == SHT_NOBITS) ? "Clear" : "Load",
 				&strtab[shdr->sh_name],
 				(unsigned long)shdr->sh_addr,
 				(long)shdr->sh_size);
+		}
+
+		if ((!strcmp(&strtab[shdr->sh_name], ".rodata")) ||
+		    (!strcmp(&strtab[shdr->sh_name], ".text"))   ||
+		    (!strcmp(&strtab[shdr->sh_name], ".data"))   ||
+		    (!strcmp(&strtab[shdr->sh_name], ".bss"))
+		   ) {
+			shdr->sh_addr = shdr->sh_addr + MEMORY_REMAP_OFFSET;
+		}
 
 		if (shdr->sh_type == SHT_NOBITS) {
 			memset_hifi((void *)(hifi4_priv->regs +
@@ -1312,6 +1324,34 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 		return -EIO;
 	}
 
+	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
+				SC_C_OFS_SEL, 1);
+	if (sciErr != SC_ERR_NONE) {
+		dev_err(&pdev->dev, "Error system address offset source select\n");
+		return -EIO;
+	}
+
+	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
+				SC_C_OFS_AUDIO, 0x20);
+	if (sciErr != SC_ERR_NONE) {
+		dev_err(&pdev->dev, "Error system address offset of AUDIO\n");
+		return -EIO;
+	}
+
+	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
+				SC_C_OFS_PERIPH, 0x5A);
+	if (sciErr != SC_ERR_NONE) {
+		dev_err(&pdev->dev, "Error system address offset of PERIPH\n");
+		return -EIO;
+	}
+
+	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
+				SC_C_OFS_IRQ, 0x51);
+	if (sciErr != SC_ERR_NONE) {
+		dev_err(&pdev->dev, "Error system address offset of IRQ\n");
+		return -EIO;
+	}
+
 	ret = hifi4_mu_init(hifi4_priv);
 	if (ret)
 		return ret;
@@ -1332,7 +1372,8 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 
 	/* code buffer */
 	hifi4_priv->code_buf_virt = hifi4_priv->regs  + LIBRARY_CODE_OFFSET;
-	hifi4_priv->code_buf_phys = hifi4_priv->paddr + LIBRARY_CODE_OFFSET;
+	hifi4_priv->code_buf_phys = hifi4_priv->paddr + LIBRARY_CODE_OFFSET -
+							MEMORY_REMAP_OFFSET;
 	hifi4_priv->code_buf_size = LIBRARY_CODE_SIZE;
 
 	size = MSG_BUF_SIZE + INPUT_BUF_SIZE +
