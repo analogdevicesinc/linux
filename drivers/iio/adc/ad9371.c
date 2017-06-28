@@ -740,6 +740,10 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	mykError = MYKONOS_enableSysrefToDeframer(mykDevice, 0);
 	mykError = MYKONOS_resetDeframer(mykDevice);
 
+	ret = clk_prepare_enable(phy->jesd_tx_clk);
+	if (ret < 0)
+		return ret;
+
 	/*** < User: make sure BBIC JESD framer is actively transmitting CGS> ***/
 	mykError = MYKONOS_enableSysrefToDeframer(mykDevice, 1);
 
@@ -752,10 +756,6 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 		return ret;
 
 	ret = clk_prepare_enable(phy->jesd_rx_os_clk);
-	if (ret < 0)
-		return ret;
-
-	ret = clk_prepare_enable(phy->jesd_tx_clk);
 	if (ret < 0)
 		return ret;
 
