@@ -124,7 +124,7 @@
 
 		clocks = <&ref_clock>;
 		clock-output-names = "ADF4360-9";
-		lockdetect-gpio = <&gpio_exp 8 0>;
+		lockdetect-gpio = <&gpio_exp 9 0>;
 	};
 
 	converter@1 {
