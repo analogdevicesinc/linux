@@ -784,7 +784,7 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	/**** Check Mykonos Deframer Status ***/
 	/**************************************/
 	mykError = MYKONOS_readDeframerStatus(mykDevice, &deframerStatus);
-	if (deframerStatus != 0x68)
+	if (deframerStatus != 0x28)
 		dev_warn(&phy->spi->dev, "deframerStatus (0x%X)", deframerStatus);
 
 
