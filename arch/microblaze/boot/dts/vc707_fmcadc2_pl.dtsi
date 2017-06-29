@@ -168,10 +168,12 @@
 			xlnx,max-bytes-per-burst = <0x80>;
 			xlnx,sync-transfer-start = <0x0>;
 		};
-		axi_ad9625_gt: axi-jesd-gt-rx@44a60000 {
-			compatible = "adi,axi-jesd-gt-1.0";
-			reg = <0x44a60000 0x10000>;
-			xlnx,s-axi-min-size = <0x0000FFFF>;
+		axi_adxcvr: axi-adxcvr@44a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = < 0x44a60000 0x1000 >;
+			#clock-cells = <0>;
 		};
 		axi_ad9625_jesd: axi-jesd204b-rx@44a91000 {
 			compatible = "xlnx,jesd204-6.0";
