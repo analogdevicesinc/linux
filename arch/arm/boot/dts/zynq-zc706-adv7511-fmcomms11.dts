@@ -167,7 +167,6 @@
 		clocks = <&clk0_ad9508 2>;
 		clock-names = "conv";
 		clock-output-names = "dac_gt_clk";
-		adi,link-is-transmit-enable;
 		adi,sys-clk-select = <3>;
 		adi,out-clk-select = <2>;
 		//adi,use-lpm-enable;

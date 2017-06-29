@@ -135,7 +135,6 @@
 		#clock-cells = <1>;
 		clock-output-names = "dac_gt_clk", "tx_out_clk";
 
-		adi,link-is-transmit-enable;
 		adi,sys-clk-select = <3>;
 		adi,out-clk-select = <4>;
 		adi,use-lpm-enable;

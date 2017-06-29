@@ -221,7 +221,6 @@
 		clocks = <&clk0_ad9528 1>, <&axi_tx_clkgen 0>;
 		clock-names = "conv", "div40";
 		clock-output-names = "tx_gt_clk";
-		adi,link-is-transmit-enable;
 		adi,sys-clk-select = <3>;
 		adi,out-clk-select = <3>;
 	} ;
