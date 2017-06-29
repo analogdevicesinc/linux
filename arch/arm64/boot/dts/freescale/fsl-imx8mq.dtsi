@@ -643,4 +643,28 @@
 		assigned-clock-rates = <600000000>, <600000000>, <800000000>;
 		status = "disabled";
 	};
+
+	wdog1: wdog@30280000 {
+			compatible = "fsl,imx21-wdt";
+			reg = <0 0x30280000 0 0x10000>;
+			interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8MQ_CLK_WDOG1_ROOT>;
+			status = "disabled";
+	};
+
+	wdog2: wdog@30290000 {
+			compatible = "fsl,imx21-wdt";
+			reg = <0 0x30290000 0 0x10000>;
+			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8MQ_CLK_WDOG2_ROOT>;
+			status = "disabled";
+	};
+
+	wdog3: wdog@302a0000 {
+			compatible = "fsl,imx21-wdt";
+			reg = <0 0x302a0000 0 0x10000>;
+			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8MQ_CLK_WDOG3_ROOT>;
+			status = "disabled";
+	};
 };

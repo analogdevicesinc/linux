@@ -571,7 +571,7 @@ config MAX77620_WATCHDOG
 
 config IMX2_WDT
 	tristate "IMX2+ Watchdog"
-	depends on ARCH_MXC || ARCH_LAYERSCAPE || COMPILE_TEST
+	depends on ARCH_MXC || ARCH_LAYERSCAPE || ARCH_MXC_ARM64 || COMPILE_TEST
 	select REGMAP_MMIO
 	select WATCHDOG_CORE
 	help
