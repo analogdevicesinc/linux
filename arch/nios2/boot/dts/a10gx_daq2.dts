@@ -10,9 +10,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		a10gx_base_sys_cpu: cpu@0x0 {
+		sys_cpu: cpu@0x0 {
 			device_type = "cpu";
-			compatible = "altr,nios2-15.1", "altr,nios2-1.1";
+			compatible = "altr,nios2-16.0", "altr,nios2-1.1";
 			reg = <0x00000000>;
 			interrupt-controller;
 			#interrupt-cells = <1>;
@@ -50,15 +50,15 @@
 		compatible = "ALTR,avalon", "simple-bus";
 		bus-frequency = <100000000>;
 
-		a10gx_base_sys_uart: serial@0x101814f0 {
-			compatible = "altr,juart-15.1", "altr,juart-1.0";
+		sys_uart: serial@0x101814f0 {
+			compatible = "altr,juart-16.0", "altr,juart-1.0";
 			reg = <0x101814f0 0x00000008>;
-			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupt-parent = <&sys_cpu>;
 			interrupts = <2>;
 		};
 
-		a10gx_base_sys_ethernet: ethernet@0x10181000 {
-			compatible = "altr,tse-msgdma-15.1", "altr,tse-msgdma-1.0", "altr,tse-1.0";
+		sys_ethernet: ethernet@0x10181000 {
+			compatible = "altr,tse-msgdma-16.0", "altr,tse-msgdma-1.0", "altr,tse-1.0";
 			reg = <0x10181000 0x00000400>,
 				<0x101814a0 0x00000020>,
 				<0x10181440 0x00000020>,
@@ -66,8 +66,8 @@
 				<0x10181480 0x00000020>,
 				<0x10181460 0x00000020>;
 			reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-			interrupt-parent = <&a10gx_base_sys_cpu>;
-			interrupts = <3 1>;
+			interrupt-parent = <&sys_cpu>;
+			interrupts = <0 1>;
 			interrupt-names = "rx_irq", "tx_irq";
 			ALTR,rx-fifo-depth = <4096>;
 			ALTR,tx-fifo-depth = <4096>;
@@ -80,45 +80,58 @@
 			altr,enable-hash = <0>;
 			phy-mode = "sgmii";
 
-			a10gx_base_sys_ethernet_mdio: mdio {
+			sys_ethernet_mdio: mdio {
 				compatible = "altr,tse-mdio";
 				#address-cells = <1>;
 				#size-cells = <0>;
 				phy0: ethernet-phy@0 {
-					//compatible = "marvell,88e1111";
 					reg = <0>;
 					device_type = "ethernet-phy";
 				};
 			};
 		};
 
-		a10gx_base_sys_id: sysid@0x101814e8 {
-			compatible = "altr,sysid-15.0", "altr,sysid-1.0";
+		sys_id: sysid@0x101814e8 {
+			compatible = "altr,sysid-16.0", "altr,sysid-1.0";
 			reg = <0x101814e8 0x00000008>;
 			id = <182193580>;
-			timestamp = <1444826639>;
+			timestamp = <1496942530>;
 		};
 
-		a10gx_base_sys_timer: timer@0x10181420 {
-			compatible = "altr,timer-15.0", "altr,timer-1.0";
+		sys_timer_1: timer@0x10181420 {
+			compatible = "altr,timer-16.0", "altr,timer-1.0";
 			reg = <0x10181420 0x00000020>;
-			interrupt-parent = <&a10gx_base_sys_cpu>;
-			interrupts = <0>;
+			interrupt-parent = <&sys_cpu>;
+			interrupts = <4>;
 			clock-frequency = <100000000>;
 		};
 
-		a10gx_base_sys_timer_2nd: timer@0x10181520 {
-			compatible = "altr,timer-15.1", "altr,timer-1.0";
+		sys_timer_2: timer@0x10181520 {
+			compatible = "altr,timer-16.0", "altr,timer-1.0";
 			reg = <0x10181520 0x00000020>;
-			interrupt-parent = <&a10gx_base_sys_cpu>;
-			interrupts = <15>;
+			interrupt-parent = <&sys_cpu>;
+			interrupts = <3>;
 			clock-frequency = <100000000>;
 		};
 
-		a10gx_base_sys_gpio_bd: gpio@0x101814d0 {
-			compatible = "altr,pio-15.1", "altr,pio-1.0";
+		sys_gpio_bd: gpio@0x101814d0 {
+			compatible = "altr,pio-16.0", "altr,pio-1.0";
 			reg = <0x101814d0 0x00000010>;
-			interrupt-parent = <&a10gx_base_sys_cpu>;
+			interrupt-parent = <&sys_cpu>;
+			interrupts = <6>;
+			altr,gpio-bank-width = <32>;
+			altr,interrupt-type = <4>;
+			altr,interrupt_type = <4>;
+			level_trigger = <1>;
+			resetvalue = <0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		sys_gpio_in: gpio@0x101814c0 {
+			compatible = "altr,pio-16.0", "altr,pio-1.0";
+			reg = <0x101814c0 0x00000010>;
+			interrupt-parent = <&sys_cpu>;
 			interrupts = <5>;
 			altr,gpio-bank-width = <32>;
 			altr,interrupt-type = <4>;
@@ -129,22 +142,8 @@
 			gpio-controller;
 		};
 
-		a10gx_base_sys_gpio_in: gpio@0x101814c0 {
-			compatible = "altr,pio-15.1", "altr,pio-1.0";
-			reg = <0x101814c0 0x00000010>;
-			interrupt-parent = <&a10gx_base_sys_cpu>;
-			interrupts = <8>;
-			altr,gpio-bank-width = <32>;
-			altr,interrupt-type = <4>;
-			altr,interrupt_type = <4>;
-			level_trigger = <1>;
-			resetvalue = <0>;
-			#gpio-cells = <2>;
-			gpio-controller;
-		};
-
-		a10gx_base_sys_gpio_out: gpio@0x10181500 {
-			compatible = "altr,pio-15.1", "altr,pio-1.0";
+		sys_gpio_out: gpio@0x10181500 {
+			compatible = "altr,pio-16.0", "altr,pio-1.0";
 			reg = <0x10181500 0x00000010>;
 			altr,gpio-bank-width = <32>;
 			resetvalue = <0>;
@@ -182,93 +181,90 @@
 			};
 		};
 
-		a10gx_base_sys_cpu_interconnect: bridge@0x10000000 {
-			compatible = "ALTR,avalon-15.1", "simple-bus";
-			reg = <0x10000000 0x00100000>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			ranges = <0x00020000 0x10020000 0x00010000>,
-				<0x00038000 0x10038000 0x00004000>,
-				<0x00010000 0x10010000 0x00010000>,
-				<0x00034000 0x10034000 0x00004000>,
-				<0x00000000 0x10000000 0x00010000>,
-				<0x0003e400 0x1003e400 0x00000400>,
-				<0x0003e000 0x1003e000 0x00000400>,
-				<0x00030000 0x10030000 0x00004000>,
-				<0x0003d800 0x1003d800 0x00000800>,
-				<0x0003c000 0x1003c000 0x00001000>,
-				<0x0003d000 0x1003d000 0x00000800>;
-
-			axi_ad9144_core: axi-ad9144-hpc@0x20000 {
-				compatible = "adi,axi-ad9144-1.0";
-				reg = <0x00024000 0x00010000>;
-				dmas = <&daq2_axi_ad9144_dma 0>;
-				dma-names = "tx";
-				spibus-connected = <&dac0_ad9144>;
-			};
-
-			daq2_axi_ad9144_dma: daq2_axi_ad9144_dma@0x38000 {
-				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x00038000 0x00004000>;
-				interrupt-parent = <&a10gx_base_sys_cpu>;
-				interrupts = <7>;
-				#dma-cells = <1>;
-				clocks = <&axi_dmac1_clkin>;
-				clock-names = "axi_dmac1_clkin";
-				dma-channel {
-					adi,source-bus-width = <128>;
-					adi,destination-bus-width = <128>;
-					adi,type = <1>;
-					adi,cyclic;
-				};
-			};
-
-			axi_ad9680_core: axi-ad9680-hpc@0x10000 {
-				compatible = "adi,axi-ad9680-1.0";
-				reg = <0x00010000 0x00010000>;
-				dmas = <&daq2_axi_ad9680_dma 0>;
-				dma-names = "rx";
-				spibus-connected = <&adc0_ad9680>;
-			};
-
-			daq2_axi_ad9680_dma: daq2_axi_ad9680_dma@0x34000 {
-				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x00034000 0x00004000>;
-				interrupt-parent = <&a10gx_base_sys_cpu>;
-				interrupts = <6>;
-				#dma-cells = <1>;
-				clocks = <&axi_dmac0_clkin>;
-				clock-names = "axi_dmac0_clkin";
-				dma-channel {
-					adi,source-bus-width = <128>;
-					adi,destination-bus-width = <128>;
-					adi,type = <0>;
-				};
-			};
-
-			daq2_axi_jesd_xcvr: daq2_axi_jesd_xcvr@0x0 {
-				compatible = "adi,altera-xcvr-1.00.a";
-				reg = <0x00000000 0x00010000>,
-					<0x00030000 0x00004000>,
-					<0x0003c000 0x00001000>;
-				reg-names = "jesd-xcvr", "xcvr-reconfig-avmm", "xcvr-atx-pll";
-				adi,external-sysref-enable;
-				adi,delay-work-function-seconds = <5>;
-				adi,tx-enable;
-				adi,tx-reconfig-avmm-enable;
-				adi,tx-link-number = <0>;
-				adi,tx-lanes-per-link = <4>;
-				adi,rx-enable;
-				adi,rx-link-number = <0>;
-				adi,rx-lanes-per-link = <4>;
+		axi_ad9144_dma: axi_ad9144_dma@0x2040c000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x2040c000 0x00004000>;
+			interrupt-parent = <&sys_cpu>;
+			interrupts = <11>;
+			#dma-cells = <1>;
+			clocks = <&axi_dmac1_clkin>;
+			clock-names = "axi_dmac1_clkin";
+			dma-channel {
+				adi,source-bus-width = <128>;
+				adi,destination-bus-width = <128>;
+				adi,type = <1>;
+				adi,cyclic;
 			};
 		};
 
-		a10gx_base_sys_spi: spi@0x10181400 {
-			compatible = "altr,spi-15.1", "altr,spi-1.0";
+		axi_ad9144_core: axi-ad9144-hpc@0x20424000 {
+			compatible = "adi,axi-ad9144-1.0";
+			reg = <0x20424000 0x00001000>;
+			dmas = <&axi_ad9144_dma 0>;
+			dma-names = "tx";
+			spibus-connected = <&dac0_ad9144>;
+		};
+
+		axi_ad9680_dma: axi_ad9680_dma@0x2050c000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x2050c000 0x00004000>;
+			interrupt-parent = <&sys_cpu>;
+			interrupts = <10>;
+			#dma-cells = <1>;
+			clocks = <&axi_dmac0_clkin>;
+			clock-names = "axi_dmac0_clkin";
+			dma-channel {
+				adi,source-bus-width = <128>;
+				adi,destination-bus-width = <128>;
+				adi,type = <0>;
+			};
+		};
+
+		axi_ad9680_core: axi-ad9680-hpc@0x20520000 {
+			compatible = "adi,axi-ad9680-1.0";
+			reg = <0x20520000 0x00010000>;
+			dmas = <&axi_ad9680_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_ad9680>;
+		};
+
+
+		axi_ad9144_xcvr: axi_ad9144_xcvr@0x20410000 {
+			compatible = "adi,altera-adxcvr-1.00.a";
+			reg = <0x20410000 0x00010000>,
+				<0x20400000 0x00000800>,
+				<0x20404000 0x00001000>,
+				<0x20405000 0x00001000>,
+				<0x20406000 0x00001000>,
+				<0x20407000 0x00001000>;
+			reg-names = "adxcvr", "atx-pll", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
+			adi,delay-work-seconds = <1>;
+			adi,tx-enable;
+			adi,link-number = <0>;
+			adi,lanes-per-link = <4>;
+		};
+
+
+		axi_ad9680_xcvr: axi_ad9680_xcvr@0x20510000 {
+			compatible = "adi,altera-adxcvr-1.00.a";
+			reg = <0x20510000 0x00010000>,
+				<0x20504000 0x00001000>,
+				<0x20505000 0x00001000>,
+				<0x20506000 0x00001000>,
+				<0x20507000 0x00001000>;
+			reg-names = "adxcvr", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
+			adi,delay-work-seconds = <1>;
+			adi,rx-enable;
+			adi,link-number = <0>;
+			adi,lanes-per-link = <4>;
+		};
+
+
+		sys_spi: spi@0x10181400 {
+			compatible = "altr,spi-16.0", "altr,spi-1.0";
 			reg = <0x10181400 0x00000020>;
-			interrupt-parent = <&a10gx_base_sys_cpu>;
-			interrupts = <4>;
+			interrupt-parent = <&sys_cpu>;
+			interrupts = <7>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -280,7 +276,7 @@
 				compatible = "ad9523-1";
 				reg = <0>;
 
-				sync-gpios = <&a10gx_base_sys_gpio_out 6 0>;
+				sync-gpios = <&sys_gpio_out 6 0>;
 
 				spi-max-frequency = <10000000>;
 				clock-output-names = "ad9523-1_out0", "ad9523-1_out1", "ad9523-1_out2", "ad9523-1_out3", "ad9523-1_out4", "ad9523-1_out5", "ad9523-1_out6", "ad9523-1_out7", "ad9523-1_out8", "ad9523-1_out9", "ad9523-1_out10", "ad9523-1_out11", "ad9523-1_out12", "ad9523-1_out13";
@@ -376,8 +372,8 @@
 				adi,jesd-xbar-lane1-sel = <3>;
 				adi,jesd-xbar-lane2-sel = <1>;
 				adi,jesd-xbar-lane3-sel = <2>;
-				txen-gpios = <&a10gx_base_sys_gpio_out 9 0>;
-				reset-gpios = <&a10gx_base_sys_gpio_out 8 0>;
+				txen-gpios = <&sys_gpio_out 9 0>;
+				reset-gpios = <&sys_gpio_out 8 0>;
 			};
 
 			adc0_ad9680: ad9680@2 {
@@ -388,7 +384,7 @@
 				spi-max-frequency = <1000000>;
 				clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 5>;
 				clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
-				powerdown-gpios = <&a10gx_base_sys_gpio_out 10 0>;
+				powerdown-gpios = <&sys_gpio_out 10 0>;
 			};
 		};
 	};
