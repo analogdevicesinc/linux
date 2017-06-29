@@ -208,7 +208,7 @@
 				adi,vrange-high-enable;
 			};
 
-			adc@2f {
+			supply_mon_adc: adc@2f {
 				compatible = "adi,ad7291";
 				reg = <0x2f>;
 			};

@@ -13,7 +13,7 @@
 
 /delete-node/ &led_gpio_exp;
 /delete-node/ &current_limiter;
-
+/delete-node/ &supply_mon_adc;
 
 / {
 	model = "Analog Devices M2k Rev.B (Z7010)";
