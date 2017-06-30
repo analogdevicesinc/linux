@@ -1608,6 +1608,9 @@ struct xhci_ring {
 	enum xhci_ring_type	type;
 	bool			last_td_was_short;
 	struct radix_tree_root	*trb_address_map;
+	struct timer_list	stream_timer;
+	bool			stream_timeout_handler;
+	struct xhci_hcd		*xhci;
 };
 
 struct xhci_erst_entry {
@@ -1863,6 +1866,7 @@ struct xhci_hcd {
 #define XHCI_SUSPEND_DELAY	BIT_ULL(30)
 #define XHCI_INTEL_USB_ROLE_SW	BIT_ULL(31)
 #define XHCI_ZERO_64B_REGS	BIT_ULL(32)
+#define XHCI_STREAM_QUIRK	BIT_ULL(33) /* FIXME this is wrong */
 #define XHCI_RESET_PLL_ON_DISCONNECT	BIT_ULL(34)
 #define XHCI_SNPS_BROKEN_SUSPEND    BIT_ULL(35)
 #define XHCI_EP_CTX_BROKEN_DCS	BIT_ULL(36)
@@ -2112,6 +2116,7 @@ void xhci_queue_new_dequeue_state(struct xhci_hcd *xhci,
 void xhci_cleanup_stalled_ring(struct xhci_hcd *xhci, unsigned int ep_index,
 		unsigned int stream_id, struct xhci_td *td);
 void xhci_stop_endpoint_command_watchdog(struct timer_list *t);
+void xhci_stream_timeout(struct timer_list *unused);
 void xhci_handle_command_timeout(struct work_struct *work);
 
 void xhci_ring_ep_doorbell(struct xhci_hcd *xhci, unsigned int slot_id,
