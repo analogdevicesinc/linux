@@ -43,7 +43,11 @@ struct ad9144_state {
 	struct regmap *map;
 };
 
-static const char *clk_names[3] = { "jesd_dac_clk", "dac_clk", "dac_sysref" };
+static const char * const clk_names[] = {
+	[CLK_DATA] = "jesd_dac_clk",
+	[CLK_DAC] = "dac_clk",
+	[CLK_REF] = "dac_sysref"
+};
 
 static int ad9144_read(struct spi_device *spi, unsigned reg)
 {
@@ -265,7 +269,7 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < 3; i++) {
-		clk = devm_clk_get(&conv->spi->dev, &clk_names[i][0]);
+		clk = devm_clk_get(&conv->spi->dev, clk_names[i]);
 		if (IS_ERR(clk))
 			return PTR_ERR(clk);
 
