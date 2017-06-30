@@ -9,6 +9,7 @@
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
@@ -86,6 +87,8 @@ struct axi_jesd204_rx {
 
 	unsigned int num_lanes;
 	unsigned int data_path_width;
+
+	struct delayed_work watchdog_work;
 
 	/* Used for probe ordering */
 	struct clk_hw dummy_clk;
@@ -398,12 +401,49 @@ static const struct regmap_config axi_jesd_rx_regmap_config = {
 	.writeable_reg = axi_jesd_rx_regmap_rdwr,
 };
 
+static void axi_jesd204_rx_watchdog(struct work_struct *work)
+{
+	struct axi_jesd204_rx *jesd =
+		container_of(work, struct axi_jesd204_rx, watchdog_work.work);
+	unsigned int link_disabled;
+	unsigned int link_status;
+	unsigned int lane_status;
+	bool restart = false;
+	unsigned int i;
+
+	link_disabled = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATE);
+	if (link_disabled)
+		return;
+
+	link_status = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATUS);
+	if (link_status == 3) {
+		for (i = 0; i < jesd->num_lanes; i++) {
+			lane_status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(i));
+			lane_status &= 0x3;
+			if (lane_status == 0x0) {
+				dev_err(jesd->dev, "Lane %d desynced, restarting link\n", i);
+				restart = true;
+			}
+		}
+
+		if (restart) {
+			writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+			mdelay(100);
+			writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+		}
+	}
+
+	schedule_delayed_work(&jesd->watchdog_work, HZ);
+}
+
 static int axi_jesd204_rx_lane_clk_enable(struct clk_hw *clk)
 {
 	struct axi_jesd204_rx *jesd =
 		container_of(clk, struct axi_jesd204_rx, dummy_clk);
 
 	writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+
+	schedule_delayed_work(&jesd->watchdog_work, HZ);
 
 	return 0;
 }
@@ -533,6 +573,8 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	writel_relaxed(0xff, jesd->base + JESD204_RX_REG_IRQ_PENDING);
 	writel_relaxed(0x00, jesd->base + JESD204_RX_REG_IRQ_ENABLE);
+
+	INIT_DELAYED_WORK(&jesd->watchdog_work, axi_jesd204_rx_watchdog);
 
 	ret = request_irq(irq, axi_jesd204_rx_irq, 0, dev_name(&pdev->dev),
 		jesd);
