@@ -399,9 +399,13 @@ static int ad9162_probe(struct spi_device *spi)
 	st->id = (enum chip_id) dev_id->driver_data;
 	conv = &st->conv;
 
-	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->reset_gpio))
+		return PTR_ERR(conv->reset_gpio);
 
-	conv->txen_gpio = devm_gpiod_get(&spi->dev, "txen", GPIOD_OUT_HIGH);
+	conv->txen_gpio = devm_gpiod_get_optional(&spi->dev, "txen", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->txen_gpio))
+		return PTR_ERR(conv->txen_gpio);
 
 	st->map = devm_regmap_init_spi(spi, &ad9162_regmap_config);
 	if (IS_ERR(st->map))
