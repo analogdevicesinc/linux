@@ -1423,6 +1423,8 @@
 		clock-names = "ipg", "per", "ahb";
 		assigned-clock-rates = <400000000>, <200000000>, <0>;
 		power-domains = <&pd_conn_sdch1>;
+		fsl,tuning-start-tap = <20>;
+		fsl,tuning-step= <2>;
 		status = "disabled";
 	};
 
