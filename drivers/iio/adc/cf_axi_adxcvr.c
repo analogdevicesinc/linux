@@ -367,7 +367,7 @@ static int adxcvr_status_error(struct device *dev)
 	} while ((timeout--) && (status == 0));
 
 	if (!status) {
-		dev_err(dev, "%s Error", st->tx_enable ? "TX" : "RX");
+		dev_err(dev, "%s Error: %x", st->tx_enable ? "TX" : "RX", status);
 		return -EIO;
 	}
 
