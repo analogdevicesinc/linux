@@ -190,7 +190,7 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < 3; i++) {
-		clk = clk_get(&conv->spi->dev, &clk_names[i][0]);
+		clk = devm_clk_get(&conv->spi->dev, &clk_names[i][0]);
 		if (IS_ERR(clk)) {
 			return -EPROBE_DEFER;
 		}
