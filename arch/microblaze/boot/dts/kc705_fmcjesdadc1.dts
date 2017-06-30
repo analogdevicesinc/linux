@@ -63,21 +63,9 @@
 	};
 };
 
-&axi_ad9250_gt {
-	#clock-cells = <1>;
-	clocks = <&clk_ad9517 0>;
-	clock-names = "adc_clk";
-	clock-output-names = "adc_gt_clk";
-
-	adi,rx-sys-clk-select = <0>;
-	adi,rx-out-clk-select = <2>;
-	adi,use-cpll-enable;
-	adi,lanes = <0x4>;
-};
-
 &axi_ad9250_jesd {
 	#clock-cells = <0>;
-	clocks = <&axi_ad9250_gt 0>;
+	clocks = <&axi_adxcvr 0>;
 	clock-names = "adc_gt_clk";
 	clock-output-names = "jesd_adc_clk";
 
@@ -88,6 +76,20 @@
 	xlnx,lanesync-enable;
 	xlnx,scramble-enable;
 	xlnx,sysref-enable;
+};
+
+&axi_adxcvr {
+	#clock-cells = <0>;
+
+	clocks = <&clk_ad9517 0>;
+	clock-names = "conv";
+	clock-output-names = "adc_gt_clk";
+
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
+	adi,use-cpll-enable;
+
+	sysref-gpios = <&axi_gpio 32 0>;
 };
 
 &axi_iic_main {
