@@ -32,14 +32,6 @@ enum chip_id {
 	CHIPID_AD9162 = 0x62,
 };
 
-struct ad9162_platform_data {
-	u8 xbar_lane0_sel;
-	u8 xbar_lane1_sel;
-	u8 xbar_lane2_sel;
-	u8 xbar_lane3_sel;
-	bool lanes2_3_swap_data;
-};
-
 struct ad9162_state {
 	struct cf_axi_converter conv;
 	enum chip_id id;
@@ -83,8 +75,7 @@ static unsigned long long ad9162_get_data_clk(struct cf_axi_converter *conv)
 	return div_u64(clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]), st->interpolation);
 }
 
-static int ad9162_setup(struct ad9162_state *st,
-		struct ad9162_platform_data *pdata)
+static int ad9162_setup(struct ad9162_state *st)
 {
 	struct regmap *map = st->map;
 	struct device *dev = regmap_get_device(map);
@@ -282,48 +273,6 @@ static int ad9162_prepare(struct cf_axi_converter *conv)
 	return 0;
 }
 
-#ifdef CONFIG_OF
-static struct ad9162_platform_data *ad9162_parse_dt(struct device *dev)
-{
-	struct device_node *np = dev->of_node;
-	struct ad9162_platform_data *pdata;
-	unsigned int tmp;
-
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
-		return NULL;
-	}
-
-	tmp = 0;
-	of_property_read_u32(np, "adi,jesd-xbar-lane0-sel", &tmp);
-	pdata->xbar_lane0_sel = tmp;
-
-	tmp = 1;
-	of_property_read_u32(np, "adi,jesd-xbar-lane1-sel", &tmp);
-	pdata->xbar_lane1_sel = tmp;
-
-	tmp = 2;
-	of_property_read_u32(np, "adi,jesd-xbar-lane2-sel", &tmp);
-	pdata->xbar_lane2_sel = tmp;
-
-	tmp = 3;
-	of_property_read_u32(np, "adi,jesd-xbar-lane3-sel", &tmp);
-	pdata->xbar_lane3_sel = tmp;
-
-	pdata->lanes2_3_swap_data = of_property_read_bool(np,
-			"adi,lanes2-3-swap-data");
-
-	return pdata;
-}
-#else
-static
-struct ad9162_platform_data *ad9162_parse_dt(struct device *dev)
-{
-	return NULL;
-}
-#endif
-
 static const struct regmap_config ad9162_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
@@ -440,19 +389,8 @@ static int ad9162_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
 	struct cf_axi_converter *conv;
-	struct ad9162_platform_data *pdata;
 	struct ad9162_state *st;
 	int ret;
-
-	if (spi->dev.of_node)
-		pdata = ad9162_parse_dt(&spi->dev);
-	else
-		pdata = spi->dev.platform_data;
-
-	if (!pdata) {
-		dev_err(&spi->dev, "no platform data?\n");
-		return -EINVAL;
-	}
 
 	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
 	if (st == NULL)
@@ -494,7 +432,7 @@ static int ad9162_probe(struct spi_device *spi)
 	st->dac_h.tx_en_pin_ctrl = NULL;
 	st->dac_h.reset_pin_ctrl = NULL;
 
-	ret = ad9162_setup(st, pdata);
+	ret = ad9162_setup(st);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
