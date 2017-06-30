@@ -84,8 +84,12 @@ enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 
 		val = ADI_TO_ADC_PN_SEL(axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel)));
 
-		if (name)
-			*name = ident[val];
+		if (name) {
+			if (val >= ARRAY_SIZE(ident))
+				*name = "UNDEF";
+			else
+				*name = ident[val];
+		}
 
 		return val;
 	} else {
