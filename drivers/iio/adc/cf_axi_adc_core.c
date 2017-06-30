@@ -112,18 +112,23 @@ static void axiadc_toggle_scale_offset_en(struct axiadc_state *st)
 	return;
 }
 
+static unsigned int axiadc_num_phys_channels(struct axiadc_state *st)
+{
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	return conv->chip_info->num_channels - st->have_slave_channels;
+}
+
 static ssize_t axiadc_debugfs_pncheck_read(struct file *file, char __user *userbuf,
 			      size_t count, loff_t *ppos)
 {
 	struct iio_dev *indio_dev = file->private_data;
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	char buf[1000];
 	const char *pn_name;
 	ssize_t len = 0;
 	unsigned stat, i;
 
-	for (i = 0; i < conv->chip_info->num_channels; i++) {
+	for (i = 0; i < axiadc_num_phys_channels(st); i++) {
 		stat = axiadc_read(st, ADI_REG_CHAN_STATUS(i));
 		axiadc_get_pnsel(st, i, &pn_name);
 
@@ -163,7 +168,7 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 
 	mutex_lock(&indio_dev->mlock);
 
-	for (i = 0; i < conv->chip_info->num_channels; i++) {
+	for (i = 0; i < axiadc_num_phys_channels(st); i++) {
 		if (conv->set_pnsel)
 			conv->set_pnsel(indio_dev, i, mode);
 
@@ -173,7 +178,7 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 
 	mdelay(1);
 
-	for (i = 0; i < conv->chip_info->num_channels; i++)
+	for (i = 0; i < axiadc_num_phys_channels(st); i++)
 		axiadc_write(st, ADI_REG_CHAN_STATUS(i), ~0);
 
 	mutex_unlock(&indio_dev->mlock);
