@@ -23,7 +23,11 @@
 #include "ad9122.h"
 #include "cf_axi_dds.h"
 
-static const char clk_names[CLK_NUM][10] = {"data_clk", "dac_clk", "ref_clk"};
+static const char * const clk_names[] = {
+	[CLK_DATA] = "data_clk",
+	[CLK_DAC] = "dac_clk",
+	[CLK_REF] = "ref_clk"
+};
 
 static const unsigned char ad9122_reg_defaults[][2] = {
 	{AD9122_REG_COMM, 0x00},
@@ -357,7 +361,7 @@ static int ad9122_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < CLK_NUM; i++) {
-		clk = clk_get(&conv->spi->dev, &clk_names[i][0]);
+		clk = clk_get(&conv->spi->dev, clk_names[i]);
 		if (IS_ERR(clk)) {
 			return -EPROBE_DEFER;
 		}
