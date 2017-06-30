@@ -968,6 +968,21 @@ static struct attribute *ad9371_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
 	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ad9371_phy_attribute_group = {
+	.attrs = ad9371_phy_attributes,
+};
+
+static struct attribute *ad9375_phy_attributes[] = {
+	&iio_dev_attr_ensm_mode.dev_attr.attr,
+	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
+	&iio_dev_attr_calibrate.dev_attr.attr,
 	&iio_dev_attr_calibrate_dpd_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_clgc_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
@@ -978,10 +993,9 @@ static struct attribute *ad9371_phy_attributes[] = {
 	NULL,
 };
 
-static const struct attribute_group ad9371_phy_attribute_group = {
-	.attrs = ad9371_phy_attributes,
+static const struct attribute_group ad9375_phy_attribute_group = {
+	.attrs = ad9375_phy_attributes,
 };
-
 
 static int ad9371_phy_reg_access(struct iio_dev *indio_dev,
 				 u32 reg, u32 writeval,
@@ -1706,10 +1720,11 @@ static const struct iio_chan_spec_ext_info ad9371_phy_obs_rx_ext_info[] = {
 	{ },
 };
 
-static const struct iio_chan_spec_ext_info ad9371_phy_tx_ext_info[] = {
+static struct iio_chan_spec_ext_info ad9371_phy_tx_ext_info[] = {
 	_AD9371_EXT_TX_INFO("quadrature_tracking_en", TX_QEC),
 	_AD9371_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
 	_AD9371_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
+	/* Below here only AD9375 stuff */
 	_AD9371_EXT_TX_INFO("dpd_tracking_en", TX_DPD),
 	_AD9371_EXT_TX_INFO("clgc_tracking_en", TX_CLGC),
 	_AD9371_EXT_TX_INFO("vswr_tracking_en", TX_VSWR),
@@ -2264,6 +2279,14 @@ static const struct iio_info ad9371_phy_info = {
 	.write_raw = &ad9371_phy_write_raw,
 	.debugfs_reg_access = &ad9371_phy_reg_access,
 	.attrs = &ad9371_phy_attribute_group,
+	.driver_module = THIS_MODULE,
+};
+
+static const struct iio_info ad9375_phy_info = {
+	.read_raw = &ad9371_phy_read_raw,
+	.write_raw = &ad9371_phy_write_raw,
+	.debugfs_reg_access = &ad9371_phy_reg_access,
+	.attrs = &ad9375_phy_attribute_group,
 	.driver_module = THIS_MODULE,
 };
 
@@ -3732,6 +3755,14 @@ static int ad9371_probe(struct spi_device *spi)
 	if (ret)
 		goto out_disable_clocks;
 
+	if (!IS_AD9375(phy)) {
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(ad9371_phy_tx_ext_info) &&
+			ad9371_phy_tx_ext_info[i].private != TX_DPD ; i++);
+
+		ad9371_phy_tx_ext_info[i] = (struct iio_chan_spec_ext_info){ };
+	}
 	sysfs_bin_attr_init(&phy->bin);
 	phy->bin.attr.name = "profile_config";
 	phy->bin.attr.mode = S_IWUSR | S_IRUGO;
@@ -3752,7 +3783,7 @@ static int ad9371_probe(struct spi_device *spi)
 	else
 		indio_dev->name = "ad9371-phy";
 
-	indio_dev->info = &ad9371_phy_info;
+	indio_dev->info = IS_AD9375(phy) ? &ad9375_phy_info : &ad9371_phy_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = ad9371_phy_chan;
 	indio_dev->num_channels = ARRAY_SIZE(ad9371_phy_chan);
