@@ -163,6 +163,12 @@ static int ad9162_setup(struct ad9162_state *st)
 	if (ret != 0)
 		return ret;
 
+	ret = clk_prepare_enable(st->conv.clk[0]);
+	if (ret) {
+		dev_err(dev, "Failed to enable JESD204 link: %d\n", ret);
+		return ret;
+	}
+
 	/*Enable Link*/
 	ret = ad916x_jesd_enable_link(ad916x_h, 0x1);
 	if (ret != 0) {
@@ -445,7 +451,6 @@ static int ad9162_probe(struct spi_device *spi)
 		goto out;
 	}
 
-	clk_prepare_enable(conv->clk[0]);
 	spi_set_drvdata(spi, conv);
 
 	dev_info(&spi->dev, "Probed.\n");
