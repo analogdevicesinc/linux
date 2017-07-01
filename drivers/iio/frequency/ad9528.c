@@ -68,6 +68,9 @@
 #define AD9528_PD_EN				AD9528_1B(0x500)
 #define AD9528_CHANNEL_PD_EN			AD9528_2B(0x501)
 
+#define AD9528_STAT_MON0			AD9528_1B(0x505)
+#define AD9528_STAT_MON1			AD9528_1B(0x506)
+#define AD9528_STAT_PIN_EN			AD9528_1B(0x507)
 #define AD9528_READBACK				AD9528_2B(0x508)
 
 /* AD9528_SERIAL_PORT_CONFIG */
@@ -208,6 +211,11 @@
 #define AD9528_PLL2_LOCKED			BIT(1)
 #define AD9528_PLL1_LOCKED			BIT(0)
 
+/* AD9528_STAT_PIN_EN */
+#define AD9528_STAT0_PIN_EN			BIT(2)
+#define AD9528_STAT1_PIN_EN			BIT(3)
+#define AD9528_STAT0_DIV_EN			BIT(1)
+#define AD9528_STAT1_DIV_EN			BIT(0)
 
 #define AD9528_NUM_CHAN					14
 
@@ -676,27 +684,17 @@ static long ad9528_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct iio_dev *indio_dev = to_ad9528_clk_output(hw)->indio_dev;
 	struct ad9528_state *st = iio_priv(indio_dev);
-	unsigned long clk, tmp1, tmp2;
-	unsigned channel = to_ad9528_clk_output(hw)->num;
+	unsigned long clk, tmp;
 
 	if (!rate)
 		return 0;
 
-	tmp1 = (st->vco_out_freq[AD9528_VCXO] / rate) * rate;
-	tmp2 = (st->vco_out_freq[AD9528_VCO] / rate) * rate;
+	clk = st->vco_out_freq[AD9528_VCO];
 
-	if (abs(tmp1 - rate) > abs(tmp2 - rate)) {
-		st->vco_out_map[channel] = AD9528_VCO;
-		clk = st->vco_out_freq[AD9528_VCO];
-	} else {
-		st->vco_out_map[channel] = AD9528_VCXO;
-		clk = st->vco_out_freq[AD9528_VCXO];
-	}
+	tmp = DIV_ROUND_CLOSEST(clk, rate);
+	tmp = clamp(tmp, 1UL, 256UL);
 
-	tmp1 = DIV_ROUND_CLOSEST(clk, rate);
-	tmp1 = clamp(tmp1, 1UL, 256UL);
-
-	return clk / tmp1;
+	return clk / tmp;
 }
 
 static int ad9528_clk_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -748,7 +746,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	struct ad9528_platform_data *pdata = st->pdata;
 	struct ad9528_channel_spec *chan;
 	unsigned long active_mask = 0, ignoresync_mask = 0;
-	unsigned vco_freq, vco_ctrl, sysref_ctrl;
+	unsigned vco_freq, vco_ctrl, sysref_ctrl, stat_en_mask = 0;
 	int ret, i;
 
 	dev_info(&indio_dev->dev, "ad9528 setup\n");
@@ -988,6 +986,31 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
+	if (pdata->stat0_pin_func_sel != 0xFF) {
+		ret = ad9528_write(indio_dev, AD9528_STAT_MON0,
+				   pdata->stat0_pin_func_sel);
+		if (ret < 0)
+			return ret;
+
+		stat_en_mask |= AD9528_STAT0_PIN_EN;
+	}
+
+	if (pdata->stat1_pin_func_sel != 0xFF) {
+		ret = ad9528_write(indio_dev, AD9528_STAT_MON1,
+				   pdata->stat1_pin_func_sel);
+		if (ret < 0)
+			return ret;
+
+		stat_en_mask |= AD9528_STAT1_PIN_EN;
+	}
+
+	if (stat_en_mask) {
+		ret = ad9528_write(indio_dev, AD9528_STAT_PIN_EN,
+				   stat_en_mask);
+		if (ret < 0)
+			return ret;
+	}
+
 	ret = ad9528_io_update(indio_dev);
 	if (ret < 0)
 		return ret;
@@ -1106,6 +1129,16 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	pdata->cpole1 = tmp;
 
 	pdata->rzero_bypass_en = of_property_read_bool(np, "adi,rzero-bypass-enable");
+
+	/* Status Monitor Pins */
+
+	tmp = 0xFF;
+	of_property_read_u32(np, "adi,status-mon-pin0-function-select", &tmp);
+	pdata->stat0_pin_func_sel = tmp;
+
+	tmp = 0xFF;
+	of_property_read_u32(np, "adi,status-mon-pin1-function-select", &tmp);
+	pdata->stat1_pin_func_sel = tmp;
 
 	/* Output Channel Configuration */
 

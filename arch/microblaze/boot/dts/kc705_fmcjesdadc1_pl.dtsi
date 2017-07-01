@@ -293,6 +293,7 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <9 2>;
 			reg = <0x41600000 0x10000>;
+			clocks = <&clk_bus_0>;
 		};
 		axi_intc: interrupt-controller@41200000 {
 			#interrupt-cells = <2>;
@@ -386,7 +387,8 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <10 0>;
 			reg = <0x44a70000 0x10000>;
-			xlnx,num-ss-bits = <0x8>;
+			fifo-size = <0x10>;
+			num-cs = <0x8>;
 		};
 		axi_timer: timer@41c00000 {
 			clock-frequency = <100000000>;

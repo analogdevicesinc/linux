@@ -63,7 +63,7 @@
 	adf4350: adf4350@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "adf4350";
+		compatible = "adi,adf4350";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		clocks = <&adf4350_clkin>;
@@ -79,7 +79,7 @@
 	ad9739a: ad9739a@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad9739a";
+		compatible = "adi,ad9739a";
 		reg = <1>;
 		spi-max-frequency = <10000000>;
 		clocks = <&adf4350_clkout>;

@@ -1,0 +1,121 @@
+/dts-v1/;
+
+/include/ "zynq-zed.dtsi"
+/include/ "zynq-zed-adv7511.dtsi"
+
+/*
+ * USING:
+ * https://github.com/analogdevicesinc/hdl/tree/master/projects/cftl_std/zed
+ */
+
+/*
+ * I2C:
+ * JB3 SCL, JB4 SDA
+ */
+
+/*
+ * SPI:
+ * spi0_csn      # "JA1"
+ * spi0_mosi     # "JA2"
+ * spi0_miso     # "JA3"
+ * spi0_clk      # "JA4"
+ * gpio_cftl[0]] # "JA9"        GPIO 54 + 32 + 0
+ * gpio_cftl[1]] # "JA10"       GPIO 54 + 32 + 1
+ */
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include <dt-bindings/iio/adi,ad5592r.h>
+
+/ {
+
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-ad559x";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+		regulator-always-on;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&gpio0>;
+		autorepeat;
+
+		s5 {
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			interrupts = <93 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s3 {
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			interrupts = <91 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s4 {
+			label = "Up";
+			linux,code = <KEY_UP>;
+			interrupts = <92 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s2 {
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			interrupts = <90 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s1 {
+			label = "KEY_ENTER";
+			linux,code = <28>;
+			interrupts = <89 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+	};
+
+	rotary {
+			compatible = "rotary-encoder";
+			gpios = <&gpio0 94 1>, <&gpio0 95 1>;
+			linux,axis = <1>; /* ABS_Y */
+			rotary-encoder,steps = <24>;
+			rotary-encoder,steps-per-period = <2>;
+			rotary-encoder,rollover;
+	};
+
+};
+
+ /* Display:
+  * NHD-1.69-160128UGC3 (Newhaven Display International, Inc.)
+  */
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	is-decoded-cs = <0>;
+
+	nhd@0{
+		compatible = "syncoam,seps525";
+		reg = <0>;
+		status = "ok";
+
+		spi-max-frequency = <10000000>;
+		spi-cpol;
+		spi-cpha;
+		rotate = <0>;
+		fps = <50>;
+		buswidth = <8>;
+		txbuflen = <64000>;
+		reset-gpios = <&gpio0 97 0>; /* JB10 */
+		dc-gpios = <&gpio0 96 0>; /* JB9 */
+		debug = <0>;
+	};
+};
+
+&adv7511 {
+	status = "disabled";
+};

@@ -201,7 +201,7 @@ static int ad9739a_prepare(struct cf_axi_converter *conv)
 	}
 }
 
-static unsigned long ad9739a_get_data_clk(struct cf_axi_converter *conv)
+static unsigned long long ad9739a_get_data_clk(struct cf_axi_converter *conv)
 {
 	return clk_get_rate(conv->clk[CLK_DAC]);
 }

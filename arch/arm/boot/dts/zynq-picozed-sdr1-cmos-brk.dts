@@ -1,9 +1,0 @@
-#include  "zynq-picozed-sdr1-brk.dts"
-
-&adc0_ad9364 {
-	/* Enable CMOS Mode */
-	/delete-property/ adi,lvds-mode-enable;
-	/delete-property/ adi,lvds-rx-onchip-termination-enable;
-	adi,full-port-enable;
-	adi,digital-interface-tune-fir-disable;
-};

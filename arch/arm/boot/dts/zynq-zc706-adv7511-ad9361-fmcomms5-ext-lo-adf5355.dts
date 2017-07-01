@@ -4,7 +4,7 @@
 &fmc_spi {
 	lo_adf5355: adf5355@2 {
 		#clock-cells = <0>;
-		compatible = "adf5355";
+		compatible = "adi,adf5355";
 		reg = <2>;
 		spi-max-frequency = <10000000>;
 		clocks = <&ad9361_clkin>;

@@ -2806,7 +2806,8 @@
 #define MIN_VCO_FREQ_HZ			6000000000ULL
 
 #define MAX_CARRIER_FREQ_HZ		6000000000ULL
-#define MIN_CARRIER_FREQ_HZ		70000000ULL
+#define MIN_RX_CARRIER_FREQ_HZ		70000000ULL
+#define MIN_TX_CARRIER_FREQ_HZ		46875001ULL
 
 #define AD9363A_MAX_CARRIER_FREQ_HZ	3800000000ULL
 #define AD9363A_MIN_CARRIER_FREQ_HZ	325000000ULL
@@ -2872,6 +2873,7 @@ struct gain_control {
 	u16 lmt_overload_low_thresh; /* 16..800 mV, 0x108 */
 	u16 dec_pow_measuremnt_duration; /* Samples, 0x15C */
 	u8 low_power_thresh; /* -64..0 dBFS, 0x114 */
+	bool use_rx_fir_out_for_dec_pwr_meas; /* clears 0x15C:6 USE_HB1_OUT_FOR_DEC_PWR_MEAS */
 
 	bool dig_gain_en; /* should be turned off, since ADI GT doesn't use dig gain */
 	u8 max_dig_gain; /* 0..31 */
@@ -3134,6 +3136,8 @@ struct ad9361_phy_platform_data {
 	u32			dcxo_fine;
 	u32			rf_rx_input_sel;
 	u32			rf_tx_output_sel;
+	bool			rf_rx_input_sel_lock;
+	bool			rf_tx_output_sel_lock;
 	u32			rx1tx1_mode_use_rx_num;
 	u32			rx1tx1_mode_use_tx_num;
 	unsigned long		rx_path_clks[NUM_RX_CLOCKS];
@@ -3323,7 +3327,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[177];
+	struct ad9361_debugfs_entry debugfs_entry[180];
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
@@ -3379,6 +3383,8 @@ struct ad9361_rf_phy {
 	u16 			auxdac2_value;
 	u32			tx1_atten_cached;
 	u32			tx2_atten_cached;
+	u8			bist_loopback_mode;
+	u8			bist_config;
 
 	struct ad9361_fastlock	fastlock;
 };

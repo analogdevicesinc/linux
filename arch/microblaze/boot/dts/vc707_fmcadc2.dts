@@ -31,11 +31,11 @@
 &axi_ethernet_eth_buf {
 	local-mac-address = [00 0a 35 00 00 04];
 	phy-handle = <&phy0 &phy1>;
+	phy-mode = "sgmii";
 };
 
 &axi_ethernet_eth_buf_mdio {
 	phy0: phy@7 {
-		compatible = "marvell,88e1111";
 		device_type = "ethernet-phy";
 		reg = <7>;
 	};

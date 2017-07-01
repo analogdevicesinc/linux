@@ -10,6 +10,16 @@ menu "Frequency Synthesizers DDS/PLL"
 
 menu "Clock Generator/Distribution"
 
+config AD9508
+	tristate "Analog Devices AD9508 Clock Fanout Buffer"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices AD9508 Clock Fanout Buffer with
+	  Output Dividers and Delay Adjust. The driver provides direct access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad9508.
+
 config AD9523
 	tristate "Analog Devices AD9523 Low Jitter Clock Generator"
 	depends on SPI
@@ -80,6 +90,14 @@ config CF_AXI_DDS_AD9144
 	help
 	  Say yes here to build support for Analog Devices AD9144 DAC chip
 	  ad9144, provides direct access via sysfs.
+
+config CF_AXI_DDS_AD9162
+	tristate "Analog Devices AD9162 DAC"
+	depends on CF_AXI_DDS
+	help
+	  Say yes here to build support for Analog Devices AD9162 DAC chip
+	  ad9162, provides direct access via sysfs.
+
 
 config CF_AXI_DDS_AD9739A
 	tristate "Analog Devices AD9739A DAC"

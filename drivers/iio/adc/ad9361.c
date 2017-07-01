@@ -863,7 +863,7 @@ u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 	}
 }
 
-int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, u64 freq)
+int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, bool is_tx, u64 freq)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
@@ -872,7 +872,8 @@ int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, u64 freq)
 				return -EINVAL;
 			break;
 		default:
-			if (freq > MAX_CARRIER_FREQ_HZ || freq < MIN_CARRIER_FREQ_HZ)
+			if (freq > MAX_CARRIER_FREQ_HZ || freq < (is_tx ?
+				MIN_TX_CARRIER_FREQ_HZ : MIN_RX_CARRIER_FREQ_HZ))
 				return -EINVAL;
 	}
 
@@ -991,6 +992,8 @@ int ad9361_bist_loopback(struct ad9361_rf_phy *phy, unsigned mode)
 
 	reg = ad9361_spi_read(phy->spi, REG_OBSERVE_CONFIG);
 
+	phy->bist_loopback_mode = mode;
+
 	switch (mode) {
 	case 0:
 		ad9361_hdl_loopback(phy, false);
@@ -1042,6 +1045,8 @@ int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
 		break;
 	};
 
+	phy->bist_config = reg;
+
 	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
 }
 EXPORT_SYMBOL(ad9361_bist_prbs);
@@ -1084,6 +1089,8 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 
 	reg1 = ((mask << 2) & reg_mask);
 	ad9361_spi_write(phy->spi, REG_BIST_AND_DATA_PORT_TEST_CONFIG, reg1);
+
+	phy->bist_config = reg;
 
 	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
 }
@@ -1154,7 +1161,7 @@ static int ad9361_gt(struct ad9361_rf_phy *phy)
 
 static unsigned long ad9361_to_clk(u64 freq)
 {
-	return (unsigned long)(freq >> 1);
+	return (unsigned long) min(freq >> 1, (u64) ULONG_MAX);
 }
 
 static u64 ad9361_from_clk(unsigned long freq)
@@ -3173,7 +3180,8 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 	ad9361_spi_write(spi, REG_TX_SYMBOL_ATTEN_CONFIG, 0x00); // Tx Symbol Gain Control
 
 	ad9361_spi_writef(spi, REG_DEC_POWER_MEASURE_DURATION_0,
-			  USE_HB1_OUT_FOR_DEC_PWR_MEAS, 1); // Power Measurement Duration
+			  USE_HB1_OUT_FOR_DEC_PWR_MEAS,
+			  !ctrl->use_rx_fir_out_for_dec_pwr_meas); // USE HB1 or FIR output for power measurements
 
 	ad9361_spi_writef(spi, REG_DEC_POWER_MEASURE_DURATION_0,
 			  ENABLE_DEC_PWR_MEAS, 1); // Power Measurement Duration
@@ -3532,10 +3540,10 @@ static int ad9361_auxadc_setup(struct ad9361_rf_phy *phy,
 
 static int ad9361_get_temp(struct ad9361_rf_phy *phy)
 {
-	u32 val;
+	s32 val;
 
 	ad9361_spi_writef(phy->spi, REG_AUXADC_CONFIG, AUXADC_POWER_DOWN, 1);
-	val = ad9361_spi_read(phy->spi, REG_TEMPERATURE);
+	val = (s8) ad9361_spi_read(phy->spi, REG_TEMPERATURE);
 	ad9361_spi_writef(phy->spi, REG_AUXADC_CONFIG, AUXADC_POWER_DOWN, 0);
 
 	return DIV_ROUND_CLOSEST(val * 1000000, 1140);
@@ -4597,6 +4605,8 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	phy->current_rx_use_tdd_table = false;
 	phy->cached_synth_pd[0] = 0;
 	phy->cached_synth_pd[1] = 0;
+	phy->bist_loopback_mode = 0;
+	phy->bist_config = 0;
 
 	memset(&phy->fastlock, 0, sizeof(phy->fastlock));
 }
@@ -5852,14 +5862,15 @@ static u64 ad9361_calc_rfpll_freq(u64 parent_rate,
 	return rate >> (vco_div + 1);
 }
 
-static int ad9361_calc_rfpll_divder(struct ad9361_rf_phy *phy, u64 freq,
-			     u64 parent_rate, u32 *integer,
-			     u32 *fract, int *vco_div, u64 *vco_freq)
+static int ad9361_calc_rfpll_divder(struct ad9361_rf_phy *phy,
+				    struct refclk_scale *clk_priv, u64 freq,
+				    u64 parent_rate, u32 *integer,
+				    u32 *fract, int *vco_div, u64 *vco_freq)
 {
 	u64 tmp;
 	int div, ret;
 
-	ret = ad9361_validate_rfpll(phy, freq);
+	ret = ad9361_validate_rfpll(phy, clk_priv->source == TX_RFPLL_INT, freq);
 	if (ret)
 		return ret;
 
@@ -5939,7 +5950,8 @@ static int ad9361_rfpll_determine_rate(struct clk_hw *hw,
 	int ret;
 	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, req->rate);
 
-	ret = ad9361_validate_rfpll(phy, ad9361_from_clk(req->rate));
+	ret = ad9361_validate_rfpll(phy, clk_priv->source == TX_RFPLL_INT,
+				    ad9361_from_clk(req->rate));
 	if (ret)
 		return ret;
 
@@ -5962,7 +5974,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	ad9361_fastlock_prepare(phy, clk_priv->source == TX_RFPLL_INT, 0, false);
 
-	ret = ad9361_calc_rfpll_divder(phy, ad9361_from_clk(rate), parent_rate,
+	ret = ad9361_calc_rfpll_divder(phy, clk_priv, ad9361_from_clk(rate), parent_rate,
 				&integer, &fract, &vco_div, &vco);
 	if (ret < 0)
 		return ret;
@@ -6039,7 +6051,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 			}
 
 			if (phy->current_tx_lo_freq != phy->current_rx_lo_freq) {
-				ad9361_calc_rfpll_divder(phy, ad9361_from_clk(_rate),
+				ad9361_calc_rfpll_divder(phy, clk_priv, ad9361_from_clk(_rate),
 					parent_rate, &integer, &fract, &vco_div, &vco);
 
 				ad9361_fastlock_prepare(phy, clk_priv->source == RX_RFPLL_INT, 0, false);
@@ -6972,7 +6984,6 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	u64 readin;
 	bool res;
-	unsigned long tmp;
 	int ret = 0;
 
 	if (phy->curr_ensm_state == ENSM_STATE_SLEEP)
@@ -7006,11 +7017,11 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 	case LOEXT_FREQ:
 		switch (chan->channel) {
 		case 0:
-			tmp = clk_set_rate(phy->clks[RX_RFPLL],
+			ret = clk_set_rate(phy->clks[RX_RFPLL],
 					ad9361_to_clk(readin));
 			break;
 		case 1:
-			tmp = clk_set_rate(phy->clks[TX_RFPLL],
+			ret = clk_set_rate(phy->clks[TX_RFPLL],
 					ad9361_to_clk(readin));
 			if (test_bit(0, &phy->flags))
 				wait_for_completion(&phy->complete);
@@ -7191,6 +7202,9 @@ static int ad9361_set_agc_mode(struct iio_dev *indio_dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	struct rf_gain_ctrl gc = {0};
 
+	if (phy->agc_mode[chan->channel] == mode)
+		return 0;
+
 	gc.ant = ad9361_1rx1tx_channel_map(phy, false, chan->channel + 1);
 	gc.mode = phy->agc_mode[chan->channel] = mode;
 
@@ -7221,10 +7235,17 @@ static int ad9361_set_rf_port(struct iio_dev *indio_dev,
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 
-	if (chan->output)
+	if (chan->output) {
+		if (phy->pdata->rf_tx_output_sel_lock &&
+			mode != phy->pdata->rf_tx_output_sel)
+			return -EINVAL;
 		phy->pdata->rf_tx_output_sel = mode;
-	else
+	} else {
+		if (phy->pdata->rf_rx_input_sel_lock &&
+			mode != phy->pdata->rf_rx_input_sel)
+			return -EINVAL;
 		phy->pdata->rf_rx_input_sel = mode;
+	}
 
 	return ad9361_rf_port_setup(phy, chan->output,
 				   phy->pdata->rf_rx_input_sel,
@@ -7729,6 +7750,8 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		ad9361_clear_state(phy);
 		ret = ad9361_setup(phy);
 		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
 
 		return count;
 	case DBGFS_LOOPBACK:
@@ -8087,6 +8110,12 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_u32(iodev, np, "adi,tx-rf-port-input-select", 0,
 			  &pdata->rf_tx_output_sel);
 
+	ad9361_of_get_bool(iodev, np, "adi,rx-rf-port-input-select-lock-enable",
+			   &pdata->rf_rx_input_sel_lock);
+
+	ad9361_of_get_bool(iodev, np, "adi,tx-rf-port-input-select-lock-enable",
+			   &pdata->rf_tx_output_sel_lock);
+
 	ad9361_of_get_bool(iodev, np, "adi,rx1-rx2-phase-inversion-enable",
 			   &pdata->rx1rx2_phase_inversion_en);
 
@@ -8200,6 +8229,8 @@ static struct ad9361_phy_platform_data
 			  &pdata->gain_ctrl.dig_gain_en);
 	ad9361_of_get_u32(iodev, np, "adi,gc-max-dig-gain", 15,
 			  &pdata->gain_ctrl.max_dig_gain);
+	ad9361_of_get_bool(iodev, np, "adi,gc-use-rx-fir-out-for-dec-pwr-meas-enable",
+			   &pdata->gain_ctrl.use_rx_fir_out_for_dec_pwr_meas);
 
 	ad9361_of_get_bool(iodev, np, "adi,mgc-rx1-ctrl-inp-enable",
 			   &pdata->gain_ctrl.mgc_rx1_ctrl_inp_en);

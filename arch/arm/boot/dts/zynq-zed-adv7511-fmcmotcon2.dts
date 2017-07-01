@@ -161,7 +161,7 @@
 &spi0 {
 	status = "okay";
 	ad2s1210@0 {
-		compatible = "ad2s1210";
+		compatible = "adi,ad2s1210";
 		reg = <0>;
 		spi-cpha;
 		spi-max-frequency = <1000000>;

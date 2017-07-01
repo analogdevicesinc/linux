@@ -40,11 +40,11 @@
 &axi_ethernet_eth_buf {
 	local-mac-address = [00 0a 35 00 00 05];
 	phy-handle = <&phy0 &phy1>;
+	phy-mode = "sgmii";
 };
 
 &axi_ethernet_eth_buf_mdio {
 	phy0: phy@7 {
-		compatible = "marvell,88e1111";
 		device_type = "ethernet-phy";
 		reg = <7>;
 	};
@@ -63,8 +63,8 @@
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9625_0_jesd>, <&ad9625_clkin>;
 		clock-names = "jesd0_clk", "adc_clk";
-		powerdown-gpios = <&axi_gpio 3 8>;
-		reset-gpios = <&axi_gpio 2 8>;
+		powerdown-gpios = <&axi_gpio 35 8>;
+		reset-gpios = <&axi_gpio 34 8>;
 
 	};
 	adc1_ad9625: ad9625@1 {
@@ -75,8 +75,8 @@
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9625_1_jesd>, <&ad9625_clkin>;
 		clock-names = "jesd1_clk", "adc_clk";
-		powerdown-gpios = <&axi_gpio 7 8>;
-		reset-gpios = <&axi_gpio 6 8>;
+		powerdown-gpios = <&axi_gpio 39 8>;
+		reset-gpios = <&axi_gpio 38 8>;
 	};
 
 	dac0_ad5662: ad5662-vt-a@2 {
@@ -123,28 +123,23 @@
 &axi_ad9625_0_gt {
 	#clock-cells = <1>;
 	clocks = <&ad9625_clkin>;
-	clock-names = "adc_clk";
+	clock-names = "conv";
 	clock-output-names = "adc0_gt_clk";
 
-	adi,rx-sys-clk-select = <0>;
-	adi,rx-out-clk-select = <2>;
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
 	adi,use-cpll-enable;
-	adi,no-auto-resync-enable;
-	adi,lanes = <8>;
-
 };
 
 &axi_ad9625_1_gt {
 	#clock-cells = <1>;
 	clocks = <&ad9625_clkin>;
-	clock-names = "adc_clk";
+	clock-names = "conv";
 	clock-output-names = "adc1_gt_clk";
 
-	adi,rx-sys-clk-select = <0>;
-	adi,rx-out-clk-select = <2>;
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
 	adi,use-cpll-enable;
-	adi,no-auto-resync-enable;
-	adi,lanes = <8>;
 };
 
 &axi_ad9625_0_jesd {

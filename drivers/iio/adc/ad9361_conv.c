@@ -377,7 +377,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	struct axiadc_state *st;
 	int ret, i, j, k, chan, t, num_chan, err = 0;
 	u32 s0, s1, c0, c1, tmp, saved = 0;
-	u8 field[2][16];
+	u8 field[2][16], loopback, bist;
 	u32 saved_dsel[4], saved_chan_ctrl6[4], saved_chan_ctrl0[4];
 	u32 rates[3] = {25000000U, 40000000U, 61440000U};
 	unsigned hdl_dac_version;
@@ -424,6 +424,10 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	num_chan = (conv->chip_info->num_channels > 4) ? 4 :
 		conv->chip_info->num_channels;
 
+	loopback = phy->bist_loopback_mode;
+	bist = phy->bist_config;
+
+	ad9361_bist_loopback(phy, 0);
 	ad9361_bist_prbs(phy, BIST_INJ_RX);
 
 	for (t = 0; t < 2; t++) {
@@ -495,6 +499,8 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 
 			if (phy->pdata->dig_interface_tune_skipmode == 1) {
 			/* skip TX */
+				ad9361_spi_write(phy->spi, REG_BIST_CONFIG, bist);
+
 				if (!(flags & SKIP_STORE_RESULT))
 					phy->pdata->port_ctrl.rx_clk_data_delay =
 						ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
@@ -541,7 +547,8 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			if (flags & DO_ODELAY)
 				ad9361_dig_tune_iodelay(phy, 1);
 
-			ad9361_bist_loopback(phy, 0);
+			ad9361_bist_loopback(phy, loopback);
+			ad9361_spi_write(phy->spi, REG_BIST_CONFIG, bist);
 
 			if (PCORE_VERSION_MAJOR(hdl_dac_version) < 8)
 				axiadc_write(st, 0x4048, saved);
@@ -676,9 +683,6 @@ int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 	conv->chip_info = &axiadc_chip_info_tbl[
 		(spi_get_device_id(spi)->driver_data == ID_AD9361_2) ?
 		ID_AD9361_2 : phy->pdata->rx2tx2 ? ID_AD9361 : ID_AD9364];
-	conv->adc_output_mode = OUTPUT_MODE_TWOS_COMPLEMENT;
-	conv->write = ad9361_spi_write;
-	conv->read = ad9361_spi_read;
 	conv->write_raw = ad9361_write_raw;
 	conv->read_raw = ad9361_read_raw;
 	conv->post_setup = ad9361_post_setup;

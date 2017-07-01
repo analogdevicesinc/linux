@@ -16,7 +16,7 @@
 	adc_ad9265: ad9265@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad9265";
+		compatible = "adi,ad9265";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		clocks = <&clk_ad9517 3>;
@@ -29,7 +29,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9517-4";
+		compatible = "adi,ad9517-4";
 		reg = <1>;
 		spi-max-frequency = <10000000>;
 		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;

@@ -8,7 +8,7 @@
 /include/ "zynq.dtsi"
 
 / {
-	model = "Analog Devices PlutoSDR (Z7010/AD9363)";
+	model = "Analog Devices PlutoSDR Rev.A (Z7010/AD9363)";
 	memory {
 		device_type = "memory";
 		reg = <0x00000000 0x20000000>;
@@ -161,6 +161,7 @@
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			adi,axi-interpolation-core-available;
+			adi,axi-dds-default-scale = <0>;
 		};
 
 		mwipcore@43C00000 {
@@ -177,7 +178,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9363a";
+		compatible = "adi,ad9363a";
 
 		/* SPI Setup */
 		reg = <0>;
@@ -238,6 +239,7 @@
 		 */
 
 		adi,rx-rf-port-input-select = <0>; /* (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced */
+		adi,rx-rf-port-input-select-lock-enable;
 
 		/* adi,tx-rf-port-input-select:
 		 * 0	TX1A, TX2A
@@ -245,6 +247,8 @@
 		 */
 
 		adi,tx-rf-port-input-select = <0>; /* TX1A, TX2A */
+		adi,tx-rf-port-input-select-lock-enable;
+
 		//adi,update-tx-gain-in-alert-enable;
 		adi,tx-attenuation-mdB = <10000>;
 

@@ -48,14 +48,8 @@
 		reg = <0x79020000 0x6000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
+
 		spibus-connected = <&adc0_ad9364>;
-		xlnx,dphase-timeout = <0x8>;
-		xlnx,num-mem = <0x1>;
-		xlnx,num-reg = <0x1>;
-		xlnx,s-axi-min-size = <0x1ff>;
-		xlnx,slv-awidth = <0x20>;
-		xlnx,slv-dwidth = <0x20>;
-		xlnx,use-wstrb = <0x0>;
 	};
 
 	cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
@@ -67,14 +61,6 @@
 		adi,axi-dds-1-rf-channel;
 		dmas = <&tx_dma 0>;
 		dma-names = "tx";
-		dac-sample-frequency = <491520000>;
-		xlnx,dphase-timeout = <0x8>;
-		xlnx,num-mem = <0x1>;
-		xlnx,num-reg = <0x1>;
-		xlnx,s-axi-min-size = <0x1ff>;
-		xlnx,slv-awidth = <0x20>;
-		xlnx,slv-dwidth = <0x20>;
-		xlnx,use-wstrb = <0x0>;
 	};
 };
 

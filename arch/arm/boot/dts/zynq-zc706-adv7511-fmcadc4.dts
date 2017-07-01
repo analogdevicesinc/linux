@@ -20,30 +20,30 @@
 
 	axi_ad9680_core0: axi-ad9680-hpc-ab@44a00000 {
 		compatible = "adi,axi-ad9680-1.0";
-		reg = < 0x44a00000 0x10000 >;
+		reg = <0x44a00000 0x10000>;
 		dmas = <&rx_dma0 0>;
 		dma-names = "rx";
+
 		spibus-connected = <&adc0_ad9680>;
 		slavecore-reg = <0x44a10000 0x10000>;
 	};
 
 	axi_ad9680_core1: axi-ad9680-hpc-cd@44a10000 {
 		compatible = "adi,axi-ad9680-1.0";
-		reg = < 0x44a10000 0x10000 >;
+		reg = <0x44a10000 0x10000>;
+
 		spibus-connected = <&adc1_ad9680>;
 	};
 
 	axi_ad9680_jesd: axi-jesd204b-rx@44a91000 {
-		#clock-cells = <0>;
 		compatible = "xlnx,jesd204-5.1";
-		reg = < 0x44a91000 0x1000 >;
+		reg = <0x44a91000 0x1000>;
 
-		clocks = <&axi_jesd_gt 0>;
+		clocks = <&axi_adxcvr 0>;
 		clock-names = "adc_gt_clk";
-		clock-output-names = "jesd_adc_clk";
 
-		xlnx,gt-line-rate = "8.0";
-		xlnx,gt-refclk-freq = "200.0";
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_clk";
 
 		xlnx,lanes = <8>;
 		xlnx,frames-per-multiframe = <32>;
@@ -51,46 +51,23 @@
 		xlnx,subclass = <1>;
 		xlnx,lanesync-enable;
 		xlnx,scramble-enable;
+	};
 
-		xlnx,lmfc-buffer-size = <0x6>;
-		xlnx,node-is-transmit = <0x0>;
-		xlnx,speedgrade = <0xfffffffe>;
-		xlnx,supportlevel = <0x0>;
-		xlnx,transceiver = "GTXE2";
-		xlnx,transceivercontrol = "false";
-		xlnx,use-bram = <0x1>;
-		xlnx,use-jspat = "false";
-		xlnx,use-rpat = "false";
-	} ;
 
-	axi_jesd_gt: axi-jesd-gt-rx-tx@44a60000 {
-		#clock-cells = <1>;
-		compatible = "xlnx,axi-jesd-gt-1.0";
-		reg = < 0x44a60000 0x10000 >;
+	axi_adxcvr: axi-adxcvr@44a60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = < 0x44a60000 0x1000 >;
+		#clock-cells = <0>;
 
-		clocks = <&clk0_ad9528 8>, <&clk0_ad9528 9>;
-		clock-names = "adc_clk", "adc_sysref";
+		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 9>;
+		clock-names = "conv", "sysref";
 		clock-output-names = "adc_gt_clk";
 
-		adi,rx-sys-clk-select = <3>;
-		adi,rx-out-clk-select = <4>;
-		adi,lanes = <8>;
-
-		xlnx,pcore-cpll-fbdiv = <0x2>;
-		xlnx,pcore-device-type = <0x0>;
-		xlnx,pcore-id = <0x0>;
-		xlnx,pcore-num-of-lanes = <8>;
-		xlnx,pcore-pma-rsv = <0x1e7080>;
-		xlnx,pcore-qpll-cfg = "000011010000000000110000001";
-		xlnx,pcore-qpll-fbdiv = <0x9000>;
-		xlnx,pcore-qpll-fbdiv-ratio = <0x1>;
-		xlnx,pcore-qpll-refclk-div = <0x1>;
-		xlnx,pcore-rx-cdr-cfg = "0x0B000023FF10400020";
-		xlnx,pcore-rx-clk25-div = <0x14>;
-		xlnx,pcore-rx-out-div = <0x1>;
-		xlnx,pcore-tx-clk25-div = <0x14>;
-		xlnx,pcore-tx-out-div = <0x1>;
-		xlnx,s-axi-min-size = <0xffff>;
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <4>;
+		adi,use-lpm-enable;
 	};
 };
 

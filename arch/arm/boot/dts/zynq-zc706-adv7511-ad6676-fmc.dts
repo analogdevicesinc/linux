@@ -20,7 +20,7 @@
 	adc0_ad6676: ad6676@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad6676";
+		compatible = "adi,ad6676";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		clocks = <&axi_ad6676_jesd>, <&ad6676_clkin>;
@@ -124,7 +124,7 @@
 		compatible = "xlnx,jesd204-5.1";
 		reg = < 0x44a91000 0x1000 >;
 
-		clocks = <&axi_gt 0>;
+		clocks = <&axi_adxcvr 0>;
 		clock-names = "gt_clk";
 		clock-output-names = "jesd_clk";
 
@@ -136,18 +136,21 @@
 		xlnx,scramble-enable;
 	} ;
 
-	axi_gt: axi-jesd-gt-rx-tx@44a60000 {
-		#clock-cells = <1>;
-		compatible = "xlnx,axi-jesd-gt-1.0";
-		reg = < 0x44a60000 0x10000 >;
+	axi_adxcvr: axi-adxcvr@44a60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = < 0x44a60000 0x1000 >;
+		#clock-cells = <0>;
 
 		clocks = <&ad6676_clkin>;
-		clock-names = "adc_clk";
+		clock-names = "conv";
 		clock-output-names = "adc_gt_clk";
 
-		adi,rx-sys-clk-select = <0>;
-		adi,rx-out-clk-select = <4>;
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <4>;
 		adi,use-cpll-enable;
-		adi,lanes = <2>;
-	} ;
+
+		sysref-gpios = <&gpio0 102 0>;
+	};
 };

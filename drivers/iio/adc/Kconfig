@@ -182,6 +182,14 @@ config AD9361
 	  AD9361, AD9364 RF Agile Transceivers. Provides direct access
 	  via sysfs.
 
+config AD9371
+	tristate "Analog Devices AD9371 RF Transceiver driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9371 RF Transceivers. Provides direct access
+	  via sysfs.
+
 config AD6676
 	tristate "Analog Devices AD6676 Wideband IF Receiver driver"
 	depends on SPI
@@ -210,9 +218,6 @@ config ADMC
 	  AD-FMCMOTCON1 device drivers. Provides direct access
 	  via sysfs.
 
-config CF_AXI_FFT
-	tristate "Generic FFT driver"
-
 config CF_AXI_TDD
 	tristate "Analog Devices TDD HDL CORE driver"
 	help
@@ -221,6 +226,9 @@ config CF_AXI_TDD
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
 	depends on COMMON_CLK
+
+config AXI_FMCADC5_SYNC
+	tristate "Analog Devices FMCADC5 5Gbps Interleave Synchronizer"
 
 config AT91_SAMA5D2_ADC
 	tristate "Atmel AT91 SAMA5D2 ADC"

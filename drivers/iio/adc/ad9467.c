@@ -29,6 +29,180 @@
 
 #define DCO_DEBUG
 
+/*
+ * ADI High-Speed ADC common spi interface registers
+ * See Application-Note AN-877
+ */
+
+#define ADC_REG_CHIP_PORT_CONF		0x00
+#define ADC_REG_CHIP_ID			0x01
+#define ADC_REG_CHIP_GRADE		0x02
+#define ADC_REG_CHAN_INDEX		0x05
+#define ADC_REG_TRANSFER		0xFF
+#define ADC_REG_MODES			0x08
+#define ADC_REG_TEST_IO			0x0D
+#define ADC_REG_ADC_INPUT		0x0F
+#define ADC_REG_OFFSET			0x10
+#define ADC_REG_OUTPUT_MODE		0x14
+#define ADC_REG_OUTPUT_ADJUST		0x15
+#define ADC_REG_OUTPUT_PHASE		0x16
+#define ADC_REG_OUTPUT_DELAY		0x17
+#define ADC_REG_VREF			0x18
+#define ADC_REG_ANALOG_INPUT		0x2C
+
+/* ADC_REG_TEST_IO */
+#define TESTMODE_OFF			0x0
+#define TESTMODE_MIDSCALE_SHORT		0x1
+#define TESTMODE_POS_FULLSCALE		0x2
+#define TESTMODE_NEG_FULLSCALE		0x3
+#define TESTMODE_ALT_CHECKERBOARD	0x4
+#define TESTMODE_PN23_SEQ		0x5
+#define TESTMODE_PN9_SEQ		0x6
+#define TESTMODE_ONE_ZERO_TOGGLE	0x7
+#define TESTMODE_USER			0x8
+#define TESTMODE_BIT_TOGGLE		0x9
+#define TESTMODE_SYNC			0xA
+#define TESTMODE_ONE_BIT_HIGH		0xB
+#define TESTMODE_MIXED_BIT_FREQUENCY	0xC
+#define TESTMODE_RAMP			0xF
+
+/* ADC_REG_TRANSFER */
+#define TRANSFER_SYNC			0x1
+
+/* ADC_REG_OUTPUT_MODE */
+#define OUTPUT_MODE_OFFSET_BINARY	0x0
+#define OUTPUT_MODE_TWOS_COMPLEMENT	0x1
+#define OUTPUT_MODE_GRAY_CODE		0x2
+
+/* ADC_REG_OUTPUT_PHASE */
+#define OUTPUT_EVEN_ODD_MODE_EN		0x20
+#define INVERT_DCO_CLK			0x80
+
+/* ADC_REG_OUTPUT_DELAY */
+#define DCO_DELAY_ENABLE 		0x80
+
+/*
+ * Analog Devices AD9467 16-Bit, 200/250 MSPS ADC
+ */
+
+#define CHIPID_AD9467			0x50
+#define AD9467_DEF_OUTPUT_MODE		0x08
+#define AD9467_REG_VREF_MASK		0x0F
+
+/*
+ * Analog Devices AD9643 Dual 14-Bit, 170/210/250 MSPS ADC
+ */
+
+#define CHIPID_AD9643			0x82
+#define AD9643_REG_VREF_MASK		0x1F
+#define AD9643_DEF_OUTPUT_MODE		0x00
+
+/*
+ * Analog Devices AD9250 Dual 14-Bit, 170/250 MSPS ADC, JESD204B
+ */
+
+#define CHIPID_AD9250			0xB9
+#define AD9250_REG_VREF_MASK		0x1F
+#define AD9250_DEF_OUTPUT_MODE		0x00
+
+/*
+ * Analog Devices AD9683 14-Bit, 170/250 MSPS ADC, JESD204B
+ */
+
+#define CHIPID_AD9683			0xC3
+#define AD9683_DEF_OUTPUT_MODE		0x00
+#define AD9683_SIGNEXTEND		(1 << 0)
+
+/*
+ * Analog Devices AD9625 12-Bit, 2500 MSPS ADC, JESD204B
+ */
+
+#define CHIPID_AD9625			0x41
+#define AD9625_DEF_OUTPUT_MODE		0x00
+#define AD9625_SIGNEXTEND		(1 << 0)
+
+/*
+ * Analog Devices AD9265 16-Bit, 125/105/80 MSPS ADC
+ */
+
+#define CHIPID_AD9265			0x64
+#define AD9265_DEF_OUTPUT_MODE		0x40
+#define AD9265_REG_VREF_MASK		0xC0
+
+/*
+ * Analog Devices AD9434 12-Bit, 370/500 MSPS ADC
+ */
+
+#define CHIPID_AD9434			0x6A
+#define AD9434_DEF_OUTPUT_MODE		0x00
+#define AD9434_REG_VREF_MASK		0xC0
+
+/*
+ * Analog Devices AD9680
+ */
+
+#define AD9680_REG_CHIP_ID_LOW		0x004
+#define AD9680_REG_CHIP_ID_HIGH		0x005
+#define AD9680_REG_DEVICE_INDEX		0x008
+#define AD9680_REG_INPUT_FS_RANGE	0x025
+#define AD9680_REG_CHIP_PIN_CTRL	0x040
+
+#define AD9680_REG_OUTPUT_MODE		0x561
+#define AD9680_REG_TEST_MODE		0x550
+
+#define AD9680_REG_THRESH_CTRL		0x245
+#define AD9680_REG_THRESH_HI_LSB	0x247
+#define AD9680_REG_THRESH_HI_MSB	0x248
+#define AD9680_REG_THRESH_LOW_LSB	0x249
+#define AD9680_REG_THRESH_LOW_MSB	0x24A
+
+#define CHIPID_AD9680			0xC5
+#define AD9680_DEF_OUTPUT_MODE		0x00
+#define AD9680_REG_VREF_MASK		0x0F
+
+#define AD9680_REG_CHIP_PIN_CTRL_MASK(chn)	(0x07 << (3 * (chn)))
+
+/*
+ * Analog Devices AD9652
+ */
+
+#define CHIPID_AD9652			0xC1
+#define AD9652_REG_VREF_MASK		0xC0
+
+/*
+ * Analog Devices AD9234
+ */
+
+#define CHIPID_AD9234			0xCE
+
+/*
+ * Analog Devices AD9649
+ */
+
+#define CHIPID_AD9649			0x6F
+
+/*
+ * Analog Devices AD9684
+ */
+
+#define CHIPID_AD9684			0xD2
+
+enum {
+	ID_AD9467,
+	ID_AD9643,
+	ID_AD9250,
+	ID_AD9265,
+	ID_AD9680,
+	ID_AD9683,
+	ID_AD9625,
+	ID_AD9434,
+	ID_AD9652,
+	ID_AD9234,
+	ID_AD9680_x2,
+	ID_AD9649,
+	ID_AD9684,
+};
+
 static int ad9467_spi_read(struct spi_device *spi, unsigned reg)
 {
 	unsigned char buf[3];
@@ -77,6 +251,27 @@ static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 	return -ENODEV;
 }
 
+static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+	unsigned int writeval, unsigned int *readval)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct spi_device *spi = conv->spi;
+	int ret;
+
+	if (readval == NULL) {
+		ret = ad9467_spi_write(spi, reg, writeval);
+		ad9467_spi_write(spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		return ret;
+	} else {
+		ret = ad9467_spi_read(spi, reg);
+		if (ret < 0)
+			return ret;
+		*readval = ret;
+	}
+
+	return 0;
+}
+
 static int ad9467_outputmode_set(struct spi_device *spi, unsigned mode)
 {
 	int ret;
@@ -104,10 +299,23 @@ static int ad9467_testmode_set(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int ad9467_test_and_outputmode_set(struct iio_dev *indio_dev,
-					  unsigned chan, unsigned mode)
+static unsigned int ad9467_pnsel_to_testmode(enum adc_pn_sel sel)
+{
+	switch (sel) {
+	case ADC_PN9:
+		return TESTMODE_PN9_SEQ;
+	case ADC_PN23A:
+		return TESTMODE_PN23_SEQ;
+	default:
+		return TESTMODE_OFF;
+	}
+}
+
+static int ad9467_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
+	enum adc_pn_sel sel)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	unsigned int mode = ad9467_pnsel_to_testmode(sel);
 	int ret;
 
 	if (mode == TESTMODE_OFF)
@@ -149,10 +357,11 @@ static int ad9680_testmode_set(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int ad9680_test_and_outputmode_set(struct iio_dev *indio_dev,
-					  unsigned chan, unsigned mode)
+static int ad9680_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
+	enum adc_pn_sel sel)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	unsigned int mode = ad9467_pnsel_to_testmode(sel);
 	int ret;
 
 	if (mode == TESTMODE_OFF)
@@ -389,8 +598,8 @@ static const int ad9265_scale_table[][2] = {
 };
 
 static const int ad9680_scale_table[][2] = {
-	{1200, 0x08}, {1300, 0x09}, {1400, 0x0A}, {1500, 0x0B},
-	{1600, 0x00}, {1700, 0x0C}, {1800, 0x0D}, {1900, 0x0F},
+	{1460, 0x08}, {1580, 0x09}, {1700, 0x0A}, {1820, 0x0B},
+	{1940, 0x00}, {2060, 0x0C},
 };
 
 static const int ad9467_scale_table[][2] = {
@@ -885,9 +1094,18 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	struct clk *clk;
 	int ret;
 	unsigned pll_stat;
 	static int sel = 0;
+
+	clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+		conv->adc_clk = clk_get_rate_scaled(clk, &conv->adc_clkscale);
+	}
 
 	ret = ad9467_spi_write(spi, 0x5f, (0x16 | 0x1));	// trail bits, ilas normal & pd
 	ret |= ad9467_spi_write(spi, 0x5e, m << 4 | l);	// m=2, l=2
@@ -895,7 +1113,8 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 	ret |= ad9467_spi_write(spi, 0x67, sel++);	// lane id
 	ret |= ad9467_spi_write(spi, 0x6e, 0x80 | (l - 1));	// scr, 2-lane
 	ret |= ad9467_spi_write(spi, 0x70, 0x1f);	// no. of frames per multi frame
-	ret |= ad9467_spi_write(spi, 0x3a, 0x1f);	// sysref enabled
+	ret |= ad9467_spi_write(spi, 0x3a, 0x01);	// sysref enabled
+	ret |= ad9467_spi_write(spi, 0x3a, 0x13);	// sysref enabled
 	ret |= ad9467_spi_write(spi, 0x5f, (0x16 | 0x0));	// enable
 	ret |= ad9467_spi_write(spi, 0x14, 0x00);	// offset binary
 	ret |= ad9467_spi_write(spi, 0x0d, 0x00);	// test patterns
@@ -907,11 +1126,15 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 	if (ret < 0)
 		return ret;
 
+	conv->clk = clk;
+
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
 	dev_info(&spi->dev, "AD9250 PLL %s, JESD204B Link %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED",
 		 pll_stat & 0x01 ? "Ready" : "Fail");
+
+	conv->sample_rate_read_only = true;
 
 	return ret;
 }
@@ -919,8 +1142,25 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 static int ad9625_setup(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	struct clk *clk;
 	unsigned pll_stat;
 	int ret;
+
+	clk = devm_clk_get(&spi->dev, "adc_sysref");
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+	}
+
+	clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (!IS_ERR(clk)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+		of_clk_get_scale(spi->dev.of_node, "adc_clk", &conv->adc_clkscale);
+		conv->adc_clk = clk_get_rate_scaled(clk, &conv->adc_clkscale);
+	}
 
 	ret = ad9467_spi_write(spi, 0x000, 0x24);
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
@@ -945,12 +1185,16 @@ static int ad9625_setup(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
+
+	conv->clk = clk;
 	mdelay(10);
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
 
 	dev_info(&spi->dev, "AD9625 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
+
+	conv->sample_rate_read_only = true;
 
 	return ret;
 }
@@ -960,11 +1204,13 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct clk *clk;
+	struct clk *jesd_clk;
 	int ret, tmp = 1;
 	unsigned pll_stat;
 	const u32 sfdr_optim_regs[8] =
 		{0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935};
 	u32 sfdr_optim_vals[ARRAY_SIZE(sfdr_optim_regs)];
+	unsigned long lane_rate_kHz;
 
 	clk = devm_clk_get(&spi->dev, "adc_sysref");
 	if (!IS_ERR(clk)) {
@@ -980,6 +1226,15 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 			return ret;
 
 		conv->adc_clk = clk_get_rate(clk);
+	}
+
+	lane_rate_kHz = (conv->adc_clk / 1000) * 10;	// FIXME for other configurations
+
+	jesd_clk = devm_clk_get(&spi->dev, "jesd_adc_clk");
+	if (!IS_ERR(jesd_clk)) {
+		ret = clk_prepare_enable(jesd_clk);
+		if (ret < 0)
+			return ret;
 	}
 
 #ifdef CONFIG_OF
@@ -1021,6 +1276,10 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	ret |= ad9467_spi_write(spi, 0x5b3, 0x11);	// serdes-1 = lane 1
 	ret |= ad9467_spi_write(spi, 0x5b5, 0x22);	// serdes-2 = lane 2
 	ret |= ad9467_spi_write(spi, 0x5b6, 0x33);	// serdes-3 = lane 3
+	if (lane_rate_kHz < 6250000)
+		ret |= ad9467_spi_write(spi, 0x56e, 0x10);	// low line rate mode must be enabled
+	else
+		ret |= ad9467_spi_write(spi, 0x56e, 0x00);	// low line rate mode must be disabled
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);	// write enable
 
 	ret = clk_prepare_enable(conv->clk);
@@ -1034,6 +1293,11 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 
 	dev_info(&spi->dev, "AD9680 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
+
+
+	ret = clk_set_rate(jesd_clk, lane_rate_kHz);
+
+	conv->sample_rate_read_only = true;
 
 	return ret;
 }
@@ -1122,7 +1386,7 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 		if (!conv->clk)
 			return -ENODEV;
 
-		*val = conv->adc_clk = clk_get_rate(conv->clk);
+		*val = conv->adc_clk = clk_get_rate_scaled(conv->clk, &conv->adc_clkscale);
 
 		return IIO_VAL_INT;
 
@@ -1170,6 +1434,9 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 
 		if (chan->extend_name)
 			return -ENODEV;
+
+		if (conv->sample_rate_read_only)
+			return -EPERM;
 
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
@@ -1283,6 +1550,9 @@ static int ad9467_probe(struct spi_device *spi)
 		clk_enabled = 1;
 		conv->adc_clk = clk_get_rate(clk);
 	}
+
+	conv->adc_clkscale.mult = 1;
+	conv->adc_clkscale.div = 1;
 
 	spi_set_drvdata(spi, conv);
 	conv->clk = clk;
@@ -1444,8 +1714,7 @@ static int ad9467_probe(struct spi_device *spi)
 	if (ret < 0)
 		goto out;
 
-	conv->write = ad9467_spi_write;
-	conv->read = ad9467_spi_read;
+	conv->reg_access = ad9467_reg_access;
 	conv->write_raw = ad9467_write_raw;
 	conv->read_raw = ad9467_read_raw;
 	conv->read_event_value = ad9680_read_thresh,
@@ -1458,10 +1727,10 @@ static int ad9467_probe(struct spi_device *spi)
 	case CHIPID_AD9680:
 	case CHIPID_AD9234:
 	case CHIPID_AD9684:
-		conv->testmode_set = ad9680_test_and_outputmode_set;
+		conv->set_pnsel = ad9680_set_pnsel;
 		break;
 	default:
-		conv->testmode_set = ad9467_test_and_outputmode_set;
+		conv->set_pnsel = ad9467_set_pnsel;
 		break;
 	}
 

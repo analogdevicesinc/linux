@@ -23,6 +23,10 @@
  * gpio_cftl[1]] # "JA10"       GPIO 54 + 32 + 1
  */
 
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
 #include <dt-bindings/iio/adi,ad5592r.h>
 
 / {
@@ -34,6 +38,55 @@
 		regulator-max-microvolt = <3000000>;
 		regulator-always-on;
 	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&gpio0>;
+		autorepeat;
+
+		s5 {
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			interrupts = <93 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s3 {
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			interrupts = <91 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s4 {
+			label = "Up";
+			linux,code = <KEY_UP>;
+			interrupts = <92 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s2 {
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			interrupts = <90 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s1 {
+			label = "KEY_ENTER";
+			linux,code = <28>;
+			interrupts = <89 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+	};
+
+	rotary {
+			compatible = "rotary-encoder";
+			gpios = <&gpio0 94 1>, <&gpio0 95 1>;
+			linux,axis = <1>; /* ABS_Y */
+			rotary-encoder,steps = <24>;
+			rotary-encoder,steps-per-period = <2>;
+			rotary-encoder,rollover;
+	};
+
 };
 
 &i2c0 {
@@ -41,21 +94,33 @@
 	clock-frequency = <400000>;
 
 	ad5593r@10 {
+		#size-cells = <0>;
+		#address-cells = <1>;
+		#gpio-cells = <2>;
 		compatible = "adi,ad5593r";
 		reg = <0x10>;
-		channel-modes = /bits/ 8 <
-			CH_MODE_DAC
-			CH_MODE_ADC
-			CH_MODE_DAC_AND_ADC
-			CH_MODE_DAC_AND_ADC
-			CH_MODE_UNUSED_PULL_DOWN
-			CH_MODE_GPIO
-			CH_MODE_GPIO
-			CH_MODE_GPIO
-		>;
+		gpio-controller;
 
-		vref-supply = <&vref>;
-		reset-gpios = <&gpio0 86 0>;
+		channel@0 {
+			reg = <0>;
+			adi,mode = <CH_MODE_DAC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+		channel@1 {
+			reg = <1>;
+			adi,mode = <CH_MODE_ADC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+		channel@2 {
+			reg = <2>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+		channel@6 {
+			reg = <6>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
 	};
 };
 
@@ -65,20 +130,55 @@
 	is-decoded-cs = <0>;
 
 	ad5592r@0 {
+		#size-cells = <0>;
+		#address-cells = <1>;
+		#gpio-cells = <2>;
 		compatible = "adi,ad5592r";
 		reg = <0>;
+
 		spi-max-frequency = <1000000>;
 		spi-cpol;
 
-		channel-modes = /bits/ 8 <
-			CH_MODE_DAC
-			CH_MODE_ADC
-			CH_MODE_DAC_AND_ADC
-			CH_MODE_DAC_AND_ADC
-			CH_MODE_UNUSED_PULL_DOWN
-			CH_MODE_GPIO
-			CH_MODE_GPIO
-			CH_MODE_GPIO
-		>;
+		vref-supply = <&vref>; /* optional */
+		reset-gpios = <&gpio0 86 0>;  /* optional */
+		gpio-controller;
+
+		channel@0 {
+			reg = <0>;
+			adi,mode = <CH_MODE_DAC>;
+		};
+		channel@1 {
+			reg = <1>;
+			adi,mode = <CH_MODE_ADC>;
+		};
+		channel@2 {
+			reg = <2>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+		};
+		channel@3 {
+			reg = <3>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+		channel@4 {
+			reg = <4>;
+			adi,mode = <CH_MODE_UNUSED>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+		channel@5 {
+			reg = <5>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+		channel@6 {
+			reg = <6>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+		channel@7 {
+			reg = <7>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
 	};
 };

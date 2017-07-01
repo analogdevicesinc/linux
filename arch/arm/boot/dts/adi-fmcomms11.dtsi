@@ -1,0 +1,143 @@
+
+
+/ {
+	clocks {
+		ad9508_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <122880000>;
+			clock-output-names = "clkin";
+		};
+	};
+};
+
+#include <dt-bindings/iio/frequency/ad9508.h>
+
+&fmc_spi {
+	clk0_ad9508: ad9508@3 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "ad9508";
+		reg = <3>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&ad9508_clkin>;
+
+		spi-max-frequency = <10000000>;
+		clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
+		adi,spi-3wire-enable;
+
+		ad9508_0_c0:channel@0 {
+			reg = <0>;
+			adi,extended-name = "SYSREF";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <32>;
+		};
+
+		ad9508_0_c1:channel@1 {
+			reg = <1>;
+			adi,extended-name = "PLL_REF";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
+
+		ad9508_0_c2:channel@2 {
+			reg = <2>;
+			adi,extended-name = "GBTCLK";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
+
+		ad9508_0_c3:channel@3 {
+			reg = <3>;
+			adi,extended-name = "DIVCLK_FMC";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
+
+	};
+
+	adf4355_clk: adf4355@5 {
+		#clock-cells = <0>;
+		compatible = "adf4355-2";
+		reg = <5>;
+		spi-max-frequency = <10000000>;
+		clocks = <&clk0_ad9508 1>;
+		clock-names = "clkin";
+		clock-output-names = "adf4355_pll";
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <6>;
+		//adi,mute-till-lock-enable;
+		adi,output-a-power = <3>;
+		adi,output-b-power = <3>;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,muxout-level-3v3-enable;
+//		adi,reference-div2-enable;
+		adi,power-up-frequency = /bits/ 64 <3932160000>;
+		adi,output-a-enable;
+		adi,output-b-enable;
+		adi,clock-shift = <1>;
+		clock-scales = <1 2>;
+//		adi,reference-div-factor = <6>;
+		//adi,reference-doubler-enable;
+	};
+
+	adc_clk_div: hmc361 {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clock-div = <2>;
+		clock-mult = <1>;
+		clocks = <&adf4355_clk>;
+	};
+
+	dac0_ad9162: ad9162@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad9162";
+		reg = <2>;
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <1000000>;
+		clocks = <&axi_ad9162_jesd>, <&adf4355_clk>, <&clk0_ad9508 0>;
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+		dac_clk-clock-scales = <2 1>;
+	};
+
+	adc0_ad9625: ad9625@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ad9625";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+		spi-cpha;
+		clocks = <&axi_ad9625_jesd>, <&adc_clk_div>, <&clk0_ad9508 0>;
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+		adc_clk-clock-scales = <2 1>;
+	};
+
+	dga0_adl5240: adl5240@4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adl5240";
+		reg = <4>;
+		spi-max-frequency = <100000>;
+	};
+
+	att0_hmc1119: hmc1119@6 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "hmc1119";
+		reg = <6>;
+		spi-max-frequency = <100000>;
+	};
+
+};
+
