@@ -382,6 +382,14 @@
 				SC_P_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x00000021
 			>;
 		};
+
+		pinctrl_pcieb: pciebgrp{
+			fsl,pins = <
+				SC_P_PCIE_CTRL1_CLKREQ_B_LSIO_GPIO4_IO30	0x00000021
+				SC_P_PCIE_CTRL1_WAKE_B_LSIO_GPIO4_IO31		0x00000021
+				SC_P_PCIE_CTRL1_PERST_B_LSIO_GPIO5_IO00		0x00000021
+			>;
+		};
 	};
 };
 
@@ -749,5 +757,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea>;
 	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&pcieb{
+	ext_osc = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcieb>;
+	reset-gpio = <&gpio5 0 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };

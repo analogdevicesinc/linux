@@ -2399,7 +2399,7 @@
 	pciea: pcie@0x5f000000 {
 		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
 		reg = <0x0 0x5f000000 0x0 0x10000>, /* Controller reg */
-		      <0x0 0x6ff00000 0x0 0x10000>; /* PCI cfg space */
+		      <0x0 0x6ff00000 0x0 0x80000>; /* PCI cfg space */
 		reg-names = "dbi", "config";
 		#address-cells = <3>;
 		#size-cells = <2>;
@@ -2433,6 +2433,46 @@
 		hsio = <&hsio>;
 		ctrl-id = <0>; /* pciea */
 		cpu-base-addr = <0x40000000>;
+		status = "disabled";
+	};
+
+	pcieb: pcie@0x5f010000 {
+		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
+		reg = <0x0 0x5f010000 0x0 0x10000>, /* Controller reg */
+		      <0x0 0x7ff00000 0x0 0x80000>; /* PCI cfg space */
+		reg-names = "dbi", "config";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x81000000 0 0x00000000 0x0 0x7ff80000 0 0x00010000 /* downstream I/O */
+			  0x82000000 0 0x70000000 0x0 0x70000000 0 0x0ff00000>; /* non-prefetchable memory */
+		num-lanes = <1>;
+
+		#interrupt-cells = <1>;
+		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "msi";
+
+		/*
+		 * Set these clocks in default, then clocks should be
+		 * refined for exact hw design of imx8 pcie.
+		 */
+		clocks = <&clk IMX8QM_HSIO_PCIE_B_MSTR_AXI_CLK>,
+			 <&clk IMX8QM_HSIO_PCIE_B_SLV_AXI_CLK>,
+			 <&clk IMX8QM_HSIO_PHY_X2_PCLK_1>,
+			 <&clk IMX8QM_HSIO_PCIE_B_DBI_AXI_CLK>;
+		clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_inbound_axi";
+
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map =  <0 0 0 1 &gic 0 105 4>,
+				 <0 0 0 2 &gic 0 106 4>,
+				 <0 0 0 3 &gic 0 107 4>,
+				 <0 0 0 4 &gic 0 108 4>;
+		power-domains = <&pd_pcie1>;
+		fsl,max-link-speed = <3>;
+		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
+		hsio = <&hsio>;
+		ctrl-id = <1>; /* pciea */
+		cpu-base-addr = <0x80000000>;
 		status = "disabled";
 	};
 };
