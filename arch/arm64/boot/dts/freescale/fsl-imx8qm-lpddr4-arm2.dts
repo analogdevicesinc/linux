@@ -63,6 +63,15 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-always-on;
 		};
+
+		reg_usdhc2_vmmc: usdhc2_vmmc {
+			compatible = "regulator-fixed";
+			regulator-name = "sw-3p3-sd1";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio4 7 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
 	};
 
 	sound-cs42888 {
@@ -264,6 +273,14 @@
 			>;
 		};
 
+		pinctrl_usdhc2_gpio: usdhc2grpgpio {
+			fsl,pins = <
+				SC_P_USDHC1_DATA6_LSIO_GPIO5_IO21	0x00000021
+				SC_P_USDHC1_DATA7_LSIO_GPIO5_IO22	0x00000021
+				SC_P_USDHC1_RESET_B_LSIO_GPIO4_IO07	0x00000021
+			>;
+		};
+
 		pinctrl_usdhc2: usdhc2grp {
 			fsl,pins = <
 				SC_P_USDHC1_CLK_CONN_USDHC1_CLK		0x06000041
@@ -272,8 +289,31 @@
 				SC_P_USDHC1_DATA1_CONN_USDHC1_DATA1	0x00000021
 				SC_P_USDHC1_DATA2_CONN_USDHC1_DATA2	0x00000021
 				SC_P_USDHC1_DATA3_CONN_USDHC1_DATA3	0x00000021
-				SC_P_USDHC1_DATA6_LSIO_GPIO5_IO21	0x00000021
-				SC_P_USDHC1_DATA7_LSIO_GPIO5_IO22	0x00000021
+				SC_P_USDHC1_VSELECT_CONN_USDHC1_VSELECT	0x00000021
+			>;
+		};
+
+		pinctrl_usdhc2_100mhz: usdhc2grp100mhz {
+			fsl,pins = <
+				SC_P_USDHC1_CLK_CONN_USDHC1_CLK		0x06000045
+				SC_P_USDHC1_CMD_CONN_USDHC1_CMD		0x00000025
+				SC_P_USDHC1_DATA0_CONN_USDHC1_DATA0	0x00000025
+				SC_P_USDHC1_DATA1_CONN_USDHC1_DATA1	0x00000025
+				SC_P_USDHC1_DATA2_CONN_USDHC1_DATA2	0x00000025
+				SC_P_USDHC1_DATA3_CONN_USDHC1_DATA3	0x00000025
+				SC_P_USDHC1_VSELECT_CONN_USDHC1_VSELECT	0x00000021
+			>;
+		};
+
+		pinctrl_usdhc2_200mhz: usdhc2grp200mhz {
+			fsl,pins = <
+				SC_P_USDHC1_CLK_CONN_USDHC1_CLK		0x06000047
+				SC_P_USDHC1_CMD_CONN_USDHC1_CMD		0x00000027
+				SC_P_USDHC1_DATA0_CONN_USDHC1_DATA0	0x00000027
+				SC_P_USDHC1_DATA1_CONN_USDHC1_DATA1	0x00000027
+				SC_P_USDHC1_DATA2_CONN_USDHC1_DATA2	0x00000027
+				SC_P_USDHC1_DATA3_CONN_USDHC1_DATA3	0x00000027
+				SC_P_USDHC1_VSELECT_CONN_USDHC1_VSELECT	0x00000021
 			>;
 		};
 
@@ -343,11 +383,14 @@
 };
 
 &usdhc2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usdhc2>;
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
+	pinctrl-1 = <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
+	pinctrl-2 = <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>;
 	bus-width = <4>;
 	cd-gpios = <&gpio5 22 GPIO_ACTIVE_LOW>;
 	wp-gpios = <&gpio5 21 GPIO_ACTIVE_HIGH>;
+	vmmc-supply = <&reg_usdhc2_vmmc>;
 	status = "okay";
 };
 
