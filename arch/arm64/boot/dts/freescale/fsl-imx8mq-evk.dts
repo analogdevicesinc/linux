@@ -278,6 +278,11 @@
 		dsi-traffic-mode = <0>;
 		bpp = <24>;
 		status = "okay";
+		port {
+			dsi_to_hdmi: endpoint {
+				remote-endpoint = <&mipi_dsi_ep>;
+			};
+		};
 	};
 };
 
@@ -349,6 +354,11 @@
 	reset = <&src>;
 	mux-sel = <&gpr>;	/* lcdif or dcss */
 	status = "okay";
+	port {
+		mipi_dsi_ep: endpoint {
+			remote-endpoint = <&dsi_to_hdmi>;
+		};
+	};
 };
 
 &uart3 { /* BT */
