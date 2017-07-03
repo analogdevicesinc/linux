@@ -43,4 +43,28 @@ bool prg_stride_double_check(struct prg *prg,
 			     unsigned int stride, dma_addr_t baddr);
 void prg_set_auxiliary(struct prg *prg);
 
+struct dprc;
+struct dprc *
+dprc_lookup_by_phandle(struct device *dev, const char *name, int index);
+void dprc_enable(struct dprc *dprc);
+void dprc_disable(struct dprc *dprc);
+void dprc_configure(struct dprc *dprc, unsigned int stream_id,
+		    unsigned int width, unsigned int height,
+		    unsigned int x_offset, unsigned int y_offset,
+		    unsigned int stride, u32 format, u64 modifier,
+		    unsigned long baddr, unsigned long uv_baddr,
+		    bool start, bool aux_start);
+void dprc_reg_update(struct dprc *dprc);
+void dprc_irq_handle(struct dprc *dprc);
+void dprc_enable_ctrl_done_irq(struct dprc *dprc);
+bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier);
+bool dprc_stride_supported(struct dprc *dprc,
+			   unsigned int stride, unsigned int uv_stride,
+			   unsigned int width, u32 format);
+bool dprc_crop_supported(struct dprc *dprc, u64 modifier, u32 y_offset);
+bool dprc_stride_double_check(struct dprc *dprc,
+			      unsigned int stride, unsigned int uv_stride,
+			      unsigned int width, u32 format,
+			      dma_addr_t baddr, dma_addr_t uv_baddr);
+
 #endif
