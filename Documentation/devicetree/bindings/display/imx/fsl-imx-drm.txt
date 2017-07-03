@@ -246,6 +246,29 @@ dcss_drm: dcss@0x32e00000 {
 	};
 };
 
+Freescale i.MX8 PRG (Prefetch Resolve Gasket)
+=============================================
+Required properties:
+- compatible: should be "fsl,<chip>-prg"
+- reg: should be register base and length as documented in the
+  datasheet
+- clocks: phandles to the PRG apb and rtram clocks, as described in
+  Documentation/devicetree/bindings/clock/clock-bindings.txt,
+  Documentation/devicetree/bindings/clock/imx8qm-clock.txt and
+  Documentation/devicetree/bindings/clock/imx8qxp-clock.txt
+- clock-names: should be "apb" and "rtram"
+- power-domains: phandle pointing to power domain
+
+example:
+
+prg@56040000 {
+	compatible = "fsl,imx8qm-prg";
+	reg = <0x0 0x56040000 0x0 0x10000>;
+	clocks = <&clk IMX8QM_DC0_PRG0_APB_CLK>,
+		 <&clk IMX8QM_DC0_PRG0_RTRAM_CLK>;
+	clock-names = "apb", "rtram";
+	power-domains = <&pd_dc0>;
+};
 
 Parallel display support
 ========================
