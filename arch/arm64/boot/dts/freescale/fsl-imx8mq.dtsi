@@ -227,6 +227,29 @@
 		status = "disabled";
 	};
 
+	mipi_dsi: mipi_dsi@30A00000 {
+		compatible = "fsl,imx8mq-mipi-dsi";
+		reg = <0x0 0x30a00000 0x0 0x10000>;	/* DSI registers */
+		interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_DSI_CORE_DIV>,
+			 <&clk IMX8MQ_CLK_DSI_PHY_REF_DIV>,
+			 <&clk IMX8MQ_CLK_DSI_DBI_DIV>,
+			 <&clk IMX8MQ_CLK_DSI_AHB_DIV>,
+			 <&clk IMX8MQ_CLK_DSI_IPG_DIV>;
+		clock-names = "core", "phy_ref", "dbi", "rxesc", "txesc";
+		assigned-clocks = <&clk IMX8MQ_CLK_DSI_PHY_REF_SRC>,
+				  <&clk IMX8MQ_CLK_DSI_CORE_SRC>,
+				  <&clk IMX8MQ_CLK_DSI_AHB_SRC>;
+		assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
+					 <&clk IMX8MQ_SYS1_PLL_266M>,
+					 <&clk IMX8MQ_SYS1_PLL_80M>;
+		assigned-clock-rate = <594000000>, <266000000>, <80000000>;
+		phy-ref-clkfreq = <27000000>;
+		data-lanes-num = <4>;
+		max-data-rate  = <800000000>;
+		status = "disabled";
+	};
+
 	iomuxc: iomuxc@30330000 {
 		compatible = "fsl,imx8mq-iomuxc";
 		reg = <0x0 0x30330000 0x0 0x10000>;
