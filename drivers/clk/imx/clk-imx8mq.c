@@ -106,6 +106,9 @@ static const char *imx8mq_ahb_sels[] = {"osc_25m", "sys1_pll_133m", "sys1_pll_80
 static const char *imx8mq_audio_ahb_sels[] = {"osc_25m", "sys2_pll_500m", "sys1_pll_800m", "sys2_pll_1000m",
 						  "sys2_pll_166m", "sys3_pll2_out", "audio_pll1_out", "video_pll1_out", };
 
+static const char *imx8mq_dsi_ahb_sels[] = {"osc_25m", "sys2_pll_100m", "sys1_pll_80m", "sys1_pll_800m",
+                                            "sys2_pll_1000m", "sys3_pll2_out", "clk_ext3", "audio_pll2_out"};
+
 static const char *imx8mq_dram_alt_sels[] = {"osc_25m", "sys1_pll_800m", "sys1_pll_100m", "sys2_pll_500m",
 					     "sys2_pll_250m", "sys1_pll_400m", "audio_pll1_out", "sys1_pll_266m", };
 
@@ -544,6 +547,7 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MQ_CLK_DSI_PHY_REF_SRC] = imx_clk_mux2("dsi_phy_ref_src", base + 0xbb80, 24, 3, imx8mq_dsi_phy_sels, ARRAY_SIZE(imx8mq_dsi_phy_sels));
 	clks[IMX8MQ_CLK_DSI_DBI_SRC] = imx_clk_mux2("dsi_dbi_src", base + 0xbc00, 24, 3, imx8mq_dsi_dbi_sels, ARRAY_SIZE(imx8mq_dsi_dbi_sels));
 	clks[IMX8MQ_CLK_DSI_ESC_SRC] = imx_clk_mux2("dsi_esc_src", base + 0xbc80, 24, 3, imx8mq_dsi_esc_sels, ARRAY_SIZE(imx8mq_dsi_esc_sels));
+	clks[IMX8MQ_CLK_DSI_AHB_SRC] = imx_clk_mux2("dsi_ahb_src", base + 0x9200, 24, 3, imx8mq_dsi_ahb_sels, ARRAY_SIZE(imx8mq_dsi_ahb_sels));
 	clks[IMX8MQ_CLK_CSI1_CORE_SRC] = imx_clk_mux2("csi1_core_src", base + 0xbd00, 24, 3, imx8mq_csi1_core_sels, ARRAY_SIZE(imx8mq_csi1_core_sels));
 	clks[IMX8MQ_CLK_CSI1_PHY_REF_SRC] = imx_clk_mux2("csi1_phy_ref_src", base + 0xbd80, 24, 3, imx8mq_csi1_phy_sels, ARRAY_SIZE(imx8mq_csi1_phy_sels));
 	clks[IMX8MQ_CLK_CSI1_ESC_SRC] = imx_clk_mux2("csi1_esc_src", base + 0xbe00, 24, 3, imx8mq_csi1_esc_sels, ARRAY_SIZE(imx8mq_csi1_esc_sels));
@@ -604,6 +608,7 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MQ_CLK_DSI_PHY_REF_CG] = imx_clk_gate3("dsi_phy_ref_cg", "dsi_phy_ref_src", base + 0xbb80, 28);
 	clks[IMX8MQ_CLK_DSI_DBI_CG] = imx_clk_gate3("dsi_dbi_cg", "dsi_dbi_src", base + 0xbc00, 28);
 	clks[IMX8MQ_CLK_DSI_ESC_CG] = imx_clk_gate3("dsi_esc_cg", "dsi_esc_src", base + 0xbc80, 28);
+	clks[IMX8MQ_CLK_DSI_AHB_CG] = imx_clk_gate3("dsi_ahb_cg", "dsi_ahb_src", base + 0x9200, 28);
 	clks[IMX8MQ_CLK_CSI1_CORE_CG] = imx_clk_gate3("csi1_core_cg", "csi1_core_src", base + 0xbd00, 28);
 	clks[IMX8MQ_CLK_CSI1_PHY_REF_CG] = imx_clk_gate3("csi1_phy_ref_cg", "csi1_phy_ref_src", base + 0xbd80, 28);
 	clks[IMX8MQ_CLK_CSI1_ESC_CG] = imx_clk_gate3("csi1_esc_cg", "csi1_esc_src", base + 0xbe00, 28);
@@ -664,6 +669,7 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MQ_CLK_DSI_PHY_REF_PRE_DIV] = imx_clk_divider2("dsi_phy_ref_pre_div", "dsi_phy_ref_cg", base + 0xbb80, 16, 3);
 	clks[IMX8MQ_CLK_DSI_DBI_PRE_DIV] = imx_clk_divider2("dsi_dbi_pre_div", "dsi_dbi_cg", base + 0xbc00, 16, 3);
 	clks[IMX8MQ_CLK_DSI_ESC_PRE_DIV] = imx_clk_divider2("dsi_esc_pre_div", "dsi_esc_cg", base + 0xbc80, 16, 3);
+	clks[IMX8MQ_CLK_DSI_AHB_PRE_DIV] = imx_clk_divider2("dsi_ahb_pre_div", "dsi_ahb_cg", base + 0x9200, 16, 3);
 	clks[IMX8MQ_CLK_CSI1_CORE_PRE_DIV] = imx_clk_divider2("csi1_core_pre_div", "csi1_core_cg", base + 0xbd00, 16, 3);
 	clks[IMX8MQ_CLK_CSI1_PHY_REF_PRE_DIV] = imx_clk_divider2("csi1_phy_ref_pre_div", "csi1_phy_ref_cg", base + 0xbd80, 16, 3);
 	clks[IMX8MQ_CLK_CSI1_ESC_PRE_DIV] = imx_clk_divider2("csi1_esc_pre_div", "csi1_esc_cg", base + 0xbe00, 16, 3);
@@ -724,6 +730,8 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MQ_CLK_DSI_PHY_REF_DIV] = imx_clk_divider2("dsi_phy_ref_div", "dsi_phy_ref_pre_div", base + 0xbb80, 0, 6);
 	clks[IMX8MQ_CLK_DSI_DBI_DIV] = imx_clk_divider2("dsi_dbi_div", "dsi_dbi_pre_div", base + 0xbc00, 0, 6);
 	clks[IMX8MQ_CLK_DSI_ESC_DIV] = imx_clk_divider2("dsi_esc_div", "dsi_esc_pre_div", base + 0xbc80, 0, 6);
+	clks[IMX8MQ_CLK_DSI_AHB_DIV] = imx_clk_divider2("dsi_ahb_div", "dsi_ahb_pre_div", base + 0x9200, 0, 6);
+	clks[IMX8MQ_CLK_DSI_IPG_DIV] = imx_clk_divider2("dsi_ipg_div", "dsi_ahb_div", base + 0x9280, 0, 6);
 	clks[IMX8MQ_CLK_CSI1_CORE_DIV] = imx_clk_divider2("csi1_core_div", "csi1_core_pre_div", base + 0xbd00, 0, 6);
 	clks[IMX8MQ_CLK_CSI1_PHY_REF_DIV] = imx_clk_divider2("csi1_phy_ref_div", "csi1_phy_ref_pre_div", base + 0xbd80, 0, 6);
 	clks[IMX8MQ_CLK_CSI1_ESC_DIV] = imx_clk_divider2("csi1_esc_div", "csi1_esc_pre_div", base + 0xbe00, 0, 6);
