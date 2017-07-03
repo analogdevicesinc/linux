@@ -269,6 +269,16 @@
 			};
 		};
 	};
+
+	adv7535: adv7535@3d {
+		compatible = "adi,adv7535";
+		reg = <0x3d>;		/* PD pin is low */
+		/* TODO: pin config & irq */
+		video-mode = <34>;	/* 1920x1080@30HZ */
+		dsi-traffic-mode = <0>;
+		bpp = <24>;
+		status = "okay";
+	};
 };
 
 &i2c2 {
