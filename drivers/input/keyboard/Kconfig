@@ -438,7 +438,7 @@ config KEYBOARD_RPMSG
 
 config KEYBOARD_SNVS_PWRKEY
 	tristate "IMX SNVS Power Key Driver"
-	depends on (SOC_IMX6SX || SOC_IMX6UL || SOC_IMX7)
+	depends on (SOC_IMX6SX || SOC_IMX6UL || SOC_IMX7 || ARCH_FSL_IMX8MQ)
 	depends on OF
 	help
 	  This is the snvs powerkey driver for the Freescale i.MX application
