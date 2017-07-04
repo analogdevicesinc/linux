@@ -100,6 +100,9 @@
 				BIT(DMA_SLAVE_BUSWIDTH_8_BYTES) | \
 				BIT(DMA_SLAVE_BUSWIDTH_16_BYTES))
 
+#define ARGS_RX				BIT(0)
+#define ARGS_REMOTE			BIT(1)
+
 struct fsl_edma3_hw_tcd {
 	__le32	saddr;
 	__le16	soff;
@@ -696,7 +699,7 @@ static struct dma_chan *fsl_edma3_xlate(struct of_phandle_args *dma_spec,
 	struct dma_chan *chan, *_chan;
 	struct fsl_edma3_chan *fsl_chan;
 
-	if (dma_spec->args_count != 4)
+	if (dma_spec->args_count != 3)
 		return NULL;
 
 	mutex_lock(&fsl_edma3->fsl_edma3_mutex);
@@ -710,8 +713,8 @@ static struct dma_chan *fsl_edma3_xlate(struct of_phandle_args *dma_spec,
 			chan = dma_get_slave_channel(chan);
 			chan->device->privatecnt++;
 			fsl_chan->priority = dma_spec->args[1];
-			fsl_chan->is_rxchan = dma_spec->args[2];
-			fsl_chan->is_remote = dma_spec->args[3];
+			fsl_chan->is_rxchan = dma_spec->args[2] & ARGS_RX;
+			fsl_chan->is_remote = dma_spec->args[2] & ARGS_REMOTE;
 			mutex_unlock(&fsl_edma3->fsl_edma3_mutex);
 			return chan;
 		}
