@@ -194,7 +194,7 @@ static inline struct clk *imx_clk_divider2(const char *name, const char *parent,
 {
 	return clk_register_divider(NULL, name, parent,
 		CLK_SET_RATE_PARENT | CLK_SET_RATE_GATE | CLK_OPS_PARENT_ENABLE,
-			reg, shift, width, 0, &imx_ccm_lock);
+			reg, shift, width, CLK_DIVIDER_ROUND_CLOSEST, &imx_ccm_lock);
 }
 
 static inline struct clk *imx_clk_divider_flags(const char *name,
