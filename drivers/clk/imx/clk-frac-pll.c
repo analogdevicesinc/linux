@@ -23,6 +23,7 @@
 #define PLL_LOCK_STATUS	(0x1 << 31)
 #define PLL_CLKE	21
 #define PLL_PD		19
+#define PLL_BYPASS	14
 #define PLL_NEWDIV_VAL		(1 << 12)
 #define PLL_NEWDIV_ACK		(1 << 11)
 #define PLL_FRAC_DIV_MASK	0xffffff
@@ -49,6 +50,25 @@ static int clk_wait_lock(struct clk_frac_pll *pll)
 	} while (1);
 
 	return readl_relaxed(pll->base) & PLL_LOCK_STATUS ? 0 : -ETIMEDOUT;
+}
+
+static int clk_wait_ack(struct clk_frac_pll *pll)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(50);
+
+	/* return directly if the pll is in powerdown or bypass */
+	if (readl_relaxed(pll->base) & ((1 << PLL_PD) | (1 << PLL_BYPASS)))
+		return 0;
+
+	/* Wait for the pll's divfi and divff is reloaded */
+	do {
+		if (readl_relaxed(pll->base) & PLL_NEWDIV_ACK)
+			break;
+		if (time_after(jiffies, timeout))
+			break;
+	} while (1);
+
+	return readl_relaxed(pll->base) & PLL_NEWDIV_ACK ? 0 : ETIMEDOUT;
 }
 
 static int clk_pll_prepare(struct clk_hw *hw)
@@ -139,6 +159,7 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct clk_frac_pll *pll = to_clk_frac_pll(hw);
 	u32 val, divfi, divff;
 	u64 temp64;
+	int ret;
 
 	parent_rate *= 8;
 	rate *= 2;
@@ -162,12 +183,14 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	val |= PLL_NEWDIV_VAL;
 	writel_relaxed(val, pll->base + PLL_CFG0);
 
+	ret = clk_wait_ack(pll);
+
 	/* clear the NEV_DIV_VAL */
 	val = readl_relaxed(pll->base + PLL_CFG0);
 	val &= ~PLL_NEWDIV_VAL;
 	writel_relaxed(val, pll->base + PLL_CFG0);
 
-	return 0;
+	return ret;
 }
 
 static const struct clk_ops clk_frac_pll_ops = {
