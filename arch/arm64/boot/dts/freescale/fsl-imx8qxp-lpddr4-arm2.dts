@@ -96,7 +96,7 @@
 			<&clk IMX8QXP_AUD_ESAI_0_EXTAL_IPG>;
 	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
 	assigned-clock-rates = <0>, <786432000>, <24576000>, <24576000>, <24576000>;
-	dmas = <&edma2 23 0 1 1>, <&edma2 21 0 0 1>;
+	dmas = <&edma2 23 0 3>, <&edma2 21 0 2>;
 	status = "okay";
 };
 

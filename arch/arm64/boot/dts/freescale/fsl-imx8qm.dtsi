@@ -1688,8 +1688,8 @@
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd_dma_lpuart1>;
 		dma-names = "tx","rx";
-		dmas = <&edma0 15 0 0 0>,
-			<&edma0 14 0 1 0>;
+		dmas = <&edma0 15 0 0>,
+			<&edma0 14 0 1>;
 		status = "disabled";
 	};
 
@@ -1705,8 +1705,8 @@
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd_dma_lpuart2>;
 		dma-names = "tx","rx";
-		dmas = <&edma0 17 0 0 0>,
-			<&edma0 16 0 1 0>;
+		dmas = <&edma0 17 0 0>,
+			<&edma0 16 0 1>;
 		status = "disabled";
 	};
 
@@ -1722,8 +1722,8 @@
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd_dma_lpuart3>;
 		dma-names = "tx","rx";
-		dmas = <&edma0 19 0 0 0>,
-			<&edma0 18 0 1 0>;
+		dmas = <&edma0 19 0 0>,
+			<&edma0 18 0 1>;
 		status = "disabled";
 	};
 
@@ -1739,8 +1739,8 @@
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd_dma_lpuart4>;
 		dma-names = "tx","rx";
-		dmas = <&edma0 21 0 0 0>,
-			<&edma0 20 0 1 0>;
+		dmas = <&edma0 21 0 0>,
+			<&edma0 20 0 1>;
 		status = "disabled";
 	};
 
@@ -1756,7 +1756,7 @@
 		      <0x0 0x5a330000 0x0 0x10000>, /* channel19 UART3 tx */
 		      <0x0 0x5a340000 0x0 0x10000>, /* channel20 UART4 rx */
 		      <0x0 0x5a350000 0x0 0x10000>; /* channel21 UART4 tx */
-		#dma-cells = <4>;
+		#dma-cells = <3>;
 		dma-channels = <10>;
 		interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>,
@@ -1790,7 +1790,7 @@
 			<0x0 0x59290000 0x0 0x10000>, /* spdif0 tx */
 			<0x0 0x592c0000 0x0 0x10000>, /* sai0 rx */
 			<0x0 0x592d0000 0x0 0x10000>; /* sai0 tx */
-		#dma-cells = <4>;
+		#dma-cells = <3>;
 		shared-interrupt;
 		dma-channels = <12>;
 		interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc0 */
@@ -2101,7 +2101,7 @@
 			<&clk IMX8QM_CLK_DUMMY>,
 			<&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "core", "extal", "fsys", "spba";
-		dmas = <&edma2 6 0 1 0>, <&edma2 7 0 0 0>;
+		dmas = <&edma2 6 0 1>, <&edma2 7 0 0>;
 		dma-names = "rx", "tx";
 		power-domains = <&pd_esai0>;
 		status = "disabled";
@@ -2127,7 +2127,7 @@
 			      "rxtx3", "rxtx4",
 			      "rxtx5", "rxtx6",
 			      "rxtx7", "spba";
-		dmas = <&edma2 8 0 1 0>, <&edma2 9 0 0 0>;
+		dmas = <&edma2 8 0 1>, <&edma2 9 0 0>;
 		dma-names = "rx", "tx";
 		power-domains = <&pd_spdif0>;
 		status = "disabled";
@@ -2144,7 +2144,7 @@
 			<&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dma-names = "rx", "tx";
-		dmas = <&edma2 12 0 1 0>, <&edma2 13 0 0 0>;
+		dmas = <&edma2 12 0 1>, <&edma2 13 0 0>;
 		status = "disabled";
 		power-domains = <&pd_sai0>;
 	};
@@ -2179,8 +2179,8 @@
 			"asrck_8", "asrck_9", "asrck_a", "asrck_b",
 			"asrck_c", "asrck_d", "asrck_e", "asrck_f",
 			"spba";
-		dmas = <&edma2 0 0 0 0>, <&edma2 1 0 0 0>, <&edma2 2 0 0 0>,
-			<&edma2 3 0 1 0>, <&edma2 4 0 1 0>, <&edma2 5 0 1 0>;
+		dmas = <&edma2 0 0 0>, <&edma2 1 0 0>, <&edma2 2 0 0>,
+			<&edma2 3 0 1>, <&edma2 4 0 1>, <&edma2 5 0 1>;
 		dma-names = "rxa", "rxb", "rxc",
 				"txa", "txb", "txc";
 		fsl,asrc-rate  = <8000>;
