@@ -84,6 +84,9 @@ static atomic_t master_wait = ATOMIC_INIT(0);
 static void (*imx7d_wfi_in_iram_fn)(void __iomem *iram_vbase);
 static struct imx7_cpuidle_pm_info *cpuidle_pm_info;
 
+/* Mapped for the kernel, unlike cpuidle_pm_info->gic_dist_base.vbase */
+static void __iomem *imx7d_cpuidle_gic_base;
+
 static void imx_pen_lock(int cpu)
 {
 	if (cpu == 0) {
@@ -122,6 +125,16 @@ static int imx7d_idle_finish(unsigned long val)
 	return 0;
 }
 
+static bool imx7d_gic_sgis_pending(void)
+{
+	void __iomem *sgip_base = imx7d_cpuidle_gic_base + 0x1f20;
+
+	return (readl_relaxed(sgip_base + 0x0) |
+		readl_relaxed(sgip_base + 0x4) |
+		readl_relaxed(sgip_base + 0x8) |
+		readl_relaxed(sgip_base + 0xc));
+}
+
 static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 			    struct cpuidle_driver *drv, int index)
 {
@@ -141,6 +154,16 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 		cpu_pm_enter();
 		if (atomic_inc_return(&master_lpi) == num_online_cpus() &&
 			cpuidle_pm_info->last_cpu == -1) {
+			/*
+			 * GPC will not wake on SGIs so check for them
+			 * manually here. At this point we know the other cpu
+			 * is in wfi or waiting for the lock and can't send
+			 * any additional IPIs.
+			 */
+			if (imx7d_gic_sgis_pending()) {
+				index = -1;
+				goto skip_lpi_flow;
+			}
 			imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
 			imx_gpcv2_set_cpu_power_gate_in_idle(true);
 			cpu_cluster_pm_enter();
@@ -162,6 +185,7 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 		if (cpuidle_pm_info->last_cpu == dev->cpu)
 			cpuidle_pm_info->last_cpu = -1;
 
+skip_lpi_flow:
 		cpu_pm_exit();
 		imx_pen_unlock(dev->cpu);
 	}
@@ -307,6 +331,8 @@ int __init imx7d_cpuidle_init(void)
 	cpuidle_pm_info->gic_dist_base.pbase = MX7D_GIC_BASE_ADDR;
 	cpuidle_pm_info->gic_dist_base.vbase =
 		(void __iomem *)IMX_IO_P2V(MX7D_GIC_BASE_ADDR);
+
+	imx7d_cpuidle_gic_base = ioremap(MX7D_GIC_BASE_ADDR, MX7D_GIC_SIZE);
 
 	imx7d_enable_rcosc();
 
