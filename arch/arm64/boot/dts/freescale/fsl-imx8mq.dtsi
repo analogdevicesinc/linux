@@ -306,6 +306,18 @@
 		clock-names = "ipg", "per", "osc_per";
 	};
 
+	irqsteer_dcss: irqsteer@32e2d000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x32e2d000 0x0 0x1000>;
+		interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gpc>;
+		#interrupt-cells = <2>;
+		nxp,irqsteer_chans = <2>;
+		clocks = <&clk IMX8MQ_CLK_DUMMY>;
+		clock-names = "ipg";
+	};
+
 	lcdif: lcdif@30320000 {
 		compatible = "fsl,imx8mq-lcdif", "fsl,imx28-lcdif";
 		reg = <0x0 0x30320000 0x0 0x10000>;
