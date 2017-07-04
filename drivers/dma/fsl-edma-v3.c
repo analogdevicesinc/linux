@@ -78,6 +78,9 @@
 
 #define EDMA_TCD_SOFF_SOFF(x)		(x)
 #define EDMA_TCD_NBYTES_NBYTES(x)	(x)
+#define EDMA_TCD_NBYTES_MLOFF(x)	(x << 10)
+#define EDMA_TCD_NBYTES_DMLOE		(1 << 30)
+#define EDMA_TCD_NBYTES_SMLOE		(1 << 31)
 #define EDMA_TCD_SLAST_SLAST(x)		(x)
 #define EDMA_TCD_DADDR_DADDR(x)		(x)
 #define EDMA_TCD_CITER_CITER(x)		((x) & 0x7FFF)
@@ -102,6 +105,7 @@
 
 #define ARGS_RX				BIT(0)
 #define ARGS_REMOTE			BIT(1)
+#define ARGS_DFIFO			BIT(2)
 
 struct fsl_edma3_hw_tcd {
 	__le32	saddr;
@@ -143,6 +147,7 @@ struct fsl_edma3_chan {
 	int				priority;
 	int				is_rxchan;
 	int				is_remote;
+	int				is_dfifo;
 	struct dma_pool			*tcd_pool;
 	u32				chn_real_count;
 	char				txirq_name[32];
@@ -454,6 +459,19 @@ void fsl_edma3_fill_tcd(struct fsl_edma3_chan *fsl_chan,
 
 	tcd->soff = cpu_to_le16(EDMA_TCD_SOFF_SOFF(soff));
 
+	if (fsl_chan->is_dfifo) {
+		/* set mloff as -8 */
+		nbytes |= EDMA_TCD_NBYTES_MLOFF(-8);
+		/* enable DMLOE/SMLOE */
+		if (fsl_chan->fsc.dir == DMA_MEM_TO_DEV) {
+			nbytes |= EDMA_TCD_NBYTES_DMLOE;
+			nbytes &= ~EDMA_TCD_NBYTES_SMLOE;
+		} else {
+			nbytes |= EDMA_TCD_NBYTES_SMLOE;
+			nbytes &= ~EDMA_TCD_NBYTES_DMLOE;
+		}
+	}
+
 	tcd->nbytes = cpu_to_le32(EDMA_TCD_NBYTES_NBYTES(nbytes));
 	tcd->slast = cpu_to_le32(EDMA_TCD_SLAST_SLAST(slast));
 
@@ -540,11 +558,17 @@ static struct dma_async_tx_descriptor *fsl_edma3_prep_dma_cyclic(
 			src_addr = dma_buf_next;
 			dst_addr = fsl_chan->fsc.dev_addr;
 			soff = fsl_chan->fsc.addr_width;
-			doff = 0;
+			if (fsl_chan->is_dfifo)
+				doff = 4;
+			else
+				doff = 0;
 		} else if (fsl_chan->fsc.dir == DMA_DEV_TO_MEM) {
 			src_addr = fsl_chan->fsc.dev_addr;
 			dst_addr = dma_buf_next;
-			soff = 0;
+			if (fsl_chan->is_dfifo)
+				soff = 4;
+			else
+				soff = 0;
 			doff = fsl_chan->fsc.addr_width;
 		} else {
 			/* DMA_DEV_TO_DEV */
@@ -715,6 +739,7 @@ static struct dma_chan *fsl_edma3_xlate(struct of_phandle_args *dma_spec,
 			fsl_chan->priority = dma_spec->args[1];
 			fsl_chan->is_rxchan = dma_spec->args[2] & ARGS_RX;
 			fsl_chan->is_remote = dma_spec->args[2] & ARGS_REMOTE;
+			fsl_chan->is_dfifo = dma_spec->args[2] & ARGS_DFIFO;
 			mutex_unlock(&fsl_edma3->fsl_edma3_mutex);
 			return chan;
 		}

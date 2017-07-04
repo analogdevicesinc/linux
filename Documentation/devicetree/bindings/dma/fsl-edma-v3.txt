@@ -22,6 +22,8 @@ Required properties:
 		0: transmit, 1: receive.
 	BIT(1): local or remote access:
 		0: local, 1: remote.
+	BIT(2): dualfifo case or not(only in Audio cyclic now):
+		0: not dual fifo case, 1: dualfifo case.
 	See the SoC's reference manual for all the supported request sources.
 - dma-channels : Number of channels supported by the controller
 
