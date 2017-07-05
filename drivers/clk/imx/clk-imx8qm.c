@@ -854,7 +854,7 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_HSIO_GPIO_CLK] = imx_clk_gate2_scu("hsio_gpio_clk", "per_hsio_clk_root", (void __iomem *)(HSIO_GPIO_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_A));
 	clks[IMX8QM_HSIO_PHY_X1_PCLK] = imx_clk_gate2_scu("hsio_phy_x1_pclk", "dummy", (void __iomem *)(HSIO_PHY_X1_LPCG), 0, FUNCTION_NAME(PD_HSIO_PCIE_B));
 	clks[IMX8QM_HSIO_PHY_X2_PCLK_0] = imx_clk_gate2_scu("hsio_phy_x2_pclk_0", "dummy", (void __iomem *)(HSIO_PHY_X2_LPCG), 0, FUNCTION_NAME(PD_HSIO_PCIE_A));
-	clks[IMX8QM_HSIO_PHY_X2_PCLK_1] = imx_clk_gate2_scu("hsio_phy_x2_pclk_1", "dummy", (void __iomem *)(HSIO_PHY_X2_LPCG), 4, FUNCTION_NAME(PD_HSIO_PCIE_A));
+	clks[IMX8QM_HSIO_PHY_X2_PCLK_1] = imx_clk_gate2_scu("hsio_phy_x2_pclk_1", "dummy", (void __iomem *)(HSIO_PHY_X2_LPCG), 4, FUNCTION_NAME(PD_HSIO_PCIE_B));
 	clks[IMX8QM_HSIO_SATA_EPCS_RX_CLK] = imx_clk_gate2_scu("hsio_sata_epcs_rx_clk", "dummy", (void __iomem *)(HSIO_PHY_X1_LPCG), 8, FUNCTION_NAME(PD_HSIO_SATA_0));
 	clks[IMX8QM_HSIO_SATA_EPCS_TX_CLK] = imx_clk_gate2_scu("hsio_sata_epcs_tx_clk", "dummy", (void __iomem *)(HSIO_PHY_X1_LPCG), 4, FUNCTION_NAME(PD_HSIO_SATA_0));
 
