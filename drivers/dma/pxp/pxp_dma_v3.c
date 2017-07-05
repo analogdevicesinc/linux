@@ -2647,7 +2647,7 @@ static int pxp_2d_task_config(struct pxp_pixmap *input,
 			pxp_fetch_config(input, position);
 			break;
 		case PXP_2D_CSC1:
-			pxp_csc1_config(input, false);
+			pxp_csc1_config(input, true);
 			break;
 		case PXP_2D_ROTATION1:
 			pxp_rotation1_config(input);
@@ -3217,8 +3217,8 @@ static int convert_param_to_pixmap(struct pxp_pixmap *pixmap,
 	pixmap->height = param->height;
 	pixmap->format = param->pixel_fmt;
 	pixmap->paddr  = param->paddr;
-	pixmap->pitch  = param->stride;
 	pixmap->bpp    = get_bpp_from_fmt(pixmap->format);
+	pixmap->pitch  = param->width * pixmap->bpp >> 3;
 
 	pixmap->crop.x = param->left;
 	pixmap->crop.y = param->top;
