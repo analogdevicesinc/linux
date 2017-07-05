@@ -20,17 +20,32 @@
 #include <sound/initval.h>
 
 
+#define REG_MQS_CTRL		0x00
+
+#define MQS_EN_MASK			(0x1 << 28)
+#define MQS_EN_SHIFT			(28)
+#define MQS_SW_RST_MASK			(0x1 << 24)
+#define MQS_SW_RST_SHIFT		(24)
+#define MQS_OVERSAMPLE_MASK		(0x1 << 20)
+#define MQS_OVERSAMPLE_SHIFT		(20)
+#define MQS_CLK_DIV_MASK		(0xFF << 0)
+#define MQS_CLK_DIV_SHIFT		(0)
+
+
 /* codec private data */
 struct fsl_mqs {
 	struct platform_device *pdev;
 	struct regmap *gpr;
+	struct regmap *regmap;
 	struct clk *mclk;
+	struct clk *ipg;
 
 	unsigned long mclk_rate;
 
 	int sysclk_rate;
 	int bclk;
 	int lrclk;
+	bool use_gpr;
 	char name[32];
 };
 
@@ -59,10 +74,21 @@ static int fsl_mqs_hw_params(struct snd_pcm_substream *substream,
 	res = mqs_priv->mclk_rate % (32 * 2 * mqs_priv->lrclk * 8);
 
 	if (res == 0 && div > 0 && div <= 256) {
-		regmap_update_bits(mqs_priv->gpr, IOMUXC_GPR2,
-			IMX6SX_GPR2_MQS_CLK_DIV_MASK, (div-1) << IMX6SX_GPR2_MQS_CLK_DIV_SHIFT);
-		regmap_update_bits(mqs_priv->gpr, IOMUXC_GPR2,
-			IMX6SX_GPR2_MQS_OVERSAMPLE_MASK, 0 << IMX6SX_GPR2_MQS_OVERSAMPLE_SHIFT);
+		if (mqs_priv->use_gpr) {
+			regmap_update_bits(mqs_priv->gpr, IOMUXC_GPR2,
+				IMX6SX_GPR2_MQS_CLK_DIV_MASK,
+				(div-1) << IMX6SX_GPR2_MQS_CLK_DIV_SHIFT);
+			regmap_update_bits(mqs_priv->gpr, IOMUXC_GPR2,
+				IMX6SX_GPR2_MQS_OVERSAMPLE_MASK,
+				0 << IMX6SX_GPR2_MQS_OVERSAMPLE_SHIFT);
+		} else {
+			regmap_update_bits(mqs_priv->regmap, REG_MQS_CTRL,
+						MQS_CLK_DIV_MASK,
+						(div-1) << MQS_CLK_DIV_SHIFT);
+			regmap_update_bits(mqs_priv->regmap, REG_MQS_CTRL,
+						MQS_OVERSAMPLE_MASK,
+						0 << MQS_OVERSAMPLE_SHIFT);
+		}
 	} else
 		dev_err(&mqs_priv->pdev->dev, "can't get proper divider\n");
 
@@ -112,8 +138,19 @@ static int fsl_mqs_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = dai->codec;
 	struct fsl_mqs *mqs_priv = snd_soc_codec_get_drvdata(codec);
 
-	regmap_update_bits(mqs_priv->gpr, IOMUXC_GPR2, IMX6SX_GPR2_MQS_EN_MASK,
+	if (mqs_priv->ipg)
+		clk_prepare_enable(mqs_priv->ipg);
+
+	if (mqs_priv->mclk)
+		clk_prepare_enable(mqs_priv->mclk);
+
+	if (mqs_priv->use_gpr)
+		regmap_update_bits(mqs_priv->gpr, IOMUXC_GPR2, IMX6SX_GPR2_MQS_EN_MASK,
 					1 << IMX6SX_GPR2_MQS_EN_SHIFT);
+	else
+		regmap_update_bits(mqs_priv->regmap, REG_MQS_CTRL,
+					MQS_EN_MASK,
+					1 << MQS_EN_SHIFT);
 	return 0;
 }
 
@@ -123,9 +160,18 @@ static void fsl_mqs_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = dai->codec;
 	struct fsl_mqs *mqs_priv = snd_soc_codec_get_drvdata(codec);
 
-	regmap_update_bits(mqs_priv->gpr, IOMUXC_GPR2,
+	if (mqs_priv->use_gpr)
+		regmap_update_bits(mqs_priv->gpr, IOMUXC_GPR2,
 					IMX6SX_GPR2_MQS_EN_MASK, 0);
+	else
+		regmap_update_bits(mqs_priv->regmap, REG_MQS_CTRL,
+					MQS_EN_MASK, 0);
 
+	if (mqs_priv->mclk)
+		clk_disable_unprepare(mqs_priv->mclk);
+
+	if (mqs_priv->ipg)
+		clk_disable_unprepare(mqs_priv->ipg);
 }
 
 
@@ -151,11 +197,21 @@ static struct snd_soc_dai_driver fsl_mqs_dai = {
 	.ops = &fsl_mqs_dai_ops,
 };
 
+static const struct regmap_config fsl_mqs_regmap_config = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.max_register = REG_MQS_CTRL,
+	.cache_type = REGCACHE_NONE,
+};
+
 static int fsl_mqs_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *gpr_np;
 	struct fsl_mqs *mqs_priv;
+	struct resource *res;
+	void __iomem *regs;
 	int ret = 0;
 
 	mqs_priv = devm_kzalloc(&pdev->dev, sizeof(*mqs_priv), GFP_KERNEL);
@@ -165,18 +221,45 @@ static int fsl_mqs_probe(struct platform_device *pdev)
 	mqs_priv->pdev = pdev;
 	strncpy(mqs_priv->name, np->name, sizeof(mqs_priv->name) - 1);
 
-	gpr_np = of_parse_phandle(np, "gpr", 0);
-	if (IS_ERR(gpr_np)) {
-		dev_err(&pdev->dev, "failed to get gpr node by phandle\n");
-		ret = PTR_ERR(gpr_np);
-		goto out;
-	}
+	if (of_device_is_compatible(np, "fsl,imx8qm-mqs"))
+		mqs_priv->use_gpr = false;
+	else
+		mqs_priv->use_gpr = true;
 
-	mqs_priv->gpr = syscon_node_to_regmap(gpr_np);
-	if (IS_ERR(mqs_priv->gpr)) {
-		dev_err(&pdev->dev, "failed to get gpr regmap\n");
-		ret = PTR_ERR(mqs_priv->gpr);
-		goto out;
+	if (mqs_priv->use_gpr) {
+		gpr_np = of_parse_phandle(np, "gpr", 0);
+		if (IS_ERR(gpr_np)) {
+			dev_err(&pdev->dev, "failed to get gpr node by phandle\n");
+			ret = PTR_ERR(gpr_np);
+			goto out;
+		}
+
+		mqs_priv->gpr = syscon_node_to_regmap(gpr_np);
+		if (IS_ERR(mqs_priv->gpr)) {
+			dev_err(&pdev->dev, "failed to get gpr regmap\n");
+			ret = PTR_ERR(mqs_priv->gpr);
+			goto out;
+		}
+	} else {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		regs = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(regs))
+			return PTR_ERR(regs);
+
+		mqs_priv->regmap = devm_regmap_init_mmio_clk(&pdev->dev,
+				"core", regs, &fsl_mqs_regmap_config);
+		if (IS_ERR(mqs_priv->regmap)) {
+			dev_err(&pdev->dev, "failed to init regmap: %ld\n",
+					PTR_ERR(mqs_priv->regmap));
+			return PTR_ERR(mqs_priv->regmap);
+		}
+
+		mqs_priv->ipg = devm_clk_get(&pdev->dev, "core");
+		if (IS_ERR(mqs_priv->ipg)) {
+			dev_err(&pdev->dev, "failed to get the clock: %ld\n",
+					PTR_ERR(mqs_priv->ipg));
+			goto out;
+		}
 	}
 
 	mqs_priv->mclk = devm_clk_get(&pdev->dev, "mclk");
@@ -205,6 +288,7 @@ static int fsl_mqs_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id fsl_mqs_dt_ids[] = {
+	{ .compatible = "fsl,imx8qm-mqs", },
 	{ .compatible = "fsl,imx6sx-mqs", },
 	{}
 };

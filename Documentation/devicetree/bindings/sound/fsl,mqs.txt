@@ -2,7 +2,8 @@ fsl,mqs audio CODEC
 
 Required properties:
 
-  - compatible : must contain one of "fsl,imx6sx-mqs" and "fsl,codec-mqs"
+  - compatible : must contain one of "fsl,imx6sx-mqs", "fsl,codec-mqs"
+		"fsl,imx8qm-mqs".
 
   - clocks : a list of phandles + clock-specifiers, one for each entry in
     clock-names
