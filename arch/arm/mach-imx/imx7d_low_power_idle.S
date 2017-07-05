@@ -18,27 +18,26 @@
 #define PM_INFO_PBASE_OFFSET			0x4
 #define PM_INFO_RESUME_ADDR_OFFSET		0x8
 #define PM_INFO_PM_INFO_SIZE_OFFSET		0xc
-#define PM_INFO_PM_INFO_LAST_CPU_OFFSET		0x10
-#define PM_INFO_PM_INFO_TTBR_OFFSET		0x14
-#define PM_INFO_PM_INFO_CPU1_IN_WFI_OFFSET	0x18
-#define PM_INFO_PM_INFO_LPI_ENTER_OFFSET	0x1c
-#define PM_INFO_VAL_OFFSET			0x20
-#define PM_INFO_FLAG0_OFFSET			0x24
-#define PM_INFO_FLAG1_OFFSET			0x28
-#define PM_INFO_MX7D_DDRC_P_OFFSET		0x2c
-#define PM_INFO_MX7D_DDRC_V_OFFSET		0x30
-#define PM_INFO_MX7D_CCM_P_OFFSET		0x34
-#define PM_INFO_MX7D_CCM_V_OFFSET		0x38
-#define PM_INFO_MX7D_ANATOP_P_OFFSET		0x3c
-#define PM_INFO_MX7D_ANATOP_V_OFFSET		0x40
-#define PM_INFO_MX7D_SRC_P_OFFSET		0x44
-#define PM_INFO_MX7D_SRC_V_OFFSET		0x48
-#define PM_INFO_MX7D_IOMUXC_GPR_P_OFFSET	0x4c
-#define PM_INFO_MX7D_IOMUXC_GPR_V_OFFSET	0x50
-#define PM_INFO_MX7D_GPC_P_OFFSET		0x54
-#define PM_INFO_MX7D_GPC_V_OFFSET		0x58
-#define PM_INFO_MX7D_GIC_DIST_P_OFFSET		0x5c
-#define PM_INFO_MX7D_GIC_DIST_V_OFFSET		0x60
+#define PM_INFO_PM_INFO_TTBR_OFFSET		0x10
+#define PM_INFO_PM_INFO_NUM_ONLINE_CPUS_OFFSET	0x14
+#define PM_INFO_PM_INFO_NUM_LPI_CPUS_OFFSET	0x18
+#define PM_INFO_VAL_OFFSET			0x1c
+#define PM_INFO_FLAG0_OFFSET			0x20
+#define PM_INFO_FLAG1_OFFSET			0x24
+#define PM_INFO_MX7D_DDRC_P_OFFSET		0x28
+#define PM_INFO_MX7D_DDRC_V_OFFSET		0x2c
+#define PM_INFO_MX7D_CCM_P_OFFSET		0x30
+#define PM_INFO_MX7D_CCM_V_OFFSET		0x34
+#define PM_INFO_MX7D_ANATOP_P_OFFSET		0x38
+#define PM_INFO_MX7D_ANATOP_V_OFFSET		0x3c
+#define PM_INFO_MX7D_SRC_P_OFFSET		0x40
+#define PM_INFO_MX7D_SRC_V_OFFSET		0x44
+#define PM_INFO_MX7D_IOMUXC_GPR_P_OFFSET	0x48
+#define PM_INFO_MX7D_IOMUXC_GPR_V_OFFSET	0x4c
+#define PM_INFO_MX7D_GPC_P_OFFSET		0x50
+#define PM_INFO_MX7D_GPC_V_OFFSET		0x54
+#define PM_INFO_MX7D_GIC_DIST_P_OFFSET		0x58
+#define PM_INFO_MX7D_GIC_DIST_V_OFFSET		0x5c
 
 #define MX7D_SRC_GPR1	0x74
 #define MX7D_SRC_GPR2	0x78
@@ -612,13 +611,11 @@ ENTRY(imx7d_low_power_idle)
 
 	tlb_set_to_ocram
 
-	ldr	r6, [r0, #PM_INFO_PM_INFO_LAST_CPU_OFFSET]
-	cmp	r11, r6
-	bne	first_cpu
-last_cpu:
-	ldr	r7, [r0, #PM_INFO_PM_INFO_CPU1_IN_WFI_OFFSET]
-	cmp	r7, #0x0
-	beq	lpi_enter_done
+	/* check last to sleep */
+	ldr	r6, [r0, #PM_INFO_PM_INFO_NUM_ONLINE_CPUS_OFFSET]
+	ldr	r7, [r0, #PM_INFO_PM_INFO_NUM_LPI_CPUS_OFFSET]
+	cmp	r6, r7
+	bne	lpi_enter_done
 
 	ddrc_enter_self_refresh
 	ccm_enter_idle
@@ -679,14 +676,6 @@ rbc_loop:
 	subs	r4, r4, #0x1
 	bne	rbc_loop
 
-	/* set low power idle enter flag */
-	ldr	r7, =0x1
-	str	r7, [r0, #PM_INFO_PM_INFO_LPI_ENTER_OFFSET]
-	b	lpi_enter_done
-first_cpu:
-	/* set first cpu wfi flag */
-	ldr	r7, =0x1
-	str	r7, [r0, #PM_INFO_PM_INFO_CPU1_IN_WFI_OFFSET]
 lpi_enter_done:
 
 	imx_pen_unlock
@@ -725,17 +714,11 @@ lpi_enter_done:
 
 	imx_pen_lock
 
-	ldr	r6, [r0, #PM_INFO_PM_INFO_LAST_CPU_OFFSET]
-	cmp	r11, r6
-	beq	do_exit_wfi
-
-	/* clear first cpu wfi flag */
-	ldr	r7, =0x0
-	str	r7, [r0, #PM_INFO_PM_INFO_CPU1_IN_WFI_OFFSET]
-do_exit_wfi:
-	ldr	r7, [r0, #PM_INFO_PM_INFO_LPI_ENTER_OFFSET]
-	cmp	r7, #0
-	beq	skip_lpi_flow
+	/* check first to wake */
+	ldr	r6, [r0, #PM_INFO_PM_INFO_NUM_ONLINE_CPUS_OFFSET]
+	ldr	r7, [r0, #PM_INFO_PM_INFO_NUM_LPI_CPUS_OFFSET]
+	cmp	r6, r7
+	bne	skip_lpi_flow
 
 	ldr	r5, =0x0
 	anatop_exit_idle
@@ -747,11 +730,7 @@ do_exit_wfi:
 	ldr	r8, =0x1000
 	str	r7, [r10, r8]
 
-	/* clear lpi enter flag */
-	ldr	r7, =0x0
-	str	r7, [r0, #PM_INFO_PM_INFO_LPI_ENTER_OFFSET]
 skip_lpi_flow:
-
 	tlb_back_to_ddr
 
 #ifdef CONFIG_SMP
@@ -785,34 +764,20 @@ wakeup:
 	mcr	p15, 0, r1, c1, c0, 0
 	isb
 
-	/* r11 is cpu id */
-	mrc	p15, 0, r11, c0, c0, 5
-	and	r11, r11, #3
-	cmp	r11, #0x0
-
 	imx_pen_lock
 
-	ldr	r6, [r0, #PM_INFO_PM_INFO_LAST_CPU_OFFSET]
-	cmp	r11, r6
-	beq	do_exit_lp_idle
-
-	/* clear first wfi flag */
-	ldr	r7, =0x0
-	str	r7, [r0, #PM_INFO_PM_INFO_CPU1_IN_WFI_OFFSET]
-do_exit_lp_idle:
-	ldr	r7, [r0, #PM_INFO_PM_INFO_LPI_ENTER_OFFSET]
-	cmp	r7, #0
-	beq	wakeup_skip_lpi_flow
+	/* check first to wake */
+	ldr	r6, [r0, #PM_INFO_PM_INFO_NUM_ONLINE_CPUS_OFFSET]
+	ldr	r7, [r0, #PM_INFO_PM_INFO_NUM_LPI_CPUS_OFFSET]
+	cmp	r6, r7
+	bne	wakeup_skip_lpi_flow
 
 	ldr	r5, =0x1
 	anatop_exit_idle
 	ccm_exit_idle
 	ddrc_exit_self_refresh
-	/* clear lpi enter flag */
-	ldr	r7, =0x0
-	str	r7, [r0, #PM_INFO_PM_INFO_LPI_ENTER_OFFSET]
-wakeup_skip_lpi_flow:
 
+wakeup_skip_lpi_flow:
 	/* get physical resume address from pm_info. */
 	ldr	lr, [r0, #PM_INFO_RESUME_ADDR_OFFSET]
 

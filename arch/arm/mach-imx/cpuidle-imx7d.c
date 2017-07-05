@@ -62,10 +62,9 @@ struct imx7_cpuidle_pm_info {
 	phys_addr_t pbase; /* The physical address of pm_info. */
 	phys_addr_t resume_addr; /* The physical resume address for asm code */
 	u32 pm_info_size;
-	int last_cpu;
 	u32 ttbr;
-	u32 cpu1_wfi;
-	u32 lpi_enter;
+	u32 num_online_cpus;
+	u32 num_lpi_cpus;
 	atomic_t val;
 	atomic_t flag0;
 	atomic_t flag1;
@@ -78,7 +77,6 @@ struct imx7_cpuidle_pm_info {
 	struct imx7_pm_base gic_dist_base;
 } __aligned(8);
 
-static atomic_t master_lpi = ATOMIC_INIT(0);
 static atomic_t master_wait = ATOMIC_INIT(0);
 
 static void (*imx7d_wfi_in_iram_fn)(void __iomem *iram_vbase);
@@ -140,6 +138,7 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 {
 	int mode = get_bus_freq_mode();
 
+
 	if ((index == 1) || ((mode != BUS_FREQ_LOW) && index == 2)) {
 		index = 1;
 		if (atomic_inc_return(&master_wait) == num_online_cpus())
@@ -151,9 +150,11 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 		imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
 	} else {
 		imx_pen_lock(dev->cpu);
+		cpuidle_pm_info->num_online_cpus = num_online_cpus();
+		++cpuidle_pm_info->num_lpi_cpus;
 		cpu_pm_enter();
-		if (atomic_inc_return(&master_lpi) == num_online_cpus() &&
-			cpuidle_pm_info->last_cpu == -1) {
+		if (cpuidle_pm_info->num_lpi_cpus ==
+				cpuidle_pm_info->num_online_cpus) {
 			/*
 			 * GPC will not wake on SGIs so check for them
 			 * manually here. At this point we know the other cpu
@@ -167,26 +168,22 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 			imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
 			imx_gpcv2_set_cpu_power_gate_in_idle(true);
 			cpu_cluster_pm_enter();
-
-			cpuidle_pm_info->last_cpu = dev->cpu;
-
 		} else {
 			imx_set_cpu_jump(dev->cpu, ca7_cpu_resume);
 		}
 
 		cpu_suspend(0, imx7d_idle_finish);
 
-		if (atomic_dec_return(&master_lpi) == (num_online_cpus() - 1)) {
+		if (cpuidle_pm_info->num_lpi_cpus ==
+				cpuidle_pm_info->num_online_cpus) {
 			cpu_cluster_pm_exit();
 			imx_gpcv2_set_cpu_power_gate_in_idle(false);
 			imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
 		}
 
-		if (cpuidle_pm_info->last_cpu == dev->cpu)
-			cpuidle_pm_info->last_cpu = -1;
-
 skip_lpi_flow:
 		cpu_pm_exit();
+		--cpuidle_pm_info->num_lpi_cpus;
 		imx_pen_unlock(dev->cpu);
 	}
 
@@ -296,13 +293,7 @@ int __init imx7d_cpuidle_init(void)
 	cpuidle_pm_info->pbase = (phys_addr_t) wfi_iram_base_phys;
 	cpuidle_pm_info->pm_info_size = sizeof(*cpuidle_pm_info);
 	cpuidle_pm_info->resume_addr = virt_to_phys(ca7_cpu_resume);
-	if (num_online_cpus() == 1)
-		cpuidle_pm_info->cpu1_wfi = 1;
-	else
-		cpuidle_pm_info->cpu1_wfi = 0;
-	cpuidle_pm_info->lpi_enter = 0;
-	/* initialize the last cpu id to invalid here */
-	cpuidle_pm_info->last_cpu = -1;
+	cpuidle_pm_info->num_online_cpus = num_online_cpus();
 
 	cpuidle_pm_info->ddrc_base.pbase = MX7D_DDRC_BASE_ADDR;
 	cpuidle_pm_info->ddrc_base.vbase =
