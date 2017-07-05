@@ -2423,7 +2423,8 @@ config FB_JZ4740
 
 config FB_MXS
 	tristate "MXS LCD framebuffer support"
-	depends on FB && (ARCH_MXS || ARCH_MXC)
+	depends on (FB && (ARCH_MXS || ARCH_MXC)) || \
+		   (FB_IMX64 && (ARCH_FSL_IMX8QM || ARCH_FSL_IMX8QXP || ARCH_FSL_IMX8MQ))
 	select FB_MXC_DISP_FRAMEWORK
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
@@ -2473,7 +2474,8 @@ source "drivers/video/fbdev/omap/Kconfig"
 source "drivers/video/fbdev/omap2/Kconfig"
 source "drivers/video/fbdev/mmp/Kconfig"
 
-if ARCH_MXC
+if ARCH_MXC || \
+	(FB_IMX64 && (ARCH_FSL_IMX8QM || ARCH_FSL_IMX8QXP || ARCH_FSL_IMX8MQ))
 source "drivers/video/fbdev/mxc/Kconfig"
 endif
 

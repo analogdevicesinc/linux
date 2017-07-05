@@ -674,6 +674,9 @@ static void mxsfb_enable_controller(struct fb_info *fb_info)
 	struct mxsfb_info *host = fb_info->par;
 	u32 reg;
 	int ret;
+#ifdef CONFIG_FB_IMX64_DEBUG
+	static int pix_enable;
+#endif
 
 	dev_dbg(&host->pdev->dev, "%s\n", __func__);
 
@@ -703,26 +706,34 @@ static void mxsfb_enable_controller(struct fb_info *fb_info)
 				"dispdrv:%s\n", host->dispdrv->drv->name);
 	}
 
-	/* the pixel clock should be disabled before
-	 * trying to set its clock rate successfully.
-	 */
-	clk_disable_pix(host);
-	ret = clk_set_rate(host->clk_pix,
-			 PICOS2KHZ(fb_info->var.pixclock) * 1000U);
-	if (ret) {
-		dev_err(&host->pdev->dev,
-			"lcd pixel rate set failed: %d\n", ret);
+#ifdef CONFIG_FB_IMX64_DEBUG
+	if (unlikely(!pix_enable)) {
+		/* the pixel clock should be disabled before
+		 * trying to set its clock rate successfully.
+		 */
+#else
+		clk_disable_pix(host);
+#endif
+		ret = clk_set_rate(host->clk_pix,
+				PICOS2KHZ(fb_info->var.pixclock) * 1000U);
+		if (ret) {
+			dev_err(&host->pdev->dev,
+				"lcd pixel rate set failed: %d\n", ret);
 
-		if (host->reg_lcd) {
-			ret = regulator_disable(host->reg_lcd);
-			if (ret)
-				dev_err(&host->pdev->dev,
-					"lcd regulator disable failed: %d\n",
-					ret);
+			if (host->reg_lcd) {
+				ret = regulator_disable(host->reg_lcd);
+				if (ret)
+					dev_err(&host->pdev->dev,
+						"lcd regulator disable failed: %d\n",
+						ret);
+			}
+			return;
 		}
-		return;
+		clk_enable_pix(host);
+#ifdef CONFIG_FB_IMX64_DEBUG
+		pix_enable++;
 	}
-	clk_enable_pix(host);
+#endif
 
 	writel(CTRL2_OUTSTANDING_REQS__REQ_16,
 		host->base + LCDC_V4_CTRL2 + REG_SET);
@@ -817,6 +828,13 @@ static int mxsfb_set_par(struct fb_info *fb_info)
 	int line_size, fb_size;
 	int reenable = 0;
 	static u32 equal_bypass = 0;
+#ifdef CONFIG_FB_IMX64_DEBUG
+	static int time;
+
+	if (time == 1)
+		return 0;
+	time++;
+#endif
 
 	if (likely(equal_bypass > 1)) {
 		/* If parameter no change, don't reconfigure. */
@@ -914,8 +932,10 @@ static int mxsfb_set_par(struct fb_info *fb_info)
 		vdctrl0 |= VDCTRL0_HSYNC_ACT_HIGH;
 	if (host->sync & FB_SYNC_VERT_HIGH_ACT)
 		vdctrl0 |= VDCTRL0_VSYNC_ACT_HIGH;
+#ifndef CONFIG_FB_IMX64_DEBUG
 	if (!(host->sync & FB_SYNC_OE_LOW_ACT))
 		vdctrl0 |= VDCTRL0_ENABLE_ACT_HIGH;
+#endif
 	if (host->sync & FB_SYNC_CLK_LAT_FALL)
 		vdctrl0 |= VDCTRL0_DOTCLK_ACT_FALLING;
 
@@ -1047,6 +1067,10 @@ static int mxsfb_ioctl(struct fb_info *fb_info, unsigned int cmd,
 static int mxsfb_blank(int blank, struct fb_info *fb_info)
 {
 	struct mxsfb_info *host = fb_info->par;
+
+#ifdef CONFIG_FB_IMX64_DEBUG
+	return 0;
+#endif
 
 	host->cur_blank = blank;
 
@@ -1184,12 +1208,14 @@ static int mxsfb_restore_mode(struct mxsfb_info *host)
 	clk_enable_axi(host);
 	clk_enable_disp_axi(host);
 
+#ifndef CONFIG_FB_IMX64_DEBUG
 	/* Enable pixel clock earlier since in 7D
 	 * the lcdif registers should be accessed
 	 * when the pixel clock is enabled, otherwise
 	 * the bus will be hang.
 	 */
 	clk_enable_pix(host);
+#endif
 
 	/* Only restore the mode when the controller is running */
 	ctrl = readl(host->base + LCDC_CTRL);
@@ -2301,6 +2327,7 @@ static int mxsfb_probe(struct platform_device *pdev)
 
 	mxsfb_overlay_init(host);
 
+#ifndef CONFIG_FB_IMX64_DEBUG
 	console_lock();
 	ret = fb_blank(fb_info, FB_BLANK_UNBLANK);
 	console_unlock();
@@ -2308,13 +2335,16 @@ static int mxsfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to unblank framebuffer\n");
 		goto fb_unregister;
 	}
+#endif
 
 	dev_info(&pdev->dev, "initialized\n");
 
 	return 0;
 
+#ifndef CONFIG_FB_IMX64_DEBUG
 fb_unregister:
 	unregister_framebuffer(fb_info);
+#endif
 fb_destroy:
 	fb_destroy_modelist(&fb_info->modelist);
 fb_pm_runtime_disable:
