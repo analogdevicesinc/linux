@@ -1067,18 +1067,26 @@ static int fsl_asrc_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(np, "fsl,imx35-asrc")) {
 		asrc_priv->channel_bits = 3;
+		strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
 		clk_map[IN] = input_clk_map_imx35;
 		clk_map[OUT] = output_clk_map_imx35;
 	} else if (of_device_is_compatible(np, "fsl,imx53-asrc")) {
 		asrc_priv->channel_bits = 4;
+		strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
 		clk_map[IN] = input_clk_map_imx53;
 		clk_map[OUT] = output_clk_map_imx53;
 	} else if (of_device_is_compatible(np, "fsl,imx8qm-asrc0")) {
 		asrc_priv->channel_bits = 4;
+		strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
 		clk_map[IN] = input_clk_map_imx8_0;
 		clk_map[OUT] = output_clk_map_imx8_0;
 	} else if (of_device_is_compatible(np, "fsl,imx8qm-asrc1")) {
 		asrc_priv->channel_bits = 4;
+		strncpy(asrc_priv->name, "mxc_asrc1",
+				sizeof(asrc_priv->name) - 1);
 		clk_map[IN] = input_clk_map_imx8_1;
 		clk_map[OUT] = output_clk_map_imx8_1;
 	}
