@@ -22,6 +22,8 @@
 #define ADV7535_CHIP_REVISION		0x0
 #define ADV7535_DSI_CEC_ADDR		0xE1
 
+#define TEST_PATTERN_ENABLE    0
+
 struct adv7535_info {
 	int rev;
 	struct device *dev;
@@ -140,8 +142,18 @@ static int adv7535_vmode_cfg(struct adv7535_info *info)
 		       fb_vmode->lower_margin + fb_vmode->vsync_len;
 
 	client = info->i2c_dsi_cec;
+#ifdef CONFIG_FB_IMX64
+	adv7535_write_reg(0x1C, 0x40); /* 4 Data Lanes */
+#else
 	adv7535_write_reg(0x1C, 0x20); /* 2 Data Lanes */
+#endif
+
+#if TEST_PATTERN_ENABLE
+	adv7535_write_reg(0x55, 0x80);
+	adv7535_write_reg(0x16, 0x1C);
+#else
 	adv7535_write_reg(0x16, 0x00); /* Pixel Clock  */
+#endif
 	adv7535_write_reg(0x27, 0xCB); /* INT_TIMING_GEN */
 
 	/* video mode settings */
@@ -193,11 +205,21 @@ static int adv7535_vmode_cfg(struct adv7535_info *info)
 	client = info->i2c_main;
 	adv7535_write_reg(0xAF, 0x16); /* HDMI Output */
 	adv7535_write_reg(0x55, 0x10); /* AVI Info-frame */
+#ifdef CONFIG_FB_IMX64
+	adv7535_write_reg(0x56, 0x28); /* 16:9 */
+#else
 	adv7535_write_reg(0x56, 0x18);
+#endif
 	adv7535_write_reg(0x40, 0x80); /* GCP Enable */
 	adv7535_write_reg(0x4C, 0x04); /* 24bpp */
 	adv7535_write_reg(0x49, 0x00);
+
+#ifdef CONFIG_FB_IMX64
+	/* low refresh rate */
+	adv7535_write_reg(0x4A, 0x8C);
+#else
 	adv7535_write_reg(0x17, 0x60); /* VS & HS Low Polarity, DE disabled */
+#endif
 
 	/*TODO Audio Setup */
 
@@ -290,7 +312,9 @@ static int adv7535_probe(struct i2c_client *client,
 	if ((ret = adv7535_vmode_cfg(info)))
 		goto err3;
 
+#ifndef CONFIG_FB_IMX64
 	pm_runtime_enable(info->dev);
+#endif
 
 	dev_info(dev, "adv7535 probe finished\n");
 
@@ -312,7 +336,9 @@ static int adv7535_remove(struct i2c_client *client)
 	info = i2c_get_clientdata(client);
 	i2c_set_clientdata(client, NULL);
 
+#ifndef CONFIG_FB_IMX64
 	pm_runtime_disable(info->dev);
+#endif
 
 	i2c_unregister_device(info->i2c_dsi_cec);
 
