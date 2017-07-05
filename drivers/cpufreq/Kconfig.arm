@@ -97,6 +97,14 @@ config ARM_IMX8_CPUFREQ
 
 	  If in doubt, say N.
 
+config ARM_IMX8MQ_CPUFREQ
+	tristate "NXP i.MX8MQ cpufreq support"
+	select PM_OPP
+	help
+	  This adds cpufreq driver support for NXP i.MX8MQ series SoCs.
+
+	  If in doubt, say N.
+
 config ARM_KIRKWOOD_CPUFREQ
 	def_bool MACH_KIRKWOOD
 	help
