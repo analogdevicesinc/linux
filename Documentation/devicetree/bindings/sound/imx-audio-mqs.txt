@@ -1,7 +1,7 @@
 Freescale i.MX audio complex with mqs codec
 
 Required properties:
-- compatible : "fsl,imx-audio-mqs"
+- compatible : "fsl,imx-audio-mqs", "fsl,imx8qm-lpddr4-arm2-mqs".
 - model : The user-visible name of this sound complex
 - cpu-dai : The phandle of the i.MX sai controller
 - audio-codec : The phandle of the mqs audio codec

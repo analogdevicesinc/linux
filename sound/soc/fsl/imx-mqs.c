@@ -193,7 +193,7 @@ static int imx_mqs_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	codec_clk = devm_clk_get(&codec_dev->dev, NULL);
+	codec_clk = devm_clk_get(&codec_dev->dev, "mclk");
 	if (IS_ERR(codec_clk)) {
 		ret = PTR_ERR(codec_clk);
 		dev_err(&codec_dev->dev, "failed to get codec clk: %d\n", ret);
