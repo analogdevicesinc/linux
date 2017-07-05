@@ -233,6 +233,7 @@ struct pxp_layer_param {
 	int comp_mask;
 
 	struct pxp_alpha alpha;
+	struct rect crop;
 
 	dma_addr_t paddr;
 };

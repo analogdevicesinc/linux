@@ -3220,10 +3220,10 @@ static int convert_param_to_pixmap(struct pxp_pixmap *pixmap,
 	pixmap->bpp    = get_bpp_from_fmt(pixmap->format);
 	pixmap->pitch  = param->width * pixmap->bpp >> 3;
 
-	pixmap->crop.x = param->left;
-	pixmap->crop.y = param->top;
-	pixmap->crop.width  = param->width;
-	pixmap->crop.height = param->height;
+	pixmap->crop.x = param->crop.left;
+	pixmap->crop.y = param->crop.top;
+	pixmap->crop.width  = param->crop.width;
+	pixmap->crop.height = param->crop.height;
 
 	return 0;
 }
@@ -3407,6 +3407,12 @@ static void __pxpdma_dostart(struct pxp_channel *pxp_chan)
 		 pxp->pxp_conf_state.s0_param.width,
 		 pxp->pxp_conf_state.s0_param.height,
 		 pxp->pxp_conf_state.s0_param.paddr);
+	pr_debug("%s:%d S0 crop (top, left)=(%d, %d), (width, height)=(%d, %d)\n",
+		__func__, __LINE__,
+		pxp->pxp_conf_state.s0_param.crop.top,
+		pxp->pxp_conf_state.s0_param.crop.left,
+		pxp->pxp_conf_state.s0_param.crop.width,
+		pxp->pxp_conf_state.s0_param.crop.height);
 	pr_debug("%s:%d OUT w/h %d/%d paddr %08x\n", __func__, __LINE__,
 		 pxp->pxp_conf_state.out_param.width,
 		 pxp->pxp_conf_state.out_param.height,
