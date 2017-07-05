@@ -1156,9 +1156,13 @@ static int fsl_asrc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(np, "fsl,imx35-asrc")) {
 		asrc_priv->clk_map[IN] = input_clk_map_imx35;
 		asrc_priv->clk_map[OUT] = output_clk_map_imx35;
+		strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
 	} else if (of_device_is_compatible(np, "fsl,imx53-asrc")) {
 		asrc_priv->clk_map[IN] = input_clk_map_imx53;
 		asrc_priv->clk_map[OUT] = output_clk_map_imx53;
+		strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
 	} else if (of_device_is_compatible(np, "fsl,imx8qm-asrc") ||
 		   of_device_is_compatible(np, "fsl,imx8qxp-asrc")) {
 		ret = of_property_read_u32(np, "fsl,asrc-clk-map", &map_idx);
@@ -1177,6 +1181,14 @@ static int fsl_asrc_probe(struct platform_device *pdev)
 		} else {
 			asrc_priv->clk_map[IN] = clk_map_imx8qxp[map_idx];
 			asrc_priv->clk_map[OUT] = clk_map_imx8qxp[map_idx];
+		}
+
+		if (map_idx == 0) {
+			strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
+		} else {
+			strncpy(asrc_priv->name, "mxc_asrc1",
+				sizeof(asrc_priv->name) - 1);
 		}
 	}
 

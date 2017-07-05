@@ -335,6 +335,7 @@ struct fsl_asrc_priv {
 	unsigned char *clk_map[2];
 
 	u32 regcache_cfg;
+	char name[20];
 };
 
 #endif /* _FSL_ASRC_H */

@@ -7,6 +7,7 @@
 #ifndef _FSL_ASRC_COMMON_H
 #define _FSL_ASRC_COMMON_H
 
+#include <linux/miscdevice.h>
 #include <uapi/linux/mxc_asrc.h>
 /* directions */
 #define IN	0
@@ -80,6 +81,7 @@ struct fsl_asrc {
 	struct clk *spba_clk;
 	spinlock_t lock;      /* spin lock for resource protection */
 
+	struct miscdevice asrc_miscdev;
 	struct fsl_asrc_pair *pair[PAIR_CTX_NUM];
 	unsigned int channel_avail;
 
