@@ -66,9 +66,9 @@ struct imx7_cpuidle_pm_info {
 	u32 ttbr;
 	u32 cpu1_wfi;
 	u32 lpi_enter;
-	u32 val;
-	u32 flag0;
-	u32 flag1;
+	atomic_t val;
+	atomic_t flag0;
+	atomic_t flag1;
 	struct imx7_pm_base ddrc_base;
 	struct imx7_pm_base ccm_base;
 	struct imx7_pm_base anatop_base;
@@ -83,6 +83,38 @@ static atomic_t master_wait = ATOMIC_INIT(0);
 
 static void (*imx7d_wfi_in_iram_fn)(void __iomem *iram_vbase);
 static struct imx7_cpuidle_pm_info *cpuidle_pm_info;
+
+static void imx_pen_lock(int cpu)
+{
+	if (cpu == 0) {
+		atomic_set(&cpuidle_pm_info->flag0, 1);
+		dsb();
+		atomic_set(&cpuidle_pm_info->val, cpu);
+		do {
+			dsb();
+		} while (atomic_read(&cpuidle_pm_info->flag1) == 1
+			&& atomic_read(&cpuidle_pm_info->val) == cpu)
+			;
+	} else {
+		atomic_set(&cpuidle_pm_info->flag1, 1);
+		dsb();
+		atomic_set(&cpuidle_pm_info->val, cpu);
+		do {
+			dsb();
+		} while (atomic_read(&cpuidle_pm_info->flag0) == 1
+			&& atomic_read(&cpuidle_pm_info->val) == cpu)
+			;
+	}
+}
+
+static void imx_pen_unlock(int cpu)
+{
+	dsb();
+	if (cpu == 0)
+		atomic_set(&cpuidle_pm_info->flag0, 0);
+	else
+		atomic_set(&cpuidle_pm_info->flag1, 0);
+}
 
 static int imx7d_idle_finish(unsigned long val)
 {
@@ -105,6 +137,7 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 		atomic_dec(&master_wait);
 		imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
 	} else {
+		imx_pen_lock(dev->cpu);
 		cpu_pm_enter();
 		if (atomic_inc_return(&master_lpi) == num_online_cpus() &&
 			cpuidle_pm_info->last_cpu == -1) {
@@ -113,20 +146,24 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 			cpu_cluster_pm_enter();
 
 			cpuidle_pm_info->last_cpu = dev->cpu;
-			cpu_suspend(0, imx7d_idle_finish);
 
-			cpu_cluster_pm_exit();
-			imx_gpcv2_set_cpu_power_gate_in_idle(false);
-			/* initialize the last cpu id to invalid here */
-			cpuidle_pm_info->last_cpu = -1;
 		} else {
 			imx_set_cpu_jump(dev->cpu, ca7_cpu_resume);
-			cpu_suspend(0, imx7d_idle_finish);
 		}
-		atomic_dec(&master_lpi);
+
+		cpu_suspend(0, imx7d_idle_finish);
+
+		if (atomic_dec_return(&master_lpi) == (num_online_cpus() - 1)) {
+			cpu_cluster_pm_exit();
+			imx_gpcv2_set_cpu_power_gate_in_idle(false);
+			imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
+		}
+
+		if (cpuidle_pm_info->last_cpu == dev->cpu)
+			cpuidle_pm_info->last_cpu = -1;
 
 		cpu_pm_exit();
-		imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
+		imx_pen_unlock(dev->cpu);
 	}
 
 	return index;

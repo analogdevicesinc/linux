@@ -612,8 +612,6 @@ ENTRY(imx7d_low_power_idle)
 
 	tlb_set_to_ocram
 
-	imx_pen_lock
-
 	ldr	r6, [r0, #PM_INFO_PM_INFO_LAST_CPU_OFFSET]
 	cmp	r11, r6
 	bne	first_cpu
@@ -748,12 +746,11 @@ do_exit_wfi:
 	ldr	r7, =0x1
 	ldr	r8, =0x1000
 	str	r7, [r10, r8]
+
 	/* clear lpi enter flag */
 	ldr	r7, =0x0
 	str	r7, [r0, #PM_INFO_PM_INFO_LPI_ENTER_OFFSET]
 skip_lpi_flow:
-
-	imx_pen_unlock
 
 	tlb_back_to_ddr
 
@@ -815,8 +812,6 @@ do_exit_lp_idle:
 	ldr	r7, =0x0
 	str	r7, [r0, #PM_INFO_PM_INFO_LPI_ENTER_OFFSET]
 wakeup_skip_lpi_flow:
-
-	imx_pen_unlock
 
 	/* get physical resume address from pm_info. */
 	ldr	lr, [r0, #PM_INFO_RESUME_ADDR_OFFSET]
