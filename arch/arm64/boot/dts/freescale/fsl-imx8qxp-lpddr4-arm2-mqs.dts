@@ -1,0 +1,56 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qxp-lpddr4-arm2.dts"
+
+/ {
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	sound-mqs {
+		compatible = "fsl,imx8qxp-lpddr4-arm2-mqs",
+				"fsl,imx-audio-mqs";
+		model = "mqs-audio";
+		cpu-dai = <&sai1>;
+		audio-codec = <&mqs>;
+		asrc-controller = <&asrc1>;
+	};
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&iomuxc {
+
+	imx8qxp-arm2 {
+		pinctrl_mqs: mqsgrp {
+			fsl,pins = <
+				SC_P_SPDIF0_TX_ADMA_MQS_L	0xc6000061
+				SC_P_SPDIF0_RX_ADMA_MQS_R	0xc6000061
+			>;
+		};
+	};
+};
+
+&mqs {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_mqs>;
+	status = "okay";
+};
+
+&sai1 {
+	status = "okay";
+};
