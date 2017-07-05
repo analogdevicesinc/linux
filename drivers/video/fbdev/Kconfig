@@ -38,6 +38,23 @@ menuconfig FB
 	  (e.g. an accelerated X server) and that are not frame buffer
 	  device-aware may cause unexpected results. If unsure, say N.
 
+config FB_IMX64
+	bool "Enable framebuffer support for 64 bit platforms"
+	depends on FB && ARM64
+	default n
+	---help---
+	  Add framebuffer device support for 64 bit platforms. This is needed
+	  only if you specifically need FBDEV support on your 64bit platform,
+	  since it will soon become deprecated.
+
+config FB_IMX64_DEBUG
+	bool "Enable debug messages and operations for 64bit framebuffer devices"
+	depends on FB_IMX64
+	default n
+	---help---
+	  Select this option if you need to debug 64bit platforms specific
+	  operations.
+
 config FIRMWARE_EDID
        bool "Enable firmware EDID"
        depends on FB
