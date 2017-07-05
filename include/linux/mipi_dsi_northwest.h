@@ -33,6 +33,18 @@
 #define DSI_CM			0x100
 #define DSI_PLL_EN		0x80
 
+/* SRC */
+#define SRC_MIPIPHY_RCR		0x28
+#define MIPI_DSI_RESET_BYTE_N	0x2
+#define MIPI_DSI_RESET_N	0x4
+#define MIPI_DSI_DPI_RESET_N	0x8
+#define MIPI_DSI_ESC_RESET_N	0x10
+#define MIPI_DSI_PCLK_RESET_N	0x20
+
+/* GPR */
+#define IOMUXC_GPR_GPR13	0x34
+#define GPR_MIPI_MUX_SEL	0x4
+
 /* dphy */
 #define DPHY_PD_DPHY			0x300
 #define DPHY_M_PRG_HS_PREPARE		0x304

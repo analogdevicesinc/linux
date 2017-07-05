@@ -29,6 +29,10 @@
 #define DSI_NON_BURST_WITH_SYNC_EVENT  1
 #define DSI_BURST_MODE                 2
 
+#define DSI_HSA_PKT_OVERHEAD	10
+#define DSI_HFP_PKT_OVERHEAD	8
+#define DSI_HBP_PKT_OVERHEAD	14
+
 /* DPI interface pixel color coding map */
 enum mipi_dsi_dpi_fmt {
 	MIPI_RGB565_PACKED = 0,
@@ -71,7 +75,9 @@ struct mipi_dsi_bus_mux {
 struct mipi_dsi_info {
 	struct platform_device		*pdev;
 	void __iomem			*mmio_base;
+	void __iomem			*phy_base;
 	struct regmap			*regmap;
+	struct regmap			*mux_sel;
 	const struct mipi_dsi_bus_mux	*bus_mux;
 	int				dsi_power_on;
 	int				lcd_inited;
@@ -82,9 +88,17 @@ struct mipi_dsi_info {
 	int				disp_id;
 	char				*lcd_panel;
 	int				irq;
+#ifdef CONFIG_FB_IMX64
+	struct clk			*core_clk;
+	struct clk			*phy_ref_clk;
+	struct clk			*dbi_clk;
+	struct clk			*rxesc_clk;
+	struct clk			*txesc_clk;
+#else
 	struct clk			*dphy_clk;
 	struct clk			*cfg_clk;
 	struct clk			*esc_clk;
+#endif
 	struct mxc_dispdrv_handle	*disp_mipi;
 	struct  fb_videomode		*mode;
 	struct regulator		*disp_power_on;

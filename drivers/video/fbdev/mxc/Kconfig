@@ -24,7 +24,7 @@ config FB_MXC_DISP_FRAMEWORK
 	  between display controllers and panels.
 
 config FB_MXC_SYNC_PANEL
-	depends on FB_MXC
+	depends on FB_MXC && !FB_IMX64
 	depends on MXC_IPU_V3
 	select FB_MXC_DISP_FRAMEWORK
 	tristate "Synchronous Panel Framebuffer"
@@ -48,22 +48,22 @@ config FB_MXC_MIPI_DSI_SAMSUNG
 
 config FB_MXC_MIPI_DSI_NORTHWEST
 	tristate "MXC MIPI_DSI_NORTHWEST"
-	depends on FB_MXC_SYNC_PANEL
+	depends on FB_MXC_DISP_FRAMEWORK || FB_MXC_SYNC_PANEL
 	depends on FB_MXS
 
 config FB_MXC_TRULY_WVGA_SYNC_PANEL
 	tristate "TRULY WVGA Panel"
-	depends on FB_MXC_SYNC_PANEL
+	depends on FB_MXC_DISP_FRAMEWORK || FB_MXC_SYNC_PANEL
 	depends on FB_MXC_MIPI_DSI || FB_MXC_MIPI_DSI_SAMSUNG || FB_MXC_MIPI_DSI_NORTHWEST
 
 config FB_MXC_TRULY_PANEL_TFT3P5079E
 	tristate "TRULY Panel TFT3P5079E"
-	depends on FB_MXC_SYNC_PANEL
+	depends on FB_MXC_DISP_FRAMEWORK || FB_MXC_SYNC_PANEL
 	depends on FB_MXC_MIPI_DSI_SAMSUNG
 
 config FB_MXC_TRULY_PANEL_TFT3P5581E
 	tristate "TRULY Panel TFT3P5581E"
-	depends on FB_MXC_SYNC_PANEL
+	depends on FB_MXC_DISP_FRAMEWORK || FB_MXC_SYNC_PANEL
 	depends on FB_MXC_MIPI_DSI_SAMSUNG || FB_MXC_MIPI_DSI_NORTHWEST
 
 config FB_MXC_LDB
