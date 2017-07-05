@@ -149,7 +149,10 @@ device_initcall(imx8_soc_init);
 
 static int __init imx8_register_cpufreq(void)
 {
-	platform_device_register_simple("imx8-cpufreq", -1, NULL, 0);
+	if (of_machine_is_compatible("fsl,imx8mq"))
+		platform_device_register_simple("imx8mq-cpufreq", -1, NULL, 0);
+	else
+		platform_device_register_simple("imx8-cpufreq", -1, NULL, 0);
 
 	return 0;
 }
