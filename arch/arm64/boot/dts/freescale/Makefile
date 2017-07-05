@@ -24,7 +24,8 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-enet2.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-gpmi-nand.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-it6263.dtb \
-				  fsl-imx8qxp-lpddr4-arm2-mqs.dtb
+				  fsl-imx8qxp-lpddr4-arm2-mqs.dtb \
+				  fsl-imx8qxp-lpddr4-arm2-wm8962.dtb
 dtb-$(CONFIG_ARCH_FSL_IMX8MQ) += fsl-imx8mq-evk.dtb
 
 always		:= $(dtb-y)
