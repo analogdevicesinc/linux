@@ -48,6 +48,15 @@ static u8 srpc_dpll_locked[] = { 0x0, 0x1, 0x2, 0x3, 0x4, 0xa, 0xb };
 
 #define DEFAULT_RXCLK_SRC	1
 
+struct fsl_spdif_soc_data {
+	bool imx;
+	bool constrain_period_size;
+	u32 tx_burst;
+	u32 rx_burst;
+	u32 interrupts;
+	u64 tx_formats;
+};
+
 /*
  * SPDIF control structure
  * Defines channel status, subcode and Q sub
@@ -110,10 +119,38 @@ struct fsl_spdif_priv {
 	struct clk *coreclk;
 	struct clk *sysclk;
 	struct clk *spbaclk;
+	const struct fsl_spdif_soc_data *soc;
 	struct snd_dmaengine_dai_dma_data dma_params_tx;
 	struct snd_dmaengine_dai_dma_data dma_params_rx;
 	/* regcache for SRPC */
 	u32 regcache_srpc;
+};
+
+static struct fsl_spdif_soc_data fsl_spdif_vf610 = {
+	.imx = false,
+	.tx_burst = FSL_SPDIF_TXFIFO_WML,
+	.rx_burst = FSL_SPDIF_RXFIFO_WML,
+	.interrupts = 1,
+	.tx_formats = FSL_SPDIF_FORMATS_PLAYBACK,
+	.constrain_period_size = false,
+};
+
+static struct fsl_spdif_soc_data fsl_spdif_imx35 = {
+	.imx = true,
+	.tx_burst = FSL_SPDIF_TXFIFO_WML,
+	.rx_burst = FSL_SPDIF_RXFIFO_WML,
+	.interrupts = 1,
+	.tx_formats = FSL_SPDIF_FORMATS_PLAYBACK,
+	.constrain_period_size = false,
+};
+
+static struct fsl_spdif_soc_data fsl_spdif_imx8qm = {
+	.imx = true,
+	.tx_burst = 2,
+	.rx_burst = 2,
+	.interrupts = 2,
+	.tx_formats = SNDRV_PCM_FMTBIT_S24_LE,
+	.constrain_period_size = true,
 };
 
 /* DPLL locked and lock loss interrupt handler */
@@ -508,6 +545,17 @@ static int fsl_spdif_startup(struct snd_pcm_substream *substream,
 
 	/* Power up SPDIF module */
 	regmap_update_bits(regmap, REG_SPDIF_SCR, SCR_LOW_POWER, 0);
+
+	if (spdif_priv->soc->constrain_period_size) {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			snd_pcm_hw_constraint_step(substream->runtime, 0,
+				SNDRV_PCM_HW_PARAM_PERIOD_SIZE,
+				spdif_priv->dma_params_tx.maxburst);
+		else
+			snd_pcm_hw_constraint_step(substream->runtime, 0,
+				SNDRV_PCM_HW_PARAM_PERIOD_SIZE,
+				spdif_priv->dma_params_rx.maxburst);
+	}
 
 	return 0;
 
@@ -1252,12 +1300,21 @@ static int fsl_spdif_probe_txclk(struct fsl_spdif_priv *spdif_priv,
 	return 0;
 }
 
+static const struct of_device_id fsl_spdif_dt_ids[] = {
+	{ .compatible = "fsl,imx8qm-spdif", .data = &fsl_spdif_imx8qm, },
+	{ .compatible = "fsl,imx35-spdif", .data = &fsl_spdif_imx35, },
+	{ .compatible = "fsl,vf610-spdif", .data = &fsl_spdif_vf610, },
+	{}
+};
+MODULE_DEVICE_TABLE(of, fsl_spdif_dt_ids);
+
 static int fsl_spdif_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct fsl_spdif_priv *spdif_priv;
 	struct spdif_mixer_control *ctrl;
 	struct resource *res;
+	const struct of_device_id *of_id;
 	void __iomem *regs;
 	int irq, ret, i;
 	u32 buffer_size;
@@ -1271,9 +1328,17 @@ static int fsl_spdif_probe(struct platform_device *pdev)
 
 	spdif_priv->pdev = pdev;
 
+	of_id = of_match_device(fsl_spdif_dt_ids, &pdev->dev);
+	if (!of_id || !of_id->data)
+		return -EINVAL;
+
+	spdif_priv->soc = of_id->data;
+
 	/* Initialize this copy of the CPU DAI driver structure */
 	memcpy(&spdif_priv->cpu_dai_drv, &fsl_spdif_dai, sizeof(fsl_spdif_dai));
 	spdif_priv->cpu_dai_drv.name = dev_name(&pdev->dev);
+	spdif_priv->cpu_dai_drv.playback.formats =
+				spdif_priv->soc->tx_formats;
 
 	/* Get the addresses and IRQ */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1299,6 +1364,20 @@ static int fsl_spdif_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "could not claim irq %u\n", irq);
 		return ret;
+	}
+	if (spdif_priv->soc->interrupts > 1) {
+		irq = platform_get_irq(pdev, 1);
+		if (irq < 0) {
+			dev_err(&pdev->dev, "no irq for node %s\n", pdev->name);
+			return irq;
+		}
+
+		ret = devm_request_irq(&pdev->dev, irq, spdif_isr, 0,
+			       dev_name(&pdev->dev), spdif_priv);
+		if (ret) {
+			dev_err(&pdev->dev, "could not claim irq %u\n", irq);
+			return ret;
+		}
 	}
 
 	/* Get system clock for rx clock rate calculation */
@@ -1347,8 +1426,8 @@ static int fsl_spdif_probe(struct platform_device *pdev)
 
 	spdif_priv->dpll_locked = false;
 
-	spdif_priv->dma_params_tx.maxburst = FSL_SPDIF_TXFIFO_WML;
-	spdif_priv->dma_params_rx.maxburst = FSL_SPDIF_RXFIFO_WML;
+	spdif_priv->dma_params_tx.maxburst = spdif_priv->soc->tx_burst;
+	spdif_priv->dma_params_rx.maxburst = spdif_priv->soc->rx_burst;
 	spdif_priv->dma_params_tx.addr = res->start + REG_SPDIF_STL;
 	spdif_priv->dma_params_rx.addr = res->start + REG_SPDIF_SRL;
 
@@ -1422,13 +1501,6 @@ static const struct dev_pm_ops fsl_spdif_pm = {
 	SET_RUNTIME_PM_OPS(fsl_spdif_runtime_suspend, fsl_spdif_runtime_resume,
 			   NULL)
 };
-
-static const struct of_device_id fsl_spdif_dt_ids[] = {
-	{ .compatible = "fsl,imx35-spdif", },
-	{ .compatible = "fsl,vf610-spdif", },
-	{}
-};
-MODULE_DEVICE_TABLE(of, fsl_spdif_dt_ids);
 
 static struct platform_driver fsl_spdif_driver = {
 	.driver = {
