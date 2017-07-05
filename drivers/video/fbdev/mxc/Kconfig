@@ -14,9 +14,19 @@ config FB_MXC
 	  If you plan to use the LCD display with your MXC system, say
 	  Y here.
 
+config FB_MXC_DISP_FRAMEWORK
+	tristate "Display driver framework"
+	help
+	  This is a framework that helps with registration and data handling
+	  between fb drivers and display drivers.
+
+	  It is selected by drivers which use this framework as linkage code
+	  between display controllers and panels.
+
 config FB_MXC_SYNC_PANEL
 	depends on FB_MXC
 	depends on MXC_IPU_V3
+	select FB_MXC_DISP_FRAMEWORK
 	tristate "Synchronous Panel Framebuffer"
 
 config FB_MXC_OVERLAY
