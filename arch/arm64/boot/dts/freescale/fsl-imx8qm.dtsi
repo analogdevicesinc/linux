@@ -1744,7 +1744,7 @@
 		status = "disabled";
 	};
 
-	edma0: dma-controller@40018000 {
+	edma0: dma-controller@5a1f0000 {
 		compatible = "fsl,imx8qm-edma";
 		reg = <0x0 0x5a2c0000 0x0 0x10000>, /* channel12 UART0 rx */
 		      <0x0 0x5a2d0000 0x0 0x10000>, /* channel13 UART0 tx */
