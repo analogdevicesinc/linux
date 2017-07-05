@@ -577,7 +577,7 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_AUD_SAI_5_IPG]      = imx_clk_gate2_scu("aud_sai5_ipg_clk",   "ipg_aud_clk_root", (void __iomem *)(AUD_SAI_5_LPCG), 16, FUNCTION_NAME(PD_AUD_SAI_5));
 	clks[IMX8QXP_AUD_SAI_5_MCLK]     = imx_clk_gate2_scu("aud_sai5_mclk_clk",  "acm_sai5_mclk_sel", (void __iomem *)(AUD_SAI_5_LPCG), 0, FUNCTION_NAME(PD_AUD_SAI_5));
 	clks[IMX8QXP_AUD_MQS_IPG]        = imx_clk_gate2_scu("aud_mqs_ipg",        "ipg_aud_clk_root", (void __iomem *)(AUD_MQS_LPCG), 16, FUNCTION_NAME(PD_AUD_MQS_0));
-	clks[IMX8QXP_AUD_MQS_HMCLK]      = imx_clk_gate2_scu("aud_mqs_hm_clk",     "ipg_aud_clk_root", (void __iomem *)(AUD_MQS_LPCG), 0, FUNCTION_NAME(PD_AUD_MQS_0));
+	clks[IMX8QXP_AUD_MQS_HMCLK]      = imx_clk_gate2_scu("aud_mqs_hm_clk",     "acm_mqs_mclk_sel", (void __iomem *)(AUD_MQS_LPCG), 0, FUNCTION_NAME(PD_AUD_MQS_0));
 	clks[IMX8QXP_AUD_GPT5_IPG]       = imx_clk_gate2_scu("aud_gpt5_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_5_LPCG), 16, FUNCTION_NAME(PD_AUD_GPT_5));
 	clks[IMX8QXP_AUD_GPT5_CLKIN]     = imx_clk_gate2_scu("aud_gpt5_clkin", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_5_LPCG), 0, FUNCTION_NAME(PD_AUD_GPT_5));
 	clks[IMX8QXP_AUD_GPT6_IPG]       = imx_clk_gate2_scu("aud_gpt6_ipg", "ipg_aud_clk_root", (void __iomem *)(AUD_GPT_6_LPCG), 16, FUNCTION_NAME(PD_AUD_GPT_6));
