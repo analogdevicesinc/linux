@@ -37,7 +37,7 @@
 #include "cf_axi_dds.h"
 #include "ad9122.h"
 
-const unsigned int interpolation_factors_available[] = {1, 8};
+static const unsigned int interpolation_factors_available[] = {1, 8};
 
 static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 {
