@@ -129,6 +129,9 @@ struct imx6_pcie {
 #define PCIE_LINK_WIDTH_SPEED_CONTROL	0x80C
 #define PORT_LOGIC_SPEED_CHANGE		(0x1 << 17)
 
+#define PCIE_MISC_CTRL			(PL_OFFSET + 0x1BC)
+#define PCIE_MISC_DBI_RO_WR_EN		BIT(0)
+
 /* PHY registers (not memory-mapped) */
 #define PCIE_PHY_RX_ASIC_OUT 0x100D
 #define PCIE_PHY_RX_ASIC_OUT_VALID	(1 << 0)
@@ -1305,6 +1308,12 @@ static int imx6_pcie_host_init(struct pcie_port *pp)
 		pp->cpu_addr_offset = imx6_pcie->cpu_base - pp->mem_base;
 	else
 		pp->cpu_addr_offset = 0;
+
+	if (imx6_pcie->variant == IMX8QM) {
+		if (dw_pcie_readl_dbi(pci, PCIE_MISC_CTRL) == 0)
+			dw_pcie_writel_dbi(pci, PCIE_MISC_CTRL,
+					PCIE_MISC_DBI_RO_WR_EN);
+	}
 
 	dw_pcie_setup_rc(pp);
 	ret = imx6_pcie_establish_link(imx6_pcie);
