@@ -1,0 +1,189 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qm-lpddr4-arm2.dts"
+
+/ {
+
+	leds {
+		status = "disabled";
+	};
+
+	regulators {
+
+		reg_spdif_en: regulator-spdif-en {
+			compatible = "regulator-fixed";
+			regulator-name = "spdif-en";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&pca9557_d 0 GPIO_ACTIVE_HIGH>;
+			regulator-always-on;
+			enable-active-high;
+		};
+
+		reg_wm8962: regulator-wm8962 {
+			compatible = "regulator-fixed";
+			regulator-name = "wm8962-supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio4 12 GPIO_ACTIVE_HIGH>;
+			regulator-always-on;
+			enable-active-high;
+		};
+
+		reg_bb2: regulator-bb2 {
+			compatible = "regulator-fixed";
+			regulator-name = "bb2-supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+			regulator-always-on;
+			enable-active-high;
+		};
+	};
+
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	sound-spdif {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-spdif";
+		spdif-controller = <&spdif0>;
+		spdif-in;
+		spdif-out;
+		status = "disabled";
+	};
+
+	sound-mqs {
+		compatible = "fsl,imx8qm-lpddr4-arm2-mqs",
+				"fsl,imx-audio-mqs";
+		model = "mqs-audio";
+		cpu-dai = <&sai1>;
+		audio-codec = <&mqs>;
+		asrc-controller = <&asrc1>;
+	};
+
+	sound-wm8962 {
+		compatible = "fsl,imx6q-sabresd-wm8962",
+			   "fsl,imx-audio-wm8962";
+		model = "wm8962-audio";
+		cpu-dai = <&sai0>;
+		audio-codec = <&wm8962>;
+		audio-routing =
+			"Headphone Jack", "HPOUTL",
+			"Headphone Jack", "HPOUTR",
+			"Ext Spk", "SPKOUTL",
+			"Ext Spk", "SPKOUTR",
+			"AMIC", "MICBIAS",
+			"IN3R", "AMIC",
+			"DMIC", "MICBIAS",
+			"DMICDAT", "DMIC",
+			"CPU-Playback", "ASRC-Playback",
+			"Playback", "CPU-Playback",
+			"ASRC-Capture", "CPU-Capture",
+			"CPU-Capture", "Capture";
+		hp-det-gpios = <&gpio5 26 1>;
+		mic-det-gpios = <&gpio5 27 1>;
+		codec-master;
+	};
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&iomuxc {
+
+	imx8qm-arm2 {
+
+		pinctrl_spdif0: spdif0grp {
+			fsl,pins = <
+				SC_P_SPDIF0_TX_AUD_SPDIF0_TX	0xc600004c
+				SC_P_SPDIF0_RX_AUD_SPDIF0_RX	0xc600004c
+			>;
+		};
+
+		pinctrl_mqs: mqsgrp {
+			fsl,pins = <
+				SC_P_SPDIF0_TX_AUD_MQS_L	0xc6000061
+				SC_P_SPDIF0_RX_AUD_MQS_R	0xc6000061
+			>;
+		};
+
+		pinctrl_sai0: sai0grp {
+			fsl,pins = <
+				SC_P_SAI1_RXC_AUD_SAI0_TXD		0xc600004c
+				SC_P_SAI1_RXFS_AUD_SAI0_RXD		0xc600004c
+				SC_P_SAI1_TXC_AUD_SAI0_TXC		0xc600004c
+				SC_P_SPI2_CS1_AUD_SAI0_TXFS		0xc600004c
+
+				SC_P_USDHC2_CD_B_LSIO_GPIO4_IO12	0xc600004c
+				SC_P_USDHC2_DATA0_LSIO_GPIO5_IO26	0xc600004c
+				SC_P_USDHC2_DATA1_LSIO_GPIO5_IO27	0xc600004c
+				SC_P_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13	0xc600004c
+				SC_P_MCLK_OUT0_AUD_ACM_MCLK_OUT0	0xc600004c
+			>;
+		};
+	};
+};
+
+&i2c0_hdmi {
+
+	wm8962: wm8962@1a {
+		compatible = "wlf,wm8962";
+		reg = <0x1a>;
+		clocks = <&clk IMX8QM_AUD_MCLKOUT0>;
+		DCVDD-supply = <&reg_wm8962>;
+		DBVDD-supply = <&reg_wm8962>;
+		AVDD-supply = <&reg_wm8962>;
+		CPVDD-supply = <&reg_wm8962>;
+		MICVDD-supply = <&reg_wm8962>;
+		PLLVDD-supply = <&reg_wm8962>;
+		SPKVDD1-supply = <&reg_wm8962>;
+		SPKVDD2-supply = <&reg_wm8962>;
+		gpio-cfg = <
+			0x0000 /* 0:Default */
+			0x0000 /* 1:Default */
+			0x0013 /* 2:FN_DMICCLK */
+			0x0000 /* 3:Default */
+			0x8014 /* 4:FN_DMICCDAT */
+			0x0000 /* 5:Default */
+		>;
+		amic-mono;
+	};
+};
+
+
+&mqs {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_mqs>;
+	status = "okay";
+};
+
+&spdif0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spdif0>;
+	status = "disabled";
+};
+
+&sai1 {
+	status = "okay";
+};
+
+&sai0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai0>;
+	status = "okay";
+};
