@@ -1395,6 +1395,16 @@
 		status = "disabled";
 	};
 
+	mqs: mqs@59850000 {
+		compatible = "fsl,imx8qm-mqs";
+		reg = <0x0 0x59850000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_AUD_MQS_IPG>,
+			<&clk IMX8QXP_AUD_MQS_HMCLK>;
+		clock-names = "core", "mclk";
+		power-domains = <&pd_mqs0>;
+		status = "disabled";
+	};
+
 	usdhc1: usdhc@5b010000 {
 		compatible = "fsl,imx8qm-usdhc", "fsl,imx6sl-usdhc";
 		interrupt-parent = <&gic>;
