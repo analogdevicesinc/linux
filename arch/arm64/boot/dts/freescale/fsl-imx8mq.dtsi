@@ -528,13 +528,15 @@
 	};
 
 	usdhc1: usdhc@30b40000 {
-		compatible = "fsl,imx8mq-usdhc", "fsl,imx6sl-usdhc";
+		compatible = "fsl,imx8mq-usdhc", "fsl,imx7d-usdhc";
 		reg = <0x0 0x30b40000 0x0 0x10000>;
 		interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MQ_CLK_DUMMY>,
 			<&clk IMX8MQ_CLK_NAND_USDHC_BUS_DIV>,
 			<&clk IMX8MQ_CLK_USDHC1_ROOT>;
 		clock-names = "ipg", "ahb", "per";
+		assigned-clocks = <&clk IMX8MQ_CLK_USDHC1_DIV>;
+		assigned-clock-rates = <400000000>;
 		fsl,tuning-start-tap = <20>;
 		fsl,tuning-step= <2>;
 		bus-width = <4>;
@@ -542,7 +544,7 @@
 	};
 
 	usdhc2: usdhc@30b50000 {
-		compatible = "fsl,imx8mq-usdhc", "fsl,imx6sl-usdhc";
+		compatible = "fsl,imx8mq-usdhc", "fsl,imx7d-usdhc";
 		reg = <0x0 0x30b50000 0x0 0x10000>;
 		interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MQ_CLK_DUMMY>,
