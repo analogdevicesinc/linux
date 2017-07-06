@@ -1472,6 +1472,15 @@
 		power-domains = <&pd_sai5>;
 	};
 
+	amix: amix@59840000 {
+		compatible = "fsl,imx8qm-amix";
+		reg = <0x0 0x59840000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_AUD_AMIX_IPG>;
+		clock-names = "ipg";
+		power-domains = <&pd_amix>;
+		status = "disabled";
+	};
+
 	asrc0: asrc@59000000 {
 		compatible = "fsl,imx8qm-asrc0";
 		reg = <0x0 0x59000000 0x0 0x10000>;
