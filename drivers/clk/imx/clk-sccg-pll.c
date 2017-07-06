@@ -24,8 +24,18 @@
 #define PLL_DIVF2_SHIFT	7
 #define PLL_DIVF_MASK	0x3f
 
+#define PLL_DIVR1_SHIFT	25
+#define PLL_DIVR2_SHIFT	19
+#define PLL_DIVR1_MASK	0x3
+#define PLL_DIVR2_MASK	0x3f
+#define PLL_REF_SHIFT	0
+#define PLL_REF_MASK	0x3
+
 #define PLL_LOCK	31
 #define PLL_PD		7
+
+#define OSC_25M		25000000
+#define OSC_27M		27000000
 
 struct clk_sccg_pll {
 	struct clk_hw	hw;
@@ -112,12 +122,34 @@ static unsigned long clk_pll2_recalc_rate(struct clk_hw *hw,
 					 unsigned long parent_rate)
 {
 	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
-	u32 val, divf;
+	u32 val, ref, divr1, divf1, divr2, divf2;
+	u64 temp64;
+
+	val = readl_relaxed(pll->base + PLL_CFG0);
+	switch ((val >> PLL_REF_SHIFT) & PLL_REF_MASK) {
+	case 0:
+		ref = OSC_25M;
+		break;
+	case 1:
+		ref = OSC_27M;
+		break;
+	default:
+		ref = OSC_25M;
+		break;
+	}
 
 	val = readl_relaxed(pll->base + PLL_CFG2);
-	divf = (val >> PLL_DIVF2_SHIFT) & PLL_DIVF_MASK;
+	divr1 = (val >> PLL_DIVR1_SHIFT) & PLL_DIVR1_MASK;
+	divr2 = (val >> PLL_DIVR2_SHIFT) & PLL_DIVR2_MASK;
+	divf1 = (val >> PLL_DIVF1_SHIFT) & PLL_DIVF_MASK;
+	divf2 = (val >> PLL_DIVF2_SHIFT) & PLL_DIVF_MASK;
 
-	return parent_rate * (divf + 1);
+	temp64 = ref * 2;
+	temp64 *= (divf1 + 1) * (divf2 + 1);
+
+	do_div(temp64, (divr1 + 1) * (divr2 + 1));
+
+	return (unsigned long)temp64;
 }
 
 static long clk_pll2_round_rate(struct clk_hw *hw, unsigned long rate,

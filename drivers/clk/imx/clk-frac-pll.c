@@ -116,7 +116,7 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 	divfi = (val & PLL_INT_DIV_MASK);
 
 	temp64 = (u64)parent_rate * 8;
-	temp64 *= (divff + 1);
+	temp64 *= divff;
 	do_div(temp64, PLL_FRAC_DENOM);
 	temp64 /= divq;
 
