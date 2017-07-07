@@ -1233,6 +1233,27 @@ static int hantrodec_release(struct inode *inode, struct file *filp) {
   return 0;
 }
 
+/*------------------------------------------------------------------------------
+ Function name   : hantro_mmap
+ Description     : memory map interface for hantro file operation
+
+ Return type     : int
+------------------------------------------------------------------------------*/
+static int hantro_mmap(struct file *fp, struct vm_area_struct *vm)
+{
+  if (vm->vm_pgoff==(multicorebase[0] >> PAGE_SHIFT) || vm->vm_pgoff==(multicorebase[1] >> PAGE_SHIFT)){
+    vm->vm_flags |= VM_IO;
+    vm->vm_page_prot = pgprot_noncached(vm->vm_page_prot);
+    PDEBUG("hantro mmap: size=0x%lX, page off=0x%lX\n",(vm->vm_end - vm->vm_start), vm->vm_pgoff);
+    return remap_pfn_range(vm, vm->vm_start, vm->vm_pgoff, vm->vm_end - vm->vm_start,
+               vm->vm_page_prot) ? -EAGAIN : 0;
+  }
+  else{
+    PDEBUG("invalid map offset :0x%lX \n",vm->vm_pgoff);
+    return -EINVAL;
+  }
+}
+
 #ifdef CLK_CFG
 void hantrodec_disable_clk(unsigned long value)
 {
@@ -1258,7 +1279,8 @@ static struct file_operations hantrodec_fops = {
   .open = hantrodec_open,
   .release = hantrodec_release,
   .unlocked_ioctl = hantrodec_ioctl,
-  .fasync = NULL
+  .fasync = NULL,
+  .mmap = hantro_mmap,
 };
 
 /*------------------------------------------------------------------------------
