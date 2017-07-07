@@ -125,31 +125,60 @@ dpu_atomic_set_top_plane_per_crtc(struct drm_plane_state **states, int n)
 	}
 }
 
-static void
+static int
 dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 {
 	struct dpu_plane_state *dpstate;
 	struct dpu_plane *dplane;
-	unsigned int sid;
-	int i, j;
+	struct dpu_plane_grp *grp;
+	struct dpu_fetchdecode *fd;
+	unsigned int sid, src_sid;
+	int i, j, k;
+	int fd_id;
 
 	/* for active planes only */
 	for (i = 0; i < n; i++) {
 		dpstate = to_dpu_plane_state(states[i]);
 		dplane = to_dpu_plane(states[i]->plane);
+		grp = dplane->grp;
 		sid = dplane->stream_id;
 
+		/* assign source */
+		for (k = 0; k < grp->hw_plane_num; k++) {
+			/* already used by others? */
+			if (grp->src_mask & BIT(k))
+				continue;
+
+			fd_id = source_to_id(sources[k]);
+
+			fd = grp->res.fd[fd_id];
+
+			/* avoid on-the-fly/hot migration */
+			src_sid = fetchdecode_get_stream_id(fd);
+			if (src_sid && src_sid != BIT(sid))
+				continue;
+
+			grp->src_mask |= BIT(k);
+			break;
+		}
+
+		if (k == grp->hw_plane_num)
+			return -EINVAL;
+
+		dpstate->source = sources[k];
+
+		/* assign stage and blend */
 		if (sid) {
-			j = dplane->grp->hw_plane_num - (n - i);
+			j = grp->hw_plane_num - (n - i);
 			dpstate->stage = i ? stages[j - 1] : cf_stages[sid];
-			dpstate->source = sources[j];
 			dpstate->blend = blends[j];
 		} else {
 			dpstate->stage = i ? stages[i - 1] : cf_stages[sid];
-			dpstate->source = sources[i];
 			dpstate->blend = blends[i];
 		}
 	}
+
+	return 0;
 }
 
 static int dpu_drm_atomic_check(struct drm_device *dev,
@@ -189,6 +218,12 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 	for (i = 0; i < MAX_DPU_PLANE_GRP; i++)
 		if (grp[i] && active_plane[i] > grp[i]->hw_plane_num)
 			return -EINVAL;
+
+	/* clear source mask */
+	for (i = 0; i < MAX_DPU_PLANE_GRP; i++) {
+		if (grp[i])
+			grp[i]->src_mask = 0;
+	}
 
 	ret = drm_atomic_helper_check_modeset(dev, state);
 	if (ret)
@@ -232,7 +267,11 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 
 		dpu_atomic_set_top_plane_per_crtc(states, n);
 
-		dpu_atomic_assign_plane_source_per_crtc(states, n);
+		ret = dpu_atomic_assign_plane_source_per_crtc(states, n);
+		if (ret) {
+			kfree(states);
+			return ret;
+		}
 
 		kfree(states);
 	}

@@ -243,6 +243,9 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	fetchdecode_layerproperty(fd, true);
 	fetchdecode_framedimensions(fd, src_w, src_h);
 	fetchdecode_baseaddress(fd, drm_plane_state_to_baseaddr(state));
+	fetchdecode_set_stream_id(fd, dplane->stream_id ?
+					DPU_PLANE_SRC_TO_DISP_STREAM1 :
+					DPU_PLANE_SRC_TO_DISP_STREAM0);
 
 	layerblend_pixengcfg_dynamic_prim_sel(lb, dpstate->stage);
 	layerblend_pixengcfg_dynamic_sec_sel(lb, dpstate->source);

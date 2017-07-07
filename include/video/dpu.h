@@ -521,6 +521,12 @@ struct dpu_plane_grp {
 	struct mutex		lock;
 	unsigned int		hw_plane_num;
 	unsigned int		id;
+	/*
+	 * used when assigning plane source
+	 * index:    0   1   2   3
+	 * source: fd0 fd1 fd2 fd3
+	 */
+	u32			src_mask;
 };
 
 static inline struct dpu_plane_grp *plane_res_to_grp(struct dpu_plane_res *res)

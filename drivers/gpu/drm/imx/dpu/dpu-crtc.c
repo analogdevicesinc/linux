@@ -299,11 +299,18 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_extdst *ed = res->ed[dplane->stream_id];
+	int i;
 
 	if (!crtc->state->enable && !old_crtc_state->enable)
 		return;
 
 	extdst_pixengcfg_sync_trigger(ed);
+
+	for (i = 0; i < ARRAY_SIZE(res->fd); i++) {
+		if (res->fd[i] && !fetchdecode_is_enabled(res->fd[i]))
+			fetchdecode_set_stream_id(res->fd[i],
+							DPU_PLANE_SRC_DISABLED);
+	}
 }
 
 static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
