@@ -56,6 +56,7 @@ struct icm_cdc_iobuf_t {
 	u32 out_cur_offset;		/* init by APU, updated by DPU */
 	s32 ret;
 	u32 cycles;		        /* consumed cycles during executing */
+	u32 input_over;			/* indicate external stream is over*/
 };
 
 struct icm_cdc_uinp_t {

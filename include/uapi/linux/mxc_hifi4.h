@@ -44,6 +44,7 @@ struct decode_info {
 	int   out_buf_size;
 	int   out_buf_off;
 	unsigned int cycles;
+	unsigned int input_over;
 };
 
 struct prop_info {

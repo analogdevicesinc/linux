@@ -621,6 +621,8 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 	codec_iobuf_info->out_buf_size_max = hifi4_priv->out_buf_size;
 	codec_iobuf_info->out_cur_offset   = 0;
 
+	codec_iobuf_info->input_over   = decode_info.input_over;
+
 	init_completion(&hifi4_priv->cmd_complete);
 	hifi4_priv->is_done = 0;
 
@@ -647,6 +649,7 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 	decode_info.in_buf_off = codec_iobuf_info->inp_cur_offset;
 	decode_info.out_buf_off = codec_iobuf_info->out_cur_offset;
 	decode_info.cycles = codec_iobuf_info->cycles;
+	decode_info.input_over = codec_iobuf_info->input_over;
 
 	ret = copy_to_user(user, &decode_info, sizeof(decode_info));
 	if (ret) {
