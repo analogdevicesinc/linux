@@ -74,6 +74,8 @@ struct dpu_fetchdecode {
 	struct dpu_soc *dpu;
 	fetchtype_t fetchtype;
 	shadow_load_req_t shdlreq;
+	/* see DPU_PLANE_SRC_xxx */
+	unsigned int stream_id;
 };
 
 static inline u32 dpu_pec_fd_read(struct dpu_fetchdecode *fd,
@@ -413,6 +415,26 @@ shadow_load_req_t fetchdecode_to_shdldreq_t(struct dpu_fetchdecode *fd)
 	return t;
 }
 EXPORT_SYMBOL_GPL(fetchdecode_to_shdldreq_t);
+
+unsigned int fetchdecode_get_stream_id(struct dpu_fetchdecode *fd)
+{
+	return fd->stream_id;
+}
+EXPORT_SYMBOL_GPL(fetchdecode_get_stream_id);
+
+void fetchdecode_set_stream_id(struct dpu_fetchdecode *fd, unsigned int id)
+{
+	switch (id) {
+	case DPU_PLANE_SRC_TO_DISP_STREAM0:
+	case DPU_PLANE_SRC_TO_DISP_STREAM1:
+	case DPU_PLANE_SRC_DISABLED:
+		fd->stream_id = id;
+		break;
+	default:
+		WARN_ON(1);
+	}
+}
+EXPORT_SYMBOL_GPL(fetchdecode_set_stream_id);
 
 struct dpu_fetchdecode *dpu_fd_get(struct dpu_soc *dpu, int id)
 {

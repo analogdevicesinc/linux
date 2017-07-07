@@ -428,6 +428,8 @@ void fetchdecode_yuv_constantcolor(struct dpu_fetchdecode *fd,
 void fetchdecode_controltrigger(struct dpu_fetchdecode *fd, bool trigger);
 int fetchdecode_fetchtype(struct dpu_fetchdecode *fd, fetchtype_t *type);
 shadow_load_req_t fetchdecode_to_shdldreq_t(struct dpu_fetchdecode *fd);
+unsigned int fetchdecode_get_stream_id(struct dpu_fetchdecode *fd);
+void fetchdecode_set_stream_id(struct dpu_fetchdecode *fd, unsigned int id);
 struct dpu_fetchdecode *dpu_fd_get(struct dpu_soc *dpu, int id);
 void dpu_fd_put(struct dpu_fetchdecode *fd);
 
@@ -489,6 +491,14 @@ int tcon_set_fmt(struct dpu_tcon *tcon, u32 bus_format);
 void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m);
 struct dpu_tcon *dpu_tcon_get(struct dpu_soc *dpu, int id);
 void dpu_tcon_put(struct dpu_tcon *tcon);
+
+/*
+ * to avoid on-the-fly/hot plane resource migration
+ * between two display interfaces
+ */
+#define DPU_PLANE_SRC_TO_DISP_STREAM0	BIT(0)
+#define DPU_PLANE_SRC_TO_DISP_STREAM1	BIT(1)
+#define DPU_PLANE_SRC_DISABLED		0
 
 #define MAX_FD_NUM	4
 #define MAX_LB_NUM	7
