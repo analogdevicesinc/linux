@@ -256,7 +256,7 @@ void fetchdecode_layerproperty(struct dpu_fetchdecode *fd, bool enable)
 	u32 val;
 
 	if (enable)
-		val = SOURCEBUFFERENABLE | CLIPWINDOWENABLE;
+		val = SOURCEBUFFERENABLE;
 	else
 		val = 0;
 
