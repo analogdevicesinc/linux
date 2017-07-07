@@ -268,6 +268,18 @@ void fetchdecode_layerproperty(struct dpu_fetchdecode *fd, bool enable)
 }
 EXPORT_SYMBOL_GPL(fetchdecode_layerproperty);
 
+bool fetchdecode_is_enabled(struct dpu_fetchdecode *fd)
+{
+	u32 val;
+
+	mutex_lock(&fd->mutex);
+	val = dpu_fd_read(fd, LAYERPROPERTY0);
+	mutex_unlock(&fd->mutex);
+
+	return !!(val & SOURCEBUFFERENABLE);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_is_enabled);
+
 void fetchdecode_clipdimensions(struct dpu_fetchdecode *fd, unsigned int w,
 				unsigned int h)
 {

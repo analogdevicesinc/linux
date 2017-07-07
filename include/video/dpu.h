@@ -419,6 +419,7 @@ void fetchdecode_clipoffset(struct dpu_fetchdecode *fd, unsigned int x,
 void fetchdecode_clipdimensions(struct dpu_fetchdecode *fd, unsigned int w,
 				unsigned int h);
 void fetchdecode_layerproperty(struct dpu_fetchdecode *fd, bool enable);
+bool fetchdecode_is_enabled(struct dpu_fetchdecode *fd);
 void fetchdecode_framedimensions(struct dpu_fetchdecode *fd, unsigned int w,
 				 unsigned int h);
 void fetchdecode_rgb_constantcolor(struct dpu_fetchdecode *fd,
