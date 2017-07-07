@@ -2162,7 +2162,7 @@
 	};
 
 	sai1: sai@59050000 {
-		compatible = "fsl,imx6ul-sai", "fsl,imx6sx-sai";
+		compatible = "fsl,imx8qm-sai";
 		reg = <0x0 0x59050000 0x0 0x10000>;
 		interrupts = <GIC_SPI 316 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8QM_AUD_SAI_1_IPG>,
@@ -2179,7 +2179,7 @@
 
 
 	sai0: sai@59040000 {
-		compatible = "fsl,imx6ul-sai", "fsl,imx6sx-sai";
+		compatible = "fsl,imx8qm-sai";
 		reg = <0x0 0x59040000 0x0 0x10000>;
 		interrupts = <GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8QM_AUD_SAI_0_IPG>,
