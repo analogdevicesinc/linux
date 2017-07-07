@@ -1337,6 +1337,29 @@
 		status = "okay";
 	};
 
+	edma3: dma-controller@599F0000 {
+		compatible = "fsl,imx8qm-edma";
+		reg = <0x0 0x59A00000 0x0 0x10000>, /* asrc1 */
+			<0x0 0x59A10000 0x0 0x10000>,
+			<0x0 0x59A20000 0x0 0x10000>,
+			<0x0 0x59A30000 0x0 0x10000>,
+			<0x0 0x59A40000 0x0 0x10000>,
+			<0x0 0x59A50000 0x0 0x10000>;
+		#dma-cells = <3>;
+		shared-interrupt;
+		dma-channels = <6>;
+		interrupts = <GIC_SPI 382 IRQ_TYPE_LEVEL_HIGH>, /* asrc 1 */
+				<GIC_SPI 383 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 385 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 386 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "edma-chan0-tx", "edma-chan1-tx", /* asrc1 */
+				"edma-chan2-tx", "edma-chan3-tx",
+				"edma-chan4-tx", "edma-chan5-tx";
+		status = "okay";
+	};
+
 	acm: acm@59e00000 {
 		compatible = "nxp,imx8qm-acm";
 		reg = <0x0 0x59e00000 0x0 0x1D0000>;
@@ -1413,6 +1436,46 @@
 		fsl,asrc-rate  = <8000>;
 		fsl,asrc-width = <16>;
 		power-domains = <&pd_asrc0>;
+		status = "disabled";
+	};
+
+	asrc1: asrc@59000000 {
+		compatible = "fsl,imx8qm-asrc1";
+		reg = <0x0 0x59800000 0x0 0x10000>;
+		interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 381 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QXP_AUD_ASRC_1_IPG>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK1_CLK>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>;
+		clock-names = "ipg", "mem",
+			"asrck_0", "asrck_1", "asrck_2", "asrck_3",
+			"asrck_4", "asrck_5", "asrck_6", "asrck_7",
+			"asrck_8", "asrck_9", "asrck_a", "asrck_b",
+			"asrck_c", "asrck_d", "asrck_e", "asrck_f",
+			"spba";
+		dmas = <&edma3 0 0 0>, <&edma3 1 0 0>, <&edma3 2 0 0>,
+			<&edma3 3 0 1>, <&edma3 4 0 1>, <&edma3 5 0 1>;
+		dma-names = "rxa", "rxb", "rxc",
+				"txa", "txb", "txc";
+		fsl,asrc-rate  = <8000>;
+		fsl,asrc-width = <16>;
+		power-domains = <&pd_asrc1>;
 		status = "disabled";
 	};
 

@@ -90,6 +90,11 @@
 	status = "okay";
 };
 
+&asrc1 {
+	fsl,asrc-rate = <48000>;
+	status = "okay";
+};
+
 &esai0 {
 	compatible = "fsl,imx8qxp-v1-esai";
 	pinctrl-names = "default";
