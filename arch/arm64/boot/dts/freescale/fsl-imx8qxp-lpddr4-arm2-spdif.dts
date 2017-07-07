@@ -1,0 +1,55 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qxp-lpddr4-arm2.dts"
+
+/ {
+
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	sound-spdif {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-spdif";
+		spdif-controller = <&spdif0>;
+		spdif-in;
+		spdif-out;
+	};
+};
+
+&iomuxc {
+
+	imx8qxp-arm2 {
+
+		pinctrl_spdif0: spdif0grp {
+			fsl,pins = <
+				SC_P_SPDIF0_TX_ADMA_SPDIF0_TX	0xc600004c
+				SC_P_SPDIF0_RX_ADMA_SPDIF0_RX	0xc600004c
+			>;
+		};
+
+	};
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&spdif0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spdif0>;
+	dmas = <&edma2 23 0 7>, <&edma2 21 0 6>;
+	status = "okay";
+};
