@@ -1628,6 +1628,32 @@
 		status = "disabled";
 	};
 
+	spdif0: spdif@59020000 {
+		compatible = "fsl,imx8qm-spdif";
+		reg = <0x0 0x59020000 0x0 0x10000>;
+		interrupts =  <GIC_SPI 456 IRQ_TYPE_LEVEL_HIGH>, /* rx */
+			     <GIC_SPI 458 IRQ_TYPE_LEVEL_HIGH>; /* tx */
+		clocks = <&clk IMX8QXP_AUD_SPDIF_0_GCLKW>, /* core */
+			<&clk IMX8QXP_CLK_DUMMY>, /* rxtx0 */
+			<&clk IMX8QXP_AUD_SPDIF_0_TX_CLK>, /* rxtx1 */
+			<&clk IMX8QXP_CLK_DUMMY>, /* rxtx2 */
+			<&clk IMX8QXP_CLK_DUMMY>, /* rxtx3 */
+			<&clk IMX8QXP_CLK_DUMMY>, /* rxtx4 */
+			<&clk IMX8QXP_IPG_AUD_CLK_ROOT>, /* rxtx5 */
+			<&clk IMX8QXP_CLK_DUMMY>, /* rxtx6 */
+			<&clk IMX8QXP_CLK_DUMMY>, /* rxtx7 */
+			<&clk IMX8QXP_CLK_DUMMY>; /* spba */
+		clock-names = "core", "rxtx0",
+			      "rxtx1", "rxtx2",
+			      "rxtx3", "rxtx4",
+			      "rxtx5", "rxtx6",
+			      "rxtx7", "spba";
+		dmas = <&edma2 8 0 5>, <&edma2 9 0 4>;
+		dma-names = "rx", "tx";
+		power-domains = <&pd_spdif0>;
+		status = "disabled";
+	};
+
 	display-subsystem {
 		compatible = "fsl,imx-display-subsystem";
 		ports = <&dpu_disp0>, <&dpu_disp1>;
