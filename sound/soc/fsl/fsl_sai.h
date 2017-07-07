@@ -152,6 +152,8 @@ struct fsl_sai_soc_data {
 	unsigned int flags;
 	unsigned char reg_offset;
 	bool imx;
+	/* True for EDMA because it needs period size multiple of maxburst */
+	bool constrain_period_size;
 };
 
 struct fsl_sai {
