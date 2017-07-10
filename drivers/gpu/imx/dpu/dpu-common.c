@@ -28,6 +28,11 @@
 #include <video/dpu.h>
 #include "dpu-prv.h"
 
+static bool display_plane_video_proc = true;
+module_param(display_plane_video_proc, bool, 0444);
+MODULE_PARM_DESC(display_plane_video_proc,
+		 "Enable video processing for display [default=true]");
+
 #define DPU_CM_REG_DEFINE1(name1, name2)		\
 static inline u32 name1(const struct cm_reg_ofs *ofs)	\
 {							\
@@ -761,10 +766,28 @@ static int dpu_get_plane_resource(struct dpu_soc *dpu,
 		if (IS_ERR(res->fd[i]))
 			return PTR_ERR(res->fd[i]);
 	}
+	/* HScaler could be shared with capture. */
+	if (display_plane_video_proc) {
+		for (i = 0; i < ARRAY_SIZE(res->hs); i++) {
+			res->hs[i] = dpu_hs_get(dpu, hs_ids[i]);
+			if (IS_ERR(res->hs[i]))
+				return PTR_ERR(res->hs[i]);
+		}
+		grp->hw_plane_hscaler_num = ARRAY_SIZE(res->hs);
+	}
 	for (i = 0; i < lbs->num; i++) {
 		res->lb[i] = dpu_lb_get(dpu, i);
 		if (IS_ERR(res->lb[i]))
 			return PTR_ERR(res->lb[i]);
+	}
+	/* VScaler could be shared with capture. */
+	if (display_plane_video_proc) {
+		for (i = 0; i < ARRAY_SIZE(res->vs); i++) {
+			res->vs[i] = dpu_vs_get(dpu, vs_ids[i]);
+			if (IS_ERR(res->vs[i]))
+				return PTR_ERR(res->vs[i]);
+		}
+		grp->hw_plane_vscaler_num = ARRAY_SIZE(res->vs);
 	}
 
 	grp->hw_plane_num = fds->num;
@@ -789,9 +812,17 @@ static void dpu_put_plane_resource(struct dpu_plane_res *res)
 		if (!IS_ERR_OR_NULL(res->fd[i]))
 			dpu_fd_put(res->fd[i]);
 	}
+	for (i = 0; i < ARRAY_SIZE(res->hs); i++) {
+		if (!IS_ERR_OR_NULL(res->hs[i]))
+			dpu_hs_put(res->hs[i]);
+	}
 	for (i = 0; i < ARRAY_SIZE(res->lb); i++) {
 		if (!IS_ERR_OR_NULL(res->lb[i]))
 			dpu_lb_put(res->lb[i]);
+	}
+	for (i = 0; i < ARRAY_SIZE(res->vs); i++) {
+		if (!IS_ERR_OR_NULL(res->vs[i]))
+			dpu_vs_put(res->vs[i]);
 	}
 
 	grp->hw_plane_num = 0;
@@ -832,6 +863,7 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 	INIT_LIST_HEAD(&plane_grp->list);
 	mutex_init(&plane_grp->lock);
 	plane_grp->id = id / client_num;
+	plane_grp->has_vproc = display_plane_video_proc;
 
 	ret = dpu_get_plane_resource(dpu, &plane_grp->res);
 	if (ret)

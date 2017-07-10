@@ -621,7 +621,9 @@ struct dpu_plane_res {
 	struct dpu_extdst	*ed[2];
 	struct dpu_fetchdecode	*fd[MAX_FD_NUM];
 	struct dpu_framegen	*fg;
+	struct dpu_hscaler	*hs[2];
 	struct dpu_layerblend	*lb[MAX_LB_NUM];
+	struct dpu_vscaler	*vs[2];
 };
 
 /*
@@ -633,13 +635,17 @@ struct dpu_plane_grp {
 	struct list_head	list;
 	struct mutex		lock;
 	unsigned int		hw_plane_num;
+	unsigned int		hw_plane_hscaler_num;
+	unsigned int		hw_plane_vscaler_num;
 	unsigned int		id;
+	bool			has_vproc;
 	/*
 	 * used when assigning plane source
 	 * index:    0   1   2   3
 	 * source: fd0 fd1 fd2 fd3
 	 */
 	u32			src_mask;
+	u32			src_use_vproc_mask;
 };
 
 static inline struct dpu_plane_grp *plane_res_to_grp(struct dpu_plane_res *res)
