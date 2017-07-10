@@ -165,7 +165,7 @@ void layerblend_pixengcfg_dynamic_sec_sel(struct dpu_layerblend *lb,
 EXPORT_SYMBOL_GPL(layerblend_pixengcfg_dynamic_sec_sel);
 
 void layerblend_pixengcfg_clken(struct dpu_layerblend *lb,
-				lb_pixengcfg_clken_t clken)
+				pixengcfg_clken_t clken)
 {
 	u32 val;
 

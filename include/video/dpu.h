@@ -350,7 +350,7 @@ typedef enum {
 	CLKEN__DISABLE = 0x0,
 	CLKEN__AUTOMATIC = 0x1,
 	CLKEN__FULL = 0x3,
-} lb_pixengcfg_clken_t;
+} pixengcfg_clken_t;
 
 int dpu_map_irq(struct dpu_soc *dpu, int irq);
 
@@ -472,7 +472,7 @@ int layerblend_pixengcfg_dynamic_prim_sel(struct dpu_layerblend *lb,
 void layerblend_pixengcfg_dynamic_sec_sel(struct dpu_layerblend *lb,
 					  lb_sec_sel_t sec);
 void layerblend_pixengcfg_clken(struct dpu_layerblend *lb,
-				lb_pixengcfg_clken_t clken);
+				pixengcfg_clken_t clken);
 void layerblend_shden(struct dpu_layerblend *lb, bool enable);
 void layerblend_shdtoksel(struct dpu_layerblend *lb, lb_shadow_sel_t sel);
 void layerblend_shdldsel(struct dpu_layerblend *lb, lb_shadow_sel_t sel);
