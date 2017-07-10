@@ -2367,7 +2367,7 @@
 &A72_0 {
 	operating-points = <
 		/* kHz    uV */
-		1584000 1150000
+		1596000 1150000
 	>;
 	clocks = <&clk IMX8QM_A72_DIV>;
 };
