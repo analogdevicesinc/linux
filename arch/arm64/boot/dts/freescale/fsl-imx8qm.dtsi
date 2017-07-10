@@ -917,7 +917,7 @@
 					type = "passive";
 				};
 				cpu_crit0: trip1 {
-					temperature = <110000>;
+					temperature = <127000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -935,7 +935,7 @@
 					type = "passive";
 				};
 				cpu_crit1: trip1 {
-					temperature = <110000>;
+					temperature = <127000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -953,7 +953,7 @@
 					type = "passive";
 				};
 				gpu_crit0: trip1 {
-					temperature = <110000>;
+					temperature = <127000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -971,7 +971,7 @@
 					type = "passive";
 				};
 				gpu_crit1: trip1 {
-					temperature = <110000>;
+					temperature = <127000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -989,7 +989,7 @@
 					type = "passive";
 				};
 				drc_crit0: trip1 {
-					temperature = <110000>;
+					temperature = <127000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
