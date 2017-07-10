@@ -520,6 +520,18 @@ static const struct of_device_id dpu_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, dpu_dt_ids);
 
+bool dpu_vproc_has_hscale_cap(u32 cap_mask)
+{
+	return !!(cap_mask & DPU_VPROC_CAP_HSCALE);
+}
+EXPORT_SYMBOL_GPL(dpu_vproc_has_hscale_cap);
+
+bool dpu_vproc_has_vscale_cap(u32 cap_mask)
+{
+	return !!(cap_mask & DPU_VPROC_CAP_VSCALE);
+}
+EXPORT_SYMBOL_GPL(dpu_vproc_has_vscale_cap);
+
 #define DPU_UNIT_INIT(dpu, base, unit, name, id, pec_ofs, ofs)		\
 {									\
 	int ret;							\

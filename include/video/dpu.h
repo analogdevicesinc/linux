@@ -600,6 +600,9 @@ void dpu_vs_put(struct dpu_vscaler *vs);
 struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchdecode *fd);
 struct dpu_vscaler *fetchdecode_get_vscaler(struct dpu_fetchdecode *fd);
 
+bool dpu_vproc_has_hscale_cap(u32 cap_mask);
+bool dpu_vproc_has_vscale_cap(u32 cap_mask);
+
 /*
  * to avoid on-the-fly/hot plane resource migration
  * between two display interfaces
