@@ -1387,7 +1387,7 @@
 		compatible = "fsl,imx8qm-sai";
 		reg = <0x0 0x59050000 0x0 0x10000>;
 		interrupts = <GIC_SPI 316 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8QXP_AUD_SAI_0_IPG>,
+		clocks = <&clk IMX8QXP_AUD_SAI_1_IPG>,
 			<&clk IMX8QXP_CLK_DUMMY>,
 			<&clk IMX8QXP_AUD_SAI_1_MCLK>,
 			<&clk IMX8QXP_CLK_DUMMY>,
