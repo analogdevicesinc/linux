@@ -148,6 +148,17 @@
 		#power-domain-cells = <1>;
 	};
 
+	pwm2: pwm@30670000 {
+		compatible = "fsl,imx8mq-pwm", "fsl,imx27-pwm";
+		reg = <0x0 0x30670000 0x0 0x10000>;
+		interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_PWM2_ROOT>,
+			 <&clk IMX8MQ_CLK_PWM2_ROOT>;
+		clock-names = "ipg", "per";
+		#pwm-cells = <2>;
+		status = "disabled";
+	};
+
 	gpio1: gpio@30200000 {
 		compatible = "fsl,imx8mq-gpio", "fsl,imx35-gpio";
 		reg = <0x0 0x30200000 0x0 0x10000>;

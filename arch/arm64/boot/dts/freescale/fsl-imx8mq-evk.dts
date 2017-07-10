@@ -53,6 +53,16 @@
 			"Line Out Jack", "LINEVOUTL",
 			"Line Out Jack", "LINEVOUTR";
 	};
+
+	pwmleds {
+		compatible = "pwm-leds";
+
+		ledpwm2 {
+			label = "PWM2";
+			pwms = <&pwm2 0 50000>;
+			max-brightness = <255>;
+		};
+	};
 };
 
 &iomuxc {
@@ -107,6 +117,12 @@
 				MX8MQ_IOMUXC_I2C4_SDA_GPIO5_IO21	0x16
 				MX8MQ_IOMUXC_ECSPI2_SCLK_GPIO5_IO10	0x16
 				MX8MQ_IOMUXC_ECSPI2_MISO_GPIO5_IO12	0x16
+			>;
+		};
+
+		pinctrl_pwm2: pwm2grp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_GPIO1_IO13_PWM2_OUT	0x16
 			>;
 		};
 
@@ -308,6 +324,12 @@
 	clkreq-gpio = <&gpio5 21 GPIO_ACTIVE_LOW>;
 	disable-gpio = <&gpio5 10 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio5 12 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&pwm2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm2>;
 	status = "okay";
 };
 
