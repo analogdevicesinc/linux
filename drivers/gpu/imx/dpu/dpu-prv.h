@@ -125,8 +125,10 @@ struct dpu_devtype {
 	const struct dpu_unit *fds;
 	const struct dpu_unit *fgs;
 	const struct dpu_unit *fls;
+	const struct dpu_unit *hss;
 	const struct dpu_unit *lbs;
 	const struct dpu_unit *tcons;
+	const struct dpu_unit *vss;
 	const struct cm_reg_ofs *cm_reg_ofs;
 	const unsigned int *intsteer_map;
 	const unsigned int intsteer_map_size;
@@ -166,8 +168,10 @@ struct dpu_soc {
 	struct dpu_fetchdecode	*fd_priv[4];
 	struct dpu_fetchlayer	*fl_priv[2];
 	struct dpu_framegen	*fg_priv[2];
+	struct dpu_hscaler	*hs_priv[3];
 	struct dpu_layerblend	*lb_priv[7];
 	struct dpu_tcon		*tcon_priv[2];
+	struct dpu_vscaler	*vs_priv[3];
 };
 
 #define DECLARE_DPU_UNIT_INIT_FUNC(block)			\
@@ -180,8 +184,10 @@ DECLARE_DPU_UNIT_INIT_FUNC(ed);
 DECLARE_DPU_UNIT_INIT_FUNC(fd);
 DECLARE_DPU_UNIT_INIT_FUNC(fg);
 DECLARE_DPU_UNIT_INIT_FUNC(fl);
+DECLARE_DPU_UNIT_INIT_FUNC(hs);
 DECLARE_DPU_UNIT_INIT_FUNC(lb);
 DECLARE_DPU_UNIT_INIT_FUNC(tcon);
+DECLARE_DPU_UNIT_INIT_FUNC(vs);
 
 static const unsigned int cf_ids[] = {0, 1, 4, 5};
 static const unsigned int dec_ids[] = {0, 1};
@@ -189,8 +195,10 @@ static const unsigned int ed_ids[] = {0, 1, 4, 5};
 static const unsigned int fd_ids[] = {0, 1, 2, 3};
 static const unsigned int fg_ids[] = {0, 1};
 static const unsigned int fl_ids[] = {0, 1};
+static const unsigned int hs_ids[] = {4, 5, 9};
 static const unsigned int lb_ids[] = {0, 1, 2, 3, 4, 5, 6};
 static const unsigned int tcon_ids[] = {0, 1};
+static const unsigned int vs_ids[] = {4, 5, 9};
 
 struct dpu_pixel_format {
 	u32 pixel_format;

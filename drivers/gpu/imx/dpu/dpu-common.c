@@ -167,6 +167,12 @@ static const unsigned long fl_ofss_v2[] = {0x8400};
 static const unsigned long fl_pec_ofss_v1[] = {0xba0, 0xbb0};
 static const unsigned long fl_pec_ofss_v2[] = {0xac0};
 
+/* Horizontal Scaler Unit */
+static const unsigned long hs_ofss_v1[] = {0xbc00, 0xd000, 0x3000};
+static const unsigned long hs_ofss_v2[] = {0x9000, 0x9c00, 0x3000};
+static const unsigned long hs_pec_ofss_v1[] = {0xc00, 0xca0, 0x8e0};
+static const unsigned long hs_pec_ofss_v2[] = {0xb00, 0xb60, 0x8c0};
+
 /* Layer Blend Unit */
 static const unsigned long lb_ofss_v1[] = {0xdc00, 0xe000, 0xe400, 0xe800,
 					   0xec00, 0xf000, 0xf400};
@@ -178,6 +184,12 @@ static const unsigned long lb_pec_ofss_v2[] = {0xba0, 0xbc0, 0xbe0, 0xc00};
 /* Timing Controller Unit */
 static const unsigned long tcon_ofss_v1[] = {0x12000, 0x13c00};
 static const unsigned long tcon_ofss_v2[] = {0xcc00, 0xe800};
+
+/* Vertical Scaler Unit */
+static const unsigned long vs_ofss_v1[] = {0xc000, 0xd400, 0x3400};
+static const unsigned long vs_ofss_v2[] = {0x9400, 0xa000, 0x3400};
+static const unsigned long vs_pec_ofss_v1[] = {0xc20, 0xcc0, 0x900};
+static const unsigned long vs_pec_ofss_v2[] = {0xb20, 0xb80, 0x8e0};
 
 static const struct dpu_unit cfs_v1 = {
 	.name = "ConstFrame",
@@ -275,6 +287,22 @@ static const struct dpu_unit fls_v2 = {
 	.ofss = fl_ofss_v2,
 };
 
+static const struct dpu_unit hss_v1 = {
+	.name = "HScaler",
+	.num = ARRAY_SIZE(hs_ids),
+	.ids = hs_ids,
+	.pec_ofss = hs_pec_ofss_v1,
+	.ofss = hs_ofss_v1,
+};
+
+static const struct dpu_unit hss_v2 = {
+	.name = "HScaler",
+	.num = ARRAY_SIZE(hs_ids),
+	.ids = hs_ids,
+	.pec_ofss = hs_pec_ofss_v2,
+	.ofss = hs_ofss_v2,
+};
+
 static const struct dpu_unit lbs_v1 = {
 	.name = "LayerBlend",
 	.num = ARRAY_SIZE(lb_ids),
@@ -305,6 +333,22 @@ static const struct dpu_unit tcons_v2 = {
 	.ids = tcon_ids,
 	.pec_ofss = NULL,
 	.ofss = tcon_ofss_v2,
+};
+
+static const struct dpu_unit vss_v1 = {
+	.name = "VScaler",
+	.num = ARRAY_SIZE(vs_ids),
+	.ids = vs_ids,
+	.pec_ofss = vs_pec_ofss_v1,
+	.ofss = vs_ofss_v1,
+};
+
+static const struct dpu_unit vss_v2 = {
+	.name = "VScaler",
+	.num = ARRAY_SIZE(vs_ids),
+	.ids = vs_ids,
+	.pec_ofss = vs_pec_ofss_v2,
+	.ofss = vs_ofss_v2,
 };
 
 static const struct cm_reg_ofs cm_reg_ofs_v1 = {
@@ -404,9 +448,9 @@ static const unsigned int sw2hw_irq_map_v2[] = {
 /* FIXME: overkill for some N/As, revive them when needed */
 static const unsigned int sw2hw_block_id_map_v2[] = {
 	/*   0     1     2     3     4     5     6     7 */
-	  0x00,   NA,   NA,   NA,   NA,   NA,   NA,   NA,
+	  0x00,   NA,   NA,   NA,   NA,   NA,   NA, 0x07,
 	/*   8     9    10    11    12    13    14    15 */
-	    NA,   NA, 0x0a,   NA, 0x0c,   NA, 0x0e,   NA,
+	  0x08,   NA, 0x0a,   NA, 0x0c,   NA, 0x0e,   NA,
 	/*  16    17    18    19    20    21    22    23 */
 	  0x10,   NA, 0x12,   NA,   NA,   NA,   NA,   NA,
 	/*  24    25    26    27    28    29    30    31 */
@@ -431,8 +475,10 @@ static const struct dpu_devtype dpu_type_v1 = {
 	.fds = &fds_v1,
 	.fgs = &fgs_v1,
 	.fls = &fls_v1,
+	.hss = &hss_v1,
 	.lbs = &lbs_v1,
 	.tcons = &tcons_v1,
+	.vss = &vss_v1,
 	.cm_reg_ofs = &cm_reg_ofs_v1,
 	.intsteer_map = intsteer_map_v1,
 	.intsteer_map_size = ARRAY_SIZE(intsteer_map_v1),
@@ -451,8 +497,10 @@ static const struct dpu_devtype dpu_type_v2 = {
 	.fds = &fds_v2,
 	.fgs = &fgs_v2,
 	.fls = &fls_v2,
+	.hss = &hss_v2,
 	.lbs = &lbs_v2,
 	.tcons = &tcons_v2,
+	.vss = &vss_v2,
 	.cm_reg_ofs = &cm_reg_ofs_v2,
 	.intsteer_map = intsteer_map_v2,
 	.intsteer_map_size = ARRAY_SIZE(intsteer_map_v2),
@@ -512,8 +560,10 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 	DPU_UNITS_INIT(fd);
 	DPU_UNITS_INIT(fg);
 	DPU_UNITS_INIT(fl);
+	DPU_UNITS_INIT(hs);
 	DPU_UNITS_INIT(lb);
 	DPU_UNITS_INIT(tcon);
+	DPU_UNITS_INIT(vs);
 
 	return 0;
 }
@@ -1227,8 +1277,10 @@ static int dpu_probe(struct platform_device *pdev)
 	DPU_UNITS_ADDR_DBG(fd);
 	DPU_UNITS_ADDR_DBG(fg);
 	DPU_UNITS_ADDR_DBG(fl);
+	DPU_UNITS_ADDR_DBG(hs);
 	DPU_UNITS_ADDR_DBG(lb);
 	DPU_UNITS_ADDR_DBG(tcon);
+	DPU_UNITS_ADDR_DBG(vs);
 
 	dpu->cm_reg = devm_ioremap(dpu->dev, dpu_base + devtype->cm_ofs, SZ_1K);
 	if (!dpu->cm_reg)
