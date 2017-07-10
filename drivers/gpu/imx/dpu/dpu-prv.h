@@ -93,6 +93,16 @@ enum {
 	DPU_V2,
 };
 
+#define DPU_VPROC_CAP_HSCALER4	BIT(0)
+#define DPU_VPROC_CAP_VSCALER4	BIT(1)
+#define DPU_VPROC_CAP_HSCALER5	BIT(2)
+#define DPU_VPROC_CAP_VSCALER5	BIT(3)
+
+#define DPU_VPROC_CAP_HSCALE	(DPU_VPROC_CAP_HSCALER4 | \
+				 DPU_VPROC_CAP_HSCALER5)
+#define DPU_VPROC_CAP_VSCALE	(DPU_VPROC_CAP_VSCALER4 | \
+				 DPU_VPROC_CAP_VSCALER5)
+
 struct dpu_unit {
 	char *name;
 	unsigned int num;

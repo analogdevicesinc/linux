@@ -21,9 +21,17 @@
 #include <video/dpu.h>
 #include "dpu-prv.h"
 
+#define FD_NUM				4
+
+static const u32 fd_vproc_cap[FD_NUM] = {
+	DPU_VPROC_CAP_HSCALER4 | DPU_VPROC_CAP_VSCALER4,
+	DPU_VPROC_CAP_HSCALER5 | DPU_VPROC_CAP_VSCALER5,
+	DPU_VPROC_CAP_HSCALER4 | DPU_VPROC_CAP_VSCALER4,
+	DPU_VPROC_CAP_HSCALER5 | DPU_VPROC_CAP_VSCALER5,
+};
+
 #define PIXENGCFG_DYNAMIC		0x8
 #define SRC_NUM				3
-#define FD_NUM				4
 static const fd_dynamic_src_sel_t fd_srcs[FD_NUM][SRC_NUM] = {
 	{ FD_SRC_DISABLE, FD_SRC_FETCHECO0, FD_SRC_FETCHDECODE2 },
 	{ FD_SRC_DISABLE, FD_SRC_FETCHECO1, FD_SRC_FETCHDECODE3 },
@@ -427,6 +435,50 @@ shadow_load_req_t fetchdecode_to_shdldreq_t(struct dpu_fetchdecode *fd)
 	return t;
 }
 EXPORT_SYMBOL_GPL(fetchdecode_to_shdldreq_t);
+
+u32 fetchdecode_get_vproc_mask(struct dpu_fetchdecode *fd)
+{
+	return fd_vproc_cap[fd->id];
+}
+EXPORT_SYMBOL_GPL(fetchdecode_get_vproc_mask);
+
+struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchdecode *fd)
+{
+	struct dpu_soc *dpu = fd->dpu;
+
+	switch (fd->id) {
+	case 0:
+	case 2:
+		return dpu->hs_priv[0];
+	case 1:
+	case 3:
+		return dpu->hs_priv[1];
+	default:
+		WARN_ON(1);
+	}
+
+	return ERR_PTR(-EINVAL);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_get_hscaler);
+
+struct dpu_vscaler *fetchdecode_get_vscaler(struct dpu_fetchdecode *fd)
+{
+	struct dpu_soc *dpu = fd->dpu;
+
+	switch (fd->id) {
+	case 0:
+	case 2:
+		return dpu->vs_priv[0];
+	case 1:
+	case 3:
+		return dpu->vs_priv[1];
+	default:
+		WARN_ON(1);
+	}
+
+	return ERR_PTR(-EINVAL);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_get_vscaler);
 
 unsigned int fetchdecode_get_stream_id(struct dpu_fetchdecode *fd)
 {

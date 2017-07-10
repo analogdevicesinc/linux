@@ -492,6 +492,7 @@ void fetchdecode_yuv_constantcolor(struct dpu_fetchdecode *fd,
 void fetchdecode_controltrigger(struct dpu_fetchdecode *fd, bool trigger);
 int fetchdecode_fetchtype(struct dpu_fetchdecode *fd, fetchtype_t *type);
 shadow_load_req_t fetchdecode_to_shdldreq_t(struct dpu_fetchdecode *fd);
+u32 fetchdecode_get_vproc_mask(struct dpu_fetchdecode *fd);
 unsigned int fetchdecode_get_stream_id(struct dpu_fetchdecode *fd);
 void fetchdecode_set_stream_id(struct dpu_fetchdecode *fd, unsigned int id);
 struct dpu_fetchdecode *dpu_fd_get(struct dpu_soc *dpu, int id);
@@ -595,6 +596,9 @@ unsigned int vscaler_get_stream_id(struct dpu_vscaler *vs);
 void vscaler_set_stream_id(struct dpu_vscaler *vs, unsigned int id);
 struct dpu_vscaler *dpu_vs_get(struct dpu_soc *dpu, int id);
 void dpu_vs_put(struct dpu_vscaler *vs);
+
+struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchdecode *fd);
+struct dpu_vscaler *fetchdecode_get_vscaler(struct dpu_fetchdecode *fd);
 
 /*
  * to avoid on-the-fly/hot plane resource migration
