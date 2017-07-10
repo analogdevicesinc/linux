@@ -145,7 +145,8 @@ enum aud_status_t {
 
 struct icm_open_resp_info_t {
 	u32 proc_id;
-	struct timestamp_info_t *dtstamp;
+	u32 dtstamp;                /* address value of timestamp_info_t */
+
 	s32 ret;
 };
 
@@ -212,6 +213,7 @@ struct fsl_hifi4 {
 	struct icm_pcm_prop_t		pcm_prop_info;
 	struct xtlib_pil_info		pil_info;
 	struct xtlib_loader_globals	xtlib_globals;
+	struct timestamp_info_t		*dpu_tstamp;
 };
 
 struct fsl_hifi4_engine {

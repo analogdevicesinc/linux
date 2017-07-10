@@ -1003,6 +1003,8 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 			    (struct icm_open_resp_info_t *)pmsg_apu;
 			codec_iobuf_info->proc_id = pext_msg->proc_id;
 			hifi4_priv->is_done = 1;
+			hifi4_priv->dpu_tstamp =
+			    (struct timestamp_info_t *)pext_msg->dtstamp;
 			hifi4_priv->ret_status = pext_msg->ret;
 			complete(&hifi4_priv->cmd_complete);
 		}
