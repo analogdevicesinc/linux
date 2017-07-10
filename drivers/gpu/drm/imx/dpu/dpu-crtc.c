@@ -261,6 +261,8 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_plane *dplane;
 		struct dpu_plane_res *res;
 		struct dpu_fetchdecode *fd;
+		struct dpu_hscaler *hs;
+		struct dpu_vscaler *vs;
 		struct dpu_layerblend *lb;
 		struct dpu_extdst *ed;
 		int fd_id, lb_id;
@@ -284,8 +286,15 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		fd = res->fd[fd_id];
 		lb = res->lb[lb_id];
 
+		hs = fetchdecode_get_hscaler(fd);
+		vs = fetchdecode_get_vscaler(fd);
+
 		layerblend_pixengcfg_clken(lb, CLKEN__DISABLE);
 		fetchdecode_layerproperty(fd, false);
+		hscaler_pixengcfg_clken(hs, CLKEN__DISABLE);
+		vscaler_pixengcfg_clken(vs, CLKEN__DISABLE);
+		hscaler_mode(hs, SCALER_NEUTRAL);
+		vscaler_mode(vs, SCALER_NEUTRAL);
 		if (old_dpstate->is_top) {
 			ed = res->ed[dplane->stream_id];
 			extdst_pixengcfg_src_sel(ed, ED_SRC_DISABLE);
@@ -309,6 +318,18 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	for (i = 0; i < ARRAY_SIZE(res->fd); i++) {
 		if (res->fd[i] && !fetchdecode_is_enabled(res->fd[i]))
 			fetchdecode_set_stream_id(res->fd[i],
+							DPU_PLANE_SRC_DISABLED);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(res->hs); i++) {
+		if (res->hs[i] && !hscaler_is_enabled(res->hs[i]))
+			hscaler_set_stream_id(res->hs[i],
+							DPU_PLANE_SRC_DISABLED);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(res->vs); i++) {
+		if (res->vs[i] && !vscaler_is_enabled(res->vs[i]))
+			vscaler_set_stream_id(res->vs[i],
 							DPU_PLANE_SRC_DISABLED);
 	}
 }
