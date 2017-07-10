@@ -201,7 +201,7 @@ config PWM_IMG
 
 config PWM_IMX
 	tristate "i.MX PWM support"
-	depends on ARCH_MXC
+	depends on ARCH_MXC || ARCH_MXC_ARM64
 	help
 	  Generic PWM framework driver for i.MX.
 
