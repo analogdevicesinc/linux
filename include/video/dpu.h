@@ -340,8 +340,8 @@ typedef enum {
 } lb_shadow_sel_t;
 
 typedef enum {
-	NEUTRAL,	/* Output is same as primary input. */
-	BLEND,
+	LB_NEUTRAL,	/* Output is same as primary input. */
+	LB_BLEND,
 } lb_mode_t;
 
 #define CLKEN_MASK		(0x3 << 24)
