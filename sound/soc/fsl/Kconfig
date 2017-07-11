@@ -278,6 +278,18 @@ config SND_SOC_EUKREA_TLV320
 	  Enable I2S based access to the TLV320AIC23B codec attached
 	  to the SSI interface
 
+config SND_SOC_IMX_AK4458
+	tristate "SoC Audio support for i.MX boards with AK4458"
+	depends on OF && I2C
+	select SND_SOC_AK4458_I2C
+	select SND_SOC_IMX_PCM_DMA
+	select SND_SOC_FSL_SAI
+	select SND_SOC_FSL_UTILS
+	help
+	  SoC Audio support for i.MX boards with AK4458
+	  Say Y if you want to add support for SoC audio on an i.MX board with
+	  an AK4458 DAC.
+
 config SND_SOC_IMX_WM8960
 	tristate "SoC Audio support for i.MX boards with wm8960"
 	depends on OF && I2C

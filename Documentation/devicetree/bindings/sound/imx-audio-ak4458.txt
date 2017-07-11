@@ -1,0 +1,30 @@
+Freescale i.MX audio complex with AK4458 DAC
+
+Required properties:
+
+- compatible	: "fsl,imx-audio-ak4458"
+- model		: The user-visible name of this sound complex
+- audio-cpu	: The phandle of CPU DAI
+- audio-codec	: The phandle of the AK4458 audio DAC
+- audio-routing : A list of the connections between audio components. Each entry
+  is a pair of strings, the first being the connection's sink, the second being
+  the connection's source. Valid names could be power supplies, AK4458 pins,
+  and the jacks on the board.
+
+Example:
+
+sound {
+       compatible = "fsl,imx-audio-ak4458";
+       model = "ak4458-audio";
+       audio-cpu = <&sai1>;
+       audio-codec = <&codec>;
+       audio-routing =
+               "AOUTL1", "Playback",
+               "AOUTR1", "Playback",
+               "AOUTL2", "Playback",
+               "AOUTR2", "Playback",
+               "AOUTL3", "Playback",
+               "AOUTR3", "Playback",
+               "AOUTL4", "Playback",
+               "AOUTR4", "Playback";
+};
