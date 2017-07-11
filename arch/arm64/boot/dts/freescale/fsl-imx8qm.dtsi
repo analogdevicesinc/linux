@@ -1991,7 +1991,8 @@
 			<&clk IMX8QM_SDHC1_CLK>,
 			<&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "ipg", "per", "ahb";
-		assigned-clock-rates = <400000000>, <200000000>, <0>;
+		assigned-clocks = <&clk IMX8QM_SDHC1_DIV>;
+		assigned-clock-rates = <200000000>;
 		power-domains = <&pd_conn_sdch1>;
 		fsl,tuning-start-tap = <20>;
 		fsl,tuning-step= <2>;
@@ -2007,7 +2008,8 @@
 			<&clk IMX8QM_SDHC2_CLK>,
 			<&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "ipg", "per", "ahb";
-		assigned-clock-rates = <400000000>, <200000000>, <0>;
+		assigned-clocks = <&clk IMX8QM_SDHC2_DIV>;
+		assigned-clock-rates = <200000000>;
 		power-domains = <&pd_conn_sdch2>;
 		status = "disabled";
 	};
