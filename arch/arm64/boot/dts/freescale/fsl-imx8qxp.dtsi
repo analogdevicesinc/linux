@@ -1372,8 +1372,8 @@
 		reg = <0x0 0x59040000 0x0 0x10000>;
 		interrupts = <GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8QXP_AUD_SAI_0_IPG>,
-			<&clk IMX8QXP_AUD_SAI_0_MCLK>,
 			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_AUD_SAI_0_MCLK>,
 			<&clk IMX8QXP_CLK_DUMMY>,
 			<&clk IMX8QXP_CLK_DUMMY>;
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
