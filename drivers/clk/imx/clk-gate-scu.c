@@ -267,11 +267,12 @@ static int clk_gate2_scu_is_enabled(struct clk_hw *hw)
 	if (gate->pd->status != GPD_STATE_ACTIVE)
 		return 0;
 
-	val = readl(gate->reg);
+	if (gate->reg) {
+		val = readl(gate->reg);
 
-	if (((val >> gate->bit_idx) & 2) == 2)
-		return 1;
-
+		if (((val >> gate->bit_idx) & 2) == 2)
+			return 1;
+	}
 	return 0;
 }
 

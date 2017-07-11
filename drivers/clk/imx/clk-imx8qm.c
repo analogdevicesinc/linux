@@ -140,7 +140,8 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_DC0_PLL1_DIV] = imx_clk_divider_scu("dc0_pll1_div", SC_R_DC_0_PLL_1, SC_PM_CLK_PLL);
 	clks[IMX8QM_DC1_PLL1_DIV] = imx_clk_divider_scu("dc1_pll0_div", SC_R_DC_1_PLL_0, SC_PM_CLK_PLL);
 	clks[IMX8QM_DC1_PLL1_DIV] = imx_clk_divider_scu("dc1_pll1_div", SC_R_DC_1_PLL_1, SC_PM_CLK_PLL);
-	clks[IMX8QM_HDMI_AUD_PLL_2_DIV] = imx_clk_divider_scu("hdmi_aud_pll_div", SC_R_HDMI_PLL_1, SC_PM_CLK_PLL);
+	clks[IMX8QM_HDMI_AV_PLL_DIV] = imx_clk_divider_scu("hdmi_av_pll_div", SC_R_HDMI_PLL_1, SC_PM_CLK_PLL);
+	clks[IMX8QM_HDMI_DIG_PLL_DIV] = imx_clk_divider_scu("hdmi_dig_pll_div", SC_R_HDMI_PLL_0, SC_PM_CLK_PLL);
 
 	/* User Defined PLLs clocks*/
 	clks[IMX8QM_AUD_PLL0] = imx_clk_gate_scu("audio_pll0_clk", "audio_pll0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_PLL, NULL, 0, 0);
@@ -149,7 +150,8 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_DC0_PLL1_CLK] = imx_clk_gate_scu("dc0_pll1_clk", "dc0_pll1_div", SC_R_DC_0_PLL_1, SC_PM_CLK_PLL, NULL, 0, 0);
 	clks[IMX8QM_DC1_PLL0_CLK] = imx_clk_gate_scu("dc1_pll0_clk", "dc1_pll0_div", SC_R_DC_1_PLL_0, SC_PM_CLK_PLL, NULL, 0, 0);
 	clks[IMX8QM_DC1_PLL1_CLK] = imx_clk_gate_scu("dc1_pll1_clk", "dc1_pll1_div", SC_R_DC_1_PLL_1, SC_PM_CLK_PLL, NULL, 0, 0);
-	clks[IMX8QM_HDMI_AUD_PLL_2_CLK] = imx_clk_gate_scu("hdmi_aud_pll_clk", "hdmi_aud_pll_div", SC_R_HDMI_PLL_1, SC_PM_CLK_PLL, NULL, 0, 0);
+	clks[IMX8QM_HDMI_AV_PLL_CLK] = imx_clk_gate_scu("hdmi_av_pll_clk", "hdmi_av_pll_div", SC_R_HDMI_PLL_1, SC_PM_CLK_PLL, NULL, 0, 0);
+	clks[IMX8QM_HDMI_DIG_PLL_CLK] = imx_clk_gate_scu("hdmi_dig_pll_clk", "hdmi_dig_pll_div", SC_R_HDMI_PLL_0, SC_PM_CLK_PLL, NULL, 0, 0);
 
 	/* DMA SS */
 	clks[IMX8QM_UART0_DIV] = imx_clk_divider_scu("uart0_div", SC_R_UART_0, SC_PM_CLK_PER);
@@ -282,12 +284,13 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_DC1_BYPASS_1_DIV] = imx_clk_divider_scu("dc1_bypass1_div", SC_R_DC_1_VIDEO1, SC_PM_CLK_BYPASS);
 
 	/* HDMI SS */
+	clks[IMX8QM_HDMI_IPG_DIV] = imx_clk_divider_scu("hdmi_ipg_div", SC_R_HDMI, SC_PM_CLK_MISC);
 	clks[IMX8QM_HDMI_I2S_BYPASS_CLK] = imx_clk_divider_scu("hdmi_i2s_bypass_clk", SC_R_HDMI_I2S, SC_PM_CLK_MISC0);
 	clks[IMX8QM_HDMI_I2C0_DIV] = imx_clk_divider_scu("hdmi_i2c0_div", SC_R_HDMI_I2C_0, SC_PM_CLK_MISC2);
 	clks[IMX8QM_HDMI_PXL_DIV] = imx_clk_divider_scu("hdmi_pxl_div", SC_R_HDMI, SC_PM_CLK_MISC3);
 	clks[IMX8QM_HDMI_PXL_LINK_DIV] = imx_clk_divider_scu("hdmi_pxl_link_div", SC_R_HDMI, SC_PM_CLK_MISC1);
 	clks[IMX8QM_HDMI_PXL_MUX_DIV] = imx_clk_divider_scu("hdmi_pxl_mux_div", SC_R_HDMI, SC_PM_CLK_MISC0);
-	clks[IMX8QM_HDMI_I2S_DIV] = imx_clk_divider_scu("hdmi_i2s_div", SC_R_HDMI, SC_PM_CLK_MISC4);
+	clks[IMX8QM_HDMI_I2S_DIV] = imx_clk_divider_scu("hdmi_i2s_div", SC_R_HDMI, SC_PM_CLK_BYPASS);
 	clks[IMX8QM_HDMI_HDP_CORE_DIV] = imx_clk_divider_scu("hdmi_core_div", SC_R_HDMI, SC_PM_CLK_MISC2);
 
 	/* MIPI -DI SS */
@@ -316,7 +319,6 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_DC_AXI_EXT_CLK] = imx_clk_fixed("axi_ext_dc_clk_root", SC_800MHZ);
 	clks[IMX8QM_DC_AXI_INT_CLK] = imx_clk_fixed("axi_int_dc_clk_root", SC_400MHZ);
 	clks[IMX8QM_DC_CFG_CLK] = imx_clk_fixed("cfg_dc_clk_root", SC_100MHZ);
-	clks[IMX8QM_HDMI_IPG_CLK] = imx_clk_fixed("ipg_hdmi_clk_root", SC_62MHZ);
 	clks[IMX8QM_LVDS_IPG_CLK] = imx_clk_fixed("ipg_lvds_clk_root", SC_24MHZ);
 	clks[IMX8QM_IMG_AXI_CLK] = imx_clk_fixed("axi_img_clk_root", SC_400MHZ);
 	clks[IMX8QM_IMG_IPG_CLK] = imx_clk_fixed("ipg_img_clk_root", SC_200MHZ);
@@ -750,34 +752,27 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_DC1_RTRAM1_CLK] = imx_clk_gate2_scu("dc1_rtrm1_clk", "axi_int_dc_clk_root", (void __iomem *)(DC_1_LPCG + 0x30), 0, FUNCTION_NAME(PD_DC_1));
 
 	/* HDMI SS */
-	clks[IMX8QM_HDMI_I2C0_CLK] = imx_clk_gate_scu("hdmi_i2c0_clk", "hdmi_i2c0_div", SC_R_HDMI_I2C_0, SC_PM_CLK_MISC2, (void __iomem *)(DI_HDMI_LPCG + 0x14), 0, 0);
-	clks[IMX8QM_HDMI_PXL_CLK] = imx_clk_gate_scu("hdmi_pxl_clk", "hdmi_pxl_div", SC_R_HDMI, SC_PM_CLK_MISC3, (void __iomem *)(DI_HDMI_LPCG + 0x14), 0, 0);
-	clks[IMX8QM_HDMI_PXL_LINK_CLK] = imx_clk_gate_scu("hdmi_pxl_link_clk", "hdmi_pxl_link_div", SC_R_HDMI, SC_PM_CLK_MISC1, NULL, 0, 0);
+	clks[IMX8QM_HDMI_IPG_CLK] = imx_clk_gate_scu("ipg_hdmi_clk_root", "ipg_hdmi_div", SC_R_HDMI, SC_PM_CLK_MISC, NULL, 0, 0);
+	clks[IMX8QM_HDMI_I2C0_CLK] = imx_clk_gate_scu("hdmi_i2c0_clk", "hdmi_i2c0_div", SC_R_HDMI_I2C_0, SC_PM_CLK_MISC2, (void __iomem *)(DI_HDMI_LPCG), 0, 0);
 	clks[IMX8QM_HDMI_PXL_MUX_CLK] = imx_clk_gate_scu("hdmi_pxl_mux_clk", "hdmi_pxl_mux_div", SC_R_HDMI, SC_PM_CLK_MISC0, NULL, 0, 0);
-	clks[IMX8QM_HDMI_I2S_CLK] = imx_clk_gate_scu("hdmi_i2s_clk", "hdmi_i2s_div", SC_R_HDMI, SC_PM_CLK_MISC4, (void __iomem *)(DI_HDMI_LPCG + 0x58), 0, 0);
-	clks[IMX8QM_HDMI_HDP_CORE_CLK] = imx_clk_gate_scu("hdmi_hdp_core_clk", "hdmi_core_div", SC_R_HDMI, SC_PM_CLK_MISC2, (void __iomem *)(DI_HDMI_LPCG + 0x44), 0, 0);
-	clks[IMX8QM_HDMI_I2C_IPG_S_CLK] = imx_clk_gate2_scu("hdmi_i2c_ipg_s", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x4), 0, FUNCTION_NAME(PD_HDMI_I2C_0));
-	clks[IMX8QM_HDMI_I2C_IPG_CLK] = imx_clk_gate2_scu("hdmi_i2c_ipg_clk", "hdmi_i2c_ipg_s", (void __iomem *)(DI_HDMI_LPCG), 0, FUNCTION_NAME(PD_HDMI_I2C_0));
-	clks[IMX8QM_HDMI_PWM_IPG_S_CLK] = imx_clk_gate2_scu("hdmi_pwm_ipg_s", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0xC), 0, FUNCTION_NAME(PD_HDMI_PWM_0));
-	clks[IMX8QM_HDMI_PWM_IPG_CLK] = imx_clk_gate2_scu("hdmi_pwm_ipg_clk", "hdmi_pwm_ipg_s", (void __iomem *)(DI_HDMI_LPCG + 0x8), 0, FUNCTION_NAME(PD_HDMI_PWM_0));
-	clks[IMX8QM_HDMI_PWM_32K_CLK] = imx_clk_gate2_scu("hdmi_pwm_32K_clk", "xtal_32KHz", (void __iomem *)(DI_HDMI_LPCG + 0x20), 0, FUNCTION_NAME(PD_HDMI_PWM_0));
-	clks[IMX8QM_HDMI_GPIO_IPG_CLK] = imx_clk_gate2_scu("hdmi_gpio_ipg_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x10), 0, FUNCTION_NAME(PD_HDMI_GPIO_0));
-	clks[IMX8QM_HDMI_PXL_LINK_SLV_ODD_CLK] = imx_clk_gate2_scu("hdmi_pxl_lnk_slv_odd_clk", "hdmi_pxl_link_clk", (void __iomem *)(DI_HDMI_LPCG + 0x28), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_PXL_LINK_SLV_EVEN_CLK] = imx_clk_gate2_scu("hdmi_pxl_lnk_slv_even_clk", "hdmi_pxl_link_clk", (void __iomem *)(DI_HDMI_LPCG + 0x2C), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_LIS_IPG_CLK] = imx_clk_gate2_scu("hdmi_lis_ipg_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x24), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_MSI_HCLK] = imx_clk_gate2_scu("hdmi_msi_hclk_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x40), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_PXL_EVEN_CLK] = imx_clk_gate2_scu("hdmi_pxl_even_clk", "hdmi_pxl_link_clk", (void __iomem *)(DI_HDMI_LPCG + 0x30), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_PXL_ODD_CLK] = imx_clk_gate2_scu("hdmi_pxl_odd_clk", "hdmi_pxl_link_clk", (void __iomem *)(DI_HDMI_LPCG + 0x34), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_PXL_DBL_CLK] = imx_clk_gate2_scu("hdmi_pxl_dbl_clk", "hdmi_pxl_link_clk", (void __iomem *)(DI_HDMI_LPCG + 0x38), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_APB_CLK] = imx_clk_gate2_scu("hdmi_apb_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x3C), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_PCLK] = imx_clk_gate2_scu("hdmi_pclk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x48), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_SCLK] = imx_clk_gate2_scu("hdmi_sclk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x4C), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_CCLK] = imx_clk_gate2_scu("hdmi_cclk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x74), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_VIF_CLK] = imx_clk_gate2_scu("hdmi_vif_clk", "hdmi_pxl_mux_clk", (void __iomem *)(DI_HDMI_LPCG + 0x54), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_SPDIF_IN_MCLK] = imx_clk_gate2_scu("hdmi_spdif_in_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x70), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_REF_IN_CLK] = imx_clk_gate2_scu("hdmi_ref_in_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x78), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_APB_MUX_CSR_CLK] = imx_clk_gate2_scu("hdmi_apb_mux_csr_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x7C), 0, FUNCTION_NAME(PD_HDMI));
-	clks[IMX8QM_HDMI_APB_MUX_CTRL_CLK] = imx_clk_gate2_scu("hdmi_apb_mux_ctrl_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x80), 0, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_PXL_LINK_CLK] = imx_clk_gate_scu("hdmi_pxl_link_clk", "hdmi_pxl_link_div", SC_R_HDMI, SC_PM_CLK_MISC1, NULL, 0, 0);
+	clks[IMX8QM_HDMI_HDP_CORE_CLK] = imx_clk_gate_scu("hdmi_hdp_core_clk", "hdmi_core_div", SC_R_HDMI, SC_PM_CLK_MISC2, NULL, 0, 0);
+	clks[IMX8QM_HDMI_PXL_CLK] = imx_clk_gate_scu("hdmi_pxl_clk", "hdmi_pxl_div", SC_R_HDMI, SC_PM_CLK_MISC3, NULL, 0, 0);
+	clks[IMX8QM_HDMI_I2S_CLK] = imx_clk_gate_scu("hdmi_i2s_clk", "hdmi_i2s_div", SC_R_HDMI, SC_PM_CLK_BYPASS, (void __iomem *)(DI_HDMI_LPCG + 0xC), 0, 0);
+	clks[IMX8QM_HDMI_I2C_IPG_CLK] = imx_clk_gate2_scu("hdmi_i2c_ipg_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG), 16, FUNCTION_NAME(PD_HDMI_I2C_0));
+	clks[IMX8QM_HDMI_PWM_IPG_CLK] = imx_clk_gate2_scu("hdmi_pwm_ipg_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x8), 16, FUNCTION_NAME(PD_HDMI_PWM_0));
+	clks[IMX8QM_HDMI_GPIO_IPG_CLK] = imx_clk_gate2_scu("hdmi_gpio_ipg_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x10), 16, FUNCTION_NAME(PD_HDMI_GPIO_0));
+	clks[IMX8QM_HDMI_LIS_IPG_CLK] = imx_clk_gate2_scu("hdmi_lis_ipg_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x4), 16, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_MSI_HCLK] = imx_clk_gate2_scu("hdmi_msi_hclk_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x14), 0, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_PXL_LPCG_CLK] = imx_clk_gate2_scu("hdmi_pxl_lpcg_clk", "dummy", (void __iomem *)(DI_HDMI_LPCG + 0x18), 0, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_PXL_EVEN_CLK] = imx_clk_gate2_scu("hdmi_pxl_even_clk", "hdmi_pxl_lpcg_clk", NULL, 0, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_HDP_CLK] = imx_clk_gate2_scu("hdmi_pxl_odd_clk", "hdmi_pxl_lpcg_clk", NULL, 0, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_PXL_DBL_CLK] = imx_clk_gate2_scu("hdmi_pxl_dbl_clk", "hdmi_pxl_lpcg_clk", NULL, 0, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_VIF_CLK] = imx_clk_gate2_scu("hdmi_vif_clk", "hdmi_pxl_mux_clk", (void __iomem *)(DI_HDMI_LPCG + 0x1C), 0, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_APB_CLK] = imx_clk_gate2_scu("hdmi_apb_clk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x28), 16, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_APB_MUX_CSR_CLK] = imx_clk_gate2_scu("hdmi_apb_mux_csr_clk", "hdmi_apb_clk", (void __iomem *)(DI_HDMI_LPCG + 0x20), 16, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_APB_MUX_CTRL_CLK] = imx_clk_gate2_scu("hdmi_apb_mux_ctrl_clk", "hdmi_apb_clk", (void __iomem *)(DI_HDMI_LPCG + 0x24), 16, FUNCTION_NAME(PD_HDMI));
+	clks[IMX8QM_HDMI_HDP_PHY_CLK] = imx_clk_gate2_scu("hdmi_pclk", "ipg_hdmi_clk_root", (void __iomem *)(DI_HDMI_LPCG + 0x1C), 16, FUNCTION_NAME(PD_HDMI));
 
 	/* lvds subsystem */
 	clks[IMX8QM_LVDS0_PIXEL_CLK] = imx_clk_gate_scu("lvds0_pixel_clk", "lvds0_pixel_div", SC_R_LVDS_0, SC_PM_CLK_PER, NULL, 0, 0);
