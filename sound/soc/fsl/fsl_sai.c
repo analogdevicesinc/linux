@@ -372,9 +372,9 @@ static int fsl_sai_set_dai_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
 	int ret;
 
-	if (sai->i2s_xtor)
-		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-		      SND_SOC_DAIFMT_CBS_CFS;
+	if (sai->masterflag[FSL_FMT_TRANSMITTER])
+		fmt = (fmt & (~SND_SOC_DAIFMT_MASTER_MASK)) |
+				sai->masterflag[FSL_FMT_TRANSMITTER];
 
 	ret = fsl_sai_set_dai_fmt_tr(cpu_dai, fmt, FSL_FMT_TRANSMITTER);
 	if (ret) {
@@ -382,9 +382,9 @@ static int fsl_sai_set_dai_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 		return ret;
 	}
 
-	if (sai->i2s_xtor)
-		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-		      SND_SOC_DAIFMT_CBM_CFM;
+	if (sai->masterflag[FSL_FMT_RECEIVER])
+		fmt = (fmt & (~SND_SOC_DAIFMT_MASTER_MASK)) |
+				sai->masterflag[FSL_FMT_RECEIVER];
 
 	ret = fsl_sai_set_dai_fmt_tr(cpu_dai, fmt, FSL_FMT_RECEIVER);
 	if (ret)
@@ -1033,8 +1033,19 @@ static int fsl_sai_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	/* I2S XTOR mode */
-	sai->i2s_xtor = (of_find_property(np, "fsl,i2s-xtor", NULL) != NULL);
+	if ((of_find_property(np, "fsl,i2s-xtor", NULL) != NULL) ||
+	    (of_find_property(np, "fsl,txm-rxs", NULL) != NULL))
+	{
+		sai->masterflag[FSL_FMT_TRANSMITTER] = SND_SOC_DAIFMT_CBS_CFS;
+		sai->masterflag[FSL_FMT_RECEIVER] = SND_SOC_DAIFMT_CBM_CFM;
+	} else {
+		if (!of_property_read_u32(np, "fsl,txmasterflag",
+			&sai->masterflag[FSL_FMT_TRANSMITTER]))
+			sai->masterflag[FSL_FMT_TRANSMITTER] <<= 12;
+		if (!of_property_read_u32(np, "fsl,rxmasterflag",
+			&sai->masterflag[FSL_FMT_RECEIVER]))
+			sai->masterflag[FSL_FMT_RECEIVER] <<= 12;
+	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
