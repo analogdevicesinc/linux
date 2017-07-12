@@ -214,6 +214,16 @@ config IMX_THERMAL
 	  cpufreq is used as the cooling device to throttle CPUs when the
 	  passive trip is crossed.
 
+config IMX8M_THERMAL
+	tristate "i.MX8M Thermal Monitoring Unit"
+	depends on THERMAL_OF
+	depends on HAS_IOMEM
+	help
+	  Support for Thermal Monitoring Unit (TMU) found on i.MX8M platforms.
+	  It supports one critical trip point and one passive trip point. The
+	  cpufreq is used as the cooling device to throttle CPUs when the
+	  passive trip is crossed.
+
 config IMX_SC_THERMAL
 	tristate "thermal sensor driver for NXP i.MX8 SoCs"
 	depends on THERMAL_OF && ARCH_MXC_ARM64

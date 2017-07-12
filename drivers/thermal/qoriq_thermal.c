@@ -1,5 +1,6 @@
 /*
  * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -305,6 +306,7 @@ static SIMPLE_DEV_PM_OPS(qoriq_tmu_pm_ops,
 
 static const struct of_device_id qoriq_tmu_match[] = {
 	{ .compatible = "fsl,qoriq-tmu", },
+	{ .compatible = "fsl,imx8mq-tmu",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, qoriq_tmu_match);
