@@ -708,8 +708,6 @@ static int fsl_sai_startup(struct snd_pcm_substream *substream,
 	else
 		sai->is_stream_opened[tx] = true;
 
-	pm_runtime_get_sync(cpu_dai->dev);
-
 	ret = clk_prepare_enable(sai->bus_clk);
 	if (ret) {
 		dev_err(dev, "failed to enable bus clock: %d\n", ret);
@@ -745,7 +743,6 @@ static void fsl_sai_shutdown(struct snd_pcm_substream *substream,
 				   FSL_SAI_CR3_TRCE_MASK, 0);
 		clk_disable_unprepare(sai->bus_clk);
 		sai->is_stream_opened[tx] = false;
-		pm_runtime_put_sync(cpu_dai->dev);
 	}
 }
 
@@ -1110,6 +1107,8 @@ static int fsl_sai_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	regcache_cache_only(sai->regmap, true);
+
 	ret = devm_snd_soc_register_component(&pdev->dev, &fsl_component,
 			&fsl_sai_dai, 1);
 	if (ret)
@@ -1128,18 +1127,30 @@ static int fsl_sai_probe(struct platform_device *pdev)
 static int fsl_sai_runtime_resume(struct device *dev)
 {
 	struct fsl_sai *sai = dev_get_drvdata(dev);
+	unsigned char offset = sai->soc->reg_offset;
 
 	request_bus_freq(BUS_FREQ_AUDIO);
 
 	if (sai->soc->flags & SAI_FLAG_PMQOS)
 		pm_qos_add_request(&sai->pm_qos_req,
 				PM_QOS_CPU_DMA_LATENCY, 0);
-	return 0;
+
+	regcache_cache_only(sai->regmap, false);
+	regcache_mark_dirty(sai->regmap);
+
+	regmap_write(sai->regmap, FSL_SAI_TCSR(offset), FSL_SAI_CSR_SR);
+	regmap_write(sai->regmap, FSL_SAI_RCSR(offset), FSL_SAI_CSR_SR);
+	usleep_range(1000, 2000);
+	regmap_write(sai->regmap, FSL_SAI_TCSR(offset), 0);
+	regmap_write(sai->regmap, FSL_SAI_RCSR(offset), 0);
+	return regcache_sync(sai->regmap);
 }
 
 static int fsl_sai_runtime_suspend(struct device *dev)
 {
 	struct fsl_sai *sai = dev_get_drvdata(dev);
+
+	regcache_cache_only(sai->regmap, true);
 
 	release_bus_freq(BUS_FREQ_AUDIO);
 
