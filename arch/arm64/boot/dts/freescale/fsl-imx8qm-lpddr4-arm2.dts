@@ -525,6 +525,7 @@
 		VLS-supply = <&reg_audio>;
 		VLC-supply = <&reg_audio>;
 		reset-gpio = <&pca9557_a 2 1>;
+		power-domains = <&pd_mclk_out0>;
 	};
 };
 

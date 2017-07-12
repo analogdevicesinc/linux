@@ -143,6 +143,12 @@
 #define PD_AUD_MQS_0                audio_mqs0
 #define PD_AUD_HIFI                 audio_hifi
 #define PD_AUD_OCRAM                audio_ocram
+#define PD_AUD_MCLK_OUT_0           audio_mclkout0
+#define PD_AUD_MCLK_OUT_1           audio_mclkout1
+#define PD_AUD_AUDIO_PLL_0          audio_audiopll0
+#define PD_AUD_AUDIO_PLL_1          audio_audiopll1
+#define PD_AUD_AUDIO_CLK_0          audio_audioclk0
+#define PD_AUD_AUDIO_CLK_1          audio_audioclk1
 
 #define PD_IMAGING                  imaging_power_domain
 #define PD_IMAGING_JPEG_DEC         imaging_jpeg_dec
