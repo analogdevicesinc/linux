@@ -176,8 +176,8 @@ struct dpu_soc {
 	struct dpu_disengcfg	*dec_priv[2];
 	struct dpu_extdst	*ed_priv[4];
 	struct dpu_fetchdecode	*fd_priv[4];
-	struct dpu_fetchlayer	*fl_priv[2];
 	struct dpu_framegen	*fg_priv[2];
+	struct dpu_fetchlayer	*fl_priv[2];
 	struct dpu_hscaler	*hs_priv[3];
 	struct dpu_layerblend	*lb_priv[7];
 	struct dpu_tcon		*tcon_priv[2];
