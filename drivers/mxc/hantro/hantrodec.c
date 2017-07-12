@@ -980,8 +980,8 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
   mod_timer(&timer, jiffies + 10*HZ); /*the interval is 10s*/
 #endif
 
-  switch (cmd) {
-  case HANTRODEC_IOC_CLI:
+  switch (_IOC_NR(cmd)) {
+  case _IOC_NR(HANTRODEC_IOC_CLI):
   	{
 	  __u32 id; 
       __get_user(id, (__u32*)arg);
@@ -992,7 +992,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
       disable_irq(hantrodec_data.irq[id]);
       break;
   	}
-  case HANTRODEC_IOC_STI:
+  case _IOC_NR(HANTRODEC_IOC_STI):
   	{
 	  __u32 id; 
       __get_user(id, (__u32*)arg);
@@ -1003,7 +1003,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
       enable_irq(hantrodec_data.irq[id]);
       break;
   	}
-  case HANTRODEC_IOCGHWOFFSET:
+  case _IOC_NR(HANTRODEC_IOCGHWOFFSET):
   	{
       __u32 id; 
       __get_user(id, (__u32*)arg);
@@ -1015,7 +1015,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
       __put_user(multicorebase[id], (unsigned long *) arg);
       break;
   	}
-  case HANTRODEC_IOCGHWIOSIZE:
+  case _IOC_NR(HANTRODEC_IOCGHWIOSIZE):
   	{
       __u32 id;
       __u32 io_size;
@@ -1029,7 +1029,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
   	  return 0;
   	}
-  case HANTRODEC_IOC_MC_OFFSETS: {
+  case _IOC_NR(HANTRODEC_IOC_MC_OFFSETS): {
     tmp = copy_to_user((u64 *) arg, multicorebase, sizeof(multicorebase));
     if (err) {
       PDEBUG("copy_to_user failed, returned %li\n", tmp);
@@ -1037,11 +1037,11 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
     }
     break;
   }
-  case HANTRODEC_IOC_MC_CORES:
+  case _IOC_NR(HANTRODEC_IOC_MC_CORES):
     __put_user(hantrodec_data.cores, (unsigned int *) arg);
 	PDEBUG("hantrodec_data.cores=%d\n", hantrodec_data.cores);
     break;
-  case HANTRODEC_IOCS_DEC_PUSH_REG: {
+  case _IOC_NR(HANTRODEC_IOCS_DEC_PUSH_REG): {
     struct core_desc Core;
 
     /* get registers from user space*/
@@ -1054,7 +1054,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
     DecFlushRegs(&hantrodec_data, &Core);
     break;
   }
-  case HANTRODEC_IOCS_PP_PUSH_REG: {
+  case _IOC_NR(HANTRODEC_IOCS_PP_PUSH_REG): {
     struct core_desc Core;
 
     /* get registers from user space*/
@@ -1067,7 +1067,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
     PPFlushRegs(&hantrodec_data, &Core);
     break;
   }
-  case HANTRODEC_IOCS_DEC_PULL_REG: {
+  case _IOC_NR(HANTRODEC_IOCS_DEC_PULL_REG): {
     struct core_desc Core;
 
     /* get registers from user space*/
@@ -1079,7 +1079,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
     return DecRefreshRegs(&hantrodec_data, &Core);
   }
-  case HANTRODEC_IOCS_PP_PULL_REG: {
+  case _IOC_NR(HANTRODEC_IOCS_PP_PULL_REG): {
     struct core_desc Core;
 
     /* get registers from user space*/
@@ -1091,11 +1091,11 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
     return PPRefreshRegs(&hantrodec_data, &Core);
   }
-  case HANTRODEC_IOCH_DEC_RESERVE: {
+  case _IOC_NR(HANTRODEC_IOCH_DEC_RESERVE): {
     PDEBUG("Reserve DEC Core, format = %li\n", arg);
     return ReserveDecoder(&hantrodec_data, filp, arg);
   }
-  case HANTRODEC_IOCT_DEC_RELEASE: {
+  case _IOC_NR(HANTRODEC_IOCT_DEC_RELEASE): {
     if(arg >= hantrodec_data.cores || dec_owner[arg] != filp) {
       PDEBUG("bogus DEC release, Core = %li\n", arg);
       return -EFAULT;
@@ -1107,9 +1107,9 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
     break;
   }
-  case HANTRODEC_IOCQ_PP_RESERVE:
+  case _IOC_NR(HANTRODEC_IOCQ_PP_RESERVE):
     return ReservePostProcessor(&hantrodec_data, filp);
-  case HANTRODEC_IOCT_PP_RELEASE: {
+  case _IOC_NR(HANTRODEC_IOCT_PP_RELEASE): {
     if(arg != 0 || pp_owner[arg] != filp) {
       PDEBUG("bogus PP release %li\n", arg);
       return -EFAULT;
@@ -1119,7 +1119,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
     break;
   }
-  case HANTRODEC_IOCX_DEC_WAIT: {
+  case _IOC_NR(HANTRODEC_IOCX_DEC_WAIT): {
     struct core_desc Core;
 
     /* get registers from user space */
@@ -1131,7 +1131,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
     return WaitDecReadyAndRefreshRegs(&hantrodec_data, &Core);
   }
-  case HANTRODEC_IOCX_PP_WAIT: {
+  case _IOC_NR(HANTRODEC_IOCX_PP_WAIT): {
     struct core_desc Core;
 
     /* get registers from user space */
@@ -1143,13 +1143,13 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
     return WaitPPReadyAndRefreshRegs(&hantrodec_data, &Core);
   }
-  case HANTRODEC_IOCG_CORE_WAIT: {
+  case _IOC_NR(HANTRODEC_IOCG_CORE_WAIT): {
     int id;
     tmp = WaitCoreReady(&hantrodec_data, filp, &id);
     __put_user(id, (int *) arg);
     return tmp;
   }
-  case HANTRODEC_IOX_ASIC_ID: {
+  case _IOC_NR(HANTRODEC_IOX_ASIC_ID): {
     u32 id;
     __get_user(id, (u32*)arg);
 
@@ -1160,11 +1160,11 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
     __put_user(id, (u32 *) arg);
 	return 0;
   }
-  case HANTRODEC_IOCG_CORE_ID: {
+  case _IOC_NR(HANTRODEC_IOCG_CORE_ID): {
     PDEBUG("Get DEC Core_id, format = %li\n", arg);
 	return GetDecCoreID(&hantrodec_data, filp, arg);
   }
-  case HANTRODEC_DEBUG_STATUS: {
+  case _IOC_NR(HANTRODEC_DEBUG_STATUS): {
     printk(KERN_INFO "hantrodec: dec_irq     = 0x%08x \n", dec_irq);
     printk(KERN_INFO "hantrodec: pp_irq      = 0x%08x \n", pp_irq);
 
@@ -1184,6 +1184,92 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
   return 0;
 }
+ 
+#ifdef CONFIG_COMPAT
+struct core_desc_32 {
+  __u32 id; /* id of the Core */
+  compat_caddr_t regs; /* pointer to user registers */
+  __u32 size; /* size of register space */
+};
+
+static int get_hantro_core_desc32(struct core_desc *kp, struct core_desc_32 __user *up)
+{
+    u32 tmp;
+    if (!access_ok(VERIFY_READ, up, sizeof(struct core_desc_32)) ||
+        get_user(kp->id, &up->id) ||
+        get_user(kp->size, &up->size) || 
+        get_user(tmp, &up->regs)){
+            return -EFAULT;
+    }
+    kp->regs = (__force u32 *)compat_ptr(tmp);
+    return 0;
+}
+
+static int put_hantro_core_desc32(struct core_desc *kp, struct core_desc_32 __user *up)
+{
+    u32 tmp = (u32)((unsigned long)kp->regs);
+    if (!access_ok(VERIFY_WRITE, up, sizeof(struct core_desc_32)) ||
+        put_user(kp->id, &up->id) ||
+        put_user(kp->size, &up->size) || 
+        put_user(tmp, &up->regs)){
+            return -EFAULT;
+    }
+    return 0;
+}
+static long hantrodec_ioctl32(struct file *filp, unsigned int cmd,unsigned long arg)
+{
+#define HANTRO_IOCTL32(err,filp,cmd, arg) {\
+      mm_segment_t old_fs = get_fs(); \
+      set_fs(KERNEL_DS); \
+      err = hantrodec_ioctl(filp, cmd, arg);\
+      if(err) return err;\
+      set_fs(old_fs);\
+}
+    union {
+        struct core_desc kcore;
+        unsigned long kux;
+        unsigned int kui;
+    } karg;
+    void __user *up = compat_ptr(arg);
+    long err = 0;
+
+    switch(_IOC_NR(cmd)){
+        case _IOC_NR(HANTRODEC_IOCGHWOFFSET):
+        case _IOC_NR(HANTRODEC_IOC_MC_OFFSETS):
+            err = get_user(karg.kux, (s32 __user *)up);
+            if(err) return err;
+            HANTRO_IOCTL32(err,filp,cmd, (unsigned long)&karg);
+            err = put_user(((s32)karg.kux), (s32 __user *)up);
+            break;
+        case _IOC_NR(HANTRODEC_IOCGHWIOSIZE):
+        case _IOC_NR(HANTRODEC_IOC_MC_CORES):
+        case _IOC_NR(HANTRODEC_IOCG_CORE_WAIT):
+        case _IOC_NR(HANTRODEC_IOX_ASIC_ID):
+            err = get_user(karg.kui, (s32 __user *)up);
+            if(err) return err;
+            HANTRO_IOCTL32(err,filp,cmd, (unsigned long)&karg);
+            err = put_user(((s32)karg.kui), (s32 __user *)up);
+            break;
+        case _IOC_NR(HANTRODEC_IOCS_DEC_PUSH_REG):
+        case _IOC_NR(HANTRODEC_IOCS_PP_PUSH_REG):
+        case _IOC_NR(HANTRODEC_IOCX_DEC_WAIT):
+        case _IOC_NR(HANTRODEC_IOCX_PP_WAIT):
+        case _IOC_NR(HANTRODEC_IOCS_DEC_PULL_REG):
+        case _IOC_NR(HANTRODEC_IOCS_PP_PULL_REG):
+            err = get_hantro_core_desc32(&karg.kcore, up);
+            if(err) return err;
+            HANTRO_IOCTL32(err,filp,cmd, (unsigned long)&karg);
+            err = put_hantro_core_desc32(&karg.kcore, up);
+            break;
+        default:
+            err = hantrodec_ioctl(filp, cmd, (unsigned long)up);  
+            break;
+    }
+
+    return err;
+}
+
+#endif //ifdef CONFIG_COMPAT
 
 /*------------------------------------------------------------------------------
  Function name   : hantrodec_open
@@ -1281,6 +1367,9 @@ static struct file_operations hantrodec_fops = {
   .unlocked_ioctl = hantrodec_ioctl,
   .fasync = NULL,
   .mmap = hantro_mmap,
+#ifdef CONFIG_COMPAT
+  .compat_ioctl = hantrodec_ioctl32,
+#endif
 };
 
 /*------------------------------------------------------------------------------
