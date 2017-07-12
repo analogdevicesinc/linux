@@ -493,8 +493,6 @@ static int fsl_spdif_startup(struct snd_pcm_substream *substream,
 	int i;
 	int ret;
 
-	pm_runtime_get_sync(cpu_dai->dev);
-
 	/* Reset module and interrupts only for first initialization */
 	if (!cpu_dai->active) {
 		ret = clk_prepare_enable(spdif_priv->coreclk);
@@ -604,7 +602,6 @@ static void fsl_spdif_shutdown(struct snd_pcm_substream *substream,
 		clk_disable_unprepare(spdif_priv->coreclk);
 	}
 
-	pm_runtime_put_sync(cpu_dai->dev);
 }
 
 static int fsl_spdif_hw_params(struct snd_pcm_substream *substream,
@@ -1437,6 +1434,7 @@ static int fsl_spdif_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	regcache_cache_only(spdif_priv->regmap, true);
 	/* Register with ASoC */
 	dev_set_drvdata(&pdev->dev, spdif_priv);
 
@@ -1485,12 +1483,27 @@ static int fsl_spdif_resume(struct device *dev)
 #ifdef CONFIG_PM
 static int fsl_spdif_runtime_resume(struct device *dev)
 {
+	struct fsl_spdif_priv *spdif_priv = dev_get_drvdata(dev);
+
 	request_bus_freq(BUS_FREQ_HIGH);
-	return 0;
+
+	regcache_cache_only(spdif_priv->regmap, false);
+	regcache_mark_dirty(spdif_priv->regmap);
+
+	regmap_update_bits(spdif_priv->regmap, REG_SPDIF_SRPC,
+			SRPC_CLKSRC_SEL_MASK | SRPC_GAINSEL_MASK,
+			spdif_priv->regcache_srpc);
+
+	return regcache_sync(spdif_priv->regmap);
 }
 
 static int fsl_spdif_runtime_suspend(struct device *dev)
 {
+	struct fsl_spdif_priv *spdif_priv = dev_get_drvdata(dev);
+
+	regmap_read(spdif_priv->regmap, REG_SPDIF_SRPC,
+			&spdif_priv->regcache_srpc);
+	regcache_cache_only(spdif_priv->regmap, true);
 	release_bus_freq(BUS_FREQ_HIGH);
 	return 0;
 }
