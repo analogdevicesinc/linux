@@ -214,6 +214,79 @@
 		#interrupt-cells = <2>;
 	};
 
+	tmu: tmu@30260000 {
+		compatible = "fsl,imx8mq-tmu";
+		reg = <0x0 0x30260000 0x0 0x10000>;
+		interrupt = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
+		little-endian;
+		fsl,tmu-range = <0xa0000 0x90026 0x8004a 0x1006a>;
+		fsl,tmu-calibration = <0x00000000 0x00000020
+				       0x00000001 0x00000028
+				       0x00000002 0x00000030
+				       0x00000003 0x00000038
+				       0x00000004 0x00000040
+				       0x00000005 0x00000048
+				       0x00000006 0x00000050
+				       0x00000007 0x00000058
+				       0x00000008 0x00000060
+				       0x00000009 0x00000068
+				       0x0000000a 0x00000070
+				       0x0000000b 0x00000077
+
+				       0x00010000 0x00000057
+				       0x00010001 0x0000005b
+				       0x00010002 0x0000005f
+				       0x00010003 0x00000063
+				       0x00010004 0x00000067
+				       0x00010005 0x0000006b
+				       0x00010006 0x0000006f
+				       0x00010007 0x00000073
+				       0x00010008 0x00000077
+				       0x00010009 0x0000007b
+				       0x0001000a 0x0000007f
+
+				       0x00020000 0x00000002
+				       0x00020001 0x0000000e
+				       0x00020002 0x0000001a
+				       0x00020003 0x00000026
+				       0x00020004 0x00000032
+				       0x00020005 0x0000003e
+				       0x00020006 0x0000004a
+				       0x00020007 0x00000056
+				       0x00020008 0x00000062
+
+				       0x00030000 0x00000000
+				       0x00030001 0x00000008
+				       0x00030002 0x00000010
+				       0x00030003 0x00000018
+				       0x00030004 0x00000020
+				       0x00030005 0x00000028
+				       0x00030006 0x00000030
+				       0x00030007 0x00000038>;
+		#thermal-sensor-cells =  <0>;
+	};
+
+	thermal-zones {
+		/* cpu thermal */
+		cpu-thermal {
+			polling-delay-passive = <250>;
+			polling-delay = <2000>;
+			thermal-sensors = <&tmu>;
+			trips {
+				cpu_alert0: trip0 {
+					temperature = <85000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				cpu_crit0: trip1 {
+					temperature = <125000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+		};
+	};
+
 	gpt1: gpt@302d0000 {
 		compatible = "fsl,imx8mq-gpt";
 		reg = <0x0 0x302d0000 0x0 0x10000>;
