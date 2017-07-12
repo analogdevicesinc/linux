@@ -78,7 +78,7 @@ static struct fsl_sai_soc_data fsl_sai_imx8mq = {
 	.imx = true,
 	.dataline = 0xff,
 	.fifos = 8,
-	.fifo_depth = 32,
+	.fifo_depth = 128,
 	.flags = 0,
 	.reg_offset = 8,
 	.constrain_period_size = false,
@@ -88,7 +88,7 @@ static struct fsl_sai_soc_data fsl_sai_imx8qm = {
 	.imx = true,
 	.dataline = 0x3,
 	.fifos = 1,
-	.fifo_depth = 32,
+	.fifo_depth = 64,
 	.flags = 0,
 	.reg_offset = 0,
 	.constrain_period_size = true,
@@ -772,10 +772,12 @@ static int fsl_sai_dai_probe(struct snd_soc_dai *cpu_dai)
 	regmap_write(sai->regmap, FSL_SAI_TCSR(offset), 0);
 	regmap_write(sai->regmap, FSL_SAI_RCSR(offset), 0);
 
-	regmap_update_bits(sai->regmap, FSL_SAI_TCR1(offset), FSL_SAI_CR1_RFW_MASK,
-			   sai->soc->fifo_depth - FSL_SAI_MAXBURST_TX);
-	regmap_update_bits(sai->regmap, FSL_SAI_RCR1(offset), FSL_SAI_CR1_RFW_MASK,
-			   FSL_SAI_MAXBURST_RX - 1);
+	regmap_update_bits(sai->regmap, FSL_SAI_TCR1(offset),
+				sai->soc->fifo_depth - 1,
+				sai->soc->fifo_depth - FSL_SAI_MAXBURST_TX);
+	regmap_update_bits(sai->regmap, FSL_SAI_RCR1(offset),
+				sai->soc->fifo_depth - 1,
+				FSL_SAI_MAXBURST_RX - 1);
 
 	snd_soc_dai_init_dma_data(cpu_dai, &sai->dma_params_tx,
 				&sai->dma_params_rx);
