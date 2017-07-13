@@ -196,6 +196,7 @@ static struct kmem_cache *tx_desc_cache;
 static struct kmem_cache *edge_node_cache;
 static struct pxp_collision_info col_info;
 static dma_addr_t paddr;
+static bool v3p_flag;
 
 struct pxp_dma {
 	struct dma_device dma;
@@ -637,7 +638,7 @@ struct path_node {
 static struct vetex_node adj_list[PXP_2D_NUM];
 static struct path_node path_table[PXP_2D_NUM][PXP_2D_NUM];
 
-static bool adj_array[PXP_2D_NUM][PXP_2D_NUM] = {
+static bool adj_array_v3[PXP_2D_NUM][PXP_2D_NUM] = {
       /* 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 */
 	{0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 0  */
 	{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, /* 1  */
@@ -657,7 +658,8 @@ static bool adj_array[PXP_2D_NUM][PXP_2D_NUM] = {
 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 15 */
 };
 
-static struct mux muxes[16] = {
+
+static struct mux muxes_v3[16] = {
 	{
 		/* mux0 */
 		.id = 0,
@@ -738,6 +740,110 @@ static struct mux muxes[16] = {
 		.id = 15,
 		.mux_inputs = {PXP_2D_INPUT_FETCH0, PXP_2D_MUX_MUX10, 0xff, 0xff},
 		.mux_outputs = {PXP_2D_INPUT_STORE0, 0xff},
+	},
+};
+
+static bool adj_array_v3p[PXP_2D_NUM][PXP_2D_NUM] = {
+      /* 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 */
+	{0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 0  */
+	{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, /* 1  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 2  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 3  */
+	{0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 4  */
+	{0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 5  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0}, /* 6  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0}, /* 7  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 8  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 9  */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0}, /* 10 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0}, /* 11 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}, /* 12 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 13 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 14 */
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, /* 15 */
+};
+
+static struct mux muxes_v3p[16] = {
+	{
+		/* mux0 */
+		.id = 0,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux1 */
+		.id = 1,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux2 */
+		.id = 2,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux3 */
+		.id = 3,
+		.mux_inputs = {PXP_2D_CSC1, PXP_2D_ROTATION1, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_ALPHA0_S0, 0xff},
+	}, {
+		/* mux4 is not used in ULT1 */
+		.id = 4,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux5 */
+		.id = 5,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux6 */
+		.id = 6,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	},  {
+		/* mux7 */
+		.id = 7,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux8 */
+		.id = 8,
+		.mux_inputs = {PXP_2D_CSC2, PXP_2D_ALPHA0_S0_S1, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_MUX_MUX9, PXP_2D_MUX_MUX11},
+	}, {
+		/* mux9 */
+		.id = 9,
+		.mux_inputs = {0xff, PXP_2D_MUX_MUX8, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_LUT, 0xff},
+	}, {
+		/* mux10 */
+		.id = 10,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux11 */
+		.id = 11,
+		.mux_inputs = {PXP_2D_LUT, PXP_2D_MUX_MUX8, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_MUX_MUX12, PXP_2D_ROTATION0},
+	}, {
+		/* mux12 */
+		.id = 12,
+		.mux_inputs = {PXP_2D_ROTATION0, PXP_2D_MUX_MUX11, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_MUX_MUX14, 0xff},
+	}, {
+		/* mux13 */
+		.id = 13,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
+	}, {
+		/* mux14 */
+		.id = 14,
+		.mux_inputs = {0xff, PXP_2D_MUX_MUX12, 0xff, 0xff},
+		.mux_outputs = {PXP_2D_OUT, 0xff},
+	}, {
+		/* mux15 */
+		.id = 15,
+		.mux_inputs = {0xff, 0xff, 0xff, 0xff},
+		.mux_outputs = {0xff, 0xff},
 	},
 };
 
@@ -7192,6 +7298,9 @@ static bool search_mux_chain(uint32_t mux_id,
 	bool found = false;
 	uint32_t i, j, next_mux = 0;
 	uint32_t output;
+	struct mux *muxes;
+
+	muxes = (v3p_flag) ? muxes_v3p : muxes_v3;
 
 	for (i = 0; i < 2; i++) {
 		output = muxes[mux_id].mux_outputs[i];
@@ -7228,9 +7337,12 @@ static void enode_mux_config(unsigned int vnode_id,
 {
 	uint32_t i, j;
 	bool via_mux = false, need_search = false;
+	struct mux *muxes;
 
 	BUG_ON(vnode_id >= PXP_2D_NUM);
 	BUG_ON(enode->adjvex >= PXP_2D_NUM);
+
+	muxes = (v3p_flag) ? muxes_v3p : muxes_v3;
 
 	for (i = 0; i < 16; i++) {
 		for (j = 0; j < 4; j++) {
@@ -7267,7 +7379,10 @@ static void enode_mux_config(unsigned int vnode_id,
 static int pxp_create_initial_graph(struct platform_device *pdev)
 {
 	int i, j, first;
+	static bool (*adj_array)[PXP_2D_NUM];
 	struct edge_node *enode, *curr = NULL;
+
+	adj_array = (v3p_flag) ? adj_array_v3p : adj_array_v3;
 
 	for (i = 0; i < PXP_2D_NUM; i++) {
 		switch (i) {
@@ -7435,6 +7550,8 @@ static int pxp_probe(struct platform_device *pdev)
 
 	pxp->pdev = pdev;
 	pxp->devdata = &pxp_devdata[pdev->id_entry->driver_data];
+
+	v3p_flag = (pxp_is_v3p(pxp)) ? true : false;
 
 	pxp->ipg_clk = devm_clk_get(&pdev->dev, "pxp_ipg");
 	pxp->axi_clk = devm_clk_get(&pdev->dev, "pxp_axi");
