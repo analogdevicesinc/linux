@@ -48,6 +48,7 @@
 };
 
 &spdif0 {
+	compatible = "fsl,imx8qxp-v1-spdif";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_spdif0>;
 	dmas = <&edma2 23 0 7>, <&edma2 21 0 6>;

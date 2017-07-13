@@ -29,6 +29,7 @@
 
 #include "fsl_spdif.h"
 #include "imx-pcm.h"
+#include "fsl_dma_workaround.h"
 
 #define FSL_SPDIF_TXFIFO_WML	0x8
 #define FSL_SPDIF_RXFIFO_WML	0x8
@@ -51,6 +52,7 @@ static u8 srpc_dpll_locked[] = { 0x0, 0x1, 0x2, 0x3, 0x4, 0xa, 0xb };
 struct fsl_spdif_soc_data {
 	bool imx;
 	bool constrain_period_size;
+	bool dma_workaround;
 	u32 tx_burst;
 	u32 rx_burst;
 	u32 interrupts;
@@ -120,6 +122,7 @@ struct fsl_spdif_priv {
 	struct clk *sysclk;
 	struct clk *spbaclk;
 	const struct fsl_spdif_soc_data *soc;
+	struct fsl_dma_workaround_info *dma_info;
 	struct snd_dmaengine_dai_dma_data dma_params_tx;
 	struct snd_dmaengine_dai_dma_data dma_params_rx;
 	/* regcache for SRPC */
@@ -128,6 +131,7 @@ struct fsl_spdif_priv {
 
 static struct fsl_spdif_soc_data fsl_spdif_vf610 = {
 	.imx = false,
+	.dma_workaround = false,
 	.tx_burst = FSL_SPDIF_TXFIFO_WML,
 	.rx_burst = FSL_SPDIF_RXFIFO_WML,
 	.interrupts = 1,
@@ -137,6 +141,7 @@ static struct fsl_spdif_soc_data fsl_spdif_vf610 = {
 
 static struct fsl_spdif_soc_data fsl_spdif_imx35 = {
 	.imx = true,
+	.dma_workaround = false,
 	.tx_burst = FSL_SPDIF_TXFIFO_WML,
 	.rx_burst = FSL_SPDIF_RXFIFO_WML,
 	.interrupts = 1,
@@ -144,8 +149,24 @@ static struct fsl_spdif_soc_data fsl_spdif_imx35 = {
 	.constrain_period_size = false,
 };
 
+/*
+ * In imx8qxp rev 1, the DMA request signal is not reverted. For SPDIF
+ * DMA request is low valid, but EDMA assert is high valid, so we
+ * need to use GPT to transfer the DMA request signal
+ */
+static struct fsl_spdif_soc_data fsl_spdif_imx8qxp_v1 = {
+	.imx = true,
+	.dma_workaround = true,
+	.tx_burst = 2,
+	.rx_burst = 2,
+	.interrupts = 2,
+	.tx_formats = SNDRV_PCM_FMTBIT_S24_LE,
+	.constrain_period_size = true,
+};
+
 static struct fsl_spdif_soc_data fsl_spdif_imx8qm = {
 	.imx = true,
+	.dma_workaround = false,
 	.tx_burst = 2,
 	.rx_burst = 2,
 	.interrupts = 2,
@@ -615,6 +636,9 @@ static int fsl_spdif_hw_params(struct snd_pcm_substream *substream,
 	u32 sample_rate = params_rate(params);
 	int ret = 0;
 
+	if (spdif_priv->soc->dma_workaround)
+		configure_gpt_dma(substream, spdif_priv->dma_info);
+
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		ret  = spdif_set_sample_rate(substream, sample_rate);
 		if (ret) {
@@ -663,11 +687,24 @@ static int fsl_spdif_trigger(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int fsl_spdif_hw_free(struct snd_pcm_substream *substream,
+			     struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+
+	if (spdif_priv->soc->dma_workaround)
+		clear_gpt_dma(substream, spdif_priv->dma_info);
+
+	return 0;
+}
+
 static const struct snd_soc_dai_ops fsl_spdif_dai_ops = {
 	.startup = fsl_spdif_startup,
 	.hw_params = fsl_spdif_hw_params,
 	.trigger = fsl_spdif_trigger,
 	.shutdown = fsl_spdif_shutdown,
+	.hw_free = fsl_spdif_hw_free,
 };
 
 
@@ -1298,6 +1335,7 @@ static int fsl_spdif_probe_txclk(struct fsl_spdif_priv *spdif_priv,
 }
 
 static const struct of_device_id fsl_spdif_dt_ids[] = {
+	{ .compatible = "fsl,imx8qxp-v1-spdif", .data = &fsl_spdif_imx8qxp_v1, },
 	{ .compatible = "fsl,imx8qm-spdif", .data = &fsl_spdif_imx8qm, },
 	{ .compatible = "fsl,imx35-spdif", .data = &fsl_spdif_imx35, },
 	{ .compatible = "fsl,vf610-spdif", .data = &fsl_spdif_vf610, },
@@ -1448,11 +1486,27 @@ static int fsl_spdif_probe(struct platform_device *pdev)
 	if (of_property_read_u32(np, "fsl,dma-buffer-size", &buffer_size))
 		buffer_size = IMX_SPDIF_DMABUF_SIZE;
 
+	if (spdif_priv->soc->dma_workaround)
+		spdif_priv->dma_info =
+			fsl_dma_workaround_alloc_info("tcd_pool_spdif",
+						      &pdev->dev,
+						      "nxp,imx8qm-acm",
+						      FSL_DMA_WORKAROUND_SPDIF);
 	ret = imx_pcm_dma_init(pdev, buffer_size);
 	if (ret)
 		dev_err(&pdev->dev, "imx_pcm_dma_init failed: %d\n", ret);
 
 	return ret;
+}
+
+static int fsl_spdif_remove(struct platform_device *pdev)
+{
+	struct fsl_spdif_priv *spdif_priv = dev_get_drvdata(&pdev->dev);
+
+	if (spdif_priv->soc->dma_workaround)
+		fsl_dma_workaround_free_info(spdif_priv->dma_info, &pdev->dev);
+
+	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -1522,6 +1576,7 @@ static struct platform_driver fsl_spdif_driver = {
 		.pm = &fsl_spdif_pm,
 	},
 	.probe = fsl_spdif_probe,
+	.remove = fsl_spdif_remove,
 };
 
 module_platform_driver(fsl_spdif_driver);
