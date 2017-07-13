@@ -608,5 +608,10 @@
 #define IMX8MQ_VIDEO2_PLL2_OUT			474
 #define IMX8MQ_CLK_TMU_ROOT			475
 
-#define IMX8MQ_CLK_END				476
+/* Display root clocks */
+#define IMX8MQ_CLK_DISP_AXI_ROOT		476
+#define IMX8MQ_CLK_DISP_APB_ROOT		477
+#define IMX8MQ_CLK_DISP_RTRM_ROOT		478
+
+#define IMX8MQ_CLK_END				479
 #endif /* __DT_BINDINGS_CLOCK_IMX8MQ_H */
