@@ -1790,7 +1790,6 @@ gckCOMMAND_Commit(
 
 #if !gcdNULL_DRIVER
     gcsCONTEXT_PTR contextBuffer;
-    struct _gcoCMDBUF _commandBufferObject;
     gctPHYS_ADDR_T commandBufferPhysical;
     gctUINT8_PTR commandBufferLogical = gcvNULL;
     gctUINT32 commandBufferAddress = 0;
@@ -1904,7 +1903,8 @@ gckCOMMAND_Commit(
 #else
     if (needCopy)
     {
-        commandBufferObject = &_commandBufferObject;
+        gcmkONERROR(gckOS_Allocate(Command->os, gcmSIZEOF(struct _gcoCMDBUF), &pointer));
+        commandBufferObject = pointer;
 
         gcmkONERROR(gckOS_CopyFromUserData(
             Command->os,
@@ -2587,6 +2587,10 @@ gckCOMMAND_Commit(
 
         commandBufferMapped = gcvFALSE;
     }
+    else if (needCopy)
+    {
+        gcmkONERROR(gckOS_Free(Command->os, commandBufferObject));
+    }
 
     /* Return status. */
     gcmkFOOTER();
@@ -2625,6 +2629,10 @@ OnError:
             gcmSIZEOF(struct _gcoCMDBUF),
             commandBufferObject
             ));
+    }
+    else if (needCopy)
+    {
+        gcmkVERIFY_OK(gckOS_Free(Command->os, commandBufferObject));
     }
 
     /* Return status. */
