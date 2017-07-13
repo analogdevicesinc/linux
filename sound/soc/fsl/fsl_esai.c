@@ -18,6 +18,7 @@
 #include <linux/of_platform.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
+#include <linux/pm_runtime.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/pcm_params.h>
 
@@ -1166,6 +1167,9 @@ static int fsl_esai_probe(struct platform_device *pdev)
 						      "nxp,imx8qm-acm",
 						      FSL_DMA_WORKAROUND_ESAI);
 
+	pm_runtime_enable(&pdev->dev);
+	regcache_cache_only(esai_priv->regmap, true);
+
 	ret = imx_pcm_platform_register(&pdev->dev);
 	if (ret)
 		dev_err(&pdev->dev, "failed to init imx pcm dma: %d\n", ret);
@@ -1180,8 +1184,47 @@ static int fsl_esai_remove(struct platform_device *pdev)
 	if (esai_priv->soc->dma_workaround)
 		fsl_dma_workaround_free_info(esai_priv->dma_info, &pdev->dev);
 
+	pm_runtime_disable(&pdev->dev);
+
 	return 0;
 }
+
+#ifdef CONFIG_PM
+static int fsl_esai_runtime_resume(struct device *dev)
+{
+	struct fsl_esai *esai = dev_get_drvdata(dev);
+	int ret;
+
+	regcache_cache_only(esai->regmap, false);
+	regcache_mark_dirty(esai->regmap);
+
+	/* FIFO reset for safety */
+	regmap_update_bits(esai->regmap, REG_ESAI_TFCR,
+			   ESAI_xFCR_xFR, ESAI_xFCR_xFR);
+	regmap_update_bits(esai->regmap, REG_ESAI_RFCR,
+			   ESAI_xFCR_xFR, ESAI_xFCR_xFR);
+
+	ret = regcache_sync(esai->regmap);
+	if (ret)
+		return ret;
+
+	/* FIFO reset done */
+	regmap_update_bits(esai->regmap, REG_ESAI_TFCR, ESAI_xFCR_xFR, 0);
+	regmap_update_bits(esai->regmap, REG_ESAI_RFCR, ESAI_xFCR_xFR, 0);
+
+	return 0;
+}
+
+static int fsl_esai_runtime_suspend(struct device *dev)
+{
+	struct fsl_esai *esai = dev_get_drvdata(dev);
+
+	regcache_cache_only(esai->regmap, true);
+
+	return 0;
+}
+#endif
+
 
 #ifdef CONFIG_PM_SLEEP
 static int fsl_esai_suspend(struct device *dev)
@@ -1220,6 +1263,9 @@ static int fsl_esai_resume(struct device *dev)
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops fsl_esai_pm_ops = {
+	SET_RUNTIME_PM_OPS(fsl_esai_runtime_suspend,
+			   fsl_esai_runtime_resume,
+			   NULL)
 	SET_SYSTEM_SLEEP_PM_OPS(fsl_esai_suspend, fsl_esai_resume)
 };
 
