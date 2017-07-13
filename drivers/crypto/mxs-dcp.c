@@ -1113,13 +1113,9 @@ static int mxs_dcp_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * Enable driver alignment with hw behavior on imx6
+	 * Enable driver alignment with hw behavior for sha generation
 	 */
-	if (of_machine_is_compatible("fsl,imx6sl") ||
-	    of_machine_is_compatible("fsl,imx6ull")) {
-		sdcp->enable_sha_workaround = 1;
-	} else
-		sdcp->enable_sha_workaround = 0;
+	sdcp->enable_sha_workaround = 1;
 
 	/* Create the SHA and AES handler threads. */
 	sdcp->thread[DCP_CHAN_HASH_SHA] = kthread_run(dcp_chan_thread_sha,
