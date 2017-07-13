@@ -1127,6 +1127,8 @@ static int fsl_asrc_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	spin_lock_init(&asrc_priv->lock);
 
+	regcache_cache_only(asrc_priv->regmap, true);
+
 	ret = devm_snd_soc_register_component(&pdev->dev, &fsl_asrc_component,
 					      &fsl_asrc_dai, 1);
 	if (ret) {
@@ -1154,6 +1156,7 @@ static int fsl_asrc_runtime_resume(struct device *dev)
 {
 	struct fsl_asrc *asrc_priv = dev_get_drvdata(dev);
 	int i, ret;
+	u32 asrctr;
 
 	ret = clk_prepare_enable(asrc_priv->mem_clk);
 	if (ret)
@@ -1171,6 +1174,24 @@ static int fsl_asrc_runtime_resume(struct device *dev)
 		if (ret)
 			goto disable_asrck_clk;
 	}
+
+	/* Stop all pairs provisionally */
+	regmap_read(asrc_priv->regmap, REG_ASRCTR, &asrctr);
+	regmap_update_bits(asrc_priv->regmap, REG_ASRCTR,
+			   ASRCTR_ASRCEi_ALL_MASK, 0);
+
+	/* Restore all registers */
+	regcache_cache_only(asrc_priv->regmap, false);
+	regcache_mark_dirty(asrc_priv->regmap);
+	regcache_sync(asrc_priv->regmap);
+
+	regmap_update_bits(asrc_priv->regmap, REG_ASRCFG,
+			   ASRCFG_NDPRi_ALL_MASK | ASRCFG_POSTMODi_ALL_MASK |
+			   ASRCFG_PREMODi_ALL_MASK, asrc_priv->regcache_cfg);
+
+	/* Restart enabled pairs */
+	regmap_update_bits(asrc_priv->regmap, REG_ASRCTR,
+			   ASRCTR_ASRCEi_ALL_MASK, asrctr);
 
 	return 0;
 
@@ -1190,6 +1211,11 @@ static int fsl_asrc_runtime_suspend(struct device *dev)
 {
 	struct fsl_asrc *asrc_priv = dev_get_drvdata(dev);
 	int i;
+
+	regmap_read(asrc_priv->regmap, REG_ASRCFG,
+		    &asrc_priv->regcache_cfg);
+
+	regcache_cache_only(asrc_priv->regmap, true);
 
 	for (i = 0; i < ASRC_CLK_MAX_NUM; i++)
 		clk_disable_unprepare(asrc_priv->asrck_clk[i]);
