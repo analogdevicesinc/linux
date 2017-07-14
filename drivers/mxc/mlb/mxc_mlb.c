@@ -369,7 +369,7 @@ struct mlb_dev_info {
 struct mlb_data {
 	struct device *dev;
 	struct mlb_dev_info *devinfo;
-	struct clk *clk_mlb3p;
+	struct clk *mlb;
 	struct cdev cdev;
 	struct class *class;	/* device class */
 	dev_t firstdev;
@@ -1940,7 +1940,7 @@ static int mxc_mlb150_open(struct inode *inode, struct file *filp)
 		return -EBUSY;
 	}
 
-	clk_prepare_enable(drvdata->clk_mlb3p);
+	clk_prepare_enable(drvdata->mlb);
 
 	/* initial MLB module */
 	mlb150_dev_init();
@@ -2030,7 +2030,7 @@ static int mxc_mlb150_release(struct inode *inode, struct file *filp)
 
 	atomic_set(&pdevinfo->on, 0);
 
-	clk_disable_unprepare(drvdata->clk_mlb3p);
+	clk_disable_unprepare(drvdata->mlb);
 	/* decrease the open count */
 	atomic_set(&pdevinfo->opencnt, 0);
 
@@ -2665,10 +2665,10 @@ static int mxc_mlb150_probe(struct platform_device *pdev)
 #endif
 
 	/* enable clock */
-	drvdata->clk_mlb3p = devm_clk_get(&pdev->dev, "mlb");
-	if (IS_ERR(drvdata->clk_mlb3p)) {
+	drvdata->mlb = devm_clk_get(&pdev->dev, "mlb");
+	if (IS_ERR(drvdata->mlb)) {
 		dev_err(&pdev->dev, "unable to get mlb clock\n");
-		ret = PTR_ERR(drvdata->clk_mlb3p);
+		ret = PTR_ERR(drvdata->mlb);
 		goto err_dev;
 	}
 
@@ -2701,7 +2701,7 @@ static int mxc_mlb150_remove(struct platform_device *pdev)
 	struct mlb_dev_info *pdevinfo = drvdata->devinfo;
 
 	if (pdevinfo && atomic_read(&pdevinfo->opencnt))
-		clk_disable_unprepare(drvdata->clk_mlb3p);
+		clk_disable_unprepare(drvdata->mlb);
 
 	/* disable mlb power */
 #ifdef CONFIG_REGULATOR
@@ -2731,7 +2731,7 @@ static int mxc_mlb150_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if (pdevinfo && atomic_read(&pdevinfo->opencnt)) {
 		mlb150_dev_exit();
-		clk_disable_unprepare(drvdata->clk_mlb3p);
+		clk_disable_unprepare(drvdata->mlb);
 	}
 
 	return 0;
@@ -2743,7 +2743,7 @@ static int mxc_mlb150_resume(struct platform_device *pdev)
 	struct mlb_dev_info *pdevinfo = drvdata->devinfo;
 
 	if (pdevinfo && atomic_read(&pdevinfo->opencnt)) {
-		clk_prepare_enable(drvdata->clk_mlb3p);
+		clk_prepare_enable(drvdata->mlb);
 		mlb150_dev_init();
 	}
 
