@@ -1,0 +1,23 @@
+Mixel DSI DPHY for MX8
+
+The MIPI-DSI DPHY IP block found on MX8 platforms comes along the MIPI-DSI
+IP from Northwest Logic and represents the physical layer for the electrical
+signals for DSI.
+
+Required properties:
+- compatible: 		"mixel,<soc>-mipi-dsi-phy"
+- reg:			the register range of the PHY controller
+- #phy-cells:		number of cells in PHY, as defined in
+			Documentation/devicetree/bindings/phy/phy-bindings.txt
+			this must be <0>
+
+Optional properties:
+- power-domains: 	phandle to power domain
+
+Example:
+	mipi0_phy: mipi0_phy@56228300 {
+                compatible = "mixel,imx8qm-mipi-dsi-phy";
+                reg = <0x0 0x56228300 0x0 0x100>;
+                power-domains = <&pd_mipi0>;
+                #phy-cells = <0>;
+        };

@@ -52,6 +52,12 @@ config PHY_MIXEL_LVDS_COMBO
 	select GENERIC_PHY
 	default ARCH_FSL_IMX8QXP
 
+config PHY_MIXEL_MIPI_DSI
+	bool
+	depends on OF
+	select GENERIC_PHY
+	default ARCH_FSL_IMX8QM || ARCH_FSL_IMX8QXP
+
 config PHY_FSL_IMX8MQ_USB
 	bool
 	depends on OF
