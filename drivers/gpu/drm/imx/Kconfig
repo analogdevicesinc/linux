@@ -45,6 +45,15 @@ config DRM_IMX_HDMI
 	help
 	  Choose this if you want to use HDMI on i.MX6.
 
+config DRM_IMX_NWL_DSI
+	tristate "Support for Northwest Logic MIPI DSI displays"
+	depends on DRM_IMX
+	select MFD_SYSCON
+	select DRM_NWL_DSI
+	help
+	  Choose this to enable the internal NWL MIPI DSI controller
+	  found on i.MX8 processors.
+
 source "drivers/gpu/drm/imx/ipuv3/Kconfig"
 source "drivers/gpu/drm/imx/dpu/Kconfig"
 source "drivers/gpu/drm/imx/hdp/Kconfig"
