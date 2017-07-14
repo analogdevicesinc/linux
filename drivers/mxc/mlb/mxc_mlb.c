@@ -370,7 +370,6 @@ struct mlb_data {
 	struct device *dev;
 	struct mlb_dev_info *devinfo;
 	struct clk *clk_mlb3p;
-	struct clk *clk_mlb6p;
 	struct cdev cdev;
 	struct class *class;	/* device class */
 	dev_t firstdev;
@@ -1009,8 +1008,6 @@ static inline void mlb150_enable_pll(struct mlb_data *drvdata)
 				drvdata->membase + REG_MLBC0);
 	}
 
-	clk_prepare_enable(drvdata->clk_mlb6p);
-
 	c0_val |= (MLBC0_MLBPEN);
 	__raw_writel(c0_val, drvdata->membase + REG_MLBC0);
 }
@@ -1018,8 +1015,6 @@ static inline void mlb150_enable_pll(struct mlb_data *drvdata)
 static inline void mlb150_disable_pll(struct mlb_data *drvdata)
 {
 	u32 c0_val;
-
-	clk_disable_unprepare(drvdata->clk_mlb6p);
 
 	c0_val = __raw_readl(drvdata->membase + REG_MLBC0);
 
@@ -2033,10 +2028,6 @@ static int mxc_mlb150_release(struct inode *inode, struct file *filp)
 
 	mlb150_dev_exit();
 
-	if (pdevinfo && atomic_read(&pdevinfo->on)
-		&& (pdevinfo->fps >= CLK_2048FS))
-		clk_disable_unprepare(drvdata->clk_mlb6p);
-
 	atomic_set(&pdevinfo->on, 0);
 
 	clk_disable_unprepare(drvdata->clk_mlb3p);
@@ -2681,15 +2672,6 @@ static int mxc_mlb150_probe(struct platform_device *pdev)
 		goto err_dev;
 	}
 
-	if (drvdata->quirk_flag & MLB_QUIRK_MLB150) {
-		drvdata->clk_mlb6p = devm_clk_get(&pdev->dev, "pll8_mlb");
-		if (IS_ERR(drvdata->clk_mlb6p)) {
-			dev_err(&pdev->dev, "unable to get mlb pll clock\n");
-			ret = PTR_ERR(drvdata->clk_mlb6p);
-			goto err_dev;
-		}
-	}
-
 	drvdata->iram_pool = of_gen_pool_get(np, "iram", 0);
 	if (!drvdata->iram_pool)
 		dev_warn(&pdev->dev, "no iram assigned, using external mem\n");
@@ -2717,10 +2699,6 @@ static int mxc_mlb150_remove(struct platform_device *pdev)
 	int i;
 	struct mlb_data *drvdata = platform_get_drvdata(pdev);
 	struct mlb_dev_info *pdevinfo = drvdata->devinfo;
-
-	if (pdevinfo && atomic_read(&pdevinfo->on)
-		&& (pdevinfo->fps >= CLK_2048FS))
-		clk_disable_unprepare(drvdata->clk_mlb6p);
 
 	if (pdevinfo && atomic_read(&pdevinfo->opencnt))
 		clk_disable_unprepare(drvdata->clk_mlb3p);
@@ -2751,10 +2729,6 @@ static int mxc_mlb150_suspend(struct platform_device *pdev, pm_message_t state)
 	struct mlb_data *drvdata = platform_get_drvdata(pdev);
 	struct mlb_dev_info *pdevinfo = drvdata->devinfo;
 
-	if (pdevinfo && atomic_read(&pdevinfo->on)
-		&& (pdevinfo->fps >= CLK_2048FS))
-		clk_disable_unprepare(drvdata->clk_mlb6p);
-
 	if (pdevinfo && atomic_read(&pdevinfo->opencnt)) {
 		mlb150_dev_exit();
 		clk_disable_unprepare(drvdata->clk_mlb3p);
@@ -2772,10 +2746,6 @@ static int mxc_mlb150_resume(struct platform_device *pdev)
 		clk_prepare_enable(drvdata->clk_mlb3p);
 		mlb150_dev_init();
 	}
-
-	if (pdevinfo && atomic_read(&pdevinfo->on) &&
-		(pdevinfo->fps >= CLK_2048FS))
-		clk_prepare_enable(drvdata->clk_mlb6p);
 
 	return 0;
 }
