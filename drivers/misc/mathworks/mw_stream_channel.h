@@ -32,27 +32,33 @@ enum DESCRIPTOR_STATUS {
 #define ERR_RING_OVERFLOW 0x1
 
 enum mwadma_chan_status {
-    ready = 0x0, /* default state on init and reset */
+    ready = 0x0,      /* default state on init and reset */
     running = 0x1,
-    waiting = 0x2, /* waiting on data for tx */
-    flushable = 0x3 /* final transfer can be flushed, assumes running */
+    waiting = 0x2    /* waiting on data for tx */
 };
 
+enum mwadma_buffer_block_state {
+    MWDMA_ACTIVE = 0x1, 
+    MWDMA_PENDING = 0x2,
+    MWDMA_READY = 0x3 
+};
+
+// BLOCK
 struct mwadma_slist {
-    struct list_head                list;
-    dma_addr_t						phys;
-    size_t							length;
+    struct list_head    list;
+    struct list_head    userid;
+    dma_addr_t		phys;
+    size_t		length;
     struct dma_async_tx_descriptor  *desc;
     dma_cookie_t                    cookie;
-    /* i*ring_length for each ring gives you
-     * offset into large shared buffer */
     unsigned int                    buffer_index;
+    enum mwadma_buffer_block_state state;
+    struct mwadma_chan             *qchan;
 };
 
 /* structure contains common parmaters for rx/tx.
  * Not all params are sensible for both
  */
-
 struct mwadma_chan;
 
 struct mwadma_dev {
@@ -61,13 +67,13 @@ struct mwadma_dev {
     /* Transmit & Receive Channels */
     struct mwadma_chan      *rx;
     struct mwadma_chan      *tx;
-    unsigned int 			channel_offset;
+    unsigned int 	    channel_offset;
 };
-
+// QUEUE
 struct mwadma_chan {
-    struct device				dev;
-    struct mwadma_dev 			*mwdev;
-    struct kernfs_node			*irq_kn;
+    struct device		dev;
+    struct mwadma_dev 		*mwdev;
+    struct kernfs_node	        *irq_kn;
     spinlock_t                  slock;
     struct mutex                lock;
     struct dma_chan             *chan;
@@ -77,7 +83,7 @@ struct mwadma_chan {
     enum dma_transfer_direction direction;
     dma_async_tx_callback       callback;
     char                        *buf;
-    dma_addr_t					phys;
+    dma_addr_t                  phys;
     enum mwadma_chan_status     status;
     unsigned long               length;
     unsigned long               transfer_count;
@@ -86,7 +92,7 @@ struct mwadma_chan {
     struct mwadma_slist         *curr;
     struct mwadma_slist         *completed;
     struct mwadma_slist         *prev;
-    struct completion		    dma_complete;
+    struct completion		dma_complete;
     struct tasklet_struct       tasklet;
     unsigned int                next_index;
     unsigned int                error;
@@ -94,6 +100,7 @@ struct mwadma_chan {
     ktime_t                     stop;
     unsigned int                ring_total;
     unsigned int                bd_bytes;
+    struct mwadma_slist         **blocks;
 };
 
 
