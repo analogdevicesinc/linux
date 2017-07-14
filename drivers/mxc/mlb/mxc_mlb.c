@@ -369,6 +369,10 @@ struct mlb_dev_info {
 struct mlb_data {
 	struct device *dev;
 	struct mlb_dev_info *devinfo;
+#ifdef CONFIG_ARCH_MXC_ARM64
+	struct clk *ipg;
+	struct clk *hclk;
+#endif
 	struct clk *mlb;
 	struct cdev cdev;
 	struct class *class;	/* device class */
@@ -1940,6 +1944,10 @@ static int mxc_mlb150_open(struct inode *inode, struct file *filp)
 		return -EBUSY;
 	}
 
+#ifdef CONFIG_ARCH_MXC_ARM64
+	clk_prepare_enable(drvdata->ipg);
+	clk_prepare_enable(drvdata->hclk);
+#endif
 	clk_prepare_enable(drvdata->mlb);
 
 	/* initial MLB module */
@@ -2031,6 +2039,10 @@ static int mxc_mlb150_release(struct inode *inode, struct file *filp)
 	atomic_set(&pdevinfo->on, 0);
 
 	clk_disable_unprepare(drvdata->mlb);
+#ifdef CONFIG_ARCH_MXC_ARM64
+	clk_disable_unprepare(drvdata->hclk);
+	clk_disable_unprepare(drvdata->ipg);
+#endif
 	/* decrease the open count */
 	atomic_set(&pdevinfo->opencnt, 0);
 
@@ -2664,7 +2676,22 @@ static int mxc_mlb150_probe(struct platform_device *pdev)
 	}
 #endif
 
-	/* enable clock */
+#ifdef CONFIG_ARCH_MXC_ARM64
+	drvdata->ipg = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(drvdata->ipg)) {
+		dev_err(&pdev->dev, "unable to get mlb ipg clock\n");
+		ret = PTR_ERR(drvdata->ipg);
+		goto err_dev;
+	};
+
+	drvdata->hclk = devm_clk_get(&pdev->dev, "hclk");
+	if (IS_ERR(drvdata->hclk)) {
+		dev_err(&pdev->dev, "unable to get mlb hclk clock\n");
+		ret = PTR_ERR(drvdata->hclk);
+		goto err_dev;
+	};
+#endif
+
 	drvdata->mlb = devm_clk_get(&pdev->dev, "mlb");
 	if (IS_ERR(drvdata->mlb)) {
 		dev_err(&pdev->dev, "unable to get mlb clock\n");
