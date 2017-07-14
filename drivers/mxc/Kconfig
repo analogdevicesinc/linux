@@ -6,6 +6,7 @@ menu "MXC support drivers"
 
 # drivers common to MXC and MX8 go here:
 source "drivers/mxc/hantro/Kconfig"
+source "drivers/mxc/mlb/Kconfig"
 
 if ARCH_MXC
 config MXC_IPU
@@ -15,7 +16,6 @@ config MXC_IPU
 	  If you plan to use the Image Processing unit, say
 	  Y here. IPU is needed by Framebuffer and V4L2 drivers.
 
-source "drivers/mxc/mlb/Kconfig"
 source "drivers/mxc/ipu3/Kconfig"
 source "drivers/mxc/sim/Kconfig"
 source "drivers/mxc/mipi/Kconfig"
