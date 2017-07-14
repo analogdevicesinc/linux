@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/dma-mapping.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/genalloc.h>
@@ -366,6 +367,7 @@ struct mlb_dev_info {
 };
 
 struct mlb_data {
+	struct device *dev;
 	struct mlb_dev_info *devinfo;
 	struct clk *clk_mlb3p;
 	struct clk *clk_mlb6p;
@@ -382,6 +384,7 @@ struct mlb_data {
 	int irq_ahb1;
 	int irq_mlb;
 	u32 quirk_flag;
+	bool use_iram;
 };
 
 /*
@@ -1921,14 +1924,15 @@ static irqreturn_t mlb_isr(int irq, void *dev_id)
 static int mxc_mlb150_open(struct inode *inode, struct file *filp)
 {
 	int minor, ring_buf_size, buf_size, j, ret;
-	void __iomem *buf_addr;
-	ulong phy_addr;
+	void  *buf_addr;
+	dma_addr_t phy_addr;
 	struct mlb_dev_info *pdevinfo = NULL;
 	struct mlb_channel_info *pchinfo = NULL;
 	struct mlb_data *drvdata;
 
 	minor = MINOR(inode->i_rdev);
 	drvdata = container_of(inode->i_cdev, struct mlb_data, cdev);
+	drvdata->use_iram = true;
 
 	if (minor < 0 || minor >= MLB_MINOR_DEVICES) {
 		pr_err("no device\n");
@@ -1951,19 +1955,24 @@ static int mxc_mlb150_open(struct inode *inode, struct file *filp)
 
 	ring_buf_size = pdevinfo->buf_size;
 	buf_size = ring_buf_size * (TRANS_RING_NODES * 2);
-	buf_addr = (void __iomem *)gen_pool_alloc(drvdata->iram_pool, buf_size);
-	if (buf_addr == NULL) {
-		ret = -ENOMEM;
-		pr_err("can not alloc rx/tx buffers: %d\n", buf_size);
-		return ret;
+
+	buf_addr = gen_pool_dma_alloc(drvdata->iram_pool, buf_size, &phy_addr);
+	if (!buf_addr) {
+		drvdata->use_iram = false;
+		buf_addr = dma_alloc_coherent(drvdata->dev, buf_size, &phy_addr, GFP_KERNEL);
+		if (!buf_addr) {
+			ret = -ENOMEM;
+			pr_err("can not alloc rx/tx buffers: %d\n", buf_size);
+			return ret;
+		}
 	}
-	phy_addr = gen_pool_virt_to_phys(drvdata->iram_pool, (ulong)buf_addr);
+
 	pr_debug("IRAM Range: Virt 0x%p - 0x%p, Phys 0x%x - 0x%x, size: 0x%x\n",
 			buf_addr, (buf_addr + buf_size - 1), (u32)phy_addr,
 			(u32)(phy_addr + buf_size - 1), buf_size);
 	pdevinfo->rbuf_base_virt = buf_addr;
 	pdevinfo->rbuf_base_phy = phy_addr;
-	drvdata->iram_size = buf_size;
+	drvdata->iram_size = drvdata->use_iram ? buf_size : 0;
 
 	memset(buf_addr, 0, buf_size);
 
@@ -2018,7 +2027,8 @@ static int mxc_mlb150_release(struct inode *inode, struct file *filp)
 	mlb150_dev_dump_ctr_tbl(0, pdevinfo->channels[TX_CHANNEL].cl + 1);
 #endif
 
-	gen_pool_free(drvdata->iram_pool,
+	if (drvdata->use_iram)
+		gen_pool_free(drvdata->iram_pool,
 			(ulong)pdevinfo->rbuf_base_virt, drvdata->iram_size);
 
 	mlb150_dev_exit();
@@ -2543,6 +2553,7 @@ static int mxc_mlb150_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	drvdata->dev = &pdev->dev;
 	of_id = of_match_device(mlb150_imx_dt_ids, &pdev->dev);
 	if (of_id)
 		pdev->id_entry = of_id->data;
@@ -2680,11 +2691,8 @@ static int mxc_mlb150_probe(struct platform_device *pdev)
 	}
 
 	drvdata->iram_pool = of_gen_pool_get(np, "iram", 0);
-	if (!drvdata->iram_pool) {
-		dev_err(&pdev->dev, "iram pool not available\n");
-		ret = -ENOMEM;
-		goto err_dev;
-	}
+	if (!drvdata->iram_pool)
+		dev_warn(&pdev->dev, "no iram assigned, using external mem\n");
 
 	drvdata->devinfo = NULL;
 	mxc_mlb150_irq_enable(drvdata, 0);
