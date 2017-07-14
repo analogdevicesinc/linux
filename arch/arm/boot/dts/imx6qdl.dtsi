@@ -1160,9 +1160,8 @@
 				interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>,
 					     <0 117 IRQ_TYPE_LEVEL_HIGH>,
 					     <0 126 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clks IMX6QDL_CLK_MLB>,
-					 <&clks IMX6QDL_CLK_PLL8_MLB>;
-				clock-names = "mlb", "pll8_mlb";
+				clocks = <&clks IMX6QDL_CLK_MLB>;
+				clock-names = "mlb";
 				iram = <&ocram>;
 				status = "disabled";
 			};
