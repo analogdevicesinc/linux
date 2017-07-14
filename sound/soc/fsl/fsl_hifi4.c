@@ -40,11 +40,96 @@
 #include <linux/pm_runtime.h>
 #include <linux/mx8_mu.h>
 #include <linux/uaccess.h>
+#ifdef CONFIG_COMPAT
+#include <linux/compat.h>
+#endif
 #include <uapi/linux/mxc_hifi4.h>
 #include <soc/imx8/sc/svc/irq/api.h>
 #include <soc/imx8/sc/ipc.h>
 #include <soc/imx8/sc/sci.h>
 #include "fsl_hifi4.h"
+
+
+#ifdef CONFIG_COMPAT
+struct decode_info_compat32 {
+	compat_long_t in_buf_addr;
+	__s32 in_buf_size;
+	__s32 in_buf_off;
+	compat_long_t out_buf_addr;
+	__s32 out_buf_size;
+	__s32 out_buf_off;
+	__u32 cycles;
+	__u32 input_over;
+};
+
+struct binary_info_compat32 {
+	__s32 type;
+	compat_long_t file;
+};
+
+static int get_binary_info_compat32(struct binary_info *kp,
+				struct binary_info_compat32 __user *up) {
+	void __user *up_ptr;
+	compat_long_t p;
+
+	if (!access_ok(VERIFY_READ, up, sizeof(struct binary_info_compat32)) ||
+		get_user(kp->type, &up->type) ||
+		get_user(p, &up->file)
+	   ) {
+		return -EFAULT;
+	}
+
+	up_ptr = compat_ptr(p);
+	kp->file = (char *)up_ptr;
+
+	return 0;
+}
+
+static int get_decode_info_compat32(struct decode_info *kp,
+				struct decode_info_compat32 *up) {
+	void __user *up_ptr1;
+	void __user *up_ptr2;
+	compat_long_t p1;
+	compat_long_t p2;
+
+	if (!access_ok(VERIFY_READ, up, sizeof(struct decode_info_compat32)) ||
+		get_user(p1, &up->in_buf_addr) ||
+		get_user(kp->in_buf_size, &up->in_buf_size) ||
+		get_user(kp->in_buf_off, &up->in_buf_off) ||
+		get_user(p2, &up->out_buf_addr) ||
+		get_user(kp->out_buf_size, &up->out_buf_size) ||
+		get_user(kp->out_buf_off, &up->out_buf_off) ||
+		get_user(kp->cycles, &up->cycles) ||
+		get_user(kp->input_over, &up->input_over)
+	   ) {
+		return -EFAULT;
+	}
+
+	up_ptr1 = compat_ptr(p1);
+	up_ptr2 = compat_ptr(p2);
+
+	kp->in_buf_addr = (void *)up_ptr1;
+	kp->out_buf_addr = (void *)up_ptr2;
+
+	return 0;
+}
+
+static int put_decode_info_compat32(struct decode_info *kp,
+				struct decode_info_compat32 *up) {
+
+	if (!access_ok(VERIFY_WRITE, up, sizeof(struct decode_info_compat32)) ||
+		put_user(kp->in_buf_off, &up->in_buf_off) ||
+		put_user(kp->out_buf_off, &up->out_buf_off) ||
+		put_user(kp->cycles, &up->cycles) ||
+		put_user(kp->input_over, &up->input_over)
+	   ) {
+		return -EFAULT;
+	}
+
+	return 0;
+}
+#endif
+
 
 long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv)
 {
@@ -661,6 +746,84 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long fsl_hifi4_decode_frame_compat32(struct fsl_hifi4 *hifi4_priv,
+						void __user *user)
+{
+	struct device *dev = hifi4_priv->dev;
+	union icm_header_t apu_icm;
+	struct hifi4_ext_msg ext_msg;
+	struct decode_info decode_info;
+	struct icm_cdc_iobuf_t *codec_iobuf_info =
+				&hifi4_priv->codec_iobuf_info;
+	long ret;
+
+	ret = get_decode_info_compat32(&decode_info, user);
+	if (ret) {
+		dev_err(dev, "failed to get para from user space in compat32 mode\n");
+		return ret;
+	}
+
+	if (decode_info.in_buf_size > INPUT_BUF_SIZE ||
+		decode_info.out_buf_size != OUTPUT_BUF_SIZE) {
+		dev_err(dev, "param error\n");
+		return -EINVAL;
+	}
+
+	if (decode_info.in_buf_off == 0) {
+		memcpy(hifi4_priv->in_buf_virt, decode_info.in_buf_addr,
+						decode_info.in_buf_size);
+		codec_iobuf_info->inp_cur_offset   = 0;
+	}
+
+	codec_iobuf_info->inp_addr_sysram  = hifi4_priv->in_buf_phys;
+	codec_iobuf_info->inp_buf_size_max = decode_info.in_buf_size;
+
+	codec_iobuf_info->out_addr_sysram  = hifi4_priv->out_buf_phys;
+	codec_iobuf_info->out_buf_size_max = hifi4_priv->out_buf_size;
+	codec_iobuf_info->out_cur_offset   = 0;
+
+	codec_iobuf_info->input_over   = decode_info.input_over;
+
+	init_completion(&hifi4_priv->cmd_complete);
+	hifi4_priv->is_done = 0;
+
+	apu_icm.allbits = 0;	/* clear all bits; */
+	apu_icm.ack  = 0;
+	apu_icm.intr = 1;
+	apu_icm.msg  = ICM_EMPTY_THIS_BUFFER;
+	apu_icm.size = 8;
+	ext_msg.phys = hifi4_priv->msg_buf_phys;
+	ext_msg.size = sizeof(struct icm_cdc_iobuf_t);
+
+	memcpy(hifi4_priv->msg_buf_virt, codec_iobuf_info,
+						sizeof(struct icm_cdc_iobuf_t));
+	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
+
+	/* wait for response here */
+	ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
+	if (ret)
+		return ret;
+
+	memcpy(decode_info.out_buf_addr, hifi4_priv->out_buf_virt,
+					codec_iobuf_info->out_cur_offset);
+
+	decode_info.in_buf_off = codec_iobuf_info->inp_cur_offset;
+	decode_info.out_buf_off = codec_iobuf_info->out_cur_offset;
+	decode_info.cycles = codec_iobuf_info->cycles;
+	decode_info.input_over = codec_iobuf_info->input_over;
+
+	ret = put_decode_info_compat32(&decode_info, user);
+	if (ret) {
+		dev_err(dev, "failed to send para to user space in compat32 mode\n");
+		return ret;
+	}
+
+	ret = hifi4_priv->ret_status;
+	return ret;
+}
+#endif
+
 static long fsl_hifi4_get_pcm_prop(struct fsl_hifi4 *hifi4_priv,
 						void __user *user)
 {
@@ -769,6 +932,33 @@ static long fsl_hifi4_load_codec(struct fsl_hifi4 *hifi4_priv,
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
+						void __user *user)
+{
+	struct device *dev = hifi4_priv->dev;
+	struct binary_info binary_info;
+	long ret = 0;
+
+	ret = get_binary_info_compat32(&binary_info, user);
+	if (ret) {
+		dev_err(dev, "failed to get para from user space in compat32 mode\n");
+		return ret;
+	}
+
+	hifi4_priv->objfile = getname(binary_info.file);
+	hifi4_priv->objtype = binary_info.type;
+
+	ret = load_dpu_with_library(hifi4_priv);
+
+	hifi4_priv->ret_status = 0;
+
+	dev_err(dev, "code binary is loaded\n");
+
+	return ret;
+}
+#endif
+
 static long fsl_hifi4_codec_open(struct fsl_hifi4 *hifi4_priv)
 {
 	union icm_header_t apu_icm;
@@ -871,6 +1061,47 @@ static long fsl_hifi4_ioctl(struct file *file, unsigned int cmd,
 
 	return ret;
 }
+
+#ifdef CONFIG_COMPAT
+static long fsl_hifi4_compat_ioctl(struct file *file, unsigned int cmd,
+							unsigned long arg)
+{
+	struct fsl_hifi4_engine *hifi4_engine = file->private_data;
+	struct fsl_hifi4 *hifi4_priv = hifi4_engine->hifi4_priv;
+	void __user *user = compat_ptr(arg);
+	long ret = 0;
+
+	switch (cmd) {
+	case HIFI4_LOAD_CODEC:
+		ret = fsl_hifi4_load_codec_compat32(hifi4_priv, user);
+		break;
+	case HIFI4_INIT_CODEC:
+		ret = fsl_hifi4_init_codec(hifi4_priv);
+		break;
+	case HIFI4_CODEC_OPEN:
+		ret = fsl_hifi4_codec_open(hifi4_priv);
+		break;
+	case HIFI4_DECODE_ONE_FRAME:
+		ret = fsl_hifi4_decode_frame_compat32(hifi4_priv, user);
+		break;
+	case HIFI4_CODEC_CLOSE:
+		ret = fsl_hifi4_codec_close(hifi4_priv);
+		break;
+	case HIFI4_UNLOAD_CODEC:
+		break;
+	case HIFI4_GET_PCM_PROP:
+		ret = fsl_hifi4_get_pcm_prop(hifi4_priv, user);
+		break;
+	case HIFI4_SET_CONFIG:
+		ret = fsl_hifi4_set_config(hifi4_priv, user);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+#endif
 
 static int fsl_hifi4_open(struct inode *inode, struct file *file)
 {
@@ -1266,6 +1497,9 @@ int hifi4_mu_init(struct fsl_hifi4 *hifi4_priv)
 static const struct file_operations hifi4_fops = {
 	.owner		= THIS_MODULE,
 	.unlocked_ioctl	= fsl_hifi4_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = fsl_hifi4_compat_ioctl,
+#endif
 	.open		= fsl_hifi4_open,
 	.release	= fsl_hifi4_close,
 };
