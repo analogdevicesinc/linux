@@ -1,0 +1,26 @@
+*MediaLB (MLB) for i.MX
+
+Required properties:
+- compatible :
+  - "fsl,imx6sx-mlb50" for MLB compatible with the one integrated on i.MX6SX soc
+  - "fsl,imx6q-mlb150" for MLB compatible with the one integrated on i.MX6Q and i.MX8 soc
+- reg : address and length for mlb registers
+- interrupt-parent : core interrupt controller
+- interrupts : MLB Break/Error interrupt and ahb interrupt
+	       Two ahb interrupt for imx6, ahb_int[0] and ahb_int[1]
+	       One ahb interrupt for imx8, ahb_int[0]
+- clocks : mlb clock specifier
+
+Examples:
+
+mlb: mlb@5B060000 {
+	compatible = "fsl,imx6q-mlb150";
+	reg = <0x0 0x5B060000 0x0 0x10000>;
+	interrupt-parent = <&gic>;
+	interrupts = <0 265 IRQ_TYPE_LEVEL_HIGH>,
+		     <0 266 IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&clk IMX8QM_MLB_CLK>,
+		 <&clk IMX8QM_MLB_HCLK>,
+		 <&clk IMX8QM_MLB_IPG_CLK>;
+	status = "disabled";
+};
