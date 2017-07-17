@@ -155,6 +155,9 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		return 0;
 	}
 
+	if (!state->crtc)
+		return -EINVAL;
+
 	if (dplane->grp->has_vproc) {
 		/* no down scaling */
 		if (state->src_w >> 16 > state->crtc_w ||
@@ -170,20 +173,18 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	/* no off screen */
 	if (state->crtc_x < 0 || state->crtc_y < 0)
 		return -EINVAL;
-	if (state->crtc) {
-		crtc_state =
-			drm_atomic_get_existing_crtc_state(state->state,
-							state->crtc);
-		if (WARN_ON(!crtc_state))
-			return -EINVAL;
 
-		if (state->crtc_x + state->crtc_w >
-		    crtc_state->adjusted_mode.hdisplay)
-			return -EINVAL;
-		if (state->crtc_y + state->crtc_h >
-		    crtc_state->adjusted_mode.vdisplay)
-			return -EINVAL;
-	}
+	crtc_state =
+		drm_atomic_get_existing_crtc_state(state->state, state->crtc);
+	if (WARN_ON(!crtc_state))
+		return -EINVAL;
+
+	if (state->crtc_x + state->crtc_w >
+	    crtc_state->adjusted_mode.hdisplay)
+		return -EINVAL;
+	if (state->crtc_y + state->crtc_h >
+	    crtc_state->adjusted_mode.vdisplay)
+		return -EINVAL;
 
 	/* base address alignment check */
 	baseaddr = drm_plane_state_to_baseaddr(state);
@@ -336,9 +337,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 					dpstate->base_w, dpstate->base_h);
 		constframe_constantcolor(cf, 0, 0, 0, 0);
 
-		if (state->crtc)
-			framegen_sacfg(res->fg,
-					dpstate->base_x, dpstate->base_y);
+		framegen_sacfg(res->fg, dpstate->base_x, dpstate->base_y);
 	}
 
 	if (dpstate->is_top) {
