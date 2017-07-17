@@ -2337,9 +2337,8 @@ static ssize_t mxc_mlb150_read(struct file *filp, char __user *buf,
 	size = pdevinfo->adt_buf_dep;
 	if (size > count) {
 		/* the user buffer is too small */
-		pr_warning
-			("mxc_mlb150: received data size is bigger than "
-			"size: %d, count: %d\n", size, count);
+		pr_warn("mxc_mlb150: received data size is biggerthan size:"
+			"%d, count: %d\n", size, (int)count);
 		return -EINVAL;
 	}
 
@@ -2654,7 +2653,6 @@ static int mxc_mlb150_probe(struct platform_device *pdev)
 		goto err_dev;
 	}
 	mlb_base = devm_ioremap_resource(&pdev->dev, res);
-	dev_dbg(&pdev->dev, "mapped base address: 0x%08x\n", (u32)mlb_base);
 	if (IS_ERR(mlb_base)) {
 		dev_err(&pdev->dev,
 			"failed to get ioremap base\n");
