@@ -534,6 +534,7 @@
 			phys = <&usb3_phy0 0>, <&usb3_phy0 1>;
 			phy-names = "usb2-phy", "usb3-phy";
 			power-domains = <&power 2>;
+			snps,power-down-scale = <2>;
 			status = "disabled";
 		};
 	};
@@ -572,6 +573,7 @@
 			phys = <&usb3_phy1 0>, <&usb3_phy1 1>;
 			phy-names = "usb2-phy", "usb3-phy";
 			power-domains = <&power 3>;
+			snps,power-down-scale = <2>;
 			status = "disabled";
 		};
 	};
