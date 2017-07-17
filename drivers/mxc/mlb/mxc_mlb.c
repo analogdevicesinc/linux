@@ -1565,12 +1565,14 @@ static void mxc_mlb150_irq_enable(struct mlb_data *drvdata, u8 enable)
 {
 	if (enable) {
 		enable_irq(drvdata->irq_ahb0);
-		enable_irq(drvdata->irq_ahb1);
 		enable_irq(drvdata->irq_mlb);
+		if (drvdata->irq_ahb1 > 0)
+			enable_irq(drvdata->irq_ahb1);
 	} else {
 		disable_irq(drvdata->irq_ahb0);
-		disable_irq(drvdata->irq_ahb1);
 		disable_irq(drvdata->irq_mlb);
+		if (drvdata->irq_ahb1 > 0)
+			disable_irq(drvdata->irq_ahb1);
 	}
 }
 
@@ -2622,15 +2624,13 @@ static int mxc_mlb150_probe(struct platform_device *pdev)
 
 	/* ahb1 irq */
 	drvdata->irq_ahb1 = platform_get_irq(pdev,  2);
-	if (drvdata->irq_ahb1 < 0) {
-		dev_err(&pdev->dev, "No ahb1 irq line provided\n");
-		goto err_dev;
-	}
 	dev_dbg(&pdev->dev, "ahb1_irq: %d\n", drvdata->irq_ahb1);
-	if (devm_request_irq(&pdev->dev, drvdata->irq_ahb1, mlb_ahb_isr,
+	if (drvdata->irq_ahb1 > 0) {
+		if (devm_request_irq(&pdev->dev, drvdata->irq_ahb1, mlb_ahb_isr,
 				0, "mlb_ahb1", NULL)) {
-		dev_err(&pdev->dev, "can't claim irq %d\n", drvdata->irq_ahb1);
-		goto err_dev;
+			dev_err(&pdev->dev, "can't claim irq %d\n", drvdata->irq_ahb1);
+			goto err_dev;
+		}
 	}
 
 	/* mlb irq */
