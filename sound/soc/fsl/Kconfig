@@ -470,6 +470,14 @@ config SND_SOC_IMX_HDMI
 	  Say Y if you want to add support for SoC audio on an i.MX board with
 	  IMX HDMI.
 
+config SND_SOC_IMX_AMIX
+	tristate "SoC Audio support for i.MX boards with AMIX"
+	select SND_SOC_FSL_AMIX
+	help
+	  SoC Audio support for i.MX boards with AMIX
+	  Say Y if you want to add support for SoC audio on an i.MX board with
+	  an AMIX.
+
 endif # SND_IMX_SOC
 
 endmenu
