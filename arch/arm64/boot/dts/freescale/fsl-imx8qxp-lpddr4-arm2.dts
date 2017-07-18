@@ -607,3 +607,17 @@
 	extcon = <&typec_ptn5150>;
 	status = "okay";
 };
+
+&intmux_cm40 {
+	status = "okay";
+};
+
+&rpmsg{
+	/*
+	 * 64K for one rpmsg instance:
+	 * --0xb8000000~0xb800ffff: pingpong
+	 */
+	vdev-nums = <1>;
+	reg = <0x0 0xb8000000 0x0 0x10000>;
+	status = "okay";
+};

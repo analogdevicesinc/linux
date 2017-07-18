@@ -1,10 +1,24 @@
 i.MX RPMSG platform implementations
 
 Required properties:
-- compatible : "fsl,imx7d-rpmsg", "fsl,imx6sx-rpmsg"
+- compatible : "fsl,imx7d-rpmsg", "fsl,imx6sx-rpmsg".
+  "fsl,rpmsg-bus", "simple-bus", "fsl,imx8qxp-rpmsg".
 - vdev-nums : The number of the remote virtual devices.
 - reg : The reserved DDR phisical memory used to store
   vring descriptors.
+
+
+=====================================================================
+message unit module for RPMSG
+
+- mu_rpmsg : The message unit module used to do the communications
+  between the asymmetric cores.
+- compatible : "fsl,imx8-mu", "fsl,imx6sx-mu"
+- reg : Should contain MU registers location and length.
+- interrupts : interrupt mapping for RPMSG MU IRQ
+- interrupt-parent : A single value that points to the interrupt
+  parent to which the child domain is being mapped.
+  Value must be "&intmux_cm40"
 
 Example:
 rpmsg: rpmsg{
@@ -16,4 +30,24 @@ rpmsg: rpmsg{
 	vdev-nums = <1>;
 	reg = <0xbfff0000 0x10000>;
 	status = "okay";
+};
+
+imx_rpmsg: imx_rpmsg {
+	compatible = "fsl,rpmsg-bus", "simple-bus";
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	mu_rpmsg: mu_rpmsg@37440000 {
+		compatible = "fsl,imx8-mu", "fsl,imx6sx-mu";
+		reg = <0x0 0x37440000 0x0 0x10000>;
+		interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&intmux_cm40>;
+		status = "okay";
+	};
+
+	rpmsg: rpmsg{
+		compatible = "fsl,imx8qxp-rpmsg";
+		status = "disabled";
+	};
 };
