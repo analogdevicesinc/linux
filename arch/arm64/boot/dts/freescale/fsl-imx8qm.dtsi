@@ -142,26 +142,26 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_mipi0: PD_MIPI0 {
+			pd_mipi0: PD_MIPI_0_DSI {
 				reg = <SC_R_MIPI_0>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_dc0>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				pd_mipi0_i2c0: PD_MIPI0_I2C0 {
+				pd_mipi0_i2c0: PD_MIPI_0_DSI_I2C0 {
 					reg = <SC_R_MIPI_0_I2C_0>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi0>;
 				};
 
-				pd_mipi0_i2c1: PD_MIPI0_I2C1 {
+				pd_mipi0_i2c1: PD_MIPI_0_DSI_I2C1 {
 					reg = <SC_R_MIPI_0_I2C_1>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi0>;
 				};
 
-				pd_mipi0_pwm: PD_MIPI0_PWM {
+				pd_mipi0_pwm: PD_MIPI_0_DSI_PWM0 {
 					reg = <SC_R_MIPI_0_PWM_0>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi0>;
