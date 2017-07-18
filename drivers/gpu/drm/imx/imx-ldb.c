@@ -115,6 +115,7 @@ struct devtype {
 	bool use_mixel_combo_phy;
 	bool padding_quirks;
 	bool pixel_link_init_quirks;
+	bool pixel_link_valid_quirks;
 
 	/* pixel rate in KHz */
 	unsigned int max_prate_single_mode;
@@ -143,6 +144,7 @@ struct imx_ldb {
 	bool use_mixel_combo_phy;
 	bool padding_quirks;
 	bool pixel_link_init_quirks;
+	bool pixel_link_valid_quirks;
 
 	/* pixel rate in KHz */
 	unsigned int max_prate_single_mode;
@@ -277,6 +279,100 @@ static void imx_ldb_set_clock(struct imx_ldb *ldb, int mux, int chno,
 			chno);
 }
 
+#ifndef CONFIG_HAVE_IMX8_SOC
+static void dpu_pixel_link_validate(int dpu_id, int stream_id) {}
+static void dpu_pixel_link_invalidate(int dpu_id, int stream_id) {}
+#else
+/* FIXME: validate pixel link in a proper manner */
+static void dpu_pixel_link_validate(int dpu_id, int stream_id)
+{
+	sc_err_t sciErr;
+	sc_ipc_t ipcHndl = 0;
+	u32 mu_id;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("Cannot obtain MU ID\n");
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return;
+	}
+
+	if (dpu_id == 0) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0,
+			stream_id ? SC_C_PXL_LINK_MST2_VLD : SC_C_PXL_LINK_MST1_VLD, 1);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_0:SC_C_PXL_LINK_MST%d_VLD sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0,
+			stream_id ? SC_C_SYNC_CTRL1 : SC_C_SYNC_CTRL0, 1);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_0:SC_C_SYNC_CTRL%d sc_misc_set_control failed! (sciError = %d)\n", stream_id, sciErr);
+	} else if (dpu_id == 1) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1,
+			stream_id ? SC_C_PXL_LINK_MST2_VLD : SC_C_PXL_LINK_MST1_VLD, 1);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_1:SC_C_PXL_LINK_MST%d_VLD sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1,
+			stream_id ? SC_C_SYNC_CTRL1 : SC_C_SYNC_CTRL0, 1);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_1:SC_C_SYNC_CTRL%d sc_misc_set_control failed! (sciError = %d)\n", stream_id, sciErr);
+	}
+
+	sc_ipc_close(mu_id);
+}
+
+/* FIXME: invalidate pixel link in a proper manner */
+static void dpu_pixel_link_invalidate(int dpu_id, int stream_id)
+{
+	sc_err_t sciErr;
+	sc_ipc_t ipcHndl = 0;
+	u32 mu_id;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("Cannot obtain MU ID\n");
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return;
+	}
+
+	if (dpu_id == 0) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0,
+			stream_id ? SC_C_SYNC_CTRL1 : SC_C_SYNC_CTRL0, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_0:SC_C_SYNC_CTRL%d sc_misc_set_control failed! (sciError = %d)\n", stream_id, sciErr);
+
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0,
+			stream_id ? SC_C_PXL_LINK_MST2_VLD : SC_C_PXL_LINK_MST1_VLD, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_0:SC_C_PXL_LINK_MST%d_VLD sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+	} else if (dpu_id == 1) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1,
+			stream_id ? SC_C_SYNC_CTRL1 : SC_C_SYNC_CTRL0, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_1:SC_C_SYNC_CTRL%d sc_misc_set_control failed! (sciError = %d)\n", stream_id, sciErr);
+
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1,
+			stream_id ? SC_C_PXL_LINK_MST2_VLD : SC_C_PXL_LINK_MST1_VLD, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_1:SC_C_PXL_LINK_MST%d_VLD sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+
+	}
+
+	sc_ipc_close(mu_id);
+}
+#endif
+
 static void imx_ldb_encoder_enable(struct drm_encoder *encoder)
 {
 	struct imx_ldb_channel *imx_ldb_ch = enc_to_imx_ldb_ch(encoder);
@@ -343,6 +439,13 @@ static void imx_ldb_encoder_enable(struct drm_encoder *encoder)
 		phy_power_on(imx_ldb_ch->phy);
 
 		imx_ldb_ch->phy_is_on = true;
+	}
+
+	if (ldb->pixel_link_valid_quirks) {
+		if (ldb->use_mixel_phy)
+			dpu_pixel_link_validate(ldb->id, 1);
+		else if (ldb->use_mixel_combo_phy)
+			dpu_pixel_link_validate(0, ldb->id);
 	}
 
 	drm_panel_enable(imx_ldb_ch->panel);
@@ -518,6 +621,13 @@ static void imx_ldb_encoder_disable(struct drm_encoder *encoder)
 	int mux, ret;
 
 	drm_panel_disable(imx_ldb_ch->panel);
+
+	if (ldb->pixel_link_valid_quirks) {
+		if (ldb->use_mixel_phy)
+			dpu_pixel_link_invalidate(ldb->id, 1);
+		else if (ldb->use_mixel_combo_phy)
+			dpu_pixel_link_invalidate(0, ldb->id);
+	}
 
 	if (dual) {
 		phy_power_off(ldb->channel[0].phy);
@@ -814,6 +924,7 @@ static struct devtype imx8qm_ldb_devtype = {
 	.is_imx8 = true,
 	.use_mixel_phy = true,
 	.padding_quirks = true,
+	.pixel_link_valid_quirks = true,
 	.max_prate_single_mode = 150000,
 	.max_prate_dual_mode = 300000,
 };
@@ -827,6 +938,7 @@ static struct devtype imx8qxp_ldb_devtype = {
 	.use_mixel_combo_phy = true,
 	.padding_quirks = true,
 	.pixel_link_init_quirks = true,
+	.pixel_link_valid_quirks = true,
 	.max_prate_single_mode = 150000,
 	.max_prate_dual_mode = 300000,
 };
@@ -969,6 +1081,7 @@ static int imx_ldb_bind(struct device *dev, struct device *master, void *data)
 	imx_ldb->use_mixel_combo_phy = devtype->use_mixel_combo_phy;
 	imx_ldb->padding_quirks = devtype->padding_quirks;
 	imx_ldb->pixel_link_init_quirks = devtype->pixel_link_init_quirks;
+	imx_ldb->pixel_link_valid_quirks = devtype->pixel_link_valid_quirks;
 	imx_ldb->max_prate_single_mode = devtype->max_prate_single_mode;
 	imx_ldb->max_prate_dual_mode = devtype->max_prate_dual_mode;
 
@@ -1121,10 +1234,12 @@ get_phy:
 
 	dev_set_drvdata(dev, imx_ldb);
 
-	if (imx_ldb->pixel_link_init_quirks) {
+	if (imx_ldb->pixel_link_valid_quirks ||
+	    imx_ldb->pixel_link_init_quirks)
 		imx_ldb->id = of_alias_get_id(np, "ldb");
+
+	if (imx_ldb->pixel_link_init_quirks)
 		ldb_pixel_link_init(imx_ldb->id);
-	}
 
 	return 0;
 }
