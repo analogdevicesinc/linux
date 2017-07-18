@@ -126,16 +126,24 @@ static int at803x_debug_reg_mask(struct phy_device *phydev, u16 reg,
 	return phy_write(phydev, AT803X_DEBUG_DATA, val);
 }
 
-static inline int at803x_enable_rx_delay(struct phy_device *phydev)
+static inline int at803x_set_rx_delay(struct phy_device *phydev, bool is_enabled)
 {
-	return at803x_debug_reg_mask(phydev, AT803X_DEBUG_REG_0, 0,
-					AT803X_DEBUG_RX_CLK_DLY_EN);
+	if (is_enabled)
+		return at803x_debug_reg_mask(phydev, AT803X_DEBUG_REG_0, 0,
+						AT803X_DEBUG_RX_CLK_DLY_EN);
+	else
+		return at803x_debug_reg_mask(phydev, AT803X_DEBUG_REG_0,
+						AT803X_DEBUG_RX_CLK_DLY_EN, 0);
 }
 
-static inline int at803x_enable_tx_delay(struct phy_device *phydev)
+static inline int at803x_set_tx_delay(struct phy_device *phydev, bool is_enabled)
 {
-	return at803x_debug_reg_mask(phydev, AT803X_DEBUG_REG_5, 0,
-					AT803X_DEBUG_TX_CLK_DLY_EN);
+	if (is_enabled)
+		return at803x_debug_reg_mask(phydev, AT803X_DEBUG_REG_5, 0,
+						AT803X_DEBUG_TX_CLK_DLY_EN);
+	else
+		return at803x_debug_reg_mask(phydev, AT803X_DEBUG_REG_5,
+						AT803X_DEBUG_TX_CLK_DLY_EN, 0);
 }
 
 static inline int at803x_set_vddio_1p8v(struct phy_device *phydev)
@@ -337,16 +345,26 @@ static int at803x_config_init(struct phy_device *phydev)
 	if (ret < 0)
 		return ret;
 
+	/* Firstly clear the default status in HW reset or
+	 * the bits set by bootloader.
+	 */
+	ret = at803x_set_rx_delay(phydev, false);
+	if (ret < 0)
+		return ret;
+	ret = at803x_set_tx_delay(phydev, false);
+	if (ret < 0)
+		return ret;
+
 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID ||
 			phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
-		ret = at803x_enable_rx_delay(phydev);
+		ret = at803x_set_rx_delay(phydev, true);
 		if (ret < 0)
 			return ret;
 	}
 
 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID ||
 			phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
-		ret = at803x_enable_tx_delay(phydev);
+		ret = at803x_set_tx_delay(phydev, true);
 		if (ret < 0)
 			return ret;
 	}
