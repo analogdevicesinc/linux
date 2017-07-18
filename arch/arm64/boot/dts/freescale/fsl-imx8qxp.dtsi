@@ -99,6 +99,10 @@
 		compatible = "fsl,imx8qxp-iomuxc";
 	};
 
+	rtc: rtc {
+		compatible = "fsl,imx-sc-rtc";
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Physical Secure */
