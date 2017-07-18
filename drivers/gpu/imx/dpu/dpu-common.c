@@ -1176,7 +1176,7 @@ static void dpu_debug_ip_identity(struct dpu_soc *dpu)
 }
 
 /* FIXME: set pixel link in a proper manner */
-static int dpu_pixel_link_config(int id)
+static void dpu_pixel_link_config(int id)
 {
 	sc_err_t sciErr;
 	sc_ipc_t ipcHndl = 0;
@@ -1185,13 +1185,13 @@ static int dpu_pixel_link_config(int id)
 	sciErr = sc_ipc_getMuID(&mu_id);
 	if (sciErr != SC_ERR_NONE) {
 		pr_err("Cannot obtain MU ID\n");
-		return sciErr;
+		return;
 	}
 
 	sciErr = sc_ipc_open(&ipcHndl, mu_id);
 	if (sciErr != SC_ERR_NONE) {
 		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
-		return sciErr;
+		return;
 	}
 
 	if (id == 0) {
@@ -1267,7 +1267,6 @@ static int dpu_pixel_link_config(int id)
 	}
 
 	sc_ipc_close(mu_id);
-	return sciErr;
 }
 
 static int dpu_probe(struct platform_device *pdev)
