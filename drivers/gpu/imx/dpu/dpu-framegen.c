@@ -19,6 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/types.h>
+#include <soc/imx8/sc/sci.h>
 #include <video/dpu.h>
 #include "dpu-prv.h"
 
@@ -116,16 +117,92 @@ static inline void dpu_fg_write(struct dpu_framegen *fg, u32 value,
 	writel(value, fg->base + offset);
 }
 
+/* FIXME: enable pixel link in a proper manner */
+static void dpu_pixel_link_enable(int dpu_id, int stream_id)
+{
+	sc_err_t sciErr;
+	sc_ipc_t ipcHndl = 0;
+	u32 mu_id;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("Cannot obtain MU ID\n");
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return;
+	}
+
+	if (dpu_id == 0) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0,
+			stream_id ? SC_C_PXL_LINK_MST2_ENB : SC_C_PXL_LINK_MST1_ENB, 1);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_0:SC_C_PXL_LINK_MST%d_ENB sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+	} else if (dpu_id == 1) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1,
+			stream_id ? SC_C_PXL_LINK_MST2_ENB : SC_C_PXL_LINK_MST1_ENB, 1);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_1:SC_C_PXL_LINK_MST%d_ENB sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+	}
+
+	sc_ipc_close(mu_id);
+}
+
+/* FIXME: disable pixel link in a proper manner */
+static void dpu_pixel_link_disable(int dpu_id, int stream_id)
+{
+	sc_err_t sciErr;
+	sc_ipc_t ipcHndl = 0;
+	u32 mu_id;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("Cannot obtain MU ID\n");
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return;
+	}
+
+	if (dpu_id == 0) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0,
+			stream_id ? SC_C_PXL_LINK_MST2_ENB : SC_C_PXL_LINK_MST1_ENB, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_0:SC_C_PXL_LINK_MST%d_ENB sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+	} else if (dpu_id == 1) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1,
+			stream_id ? SC_C_PXL_LINK_MST2_ENB : SC_C_PXL_LINK_MST1_ENB, 0);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_1:SC_C_PXL_LINK_MST%d_ENB sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+	}
+
+	sc_ipc_close(mu_id);
+}
+
 void framegen_enable(struct dpu_framegen *fg)
 {
+	struct dpu_soc *dpu = fg->dpu;
+
 	mutex_lock(&fg->mutex);
 	dpu_fg_write(fg, FGEN, FGENABLE);
 	mutex_unlock(&fg->mutex);
+
+	dpu_pixel_link_enable(dpu->id, fg->id);
 }
 EXPORT_SYMBOL_GPL(framegen_enable);
 
 void framegen_disable(struct dpu_framegen *fg)
 {
+	struct dpu_soc *dpu = fg->dpu;
+
+	dpu_pixel_link_disable(dpu->id, fg->id);
+
 	mutex_lock(&fg->mutex);
 	dpu_fg_write(fg, 0, FGENABLE);
 	mutex_unlock(&fg->mutex);
