@@ -36,6 +36,8 @@
 		dpu1 = &dpu2;
 		ethernet0 = &fec1;
 		ethernet1 = &fec2;
+		ldb0 = &ldb1;
+		ldb1 = &ldb2;
 		isi0 = &isi_0;
 		isi1 = &isi_1;
 		isi2 = &isi_2;
