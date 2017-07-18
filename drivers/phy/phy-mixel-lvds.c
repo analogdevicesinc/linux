@@ -13,6 +13,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -165,6 +166,8 @@ static int mixel_lvds_phy_power_on(struct phy *phy)
 	mutex_lock(&priv->lock);
 	phy_write(phy, CH_EN(id), PHY_CTRL + SET);
 	mutex_unlock(&priv->lock);
+
+	usleep_range(500, 1000);
 
 	return 0;
 }
