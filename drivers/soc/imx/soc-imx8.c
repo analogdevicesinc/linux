@@ -234,6 +234,8 @@ static int __init imx8_soc_init(void)
 	if (!soc_dev_attr->revision)
 		goto free_soc;
 
+	of_property_read_string(of_root, "model", &soc_dev_attr->machine);
+
 	soc_dev = soc_device_register(soc_dev_attr);
 	if (IS_ERR(soc_dev))
 		goto free_rev;
