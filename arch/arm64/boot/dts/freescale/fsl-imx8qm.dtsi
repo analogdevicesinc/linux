@@ -1641,6 +1641,32 @@
 		status = "disabled";
 	};
 
+	irqsteer_dsi0: irqsteer@56220000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x56220000 0x0 0x1000>;
+		interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_DSI0_LIS_IPG_CLK>;
+		clock-names = "ipg";
+		power-domains = <&pd_mipi0>;
+	};
+
+	i2c0_mipi_dsi0: i2c@56226000 {
+		compatible = "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x56226000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_dsi0>;
+		clocks = <&clk IMX8QM_MIPI0_I2C0_CLK>,
+			 <&clk IMX8QM_MIPI0_I2C0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QM_MIPI0_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_mipi0_i2c0>;
+		status = "disabled";
+	};
+
 	mipi0: mipi@56220000 {
 		compatible = "fsl,imx8qm-mipi_dsi";
 		reg = <0x0 0x56220000 0x0 0x10000>;
