@@ -1185,6 +1185,8 @@ static int sdma_config_channel(struct dma_chan *chan)
 		sdmac->watermark_level = 0; /* FIXME: M3_BASE_ADDRESS */
 	}
 
+	sdmac->context_loaded = false;
+
 	ret = sdma_load_context(sdmac);
 
 	return ret;
