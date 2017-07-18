@@ -36,6 +36,7 @@ enum imx_rpmsg_variants {
 	IMX6SX,
 	IMX7D,
 	IMX7ULP,
+	IMX8QXP,
 };
 static enum imx_rpmsg_variants variant;
 
@@ -215,7 +216,7 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 		goto free_rpvq;
 	}
 
-	memset(rpvq->addr, 0, RPMSG_RING_SIZE);
+	memset_io(rpvq->addr, 0, RPMSG_RING_SIZE);
 
 	pr_debug("vring%d: phys 0x%x, virt 0x%p\n", index, virdev->vring[index],
 					rpvq->addr);
@@ -345,6 +346,7 @@ static const struct of_device_id imx_rpmsg_dt_ids[] = {
 	{ .compatible = "fsl,imx6sx-rpmsg",  .data = (void *)IMX6SX, },
 	{ .compatible = "fsl,imx7d-rpmsg",   .data = (void *)IMX7D, },
 	{ .compatible = "fsl,imx7ulp-rpmsg", .data = (void *)IMX7ULP, },
+	{ .compatible = "fsl,imx8qxp-rpmsg", .data = (void *)IMX8QXP, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_rpmsg_dt_ids);
@@ -479,16 +481,27 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&rpmsg_work, rpmsg_work_handler);
-	/*
-	 * bit26 is used by rpmsg channels.
-	 * bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now
-	 */
-	MU_Init(mu_base);
-	if (variant == IMX7ULP) {
+	if (variant == IMX8QXP) {
+		/*
+		 * MU0_A0 of M4 side is used as RPMSG MU.
+		 * And it would be initialized by M4 before
+		 * A cores are booted up.
+		 */
+		MU_Init(mu_base);
 		MU_EnableRxFullInt(mu_base, 1);
-		MU_SetFn(mu_base, 1);
+		pr_info("MU has been initalized by M4!\n");
 	} else {
-		MU_EnableRxFullInt(mu_base, 1);
+		/*
+		 * bit26 is used by rpmsg channels.
+		 * bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now
+		 */
+		MU_Init(mu_base);
+		if (variant == IMX7ULP) {
+			MU_EnableRxFullInt(mu_base, 1);
+			MU_SetFn(mu_base, 1);
+		} else {
+			MU_EnableRxFullInt(mu_base, 1);
+		}
 	}
 	BLOCKING_INIT_NOTIFIER_HEAD(&(mu_rpmsg_box.notifier));
 
