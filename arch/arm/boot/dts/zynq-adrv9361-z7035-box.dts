@@ -36,9 +36,9 @@
 		//interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	rtc@68 {
+	rtc@69 {
 		compatible = "dallas,ds3232";
-		reg = <0x68>;
+		reg = <0x69>;
 	};
 };
 
