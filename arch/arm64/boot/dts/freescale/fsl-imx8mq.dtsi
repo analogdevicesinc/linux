@@ -144,7 +144,7 @@
 
 	power: power-controller {
 		compatible = "fsl,imx8mq-pm-domain";
-		num-domains = <14>;
+		num-domains = <11>;
 		#power-domain-cells = <1>;
 	};
 
