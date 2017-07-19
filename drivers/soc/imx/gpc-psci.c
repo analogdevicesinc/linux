@@ -200,6 +200,20 @@ static int imx_gpc_pd_power_off(struct generic_pm_domain *domain)
 	return 0;
 };
 
+static const char * const imx8mq_powergates[] = {
+	[IMX8MQ_PD_MIPI] = "mipi",
+	[IMX8MQ_PD_PCIE1] = "pcie1",
+	[IMX8MQ_PD_OTG1] = "otg1",
+	[IMX8MQ_PD_OTG2] = "otg2",
+	[IMX8MQ_PD_GPU] = "gpu",
+	[IMX8MQ_PD_VPU] = "vpu",
+	[IMX8MQ_PD_HDMI] = "hdmi",
+	[IMX8MQ_PD_DISP] = "disp",
+	[IMX8MQ_PD_MIPI_CSI1] = "mipi_csi1",
+	[IMX8MQ_PD_MIPI_CSI2] = "mipi_csi2",
+	[IMX8MQ_PD_PCIE2] = "pcie2",
+};
+
 static int imx_gpc_pm_domain_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -236,7 +250,7 @@ static int imx_gpc_pm_domain_probe(struct platform_device *pdev)
 	for (i = 0; i < num_domains; i++, imx_pm_domain++) {
 		domains[i] = &imx_pm_domain->pd;
 		imx_pm_domain->gpc_domain_id = i;
-		sprintf(imx_pm_domain->name, "%s.%d", np->name, i);
+		strcpy(imx_pm_domain->name, imx8mq_powergates[i]);
 		imx_pm_domain->pd.name = imx_pm_domain->name;
 		imx_pm_domain->pd.power_off = imx_gpc_pd_power_off;
 		imx_pm_domain->pd.power_on = imx_gpc_pd_power_on;

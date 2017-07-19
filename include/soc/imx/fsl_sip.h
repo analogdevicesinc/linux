@@ -16,4 +16,16 @@
 #define FSL_SIP_CONFIG_GPC_SET_WAKE	0x02
 #define FSL_SIP_CONFIG_GPC_PM_DOMAIN	0x03
 
+#define IMX8MQ_PD_MIPI		0
+#define IMX8MQ_PD_PCIE1		1
+#define IMX8MQ_PD_OTG1		2
+#define IMX8MQ_PD_OTG2		3
+#define IMX8MQ_PD_GPU		4
+#define IMX8MQ_PD_VPU		5
+#define IMX8MQ_PD_HDMI		6
+#define IMX8MQ_PD_DISP		7
+#define IMX8MQ_PD_MIPI_CSI1	8
+#define IMX8MQ_PD_MIPI_CSI2	9
+#define IMX8MQ_PD_PCIE2		10
+
 #endif
