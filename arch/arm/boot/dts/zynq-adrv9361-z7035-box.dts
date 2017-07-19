@@ -38,7 +38,7 @@
 
 	rtc@68 {
 		compatible = "dallas,ds3232";
-		reg = <0x68>;
+		reg = <0x69>;
 	};
 };
 
@@ -79,6 +79,55 @@
 			linux,code = <KEY_POWER>;
 			gpio-key,wakeup;
 		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&gpio0>;
+		autorepeat;
+
+		s5 {
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			interrupts = <101 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s3 {
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			interrupts = <103 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s4 {
+			label = "Up";
+			linux,code = <KEY_UP>;
+			interrupts = <102 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s2 {
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			interrupts = <104 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+		s1 {
+			label = "Enter";
+			linux,code = <KEY_ENTER>;
+			interrupts = <111 IRQ_TYPE_EDGE_FALLING>;
+		};
+
+	};
+
+	rotary {
+			compatible = "rotary-encoder";
+			gpios = <&gpio0 112 1>, <&gpio0 113 1>;
+			linux,axis = <REL_WHEEL>;
+			rotary-encoder,steps = <24>;
+			rotary-encoder,steps-per-period = <2>;
+			rotary-encoder,rollover;
+			rotary-encoder,relative-axis;
 	};
 
 	poweroff {
@@ -258,6 +307,14 @@ inout	gpio_sync	45	99
 inout	gpio_en_agc	44	98
 inout	gpio_ctl	40..43	94..97
 inout	gpio_status	32..39	86..93
+
+tsw_a    59	113
+tsw_b    58	112
+tsw_s1   57	111
+tsw_s2   50	104
+tsw_s3   49	103
+tsw_s4   48	102
+tsw_s5   47	101
 
 */
 
