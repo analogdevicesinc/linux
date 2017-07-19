@@ -1835,6 +1835,7 @@ struct xhci_hcd {
 #define XHCI_LIMIT_ENDPOINT_INTERVAL_7	(1 << 26)
 #define XHCI_U2_DISABLE_WAKE	(1 << 27)
 #define XHCI_ASMEDIA_MODIFY_FLOWCONTROL	(1 << 28)
+#define XHCI_SKIP_ACCESS_RESERVED_REG	(1 << 29)
 #define XHCI_SUSPEND_DELAY	(1 << 30)
 
 	unsigned int		num_active_eps;
