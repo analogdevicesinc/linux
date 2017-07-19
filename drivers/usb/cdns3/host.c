@@ -129,6 +129,7 @@ static int cdns3_host_start(struct cdns3 *cdns)
 
 	xhci = hcd_to_xhci(host->hcd);
 
+	xhci->quirks = XHCI_SKIP_ACCESS_RESERVED_REG;
 	xhci->main_hcd = host->hcd;
 	xhci->shared_hcd = __usb_create_hcd(&xhci_cdns3_hc_driver, sysdev, dev,
 			dev_name(dev), host->hcd);
