@@ -142,7 +142,7 @@
 	status = "disabled";
 };
 
-&i2c0_hdmi {
+&i2c0 {
 
 	wm8962: wm8962@1a {
 		compatible = "wlf,wm8962";
