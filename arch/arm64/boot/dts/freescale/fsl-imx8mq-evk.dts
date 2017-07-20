@@ -231,6 +231,18 @@
 			>;
 		};
 
+		pinctrl_qspi: qspigrp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_NAND_ALE_QSPI_A_SCLK	0x82
+				MX8MQ_IOMUXC_NAND_CE0_B_QSPI_A_SS0_B	0x82
+				MX8MQ_IOMUXC_NAND_DATA00_QSPI_A_DATA0	0x82
+				MX8MQ_IOMUXC_NAND_DATA01_QSPI_A_DATA1	0x82
+				MX8MQ_IOMUXC_NAND_DATA02_QSPI_A_DATA2	0x82
+				MX8MQ_IOMUXC_NAND_DATA03_QSPI_A_DATA3	0x82
+
+			>;
+		};
+
 		pinctrl_uart1: uart1grp {
 			fsl,pins = <
 				MX8MQ_IOMUXC_UART1_RXD_UART1_DCE_RX		0x49
@@ -670,6 +682,21 @@
 	assigned-clocks = <&clk IMX8MQ_CLK_UART1_SRC>;
 	assigned-clock-parents = <&clk IMX8MQ_CLK_25M>;
 	status = "okay";
+};
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_qspi>;
+	status = "okay";
+
+	flash0: n25q256a@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "micron,n25q256a";
+		spi-max-frequency = <29000000>;
+		spi-nor,ddr-quad-read-dummy = <6>;
+	};
 };
 
 &uart3 { /* BT */

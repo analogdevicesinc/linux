@@ -1284,6 +1284,19 @@
 		only-dma-mask32 = <1>;
 	};
 
+	qspi: qspi@30bb0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx7d-qspi";
+		reg = <0 0x30bb0000 0 0x10000>, <0 0x08000000 0 0x10000000>;
+		reg-names = "QuadSPI", "QuadSPI-memory";
+		interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_QSPI_ROOT>,
+		<&clk IMX8MQ_CLK_QSPI_ROOT>;
+		clock-names = "qspi_en", "qspi";
+		status = "disabled";
+	};
+
 	pcie0: pcie@0x33800000 {
 		compatible = "fsl,imx8mq-pcie", "snps,dw-pcie";
 		reg = <0x0 0x33800000 0x0 0x400000>, <0x0 0x1ff00000 0x0 0x80000>;
