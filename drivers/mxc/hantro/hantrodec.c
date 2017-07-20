@@ -47,7 +47,9 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
-
+#include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/clk.h>
 
 /*hantro G1 regs config including dec and pp*/
 #define HANTRO_DEC_ORG_REGS             60
@@ -99,6 +101,7 @@
 /* Logic module base address */
 #define SOCLE_LOGIC_0_BASE              0x38300000
 #define SOCLE_LOGIC_1_BASE              0x38310000
+#define BLK_CTL_BASE                          0x38320000
 
 #define VEXPRESS_LOGIC_0_BASE           0xFC010000
 #define VEXPRESS_LOGIC_1_BASE           0xFC020000
@@ -158,12 +161,6 @@ int elements = 2;
   struct timer_list timer;
 #endif
 
-#ifndef VSI       //1NXP
-#include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
-//#include <linux/busfreq-imx.h>
-#include <linux/clk.h>
-
 static struct class *hantro_class;
 #define DEVICE_NAME		"mxc_hantro"
 
@@ -172,9 +169,6 @@ static struct clk *hantro_clk_g1;
 static struct clk *hantro_clk_g2;
 static struct clk * hantro_clk_bus;
 
-int irq_g1=0;
-int irq_g2=0;
-static irqreturn_t hantrodec_isr_g1(int irq, void *dev_id);
 
 static int hantro_dbg=0;
 module_param(hantro_dbg, int, 0644);
@@ -184,8 +178,6 @@ MODULE_PARM_DESC(hantro_dbg, "Debug level (0-1)");
     do {                                      \
     if (hantro_dbg > 0){printk(KERN_DEBUG fmt ,## arg);} \
     } while (0)
-
-#endif
 
 /* module_param(name, type, perm) */
 module_param(base_port, ulong, 0);
@@ -287,27 +279,27 @@ static void ReadCoreConfig(hantrodec_t *dev) {
       reg = ioread32(dev->hwregs[c] + HANTRODEC_SYNTH_CFG * 4);
 
       tmp = (reg >> DWL_H264_E) & 0x3U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has H264\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has H264\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_H264_DEC : 0;
 
       tmp = (reg >> DWL_JPEG_E) & 0x01U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has JPEG\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has JPEG\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_JPEG_DEC : 0;
 
       tmp = (reg >> DWL_MPEG4_E) & 0x3U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has MPEG4\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has MPEG4\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_MPEG4_DEC : 0;
 
       tmp = (reg >> DWL_VC1_E) & 0x3U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has VC1\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has VC1\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_VC1_DEC: 0;
 
       tmp = (reg >> DWL_MPEG2_E) & 0x01U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has MPEG2\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has MPEG2\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_MPEG2_DEC : 0;
 
       tmp = (reg >> DWL_VP6_E) & 0x01U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has VP6\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has VP6\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_VP6_DEC : 0;
 
       reg = ioread32(dev->hwregs[c] + HANTRODEC_SYNTH_CFG_2 * 4);
@@ -316,19 +308,19 @@ static void ReadCoreConfig(hantrodec_t *dev) {
       mask =  (1 << DWL_VP8_E) | (1 << DWL_VP7_E) | (1 << DWL_WEBP_E);
       tmp = (reg & mask);
       if(tmp & (1 << DWL_VP8_E))
-        printk(KERN_INFO "hantrodec: Core[%d] has VP8\n", c);
+        printk(KERN_DEBUG "hantrodec: Core[%d] has VP8\n", c);
       if(tmp & (1 << DWL_VP7_E))
-        printk(KERN_INFO "hantrodec: Core[%d] has VP7\n", c);
+        printk(KERN_DEBUG "hantrodec: Core[%d] has VP7\n", c);
       if(tmp & (1 << DWL_WEBP_E))
-        printk(KERN_INFO "hantrodec: Core[%d] has WebP\n", c);
+        printk(KERN_DEBUG "hantrodec: Core[%d] has WebP\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_VP8_DEC : 0;
 
       tmp = (reg >> DWL_AVS_E) & 0x01U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has AVS\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has AVS\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_AVS_DEC: 0;
 
       tmp = (reg >> DWL_RV_E) & 0x03U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has RV\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has RV\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_RV_DEC : 0;
 
       /* Post-processor configuration */
@@ -337,11 +329,11 @@ static void ReadCoreConfig(hantrodec_t *dev) {
       reg = ioread32(dev->hwregs[c] + HANTRODEC_SYNTH_CFG_2 * 4);
 
       tmp = (reg >> DWL_HEVC_E) & 0x3U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has HEVC\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has HEVC\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_HEVC_DEC : 0;
 
       tmp = (reg >> DWL_VP9_E) & 0x03U;
-      if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has VP9\n", c);
+      if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has VP9\n", c);
       cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_VP9_DEC : 0;
     }
 
@@ -349,7 +341,7 @@ static void ReadCoreConfig(hantrodec_t *dev) {
     reg = ioread32(dev->hwregs[c] + HANTRODECPP_SYNTH_CFG * 4);
 
     tmp = (reg >> DWL_PP_E) & 0x01U;
-    if(tmp) printk(KERN_INFO "hantrodec: Core[%d] has PP\n", c);
+    if(tmp) printk(KERN_DEBUG "hantrodec: Core[%d] has PP\n", c);
     cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_PP : 0;
   }
 }
@@ -410,7 +402,7 @@ int GetDecCoreID(hantrodec_t *dev, struct file* filp,
 
 static int hantrodec_choose_core(int is_g1) {
   volatile unsigned char *reg = NULL;
-  unsigned int blk_base = 0x38320000;
+  unsigned int blk_base = BLK_CTL_BASE;
 
   PDEBUG("hantrodec_choose_core\n");
   if (!request_mem_region(blk_base, 0x1000, "blk_ctl"))
@@ -1280,9 +1272,7 @@ static long hantrodec_ioctl32(struct file *filp, unsigned int cmd,unsigned long 
 
 static int hantrodec_open(struct inode *inode, struct file *filp) {
   PDEBUG("dev opened\n");
-#ifndef VSI         //1 NXP
-  pm_runtime_get_sync(hantro_dev);
-#endif
+  //pm_runtime_get_sync(hantro_dev);
   return 0;
 }
 
@@ -1312,9 +1302,8 @@ static int hantrodec_release(struct inode *inode, struct file *filp) {
       ReleasePostProcessor(dev, n);
     }
   }
-#ifndef VSI         //1 NXP
-  pm_runtime_put_sync_suspend(hantro_dev);
-#endif
+
+  //pm_runtime_put_sync_suspend(hantro_dev);
   PDEBUG("closed\n");
   return 0;
 }
@@ -1384,8 +1373,8 @@ int hantrodec_init(void) {
 
   PDEBUG("module init\n");
 
-  printk(KERN_INFO "hantrodec: dec/pp kernel module. \n");
-#ifdef VSI       //1NXP
+  printk(KERN_DEBUG "hantrodec: dec/pp kernel module. \n");
+#ifdef VSI
 /*This segment is related with customer platform CFG and should be modified for specified use*/
 /*---------------------------------------------------------------------------*/
 {
@@ -1429,7 +1418,7 @@ int hantrodec_init(void) {
 #if 1
 {
   //BLK_CTL
-  unsigned int blk_base = 0x38320000;
+  unsigned int blk_base = BLK_CTL_BASE;
   volatile unsigned char *reg = NULL;
   
   if (!request_mem_region(blk_base, 0x1000, "blk_ctl"))
@@ -1472,7 +1461,7 @@ int hantrodec_init(void) {
     printk(KERN_INFO "hantrodec: Init single Core at 0x%16lx IRQ=%i\n",
            multicorebase[0], irq_0);
   } else {
-    printk(KERN_INFO "hantrodec: Init multi Core[0] at 0x%16lx\n"
+    printk(KERN_DEBUG "hantrodec: Init multi Core[0] at 0x%16lx\n"
            "                     Core[1] at 0x%16lx\n"
            "                     Core[2] at 0x%16lx\n"
            "                     Core[3] at 0x%16lx\n"
@@ -1553,7 +1542,7 @@ int hantrodec_init(void) {
   /* register irq for each core*/
   if(irq_0 > 0)
     {
-#ifdef VSI       //1NXP
+#ifdef VSI
 		struct device_node *np;
 		//memset(&irq_g2,0,sizeof(struct irq_test_type));
 		np = of_find_matching_node(NULL, mmp_timer_dt_ids_0);
@@ -1604,7 +1593,7 @@ int hantrodec_init(void) {
 #ifdef MULTI_CORE
     if(irq_1 > 0)
     {
-#ifdef VSI       //1NXP
+#ifdef VSI
 		struct device_node *np;
 		//memset(&irq_g2,0,sizeof(struct irq_test_type));
 		np = of_find_matching_node(NULL, mmp_timer_dt_ids_1);
@@ -1718,12 +1707,12 @@ static int CheckHwId(hantrodec_t * dev) {
   for (i = 0; i < dev->cores; i++) {
     if (dev->hwregs[i] != NULL ) {
       hwid = readl(dev->hwregs[i]);
-      printk(KERN_INFO "hantrodec: Core %d HW ID=0x%16lx\n", i, hwid);
+      printk(KERN_DEBUG "hantrodec: Core %d HW ID=0x%16lx\n", i, hwid);
       hwid = (hwid >> 16) & 0xFFFF; /* product version only */
 
       while (num_hw--) {
         if (hwid == DecHwId[num_hw]) {
-          printk(KERN_INFO "hantrodec: Supported HW found at 0x%16lx\n",
+          printk(KERN_DEBUG "hantrodec: Supported HW found at 0x%16lx\n",
                  multicorebase[i]);
           found++;
 		  dev->hw_id[i] = hwid;
@@ -1731,7 +1720,7 @@ static int CheckHwId(hantrodec_t * dev) {
         }
       }
       if (!found) {
-        printk(KERN_INFO "hantrodec: Unknown HW found at 0x%16lx\n",
+        printk(KERN_ERR "hantrodec: Unknown HW found at 0x%16lx\n",
                multicorebase[i]);
         return 0;
       }
@@ -1907,12 +1896,27 @@ void dump_regs(hantrodec_t *dev) {
 #ifdef VSI
 module_init( hantrodec_init);
 module_exit( hantrodec_cleanup);
-#else		//1 for NXP
-
-static irqreturn_t hantrodec_isr_g1(int irq, void *dev_id)
+#else
+static int hantro_clk_enable(struct device *dev)
 {
-  PDEBUG("g1 interrupt \n");
-  return IRQ_RETVAL(1);
+    clk_prepare(hantro_clk_g1);
+    clk_enable(hantro_clk_g1);
+    clk_prepare(hantro_clk_g2);
+    clk_enable(hantro_clk_g2);
+    clk_prepare(hantro_clk_bus);
+    clk_enable(hantro_clk_bus);
+    return 0;
+}
+
+static int hantro_clk_disable(struct device *dev)
+{
+    clk_disable(hantro_clk_g1);
+    clk_unprepare(hantro_clk_g1);
+    clk_disable(hantro_clk_g2);
+    clk_unprepare(hantro_clk_g2);
+    clk_disable(hantro_clk_bus);
+    clk_unprepare(hantro_clk_bus);
+    return 0;
 }
 
 static int hantro_dev_probe(struct platform_device *pdev)
@@ -1921,123 +1925,57 @@ static int hantro_dev_probe(struct platform_device *pdev)
     struct device *temp_class;
     struct resource *res;
     unsigned long reg_base;
+    volatile u8* iobase;
 
     hantro_dev=&pdev->dev;
     res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs_hantro");
     if (!res) {
-        dev_err(hantro_dev, "hantro: unable to get vpu base addr\n");
+        printk(KERN_ERR "hantro: unable to get vpu base addr\n");
         return -ENODEV;
     }
     reg_base = res->start;
-
-    irq_g2 = platform_get_irq_byname(pdev, "irq_hantro_g2");
-    if (irq_g2 < 0) {
-        dev_err(hantro_dev, "hantro: unable to get hantro g2 interrupt\n");
-        err = -ENXIO;
-        goto error;
-    }
-
-    irq_g1 = platform_get_irq_byname(pdev, "irq_hantro_g1");
-    if (irq_g1 < 0) {
-        dev_err(hantro_dev, "hantro: unable to get hantro g1 interrupt\n");
-        err = -ENXIO;
-        goto error;
-    }
-  
-    hantro_clk_g1 = clk_get(&pdev->dev, "clk_hantro_g1");
-    if (IS_ERR(hantro_clk_g1)) {
-        err = -ENOENT;
-        goto error;
-    }
-    hantro_clk_g2 = clk_get(&pdev->dev, "clk_hantro_g2");
-    if (IS_ERR(hantro_clk_g2)) {
-        err = -ENOENT;
-        goto error;
-    }
-    hantro_clk_bus = clk_get(&pdev->dev, "clk_hantro_bus");
-    if (IS_ERR(hantro_clk_bus)) {
-        err = -ENOENT;
-        goto error;
-    }
-#if 1 //eagle : config code for bringup
-{
-    int ret;
-    volatile u8* iobase;
-
-    //printk("enable g1 and g2 clock  \r\n");
-    ret=clk_prepare(hantro_clk_g1);
-    //printk("prepare g1 ret: %d \r\n",ret);
-    ret=clk_enable(hantro_clk_g1);
-    //printk("enable g1 ret: %d \r\n",ret);
-    ret=clk_prepare(hantro_clk_g2);
-    //printk("prepare g2 ret: %d \r\n",ret);
-    ret=clk_enable(hantro_clk_g2);
-    //printk("enable g2 ret: %d \r\n",ret);
-    ret=clk_prepare(hantro_clk_bus);
-    //printk("prepare hantro bus ret: %d \r\n",ret);
-    ret=clk_enable(hantro_clk_bus);
-    //printk("enable hantro bus ret: %d \r\n",ret);
-    //printk("g1 clk: get rate: %d \r\n",(int)clk_get_rate(hantro_clk_g1));
-    //printk("g2 clk: get rate: %d \r\n",(int)clk_get_rate(hantro_clk_g2));
-    //printk("hantro bus clk: get rate: %d \r\n",(int)clk_get_rate(hantro_clk_bus));
-
-    //printk("will set 0x3832000X, reset g1 and g2 \r\n");
-    iobase = (volatile u8 *) ioremap_nocache(0x38320000,0x10000);
-    //iobase[0]=0x3;
-    //iobase[0x4]=0x3;
-    iowrite32(0x3,iobase);
-    iowrite32(0x3,iobase+4);
-    {
-        unsigned int val=0;
-        iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
-        iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
-
-        val=ioread32(iobase + 0x10);
-        //printk("g2 fuse before set: 0x%X \n",val);  
-        iowrite32(0xFFFFFFFF, iobase + 0x10); // all G2 fuse dec enable
-        val=ioread32(iobase + 0x10);
-        //printk("g2 fuse after set : 0x%X \n",val);    
-        // G1 use, set to 1; G2 use, set to 0, choose the one you are using
-
-        /*
-        //iowrite32(0x1, iobase + 0x14);  // VPUMIX only use G1
-        val=ioread32(iobase + 0x14);
-        printk("vpumix before set: 0x%X \n",val);  
-        iowrite32(0x0, iobase + 0x14); // VPUMIX only use G2
-        val=ioread32(iobase + 0x14);
-        printk("vpumix after set: 0x%X \n",val);  
-        */
-    }
-    iounmap(iobase);  
-    //printk("enable hantro power \r\n");
-    //  pm_runtime_enable(hantro_dev);
-    //  ret=pm_runtime_get_sync(hantro_dev);
-    //  printk("turn power ret: %d \r\n",ret);
-
-}
-
     if((ulong)reg_base!=multicorebase[0]){
         printk(KERN_ERR "hantrodec: regbase(0x%lX) not equal to expected value(0x%lX)\n",reg_base,multicorebase[0]);
         err=-ENODEV;
         goto error;
     }
 
-    PDEBUG("base port: 0x%lX , g1 irq: %d, g2 irq: %d \n",reg_base,irq_g1,irq_g2);
-
-    irq_0=irq_g1;
-    irq_1=irq_g2;
-    if(0){  // register g1 irq 
-        int result;
-        result = request_irq(irq_g1, hantrodec_isr_g1,IRQF_SHARED, "hantrodec", (void *) &hantrodec_data);
-        if(result != 0) {
-            printk(KERN_ERR "hantrodec: can't request irq g1\n");
-        }
+    irq_1 = platform_get_irq_byname(pdev, "irq_hantro_g2");
+    irq_0 = platform_get_irq_byname(pdev, "irq_hantro_g1");
+    if ((irq_0 < 0) ||(irq_1 < 0)) {
+        printk(KERN_ERR "hantro: unable to get hantro g1/g2 interrupt\n");
+        err = -ENXIO;
+        goto error;
     }
-#endif
+    printk(KERN_DEBUG "base port: 0x%lX , g1 irq: %d, g2 irq: %d \n",reg_base,irq_0,irq_1);
+
+    hantro_clk_g1 = clk_get(&pdev->dev, "clk_hantro_g1");
+    hantro_clk_g2 = clk_get(&pdev->dev, "clk_hantro_g2");
+    hantro_clk_bus = clk_get(&pdev->dev, "clk_hantro_bus");
+    if (IS_ERR(hantro_clk_g1)||IS_ERR(hantro_clk_g2)||IS_ERR(hantro_clk_bus)){
+        printk(KERN_ERR "hantro: get clock failed\n");
+        err = -ENXIO;
+        goto error;
+    }
+    printk(KERN_DEBUG "hantro: g1, g2, bus clock: 0x%lX, 0x%lX, 0x%lX \n",clk_get_rate(hantro_clk_g1),
+		clk_get_rate(hantro_clk_g2),clk_get_rate(hantro_clk_bus));
+	
+    pm_runtime_enable(hantro_dev);
+    pm_runtime_get_sync(hantro_dev);
+    hantro_clk_enable(&pdev->dev);
+
+    //config G1/G2
+    iobase = (volatile u8 *) ioremap_nocache(BLK_CTL_BASE,0x10000);
+    iowrite32(0x3,iobase);  //VPUMIX G1/G2 block soft reset  control
+    iowrite32(0x3,iobase+4); //VPUMIX G1/G2 block clock enable control
+    iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
+    iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
+    iowrite32(0xFFFFFFFF, iobase + 0x10); // all G2 fuse dec enable
+    iounmap(iobase);  
 
 	err=hantrodec_init();
 	if(0!=err){
-		dev_err(hantro_dev, "hantro: hantrodec_init failed\n");
+		printk(KERN_ERR "hantro: hantrodec_init failed\n");
 		goto error;
 	}
 
@@ -2052,27 +1990,28 @@ static int hantro_dev_probe(struct platform_device *pdev)
 		goto err_out_class;
 	}
 
-	pm_runtime_enable(&pdev->dev);
 	goto out;
 
 err_out_class:
 	device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
 	class_destroy(hantro_class);
 error:
-	//iounmap(hantro_base);
+	printk(KERN_ERR "hantro probe failed\n");
 out:
 	return err;
 }
 
 static int hantro_dev_remove(struct platform_device *pdev)
 {
-	pm_runtime_disable(&pdev->dev);
 	if (hantrodec_major > 0) {
 		device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
 		class_destroy(hantro_class);
 		hantrodec_cleanup();
 		hantrodec_major = 0;
 	}
+	hantro_clk_disable(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
@@ -2133,7 +2072,7 @@ static int __init hantro_init(void)
 
 static void __exit hantro_exit(void)
 {
-    //1 clk_put(hantro_clk);
+    //clk_put(hantro_clk);
     platform_driver_unregister(&mxchantro_driver);
     return;
 }
