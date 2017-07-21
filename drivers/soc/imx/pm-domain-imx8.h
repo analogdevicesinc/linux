@@ -29,6 +29,7 @@ struct imx8_pm_domain {
 	int (*suspend)(void);
 	void (*resume)(void);
 	sc_rsrc_t rsrc_id;
+	bool runtime_idle_active;
 };
 
 static inline

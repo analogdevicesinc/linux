@@ -21,6 +21,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
+#include <linux/pm_runtime.h>
 #include <linux/pm_clock.h>
 #include <linux/slab.h>
 
@@ -33,7 +34,7 @@ static sc_ipc_t pm_ipc_handle;
 static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 {
 	struct imx8_pm_domain *pd;
-	sc_err_t sci_err;
+	sc_err_t sci_err = SC_ERR_NONE;
 
 	pd = container_of(domain, struct imx8_pm_domain, pd);
 
@@ -41,7 +42,8 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 		return 0;
 
 	sci_err = sc_pm_set_resource_power_mode(pm_ipc_handle, pd->rsrc_id,
-		(power_on) ? SC_PM_PW_MODE_ON : SC_PM_PW_MODE_OFF);
+		(power_on) ? SC_PM_PW_MODE_ON :
+		(pd->runtime_idle_active) ? SC_PM_PW_MODE_LP : SC_PM_PW_MODE_OFF);
 
 	if (sci_err)
 		pr_err("Failed power operation on resource %d\n", pd->rsrc_id);
@@ -51,12 +53,46 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 
 static int imx8_pd_power_on(struct generic_pm_domain *domain)
 {
+	struct imx8_pm_domain *pd;
+
+	pd = container_of(domain, struct imx8_pm_domain, pd);
+	pd->runtime_idle_active = false;
 	return imx8_pd_power(domain, true);
 }
 
 static int imx8_pd_power_off(struct generic_pm_domain *domain)
 {
 	return imx8_pd_power(domain, false);
+}
+
+static int imx8_pd_dev_start(struct device *dev)
+{
+	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
+	struct imx8_pm_domain *pd;
+
+	pd = container_of(genpd, struct imx8_pm_domain, pd);
+	pd->runtime_idle_active = false;
+	return 0;
+}
+
+static int imx8_pd_dev_stop(struct device *dev)
+{
+	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
+	struct imx8_pm_domain *pd;
+
+	pd = container_of(genpd, struct imx8_pm_domain, pd);
+	pd->runtime_idle_active = true;
+	return 0;
+}
+
+static int imx8_pm_runtime_idle(struct device *dev)
+{
+	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
+	struct imx8_pm_domain *pd;
+
+	pd = container_of(genpd, struct imx8_pm_domain, pd);
+	pd->runtime_idle_active = true;
+	return pm_runtime_autosuspend(dev);
 }
 
 static int __init imx8_add_pm_domains(struct device_node *parent,
@@ -80,8 +116,12 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 
 		imx8_pd->pd.power_off = imx8_pd_power_off;
 		imx8_pd->pd.power_on = imx8_pd_power_on;
+		imx8_pd->pd.dev_ops.start = imx8_pd_dev_start;
+		imx8_pd->pd.dev_ops.stop = imx8_pd_dev_stop;
 
 		pm_genpd_init(&imx8_pd->pd, NULL, true);
+
+		imx8_pd->pd.domain.ops.runtime_idle = imx8_pm_runtime_idle;
 
 		if (genpd_parent)
 			pm_genpd_add_subdomain(genpd_parent, &imx8_pd->pd);
