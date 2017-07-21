@@ -331,6 +331,7 @@
 		phy-ref-clkfreq = <27000000>;
 		data-lanes-num = <4>;
 		max-data-rate  = <800000000>;
+		power-domains = <&power 0>;
 		status = "disabled";
 	};
 
@@ -510,6 +511,7 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_USB_BUS_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_800M>;
 		assigned-clock-rates = <800000000>;
+		power-domains = <&power 2>;
 		status = "disabled";
 	};
 
@@ -524,6 +526,7 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_USB_BUS_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_800M>;
 		assigned-clock-rates = <800000000>;
+		power-domains = <&power 3>;
 		status = "disabled";
 	};
 
@@ -715,6 +718,7 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_GPU_CORE_SRC>, <&clk IMX8MQ_CLK_GPU_SHADER_SRC>, <&clk IMX8MQ_CLK_GPU_AXI_SRC>, <&clk IMX8MQ_CLK_GPU_AHB_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_800M>, <&clk IMX8MQ_SYS1_PLL_800M>, <&clk IMX8MQ_SYS1_PLL_800M>, <&clk IMX8MQ_SYS1_PLL_800M>;
 		assigned-clock-rates = <800000000>, <800000000>, <800000000>, <800000000>;
+		power-domains = <&power 4>;
 		status = "disabled";
 	};
 
@@ -774,6 +778,7 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_VPU_G1_SRC>, <&clk IMX8MQ_CLK_VPU_G2_SRC>, <&clk IMX8MQ_CLK_VPU_BUS_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_VPU_PLL_OUT>, <&clk IMX8MQ_VPU_PLL_OUT>, <&clk IMX8MQ_SYS1_PLL_800M>;
 		assigned-clock-rates = <600000000>, <600000000>, <800000000>;
+		power-domains = <&power 5>;
 		status = "disabled";
 	};
 
@@ -830,6 +835,7 @@
 		clock-names = "pcie", "pcie_bus", "pcie_phy";
 		fsl,max-link-speed = <2>;
 		ctrl-id = <0>;
+		power-domains = <&power 1>;
 		status = "disabled";
 	};
 
@@ -857,6 +863,7 @@
 		clock-names = "pcie", "pcie_bus", "pcie_phy";
 		fsl,max-link-speed = <2>;
 		ctrl-id = <1>;
+		power-domains = <&power 10>;
 		status = "disabled";
 	};
 };
