@@ -46,7 +46,7 @@
 
 struct adf4360 {
 	struct spi_device *spi;
-	unsigned long r, b, divout;
+	unsigned long r, b, divout, val_ctrl;
 
 	struct clk_hw clk_hw;
 
@@ -89,31 +89,44 @@ static long adf4360_round_rate(struct clk_hw *clk_hw,
 }
 
 static int adf4360_set_rate(struct clk_hw *clk_hw,
-	unsigned long rate, unsigned long parent_rate)
+			    unsigned long rate, unsigned long parent_rate)
 {
 	return 0;
+}
+
+static int adf4360_set_phase(struct clk_hw *clk_hw, int degrees)
+{
+	struct adf4360 *adf4360 = clk_hw_to_adf4360(clk_hw);
+
+	if (degrees != 0)
+		adf4360->val_ctrl |= BIT(21) | BIT(20);
+	else
+		adf4360->val_ctrl &= ~(BIT(21) | BIT(20));
+
+	return adf4360_write_reg(adf4360, ADF4360_REG_CTRL, adf4360->val_ctrl);
 }
 
 static const struct clk_ops adf4360_clk_ops = {
 	.recalc_rate = adf4360_recalc_rate,
 	.round_rate = adf4360_round_rate,
 	.set_rate = adf4360_set_rate,
+	.set_phase = adf4360_set_phase,
 };
 
 static void adf4360_m2k_setup(struct adf4360 *adf4360)
 {
-	unsigned int val_r, val_ctrl, val_b;
+	unsigned int val_r, val_b;
 
 	adf4360->b = 20;
 	adf4360->r = 4;
 	adf4360->divout = 1;
 
-	val_ctrl = ADF4360_CTRL_PC_5;
-	val_ctrl |= ADF4360_CTRL_CPI1(ADF4360_CPI_2_50);
-	val_ctrl |= ADF4360_CTRL_CPI2(ADF4360_CPI_2_50);
-	val_ctrl |= ADF4360_CTRL_PL_5;
-	val_ctrl |= 5 << 5;
-	val_ctrl |= 1 << 8;
+	adf4360->val_ctrl = ADF4360_CTRL_PC_5;
+	adf4360->val_ctrl |= ADF4360_CTRL_CPI1(ADF4360_CPI_2_50);
+	adf4360->val_ctrl |= ADF4360_CTRL_CPI2(ADF4360_CPI_2_50);
+	adf4360->val_ctrl |= ADF4360_CTRL_PL_5;
+	adf4360->val_ctrl |= 5 << 5;
+	adf4360->val_ctrl |= 1 << 8;
 //	val_ctrl |= BIT(11);
 //	val_ctrl |= BIT(20);
 
@@ -122,7 +135,7 @@ static void adf4360_m2k_setup(struct adf4360 *adf4360)
 	val_b = ADF4360_B_COUNTER(adf4360->b) | (2<<2);
 
 	adf4360_write_reg(adf4360, ADF4360_REG_R_COUNTER, val_r);
-	adf4360_write_reg(adf4360, ADF4360_REG_CTRL, val_ctrl);
+	adf4360_write_reg(adf4360, ADF4360_REG_CTRL, adf4360->val_ctrl);
 	msleep(15);
 	adf4360_write_reg(adf4360, ADF4360_REG_B_COUNTER, val_b);
 }
@@ -151,7 +164,7 @@ static int adf4360_probe(struct spi_device *spi)
 
 	init.name = clk_name;
 	init.ops = &adf4360_clk_ops;
-	init.flags = CLK_SET_RATE_GATE;
+	init.flags = 0;
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
 
