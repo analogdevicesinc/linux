@@ -2,6 +2,7 @@
  * Freescale QuadSPI driver.
  *
  * Copyright (C) 2013-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -987,6 +988,8 @@ static ssize_t fsl_qspi_read(struct spi_nor *nor, loff_t from,
 {
 	struct fsl_qspi *q = nor->priv;
 	u8 cmd = nor->read_opcode;
+	u8 tmp[8] = {0};
+	int i, j;
 
 	/* if necessary,ioremap buffer before AHB read, */
 	if (!q->ahb_addr) {
@@ -1021,9 +1024,21 @@ static ssize_t fsl_qspi_read(struct spi_nor *nor, loff_t from,
 		cmd, q->ahb_addr + q->chip_base_addr + from - q->memmap_offs,
 		len);
 
-	/* Read out the data directly from the AHB buffer.*/
-	memcpy(buf, q->ahb_addr + q->chip_base_addr + from - q->memmap_offs,
-		len);
+	/* For non-8-byte alignment cases */
+	if (from % 8) {
+		j = 8 - (from & 0x7);
+		for (i = 0; i < j; ++i) {
+			memcpy(tmp + i, q->ahb_addr + q->chip_base_addr + from
+			       - q->memmap_offs + i, 1);
+		}
+		memcpy(buf, tmp, j);
+		memcpy(buf + j, q->ahb_addr + q->chip_base_addr + from
+		       - q->memmap_offs + j, len - j);
+	} else {
+		/* Read out the data directly from the AHB buffer.*/
+		memcpy(buf, q->ahb_addr + q->chip_base_addr + from
+		       - q->memmap_offs, len);
+	}
 
 	return len;
 }
