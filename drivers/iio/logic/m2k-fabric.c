@@ -629,11 +629,14 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	if (IS_ERR(m2k_fabric->usr_pow_gpio))
 		return PTR_ERR(m2k_fabric->usr_pow_gpio);
 
-	m2k_fabric->user_supply_powerdown = false;
-	m2k_fabric->sc_powerdown[0] = false;
-	m2k_fabric->sc_powerdown[1] = false;
-	m2k_fabric->awg_powerdown[0] = false;
-	m2k_fabric->awg_powerdown[1] = false;
+	remain_powerdown = of_property_read_bool(pdev->dev.of_node,
+						 "adi,powerdown-enable");
+
+	m2k_fabric->user_supply_powerdown = remain_powerdown;
+	m2k_fabric->sc_powerdown[0] = remain_powerdown;
+	m2k_fabric->sc_powerdown[1] = remain_powerdown;
+	m2k_fabric->awg_powerdown[0] = remain_powerdown;
+	m2k_fabric->awg_powerdown[1] = remain_powerdown;
 
 	mutex_init(&m2k_fabric->lock);
 
