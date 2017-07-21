@@ -131,18 +131,21 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 	struct dpu_plane_state *dpstate;
 	struct dpu_plane *dplane;
 	struct dpu_plane_grp *grp;
+	struct drm_framebuffer *fb;
 	struct dpu_fetchdecode *fd;
+	struct dpu_fetcheco *fe;
 	struct dpu_hscaler *hs;
 	struct dpu_vscaler *vs;
 	unsigned int sid, src_sid;
 	int i, j, k;
 	int fd_id;
-	u32 cap_mask, hs_mask, vs_mask;
+	u32 cap_mask, fe_mask, hs_mask, vs_mask;
 
 	/* for active planes only */
 	for (i = 0; i < n; i++) {
 		dpstate = to_dpu_plane_state(states[i]);
 		dplane = to_dpu_plane(states[i]->plane);
+		fb = states[i]->fb;
 		grp = dplane->grp;
 		sid = dplane->stream_id;
 
@@ -162,6 +165,27 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 				continue;
 
 			cap_mask = fetchdecode_get_vproc_mask(fd);
+
+			if (drm_format_num_planes(fb->format->format) > 1) {
+				fe = fetchdecode_get_fetcheco(fd);
+
+				/* avoid on-the-fly/hot migration */
+				src_sid = fetcheco_get_stream_id(fe);
+				if (src_sid && src_sid != BIT(sid))
+					continue;
+
+				/* fetch unit has the fetcheco capability? */
+				if (!dpu_vproc_has_fetcheco_cap(cap_mask))
+					continue;
+
+				fe_mask = dpu_vproc_get_fetcheco_cap(cap_mask);
+
+				/* fetcheco available? */
+				if (grp->src_use_vproc_mask & fe_mask)
+					continue;
+
+				grp->src_use_vproc_mask |= fe_mask;
+			}
 
 			if (states[i]->src_w >> 16 != states[i]->crtc_w) {
 				hs = fetchdecode_get_hscaler(fd);
@@ -239,11 +263,13 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 	struct dpu_plane_grp *grp[MAX_DPU_PLANE_GRP];
 	int ret, i, grp_id;
 	int active_plane[MAX_DPU_PLANE_GRP];
+	int active_plane_fetcheco[MAX_DPU_PLANE_GRP];
 	int active_plane_hscale[MAX_DPU_PLANE_GRP];
 	int active_plane_vscale[MAX_DPU_PLANE_GRP];
 
 	for (i = 0; i < MAX_DPU_PLANE_GRP; i++) {
 		active_plane[i] = 0;
+		active_plane_fetcheco[i] = 0;
 		active_plane_hscale[i] = 0;
 		active_plane_vscale[i] = 0;
 		grp[i] = NULL;
@@ -260,9 +286,13 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 
 		drm_atomic_crtc_state_for_each_plane_state(plane, plane_state,
 							   crtc_state) {
+			struct drm_framebuffer *fb = plane_state->fb;
 			dpu_plane = to_dpu_plane(plane);
 			grp_id = dpu_plane->grp->id;
 			active_plane[grp_id]++;
+
+			if (drm_format_num_planes(fb->format->format) > 1)
+				active_plane_fetcheco[grp_id]++;
 
 			if (plane_state->src_w >> 16 != plane_state->crtc_w)
 				active_plane_hscale[grp_id]++;
@@ -279,6 +309,10 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 	for (i = 0; i < MAX_DPU_PLANE_GRP; i++) {
 		if (grp[i]) {
 			if (active_plane[i] > grp[i]->hw_plane_num)
+				return -EINVAL;
+
+			if (active_plane_fetcheco[i] >
+			    grp[i]->hw_plane_fetcheco_num)
 				return -EINVAL;
 
 			if (active_plane_hscale[i] >

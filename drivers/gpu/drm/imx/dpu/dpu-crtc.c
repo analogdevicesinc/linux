@@ -261,6 +261,7 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_plane *dplane;
 		struct dpu_plane_res *res;
 		struct dpu_fetchdecode *fd;
+		struct dpu_fetcheco *fe;
 		struct dpu_hscaler *hs;
 		struct dpu_vscaler *vs;
 		struct dpu_layerblend *lb;
@@ -286,11 +287,14 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		fd = res->fd[fd_id];
 		lb = res->lb[lb_id];
 
+		fe = fetchdecode_get_fetcheco(fd);
 		hs = fetchdecode_get_hscaler(fd);
 		vs = fetchdecode_get_vscaler(fd);
 
 		layerblend_pixengcfg_clken(lb, CLKEN__DISABLE);
 		fetchdecode_source_buffer_disable(fd);
+		fetchdecode_pixengcfg_dynamic_src_sel(fd, FD_SRC_DISABLE);
+		fetcheco_source_buffer_disable(fe);
 		hscaler_pixengcfg_clken(hs, CLKEN__DISABLE);
 		vscaler_pixengcfg_clken(vs, CLKEN__DISABLE);
 		hscaler_mode(hs, SCALER_NEUTRAL);
@@ -318,6 +322,12 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	for (i = 0; i < ARRAY_SIZE(res->fd); i++) {
 		if (res->fd[i] && !fetchdecode_is_enabled(res->fd[i]))
 			fetchdecode_set_stream_id(res->fd[i],
+							DPU_PLANE_SRC_DISABLED);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(res->fe); i++) {
+		if (res->fe[i] && !fetcheco_is_enabled(res->fe[i]))
+			fetcheco_set_stream_id(res->fe[i],
 							DPU_PLANE_SRC_DISABLED);
 	}
 
