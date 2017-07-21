@@ -35,6 +35,8 @@
 	rtc@68 {
 		compatible = "dallas,ds3232";
 		reg = <0x69>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <80 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
@@ -283,6 +285,10 @@ input	pss_valid_n_2	14	68
 inout	adp5061_io_0	16	70
 inout	adp5061_io_1	17	71
 inout	adp5061_io_2	18	72
+
+	rtc_int		26	80
+	adp1614_en	25	79
+	otg_ctrl	24	78
 
 inout	ltc2955_kill_n	23	77
 inout	ltc2955_int_n	22	76
