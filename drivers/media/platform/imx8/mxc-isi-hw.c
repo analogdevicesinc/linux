@@ -63,7 +63,7 @@ static void dump_isi_regs(struct mxc_isi_dev *mxc_isi)
 }
 #endif
 
-struct colorspace_coeffs coeffs[] = {
+static const u32 coeffs[2][6] = {
 	/* A2,A1,      B1, A3,     B3, B2,      C2, C1,     D1, C3,   D3, D2   */
 	/* YUV2RGB */
 	{ 0x0000012A, 0x012A0198, 0x0730079C, 0x0204012A, 0x01F00000, 0x01800180 },
@@ -239,12 +239,12 @@ void mxc_isi_channel_set_csc(struct mxc_isi_dev *mxc_isi)
 	printk_pixelformat("output fmt", dst_fmt->fourcc);
 
 	if (mxc_isi->cscen) {
-		writel(coeffs[csc].coeff[0], mxc_isi->regs + CHNL_CSC_COEFF0);
-		writel(coeffs[csc].coeff[1], mxc_isi->regs + CHNL_CSC_COEFF1);
-		writel(coeffs[csc].coeff[2], mxc_isi->regs + CHNL_CSC_COEFF2);
-		writel(coeffs[csc].coeff[3], mxc_isi->regs + CHNL_CSC_COEFF3);
-		writel(coeffs[csc].coeff[4], mxc_isi->regs + CHNL_CSC_COEFF4);
-		writel(coeffs[csc].coeff[5], mxc_isi->regs + CHNL_CSC_COEFF5);
+		writel(coeffs[csc][0], mxc_isi->regs + CHNL_CSC_COEFF0);
+		writel(coeffs[csc][1], mxc_isi->regs + CHNL_CSC_COEFF1);
+		writel(coeffs[csc][2], mxc_isi->regs + CHNL_CSC_COEFF2);
+		writel(coeffs[csc][3], mxc_isi->regs + CHNL_CSC_COEFF3);
+		writel(coeffs[csc][4], mxc_isi->regs + CHNL_CSC_COEFF4);
+		writel(coeffs[csc][5], mxc_isi->regs + CHNL_CSC_COEFF5);
 	}
 
 	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);

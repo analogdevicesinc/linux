@@ -450,9 +450,6 @@ enum isi_csi_coeff {
 	YUV2RGB = 0,
 	RGB2YUV,
 };
-struct colorspace_coeffs {
-	u32	coeff[6];
-};
 
 void mxc_isi_channel_init(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_deinit(struct mxc_isi_dev *mxc_isi);
