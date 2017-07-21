@@ -4,6 +4,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
+#include <linux/clk.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -51,6 +52,7 @@ enum m2k_fabric_adc_gain {
 
 struct m2k_fabric {
 	struct mutex lock;
+	struct clk *clk;
 
 	enum m2k_fabric_calibration_mode calibration_mode;
 	enum m2k_fabric_output_impedeance output_impedance[2];
@@ -321,10 +323,15 @@ static ssize_t m2k_fabric_powerdown_read(struct iio_dev *indio_dev,
 	struct m2k_fabric *m2k_fabric = iio_priv(indio_dev);
 	bool state;
 
-	if (chan->output)
-		state = m2k_fabric->awg_powerdown[chan->channel];
-	else
-		state = m2k_fabric->sc_powerdown[chan->channel];
+
+	if (private == 1) {
+		state = !!clk_get_phase(m2k_fabric->clk);
+	} else {
+		if (chan->output)
+			state = m2k_fabric->awg_powerdown[chan->channel];
+		else
+			state = m2k_fabric->sc_powerdown[chan->channel];
+	}
 
 	return sprintf(buf, "%d\n", state);
 }
@@ -342,11 +349,16 @@ static ssize_t m2k_fabric_powerdown_write(struct iio_dev *indio_dev,
 		return ret;
 
 	mutex_lock(&m2k_fabric->lock);
-	if (chan->output)
-		m2k_fabric->awg_powerdown[chan->channel] = state;
-	else
-		m2k_fabric->sc_powerdown[chan->channel] = state;
-	m2k_fabric_update_switch_settings(m2k_fabric);
+	if (private == 1) {
+		/* REVISIT: Workaorund for PowerDown */
+		clk_set_phase(m2k_fabric->clk, state ? 42 : 0);
+	} else {
+		if (chan->output)
+			m2k_fabric->awg_powerdown[chan->channel] = state;
+		else
+			m2k_fabric->sc_powerdown[chan->channel] = state;
+		m2k_fabric_update_switch_settings(m2k_fabric);
+	}
 	mutex_unlock(&m2k_fabric->lock);
 
 	return len;
@@ -496,6 +508,13 @@ static const struct iio_chan_spec_ext_info m2k_fabric_rx_ext_info_revd[] = {
 		.write = m2k_fabric_powerdown_write,
 		.shared = IIO_SHARED_BY_TYPE,
 	},
+	{
+		.name = "clk_powerdown",
+		.read = m2k_fabric_powerdown_read,
+		.write = m2k_fabric_powerdown_write,
+		.private = 1,
+		.shared = IIO_SHARED_BY_ALL,
+	},
 	{}
 };
 
@@ -582,7 +601,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	struct m2k_fabric *m2k_fabric;
 	struct iio_dev *indio_dev;
 	unsigned int i;
-	bool revb, revc, revd;
+	bool revb, revc, revd, remain_powerdown;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*m2k_fabric));
 	if (!indio_dev)
@@ -602,6 +621,13 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	m2k_fabric->revb = revb;
 	m2k_fabric->revc = revc;
 	m2k_fabric->revd = revd;
+
+	m2k_fabric->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(m2k_fabric->clk))
+		return PTR_ERR(m2k_fabric->clk);
+
+	if (clk_prepare_enable(m2k_fabric->clk) < 0)
+		return -EINVAL;
 
 	if (m2k_fabric->revb) {
 		gpio_names = m2k_fabric_gpio_names_revb;
