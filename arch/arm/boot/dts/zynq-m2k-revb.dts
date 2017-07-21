@@ -26,6 +26,7 @@
 
 		/delete-property/ en-sc1-gpio;
 		/delete-property/ en-sc2-gpio;
+		adi,powerdown-enable;
 
 		en-sc-gpio = <&gpio_exp 5 0>;
 

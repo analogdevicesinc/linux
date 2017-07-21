@@ -32,6 +32,7 @@
 
 	m2k_fabric: m2k-fabric {
 		compatible = "adi,m2k-fabric";
+		clocks = <&converter_clock>;
 		adi,revc;
 
 		en-sc-cal1-gpio = <&gpio_exp 8 0>;
@@ -52,6 +53,8 @@
 		en-sc1-hg-gpio = <&gpio_exp 11 0>;
 		en-sc2-lg-gpio = <&gpio_exp 12 0>;
 		en-sc2-hg-gpio = <&gpio_exp 13 0>;
+
+		adi,powerdown-enable;
 
 	};
 
