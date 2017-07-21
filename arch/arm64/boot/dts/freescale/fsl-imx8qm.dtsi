@@ -1735,7 +1735,7 @@
 		interrupt-controller;
 		interrupt-parent = <&gic>;
 		#interrupt-cells = <2>;
-		clocks = <&clk IMX8QM_DSI0_LIS_IPG_CLK>;
+		clocks = <&clk IMX8QM_MIPI0_LIS_IPG_CLK>;
 		clock-names = "ipg";
 		power-domains = <&pd_mipi0>;
 	};
