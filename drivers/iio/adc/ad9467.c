@@ -1502,11 +1502,16 @@ static int ad9467_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, conv);
 	conv->clk = clk;
 
-	conv->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown",
+	conv->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
 		GPIOD_OUT_LOW);
+	if (IS_ERR(conv->pwrdown_gpio))
+		return PTR_ERR(conv->pwrdown_gpio);
 
-	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
-	if (!IS_ERR(conv->reset_gpio)) {
+	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(conv->reset_gpio))
+		return PTR_ERR(conv->reset_gpio);
+
+	if (conv->reset_gpio) {
 		udelay(1);
 		ret = gpiod_direction_output(conv->reset_gpio, 1);
 	}
