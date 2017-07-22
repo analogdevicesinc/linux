@@ -1163,7 +1163,9 @@ static int ad6676_probe(struct spi_device *spi)
 	ad6676_gpio_config(conv);
 
 	/* RESET here */
-	conv->pwrdown_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	conv->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->pwrdown_gpio))
+		return PTR_ERR(conv->pwrdown_gpio);
 
 	mdelay(100);
 
