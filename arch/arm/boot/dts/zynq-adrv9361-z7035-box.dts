@@ -33,7 +33,7 @@
 		compatible = "ti,ts3a227e";
 		reg = <0x3b>;
 		interrupt-parent = <&gpio0>;
-		//interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	rtc@69 {
