@@ -1,0 +1,113 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* This dts is only for verify USB3 Type-C Connector */
+
+#include "fsl-imx8qm-lpddr4-arm2.dts"
+
+/ {
+	imx8qm-pm {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pd_ptn5150: PD_PTN5150 {
+			compatible = "nxp,imx8-pd";
+			reg = <SC_R_LAST>;
+			#power-domain-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pd_ptn5150_io: ptn5150_io {
+				reg = <SC_R_BOARD_R0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_ptn5150>;
+			};
+		};
+	};
+};
+
+
+
+&iomuxc {
+	imx8qm-arm2 {
+		pinctrl_lpi2c1: lpi2c1grp {
+			fsl,pins = <
+				SC_P_USB_SS3_TC1_DMA_I2C1_SCL		0xc600004c
+				SC_P_USB_SS3_TC3_DMA_I2C1_SDA		0xc600004c
+			>;
+		};
+
+		pinctrl_ptn5150: ptn5150 {
+			fsl,pins = <
+				SC_P_SIM0_CLK_LSIO_GPIO0_IO00		0x00000021
+			>;
+		};
+	};
+};
+
+&usbotg3 {
+	dr_mode = "otg";
+	extcon = <&typec_ptn5150>;
+	status = "okay";
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c1>;
+	status = "okay";
+
+	typec_ptn5150: typec@3d {
+		compatible = "nxp,ptn5150";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ptn5150>;
+		reg = <0x3d>;
+		power-domains = <&pd_ptn5150_io>;
+		connect-gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	pca9557_a: gpio@18 {
+		status = "disabled";
+	};
+
+	pca9557_b: gpio@19 {
+		status = "disabled";
+	};
+
+	pca9557_c: gpio@1b {
+		status = "disabled";
+	};
+
+	pca9557_d: gpio@1f {
+		status = "disabled";
+	};
+
+	fxas2100x@20 {
+		status = "disabled";
+	};
+
+	fxos8700@1d {
+		status = "disabled";
+	};
+
+	isl29023@44 {
+		status = "disabled";
+	};
+
+	mpl3115@60 {
+		status = "disabled";
+	};
+};
