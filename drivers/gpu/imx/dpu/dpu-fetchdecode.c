@@ -523,6 +523,27 @@ struct dpu_fetcheco *fetchdecode_get_fetcheco(struct dpu_fetchdecode *fd)
 }
 EXPORT_SYMBOL_GPL(fetchdecode_get_fetcheco);
 
+bool fetchdecode_need_fetcheco(struct dpu_fetchdecode *fd, u32 fmt)
+{
+	struct dpu_fetcheco *fe = fetchdecode_get_fetcheco(fd);
+
+	if (IS_ERR_OR_NULL(fe))
+		return false;
+
+	switch (fmt) {
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV61:
+	case DRM_FORMAT_NV24:
+	case DRM_FORMAT_NV42:
+		return true;
+	}
+
+	return false;
+}
+EXPORT_SYMBOL_GPL(fetchdecode_need_fetcheco);
+
 struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchdecode *fd)
 {
 	struct dpu_soc *dpu = fd->dpu;

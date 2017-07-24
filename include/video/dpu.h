@@ -497,6 +497,7 @@ void fetchdecode_controltrigger(struct dpu_fetchdecode *fd, bool trigger);
 int fetchdecode_fetchtype(struct dpu_fetchdecode *fd, fetchtype_t *type);
 shadow_load_req_t fetchdecode_to_shdldreq_t(struct dpu_fetchdecode *fd);
 u32 fetchdecode_get_vproc_mask(struct dpu_fetchdecode *fd);
+bool fetchdecode_need_fetcheco(struct dpu_fetchdecode *fd, u32 fmt);
 unsigned int fetchdecode_get_stream_id(struct dpu_fetchdecode *fd);
 void fetchdecode_set_stream_id(struct dpu_fetchdecode *fd, unsigned int id);
 struct dpu_fetchdecode *dpu_fd_get(struct dpu_soc *dpu, int id);
