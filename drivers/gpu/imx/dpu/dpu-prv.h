@@ -87,6 +87,10 @@ typedef enum {
 #define EMPTYFRAME			BIT(31)
 #define FRAMEWIDTH(w)			(((w) - 1) & 0x3FFF)
 #define FRAMEHEIGHT(h)			((((h) - 1) & 0x3FFF) << 16)
+#define DELTAX_MASK			0x3F000
+#define DELTAY_MASK			0xFC0000
+#define DELTAX(x)			(((x) & 0x3F) << 12)
+#define DELTAY(y)			(((y) & 0x3F) << 18)
 #define SHDTOKGEN			BIT(0)
 #define FETCHTYPE_MASK			0xF
 
