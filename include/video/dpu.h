@@ -631,6 +631,7 @@ void vscaler_set_stream_id(struct dpu_vscaler *vs, unsigned int id);
 struct dpu_vscaler *dpu_vs_get(struct dpu_soc *dpu, int id);
 void dpu_vs_put(struct dpu_vscaler *vs);
 
+struct dpu_fetcheco *fetchdecode_get_fetcheco(struct dpu_fetchdecode *fd);
 struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchdecode *fd);
 struct dpu_vscaler *fetchdecode_get_vscaler(struct dpu_fetchdecode *fd);
 

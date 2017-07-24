@@ -503,6 +503,26 @@ u32 fetchdecode_get_vproc_mask(struct dpu_fetchdecode *fd)
 }
 EXPORT_SYMBOL_GPL(fetchdecode_get_vproc_mask);
 
+struct dpu_fetcheco *fetchdecode_get_fetcheco(struct dpu_fetchdecode *fd)
+{
+	struct dpu_soc *dpu = fd->dpu;
+
+	switch (fd->id) {
+	case 0:
+	case 1:
+		return dpu->fe_priv[fd->id];
+	case 2:
+	case 3:
+		/* TODO: for DPU v1, add FetchEco2 support */
+		return dpu->fe_priv[fd->id - 2];
+	default:
+		WARN_ON(1);
+	}
+
+	return ERR_PTR(-EINVAL);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_get_fetcheco);
+
 struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchdecode *fd)
 {
 	struct dpu_soc *dpu = fd->dpu;
