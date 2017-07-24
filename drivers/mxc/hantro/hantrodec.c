@@ -165,9 +165,9 @@ static struct class *hantro_class;
 #define DEVICE_NAME		"mxc_hantro"
 
 static struct device *hantro_dev;
-static struct clk *hantro_clk_g1;
-static struct clk *hantro_clk_g2;
-static struct clk * hantro_clk_bus;
+static struct clk *hantro_clk_g1=NULL;
+static struct clk *hantro_clk_g2=NULL;
+static struct clk * hantro_clk_bus=NULL;
 
 
 static int hantro_dbg=0;
@@ -266,6 +266,34 @@ DEFINE_SPINLOCK(clk_lock);
 #define DWL_CLIENT_TYPE_HEVC_DEC         12U
 
 static u32 cfg[HXDEC_MAX_CORES];
+
+static int hantro_clk_enable(struct device *dev)
+{
+  clk_prepare(hantro_clk_g1);
+  clk_enable(hantro_clk_g1);
+  clk_prepare(hantro_clk_g2);
+  clk_enable(hantro_clk_g2);
+  clk_prepare(hantro_clk_bus);
+  clk_enable(hantro_clk_bus);
+  return 0;
+}
+
+static int hantro_clk_disable(struct device *dev)
+{
+  if(hantro_clk_g1){
+    clk_disable(hantro_clk_g1);
+    clk_unprepare(hantro_clk_g1);
+  }
+  if(hantro_clk_g2){
+    clk_disable(hantro_clk_g2);
+    clk_unprepare(hantro_clk_g2);
+  }
+  if(hantro_clk_bus){
+    clk_disable(hantro_clk_bus);
+    clk_unprepare(hantro_clk_bus);
+  }
+  return 0;
+}
 
 static void ReadCoreConfig(hantrodec_t *dev) {
   int c;
@@ -1272,7 +1300,8 @@ static long hantrodec_ioctl32(struct file *filp, unsigned int cmd,unsigned long 
 
 static int hantrodec_open(struct inode *inode, struct file *filp) {
   PDEBUG("dev opened\n");
-  //pm_runtime_get_sync(hantro_dev);
+  pm_runtime_get_sync(hantro_dev);
+  hantro_clk_enable(hantro_dev);
   return 0;
 }
 
@@ -1303,7 +1332,8 @@ static int hantrodec_release(struct inode *inode, struct file *filp) {
     }
   }
 
-  //pm_runtime_put_sync_suspend(hantro_dev);
+  hantro_clk_disable(hantro_dev);
+  pm_runtime_put_sync(hantro_dev);
   PDEBUG("closed\n");
   return 0;
 }
@@ -1897,28 +1927,6 @@ void dump_regs(hantrodec_t *dev) {
 module_init( hantrodec_init);
 module_exit( hantrodec_cleanup);
 #else
-static int hantro_clk_enable(struct device *dev)
-{
-    clk_prepare(hantro_clk_g1);
-    clk_enable(hantro_clk_g1);
-    clk_prepare(hantro_clk_g2);
-    clk_enable(hantro_clk_g2);
-    clk_prepare(hantro_clk_bus);
-    clk_enable(hantro_clk_bus);
-    return 0;
-}
-
-static int hantro_clk_disable(struct device *dev)
-{
-    clk_disable(hantro_clk_g1);
-    clk_unprepare(hantro_clk_g1);
-    clk_disable(hantro_clk_g2);
-    clk_unprepare(hantro_clk_g2);
-    clk_disable(hantro_clk_bus);
-    clk_unprepare(hantro_clk_bus);
-    return 0;
-}
-
 static int hantro_dev_probe(struct platform_device *pdev)
 {
     int err = 0;
@@ -1960,8 +1968,8 @@ static int hantro_dev_probe(struct platform_device *pdev)
     printk(KERN_DEBUG "hantro: g1, g2, bus clock: 0x%lX, 0x%lX, 0x%lX \n",clk_get_rate(hantro_clk_g1),
 		clk_get_rate(hantro_clk_g2),clk_get_rate(hantro_clk_bus));
 	
-    pm_runtime_enable(hantro_dev);
-    pm_runtime_get_sync(hantro_dev);
+    pm_runtime_enable(&pdev->dev);
+    pm_runtime_get_sync(&pdev->dev);
     hantro_clk_enable(&pdev->dev);
 
     //config G1/G2
@@ -1998,11 +2006,15 @@ err_out_class:
 error:
 	printk(KERN_ERR "hantro probe failed\n");
 out:
+	hantro_clk_disable(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
 	return err;
 }
 
 static int hantro_dev_remove(struct platform_device *pdev)
 {
+	pm_runtime_get_sync(&pdev->dev);
+	hantro_clk_enable(&pdev->dev);
 	if (hantrodec_major > 0) {
 		device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
 		class_destroy(hantro_class);
