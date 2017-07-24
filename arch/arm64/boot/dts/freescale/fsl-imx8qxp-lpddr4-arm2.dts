@@ -373,11 +373,9 @@
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&ethphy0>;
 	fsl,magic-packet;
-	fsl,rgmii_txc_dly;
-	fsl,rgmii_rxc_dly;
 	status = "okay";
 
 	mdio {
