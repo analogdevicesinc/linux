@@ -621,10 +621,18 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_pcie: PD_HSIO_PCIE_B {
-				reg = <SC_R_PCIE_B>;
+			pd_serdes1: PD_HSIO_SERDES_1 {
+				reg = <SC_R_SERDES_1>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_hsio>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_pcie: PD_HSIO_PCIE_B {
+					reg = <SC_R_PCIE_B>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_serdes1>;
+				};
 			};
 		};
 

@@ -484,20 +484,36 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_pcie0: PD_HSIO_PCIE_A {
-				reg = <SC_R_PCIE_A>;
+			pd_serdes0: PD_HSIO_SERDES_0 {
+				reg = <SC_R_SERDES_0>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_hsio>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_pcie0: PD_HSIO_PCIE_A {
+					reg = <SC_R_PCIE_A>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_serdes0>;
+				};
+				pd_pcie1: PD_HSIO_PCIE_B {
+					reg = <SC_R_PCIE_B>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_serdes0>;
+				};
 			};
-			pd_pcie1: PD_HSIO_PCIE_B {
-				reg = <SC_R_PCIE_B>;
+			pd_serdes1: PD_HSIO_SERDES_1 {
+				reg = <SC_R_SERDES_1>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_hsio>;
-			};
-			pd_sata0: PD_HSIO_SATA0 {
-				reg = <SC_R_SATA_0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_hsio>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_sata0: PD_HSIO_SATA0 {
+					reg = <SC_R_SATA_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_serdes1>;
+				};
 			};
 			pd_gpio: PD_HSIO_GPIO {
 				reg = <SC_R_HSIO_GPIO>;
