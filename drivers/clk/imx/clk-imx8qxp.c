@@ -142,6 +142,7 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_IMG_PXL_CLK]	= imx_clk_fixed("pxl_img_clk_root", SC_600MHZ);
 	clks[IMX8QXP_HSIO_AXI_CLK]	= imx_clk_fixed("axi_hsio_clk_root", SC_400MHZ);
 	clks[IMX8QXP_HSIO_PER_CLK]	= imx_clk_fixed("per_hsio_clk_root", SC_133MHZ);
+	clks[IMX8QXP_CM40_IPG_CLK]	= imx_clk_fixed("ipg_cm40_clk_root", SC_132MHZ);
 
 	clks[IMX8QXP_UART0_DIV] = imx_clk_divider_scu("uart0_div", SC_R_UART_0, SC_PM_CLK_PER);
 	clks[IMX8QXP_UART0_IPG_CLK] = imx_clk_gate2_scu("uart0_ipg_clk", "ipg_dma_clk_root", (void __iomem *)(LPUART_0_LPCG), 16, FUNCTION_NAME(PD_DMA_UART0));
@@ -511,6 +512,11 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_HSIO_PHY_X1_APB_CLK] = imx_clk_gate2_scu("hsio_phy_x1_apb_clk", "per_hsio_clk_root", (void __iomem *)(HSIO_PHY_X1_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_B));
 	clks[IMX8QXP_HSIO_GPIO_CLK] = imx_clk_gate2_scu("hsio_gpio_clk", "per_hsio_clk_root", (void __iomem *)(HSIO_GPIO_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_B));
 	clks[IMX8QXP_HSIO_PHY_X1_PCLK] = imx_clk_gate2_scu("hsio_phy_x1_pclk", "dummy", (void __iomem *)(HSIO_PHY_X1_LPCG), 0, FUNCTION_NAME(PD_HSIO_PCIE_B));
+
+	/* CM40 */
+	clks[IMX8QXP_CM40_I2C_DIV]     = imx_clk_divider_scu("cm40_i2c_div", SC_R_M4_0_I2C, SC_PM_CLK_PER);
+	clks[IMX8QXP_CM40_I2C_CLK]     = imx_clk_gate_scu("cm40_i2c_clk", "cm40_i2c_div", SC_R_M4_0_I2C, SC_PM_CLK_PER, (void __iomem *)(CM40_I2C_LPCG), 0, 0);
+	clks[IMX8QXP_CM40_I2C_IPG_CLK] = imx_clk_gate2_scu("cm40_i2c_ipg_clk", "ipg_cm40_clk_root", (void __iomem *)(CM40_I2C_LPCG), 16, FUNCTION_NAME(PD_CM40_I2C));
 
 	/* Audio */
 	clks[IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV] = imx_clk_divider2_scu("aud_acm_aud_pll_clk0_div", "audio_pll0_clk", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC0);

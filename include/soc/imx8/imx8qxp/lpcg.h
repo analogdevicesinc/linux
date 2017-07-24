@@ -177,5 +177,8 @@
 #define     NAND_LPCG           0x5B290000
 #define     EDMA_LPCG           0x5B2A0000
 
+/* CM40 SS */
+#define     CM40_I2C_LPCG       0x37630000
+
 
 #endif

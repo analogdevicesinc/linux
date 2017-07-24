@@ -187,5 +187,9 @@
 #define PD_HDMI_RX_I2C              hdmi_rx_i2c
 #define PD_HDMI_RX_PWM              hdmi_rx_pwm
 
+#define PD_CM40                     cm40_power_domain
+#define PD_CM40_I2C                 cm40_i2c
+#define PD_CM40_INTMUX              cm40_intmux
+
 #endif /* __DT_BINDINGS_IMX8_PD_H */
 
