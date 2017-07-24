@@ -21,22 +21,39 @@
 #include <video/dpu.h>
 #include "dpu-prv.h"
 
-#define FD_NUM				4
+#define FD_NUM_V1			4
+#define FD_NUM_V2			2
 
-static const u32 fd_vproc_cap[FD_NUM] = {
+static const u32 fd_vproc_cap_v1[FD_NUM_V1] = {
 	DPU_VPROC_CAP_HSCALER4 | DPU_VPROC_CAP_VSCALER4,
 	DPU_VPROC_CAP_HSCALER5 | DPU_VPROC_CAP_VSCALER5,
 	DPU_VPROC_CAP_HSCALER4 | DPU_VPROC_CAP_VSCALER4,
 	DPU_VPROC_CAP_HSCALER5 | DPU_VPROC_CAP_VSCALER5,
 };
 
+static const u32 fd_vproc_cap_v2[FD_NUM_V2] = {
+	DPU_VPROC_CAP_HSCALER4 | DPU_VPROC_CAP_VSCALER4,
+	DPU_VPROC_CAP_HSCALER5 | DPU_VPROC_CAP_VSCALER5,
+};
+
 #define PIXENGCFG_DYNAMIC		0x8
-#define SRC_NUM				3
-static const fd_dynamic_src_sel_t fd_srcs[FD_NUM][SRC_NUM] = {
+#define SRC_NUM_V1			3
+#define SRC_NUM_V2			4
+static const fd_dynamic_src_sel_t fd_srcs_v1[FD_NUM_V1][SRC_NUM_V1] = {
 	{ FD_SRC_DISABLE, FD_SRC_FETCHECO0, FD_SRC_FETCHDECODE2 },
 	{ FD_SRC_DISABLE, FD_SRC_FETCHECO1, FD_SRC_FETCHDECODE3 },
 	{ FD_SRC_DISABLE, FD_SRC_FETCHECO0, FD_SRC_FETCHECO2 },
 	{ FD_SRC_DISABLE, FD_SRC_FETCHECO1, FD_SRC_FETCHECO2 },
+};
+
+static const fd_dynamic_src_sel_t fd_srcs_v2[FD_NUM_V2][SRC_NUM_V2] = {
+	{
+	  FD_SRC_DISABLE,	FD_SRC_FETCHECO0,
+	  FD_SRC_FETCHDECODE1,	FD_SRC_FETCHWARP2
+	}, {
+	  FD_SRC_DISABLE,	FD_SRC_FETCHECO1,
+	  FD_SRC_FETCHDECODE0,	FD_SRC_FETCHWARP2
+	},
 };
 
 #define PIXENGCFG_STATUS		0xC
@@ -112,15 +129,40 @@ static inline void dpu_fd_write(struct dpu_fetchdecode *fd, u32 value,
 int fetchdecode_pixengcfg_dynamic_src_sel(struct dpu_fetchdecode *fd,
 					  fd_dynamic_src_sel_t src)
 {
+	struct dpu_soc *dpu = fd->dpu;
+	const struct dpu_devtype *devtype = dpu->devtype;
 	int i;
 
 	mutex_lock(&fd->mutex);
-	for (i = 0; i < SRC_NUM; i++) {
-		if (fd_srcs[fd->id][i] == src) {
-			dpu_pec_fd_write(fd, src, PIXENGCFG_DYNAMIC);
-			mutex_unlock(&fd->mutex);
-			return 0;
+	if (devtype->version == DPU_V1) {
+		for (i = 0; i < SRC_NUM_V1; i++) {
+			if (fd_srcs_v1[fd->id][i] == src) {
+				dpu_pec_fd_write(fd, src, PIXENGCFG_DYNAMIC);
+				mutex_unlock(&fd->mutex);
+				return 0;
+			}
 		}
+	} else if (devtype->version == DPU_V2) {
+		const unsigned int *block_id_map = devtype->sw2hw_block_id_map;
+		u32 mapped_src;
+
+		if (WARN_ON(!block_id_map))
+			return -EINVAL;
+
+		for (i = 0; i < SRC_NUM_V2; i++) {
+			if (fd_srcs_v2[fd->id][i] == src) {
+				mapped_src = block_id_map[src];
+				if (WARN_ON(mapped_src == NA))
+					return -EINVAL;
+
+				dpu_pec_fd_write(fd, mapped_src,
+							PIXENGCFG_DYNAMIC);
+				mutex_unlock(&fd->mutex);
+				return 0;
+			}
+		}
+	} else {
+		WARN_ON(1);
 	}
 	mutex_unlock(&fd->mutex);
 
@@ -447,7 +489,11 @@ EXPORT_SYMBOL_GPL(fetchdecode_to_shdldreq_t);
 
 u32 fetchdecode_get_vproc_mask(struct dpu_fetchdecode *fd)
 {
-	return fd_vproc_cap[fd->id];
+	struct dpu_soc *dpu = fd->dpu;
+	const struct dpu_devtype *devtype = dpu->devtype;
+
+	return devtype->version == DPU_V1 ?
+			fd_vproc_cap_v1[fd->id] : fd_vproc_cap_v2[fd->id];
 }
 EXPORT_SYMBOL_GPL(fetchdecode_get_vproc_mask);
 
