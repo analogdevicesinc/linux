@@ -51,6 +51,18 @@ enum linemode {
 #define G_SHIFT(n)			(((n) & 0x1F) << 16)
 #define B_SHIFT(n)			(((n) & 0x1F) << 8)
 #define A_SHIFT(n)			((n) & 0x1F)
+#define Y_BITS(n)			R_BITS(n)
+#define Y_BITS_MASK			0xF000000
+#define U_BITS(n)			G_BITS(n)
+#define U_BITS_MASK			0xF0000
+#define V_BITS(n)			B_BITS(n)
+#define V_BITS_MASK			0xF00
+#define Y_SHIFT(n)			R_SHIFT(n)
+#define Y_SHIFT_MASK			0x1F000000
+#define U_SHIFT(n)			G_SHIFT(n)
+#define U_SHIFT_MASK			0x1F0000
+#define V_SHIFT(n)			B_SHIFT(n)
+#define V_SHIFT_MASK			0x1F00
 #define LAYERXOFFSET(x)			((x) & 0x7FFF)
 #define LAYERYOFFSET(y)			(((y) & 0x7FFF) << 16)
 #define CLIPWINDOWXOFFSET(x)		((x) & 0x7FFF)
@@ -275,6 +287,38 @@ static const struct dpu_pixel_format dpu_pixel_format_matrix[] = {
 		DRM_FORMAT_RGB565,
 		R_BITS(5)   | G_BITS(6)   | B_BITS(5)   | A_BITS(0),
 		R_SHIFT(11) | G_SHIFT(5)  | B_SHIFT(0)  | A_SHIFT(0),
+	}, {
+		DRM_FORMAT_YUYV,
+		Y_BITS(8)   | U_BITS(8)   | V_BITS(8)   | A_BITS(0),
+		Y_SHIFT(0)  | U_SHIFT(8)  | V_SHIFT(8)  | A_SHIFT(0),
+	}, {
+		DRM_FORMAT_UYVY,
+		Y_BITS(8)   | U_BITS(8)   | V_BITS(8)   | A_BITS(0),
+		Y_SHIFT(8)  | U_SHIFT(0)  | V_SHIFT(0)  | A_SHIFT(0),
+	}, {
+		DRM_FORMAT_NV12,
+		Y_BITS(8)   | U_BITS(8)   | V_BITS(8)   | A_BITS(0),
+		Y_SHIFT(0)  | U_SHIFT(0)  | V_SHIFT(8)  | A_SHIFT(0),
+	}, {
+		DRM_FORMAT_NV21,
+		Y_BITS(8)   | U_BITS(8)   | V_BITS(8)   | A_BITS(0),
+		Y_SHIFT(0)  | U_SHIFT(8)  | V_SHIFT(0)  | A_SHIFT(0),
+	}, {
+		DRM_FORMAT_NV16,
+		Y_BITS(8)   | U_BITS(8)   | V_BITS(8)   | A_BITS(0),
+		Y_SHIFT(0)  | U_SHIFT(0)  | V_SHIFT(8)  | A_SHIFT(0),
+	}, {
+		DRM_FORMAT_NV61,
+		Y_BITS(8)   | U_BITS(8)   | V_BITS(8)   | A_BITS(0),
+		Y_SHIFT(0)  | U_SHIFT(8)  | V_SHIFT(0)  | A_SHIFT(0),
+	}, {
+		DRM_FORMAT_NV24,
+		Y_BITS(8)   | U_BITS(8)   | V_BITS(8)   | A_BITS(0),
+		Y_SHIFT(0)  | U_SHIFT(0)  | V_SHIFT(8)  | A_SHIFT(0),
+	}, {
+		DRM_FORMAT_NV42,
+		Y_BITS(8)   | U_BITS(8)   | V_BITS(8)   | A_BITS(0),
+		Y_SHIFT(0)  | U_SHIFT(8)  | V_SHIFT(0)  | A_SHIFT(0),
 	},
 };
 
