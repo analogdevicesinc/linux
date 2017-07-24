@@ -263,13 +263,84 @@ EXPORT_SYMBOL_GPL(fetchdecode_src_buf_dimensions);
 
 void fetchdecode_set_fmt(struct dpu_fetchdecode *fd, u32 fmt)
 {
-	u32 bits, shift;
+	u32 val, bits, shift;
+	bool is_planar_yuv = false, is_rastermode_yuv422 = false;
+	bool is_yuv422upsamplingmode_interpolate = false;
+	bool is_inputselect_compact = false;
+	bool need_csc = false;
 	int i;
+
+	switch (fmt) {
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_UYVY:
+		is_rastermode_yuv422 = true;
+		is_yuv422upsamplingmode_interpolate = true;
+		need_csc = true;
+		break;
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV61:
+		is_planar_yuv = true;
+		is_rastermode_yuv422 = true;
+		is_inputselect_compact = true;
+		need_csc = true;
+		break;
+	case DRM_FORMAT_NV24:
+	case DRM_FORMAT_NV42:
+		is_planar_yuv = true;
+		is_yuv422upsamplingmode_interpolate = true;
+		is_inputselect_compact = true;
+		need_csc = true;
+		break;
+	default:
+		break;
+	}
+
+	mutex_lock(&fd->mutex);
+	val = dpu_fd_read(fd, CONTROL);
+	val &= ~YUV422UPSAMPLINGMODE_MASK;
+	val &= ~INPUTSELECT_MASK;
+	val &= ~RASTERMODE_MASK;
+	if (is_yuv422upsamplingmode_interpolate)
+		val |= YUV422UPSAMPLINGMODE(YUV422UPSAMPLINGMODE__INTERPOLATE);
+	else
+		val |= YUV422UPSAMPLINGMODE(YUV422UPSAMPLINGMODE__REPLICATE);
+	if (is_inputselect_compact)
+		val |= INPUTSELECT(INPUTSELECT__COMPPACK);
+	else
+		val |= INPUTSELECT(INPUTSELECT__INACTIVE);
+	if (is_rastermode_yuv422)
+		val |= RASTERMODE(RASTERMODE__YUV422);
+	else
+		val |= RASTERMODE(RASTERMODE__NORMAL);
+	dpu_fd_write(fd, val, CONTROL);
+
+	val = dpu_fd_read(fd, LAYERPROPERTY0);
+	val &= ~YUVCONVERSIONMODE_MASK;
+	if (need_csc)
+		/*
+		 * assuming fetchdecode always ouputs RGB pixel formats
+		 *
+		 * FIXME:
+		 * determine correct standard here - ITU601 or ITU601_FR
+		 * or ITU709
+		 */
+		val |= YUVCONVERSIONMODE(YUVCONVERSIONMODE__ITU601_FR);
+	else
+		val |= YUVCONVERSIONMODE(YUVCONVERSIONMODE__OFF);
+	dpu_fd_write(fd, val, LAYERPROPERTY0);
+	mutex_unlock(&fd->mutex);
 
 	for (i = 0; i < ARRAY_SIZE(dpu_pixel_format_matrix); i++) {
 		if (dpu_pixel_format_matrix[i].pixel_format == fmt) {
 			bits = dpu_pixel_format_matrix[i].bits;
 			shift = dpu_pixel_format_matrix[i].shift;
+
+			if (is_planar_yuv) {
+				bits &= ~(U_BITS_MASK | V_BITS_MASK);
+				shift &= ~(U_SHIFT_MASK | V_SHIFT_MASK);
+			}
 
 			mutex_lock(&fd->mutex);
 			dpu_fd_write(fd, bits, COLORCOMPONENTBITS0);
