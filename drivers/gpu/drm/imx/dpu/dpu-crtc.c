@@ -290,7 +290,7 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		vs = fetchdecode_get_vscaler(fd);
 
 		layerblend_pixengcfg_clken(lb, CLKEN__DISABLE);
-		fetchdecode_layerproperty(fd, false);
+		fetchdecode_source_buffer_disable(fd);
 		hscaler_pixengcfg_clken(hs, CLKEN__DISABLE);
 		vscaler_pixengcfg_clken(vs, CLKEN__DISABLE);
 		hscaler_mode(hs, SCALER_NEUTRAL);

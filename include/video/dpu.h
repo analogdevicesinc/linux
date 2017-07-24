@@ -481,7 +481,8 @@ void fetchdecode_clipoffset(struct dpu_fetchdecode *fd, unsigned int x,
 			    unsigned int y);
 void fetchdecode_clipdimensions(struct dpu_fetchdecode *fd, unsigned int w,
 				unsigned int h);
-void fetchdecode_layerproperty(struct dpu_fetchdecode *fd, bool enable);
+void fetchdecode_source_buffer_enable(struct dpu_fetchdecode *fd);
+void fetchdecode_source_buffer_disable(struct dpu_fetchdecode *fd);
 bool fetchdecode_is_enabled(struct dpu_fetchdecode *fd);
 void fetchdecode_framedimensions(struct dpu_fetchdecode *fd, unsigned int w,
 				 unsigned int h);

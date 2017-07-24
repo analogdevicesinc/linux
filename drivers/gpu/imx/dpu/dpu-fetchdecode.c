@@ -261,20 +261,29 @@ void fetchdecode_clipoffset(struct dpu_fetchdecode *fd, unsigned int x,
 }
 EXPORT_SYMBOL_GPL(fetchdecode_clipoffset);
 
-void fetchdecode_layerproperty(struct dpu_fetchdecode *fd, bool enable)
+void fetchdecode_source_buffer_enable(struct dpu_fetchdecode *fd)
 {
 	u32 val;
 
-	if (enable)
-		val = SOURCEBUFFERENABLE;
-	else
-		val = 0;
-
 	mutex_lock(&fd->mutex);
+	val = dpu_fd_read(fd, LAYERPROPERTY0);
+	val |= SOURCEBUFFERENABLE;
 	dpu_fd_write(fd, val, LAYERPROPERTY0);
 	mutex_unlock(&fd->mutex);
 }
-EXPORT_SYMBOL_GPL(fetchdecode_layerproperty);
+EXPORT_SYMBOL_GPL(fetchdecode_source_buffer_enable);
+
+void fetchdecode_source_buffer_disable(struct dpu_fetchdecode *fd)
+{
+	u32 val;
+
+	mutex_lock(&fd->mutex);
+	val = dpu_fd_read(fd, LAYERPROPERTY0);
+	val &= ~SOURCEBUFFERENABLE;
+	dpu_fd_write(fd, val, LAYERPROPERTY0);
+	mutex_unlock(&fd->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_source_buffer_disable);
 
 bool fetchdecode_is_enabled(struct dpu_fetchdecode *fd)
 {
