@@ -275,6 +275,12 @@ config IMX_IRQSTEER
 	help
 	  Enables the IRQ Steer for NXP IMX platforms
 
+config IMX_INTMUX
+	def_bool y if ARCH_MXC_ARM64
+	select IRQ_DOMAIN
+	help
+	  Enables the IRQ MUX for NXP IMX platforms
+
 config IRQ_MXS
 	def_bool y if MACH_ASM9260 || ARCH_MXS
 	select IRQ_DOMAIN
