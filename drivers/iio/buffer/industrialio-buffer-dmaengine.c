@@ -64,7 +64,10 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 
 	dmaengine_buffer = iio_buffer_to_dmaengine_buffer(&block->queue->buffer);
 
-	block->block.bytes_used = min(block->block.size, dmaengine_buffer->max_size);
+	if (direction == DMA_DEV_TO_MEM)
+		block->block.bytes_used = block->block.size;
+	block->block.bytes_used = min(block->block.bytes_used,
+			dmaengine_buffer->max_size);
 	block->block.bytes_used = rounddown(block->block.bytes_used,
 			dmaengine_buffer->align);
 	if (block->block.bytes_used == 0) {
@@ -124,11 +127,13 @@ static void iio_dmaengine_buffer_release(struct iio_buffer *buf)
 
 static const struct iio_buffer_access_funcs iio_dmaengine_buffer_ops = {
 	.read = iio_dma_buffer_read,
+	.write = iio_dma_buffer_write,
 	.set_bytes_per_datum = iio_dma_buffer_set_bytes_per_datum,
 	.set_length = iio_dma_buffer_set_length,
 	.enable = iio_dma_buffer_enable,
 	.disable = iio_dma_buffer_disable,
 	.data_available = iio_dma_buffer_data_available,
+	.space_available = iio_dma_buffer_space_available,
 	.release = iio_dmaengine_buffer_release,
 
 	.alloc_blocks = iio_dma_buffer_alloc_blocks,

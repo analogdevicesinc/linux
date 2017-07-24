@@ -61,7 +61,7 @@
 		clocks = <&clkc 16>;
 
 		dma-channel {
-			adi,buswidth = <64>;
+			adi,buswidth = <128>;
 			adi,type = <1>;
 			adi,cyclic;
 		};
@@ -100,7 +100,7 @@
 		compatible = "xlnx,jesd204-5.1";
 		reg = < 0x44a91000 0x1000 >;
 
-		clocks = <&axi_ad9371_gt_rx>;
+		clocks = <&axi_ad9371_adxcvr_rx>;
 		clock-names = "rx_gt_clk";
 		clock-output-names = "jesd_rx_clk";
 
@@ -119,7 +119,7 @@
 		compatible = "xlnx,jesd204-5.1";
 		reg = < 0x44a90000 0x1000 >;
 
-		clocks = <&axi_ad9371_gt_tx>;
+		clocks = <&axi_ad9371_adxcvr_tx>;
 		clock-names = "tx_gt_clk";
 		clock-output-names = "jesd_tx_clk";
 
@@ -129,7 +129,6 @@
 		xlnx,subclass = <1>;
 		xlnx,lanesync-enable;
 		xlnx,scramble-enable;
-		//xlnx,sysref-always-enable;
 
 		xlnx,node-is-transmit = <0x1>;
 	} ;
@@ -139,7 +138,7 @@
 		compatible = "xlnx,jesd204-5.1";
 		reg = < 0x44a92000 0x1000 >;
 
-		clocks = <&axi_ad9371_gt_rx_os>;
+		clocks = <&axi_ad9371_adxcvr_rx_os>;
 		clock-names = "rx_os_gt_clk";
 		clock-output-names = "jesd_rx_os_clk";
 
@@ -149,10 +148,10 @@
 		xlnx,subclass = <1>;
 		xlnx,lanesync-enable;
 		xlnx,scramble-enable;
-		//xlnx,sysref-always-enable;
 
 		xlnx,node-is-transmit = <0x0>;
 	};
+
 
 	axi_tx_clkgen: axi-clkgen@43C00000  {
 		compatible = "adi,axi-clkgen-2.00.a";
@@ -180,62 +179,51 @@
 
 	};
 
-	axi_ad9371_gt: axi-jesd-gt-rx-tx@44a60000 {
+	axi_ad9371_adxcvr_rx: axi-adxcvr-rx@44a60000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		#clock-cells = <1>;
-		compatible = "xlnx,axi-jesd-gt-1.0";
-		reg = < 0x44a60000 0x10000 >;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = < 0x44a60000 0x1000 >;
 
-		axi_ad9371_gt_rx:link@0 {
-			#clock-cells = <0>;
-			clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_rx_clkgen 0>;
-			clock-names = "conv", "sysref", "div40";
-			clock-output-names = "rx_gt_clk";
-			reg = <0>;
-			adi,lanes = <2>;
-			adi,first-lane = <0>;
-			adi,sys-clk-select = <0>;
-			adi,out-clk-select = <3>;
-			adi,use-lpm-enable;
-			adi,sysref-external-enable;
-			adi,use-cpll-enable;
-			adi,no-auto-resync-enable;
-		};
+		#clock-cells = <0>;
+		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_rx_clkgen 0>;
+		clock-names = "conv", "sysref", "div40";
+		clock-output-names = "rx_gt_clk";
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <3>;
+		adi,use-lpm-enable;
+		adi,use-cpll-enable;
+	};
 
-		axi_ad9371_gt_rx_os:link@1 {
-			#clock-cells = <0>;
-			clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_rx_os_clkgen 0>;
-			clock-names = "conv", "sysref", "div40";
-			clock-output-names = "rx_os_gt_clk";
-			reg = <0>;
-			adi,lanes = <2>;
-			adi,first-lane = <2>;
-			adi,sys-clk-select = <0>;
-			adi,out-clk-select = <3>;
-			adi,use-lpm-enable;
-			adi,sysref-external-enable;
-			adi,use-cpll-enable;
-			adi,no-auto-resync-enable;
+	axi_ad9371_adxcvr_rx_os: axi-adxcvr-rx-os@44a70000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = < 0x44a70000 0x1000 >;
 
-		};
+		#clock-cells = <0>;
+		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_rx_os_clkgen 0>;
+		clock-names = "conv", "sysref", "div40";
+		clock-output-names = "rx_os_gt_clk";
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <3>;
+		adi,use-lpm-enable;
+		adi,use-cpll-enable;
+	};
 
-		axi_ad9371_gt_tx:link@2 {
-			#clock-cells = <0>;
-			clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_tx_clkgen 0>;
-			clock-names = "conv", "sysref", "div40";
-			clock-output-names = "tx_gt_clk";
-			reg = <0>;
-			adi,lanes = <4>;
-			adi,first-lane = <0>;
-			adi,link-is-transmit-enable;
-			adi,sys-clk-select = <0>;
-			adi,out-clk-select = <3>;
-			adi,sysref-external-enable;
-			adi,use-cpll-enable;
-			adi,no-auto-resync-enable;
+	axi_ad9371_adxcvr_tx: axi-adxcvr-tx@44a80000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = < 0x44a80000 0x1000 >;
 
-		};
+		#clock-cells = <0>;
+		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_tx_clkgen 0>;
+		clock-names = "conv", "sysref", "div40";
+		clock-output-names = "tx_gt_clk";
+		adi,link-is-transmit-enable;
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <3>;
 	} ;
 };
 
@@ -278,19 +266,19 @@
 // ad9371_gpio_18}));    // 32 + 54
 
 &trx0_ad9371 {
-	reset-gpios = <&gpio 106 0>;
-	test-gpios = <&gpio 107 0>;
-	sysref_req-gpios = <&gpio 112 0>;
-	rx2_enable-gpios = <&gpio 108 0>;
-	rx1_enable-gpios = <&gpio 109 0>;
-	tx2_enable-gpios = <&gpio 110 0>;
-	tx1_enable-gpios = <&gpio 111 0>;
+	reset-gpios = <&gpio0 106 0>;
+	test-gpios = <&gpio0 107 0>;
+	sysref_req-gpios = <&gpio0 112 0>;
+	rx2_enable-gpios = <&gpio0 108 0>;
+	rx1_enable-gpios = <&gpio0 109 0>;
+	tx2_enable-gpios = <&gpio0 110 0>;
+	tx1_enable-gpios = <&gpio0 111 0>;
 };
 
 &clk0_ad9528 {
-	reset-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio0 113 0>;
 };
 
 &axi_ad9371_core_tx {
-	plddrbypass-gpios = <&gpio 114 0>;
+	plddrbypass-gpios = <&gpio0 114 0>;
 };

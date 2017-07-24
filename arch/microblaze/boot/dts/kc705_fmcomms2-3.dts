@@ -26,7 +26,6 @@
 
 &axi_ethernet_mdio {
 	phy0: phy@7 {
-		compatible = "marvell,88e1111";
 		device_type = "ethernet-phy";
 		reg = <7>;
 	};

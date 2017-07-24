@@ -54,6 +54,7 @@ obj-$(CONFIG_ALTERA_SYSID)	+= altera_sysid.o
 obj-$(CONFIG_INTEL_MEI)		+= mei/
 obj-$(CONFIG_VMWARE_VMCI)	+= vmw_vmci/
 obj-$(CONFIG_LATTICE_ECP3_CONFIG)	+= lattice-ecp3-config.o
+obj-y				+= mathworks/
 obj-$(CONFIG_SRAM)		+= sram.o
 obj-$(CONFIG_XILINX_TRAFGEN)	+= xilinx_trafgen.o
 obj-$(CONFIG_XILINX_JESD204B)	+= jesd204b/

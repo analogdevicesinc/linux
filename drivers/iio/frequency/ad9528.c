@@ -399,7 +399,7 @@ static ssize_t ad9528_store(struct device *dev,
 		return ret;
 
 	if (!state)
-		return 0;
+		return len;
 
 	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
@@ -526,7 +526,7 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 		code = (AD9528_CLK_DIST_DIV_PHASE_REV(ret) * 3141592) /
 			AD9528_CLK_DIST_DIV_REV(ret);
 		*val = code / 1000000;
-		*val2 = (code % 1000000) * 10;
+		*val2 = code % 1000000;
 		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		return -EINVAL;
@@ -684,27 +684,17 @@ static long ad9528_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct iio_dev *indio_dev = to_ad9528_clk_output(hw)->indio_dev;
 	struct ad9528_state *st = iio_priv(indio_dev);
-	unsigned long clk, tmp1, tmp2;
-	unsigned channel = to_ad9528_clk_output(hw)->num;
+	unsigned long clk, tmp;
 
 	if (!rate)
 		return 0;
 
-	tmp1 = (st->vco_out_freq[AD9528_VCXO] / rate) * rate;
-	tmp2 = (st->vco_out_freq[AD9528_VCO] / rate) * rate;
+	clk = st->vco_out_freq[AD9528_VCO];
 
-	if (abs(tmp1 - rate) > abs(tmp2 - rate)) {
-		st->vco_out_map[channel] = AD9528_VCO;
-		clk = st->vco_out_freq[AD9528_VCO];
-	} else {
-		st->vco_out_map[channel] = AD9528_VCXO;
-		clk = st->vco_out_freq[AD9528_VCXO];
-	}
+	tmp = DIV_ROUND_CLOSEST(clk, rate);
+	tmp = clamp(tmp, 1UL, 256UL);
 
-	tmp1 = DIV_ROUND_CLOSEST(clk, rate);
-	tmp1 = clamp(tmp1, 1UL, 256UL);
-
-	return clk / tmp1;
+	return clk / tmp;
 }
 
 static int ad9528_clk_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -1039,10 +1029,8 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	int ret;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+	if (!pdata)
 		return NULL;
-	}
 
 	pdata->spi3wire = of_property_read_bool(np, "adi,spi-3wire-enable");
 
@@ -1159,10 +1147,8 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 	pdata->num_channels = cnt;
 	pdata->channels = devm_kzalloc(dev, sizeof(*chan) * cnt, GFP_KERNEL);
-	if (!pdata->channels) {
-		dev_err(dev, "could not allocate memory\n");
+	if (!pdata->channels)
 		return NULL;
-	}
 
 	cnt = 0;
 	for_each_child_of_node(np, chan_np) {

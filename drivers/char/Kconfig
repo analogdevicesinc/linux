@@ -611,5 +611,9 @@ config TILE_SROM
 
 source "drivers/char/xillybus/Kconfig"
 
+config AXI_INTR_MONITOR
+	tristate "AXI Interrupt Monitor"
+	depends on HAS_IOMEM
+
 endmenu
 

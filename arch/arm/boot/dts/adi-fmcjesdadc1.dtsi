@@ -19,13 +19,13 @@
 	spi_fmcjesdadc1: spi-fmcjesdadc1@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "spi-ad9250";
+		compatible = "adi,spi-ad9250";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 
 		clk_ad9517: ad9517@1 {
 			#clock-cells = <1>;
-			compatible = "ad9517-1";
+			compatible = "adi,ad9517-1";
 			reg = <1>;
 			spi-max-frequency = <10000000>;
 			adi,spi-3wire-enable;
@@ -35,19 +35,19 @@
 		};
 
 		adc0_ad9250: ad9250-0@0 {
-			compatible = "ad9250";
+			compatible = "adi,ad9250";
 			reg = <2>;
 			spi-max-frequency = <10000000>;
-			clocks = <&axi_jesd>;
-			clock-names = "adc_clk";
+			clocks = <&axi_jesd>, <&clk_ad9517 0>;
+			clock-names = "jesd_dac_clk", "adc_clk";
 		};
 
 		adc1_ad9250: ad9250-1@1 {
-			compatible = "ad9250";
+			compatible = "adi,ad9250";
 			reg = <3>;
 			spi-max-frequency = <10000000>;
-			clocks = <&axi_jesd>;
-			clock-names = "adc_clk";
+			clocks = <&axi_jesd>, <&clk_ad9517 1>;
+			clock-names = "jesd_dac_clk", "adc_clk";
 		};
 	};
 };

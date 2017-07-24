@@ -24,6 +24,12 @@
 static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
+	struct cf_axi_dds_state *st = iio_priv(queue->driver_data);
+
+	if (st->pl_dma_fifo_en && (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC)) {
+		block->block.flags &= ~IIO_BUFFER_BLOCK_FLAG_CYCLIC;
+	}
+
 	return iio_dmaengine_buffer_submit_block(queue, block, DMA_TO_DEVICE);
 }
 

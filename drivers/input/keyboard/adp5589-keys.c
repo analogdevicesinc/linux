@@ -869,34 +869,6 @@ static int adp5589_keypad_add(struct adp5589_kpad *kpad, unsigned int revid,
 	if (pdata->keymapsize == 0)
 		return 0;
 
-	if (!i2c_check_functionality(client->adapter,
-				     I2C_FUNC_SMBUS_BYTE_DATA)) {
-		dev_err(&client->dev, "SMBUS Byte Data not Supported\n");
-		return -EIO;
-	}
-
-	if (!pdata) {
-		dev_err(&client->dev, "no platform data?\n");
-		return -EINVAL;
-	}
-
-	kpad = kzalloc(sizeof(*kpad), GFP_KERNEL);
-	if (!kpad)
-		return -ENOMEM;
-
-	switch (id->driver_data) {
-	case ADP5585_02:
-		kpad->support_row5 = true;
-	case ADP5585_01:
-		kpad->is_adp5585 = true;
-		kpad->var = &const_adp5585;
-		break;
-	case ADP5589:
-		kpad->support_row5 = true;
-		kpad->var = &const_adp5589;
-		break;
-	}
-
 	if (!((pdata->keypad_en_mask & kpad->var->row_mask) &&
 			(pdata->keypad_en_mask >> kpad->var->col_shift)) ||
 			!pdata->keymap) {
@@ -1069,12 +1041,13 @@ static int adp5589_probe(struct i2c_client *client,
 
 	switch (dev_id) {
 	case ADP5585_02:
-		kpad->adp5585_support_row5 = true;
+		kpad->support_row5 = true;
 	case ADP5585_01:
 		kpad->is_adp5585 = true;
 		kpad->var = &const_adp5585;
 		break;
 	case ADP5589:
+		kpad->support_row5 = true;
 		kpad->var = &const_adp5589;
 		break;
 	}

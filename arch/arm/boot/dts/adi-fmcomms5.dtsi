@@ -2,8 +2,9 @@
 	clocks {
 		ad9361_clkin: clock@0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
+			compatible = "adjustable-clock";
 			clock-frequency = <40000000>;
+			clock-accuracy = <200000>; /* 200 ppm (ppb) */
 			clock-output-names = "ad9361_ext_refclk";
 		};
 	};
@@ -14,7 +15,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9361-2x";
+		compatible = "adi,ad9361-2x";
 
 		/* SPI Setup */
 		reg = <0>;
@@ -237,7 +238,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9361";
+		compatible = "adi,ad9361";
 
 		/* SPI Setup */
 		reg = <1>;

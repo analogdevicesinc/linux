@@ -112,10 +112,54 @@
 		spi-max-frequency = <25000000>;
 
 		/* Clocks */
-		clocks = <&axi_ad9371_rx_jesd>, <&axi_ad9371_tx_jesd>, <&axi_ad9371_rx_os_jesd>, <&clk0_ad9528 13>;
-		clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk", "dev_clk";
+		clocks = <&axi_ad9371_rx_jesd>, <&axi_ad9371_tx_jesd>, <&axi_ad9371_rx_os_jesd>, <&clk0_ad9528 13>, <&clk0_ad9528 1>;
+		clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk", "dev_clk", "fmc_clk";
 		clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
 
+		adi,clocks-clk-pll-vco-freq_khz = <9830400>;
+		adi,clocks-device-clock_khz = <122880>;
+		adi,clocks-clk-pll-hs-div = <4>;
+		adi,clocks-clk-pll-vco-div = <2>;
+
+		adi,jesd204-obs-framer-over-sample = <0>;
+
+		adi,rx-profile-adc-div = <1>;
+		adi,rx-profile-en-high-rej-dec5 = <1>;
+		adi,rx-profile-iq-rate_khz = <122880>;
+		adi,rx-profile-rf-bandwidth_hz = <100000000>;
+		adi,rx-profile-rhb1-decimation = <1>;
+		adi,rx-profile-rx-bbf-3db-corner_khz = <100000>;
+		adi,rx-profile-rx-dec5-decimation = <5>;
+		adi,rx-profile-rx-fir-decimation = <2>;
+
+		adi,obs-profile-adc-div = <1>;
+		adi,obs-profile-en-high-rej-dec5 = <0>;
+		adi,obs-profile-iq-rate_khz = <245760>;
+		adi,obs-profile-rf-bandwidth_hz = <200000000>;
+		adi,obs-profile-rhb1-decimation = <1>;
+		adi,obs-profile-rx-bbf-3db-corner_khz = <100000>;
+		adi,obs-profile-rx-dec5-decimation = <5>;
+		adi,obs-profile-rx-fir-decimation = <1>;
+
+		adi,tx-profile-dac-div = <1>;
+		adi,tx-profile-iq-rate_khz = <245760>;
+		adi,tx-profile-primary-sig-bandwidth_hz = <75000000>;
+		adi,tx-profile-rf-bandwidth_hz = <200000000>;
+		adi,tx-profile-thb1-interpolation = <2>;
+		adi,tx-profile-thb2-interpolation = <1>;
+		adi,tx-profile-tx-bbf-3db-corner_khz = <100000>;
+		adi,tx-profile-tx-dac-3db-corner_khz = <189477>;
+		adi,tx-profile-tx-fir-interpolation = <1>;
+		adi,tx-profile-tx-input-hb-interpolation = <1>;
+
+		adi,sniffer-profile-adc-div = <1>;
+		adi,sniffer-profile-en-high-rej-dec5 = <0>;
+		adi,sniffer-profile-iq-rate_khz = <30720>;
+		adi,sniffer-profile-rf-bandwidth_hz = <20000000>;
+		adi,sniffer-profile-rhb1-decimation = <2>;
+		adi,sniffer-profile-rx-bbf-3db-corner_khz = <100000>;
+		adi,sniffer-profile-rx-dec5-decimation = <5>;
+		adi,sniffer-profile-rx-fir-decimation = <4>;
 	};
 };
 

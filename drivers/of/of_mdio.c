@@ -153,6 +153,7 @@ static const struct of_device_id whitelist_phys[] = {
 	{ .compatible = "brcm,40nm-ephy" },
 	{ .compatible = "marvell,88E1111", },
 	{ .compatible = "marvell,88e1116", },
+	{ .compatible = "marvell,88e1116r", },
 	{ .compatible = "marvell,88e1118", },
 	{ .compatible = "marvell,88e1145", },
 	{ .compatible = "marvell,88e1149r", },

@@ -281,8 +281,8 @@ static const struct adv76xx_video_standards adv7604_prim_mode_gr[] = {
 static const struct adv76xx_video_standards adv76xx_prim_mode_hdmi_comp[] = {
 	{ V4L2_DV_BT_CEA_720X480P59_94, 0x0a, 0x00 },
 	{ V4L2_DV_BT_CEA_720X576P50, 0x0b, 0x00 },
-	{ V4L2_DV_BT_CEA_1280X720P25, 0x13, 0x03 },
 	{ V4L2_DV_BT_CEA_1280X720P24, 0x13, 0x04 },
+	{ V4L2_DV_BT_CEA_1280X720P25, 0x13, 0x03 },
 	{ V4L2_DV_BT_CEA_1280X720P50, 0x13, 0x01 },
 	{ V4L2_DV_BT_CEA_1280X720P60, 0x13, 0x00 },
 	{ V4L2_DV_BT_CEA_1920X1080P24, 0x1e, 0x04 },
@@ -2928,6 +2928,9 @@ static int adv76xx_parse_dt(struct adv76xx_state *state)
 	state->pdata.alt_data_sat = 1;
 	state->pdata.op_format_mode_sel = ADV7604_OP_FORMAT_MODE0;
 	state->pdata.bus_order = ADV7604_BUS_ORDER_RGB;
+	state->pdata.dr_str_data = ADV76XX_DR_STR_MEDIUM_HIGH;
+	state->pdata.dr_str_clk = ADV76XX_DR_STR_MEDIUM_HIGH;
+	state->pdata.dr_str_sync = ADV76XX_DR_STR_MEDIUM_HIGH;
 
 	return 0;
 }

@@ -432,6 +432,7 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <9 2>;
 			reg = <0x41600000 0x10000>;
+			clocks = <&clk_bus_0>;
 		} ;
 		axi_intc: axi-intc@41200000 {
 			#interrupt-cells = <2>;

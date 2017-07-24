@@ -16,7 +16,7 @@
 		lo_pll0_tx_adf4351: adf4351-udc-tx-pmod@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "adf4351";
+			compatible = "adi,adf4351";
 			reg = <0>;
 			spi-max-frequency = <10000000>;
 			clocks = <&adf4351_clkin>;
@@ -33,7 +33,7 @@
 		lo_pll0_rx_adf4351: adf4351-udc-rx-pmod@1 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "adf4351";
+			compatible = "adi,adf4351";
 			reg = <1>;
 			spi-max-frequency = <10000000>;
 			clocks = <&adf4351_clkin>;

@@ -1,7 +1,7 @@
 /*
  * DDS PCORE/COREFPGA Module
  *
- * Copyright 2012-2014 Analog Devices Inc.
+ * Copyright 2012-2016 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -21,6 +21,9 @@
 #include <linux/dmaengine.h>
 #include <linux/spi/spi.h>
 #include <linux/clk.h>
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/of_device.h>
 #include <linux/of_dma.h>
@@ -34,7 +37,9 @@
 #include "cf_axi_dds.h"
 #include "ad9122.h"
 
-unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
+static const unsigned int interpolation_factors_available[] = {1, 8};
+
+static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 {
 	unsigned i;
 	u64 val64;
@@ -64,7 +69,8 @@ unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 	return i | val64;
 }
 
-int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val, int *r_val2)
+static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val,
+	int *r_val2)
 {
 	u64 val64;
 	int sign;
@@ -93,7 +99,7 @@ int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val, int *r_val2)
 }
 
 #ifdef CF_AXI_DDS_HAVE_TWOS_FMT
-unsigned cf_axi_dds_to_twos_fmt(int val, int val2)
+static unsigned cf_axi_dds_to_twos_fmt(int val, int val2)
 {
 	s64 sval64;
 	if (val < 0)
@@ -102,7 +108,7 @@ unsigned cf_axi_dds_to_twos_fmt(int val, int val2)
 	return div_s64(sval64, 1000000UL);
 }
 
-int cf_axi_dds_twos_fmt_to_iio(s16 val, int *r_val, int *r_val2)
+static int cf_axi_dds_twos_fmt_to_iio(s16 val, int *r_val, int *r_val2)
 {
 	*r_val = val;
 	*r_val2 = 14;
@@ -110,6 +116,23 @@ int cf_axi_dds_twos_fmt_to_iio(s16 val, int *r_val, int *r_val2)
 	return IIO_VAL_FRACTIONAL_LOG2;
 }
 #endif
+
+static int cf_axi_get_parent_sampling_frequency(struct cf_axi_dds_state *st, unsigned long *freq)
+{
+	struct cf_axi_converter *conv;
+
+	if (st->standalone) {
+		*freq = st->dac_clk = clk_get_rate(st->clk);
+	} else {
+		conv = to_converter(st->dev_spi);
+		if (!conv->get_data_clk)
+			return -ENODEV;
+
+		*freq = st->dac_clk = conv->get_data_clk(conv);
+	}
+
+	return 0;
+}
 
 int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 			       int channel, enum dds_data_select sel)
@@ -245,7 +268,7 @@ static int cf_axi_dds_rate_change(struct notifier_block *nb,
 			reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i));
 			reg &= ~ADI_DDS_INCR(~0);
 			val64 = (u64) st->cached_freq[i] * 0xFFFFULL;
-			do_div(val64, st->dac_clk);
+			val64 = div64_u64(val64, st->dac_clk);
 			reg |= ADI_DDS_INCR(val64) | 1;
 			dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i), reg);
 		}
@@ -284,7 +307,7 @@ static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
 	st->cached_freq[chan] = freq;
 
 	val64 = (u64) freq * 0xFFFFULL;
-	do_div(val64, st->dac_clk);
+	val64 = div64_u64(val64, st->dac_clk);
 	val = ADI_DDS_INCR(val64) | 1;
 
 	val64 = (u64) phase * 0x10000ULL + (360000 / 2);
@@ -308,6 +331,100 @@ static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
 	return 0;
 }
 
+static int cf_axi_interpolation_set(struct cf_axi_dds_state *st,
+				    unsigned int interpolation_factor)
+{
+	u32 reg;
+	int ret = 0;
+
+	switch (interpolation_factor) {
+		case 1:
+		case 8:
+			reg = dds_read(st, ADI_REG_DAC_GP_CONTROL);
+
+			if (st->interpolation_factor == 8)
+				reg |= BIT(0);
+			else
+				reg &= ~BIT(0);
+
+			dds_write(st, ADI_REG_DAC_GP_CONTROL, reg);
+			break;
+		default:
+			ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static ssize_t cf_axi_interpolation_store(struct cf_axi_dds_state *st,
+					  unsigned long frequency)
+{
+	unsigned long parent, val;
+	int i, ret;
+
+	if (!frequency)
+		return -EINVAL;
+
+	ret = cf_axi_get_parent_sampling_frequency(st, &parent);
+	if (ret < 0)
+		return ret;
+
+	val = DIV_ROUND_CLOSEST(parent, frequency);
+
+	for (i = 0; i < ARRAY_SIZE(interpolation_factors_available); i++) {
+		if (val == interpolation_factors_available[i]) {
+			st->interpolation_factor = val;
+			return cf_axi_interpolation_set(st, val);
+		}
+	}
+
+	return -EINVAL;
+}
+
+static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
+						   struct device_attribute *attr,
+						   char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	unsigned long freq;
+	int i, ret;
+
+	if (!st->interpolation_factor)
+		return -ENODEV;
+
+	mutex_lock(&indio_dev->mlock);
+	ret = cf_axi_get_parent_sampling_frequency(st, &freq);
+	if (ret < 0) {
+		mutex_unlock(&indio_dev->mlock);
+		return ret;
+	}
+
+	for (i = 0, ret = 0; i < ARRAY_SIZE(interpolation_factors_available); i++)
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "%ld ",
+				freq / interpolation_factors_available[i]);
+
+	ret += snprintf(&buf[ret], PAGE_SIZE - ret, "\n");
+
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
+static IIO_DEVICE_ATTR(out_voltage_sampling_frequency_available, S_IRUGO,
+		       cf_axi_sampling_frequency_available,
+		       NULL,
+		       0);
+
+static struct attribute *cf_axi_attributes[] = {
+	&iio_dev_attr_out_voltage_sampling_frequency_available.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group cf_axi_int_attribute_group = {
+	.attrs = cf_axi_attributes,
+};
+
 static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val,
@@ -317,6 +434,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	struct cf_axi_converter *conv;
 	unsigned long long val64;
+	unsigned long freq;
 	unsigned reg, phase = 0;
 	int ret;
 
@@ -362,16 +480,15 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (st->standalone) {
-			*val = st->dac_clk = clk_get_rate(st->clk);
-		} else {
-			conv = to_converter(st->dev_spi);
-			if (!conv->get_data_clk) {
-				ret = -ENODEV;
-				break;
-			}
-			*val = st->dac_clk = conv->get_data_clk(conv);
-		}
+		ret = cf_axi_get_parent_sampling_frequency(st, &freq);
+		if (ret < 0)
+			break;
+
+		if (chan->type == IIO_VOLTAGE && st->interpolation_factor)
+			freq /= st->interpolation_factor;
+
+		*val = freq;
+
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_CALIBPHASE:
@@ -491,7 +608,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		reg &= ~ADI_DDS_INCR(~0);
 		val64 = (u64) val * 0xFFFFULL;
-		do_div(val64, st->dac_clk);
+		val64 = div64_u64(val64, st->dac_clk);
 		reg |= ADI_DDS_INCR(val64) | 1;
 		dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel), reg);
 
@@ -520,6 +637,13 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		cf_axi_dds_start_sync(st, 0);
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (chan->type == IIO_VOLTAGE && st->interpolation_factor) {
+			ret = cf_axi_interpolation_store(st, val);
+			if (!ret)
+				break;
+
+		}
+
 		if (IS_ERR(conv)) {
 			ret = -EINVAL;
 			break;
@@ -698,6 +822,7 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	.channel = _chan, \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) | \
 		BIT(IIO_CHAN_INFO_CALIBPHASE), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
 	.output = 1, \
 	.scan_index = _chan, \
 	.scan_type = { \
@@ -712,6 +837,7 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	.type = IIO_VOLTAGE, \
 	.indexed = 1, \
 	.channel = _chan, \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
 	.output = 1, \
 	.scan_index = _chan, \
 	.scan_type = { \
@@ -727,6 +853,7 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	.indexed = 1, \
 	.channel = _chan, \
 	.output = 1, \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
 	.scan_index = _chan, \
 	.scan_type = { \
 		.sign = 's', \
@@ -840,6 +967,19 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_dds_channels = 4,
 		.num_buf_channels = 2,
 	},
+	[ID_AD9162] = {
+		.name = "AD9162",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF(0),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+		},
+		.num_channels = 3,
+		.num_dds_channels = 2,
+		.num_buf_channels = 1,
+
+	},
+
 };
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
@@ -937,6 +1077,49 @@ static const struct iio_info cf_axi_dds_info = {
 	.update_scan_mode = &cf_axi_dds_update_scan_mode,
 };
 
+static ssize_t cf_axi_dds_debugfs_read(struct file *file, char __user *userbuf,
+			      size_t count, loff_t *ppos)
+{
+	struct iio_dev *indio_dev = file->private_data;
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	char buf[80];
+
+	ssize_t len = sprintf(buf, "%d\n", st->pl_dma_fifo_en);
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+static ssize_t cf_axi_dds_debugfs_write(struct file *file,
+		     const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	struct iio_dev *indio_dev = file->private_data;
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	char buf[80], *p = buf;
+	int ret;
+
+	count = min_t(size_t, count, (sizeof(buf)-1));
+	if (copy_from_user(p, userbuf, count))
+		return -EFAULT;
+
+	p[count] = 0;
+
+	ret = strtobool(p, &st->pl_dma_fifo_en);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (!IS_ERR(st->plddrbypass_gpio)) {
+		gpiod_direction_output(st->plddrbypass_gpio, !st->pl_dma_fifo_en);
+	}
+
+	return count;
+}
+
+static const struct file_operations cf_axi_dds_debugfs_fops = {
+	.open = simple_open,
+	.read = cf_axi_dds_debugfs_read,
+	.write = cf_axi_dds_debugfs_write,
+};
+
 static int dds_converter_match(struct device *dev, void *data)
 {
 	return dev->driver && dev->of_node == data;
@@ -966,7 +1149,6 @@ static void dds_converter_put(struct device *conv_dev)
 
 struct axidds_core_info {
 	unsigned int version;
-	bool has_fifo_interface;
 	bool standalone;
 	struct cf_axi_dds_chip_info *chip_info;
 	unsigned int data_format;
@@ -974,30 +1156,20 @@ struct axidds_core_info {
 };
 
 static const struct axidds_core_info ad9122_6_00_a_info = {
-	.version = PCORE_VERSION(8, 0, 'a'),
-	.has_fifo_interface = true,
+	.version = PCORE_VERSION(9, 0, 'a'),
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
 };
 
-static const struct axidds_core_info ad9361_1_00_a_info = {
-	.version = PCORE_VERSION(4, 0, 'a'),
-	.standalone = true,
-	.rate = 3,
-	.chip_info = &cf_axi_dds_chip_info_ad9361,
-};
-
 static const struct axidds_core_info ad9361_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9361,
 };
 
 static const struct axidds_core_info ad9364_6_00_a_info = {
-	.version = PCORE_VERSION(8, 0, 'a'),
-	.has_fifo_interface = true,
+	.version = PCORE_VERSION(9, 0, 'a'),
 	.standalone = true,
 	.rate = 1,
 	.chip_info = &cf_axi_dds_chip_info_ad9364,
@@ -1005,7 +1177,6 @@ static const struct axidds_core_info ad9364_6_00_a_info = {
 
 static const struct axidds_core_info ad9361x2_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9361x2,
@@ -1013,20 +1184,17 @@ static const struct axidds_core_info ad9361x2_6_00_a_info = {
 
 static const struct axidds_core_info ad9144_7_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.rate = 1,
 };
 
 static const struct axidds_core_info ad9739a_8_00_b_info = {
-	.version = PCORE_VERSION(8, 0, 'b'),
-	.has_fifo_interface = true,
+	.version = PCORE_VERSION(9, 0, 'b'),
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
 };
 
 static const struct axidds_core_info ad9371_6_00_a_info = {
-	.version = PCORE_VERSION(8, 0, 'a'),
-	.has_fifo_interface = true,
+	.version = PCORE_VERSION(9, 0, 'a'),
 	.standalone = true,
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9371,
@@ -1034,26 +1202,22 @@ static const struct axidds_core_info ad9371_6_00_a_info = {
 
 static const struct axidds_core_info ad9371_9_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
-	.has_fifo_interface = true,
 	.standalone = true,
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9371,
 };
 
+static const struct axidds_core_info ad9162_1_00_a_info = {
+	.version = PCORE_VERSION(9, 0, 'a'),
+	.rate = 1,
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
-	{ .compatible = "xlnx,cf-ad9122-core-1.00.a", },
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
 	{ .compatible = "adi,axi-ad9144-1.0", .data = &ad9144_7_00_a_info},
-	{ .compatible = "xlnx,cf-ad9739a-core-1.00.a", },
 	{ .compatible = "adi,axi-ad9739a-8.00.b", .data = &ad9739a_8_00_b_info},
-	{ .compatible = "xlnx,cf-ad9122x2-core-1.00.a", },
-	{ .compatible = "xlnx,cf-ad9122-core-2.00.a", },
-	{ .compatible = "xlnx,axi-dac-4d-2c-1.00.a", },
 	{
-	    .compatible = "xlnx,axi-ad9361-dds-1.00.a",
-	    .data = &ad9361_1_00_a_info,
-	}, {
 	    .compatible = "adi,axi-ad9361x2-dds-6.00.a",
 	    .data = &ad9361x2_6_00_a_info,
 	}, {
@@ -1068,6 +1232,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9371-tx-2.0",
 	    .data = &ad9371_9_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9162-1.0",
+	    .data = &ad9162_1_00_a_info,
 	},
 	{ },
 };
@@ -1077,7 +1244,6 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 {
 
 	struct device_node *np = pdev->dev.of_node;
-	unsigned int expected_version;
 	struct cf_axi_converter *conv = NULL;
 	const struct axidds_core_info *info;
 	const struct of_device_id *id;
@@ -1091,7 +1257,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	int ret;
 
 	id = of_match_device(cf_axi_dds_of_match, &pdev->dev);
-	if (!id)
+	if (!id || !id->data)
 		return -ENODEV;
 
 	info = id->data;
@@ -1112,7 +1278,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		goto err_iio_device_free;
 	}
 
-	if (info && info->standalone) {
+	if (info->standalone) {
 		st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
 		if (IS_ERR(st->clk)) {
 			ret = PTR_ERR(st->clk);
@@ -1152,26 +1318,16 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
 	}
 
-
-	if (info) {
-		st->has_fifo_interface = info->has_fifo_interface;
-		st->standalone = info->standalone;
-	}
-
+	st->standalone = info->standalone;
 	st->version = dds_read(st, ADI_REG_VERSION);
 	st->dp_disable = dds_read(st, ADI_REG_DAC_DP_DISABLE);
 
-	if (info)
-		expected_version = info->version;
-	else
-		expected_version = PCORE_VERSION(4, 0, 'a');
-
 	if (PCORE_VERSION_MAJOR(st->version) >
-		PCORE_VERSION_MAJOR(expected_version)) {
+		PCORE_VERSION_MAJOR(info->version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
-			PCORE_VERSION_MAJOR(expected_version),
-			PCORE_VERSION_MINOR(expected_version),
-			PCORE_VERSION_LETTER(expected_version),
+			PCORE_VERSION_MAJOR(info->version),
+			PCORE_VERSION_MINOR(info->version),
+			PCORE_VERSION_LETTER(info->version),
 			PCORE_VERSION_MAJOR(st->version),
 			PCORE_VERSION_MINOR(st->version),
 			PCORE_VERSION_LETTER(st->version));
@@ -1268,6 +1424,12 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		cf_axi_dds_update_chan_spec(st, st->chip_info->channel,
 				st->chip_info->num_channels);
 
+		if (of_property_read_bool(np, "adi,axi-interpolation-core-available")) {
+			st->interpolation_factor = 1;
+			WARN_ON(st->iio_info.attrs != NULL);
+			st->iio_info.attrs = &cf_axi_int_attribute_group;
+		}
+
 	}
 
 	st->enable = true;
@@ -1289,11 +1451,16 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			}
 		}
 
-		ret = cf_axi_dds_configure_buffer(indio_dev);
-		if (ret)
-			goto err_converter_put;
+		st->pl_dma_fifo_en =
+			of_property_read_bool(np, "adi,axi-pl-fifo-enable");
 
-		indio_dev->available_scan_masks = st->chip_info->scan_masks;
+		if (of_find_property(np, "dmas", NULL)) {
+			ret = cf_axi_dds_configure_buffer(indio_dev);
+			if (ret)
+				goto err_converter_put;
+
+			indio_dev->available_scan_masks = st->chip_info->scan_masks;
+		}
 
 	} else if (dds_read(st, ADI_REG_ID)){
 		u32 regs[2];
@@ -1315,6 +1482,18 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		PCORE_VERSION_MINOR(st->version),
 		PCORE_VERSION_LETTER(st->version),
 		(unsigned long long)res->start, st->regs, st->chip_info->name);
+
+	st->plddrbypass_gpio = devm_gpiod_get(&pdev->dev, "plddrbypass", GPIOD_ASIS);
+	if (!IS_ERR(st->plddrbypass_gpio)) {
+
+		if (iio_get_debugfs_dentry(indio_dev))
+				debugfs_create_file("pl_ddr_fifo_enable", 0644,
+				iio_get_debugfs_dentry(indio_dev),
+				indio_dev, &cf_axi_dds_debugfs_fops);
+
+		ret = gpiod_direction_output(st->plddrbypass_gpio, !st->pl_dma_fifo_en);
+	}
+
 
 	platform_set_drvdata(pdev, indio_dev);
 

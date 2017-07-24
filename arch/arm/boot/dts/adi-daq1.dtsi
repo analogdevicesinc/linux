@@ -2,13 +2,13 @@
 	spi-adi-daq1@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "spi-adi-daq1";
+		compatible = "adi,spi-adi-daq1";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 
 		gpio_daq1: gpio-daq1@3 {
 			#gpio-cells = <2>;
-			compatible = "gpio-adi-daq1";
+			compatible = "adi,gpio-adi-daq1";
 			reg = <3>;
 			spi-max-frequency = <10000000>;
 			gpio-controller;
@@ -18,7 +18,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#clock-cells = <1>;
-			compatible = "ad9523-1";
+			compatible = "adi,ad9523-1";
 			reg = <2>;
 
 			spi-max-frequency = <1000000>;
@@ -48,7 +48,7 @@
 			adi,pll2-ndiv-b-cnt = <6>;
 			adi,pll2-r2-div = <1>;
 			adi,pll2-vco-diff-m1 = <3>;
-			adi,pll2-vco-diff-m2 = <0>;
+			adi,pll2-vco-diff-m2 = <3>;
 
 			adi,rpole2 = <0>;
 			adi,rzero = <7>;
@@ -90,7 +90,7 @@
 		adc_ad9684: ad9684@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "ad9684";
+			compatible = "adi,ad9684";
 			reg = <0>;
 			spi-max-frequency = <10000000>;
 			spi-3wire;
@@ -102,7 +102,7 @@
 		dac_ad9122: ad9122@1 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "ad9122";
+			compatible = "adi,ad9122";
 			reg = <1>;
 			spi-max-frequency = <10000000>;
 			spi-3wire;
@@ -110,7 +110,7 @@
 			clock-names = "data_clk", "dac_clk", "ref_clk";
 			dac-fcenter-shift = <0>;
 			dac-interp-factor = <2>;
-			dac-data-rate = <245760000>;
+			dac-data-rate = <500000000>;
 			temp-sensor-calibration-temperature-mdeg = <25000>;
 			reset-gpios = <&gpio_daq1 1 0>;
 		};

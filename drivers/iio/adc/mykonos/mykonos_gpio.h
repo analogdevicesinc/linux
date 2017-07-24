@@ -2,8 +2,15 @@
  * \file mykonos_gpio.h
  * \brief Contains macro definitions and function prototypes for mykonos_gpio.c
  *
- * Mykonos API version: 1.2.05.3475
+ * Mykonos API version: 1.5.1.3565
  */
+
+/**
+* \page Disclaimer Legal Disclaimer
+* Copyright 2015-2017 Analog Devices Inc.
+* Released under the AD9371 API license, for more information see the "LICENSE.txt" file in this zip file.
+*
+*/
 
 #ifndef MYKONOSGPIO_H_
 #define MYKONOSGPIO_H_
@@ -22,8 +29,8 @@ extern "C" {
  */
 
 /* GPIO CMOS and SPI setting Functions */
-mykonosGpioErr_t MYKONOS_setGpioDrv(mykonosDevice_t *device, mykonosGpioSelect_t gpioDrv);
-mykonosGpioErr_t MYKONOS_getGpioDrv(mykonosDevice_t *device, mykonosGpioSelect_t *gpioDrv);
+mykonosGpioErr_t MYKONOS_setGpioDrv(mykonosDevice_t *device, uint32_t gpioDrv);
+mykonosGpioErr_t MYKONOS_getGpioDrv(mykonosDevice_t *device, uint32_t *gpioDrv);
 
 mykonosGpioErr_t MYKONOS_setGpioSlewRate(mykonosDevice_t *device, mykonosGpioSelect_t gpioSelect, mykonosGpioSlewRate_t slewRate);
 mykonosGpioErr_t MYKONOS_getGpioSlewRate(mykonosDevice_t *device, mykonosGpioSelect_t gpioSelect, mykonosGpioSlewRate_t *slewRate);
@@ -57,6 +64,8 @@ mykonosGpioErr_t MYKONOS_setTx1AttenCtrlPin(mykonosDevice_t *device, uint8_t ste
 mykonosGpioErr_t MYKONOS_setTx2AttenCtrlPin(mykonosDevice_t *device, uint8_t stepSize, mykonosGpioSelect_t tx2AttenIncPin, mykonosGpioSelect_t tx2AttenDecPin, uint8_t enable);
 mykonosGpioErr_t MYKONOS_getTx1AttenCtrlPin(mykonosDevice_t *device, uint8_t *stepSize, mykonosGpioSelect_t *tx1AttenIncPin, mykonosGpioSelect_t *tx1AttenDecPin, uint8_t *enable, uint8_t *useTx1ForTx2);
 mykonosGpioErr_t MYKONOS_getTx2AttenCtrlPin(mykonosDevice_t *device, uint8_t *stepSize, mykonosGpioSelect_t *tx2AttenIncPin, mykonosGpioSelect_t *tx2AttenDecPin, uint8_t *enable, uint8_t *useTx1ForTx2);
+
+mykonosGpioErr_t MYKONOS_spi2GpioSetup(mykonosDevice_t *device, uint8_t enable, uint8_t updateTxAttenPinSelect);
 
 /* GPIO memory source Functions */
 mykonosGpioErr_t MYKONOS_setGpioPinLevel(mykonosDevice_t *device, uint32_t gpioPinLevel);
@@ -101,7 +110,6 @@ mykonosGpioErr_t MYKONOS_readGpInterruptStatus(mykonosDevice_t *device, uint16_t
  *****************************************************************************
  */
 mykonosGpioErr_t MYKONOS_setArmGpioPins(mykonosDevice_t *device);
-mykonosGpioErr_t MYKONOS_setRadioControlPinMode(mykonosDevice_t *device);
 
 /*
  *****************************************************************************
@@ -109,7 +117,7 @@ mykonosGpioErr_t MYKONOS_setRadioControlPinMode(mykonosDevice_t *device);
  *****************************************************************************
  */
 mykonosGpioErr_t MYKONOS_setupAuxAdcs(mykonosDevice_t *device, uint8_t adcDecimation, uint8_t enable);
-mykonosGpioErr_t MYKONOS_setAuxAdcChannel(mykonosDevice_t *device, uint8_t auxAdcChannel);
+mykonosGpioErr_t MYKONOS_setAuxAdcChannel(mykonosDevice_t *device, mykonosAuxAdcChannels_t auxAdcChannel);
 mykonosGpioErr_t MYKONOS_readAuxAdc(mykonosDevice_t *device, uint16_t *adcCode);
 mykonosGpioErr_t MYKONOS_setupAuxDacs(mykonosDevice_t *device);
 mykonosGpioErr_t MYKONOS_writeAuxDac(mykonosDevice_t *device, uint8_t auxDacIndex, uint16_t auxDacCode);

@@ -26,6 +26,7 @@ enum ad8366_type {
 	ID_ADA4961,
 	ID_ADL5240,
 	ID_HMC271,
+	ID_HMC1119,
 };
 
 struct ad8366_state {
@@ -65,8 +66,10 @@ static int ad8366_write(struct iio_dev *indio_dev,
 	case ID_HMC271:
 		st->data[0] = bitrev8(ch_a & 0x1F) >> 3;
 		break;
+	case ID_HMC1119:
+		st->data[0] = ch_a;
+		break;
 	}
-
 
 	ret = spi_write(st->spi, st->data, indio_dev->num_channels);
 	if (ret < 0)
@@ -103,6 +106,10 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 		case ID_HMC271:
 			code = -31000 + code * 1000;
 			break;
+		case ID_HMC1119:
+			code = -1 * code * 250;
+			break;
+
 		}
 
 		/* Values in dB */
@@ -154,6 +161,11 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 		if (code < -31000 || code > 0)
 			return -EINVAL;
 		code = ((code - 1000) / 1000) & 0x1F;
+		break;
+	case ID_HMC1119:
+		if (code < -31750 || code > 0)
+			return -EINVAL;
+		code = (abs(code) / 250) & 0x7F;
 		break;
 	}
 
@@ -235,6 +247,7 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_ADA4961:
 	case ID_ADL5240:
 	case ID_HMC271:
+	case ID_HMC1119:
 
 		st->reset_gpio = devm_gpiod_get(&spi->dev, "reset",
 			GPIOD_OUT_HIGH);
@@ -286,6 +299,7 @@ static const struct spi_device_id ad8366_id[] = {
 	{"ada4961", ID_ADA4961},
 	{"adl5240", ID_ADL5240},
 	{"hmc271", ID_HMC271},
+	{"hmc1119", ID_HMC1119},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad8366_id);
@@ -301,6 +315,6 @@ static struct spi_driver ad8366_driver = {
 
 module_spi_driver(ad8366_driver);
 
-MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
+MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD8366 VGA");
 MODULE_LICENSE("GPL v2");

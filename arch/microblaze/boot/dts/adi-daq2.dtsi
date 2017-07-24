@@ -30,7 +30,7 @@
 
 		ad9523_0_c1:channel@1 {
 			reg = <1>;
-			adi,extended-name = "ADC_CLK";
+			adi,extended-name = "DAC_CLK";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <1>;
@@ -92,7 +92,7 @@
 
 		ad9523_0_c13:channel@13 {
 			reg = <13>;
-			adi,extended-name = "DAC_CLK";
+			adi,extended-name = "ADC_CLK";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
 			adi,channel-divider = <1>;
@@ -108,7 +108,7 @@
 		spi-cpol;
 		spi-cpha;
 		spi-max-frequency = <1000000>;
-		clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 8>;
+		clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 8>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
 
 	};
@@ -121,7 +121,7 @@
 		spi-max-frequency = <1000000>;
 		spi-cpol;
 		spi-cpha;
-		clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 5>;
+		clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 5>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
 };

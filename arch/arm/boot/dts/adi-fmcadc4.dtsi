@@ -5,7 +5,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9528";
+		compatible = "adi,ad9528";
 
 		spi-cpol;
 		spi-cpha;
@@ -57,7 +57,7 @@
 			adi,extended-name = "ADC2-sysref";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1>;
+			adi,channel-divider = <32>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
@@ -84,7 +84,7 @@
 			adi,extended-name = "ADC1-sysref";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1>;
+			adi,channel-divider = <32>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
@@ -93,7 +93,7 @@
 			adi,extended-name = "FPGA-sysref";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1>;
+			adi,channel-divider = <32>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 	};
@@ -101,7 +101,7 @@
 	adc0_ad9680: ad9680@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad9680";
+		compatible = "adi,ad9680";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
 		spi-cpol;
@@ -114,7 +114,7 @@
 	adc1_ad9680: ad9680@2 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad9680";
+		compatible = "adi,ad9680";
 		reg = <2>;
 		spi-max-frequency = <1000000>;
 		spi-cpol;
@@ -126,7 +126,7 @@
 	vga0_ada4961: ada4961-A@3 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ada4961";
+		compatible = "adi,ada4961";
 		reg = <3>;
 		spi-max-frequency = <10000000>;
 	};
@@ -134,7 +134,7 @@
 	vga1_ada4961: ada4961-B@4 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ada4961";
+		compatible = "adi,ada4961";
 		reg = <4>;
 		spi-max-frequency = <10000000>;
 	};
@@ -142,7 +142,7 @@
 	vga2_ada4961: ada4961-C@5 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ada4961";
+		compatible = "adi,ada4961";
 		reg = <5>;
 		spi-max-frequency = <10000000>;
 	};
@@ -150,7 +150,7 @@
 	vga3_ada4961: ada4961-D@6 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ada4961";
+		compatible = "adi,ada4961";
 		reg = <6>;
 		spi-max-frequency = <10000000>;
 	};

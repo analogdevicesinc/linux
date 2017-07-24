@@ -27,7 +27,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
-		compatible = "ad9517-4";
+		compatible = "adi,ad9517-4";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		clocks = <&ad9517_ref_clk>, <&ad9517_clkin>;
@@ -40,7 +40,7 @@
 	lo_pll0_rx_adf4351: adf4351-rx-lpc@2 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "adf4351";
+		compatible = "adi,adf4351";
 		reg = <2>;
 		spi-max-frequency = <10000000>;
 		clocks = <&ad9517_ref_clk>;
@@ -56,7 +56,7 @@
 	adc0_ad9652: ad9652@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad9652";
+		compatible = "adi,ad9652";
 		reg = <1>;
 		spi-max-frequency = <10000000>;
 		clocks = <&clk_ad9517 0>;

@@ -3,8 +3,15 @@
  *
  * \brief Contains macro definitions and global structure declarations for mykonos_user.c
  *
- * Mykonos API version: 1.2.05.3475
+ * Mykonos API version: 1.5.1.3565
  */
+
+/**
+* \page Disclaimer Legal Disclaimer
+* Copyright 2015-2017 Analog Devices Inc.
+* Released under the AD9371 API license, for more information see the "LICENSE.txt" file in this zip file.
+*
+*/
 
 #ifndef _MYKONOSPROFILES_H_
 #define _MYKONOSPROFILES_H_
@@ -53,23 +60,23 @@ extern uint8_t SnRxGainTable [53][4];
  * Rx, Sniffer, ObsRx and Tx Profiles limits
  ********************************************
  */
-#define MIN_RX_IQRATE_KHZ   15000
-#define MAX_RX_IQRATE_KHZ   320000
+#define MIN_RX_IQRATE_KHZ   15000       /*!< Mykonos minimum IQ rate for the Rx channel, expressed in KHz */
+#define MAX_RX_IQRATE_KHZ   320000      /*!< Mykonos maximum IQ rate for the Rx channel, expressed in KHz */
 
-#define MIN_TX_IQRATE_KHZ   15000
-#define MAX_TX_IQRATE_KHZ   492000
+#define MIN_TX_IQRATE_KHZ   15000       /*!< Mykonos minimum IQ rate for the Tx channel, expressed in KHz */
+#define MAX_TX_IQRATE_KHZ   492000      /*!< Mykonos maximum IQ rate for the Tx channel, expressed in KHz */
 
-#define MIN_SNIFFER_RFBW_HZ 5000000
-#define MAX_SNIFFER_RFBW_HZ 20000000
+#define MIN_SNIFFER_RFBW_HZ 5000000     /*!< Mykonos minimum Sniffer channel bandwidth expressed in Hz */
+#define MAX_SNIFFER_RFBW_HZ 20000000    /*!< Mykonos maximum Sniffer channel bandwidth expressed in Hz */
 
-#define MIN_ORX_RFBW_HZ     5000000
-#define MAX_ORX_RFBW_HZ     250000000
+#define MIN_ORX_RFBW_HZ     5000000     /*!< Mykonos minimum Observation channel bandwidth expressed in Hz */
+#define MAX_ORX_RFBW_HZ     250000000   /*!< Mykonos maximum Observation channel bandwidth expressed in Hz */
 
-#define MIN_RX_RFBW_HZ      5000000
-#define MAX_RX_RFBW_HZ      100000000
+#define MIN_RX_RFBW_HZ      5000000     /*!< Mykonos minimum Rx channel bandwidth expressed in Hz */
+#define MAX_RX_RFBW_HZ      100000000   /*!< Mykonos maximum Rx channel bandwidth expressed in Hz */
 
-#define MIN_TX_RFBW_HZ      20000000
-#define MAX_TX_RFBW_HZ      250000000
+#define MIN_TX_RFBW_HZ      20000000    /*!< Mykonos minimum Tx channel bandwidth expressed in Hz */
+#define MAX_TX_RFBW_HZ      250000000   /*!< Mykonos maximum Tx channel bandwidth expressed in Hz */
 
 #ifdef __cplusplus
 }

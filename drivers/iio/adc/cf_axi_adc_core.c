@@ -30,31 +30,19 @@
 
 #include "cf_axi_adc.h"
 
+const unsigned int decimation_factors_available[] = {1, 8};
+
 struct axiadc_core_info {
-	bool has_fifo_interface;
 	unsigned int version;
 };
 
-static int axiadc_spi_read(struct axiadc_state *st, unsigned reg)
+static int axiadc_chan_to_regoffset(struct iio_chan_spec const *chan)
 {
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	if (chan->modified)
+		return chan->scan_index;
 
-	if (IS_ERR(conv))
-		return PTR_ERR(conv);
-
-	return conv->read(conv->spi, reg);
+	return chan->channel;
 }
-
-static int axiadc_spi_write(struct axiadc_state *st, unsigned reg, unsigned val)
-{
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
-
-	if (IS_ERR(conv))
-		return PTR_ERR(conv);
-
-	return conv->write(conv->spi, reg, val);
-}
-
 
 int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel)
 {
@@ -96,8 +84,12 @@ enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 
 		val = ADI_TO_ADC_PN_SEL(axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel)));
 
-		if (name)
-			*name = ident[val];
+		if (name) {
+			if (val >= ARRAY_SIZE(ident))
+				*name = "UNDEF";
+			else
+				*name = ident[val];
+		}
 
 		return val;
 	} else {
@@ -120,18 +112,23 @@ static void axiadc_toggle_scale_offset_en(struct axiadc_state *st)
 	return;
 }
 
+static unsigned int axiadc_num_phys_channels(struct axiadc_state *st)
+{
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	return conv->chip_info->num_channels - st->have_slave_channels;
+}
+
 static ssize_t axiadc_debugfs_pncheck_read(struct file *file, char __user *userbuf,
 			      size_t count, loff_t *ppos)
 {
 	struct iio_dev *indio_dev = file->private_data;
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	char buf[1000];
 	const char *pn_name;
 	ssize_t len = 0;
 	unsigned stat, i;
 
-	for (i = 0; i < conv->chip_info->num_channels; i++) {
+	for (i = 0; i < axiadc_num_phys_channels(st); i++) {
 		stat = axiadc_read(st, ADI_REG_CHAN_STATUS(i));
 		axiadc_get_pnsel(st, i, &pn_name);
 
@@ -152,7 +149,8 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 	struct iio_dev *indio_dev = file->private_data;
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
-	unsigned i, mode = TESTMODE_OFF;
+	enum adc_pn_sel mode;
+	unsigned int i;
 	char buf[80], *p = buf;
 
 	count = min_t(size_t, count, (sizeof(buf)-1));
@@ -162,24 +160,27 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 	p[count] = 0;
 
 	if (sysfs_streq(p, "PN9"))
-		mode = TESTMODE_PN9_SEQ;
+		mode = ADC_PN9;
 	else if (sysfs_streq(p, "PN23"))
-		mode = TESTMODE_PN23_SEQ;
+		mode = ADC_PN23A;
 	else
-		mode = TESTMODE_OFF;
+		mode = ADC_PN_OFF;
 
 	mutex_lock(&indio_dev->mlock);
 
-	for (i = 0; i < conv->chip_info->num_channels; i++) {
-		if (conv->testmode_set)
-			conv->testmode_set(indio_dev, i, mode);
+	for (i = 0; i < axiadc_num_phys_channels(st); i++) {
+		if (conv->set_pnsel)
+			conv->set_pnsel(indio_dev, i, mode);
 
-		axiadc_set_pnsel(st, i, (mode == TESTMODE_PN9_SEQ) ?
-				ADC_PN9 : ADC_PN23A);
-		axiadc_write(st, ADI_REG_CHAN_STATUS(i), ~0);
+		if (mode != ADC_PN_OFF)
+			axiadc_set_pnsel(st, i, mode);
 	}
 
-	mdelay(1); /* FIXME */
+	mdelay(1);
+
+	for (i = 0; i < axiadc_num_phys_channels(st); i++)
+		axiadc_write(st, ADI_REG_CHAN_STATUS(i), ~0);
+
 	mutex_unlock(&indio_dev->mlock);
 
 	return count;
@@ -199,30 +200,133 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 	int ret;
 
 	mutex_lock(&indio_dev->mlock);
-	if (readval == NULL) {
-		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
-			axiadc_write(st, reg & 0xFFFF, writeval);
-			ret = 0;
-		} else {
-			ret = axiadc_spi_write(st, reg, writeval);
-			axiadc_spi_write(st, ADC_REG_TRANSFER, TRANSFER_SYNC);
-		}
+
+	if (!(reg & DEBUGFS_DRA_PCORE_REG_MAGIC)) {
+		struct axiadc_converter *conv = to_converter(st->dev_spi);
+		if (IS_ERR(conv))
+			ret = PTR_ERR(conv);
+		else if (!conv->reg_access)
+			ret = -ENODEV;
+		else
+			ret = conv->reg_access(indio_dev, reg, writeval, readval);
 	} else {
-		if (reg & DEBUGFS_DRA_PCORE_REG_MAGIC) {
+		if (readval == NULL)
+			axiadc_write(st, reg & 0xFFFF, writeval);
+		else
 			*readval = axiadc_read(st, reg & 0xFFFF);
-		} else {
-			ret = axiadc_spi_read(st, reg);
-			if (ret < 0)
-				goto out_unlock;
-			*readval = ret;
-		}
 		ret = 0;
 	}
-out_unlock:
+	mutex_unlock(&indio_dev->mlock);
+
+	return 0;
+}
+
+static int axiadc_decimation_set(struct axiadc_state *st,
+				 unsigned int decimation_factor)
+{
+	int ret = 0;
+	u32 reg;
+
+	switch (decimation_factor) {
+		case 1:
+		case 8:
+			reg = axiadc_read(st, ADI_REG_GP_CONTROL);
+
+			if (st->decimation_factor == 8)
+				reg |= BIT(0);
+			else
+				reg &= ~BIT(0);
+
+			axiadc_write(st, ADI_REG_GP_CONTROL, reg);
+			break;
+		default:
+			ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int axiadc_get_parent_sampling_frequency(struct axiadc_state *st, unsigned long *freq)
+{
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	int ret = 0;
+
+	if (conv->clk)
+		*freq = clk_get_rate(conv->clk);
+	else
+		ret = -ENODEV;
+
+	return ret;
+}
+
+static ssize_t axiadc_decimation_store(struct axiadc_state *st,
+				       unsigned long frequency)
+{
+	unsigned long parent, val;
+	int i, ret;
+
+	if (!frequency)
+		return -EINVAL;
+
+	ret = axiadc_get_parent_sampling_frequency(st, &parent);
+	if (ret < 0)
+		return ret;
+
+	val = DIV_ROUND_CLOSEST(parent, frequency);
+
+	for (i = 0; i < ARRAY_SIZE(decimation_factors_available); i++) {
+		if (val == decimation_factors_available[i]) {
+			st->decimation_factor = val;
+			return axiadc_decimation_set(st, val);
+		}
+	}
+
+	return -EINVAL;
+}
+
+static ssize_t axiadc_sampling_frequency_available(struct device *dev,
+						   struct device_attribute *attr,
+						   char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	unsigned long freq;
+	int i, ret;
+
+	if (!st->decimation_factor)
+		return -ENODEV;
+
+	mutex_lock(&indio_dev->mlock);
+	ret = axiadc_get_parent_sampling_frequency(st, &freq);
+	if (ret < 0) {
+		mutex_unlock(&indio_dev->mlock);
+		return ret;
+	}
+
+	for (ret = 0, i = 0; i < ARRAY_SIZE(decimation_factors_available); i++)
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "%ld ",
+				freq / decimation_factors_available[i]);
+
+	ret += snprintf(&buf[ret], PAGE_SIZE - ret, "\n");
+
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
 }
+
+static IIO_DEVICE_ATTR(in_voltage_sampling_frequency_available, S_IRUGO,
+		       axiadc_sampling_frequency_available,
+		       NULL,
+		       0);
+
+static struct attribute *axiadc_attributes[] = {
+	&iio_dev_attr_in_voltage_sampling_frequency_available.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group axiadc_dec_attribute_group = {
+	.attrs = axiadc_attributes,
+};
 
 static int axiadc_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
@@ -233,17 +337,19 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	int ret, sign;
-	unsigned tmp, phase = 0;
+	unsigned tmp, phase = 0, channel;
 	unsigned long long llval;
+
+	channel = axiadc_chan_to_regoffset(chan);
 
 	switch (m) {
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
 	case IIO_CHAN_INFO_CALIBSCALE:
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(channel));
 		/*  format is 1.1.14 (sign, integer and fractional bits) */
 
-		if (!((phase + chan->channel) % 2)) {
+		if (!((phase + channel) % 2)) {
 			tmp = ADI_TO_IQCOR_COEFF_1(tmp);
 		} else {
 			tmp = ADI_TO_IQCOR_COEFF_2(tmp);
@@ -271,7 +377,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT_PLUS_MICRO;
 
 	case IIO_CHAN_INFO_CALIBBIAS:
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(channel));
 		*val = (short)ADI_TO_DCFILT_OFFSET(tmp);
 
 		return IIO_VAL_INT;
@@ -280,13 +386,13 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		 * approx: F_cut = C * Fsample / (2 * pi)
 		 */
 
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(channel));
 		if (!(tmp & ADI_DCFILT_ENB)) {
 			*val = 0;
 			return IIO_VAL_INT;
 		}
 
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(channel));
 		llval = ADI_TO_DCFILT_COEFF(tmp) * (unsigned long long)conv->adc_clk;
 		do_div(llval, 102944); /* 2 * pi * 0x4000 */
 		*val = llval;
@@ -302,12 +408,16 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 
 		if (chan->extend_name) {
 			tmp = axiadc_read(st,
-				ADI_REG_CHAN_USR_CNTRL_2(chan->channel));
+				ADI_REG_CHAN_USR_CNTRL_2(channel));
 
 			llval = ADI_TO_USR_DECIMATION_M(tmp) * conv->adc_clk;
 			do_div(llval, ADI_TO_USR_DECIMATION_N(tmp));
 			*val = llval;
 		}
+
+		if (st->decimation_factor)
+			*val /= st->decimation_factor;
+
 		return IIO_VAL_INT;
 	default:
 		return conv->read_raw(indio_dev, chan, val, val2, m);
@@ -325,8 +435,10 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
-	unsigned fract, tmp, phase = 0;
+	unsigned fract, tmp, phase = 0, channel;
 	unsigned long long llval;
+
+	channel = axiadc_chan_to_regoffset(chan);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBPHASE:
@@ -355,9 +467,9 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		do_div(llval, 1000000UL);
 		fract |= llval;
 
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(channel));
 
-		if (!((chan->channel + phase) % 2)) {
+		if (!((channel + phase) % 2)) {
 			tmp &= ~ADI_IQCOR_COEFF_1(~0);
 			tmp |= ADI_IQCOR_COEFF_1(fract);
 		} else {
@@ -365,7 +477,7 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			tmp |= ADI_IQCOR_COEFF_2(fract);
 		}
 
-		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(chan->channel), tmp);
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(channel), tmp);
 
 		axiadc_toggle_scale_offset_en(st);
 
@@ -376,11 +488,11 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		 * approx: C = 2 * pi * F_cut / Fsample
 		 */
 
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL(channel));
 
 		if (val == 0 && val2 == 0) {
 			tmp &= ~ADI_DCFILT_ENB;
-			axiadc_write(st, ADI_REG_CHAN_CNTRL(chan->channel), tmp);
+			axiadc_write(st, ADI_REG_CHAN_CNTRL(channel), tmp);
 			return 0;
 		}
 
@@ -389,20 +501,27 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		llval = 102944ULL * val; /* 2 * pi * 0x4000 * val */
 		do_div(llval, conv->adc_clk);
 
-		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(chan->channel),
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(channel),
 			     ADI_DCFILT_COEFF(clamp_t(unsigned short, llval, 1, 0x4000)));
-		axiadc_write(st, ADI_REG_CHAN_CNTRL(chan->channel), tmp);
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(channel), tmp);
 
 		return 0;
 
 	case IIO_CHAN_INFO_CALIBBIAS:
-		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(chan->channel));
+		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(channel));
 		tmp &= ~ADI_DCFILT_OFFSET(~0);
 		tmp |= ADI_DCFILT_OFFSET((short)val);
 
-		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(chan->channel), tmp);
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(channel), tmp);
 		axiadc_toggle_scale_offset_en(st);
 		return 0;
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (st->decimation_factor)
+			return axiadc_decimation_store(st, val);
+
+		return conv->write_raw(indio_dev, chan, val, val2, mask);
+
 	default:
 		return conv->write_raw(indio_dev, chan, val, val2, mask);
 	}
@@ -562,46 +681,37 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
 }
 
 static const struct axiadc_core_info ad9467_core_1_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9361_6_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9361_10_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9643_6_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9680_6_00_a_info = {
-	.has_fifo_interface = true,
 	.version = PCORE_VERSION(10, 0, 'a'),
 };
 
 /* Match table for of_platform binding */
 static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", .data = &ad9467_core_1_00_a_info },
-	{ .compatible = "xlnx,cf-ad9643-core-1.00.a", },
-	{ .compatible = "xlnx,axi-adc-2c-1.00.a", },
-	{ .compatible =	"xlnx,axi-adc-1c-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &ad9680_6_00_a_info },
 	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &ad9680_6_00_a_info },
-	{ .compatible =	"xlnx,axi-ad9683-1.00.a", },
-	{ .compatible =	"xlnx,axi-ad9625-1.00.a", },
 	{ .compatible =	"xlnx,axi-ad9434-1.00.a", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &ad9643_6_00_a_info },
 	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &ad9361_6_00_a_info },
 	{ .compatible = "adi,axi-ad9680-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9625-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad6676-1.0", .data = &ad9680_6_00_a_info },
+	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
 	{ .compatible = "adi,axi-ad9684-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
 	{ .compatible = "adi,axi-ad9371-rx-2.0", .data = &ad9361_10_00_a_info },
@@ -628,7 +738,6 @@ static int axiadc_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct axiadc_spidev axiadc_spidev;
 	struct axiadc_converter *conv;
-	unsigned int expected_version;
 	int ret;
 
 	dev_dbg(&pdev->dev, "Device Tree Probing \'%s\'\n",
@@ -679,20 +788,6 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	st->dp_disable = axiadc_read(st, ADI_REG_ADC_DP_DISABLE);
 
-	if (!st->dp_disable) {
-		st->streaming_dma = of_property_read_bool(pdev->dev.of_node,
-				"adi,streaming-dma");
-
-		/* FIFO interface only supports streaming DMA */
-		if (info)
-			st->has_fifo_interface = info->has_fifo_interface;
-		else
-			st->has_fifo_interface = false;
-
-		if (st->has_fifo_interface)
-			st->streaming_dma = true;
-	}
-
 	conv = to_converter(st->dev_spi);
 	if (IS_ERR(conv)) {
 		dev_err(&pdev->dev, "Failed to get converter device: %d\n",
@@ -725,17 +820,12 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
 
-	if (info)
-		expected_version = info->version;
-	else
-		expected_version = PCORE_VERSION(4, 0, 'a');
-
 	if (PCORE_VERSION_MAJOR(st->pcore_version) >
-		PCORE_VERSION_MAJOR(expected_version)) {
+		PCORE_VERSION_MAJOR(info->version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
-			PCORE_VERSION_MAJOR(expected_version),
-			PCORE_VERSION_MINOR(expected_version),
-			PCORE_VERSION_LETTER(expected_version),
+			PCORE_VERSION_MAJOR(info->version),
+			PCORE_VERSION_MINOR(info->version),
+			PCORE_VERSION_LETTER(info->version),
 			PCORE_VERSION_MAJOR(st->pcore_version),
 			PCORE_VERSION_MINOR(st->pcore_version),
 			PCORE_VERSION_LETTER(st->pcore_version));
@@ -761,13 +851,15 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID)) {
 
-		if (st->streaming_dma)
-			ret = axiadc_configure_ring_stream(indio_dev, NULL);
-		else
-			ret = axiadc_configure_ring(indio_dev, NULL);
-
+		ret = axiadc_configure_ring_stream(indio_dev, NULL);
 		if (ret < 0)
 			goto err_put_converter;
+	}
+
+	if (!st->dp_disable && of_property_read_bool(pdev->dev.of_node, "adi,axi-decimation-core-available")) {
+		st->decimation_factor = 1;
+		WARN_ON(st->iio_info.attrs != NULL);
+		st->iio_info.attrs = &axiadc_dec_attribute_group;
 	}
 
 	ret = iio_device_register(indio_dev);
@@ -795,12 +887,8 @@ static int axiadc_probe(struct platform_device *pdev)
 	return 0;
 
 err_unconfigure_ring:
-	if (!st->dp_disable) {
-		if (st->streaming_dma)
+	if (!st->dp_disable)
 			axiadc_unconfigure_ring_stream(indio_dev);
-		else
-			axiadc_unconfigure_ring(indio_dev);
-	}
 err_put_converter:
 	put_device(axiadc_spidev.dev_spi);
 	module_put(axiadc_spidev.dev_spi->driver->owner);
@@ -822,12 +910,8 @@ static int axiadc_remove(struct platform_device *pdev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	if (!st->dp_disable) {
-		if (st->streaming_dma)
-			axiadc_unconfigure_ring_stream(indio_dev);
-		else
-			axiadc_unconfigure_ring(indio_dev);
-	}
+	if (!st->dp_disable)
+		axiadc_unconfigure_ring_stream(indio_dev);
 	put_device(st->dev_spi);
 	module_put(st->dev_spi->driver->owner);
 

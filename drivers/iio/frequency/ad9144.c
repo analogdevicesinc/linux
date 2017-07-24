@@ -85,6 +85,10 @@ static int ad9144_setup(struct ad9144_state *st,
 	struct device *dev = regmap_get_device(map);
 	unsigned int val;
 	u8 i, timeout;
+	unsigned long lane_rate_kHz;
+
+	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
+	lane_rate_kHz = (lane_rate_kHz / 1000) * 10;	// FIXME for other configurations
 
 	// power-up and dac initialization
 
@@ -157,8 +161,7 @@ static int ad9144_setup(struct ad9144_state *st,
 	regmap_write(map, 0x459, 0x20);	// jesd204b, 1 samples per converter per device
 	regmap_write(map, 0x45a, 0x80);	// HD mode, no CS bits
 	regmap_write(map, 0x45d, 0x49);	// check-sum of 0x450 to 0x45c
-	if (st->id == CHIPID_AD9152)
-		regmap_write(map, 0x478, 0x01);	// ilas mf count
+	regmap_write(map, 0x478, 0x01);	// ilas mf count
 	regmap_write(map, 0x46c, 0x0f);	// enable deskew for all lanes
 	regmap_write(map, 0x476, 0x01);	// frame - bytecount (1)
 	regmap_write(map, 0x47d, 0x0f);	// enable all lanes
@@ -175,10 +178,22 @@ static int ad9144_setup(struct ad9144_state *st,
 	if (st->id == CHIPID_AD9144)
 		regmap_write(map, 0x2ae, 0x01);	// input termination calibration
 	regmap_write(map, 0x314, 0x01);	// pclk == qbd master clock
-	regmap_write(map, 0x230, 0x28);	// cdr mode - halfrate, no division
+	if (lane_rate_kHz < 2880000)
+		regmap_write(map, 0x230, 0x0A);			// CDR_OVERSAMP
+	else
+		if (lane_rate_kHz > 5520000)
+			regmap_write(map, 0x230, 0x28);		// ENHALFRATE
+		else
+			regmap_write(map, 0x230, 0x08);
 	regmap_write(map, 0x206, 0x00);	// cdr reset
 	regmap_write(map, 0x206, 0x01);	// cdr reset
-	regmap_write(map, 0x289, 0x04);	// data-rate == 10Gbps
+	if (lane_rate_kHz < 2880000)
+		regmap_write(map, 0x289, 0x06);	// data-rate < 2.88 Gbps
+	else
+		if (lane_rate_kHz > 5520000)
+			regmap_write(map, 0x289, 0x04);	// data-rate > 5.52 Gbps
+		else
+			regmap_write(map, 0x289, 0x05);
 	regmap_write(map, 0x280, 0x01);	// enable serdes pll
 	regmap_write(map, 0x280, 0x05);	// enable serdes calibration
 	msleep(20);
@@ -250,10 +265,9 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < 3; i++) {
-		clk = clk_get(&conv->spi->dev, &clk_names[i][0]);
-		if (IS_ERR(clk)) {
-			return -EPROBE_DEFER;
-		}
+		clk = devm_clk_get(&conv->spi->dev, &clk_names[i][0]);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
 
 		if (i > 0) {
 			ret = clk_prepare_enable(clk);
@@ -265,7 +279,7 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 	return 0;
 }
 
-static unsigned long ad9144_get_data_clk(struct cf_axi_converter *conv)
+static unsigned long long ad9144_get_data_clk(struct cf_axi_converter *conv)
 {
 	return clk_get_rate(conv->clk[CLK_DAC]);
 }
@@ -337,10 +351,8 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	unsigned int tmp;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+	if (!pdata)
 		return NULL;
-	}
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,jesd-xbar-lane0-sel", &tmp);
@@ -385,6 +397,7 @@ static int ad9144_probe(struct spi_device *spi)
 	struct cf_axi_converter *conv;
 	struct ad9144_platform_data *pdata;
 	struct ad9144_state *st;
+	unsigned long lane_rate_kHz;
 	unsigned id;
 	int ret;
 
@@ -440,7 +453,8 @@ static int ad9144_probe(struct spi_device *spi)
 
 	ret = ad9144_get_clks(conv);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to get clocks\n");
+		if (ret != -EPROBE_DEFER)
+			dev_err(&spi->dev, "Failed to get clocks\n");
 		goto out;
 	}
 
@@ -451,18 +465,17 @@ static int ad9144_probe(struct spi_device *spi)
 	}
 
 	clk_prepare_enable(conv->clk[0]);
+
+	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
+	lane_rate_kHz = (lane_rate_kHz / 1000) * 10;	// FIXME for other configurations
+	clk_set_rate(conv->clk[0], lane_rate_kHz);
+
 	spi_set_drvdata(spi, conv);
 
-	dev_info(&spi->dev, "Probed.\n");
+	dev_dbg(&spi->dev, "Probed.\n");
 	return 0;
 out:
 	return ret;
-}
-
-static int ad9144_remove(struct spi_device *spi)
-{
-	spi_set_drvdata(spi, NULL);
-	return 0;
 }
 
 static const struct spi_device_id ad9144_id[] = {
@@ -479,7 +492,6 @@ static struct spi_driver ad9144_driver = {
 		   .owner = THIS_MODULE,
 		   },
 	.probe = ad9144_probe,
-	.remove = ad9144_remove,
 	.id_table = ad9144_id,
 };
 
