@@ -91,6 +91,12 @@ typedef enum {
 #define DELTAY_MASK			0xFC0000
 #define DELTAX(x)			(((x) & 0x3F) << 12)
 #define DELTAY(y)			(((y) & 0x3F) << 18)
+#define YUV422UPSAMPLINGMODE_MASK	BIT(5)
+#define YUV422UPSAMPLINGMODE(m)		(((m) & 0x1) << 5)
+typedef enum {
+	YUV422UPSAMPLINGMODE__REPLICATE,
+	YUV422UPSAMPLINGMODE__INTERPOLATE,
+} yuv422upsamplingmode_t;
 #define SHDTOKGEN			BIT(0)
 #define FETCHTYPE_MASK			0xF
 
