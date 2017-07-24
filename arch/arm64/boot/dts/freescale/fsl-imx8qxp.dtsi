@@ -29,11 +29,20 @@
 	#size-cells = <2>;
 
 	aliases {
+		csi0 = &mipi_csi_0;
 		dpu0 = &dpu1;
 		ethernet0 = &fec1;
 		ethernet1 = &fec2;
 		ldb0 = &ldb1;
 		ldb1 = &ldb2;
+		isi0 = &isi_0;
+		isi1 = &isi_1;
+		isi2 = &isi_2;
+		isi3 = &isi_3;
+		isi4 = &isi_4;
+		isi5 = &isi_5;
+		isi6 = &isi_6;
+		isi7 = &isi_7;
 		serial0 = &lpuart0;
 		serial1 = &lpuart1;
 		serial2 = &lpuart2;
@@ -713,7 +722,7 @@
 			};
 		};
 
-		pd_isi_ch0: PD_ISI_CH0 {
+		pd_isi_ch0: PD_IMAGING {
 			compatible = "nxp,imx8-pd";
 			reg = <SC_R_ISI_CH0>;
 			#power-domain-cells = <0>;
@@ -740,6 +749,48 @@
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi_csi>;
 				};
+			};
+
+			pd_isi_ch1: PD_IMAGING_PDMA1 {
+				reg = <SC_R_ISI_CH1>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+			};
+
+			pd_isi_ch2: PD_IMAGING_PDMA2 {
+				reg = <SC_R_ISI_CH2>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+			};
+
+			pd_isi_ch3: PD_IMAGING_PDMA3 {
+				reg = <SC_R_ISI_CH3>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+			};
+
+			pd_isi_ch4: PD_IMAGING_PDMA4 {
+				reg = <SC_R_ISI_CH4>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+			};
+
+			pd_isi_ch5: PD_IMAGING_PDMA5 {
+				reg = <SC_R_ISI_CH5>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+			};
+
+			pd_isi_ch6: PD_IMAGING_PDMA6 {
+				reg = <SC_R_ISI_CH6>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+			};
+
+			pd_isi_ch7: PD_IMAGING_PDMA7 {
+				reg = <SC_R_ISI_CH7>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
 			};
 		};
 	};
@@ -1056,6 +1107,138 @@
 					remote-endpoint = <&dpu_disp1_lvds1_ch1>;
 				};
 			};
+		};
+	};
+
+	camera {
+		compatible = "fsl,mxc-md", "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		isi_0: isi@58100000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x0 0x58100000 0x0 0x10000>;
+			interrupts = <0 297 0>;
+			interface = <2 0 2>;  /* <Input MIPI_VCx Output>
+									Input:  0-DC0, 1-DC1, 2-MIPI CSI0, 3-MIPI CSI1, 4-HDMI, 5-MEM
+									VCx:    0-VC0, 1-VC1, 2-VC2, 3-VC3, MIPI CSI only
+									Output: 0-DC0, 1-DC1, 2-MEM */
+			clocks = <&clk IMX8QXP_IMG_PDMA_0_CLK>;
+			clock-names = "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_PDMA_0_CLK>;
+			assigned-clock-rates = <600000000>;
+			power-domains =<&pd_isi_ch0>;
+			status = "disabled";
+		};
+
+		isi_1: isi@58110000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x0 0x58110000 0x0 0x10000>;
+			interrupts = <0 298 0>;
+			interface = <2 1 2>;
+			clocks = <&clk IMX8QXP_IMG_PDMA_1_CLK>;
+			clock-names = "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_PDMA_1_CLK>;
+			assigned-clock-rates = <600000000>;
+			power-domains =<&pd_isi_ch1>;
+			status = "disabled";
+		};
+
+		isi_2: isi@58120000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x0 0x58120000 0x0 0x10000>;
+			interrupts = <0 299 0>;
+			interface = <2 2 2>;
+			clocks = <&clk IMX8QXP_IMG_PDMA_2_CLK>;
+			clock-names = "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_PDMA_2_CLK>;
+			assigned-clock-rates = <600000000>;
+			power-domains =<&pd_isi_ch2>;
+			status = "disabled";
+		};
+
+		isi_3: isi@58130000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x0 0x58130000 0x0 0x10000>;
+			interrupts = <0 300 0>;
+			interface = <2 3 2>;
+			clocks = <&clk IMX8QXP_IMG_PDMA_3_CLK>;
+			clock-names = "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_PDMA_3_CLK>;
+			assigned-clock-rates = <600000000>;
+			power-domains =<&pd_isi_ch3>;
+			status = "disabled";
+		};
+
+		isi_4: isi@58140000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x0 0x58140000 0x0 0x10000>;
+			interrupts = <0 301 0>;
+			interface = <3 0 2>;
+			clocks = <&clk IMX8QXP_IMG_PDMA_4_CLK>;
+			clock-names = "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_PDMA_4_CLK>;
+			assigned-clock-rates = <600000000>;
+			power-domains =<&pd_isi_ch4>;
+			status = "disabled";
+		};
+
+		isi_5: isi@58150000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x0 0x58150000 0x0 0x10000>;
+			interrupts = <0 302 0>;
+			interface = <3 1 2>;
+			clocks = <&clk IMX8QXP_IMG_PDMA_5_CLK>;
+			clock-names = "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_PDMA_5_CLK>;
+			assigned-clock-rates = <600000000>;
+			power-domains =<&pd_isi_ch5>;
+			status = "disabled";
+		};
+
+		isi_6: isi@58160000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x0 0x58160000 0x0 0x10000>;
+			interrupts = <0 303 0>;
+			interface = <3 2 2>;
+			clocks = <&clk IMX8QXP_IMG_PDMA_6_CLK>;
+			clock-names = "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_PDMA_6_CLK>;
+			assigned-clock-rates = <600000000>;
+			power-domains =<&pd_isi_ch6>;
+			status = "disabled";
+		};
+
+		isi_7: isi@58170000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x0 0x58170000 0x0 0x10000>;
+			interrupts = <0 304 0>;
+			interface = <3 3 2>;
+			clocks = <&clk IMX8QXP_IMG_PDMA_7_CLK>;
+			clock-names = "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_PDMA_7_CLK>;
+			assigned-clock-rates = <600000000>;
+			power-domains =<&pd_isi_ch7>;
+			status = "disabled";
+		};
+
+		mipi_csi_0: csi@58227000 {
+			compatible = "fsl,mxc-mipi-csi2";
+			reg = <0x0 0x58227000 0x0 0x1000>, /* CSI0 Controler base addr */
+				<0x0 0x58221000 0x0 0x1000>; /* CSI0 Subsystem CSR base addr  */
+			interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&irqsteer_csi>;
+			clocks = <&clk IMX8QXP_CSI0_APB_CLK>,
+					<&clk IMX8QXP_CSI0_CORE_CLK>,
+					<&clk IMX8QXP_CSI0_ESC_CLK>,
+					<&clk IMX8QXP_IMG_PXL_LINK_CSI0_CLK>;
+			clock-names = "clk_apb", "clk_core", "clk_esc", "clk_pxl";
+			assigned-clocks = <&clk IMX8QXP_CSI0_CORE_CLK>,
+							<&clk IMX8QXP_CSI0_ESC_CLK>;
+			assigned-clock-rates = <360000000>, <72000000>;
+			power-domains = <&pd_mipi_csi>;
+			status = "disabled";
 		};
 	};
 
