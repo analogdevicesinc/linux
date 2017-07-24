@@ -1,0 +1,28 @@
+PTN5150 Extcon device
+
+NXP PTN5150 is an i2c interface Type-C application chip, it can detect
+CC flip, attach and detech, the user can get these events through
+i2c registers by GPIO interrupt.
+
+Required properties:
+- compatible: Should be "nxp,ptn5150"
+- connect-gpios: gpio interrupt for attach and detach events.
+- reg: i2c slave address
+
+Example:
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c1>;
+	status = "okay";
+
+	typec_ptn5150: typec@3d {
+		compatible = "nxp,ptn5150";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ptn5150>;
+		reg = <0x3d>;
+		connect-gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+	};
+};

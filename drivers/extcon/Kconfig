@@ -157,4 +157,12 @@ config EXTCON_USBC_CROS_EC
 	  Say Y here to enable USB Type C cable detection extcon support when
 	  using Chrome OS EC based USB Type-C ports.
 
+config EXTCON_PTN5150
+	tristate "NXP PTN5150 CC Logic For Type-C Applications"
+	depends on I2C && GPIOLIB
+	select REGMAP_I2C
+	help
+	  Say Y here to enable NXP PTN5150 CC logic for Type-C applications,
+	  this chip can supply the CC flip, attach and detach detection.
+
 endif
