@@ -216,6 +216,12 @@
 			>;
 		};
 
+		pinctrl_ptn5150: ptn5150 {
+			fsl,pins = <
+				SC_P_SPI0_CS1_LSIO_GPIO1_IO07		0x00000021
+			>;
+		};
+
 		pinctrl_lpi2c1: lpi1cgrp {
 			fsl,pins = <
 				SC_P_USB_SS3_TC1_ADMA_I2C1_SCL	0x06000020
@@ -489,6 +495,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c1>;
 	status = "okay";
+
+	typec_ptn5150: typec@3d {
+		compatible = "nxp,ptn5150";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ptn5150>;
+		reg = <0x3d>;
+		connect-gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &i2c3 {
@@ -581,5 +595,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	reset-gpio = <&gpio4 0 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&usbotg3 {
+	dr_mode = "otg";
+	extcon = <&typec_ptn5150>;
 	status = "okay";
 };
