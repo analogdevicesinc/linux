@@ -866,6 +866,12 @@ static int dpu_get_plane_resource(struct dpu_soc *dpu,
 		if (IS_ERR(res->fd[i]))
 			return PTR_ERR(res->fd[i]);
 	}
+	for (i = 0; i < ARRAY_SIZE(res->fe); i++) {
+		res->fe[i] = dpu_fe_get(dpu, i);
+		if (IS_ERR(res->fe[i]))
+			return PTR_ERR(res->fe[i]);
+		grp->hw_plane_fetcheco_num = ARRAY_SIZE(res->fe);
+	}
 	/* HScaler could be shared with capture. */
 	if (display_plane_video_proc) {
 		for (i = 0; i < ARRAY_SIZE(res->hs); i++) {
@@ -911,6 +917,10 @@ static void dpu_put_plane_resource(struct dpu_plane_res *res)
 	for (i = 0; i < ARRAY_SIZE(res->fd); i++) {
 		if (!IS_ERR_OR_NULL(res->fd[i]))
 			dpu_fd_put(res->fd[i]);
+	}
+	for (i = 0; i < ARRAY_SIZE(res->fe); i++) {
+		if (!IS_ERR_OR_NULL(res->fe[i]))
+			dpu_fe_put(res->fe[i]);
 	}
 	for (i = 0; i < ARRAY_SIZE(res->hs); i++) {
 		if (!IS_ERR_OR_NULL(res->hs[i]))

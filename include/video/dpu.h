@@ -658,6 +658,7 @@ struct dpu_plane_res {
 	struct dpu_constframe	*cf[2];
 	struct dpu_extdst	*ed[2];
 	struct dpu_fetchdecode	*fd[MAX_FD_NUM];
+	struct dpu_fetcheco	*fe[2];
 	struct dpu_framegen	*fg;
 	struct dpu_hscaler	*hs[2];
 	struct dpu_layerblend	*lb[MAX_LB_NUM];
@@ -673,6 +674,7 @@ struct dpu_plane_grp {
 	struct list_head	list;
 	struct mutex		lock;
 	unsigned int		hw_plane_num;
+	unsigned int		hw_plane_fetcheco_num;
 	unsigned int		hw_plane_hscaler_num;
 	unsigned int		hw_plane_vscaler_num;
 	unsigned int		id;
