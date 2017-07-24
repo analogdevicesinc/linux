@@ -479,7 +479,7 @@
 &mlb {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_mlb>;
-	status = "okay";
+	status = "disabled";
 };
 
 &usdhc1 {
