@@ -115,13 +115,14 @@ drm_plane_state_to_baseaddr(struct drm_plane_state *state)
 {
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *cma_obj;
+	unsigned int x = state->src_x >> 16;
+	unsigned int y = state->src_y >> 16;
 
 	cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
 	BUG_ON(!cma_obj);
 
-	return cma_obj->paddr + fb->offsets[0] +
-	       fb->pitches[0] * (state->src_y >> 16) +
-	       fb->format->cpp[0] * (state->src_x >> 16);
+	return cma_obj->paddr + fb->offsets[0] + fb->pitches[0] * y +
+	       drm_format_plane_cpp(fb->format->format, 0) * x;
 }
 
 static int dpu_plane_atomic_check(struct drm_plane *plane,
