@@ -1884,19 +1884,27 @@
 			<0x0 0x59A20000 0x0 0x10000>,
 			<0x0 0x59A30000 0x0 0x10000>,
 			<0x0 0x59A40000 0x0 0x10000>,
-			<0x0 0x59A50000 0x0 0x10000>;
+			<0x0 0x59A50000 0x0 0x10000>,
+			<0x0 0x59A80000 0x0 0x10000>, /* sai6 rx */
+			<0x0 0x59A90000 0x0 0x10000>, /* sai6 tx */
+			<0x0 0x59AA0000 0x0 0x10000>; /* sai7 tx */
 		#dma-cells = <3>;
 		shared-interrupt;
-		dma-channels = <6>;
+		dma-channels = <9>;
 		interrupts = <GIC_SPI 382 IRQ_TYPE_LEVEL_HIGH>, /* asrc1 */
 				<GIC_SPI 383 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 385 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 386 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>, /* sai6 */
+				<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>; /* sai7 */
 		interrupt-names = "edma-chan0-tx", "edma-chan1-tx", /* asrc1 */
 				"edma-chan2-tx", "edma-chan3-tx",
-				"edma-chan4-tx", "edma-chan5-tx";
+				"edma-chan4-tx", "edma-chan5-tx",
+				"edma-chan8-tx", "edma-chan9-tx", /* sai6 */
+				"edma-chan10-tx";                 /* sai7 */
 		status = "okay";
 	};
 
@@ -2273,6 +2281,47 @@
 		dmas = <&edma2 12 0 1>, <&edma2 13 0 0>;
 		status = "disabled";
 		power-domains = <&pd_sai0>;
+	};
+
+	sai6: sai@59820000 {
+		compatible = "fsl,imx8qm-sai";
+		reg = <0x0 0x59820000 0x0 0x10000>;
+		interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QM_AUD_SAI_6_IPG>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_AUD_SAI_6_MCLK>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_CLK_DUMMY>;
+		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
+		dma-names = "rx", "tx";
+		dmas = <&edma3 8 0 1>, <&edma3 9 0 0>;
+		status = "disabled";
+		power-domains = <&pd_sai6>;
+	};
+
+	sai7: sai@59830000 {
+		compatible = "fsl,imx8qm-sai";
+		reg = <0x0 0x59830000 0x0 0x10000>;
+		interrupts = <GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QM_AUD_SAI_7_IPG>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_AUD_SAI_7_MCLK>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_CLK_DUMMY>;
+		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
+		dma-names = "tx";
+		dmas = <&edma3 10 0 0>;
+		status = "disabled";
+		power-domains = <&pd_sai7>;
+	};
+
+	amix: amix@59840000 {
+		compatible = "fsl,imx8qm-amix";
+		reg = <0x0 0x59840000 0x0 0x10000>;
+		clocks = <&clk IMX8QM_AUD_AMIX_IPG>;
+		clock-names = "ipg";
+		power-domains = <&pd_amix>;
+		status = "disabled";
 	};
 
 	asrc0: asrc@59000000 {
