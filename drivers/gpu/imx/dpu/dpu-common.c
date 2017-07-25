@@ -575,6 +575,21 @@ int dpu_format_vert_chroma_subsampling(u32 format)
 	}
 }
 
+int dpu_format_num_planes(u32 format)
+{
+	switch (format) {
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV61:
+	case DRM_FORMAT_NV24:
+	case DRM_FORMAT_NV42:
+		return 2;
+	default:
+		return 1;
+	}
+}
+
 #define DPU_UNIT_INIT(dpu, base, unit, name, id, pec_ofs, ofs)		\
 {									\
 	int ret;							\
