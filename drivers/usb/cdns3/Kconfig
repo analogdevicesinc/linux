@@ -1,0 +1,26 @@
+config USB_CDNS3
+	tristate "Cadence USB3 Dual-Role Controller"
+	depends on ((USB_XHCI_HCD && USB_GADGET) || (USB_XHCI_HCD && !USB_GADGET) || (!USB_XHCI_HCD && USB_GADGET)) && HAS_DMA
+	select EXTCON
+	help
+	  Say Y here if your system has a cadence USB3 dual-role controller.
+	  It supports: dual-role switch Host-only, and Peripheral-only.
+
+	  When compiled dynamically, the module will be called cdns3.ko.
+
+if USB_CDNS3
+
+config USB_CDNS3_GADGET
+	bool "Cadence USB3 device controller"
+	depends on USB_GADGET
+	help
+	  Say Y here to enable device controller functionality of the
+	  cadence usb3 driver.
+
+config USB_CDNS3_HOST
+	bool "Cadence USB3 host controller"
+	depends on USB_XHCI_HCD
+	help
+	  Say Y here to enable host controller functionality of the
+	  cadence usb3 driver.
+endif

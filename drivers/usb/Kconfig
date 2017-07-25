@@ -125,6 +125,8 @@ source "drivers/usb/chipidea/Kconfig"
 
 source "drivers/usb/isp1760/Kconfig"
 
+source "drivers/usb/cdns3/Kconfig"
+
 comment "USB port drivers"
 
 if USB
