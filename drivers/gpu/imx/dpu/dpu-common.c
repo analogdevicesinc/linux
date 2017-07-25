@@ -590,6 +590,28 @@ int dpu_format_num_planes(u32 format)
 	}
 }
 
+int dpu_format_plane_width(int width, u32 format, int plane)
+{
+	if (plane >= dpu_format_num_planes(format))
+		return 0;
+
+	if (plane == 0)
+		return width;
+
+	return width / dpu_format_horz_chroma_subsampling(format);
+}
+
+int dpu_format_plane_height(int height, u32 format, int plane)
+{
+	if (plane >= dpu_format_num_planes(format))
+		return 0;
+
+	if (plane == 0)
+		return height;
+
+	return height / dpu_format_vert_chroma_subsampling(format);
+}
+
 #define DPU_UNIT_INIT(dpu, base, unit, name, id, pec_ofs, ofs)		\
 {									\
 	int ret;							\

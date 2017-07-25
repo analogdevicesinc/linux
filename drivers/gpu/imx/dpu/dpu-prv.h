@@ -229,6 +229,8 @@ struct dpu_soc {
 int dpu_format_horz_chroma_subsampling(u32 format);
 int dpu_format_vert_chroma_subsampling(u32 format);
 int dpu_format_num_planes(u32 format);
+int dpu_format_plane_width(int width, u32 format, int plane);
+int dpu_format_plane_height(int height, u32 format, int plane);
 
 #define DECLARE_DPU_UNIT_INIT_FUNC(block)			\
 int dpu_##block##_init(struct dpu_soc *dpu, unsigned int id,	\
