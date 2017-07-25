@@ -226,6 +226,9 @@ struct dpu_soc {
 	struct dpu_vscaler	*vs_priv[3];
 };
 
+int dpu_format_horz_chroma_subsampling(u32 format);
+int dpu_format_vert_chroma_subsampling(u32 format);
+
 #define DECLARE_DPU_UNIT_INIT_FUNC(block)			\
 int dpu_##block##_init(struct dpu_soc *dpu, unsigned int id,	\
 			 unsigned long pec_base, unsigned long base)

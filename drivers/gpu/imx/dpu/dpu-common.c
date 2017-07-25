@@ -549,6 +549,32 @@ u32 dpu_vproc_get_vscale_cap(u32 cap_mask)
 }
 EXPORT_SYMBOL_GPL(dpu_vproc_get_vscale_cap);
 
+int dpu_format_horz_chroma_subsampling(u32 format)
+{
+	switch (format) {
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV61:
+		return 2;
+	default:
+		return 1;
+	}
+}
+
+int dpu_format_vert_chroma_subsampling(u32 format)
+{
+	switch (format) {
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+		return 2;
+	default:
+		return 1;
+	}
+}
+
 #define DPU_UNIT_INIT(dpu, base, unit, name, id, pec_ofs, ofs)		\
 {									\
 	int ret;							\
