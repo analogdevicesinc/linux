@@ -44,6 +44,55 @@
 		};
 
 	};
+
+	sound: sound {
+		compatible = "fsl,imx7d-evk-wm8960",
+			   "fsl,imx-audio-wm8960";
+		model = "wm8960-audio";
+		cpu-dai = <&sai1>;
+		audio-codec = <&wm8960>;
+		asrc-controller = <&asrc0>;
+		codec-master;
+		/*
+		 * hp-det = <hp-det-pin hp-det-polarity>;
+		 * hp-det-pin: JD1 JD2  or JD3
+		 * hp-det-polarity = 0: hp detect high for headphone
+		 * hp-det-polarity = 1: hp detect high for speaker
+		 */
+		hp-det = <2 0>;
+		hp-det-gpios = <&gpio1 0 0>;
+		mic-det-gpios = <&gpio1 0 0>;
+		audio-routing =
+			"Headphone Jack", "HP_L",
+			"Headphone Jack", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT2", "Mic Jack",
+			"LINPUT3", "Mic Jack",
+			"RINPUT1", "Main MIC",
+			"RINPUT2", "Main MIC",
+			"Mic Jack", "MICB",
+			"Main MIC", "MICB",
+			"CPU-Playback", "ASRC-Playback",
+			"Playback", "CPU-Playback",
+			"ASRC-Capture", "CPU-Capture",
+			"CPU-Capture", "Capture";
+	};
+};
+
+&acm {
+	assigned-clocks = <&clk IMX8QXP_AUD_PLL0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>;
+	assigned-clock-rates = <786432000>, <24576000>, <24576000>;
+	status = "okay";
+};
+
+&asrc0 {
+	fsl,asrc-rate  = <48000>;
+	status = "okay";
 };
 
 &iomuxc {
@@ -73,6 +122,24 @@
 				SC_P_ENET0_RGMII_RXD1_CONN_ENET0_RGMII_RXD1	0x06000048
 				SC_P_ENET0_RGMII_RXD2_CONN_ENET0_RGMII_RXD2	0x06000048
 				SC_P_ENET0_RGMII_RXD3_CONN_ENET0_RGMII_RXD3	0x06000048
+			>;
+		};
+
+		pinctrl_cm40_i2c: cm40i2cgrp {
+			fsl,pins = <
+				SC_P_ADC_IN1_M40_I2C0_SDA	0x0600004c
+				SC_P_ADC_IN0_M40_I2C0_SCL	0x0600004c
+			>;
+		};
+
+		pinctrl_sai1: sai1grp {
+			fsl,pins = <
+				SC_P_SAI1_RXD_ADMA_SAI1_RXD	0x0600004c
+				SC_P_SAI1_RXC_ADMA_SAI1_TXC	0x0600004c
+				SC_P_SAI1_RXFS_ADMA_SAI1_TXFS	0x0600004c
+				SC_P_SPI0_CS1_ADMA_SAI1_TXD	0x0600004c
+				SC_P_SPI2_CS0_LSIO_GPIO1_IO00	0x0600004c
+				SC_P_MCLK_OUT0_ADMA_ACM_MCLK_OUT0	0x0600004c
 			>;
 		};
 
@@ -203,6 +270,36 @@
 			status = "disabled";
 		};
 	};
+};
+
+&intmux_cm40 {
+	status = "okay";
+};
+
+&i2c0_cm40 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_cm40_i2c>;
+	status = "okay";
+
+	wm8960: wm8960@1a {
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		clocks = <&clk IMX8QXP_AUD_MCLKOUT0>;
+		clock-names = "mclk";
+		wlf,shared-lrclk;
+		power-domains = <&pd_mclk_out0>;
+		assigned-clocks = <&clk IMX8QXP_AUD_MCLKOUT0>;
+		assigned-clock-rates = <12288000>;
+	};
+};
+
+&sai1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai1>;
+	status = "okay";
 };
 
 &usdhc1 {

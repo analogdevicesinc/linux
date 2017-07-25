@@ -1,0 +1,68 @@
+Freescale i.MX audio complex with WM8960 codec
+
+Required properties:
+
+  - compatible		: "fsl,imx-audio-wm8960", "fsl,imx7d-evk-wm8960"
+
+  - model		: The user-visible name of this sound complex
+
+  - cpu-dai		: The phandle of CPU DAI
+
+  - audio-codec		: The phandle of the WM8960 audio codec
+
+  - audio-routing	: A list of the connections between audio components.
+			  Each entry is a pair of strings, the first being the
+			  connection's sink, the second being the connection's
+			  source. Valid names could be power supplies, WM8960
+			  pins, and the jacks on the board:
+
+			  Power supplies:
+			   * Mic Bias
+
+			  Board connectors:
+			   * Mic Jack
+			   * Headphone Jack
+			   * Ext Spk
+
+Optional properties:
+- hp-det-gpios : The gpio pin to detect plug in/out event that happens to
+  Headphone jack.
+- mic-det-gpios: The gpio pin to detect plug in/out event that happens to
+  Microphone jack.
+
+Example:
+
+	sound: sound {
+		compatible = "fsl,imx7d-evk-wm8960",
+			   "fsl,imx-audio-wm8960";
+		model = "wm8960-audio";
+		cpu-dai = <&sai1>;
+		audio-codec = <&wm8960>;
+		codec-master;
+		/*
+		 * hp-det = <hp-det-pin hp-det-polarity>;
+		 * hp-det-pin: JD1 JD2  or JD3
+		 * hp-det-polarity = 0: hp detect high for headphone
+		 * hp-det-polarity = 1: hp detect high for speaker
+		 */
+		hp-det = <2 0>;
+		hp-det-gpios = <&gpio1 0 0>;
+		mic-det-gpios = <&gpio1 0 0>;
+		audio-routing =
+			"Headphone Jack", "HP_L",
+			"Headphone Jack", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT2", "Mic Jack",
+			"LINPUT3", "Mic Jack",
+			"RINPUT1", "Main MIC",
+			"RINPUT2", "Main MIC",
+			"Mic Jack", "MICB",
+			"Main MIC", "MICB",
+			"CPU-Playback", "ASRC-Playback",
+			"Playback", "CPU-Playback",
+			"ASRC-Capture", "CPU-Capture",
+			"CPU-Capture", "Capture";
+	};
