@@ -549,6 +549,12 @@ static const struct of_device_id dpu_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, dpu_dt_ids);
 
+bool dpu_vproc_has_fetcheco_cap(u32 cap_mask)
+{
+	return !!(cap_mask & DPU_VPROC_CAP_FETCHECO);
+}
+EXPORT_SYMBOL_GPL(dpu_vproc_has_fetcheco_cap);
+
 bool dpu_vproc_has_hscale_cap(u32 cap_mask)
 {
 	return !!(cap_mask & DPU_VPROC_CAP_HSCALE);
@@ -560,6 +566,12 @@ bool dpu_vproc_has_vscale_cap(u32 cap_mask)
 	return !!(cap_mask & DPU_VPROC_CAP_VSCALE);
 }
 EXPORT_SYMBOL_GPL(dpu_vproc_has_vscale_cap);
+
+u32 dpu_vproc_get_fetcheco_cap(u32 cap_mask)
+{
+	return cap_mask & DPU_VPROC_CAP_FETCHECO;
+}
+EXPORT_SYMBOL_GPL(dpu_vproc_get_fetcheco_cap);
 
 u32 dpu_vproc_get_hscale_cap(u32 cap_mask)
 {
