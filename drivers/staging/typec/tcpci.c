@@ -367,7 +367,8 @@ static int tcpci_init(struct tcpc_dev *tcpc)
 
 	reg = TCPC_ALERT_TX_SUCCESS | TCPC_ALERT_TX_FAILED |
 		TCPC_ALERT_TX_DISCARDED | TCPC_ALERT_RX_STATUS |
-		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS;
+		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS |
+		TCPC_ALERT_RX_BUF_OVF;
 	if (tcpci->controls_vbus)
 		reg |= TCPC_ALERT_POWER_STATUS;
 	tcpci->irq_mask = reg;
@@ -427,6 +428,10 @@ static irqreturn_t tcpci_irq(int irq, void *dev_id)
 
 		tcpm_pd_receive(tcpci->port, &msg);
 	}
+
+	if (status & TCPC_ALERT_RX_BUF_OVF)
+		tcpci_write16(tcpci, TCPC_ALERT,
+			TCPC_ALERT_RX_BUF_OVF | TCPC_ALERT_RX_STATUS);
 
 	if (status & TCPC_ALERT_RX_HARD_RST)
 		tcpm_pd_hard_reset(tcpci->port);
