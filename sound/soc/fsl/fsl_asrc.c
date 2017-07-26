@@ -418,8 +418,11 @@ static int fsl_asrc_config_pair(struct fsl_asrc_pair *pair, bool p2p_in, bool p2
 	/* Default setting: Automatic selection for processing mode */
 	regmap_update_bits(asrc_priv->regmap, REG_ASRCTR,
 			   ASRCTR_ATSi_MASK(index), ASRCTR_ATS(index));
+
+	/* Default setting: use internal measured ratio */
 	regmap_update_bits(asrc_priv->regmap, REG_ASRCTR,
-			   ASRCTR_USRi_MASK(index), 0);
+			   ASRCTR_USRi_MASK(index) | ASRCTR_IDRi_MASK(index),
+			   ASRCTR_USR(index));
 
 	/* Set the input and output clock sources */
 	regmap_update_bits(asrc_priv->regmap, REG_ASRCSR,
@@ -920,6 +923,8 @@ static void fsl_asrc_reset(struct snd_pcm_substream *substream, bool stop)
  */
 static int fsl_asrc_init(struct fsl_asrc *asrc_priv)
 {
+	unsigned long ipg_rate;
+
 	/* Halt ASRC internal FP when input FIFO needs data for pair A, B, C */
 	regmap_write(asrc_priv->regmap, REG_ASRCTR, ASRCTR_ASRCEN);
 
@@ -937,11 +942,12 @@ static int fsl_asrc_init(struct fsl_asrc *asrc_priv)
 	regmap_update_bits(asrc_priv->regmap, REG_ASRTFR1,
 			   ASRTFR1_TF_BASE_MASK, ASRTFR1_TF_BASE(0xfc));
 
-	/* Set the processing clock for 76KHz to 133M */
-	regmap_write(asrc_priv->regmap, REG_ASR76K, 0x06D6);
-
-	/* Set the processing clock for 56KHz to 133M */
-	return regmap_write(asrc_priv->regmap, REG_ASR56K, 0x0947);
+	ipg_rate = clk_get_rate(asrc_priv->ipg_clk);
+	/* Set the period of the 76KHz and 56KHz sampling clocks based on
+	 * the ASRC processing clock.
+	 */
+	regmap_write(asrc_priv->regmap, REG_ASR76K, ipg_rate / 76000);
+	return regmap_write(asrc_priv->regmap, REG_ASR56K, ipg_rate / 56000);
 }
 
 /**
