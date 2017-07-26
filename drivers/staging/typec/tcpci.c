@@ -498,7 +498,8 @@ static int tcpci_probe(struct i2c_client *client,
 	if (err < 0)
 		return err;
 
-	/* Disable chip interrupts */
+	/* Clear and disable chip interrupts */
+	tcpci_write16(tcpci, TCPC_ALERT, 0xffff);
 	tcpci_write16(tcpci, TCPC_ALERT_MASK, 0);
 
 	err = devm_request_threaded_irq(tcpci->dev, client->irq, NULL,
