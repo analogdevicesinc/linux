@@ -128,7 +128,7 @@ struct tcpc_dev {
 	int (*set_roles)(struct tcpc_dev *dev, bool attached,
 			 enum typec_role role, enum typec_data_role data);
 	int (*start_drp_toggling)(struct tcpc_dev *dev,
-				  enum typec_cc_status cc);
+				  enum typec_cc_status cc, int attach);
 	int (*try_role)(struct tcpc_dev *dev, int role);
 	int (*pd_transmit)(struct tcpc_dev *dev, enum tcpm_transmit_type type,
 			   const struct pd_message *msg);

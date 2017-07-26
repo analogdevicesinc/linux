@@ -131,28 +131,79 @@ static int tcpci_set_cc(struct tcpc_dev *tcpc, enum typec_cc_status cc)
 }
 
 static int tcpci_start_drp_toggling(struct tcpc_dev *tcpc,
-				    enum typec_cc_status cc)
+			enum typec_cc_status cc, int attach)
 {
 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
-	unsigned int reg = TCPC_ROLE_CTRL_DRP;
+	unsigned int reg = 0;
 
-	switch (cc) {
-	default:
-	case TYPEC_CC_RP_DEF:
-		reg |= (TCPC_ROLE_CTRL_RP_VAL_DEF <<
-			TCPC_ROLE_CTRL_RP_VAL_SHIFT);
-		break;
-	case TYPEC_CC_RP_1_5:
-		reg |= (TCPC_ROLE_CTRL_RP_VAL_1_5 <<
-			TCPC_ROLE_CTRL_RP_VAL_SHIFT);
-		break;
-	case TYPEC_CC_RP_3_0:
-		reg |= (TCPC_ROLE_CTRL_RP_VAL_3_0 <<
-			TCPC_ROLE_CTRL_RP_VAL_SHIFT);
-		break;
+	/* Only set DRP bit for auto toggle when unattached */
+	if (attach) {
+		switch (cc) {
+		case TYPEC_CC_RP_DEF:
+			if (attach >> TYPEC_POLARITY_CC2)
+				reg |= TCPC_ROLE_CTRL_CC_RP <<
+					TCPC_ROLE_CTRL_CC2_SHIFT;
+			else if (attach >> TYPEC_POLARITY_CC1)
+				reg |= TCPC_ROLE_CTRL_CC_RP <<
+					TCPC_ROLE_CTRL_CC1_SHIFT;
+
+			reg |= (TCPC_ROLE_CTRL_RP_VAL_DEF <<
+				TCPC_ROLE_CTRL_RP_VAL_SHIFT);
+			break;
+		case TYPEC_CC_RP_1_5:
+			if (attach >> TYPEC_POLARITY_CC2)
+				reg |= TCPC_ROLE_CTRL_CC_RP <<
+					TCPC_ROLE_CTRL_CC2_SHIFT;
+			else if (attach >> TYPEC_POLARITY_CC1)
+				reg |= TCPC_ROLE_CTRL_CC_RP <<
+					TCPC_ROLE_CTRL_CC1_SHIFT;
+
+			reg |= (TCPC_ROLE_CTRL_RP_VAL_1_5 <<
+				TCPC_ROLE_CTRL_RP_VAL_SHIFT);
+			break;
+		case TYPEC_CC_RP_3_0:
+			if (attach >> TYPEC_POLARITY_CC2)
+				reg |= TCPC_ROLE_CTRL_CC_RP <<
+					TCPC_ROLE_CTRL_CC2_SHIFT;
+			else if (attach >> TYPEC_POLARITY_CC1)
+				reg |= TCPC_ROLE_CTRL_CC_RP <<
+					TCPC_ROLE_CTRL_CC1_SHIFT;
+
+			reg |= (TCPC_ROLE_CTRL_RP_VAL_3_0 <<
+				TCPC_ROLE_CTRL_RP_VAL_SHIFT);
+			break;
+		case TYPEC_CC_RD:
+			if (attach >> TYPEC_POLARITY_CC2)
+				reg |= TCPC_ROLE_CTRL_CC_RD <<
+					TCPC_ROLE_CTRL_CC2_SHIFT;
+			else if (attach >> TYPEC_POLARITY_CC1)
+				reg |= TCPC_ROLE_CTRL_CC_RD <<
+					TCPC_ROLE_CTRL_CC1_SHIFT;
+			break;
+		default:
+			break;
+		}
+
+		/* keep the un-touched cc line to be open */
+		if (attach >> TYPEC_POLARITY_CC2)
+			reg |= TCPC_ROLE_CTRL_CC_OPEN <<
+				TCPC_ROLE_CTRL_CC1_SHIFT;
+		else if (attach >> TYPEC_POLARITY_CC1)
+			reg |= TCPC_ROLE_CTRL_CC_OPEN <<
+				TCPC_ROLE_CTRL_CC2_SHIFT;
+	} else { /* Not attached */
+		if (cc == TYPEC_CC_RD)
+			reg = TCPC_ROLE_CTRL_DRP | 0xa; /* Rd */
+		else
+			reg = TCPC_ROLE_CTRL_DRP | 0x5; /* Rp */
 	}
 
-	return regmap_write(tcpci->regmap, TCPC_ROLE_CTRL, reg);
+	regmap_write(tcpci->regmap, TCPC_ROLE_CTRL, reg);
+
+	if (!attach)
+		regmap_write(tcpci->regmap, TCPC_COMMAND,
+				TCPC_CMD_LOOK4CONNECTION);
+	return 0;
 }
 
 static enum typec_cc_status tcpci_to_typec_cc(unsigned int cc, bool sink)
