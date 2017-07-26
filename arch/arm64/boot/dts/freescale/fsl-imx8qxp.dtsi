@@ -1576,7 +1576,7 @@
 		status = "disabled";
 	};
 
-	asrc1: asrc@59000000 {
+	asrc1: asrc@59800000 {
 		compatible = "fsl,imx8qm-asrc1";
 		reg = <0x0 0x59800000 0x0 0x10000>;
 		interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH>,
