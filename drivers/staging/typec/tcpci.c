@@ -39,6 +39,7 @@ struct tcpci {
 	bool controls_vbus;
 
 	struct tcpc_dev tcpc;
+	unsigned int irq_mask;
 };
 
 static inline struct tcpci *tcpc_to_tcpci(struct tcpc_dev *tcpc)
@@ -369,6 +370,8 @@ static int tcpci_init(struct tcpc_dev *tcpc)
 		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS;
 	if (tcpci->controls_vbus)
 		reg |= TCPC_ALERT_POWER_STATUS;
+	tcpci->irq_mask = reg;
+
 	return tcpci_write16(tcpci, TCPC_ALERT_MASK, reg);
 }
 
@@ -380,10 +383,10 @@ static irqreturn_t tcpci_irq(int irq, void *dev_id)
 	tcpci_read16(tcpci, TCPC_ALERT, &status);
 
 	/*
-	 * Clear alert status for everything except RX_STATUS, which shouldn't
+	 * Clear alert status for enabled irq except RX_STATUS, which shouldn't
 	 * be cleared until we have successfully retrieved message.
 	 */
-	if (status & ~TCPC_ALERT_RX_STATUS)
+	if ((status & ~TCPC_ALERT_RX_STATUS) & tcpci->irq_mask)
 		tcpci_write16(tcpci, TCPC_ALERT,
 			      status & ~TCPC_ALERT_RX_STATUS);
 
