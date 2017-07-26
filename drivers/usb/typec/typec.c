@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 #include <linux/usb/typec.h>
 
 struct typec_mode {
@@ -799,6 +800,12 @@ static const char * const typec_port_types[] = {
 	[TYPEC_PORT_DRP] = "dual",
 };
 
+static const char *const typec_port_types_dt[] = {
+	[TYPEC_PORT_DFP] = "dfp",
+	[TYPEC_PORT_UFP] = "ufp",
+	[TYPEC_PORT_DRP] = "drp",
+};
+
 static const char * const typec_port_types_drp[] = {
 	[TYPEC_PORT_DFP] = "dual [source] sink",
 	[TYPEC_PORT_UFP] = "dual source [sink]",
@@ -1150,6 +1157,47 @@ static const struct device_type typec_port_dev_type = {
 	.release = typec_release,
 };
 
+static enum typec_port_type typec_get_port_type_from_string(const char *str)
+{
+	int ret;
+
+	ret = match_string(typec_port_types_dt, ARRAY_SIZE(typec_port_types_dt), str);
+	return (ret < 0) ? TYPEC_PORT_TYPE_UNKNOWN : ret;
+}
+
+enum typec_port_type typec_get_port_type(struct device *dev)
+{
+	const char *port_type;
+	int err;
+
+	err = device_property_read_string(dev, "port-type", &port_type);
+	if (err < 0)
+		return TYPEC_PORT_TYPE_UNKNOWN;
+
+	return typec_get_port_type_from_string(port_type);
+}
+EXPORT_SYMBOL_GPL(typec_get_port_type);
+
+static enum typec_role typec_get_power_role_from_string(const char *str)
+{
+	int ret;
+
+	ret = match_string(typec_roles, ARRAY_SIZE(typec_roles), str);
+	return (ret < 0) ? TYPEC_ROLE_UNKNOWN : ret;
+}
+
+enum typec_role typec_get_power_role(struct device *dev)
+{
+	const char *power_role;
+	int err;
+
+	err = device_property_read_string(dev, "default-role", &power_role);
+	if (err < 0)
+		return TYPEC_ROLE_UNKNOWN;
+
+	return typec_get_power_role_from_string(power_role);
+}
+EXPORT_SYMBOL_GPL(typec_get_power_role);
 /* --------------------------------------- */
 /* Driver callbacks to report role updates */
 
