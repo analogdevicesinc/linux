@@ -311,7 +311,7 @@ static ssize_t m2k_fabric_user_supply_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	gpiod_set_value(m2k_fabric->usr_pow_gpio, !state);
+	gpiod_set_value_cansleep(m2k_fabric->usr_pow_gpio, !state);
 	m2k_fabric->user_supply_powerdown = state;
 
 	return len;
