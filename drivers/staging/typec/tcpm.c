@@ -160,6 +160,7 @@ enum pd_msg_request {
 #define TCPM_CC_EVENT		BIT(0)
 #define TCPM_VBUS_EVENT		BIT(1)
 #define TCPM_RESET_EVENT	BIT(2)
+#define TCPM_VBUS_LOW_ALARM	BIT(3)
 
 #define LOG_BUFFER_ENTRIES	1024
 #define LOG_BUFFER_ENTRY_SIZE	128
@@ -3156,6 +3157,14 @@ static void _tcpm_pd_hard_reset(struct tcpm_port *port)
 		       0);
 }
 
+static void _tcpm_vbus_discharge(struct tcpm_port *port, bool on)
+{
+	tcpm_log_force(port, "%s force discharge", on ? "Enable":"Disable");
+
+	if (port->tcpc && port->tcpc->vbus_discharge)
+		port->tcpc->vbus_discharge(port->tcpc, false);
+}
+
 static void tcpm_pd_event_handler(struct work_struct *work)
 {
 	struct tcpm_port *port = container_of(work, struct tcpm_port,
@@ -3180,6 +3189,10 @@ static void tcpm_pd_event_handler(struct work_struct *work)
 			else
 				_tcpm_pd_vbus_off(port);
 		}
+
+		if (events & TCPM_VBUS_LOW_ALARM)
+			_tcpm_vbus_discharge(port, false);
+
 		if (events & TCPM_CC_EVENT) {
 			enum typec_cc_status cc1, cc2;
 
@@ -3209,6 +3222,15 @@ void tcpm_vbus_change(struct tcpm_port *port)
 	queue_work(port->wq, &port->event_work);
 }
 EXPORT_SYMBOL_GPL(tcpm_vbus_change);
+
+void tcpm_vbus_low_alarm(struct tcpm_port *port)
+{
+	spin_lock(&port->pd_event_lock);
+	port->pd_events |= TCPM_VBUS_LOW_ALARM;
+	spin_unlock(&port->pd_event_lock);
+	queue_work(port->wq, &port->event_work);
+}
+EXPORT_SYMBOL_GPL(tcpm_vbus_low_alarm);
 
 void tcpm_pd_hard_reset(struct tcpm_port *port)
 {

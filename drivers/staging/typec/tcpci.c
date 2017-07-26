@@ -58,6 +58,31 @@ static int tcpci_write16(struct tcpci *tcpci, unsigned int reg, u16 val)
 	return regmap_raw_write(tcpci->regmap, reg, &val, sizeof(u16));
 }
 
+static int tcpci_vbus_force_discharge(struct tcpc_dev *tcpc, bool enable)
+{
+	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
+	unsigned int reg;
+	int ret;
+
+	if (enable)
+		regmap_write(tcpci->regmap,
+			TCPC_VBUS_VOLTAGE_ALARM_LO_CFG, 0x1c);
+	else
+		regmap_write(tcpci->regmap,
+			TCPC_VBUS_VOLTAGE_ALARM_LO_CFG, 0);
+
+	regmap_read(tcpci->regmap, TCPC_POWER_CTRL, &reg);
+	if (enable)
+		reg |= TCPC_POWER_CTRL_FORCEDISCH;
+	else
+		reg &= ~TCPC_POWER_CTRL_FORCEDISCH;
+	ret = regmap_write(tcpci->regmap, TCPC_POWER_CTRL, reg);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int tcpci_set_cc(struct tcpc_dev *tcpc, enum typec_cc_status cc)
 {
 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
@@ -254,6 +279,9 @@ static int tcpci_set_vbus(struct tcpc_dev *tcpc, bool source, bool sink)
 				   TCPC_CMD_DISABLE_SRC_VBUS);
 		if (ret < 0)
 			return ret;
+
+		/* Enable force discharge */
+		tcpci_vbus_force_discharge(tcpc, true);
 	}
 
 	if (!sink) {
@@ -371,7 +399,8 @@ static int tcpci_init(struct tcpc_dev *tcpc)
 	reg = TCPC_ALERT_TX_SUCCESS | TCPC_ALERT_TX_FAILED |
 		TCPC_ALERT_TX_DISCARDED | TCPC_ALERT_RX_STATUS |
 		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS |
-		TCPC_ALERT_RX_BUF_OVF | TCPC_ALERT_FAULT;
+		TCPC_ALERT_RX_BUF_OVF | TCPC_ALERT_FAULT |
+		TCPC_ALERT_V_ALARM_LO;
 	if (tcpci->controls_vbus)
 		reg |= TCPC_ALERT_POWER_STATUS;
 	tcpci->irq_mask = reg;
@@ -409,6 +438,9 @@ static irqreturn_t tcpci_irq(int irq, void *dev_id)
 		else
 			tcpm_vbus_change(tcpci->port);
 	}
+
+	if (status & TCPC_ALERT_V_ALARM_LO)
+		tcpm_vbus_low_alarm(tcpci->port);
 
 	if (status & TCPC_ALERT_RX_STATUS) {
 		struct pd_message msg;
@@ -504,6 +536,7 @@ static int tcpci_probe(struct i2c_client *client,
 	tcpci->tcpc.set_vconn = tcpci_set_vconn;
 	tcpci->tcpc.start_drp_toggling = tcpci_start_drp_toggling;
 	tcpci->tcpc.vbus_detect = tcpci_vbus_detect;
+	tcpci->tcpc.vbus_discharge = tcpci_vbus_force_discharge;
 
 	tcpci->tcpc.set_pd_rx = tcpci_set_pd_rx;
 	tcpci->tcpc.set_roles = tcpci_set_roles;

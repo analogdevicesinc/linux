@@ -133,6 +133,8 @@ struct tcpc_dev {
 	int (*pd_transmit)(struct tcpc_dev *dev, enum tcpm_transmit_type type,
 			   const struct pd_message *msg);
 	int (*vbus_detect)(struct tcpc_dev *dev, bool enable);
+	int (*vbus_discharge)(struct tcpc_dev *tcpc, bool enable);
+
 	struct tcpc_mux_dev *mux;
 };
 
@@ -158,5 +160,6 @@ void tcpm_pd_transmit_complete(struct tcpm_port *port,
 			       enum tcpm_transmit_status status);
 void tcpm_pd_hard_reset(struct tcpm_port *port);
 void tcpm_tcpc_reset(struct tcpm_port *port);
+void tcpm_vbus_low_alarm(struct tcpm_port *port);
 
 #endif /* __LINUX_USB_TCPM_H */
