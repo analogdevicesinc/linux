@@ -132,6 +132,7 @@ struct tcpc_dev {
 	int (*try_role)(struct tcpc_dev *dev, int role);
 	int (*pd_transmit)(struct tcpc_dev *dev, enum tcpm_transmit_type type,
 			   const struct pd_message *msg);
+	int (*vbus_detect)(struct tcpc_dev *dev, bool enable);
 	struct tcpc_mux_dev *mux;
 };
 

@@ -2104,6 +2104,12 @@ static void tcpm_acc_detach(struct tcpm_port *port)
 	tcpm_detach(port);
 }
 
+static void tcpm_vbus_det(struct tcpm_port *port, bool enable)
+{
+	if (port->tcpc && port->tcpc->vbus_detect)
+		port->tcpc->vbus_detect(port->tcpc, true);
+}
+
 static inline enum tcpm_state hard_reset_state(struct tcpm_port *port)
 {
 	if (port->hard_reset_count < PD_N_HARD_RESET_COUNT)
@@ -2370,10 +2376,11 @@ static void run_state_machine(struct tcpm_port *port)
 		if ((port->cc1 == TYPEC_CC_OPEN &&
 		     port->cc2 != TYPEC_CC_OPEN) ||
 		    (port->cc1 != TYPEC_CC_OPEN &&
-		     port->cc2 == TYPEC_CC_OPEN))
+		     port->cc2 == TYPEC_CC_OPEN)) {
 			tcpm_set_state(port, SNK_DEBOUNCED,
 				       PD_T_CC_DEBOUNCE);
-		else if (tcpm_port_is_disconnected(port))
+			tcpm_vbus_det(port, true);
+		} else if (tcpm_port_is_disconnected(port))
 			tcpm_set_state(port, SNK_UNATTACHED,
 				       PD_T_PD_DEBOUNCE);
 		break;

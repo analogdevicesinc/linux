@@ -313,6 +313,26 @@ static int tcpci_pd_transmit(struct tcpc_dev *tcpc,
 	return 0;
 }
 
+static int tcpci_vbus_detect(struct tcpc_dev *tcpc, bool enable)
+{
+	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
+	int ret;
+
+	if (enable) {
+		ret = regmap_write(tcpci->regmap, TCPC_COMMAND,
+				   TCPC_CMD_ENABLE_VBUS_DETECT);
+		if (ret < 0)
+			return ret;
+	} else {
+		ret = regmap_write(tcpci->regmap, TCPC_COMMAND,
+				   TCPC_CMD_DISABLE_VBUS_DETECT);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int tcpci_init(struct tcpc_dev *tcpc)
 {
 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
@@ -465,6 +485,7 @@ static int tcpci_probe(struct i2c_client *client,
 	tcpci->tcpc.set_polarity = tcpci_set_polarity;
 	tcpci->tcpc.set_vconn = tcpci_set_vconn;
 	tcpci->tcpc.start_drp_toggling = tcpci_start_drp_toggling;
+	tcpci->tcpc.vbus_detect = tcpci_vbus_detect;
 
 	tcpci->tcpc.set_pd_rx = tcpci_set_pd_rx;
 	tcpci->tcpc.set_roles = tcpci_set_roles;
