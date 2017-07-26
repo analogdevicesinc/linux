@@ -381,7 +381,7 @@ static int fsl_asrc_config_pair(struct fsl_asrc_pair *pair, bool p2p_in, bool p2
 	 * When M2M mode, output rate should also need to align with the out
 	 * samplerate, but M2M must use less time to achieve good performance.
 	 */
-	if (p2p_out)
+	if (p2p_out || p2p_in)
 		div[OUT] = clk_get_rate(clk) / outrate;
 	else
 		div[OUT] = clk_get_rate(clk) / IDEAL_RATIO_RATE;
@@ -575,7 +575,7 @@ static int fsl_asrc_dai_hw_params(struct snd_pcm_substream *substream,
 
 	config.pair = pair->index;
 	config.channel_num = channels;
-	config.inclk = INCLK_NONE;
+	config.inclk = INCLK_ASRCK1_CLK;
 	config.outclk = OUTCLK_ASRCK1_CLK;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
