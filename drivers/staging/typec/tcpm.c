@@ -1383,7 +1383,7 @@ static void tcpm_pd_ctrl_request(struct tcpm_port *port,
 			tcpm_queue_message(port, PD_MSG_DATA_SINK_CAP);
 			break;
 		default:
-			tcpm_queue_message(port, PD_MSG_CTRL_REJECT);
+			tcpm_set_state(port, SOFT_RESET_SEND, 0);
 			break;
 		}
 		break;
