@@ -140,6 +140,8 @@ struct tcpc_dev {
 	int (*vbus_detect)(struct tcpc_dev *dev, bool enable);
 	int (*vbus_discharge)(struct tcpc_dev *tcpc, bool enable);
 	void (*bist_mode)(struct tcpc_dev *tcpc, bool enable);
+	int (*ss_mux_sel)(struct tcpc_dev *dev,
+				enum typec_cc_polarity polarity);
 
 	struct tcpc_mux_dev *mux;
 };

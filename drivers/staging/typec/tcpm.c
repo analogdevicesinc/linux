@@ -1988,6 +1988,9 @@ static int tcpm_src_attach(struct tcpm_port *port)
 	if (ret < 0)
 		return ret;
 
+	if (port->tcpc->ss_mux_sel)
+		port->tcpc->ss_mux_sel(port->tcpc, polarity);
+
 	tcpm_start_drp_toggling(port);
 
 	ret = tcpm_set_roles(port, true, TYPEC_SOURCE, TYPEC_HOST);
@@ -2096,15 +2099,19 @@ static void tcpm_src_detach(struct tcpm_port *port)
 
 static int tcpm_snk_attach(struct tcpm_port *port)
 {
+	enum typec_cc_polarity polarity = port->cc2 != TYPEC_CC_OPEN ?
+				TYPEC_POLARITY_CC2 : TYPEC_POLARITY_CC1;
 	int ret;
 
 	if (port->attached)
 		return 0;
 
-	ret = tcpm_set_polarity(port, port->cc2 != TYPEC_CC_OPEN ?
-				TYPEC_POLARITY_CC2 : TYPEC_POLARITY_CC1);
+	ret = tcpm_set_polarity(port, polarity);
 	if (ret < 0)
 		return ret;
+
+	if (port->tcpc->ss_mux_sel)
+		port->tcpc->ss_mux_sel(port->tcpc, polarity);
 
 	tcpm_start_drp_toggling(port);
 

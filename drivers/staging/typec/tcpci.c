@@ -21,6 +21,7 @@
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
 #include <linux/usb/typec.h>
+#include <linux/of_gpio.h>
 
 #include "pd.h"
 #include "tcpci.h"
@@ -37,6 +38,7 @@ struct tcpci {
 	struct regmap *regmap;
 
 	bool controls_vbus;
+	int ss_sel_gpio;
 
 	struct tcpc_dev tcpc;
 	unsigned int irq_mask;
@@ -254,6 +256,19 @@ static int tcpci_set_polarity(struct tcpc_dev *tcpc,
 			   TCPC_TCPC_CTRL_ORIENTATION : 0);
 	if (ret < 0)
 		return ret;
+
+	return 0;
+}
+
+static int tcpci_set_ss_mux(struct tcpc_dev *tcpc,
+				enum typec_cc_polarity polarity)
+{
+	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
+
+	if (polarity == TYPEC_POLARITY_CC1)
+		gpio_set_value(tcpci->ss_sel_gpio, 1);
+	else
+		gpio_set_value(tcpci->ss_sel_gpio, 0);
 
 	return 0;
 }
@@ -583,6 +598,27 @@ static int tcpci_parse_config(struct tcpci *tcpci)
 	return 0;
 }
 
+static int tcpci_ss_mux_control_init(struct tcpci *tcpci)
+{
+	struct device *dev = tcpci->dev;
+	int retval = 0;
+
+	tcpci->ss_sel_gpio = of_get_named_gpio(dev->of_node,
+						"ss-sel-gpios", 0);
+	if (!gpio_is_valid(tcpci->ss_sel_gpio)) {
+		/* Super speed signal mux conrol gpio is optional */
+		dev_dbg(dev, "no Super Speed mux gpio pin available");
+	} else {
+		retval = devm_gpio_request_one(dev, tcpci->ss_sel_gpio,
+				GPIOF_OUT_INIT_LOW, "typec_ss_sel");
+		if (retval < 0)
+			dev_err(dev, "Unable to request super speed mux gpio %d\n",
+									retval);
+	}
+
+	return retval;
+}
+
 static int tcpci_probe(struct i2c_client *client,
 		       const struct i2c_device_id *i2c_id)
 {
@@ -612,6 +648,7 @@ static int tcpci_probe(struct i2c_client *client,
 	tcpci->tcpc.vbus_discharge = tcpci_vbus_force_discharge;
 	tcpci->tcpc.get_vbus_vol = tcpci_get_vbus_vol;
 	tcpci->tcpc.bist_mode = tcpci_bist_mode;
+	tcpci->tcpc.ss_mux_sel = tcpci_set_ss_mux;
 
 	tcpci->tcpc.set_pd_rx = tcpci_set_pd_rx;
 	tcpci->tcpc.set_roles = tcpci_set_roles;
@@ -630,6 +667,10 @@ static int tcpci_probe(struct i2c_client *client,
 					IRQF_ONESHOT | IRQF_TRIGGER_LOW,
 					dev_name(tcpci->dev), tcpci);
 	if (err < 0)
+		return err;
+
+	err = tcpci_ss_mux_control_init(tcpci);
+	if (err)
 		return err;
 
 	tcpci->port = tcpm_register_port(tcpci->dev, &tcpci->tcpc);
