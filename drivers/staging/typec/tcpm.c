@@ -92,6 +92,7 @@
 	S(PR_SWAP_SRC_SNK_SOURCE_OFF),		\
 	S(PR_SWAP_SRC_SNK_SOURCE_OFF_CC_DEBOUNCED), \
 	S(PR_SWAP_SRC_SNK_SINK_ON),		\
+	S(PR_SWAP_SNK_SRC_ASSERT_RP),		\
 	S(PR_SWAP_SNK_SRC_SINK_OFF),		\
 	S(PR_SWAP_SNK_SRC_SOURCE_ON),		\
 	S(PR_SWAP_SNK_SRC_SOURCE_ON_VBUS_RAMPED_UP),    \
@@ -1410,7 +1411,7 @@ static void tcpm_pd_ctrl_request(struct tcpm_port *port,
 			tcpm_set_state(port, PR_SWAP_SRC_SNK_SINK_ON, 0);
 			break;
 		case PR_SWAP_SNK_SRC_SINK_OFF:
-			tcpm_set_state(port, PR_SWAP_SNK_SRC_SOURCE_ON, 0);
+			tcpm_set_state(port, PR_SWAP_SNK_SRC_ASSERT_RP, 0);
 			break;
 		case VCONN_SWAP_WAIT_FOR_VCONN:
 			tcpm_set_state(port, VCONN_SWAP_TURN_OFF_VCONN, 0);
@@ -2773,9 +2774,11 @@ static void run_state_machine(struct tcpm_port *port)
 		tcpm_set_state(port, hard_reset_state(port),
 			       PD_T_PS_SOURCE_OFF);
 		break;
-	case PR_SWAP_SNK_SRC_SOURCE_ON:
+	case PR_SWAP_SNK_SRC_ASSERT_RP:
 		tcpm_set_cc(port, tcpm_rp_cc(port));
 		tcpm_set_vbus(port, true);
+		break;
+	case PR_SWAP_SNK_SRC_SOURCE_ON:
 		/*
 		 * allow time VBUS ramp-up, must be < tNewSrc
 		 * Also, this window overlaps with CC debounce as well.
@@ -3054,6 +3057,7 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 		/* Do nothing, waiting for tCCDebounce */
 		break;
 	case PR_SWAP_SNK_SRC_SINK_OFF:
+	case PR_SWAP_SNK_SRC_ASSERT_RP:
 	case PR_SWAP_SRC_SNK_TRANSITION_OFF:
 	case PR_SWAP_SRC_SNK_SOURCE_OFF:
 	case PR_SWAP_SRC_SNK_SOURCE_OFF_CC_DEBOUNCED:
@@ -3124,6 +3128,10 @@ static void _tcpm_pd_vbus_on(struct tcpm_port *port)
 	case SRC_TRY_WAIT:
 	case SRC_TRY_DEBOUNCE:
 		/* Do nothing, waiting for sink detection */
+		break;
+	case PR_SWAP_SNK_SRC_ASSERT_RP:
+		/* If vbus is reached, start source on to send PS_RDY */
+		tcpm_set_state(port, PR_SWAP_SNK_SRC_SOURCE_ON, 0);
 		break;
 	default:
 		break;
