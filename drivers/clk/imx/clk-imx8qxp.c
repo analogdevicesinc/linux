@@ -528,6 +528,10 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_AUD_ACM_AUD_REC_CLK0_CLK] = imx_clk_gate_scu("aud_acm_aud_rec_clk0_clk", "aud_acm_aud_rec_clk0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC1, (void __iomem *)(AUD_REC_CLK0_LPCG), 0, 0);
 	clks[IMX8QXP_AUD_ACM_AUD_REC_CLK1_CLK] = imx_clk_gate_scu("aud_acm_aud_rec_clk1_clk", "aud_acm_aud_rec_clk1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_MISC1, (void __iomem *)(AUD_REC_CLK1_LPCG), 0, 0);
 
+	/* VPU */
+	clks[IMX8QXP_VPU_ENC_CLK] = imx_clk_gate_scu("vpu_enc_clk", "dummy", SC_R_VPU_ENC_0, SC_PM_CLK_PER, NULL, 0, 0);
+	clks[IMX8QXP_VPU_DEC_CLK] = imx_clk_gate_scu("vpu_dec_clk", "dummy", SC_R_VPU_DEC_0, SC_PM_CLK_PER, NULL, 0, 0);
+
 	np_acm = of_find_compatible_node(NULL, NULL, "nxp,imx8qm-acm");
 	base_acm = of_iomap(np_acm, 0);
 	WARN_ON(!base_acm);
