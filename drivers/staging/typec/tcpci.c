@@ -318,6 +318,21 @@ static int tcpci_get_vbus(struct tcpc_dev *tcpc)
 	return !!(reg & TCPC_POWER_STATUS_VBUS_PRES);
 }
 
+static unsigned int tcpci_get_vbus_vol(struct tcpc_dev *tcpc)
+{
+	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
+	unsigned int reg, ret = 0;
+
+	ret = regmap_read(tcpci->regmap, TCPC_VBUS_VOLTAGE, &reg);
+
+	/* Convert it to be the vol number(mv) */
+	ret = ((reg & TCPC_VBUS_VOL_MASK) <<
+		((reg & TCPC_VBUS_VOL_SCALE_FACTOR_MASK) >>
+		TCPC_VBUS_VOL_SCALE_FACTOR_SHIFT)) * TCPC_VBUS_VOL_MV_UNIT;
+
+	return ret;
+}
+
 static int tcpci_set_vbus(struct tcpc_dev *tcpc, bool source, bool sink)
 {
 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
@@ -588,6 +603,7 @@ static int tcpci_probe(struct i2c_client *client,
 	tcpci->tcpc.start_drp_toggling = tcpci_start_drp_toggling;
 	tcpci->tcpc.vbus_detect = tcpci_vbus_detect;
 	tcpci->tcpc.vbus_discharge = tcpci_vbus_force_discharge;
+	tcpci->tcpc.get_vbus_vol = tcpci_get_vbus_vol;
 
 	tcpci->tcpc.set_pd_rx = tcpci_set_pd_rx;
 	tcpci->tcpc.set_roles = tcpci_set_roles;

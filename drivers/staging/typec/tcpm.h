@@ -19,6 +19,9 @@
 #include <linux/usb/typec.h>
 #include "pd.h"
 
+/* VBUS off level should be lower than it */
+#define TCPM_VBUS_PRESENT_LEVEL		600
+
 enum typec_cc_status {
 	TYPEC_CC_OPEN,
 	TYPEC_CC_RA,
@@ -116,6 +119,8 @@ struct tcpc_dev {
 	 * tcpcs may include BC1.2 charger detection and use that in this case.
 	 */
 	int (*get_current_limit)(struct tcpc_dev *dev);
+	/* Optional, get the vbus voltage(mv) */
+	unsigned int (*get_vbus_vol)(struct tcpc_dev *dev);
 	int (*set_cc)(struct tcpc_dev *dev, enum typec_cc_status cc);
 	int (*get_cc)(struct tcpc_dev *dev, enum typec_cc_status *cc1,
 		      enum typec_cc_status *cc2);
