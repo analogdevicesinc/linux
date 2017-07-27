@@ -529,5 +529,9 @@
 #define IMX8QXP_CM40_I2C_CLK					479
 #define IMX8QXP_CM40_I2C_IPG_CLK				480
 
-#define IMX8QXP_CLK_END						481
+/* VPU clocks. */
+#define IMX8QXP_VPU_ENC_CLK					481
+#define IMX8QXP_VPU_DEC_CLK					482
+
+#define IMX8QXP_CLK_END						483
 #endif /* __DT_BINDINGS_CLOCK_IMX8QXP_H */
