@@ -442,7 +442,8 @@ static int set_geometry_for_large_oob(struct gpmi_nand_data *this)
 
 geo_setting:
 
-	geo->page_size = mtd->writesize + mtd->oobsize;
+	geo->page_size = mtd->writesize + geo->metadata_size +
+		(geo->gf_len * geo->ecc_strength * geo->ecc_chunk_count) / 8;
 	geo->payload_size = mtd->writesize;
 
 	/*
