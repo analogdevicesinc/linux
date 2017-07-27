@@ -1619,6 +1619,7 @@ static int tcpm_pd_send_control(struct tcpm_port *port,
 static bool tcpm_send_queued_message(struct tcpm_port *port)
 {
 	enum pd_msg_request queued_message;
+	int ret = 0;
 
 	do {
 		queued_message = port->queued_message;
@@ -1626,21 +1627,27 @@ static bool tcpm_send_queued_message(struct tcpm_port *port)
 
 		switch (queued_message) {
 		case PD_MSG_CTRL_WAIT:
-			tcpm_pd_send_control(port, PD_CTRL_WAIT);
+			ret = tcpm_pd_send_control(port, PD_CTRL_WAIT);
 			break;
 		case PD_MSG_CTRL_REJECT:
-			tcpm_pd_send_control(port, PD_CTRL_REJECT);
+			ret = tcpm_pd_send_control(port, PD_CTRL_REJECT);
 			break;
 		case PD_MSG_DATA_SINK_CAP:
-			tcpm_pd_send_sink_caps(port);
+			ret = tcpm_pd_send_sink_caps(port);
 			break;
 		case PD_MSG_DATA_SOURCE_CAP:
-			tcpm_pd_send_source_caps(port);
+			ret = tcpm_pd_send_source_caps(port);
 			break;
 		default:
 			break;
 		}
 	} while (port->queued_message != PD_MSG_NONE);
+
+	if (ret) {
+		tcpm_set_state(port, SOFT_RESET_SEND, 0);
+		tcpm_log(port, "TCPM sending message failure!");
+		return false;
+	}
 
 	if (port->delayed_state != INVALID_STATE) {
 		if (time_is_after_jiffies(port->delayed_runtime)) {
