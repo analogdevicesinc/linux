@@ -1951,6 +1951,13 @@ static void tcpm_typec_connect(struct tcpm_port *port)
 	}
 }
 
+static void tcpm_bist_handle(struct tcpm_port *port, bool enable)
+{
+	/* Enable or disable BIST test mode */
+	if (port->tcpc && port->tcpc->bist_mode)
+		port->tcpc->bist_mode(port->tcpc, enable);
+}
+
 static int tcpm_src_attach(struct tcpm_port *port)
 {
 	enum typec_cc_polarity polarity =
@@ -2044,6 +2051,7 @@ static void tcpm_reset_port(struct tcpm_port *port)
 	 */
 	port->rx_msgid = -1;
 
+	tcpm_bist_handle(port, false);
 	port->tcpc->set_pd_rx(port->tcpc, false);
 	tcpm_init_vbus(port);	/* also disables charging */
 	tcpm_init_vconn(port);
@@ -2826,6 +2834,7 @@ static void run_state_machine(struct tcpm_port *port)
 		break;
 
 	case BIST_RX:
+		tcpm_bist_handle(port, true);
 		switch (BDO_MODE_MASK(port->bist_request)) {
 		case BDO_MODE_CARRIER2:
 			tcpm_pd_transmit(port, TCPC_TX_BIST_MODE_2, NULL);

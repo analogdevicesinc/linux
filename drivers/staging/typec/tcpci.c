@@ -426,6 +426,15 @@ static int tcpci_vbus_detect(struct tcpc_dev *tcpc, bool enable)
 	return 0;
 }
 
+static void tcpci_bist_mode(struct tcpc_dev *tcpc, bool enable)
+{
+	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
+
+	regmap_update_bits(tcpci->regmap, TCPC_TCPC_CTRL,
+			   TCPC_TCPC_CTRL_BIST_MODE,
+			   enable ? TCPC_TCPC_CTRL_BIST_MODE : 0);
+}
+
 static int tcpci_init(struct tcpc_dev *tcpc)
 {
 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
@@ -602,6 +611,7 @@ static int tcpci_probe(struct i2c_client *client,
 	tcpci->tcpc.vbus_detect = tcpci_vbus_detect;
 	tcpci->tcpc.vbus_discharge = tcpci_vbus_force_discharge;
 	tcpci->tcpc.get_vbus_vol = tcpci_get_vbus_vol;
+	tcpci->tcpc.bist_mode = tcpci_bist_mode;
 
 	tcpci->tcpc.set_pd_rx = tcpci_set_pd_rx;
 	tcpci->tcpc.set_roles = tcpci_set_roles;
