@@ -161,8 +161,10 @@ static int mxc_isi_probe(struct platform_device *pdev)
 	}
 
 	ret = mxc_isi_initialize_capture_subdev(mxc_isi);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(dev, "failed to init cap subdev (%d)\n", ret);
 		return -EINVAL;
+	}
 
 	platform_set_drvdata(pdev, mxc_isi);
 

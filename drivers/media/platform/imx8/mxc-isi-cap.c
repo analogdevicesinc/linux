@@ -215,8 +215,11 @@ static int mxc_isi_pipeline_enable(struct mxc_isi_dev *mxc_isi, bool enable)
 		}
 
 		ret = v4l2_subdev_call(subdev, video, s_stream, enable);
-		if (ret < 0 && ret != -ENOIOCTLCMD)
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			dev_err(&mxc_isi->pdev->dev,
+					"%s ,subdev %s s_stream failed\n", __func__, subdev->name);
 			break;
+		}
 	}
 	mutex_unlock(&mdev->graph_mutex);
 	media_graph_walk_cleanup(&graph);
@@ -366,6 +369,7 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	unsigned long flags;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
+
 	spin_lock_irqsave(&mxc_isi->slock, flags);
 
 	mxc_isi->isi_cap.frame_count = 0;
@@ -709,8 +713,10 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_dev *mxc_isi)
 	src_fmt.pad = source_pad->index;
 	src_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	ret = v4l2_subdev_call(src_sd, pad, get_fmt, NULL, &src_fmt);
-	if (ret < 0 && ret != -ENOIOCTLCMD)
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, get remote fmt faile!\n", __func__);
 		return -EINVAL;
+	}
 
 	/* Pixel link master will transfer format to RGB32 or YUV32 */
 	src_f->fmt = mxc_isi_get_src_fmt(&src_fmt);
@@ -1174,6 +1180,7 @@ static int mxc_isi_register_cap_device(struct mxc_isi_dev *mxc_isi,
 	struct mxc_isi_cap_dev *isi_cap = &mxc_isi->isi_cap;
 	int ret = -ENOMEM;
 
+	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
 	snprintf(vdev->name, sizeof(vdev->name), "mxc_isi.%d.capture", mxc_isi->id);
 	memset(vdev, 0, sizeof(*vdev));
 
@@ -1246,6 +1253,7 @@ static int mxc_isi_capture_subdev_registered(struct v4l2_subdev *sd)
 	if (mxc_isi == NULL)
 		return -ENXIO;
 
+	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
 #if 0
 	if (mxc_isi->id == 0) {
 		/* ISI channel 0 support source input image from memory  */
@@ -1270,6 +1278,7 @@ static void mxc_isi_capture_subdev_unregistered(struct v4l2_subdev *sd)
 	if (mxc_isi == NULL)
 		return;
 
+	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
 	mutex_lock(&mxc_isi->lock);
 
 	vdev = &mxc_isi->isi_cap.vdev;
