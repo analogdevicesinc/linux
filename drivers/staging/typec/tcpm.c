@@ -3094,6 +3094,7 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 	case PR_SWAP_SRC_SNK_SOURCE_OFF:
 	case PR_SWAP_SRC_SNK_SOURCE_OFF_CC_DEBOUNCED:
 	case PR_SWAP_SNK_SRC_SOURCE_ON:
+	case ERROR_RECOVERY:
 		/*
 		 * CC state change is expected in PR_SWAP
 		 * Ignore it.
