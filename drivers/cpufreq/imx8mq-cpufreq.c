@@ -9,6 +9,7 @@
 #include <linux/clk.h>
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
+#include <linux/cpu_cooling.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -28,6 +29,7 @@ static struct clk *arm_a53_src_clk;
 static struct clk *arm_pll_clk;
 static struct clk *arm_pll_out_clk;
 static struct clk *sys1_pll_800m_clk;
+struct thermal_cooling_device *cdev;
 
 static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 {
@@ -68,6 +70,24 @@ static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 	return ret;
 }
 
+static void imx8mq_cpufreq_ready(struct cpufreq_policy *policy)
+{
+	struct device_node *np = of_get_cpu_node(policy->cpu, NULL);
+
+	if (of_find_property(np, "#cooling-cells", NULL)) {
+		cdev = of_cpufreq_cooling_register(np, policy);
+
+		if (IS_ERR(cdev) && PTR_ERR(cdev) != -ENOSYS) {
+			pr_err("cpu%d is not running as cooling device: %ld\n",
+					policy->cpu, PTR_ERR(cdev));
+
+			cdev = NULL;
+		}
+	}
+
+	of_node_put(np);
+}
+
 static int imx8mq_cpufreq_init(struct cpufreq_policy *policy)
 {
 	int ret;
@@ -92,6 +112,7 @@ static struct cpufreq_driver imx8mq_cpufreq_driver = {
 	.get = cpufreq_generic_get,
 	.init = imx8mq_cpufreq_init,
 	.name = "imx8mq-cpufreq",
+	.ready = imx8mq_cpufreq_ready,
 	.attr = cpufreq_generic_attr,
 #ifdef CONFIG_PM
 	.suspend = cpufreq_generic_suspend,
@@ -199,6 +220,7 @@ put_clk:
 
 static int imx8mq_cpufreq_remove(struct platform_device *pdev)
 {
+	cpufreq_cooling_unregister(cdev);
 	cpufreq_unregister_driver(&imx8mq_cpufreq_driver);
 	dev_pm_opp_free_cpufreq_table(cpu_dev, &freq_table);
 	if (free_opp)
