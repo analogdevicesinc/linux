@@ -1464,12 +1464,18 @@ static void tcpm_pd_ctrl_request(struct tcpm_port *port,
 			tcpm_set_state(port, SNK_TRANSITION_SINK, 0);
 			break;
 		case SOFT_RESET_SEND:
-			port->message_id = 0;
 			port->rx_msgid = -1;
-			if (port->pwr_role == TYPEC_SOURCE)
+			/*
+			 * After reset data sent, the msg id is updated
+			 * by pd_transmit(0+1), now the other end gives
+			 * an accept so we can go on with msg id 1.
+			 */
+			if (port->pwr_role == TYPEC_SOURCE) {
 				next_state = SRC_SEND_CAPABILITIES;
-			else
+			} else {
+				port->message_id = 0;
 				next_state = SNK_WAIT_CAPABILITIES;
+			}
 			tcpm_set_state(port, next_state, 0);
 			break;
 		case DR_SWAP_SEND:
