@@ -588,14 +588,99 @@ static const struct tcpc_config tcpci_tcpc_config = {
 	.default_role = TYPEC_SINK,
 };
 
+/* Populate struct tcpc_config from ACPI/device-tree */
 static int tcpci_parse_config(struct tcpci *tcpci)
 {
+	struct tcpc_config *tcfg;
+	int ret = 0;
+
 	tcpci->controls_vbus = true; /* XXX */
 
-	/* TODO: Populate struct tcpc_config from ACPI/device-tree */
-	tcpci->tcpc.config = &tcpci_tcpc_config;
+	/* Alloc tcpc_config struct */
+	tcpci->tcpc.config = devm_kzalloc(tcpci->dev, sizeof(*tcfg),
+							GFP_KERNEL);
+	if (!tcpci->tcpc.config)
+		return -ENOMEM;
+
+	tcfg = tcpci->tcpc.config;
+
+	/* Get the port-type */
+	tcfg->type = typec_get_port_type(tcpci->dev);
+	if (tcfg->type == TYPEC_PORT_TYPE_UNKNOWN) {
+		dev_err(tcpci->dev, "typec port type is NOT correct!\n");
+		return -EINVAL;
+	}
+
+	/* Get the default-role */
+	tcfg->default_role = typec_get_power_role(tcpci->dev);
+	if (tcfg->default_role == TYPEC_ROLE_UNKNOWN) {
+		dev_err(tcpci->dev, "typec power role is NOT correct!\n");
+		return -EINVAL;
+	}
+
+	/* Check source pdo array size */
+	tcfg->nr_src_pdo = device_property_read_u32_array(tcpci->dev,
+						"src-pdos", NULL, 0);
+	if (tcfg->nr_src_pdo <= 0 && (tcfg->type == TYPEC_PORT_DRP ||
+					tcfg->type == TYPEC_PORT_DFP)) {
+		dev_err(tcpci->dev, "typec source pdo is missing!\n");
+		return -EINVAL;
+	}
+
+	/* Alloc src_pdo based on the array size */
+	tcfg->src_pdo = devm_kzalloc(tcpci->dev,
+		sizeof(*tcfg->src_pdo) * tcfg->nr_src_pdo, GFP_KERNEL);
+	if (!tcfg->src_pdo)
+		return -ENOMEM;
+
+	/* Read out source pdo array */
+	ret = device_property_read_u32_array(tcpci->dev, "src-pdos",
+				tcfg->src_pdo, tcfg->nr_src_pdo);
+	if (ret) {
+		dev_err(tcpci->dev, "Failed to read src pdo!\n");
+		return -EINVAL;
+	}
+
+	/* Check the num of snk pdo */
+	tcfg->nr_snk_pdo = device_property_read_u32_array(tcpci->dev,
+						"snk-pdos", NULL, 0);
+	if (tcfg->nr_snk_pdo <= 0 && (tcfg->type == TYPEC_PORT_DRP ||
+					tcfg->type == TYPEC_PORT_UFP)) {
+		dev_err(tcpci->dev, "typec sink pdo is missing!\n");
+		return -EINVAL;
+	}
+
+	/* alloc snk_pdo based on the array size */
+	tcfg->snk_pdo = devm_kzalloc(tcpci->dev,
+		sizeof(*tcfg->snk_pdo) * tcfg->nr_snk_pdo, GFP_KERNEL);
+	if (!tcfg->snk_pdo)
+		return -ENOMEM;
+
+	/* Read out sink pdo array */
+	ret = device_property_read_u32_array(tcpci->dev, "snk-pdos",
+				tcfg->snk_pdo, tcfg->nr_snk_pdo);
+	if (ret) {
+		dev_err(tcpci->dev, "Failed to read snk pdo!\n");
+		return -EINVAL;
+	}
+
+	/* Get the max-snk-mv max-snk-ma op-snk-mw */
+	if (device_property_read_u32(tcpci->dev, "max-snk-mv",
+						&tcfg->max_snk_mv) ||
+		device_property_read_u32(tcpci->dev, "max-snk-ma",
+						&tcfg->max_snk_ma) ||
+		device_property_read_u32(tcpci->dev, "op-snk-mw",
+						&tcfg->operating_snk_mw))
+		goto snk_setting_wrong;
 
 	return 0;
+
+snk_setting_wrong:
+	if (tcfg->type == TYPEC_PORT_DRP ||
+			tcfg->type == TYPEC_PORT_UFP)
+		dev_err(tcpci->dev, "Failed to read snk setting!\n");
+
+	return ret;
 }
 
 static int tcpci_ss_mux_control_init(struct tcpci *tcpci)

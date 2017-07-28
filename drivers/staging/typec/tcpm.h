@@ -58,10 +58,10 @@ enum tcpm_transmit_type {
 };
 
 struct tcpc_config {
-	const u32 *src_pdo;
+	u32 *src_pdo;
 	unsigned int nr_src_pdo;
 
-	const u32 *snk_pdo;
+	u32 *snk_pdo;
 	unsigned int nr_snk_pdo;
 
 	const u32 *snk_vdo;
@@ -108,7 +108,7 @@ struct tcpc_mux_dev {
 };
 
 struct tcpc_dev {
-	const struct tcpc_config *config;
+	struct tcpc_config *config;
 
 	int (*init)(struct tcpc_dev *dev);
 	int (*get_vbus)(struct tcpc_dev *dev);
