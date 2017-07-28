@@ -3209,7 +3209,13 @@ static void _tcpm_pd_vbus_off(struct tcpm_port *port)
 		break;
 
 	case PR_SWAP_SRC_SNK_TRANSITION_OFF:
-		tcpm_set_state(port, PR_SWAP_SRC_SNK_SOURCE_OFF, 0);
+		/*
+		 * At this moment, vbus may only fall to be below 4v,
+		 * we need wait tPSSourceOff and let vbus discharge
+		 * finished.
+		 */
+		if (!port->tcpc->vbus_discharge)
+			tcpm_set_state(port, PR_SWAP_SRC_SNK_SOURCE_OFF, 0);
 		break;
 
 	case PR_SWAP_SNK_SRC_SINK_OFF:
@@ -3248,8 +3254,16 @@ static void _tcpm_vbus_discharge(struct tcpm_port *port, bool on)
 {
 	tcpm_log_force(port, "%s force discharge", on ? "Enable":"Disable");
 
+	/*
+	 * By vbus discharge and low alarm, now we can disable
+	 * vbus discharge.
+	 */
 	if (port->tcpc && port->tcpc->vbus_discharge)
 		port->tcpc->vbus_discharge(port->tcpc, false);
+
+	/* We can transit to PR_SWAP_SRC_SNK_SOURCE_OFF safely */
+	if (port->state == PR_SWAP_SRC_SNK_TRANSITION_OFF)
+		tcpm_set_state(port, PR_SWAP_SRC_SNK_SOURCE_OFF, 0);
 }
 
 static void tcpm_pd_event_handler(struct work_struct *work)
