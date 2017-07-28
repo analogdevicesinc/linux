@@ -1812,7 +1812,7 @@
 		 * pcieb phyx1 lane1 in default, adjust it refer to the
 		 * exact hw design.
 		 */
-		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
+		compatible = "fsl,imx8qxp-pcie","snps,dw-pcie";
 		reg = <0x0 0x5f010000 0x0 0x10000>, /* Controller reg*/
 		      <0x0 0x7ff00000 0x0 0x10000>; /* PCI cfg space */
 		reg-names = "dbi", "config";
