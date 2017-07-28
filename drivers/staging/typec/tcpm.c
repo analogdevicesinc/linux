@@ -3011,6 +3011,9 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 			new_state = SNK_UNATTACHED;
 		else if (port->vbus_present)
 			new_state = tcpm_try_src(port) ? SRC_TRY : SNK_ATTACHED;
+		else if (cc1 > TYPEC_CC_RP_DEF || cc2 > TYPEC_CC_RP_DEF)
+			/* CC changes on pull-up value */
+			new_state = SNK_ATTACH_WAIT;
 		else
 			new_state = SNK_UNATTACHED;
 		if (new_state != port->delayed_state)
