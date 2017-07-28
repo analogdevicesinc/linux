@@ -141,8 +141,8 @@ long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv)
 
 	/* Load DPU's main program to System memory */
 	fpInfile = file_open_name(hifi4_priv->objfile, O_RDONLY, 0);
-	if (!fpInfile)
-		return -1;
+	if (IS_ERR(fpInfile))
+		return PTR_ERR(fpInfile);
 
 	vfs_llseek(fpInfile, 0, SEEK_END);
 	filesize = (int)fpInfile->f_pos;
@@ -911,6 +911,7 @@ static long fsl_hifi4_load_codec(struct fsl_hifi4 *hifi4_priv,
 						void __user *user)
 {
 	struct device *dev = hifi4_priv->dev;
+	struct filename *fpInfile;
 	struct binary_info binary_info;
 	long ret = 0;
 
@@ -920,10 +921,21 @@ static long fsl_hifi4_load_codec(struct fsl_hifi4 *hifi4_priv,
 		return ret;
 	}
 
-	hifi4_priv->objfile = getname(binary_info.file);
+	fpInfile = getname(binary_info.file);
+	if (IS_ERR(fpInfile)) {
+		dev_err(dev, "failed to getname(), err = %ld\n",
+					PTR_ERR(fpInfile));
+		return PTR_ERR(fpInfile);
+	}
+
+	hifi4_priv->objfile = fpInfile;
 	hifi4_priv->objtype = binary_info.type;
 
 	ret = load_dpu_with_library(hifi4_priv);
+	if (ret) {
+		dev_err(dev, "failed to load code binary, err = %ld\n", ret);
+		return ret;
+	}
 
 	hifi4_priv->ret_status = 0;
 
@@ -937,6 +949,7 @@ static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
 						void __user *user)
 {
 	struct device *dev = hifi4_priv->dev;
+	struct filename *fpInfile;
 	struct binary_info binary_info;
 	long ret = 0;
 
@@ -946,10 +959,21 @@ static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
 		return ret;
 	}
 
-	hifi4_priv->objfile = getname(binary_info.file);
+	fpInfile = getname(binary_info.file);
+	if (IS_ERR(fpInfile)) {
+		dev_err(dev, "failed to getname(), err = %ld\n",
+					PTR_ERR(fpInfile));
+		return PTR_ERR(fpInfile);
+	}
+
+	hifi4_priv->objfile = fpInfile;
 	hifi4_priv->objtype = binary_info.type;
 
 	ret = load_dpu_with_library(hifi4_priv);
+	if (ret) {
+		dev_err(dev, "failed to load code binary, err = %ld\n", ret);
+		return ret;
+	}
 
 	hifi4_priv->ret_status = 0;
 
