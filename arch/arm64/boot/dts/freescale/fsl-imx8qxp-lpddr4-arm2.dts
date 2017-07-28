@@ -222,7 +222,7 @@
 
 		pinctrl_lpi2c1: lpi1cgrp {
 			fsl,pins = <
-				SC_P_USB_SS3_TC0_ADMA_I2C1_SCL	0x06000020
+				SC_P_USB_SS3_TC1_ADMA_I2C1_SCL	0x06000020
 				SC_P_USB_SS3_TC3_ADMA_I2C1_SDA	0x06000020
 			>;
 		};
