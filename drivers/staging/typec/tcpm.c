@@ -2374,12 +2374,7 @@ static void run_state_machine(struct tcpm_port *port)
 			tcpm_set_state(port, SRC_SEND_CAPABILITIES,
 				       PD_T_SEND_SOURCE_CAP);
 		} else {
-			/*
-			 * Per standard, we should clear the reset counter here.
-			 * However, that can result in state machine hang-ups.
-			 * Reset it only in READY state to improve stability.
-			 */
-			/* port->hard_reset_count = 0; */
+			port->hard_reset_count = 0;
 			port->caps_count = 0;
 			port->pd_capable = true;
 			hrtimer_start(&port->snd_res_timer,
