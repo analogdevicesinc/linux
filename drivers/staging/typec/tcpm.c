@@ -2695,7 +2695,10 @@ static void run_state_machine(struct tcpm_port *port)
 		 * to PE_SNK_Transition_to_default.
 		 */
 		tcpm_set_attached_state(port, true);
-		tcpm_set_state(port, SNK_STARTUP, 0);
+		if (tcpm_port_is_disconnected(port))
+			tcpm_set_state(port, unattached_state(port), 0);
+		else
+			tcpm_set_state(port, SNK_STARTUP, 0);
 		break;
 
 	/* Soft_Reset states */
