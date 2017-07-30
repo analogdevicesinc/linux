@@ -187,7 +187,6 @@ struct adxcvr_state {
 	struct clk			*conv_clk;
 	struct clk			*sysref_clk;
 	struct clk			*lane_rate_div40_clk;
-	struct clk			*out_clk;
 	struct clk_hw		lane_clk_hw;
 	struct work_struct	work;
 	unsigned long		lane_rate;
@@ -963,9 +962,10 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 
 	/* register the clock */
 	clk = clk_register(dev, &st->lane_clk_hw);
-	st->out_clk = clk;
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
 
-	return PTR_ERR_OR_ZERO(clk);
+	return of_clk_add_provider(node, of_clk_src_simple_get, clk);
 }
 
 static int adxcvr_parse_dt(struct adxcvr_state *st,
@@ -1022,12 +1022,6 @@ static void adxcvr_disable_unprepare_clocks(struct adxcvr_state *st)
 		clk_disable_unprepare(st->sysref_clk);
 }
 
-static void adxcvr_unregister_clock(struct adxcvr_state *st)
-{
-	if (!IS_ERR(st->out_clk))
-		clk_unregister(st->out_clk);
-}
-
 static void adxcvr_unregister_clock_provider(struct platform_device *pdev)
 {
 	of_clk_del_provider(pdev->dev.of_node);
@@ -1074,21 +1068,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 				  ADXCVR_SYSCLK_SEL(st->sys_clk_sel) |
 				  ADXCVR_OUTCLK_SEL(st->out_clk_sel)));
 
-	st->out_clk = devm_kzalloc(&pdev->dev,
-					 sizeof(st->out_clk), GFP_KERNEL);
-	if (!st->out_clk) {
-		dev_err(&pdev->dev, "Could not allocate memory\n");
-		ret = -ENOMEM;
-		goto disable_unprepare;
-	}
-
 	ret = adxcvr_clk_register(&pdev->dev, np, __clk_get_name(st->conv_clk));
 	if (ret)
-		goto unregister_clock;
-
-	if (!IS_ERR(st->out_clk))
-		of_clk_add_provider(np, of_clk_src_simple_get,
-							st->out_clk);
+		return ret;
 
 	st->sysref_gpio = devm_gpiod_get_optional(&pdev->dev, "sysref",
 											  GPIOD_OUT_HIGH);
@@ -1100,9 +1082,6 @@ static int adxcvr_probe(struct platform_device *pdev)
 		(unsigned long long)mem->start, st->regs);
 
 	return 0;
-
-unregister_clock:
-	adxcvr_unregister_clock(st);
 
 disable_unprepare:
 	adxcvr_disable_unprepare_clocks(st);
@@ -1123,7 +1102,6 @@ static int adxcvr_remove(struct platform_device *pdev)
 	struct adxcvr_state *st = platform_get_drvdata(pdev);
 
 	adxcvr_unregister_clock_provider(pdev);
-	adxcvr_unregister_clock(st);
 	adxcvr_disable_unprepare_clocks(st);
 
 	return 0;
