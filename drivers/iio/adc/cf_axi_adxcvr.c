@@ -188,7 +188,7 @@ struct adxcvr_state {
 	struct clk			*sysref_clk;
 	struct clk			*lane_rate_div40_clk;
 	struct clk			*out_clk;
-	struct clk_hw		out_clk_hw;
+	struct clk_hw		lane_clk_hw;
 	struct work_struct	work;
 	struct device_node *node;
 	unsigned long		lane_rate;
@@ -408,7 +408,7 @@ static void adxcvr_work_func(struct work_struct *work)
 static int adxcvr_clk_enable(struct clk_hw *hw)
 {
 	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	int ret;
 
 	dev_dbg(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
@@ -705,7 +705,7 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 											unsigned long parent_rate)
 {
 	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
 
 	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
 		__func__, parent_rate);
@@ -854,7 +854,7 @@ static long adxcvr_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 								  unsigned long *prate)
 {
 	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	int ret;
 
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
@@ -875,7 +875,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 							   unsigned long parent_rate)
 {
 	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	u32 refclk_div, out_div, fbdiv_45, fbdiv, fbdiv_ratio, lowband;
 	int ret, pll_done = 0;
 
@@ -967,10 +967,10 @@ static struct clk *adxcvr_clk_register(struct device *dev,
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 
-	st->out_clk_hw.init = &init;
+	st->lane_clk_hw.init = &init;
 
 	/* register the clock */
-	clk = clk_register(dev, &st->out_clk_hw);
+	clk = clk_register(dev, &st->lane_clk_hw);
 	st->out_clk = clk;
 
 	return clk;
