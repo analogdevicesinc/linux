@@ -189,7 +189,6 @@ struct adxcvr_state {
 	struct clk			*lane_rate_div40_clk;
 	struct clk			*out_clk;
 	struct clk_hw		out_clk_hw;
-	bool				out_clk_enabled;
 	struct work_struct	work;
 	struct device_node *node;
 	unsigned long		lane_rate;
@@ -426,22 +425,6 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 	ret = adxcvr_status_error(st->dev);
 
 	return ret;
-}
-
-static void adxcvr_clk_disable(struct clk_hw *hw)
-{
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
-
-	st->out_clk_enabled = false;
-}
-
-static int adxcvr_clk_is_enabled(struct clk_hw *hw)
-{
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, out_clk_hw);
-
-	return st->out_clk_enabled;
 }
 
 static long adxcvr_gth_rxcdr_settings(struct adxcvr_state *st,
@@ -956,8 +939,6 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 static const struct clk_ops clkout_ops = {
 	.recalc_rate = adxcvr_clk_recalc_rate,
 	.enable = adxcvr_clk_enable,
-	.disable = adxcvr_clk_disable,
-	.is_enabled = adxcvr_clk_is_enabled,
 	.round_rate = adxcvr_clk_round_rate,
 	.set_rate = adxcvr_clk_set_rate,
 
