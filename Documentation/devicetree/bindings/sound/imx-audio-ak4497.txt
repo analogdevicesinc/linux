@@ -1,0 +1,27 @@
+Freescale i.MX audio complex with AK4497 DAC
+
+Required properties:
+
+- compatible   : "fsl,imx-audio-ak4497"
+- model        : The user-visible name of this sound complex
+- audio-cpu    : The phandle of CPU DAI
+- audio-codec  : The phandle of the ak4497 audio DAC
+- audio-routing : A list of the connections between audio components. Each entry
+  is a pair of strings, the first being the connection's sink, the second being
+  the connection's source. Valid names could be power supplies, ak4497 pins,
+  and the jacks on the board.
+
+Example:
+
+sound {
+       compatible = "fsl,imx-audio-ak4497";
+       model = "ak4497-audio";
+       audio-cpu = <&sai3>;
+       audio-codec = <&codec>;
+       audio-routing =
+               "AOUTLN", "Playback",
+               "AOUTLP", "Playback",
+               "AOUTRN", "Playback",
+               "AOUTRP", "Playback",
+};
+

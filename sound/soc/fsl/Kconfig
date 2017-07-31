@@ -302,6 +302,18 @@ config SND_SOC_IMX_AK5558
 	  Say Y if you want to add support for SoC audio on an i.MX board with
 	  an AK5558 ADC.
 
+config SND_SOC_IMX_AK4497
+	tristate "SoC Audio support for i.MX boards with AK4497"
+	depends on OF && I2C
+	select SND_SOC_AK4497
+	select SND_SOC_IMX_PCM_DMA
+	select SND_SOC_FSL_SAI
+	select SND_SOC_FSL_UTILS
+	help
+	  SoC Audio support for i.MX boards with AK4497
+	  Say Y if you want to add support for SoC audio on an i.MX board with
+	  an AK4497 DAC.
+
 config SND_SOC_IMX_WM8960
 	tristate "SoC Audio support for i.MX boards with wm8960"
 	depends on OF && I2C
