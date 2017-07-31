@@ -961,7 +961,7 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 	st->lane_clk_hw.init = &init;
 
 	/* register the clock */
-	clk = clk_register(dev, &st->lane_clk_hw);
+	clk = devm_clk_register(dev, &st->lane_clk_hw);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
