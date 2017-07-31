@@ -425,6 +425,7 @@ struct sdma_engine {
 	bool				bd0_iram;
 	struct sdma_buffer_descriptor	*bd0;
 	bool				suspend_off;
+	int				idx;
 };
 
 static struct sdma_driver_data sdma_imx31 = {
@@ -612,6 +613,8 @@ static const struct of_device_id sdma_dt_ids[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, sdma_dt_ids);
+
+static int sdma_dev_idx;
 
 #define SDMA_H_CONFIG_DSPDMA	BIT(12) /* indicates if the DSPDMA is used */
 #define SDMA_H_CONFIG_RTD_PINS	BIT(11) /* indicates if Real-Time Debug pins are enabled */
@@ -2131,6 +2134,10 @@ static bool sdma_filter_fn(struct dma_chan *chan, void *fn_param)
 
 	if (!imx_dma_is_general_purpose(chan))
 		return false;
+	/* return false if it's not the right device */
+	if ((sdmac->sdma->drvdata == &sdma_imx8m)
+		&& (sdmac->sdma->idx != data->idx))
+		return false;
 
 	sdmac->data = *data;
 	chan->private = &sdmac->data;
@@ -2153,6 +2160,7 @@ static struct dma_chan *sdma_xlate(struct of_phandle_args *dma_spec,
 	data.dma_request = dma_spec->args[0];
 	data.peripheral_type = dma_spec->args[1];
 	data.priority = dma_spec->args[2];
+	data.idx = sdma->idx;
 
 	return dma_request_channel(mask, sdma_filter_fn, &data);
 }
@@ -2350,6 +2358,8 @@ static int sdma_probe(struct platform_device *pdev)
 		}
 		of_node_put(spba_bus);
 	}
+	/* There maybe multi sdma devices such as i.mx8mscale */
+	sdma->idx = sdma_dev_idx++;
 
 	return 0;
 
