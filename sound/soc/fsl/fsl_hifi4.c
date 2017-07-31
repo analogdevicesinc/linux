@@ -1705,7 +1705,8 @@ static int fsl_hifi4_remove(struct platform_device *pdev)
 	misc_deregister(&hifi4_miscdev);
 
 	size = MSG_BUF_SIZE + INPUT_BUF_SIZE +
-			OUTPUT_BUF_SIZE + FIRMWARE_DATA_BUF_SIZE;
+			OUTPUT_BUF_SIZE + FIRMWARE_DATA_BUF_SIZE +
+			SCRATCH_DATA_BUF_SIZE;
 	dma_free_coherent(&pdev->dev, size, hifi4_priv->msg_buf_virt,
 				hifi4_priv->msg_buf_phys);
 
