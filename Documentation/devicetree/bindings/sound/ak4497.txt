@@ -1,0 +1,23 @@
+AK4497 audio codec
+
+This device supports I2C mode only.
+
+Required properties:
+
+- compatible : "asahi-kasei,ak4497"
+- reg : The I2C address of the device.
+- asahi-kasei,pdn-gpio: A GPIO specifier for the GPIO controlling
+	the power down & reset pin.
+- asahi-kasei,mute-gpio: A GPIO specifier for the GPIO controlling
+	the soft mute pin.
+
+Example:
+
+&i2c {
+	ak4458: ak4458@0x10 {
+		compatible = "asahi-kasei,ak4458";
+		reg = <0x10>;
+		asahi-kasei,pdn-gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>
+		asahi-kasei,mute-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>
+	};
+};
