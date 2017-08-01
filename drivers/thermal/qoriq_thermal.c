@@ -15,6 +15,7 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/device_cooling.h>
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -75,6 +76,7 @@ struct qoriq_tmu_regs {
  */
 struct qoriq_tmu_data {
 	struct thermal_zone_device *tz;
+	struct thermal_cooling_device *cdev;
 	struct qoriq_tmu_regs __iomem *regs;
 	int sensor_id;
 	bool little_endian;
@@ -288,6 +290,30 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 		goto err_tmu;
 	}
 
+	data->cdev = devfreq_cooling_register();
+	if (IS_ERR(data->cdev)) {
+		ret = PTR_ERR(data->cdev);
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"failed to register devfreq cooling device: %d\n",
+				ret);
+		return ret;
+	}
+
+	ret = thermal_zone_bind_cooling_device(data->tz,
+		TMU_TRIP_PASSIVE,
+		data->cdev,
+		THERMAL_NO_LIMIT,
+		THERMAL_NO_LIMIT,
+		THERMAL_WEIGHT_DEFAULT);
+	if (ret) {
+		dev_err(&data->tz->device,
+			"binding zone %s with cdev %s failed:%d\n",
+			data->tz->type, data->cdev->type, ret);
+		devfreq_cooling_unregister(data->cdev);
+		return ret;
+	}
+
 	trip = of_thermal_get_trip_points(data->tz);
 	data->temp_passive = trip[0].temperature;
 	data->temp_critical = trip[1].temperature;
@@ -311,6 +337,7 @@ static int qoriq_tmu_remove(struct platform_device *pdev)
 {
 	struct qoriq_tmu_data *data = platform_get_drvdata(pdev);
 
+	devfreq_cooling_unregister(data->cdev);
 	thermal_zone_of_sensor_unregister(&pdev->dev, data->tz);
 
 	/* Disable monitoring */
