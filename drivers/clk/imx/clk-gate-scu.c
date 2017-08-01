@@ -351,7 +351,7 @@ struct clk *clk_register_gate2_scu(struct device *dev, const char *name,
 	return clk;
 }
 
-static int clk_gate3_scu_enable(struct clk_hw *hw)
+static int clk_gate3_scu_prepare(struct clk_hw *hw)
 {
 	struct clk_gate3_scu *gate = to_clk_gate3_scu(hw);
 	uint32_t val;
@@ -366,7 +366,7 @@ static int clk_gate3_scu_enable(struct clk_hw *hw)
 }
 
 /* Write to the LPCG bits. */
-static void clk_gate3_scu_disable(struct clk_hw *hw)
+static void clk_gate3_scu_unprepare(struct clk_hw *hw)
 {
 	struct clk_gate3_scu *gate = to_clk_gate3_scu(hw);
 	uint32_t val;
@@ -378,9 +378,27 @@ static void clk_gate3_scu_disable(struct clk_hw *hw)
 	sc_misc_set_control(ccm_ipc_handle, gate->rsrc_id, gate->gpr_id, val);
 }
 
+static int clk_gate3_scu_is_prepared(struct clk_hw *hw)
+{
+	struct clk_gate3_scu *gate = to_clk_gate3_scu(hw);
+	uint32_t val;
+
+	if (!ccm_ipc_handle)
+		return -1;
+
+	sc_misc_get_control(ccm_ipc_handle, gate->rsrc_id, gate->gpr_id, &val);
+	val &= 1;
+
+	if (gate->invert)
+		return 1 - val;
+
+	return val;
+}
+
 static struct clk_ops clk_gate3_scu_ops = {
-	.enable = clk_gate3_scu_enable,
-	.disable = clk_gate3_scu_disable,
+	.prepare = clk_gate3_scu_prepare,
+	.unprepare = clk_gate3_scu_unprepare,
+	.is_prepared = clk_gate3_scu_is_prepared,
 };
 
 struct clk *clk_register_gate3_scu(struct device *dev, const char *name,
