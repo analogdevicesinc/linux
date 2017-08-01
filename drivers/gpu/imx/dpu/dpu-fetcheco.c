@@ -140,9 +140,34 @@ void fetcheco_source_bpp(struct dpu_fetcheco *fe, int bpp)
 }
 EXPORT_SYMBOL_GPL(fetcheco_source_bpp);
 
-void fetcheco_source_stride(struct dpu_fetcheco *fe, int stride)
+/*
+ * The arguments width and bpp are valid only when use_prefetch is true.
+ * Since the pixel format has to be NV12 or NV21 when use_prefetch is true,
+ * we assume width stands for how many UV we have in bytes for one line,
+ * while bpp should be 8bits for every U or V component.
+ */
+void fetcheco_source_stride(struct dpu_fetcheco *fe, unsigned int width,
+			    int bpp, unsigned int stride,
+			    dma_addr_t baddr, bool use_prefetch)
 {
+	unsigned int burst_size;
 	u32 val;
+
+	if (use_prefetch) {
+		/*
+		 * address TKT343664:
+		 * fetch unit base address has to align to burst size
+		 */
+		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = min(burst_size, 128U);
+
+		stride = width * (bpp >> 3);
+		/*
+		 * address TKT339017:
+		 * fixup for burst size vs stride mismatch
+		 */
+		stride = round_up(stride, burst_size);
+	}
 
 	mutex_lock(&fe->mutex);
 	val = dpu_fe_read(fe, SOURCEBUFFERATTRIBUTES0);

@@ -547,7 +547,9 @@ void fetcheco_set_burstlength(struct dpu_fetcheco *fe, dma_addr_t baddr,
 			      bool use_prefetch);
 void fetcheco_baseaddress(struct dpu_fetcheco *fe, dma_addr_t paddr);
 void fetcheco_source_bpp(struct dpu_fetcheco *fe, int bpp);
-void fetcheco_source_stride(struct dpu_fetcheco *fe, int stride);
+void fetcheco_source_stride(struct dpu_fetcheco *fe, unsigned int width,
+			    int bpp, unsigned int stride,
+			    dma_addr_t baddr, bool use_prefetch);
 void fetcheco_src_buf_dimensions(struct dpu_fetcheco *fe, unsigned int w,
 				 unsigned int h, u32 fmt);
 void fetcheco_set_fmt(struct dpu_fetcheco *fe, u32 fmt);
