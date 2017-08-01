@@ -491,10 +491,13 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 	u32 val_cr4 = 0, val_cr5 = 0;
 	u32 slots = (channels == 1) ? 2 : channels;
 	u32 slot_width = word_width;
+	u32 pins;
 	int ret;
 
 	if (sai->slots)
 		slots = sai->slots;
+
+	pins = DIV_ROUND_UP(channels, slots);
 
 	if (sai->slot_width)
 		slot_width = sai->slot_width;
@@ -562,6 +565,10 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 				FSL_SAI_CR4_FCOMB_MASK, FSL_SAI_CR4_FCOMB_SOFT);
 	}
 
+	regmap_update_bits(sai->regmap, FSL_SAI_xCR3(tx, offset),
+			   FSL_SAI_CR3_TRCE_MASK,
+			   FSL_SAI_CR3_TRCE((sai->dataline[tx] & ((1 << pins) - 1))));
+
 	regmap_update_bits(sai->regmap, FSL_SAI_xCR4(tx, offset),
 			   FSL_SAI_CR4_SYWD_MASK | FSL_SAI_CR4_FRSZ_MASK,
 			   val_cr4);
@@ -577,7 +584,11 @@ static int fsl_sai_hw_free(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *cpu_dai)
 {
 	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
+	unsigned char offset = sai->soc->reg_offset;
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+
+	regmap_update_bits(sai->regmap, FSL_SAI_xCR3(tx, offset),
+				   FSL_SAI_CR3_TRCE_MASK, 0);
 
 	if (!sai->slave_mode[tx] &&
 			sai->mclk_streams & BIT(substream->stream)) {
@@ -698,7 +709,6 @@ static int fsl_sai_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *cpu_dai)
 {
 	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
-	unsigned char offset = sai->soc->reg_offset;
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct device *dev = &sai->pdev->dev;
 	int ret;
@@ -713,10 +723,6 @@ static int fsl_sai_startup(struct snd_pcm_substream *substream,
 		dev_err(dev, "failed to enable bus clock: %d\n", ret);
 		return ret;
 	}
-
-	regmap_update_bits(sai->regmap, FSL_SAI_xCR3(tx, offset),
-			   FSL_SAI_CR3_TRCE_MASK,
-			   FSL_SAI_CR3_TRCE(sai->dataline[tx]));
 
 	/* EDMA engine needs periods of size multiple of tx/rx maxburst */
 	if (sai->soc->constrain_period_size)
@@ -735,12 +741,9 @@ static void fsl_sai_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *cpu_dai)
 {
 	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
-	unsigned char offset = sai->soc->reg_offset;
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 
 	if (sai->is_stream_opened[tx]) {
-		regmap_update_bits(sai->regmap, FSL_SAI_xCR3(tx, offset),
-				   FSL_SAI_CR3_TRCE_MASK, 0);
 		clk_disable_unprepare(sai->bus_clk);
 		sai->is_stream_opened[tx] = false;
 	}
