@@ -483,6 +483,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	 * bit26 is used by rpmsg channels.
 	 * bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now
 	 */
+	MU_Init(mu_base);
 	if (variant == IMX7ULP) {
 		MU_EnableRxFullInt(mu_base, 1);
 		MU_SetFn(mu_base, 1);
