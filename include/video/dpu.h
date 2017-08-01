@@ -563,6 +563,9 @@ int fetcheco_fetchtype(struct dpu_fetcheco *fe, fetchtype_t *type);
 dpu_block_id_t fetcheco_get_block_id(struct dpu_fetcheco *fe);
 unsigned int fetcheco_get_stream_id(struct dpu_fetcheco *fe);
 void fetcheco_set_stream_id(struct dpu_fetcheco *fe, unsigned int id);
+void fetcheco_pin_off(struct dpu_fetcheco *fe);
+void fetcheco_unpin_off(struct dpu_fetcheco *fe);
+bool fetcheco_is_pinned_off(struct dpu_fetcheco *fe);
 struct dpu_fetcheco *dpu_fe_get(struct dpu_soc *dpu, int id);
 void dpu_fe_put(struct dpu_fetcheco *fe);
 

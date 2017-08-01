@@ -45,6 +45,7 @@ struct dpu_fetcheco {
 	struct mutex mutex;
 	int id;
 	bool inuse;
+	bool pin_off;
 	struct dpu_soc *dpu;
 	/* see DPU_PLANE_SRC_xxx */
 	unsigned int stream_id;
@@ -438,6 +439,24 @@ void fetcheco_set_stream_id(struct dpu_fetcheco *fe, unsigned int id)
 	}
 }
 EXPORT_SYMBOL_GPL(fetcheco_set_stream_id);
+
+void fetcheco_pin_off(struct dpu_fetcheco *fe)
+{
+	fe->pin_off = true;
+}
+EXPORT_SYMBOL_GPL(fetcheco_pin_off);
+
+void fetcheco_unpin_off(struct dpu_fetcheco *fe)
+{
+	fe->pin_off = false;
+}
+EXPORT_SYMBOL_GPL(fetcheco_unpin_off);
+
+bool fetcheco_is_pinned_off(struct dpu_fetcheco *fe)
+{
+	return fe->pin_off;
+}
+EXPORT_SYMBOL_GPL(fetcheco_is_pinned_off);
 
 struct dpu_fetcheco *dpu_fe_get(struct dpu_soc *dpu, int id)
 {
