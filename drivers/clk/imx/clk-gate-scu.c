@@ -35,6 +35,9 @@
  * parent - fixed parent.  No clk_set_parent support
  */
 
+#define CLK_GATE_SCU_HW_SW_EN	(BIT(0) | BIT(1))
+#define CLK_GATE_SCU_SW_EN	BIT(1)
+
 struct clk_gate_scu {
 	struct clk_hw hw;
 	void __iomem	*reg;
@@ -80,9 +83,9 @@ static int clk_gate_scu_enable(struct clk_hw *hw)
 	if (gate->reg) {
 		reg = readl(gate->reg);
 		if (gate->hw_gate)
-			reg |= (0x3 << gate->bit_idx);
+			reg |= (CLK_GATE_SCU_HW_SW_EN << gate->bit_idx);
 		else
-			reg |= (0x2 << gate->bit_idx);
+			reg |= (CLK_GATE_SCU_SW_EN << gate->bit_idx);
 		writel(reg, gate->reg);
 	}
 
@@ -101,9 +104,9 @@ static void clk_gate_scu_disable(struct clk_hw *hw)
 	if (gate->reg) {
 		reg = readl(gate->reg);
 		if (gate->hw_gate)
-			reg &= ~(0x3 << gate->bit_idx);
+			reg &= ~(CLK_GATE_SCU_HW_SW_EN << gate->bit_idx);
 		else
-			reg &= ~(0x2 << gate->bit_idx);
+			reg &= ~(CLK_GATE_SCU_SW_EN << gate->bit_idx);
 		writel(reg, gate->reg);
 	}
 }
