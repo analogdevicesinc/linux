@@ -29,7 +29,8 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-mlb.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-mqs.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-wm8962.dtb
-dtb-$(CONFIG_ARCH_FSL_IMX8MQ) += fsl-imx8mq-evk.dtb
+dtb-$(CONFIG_ARCH_FSL_IMX8MQ) += fsl-imx8mq-evk.dtb \
+				 fsl-imx8mq-evk-od.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)

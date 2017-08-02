@@ -141,6 +141,12 @@
 			>;
 		};
 
+		pinctrl_dvfs: dvfsgrp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_GPIO1_IO13_GPIO1_IO13	0x16
+			>;
+		};
+
 		pinctrl_uart1: uart1grp {
 			fsl,pins = <
 				MX8MQ_IOMUXC_UART1_RXD_UART1_DCE_RX		0x79

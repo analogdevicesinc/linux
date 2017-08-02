@@ -1,0 +1,46 @@
+/*
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8mq-evk.dts"
+
+/ {
+	regulators {
+		reg_gpio_dvfs: regulator-gpio {
+			compatible = "regulator-gpio";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_dvfs>;
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1000000>;
+			regulator-name = "gpio_dvfs";
+			regulator-type = "voltage";
+			gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+			states = <900000 0x1 1000000 0x0>;
+		};
+	};
+};
+
+&pwm2 {
+	status = "disabled";
+};
+
+&A53_0 {
+	operating-points = <
+		/* kHz    uV */
+		1400000 1000000
+		1200000 900000
+		800000	900000
+	>;
+	dc-supply = <&reg_gpio_dvfs>;
+};
