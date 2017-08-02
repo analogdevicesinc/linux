@@ -514,7 +514,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				pd_sata0: PD_HSIO_SATA0 {
+				pd_sata0: PD_HSIO_SATA_0 {
 					reg = <SC_R_SATA_0>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_serdes1>;
