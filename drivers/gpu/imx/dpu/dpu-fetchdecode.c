@@ -277,10 +277,12 @@ void fetchdecode_set_fmt(struct dpu_fetchdecode *fd, u32 fmt)
 		is_yuv422upsamplingmode_interpolate = true;
 		need_csc = true;
 		break;
-	case DRM_FORMAT_NV12:
-	case DRM_FORMAT_NV21:
 	case DRM_FORMAT_NV16:
 	case DRM_FORMAT_NV61:
+		is_yuv422upsamplingmode_interpolate = true;
+		/* fall-through */
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
 		is_planar_yuv = true;
 		is_rastermode_yuv422 = true;
 		is_inputselect_compact = true;
