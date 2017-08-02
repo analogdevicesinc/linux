@@ -81,6 +81,14 @@ config FB_MXC_HDMI
 	help
 	  Driver for the on-chip MXC HDMI controller.
 
+config FB_MX8_HDMI
+	tristate "IMX 8 SOC HDMI"
+	depends on FB_IMX64 && ARCH_FSL_IMX8MQ
+	depends on FB_MXC_DISP_FRAMEWORK
+	help
+	  Candece HDMI driver which includes
+	  core and PHY management.
+
 config FB_MXC_EDID
      depends on FB_MXC && I2C
      tristate "MXC EDID support"
