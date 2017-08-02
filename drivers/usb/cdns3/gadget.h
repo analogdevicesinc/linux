@@ -172,6 +172,9 @@ struct usb_ss_endpoint {
 	int wedge_flag;
 	void *cpu_addr;
 	dma_addr_t dma_addr;
+	u8					dir;
+	u8					num;
+	u8					type;
 };
 
 struct usb_ss_dev {

@@ -75,7 +75,6 @@ static int usb_ss_gadget_ep0_disable(struct usb_ep *ep);
 static int usb_ss_gadget_ep0_set_halt(struct usb_ep *ep, int value);
 static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 	struct usb_request *request, gfp_t gfp_flags);
-static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep, int index);
 static int usb_ss_gadget_ep_enable(struct usb_ep *ep,
 	const struct usb_endpoint_descriptor *desc);
 static int usb_ss_gadget_ep_disable(struct usb_ep *ep);
@@ -680,10 +679,12 @@ static int cdns_req_ep0_set_configuration(struct usb_ss_dev *usb_ss,
 
 	case USB_STATE_ADDRESS:
 
+		/*
 		if (config) {
 			for (i = 0; i < usb_ss->ep_nums; i++)
 				cdns_ep_config(usb_ss->eps[i], i);
 		}
+		*/
 #ifdef CDNS_THREADED_IRQ_HANDLING
 		usb_ss->ep_ien = gadget_readl(usb_ss, &usb_ss->regs->ep_ien)
 			| EP_IEN__EOUTEN0__MASK | EP_IEN__EINEN0__MASK;
@@ -1307,18 +1308,18 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 /**
  * cdns_ep_config Configure hardware endpoint
  * @usb_ss_ep: extended endpoint object
- * @index: index for endpoints
  */
-static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep, int index)
+static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep)
 {
 	struct usb_ss_dev *usb_ss = usb_ss_ep->usb_ss;
 	u32 ep_cfg = 0;
 	u32 max_packet_size = 0;
-	u32 bEndpointAddress = (u32)CAST_INDEX_TO_EP_ADDR(index);
+	u32 bEndpointAddress = usb_ss_ep->num | usb_ss_ep->dir;
 	u32 interrupt_mask = 0;
+	bool is_iso_ep = (usb_ss_ep->type == USB_ENDPOINT_XFER_ISOC);
 
 	usb_ss_ep->endpoint.address = bEndpointAddress;
-	if (usb_ss_ep->is_iso_flag) {
+	if (is_iso_ep) {
 		ep_cfg = EP_CFG__EPTYPE__WRITE(USB_ENDPOINT_XFER_ISOC);
 		interrupt_mask = INTERRUPT_MASK;
 	} else {
@@ -1362,7 +1363,7 @@ static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep, int index)
 
 	ep_cfg |= EP_CFG__MAXPKTSIZE__WRITE(max_packet_size);
 
-	if (usb_ss_ep->is_iso_flag) {
+	if (is_iso_ep) {
 		ep_cfg |= EP_CFG__BUFFERING__WRITE(1);
 		ep_cfg |= EP_CFG__MAXBURST__WRITE(0);
 	} else {
@@ -1428,6 +1429,11 @@ static int usb_ss_gadget_ep_enable(struct usb_ep *ep,
 	ep->enabled = 1;
 	usb_ss_ep->hw_pending_flag = 0;
 	usb_ss_ep->endpoint.desc = desc;
+	usb_ss_ep->dir  = usb_endpoint_dir_in(desc) ? USB_DIR_IN : USB_DIR_OUT;
+	usb_ss_ep->num  = usb_endpoint_num(desc);
+	usb_ss_ep->type = usb_endpoint_type(desc);
+
+	cdns_ep_config(usb_ss_ep);
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 
 	return 0;
