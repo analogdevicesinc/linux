@@ -16,7 +16,11 @@
 #include <linux/of.h>
 #include <linux/pm_opp.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/suspend.h>
+
+#define DC_VOLTAGE_MIN		900000
+#define DC_VOLTAGE_MAX		1000000
 
 static struct device *cpu_dev;
 static bool free_opp;
@@ -30,6 +34,7 @@ static struct clk *arm_pll_clk;
 static struct clk *arm_pll_out_clk;
 static struct clk *sys1_pll_800m_clk;
 struct thermal_cooling_device *cdev;
+static struct regulator *dc_reg;
 
 static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 {
@@ -57,9 +62,31 @@ static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 	dev_dbg(cpu_dev, "%u MHz --> %u MHz\n",
 		old_freq / 1000, new_freq / 1000);
 
+	if (new_freq == suspend_freq) {
+		if (!IS_ERR(dc_reg)) {
+			ret = regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MAX, 0);
+			if (ret) {
+				dev_err(cpu_dev, "failed to scale dc_reg up: %d\n", ret);
+				mutex_unlock(&set_cpufreq_lock);
+				return ret;
+			}
+		}
+	}
+
 	clk_set_parent(arm_a53_src_clk, sys1_pll_800m_clk);
 	clk_set_rate(arm_pll_clk, new_freq * 1000);
 	clk_set_parent(arm_a53_src_clk, arm_pll_out_clk);
+
+	if (old_freq == suspend_freq) {
+		if (!IS_ERR(dc_reg)) {
+			ret = regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MIN, 0);
+			if (ret) {
+				dev_err(cpu_dev, "failed to scale dc_reg down: %d\n", ret);
+				mutex_unlock(&set_cpufreq_lock);
+				return ret;
+			}
+		}
+	}
 
 	/* Ensure the arm clock divider is what we expect */
 	ret = clk_set_rate(a53_clk, new_freq * 1000);
@@ -148,6 +175,8 @@ static int imx8mq_cpufreq_probe(struct platform_device *pdev)
 		ret = -ENOENT;
 		goto put_clk;
 	}
+
+	dc_reg = regulator_get_optional(cpu_dev, "dc");
 
 	/*
 	 * We expect an OPP table supplied by platform.
