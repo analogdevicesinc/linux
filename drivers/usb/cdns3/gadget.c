@@ -1183,6 +1183,7 @@ static irqreturn_t cdns_irq_handler_thread(struct cdns3 *cdns)
 		cdns_check_ep_interrupt_proceed(
 				usb_ss->eps[CAST_EP_REG_POS_TO_INDEX(bit_pos)]);
 		reg &= ~bit_mask;
+		ret = IRQ_HANDLED;
 	} while (reg);
 
 irqend:
