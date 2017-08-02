@@ -1306,6 +1306,7 @@ err_reset_phy:
 			clk_disable_unprepare(imx6_pcie->pcie_inbound_axi);
 		release_bus_freq(BUS_FREQ_HIGH);
 		if ((imx6_pcie->variant == IMX7D)
+				|| (imx6_pcie->variant == IMX8MQ)
 				|| (imx6_pcie->variant == IMX8QM)
 				|| (imx6_pcie->variant == IMX8QXP))
 			pm_runtime_put_sync(pci->dev);
@@ -1327,8 +1328,10 @@ static int imx6_pcie_host_init(struct pcie_port *pp)
 	struct imx6_pcie *imx6_pcie = to_imx6_pcie(pci);
 
 	/* enable disp_mix power domain */
-	if ((imx6_pcie->variant == IMX7D) || (imx6_pcie->variant == IMX8QM)
-				|| (imx6_pcie->variant == IMX8QXP))
+	if ((imx6_pcie->variant == IMX7D)
+			|| (imx6_pcie->variant == IMX8MQ)
+			|| (imx6_pcie->variant == IMX8QM)
+			|| (imx6_pcie->variant == IMX8QXP))
 		pm_runtime_get_sync(pci->dev);
 
 	imx6_pcie_assert_core_reset(imx6_pcie);
@@ -2072,7 +2075,10 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		pp->ops = &imx6_pcie_host_ops;
 
 		/* enable disp_mix power domain */
-		if (imx6_pcie->variant == IMX7D)
+		if ((imx6_pcie->variant == IMX7D)
+				|| (imx6_pcie->variant == IMX8MQ)
+				|| (imx6_pcie->variant == IMX8QM)
+				|| (imx6_pcie->variant == IMX8QXP))
 			pm_runtime_get_sync(dev);
 
 		imx6_pcie_assert_core_reset(imx6_pcie);
