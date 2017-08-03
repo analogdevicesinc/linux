@@ -186,6 +186,20 @@ static int egalax_ts_probe(struct i2c_client *client,
 	ts->client = client;
 	ts->input_dev = input_dev;
 
+	/* HannStar (HSD100PXN1 Rev: 1-A00C11 F/W:0634) LVDS touch
+	 * screen needs to trigger I2C event to device FW at booting
+	 * first, and then the FW can switch to I2C interface.
+	 * Otherwise, the FW can’t  work with I2C interface. So here
+	 * just use the exist function egalax_firmware_version() to
+	 * send a I2C command to the device, make sure the device FW
+	 * switch to I2C interface.
+	 */
+	error = egalax_firmware_version(client);
+	if (error) {
+		dev_err(&client->dev, "Failed to switch to I2C interface\n");
+		return error;
+	}
+
 	/* controller may be in sleep, wake it up. */
 	error = egalax_wake_up_device(client);
 	if (error) {
