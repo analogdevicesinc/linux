@@ -53,6 +53,7 @@ static const char * const iio_chan_type_name_spec[] = {
 	[IIO_ENERGY] = "energy",
 	[IIO_DISTANCE] = "distance",
 	[IIO_VELOCITY] = "velocity",
+	[IIO_GENERIC_DATA] = "data",
 };
 
 static const char * const iio_ev_type_text[] = {
@@ -136,6 +137,7 @@ static bool event_is_known(struct iio_event_data *event)
 	case IIO_ENERGY:
 	case IIO_DISTANCE:
 	case IIO_VELOCITY:
+	case IIO_GENERIC_DATA:
 		break;
 	default:
 		return false;
