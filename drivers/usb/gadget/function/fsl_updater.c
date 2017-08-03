@@ -308,8 +308,7 @@ static int utp_do_write(struct fsg_dev *fsg, void *data, size_t size)
 
 			/* amount is always divisible by 512, hence by
 			 * the bulk-out maxpacket size */
-			bh->outreq->length = bh->bulk_out_intended_length =
-					amount;
+			set_bulk_out_req_length(fsg->common, bh, amount);
 			bh->outreq->short_not_ok = 1;
 			start_transfer(fsg, fsg->bulk_out, bh->outreq);
 			fsg->common->next_buffhd_to_fill = bh->next;
