@@ -2,7 +2,7 @@
  * Freescale HIFI 4 driver
  *
  * Copyright (c) 2012-2013 by Tensilica Inc. ALL RIGHTS RESERVED.
- * Copyright (C) 2017 NXP.
+ * Copyright 2017 NXP.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,20 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
+ * Copyright (c) 2001 William L. Pitts
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are freely
+ * permitted provided that the above copyright notice and this
+ * paragraph and the following disclaimer are duplicated in all
+ * such forms.
+ *
+ * This software is provided "AS IS" and without any express or
+ * implied warranties, including, without limitation, the implied
+ * warranties of merchantability and fitness for a particular
+ * purpose.
+ *
  */
 
 #include <linux/clk.h>
@@ -1762,4 +1776,4 @@ module_platform_driver(fsl_hifi4_driver);
 
 MODULE_DESCRIPTION("Freescale HIFI 4 driver");
 MODULE_ALIAS("platform:fsl-hifi4");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("Dual BSD/GPL");
