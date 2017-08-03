@@ -69,6 +69,14 @@
 			"Line Out Jack", "LINEVOUTR";
 	};
 
+	sound-hdmi {
+		compatible = "fsl,imx-audio-cdnhdmi";
+		model = "imx-audio-hdmi";
+		audio-cpu = <&sai4>;
+		video-mode = <95>;	/* #16: 1920x1080p@60HZ 16:9 */
+					/* #95: 3840x2160p@30Hz 16:9 */
+	};
+
 	pwmleds {
 		compatible = "pwm-leds";
 
@@ -78,6 +86,11 @@
 			max-brightness = <255>;
 		};
 	};
+};
+
+&clk {
+	assigned-clocks = <&clk IMX8MQ_AUDIO_PLL1>;
+	assigned-clock-rates = <786432000>;
 };
 
 &iomuxc {
@@ -552,11 +565,17 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai2>;
 	assigned-clocks = <&clk IMX8MQ_CLK_SAI2_SRC>,
-			<&clk IMX8MQ_AUDIO_PLL1>,
-			<&clk IMX8MQ_CLK_SAI2_PRE_DIV>,
 			<&clk IMX8MQ_CLK_SAI2_DIV>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <786432000>, <98306000>, <24576000>;
+	assigned-clock-rates = <0>, <24576000>;
+	status = "okay";
+};
+
+&sai4 {
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI4_SRC>,
+			<&clk IMX8MQ_CLK_SAI4_DIV>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <0>, <24576000>;
 	status = "okay";
 };
 
