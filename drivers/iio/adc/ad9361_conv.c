@@ -1,7 +1,7 @@
 /*
  * AD9361 Agile RF Transceiver
  *
- * Copyright 2013-2015 Analog Devices Inc.
+ * Copyright 2013-2017 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -95,6 +95,54 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 }
 EXPORT_SYMBOL(ad9361_dig_interface_timing_analysis);
 
+static ssize_t samples_pps_read(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan, char *buf)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	u32 config, val, mode;
+
+	config = axiadc_read(st, ADI_REG_CONFIG);
+
+	if (!(config & ADI_PPS_RECEIVER_ENABLE))
+		return -ENODEV;
+
+	val = axiadc_read(st, ADI_REG_CLOCKS_PER_PPS_STATUS);
+	if (val & ADI_CLOCKS_PER_PPS_STAT_INVAL)
+		return -ETIMEDOUT;
+
+	mode = axiadc_read(st, ADI_REG_CNTRL);
+
+	/*
+	 * Counts DATA_CLK cycles therefore needs to be corrected
+	 * for 2rx2tx mode or for LVDS vs. CMOS mode.
+	 */
+
+	val = axiadc_read(st, ADI_REG_CLOCKS_PER_PPS);
+
+	if (!(mode & ADI_R1_MODE))
+		val /= 2;
+
+	if (!(config & ADI_CMOS_OR_LVDS_N))
+		val /= 2;
+
+	return sprintf(buf, "%u\n", val);
+}
+
+/*
+ * Returns the number of samples during a 1PPS (Pulse Per Second) interval.
+ */
+
+static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
+	{
+		.name = "samples_pps",
+		.read = samples_pps_read,
+		.shared = IIO_SHARED_BY_TYPE,
+	},
+	{},
+};
+
 #define AIM_CHAN(_chan, _si, _bits, _sign)			\
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
@@ -103,7 +151,7 @@ EXPORT_SYMBOL(ad9361_dig_interface_timing_analysis);
 			BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
 			BIT(IIO_CHAN_INFO_CALIBPHASE),			\
 	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
-	/*.ext_info = axiadc_ext_info,*/			\
+	  .ext_info = axiadc_ext_info,					\
 	  .scan_index = _si,						\
 	  .scan_type = {						\
 		.sign = _sign,						\
