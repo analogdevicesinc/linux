@@ -918,9 +918,11 @@
 		reg = <0x0 0x32c00000 0x0 0x100000>,	/* HDMI registers */
 				<0x0 0x32e40000 0x0 0x40000>;   /* HDMI SEC register */
 		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
-		video-mode = <95>;	/* #16: 1920x1080p@60HZ 16:9 */
-							/* #95: 3840x2160p@30Hz 16:9 */
-							/* #99: 3840x2160p@60Hz 16:9 */
+		video-mode = <16>;	/* <default_mode: #16>
+					 * #16: 1920x1080p@60HZ 16:9
+					 * #95: 3840x2160p@30Hz 16:9
+					 * #99: 3840x2160p@60Hz 16:9
+					 */
 		status = "disabled";
 	};
 
