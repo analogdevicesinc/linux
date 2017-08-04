@@ -314,6 +314,7 @@
 		interrupt-parent = <&gpc>;
 		#interrupt-cells = <2>;
 		nxp,irqsteer_chans = <2>;
+		nxp,endian = <1>;		/* MSB */
 		clocks = <&clk IMX8MQ_CLK_DUMMY>;
 		clock-names = "ipg";
 	};
