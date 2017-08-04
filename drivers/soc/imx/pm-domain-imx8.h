@@ -15,12 +15,19 @@
 #ifndef PM_DOMAIN_IMX8_H
 #define PM_DOMAIN_IMX8_H
 
+#include <linux/clk.h>
 #include <linux/pm_domain.h>
 #include <soc/imx8/sc/sci.h>
 
 #define DEFAULT_DEV_LATENCY_NS	250000
 
 struct platform_device;
+
+struct imx8_pm_rsrc_clks {
+	struct clk *clk;
+	u32 rate;
+	struct list_head node;
+};
 
 struct imx8_pm_domain {
 	const char *name;
@@ -30,6 +37,7 @@ struct imx8_pm_domain {
 	void (*resume)(void);
 	sc_rsrc_t rsrc_id;
 	bool runtime_idle_active;
+	struct list_head clks;
 };
 
 static inline

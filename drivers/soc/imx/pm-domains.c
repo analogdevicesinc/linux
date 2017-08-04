@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/io.h>
@@ -44,7 +46,6 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 	sci_err = sc_pm_set_resource_power_mode(pm_ipc_handle, pd->rsrc_id,
 		(power_on) ? SC_PM_PW_MODE_ON :
 		(pd->runtime_idle_active) ? SC_PM_PW_MODE_LP : SC_PM_PW_MODE_OFF);
-
 	if (sci_err)
 		pr_err("Failed power operation on resource %d\n", pd->rsrc_id);
 
@@ -54,14 +55,53 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 static int imx8_pd_power_on(struct generic_pm_domain *domain)
 {
 	struct imx8_pm_domain *pd;
+	struct imx8_pm_rsrc_clks *imx8_rsrc_clk;
+	int ret = 0;
 
 	pd = container_of(domain, struct imx8_pm_domain, pd);
+
+	ret = imx8_pd_power(domain, true);
+
+	if (!list_empty(&pd->clks) && domain->status == GPD_STATE_POWER_OFF
+		&& !pd->runtime_idle_active) {
+		/*
+		 * The SS is powered on restore the clock rates that
+		 * may be lost.
+		 */
+		list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
+			if (imx8_rsrc_clk->rate) {
+				/*
+				 * Need to read the clock so that rate in
+				 * Linux is reset.
+				 */
+				clk_get_rate(imx8_rsrc_clk->clk);
+				/* Restore the clock rate. */
+				clk_set_rate(imx8_rsrc_clk->clk,
+					imx8_rsrc_clk->rate);
+			}
+		}
+	}
 	pd->runtime_idle_active = false;
-	return imx8_pd_power(domain, true);
+
+	return ret;
 }
 
 static int imx8_pd_power_off(struct generic_pm_domain *domain)
 {
+	struct imx8_pm_domain *pd;
+	struct imx8_pm_rsrc_clks *imx8_rsrc_clk;
+
+	pd = container_of(domain, struct imx8_pm_domain, pd);
+
+	if (!list_empty(&pd->clks) && (domain->status != GPD_STATE_POWER_OFF)
+		&& (!pd->runtime_idle_active)) {
+		/*
+		 * The SS is going to be powered off, store the clock rates
+		 * that may be lost.
+		 */
+		list_for_each_entry(imx8_rsrc_clk, &pd->clks, node)
+			imx8_rsrc_clk->rate = clk_get_rate(imx8_rsrc_clk->clk);
+	}
 	return imx8_pd_power(domain, false);
 }
 
@@ -95,6 +135,67 @@ static int imx8_pm_runtime_idle(struct device *dev)
 	return pm_runtime_autosuspend(dev);
 }
 
+static int imx8_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
+{
+	struct imx8_pm_domain *pd;
+	struct device_node *node = dev->of_node;
+	struct of_phandle_args clkspec;
+	struct property	*prop;
+	const __be32 *cur;
+	int rc, index = 0;
+	u32 rate;
+
+	pd = container_of(genpd, struct imx8_pm_domain, pd);
+
+	INIT_LIST_HEAD(&pd->clks);
+	of_property_for_each_u32(node, "assigned-clock-rates",
+		prop, cur, rate) {
+		if (rate) {
+			struct imx8_pm_rsrc_clks *imx8_rsrc_clk;
+
+			rc = of_parse_phandle_with_args(node, "assigned-clocks",
+					"#clock-cells",	index, &clkspec);
+			if (rc < 0) {
+				/* skip empty (null) phandles */
+				if (rc == -ENOENT)
+					continue;
+				else
+					return rc;
+			}
+			if (clkspec.np == node)
+				return 0;
+
+			imx8_rsrc_clk = devm_kzalloc(dev,
+				sizeof(*imx8_rsrc_clk), GFP_KERNEL);
+			if (!imx8_rsrc_clk)
+				return -ENOMEM;
+
+			imx8_rsrc_clk->clk = of_clk_get_from_provider(&clkspec);
+			if (!IS_ERR(imx8_rsrc_clk->clk))
+				list_add_tail(&imx8_rsrc_clk->node, &pd->clks);
+		}
+		index++;
+	}
+	return 0;
+}
+
+static void imx8_detach_dev(struct generic_pm_domain *genpd, struct device *dev)
+{
+	struct imx8_pm_domain *pd;
+	struct imx8_pm_rsrc_clks *imx8_rsrc_clk;
+
+	pd = container_of(genpd, struct imx8_pm_domain, pd);
+
+	/* Free all the clock entry nodes. */
+	if (!list_empty(&pd->clks))
+		return;
+
+	list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
+		list_del(&imx8_rsrc_clk->node);
+		devm_kfree(dev, imx8_rsrc_clk);
+	}
+}
+
 static int __init imx8_add_pm_domains(struct device_node *parent,
 					struct generic_pm_domain *genpd_parent)
 {
@@ -114,11 +215,15 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 		if (!of_property_read_u32(np, "reg", &rsrc_id))
 			imx8_pd->rsrc_id = rsrc_id;
 
-		imx8_pd->pd.power_off = imx8_pd_power_off;
-		imx8_pd->pd.power_on = imx8_pd_power_on;
-		imx8_pd->pd.dev_ops.start = imx8_pd_dev_start;
-		imx8_pd->pd.dev_ops.stop = imx8_pd_dev_stop;
-
+		if (imx8_pd->rsrc_id != SC_R_LAST) {
+			imx8_pd->pd.power_off = imx8_pd_power_off;
+			imx8_pd->pd.power_on = imx8_pd_power_on;
+			imx8_pd->pd.dev_ops.start = imx8_pd_dev_start;
+			imx8_pd->pd.dev_ops.stop = imx8_pd_dev_stop;
+			imx8_pd->pd.attach_dev = imx8_attach_dev;
+			imx8_pd->pd.detach_dev = imx8_detach_dev;
+		}
+		INIT_LIST_HEAD(&imx8_pd->clks);
 		pm_genpd_init(&imx8_pd->pd, NULL, true);
 
 		imx8_pd->pd.domain.ops.runtime_idle = imx8_pm_runtime_idle;
@@ -165,6 +270,8 @@ static int __init imx8_init_pm_domains(void)
 			imx8_pd->pd.power_off = imx8_pd_power_off;
 			imx8_pd->pd.power_on = imx8_pd_power_on;
 		}
+		INIT_LIST_HEAD(&imx8_pd->clks);
+
 		pm_genpd_init(&imx8_pd->pd, NULL, true);
 		of_genpd_add_provider_simple(np, &imx8_pd->pd);
 		imx8_add_pm_domains(np, &imx8_pd->pd);
