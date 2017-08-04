@@ -134,3 +134,11 @@ config FB_MXC_EINK_V2_PANEL
 config FB_MXC_EINK_AUTO_UPDATE_MODE
 	bool "E-Ink Auto-update Mode Support"
 	depends on FB_MXC_EINK_PANEL
+
+config FB_DCSS
+	tristate "DCSS multi-layer framebuffer support"
+	depends on FB_MXC && ARCH_FSL_IMX8MQ
+	default y
+	help
+	  Framebuffer support the DCSS controller in imx8mq platform.
+	  DCSS support 3 layer compsition.
