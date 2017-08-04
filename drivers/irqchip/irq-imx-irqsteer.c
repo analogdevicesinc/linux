@@ -31,6 +31,7 @@ struct irqsteer_irqchip_data {
 	struct clk *ipg_clk;
 	int irq;
 	int channum;
+	int endian;	/* 0: littel endian; 1: big endian */
 	struct irq_domain *domain;
 	unsigned int irqstat[];
 };
@@ -42,7 +43,8 @@ static void imx_irqsteer_irq_unmask(struct irq_data *d)
 	u32 val, idx;
 
 	spin_lock(&irqsteer_data->lock);
-	idx = d->hwirq / 32;
+	idx = irqsteer_data->endian ? (irqsteer_data->channum - d->hwirq / 32 - 1) :
+				      d->hwirq / 32;
 	reg = irqsteer_data->regs + CHANMASK(idx);
 	val = readl_relaxed(reg);
 	val |= 1 << (d->hwirq % 32);
@@ -111,7 +113,9 @@ static void imx_irqsteer_update_irqstat(struct irqsteer_irqchip_data *irqsteer_d
 	 */
 	for (i = 0; i < irqsteer_data->channum; i++)
 		irqsteer_data->irqstat[i] = readl_relaxed(irqsteer_data->regs +
-						CHANSTATUS(i));
+						CHANSTATUS(irqsteer_data->endian ?
+							   (irqsteer_data->channum - i - 1) :
+							   i));
 }
 
 static void imx_irqsteer_irq_handler(struct irq_desc *desc)
@@ -145,12 +149,17 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct irqsteer_irqchip_data *irqsteer_data;
 	struct resource *res;
-	int channum;
+	int channum, endian;
 	int ret;
 
 	ret = of_property_read_u32(np, "nxp,irqsteer_chans", &channum);
 	if (ret)
 		channum = 1;
+
+	ret = of_property_read_u32(np, "nxp,endian", &endian);
+	if (ret)
+		/* default is LSB */
+		endian = 0;
 
 	irqsteer_data = devm_kzalloc(&pdev->dev, sizeof(*irqsteer_data) +
 				     channum *
@@ -181,6 +190,7 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	}
 
 	irqsteer_data->channum = channum;
+	irqsteer_data->endian  = endian;
 	irqsteer_data->pdev = pdev;
 	spin_lock_init(&irqsteer_data->lock);
 
