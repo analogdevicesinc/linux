@@ -140,11 +140,28 @@ static void clk_gate_scu_unprepare(struct clk_hw *hw)
 		pr_err("clk gate scu unprepare clk fail!\n");
 }
 
+static unsigned long clk_gate_scu_recalc_rate(struct clk_hw *hw,
+						  unsigned long parent_rate)
+{
+	struct clk_gate_scu *clk = to_clk_gate_scu(hw);
+	sc_err_t sci_err;
+	sc_pm_clock_rate_t rate = 0;
+
+	if (!ccm_ipc_handle)
+		return 0;
+
+	sci_err = sc_pm_get_clock_rate(ccm_ipc_handle, clk->rsrc_id,
+		clk->clk_type, &rate);
+
+	return sci_err ? 0 : rate;
+}
+
 static struct clk_ops clk_gate_scu_ops = {
 	.prepare = clk_gate_scu_prepare,
 	.unprepare = clk_gate_scu_unprepare,
 	.enable = clk_gate_scu_enable,
 	.disable = clk_gate_scu_disable,
+	.recalc_rate = clk_gate_scu_recalc_rate,
 };
 
 struct clk *clk_register_gate_scu(struct device *dev, const char *name,

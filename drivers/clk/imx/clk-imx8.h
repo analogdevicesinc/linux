@@ -58,8 +58,9 @@ static inline struct clk *imx_clk_gate_scu(const char *name, const char *parent,
 		void __iomem *reg, u8 bit_idx, bool hw_gate)
 {
 	return clk_register_gate_scu(NULL, name, parent,
-			CLK_SET_RATE_PARENT, 0, &imx_ccm_lock, rsrc_id, clk_type,
-			reg, bit_idx, hw_gate);
+			CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE, 0,
+			&imx_ccm_lock, rsrc_id, clk_type, reg,
+			bit_idx, hw_gate);
 }
 
 static inline struct clk *imx_clk_gate2_scu(const char *name, const char *parent,
