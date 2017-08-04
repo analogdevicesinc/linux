@@ -241,7 +241,7 @@
 		};
 
 		pzsdr_sound {
-			compatible = "simple-audio-card";
+			compatible = "simple-audio-card-adrv936x-box";
 			simple-audio-card,name = "ADRV9361-Z7035 ADAU1761";
 			simple-audio-card,widgets =
 				"Microphone", "Mic In",
