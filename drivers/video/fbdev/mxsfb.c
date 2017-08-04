@@ -1493,14 +1493,9 @@ static int mxsfb_dispdrv_init(struct platform_device *pdev,
 
 	kfree(setting.dft_mode_str);
 
-	if (IS_ERR(host->dispdrv)) {
-		if (PTR_ERR(host->dispdrv) == -EPROBE_DEFER)
-			return PTR_ERR(host->dispdrv);
-
-		host->dispdrv = NULL;
-		dev_info(dev, "failed to find mxc display driver %s\n",
-			 disp_dev);
-	} else
+	if (IS_ERR(host->dispdrv))
+		return -EPROBE_DEFER;
+	else
 		dev_info(dev, "registered mxc display driver %s\n",
 			 disp_dev);
 
