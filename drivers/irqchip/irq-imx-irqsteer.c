@@ -18,9 +18,9 @@
 
 #define CHANREG_OFF	(irqsteer_data->channum * 4)
 #define CHANCTRL	0x0
-#define CHANMASK(n)	(0x4 + 0x4 * n)
-#define CHANSET(n)	(0x4 + (0x4 * n) + CHANREG_OFF)
-#define CHANSTATUS(n)	(0x4 + (0x4 * n) + (CHANREG_OFF * 2))
+#define CHANMASK(n)	(0x4 + 0x4 * (n))
+#define CHANSET(n)	(0x4 + (0x4 * (n)) + CHANREG_OFF)
+#define CHANSTATUS(n)	(0x4 + (0x4 * (n)) + (CHANREG_OFF * 2))
 #define CHAN_MINTDIS	(0x4 + (CHANREG_OFF * 3))
 #define CHAN_MASTRSTAT	(CHAN_MINTDIS + 0x4)
 
