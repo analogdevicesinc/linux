@@ -444,7 +444,7 @@
 
 &hdmi {
 	disp-dev = "hdmi_disp";
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c2 {
