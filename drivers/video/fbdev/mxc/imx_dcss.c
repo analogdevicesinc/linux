@@ -702,6 +702,25 @@ static const struct pix_fmt_info *get_fmt_info(uint32_t fourcc)
 	return NULL;
 }
 
+static int fmt_is_yuv(uint32_t fourcc)
+{
+        switch (fourcc) {
+        case V4L2_PIX_FMT_ARGB32:
+        case V4L2_PIX_FMT_A2R10G10B10:
+                return 0;
+        case V4L2_PIX_FMT_YUYV:
+        case V4L2_PIX_FMT_YVYU:
+        case V4L2_PIX_FMT_UYVY:
+        case V4L2_PIX_FMT_VYUY:
+        case V4L2_PIX_FMT_YUV32:
+                return 1;
+        case V4L2_PIX_FMT_NV12:
+                return 2;
+        default:
+                return -EINVAL;
+        }
+}
+
 /* TODO: writel ? */
 #define fill_unit(uint, offset, value) {		\
 	unit->reg_value  = value;			\
@@ -1142,7 +1161,12 @@ static int dcss_init_fbinfo(struct fb_info *fbi)
 	var->activate = FB_ACTIVATE_NOW;
 	var->vmode = FB_VMODE_NONINTERLACED;
 	/* default format */
-	var->grayscale = V4L2_PIX_FMT_ARGB32;
+	if (cinfo->channel_id == DCSS_CHAN_MAIN)
+		/* main channel is for graphic */
+		var->grayscale = V4L2_PIX_FMT_ARGB32;
+	else
+		/* other channels are for video */
+		var->grayscale = V4L2_PIX_FMT_NV12;
 
 	/* Allocate memory buffer: Maybe need alignment */
 	fix->smem_len = (fix->line_length * var->yres_virtual > SZ_32M) ?
@@ -1485,18 +1509,43 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->dpr_addr + 0xa0, input->width);
 	fill_sb(cb, chan_info->dpr_addr + 0xb0, input->height);
 
+	switch (fmt_is_yuv(input->format)) {
+	case 0:         /* RGB */
+		if (!need_resolve)
+			/* Bypass resolve */
+			fill_sb(cb, chan_info->dpr_addr + 0x50, 0xe4203);
+		else {
+			/* TODO: configure resolve */
+			;
+		}
+		break;
+	case 1:         /* TODO: YUV 1P */
+		break;
+	case 2:         /* YUV 2P */
+		/* Two planes YUV format */
+		fill_sb(cb, chan_info->dpr_addr + 0x50, 0xc1);
+		fill_sb(cb, chan_info->dpr_addr + 0xe0, 0x2);
+		fill_sb(cb, chan_info->dpr_addr + 0x110,
+			fix->smem_start +
+			var->xres * var->yres * (var->bits_per_pixel >> 3));
+		fill_sb(cb, chan_info->dpr_addr + 0xf0, var->xres);
+
+		/* TODO: Require alignment handling:
+		 * value must be evenly divisible by
+		 * the number of rows programmed in
+		 * MODE_CTRL0: RTR_4LINE_BUF_EN.
+		 * UV height is 1/2 height of Luma.
+		 */
+		fill_sb(cb, chan_info->dpr_addr + 0x100, ALIGN(var->yres >> 1, 8));
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	/* TODO: calculate pitch for different formats */
 	/* config pitch */
 	pitch = (var->xres * (var->bits_per_pixel >> 3)) << 16;
 	fill_sb(cb, chan_info->dpr_addr + 0x70, pitch);
-
-	if (!need_resolve) {
-		/* Bypass resolve */
-		fill_sb(cb, chan_info->dpr_addr + 0x50, 0xe4203);
-	} else {
-		/* TODO: configure resolve */
-		;
-	}
 
 	fill_sb(cb, chan_info->dpr_addr + 0x200, 0x38);
 
@@ -1761,18 +1810,63 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 #else
 	cb = &chan_info->cb;
 
-	fill_sb(cb, chan_info->scaler_addr + 0x8, 0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xc, 0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x10, 0x2);	/* src format */
-	fill_sb(cb, chan_info->scaler_addr + 0x14, 0x2);	/* dst format */
+	switch (fmt_is_yuv(input->format)) {
+	case 0:         /* ARGB8888 */
+		fill_sb(cb, chan_info->scaler_addr + 0x8, 0x0);
+		/* Scaler Input Format */
+		fill_sb(cb, chan_info->scaler_addr + 0x10, 0x2);
+		break;
+	case 1:         /* TODO: YUV422 or YUV444 */
+		break;
+	case 2:         /* YUV420 */
+		fill_sb(cb, chan_info->scaler_addr + 0x8, 0x3);
+		/* Scaler Input Format */
+		fill_sb(cb, chan_info->scaler_addr + 0x10, 0x0);
+		break;
+	default:
+		return -EINVAL;
+	}
 
+	/* Chroma and Luma bit depth */
+	fill_sb(cb, chan_info->scaler_addr + 0xc, 0x0);
+
+	/* Scaler Output Format
+	 * TODO: set dst fmt always to RGB888/YUV444
+	 */
+	fill_sb(cb, chan_info->scaler_addr + 0x14, 0x2);
+
+	/* Scaler Input Luma Resolution
+	 * TODO: Alighment: WIDTH and HEIGHT divisable by 4.
+	 */
 	fill_sb(cb, chan_info->scaler_addr + 0x18,
-		(input->height - 1) << 16 | (input->width - 1)); /*src resolution*/
-	fill_sb(cb, chan_info->scaler_addr + 0x1c,
 		(input->height - 1) << 16 | (input->width - 1));
 
+	/* Scaler Input Chroma Resolution */
+	switch (fmt_is_yuv(input->format)) {
+	case 0:         /* ARGB8888 */
+		fill_sb(cb, chan_info->scaler_addr + 0x1c,
+			(input->height - 1) << 16 | (input->width - 1));
+		break;
+	case 1:         /* TODO: YUV422 or YUV444 */
+		break;
+	case 2:         /* YUV420 */
+		fill_sb(cb, chan_info->scaler_addr + 0x1c,
+			((input->height >> 1) - 1) << 16 |
+			((input->width >> 1) - 1));
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* Scaler Output Luma Resolution
+	 * TODO: It should be scaled result value.
+	 */
 	fill_sb(cb, chan_info->scaler_addr + 0x20,
 		(var->yres - 1) << 16 | (var->xres - 1));
+
+	/* Scaler Output Chroma Resolution
+	 * TODO: It should be scaled result value.
+	 */
 	fill_sb(cb, chan_info->scaler_addr + 0x24,
 		(var->yres - 1) << 16 | (var->xres - 1));
 
@@ -1790,10 +1884,36 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->scaler_addr + 0x4c, 0x2000);
 	fill_sb(cb, chan_info->scaler_addr + 0x50, 0x0);
 	fill_sb(cb, chan_info->scaler_addr + 0x54, 0x2000);
-	fill_sb(cb, chan_info->scaler_addr + 0x58, 0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x5c, 0x2000);
+
+	switch (fmt_is_yuv(input->format)) {
+	case 0:         /* ARGB8888 */
+		/* Scale Vertical Chroma Start */
+		fill_sb(cb, chan_info->scaler_addr + 0x58, 0x0);
+
+		/* Scale Vertical Chroma Increment */
+		fill_sb(cb, chan_info->scaler_addr + 0x5c, 0x2000);
+
+		/* Scale Horizontal Chroma Increment */
+		fill_sb(cb, chan_info->scaler_addr + 0x64, 0x2000);
+		break;
+	case 1:         /* TODO: YUV422 or YUV444 */
+		break;
+	case 2:         /* YUV420 */
+		/* Scale Vertical Chroma Start */
+		fill_sb(cb, chan_info->scaler_addr + 0x58, 0x01fff800);
+
+		/* Scale Vertical Chroma Increment */
+		fill_sb(cb, chan_info->scaler_addr + 0x5c, 0x1000);
+
+		/* Scale Horizontal Chroma Increment */
+		fill_sb(cb, chan_info->scaler_addr + 0x64, 0x1000);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* Scale Horizontal Chroma Start */
 	fill_sb(cb, chan_info->scaler_addr + 0x60, 0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x64, 0x2000);
 
 	scaler_coeff_config(chan_info);
 
@@ -2059,6 +2179,7 @@ static int dcss_hdr10_input_config(uint32_t hdr_ch, struct dcss_info *info)
 	struct platform_device *pdev = info->pdev;
 	struct dcss_channels *chans;
 	struct dcss_channel_info *chan_info;
+	struct dcss_pixmap *input;
 	struct cbuffer *cb;
 
 	if (hdr_ch > 2) {
@@ -2069,16 +2190,89 @@ static int dcss_hdr10_input_config(uint32_t hdr_ch, struct dcss_info *info)
 	chans = &info->chans;
 	chan_info = &chans->chan_info[hdr_ch];
 	cb = &chan_info->cb;
+	input = &chan_info->input;
 
 #if USE_CTXLD
 	/* disable float-to-fixed converter */
 	fill_sb(cb, chan_info->hdr10_in_addr + 0x3874, 0x0);
 	/* disable LUT */
 	fill_sb(cb, chan_info->hdr10_in_addr + 0x3080, 0x0);
-	/* disable CSCA */
-	fill_sb(cb, chan_info->hdr10_in_addr + 0x3000, 0x0);
-	/* disable CSCB */
-	fill_sb(cb, chan_info->hdr10_in_addr + 0x3800, 0x0);
+
+	switch (fmt_is_yuv(input->format)) {
+	case 0:         /* RGB */
+		/* disable CSCA */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x3000, 0x0);
+		/* disable CSCB */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x3800, 0x0);
+		break;
+	case 1:         /* TODO: YUV 1P */
+		break;
+	case 2:         /* YUV 2P */
+		/* config input CSC-A */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03028,
+			0x00000000); /* Y pre-offset */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x0302c,
+			0x00000200); /* U pre-offset */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03030,
+			0x00000200); /* V pre-offset */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03034,
+			0x00000200); /* Y pre-offset clip min */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03038,
+			0x00000200); /* U pre-offset clip min */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x0303c,
+			0x00000200); /* V pre-offset clip min */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03040,
+			0x000003ff); /* Y pre-offset clip max */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03044,
+			0x000003ff); /* U pre-offset clip max */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03048,
+			0x000003ff); /* V pre-offset clip max */
+
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03004,
+			0x00000040); /* h(0,0) */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03008,
+			0x00000000); /* h(1,0) */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x0300c,
+			0x0000005a); /* h(2,0) */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03010,
+			0x00000040); /* h(0,1) */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03014,
+			0x0000ffea); /* h(1,1) */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03018,
+			0x0000ffd2); /* h(2,1) */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x0301c,
+			0x00000040); /* h(0,2) */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03020,
+			0x00000069); /* h(1,2) */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03024,
+			0x00000000); /* h(2,2) */
+
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x0304c,
+			0x00000006); /* norm factor */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03050,
+			0x00000000); /* Y post-offset */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03054,
+			0x00000000); /* U post-offset */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03058,
+			0x00000000); /* V post-offset */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x0305c,
+			0x00000000); /* Y post-offset clip min */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03060,
+			0x00000000); /* U post-offset clip min */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03064,
+			0x00000000); /* V post-offset clip min */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03068,
+			0x000003ff); /* Y post-offset clip max */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x0306c,
+			0x000003ff); /* U post-offset clip max */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03070,
+			0x000003ff); /* V post-offset clip max */
+		fill_sb(cb, chan_info->hdr10_in_addr + 0x03000,
+			0x00000003); /* enable CSC-A */
+		break;
+	default:
+		return -EINVAL;
+	}
 #else
 	writel(0x0, info->base + chan_info->hdr10_in_addr + 0x3874);
 	writel(0x0, info->base + chan_info->hdr10_in_addr + 0x3080);
