@@ -257,6 +257,27 @@ struct ctxld_fifo {
 	struct completion complete;
 };
 
+/* Define Scaler Coefficients Array */
+#define PHASE_NUM	16
+#define TAP_NUM		7
+
+#define COEFF_LUMA_VERTICAL	0x0
+#define COEFF_LUMA_HORIZONTAL	0x1
+#define COEFF_CHROMA_VERTICAL	0x2
+#define COEFF_CHROMA_HORIZONTAL	0x3
+
+#define LUMA_VERTICAL_OFF	0x0
+#define LUMA_HORIZONTAL_OFF	0xC0
+#define CHROMA_VERTICAL_OFF	0x180
+#define CHROMA_HORIZONTAL_OFF	0x280
+
+struct scaler_coeff_array {
+	uint16_t luma_vertical[PHASE_NUM][TAP_NUM];
+	uint16_t luma_horizontal[PHASE_NUM][TAP_NUM];
+	uint16_t chroma_vertical[PHASE_NUM][TAP_NUM];
+	uint16_t chroma_horizontal[PHASE_NUM][TAP_NUM];
+};
+
 /* channel info: 3 channels in DCSS */
 struct dcss_channel_info {
 	uint32_t channel_id;
@@ -594,6 +615,81 @@ static const struct fb_bitfield def_a2r10g10b10[] = {
 	}
 };
 
+struct scaler_coeff_array coeffs = {
+	.luma_vertical = {
+		{0, 0, 0, 1027, 0, 0, 0},
+		{0, 0, 85, 802, 139, 0, 0},
+		{0, 0, 65, 786, 175, 1, 0},
+		{0, 0, 49, 760, 218, 1, 0},
+		{0, 0, 36, 723, 266, 2, 0},
+		{0, 0, 26, 678, 320, 3, 0},
+		{0, 0, 19, 625, 379, 4, 0},
+		{0, 0, 13, 566, 441, 6, 0},
+		{0, 0, 9, 504, 504, 9, 0},
+		{0, 6, 441, 566, 13, 0, 0},
+		{0, 4, 379, 625, 19, 0, 0},
+		{0, 3, 320, 678, 26, 0, 0},
+		{0, 2, 266, 723, 36, 0, 0},
+		{0, 1, 218, 760, 49, 0, 0},
+		{0, 1, 175, 786, 65, 0, 0},
+		{0, 0, 139, 802, 85, 0, 0},
+	},
+	.luma_horizontal = {
+		{0, 0, 0, 1024, 0, 0, 0},
+		{0, 0, 84, 800, 139, 0, 0},
+		{0, 0, 64, 784, 175, 1, 0},
+		{0, 0, 48, 757, 217, 1, 0},
+		{0, 0, 36, 721, 265, 2, 0},
+		{0, 0, 26, 676, 319, 3, 0},
+		{0, 0, 19, 623, 378, 4, 0},
+		{0, 0, 13, 565, 440, 6, 0},
+		{0, 0, 9, 503, 503, 9, 0},
+		{0, 6, 440, 565, 13, 0, 0},
+		{0, 4, 378, 623, 19, 0, 0},
+		{0, 3, 319, 676, 26, 0, 0},
+		{0, 2, 265, 721, 36, 0, 0},
+		{0, 1, 217, 757, 48, 0, 0},
+		{0, 1, 175, 784, 64, 0, 0},
+		{0, 0, 139, 800, 84, 0, 0},
+	},
+	.chroma_vertical = {
+		{0, 0, 0, 1027, 0, 0, 0},
+		{0, 0, 85, 802, 139, 0, 0},
+		{0, 0, 65, 786, 175, 1, 0},
+		{0, 0, 49, 760, 218, 1, 0},
+		{0, 0, 36, 723, 266, 2, 0},
+		{0, 0, 26, 678, 320, 3, 0},
+		{0, 0, 19, 625, 379, 4, 0},
+		{0, 0, 13, 566, 441, 6, 0},
+		{0, 0, 9, 504, 504, 9, 0},
+		{0, 6, 441, 566, 13, 0, 0},
+		{0, 4, 379, 625, 19, 0, 0},
+		{0, 3, 320, 678, 26, 0, 0},
+		{0, 2, 266, 723, 36, 0, 0},
+		{0, 1, 218, 760, 49, 0, 0},
+		{0, 1, 175, 786, 65, 0, 0},
+		{0, 0, 139, 802, 85, 0, 0},
+	},
+	.chroma_horizontal = {
+		{0, 0, 0, 1024, 0, 0, 0},
+		{0, 0, 84, 800, 139, 0, 0},
+		{0, 0, 64, 784, 175, 1, 0},
+		{0, 0, 48, 757, 217, 1, 0},
+		{0, 0, 36, 721, 265, 2, 0},
+		{0, 0, 26, 676, 319, 3, 0},
+		{0, 0, 19, 623, 378, 4, 0},
+		{0, 0, 13, 565, 440, 6, 0},
+		{0, 0, 9, 503, 503, 9, 0},
+		{0, 6, 440, 565, 13, 0, 0},
+		{0, 4, 378, 623, 19, 0, 0},
+		{0, 3, 319, 676, 26, 0, 0},
+		{0, 2, 265, 721, 36, 0, 0},
+		{0, 1, 217, 757, 48, 0, 0},
+		{0, 1, 175, 784, 64, 0, 0},
+		{0, 0, 139, 800, 84, 0, 0},
+	},
+};
+
 static const struct pix_fmt_info *get_fmt_info(uint32_t fourcc)
 {
 	uint32_t i;
@@ -651,6 +747,69 @@ static void fill_db(struct cbuffer *cb,
 	cb->db_data_len++;
 }
 #endif
+
+static void coeff_array_fill(int type,
+			     uint32_t base,
+			     struct cbuffer *cb)
+{
+	uint32_t i, offset;
+	uint16_t (*array)[TAP_NUM];
+
+	switch (type) {
+	case COEFF_LUMA_VERTICAL:
+		offset = LUMA_VERTICAL_OFF;
+		array  = coeffs.luma_vertical;
+		break;
+	case COEFF_LUMA_HORIZONTAL:
+		offset = LUMA_HORIZONTAL_OFF;
+		array  = coeffs.luma_horizontal;
+		break;
+	case COEFF_CHROMA_VERTICAL:
+		offset = CHROMA_VERTICAL_OFF;
+		array  = coeffs.chroma_vertical;
+		break;
+	case COEFF_CHROMA_HORIZONTAL:
+		offset = CHROMA_HORIZONTAL_OFF;
+		array  = coeffs.chroma_horizontal;
+		break;
+	default:
+		return;
+	}
+
+	for (i = 0; i < PHASE_NUM; i++) {
+		fill_sb(cb, base + 0x80 + offset + (i << 2),
+			(array[i][0] & 0xfff) << 16 |
+			(array[i][1] & 0xfff) << 4  |
+			(array[i][2] & 0xf00) >> 8);
+
+		fill_sb(cb, base + 0xC0 + offset + (i << 2),
+			(array[i][2] & 0x0ff) << 20 |
+			(array[i][3] & 0xfff) << 8  |
+			(array[i][4] & 0xff0) >> 4);
+
+		fill_sb(cb, base + 0x100 + offset + (i << 2),
+			(array[i][4] & 0x00f) << 24 |
+			(array[i][5] & 0xfff) << 12 |
+			(array[i][6] & 0xfff));
+	}
+}
+
+static void scaler_coeff_config(struct dcss_channel_info *cinfo)
+{
+	struct cbuffer *cb = &cinfo->cb;
+
+	/* config Luma Vertical Coefficients */
+	coeff_array_fill(COEFF_LUMA_VERTICAL, cinfo->scaler_addr, cb);
+
+	/* config Luma Horizontal Coefficients */
+	coeff_array_fill(COEFF_LUMA_HORIZONTAL, cinfo->scaler_addr, cb);
+
+	/* config Chroma Vertical Coefficients */
+	coeff_array_fill(COEFF_CHROMA_VERTICAL, cinfo->scaler_addr, cb);
+
+	/* config Chroma Horizontal Coefficients */
+	coeff_array_fill(COEFF_CHROMA_HORIZONTAL, cinfo->scaler_addr, cb);
+}
 
 static void ctxld_fifo_info_print(struct ctxld_fifo *cfifo)
 {
@@ -1636,202 +1795,7 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->scaler_addr + 0x60, 0x0);
 	fill_sb(cb, chan_info->scaler_addr + 0x64, 0x2000);
 
-	fill_sb(cb, chan_info->scaler_addr + 0x80,0x0);
-
-	fill_sb(cb, chan_info->scaler_addr + 0xc0,0x40000);
-	fill_sb(cb, chan_info->scaler_addr + 0x100,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x84,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xc4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x104,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x88,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xc8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x108,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x8c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xcc,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x10c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x90,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xd0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x110,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x94,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xd4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x114,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x98,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xd8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x118,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x9c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xdc,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x11c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xa0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xe0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x120,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xa4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xe4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x124,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xa8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xe8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x128,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xac,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xec,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x12c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xb0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xf0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x130,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xb4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xf4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x134,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xb8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xf8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x138,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xbc,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0xfc,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x13c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x140,0x0);
-
-	fill_sb(cb, chan_info->scaler_addr + 0x180, 0x40000);
-	fill_sb(cb, chan_info->scaler_addr + 0x1c0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x144,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x184,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1c4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x148,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x188,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1c8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x14c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x18c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1cc,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x150,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x190,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1d0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x154,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x194,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1d4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x158,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x198,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1d8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x15c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x19c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1dc,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x160,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1a0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1e0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x164,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1a4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1e4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x168,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1a8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1e8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x16c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1ac,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1ec,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x170,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1b0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1f0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x174,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1b4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1f4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x178,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1b8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1f8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x17c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1bc,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x1fc,0x0);
-
-	fill_sb(cb, chan_info->scaler_addr + 0x300,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x340,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x380,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x304,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x344,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x384,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x308,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x348,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x388,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x30c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x34c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x38c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x310,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x350,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x390,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x314,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x354,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x394,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x318,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x358,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x398,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x31c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x35c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x39c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x320,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x360,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x3a0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x324,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x364,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x3a4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x328,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x368,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x3a8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x32c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x36c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x3ac,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x330,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x370,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x3b0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x334,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x374,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x3b4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x338,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x378,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x3b8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x33c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x37c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x3bc,0x0);
-
-	fill_sb(cb, chan_info->scaler_addr + 0x200,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x240,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x280,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x204,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x244,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x284,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x208,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x248,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x288,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x20c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x24c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x28c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x210,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x250,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x290,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x214,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x254,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x294,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x218,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x258,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x298,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x21c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x25c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x29c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x220,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x260,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x2a0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x224,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x264,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x2a4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x228,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x268,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x2a8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x22c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x26c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x2ac,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x230,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x270,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x2b0,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x234,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x274,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x2b4,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x238,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x278,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x2b8,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x23c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x27c,0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x2bc,0x0);
+	scaler_coeff_config(chan_info);
 
 	/* Trigger Scaler on */
 	fill_sb(cb, chan_info->scaler_addr + 0x0, 0x11);
