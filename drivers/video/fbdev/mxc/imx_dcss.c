@@ -2826,8 +2826,50 @@ out:
 }
 
 static int dcss_pan_display(struct fb_var_screeninfo *var,
-		struct fb_info *fbi)
+			    struct fb_info *fbi)
 {
+	int ret = 0;
+	uint32_t offset, luma_addr, chroma_addr = 0;
+	struct dcss_channel_info *cinfo = fbi->par;
+	struct dcss_info *info = cinfo->dev_data;
+	struct platform_device *pdev = info->pdev;
+	struct cbuffer *cb = &cinfo->cb;
+	struct dcss_pixmap *input = &cinfo->input;
+
+	/* TODO: change framebuffer memory start address */
+	luma_addr = var->reserved[0] ? var->reserved[0] :
+				       fbi->fix.smem_start;
+
+	/* change display offset in framebuffer */
+	if (var->xoffset > 0) {
+		dev_dbg(&pdev->dev, "x panning not supported\n");
+		return -EINVAL;
+	}
+
+	if ((var->yoffset + var->yres > var->yres_virtual)) {
+		dev_err(&pdev->dev, "y panning exceeds\n");
+		return -EINVAL;
+	}
+
+	offset = fbi->fix.line_length * var->yoffset;
+
+	fill_sb(cb, cinfo->dpr_addr + 0xc0, luma_addr + offset);
+
+	/* Two planes YUV format */
+	if (fmt_is_yuv(input->format) == 2) {
+		chroma_addr = luma_addr +
+			      var->xres * var->yres * (var->bits_per_pixel >> 3);
+		fill_sb(cb,
+			cinfo->dpr_addr + 0x110,
+			chroma_addr + (offset >> 1));
+	}
+
+	ret = commit_to_fifo(fbi->node, info);
+	if (ret) {
+		dev_err(&pdev->dev, "commit config failed\n");
+		return ret;
+	}
+
 	return 0;
 }
 
