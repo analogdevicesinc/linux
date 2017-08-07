@@ -2418,11 +2418,6 @@ static void dcss_ctxld_config(struct work_struct *work)
 		       info->base + chans->ctxld_addr + CTXLD_DB_COUNT);
 	}
 
-	ctxld_irq_unmask(DB_COMP_EN, info);
-	ctxld_irq_unmask(SB_HP_COMP_EN, info);
-	ctxld_irq_unmask(SB_LP_COMP_EN, info);
-	ctxld_irq_unmask(AHB_ERR_EN, info);
-
 	ctxld_ctrl = readl(info->base + chans->ctxld_addr + CTXLD_CTRL_STATUS);
 	ctxld_ctrl |= (1 << 0);
 
@@ -2904,12 +2899,22 @@ static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 static int dcss_interrupts_init(struct dcss_info *info)
 {
 	int i, ret = 0;
+	struct irq_desc *desc;
 	struct platform_device *pdev = info->pdev;
 
 	for (i = 0; i < DCSS_IRQS_NUM; i++) {
 		info->irqs[i] = platform_get_irq(pdev, i);
 		if (info->irqs[i] < 0)
 			break;
+
+		desc = irq_to_desc(info->irqs[i]);
+		switch (desc->irq_data.hwirq) {
+		case 6:         /* CTX_LD */
+			ctxld_irq_unmask(SB_HP_COMP_EN, info);
+			break;
+		default:	/* TODO: add support later */
+			continue;
+		}
 
 		ret = devm_request_irq(&pdev->dev, info->irqs[i],
 				dcss_irq_handler, 0,
