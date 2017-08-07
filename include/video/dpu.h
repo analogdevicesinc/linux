@@ -472,6 +472,8 @@ int fetchdecode_pixengcfg_dynamic_src_sel(struct dpu_fetchdecode *fd,
 					  fd_dynamic_src_sel_t src);
 void fetchdecode_shden(struct dpu_fetchdecode *fd, bool enable);
 void fetchdecode_baddr_autoupdate(struct dpu_fetchdecode *fd, u8 layer_mask);
+void fetchdecode_set_burstlength(struct dpu_fetchdecode *fd, dma_addr_t baddr,
+				 bool use_prefetch);
 void fetchdecode_baseaddress(struct dpu_fetchdecode *fd, dma_addr_t paddr);
 void fetchdecode_source_bpp(struct dpu_fetchdecode *fd, int bpp);
 void fetchdecode_source_stride(struct dpu_fetchdecode *fd, int stride);

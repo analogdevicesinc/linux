@@ -26,6 +26,7 @@
 #define BURSTBUFFERMANAGEMENT		0xC
 #define SETNUMBUFFERS(n)		((n) & 0xFF)
 #define SETBURSTLENGTH(n)		(((n) & 0x1F) << 8)
+#define SETBURSTLENGTH_MASK		0x1F00
 #define LINEMODE_MASK			0x80000000U
 #define LINEMODE_SHIFT			31U
 enum linemode {

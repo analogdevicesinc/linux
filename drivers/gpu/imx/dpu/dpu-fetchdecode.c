@@ -217,6 +217,37 @@ void fetchdecode_baddr_autoupdate(struct dpu_fetchdecode *fd, u8 layer_mask)
 }
 EXPORT_SYMBOL_GPL(fetchdecode_baddr_autoupdate);
 
+void fetchdecode_set_burstlength(struct dpu_fetchdecode *fd, dma_addr_t baddr,
+				 bool use_prefetch)
+{
+	struct dpu_soc *dpu = fd->dpu;
+	unsigned int burst_size, burst_length;
+	u32 val;
+
+	if (use_prefetch) {
+		/*
+		 * address TKT343664:
+		 * fetch unit base address has to align to burst size
+		 */
+		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = min(burst_size, 128U);
+		burst_length = burst_size / 8;
+	} else {
+		burst_length = 16;
+	}
+
+	mutex_lock(&fd->mutex);
+	val = dpu_fd_read(fd, BURSTBUFFERMANAGEMENT);
+	val &= ~SETBURSTLENGTH_MASK;
+	val |= SETBURSTLENGTH(burst_length);
+	dpu_fd_write(fd, val, BURSTBUFFERMANAGEMENT);
+	mutex_unlock(&fd->mutex);
+
+	dev_dbg(dpu->dev, "FetchDecode%d burst length is %u\n",
+							fd->id, burst_length);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_set_burstlength);
+
 void fetchdecode_baseaddress(struct dpu_fetchdecode *fd, dma_addr_t paddr)
 {
 	mutex_lock(&fd->mutex);
