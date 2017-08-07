@@ -541,6 +541,8 @@ void dpu_fd_put(struct dpu_fetchdecode *fd);
 /* Fetch ECO Unit */
 struct dpu_fetcheco;
 void fetcheco_shden(struct dpu_fetcheco *fe, bool enable);
+void fetcheco_set_burstlength(struct dpu_fetcheco *fe, dma_addr_t baddr,
+			      bool use_prefetch);
 void fetcheco_baseaddress(struct dpu_fetcheco *fe, dma_addr_t paddr);
 void fetcheco_source_bpp(struct dpu_fetcheco *fe, int bpp);
 void fetcheco_source_stride(struct dpu_fetcheco *fe, int stride);

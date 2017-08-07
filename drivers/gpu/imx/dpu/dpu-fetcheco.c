@@ -88,6 +88,37 @@ void fetcheco_shden(struct dpu_fetcheco *fe, bool enable)
 }
 EXPORT_SYMBOL_GPL(fetcheco_shden);
 
+void fetcheco_set_burstlength(struct dpu_fetcheco *fe, dma_addr_t baddr,
+			      bool use_prefetch)
+{
+	struct dpu_soc *dpu = fe->dpu;
+	unsigned int burst_size, burst_length;
+	u32 val;
+
+	if (use_prefetch) {
+		/*
+		 * address TKT343664:
+		 * fetch unit base address has to align to burst size
+		 */
+		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = min(burst_size, 128U);
+		burst_length = burst_size / 8;
+	} else {
+		burst_length = 16;
+	}
+
+	mutex_lock(&fe->mutex);
+	val = dpu_fe_read(fe, BURSTBUFFERMANAGEMENT);
+	val &= ~SETBURSTLENGTH_MASK;
+	val |= SETBURSTLENGTH(burst_length);
+	dpu_fe_write(fe, val, BURSTBUFFERMANAGEMENT);
+	mutex_unlock(&fe->mutex);
+
+	dev_dbg(dpu->dev, "FetchEco%d burst length is %u\n",
+						fe->id, burst_length);
+}
+EXPORT_SYMBOL_GPL(fetcheco_set_burstlength);
+
 void fetcheco_baseaddress(struct dpu_fetcheco *fe, dma_addr_t paddr)
 {
 	mutex_lock(&fe->mutex);
