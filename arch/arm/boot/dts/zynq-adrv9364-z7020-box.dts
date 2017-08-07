@@ -62,7 +62,7 @@
 		};
 	};
 
-	gpio-keys {
+	gpio-keys-power {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "gpio-keys";
@@ -79,7 +79,7 @@
 		};
 	};
 
-	gpio_keys {
+	gpio-keys-nav-switch {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
 		#size-cells = <0>;
