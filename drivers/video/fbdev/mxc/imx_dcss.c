@@ -2761,6 +2761,12 @@ static int dcss_channel_blank(int blank,
 	case FB_BLANK_POWERDOWN:
 		/* disable dtg */
 		dtg_ctrl &= ~(0x1 << (2 - cinfo->channel_id));
+
+		/* clear global alpha */
+		if (cinfo->channel_id == DCSS_CHAN_MAIN)
+			dtg_ctrl &= ~(0xff << 24);
+		else
+			dtg_ctrl |= (0xff << 24);
 		break;
 	default:
 		return -EINVAL;
