@@ -1565,6 +1565,8 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	struct fb_var_screeninfo *var;
 	struct dcss_pixmap *input;
 	struct cbuffer *cb;
+	int scale_v_luma_inc, scale_h_luma_inc;
+	const struct fb_videomode *dmode = info->dft_disp_mode;
 
 	if (scaler_ch > 2) {
 		dev_err(&pdev->dev, "invalid scaler channel number\n");
@@ -1862,13 +1864,13 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	 * TODO: It should be scaled result value.
 	 */
 	fill_sb(cb, chan_info->scaler_addr + 0x20,
-		(var->yres - 1) << 16 | (var->xres - 1));
+		(dmode->yres - 1) << 16 | (dmode->xres - 1));
 
 	/* Scaler Output Chroma Resolution
 	 * TODO: It should be scaled result value.
 	 */
 	fill_sb(cb, chan_info->scaler_addr + 0x24,
-		(var->yres - 1) << 16 | (var->xres - 1));
+		(dmode->yres - 1) << 16 | (dmode->xres - 1));
 
 	fill_sb(cb, chan_info->scaler_addr + 0x28, 0x0);
 	fill_sb(cb, chan_info->scaler_addr + 0x2c, 0x0);
@@ -1880,10 +1882,15 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->scaler_addr + 0x44, 0x0);
 
 	/* scale ratio: ###.#_####_####_#### */
+	/* vertical ratio */
+	scale_v_luma_inc = ((input->height << 13) + (dmode->yres >> 1)) / dmode->yres;
+	/* horizontal ratio */
+	scale_h_luma_inc = ((input->width << 13) + (dmode->xres >> 1)) / dmode->xres;
+
 	fill_sb(cb, chan_info->scaler_addr + 0x48, 0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x4c, 0x2000);
+	fill_sb(cb, chan_info->scaler_addr + 0x4c, scale_v_luma_inc);
 	fill_sb(cb, chan_info->scaler_addr + 0x50, 0x0);
-	fill_sb(cb, chan_info->scaler_addr + 0x54, 0x2000);
+	fill_sb(cb, chan_info->scaler_addr + 0x54, scale_h_luma_inc);
 
 	switch (fmt_is_yuv(input->format)) {
 	case 0:         /* ARGB8888 */
@@ -1891,10 +1898,10 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 		fill_sb(cb, chan_info->scaler_addr + 0x58, 0x0);
 
 		/* Scale Vertical Chroma Increment */
-		fill_sb(cb, chan_info->scaler_addr + 0x5c, 0x2000);
+		fill_sb(cb, chan_info->scaler_addr + 0x5c, scale_v_luma_inc);
 
 		/* Scale Horizontal Chroma Increment */
-		fill_sb(cb, chan_info->scaler_addr + 0x64, 0x2000);
+		fill_sb(cb, chan_info->scaler_addr + 0x64, scale_h_luma_inc);
 		break;
 	case 1:         /* TODO: YUV422 or YUV444 */
 		break;
@@ -1903,10 +1910,10 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 		fill_sb(cb, chan_info->scaler_addr + 0x58, 0x01fff800);
 
 		/* Scale Vertical Chroma Increment */
-		fill_sb(cb, chan_info->scaler_addr + 0x5c, 0x1000);
+		fill_sb(cb, chan_info->scaler_addr + 0x5c, scale_v_luma_inc >> 1);
 
 		/* Scale Horizontal Chroma Increment */
-		fill_sb(cb, chan_info->scaler_addr + 0x64, 0x1000);
+		fill_sb(cb, chan_info->scaler_addr + 0x64, scale_h_luma_inc >> 1);
 		break;
 	default:
 		return -EINVAL;
@@ -2687,6 +2694,9 @@ static int dcss_set_par(struct fb_info *fbi)
 		 */
 		ret = dcss_blank(FB_BLANK_NORMAL, fbi);
 	}
+
+	/* TODO: add save/recovery when config failed */
+	fb_var_to_pixmap(&chan_info->input, &fbi->var);
 
 	ret = config_channel_pipe(chan_info);
 	if (ret)
