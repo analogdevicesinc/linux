@@ -22,6 +22,7 @@
 #include <sound/soc.h>
 
 #include "../codecs/ts3a227e.h"
+#include "../codecs/adau17x1.h"
 
 static struct snd_soc_jack headset_jack;
 
@@ -224,6 +225,12 @@ static int adrv9363x_box_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_jack_add_gpios(&simple_card_mic_jack, 1,
 				       &simple_card_mic_jack_gpio);
 	}
+
+	adau17x1_set_micbias_voltage(rtd->codec,
+		ADAU17X1_MICBIAS_0_65_AVDD);
+
+	snd_soc_dapm_force_enable_pin(&rtd->card->dapm, "MICBIAS");
+
 	return 0;
 }
 
