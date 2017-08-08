@@ -331,10 +331,23 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 		div.co = 0x0;  /* 1  */
 	} else {
 #ifdef CONFIG_FB_IMX64
-		/* pll vco = 27 * 33 / (1 * 2) = 445.5MHz */
-		div.cn = 0x1f; /* 1 */
-		div.cm = 0xc1; /* 33 */
-		div.co = 0x1;  /* 2 */
+		switch (mipi_dsi->vmode_index) {
+		case 34:	/* 1920x1080@30Hz */
+			/* pll vco = 27 * 33 / (1 * 2) = 445.5MHz */
+			div.cn = 0x1f; /* 1 */
+			div.cm = 0xc1; /* 33 */
+			div.co = 0x1;  /* 2 */
+			break;
+		case 16:	/* 1920x1080@60Hz */
+			/* pll vco = 27 * 33 / (1 * 1) = 891MHz */
+			div.cn = 0x1f; /* 1 */
+			div.cm = 0xc1; /* 33 */
+			div.co = 0x0;  /* 1 */
+			break;
+		default:
+			/* TODO: not support yet */
+			return -EINVAL;
+		}
 #else
 		/* pll vco = 24 * 63 / (5 * 1) = 302.4MHz */
 		div.cn = 0x1C; /* 5  */
@@ -1087,6 +1100,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		ret = of_property_read_u32(remote, "video-mode", &vmode_index);
 		if ((ret < 0) || (vmode_index >= ARRAY_SIZE(mxc_cea_mode)))
 			return -EINVAL;
+		mipi_dsi->vmode_index = vmode_index;
 
 		mipi_dsi->mode = devm_kzalloc(&pdev->dev,
 					      sizeof(struct fb_videomode),

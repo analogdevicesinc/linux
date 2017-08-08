@@ -100,6 +100,7 @@ struct mipi_dsi_info {
 	struct clk			*esc_clk;
 #endif
 	struct mxc_dispdrv_handle	*disp_mipi;
+	int				vmode_index;
 	struct  fb_videomode		*mode;
 	struct regulator		*disp_power_on;
 	struct  mipi_lcd_config		*lcd_config;
