@@ -63,14 +63,23 @@ static int imx_amix_fe_startup(struct snd_pcm_substream *substream)
 	struct imx_amix *priv = snd_soc_card_get_drvdata(rtd->card);
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct device *dev = rtd->card->dev;
+	int ret;
 
 	if (priv->mclk_freq == 24576000) {
-		return snd_pcm_hw_constraint_list(runtime, 0,
+		ret = snd_pcm_hw_constraint_list(runtime, 0,
 			SNDRV_PCM_HW_PARAM_RATE, &imx_amix_rate_constraints);
+		if (ret)
+			return ret;
 	} else
 		dev_warn(dev, "mclk may be not supported %d\n", priv->mclk_freq);
 
-	return 0;
+	ret = snd_pcm_hw_constraint_minmax(runtime,
+			SNDRV_PCM_HW_PARAM_CHANNELS, 1, 8);
+	if (ret)
+		return ret;
+
+	return snd_pcm_hw_constraint_mask64(runtime,
+			SNDRV_PCM_HW_PARAM_FORMAT, FSL_AMIX_FORMATS);
 }
 
 static int imx_amix_fe_prepare(struct snd_pcm_substream *substream)
@@ -152,15 +161,6 @@ static int imx_amix_be_hw_params(struct snd_pcm_substream *substream,
 
 	return ret;
 }
-
-static const struct snd_soc_pcm_stream amix_params = {
-	.channels_min = 1,
-	.channels_max = 8,
-	.rate_min = 8000,
-	.rate_max = 96000,
-	.rates = SNDRV_PCM_RATE_8000_96000,
-	.formats = FSL_AMIX_FORMATS,
-};
 
 static struct snd_soc_ops imx_amix_fe_ops = {
 	.startup = imx_amix_fe_startup,
