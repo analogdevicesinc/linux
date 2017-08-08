@@ -23,6 +23,7 @@
 #include <sound/soc-dapm.h>
 #include "../../../drivers/video/fbdev/mxc/cdn_hdp/API_General.h"
 #include "../../../drivers/video/fbdev/mxc/cdn_hdp/API_Audio.h"
+#include "../../../drivers/video/fbdev/mxc/cdn_hdp/vic_table.h"
 
 #define SUPPORT_RATE_NUM 10
 #define SUPPORT_CHANNEL_NUM 10
@@ -32,6 +33,47 @@ struct imx_cdnhdmi_data {
 	struct snd_soc_card card;
 	int vmode_index;
 };
+
+u32 TMDS_rate_table[7] = {
+25200, 27000, 54000, 74250, 148500, 297000, 594000,
+};
+
+u32 N_table_32k[8] = {
+/*25200, 27000, 54000, 74250, 148500, 297000, 594000,*/
+4096, 4096, 4096, 4096, 4096, 3072, 3072, 4096,
+};
+
+u32 N_table_44k[8] = {
+6272, 6272, 6272, 6272, 6272, 4704, 9408, 6272,
+};
+
+u32 N_table_48k[8] = {
+6144, 6144, 6144, 6144, 6144, 5120, 6144, 6144,
+};
+
+static int select_N_index(struct device *dev, int vmode_index)
+{
+
+	int i = 0, j = 0;
+
+	for (i = 0; i < VIC_MODE_COUNT; i++) {
+		if (vic_table[i][24] == vmode_index)
+			break;
+	}
+
+	if (i == VIC_MODE_COUNT) {
+		dev_err(dev, "vmode is wrong!\n");
+		j = 7;
+		return j;
+	}
+
+	for (j = 0; j < 7; j++) {
+		if (vic_table[i][14] == TMDS_rate_table[j])
+			break;
+	}
+
+	return j;
+}
 
 static int imx_cdnhdmi_startup(struct snd_pcm_substream *substream)
 {
@@ -83,6 +125,7 @@ static int imx_cdnhdmi_hw_params(struct snd_pcm_substream *substream,
 	AUDIO_WIDTH bits;
 	int ret;
 	int ncts_n;
+	int idx_n = select_N_index(dev, data->vmode_index);
 
 	/* set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai,
@@ -109,31 +152,31 @@ static int imx_cdnhdmi_hw_params(struct snd_pcm_substream *substream,
 	switch (sample_rate) {
 	case 32000:
 		freq = AUDIO_FREQ_32;
-		ncts_n = data->vmode_index == 95 ? 3072 : 4096;
+		ncts_n = N_table_32k[idx_n];
 		break;
 	case 44100:
 		freq = AUDIO_FREQ_44_1;
-		ncts_n = data->vmode_index == 95 ? 4704 : 6272;
+		ncts_n = N_table_44k[idx_n];
 		break;
 	case 48000:
 		freq = AUDIO_FREQ_48;
-		ncts_n = data->vmode_index == 95 ? 5120 : 6144;
+		ncts_n = N_table_48k[idx_n];
 		break;
 	case 88200:
 		freq = AUDIO_FREQ_88_2;
-		ncts_n = data->vmode_index == 95 ? 9408 : 12544;
+		ncts_n = N_table_44k[idx_n] * 2;
 		break;
 	case 96000:
 		freq = AUDIO_FREQ_96;
-		ncts_n = data->vmode_index == 95 ? 10240 : 12288;
+		ncts_n = N_table_48k[idx_n] * 2;
 		break;
 	case 176400:
 		freq = AUDIO_FREQ_176_4;
-		ncts_n = data->vmode_index == 95 ? 18816 : 25088;
+		ncts_n = N_table_44k[idx_n] * 4;
 		break;
 	case 192000:
 		freq = AUDIO_FREQ_192;
-		ncts_n = data->vmode_index == 95 ? 20480 : 24576;
+		ncts_n = N_table_48k[idx_n] * 4;
 		break;
 	default:
 		return -EINVAL;
