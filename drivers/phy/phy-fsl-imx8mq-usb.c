@@ -18,6 +18,7 @@
 
 #define PHY_CTRL1			0x4
 #define PHY_CTRL1_RESET			BIT(0)
+#define PHY_CTRL1_COMMONONN		BIT(1)
 #define PHY_CTRL1_ATERESET		BIT(3)
 #define PHY_CTRL1_VDATSRCENB0		BIT(19)
 #define PHY_CTRL1_VDATDETENB0		BIT(20)
@@ -58,7 +59,8 @@ static void imx8mq_usb_phy_init(struct imx8mq_usb_phy *phy)
 	u32 value;
 
 	value = readl(phy->base + PHY_CTRL1);
-	value &= ~(PHY_CTRL1_VDATSRCENB0 | PHY_CTRL1_VDATDETENB0);
+	value &= ~(PHY_CTRL1_VDATSRCENB0 | PHY_CTRL1_VDATDETENB0 |
+		   PHY_CTRL1_COMMONONN);
 	value |= PHY_CTRL1_RESET | PHY_CTRL1_ATERESET;
 	writel(value, phy->base + PHY_CTRL1);
 
