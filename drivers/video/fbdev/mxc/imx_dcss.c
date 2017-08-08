@@ -2381,7 +2381,6 @@ static void ctxld_irq_unmask(uint32_t irq_en, struct dcss_info *info)
 static void dcss_ctxld_config(struct work_struct *work)
 {
 	int ret;
-	uint32_t ctxld_ctrl = 0;
 	uint32_t dsb_len, nsgl, esize;
 	struct dcss_info *info;
 	struct platform_device *pdev;
@@ -2425,10 +2424,8 @@ static void dcss_ctxld_config(struct work_struct *work)
 		       info->base + chans->ctxld_addr + CTXLD_DB_COUNT);
 	}
 
-	ctxld_ctrl = readl(info->base + chans->ctxld_addr + CTXLD_CTRL_STATUS);
-	ctxld_ctrl |= (1 << 0);
-
-	writel(ctxld_ctrl, info->base + chans->ctxld_addr + CTXLD_CTRL_STATUS);
+	/* enable ctx_ld */
+	writel(0x1, info->base + chans->ctxld_addr + CTXLD_CTRL_STATUS_SET);
 
 	/* wait finish */
 	reinit_completion(&cfifo->complete);
