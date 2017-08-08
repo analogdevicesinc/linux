@@ -293,6 +293,7 @@ struct dcss_channel_info {
 	uint32_t scaler_addr;
 	int blank;			/* see FB_BLANK_* macros */
 	uint32_t csc_mode;		/* see CSC_MODE_* macros */
+	bool dpr_scaler_en;		/* record dpr and scaler enabled or not */
 
 	void *dev_data;			/* pointer to dcss_info */
 };
@@ -1548,9 +1549,6 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->dpr_addr + 0x70, pitch);
 
 	fill_sb(cb, chan_info->dpr_addr + 0x200, 0x38);
-
-	/* Trigger DPR on */
-	fill_sb(cb, chan_info->dpr_addr + 0x0, 0x5);
 #endif
 
 	return 0;
@@ -1923,9 +1921,6 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->scaler_addr + 0x60, 0x0);
 
 	scaler_coeff_config(chan_info);
-
-	/* Trigger Scaler on */
-	fill_sb(cb, chan_info->scaler_addr + 0x0, 0x11);
 #endif
 	return 0;
 }
@@ -2781,6 +2776,7 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
 	struct platform_device *pdev = info->pdev;
+	struct cbuffer *cb = &cinfo->cb;
 
 	if (blank == FB_BLANK_UNBLANK) {
 		/* dcss output timings can only be set for fb0 */
@@ -2801,6 +2797,12 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 			dtg_channel_timing_config(cinfo);
 		}
 
+		if (unlikely(!cinfo->dpr_scaler_en)) {
+			/* Trigger DPR and SCALER */
+			fill_sb(cb, cinfo->dpr_addr + 0x0, 0x5);
+			fill_sb(cb, cinfo->scaler_addr + 0x0, 0x11);
+			cinfo->dpr_scaler_en = true;
+		}
 #if USE_CTXLD
 		ret = commit_to_fifo(fb_node, info);
 		if (ret) {
