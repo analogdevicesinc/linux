@@ -382,7 +382,7 @@
 		assigned-clock-rate = <594000000>, <266000000>, <80000000>;
 		phy-ref-clkfreq = <27000000>;
 		data-lanes-num = <4>;
-		max-data-rate  = <800000000>;
+		max-data-rate  = <1500000000>;
 		power-domains = <&power 0>;
 		status = "disabled";
 	};
