@@ -216,7 +216,8 @@ static int adv7535_vmode_cfg(struct adv7535_info *info)
 
 #ifdef CONFIG_FB_IMX64
 	/* low refresh rate */
-	adv7535_write_reg(0x4A, 0x8C);
+	if (fb_vmode->refresh < 50)
+		adv7535_write_reg(0x4A, 0x8C);
 #else
 	adv7535_write_reg(0x17, 0x60); /* VS & HS Low Polarity, DE disabled */
 #endif
