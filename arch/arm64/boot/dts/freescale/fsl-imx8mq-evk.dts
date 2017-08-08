@@ -413,7 +413,7 @@
 		compatible = "adi,adv7535";
 		reg = <0x3d>;		/* PD pin is low */
 		/* TODO: pin config & irq */
-		video-mode = <34>;	/* 1920x1080@30HZ */
+		video-mode = <16>;	/* 1920x1080@60HZ */
 		dsi-traffic-mode = <0>;
 		bpp = <24>;
 		status = "okay";
