@@ -73,7 +73,7 @@
 		compatible = "fsl,imx-audio-cdnhdmi";
 		model = "imx-audio-hdmi";
 		audio-cpu = <&sai4>;
-		video-mode = <95>;	/* #16: 1920x1080p@60HZ 16:9 */
+		video-mode = <16>;	/* #16: 1920x1080p@60HZ 16:9 */
 					/* #95: 3840x2160p@30Hz 16:9 */
 	};
 
