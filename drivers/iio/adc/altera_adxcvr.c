@@ -37,7 +37,8 @@
 #define XCVR_REG_ARBITRATION			0x000
 #define XCVR_ARBITRATION_MASK			0xFF
 #define XCVR_ARBITRATION_GET_AVMM		0x02
-#define XCVR_ARBITRATION_RELEASE_AVMM		0x01
+#define XCVR_ARBITRATION_RELEASE_AVMM_CALIB	0x01
+#define XCVR_ARBITRATION_RELEASE_AVMM		0x03
 
 #define XCVR_REG_CALIB_ATX_PLL_EN		0x100
 #define XCVR_CALIB_ATX_PLL_EN_MASK		0x01
@@ -96,6 +97,22 @@ static unsigned int adxcvr_read(struct adxcvr_state *st, unsigned reg)
 	return ioread32(st->adxcvr_regs + reg);
 }
 
+static void adxcvr_acquire_arbitration(void __iomem *addr)
+{
+	iowrite32(XCVR_ARBITRATION_GET_AVMM, addr);
+}
+
+static void adxcvr_release_arbitration(void __iomem *addr, bool calibrate)
+{
+	unsigned int val;
+
+	if (calibrate)
+		val = XCVR_ARBITRATION_RELEASE_AVMM_CALIB;
+	else
+		val = XCVR_ARBITRATION_RELEASE_AVMM;
+	iowrite32(val, addr);
+}
+
 static void atx_pll_write(struct adxcvr_state *st, unsigned reg, unsigned val)
 {
 	iowrite32(val, st->atx_pll_regs + reg * 4);
@@ -104,6 +121,17 @@ static void atx_pll_write(struct adxcvr_state *st, unsigned reg, unsigned val)
 static unsigned int atx_pll_read(struct adxcvr_state *st, unsigned reg)
 {
 	return ioread32(st->atx_pll_regs + reg * 4);
+}
+
+static void atx_pll_acquire_arbitration(struct adxcvr_state *st)
+{
+	adxcvr_acquire_arbitration(st->atx_pll_regs);
+}
+
+static void atx_pll_release_arbitration(struct adxcvr_state *st,
+	bool calibrate)
+{
+	adxcvr_release_arbitration(st->atx_pll_regs, calibrate);
 }
 
 static void adxcfg_write(struct adxcvr_state *st, unsigned lane, unsigned reg,
@@ -116,6 +144,18 @@ static unsigned int adxcfg_read(struct adxcvr_state *st, unsigned lane,
 	unsigned reg)
 {
 	return ioread32(st->adxcfg_regs[lane] + reg * 4);
+}
+
+static void adxcfg_acquire_arbitration(struct adxcvr_state *st,
+	unsigned int lane)
+{
+	adxcvr_acquire_arbitration(st->adxcfg_regs[lane]);
+}
+
+static void adxcfg_release_arbitration(struct adxcvr_state *st,
+	unsigned int lane, bool calibrate)
+{
+	adxcvr_release_arbitration(st->adxcfg_regs[lane], calibrate);
 }
 
 static void adxcfg_lock(struct adxcvr_state *st)
@@ -136,12 +176,7 @@ static int atx_pll_calib(struct adxcvr_state *st)
 	unsigned write_val;
 	unsigned read_val;
 
-	/* Get AVMM Interface */
-	addr = XCVR_REG_ARBITRATION;
-	mask = XCVR_ARBITRATION_MASK;
-	val = XCVR_ARBITRATION_GET_AVMM;
-	write_val = (atx_pll_read(st, addr) & ~mask) | (val & mask);
-	atx_pll_write(st, addr, write_val);
+	atx_pll_acquire_arbitration(st);
 
 	/* Initiate re-calibration of ATX_PLL */
 	addr = XCVR_REG_CALIB_ATX_PLL_EN;
@@ -150,12 +185,7 @@ static int atx_pll_calib(struct adxcvr_state *st)
 	write_val = (atx_pll_read(st, addr) & ~mask) | (val & mask);
 	atx_pll_write(st, addr, write_val);
 
-	/* Release AVMM Interface to PreSICE */
-	addr = XCVR_REG_ARBITRATION;
-	mask = XCVR_ARBITRATION_MASK;
-	val = XCVR_ARBITRATION_RELEASE_AVMM;
-	write_val = (atx_pll_read(st, addr) & ~mask) | (val & mask);
-	atx_pll_write(st, addr, write_val);
+	atx_pll_release_arbitration(st, true);
 
 	mdelay(100);	// Wait 100ms for cal_busy to de-assert
 
@@ -184,12 +214,7 @@ static int xcvr_calib_tx(struct adxcvr_state *st)
 	unsigned err = 0;
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
-		/* Get AVMM Interface from PreSICE through arbitration register */
-		addr = XCVR_REG_ARBITRATION;
-		mask = XCVR_ARBITRATION_MASK;
-		val = XCVR_ARBITRATION_GET_AVMM;
-		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
-		adxcfg_write(st, lane, addr, write_val);
+		adxcfg_acquire_arbitration(st, lane);
 
 		/* Perform TX termination & Vod calibration through
 		   PMA calibration enable register */
@@ -207,12 +232,7 @@ static int xcvr_calib_tx(struct adxcvr_state *st)
 		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
 		adxcfg_write(st, lane, addr, write_val);
 
-		/* Release AVMM Interface to PreSICE */
-		addr = XCVR_REG_ARBITRATION;
-		mask = XCVR_ARBITRATION_MASK;
-		val = XCVR_ARBITRATION_RELEASE_AVMM;
-		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
-		adxcfg_write(st, lane, addr, write_val);
+		adxcfg_release_arbitration(st, lane, true);
 
 		mdelay(100);	// Wait 100ms for cal_busy to de-assert
 
@@ -243,12 +263,7 @@ static int xcvr_calib_rx(struct adxcvr_state *st)
 	unsigned err = 0;
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
-		/* Get AVMM Interface from PreSICE through arbitration register */
-		addr = XCVR_REG_ARBITRATION;
-		mask = XCVR_ARBITRATION_MASK;
-		val = XCVR_ARBITRATION_GET_AVMM;
-		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
-		adxcfg_write(st, lane, addr, write_val);
+		adxcfg_acquire_arbitration(st, lane);
 
 		/* Perform CDR/CMU PLL and RX offset cancellation calibration through
 		   PMA calibration enable register */
@@ -273,12 +288,7 @@ static int xcvr_calib_rx(struct adxcvr_state *st)
 		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
 		adxcfg_write(st, lane, addr, write_val);
 
-		/* Release AVMM Interface to PreSICE */
-		addr = XCVR_REG_ARBITRATION;
-		mask = XCVR_ARBITRATION_MASK;
-		val = XCVR_ARBITRATION_RELEASE_AVMM;
-		write_val = (adxcfg_read(st, lane, addr) & ~mask) | (val & mask);
-		adxcfg_write(st, lane, addr, write_val);
+		adxcfg_release_arbitration(st, lane, true);
 
 		mdelay(100);	// Wait 100ms for cal_busy to de-assert
 
