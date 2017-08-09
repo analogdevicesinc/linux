@@ -238,6 +238,7 @@ struct ctxld_commit {
 	struct list_head list;
 	struct work_struct work;
 	void *data;
+	uint32_t fifo_in;	/* kfifo's 'in' value */
 	uint32_t sb_data_len;
 	uint32_t sb_hp_data_len;
 	uint32_t db_data_len;
@@ -857,9 +858,7 @@ static int ctxld_fifo_alloc(struct device *dev,
 	}
 
 	cfifo->size = fifo_size;
-	kfifo_init(&cfifo->fifo,
-		   page_address(phys_to_page(dma_to_phys(dev, cfifo->dma_handle))),
-		   fifo_size);
+	kfifo_init(&cfifo->fifo, cfifo->vaddr, fifo_size);
 
 	/* TODO: sgl num can be changed if required */
 	cfifo->sgl_num = 1;
@@ -2404,7 +2403,7 @@ static void dcss_ctxld_config(struct work_struct *work)
 	/* configure sb buffer */
 	if (cc->sb_data_len) {
 		/* cfifo first store sb and than store db */
-		writel(phys_to_dma(&pdev->dev, sg_phys(cfifo->sgl)),
+		writel(cfifo->dma_handle + cc->fifo_in * kfifo_esize(&cfifo->fifo),
 		       info->base + chans->ctxld_addr + CTXLD_SB_BASE_ADDR);
 		writel(cc->sb_hp_data_len |
 		       (cc->sb_data_len - cc->sb_hp_data_len),
@@ -2481,6 +2480,8 @@ static int commit_to_fifo(uint32_t channel,
 
 	unit = (struct ctxld_unit *)cb->sb_addr;
 
+	cc->fifo_in = cfifo->fifo.kfifo.in & cfifo->fifo.kfifo.mask;
+
 	if (cb->sb_data_len) {
 		count = kfifo_in(&cfifo->fifo, cb->sb_addr, cb->sb_data_len);
 		if (count != cb->sb_data_len) {
@@ -2502,9 +2503,6 @@ static int commit_to_fifo(uint32_t channel,
 		}
 		cc->db_data_len = count;
 	}
-
-	/* TODO: this can be refined */
-	__dma_flush_area(cfifo->fifo.kfifo.data, cfifo->size);
 
 	ctxld_fifo_info_print(cfifo);
 
