@@ -81,6 +81,9 @@ static const int ts3a227e_buttons[] = {
 #define ADC_COMPLETE_INT_DISABLE 0x04
 #define INTB_DISABLE 0x08
 
+/* TS3A227E_REG_SETTING_1 */
+#define INSERT_DEBOUNCE_SETTING_MASK 0x7
+
 /* TS3A227E_REG_SETTING_2 0x05 */
 #define KP_ENABLE 0x04
 
@@ -272,7 +275,7 @@ static const struct regmap_config ts3a227e_regmap_config = {
 static int ts3a227e_parse_device_property(struct ts3a227e *ts3a227e,
 				struct device *dev)
 {
-	u32 micbias;
+	u32 micbias, debounce;
 	int err;
 
 	err = device_property_read_u32(dev, "ti,micbias", &micbias);
@@ -280,6 +283,13 @@ static int ts3a227e_parse_device_property(struct ts3a227e *ts3a227e,
 		regmap_update_bits(ts3a227e->regmap, TS3A227E_REG_SETTING_3,
 			MICBIAS_SETTING_MASK,
 			(micbias & 0x07) << MICBIAS_SETTING_SFT);
+	}
+
+	err = device_property_read_u32(dev, "ti,insertion-debounce-time", &debounce);
+	if (!err) {
+		regmap_update_bits(ts3a227e->regmap, TS3A227E_REG_SETTING_1,
+				   INSERT_DEBOUNCE_SETTING_MASK,
+				   (debounce & 0x07));
 	}
 
 	return 0;
