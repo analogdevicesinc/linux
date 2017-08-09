@@ -1084,7 +1084,8 @@ static int spi_transfer_one_message(struct spi_controller *ctlr,
 				keep_cs = true;
 			} else {
 				spi_set_cs(msg->spi, false);
-				udelay(10);
+				udelay(xfer->cs_change_stall_delay_us ?
+				       xfer->cs_change_stall_delay_us : 10);
 				spi_set_cs(msg->spi, true);
 			}
 		}
