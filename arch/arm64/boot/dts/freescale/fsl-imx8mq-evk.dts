@@ -520,7 +520,7 @@
 &mipi_dsi {
 	reset = <&src>;
 	mux-sel = <&gpr>;	/* lcdif or dcss */
-	status = "okay";
+	status = "disabled";
 	port {
 		mipi_dsi_ep: endpoint {
 			remote-endpoint = <&dsi_to_hdmi>;
