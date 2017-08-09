@@ -71,6 +71,8 @@
 #define XCVR_RATE_SWITCH_FLAG_MASK		0x80
 #define XCVR_RATE_SWITCH_FLAG_NO_RATE_SWITCH	0x80
 
+static DEFINE_MUTEX(adxcfg_global_lock);
+
 struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*adxcvr_regs;
@@ -114,6 +116,16 @@ static unsigned int adxcfg_read(struct adxcvr_state *st, unsigned lane,
 	unsigned reg)
 {
 	return ioread32(st->adxcfg_regs[lane] + reg * 4);
+}
+
+static void adxcfg_lock(struct adxcvr_state *st)
+{
+	mutex_lock(&adxcfg_global_lock);
+}
+
+static void adxcfg_unlock(struct adxcvr_state *st)
+{
+	mutex_unlock(&adxcfg_global_lock);
 }
 
 static int atx_pll_calib(struct adxcvr_state *st)
@@ -360,6 +372,8 @@ static void adxcvr_work_func(struct work_struct *work)
 	int timeout = 1000;
 	unsigned int err = 0;
 
+	adxcfg_lock(st);
+
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 
 	if (st->tx_en) {
@@ -391,6 +405,8 @@ static void adxcvr_work_func(struct work_struct *work)
 		dev_err(st->dev, "Link activation error\n");
 		err = 1;
 	}
+
+	adxcfg_unlock(st);
 
 	if (err)
 		schedule_delayed_work(&st->delayed_work, HZ * 10);
