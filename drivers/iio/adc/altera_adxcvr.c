@@ -85,43 +85,34 @@ struct adxcvr_state {
 	struct delayed_work	delayed_work;
 };
 
-static inline void adxcvr_write(struct adxcvr_state *st,
-				unsigned reg,
-				unsigned val)
+static void adxcvr_write(struct adxcvr_state *st, unsigned reg, unsigned val)
 {
 	iowrite32(val, st->adxcvr_regs + reg);
 }
 
-static inline unsigned int adxcvr_read(struct adxcvr_state *st,
-				       unsigned reg)
+static unsigned int adxcvr_read(struct adxcvr_state *st, unsigned reg)
 {
 	return ioread32(st->adxcvr_regs + reg);
 }
 
-static inline void atx_pll_write(struct adxcvr_state *st,
-				 unsigned reg,
-				 unsigned val)
+static void atx_pll_write(struct adxcvr_state *st, unsigned reg, unsigned val)
 {
 	iowrite32(val, st->atx_pll_regs + reg);
 }
 
-static inline unsigned int atx_pll_read(struct adxcvr_state *st,
-					unsigned reg)
+static unsigned int atx_pll_read(struct adxcvr_state *st, unsigned reg)
 {
 	return ioread32(st->atx_pll_regs + reg);
 }
 
-static inline void adxcfg_write(struct adxcvr_state *st,
-				unsigned lane,
-				unsigned reg,
-				unsigned val)
+static void adxcfg_write(struct adxcvr_state *st, unsigned lane, unsigned reg,
+	unsigned val)
 {
 	iowrite32(val, st->adxcfg_regs[lane] + reg);
 }
 
-static inline unsigned int adxcfg_read(struct adxcvr_state *st,
-				       unsigned lane,
-				       unsigned reg)
+static unsigned int adxcfg_read(struct adxcvr_state *st, unsigned lane,
+	unsigned reg)
 {
 	return ioread32(st->adxcfg_regs[lane] + reg);
 }
