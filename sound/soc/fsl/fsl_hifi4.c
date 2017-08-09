@@ -953,7 +953,7 @@ static long fsl_hifi4_load_codec(struct fsl_hifi4 *hifi4_priv,
 
 	hifi4_priv->ret_status = 0;
 
-	dev_err(dev, "code binary is loaded\n");
+	dev_dbg(dev, "code binary is loaded\n");
 
 	return ret;
 }
@@ -991,7 +991,7 @@ static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
 
 	hifi4_priv->ret_status = 0;
 
-	dev_err(dev, "code binary is loaded\n");
+	dev_dbg(dev, "code binary is loaded\n");
 
 	return ret;
 }
@@ -1156,6 +1156,26 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 	hifi4_engine->hifi4_priv = hifi4_priv;
 
 	file->private_data = hifi4_engine;
+
+	if (!hifi4_priv->is_ready) {
+		init_completion(&hifi4_priv->cmd_complete);
+
+		ret = request_firmware_nowait(THIS_MODULE,
+				FW_ACTION_HOTPLUG, hifi4_priv->fw_name,
+				dev,
+				GFP_KERNEL, hifi4_priv, hifi4_load_firmware);
+
+		if (ret) {
+			dev_err(dev, "failed to load firmware\n");
+			return ret;
+		}
+
+		ret = icm_ack_wait(hifi4_priv, 0);
+		if (ret)
+			return ret;
+		dev_info(dev, "hifi driver registered\n");
+	}
+
 	return ret;
 }
 
@@ -1430,8 +1450,14 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 	unsigned char *strtab = 0; /* String table pointer */
 	unsigned char *image; /* Binary image pointer */
 	int i; /* Loop counter */
-	unsigned long addr = (unsigned long)fw->data;
+	unsigned long addr;
 
+	if (!fw) {
+		dev_info(dev, "external firmware not found\n");
+		return;
+	}
+
+	addr = (unsigned long)fw->data;
 	ehdr = (Elf32_Ehdr *)addr;
 
 	/* Find the section header string table for output info */
@@ -1691,23 +1717,6 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	hifi4_priv->scratch_buf_phys = buf_phys + offset;
 	hifi4_priv->scratch_buf_size = SCRATCH_DATA_BUF_SIZE;
 
-	init_completion(&hifi4_priv->cmd_complete);
-	hifi4_priv->is_ready = 0;
-
-	ret = request_firmware_nowait(THIS_MODULE,
-			FW_ACTION_HOTPLUG, fw_name, hifi4_priv->dev,
-			GFP_KERNEL, hifi4_priv, hifi4_load_firmware);
-
-	if (ret) {
-		dev_err(&pdev->dev, "failed to load firmware\n");
-		return ret;
-	}
-
-	ret = icm_ack_wait(hifi4_priv, 0);
-	if (ret)
-		return ret;
-
-	dev_info(&pdev->dev, "hifi driver registered\n");
 	return 0;
 }
 
