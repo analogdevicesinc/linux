@@ -182,15 +182,15 @@ static int imx8_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
 static void imx8_detach_dev(struct generic_pm_domain *genpd, struct device *dev)
 {
 	struct imx8_pm_domain *pd;
-	struct imx8_pm_rsrc_clks *imx8_rsrc_clk;
+	struct imx8_pm_rsrc_clks *imx8_rsrc_clk, *tmp;
 
 	pd = container_of(genpd, struct imx8_pm_domain, pd);
 
 	/* Free all the clock entry nodes. */
-	if (!list_empty(&pd->clks))
+	if (list_empty(&pd->clks))
 		return;
 
-	list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
+	list_for_each_entry_safe(imx8_rsrc_clk, tmp, &pd->clks, node) {
 		list_del(&imx8_rsrc_clk->node);
 		devm_kfree(dev, imx8_rsrc_clk);
 	}
