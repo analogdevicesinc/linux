@@ -265,12 +265,12 @@ enum {
 
 #define ADIS16460_GYRO_CHANNEL(_mod) \
 	ADIS16460_MOD_CHANNEL(IIO_ANGL_VEL, IIO_MOD_ ## _mod, \
-	ADIS16460_REG_ ## _mod ## _GYRO_OUT, ADIS16460_SCAN_GYRO_ ## _mod, \
+	ADIS16460_REG_ ## _mod ## _GYRO_LOW, ADIS16460_SCAN_GYRO_ ## _mod, \
 	32)
 
 #define ADIS16460_ACCEL_CHANNEL(_mod) \
 	ADIS16460_MOD_CHANNEL(IIO_ACCEL, IIO_MOD_ ## _mod, \
-	ADIS16460_REG_ ## _mod ## _ACCL_OUT, ADIS16460_SCAN_ACCEL_ ## _mod, \
+	ADIS16460_REG_ ## _mod ## _ACCL_LOW, ADIS16460_SCAN_ACCEL_ ## _mod, \
 	32)
 
 #define ADIS16460_TEMP_CHANNEL() { \
@@ -310,9 +310,9 @@ static const struct adis16460_chip_info adis16460_chip_info = {
 	 * gives us the result in rad and better precession than
 	 * storing the scale directly in rad.
 	 */
-	.gyro_max_val = IIO_RAD_TO_DEGREE(20000),
-	.gyro_max_scale = 100,
-	.accel_max_val = IIO_M_S_2_TO_G(20000),
+	.gyro_max_val = IIO_RAD_TO_DEGREE(200 << 16),
+	.gyro_max_scale = 1,
+	.accel_max_val = IIO_M_S_2_TO_G(20000 << 16),
 	.accel_max_scale = 5,
 };
 
