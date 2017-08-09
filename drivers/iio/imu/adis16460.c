@@ -320,6 +320,7 @@ static const struct iio_info adis16460_info = {
 	.read_raw = &adis16460_read_raw,
 	.write_raw = &adis16460_write_raw,
 	.update_scan_mode = adis_update_scan_mode,
+	.debugfs_reg_access = adis_debugfs_reg_access,
 	.driver_module = THIS_MODULE,
 };
 
