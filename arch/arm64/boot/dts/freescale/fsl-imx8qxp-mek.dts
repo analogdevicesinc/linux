@@ -128,6 +128,12 @@
 			>;
 		};
 
+		pinctrl_ioexp_rst: ioexp_rst_grp {
+			fsl,pins = <
+				SC_P_SPI2_SDO_LSIO_GPIO1_IO01	0x06000021
+			>;
+		};
+
 		pinctrl_isl29023: isl29023grp {
 			fsl,pins = <
 				SC_P_SPI2_SDI_LSIO_GPIO1_IO02	0x00000021
@@ -318,7 +324,8 @@
 	#size-cells = <0>;
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpi2c1>;
+	pinctrl-0 = <&pinctrl_lpi2c1 &pinctrl_ioexp_rst>;
+	pinctrl-assert-gpios = <&gpio1 1 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
 	pca9646@71 {
