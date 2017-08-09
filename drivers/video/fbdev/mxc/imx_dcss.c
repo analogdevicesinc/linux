@@ -2701,6 +2701,14 @@ static int dcss_set_par(struct fb_info *fbi)
 		}
 	}
 
+#if USE_CTXLD
+	ret = commit_to_fifo(fb_node, info);
+	if (ret) {
+		dev_err(&pdev->dev, "commit config failed\n");
+		goto out;
+	}
+#endif
+
 	if (saved_blank == FB_BLANK_UNBLANK) {
 		/* unblank the fb if need */
 		ret = dcss_blank(FB_BLANK_UNBLANK, fbi);
