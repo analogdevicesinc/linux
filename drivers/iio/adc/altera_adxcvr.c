@@ -7,6 +7,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -76,6 +77,7 @@
 
 #define XCVR_REG_RATE_SWITCH_FLAG		0x166
 #define XCVR_RATE_SWITCH_FLAG_MASK		0x80
+#define XCVR_RATE_SWITCH_FLAG_RATE_SWITCH	0x00
 #define XCVR_RATE_SWITCH_FLAG_NO_RATE_SWITCH	0x80
 
 static DEFINE_MUTEX(adxcfg_global_lock);
@@ -88,9 +90,11 @@ struct adxcvr_state {
 	unsigned int 		version;
 	bool			is_transmit;
 	u32			lanes_per_link;
-	struct delayed_work	delayed_work;
 
 	struct clk *ref_clk;
+
+	struct clk_hw lane_clk;
+	bool initial_recalc;
 };
 
 static void adxcvr_write(struct adxcvr_state *st, unsigned reg, unsigned val)
@@ -238,19 +242,6 @@ static int atx_pll_calibration_check(struct adxcvr_state *st)
 	return 1;
 }
 
-static int atx_pll_calib(struct adxcvr_state *st)
-{
-	atx_pll_acquire_arbitration(st);
-
-	/* Initiate re-calibration of ATX_PLL */
-	atx_pll_update(st, XCVR_REG_CALIB_ATX_PLL_EN,
-		XCVR_CALIB_ATX_PLL_EN_MASK, XCVR_CALIB_ATX_PLL_EN);
-
-	atx_pll_release_arbitration(st, true);
-
-	return atx_pll_calibration_check(st);
-}
-
 static int adxcfg_calibration_check(struct adxcvr_state *st, unsigned int lane,
 	bool tx)
 {
@@ -310,41 +301,6 @@ static int xcvr_calib_tx(struct adxcvr_state *st)
 		adxcfg_release_arbitration(st, lane, true);
 
 		err |= adxcfg_calibration_check(st, lane, true);
-	}
-
-	return err;
-}
-
-static int xcvr_calib_rx(struct adxcvr_state *st)
-{
-	unsigned lane;
-	unsigned err = 0;
-
-	for (lane = 0; lane < st->lanes_per_link; lane++) {
-		adxcfg_acquire_arbitration(st, lane);
-
-		/* Perform CDR/CMU PLL and RX offset cancellation calibration through
-		   PMA calibration enable register */
-		adxcfg_update(st, lane, XCVR_REG_CALIB_PMA_EN,
-			XCVR_CALIB_CMU_CDR_PLL_EN_MASK,
-			XCVR_CALIB_CMU_CDR_PLL_EN);
-
-		/* Set rate switch flag register for CDR charge pump calibration */
-		adxcfg_update(st, lane, XCVR_REG_RATE_SWITCH_FLAG,
-			XCVR_RATE_SWITCH_FLAG_MASK,
-			XCVR_RATE_SWITCH_FLAG_NO_RATE_SWITCH);
-
-		/* Disable tx_cal_busy and enable rx_cal_busy output through
-		   capability register */
-		adxcfg_update(st, lane, XCVR_REG_CAPAB_PMA,
-			XCVR_CAPAB_RX_CAL_BUSY_EN_MASK |
-			XCVR_CAPAB_TX_CAL_BUSY_EN_MASK,
-			XCVR_CAPAB_RX_CAL_BUSY_EN |
-			XCVR_CAPAB_TX_CAL_BUSY_DIS);
-
-		adxcfg_release_arbitration(st, lane, true);
-
-		err |= adxcfg_calibration_check(st, lane, false);
 	}
 
 	return err;
@@ -415,35 +371,18 @@ static ssize_t adxcvr_sysfs_store(struct device *dev,
 	return count;
 }
 
-static void adxcvr_work_func(struct work_struct *work)
+static void adxcvr_pre_lane_rate_change(struct adxcvr_state *st)
 {
-
-	struct adxcvr_state *st =
-		container_of(work, struct adxcvr_state, delayed_work.work);
-	unsigned status = 0;
-	int timeout = 1000;
-	unsigned int err = 0;
-	unsigned int i;
-
 	adxcfg_lock(st);
-
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+}
 
-	if (st->is_transmit) {
-		if (atx_pll_calib(st)) {
-			dev_err(st->dev, "ATX PLL NOT ready\n");
-			err = 1;
-		}
-		if (xcvr_calib_tx(st)) {
-			dev_err(st->dev, "TX calib error\n");
-			err = 1;
-		}
-	} else {
-		if (xcvr_calib_rx(st)) {
-			dev_err(st->dev, "RX calib error\n");
-			err = 1;
-		}
-	}
+static void adxcvr_post_lane_rate_change(struct adxcvr_state *st,
+	unsigned int lane_rate)
+{
+	unsigned int status;
+	int timeout = 1000;
+	unsigned int i;
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 	do {
@@ -464,13 +403,52 @@ static void adxcvr_work_func(struct work_struct *work)
 				(status & ADXCVR_STATUS2_XCVR(i)) ?
 					"" : "not ");
 		}
-		err = 1;
 	}
 
 	adxcfg_unlock(st);
+}
 
-	if (err)
-		schedule_delayed_work(&st->delayed_work, HZ * 10);
+static struct adxcvr_state *clk_hw_to_adxcvr(struct clk_hw *clk_hw)
+{
+	return container_of(clk_hw, struct adxcvr_state, lane_clk);
+}
+
+#include "altera_a10_atx_pll.c"
+#include "altera_a10_cdr_pll.c"
+
+static int adxcvr_register_lane_clk(struct adxcvr_state *st)
+{
+	struct clk_init_data init;
+	const char *parent_name;
+	const char *clk_name;
+	struct clk *clk;
+
+	st->initial_recalc = true;
+
+	parent_name = of_clk_get_parent_name(st->dev->of_node, 0);
+	if (!parent_name)
+		return -EINVAL;
+
+	clk_name = st->dev->of_node->name;
+	of_property_read_string(st->dev->of_node, "clock-output-names",
+		&clk_name);
+
+	init.name = clk_name;
+	if (st->atx_pll_regs)
+		init.ops = &adxcvr_atx_pll_ops;
+	else
+		init.ops = &adxcvr_cdr_pll_ops;
+	init.flags = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE;
+	init.num_parents = 1;
+	init.parent_names = &parent_name;
+
+	st->lane_clk.init = &init;
+	clk = devm_clk_register(st->dev, &st->lane_clk);
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+
+	return of_clk_add_provider(st->dev->of_node, of_clk_src_simple_get,
+		clk);
 }
 
 static int adxcvr_probe(struct platform_device *pdev)
@@ -527,13 +505,13 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
 
-	INIT_DELAYED_WORK(&st->delayed_work, adxcvr_work_func);
-
 	ret = clk_prepare_enable(st->ref_clk);
 	if (ret)
 		return ret;
 
-	adxcvr_work_func(&st->delayed_work.work);
+	ret = adxcvr_register_lane_clk(st);
+	if (ret)
+		return ret;
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &adxcvr_sysfs_group);
 	if (ret)
@@ -551,6 +529,7 @@ static int adxcvr_remove(struct platform_device *pdev)
 {
 	struct adxcvr_state *st = platform_get_drvdata(pdev);
 
+	of_clk_del_provider(pdev->dev.of_node);
 	sysfs_remove_group(&pdev->dev.kobj, &adxcvr_sysfs_group);
 
 	clk_disable_unprepare(st->ref_clk);
