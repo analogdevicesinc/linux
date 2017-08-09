@@ -384,6 +384,7 @@ static const struct adis_data adis16460_data = {
 	.has_paging = false,
 	.read_delay = 5,
 	.write_delay = 5,
+	.stall_delay = 17,
 	.status_error_msgs = adis16460_status_error_msgs,
 	.status_error_mask = BIT(ADIS16460_DIAG_STAT_IN_CLK_OOS) |
 		BIT(ADIS16460_DIAG_STAT_FLASH_MEM) |
