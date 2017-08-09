@@ -722,6 +722,8 @@ extern void spi_res_release(struct spi_controller *ctlr,
  * @dummy: number of dummy cycles.
  * @bits_per_word: select a bits_per_word other than the device default
  *      for this transfer. If 0 the default (from @spi_device) is used.
+ * @cs_change_stall_delay_us: microseconds to delay between cs_change
+ * 	transfers.
  * @cs_change: affects chipselect after this transfer completes
  * @delay_usecs: microseconds to delay after this transfer before
  *	(optionally) changing the chipselect status, then starting
@@ -807,6 +809,7 @@ struct spi_transfer {
 #define	SPI_NBITS_DUAL		0x02 /* 2bits transfer */
 #define	SPI_NBITS_QUAD		0x04 /* 4bits transfer */
 	u8		bits_per_word;
+	u8		cs_change_stall_delay_us;
 	u16		delay_usecs;
 	u32		speed_hz;
 	u32		dummy;
