@@ -179,30 +179,26 @@ static void adxcvr_work_func(struct work_struct *work)
 {
 	struct adxcvr_state *st =
 		container_of(work, struct adxcvr_state, work);
-
 	unsigned long div40_rate;
 	int ret;
 
-	if (!IS_ERR(st->lane_rate_div40_clk)) {
+	div40_rate = st->lane_rate * (1000 / 40);
 
-		div40_rate = st->lane_rate * (1000 / 40);
+	dev_dbg(st->dev, "%s: setting MMCM on %s rate %lu\n",
+		__func__, st->tx_enable ? "TX" : "RX", div40_rate);
 
-		dev_dbg(st->dev, "%s: setting MMCM on %s rate %lu\n",
-			__func__, st->tx_enable ? "TX" : "RX", div40_rate);
+	if (__clk_is_enabled(st->lane_rate_div40_clk))
+		clk_disable_unprepare(st->lane_rate_div40_clk);
 
-		if (__clk_is_enabled(st->lane_rate_div40_clk))
-			clk_disable_unprepare(st->lane_rate_div40_clk);
+	ret = clk_set_rate(st->lane_rate_div40_clk, div40_rate);
+	if (ret < 0)
+		dev_err(st->dev, "%s: setting MMCM on %s rate %lu failed (%d)\n",
+			__func__, st->tx_enable ? "TX" : "RX", div40_rate, ret);
 
-		ret = clk_set_rate(st->lane_rate_div40_clk, div40_rate);
-		if (ret < 0)
-			dev_err(st->dev, "%s: setting MMCM on %s rate %lu failed (%d)\n",
-				__func__, st->tx_enable ? "TX" : "RX", div40_rate, ret);
-
-		ret = clk_prepare_enable(st->lane_rate_div40_clk);
-		if (ret < 0)
-			dev_err(st->dev, "%s: enabling MMCM rate %lu failed (%d)\n",
-				__func__, div40_rate, ret);
-	}
+	ret = clk_prepare_enable(st->lane_rate_div40_clk);
+	if (ret < 0)
+		dev_err(st->dev, "%s: enabling MMCM rate %lu failed (%d)\n",
+			__func__, div40_rate, ret);
 }
 
 static int adxcvr_clk_enable(struct clk_hw *hw)
