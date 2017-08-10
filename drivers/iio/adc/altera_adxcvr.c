@@ -6,6 +6,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -83,8 +84,9 @@ struct adxcvr_state {
 	bool			tx_en;
 	bool			rx_en;
 	u32			lanes_per_link;
-	u32			delay_work_seconds;
 	struct delayed_work	delayed_work;
+
+	struct clk *ref_clk;
 };
 
 static void adxcvr_write(struct adxcvr_state *st, unsigned reg, unsigned val)
@@ -458,6 +460,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (!st)
 		return -ENOMEM;
 
+	st->ref_clk = devm_clk_get(&pdev->dev, "ref");
+	if (IS_ERR(st->ref_clk))
+		return PTR_ERR(st->ref_clk);
+
 	mem_adxcvr = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "adxcvr");
 	st->adxcvr_regs = devm_ioremap_resource(&pdev->dev, mem_adxcvr);
@@ -491,14 +497,16 @@ static int adxcvr_probe(struct platform_device *pdev)
 			return PTR_ERR(st->atx_pll_regs);
 	}
 
-	of_property_read_u32(np, "adi,delay-work-seconds",
-			&st->delay_work_seconds);
-
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
 
 	INIT_DELAYED_WORK(&st->delayed_work, adxcvr_work_func);
-	schedule_delayed_work(&st->delayed_work, HZ * st->delay_work_seconds);
+
+	ret = clk_prepare_enable(st->ref_clk);
+	if (ret)
+		return ret;
+
+	adxcvr_work_func(&st->delayed_work.work);
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &adxcvr_sysfs_group);
 	if (ret)
@@ -514,7 +522,11 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 static int adxcvr_remove(struct platform_device *pdev)
 {
+	struct adxcvr_state *st = platform_get_drvdata(pdev);
+
 	sysfs_remove_group(&pdev->dev.kobj, &adxcvr_sysfs_group);
+
+	clk_disable_unprepare(st->ref_clk);
 
 	return 0;
 }
