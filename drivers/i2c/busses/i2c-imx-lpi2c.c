@@ -691,7 +691,17 @@ static struct platform_driver lpi2c_imx_driver = {
 	},
 };
 
-module_platform_driver(lpi2c_imx_driver);
+static int __init lpi2c_imx_init(void)
+{
+	return platform_driver_register(&lpi2c_imx_driver);
+}
+subsys_initcall(lpi2c_imx_init);
+
+static void __exit lpi2c_imx_exit(void)
+{
+	platform_driver_unregister(&lpi2c_imx_driver);
+}
+module_exit(lpi2c_imx_exit);
 
 MODULE_AUTHOR("Gao Pan <pandy.gao@nxp.com>");
 MODULE_DESCRIPTION("I2C adapter driver for LPI2C bus");
