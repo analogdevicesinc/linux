@@ -1240,7 +1240,27 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	return ad9523_sync(indio_dev);
+	ret = ad9523_sync(indio_dev);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < pdata->num_channels; i++) {
+		struct clk *clk;
+
+		chan = &pdata->channels[i];
+		if (chan->channel_num >= AD9523_NUM_CHAN)
+			continue;
+
+		clk = ad9523_clk_register(indio_dev, chan->channel_num,
+					  !chan->output_dis);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
+	}
+
+	of_clk_add_provider(st->spi->dev.of_node,
+			    of_clk_src_onecell_get, &st->clk_data);
+
+	return 0;
 }
 
 #ifdef CONFIG_OF
