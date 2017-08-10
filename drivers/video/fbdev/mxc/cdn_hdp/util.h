@@ -45,9 +45,10 @@
  */
 
 #ifndef UTIL_H_
-# define UTIL_H_
+#define UTIL_H_
 
-# include "API_General.h"
+#include <linux/delay.h>
+#include "API_General.h"
 /**
  * \addtogroup UTILS
  * \{
@@ -65,6 +66,26 @@ do {                                             \
     while (ret == CDN_BSY || ret == CDN_STARTED) \
 		;                                        \
     return ret;                                  \
+} while (0)
+
+/**
+ * \brief expands to blocking function body
+ * \param x - function call
+ * \param y - num of loop
+ */
+# define internal_block_function_udelay(x, y)    \
+do {                                             \
+	CDN_API_STATUS ret;                          \
+	int i;                                       \
+	for (i = 0; i < y; i++) {                    \
+		ret = x;                                 \
+		if (ret == CDN_OK)                       \
+			break;                               \
+		udelay(1);                               \
+	}                                            \
+	if (i == y)                                  \
+		printk("timeout %s\n", __func__);        \
+	return ret;                                  \
 } while (0)
 
 /**

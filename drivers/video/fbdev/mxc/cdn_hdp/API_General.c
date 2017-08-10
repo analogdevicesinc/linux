@@ -176,9 +176,8 @@ CDN_API_STATUS CDN_API_General_Test_Echo_Ext_blocking(uint8_t const *msg,
 						      uint16_t num_bytes,
 						      CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_General_Test_Echo_Ext
-				(msg, resp, num_bytes, bus_type)
-	    );
+	internal_block_function_udelay(CDN_API_General_Test_Echo_Ext
+				(msg, resp, num_bytes, bus_type), 1000);
 }
 
 CDN_API_STATUS CDN_API_General_getCurVersion(unsigned short *ver,
@@ -258,7 +257,7 @@ CDN_API_STATUS CDN_API_CheckAlive(void)
 
 CDN_API_STATUS CDN_API_CheckAlive_blocking(void)
 {
-	internal_block_function(CDN_API_CheckAlive());
+	internal_block_function_udelay(CDN_API_CheckAlive(), 1000);
 }
 
 CDN_API_STATUS CDN_API_MainControl(unsigned char mode, unsigned char *resp)

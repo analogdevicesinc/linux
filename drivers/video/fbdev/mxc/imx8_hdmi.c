@@ -117,6 +117,10 @@ static int hdmi_init(int vic, int encoding, int color_depth)
 
 	ret = CDN_API_CheckAlive_blocking();
 	printk("CDN_API_CheckAlive returned ret = %d\n", ret);
+	if (ret != 0) {
+		printk("NO HDMI FW running\n");
+		return -EINVAL;
+	}
 
 	ret = CDN_API_General_Test_Echo_Ext_blocking(echo_msg, echo_resp,
 						     sizeof(echo_msg),
@@ -124,6 +128,11 @@ static int hdmi_init(int vic, int encoding, int color_depth)
 	printk
 	    ("CDN_API_General_Test_Echo_Ext_blocking - APB(ret = %d echo_resp = %s)\n",
 	     ret, echo_resp);
+	if (ret != 0) {
+		printk("HDMI mailbox access failed\n");
+		return -EINVAL;
+	}
+
 	/* Configure PHY */
 	character_freq_khz =
 	    phy_cfg_hdp(4, vic_mode, bps, format, pixel_clk_from_phy);
@@ -294,13 +303,17 @@ static int imx_hdmi_probe(struct platform_device *pdev)
 	/* 0-480p, 1-720p, 2-1080p, 3-2160p60, 4-2160p30 */
 	/* Pixel Format - 1 RGB, 2 YCbCr 444, 3 YCbCr 420 */
 	if (vmode_index == 16)
-		hdmi_init(2, 1, 8);
+		ret = hdmi_init(2, 1, 8);
 	else if (vmode_index == 97)
-		hdmi_init(3, 1, 8);
+		ret = hdmi_init(3, 1, 8);
 	else if (vmode_index == 95)
-		hdmi_init(4, 1, 8);
+		ret = hdmi_init(4, 1, 8);
 	else
-		hdmi_init(1, 1, 8);
+		ret = hdmi_init(1, 1, 8);
+
+	if (ret < 0)
+		return -EINVAL;
+
 	dev_info(&pdev->dev, "i.MX HDMI driver probed\n");
 	return ret;
 
