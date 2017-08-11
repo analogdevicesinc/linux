@@ -1082,7 +1082,6 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	for (i = 0; i < pdata->num_channels; i++) {
 		chan = &pdata->channels[i];
 		if (chan->channel_num < AD9523_NUM_CHAN) {
-			struct clk *clk;
 			__set_bit(chan->channel_num, &active_mask);
 			ret = ad9523_write(indio_dev,
 				AD9523_CHANNEL_CLOCK_DIST(chan->channel_num),
@@ -1115,16 +1114,8 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 				BIT(IIO_CHAN_INFO_RAW) |
 				BIT(IIO_CHAN_INFO_PHASE) |
 				BIT(IIO_CHAN_INFO_FREQUENCY);
-
-			clk = ad9523_clk_register(indio_dev, chan->channel_num,
-						  !chan->output_dis);
-			if (IS_ERR(clk))
-				return PTR_ERR(clk);
 		}
 	}
-
-	of_clk_add_provider(st->spi->dev.of_node,
-			    of_clk_src_onecell_get, &st->clk_data);
 
 	for_each_clear_bit(i, &active_mask, AD9523_NUM_CHAN)
 		ad9523_write(indio_dev,
@@ -1145,7 +1136,27 @@ static int ad9523_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	return ad9523_sync(indio_dev);
+	ret = ad9523_sync(indio_dev);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < pdata->num_channels; i++) {
+		struct clk *clk;
+
+		chan = &pdata->channels[i];
+		if (chan->channel_num >= AD9523_NUM_CHAN)
+			continue;
+
+		clk = ad9523_clk_register(indio_dev, chan->channel_num,
+					  !chan->output_dis);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
+	}
+
+	of_clk_add_provider(st->spi->dev.of_node,
+			    of_clk_src_onecell_get, &st->clk_data);
+
+	return 0;
 }
 
 #ifdef CONFIG_OF
@@ -1381,11 +1392,20 @@ static int ad9523_probe(struct spi_device *spi)
 			return ret;
 	}
 
-	st->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown",
+	st->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
 		GPIOD_OUT_HIGH);
+	if (IS_ERR(st->pwrdown_gpio)) {
+		ret = PTR_ERR(st->pwrdown_gpio);
+		goto error_disable_reg;
+	}
 
-	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
-	if (!IS_ERR(st->reset_gpio)) {
+	st->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(st->reset_gpio)) {
+		ret = PTR_ERR(st->reset_gpio);
+		goto error_disable_reg;
+	}
+
+	if (st->reset_gpio) {
 		udelay(1);
 
 		ret = gpiod_direction_output(st->reset_gpio, 1);
@@ -1393,7 +1413,11 @@ static int ad9523_probe(struct spi_device *spi)
 
 	mdelay(10);
 
-	st->sync_gpio = devm_gpiod_get(&spi->dev, "sync", GPIOD_OUT_HIGH);
+	st->sync_gpio = devm_gpiod_get_optional(&spi->dev, "sync", GPIOD_OUT_HIGH);
+	if (IS_ERR(st->sync_gpio)) {
+		ret = PTR_ERR(st->sync_gpio);
+		goto error_disable_reg;
+	}
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;

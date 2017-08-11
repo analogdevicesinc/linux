@@ -1,7 +1,7 @@
 /*
  * ADI-AIM ADI ADC Interface Module
  *
- * Copyright 2012 Analog Devices Inc.
+ * Copyright 2012-2017 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  *
@@ -25,6 +25,16 @@
 #define PCORE_VERSION_LETTER(version) (version & 0xff)
 
 /* ADC COMMON */
+
+#define ADI_REG_CONFIG 			0x000C
+#define ADI_IQCORRECTION_DISABLE	(1 << 0)
+#define ADI_DCFILTER_DISABLE		(1 << 1)
+#define ADI_DATAFORMAT_DISABLE		(1 << 2)
+#define ADI_USERPORTS_DISABLE		(1 << 3)
+#define ADI_MODE_1R1T			(1 << 4)
+#define ADI_SCALECORRECTION_ONLY	(1 << 5)
+#define ADI_CMOS_OR_LVDS_N		(1 << 7)
+#define ADI_PPS_RECEIVER_ENABLE		(1 << 8)
 
 #define ADI_REG_RSTN			0x0040
 #define ADI_RSTN				(1 << 0)
@@ -90,6 +100,10 @@
 #define ADI_TO_USR_CHANMAX(x)		(((x) >> 0) & 0xFF)
 
 #define ADI_REG_GP_CONTROL		0x00BC
+
+#define ADI_REG_CLOCKS_PER_PPS		0x00C0
+#define ADI_REG_CLOCKS_PER_PPS_STATUS	0x00C4
+#define ADI_CLOCKS_PER_PPS_STAT_INVAL	(1 << 0)
 
 /* ADC CHANNEL */
 

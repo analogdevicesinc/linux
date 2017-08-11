@@ -29,7 +29,9 @@
 		compatible = "ti,ts3a227e";
 		reg = <0x3b>;
 		interrupt-parent = <&gpio0>;
-		//interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
+		ti,micbias = <1>; /* 2.2 Volt */
+		ti,insertion-debounce-time = <6>; /* 1 sec */
 	};
 
 	rtc@68 {
@@ -62,7 +64,7 @@
 		};
 	};
 
-	gpio-keys {
+	gpio-keys-power {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "gpio-keys";
@@ -79,7 +81,7 @@
 		};
 	};
 
-	gpio_keys {
+	gpio-keys-nav-switch {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -195,13 +197,13 @@
 	is-decoded-cs = <0>;
 
 	adis16460@0{
-		compatible = "adi,adis16445";
+		compatible = "adi,adis16460";
 		reg = <0>;
-		status = "ok";
-
-		spi-max-frequency = <2000000>;
+		spi-max-frequency = <1000000>;
 		spi-cpol;
 		spi-cpha;
+		interrupt-parent = <&gpio0>;
+		interrupts = <82 IRQ_TYPE_EDGE_RISING>;
 	};
 };
 
@@ -237,7 +239,7 @@
 		};
 
 		pzsdr_sound {
-			compatible = "simple-audio-card";
+			compatible = "simple-audio-card-adrv936x-box";
 			simple-audio-card,name = "ADRV9364-Z7020 ADAU1761";
 			simple-audio-card,widgets =
 				"Microphone", "Mic In",
@@ -263,7 +265,7 @@
 };
 /*
 
-input	imu_ready	PS_INTR_0
+input	imu_ready	28	82
 output	imu_rstn	9	63
 inout	imu_sync	8	62
 
