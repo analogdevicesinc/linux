@@ -25,15 +25,20 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/pm_domain.h>
 #include <soc/imx/fsl_sip.h>
 
 #define GPC_MAX_IRQS		(4 * 32)
 
 struct imx_gpc_pm_domain {
-	char name[30];
+	const char name[30];
+	struct device *dev;
 	struct generic_pm_domain pd;
 	u32 gpc_domain_id;
+	struct clk **clks;
+	unsigned int num_clks;
+	struct regulator *reg;
 };
 
 enum imx_gpc_pm_domain_state {
@@ -178,6 +183,22 @@ static int imx_gpc_pd_power_on(struct generic_pm_domain *domain)
 {
 	struct imx_gpc_pm_domain *pd = to_imx_gpc_pm_domain(domain);
 	struct arm_smccc_res res;
+	int index, ret = 0;
+
+	/* power on the external supply */
+	if (!IS_ERR(pd->reg)) {
+		ret = regulator_enable(pd->reg);
+		if (ret) {
+			dev_warn(pd->dev, "failed to power up the reg%d\n", ret);
+			return ret;
+		}
+	}
+
+	/* enable the necessary clks needed by the power domain */
+	if (pd->num_clks) {
+		for (index = 0; index < pd->num_clks; index++)
+			clk_prepare_enable(pd->clks[index]);
+	}
 
 	spin_lock(&gpc_psci_lock);
 	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_PM_DOMAIN, pd->gpc_domain_id,
@@ -191,27 +212,29 @@ static int imx_gpc_pd_power_off(struct generic_pm_domain *domain)
 {
 	struct imx_gpc_pm_domain *pd = to_imx_gpc_pm_domain(domain);
 	struct arm_smccc_res res;
+	int index, ret = 0;
 
 	spin_lock(&gpc_psci_lock);
 	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_PM_DOMAIN, pd->gpc_domain_id,
 		      GPC_PD_STATE_OFF, 0, 0, 0, 0, &res);
 	spin_unlock(&gpc_psci_lock);
 
-	return 0;
-};
+	/* power off the external supply */
+	if (!IS_ERR(pd->reg)) {
+		ret = regulator_disable(pd->reg);
+		if (ret) {
+			dev_warn(pd->dev, "failed to power off the reg%d\n", ret);
+			return ret;
+		}
+	}
 
-static const char * const imx8mq_powergates[] = {
-	[IMX8MQ_PD_MIPI] = "mipi",
-	[IMX8MQ_PD_PCIE1] = "pcie1",
-	[IMX8MQ_PD_OTG1] = "otg1",
-	[IMX8MQ_PD_OTG2] = "otg2",
-	[IMX8MQ_PD_GPU] = "gpu",
-	[IMX8MQ_PD_VPU] = "vpu",
-	[IMX8MQ_PD_HDMI] = "hdmi",
-	[IMX8MQ_PD_DISP] = "disp",
-	[IMX8MQ_PD_MIPI_CSI1] = "mipi_csi1",
-	[IMX8MQ_PD_MIPI_CSI2] = "mipi_csi2",
-	[IMX8MQ_PD_PCIE2] = "pcie2",
+	/* disable the necessary clks when power domain on finished */
+	if (pd->num_clks) {
+		for (index = 0; index < pd->num_clks; index++)
+			clk_disable_unprepare(pd->clks[index]);
+	}
+
+	return ret;
 };
 
 static int imx_gpc_pm_domain_probe(struct platform_device *pdev)
@@ -219,52 +242,73 @@ static int imx_gpc_pm_domain_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct imx_gpc_pm_domain *imx_pm_domain;
-	struct genpd_onecell_data *imx_pd_data;
-	struct generic_pm_domain **domains;
-	int ret, num_domains, i;
+	struct property *pp;
+	struct clk **clks;
+	int index, clk_num, ret;
 
-	pr_info("imx8mq pm domain init\n");
 	if (!np) {
-		dev_err(dev, "device tree node not found\n");
+		dev_err(dev, "power domain device tree node not found\n");
 		return -ENODEV;
 	}
 
-	ret = of_property_read_u32(np, "num-domains", &num_domains);
-	if (ret) {
-		dev_err(dev, "number of domains not found\n");
-		return -EINVAL;
-	};
-
-	imx_pm_domain = devm_kcalloc(dev, num_domains, sizeof(*imx_pm_domain), GFP_KERNEL);
+	imx_pm_domain = devm_kzalloc(dev, sizeof(*imx_pm_domain), GFP_KERNEL);
 	if (!imx_pm_domain)
 		return -ENOMEM;
+	imx_pm_domain->dev = dev;
 
-	imx_pd_data = devm_kzalloc(dev, sizeof(*imx_pd_data), GFP_KERNEL);
-	if (!imx_pd_data)
-		return -ENOMEM;
-
-	domains = devm_kcalloc(dev, num_domains, sizeof(*domains), GFP_KERNEL);
-	if (!domains)
-		return -ENOMEM;
-
-	for (i = 0; i < num_domains; i++, imx_pm_domain++) {
-		domains[i] = &imx_pm_domain->pd;
-		imx_pm_domain->gpc_domain_id = i;
-		strcpy(imx_pm_domain->name, imx8mq_powergates[i]);
-		imx_pm_domain->pd.name = imx_pm_domain->name;
-		imx_pm_domain->pd.power_off = imx_gpc_pd_power_off;
-		imx_pm_domain->pd.power_on = imx_gpc_pd_power_on;
-
-		/* all power domains as off at boot */
-		pm_genpd_init(&imx_pm_domain->pd, NULL, true);
+	ret = of_property_read_string(np, "domain-name", &imx_pm_domain->pd.name);
+	if (ret) {
+		dev_err(dev, "get domain name failed\n");
+		return -EINVAL;
 	}
 
-	imx_pd_data->domains = domains;
-	imx_pd_data->num_domains = num_domains;
+	ret = of_property_read_u32(np, "domain-id", &imx_pm_domain->gpc_domain_id);
+	if (ret) {
+		dev_err(dev, "get domain id failed\n");
+		return -EINVAL;
+	}
 
-	of_genpd_add_provider_onecell(np, imx_pd_data);
+	imx_pm_domain->reg = devm_regulator_get_optional(dev, "power");
+	if (PTR_ERR(imx_pm_domain->reg) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
 
-	return 0;
+	pp = of_find_property(np, "clocks", NULL);
+	if (pp) {
+		clk_num = pp->length / 8;
+		imx_pm_domain->num_clks = clk_num;
+	} else {
+		clk_num = 0;
+		imx_pm_domain->num_clks = clk_num;
+	}
+
+	if (clk_num) {
+		clks = devm_kcalloc(dev, clk_num, sizeof(*clks), GFP_KERNEL);
+		imx_pm_domain->clks = clks;
+		for (index = 0; index < clk_num; index++) {
+			clks[index] = of_clk_get(np, index);
+			if (IS_ERR(clks[index])) {
+				ret = -ENODEV;
+				goto exit;
+			}
+		}
+	}
+
+	imx_pm_domain->pd.power_off = imx_gpc_pd_power_off;
+	imx_pm_domain->pd.power_on = imx_gpc_pd_power_on;
+	/* all power domains as off at boot */
+	pm_genpd_init(&imx_pm_domain->pd, NULL, true);
+
+	ret = of_genpd_add_provider_simple(np,
+				 &imx_pm_domain->pd);
+	return ret;
+
+exit:
+	for (index = 0; index < clk_num; index++) {
+		if (!IS_ERR(clks[index]))
+			clk_put(clks[index]);
+	}
+
+	return ret;
 }
 
 static const struct of_device_id imx_gpc_pm_domain_ids[] = {
