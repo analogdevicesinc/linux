@@ -331,13 +331,11 @@
 			sw1a_reg: sw1ab {
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1875000>;
-				regulator-always-on;
 			};
 
 			sw1c_reg: sw1c {
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1875000>;
-				regulator-always-on;
 			};
 
 			sw2_reg: sw2 {
@@ -601,6 +599,14 @@
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <0>, <24576000>;
 	status = "okay";
+};
+
+&gpu_pd {
+	power-supply = <&sw1a_reg>;
+};
+
+&vpu_pd {
+	power-supply = <&sw1c_reg>;
 };
 
 &vpu {

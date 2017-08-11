@@ -143,10 +143,85 @@
 		};
 	};
 
-	power: power-controller {
+	mipi_pd: gpc_power_domain@0 {
 		compatible = "fsl,imx8mq-pm-domain";
-		num-domains = <11>;
-		#power-domain-cells = <1>;
+		#power-domain-cells = <0>;
+		domain-id = <0>;
+		domain-name = "MIPI_PD";
+	};
+
+	pcie0_pd: gpc_power_domain@1 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <1>;
+		domain-name = "PCIE0_PD";
+	};
+
+	usb_otg1_pd: gpc_power_domain@2 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <2>;
+		domain-name = "USB_OTG1_PD";
+	};
+
+	usb_otg2_pd: gpc_power_domain@3 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <3>;
+		domain-name = "USB_OTG2_PD";
+	};
+
+	gpu_pd: gpc_power_domain@4 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <4>;
+		domain-name = "GPU_PD";
+		clocks = <&clk IMX8MQ_CLK_GPU_AXI_DIV>, <&clk IMX8MQ_CLK_GPU_SHADER_DIV>,
+			 <&clk IMX8MQ_CLK_GPU_ROOT>, <&clk IMX8MQ_CLK_GPU_AHB_DIV>;
+	};
+
+	vpu_pd: gpc_power_domain@5 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <5>;
+		domain-name = "VPU_PD";
+		clocks = <&clk IMX8MQ_CLK_VPU_G1_ROOT>, <&clk IMX8MQ_CLK_VPU_G2_ROOT>,
+			 <&clk IMX8MQ_CLK_VPU_DEC_ROOT>;
+	};
+
+	hdmi_pd: gpc_power_domain@6 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <6>;
+		domain-name = "HDMI_PD";
+	};
+
+	disp_pd: gpc_power_domain@7 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <7>;
+		domain-name = "DISP_PD";
+	};
+
+	mipi_csi1_pd: gpc_power_domain@8 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <8>;
+		domain-name = "MIPI_CSI1_PD";
+	};
+
+	mipi_csi2_pd: gpc_power_domain@9 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <9>;
+		domain-name = "MIPI_CSI2_PD";
+	};
+
+	pcie1_pd: gpc_power_domain@10 {
+		compatible = "fsl,imx8mq-pm-domain";
+		#power-domain-cells = <0>;
+		domain-id = <10>;
+		domain-name = "PCIE1_PD";
 	};
 
 	pwm2: pwm@30670000 {
@@ -346,7 +421,7 @@
 		disp-mode = <16>;			/* <default mode: #16>
 							 * #16: 1920x1080p@60Hz 16:9
 							 */
-		power-domains = <&power 7>;
+		power-domains = <&disp_pd>;
 		status = "disabled";
 	};
 
@@ -384,7 +459,7 @@
 		phy-ref-clkfreq = <27000000>;
 		data-lanes-num = <4>;
 		max-data-rate  = <1500000000>;
-		power-domains = <&power 0>;
+		power-domains = <&mipi_pd>;
 		status = "disabled";
 	};
 
@@ -590,7 +665,7 @@
 			interrupt-parent = <&gpc>;
 			phys = <&usb3_phy0 0>, <&usb3_phy0 1>;
 			phy-names = "usb2-phy", "usb3-phy";
-			power-domains = <&power 2>;
+			power-domains = <&usb_otg1_pd>;
 			snps,power-down-scale = <2>;
 			snps,dis_u2_susphy_quirk;
 			status = "disabled";
@@ -630,7 +705,7 @@
 			interrupt-parent = <&gpc>;
 			phys = <&usb3_phy1 0>, <&usb3_phy1 1>;
 			phy-names = "usb2-phy", "usb3-phy";
-			power-domains = <&power 3>;
+			power-domains = <&usb_otg2_pd>;
 			snps,power-down-scale = <2>;
 			snps,dis_u2_susphy_quirk;
 			status = "disabled";
@@ -825,7 +900,7 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_GPU_CORE_SRC>, <&clk IMX8MQ_CLK_GPU_SHADER_SRC>, <&clk IMX8MQ_CLK_GPU_AXI_SRC>, <&clk IMX8MQ_CLK_GPU_AHB_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_GPU_PLL_OUT>, <&clk IMX8MQ_GPU_PLL_OUT>, <&clk IMX8MQ_GPU_PLL_OUT>, <&clk IMX8MQ_GPU_PLL_OUT>;
 		assigned-clock-rates = <800000000>, <800000000>, <800000000>, <800000000>;
-		power-domains = <&power 4>;
+		power-domains = <&gpu_pd>;
 		status = "disabled";
 	};
 
@@ -885,7 +960,7 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_VPU_G1_SRC>, <&clk IMX8MQ_CLK_VPU_G2_SRC>, <&clk IMX8MQ_CLK_VPU_BUS_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_VPU_PLL_OUT>, <&clk IMX8MQ_VPU_PLL_OUT>, <&clk IMX8MQ_SYS1_PLL_800M>;
 		assigned-clock-rates = <600000000>, <600000000>, <800000000>;
-		power-domains = <&power 5>;
+		power-domains = <&vpu_pd>;
 		status = "disabled";
 	};
 
@@ -928,7 +1003,7 @@
 					 * #95: 3840x2160p@30Hz 16:9
 					 * #97: 3840x2160p@60Hz 16:9
 					 */
-		power-domains = <&power 7>;
+		power-domains = <&disp_pd>;
 		status = "disabled";
 	};
 
@@ -956,7 +1031,7 @@
 		clock-names = "pcie", "pcie_bus", "pcie_phy";
 		fsl,max-link-speed = <2>;
 		ctrl-id = <0>;
-		power-domains = <&power 1>;
+		power-domains = <&pcie0_pd>;
 		status = "disabled";
 	};
 
@@ -984,7 +1059,7 @@
 		clock-names = "pcie", "pcie_bus", "pcie_phy";
 		fsl,max-link-speed = <2>;
 		ctrl-id = <1>;
-		power-domains = <&power 10>;
+		power-domains = <&pcie1_pd>;
 		status = "disabled";
 	};
 };
