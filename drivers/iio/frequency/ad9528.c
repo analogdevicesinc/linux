@@ -952,8 +952,6 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	for (i = 0; i < pdata->num_channels; i++) {
 		chan = &pdata->channels[i];
 		if (chan->channel_num < AD9528_NUM_CHAN) {
-			struct clk *clk;
-
 			if (chan->output_dis)
 				continue;
 
@@ -979,16 +977,8 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 				BIT(IIO_CHAN_INFO_RAW) |
 				BIT(IIO_CHAN_INFO_PHASE) |
 				BIT(IIO_CHAN_INFO_FREQUENCY);
-
-			clk = ad9528_clk_register(indio_dev, chan->channel_num,
-						  !chan->output_dis);
-			if (IS_ERR(clk))
-				return PTR_ERR(clk);
 		}
 	}
-
-	of_clk_add_provider(st->spi->dev.of_node,
-			    of_clk_src_onecell_get, &st->clk_data);
 
 	ret = ad9528_write(indio_dev, AD9528_CHANNEL_PD_EN,
 			AD9528_CHANNEL_PD_MASK(~active_mask));
@@ -1070,7 +1060,27 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	return ad9528_sync(indio_dev);
+	ret = ad9528_sync(indio_dev);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < pdata->num_channels; i++) {
+		struct clk *clk;
+
+		chan = &pdata->channels[i];
+		if (chan->channel_num >= AD9528_NUM_CHAN || chan->output_dis)
+			continue;
+
+		clk = ad9528_clk_register(indio_dev, chan->channel_num,
+						  !chan->output_dis);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
+	}
+
+	of_clk_add_provider(st->spi->dev.of_node,
+			    of_clk_src_onecell_get, &st->clk_data);
+
+	return 0;
 }
 
 #ifdef CONFIG_OF
