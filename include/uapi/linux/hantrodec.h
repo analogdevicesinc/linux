@@ -29,7 +29,7 @@
 #undef PDEBUG
 #ifdef HANTRODEC_DEBUG
 #  ifdef __KERNEL__
-#    define PDEBUG(fmt, args...) printk( KERN_INFO "hantrodec: " fmt, ## args)
+#    define PDEBUG(fmt, args...) pr_info("hantrodec: " fmt, ## args)
 #  else
 #    define PDEBUG(fmt, args...) fprintf(stderr, fmt, ## args)
 #  endif
@@ -38,9 +38,9 @@
 #endif
 
 struct core_desc {
-  __u32 id; /* id of the Core */
-  __u32 *regs; /* pointer to user registers */
-  __u32 size; /* size of register space */
+	__u32 id; /* id of the Core */
+	__u32 *regs; /* pointer to user registers */
+	__u32 size; /* size of register space */
 };
 
 /* Use 'k' as magic number */

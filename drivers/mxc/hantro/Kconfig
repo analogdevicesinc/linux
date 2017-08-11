@@ -9,6 +9,6 @@ config MXC_HANTRO
 	tristate "Support for MXC HANTRO(Video Processing Unit)"
 	default y
 	---help---
-         VPU codec device.
+	  VPU codec device.
 
 endmenu
