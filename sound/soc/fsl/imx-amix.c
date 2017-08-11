@@ -32,22 +32,6 @@ struct imx_amix {
 	struct snd_soc_dapm_route *dapm_routes;
 };
 
-static int imx_amix_be_startup(struct snd_pcm_substream *substream)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct imx_amix *priv = snd_soc_card_get_drvdata(rtd->card);
-
-	return pm_runtime_get_sync(&priv->out_pdev->dev);
-}
-
-static void imx_amix_be_shutdown(struct snd_pcm_substream *substream)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct imx_amix *priv = snd_soc_card_get_drvdata(rtd->card);
-
-	pm_runtime_put_sync(&priv->out_pdev->dev);
-}
-
 static const u32 imx_amix_rates[] = {
 	8000, 12000, 16000, 24000, 32000, 48000, 64000, 96000,
 };
@@ -170,8 +154,6 @@ static struct snd_soc_ops imx_amix_fe_ops = {
 };
 
 static struct snd_soc_ops imx_amix_be_ops = {
-	.startup   = imx_amix_be_startup,
-	.shutdown  = imx_amix_be_shutdown,
 	.hw_params = imx_amix_be_hw_params,
 };
 
