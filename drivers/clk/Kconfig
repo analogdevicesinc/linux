@@ -288,6 +288,13 @@ config COMMON_CLK_OXNAS
 	---help---
 	  Support for the OXNAS SoC Family clocks.
 
+config COMMON_CLK_ALTERA_A10_FPLL
+	tristate "Clock driver for Altera Arria10 FPLL"
+	depends on ARCH_SOCFPGA || NIOS2
+	---help---
+	  Support for the Altera Fractional PLL found in the reconfiguable logic
+	  of Arria10 and Arria10 SoC FPGAs.
+
 config COMMON_CLK_VC5
 	tristate "Clock driver for IDT VersaClock 5,6 devices"
 	depends on I2C
