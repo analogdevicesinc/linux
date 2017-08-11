@@ -235,10 +235,38 @@ static int atx_pll_calib(struct adxcvr_state *st)
 	}
 }
 
+static int adxcfg_calibration_check(struct adxcvr_state *st, unsigned int lane,
+	bool tx)
+{
+	unsigned int mask;
+	unsigned int val;
+	const char *msg;
+
+	if (tx) {
+		mask = XCVR_CAPAB_TX_CAL_BUSY_MASK;
+		msg = "TX termination and VOD calibration";
+	} else {
+		mask = XCVR_CAPAB_RX_CAL_BUSY_MASK;
+		msg = "CDR/CMU PLL & RX offset calibration";
+	}
+
+	/* Wait 100ms for cal_busy to de-assert */
+	mdelay(100);
+
+	/* Read PMA calibration status from capability register */
+	val = adxcfg_read(st, lane, XCVR_REG_CAPAB_PMA);
+	if ((val & mask) == 0) {
+		dev_info(st->dev, "Lane %d %s OK\n", lane, msg);
+		return 0;
+	} else {
+		dev_err(st->dev, "Lane %d %s FAILED\n", lane, msg);
+		return 1;
+	}
+}
+
 static int xcvr_calib_tx(struct adxcvr_state *st)
 {
 	unsigned lane;
-	unsigned val;
 	unsigned err = 0;
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
@@ -260,18 +288,7 @@ static int xcvr_calib_tx(struct adxcvr_state *st)
 
 		adxcfg_release_arbitration(st, lane, true);
 
-		mdelay(100);	// Wait 100ms for cal_busy to de-assert
-
-		/* Read PMA calibration status from capability register */
-		val = adxcfg_read(st, lane, XCVR_REG_CAPAB_PMA);
-		if ((val & XCVR_CAPAB_TX_CAL_BUSY_MASK) == XCVR_CAPAB_TX_CAL_DONE) {
-			dev_info(st->dev, "Lane %d TX termination and VOD calib OK\n",
-					lane);
-		} else {
-			dev_err(st->dev, "Lane %d TX termination and VOD calib error\n",
-					lane);
-			err |= 1;
-		}
+		err |= adxcfg_calibration_check(st, lane, true);
 	}
 
 	return err;
@@ -280,7 +297,6 @@ static int xcvr_calib_tx(struct adxcvr_state *st)
 static int xcvr_calib_rx(struct adxcvr_state *st)
 {
 	unsigned lane;
-	unsigned val;
 	unsigned err = 0;
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
@@ -307,18 +323,7 @@ static int xcvr_calib_rx(struct adxcvr_state *st)
 
 		adxcfg_release_arbitration(st, lane, true);
 
-		mdelay(100);	// Wait 100ms for cal_busy to de-assert
-
-		/* Read PMA calibration status from capability register */
-		val = adxcfg_read(st, lane, XCVR_REG_CAPAB_PMA);
-		if ((val & XCVR_CAPAB_RX_CAL_BUSY_MASK) == XCVR_CAPAB_RX_CAL_DONE) {
-			dev_info(st->dev, "Lane %d CDR/CMU PLL & RX offset calib OK\n",
-					 lane);
-		} else {
-			dev_err(st->dev, "Lane %d CDR/CMU PLL & RX offset calib error\n",
-					lane);
-			err |= 1;
-		}
+		err |= adxcfg_calibration_check(st, lane, false);
 	}
 
 	return err;
