@@ -33,6 +33,8 @@
 #define ADXCVR_REG_STATUS			0x0014
 #define ADXCVR_STATUS				(1 << 0)
 
+#define ADXCVR_REG_SYNTH_CONF			0x0024
+
 /* XCVR Registers */
 
 #define XCVR_REG_ARBITRATION			0x000
@@ -81,8 +83,7 @@ struct adxcvr_state {
 	void __iomem		*atx_pll_regs;
 	void __iomem		*adxcfg_regs[4];
 	unsigned int 		version;
-	bool			tx_en;
-	bool			rx_en;
+	bool			is_transmit;
 	u32			lanes_per_link;
 	struct delayed_work	delayed_work;
 
@@ -409,7 +410,7 @@ static void adxcvr_work_func(struct work_struct *work)
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 
-	if (st->tx_en) {
+	if (st->is_transmit) {
 		if (atx_pll_calib(st)) {
 			dev_err(st->dev, "ATX PLL NOT ready\n");
 			err = 1;
@@ -418,13 +419,12 @@ static void adxcvr_work_func(struct work_struct *work)
 			dev_err(st->dev, "TX calib error\n");
 			err = 1;
 		}
-	}
-
-	if (st->rx_en)
+	} else {
 		if (xcvr_calib_rx(st)) {
 			dev_err(st->dev, "RX calib error\n");
 			err = 1;
 		}
+	}
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 	do {
@@ -447,11 +447,11 @@ static void adxcvr_work_func(struct work_struct *work)
 
 static int adxcvr_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct resource *mem_adxcvr;
 	struct resource *mem_atx_pll;
 	struct resource *mem_adxcfg[4];
 	struct adxcvr_state *st;
+	unsigned int synth_conf;
 	char adxcfg_name[16];
 	int lane;
 	int ret;
@@ -472,8 +472,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	st->version = adxcvr_read(st, ADXCVR_REG_VERSION);
 
-	of_property_read_u32(np, "adi,lanes-per-link",
-			     &st->lanes_per_link);
+	synth_conf = adxcvr_read(st, ADXCVR_REG_SYNTH_CONF);
+
+	st->is_transmit = (bool)(synth_conf & 0x100);
+	st->lanes_per_link = synth_conf & 0xff;
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
 		sprintf(adxcfg_name, "adxcfg-%d", lane);
@@ -485,10 +487,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 			return PTR_ERR(st->adxcfg_regs[lane]);
 	}
 
-	st->tx_en = of_property_read_bool(np, "adi,tx-enable");
-	st->rx_en = of_property_read_bool(np, "adi,rx-enable");
-
-	if (st->tx_en) {
+	if (st->is_transmit) {
 		mem_atx_pll = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "atx-pll");
 		st->atx_pll_regs = devm_ioremap_resource(&pdev->dev,
