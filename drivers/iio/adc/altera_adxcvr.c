@@ -214,10 +214,32 @@ static void adxcfg_unlock(struct adxcvr_state *st)
 	mutex_unlock(&adxcfg_global_lock);
 }
 
+static int atx_pll_calibration_check(struct adxcvr_state *st)
+{
+	unsigned int timeout = 0;
+	unsigned int val;
+
+	/* Wait max 100ms for cal_busy to de-assert */
+	do {
+		mdelay(10);
+
+		/* Read ATX PLL calibration status from capability register */
+		val = atx_pll_read(st, XCVR_REG_CAPAB_ATX_PLL_STAT);
+		if ((val & XCVR_CAPAB_ATX_PLL_CAL_BSY_MASK) ==
+				XCVR_CAPAB_ATX_PLL_CAL_DONE) {
+			dev_info(st->dev, "ATX PLL calibration OK (%d ms)\n",
+				timeout * 10);
+			return 0;
+		}
+	} while (timeout++ < 10);
+
+	dev_err(st->dev, "ATX PLL calibration FAILED\n");
+
+	return 1;
+}
+
 static int atx_pll_calib(struct adxcvr_state *st)
 {
-	unsigned val;
-
 	atx_pll_acquire_arbitration(st);
 
 	/* Initiate re-calibration of ATX_PLL */
@@ -226,24 +248,13 @@ static int atx_pll_calib(struct adxcvr_state *st)
 
 	atx_pll_release_arbitration(st, true);
 
-	mdelay(100);	// Wait 100ms for cal_busy to de-assert
-
-	/* Read ATX PLL calibration status from capability register */
-	val = atx_pll_read(st, XCVR_REG_CAPAB_ATX_PLL_STAT);
-	if ((val & XCVR_CAPAB_ATX_PLL_CAL_BSY_MASK) ==
-			XCVR_CAPAB_ATX_PLL_CAL_DONE) {
-		dev_info(st->dev, "ATX PLL calibration OK\n");
-		return 0;
-	}
-	else {
-		dev_err(st->dev, "ATX PLL calibration error\n");
-		return 1;
-	}
+	return atx_pll_calibration_check(st);
 }
 
 static int adxcfg_calibration_check(struct adxcvr_state *st, unsigned int lane,
 	bool tx)
 {
+	unsigned int timeout = 0;
 	unsigned int mask;
 	unsigned int val;
 	const char *msg;
@@ -256,18 +267,22 @@ static int adxcfg_calibration_check(struct adxcvr_state *st, unsigned int lane,
 		msg = "CDR/CMU PLL & RX offset calibration";
 	}
 
-	/* Wait 100ms for cal_busy to de-assert */
-	mdelay(100);
+	/* Wait max 100ms for cal_busy to de-assert */
+	do {
+		udelay(100);
 
-	/* Read PMA calibration status from capability register */
-	val = adxcfg_read(st, lane, XCVR_REG_CAPAB_PMA);
-	if ((val & mask) == 0) {
-		dev_info(st->dev, "Lane %d %s OK\n", lane, msg);
-		return 0;
-	} else {
-		dev_err(st->dev, "Lane %d %s FAILED\n", lane, msg);
-		return 1;
-	}
+		/* Read PMA calibration status from capability register */
+		val = adxcfg_read(st, lane, XCVR_REG_CAPAB_PMA);
+		if ((val & mask) == 0) {
+			dev_info(st->dev, "Lane %d %s OK (%d us)\n", lane, msg,
+				timeout * 100);
+			return 0;
+		}
+	} while (timeout++ < 1000);
+
+	dev_err(st->dev, "Lane %d %s FAILED\n", lane, msg);
+
+	return 1;
 }
 
 static int xcvr_calib_tx(struct adxcvr_state *st)
