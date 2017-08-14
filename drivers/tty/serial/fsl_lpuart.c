@@ -959,7 +959,9 @@ static irqreturn_t lpuart32_int(int irq, void *dev_id)
 			lpuart32_rxint(irq, dev_id);
 		else if (sport->lpuart_dma_rx_use && sport->dma_rx_chan_active)
 			lpuart_prepare_rx(sport);
-	} else if (!(crdma & UARTBAUD_RDMAE) && (sts & UARTSTAT_IDLE)) {
+	} else if (!(crdma & UARTBAUD_RDMAE) && (sts & UARTSTAT_IDLE) &&
+			!(sport->lpuart_dma_rx_use && sport->dma_eeop &&
+			rxcount > 0)) {
 		lpuart32_write(&sport->port, UARTSTAT_IDLE, UARTSTAT);
 	}
 
@@ -1584,6 +1586,10 @@ static void lpuart32_shutdown(struct uart_port *port)
 	int ret;
 
 	spin_lock_irqsave(&port->lock, flags);
+
+	/* clear statue */
+	temp = lpuart32_read(&sport->port, UARTSTAT);
+	lpuart32_write(&sport->port, temp, UARTSTAT);
 
 	/* disable Rx/Tx DMA */
 	temp = lpuart32_read(port, UARTBAUD);
