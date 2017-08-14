@@ -47,6 +47,14 @@
 			enable-active-high;
 		};
 
+		epdev_on: fixedregulator@100 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "epdev_on";
+			gpio = <&pca9557_a 0 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
 	};
 
 	sound: sound {
@@ -504,6 +512,7 @@
 	pinctrl-0 = <&pinctrl_pcieb>;
 	clkreq-gpio = <&gpio4 1 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 0 GPIO_ACTIVE_LOW>;
+	epdev_on-supply = <&epdev_on>;
 	status = "okay";
 };
 
