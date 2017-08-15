@@ -16,6 +16,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/gpio.h>
 #include <linux/init.h>
@@ -258,6 +259,7 @@ static int vf610_gpio_probe(struct platform_device *pdev)
 							   &pdev->dev);
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	struct clk *clk_port, *clk_gpio;
 	struct vf610_gpio_port *port;
 	struct resource *iores;
 	struct gpio_chip *gc;
@@ -281,6 +283,23 @@ static int vf610_gpio_probe(struct platform_device *pdev)
 	port->irq = platform_get_irq(pdev, 0);
 	if (port->irq < 0)
 		return port->irq;
+
+	clk_port = devm_clk_get(&pdev->dev, "port");
+	clk_gpio = devm_clk_get(&pdev->dev, "gpio");
+	if (PTR_ERR(clk_port) == -EPROBE_DEFER ||
+	    PTR_ERR(clk_gpio) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
+	if (!IS_ERR(clk_port) && !IS_ERR(clk_gpio)) {
+		ret = clk_prepare_enable(clk_port);
+		if (ret)
+			return ret;
+		ret = clk_prepare_enable(clk_gpio);
+		if (ret) {
+			clk_disable_unprepare(clk_port);
+			return ret;
+		}
+	}
 
 	gc = &port->gc;
 	gc->of_node = np;

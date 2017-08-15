@@ -27,6 +27,12 @@ Required properties for GPIO node:
 Note: Each GPIO port should have an alias correctly numbered in "aliases"
 node.
 
+Optional properties:
+- clocks	: phandle + clock specifier pairs, one for each entry in
+		  clock-names.
+- clock-names	: should contain: "port" - the Port module clock and
+		  "gpio" - the GPIO module clock.
+
 Examples:
 
 aliases {
