@@ -10,6 +10,7 @@ Required properties:
 Optional properties:
 	- split-mode: boolean. if this exists, split mode is enabled,
 	  otherwise, single mode is enabled.
+	- reset-gpios: OF device-tree gpio specification for SYSRSTN pin.
 
 [1]: Documentation/devicetree/bindings/media/video-interfaces.txt
 
