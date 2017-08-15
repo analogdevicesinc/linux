@@ -1144,46 +1144,145 @@ static int ad9625_setup(struct spi_device *spi)
 	return ret;
 }
 
+static int ad9680_setup_jesd204_link(struct axiadc_converter *conv,
+	unsigned int sample_rate)
+{
+	unsigned long lane_rate_kHz;
+	unsigned long sysref_rate;
+	int ret;
+
+	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
+	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
+
+	if (lane_rate_kHz < 3125000 || lane_rate_kHz > 12500000) {
+		dev_err(&conv->spi->dev, "Lane rate %lu Mbps out of bounds. Must be between 3125 and 12500 Mbps",
+			lane_rate_kHz / 1000);
+		return -EINVAL;;
+	}
+
+	if (lane_rate_kHz < 6250000)
+		ad9467_spi_write(conv->spi, 0x56e, 0x10);	// low line rate mode must be enabled
+	else
+		ad9467_spi_write(conv->spi, 0x56e, 0x00);	// low line rate mode must be disabled
+
+	ret = clk_set_rate(conv->sysref_clk, sysref_rate);
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to set SYSREF clock to %lu kHz: %d\n",
+			sysref_rate / 1000, ret);
+		return ret;
+	}
+
+	ret = clk_set_rate(conv->lane_clk, lane_rate_kHz);
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+			lane_rate_kHz, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int ad9680_set_sample_rate(struct axiadc_converter *conv,
+	unsigned int sample_rate)
+{
+	unsigned int pll_stat;
+	int ret = 0;
+
+	/*
+	 * Minimum ADC samplerate is 300 MSPS. But the minimum lane rate is
+	 * 3.125 Gbps, which results in a minumum ADC samplerate of 312.5 Msps when
+	 * using 4 lanes. Lower the minimum here once support for dynamic lane
+	 * enable/disable has been implemented.
+	 */
+	sample_rate = clamp(sample_rate, 312500000U, 1000000000U);
+	sample_rate = clk_round_rate(conv->clk, sample_rate);
+
+	/* Disable link */
+	ad9467_spi_write(conv->spi, 0x571, 0x15);
+	ad9467_spi_write(conv->spi, 0x0ff, 0x01);	// write enable
+
+	clk_disable_unprepare(conv->lane_clk);
+	clk_disable_unprepare(conv->sysref_clk);
+	clk_disable_unprepare(conv->clk);
+
+	ret = clk_set_rate(conv->clk, sample_rate);
+	if (ret) {
+		dev_err(&conv->spi->dev, "Failed to set converter clock rate to %u kHz: %d\n",
+			sample_rate / 1000, ret);
+		return ret;
+	}
+
+	ret = ad9680_setup_jesd204_link(conv, sample_rate);
+	if (ret < 0)
+		return ret;
+
+	ret = clk_prepare_enable(conv->clk);
+	if (ret) {
+		dev_err(&conv->spi->dev, "Failed to enable converter clock: %d\n", ret);
+		return ret;
+	}
+	ret = clk_prepare_enable(conv->sysref_clk);
+	if (ret) {
+		dev_err(&conv->spi->dev, "Failed to enable SYSREF clock: %d\n", ret);
+		return ret;
+	}
+
+	// Enable link
+	ad9467_spi_write(conv->spi, 0x571, 0x14);
+	ad9467_spi_write(conv->spi, 0x0ff, 0x01);	// write enable
+
+	mdelay(20);
+	pll_stat = ad9467_spi_read(conv->spi, 0x56f);
+
+	dev_info(&conv->spi->dev, "PLL %s\n",
+		 (pll_stat & 0x80) ? "LOCKED" : "UNLOCKED");
+
+	ret = clk_prepare_enable(conv->lane_clk);
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to enable JESD204 link: %d\n", ret);
+		return ret;
+	}
+
+	conv->adc_clk = sample_rate;
+
+	return 0;
+}
+
 static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 		bool ad9234)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
-	struct clk *clk;
-	struct clk *jesd_clk;
 	int ret, tmp = 1;
 	unsigned pll_stat;
 	const u32 sfdr_optim_regs[8] =
 		{0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935};
 	u32 sfdr_optim_vals[ARRAY_SIZE(sfdr_optim_regs)];
-	unsigned long lane_rate_kHz;
 
-	clk = devm_clk_get(&spi->dev, "adc_sysref");
-	if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
-		return PTR_ERR(clk);
+	conv->sysref_clk = devm_clk_get(&spi->dev, "adc_sysref");
+	if (IS_ERR(conv->sysref_clk) && PTR_ERR(conv->sysref_clk) != -ENOENT)
+		return PTR_ERR(conv->sysref_clk);
 
-	if (!IS_ERR(clk)) {
-		ret = clk_prepare_enable(clk);
+	if (!IS_ERR(conv->sysref_clk)) {
+		ret = clk_prepare_enable(conv->sysref_clk);
 		if (ret < 0)
 			return ret;
 	}
 
-	clk = devm_clk_get(&spi->dev, "adc_clk");
-	if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
-		return PTR_ERR(clk);
+	conv->clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (IS_ERR(conv->clk) && PTR_ERR(conv->clk) != -ENOENT)
+		return PTR_ERR(conv->clk);
 
-	if (!IS_ERR(clk)) {
-		ret = clk_prepare_enable(clk);
+	if (!IS_ERR(conv->clk)) {
+		ret = clk_prepare_enable(conv->clk);
 		if (ret < 0)
 			return ret;
 
-		conv->adc_clk = clk_get_rate(clk);
+		conv->adc_clk = clk_get_rate(conv->clk);
 	}
 
-	lane_rate_kHz = (conv->adc_clk / 1000) * 10;	// FIXME for other configurations
-
-	jesd_clk = devm_clk_get(&spi->dev, "jesd_adc_clk");
-	if (IS_ERR(jesd_clk) && PTR_ERR(jesd_clk) != -ENOENT)
-		return PTR_ERR(jesd_clk);
+	conv->lane_clk = devm_clk_get(&spi->dev, "jesd_adc_clk");
+	if (IS_ERR(conv->lane_clk) && PTR_ERR(conv->lane_clk) != -ENOENT)
+		return PTR_ERR(conv->lane_clk);
 
 #ifdef CONFIG_OF
 	if (spi->dev.of_node)
@@ -1226,34 +1325,22 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	ret |= ad9467_spi_write(spi, 0x5b3, 0x11);	// serdes-1 = lane 1
 	ret |= ad9467_spi_write(spi, 0x5b5, 0x22);	// serdes-2 = lane 2
 	ret |= ad9467_spi_write(spi, 0x5b6, 0x33);	// serdes-3 = lane 3
-	if (lane_rate_kHz < 6250000)
-		ret |= ad9467_spi_write(spi, 0x56e, 0x10);	// low line rate mode must be enabled
-	else
-		ret |= ad9467_spi_write(spi, 0x56e, 0x00);	// low line rate mode must be disabled
-	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);	// write enable
 
-	conv->clk = clk;
-
+	ret = ad9680_setup_jesd204_link(conv, conv->adc_clk);
+	if (ret < 0)
+		return ret;
+	ad9467_spi_write(conv->spi, 0x0ff, 0x01);	// write enable
 	mdelay(20);
-	pll_stat = ad9467_spi_read(spi, 0x56f);
+	pll_stat = ad9467_spi_read(conv->spi, 0x56f);
 
-	dev_info(&spi->dev, "AD9680 PLL %s\n",
+	dev_info(&conv->spi->dev, "AD9680 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
-	ret = clk_set_rate(jesd_clk, lane_rate_kHz);
-	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
-			lane_rate_kHz, ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(jesd_clk);
+	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
 	}
-
-	conv->sample_rate_read_only = true;
 
 	return ret;
 }
@@ -1394,6 +1481,9 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 		if (conv->sample_rate_read_only)
 			return -EPERM;
 
+		if (conv->id == CHIPID_AD9680)
+			return ad9680_set_sample_rate(conv, val);
+
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
 			dev_warn(&conv->spi->dev,
@@ -1503,6 +1593,7 @@ static int ad9467_probe(struct spi_device *spi)
 	}
 
 	spi_set_drvdata(spi, conv);
+	conv->spi = spi;
 	conv->clk = clk;
 
 	conv->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
@@ -1682,7 +1773,6 @@ static int ad9467_probe(struct spi_device *spi)
 	}
 
 	conv->attrs = &ad9467_attribute_group;
-	conv->spi = spi;
 
 	if (conv->id == CHIPID_AD9680) {
 		ret = ad9680_request_fd_irqs(conv);
