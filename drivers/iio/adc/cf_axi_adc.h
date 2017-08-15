@@ -223,6 +223,8 @@ struct axiadc_converter {
 	struct spi_device 	*spi;
 	struct clk 		*clk;
 	struct clock_scale		adc_clkscale;
+	struct clk		*lane_clk;
+	struct clk		*sysref_clk;
 	void 			*phy;
 	struct gpio_desc		*pwrdown_gpio;
 	struct gpio_desc		*reset_gpio;
