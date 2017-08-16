@@ -202,6 +202,21 @@ DECLARE_WAIT_QUEUE_HEAD(hw_queue);
 
 static u32 cfg[HXDEC_MAX_CORES];
 
+static int hantro_ctrlblk_reset(void)
+{
+	volatile u8 *iobase;
+
+	//config G1/G2
+	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
+	iowrite32(0x3, iobase);  //VPUMIX G1/G2 block soft reset  control
+	iowrite32(0x3, iobase+4); //VPUMIX G1/G2 block clock enable control
+	iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
+	iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
+	iowrite32(0xFFFFFFFF, iobase + 0x10); // all G2 fuse dec enable
+	iounmap(iobase);
+	return 0;
+}
+
 static int hantro_clk_enable(struct device *dev)
 {
 	clk_prepare(hantro_clk_g1);
@@ -1189,8 +1204,8 @@ static long hantrodec_ioctl32(struct file *filp, unsigned int cmd, unsigned long
 static int hantrodec_open(struct inode *inode, struct file *filp)
 {
 	PDEBUG("dev opened\n");
-	pm_runtime_get_sync(hantro_dev);
 	hantro_clk_enable(hantro_dev);
+	pm_runtime_get_sync(hantro_dev);
 	return 0;
 }
 
@@ -1222,8 +1237,8 @@ static int hantrodec_release(struct inode *inode, struct file *filp)
 		}
 	}
 
-	hantro_clk_disable(hantro_dev);
 	pm_runtime_put_sync(hantro_dev);
+	hantro_clk_disable(hantro_dev);
 	PDEBUG("closed\n");
 	return 0;
 }
@@ -1600,7 +1615,6 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	struct device *temp_class;
 	struct resource *res;
 	unsigned long reg_base;
-	volatile u8 *iobase;
 
 	hantro_dev = &pdev->dev;
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs_hantro");
@@ -1626,18 +1640,10 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	pr_debug("hantro: g1, g2, bus clock: 0x%lX, 0x%lX, 0x%lX\n", clk_get_rate(hantro_clk_g1),
 				clk_get_rate(hantro_clk_g2), clk_get_rate(hantro_clk_bus));
 
+	hantro_clk_enable(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
-	hantro_clk_enable(&pdev->dev);
-
-	//config G1/G2
-	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
-	iowrite32(0x3, iobase);  //VPUMIX G1/G2 block soft reset  control
-	iowrite32(0x3, iobase+4); //VPUMIX G1/G2 block clock enable control
-	iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
-	iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
-	iowrite32(0xFFFFFFFF, iobase + 0x10); // all G2 fuse dec enable
-	iounmap(iobase);
+	hantro_ctrlblk_reset();
 
 	err = hantrodec_init(pdev);
 	if (0 != err) {
@@ -1664,24 +1670,24 @@ err_out_class:
 error:
 	pr_err("hantro probe failed\n");
 out:
-	hantro_clk_disable(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
+	hantro_clk_disable(&pdev->dev);
 	return err;
 }
 
 static int hantro_dev_remove(struct platform_device *pdev)
 {
-	pm_runtime_get_sync(&pdev->dev);
 	hantro_clk_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 	if (hantrodec_major > 0) {
 		device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
 		class_destroy(hantro_class);
 		hantrodec_cleanup();
 		hantrodec_major = 0;
 	}
-	hantro_clk_disable(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+	hantro_clk_disable(&pdev->dev);
 	return 0;
 }
 
@@ -1694,6 +1700,7 @@ static int hantro_suspend(struct device *dev)
 static int hantro_resume(struct device *dev)
 {
 	pm_runtime_get_sync(dev);     //power on
+	hantro_ctrlblk_reset();
 	return 0;
 }
 static int hantro_runtime_suspend(struct device *dev)
@@ -1705,6 +1712,7 @@ static int hantro_runtime_suspend(struct device *dev)
 static int hantro_runtime_resume(struct device *dev)
 {
 	//request_bus_freq(BUS_FREQ_HIGH);
+	hantro_ctrlblk_reset();
 	return 0;
 }
 
