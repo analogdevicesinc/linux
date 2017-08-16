@@ -2784,12 +2784,6 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 	if (blank == FB_BLANK_UNBLANK) {
 		/* dcss output timings can only be set for fb0 */
 		if (!fb_node) {
-			ret = dcss_subsam_config(info);
-			if (ret) {
-				dev_err(&pdev->dev, "subsam config failed\n");
-				goto out;
-			}
-
 			ret = dcss_dtg_config(fb_node, info);
 			if (ret) {
 				dev_err(&pdev->dev, "dtg config failed\n");
@@ -3254,6 +3248,10 @@ static int dcss_probe(struct platform_device *pdev)
 
 	/* enable encoder if exists */
 	dcss_enable_encoder(info);
+
+	ret = dcss_subsam_config(info);
+	if (ret)
+		goto unregister_fb0;
 
 	/* register channel 1: video */
 	ret = dcss_register_one_ch(1, info);
