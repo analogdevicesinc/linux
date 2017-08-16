@@ -2080,15 +2080,13 @@ static int dcss_subsam_config(struct dcss_info *info)
 	uint32_t de_lrc_x, de_lrc_y;
 	struct dcss_channels *chans = &info->chans;
 	struct dcss_channel_info *chan_info;
-	struct fb_info *fbi;
-	struct fb_var_screeninfo *var;
 	struct cbuffer *cb;
+	const struct fb_videomode *dmode;
 
 	/* using channel 0 by default */
 	chan_info = &chans->chan_info[0];
-	fbi = chan_info->fb_info;
-	var = &fbi->var;
 	cb = &chan_info->cb;
+	dmode = info->dft_disp_mode;
 
 	/* TODO: for 1080p only */
 	hsync_pol = 1;
@@ -2107,10 +2105,10 @@ static int dcss_subsam_config(struct dcss_info *info)
 #endif
 
 	/* Timing Config */
-	disp_lrc_x = var->xres + var->left_margin +
-		     var->right_margin + var->hsync_len - 1;
-	disp_lrc_y = var->yres + var->upper_margin +
-		     var->lower_margin + var->vsync_len - 1;
+	disp_lrc_x = dmode->xres + dmode->left_margin +
+		     dmode->right_margin + dmode->hsync_len - 1;
+	disp_lrc_y = dmode->yres + dmode->upper_margin +
+		     dmode->lower_margin + dmode->vsync_len - 1;
 #if USE_CTXLD
 	fill_sb(cb, chans->subsam_addr + 0x10,
 		disp_lrc_y << 16 | disp_lrc_x);
@@ -2122,9 +2120,9 @@ static int dcss_subsam_config(struct dcss_info *info)
 	/* horizontal sync will be asserted when
 	 * horizontal count == START
 	 */
-	hsync_start = var->xres + var->left_margin +
-		      var->right_margin + var->hsync_len - 1;
-	hsync_end   = var->hsync_len - 1;
+	hsync_start = dmode->xres + dmode->left_margin +
+		      dmode->right_margin + dmode->hsync_len - 1;
+	hsync_end   = dmode->hsync_len - 1;
 #if USE_CTXLD
 	fill_sb(cb, chans->subsam_addr + 0x20,
 		(hsync_pol << 31) | hsync_end << 16 | hsync_start);
@@ -2133,8 +2131,8 @@ static int dcss_subsam_config(struct dcss_info *info)
 	       info->base + chans->subsam_addr + 0x20);
 #endif
 
-	vsync_start = var->lower_margin - 1;
-	vsync_end   = var->lower_margin + var->vsync_len - 1;
+	vsync_start = dmode->lower_margin - 1;
+	vsync_end   = dmode->lower_margin + dmode->vsync_len - 1;
 #if USE_CTXLD
 	fill_sb(cb, chans->subsam_addr + 0x30,
 		(vsync_pol << 31) | vsync_end << 16 | vsync_start);
@@ -2143,9 +2141,9 @@ static int dcss_subsam_config(struct dcss_info *info)
 	       info->base + chans->subsam_addr + 0x30);
 #endif
 
-	de_ulc_x = var->left_margin + var->hsync_len - 1;
-	de_ulc_y = var->upper_margin + var->lower_margin +
-		   var->vsync_len;
+	de_ulc_x = dmode->left_margin + dmode->hsync_len - 1;
+	de_ulc_y = dmode->upper_margin + dmode->lower_margin +
+		   dmode->vsync_len;
 #if USE_CTXLD
 	fill_sb(cb, chans->subsam_addr + 0x40,
 		(de_pol << 31) | de_ulc_y << 16 | de_ulc_x);
@@ -2154,10 +2152,10 @@ static int dcss_subsam_config(struct dcss_info *info)
 	       info->base + chans->subsam_addr + 0x40);
 #endif
 
-	de_lrc_x = var->xres + var->left_margin +
-		   var->hsync_len - 1;
-	de_lrc_y = var->yres + var->upper_margin +
-		   var->lower_margin + var->vsync_len - 1;
+	de_lrc_x = dmode->xres + dmode->left_margin +
+		   dmode->hsync_len - 1;
+	de_lrc_y = dmode->yres + dmode->upper_margin +
+		   dmode->lower_margin + dmode->vsync_len - 1;
 #if USE_CTXLD
 	fill_sb(cb, chans->subsam_addr + 0x50,
 		de_lrc_y << 16 | de_lrc_x);
