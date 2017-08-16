@@ -1931,34 +1931,30 @@ static int dcss_dtg_start(struct dcss_info *info)
 	uint32_t dis_lrc_x, dis_lrc_y;
 	struct dcss_channels *chans = &info->chans;
 	struct dcss_channel_info *chan_info;
-	struct fb_info *fbi;
-	struct fb_var_screeninfo *var;
-	struct dcss_pixmap *input;
+	const struct fb_videomode *dmode;
 	struct cbuffer *cb;
 
 	chan_info = &chans->chan_info[0];
-	fbi = chan_info->fb_info;
-	var = &fbi->var;
-	input = &chan_info->input;
+	dmode = info->dft_disp_mode;
 	cb = &chan_info->cb;
 
 	/* Display Timing Config */
-	dtg_lrc_x = var->xres + var->left_margin +
-		var->right_margin + var->hsync_len - 1;
-	dtg_lrc_y = var->yres + var->upper_margin +
-		var->lower_margin + var->vsync_len - 1;
+	dtg_lrc_x = dmode->xres + dmode->left_margin +
+		    dmode->right_margin + dmode->hsync_len - 1;
+	dtg_lrc_y = dmode->yres + dmode->upper_margin +
+		    dmode->lower_margin + dmode->vsync_len - 1;
 	writel(dtg_lrc_y << 16 | dtg_lrc_x, info->base + chans->dtg_addr + 0x4);
 
 	/* global output timing */
-	dis_ulc_x = var->left_margin + var->hsync_len - 1;
-	dis_ulc_y = var->upper_margin + var->lower_margin +
-		var->vsync_len - 1;
+	dis_ulc_x = dmode->left_margin + dmode->hsync_len - 1;
+	dis_ulc_y = dmode->upper_margin + dmode->lower_margin +
+		    dmode->vsync_len - 1;
 	writel(dis_ulc_y << 16 | dis_ulc_x, info->base + chans->dtg_addr + 0x8);
 
-	dis_lrc_x = var->xres + var->left_margin +
-		var->hsync_len - 1;
-	dis_lrc_y = var->yres + var->upper_margin +
-		var->lower_margin + var->vsync_len - 1;
+	dis_lrc_x = dmode->xres + dmode->left_margin +
+		    dmode->hsync_len - 1;
+	dis_lrc_y = dmode->yres + dmode->upper_margin +
+		    dmode->lower_margin + dmode->vsync_len - 1;
 	writel(dis_lrc_y << 16 | dis_lrc_x, info->base + chans->dtg_addr + 0xc);
 
 	writel(0xff000100, info->base + chans->dtg_addr + 0x0);
