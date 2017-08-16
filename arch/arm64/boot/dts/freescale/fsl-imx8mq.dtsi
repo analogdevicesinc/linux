@@ -346,6 +346,7 @@
 		disp-mode = <16>;			/* <default mode: #16>
 							 * #16: 1920x1080p@60Hz 16:9
 							 */
+		power-domains = <&power 7>;
 		status = "disabled";
 	};
 
@@ -923,6 +924,7 @@
 					 * #95: 3840x2160p@30Hz 16:9
 					 * #97: 3840x2160p@60Hz 16:9
 					 */
+		power-domains = <&power 7>;
 		status = "disabled";
 	};
 
