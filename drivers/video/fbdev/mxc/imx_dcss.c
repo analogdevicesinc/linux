@@ -2661,7 +2661,7 @@ out:
 
 static int dcss_set_par(struct fb_info *fbi)
 {
-	int ret = 0, saved_blank;
+	int ret = 0;
 	int fb_node = fbi->node;
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
@@ -2675,15 +2675,6 @@ static int dcss_set_par(struct fb_info *fbi)
 
 	chan_info = &chans->chan_info[fb_node];
 	cb = &chan_info->cb;
-
-	saved_blank = chan_info->blank;
-
-	if (saved_blank == FB_BLANK_UNBLANK) {
-		/* blank the fb if is not to
-		 * stop dcss for a while
-		 */
-		ret = dcss_blank(FB_BLANK_NORMAL, fbi);
-	}
 
 	/* TODO: add save/recovery when config failed */
 	fb_var_to_pixmap(&chan_info->input, &fbi->var);
@@ -2712,11 +2703,6 @@ static int dcss_set_par(struct fb_info *fbi)
 		goto out;
 	}
 #endif
-
-	if (saved_blank == FB_BLANK_UNBLANK) {
-		/* unblank the fb if need */
-		ret = dcss_blank(FB_BLANK_UNBLANK, fbi);
-	}
 
 	goto out;
 
