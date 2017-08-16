@@ -1957,7 +1957,17 @@ static int dcss_dtg_start(struct dcss_info *info)
 		    dmode->lower_margin + dmode->vsync_len - 1;
 	writel(dis_lrc_y << 16 | dis_lrc_x, info->base + chans->dtg_addr + 0xc);
 
-	writel(0xff000100, info->base + chans->dtg_addr + 0x0);
+	/* config db and sb loading position of ctxld */
+	writel(0xb000a, info->base + chans->dtg_addr + 0x28);
+
+	/* config background color for graph layer: black */
+	writel(0x0, info->base + chans->dtg_addr + 0x2c);
+
+	/* config background color for video layer: black */
+	writel(0x00080200, info->base + chans->dtg_addr + 0x30);
+
+	/* Trigger DTG on */
+	writel(0xff00018e, info->base + chans->dtg_addr + 0x0);
 
 	info->dcss_state = DCSS_STATE_RUNNING;
 
@@ -2037,11 +2047,9 @@ static void dtg_global_timing_config(struct dcss_info *info)
 
 static int dcss_dtg_config(uint32_t ch_id, struct dcss_info *info)
 {
-	uint32_t global_alpha;
 	struct platform_device *pdev = info->pdev;
 	struct dcss_channels *chans = &info->chans;
 	struct dcss_channel_info *cinfo;
-	struct cbuffer *cb;
 
 	if (ch_id > 2) {
 		dev_err(&pdev->dev, "invalid channel id\n");
@@ -2049,24 +2057,13 @@ static int dcss_dtg_config(uint32_t ch_id, struct dcss_info *info)
 	}
 
 	cinfo = &chans->chan_info[ch_id];
-	cb = &cinfo->cb;
 
-#if USE_CTXLD
 	if (ch_id == DCSS_CHAN_MAIN)
 		dtg_global_timing_config(info);
 
 	/* TODO: Channel Timing Config */
 	dtg_channel_timing_config(cinfo);
 
-	/* Trigger DTG on */
-	if (ch_id == DCSS_CHAN_MAIN) {
-		/* TODO: use global alpha temporarily */
-		global_alpha = 0xff;
-		/* db and sb trigger positions */
-		fill_sb(cb, chans->dtg_addr + 0x28, 0xb000a);
-		fill_sb(cb, chans->dtg_addr + 0x0, 0xff00018c);
-	}
-#endif
 	return 0;
 }
 
@@ -2698,6 +2695,10 @@ static int dcss_set_par(struct fb_info *fbi)
 		}
 	}
 
+	ret = dcss_dtg_config(fb_node, info);
+	if (ret)
+		goto fail;
+
 #if USE_CTXLD
 	ret = commit_to_fifo(fb_node, info);
 	if (ret) {
@@ -2741,9 +2742,6 @@ static int dcss_channel_blank(int blank,
 
 	switch (blank) {
 	case FB_BLANK_UNBLANK:
-		/* enable dtg */
-		dtg_ctrl |= 0x1 << (2 - cinfo->channel_id);
-
 		/* set global alpha */
 		if (cinfo->channel_id == DCSS_CHAN_MAIN)
 			dtg_ctrl |= (0xff << 24);
@@ -2754,9 +2752,6 @@ static int dcss_channel_blank(int blank,
 	case FB_BLANK_VSYNC_SUSPEND:
 	case FB_BLANK_HSYNC_SUSPEND:
 	case FB_BLANK_POWERDOWN:
-		/* disable dtg */
-		dtg_ctrl &= ~(0x1 << (2 - cinfo->channel_id));
-
 		/* clear global alpha */
 		if (cinfo->channel_id == DCSS_CHAN_MAIN)
 			dtg_ctrl &= ~(0xff << 24);
@@ -2782,17 +2777,8 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 	struct cbuffer *cb = &cinfo->cb;
 
 	if (blank == FB_BLANK_UNBLANK) {
-		/* dcss output timings can only be set for fb0 */
-		if (!fb_node) {
-			ret = dcss_dtg_config(fb_node, info);
-			if (ret) {
-				dev_err(&pdev->dev, "dtg config failed\n");
-				goto out;
-			}
-		} else {
-			dcss_channel_blank(blank, cinfo);
-			dtg_channel_timing_config(cinfo);
-		}
+		dcss_channel_blank(blank, cinfo);
+		dtg_channel_timing_config(cinfo);
 
 		if (unlikely(!cinfo->dpr_scaler_en)) {
 			/* Trigger DPR and SCALER */
