@@ -1548,6 +1548,9 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->dpr_addr + 0x70, pitch);
 
 	fill_sb(cb, chan_info->dpr_addr + 0x200, 0x38);
+
+	/* Trigger DPR on */
+	fill_sb(cb, chan_info->dpr_addr + 0x0, 0x5);
 #endif
 
 	return 0;
@@ -1920,6 +1923,9 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->scaler_addr + 0x60, 0x0);
 
 	scaler_coeff_config(chan_info);
+
+	/* Trigger SCALER on */
+	fill_sb(cb, chan_info->scaler_addr + 0x0, 0x11);
 #endif
 	return 0;
 }
@@ -2774,35 +2780,19 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
 	struct platform_device *pdev = info->pdev;
-	struct cbuffer *cb = &cinfo->cb;
 
-	if (blank == FB_BLANK_UNBLANK) {
-		dcss_channel_blank(blank, cinfo);
-		dtg_channel_timing_config(cinfo);
+	dtg_channel_timing_config(cinfo);
+	dcss_channel_blank(blank, cinfo);
 
-		if (unlikely(!cinfo->dpr_scaler_en)) {
-			/* Trigger DPR and SCALER */
-			fill_sb(cb, cinfo->dpr_addr + 0x0, 0x5);
-			fill_sb(cb, cinfo->scaler_addr + 0x0, 0x11);
-			cinfo->dpr_scaler_en = true;
-		}
 #if USE_CTXLD
-		ret = commit_to_fifo(fb_node, info);
-		if (ret) {
-			dev_err(&pdev->dev, "commit config failed\n");
-			goto out;
-		}
-#endif
-	} else {
-		dcss_channel_blank(blank, cinfo);
-#if USE_CTXLD
-		ret = commit_to_fifo(fb_node, info);
-		if (ret) {
-			dev_err(&pdev->dev, "commit config failed\n");
-			goto out;
-		}
-#endif
+	ret = commit_to_fifo(fb_node, info);
+	if (ret) {
+		dev_err(&pdev->dev, "commit config failed\n");
+		goto out;
 	}
+#endif
+
+	cinfo->blank = blank;
 
 out:
 	return ret;
