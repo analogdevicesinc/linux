@@ -1980,7 +1980,8 @@ static int dcss_dtg_start(struct dcss_info *info)
 	return 0;
 }
 
-static void dtg_channel_timing_config(struct dcss_channel_info *cinfo)
+static void dtg_channel_timing_config(int blank,
+				struct dcss_channel_info *cinfo)
 {
 	struct cbuffer *cb;
 	uint32_t ch_ulc_reg, ch_lrc_reg;
@@ -2011,10 +2012,24 @@ static void dtg_channel_timing_config(struct dcss_channel_info *cinfo)
 
 	cb = &cinfo->cb;
 
-	fill_sb(cb, chans->dtg_addr + ch_ulc_reg,
-		pos->ulc_y << 16 | pos->ulc_x);
-	fill_sb(cb, chans->dtg_addr + ch_lrc_reg,
-		pos->lrc_y << 16 | pos->lrc_x);
+	switch (blank) {
+	case FB_BLANK_UNBLANK:
+		/* set display window for one channel */
+		fill_sb(cb, chans->dtg_addr + ch_ulc_reg,
+			pos->ulc_y << 16 | pos->ulc_x);
+		fill_sb(cb, chans->dtg_addr + ch_lrc_reg,
+			pos->lrc_y << 16 | pos->lrc_x);
+		break;
+	case FB_BLANK_NORMAL:
+	case FB_BLANK_VSYNC_SUSPEND:
+	case FB_BLANK_HSYNC_SUSPEND:
+	case FB_BLANK_POWERDOWN:
+		fill_sb(cb, chans->dtg_addr + ch_ulc_reg, 0x0);
+		fill_sb(cb, chans->dtg_addr + ch_lrc_reg, 0x0);
+		break;
+	default:
+		return;
+	}
 }
 
 static void dtg_global_timing_config(struct dcss_info *info)
@@ -2068,7 +2083,7 @@ static int dcss_dtg_config(uint32_t ch_id, struct dcss_info *info)
 		dtg_global_timing_config(info);
 
 	/* TODO: Channel Timing Config */
-	dtg_channel_timing_config(cinfo);
+	dtg_channel_timing_config(FB_BLANK_UNBLANK, cinfo);
 
 	return 0;
 }
@@ -2767,7 +2782,7 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 	struct dcss_info *info = cinfo->dev_data;
 	struct platform_device *pdev = info->pdev;
 
-	dtg_channel_timing_config(cinfo);
+	dtg_channel_timing_config(blank, cinfo);
 	dcss_channel_blank(blank, cinfo);
 
 #if USE_CTXLD
