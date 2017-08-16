@@ -1959,6 +1959,8 @@ static int dcss_dtg_start(struct dcss_info *info)
 
 	writel(0xff000100, info->base + chans->dtg_addr + 0x0);
 
+	info->dcss_state = DCSS_STATE_RUNNING;
+
 	return 0;
 }
 
@@ -2813,21 +2815,6 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 			goto out;
 		}
 #endif
-
-#if USE_CTXLD
-		if (!fb_node) {
-			/* start global timing */
-			if (info->dcss_state == DCSS_STATE_RESET) {
-				ret = dcss_dtg_start(info);
-				if (ret) {
-					dev_err(&pdev->dev, "start dtg failed\n");
-					goto out;
-				}
-
-				info->dcss_state = DCSS_STATE_RUNNING;
-			}
-		}
-#endif
 	} else {
 		dcss_channel_blank(blank, cinfo);
 #if USE_CTXLD
@@ -3252,6 +3239,10 @@ static int dcss_probe(struct platform_device *pdev)
 	writel(0xffffffff, info->blkctl_base + 0x0);
 
 	dcss_interrupts_init(info);
+
+	ret = dcss_dtg_start(info);
+	if (ret)
+		goto kfree_info;
 
 	/* register channel 0: graphic */
 	ret = dcss_register_one_ch(0, info);
