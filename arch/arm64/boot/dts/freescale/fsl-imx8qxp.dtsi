@@ -1995,6 +1995,12 @@
 		reg = <0x0 0x5f080000 0x0 0xF0000>; /* lpcg, csr, msic, gpio */
 	};
 
+	ocotp: ocotp {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "fsl,imx8qm-ocotp", "syscon";
+	};
+
 	pcieb: pcie@0x5f010000 {
 		/*
 		 * pcieb phyx1 lane1 in default, adjust it refer to the
