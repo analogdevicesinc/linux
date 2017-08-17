@@ -254,8 +254,11 @@ struct ctxld_fifo {
 	DECLARE_KFIFO_PTR(fifo, struct ctxld_unit);
 	struct scatterlist sgl[1];
 	uint32_t sgl_num;
-	/* one consumer and multiple producer */
-	spinlock_t wlock;
+	/* synchronization in two points:
+	 * a. simutanous fifo commits
+	 * b. queue waiting for cfifo flush
+	 */
+	wait_queue_head_t cqueue;
 	struct completion complete;
 };
 
@@ -864,7 +867,7 @@ static int ctxld_fifo_alloc(struct device *dev,
 	/* TODO: sgl num can be changed if required */
 	cfifo->sgl_num = 1;
 
-	spin_lock_init(&cfifo->wlock);
+	init_waitqueue_head(&cfifo->cqueue);
 	init_completion(&cfifo->complete);
 
 	return 0;
@@ -2455,7 +2458,7 @@ static void dcss_ctxld_config(struct work_struct *work)
 static int commit_to_fifo(uint32_t channel,
 			  struct dcss_info *info)
 {
-	unsigned long irqflags;
+	int ret = 0;
 	uint32_t count = 0, commit_size;
 	struct platform_device *pdev = info->pdev;
 	struct dcss_channels *chans;
@@ -2500,19 +2503,34 @@ static int commit_to_fifo(uint32_t channel,
 
 		return -EBUSY;
 	}
-#if 0
-	spin_lock_irqsave(&cfifo->wlock, irqflags);
+
+restart:
+	spin_lock(&cfifo->cqueue.lock);
+
+	if (unlikely(atomic_read(&info->flush) == 1)) {
+		ret = wait_event_interruptible_exclusive_locked(cfifo->cqueue,
+						atomic_read(&info->flush));
+		if (ret == -ERESTARTSYS) {
+			dev_info(&pdev->dev, "wait fifo flush is interrupted\n");
+			spin_unlock(&cfifo->cqueue.lock);
+			goto restart;
+		}
+	} else {
+		if (unlikely(waitqueue_active(&cfifo->cqueue)))
+			wake_up_locked(&cfifo->cqueue);
+	}
 
 	if (unlikely(commit_size > kfifo_to_end_len(&cfifo->fifo))) {
 		atomic_set(&info->flush, 1);
-		spin_unlock_irqrestore(&cfifo->wlock, irqflags);
-		/* TODO: Wait fifo flush empty to avoid fifo wrap */
+		spin_unlock(&cfifo->cqueue.lock);
+		/* Wait fifo flush empty to avoid fifo wrap */
 		flush_workqueue(info->ctxld_wq);
-	} else
-		spin_unlock_irqrestore(&cfifo->wlock, irqflags);
-
-#endif
-	spin_lock_irqsave(&cfifo->wlock, irqflags);
+		spin_lock(&cfifo->cqueue.lock);
+		atomic_set(&info->flush, 0);
+		kfifo_reset(&cfifo->fifo);
+		if (waitqueue_active(&cfifo->cqueue))
+			wake_up_locked(&cfifo->cqueue);
+	}
 
 	unit = (struct ctxld_unit *)cb->sb_addr;
 
@@ -2547,7 +2565,7 @@ static int commit_to_fifo(uint32_t channel,
 	cb->db_data_len = 0;
 	cb->sb_data_len = 0;
 
-	spin_unlock_irqrestore(&cfifo->wlock, irqflags);
+	spin_unlock(&cfifo->cqueue.lock);
 
 	/* queue the work to workqueue */
 	cc->data = info;
