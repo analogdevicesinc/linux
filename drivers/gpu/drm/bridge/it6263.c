@@ -377,7 +377,7 @@ it6263_connector_detect(struct drm_connector *connector, bool force)
 	 * cable detection failure issue at boot time on some
 	 * platforms.
 	 */
-	for (i = 0; i < 40; i++)
+	for (i = 0; i < 90; i++)
 		regmap_read(it6263->hdmi_regmap, HDMI_REG_SYS_STATUS, &status);
 
 	return (status & HPDETECT) ? connector_status_connected :
