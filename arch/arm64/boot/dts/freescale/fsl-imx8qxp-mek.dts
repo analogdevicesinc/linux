@@ -459,3 +459,7 @@
 	reset-gpio = <&gpio4 0 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
+
+&dpu1 {
+	status = "okay";
+};
