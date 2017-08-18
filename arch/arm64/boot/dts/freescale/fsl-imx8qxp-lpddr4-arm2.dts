@@ -79,11 +79,10 @@
 };
 
 &acm {
-	assigned-clocks = <&clk IMX8QXP_AUD_PLL0_DIV>,
-			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
-			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>;
+	status = "okay";
+};
 
-	assigned-clock-rates = <786432000>, <24576000>, <24576000>;
+&amix {
 	status = "okay";
 };
 
@@ -102,22 +101,24 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_esai0>;
 	assigned-clocks = <&clk IMX8QXP_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX8QXP_AUD_PLL0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>,
 			<&clk IMX8QXP_AUD_ESAI_0_EXTAL_IPG>;
 	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <0>, <786432000>, <24576000>, <24576000>, <24576000>;
 	dmas = <&edma2 23 0 3>, <&edma2 21 0 2>;
-	status = "okay";
-};
-
-&amix {
 	status = "okay";
 };
 
 &sai4 {
 	assigned-clocks = <&clk IMX8QXP_ACM_SAI4_MCLK_SEL>,
+			<&clk IMX8QXP_AUD_PLL0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>,
 			<&clk IMX8QXP_AUD_SAI_4_MCLK>;
 	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <0>, <786432000>, <24576000>, <24576000>, <24576000>;
 	fsl,sai-asynchronous;
 	fsl,txm-rxs;
 	status = "okay";
@@ -125,9 +126,12 @@
 
 &sai5 {
 	assigned-clocks = <&clk IMX8QXP_ACM_SAI5_MCLK_SEL>,
+			<&clk IMX8QXP_AUD_PLL0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>,
 			<&clk IMX8QXP_AUD_SAI_5_MCLK>;
 	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <0>, <786432000>, <24576000>, <24576000>, <24576000>;
 	fsl,sai-asynchronous;
 	fsl,txm-rxs;
 	status = "okay";
