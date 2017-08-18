@@ -40,6 +40,7 @@
 #include <linux/workqueue.h>
 
 #include "mxc_dispdrv.h"
+#include "imx_dcss_table.h"
 
 /* sub engines address start offset */
 #define HDR_CHAN1_START		0x00000
@@ -260,27 +261,6 @@ struct ctxld_fifo {
 	 */
 	wait_queue_head_t cqueue;
 	struct completion complete;
-};
-
-/* Define Scaler Coefficients Array */
-#define PHASE_NUM	16
-#define TAP_NUM		7
-
-#define COEFF_LUMA_VERTICAL	0x0
-#define COEFF_LUMA_HORIZONTAL	0x1
-#define COEFF_CHROMA_VERTICAL	0x2
-#define COEFF_CHROMA_HORIZONTAL	0x3
-
-#define LUMA_VERTICAL_OFF	0x0
-#define LUMA_HORIZONTAL_OFF	0xC0
-#define CHROMA_VERTICAL_OFF	0x180
-#define CHROMA_HORIZONTAL_OFF	0x280
-
-struct scaler_coeff_array {
-	uint16_t luma_vertical[PHASE_NUM][TAP_NUM];
-	uint16_t luma_horizontal[PHASE_NUM][TAP_NUM];
-	uint16_t chroma_vertical[PHASE_NUM][TAP_NUM];
-	uint16_t chroma_horizontal[PHASE_NUM][TAP_NUM];
 };
 
 /* channel info: 3 channels in DCSS */
@@ -621,81 +601,6 @@ static const struct fb_bitfield def_a2r10g10b10[] = {
 	}
 };
 
-struct scaler_coeff_array coeffs = {
-	.luma_vertical = {
-		{0, 0, 0, 1027, 0, 0, 0},
-		{0, 0, 85, 802, 139, 0, 0},
-		{0, 0, 65, 786, 175, 1, 0},
-		{0, 0, 49, 760, 218, 1, 0},
-		{0, 0, 36, 723, 266, 2, 0},
-		{0, 0, 26, 678, 320, 3, 0},
-		{0, 0, 19, 625, 379, 4, 0},
-		{0, 0, 13, 566, 441, 6, 0},
-		{0, 0, 9, 504, 504, 9, 0},
-		{0, 6, 441, 566, 13, 0, 0},
-		{0, 4, 379, 625, 19, 0, 0},
-		{0, 3, 320, 678, 26, 0, 0},
-		{0, 2, 266, 723, 36, 0, 0},
-		{0, 1, 218, 760, 49, 0, 0},
-		{0, 1, 175, 786, 65, 0, 0},
-		{0, 0, 139, 802, 85, 0, 0},
-	},
-	.luma_horizontal = {
-		{0, 0, 0, 1024, 0, 0, 0},
-		{0, 0, 84, 800, 139, 0, 0},
-		{0, 0, 64, 784, 175, 1, 0},
-		{0, 0, 48, 757, 217, 1, 0},
-		{0, 0, 36, 721, 265, 2, 0},
-		{0, 0, 26, 676, 319, 3, 0},
-		{0, 0, 19, 623, 378, 4, 0},
-		{0, 0, 13, 565, 440, 6, 0},
-		{0, 0, 9, 503, 503, 9, 0},
-		{0, 6, 440, 565, 13, 0, 0},
-		{0, 4, 378, 623, 19, 0, 0},
-		{0, 3, 319, 676, 26, 0, 0},
-		{0, 2, 265, 721, 36, 0, 0},
-		{0, 1, 217, 757, 48, 0, 0},
-		{0, 1, 175, 784, 64, 0, 0},
-		{0, 0, 139, 800, 84, 0, 0},
-	},
-	.chroma_vertical = {
-		{0, 0, 0, 1027, 0, 0, 0},
-		{0, 0, 85, 802, 139, 0, 0},
-		{0, 0, 65, 786, 175, 1, 0},
-		{0, 0, 49, 760, 218, 1, 0},
-		{0, 0, 36, 723, 266, 2, 0},
-		{0, 0, 26, 678, 320, 3, 0},
-		{0, 0, 19, 625, 379, 4, 0},
-		{0, 0, 13, 566, 441, 6, 0},
-		{0, 0, 9, 504, 504, 9, 0},
-		{0, 6, 441, 566, 13, 0, 0},
-		{0, 4, 379, 625, 19, 0, 0},
-		{0, 3, 320, 678, 26, 0, 0},
-		{0, 2, 266, 723, 36, 0, 0},
-		{0, 1, 218, 760, 49, 0, 0},
-		{0, 1, 175, 786, 65, 0, 0},
-		{0, 0, 139, 802, 85, 0, 0},
-	},
-	.chroma_horizontal = {
-		{0, 0, 0, 1024, 0, 0, 0},
-		{0, 0, 84, 800, 139, 0, 0},
-		{0, 0, 64, 784, 175, 1, 0},
-		{0, 0, 48, 757, 217, 1, 0},
-		{0, 0, 36, 721, 265, 2, 0},
-		{0, 0, 26, 676, 319, 3, 0},
-		{0, 0, 19, 623, 378, 4, 0},
-		{0, 0, 13, 565, 440, 6, 0},
-		{0, 0, 9, 503, 503, 9, 0},
-		{0, 6, 440, 565, 13, 0, 0},
-		{0, 4, 378, 623, 19, 0, 0},
-		{0, 3, 319, 676, 26, 0, 0},
-		{0, 2, 265, 721, 36, 0, 0},
-		{0, 1, 217, 757, 48, 0, 0},
-		{0, 1, 175, 784, 64, 0, 0},
-		{0, 0, 139, 800, 84, 0, 0},
-	},
-};
-
 static const struct pix_fmt_info *get_fmt_info(uint32_t fourcc)
 {
 	uint32_t i;
@@ -772,69 +677,6 @@ static void fill_db(struct cbuffer *cb,
 	cb->db_data_len++;
 }
 #endif
-
-static void coeff_array_fill(int type,
-			     uint32_t base,
-			     struct cbuffer *cb)
-{
-	uint32_t i, offset;
-	uint16_t (*array)[TAP_NUM];
-
-	switch (type) {
-	case COEFF_LUMA_VERTICAL:
-		offset = LUMA_VERTICAL_OFF;
-		array  = coeffs.luma_vertical;
-		break;
-	case COEFF_LUMA_HORIZONTAL:
-		offset = LUMA_HORIZONTAL_OFF;
-		array  = coeffs.luma_horizontal;
-		break;
-	case COEFF_CHROMA_VERTICAL:
-		offset = CHROMA_VERTICAL_OFF;
-		array  = coeffs.chroma_vertical;
-		break;
-	case COEFF_CHROMA_HORIZONTAL:
-		offset = CHROMA_HORIZONTAL_OFF;
-		array  = coeffs.chroma_horizontal;
-		break;
-	default:
-		return;
-	}
-
-	for (i = 0; i < PHASE_NUM; i++) {
-		fill_sb(cb, base + 0x80 + offset + (i << 2),
-			(array[i][0] & 0xfff) << 16 |
-			(array[i][1] & 0xfff) << 4  |
-			(array[i][2] & 0xf00) >> 8);
-
-		fill_sb(cb, base + 0xC0 + offset + (i << 2),
-			(array[i][2] & 0x0ff) << 20 |
-			(array[i][3] & 0xfff) << 8  |
-			(array[i][4] & 0xff0) >> 4);
-
-		fill_sb(cb, base + 0x100 + offset + (i << 2),
-			(array[i][4] & 0x00f) << 24 |
-			(array[i][5] & 0xfff) << 12 |
-			(array[i][6] & 0xfff));
-	}
-}
-
-static void scaler_coeff_config(struct dcss_channel_info *cinfo)
-{
-	struct cbuffer *cb = &cinfo->cb;
-
-	/* config Luma Vertical Coefficients */
-	coeff_array_fill(COEFF_LUMA_VERTICAL, cinfo->scaler_addr, cb);
-
-	/* config Luma Horizontal Coefficients */
-	coeff_array_fill(COEFF_LUMA_HORIZONTAL, cinfo->scaler_addr, cb);
-
-	/* config Chroma Vertical Coefficients */
-	coeff_array_fill(COEFF_CHROMA_VERTICAL, cinfo->scaler_addr, cb);
-
-	/* config Chroma Horizontal Coefficients */
-	coeff_array_fill(COEFF_CHROMA_HORIZONTAL, cinfo->scaler_addr, cb);
-}
 
 static void ctxld_fifo_info_print(struct ctxld_fifo *cfifo)
 {
@@ -1926,8 +1768,6 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	/* Scale Horizontal Chroma Start */
 	fill_sb(cb, chan_info->scaler_addr + 0x60, 0x0);
 
-	scaler_coeff_config(chan_info);
-
 	/* Trigger SCALER on */
 	fill_sb(cb, chan_info->scaler_addr + 0x0, 0x11);
 #endif
@@ -1977,7 +1817,7 @@ static int dcss_dtg_start(struct dcss_info *info)
 	writel(0x00080200, info->base + chans->dtg_addr + 0x30);
 
 	/* Trigger DTG on */
-	writel(0xff00018e, info->base + chans->dtg_addr + 0x0);
+	writel(0xff00518e, info->base + chans->dtg_addr + 0x0);
 
 	info->dcss_state = DCSS_STATE_RUNNING;
 
@@ -2188,196 +2028,6 @@ static int dcss_subsam_config(struct dcss_info *info)
 	writel(de_lrc_y << 16 | de_lrc_x,
 	       info->base + chans->subsam_addr + 0x50);
 	writel(0x1, info->base + chans->subsam_addr + 0x0);
-#endif
-
-	return 0;
-}
-
-static int dcss_hdr10_input_config(uint32_t hdr_ch, struct dcss_info *info)
-{
-	struct platform_device *pdev = info->pdev;
-	struct dcss_channels *chans;
-	struct dcss_channel_info *chan_info;
-	struct dcss_pixmap *input;
-	struct cbuffer *cb;
-
-	if (hdr_ch > 2) {
-		dev_err(&pdev->dev, "invalid hdr channel id\n");
-		return -EINVAL;
-	}
-
-	chans = &info->chans;
-	chan_info = &chans->chan_info[hdr_ch];
-	cb = &chan_info->cb;
-	input = &chan_info->input;
-
-#if USE_CTXLD
-	/* disable float-to-fixed converter */
-	fill_sb(cb, chan_info->hdr10_in_addr + 0x3874, 0x0);
-	/* disable LUT */
-	fill_sb(cb, chan_info->hdr10_in_addr + 0x3080, 0x0);
-
-	switch (fmt_is_yuv(input->format)) {
-	case 0:         /* RGB */
-		/* disable CSCA */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x3000, 0x0);
-		/* disable CSCB */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x3800, 0x0);
-		break;
-	case 1:         /* TODO: YUV 1P */
-		break;
-	case 2:         /* YUV 2P */
-		/* config input CSC-A */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03028,
-			0x00000000); /* Y pre-offset */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x0302c,
-			0x00000200); /* U pre-offset */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03030,
-			0x00000200); /* V pre-offset */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03034,
-			0x00000200); /* Y pre-offset clip min */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03038,
-			0x00000200); /* U pre-offset clip min */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x0303c,
-			0x00000200); /* V pre-offset clip min */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03040,
-			0x000003ff); /* Y pre-offset clip max */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03044,
-			0x000003ff); /* U pre-offset clip max */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03048,
-			0x000003ff); /* V pre-offset clip max */
-
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03004,
-			0x00000040); /* h(0,0) */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03008,
-			0x00000000); /* h(1,0) */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x0300c,
-			0x0000005a); /* h(2,0) */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03010,
-			0x00000040); /* h(0,1) */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03014,
-			0x0000ffea); /* h(1,1) */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03018,
-			0x0000ffd2); /* h(2,1) */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x0301c,
-			0x00000040); /* h(0,2) */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03020,
-			0x00000069); /* h(1,2) */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03024,
-			0x00000000); /* h(2,2) */
-
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x0304c,
-			0x00000006); /* norm factor */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03050,
-			0x00000000); /* Y post-offset */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03054,
-			0x00000000); /* U post-offset */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03058,
-			0x00000000); /* V post-offset */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x0305c,
-			0x00000000); /* Y post-offset clip min */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03060,
-			0x00000000); /* U post-offset clip min */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03064,
-			0x00000000); /* V post-offset clip min */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03068,
-			0x000003ff); /* Y post-offset clip max */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x0306c,
-			0x000003ff); /* U post-offset clip max */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03070,
-			0x000003ff); /* V post-offset clip max */
-		fill_sb(cb, chan_info->hdr10_in_addr + 0x03000,
-			0x00000003); /* enable CSC-A */
-		break;
-	default:
-		return -EINVAL;
-	}
-#else
-	writel(0x0, info->base + chan_info->hdr10_in_addr + 0x3874);
-	writel(0x0, info->base + chan_info->hdr10_in_addr + 0x3080);
-	writel(0x0, info->base + chan_info->hdr10_in_addr + 0x3000);
-	writel(0x0, info->base + chan_info->hdr10_in_addr + 0x3800);
-#endif
-
-	return 0;
-}
-
-static int dcss_hdr10_output_config(struct dcss_info *info)
-{
-	struct dcss_channels *chans;
-	struct dcss_channel_info *chan_info;
-	struct cbuffer *cb;
-
-	chans = &info->chans;
-	/* using channel 0 by default */
-	chan_info = &chans->chan_info[0];
-	cb = &chan_info->cb;
-
-#if USE_CTXLD
-	fill_sb(cb, chans->hdr10_out_addr + 0x3004, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3008, 0x1);
-	fill_sb(cb, chans->hdr10_out_addr + 0x300c, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3010, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3014, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3018, 0x1);
-	fill_sb(cb, chans->hdr10_out_addr + 0x301c, 0x1);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3020, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3024, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3028, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x302c, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3030, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3034, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3038, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x303c, 0x0);
-
-	fill_sb(cb, chans->hdr10_out_addr + 0x3040, 0xffffffff);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3044, 0xffffffff);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3048, 0xffffffff);
-	fill_sb(cb, chans->hdr10_out_addr + 0x304c, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3050, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3054, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3058, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x305c, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3060, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3064, 0x0);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3068, 0xffffffff);
-	fill_sb(cb, chans->hdr10_out_addr + 0x306c, 0xffffffff);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3070, 0xffffffff);
-	fill_sb(cb, chans->hdr10_out_addr + 0x3074, 0x0);
-
-	fill_sb(cb, chans->hdr10_out_addr + 0x3000, 0x3);
-#else
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3004);
-	writel(0x1, info->base + chans->hdr10_out_addr + 0x3008);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x300c);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3010);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3014);
-	writel(0x1, info->base + chans->hdr10_out_addr + 0x3018);
-	writel(0x1, info->base + chans->hdr10_out_addr + 0x301c);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3020);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3024);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3028);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x302c);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3030);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3034);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3038);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x303c);
-	writel(0xffffffff, info->base + chans->hdr10_out_addr + 0x3040);
-	writel(0xffffffff, info->base + chans->hdr10_out_addr + 0x3044);
-	writel(0xffffffff, info->base + chans->hdr10_out_addr + 0x3048);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x304c);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3050);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3054);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3058);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x305c);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3060);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3064);
-	writel(0xffffffff, info->base + chans->hdr10_out_addr + 0x3068);
-	writel(0xffffffff, info->base + chans->hdr10_out_addr + 0x306c);
-	writel(0xffffffff, info->base + chans->hdr10_out_addr + 0x3070);
-	writel(0x0, info->base + chans->hdr10_out_addr + 0x3074);
-
-	writel(0x3, info->base + chans->hdr10_out_addr + 0x3000);
 #endif
 
 	return 0;
@@ -2704,12 +2354,6 @@ static int config_channel_pipe(struct dcss_channel_info *cinfo)
 		goto out;
 	}
 
-	ret = dcss_hdr10_input_config(fb_node, info);
-	if (ret) {
-		dev_err(&pdev->dev, "hdr10 input config failed\n");
-		goto out;
-	}
-
 out:
 	return ret;
 }
@@ -2737,15 +2381,6 @@ static int dcss_set_par(struct fb_info *fbi)
 	ret = config_channel_pipe(chan_info);
 	if (ret)
 		goto fail;
-
-	/* dcss output timings can only be set for fb0 */
-	if (!fb_node) {
-		ret = dcss_hdr10_output_config(info);
-		if (ret) {
-			dev_err(&pdev->dev, "hdr10 output config failed\n");
-			goto fail;
-		}
-	}
 
 	ret = dcss_dtg_config(fb_node, info);
 	if (ret)
@@ -3219,6 +2854,81 @@ out:
 	return ret;
 }
 
+static void dcss_fix_data_config(struct dcss_info *info)
+{
+	int i, esize;
+
+	esize = sizeof(struct data_unit);
+
+	/* SCALER COEFFS config */
+	for (i = 0; i < sizeof(scaler_coeffs_ch0) / esize; i++)
+		writel(scaler_coeffs_ch0[i].data,
+		       info->base + scaler_coeffs_ch0[i].addr);
+
+	for (i = 0; i < sizeof(scaler_coeffs_ch1) / esize; i++)
+		writel(scaler_coeffs_ch1[i].data,
+		       info->base + scaler_coeffs_ch1[i].addr);
+
+	/* HDR10 PIPE1 config */
+	for (i = 0; i < sizeof(hdr10_pipe1_lut_a0) / esize; i++)
+		writel(hdr10_pipe1_lut_a0[i].data,
+		       info->base + hdr10_pipe1_lut_a0[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_pipe1_lut_a1) / esize; i++)
+		writel(hdr10_pipe1_lut_a1[i].data,
+		       info->base + hdr10_pipe1_lut_a1[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_pipe1_lut_a2) / esize; i++)
+		writel(hdr10_pipe1_lut_a2[i].data,
+		       info->base + hdr10_pipe1_lut_a2[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_pipe1_csca) / esize; i++)
+		writel(hdr10_pipe1_csca[i].data,
+		       info->base + hdr10_pipe1_csca[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_pipe1_cscb) / esize; i++)
+		writel(hdr10_pipe1_cscb[i].data,
+		       info->base + hdr10_pipe1_cscb[i].addr);
+
+	/* HDR10 PIPE2 config */
+	for (i = 0; i < sizeof(hdr10_pipe2_lut_a0) / esize; i++)
+		writel(hdr10_pipe2_lut_a0[i].data,
+		       info->base + hdr10_pipe2_lut_a0[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_pipe2_lut_a1) / esize; i++)
+		writel(hdr10_pipe2_lut_a1[i].data,
+		       info->base + hdr10_pipe2_lut_a1[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_pipe2_lut_a2) / esize; i++)
+		writel(hdr10_pipe2_lut_a2[i].data,
+		       info->base + hdr10_pipe2_lut_a2[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_pipe2_csca) / esize; i++)
+		writel(hdr10_pipe2_csca[i].data,
+		       info->base + hdr10_pipe2_csca[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_pipe2_cscb) / esize; i++)
+		writel(hdr10_pipe2_cscb[i].data,
+		       info->base + hdr10_pipe2_cscb[i].addr);
+
+	/* HDR10 OPIPE config */
+	for (i = 0; i < sizeof(hdr10_opipe_a0) / esize; i++)
+		writel(hdr10_opipe_a0[i].data,
+		       info->base + hdr10_opipe_a0[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_opipe_a1) / esize; i++)
+		writel(hdr10_opipe_a1[i].data,
+		       info->base + hdr10_opipe_a1[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_opipe_a2) / esize; i++)
+		writel(hdr10_opipe_a2[i].data,
+		       info->base + hdr10_opipe_a2[i].addr);
+
+	for (i = 0; i < sizeof(hdr10_opipe_csco) / esize; i++)
+		writel(hdr10_opipe_csco[i].data,
+		       info->base + hdr10_opipe_csco[i].addr);
+}
+
 static int dcss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3246,6 +2956,9 @@ static int dcss_probe(struct platform_device *pdev)
 
 	/* Pull DCSS out of resets */
 	writel(0xffffffff, info->blkctl_base + 0x0);
+
+	/* TODO: config fixed data for DCSS */
+	dcss_fix_data_config(info);
 
 	dcss_interrupts_init(info);
 
