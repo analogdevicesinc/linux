@@ -581,6 +581,10 @@ err1:
  */
 static int cdns3_remove(struct platform_device *pdev)
 {
+	struct cdns3 *cdns = platform_get_drvdata(pdev);
+
+	cdns3_remove_roles(cdns);
+
 	return 0;
 }
 
