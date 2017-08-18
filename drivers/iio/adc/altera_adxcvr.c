@@ -91,10 +91,16 @@ struct adxcvr_state {
 	bool			is_transmit;
 	u32			lanes_per_link;
 
+	unsigned int reset_counter;
+
 	struct clk *ref_clk;
 
 	struct clk_hw lane_clk;
 	bool initial_recalc;
+
+	unsigned int lane_rate;
+	struct clk *link_clk;
+	struct work_struct link_clk_work;
 };
 
 static void adxcvr_write(struct adxcvr_state *st, unsigned reg, unsigned val)
@@ -374,15 +380,23 @@ static ssize_t adxcvr_sysfs_store(struct device *dev,
 static void adxcvr_pre_lane_rate_change(struct adxcvr_state *st)
 {
 	adxcfg_lock(st);
-	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+	/*
+	 * Multiple re-configuration requests can be active at the same time.
+	 * Make sure that the reset stays asserted until all of them have
+	 * completed.
+	 */
+	if (st->reset_counter++ == 0)
+		adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 }
 
-static void adxcvr_post_lane_rate_change(struct adxcvr_state *st,
-	unsigned int lane_rate)
+static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 {
 	unsigned int status;
 	int timeout = 1000;
 	unsigned int i;
+
+	if (--st->reset_counter != 0)
+		return;
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 	do {
@@ -404,6 +418,59 @@ static void adxcvr_post_lane_rate_change(struct adxcvr_state *st,
 					"" : "not ");
 		}
 	}
+}
+
+static void adxcvr_link_clk_work(struct work_struct *work)
+{
+	struct adxcvr_state *st =
+		container_of(work, struct adxcvr_state, link_clk_work);
+	unsigned int link_rate;
+	int ret;
+
+	link_rate = READ_ONCE(st->lane_rate) * (1000 / 40);
+
+	/*
+	 * Due to rounding errors link_rate might not contain the exact rate.
+	 * Using clk_round_rate() to compute the exact rate first before calling
+	 * clk_set_rate() will make sure that clk_set_rate() will not attempt to
+	 * re-configure the clock if already has the correct rate.
+	 */
+	link_rate = clk_round_rate(st->link_clk, link_rate);
+
+	dev_info(st->dev, "Setting link rate to %u (lane rate: %u)\n",
+		link_rate, st->lane_rate);
+
+	clk_disable_unprepare(st->link_clk);
+
+	ret = clk_set_rate(st->link_clk, link_rate);
+	if (ret < 0)
+		dev_err(st->dev, "Setting link rate failed: %d\n", ret);
+
+	ret = clk_prepare_enable(st->link_clk);
+	if (ret < 0)
+		dev_err(st->dev, "Enabling link clock failed: %d\n", ret);
+
+	adxcfg_lock(st);
+	adxcvr_finalize_lane_rate_change(st);
+	adxcfg_unlock(st);
+}
+
+static void adxcvr_post_lane_rate_change(struct adxcvr_state *st,
+	unsigned int lane_rate)
+{
+	bool changed = st->lane_rate != lane_rate;
+
+	st->lane_rate = lane_rate;
+
+	/*
+	 * Can't change the clock rate of another clock from within the
+	 * set_rate callback. So we have to defer to a work item to change the
+	 * link clock.
+	 */
+	if (changed && lane_rate && !IS_ERR(st->link_clk))
+		schedule_work(&st->link_clk_work);
+	else
+		adxcvr_finalize_lane_rate_change(st);
 
 	adxcfg_unlock(st);
 }
@@ -493,6 +560,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 			return PTR_ERR(st->adxcfg_regs[lane]);
 	}
 
+	st->link_clk = devm_clk_get(&pdev->dev, "link");
+	if (IS_ERR(st->link_clk) && PTR_ERR(st->link_clk) != -ENOENT)
+		return PTR_ERR(st->link_clk);
+
 	if (st->is_transmit) {
 		mem_atx_pll = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "atx-pll");
@@ -505,11 +576,17 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
 
+	INIT_WORK(&st->link_clk_work, adxcvr_link_clk_work);
+
 	ret = clk_prepare_enable(st->ref_clk);
 	if (ret)
 		return ret;
 
 	ret = adxcvr_register_lane_clk(st);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(st->link_clk);
 	if (ret)
 		return ret;
 
@@ -532,6 +609,7 @@ static int adxcvr_remove(struct platform_device *pdev)
 	of_clk_del_provider(pdev->dev.of_node);
 	sysfs_remove_group(&pdev->dev.kobj, &adxcvr_sysfs_group);
 
+	clk_disable_unprepare(st->link_clk);
 	clk_disable_unprepare(st->ref_clk);
 
 	return 0;
