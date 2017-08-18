@@ -422,7 +422,7 @@
 		};
 	};
 
-	ptn5110@50 {
+	typec_ptn5100: ptn5110@50 {
 		compatible = "usb,tcpci";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_typec>;
@@ -567,7 +567,8 @@
 
 &usb_dwc3_0 {
 	status = "okay";
-	dr_mode = "peripheral";
+	extcon = <&typec_ptn5100>;
+	dr_mode = "otg";
 };
 
 &usb3_phy1 {
