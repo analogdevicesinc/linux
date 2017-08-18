@@ -22,6 +22,7 @@
 #include <linux/regmap.h>
 #include <linux/usb/typec.h>
 #include <linux/of_gpio.h>
+#include <linux/extcon.h>
 
 #include "pd.h"
 #include "tcpci.h"
@@ -32,6 +33,7 @@
 struct tcpci {
 	struct device *dev;
 	struct i2c_client *client;
+	struct extcon_dev *edev;
 
 	struct tcpm_port *port;
 
@@ -42,6 +44,11 @@ struct tcpci {
 
 	struct tcpc_dev tcpc;
 	unsigned int irq_mask;
+};
+
+static const unsigned int tcpci_extcon_cable[] = {
+	EXTCON_USB_HOST,
+	EXTCON_NONE,
 };
 
 static inline struct tcpci *tcpc_to_tcpci(struct tcpc_dev *tcpc)
@@ -299,6 +306,11 @@ static int tcpci_set_roles(struct tcpc_dev *tcpc, bool attached,
 	ret = regmap_write(tcpci->regmap, TCPC_MSG_HDR_INFO, reg);
 	if (ret < 0)
 		return ret;
+
+	if (data == TYPEC_HOST)
+		extcon_set_state_sync(tcpci->edev, EXTCON_USB_HOST, true);
+	else
+		extcon_set_state_sync(tcpci->edev, EXTCON_USB_HOST, false);
 
 	return 0;
 }
@@ -738,6 +750,20 @@ static int tcpci_probe(struct i2c_client *client,
 	tcpci->tcpc.set_pd_rx = tcpci_set_pd_rx;
 	tcpci->tcpc.set_roles = tcpci_set_roles;
 	tcpci->tcpc.pd_transmit = tcpci_pd_transmit;
+
+	/* Allocate extcon device */
+	tcpci->edev = devm_extcon_dev_allocate(&client->dev,
+					tcpci_extcon_cable);
+	if (IS_ERR(tcpci->edev)) {
+		dev_err(&client->dev, "failed to allocate extcon dev.\n");
+		return -ENOMEM;
+	}
+
+	err = devm_extcon_dev_register(&client->dev, tcpci->edev);
+	if (err) {
+		dev_err(&client->dev, "failed to register extcon dev.\n");
+		return err;
+	}
 
 	err = tcpci_parse_config(tcpci);
 	if (err < 0)
