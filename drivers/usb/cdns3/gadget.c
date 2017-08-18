@@ -1839,7 +1839,8 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget)
 	spin_lock_irqsave(&usb_ss->lock, flags);
 	usb_ss->gadget_driver = NULL;
 	/* disable interrupt for device */
-	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
+	if (usb_ss->start_gadget)
+		gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 
 	return 0;
