@@ -4,6 +4,10 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
+/ {
+	model = "Analog Devices ADRV9361-Z7035 RFSOM-BOX (Z7035/AD9361)";
+};
+
 &adm1166 {
 	reg = <0x6A>;
 };

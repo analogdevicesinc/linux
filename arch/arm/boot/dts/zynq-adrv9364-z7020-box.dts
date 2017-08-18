@@ -4,6 +4,10 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
+/ {
+	model = "Analog Devices ADRV9364-Z7020 RFSOM-BOX (Z7020/AD9364)";
+};
+
 &axi_i2c0 {
 	ad7291-ccbox@2f {
 		compatible = "adi,ad7291";
