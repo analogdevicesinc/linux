@@ -326,6 +326,15 @@ static const struct iio_info adis16460_info = {
 
 static int adis16460_enable_irq(struct adis *adis, bool enable)
 {
+	/*
+	 * There is no way to gate the data-ready signal internally inside the
+	 * ADIS16460 :(
+	 */
+	if (enable)
+		enable_irq(adis->spi->irq);
+	else
+		disable_irq(adis->spi->irq);
+
 	return 0;
 }
 
@@ -425,6 +434,8 @@ static int adis16460_probe(struct spi_device *spi)
 	ret = adis_setup_buffer_and_trigger(&st->adis, indio_dev, NULL);
 	if (ret)
 		return ret;
+
+	adis16460_enable_irq(&st->adis, 0);
 
 	ret = adis16460_initial_setup(indio_dev);
 	if (ret)
