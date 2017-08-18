@@ -2678,7 +2678,7 @@ static int config_channel_pipe(struct dcss_channel_info *cinfo)
 
 	fb_node = fbi->node;
 
-	dev_info(&cinfo->pdev->dev, "begin config pipe %d\n", fb_node);
+	dev_dbg(&cinfo->pdev->dev, "begin config pipe %d\n", fb_node);
 
 	/* configure all the sub modules on one channel:
 	 * 1. DEC400D/DTRC
