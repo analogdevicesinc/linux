@@ -2296,9 +2296,6 @@ static uint32_t ps_calc_scaling(struct pxp_pixmap *input,
 					output->crop.height;
 	}
 
-	if ((input->rotate == 90) || (input->rotate == 270))
-		swap(output->crop.width, output->crop.height);
-
 	return *(uint32_t *)&scale;
 }
 
@@ -2312,9 +2309,37 @@ static int pxp_ps_config(struct pxp_pixmap *input,
 	memset((void*)&ctrl, 0x0, sizeof(ctrl));
 
 	ctrl.format = pxp_parse_ps_fmt(input->format);
-	out_ps_ulc.x = out_ps_ulc.y = 0;
-	out_ps_lrc.x = output->crop.width - 1;
-	out_ps_lrc.y = output->crop.height - 1;
+
+	switch (output->rotate) {
+	case 0:
+		out_ps_ulc.x = output->crop.x;
+		out_ps_ulc.y = output->crop.y;
+		out_ps_lrc.x = output->crop.width - 1;
+		out_ps_lrc.y = output->crop.height - 1;
+		break;
+	case 90:
+		out_ps_ulc.x = output->crop.y;
+		out_ps_ulc.y = output->width - (output->crop.x + output->crop.width);
+		out_ps_lrc.x = out_ps_ulc.x + output->crop.height - 1;
+		out_ps_lrc.y = out_ps_ulc.y + output->crop.width - 1;
+		break;
+	case 180:
+		out_ps_ulc.x = output->width - (output->crop.x + output->crop.width);
+		out_ps_ulc.y = output->height - (output->crop.y + output->crop.height);
+		out_ps_lrc.x = out_ps_ulc.x + output->crop.width - 1;
+		out_ps_lrc.y = out_ps_ulc.y + output->crop.height - 1;
+		break;
+	case 270:
+		out_ps_ulc.x = output->height - (output->crop.y + output->crop.height);
+		out_ps_ulc.y = output->crop.x;
+		out_ps_lrc.x = out_ps_ulc.x + output->crop.height - 1;
+		out_ps_lrc.y = out_ps_ulc.y + output->crop.width - 1;
+		break;
+	default:
+		pr_err("PxP only support rotate 0 90 180 270\n");
+		return -EINVAL;
+		break;
+	}
 
 	if ((input->format == PXP_PIX_FMT_YUYV) ||
 	    (input->format == PXP_PIX_FMT_YVYU))
@@ -2546,12 +2571,15 @@ static int pxp_rotation1_config(struct pxp_pixmap *input)
 
 static int pxp_rotation0_config(struct pxp_pixmap *input)
 {
+	uint8_t rotate;
+
 	if (input->flip == PXP_H_FLIP)
 		pxp_writel(BF_PXP_CTRL_HFLIP0(1), HW_PXP_CTRL_SET);
 	else if (input->flip == PXP_V_FLIP)
 		pxp_writel(BF_PXP_CTRL_VFLIP0(1), HW_PXP_CTRL_SET);
 
-	pxp_writel(BF_PXP_CTRL_ROTATE0(input->rotate), HW_PXP_CTRL_SET);
+	rotate = rotate_map(input->rotate);
+	pxp_writel(BF_PXP_CTRL_ROTATE0(rotate), HW_PXP_CTRL_SET);
 
 	pxp_writel(BF_PXP_CTRL_ENABLE_ROTATE0(1), HW_PXP_CTRL_SET);
 
@@ -2600,8 +2628,14 @@ static int pxp_out_config(struct pxp_pixmap *output)
 			pxp_writel(UV + (offset >> 1), HW_PXP_OUT_BUF2);
 	}
 
-	out_lrc.x = output->crop.width - 1;
-	out_lrc.y = output->crop.height - 1;
+	if (output->rotate == 90 || output->rotate == 270) {
+		out_lrc.y = output->width - 1;
+		out_lrc.x = output->height - 1;
+	} else {
+		out_lrc.x = output->width - 1;
+		out_lrc.y = output->height - 1;
+	}
+
 	pxp_writel(*(uint32_t *)&out_lrc, HW_PXP_OUT_LRC);
 
 	pxp_writel(output->pitch, HW_PXP_OUT_PITCH);
@@ -3090,6 +3124,17 @@ reparse:
 		nodes_in_path = find_best_path(possible_inputs,
 					       possible_outputs,
 					       input, &nodes_used);
+
+		if (nodes_in_path & (1 << PXP_2D_ROTATION1)) {
+			clear_bit(PXP_2D_ROTATION1, (unsigned long *)&nodes_in_path);
+			set_bit(PXP_2D_ROTATION0, (unsigned long *)&nodes_in_path);
+		}
+
+		if (nodes_used & (1 << PXP_2D_ROTATION1)) {
+			clear_bit(PXP_2D_ROTATION1, (unsigned long *)&nodes_used);
+			set_bit(PXP_2D_ROTATION0, (unsigned long *)&nodes_used);
+		}
+
 		pr_debug("%s: nodes_in_path = 0x%x, nodes_used = 0x%x\n",
 			  __func__, nodes_in_path, nodes_used);
 		if (!nodes_used) {
