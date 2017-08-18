@@ -44,6 +44,13 @@
 		interrupt-parent = <&gpio0>;
 		interrupts = <80 IRQ_TYPE_LEVEL_LOW>;
 	};
+
+	fuelgauge: ltc2942@64 {
+		compatible = "lltc,ltc2942";
+		reg = <0x64>;
+		lltc,resistor-sense = <20>;
+		lltc,prescaler-exponent = <5>; /* 2^(2*5) = 1024 */
+	};
 };
 
 / {
