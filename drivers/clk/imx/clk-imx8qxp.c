@@ -624,7 +624,8 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id imx8qxp_match[] = {
-	{ .compatible = "fsl,imx8qxp-clk", }
+	{ .compatible = "fsl,imx8qxp-clk", },
+	{ /* sentinel value */ }
 };
 
 static struct platform_driver imx8qxp_clk_driver = {
