@@ -413,6 +413,7 @@
 			     <5 IRQ_TYPE_LEVEL_HIGH>,	/* dpr3 */
 			     <6 IRQ_TYPE_LEVEL_HIGH>,	/* ctx_ld */
 			     <7 IRQ_TYPE_LEVEL_HIGH>,	/* rd_src */
+			     <8 IRQ_TYPE_LEVEL_HIGH>,	/* dtg_programmable_1: for vsync */
 			     <15 IRQ_TYPE_LEVEL_HIGH>,	/* dec400d_1 */
 			     <16 IRQ_TYPE_LEVEL_HIGH>,	/* dtrc_2 */
 			     <17 IRQ_TYPE_LEVEL_HIGH>,	/* dtrc_3 */
