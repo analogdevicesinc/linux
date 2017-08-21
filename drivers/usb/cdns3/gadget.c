@@ -99,6 +99,12 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget);
 static int usb_ss_init_ep(struct usb_ss_dev *usb_ss);
 static int usb_ss_init_ep0(struct usb_ss_dev *usb_ss);
 
+static struct usb_endpoint_descriptor cdns3_gadget_ep0_desc = {
+	.bLength	= USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType = USB_DT_ENDPOINT,
+	.bmAttributes	= USB_ENDPOINT_XFER_CONTROL,
+};
+
 static u32 gadget_readl(struct usb_ss_dev *usb_ss, uint32_t __iomem *reg)
 {
 	return cdns_readl(reg);
@@ -200,30 +206,44 @@ static void cdns_ep0_config(struct usb_ss_dev *usb_ss)
 	switch (usb_ss->gadget.speed) {
 	case USB_SPEED_UNKNOWN:
 		max_packet_size = ENDPOINT_MAX_PACKET_SIZE_0;
+		usb_ss->gadget.ep0->maxpacket = ENDPOINT_MAX_PACKET_SIZE_0;
+		cdns3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(0);
 		break;
 
 	case USB_SPEED_LOW:
 		max_packet_size = ENDPOINT_MAX_PACKET_SIZE_8;
+		usb_ss->gadget.ep0->maxpacket = ENDPOINT_MAX_PACKET_SIZE_8;
+		cdns3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(8);
 		break;
 
 	case USB_SPEED_FULL:
 		max_packet_size = ENDPOINT_MAX_PACKET_SIZE_64;
+		usb_ss->gadget.ep0->maxpacket = ENDPOINT_MAX_PACKET_SIZE_64;
+		cdns3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 		break;
 
 	case USB_SPEED_HIGH:
 		max_packet_size = ENDPOINT_MAX_PACKET_SIZE_64;
+		usb_ss->gadget.ep0->maxpacket = ENDPOINT_MAX_PACKET_SIZE_64;
+		cdns3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 		break;
 
 	case USB_SPEED_WIRELESS:
 		max_packet_size = ENDPOINT_MAX_PACKET_SIZE_64;
+		usb_ss->gadget.ep0->maxpacket = ENDPOINT_MAX_PACKET_SIZE_64;
+		cdns3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 		break;
 
 	case USB_SPEED_SUPER:
 		max_packet_size = ENDPOINT_MAX_PACKET_SIZE_512;
+		usb_ss->gadget.ep0->maxpacket = ENDPOINT_MAX_PACKET_SIZE_512;
+		cdns3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
 		break;
 
 	case USB_SPEED_SUPER_PLUS:
 		dev_warn(&usb_ss->dev, "USB 3.1 is not supported\n");
+		usb_ss->gadget.ep0->maxpacket = ENDPOINT_MAX_PACKET_SIZE_512;
+		cdns3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
 		max_packet_size = ENDPOINT_MAX_PACKET_SIZE_512;
 		break;
 	}
@@ -2006,6 +2026,7 @@ static int usb_ss_init_ep0(struct usb_ss_dev *usb_ss)
 	ep0->endpoint.caps.dir_in = 1;
 	ep0->endpoint.caps.dir_out = 1;
 	ep0->endpoint.name = ep0->name;
+	ep0->endpoint.desc = &cdns3_gadget_ep0_desc;
 
 	usb_ss->gadget.ep0 = &ep0->endpoint;
 
