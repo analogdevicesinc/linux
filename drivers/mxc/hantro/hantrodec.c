@@ -202,21 +202,6 @@ DECLARE_WAIT_QUEUE_HEAD(hw_queue);
 
 static u32 cfg[HXDEC_MAX_CORES];
 
-static int hantro_ctrlblk_reset(void)
-{
-	volatile u8 *iobase;
-
-	//config G1/G2
-	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
-	iowrite32(0x3, iobase);  //VPUMIX G1/G2 block soft reset  control
-	iowrite32(0x3, iobase+4); //VPUMIX G1/G2 block clock enable control
-	iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
-	iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
-	iowrite32(0xFFFFFFFF, iobase + 0x10); // all G2 fuse dec enable
-	iounmap(iobase);
-	return 0;
-}
-
 static int hantro_clk_enable(struct device *dev)
 {
 	clk_prepare(hantro_clk_g1);
@@ -242,6 +227,23 @@ static int hantro_clk_disable(struct device *dev)
 		clk_disable(hantro_clk_bus);
 		clk_unprepare(hantro_clk_bus);
 	}
+	return 0;
+}
+
+static int hantro_ctrlblk_reset(struct device *dev)
+{
+	volatile u8 *iobase;
+
+	//config G1/G2
+	hantro_clk_enable(dev);
+	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
+	iowrite32(0x3, iobase);  //VPUMIX G1/G2 block soft reset  control
+	iowrite32(0x3, iobase+4); //VPUMIX G1/G2 block clock enable control
+	iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
+	iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
+	iowrite32(0xFFFFFFFF, iobase + 0x10); // all G2 fuse dec enable
+	iounmap(iobase);
+	hantro_clk_disable(dev);
 	return 0;
 }
 
@@ -1643,7 +1645,7 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	hantro_clk_enable(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
-	hantro_ctrlblk_reset();
+	hantro_ctrlblk_reset(&pdev->dev);
 
 	err = hantrodec_init(pdev);
 	if (0 != err) {
@@ -1700,7 +1702,7 @@ static int hantro_suspend(struct device *dev)
 static int hantro_resume(struct device *dev)
 {
 	pm_runtime_get_sync(dev);     //power on
-	hantro_ctrlblk_reset();
+	hantro_ctrlblk_reset(dev);
 	return 0;
 }
 static int hantro_runtime_suspend(struct device *dev)
@@ -1712,7 +1714,7 @@ static int hantro_runtime_suspend(struct device *dev)
 static int hantro_runtime_resume(struct device *dev)
 {
 	//request_bus_freq(BUS_FREQ_HIGH);
-	hantro_ctrlblk_reset();
+	hantro_ctrlblk_reset(dev);
 	return 0;
 }
 
