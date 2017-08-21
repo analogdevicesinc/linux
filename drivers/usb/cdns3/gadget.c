@@ -1440,6 +1440,24 @@ static int usb_ss_gadget_ep_enable(struct usb_ep *ep,
 	return 0;
 }
 
+static void usb_ss_free_trb_pool(struct usb_ss_endpoint *usb_ss_ep)
+{
+	struct usb_ss_dev *usb_ss = usb_ss_ep->usb_ss;
+
+	if (usb_ss_ep->trb_pool) {
+		dma_free_coherent(usb_ss->sysdev,
+			sizeof(struct usb_ss_trb) * USB_SS_TRBS_NUM,
+			usb_ss_ep->trb_pool, usb_ss_ep->trb_pool_dma);
+		usb_ss_ep->trb_pool = NULL;
+	}
+
+	if (usb_ss_ep->cpu_addr) {
+		dma_free_coherent(usb_ss->sysdev, 4096, usb_ss_ep->cpu_addr,
+			usb_ss_ep->dma_addr);
+		usb_ss_ep->cpu_addr = NULL;
+	}
+}
+
 /**
  * usb_ss_gadget_ep_disable Disable endpoint
  * @ep: endpoint object
@@ -1835,12 +1853,22 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget)
 {
 	struct usb_ss_dev *usb_ss = gadget_to_usb_ss(gadget);
 	unsigned long flags;
+	int i;
 
 	spin_lock_irqsave(&usb_ss->lock, flags);
 	usb_ss->gadget_driver = NULL;
+	if (!usb_ss->start_gadget)
+		goto quit;
 	/* disable interrupt for device */
-	if (usb_ss->start_gadget)
-		gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
+	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
+	spin_unlock_irqrestore(&usb_ss->lock, flags);
+
+	for (i = 0; i < usb_ss->ep_nums ; i++)
+		usb_ss_free_trb_pool(usb_ss->eps[i]);
+
+	return 0;
+
+quit:
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 
 	return 0;
