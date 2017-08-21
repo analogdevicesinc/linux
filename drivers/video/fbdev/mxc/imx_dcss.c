@@ -155,9 +155,9 @@
 #define IRQ_DPR_CH2		4
 #define IRQ_DPR_CH3		5
 #define IRQ_CTX_LD		6
-#define IRQ_DEC400D_CH1		7
-#define IRQ_DTRC_CH2		8
-#define IRQ_DTRC_CH3		9
+#define IRQ_DEC400D_CH1		15
+#define IRQ_DTRC_CH2		16
+#define IRQ_DTRC_CH3		17
 
 /* ctxld irqs status */
 #define RD_ERR			(1 << 16)
