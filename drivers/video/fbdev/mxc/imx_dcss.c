@@ -138,6 +138,11 @@
 #define CTXLD_SB_BASE_ADDR	0x18
 #define CTXLD_SB_COUNT		0x1C
 
+#define TC_LINE1_INT		0x50
+#define TC_INTERRUPT_STATUS	0x5C
+#define TC_INTERRUPT_CONTROL	0x60
+#define TC_INTERRUPT_MASK	0x68
+
 /* define dcss state */
 #define DCSS_STATE_RESET	0x0
 #define DCSS_STATE_RUNNING	0x1
@@ -155,6 +160,7 @@
 #define IRQ_DPR_CH2		4
 #define IRQ_DPR_CH3		5
 #define IRQ_CTX_LD		6
+#define IRQ_TC_LINE1		8
 #define IRQ_DEC400D_CH1		15
 #define IRQ_DTRC_CH2		16
 #define IRQ_DTRC_CH3		17
@@ -2040,6 +2046,43 @@ static void ctxld_irq_unmask(uint32_t irq_en, struct dcss_info *info)
 	writel(irq_en, info->base + chans->ctxld_addr + CTXLD_CTRL_STATUS_SET);
 }
 
+static void dtg_irq_mask(unsigned long hwirq,
+			 struct dcss_info *info)
+{
+	unsigned long irq_mask = 0;
+	struct dcss_channels *chans = &info->chans;
+
+	irq_mask = readl(info->base + chans->dtg_addr + TC_INTERRUPT_MASK);
+	writel(~(1 << (hwirq - 8)) & irq_mask,
+	       info->base + chans->dtg_addr + TC_INTERRUPT_MASK);
+}
+
+static void dtg_irq_unmask(unsigned long hwirq,
+			   struct dcss_info *info)
+{
+	unsigned long irq_mask = 0;
+	struct dcss_channels *chans = &info->chans;
+
+	irq_mask = readl(info->base + chans->dtg_addr + TC_INTERRUPT_MASK);
+
+	writel(1 << (hwirq - 8) | irq_mask,
+	       info->base + chans->dtg_addr + TC_INTERRUPT_MASK);
+}
+
+static void dtg_irq_clear(unsigned long hwirq,
+			  struct dcss_info *info)
+{
+	unsigned long irq_status = 0;
+	struct dcss_channels *chans = &info->chans;
+
+	irq_status = readl(info->base + chans->dtg_addr + TC_INTERRUPT_STATUS);
+	BUG_ON(!(irq_status & 1 << (hwirq - 8)));
+
+	/* write 1 to clear irq */
+	writel(1 << (hwirq - 8),
+	       info->base + chans->dtg_addr + TC_INTERRUPT_CONTROL);
+}
+
 static void dcss_ctxld_config(struct work_struct *work)
 {
 	int ret;
@@ -2578,6 +2621,10 @@ static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 		ctxld_irq_clear(info);
 		complete(&cfifo->complete);
 		break;
+	case IRQ_TC_LINE1:
+		dtg_irq_clear(IRQ_TC_LINE1, info);
+		dtg_irq_mask(IRQ_TC_LINE1, info);
+		break;
 	case IRQ_DEC400D_CH1:
 	case IRQ_DTRC_CH2:
 	case IRQ_DTRC_CH3:
@@ -2591,6 +2638,7 @@ static int dcss_interrupts_init(struct dcss_info *info)
 {
 	int i, ret = 0;
 	struct irq_desc *desc;
+	struct dcss_channels *chans = &info->chans;
 	struct platform_device *pdev = info->pdev;
 
 	for (i = 0; i < DCSS_IRQS_NUM; i++) {
@@ -2602,6 +2650,10 @@ static int dcss_interrupts_init(struct dcss_info *info)
 		switch (desc->irq_data.hwirq) {
 		case 6:         /* CTX_LD */
 			ctxld_irq_unmask(SB_HP_COMP_EN, info);
+			break;
+		case 8:		/* dtg_programmable_1: for vsync */
+			/* TODO: (0, 0) or (last, last)? */
+			writel(0x0, info->base + chans->dtg_addr + TC_LINE1_INT);
 			break;
 		default:	/* TODO: add support later */
 			continue;
