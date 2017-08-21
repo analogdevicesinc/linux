@@ -14,6 +14,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
 #include <linux/of.h>
+#include <linux/pm.h>
 #include <linux/slab.h>
 #include <sound/soc.h>
 #include <sound/pcm.h>
@@ -36,7 +37,11 @@
 struct fsl_mqs {
 	struct platform_device *pdev;
 	struct regmap *gpr;
+	unsigned int reg_iomuxc_gpr2;
+
 	struct regmap *regmap;
+	unsigned int reg_mqs_ctrl;
+
 	struct clk *mclk;
 	struct clk *ipg;
 
@@ -287,6 +292,40 @@ static int fsl_mqs_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int fsl_mqs_resume(struct device *dev)
+{
+	struct fsl_mqs *mqs_priv = dev_get_drvdata(dev);
+
+	if (mqs_priv->use_gpr)
+		regmap_write(mqs_priv->gpr, IOMUXC_GPR2,
+			    mqs_priv->reg_iomuxc_gpr2);
+	else
+		regmap_write(mqs_priv->regmap, REG_MQS_CTRL,
+			     mqs_priv->reg_mqs_ctrl);
+
+	return 0;
+}
+
+static int fsl_mqs_suspend(struct device *dev)
+{
+	struct fsl_mqs *mqs_priv = dev_get_drvdata(dev);
+
+	if (mqs_priv->use_gpr)
+		regmap_read(mqs_priv->gpr, IOMUXC_GPR2,
+			    &mqs_priv->reg_iomuxc_gpr2);
+	else
+		regmap_read(mqs_priv->regmap, REG_MQS_CTRL,
+			    &mqs_priv->reg_mqs_ctrl);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops fsl_mqs_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(fsl_mqs_suspend, fsl_mqs_resume)
+};
+
 static const struct of_device_id fsl_mqs_dt_ids[] = {
 	{ .compatible = "fsl,imx8qm-mqs", },
 	{ .compatible = "fsl,imx6sx-mqs", },
@@ -301,6 +340,7 @@ static struct platform_driver fsl_mqs_driver = {
 	.driver		= {
 		.name	= "fsl-mqs",
 		.of_match_table = fsl_mqs_dt_ids,
+		.pm = &fsl_mqs_pm_ops,
 	},
 };
 
