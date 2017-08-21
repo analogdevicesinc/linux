@@ -97,9 +97,25 @@ static unsigned int adxcvr_read(struct adxcvr_state *st, unsigned reg)
 	return ioread32(st->adxcvr_regs + reg);
 }
 
-static void adxcvr_acquire_arbitration(void __iomem *addr)
+static void adxcvr_acquire_arbitration(struct adxcvr_state *st,
+	void __iomem *addr, unsigned int status_reg)
 {
+	unsigned int timeout = 0;
+	unsigned int val;
+
 	iowrite32(XCVR_ARBITRATION_GET_AVMM, addr);
+
+	do {
+		val = ioread32(addr + status_reg * 4);
+		if ((val & BIT(2)) == 0) {
+			dev_dbg(st->dev, "Acquired arbitration: %d us\n",
+				timeout * 10);
+			return;
+		}
+		udelay(10);
+	} while (timeout++ < 10000);
+
+	dev_err(st->dev, "Failed to acquire arbitration\n");
 }
 
 static void adxcvr_release_arbitration(void __iomem *addr, bool calibrate)
@@ -125,7 +141,8 @@ static unsigned int atx_pll_read(struct adxcvr_state *st, unsigned reg)
 
 static void atx_pll_acquire_arbitration(struct adxcvr_state *st)
 {
-	adxcvr_acquire_arbitration(st->atx_pll_regs);
+	adxcvr_acquire_arbitration(st, st->atx_pll_regs,
+		XCVR_REG_CAPAB_ATX_PLL_STAT);
 }
 
 static void atx_pll_release_arbitration(struct adxcvr_state *st,
@@ -149,7 +166,8 @@ static unsigned int adxcfg_read(struct adxcvr_state *st, unsigned lane,
 static void adxcfg_acquire_arbitration(struct adxcvr_state *st,
 	unsigned int lane)
 {
-	adxcvr_acquire_arbitration(st->adxcfg_regs[lane]);
+	adxcvr_acquire_arbitration(st, st->adxcfg_regs[lane],
+		XCVR_REG_CAPAB_PMA);
 }
 
 static void adxcfg_release_arbitration(struct adxcvr_state *st,
