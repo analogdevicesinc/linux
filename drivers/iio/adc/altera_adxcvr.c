@@ -33,6 +33,9 @@
 #define ADXCVR_REG_STATUS			0x0014
 #define ADXCVR_STATUS				(1 << 0)
 
+#define ADXCVR_REG_STATUS2			0x0018
+#define ADXCVR_STATUS2_XCVR(x)			BIT(x)
+
 #define ADXCVR_REG_SYNTH_CONF			0x0024
 
 /* XCVR Registers */
@@ -405,6 +408,7 @@ static void adxcvr_work_func(struct work_struct *work)
 	unsigned status = 0;
 	int timeout = 1000;
 	unsigned int err = 0;
+	unsigned int i;
 
 	adxcfg_lock(st);
 
@@ -435,7 +439,16 @@ static void adxcvr_work_func(struct work_struct *work)
 	} while (timeout--);
 
 	if (timeout < 0) {
-		dev_err(st->dev, "Link activation error\n");
+		status = adxcvr_read(st, ADXCVR_REG_STATUS2);
+		dev_err(st->dev, "Link activation error:\n");
+		dev_err(st->dev, "\tLink PLL %slocked\n",
+			(status & ADXCVR_STATUS2_XCVR(st->lanes_per_link)) ?
+				"" : "not ");
+		for (i = 0; i < st->lanes_per_link; i++) {
+			dev_err(st->dev, "\tLane %d transceiver %sready\n", i,
+				(status & ADXCVR_STATUS2_XCVR(i)) ?
+					"" : "not ");
+		}
 		err = 1;
 	}
 
