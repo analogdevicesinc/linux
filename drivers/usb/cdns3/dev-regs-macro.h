@@ -25,6 +25,7 @@
 #define USB_CONF__CFGSET__MASK                                      0x00000002U
 #define USB_CONF__USB3DIS__MASK                                     0x00000008U
 #define USB_CONF__DEVEN__MASK                                       0x00004000U
+#define USB_CONF__DEVDS__MASK                                       0x00008000U
 #define USB_CONF__L1EN__MASK                                        0x00010000U
 #define USB_CONF__L1DS__MASK                                        0x00020000U
 #define USB_CONF__CLK2OFFDS__MASK                                   0x00080000U

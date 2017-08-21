@@ -1756,7 +1756,18 @@ static int usb_ss_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct usb_ss_dev *usb_ss = gadget_to_usb_ss(gadget);
 
+	if (!usb_ss->start_gadget)
+		return 0;
+
 	dev_dbg(&usb_ss->dev, "usb_ss_gadget_pullup: %d\n", is_on);
+
+	if (is_on)
+		gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
+				USB_CONF__DEVEN__MASK);
+	else
+		gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
+				USB_CONF__DEVDS__MASK);
+
 	return 0;
 }
 
@@ -1861,6 +1872,7 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget)
 		goto quit;
 	/* disable interrupt for device */
 	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
+	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVDS__MASK);
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 
 	for (i = 0; i < usb_ss->ep_nums ; i++)
@@ -2192,6 +2204,7 @@ static void cdns3_gadget_stop(struct cdns3 *cdns)
 
 	/* disable interrupt for device */
 	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
+	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVDS__MASK);
 	usb_ss->start_gadget = 0;
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 }
