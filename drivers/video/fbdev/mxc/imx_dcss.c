@@ -2550,8 +2550,10 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 		return ret;
 	}
 
-	/* make pan display synchronously */
-	flush_workqueue(info->ctxld_wq);
+	/* TODO: blocking mode */
+	if (likely(!var->reserved[2]))
+		/* make pan display synchronously */
+		flush_workqueue(info->ctxld_wq);
 
 	return 0;
 }
