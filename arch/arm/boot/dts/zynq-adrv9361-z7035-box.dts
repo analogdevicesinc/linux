@@ -4,6 +4,10 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
+/ {
+	model = "Analog Devices ADRV9361-Z7035 RFSOM-BOX (Z7035/AD9361)";
+};
+
 &adm1166 {
 	reg = <0x6A>;
 };
@@ -43,6 +47,14 @@
 		reg = <0x69>;
 		interrupt-parent = <&gpio0>;
 		interrupts = <80 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+
+	fuelgauge: ltc2942@64 {
+		compatible = "lltc,ltc2942";
+		reg = <0x64>;
+		lltc,resistor-sense = <20>;
+		lltc,prescaler-exponent = <5>; /* 2^(2*5) = 1024 */
 	};
 };
 
@@ -90,36 +102,46 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		interrupt-parent = <&gpio0>;
-		autorepeat;
+//		autorepeat;
 
 		s5 {
-			label = "Left";
-			linux,code = <KEY_LEFT>;
-			interrupts = <101 IRQ_TYPE_EDGE_FALLING>;
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			interrupts = <101 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 101 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
 		};
 
 		s3 {
-			label = "Right";
-			linux,code = <KEY_RIGHT>;
-			interrupts = <103 IRQ_TYPE_EDGE_FALLING>;
-		};
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			interrupts = <103 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 103 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+			};
 
 		s4 {
-			label = "Up";
-			linux,code = <KEY_UP>;
-			interrupts = <102 IRQ_TYPE_EDGE_FALLING>;
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			interrupts = <102 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 102 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
 		};
 
 		s2 {
-			label = "Down";
-			linux,code = <KEY_DOWN>;
-			interrupts = <104 IRQ_TYPE_EDGE_FALLING>;
+			label = "Up";
+			linux,code = <KEY_UP>;
+			interrupts = <104 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 104 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
 		};
 
 		s1 {
 			label = "Enter";
 			linux,code = <KEY_ENTER>;
-			interrupts = <111 IRQ_TYPE_EDGE_FALLING>;
+			interrupts = <111 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 111 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
 		};
 
 	};
