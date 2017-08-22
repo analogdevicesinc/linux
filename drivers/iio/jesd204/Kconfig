@@ -4,6 +4,10 @@ menuconfig JESD204
 
 if JESD204
 
+config ALTERA_ARRIA10_JESD204_PHY
+	tristate "Altera Arria10 JESD204 PHY Support"
+	depends on COMMON_CLK
+
 config AXI_ADXCVR
 	tristate "Analog Devices AXI ADXCVR PHY Support"
 	depends on COMMON_CLK
