@@ -23,6 +23,7 @@
 #include <linux/clk.h>
 #include <linux/cache.h>
 #include <asm/cacheflush.h>
+#include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
@@ -242,6 +243,11 @@ struct cbuffer{
 	uint32_t esize;		/* size per element */
 };
 
+struct vsync_info {
+	wait_queue_head_t vwait;
+	unsigned long vcount;
+};
+
 struct ctxld_commit {
 	struct list_head list;
 	struct work_struct work;
@@ -338,6 +344,7 @@ struct dcss_info {
 	uint32_t de_pol;
 	char disp_dev[NAME_LEN];
 	struct mxc_dispdrv_handle *dispdrv;
+	struct vsync_info vinfo;
 
 	atomic_t flush;
 };
@@ -2568,10 +2575,68 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 	return 0;
 }
 
+static int vcount_compare(unsigned long vcount,
+			  struct vsync_info *vinfo)
+{
+	int ret = 0;
+	unsigned long irqflags;
+
+	spin_lock_irqsave(&vinfo->vwait.lock, irqflags);
+
+	ret = (vcount != vinfo->vcount) ? 1 : 0;
+
+	spin_unlock_irqrestore(&vinfo->vwait.lock, irqflags);
+
+	return ret;
+}
+
+static int dcss_wait_for_vsync(unsigned long crtc,
+			       struct dcss_info *info)
+{
+	int ret = 0;
+	unsigned long irqflags, vcount;
+	struct platform_device *pdev = info->pdev;
+
+	spin_lock_irqsave(&info->vinfo.vwait.lock, irqflags);
+	dtg_irq_unmask(IRQ_TC_LINE1, info);
+	vcount = info->vinfo.vcount;
+	spin_unlock_irqrestore(&info->vinfo.vwait.lock, irqflags);
+
+	ret = wait_event_interruptible_timeout(info->vinfo.vwait,
+					vcount_compare(vcount, &info->vinfo),
+					HZ);
+	if (!ret) {
+		dev_err(&pdev->dev, "wait vsync active timeout\n");
+		return -EBUSY;
+	}
+
+	return ret;
+}
+
 static int dcss_ioctl(struct fb_info *fbi, unsigned int cmd,
 		      unsigned long arg)
 {
-	return 0;
+	int ret = 0;
+	unsigned long crtc;
+	void __user *argp = (void __user *)arg;
+	struct dcss_channel_info *cinfo = fbi->par;
+	struct dcss_info *info = cinfo->dev_data;
+	struct platform_device *pdev = cinfo->pdev;
+
+	switch (cmd) {
+	case FBIO_WAITFORVSYNC:
+		if (copy_from_user(&crtc, argp, sizeof(unsigned long)))
+			return -EFAULT;
+
+		ret = dcss_wait_for_vsync(crtc, info);
+		break;
+	default:
+		dev_err(&pdev->dev, "invalid ioctl command: 0x%x\n", cmd);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
 }
 
 static void ctxld_irq_clear(struct dcss_info *info)
@@ -2608,6 +2673,7 @@ static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 {
 	struct irq_desc *desc;
 	uint32_t irq_status;
+	unsigned long irqflags;
 	struct dcss_info *info = (struct dcss_info *)dev_id;
 	struct dcss_channels *chans = &info->chans;
 	struct dcss_channel_info *chan;
@@ -2632,7 +2698,13 @@ static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 		break;
 	case IRQ_TC_LINE1:
 		dtg_irq_clear(IRQ_TC_LINE1, info);
+
+		spin_lock_irqsave(&info->vinfo.vwait.lock, irqflags);
+		info->vinfo.vcount++;
 		dtg_irq_mask(IRQ_TC_LINE1, info);
+		spin_unlock_irqrestore(&info->vinfo.vwait.lock, irqflags);
+
+		wake_up_all(&info->vinfo.vwait);
 		break;
 	case IRQ_DEC400D_CH1:
 	case IRQ_DTRC_CH2:
@@ -2874,6 +2946,8 @@ static int dcss_info_init(struct dcss_info *info)
 	}
 
 	platform_set_drvdata(pdev, info);
+	init_waitqueue_head(&info->vinfo.vwait);
+	info->vinfo.vcount = 0;
 
 	goto out;
 
