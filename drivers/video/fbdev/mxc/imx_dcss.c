@@ -2170,7 +2170,6 @@ static int commit_to_fifo(uint32_t channel,
 	struct ctxld_commit *cc;
 	struct cbuffer *cb;
 	struct ctxld_unit *unit = NULL;
-	uint32_t ctxld_status, timeout;
 
 	if (channel > 2 || !info)
 		return -EINVAL;
@@ -2185,27 +2184,6 @@ static int commit_to_fifo(uint32_t channel,
 	chan_info = &chans->chan_info[channel];
 	cb = &chan_info->cb;
 	commit_size = cb->sb_data_len + cb->db_data_len;
-
-	/* timeout is 1000ms */
-	timeout = 1001;
-	/* TODO: workaround for making fifo commit to be synchronous */
-	ctxld_status = readl(info->base + CTX_LD_START + CTXLD_CTRL_STATUS);
-	while (--timeout && (ctxld_status & 0x1)) {
-		mdelay(1);
-		ctxld_status = readl(info->base + CTX_LD_START + CTXLD_CTRL_STATUS);
-	}
-
-	if (!timeout) {
-		dev_err(&pdev->dev, "%s: context loader timeout\n", __func__);
-
-		/* drop this commit */
-		cb->db_data_len = 0;
-		cb->sb_data_len = 0;
-
-		kfree(cc);
-
-		return -EBUSY;
-	}
 
 restart:
 	spin_lock(&cfifo->cqueue.lock);
@@ -2571,6 +2549,9 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 		dev_err(&pdev->dev, "commit config failed\n");
 		return ret;
 	}
+
+	/* make pan display synchronously */
+	flush_workqueue(info->ctxld_wq);
 
 	return 0;
 }
