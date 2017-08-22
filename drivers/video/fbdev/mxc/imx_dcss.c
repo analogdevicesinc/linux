@@ -514,6 +514,8 @@ static int dcss_setcolreg(unsigned regno, unsigned red, unsigned green,
 static int dcss_blank(int blank, struct fb_info *fbi);
 static int dcss_pan_display(struct fb_var_screeninfo *var,
 			    struct fb_info *fbi);
+static int dcss_ioctl(struct fb_info *fbi, unsigned int cmd,
+		      unsigned long arg);
 
 static struct fb_ops dcss_ops = {
 	.owner = THIS_MODULE,
@@ -523,6 +525,7 @@ static struct fb_ops dcss_ops = {
 	.fb_setcolreg	= dcss_setcolreg,
 	.fb_blank	= dcss_blank,
 	.fb_pan_display	= dcss_pan_display,
+	.fb_ioctl	= dcss_ioctl,
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
@@ -2562,6 +2565,12 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 		return ret;
 	}
 
+	return 0;
+}
+
+static int dcss_ioctl(struct fb_info *fbi, unsigned int cmd,
+		      unsigned long arg)
+{
 	return 0;
 }
 
