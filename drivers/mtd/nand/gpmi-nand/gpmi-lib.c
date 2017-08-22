@@ -1,8 +1,9 @@
 /*
  * Freescale GPMI NAND Flash Driver
  *
- * Copyright (C) 2008-2016 Freescale Semiconductor, Inc.
  * Copyright (C) 2008 Embedded Alley Solutions, Inc.
+ * Copyright (C) 2008-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1024,7 +1025,8 @@ int gpmi_extra_init(struct gpmi_nand_data *this)
 	struct nand_chip *chip = &this->nand;
 
 	/* Enable the asynchronous EDO feature. */
-	if (GPMI_IS_MX6(this) && chip->onfi_version) {
+	if ((GPMI_IS_MX6(this) || GPMI_IS_MX8(this))
+			&& chip->onfi_version) {
 		int mode = onfi_get_async_timing_mode(chip);
 
 		/* We only support the timing mode 4 and mode 5. */
