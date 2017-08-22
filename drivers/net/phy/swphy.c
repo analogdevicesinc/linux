@@ -71,6 +71,7 @@ static const struct swmii_regs duplex[] = {
 static int swphy_decode_speed(int speed)
 {
 	switch (speed) {
+	case 10000:
 	case 1000:
 		return SWMII_SPEED_1000;
 	case 100:
