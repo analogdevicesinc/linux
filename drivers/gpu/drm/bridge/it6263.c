@@ -473,6 +473,7 @@ static int it6263_get_modes(struct drm_connector *connector)
 	drm_mode_connector_update_edid_property(connector, edid);
 	if (edid) {
 		num = drm_add_edid_modes(connector, edid);
+		it6263->is_hdmi = drm_detect_hdmi_monitor(edid);
 		kfree(edid);
 	}
 
@@ -480,8 +481,6 @@ static int it6263_get_modes(struct drm_connector *connector)
 					       &bus_format, 1);
 	if (ret)
 		return ret;
-
-	it6263->is_hdmi = drm_detect_hdmi_monitor(edid);
 
 	return num;
 }
