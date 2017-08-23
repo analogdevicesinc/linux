@@ -2080,8 +2080,11 @@
 
 &A35_0 {
 	operating-points = <
-		/* kHz    uV */
-		1200000 1150000
+		/* kHz	uV*/
+		/* voltage is maintained by SCFW, so no need here */
+		1200000 0
+		1000000 0
 	>;
 	clocks = <&clk IMX8QXP_A35_DIV>;
+	clock-latency = <61036>;
 };
