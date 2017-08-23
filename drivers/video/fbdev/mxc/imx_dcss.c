@@ -673,7 +673,6 @@ static void fill_sb(struct cbuffer *cb,
 	cb->sb_data_len++;
 }
 
-#if 0
 static void fill_db(struct cbuffer *cb,
 		    uint32_t offset,
 		    uint32_t value)
@@ -692,7 +691,6 @@ static void fill_db(struct cbuffer *cb,
 	fill_unit(unit, offset, value);
 	cb->db_data_len++;
 }
-#endif
 
 static void ctxld_fifo_info_print(struct ctxld_fifo *cfifo)
 {
@@ -2131,9 +2129,11 @@ static void dcss_ctxld_config(struct work_struct *work)
 		       info->base + chans->ctxld_addr + CTXLD_SB_COUNT);
 	}
 
+	/* configure db buffer */
 	if (cc->db_data_len) {
-		writel(cfifo->dma_handle + cfifo->sgl[0].offset +
-		       cc->sb_data_len * kfifo_esize(&cfifo->fifo),
+		writel(cfifo->dma_handle +
+		       (cc->fifo_in + cc->sb_data_len) *
+		       kfifo_esize(&cfifo->fifo),
 		       info->base + chans->ctxld_addr + CTXLD_DB_BASE_ADDR);
 		writel(cc->db_data_len,
 		       info->base + chans->ctxld_addr + CTXLD_DB_COUNT);
