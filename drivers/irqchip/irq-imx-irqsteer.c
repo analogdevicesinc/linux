@@ -84,7 +84,7 @@ static int imx_irqsteer_irq_map(struct irq_domain *h, unsigned int irq,
 				irq_hw_number_t hwirq)
 {
 	irq_set_chip_data(irq, h->host_data);
-	irq_set_chip_and_handler(irq, &imx_irqsteer_irq_chip, handle_edge_irq);
+	irq_set_chip_and_handler(irq, &imx_irqsteer_irq_chip, handle_level_irq);
 
 	return 0;
 }
