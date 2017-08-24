@@ -100,7 +100,7 @@ static int imx8_pd_power_off(struct generic_pm_domain *domain)
 		 * that may be lost.
 		 */
 		list_for_each_entry(imx8_rsrc_clk, &pd->clks, node)
-			imx8_rsrc_clk->rate = clk_get_rate(imx8_rsrc_clk->clk);
+			imx8_rsrc_clk->rate = clk_hw_get_rate(__clk_get_hw(imx8_rsrc_clk->clk));
 	}
 	return imx8_pd_power(domain, false);
 }
