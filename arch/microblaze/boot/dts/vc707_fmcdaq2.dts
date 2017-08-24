@@ -40,6 +40,7 @@
 	dmas = <&axi_ad9144_dma 0>;
 	dma-names = "tx";
 	spibus-connected = <&dac0_ad9144>;
+	adi,axi-pl-fifo-enable;
 };
 
 &axi_ad9144_dma {
