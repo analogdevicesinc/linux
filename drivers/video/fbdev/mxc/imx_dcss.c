@@ -34,6 +34,7 @@
 #include <linux/freezer.h>
 #include <linux/kfifo.h>
 #include <linux/kthread.h>
+#include <linux/log2.h>
 #include <linux/regulator/consumer.h>
 #include <linux/scatterlist.h>
 #include <linux/videodev2.h>
@@ -1292,9 +1293,95 @@ static int dcss_decomp_config(uint32_t decomp_ch, struct dcss_info *info)
 	return 0;
 }
 
+/* for both luma and chroma
+ */
+static int dpr_pix_x_calc(u32 pix_size,
+			  u32 width,
+			  u32 tile_type)
+{
+	unsigned int num_pix_x_in_64byte;
+	unsigned int pix_x_div_64byte_mod;
+	unsigned int pix_x_offset;
+
+	if (pix_size > 2)
+		return -EINVAL;
+
+	/* 1st calculation step */
+	switch (tile_type) {
+	case TILE_TYPE_LINEAR:
+		/* Divisable by 64 bytes */
+		num_pix_x_in_64byte = 64 / (1 << pix_size);
+		break;
+	/* 4x4 tile or super tile */
+	case TILE_TYPE_GPU_STANDARD:
+	case TILE_TYPE_GPU_SUPER:
+		BUG_ON(!pix_size);
+		num_pix_x_in_64byte = 64 / (4 * (1 << pix_size));
+		break;
+	/* 8bpp YUV420 8x8 tile */
+	case TILE_TYPE_VPU_2PYUV420:
+		BUG_ON(pix_size);
+		num_pix_x_in_64byte = 64 / (8 * (1 << pix_size));
+		break;
+	/* 8bpp or 10bpp VP9 4x4 tile */
+	case TILE_TYPE_VPU_2PVP9:
+		BUG_ON(pix_size == 2);
+		num_pix_x_in_64byte = 64 / (4 * (1 << pix_size));
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* 2nd calculation step */
+	pix_x_div_64byte_mod = width % num_pix_x_in_64byte;
+	pix_x_offset = !pix_x_div_64byte_mod ? 0 :
+				(num_pix_x_in_64byte - pix_x_div_64byte_mod);
+
+	return width + pix_x_offset;
+}
+
+/* Divisable by 4 or 8 */
+static int dpr_pix_y_calc(u32 rtr_lines,
+			  u32 height,
+			  u32 tile_type)
+{
+	unsigned int num_rows_buf;
+	unsigned int pix_y_mod = 0;
+	unsigned int pix_y_offset = 0;
+
+	if (rtr_lines != 0 && rtr_lines != 1)
+		return -EINVAL;
+
+	switch (tile_type) {
+	case TILE_TYPE_LINEAR:
+		num_rows_buf = rtr_lines ? 4 : 8;
+		break;
+	/* 4x4 tile or super tile */
+	case TILE_TYPE_GPU_STANDARD:
+	case TILE_TYPE_GPU_SUPER:
+		num_rows_buf = 4;
+		break;
+	/* 8bpp YUV420 8x8 tile */
+	case TILE_TYPE_VPU_2PYUV420:
+		num_rows_buf = 8;
+		break;
+	/* 8bpp or 10bpp VP9 4x4 tile */
+	case TILE_TYPE_VPU_2PVP9:
+		num_rows_buf = 4;
+		break;
+	default:
+		return -EINVAL;
+	}
+	pix_y_mod = height % num_rows_buf;
+	pix_y_offset = !pix_y_mod ? 0 : (num_rows_buf - pix_y_mod);
+
+	return height + pix_y_offset;
+}
+
 static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 {
-	uint32_t pitch;
+	uint32_t pitch, pix_size;
+	uint32_t num_pix_x, num_pix_y;
 	bool need_resolve = false;
 	struct platform_device *pdev = info->pdev;
 	struct dcss_channels *chans = &info->chans;
@@ -1366,11 +1453,19 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 
 	fill_sb(cb, chan_info->dpr_addr + 0xc0, fix->smem_start);
 	fill_sb(cb, chan_info->dpr_addr + 0x90, 0x2);
-	fill_sb(cb, chan_info->dpr_addr + 0xa0, input->width);
-	fill_sb(cb, chan_info->dpr_addr + 0xb0, input->height);
+
+	pix_size = ilog2(input->bits_per_pixel >> 3);
+
+	num_pix_x = dpr_pix_x_calc(pix_size, input->width, input->tile_type);
+	BUG_ON(num_pix_x < 0);
+	fill_sb(cb, chan_info->dpr_addr + 0xa0, num_pix_x);
 
 	switch (fmt_is_yuv(input->format)) {
 	case 0:         /* RGB */
+		num_pix_y = dpr_pix_y_calc(1, input->height, input->tile_type);
+		BUG_ON(num_pix_y < 0);
+		fill_sb(cb, chan_info->dpr_addr + 0xb0, num_pix_y);
+
 		if (!need_resolve)
 			/* Bypass resolve */
 			fill_sb(cb, chan_info->dpr_addr + 0x50, 0xe4203);
@@ -1383,12 +1478,16 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 		break;
 	case 2:         /* YUV 2P */
 		/* Two planes YUV format */
+		num_pix_y = dpr_pix_y_calc(0, input->height, input->tile_type);
+		BUG_ON(num_pix_y < 0);
+		fill_sb(cb, chan_info->dpr_addr + 0xb0, num_pix_y);
+
 		fill_sb(cb, chan_info->dpr_addr + 0x50, 0xc1);
 		fill_sb(cb, chan_info->dpr_addr + 0xe0, 0x2);
 		fill_sb(cb, chan_info->dpr_addr + 0x110,
 			fix->smem_start +
 			var->xres * var->yres * (var->bits_per_pixel >> 3));
-		fill_sb(cb, chan_info->dpr_addr + 0xf0, var->xres);
+		fill_sb(cb, chan_info->dpr_addr + 0xf0, num_pix_x);
 
 		/* TODO: Require alignment handling:
 		 * value must be evenly divisible by
@@ -1396,7 +1495,9 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 		 * MODE_CTRL0: RTR_4LINE_BUF_EN.
 		 * UV height is 1/2 height of Luma.
 		 */
-		fill_sb(cb, chan_info->dpr_addr + 0x100, ALIGN(var->yres >> 1, 8));
+		num_pix_y = dpr_pix_y_calc(0, input->height >> 1, input->tile_type);
+		BUG_ON(num_pix_y < 0);
+		fill_sb(cb, chan_info->dpr_addr + 0x100, num_pix_y);
 		break;
 	default:
 		return -EINVAL;
