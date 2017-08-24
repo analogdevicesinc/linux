@@ -106,7 +106,7 @@
 			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>,
 			<&clk IMX8QXP_AUD_ESAI_0_EXTAL_IPG>;
 	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
-	assigned-clock-rates = <0>, <786432000>, <24576000>, <24576000>, <24576000>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <24576000>, <49152000>;
 	dmas = <&edma2 23 0 3>, <&edma2 21 0 2>;
 	status = "okay";
 };
@@ -118,7 +118,7 @@
 			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>,
 			<&clk IMX8QXP_AUD_SAI_4_MCLK>;
 	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
-	assigned-clock-rates = <0>, <786432000>, <49152000>, <49152000>, <49152000>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <24576000>, <49152000>;
 	fsl,sai-asynchronous;
 	fsl,txm-rxs;
 	status = "okay";
@@ -131,7 +131,7 @@
 			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>,
 			<&clk IMX8QXP_AUD_SAI_5_MCLK>;
 	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
-	assigned-clock-rates = <0>, <786432000>, <49152000>, <49152000>, <49152000>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <24576000>, <49152000>;
 	fsl,sai-asynchronous;
 	fsl,txm-rxs;
 	status = "okay";
