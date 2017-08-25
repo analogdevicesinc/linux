@@ -2314,8 +2314,8 @@ static int pxp_ps_config(struct pxp_pixmap *input,
 	case 0:
 		out_ps_ulc.x = output->crop.x;
 		out_ps_ulc.y = output->crop.y;
-		out_ps_lrc.x = output->crop.width - 1;
-		out_ps_lrc.y = output->crop.height - 1;
+		out_ps_lrc.x = out_ps_ulc.x + output->crop.width - 1;
+		out_ps_lrc.y = out_ps_ulc.y + output->crop.height - 1;
 		break;
 	case 90:
 		out_ps_ulc.x = output->crop.y;
@@ -2618,7 +2618,7 @@ static int pxp_out_config(struct pxp_pixmap *output)
 
 	pxp_writel(*(uint32_t *)&ctrl, HW_PXP_OUT_CTRL);
 
-	pxp_writel(output->paddr + offset, HW_PXP_OUT_BUF);
+	pxp_writel(output->paddr, HW_PXP_OUT_BUF);
 	if (is_yuv(output->format) == 2) {
 		UV = output->paddr + output->width * output->height;
 		if ((output->format == PXP_PIX_FMT_NV16) ||
