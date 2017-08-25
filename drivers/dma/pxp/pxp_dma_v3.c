@@ -3526,7 +3526,11 @@ static int convert_param_to_pixmap(struct pxp_pixmap *pixmap,
 	pixmap->format = param->pixel_fmt;
 	pixmap->paddr  = param->paddr;
 	pixmap->bpp    = get_bpp_from_fmt(pixmap->format);
-	pixmap->pitch  = param->width * pixmap->bpp >> 3;
+
+	if (!param->stride || (param->stride == param->width))
+		pixmap->pitch  = param->width * pixmap->bpp >> 3;
+	else
+		pixmap->pitch = param->stride;
 
 	pixmap->crop.x = param->crop.left;
 	pixmap->crop.y = param->crop.top;
