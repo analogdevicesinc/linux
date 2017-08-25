@@ -995,6 +995,7 @@ static int dcss_init_chans(struct dcss_info *info)
 static int dcss_init_fbinfo(struct fb_info *fbi)
 {
 	int ret;
+	uint32_t luma_size;
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
 	struct fb_fix_screeninfo *fix = &fbi->fix;
@@ -1054,9 +1055,21 @@ static int dcss_init_fbinfo(struct fb_info *fbi)
 		return -ENOMEM;
 	}
 
-
-	/* clear screen content */
-	memset((void*)fbi->screen_base, 0x0, fix->smem_len);
+	/* clear screen content to black */
+	switch (var->grayscale) {
+	case V4L2_PIX_FMT_ARGB32:
+		memset((void*)fbi->screen_base, 0x0, fix->smem_len);
+		break;
+	case V4L2_PIX_FMT_NV12:
+		/* set luma: 0x0 */
+		luma_size = var->xres * var->yres;
+		memset((void*)fbi->screen_base, 0x0, luma_size);
+		/* set chroma: 0x80 */
+		memset((void*)fbi->screen_base + luma_size, 0x80, luma_size);
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	if (dcss_check_var(var, fbi)) {
 		devm_kfree(fbi->device, fbi->pseudo_palette);
