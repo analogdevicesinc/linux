@@ -66,6 +66,7 @@
 #define AXI_DMAC_REG_CURRENT_DEST_ADDR	0x438
 #define AXI_DMAC_REG_DBG0		0x43c
 #define AXI_DMAC_REG_DBG1		0x440
+#define AXI_DMAC_REG_DBG2		0x444
 
 #define AXI_DMAC_CTRL_ENABLE		BIT(0)
 #define AXI_DMAC_CTRL_PAUSE		BIT(1)
@@ -345,7 +346,7 @@ static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
 {
 	struct axi_dmac *dmac = devid;
 	unsigned int pending;
-	bool start_next;
+	bool start_next = false;
 
 	pending = axi_dmac_read(dmac, AXI_DMAC_REG_IRQ_PENDING);
 	if (!pending)
@@ -645,6 +646,7 @@ static bool axi_dmac_regmap_rdwr(struct device *dev, unsigned int reg)
 	case AXI_DMAC_REG_CURRENT_DEST_ADDR:
 	case AXI_DMAC_REG_DBG0:
 	case AXI_DMAC_REG_DBG1:
+	case AXI_DMAC_REG_DBG2:
 		return true;
 	default:
 		return false;
@@ -655,7 +657,7 @@ static const struct regmap_config axi_dmac_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
 	.reg_stride = 4,
-	.max_register = AXI_DMAC_REG_DBG1,
+	.max_register = AXI_DMAC_REG_DBG2,
 	.readable_reg = axi_dmac_regmap_rdwr,
 	.writeable_reg = axi_dmac_regmap_rdwr,
 };

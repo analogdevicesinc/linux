@@ -43,7 +43,11 @@ struct ad9162_state {
 
 };
 
-static const char *clk_names[3] = { "jesd_dac_clk", "dac_clk", "dac_sysref" };
+static const char * const clk_names[] = {
+	[CLK_DATA] = "jesd_dac_clk",
+	[CLK_DAC] = "dac_clk",
+	[CLK_REF] = "dac_sysref"
+};
 
 static int ad9162_read(struct spi_device *spi, unsigned reg)
 {
@@ -190,10 +194,9 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < 3; i++) {
-		clk = devm_clk_get(&conv->spi->dev, &clk_names[i][0]);
-		if (IS_ERR(clk)) {
-			return -EPROBE_DEFER;
-		}
+		clk = devm_clk_get(&conv->spi->dev, clk_names[i]);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
 
 		if (i > 0) {
 			ret = clk_prepare_enable(clk);
@@ -201,7 +204,7 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 				return ret;
 		}
 
-		of_clk_get_scale(conv->spi->dev.of_node, &clk_names[i][0], &conv->clkscale[i]);
+		of_clk_get_scale(conv->spi->dev.of_node, clk_names[i], &conv->clkscale[i]);
 
 		conv->clk[i] = clk;
 	}
