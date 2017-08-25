@@ -23,7 +23,7 @@ struct imx_amix {
 	struct snd_soc_card card;
 	struct platform_device *amix_pdev;
 	struct platform_device *out_pdev;
-	unsigned int mclk_freq;
+	struct clk *cpu_mclk;
 	int num_dai;
 	struct snd_soc_dai_link *dai;
 	int num_dai_conf;
@@ -47,15 +47,16 @@ static int imx_amix_fe_startup(struct snd_pcm_substream *substream)
 	struct imx_amix *priv = snd_soc_card_get_drvdata(rtd->card);
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct device *dev = rtd->card->dev;
+	unsigned long clk_rate = clk_get_rate(priv->cpu_mclk);
 	int ret;
 
-	if (priv->mclk_freq == 24576000) {
+	if (clk_rate % 24576000 == 0) {
 		ret = snd_pcm_hw_constraint_list(runtime, 0,
 			SNDRV_PCM_HW_PARAM_RATE, &imx_amix_rate_constraints);
 		if (ret)
 			return ret;
 	} else
-		dev_warn(dev, "mclk may be not supported %d\n", priv->mclk_freq);
+		dev_warn(dev, "mclk may be not supported %lu\n", clk_rate);
 
 	ret = snd_pcm_hw_constraint_minmax(runtime,
 			SNDRV_PCM_HW_PARAM_CHANNELS, 1, 8);
@@ -168,7 +169,6 @@ static int imx_amix_probe(struct platform_device *pdev)
 	int i, num_dai, ret;
 	const char *fe_name_pref = "HiFi-AMIX-FE-";
 	char *dai_name;
-	struct clk *cpu_mclk;
 
 	num_dai = of_count_phandle_with_args(np, "dais", NULL);
 	if (num_dai != FSL_AMIX_MAX_DAIS) {
@@ -275,13 +275,12 @@ static int imx_amix_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to find SAI platform device\n");
 		return -EINVAL;
 	}
-	cpu_mclk = devm_clk_get(&cpu_pdev->dev, "mclk1");
-	if (IS_ERR(cpu_mclk)) {
-		ret = PTR_ERR(cpu_mclk);
+	priv->cpu_mclk = devm_clk_get(&cpu_pdev->dev, "mclk1");
+	if (IS_ERR(priv->cpu_mclk)) {
+		ret = PTR_ERR(priv->cpu_mclk);
 		dev_err(&cpu_pdev->dev, "failed to get DAI mclk1: %d\n", ret);
 		return -EINVAL;
 	}
-	priv->mclk_freq = clk_get_rate(cpu_mclk);
 
 	/* Add AMIX Backend */
 	priv->dai[num_dai].name = "HiFi-AMIX-BE";
