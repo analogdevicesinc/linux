@@ -127,7 +127,7 @@ struct device * __init imx_soc_device_init(void)
 		soc_id = "i.MX6SX";
 		break;
 	case MXC_CPU_IMX6Q:
-		if (imx_get_soc_revision() == IMX_CHIP_REVISION_2_0)
+		if (imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0)
 			soc_id = "i.MX6QP";
 		else
 			soc_id = "i.MX6Q";

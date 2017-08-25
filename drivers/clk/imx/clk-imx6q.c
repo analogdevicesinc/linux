@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2011-2016 Freescale Semiconductor, Inc.
  * Copyright 2011 Linaro Ltd.
+ * Copyright 2017 NXP.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -989,7 +990,7 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 		clk_set_parent(clk[IMX6QDL_CLK_GPU3D_CORE_SEL], clk[IMX6QDL_CLK_PLL2_PFD1_594M]);
 		imx_clk_set_rate(clk[IMX6QDL_CLK_GPU3D_CORE], 528000000);
 	} else if (clk_on_imx6q()) {
-		if (imx_get_soc_revision() == IMX_CHIP_REVISION_2_0) {
+		if (imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0) {
 			clk_set_parent(clk[IMX6QDL_CLK_GPU3D_SHADER_SEL], clk[IMX6QDL_CLK_PLL3_PFD0_720M]);
 			imx_clk_set_rate(clk[IMX6QDL_CLK_GPU3D_SHADER], 720000000);
 			clk_set_parent(clk[IMX6QDL_CLK_GPU3D_CORE_SEL], clk[IMX6QDL_CLK_PLL2_PFD1_594M]);
@@ -1086,7 +1087,7 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 	 * for i.MX6QP with speeding grading set to 1.2GHz,
 	 * VPU should run at 396MHz.
 	 */
-	if (clk_on_imx6q() && imx_get_soc_revision() == IMX_CHIP_REVISION_2_0) {
+	if (clk_on_imx6q() && imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0) {
 		np = of_find_compatible_node(NULL, NULL, "fsl,imx6q-ocotp");
 		WARN_ON(!np);
 
