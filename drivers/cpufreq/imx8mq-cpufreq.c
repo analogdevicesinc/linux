@@ -27,7 +27,6 @@ static bool free_opp;
 static struct cpufreq_frequency_table *freq_table;
 static struct mutex set_cpufreq_lock;
 static unsigned int transition_latency;
-static unsigned int suspend_freq;
 static struct clk *a53_clk;
 static struct clk *arm_a53_src_clk;
 static struct clk *arm_pll_clk;
@@ -62,7 +61,7 @@ static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 	dev_dbg(cpu_dev, "%u MHz --> %u MHz\n",
 		old_freq / 1000, new_freq / 1000);
 
-	if (new_freq == suspend_freq) {
+	if (new_freq == policy->max) {
 		if (!IS_ERR(dc_reg)) {
 			ret = regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MAX, 0);
 			if (ret) {
@@ -77,7 +76,7 @@ static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 	clk_set_rate(arm_pll_clk, new_freq * 1000);
 	clk_set_parent(arm_a53_src_clk, arm_pll_out_clk);
 
-	if (old_freq == suspend_freq) {
+	if (old_freq == policy->max) {
 		if (!IS_ERR(dc_reg)) {
 			ret = regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MIN, 0);
 			if (ret) {
@@ -121,13 +120,14 @@ static int imx8mq_cpufreq_init(struct cpufreq_policy *policy)
 
 	policy->clk = a53_clk;
 	policy->cur = clk_get_rate(a53_clk) / 1000;
-	policy->suspend_freq = suspend_freq;
 
 	ret = cpufreq_generic_init(policy, freq_table, transition_latency);
 	if (ret) {
 		dev_err(cpu_dev, "imx8mq cpufreq init failed!\n");
 		return ret;
 	}
+
+	policy->suspend_freq = policy->max;
 
 	return 0;
 }
@@ -149,7 +149,7 @@ static struct cpufreq_driver imx8mq_cpufreq_driver = {
 static int imx8mq_cpufreq_probe(struct platform_device *pdev)
 {
 	struct device_node *np;
-	int num, ret;
+	int ret;
 
 	cpu_dev = get_cpu_device(0);
 	if (!cpu_dev) {
@@ -178,28 +178,10 @@ static int imx8mq_cpufreq_probe(struct platform_device *pdev)
 
 	dc_reg = regulator_get_optional(cpu_dev, "dc");
 
-	/*
-	 * We expect an OPP table supplied by platform.
-	 * Just, incase the platform did not supply the OPP
-	 * table, it will try to get it.
-	 */
-	num = dev_pm_opp_get_opp_count(cpu_dev);
-	if (num < 0) {
-		ret = dev_pm_opp_of_add_table(cpu_dev);
-		if (ret < 0) {
-			dev_err(cpu_dev, "failed to init OPP table: %d\n", ret);
-			goto put_clk;
-		}
-
-		/* Because we have added the OPPs here, we must free them */
-		free_opp = true;
-
-		num = dev_pm_opp_get_opp_count(cpu_dev);
-		if (num < 0) {
-			ret = num;
-			dev_err(cpu_dev, "no OPP table is found: %d\n", ret);
-			goto out_free_opp;
-		}
+	ret = dev_pm_opp_of_add_table(cpu_dev);
+	if (ret < 0) {
+		dev_err(cpu_dev, "failed to init OPP table: %d\n", ret);
+		goto put_clk;
 	}
 
 	ret = dev_pm_opp_init_cpufreq_table(cpu_dev, &freq_table);
@@ -207,9 +189,6 @@ static int imx8mq_cpufreq_probe(struct platform_device *pdev)
 		dev_err(cpu_dev, "failed to init cpufreq table: %d\n", ret);
 		goto out_free_opp;
 	}
-
-	/* use MAX freq to suspend */
-	suspend_freq = freq_table[num - 1].frequency;
 
 	if (of_property_read_u32(np, "clock-latency", &transition_latency))
 		transition_latency = CPUFREQ_ETERNAL;
@@ -230,8 +209,7 @@ static int imx8mq_cpufreq_probe(struct platform_device *pdev)
 free_freq_table:
 	dev_pm_opp_free_cpufreq_table(cpu_dev, &freq_table);
 out_free_opp:
-	if (free_opp)
-		dev_pm_opp_of_remove_table(cpu_dev);
+	dev_pm_opp_of_remove_table(cpu_dev);
 put_clk:
 	if (!IS_ERR(a53_clk))
 		clk_put(a53_clk);
