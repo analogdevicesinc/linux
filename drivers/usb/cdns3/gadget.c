@@ -2070,6 +2070,7 @@ static int __cdns3_gadget_init(struct cdns3 *cdns)
 	usb_ss->gadget.name = "usb-ss-gadget";
 	usb_ss->gadget.sg_supported = 1;
 	usb_ss->is_connected = 0;
+	spin_lock_init(&usb_ss->lock);
 
 	usb_ss->in_standby_mode = 1;
 
