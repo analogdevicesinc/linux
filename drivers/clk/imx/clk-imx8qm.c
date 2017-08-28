@@ -236,11 +236,6 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_ENET1_RGMII_DIV] = imx_clk_divider_scu("enet1_rgmii_div", SC_R_ENET_1, SC_PM_CLK_MISC0);
 	clks[IMX8QM_GPMI_BCH_IO_DIV] = imx_clk_divider_scu("gpmi_io_div", SC_R_NAND, SC_PM_CLK_MST_BUS);
 	clks[IMX8QM_GPMI_BCH_DIV] = imx_clk_divider_scu("gpmi_bch_div", SC_R_NAND, SC_PM_CLK_PER);
-	clks[IMX8QM_GPT0_DIV] = imx_clk_divider_scu("gpt0_div", SC_R_GPT_0, SC_PM_CLK_PER);
-	clks[IMX8QM_GPT1_DIV] = imx_clk_divider_scu("gpt1_div", SC_R_GPT_1, SC_PM_CLK_PER);
-	clks[IMX8QM_GPT2_DIV] = imx_clk_divider_scu("gpt2_div", SC_R_GPT_2, SC_PM_CLK_PER);
-	clks[IMX8QM_GPT3_DIV] = imx_clk_divider_scu("gpt3_div", SC_R_GPT_3, SC_PM_CLK_PER);
-	clks[IMX8QM_GPT4_DIV] = imx_clk_divider_scu("gpt4_div", SC_R_GPT_4, SC_PM_CLK_PER);
 	clks[IMX8QM_USB3_ACLK_DIV] = imx_clk_divider_scu("usb3_aclk_div", SC_R_USB_2, SC_PM_CLK_PER);
 	clks[IMX8QM_USB3_BUS_DIV] = imx_clk_divider_scu("usb3_bus_div", SC_R_USB_2, SC_PM_CLK_MST_BUS);
 	clks[IMX8QM_USB3_LPM_DIV] = imx_clk_divider_scu("usb3_lpm_div", SC_R_USB_2, SC_PM_CLK_MISC);
@@ -341,11 +336,6 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_SDHC0_CLK] = imx_clk_gate_scu("sdhc0_clk", "sdhc0_div", SC_R_SDHC_0, SC_PM_CLK_PER, (void __iomem *)(USDHC_0_LPCG), 0, 0);
 	clks[IMX8QM_SDHC1_CLK] = imx_clk_gate_scu("sdhc1_clk", "sdhc1_div", SC_R_SDHC_1, SC_PM_CLK_PER, (void __iomem *)(USDHC_1_LPCG), 0, 0);
 	clks[IMX8QM_SDHC2_CLK] = imx_clk_gate_scu("sdhc2_clk", "sdhc2_div", SC_R_SDHC_2, SC_PM_CLK_PER, (void __iomem *)(USDHC_2_LPCG), 0, 0);
-	clks[IMX8QM_GPT0_CLK] = imx_clk_gate_scu("gpt0_clk", "gpt0_div", SC_R_GPT_0, SC_PM_CLK_PER, (void __iomem *)(GPT_0_LPCG + 0x4), 0, 0);
-	clks[IMX8QM_GPT1_CLK] = imx_clk_gate_scu("gpt1_clk", "gpt1_div", SC_R_GPT_1, SC_PM_CLK_PER, (void __iomem *)(GPT_1_LPCG + 0x4), 0, 0);
-	clks[IMX8QM_GPT2_CLK] = imx_clk_gate_scu("gpt2_clk", "gpt2_div", SC_R_GPT_2, SC_PM_CLK_PER, (void __iomem *)(GPT_2_LPCG + 0x4), 0, 0);
-	clks[IMX8QM_GPT3_CLK] = imx_clk_gate_scu("gpt3_clk", "gpt3_div", SC_R_GPT_3, SC_PM_CLK_PER, (void __iomem *)(GPT_3_LPCG + 0x4), 0, 0);
-	clks[IMX8QM_GPT4_CLK] = imx_clk_gate_scu("gpt4_clk", "gpt4_div", SC_R_GPT_4, SC_PM_CLK_PER, (void __iomem *)(GPT_4_LPCG + 0x4), 0, 0);
 	clks[IMX8QM_ENET0_AHB_CLK]   = imx_clk_gate2_scu("enet0_ahb_clk", "axi_conn_clk_root", (void __iomem *)(ENET_0_LPCG), 8, FUNCTION_NAME(PD_CONN_ENET_0));
 	clks[IMX8QM_ENET0_IPG_S_CLK] = imx_clk_gate2_scu("enet0_ipg_s_clk", "ipg_conn_clk_root", (void __iomem *)(ENET_0_LPCG), 20, FUNCTION_NAME(PD_CONN_ENET_0));
 	clks[IMX8QM_ENET0_IPG_CLK]   = imx_clk_gate2_scu("enet0_ipg_clk", "enet0_ipg_s_clk", (void __iomem *)(ENET_0_LPCG), 16, FUNCTION_NAME(PD_CONN_ENET_0));
