@@ -220,6 +220,7 @@ static const struct regulator_ops pfuze100_swb_regulator_ops = {
 			.enable_val = 0xc,	\
 			.disable_val = 0x0,	\
 			.enable_mask = 0xf,	\
+			.enable_time = 500,	\
 		},	\
 		.stby_reg = (base) + PFUZE100_STANDBY_OFFSET,	\
 		.stby_mask = 0x3f,	\
