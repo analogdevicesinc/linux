@@ -78,6 +78,12 @@ static void fts_release_all_finger(void);
 static int fts_ts_suspend(struct device *dev);
 static int fts_ts_resume(struct device *dev);
 
+static bool fts_chip_idc(struct fts_ts_data *data)
+{
+	return ((data->pdata->fts_chip_type & FLAGBIT(FLAG_IDC_BIT)) ==
+		FLAGBIT(FLAG_IDC_BIT));
+}
+
 /*****************************************************************************
 *  Name: fts_wait_tp_to_valid
 *  Brief:   Read chip id until TP FW become valid,
@@ -720,6 +726,11 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 		if (data->pdata->swap)
 			swap(event->au16_x[i], event->au16_y[i]);
 
+		if (data->pdata->scaling_down_half) {
+			event->au16_x[i] = event->au16_x[i] >> 1;
+			event->au16_y[i] = event->au16_y[i] >> 1;
+		}
+
 		event->au8_finger_id[i] =
 		    (buf[FTS_TOUCH_ID_POS + FTS_ONE_TCH_LEN * i]) >> 4;
 		event->area[i] =
@@ -914,6 +925,12 @@ static int fts_parse_dt(struct device *dev, struct fts_ts_platform_data *pdata)
 
 	FTS_FUNC_ENTER();
 
+	pdata->fts_chip_type = _FT5416;
+	rc = of_property_read_u32(np, "focaltech,panel-type",
+					  &pdata->fts_chip_type);
+	if (rc)
+		FTS_ERROR("Panel type is undefined, use default panel FT5416");
+
 	rc = fts_get_dt_coords(dev, "focaltech,display-coords", pdata);
 	if (rc)
 		FTS_ERROR("Unable to get display-coords");
@@ -969,6 +986,8 @@ static int fts_parse_dt(struct device *dev, struct fts_ts_platform_data *pdata)
 	}
 
 	pdata->swap = of_property_read_bool(np, "focaltech,swap-xy");
+	pdata->scaling_down_half = of_property_read_bool(np,
+					"focaltech,scaling-down-half");
 
 	FTS_FUNC_EXIT();
 	return 0;
@@ -1316,9 +1335,9 @@ static int fts_ts_resume(struct device *dev)
 		FTS_FUNC_EXIT();
 		return -1;
 	}
-#if (!FTS_CHIP_IDC)
-	fts_reset_proc(200);
-#endif
+
+	if (!fts_chip_idc(data))
+		fts_reset_proc(200);
 
 	fts_tp_state_recovery(data->client);
 

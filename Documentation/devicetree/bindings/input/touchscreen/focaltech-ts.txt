@@ -22,6 +22,8 @@ Optional properties:
  - focaltech,key-y-coord	: constant y coordinate of keys, depends on the y resolution
  - focaltech,key-x-coords	: constant x coordinates of keys, depends on the x resolution
  - focaltech,swap-xy		: swap x-y coordinates
+ - focaltech,panel-type		: set panel type, default is FT5416 panel
+ - focaltech,scaling-down-half	: scale down the x-y coordiantes to half
 
 
 Example:

@@ -104,6 +104,7 @@
 *****************************************************************************/
 
 struct fts_ts_platform_data {
+	u32 fts_chip_type;
 	u32 irq_gpio;
 	u32 irq_gpio_flags;
 	u32 reset_gpio;
@@ -120,6 +121,7 @@ struct fts_ts_platform_data {
 	u32 max_touch_number;
 
 	bool swap;
+	bool scaling_down_half;
 };
 
 struct ts_event {

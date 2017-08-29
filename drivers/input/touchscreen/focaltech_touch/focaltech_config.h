@@ -78,13 +78,6 @@
 #define _FT3267     0x32670004
 #define _FT3367     0x33670004
 
-/*************************************************/
-
-/*
- * choose your ic chip type of focaltech
- */
-#define FTS_CHIP_TYPE   _FT5416
-
 /******************* Enables *********************/
 /*********** 1 to enable, 0 to disable ***********/
 
