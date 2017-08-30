@@ -970,8 +970,6 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 	else
 		memcpy(reg, &client_reg[2], reg_size);
 
-	INIT_LIST_HEAD(&plane_grp->list);
-	mutex_init(&plane_grp->lock);
 	plane_grp->id = id / client_num;
 	plane_grp->has_vproc = display_plane_video_proc;
 

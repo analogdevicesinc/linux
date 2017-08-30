@@ -671,8 +671,6 @@ struct dpu_plane_res {
  */
 struct dpu_plane_grp {
 	struct dpu_plane_res	res;
-	struct list_head	list;
-	struct mutex		lock;
 	unsigned int		hw_plane_num;
 	unsigned int		hw_plane_fetcheco_num;
 	unsigned int		hw_plane_hscaler_num;
