@@ -1598,10 +1598,10 @@
 			     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "edma-chan8-tx", "edma-chan9-tx",
-				  "edma-chan10-tx", "edma-chan11-tx",
-				  "edma-chan12-tx", "edma-chan13-tx",
-				  "edma-chan14-tx", "edma-chan15-tx";
+		interrupt-names = "edma0-chan8-rx", "edma0-chan9-tx",
+				  "edma0-chan10-rx", "edma0-chan11-tx",
+				  "edma0-chan12-rx", "edma0-chan13-tx",
+				  "edma0-chan14-rx", "edma0-chan15-tx";
 		status = "okay";
 	};
 
@@ -1642,15 +1642,15 @@
 				<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "edma-chan0-tx", "edma-chan1-tx", /* asrc0 */
-				"edma-chan2-tx", "edma-chan3-tx",
-				"edma-chan4-tx", "edma-chan5-tx",
-				"edma-chan6-tx", "edma-chan7-tx", /* esai0 */
-				"edma-chan8-tx", "edma-chan9-tx", /* spdif0 */
-				"edma-chan12-tx", "edma-chan13-tx", /* sai0 */
-				"edma-chan14-tx", "edma-chan15-tx", /* sai1 */
-				"edma-chan21-tx",		/* gpt5 */
-				"edma-chan23-tx";		/* gpt7 */
+		interrupt-names = "edma2-chan0-rx", "edma2-chan1-rx", /* asrc0 */
+				"edma2-chan2-rx", "edma2-chan3-tx",
+				"edma2-chan4-tx", "edma2-chan5-tx",
+				"edma2-chan6-rx", "edma2-chan7-tx", /* esai0 */
+				"edma2-chan8-rx", "edma2-chan9-tx", /* spdif0 */
+				"edma2-chan12-rx", "edma2-chan13-tx", /* sai0 */
+				"edma2-chan14-rx", "edma2-chan15-tx", /* sai1 */
+				"edma2-chan21-tx",		/* gpt5 */
+				"edma2-chan23-rx";		/* gpt7 */
 		status = "okay";
 	};
 
@@ -1677,11 +1677,11 @@
 				<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>, /* sai4 */
 				<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>; /* sai5 */
-		interrupt-names = "edma-chan0-tx", "edma-chan1-tx", /* asrc1 */
-				"edma-chan2-tx", "edma-chan3-tx",
-				"edma-chan4-tx", "edma-chan5-tx",
-				"edma-chan8-tx", "edma-chan9-tx", /* sai4 */
-				"edma-chan10-tx";                 /* sai5 */
+		interrupt-names = "edma3-chan0-rx", "edma3-chan1-rx", /* asrc1 */
+				"edma3-chan2-rx", "edma3-chan3-tx",
+				"edma3-chan4-tx", "edma3-chan5-tx",
+				"edma3-chan8-rx", "edma3-chan9-tx", /* sai4 */
+				"edma3-chan10-tx";                 /* sai5 */
 		status = "okay";
 	};
 
