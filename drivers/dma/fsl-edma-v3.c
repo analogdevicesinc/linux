@@ -107,6 +107,10 @@
 #define ARGS_REMOTE			BIT(1)
 #define ARGS_DFIFO			BIT(2)
 
+/* channel name template define in dts */
+#define CHAN_PREFIX			"edma0-chan"
+#define CHAN_POSFIX			"-tx"
+
 struct fsl_edma3_hw_tcd {
 	__le32	saddr;
 	__le16	soff;
@@ -806,7 +810,10 @@ static int fsl_edma3_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&fsl_edma3->dma_dev.channels);
 	for (i = 0; i < fsl_edma3->n_chans; i++) {
 		struct fsl_edma3_chan *fsl_chan = &fsl_edma3->chans[i];
-		char *txirq_name = fsl_chan->txirq_name;
+		const char *txirq_name = fsl_chan->txirq_name;
+		char chanid[3], id_len = 0;
+		char *p = chanid;
+		unsigned long val;
 
 		fsl_chan->edma3 = fsl_edma3;
 		/* Get per channel membase */
@@ -819,7 +826,31 @@ static int fsl_edma3_probe(struct platform_device *pdev)
 		 * channel0:0x10000, channel1:0x20000... total 32 channels
 		 */
 		fsl_chan->hw_chanid = (res->start >> 16) & 0x1f;
-		sprintf(txirq_name, "edma-chan%d-tx", fsl_chan->hw_chanid);
+
+		ret = of_property_read_string_index(np, "interrupt-names", i,
+							&txirq_name);
+		if (ret) {
+			dev_err(&pdev->dev, "read interrupt-names fail.\n");
+			return ret;
+		}
+		/* Get channel id length from dts, one-digit or double-digit */
+		id_len = strlen(txirq_name) - strlen(CHAN_PREFIX) -
+			 strlen(CHAN_POSFIX);
+		if (id_len > 2) {
+			dev_err(&pdev->dev, "%s is edmaX-chanX-tx in dts?\n",
+				res->name);
+			return -EINVAL;
+		}
+		/* Grab channel id from txirq_name */
+		strncpy(p, txirq_name + strlen(CHAN_PREFIX), id_len);
+		*(p + id_len) = '\0';
+
+		/* check if the channel id match well with hw_chanid */
+		ret = kstrtoul(chanid, 0, &val);
+		if (ret || val != fsl_chan->hw_chanid) {
+			dev_err(&pdev->dev, "%s,wrong id?\n", txirq_name);
+			return -EINVAL;
+		}
 
 		/* request channel irq */
 		fsl_chan->txirq = platform_get_irq_byname(pdev, txirq_name);

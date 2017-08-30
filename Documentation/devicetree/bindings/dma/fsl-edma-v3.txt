@@ -12,8 +12,12 @@ Required properties:
 - reg : Specifies base physical address(s) and size of the eDMA channel registers.
 	Each eDMA channel has separated register's address and size.
 - interrupts : A list of interrupt-specifiers, each channel has one interrupt.
-- interrupt-names : Should contain:
-	"edma-chan12-tx" - the channel12 transmission interrupt
+- interrupt-names : Should contain below template:
+	"edmaX-chanX-Xx"
+	     |     | |---> receive/transmit, r or t
+	     |     |---> channel id, the max number is 32
+	     |---> edma controller instance, 0, 1, 2,..etc
+
 - #dma-cells : Must be <3>.
 	The 1st cell specifies the channel ID.
 	The 2nd cell specifies the channel priority.
@@ -40,8 +44,8 @@ edma0: dma-controller@40018000 {
 		     <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "edma-chan12-tx", "edma-chan13-tx",
-			  "edma-chan14-tx", "edma-chan15-tx";
+	interrupt-names = "edma0-chan12-rx", "edma0-chan13-tx",
+			  "edma0-chan14-rx", "edma0-chan15-tx";
 	status = "okay";
 };
 
