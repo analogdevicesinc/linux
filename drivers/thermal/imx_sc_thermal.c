@@ -58,11 +58,12 @@ static int imx_sc_tsens_get_temp(void *data, int *temp)
 			SC_C_TEMP, &celsius, &tenths);
 	/*
 	 * if the SS power domain is down, read temp will fail, so
-	 * we can return the temp of A53 CPU domain instead.
+	 * we can return the temp of CPU domain instead.
 	 */
 	if (sciErr != SC_ERR_NONE) {
-		sciErr = sc_misc_get_temp(tsens_ipcHandle, sensor_hw_id[0],
-				SC_C_TEMP, &celsius, &tenths);
+		sciErr = sc_misc_get_temp(tsens_ipcHandle,
+			sensor_hw_id[topology_physical_package_id(smp_processor_id())],
+			SC_C_TEMP, &celsius, &tenths);
 		if (sciErr != SC_ERR_NONE) {
 			pr_err("read temp sensor:%d failed\n", sensor->hw_id);
 			return -EINVAL;
