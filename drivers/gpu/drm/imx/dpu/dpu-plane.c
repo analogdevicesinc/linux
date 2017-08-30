@@ -484,10 +484,6 @@ struct dpu_plane *dpu_plane_init(struct drm_device *drm,
 	dpu_plane->stream_id = stream_id;
 	dpu_plane->grp = grp;
 
-	mutex_lock(&grp->lock);
-	list_add_tail(&dpu_plane->head, &grp->list);
-	mutex_unlock(&grp->lock);
-
 	plane = &dpu_plane->base;
 
 	ret = drm_universal_plane_init(drm, plane, possible_crtcs,
