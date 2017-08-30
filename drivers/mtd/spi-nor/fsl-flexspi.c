@@ -1021,6 +1021,7 @@ static ssize_t fsl_flexspi_read(struct spi_nor *nor, loff_t from,
 		size_t len, u_char *buf)
 {
 	struct fsl_flexspi *flex = nor->priv;
+	int i, j;
 
 	/* if necessary,ioremap buffer before AHB read, */
 	if (!flex->ahb_addr) {
@@ -1053,10 +1054,20 @@ static ssize_t fsl_flexspi_read(struct spi_nor *nor, loff_t from,
 		}
 	}
 
-	/* Read out the data directly from the AHB buffer.*/
-	memcpy(buf,
-	       flex->ahb_addr + flex->chip_base_addr + from - flex->memmap_offs,
-	       len);
+	/* For non-8-byte alignment cases */
+	if (from % 8) {
+		j = 8 - (from & 0x7);
+		for (i = 0; i < j; ++i) {
+			memcpy(buf + i, flex->ahb_addr + flex->chip_base_addr
+			       + from - flex->memmap_offs + i, 1);
+		}
+		memcpy(buf + j, flex->ahb_addr + flex->chip_base_addr + from
+		       - flex->memmap_offs + j, len - j);
+	} else {
+		/* Read out the data directly from the AHB buffer.*/
+		memcpy(buf, flex->ahb_addr + flex->chip_base_addr + from
+		       - flex->memmap_offs, len);
+	}
 
 	return len;
 }
