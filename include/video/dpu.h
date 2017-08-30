@@ -644,6 +644,22 @@ u32 dpu_vproc_get_fetcheco_cap(u32 cap_mask);
 u32 dpu_vproc_get_hscale_cap(u32 cap_mask);
 u32 dpu_vproc_get_vscale_cap(u32 cap_mask);
 
+/* dpu blit engine */
+struct dpu_bliteng;
+int dpu_bliteng_init(struct dpu_bliteng *dpu_bliteng);
+void dpu_bliteng_fini(struct dpu_bliteng *dpu_bliteng);
+int dpu_be_get(struct dpu_bliteng *dpu_be);
+void dpu_be_put(struct dpu_bliteng *dpu_be);
+void dpu_be_wait(struct dpu_bliteng *dpu_be);
+int dpu_be_blit(struct dpu_bliteng *dpu_be, u32 *cmdlist,
+		u32 cmdnum);
+int dpu_bliteng_get_empty_instance(struct dpu_bliteng **dpu_be,
+				   struct device *dev);
+u32 *dpu_bliteng_get_cmd_list(struct dpu_bliteng *dpu_be);
+s32 dpu_bliteng_get_id(struct dpu_bliteng *dpu_be);
+void dpu_bliteng_set_id(struct dpu_bliteng *dpu_be, int id);
+void dpu_bliteng_set_dev(struct dpu_bliteng *dpu_be, struct device *dev);
+
 /*
  * to avoid on-the-fly/hot plane resource migration
  * between two display interfaces

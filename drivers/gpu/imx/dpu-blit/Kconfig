@@ -1,0 +1,5 @@
+config IMX_DPU_BLIT
+	tristate
+	depends on IMX_DPU_CORE
+	default y if IMX_DPU_CORE=y
+	default m if IMX_DPU_CORE=m
