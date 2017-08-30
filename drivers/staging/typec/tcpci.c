@@ -40,7 +40,7 @@ struct tcpci {
 	struct regmap *regmap;
 
 	bool controls_vbus;
-	int ss_sel_gpio;
+	struct gpio_desc *ss_sel_gpio;
 
 	struct tcpc_dev tcpc;
 	unsigned int irq_mask;
@@ -272,10 +272,13 @@ static int tcpci_set_ss_mux(struct tcpc_dev *tcpc,
 {
 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
 
+	if (!tcpci->ss_sel_gpio)
+		return 0;
+
 	if (polarity == TYPEC_POLARITY_CC1)
-		gpio_set_value(tcpci->ss_sel_gpio, 1);
+		gpiod_set_value_cansleep(tcpci->ss_sel_gpio, 1);
 	else
-		gpio_set_value(tcpci->ss_sel_gpio, 0);
+		gpiod_set_value_cansleep(tcpci->ss_sel_gpio, 0);
 
 	return 0;
 }
@@ -698,22 +701,15 @@ snk_setting_wrong:
 static int tcpci_ss_mux_control_init(struct tcpci *tcpci)
 {
 	struct device *dev = tcpci->dev;
-	int retval = 0;
 
-	tcpci->ss_sel_gpio = of_get_named_gpio(dev->of_node,
-						"ss-sel-gpios", 0);
-	if (!gpio_is_valid(tcpci->ss_sel_gpio)) {
-		/* Super speed signal mux conrol gpio is optional */
-		dev_dbg(dev, "no Super Speed mux gpio pin available");
-	} else {
-		retval = devm_gpio_request_one(dev, tcpci->ss_sel_gpio,
-				GPIOF_OUT_INIT_LOW, "typec_ss_sel");
-		if (retval < 0)
-			dev_err(dev, "Unable to request super speed mux gpio %d\n",
-									retval);
+	tcpci->ss_sel_gpio = devm_gpiod_get_optional(dev, "ss-sel",
+							GPIOD_OUT_HIGH);
+	if (IS_ERR(tcpci->ss_sel_gpio)) {
+		dev_err(dev, "Failed to request super speed mux sel gpio.");
+		return PTR_ERR(tcpci->ss_sel_gpio);
 	}
 
-	return retval;
+	return 0;
 }
 
 static int tcpci_probe(struct i2c_client *client,
