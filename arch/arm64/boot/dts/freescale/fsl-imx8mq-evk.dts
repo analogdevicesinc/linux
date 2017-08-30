@@ -429,7 +429,7 @@
 		reg = <0x50>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <3 8>;
-		ss-sel-gpios = <&gpio3 15 GPIO_ACTIVE_LOW>;
+		ss-sel-gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;
 		src-pdos = <0x380190c8>;
 		snk-pdos = <0x380190c8 0x3802d0c8>;
 		max-snk-mv = <9000>;
