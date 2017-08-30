@@ -988,7 +988,6 @@ static ssize_t fsl_qspi_read(struct spi_nor *nor, loff_t from,
 {
 	struct fsl_qspi *q = nor->priv;
 	u8 cmd = nor->read_opcode;
-	u8 tmp[8] = {0};
 	int i, j;
 
 	/* if necessary,ioremap buffer before AHB read, */
@@ -1028,10 +1027,9 @@ static ssize_t fsl_qspi_read(struct spi_nor *nor, loff_t from,
 	if (from % 8) {
 		j = 8 - (from & 0x7);
 		for (i = 0; i < j; ++i) {
-			memcpy(tmp + i, q->ahb_addr + q->chip_base_addr + from
+			memcpy(buf + i, q->ahb_addr + q->chip_base_addr + from
 			       - q->memmap_offs + i, 1);
 		}
-		memcpy(buf, tmp, j);
 		memcpy(buf + j, q->ahb_addr + q->chip_base_addr + from
 		       - q->memmap_offs + j, len - j);
 	} else {
