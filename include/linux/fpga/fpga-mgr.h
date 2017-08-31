@@ -23,6 +23,8 @@
 
 #define ENCRYPTED_KEY_LEN	64 /* Bytes */
 #define ENCRYPTED_IV_LEN	24 /* Bytes */
+#define SIGNATURE_LEN		512 /* Bytes */
+#define PUBLIC_KEY_LEN		516 /* Bytes */
 
 struct fpga_manager;
 
@@ -68,8 +70,22 @@ enum fpga_mgr_states {
 /*
  * FPGA Manager flags
  * FPGA_MGR_PARTIAL_RECONFIG: do partial reconfiguration if supported
+ * FPGA_MGR_EXTERNAL_CONFIG: FPGA has been configured prior to Linux booting
  */
 #define FPGA_MGR_PARTIAL_RECONFIG	BIT(0)
+#define FPGA_MGR_EXTERNAL_CONFIG	BIT(1)
+
+/**
+ * struct fpga_image_info - information specific to a FPGA image
+ * @flags: boolean flags as defined above
+ * @enable_timeout_us: maximum time to enable traffic through bridge (uSec)
+ * @disable_timeout_us: maximum time to disable traffic through bridge (uSec)
+ */
+struct fpga_image_info {
+	u32 flags;
+	u32 enable_timeout_us;
+	u32 disable_timeout_us;
+};
 
 /**
  * struct fpga_manager_ops - ops for low level fpga manager drivers
@@ -85,10 +101,12 @@ enum fpga_mgr_states {
  */
 struct fpga_manager_ops {
 	enum fpga_mgr_states (*state)(struct fpga_manager *mgr);
-	int (*write_init)(struct fpga_manager *mgr, u32 flags,
+	int (*write_init)(struct fpga_manager *mgr,
+			  struct fpga_image_info *info,
 			  const char *buf, size_t count);
 	int (*write)(struct fpga_manager *mgr, const char *buf, size_t count);
-	int (*write_complete)(struct fpga_manager *mgr, u32 flags);
+	int (*write_complete)(struct fpga_manager *mgr,
+			      struct fpga_image_info *info);
 	void (*fpga_remove)(struct fpga_manager *mgr);
 };
 
@@ -106,6 +124,8 @@ struct fpga_manager {
 	long int flags;
 	char key[ENCRYPTED_KEY_LEN];
 	char iv[ENCRYPTED_IV_LEN];
+	char signature[SIGNATURE_LEN];
+	char pubkey[PUBLIC_KEY_LEN];
 	struct device dev;
 	struct mutex ref_mutex;
 	enum fpga_mgr_states state;
@@ -115,13 +135,16 @@ struct fpga_manager {
 
 #define to_fpga_manager(d) container_of(d, struct fpga_manager, dev)
 
-int fpga_mgr_buf_load(struct fpga_manager *mgr, u32 flags,
+int fpga_mgr_buf_load(struct fpga_manager *mgr, struct fpga_image_info *info,
 		      const char *buf, size_t count);
 
-int fpga_mgr_firmware_load(struct fpga_manager *mgr, u32 flags,
+int fpga_mgr_firmware_load(struct fpga_manager *mgr,
+			   struct fpga_image_info *info,
 			   const char *image_name);
 
 struct fpga_manager *of_fpga_mgr_get(struct device_node *node);
+
+struct fpga_manager *fpga_mgr_get(struct device *dev);
 
 void fpga_mgr_put(struct fpga_manager *mgr);
 

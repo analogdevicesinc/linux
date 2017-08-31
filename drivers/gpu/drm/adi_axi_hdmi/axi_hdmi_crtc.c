@@ -36,19 +36,19 @@ static struct dma_async_tx_descriptor
 *axi_hdmi_vdma_prep_single_desc(struct drm_crtc *crtc,
 				struct drm_gem_cma_object *obj)
 {
-	struct xilinx_dma_config dma_config;
+	struct xilinx_dma_config_old dma_config_old;
 	size_t offset;
 	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
 	struct drm_display_mode *mode = &crtc->mode;
 	struct drm_framebuffer *fb = crtc->primary->fb;
 
-	memset(&dma_config, 0, sizeof(dma_config));
-	dma_config.hsize = mode->hdisplay * fb->bits_per_pixel / 8;
-	dma_config.vsize = mode->vdisplay;
-	dma_config.stride = fb->pitches[0];
+	memset(&dma_config_old, 0, sizeof(dma_config_old));
+	dma_config_old.hsize = mode->hdisplay * fb->bits_per_pixel / 8;
+	dma_config_old.vsize = mode->vdisplay;
+	dma_config_old.stride = fb->pitches[0];
 
 	dmaengine_slave_config(axi_hdmi_crtc->dma,
-			(struct dma_slave_config *)&dma_config);
+			(struct dma_slave_config *)&dma_config_old);
 
 	offset = crtc->x * fb->bits_per_pixel / 8 + crtc->y * fb->pitches[0];
 

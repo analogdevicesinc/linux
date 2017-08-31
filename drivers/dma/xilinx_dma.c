@@ -226,7 +226,7 @@ struct xilinx_dma_chan {
 	struct tasklet_struct tasklet;    /* Cleanup work after irq */
 	u32    feature;                   /* IP feature */
 	void   (*start_transfer)(struct xilinx_dma_chan *chan);
-	struct xilinx_dma_config config;  /* Device configuration info */
+	struct xilinx_dma_config_old config;  /* Device configuration info */
 
 	bool cyclic;
 	struct debugfs_regset32 debugfs_regset;
@@ -945,7 +945,7 @@ static void xilinx_vdma_start_transfer(struct xilinx_dma_chan *chan)
 {
 	unsigned long flags;
 	struct xilinx_dma_transfer *t;
-	struct xilinx_dma_config *config;
+	struct xilinx_dma_config_old *config;
 	u32 reg;
 
 	if (chan->err)
@@ -1065,7 +1065,7 @@ static int xilinx_vdma_slave_config(struct dma_chan *dchan,
 	struct dma_slave_config *config)
 {
 	struct xilinx_dma_chan *chan;
-	struct xilinx_dma_config *cfg = (struct xilinx_dma_config *)config;
+	struct xilinx_dma_config_old *cfg = (struct xilinx_dma_config_old *)config;
 	u32 reg;
 
 	if (!dchan)

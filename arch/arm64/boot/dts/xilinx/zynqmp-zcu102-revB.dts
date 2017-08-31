@@ -11,10 +11,11 @@
  * the License, or (at your option) any later version.
  */
 
-#include "zynqmp-zcu102.dts"
+#include "zynqmp-zcu102-revA.dts"
 
 / {
 	model = "ZynqMP ZCU102 RevB";
+	compatible = "xlnx,zynqmp-zcu102-revB", "xlnx,zynqmp-zcu102", "xlnx,zynqmp";
 };
 
 &gem3 {
@@ -24,6 +25,7 @@
 		ti,rx-internal-delay = <0x8>;
 		ti,tx-internal-delay = <0xa>;
 		ti,fifo-depth = <0x1>;
+		ti,rxctrl-strap-worka;
 	};
 	/* Cleanup from RevA */
 	/delete-node/ phy@21;

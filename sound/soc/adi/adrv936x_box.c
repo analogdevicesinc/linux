@@ -57,7 +57,7 @@ struct simple_card_data {
 #define simple_priv_to_link(priv, i) ((priv)->snd_card.dai_link + i)
 #define simple_priv_to_props(priv, i) ((priv)->dai_props + i)
 
-static int asoc_simple_card_startup(struct snd_pcm_substream *substream)
+static int adrv9363x_box_card_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct simple_card_data *priv =	snd_soc_card_get_drvdata(rtd->card);
@@ -76,7 +76,7 @@ static int asoc_simple_card_startup(struct snd_pcm_substream *substream)
 	return ret;
 }
 
-static void asoc_simple_card_shutdown(struct snd_pcm_substream *substream)
+static void adrv9363x_box_card_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct simple_card_data *priv =	snd_soc_card_get_drvdata(rtd->card);
@@ -88,7 +88,7 @@ static void asoc_simple_card_shutdown(struct snd_pcm_substream *substream)
 	clk_disable_unprepare(dai_props->codec_dai.clk);
 }
 
-static int asoc_simple_card_hw_params(struct snd_pcm_substream *substream,
+static int adrv9363x_box_card_hw_params(struct snd_pcm_substream *substream,
 				      struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -121,10 +121,10 @@ err:
 	return ret;
 }
 
-static struct snd_soc_ops asoc_simple_card_ops = {
-	.startup = asoc_simple_card_startup,
-	.shutdown = asoc_simple_card_shutdown,
-	.hw_params = asoc_simple_card_hw_params,
+static struct snd_soc_ops adrv9363x_box_card_ops = {
+	.startup = adrv9363x_box_card_startup,
+	.shutdown = adrv9363x_box_card_shutdown,
+	.hw_params = adrv9363x_box_card_hw_params,
 };
 
 static struct snd_soc_jack simple_card_hp_jack;
@@ -153,7 +153,7 @@ static struct snd_soc_jack_gpio simple_card_mic_jack_gpio = {
 	.debounce_time = 150,
 };
 
-static int __asoc_simple_card_dai_init(struct snd_soc_dai *dai,
+static int __adrv9363x_box_card_dai_init(struct snd_soc_dai *dai,
 				       struct asoc_simple_dai *set)
 {
 	int ret;
@@ -184,7 +184,7 @@ err:
 	return ret;
 }
 
-static int asoc_simple_card_dai_init(struct snd_soc_pcm_runtime *rtd)
+static int adrv9363x_box_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct simple_card_data *priv =	snd_soc_card_get_drvdata(rtd->card);
 	struct snd_soc_dai *codec = rtd->codec_dai;
@@ -193,11 +193,11 @@ static int asoc_simple_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 	int ret;
 
 	dai_props = &priv->dai_props[rtd->num];
-	ret = __asoc_simple_card_dai_init(codec, &dai_props->codec_dai);
+	ret = __adrv9363x_box_card_dai_init(codec, &dai_props->codec_dai);
 	if (ret < 0)
 		return ret;
 
-	ret = __asoc_simple_card_dai_init(cpu, &dai_props->cpu_dai);
+	ret = __adrv9363x_box_card_dai_init(cpu, &dai_props->cpu_dai);
 	if (ret < 0)
 		return ret;
 
@@ -235,7 +235,7 @@ static int asoc_simple_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 }
 
 static int
-asoc_simple_card_sub_parse_of(struct device_node *np,
+adrv9363x_box_card_sub_parse_of(struct device_node *np,
 			      struct asoc_simple_dai *dai,
 			      struct device_node **p_node,
 			      const char **name,
@@ -298,7 +298,7 @@ asoc_simple_card_sub_parse_of(struct device_node *np,
 	return 0;
 }
 
-static int asoc_simple_card_parse_daifmt(struct device_node *node,
+static int adrv9363x_box_card_parse_daifmt(struct device_node *node,
 					 struct simple_card_data *priv,
 					 struct device_node *codec,
 					 char *prefix, int idx)
@@ -340,7 +340,7 @@ static int asoc_simple_card_parse_daifmt(struct device_node *node,
 	return 0;
 }
 
-static int asoc_simple_card_dai_link_of(struct device_node *node,
+static int adrv9363x_box_card_dai_link_of(struct device_node *node,
 					struct simple_card_data *priv,
 					int idx,
 					bool is_top_level_node)
@@ -376,7 +376,7 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 		goto dai_link_of_err;
 	}
 
-	ret = asoc_simple_card_parse_daifmt(node, priv,
+	ret = adrv9363x_box_card_parse_daifmt(node, priv,
 					    codec, prefix, idx);
 	if (ret < 0)
 		goto dai_link_of_err;
@@ -384,14 +384,14 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 	if (!of_property_read_u32(node, "mclk-fs", &val))
 		dai_props->mclk_fs = val;
 
-	ret = asoc_simple_card_sub_parse_of(cpu, &dai_props->cpu_dai,
+	ret = adrv9363x_box_card_sub_parse_of(cpu, &dai_props->cpu_dai,
 					    &dai_link->cpu_of_node,
 					    &dai_link->cpu_dai_name,
 					    &cpu_args);
 	if (ret < 0)
 		goto dai_link_of_err;
 
-	ret = asoc_simple_card_sub_parse_of(codec, &dai_props->codec_dai,
+	ret = adrv9363x_box_card_sub_parse_of(codec, &dai_props->codec_dai,
 					    &dai_link->codec_of_node,
 					    &dai_link->codec_dai_name, NULL);
 	if (ret < 0)
@@ -426,8 +426,8 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 	sprintf(name, "%s-%s", dai_link->cpu_dai_name,
 				dai_link->codec_dai_name);
 	dai_link->name = dai_link->stream_name = name;
-	dai_link->ops = &asoc_simple_card_ops;
-	dai_link->init = asoc_simple_card_dai_init;
+	dai_link->ops = &adrv9363x_box_card_ops;
+	dai_link->init = adrv9363x_box_card_dai_init;
 
 	dev_dbg(dev, "\tname : %s\n", dai_link->stream_name);
 	dev_dbg(dev, "\tformat : %04x\n", dai_link->dai_fmt);
@@ -457,7 +457,7 @@ dai_link_of_err:
 	return ret;
 }
 
-static int asoc_simple_card_parse_of(struct device_node *node,
+static int adrv9363x_box_card_parse_of(struct device_node *node,
 				     struct simple_card_data *priv)
 {
 	struct device *dev = simple_priv_to_dev(priv);
@@ -502,7 +502,7 @@ static int asoc_simple_card_parse_of(struct device_node *node,
 
 		for_each_child_of_node(node, np) {
 			dev_dbg(dev, "\tlink %d:\n", i);
-			ret = asoc_simple_card_dai_link_of(np, priv,
+			ret = adrv9363x_box_card_dai_link_of(np, priv,
 							   i, false);
 			if (ret < 0) {
 				of_node_put(np);
@@ -512,7 +512,7 @@ static int asoc_simple_card_parse_of(struct device_node *node,
 		}
 	} else {
 		/* For single DAI link & old style of DT node */
-		ret = asoc_simple_card_dai_link_of(node, priv, 0, true);
+		ret = adrv9363x_box_card_dai_link_of(node, priv, 0, true);
 		if (ret < 0)
 			return ret;
 	}
@@ -536,7 +536,7 @@ static int asoc_simple_card_parse_of(struct device_node *node,
 }
 
 /* Decrease the reference count of the device nodes */
-static int asoc_simple_card_unref(struct snd_soc_card *card)
+static int adrv9363x_box_card_unref(struct snd_soc_card *card)
 {
 	struct snd_soc_dai_link *dai_link;
 	int num_links;
@@ -574,7 +574,7 @@ static struct snd_soc_aux_dev headset_dev = {
 	.codec_name = "ts3a227e.0-003b"
 };
 
-static int asoc_simple_card_probe(struct platform_device *pdev)
+static int adrv9363x_box_card_probe(struct platform_device *pdev)
 {
 	struct simple_card_data *priv;
 	struct snd_soc_dai_link *dai_link;
@@ -616,7 +616,7 @@ static int asoc_simple_card_probe(struct platform_device *pdev)
 
 	if (np && of_device_is_available(np)) {
 
-		ret = asoc_simple_card_parse_of(np, priv);
+		ret = adrv9363x_box_card_parse_of(np, priv);
 		if (ret < 0) {
 			if (ret != -EPROBE_DEFER)
 				dev_err(dev, "parse error %d\n", ret);
@@ -649,7 +649,7 @@ static int asoc_simple_card_probe(struct platform_device *pdev)
 		dai_link->cpu_dai_name	= cinfo->cpu_dai.name;
 		dai_link->codec_dai_name = cinfo->codec_dai.name;
 		dai_link->dai_fmt	= cinfo->daifmt;
-		dai_link->init		= asoc_simple_card_dai_init;
+		dai_link->init		= adrv9363x_box_card_dai_init;
 		memcpy(&priv->dai_props->cpu_dai, &cinfo->cpu_dai,
 					sizeof(priv->dai_props->cpu_dai));
 		memcpy(&priv->dai_props->codec_dai, &cinfo->codec_dai,
@@ -664,11 +664,11 @@ static int asoc_simple_card_probe(struct platform_device *pdev)
 		return ret;
 
 err:
-	asoc_simple_card_unref(&priv->snd_card);
+	adrv9363x_box_card_unref(&priv->snd_card);
 	return ret;
 }
 
-static int asoc_simple_card_remove(struct platform_device *pdev)
+static int adrv9363x_box_card_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct simple_card_data *priv = snd_soc_card_get_drvdata(card);
@@ -680,25 +680,25 @@ static int asoc_simple_card_remove(struct platform_device *pdev)
 		snd_soc_jack_free_gpios(&simple_card_mic_jack, 1,
 					&simple_card_mic_jack_gpio);
 
-	return asoc_simple_card_unref(card);
+	return adrv9363x_box_card_unref(card);
 }
 
-static const struct of_device_id asoc_simple_of_match[] = {
+static const struct of_device_id adrv9363x_box_of_match[] = {
 	{ .compatible = "simple-audio-card-adrv936x-box", },
 	{},
 };
-MODULE_DEVICE_TABLE(of, asoc_simple_of_match);
+MODULE_DEVICE_TABLE(of, adrv9363x_box_of_match);
 
-static struct platform_driver asoc_simple_card = {
+static struct platform_driver adrv9363x_box_card = {
 	.driver = {
 		.name = "asoc-simple-card-adrv936x-box",
-		.of_match_table = asoc_simple_of_match,
+		.of_match_table = adrv9363x_box_of_match,
 	},
-	.probe = asoc_simple_card_probe,
-	.remove = asoc_simple_card_remove,
+	.probe = adrv9363x_box_card_probe,
+	.remove = adrv9363x_box_card_remove,
 };
 
-module_platform_driver(asoc_simple_card);
+module_platform_driver(adrv9363x_box_card);
 
 MODULE_ALIAS("platform:asoc-simple-card-adrv936x-box");
 MODULE_LICENSE("GPL");

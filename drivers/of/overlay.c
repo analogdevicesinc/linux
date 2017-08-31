@@ -58,6 +58,41 @@ struct of_overlay {
 static int of_overlay_apply_one(struct of_overlay *ov,
 		struct device_node *target, const struct device_node *overlay);
 
+static BLOCKING_NOTIFIER_HEAD(of_overlay_chain);
+
+int of_overlay_notifier_register(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&of_overlay_chain, nb);
+}
+EXPORT_SYMBOL_GPL(of_overlay_notifier_register);
+
+int of_overlay_notifier_unregister(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&of_overlay_chain, nb);
+}
+EXPORT_SYMBOL_GPL(of_overlay_notifier_unregister);
+
+static int of_overlay_notify(struct of_overlay *ov,
+			     enum of_overlay_notify_action action)
+{
+	struct of_overlay_notify_data nd;
+	int i, ret;
+
+	for (i = 0; i < ov->count; i++) {
+		struct of_overlay_info *ovinfo = &ov->ovinfo_tab[i];
+
+		nd.target = ovinfo->target;
+		nd.overlay = ovinfo->overlay;
+
+		ret = blocking_notifier_call_chain(&of_overlay_chain,
+						   action, &nd);
+		if (ret)
+			return notifier_to_errno(ret);
+	}
+
+	return 0;
+}
+
 static int of_overlay_apply_single_property(struct of_overlay *ov,
 		struct device_node *target, struct property *prop)
 {
@@ -323,6 +358,91 @@ static int of_free_overlay_info(struct of_overlay *ov)
 	return 0;
 }
 
+static int of_overlay_add_symbols(
+		struct device_node *tree,
+		struct of_overlay *ov)
+{
+	struct of_overlay_info *ovinfo;
+	struct device_node *root_sym = NULL;
+	struct device_node *child = NULL;
+	struct property *prop;
+	const char *path, *s;
+	char *new_path;
+	int i, len, err;
+
+	/* both may fail (if no fixups are required) */
+	root_sym = of_find_node_by_path("/__symbols__");
+	child = of_get_child_by_name(tree, "__symbols__");
+
+	err = 0;
+	/* do nothing if either is NULL */
+	if (!root_sym || !child)
+		goto out;
+
+	for_each_property_of_node(child, prop) {
+
+		/* skip properties added automatically */
+		if (of_prop_cmp(prop->name, "name") == 0)
+			continue;
+
+		err = of_property_read_string(child,
+				prop->name, &path);
+		if (err != 0) {
+			pr_err("Could not find symbol '%s'\n", prop->name);
+			continue;
+		}
+
+		/* now find fragment index */
+		s = path;
+
+		/* compare paths to find fragment index */
+		for (i = 0, ovinfo = NULL, len = -1; i < ov->count; i++) {
+			ovinfo = &ov->ovinfo_tab[i];
+
+			pr_debug("#%d: overlay->name=%s target->name=%s\n",
+					i, ovinfo->overlay->full_name,
+					ovinfo->target->full_name);
+
+			len = strlen(ovinfo->overlay->full_name);
+			if (strncasecmp(path, ovinfo->overlay->full_name,
+						len) == 0 && path[len] == '/')
+				break;
+		}
+
+		if (i >= ov->count)
+			continue;
+
+		pr_debug("found target at #%d\n", i);
+		new_path = kasprintf(GFP_KERNEL, "%s%s",
+				ovinfo->target->full_name,
+				path + len);
+		if (!new_path) {
+			pr_err("Failed to allocate propname for \"%s\"\n",
+					prop->name);
+			err = -ENOMEM;
+			break;
+		}
+
+		err = of_changeset_add_property_string(&ov->cset, root_sym,
+				prop->name, new_path);
+
+		/* free always */
+		kfree(new_path);
+
+		if (err) {
+			pr_err("Failed to add property for \"%s\"\n",
+					prop->name);
+			break;
+		}
+	}
+
+out:
+	of_node_put(child);
+	of_node_put(root_sym);
+
+	return err;
+}
+
 static LIST_HEAD(ov_list);
 static DEFINE_IDR(ov_idr);
 
@@ -368,10 +488,24 @@ int of_overlay_create(struct device_node *tree)
 		goto err_free_idr;
 	}
 
+	err = of_overlay_notify(ov, OF_OVERLAY_PRE_APPLY);
+	if (err < 0) {
+		pr_err("%s: Pre-apply notifier failed (err=%d)\n",
+		       __func__, err);
+		goto err_free_idr;
+	}
+
 	/* apply the overlay */
 	err = of_overlay_apply(ov);
 	if (err)
 		goto err_abort_trans;
+
+	err = of_overlay_add_symbols(tree, ov);
+	if (err) {
+		pr_err("%s: of_overlay_add_symbols() failed for tree@%s\n",
+				__func__, tree->full_name);
+		goto err_abort_trans;
+	}
 
 	/* apply the changeset */
 	err = __of_changeset_apply(&ov->cset);
@@ -381,6 +515,8 @@ int of_overlay_create(struct device_node *tree)
 
 	/* add to the tail of the overlay list */
 	list_add_tail(&ov->node, &ov_list);
+
+	of_overlay_notify(ov, OF_OVERLAY_POST_APPLY);
 
 	mutex_unlock(&of_mutex);
 
@@ -498,9 +634,10 @@ int of_overlay_destroy(int id)
 		goto out;
 	}
 
-
+	of_overlay_notify(ov, OF_OVERLAY_PRE_REMOVE);
 	list_del(&ov->node);
 	__of_changeset_revert(&ov->cset);
+	of_overlay_notify(ov, OF_OVERLAY_POST_REMOVE);
 	of_free_overlay_info(ov);
 	idr_remove(&ov_idr, id);
 	of_changeset_destroy(&ov->cset);

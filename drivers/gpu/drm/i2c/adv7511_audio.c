@@ -292,10 +292,12 @@ static struct snd_soc_codec_driver adv7511_codec_driver = {
 	.resume		    = adv7511_resume,
 	.set_bias_level	    = adv7511_set_bias_level,
 
-	.dapm_widgets	    = adv7511_dapm_widgets,
-	.num_dapm_widgets   = ARRAY_SIZE(adv7511_dapm_widgets),
-	.dapm_routes	    = adv7511_routes,
-	.num_dapm_routes    = ARRAY_SIZE(adv7511_routes),
+	.component_driver = {
+		.dapm_widgets	    = adv7511_dapm_widgets,
+		.num_dapm_widgets   = ARRAY_SIZE(adv7511_dapm_widgets),
+		.dapm_routes	    = adv7511_routes,
+		.num_dapm_routes    = ARRAY_SIZE(adv7511_routes),
+	},
 };
 
 int adv7511_audio_init(struct device *dev)

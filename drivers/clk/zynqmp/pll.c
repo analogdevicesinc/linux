@@ -53,7 +53,7 @@ struct zynqmp_pll {
 #define PLL_FBDIV_MAX	125
 
 #define PS_PLL_VCO_MIN 1500000000
-#define PS_PLL_VCO_MAX 3000000000
+#define PS_PLL_VCO_MAX 3000000000UL
 
 enum pll_mode {
 	PLL_MODE_FRAC,
@@ -81,6 +81,27 @@ static inline enum pll_mode pll_frac_get_mode(struct clk_hw *hw)
 }
 
 /**
+ * pll_frac_set_mode - Set the fractional mode
+ * @hw:		Handle between common and hardware-specific interfaces
+ * @on:		Flag to determine the mode
+ */
+static inline void pll_frac_set_mode(struct clk_hw *hw, bool on)
+{
+	struct zynqmp_pll *clk = to_zynqmp_pll(hw);
+	u32 reg = 0;
+	int ret;
+
+	if (on)
+		reg = PLLFCFG_FRAC_EN;
+
+	ret = zynqmp_pm_mmio_write((u32)(ulong)(clk->pll_ctrl + FRAC_OFFSET),
+					PLLFCFG_FRAC_EN, reg);
+	if (ret)
+		pr_warn_once("Write fail pll address: %x\n",
+				(u32)(ulong)(clk->pll_ctrl + FRAC_OFFSET));
+}
+
+/**
  * zynqmp_pll_round_rate - Round a clock frequency
  * @hw:		Handle between common and hardware-specific interfaces
  * @rate:	Desired clock frequency
@@ -92,14 +113,20 @@ static long zynqmp_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 		unsigned long *prate)
 {
 	u32 fbdiv;
+	long rate_div, f;
+
+	/* Enable the fractional mode if needed */
+	rate_div = ((rate * FRAC_DIV) / *prate);
+	f = rate_div % FRAC_DIV;
+	pll_frac_set_mode(hw, !!f);
 
 	if (pll_frac_get_mode(hw) == PLL_MODE_FRAC) {
 		if (rate > PS_PLL_VCO_MAX) {
-			fbdiv = DIV_ROUND_CLOSEST(rate, PS_PLL_VCO_MAX);
+			fbdiv = rate / PS_PLL_VCO_MAX;
 			rate = rate / (fbdiv + 1);
 		}
 		if (rate < PS_PLL_VCO_MIN) {
-			fbdiv = DIV_ROUND_CLOSEST(PS_PLL_VCO_MIN, rate);
+			fbdiv = DIV_ROUND_UP(PS_PLL_VCO_MIN, rate);
 			rate = rate * fbdiv;
 		}
 		return rate;
@@ -150,12 +177,24 @@ static int zynqmp_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	long rate_div, frac, m, f;
 
 	if (pll_frac_get_mode(hw) == PLL_MODE_FRAC) {
-		rate_div = ((rate*1000000) / parent_rate);
-		m = rate_div / 1000000;
-		f = rate_div % 1000000;
+		unsigned int children;
+
+		/*
+		 * We're running on a ZynqMP compatible machine, make sure the
+		 * VPLL only has one child.
+		 */
+		children = clk_get_children("vpll");
+
+		/* Account for vpll_to_lpd and dp_video_ref */
+		if (children > 2)
+			WARN(1, "Two devices are using vpll which is forbidden\n");
+
+		rate_div = ((rate * FRAC_DIV) / parent_rate);
+		m = rate_div / FRAC_DIV;
+		f = rate_div % FRAC_DIV;
 		m = clamp_t(u32, m, (PLL_FBDIV_MIN), (PLL_FBDIV_MAX));
 		rate = parent_rate * m;
-		frac = (parent_rate * f) / 1000000;
+		frac = (parent_rate * f) / FRAC_DIV;
 		reg = zynqmp_pm_mmio_readl(clk->pll_ctrl);
 		reg &= ~PLLCTRL_FBDIV_MASK;
 		reg |= m << PLLCTRL_FBDIV_SHIFT;
@@ -163,7 +202,7 @@ static int zynqmp_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		reg = zynqmp_pm_mmio_readl(clk->pll_ctrl + FRAC_OFFSET);
 		reg &= ~0xffff;
 
-		data = (FRAC_DIV * f) / 1000000;
+		data = (FRAC_DIV * f) / FRAC_DIV;
 		data = data & 0xffff;
 		reg |= data;
 		zynqmp_pm_mmio_writel(reg, clk->pll_ctrl + FRAC_OFFSET);
@@ -233,8 +272,28 @@ static int zynqmp_pll_enable(struct clk_hw *hw)
 	return 0;
 }
 
+/**
+ * zynqmp_pll_disable - Disable clock
+ * @hw:		Handle between common and hardware-specific interfaces
+ *
+ */
+static void zynqmp_pll_disable(struct clk_hw *hw)
+{
+	struct zynqmp_pll *clk = to_zynqmp_pll(hw);
+
+	if (!zynqmp_pll_is_enabled(hw))
+		return;
+
+	pr_info("PLL: shutdown\n");
+
+	/* shut down PLL */
+	zynqmp_pm_mmio_write((u32)(ulong)clk->pll_ctrl, PLLCTRL_RESET_MASK,
+				PLLCTRL_RESET_VAL);
+}
+
 static const struct clk_ops zynqmp_pll_ops = {
 	.enable = zynqmp_pll_enable,
+	.disable = zynqmp_pll_disable,
 	.is_enabled = zynqmp_pll_is_enabled,
 	.round_rate = zynqmp_pll_round_rate,
 	.recalc_rate = zynqmp_pll_recalc_rate,

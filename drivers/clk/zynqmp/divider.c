@@ -9,6 +9,7 @@
  * Adjustable divider clock implementation
  */
 
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/clk/zynqmp.h>
 #include <linux/module.h>
@@ -93,6 +94,10 @@ static long zynqmp_clk_divider_round_rate(struct clk_hw *hw,
 
 	bestdiv = divider_get_val(rate, *prate, divider->table, divider->width,
 			divider->flags);
+
+	if ((clk_hw_get_flags(hw) & CLK_SET_RATE_PARENT) &&
+	    ((clk_hw_get_flags(hw) & CLK_FRAC)))
+		bestdiv = rate % *prate ? 1 : bestdiv;
 	*prate = rate * bestdiv;
 
 	return rate;
@@ -127,7 +132,7 @@ static int zynqmp_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
-const struct clk_ops zynqmp_clk_divider_ops = {
+static const struct clk_ops zynqmp_clk_divider_ops = {
 	.recalc_rate = zynqmp_clk_divider_recalc_rate,
 	.round_rate = zynqmp_clk_divider_round_rate,
 	.set_rate = zynqmp_clk_divider_set_rate,
@@ -135,7 +140,7 @@ const struct clk_ops zynqmp_clk_divider_ops = {
 
 static struct clk *_register_divider(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
-		resource_size_t *reg, u8 shift, u8 width,
+		void __iomem *reg, u8 shift, u8 width,
 		u8 clk_divider_flags, const struct clk_div_table *table)
 {
 	struct clk_divider *div;
@@ -195,7 +200,8 @@ struct clk *zynqmp_clk_register_divider(struct device *dev, const char *name,
 		resource_size_t *reg, u8 shift, u8 width,
 		u8 clk_divider_flags)
 {
-	return _register_divider(dev, name, parent_name, flags, reg, shift,
+	return _register_divider(dev, name, parent_name, flags,
+			(void __iomem *)reg, shift,
 			width, clk_divider_flags, NULL);
 }
 EXPORT_SYMBOL_GPL(zynqmp_clk_register_divider);

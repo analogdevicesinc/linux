@@ -130,7 +130,7 @@ static const struct file_operations xlnk_fops = {
 	.mmap = xlnk_mmap,
 };
 
-#define MAX_XLNK_DMAS 16
+#define MAX_XLNK_DMAS 128
 
 struct xlnk_device_pack {
 	char name[64];
@@ -423,7 +423,6 @@ static int xlnk_allocbuf(unsigned int len, unsigned int cacheable)
 	spin_unlock(&xlnk_buf_lock);
 
 	if (id <= 0 || id >= XLNK_BUF_POOL_SIZE) {
-		pr_err("No id could be found in range\n");
 		return -ENOMEM;
 	}
 
@@ -1135,7 +1134,8 @@ static int xlnk_dmasubmit_ioctl(struct file *filp, unsigned int code,
 			down_read(&current->mm->mmap_sem);
 			locked_page_count =
 				get_user_pages(first_page * PAGE_SIZE,
-					       t->sg_list_size, 1, 1,
+					       t->sg_list_size,
+					       FOLL_FORCE | FOLL_WRITE,
 					       xlnk_page_store, NULL);
 			up_read(&current->mm->mmap_sem);
 			if (locked_page_count != t->sg_list_size) {
@@ -1534,13 +1534,13 @@ static int xlnk_memop_ioctl(struct file *filp, unsigned long arg_addr)
 	int status = 0;
 	int buf_id;
 	struct xlnk_dmabuf_reg *cp;
-	int cacheable;
+	int cacheable = 1;
 	void *k_addr;
 	enum dma_data_direction dmadir;
 	xlnk_intptr_type page_id;
 	unsigned int page_offset;
 	struct scatterlist sg;
-	DEFINE_DMA_ATTRS(attrs);
+	unsigned long attrs = 0;
 
 	status = copy_from_user(&args,
 				(void __user *)arg_addr,
@@ -1592,7 +1592,7 @@ static int xlnk_memop_ioctl(struct file *filp, unsigned long arg_addr)
 	dmadir = (enum dma_data_direction)args.memop.dir;
 
 	if (args.memop.flags & XLNK_FLAG_COHERENT || !cacheable) {
-		dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 	}
 
 	if (buf_id > 0) {
@@ -1612,7 +1612,7 @@ static int xlnk_memop_ioctl(struct file *filp, unsigned long arg_addr)
 							       &sg,
 							       1,
 							       dmadir,
-							       &attrs);
+							       attrs);
 			if (!status) {
 				pr_err("Failed to map address\n");
 				return -EINVAL;
@@ -1645,6 +1645,13 @@ static int xlnk_memop_ioctl(struct file *filp, unsigned long arg_addr)
 			args.memop.phys_addr = (xlnk_intptr_type)
 				sg_dma_address(cp->dbuf_sg_table->sgl);
 			args.memop.token = 0;
+			status = copy_to_user((void __user *)arg_addr,
+					      &args,
+					      sizeof(union xlnk_args));
+			if (status)
+				pr_err("Error in copy_to_user.  status = %d\n",
+				       status);
+
 		}
 	} else {
 		if (buf_id > 0) {
@@ -1654,7 +1661,7 @@ static int xlnk_memop_ioctl(struct file *filp, unsigned long arg_addr)
 							&sg,
 							1,
 							dmadir,
-							&attrs);
+							attrs);
 		} else {
 			dma_buf_unmap_attachment(cp->dbuf_attach,
 						 cp->dbuf_sg_table,
@@ -1713,7 +1720,6 @@ static long xlnk_ioctl(struct file *filp,
 	case XLNK_IOCMEMOP:
 		return xlnk_memop_ioctl(filp, args);
 	default:
-		pr_err("%s:Unrecognized ioctl code%u\n", __func__, code);
 		return -EINVAL;
 	}
 }
@@ -1729,7 +1735,7 @@ static int xlnk_mmap(struct file *filp, struct vm_area_struct *vma)
 	int bufid;
 	int status;
 
-	bufid = vma->vm_pgoff >> (24 - PAGE_SHIFT);
+	bufid = vma->vm_pgoff >> (16 - PAGE_SHIFT);
 
 	if (bufid == 0)
 		status = remap_pfn_range(vma, vma->vm_start,

@@ -28,11 +28,11 @@ enum xilinx_video_format {
 };
 
 /* convert the xilinx format to the drm format */
-int xilinx_drm_format_by_code(unsigned int xilinx_format, uint32_t *drm_format);
-int xilinx_drm_format_by_name(const char *name, uint32_t *drm_format);
+int xilinx_drm_format_by_code(unsigned int xilinx_format, u32 *drm_format);
+int xilinx_drm_format_by_name(const char *name, u32 *drm_format);
 
-unsigned int xilinx_drm_format_bpp(uint32_t drm_format);
-unsigned int xilinx_drm_format_depth(uint32_t drm_format);
+unsigned int xilinx_drm_format_bpp(u32 drm_format);
+unsigned int xilinx_drm_format_depth(u32 drm_format);
 
 /* io write operations */
 static inline void xilinx_drm_writel(void __iomem *base, int offset, u32 val)
@@ -57,11 +57,9 @@ static inline void xilinx_drm_set(void __iomem *base, int offset, u32 set)
 }
 
 struct drm_device;
-struct drm_mode_set;
 
 bool xilinx_drm_check_format(struct drm_device *drm, uint32_t fourcc);
 uint32_t xilinx_drm_get_format(struct drm_device *drm);
 unsigned int xilinx_drm_get_align(struct drm_device *drm);
-void xilinx_drm_set_config(struct drm_device *drm, struct drm_mode_set *set);
 
 #endif /* _XILINX_DRM_H_ */

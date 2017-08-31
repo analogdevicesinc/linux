@@ -139,9 +139,9 @@
 #define DRIVER_VERSION		"1.1.1"
 
 /* Number of isochronous URBs. */
-#define UVC_URBS		5
+#define UVC_URBS		50
 /* Maximum number of packets per URB. */
-#define UVC_MAX_PACKETS		32
+#define UVC_MAX_PACKETS		48
 /* Maximum status buffer size in bytes of interrupt URB. */
 #define UVC_MAX_STATUS_SIZE	16
 
@@ -377,6 +377,9 @@ struct uvc_buffer {
 	unsigned int bytesused;
 
 	u32 pts;
+
+	/* asynchronous buffer handling */
+	struct kref ref;
 };
 
 #define UVC_QUEUE_DISCONNECTED		(1 << 0)
@@ -452,6 +455,44 @@ struct uvc_stats_stream {
 	unsigned int max_sof;		/* Maximum STC.SOF value */
 };
 
+/**
+ * struct uvc_decode_op: Context structure to schedule asynchronous memcpy
+ *
+ * @buf: active buf object for this decode
+ * @dst: copy destination address
+ * @src: copy source address
+ * @len: copy length
+ */
+struct uvc_decode_op {
+	struct uvc_buffer *buf;
+	void *dst;
+	const __u8 *src;
+	int len;
+};
+
+/**
+ * struct uvc_urb - URB context management structure
+ *
+ * @urb: described URB. Must be allocated with usb_alloc_urb()
+ * @stream: UVC streaming context
+ * @urb_buffer: memory storage for the URB
+ * @urb_dma: DMA coherent addressing for the urb_buffer
+ * @packets: counter to indicate the number of copy operations
+ * @decodes: work descriptors for asynchronous copy operations
+ * @work: work queue entry for asynchronous decode
+ */
+struct uvc_urb {
+	struct urb *urb;
+	struct uvc_streaming *stream;
+
+	char *urb_buffer;
+	dma_addr_t urb_dma;
+
+	unsigned int packets;
+	struct uvc_decode_op decodes[UVC_MAX_PACKETS];
+	struct work_struct work;
+};
+
 struct uvc_streaming {
 	struct list_head list;
 	struct uvc_device *dev;
@@ -482,8 +523,8 @@ struct uvc_streaming {
 	/* Buffers queue. */
 	unsigned int frozen : 1;
 	struct uvc_video_queue queue;
-	void (*decode) (struct urb *urb, struct uvc_streaming *video,
-			struct uvc_buffer *buf);
+	struct workqueue_struct *async_wq;
+	void (*decode) (struct uvc_urb *uvc_urb, struct uvc_buffer *buf);
 
 	/* Context data used by the bulk completion handler. */
 	struct {
@@ -494,9 +535,7 @@ struct uvc_streaming {
 		__u32 max_payload_size;
 	} bulk;
 
-	struct urb *urb[UVC_URBS];
-	char *urb_buffer[UVC_URBS];
-	dma_addr_t urb_dma[UVC_URBS];
+	struct uvc_urb uvc_urb[UVC_URBS];
 	unsigned int urb_size;
 
 	__u32 sequence;
@@ -652,8 +691,11 @@ extern int uvc_queue_streamon(struct uvc_video_queue *queue,
 extern int uvc_queue_streamoff(struct uvc_video_queue *queue,
 			       enum v4l2_buf_type type);
 extern void uvc_queue_cancel(struct uvc_video_queue *queue, int disconnect);
+extern struct uvc_buffer *
+		uvc_queue_get_current_buffer(struct uvc_video_queue *queue);
 extern struct uvc_buffer *uvc_queue_next_buffer(struct uvc_video_queue *queue,
 		struct uvc_buffer *buf);
+extern void uvc_queue_buffer_release(struct uvc_buffer *buf);
 extern int uvc_queue_mmap(struct uvc_video_queue *queue,
 		struct vm_area_struct *vma);
 extern unsigned int uvc_queue_poll(struct uvc_video_queue *queue,
@@ -741,8 +783,7 @@ extern struct usb_host_endpoint *uvc_find_endpoint(
 		struct usb_host_interface *alts, __u8 epaddr);
 
 /* Quirks support */
-void uvc_video_decode_isight(struct urb *urb, struct uvc_streaming *stream,
-		struct uvc_buffer *buf);
+void uvc_video_decode_isight(struct uvc_urb *uvc_urb, struct uvc_buffer *buf);
 
 /* debugfs and statistics */
 int uvc_debugfs_init(void);

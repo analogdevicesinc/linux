@@ -18,6 +18,7 @@
 #include "zynqmp-clk-ccf.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
 #include <dt-bindings/phy/phy.h>
 
 / {
@@ -56,11 +57,20 @@
 		autorepeat;
 		sw4 {
 			label = "sw4";
-			gpios = <&gpio 23 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio 23 GPIO_ACTIVE_LOW>; /* shared with pmic IRQ */
 			linux,code = <108>; /* down */
 			gpio-key,wakeup; /* FIXME test this */
 			autorepeat;
 		};
+	};
+
+	iio-hwmon {
+		compatible = "iio-hwmon";
+		io-channels = <&xilinx_ams 0>, <&xilinx_ams 1>, <&xilinx_ams 2>,
+			      <&xilinx_ams 3>, <&xilinx_ams 4>, <&xilinx_ams 5>,
+			      <&xilinx_ams 6>, <&xilinx_ams 7>, <&xilinx_ams 8>,
+			      <&xilinx_ams 9>, <&xilinx_ams 10>,
+			      <&xilinx_ams 11>, <&xilinx_ams 12>;
 	};
 
 	leds {
@@ -88,12 +98,19 @@
 		ds5 {
 			label = "ds5";
 			gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "bluetooth-power";
 		};
 
 		/* FIXME this is not correct - used fixed-regulator for it */
 		vbus_det { /* U5 USB5744  VBUS detection via MIO25 */
 			label = "vbus_det";
 			gpios = <&gpio 25 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		bt_power {
+			label = "bt_power";
+			gpios = <&gpio 8 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
 		};
 	};
@@ -123,40 +140,46 @@
 		compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&gpio 7 GPIO_ACTIVE_LOW>; /* WIFI_EN */
 	};
-
-	kim { /* Bluetooth driver for connection */
-		compatible = "kim";
-		status = "okay";
-		/*
-		 * FIXME: The following is complete CRAP since
-		 * the vendor driver doesn't follow the gpio
-		 * binding. Passing in a magic Linux gpio number
-		 * here until we fix the vendor driver.
-		 */
-		/* FIXME BT_EN*/
-		/* nshutdown_gpio = <&gpio 8 GPIO_ACTIVE_HIGH>; */
-		nshutdown_gpio = <346>; /* 338 base + MIO8 */
-		dev_name = "/dev/ttyPS1"; /* MIO2/3 */
-		flow_cntrl = <1>;
-		baud_rate = <3000000>;
-	};
-	/*
-	 * CONFIG_BT_WILINK - depends on
-	 * btwilink: add minimal device tree support
-	 * commit b3ef820a9310743d62cf50341f529ca17319dd77
-	 */
-	btwilink { /* Bluetooth driver itself */
-		status = "okay";
-		compatible = "btwilink";
-	};
 };
 
 &dcc {
 	status = "okay";
 };
 
+&pmufw {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pmu_default>;
+};
+
 &gpio {
 	status = "okay";
+	gpio-line-names = "UART1_TX", "UART1_RX", "UART0_RX", "UART0_TX", "I2C1_SCL",
+			  "I2C1_SDA", "SPI1_SCLK", "WLAN_EN", "BT_EN", "SPI1_CS",
+			  "SPI1_MISO", "SPI1_MOSI", "I2C_MUX_RESET", "SD0_DAT0", "SD0_DAT1",
+			  "SD0_DAT2", "SD0_DAT3", "PS_LED3", "PS_LED2", "PS_LED1",
+			  "PS_LED0", "SD0_CMD", "SD0_CLK", "GPIO_PB", "SD0_DETECT",
+			  "VBUS_DET", "POWER_INT", "DP_AUX", "DP_HPD", "DP_OE",
+			  "DP_AUX_IN", "INA226_ALERT", "PS_FP_PWR_EN", "PL_PWR_EN", "POWER_KILL",
+			  "", "GPIO-A", "GPIO-B", "SPI0_SCLK", "GPIO-C",
+			  "GPIO-D", "SPI0_CS", "SPI0_MISO", "SPI_MOSI", "GPIO-E",
+			  "GPIO-F", "SD1_D0", "SD1_D1", "SD1_D2", "SD1_D3",
+			  "SD1_CMD", "SD1_CLK", "USB0_CLK", "USB0_DIR", "USB0_DATA2",
+			  "USB0_NXT", "USB0_DATA0", "USB0_DATA1", "USB0_STP", "USB0_DATA3",
+			  "USB0_DATA4", "USB0_DATA5", "USB0_DATA6", "USB0_DATA7", "USB1_CLK",
+			  "USB1_DIR", "USB1_DATA2", "USB1_NXT", "USB1_DATA0", "USB1_DATA1",
+			  "USB1_STP", "USB1_DATA3", "USB1_DATA4", "USB1_DATA5", "USB1_DATA6",
+			  "USB_DATA7", "WLAN_IRQ", "", /* MIO end and EMIO start */
+			  "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "", "", "", "", "", "", "",
+			  "", "", "", "";
 };
 
 &gpu {
@@ -165,6 +188,11 @@
 
 &i2c1 {
 	status = "okay";
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&pinctrl_i2c1_default>;
+	pinctrl-1 = <&pinctrl_i2c1_gpio>;
+	scl-gpios = <&gpio 4 GPIO_ACTIVE_HIGH>;
+	sda-gpios = <&gpio 5 GPIO_ACTIVE_HIGH>;
 	clock-frequency = <100000>;
 	i2cswitch@75 { /* u11 */
 		compatible = "nxp,pca9548";
@@ -206,34 +234,20 @@
 		i2csw_4: i2c@4 { /* i2c mw 75 0 10 */
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x5e>;
-
-			/* Also RTC, GPIO and regulators */
-			/*
-			CONFIG_GPIO_TPS6586X
-			CONFIG_MFD_TPS6586X
-			CONFIG_REGULATOR_TPS6586X
-			CONFIG_RTC_DRV_TPS6586X -- not sure about it
-				 - max addr is 0xcd
-			*/
-			/* rtc0 = "/i2c@7000d000/tps6586x@34"; */
-
-			/* also super fast mode 1M supported */
+			reg = <0x4>;
 
 			/* Comment it out because will be pre-programmed
 			   at the factory */
-			/*
-			pmu: tps6586x@34 { // Custom TI PMIC u33
-				compatible = "ti,tps6586x";
-				reg = <0x34>;
-				interrupt-parent = <&gpio>;
-				interrupts = <39 GPIO_ACTIVE_LOW>; shared with gpio switch
 
+			pmic: tps65086x@5e { // Custom TI PMIC u33
+				compatible = "ti,tps65086";
+				reg = <0x5e>;
+				interrupt-parent = <&gpio>;
+				interrupts = <23 GPIO_ACTIVE_LOW>; /* shared with pmic IRQ */
 				#gpio-cells = <2>;
 				gpio-controller;
 
-				ti,system-power-controller;
-
+/*
 				sys-supply = <&some_reg>;
 				// spec 12V
 
@@ -243,8 +257,6 @@
 				buck4 3V3
 				buck5 1V2
 				buck6 VCC_PSAUX 1V8
-
-
 
 				vin-sm0-supply = <&some_reg>;
 				vin-sm1-supply = <&some_reg>;
@@ -342,8 +354,8 @@
 						regulator-always-on;
 					};
 				};
+				*/
 			};
-			*/
 		};
 		i2csw_5: i2c@5 { /* i2c mw 75 0 20 */
 			#address-cells = <1>;
@@ -377,6 +389,235 @@
 	};
 };
 
+&pinctrl0 {
+	status = "okay";
+	pinctrl_i2c1_default: i2c1-default {
+		mux {
+			groups = "i2c1_1_grp";
+			function = "i2c1";
+		};
+
+		conf {
+			groups = "i2c1_1_grp";
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_i2c1_gpio: i2c1-gpio {
+		mux {
+			groups = "gpio0_4_grp", "gpio0_5_grp";
+			function = "gpio0";
+		};
+
+		conf {
+			groups = "gpio0_4_grp", "gpio0_5_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_pmu_default: pmu-default {
+		mux {
+			groups = "pmu0_8_grp";
+			function = "pmu0";
+		};
+
+		conf {
+			groups = "pmu0_8_grp";
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_sdhci0_default: sdhci0-default {
+		mux {
+			groups = "sdio0_4bit_0_0_grp";
+			function = "sdio0";
+		};
+
+		conf {
+			groups = "sdio0_4bit_0_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+			bias-disable;
+		};
+
+		mux-cd {
+			groups = "sdio0_0_cd_grp";
+			function = "sdio0_cd";
+		};
+
+		conf-cd {
+			groups = "sdio0_0_cd_grp";
+			bias-high-impedance;
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_sdhci1_default: sdhci1-default {
+		mux {
+			groups = "sdio1_4bit_0_1_grp";
+			function = "sdio1";
+		};
+
+		conf {
+			groups = "sdio1_4bit_0_1_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+			bias-disable;
+		};
+	};
+
+	pinctrl_spi0_default: spi0-default {
+		mux {
+			groups = "spi0_3_grp";
+			function = "spi0";
+		};
+
+		conf {
+			groups = "spi0_3_grp";
+			bias-disable;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		mux-cs {
+			groups = "spi0_3_ss0_grp";
+			function = "spi0_ss";
+		};
+
+		conf-cs {
+			groups = "spi0_3_ss0_grp";
+			bias-disable;
+		};
+
+	};
+
+	pinctrl_spi1_default: spi1-default {
+		mux {
+			groups = "spi1_0_grp";
+			function = "spi1";
+		};
+
+		conf {
+			groups = "spi1_0_grp";
+			bias-disable;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		mux-cs {
+			groups = "spi1_0_ss0_grp";
+			function = "spi1_ss";
+		};
+
+		conf-cs {
+			groups = "spi1_0_ss0_grp";
+			bias-disable;
+		};
+
+	};
+
+	pinctrl_uart0_default: uart0-default {
+		mux {
+			groups = "uart0_0_grp";
+			function = "uart0";
+		};
+
+		conf {
+			groups = "uart0_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO3";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO2";
+			bias-disable;
+		};
+	};
+
+	pinctrl_uart1_default: uart1-default {
+		mux {
+			groups = "uart1_0_grp";
+			function = "uart1";
+		};
+
+		conf {
+			groups = "uart1_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO1";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO0";
+			bias-disable;
+		};
+	};
+
+	pinctrl_usb0_default: usb0-default {
+		mux {
+			groups = "usb0_0_grp";
+			function = "usb0";
+		};
+
+		conf {
+			groups = "usb0_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO52", "MIO53", "MIO55";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO54", "MIO56", "MIO57", "MIO58", "MIO59",
+			       "MIO60", "MIO61", "MIO62", "MIO63";
+			bias-disable;
+		};
+	};
+
+	pinctrl_usb1_default: usb1-default {
+		mux {
+			groups = "usb1_0_grp";
+			function = "usb1";
+		};
+
+		conf {
+			groups = "usb1_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO64", "MIO65", "MIO67";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO66", "MIO68", "MIO69", "MIO70", "MIO71",
+			       "MIO72", "MIO73", "MIO74", "MIO75";
+			bias-disable;
+		};
+	};
+};
+
 &rtc {
 	status = "okay";
 };
@@ -387,18 +628,21 @@
 	no-1-8-v;
 	broken-cd; /* CD has to be enabled by default */
 	disable-wp;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdhci0_default>;
 	xlnx,mio_bank = <0>;
 };
 
 &sdhci1 {
 	status = "okay";
 	bus-width = <0x4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdhci1_default>;
 	xlnx,mio_bank = <0>;
 	non-removable;
 	disable-wp;
 	cap-power-off-card;
 	mmc-pwrseq = <&sdio_pwrseq>;
-	max-frequency = <16000000>;
 	vqmmc-supply = <&wmmcsdio_fixed>;
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -416,44 +660,61 @@
 
 &spi0 { /* Low Speed connector */
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spi0_default>;
 };
 
 &spi1 { /* High Speed connector */
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spi1_default>;
 };
 
 &uart0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0_default>;
 };
 
 &uart1 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1_default>;
+
 };
 
 /* ULPI SMSC USB3320 */
 &usb0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usb0_default>;
 };
 
 &dwc3_0 {
 	status = "okay";
 	dr_mode = "peripheral";
-/*	phy-names = "usb3-phy";
-	phys = <&lane2 PHY_TYPE_USB3 0 0 26000000>; */
-	maximum-speed = "high-speed"; /* super-speed */
+	phy-names = "usb3-phy";
+	phys = <&lane2 PHY_TYPE_USB3 0 0 26000000>;
+	maximum-speed = "super-speed";
 };
 
 /* ULPI SMSC USB3320 */
 &usb1 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usb1_default>;
 };
 
 &dwc3_1 {
 	status = "okay";
 	dr_mode = "host";
-/*	phy-names = "usb3-phy";
-	phys = <&lane3 PHY_TYPE_USB3 1 0 26000000>; */
-	maximum-speed = "high-speed"; /* super-speed */
+	phy-names = "usb3-phy";
+	phys = <&lane3 PHY_TYPE_USB3 1 0 26000000>;
+	maximum-speed = "super-speed";
+};
+
+&watchdog0 {
+	status = "okay";
 };
 
 &xilinx_drm {
@@ -488,5 +749,13 @@
 };
 
 &xlnx_dpdma {
+	status = "okay";
+};
+
+&xilinx_ams {
+	status = "okay";
+};
+
+&ams_ps {
 	status = "okay";
 };

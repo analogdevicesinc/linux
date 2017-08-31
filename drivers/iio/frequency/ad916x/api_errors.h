@@ -5,6 +5,7 @@
 
 #ifdef __linux__ 
 #include <linux/kernel.h>
+#include <linux/errno.h>
 
 /*! No Error */
 #define API_ERROR_OK 0

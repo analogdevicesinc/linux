@@ -21,11 +21,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <linux/module.h>
+#include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/pinconf-generic.h>
-#include <linux/soc/xilinx/zynqmp/pm.h>
+#include <linux/soc/xilinx/zynqmp/firmware.h>
 #include <linux/of_address.h>
 #include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
 #include "pinctrl-utils.h"
@@ -36,13 +36,16 @@
 #define ZYNQMP_PINMUX_MUX_SHIFT    1
 #define ZYNQMP_PINMUX_MUX_MASK     0x7f
 
+#define ZYNQMP_IOSTD_BIT_MASK     0x01
+
 /**
  * struct zynqmp_pinctrl - driver data
  * @pctrl:              Pinctrl device
  * @groups:             Pingroups
- * @ngroupos:           Number of @groups
+ * @ngroups:            Number of @groups
  * @funcs:              Pinmux functions
  * @nfuncs:             Number of @funcs
+ * @iouaddr:            Base address of IOU SLCR
  */
 struct zynqmp_pinctrl {
 	struct pinctrl_dev *pctrl;
@@ -56,7 +59,7 @@ struct zynqmp_pinctrl {
 struct zynqmp_pctrl_group {
 	const char *name;
 	const unsigned int *pins;
-	const unsigned npins;
+	const unsigned int npins;
 };
 
 /**
@@ -104,6 +107,9 @@ enum zynqmp_pinmux_functions {
 	ZYNQMP_PMUX_sdio1_cd,
 	ZYNQMP_PMUX_sdio1_wp,
 	ZYNQMP_PMUX_nand0,
+	ZYNQMP_PMUX_nand0_ce,
+	ZYNQMP_PMUX_nand0_rb,
+	ZYNQMP_PMUX_nand0_dqs,
 	ZYNQMP_PMUX_ttc0_clk,
 	ZYNQMP_PMUX_ttc0_wav,
 	ZYNQMP_PMUX_ttc1_clk,
@@ -285,34 +291,93 @@ static const unsigned int spi1_5_ss0_pins[] = {73};
 static const unsigned int spi1_5_ss1_pins[] = {72};
 static const unsigned int spi1_5_ss2_pins[] = {71};
 
+/* NOTE:
+ * sdio supports 1bit, 4bit or 8bit data lines.
+ * Hence the pins for this are classified into 3 groups:
+ * sdiox_x_pins:        8bit data lines
+ * sdiox_4bit_x_x_pins: 4bit data lines
+ * sdiox_1bit_x_x_pins: 1bit data lines
+ *
+ * As per the number of data lines to be used one of the groups from this
+ * has to be specified in device tree.
+ */
 static const unsigned int sdio0_0_pins[] = {13, 14, 15, 16, 17, 18, 19, 20,
 						 21, 22};
+static const unsigned int sdio0_4bit_0_0_pins[] = {13, 14, 15, 16, 21, 22};
+static const unsigned int sdio0_4bit_0_1_pins[] = {17, 18, 19, 20, 21, 22};
+static const unsigned int sdio0_1bit_0_0_pins[] = {13, 21, 22};
+static const unsigned int sdio0_1bit_0_1_pins[] = {14, 21, 22};
+static const unsigned int sdio0_1bit_0_2_pins[] = {15, 21, 22};
+static const unsigned int sdio0_1bit_0_3_pins[] = {16, 21, 22};
+static const unsigned int sdio0_1bit_0_4_pins[] = {17, 21, 22};
+static const unsigned int sdio0_1bit_0_5_pins[] = {18, 21, 22};
+static const unsigned int sdio0_1bit_0_6_pins[] = {19, 21, 22};
+static const unsigned int sdio0_1bit_0_7_pins[] = {20, 21, 22};
 static const unsigned int sdio0_0_pc_pins[] = {23};
 static const unsigned int sdio0_0_cd_pins[] = {24};
 static const unsigned int sdio0_0_wp_pins[] = {25};
 static const unsigned int sdio0_1_pins[] = {38, 40, 41, 42, 43, 44, 45, 46,
 						 47, 48};
+static const unsigned int sdio0_4bit_1_0_pins[] = {38, 40, 41, 42, 43, 44};
+static const unsigned int sdio0_4bit_1_1_pins[] = {38, 40, 45, 46, 47, 48};
+static const unsigned int sdio0_1bit_1_0_pins[] = {38, 40, 41};
+static const unsigned int sdio0_1bit_1_1_pins[] = {38, 40, 42};
+static const unsigned int sdio0_1bit_1_2_pins[] = {38, 40, 43};
+static const unsigned int sdio0_1bit_1_3_pins[] = {38, 40, 44};
+static const unsigned int sdio0_1bit_1_4_pins[] = {38, 40, 45};
+static const unsigned int sdio0_1bit_1_5_pins[] = {38, 40, 46};
+static const unsigned int sdio0_1bit_1_6_pins[] = {38, 40, 47};
+static const unsigned int sdio0_1bit_1_7_pins[] = {38, 40, 48};
 static const unsigned int sdio0_1_pc_pins[] = {49};
 static const unsigned int sdio0_1_cd_pins[] = {39};
 static const unsigned int sdio0_1_wp_pins[] = {50};
 static const unsigned int sdio0_2_pins[] = {64, 66, 67, 68, 69, 70, 71, 72,
 						 73, 74};
+static const unsigned int sdio0_4bit_2_0_pins[] = {64, 66, 67, 68, 69, 70};
+static const unsigned int sdio0_4bit_2_1_pins[] = {64, 66, 71, 72, 73, 74};
+static const unsigned int sdio0_1bit_2_0_pins[] = {64, 66, 67};
+static const unsigned int sdio0_1bit_2_1_pins[] = {64, 66, 68};
+static const unsigned int sdio0_1bit_2_2_pins[] = {64, 66, 69};
+static const unsigned int sdio0_1bit_2_3_pins[] = {64, 66, 70};
+static const unsigned int sdio0_1bit_2_4_pins[] = {64, 66, 71};
+static const unsigned int sdio0_1bit_2_5_pins[] = {64, 66, 72};
+static const unsigned int sdio0_1bit_2_6_pins[] = {64, 66, 73};
+static const unsigned int sdio0_1bit_2_7_pins[] = {64, 66, 74};
 static const unsigned int sdio0_2_pc_pins[] = {75};
 static const unsigned int sdio0_2_cd_pins[] = {65};
 static const unsigned int sdio0_2_wp_pins[] = {76};
 static const unsigned int sdio1_0_pins[] = {39, 40, 41, 42, 46, 47, 48, 49,
 						 50, 51};
+static const unsigned int sdio1_4bit_0_0_pins[] = {39, 40, 41, 42, 50, 51};
+static const unsigned int sdio1_4bit_0_1_pins[] = {46, 47, 48, 49, 50, 51};
+static const unsigned int sdio1_1bit_0_0_pins[] = {39, 50, 51};
+static const unsigned int sdio1_1bit_0_1_pins[] = {40, 50, 51};
+static const unsigned int sdio1_1bit_0_2_pins[] = {41, 50, 51};
+static const unsigned int sdio1_1bit_0_3_pins[] = {42, 50, 51};
+static const unsigned int sdio1_1bit_0_4_pins[] = {46, 50, 51};
+static const unsigned int sdio1_1bit_0_5_pins[] = {47, 50, 51};
+static const unsigned int sdio1_1bit_0_6_pins[] = {48, 50, 51};
+static const unsigned int sdio1_1bit_0_7_pins[] = {49, 50, 51};
 static const unsigned int sdio1_0_pc_pins[] = {43};
 static const unsigned int sdio1_0_cd_pins[] = {45};
 static const unsigned int sdio1_0_wp_pins[] = {44};
-static const unsigned int sdio1_1_pins[] = {71, 72, 73, 74, 75, 76};
+static const unsigned int sdio1_4bit_1_0_pins[] = {71, 72, 73, 74, 75, 76};
+static const unsigned int sdio1_1bit_1_0_pins[] = {71, 75, 76};
+static const unsigned int sdio1_1bit_1_1_pins[] = {72, 75, 76};
+static const unsigned int sdio1_1bit_1_2_pins[] = {73, 75, 76};
+static const unsigned int sdio1_1bit_1_3_pins[] = {74, 75, 76};
 static const unsigned int sdio1_1_pc_pins[] = {70};
 static const unsigned int sdio1_1_cd_pins[] = {77};
 static const unsigned int sdio1_1_wp_pins[] = {69};
 
-static const unsigned int nand0_0_pins[] = {9, 10, 11, 12, 13, 14, 15, 16, 17,
-						 18, 19, 20, 21, 22, 23, 24,
-						 25, 26, 27, 28, 32};
+static const unsigned int nand0_0_pins[] = {13, 14, 15, 16, 17, 18, 19, 20,
+						21, 22, 23, 24, 25};
+static const unsigned int nand0_0_ce_pins[] = {9};
+static const unsigned int nand0_0_rb_pins[] = {10, 11};
+static const unsigned int nand0_0_dqs_pins[] = {12};
+static const unsigned int nand0_1_ce_pins[] = {26};
+static const unsigned int nand0_1_rb_pins[] = {27, 28};
+static const unsigned int nand0_1_dqs_pins[] = {32};
 
 static const unsigned int can0_0_pins[] = {2, 3};
 static const unsigned int can0_1_pins[] = {6, 7};
@@ -643,8 +708,18 @@ static const unsigned int usb0_0_pins[] = {52, 53, 54, 55, 56, 57, 58, 59, 60,
 static const unsigned int usb1_0_pins[] = {64, 65, 66, 67, 68, 69, 70, 71, 72,
 						73, 74, 75};
 
-static const unsigned int pmu0_0_pins[] = {26, 27, 28, 29, 30, 31, 32, 33, 34,
-						35, 36, 37};
+static const unsigned int pmu0_0_pins[] = {26};
+static const unsigned int pmu0_1_pins[] = {27};
+static const unsigned int pmu0_2_pins[] = {28};
+static const unsigned int pmu0_3_pins[] = {29};
+static const unsigned int pmu0_4_pins[] = {30};
+static const unsigned int pmu0_5_pins[] = {31};
+static const unsigned int pmu0_6_pins[] = {32};
+static const unsigned int pmu0_7_pins[] = {33};
+static const unsigned int pmu0_8_pins[] = {34};
+static const unsigned int pmu0_9_pins[] = {35};
+static const unsigned int pmu0_10_pins[] = {36};
+static const unsigned int pmu0_11_pins[] = {37};
 
 static const unsigned int pcie0_0_pins[] = {29};
 static const unsigned int pcie0_1_pins[] = {30};
@@ -767,26 +842,76 @@ static const struct zynqmp_pctrl_group zynqmp_pctrl_groups[] = {
 	DEFINE_ZYNQMP_PINCTRL_GRP(spi1_5_ss1),
 	DEFINE_ZYNQMP_PINCTRL_GRP(spi1_5_ss2),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_4bit_0_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_4bit_0_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_0_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_0_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_0_2),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_0_3),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_0_4),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_0_5),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_0_6),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_0_7),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_0_pc),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_0_cd),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_0_wp),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_4bit_1_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_4bit_1_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_1_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_1_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_1_2),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_1_3),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_1_4),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_1_5),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_1_6),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_1_7),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1_pc),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1_cd),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1_wp),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_2),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_4bit_2_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_4bit_2_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_2_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_2_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_2_2),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_2_3),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_2_4),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_2_5),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_2_6),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_1bit_2_7),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_2_pc),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_2_cd),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio0_2_wp),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_4bit_0_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_4bit_0_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_0_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_0_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_0_2),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_0_3),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_0_4),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_0_5),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_0_6),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_0_7),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_0_pc),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_0_cd),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_0_wp),
-	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_4bit_1_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_1_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_1_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_1_2),
+	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1bit_1_3),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1_pc),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1_cd),
 	DEFINE_ZYNQMP_PINCTRL_GRP(sdio1_1_wp),
 	DEFINE_ZYNQMP_PINCTRL_GRP(nand0_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(nand0_0_ce),
+	DEFINE_ZYNQMP_PINCTRL_GRP(nand0_0_rb),
+	DEFINE_ZYNQMP_PINCTRL_GRP(nand0_0_dqs),
+	DEFINE_ZYNQMP_PINCTRL_GRP(nand0_1_ce),
+	DEFINE_ZYNQMP_PINCTRL_GRP(nand0_1_rb),
+	DEFINE_ZYNQMP_PINCTRL_GRP(nand0_1_dqs),
 	DEFINE_ZYNQMP_PINCTRL_GRP(can0_0),
 	DEFINE_ZYNQMP_PINCTRL_GRP(can0_1),
 	DEFINE_ZYNQMP_PINCTRL_GRP(can0_2),
@@ -1108,6 +1233,17 @@ static const struct zynqmp_pctrl_group zynqmp_pctrl_groups[] = {
 	DEFINE_ZYNQMP_PINCTRL_GRP(usb0_0),
 	DEFINE_ZYNQMP_PINCTRL_GRP(usb1_0),
 	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_0),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_1),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_2),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_3),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_4),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_5),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_6),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_7),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_8),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_9),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_10),
+	DEFINE_ZYNQMP_PINCTRL_GRP(pmu0_11),
 	DEFINE_ZYNQMP_PINCTRL_GRP(pcie0_0),
 	DEFINE_ZYNQMP_PINCTRL_GRP(pcie0_1),
 	DEFINE_ZYNQMP_PINCTRL_GRP(pcie0_2),
@@ -1189,9 +1325,32 @@ static const char * const spi1_ss_groups[] = {"spi1_0_ss0_grp",
 		"spi1_4_ss1_grp", "spi1_4_ss2_grp", "spi1_5_ss0_grp",
 		"spi1_5_ss1_grp", "spi1_5_ss2_grp"};
 
-static const char * const sdio0_groups[] = {"sdio0_0_grp", "sdio0_1_grp",
-					    "sdio0_2_grp"};
-static const char * const sdio1_groups[] = {"sdio1_0_grp", "sdio1_1_grp"};
+static const char * const sdio0_groups[] = {"sdio0_0_grp",
+				"sdio0_1_grp", "sdio0_2_grp",
+				"sdio0_4bit_0_0_grp", "sdio0_4bit_0_1_grp",
+				"sdio0_4bit_1_0_grp", "sdio0_4bit_1_1_grp",
+				"sdio0_4bit_2_0_grp", "sdio0_4bit_2_1_grp",
+				"sdio0_1bit_0_0_grp", "sdio0_1bit_0_1_grp",
+				"sdio0_1bit_0_2_grp", "sdio0_1bit_0_3_grp",
+				"sdio0_1bit_0_4_grp", "sdio0_1bit_0_5_grp",
+				"sdio0_1bit_0_6_grp", "sdio0_1bit_0_7_grp",
+				"sdio0_1bit_1_0_grp", "sdio0_1bit_1_1_grp",
+				"sdio0_1bit_1_2_grp", "sdio0_1bit_1_3_grp",
+				"sdio0_1bit_1_4_grp", "sdio0_1bit_1_5_grp",
+				"sdio0_1bit_1_6_grp", "sdio0_1bit_1_7_grp",
+				"sdio0_1bit_2_0_grp", "sdio0_1bit_2_1_grp",
+				"sdio0_1bit_2_2_grp", "sdio0_1bit_2_3_grp",
+				"sdio0_1bit_2_4_grp", "sdio0_1bit_2_5_grp",
+				"sdio0_1bit_2_6_grp", "sdio0_1bit_2_7_grp"};
+static const char * const sdio1_groups[] = {"sdio1_0_grp",
+				"sdio1_4bit_0_0_grp", "sdio1_4bit_0_1_grp",
+				"sdio1_4bit_1_0_grp",
+				"sdio1_1bit_0_0_grp", "sdio1_1bit_0_1_grp",
+				"sdio1_1bit_0_2_grp", "sdio1_1bit_0_3_grp",
+				"sdio1_1bit_0_4_grp", "sdio1_1bit_0_5_grp",
+				"sdio1_1bit_0_6_grp", "sdio1_1bit_0_7_grp",
+				"sdio1_1bit_1_0_grp", "sdio1_1bit_1_1_grp",
+				"sdio1_1bit_1_2_grp", "sdio1_1bit_1_3_grp"};
 static const char * const sdio0_pc_groups[] = {"sdio0_0_pc_grp",
 		"sdio0_1_pc_grp", "sdio0_2_pc_grp"};
 static const char * const sdio1_pc_groups[] = {"sdio1_0_pc_grp",
@@ -1206,6 +1365,12 @@ static const char * const sdio1_wp_groups[] = {"sdio1_0_wp_grp",
 		"sdio1_1_wp_grp"};
 
 static const char * const nand0_groups[] = {"nand0_0_grp"};
+static const char * const nand0_ce_groups[] = {"nand0_0_ce_grp",
+						"nand0_1_ce_grp"};
+static const char * const nand0_rb_groups[] = {"nand0_0_rb_grp",
+						"nand0_1_rb_grp"};
+static const char * const nand0_dqs_groups[] = {"nand0_0_dqs_grp",
+						"nand0_1_dqs_grp"};
 
 static const char * const can0_groups[] = {"can0_0_grp", "can0_1_grp",
 		"can0_2_grp", "can0_3_grp", "can0_4_grp", "can0_5_grp",
@@ -1336,7 +1501,12 @@ static const char * const gpio0_groups[] = {"gpio0_0_grp",
 		"gpio0_69_grp", "gpio0_71_grp", "gpio0_73_grp",
 		"gpio0_75_grp", "gpio0_77_grp"};
 
-static const char * const pmu0_groups[] = {"pmu0_0_grp"};
+static const char * const pmu0_groups[] = {"pmu0_0_grp", "pmu0_1_grp",
+						"pmu0_2_grp", "pmu0_3_grp",
+						"pmu0_4_grp", "pmu0_5_grp",
+						"pmu0_6_grp", "pmu0_7_grp",
+						"pmu0_8_grp", "pmu0_9_grp",
+						"pmu0_10_grp", "pmu0_11_grp"};
 
 static const char * const pcie0_groups[] = {"pcie0_0_grp", "pcie0_1_grp",
 						"pcie0_2_grp", "pcie0_3_grp",
@@ -1401,6 +1571,9 @@ static const struct zynqmp_pinmux_function zynqmp_pmux_functions[] = {
 	DEFINE_ZYNQMP_PINMUX_FUNCTION(sdio1_wp, 0x08),
 	DEFINE_ZYNQMP_PINMUX_FUNCTION(sdio1_cd, 0x08),
 	DEFINE_ZYNQMP_PINMUX_FUNCTION(nand0, 0x02),
+	DEFINE_ZYNQMP_PINMUX_FUNCTION(nand0_ce, 0x02),
+	DEFINE_ZYNQMP_PINMUX_FUNCTION(nand0_rb, 0x02),
+	DEFINE_ZYNQMP_PINMUX_FUNCTION(nand0_dqs, 0x02),
 	DEFINE_ZYNQMP_PINMUX_FUNCTION(can0, 0x10),
 	DEFINE_ZYNQMP_PINMUX_FUNCTION(can1, 0x10),
 	DEFINE_ZYNQMP_PINMUX_FUNCTION(uart0, 0x60),
@@ -1439,7 +1612,7 @@ static int zynqmp_pctrl_get_groups_count(struct pinctrl_dev *pctldev)
 }
 
 static const char *zynqmp_pctrl_get_group_name(struct pinctrl_dev *pctldev,
-							unsigned selector)
+							unsigned int selector)
 {
 	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
 
@@ -1447,7 +1620,8 @@ static const char *zynqmp_pctrl_get_group_name(struct pinctrl_dev *pctldev,
 }
 
 static int zynqmp_pctrl_get_group_pins(struct pinctrl_dev *pctldev,
-		unsigned selector, const unsigned **pins, unsigned *num_pins)
+			unsigned int selector, const unsigned int **pins,
+			unsigned int *num_pins)
 {
 	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
 
@@ -1485,7 +1659,7 @@ static int zynqmp_pmux_get_functions_count(struct pinctrl_dev *pctldev)
 }
 
 static const char *zynqmp_pmux_get_function_name(struct pinctrl_dev *pctldev,
-							 unsigned selector)
+							 unsigned int selector)
 {
 	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
 
@@ -1493,7 +1667,7 @@ static const char *zynqmp_pmux_get_function_name(struct pinctrl_dev *pctldev,
 }
 
 static int zynqmp_pmux_get_function_groups(struct pinctrl_dev *pctldev,
-			unsigned selector, const char * const **groups,
+			unsigned int selector, const char * const **groups,
 						unsigned * const num_groups)
 {
 	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
@@ -1504,7 +1678,7 @@ static int zynqmp_pmux_get_function_groups(struct pinctrl_dev *pctldev,
 }
 
 static int zynqmp_pinmux_set_mux(struct pinctrl_dev *pctldev,
-					unsigned function, unsigned group)
+				unsigned int function, unsigned int group)
 {
 	int i, ret;
 	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
@@ -1530,14 +1704,36 @@ static int zynqmp_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
+static int zynqmp_pinmux_free_pin(struct pinctrl_dev *pctldev, unsigned int pin)
+{
+	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
+	u32 addr_offset, mask;
+	int ret;
+
+	addr_offset = pctrl->iouaddr + 4 * pin;
+	mask = ZYNQMP_PINMUX_MUX_MASK << ZYNQMP_PINMUX_MUX_SHIFT;
+
+	/* Reset MIO pin mux to release it from peripheral mapping */
+	ret = zynqmp_pctrl_writereg(0, addr_offset, mask);
+	if (ret) {
+		dev_err(pctldev->dev, "write failed at 0x%x\n", addr_offset);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static const struct pinmux_ops zynqmp_pinmux_ops = {
 	.get_functions_count = zynqmp_pmux_get_functions_count,
 	.get_function_name = zynqmp_pmux_get_function_name,
 	.get_function_groups = zynqmp_pmux_get_function_groups,
 	.set_mux = zynqmp_pinmux_set_mux,
+	.free = zynqmp_pinmux_free_pin,
 };
 
 /* pinconfig */
+#define ZYNQMP_DRVSTRN0_REG_OFF    0
+#define ZYNQMP_DRVSTRN1_REG_OFF    4
 #define ZYNQMP_SCHCMOS_REG_OFF     8
 #define ZYNQMP_PULLCTRL_REG_OFF    12
 #define ZYNQMP_PULLSTAT_REG_OFF    16
@@ -1582,10 +1778,10 @@ pin_config_item zynqmp_conf_items[ARRAY_SIZE(zynqmp_dt_params)] = {
 #endif
 
 static int zynqmp_pinconf_cfg_get(struct pinctrl_dev *pctldev,
-					unsigned pin, unsigned long *config)
+					unsigned int pin, unsigned long *config)
 {
 	int ret;
-	u32 reg, addr_offset;
+	u32 reg, bit0, bit1, addr_offset;
 	unsigned int arg = 0, param = pinconf_to_config_param(*config);
 	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
 
@@ -1663,7 +1859,7 @@ static int zynqmp_pinconf_cfg_get(struct pinctrl_dev *pctldev,
 			return -EIO;
 		}
 
-		arg = reg & (1 << ZYNQMP_PIN_OFFSET(pin));
+		arg = reg & ZYNQMP_IOSTD_BIT_MASK;
 		break;
 	case PIN_CONFIG_SCHMITTCMOS:
 		addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
@@ -1678,6 +1874,36 @@ static int zynqmp_pinconf_cfg_get(struct pinctrl_dev *pctldev,
 
 		arg = reg & (1 << ZYNQMP_PIN_OFFSET(pin));
 		break;
+	case PIN_CONFIG_DRIVE_STRENGTH:
+		/* Drive strength configurations are distributed in 2 registers
+		 * and requires to be merged
+		 */
+		addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
+						ZYNQMP_DRVSTRN0_REG_OFF, pin);
+		ret = zynqmp_pctrl_readreg(&reg, addr_offset);
+		if (ret) {
+			dev_err(pctldev->dev, "read failed at 0x%x\n",
+								addr_offset);
+			return -EIO;
+		}
+
+		bit1 = (reg & (1 << ZYNQMP_PIN_OFFSET(pin))) >>
+							ZYNQMP_PIN_OFFSET(pin);
+
+		addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
+						ZYNQMP_DRVSTRN1_REG_OFF, pin);
+		ret = zynqmp_pctrl_readreg(&reg, addr_offset);
+		if (ret) {
+			dev_err(pctldev->dev, "read failed at 0x%x\n",
+								addr_offset);
+			return -EIO;
+		}
+
+		bit0 = (reg & (1 << ZYNQMP_PIN_OFFSET(pin))) >>
+							ZYNQMP_PIN_OFFSET(pin);
+
+		arg = (bit1 << 1) | bit0;
+		break;
 	default:
 		return -ENOTSUPP;
 	}
@@ -1687,10 +1913,11 @@ static int zynqmp_pinconf_cfg_get(struct pinctrl_dev *pctldev,
 }
 
 static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
-		unsigned pin, unsigned long *configs, unsigned num_configs)
+				unsigned int pin, unsigned long *configs,
+				unsigned int num_configs)
 {
 	int i, ret;
-	u32 reg, addr_offset, mask;
+	u32 reg, reg2, addr_offset, mask;
 	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
 
 	if (pin >= ZYNQMP_NUM_MIOS)
@@ -1707,8 +1934,12 @@ static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
 			addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
 						ZYNQMP_SLEWCTRL_REG_OFF, pin);
 
-			if (arg != SLEW_RATE_SLOW && arg != SLEW_RATE_FAST)
-				return -EINVAL;
+			if (arg != SLEW_RATE_SLOW && arg != SLEW_RATE_FAST) {
+				dev_warn(pctldev->dev,
+				"Invalid Slew rate requested for pin %d\n",
+				 pin);
+				break;
+			}
 
 			if (arg == SLEW_RATE_SLOW)
 				reg = ENABLE_CONFIG_VAL(pin);
@@ -1719,7 +1950,6 @@ static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
 			if (ret) {
 				dev_err(pctldev->dev, "write failed at 0x%x\n",
 								addr_offset);
-				return -EIO;
 			}
 			break;
 		case PIN_CONFIG_BIAS_PULL_UP:
@@ -1732,7 +1962,7 @@ static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
 			if (ret) {
 				dev_err(pctldev->dev, "write failed at 0x%x\n",
 								addr_offset);
-				return -EIO;
+				break;
 			}
 
 			addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
@@ -1742,11 +1972,9 @@ static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
 				reg = DISABLE_CONFIG_VAL(pin);
 
 			ret = zynqmp_pctrl_writereg(reg, addr_offset, mask);
-			if (ret) {
+			if (ret)
 				dev_err(pctldev->dev, "write failed at 0x%x\n",
 								addr_offset);
-				return -EIO;
-			}
 			break;
 		case PIN_CONFIG_BIAS_DISABLE:
 			addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
@@ -1754,19 +1982,21 @@ static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
 
 			reg = DISABLE_CONFIG_VAL(pin);
 			ret = zynqmp_pctrl_writereg(reg, addr_offset, mask);
-			if (ret) {
+			if (ret)
 				dev_err(pctldev->dev, "write failed at 0x%x\n",
 								addr_offset);
-				return -EIO;
-			}
 			break;
 		case PIN_CONFIG_SCHMITTCMOS:
 			addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
 						ZYNQMP_SCHCMOS_REG_OFF, pin);
 
 			if (arg != PIN_INPUT_TYPE_CMOS &&
-					arg != PIN_INPUT_TYPE_SCHMITT)
-				return -EINVAL;
+					arg != PIN_INPUT_TYPE_SCHMITT) {
+				dev_warn(pctldev->dev,
+				"Invalid input type requested for pin %d\n",
+				pin);
+				break;
+			}
 
 			if (arg == PIN_INPUT_TYPE_SCHMITT)
 				reg = ENABLE_CONFIG_VAL(pin);
@@ -1774,13 +2004,75 @@ static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
 				reg = DISABLE_CONFIG_VAL(pin);
 
 			ret = zynqmp_pctrl_writereg(reg, addr_offset, mask);
+			if (ret)
+				dev_err(pctldev->dev, "write failed at 0x%x\n",
+								addr_offset);
+			break;
+		case PIN_CONFIG_DRIVE_STRENGTH:
+			switch (arg) {
+			case DRIVE_STRENGTH_2MA:
+				reg = DISABLE_CONFIG_VAL(pin);
+				reg2 = DISABLE_CONFIG_VAL(pin);
+				break;
+			case DRIVE_STRENGTH_4MA:
+				reg = DISABLE_CONFIG_VAL(pin);
+				reg2 = ENABLE_CONFIG_VAL(pin);
+				break;
+			case DRIVE_STRENGTH_8MA:
+				reg = ENABLE_CONFIG_VAL(pin);
+				reg2 = DISABLE_CONFIG_VAL(pin);
+				break;
+			case DRIVE_STRENGTH_12MA:
+				reg = ENABLE_CONFIG_VAL(pin);
+				reg2 = ENABLE_CONFIG_VAL(pin);
+				break;
+			default:
+				/* Invalid drive strength */
+				dev_warn(pctldev->dev,
+					 "Invalid drive strength for pin %d\n",
+					 pin);
+				return -EINVAL;
+			}
+
+			addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
+						ZYNQMP_DRVSTRN0_REG_OFF, pin);
+			ret = zynqmp_pctrl_writereg(reg, addr_offset, mask);
 			if (ret) {
 				dev_err(pctldev->dev, "write failed at 0x%x\n",
 								addr_offset);
-				return -EIO;
+				break;
+			}
+
+			addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
+						ZYNQMP_DRVSTRN1_REG_OFF, pin);
+			ret = zynqmp_pctrl_writereg(reg2, addr_offset, mask);
+			if (ret) {
+				dev_err(pctldev->dev, "write failed at 0x%x\n",
+								addr_offset);
 			}
 			break;
 		case PIN_CONFIG_IOSTANDARD:
+			/* This parameter is read only, so the requested IO
+			 * Standard is validated against the pre configured IO
+			 * Standard and warned if mismatched
+			 */
+			addr_offset = ZYNQMP_ADDR_OFFSET(pctrl->iouaddr,
+						ZYNQMP_IOSTAT_REG_OFF, pin);
+
+			ret = zynqmp_pctrl_readreg(&reg, addr_offset);
+			if (ret) {
+				dev_err(pctldev->dev, "read failed at 0x%x\n",
+								addr_offset);
+				break;
+			}
+
+			reg &= ZYNQMP_IOSTD_BIT_MASK;
+
+			if (arg != reg)
+				dev_warn(pctldev->dev,
+				 "Invalid IO Standard requested for pin %d\n",
+				 pin);
+			break;
 		case PIN_CONFIG_BIAS_HIGH_IMPEDANCE:
 		case PIN_CONFIG_LOW_POWER_MODE:
 			/*
@@ -1793,7 +2085,7 @@ static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
 			dev_warn(pctldev->dev,
 				 "unsupported configuration parameter '%u'\n",
 				 param);
-			continue;
+			break;
 		}
 	}
 
@@ -1801,7 +2093,8 @@ static int zynqmp_pinconf_cfg_set(struct pinctrl_dev *pctldev,
 }
 
 static int zynqmp_pinconf_group_set(struct pinctrl_dev *pctldev,
-		unsigned selector, unsigned long *configs, unsigned num_configs)
+				unsigned int selector, unsigned long *configs,
+				unsigned int num_configs)
 {
 	int i, ret;
 	struct zynqmp_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
@@ -1885,7 +2178,6 @@ static const struct of_device_id zynqmp_pinctrl_of_match[] = {
 	{ .compatible = "xlnx,pinctrl-zynqmp" },
 	{ }
 };
-MODULE_DEVICE_TABLE(of, zynqmp_pinctrl_of_match);
 
 static struct platform_driver zynqmp_pinctrl_driver = {
 	.driver = {
@@ -1902,12 +2194,3 @@ static int __init zynqmp_pinctrl_init(void)
 }
 arch_initcall(zynqmp_pinctrl_init);
 
-static void __exit zynqmp_pinctrl_exit(void)
-{
-	platform_driver_unregister(&zynqmp_pinctrl_driver);
-}
-module_exit(zynqmp_pinctrl_exit);
-
-MODULE_AUTHOR("Chirag Parekh <chirag.parekh@xilinx.com>");
-MODULE_DESCRIPTION("Xilinx ZynqMP pinctrl driver");
-MODULE_LICENSE("GPL");

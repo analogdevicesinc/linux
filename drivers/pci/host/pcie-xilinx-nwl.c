@@ -40,6 +40,11 @@
 #define E_ECAM_CONTROL			0x00000228
 #define E_ECAM_BASE_LO			0x00000230
 #define E_ECAM_BASE_HI			0x00000234
+#define E_DREG_CTRL			0x00000288
+#define E_DREG_BASE_LO			0x00000290
+
+#define DREG_DMA_EN			BIT(0)
+#define DREG_DMA_BASE_LO		0xFD0F0000
 
 /* Ingress - address translations */
 #define I_MSII_CAPABILITIES		0x00000300
@@ -58,26 +63,18 @@
 #define MSGF_MSI_STATUS_HI		0x00000444
 #define MSGF_MSI_MASK_LO		0x00000448
 #define MSGF_MSI_MASK_HI		0x0000044C
+/* Root DMA Interrupt register */
+#define MSGF_DMA_MASK			0x00000464
+
+#define MSGF_INTR_EN			BIT(0)
 
 /* Msg filter mask bits */
 #define CFG_ENABLE_PM_MSG_FWD		BIT(1)
 #define CFG_ENABLE_INT_MSG_FWD		BIT(2)
 #define CFG_ENABLE_ERR_MSG_FWD		BIT(3)
-#define CFG_ENABLE_SLT_MSG_FWD		BIT(5)
-#define CFG_ENABLE_VEN_MSG_FWD		BIT(7)
-#define CFG_ENABLE_OTH_MSG_FWD		BIT(13)
-#define CFG_ENABLE_VEN_MSG_EN		BIT(14)
-#define CFG_ENABLE_VEN_MSG_VEN_INV	BIT(15)
-#define CFG_ENABLE_VEN_MSG_VEN_ID	GENMASK(31, 16)
 #define CFG_ENABLE_MSG_FILTER_MASK	(CFG_ENABLE_PM_MSG_FWD | \
 					CFG_ENABLE_INT_MSG_FWD | \
-					CFG_ENABLE_ERR_MSG_FWD | \
-					CFG_ENABLE_SLT_MSG_FWD | \
-					CFG_ENABLE_VEN_MSG_FWD | \
-					CFG_ENABLE_OTH_MSG_FWD | \
-					CFG_ENABLE_VEN_MSG_EN | \
-					CFG_ENABLE_VEN_MSG_VEN_INV | \
-					CFG_ENABLE_VEN_MSG_VEN_ID)
+					CFG_ENABLE_ERR_MSG_FWD)
 
 /* Misc interrupt status mask bits */
 #define MSGF_MISC_SR_RXMSG_AVAIL	BIT(0)
@@ -186,6 +183,7 @@ struct nwl_pcie {
 	struct nwl_msi msi;
 	struct irq_domain *legacy_irq_domain;
 	struct clk *clk;
+	raw_spinlock_t leg_mask_lock;
 };
 
 static inline u32 nwl_bridge_readl(struct nwl_pcie *pcie, u32 off)
@@ -397,11 +395,52 @@ static void nwl_pcie_msi_handler_low(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
+static void nwl_mask_leg_irq(struct irq_data *data)
+{
+	struct irq_desc *desc = irq_to_desc(data->irq);
+	struct nwl_pcie *pcie;
+	unsigned long flags;
+	u32 mask;
+	u32 val;
+
+	pcie = irq_desc_get_chip_data(desc);
+	mask = 1 << (data->hwirq - 1);
+	raw_spin_lock_irqsave(&pcie->leg_mask_lock, flags);
+	val = nwl_bridge_readl(pcie, MSGF_LEG_MASK);
+	nwl_bridge_writel(pcie, (val & (~mask)), MSGF_LEG_MASK);
+	raw_spin_unlock_irqrestore(&pcie->leg_mask_lock, flags);
+}
+
+static void nwl_unmask_leg_irq(struct irq_data *data)
+{
+	struct irq_desc *desc = irq_to_desc(data->irq);
+	struct nwl_pcie *pcie;
+	unsigned long flags;
+	u32 mask;
+	u32 val;
+
+	pcie = irq_desc_get_chip_data(desc);
+	mask = 1 << (data->hwirq - 1);
+	raw_spin_lock_irqsave(&pcie->leg_mask_lock, flags);
+	val = nwl_bridge_readl(pcie, MSGF_LEG_MASK);
+	nwl_bridge_writel(pcie, (val | mask), MSGF_LEG_MASK);
+	raw_spin_unlock_irqrestore(&pcie->leg_mask_lock, flags);
+}
+
+static struct irq_chip nwl_leg_irq_chip = {
+	.name = "nwl_pcie:legacy",
+	.irq_enable = nwl_unmask_leg_irq,
+	.irq_disable = nwl_mask_leg_irq,
+	.irq_mask = nwl_mask_leg_irq,
+	.irq_unmask = nwl_unmask_leg_irq,
+};
+
 static int nwl_legacy_map(struct irq_domain *domain, unsigned int irq,
 			  irq_hw_number_t hwirq)
 {
-	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_simple_irq);
+	irq_set_chip_and_handler(irq, &nwl_leg_irq_chip, handle_level_irq);
 	irq_set_chip_data(irq, domain->host_data);
+	irq_set_status_flags(irq, IRQ_LEVEL);
 
 	return 0;
 }
@@ -469,7 +508,7 @@ static int nwl_irq_domain_alloc(struct irq_domain *domain, unsigned int virq,
 
 	for (i = 0; i < nr_irqs; i++) {
 		irq_domain_set_info(domain, virq + i, bit + i, &nwl_irq_chip,
-				domain->host_data, handle_simple_irq,
+				    domain->host_data, handle_simple_irq,
 				NULL, NULL);
 	}
 	mutex_unlock(&msi->lock);
@@ -477,7 +516,7 @@ static int nwl_irq_domain_alloc(struct irq_domain *domain, unsigned int virq,
 }
 
 static void nwl_irq_domain_free(struct irq_domain *domain, unsigned int virq,
-					unsigned int nr_irqs)
+				unsigned int nr_irqs)
 {
 	struct irq_data *data = irq_domain_get_irq_data(domain, virq);
 	struct nwl_pcie *pcie = irq_data_get_irq_chip_data(data);
@@ -540,6 +579,7 @@ static int nwl_pcie_init_irq_domain(struct nwl_pcie *pcie)
 		return -ENOMEM;
 	}
 
+	raw_spin_lock_init(&pcie->leg_mask_lock);
 	nwl_pcie_init_msi_irq_domain(pcie);
 	return 0;
 }
@@ -729,13 +769,18 @@ static int nwl_pcie_bridge_init(struct nwl_pcie *pcie)
 	/* Enable all misc interrupts */
 	nwl_bridge_writel(pcie, MSGF_MISC_SR_MASKALL, MSGF_MISC_MASK);
 
-
 	/* Disable all legacy interrupts */
 	nwl_bridge_writel(pcie, (u32)~MSGF_LEG_SR_MASKALL, MSGF_LEG_MASK);
 
 	/* Clear pending legacy interrupts */
 	nwl_bridge_writel(pcie, nwl_bridge_readl(pcie, MSGF_LEG_STATUS) &
 			  MSGF_LEG_SR_MASKALL, MSGF_LEG_STATUS);
+
+	/* Enabling DREG translations */
+	nwl_bridge_writel(pcie, DREG_DMA_EN, E_DREG_CTRL);
+	nwl_bridge_writel(pcie, DREG_DMA_BASE_LO, E_DREG_BASE_LO);
+	/* Enabling Root DMA interrupts */
+	nwl_bridge_writel(pcie, MSGF_INTR_EN, MSGF_DMA_MASK);
 
 	/* Enable all legacy interrupts */
 	nwl_bridge_writel(pcie, MSGF_LEG_SR_MASKALL, MSGF_LEG_MASK);
@@ -883,4 +928,5 @@ static struct platform_driver nwl_pcie_driver = {
 	},
 	.probe = nwl_pcie_probe,
 };
+
 builtin_platform_driver(nwl_pcie_driver);

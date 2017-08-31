@@ -28,9 +28,12 @@
 #include <linux/phy/phy.h>
 #include <linux/mmc/mmc.h>
 #include <linux/soc/xilinx/zynqmp/tap_delays.h>
+#include <linux/soc/xilinx/zynqmp/fw.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/regmap.h>
 #include "sdhci-pltfm.h"
 #include <linux/of.h>
+#include <linux/slab.h>
 
 #define SDHCI_ARASAN_CLK_CTRL_OFFSET	0x2c
 #define SDHCI_ARASAN_VENDOR_REGISTER	0x78
@@ -107,6 +110,8 @@ struct sdhci_arasan_data {
 	struct clk      *sdcardclk;
 
 	struct regmap	*soc_ctl_base;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pins_default;
 	const struct sdhci_arasan_soc_ctl_map *soc_ctl_map;
 	unsigned int	quirks; /* Arasan deviations from spec */
 
@@ -796,6 +801,30 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_arasan_data *sdhci_arasan;
 	struct device_node *np = pdev->dev.of_node;
+	unsigned int host_quirks2 = 0;
+
+	if (of_device_is_compatible(pdev->dev.of_node, "xlnx,zynqmp-8.9a")) {
+		char *soc_rev;
+
+		/* read Silicon version using nvmem driver */
+		soc_rev = zynqmp_nvmem_get_silicon_version(&pdev->dev,
+							   "soc_revision");
+		if (PTR_ERR(soc_rev) == -EPROBE_DEFER)
+			/* Do a deferred probe */
+			return -EPROBE_DEFER;
+		else if (IS_ERR(soc_rev))
+			dev_dbg(&pdev->dev, "Error getting silicon version\n");
+
+		/* Set host quirk if the silicon version is v1.0 */
+		if (!IS_ERR(soc_rev) && (*soc_rev == ZYNQMP_SILICON_V1))
+			host_quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
+
+		/* Clean soc_rev if got a valid pointer from nvmem driver
+		 * else we may end up in kernel panic
+		 */
+		if (!IS_ERR(soc_rev))
+			kfree(soc_rev);
+	}
 
 	host = sdhci_pltfm_init(pdev, &sdhci_arasan_pdata,
 				sizeof(*sdhci_arasan));
@@ -808,6 +837,8 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 
 	match = of_match_node(sdhci_arasan_of_match, pdev->dev.of_node);
 	sdhci_arasan->soc_ctl_map = match->data;
+
+	host->quirks2 |= host_quirks2;
 
 	node = of_parse_phandle(pdev->dev.of_node, "arasan,soc-ctl-syscon", 0);
 	if (node) {
@@ -900,6 +931,20 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 			sdhci_arasan_ops.platform_execute_tuning =
 				arasan_zynqmp_execute_tuning;
 		}
+	}
+
+	sdhci_arasan->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (!IS_ERR(sdhci_arasan->pinctrl)) {
+		sdhci_arasan->pins_default = pinctrl_lookup_state(
+							sdhci_arasan->pinctrl,
+							PINCTRL_STATE_DEFAULT);
+		if (IS_ERR(sdhci_arasan->pins_default)) {
+			dev_err(&pdev->dev, "Missing default pinctrl config\n");
+			return IS_ERR(sdhci_arasan->pins_default);
+		}
+
+		pinctrl_select_state(sdhci_arasan->pinctrl,
+				     sdhci_arasan->pins_default);
 	}
 
 	sdhci_arasan->phy = ERR_PTR(-ENODEV);

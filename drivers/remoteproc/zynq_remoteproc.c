@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 #include <linux/cpu.h>
 #include <linux/genalloc.h>
+#include <../../arch/arm/mach-zynq/common.h>
 
 #include "remoteproc_internal.h"
 
@@ -40,11 +41,6 @@
 #define NOTIFYID_ANY (-1)
 /* Maximum on chip memories used by the driver*/
 #define MAX_ON_CHIP_MEMS        32
-
-extern int zynq_cpun_start(u32 address, int cpu);
-
-/* Module parameter */
-static char *firmware = "firmware";
 
 /* Structure for storing IRQs */
 struct irq_list {
@@ -56,13 +52,13 @@ struct irq_list {
 struct ipi_info {
 	u32 irq;
 	u32 notifyid;
+	bool pending;
 };
 
 /* On-chip memory pool element */
 struct mem_pool_st {
 	struct list_head node;
 	struct gen_pool *pool;
-	u32 pd_id;
 };
 
 /* Private data */
@@ -95,6 +91,22 @@ static void ipi_kick(void)
 	schedule_work(&workqueue);
 }
 
+static void kick_pending_ipi(struct rproc *rproc)
+{
+	struct zynq_rproc_pdata *local = rproc->priv;
+	int i;
+
+	for (i = 0; i < MAX_NUM_VRINGS; i++) {
+
+		/* Send swirq to firmware */
+		if (local->ipis[i].pending == true) {
+			gic_raise_softirq(cpumask_of(1),
+					local->ipis[i].irq);
+			local->ipis[i].pending = false;
+		}
+	}
+}
+
 static int zynq_rproc_start(struct rproc *rproc)
 {
 	struct device *dev = rproc->dev.parent;
@@ -103,7 +115,16 @@ static int zynq_rproc_start(struct rproc *rproc)
 	dev_dbg(dev, "%s\n", __func__);
 	INIT_WORK(&workqueue, handle_event);
 
+	ret = cpu_down(1);
+	/* EBUSY means CPU is already released */
+	if (ret && (ret != -EBUSY)) {
+		dev_err(dev, "Can't release cpu1\n");
+		return ret;
+	}
+
 	ret = zynq_cpun_start(rproc->bootaddr, 1);
+	/* Trigger pending kicks */
+	kick_pending_ipi(rproc);
 
 	return ret;
 }
@@ -127,8 +148,14 @@ static void zynq_rproc_kick(struct rproc *rproc, int vqid)
 			/* Send swirq to firmware */
 			if (rvring->notifyid == vqid) {
 				local->ipis[i].notifyid = vqid;
-				gic_raise_softirq(cpumask_of(1),
+				/* As we do not turn off CPU1 until start,
+				 * we delay firmware kick
+				 */
+				if (rproc->state == RPROC_RUNNING)
+					gic_raise_softirq(cpumask_of(1),
 						local->ipis[i].irq);
+				else
+					local->ipis[i].pending = true;
 			}
 		}
 
@@ -138,9 +165,16 @@ static void zynq_rproc_kick(struct rproc *rproc, int vqid)
 /* power off the remote processor */
 static int zynq_rproc_stop(struct rproc *rproc)
 {
+	int ret;
+	struct device *dev = rproc->dev.parent;
+
 	dev_dbg(rproc->dev.parent, "%s\n", __func__);
 
-	/* FIXME missing reset option */
+	/* Cpu can't be power on - for example in nosmp mode */
+	ret = cpu_up(1);
+	if (ret)
+		dev_err(dev, "Can't power on cpu1 %d\n", ret);
+
 	return 0;
 }
 
@@ -252,31 +286,22 @@ static int zynq_rproc_add_mems(struct zynq_rproc_pdata *pdata)
 
 static int zynq_remoteproc_probe(struct platform_device *pdev)
 {
-	const unsigned char *prop;
 	int ret = 0;
 	struct irq_list *tmp;
 	int count = 0;
 	struct zynq_rproc_pdata *local;
-	struct device_node *tmp_node;
 	struct gen_pool *mem_pool = NULL;
 	struct mem_pool_st *mem_node = NULL;
 	char mem_name[16];
 	int i;
 
-	ret = cpu_down(1);
-	/* EBUSY means CPU is already released */
-	if (ret && (ret != -EBUSY)) {
-		dev_err(&pdev->dev, "Can't release cpu1\n");
-		return ret;
-	}
-
 	rproc = rproc_alloc(&pdev->dev, dev_name(&pdev->dev),
-		&zynq_rproc_ops, firmware,
+		&zynq_rproc_ops, NULL,
 		sizeof(struct zynq_rproc_pdata));
 	if (!rproc) {
 		dev_err(&pdev->dev, "rproc allocation failed\n");
 		ret = -ENOMEM;
-		goto cpu_down_fault;
+		return ret;
 	}
 	local = rproc->priv;
 	local->rproc = rproc;
@@ -302,7 +327,6 @@ static int zynq_remoteproc_probe(struct platform_device *pdev)
 
 		tmp = kzalloc(sizeof(struct irq_list), GFP_KERNEL);
 		if (!tmp) {
-			dev_err(&pdev->dev, "Unable to alloc irq list\n");
 			ret = -ENOMEM;
 			goto irq_fault;
 		}
@@ -312,7 +336,8 @@ static int zynq_remoteproc_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "%d: Alloc irq: %d\n", count, tmp->irq);
 
 		/* Allocating shared IRQs will ensure that any module will
-		 * use these IRQs */
+		 * use these IRQs
+		 */
 		ret = request_irq(tmp->irq, zynq_remoteproc_interrupt, 0,
 					dev_name(&pdev->dev), &pdev->dev);
 		if (ret) {
@@ -355,21 +380,14 @@ static int zynq_remoteproc_probe(struct platform_device *pdev)
 		goto ipi_fault;
 	}
 
-	if (!prop) {
-		ret = -ENODEV;
-		dev_err(&pdev->dev, "No firmware\n");
-		goto ipi_fault;
-	}
-
-	dev_dbg(&pdev->dev, "Using firmware: %s\n", prop);
-
 	/* Find on-chip memory */
 	INIT_LIST_HEAD(&local->mem_pools);
 	INIT_LIST_HEAD(&local->mems);
-	for (i = 0; i < MAX_ON_CHIP_MEMS; i++) {
-		sprintf(mem_name, "sram_%d", i);
+	for (i = 0; ; i++) {
+		char *srams_name = "srams";
+
 		mem_pool = of_gen_pool_get(pdev->dev.of_node,
-					mem_name, 0);
+					   srams_name, i);
 		if (mem_pool) {
 			mem_node = devm_kzalloc(&pdev->dev,
 					sizeof(struct mem_pool_st),
@@ -377,21 +395,9 @@ static int zynq_remoteproc_probe(struct platform_device *pdev)
 			if (!mem_node)
 				goto ipi_fault;
 			mem_node->pool = mem_pool;
-			/* Get the memory node power domain id */
-			tmp_node = of_parse_phandle(pdev->dev.of_node,
-						mem_name, 0);
-			if (tmp_node) {
-				struct device_node *pd_node;
-
-				pd_node = of_parse_phandle(tmp_node,
-						"pd-handle", 0);
-				if (pd_node)
-					of_property_read_u32(pd_node,
-						"pd-id", &mem_node->pd_id);
-			}
-			dev_dbg(&pdev->dev, "mem[%d] pd_id = %d.\n",
-				i, mem_node->pd_id);
 			list_add_tail(&mem_node->node, &local->mem_pools);
+		} else {
+			break;
 		}
 	}
 	ret = zynq_rproc_add_mems(local);
@@ -417,10 +423,6 @@ irq_fault:
 dma_mask_fault:
 	rproc_free(rproc);
 
-cpu_down_fault:
-	if (cpu_up(1)) /* Cpu can't power on for example in nosmp mode */
-		dev_err(&pdev->dev, "Can't power on cpu1\n");
-
 	return ret;
 }
 
@@ -429,7 +431,6 @@ static int zynq_remoteproc_remove(struct platform_device *pdev)
 	struct rproc *rproc = platform_get_drvdata(pdev);
 	struct zynq_rproc_pdata *local = rproc->priv;
 	struct rproc_mem_entry *mem;
-	u32 ret;
 
 	dev_info(&pdev->dev, "%s\n", __func__);
 
@@ -445,11 +446,6 @@ static int zynq_remoteproc_remove(struct platform_device *pdev)
 	}
 
 	rproc_free(rproc);
-
-	/* Cpu can't be power on - for example in nosmp mode */
-	ret = cpu_up(1);
-	if (ret)
-		dev_err(&pdev->dev, "Can't power on cpu1 %d\n", ret);
 
 	return 0;
 }
@@ -470,9 +466,6 @@ static struct platform_driver zynq_remoteproc_driver = {
 	},
 };
 module_platform_driver(zynq_remoteproc_driver);
-
-module_param(firmware, charp, 0);
-MODULE_PARM_DESC(firmware, "Override the firmware image name. Default value in DTS.");
 
 MODULE_AUTHOR("Michal Simek <monstr@monstr.eu");
 MODULE_LICENSE("GPL v2");

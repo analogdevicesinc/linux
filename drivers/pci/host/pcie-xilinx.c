@@ -506,37 +506,6 @@ error:
 }
 
 /**
- * xilinx_pcie_free_irq_domain - Free IRQ domain
- * @port: PCIe port information
- */
-static void xilinx_pcie_free_irq_domain(struct xilinx_pcie_port *port)
-{
-	int i;
-	u32 irq, num_irqs;
-
-	/* Free IRQ Domain */
-	if (IS_ENABLED(CONFIG_PCI_MSI)) {
-
-		free_pages(port->msi_pages, 0);
-
-		num_irqs = XILINX_NUM_MSI_IRQS;
-	} else {
-		/* INTx */
-		num_irqs = 4;
-	}
-
-	for (i = 0; i < num_irqs; i++) {
-		irq = irq_find_mapping(port->leg_domain, i + 1);
-		if (irq > 0)
-			irq_dispose_mapping(irq);
-	}
-	if (port->leg_domain)
-		irq_domain_remove(port->leg_domain);
-	if (port->msi_domain)
-		irq_domain_remove(port->msi_domain);
-}
-
-/**
  * xilinx_pcie_init_irq_domain - Initialize IRQ domain
  * @port: PCIe port information
  *
@@ -725,7 +694,7 @@ error:
 	return err;
 }
 
-static struct of_device_id xilinx_pcie_of_match[] = {
+static const struct of_device_id xilinx_pcie_of_match[] = {
 	{ .compatible = "xlnx,axi-pcie-host-1.00.a", },
 	{}
 };

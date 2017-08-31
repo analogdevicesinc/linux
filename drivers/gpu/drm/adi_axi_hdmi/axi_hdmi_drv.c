@@ -128,7 +128,6 @@ static struct drm_driver axi_hdmi_driver = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM,
 	.load			= axi_hdmi_load,
 	.unload			= axi_hdmi_unload,
-	.set_busid		= drm_platform_set_busid,
 	.lastclose		= axi_hdmi_lastclose,
 	.gem_free_object	= drm_gem_cma_free_object,
 	.gem_vm_ops		= &drm_gem_cma_vm_ops,
