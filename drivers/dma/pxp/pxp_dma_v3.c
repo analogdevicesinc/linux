@@ -1852,6 +1852,7 @@ static bool fmt_ps_support(uint32_t format)
 	case PXP_PIX_FMT_NV21:
 	case PXP_PIX_FMT_YUV422P:
 	case PXP_PIX_FMT_YUV420P:
+	case PXP_PIX_FMT_YVU420P:
 	case PXP_PIX_FMT_RGBA32:
 	case PXP_PIX_FMT_RGBX32:
 	case PXP_PIX_FMT_RGBA555:
@@ -2379,7 +2380,13 @@ static int pxp_ps_config(struct pxp_pixmap *input,
 			pxp_writel(U + (offset >> 2), HW_PXP_PS_UBUF);
 			V = U + (input->width * input->height >> 2);
 			pxp_writel(V + (offset >> 2), HW_PXP_PS_VBUF);
+		} else if (input->format == PXP_PIX_FMT_YVU420P) {
+			U = input->paddr + input->width * input->height;
+			V = U + (input->width * input->height >> 2);
+			pxp_writel(U + (offset >> 2), HW_PXP_PS_VBUF);
+			pxp_writel(V + (offset >> 2), HW_PXP_PS_UBUF);
 		}
+
 		break;
 	default:
 		break;
