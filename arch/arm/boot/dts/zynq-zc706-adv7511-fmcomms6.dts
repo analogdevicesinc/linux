@@ -12,7 +12,7 @@
 };
 
 &fpga_axi {
-	rx_dma: rx-dmac@7c400000 {
+	rx_dma: rx-dmac@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;

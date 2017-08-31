@@ -148,13 +148,7 @@
 			};
 		};
 
-		audio_clock: audio_clock {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <12288000>;
-		};
-
-		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
+		axi_spdif_tx_0: axi-spdif-tx@75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = <0x75c00000 0x1000>;
 			dmas = <&dmac_s 0>;
@@ -164,25 +158,31 @@
 
 			#sound-dai-cells = <0>;
 		};
+	};
 
-		adv7511_hdmi_snd {
-			compatible = "simple-audio-card";
-			simple-audio-card,name = "HDMI monitor";
-			simple-audio-card,widgets =
-				"Speaker", "Speaker";
-			simple-audio-card,routing =
-				"Speaker", "TMDS";
+	audio_clock: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
 
-			simple-audio-card,dai-link@0 {
-				format = "spdif";
-				cpu {
-					sound-dai = <&axi_spdif_tx_0>;
-					frame-master;
-					bitclock-master;
-				};
-				codec {
-					sound-dai = <&adv7511>;
-				};
+	adv7511_hdmi_snd {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI monitor";
+		simple-audio-card,widgets =
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"Speaker", "TMDS";
+
+		simple-audio-card,dai-link@0 {
+			format = "spdif";
+			cpu {
+				sound-dai = <&axi_spdif_tx_0>;
+				frame-master;
+				bitclock-master;
+			};
+			codec {
+				sound-dai = <&adv7511>;
 			};
 		};
 	};

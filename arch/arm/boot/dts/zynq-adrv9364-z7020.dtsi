@@ -173,9 +173,9 @@
 			dma-names = "tx";
 		};
 
-		mwipcore@43C00000 {
+		mwipcore@43c00000 {
 			compatible = "mathworks,mwipcore-axi4lite-v1.00";
-			reg = <0x43C00000 0xffff>;
+			reg = <0x43c00000 0xffff>;
 		};
 	};
 };

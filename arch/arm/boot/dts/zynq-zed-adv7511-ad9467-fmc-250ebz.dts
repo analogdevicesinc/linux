@@ -4,7 +4,7 @@
 /include/ "zynq-zed-adv7511.dtsi"
 
 &fpga_axi {
-	rx_dma: rx-dmac@44A30000 {
+	rx_dma: rx-dmac@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44A30000 0x10000>;
 		#dma-cells = <1>;
@@ -16,7 +16,7 @@
 		};
 	};
 
-	cf_ad9467_core_0: cf-ad9467-core-lpc@44A00000 {
+	cf_ad9467_core_0: cf-ad9467-core-lpc@44a00000 {
 		compatible = "xlnx,cf-ad9467-core-1.00.a";
 		reg = <0x44A00000 0x10000>;
 		dmas = <&rx_dma 0>;

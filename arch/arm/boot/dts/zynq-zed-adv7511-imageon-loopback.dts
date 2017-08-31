@@ -11,9 +11,9 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		i2c@43C40000 {
+		i2c@43c40000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-			reg = <0x43C40000 0x10000>;
+			reg = <0x43c40000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 55 0x4>;
 			clocks = <&clkc 15>;
@@ -126,30 +126,30 @@
 				};
 			};
 		};
+	};
 
-		imageon_bridge {
-			compatible = "adi,imageon-v4l2-bridge-1.00.a";
+	imageon_bridge {
+		compatible = "adi,imageon-v4l2-bridge-1.00.a";
 
-			interrupt-parent = <&gpio0>;
-			interrupts = <86 0>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <86 0>;
 
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-				port@0 {
-				    reg = <0>;
-				    imageon_input: endpoint {
-				        remote-endpoint = <&adv7611>;
-				    };
-				};
+			port@0 {
+			    reg = <0>;
+			    imageon_input: endpoint {
+			        remote-endpoint = <&adv7611>;
+			    };
+			};
 
-				port@1 {
-				    reg = <1>;
-				    imageon_output: endpoint {
-				        remote-endpoint = <&adv7511_media>;
-				    };
-				};
+			port@1 {
+			    reg = <1>;
+			    imageon_output: endpoint {
+			        remote-endpoint = <&adv7511_media>;
+			    };
 			};
 		};
 	};

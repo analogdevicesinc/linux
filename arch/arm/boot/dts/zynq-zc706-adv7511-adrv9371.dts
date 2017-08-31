@@ -69,7 +69,7 @@
 
 	axi_ad9371_core_rx: axi-ad9371-rx-hpc@44a00000 {
 		compatible = "adi,axi-ad9371-rx-1.0";
-		reg = < 0x44a00000 0x8000 >;
+		reg = <0x44a00000 0x8000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 		spibus-connected = <&trx0_ad9371>;
@@ -77,7 +77,7 @@
 
 	axi_ad9371_core_rx_obs: axi-ad9371-rx-obs-hpc@44a08000 {
 		compatible = "adi,axi-ad9371-obs-1.0";
-		reg = < 0x44a08000 0x1000 >;
+		reg = <0x44a08000 0x1000>;
 		dmas = <&rx_obs_dma 0>;
 		dma-names = "rx";
 		clocks = <&trx0_ad9371 1>;
@@ -86,7 +86,7 @@
 
 	axi_ad9371_core_tx: axi-ad9371-tx-hpc@44a04000 {
 		compatible = "adi,axi-ad9371-tx-1.0";
-		reg = < 0x44a04000 0x4000 >;
+		reg = <0x44a04000 0x4000>;
 		dmas = <&tx_dma 0>;
 		dma-names = "tx";
 		clocks = <&trx0_ad9371 2>;
@@ -98,7 +98,7 @@
 	axi_ad9371_rx_jesd: axi-jesd204b-rx@44a91000 {
 		#clock-cells = <0>;
 		compatible = "xlnx,jesd204-5.1";
-		reg = < 0x44a91000 0x1000 >;
+		reg = <0x44a91000 0x1000>;
 
 		clocks = <&axi_ad9371_adxcvr_rx>;
 		clock-names = "rx_gt_clk";
@@ -117,7 +117,7 @@
 	axi_ad9371_tx_jesd: axi-jesd204b-tx@44a90000 {
 		#clock-cells = <0>;
 		compatible = "xlnx,jesd204-5.1";
-		reg = < 0x44a90000 0x1000 >;
+		reg = <0x44a90000 0x1000>;
 
 		clocks = <&axi_ad9371_adxcvr_tx>;
 		clock-names = "tx_gt_clk";
@@ -136,7 +136,7 @@
 	axi_ad9371_rx_os_jesd: axi-jesd204b-rx-os@44a92000 {
 		#clock-cells = <0>;
 		compatible = "xlnx,jesd204-5.1";
-		reg = < 0x44a92000 0x1000 >;
+		reg = <0x44a92000 0x1000>;
 
 		clocks = <&axi_ad9371_adxcvr_rx_os>;
 		clock-names = "rx_os_gt_clk";
@@ -153,26 +153,26 @@
 	};
 
 
-	axi_tx_clkgen: axi-clkgen@43C00000  {
+	axi_tx_clkgen: axi-clkgen@43c00000  {
 		compatible = "adi,axi-clkgen-2.00.a";
-		reg = <0x43C00000 0x10000>;
+		reg = <0x43c00000 0x10000>;
 		#clock-cells = <0>;
 		clocks = <&clk0_ad9528 1>;
 		clock-output-names = "axi_tx_clkgen";
 	};
 
-	axi_rx_clkgen: axi-clkgen@43C10000  {
+	axi_rx_clkgen: axi-clkgen@43c10000  {
 		compatible = "adi,axi-clkgen-2.00.a";
-		reg = <0x43C10000 0x10000>;
+		reg = <0x43c10000 0x10000>;
 		#clock-cells = <0>;
 		clocks = <&clk0_ad9528 1>;
 		clock-output-names = "axi_rx_clkgen";
 
 	};
 
-	axi_rx_os_clkgen: axi-clkgen@43C20000  {
+	axi_rx_os_clkgen: axi-clkgen@43c20000  {
 		compatible = "adi,axi-clkgen-2.00.a";
-		reg = <0x43C20000 0x10000>;
+		reg = <0x43c20000 0x10000>;
 		#clock-cells = <0>;
 		clocks = <&clk0_ad9528 1>;
 		clock-output-names = "axi_rx_os_clkgen";
@@ -183,7 +183,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,axi-adxcvr-1.0";
-		reg = < 0x44a60000 0x1000 >;
+		reg = <0x44a60000 0x1000>;
 
 		#clock-cells = <0>;
 		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_rx_clkgen 0>;
@@ -199,7 +199,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,axi-adxcvr-1.0";
-		reg = < 0x44a70000 0x1000 >;
+		reg = <0x44a70000 0x1000>;
 
 		#clock-cells = <0>;
 		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_rx_os_clkgen 0>;
@@ -215,7 +215,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,axi-adxcvr-1.0";
-		reg = < 0x44a80000 0x1000 >;
+		reg = <0x44a80000 0x1000>;
 
 		#clock-cells = <0>;
 		clocks = <&clk0_ad9528 1>, <&clk0_ad9528 3>, <&axi_tx_clkgen 0>;

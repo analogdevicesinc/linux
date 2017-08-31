@@ -160,6 +160,37 @@
 		compatible = "gpio-poweroff";
 		gpios = <&gpio0 77 GPIO_ACTIVE_LOW>;
 	};
+
+	audio_clock: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
+
+
+	pzsdr_sound {
+		compatible = "simple-audio-card-adrv936x-box";
+		simple-audio-card,name = "ADRV9361-Z7035 ADAU1761";
+		simple-audio-card,widgets =
+			"Microphone", "Mic In",
+			"Headphone", "Headphone Out";
+		simple-audio-card,routing =
+			"Headphone Out", "LHP",
+			"Headphone Out", "RHP",
+			"Mic In", "MICBIAS",
+			"LINN", "Mic In";
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&axi_i2s_0>;
+				frame-master;
+				bitclock-master;
+			};
+			codec {
+				sound-dai = <&adau1761>;
+			};
+		};
+	};
 };
 
 &gpio0 {
@@ -247,46 +278,16 @@
 };
 
 &fpga_axi {
-		audio_clock: audio_clock {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <12288000>;
-		};
+	axi_i2s_0: axi-i2s@77600000 {
+		compatible = "adi,axi-i2s-1.00.a";
+		reg = <0x77600000 0x1000>;
+		dmas = <&dmac_s 0 &dmac_s 1>;
+		dma-names = "tx", "rx";
+		clocks = <&clkc 15>, <&audio_clock>;
+		clock-names = "axi", "ref";
 
-		axi_i2s_0: axi-i2s@0x77600000 {
-			compatible = "adi,axi-i2s-1.00.a";
-			reg = <0x77600000 0x1000>;
-			dmas = <&dmac_s 0 &dmac_s 1>;
-			dma-names = "tx", "rx";
-			clocks = <&clkc 15>, <&audio_clock>;
-			clock-names = "axi", "ref";
-
-			#sound-dai-cells = <0>;
-		};
-
-		pzsdr_sound {
-			compatible = "simple-audio-card-adrv936x-box";
-			simple-audio-card,name = "ADRV9361-Z7035 ADAU1761";
-			simple-audio-card,widgets =
-				"Microphone", "Mic In",
-				"Headphone", "Headphone Out";
-			simple-audio-card,routing =
-				"Headphone Out", "LHP",
-				"Headphone Out", "RHP",
-				"Mic In", "MICBIAS",
-				"LINN", "Mic In";
-			simple-audio-card,dai-link@0 {
-				format = "i2s";
-				cpu {
-					sound-dai = <&axi_i2s_0>;
-					frame-master;
-					bitclock-master;
-				};
-				codec {
-					sound-dai = <&adau1761>;
-				};
-			};
-		};
+		#sound-dai-cells = <0>;
+	};
 };
 /*
 

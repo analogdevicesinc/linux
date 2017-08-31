@@ -138,23 +138,23 @@
 		reg = <0x0>;
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <4>;
-		partition@0x00000000 {
+		partition@0 {
 			label = "boot";
 			reg = <0x00000000 0x00500000>;
 		};
-		partition@0x00500000 {
+		partition@500000 {
 			label = "bootenv";
 			reg = <0x00500000 0x00020000>;
 		};
-		partition@0x00520000 {
+		partition@520000 {
 			label = "config";
 			reg = <0x00520000 0x00020000>;
 		};
-		partition@0x00540000 {
+		partition@540000 {
 			label = "image";
 			reg = <0x00540000 0x00a80000>;
 		};
-		partition@0x00fc0000 {
+		partition@fc0000 {
 			label = "spare";
 			reg = <0x00fc0000 0x00000000>;
 		};
