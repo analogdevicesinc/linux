@@ -187,11 +187,9 @@ struct adxcvr_state {
 	struct clk			*conv_clk;
 	struct clk			*sysref_clk;
 	struct clk			*lane_rate_div40_clk;
-	struct clk			*out_clk;
 	struct clk_hw		out_clk_hw;
 	bool				out_clk_enabled;
 	struct work_struct	work;
-	struct device_node *node;
 	unsigned long		lane_rate;
 	bool				gth_enable;
 	bool				tx_enable;
@@ -369,7 +367,7 @@ static int adxcvr_status_error(struct device *dev)
 	} while ((timeout--) && (status == 0));
 
 	if (!status) {
-		dev_err(dev, "%s Error", st->tx_enable ? "TX" : "RX");
+		dev_err(dev, "%s Error: %x", st->tx_enable ? "TX" : "RX", status);
 		return -EIO;
 	}
 
@@ -894,7 +892,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, out_clk_hw);
 	u32 refclk_div, out_div, fbdiv_45, fbdiv, fbdiv_ratio, lowband;
-	int ret, pll_done = 0;
+	int ret;
 
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
@@ -922,22 +920,17 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 						  CPLL_FBDIV_N2_MASK,
 						  (refclk_div << 8) | (fbdiv_45 << 7) | fbdiv);
 	} else {
+		adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
+						  QPLL_CFG0_BAND_MASK, lowband);
 
-		if (!pll_done) {
-			adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
-							  QPLL_CFG0_BAND_MASK, lowband);
+		adxcvr_drp_writef(st, QPLL_REFCLK_DIV_M_ADDR,
+						  QPLL_REFCLK_DIV_M_MASK, refclk_div);
 
-			adxcvr_drp_writef(st, QPLL_REFCLK_DIV_M_ADDR,
-							  QPLL_REFCLK_DIV_M_MASK, refclk_div);
+		adxcvr_drp_writef(st, QPLL_FBDIV_N_ADDR,
+						  QPLL_FBDIV_N_MASK, fbdiv);
 
-			adxcvr_drp_writef(st, QPLL_FBDIV_N_ADDR,
-							  QPLL_FBDIV_N_MASK, fbdiv);
-
-			adxcvr_drp_writef(st, QPLL_FBDIV_RATIO_ADDR,
-							  QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
-
-			pll_done = 1;
-		}
+		adxcvr_drp_writef(st, QPLL_FBDIV_RATIO_ADDR,
+						  QPLL_FBDIV_RATIO_MASK, fbdiv_ratio);
 	}
 
 	ret = adxcvr_drp_writef(st, RXOUT_DIV_ADDR,
@@ -963,10 +956,8 @@ static const struct clk_ops clkout_ops = {
 
 };
 
-static struct clk *adxcvr_clk_register(struct device *dev,
-									   struct device_node *node,
-									   const char *parent_name,
-									   unsigned int num)
+static int adxcvr_clk_register(struct device *dev, struct device_node *node,
+	const char *parent_name)
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
 	struct clk_init_data init;
@@ -977,7 +968,7 @@ static struct clk *adxcvr_clk_register(struct device *dev,
 	ret = of_property_read_string_index(node, "clock-output-names",
 		0, &clk_name);
 	if (ret < 0)
-		return ERR_PTR(ret);
+		return ret;
 
 	init.name = clk_name;
 	init.ops = &clkout_ops;
@@ -989,10 +980,11 @@ static struct clk *adxcvr_clk_register(struct device *dev,
 	st->out_clk_hw.init = &init;
 
 	/* register the clock */
-	clk = clk_register(dev, &st->out_clk_hw);
-	st->out_clk = clk;
+	clk = devm_clk_register(dev, &st->out_clk_hw);
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
 
-	return clk;
+	return of_clk_add_provider(node, of_clk_src_simple_get, clk);
 }
 
 static int adxcvr_parse_dt(struct adxcvr_state *st,
@@ -1000,22 +992,12 @@ static int adxcvr_parse_dt(struct adxcvr_state *st,
 {
 	int ret;
 
-	st->conv_clk = of_clk_get_by_name(np, "conv");
-	if (IS_ERR(st->conv_clk))
-		return -EPROBE_DEFER;
-
-	ret = clk_prepare_enable(st->conv_clk);
-	if (ret < 0)
-		return ret;
-
 	st->sysref_clk = of_clk_get_by_name(np, "sysref");
 	if (!IS_ERR(st->sysref_clk)) {
 		ret = clk_prepare_enable(st->sysref_clk);
 		if (ret < 0)
 			return ret;
 	}
-
-	st->lane_rate_div40_clk = of_clk_get_by_name(np, "div40");
 
 	st->gth_enable =
 		of_property_read_bool(np, "adi,transceiver-gth-enable");
@@ -1032,8 +1014,6 @@ static int adxcvr_parse_dt(struct adxcvr_state *st,
 	st->lpm_enable = of_property_read_bool(np,
 				"adi,use-lpm-enable");
 
-	st->node = np;
-
 	st->encoding = ENC_8B10B;
 	st->ppm = PM_200; /* TODO use clock accuracy */
 
@@ -1049,12 +1029,6 @@ static void adxcvr_disable_unprepare_clocks(struct adxcvr_state *st)
 
 	if (!IS_ERR(st->sysref_clk))
 		clk_disable_unprepare(st->sysref_clk);
-}
-
-static void adxcvr_unregister_clock(struct adxcvr_state *st)
-{
-	if (!IS_ERR(st->out_clk))
-		clk_unregister(st->out_clk);
 }
 
 static void adxcvr_unregister_clock_provider(struct platform_device *pdev)
@@ -1075,14 +1049,25 @@ static int adxcvr_probe(struct platform_device *pdev)
 	struct adxcvr_state *st;
 	struct resource *mem; /* IO mem resources */
 	unsigned int version;
-	struct clk *clk;
 	int ret;
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
-	if (!st) {
-		dev_err(&pdev->dev, "Not enough memory for device\n");
+	if (!st)
 		return -ENOMEM;
+
+	st->conv_clk = devm_clk_get(&pdev->dev, "conv");
+	if (IS_ERR(st->conv_clk))
+		return PTR_ERR(st->conv_clk);
+
+	st->lane_rate_div40_clk = devm_clk_get(&pdev->dev, "div40");
+	if (IS_ERR(st->lane_rate_div40_clk)) {
+		if (PTR_ERR(st->lane_rate_div40_clk) != -ENOENT)
+			return PTR_ERR(st->lane_rate_div40_clk);
 	}
+
+	ret = clk_prepare_enable(st->conv_clk);
+	if (ret < 0)
+		return ret;
 
 	ret = adxcvr_parse_dt(st, np);
 	if (ret < 0)
@@ -1106,24 +1091,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 				  ADXCVR_SYSCLK_SEL(st->sys_clk_sel) |
 				  ADXCVR_OUTCLK_SEL(st->out_clk_sel)));
 
-	st->out_clk = devm_kzalloc(&pdev->dev,
-					 sizeof(st->out_clk), GFP_KERNEL);
-	if (!st->out_clk) {
-		dev_err(&pdev->dev, "Could not allocate memory\n");
-		ret = -ENOMEM;
-		goto disable_unprepare;
-	}
-
-	clk = adxcvr_clk_register(&pdev->dev, st->node,
-							  __clk_get_name(st->conv_clk), 0);
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		goto unregister_clock;
-	}
-
-	if (!IS_ERR(st->out_clk))
-		of_clk_add_provider(st->node, of_clk_src_simple_get,
-							st->out_clk);
+	ret = adxcvr_clk_register(&pdev->dev, np, __clk_get_name(st->conv_clk));
+	if (ret)
+		return ret;
 
 	st->sysref_gpio = devm_gpiod_get_optional(&pdev->dev, "sysref",
 											  GPIOD_OUT_HIGH);
@@ -1135,9 +1105,6 @@ static int adxcvr_probe(struct platform_device *pdev)
 		(unsigned long long)mem->start, st->regs);
 
 	return 0;
-
-unregister_clock:
-	adxcvr_unregister_clock(st);
 
 disable_unprepare:
 	adxcvr_disable_unprepare_clocks(st);
@@ -1158,7 +1125,6 @@ static int adxcvr_remove(struct platform_device *pdev)
 	struct adxcvr_state *st = platform_get_drvdata(pdev);
 
 	adxcvr_unregister_clock_provider(pdev);
-	adxcvr_unregister_clock(st);
 	adxcvr_disable_unprepare_clocks(st);
 
 	return 0;

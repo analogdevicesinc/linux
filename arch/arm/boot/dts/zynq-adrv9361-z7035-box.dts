@@ -4,6 +4,10 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
+/ {
+	model = "Analog Devices ADRV9361-Z7035 RFSOM-BOX (Z7035/AD9361)";
+};
+
 &adm1166 {
 	reg = <0x6A>;
 };
@@ -33,12 +37,24 @@
 		compatible = "ti,ts3a227e";
 		reg = <0x3b>;
 		interrupt-parent = <&gpio0>;
-		//interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
+		ti,micbias = <1>; /* 2.2 Volt */
+		ti,insertion-debounce-time = <6>; /* 1 sec */
 	};
 
 	rtc@68 {
 		compatible = "dallas,ds3232";
-		reg = <0x68>;
+		reg = <0x69>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <80 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+
+	fuelgauge: ltc2942@64 {
+		compatible = "lltc,ltc2942";
+		reg = <0x64>;
+		lltc,resistor-sense = <20>;
+		lltc,prescaler-exponent = <5>; /* 2^(2*5) = 1024 */
 	};
 };
 
@@ -64,7 +80,7 @@
 		};
 	};
 
-	gpio-keys {
+	gpio-keys-power {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "gpio-keys";
@@ -79,6 +95,65 @@
 			linux,code = <KEY_POWER>;
 			gpio-key,wakeup;
 		};
+	};
+
+	gpio-keys-nav-switch {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&gpio0>;
+//		autorepeat;
+
+		s5 {
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			interrupts = <101 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 101 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+
+		s3 {
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			interrupts = <103 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 103 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+			};
+
+		s4 {
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			interrupts = <102 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 102 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+
+		s2 {
+			label = "Up";
+			linux,code = <KEY_UP>;
+			interrupts = <104 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 104 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+
+		s1 {
+			label = "Enter";
+			linux,code = <KEY_ENTER>;
+			interrupts = <111 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 111 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+		};
+
+	};
+
+	rotary {
+			compatible = "rotary-encoder";
+			gpios = <&gpio0 112 1>, <&gpio0 113 1>;
+			linux,axis = <REL_WHEEL>;
+			rotary-encoder,steps = <24>;
+			rotary-encoder,steps-per-period = <2>;
+			rotary-encoder,rollover;
+			rotary-encoder,relative-axis;
 	};
 
 	poweroff {
@@ -148,13 +223,13 @@
 	is-decoded-cs = <0>;
 
 	adis16460@0{
-		compatible = "adi,adis16445";
+		compatible = "adi,adis16460";
 		reg = <0>;
-		status = "ok";
-
-		spi-max-frequency = <2000000>;
+		spi-max-frequency = <1000000>;
 		spi-cpol;
 		spi-cpha;
+		interrupt-parent = <&gpio0>;
+		interrupts = <82 IRQ_TYPE_EDGE_RISING>;
 	};
 };
 
@@ -190,7 +265,7 @@
 		};
 
 		pzsdr_sound {
-			compatible = "simple-audio-card";
+			compatible = "simple-audio-card-adrv936x-box";
 			simple-audio-card,name = "ADRV9361-Z7035 ADAU1761";
 			simple-audio-card,widgets =
 				"Microphone", "Mic In",
@@ -215,7 +290,7 @@
 };
 /*
 
-input	imu_ready	PS_INTR_0
+input	imu_ready	28	82
 output	imu_rstn	9	63
 inout	imu_sync	8	62
 
@@ -238,6 +313,8 @@ inout	adp5061_io_0	16	70
 inout	adp5061_io_1	17	71
 inout	adp5061_io_2	18	72
 
+	rtc_int		26	80
+
 inout	ltc2955_kill_n	23	77
 inout	ltc2955_int_n	22	76
 inout	mic_present_n	20	74
@@ -258,6 +335,14 @@ inout	gpio_sync	45	99
 inout	gpio_en_agc	44	98
 inout	gpio_ctl	40..43	94..97
 inout	gpio_status	32..39	86..93
+
+tsw_a    59	113
+tsw_b    58	112
+tsw_s1   57	111
+tsw_s2   50	104
+tsw_s3   49	103
+tsw_s4   48	102
+tsw_s5   47	101
 
 */
 

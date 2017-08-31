@@ -43,7 +43,11 @@ struct ad9144_state {
 	struct regmap *map;
 };
 
-static const char *clk_names[3] = { "jesd_dac_clk", "dac_clk", "dac_sysref" };
+static const char * const clk_names[] = {
+	[CLK_DATA] = "jesd_dac_clk",
+	[CLK_DAC] = "dac_clk",
+	[CLK_REF] = "dac_sysref"
+};
 
 static int ad9144_read(struct spi_device *spi, unsigned reg)
 {
@@ -265,10 +269,9 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < 3; i++) {
-		clk = clk_get(&conv->spi->dev, &clk_names[i][0]);
-		if (IS_ERR(clk)) {
-			return -EPROBE_DEFER;
-		}
+		clk = devm_clk_get(&conv->spi->dev, clk_names[i]);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
 
 		if (i > 0) {
 			ret = clk_prepare_enable(clk);
@@ -352,10 +355,8 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	unsigned int tmp;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+	if (!pdata)
 		return NULL;
-	}
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,jesd-xbar-lane0-sel", &tmp);
@@ -421,9 +422,13 @@ static int ad9144_probe(struct spi_device *spi)
 	st->id = (enum chip_id) dev_id->driver_data;
 	conv = &st->conv;
 
-	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->reset_gpio))
+		return PTR_ERR(conv->reset_gpio);
 
-	conv->txen_gpio = devm_gpiod_get(&spi->dev, "txen", GPIOD_OUT_HIGH);
+	conv->txen_gpio = devm_gpiod_get_optional(&spi->dev, "txen", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->txen_gpio))
+		return PTR_ERR(conv->txen_gpio);
 
 	st->map = devm_regmap_init_spi(spi, &ad9144_regmap_config);
 	if (IS_ERR(st->map))
@@ -456,7 +461,8 @@ static int ad9144_probe(struct spi_device *spi)
 
 	ret = ad9144_get_clks(conv);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to get clocks\n");
+		if (ret != -EPROBE_DEFER)
+			dev_err(&spi->dev, "Failed to get clocks\n");
 		goto out;
 	}
 
@@ -474,7 +480,7 @@ static int ad9144_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, conv);
 
-	dev_info(&spi->dev, "Probed.\n");
+	dev_dbg(&spi->dev, "Probed.\n");
 	return 0;
 out:
 	return ret;

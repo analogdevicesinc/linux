@@ -897,8 +897,6 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	for (i = 0; i < pdata->num_channels; i++) {
 		chan = &pdata->channels[i];
 		if (chan->channel_num < AD9528_NUM_CHAN) {
-			struct clk *clk;
-
 			if (chan->output_dis)
 				continue;
 
@@ -924,16 +922,8 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 				BIT(IIO_CHAN_INFO_RAW) |
 				BIT(IIO_CHAN_INFO_PHASE) |
 				BIT(IIO_CHAN_INFO_FREQUENCY);
-
-			clk = ad9528_clk_register(indio_dev, chan->channel_num,
-						  !chan->output_dis);
-			if (IS_ERR(clk))
-				return PTR_ERR(clk);
 		}
 	}
-
-	of_clk_add_provider(st->spi->dev.of_node,
-			    of_clk_src_onecell_get, &st->clk_data);
 
 	ret = ad9528_write(indio_dev, AD9528_CHANNEL_PD_EN,
 			AD9528_CHANNEL_PD_MASK(~active_mask));
@@ -1015,7 +1005,27 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	return ad9528_sync(indio_dev);
+	ret = ad9528_sync(indio_dev);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < pdata->num_channels; i++) {
+		struct clk *clk;
+
+		chan = &pdata->channels[i];
+		if (chan->channel_num >= AD9528_NUM_CHAN || chan->output_dis)
+			continue;
+
+		clk = ad9528_clk_register(indio_dev, chan->channel_num,
+						  !chan->output_dis);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
+	}
+
+	of_clk_add_provider(st->spi->dev.of_node,
+			    of_clk_src_onecell_get, &st->clk_data);
+
+	return 0;
 }
 
 #ifdef CONFIG_OF
@@ -1029,10 +1039,8 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	int ret;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+	if (!pdata)
 		return NULL;
-	}
 
 	pdata->spi3wire = of_property_read_bool(np, "adi,spi-3wire-enable");
 
@@ -1149,10 +1157,8 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 	pdata->num_channels = cnt;
 	pdata->channels = devm_kzalloc(dev, sizeof(*chan) * cnt, GFP_KERNEL);
-	if (!pdata->channels) {
-		dev_err(dev, "could not allocate memory\n");
+	if (!pdata->channels)
 		return NULL;
-	}
 
 	cnt = 0;
 	for_each_child_of_node(np, chan_np) {

@@ -1147,6 +1147,9 @@ static int ad9625_setup(struct spi_device *spi)
 	int ret;
 
 	clk = devm_clk_get(&spi->dev, "adc_sysref");
+	if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
+		return PTR_ERR(clk);
+
 	if (!IS_ERR(clk)) {
 		ret = clk_prepare_enable(clk);
 		if (ret < 0)
@@ -1154,6 +1157,9 @@ static int ad9625_setup(struct spi_device *spi)
 	}
 
 	clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
+		return PTR_ERR(clk);
+
 	if (!IS_ERR(clk)) {
 		ret = clk_prepare_enable(clk);
 		if (ret < 0)
@@ -1213,6 +1219,9 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	unsigned long lane_rate_kHz;
 
 	clk = devm_clk_get(&spi->dev, "adc_sysref");
+	if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
+		return PTR_ERR(clk);
+
 	if (!IS_ERR(clk)) {
 		ret = clk_prepare_enable(clk);
 		if (ret < 0)
@@ -1220,6 +1229,9 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	}
 
 	clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
+		return PTR_ERR(clk);
+
 	if (!IS_ERR(clk)) {
 		ret = clk_prepare_enable(clk);
 		if (ret < 0)
@@ -1231,6 +1243,9 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	lane_rate_kHz = (conv->adc_clk / 1000) * 10;	// FIXME for other configurations
 
 	jesd_clk = devm_clk_get(&spi->dev, "jesd_adc_clk");
+	if (IS_ERR(jesd_clk) && PTR_ERR(jesd_clk) != -ENOENT)
+		return PTR_ERR(jesd_clk);
+
 	if (!IS_ERR(jesd_clk)) {
 		ret = clk_prepare_enable(jesd_clk);
 		if (ret < 0)
@@ -1534,9 +1549,8 @@ static int ad9467_probe(struct spi_device *spi)
 	int ret, clk_enabled = 0;
 
 	clk = devm_clk_get(&spi->dev, NULL);
-	if (IS_ERR(clk)) {
-		return -EPROBE_DEFER;
-	}
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
@@ -1557,11 +1571,16 @@ static int ad9467_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, conv);
 	conv->clk = clk;
 
-	conv->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown",
+	conv->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
 		GPIOD_OUT_LOW);
+	if (IS_ERR(conv->pwrdown_gpio))
+		return PTR_ERR(conv->pwrdown_gpio);
 
-	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
-	if (!IS_ERR(conv->reset_gpio)) {
+	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(conv->reset_gpio))
+		return PTR_ERR(conv->reset_gpio);
+
+	if (conv->reset_gpio) {
 		udelay(1);
 		ret = gpiod_direction_output(conv->reset_gpio, 1);
 	}
@@ -1604,8 +1623,7 @@ static int ad9467_probe(struct spi_device *spi)
 	case CHIPID_AD9250:
 		ret = ad9250_setup(spi, 2, 2);
 		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize\n");
-			ret = -EIO;
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
 			goto out;
 		}
 
@@ -1617,8 +1635,7 @@ static int ad9467_probe(struct spi_device *spi)
 	case CHIPID_AD9683:
 		ret = ad9250_setup(spi, 1, 1);
 		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize\n");
-			ret = -EIO;
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
 			goto out;
 		}
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9683];
@@ -1629,8 +1646,7 @@ static int ad9467_probe(struct spi_device *spi)
 	case CHIPID_AD9234:
 		ret = ad9680_setup(spi, 1, 1, true);
 		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize\n");
-			ret = -EIO;
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
 			goto out;
 		}
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9234];
@@ -1646,8 +1662,7 @@ static int ad9467_probe(struct spi_device *spi)
 #endif
 		ret = ad9680_setup(spi, 1, 1, false);
 		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize\n");
-			ret = -EIO;
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
 			goto out;
 		}
 		conv->chip_info = &axiadc_chip_info_tbl[master_slave_2x_quirk ?
@@ -1659,8 +1674,7 @@ static int ad9467_probe(struct spi_device *spi)
 	case CHIPID_AD9625:
 		ret = ad9625_setup(spi);
 		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize\n");
-			ret = -EIO;
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
 			goto out;
 		}
 
@@ -1696,8 +1710,7 @@ static int ad9467_probe(struct spi_device *spi)
 	case CHIPID_AD9684:
 		ret = ad9684_setup(spi);
 		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize\n");
-			ret = -EIO;
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
 			goto out;
 		}
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9684];

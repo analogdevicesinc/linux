@@ -74,21 +74,21 @@
 	};
 };
 
-&axi_ad9625_gt {
-	#clock-cells = <1>;
+&axi_adxcvr {
 	clocks = <&ad9625_clkin>;
-	clock-names = "adc_clk";
+	clock-names = "conv";
 	clock-output-names = "adc_gt_clk";
 
-	adi,rx-sys-clk-select = <0>;
-	adi,rx-out-clk-select = <2>;
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
 	adi,use-cpll-enable;
-	adi,lanes = <0x8>;
+
+	sysref-gpios = <&axi_gpio 34 0>;
 };
 
 &axi_ad9625_jesd {
 	#clock-cells = <0>;
-	clocks = <&axi_ad9625_gt 0>;
+	clocks = <&axi_adxcvr 0>;
 	clock-names = "adc_gt_clk";
 	clock-output-names = "jesd_adc_clk";
 

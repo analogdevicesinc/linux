@@ -1,0 +1,13 @@
+#include "zynq-zc702-adv7511-ad9361-fmcomms2-3.dts"
+
+&ad9361_clkin {
+	compatible = "adjustable-clock";
+	clock-frequency = <40000000>;
+	clock-accuracy = <200000>; /* 200 ppm (ppb) */
+};
+
+&adc0_ad9361 {
+	compatible = "adi,ad9363a";
+
+	adi,xo-disable-use-ext-refclk-enable;
+};

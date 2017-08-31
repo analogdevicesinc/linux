@@ -3650,15 +3650,11 @@ static int ad9371_probe(struct spi_device *spi)
 	mykonosBuild_t buildType;
 	u32 api_vers[4];
 
-	struct device_node *np = spi->dev.of_node;
-
 	dev_info(&spi->dev, "%s : enter", __func__);
 
-
-	clk = of_clk_get_by_name(np, "jesd_rx_clk");
-	if (IS_ERR(clk)) {
-		return -EPROBE_DEFER;
-	}
+	clk = devm_clk_get(&spi->dev, "jesd_rx_clk");
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*phy));
 	if (indio_dev == NULL)
@@ -3692,25 +3688,21 @@ static int ad9371_probe(struct spi_device *spi)
 	phy->mykDevice->spiSettings->autoIncAddrUp       = 1;
 	phy->mykDevice->spiSettings->fourWireMode        = 1;
 
-	phy->jesd_tx_clk = of_clk_get_by_name(np, "jesd_tx_clk");
-	if (IS_ERR(phy->jesd_tx_clk)) {
-		return -EPROBE_DEFER;
-	}
+	phy->jesd_tx_clk = devm_clk_get(&spi->dev, "jesd_tx_clk");
+	if (IS_ERR(phy->jesd_tx_clk))
+		return PTR_ERR(phy->jesd_tx_clk);
 
-	phy->jesd_rx_os_clk = of_clk_get_by_name(np, "jesd_rx_os_clk");
-	if (IS_ERR(phy->jesd_rx_os_clk)) {
-		return -EPROBE_DEFER;
-	}
+	phy->jesd_rx_os_clk = devm_clk_get(&spi->dev, "jesd_rx_os_clk");
+	if (IS_ERR(phy->jesd_rx_os_clk))
+		return PTR_ERR(phy->jesd_rx_os_clk);
 
-	phy->dev_clk = of_clk_get_by_name(np, "dev_clk");
-	if (IS_ERR(phy->dev_clk)) {
-		return -EPROBE_DEFER;
-	}
+	phy->dev_clk = devm_clk_get(&spi->dev, "dev_clk");
+	if (IS_ERR(phy->dev_clk))
+		return PTR_ERR(phy->dev_clk);
 
-	phy->fmc_clk = of_clk_get_by_name(np, "fmc_clk");
-	if (IS_ERR(phy->fmc_clk)) {
-		return -EPROBE_DEFER;
-	}
+	phy->fmc_clk = devm_clk_get(&spi->dev, "fmc_clk");
+	if (IS_ERR(phy->fmc_clk))
+		return PTR_ERR(phy->fmc_clk);
 
 	ret = clk_prepare_enable(phy->fmc_clk);
 	if (ret)

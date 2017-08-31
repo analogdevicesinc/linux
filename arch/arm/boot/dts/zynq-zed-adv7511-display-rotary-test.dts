@@ -71,8 +71,8 @@
 		};
 
 		s1 {
-			label = "KEY_ENTER";
-			linux,code = <28>;
+			label = "Enter";
+			linux,code = <KEY_ENTER>;
 			interrupts = <89 IRQ_TYPE_EDGE_FALLING>;
 		};
 
@@ -81,10 +81,11 @@
 	rotary {
 			compatible = "rotary-encoder";
 			gpios = <&gpio0 94 1>, <&gpio0 95 1>;
-			linux,axis = <1>; /* ABS_Y */
+			linux,axis = <REL_WHEEL>;
 			rotary-encoder,steps = <24>;
 			rotary-encoder,steps-per-period = <2>;
 			rotary-encoder,rollover;
+			rotary-encoder,relative-axis;
 	};
 
 };

@@ -58,9 +58,10 @@
 
 &axi_ad9144_jesd {
 	#clock-cells = <0>;
-	clocks = <&axi_daq2_gt 1>;
+	clocks = <&axi_ad9144_adxcvr>;
 	clock-names = "dac_gt_clk";
 	clock-output-names = "jesd_dac_clk";
+
 	xlnx,frames-per-multiframe = <32>;
 	xlnx,bytes-per-frame = <1>;
 	xlnx,subclass = <1>;
@@ -89,7 +90,7 @@
 
 &axi_ad9680_jesd {
 	#clock-cells = <0>;
-	clocks = <&axi_daq2_gt 0>;
+	clocks = <&axi_ad9680_adxcvr>;
 	clock-names = "adc_gt_clk";
 	clock-output-names = "jesd_adc_clk";
 
@@ -100,18 +101,24 @@
 	xlnx,scramble-enable;
 };
 
-&axi_daq2_gt {
-	#clock-cells = <1>;
-	clocks = <&clk0_ad9523 1>, <&clk0_ad9523 6>, <&clk0_ad9523 7>, <&clk0_ad9523 13>;
-	clock-names = "adc_clk", "adc_sysref", "dac_sysref", "dac_clk";
-	clock-output-names = "adc_gt_clk", "dac_gt_clk";
+&axi_ad9680_adxcvr {
+	#clock-cells = <0>;
+	clocks = <&clk0_ad9523 4>, <&clk0_ad9523 6>;
+	clock-names = "conv", "sysref";
+	clock-output-names = "adc_gt_clk";
+	adi,sys-clk-select = <3>;
+	adi,out-clk-select = <4>;
+	adi,use-lpm-enable;
+};
 
-	adi,rx-sys-clk-select = <3>;
-	adi,rx-out-clk-select = <4>;
-	adi,tx-sys-clk-select = <3>;
-	adi,tx-out-clk-select = <4>;
-
-	adi,lanes = <0x4>;
+&axi_ad9144_adxcvr {
+	#clock-cells = <0>;
+	clocks = <&clk0_ad9523 9>, <&clk0_ad9523 7>;
+	clock-names = "conv", "sysref";
+	clock-output-names = "dac_gt_clk";
+	adi,link-is-transmit-enable;
+	adi,sys-clk-select = <3>;
+	adi,out-clk-select = <4>;
 	adi,use-lpm-enable;
 };
 
@@ -152,15 +159,13 @@
 #include "adi-daq2.dtsi"
 
 &adc0_ad9680 {
-	powerdown-gpios = <&axi_gpio 10 8>;
-	fastdetect-a-gpios = <&axi_gpio 3 8>;
-	fastdetect-b-gpios = <&axi_gpio 4 8>;
+	powerdown-gpios = <&axi_gpio 42 8>;
 };
 
 &dac0_ad9144 {
-	txen-gpios = <&axi_gpio 9 8>;
-	reset-gpios = <&axi_gpio 8 8>;
-	irq-gpios = <&axi_gpio 2 8>;
+	txen-gpios = <&axi_gpio 41 8>;
+	reset-gpios = <&axi_gpio 40 8>;
+	irq-gpios = <&axi_gpio 34 8>;
 
 	adi,jesd-xbar-lane0-sel = <2>;
 	adi,jesd-xbar-lane1-sel = <3>;
@@ -169,7 +174,7 @@
 };
 
 &clk0_ad9523 {
-	sync-gpios = <&axi_gpio 6 8>;
-	status0-gpios = <&axi_gpio 0 8>;
-	status1-gpios = <&axi_gpio 1 8>;
+	sync-gpios = <&axi_gpio 38 8>;
+	status0-gpios = <&axi_gpio 32 8>;
+	status1-gpios = <&axi_gpio 33 8>;
 };
