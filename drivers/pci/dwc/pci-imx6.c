@@ -161,10 +161,15 @@ struct imx6_pcie {
  */
 
 /* iMX7 PCIe PHY registers */
-#define PCIE_PHY_CMN_REG15	0x54
-#define PCIE_PHY_CMN_REG15_DLY_4	(1 << 2)
-#define PCIE_PHY_CMN_REG15_PLL_PD	(1 << 5)
-#define PCIE_PHY_CMN_REG15_OVRD_PLL_PD	(1 << 7)
+#define PCIE_PHY_CMN_REG4		0x14
+#define PCIE_PHY_CMN_REG4_DCC_FB_EN	(0x29)
+
+#define PCIE_PHY_CMN_REG24		0x90
+#define PCIE_PHY_CMN_REG24_RX_EQ	BIT(6)
+#define PCIE_PHY_CMN_REG24_RX_EQ_SEL	BIT(3)
+
+#define PCIE_PHY_CMN_REG26		0x98
+#define PCIE_PHY_CMN_REG26_ATT_MODE	0xBC
 
 /* iMX8 HSIO registers */
 #define IMX8QM_LPCG_PHYX2_OFFSET		0x00000
@@ -747,14 +752,16 @@ static int imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 		if (unlikely(imx6_pcie->phy_base == NULL)) {
 			pr_err("phy base shouldn't be null.\n");
 		} else {
-			writel(PCIE_PHY_CMN_REG15_DLY_4,
-			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG15);
-			writel(PCIE_PHY_CMN_REG15_DLY_4
-			       | PCIE_PHY_CMN_REG15_PLL_PD
-			       | PCIE_PHY_CMN_REG15_OVRD_PLL_PD,
-			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG15);
-			writel(PCIE_PHY_CMN_REG15_DLY_4,
-			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG15);
+			/* De-assert DCC_FB_EN by writing data "0x29". */
+			writel(PCIE_PHY_CMN_REG4_DCC_FB_EN,
+			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG4);
+			/* Assert RX_EQS and RX_EQS_SEL */
+			writel(PCIE_PHY_CMN_REG24_RX_EQ_SEL
+				| PCIE_PHY_CMN_REG24_RX_EQ,
+			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG24);
+			/* Assert ATT_MODE by writing data "0xBC". */
+			writel(PCIE_PHY_CMN_REG26_ATT_MODE,
+			       imx6_pcie->phy_base + PCIE_PHY_CMN_REG26);
 		}
 
 		regmap_update_bits(imx6_pcie->reg_src, 0x2c, BIT(2), 0);
