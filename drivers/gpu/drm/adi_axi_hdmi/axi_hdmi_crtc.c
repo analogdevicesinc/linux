@@ -15,9 +15,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 
-#include "axi_hdmi_crtc.h"
 #include "axi_hdmi_drv.h"
-#include "axi_hdmi_encoder.h"
 
 struct axi_hdmi_crtc {
 	struct drm_crtc drm_crtc;
