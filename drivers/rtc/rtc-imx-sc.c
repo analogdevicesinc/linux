@@ -10,6 +10,7 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -18,6 +19,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/rtc.h>
+#include <soc/imx/fsl_sip.h>
 #include <soc/imx8/sc/sci.h>
 
 sc_ipc_t timer_ipcHandle;
@@ -63,25 +65,16 @@ static int imx_sc_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 static int imx_sc_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
-	sc_err_t sciErr = SC_ERR_NONE;
+	struct arm_smccc_res res;
 
-	if (!timer_ipcHandle)
-		return -ENODEV;
+	/* pack 2 time parameters into 1 register, 16 bits for each */
+	arm_smccc_smc(FSL_SIP_SRTC, FSL_SIP_SRTC_SET_TIME,
+		((tm->tm_year + 1900) << 16) | (tm->tm_mon + 1),
+		(tm->tm_mday << 16) | tm->tm_hour,
+		(tm->tm_min << 16) | tm->tm_sec,
+		0, 0, 0, &res);
 
-	sciErr = sc_timer_set_rtc_time(timer_ipcHandle,
-		tm->tm_year + 1900,
-		tm->tm_mon + 1,
-		tm->tm_mday,
-		tm->tm_hour,
-		tm->tm_min,
-		tm->tm_sec);
-
-	if (sciErr) {
-		dev_err(dev, "failed to set time: %d\n", sciErr);
-		return -EINVAL;
-	}
-
-	return 0;
+	return res.a0;
 }
 
 static int imx_sc_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
