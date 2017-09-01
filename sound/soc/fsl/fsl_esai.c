@@ -230,7 +230,7 @@ static int fsl_esai_divisor_cal(struct snd_soc_dai *dai, bool tx, u32 ratio,
 
 			/* Calculate the fraction */
 			sub = sub * 1000 / ratio;
-			if (sub < savesub) {
+			if (sub <= savesub) {
 				savesub = sub;
 				pm = i;
 				fp = j;
