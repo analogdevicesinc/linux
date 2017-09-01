@@ -1061,6 +1061,13 @@
 		power-domains = <&pcie1_pd>;
 		status = "disabled";
 	};
+
+	ddr_pmu0: ddr_pmu@3d800000 {
+		compatible = "fsl,imx8-ddr-pmu";
+		reg = <0x0 0x3d800000 0x0 0x400000>;
+		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 };
 
 &A53_0 {
