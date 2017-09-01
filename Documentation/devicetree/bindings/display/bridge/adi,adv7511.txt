@@ -14,7 +14,10 @@ Required properties:
 		"adi,adv7513"
 		"adi,adv7533"
 
-- reg: I2C slave address
+- reg: I2C slave addresses
+- reg-names:
+	* "primary": For the primary I2C address
+	* "edid": For the EDID I2C address
 
 The ADV7511 supports a large number of input data formats that differ by their
 color depth, color format, clock mode, bit justification and random
@@ -86,7 +89,8 @@ Example
 
 	adv7511w: hdmi@39 {
 		compatible = "adi,adv7511w";
-		reg = <39>;
+		reg = <0x39>, <0x3f>;
+		reg-names = "primary", "edid";
 		interrupt-parent = <&gpio3>;
 		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
 
