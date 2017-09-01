@@ -22,6 +22,7 @@
 #include <drm/drm.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_atomic_helper.h>
 
 #include "axi_hdmi_drv.h"
 
@@ -40,10 +41,14 @@ static void axi_hdmi_output_poll_changed(struct drm_device *dev)
 static struct drm_mode_config_funcs axi_hdmi_mode_config_funcs = {
 	.fb_create = drm_fb_cma_create,
 	.output_poll_changed = axi_hdmi_output_poll_changed,
+	.atomic_check = drm_atomic_helper_check,
+	.atomic_commit = drm_atomic_helper_commit,
 };
 
 static void axi_hdmi_mode_config_init(struct drm_device *dev)
 {
+	drm_mode_config_init(dev);
+
 	dev->mode_config.min_width = 0;
 	dev->mode_config.min_height = 0;
 
@@ -61,8 +66,6 @@ static int axi_hdmi_load(struct drm_device *dev, unsigned long flags)
 
 	dev->dev_private = private;
 
-	drm_mode_config_init(dev);
-
 	axi_hdmi_mode_config_init(dev);
 
 	private->crtc = axi_hdmi_crtc_create(dev);
@@ -76,6 +79,8 @@ static int axi_hdmi_load(struct drm_device *dev, unsigned long flags)
 	    ret = PTR_ERR(encoder);
 	    goto err_crtc;
 	}
+
+	drm_mode_config_reset(dev);
 
 	private->fbdev = drm_fbdev_cma_init(dev, 32, 1, 1);
 	if (IS_ERR(private->fbdev)) {
@@ -122,8 +127,7 @@ static const struct file_operations axi_hdmi_driver_fops = {
 };
 
 static struct drm_driver axi_hdmi_driver = {
-	.driver_features	= DRIVER_BUS_PLATFORM |
-				  DRIVER_MODESET | DRIVER_GEM,
+	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
 	.load			= axi_hdmi_load,
 	.unload			= axi_hdmi_unload,
 	.lastclose		= axi_hdmi_lastclose,
