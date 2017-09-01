@@ -31,32 +31,6 @@ static inline struct axi_hdmi_crtc *to_axi_hdmi_crtc(struct drm_crtc *crtc)
 }
 
 static struct dma_async_tx_descriptor
-*axi_hdmi_vdma_prep_single_desc(struct drm_crtc *crtc,
-				struct drm_gem_cma_object *obj)
-{
-	struct xilinx_dma_config_old dma_config_old;
-	size_t offset;
-	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
-	struct drm_display_mode *mode = &crtc->mode;
-	struct drm_framebuffer *fb = crtc->primary->fb;
-
-	memset(&dma_config_old, 0, sizeof(dma_config_old));
-	dma_config_old.hsize = mode->hdisplay * fb->bits_per_pixel / 8;
-	dma_config_old.vsize = mode->vdisplay;
-	dma_config_old.stride = fb->pitches[0];
-
-	dmaengine_slave_config(axi_hdmi_crtc->dma,
-			(struct dma_slave_config *)&dma_config_old);
-
-	offset = crtc->x * fb->bits_per_pixel / 8 + crtc->y * fb->pitches[0];
-
-	return dmaengine_prep_slave_single(axi_hdmi_crtc->dma,
-					obj->paddr + offset,
-					mode->vdisplay * fb->pitches[0],
-					DMA_MEM_TO_DEV, 0);
-}
-
-static struct dma_async_tx_descriptor
 *axi_hdmi_vdma_prep_interleaved_desc(struct drm_crtc *crtc,
 				struct drm_gem_cma_object *obj)
 {
@@ -124,14 +98,7 @@ static int axi_hdmi_crtc_update(struct drm_crtc *crtc)
 		if (!obj)
 			return -EINVAL;
 
-
-		if (dma_has_cap(DMA_INTERLEAVE,
-					axi_hdmi_crtc->dma->device->cap_mask)) {
-			desc = axi_hdmi_vdma_prep_interleaved_desc(crtc, obj);
-		} else {
-			desc = axi_hdmi_vdma_prep_single_desc(crtc, obj);
-		}
-
+		desc = axi_hdmi_vdma_prep_interleaved_desc(crtc, obj);
 		if (!desc) {
 			pr_err("Failed to prepare DMA descriptor\n");
 			return -ENOMEM;
@@ -210,6 +177,11 @@ struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
 	struct axi_hdmi_private *p = dev->dev_private;
 	struct axi_hdmi_crtc *axi_hdmi_crtc;
 	struct drm_crtc *crtc;
+
+	if (!dma_has_cap(DMA_INTERLEAVE, p->dma->device->cap_mask)) {
+		DRM_ERROR("DMA needs to support interleaved transfers\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	axi_hdmi_crtc = kzalloc(sizeof(*axi_hdmi_crtc), GFP_KERNEL);
 	if (!axi_hdmi_crtc)
