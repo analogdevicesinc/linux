@@ -212,10 +212,8 @@ struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
 	struct drm_crtc *crtc;
 
 	axi_hdmi_crtc = kzalloc(sizeof(*axi_hdmi_crtc), GFP_KERNEL);
-	if (!axi_hdmi_crtc) {
-		DRM_ERROR("failed to allocate axi_hdmi crtc\n");
+	if (!axi_hdmi_crtc)
 		return ERR_PTR(-ENOMEM);
-	}
 
 	/* we know we'll always use only one data chunk */
 	axi_hdmi_crtc->dma_template = kzalloc(
@@ -224,7 +222,6 @@ struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
 
 	if (!axi_hdmi_crtc->dma_template) {
 		kfree(axi_hdmi_crtc);
-		DRM_ERROR("failed to allocate dma_template crtc\n");
 		return ERR_PTR(-ENOMEM);
 	}
 

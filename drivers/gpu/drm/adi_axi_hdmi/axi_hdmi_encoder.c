@@ -385,10 +385,8 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 	struct axi_hdmi_private *priv = dev->dev_private;
 
 	axi_hdmi_encoder = kzalloc(sizeof(*axi_hdmi_encoder), GFP_KERNEL);
-	if (!axi_hdmi_encoder) {
-		DRM_ERROR("failed to allocate encoder\n");
+	if (!axi_hdmi_encoder)
 		return NULL;
-	}
 
 	encoder = &axi_hdmi_encoder->encoder.base;
 	encoder->possible_crtcs = 1;
