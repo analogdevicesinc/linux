@@ -22,8 +22,6 @@
 #include <drm/drm_gem_cma_helper.h>
 
 #include "axi_hdmi_drv.h"
-#include "axi_hdmi_crtc.h"
-#include "axi_hdmi_encoder.h"
 
 #define DRIVER_NAME	"axi_hdmi_drm"
 #define DRIVER_DESC	"AXI HDMI DRM"
