@@ -11,7 +11,7 @@
 #include <linux/dmaengine.h>
 #include <linux/amba/xilinx_dma.h>
 
-#include <drm/drmP.h>
+#include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 
@@ -19,118 +19,123 @@
 
 struct axi_hdmi_crtc {
 	struct drm_crtc drm_crtc;
+	struct drm_plane plane;
+
 	struct dma_chan *dma;
-	struct xilinx_dma_config dma_config;
-	int mode;
+	struct dma_interleaved_template *dma_template;
 };
 
-static inline struct axi_hdmi_crtc *to_axi_hdmi_crtc(struct drm_crtc *crtc)
+static struct axi_hdmi_crtc *plane_to_axi_hdmi_crtc(struct drm_plane *plane)
+{
+	return container_of(plane, struct axi_hdmi_crtc, plane);
+}
+
+static struct axi_hdmi_crtc *to_axi_hdmi_crtc(struct drm_crtc *crtc)
 {
 	return container_of(crtc, struct axi_hdmi_crtc, drm_crtc);
 }
 
-static int axi_hdmi_crtc_update(struct drm_crtc *crtc)
+static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
+	struct drm_plane *plane)
 {
-	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
-	struct drm_display_mode *mode = &crtc->mode;
-	struct drm_framebuffer *fb = crtc->fb;
-	struct dma_async_tx_descriptor *desc;
+	struct axi_hdmi_crtc *axi_hdmi_crtc = plane_to_axi_hdmi_crtc(plane);
+	struct drm_framebuffer *fb = plane->state->fb;
+	struct xilinx_vdma_config vdma_config;
+	size_t offset, hw_row_size;
 	struct drm_gem_cma_object *obj;
-	size_t offset;
 
-	if (!mode || !fb)
-		return -EINVAL;
+	obj = drm_fb_cma_get_gem_obj(plane->state->fb, 0);
+
+	memset(&vdma_config, 0, sizeof(vdma_config));
+	vdma_config.park = 1;
+	xilinx_vdma_channel_set_config(axi_hdmi_crtc->dma, &vdma_config);
+
+	offset = plane->state->crtc_x * fb->bits_per_pixel / 8 +
+		plane->state->crtc_y * fb->pitches[0];
+
+	/* Interleaved DMA is used that way:
+	 * Each interleaved frame is a row (hsize) implemented in ONE
+	 * chunk (sgl has len 1).
+	 * The number of interleaved frames is the number of rows (vsize).
+	 * The icg in used to pack data to the HW, so that the buffer len
+	 * is fb->piches[0], but the actual size for the hw is somewhat less
+	 */
+	axi_hdmi_crtc->dma_template->dir = DMA_MEM_TO_DEV;
+	axi_hdmi_crtc->dma_template->src_start = obj->paddr + offset;
+	/* sgl list have just one entry (each interleaved frame have 1 chunk) */
+	axi_hdmi_crtc->dma_template->frame_size = 1;
+	/* the number of interleaved frame, each has the size specified in sgl */
+	axi_hdmi_crtc->dma_template->numf = plane->state->crtc_h;
+	axi_hdmi_crtc->dma_template->src_sgl = 1;
+	axi_hdmi_crtc->dma_template->src_inc = 1;
+
+	/* vdma IP does not provide any addr to the hdmi IP, so dst_inc
+	 * and dst_sgl should make no any difference.
+	 */
+	axi_hdmi_crtc->dma_template->dst_inc = 0;
+	axi_hdmi_crtc->dma_template->dst_sgl = 0;
+
+	hw_row_size = plane->state->crtc_w * fb->bits_per_pixel / 8;
+	axi_hdmi_crtc->dma_template->sgl[0].size = hw_row_size;
+
+	/* the vdma driver seems to look at icg, and not src_icg */
+	axi_hdmi_crtc->dma_template->sgl[0].icg =
+		fb->pitches[0] - hw_row_size;
+
+	return dmaengine_prep_interleaved_dma(axi_hdmi_crtc->dma,
+						axi_hdmi_crtc->dma_template, 0);
+}
+
+static void axi_hdmi_plane_atomic_update(struct drm_plane *plane,
+	struct drm_plane_state *old_state)
+{
+	struct axi_hdmi_crtc *axi_hdmi_crtc = plane_to_axi_hdmi_crtc(plane);
+	struct dma_async_tx_descriptor *desc;
+
+	if (!plane->state->crtc || !plane->state->fb)
+		return;
 
 	dmaengine_terminate_all(axi_hdmi_crtc->dma);
 
-	if (axi_hdmi_crtc->mode == DRM_MODE_DPMS_ON) {
-		obj = drm_fb_cma_get_gem_obj(fb, 0);
-		if (!obj)
-			return -EINVAL;
-
-		axi_hdmi_crtc->dma_config.hsize = mode->hdisplay * fb->bits_per_pixel / 8;
-		axi_hdmi_crtc->dma_config.vsize = mode->vdisplay;
-		axi_hdmi_crtc->dma_config.stride = fb->pitches[0];
-
-		dmaengine_device_control(axi_hdmi_crtc->dma, DMA_SLAVE_CONFIG,
-			(unsigned long)&axi_hdmi_crtc->dma_config);
-
-		offset = crtc->x * fb->bits_per_pixel / 8 + crtc->y * fb->pitches[0];
-
-		desc = dmaengine_prep_slave_single(axi_hdmi_crtc->dma,
-					obj->paddr + offset,
-					mode->vdisplay * fb->pitches[0],
-					DMA_MEM_TO_DEV, 0);
-		if (!desc) {
-			pr_err("Failed to prepare DMA descriptor\n");
-			return -ENOMEM;
-		} else {
-			dmaengine_submit(desc);
-			dma_async_issue_pending(axi_hdmi_crtc->dma);
-		}
+	desc = axi_hdmi_vdma_prep_interleaved_desc(plane);
+	if (!desc) {
+		pr_err("Failed to prepare DMA descriptor\n");
+		return;
 	}
 
-	return 0;
+	dmaengine_submit(desc);
+	dma_async_issue_pending(axi_hdmi_crtc->dma);
 }
 
-static void axi_hdmi_crtc_dpms(struct drm_crtc *crtc, int mode)
+static void axi_hdmi_crtc_enable(struct drm_crtc *crtc)
 {
-	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
-
-	if (axi_hdmi_crtc->mode != mode) {
-		axi_hdmi_crtc->mode = mode;
-		axi_hdmi_crtc_update(crtc);
-	}
 }
 
-static void axi_hdmi_crtc_prepare(struct drm_crtc *crtc)
+static void axi_hdmi_crtc_disable(struct drm_crtc *crtc)
 {
 	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
 
 	dmaengine_terminate_all(axi_hdmi_crtc->dma);
 }
 
-static void axi_hdmi_crtc_commit(struct drm_crtc *crtc)
+static void axi_hdmi_crtc_atomic_begin(struct drm_crtc *crtc,
+	struct drm_crtc_state *state)
 {
-	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
+	struct drm_pending_vblank_event *event = crtc->state->event;
 
-	axi_hdmi_crtc->mode = DRM_MODE_DPMS_ON;
-	axi_hdmi_crtc_update(crtc);
+	if (event) {
+		crtc->state->event = NULL;
+
+		spin_lock_irq(&crtc->dev->event_lock);
+		drm_crtc_send_vblank_event(crtc, event);
+		spin_unlock_irq(&crtc->dev->event_lock);
+	}
 }
 
-static bool axi_hdmi_crtc_mode_fixup(struct drm_crtc *crtc,
-	const struct drm_display_mode *mode,
-	struct drm_display_mode *adjusted_mode)
-{
-	return true;
-}
-
-static int axi_hdmi_crtc_mode_set(struct drm_crtc *crtc,
-	struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode,
-	int x, int y, struct drm_framebuffer *old_fb)
-{
-	/* We do everything in commit() */
-	return 0;
-}
-
-static int axi_hdmi_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
-	struct drm_framebuffer *old_fb)
-{
-	return axi_hdmi_crtc_update(crtc);
-}
-
-static void axi_hdmi_crtc_load_lut(struct drm_crtc *crtc)
-{
-}
-
-static struct drm_crtc_helper_funcs axi_hdmi_crtc_helper_funcs = {
-	.dpms		= axi_hdmi_crtc_dpms,
-	.prepare	= axi_hdmi_crtc_prepare,
-	.commit		= axi_hdmi_crtc_commit,
-	.mode_fixup	= axi_hdmi_crtc_mode_fixup,
-	.mode_set	= axi_hdmi_crtc_mode_set,
-	.mode_set_base	= axi_hdmi_crtc_mode_set_base,
-	.load_lut	= axi_hdmi_crtc_load_lut,
+static const struct drm_crtc_helper_funcs axi_hdmi_crtc_helper_funcs = {
+	.enable = axi_hdmi_crtc_enable,
+	.disable = axi_hdmi_crtc_disable,
+	.atomic_begin = axi_hdmi_crtc_atomic_begin,
 };
 
 static void axi_hdmi_crtc_destroy(struct drm_crtc *crtc)
@@ -141,9 +146,36 @@ static void axi_hdmi_crtc_destroy(struct drm_crtc *crtc)
 	kfree(axi_hdmi_crtc);
 }
 
-static struct drm_crtc_funcs axi_hdmi_crtc_funcs = {
-	.set_config	= drm_crtc_helper_set_config,
-	.destroy	= axi_hdmi_crtc_destroy,
+static const struct drm_crtc_funcs axi_hdmi_crtc_funcs = {
+	.destroy = axi_hdmi_crtc_destroy,
+	.set_config = drm_atomic_helper_set_config,
+	.page_flip = drm_atomic_helper_page_flip,
+	.reset = drm_atomic_helper_crtc_reset,
+	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
+};
+
+static const struct drm_plane_helper_funcs axi_hdmi_plane_helper_funcs = {
+	.atomic_update = axi_hdmi_plane_atomic_update,
+};
+
+static void axi_hdmi_plane_destroy(struct drm_plane *plane)
+{
+	drm_plane_helper_disable(plane);
+	drm_plane_cleanup(plane);
+}
+
+static const struct drm_plane_funcs axi_hdmi_plane_funcs = {
+	.update_plane = drm_atomic_helper_update_plane,
+	.disable_plane = drm_atomic_helper_disable_plane,
+	.destroy = axi_hdmi_plane_destroy,
+	.reset = drm_atomic_helper_plane_reset,
+	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
+};
+
+static const u32 axi_hdmi_supported_formats[] = {
+	DRM_FORMAT_XRGB8888,
 };
 
 struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
@@ -151,19 +183,50 @@ struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
 	struct axi_hdmi_private *p = dev->dev_private;
 	struct axi_hdmi_crtc *axi_hdmi_crtc;
 	struct drm_crtc *crtc;
+	struct drm_plane *plane;
+	int ret;
 
 	axi_hdmi_crtc = kzalloc(sizeof(*axi_hdmi_crtc), GFP_KERNEL);
-	if (!axi_hdmi_crtc) {
-		DRM_ERROR("failed to allocate axi_hdmi crtc\n");
+	if (!axi_hdmi_crtc)
 		return ERR_PTR(-ENOMEM);
-	}
 
 	crtc = &axi_hdmi_crtc->drm_crtc;
+	plane = &axi_hdmi_crtc->plane;
+
+	/* we know we'll always use only one data chunk */
+	axi_hdmi_crtc->dma_template = kzalloc(
+		sizeof(struct dma_interleaved_template) +
+		sizeof(struct data_chunk), GFP_KERNEL);
+	if (!axi_hdmi_crtc->dma_template) {
+		ret = -ENOMEM;
+		goto err_free_crtc;
+	}
+
+	ret = drm_universal_plane_init(dev, plane, 0xff, &axi_hdmi_plane_funcs,
+		axi_hdmi_supported_formats,
+		ARRAY_SIZE(axi_hdmi_supported_formats),
+		DRM_PLANE_TYPE_PRIMARY, NULL);
+	if (ret)
+		goto err_free_dma_template;
+
+	drm_plane_helper_add(plane, &axi_hdmi_plane_helper_funcs);
 
 	axi_hdmi_crtc->dma = p->dma;
 
-	drm_crtc_init(dev, crtc, &axi_hdmi_crtc_funcs);
+	ret = drm_crtc_init_with_planes(dev, crtc, plane, NULL,
+		&axi_hdmi_crtc_funcs, NULL);
+	if (ret)
+		goto err_plane_destroy;
 	drm_crtc_helper_add(crtc, &axi_hdmi_crtc_helper_funcs);
 
 	return crtc;
+
+err_plane_destroy:
+	axi_hdmi_plane_destroy(plane);
+err_free_dma_template:
+	kfree(axi_hdmi_crtc->dma_template);
+err_free_crtc:
+	kfree(axi_hdmi_crtc);
+
+	return ERR_PTR(ret);
 }
