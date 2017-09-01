@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
 /{
 	cpus {
 		#address-cells = <2>;
@@ -88,4 +90,11 @@
 		cpu_off	      = <0xc4000002>;
 		cpu_on	      = <0xc4000003>;
 	};
+
+	pmu {
+                compatible = "arm,armv8-pmuv3";
+                interrupts = <GIC_PPI 7
+                        (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_HIGH)>;
+                interrupt-affinity = <&A53_0>, <&A53_1>, <&A53_2>, <&A53_3>;
+        };
 };
