@@ -44,17 +44,10 @@
 						compatible = "adi,adv7511";
 						reg = <0x39>;
 
-						adi,input-id = <0x00>;
-						adi,input-style = <0x01>;
-						adi,bit-justification = <0x00>;
-						adi,input-color-depth = <0x3>;
-						adi,sync-pulse = <0x03>;
-						adi,up-conversion = <0x00>;
-						adi,timing-generation-sequence = <0x00>;
-						adi,vsync-polarity = <0x02>;
-						adi,hsync-polarity = <0x02>;
-						adi,tdms-clock-inversion;
-						adi,clock-delay = <0x03>;
+						adi,input-depth = <8>;
+						adi,input-colorspace = "rgb";
+						adi,input-clock = "1x";
+						adi,clock-delay = <0>;
 
 						#sound-dai-cells = <0>;
 
@@ -172,7 +165,7 @@
 		simple-audio-card,widgets =
 			"Speaker", "Speaker";
 		simple-audio-card,routing =
-			"Speaker", "TMDS";
+			"Speaker", "TX";
 
 		simple-audio-card,dai-link@0 {
 			format = "spdif";
