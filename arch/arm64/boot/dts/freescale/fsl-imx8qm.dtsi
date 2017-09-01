@@ -2202,6 +2202,7 @@
 		power-domains = <&pd_conn_sdch0>;
 		fsl,tuning-start-tap = <20>;
 		fsl,tuning-step= <2>;
+		iommus = <&smmu 0x11 0x7f80>;
 		status = "disabled";
 	};
 
@@ -2219,6 +2220,7 @@
 		power-domains = <&pd_conn_sdch1>;
 		fsl,tuning-start-tap = <20>;
 		fsl,tuning-step= <2>;
+		iommus = <&smmu 0x11 0x7f80>;
 		status = "disabled";
 	};
 
@@ -2234,6 +2236,7 @@
 		assigned-clocks = <&clk IMX8QM_SDHC2_DIV>;
 		assigned-clock-rates = <200000000>;
 		power-domains = <&pd_conn_sdch2>;
+		iommus = <&smmu 0x11 0x7f80>;
 		status = "disabled";
 	};
 
