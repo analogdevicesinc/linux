@@ -1,49 +1,17 @@
 
 /include/ "zynq-7000.dtsi"
 
-/*
- * The Xilinx EMACPS and the Cadance GEM drivers are for the same IP core, but
- * the drivers are not fully feature compatible. We stay with the Xilinx driver
- * for now. The main issue is the lack of support for gmii2rgmii when using the
- * Cadance driver.
- */
-&amba {
-	eth: eth@e000b000 {
-		compatible = "xlnx,ps7-ethernet-1.00.a";
-		reg = <0xe000b000 0x1000>;
-		interrupts = <0 22 4>;
-		interrupt-parent = <&intc>;
-		#address-cells = <0x1>;
-		#size-cells = <0x0>;
-
-		clock-names = "ref_clk", "aper_clk";
-		clocks = <&clkc 13>, <&clkc 30>;
-
-		xlnx,enet-clk-freq-hz = <0x17d7840>;
-		xlnx,enet-reset = "MIO 11";
-		xlnx,enet-slcr-1000mbps-div0 = <0x8>;
-		xlnx,enet-slcr-1000mbps-div1 = <0x1>;
-		xlnx,enet-slcr-100mbps-div0 = <0x8>;
-		xlnx,enet-slcr-100mbps-div1 = <0x5>;
-		xlnx,enet-slcr-10mbps-div0 = <0x8>;
-		xlnx,enet-slcr-10mbps-div1 = <0x32>;
-		xlnx,eth-mode = <0x1>;
-		xlnx,has-mdio = <0x1>;
-		xlnx,ptp-enet-clock = <111111115>;
-	};
-
-};
-
-/delete-node/ &gem0;
-/delete-node/ &gem1;
-
 / {
 	interrupt-parent = <&intc>;
 
 	aliases: aliases {
-		ethernet0 = &eth;
+		ethernet0 = &gem0;
 		serial0 = &uart1;
 	};
+};
+
+&gem0 {
+	status = "okay";
 };
 
 &clkc {

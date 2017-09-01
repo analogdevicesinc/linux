@@ -44,7 +44,7 @@
 
 };
 
-&eth {
+&gem0 {
 	phy-handle = <&phy0>;
 	phy-mode = "rgmii-id";
 

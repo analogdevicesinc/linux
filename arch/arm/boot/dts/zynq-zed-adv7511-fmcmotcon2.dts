@@ -3,41 +3,23 @@
 /include/ "zynq-zed.dtsi"
 /include/ "zynq-zed-adv7511.dtsi"
 
-&eth {
+&aliases {
+	ethernet1 = &gem1;
+};
+
+&gem0 {
 	phy1: phy@1 {
 		device_type = "ethernet-phy";
 		reg = <0x1>;
-		marvell,reg-init=<3 16 0xff00 0x1e 3 17 0xfff0 0x0a>;
+		marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x0a>;
 	};
 };
 
-&amba {
-	eth1: eth1@e000c000 {
-		compatible = "xlnx,ps7-ethernet-1.00.a";
-		reg = <0xe000c000 0x1000>;
-		interrupts = <0 45 4>;
-		interrupt-parent = <&intc>;
-		#address-cells = <0x1>;
-		#size-cells = <0x0>;
+&gem1 {
+	status = "okay";
 
-		clock-names = "ref_clk", "aper_clk";
-		clocks = <&clkc 14>, <&clkc 31>;
-
-		xlnx,enet-clk-freq-hz = <0xbebc20>;
-		xlnx,enet-slcr-1000mbps-div0 = <0x1>;
-		xlnx,enet-slcr-1000mbps-div1 = <0x1>;
-		xlnx,enet-slcr-100mbps-div0 = <0x1>;
-		xlnx,enet-slcr-100mbps-div1 = <0x5>;
-		xlnx,enet-slcr-10mbps-div0 = <0x1>;
-		xlnx,enet-slcr-10mbps-div1 = <0x32>;
-		xlnx,eth-mode = <0x1>;
-		xlnx,has-mdio = <0x0>;
-		xlnx,ptp-enet-clock = <111111115>;
-		local-mac-address = [00 49 76 a2 b2 f5];
-
-		phy-handle = <&phy1>;
-		phy-mode = "rgmii-id";
-	};
+	phy-handle = <&phy1>;
+	phy-mode = "rgmii-id";
 };
 
 &fpga_axi {
