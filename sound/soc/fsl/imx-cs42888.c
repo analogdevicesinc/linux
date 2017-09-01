@@ -32,6 +32,7 @@
 #define SUPPORT_RATE_NUM    10
 
 struct imx_priv {
+	struct clk *codec_clk;
 	unsigned int mclk_freq;
 	struct platform_device *pdev;
 	struct platform_device *asrc_pdev;
@@ -58,6 +59,8 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 		(enable_tdm ? SND_SOC_DAIFMT_DSP_A : SND_SOC_DAIFMT_LEFT_J);
 
 	int ret = 0;
+
+	priv->mclk_freq = clk_get_rate(priv->codec_clk);
 
 	if (priv->is_codec_master) {
 		/* TDM is not supported by codec in master mode */
@@ -151,7 +154,9 @@ static int imx_cs42888_surround_startup(struct snd_pcm_substream *substream)
 	static u32 support_rates[SUPPORT_RATE_NUM];
 	int ret;
 
-	if (priv->mclk_freq == 24576000) {
+	priv->mclk_freq = clk_get_rate(priv->codec_clk);
+
+	if (priv->mclk_freq % 24576000 == 0) {
 		support_rates[0] = 48000;
 		support_rates[1] = 96000;
 		support_rates[2] = 192000;
@@ -282,7 +287,6 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 	struct platform_device *asrc_pdev = NULL;
 	struct i2c_client *codec_dev;
 	struct imx_priv *priv = &card_priv;
-	struct clk *codec_clk = NULL;
 	int ret;
 	u32 width;
 
@@ -353,13 +357,12 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 			priv->asrc_format = SNDRV_PCM_FORMAT_S16_LE;
 	}
 
-	codec_clk = devm_clk_get(&codec_dev->dev, NULL);
-	if (IS_ERR(codec_clk)) {
-		ret = PTR_ERR(codec_clk);
+	priv->codec_clk = devm_clk_get(&codec_dev->dev, NULL);
+	if (IS_ERR(priv->codec_clk)) {
+		ret = PTR_ERR(priv->codec_clk);
 		dev_err(&codec_dev->dev, "failed to get codec clk: %d\n", ret);
 		goto fail;
 	}
-	priv->mclk_freq = clk_get_rate(codec_clk);
 
 	priv->is_codec_master = false;
 	if (of_property_read_bool(pdev->dev.of_node, "codec-master"))
