@@ -1540,6 +1540,7 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	struct dcss_pixmap *input;
 	struct cbuffer *cb;
 	int scale_v_luma_inc, scale_h_luma_inc;
+	uint32_t align_width, align_height;
 	const struct fb_videomode *dmode = info->dft_disp_mode;
 
 	if (scaler_ch > 2) {
@@ -1812,23 +1813,33 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 	fill_sb(cb, chan_info->scaler_addr + 0x14, 0x2);
 
 	/* Scaler Input Luma Resolution
-	 * TODO: Alighment: WIDTH and HEIGHT divisable by 4.
+	 * Alighment Workaround for YUV420:
+	 * 'width' divisable by 16, 'height' divisable by 8.
 	 */
+
+	if (fmt_is_yuv(input->format) == 2) {
+		align_width  = round_down(input->width, 16);
+		align_height = round_down(input->height, 8);
+	} else {
+		align_width  = input->width;
+		align_height = input->height;
+	}
+
 	fill_sb(cb, chan_info->scaler_addr + 0x18,
-		(input->height - 1) << 16 | (input->width - 1));
+		(align_height - 1) << 16 | (align_width - 1));
 
 	/* Scaler Input Chroma Resolution */
 	switch (fmt_is_yuv(input->format)) {
 	case 0:         /* ARGB8888 */
 		fill_sb(cb, chan_info->scaler_addr + 0x1c,
-			(input->height - 1) << 16 | (input->width - 1));
+			(align_height - 1) << 16 | (align_width - 1));
 		break;
 	case 1:         /* TODO: YUV422 or YUV444 */
 		break;
 	case 2:         /* YUV420 */
 		fill_sb(cb, chan_info->scaler_addr + 0x1c,
-			((input->height >> 1) - 1) << 16 |
-			((input->width >> 1) - 1));
+			((align_height >> 1) - 1) << 16 |
+			((align_width >> 1) - 1));
 		break;
 	default:
 		return -EINVAL;
@@ -1857,9 +1868,9 @@ static int dcss_scaler_config(uint32_t scaler_ch, struct dcss_info *info)
 
 	/* scale ratio: ###.#_####_####_#### */
 	/* vertical ratio */
-	scale_v_luma_inc = ((input->height << 13) + (dmode->yres >> 1)) / dmode->yres;
+	scale_v_luma_inc = ((align_height << 13) + (dmode->yres >> 1)) / dmode->yres;
 	/* horizontal ratio */
-	scale_h_luma_inc = ((input->width << 13) + (dmode->xres >> 1)) / dmode->xres;
+	scale_h_luma_inc = ((align_width << 13) + (dmode->xres >> 1)) / dmode->xres;
 
 	fill_sb(cb, chan_info->scaler_addr + 0x48, 0x0);
 	fill_sb(cb, chan_info->scaler_addr + 0x4c, scale_v_luma_inc);
@@ -2436,15 +2447,9 @@ static int dcss_check_var(struct fb_var_screeninfo *var,
 	/* Add alignment check for scaler */
 	switch (fmt_is_yuv(var->grayscale)) {
 	case 0:         /* ARGB8888 */
+	case 2:         /* YUV420 */
 		if (ALIGN(var->xres, 4) != var->xres ||
 		    ALIGN(var->yres, 4) != var->yres) {
-			dev_err(&pdev->dev, "width or height is not aligned\n");
-			return -EINVAL;
-		}
-		break;
-	case 2:         /* YUV420 */
-		if (ALIGN(var->xres, 16) != var->xres ||
-		    ALIGN(var->yres, 8) != var->yres) {
 			dev_err(&pdev->dev, "width or height is not aligned\n");
 			return -EINVAL;
 		}
