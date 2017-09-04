@@ -2395,12 +2395,15 @@ static int dcss_check_var(struct fb_var_screeninfo *var,
 			  struct fb_info *fbi)
 {
 	uint32_t fb_size;
+	uint32_t scale_ratio_mode_x, scale_ratio_mode_y;
+	uint32_t scale_ratio_x, scale_ratio_y;
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
 	struct platform_device *pdev = info->pdev;
 	const struct fb_bitfield *rgb = NULL;
 	const struct pix_fmt_info *format = NULL;
 	struct fb_fix_screeninfo *fix = &fbi->fix;
+	const struct fb_videomode *dmode = info->dft_disp_mode;
 
 	if (var->xres > MAX_WIDTH || var->yres > MAX_HEIGHT) {
 		dev_err(&pdev->dev, "unsupport display resolution\n");
@@ -2448,6 +2451,54 @@ static int dcss_check_var(struct fb_var_screeninfo *var,
 		break;
 	default:
 		return -EINVAL;
+	}
+
+	/* Add scale ratio check:
+	 * Maximum scale down ratio is 1/7;
+	 * Maximum scale up   ratio is 8;
+	 */
+	if (dmode->xres > var->xres) {
+		/* upscaling */
+		scale_ratio_mode_x = dmode->xres % var->xres;
+		scale_ratio_mode_y = dmode->yres % var->yres;
+		scale_ratio_x = (dmode->xres - scale_ratio_mode_x) / var->xres;
+		scale_ratio_y = (dmode->yres - scale_ratio_mode_y) / var->yres;
+		if (scale_ratio_x >= 8) {
+			if ((scale_ratio_x == 8 && scale_ratio_mode_x > 0) ||
+			    (scale_ratio_x > 8)) {
+				dev_err(&pdev->dev, "unsupport scaling ration for width\n");
+				return -EINVAL;
+			}
+		}
+
+		if (scale_ratio_y >= 8) {
+			if ((scale_ratio_y == 8 && scale_ratio_mode_y > 0) ||
+			    (scale_ratio_y > 8)) {
+				dev_err(&pdev->dev, "unsupport scaling ration for height\n");
+				return -EINVAL;
+			}
+		}
+	} else {
+		/* downscaling */
+		scale_ratio_mode_x = var->xres % dmode->xres;
+		scale_ratio_mode_y = var->yres % dmode->yres;
+		scale_ratio_x = (var->xres - scale_ratio_mode_x) / dmode->xres;
+		scale_ratio_y = (var->yres - scale_ratio_mode_y) / dmode->yres;
+		if (scale_ratio_x >= 7) {
+			if ((scale_ratio_x == 7 && scale_ratio_mode_x > 0) ||
+			    (scale_ratio_x > 7)) {
+				dev_err(&pdev->dev, "unsupport scaling ration for width\n");
+				return -EINVAL;
+			}
+		}
+
+		if (scale_ratio_y >= 7) {
+			if ((scale_ratio_y == 7 && scale_ratio_mode_y > 0) ||
+			    (scale_ratio_y > 7)) {
+				dev_err(&pdev->dev, "unsupport scaling ration for height\n");
+				return -EINVAL;
+			}
+		}
 	}
 
 	fix->line_length = var->xres * (var->bits_per_pixel >> 3);
