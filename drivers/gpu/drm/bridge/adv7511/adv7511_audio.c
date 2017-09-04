@@ -188,7 +188,7 @@ static const struct hdmi_codec_ops adv7511_codec_ops = {
 	.audio_startup	= audio_startup,
 };
 
-static struct hdmi_codec_pdata codec_data = {
+static const struct hdmi_codec_pdata codec_data = {
 	.ops = &adv7511_codec_ops,
 	.max_i2s_channels = 2,
 	.i2s = 1,
