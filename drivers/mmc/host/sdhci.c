@@ -2166,8 +2166,16 @@ static void __sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
 
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		if (!(ctrl & SDHCI_CTRL_EXEC_TUNING)) {
-			if (ctrl & SDHCI_CTRL_TUNED_CLK)
+			if (ctrl & SDHCI_CTRL_TUNED_CLK) {
+				/*
+				 * need to wait some time, make sure sd/mmc fininsh
+				 * send out tuning data, otherwise, the sd/mmc can't
+				 * response to any command when the card still out
+				 * put the tuning data.
+				 */
+				mdelay(1);
 				return; /* Success! */
+			}
 			break;
 		}
 
