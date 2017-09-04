@@ -593,9 +593,11 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 
 	MYKONOS_getProductId(phy->mykDevice, &phy->device_id);
 	if (phy->device_id != AD937x_PRODID(phy)) {
-		dev_err(&phy->spi->dev, "Failed product ID, expected 0x%X got 0x%X",
-			AD937x_PRODID(phy), phy->device_id );
-		return -ENODEV;
+		if (!(IS_AD9375(phy) && (phy->device_id == (ID_AD9375_ALT & 0xFF)))) {
+			dev_err(&phy->spi->dev, "Failed product ID, expected 0x%X got 0x%X",
+				AD937x_PRODID(phy), phy->device_id );
+			return -ENODEV;
+		}
 	}
 
 	/*******************************/
