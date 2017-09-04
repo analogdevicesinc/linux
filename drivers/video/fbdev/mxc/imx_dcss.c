@@ -2419,7 +2419,6 @@ static int dcss_check_var(struct fb_var_screeninfo *var,
 
 	switch (var->grayscale) {
 	case 0:		/* TODO: color */
-		break;
 	case 1:		/* grayscale */
 		return -EINVAL;
 	default:	/* fourcc */
