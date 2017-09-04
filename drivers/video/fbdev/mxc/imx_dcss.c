@@ -2429,6 +2429,27 @@ static int dcss_check_var(struct fb_var_screeninfo *var,
 		}
 		var->bits_per_pixel = format->bpp;
 	}
+
+	/* Add alignment check for scaler */
+	switch (fmt_is_yuv(var->grayscale)) {
+	case 0:         /* ARGB8888 */
+		if (ALIGN(var->xres, 4) != var->xres ||
+		    ALIGN(var->yres, 4) != var->yres) {
+			dev_err(&pdev->dev, "width or height is not aligned\n");
+			return -EINVAL;
+		}
+		break;
+	case 2:         /* YUV420 */
+		if (ALIGN(var->xres, 16) != var->xres ||
+		    ALIGN(var->yres, 8) != var->yres) {
+			dev_err(&pdev->dev, "width or height is not aligned\n");
+			return -EINVAL;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	fix->line_length = var->xres * (var->bits_per_pixel >> 3);
 	fb_size = var->yres_virtual * fix->line_length;
 
