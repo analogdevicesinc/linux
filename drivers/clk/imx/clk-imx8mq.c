@@ -281,6 +281,7 @@ static int const clks_init_on[] __initconst = {
 	IMX8MQ_CLK_USB_BUS_CG, IMX8MQ_CLK_NAND_USDHC_BUS_CG,
 	IMX8MQ_CLK_MAIN_AXI_CG, IMX8MQ_CLK_A53_CG,
 	IMX8MQ_CLK_AUDIO_AHB_DIV, IMX8MQ_CLK_TMU_ROOT,
+	IMX8MQ_CLK_DRAM_APB_DIV,
 };
 
 static struct clk_onecell_data clk_data;
