@@ -19,7 +19,7 @@
 #define CHANCSR(n)	(0x0 + 0x40 * n)
 #define CHANVEC(n)	(0x4 + 0x40 * n)
 #define CHANIER(n)	(0x10 + (0x40 * n))
-#define CHANIPR(n)	(0x10 + (0x40 * n))
+#define CHANIPR(n)	(0x20 + (0x40 * n))
 
 struct intmux_irqchip_data {
 	int chanidx;
