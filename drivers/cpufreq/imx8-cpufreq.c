@@ -10,6 +10,7 @@
 #include <linux/clk.h>
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
+#include <linux/cpu_cooling.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -30,6 +31,7 @@ struct imx8_cpufreq cluster_freq[MAX_CLUSTER_NUM];
 static struct cpufreq_frequency_table *freq_table[MAX_CLUSTER_NUM];
 static unsigned int transition_latency[MAX_CLUSTER_NUM];
 struct device *cpu_dev;
+static struct thermal_cooling_device *cdev[2];
 
 static int imx8_set_target(struct cpufreq_policy *policy, unsigned int index)
 {
@@ -90,6 +92,25 @@ static int imx8_cpufreq_init(struct cpufreq_policy *policy)
 	return ret;
 }
 
+static void imx8_cpufreq_ready(struct cpufreq_policy *policy)
+{
+	struct device_node *np = of_get_cpu_node(policy->cpu, NULL);
+	unsigned int cluster_id = topology_physical_package_id(policy->cpu);
+
+	if (of_find_property(np, "#cooling-cells", NULL)) {
+		cdev[cluster_id] = of_cpufreq_cooling_register(np, policy);
+
+		if (IS_ERR(cdev[cluster_id]) && PTR_ERR(cdev[cluster_id]) != -ENOSYS) {
+			pr_err("cpu%d is not running as cooling device: %ld\n",
+					policy->cpu, PTR_ERR(cdev[cluster_id]));
+
+			cdev[cluster_id] = NULL;
+		}
+	}
+
+	of_node_put(np);
+}
+
 static struct cpufreq_driver imx8_cpufreq_driver = {
 	.flags = CPUFREQ_NEED_INITIAL_FREQ_CHECK,
 	.verify = cpufreq_generic_frequency_table_verify,
@@ -98,6 +119,7 @@ static struct cpufreq_driver imx8_cpufreq_driver = {
 	.init = imx8_cpufreq_init,
 	.name = "imx8-cpufreq",
 	.attr = cpufreq_generic_attr,
+	.ready = imx8_cpufreq_ready,
 #ifdef CONFIG_PM
 	.suspend = cpufreq_generic_suspend,
 #endif
