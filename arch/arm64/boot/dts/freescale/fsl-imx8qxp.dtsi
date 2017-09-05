@@ -21,6 +21,7 @@
 #include <dt-bindings/clock/imx8qxp-clock.h>
 #include <dt-bindings/pinctrl/pads-imx8qxp.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 	compatible = "fsl,imx8qxp";
@@ -829,6 +830,13 @@
 					temperature = <127000>;
 					hysteresis = <2000>;
 					type = "critical";
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device =
+					<&A35_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -2087,4 +2095,5 @@
 	>;
 	clocks = <&clk IMX8QXP_A35_DIV>;
 	clock-latency = <61036>;
+	#cooling-cells = <2>;
 };
