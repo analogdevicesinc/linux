@@ -1486,6 +1486,7 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 			/* TODO: configure resolve */
 			;
 		}
+		pitch = var->xres * (var->bits_per_pixel >> 3);
 		break;
 	case 1:         /* TODO: YUV 1P */
 		return -EINVAL;
@@ -1497,9 +1498,11 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 
 		fill_sb(cb, chan_info->dpr_addr + 0x50, 0xc1);
 		fill_sb(cb, chan_info->dpr_addr + 0xe0, 0x2);
+
+		/* TODO: VPU always has 16bytes alignment in width */
+		pitch = ALIGN(var->xres * (var->bits_per_pixel >> 3), 16);
 		fill_sb(cb, chan_info->dpr_addr + 0x110,
-			fix->smem_start +
-			var->xres * var->yres * (var->bits_per_pixel >> 3));
+			fix->smem_start + pitch * var->yres);
 		fill_sb(cb, chan_info->dpr_addr + 0xf0, num_pix_x);
 
 		/* TODO: Require alignment handling:
@@ -1518,7 +1521,6 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 
 	/* TODO: calculate pitch for different formats */
 	/* config pitch */
-	pitch = var->xres * (var->bits_per_pixel >> 3);
 	fill_sb(cb, chan_info->dpr_addr + 0x70, pitch << 16);
 
 	fill_sb(cb, chan_info->dpr_addr + 0x200, 0x38);
@@ -2699,7 +2701,7 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 			    struct fb_info *fbi)
 {
 	int ret = 0;
-	uint32_t offset, luma_addr, chroma_addr = 0;
+	uint32_t offset, pitch, luma_addr, chroma_addr = 0;
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
 	struct platform_device *pdev = info->pdev;
@@ -2727,8 +2729,8 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 
 	/* Two planes YUV format */
 	if (fmt_is_yuv(input->format) == 2) {
-		chroma_addr = luma_addr +
-			      var->xres * var->yres * (var->bits_per_pixel >> 3);
+		pitch = ALIGN(var->xres * (var->bits_per_pixel >> 3), 16);
+		chroma_addr = luma_addr + pitch * var->yres;
 		fill_sb(cb,
 			cinfo->dpr_addr + 0x110,
 			chroma_addr + (offset >> 1));
