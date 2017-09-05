@@ -1488,7 +1488,7 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 		}
 		break;
 	case 1:         /* TODO: YUV 1P */
-		break;
+		return -EINVAL;
 	case 2:         /* YUV 2P */
 		/* Two planes YUV format */
 		num_pix_y = dpr_pix_y_calc(0, input->height, input->tile_type);
