@@ -1822,14 +1822,6 @@ lpuart32_serial_setbrg(struct lpuart_port *sport, unsigned int baudrate)
 		}
 	}
 
-	/*TODO handle buadrate outside acceptable rate
-	 * if (baudDiff > ((config->baudRate_Bps / 100) * 3))
-	 * {
-	 *    Unacceptable baud rate difference of more than 3%
-	 *    return kStatus_LPUART_BaudrateNotSupport;
-	 * }
-	 *
-	 */
 	tmp = lpuart32_read(&sport->port, UARTBAUD);
 
 	if ((osr > 3) && (osr < 8))
