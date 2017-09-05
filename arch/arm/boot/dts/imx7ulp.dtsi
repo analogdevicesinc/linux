@@ -514,14 +514,12 @@
 		iomuxc: iomuxc@4103D000 {
 			compatible = "fsl,imx7ulp-iomuxc-0";
 			reg = <0x4103D000 0x1000>;
-			fsl,mux_mask = <0xf00>;
 			status = "disabled";
 		};
 
 		iomuxc1: iomuxc1@40ac0000 {
 			compatible = "fsl,imx7ulp-iomuxc-1";
 			reg = <0x40ac0000 0x1000>;
-			fsl,mux_mask = <0xf00>;
 		};
 
 		gpio0: gpio@40ae0000 {
