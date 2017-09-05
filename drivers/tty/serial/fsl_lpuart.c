@@ -1819,6 +1819,9 @@ lpuart32_serial_setbrg(struct lpuart_port *sport, unsigned int baudrate)
 			baud_diff = tmp_diff;
 			osr = tmp_osr;
 			sbr = tmp_sbr;
+
+			if (!baud_diff)
+				break;
 		}
 	}
 
