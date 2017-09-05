@@ -335,10 +335,8 @@ static int axi_clkgen_set_rate(struct clk_hw *clk_hw,
 	if (d == 0 || dout == 0 || m == 0)
 		return -EINVAL;
 
-	if ((dout & 0x7) != 0)
+	if ((dout & 0x7) != 0 || (m & 0x7) != 0)
 		power |= 0x9800;
-	if ((m & 0x7) != 0)
-		power |= 0x1000;
 
 	axi_clkgen_mmcm_write(axi_clkgen, MMCM_REG_POWER, power, 0x9800);
 
