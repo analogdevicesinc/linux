@@ -240,6 +240,7 @@ static int gpio_clk_driver_probe(struct platform_device *pdev)
 	enum of_gpio_flags of_flags;
 	struct clk *clk;
 	bool active_low, is_mux;
+	unsigned long clk_flags;
 
 	num_parents = of_clk_get_parent_count(node);
 	if (num_parents) {
@@ -252,6 +253,7 @@ static int gpio_clk_driver_probe(struct platform_device *pdev)
 	} else {
 		parent_names = NULL;
 	}
+
 
 	is_mux = of_device_is_compatible(node, "gpio-mux-clock");
 
@@ -270,13 +272,17 @@ static int gpio_clk_driver_probe(struct platform_device *pdev)
 
 	active_low = of_flags & OF_GPIO_ACTIVE_LOW;
 
+	clk_flags = of_property_read_bool(node, "clk-set-rate-parent-enable") ?
+			CLK_SET_RATE_PARENT : 0;
+
 	if (is_mux)
 		clk = clk_register_gpio_mux(&pdev->dev, node->name,
-				parent_names, num_parents, gpio, active_low, 0);
+				parent_names, num_parents, gpio, active_low,
+			        clk_flags);
 	else
 		clk = clk_register_gpio_gate(&pdev->dev, node->name,
 				parent_names ?  parent_names[0] : NULL, gpio,
-				active_low, 0);
+			        active_low, clk_flags);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
