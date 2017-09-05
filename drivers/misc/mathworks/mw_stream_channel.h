@@ -11,7 +11,6 @@
 
 #include <linux/dmaengine.h>
 #include <linux/dma-contiguous.h>
-#include <linux/dma/xilinx_dma.h>
 #include <linux/interrupt.h>
 #include <linux/errno.h>
 
