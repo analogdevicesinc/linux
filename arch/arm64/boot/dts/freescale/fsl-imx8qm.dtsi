@@ -22,6 +22,7 @@
 #include <dt-bindings/soc/imx8_pd.h>
 #include <dt-bindings/pinctrl/pads-imx8qm.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 	compatible = "fsl,imx8qm";
@@ -980,6 +981,13 @@
 					type = "critical";
 				};
 			};
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device =
+					<&A53_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
 		};
 
 		cpu-thermal1 {
@@ -996,6 +1004,13 @@
 					temperature = <127000>;
 					hysteresis = <2000>;
 					type = "critical";
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert1>;
+					cooling-device =
+					<&A72_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -2694,6 +2709,7 @@
 	>;
 	clocks = <&clk IMX8QM_A53_DIV>;
 	clock-latency = <61036>;
+	#cooling-cells = <2>;
 };
 
 &A72_0 {
@@ -2707,4 +2723,5 @@
 	>;
 	clocks = <&clk IMX8QM_A72_DIV>;
 	clock-latency = <61036>;
+	#cooling-cells = <2>;
 };
