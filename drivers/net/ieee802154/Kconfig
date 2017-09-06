@@ -51,11 +51,6 @@ config IEEE802154_MRF24J40
 	  This driver can also be built as a module. To do so, say M here.
 	  the module will be called 'mrf24j40'.
 
-config IEEE802154_ADF7242
-       tristate "ADF7242 transceiver driver"
-       depends on IEEE802154_DRIVERS && MAC802154
-       depends on SPI
-
 config IEEE802154_CC2520
 	depends on IEEE802154_DRIVERS && MAC802154
 	tristate "CC2520 transceiver driver"
