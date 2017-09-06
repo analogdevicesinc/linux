@@ -25,8 +25,8 @@
 		clks_m4: scg0@41027000 {
 			compatible = "fsl,imx7ulp-scg0";
 			reg = <0x41027000 0x1000>;
-			clocks = <&cm4_ckil>, <&cm4_osc>, <&cm4_sirc>, <&cm4_firc>;
-			clock-names = "cm4_ckil", "cm4_osc", "cm4_sirc", "cm4_firc";
+			clocks = <&cm4_rosc>, <&cm4_sosc>, <&cm4_sirc>, <&cm4_firc>;
+			clock-names = "cm4_rosc", "cm4_sosc", "cm4_sirc", "cm4_firc";
 			#clock-cells = <1>;
 		};
 
@@ -83,18 +83,18 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		cm4_ckil: clock@6 {
+		cm4_rosc: clock@6 {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <32768>;
-			clock-output-names = "cm4_ckil";
+			clock-output-names = "cm4_rosc";
 		};
 
-		cm4_osc: clock@7 {
+		cm4_sosc: clock@7 {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <24000000>;
-			clock-output-names = "cm4_osc";
+			clock-output-names = "cm4_sosc";
 		};
 
 		cm4_sirc: clock@8 {
@@ -201,7 +201,7 @@
 			  <&clks_m4 IMX7ULP_CM4_CLK_APLL_VCO_POST_DIV1>,
 			  <&clks_m4 IMX7ULP_CM4_CLK_APLL_VCO_POST_DIV2>,
 			  <&clks_m4 IMX7ULP_CM4_CLK_APLL_PFD0_PRE_DIV>;
-	assigned-clock-parents = <&clks_m4 IMX7ULP_CM4_CLK_OSC>;
+	assigned-clock-parents = <&clks_m4 IMX7ULP_CM4_CLK_SOSC>;
 	assigned-clock-rates = <0>, <540672000>, <49152000>, <12288000>, <270336000>;
 };
 

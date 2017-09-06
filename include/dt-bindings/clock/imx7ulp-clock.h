@@ -12,8 +12,8 @@
 #define __DT_BINDINGS_CLOCK_IMX7ULP_H
 
 #define IMX7ULP_CLK_DUMMY		0
-#define IMX7ULP_CLK_CKIL		1
-#define IMX7ULP_CLK_OSC			2
+#define IMX7ULP_CLK_ROSC		1
+#define IMX7ULP_CLK_SOSC		2
 #define IMX7ULP_CLK_FIRC		3
 
 /* SCG1 */
@@ -110,8 +110,8 @@
 
 /*cm4 clocks*/
 #define IMX7ULP_CM4_CLK_DUMMY		0
-#define IMX7ULP_CM4_CLK_CKIL		1
-#define IMX7ULP_CM4_CLK_OSC		2
+#define IMX7ULP_CM4_CLK_ROSC		1
+#define IMX7ULP_CM4_CLK_SOSC		2
 #define IMX7ULP_CM4_CLK_FIRC		3
 #define IMX7ULP_CM4_CLK_SIRC		4
 

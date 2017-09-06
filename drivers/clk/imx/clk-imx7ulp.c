@@ -20,29 +20,30 @@
 
 #include "clk.h"
 
-static const char *pll_pre_sels[]	= { "osc", "firc", };
+static const char *pll_pre_sels[]	= { "sosc", "firc", };
 static const char *spll_pfd_sels[]	= { "spll_pfd0", "spll_pfd1", "spll_pfd2", "spll_pfd3", };
 static const char *spll_sels[]		= { "spll", "spll_pfd_sel", };
 static const char *apll_pfd_sels[]	= { "apll_pfd0", "apll_pfd1", "apll_pfd2", "apll_pfd3", };
 static const char *apll_sels[]		= { "apll", "apll_pfd_sel", };
-static const char *sys_sels[]		= { "dummy", "osc", "sirc", "firc", "ckil", "apll_sel", "spll_sel", "upll", };
+static const char *sys_sels[]		= { "dummy", "sosc", "sirc", "firc", "rosc", "apll_sel", "spll_sel", "upll", };
 static const char *arm_sels[]		= { "core_div", "dummy", "dummy", "hsrun_core", };
 static const char *ddr_sels[]		= { "apll_pfd_sel", "upll", };
 static const char *nic_sels[]		= { "firc", "ddr_div", };
 static const char *periph_plat_sels[]	= { "dummy", "nic1_bus", "nic1_div", "ddr_div", "apll_pfd2", "apll_pfd1", "apll_pfd0", "upll", };
 /* the dummy in only a space holder of spll_bus clk */
-static const char *periph_slow_sels[]	= { "dummy", "osc", "dummy", "firc", "ckil", "nic1_bus", "nic1_div", "dummy", };
+static const char *periph_slow_sels[]	= { "dummy", "sosc", "dummy", "firc", "rosc", "nic1_bus", "nic1_div", "dummy", };
 static struct clk *clks[IMX7ULP_CLK_END];
 static struct clk_onecell_data clk_data;
 
-static const char *cm4_pll_pre_sels[]	= { "cm4_osc", "cm4_firc", };
+static const char *cm4_pll_pre_sels[]	= { "cm4_sosc", "cm4_firc", };
 static const char *cm4_spll_pfd_sels[]	= { "cm4_spll_pfd0", "cm4_spll_pfd1", "cm4_spll_pfd2", "cm4_spll_pfd3", };
 static const char *cm4_spll_sels[]		= { "cm4_spll_vco", "cm4_spll_pfd_sel", };
 static const char *cm4_apll_pfd_sels[]	= { "cm4_apll_pfd0", "cm4_apll_pfd1", "cm4_apll_pfd2", "cm4_apll_pfd3", };
 static const char *cm4_apll_sels[]		= { "cm4_apll_vco_post_div2", "cm4_apll_pfd_sel", };
-static const char *cm4_sys_sels[]		= { "cm4_dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_apll_sel", "cm4_spll_sel", "cm4_dummy", };
-static const char *cm4_periph_slow_sels[]	= { "cm4_dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_bus_div", "cm4_spll_pfd2", "cm4_apll_pfd0_pre_div", };
-static const char *scg0_clkout_sels[]   = { "dummy", "cm4_osc", "cm4_sirc", "cm4_firc", "cm4_ckil", "cm4_apll_sel", "cm4_spll_sel", "dummy"};
+static const char *cm4_sys_sels[]		= { "cm4_dummy", "cm4_sosc", "cm4_sirc", "cm4_firc", "cm4_rosc", "cm4_apll_sel", "cm4_spll_sel", "cm4_dummy", };
+static const char *cm4_periph_slow_sels[]	= { "cm4_dummy", "cm4_sosc", "cm4_sirc", "cm4_firc", "cm4_rosc", "cm4_bus_div", "cm4_spll_pfd2", "cm4_apll_pfd0_pre_div", };
+static const char *scg0_clkout_sels[]   = { "dummy", "cm4_sosc", "cm4_sirc", "cm4_firc", "cm4_rosc", "cm4_apll_sel", "cm4_spll_sel", "dummy"};
+
 static struct clk *clks_cm4[IMX7ULP_CM4_CLK_END];
 static struct clk_onecell_data clk_data_cm4;
 
@@ -70,8 +71,8 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 
 	clks[IMX7ULP_CLK_DUMMY]		= imx_clk_fixed("dummy", 0);
 
-	clks[IMX7ULP_CLK_CKIL]		= of_clk_get_by_name(scg_node, "ckil");
-	clks[IMX7ULP_CLK_OSC]		= of_clk_get_by_name(scg_node, "osc");
+	clks[IMX7ULP_CLK_ROSC]		= of_clk_get_by_name(scg_node, "rosc");
+	clks[IMX7ULP_CLK_SOSC]		= of_clk_get_by_name(scg_node, "sosc");
 	clks[IMX7ULP_CLK_SIRC]		= of_clk_get_by_name(scg_node, "sirc");
 	clks[IMX7ULP_CLK_FIRC]		= of_clk_get_by_name(scg_node, "firc");
 	clks[IMX7ULP_CLK_MIPI_PLL]	= of_clk_get_by_name(scg_node, "mpll");
@@ -215,8 +216,8 @@ static void __init imx7ulp_cm4_clocks_init(struct device_node *scg_node)
 
 	clks_cm4[IMX7ULP_CM4_CLK_DUMMY]		= imx_clk_fixed("cm4_dummy", 0);
 
-	clks_cm4[IMX7ULP_CM4_CLK_CKIL]		= of_clk_get_by_name(scg_node, "cm4_ckil");
-	clks_cm4[IMX7ULP_CM4_CLK_OSC]		= of_clk_get_by_name(scg_node, "cm4_osc");
+	clks_cm4[IMX7ULP_CM4_CLK_ROSC]		= of_clk_get_by_name(scg_node, "cm4_rosc");
+	clks_cm4[IMX7ULP_CM4_CLK_SOSC]		= of_clk_get_by_name(scg_node, "cm4_sosc");
 	clks_cm4[IMX7ULP_CM4_CLK_SIRC] 		= of_clk_get_by_name(scg_node, "cm4_sirc");
 	clks_cm4[IMX7ULP_CM4_CLK_FIRC]		= of_clk_get_by_name(scg_node, "cm4_firc");
 
