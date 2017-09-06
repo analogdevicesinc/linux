@@ -125,8 +125,8 @@
 		codec-master;
 		/* JD3: hp detect high for headphone*/
 		hp-det = <3 0>;
-		hp-det-gpios = <&gpio3 0 0>;
-		mic-det-gpios = <&gpio3 0 0>;
+		hp-det-gpios = <&gpio_ptf 0 0>;
+		mic-det-gpios = <&gpio_ptf 0 0>;
 		audio-routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",

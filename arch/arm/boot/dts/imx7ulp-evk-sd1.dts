@@ -17,7 +17,7 @@
 			regulator-name = "VSD_3V3B";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>;
+			gpio = <&gpio_pte 11 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
 	};
@@ -33,8 +33,8 @@
 	pinctrl-1 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
 	pinctrl-2 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
 	pinctrl-3 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
-	cd-gpios = <&gpio2 13 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&gpio2 12 GPIO_ACTIVE_HIGH>;
+	cd-gpios = <&gpio_pte 13 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpio_pte 12 GPIO_ACTIVE_HIGH>;
 	vmmc-supply = <&reg_vsd_3v3b>;
 	/delete-property/non-removable;
 	/delete-property/cd-post;

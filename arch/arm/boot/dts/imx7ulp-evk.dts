@@ -40,7 +40,7 @@
 
 	mipi_dsi_reset: mipi-dsi-reset {
 		compatible = "gpio-reset";
-		reset-gpios = <&gpio0 19 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpio_ptc 19 GPIO_ACTIVE_LOW>;
 		reset-delay-us = <1000>;
 		#reset-cells = <0>;
 	};
@@ -66,7 +66,7 @@
 			regulator-name = "usb_otg1_vbus";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
-			gpio = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+			gpio = <&gpio_ptc 0 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
 
@@ -76,7 +76,7 @@
 			regulator-name = "VSD_3V3";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio1 0 GPIO_ACTIVE_HIGH>;
+			gpio = <&gpio_ptd 0 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
 
@@ -84,7 +84,7 @@
 
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
-		id-gpio = <&gpio0 13 GPIO_ACTIVE_HIGH>;
+		id-gpio = <&gpio_ptc 13 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pinctrl_extcon_usb1>;
 		pinctrl-1 = <&pinctrl_extcon_usb1>;
@@ -389,11 +389,11 @@
 	focaltech@38 {
 		compatible = "focaltech,fts";
 		reg = <0x38>;
-		interrupt-parent = <&gpio3>;
+		interrupt-parent = <&gpio_ptf>;
 		interrupts = <0 0x02>;
 		focaltech,panel-type = <FT5426>;
-		focaltech,reset-gpio = <&gpio3 1 0x01>;
-		focaltech,irq-gpio = <&gpio3 0 0x02>;
+		focaltech,reset-gpio = <&gpio_ptf 1 0x01>;
+		focaltech,irq-gpio = <&gpio_ptf 0 0x02>;
 		focaltech,max-touch-number = <5>;
 		focaltech,display-coords =  <0 0 272 480>;
 
@@ -419,7 +419,7 @@
 		reg = <0x3d>; /* PD pin is low */
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_dsi_hdmi>;
-		interrupt-parent = <&gpio0>;
+		interrupt-parent = <&gpio_ptc>;
 		interrupts = <18 IRQ_TYPE_EDGE_FALLING>;
 		video-mode = <1>; /*
 			           * Only support CEA modes.
@@ -514,7 +514,7 @@
 	pinctrl-1 = <&pinctrl_usdhc0>;
 	pinctrl-2 = <&pinctrl_usdhc0>;
 	pinctrl-3 = <&pinctrl_usdhc0>;
-	cd-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpio_ptc 10 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&reg_vsd_3v3>;
 	vqmmc-supply = <&vldo2_reg>;
 	status = "okay";

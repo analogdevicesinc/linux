@@ -18,10 +18,10 @@
 	interrupt-parent = <&intc>;
 
 	aliases {
-		gpio0 = &gpio0;
-		gpio1 = &gpio1;
-		gpio2 = &gpio2;
-		gpio3 = &gpio3;
+		gpio0 = &gpio_ptc;
+		gpio1 = &gpio_ptd;
+		gpio2 = &gpio_pte;
+		gpio3 = &gpio_ptf;
 		mmc0 = &usdhc0;
 		mmc1 = &usdhc1;
 		serial0 = &lpuart4;
@@ -522,7 +522,7 @@
 			reg = <0x40ac0000 0x1000>;
 		};
 
-		gpio0: gpio@40ae0000 {
+		gpio_ptc: gpio@40ae0000 {
 			compatible = "fsl,vf610-gpio";
 			reg = <0x40ae0000 0x1000 0x400F0000 0x40>;
 			gpio-controller;
@@ -533,7 +533,7 @@
 			gpio-ranges = <&iomuxc1 0 0 32>;
 		};
 
-		gpio1: gpio@40af0000 {
+		gpio_ptd: gpio@40af0000 {
 			compatible = "fsl,vf610-gpio";
 			reg = <0x40af0000 0x1000 0x400F0040 0x40>;
 			gpio-controller;
@@ -544,7 +544,7 @@
 			gpio-ranges = <&iomuxc1 0 32 32>;
 		};
 
-		gpio2: gpio@40b00000 {
+		gpio_pte: gpio@40b00000 {
 			compatible = "fsl,vf610-gpio";
 			reg = <0x40b00000 0x1000 0x400F0080 0x40>;
 			gpio-controller;
@@ -555,7 +555,7 @@
 			gpio-ranges = <&iomuxc1 0 64 32>;
 		};
 
-		gpio3: gpio@40b10000 {
+		gpio_ptf: gpio@40b10000 {
 			compatible = "fsl,vf610-gpio";
 			reg = <0x40b10000 0x1000 0x400F00c0 0x40>;
 			gpio-controller;
