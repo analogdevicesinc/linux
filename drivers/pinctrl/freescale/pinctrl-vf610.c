@@ -326,6 +326,8 @@ static struct imx_pinctrl_soc_info vf610_pinctrl_info = {
 	.gpio_set_direction = vf610_pmx_gpio_set_direction,
 	.mux_mask = 0x700000,
 	.mux_shift = 20,
+	.ibe_bit = BIT(0),
+	.obe_bit = BIT(1),
 };
 
 static const struct of_device_id vf610_pinctrl_of_match[] = {

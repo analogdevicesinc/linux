@@ -83,6 +83,8 @@ struct imx_pinctrl_soc_info {
 	/* MUX_MODE shift and mask in case SHARE_MUX_CONF_REG */
 	unsigned int mux_mask;
 	u8 mux_shift;
+	u32 ibe_bit;
+	u32 obe_bit;
 
 	/* generic pinconf */
 	bool generic_pinconf;
@@ -119,8 +121,6 @@ struct imx_pinctrl {
 
 #define SHARE_MUX_CONF_REG	0x1
 #define ZERO_OFFSET_VALID	0x2
-#define CONFIG_IBE_OBE		0x4
-
 #define IMX8_ENABLE_MUX_CONFIG	(1 << 29)
 #define IMX8_ENABLE_PAD_CONFIG	(1 << 30)
 #define IMX8_USE_SCU		(1 << 31)

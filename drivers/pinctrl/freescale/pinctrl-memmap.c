@@ -30,9 +30,6 @@
 
 #define IMX_PAD_SION 0x40000000		/* set SION */
 
-#define IOMUXC_IBE	(1 << 16)
-#define IOMUXC_OBE	(1 << 17)
-
 int imx_pmx_set_one_pin_mem(struct imx_pinctrl *ipctl, struct imx_pin *pin)
 {
 	const struct imx_pinctrl_soc_info *info = ipctl->info;
