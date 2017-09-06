@@ -530,6 +530,9 @@
 			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
+			clocks = <&clks IMX7ULP_CLK_RGPIO2P1>,
+				 <&clks IMX7ULP_CLK_PCTLC>;
+			clock-names = "port", "gpio";
 			gpio-ranges = <&iomuxc1 0 0 32>;
 		};
 
@@ -541,6 +544,9 @@
 			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
+			clocks = <&clks IMX7ULP_CLK_RGPIO2P1>,
+				 <&clks IMX7ULP_CLK_PCTLD>;
+			clock-names = "port", "gpio";
 			gpio-ranges = <&iomuxc1 0 32 32>;
 		};
 
@@ -552,6 +558,9 @@
 			interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
+			clocks = <&clks IMX7ULP_CLK_RGPIO2P1>,
+				 <&clks IMX7ULP_CLK_PCTLE>;
+			clock-names = "port", "gpio";
 			gpio-ranges = <&iomuxc1 0 64 32>;
 		};
 
@@ -563,6 +572,9 @@
 			interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
+			clocks = <&clks IMX7ULP_CLK_RGPIO2P1>,
+				 <&clks IMX7ULP_CLK_PCTLF>;
+			clock-names = "port", "gpio";
 			gpio-ranges = <&iomuxc1 0 96 32>;
 		};
 
