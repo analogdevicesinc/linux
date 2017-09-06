@@ -16,12 +16,4 @@ config IIO_BFIN_TMR_TRIGGER
 	  To compile this driver as a module, choose M here: the
 	  module will be called iio-trig-bfin-timer.
 
-config IIO_TRIGGER_HRTIMER
-	tristate "Highres timer trigger"
-	help
-	  Provides a frequency based IIO trigger using hrtimers.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called iio-trig-hrtimer.
-
 endif # IIO_TRIGGER

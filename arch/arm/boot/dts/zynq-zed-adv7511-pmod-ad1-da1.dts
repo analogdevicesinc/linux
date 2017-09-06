@@ -135,10 +135,6 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-boot-on;
 	};
-
-	trigger: trigger@0 {
-		compatible = "iio-trigger-hrtimer";
-	};
 };
 
 &spi0 {
