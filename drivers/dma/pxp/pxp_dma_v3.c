@@ -198,6 +198,7 @@ static struct pxp_collision_info col_info;
 static dma_addr_t paddr;
 static bool v3p_flag;
 static int alpha_blending_version;
+static bool pxp_legacy;
 
 struct pxp_dma {
 	struct dma_device dma;
@@ -3618,10 +3619,15 @@ static int convert_param_to_pixmap(struct pxp_pixmap *pixmap,
 	pixmap->paddr  = param->paddr;
 	pixmap->bpp    = get_bpp_from_fmt(pixmap->format);
 
-	if (!param->stride || (param->stride == param->width))
-		pixmap->pitch  = param->width * pixmap->bpp >> 3;
-	else
-		pixmap->pitch = param->stride;
+	if (pxp_legacy) {
+		pixmap->pitch = (param->stride) ? (param->stride * pixmap->bpp >> 3) :
+						(param->width * pixmap->bpp >> 3);
+	} else {
+		if (!param->stride || (param->stride == param->width))
+			pixmap->pitch  = param->width * pixmap->bpp >> 3;
+		else
+			pixmap->pitch = param->stride;
+	}
 
 	pixmap->crop.x = param->crop.left;
 	pixmap->crop.y = param->crop.top;
@@ -3674,6 +3680,8 @@ static void __pxpdma_dostart(struct pxp_channel *pxp_chan)
 		alpha_blending_version = PXP_ALPHA_BLENDING_V2;
 	else
 		alpha_blending_version = PXP_ALPHA_BLENDING_NONE;
+
+	pxp_legacy = (proc_data->pxp_legacy) ? true : false;
 
 	/* Save PxP configuration */
 	list_for_each_entry(child, &desc->tx_list, list) {

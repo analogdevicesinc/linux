@@ -127,6 +127,8 @@ typedef unsigned char bool;
 #define ALPHA_MODE_LEGACY	0x2
 #define ALPHA_MODE_PORTER_DUFF	0x3
 
+#define PXP_DEVICE_LEGACY
+
 /* Order significant! */
 enum pxp_channel_status {
 	PXP_CHANNEL_FREE,
@@ -313,6 +315,7 @@ struct pxp_proc_data {
 	bool reagl_en;		/* enable reagl/-d */
 	bool reagl_d_en;	/* enable reagl or reagl-d */
 	bool detection_only;
+	bool pxp_legacy;
 	int lut;
 	bool lut_cleanup;
 	unsigned int lut_status_1;
