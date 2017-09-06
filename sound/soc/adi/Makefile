@@ -5,4 +5,4 @@ snd-soc-adrv936x-box-objs := adrv936x_box.o
 obj-$(CONFIG_SND_SOC_ADI_AXI_I2S) += snd-soc-adi-axi-i2s.o
 obj-$(CONFIG_SND_SOC_ADI_AXI_SPDIF) += snd-soc-adi-axi-spdif.o
 
-obj-$(CONFIG_SND_SOC_ADI) += snd-soc-adrv936x-box.o
+obj-$(CONFIG_SND_SOC_ADRV936X_BOX) += snd-soc-adrv936x-box.o
