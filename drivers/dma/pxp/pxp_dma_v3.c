@@ -959,6 +959,7 @@ static void pxp_histogram_disable(struct pxps *pxp);
 static void pxp_lut_cleanup_multiple(struct pxps *pxp, u64 lut, bool set);
 static void pxp_lut_cleanup_multiple_v3p(struct pxps *pxp, u64 lut, bool set);
 static void pxp_luts_deactivate(struct pxps *pxp, u64 lut_status);
+static void pxp_set_colorkey(struct pxps *pxp);
 
 enum {
 	DITHER0_LUT = 0x0,	/* Select the LUT memory for access */
@@ -1285,6 +1286,32 @@ static uint32_t pxp_parse_ps_fmt(uint32_t format)
 	}
 
 	return fmt_ctrl;
+}
+
+static void pxp_set_colorkey(struct pxps *pxp)
+{
+	struct pxp_config_data *pxp_conf = &pxp->pxp_conf_state;
+	struct pxp_layer_param *s0_params = &pxp_conf->s0_param;
+	struct pxp_layer_param *ol_params = &pxp_conf->ol_param[0];
+
+	/* Low and high are set equal. V4L does not allow a chromakey range */
+	if (s0_params->color_key_enable == 0 || s0_params->color_key == -1) {
+		/* disable color key */
+		pxp_writel(0xFFFFFF, HW_PXP_PS_CLRKEYLOW_0);
+		pxp_writel(0, HW_PXP_PS_CLRKEYHIGH_0);
+	} else {
+		pxp_writel(s0_params->color_key, HW_PXP_PS_CLRKEYLOW_0);
+		pxp_writel(s0_params->color_key, HW_PXP_PS_CLRKEYHIGH_0);
+	}
+
+	if (ol_params->color_key_enable != 0 && ol_params->color_key != -1) {
+		pxp_writel(ol_params->color_key, HW_PXP_AS_CLRKEYLOW_0);
+		pxp_writel(ol_params->color_key, HW_PXP_AS_CLRKEYHIGH_0);
+	} else {
+		/* disable color key */
+		pxp_writel(0xFFFFFF, HW_PXP_AS_CLRKEYLOW_0);
+		pxp_writel(0, HW_PXP_AS_CLRKEYHIGH_0);
+	}
 }
 
 static uint32_t pxp_parse_as_fmt(uint32_t format)
@@ -3455,6 +3482,7 @@ config:
 
 	__raw_writel(proc_data->bgcolor,
 			 pxp->base + HW_PXP_PS_BACKGROUND_0);
+	pxp_set_colorkey(pxp);
 
 	if (proc_data->lut_transform && pxp_is_v3(pxp))
 		set_mux(&path_ctrl0);
