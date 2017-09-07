@@ -12,10 +12,14 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/err.h>
+#include <linux/iopoll.h>
 #include <linux/slab.h>
 
 #include "clk.h"
 
+/* PLL Control Status Register (xPLLCSR) */
+#define PLL_CSR_OFFSET		0x0
+#define PLL_VLD			BIT(24)
 #define PLL_EN			BIT(0)
 #define BP_PLL_MULT		16
 #define BM_PLL_MULT		(0x7f << 16)
@@ -32,6 +36,17 @@ struct clk_pllv4 {
 static const int pllv4_mult_table[] = {33, 27, 22, 20, 17, 16};
 
 #define to_clk_pllv4(__hw) container_of(__hw, struct clk_pllv4, hw)
+
+#define LOCK_TIMEOUT_US		USEC_PER_MSEC
+
+static inline int clk_pllv4_wait_lock(struct clk_pllv4 *pll)
+{
+	u32 csr;
+
+	return readl_poll_timeout(pll->base  + PLL_CSR_OFFSET,
+				  csr, csr & PLL_VLD, 0, LOCK_TIMEOUT_US);
+}
+
 
 static unsigned long clk_pllv4_recalc_rate(struct clk_hw *hw,
 					      unsigned long parent_rate)
@@ -139,7 +154,7 @@ static int clk_pllv4_enable(struct clk_hw *hw)
 	val |= PLL_EN;
 	writel_relaxed(val, pll->base);
 
-	return 0;
+	return clk_pllv4_wait_lock(pll);
 }
 
 static void clk_pllv4_disable(struct clk_hw *hw)
