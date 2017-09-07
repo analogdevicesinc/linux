@@ -21,17 +21,22 @@
  * struct clk_pfdv2 - IMX PFD clock
  * @clk_hw:	clock source
  * @reg:	PFD register address
- * @idx:	the index of PFD encoded in the register
- *
+ * @gate_bit:	Gate bit offset
+ * @vld_bit:	Valid bit offset
+ * @frac_off:	PLL Fractional Divider offset
  */
 
 struct clk_pfdv2 {
 	struct clk_hw	hw;
 	void __iomem	*reg;
-	u8		idx;
+	u32		gate_bit;
+	u32		vld_bit;
+	u8		frac_off;
 };
 
 #define to_clk_pfdv2(_hw) container_of(_hw, struct clk_pfdv2, hw)
+
+#define CLK_PFDV2_FRAC_MASK 0x3f
 
 static int clk_pfd_enable(struct clk_hw *hw)
 {
@@ -39,7 +44,7 @@ static int clk_pfd_enable(struct clk_hw *hw)
 	u32 val;
 
 	val = readl_relaxed(pfd->reg);
-	val &= ~(1 << ((pfd->idx + 1) * 8 - 1));
+	val &= ~pfd->gate_bit;
 	writel_relaxed(val, pfd->reg);
 
 	return 0;
@@ -51,7 +56,7 @@ static void clk_pfd_disable(struct clk_hw *hw)
 	u32 val;
 
 	val = readl_relaxed(pfd->reg);
-	val |= 1 << ((pfd->idx + 1) * 8 - 1);
+	val |= pfd->gate_bit;
 	writel_relaxed(val, pfd->reg);
 }
 
@@ -60,7 +65,10 @@ static unsigned long clk_pfd_recalc_rate(struct clk_hw *hw,
 {
 	struct clk_pfdv2 *pfd = to_clk_pfdv2(hw);
 	u64 tmp = parent_rate;
-	u8 frac = (readl_relaxed(pfd->reg) >> (pfd->idx * 8)) & 0x3f;
+	u8 frac;
+
+	frac = (readl_relaxed(pfd->reg) >> pfd->frac_off)
+		& CLK_PFDV2_FRAC_MASK;
 
 	if (!frac) {
 		pr_debug("clk_pfdv2: %s invalid pfd frac value 0\n",
@@ -94,6 +102,16 @@ static long clk_pfd_round_rate(struct clk_hw *hw, unsigned long rate,
 	return tmp;
 }
 
+static int clk_pfd_is_enabled(struct clk_hw *hw)
+{
+	struct clk_pfdv2 *pfd = to_clk_pfdv2(hw);
+
+	if (readl_relaxed(pfd->reg) & pfd->gate_bit)
+		return 0;
+
+	return 1;
+}
+
 static int clk_pfd_set_rate(struct clk_hw *hw, unsigned long rate,
 		unsigned long parent_rate)
 {
@@ -106,8 +124,7 @@ static int clk_pfd_set_rate(struct clk_hw *hw, unsigned long rate,
 		return -EINVAL;
 
 	/* PFD can NOT change rate without gating */
-	WARN_ON(!(readl_relaxed(pfd->reg) &
-		(1 << ((pfd->idx + 1) * 8 - 1))));
+	WARN_ON(clk_pfd_is_enabled(hw));
 
 	tmp = tmp * 18 + rate / 2;
 	do_div(tmp, rate);
@@ -118,21 +135,11 @@ static int clk_pfd_set_rate(struct clk_hw *hw, unsigned long rate,
 		frac = 35;
 
 	val = readl_relaxed(pfd->reg);
-	val &= ~(0x3f << (pfd->idx * 8));
-	val |= frac << (pfd->idx * 8);
+	val &= ~(CLK_PFDV2_FRAC_MASK << pfd->frac_off);
+	val |= frac << pfd->frac_off;
 	writel_relaxed(val, pfd->reg);
 
 	return 0;
-}
-
-static int clk_pfd_is_enabled(struct clk_hw *hw)
-{
-	struct clk_pfdv2 *pfd = to_clk_pfdv2(hw);
-
-	if (readl_relaxed(pfd->reg) & (1 << ((pfd->idx + 1) * 8 - 1)))
-		return 0;
-
-	return 1;
 }
 
 static const struct clk_ops clk_pfdv2_ops = {
@@ -156,7 +163,9 @@ struct clk *imx_clk_pfdv2(const char *name, const char *parent_name,
 		return ERR_PTR(-ENOMEM);
 
 	pfd->reg = reg;
-	pfd->idx = idx;
+	pfd->gate_bit = 1 << ((idx + 1) * 8 - 1);
+	pfd->vld_bit = pfd->gate_bit >> 1;
+	pfd->frac_off = idx * 8;
 
 	init.name = name;
 	init.ops = &clk_pfdv2_ops;
