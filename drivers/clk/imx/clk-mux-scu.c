@@ -43,6 +43,8 @@ struct clk_mux_scu {
 	u32		mask;
 	u8		shift;
 	u8		flags;
+	u32		val;
+	bool		update;
 	spinlock_t	*lock;
 	char *pd_name;
 	struct generic_pm_domain *pd;
@@ -73,23 +75,28 @@ static void populate_mux_pd(struct clk_mux_scu *clk)
 	}
 }
 
-static u8 clk_mux_get_parent_scu(struct clk_hw *hw)
+static int check_mux_pd(struct clk_mux_scu *mux)
 {
-	struct clk_mux_scu *mux = to_clk_mux_scu(hw);
-	int num_parents = clk_hw_get_num_parents(hw);
-	u32 val;
-
 	if (!ccm_ipc_handle)
-		return 0;
+		return -1;
 
 	if (mux->pd == NULL && mux->pd_name)
 		populate_mux_pd(mux);
 
 	if (IS_ERR_OR_NULL(mux->pd))
-		return 0;
+		return -1;
 
 	if (mux->pd->status != GPD_STATE_ACTIVE)
-		return 0;
+		return -1;
+
+	return 0;
+}
+
+static u8 clk_mux_get_parent_scu(struct clk_hw *hw)
+{
+	struct clk_mux_scu *mux = to_clk_mux_scu(hw);
+	int num_parents = clk_hw_get_num_parents(hw);
+	u32 val;
 
 	/*
 	 * FIXME need a mux-specific flag to determine if val is bitwise or numeric
@@ -98,7 +105,7 @@ static u8 clk_mux_get_parent_scu(struct clk_hw *hw)
 	 * OTOH, pmd_trace_clk_mux_ck uses a separate bit for each clock, so
 	 * val = 0x4 really means "bit 2, index starts at bit 0"
 	 */
-	val = clk_readl(mux->reg) >> mux->shift;
+	val = mux->val >> mux->shift;
 	val &= mux->mask;
 
 	if (mux->table) {
@@ -122,23 +129,37 @@ static u8 clk_mux_get_parent_scu(struct clk_hw *hw)
 	return val;
 }
 
+static int clk_mux_prepare_scu(struct clk_hw *hw)
+{
+	struct clk_mux_scu *mux = to_clk_mux_scu(hw);
+	unsigned long flags = 0;
+	int ret;
+
+	ret = check_mux_pd(mux);
+	if (ret)
+		return ret;
+
+	if (mux->lock)
+		spin_lock_irqsave(mux->lock, flags);
+
+	if (mux->update) {
+		clk_writel(mux->val, mux->reg);
+		mux->update = 0;
+	}
+
+	if (mux->lock)
+		spin_unlock_irqrestore(mux->lock, flags);
+
+	return 0;
+}
+
 static int clk_mux_set_parent_scu(struct clk_hw *hw, u8 index)
 {
 	struct clk_mux_scu *mux = to_clk_mux_scu(hw);
-	u32 val;
 	unsigned long flags = 0;
+	int ret;
 
-	if (!ccm_ipc_handle)
-		return -1;
-
-	if (mux->pd == NULL && mux->pd_name)
-		populate_mux_pd(mux);
-
-	if (IS_ERR_OR_NULL(mux->pd))
-		return -1;
-
-	if (mux->pd->status != GPD_STATE_ACTIVE)
-		return -1;
+	ret = check_mux_pd(mux);
 
 	if (mux->table) {
 		index = mux->table[index];
@@ -153,13 +174,15 @@ static int clk_mux_set_parent_scu(struct clk_hw *hw, u8 index)
 		spin_lock_irqsave(mux->lock, flags);
 
 	if (mux->flags & CLK_MUX_HIWORD_MASK) {
-		val = mux->mask << (mux->shift + 16);
+		mux->val = mux->mask << (mux->shift + 16);
 	} else {
-		val = clk_readl(mux->reg);
-		val &= ~(mux->mask << mux->shift);
+		mux->val &= ~(mux->mask << mux->shift);
 	}
-	val |= index << mux->shift;
-	clk_writel(val, mux->reg);
+	mux->val |= index << mux->shift;
+	mux->update = (ret != 0);
+
+	if (ret == 0)
+		clk_writel(mux->val, mux->reg);
 
 	if (mux->lock)
 		spin_unlock_irqrestore(mux->lock, flags);
@@ -168,6 +191,7 @@ static int clk_mux_set_parent_scu(struct clk_hw *hw, u8 index)
 }
 
 const struct clk_ops clk_mux_scu_ops = {
+	.prepare = clk_mux_prepare_scu,
 	.get_parent = clk_mux_get_parent_scu,
 	.set_parent = clk_mux_set_parent_scu,
 	.determine_rate = __clk_mux_determine_rate,
