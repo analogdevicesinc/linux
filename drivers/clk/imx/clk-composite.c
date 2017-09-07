@@ -26,7 +26,7 @@ struct clk *imx_clk_composite(const char *name, const char **parent_name,
 {
 	struct clk_gate *gate = NULL;
 	struct clk_mux *mux = NULL;
-	struct clk_frac_divider *div = NULL;
+	struct clk_fractional_divider *div = NULL;
 	struct clk_hw *mux_hw = NULL, *div_hw = NULL, *gate_hw = NULL;
 	struct clk *clk;
 
@@ -61,6 +61,7 @@ struct clk *imx_clk_composite(const char *name, const char **parent_name,
 		div->nshift = 0;
 		div->nwidth = 3;
 		div->nmask  = 0x7;
+		div->flags = CLK_FRAC_DIVIDER_ZERO_BASED;
 	}
 
 	if (gate_present) {
@@ -80,7 +81,7 @@ struct clk *imx_clk_composite(const char *name, const char **parent_name,
 
 	/* register the composite clk itself */
 	clk = clk_register_composite(NULL, name, parent_name, num_parents,
-				mux_hw, &clk_mux_ops, div_hw, &clk_frac_divider_ops,
+				mux_hw, &clk_mux_ops, div_hw, &clk_fractional_divider_ops,
 				gate_hw, &clk_gate_ops, CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE);
 
 	if (IS_ERR(clk)) {
