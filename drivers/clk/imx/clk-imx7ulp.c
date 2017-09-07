@@ -130,7 +130,7 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	WARN_ON(!base);
 
 	clks[IMX7ULP_CLK_DMA1]		= imx_clk_gate("dma1", "nic1_bus", base + 0x20, 30);
-	clks[IMX7ULP_CLK_RGPIO2P1]	= imx_clk_gate("gpio", "nic1_bus", base + 0x3c, 30);
+	clks[IMX7ULP_CLK_RGPIO2P1]	= imx_clk_gate("rgpio2p1", "nic1_bus",	base + 0x3c, 30);
 	clks[IMX7ULP_CLK_DMA_MUX1]	= imx_clk_gate("dma_mux1", "nic1_bus",	base + 0x84, 30);
 	clks[IMX7ULP_CLK_CAAM]		= imx_clk_gate("caam", "nic1_div",	base + 0x90, 30);
 	clks[IMX7ULP_CLK_LPTPM4]	= imx_clk_composite("lptpm4",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x94);
@@ -167,10 +167,10 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_LCDIF]		= imx_clk_composite("lcdif",   periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, true,  true, base + 0xA8);
 	clks[IMX7ULP_CLK_MMDC]		= imx_clk_gate("mmdc", "nic1_div", base + 0xAC, 30);
 	clks[IMX7ULP_CLK_GPU3D]		= imx_clk_composite("gpu3d",   periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, false, true, base + 0x140);
-	clks[IMX7ULP_CLK_PCTLC]	= 	imx_clk_composite("pctlc", periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xb8);
-	clks[IMX7ULP_CLK_PCTLD]	= 	imx_clk_composite("pctld", periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xbc);
-	clks[IMX7ULP_CLK_PCTLE]	= 	imx_clk_composite("pctle", periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xc0);
-	clks[IMX7ULP_CLK_PCTLF]	= 	imx_clk_composite("pctlf", periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xc4);
+	clks[IMX7ULP_CLK_PCTLC]		= imx_clk_gate("pctlc", "nic1_bus", base + 0xb8, 30);
+	clks[IMX7ULP_CLK_PCTLD]		= imx_clk_gate("pctld", "nic1_bus", base + 0xbc, 30);
+	clks[IMX7ULP_CLK_PCTLE]		= imx_clk_gate("pctle", "nic1_bus", base + 0xc0, 30);
+	clks[IMX7ULP_CLK_PCTLF]		= imx_clk_gate("pctlf", "nic1_bus", base + 0xc4, 30);
 	clks[IMX7ULP_CLK_GPU2D]		= imx_clk_composite("gpu2d",   periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, false, true, base + 0x144);
 
 	imx_check_clocks(clks, ARRAY_SIZE(clks));
