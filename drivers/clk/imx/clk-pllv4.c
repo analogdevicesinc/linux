@@ -33,6 +33,9 @@ struct clk_pllv4 {
 	u32		denom_offset;
 };
 
+/* Valid PLL MULT Table */
+static const int pllv4_mult_table[] = {33, 27, 22, 20, 17, 16};
+
 #define to_clk_pllv4(__hw) container_of(__hw, struct clk_pllv4, hw)
 
 static unsigned long clk_pllv4_recalc_rate(struct clk_hw *hw,
@@ -55,40 +58,68 @@ static long clk_pllv4_round_rate(struct clk_hw *hw, unsigned long rate,
 				    unsigned long *prate)
 {
 	unsigned long parent_rate = *prate;
-	unsigned long min_rate = parent_rate * 16;
-	unsigned long max_rate = parent_rate * 30;
-	u32 div;
+	unsigned long round_rate;
 	u32 mfn, mfd = 1000000;
-	u64 temp64;
+	bool found = false;
+	u64 temp64, i;
 
-	if (rate > max_rate)
-		rate = max_rate;
-	else if (rate < min_rate)
-		rate = min_rate;
+	for (i = 0; i < ARRAY_SIZE(pllv4_mult_table); i++) {
+		round_rate = parent_rate * pllv4_mult_table[i];
+		if (rate >= round_rate) {
+			found = true;
+			break;
+		}
+	}
 
-	div = rate / parent_rate;
-	temp64 = (u64) (rate - div * parent_rate);
+	if (!found) {
+		pr_warn("%s: unable to round rate %lu prate %lu\n",
+			clk_hw_get_name(hw), rate, parent_rate);
+		return 0;
+	}
+
+	temp64 = (u64) (rate - round_rate);
 	temp64 *= mfd;
 	do_div(temp64, parent_rate);
 	mfn = temp64;
 
-	return parent_rate * div + parent_rate / mfd * mfn;
+	/*
+	 * NOTE: The value of numerator must always be configured to be
+	 * less than the value of the denominator. If we can't get a proper
+	 * pair of mfn/mfd, we simply return the round_rate without using
+	 * the frac part.
+	 */
+	if (mfn >= mfd)
+		return round_rate;
+
+	return round_rate + parent_rate / mfd * mfn;
+}
+
+static bool clk_pllv4_is_valid_mult(unsigned int mult)
+{
+	int i;
+
+	/* check if mult is in valid MULT table */
+	for (i = 0; i < ARRAY_SIZE(pllv4_mult_table); i++) {
+		if (pllv4_mult_table[i] == mult)
+			return true;
+	}
+
+	return false;
 }
 
 static int clk_pllv4_set_rate(struct clk_hw *hw, unsigned long rate,
 		unsigned long parent_rate)
 {
 	struct clk_pllv4 *pll = to_clk_pllv4(hw);
-	unsigned long min_rate = parent_rate * 16;
-	unsigned long max_rate = parent_rate * 30;
 	u32 val, div;
 	u32 mfn, mfd = 1000000;
 	u64 temp64;
 
-	if (rate < min_rate || rate > max_rate)
+	div = rate / parent_rate;
+
+	if (clk_pllv4_is_valid_mult(div))
 		return -EINVAL;
 
-	div = rate / parent_rate;
 	temp64 = (u64) (rate - div * parent_rate);
 	temp64 *= mfd;
 	do_div(temp64, parent_rate);
