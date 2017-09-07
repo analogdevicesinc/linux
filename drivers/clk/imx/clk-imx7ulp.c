@@ -55,11 +55,6 @@ static int const clks_init_on[] __initconst = {
 	IMX7ULP_CLK_NIC1_DIV,
 	IMX7ULP_CLK_NIC1_BUS_DIV,
 	IMX7ULP_CLK_MMDC,
-	IMX7ULP_CLK_RGPIO2P1,
-	IMX7ULP_CLK_PCTLC,
-	IMX7ULP_CLK_PCTLD,
-	IMX7ULP_CLK_PCTLE,
-	IMX7ULP_CLK_PCTLF,
 };
 
 static void __init imx7ulp_clocks_init(struct device_node *scg_node)
