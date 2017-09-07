@@ -62,12 +62,11 @@ static unsigned long clk_pfd_recalc_rate(struct clk_hw *hw,
 	u64 tmp = parent_rate;
 	u8 frac = (readl_relaxed(pfd->reg) >> (pfd->idx * 8)) & 0x3f;
 
-	/*
-	 * The reset value of pfd field is zero, so add one to avoid div
-	 * by zero, optimize this late.
-	 */
-	if (!frac)
-		frac += 1;
+	if (!frac) {
+		pr_debug("clk_pfdv2: %s invalid pfd frac value 0\n",
+			 clk_hw_get_name(hw));
+		return 0;
+	}
 
 	tmp *= 18;
 	do_div(tmp, frac);
@@ -102,6 +101,9 @@ static int clk_pfd_set_rate(struct clk_hw *hw, unsigned long rate,
 	u64 tmp = parent_rate;
 	u32 val;
 	u8 frac;
+
+	if (!rate)
+		return -EINVAL;
 
 	/* PFD can NOT change rate without gating */
 	WARN_ON(!(readl_relaxed(pfd->reg) &
