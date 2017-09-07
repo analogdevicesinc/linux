@@ -135,10 +135,11 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_DDR_DIV] = clk_register_divider_table(NULL, "ddr_div", "ddr_sel", CLK_SET_RATE_PARENT | CLK_IS_CRITICAL, base + 0x30, 0, 3,
 							       CLK_DIVIDER_ZERO_GATE, ulp_div_table, &imx_ccm_lock);
 
-	clks[IMX7ULP_CLK_NIC0_DIV] = imx_clk_divider("nic0_div", "nic_sel",  base + 0x40, 24, 4);
-	clks[IMX7ULP_CLK_GPU_DIV]  = imx_clk_divider("gpu_div",  "nic0_div", base + 0x40, 20, 4);
-	clks[IMX7ULP_CLK_NIC1_DIV] = imx_clk_divider("nic1_div", "nic0_div", base + 0x40, 16, 4);
-	clks[IMX7ULP_CLK_NIC1_BUS_DIV] = imx_clk_divider("nic1_bus", "nic0_div", base + 0x40, 4, 4);
+	clks[IMX7ULP_CLK_NIC0_DIV]	= imx_clk_divider_flags("nic0_div",     "nic_sel",  base + 0x40, 24, 4, CLK_SET_RATE_PARENT);
+	clks[IMX7ULP_CLK_NIC1_DIV]	= imx_clk_divider_flags("nic1_div",     "nic0_div", base + 0x40, 16, 4, CLK_SET_RATE_PARENT);
+	clks[IMX7ULP_CLK_NIC1_BUS_DIV]	= imx_clk_divider_flags("nic1_bus",	"nic0_div", base + 0x40, 4,  4, CLK_SET_RATE_PARENT);
+
+	clks[IMX7ULP_CLK_GPU_DIV]	= imx_clk_divider("gpu_div",  "nic0_div", base + 0x40, 20, 4);
 
 	/* PCC2 */
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pcc2");
