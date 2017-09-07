@@ -3254,8 +3254,7 @@ static int dcss_probe(struct platform_device *pdev)
 	if (ret)
 		goto kfree_info;
 
-	/* reset DCSS to make sure in reset state*/
-	writel(0xffffffff, info->blkctl_base + 0x8);
+	/* TODO: reset DCSS to make it clean */
 
 	/* Clocks select: before dcss de-resets */
 	if (!strcmp(info->disp_dev, "hdmi_disp"))
