@@ -131,9 +131,9 @@ static int clk_pllv4_is_enabled(struct clk_hw *hw)
 	struct clk_pllv4 *pll = to_clk_pllv4(hw);
 
 	if (readl_relaxed(pll->base) & PLL_EN)
-		return 0;
+		return 1;
 
-	return 1;
+	return 0;
 }
 
 static const struct clk_ops clk_pllv4_ops = {
