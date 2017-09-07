@@ -158,9 +158,9 @@ struct clk *imx_clk_pfdv2(const char *name, const char *parent_name,
 
 	init.name = name;
 	init.ops = &clk_pfdv2_ops;
-	init.flags = 0;
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
+	init.flags = CLK_SET_RATE_GATE;
 
 	pfd->hw.init = &init;
 
