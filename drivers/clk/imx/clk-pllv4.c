@@ -26,11 +26,6 @@
 struct clk_pllv4 {
 	struct clk_hw	hw;
 	void __iomem	*base;
-	u32		div_mask;
-	u32		div_shift;
-	u32		cfg_offset;
-	u32		num_offset;
-	u32		denom_offset;
 };
 
 /* Valid PLL MULT Table */
@@ -42,10 +37,10 @@ static unsigned long clk_pllv4_recalc_rate(struct clk_hw *hw,
 					      unsigned long parent_rate)
 {
 	struct clk_pllv4 *pll = to_clk_pllv4(hw);
-	u32 mfn = readl_relaxed(pll->base + pll->num_offset);
-	u32 mfd = readl_relaxed(pll->base + pll->denom_offset);
-	u32 div = (readl_relaxed(pll->base + pll->cfg_offset)
-		& pll->div_mask) >> pll->div_shift;
+	u32 mfn = readl_relaxed(pll->base + PLL_NUM_OFFSET);
+	u32 mfd = readl_relaxed(pll->base + PLL_DENOM_OFFSET);
+	u32 div = (readl_relaxed(pll->base + PLL_CFG_OFFSET)
+		& BM_PLL_DIV) >> BP_PLL_DIV;
 	u64 temp64 = (u64)parent_rate;
 
 	temp64 *= mfn;
@@ -125,12 +120,12 @@ static int clk_pllv4_set_rate(struct clk_hw *hw, unsigned long rate,
 	do_div(temp64, parent_rate);
 	mfn = temp64;
 
-	val = readl_relaxed(pll->base + pll->cfg_offset);
-	val &= ~pll->div_mask;
-	val |= (div << pll->div_shift);
-	writel_relaxed(val, pll->base + pll->cfg_offset);
-	writel_relaxed(mfn, pll->base + pll->num_offset);
-	writel_relaxed(mfd, pll->base + pll->denom_offset);
+	val = readl_relaxed(pll->base + PLL_CFG_OFFSET);
+	val &= ~BM_PLL_DIV;
+	val |= (div << BP_PLL_DIV);
+	writel_relaxed(val, pll->base + PLL_CFG_OFFSET);
+	writel_relaxed(mfn, pll->base + PLL_NUM_OFFSET);
+	writel_relaxed(mfd, pll->base + PLL_DENOM_OFFSET);
 
 	return 0;
 }
@@ -188,12 +183,6 @@ struct clk *imx_clk_pllv4(const char *name, const char *parent_name,
 		return ERR_PTR(-ENOMEM);
 
 	pll->base = base;
-	pll->div_mask = BM_PLL_DIV;
-	pll->div_shift = BP_PLL_DIV;
-	pll->cfg_offset = PLL_CFG_OFFSET;
-	pll->num_offset = PLL_NUM_OFFSET;
-	pll->denom_offset = PLL_DENOM_OFFSET;
-
 	init.name = name;
 	init.ops = &clk_pllv4_ops;
 	init.parent_names = &parent_name;
