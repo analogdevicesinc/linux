@@ -30,8 +30,7 @@ static const char *arm_sels[]		= { "core_div", "dummy", "dummy", "hsrun_core", }
 static const char *ddr_sels[]		= { "apll_pfd_sel", "upll", };
 static const char *nic_sels[]		= { "firc", "ddr_div", };
 static const char *periph_plat_sels[]	= { "dummy", "nic1_bus", "nic1_div", "ddr_div", "apll_pfd2", "apll_pfd1", "apll_pfd0", "upll", };
-/* the dummy in only a space holder of spll_bus clk */
-static const char *periph_bus_sels[]	= { "dummy", "sosc", "dummy", "firc", "rosc", "nic1_bus", "nic1_div", "dummy", };
+static const char *periph_bus_sels[]	= { "dummy", "sosc_bus_clk", "dummy", "firc_bus_clk", "rosc", "nic1_bus", "nic1_div", "spll_bus_clk", };
 static struct clk *clks[IMX7ULP_CLK_END];
 static struct clk_onecell_data clk_data;
 
