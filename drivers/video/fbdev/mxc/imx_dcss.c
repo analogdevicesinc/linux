@@ -2000,17 +2000,17 @@ static void dtg_channel_timing_config(int blank,
 	switch (blank) {
 	case FB_BLANK_UNBLANK:
 		/* set display window for one channel */
-		fill_db(cb, chans->dtg_addr + ch_ulc_reg,
+		fill_sb(cb, chans->dtg_addr + ch_ulc_reg,
 			pos->ulc_y << 16 | pos->ulc_x);
-		fill_db(cb, chans->dtg_addr + ch_lrc_reg,
+		fill_sb(cb, chans->dtg_addr + ch_lrc_reg,
 			pos->lrc_y << 16 | pos->lrc_x);
 		break;
 	case FB_BLANK_NORMAL:
 	case FB_BLANK_VSYNC_SUSPEND:
 	case FB_BLANK_HSYNC_SUSPEND:
 	case FB_BLANK_POWERDOWN:
-		fill_db(cb, chans->dtg_addr + ch_ulc_reg, 0x0);
-		fill_db(cb, chans->dtg_addr + ch_lrc_reg, 0x0);
+		fill_sb(cb, chans->dtg_addr + ch_ulc_reg, 0x0);
+		fill_sb(cb, chans->dtg_addr + ch_lrc_reg, 0x0);
 		break;
 	default:
 		return;
@@ -2036,19 +2036,19 @@ static void dtg_global_timing_config(struct dcss_info *info)
 		    dmode->right_margin + dmode->hsync_len - 1;
 	dtg_lrc_y = dmode->yres + dmode->upper_margin +
 		    dmode->lower_margin + dmode->vsync_len - 1;
-	fill_db(cb, chans->dtg_addr + 0x4, dtg_lrc_y << 16 | dtg_lrc_x);
+	fill_sb(cb, chans->dtg_addr + 0x4, dtg_lrc_y << 16 | dtg_lrc_x);
 
 	/* Active Region Timing config*/
 	dis_ulc_x = dmode->left_margin  + dmode->hsync_len - 1;
 	dis_ulc_y = dmode->upper_margin + dmode->lower_margin +
 		    dmode->vsync_len - 1;
-	fill_db(cb, chans->dtg_addr + 0x8, dis_ulc_y << 16 | dis_ulc_x);
+	fill_sb(cb, chans->dtg_addr + 0x8, dis_ulc_y << 16 | dis_ulc_x);
 
 	dis_lrc_x = dmode->xres + dmode->left_margin +
 		    dmode->hsync_len - 1;
 	dis_lrc_y = dmode->yres + dmode->upper_margin +
 		    dmode->lower_margin + dmode->vsync_len - 1;
-	fill_db(cb, chans->dtg_addr + 0xc, dis_lrc_y << 16 | dis_lrc_x);
+	fill_sb(cb, chans->dtg_addr + 0xc, dis_lrc_y << 16 | dis_lrc_x);
 }
 
 static int dcss_dtg_config(uint32_t ch_id, struct dcss_info *info)
@@ -2667,7 +2667,7 @@ static int dcss_channel_blank(int blank,
 		return -EINVAL;
 	}
 
-	fill_db(cb, chans->dtg_addr + 0x0, dtg_ctrl);
+	fill_sb(cb, chans->dtg_addr + 0x0, dtg_ctrl);
 
 	return 0;
 }
