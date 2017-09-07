@@ -158,6 +158,8 @@ struct clk *imx_clk_pfdv2(const char *name, const char *parent_name,
 	struct clk *clk;
 	struct clk_init_data init;
 
+	WARN_ON(idx > 3);
+
 	pfd = kzalloc(sizeof(*pfd), GFP_KERNEL);
 	if (!pfd)
 		return ERR_PTR(-ENOMEM);
