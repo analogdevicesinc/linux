@@ -167,6 +167,7 @@ struct clk *imx_clk_pllv4(const char *name, const char *parent_name,
 	init.ops = &clk_pllv4_ops;
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
+	init.flags = CLK_SET_RATE_GATE;
 
 	pll->hw.init = &init;
 
