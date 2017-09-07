@@ -31,7 +31,7 @@ static const char *ddr_sels[]		= { "apll_pfd_sel", "upll", };
 static const char *nic_sels[]		= { "firc", "ddr_div", };
 static const char *periph_plat_sels[]	= { "dummy", "nic1_bus", "nic1_div", "ddr_div", "apll_pfd2", "apll_pfd1", "apll_pfd0", "upll", };
 /* the dummy in only a space holder of spll_bus clk */
-static const char *periph_slow_sels[]	= { "dummy", "sosc", "dummy", "firc", "rosc", "nic1_bus", "nic1_div", "dummy", };
+static const char *periph_bus_sels[]	= { "dummy", "sosc", "dummy", "firc", "rosc", "nic1_bus", "nic1_div", "dummy", };
 static struct clk *clks[IMX7ULP_CLK_END];
 static struct clk_onecell_data clk_data;
 
@@ -41,7 +41,7 @@ static const char *cm4_spll_sels[]		= { "cm4_spll_vco", "cm4_spll_pfd_sel", };
 static const char *cm4_apll_pfd_sels[]	= { "cm4_apll_pfd0", "cm4_apll_pfd1", "cm4_apll_pfd2", "cm4_apll_pfd3", };
 static const char *cm4_apll_sels[]		= { "cm4_apll_vco_post_div2", "cm4_apll_pfd_sel", };
 static const char *cm4_sys_sels[]		= { "cm4_dummy", "cm4_sosc", "cm4_sirc", "cm4_firc", "cm4_rosc", "cm4_apll_sel", "cm4_spll_sel", "cm4_dummy", };
-static const char *cm4_periph_slow_sels[]	= { "cm4_dummy", "cm4_sosc", "cm4_sirc", "cm4_firc", "cm4_rosc", "cm4_bus_div", "cm4_spll_pfd2", "cm4_apll_pfd0_pre_div", };
+static const char *cm4_periph_bus_sels[]	= { "cm4_dummy", "cm4_sosc", "cm4_sirc", "cm4_firc", "cm4_rosc", "cm4_bus_div", "cm4_spll_pfd2", "cm4_apll_pfd0_pre_div", };
 static const char *scg0_clkout_sels[]   = { "dummy", "cm4_sosc", "cm4_sirc", "cm4_firc", "cm4_rosc", "cm4_apll_sel", "cm4_spll_sel", "dummy"};
 
 static struct clk *clks_cm4[IMX7ULP_CM4_CLK_END];
@@ -158,37 +158,37 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_RGPIO2P1]	= imx_clk_gate("rgpio2p1", "nic1_bus",	base + 0x3c, 30);
 	clks[IMX7ULP_CLK_DMA_MUX1]	= imx_clk_gate("dma_mux1", "nic1_bus",	base + 0x84, 30);
 	clks[IMX7ULP_CLK_CAAM]		= imx_clk_gate("caam", "nic1_div",	base + 0x90, 30);
-	clks[IMX7ULP_CLK_LPTPM4]	= imx_clk_composite("lptpm4",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x94);
-	clks[IMX7ULP_CLK_LPTPM5]	= imx_clk_composite("lptmp5",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x98);
-	clks[IMX7ULP_CLK_LPIT1]		= imx_clk_composite("lpit1",   periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x9C);
-	clks[IMX7ULP_CLK_LPSPI2]	= imx_clk_composite("lpspi2",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xA4);
-	clks[IMX7ULP_CLK_LPSPI3]	= imx_clk_composite("lpspi3",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xA8);
-	clks[IMX7ULP_CLK_LPI2C4]	= imx_clk_composite("lpi2c4",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xAC);
-	clks[IMX7ULP_CLK_LPI2C5]	= imx_clk_composite("lpi2c5",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xB0);
-	clks[IMX7ULP_CLK_LPUART4]	= imx_clk_composite("lpuart4", periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xB4);
-	clks[IMX7ULP_CLK_LPUART5]	= imx_clk_composite("lpuart5", periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0xB8);
-	clks[IMX7ULP_CLK_FLEXIO1]	= imx_clk_composite("flexio",  periph_slow_sels, ARRAY_SIZE(periph_plat_sels), true, false, true, base + 0xC4);
+	clks[IMX7ULP_CLK_LPTPM4]	= imx_clk_composite("lptpm4",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x94);
+	clks[IMX7ULP_CLK_LPTPM5]	= imx_clk_composite("lptmp5",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x98);
+	clks[IMX7ULP_CLK_LPIT1]		= imx_clk_composite("lpit1",   periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x9C);
+	clks[IMX7ULP_CLK_LPSPI2]	= imx_clk_composite("lpspi2",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0xA4);
+	clks[IMX7ULP_CLK_LPSPI3]	= imx_clk_composite("lpspi3",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0xA8);
+	clks[IMX7ULP_CLK_LPI2C4]	= imx_clk_composite("lpi2c4",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0xAC);
+	clks[IMX7ULP_CLK_LPI2C5]	= imx_clk_composite("lpi2c5",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0xB0);
+	clks[IMX7ULP_CLK_LPUART4]	= imx_clk_composite("lpuart4", periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0xB4);
+	clks[IMX7ULP_CLK_LPUART5]	= imx_clk_composite("lpuart5", periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0xB8);
+	clks[IMX7ULP_CLK_FLEXIO1]	= imx_clk_composite("flexio",  periph_bus_sels, ARRAY_SIZE(periph_plat_sels), true, false, true, base + 0xC4);
 	clks[IMX7ULP_CLK_USB0]		= imx_clk_composite("usb0",    periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, true,  true, base + 0xCC);
 	clks[IMX7ULP_CLK_USB1]		= imx_clk_composite("usb1",    periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, true,  true, base + 0xD0);
 	clks[IMX7ULP_CLK_USB_PHY]	= imx_clk_gate("usb_phy",  "nic1_bus", base + 0xD4, 30);
 	clks[IMX7ULP_CLK_USDHC0]	= imx_clk_composite("usdhc0",  periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, true,  true, base + 0xDC);
 	clks[IMX7ULP_CLK_USDHC1]	= imx_clk_composite("usdhc1",  periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, true,  true, base + 0xE0);
-	clks[IMX7ULP_CLK_WDG1]		= imx_clk_composite("wdg1",    periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, true,  true, base + 0xF4);
-	clks[IMX7ULP_CLK_WDG2]		= imx_clk_composite("sdg2",    periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, true,  true, base + 0x10C);
+	clks[IMX7ULP_CLK_WDG1]		= imx_clk_composite("wdg1",    periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, true,  true, base + 0xF4);
+	clks[IMX7ULP_CLK_WDG2]		= imx_clk_composite("sdg2",    periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, true,  true, base + 0x10C);
 
 	/* PCC3 */
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pcc3");
 	base = of_iomap(np, 0);
 	WARN_ON(!base);
 
-	clks[IMX7ULP_CLK_LPTPM6]	= imx_clk_composite("lptpm6",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x84);
-	clks[IMX7ULP_CLK_LPTPM7]	= imx_clk_composite("lptpm7",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x88);
-	clks[IMX7ULP_CLK_LPI2C6]	= imx_clk_composite("lpi2c6",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x90);
-	clks[IMX7ULP_CLK_LPI2C7]	= imx_clk_composite("lpi2c7",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x94);
-	clks[IMX7ULP_CLK_LPUART6]	= imx_clk_composite("lpuart6", periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x98);
-	clks[IMX7ULP_CLK_LPUART7]	= imx_clk_composite("lpuart7", periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x9C);
+	clks[IMX7ULP_CLK_LPTPM6]	= imx_clk_composite("lptpm6",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x84);
+	clks[IMX7ULP_CLK_LPTPM7]	= imx_clk_composite("lptpm7",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x88);
+	clks[IMX7ULP_CLK_LPI2C6]	= imx_clk_composite("lpi2c6",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x90);
+	clks[IMX7ULP_CLK_LPI2C7]	= imx_clk_composite("lpi2c7",  periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x94);
+	clks[IMX7ULP_CLK_LPUART6]	= imx_clk_composite("lpuart6", periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x98);
+	clks[IMX7ULP_CLK_LPUART7]	= imx_clk_composite("lpuart7", periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, false, true, base + 0x9C);
 	clks[IMX7ULP_CLK_VIU]		= imx_clk_gate("viu", "nic1_div", base + 0xA0, 30);
-	clks[IMX7ULP_CLK_DSI]		= imx_clk_composite("dsi",     periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, true,  true, base + 0xA4);
+	clks[IMX7ULP_CLK_DSI]		= imx_clk_composite("dsi",     periph_bus_sels, ARRAY_SIZE(periph_bus_sels), true, true,  true, base + 0xA4);
 	clks[IMX7ULP_CLK_LCDIF]		= imx_clk_composite("lcdif",   periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, true,  true, base + 0xA8);
 	clks[IMX7ULP_CLK_MMDC]		= imx_clk_gate("mmdc", "nic1_div", base + 0xAC, 30);
 	clks[IMX7ULP_CLK_GPU3D]		= imx_clk_composite("gpu3d",   periph_plat_sels, ARRAY_SIZE(periph_plat_sels), true, false, true, base + 0x140);
@@ -294,7 +294,7 @@ static void __init imx7ulp_cm4_clocks_init(struct device_node *scg_node)
 	base = of_iomap(np, 0);
 	WARN_ON(!base);
 
-	clks_cm4[IMX7ULP_CM4_CLK_SAI0_SEL]  = imx_clk_mux("cm4_sai0_sel", base + 0xDC, 24, 3, cm4_periph_slow_sels, ARRAY_SIZE(cm4_periph_slow_sels));
+	clks_cm4[IMX7ULP_CM4_CLK_SAI0_SEL]  = imx_clk_mux("cm4_sai0_sel", base + 0xDC, 24, 3, cm4_periph_bus_sels, ARRAY_SIZE(cm4_periph_bus_sels));
 	clks_cm4[IMX7ULP_CM4_CLK_SAI0_DIV]  = imx_clk_divider("cm4_sai0_div", "cm4_sai0_sel", base + 0xDC, 0, 8);
 	clks_cm4[IMX7ULP_CM4_CLK_SAI0_ROOT] = imx_clk_gate2_shared("cm4_sai0_root", "cm4_sai0_div", base + 0xDC, 30, &share_count_sai0);
 	clks_cm4[IMX7ULP_CM4_CLK_SAI0_IPG]  = imx_clk_gate2_shared("cm4_sai0_ipg", "cm4_bus_div", base + 0xDC, 30, &share_count_sai0);
@@ -305,7 +305,7 @@ static void __init imx7ulp_cm4_clocks_init(struct device_node *scg_node)
 	WARN_ON(!base);
 
 
-	clks_cm4[IMX7ULP_CM4_CLK_SAI1_SEL]  = imx_clk_mux("cm4_sai1_sel", base + 0xA8, 24, 3, cm4_periph_slow_sels, ARRAY_SIZE(cm4_periph_slow_sels));
+	clks_cm4[IMX7ULP_CM4_CLK_SAI1_SEL]  = imx_clk_mux("cm4_sai1_sel", base + 0xA8, 24, 3, cm4_periph_bus_sels, ARRAY_SIZE(cm4_periph_bus_sels));
 	clks_cm4[IMX7ULP_CM4_CLK_SAI1_DIV]  = imx_clk_divider("cm4_sai1_div", "cm4_sai1_sel", base + 0xA8, 0, 8);
 	clks_cm4[IMX7ULP_CM4_CLK_SAI1_ROOT] = imx_clk_gate2_shared("cm4_sai1_root", "cm4_sai1_div", base + 0xA8, 30, &share_count_sai1);
 	clks_cm4[IMX7ULP_CM4_CLK_SAI1_IPG] = imx_clk_gate2_shared("cm4_sai1_ipg", "cm4_bus_div", base + 0xA8, 30, &share_count_sai1);
