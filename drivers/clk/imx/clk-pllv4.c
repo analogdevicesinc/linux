@@ -17,8 +17,8 @@
 #include "clk.h"
 
 #define PLL_EN			BIT(0)
-#define BP_PLL_DIV		16
-#define BM_PLL_DIV		(0x7f << 16)
+#define BP_PLL_MULT		16
+#define BM_PLL_MULT		(0x7f << 16)
 #define PLL_CFG_OFFSET		0x08
 #define PLL_NUM_OFFSET		0x10
 #define PLL_DENOM_OFFSET	0x14
@@ -39,14 +39,14 @@ static unsigned long clk_pllv4_recalc_rate(struct clk_hw *hw,
 	struct clk_pllv4 *pll = to_clk_pllv4(hw);
 	u32 mfn = readl_relaxed(pll->base + PLL_NUM_OFFSET);
 	u32 mfd = readl_relaxed(pll->base + PLL_DENOM_OFFSET);
-	u32 div = (readl_relaxed(pll->base + PLL_CFG_OFFSET)
-		& BM_PLL_DIV) >> BP_PLL_DIV;
+	u32 mult = (readl_relaxed(pll->base + PLL_CFG_OFFSET)
+		& BM_PLL_MULT) >> BP_PLL_MULT;
 	u64 temp64 = (u64)parent_rate;
 
 	temp64 *= mfn;
 	do_div(temp64, mfd);
 
-	return (parent_rate * div) + (u32)temp64;
+	return (parent_rate * mult) + (u32)temp64;
 }
 
 static long clk_pllv4_round_rate(struct clk_hw *hw, unsigned long rate,
@@ -106,23 +106,23 @@ static int clk_pllv4_set_rate(struct clk_hw *hw, unsigned long rate,
 		unsigned long parent_rate)
 {
 	struct clk_pllv4 *pll = to_clk_pllv4(hw);
-	u32 val, div;
+	u32 val, mult;
 	u32 mfn, mfd = 1000000;
 	u64 temp64;
 
-	div = rate / parent_rate;
+	mult = rate / parent_rate;
 
-	if (clk_pllv4_is_valid_mult(div))
+	if (clk_pllv4_is_valid_mult(mult))
 		return -EINVAL;
 
-	temp64 = (u64) (rate - div * parent_rate);
+	temp64 = (u64) (rate - mult * parent_rate);
 	temp64 *= mfd;
 	do_div(temp64, parent_rate);
 	mfn = temp64;
 
 	val = readl_relaxed(pll->base + PLL_CFG_OFFSET);
-	val &= ~BM_PLL_DIV;
-	val |= (div << BP_PLL_DIV);
+	val &= ~BM_PLL_MULT;
+	val |= mult << BP_PLL_MULT;
 	writel_relaxed(val, pll->base + PLL_CFG_OFFSET);
 	writel_relaxed(mfn, pll->base + PLL_NUM_OFFSET);
 	writel_relaxed(mfd, pll->base + PLL_DENOM_OFFSET);
