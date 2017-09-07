@@ -14,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/iopoll.h>
 
 #include "clk.h"
 
@@ -38,7 +39,17 @@ struct clk_pfdv2 {
 
 #define CLK_PFDV2_FRAC_MASK 0x3f
 
+#define LOCK_TIMEOUT_US		USEC_PER_MSEC
+
 static DEFINE_SPINLOCK(pfd_lock);
+
+static int clk_pfdv2_wait(struct clk_pfdv2 *pfd)
+{
+	u32 val;
+
+	return readl_poll_timeout(pfd->reg, val, val & pfd->vld_bit,
+				  0, LOCK_TIMEOUT_US);
+}
 
 static int clk_pfd_enable(struct clk_hw *hw)
 {
@@ -52,7 +63,7 @@ static int clk_pfd_enable(struct clk_hw *hw)
 	writel_relaxed(val, pfd->reg);
 	spin_unlock_irqrestore(&pfd_lock, flags);
 
-	return 0;
+	return clk_pfdv2_wait(pfd);
 }
 
 static void clk_pfd_disable(struct clk_hw *hw)
