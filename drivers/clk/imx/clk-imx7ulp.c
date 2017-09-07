@@ -119,18 +119,20 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_SPLL_SEL] = imx_clk_mux("spll_sel", base + 0x608, 1, 1, spll_sels, ARRAY_SIZE(spll_sels));
 	clks[IMX7ULP_CLK_APLL_SEL] = imx_clk_mux("apll_sel", base + 0x508, 1, 1, apll_sels, ARRAY_SIZE(apll_sels));
 
-	clks[IMX7ULP_CLK_SYS_SEL] = imx_clk_mux_glitchless("sys_sel", base + 0x14, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
-	clks[IMX7ULP_CLK_HSRUN_SYS_SEL] = imx_clk_mux_glitchless("hsrun_sys_sel", base + 0x1c, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
-	clks[IMX7ULP_CLK_DDR_SEL] = imx_clk_mux("ddr_sel", base + 0x30, 24, 1, ddr_sels, ARRAY_SIZE(ddr_sels));
-	clks[IMX7ULP_CLK_NIC_SEL] = imx_clk_mux("nic_sel", base + 0x40, 28, 1, nic_sels, ARRAY_SIZE(nic_sels));
+	/* sys/ddr/nic select different clock source requires that clock to be enabled first */
+	clks[IMX7ULP_CLK_SYS_SEL] = imx_clk_mux2("sys_sel", base + 0x14, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
+	clks[IMX7ULP_CLK_HSRUN_SYS_SEL] = imx_clk_mux2("hsrun_sys_sel", base + 0x1c, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
+	clks[IMX7ULP_CLK_DDR_SEL] = imx_clk_mux2("ddr_sel", base + 0x30, 24, 1, ddr_sels, ARRAY_SIZE(ddr_sels));
+	clks[IMX7ULP_CLK_NIC_SEL] = imx_clk_mux2("nic_sel", base + 0x40, 28, 1, nic_sels, ARRAY_SIZE(nic_sels));
 
-	clks[IMX7ULP_CLK_CORE_DIV] = imx_clk_divider_flags("core_div", "sys_sel", base + 0x14, 16, 4, CLK_SET_RATE_PARENT);
-	clks[IMX7ULP_CLK_HSRUN_CORE] = imx_clk_divider_flags("hsrun_core", "hsrun_sys_sel", base + 0x1c, 16, 4, CLK_SET_RATE_PARENT);
+	clks[IMX7ULP_CLK_CORE_DIV] = imx_clk_divider_flags("core_div", "sys_sel", base + 0x14, 16, 4, CLK_SET_RATE_PARENT | CLK_IS_CRITICAL);
+	clks[IMX7ULP_CLK_HSRUN_CORE] = imx_clk_divider_flags("hsrun_core", "hsrun_sys_sel", base + 0x1c, 16, 4, CLK_SET_RATE_PARENT | CLK_IS_CRITICAL);
+
 	clks[IMX7ULP_CLK_PLAT_DIV] = imx_clk_divider("plat_div", "core_div", base + 0x14, 12, 4);
 	/* Fake mux */
 	clks[IMX7ULP_CLK_ARM] = imx_clk_mux_glitchless("arm", smc_base + 0x10, 8, 2, arm_sels, ARRAY_SIZE(arm_sels));
 
-	clks[IMX7ULP_CLK_DDR_DIV] = clk_register_divider_table(NULL, "ddr_div", "ddr_sel", CLK_SET_RATE_PARENT | CLK_SET_RATE_GATE, base + 0x30, 0, 3,
+	clks[IMX7ULP_CLK_DDR_DIV] = clk_register_divider_table(NULL, "ddr_div", "ddr_sel", CLK_SET_RATE_PARENT | CLK_IS_CRITICAL, base + 0x30, 0, 3,
 							       CLK_DIVIDER_ZERO_GATE, ulp_div_table, &imx_ccm_lock);
 
 	clks[IMX7ULP_CLK_NIC0_DIV] = imx_clk_divider("nic0_div", "nic_sel",  base + 0x40, 24, 4);
