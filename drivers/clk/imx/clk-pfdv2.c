@@ -38,14 +38,19 @@ struct clk_pfdv2 {
 
 #define CLK_PFDV2_FRAC_MASK 0x3f
 
+static DEFINE_SPINLOCK(pfd_lock);
+
 static int clk_pfd_enable(struct clk_hw *hw)
 {
 	struct clk_pfdv2 *pfd = to_clk_pfdv2(hw);
+	unsigned long flags;
 	u32 val;
 
+	spin_lock_irqsave(&pfd_lock, flags);
 	val = readl_relaxed(pfd->reg);
 	val &= ~pfd->gate_bit;
 	writel_relaxed(val, pfd->reg);
+	spin_unlock_irqrestore(&pfd_lock, flags);
 
 	return 0;
 }
@@ -53,11 +58,14 @@ static int clk_pfd_enable(struct clk_hw *hw)
 static void clk_pfd_disable(struct clk_hw *hw)
 {
 	struct clk_pfdv2 *pfd = to_clk_pfdv2(hw);
+	unsigned long flags;
 	u32 val;
 
+	spin_lock_irqsave(&pfd_lock, flags);
 	val = readl_relaxed(pfd->reg);
 	val |= pfd->gate_bit;
 	writel_relaxed(val, pfd->reg);
+	spin_unlock_irqrestore(&pfd_lock, flags);
 }
 
 static unsigned long clk_pfd_recalc_rate(struct clk_hw *hw,
@@ -116,6 +124,7 @@ static int clk_pfd_set_rate(struct clk_hw *hw, unsigned long rate,
 		unsigned long parent_rate)
 {
 	struct clk_pfdv2 *pfd = to_clk_pfdv2(hw);
+	unsigned long flags;
 	u64 tmp = parent_rate;
 	u32 val;
 	u8 frac;
@@ -134,10 +143,12 @@ static int clk_pfd_set_rate(struct clk_hw *hw, unsigned long rate,
 	else if (frac > 35)
 		frac = 35;
 
+	spin_lock_irqsave(&pfd_lock, flags);
 	val = readl_relaxed(pfd->reg);
 	val &= ~(CLK_PFDV2_FRAC_MASK << pfd->frac_off);
 	val |= frac << pfd->frac_off;
 	writel_relaxed(val, pfd->reg);
+	spin_unlock_irqrestore(&pfd_lock, flags);
 
 	return 0;
 }
