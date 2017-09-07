@@ -119,6 +119,9 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_SPLL_SEL] = imx_clk_mux("spll_sel", base + 0x608, 1, 1, spll_sels, ARRAY_SIZE(spll_sels));
 	clks[IMX7ULP_CLK_APLL_SEL] = imx_clk_mux("apll_sel", base + 0x508, 1, 1, apll_sels, ARRAY_SIZE(apll_sels));
 
+	clks[IMX7ULP_CLK_SPLL_BUS_CLK]  = clk_register_divider_table(NULL, "spll_bus_clk", "spll_sel", CLK_SET_RATE_GATE, base + 0x604, 8, 3,
+								     CLK_DIVIDER_READ_ONLY | CLK_DIVIDER_ZERO_GATE, ulp_div_table, &imx_ccm_lock);
+
 	/* sys/ddr/nic select different clock source requires that clock to be enabled first */
 	clks[IMX7ULP_CLK_SYS_SEL] = imx_clk_mux2("sys_sel", base + 0x14, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
 	clks[IMX7ULP_CLK_HSRUN_SYS_SEL] = imx_clk_mux2("hsrun_sys_sel", base + 0x1c, 24, 4, sys_sels, ARRAY_SIZE(sys_sels));
@@ -140,6 +143,11 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_NIC1_BUS_DIV]	= imx_clk_divider_flags("nic1_bus",	"nic0_div", base + 0x40, 4,  4, CLK_SET_RATE_PARENT);
 
 	clks[IMX7ULP_CLK_GPU_DIV]	= imx_clk_divider("gpu_div",  "nic0_div", base + 0x40, 20, 4);
+
+	clks[IMX7ULP_CLK_SOSC_BUS_CLK]  = clk_register_divider_table(NULL, "sosc_bus_clk", "sosc", 0, base + 0x104, 8, 3,
+								     CLK_DIVIDER_READ_ONLY | CLK_DIVIDER_ZERO_GATE, ulp_div_table, &imx_ccm_lock);
+	clks[IMX7ULP_CLK_FIRC_BUS_CLK]  = clk_register_divider_table(NULL, "firc_bus_clk", "firc", 0, base + 0x304, 8, 3,
+								     CLK_DIVIDER_READ_ONLY | CLK_DIVIDER_ZERO_GATE, ulp_div_table, &imx_ccm_lock);
 
 	/* PCC2 */
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pcc2");

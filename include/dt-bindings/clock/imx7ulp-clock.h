@@ -106,7 +106,11 @@
 #define IMX7ULP_CLK_HSRUN_CORE		84
 #define IMX7ULP_CLK_ARM			85
 
-#define IMX7ULP_CLK_END			86
+#define IMX7ULP_CLK_SOSC_BUS_CLK        86
+#define IMX7ULP_CLK_FIRC_BUS_CLK        87
+#define IMX7ULP_CLK_SPLL_BUS_CLK        88
+
+#define IMX7ULP_CLK_END			89
 
 /*cm4 clocks*/
 #define IMX7ULP_CM4_CLK_DUMMY		0
