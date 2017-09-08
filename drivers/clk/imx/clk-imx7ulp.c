@@ -57,6 +57,18 @@ static int const clks_init_on[] __initconst = {
 	IMX7ULP_CLK_MMDC,
 };
 
+/* used by sosc/sirc/firc/ddr/spll/apll dividers */
+static const struct clk_div_table ulp_div_table[] = {
+	{ .val = 1, .div = 1, },
+	{ .val = 2, .div = 2, },
+	{ .val = 3, .div = 4, },
+	{ .val = 4, .div = 8, },
+	{ .val = 5, .div = 16, },
+	{ .val = 6, .div = 32, },
+	{ .val = 7, .div = 64, },
+	{ }
+};
+
 static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 {
 	struct device_node *np;
@@ -118,7 +130,9 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	/* Fake mux */
 	clks[IMX7ULP_CLK_ARM] = imx_clk_mux_glitchless("arm", smc_base + 0x10, 8, 2, arm_sels, ARRAY_SIZE(arm_sels));
 
-	clks[IMX7ULP_CLK_DDR_DIV] = clk_register_divider(NULL, "ddr_div", "ddr_sel", CLK_SET_RATE_PARENT | CLK_SET_RATE_GATE, base + 0x30, 0, 3, CLK_DIVIDER_ONE_BASED, &imx_ccm_lock);
+	clks[IMX7ULP_CLK_DDR_DIV] = clk_register_divider_table(NULL, "ddr_div", "ddr_sel", CLK_SET_RATE_PARENT | CLK_SET_RATE_GATE, base + 0x30, 0, 3,
+							       CLK_DIVIDER_ZERO_GATE, ulp_div_table, &imx_ccm_lock);
+
 	clks[IMX7ULP_CLK_NIC0_DIV] = imx_clk_divider("nic0_div", "nic_sel",  base + 0x40, 24, 4);
 	clks[IMX7ULP_CLK_GPU_DIV]  = imx_clk_divider("gpu_div",  "nic0_div", base + 0x40, 20, 4);
 	clks[IMX7ULP_CLK_NIC1_DIV] = imx_clk_divider("nic1_div", "nic0_div", base + 0x40, 16, 4);
