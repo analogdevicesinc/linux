@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/device_cooling.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/slab.h>
@@ -179,6 +180,28 @@ static int imx_sc_tsens_probe(struct platform_device *pdev)
 		trip = of_thermal_get_trip_points(sensor->tzd);
 		sensor->temp_passive = trip[0].temperature;
 		sensor->temp_critical = trip[1].temperature;
+
+		sensor->cdev = devfreq_cooling_register();
+		if (IS_ERR(sensor->cdev)) {
+			dev_err(&pdev->dev,
+				"failed to register devfreq cooling device: %d\n",
+				ret);
+			goto failed;
+		}
+
+		ret = thermal_zone_bind_cooling_device(sensor->tzd,
+			IMX_TRIP_PASSIVE,
+			sensor->cdev,
+			THERMAL_NO_LIMIT,
+			THERMAL_NO_LIMIT,
+			THERMAL_WEIGHT_DEFAULT);
+		if (ret) {
+			dev_err(&sensor->tzd->device,
+				"binding zone %s with cdev %s failed:%d\n",
+				sensor->tzd->type, sensor->cdev->type, ret);
+			devfreq_cooling_unregister(sensor->cdev);
+			goto failed;
+		}
 	}
 
 	return 0;
