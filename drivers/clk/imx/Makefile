@@ -12,7 +12,6 @@ obj-$(CONFIG_ARM)   += \
 	clk-pllv2.o \
 	clk-pllv3.o \
 	clk-pfd.o \
-	clk-gate-exclusive.o \
 	clk-composite.o \
 	clk-pllv4.o \
 	clk-pllv5.o \
