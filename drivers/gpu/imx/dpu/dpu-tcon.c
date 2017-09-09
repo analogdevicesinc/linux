@@ -130,11 +130,11 @@ void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m)
 	dpu_tcon_write(tcon, 0x1, SMXFCTTABLE(0));
 
 	/* dsp_control[1]: vsync */
-	dpu_tcon_write(tcon, X(m->hsync_end) | Y(m->vsync_start - 1),
+	dpu_tcon_write(tcon, X(m->hsync_start) | Y(m->vsync_start - 1),
 								SPGPOSON(1));
 	dpu_tcon_write(tcon, 0x0, SPGMASKON(1));
 
-	dpu_tcon_write(tcon, X(m->hsync_end) | Y(m->vsync_end - 1),
+	dpu_tcon_write(tcon, X(m->hsync_start) | Y(m->vsync_end - 1),
 								SPGPOSOFF(1));
 	dpu_tcon_write(tcon, 0x0, SPGMASKOFF(1));
 
