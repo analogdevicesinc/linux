@@ -201,6 +201,7 @@ DECLARE_WAIT_QUEUE_HEAD(hw_queue);
 #define DWL_CLIENT_TYPE_HEVC_DEC         12U
 
 static u32 cfg[HXDEC_MAX_CORES];
+static u32 timeout;
 
 static int hantro_clk_enable(struct device *dev)
 {
@@ -636,6 +637,15 @@ long DecRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 		for (i = HANTRO_DEC_EXT_FIRST_REG; i <= HANTRO_DEC_EXT_LAST_REG; i++)
 			dec_regs[id][i] = ioread32(dev->hwregs[id] + i*4);
 #endif
+
+		if (timeout) {
+			/* Enable TIMEOUT bits in Reg[1] */
+			dec_regs[id][1] = 0x40100;
+			/* Reset HW */
+			ResetAsic(dev);
+			timeout = 0;
+		}
+
 		/* put registers to user space*/
 		/* put original registers to user space*/
 		ret = copy_to_user(Core->regs, dec_regs[id], HANTRO_DEC_ORG_REGS*4);
@@ -656,6 +666,14 @@ long DecRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 		/* read all registers from hardware */
 		for (i = 0; i <= HANTRO_G2_DEC_LAST_REG; i++)
 			dec_regs[id][i] = ioread32(dev->hwregs[id] + i*4);
+
+		if (timeout) {
+			/* Enable TIMEOUT bits in Reg[1] */
+			dec_regs[id][1] = 0x40100;
+			/* Reset HW */
+			ResetAsic(dev);
+			timeout = 0;
+		}
 
 		/* put registers to user space*/
 		ret = copy_to_user(Core->regs, dec_regs[id], HANTRO_G2_DEC_REGS*4);
@@ -690,12 +708,17 @@ static int CheckDecIrq(hantrodec_t *dev, int id)
 long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 {
 	u32 id = Core->id;
+	long ret;
 
 	PDEBUG("wait_event_interruptible DEC[%d]\n", id);
 
-	if (wait_event_interruptible(dec_wait_queue, CheckDecIrq(dev, id))) {
+	ret = wait_event_interruptible_timeout(dec_wait_queue, CheckDecIrq(dev, id), msecs_to_jiffies(200));
+	if (ret == -ERESTARTSYS) {
 		pr_err("DEC[%d]  failed to wait_event_interruptible interrupted\n", id);
 		return -ERESTARTSYS;
+	} else if (ret == 0) {
+		pr_err("DEC[%d]  wait_event_interruptible timeout\n", id);
+		timeout = 1;
 	}
 
 	atomic_inc(&irq_tx);
@@ -1663,7 +1686,7 @@ static int hantro_dev_probe(struct platform_device *pdev)
 		err = PTR_ERR(temp_class);
 		goto err_out_class;
 	}
-
+	timeout = 0;
 	goto out;
 
 err_out_class:
