@@ -35,10 +35,12 @@ struct ad9144_platform_data {
 	u8 xbar_lane2_sel;
 	u8 xbar_lane3_sel;
 	bool lanes2_3_swap_data;
+	u8 interpolation;
 };
 
 struct ad9144_state {
 	struct cf_axi_converter conv;
+	unsigned int interpolation;
 	enum chip_id id;
 	struct regmap *map;
 };
@@ -93,6 +95,7 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
 	lane_rate_kHz = (lane_rate_kHz / 1000) * 10;	// FIXME for other configurations
+	lane_rate_kHz /= st->interpolation;
 
 	// power-up and dac initialization
 
@@ -141,7 +144,35 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	// digital data path
 
-	regmap_write(map, 0x112, 0x00);	// interpolation (bypass)
+	switch (st->interpolation) {
+	case 2:
+		val = 0x01;
+		break;
+	case 4:
+		switch (st->id) {
+		case CHIPID_AD9144:
+			val = 0x03;
+			break;
+		default:
+			val = 0x02;
+			break;
+		}
+		break;
+	case 8:
+		switch (st->id) {
+		case CHIPID_AD9144:
+			val = 0x04;
+			break;
+		default:
+			val = 0x03;
+			break;
+		}
+		break;
+	default:
+		val = 0x00;
+		break;
+	}
+	regmap_write(map, 0x112, val);	// interpolation
 	regmap_write(map, 0x110, 0x00);	// 2's complement
 
 	// transport layer
@@ -285,7 +316,9 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 
 static unsigned long long ad9144_get_data_clk(struct cf_axi_converter *conv)
 {
-	return clk_get_rate(conv->clk[CLK_DAC]);
+	struct ad9144_state *st = container_of(conv, struct ad9144_state, conv);
+
+	return clk_get_rate(conv->clk[CLK_DAC]) / st->interpolation;
 }
 
 static int ad9144_read_raw(struct iio_dev *indio_dev,
@@ -377,6 +410,10 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	pdata->lanes2_3_swap_data = of_property_read_bool(np,
 			"adi,lanes2-3-swap-data");
 
+	tmp = 1;
+	of_property_read_u32(np, "adi,interpolation", &tmp);
+	pdata->interpolation = tmp;
+
 	return pdata;
 }
 #else
@@ -415,11 +452,24 @@ static int ad9144_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
+	switch (pdata->interpolation) {
+	case 1:
+	case 2:
+	case 4:
+	case 8:
+		break;
+	default:
+		dev_err(&spi->dev, "Invalid interpolation factor: %u\n",
+			pdata->interpolation);
+		return -EINVAL;
+	}
+
 	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
 	if (st == NULL)
 		return -ENOMEM;
 
 	st->id = (enum chip_id) dev_id->driver_data;
+	st->interpolation = pdata->interpolation;
 	conv = &st->conv;
 
 	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
@@ -472,6 +522,7 @@ static int ad9144_probe(struct spi_device *spi)
 
 	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
 	lane_rate_kHz = (lane_rate_kHz / 1000) * 10;	// FIXME for other configurations
+	lane_rate_kHz /= st->interpolation;
 	clk_set_rate(conv->clk[0], lane_rate_kHz);
 
 	spi_set_drvdata(spi, conv);
