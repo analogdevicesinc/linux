@@ -45,6 +45,10 @@ struct clk *clk_register_mux_gpr_scu(struct device *dev, const char *name,
 		const char **parents, int num_parents, spinlock_t *lock,
 		sc_rsrc_t rsrc_id, sc_ctrl_t gpr_id);
 
+struct clk *clk_register_mux2_scu(struct device *dev, const char *name,
+		const char **parents, int num_parents, unsigned long flags,
+		sc_rsrc_t rsrc_id, sc_pm_clk_t clk_type);
+
 static inline struct clk *imx_clk_fixed(const char *name, int rate)
 {
 	return clk_register_fixed_rate(NULL, name, NULL, 0, rate);
@@ -79,6 +83,15 @@ static inline struct clk *imx_clk_mux_gpr_scu(const char *name, const char **par
 {
 	return clk_register_mux_gpr_scu(NULL, name, parents, num_parents,
 			 &imx_ccm_lock, rsrc_id, gpr_id);
+}
+
+static inline struct clk *imx_clk_mux2_scu(const char *name,
+		const char **parents, int num_parents, sc_rsrc_t rsrc_id,
+		sc_pm_clk_t clk_type)
+{
+	return clk_register_mux2_scu(NULL, name, parents, num_parents,
+				     CLK_SET_RATE_NO_REPARENT, rsrc_id,
+				     clk_type);
 }
 
 static inline void imx_clk_set_rate(struct clk *clk, unsigned long rate)

@@ -56,8 +56,15 @@ struct clk_mux_gpr_scu {
 	sc_ctrl_t	gpr_id;
 };
 
+struct clk_mux2_scu {
+	struct clk_hw	hw;
+	sc_rsrc_t	rsrc_id;
+	sc_pm_clk_t	clk_type;
+};
+
 #define to_clk_mux_scu(_hw) container_of(_hw, struct clk_mux_scu, hw)
 #define to_clk_mux_gpr_scu(_hw) container_of(_hw, struct clk_mux_gpr_scu, hw)
+#define to_clk_mux2_scu(_hw) container_of(_hw, struct clk_mux2_scu, hw)
 
 /* Get the power domain associated with the clock from the device tree. */
 static void populate_mux_pd(struct clk_mux_scu *clk)
@@ -351,6 +358,78 @@ struct clk *clk_register_mux_gpr_scu(struct device *dev, const char *name,
 	clk = clk_register(NULL, &gpr_scu_mux->hw);
 	if (IS_ERR(clk))
 		kfree(gpr_scu_mux);
+
+	return clk;
+}
+
+static u8 clk_mux2_scu_get_parent(struct clk_hw *hw)
+{
+	struct clk_mux2_scu *mux = to_clk_mux2_scu(hw);
+	sc_pm_clk_parent_t parent;
+	sc_err_t ret;
+
+	if (!ccm_ipc_handle)
+		return -EBUSY;
+
+	ret = sc_pm_get_clock_parent(ccm_ipc_handle, mux->rsrc_id,
+				     mux->clk_type, &parent);
+	if (ret != SC_ERR_NONE)
+		return -EINVAL;
+
+	return (u8)parent;
+}
+
+static int clk_mux2_scu_set_parent(struct clk_hw *hw, u8 index)
+{
+	struct clk_mux2_scu *mux = to_clk_mux2_scu(hw);
+	sc_err_t ret;
+
+	if (!ccm_ipc_handle)
+		return -EBUSY;
+
+	ret = sc_pm_set_clock_parent(ccm_ipc_handle, mux->rsrc_id,
+				     mux->clk_type, index);
+	if (ret != SC_ERR_NONE)
+		return -EINVAL;
+
+	return 0;
+}
+
+static const struct clk_ops clk_mux2_scu_ops = {
+	.get_parent = clk_mux2_scu_get_parent,
+	.set_parent = clk_mux2_scu_set_parent,
+};
+
+
+struct clk *clk_register_mux2_scu(struct device *dev, const char *name,
+				  const char **parents, int num_parents,
+				  unsigned long flags, sc_rsrc_t rsrc_id,
+				  sc_pm_clk_t clk_type)
+{
+	struct clk_mux2_scu *mux;
+	struct clk *clk;
+	struct clk_init_data init;
+
+	if (rsrc_id >= SC_R_LAST)
+		return ERR_PTR(-EINVAL);
+
+	mux = kzalloc(sizeof(struct clk_mux2_scu), GFP_KERNEL);
+	if (!mux)
+		return ERR_PTR(-ENOMEM);
+
+	init.name = name;
+	init.ops = &clk_mux2_scu_ops;
+	init.parent_names = parents;
+	init.num_parents = num_parents;
+	init.flags = flags;
+
+	mux->hw.init = &init;
+	mux->rsrc_id = rsrc_id;
+	mux->clk_type = clk_type;
+
+	clk = clk_register(NULL, &mux->hw);
+	if (IS_ERR(clk))
+		kfree(mux);
 
 	return clk;
 }
