@@ -69,6 +69,11 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 		 * may be lost.
 		 */
 		list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
+
+			if (imx8_rsrc_clk->parent)
+				clk_set_parent(imx8_rsrc_clk->clk,
+					imx8_rsrc_clk->parent);
+
 			if (imx8_rsrc_clk->rate) {
 				/*
 				 * Need to read the clock so that rate in
@@ -99,8 +104,10 @@ static int imx8_pd_power_off(struct generic_pm_domain *domain)
 		 * The SS is going to be powered off, store the clock rates
 		 * that may be lost.
 		 */
-		list_for_each_entry(imx8_rsrc_clk, &pd->clks, node)
+		list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
+			imx8_rsrc_clk->parent = clk_get_parent(imx8_rsrc_clk->clk);
 			imx8_rsrc_clk->rate = clk_hw_get_rate(__clk_get_hw(imx8_rsrc_clk->clk));
+		}
 	}
 	return imx8_pd_power(domain, false);
 }
@@ -140,41 +147,40 @@ static int imx8_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
 	struct imx8_pm_domain *pd;
 	struct device_node *node = dev->of_node;
 	struct of_phandle_args clkspec;
-	struct property	*prop;
-	const __be32 *cur;
-	int rc, index = 0;
-	u32 rate;
+	int rc, index, num_clks;
 
 	pd = container_of(genpd, struct imx8_pm_domain, pd);
-
 	INIT_LIST_HEAD(&pd->clks);
-	of_property_for_each_u32(node, "assigned-clock-rates",
-		prop, cur, rate) {
-		if (rate) {
-			struct imx8_pm_rsrc_clks *imx8_rsrc_clk;
 
-			rc = of_parse_phandle_with_args(node, "assigned-clocks",
-					"#clock-cells",	index, &clkspec);
-			if (rc < 0) {
-				/* skip empty (null) phandles */
-				if (rc == -ENOENT)
-					continue;
-				else
-					return rc;
-			}
-			if (clkspec.np == node)
-				return 0;
+	num_clks = of_count_phandle_with_args(node, "assigned-clocks",
+						"#clock-cells");
+	if (num_clks == -EINVAL)
+		pr_err("%s: Invalid value of assigned-clocks property at %s\n",
+			pd->name, node->full_name);
 
-			imx8_rsrc_clk = devm_kzalloc(dev,
-				sizeof(*imx8_rsrc_clk), GFP_KERNEL);
-			if (!imx8_rsrc_clk)
-				return -ENOMEM;
+	for (index = 0; index < num_clks; index++) {
+		struct imx8_pm_rsrc_clks *imx8_rsrc_clk;
 
-			imx8_rsrc_clk->clk = of_clk_get_from_provider(&clkspec);
-			if (!IS_ERR(imx8_rsrc_clk->clk))
-				list_add_tail(&imx8_rsrc_clk->node, &pd->clks);
+		rc = of_parse_phandle_with_args(node, "assigned-clocks",
+					"#clock-cells", index, &clkspec);
+		if (rc < 0) {
+			/* skip empty (null) phandles */
+			if (rc == -ENOENT)
+				continue;
+			else
+				return rc;
 		}
-		index++;
+		if (clkspec.np == node)
+			return 0;
+
+		imx8_rsrc_clk = devm_kzalloc(dev, sizeof(*imx8_rsrc_clk),
+					GFP_KERNEL);
+		if (!imx8_rsrc_clk)
+			return -ENOMEM;
+
+		imx8_rsrc_clk->clk = of_clk_get_from_provider(&clkspec);
+		if (!IS_ERR(imx8_rsrc_clk->clk))
+			list_add_tail(&imx8_rsrc_clk->node, &pd->clks);
 	}
 	return 0;
 }
