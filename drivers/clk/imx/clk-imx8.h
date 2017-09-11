@@ -20,9 +20,6 @@ struct clk *imx_clk_divider2_scu(const char *name, const char *parent_name,
 struct clk *imx_clk_divider3_scu(const char *name, const char *parent_name,
 			sc_rsrc_t rsrc_id, sc_ctrl_t gpr_id);
 
-struct clk *imx_clk_divider2_scu(const char *name, const char *parent_name,
-				sc_rsrc_t rsrc_id, sc_pm_clk_t clk_type);
-
 struct clk *clk_register_gate_scu(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
 		u8 clk_gate_scu_flags, spinlock_t *lock,
