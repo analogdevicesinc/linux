@@ -56,7 +56,6 @@ static int ar8031_phy_fixup(struct phy_device *dev)
 void fec_enet_register_fixup(struct net_device *ndev)
 {
 	struct fec_enet_private *fep = netdev_priv(ndev);
-	static int registered = 0;
 	int err;
 
 	if (!IS_BUILTIN(CONFIG_PHYLIB))
@@ -71,7 +70,7 @@ void fec_enet_register_fixup(struct net_device *ndev)
 					ar8031_phy_fixup);
 		if (err)
 			netdev_info(ndev, "Cannot register PHY board fixup\n");
-		registered = 1;
+		ar8031_registered = 1;
 	}
 }
 
