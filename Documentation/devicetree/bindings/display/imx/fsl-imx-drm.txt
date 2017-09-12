@@ -132,6 +132,7 @@ Required properties:
 - power-domains: phandle pointing to power domain.
 - fsl,dpr-channels: phandles to the DPR channels attached to this DPU,
   sorted by memory map addresses.  Only valid for i.MX8qm and i.MX8qxp.
+- fsl,pixel-combiner: phandle to the pixel combiner unit attached to this DPU.
 Optional properties:
 - port@[0-1]: Port nodes with endpoint definitions as defined in
   Documentation/devicetree/bindings/media/video-interfaces.txt.
@@ -171,6 +172,7 @@ dpu: dpu@56180000 {
 	fsl,dpr-channels = <&dpr1_channel1>, <&dpr1_channel2>,
 			   <&dpr1_channel3>, <&dpr2_channel1>,
 			   <&dpr2_channel2>, <&dpr2_channel3>;
+	fsl,pixel-combiner = <&pixel_combiner1>;
 
 	dpu1_disp1: port@1 {
 		reg = <1>;
@@ -300,6 +302,22 @@ example:
 			};
 		};
 	};
+
+Freescale i.MX8 PC (Pixel Combiner)
+=============================================
+Required properties:
+- compatible: should be "fsl,<chip>-pixel-combiner"
+- reg: should be register base and length as documented in the
+  datasheet
+- power-domains: phandle pointing to power domain
+
+example:
+
+pixel-combiner@56020000 {
+	compatible = "fsl,imx8qm-pixel-combiner";
+	reg = <0x0 0x56020000 0x0 0x10000>;
+	power-domains = <&pd_dc0>;
+};
 
 Freescale i.MX8 PRG (Prefetch Resolve Gasket)
 =============================================
