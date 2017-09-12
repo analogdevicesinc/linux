@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <video/dpu.h>
+#include <video/imx8-pc.h>
 #include "dpu-prv.h"
 
 #define SSQCNTS			0
@@ -63,6 +64,7 @@ struct dpu_tcon {
 	int id;
 	bool inuse;
 	struct dpu_soc *dpu;
+	struct pc *pc;
 };
 
 static inline u32 dpu_tcon_read(struct dpu_tcon *tcon, unsigned int offset)
@@ -223,6 +225,34 @@ bool tcon_is_slave(struct dpu_tcon *tcon)
 }
 EXPORT_SYMBOL_GPL(tcon_is_slave);
 
+void tcon_configure_pc(struct dpu_tcon *tcon, unsigned int di,
+			unsigned int frame_width, u32 mode, u32 format)
+{
+	if (WARN_ON(!tcon || !tcon->pc))
+		return;
+
+	pc_configure(tcon->pc, di, frame_width, mode, format);
+}
+EXPORT_SYMBOL_GPL(tcon_configure_pc);
+
+void tcon_enable_pc(struct dpu_tcon *tcon)
+{
+	if (WARN_ON(!tcon || !tcon->pc))
+		return;
+
+	pc_enable(tcon->pc);
+}
+EXPORT_SYMBOL_GPL(tcon_enable_pc);
+
+void tcon_disable_pc(struct dpu_tcon *tcon)
+{
+	if (WARN_ON(!tcon || !tcon->pc))
+		return;
+
+	pc_disable(tcon->pc);
+}
+EXPORT_SYMBOL_GPL(tcon_disable_pc);
+
 struct dpu_tcon *dpu_tcon_get(struct dpu_soc *dpu, int id)
 {
 	struct dpu_tcon *tcon;
@@ -291,4 +321,12 @@ int dpu_tcon_init(struct dpu_soc *dpu, unsigned int id,
 	mutex_init(&tcon->mutex);
 
 	return 0;
+}
+
+void tcon_get_pc(struct dpu_tcon *tcon, void *data)
+{
+	if (WARN_ON(!tcon))
+		return;
+
+	tcon->pc = data;
 }
