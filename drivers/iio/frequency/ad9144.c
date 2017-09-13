@@ -29,6 +29,12 @@ enum chip_id {
 	CHIPID_AD9152 = 0x52,
 };
 
+#define AD9144_MOD_TYPE_NONE		(0x0 << 2)
+#define AD9144_MOD_TYPE_FINE		(0x1 << 2)
+#define AD9144_MOD_TYPE_COARSE4		(0x2 << 2)
+#define AD9144_MOD_TYPE_COARSE8		(0x3 << 2)
+#define AD9144_MOD_TYPE_MASK		(0x3 << 2)
+
 struct ad9144_platform_data {
 	u8 xbar_lane0_sel;
 	u8 xbar_lane1_sel;
@@ -36,11 +42,13 @@ struct ad9144_platform_data {
 	u8 xbar_lane3_sel;
 	bool lanes2_3_swap_data;
 	u8 interpolation;
+	unsigned int fcenter_shift;
 };
 
 struct ad9144_state {
 	struct cf_axi_converter conv;
 	unsigned int interpolation;
+	unsigned int fcenter_shift;
 	enum chip_id id;
 	struct regmap *map;
 };
@@ -79,6 +87,35 @@ static int ad9144_get_temperature_code(struct cf_axi_converter *conv)
 	return ((val2 & 0xFF) << 8) | (val1 & 0xFF);
 }
 
+static void ad9144_set_nco_freq(struct ad9144_state *st, uint32_t sample_rate,
+	uint32_t nco_freq)
+{
+	unsigned int mod_type;
+	unsigned int i;
+	uint64_t ftw;
+
+	if (nco_freq == 0 || nco_freq >= sample_rate) {
+		mod_type = AD9144_MOD_TYPE_NONE;
+	} else if (sample_rate == nco_freq * 4) {
+		mod_type = AD9144_MOD_TYPE_COARSE4;
+	} else if (sample_rate == nco_freq * 8) {
+		mod_type = AD9144_MOD_TYPE_COARSE8;
+	} else {
+		mod_type = AD9144_MOD_TYPE_FINE;
+		ftw = mul_u64_u32_div(1ULL << 48, nco_freq, sample_rate);
+
+		for (i = 0; i < 6; i++) {
+			regmap_write(st->map, 0x114 + i, ftw & 0xff);
+			ftw >>= 8;
+		}
+	}
+
+	regmap_update_bits(st->map, 0x111, AD9144_MOD_TYPE_MASK, mod_type);
+
+	if (mod_type == AD9144_MOD_TYPE_FINE)
+		regmap_write(st->map, 0x113, 1);
+}
+
 // static int ad9144_get_fifo_status(struct cf_axi_converter *conv)
 // {
 //      return 0;
@@ -92,9 +129,11 @@ static int ad9144_setup(struct ad9144_state *st,
 	unsigned int val;
 	u8 i, timeout;
 	unsigned long lane_rate_kHz;
+	unsigned int sample_rate;
 
-	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
-	lane_rate_kHz = (lane_rate_kHz / 1000) * 10;	// FIXME for other configurations
+	sample_rate = clk_get_rate(st->conv.clk[1]);
+
+	lane_rate_kHz = (sample_rate / 1000) * 10;	// FIXME for other configurations
 	lane_rate_kHz /= st->interpolation;
 
 	// power-up and dac initialization
@@ -200,6 +239,8 @@ static int ad9144_setup(struct ad9144_state *st,
 	regmap_write(map, 0x46c, 0x0f);	// enable deskew for all lanes
 	regmap_write(map, 0x476, 0x01);	// frame - bytecount (1)
 	regmap_write(map, 0x47d, 0x0f);	// enable all lanes
+
+	ad9144_set_nco_freq(st, sample_rate, st->fcenter_shift);
 
 	// physical layer
 
@@ -414,6 +455,10 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,interpolation", &tmp);
 	pdata->interpolation = tmp;
 
+	tmp = 0;
+	of_property_read_u32(np, "adi,frequency-center-shift", &tmp);
+	pdata->fcenter_shift = tmp;
+
 	return pdata;
 }
 #else
@@ -470,6 +515,7 @@ static int ad9144_probe(struct spi_device *spi)
 
 	st->id = (enum chip_id) dev_id->driver_data;
 	st->interpolation = pdata->interpolation;
+	st->fcenter_shift = pdata->fcenter_shift;
 	conv = &st->conv;
 
 	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
