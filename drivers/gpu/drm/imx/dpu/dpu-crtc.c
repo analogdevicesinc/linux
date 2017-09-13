@@ -39,6 +39,11 @@ struct dpu_crtc {
 	struct dpu_extdst	*ed;
 	struct dpu_framegen	*fg;
 	struct dpu_tcon		*tcon;
+	struct dpu_constframe	*aux_cf;
+	struct dpu_disengcfg	*aux_dec;
+	struct dpu_extdst	*aux_ed;
+	struct dpu_framegen	*aux_fg;
+	struct dpu_tcon		*aux_tcon;
 	struct dpu_plane	**plane;
 	unsigned int		hw_plane_num;
 	unsigned int		stream_id;
@@ -587,30 +592,35 @@ static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
 		ret = PTR_ERR(dpu_crtc->cf);
 		goto err_out;
 	}
+	dpu_crtc->aux_cf = dpu_aux_cf_peek(dpu_crtc->cf);
 
 	dpu_crtc->dec = dpu_dec_get(dpu, stream_id);
 	if (IS_ERR(dpu_crtc->dec)) {
 		ret = PTR_ERR(dpu_crtc->dec);
 		goto err_out;
 	}
+	dpu_crtc->aux_dec = dpu_aux_dec_peek(dpu_crtc->dec);
 
 	dpu_crtc->ed = dpu_ed_get(dpu, stream_id + 4);
 	if (IS_ERR(dpu_crtc->ed)) {
 		ret = PTR_ERR(dpu_crtc->ed);
 		goto err_out;
 	}
+	dpu_crtc->aux_ed = dpu_aux_ed_peek(dpu_crtc->ed);
 
 	dpu_crtc->fg = dpu_fg_get(dpu, stream_id);
 	if (IS_ERR(dpu_crtc->fg)) {
 		ret = PTR_ERR(dpu_crtc->fg);
 		goto err_out;
 	}
+	dpu_crtc->aux_fg = dpu_aux_fg_peek(dpu_crtc->fg);
 
 	dpu_crtc->tcon = dpu_tcon_get(dpu, stream_id);
 	if (IS_ERR(dpu_crtc->tcon)) {
 		ret = PTR_ERR(dpu_crtc->tcon);
 		goto err_out;
 	}
+	dpu_crtc->aux_tcon = dpu_aux_tcon_peek(dpu_crtc->tcon);
 
 	return 0;
 err_out:
