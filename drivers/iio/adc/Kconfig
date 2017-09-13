@@ -72,6 +72,18 @@ config AD7298
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7298.
 
+config AD738X
+        tristate "Analog Devices AD738x ADC driver"
+        depends on SPI_MASTER
+        select IIO_BUFFER
+        select IIO_TRIGGER
+        select IIO_TRIGGERED_BUFFER
+        help
+          Say yes here to build support for Analog Devices AD738x ADC.
+
+          To compile this driver as a module, choose M here: the module will be
+          called ad738x.
+
 config AD7476
 	tristate "Analog Devices AD7476 and similar 1-channel ADCs driver"
 	depends on SPI
