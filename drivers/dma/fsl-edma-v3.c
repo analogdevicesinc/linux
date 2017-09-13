@@ -689,6 +689,11 @@ static irqreturn_t fsl_edma3_tx_handler(int irq, void *dev_id)
 	writel(1, base_addr + EDMA_CH_INT);
 
 	spin_lock(&fsl_chan->vchan.lock);
+
+	/* Ignore this interrupt since channel has been disabled already */
+	if (!fsl_chan->edesc)
+		return IRQ_HANDLED;
+
 	if (!fsl_chan->edesc->iscyclic) {
 		fsl_edma3_get_realcnt(fsl_chan);
 		list_del(&fsl_chan->edesc->vdesc.node);
