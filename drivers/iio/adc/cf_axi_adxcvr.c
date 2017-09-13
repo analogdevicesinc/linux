@@ -767,17 +767,18 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 
 		return ((parent_rate / 1000) * N1 * N2 * 2) / (M * out_div);
 	} else {
-		unsigned int refclk_div_m, fb_div, out_div, N, M;
+		unsigned int set_refclk_div, set_fb_div, set_out_div, N, M;
+		u32 refclk_div, out_div, fb_div, fb_div_ratio, lowband;
 		unsigned long rate;
 		u32 set_lowband;
-		u32 lowband;
 
-		refclk_div_m = adxcvr_drp_read(st, QPLL_REFCLK_DIV_M_ADDR);
-		fb_div = adxcvr_drp_read(st, QPLL_FBDIV_N_ADDR);
-		out_div = adxcvr_drp_read(st, RXOUT_DIV_ADDR);
+		set_refclk_div = adxcvr_drp_read(st, QPLL_REFCLK_DIV_M_ADDR) & QPLL_REFCLK_DIV_M_MASK;
+		set_refclk_div >>= QPLL_REFCLK_DIV_M_OFFSET;
+		set_fb_div = adxcvr_drp_read(st, QPLL_FBDIV_N_ADDR) & QPLL_FBDIV_N_MASK;
+		set_out_div = adxcvr_drp_read(st, RXOUT_DIV_ADDR);
 		set_lowband = adxcvr_drp_read(st, QPLL_CFG0_ADDR) & QPLL_CFG0_BAND_MASK;
 
-		switch ((refclk_div_m & QPLL_REFCLK_DIV_M_MASK) >> QPLL_REFCLK_DIV_M_OFFSET) {
+		switch (set_refclk_div) {
 		case 16:
 			M = 1;
 			break;
@@ -792,7 +793,7 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 			break;
 		}
 
-		switch (fb_div & QPLL_FBDIV_N_MASK) {
+		switch (set_fb_div) {
 		case 32:
 			N = 16;
 			break;
@@ -820,27 +821,40 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 		}
 
 		if (st->tx_enable)
-			out_div = (out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
+			set_out_div = (set_out_div & TXOUT_DIV_MASK) >> TXOUT_DIV_OFFSET;
 		else
-			out_div = (out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
-
-		out_div = (1 << out_div);
+			set_out_div = (set_out_div & RXOUT_DIV_MASK) >> RXOUT_DIV_OFFSET;
 
 		dev_dbg(st->dev, "%s QPLL  %lu %lu\n", __func__, st->lane_rate,
-			((parent_rate / 1000) * N) / (M * out_div));
+			((parent_rate / 1000) * N) / (M << set_out_div));
 
-		dev_dbg(st->dev, "%s QPLL N=%d M=%d out_div=%d\n", __func__, N, M, out_div);
+		dev_dbg(st->dev, "%s QPLL N=%d M=%d out_div=%d\n", __func__, N,
+			M, 1 << set_out_div);
 
-		rate = ((parent_rate / 1000) * N) / (M * out_div);
+		rate = ((parent_rate / 1000) * N) / (M << set_out_div);
 
 		adxcvr_calc_qpll_settings(st, parent_rate / 1000, rate,
-						     NULL, NULL, NULL, NULL,
-						     &lowband);
+					  &refclk_div, &out_div, &fb_div,
+					  &fb_div_ratio, &lowband);
 		lowband = lowband ? QPLL_CFG0_BAND_MASK : 0;
 
-		if (lowband !=  set_lowband)
+		if (lowband != set_lowband)
 			adxcvr_drp_writef(st, QPLL_CFG0_ADDR,
-							  QPLL_CFG0_BAND_MASK, lowband ? 1 : 0);
+					  QPLL_CFG0_BAND_MASK, lowband ? 1 : 0);
+		if (refclk_div != set_refclk_div)
+			adxcvr_drp_writef(st, QPLL_REFCLK_DIV_M_ADDR,
+					  QPLL_REFCLK_DIV_M_MASK, refclk_div);
+		if (fb_div != set_fb_div) {
+			adxcvr_drp_writef(st, QPLL_FBDIV_N_ADDR,
+					  QPLL_FBDIV_N_MASK, fb_div);
+			adxcvr_drp_writef(st, QPLL_FBDIV_RATIO_ADDR,
+					  QPLL_FBDIV_RATIO_MASK, fb_div_ratio);
+		}
+
+		if (set_out_div != out_div)
+			adxcvr_drp_writef(st, RXOUT_DIV_ADDR,
+					  st->tx_enable ? TXOUT_DIV_MASK : RXOUT_DIV_MASK, out_div);
+
 
 		return rate;
 
