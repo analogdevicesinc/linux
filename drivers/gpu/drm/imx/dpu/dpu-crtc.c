@@ -42,6 +42,7 @@ struct dpu_crtc {
 	struct dpu_plane	**plane;
 	unsigned int		hw_plane_num;
 	unsigned int		stream_id;
+	unsigned int		crtc_grp_id;
 	int			vbl_irq;
 	int			safety_shdld_irq;
 	int			content_shdld_irq;
@@ -633,6 +634,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	init_completion(&dpu_crtc->dec_shdld_done);
 
 	dpu_crtc->stream_id = stream_id;
+	dpu_crtc->crtc_grp_id = pdata->di_grp_id;
 	dpu_crtc->hw_plane_num = plane_grp->hw_plane_num;
 
 	dpu_crtc->plane = devm_kcalloc(dev, dpu_crtc->hw_plane_num,
