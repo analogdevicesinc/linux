@@ -1201,6 +1201,13 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 
 static int fsl_hifi4_close(struct inode *inode, struct file *file)
 {
+	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(hifi4_miscdev.parent);
+	struct device *dev = hifi4_priv->dev;
+	struct fsl_hifi4_engine *hifi4_engine;
+
+	hifi4_engine = file->private_data;
+	devm_kfree(dev, hifi4_engine);
+
 	return 0;
 }
 
