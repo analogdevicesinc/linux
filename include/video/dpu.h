@@ -501,12 +501,14 @@ void constframe_controltrigger(struct dpu_constframe *cf, bool trigger);
 shadow_load_req_t constframe_to_shdldreq_t(struct dpu_constframe *cf);
 struct dpu_constframe *dpu_cf_get(struct dpu_soc *dpu, int id);
 void dpu_cf_put(struct dpu_constframe *cf);
+struct dpu_constframe *dpu_aux_cf_peek(struct dpu_constframe *cf);
 
 /* Display Engine Configuration Unit */
 struct dpu_disengcfg;
 void disengcfg_polarity_ctrl(struct dpu_disengcfg *dec, unsigned int flags);
 struct dpu_disengcfg *dpu_dec_get(struct dpu_soc *dpu, int id);
 void dpu_dec_put(struct dpu_disengcfg *dec);
+struct dpu_disengcfg *dpu_aux_dec_peek(struct dpu_disengcfg *dec);
 
 /* External Destination Unit */
 struct dpu_extdst;
@@ -535,6 +537,7 @@ void extdst_last_pixel_cnt(struct dpu_extdst *ed, u16 *x, u16 *y);
 u32 extdst_perfresult(struct dpu_extdst *ed);
 struct dpu_extdst *dpu_ed_get(struct dpu_soc *dpu, int id);
 void dpu_ed_put(struct dpu_extdst *ed);
+struct dpu_extdst *dpu_aux_ed_peek(struct dpu_extdst *ed);
 
 /* Fetch Decode Unit */
 int fetchdecode_pixengcfg_dynamic_src_sel(struct dpu_fetchunit *fu,
@@ -606,6 +609,7 @@ void framegen_enable_clock(struct dpu_framegen *fg);
 void framegen_disable_clock(struct dpu_framegen *fg);
 struct dpu_framegen *dpu_fg_get(struct dpu_soc *dpu, int id);
 void dpu_fg_put(struct dpu_framegen *fg);
+struct dpu_framegen *dpu_aux_fg_peek(struct dpu_framegen *fg);
 
 /* Horizontal Scaler Unit */
 struct dpu_hscaler;
@@ -653,6 +657,7 @@ void tcon_set_operation_mode(struct dpu_tcon *tcon);
 void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m);
 struct dpu_tcon *dpu_tcon_get(struct dpu_soc *dpu, int id);
 void dpu_tcon_put(struct dpu_tcon *tcon);
+struct dpu_tcon *dpu_aux_tcon_peek(struct dpu_tcon *tcon);
 
 /* Vertical Scaler Unit */
 struct dpu_vscaler;

@@ -440,6 +440,19 @@ void dpu_ed_put(struct dpu_extdst *ed)
 }
 EXPORT_SYMBOL_GPL(dpu_ed_put);
 
+struct dpu_extdst *dpu_aux_ed_peek(struct dpu_extdst *ed)
+{
+	unsigned int aux_id = ed->id ^ 1;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ed_ids); i++)
+		if (ed_ids[i] == aux_id)
+			return ed->dpu->ed_priv[i];
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(dpu_aux_ed_peek);
+
 void _dpu_ed_init(struct dpu_soc *dpu, unsigned int id)
 {
 	struct dpu_extdst *ed;

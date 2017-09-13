@@ -171,6 +171,19 @@ void dpu_cf_put(struct dpu_constframe *cf)
 }
 EXPORT_SYMBOL_GPL(dpu_cf_put);
 
+struct dpu_constframe *dpu_aux_cf_peek(struct dpu_constframe *cf)
+{
+	unsigned int aux_id = cf->id ^ 1;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cf_ids); i++)
+		if (cf_ids[i] == aux_id)
+			return cf->dpu->cf_priv[i];
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(dpu_aux_cf_peek);
+
 void _dpu_cf_init(struct dpu_soc *dpu, unsigned int id)
 {
 	struct dpu_constframe *cf;

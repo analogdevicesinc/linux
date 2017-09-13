@@ -115,6 +115,12 @@ void dpu_dec_put(struct dpu_disengcfg *dec)
 }
 EXPORT_SYMBOL_GPL(dpu_dec_put);
 
+struct dpu_disengcfg *dpu_aux_dec_peek(struct dpu_disengcfg *dec)
+{
+	return dec->dpu->dec_priv[dec->id ^ 1];
+}
+EXPORT_SYMBOL_GPL(dpu_aux_dec_peek);
+
 void _dpu_dec_init(struct dpu_soc *dpu, unsigned int id)
 {
 }

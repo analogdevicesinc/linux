@@ -229,6 +229,12 @@ void dpu_tcon_put(struct dpu_tcon *tcon)
 }
 EXPORT_SYMBOL_GPL(dpu_tcon_put);
 
+struct dpu_tcon *dpu_aux_tcon_peek(struct dpu_tcon *tcon)
+{
+	return tcon->dpu->tcon_priv[tcon->id ^ 1];
+}
+EXPORT_SYMBOL_GPL(dpu_aux_tcon_peek);
+
 void _dpu_tcon_init(struct dpu_soc *dpu, unsigned int id)
 {
 }

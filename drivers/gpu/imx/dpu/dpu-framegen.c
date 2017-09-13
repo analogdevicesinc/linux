@@ -551,6 +551,12 @@ void dpu_fg_put(struct dpu_framegen *fg)
 }
 EXPORT_SYMBOL_GPL(dpu_fg_put);
 
+struct dpu_framegen *dpu_aux_fg_peek(struct dpu_framegen *fg)
+{
+	return fg->dpu->fg_priv[fg->id ^ 1];
+}
+EXPORT_SYMBOL_GPL(dpu_aux_fg_peek);
+
 void _dpu_fg_init(struct dpu_soc *dpu, unsigned int id)
 {
 	struct dpu_framegen *fg;
