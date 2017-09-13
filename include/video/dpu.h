@@ -799,6 +799,7 @@ static inline struct dpu_plane_grp *plane_res_to_grp(struct dpu_plane_res *res)
 
 struct dpu_client_platformdata {
 	const unsigned int	stream_id;
+	unsigned int		di_grp_id;
 	struct dpu_plane_grp	*plane_grp;
 
 	struct device_node	*of_node;

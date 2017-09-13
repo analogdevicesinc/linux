@@ -1188,8 +1188,10 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 			}
 		}
 
-		if (is_disp)
+		if (is_disp) {
 			reg[i].pdata.plane_grp = plane_grp;
+			reg[i].pdata.di_grp_id = plane_grp->id;
+		}
 
 		pdev = platform_device_alloc(reg[i].name, id++);
 		if (!pdev) {
