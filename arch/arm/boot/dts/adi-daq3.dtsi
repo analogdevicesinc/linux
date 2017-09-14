@@ -1,7 +1,7 @@
 #include <dt-bindings/iio/frequency/ad9528.h>
 
 &fmc_spi {
-	clk0_ad9528: ad9528-1@0 {
+	clk0_ad9528: ad9528@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
@@ -13,7 +13,7 @@
 		adi,spi-3wire-enable;
 		reg = <0>;
 
-		clock-output-names = "ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2", "ad9528-1_out3", "ad9528-1_out4", "ad9528-1_out5", "ad9528-1_out6", "ad9528-1_out7", "ad9528-1_out8", "ad9528-1_out9", "ad9528-1_out10", "ad9528-1_out11", "ad9528-1_out12", "ad9528-1_out13";
+		clock-output-names = "ad9528_out0", "ad9528_out1", "ad9528_out2", "ad9528_out3", "ad9528_out4", "ad9528_out5", "ad9528_out6", "ad9528_out7", "ad9528_out8", "ad9528_out9", "ad9528_out10", "ad9528_out11", "ad9528_out12", "ad9528_out13";
 		adi,vcxo-freq = <125000000>;
 
 		/* PLL1 config */
