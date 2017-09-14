@@ -21,6 +21,7 @@ typedef void (*memcpy_func) (void *dest, const void *src, size_t n);
 typedef void (*memset_func) (void *s, int c, size_t n);
 struct xtlib_packaged_library;
 
+#define MULTI_CODEC_NUM		5
 
 enum {
 	XTLIB_NO_ERR = 0,
@@ -62,8 +63,6 @@ struct icm_cdc_iobuf_t {
 struct icm_cdc_uinp_t {
 	u32 proc_id;			/* audio id */
 	u32 codec_id;			/* codec identifier */
-	u32 pcm_wd_sz;			/* pcm word size; only 16 or 24 */
-	u32 crc_check;			/* 0: disable, 1: enable */
 };
 
 struct icm_pcm_prop_t {
@@ -135,6 +134,8 @@ enum icm_action_t {
 
 	ICM_CORE_EXIT,
 	ICM_EXT_MSG_ADDR,
+
+	ICM_SWITCH_CODEC,
 };
 
 enum aud_status_t {
@@ -151,6 +152,11 @@ struct icm_open_resp_info_t {
 	s32 ret;
 };
 
+struct icm_switch_info_t {
+	u32 proc_id;    /* audio id */
+	u32 status;     /* codec status */
+};
+
 struct lib_dnld_info_t {
 	unsigned long pbuf_code;
 	unsigned long pbuf_data;
@@ -165,6 +171,18 @@ struct icm_pilib_size_t {
 	u32 codec_type;
 	u32 text_size;
 	u32 data_size;
+};
+
+struct icm_process_info {
+	unsigned int process_id;
+	unsigned int codec_id;
+	unsigned int proc_id;
+
+	void *data_buf_virt;
+	dma_addr_t data_buf_phys;
+
+	struct xtlib_pil_info pil_info_info;
+	unsigned int status;
 };
 
 struct fsl_hifi4 {
@@ -215,6 +233,18 @@ struct fsl_hifi4 {
 	struct xtlib_pil_info		pil_info;
 	struct xtlib_loader_globals	xtlib_globals;
 	struct timestamp_info_t		*dpu_tstamp;
+
+	struct mutex hifi4_mutex;
+
+	unsigned int process_id;
+	unsigned int process_id_count;
+
+	unsigned int size_code;
+	unsigned int size_data;
+
+	struct icm_process_info process_info[MULTI_CODEC_NUM];
+	unsigned int available_resource;
+	unsigned int cur_res_id;
 };
 
 struct fsl_hifi4_engine {
@@ -235,6 +265,8 @@ struct hifi4_mem_msg {
 	u32	data_size;
 	u32	scratch_phys;
 	u32	scratch_size;
+	u32	system_input_buf_phys;
+	u32	system_input_buf_size;
 };
 
 #define IRAM_OFFSET		0x10000
@@ -258,8 +290,8 @@ struct hifi4_mem_msg {
 #define MSG_BUF_SIZE		4096
 #define INPUT_BUF_SIZE		4096
 #define OUTPUT_BUF_SIZE		16384
-#define FIRMWARE_DATA_BUF_SIZE	0x100000
-#define SCRATCH_DATA_BUF_SIZE	0x100000
+#define FIRMWARE_DATA_BUF_SIZE	(MULTI_CODEC_NUM * 0x80000)
+#define SCRATCH_DATA_BUF_SIZE	(MULTI_CODEC_NUM * 0x80000)
 
 #define MEMORY_REMAP_OFFSET	0x39000000
 
