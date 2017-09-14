@@ -961,33 +961,34 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 
 	for (i = 0; i < pdata->num_channels; i++) {
 		chan = &pdata->channels[i];
-		if (chan->channel_num < AD9528_NUM_CHAN) {
-			if (chan->output_dis)
-				continue;
+		if (chan->channel_num >= AD9528_NUM_CHAN)
+			continue;
+		if (chan->output_dis)
+			continue;
 
-			__set_bit(chan->channel_num, &active_mask);
-			if (chan->sync_ignore_en)
-				__set_bit(chan->channel_num, &ignoresync_mask);
-			ret = ad9528_write(indio_dev,
-				AD9528_CHANNEL_OUTPUT(chan->channel_num),
-				AD9528_CLK_DIST_DRIVER_MODE(chan->driver_mode) |
-				AD9528_CLK_DIST_DIV(chan->channel_divider) |
-				AD9528_CLK_DIST_DIV_PHASE(chan->divider_phase) |
-				AD9528_CLK_DIST_CTRL(chan->signal_source));
-			if (ret < 0)
-				return ret;
+		__set_bit(chan->channel_num, &active_mask);
+		if (chan->sync_ignore_en)
+			__set_bit(chan->channel_num, &ignoresync_mask);
+		ret = ad9528_write(indio_dev,
+			AD9528_CHANNEL_OUTPUT(chan->channel_num),
+			AD9528_CLK_DIST_DRIVER_MODE(chan->driver_mode) |
+			AD9528_CLK_DIST_DIV(chan->channel_divider) |
+			AD9528_CLK_DIST_DIV_PHASE(chan->divider_phase) |
+			AD9528_CLK_DIST_CTRL(chan->signal_source));
+		if (ret < 0)
+			return ret;
 
-			st->ad9528_channels[i].type = IIO_ALTVOLTAGE;
-			st->ad9528_channels[i].output = 1;
-			st->ad9528_channels[i].indexed = 1;
-			st->ad9528_channels[i].channel = chan->channel_num;
-			st->ad9528_channels[i].extend_name =
-				chan->extended_name;
-			st->ad9528_channels[i].info_mask_separate =
-				BIT(IIO_CHAN_INFO_RAW) |
-				BIT(IIO_CHAN_INFO_PHASE) |
-				BIT(IIO_CHAN_INFO_FREQUENCY);
-		}
+		st->ad9528_channels[i].type = IIO_ALTVOLTAGE;
+		st->ad9528_channels[i].output = 1;
+		st->ad9528_channels[i].indexed = 1;
+		st->ad9528_channels[i].channel = chan->channel_num;
+		st->ad9528_channels[i].extend_name =
+			chan->extended_name;
+		st->ad9528_channels[i].info_mask_separate =
+			BIT(IIO_CHAN_INFO_RAW) |
+			BIT(IIO_CHAN_INFO_PHASE) |
+			BIT(IIO_CHAN_INFO_FREQUENCY);
+
 	}
 
 	ret = ad9528_write(indio_dev, AD9528_CHANNEL_PD_EN,
