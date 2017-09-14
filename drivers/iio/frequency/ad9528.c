@@ -913,15 +913,15 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	ret = ad9528_write(indio_dev, AD9528_PLL2_VCO_DIVIDER,
-		AD9528_PLL2_VCO_DIV_M1(pdata->pll2_vco_diff_m1) |
-		AD_IFE(pll2_vco_diff_m1, 0,
+		AD9528_PLL2_VCO_DIV_M1(pdata->pll2_vco_div_m1) |
+		AD_IFE(pll2_vco_div_m1, 0,
 		       AD9528_PLL2_VCO_DIV_M1_PWR_DOWN_EN));
 	if (ret < 0)
 		return ret;
 
-	if (pdata->pll2_vco_diff_m1)
+	if (pdata->pll2_vco_div_m1)
 		st->vco_out_freq[AD9528_VCO] =
-			vco_freq / pdata->pll2_vco_diff_m1;
+			vco_freq / pdata->pll2_vco_div_m1;
 	else
 		st->vco_out_freq[AD9528_VCO] = vco_freq;
 
