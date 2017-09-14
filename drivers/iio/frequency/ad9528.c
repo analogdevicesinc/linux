@@ -120,7 +120,6 @@
 /* AD9528_PLL2_FEEDBACK_DIVIDER_AB */
 #define AD9528_PLL2_FB_NDIV_A_CNT(x)		(((x) & 0x3) << 6)
 #define AD9528_PLL2_FB_NDIV_B_CNT(x)		(((x) & 0x3F) << 0)
-#define AD9528_PLL2_FB_NDIV(a, b)		(4 * (b) + (a))
 
 /* AD9528_PLL2_CTRL */
 #define AD9528_PLL2_LOCK_DETECT_PWR_DOWN_EN	BIT(7)
@@ -802,6 +801,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	struct ad9528_channel_spec *chan;
 	unsigned long active_mask = 0, ignoresync_mask = 0;
 	unsigned vco_freq, vco_ctrl, sysref_ctrl, stat_en_mask = 0;
+	unsigned int pll2_ndiv, pll2_ndiv_a_cnt, pll2_ndiv_b_cnt;
 	int ret, i;
 
 	dev_info(&indio_dev->dev, "ad9528 setup\n");
@@ -884,6 +884,17 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	 * PLL2 Setup
 	 */
 
+	pll2_ndiv = pdata->pll2_vco_div_m1 * pdata->pll2_n2_div;
+	if (pll2_ndiv < 16 || pll2_ndiv > 255) {
+		dev_err(&st->spi->dev,
+			"Feedback calibration divider value (%d) out of range\n",
+			pll2_ndiv);
+		return -EINVAL;
+	}
+
+	pll2_ndiv_a_cnt = pll2_ndiv % 4;
+	pll2_ndiv_b_cnt = pll2_ndiv / 4;
+
 	ret = ad9528_write(indio_dev, AD9528_PLL2_CHARGE_PUMP,
 		AD9528_PLL2_CHARGE_PUMP_CURRENT_nA(pdata->
 			pll2_charge_pump_current_nA));
@@ -891,8 +902,8 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	ret = ad9528_write(indio_dev, AD9528_PLL2_FEEDBACK_DIVIDER_AB,
-		AD9528_PLL2_FB_NDIV_A_CNT(pdata->pll2_ndiv_a_cnt) |
-		AD9528_PLL2_FB_NDIV_B_CNT(pdata->pll2_ndiv_b_cnt));
+		AD9528_PLL2_FB_NDIV_A_CNT(pll2_ndiv_a_cnt) |
+		AD9528_PLL2_FB_NDIV_B_CNT(pll2_ndiv_b_cnt));
 	if (ret < 0)
 		return ret;
 
@@ -903,8 +914,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	vco_freq = (pdata->vcxo_freq * (pdata->pll2_freq_doubler_en ? 2 : 1)
-			/ pdata->pll2_r1_div) * AD9528_PLL2_FB_NDIV(pdata->
-			pll2_ndiv_a_cnt, pdata->pll2_ndiv_b_cnt);
+			/ pdata->pll2_r1_div) * pll2_ndiv;
 
 	vco_ctrl = AD_IF(pll2_freq_doubler_en || pdata->pll2_r1_div != 1,
 				AD9528_PLL2_DOUBLER_R1_EN);
