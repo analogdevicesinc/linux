@@ -33,7 +33,7 @@
 #define HIFI4_DECODE_ONE_FRAME		_IOW(HIFI4_IOC_MAGIC, 4, unsigned int)
 #define HIFI4_UNLOAD_CODEC		_IOW(HIFI4_IOC_MAGIC, 5, unsigned int)
 #define HIFI4_GET_PCM_PROP		_IOW(HIFI4_IOC_MAGIC, 6, unsigned int)
-#define HIFI4_SET_CONFIG               _IOW(HIFI4_IOC_MAGIC, 7, unsigned int)
+#define HIFI4_SET_CONFIG		_IOW(HIFI4_IOC_MAGIC, 7, unsigned int)
 
 #define CODEC_MP3_DEC		1
 #define CODEC_AAC_DEC		2
@@ -54,6 +54,7 @@ struct decode_info {
 	int   out_buf_off;
 	unsigned int cycles;
 	unsigned int input_over;
+	unsigned int process_id;
 };
 
 struct prop_info {
@@ -69,11 +70,14 @@ struct prop_info {
 	int   aac_samplerate;
 	int   sbr_type;
 	int   mpeg_surr_present;
+
+	unsigned int process_id;
 };
 
 struct binary_info {
 	int type;
 	char *file;
+	unsigned int process_id;
 };
 
 struct prop_config {
@@ -81,6 +85,7 @@ struct prop_config {
 	int   cmd;       /* command value */
 	int   val;       /* parameter value */
 	int   ret;       /* executed status of function */
+	unsigned int process_id;
 };
 
 #endif/* __MXC_HIFI4_UAPI_H__ */
