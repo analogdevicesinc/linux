@@ -184,6 +184,14 @@
 #define SDMA_WATERMARK_LEVEL_HWE	BIT(29)
 #define SDMA_WATERMARK_LEVEL_CONT	BIT(31)
 
+#define SDMA_DMA_BUSWIDTHS	(BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | \
+				 BIT(DMA_SLAVE_BUSWIDTH_2_BYTES) | \
+				 BIT(DMA_SLAVE_BUSWIDTH_4_BYTES))
+
+#define SDMA_DMA_DIRECTIONS	(BIT(DMA_DEV_TO_MEM) | \
+				 BIT(DMA_MEM_TO_DEV) | \
+				 BIT(DMA_DEV_TO_DEV))
+
 /*
  * Mode/Count of data node descriptors - IPCv2
  */
@@ -2332,9 +2340,9 @@ static int sdma_probe(struct platform_device *pdev)
 	sdma->dma_device.device_terminate_all = sdma_terminate_all_with_delay;
 	sdma->dma_device.device_pause = sdma_channel_pause;
 	sdma->dma_device.device_resume = sdma_channel_resume;
-	sdma->dma_device.src_addr_widths = BIT(DMA_SLAVE_BUSWIDTH_4_BYTES);
-	sdma->dma_device.dst_addr_widths = BIT(DMA_SLAVE_BUSWIDTH_4_BYTES);
-	sdma->dma_device.directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV);
+	sdma->dma_device.src_addr_widths = SDMA_DMA_BUSWIDTHS;
+	sdma->dma_device.dst_addr_widths = SDMA_DMA_BUSWIDTHS;
+	sdma->dma_device.directions = SDMA_DMA_DIRECTIONS;
 	sdma->dma_device.residue_granularity = DMA_RESIDUE_GRANULARITY_SEGMENT;
 	sdma->dma_device.device_prep_dma_memcpy = sdma_prep_memcpy;
 	sdma->dma_device.device_issue_pending = sdma_issue_pending;
