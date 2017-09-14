@@ -20,8 +20,6 @@
 		adi,osc-in-diff-enable;
 
 		adi,pll2-charge-pump-current-nA = <413000>;
-		adi,pll2-ndiv-a-cnt = <0>;
-		adi,pll2-ndiv-b-cnt = <6>;
 
 		adi,pll2-r2-div = <1>;
 		adi,pll2-vco-div-m1 = <3>;

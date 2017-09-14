@@ -38,8 +38,6 @@
 
 
 		/* PLL2 config */
-		adi,pll2-ndiv-a-cnt = <2>; /* N = 30 */
-		adi,pll2-ndiv-b-cnt = <7>;
 		adi,pll2-vco-div-m1 = <3>; /* use 5 for 184320000 output device clock */
 		adi,pll2-n2-div = <10>; /* N / M1 */
 		adi,pll2-r1-div = <1>;

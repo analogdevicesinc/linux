@@ -28,8 +28,6 @@
 		adi,pll1-charge-pump-current-nA = <10000>;
 
 		/* PLL2 config */
-		adi,pll2-ndiv-a-cnt = <0>;
-		adi,pll2-ndiv-b-cnt = <25>;
 		adi,pll2-vco-div-m1 = <4>;
 		adi,pll2-r1-div = <2>;
 		adi,pll2-n2-div = <25>;
