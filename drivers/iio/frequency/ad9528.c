@@ -989,6 +989,15 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 			BIT(IIO_CHAN_INFO_PHASE) |
 			BIT(IIO_CHAN_INFO_FREQUENCY);
 
+		switch (chan->signal_source) {
+		case SOURCE_VCXO:
+		case SOURCE_VCXO_INV:
+			st->vco_out_map[chan->channel_num] = AD9528_VCXO;
+			break;
+		default:
+			st->vco_out_map[chan->channel_num] = AD9528_VCO;
+			break;
+		}
 	}
 
 	ret = ad9528_write(indio_dev, AD9528_CHANNEL_PD_EN,
