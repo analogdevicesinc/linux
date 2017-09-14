@@ -38,8 +38,8 @@
 			adi,pll2-ndiv-b-cnt = <3>;
 			adi,pll2-freq-doubler-enable;
 			adi,pll2-r2-div = <1>;
-			adi,pll2-vco-diff-m1 = <3>;
-			adi,pll2-vco-diff-m2 = <3>;
+			adi,pll2-vco-div-m1 = <3>;
+			adi,pll2-vco-div-m2 = <3>;
 			adi,rpole2 = <0>;
 			adi,rzero = <2>;
 			adi,cpole1 = <2>;
