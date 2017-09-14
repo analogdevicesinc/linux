@@ -920,8 +920,10 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	vco_freq = (pdata->vcxo_freq * (pdata->pll2_freq_doubler_en ? 2 : 1)
-			/ pdata->pll2_r1_div) * pll2_ndiv;
+	
+	vco_freq = div_u64((unsigned long long)pdata->vcxo_freq *
+			   (pdata->pll2_freq_doubler_en ? 2 : 1) * pll2_ndiv,
+			    pdata->pll2_r1_div);
 
 	vco_ctrl = AD_IF(pll2_freq_doubler_en || pdata->pll2_r1_div != 1,
 				AD9528_PLL2_DOUBLER_R1_EN);
