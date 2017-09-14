@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/of.h>
+#include <linux/rational.h>
 
 #include <linux/clk.h>
 #include <linux/clkdev.h>
@@ -216,6 +217,10 @@
 /* Helpers to avoid excess line breaks */
 #define AD_IFE(_pde, _a, _b) ((pdata->_pde) ? _a : _b)
 #define AD_IF(_pde, _a) AD_IFE(_pde, _a, 0)
+
+/* In kHz */
+#define AD9528_VCO_FREQ_MIN 3450000
+#define AD9528_VCO_FREQ_MAX 4025000
 
 enum {
 	AD9528_STAT_PLL1_LD,
@@ -622,6 +627,57 @@ static const struct iio_info ad9528_info = {
 	.debugfs_reg_access = &ad9528_reg_access,
 	.attrs = &ad9528_attribute_group,
 };
+
+static int ad9528_calc_dividers(unsigned int vcxo_freq, unsigned int m1_freq,
+	struct ad9528_platform_data *pdata)
+{
+	unsigned long n2[2], r1[2];
+	unsigned int fpfd;
+	unsigned int m1;
+
+	m1_freq /= 1000;
+	vcxo_freq /= 1000;
+
+	for (m1 = 3; m1 <= 5; m1++) {
+		if (AD9528_VCO_FREQ_MIN <= m1_freq * m1 &&
+		    AD9528_VCO_FREQ_MAX >= m1_freq * m1)
+			break;
+	}
+
+	if (m1 == 6)
+		return -EINVAL;
+
+	rational_best_approximation(m1_freq, vcxo_freq,
+		255 / m1, 31, &n2[0], &r1[0]);
+
+	pdata->pll2_freq_doubler_en = false;
+
+	if (m1_freq != vcxo_freq * n2[0] / r1[0]) {
+		rational_best_approximation(m1_freq, vcxo_freq*2,
+			255 / m1, 31, &n2[1], &r1[1]);
+
+		if (abs((int)m1_freq - (int)(vcxo_freq * n2[0] / r1[0])) >
+			abs((int)m1_freq - (int)(vcxo_freq * 2 * n2[1] / r1[1]))) {
+			n2[0] = n2[1];
+			r1[0] = r1[1];
+			pdata->pll2_freq_doubler_en = true;
+		}
+	}
+
+	fpfd = vcxo_freq * (pdata->pll2_freq_doubler_en ? 2 : 1) / r1[0];
+
+	while (fpfd > 275000 || n2[0] * m1 < 16) {
+		fpfd /= 2;
+		n2[0] *= 2;
+		r1[0] *= 2;
+	}
+
+	pdata->pll2_r1_div = r1[0];
+	pdata->pll2_n2_div = n2[0];
+	pdata->pll2_vco_div_m1 = m1;
+
+	return 0;
+}
 
 static long ad9528_get_clk_attr(struct clk_hw *hw, long mask)
 {
@@ -1056,23 +1112,26 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,pll2-charge-pump-current-nA",
 			     &pdata->pll2_charge_pump_current_nA);
 
-	of_property_read_u32(np, "adi,pll2-ndiv-a-cnt", &tmp);
-	pdata->pll2_ndiv_a_cnt = tmp;
-	of_property_read_u32(np, "adi,pll2-ndiv-b-cnt", &tmp);
-	pdata->pll2_ndiv_b_cnt = tmp;
+	ret = of_property_read_u32(np, "adi,pll2-m1-frequency", &tmp);
+	if (ret == 0) {
+		ret = ad9528_calc_dividers(pdata->vcxo_freq, tmp, pdata);
+		if (ret)
+			return NULL;
+	} else {
+		pdata->pll2_freq_doubler_en =
+			of_property_read_bool(np, "adi,pll2-freq-doubler-enable");
 
-	pdata->pll2_freq_doubler_en =
-		of_property_read_bool(np, "adi,pll2-freq-doubler-enable");
-
-	tmp = 0;
-	of_property_read_u32(np, "adi,pll2-r1-div", &tmp);
-	pdata->pll2_r1_div = tmp;
-	tmp = 0;
-	of_property_read_u32(np, "adi,pll2-n2-div", &tmp);
-	pdata->pll2_n2_div = tmp;
-	tmp = 0;
-	of_property_read_u32(np, "adi,pll2-vco-diff-m1", &tmp);
-	pdata->pll2_vco_diff_m1 = tmp;
+		tmp = 0;
+		of_property_read_u32(np, "adi,pll2-r1-div", &tmp);
+		pdata->pll2_r1_div = tmp;
+		tmp = 0;
+		of_property_read_u32(np, "adi,pll2-n2-div", &tmp);
+		pdata->pll2_n2_div = tmp;
+		tmp = 0;
+		of_property_read_u32(np, "adi,pll2-vco-diff-m1", &tmp);
+		of_property_read_u32(np, "adi,pll2-vco-div-m1", &tmp);
+		pdata->pll2_vco_div_m1 = tmp;
+	}
 
 	/* Loop Filter PLL2 */
 
