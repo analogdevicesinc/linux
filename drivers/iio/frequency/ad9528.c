@@ -267,9 +267,7 @@ struct ad9528_state {
 	struct iio_chan_spec		ad9528_channels[AD9528_NUM_CHAN];
 	struct clk_onecell_data		clk_data;
 	struct clk			*clks[AD9528_NUM_CHAN];
-	struct gpio_desc			*pwrdown_gpio;
 	struct gpio_desc			*reset_gpio;
-	struct gpio_desc			*sync_gpio;
 
 	unsigned long		vco_out_freq[AD9528_NUM_CLK_SRC];
 
@@ -1338,9 +1336,7 @@ static int ad9528_probe(struct spi_device *spi)
 			return ret;
 	}
 
-	st->pwrdown_gpio = devm_gpiod_get(&spi->dev, "status0", GPIOD_OUT_LOW);
-	st->pwrdown_gpio = devm_gpiod_get(&spi->dev, "powerdown",
-		GPIOD_OUT_HIGH);
+	devm_gpiod_get(&spi->dev, "status0", GPIOD_OUT_LOW);
 
 	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
 	if (!IS_ERR(st->reset_gpio)) {
@@ -1349,8 +1345,6 @@ static int ad9528_probe(struct spi_device *spi)
 	}
 
 	mdelay(10);
-
-	st->sync_gpio = devm_gpiod_get(&spi->dev, "sync", GPIOD_OUT_HIGH);
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
