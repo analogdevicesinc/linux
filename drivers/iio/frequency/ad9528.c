@@ -241,7 +241,7 @@ enum {
 	AD9528_SYNC,
 };
 
-enum {
+enum ad9528_output_source {
 	AD9528_VCO,
 	AD9528_VCXO,
 	AD9528_SYSREF,
@@ -252,6 +252,7 @@ struct ad9528_outputs {
 	struct clk_hw hw;
 	struct iio_dev *indio_dev;
 	unsigned num;
+	enum ad9528_output_source source;
 	bool is_enabled;
 };
 
@@ -268,7 +269,6 @@ struct ad9528_state {
 	struct gpio_desc			*reset_gpio;
 
 	unsigned long		vco_out_freq[AD9528_NUM_CLK_SRC];
-	unsigned char		vco_out_map[AD9528_NUM_CHAN];
 
 	struct mutex		lock;
 
@@ -515,6 +515,7 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct ad9528_state *st = iio_priv(indio_dev);
+	struct ad9528_outputs *output = &st->output[chan->channel];
 	unsigned code;
 	int ret;
 
@@ -530,8 +531,8 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 		*val = !(AD9528_CHANNEL_PD_MASK_REV(ret) & BIT(chan->channel));
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_FREQUENCY:
-		*val = st->vco_out_freq[st->vco_out_map[chan->channel]];
-		if (st->vco_out_map[chan->channel] != AD9528_SYSREF)
+		*val = st->vco_out_freq[output->source];
+		if (output->source != AD9528_SYSREF)
 			*val /= AD9528_CLK_DIST_DIV_REV(ret);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
@@ -552,6 +553,7 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad9528_state *st = iio_priv(indio_dev);
+	struct ad9528_outputs *output = &st->output[chan->channel];
 	unsigned int addr = ad9528_attr_to_addr(chan, mask);
 	int ret, tmp, code;
 	int reg_val;
@@ -571,11 +573,11 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 		else
 			reg_val |= BIT(chan->channel);
 
-		st->output[chan->channel].is_enabled = !!val;
+		output->is_enabled = !!val;
 
 		break;
 	case IIO_CHAN_INFO_FREQUENCY:
-		if (st->vco_out_map[chan->channel] == AD9528_SYSREF) {
+		if (output->source == AD9528_SYSREF) {
 			ret = -EINVAL;
 			goto out;
 		}
@@ -585,13 +587,12 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 			goto out;
 		}
 
-		tmp = DIV_ROUND_CLOSEST(st->vco_out_freq[st->vco_out_map[
-				chan->channel]], val);
+		tmp = DIV_ROUND_CLOSEST(st->vco_out_freq[output->source], val);
 		tmp = clamp(tmp, 1, 256);
 
 		reg_val &= ~(AD9528_CLK_DIST_CTRL(~0) | AD9528_CLK_DIST_DIV(~0));
 		reg_val |= AD9528_CLK_DIST_DIV(tmp);
-		reg_val |= AD9528_CLK_DIST_CTRL(st->vco_out_map[chan->channel]);
+		reg_val |= AD9528_CLK_DIST_CTRL(output->source);
 		break;
 	case IIO_CHAN_INFO_PHASE:
 		code = val * 1000000 + val2 % 1000000;
@@ -1024,15 +1025,15 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		switch (chan->signal_source) {
 		case SOURCE_VCXO:
 		case SOURCE_VCXO_INV:
-			st->vco_out_map[chan->channel_num] = AD9528_VCXO;
+			st->output[chan->channel_num].source = AD9528_VCXO;
 			break;
 		case SOURCE_SYSREF_VCO:
 		case SOURCE_SYSREF_VCXO:
 		case SOURCE_SYSREF_VCXO_INV:
-			st->vco_out_map[chan->channel_num] = AD9528_SYSREF;
+			st->output[chan->channel_num].source = AD9528_SYSREF;
 			break;
 		default:
-			st->vco_out_map[chan->channel_num] = AD9528_VCO;
+			st->output[chan->channel_num].source = AD9528_VCO;
 			break;
 		}
 	}
