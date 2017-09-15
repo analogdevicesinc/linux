@@ -502,6 +502,15 @@ static const struct attribute_group ad9528_attribute_group = {
 	.attrs = ad9528_attributes,
 };
 
+static unsigned int ad9528_attr_to_addr(const struct iio_chan_spec *chan,
+	unsigned int attr)
+{
+	if (attr == IIO_CHAN_INFO_RAW)
+		return AD9528_CHANNEL_PD_EN;
+	else
+		return AD9528_CHANNEL_OUTPUT(chan->channel);
+}
+
 static int ad9528_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val,
@@ -514,7 +523,7 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 	int ret;
 
 	mutex_lock(&st->lock);
-	ret = ad9528_read(indio_dev, AD9528_CHANNEL_OUTPUT(chan->channel));
+	ret = ad9528_read(indio_dev, ad9528_attr_to_addr(chan, m));
 	mutex_unlock(&st->lock);
 
 	if (ret < 0)
@@ -522,7 +531,6 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		ret = ad9528_read(indio_dev, AD9528_CHANNEL_PD_EN);
 		*val = !(AD9528_CHANNEL_PD_MASK_REV(ret) & BIT(chan->channel));
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_FREQUENCY:
@@ -551,22 +559,22 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 	struct ad9528_outputs *output = &st->output[chan->channel];
 	unsigned int addr = ad9528_attr_to_addr(chan, mask);
 	int ret, tmp, code;
+	int reg_val;
 
 	mutex_lock(&st->lock);
-	ret = ad9528_read(indio_dev, AD9528_CHANNEL_OUTPUT(chan->channel));
-	if (ret < 0)
-		goto out;
 
-	reg = ret;
+	reg_val = ad9528_read(indio_dev, addr);
+	if (reg_val < 0) {
+		ret = reg_val;
+		goto out;
+	}
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		ret = ad9528_read(indio_dev, AD9528_CHANNEL_PD_EN);
 		if (val)
-			ret &= ~BIT(chan->channel);
+			reg_val &= ~BIT(chan->channel);
 		else
-			ret |= BIT(chan->channel);
-		ad9528_write(indio_dev, AD9528_CHANNEL_PD_EN, ret);
+			reg_val |= BIT(chan->channel);
 
 		output->is_enabled = !!val;
 
@@ -591,18 +599,17 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_PHASE:
 		code = val * 1000000 + val2 % 1000000;
-		tmp = (code * AD9528_CLK_DIST_DIV_REV(ret)) / 3141592;
+		tmp = (code * AD9528_CLK_DIST_DIV_REV(reg_val)) / 3141592;
 		tmp = clamp(tmp, 0, 63);
-		reg &= ~AD9528_CLK_DIST_DIV_PHASE(~0);
-		reg |= AD9528_CLK_DIST_DIV_PHASE(tmp);
+		reg_val &= ~AD9528_CLK_DIST_DIV_PHASE(~0);
+		reg_val |= AD9528_CLK_DIST_DIV_PHASE(tmp);
 		break;
 	default:
 		ret = -EINVAL;
 		goto out;
 	}
 
-	ret = ad9528_write(indio_dev, AD9528_CHANNEL_OUTPUT(chan->channel),
-			   reg);
+	ret = ad9528_write(indio_dev, addr, reg_val);
 	if (ret < 0)
 		goto out;
 
