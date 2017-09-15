@@ -102,7 +102,7 @@
 
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
-		id-gpio = <&gpio0 8 GPIO_ACTIVE_HIGH>;
+		id-gpio = <&gpio0 13 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pinctrl_extcon_usb1>;
 		pinctrl-1 = <&pinctrl_extcon_usb1>;
@@ -320,7 +320,7 @@
 
 		pinctrl_extcon_usb1: extcon1grp {
 			fsl,pins = <
-				IMX7ULP_PAD_PTC8__PTC8		0x10003
+				IMX7ULP_PAD_PTC13__PTC13	0x10003
 			>;
 		};
 
