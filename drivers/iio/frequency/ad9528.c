@@ -827,8 +827,6 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	unsigned int pll2_ndiv, pll2_ndiv_a_cnt, pll2_ndiv_b_cnt;
 	int ret, i;
 
-	dev_info(&indio_dev->dev, "ad9528 setup\n");
-
 	ret = ad9528_write(indio_dev, AD9528_SERIAL_PORT_CONFIG,
 			AD9528_SER_CONF_SOFT_RESET |
 			((st->spi->mode & SPI_3WIRE || pdata->spi3wire)? 0 :
@@ -1375,8 +1373,6 @@ static int ad9528_probe(struct spi_device *spi)
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto error_disable_reg;
-
-	dev_info(&spi->dev, "probed %s\n", indio_dev->name);
 
 	return 0;
 
