@@ -13,7 +13,7 @@
 
 	adi,vcxo-freq = <100000000>;
 	/* PLL2 config for VCO = 3600MHz, N = 36*/
-	di,pll2-n2-div = <12>; /* N / M1 */
+//	adi,pll2-n2-div = <12>; /* N / M1 */
 
 	ad9528_0_c13: channel@13 {
 		reg = <13>;
