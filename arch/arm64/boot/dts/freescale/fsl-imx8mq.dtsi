@@ -722,7 +722,8 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_USDHC1_DIV>;
 		assigned-clock-rates = <400000000>;
 		fsl,tuning-start-tap = <20>;
-		fsl,tuning-step= <2>;
+		fsl,tuning-step = <2>;
+		fsl,strobe-dll-delay-target = <5>;
 		bus-width = <4>;
 		status = "disabled";
 	};
@@ -736,7 +737,7 @@
 			<&clk IMX8MQ_CLK_USDHC2_ROOT>;
 		clock-names = "ipg", "ahb", "per";
 		fsl,tuning-start-tap = <20>;
-		fsl,tuning-step= <2>;
+		fsl,tuning-step = <2>;
 		bus-width = <4>;
 		status = "disabled";
 	};
