@@ -765,23 +765,25 @@ static int tcpci_probe(struct i2c_client *client,
 	if (err < 0)
 		return err;
 
-	/* Clear and disable chip interrupts */
-	tcpci_write16(tcpci, TCPC_ALERT, 0xffff);
-	tcpci_write16(tcpci, TCPC_ALERT_MASK, 0);
+	tcpci->port = tcpm_register_port(tcpci->dev, &tcpci->tcpc);
+	if (IS_ERR(tcpci->port))
+		return PTR_ERR(tcpci->port);
+
+	err = tcpci_ss_mux_control_init(tcpci);
+	if (err)
+		goto err1;
 
 	err = devm_request_threaded_irq(tcpci->dev, client->irq, NULL,
 					tcpci_irq,
 					IRQF_ONESHOT | IRQF_TRIGGER_LOW,
 					dev_name(tcpci->dev), tcpci);
 	if (err < 0)
-		return err;
+		goto err1;
 
-	err = tcpci_ss_mux_control_init(tcpci);
-	if (err)
-		return err;
-
-	tcpci->port = tcpm_register_port(tcpci->dev, &tcpci->tcpc);
-	return PTR_ERR_OR_ZERO(tcpci->port);
+	return 0;
+err1:
+	tcpm_unregister_port(tcpci->port);
+	return err;
 }
 
 static int tcpci_remove(struct i2c_client *client)
