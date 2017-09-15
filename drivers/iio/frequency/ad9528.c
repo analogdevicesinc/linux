@@ -244,6 +244,7 @@ enum {
 enum {
 	AD9528_VCO,
 	AD9528_VCXO,
+	AD9528_SYSREF,
 	AD9528_NUM_CLK_SRC,
 };
 
@@ -523,8 +524,9 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 		*val = !(AD9528_CHANNEL_PD_MASK_REV(ret) & BIT(chan->channel));
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_FREQUENCY:
-		*val = st->vco_out_freq[st->vco_out_map[chan->channel]] /
-			AD9528_CLK_DIST_DIV_REV(ret);
+		*val = st->vco_out_freq[st->vco_out_map[chan->channel]];
+		if (st->vco_out_map[chan->channel] != AD9528_SYSREF)
+			*val /= AD9528_CLK_DIST_DIV_REV(ret);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		code = (AD9528_CLK_DIST_DIV_PHASE_REV(ret) * 3141592) /
@@ -567,6 +569,11 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 
 		break;
 	case IIO_CHAN_INFO_FREQUENCY:
+		if (st->vco_out_map[chan->channel] == AD9528_SYSREF) {
+			ret = -EINVAL;
+			goto out;
+		}
+
 		if (val <= 0) {
 			ret = -EINVAL;
 			goto out;
@@ -937,6 +944,9 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 
 	st->vco_out_freq[AD9528_VCXO] = pdata->vcxo_freq;
 
+	st->vco_out_freq[AD9528_SYSREF] = vco_freq / (pll2_ndiv *
+					   pdata->sysref_k_div * 2);
+
 	ret = ad9528_write(indio_dev, AD9528_PLL2_R1_DIVIDER,
 		AD9528_PLL2_R1_DIV(pdata->pll2_r1_div));
 	if (ret < 0)
@@ -993,6 +1003,11 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		case SOURCE_VCXO:
 		case SOURCE_VCXO_INV:
 			st->vco_out_map[chan->channel_num] = AD9528_VCXO;
+			break;
+		case SOURCE_SYSREF_VCO:
+		case SOURCE_SYSREF_VCXO:
+		case SOURCE_SYSREF_VCXO_INV:
+			st->vco_out_map[chan->channel_num] = AD9528_SYSREF;
 			break;
 		default:
 			st->vco_out_map[chan->channel_num] = AD9528_VCO;
