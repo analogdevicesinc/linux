@@ -766,19 +766,24 @@ static void ad9528_clk_unprepare(struct clk_hw *hw)
 static long ad9528_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 				  unsigned long *prate)
 {
-	struct iio_dev *indio_dev = to_ad9528_clk_output(hw)->indio_dev;
+	struct ad9528_outputs *output = to_ad9528_clk_output(hw);
+	struct iio_dev *indio_dev = output->indio_dev;
 	struct ad9528_state *st = iio_priv(indio_dev);
-	unsigned long clk, tmp;
+	unsigned long freq, div;
 
 	if (!rate)
 		return 0;
 
-	clk = st->vco_out_freq[AD9528_VCO];
+	freq = st->vco_out_freq[output->source];
 
-	tmp = DIV_ROUND_CLOSEST(clk, rate);
-	tmp = clamp(tmp, 1UL, 256UL);
+	if (output->source == AD9528_SYSREF) {
+		div = 1;
+	} else {
+		div = DIV_ROUND_CLOSEST(freq, rate);
+		div = clamp(div, 1UL, 256UL);
+	}
 
-	return clk / tmp;
+	return DIV_ROUND_CLOSEST(freq, div);
 }
 
 static int ad9528_clk_set_rate(struct clk_hw *hw, unsigned long rate,
