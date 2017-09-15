@@ -534,6 +534,7 @@ static int cdns3_probe(struct platform_device *pdev)
 	if (ret)
 		goto err1;
 
+	INIT_WORK(&cdns->role_switch_wq, cdns3_role_switch);
 	ret = cdns3_register_extcon(cdns);
 	if (ret)
 		goto err2;
@@ -557,7 +558,6 @@ static int cdns3_probe(struct platform_device *pdev)
 	if (ret)
 		goto err4;
 
-	INIT_WORK(&cdns->role_switch_wq, cdns3_role_switch);
 	dev_dbg(dev, "Cadence USB3 core: probe succeed\n");
 
 	return 0;
