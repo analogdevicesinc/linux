@@ -1,0 +1,52 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8mq-evk.dts"
+
+/ {
+	modem_reset: modem-reset {
+		reset-gpios = <&gpio3 5 GPIO_ACTIVE_HIGH>;
+	};
+
+	regulators {
+		epdev_on: fixedregulator@100 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "epdev_on";
+			gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+	};
+};
+
+&iomuxc {
+	imx8mq-evk {
+		pinctrl_epdev_on: epdevongrp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_SD2_RESET_B_GPIO2_IO19	0x16
+			>;
+		};
+	};
+};
+
+&pcie1{
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcie1 &pinctrl_epdev_on>;
+	epdev_on-supply = <&epdev_on>;
+};
+
+&usdhc2 {
+	status = "disabled";
+};
