@@ -701,6 +701,16 @@ snk_setting_wrong:
 static int tcpci_ss_mux_control_init(struct tcpci *tcpci)
 {
 	struct device *dev = tcpci->dev;
+	struct gpio_desc *gpiod_reset;
+
+	gpiod_reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(gpiod_reset)) {
+		dev_err(dev, "Failed to request reset gpio.");
+		return PTR_ERR(gpiod_reset);
+	}
+
+	if (gpiod_reset)
+		usleep_range(700, 1000);
 
 	tcpci->ss_sel_gpio = devm_gpiod_get_optional(dev, "ss-sel",
 							GPIOD_OUT_HIGH);
