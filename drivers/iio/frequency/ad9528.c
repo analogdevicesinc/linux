@@ -642,6 +642,22 @@ static const struct iio_info ad9528_info = {
 	.attrs = &ad9528_attribute_group,
 };
 
+static bool ad9528_pll2_valid_calib_div(unsigned int div)
+{
+	if (div < 16 || div > 255)
+		return false;
+
+	switch (div) {
+	case 18:
+	case 19:
+	case 23:
+	case 27:
+		return false;
+	}
+
+	return true;
+}
+
 static int ad9528_calc_dividers(unsigned int vcxo_freq, unsigned int m1_freq,
 	struct ad9528_platform_data *pdata)
 {
@@ -680,7 +696,7 @@ static int ad9528_calc_dividers(unsigned int vcxo_freq, unsigned int m1_freq,
 
 	fpfd = vcxo_freq * (pdata->pll2_freq_doubler_en ? 2 : 1) / r1[0];
 
-	while (fpfd > 275000 || n2[0] * m1 < 16) {
+	while (fpfd > 275000 || !ad9528_pll2_valid_calib_div(n2[0] * m1)) {
 		fpfd /= 2;
 		n2[0] *= 2;
 		r1[0] *= 2;
@@ -892,7 +908,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	 */
 
 	pll2_ndiv = pdata->pll2_vco_div_m1 * pdata->pll2_n2_div;
-	if (pll2_ndiv < 16 || pll2_ndiv > 255) {
+	if (!ad9528_pll2_valid_calib_div(pll2_ndiv)) {
 		dev_err(&st->spi->dev,
 			"Feedback calibration divider value (%d) out of range\n",
 			pll2_ndiv);
