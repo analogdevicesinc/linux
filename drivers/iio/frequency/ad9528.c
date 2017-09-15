@@ -510,7 +510,10 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 	int ret;
 
 	mutex_lock(&st->lock);
-	ret = ad9528_read(indio_dev, AD9528_CHANNEL_OUTPUT(chan->channel));
+	if (m == IIO_CHAN_INFO_RAW)
+		ret = ad9528_read(indio_dev, AD9528_CHANNEL_PD_EN);
+	else
+		ret = ad9528_read(indio_dev, AD9528_CHANNEL_OUTPUT(chan->channel));
 	mutex_unlock(&st->lock);
 
 	if (ret < 0)
@@ -518,7 +521,6 @@ static int ad9528_read_raw(struct iio_dev *indio_dev,
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		ret = ad9528_read(indio_dev, AD9528_CHANNEL_PD_EN);
 		*val = !(AD9528_CHANNEL_PD_MASK_REV(ret) & BIT(chan->channel));
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_FREQUENCY:
