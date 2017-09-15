@@ -674,6 +674,12 @@
 				#power-domain-cells = <0>;
 				power-domains =<&pd_cm40>;
 			};
+
+			pd_cm40_mu0a0: PD_CM40_MU0A0{
+				reg = <SC_R_M4_0_MU_0A0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_cm40>;
+			};
 		};
 
 
@@ -2094,6 +2100,9 @@
 			reg = <0x0 0x37440000 0x0 0x10000>;
 			interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&intmux_cm40>;
+			clocks = <&clk IMX8QXP_CM40_IPG_CLK>;
+			clock-names = "ipg";
+			power-domains = <&pd_cm40_mu0a0>;
 			status = "okay";
 		};
 
