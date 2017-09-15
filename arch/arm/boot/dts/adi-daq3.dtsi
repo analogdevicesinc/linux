@@ -30,7 +30,7 @@
 
 		/* SYSREF config */
 		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
-		adi,sysref-k-div = <8>;
+		adi,sysref-k-div = <128>;
 
 		adi,rpole2 = <RPOLE2_900_OHM>;
 		adi,rzero = <RZERO_1850_OHM>;
