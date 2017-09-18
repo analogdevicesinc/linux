@@ -123,7 +123,11 @@ static void *ivshm_net_desc_data(struct ivshm_net *in,
 {
 	u64 offs = READ_ONCE(desc->addr);
 	u32 dlen = READ_ONCE(desc->len);
+	u16 flags = READ_ONCE(desc->flags);
 	void *data;
+
+	if (flags)
+		return NULL;
 
 	if (offs >= in->shmlen)
 		return NULL;
@@ -317,6 +321,7 @@ static int ivshm_net_tx_frame(struct net_device *ndev, struct sk_buff *skb)
 
 	desc->addr = buf - in->shm;
 	desc->len = skb->len;
+	desc->flags = 0;
 
 	avail = tx->last_avail_idx++ & (vr->num - 1);
 	vr->avail->ring[avail] = desc_idx;
