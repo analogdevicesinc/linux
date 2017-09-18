@@ -240,6 +240,13 @@
 			>;
 		};
 
+		pinctrl_typec: typecgrp {
+			fsl,pins = <
+				SC_P_ENET0_REFCLK_125M_25M_LSIO_GPIO5_IO09	0x60
+				SC_P_SPI2_SCK_LSIO_GPIO1_IO03			0x06000021
+			>;
+		};
+
 		pinctrl_usdhc1_100mhz: usdhc1grp100mhz {
 			fsl,pins = <
 				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000040
@@ -472,6 +479,25 @@
 			};
 		};
 	};
+
+	typec_ptn5110: typec@50 {
+		compatible = "usb,tcpci";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_typec>;
+		reg = <0x50>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+		ss-sel-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&pca9557_a 7 GPIO_ACTIVE_HIGH>;
+		src-pdos = <0x380190c8>;
+		snk-pdos = <0x380190c8 0x3802d0c8>;
+		max-snk-mv = <9000>;
+		max-snk-ma = <1000>;
+		op-snk-mw = <9000>;
+		port-type = "drp";
+		default-role = "sink";
+		status = "disabled";
+	};
 };
 
 &sai1 {
@@ -482,6 +508,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1>;
 	status = "okay";
+};
+
+/* Only enable it and ptn5110 after rework U182 */
+&usbotg3 {
+	dr_mode = "otg";
+	extcon = <&typec_ptn5110>;
+	status = "disabled";
 };
 
 &usdhc1 {
