@@ -17,9 +17,12 @@
 #include <linux/pm_opp.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/syscalls.h>
 #include <soc/imx/fsl_sip.h>
 
 #define MAX_CLUSTER_NUM	2
+
+static struct delayed_work cpufreq_governor_daemon;
 
 static DEFINE_SPINLOCK(cpufreq_psci_lock);
 
@@ -32,6 +35,36 @@ static struct cpufreq_frequency_table *freq_table[MAX_CLUSTER_NUM];
 static unsigned int transition_latency[MAX_CLUSTER_NUM];
 struct device *cpu_dev;
 static struct thermal_cooling_device *cdev[2];
+
+static void cpufreq_governor_daemon_handler(struct work_struct *work)
+{
+	int fd, i;
+	unsigned char cluster_governor[MAX_CLUSTER_NUM][54] = {
+		"/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor",
+		"",
+	};
+
+	/* generate second cluster's cpufreq governor path */
+	sprintf(cluster_governor[MAX_CLUSTER_NUM - 1],
+		"%s%d%s", "/sys/devices/system/cpu/cpu", num_online_cpus() - 1,
+		"/cpufreq/scaling_governor");
+
+	for (i = 0; i < MAX_CLUSTER_NUM; i++) {
+		fd = sys_open((const char __user __force *)cluster_governor[i],
+				O_RDWR, 0700);
+		if (fd >= 0) {
+			sys_write(fd, "schedutil", strlen("schedutil"));
+			sys_close(fd);
+			pr_info("switch cluster %d cpu-freq governor to schedutil\n",
+				i);
+		} else {
+			/* re-schedule if sys write is NOT ready */
+			schedule_delayed_work(&cpufreq_governor_daemon,
+				msecs_to_jiffies(3000));
+			break;
+		}
+	}
+}
 
 static int imx8_set_target(struct cpufreq_policy *policy, unsigned int index)
 {
@@ -172,6 +205,11 @@ static int imx8_cpufreq_probe(struct platform_device *pdev)
 	for (i = 1; i < num_online_cpus(); i++) {
 		if (topology_physical_package_id(i) == topology_physical_package_id(0))
 			continue;
+
+		INIT_DELAYED_WORK(&cpufreq_governor_daemon,
+			cpufreq_governor_daemon_handler);
+		schedule_delayed_work(&cpufreq_governor_daemon,
+			msecs_to_jiffies(3000));
 		first_cpu_dev = cpu_dev;
 		cpu_dev = get_cpu_device(i);
 		if (!cpu_dev) {
