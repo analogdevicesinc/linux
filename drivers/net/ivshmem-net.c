@@ -335,10 +335,10 @@ static void ivshm_net_tx_clean(struct net_device *ndev)
 {
 	struct ivshm_net *in = netdev_priv(ndev);
 	struct ivshm_net_queue *tx = &in->tx;
+	struct vring_used_elem *used;
 	struct vring *vr = &tx->vr;
 	struct vring_desc *desc;
 	struct vring_desc *fdesc;
-	unsigned int used;
 	unsigned int num;
 	u16 used_idx;
 	u16 last;
@@ -358,13 +358,14 @@ static void ivshm_net_tx_clean(struct net_device *ndev)
 		u32 len;
 		u32 tail;
 
-		used = vr->used->ring[last & (vr->num - 1)].id;
-		if (used >= vr->num) {
-			netdev_err(ndev, "invalid tx used %d\n", used);
+		used = vr->used->ring + (last % vr->num);
+		if (used->id >= vr->num || used->len != 1) {
+			netdev_err(ndev, "invalid tx used->id %d ->len %d\n",
+				   used->id, used->len);
 			break;
 		}
 
-		desc = &vr->desc[used];
+		desc = &vr->desc[used->id];
 
 		data = ivshm_net_desc_data(in, &in->tx, desc, &len);
 		if (!data) {
@@ -383,7 +384,7 @@ static void ivshm_net_tx_clean(struct net_device *ndev)
 		else
 			desc->next = fhead;
 
-		fhead = used;
+		fhead = used->id;
 		last++;
 		num++;
 	}
@@ -433,6 +434,7 @@ static void ivshm_net_rx_finish(struct ivshm_net *in, struct vring_desc *desc)
 
 	used = rx->last_used_idx++ & (vr->num - 1);
 	vr->used->ring[used].id = desc_id;
+	vr->used->ring[used].len = 1;
 
 	virt_store_release(&vr->used->idx, rx->last_used_idx);
 }
