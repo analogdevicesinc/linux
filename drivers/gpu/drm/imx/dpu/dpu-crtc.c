@@ -536,7 +536,7 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 
 	framegen_panic_displaymode(dpu_crtc->fg, FGDM__TEST);
 
-	tcon_cfg_videomode(dpu_crtc->tcon, mode);
+	tcon_cfg_videomode(dpu_crtc->tcon, mode, false);
 	tcon_set_fmt(dpu_crtc->tcon, imx_crtc_state->bus_format);
 
 	disengcfg_polarity_ctrl(dpu_crtc->dec, mode->flags);
