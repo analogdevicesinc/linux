@@ -24,6 +24,13 @@ config GMSL_MAX9286
         ---help---
           If you plan to use the max9286 GMSL Deserializer with your capture system, say Y here.
 
+config IMX8_JPEG
+	tristate "IMX8 JPEG Encoder/Decoder"
+	depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	select V4L2_MEM2MEM_DEV
+	select VIDEOBUF2_DMA_CONTIG
+	default y
+
 endmenu
 endif #VIDEO_MX8_CAPTURE
 
