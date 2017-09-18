@@ -524,9 +524,12 @@ static long adxcvr_rxcdr_settings(struct adxcvr_state *st,
 		return -EINVAL;
 	}
 
-	if (st->encoding == ENC_8B10B) {
-
+	if (st->lane_rate > 6600000 && rxout_div == 1)
+		cfg4 = 0x0B;
+	else
 		cfg4 = 0x03;
+
+	if (st->encoding == ENC_8B10B) {
 
 		switch (rxout_div) {
 		case 0: /* 1 */
@@ -546,11 +549,6 @@ static long adxcvr_rxcdr_settings(struct adxcvr_state *st,
 		}
 
 	} else {
-
-		if (st->lane_rate > 6600000 && rxout_div == 1)
-			cfg4 = 0x0B;
-		else
-			cfg4 = 0x03;
 
 		switch (rxout_div) {
 		case 0: /* 1 */
