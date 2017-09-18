@@ -530,7 +530,7 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		dev_dbg(dpu_crtc->dev, "%s: encoder type has LVDS\n", __func__);
 	}
 
-	framegen_cfg_videomode(dpu_crtc->fg, mode,
+	framegen_cfg_videomode(dpu_crtc->fg, mode, false,
 			encoder_type_has_tmds, encoder_type_has_lvds);
 	framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
 

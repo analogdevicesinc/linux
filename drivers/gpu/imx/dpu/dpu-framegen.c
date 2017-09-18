@@ -100,6 +100,7 @@ struct dpu_framegen {
 	bool inuse;
 	bool use_bypass_clk;
 	bool encoder_type_has_lvds;
+	bool side_by_side;
 	struct dpu_soc *dpu;
 };
 
@@ -305,23 +306,33 @@ void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode)
 EXPORT_SYMBOL_GPL(framegen_syncmode);
 
 void
-framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
+framegen_cfg_videomode(struct dpu_framegen *fg,
+		       struct drm_display_mode *m, bool side_by_side,
 		       bool encoder_type_has_tmds, bool encoder_type_has_lvds)
 {
 	struct dpu_soc *dpu = fg->dpu;
 	const struct dpu_devtype *devtype = dpu->devtype;
 	u32 hact, htotal, hsync, hsbp;
 	u32 vact, vtotal, vsync, vsbp;
+	u32 kick_row, kick_col;
 	u32 val;
 	unsigned long disp_clock_rate, pll_clock_rate = 0;
 	int div = 0;
 
+	fg->side_by_side = side_by_side;
 	fg->encoder_type_has_lvds = encoder_type_has_lvds;
 
 	hact = m->crtc_hdisplay;
 	htotal = m->crtc_htotal;
 	hsync = m->crtc_hsync_end - m->crtc_hsync_start;
 	hsbp = m->crtc_htotal - m->crtc_hsync_start;
+
+	if (side_by_side) {
+		hact /= 2;
+		htotal /= 2;
+		hsync /= 2;
+		hsbp /= 2;
+	}
 
 	vact = m->crtc_vdisplay;
 	vtotal = m->crtc_vtotal;
@@ -335,11 +346,21 @@ framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	dpu_fg_write(fg, VACT(vact) | VTOTAL(vtotal), VTCFG1);
 	dpu_fg_write(fg, VSYNC(vsync) | VSBP(vsbp) | VSEN, VTCFG2);
 
+	kick_col = hact;
+	kick_row = vact;
+	/*
+	 * FrameGen as slave needs to be kicked later for
+	 * more than 64 pixels comparing to the master.
+	 */
+	if (side_by_side && framegen_is_slave(fg) &&
+	    devtype->has_syncmode_fixup)
+		kick_col += 65;
+
 	/* pkickconfig */
-	dpu_fg_write(fg, COL(hact) | ROW(vact) | EN, PKICKCONFIG);
+	dpu_fg_write(fg, COL(kick_col) | ROW(kick_row) | EN, PKICKCONFIG);
 
 	/* skikconfig */
-	dpu_fg_write(fg, COL(hact) | ROW(vact) | EN, SKICKCONFIG);
+	dpu_fg_write(fg, COL(kick_col) | ROW(kick_row) | EN, SKICKCONFIG);
 
 	/* primary position config */
 	dpu_fg_write(fg, STARTX(0) | STARTY(0), PACFG);
@@ -367,7 +388,11 @@ framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	 * will fail.
 	 */
 	if (devtype->has_disp_sel_clk && encoder_type_has_tmds) {
-		dpu_pixel_link_set_mst_addr(dpu->id, fg->id, 1);
+		if (side_by_side)
+			dpu_pixel_link_set_mst_addr(dpu->id, fg->id,
+							fg->id ? 2 : 1);
+		else
+			dpu_pixel_link_set_mst_addr(dpu->id, fg->id, 1);
 
 		clk_set_parent(fg->clk_disp_sel, fg->clk_bypass);
 

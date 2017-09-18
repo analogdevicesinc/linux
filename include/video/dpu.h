@@ -608,7 +608,8 @@ void framegen_disable(struct dpu_framegen *fg);
 void framegen_shdtokgen(struct dpu_framegen *fg);
 void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode);
 void
-framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
+framegen_cfg_videomode(struct dpu_framegen *fg,
+		       struct drm_display_mode *m, bool side_by_side,
 		       bool encoder_type_has_tmds, bool encoder_type_has_lvds);
 void framegen_pkickconfig(struct dpu_framegen *fg, bool enable);
 void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y);
