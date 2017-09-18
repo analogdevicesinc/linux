@@ -278,6 +278,17 @@ typedef enum {
 } fetchtype_t;
 
 typedef enum {
+	/* No side-by-side synchronization. */
+	FGSYNCMODE__OFF = 0,
+	/* Framegen is master. */
+	FGSYNCMODE__MASTER = 1 << 1,
+	/* Runs in cyclic synchronization mode. */
+	FGSYNCMODE__SLAVE_CYC = 2 << 1,
+	/* Runs in one time synchronization mode. */
+	FGSYNCMODE__SLAVE_ONCE = 3 << 1,
+} fgsyncmode_t;
+
+typedef enum {
 	FGDM__BLACK,
 	/* Constant Color Background is shown. */
 	FGDM__CONSTCOL,
@@ -594,6 +605,7 @@ struct dpu_framegen;
 void framegen_enable(struct dpu_framegen *fg);
 void framegen_disable(struct dpu_framegen *fg);
 void framegen_shdtokgen(struct dpu_framegen *fg);
+void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode);
 void
 framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 		       bool encoder_type_has_tmds, bool encoder_type_has_lvds);
