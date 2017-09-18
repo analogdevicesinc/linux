@@ -562,6 +562,8 @@ static int cdns3_remove(struct platform_device *pdev)
 	struct cdns3 *cdns = platform_get_drvdata(pdev);
 
 	cdns3_remove_roles(cdns);
+	usb_phy_shutdown(cdns->usbphy);
+	cdns3_disable_unprepare_clks(&pdev->dev);
 
 	return 0;
 }
