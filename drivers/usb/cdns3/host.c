@@ -174,7 +174,6 @@ static void cdns3_host_stop(struct cdns3 *cdns)
 		xhci = hcd_to_xhci(hcd);
 		usb_remove_hcd(hcd);
 		usb_remove_hcd(xhci->shared_hcd);
-		cdns->role = CDNS3_ROLE_END;
 		synchronize_irq(cdns->irq);
 		usb_put_hcd(hcd);
 		usb_put_hcd(xhci->shared_hcd);

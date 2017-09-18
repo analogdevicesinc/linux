@@ -25,7 +25,6 @@ struct cdns3;
 enum cdns3_roles {
 	CDNS3_ROLE_HOST = 0,
 	CDNS3_ROLE_GADGET,
-	CDNS3_ROLE_END,
 };
 
 /**
@@ -69,7 +68,7 @@ struct cdns3 {
 	struct usbss_dev_register_block_type __iomem *dev_regs;
 	void __iomem *none_core_regs;
 	int irq;
-	struct cdns3_role_driver *roles[CDNS3_ROLE_END];
+	struct cdns3_role_driver *roles[CDNS3_ROLE_GADGET + 1];
 	enum cdns3_roles role;
 	struct device *host_dev;
 	struct device *gadget_dev;
@@ -83,16 +82,13 @@ struct cdns3 {
 
 static inline struct cdns3_role_driver *cdns3_role(struct cdns3 *cdns)
 {
-	WARN_ON(cdns->role >= CDNS3_ROLE_END || !cdns->roles[cdns->role]);
+	WARN_ON(!cdns->roles[cdns->role]);
 	return cdns->roles[cdns->role];
 }
 
 static inline int cdns3_role_start(struct cdns3 *cdns, enum cdns3_roles role)
 {
 	int ret;
-
-	if (role >= CDNS3_ROLE_END)
-		return 0;
 
 	if (!cdns->roles[role])
 		return -ENXIO;
@@ -108,12 +104,8 @@ static inline void cdns3_role_stop(struct cdns3 *cdns)
 {
 	enum cdns3_roles role = cdns->role;
 
-	if (role == CDNS3_ROLE_END)
-		return;
-
-	cdns->role = CDNS3_ROLE_END;
-
 	cdns->roles[role]->stop(cdns);
+	cdns->role = CDNS3_ROLE_GADGET;
 }
 
 #endif /* __DRIVERS_USB_CDNS3_CORE_H */

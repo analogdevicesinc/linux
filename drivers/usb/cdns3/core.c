@@ -130,9 +130,6 @@ static void cdns_set_role(struct cdns3 *cdns, enum cdns3_roles role)
 	u32 value;
 	int timeout_us = 100000;
 
-	if (role == CDNS3_ROLE_END)
-		return;
-
 	/* Wait clk value */
 	value = readl(cdns->none_core_regs + USB3_SSPHY_STATUS);
 	writel(value, cdns->none_core_regs + USB3_SSPHY_STATUS);
@@ -226,10 +223,8 @@ static enum cdns3_roles cdns3_get_role(struct cdns3 *cdns)
 	if (cdns->roles[CDNS3_ROLE_HOST] && cdns->roles[CDNS3_ROLE_GADGET]) {
 		if (extcon_get_state(cdns->extcon, EXTCON_USB_HOST))
 			return CDNS3_ROLE_HOST;
-		else if (extcon_get_state(cdns->extcon, EXTCON_USB))
-			return CDNS3_ROLE_GADGET;
 		else
-			return CDNS3_ROLE_END;
+			return CDNS3_ROLE_GADGET;
 	} else {
 		return cdns->roles[CDNS3_ROLE_HOST]
 			? CDNS3_ROLE_HOST
@@ -248,7 +243,7 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 	struct device *dev = cdns->dev;
 	enum usb_dr_mode dr_mode = usb_get_dr_mode(dev);
 
-	cdns->role = CDNS3_ROLE_END;
+	cdns->role = CDNS3_ROLE_GADGET;
 	if (dr_mode == USB_DR_MODE_UNKNOWN)
 		dr_mode = USB_DR_MODE_OTG;
 
@@ -281,13 +276,9 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 static irqreturn_t cdns3_irq(int irq, void *data)
 {
 	struct cdns3 *cdns = data;
-	irqreturn_t ret = IRQ_NONE;
 
 	/* Handle device/host interrupt */
-	if (cdns->role != CDNS3_ROLE_END)
-		ret = cdns3_role(cdns)->irq(cdns);
-
-	return ret;
+	return cdns3_role(cdns)->irq(cdns);
 }
 
 static int cdns3_get_clks(struct device *dev)
@@ -380,9 +371,6 @@ static int cdsn3_do_role_switch(struct cdns3 *cdns, enum cdns3_roles role)
 		return 0;
 
 	cdns3_role_stop(cdns);
-	if (role == CDNS3_ROLE_END)
-		return 0;
-
 	cdns_set_role(cdns, role);
 	return cdns3_role_start(cdns, role);
 }
@@ -397,18 +385,15 @@ static void cdns3_role_switch(struct work_struct *work)
 {
 	struct cdns3 *cdns = container_of(work, struct cdns3,
 			role_switch_wq);
-	bool is_device, is_host;
+	bool host;
 
-	is_device = extcon_get_state(cdns->extcon, EXTCON_USB_HOST);
-	is_host = extcon_get_state(cdns->extcon, EXTCON_USB);
+	host = extcon_get_state(cdns->extcon, EXTCON_USB_HOST);
 
 	disable_irq(cdns->irq);
-	if (is_device)
+	if (host)
 		cdsn3_do_role_switch(cdns, CDNS3_ROLE_HOST);
-	else if (is_host)
-		cdsn3_do_role_switch(cdns, CDNS3_ROLE_GADGET);
 	else
-		cdsn3_do_role_switch(cdns, CDNS3_ROLE_END);
+		cdsn3_do_role_switch(cdns, CDNS3_ROLE_GADGET);
 	enable_irq(cdns->irq);
 }
 
@@ -437,13 +422,6 @@ static int cdns3_register_extcon(struct cdns3 *cdns)
 			EXTCON_USB_HOST, &cdns->extcon_nb);
 		if (ret < 0) {
 			dev_err(dev, "register Host Connector failed\n");
-			return ret;
-		}
-
-		ret = devm_extcon_register_notifier(dev, extcon,
-			EXTCON_USB, &cdns->extcon_nb);
-		if (ret < 0) {
-			dev_err(dev, "register Device Connector failed\n");
 			return ret;
 		}
 
