@@ -752,9 +752,13 @@ static long jesd204b_gt_rxcdr_settings(struct jesd204b_gt_state *st,
 		return -EINVAL;
 	}
 
-	if (gt_link->encoding == ENC_8B10B) {
-
+	if (gt_link->lane_rate > 6600000 && rxout_div == 1) {
+		cfg4 = 0x0B;
+	} else {
 		cfg4 = 0x03;
+	}
+
+	if (gt_link->encoding == ENC_8B10B) {
 
 		switch (rxout_div) {
 		case 0: /* 1 */
@@ -774,12 +778,6 @@ static long jesd204b_gt_rxcdr_settings(struct jesd204b_gt_state *st,
 		}
 
 	} else {
-
-		if (gt_link->lane_rate > 6600000 && rxout_div == 1) {
-			cfg4 = 0x0B;
-		} else {
-			cfg4 = 0x03;
-		}
 
 		switch (rxout_div) {
 		case 0: /* 1 */
