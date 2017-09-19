@@ -21,8 +21,19 @@
 
 		adi,pll2-charge-pump-current-nA = <413000>;
 
-		adi,pll2-r2-div = <1>;
-		adi,pll2-vco-div-m1 = <3>;
+		/*
+		 * Valid ranges based on VCO locking range:
+		 *    980.00 MHz - 1033.33 MHz
+		 *    735.00 MHz -  775.00 MHz
+		 *    588.00 MHz -  620.00 MHz
+		 */
+		adi,pll2-m1-freq = <1000000000>;
+
+		/* Manual PLL2 divider configuration */
+//		adi,pll2-r2-div = <1>;
+//		adi,pll2-vco-div-m1 = <3>;
+//		adi,pll2-ndiv-a-cnt = <0>; /* a = N % 4 */
+//		adi,pll2-ndiv-b-cnt = <6>; /* b = N / 4 */
 
 		adi,rpole2 = <0>;
 		adi,rzero = <7>;
