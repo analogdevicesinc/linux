@@ -2250,7 +2250,7 @@ static void dcss_ctxld_config(struct work_struct *work)
 	/* configure sb buffer */
 	if (cc->sb_data_len) {
 		/* cfifo first store sb and than store db */
-		writel(cfifo->dma_handle + offset * kfifo_esize(&cfifo->fifo),
+		writel(cfifo->dma_handle + offset * esize,
 		       info->base + chans->ctxld_addr + CTXLD_SB_BASE_ADDR);
 		writel(cc->sb_hp_data_len |
 		       ((cc->sb_data_len - cc->sb_hp_data_len) << 16),
@@ -2259,9 +2259,7 @@ static void dcss_ctxld_config(struct work_struct *work)
 
 	/* configure db buffer */
 	if (cc->db_data_len) {
-		writel(cfifo->dma_handle +
-		       (offset + cc->sb_data_len) *
-		       kfifo_esize(&cfifo->fifo),
+		writel(cfifo->dma_handle + (offset + cc->sb_data_len) * esize,
 		       info->base + chans->ctxld_addr + CTXLD_DB_BASE_ADDR);
 		writel(cc->db_data_len,
 		       info->base + chans->ctxld_addr + CTXLD_DB_COUNT);
@@ -2278,7 +2276,7 @@ static void dcss_ctxld_config(struct work_struct *work)
 
 	ctxld_fifo_info_print(cfifo);
 	kfifo_dma_out_finish(&cfifo->fifo,
-		(cc->sb_data_len + cc->db_data_len) * kfifo_esize(&cfifo->fifo));
+		(cc->sb_data_len + cc->db_data_len) * esize);
 	ctxld_fifo_info_print(cfifo);
 
 	kfree(cc);
