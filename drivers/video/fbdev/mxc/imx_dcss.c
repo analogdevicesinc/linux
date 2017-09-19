@@ -2233,7 +2233,7 @@ static void dcss_ctxld_config(struct work_struct *work)
 	chans = &info->chans;
 	cfifo = &info->cfifo;
 	dsb_len = cc->sb_data_len + cc->db_data_len;
-	esize = sizeof(struct ctxld_unit);
+	esize = kfifo_esize(&cfifo->fifo);
 
 	sg_init_table(cfifo->sgl, cfifo->sgl_num);
 	nsgl = kfifo_dma_out_prepare(&cfifo->fifo, cfifo->sgl,
