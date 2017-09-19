@@ -692,7 +692,7 @@ static irqreturn_t fsl_edma3_tx_handler(int irq, void *dev_id)
 
 	/* Ignore this interrupt since channel has been disabled already */
 	if (!fsl_chan->edesc)
-		return IRQ_HANDLED;
+		goto irq_handled;
 
 	if (!fsl_chan->edesc->iscyclic) {
 		fsl_edma3_get_realcnt(fsl_chan);
@@ -706,7 +706,7 @@ static irqreturn_t fsl_edma3_tx_handler(int irq, void *dev_id)
 
 	if (!fsl_chan->edesc)
 		fsl_edma3_xfer_desc(fsl_chan);
-
+irq_handled:
 	spin_unlock(&fsl_chan->vchan.lock);
 
 	return IRQ_HANDLED;
