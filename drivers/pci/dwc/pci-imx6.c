@@ -1848,6 +1848,8 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "unable to get clkreq gpio\n");
 			return ret;
 		}
+	} else if (imx6_pcie->clkreq_gpio == -EPROBE_DEFER) {
+		return imx6_pcie->clkreq_gpio;
 	}
 
 	imx6_pcie->dis_gpio = of_get_named_gpio(node, "disable-gpio", 0);
@@ -1858,6 +1860,8 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "unable to get disable gpio\n");
 			return ret;
 		}
+	} else if (imx6_pcie->dis_gpio == -EPROBE_DEFER) {
+		return imx6_pcie->dis_gpio;
 	}
 
 	imx6_pcie->power_on_gpio = of_get_named_gpio(node, "power-on-gpio", 0);
@@ -1870,6 +1874,8 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "unable to get power-on gpio\n");
 			return ret;
 		}
+	} else if (imx6_pcie->power_on_gpio == -EPROBE_DEFER) {
+		return imx6_pcie->power_on_gpio;
 	}
 
 	imx6_pcie->reset_gpio = of_get_named_gpio(node, "reset-gpio", 0);
@@ -1887,6 +1893,18 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		}
 	} else if (imx6_pcie->reset_gpio == -EPROBE_DEFER) {
 		return imx6_pcie->reset_gpio;
+	}
+
+	imx6_pcie->epdev_on = devm_regulator_get(&pdev->dev, "epdev_on");
+	if (IS_ERR(imx6_pcie->epdev_on)) {
+		if (PTR_ERR(imx6_pcie->epdev_on) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		dev_info(dev, "no ep regulator found\n");
+		imx6_pcie->epdev_on = NULL;
+	} else {
+		ret = regulator_enable(imx6_pcie->epdev_on);
+		if (ret)
+			dev_err(dev, "failed to enable the epdev_on regulator\n");
 	}
 
 	/* Fetch clocks */
@@ -1997,15 +2015,6 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 				"pcie clock source missing or invalid\n");
 			return PTR_ERR(imx6_pcie->pcie_inbound_axi);
 		}
-
-		imx6_pcie->epdev_on = devm_regulator_get(&pdev->dev,
-							 "epdev_on");
-		if (IS_ERR(imx6_pcie->epdev_on))
-			return -EPROBE_DEFER;
-
-		ret = regulator_enable(imx6_pcie->epdev_on);
-		if (ret)
-			dev_err(dev, "failed to enable the epdev_on regulator\n");
 	} else {
 		imx6_pcie->iomuxc_gpr =
 		 syscon_regmap_lookup_by_compatible("fsl,imx6q-iomuxc-gpr");
