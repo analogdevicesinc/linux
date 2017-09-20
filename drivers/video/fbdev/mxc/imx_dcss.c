@@ -2317,8 +2317,34 @@ static void copy_data_to_cfifo(struct ctxld_fifo *cfifo,
 	}
 }
 
-static int commit_to_fifo(uint32_t channel,
-			  struct dcss_info *info)
+static struct ctxld_commit *alloc_cc(struct dcss_info *info)
+{
+	struct ctxld_commit *cc;
+
+	cc = kzalloc(sizeof(*cc), GFP_KERNEL);
+	if (!cc)
+		return ERR_PTR(-ENOMEM);
+
+	INIT_LIST_HEAD(&cc->list);
+	INIT_WORK(&cc->work, dcss_ctxld_config);
+	cc->data = info;
+
+	return cc;
+}
+
+static void flush_cfifo(struct ctxld_fifo *cfifo,
+			struct work_struct *work)
+{
+	int ret;
+
+	ret = queue_work(cfifo->ctxld_wq, work);
+
+	WARN(!ret, "work has already been queued\n");
+}
+
+static int commit_cfifo(uint32_t channel,
+			struct dcss_info *info,
+			struct ctxld_commit *cc)
 {
 	int ret = 0;
 	uint32_t commit_size;
@@ -2326,16 +2352,7 @@ static int commit_to_fifo(uint32_t channel,
 	struct dcss_channels *chans;
 	struct dcss_channel_info *chan_info;
 	struct ctxld_fifo *cfifo;
-	struct ctxld_commit *cc;
 	struct cbuffer *cb;
-
-	if (channel > 2 || !info)
-		return -EINVAL;
-
-	cc = (struct ctxld_commit *)kzalloc(sizeof(*cc), GFP_KERNEL);
-	if (!cc)
-		return -ENOMEM;
-	INIT_LIST_HEAD(&cc->list);
 
 	cfifo = &info->cfifo;
 	chans = &info->chans;
@@ -2380,11 +2397,6 @@ restart:
 	cb->sb_data_len = 0;
 
 	spin_unlock(&cfifo->cqueue.lock);
-
-	/* queue the work to workqueue */
-	cc->data = info;
-	INIT_WORK(&cc->work, dcss_ctxld_config);
-	queue_work(cfifo->ctxld_wq, &cc->work);
 
 	return 0;
 }
@@ -2593,10 +2605,10 @@ static int dcss_set_par(struct fb_info *fbi)
 	int fb_node = fbi->node;
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
-	struct platform_device *pdev = info->pdev;
 	struct dcss_channels *chans = &info->chans;
 	struct dcss_channel_info *chan_info;
 	struct cbuffer *cb;
+	struct ctxld_commit *cc;
 
 	if (fb_node < 0 || fb_node > 2)
 		BUG_ON(1);
@@ -2616,11 +2628,15 @@ static int dcss_set_par(struct fb_info *fbi)
 		goto fail;
 
 #if USE_CTXLD
-	ret = commit_to_fifo(fb_node, info);
-	if (ret) {
-		dev_err(&pdev->dev, "commit config failed\n");
-		goto out;
+	cc = alloc_cc(info);
+	if (IS_ERR(cc)) {
+		ret = PTR_ERR(cc);
+		goto fail;
 	}
+
+	commit_cfifo(fb_node, info, cc);
+
+	flush_cfifo(&info->cfifo, &cc->work);
 #endif
 
 	goto out;
@@ -2684,20 +2700,36 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 	int fb_node = fbi->node;
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
-	struct platform_device *pdev = info->pdev;
+	struct cbuffer *cb;
+	struct ctxld_commit *cc;
+
+	cb = &cinfo->cb;
 
 	dtg_channel_timing_config(blank, cinfo);
 	dcss_channel_blank(blank, cinfo);
 
 #if USE_CTXLD
-	ret = commit_to_fifo(fb_node, info);
-	if (ret) {
-		dev_err(&pdev->dev, "commit config failed\n");
-		goto out;
+	cc = alloc_cc(info);
+	if (IS_ERR(cc)) {
+		ret = PTR_ERR(cc);
+		goto fail;
 	}
+
+	commit_cfifo(fb_node, info, cc);
+
+	flush_cfifo(&info->cfifo, &cc->work);
 #endif
 
 	cinfo->blank = blank;
+
+	goto out;
+
+fail:
+	/* drop any ctxld_uint already
+	 * been written to sb or db
+	 */
+	cb->sb_data_len = 0;
+	cb->db_data_len = 0;
 
 out:
 	return ret;
@@ -2713,6 +2745,7 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 	struct platform_device *pdev = info->pdev;
 	struct cbuffer *cb = &cinfo->cb;
 	struct dcss_pixmap *input = &cinfo->input;
+	struct ctxld_commit *cc;
 
 	/* TODO: change framebuffer memory start address */
 	luma_addr = var->reserved[0] ? var->reserved[0] :
@@ -2742,18 +2775,32 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 			chroma_addr + (offset >> 1));
 	}
 
-	ret = commit_to_fifo(fbi->node, info);
-	if (ret) {
-		dev_err(&pdev->dev, "commit config failed\n");
-		return ret;
+	cc = alloc_cc(info);
+	if (IS_ERR(cc)) {
+		ret = PTR_ERR(cc);
+		goto fail;
 	}
+
+	commit_cfifo(fbi->node, info, cc);
+
+	flush_cfifo(&info->cfifo, &cc->work);
 
 	/* TODO: blocking mode */
 	if (likely(!var->reserved[2]))
 		/* make pan display synchronously */
 		flush_workqueue(info->cfifo.ctxld_wq);
 
-	return 0;
+	goto out;
+
+fail:
+	/* drop any ctxld_uint already
+	 * been written to sb or db
+	 */
+	cb->sb_data_len = 0;
+	cb->db_data_len = 0;
+
+out:
+	return ret;
 }
 
 static int vcount_compare(unsigned long vcount,
