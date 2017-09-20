@@ -107,6 +107,23 @@ static const char *mqs_mclk_sels[] = {
 	"acm_aud_clk1_clk",
 };
 
+static const char *dc0_sels[] = {
+	"dummy",
+	"dummy",
+	"dc0_pll0_clk",
+	"dc0_pll1_clk",
+	"dc0_bypass0_div",
+};
+
+static const char *dc1_sels[] = {
+	"dummy",
+	"dummy",
+	"dc1_pll0_clk",
+	"dc1_pll1_clk",
+	"dc1_bypass0_div",
+};
+
+
 static struct clk *clks[IMX8QM_CLK_END];
 static struct clk_onecell_data clk_data;
 
@@ -269,12 +286,16 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_HDMI_RX_PWM_DIV] = imx_clk_divider_scu("hdmi_rx_pwm_div", SC_R_HDMI_RX_PWM_0, SC_PM_CLK_MISC2);
 
 	/* DC SS */
-	clks[IMX8QM_DC0_DISP0_DIV] = imx_clk_divider_scu("dc0_disp0_div", SC_R_DC_0, SC_PM_CLK_MISC0);
-	clks[IMX8QM_DC0_DISP1_DIV] = imx_clk_divider_scu("dc0_disp1_div", SC_R_DC_0, SC_PM_CLK_MISC1);
+	clks[IMX8QM_DC0_DISP0_SEL] = imx_clk_mux2_scu("dc0_disp0_sel", dc0_sels, ARRAY_SIZE(dc0_sels), SC_R_DC_0, SC_PM_CLK_MISC0);
+	clks[IMX8QM_DC0_DISP0_DIV] = imx_clk_divider2_scu("dc0_disp0_div", "dc0_disp0_sel", SC_R_DC_0, SC_PM_CLK_MISC0);
+	clks[IMX8QM_DC0_DISP1_SEL] = imx_clk_mux2_scu("dc0_disp1_sel", dc0_sels, ARRAY_SIZE(dc0_sels), SC_R_DC_0, SC_PM_CLK_MISC1);
+	clks[IMX8QM_DC0_DISP1_DIV] = imx_clk_divider2_scu("dc0_disp1_div", "dc0_disp1_sel", SC_R_DC_0, SC_PM_CLK_MISC1);
 	clks[IMX8QM_DC0_BYPASS_0_DIV] = imx_clk_divider_scu("dc0_bypass0_div", SC_R_DC_0_VIDEO0, SC_PM_CLK_MISC);
 	clks[IMX8QM_DC0_BYPASS_1_DIV] = imx_clk_divider_scu("dc0_bypass1_div", SC_R_DC_0_VIDEO1, SC_PM_CLK_MISC);
-	clks[IMX8QM_DC1_DISP0_DIV] = imx_clk_divider_scu("dc1_disp0_div", SC_R_DC_1, SC_PM_CLK_MISC0);
-	clks[IMX8QM_DC1_DISP1_DIV] = imx_clk_divider_scu("dc1_disp1_div", SC_R_DC_1, SC_PM_CLK_MISC1);
+	clks[IMX8QM_DC1_DISP0_SEL] = imx_clk_mux2_scu("dc1_disp0_sel", dc1_sels, ARRAY_SIZE(dc1_sels), SC_R_DC_1, SC_PM_CLK_MISC0);
+	clks[IMX8QM_DC1_DISP0_DIV] = imx_clk_divider2_scu("dc1_disp0_div", "dc1_disp0_sel", SC_R_DC_1, SC_PM_CLK_MISC0);
+	clks[IMX8QM_DC1_DISP1_SEL] = imx_clk_mux2_scu("dc1_disp1_sel", dc1_sels, ARRAY_SIZE(dc1_sels), SC_R_DC_1, SC_PM_CLK_MISC1);
+	clks[IMX8QM_DC1_DISP1_DIV] = imx_clk_divider2_scu("dc1_disp1_div", "dc1_disp1_sel", SC_R_DC_1, SC_PM_CLK_MISC1);
 	clks[IMX8QM_DC1_BYPASS_0_DIV] = imx_clk_divider_scu("dc1_bypass0_div", SC_R_DC_1_VIDEO0, SC_PM_CLK_BYPASS);
 	clks[IMX8QM_DC1_BYPASS_1_DIV] = imx_clk_divider_scu("dc1_bypass1_div", SC_R_DC_1_VIDEO1, SC_PM_CLK_BYPASS);
 
