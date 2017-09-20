@@ -1118,6 +1118,10 @@
 			 <&clk IMX8QM_DC0_DISP0_CLK>,
 			 <&clk IMX8QM_DC0_DISP1_CLK>;
 		clock-names = "pll0", "pll1", "disp0", "disp1";
+		assigned-clocks = <&clk IMX8QM_DC0_DISP0_SEL>,
+				  <&clk IMX8QM_DC0_DISP1_SEL>;
+		assigned-clock-parents = <&clk IMX8QM_DC0_PLL0_CLK>,
+					 <&clk IMX8QM_DC0_PLL1_CLK>;
 		power-domains = <&pd_dc0>;
 		status = "disabled";
 
@@ -1245,6 +1249,10 @@
 			 <&clk IMX8QM_DC1_DISP0_CLK>,
 			 <&clk IMX8QM_DC1_DISP1_CLK>;
 		clock-names = "pll0", "pll1", "disp0", "disp1";
+		assigned-clocks = <&clk IMX8QM_DC1_DISP0_SEL>,
+				  <&clk IMX8QM_DC1_DISP1_SEL>;
+		assigned-clock-parents = <&clk IMX8QM_DC1_PLL0_CLK>,
+					 <&clk IMX8QM_DC1_PLL1_CLK>;
 		power-domains = <&pd_dc1>;
 		status = "disabled";
 
