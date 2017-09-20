@@ -1075,10 +1075,8 @@ static struct ad6676_platform_data *ad6676_parse_dt(struct device *dev)
 	struct ad6676_platform_data *pdata;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+	if (!pdata)
 		return NULL;
-	}
 
 	pdata->spi3wire = of_property_read_bool(np, "adi,spi-3wire-enable");
 
