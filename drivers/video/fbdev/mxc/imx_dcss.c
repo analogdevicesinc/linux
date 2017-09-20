@@ -267,6 +267,7 @@ struct ctxld_fifo {
 	DECLARE_KFIFO_PTR(fifo, struct ctxld_unit);
 	struct scatterlist sgl[1];
 	uint32_t sgl_num;
+	struct workqueue_struct *ctxld_wq;
 	/* synchronization in two points:
 	 * a. simutanous fifo commits
 	 * b. queue waiting for cfifo flush
@@ -328,7 +329,6 @@ struct dcss_info {
 	struct regulator *power;
 	struct ctxld_fifo cfifo;
 	struct task_struct *handler;
-	struct workqueue_struct *ctxld_wq;
 	struct dcss_pixmap *output;
 	struct dcss_channels chans;	/* maximum 3 channels
 					 * TODO: better change to layer
@@ -2363,7 +2363,7 @@ restart:
 		atomic_set(&info->flush, 1);
 		spin_unlock(&cfifo->cqueue.lock);
 		/* Wait fifo flush empty to avoid fifo wrap */
-		flush_workqueue(info->ctxld_wq);
+		flush_workqueue(cfifo->ctxld_wq);
 		spin_lock(&cfifo->cqueue.lock);
 		atomic_set(&info->flush, 0);
 		kfifo_reset(&cfifo->fifo);
@@ -2384,7 +2384,7 @@ restart:
 	/* queue the work to workqueue */
 	cc->data = info;
 	INIT_WORK(&cc->work, dcss_ctxld_config);
-	queue_work(info->ctxld_wq, &cc->work);
+	queue_work(cfifo->ctxld_wq, &cc->work);
 
 	return 0;
 }
@@ -2751,7 +2751,7 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 	/* TODO: blocking mode */
 	if (likely(!var->reserved[2]))
 		/* make pan display synchronously */
-		flush_workqueue(info->ctxld_wq);
+		flush_workqueue(info->cfifo.ctxld_wq);
 
 	return 0;
 }
@@ -3119,8 +3119,8 @@ static int dcss_info_init(struct dcss_info *info)
 		goto out;
 	}
 
-	info->ctxld_wq = alloc_ordered_workqueue("ctxld-wq", WQ_FREEZABLE);
-	if (!info->ctxld_wq) {
+	info->cfifo.ctxld_wq = alloc_ordered_workqueue("ctxld-wq", WQ_FREEZABLE);
+	if (!info->cfifo.ctxld_wq) {
 		dev_err(&pdev->dev, "allocate ctxld wq failed\n");
 		ret = -EINVAL;
 		goto free_cfifo;
