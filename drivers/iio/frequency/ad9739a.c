@@ -317,10 +317,8 @@ static struct ad9739a_platform_data *ad9739a_parse_dt(struct device *dev)
 	u32 tmp;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(dev, "could not allocate memory for platform data\n");
+	if (!pdata)
 		return NULL;
-	}
 
 	pdata->mix_mode_en = of_property_read_bool(np, "adi,mix-mode-enable");
 
@@ -346,18 +344,12 @@ static int ad9739a_probe(struct spi_device *spi)
 	int ret;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
-	if (conv == NULL) {
-		ret = -ENOMEM;
-		dev_err(&spi->dev, "Failed to allocate memory\n");
-		goto out;
-	}
+	if (conv == NULL)
+		return -ENOMEM;
 
 	phy = devm_kzalloc(&spi->dev, sizeof(*phy), GFP_KERNEL);
-	if (conv == NULL) {
-		ret = -ENOMEM;
-		dev_err(&spi->dev, "Failed to allocate memory\n");
-		goto out;
-	}
+	if (conv == NULL)
+		return -ENOMEM;
 
 	if (spi->dev.of_node)
 		phy->pdata = ad9739a_parse_dt(&spi->dev);
