@@ -150,6 +150,7 @@ struct ad9517_state {
 	struct spi_device *spi;
 	unsigned char regs[AD9517_TRANSFER+1];
 	struct ad9517_outputs output[NUM_OUTPUTS];
+	struct clk *clks[NUM_OUTPUTS];
 	struct clk_onecell_data clk_data;
 	unsigned long refin_freq;
 	unsigned long clkin_freq;
@@ -1039,13 +1040,7 @@ static int ad9517_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	st->clk_data.clks = devm_kzalloc(&st->spi->dev,
-					 sizeof(*st->clk_data.clks) *
-					 NUM_OUTPUTS, GFP_KERNEL);
-	if (!st->clk_data.clks) {
-		dev_err(&st->spi->dev, "could not allocate memory\n");
-		return -ENOMEM;
-	}
+	st->clk_data.clks = st->clks;
 	st->clk_data.clk_num = NUM_OUTPUTS;
 
 	for (out = 0; out < NUM_OUTPUTS; out++) {
