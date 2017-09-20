@@ -2284,18 +2284,50 @@ static void dcss_ctxld_config(struct work_struct *work)
 	dev_dbg(&pdev->dev, "finish ctxld config\n");
 }
 
+static void copy_data_to_cfifo(struct ctxld_fifo *cfifo,
+			       struct cbuffer *cb,
+			       struct ctxld_commit *cc)
+{
+	struct ctxld_unit *unit;
+	uint32_t count;
+
+	unit = (struct ctxld_unit *)cb->sb_addr;
+
+	if (cb->sb_data_len) {
+		count = kfifo_in(&cfifo->fifo, cb->sb_addr, cb->sb_data_len);
+		if (count != cb->sb_data_len) {
+			/* TODO: this case should be completely ignored */
+			pr_err("write sb data mismatch\n");
+			count = kfifo_out(&cfifo->fifo, cb->sb_addr, count);
+			WARN_ON(1);
+		}
+		cc->sb_hp_data_len = count;
+		cc->sb_data_len = count;
+	}
+
+	if (cb->db_data_len) {
+		count = kfifo_in(&cfifo->fifo, cb->db_addr, cb->db_data_len);
+		if (count != cb->db_data_len) {
+			/* TODO: this case should be completely ignored */
+			pr_err("write db data mismatch\n");
+			count = kfifo_out(&cfifo->fifo, cb->db_addr, count);
+			WARN_ON(1);
+		}
+		cc->db_data_len = count;
+	}
+}
+
 static int commit_to_fifo(uint32_t channel,
 			  struct dcss_info *info)
 {
 	int ret = 0;
-	uint32_t count = 0, commit_size;
+	uint32_t commit_size;
 	struct platform_device *pdev = info->pdev;
 	struct dcss_channels *chans;
 	struct dcss_channel_info *chan_info;
 	struct ctxld_fifo *cfifo;
 	struct ctxld_commit *cc;
 	struct cbuffer *cb;
-	struct ctxld_unit *unit = NULL;
 
 	if (channel > 2 || !info)
 		return -EINVAL;
@@ -2339,30 +2371,7 @@ restart:
 			wake_up_locked(&cfifo->cqueue);
 	}
 
-	unit = (struct ctxld_unit *)cb->sb_addr;
-
-	if (cb->sb_data_len) {
-		count = kfifo_in(&cfifo->fifo, cb->sb_addr, cb->sb_data_len);
-		if (count != cb->sb_data_len) {
-			/* TODO: this case should be completely ignored */
-			dev_err(&pdev->dev, "write sb data mismatch\n");
-			count = kfifo_out(&cfifo->fifo, cb->sb_addr, count);
-			BUG_ON(1);
-		}
-		cc->sb_hp_data_len = count;
-		cc->sb_data_len = count;
-	}
-
-	if (cb->db_data_len) {
-		count = kfifo_in(&cfifo->fifo, cb->db_addr, cb->db_data_len);
-		if (count != cb->db_data_len) {
-			/* TODO: this case should be completely ignored */
-			dev_err(&pdev->dev, "write db data mismatch\n");
-			count = kfifo_out(&cfifo->fifo, cb->db_addr, count);
-			BUG_ON(1);
-		}
-		cc->db_data_len = count;
-	}
+	copy_data_to_cfifo(cfifo, cb, cc);
 
 	ctxld_fifo_info_print(cfifo);
 
