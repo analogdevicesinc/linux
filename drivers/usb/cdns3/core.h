@@ -88,16 +88,11 @@ static inline struct cdns3_role_driver *cdns3_role(struct cdns3 *cdns)
 
 static inline int cdns3_role_start(struct cdns3 *cdns, enum cdns3_roles role)
 {
-	int ret;
-
 	if (!cdns->roles[role])
 		return -ENXIO;
 
-	ret = cdns->roles[role]->start(cdns);
-	if (!ret)
-		cdns->role = role;
-
-	return ret;
+	cdns->role = role;
+	return cdns->roles[role]->start(cdns);
 }
 
 static inline void cdns3_role_stop(struct cdns3 *cdns)
@@ -105,7 +100,6 @@ static inline void cdns3_role_stop(struct cdns3 *cdns)
 	enum cdns3_roles role = cdns->role;
 
 	cdns->roles[role]->stop(cdns);
-	cdns->role = CDNS3_ROLE_GADGET;
 }
 
 #endif /* __DRIVERS_USB_CDNS3_CORE_H */

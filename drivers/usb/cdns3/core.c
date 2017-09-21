@@ -364,15 +364,28 @@ static void cdns3_remove_roles(struct cdns3 *cdns)
 
 static int cdsn3_do_role_switch(struct cdns3 *cdns, enum cdns3_roles role)
 {
+	int ret = 0;
+	enum cdns3_roles current_role;
+
 	dev_dbg(cdns->dev, "current role is %d, switch to %d\n",
 			cdns->role, role);
 
 	if (cdns->role == role)
 		return 0;
 
+	current_role = cdns->role;
 	cdns3_role_stop(cdns);
 	cdns_set_role(cdns, role);
-	return cdns3_role_start(cdns, role);
+	ret = cdns3_role_start(cdns, role);
+	if (ret) {
+		/* Back to current role */
+		dev_err(cdns->dev, "set %d has failed, back to %d\n",
+					role, current_role);
+		cdns_set_role(cdns, current_role);
+		ret = cdns3_role_start(cdns, current_role);
+	}
+
+	return ret;
 }
 
 /**
