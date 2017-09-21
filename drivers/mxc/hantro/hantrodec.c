@@ -48,6 +48,22 @@
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
 
+#ifdef CONFIG_DEVICE_THERMAL
+#include <linux/device_cooling.h>
+#define HANTRO_REG_THERMAL_NOTIFIER(a) register_devfreq_cooling_notifier(a)
+#define HANTRO_UNREG_THERMAL_NOTIFIER(a) unregister_devfreq_cooling_notifier(a)
+DEFINE_SPINLOCK(thermal_lock);
+/*1:hot, 0: not hot*/
+static int thermal_event;
+static int thermal_cur;
+static int hantro_clock_ratio = 2;
+static int hantro_dynamic_clock;
+module_param(hantro_clock_ratio, int, 0644);
+module_param(hantro_dynamic_clock, int, 0644);
+MODULE_PARM_DESC(hantro_clock_ratio, "clock ratio 1/N");
+MODULE_PARM_DESC(hantro_dynamic_clock, "enable or disable dynamic clock rate");
+#endif
+
 /*hantro G1 regs config including dec and pp*/
 #define HANTRO_DEC_ORG_REGS             60
 #define HANTRO_PP_ORG_REGS              41
@@ -98,6 +114,9 @@
 #define DEC_IO_SIZE_0             ((HANTRO_G2_DEC_REGS) * 4) /* bytes */
 #define DEC_IO_SIZE_1             ((HANTRO_G2_DEC_REGS) * 4) /* bytes */
 
+#define HANTRO_G1_DEF_CLK		(600000000)
+#define HANTRO_G2_DEF_CLK		(600000000)
+#define HANTRO_BUS_DEF_CLK	(800000000)
 /***********************************************************************/
 
 #define IS_G1(hw_id)    ((hw_id == 0x6731) ? 1:0)
@@ -247,6 +266,56 @@ static int hantro_ctrlblk_reset(struct device *dev)
 	hantro_clk_disable(dev);
 	return 0;
 }
+
+#ifdef CONFIG_DEVICE_THERMAL
+static int hantro_thermal_check(struct device *dev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&thermal_lock, flags);
+	if (thermal_event == thermal_cur) {
+		/*nothing to do and return directly*/
+		spin_unlock_irqrestore(&thermal_lock, flags);
+		return 0;
+	}
+	thermal_cur = thermal_event;
+	spin_unlock_irqrestore(&thermal_lock, flags);
+
+	if (thermal_cur) {
+		int ratio = hantro_clock_ratio;
+
+		pr_debug("hantro: too hot, need to decrease clock, ratio: 1/%d\n", ratio);
+		/*clock disable/enable are not required for vpu clock rate operation*/
+		clk_set_rate(hantro_clk_g1, HANTRO_G1_DEF_CLK/ratio);
+		clk_set_rate(hantro_clk_g2, HANTRO_G2_DEF_CLK/ratio);
+		clk_set_rate(hantro_clk_bus, HANTRO_BUS_DEF_CLK/ratio);
+	} else {
+		pr_debug("hantro: not hot again, will restore default clock\n");
+		clk_set_rate(hantro_clk_g1, HANTRO_G1_DEF_CLK);
+		clk_set_rate(hantro_clk_g2, HANTRO_G2_DEF_CLK);
+		clk_set_rate(hantro_clk_bus, HANTRO_BUS_DEF_CLK);
+	}
+	pr_info("hantro: event(%d), g1, g2, bus clock: %ld, %ld, %ld\n", thermal_cur,
+		clk_get_rate(hantro_clk_g1),	clk_get_rate(hantro_clk_g2), clk_get_rate(hantro_clk_bus));
+	return 0;
+}
+
+static int hantro_thermal_hot_notify(struct notifier_block *nb, unsigned long event, void *dummy)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&thermal_lock, flags);
+	thermal_event = event;		/*event: 1: hot, 0: cool*/
+	spin_unlock_irqrestore(&thermal_lock, flags);
+	pr_info("hantro receive hot notification event: %ld\n", event);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block hantro_thermal_hot_notifier = {
+	.notifier_call = hantro_thermal_hot_notify,
+};
+#endif  //CONFIG_DEVICE_THERMAL
 
 static void ReadCoreConfig(hantrodec_t *dev)
 {
@@ -453,6 +522,11 @@ long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long format)
 		else
 			return -1;
 	}
+
+#ifdef CONFIG_DEVICE_THERMAL
+	if (hantro_dynamic_clock)
+		hantro_thermal_check(hantro_dev);
+#endif
 
 	return Core;
 }
@@ -1686,6 +1760,13 @@ static int hantro_dev_probe(struct platform_device *pdev)
 		err = PTR_ERR(temp_class);
 		goto err_out_class;
 	}
+
+#ifdef CONFIG_DEVICE_THERMAL
+	HANTRO_REG_THERMAL_NOTIFIER(&hantro_thermal_hot_notifier);
+	thermal_event = 0;
+	thermal_cur = 0;
+	hantro_dynamic_clock = 0;
+#endif
 	timeout = 0;
 	goto out;
 
@@ -1713,6 +1794,11 @@ static int hantro_dev_remove(struct platform_device *pdev)
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	hantro_clk_disable(&pdev->dev);
+
+#ifdef CONFIG_DEVICE_THERMAL
+	HANTRO_UNREG_THERMAL_NOTIFIER(&hantro_thermal_hot_notifier);
+#endif
+
 	return 0;
 }
 
@@ -1745,7 +1831,7 @@ static const struct dev_pm_ops hantro_pm_ops = {
 	SET_RUNTIME_PM_OPS(hantro_runtime_suspend, hantro_runtime_resume, NULL)
 	SET_SYSTEM_SLEEP_PM_OPS(hantro_suspend, hantro_resume)
 };
-#endif
+#endif //CONFIG_PM
 
 static const struct of_device_id hantro_of_match[] = {
 	{ .compatible = "nxp,imx8mq-hantro", },
