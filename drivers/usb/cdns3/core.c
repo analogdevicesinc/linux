@@ -402,12 +402,10 @@ static void cdns3_role_switch(struct work_struct *work)
 
 	host = extcon_get_state(cdns->extcon, EXTCON_USB_HOST);
 
-	disable_irq(cdns->irq);
 	if (host)
 		cdsn3_do_role_switch(cdns, CDNS3_ROLE_HOST);
 	else
 		cdsn3_do_role_switch(cdns, CDNS3_ROLE_GADGET);
-	enable_irq(cdns->irq);
 }
 
 static int cdns3_extcon_notifier(struct notifier_block *nb, unsigned long event,
