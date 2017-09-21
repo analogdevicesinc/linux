@@ -2342,6 +2342,13 @@ static void flush_cfifo(struct ctxld_fifo *cfifo,
 	WARN(!ret, "work has already been queued\n");
 }
 
+static int finish_cfifo(struct ctxld_fifo *cfifo)
+{
+	flush_workqueue(cfifo->ctxld_wq);
+
+	return 0;
+}
+
 static int commit_cfifo(uint32_t channel,
 			struct dcss_info *info,
 			struct ctxld_commit *cc)
@@ -2380,7 +2387,7 @@ restart:
 		atomic_set(&info->flush, 1);
 		spin_unlock(&cfifo->cqueue.lock);
 		/* Wait fifo flush empty to avoid fifo wrap */
-		flush_workqueue(cfifo->ctxld_wq);
+		finish_cfifo(cfifo);
 		spin_lock(&cfifo->cqueue.lock);
 		atomic_set(&info->flush, 0);
 		kfifo_reset(&cfifo->fifo);
@@ -2788,7 +2795,7 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 	/* TODO: blocking mode */
 	if (likely(!var->reserved[2]))
 		/* make pan display synchronously */
-		flush_workqueue(info->cfifo.ctxld_wq);
+		finish_cfifo(&info->cfifo);
 
 	goto out;
 
