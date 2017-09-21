@@ -17,6 +17,9 @@ dtb-$(CONFIG_ARCH_LAYERSCAPE) += fsl-ls2088a-rdb.dtb
 dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-lpddr4-arm2_ca53.dtb \
 				 fsl-imx8qm-lpddr4-arm2_ca72.dtb \
+				 fsl-imx8qm-mek.dtb \
+				 fsl-imx8qm-mek_ca53.dtb \
+				 fsl-imx8qm-mek_ca72.dtb \
 				 fsl-imx8qm-lpddr4-arm2-it6263.dtb \
 				 fsl-imx8qm-lpddr4-arm2-it6263-dual-channel.dtb \
 				 fsl-imx8qm-lpddr4-arm2-spdif.dtb \
