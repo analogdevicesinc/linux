@@ -18,7 +18,7 @@
 #include <linux/rpmsg.h>
 
 #define MSG		"hello world!"
-#define MSG_LIMIT	100000
+#define MSG_LIMIT	51
 static unsigned int rpmsg_pingpong;
 static int rx_count;
 

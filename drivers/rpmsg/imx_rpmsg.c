@@ -467,7 +467,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (variant == IMX7D) {
+	if (variant == IMX7D || variant == IMX8QXP) {
 		clk = of_clk_get(np_mu, 0);
 		if (IS_ERR(clk)) {
 			pr_err("mu clock source missing or invalid\n");
@@ -481,27 +481,16 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&rpmsg_work, rpmsg_work_handler);
-	if (variant == IMX8QXP) {
-		/*
-		 * MU0_A0 of M4 side is used as RPMSG MU.
-		 * And it would be initialized by M4 before
-		 * A cores are booted up.
-		 */
-		MU_Init(mu_base);
+	/*
+	 * bit26 is used by rpmsg channels.
+	 * bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now
+	 */
+	MU_Init(mu_base);
+	if (variant == IMX7ULP) {
 		MU_EnableRxFullInt(mu_base, 1);
-		pr_info("MU has been initalized by M4!\n");
+		MU_SetFn(mu_base, 1);
 	} else {
-		/*
-		 * bit26 is used by rpmsg channels.
-		 * bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now
-		 */
-		MU_Init(mu_base);
-		if (variant == IMX7ULP) {
-			MU_EnableRxFullInt(mu_base, 1);
-			MU_SetFn(mu_base, 1);
-		} else {
-			MU_EnableRxFullInt(mu_base, 1);
-		}
+		MU_EnableRxFullInt(mu_base, 1);
 	}
 	BLOCKING_INIT_NOTIFIER_HEAD(&(mu_rpmsg_box.notifier));
 
