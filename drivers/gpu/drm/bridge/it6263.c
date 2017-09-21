@@ -308,6 +308,19 @@ enum {
 #define ENABLE_PKT			BIT(0)
 #define REPEAT_PKT			BIT(1)
 
+/***********************/
+/* HDMI register bank1 */
+/***********************/
+
+/* AVI packet registers */
+#define HDMI_REG_AVI_DB1		0x58
+#define AVI_DB1_COLOR_SPACE		0x60
+enum {
+	AVI_COLOR_SPACE_RGB    = 0x00,
+	AVI_COLOR_SPACE_YUV422 = 0x20,
+	AVI_COLOR_SPACE_YUV444 = 0x40,
+};
+
 struct it6263 {
 	struct i2c_client *hdmi_i2c;
 	struct i2c_client *lvds_i2c;
@@ -520,6 +533,12 @@ static void it6263_bridge_enable(struct drm_bridge *bridge)
 	struct regmap *regmap = it6263->hdmi_regmap;
 	unsigned long timeout;
 	unsigned int status;
+
+	regmap_write(it6263->hdmi_regmap, HDMI_REG_BANK_CTRL, BANK_SEL(1));
+	/* set the color space to RGB in the AVI packet */
+	hdmi_update_bits(it6263, HDMI_REG_AVI_DB1, AVI_DB1_COLOR_SPACE,
+							AVI_COLOR_SPACE_RGB);
+	regmap_write(it6263->hdmi_regmap, HDMI_REG_BANK_CTRL, BANK_SEL(0));
 
 	/* software video reset */
 	hdmi_update_bits(it6263, HDMI_REG_SW_RST, SOFTV_RST, SOFTV_RST);
