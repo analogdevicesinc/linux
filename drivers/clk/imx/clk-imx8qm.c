@@ -577,6 +577,7 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_HDMI_RX_SAI0_RX_BCLK]  = imx_clk_fixed("hdmi_rx_sai0_rx_bclk", 0);
 	clks[IMX8QM_SAI6_RX_BCLK]          = imx_clk_fixed("sai6_rx_bclk", 0);
 	clks[IMX8QM_HDMI_TX_SAI0_TX_BCLK]  = imx_clk_fixed("hdmi_tx_sai0_tx_bclk", 0);
+	clks[IMX8QM_CM40_IPG_CLK]	= imx_clk_fixed("ipg_cm40_clk_root", SC_132MHZ);
 
 	np_acm = of_find_compatible_node(NULL, NULL, "nxp,imx8qm-acm");
 	if (np_acm) {

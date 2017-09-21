@@ -823,6 +823,9 @@
 #define IMX8QM_DC1_DISP0_SEL				770
 #define IMX8QM_DC1_DISP1_SEL				771
 
-#define IMX8QM_CLK_END					772
+/* CM40 */
+#define IMX8QM_CM40_IPG_CLK				772
+
+#define IMX8QM_CLK_END					773
 
 #endif /* __DT_BINDINGS_CLOCK_IMX8QM_H */
