@@ -172,11 +172,11 @@ static void cdns3_host_stop(struct cdns3 *cdns)
 	if (dev) {
 		hcd = dev_get_drvdata(dev);
 		xhci = hcd_to_xhci(hcd);
-		usb_remove_hcd(hcd);
 		usb_remove_hcd(xhci->shared_hcd);
+		usb_remove_hcd(hcd);
 		synchronize_irq(cdns->irq);
-		usb_put_hcd(hcd);
 		usb_put_hcd(xhci->shared_hcd);
+		usb_put_hcd(hcd);
 		cdns->host_dev = NULL;
 		device_del(dev);
 		put_device(dev);
