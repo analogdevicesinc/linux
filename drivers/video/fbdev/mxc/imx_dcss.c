@@ -2829,7 +2829,6 @@ static int dcss_wait_for_vsync(unsigned long crtc,
 	struct platform_device *pdev = info->pdev;
 
 	spin_lock_irqsave(&info->vinfo.vwait.lock, irqflags);
-	dtg_irq_unmask(IRQ_TC_LINE1, info);
 	vcount = info->vinfo.vcount;
 	spin_unlock_irqrestore(&info->vinfo.vwait.lock, irqflags);
 
@@ -2931,8 +2930,9 @@ static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 		dtg_irq_clear(IRQ_TC_LINE1, info);
 
 		spin_lock_irqsave(&info->vinfo.vwait.lock, irqflags);
+
 		info->vinfo.vcount++;
-		dtg_irq_mask(IRQ_TC_LINE1, info);
+
 		spin_unlock_irqrestore(&info->vinfo.vwait.lock, irqflags);
 
 		wake_up_all(&info->vinfo.vwait);
@@ -2966,6 +2966,7 @@ static int dcss_interrupts_init(struct dcss_info *info)
 		case 8:		/* dtg_programmable_1: for vsync */
 			/* TODO: (0, 0) or (last, last)? */
 			writel(0x0, info->base + chans->dtg_addr + TC_LINE1_INT);
+			dtg_irq_unmask(IRQ_TC_LINE1, info);
 			break;
 		default:	/* TODO: add support later */
 			continue;
