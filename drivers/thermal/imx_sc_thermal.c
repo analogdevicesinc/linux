@@ -20,6 +20,8 @@
 
 #include "thermal_core.h"
 
+#define IMX_SC_TEMP_PASSIVE_COOL_DELTA	10000
+
 struct imx_sc_sensor {
 	struct thermal_zone_device *tzd;
 	struct thermal_cooling_device *cdev;
@@ -91,7 +93,8 @@ static int imx_sc_tsens_get_trend(void *p, int trip, enum thermal_trend *trend)
 	trip_temp = (trip == IMX_TRIP_PASSIVE) ? sensor->temp_passive :
 					     sensor->temp_critical;
 
-	if (sensor->tzd->temperature >= trip_temp)
+	if (sensor->tzd->temperature >=
+		(trip_temp - IMX_SC_TEMP_PASSIVE_COOL_DELTA))
 		*trend = THERMAL_TREND_RAISE_FULL;
 	else
 		*trend = THERMAL_TREND_DROP_FULL;
