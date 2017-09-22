@@ -264,6 +264,7 @@ struct ctxld_fifo {
 	uint32_t size;
 	void *vaddr;
 	dma_addr_t dma_handle;
+	struct list_head ctxld_list;	/* manage context loader */
 	DECLARE_KFIFO_PTR(fifo, struct ctxld_unit);
 	struct scatterlist sgl[1];
 	uint32_t sgl_num;
@@ -316,7 +317,6 @@ struct dcss_info {
 	struct platform_device *pdev;
 	void __iomem *base;
 	void __iomem *blkctl_base;
-	struct list_head ctxld_list;	/* manage context loader */
 	spinlock_t llock;		/* list lock: for ctxld_list */
 	int irqs[DCSS_IRQS_NUM];
 	uint32_t irqs_num;
@@ -723,6 +723,7 @@ static int ctxld_fifo_alloc(struct device *dev,
 	/* TODO: sgl num can be changed if required */
 	cfifo->sgl_num = 1;
 
+	INIT_LIST_HEAD(&cfifo->ctxld_list);
 	init_waitqueue_head(&cfifo->cqueue);
 	init_completion(&cfifo->complete);
 
@@ -3131,7 +3132,6 @@ static int dcss_info_init(struct dcss_info *info)
 	int ret = 0;
 	struct platform_device *pdev = info->pdev;
 
-	INIT_LIST_HEAD(&info->ctxld_list);
 	spin_lock_init(&info->llock);
 
 	info->dcss_state = DCSS_STATE_RESET;
