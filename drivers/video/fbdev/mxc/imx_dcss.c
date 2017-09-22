@@ -2181,8 +2181,8 @@ static void ctxld_irq_unmask(uint32_t irq_en, struct dcss_info *info)
 	writel(irq_en, info->base + chans->ctxld_addr + CTXLD_CTRL_STATUS_SET);
 }
 
-static void dtg_irq_mask(unsigned long hwirq,
-			 struct dcss_info *info)
+static void __maybe_unused dtg_irq_mask(unsigned long hwirq,
+					struct dcss_info *info)
 {
 	unsigned long irq_mask = 0;
 	struct dcss_channels *chans = &info->chans;
