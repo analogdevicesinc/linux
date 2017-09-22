@@ -26,6 +26,8 @@
 
 #define SITES_MAX	16
 
+#define TMU_TEMP_PASSIVE_COOL_DELTA	10000
+
 /*
  * QorIQ TMU Registers
  */
@@ -211,7 +213,8 @@ static int tmu_get_trend(void *p,
 	trip_temp = (trip == TMU_TRIP_PASSIVE) ? data->temp_passive :
 					     data->temp_critical;
 
-	if (data->tz->temperature >= trip_temp)
+	if (data->tz->temperature >=
+		(trip_temp - TMU_TEMP_PASSIVE_COOL_DELTA))
 		*trend = THERMAL_TREND_RAISE_FULL;
 	else
 		*trend = THERMAL_TREND_DROP_FULL;
