@@ -1016,6 +1016,7 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 out:
 	mmc_release_host(card->host);
 }
+EXPORT_SYMBOL(mmc_start_bkops);
 
 /*
  * Flush the cache to the non-volatile storage.
