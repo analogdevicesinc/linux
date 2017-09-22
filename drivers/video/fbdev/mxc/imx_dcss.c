@@ -2613,21 +2613,16 @@ static int dcss_set_par(struct fb_info *fbi)
 	int fb_node = fbi->node;
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
-	struct dcss_channels *chans = &info->chans;
-	struct dcss_channel_info *chan_info;
-	struct cbuffer *cb;
+	struct cbuffer *cb = &cinfo->cb;
 	struct ctxld_commit *cc;
 
 	if (fb_node < 0 || fb_node > 2)
 		BUG_ON(1);
 
-	chan_info = &chans->chan_info[fb_node];
-	cb = &chan_info->cb;
-
 	/* TODO: add save/recovery when config failed */
-	fb_var_to_pixmap(&chan_info->input, &fbi->var);
+	fb_var_to_pixmap(&cinfo->input, &fbi->var);
 
-	ret = config_channel_pipe(chan_info);
+	ret = config_channel_pipe(cinfo);
 	if (ret)
 		goto fail;
 
