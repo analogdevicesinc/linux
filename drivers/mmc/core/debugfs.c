@@ -59,7 +59,7 @@ static int mmc_ios_show(struct seq_file *s, void *data)
 	const char *str;
 
 	if (host->card)
-		mmc_get_card(host->card);
+		mmc_get_card(host->card, NULL);
 
 	seq_printf(s, "clock:\t\t%u Hz\n", ios->clock);
 	if (host->actual_clock)
@@ -198,7 +198,7 @@ static int mmc_ios_show(struct seq_file *s, void *data)
 	seq_printf(s, "driver type:\t%u (%s)\n", ios->drv_type, str);
 
 	if (host->card)
-		mmc_put_card(host->card);
+		mmc_put_card(host->card, NULL);
 
 	return 0;
 }
@@ -220,10 +220,10 @@ static int mmc_clock_opt_get(void *data, u64 *val)
 	struct mmc_host *host = data;
 
 	if (host->card)
-		mmc_get_card(host->card);
+		mmc_get_card(host->card, NULL);
 	*val = host->ios.clock;
 	if (host->card)
-		mmc_put_card(host->card);
+		mmc_put_card(host->card, NULL);
 
 	return 0;
 }
