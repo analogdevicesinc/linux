@@ -674,9 +674,9 @@ static void fill_sb(struct cbuffer *cb,
 	cb->sb_data_len++;
 }
 
-static void fill_db(struct cbuffer *cb,
-		    uint32_t offset,
-		    uint32_t value)
+static void __maybe_unused fill_db(struct cbuffer *cb,
+				   uint32_t offset,
+				   uint32_t value)
 {
 	struct ctxld_unit *unit = NULL;
 
