@@ -251,6 +251,7 @@ struct vsync_info {
 
 struct ctxld_commit {
 	struct list_head list;
+	atomic_t refcount;
 	struct work_struct work;
 	void *data;
 	uint32_t sb_data_len;
@@ -293,6 +294,7 @@ struct dcss_channel_info {
 	int blank;			/* see FB_BLANK_* macros */
 	uint32_t csc_mode;		/* see CSC_MODE_* macros */
 	bool dpr_scaler_en;		/* record dpr and scaler enabled or not */
+	unsigned long update_stamp;	/* default is ~0x0UL */
 
 	void *dev_data;			/* pointer to dcss_info */
 };
@@ -523,6 +525,8 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 			    struct fb_info *fbi);
 static int dcss_ioctl(struct fb_info *fbi, unsigned int cmd,
 		      unsigned long arg);
+static int vcount_compare(unsigned long vcount,
+			  struct vsync_info *vinfo);
 
 static struct fb_ops dcss_ops = {
 	.owner = THIS_MODULE,
@@ -852,6 +856,7 @@ static int fill_one_chan_info(uint32_t chan_id,
 	info->channel_id = chan_id;
 	info->channel_en = (chan_id == 0) ? 1 : 0;
 	info->blank = FB_BLANK_NORMAL;
+	info->update_stamp = ~0x0UL;
 
 	switch (chan_id) {
 	case 0:
@@ -2302,8 +2307,8 @@ static void copy_data_to_cfifo(struct ctxld_fifo *cfifo,
 			count = kfifo_out(&cfifo->fifo, cb->sb_addr, count);
 			WARN_ON(1);
 		}
-		cc->sb_hp_data_len = count;
-		cc->sb_data_len = count;
+		cc->sb_hp_data_len += count;
+		cc->sb_data_len += count;
 	}
 
 	if (cb->db_data_len) {
@@ -2314,7 +2319,7 @@ static void copy_data_to_cfifo(struct ctxld_fifo *cfifo,
 			count = kfifo_out(&cfifo->fifo, cb->db_addr, count);
 			WARN_ON(1);
 		}
-		cc->db_data_len = count;
+		cc->db_data_len += count;
 	}
 }
 
@@ -2329,8 +2334,73 @@ static struct ctxld_commit *alloc_cc(struct dcss_info *info)
 	INIT_LIST_HEAD(&cc->list);
 	INIT_WORK(&cc->work, dcss_ctxld_config);
 	cc->data = info;
+	atomic_set(&cc->refcount, 0);
 
 	return cc;
+}
+
+static struct ctxld_commit *obtain_cc(int ch_id, struct dcss_info *info)
+{
+	int ret;
+	unsigned long irqflags;
+	struct dcss_channel_info *cinfo;
+	struct ctxld_commit *cc = NULL;
+	struct platform_device *pdev = info->pdev;
+	struct dcss_channels *chans = &info->chans;
+	struct ctxld_fifo *cfifo = &info->cfifo;
+	struct vsync_info *vinfo = &info->vinfo;
+
+	cinfo = &chans->chan_info[ch_id];
+
+	/* wait for next frame window */
+	ret = wait_event_interruptible_timeout(vinfo->vwait,
+			vcount_compare(cinfo->update_stamp, vinfo),
+			HZ);
+	if (!ret) {
+		dev_err(&pdev->dev, "wait next frame timeout\n");
+		return ERR_PTR(-EBUSY);
+	}
+
+	spin_lock_irqsave(&vinfo->vwait.lock, irqflags);
+
+	cinfo->update_stamp = vinfo->vcount;
+	if (!list_empty(&cfifo->ctxld_list)) {
+		cc = list_first_entry(&cfifo->ctxld_list,
+				      struct ctxld_commit,
+				      list);
+		atomic_inc(&cc->refcount);
+	}
+
+	spin_unlock_irqrestore(&vinfo->vwait.lock, irqflags);
+
+	if (!cc) {
+		cc = alloc_cc(info);
+		if (IS_ERR(cc))
+			return cc;
+
+		spin_lock_irqsave(&vinfo->vwait.lock, irqflags);
+
+		if (list_empty(&cfifo->ctxld_list))
+			list_add_tail(&cfifo->ctxld_list, &cc->list);
+		else {
+			kfree(cc);
+			cc = list_first_entry(&cfifo->ctxld_list,
+					      struct ctxld_commit,
+					      list);
+		}
+		atomic_inc(&cc->refcount);
+
+		spin_unlock_irqrestore(&vinfo->vwait.lock, irqflags);
+	}
+
+	return cc;
+}
+
+static void release_cc(struct ctxld_commit *cc)
+{
+	WARN_ON(!atomic_read(&cc->refcount));
+
+	atomic_dec(&cc->refcount);
 }
 
 static void flush_cfifo(struct ctxld_fifo *cfifo,
@@ -2341,6 +2411,24 @@ static void flush_cfifo(struct ctxld_fifo *cfifo,
 	ret = queue_work(cfifo->ctxld_wq, work);
 
 	WARN(!ret, "work has already been queued\n");
+}
+
+static int defer_flush_cfifo(struct ctxld_fifo *cfifo)
+{
+	int i;
+	struct dcss_info *info;
+	struct dcss_channels *chans;
+	struct dcss_channel_info *cinfo;
+
+	info = container_of(cfifo, struct dcss_info, cfifo);
+	chans = &info->chans;
+
+	for (i = 0; i < 3; i++) {
+		cinfo = &chans->chan_info[i];
+		cinfo->update_stamp = info->vinfo.vcount;
+	}
+
+	return 0;
 }
 
 static int finish_cfifo(struct ctxld_fifo *cfifo)
@@ -2631,7 +2719,7 @@ static int dcss_set_par(struct fb_info *fbi)
 		goto fail;
 
 #if USE_CTXLD
-	cc = alloc_cc(info);
+	cc = obtain_cc(fb_node, info);
 	if (IS_ERR(cc)) {
 		ret = PTR_ERR(cc);
 		goto fail;
@@ -2639,7 +2727,7 @@ static int dcss_set_par(struct fb_info *fbi)
 
 	commit_cfifo(fb_node, info, cc);
 
-	flush_cfifo(&info->cfifo, &cc->work);
+	release_cc(cc);
 #endif
 
 	goto out;
@@ -2712,7 +2800,7 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 	dcss_channel_blank(blank, cinfo);
 
 #if USE_CTXLD
-	cc = alloc_cc(info);
+	cc = obtain_cc(fb_node, info);
 	if (IS_ERR(cc)) {
 		ret = PTR_ERR(cc);
 		goto fail;
@@ -2720,7 +2808,7 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 
 	commit_cfifo(fb_node, info, cc);
 
-	flush_cfifo(&info->cfifo, &cc->work);
+	release_cc(cc);
 #endif
 
 	cinfo->blank = blank;
@@ -2742,6 +2830,7 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 			    struct fb_info *fbi)
 {
 	int ret = 0;
+	int fb_node = fbi->node;
 	uint32_t offset, pitch, luma_addr, chroma_addr = 0;
 	struct dcss_channel_info *cinfo = fbi->par;
 	struct dcss_info *info = cinfo->dev_data;
@@ -2778,7 +2867,8 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 			chroma_addr + (offset >> 1));
 	}
 
-	cc = alloc_cc(info);
+#if USE_CTXLD
+	cc = obtain_cc(fb_node, info);
 	if (IS_ERR(cc)) {
 		ret = PTR_ERR(cc);
 		goto fail;
@@ -2786,12 +2876,8 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 
 	commit_cfifo(fbi->node, info, cc);
 
-	flush_cfifo(&info->cfifo, &cc->work);
-
-	/* TODO: blocking mode */
-	if (likely(!var->reserved[2]))
-		/* make pan display synchronously */
-		finish_cfifo(&info->cfifo);
+	release_cc(cc);
+#endif
 
 	goto out;
 
@@ -2908,6 +2994,7 @@ static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 	struct dcss_channels *chans = &info->chans;
 	struct dcss_channel_info *chan;
 	struct ctxld_fifo *cfifo;
+	struct ctxld_commit *cc;
 
 	cfifo = &info->cfifo;
 	desc = irq_to_desc(irq);
@@ -2932,6 +3019,18 @@ static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 		spin_lock_irqsave(&info->vinfo.vwait.lock, irqflags);
 
 		info->vinfo.vcount++;
+		if (!list_empty(&cfifo->ctxld_list)) {
+			cc = list_first_entry(&cfifo->ctxld_list,
+					      struct ctxld_commit,
+					      list);
+			/* defer cfifo flush to next frame window */
+			if (atomic_read(&cc->refcount))
+				defer_flush_cfifo(cfifo);
+			else {
+				list_del(&cc->list);
+				flush_cfifo(cfifo, &cc->work);
+			}
+		}
 
 		spin_unlock_irqrestore(&info->vinfo.vwait.lock, irqflags);
 
