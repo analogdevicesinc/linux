@@ -722,10 +722,8 @@ static int imx_controller_resume(struct device *dev)
 
 	dev_dbg(dev, "at %s\n", __func__);
 
-	if (!data->in_lpm) {
-		WARN_ON(1);
+	if (!data->in_lpm)
 		return 0;
-	}
 
 	request_bus_freq(BUS_FREQ_HIGH);
 	if (data->data->flags & CI_HDRC_PMQOS)
@@ -816,10 +814,8 @@ static int ci_hdrc_imx_runtime_suspend(struct device *dev)
 	struct ci_hdrc_imx_data *data = dev_get_drvdata(dev);
 	int ret;
 
-	if (data->in_lpm) {
-		WARN_ON(1);
+	if (data->in_lpm)
 		return 0;
-	}
 
 	ret = imx_usbmisc_set_wakeup(data->usbmisc_data, true);
 	if (ret) {
