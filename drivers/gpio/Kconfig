@@ -381,6 +381,12 @@ config GPIO_ICH
 
 	  If unsure, say N.
 
+config GPIO_IMX_RPMSG
+	tristate "NXP i.MX7ULP RPMSG GPIO support"
+	depends on ARCH_MXC && RPMSG && GPIOLIB
+	help
+	  This driver support i.MX7ULP RPMSG virtual GPIOs.
+
 config GPIO_IMX_SCU
        def_bool y
        depends on IMX_SCU
