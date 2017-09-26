@@ -10,6 +10,7 @@ extern spinlock_t imx_ccm_lock;
 extern sc_ipc_t ccm_ipc_handle;
 
 int imx8_clk_mu_init(void);
+bool imx8_clk_is_resource_owned(sc_rsrc_t rsrc);
 
 struct clk *imx_clk_divider_scu(const char *name,
 					sc_rsrc_t rsrc_id, sc_pm_clk_t clk_type);

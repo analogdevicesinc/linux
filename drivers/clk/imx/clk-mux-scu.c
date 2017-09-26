@@ -335,6 +335,11 @@ struct clk *clk_register_mux_gpr_scu(struct device *dev, const char *name,
 	struct clk *clk;
 	struct clk_init_data init;
 
+	if (!imx8_clk_is_resource_owned(rsrc_id)) {
+		pr_debug("skip clk %s rsrc %d not owned\n", name, rsrc_id);
+		return ERR_PTR(-ENODEV);
+	}
+
 	if (rsrc_id >= SC_R_LAST)
 		return NULL;
 
@@ -409,6 +414,11 @@ struct clk *clk_register_mux2_scu(struct device *dev, const char *name,
 	struct clk_mux2_scu *mux;
 	struct clk *clk;
 	struct clk_init_data init;
+
+	if (!imx8_clk_is_resource_owned(rsrc_id)) {
+		pr_debug("skip clk %s rsrc %d not owned\n", name, rsrc_id);
+		return ERR_PTR(-ENODEV);
+	}
 
 	if (rsrc_id >= SC_R_LAST)
 		return ERR_PTR(-EINVAL);

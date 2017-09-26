@@ -885,7 +885,7 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_HSIO_SATA_EPCS_TX_CLK] = imx_clk_gate2_scu("hsio_sata_epcs_tx_clk", "dummy", LPCG_ADDR(HSIO_PHY_X1_LPCG), 4, FUNCTION_NAME(PD_HSIO_SATA_0));
 
 	for (i = 0; i < ARRAY_SIZE(clks); i++)
-		if (IS_ERR(clks[i]))
+		if (IS_ERR(clks[i]) && PTR_ERR(clks[i]) != -ENODEV)
 			pr_err("i.MX8QM clk %d: register failed with %ld\n",
 				i, PTR_ERR(clks[i]));
 

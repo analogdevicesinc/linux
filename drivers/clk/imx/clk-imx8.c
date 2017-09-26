@@ -43,3 +43,27 @@ int imx8_clk_mu_init(void)
 
 	return 0;
 }
+
+bool imx8_clk_is_resource_owned(sc_rsrc_t rsrc)
+{
+	/*
+	 * A-core resources are special. SCFW reports they are not "owned" by
+	 * current partition but linux can still adjust them for cpufreq.
+	 *
+	 * So force this to return false when running as a VM guest and always
+	 * true otherwise.
+	 */
+	if (rsrc == SC_R_A53 || rsrc == SC_R_A72 || rsrc == SC_R_A35) {
+		if (xen_domain() && !xen_initial_domain())
+			return false;
+		return true;
+	}
+
+	if (!ccm_ipc_handle) {
+		pr_warn("%s: no ipc handle!\n", __func__);
+		/* should have handled -EPROBE_DEFER from clk_mu_init earlier. */
+		return false;
+	}
+
+	return sc_rm_is_resource_owned(ccm_ipc_handle, rsrc);
+}

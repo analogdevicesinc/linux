@@ -174,6 +174,11 @@ struct clk *clk_register_gate_scu(struct device *dev, const char *name,
 	struct clk *clk;
 	struct clk_init_data init;
 
+	if (!imx8_clk_is_resource_owned(rsrc_id)) {
+		pr_debug("skip clk %s rsrc %d not owned\n", name, rsrc_id);
+		return ERR_PTR(-ENODEV);
+	}
+
 	gate = kzalloc(sizeof(struct clk_gate_scu), GFP_KERNEL);
 	if (!gate)
 		return ERR_PTR(-ENOMEM);
@@ -408,6 +413,11 @@ struct clk *clk_register_gate3_scu(struct device *dev, const char *name,
 	struct clk_gate3_scu *gate;
 	struct clk *clk;
 	struct clk_init_data init;
+
+	if (!imx8_clk_is_resource_owned(rsrc_id)) {
+		pr_debug("skip clk %s rsrc %d not owned\n", name, rsrc_id);
+		return ERR_PTR(-ENODEV);
+	}
 
 	gate = kzalloc(sizeof(struct clk_gate_scu), GFP_KERNEL);
 	if (!gate)
