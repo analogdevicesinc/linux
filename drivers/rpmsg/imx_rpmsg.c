@@ -53,7 +53,7 @@ struct imx_rpmsg_vproc {
 	char *rproc_name;
 	struct mutex lock;
 	int vdev_nums;
-#define MAX_VDEV_NUMS	6
+#define MAX_VDEV_NUMS	7
 	struct imx_virdev ivdev[MAX_VDEV_NUMS];
 };
 
