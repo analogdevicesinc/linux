@@ -538,6 +538,8 @@ static int dcss_ioctl(struct fb_info *fbi, unsigned int cmd,
 		      unsigned long arg);
 static int vcount_compare(unsigned long vcount,
 			  struct vsync_info *vinfo);
+static int dcss_wait_for_vsync(unsigned long crtc,
+			       struct dcss_info *info);
 
 static struct fb_ops dcss_ops = {
 	.owner = THIS_MODULE,
@@ -2252,6 +2254,10 @@ static void dcss_ctxld_config(struct work_struct *work)
 	dsb_len = cc->sb_data_len + cc->db_data_len;
 	esize = kfifo_esize(&cfifo->fifo);
 
+	/* NOOP cc */
+	if (!cc->sb_data_len && !cc->db_data_len)
+		goto free_cc;
+
 	sg_init_table(cfifo->sgl, cfifo->sgl_num);
 	nsgl = kfifo_dma_out_prepare(&cfifo->fifo, cfifo->sgl,
 				     cfifo->sgl_num, dsb_len);
@@ -2296,6 +2302,7 @@ static void dcss_ctxld_config(struct work_struct *work)
 		(cc->sb_data_len + cc->db_data_len) * esize);
 	ctxld_fifo_info_print(cfifo);
 
+free_cc:
 	kfree(cc);
 
 	dev_dbg(&pdev->dev, "finish ctxld config\n");
@@ -2444,6 +2451,15 @@ static int defer_flush_cfifo(struct ctxld_fifo *cfifo)
 
 static int finish_cfifo(struct ctxld_fifo *cfifo)
 {
+	int ret;
+	struct dcss_info *info;
+
+	info = container_of(cfifo, struct dcss_info, cfifo);
+
+	ret = dcss_wait_for_vsync(0, info);
+	if (ret)
+		return ret;
+
 	flush_workqueue(cfifo->ctxld_wq);
 
 	return 0;
@@ -2453,9 +2469,7 @@ static int commit_cfifo(uint32_t channel,
 			struct dcss_info *info,
 			struct ctxld_commit *cc)
 {
-	int ret = 0;
 	uint32_t commit_size;
-	struct platform_device *pdev = info->pdev;
 	struct dcss_channels *chans;
 	struct dcss_channel_info *chan_info;
 	struct ctxld_fifo *cfifo;
@@ -2467,17 +2481,17 @@ static int commit_cfifo(uint32_t channel,
 	cb = &chan_info->cb;
 	commit_size = cb->sb_data_len + cb->db_data_len;
 
-restart:
 	spin_lock(&cfifo->cqueue.lock);
 
 	if (unlikely(atomic_read(&info->flush) == 1)) {
-		ret = wait_event_interruptible_exclusive_locked(cfifo->cqueue,
+		/* cancel this commit and restart it later */
+		release_cc(cc);
+
+		wait_event_interruptible_exclusive_locked(cfifo->cqueue,
 						atomic_read(&info->flush));
-		if (ret == -ERESTARTSYS) {
-			dev_info(&pdev->dev, "wait fifo flush is interrupted\n");
-			spin_unlock(&cfifo->cqueue.lock);
-			goto restart;
-		}
+
+		spin_unlock(&cfifo->cqueue.lock);
+		return -ERESTARTSYS;
 	} else {
 		if (unlikely(waitqueue_active(&cfifo->cqueue)))
 			wake_up_locked(&cfifo->cqueue);
@@ -2486,13 +2500,23 @@ restart:
 	if (unlikely(commit_size > kfifo_to_end_len(&cfifo->fifo))) {
 		atomic_set(&info->flush, 1);
 		spin_unlock(&cfifo->cqueue.lock);
+
+		/* cancel this commit and restart it later */
+		release_cc(cc);
+
 		/* Wait fifo flush empty to avoid fifo wrap */
 		finish_cfifo(cfifo);
+
 		spin_lock(&cfifo->cqueue.lock);
+
 		atomic_set(&info->flush, 0);
 		kfifo_reset(&cfifo->fifo);
 		if (waitqueue_active(&cfifo->cqueue))
 			wake_up_locked(&cfifo->cqueue);
+
+		spin_unlock(&cfifo->cqueue.lock);
+
+		return -ERESTART;
 	}
 
 	copy_data_to_cfifo(cfifo, cb, cc);
@@ -2730,13 +2754,16 @@ static int dcss_set_par(struct fb_info *fbi)
 		goto fail;
 
 #if USE_CTXLD
+restart:
 	cc = obtain_cc(fb_node, info);
 	if (IS_ERR(cc)) {
 		ret = PTR_ERR(cc);
 		goto fail;
 	}
 
-	commit_cfifo(fb_node, info, cc);
+	ret = commit_cfifo(fb_node, info, cc);
+	if (ret == -ERESTART)
+		goto restart;
 
 	release_cc(cc);
 #endif
@@ -2811,13 +2838,16 @@ static int dcss_blank(int blank, struct fb_info *fbi)
 	dcss_channel_blank(blank, cinfo);
 
 #if USE_CTXLD
+restart:
 	cc = obtain_cc(fb_node, info);
 	if (IS_ERR(cc)) {
 		ret = PTR_ERR(cc);
 		goto fail;
 	}
 
-	commit_cfifo(fb_node, info, cc);
+	ret = commit_cfifo(fb_node, info, cc);
+	if (ret == -ERESTART)
+		goto restart;
 
 	release_cc(cc);
 #endif
@@ -2879,13 +2909,16 @@ static int dcss_pan_display(struct fb_var_screeninfo *var,
 	}
 
 #if USE_CTXLD
+restart:
 	cc = obtain_cc(fb_node, info);
 	if (IS_ERR(cc)) {
 		ret = PTR_ERR(cc);
 		goto fail;
 	}
 
-	commit_cfifo(fbi->node, info, cc);
+	ret = commit_cfifo(fb_node, info, cc);
+	if (ret == -ERESTART)
+		goto restart;
 
 	release_cc(cc);
 #endif
