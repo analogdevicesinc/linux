@@ -685,12 +685,14 @@ static void ivshm_net_poll_controller(struct net_device *ndev)
 #endif
 
 static const struct net_device_ops ivshm_net_ops = {
-	.ndo_open	= ivshm_net_open,
-	.ndo_stop	= ivshm_net_stop,
-	.ndo_start_xmit	= ivshm_net_xmit,
-	.ndo_change_mtu	= ivshm_net_change_mtu,
+	.ndo_open		= ivshm_net_open,
+	.ndo_stop		= ivshm_net_stop,
+	.ndo_start_xmit		= ivshm_net_xmit,
+	.ndo_change_mtu		= ivshm_net_change_mtu,
+	.ndo_set_mac_address 	= eth_mac_addr,
+	.ndo_validate_addr	= eth_validate_addr,
 #ifdef CONFIG_NET_POLL_CONTROLLER
-	.ndo_poll_controller = ivshm_net_poll_controller,
+	.ndo_poll_controller	= ivshm_net_poll_controller,
 #endif
 };
 
