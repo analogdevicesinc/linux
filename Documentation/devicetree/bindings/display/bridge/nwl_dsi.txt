@@ -1,0 +1,102 @@
+Northwest Logic MIPI-DSI bridge bindings
+
+The MIPI-DSI host controller drives the video signals from
+display controller to video peripherals using DSI protocol.
+
+Required properties:
+- compatible: 		"<vendor>,<chip>-mipi-dsi"
+- reg: 			the register range of the MIPI-DSI controller
+- interrupts: 		the interrupt number for this module
+- clock, clock-names: 	phandles to the MIPI-DSI clocks
+	"phy_ref" - PHY_REF clock
+	"tx_esc"  - TX_ESC clock (used in escape mode)
+	"rx_esc"  - RX_ESC clock (used in escape mode)
+- assigned-clocks:	phandles to clocks that requires initial configuration
+- assigned-clock-rates:	rates of the clocks that requires initial configuration
+	The following clocks needs to have an initial configuration:
+	"tx_esc" and "rx_esc"
+- port: 		input and output port nodes with endpoint definitions as
+			defined in Documentation/devicetree/bindings/graph.txt;
+			the input port should be connected to a display
+			interface and the output port should be connected to a
+			panel or a bridge input port
+- phys: 		phandle to the phy module representing the DPHY
+			inside MIPI-DSI IP block
+- phy-names: 		should be "dphy"
+
+
+Optional properties:
+- power-domains 	phandle to the power domain
+- interrupt-parent 	phandle to the interrupt parent, if there is one;
+			usually, on i.MX8qm and i.MX8qxp there is an irq
+			steer handling the MIPI DSI interrupts
+- assigned-clock-parents phandles to parent clocks that needs to be assigned as
+			parents to clocks defined in assigned-clocks
+
+* The clock assignments must follow the rules defined in:
+Documentation/devicetree/bindings/clock/clock-bindings.txt
+
+Example:
+	mipi_dsi1: mipi_dsi@56228000 {
+		compatible = "fsl,imx8qm-mipi-dsi";
+		reg = <0x0 0x56228000 0x0 0x1000>;
+		interrupts = <16 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_dsi0>;
+		clocks =
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_MIPI0_DSI_TX_ESC_CLK>,
+			<&clk IMX8QM_MIPI0_DSI_RX_ESC_CLK>;
+		clock-names = "phy_ref", "tx_esc", "rx_esc";
+		assigned-clocks = <&clk IMX8QM_MIPI0_DSI_TX_ESC_DIV>,
+                                  <&clk IMX8QM_MIPI0_DSI_RX_ESC_DIV>;
+		assigned-clock-rates = <18000000>, <72000000>;
+		power-domains = <&pd_mipi0>;
+		phys = <&mipi_dsi_phy1>;
+		phy-names = "dphy";
+
+		port@0 {
+			mipi_dsi0_in: endpoint {
+				remote-endpoint = <&dpu1_disp0_mipi_dsi>;
+			};
+		};
+
+		port@1 {
+			mipi_dsi0_out: endpoint {
+				remote-endpoint = <&adv7535_0_in>;
+			};
+		};
+	};
+
+Another example, for a platform with a complex clock tree, like 8QXP:
+	mipi_dsi1: mipi_dsi@56228000 {
+		compatible = "fsl,imx8qxp-mipi-dsi";
+		reg = <0x0 0x56228000 0x0 0x300>;
+		interrupts = <16 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_mipi_lvds0>;
+		clocks =
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_MIPI0_DSI_TX_ESC_CLK>,
+			<&clk IMX8QXP_MIPI0_DSI_RX_ESC_CLK>;
+		clock-names = "phy_ref", "tx_esc", "rx_esc";
+		assigned-clocks =
+			<&clk IMX8QXP_MIPI0_DSI_TX_ESC_SEL>,
+			<&clk IMX8QXP_MIPI0_DSI_RX_ESC_SEL>,
+			<&clk IMX8QXP_MIPI0_DSI_TX_ESC_CLK>,
+			<&clk IMX8QXP_MIPI0_DSI_RX_ESC_CLK>;
+		assigned-clock-rates = <0>, <0>, <18000000>, <72000000>;
+		assigned-clock-parents =
+			<&clk IMX8QXP_MIPI0_DSI_PLL_DIV2_CLK>,
+			<&clk IMX8QXP_MIPI0_DSI_PLL_DIV2_CLK>;
+		power-domains = <&pd_mipi_dsi0>;
+		phys = <&mipi_dsi_phy1>;
+		phy-names = "dphy";
+
+		port@0 {
+			mipi_dsi1_in: endpoint {
+				remote-endpoint = <&dpu_disp0_mipi_dsi>;
+			};
+		};
+	};
+
+* Here, we set the clock parents for the *_SEL clocks (which are the sources of
+the *_CLK clocks) and also the clock rate of the *_CLK clocks.

@@ -51,6 +51,12 @@ config DRM_MEGACHIPS_STDPXXXX_GE_B850V3_FW
           to DP++. This is used with the i.MX6 imx-ldb
           driver. You are likely to say N here.
 
+config DRM_NWL_DSI
+	tristate
+	select DRM_KMS_HELPER
+	select DRM_MIPI_DSI
+	select DRM_PANEL
+
 config DRM_NXP_PTN3460
 	tristate "NXP PTN3460 DP/LVDS bridge"
 	depends on OF
