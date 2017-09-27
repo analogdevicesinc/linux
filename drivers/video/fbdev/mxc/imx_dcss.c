@@ -192,7 +192,18 @@
  * kfifo_to_end_len - returns the size from 'out' to buffer end
  * this is a kfifo extend interface as required
  */
-#define kfifo_to_end_len(fifo) ((kfifo_size(fifo)) - ((fifo)->kfifo.in & (fifo)->kfifo.mask))
+#define kfifo_to_end_len(fifo) (			\
+{							\
+	unsigned int ptr;				\
+							\
+	if (!(fifo)->kfifo.in)				\
+		ptr = 0;				\
+	else						\
+		ptr = ((((fifo)->kfifo.in - 1) & (fifo)->kfifo.mask) + 1);	\
+							\
+	kfifo_size(fifo) - ptr;				\
+}							\
+)
 
 /* TODO: */
 struct coordinate {
