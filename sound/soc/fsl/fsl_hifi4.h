@@ -136,6 +136,7 @@ enum icm_action_t {
 	ICM_EXT_MSG_ADDR,
 
 	ICM_SWITCH_CODEC,
+	ICM_RESET,
 };
 
 enum aud_status_t {
@@ -150,6 +151,11 @@ struct icm_open_resp_info_t {
 	u32 dtstamp;                /* address value of timestamp_info_t */
 
 	s32 ret;
+};
+
+struct icm_reset_info_t {
+	u32 codec_id;
+	s32 ret;                   /* executed status of reset function */
 };
 
 struct icm_switch_info_t {

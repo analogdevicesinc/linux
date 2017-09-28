@@ -1366,6 +1366,58 @@ static int fsl_hifi4_codec_close(struct fsl_hifi4 *hifi4_priv,
 	return ret;
 }
 
+static int fsl_hifi4_codec_reset(struct fsl_hifi4 *hifi4_priv,
+							void __user *user)
+{
+	struct device *dev = hifi4_priv->dev;
+	union icm_header_t apu_icm;
+	struct icm_cdc_iobuf_t *codec_iobuf_info =
+				&hifi4_priv->codec_iobuf_info;
+	int id;
+	long err = 0;
+	unsigned long ret = 0;
+
+	ret = copy_from_user(&id, user, sizeof(int));
+	if (ret) {
+		dev_err(dev, "failed to get para from user space\n");
+		return -EFAULT;
+	}
+
+	if (hifi4_priv->process_id != id) {
+		err = switch_codec(hifi4_priv, id);
+		if (err) {
+			dev_err(dev, "failed to switch codec in codec reset\n");
+			return err;
+		}
+	}
+
+	init_completion(&hifi4_priv->cmd_complete);
+	hifi4_priv->is_done = 0;
+
+	apu_icm.allbits = 0;	/* clear all bits;*/
+	apu_icm.ack = 0;
+	apu_icm.intr = 1;
+	apu_icm.msg = ICM_RESET;
+	apu_icm.size = 0;
+	icm_intr_send(hifi4_priv, apu_icm.allbits);
+
+	/* wait for response here */
+	err = icm_ack_wait(hifi4_priv, apu_icm.allbits);
+	if (err)
+		return err;
+
+	/* reset codec_iobuf_info */
+	codec_iobuf_info->inp_buf_size_max = 0;
+	codec_iobuf_info->inp_cur_offset = 0;
+
+	codec_iobuf_info->out_buf_size_max = 0;
+	codec_iobuf_info->out_cur_offset   = 0;
+
+	err = hifi4_priv->ret_status;
+
+	return err;
+}
+
 static struct miscdevice hifi4_miscdev = {
 	.name	= "mxc_hifi4",
 	.minor	= MISC_DYNAMIC_MINOR,
@@ -1408,6 +1460,9 @@ static long fsl_hifi4_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case HIFI4_SET_CONFIG:
 		ret = fsl_hifi4_set_config(hifi4_priv, user);
+		break;
+	case HIFI4_RESET_CODEC:
+		ret = fsl_hifi4_codec_reset(hifi4_priv, user);
 		break;
 	default:
 		break;
@@ -1456,6 +1511,9 @@ static long fsl_hifi4_compat_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case HIFI4_SET_CONFIG:
 		ret = fsl_hifi4_set_config(hifi4_priv, user);
+		break;
+	case HIFI4_RESET_CODEC:
+		ret = fsl_hifi4_codec_reset(hifi4_priv, user);
 		break;
 	default:
 		break;
@@ -1739,6 +1797,16 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 			struct icm_switch_info_t *ext_msg =
 				(struct icm_switch_info_t *)pmsg_apu;
 			hifi4_priv->ret_status = ext_msg->status;
+			hifi4_priv->is_done = 1;
+			complete(&hifi4_priv->cmd_complete);
+		}
+		break;
+
+	case ICM_RESET:
+		{
+			struct icm_reset_info_t *ext_msg =
+				(struct icm_reset_info_t *)pmsg_apu;
+			hifi4_priv->ret_status = ext_msg->ret;
 			hifi4_priv->is_done = 1;
 			complete(&hifi4_priv->cmd_complete);
 		}
