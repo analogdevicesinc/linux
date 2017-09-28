@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
+#include <linux/timer.h>
 
 #define SPI_ENGINE_VERSION_MAJOR(x)	((x >> 16) & 0xff)
 #define SPI_ENGINE_VERSION_MINOR(x)	((x >> 8) & 0xff)
@@ -37,10 +38,19 @@
 #define SPI_ENGINE_REG_SDI_DATA_FIFO		0xe8
 #define SPI_ENGINE_REG_SDI_DATA_FIFO_PEEK	0xec
 
+#define SPI_ENGINE_REG_OFFLOAD_CTRL(x)		(0x100 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_STATUS(x)	(0x104 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_RESET(x)		(0x108 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_CMD_MEM(x)	(0x110 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_SDO_MEM(x)	(0x114 + (0x20 * x))
+
 #define SPI_ENGINE_INT_CMD_ALMOST_EMPTY		BIT(0)
 #define SPI_ENGINE_INT_SDO_ALMOST_EMPTY		BIT(1)
 #define SPI_ENGINE_INT_SDI_ALMOST_FULL		BIT(2)
 #define SPI_ENGINE_INT_SYNC			BIT(3)
+
+#define SPI_ENGINE_OFFLOAD_CTRL_ENABLE		BIT(0)
+#define SPI_ENGINE_OFFLOAD_STATUS_ENABLED	BIT(0)
 
 #define SPI_ENGINE_CONFIG_CPHA			BIT(0)
 #define SPI_ENGINE_CONFIG_CPOL			BIT(1)
@@ -104,6 +114,8 @@ struct spi_engine {
 	unsigned int completed_id;
 
 	unsigned int int_enable;
+
+	struct timer_list watchdog_timer;
 };
 
 static void spi_engine_program_add_cmd(struct spi_engine_program *p,
@@ -132,9 +144,15 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	struct spi_device *spi, struct spi_transfer *xfer)
 {
 	unsigned int clk_div;
+	unsigned int speed;
+
+	if (xfer->speed_hz)
+		speed = xfer->speed_hz;
+	else
+		speed = spi->max_speed_hz;
 
 	clk_div = DIV_ROUND_UP(clk_get_rate(spi_engine->ref_clk),
-		xfer->speed_hz * 2);
+		speed * 2);
 	if (clk_div > 255)
 		clk_div = 255;
 	else if (clk_div > 0)
@@ -232,6 +250,81 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 
 	return 0;
 }
+
+bool spi_engine_offload_supported(struct spi_device *spi)
+{
+	if (strcmp(spi->master->dev.parent->driver->name, "spi-engine") != 0)
+		return false;
+
+	return true;
+}
+EXPORT_SYMBOL_GPL(spi_engine_offload_supported);
+
+void spi_engine_offload_enable(struct spi_device *spi, bool enable)
+{
+	struct spi_master *master = spi->master;
+	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	unsigned int reg;
+
+	reg = readl(spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CTRL(0));
+	if (enable)
+		reg |= SPI_ENGINE_OFFLOAD_CTRL_ENABLE;
+	else
+		reg &= ~SPI_ENGINE_OFFLOAD_CTRL_ENABLE;
+	writel(reg, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CTRL(0));
+}
+EXPORT_SYMBOL_GPL(spi_engine_offload_enable);
+
+int spi_engine_offload_load_msg(struct spi_device *spi,
+	struct spi_message *msg)
+{
+	struct spi_master *master = spi->master;
+	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_engine_program p_dry;
+	struct spi_engine_program *p;
+	struct spi_transfer *xfer;
+	void __iomem *cmd_addr;
+	void __iomem *sdo_addr;
+	const uint8_t *buf;
+	unsigned int i, j;
+	size_t size;
+
+	msg->spi = spi;
+
+	p_dry.length = 0;
+	spi_engine_compile_message(spi_engine, msg, true, &p_dry);
+
+	size = sizeof(*p->instructions) * (p_dry.length + 2);
+
+	p = kzalloc(sizeof(*p) + size, GFP_KERNEL);
+	if (!p)
+		return -ENOMEM;
+
+	cmd_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CMD_MEM(0);
+	sdo_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_SDO_MEM(0);
+
+	spi_engine_compile_message(spi_engine, msg, false, p);
+	spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SLEEP(10));
+	spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SYNC(0));
+
+	writel(1, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_RESET(0));
+	j = 0;
+	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+		if (!xfer->tx_buf)
+			continue;
+		buf = xfer->tx_buf;
+		for (i = 0; i < xfer->len; i++, j++)
+			writel(buf[i], sdo_addr);
+	}
+
+	for (i = 0; i < p->length; i++)
+		writel(p->instructions[i], cmd_addr);
+
+	kfree(p);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(spi_engine_offload_load_msg);
 
 static void spi_engine_xfer_next(struct spi_engine *spi_engine,
 	struct spi_transfer **_xfer)
@@ -349,6 +442,18 @@ static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine)
 	return spi_engine->rx_length != 0;
 }
 
+static void spi_engine_complete_message(struct spi_master *master, int status)
+{
+	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_message *msg = spi_engine->msg;
+
+	kfree(spi_engine->p);
+	msg->status = status;
+	msg->actual_length = msg->frame_length;
+	spi_engine->msg = NULL;
+	spi_finalize_current_message(master);
+}
+
 static irqreturn_t spi_engine_irq(int irq, void *devid)
 {
 	struct spi_master *master = devid;
@@ -385,13 +490,11 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 	if (pending & SPI_ENGINE_INT_SYNC) {
 		if (spi_engine->msg &&
 		    spi_engine->completed_id == spi_engine->sync_id) {
-			struct spi_message *msg = spi_engine->msg;
 
-			kfree(spi_engine->p);
-			msg->status = 0;
-			msg->actual_length = msg->frame_length;
-			spi_engine->msg = NULL;
-			spi_finalize_current_message(master);
+			del_timer(&spi_engine->watchdog_timer);
+
+			spi_engine_complete_message(master, 0);
+
 			disable_int |= SPI_ENGINE_INT_SYNC;
 		}
 	}
@@ -407,6 +510,20 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 	return IRQ_HANDLED;
 }
 
+static void spi_engine_timeout(unsigned long data)
+{
+	struct spi_master *master = (struct spi_master *)data;
+	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+
+
+	spin_lock(&spi_engine->lock);
+	if (spi_engine->msg) {
+		dev_err(&master->dev, "Timeout occured while waiting for transfer to complete. Hardware is probably broken.\n");
+		spi_engine_complete_message(master, -ETIMEDOUT);
+	}
+	spin_unlock(&spi_engine->lock);
+}
+
 static int spi_engine_transfer_one_message(struct spi_master *master,
 	struct spi_message *msg)
 {
@@ -415,6 +532,8 @@ static int spi_engine_transfer_one_message(struct spi_master *master,
 	unsigned int int_enable = 0;
 	unsigned long flags;
 	size_t size;
+
+	del_timer_sync(&spi_engine->watchdog_timer);
 
 	p_dry.length = 0;
 	spi_engine_compile_message(spi_engine, msg, true, &p_dry);
@@ -452,6 +571,8 @@ static int spi_engine_transfer_one_message(struct spi_master *master,
 		spi_engine->base + SPI_ENGINE_REG_INT_ENABLE);
 	spi_engine->int_enable = int_enable;
 	spin_unlock_irqrestore(&spi_engine->lock, flags);
+
+	mod_timer(&spi_engine->watchdog_timer, jiffies + 5*HZ);
 
 	return 0;
 }
@@ -531,6 +652,9 @@ static int spi_engine_probe(struct platform_device *pdev)
 	master->max_speed_hz = clk_get_rate(spi_engine->ref_clk) / 2;
 	master->transfer_one_message = spi_engine_transfer_one_message;
 	master->num_chipselect = 8;
+
+	setup_timer(&spi_engine->watchdog_timer, spi_engine_timeout,
+		(unsigned long)master);
 
 	ret = spi_register_master(master);
 	if (ret)

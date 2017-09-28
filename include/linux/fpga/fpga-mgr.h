@@ -21,6 +21,11 @@
 #ifndef _LINUX_FPGA_MGR_H
 #define _LINUX_FPGA_MGR_H
 
+#define ENCRYPTED_KEY_LEN	64 /* Bytes */
+#define ENCRYPTED_IV_LEN	24 /* Bytes */
+#define SIGNATURE_LEN		512 /* Bytes */
+#define PUBLIC_KEY_LEN		516 /* Bytes */
+
 struct fpga_manager;
 
 /**
@@ -119,6 +124,11 @@ struct fpga_manager_ops {
  */
 struct fpga_manager {
 	const char *name;
+	long int flags;
+	char key[ENCRYPTED_KEY_LEN];
+	char iv[ENCRYPTED_IV_LEN];
+	char signature[SIGNATURE_LEN];
+	char pubkey[PUBLIC_KEY_LEN];
 	struct device dev;
 	struct mutex ref_mutex;
 	enum fpga_mgr_states state;
@@ -139,6 +149,8 @@ int fpga_mgr_firmware_load(struct fpga_manager *mgr,
 			   const char *image_name);
 
 struct fpga_manager *of_fpga_mgr_get(struct device_node *node);
+
+struct fpga_manager *fpga_mgr_get(struct device *dev);
 
 void fpga_mgr_put(struct fpga_manager *mgr);
 

@@ -89,6 +89,9 @@ EXPORT_SYMBOL(zynq_cpun_start);
 
 static int zynq_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
+	if (!zynq_efuse_cpu_state(cpu))
+		return -1;
+
 	return zynq_cpun_start(virt_to_phys(secondary_startup), cpu);
 }
 
@@ -121,6 +124,7 @@ static void __init zynq_smp_prepare_cpus(unsigned int max_cpus)
 static void zynq_secondary_init(unsigned int cpu)
 {
 	zynq_core_pm_init();
+	zynq_prefetch_init();
 }
 
 #ifdef CONFIG_HOTPLUG_CPU

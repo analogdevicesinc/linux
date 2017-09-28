@@ -4,15 +4,39 @@
 
 # When adding new entries keep the list in alphabetical order
 obj-$(CONFIG_AD_SIGMA_DELTA) += ad_sigma_delta.o
+obj-$(CONFIG_AD7091R5) += ad7091r5.o ad7091r-base.o
+obj-$(CONFIG_AD7173) += ad7173.o
 obj-$(CONFIG_AD7266) += ad7266.o
 obj-$(CONFIG_AD7291) += ad7291.o
 obj-$(CONFIG_AD7298) += ad7298.o
+obj-$(CONFIG_AD738X) += ad738x.o
 obj-$(CONFIG_AD7923) += ad7923.o
 obj-$(CONFIG_AD7476) += ad7476.o
 obj-$(CONFIG_AD7791) += ad7791.o
 obj-$(CONFIG_AD7793) += ad7793.o
 obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD799X) += ad799x.o
+obj-$(CONFIG_ADM1177) += adm1177.o
+
+cf_axi_adc-y := cf_axi_adc_core.o cf_axi_adc_ring_stream.o
+obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
+
+obj-$(CONFIG_AD6676) += ad6676.o
+
+ad9361_drv-y := ad9361.o ad9361_conv.o
+obj-$(CONFIG_AD9361) += ad9361_drv.o
+
+ad9371_drv-y := ad9371.o ad9371_conv.o mykonos/common.o  mykonos/mykonos.o  mykonos/mykonos_gpio.o  mykonos/mykonos_user.o
+obj-$(CONFIG_AD9371) += ad9371_drv.o
+
+obj-$(CONFIG_AD9467) += ad9467.o
+obj-$(CONFIG_ADMC) += admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o
+
+obj-$(CONFIG_CF_AXI_TDD) += cf_axi_tdd.o
+
+obj-$(CONFIG_AXI_JESD204B) += cf_axi_jesd204b_v51.o cf_axi_jesd204b_gt.o cf_axi_adxcvr.o
+obj-$(CONFIG_AXI_FMCADC5_SYNC) += axi_fmcadc5_sync.o
+
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_AT91_SAMA5D2_ADC) += at91-sama5d2_adc.o
 obj-$(CONFIG_AXP288_ADC) += axp288_adc.o
@@ -55,3 +79,4 @@ obj-$(CONFIG_VF610_ADC) += vf610_adc.o
 obj-$(CONFIG_VIPERBOARD_ADC) += viperboard_adc.o
 xilinx-xadc-y := xilinx-xadc-core.o xilinx-xadc-events.o
 obj-$(CONFIG_XILINX_XADC) += xilinx-xadc.o
+obj-$(CONFIG_XILINX_AMS) += xilinx-ams.o

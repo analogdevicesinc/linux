@@ -1,0 +1,50 @@
+Xilinx Axi Ethernet controller Device Tree Bindings
+---------------------------------------------------------
+
+Required properties:
+- compatible		: Should be "xlnx,axi-ethernet-1.00.a" or
+			  "xlnx,axi-ethernet-1.01.a" or
+			  "xlnx,axi-ethernet-2.01.a" for Axi Ethenret 1G MAC
+			  controllers and "xlnx,ten-gig-eth-mac" for Axi
+			  Ethernet 10G MAC controllers and
+			  "xlnx,xxv-ethernet-1.0" for 10G/25G MAC and
+			  "xlnx,axi-2_5-gig-ethernet-1.0" for 2.5G MAC.
+- reg			: Physical base address and size of the Axi 1G/10G
+			  Ethernet registers map.
+- interrupts		: Property with a value describing the interrupt
+			  number.
+- interrupt-parent	: Must be core interrupt controller.
+- phy-handle		: See ethernet.txt file in the same directory.
+- local-mac-address	: See ethernet.txt file in the same directory.
+- phy-mode		: see ethernet.txt file in the same directory.
+Required properties (When AxiEthernet is configured with MCDMA):
+- xlnx,channel-ids	: Queue Identifier associated with the MCDMA Channel.
+- interrupt-names	: Should contain the interrupt names.
+
+Optional properties:
+- xlnx,rxmem		: Max Rx Memory size.
+- xlnx,txcsum		: Checks for tx checksum.
+- xlnx,rxcsum		: Check for rx checksum.
+- xlnx,phy-type		: Phy device type.
+- dma-coherent		: For ACP port designs to allocate cohernet memory.
+- xlnx,eth-hasnobuf	: Used when 1G MAC is configured in non processor mode.
+- xlnx,rxtsfifo 	: Configures the axi fifo for receive timestamping.
+- xlnx,include-dre	: Tells whether DMA h/w is configured with DRE or not.
+- clocks		: Input clock specifier. Refer to common clock bindings.
+- clock-names		: Input clock name, should be ethernet_clk and dma_clk.
+Optional properties (When AxiEthernet is configured with MCDMA):
+- xlnx,num-queues	: Number of queues h/w configured for.
+
+Example:
+
+	axi_ethernet_eth_buf: axi-ethernet@44a00000 {
+			axistream-connected = <&axi_dma_1>;
+			compatible = "xlnx,axi-ethernet-buffer-2.0",
+				      "xlnx,axi-ethernet-1.00.a";
+			reg = <0x44a00000 0x40000>;
+			interrupt-parent = <&microblaze_1_axi_intc>;
+			interrupts = <4 2>;
+			local-mac-address = [00 0a 35 00 00 00];
+			phy-handle = <&phy0>;
+			phy-mode = "sgmii";
+	}

@@ -500,7 +500,6 @@ static int spi_dev_check(struct device *dev, void *data)
  */
 int spi_add_device(struct spi_device *spi)
 {
-	static DEFINE_MUTEX(spi_add_lock);
 	struct spi_master *master = spi->master;
 	struct device *dev = master->dev.parent;
 	int status;
@@ -520,7 +519,7 @@ int spi_add_device(struct spi_device *spi)
 	 * chipselect **BEFORE** we call setup(), else we'll trash
 	 * its configuration.  Lock against concurrent add() calls.
 	 */
-	mutex_lock(&spi_add_lock);
+	mutex_lock(&master->add_lock);
 
 	status = bus_for_each_dev(&spi_bus_type, NULL, spi, spi_dev_check);
 	if (status) {
@@ -552,7 +551,7 @@ int spi_add_device(struct spi_device *spi)
 		dev_dbg(dev, "registered child %s\n", dev_name(&spi->dev));
 
 done:
-	mutex_unlock(&spi_add_lock);
+	mutex_unlock(&master->add_lock);
 	return status;
 }
 EXPORT_SYMBOL_GPL(spi_add_device);
@@ -1043,7 +1042,8 @@ static int spi_transfer_one_message(struct spi_master *master,
 				keep_cs = true;
 			} else {
 				spi_set_cs(msg->spi, false);
-				udelay(10);
+				udelay(xfer->cs_change_stall_delay_us ?
+				       xfer->cs_change_stall_delay_us : 10);
 				spi_set_cs(msg->spi, true);
 			}
 		}
@@ -1911,6 +1911,8 @@ int spi_register_master(struct spi_master *master)
 		dynamic = 1;
 	}
 
+	mutex_init(&master->add_lock);
+
 	INIT_LIST_HEAD(&master->queue);
 	spin_lock_init(&master->queue_lock);
 	spin_lock_init(&master->bus_lock_spinlock);
@@ -2539,6 +2541,14 @@ static int __spi_validate(struct spi_device *spi, struct spi_message *message)
 
 	if (list_empty(&message->transfers))
 		return -EINVAL;
+
+	/*
+	 *  Data stripe option is selected if and only if when
+	 *  two chips are enabled
+	 */
+	if ((master->flags & SPI_MASTER_DATA_STRIPE)
+			&& !(master->flags & SPI_MASTER_BOTH_CS))
+			return -EINVAL;
 
 	/* Half-duplex links include original MicroWire, and ones with
 	 * only one data pin like SPI_3WIRE (switches direction) or where

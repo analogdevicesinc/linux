@@ -318,6 +318,8 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
  * @bus_lock_spinlock: spinlock for SPI bus locking
  * @bus_lock_mutex: mutex for exclusion of multiple callers
  * @bus_lock_flag: indicates that the SPI bus is locked for exclusive use
+ * @add_lock: protects against concurrent registration of slaves with the same
+ *	chip_select.
  * @setup: updates the device mode and clocking records used by a
  *	device's SPI controller; protocol code may call this.  This
  *	must fail if an unrecognized or unsupported mode is requested.
@@ -442,7 +444,19 @@ struct spi_master {
 #define SPI_MASTER_NO_TX	BIT(2)		/* can't do buffer write */
 #define SPI_MASTER_MUST_RX      BIT(3)		/* requires rx */
 #define SPI_MASTER_MUST_TX      BIT(4)		/* requires tx */
-
+#define SPI_MASTER_U_PAGE       BIT(5)          /* select upper flash */
+	/* Controller may support data stripe feature when more than one
+	 * chips are present.
+	 * Setting data stripe will send data in following manner:
+	 * -> even bytes i.e. 0, 2, 4,... are transmitted on lower data bus
+	 * -> odd bytes i.e. 1, 3, 5,.. are transmitted on upper data bus
+	 */
+#define SPI_MASTER_QUAD_MODE	BIT(6) /* support quad mode */
+#define SPI_MASTER_DATA_STRIPE	BIT(7)		/* support data stripe */
+	/* Controller may support asserting more than one chip select at once.
+	 * This flag will enable that feature.
+	 */
+#define SPI_MASTER_BOTH_CS	BIT(8)		/* assert both chip selects */
 	/*
 	 * on some hardware transfer / message size may be constrained
 	 * the limit may depend on device transfer settings
@@ -459,6 +473,8 @@ struct spi_master {
 
 	/* flag indicating that the SPI bus is locked for exclusive use */
 	bool			bus_lock_flag;
+
+	struct mutex		add_lock;
 
 	/* Setup mode and clock, etc (spi driver may call many times).
 	 *
@@ -675,6 +691,8 @@ extern void spi_res_release(struct spi_master *master,
  *      transfer. If 0 the default (from @spi_device) is used.
  * @bits_per_word: select a bits_per_word other than the device default
  *      for this transfer. If 0 the default (from @spi_device) is used.
+ * @cs_change_stall_delay_us: microseconds to delay between cs_change
+ * 	transfers.
  * @cs_change: affects chipselect after this transfer completes
  * @delay_usecs: microseconds to delay after this transfer before
  *	(optionally) changing the chipselect status, then starting
@@ -759,9 +777,10 @@ struct spi_transfer {
 #define	SPI_NBITS_DUAL		0x02 /* 2bits transfer */
 #define	SPI_NBITS_QUAD		0x04 /* 4bits transfer */
 	u8		bits_per_word;
+	u8		cs_change_stall_delay_us;
 	u16		delay_usecs;
 	u32		speed_hz;
-
+	u32		dummy;
 	struct list_head transfer_list;
 };
 

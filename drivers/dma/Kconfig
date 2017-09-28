@@ -91,9 +91,10 @@ config AT_XDMAC
 
 config AXI_DMAC
 	tristate "Analog Devices AXI-DMAC DMA support"
-	depends on MICROBLAZE || NIOS2 || ARCH_ZYNQ || ARCH_SOCFPGA || COMPILE_TEST
+	depends on MICROBLAZE || NIOS2 || ARCH_ZYNQ || ARCH_ZYNQMP || ARCH_SOCFPGA || COMPILE_TEST
 	select DMA_ENGINE
 	select DMA_VIRTUAL_CHANNELS
+	select REGMAP_MMIO
 	help
 	  Enable support for the Analog Devices AXI-DMAC peripheral. This DMA
 	  controller is often used in Analog Device's reference designs for FPGA
@@ -319,7 +320,7 @@ config MOXART_DMA
 	select DMA_VIRTUAL_CHANNELS
 	help
 	  Enable support for the MOXA ART SoC DMA controller.
- 
+
 	  Say Y here if you enabled MMP ADMA, otherwise say N.
 
 config MPC512X_DMA
@@ -530,6 +531,8 @@ config XGENE_DMA
 	help
 	  Enable support for the APM X-Gene SoC DMA engine.
 
+source "drivers/dma/xilinx/Kconfig"
+
 config XILINX_DMA
 	tristate "Xilinx AXI DMAS Engine"
 	depends on (ARCH_ZYNQ || MICROBLAZE || ARM64)
@@ -555,6 +558,18 @@ config XILINX_ZYNQMP_DMA
 	select DMA_ENGINE
 	help
 	  Enable support for Xilinx ZynqMP DMA controller.
+
+config XILINX_PS_PCIE_DMA
+	tristate "Xilinx PS PCIe DMA support"
+	depends on (PCI && X86_64 || ARM64)
+	select DMA_ENGINE
+	help
+	  Enable support for the Xilinx PS PCIe DMA engine present
+	  in recent Xilinx ZynqMP chipsets.
+
+	  Say Y here if you have such a chipset.
+
+	  If unsure, say N.
 
 config ZX_DMA
 	tristate "ZTE ZX296702 DMA support"

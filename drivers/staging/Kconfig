@@ -88,6 +88,8 @@ source "drivers/staging/skein/Kconfig"
 
 source "drivers/staging/unisys/Kconfig"
 
+source "drivers/staging/apf/Kconfig"
+
 source "drivers/staging/clocking-wizard/Kconfig"
 
 source "drivers/staging/fbtft/Kconfig"
@@ -105,5 +107,7 @@ source "drivers/staging/ks7010/Kconfig"
 source "drivers/staging/greybus/Kconfig"
 
 source "drivers/staging/vc04_services/Kconfig"
+
+source "drivers/staging/fclk/Kconfig"
 
 endif # STAGING

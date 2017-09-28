@@ -375,6 +375,13 @@ config XILINX_HWICAP
 
 	  If unsure, say N.
 
+config XILINX_DEVCFG
+	tristate "Xilinx Device Configuration"
+	depends on ARCH_ZYNQ
+	help
+	  This option enables support for the Xilinx device configuration driver.
+	  If unsure, say N
+
 config R3964
 	tristate "Siemens R3964 line discipline"
 	depends on TTY
@@ -589,6 +596,10 @@ config TILE_SROM
 	  how to partition a single ROM for multiple purposes.
 
 source "drivers/char/xillybus/Kconfig"
+
+config AXI_INTR_MONITOR
+	tristate "AXI Interrupt Monitor"
+	depends on HAS_IOMEM
 
 endmenu
 

@@ -168,6 +168,7 @@ static ssize_t m25p80_read(struct spi_nor *nor, loff_t from, size_t len,
 
 	t[0].tx_buf = flash->command;
 	t[0].len = m25p_cmdsz(nor) + dummy;
+	t[0].dummy = nor->read_dummy;
 	spi_message_add_tail(&t[0], &m);
 
 	t[1].rx_buf = buf;
@@ -219,6 +220,7 @@ static int m25p_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, flash);
 	flash->spi = spi;
+	nor->spi = spi;
 
 	if (spi->mode & SPI_RX_QUAD)
 		mode = SPI_NOR_QUAD;

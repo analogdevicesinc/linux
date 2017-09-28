@@ -1,0 +1,127 @@
+
+/dts-v1/;
+/include/ "vc707_fmcomms4_pl.dtsi"
+/ {
+	chosen {
+		bootargs = "console=ttyUL0,115200";
+		linux,stdout-path = &axi_uart;
+		stdout-path = &axi_uart;
+	};
+	aliases {
+		ethernet0 = &axi_ethernet_eth_buf;
+		i2c0 = &axi_iic_main;
+		serial0 = &axi_uart;
+		serial1 = &sys_mb_debug;
+		spi0 = &axi_spi;
+	};
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x40000000>;
+	};
+};
+&axi_ethernet_eth_buf {
+	local-mac-address = [00 0a 35 00 00 12];
+	phy-handle = <&phy0 &phy1>;
+	phy-mode = "sgmii";
+};
+
+&axi_ethernet_eth_buf_mdio {
+	phy0: phy@7 {
+		device_type = "ethernet-phy";
+		reg = <7>;
+	};
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <1>;
+	};
+};
+
+&axi_ad9364 {
+	dmas = <&axi_ad9364_adc_dma 0>;
+	dma-names = "rx";
+	spibus-connected = <&adc0_ad9364>;
+};
+
+&axi_ad9364_dac_core_0 {
+	clocks = <&adc0_ad9364 13>;
+	clock-names = "sampl_clk";
+	dmas = <&axi_ad9364_dac_dma 0>;
+	dma-names = "tx";
+};
+
+&axi_ad9364_adc_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+
+	dma-channel {
+		adi,buswidth = <64>;
+		adi,type = <0>;
+	};
+};
+
+&axi_ad9364_dac_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+
+	dma-channel {
+		adi,buswidth = <64>;
+		adi,type = <1>;
+		adi,cyclic;
+	};
+};
+
+&axi_iic_main {
+	mux@74 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "pca9548";
+		reg = <0x74>;
+
+		fmc_i2c: i2c@1 { /* FMC1 */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <1>;
+
+		};
+
+		mux2: i2c@2 { /* FMC2 */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <2>;
+
+		};
+	};
+};
+
+&axi_linear_flash {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	partition@0x00000000 {
+		label = "fpga";
+		reg = <0x00000000 0x1380000>;
+	};
+	partition@0x01380000 {
+		label = "boot";
+		reg = <0x01380000 0x80000>;
+	};
+	partition@0x01400000 {
+		label = "bootenv";
+		reg = <0x01400000 0x40000>;
+	};
+	partition@0x01440000 {
+		label = "image";
+		reg = <0x01440000 0xBC0000>;
+	};
+};
+
+#define fmc_spi axi_spi
+#include "adi-fmcomms4.dtsi"
+
+&adc0_ad9364 {
+	en_agc-gpios = <&axi_gpio 12 8>;
+	sync-gpios = <&axi_gpio 13 8>;
+	reset-gpios = <&axi_gpio 14 8>;
+	enable-gpios = <&axi_gpio 15 8>;
+	txnrx-gpios = <&axi_gpio 16 8>;
+};
+

@@ -46,6 +46,12 @@ config FPGA_MGR_ZYNQ_FPGA
 	help
 	  FPGA manager driver support for Xilinx Zynq FPGAs.
 
+config FPGA_MGR_ZYNQMP_FPGA
+	tristate "Xilinx Zynqmp FPGA"
+	depends on ARCH_ZYNQMP || COMPILE_TEST
+	help
+	  FPGA manager driver support for Xilinx ZynqMp FPGAs.
+
 config FPGA_BRIDGE
 	tristate "FPGA Bridge Framework"
 	depends on OF
@@ -87,6 +93,13 @@ config ALTERA_PR_IP_CORE_PLAT
 	help
 	  Platform driver support for Altera Partial Reconfiguration IP
 	  component
+
+config XILINX_PR_DECOUPLER
+	tristate "Xilinx PR Decoupler"
+	depends on FPGA_BRIDGE
+	help
+	  Say Y to enable drivers for Xilinx PR Decoupler. For more information
+	  look at pg227.pdf.
 
 endif # FPGA
 

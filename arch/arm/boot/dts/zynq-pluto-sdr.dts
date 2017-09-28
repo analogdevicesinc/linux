@@ -1,0 +1,31 @@
+/dts-v1/;
+/include/ "zynq-pluto-sdr.dtsi"
+
+
+&axi_i2c0 {
+	current_limiter@5a {
+		compatible = "adi,adm1177";
+		reg = <0x5a>;
+		adi,r-sense-mohm = <50>; /* 50 mOhm */
+		adi,shutdown-threshold-ma = <1059>; /* 1.059 A */
+		adi,vrange-high-enable;
+	};
+};
+
+/ {
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio0 68 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+	};
+};

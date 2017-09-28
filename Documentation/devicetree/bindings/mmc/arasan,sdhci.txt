@@ -14,6 +14,7 @@ Required Properties:
     - "arasan,sdhci-4.9a": generic Arasan SDHCI 4.9a PHY
     - "arasan,sdhci-5.1": generic Arasan SDHCI 5.1 PHY
     - "rockchip,rk3399-sdhci-5.1", "arasan,sdhci-5.1": rk3399 eMMC PHY
+    - "xlnx,zynqmp-8.9a": Xilinx ZynqMP Arasan SDHCI 8.9a PHY
       For this device it is strongly suggested to include arasan,soc-ctl-syscon.
   - reg: From mmc bindings: Register location and length.
   - clocks: From clock bindings: Handles to clock inputs.
@@ -26,7 +27,15 @@ Required Properties for "arasan,sdhci-5.1":
   - phys: From PHY bindings: Phandle for the Generic PHY for arasan.
   - phy-names:  MUST be "phy_arasan".
 
+Required Properties for "xlnx,zynqmp-8.9a":
+  - xlnx,mio_bank: The value will be 0/1/2 depending on MIO bank selection.
+  - xlnx,device_id: Unique Id of the device, value will be 0/1.
+
 Optional Properties:
+  - broken-mmc-highspeed: Indicates to force
+				the controller to use in standard speed.
+  - broken-adma2: Indicates ADMA2 is broken and force the controller to
+		  use SDMA mode.
   - arasan,soc-ctl-syscon: A phandle to a syscon device (see ../mfd/syscon.txt)
     used to access core corecfg registers.  Offsets of registers in this
     syscon are determined based on the main compatible string for the device.
@@ -39,6 +48,12 @@ Optional Properties:
   - xlnx,fails-without-test-cd: when present, the controller doesn't work when
     the CD line is not connected properly, and the line is not connected
     properly. Test mode can be used to force the controller to function.
+ - pinctrl-0: pin control group to be used for this controller.
+ - pinctrl-names: must contain a "default" entry.
+
+Optional Properties for "xlnx,zynqmp-8.9a":
+ - nvmem-cells: list of phandle to the nvmem data cells.
+ - nvmem-cell-names: Names for the each nvmem-cells specified.
 
 Example:
 	sdhci@e0100000 {

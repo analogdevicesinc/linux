@@ -51,10 +51,6 @@ static int st_accel_buffer_postenable(struct iio_dev *indio_dev)
 	if (err < 0)
 		goto st_accel_buffer_postenable_error;
 
-	err = iio_triggered_buffer_postenable(indio_dev);
-	if (err < 0)
-		goto st_accel_buffer_postenable_error;
-
 	return err;
 
 st_accel_buffer_postenable_error:
@@ -67,10 +63,6 @@ static int st_accel_buffer_predisable(struct iio_dev *indio_dev)
 {
 	int err;
 	struct st_sensor_data *adata = iio_priv(indio_dev);
-
-	err = iio_triggered_buffer_predisable(indio_dev);
-	if (err < 0)
-		goto st_accel_buffer_predisable_error;
 
 	err = st_sensors_set_axis_enable(indio_dev, ST_SENSORS_ENABLE_ALL_AXIS);
 	if (err < 0)

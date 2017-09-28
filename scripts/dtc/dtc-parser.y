@@ -32,9 +32,8 @@ extern void yyerror(char const *s);
 		treesource_error = true; \
 	} while (0)
 
-extern struct boot_info *the_boot_info;
+extern struct dt_info *parser_output;
 extern bool treesource_error;
-extern unsigned int the_versionflags;
 %}
 
 %union {
@@ -75,9 +74,8 @@ extern unsigned int the_versionflags;
 
 %type <data> propdata
 %type <data> propdataprefix
-%type <flags> versioninfo
-%type <flags> plugindecl
-%type <flags> oldplugindecl
+%type <flags> header
+%type <flags> headers
 %type <re> memreserve
 %type <re> memreserves
 %type <array> arrayprefix
@@ -108,42 +106,31 @@ extern unsigned int the_versionflags;
 %%
 
 sourcefile:
-	  versioninfo ';' oldplugindecl memreserves devicetree
+	  headers memreserves devicetree
 		{
-			the_boot_info = build_boot_info($1 | $3, $4, $5,
-							guess_boot_cpuid($5));
+			parser_output = build_dt_info($1, $2, $3,
+			                              guess_boot_cpuid($3));
 		}
 	;
 
-versioninfo:
-	DT_V1 plugindecl
+header:
+	  DT_V1 ';'
 		{
-			the_versionflags |= VF_DT_V1 | $2;
-			$$ = the_versionflags;
+			$$ = DTSF_V1;
+		}
+	| DT_V1 ';' DT_PLUGIN ';'
+		{
+			$$ = DTSF_V1 | DTSF_PLUGIN;
 		}
 	;
 
-plugindecl:
-	DT_PLUGIN
+headers:
+	  header
+	| header headers
 		{
-			the_versionflags |= VF_PLUGIN;
-			$$ = VF_PLUGIN;
-		}
-	| /* empty */
-		{
-			$$ = 0;
-		}
-	;
-
-oldplugindecl:
-	DT_PLUGIN ';'
-		{
-			the_versionflags |= VF_PLUGIN;
-			$$ = VF_PLUGIN;
-		}
-	| /* empty */
-		{
-			$$ = 0;
+			if ($2 != $1)
+				ERROR(&@2, "Header flags don't match earlier ones");
+			$$ = $1;
 		}
 	;
 
@@ -184,10 +171,10 @@ devicetree:
 		{
 			struct node *target = get_node_by_ref($1, $3);
 
-			add_label(&target->labels, $2);
-			if (target)
+			if (target) {
+				add_label(&target->labels, $2);
 				merge_nodes(target, $4);
-			else
+			} else
 				ERROR(&@3, "Label or path %s not found", $3);
 			$$ = $1;
 		}
@@ -195,14 +182,10 @@ devicetree:
 		{
 			struct node *target = get_node_by_ref($1, $2);
 
-			if (target) {
+			if (target)
 				merge_nodes(target, $3);
-			} else {
-				if (the_versionflags & VF_PLUGIN)
-					add_orphan_node($1, $3, $2);
-				else
-					ERROR(&@2, "Label or path %s not found", $2);
-			}
+			else
+				ERROR(&@2, "Label or path %s not found", $2);
 			$$ = $1;
 		}
 	| devicetree DT_DEL_NODE DT_REF ';'
@@ -216,11 +199,6 @@ devicetree:
 
 
 			$$ = $1;
-		}
-	| /* empty */
-		{
-			/* build empty node */
-			$$ = name_node(build_node(NULL, NULL), "");
 		}
 	;
 

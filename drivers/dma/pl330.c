@@ -1165,6 +1165,7 @@ static inline int _ldst_devtomem(struct pl330_dmac *pl330, unsigned dry_run,
 	else
 		cond = SINGLE;
 
+	off += _emit_FLUSHP(dry_run, &buf[off], pxs->desc->peri);
 	while (cyc--) {
 		off += _emit_WFP(dry_run, &buf[off], cond, pxs->desc->peri);
 		off += _emit_LDP(dry_run, &buf[off], cond, pxs->desc->peri);
@@ -1190,6 +1191,7 @@ static inline int _ldst_memtodev(struct pl330_dmac *pl330,
 	else
 		cond = SINGLE;
 
+	off += _emit_FLUSHP(dry_run, &buf[off], pxs->desc->peri);
 	while (cyc--) {
 		off += _emit_WFP(dry_run, &buf[off], cond, pxs->desc->peri);
 		off += _emit_LD(dry_run, &buf[off], ALWAYS);

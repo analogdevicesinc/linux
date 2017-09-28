@@ -18,6 +18,7 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <linux/kernel.h>
 #include <linux/firmware.h>
 #include <linux/fpga/fpga-mgr.h>
 #include <linux/idr.h>
@@ -40,7 +41,8 @@ static struct class *fpga_mgr_class;
  * Step the low level fpga manager through the device-specific steps of getting
  * an FPGA ready to be configured, writing the image to it, then doing whatever
  * post-configuration steps necessary.  This code assumes the caller got the
- * mgr pointer from of_fpga_mgr_get() and checked that it is not an error code.
+ * mgr pointer from of_fpga_mgr_get() or fpga_mgr_get() and checked that it is
+ * not an error code.
  *
  * Return: 0 on success, negative error code otherwise.
  */
@@ -100,7 +102,8 @@ EXPORT_SYMBOL_GPL(fpga_mgr_buf_load);
  * Request an FPGA image using the firmware class, then write out to the FPGA.
  * Update the state before each step to provide info on what step failed if
  * there is a failure.  This code assumes the caller got the mgr pointer
- * from of_fpga_mgr_get() and checked that it is not an error code.
+ * from of_fpga_mgr_get() or fpga_mgr_get() and checked that it is not an error
+ * code.
  *
  * Return: 0 on success, negative error code otherwise.
  */
@@ -130,6 +133,50 @@ int fpga_mgr_firmware_load(struct fpga_manager *mgr,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(fpga_mgr_firmware_load);
+
+int fpga_mgr_signature_load(struct fpga_manager *mgr,
+				const char *image_name)
+{
+	struct device *dev = &mgr->dev;
+	const struct firmware *fw;
+	int ret;
+
+	dev_info(dev, "Loading %s to %s\n", image_name, mgr->name);
+
+	ret = request_firmware(&fw, image_name, dev);
+	if (ret) {
+		dev_err(dev, "Error requesting firmware %s\n", image_name);
+		return ret;
+	}
+
+	memcpy(mgr->signature, fw->data, fw->size);
+
+	release_firmware(fw);
+
+	return ret;
+}
+
+int fpga_mgr_pubkey_load(struct fpga_manager *mgr,
+				const char *image_name)
+{
+	struct device *dev = &mgr->dev;
+	const struct firmware *fw;
+	int ret;
+
+	dev_info(dev, "Loading %s to %s\n", image_name, mgr->name);
+
+	ret = request_firmware(&fw, image_name, dev);
+	if (ret) {
+		dev_err(dev, "Error requesting firmware %s\n", image_name);
+		return ret;
+	}
+
+	memcpy(mgr->pubkey, fw->data, fw->size);
+
+	release_firmware(fw);
+
+	return ret;
+}
 
 static const char * const state_str[] = {
 	[FPGA_MGR_STATE_UNKNOWN] =		"unknown",
@@ -173,39 +220,164 @@ static ssize_t state_show(struct device *dev,
 	return sprintf(buf, "%s\n", state_str[mgr->state]);
 }
 
+static ssize_t firmware_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+	unsigned int len;
+	char image_name[NAME_MAX];
+	int ret;
+
+	/* struct with information about the FPGA image to program. */
+	struct fpga_image_info info;
+
+	/* flags indicates whether to do full or partial reconfiguration */
+	info.flags = 0;
+
+	/* lose terminating \n */
+	strcpy(image_name, buf);
+	len = strlen(image_name);
+	if (image_name[len - 1] == '\n')
+		image_name[len - 1] = 0;
+
+	ret = fpga_mgr_firmware_load(mgr, &info, image_name);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static ssize_t signature_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+	unsigned int len;
+	char image_name[NAME_MAX];
+	int ret;
+
+	/* lose terminating \n */
+	strcpy(image_name, buf);
+	len = strlen(image_name);
+	if (image_name[len - 1] == '\n')
+		image_name[len - 1] = 0;
+
+	ret = fpga_mgr_signature_load(mgr, image_name);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static ssize_t pubkey_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+	unsigned int len;
+	char image_name[NAME_MAX];
+	int ret;
+
+	/* lose terminating \n */
+	strcpy(image_name, buf);
+	len = strlen(image_name);
+	if (image_name[len - 1] == '\n')
+		image_name[len - 1] = 0;
+
+	ret = fpga_mgr_pubkey_load(mgr, image_name);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static ssize_t key_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+
+	return snprintf(buf, ENCRYPTED_KEY_LEN + 1, "%s\n", mgr->key);
+}
+
+static ssize_t key_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+
+	memcpy(mgr->key, buf, count);
+
+	return count;
+}
+
+static ssize_t iv_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+
+	return snprintf(buf, ENCRYPTED_IV_LEN + 1, "%s\r\n", mgr->iv);
+}
+
+static ssize_t iv_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+
+	memcpy(mgr->iv, buf, count);
+
+	return count;
+}
+
+static ssize_t flags_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+
+	return sprintf(buf, "%lx\n", mgr->flags);
+}
+
+static ssize_t flags_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct fpga_manager *mgr = to_fpga_manager(dev);
+	int ret;
+
+	ret = kstrtol(buf, 16, &mgr->flags);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
 static DEVICE_ATTR_RO(name);
 static DEVICE_ATTR_RO(state);
+static DEVICE_ATTR_WO(firmware);
+static DEVICE_ATTR_WO(signature);
+static DEVICE_ATTR_WO(pubkey);
+static DEVICE_ATTR_RW(flags);
+static DEVICE_ATTR_RW(key);
+static DEVICE_ATTR_RW(iv);
 
 static struct attribute *fpga_mgr_attrs[] = {
 	&dev_attr_name.attr,
 	&dev_attr_state.attr,
+	&dev_attr_firmware.attr,
+	&dev_attr_signature.attr,
+	&dev_attr_pubkey.attr,
+	&dev_attr_flags.attr,
+	&dev_attr_key.attr,
+	&dev_attr_iv.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(fpga_mgr);
 
-static int fpga_mgr_of_node_match(struct device *dev, const void *data)
-{
-	return dev->of_node == data;
-}
-
-/**
- * of_fpga_mgr_get - get an exclusive reference to a fpga mgr
- * @node:	device node
- *
- * Given a device node, get an exclusive reference to a fpga mgr.
- *
- * Return: fpga manager struct or IS_ERR() condition containing error code.
- */
-struct fpga_manager *of_fpga_mgr_get(struct device_node *node)
+struct fpga_manager *__fpga_mgr_get(struct device *dev)
 {
 	struct fpga_manager *mgr;
-	struct device *dev;
 	int ret = -ENODEV;
-
-	dev = class_find_device(fpga_mgr_class, NULL, node,
-				fpga_mgr_of_node_match);
-	if (!dev)
-		return ERR_PTR(-ENODEV);
 
 	mgr = to_fpga_manager(dev);
 	if (!mgr)
@@ -227,6 +399,55 @@ err_ll_mod:
 err_dev:
 	put_device(dev);
 	return ERR_PTR(ret);
+}
+
+static int fpga_mgr_dev_match(struct device *dev, const void *data)
+{
+	return dev->parent == data;
+}
+
+/**
+ * fpga_mgr_get - get an exclusive reference to a fpga mgr
+ * @dev:	parent device that fpga mgr was registered with
+ *
+ * Given a device, get an exclusive reference to a fpga mgr.
+ *
+ * Return: fpga manager struct or IS_ERR() condition containing error code.
+ */
+struct fpga_manager *fpga_mgr_get(struct device *dev)
+{
+	struct device *mgr_dev = class_find_device(fpga_mgr_class, NULL, dev,
+						   fpga_mgr_dev_match);
+	if (!mgr_dev)
+		return ERR_PTR(-ENODEV);
+
+	return __fpga_mgr_get(mgr_dev);
+}
+EXPORT_SYMBOL_GPL(fpga_mgr_get);
+
+static int fpga_mgr_of_node_match(struct device *dev, const void *data)
+{
+	return dev->of_node == data;
+}
+
+/**
+ * of_fpga_mgr_get - get an exclusive reference to a fpga mgr
+ * @node:	device node
+ *
+ * Given a device node, get an exclusive reference to a fpga mgr.
+ *
+ * Return: fpga manager struct or IS_ERR() condition containing error code.
+ */
+struct fpga_manager *of_fpga_mgr_get(struct device_node *node)
+{
+	struct device *dev;
+
+	dev = class_find_device(fpga_mgr_class, NULL, node,
+				fpga_mgr_of_node_match);
+	if (!dev)
+		return ERR_PTR(-ENODEV);
+
+	return __fpga_mgr_get(dev);
 }
 EXPORT_SYMBOL_GPL(of_fpga_mgr_get);
 
