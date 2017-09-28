@@ -19,6 +19,9 @@
 
 #include "cf_axi_adc.h"
 
+#define ADI_REG_CORRECTION_ENABLE 0x48
+#define ADI_REG_CORRECTION_COEFFICIENT(x) (0x4c + (x) * 4)
+
 struct adc_chip_info {
 	bool has_frontend;
 	const struct iio_chan_spec *channels;
@@ -262,8 +265,9 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		*val = st->oversampling_ratio;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_CALIBSCALE:
-		reg = ioread32(st->regs + ADI_REG_CHAN_CNTRL_2(chan->channel));
-		reg >>= 16;
+		if (!st->slave_regs)
+			return -EINVAL;
+		reg = ioread32(st->slave_regs + ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
 		return cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 	default:
 		break;
@@ -303,9 +307,18 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		iowrite32(val - 1, st->slave_regs + 0x40);
 		return 0;
 	case IIO_CHAN_INFO_CALIBSCALE:
+		if (!st->slave_regs)
+			return -EINVAL;
+
+		reg = ioread32(st->slave_regs + ADI_REG_CORRECTION_ENABLE);
+		if (val == 1 && val2 == 0)
+			reg &= ~BIT(chan->channel);
+		else
+			reg |= BIT(chan->channel);
+		iowrite32(reg, st->slave_regs + ADI_REG_CORRECTION_ENABLE);
+
 		reg = cf_axi_dds_to_signed_mag_fmt(val, val2);
-		reg <<= 16;
-		iowrite32(reg, st->regs + ADI_REG_CHAN_CNTRL_2(chan->channel));
+		iowrite32(reg, st->slave_regs + ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
 		return 0;
 	default:
 		break;
@@ -495,9 +508,15 @@ static int adc_probe(struct platform_device *pdev)
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (mem) {
+		unsigned int val;
+
 		st->slave_regs = devm_ioremap_resource(&pdev->dev, mem);
 		if (IS_ERR(st->slave_regs))
 			return PTR_ERR(st->slave_regs);
+
+		val = cf_axi_dds_to_signed_mag_fmt(1, 0);
+		iowrite32(val, st->slave_regs + ADI_REG_CORRECTION_COEFFICIENT(0));
+		iowrite32(val, st->slave_regs + ADI_REG_CORRECTION_COEFFICIENT(1));
 	}
 
 	platform_set_drvdata(pdev, indio_dev);
