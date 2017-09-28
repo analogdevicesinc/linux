@@ -27,6 +27,7 @@
 #define M2K_LA_REG_GPI			0x3c
 #define M2K_LA_REG_OUTPUT_MODE		0x40
 #define M2K_LA_REG_TRIGGER_DELAY	0x44
+#define M2K_LA_REG_TRIGGERED		0x48
 
 #define M2K_LA_TRIGGER_EDGE_ANY		0
 #define M2K_LA_TRIGGER_EDGE_RISING	1
@@ -300,6 +301,34 @@ static ssize_t m2k_la_get_trigger_delay(struct iio_dev *indio_dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", m2k_la->trigger_delay);
 }
 
+static ssize_t m2k_la_set_triggered(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, const char *buf,
+	size_t len)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGERED, val);
+
+	return len;
+}
+
+static ssize_t m2k_la_get_triggered(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+
+	val = m2k_la_read(m2k_la, M2K_LA_REG_TRIGGERED) & 1;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
 static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
 	IIO_ENUM("trigger", IIO_SEPARATE, &m2k_la_trigger_enum),
 	IIO_ENUM_AVAILABLE("trigger", &m2k_la_trigger_enum),
@@ -312,6 +341,12 @@ static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
 		.shared = IIO_SHARED_BY_TYPE,
 		.write = m2k_la_set_trigger_delay,
 		.read = m2k_la_get_trigger_delay,
+	},
+	{
+		.name = "triggered",
+		.shared = IIO_SHARED_BY_ALL,
+		.read = m2k_la_get_triggered,
+		.write = m2k_la_set_triggered,
 	},
 	{}
 };
