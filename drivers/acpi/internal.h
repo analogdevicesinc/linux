@@ -37,6 +37,7 @@ void acpi_amba_init(void);
 static inline void acpi_amba_init(void) {}
 #endif
 int acpi_sysfs_init(void);
+void acpi_gpe_apply_masked_gpes(void);
 void acpi_container_init(void);
 void acpi_memory_hotplug_init(void);
 #ifdef	CONFIG_ACPI_HOTPLUG_IOAPIC
@@ -171,8 +172,8 @@ struct acpi_ec {
 	struct work_struct work;
 	unsigned long timestamp;
 	unsigned long nr_pending_queries;
-	bool saved_busy_polling;
-	unsigned int saved_polling_guard;
+	bool busy_polling;
+	unsigned int polling_guard;
 };
 
 extern struct acpi_ec *first_ec;
@@ -184,7 +185,6 @@ typedef int (*acpi_ec_query_func) (void *data);
 int acpi_ec_init(void);
 int acpi_ec_ecdt_probe(void);
 int acpi_ec_dsdt_probe(void);
-int acpi_ec_ecdt_start(void);
 void acpi_ec_block_transactions(void);
 void acpi_ec_unblock_transactions(void);
 int acpi_ec_add_query_handler(struct acpi_ec *ec, u8 query_bit,

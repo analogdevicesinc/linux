@@ -41,6 +41,13 @@ config MTD_SM_COMMON
 	tristate
 	default n
 
+config MTD_NAND_BCM2835_SMI
+        tristate "Use Broadcom's Secondary Memory Interface as a NAND controller (BCM283x)"
+        depends on BCM2835_SMI
+        default m
+        help
+	  Uses the BCM2835's SMI peripheral as a NAND controller.
+
 config MTD_NAND_DENALI
 	tristate
 
@@ -545,7 +552,7 @@ config MTD_NAND_FSMC
 	  Flexible Static Memory Controller (FSMC)
 
 config MTD_NAND_XWAY
-	tristate "Support for NAND on Lantiq XWAY SoC"
+	bool "Support for NAND on Lantiq XWAY SoC"
 	depends on LANTIQ && SOC_TYPE_XWAY
 	help
 	  Enables support for NAND Flash chips on Lantiq XWAY SoCs. NAND is attached

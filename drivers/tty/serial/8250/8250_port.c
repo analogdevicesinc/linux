@@ -1320,7 +1320,7 @@ out_lock:
 	/*
 	 * Check if the device is a Fintek F81216A
 	 */
-	if (port->type == PORT_16550A)
+	if (port->type == PORT_16550A && port->iotype == UPIO_PORT)
 		fintek_8250_probe(up);
 
 	if (up->capabilities != old_capabilities) {
@@ -1411,7 +1411,7 @@ static void __do_stop_tx_rs485(struct uart_8250_port *p)
 	 * Enable previously disabled RX interrupts.
 	 */
 	if (!(p->port.rs485.flags & SER_RS485_RX_DURING_TX)) {
-		serial8250_clear_fifos(p);
+		serial8250_clear_and_reinit_fifos(p);
 
 		p->ier |= UART_IER_RLSI | UART_IER_RDI;
 		serial_port_out(&p->port, UART_IER, p->ier);
@@ -1745,6 +1745,10 @@ void serial8250_tx_chars(struct uart_8250_port *up)
 			break;
 		if ((up->capabilities & UART_CAP_HFIFO) &&
 		    (serial_in(up, UART_LSR) & BOTH_EMPTY) != BOTH_EMPTY)
+			break;
+		/* The BCM2835 MINI UART THRE bit is really a not-full bit. */
+		if ((up->capabilities & UART_CAP_MINI) &&
+		    !(serial_in(up, UART_LSR) & UART_LSR_THRE))
 			break;
 	} while (--count > 0);
 
@@ -2558,6 +2562,12 @@ serial8250_do_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned long flags;
 	unsigned int baud, quot, frac = 0;
 
+	if (up->capabilities & UART_CAP_MINI) {
+		termios->c_cflag &= ~(CSTOPB | PARENB | PARODD | CMSPAR);
+		if ((termios->c_cflag & CSIZE) == CS5 ||
+		    (termios->c_cflag & CSIZE) == CS6)
+			termios->c_cflag = (termios->c_cflag & ~CSIZE) | CS7;
+	}
 	cval = serial8250_compute_lcr(up, termios->c_cflag);
 
 	baud = serial8250_get_baud_rate(port, termios, old);

@@ -61,23 +61,28 @@ static int vc4_get_param_ioctl(struct drm_device *dev, void *data,
 		if (ret < 0)
 			return ret;
 		args->value = V3D_READ(V3D_IDENT0);
-		pm_runtime_put(&vc4->v3d->pdev->dev);
+		pm_runtime_mark_last_busy(&vc4->v3d->pdev->dev);
+		pm_runtime_put_autosuspend(&vc4->v3d->pdev->dev);
 		break;
 	case DRM_VC4_PARAM_V3D_IDENT1:
 		ret = pm_runtime_get_sync(&vc4->v3d->pdev->dev);
 		if (ret < 0)
 			return ret;
 		args->value = V3D_READ(V3D_IDENT1);
-		pm_runtime_put(&vc4->v3d->pdev->dev);
+		pm_runtime_mark_last_busy(&vc4->v3d->pdev->dev);
+		pm_runtime_put_autosuspend(&vc4->v3d->pdev->dev);
 		break;
 	case DRM_VC4_PARAM_V3D_IDENT2:
 		ret = pm_runtime_get_sync(&vc4->v3d->pdev->dev);
 		if (ret < 0)
 			return ret;
 		args->value = V3D_READ(V3D_IDENT2);
-		pm_runtime_put(&vc4->v3d->pdev->dev);
+		pm_runtime_mark_last_busy(&vc4->v3d->pdev->dev);
+		pm_runtime_put_autosuspend(&vc4->v3d->pdev->dev);
 		break;
 	case DRM_VC4_PARAM_SUPPORTS_BRANCHES:
+	case DRM_VC4_PARAM_SUPPORTS_ETC1:
+	case DRM_VC4_PARAM_SUPPORTS_THREADED_FS:
 		args->value = true;
 		break;
 	default:
@@ -119,6 +124,9 @@ static const struct drm_ioctl_desc vc4_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(VC4_GET_HANG_STATE, vc4_get_hang_state_ioctl,
 			  DRM_ROOT_ONLY),
 	DRM_IOCTL_DEF_DRV(VC4_GET_PARAM, vc4_get_param_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(VC4_SET_TILING, vc4_set_tiling_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(VC4_GET_TILING, vc4_get_tiling_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(VC4_LABEL_BO, vc4_label_bo_ioctl, DRM_RENDER_ALLOW),
 };
 
 static struct drm_driver vc4_drm_driver = {
@@ -239,7 +247,9 @@ static int vc4_drm_bind(struct device *dev)
 	vc4->dev = drm;
 	drm->dev_private = vc4;
 
-	vc4_bo_cache_init(drm);
+	ret = vc4_bo_cache_init(drm);
+	if (ret)
+		goto dev_unref;
 
 	drm_mode_config_init(drm);
 
@@ -263,8 +273,9 @@ unbind_all:
 	component_unbind_all(dev, drm);
 gem_destroy:
 	vc4_gem_destroy(drm);
-	drm_dev_unref(drm);
 	vc4_bo_cache_destroy(drm);
+dev_unref:
+	drm_dev_unref(drm);
 	return ret;
 }
 
@@ -289,9 +300,12 @@ static const struct component_master_ops vc4_drm_ops = {
 
 static struct platform_driver *const component_drivers[] = {
 	&vc4_hdmi_driver,
+	&vc4_vec_driver,
 	&vc4_dpi_driver,
+	&vc4_dsi_driver,
 	&vc4_hvs_driver,
 	&vc4_crtc_driver,
+	&vc4_firmware_kms_driver,
 	&vc4_v3d_driver,
 };
 

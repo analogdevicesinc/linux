@@ -83,8 +83,7 @@ struct vc4_crtc_data {
 	/* Which channel of the HVS this pixelvalve sources from. */
 	int hvs_channel;
 
-	enum vc4_encoder_type encoder0_type;
-	enum vc4_encoder_type encoder1_type;
+	enum vc4_encoder_type encoder_types[4];
 };
 
 #define CRTC_WRITE(offset, val) writel(val, vc4_crtc->regs + (offset))
@@ -162,6 +161,9 @@ int vc4_crtc_get_scanoutpos(struct drm_device *dev, unsigned int crtc_id,
 	int fifo_lines;
 	int vblank_lines;
 	int ret = 0;
+
+	if (vc4->firmware_kms)
+		return 0;
 
 	/* preempt_disable_rt() should go right here in PREEMPT_RT patchset. */
 
@@ -350,38 +352,40 @@ static u32 vc4_get_fifo_full_level(u32 format)
 }
 
 /*
- * Returns the clock select bit for the connector attached to the
- * CRTC.
+ * Returns the encoder attached to the CRTC.
+ *
+ * VC4 can only scan out to one encoder at a time, while the DRM core
+ * allows drivers to push pixels to more than one encoder from the
+ * same CRTC.
  */
-static int vc4_get_clock_select(struct drm_crtc *crtc)
+static struct drm_encoder *vc4_get_crtc_encoder(struct drm_crtc *crtc)
 {
 	struct drm_connector *connector;
 
 	drm_for_each_connector(connector, crtc->dev) {
 		if (connector->state->crtc == crtc) {
-			struct drm_encoder *encoder = connector->encoder;
-			struct vc4_encoder *vc4_encoder =
-				to_vc4_encoder(encoder);
-
-			return vc4_encoder->clock_select;
+			return connector->encoder;
 		}
 	}
 
-	return -1;
+	return NULL;
 }
 
 static void vc4_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct vc4_dev *vc4 = to_vc4_dev(dev);
+	struct drm_encoder *encoder = vc4_get_crtc_encoder(crtc);
+	struct vc4_encoder *vc4_encoder = to_vc4_encoder(encoder);
 	struct vc4_crtc *vc4_crtc = to_vc4_crtc(crtc);
 	struct drm_crtc_state *state = crtc->state;
 	struct drm_display_mode *mode = &state->adjusted_mode;
 	bool interlace = mode->flags & DRM_MODE_FLAG_INTERLACE;
 	u32 pixel_rep = (mode->flags & DRM_MODE_FLAG_DBLCLK) ? 2 : 1;
-	u32 format = PV_CONTROL_FORMAT_24;
+	bool is_dsi = (vc4_encoder->type == VC4_ENCODER_TYPE_DSI0 ||
+		       vc4_encoder->type == VC4_ENCODER_TYPE_DSI1);
+	u32 format = is_dsi ? PV_CONTROL_FORMAT_DSIV_24 : PV_CONTROL_FORMAT_24;
 	bool debug_dump_regs = false;
-	int clock_select = vc4_get_clock_select(crtc);
 
 	if (debug_dump_regs) {
 		DRM_INFO("CRTC %d regs before:\n", drm_crtc_index(crtc));
@@ -437,16 +441,18 @@ static void vc4_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		 */
 		CRTC_WRITE(PV_V_CONTROL,
 			   PV_VCONTROL_CONTINUOUS |
+			   (is_dsi ? PV_VCONTROL_DSI : 0) |
 			   PV_VCONTROL_INTERLACE |
 			   VC4_SET_FIELD(mode->htotal * pixel_rep / 2,
 					 PV_VCONTROL_ODD_DELAY));
 		CRTC_WRITE(PV_VSYNCD_EVEN, 0);
 	} else {
-		CRTC_WRITE(PV_V_CONTROL, PV_VCONTROL_CONTINUOUS);
+		CRTC_WRITE(PV_V_CONTROL,
+			   PV_VCONTROL_CONTINUOUS |
+			   (is_dsi ? PV_VCONTROL_DSI : 0));
 	}
 
 	CRTC_WRITE(PV_HACT_ACT, mode->hdisplay * pixel_rep);
-
 
 	CRTC_WRITE(PV_CONTROL,
 		   VC4_SET_FIELD(format, PV_CONTROL_FORMAT) |
@@ -456,7 +462,8 @@ static void vc4_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		   PV_CONTROL_CLR_AT_START |
 		   PV_CONTROL_TRIGGER_UNDERFLOW |
 		   PV_CONTROL_WAIT_HSTART |
-		   VC4_SET_FIELD(clock_select, PV_CONTROL_CLK_SELECT) |
+		   VC4_SET_FIELD(vc4_encoder->clock_select,
+				 PV_CONTROL_CLK_SELECT) |
 		   PV_CONTROL_FIFO_CLR |
 		   PV_CONTROL_EN);
 
@@ -656,6 +663,11 @@ int vc4_enable_vblank(struct drm_device *dev, unsigned int crtc_id)
 	struct vc4_dev *vc4 = to_vc4_dev(dev);
 	struct vc4_crtc *vc4_crtc = vc4->crtc[crtc_id];
 
+	if (vc4->firmware_kms) {
+		/* XXX: Can we mask the SMI interrupt? */
+		return 0;
+	}
+
 	CRTC_WRITE(PV_INTEN, PV_INT_VFP_START);
 
 	return 0;
@@ -666,7 +678,20 @@ void vc4_disable_vblank(struct drm_device *dev, unsigned int crtc_id)
 	struct vc4_dev *vc4 = to_vc4_dev(dev);
 	struct vc4_crtc *vc4_crtc = vc4->crtc[crtc_id];
 
+	if (vc4->firmware_kms) {
+		/* XXX: Can we mask the SMI interrupt? */
+		return;
+	}
+
 	CRTC_WRITE(PV_INTEN, 0);
+}
+
+/* Must be called with the event lock held */
+bool vc4_event_pending(struct drm_crtc *crtc)
+{
+	struct vc4_crtc *vc4_crtc = to_vc4_crtc(crtc);
+
+	return !!vc4_crtc->event;
 }
 
 static void vc4_crtc_handle_page_flip(struct vc4_crtc *vc4_crtc)
@@ -832,7 +857,18 @@ static void vc4_crtc_destroy_state(struct drm_crtc *crtc,
 
 	}
 
-	__drm_atomic_helper_crtc_destroy_state(state);
+	drm_atomic_helper_crtc_destroy_state(crtc, state);
+}
+
+static void
+vc4_crtc_reset(struct drm_crtc *crtc)
+{
+	if (crtc->state)
+		__drm_atomic_helper_crtc_destroy_state(crtc->state);
+
+	crtc->state = kzalloc(sizeof(struct vc4_crtc_state), GFP_KERNEL);
+	if (crtc->state)
+		crtc->state->crtc = crtc;
 }
 
 static const struct drm_crtc_funcs vc4_crtc_funcs = {
@@ -842,7 +878,7 @@ static const struct drm_crtc_funcs vc4_crtc_funcs = {
 	.set_property = NULL,
 	.cursor_set = NULL, /* handled by drm_mode_cursor_universal */
 	.cursor_move = NULL, /* handled by drm_mode_cursor_universal */
-	.reset = drm_atomic_helper_crtc_reset,
+	.reset = vc4_crtc_reset,
 	.atomic_duplicate_state = vc4_crtc_duplicate_state,
 	.atomic_destroy_state = vc4_crtc_destroy_state,
 	.gamma_set = vc4_crtc_gamma_set,
@@ -859,20 +895,26 @@ static const struct drm_crtc_helper_funcs vc4_crtc_helper_funcs = {
 
 static const struct vc4_crtc_data pv0_data = {
 	.hvs_channel = 0,
-	.encoder0_type = VC4_ENCODER_TYPE_DSI0,
-	.encoder1_type = VC4_ENCODER_TYPE_DPI,
+	.encoder_types = {
+		[PV_CONTROL_CLK_SELECT_DSI] = VC4_ENCODER_TYPE_DSI0,
+		[PV_CONTROL_CLK_SELECT_DPI_SMI_HDMI] = VC4_ENCODER_TYPE_DPI,
+	},
 };
 
 static const struct vc4_crtc_data pv1_data = {
 	.hvs_channel = 2,
-	.encoder0_type = VC4_ENCODER_TYPE_DSI1,
-	.encoder1_type = VC4_ENCODER_TYPE_SMI,
+	.encoder_types = {
+		[PV_CONTROL_CLK_SELECT_DSI] = VC4_ENCODER_TYPE_DSI1,
+		[PV_CONTROL_CLK_SELECT_DPI_SMI_HDMI] = VC4_ENCODER_TYPE_SMI,
+	},
 };
 
 static const struct vc4_crtc_data pv2_data = {
 	.hvs_channel = 1,
-	.encoder0_type = VC4_ENCODER_TYPE_VEC,
-	.encoder1_type = VC4_ENCODER_TYPE_HDMI,
+	.encoder_types = {
+		[PV_CONTROL_CLK_SELECT_DPI_SMI_HDMI] = VC4_ENCODER_TYPE_HDMI,
+		[PV_CONTROL_CLK_SELECT_VEC] = VC4_ENCODER_TYPE_VEC,
+	},
 };
 
 static const struct of_device_id vc4_crtc_dt_match[] = {
@@ -886,17 +928,20 @@ static void vc4_set_crtc_possible_masks(struct drm_device *drm,
 					struct drm_crtc *crtc)
 {
 	struct vc4_crtc *vc4_crtc = to_vc4_crtc(crtc);
+	const struct vc4_crtc_data *crtc_data = vc4_crtc->data;
+	const enum vc4_encoder_type *encoder_types = crtc_data->encoder_types;
 	struct drm_encoder *encoder;
 
 	drm_for_each_encoder(encoder, drm) {
 		struct vc4_encoder *vc4_encoder = to_vc4_encoder(encoder);
+		int i;
 
-		if (vc4_encoder->type == vc4_crtc->data->encoder0_type) {
-			vc4_encoder->clock_select = 0;
-			encoder->possible_crtcs |= drm_crtc_mask(crtc);
-		} else if (vc4_encoder->type == vc4_crtc->data->encoder1_type) {
-			vc4_encoder->clock_select = 1;
-			encoder->possible_crtcs |= drm_crtc_mask(crtc);
+		for (i = 0; i < ARRAY_SIZE(crtc_data->encoder_types); i++) {
+			if (vc4_encoder->type == encoder_types[i]) {
+				vc4_encoder->clock_select = i;
+				encoder->possible_crtcs |= drm_crtc_mask(crtc);
+				break;
+			}
 		}
 	}
 }

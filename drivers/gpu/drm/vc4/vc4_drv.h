@@ -9,14 +9,37 @@
 #include "drmP.h"
 #include "drm_gem_cma_helper.h"
 
+/* Don't forget to update vc4_bo.c: bo_type_names[] when adding to
+ * this.
+ */
+enum vc4_kernel_bo_type {
+	/* Any kernel allocation (gem_create_object hook) before it
+	 * gets another type set.
+	 */
+	VC4_BO_TYPE_KERNEL,
+	VC4_BO_TYPE_V3D,
+	VC4_BO_TYPE_V3D_SHADER,
+	VC4_BO_TYPE_DUMB,
+	VC4_BO_TYPE_BIN,
+	VC4_BO_TYPE_RCL,
+	VC4_BO_TYPE_BCL,
+	VC4_BO_TYPE_KERNEL_CACHE,
+	VC4_BO_TYPE_COUNT
+};
+
 struct vc4_dev {
 	struct drm_device *dev;
+
+	bool firmware_kms;
+	struct rpi_firmware *firmware;
 
 	struct vc4_hdmi *hdmi;
 	struct vc4_hvs *hvs;
 	struct vc4_crtc *crtc[3];
 	struct vc4_v3d *v3d;
 	struct vc4_dpi *dpi;
+	struct vc4_dsi *dsi1;
+	struct vc4_vec *vec;
 
 	struct drm_fbdev_cma *fbdev;
 
@@ -43,14 +66,14 @@ struct vc4_dev {
 		struct timer_list time_timer;
 	} bo_cache;
 
-	struct vc4_bo_stats {
+	u32 num_labels;
+	struct vc4_label {
+		const char *name;
 		u32 num_allocated;
 		u32 size_allocated;
-		u32 num_cached;
-		u32 size_cached;
-	} bo_stats;
+	} *bo_labels;
 
-	/* Protects bo_cache and the BO stats. */
+	/* Protects bo_cache and bo_labels. */
 	struct mutex bo_lock;
 
 	/* Sequence number for the last job queued in bin_job_list.
@@ -92,12 +115,23 @@ struct vc4_dev {
 	 */
 	struct list_head seqno_cb_list;
 
-	/* The binner overflow memory that's currently set up in
-	 * BPOA/BPOS registers.  When overflow occurs and a new one is
-	 * allocated, the previous one will be moved to
-	 * vc4->current_exec's free list.
+	/* The memory used for storing binner tile alloc, tile state,
+	 * and overflow memory allocations.  This is freed when V3D
+	 * powers down.
 	 */
-	struct vc4_bo *overflow_mem;
+	struct vc4_bo *bin_bo;
+
+	/* Size of blocks allocated within bin_bo. */
+	uint32_t bin_alloc_size;
+
+	/* Bitmask of the bin_alloc_size chunks in bin_bo that are
+	 * used.
+	 */
+	uint32_t bin_alloc_used;
+
+	/* Bitmask of the current bin_alloc used for overflow memory. */
+	uint32_t bin_alloc_overflow;
+
 	struct work_struct overflow_mem_work;
 
 	int power_refcount;
@@ -132,6 +166,8 @@ struct vc4_bo {
 	 */
 	uint64_t write_seqno;
 
+	bool t_format;
+
 	/* List entry for the BO's position in either
 	 * vc4_exec_info->unref_list or vc4_dev->bo_cache.time_list
 	 */
@@ -147,6 +183,11 @@ struct vc4_bo {
 	 * DRM_IOCTL_VC4_CREATE_SHADER_BO.
 	 */
 	struct vc4_validated_shader_info *validated_shader;
+
+	/* One of enum vc4_kernel_bo_type, or VC4_BO_TYPE_COUNT + i
+	 * for user-allocated labels.
+	 */
+	int label;
 };
 
 static inline struct vc4_bo *
@@ -194,6 +235,7 @@ to_vc4_plane(struct drm_plane *plane)
 }
 
 enum vc4_encoder_type {
+	VC4_ENCODER_TYPE_NONE,
 	VC4_ENCODER_TYPE_HDMI,
 	VC4_ENCODER_TYPE_VEC,
 	VC4_ENCODER_TYPE_DSI0,
@@ -289,8 +331,12 @@ struct vc4_exec_info {
 	bool found_increment_semaphore_packet;
 	bool found_flush;
 	uint8_t bin_tiles_x, bin_tiles_y;
-	struct drm_gem_cma_object *tile_bo;
+	/* Physical address of the start of the tile alloc array
+	 * (where each tile's binned CL will start)
+	 */
 	uint32_t tile_alloc_offset;
+	/* Bitmask of which binner slots are freed when this job completes. */
+	uint32_t bin_slots;
 
 	/**
 	 * Computed addresses pointing into exec_bo where we start the
@@ -381,6 +427,8 @@ struct vc4_validated_shader_info {
 
 	uint32_t num_uniform_addr_offsets;
 	uint32_t *uniform_addr_offsets;
+
+	bool is_threaded;
 };
 
 /**
@@ -415,7 +463,7 @@ struct vc4_validated_shader_info {
 struct drm_gem_object *vc4_create_object(struct drm_device *dev, size_t size);
 void vc4_free_object(struct drm_gem_object *gem_obj);
 struct vc4_bo *vc4_bo_create(struct drm_device *dev, size_t size,
-			     bool from_cache);
+			     bool from_cache, enum vc4_kernel_bo_type type);
 int vc4_dumb_create(struct drm_file *file_priv,
 		    struct drm_device *dev,
 		    struct drm_mode_create_dumb *args);
@@ -427,12 +475,18 @@ int vc4_create_shader_bo_ioctl(struct drm_device *dev, void *data,
 			       struct drm_file *file_priv);
 int vc4_mmap_bo_ioctl(struct drm_device *dev, void *data,
 		      struct drm_file *file_priv);
+int vc4_set_tiling_ioctl(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv);
+int vc4_get_tiling_ioctl(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv);
 int vc4_get_hang_state_ioctl(struct drm_device *dev, void *data,
 			     struct drm_file *file_priv);
+int vc4_label_bo_ioctl(struct drm_device *dev, void *data,
+		       struct drm_file *file_priv);
 int vc4_mmap(struct file *filp, struct vm_area_struct *vma);
 int vc4_prime_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma);
 void *vc4_prime_vmap(struct drm_gem_object *obj);
-void vc4_bo_cache_init(struct drm_device *dev);
+int vc4_bo_cache_init(struct drm_device *dev);
 void vc4_bo_cache_destroy(struct drm_device *dev);
 int vc4_bo_stats_debugfs(struct seq_file *m, void *arg);
 
@@ -440,6 +494,7 @@ int vc4_bo_stats_debugfs(struct seq_file *m, void *arg);
 extern struct platform_driver vc4_crtc_driver;
 int vc4_enable_vblank(struct drm_device *dev, unsigned int crtc_id);
 void vc4_disable_vblank(struct drm_device *dev, unsigned int crtc_id);
+bool vc4_event_pending(struct drm_crtc *crtc);
 int vc4_crtc_debugfs_regs(struct seq_file *m, void *arg);
 int vc4_crtc_get_scanoutpos(struct drm_device *dev, unsigned int crtc_id,
 			    unsigned int flags, int *vpos, int *hpos,
@@ -459,6 +514,14 @@ void __iomem *vc4_ioremap_regs(struct platform_device *dev, int index);
 /* vc4_dpi.c */
 extern struct platform_driver vc4_dpi_driver;
 int vc4_dpi_debugfs_regs(struct seq_file *m, void *unused);
+
+/* vc4_dsi.c */
+extern struct platform_driver vc4_dsi_driver;
+int vc4_dsi_debugfs_regs(struct seq_file *m, void *unused);
+
+/* vc4_firmware_kms.c */
+extern struct platform_driver vc4_firmware_kms_driver;
+void vc4_fkms_cancel_page_flip(struct drm_crtc *crtc, struct drm_file *file);
 
 /* vc4_gem.c */
 void vc4_gem_init(struct drm_device *dev);
@@ -482,6 +545,10 @@ int vc4_queue_seqno_cb(struct drm_device *dev,
 /* vc4_hdmi.c */
 extern struct platform_driver vc4_hdmi_driver;
 int vc4_hdmi_debugfs_regs(struct seq_file *m, void *unused);
+
+/* vc4_hdmi.c */
+extern struct platform_driver vc4_vec_driver;
+int vc4_vec_debugfs_regs(struct seq_file *m, void *unused);
 
 /* vc4_irq.c */
 irqreturn_t vc4_irq(int irq, void *arg);
@@ -510,6 +577,7 @@ void vc4_plane_async_set_fb(struct drm_plane *plane,
 extern struct platform_driver vc4_v3d_driver;
 int vc4_v3d_debugfs_ident(struct seq_file *m, void *unused);
 int vc4_v3d_debugfs_regs(struct seq_file *m, void *unused);
+int vc4_v3d_get_bin_slot(struct vc4_dev *vc4);
 
 /* vc4_validate.c */
 int

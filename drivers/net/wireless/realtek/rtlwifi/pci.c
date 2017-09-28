@@ -663,11 +663,9 @@ tx_status_ok:
 	}
 
 	if (((rtlpriv->link_info.num_rx_inperiod +
-		rtlpriv->link_info.num_tx_inperiod) > 8) ||
-		(rtlpriv->link_info.num_rx_inperiod > 2)) {
-		rtlpriv->enter_ps = false;
-		schedule_work(&rtlpriv->works.lps_change_work);
-	}
+	      rtlpriv->link_info.num_tx_inperiod) > 8) ||
+	      (rtlpriv->link_info.num_rx_inperiod > 2))
+		rtl_lps_leave(hw);
 }
 
 static int _rtl_pci_init_one_rxdesc(struct ieee80211_hw *hw,
@@ -918,10 +916,8 @@ new_trx_end:
 		}
 		if (((rtlpriv->link_info.num_rx_inperiod +
 		      rtlpriv->link_info.num_tx_inperiod) > 8) ||
-		      (rtlpriv->link_info.num_rx_inperiod > 2)) {
-			rtlpriv->enter_ps = false;
-			schedule_work(&rtlpriv->works.lps_change_work);
-		}
+		      (rtlpriv->link_info.num_rx_inperiod > 2))
+			rtl_lps_leave(hw);
 		skb = new_skb;
 no_new:
 		if (rtlpriv->use_new_trx_flow) {
@@ -2273,7 +2269,7 @@ int rtl_pci_probe(struct pci_dev *pdev,
 	/* find adapter */
 	if (!_rtl_pci_find_adapter(pdev, hw)) {
 		err = -ENODEV;
-		goto fail3;
+		goto fail2;
 	}
 
 	/* Init IO handler */
@@ -2343,10 +2339,10 @@ fail3:
 	pci_set_drvdata(pdev, NULL);
 	rtl_deinit_core(hw);
 
+fail2:
 	if (rtlpriv->io.pci_mem_start != 0)
 		pci_iounmap(pdev, (void __iomem *)rtlpriv->io.pci_mem_start);
 
-fail2:
 	pci_release_regions(pdev);
 	complete(&rtlpriv->firmware_loading_complete);
 

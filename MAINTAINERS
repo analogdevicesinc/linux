@@ -4151,6 +4151,12 @@ S:	Supported
 F:	drivers/gpu/drm/mediatek/
 F:	Documentation/devicetree/bindings/display/mediatek/
 
+DRM DRIVER FOR MI0283QT
+M:	Noralf Trønnes <noralf@tronnes.org>
+S:	Maintained
+F:	drivers/gpu/drm/tinydrm/mi0283qt.c
+F:	Documentation/devicetree/bindings/display/multi-inno,mi0283qt.txt
+
 DRM DRIVER FOR MSM ADRENO GPU
 M:	Rob Clark <robdclark@gmail.com>
 L:	linux-arm-msm@vger.kernel.org
@@ -4192,6 +4198,12 @@ DRM DRIVER FOR MGA G200 SERVER GRAPHICS CHIPS
 M:	Dave Airlie <airlied@redhat.com>
 S:	Odd Fixes
 F:	drivers/gpu/drm/mgag200/
+
+DRM DRIVER FOR PERVASIVE DISPLAYS REPAPER PANELS
+M:	Noralf Trønnes <noralf@tronnes.org>
+S:	Maintained
+F:	drivers/gpu/drm/tinydrm/repaper.c
+F:	Documentation/devicetree/bindings/display/repaper.txt
 
 DRM DRIVER FOR RAGE 128 VIDEO CARDS
 S:	Orphan / Obsolete

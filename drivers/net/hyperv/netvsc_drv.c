@@ -659,6 +659,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
 	 * policy filters on the host). Deliver these via the VF
 	 * interface in the guest.
 	 */
+	rcu_read_lock();
 	vf_netdev = rcu_dereference(net_device_ctx->vf_netdev);
 	if (vf_netdev && (vf_netdev->flags & IFF_UP))
 		net = vf_netdev;
@@ -667,6 +668,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
 	skb = netvsc_alloc_recv_skb(net, packet, csum_info, *data, vlan_tci);
 	if (unlikely(!skb)) {
 		++net->stats.rx_dropped;
+		rcu_read_unlock();
 		return NVSP_STAT_FAIL;
 	}
 
@@ -696,6 +698,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
 	 * TODO - use NAPI?
 	 */
 	netif_rx(skb);
+	rcu_read_unlock();
 
 	return 0;
 }
@@ -1081,7 +1084,12 @@ static void netvsc_link_change(struct work_struct *w)
 	bool notify = false, reschedule = false;
 	unsigned long flags, next_reconfig, delay;
 
-	rtnl_lock();
+	/* if changes are happening, comeback later */
+	if (!rtnl_trylock()) {
+		schedule_delayed_work(&ndev_ctx->dwork, LINKCHANGE_INT);
+		return;
+	}
+
 	if (ndev_ctx->start_remove)
 		goto out_unlock;
 

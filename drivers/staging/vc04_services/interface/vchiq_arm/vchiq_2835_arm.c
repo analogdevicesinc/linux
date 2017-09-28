@@ -420,7 +420,7 @@ create_pagelist(char __user *buf, size_t count, unsigned short type,
 		*need_release = 0; /* do not try and release vmalloc pages */
 	} else {
 		down_read(&task->mm->mmap_sem);
-		actual_pages = get_user_pages(task, task->mm,
+		actual_pages = get_user_pages(
 				          (unsigned long)buf & ~(PAGE_SIZE - 1),
 					  num_pages,
 					  (type == PAGELIST_READ) ? FOLL_WRITE : 0,
@@ -438,7 +438,7 @@ create_pagelist(char __user *buf, size_t count, unsigned short type,
 			while (actual_pages > 0)
 			{
 				actual_pages--;
-				page_cache_release(pages[actual_pages]);
+				put_page(pages[actual_pages]);
 			}
 			kfree(pagelist);
 			if (actual_pages == 0)
@@ -577,7 +577,7 @@ free_pagelist(PAGELIST_T *pagelist, int actual)
 				offset = 0;
 				set_page_dirty(pg);
 			}
-			page_cache_release(pg);
+			put_page(pg);
 		}
 	}
 

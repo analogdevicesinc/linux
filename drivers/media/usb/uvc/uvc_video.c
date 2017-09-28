@@ -818,7 +818,7 @@ static void uvc_video_stats_decode(struct uvc_streaming *stream,
 
 	/* Update the packets counters. */
 	stream->stats.frame.nb_packets++;
-	if (len <= header_size)
+	if (len > header_size)
 		stream->stats.frame.nb_empty++;
 
 	if (data[1] & UVC_STREAM_ERR)
@@ -868,8 +868,14 @@ size_t uvc_video_stats_dump(struct uvc_streaming *stream, char *buf,
 	struct timespec ts;
 	size_t count = 0;
 
-	ts = timespec_sub(stream->stats.stream.stop_ts,
-			  stream->stats.stream.start_ts);
+	ts.tv_sec = stream->stats.stream.stop_ts.tv_sec
+		  - stream->stats.stream.start_ts.tv_sec;
+	ts.tv_nsec = stream->stats.stream.stop_ts.tv_nsec
+		   - stream->stats.stream.start_ts.tv_nsec;
+	if (ts.tv_nsec < 0) {
+		ts.tv_sec--;
+		ts.tv_nsec += 1000000000;
+	}
 
 	/* Compute the SCR.SOF frequency estimate. At the nominal 1kHz SOF
 	 * frequency this will not overflow before more than 1h.
@@ -1058,64 +1064,27 @@ static int uvc_video_decode_start(struct uvc_streaming *stream,
 	return data[0];
 }
 
-/**
- * uvc_video_decode_data_work: Asynchronous memcpy processing
- *
- * Perform memcpy tasks in process context, with completion handlers
- * to return the URB, and buffer handles.
- *
- * The work submitter must pre-determine that the work is safe
- */
-static void uvc_video_decode_data_work(struct work_struct *work)
+static void uvc_video_decode_data(struct uvc_streaming *stream,
+		struct uvc_buffer *buf, const __u8 *data, int len)
 {
-	struct uvc_urb *uvc_urb = container_of(work, struct uvc_urb, work);
-	unsigned int i;
-	int ret;
-
-	for (i = 0; i < uvc_urb->packets; i++) {
-		struct uvc_decode_op *op = &uvc_urb->decodes[i];
-
-		memcpy(op->dst, op->src, op->len);
-
-		/* Release reference taken on this buffer */
-		uvc_queue_buffer_release(op->buf);
-	}
-
-	ret = usb_submit_urb(uvc_urb->urb, GFP_ATOMIC);
-	if (ret  < 0) {
-		uvc_printk(KERN_ERR, "Failed to resubmit video URB (%d).\n",
-			ret);
-	}
-}
-
-static void uvc_video_decode_data(struct uvc_decode_op *decode,
-		struct uvc_urb *uvc_urb, struct uvc_buffer *buf,
-		const __u8 *data, int len)
-{
-	unsigned int maxlen;
+	unsigned int maxlen, nbytes;
+	void *mem;
 
 	if (len <= 0)
 		return;
 
+	/* Copy the video data to the buffer. */
 	maxlen = buf->length - buf->bytesused;
-
-	/* Take a buffer reference for async work */
-	kref_get(&buf->ref);
-
-	decode->buf = buf;
-	decode->src = data;
-	decode->dst = buf->mem + buf->bytesused;
-	decode->len = min_t(unsigned int, len, maxlen);
-
-	buf->bytesused += decode->len;
+	mem = buf->mem + buf->bytesused;
+	nbytes = min((unsigned int)len, maxlen);
+	memcpy(mem, data, nbytes);
+	buf->bytesused += nbytes;
 
 	/* Complete the current frame if the buffer size was exceeded. */
 	if (len > maxlen) {
 		uvc_trace(UVC_TRACE_FRAME, "Frame complete (overflow).\n");
 		buf->state = UVC_BUF_STATE_READY;
 	}
-
-	uvc_urb->packets++;
 }
 
 static void uvc_video_decode_end(struct uvc_streaming *stream,
@@ -1189,17 +1158,13 @@ static void uvc_video_validate_buffer(const struct uvc_streaming *stream,
 /*
  * Completion handler for video URBs.
  */
-static void uvc_video_decode_isoc(struct uvc_urb *uvc_urb,
-		struct uvc_buffer *buf)
+static void uvc_video_decode_isoc(struct urb *urb, struct uvc_streaming *stream,
+	struct uvc_buffer *buf)
 {
-	struct urb *urb = uvc_urb->urb;
-	struct uvc_streaming *stream = uvc_urb->stream;
 	u8 *mem;
 	int ret, i;
 
 	for (i = 0; i < urb->number_of_packets; ++i) {
-		struct uvc_decode_op *op = &uvc_urb->decodes[uvc_urb->packets];
-
 		if (urb->iso_frame_desc[i].status < 0) {
 			uvc_trace(UVC_TRACE_FRAME, "USB isochronous frame "
 				"lost (%d).\n", urb->iso_frame_desc[i].status);
@@ -1225,7 +1190,7 @@ static void uvc_video_decode_isoc(struct uvc_urb *uvc_urb,
 			continue;
 
 		/* Decode the payload data. */
-		uvc_video_decode_data(op, uvc_urb, buf, mem + ret,
+		uvc_video_decode_data(stream, buf, mem + ret,
 			urb->iso_frame_desc[i].actual_length - ret);
 
 		/* Process the header again. */
@@ -1239,11 +1204,9 @@ static void uvc_video_decode_isoc(struct uvc_urb *uvc_urb,
 	}
 }
 
-static void uvc_video_decode_bulk(struct uvc_urb *uvc_urb,
-		struct uvc_buffer *buf)
+static void uvc_video_decode_bulk(struct urb *urb, struct uvc_streaming *stream,
+	struct uvc_buffer *buf)
 {
-	struct urb *urb = uvc_urb->urb;
-	struct uvc_streaming *stream = uvc_urb->stream;
 	u8 *mem;
 	int len, ret;
 
@@ -1286,12 +1249,9 @@ static void uvc_video_decode_bulk(struct uvc_urb *uvc_urb,
 	 * sure buf is never dereferenced if NULL.
 	 */
 
-	/* Prepare video data for processing. */
-	if (!stream->bulk.skip_payload && buf != NULL) {
-		struct uvc_decode_op *op = &uvc_urb->decodes[0];
-
-		uvc_video_decode_data(op, uvc_urb, buf, mem, len);
-	}
+	/* Process video data. */
+	if (!stream->bulk.skip_payload && buf != NULL)
+		uvc_video_decode_data(stream, buf, mem, len);
 
 	/* Detect the payload end by a URB smaller than the maximum size (or
 	 * a payload size equal to the maximum) and process the header again.
@@ -1312,12 +1272,9 @@ static void uvc_video_decode_bulk(struct uvc_urb *uvc_urb,
 	}
 }
 
-static void uvc_video_encode_bulk(struct uvc_urb *uvc_urb,
-		struct uvc_buffer *buf)
+static void uvc_video_encode_bulk(struct urb *urb, struct uvc_streaming *stream,
+	struct uvc_buffer *buf)
 {
-	struct urb *urb = uvc_urb->urb;
-	struct uvc_streaming *stream = uvc_urb->stream;
-
 	u8 *mem = urb->transfer_buffer;
 	int len = stream->urb_size, ret;
 
@@ -1360,10 +1317,11 @@ static void uvc_video_encode_bulk(struct uvc_urb *uvc_urb,
 
 static void uvc_video_complete(struct urb *urb)
 {
-	struct uvc_urb *uvc_urb = urb->context;
-	struct uvc_streaming *stream = uvc_urb->stream;
+	struct uvc_streaming *stream = urb->context;
 	struct uvc_video_queue *queue = &stream->queue;
 	struct uvc_buffer *buf = NULL;
+	unsigned long flags;
+	int ret;
 
 	switch (urb->status) {
 	case 0:
@@ -1383,17 +1341,18 @@ static void uvc_video_complete(struct urb *urb)
 		return;
 	}
 
-	buf = uvc_queue_get_current_buffer(queue);
+	spin_lock_irqsave(&queue->irqlock, flags);
+	if (!list_empty(&queue->irqqueue))
+		buf = list_first_entry(&queue->irqqueue, struct uvc_buffer,
+				       queue);
+	spin_unlock_irqrestore(&queue->irqlock, flags);
 
-	/* Re-initialise the URB packet work */
-	uvc_urb->packets = 0;
+	stream->decode(urb, stream, buf);
 
-	/* Process the URB headers, but work is deferred to a work queue */
-	stream->decode(uvc_urb, buf);
-
-	/* Handle any heavy lifting required */
-	INIT_WORK(&uvc_urb->work, uvc_video_decode_data_work);
-	queue_work(stream->async_wq, &uvc_urb->work);
+	if ((ret = usb_submit_urb(urb, GFP_ATOMIC)) < 0) {
+		uvc_printk(KERN_ERR, "Failed to resubmit video URB (%d).\n",
+			ret);
+	}
 }
 
 /*
@@ -1404,16 +1363,14 @@ static void uvc_free_urb_buffers(struct uvc_streaming *stream)
 	unsigned int i;
 
 	for (i = 0; i < UVC_URBS; ++i) {
-		struct uvc_urb *uvc_urb = &stream->uvc_urb[i];
-
-		if (uvc_urb->urb_buffer) {
+		if (stream->urb_buffer[i]) {
 #ifndef CONFIG_DMA_NONCOHERENT
 			usb_free_coherent(stream->dev->udev, stream->urb_size,
-					uvc_urb->urb_buffer, uvc_urb->urb_dma);
+				stream->urb_buffer[i], stream->urb_dma[i]);
 #else
-			kfree(uvc_urb->urb_buffer);
+			kfree(stream->urb_buffer[i]);
 #endif
-			uvc_urb->urb_buffer = NULL;
+			stream->urb_buffer[i] = NULL;
 		}
 	}
 
@@ -1451,23 +1408,19 @@ static int uvc_alloc_urb_buffers(struct uvc_streaming *stream,
 	/* Retry allocations until one succeed. */
 	for (; npackets > 1; npackets /= 2) {
 		for (i = 0; i < UVC_URBS; ++i) {
-			struct uvc_urb *uvc_urb = &stream->uvc_urb[i];
-
 			stream->urb_size = psize * npackets;
 #ifndef CONFIG_DMA_NONCOHERENT
-			uvc_urb->urb_buffer = usb_alloc_coherent(
+			stream->urb_buffer[i] = usb_alloc_coherent(
 				stream->dev->udev, stream->urb_size,
-				gfp_flags | __GFP_NOWARN, &uvc_urb->urb_dma);
+				gfp_flags | __GFP_NOWARN, &stream->urb_dma[i]);
 #else
-			uvc_urb->urb_buffer =
+			stream->urb_buffer[i] =
 			    kmalloc(stream->urb_size, gfp_flags | __GFP_NOWARN);
 #endif
-			if (!uvc_urb->urb_buffer) {
+			if (!stream->urb_buffer[i]) {
 				uvc_free_urb_buffers(stream);
 				break;
 			}
-
-			uvc_urb->stream = stream;
 		}
 
 		if (i == UVC_URBS) {
@@ -1494,15 +1447,13 @@ static void uvc_uninit_video(struct uvc_streaming *stream, int free_buffers)
 	uvc_video_stats_stop(stream);
 
 	for (i = 0; i < UVC_URBS; ++i) {
-		struct uvc_urb *uvc_urb = &stream->uvc_urb[i];
-
-		urb = uvc_urb->urb;
+		urb = stream->urb[i];
 		if (urb == NULL)
 			continue;
 
 		usb_kill_urb(urb);
 		usb_free_urb(urb);
-		uvc_urb->urb = NULL;
+		stream->urb[i] = NULL;
 	}
 
 	if (free_buffers)
@@ -1555,8 +1506,6 @@ static int uvc_init_video_isoc(struct uvc_streaming *stream,
 	size = npackets * psize;
 
 	for (i = 0; i < UVC_URBS; ++i) {
-		struct uvc_urb *uvc_urb = &stream->uvc_urb[i];
-
 		urb = usb_alloc_urb(npackets, gfp_flags);
 		if (urb == NULL) {
 			uvc_uninit_video(stream, 1);
@@ -1564,17 +1513,17 @@ static int uvc_init_video_isoc(struct uvc_streaming *stream,
 		}
 
 		urb->dev = stream->dev->udev;
-		urb->context = uvc_urb;
+		urb->context = stream;
 		urb->pipe = usb_rcvisocpipe(stream->dev->udev,
 				ep->desc.bEndpointAddress);
 #ifndef CONFIG_DMA_NONCOHERENT
 		urb->transfer_flags = URB_ISO_ASAP | URB_NO_TRANSFER_DMA_MAP;
-		urb->transfer_dma = uvc_urb->urb_dma;
+		urb->transfer_dma = stream->urb_dma[i];
 #else
 		urb->transfer_flags = URB_ISO_ASAP;
 #endif
 		urb->interval = ep->desc.bInterval;
-		urb->transfer_buffer = uvc_urb->urb_buffer;
+		urb->transfer_buffer = stream->urb_buffer[i];
 		urb->complete = uvc_video_complete;
 		urb->number_of_packets = npackets;
 		urb->transfer_buffer_length = size;
@@ -1584,7 +1533,7 @@ static int uvc_init_video_isoc(struct uvc_streaming *stream,
 			urb->iso_frame_desc[j].length = psize;
 		}
 
-		uvc_urb->urb = urb;
+		stream->urb[i] = urb;
 	}
 
 	return 0;
@@ -1623,8 +1572,6 @@ static int uvc_init_video_bulk(struct uvc_streaming *stream,
 		size = 0;
 
 	for (i = 0; i < UVC_URBS; ++i) {
-		struct uvc_urb *uvc_urb = &stream->uvc_urb[i];
-
 		urb = usb_alloc_urb(0, gfp_flags);
 		if (urb == NULL) {
 			uvc_uninit_video(stream, 1);
@@ -1632,14 +1579,14 @@ static int uvc_init_video_bulk(struct uvc_streaming *stream,
 		}
 
 		usb_fill_bulk_urb(urb, stream->dev->udev, pipe,
-			uvc_urb->urb_buffer, size, uvc_video_complete,
-			uvc_urb);
+			stream->urb_buffer[i], size, uvc_video_complete,
+			stream);
 #ifndef CONFIG_DMA_NONCOHERENT
 		urb->transfer_flags = URB_NO_TRANSFER_DMA_MAP;
-		urb->transfer_dma = uvc_urb->urb_dma;
+		urb->transfer_dma = stream->urb_dma[i];
 #endif
 
-		uvc_urb->urb = urb;
+		stream->urb[i] = urb;
 	}
 
 	return 0;
@@ -1662,11 +1609,6 @@ static int uvc_init_video(struct uvc_streaming *stream, gfp_t gfp_flags)
 	stream->bulk.payload_size = 0;
 
 	uvc_video_stats_start(stream);
-
-	stream->async_wq = alloc_workqueue("uvcvideo", WQ_UNBOUND | WQ_HIGHPRI,
-			0);
-	if (!stream->async_wq)
-		return -ENOMEM;
 
 	if (intf->num_altsetting > 1) {
 		struct usb_host_endpoint *best_ep = NULL;
@@ -1735,9 +1677,7 @@ static int uvc_init_video(struct uvc_streaming *stream, gfp_t gfp_flags)
 
 	/* Submit the URBs. */
 	for (i = 0; i < UVC_URBS; ++i) {
-		struct uvc_urb *uvc_urb = &stream->uvc_urb[i];
-
-		ret = usb_submit_urb(uvc_urb->urb, gfp_flags);
+		ret = usb_submit_urb(stream->urb[i], gfp_flags);
 		if (ret < 0) {
 			uvc_printk(KERN_ERR, "Failed to submit URB %u "
 					"(%d).\n", i, ret);

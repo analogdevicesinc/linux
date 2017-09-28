@@ -481,47 +481,6 @@ send_key_to_dongle(struct brcmf_if *ifp, struct brcmf_wsec_key *key)
 	return err;
 }
 
-static s32
-brcmf_configure_arp_nd_offload(struct brcmf_if *ifp, bool enable)
-{
-	s32 err;
-	u32 mode;
-
-	if (enable)
-		mode = BRCMF_ARP_OL_AGENT | BRCMF_ARP_OL_PEER_AUTO_REPLY;
-	else
-		mode = 0;
-
-	/* Try to set and enable ARP offload feature, this may fail, then it  */
-	/* is simply not supported and err 0 will be returned                 */
-	err = brcmf_fil_iovar_int_set(ifp, "arp_ol", mode);
-	if (err) {
-		brcmf_dbg(TRACE, "failed to set ARP offload mode to 0x%x, err = %d\n",
-			  mode, err);
-		err = 0;
-	} else {
-		err = brcmf_fil_iovar_int_set(ifp, "arpoe", enable);
-		if (err) {
-			brcmf_dbg(TRACE, "failed to configure (%d) ARP offload err = %d\n",
-				  enable, err);
-			err = 0;
-		} else
-			brcmf_dbg(TRACE, "successfully configured (%d) ARP offload to 0x%x\n",
-				  enable, mode);
-	}
-
-	err = brcmf_fil_iovar_int_set(ifp, "ndoe", enable);
-	if (err) {
-		brcmf_dbg(TRACE, "failed to configure (%d) ND offload err = %d\n",
-			  enable, err);
-		err = 0;
-	} else
-		brcmf_dbg(TRACE, "successfully configured (%d) ND offload to 0x%x\n",
-			  enable, mode);
-
-	return err;
-}
-
 static void
 brcmf_cfg80211_update_proto_addr_mode(struct wireless_dev *wdev)
 {
@@ -2756,6 +2715,8 @@ brcmf_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev,
 	 * preference in cfg struct to apply this to
 	 * FW later while initializing the dongle
 	 */
+	pr_info("power management disabled\n");
+	enabled = false;
 	cfg->pwr_save = enabled;
 	if (!check_vif_up(ifp->vif)) {
 
@@ -4750,12 +4711,15 @@ static int brcmf_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 		err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_DOWN, 1);
 		if (err < 0)
 			brcmf_err("BRCMF_C_DOWN error %d\n", err);
-		err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_AP, 0);
-		if (err < 0)
-			brcmf_err("setting AP mode failed %d\n", err);
+
 		err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_INFRA, 0);
 		if (err < 0)
 			brcmf_err("setting INFRA mode failed %d\n", err);
+
+		err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_AP, 0);
+		if (err < 0)
+			brcmf_err("setting AP mode failed %d\n", err);
+
 		if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_MBSS))
 			brcmf_fil_iovar_int_set(ifp, "mbss", 0);
 		brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_REGULATORY,
@@ -4928,6 +4892,11 @@ brcmf_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 		cfg80211_mgmt_tx_status(wdev, *cookie, buf, len, true,
 					GFP_KERNEL);
 	} else if (ieee80211_is_action(mgmt->frame_control)) {
+		if (len > BRCMF_FIL_ACTION_FRAME_SIZE + DOT11_MGMT_HDR_LEN) {
+			brcmf_err("invalid action frame length\n");
+			err = -EINVAL;
+			goto exit;
+		}
 		af_params = kzalloc(sizeof(*af_params), GFP_KERNEL);
 		if (af_params == NULL) {
 			brcmf_err("unable to allocate frame\n");
@@ -5913,7 +5882,6 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 	u32 i, j;
 	u32 total;
 	u32 chaninfo;
-	u32 index;
 
 	pbuf = kzalloc(BRCMF_DCMD_MEDLEN, GFP_KERNEL);
 
@@ -5961,33 +5929,36 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 		    ch.bw == BRCMU_CHAN_BW_80)
 			continue;
 
-		channel = band->channels;
-		index = band->n_channels;
+		channel = NULL;
 		for (j = 0; j < band->n_channels; j++) {
-			if (channel[j].hw_value == ch.control_ch_num) {
-				index = j;
+			if (band->channels[j].hw_value == ch.control_ch_num) {
+				channel = &band->channels[j];
 				break;
 			}
 		}
-		channel[index].center_freq =
-			ieee80211_channel_to_frequency(ch.control_ch_num,
-						       band->band);
-		channel[index].hw_value = ch.control_ch_num;
+		if (!channel) {
+			/* It seems firmware supports some channel we never
+			 * considered. Something new in IEEE standard?
+			 */
+			brcmf_err("Ignoring unexpected firmware channel %d\n",
+				  ch.control_ch_num);
+			continue;
+		}
 
 		/* assuming the chanspecs order is HT20,
 		 * HT40 upper, HT40 lower, and VHT80.
 		 */
 		if (ch.bw == BRCMU_CHAN_BW_80) {
-			channel[index].flags &= ~IEEE80211_CHAN_NO_80MHZ;
+			channel->flags &= ~IEEE80211_CHAN_NO_80MHZ;
 		} else if (ch.bw == BRCMU_CHAN_BW_40) {
-			brcmf_update_bw40_channel_flag(&channel[index], &ch);
+			brcmf_update_bw40_channel_flag(channel, &ch);
 		} else {
 			/* enable the channel and disable other bandwidths
 			 * for now as mentioned order assure they are enabled
 			 * for subsequent chanspecs.
 			 */
-			channel[index].flags = IEEE80211_CHAN_NO_HT40 |
-					       IEEE80211_CHAN_NO_80MHZ;
+			channel->flags = IEEE80211_CHAN_NO_HT40 |
+					 IEEE80211_CHAN_NO_80MHZ;
 			ch.bw = BRCMU_CHAN_BW_20;
 			cfg->d11inf.encchspec(&ch);
 			chaninfo = ch.chspec;
@@ -5995,11 +5966,11 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 						       &chaninfo);
 			if (!err) {
 				if (chaninfo & WL_CHAN_RADAR)
-					channel[index].flags |=
+					channel->flags |=
 						(IEEE80211_CHAN_RADAR |
 						 IEEE80211_CHAN_NO_IR);
 				if (chaninfo & WL_CHAN_PASSIVE)
-					channel[index].flags |=
+					channel->flags |=
 						IEEE80211_CHAN_NO_IR;
 			}
 		}
@@ -6737,12 +6708,18 @@ static s32 brcmf_translate_country_code(struct brcmf_pub *drvr, char alpha2[2],
 	struct brcmfmac_pd_cc *country_codes;
 	struct brcmfmac_pd_cc_entry *cc;
 	s32 found_index;
+	char ccode[BRCMF_COUNTRY_BUF_SZ];
+	int rev;
 	int i;
+
+	memcpy(ccode, alpha2, sizeof(ccode));
+	rev = -1;
 
 	country_codes = drvr->settings->country_codes;
 	if (!country_codes) {
-		brcmf_dbg(TRACE, "No country codes configured for device\n");
-		return -EINVAL;
+		brcmf_dbg(TRACE, "No country codes configured for device"
+				 " - use requested value\n");
+		goto use_input_value;
 	}
 
 	if ((alpha2[0] == ccreq->country_abbrev[0]) &&
@@ -6766,10 +6743,14 @@ static s32 brcmf_translate_country_code(struct brcmf_pub *drvr, char alpha2[2],
 		brcmf_dbg(TRACE, "No country code match found\n");
 		return -EINVAL;
 	}
-	memset(ccreq, 0, sizeof(*ccreq));
-	ccreq->rev = cpu_to_le32(country_codes->table[found_index].rev);
-	memcpy(ccreq->ccode, country_codes->table[found_index].cc,
+	rev = country_codes->table[found_index].rev;
+	memcpy(ccode, country_codes->table[found_index].cc,
 	       BRCMF_COUNTRY_BUF_SZ);
+
+use_input_value:
+	memset(ccreq, 0, sizeof(*ccreq));
+	ccreq->rev = cpu_to_le32(rev);
+	memcpy(ccreq->ccode, ccode, sizeof(ccode));
 	ccreq->country_abbrev[0] = alpha2[0];
 	ccreq->country_abbrev[1] = alpha2[1];
 	ccreq->country_abbrev[2] = 0;
@@ -6789,6 +6770,8 @@ static void brcmf_cfg80211_reg_notifier(struct wiphy *wiphy,
 	/* ignore non-ISO3166 country codes */
 	for (i = 0; i < sizeof(req->alpha2); i++)
 		if (req->alpha2[i] < 'A' || req->alpha2[i] > 'Z') {
+			if (req->alpha2[0] == '0' && req->alpha2[1] == '0')
+				return;
 			brcmf_err("not a ISO3166 code (0x%02x 0x%02x)\n",
 				  req->alpha2[0], req->alpha2[1]);
 			return;
@@ -6869,7 +6852,7 @@ struct brcmf_cfg80211_info *brcmf_cfg80211_attach(struct brcmf_pub *drvr,
 	wiphy = wiphy_new(ops, sizeof(struct brcmf_cfg80211_info));
 	if (!wiphy) {
 		brcmf_err("Could not allocate wiphy device\n");
-		return NULL;
+		goto ops_out;
 	}
 	memcpy(wiphy->perm_addr, drvr->mac, ETH_ALEN);
 	set_wiphy_dev(wiphy, busdev);
@@ -7003,6 +6986,7 @@ priv_out:
 	ifp->vif = NULL;
 wiphy_out:
 	brcmf_free_wiphy(wiphy);
+ops_out:
 	kfree(ops);
 	return NULL;
 }

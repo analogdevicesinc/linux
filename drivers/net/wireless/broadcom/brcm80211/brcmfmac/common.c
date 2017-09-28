@@ -69,7 +69,7 @@ static int brcmf_fcmode;
 module_param_named(fcmode, brcmf_fcmode, int, 0);
 MODULE_PARM_DESC(fcmode, "Mode of firmware signalled flow control");
 
-static int brcmf_roamoff;
+static int brcmf_roamoff = 1;
 module_param_named(roamoff, brcmf_roamoff, int, S_IRUSR);
 MODULE_PARM_DESC(roamoff, "Do not use internal roaming engine");
 
@@ -161,7 +161,7 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 	strsep(&ptr, "\n");
 
 	/* Print fw version info */
-	brcmf_err("Firmware version = %s\n", buf);
+	pr_info("Firmware version = %s\n", buf);
 
 	/* locate firmware version number for ethtool */
 	ptr = strrchr(buf, ' ') + 1;

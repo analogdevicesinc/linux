@@ -31,6 +31,7 @@
 #define MII_DP83867_CFG2	0x14
 #define MII_DP83867_BISCR	0x16
 #define DP83867_CTRL		0x1f
+#define DP83867_CFG3		0x1e
 
 /* Extended Registers */
 #define DP83867_CFG4		0x0031
@@ -117,6 +118,8 @@ static int dp83867_config_intr(struct phy_device *phydev)
 		micr_status |=
 			(MII_DP83867_MICR_AN_ERR_INT_EN |
 			MII_DP83867_MICR_SPEED_CHNG_INT_EN |
+			MII_DP83867_MICR_AUTONEG_COMP_INT_EN |
+			MII_DP83867_MICR_LINK_STS_CHNG_INT_EN |
 			MII_DP83867_MICR_DUP_MODE_CHNG_INT_EN |
 			MII_DP83867_MICR_SLEEP_MODE_CHNG_INT_EN);
 
@@ -140,12 +143,16 @@ static int dp83867_of_init(struct phy_device *phydev)
 
 	ret = of_property_read_u32(of_node, "ti,rx-internal-delay",
 				   &dp83867->rx_id_delay);
-	if (ret)
+	if (ret &&
+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
+	     phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID))
 		return ret;
 
 	ret = of_property_read_u32(of_node, "ti,tx-internal-delay",
 				   &dp83867->tx_id_delay);
-	if (ret)
+	if (ret &&
+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
+	     phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID))
 		return ret;
 
 	dp83867->rxctrl_strap_worka =
@@ -268,6 +275,13 @@ static int dp83867_config_init(struct phy_device *phydev)
 
 		phy_write_mmd_indirect(phydev, DP83867_RGMIIDCTL,
 				       DP83867_DEVADDR, delay);
+	}
+
+	/* Enable Interrupt output INT_OE in CFG3 register */
+	if (phy_interrupt_is_valid(phydev)) {
+		val = phy_read(phydev, DP83867_CFG3);
+		val |= BIT(7);
+		phy_write(phydev, DP83867_CFG3, val);
 	}
 
 	return 0;

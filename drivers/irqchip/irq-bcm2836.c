@@ -145,6 +145,27 @@ static void bcm2836_arm_irqchip_unmask_gpu_irq(struct irq_data *d)
 {
 }
 
+#ifdef CONFIG_ARM64
+
+void bcm2836_arm_irqchip_spin_gpu_irq(void)
+{
+	u32 i;
+	void __iomem *gpurouting = (intc.base + LOCAL_GPU_ROUTING);
+	u32 routing_val = readl(gpurouting);
+
+	for (i = 1; i <= 3; i++) {
+		u32 new_routing_val = (routing_val + i) & 3;
+
+		if (cpu_active(new_routing_val)) {
+			writel(new_routing_val, gpurouting);
+			return;
+		}
+	}
+}
+EXPORT_SYMBOL(bcm2836_arm_irqchip_spin_gpu_irq);
+
+#endif
+
 static struct irq_chip bcm2836_arm_irqchip_gpu = {
 	.name		= "bcm2836-gpu",
 	.irq_mask	= bcm2836_arm_irqchip_mask_gpu_irq,
@@ -157,7 +178,7 @@ static void bcm2836_arm_irqchip_register_irq(int hwirq, struct irq_chip *chip)
 
 	irq_set_percpu_devid(irq);
 	irq_set_chip_and_handler(irq, chip, handle_percpu_devid_irq);
-	irq_set_status_flags(irq, IRQ_NOAUTOEN);
+	irq_set_status_flags(irq, IRQ_NOAUTOEN | IRQ_TYPE_LEVEL_LOW);
 }
 
 static void
@@ -175,6 +196,7 @@ __exception_irq_entry bcm2836_arm_irqchip_handle_irq(struct pt_regs *regs)
 		u32 ipi = ffs(mbox_val) - 1;
 
 		writel(1 << ipi, mailbox0);
+		dsb(sy);
 		handle_IPI(ipi, regs);
 #endif
 	} else if (stat) {
@@ -225,6 +247,9 @@ static int __init bcm2836_smp_boot_secondary(unsigned int cpu,
 
 	writel(secondary_startup_phys,
 	       intc.base + LOCAL_MAILBOX3_SET0 + 16 * cpu);
+
+	dsb(sy); /* Ensure write has completed before waking the other CPUs */
+	sev();
 
 	return 0;
 }

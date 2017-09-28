@@ -60,6 +60,7 @@
 #define SUSPEND_SUSPEND3		(0x08)
 #define SUSPEND_ALLMODES		(SUSPEND_SUSPEND0 | SUSPEND_SUSPEND1 | \
 					 SUSPEND_SUSPEND2 | SUSPEND_SUSPEND3)
+#define MAC_ADDR_LEN                    (6)
 
 #define CARRIER_CHECK_DELAY (2 * HZ)
 
@@ -81,6 +82,18 @@ struct smsc95xx_priv {
 static bool turbo_mode = true;
 module_param(turbo_mode, bool, 0644);
 MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
+
+static bool truesize_mode = false;
+module_param(truesize_mode, bool, 0644);
+MODULE_PARM_DESC(truesize_mode, "Report larger truesize value");
+
+static int packetsize = 2560;
+module_param(packetsize, int, 0644);
+MODULE_PARM_DESC(packetsize, "Override the RX URB packet size");
+
+static char *macaddr = ":";
+module_param(macaddr, charp, 0);
+MODULE_PARM_DESC(macaddr, "MAC address");
 
 static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
 					    u32 *data, int in_pm)
@@ -681,7 +694,7 @@ static int smsc95xx_set_features(struct net_device *netdev,
 	if (ret < 0)
 		return ret;
 
-	if (features & NETIF_F_HW_CSUM)
+	if (features & NETIF_F_IP_CSUM)
 		read_buf |= Tx_COE_EN_;
 	else
 		read_buf &= ~Tx_COE_EN_;
@@ -910,6 +923,53 @@ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
 	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
 }
 
+/* Check the macaddr module parameter for a MAC address */
+static int smsc95xx_is_macaddr_param(struct usbnet *dev, u8 *dev_mac)
+{
+       int i, j, got_num, num;
+       u8 mtbl[MAC_ADDR_LEN];
+
+       if (macaddr[0] == ':')
+               return 0;
+
+       i = 0;
+       j = 0;
+       num = 0;
+       got_num = 0;
+       while (j < MAC_ADDR_LEN) {
+               if (macaddr[i] && macaddr[i] != ':') {
+                       got_num++;
+                       if ('0' <= macaddr[i] && macaddr[i] <= '9')
+                               num = num * 16 + macaddr[i] - '0';
+                       else if ('A' <= macaddr[i] && macaddr[i] <= 'F')
+                               num = num * 16 + 10 + macaddr[i] - 'A';
+                       else if ('a' <= macaddr[i] && macaddr[i] <= 'f')
+                               num = num * 16 + 10 + macaddr[i] - 'a';
+                       else
+                               break;
+                       i++;
+               } else if (got_num == 2) {
+                       mtbl[j++] = (u8) num;
+                       num = 0;
+                       got_num = 0;
+                       i++;
+               } else {
+                       break;
+               }
+       }
+
+       if (j == MAC_ADDR_LEN) {
+               netif_dbg(dev, ifup, dev->net, "Overriding MAC address with: "
+               "%02x:%02x:%02x:%02x:%02x:%02x\n", mtbl[0], mtbl[1], mtbl[2],
+                                               mtbl[3], mtbl[4], mtbl[5]);
+               for (i = 0; i < MAC_ADDR_LEN; i++)
+                       dev_mac[i] = mtbl[i];
+               return 1;
+       } else {
+               return 0;
+       }
+}
+
 static void smsc95xx_init_mac_address(struct usbnet *dev)
 {
 	const u8 *mac_addr;
@@ -930,6 +990,10 @@ static void smsc95xx_init_mac_address(struct usbnet *dev)
 			return;
 		}
 	}
+
+	/* Check module parameters */
+	if (smsc95xx_is_macaddr_param(dev, dev->net->dev_addr))
+		return;
 
 	/* no useful static MAC address found. generate a random one */
 	eth_hw_addr_random(dev->net);
@@ -1102,13 +1166,13 @@ static int smsc95xx_reset(struct usbnet *dev)
 
 	if (!turbo_mode) {
 		burst_cap = 0;
-		dev->rx_urb_size = MAX_SINGLE_PACKET_SIZE;
+		dev->rx_urb_size = packetsize ? packetsize : MAX_SINGLE_PACKET_SIZE;
 	} else if (dev->udev->speed == USB_SPEED_HIGH) {
-		burst_cap = DEFAULT_HS_BURST_CAP_SIZE / HS_USB_PKT_SIZE;
-		dev->rx_urb_size = DEFAULT_HS_BURST_CAP_SIZE;
+		dev->rx_urb_size = packetsize ? packetsize : DEFAULT_HS_BURST_CAP_SIZE;
+		burst_cap = dev->rx_urb_size / HS_USB_PKT_SIZE;
 	} else {
-		burst_cap = DEFAULT_FS_BURST_CAP_SIZE / FS_USB_PKT_SIZE;
-		dev->rx_urb_size = DEFAULT_FS_BURST_CAP_SIZE;
+		dev->rx_urb_size = packetsize ? packetsize : DEFAULT_FS_BURST_CAP_SIZE;
+		burst_cap = dev->rx_urb_size / FS_USB_PKT_SIZE;
 	}
 
 	netif_dbg(dev, ifup, dev->net, "rx_urb_size=%ld\n",
@@ -1278,12 +1342,16 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
 
 	spin_lock_init(&pdata->mac_cr_lock);
 
+	/* RFC 2460, IPv6 UDP calculated checksum yields a result of zero must be
+	 * changed to 0xffff, this feature is not supported by smsc95xx family,
+	 * hence enable csum offload only for IPv4 TCP/UDP packets.
+	 */
 	if (DEFAULT_TX_CSUM_ENABLE)
-		dev->net->features |= NETIF_F_HW_CSUM;
+		dev->net->features |= NETIF_F_IP_CSUM;
 	if (DEFAULT_RX_CSUM_ENABLE)
 		dev->net->features |= NETIF_F_RXCSUM;
 
-	dev->net->hw_features = NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+	dev->net->hw_features = NETIF_F_IP_CSUM | NETIF_F_RXCSUM;
 
 	smsc95xx_init_mac_address(dev);
 
@@ -1951,7 +2019,8 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 				if (dev->net->features & NETIF_F_RXCSUM)
 					smsc95xx_rx_csum_offload(skb);
 				skb_trim(skb, skb->len - 4); /* remove fcs */
-				skb->truesize = size + sizeof(struct sk_buff);
+				if (truesize_mode)
+					skb->truesize = size + sizeof(struct sk_buff);
 
 				return 1;
 			}
@@ -1969,7 +2038,8 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 			if (dev->net->features & NETIF_F_RXCSUM)
 				smsc95xx_rx_csum_offload(ax_skb);
 			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
-			ax_skb->truesize = size + sizeof(struct sk_buff);
+			if (truesize_mode)
+				ax_skb->truesize = size + sizeof(struct sk_buff);
 
 			usbnet_skb_return(dev, ax_skb);
 		}
@@ -2001,13 +2071,13 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
 	/* We do not advertise SG, so skbs should be already linearized */
 	BUG_ON(skb_shinfo(skb)->nr_frags);
 
-	if (skb_headroom(skb) < overhead) {
-		struct sk_buff *skb2 = skb_copy_expand(skb,
-			overhead, 0, flags);
+	/* Make writable and expand header space by overhead if required */
+	if (skb_cow_head(skb, overhead)) {
+		/* Must deallocate here as returning NULL to indicate error
+		 * means the skb won't be deallocated in the caller.
+		 */
 		dev_kfree_skb_any(skb);
-		skb = skb2;
-		if (!skb)
-			return NULL;
+		return NULL;
 	}
 
 	if (csum) {

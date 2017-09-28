@@ -480,7 +480,7 @@ static inline int mm_alloc_pgste(struct mm_struct *mm)
  * In the case that a guest uses storage keys
  * faults should no longer be backed by zero pages
  */
-#define mm_forbids_zeropage mm_use_skey
+#define mm_forbids_zeropage mm_has_pgste
 static inline int mm_use_skey(struct mm_struct *mm)
 {
 #ifdef CONFIG_PGSTE
@@ -1029,6 +1029,8 @@ int get_guest_storage_key(struct mm_struct *mm, unsigned long addr,
 static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 			      pte_t *ptep, pte_t entry)
 {
+	if (pte_present(entry))
+		pte_val(entry) &= ~_PAGE_UNUSED;
 	if (mm_has_pgste(mm))
 		ptep_set_pte_at(mm, addr, ptep, entry);
 	else
