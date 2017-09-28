@@ -30,6 +30,7 @@
 #define AXI_ADC_TRIG_REG_TRIGGER_MIX(x)		(0x20 + ((x) * 0x10))
 #define AXI_ADC_TRIG_REG_TRIGGER_OUT_MIX	0x34
 #define AXI_ADC_TRIG_REG_FIFO_DEPTH		0x38
+#define AXI_ADC_TRIG_REG_TRIGGERED		0x3c
 #define AXI_ADC_TRIG_REG_DELAY			0x40
 
 /* AXI_ADC_TRIG_REG_CONFIG_TRIGGER */
@@ -349,6 +350,34 @@ static ssize_t axi_adc_trig_get_extinfo(struct iio_dev *indio_dev,
 			 axi_adc_trig->trigger_ext_info[priv][chan->address]);
 }
 
+static ssize_t axi_adc_trig_get_triggered(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
+{
+	struct axi_adc_trig *axi_adc_trig = iio_priv(indio_dev);
+	unsigned int val;
+
+	val = axi_adc_trig_read(axi_adc_trig, AXI_ADC_TRIG_REG_TRIGGERED) & 1;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t axi_adc_trig_set_triggered(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, const char *buf,
+	size_t len)
+{
+	struct axi_adc_trig *axi_adc_trig = iio_priv(indio_dev);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_TRIGGERED, val);
+
+	return len;
+}
+
 static const struct iio_chan_spec_ext_info axi_adc_trig_analog_info[] = {
 	IIO_ENUM("trigger", IIO_SEPARATE, &axi_adc_trig_trigger_analog_enum),
 	IIO_ENUM_AVAILABLE_SEPARATE("trigger", &axi_adc_trig_trigger_analog_enum),
@@ -365,6 +394,12 @@ static const struct iio_chan_spec_ext_info axi_adc_trig_analog_info[] = {
 		.write = axi_adc_trig_set_extinfo,
 		.read = axi_adc_trig_get_extinfo,
 		.private = TRIG_HYST,
+	},
+	{
+		.name = "triggered",
+		.shared = IIO_SHARED_BY_ALL,
+		.write = axi_adc_trig_set_triggered,
+		.read = axi_adc_trig_get_triggered,
 	},
 	{}
 };
