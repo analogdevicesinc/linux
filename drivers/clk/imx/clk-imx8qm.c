@@ -131,13 +131,14 @@ static const char *enet_sels[] = {"enet_25MHz", "enet_125MHz",};
 static const char *enet0_rmii_tx_sels[] = {"enet0_ref_div", "dummy",};
 static const char *enet1_rmii_tx_sels[] = {"enet1_ref_div", "dummy",};
 
-#define LPCG_ADDR(arg) ((void __iomem *)(arg))
+#define LPCG_ADDR(arg) ((void __iomem *)(base_lpcg + arg))
 
 static int imx8qm_clk_probe(struct platform_device *pdev)
 {
 	struct device_node *ccm_node = pdev->dev.of_node;
 	struct device_node *np_acm;
 	void __iomem *base_acm;
+	u64 base_lpcg = 0;
 	int i, ret;
 
 	ret = imx8_clk_mu_init();
@@ -145,6 +146,13 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 		return ret;
 
 	pr_info("***** imx8qm_clocks_init *****\n");
+
+	/* Parse lpcg_base_offset for virtualization cases */
+	ret = of_property_read_u64(ccm_node, "fsl,lpcg_base_offset", &base_lpcg);
+	if (ret && ret != -EINVAL) {
+		dev_err(&pdev->dev, "failed to parse fsl,lpcg_base_offset: %d\n", ret);
+		return ret;
+	}
 
 	clks[IMX8QM_CLK_DUMMY] = imx_clk_fixed("dummy", 0);
 
