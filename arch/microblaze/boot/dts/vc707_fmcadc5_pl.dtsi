@@ -153,7 +153,6 @@
 			adi,out-clk-select = <2>;
 			adi,use-cpll-enable;
 			adi,use-lpm-enable;
-			sysref-gpios = <&axi_gpio 32 8>;
 		};
 
 		axi_ad9625_0_jesd: axi-jesd204b-rx0@44a91000 {

@@ -176,10 +176,6 @@
 #define JESD204B_GT_SYSREF_INT	  0
 #define JESD204B_GT_SYSREF_EXT	  1
 
-#define CPLL	0x0000
-#define QPLL0	0x3FC0
-#define QPLL1	0x4000
-
 #define ENC_8B10B		810
 #define SCAMBLED_PRBS		0
 

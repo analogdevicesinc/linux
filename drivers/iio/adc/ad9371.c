@@ -483,6 +483,24 @@ static int ad9371_init_cal(struct ad9371_rf_phy *phy, uint32_t initCalMask)
 	return 0;
 }
 
+static const char * const ad9371_ilas_mismatch_table[] = {
+	"device ID",
+	"bank ID",
+	"lane ID",
+	"lanes per converter",
+	"scrambling",
+	"octets per frame",
+	"frames per multiframe",
+	"number of converters",
+	"sample resolution",
+	"control bits per sample",
+	"bits per sample",
+	"samples per frame",
+	"control words per frame",
+	"high density",
+	"checksum"
+};
+
 static int ad9371_setup(struct ad9371_rf_phy *phy)
 {
 	int ret;
@@ -491,12 +509,13 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 
 	uint8_t deframerStatus = 0;
 	uint8_t obsFramerStatus = 0;
-//	uint16_t mismatch = 0;
+	uint16_t mismatch = 0;
 	uint8_t framerStatus = 0;
 	mykonosErr_t mykError;
 	unsigned long lane_rate_kHz;
 	long dev_clk, fmc_clk;
 	uint32_t initCalMask;
+	unsigned int i;
 
 	mykonosDevice_t *mykDevice = phy->mykDevice;
 
@@ -533,19 +552,6 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 			mykDevice->clocks->deviceClock_kHz * 1000, dev_clk);
 		return -EINVAL;
 	}
-
-
-	// FIXME
-	ret = clk_set_rate(phy->jesd_rx_clk, 2457600);
-	if (ret < 0)
-		return ret;
-	ret = clk_set_rate(phy->jesd_rx_os_clk, 2457600);
-	if (ret < 0)
-		return ret;
-	ret = clk_set_rate(phy->jesd_tx_clk, 2457600);
-	if (ret < 0)
-		return ret;
-
 
 	lane_rate_kHz = mykDevice->rx->rxProfile->iqRate_kHz *
 			mykDevice->rx->framer->M *
@@ -740,6 +746,10 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	mykError = MYKONOS_enableSysrefToDeframer(mykDevice, 0);
 	mykError = MYKONOS_resetDeframer(mykDevice);
 
+	ret = clk_prepare_enable(phy->jesd_tx_clk);
+	if (ret < 0)
+		return ret;
+
 	/*** < User: make sure BBIC JESD framer is actively transmitting CGS> ***/
 	mykError = MYKONOS_enableSysrefToDeframer(mykDevice, 1);
 
@@ -752,10 +762,6 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 		return ret;
 
 	ret = clk_prepare_enable(phy->jesd_rx_os_clk);
-	if (ret < 0)
-		return ret;
-
-	ret = clk_prepare_enable(phy->jesd_tx_clk);
 	if (ret < 0)
 		return ret;
 
@@ -778,13 +784,19 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	/**** Check Mykonos Deframer Status ***/
 	/**************************************/
 	mykError = MYKONOS_readDeframerStatus(mykDevice, &deframerStatus);
-	if (deframerStatus != 0x68)
+	if (deframerStatus != 0x28)
 		dev_warn(&phy->spi->dev, "deframerStatus (0x%X)", deframerStatus);
 
 
-	/* FIXME: There are some knwon and harmless mismatches LID/DID/etc.
 	mykError = MYKONOS_jesd204bIlasCheck(mykDevice, &mismatch);
-	*/
+	if (mismatch) {
+		dev_warn(&phy->spi->dev, "ILAS mismatch: %04x\n", mismatch);
+		for (i = 0; i < ARRAY_SIZE(ad9371_ilas_mismatch_table); i++) {
+			if (mismatch & BIT(i))
+				dev_warn(&phy->spi->dev, "ILAS %s did not match\n",
+					ad9371_ilas_mismatch_table[i]);
+		}
+	}
 
 	/*** < User: When links have been verified, proceed > ***/
 
