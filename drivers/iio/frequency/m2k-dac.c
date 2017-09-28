@@ -26,6 +26,9 @@
 #define M2K_DAC_REG_OSR(x)	(0x40 + (x) * 0x8)
 #define M2K_DAC_REG_FILTER(x)	(0x44 + (x) * 0x8)
 #define M2K_DAC_REG_FLAGS	0x50
+#define M2K_DAC_REG_CORRECTION_ENABLE 0x54
+#define M2K_DAC_REG_CORRECTION_COEFFICIENT(x) (0x58 + (x) * 4)
+
 
 struct m2k_dac {
 	void __iomem *regs;
@@ -42,6 +45,74 @@ struct m2k_dac_ch {
 	struct m2k_dac *dac;
 	unsigned int num;
 };
+
+static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
+{
+	unsigned i;
+	u64 val64;
+
+	if (val > 1) {
+		val = 1;
+		val2 = 999999;
+	} else if (val < -1) {
+		val = -1;
+		val2 = 999999;
+	}
+
+	/*  format is 1.1.14 (sign, integer and fractional bits) */
+	switch (val) {
+	case 1:
+		i = 0x4000;
+		break;
+	case -1:
+		i = 0xC000;
+		break;
+	default: /* val = 0 */
+		i = 0;
+		if (val2 < 0) {
+			i = 0x8000;
+			val2 *= -1;
+		}
+		break;
+	}
+
+	val64 = (unsigned long long)val2 * 0x4000UL + (1000000UL / 2);
+		do_div(val64, 1000000UL);
+
+	if (i & 0x4000 && val64 == 0x4000)
+		val64 = 0x3fff;
+
+	return i | val64;
+}
+
+static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val,
+	int *r_val2)
+{
+	u64 val64;
+	int sign;
+
+	if (val & 0x8000)
+		sign = -1;
+	else
+		sign = 1;
+
+	if (val & 0x4000)
+		*r_val = 1 * sign;
+	else
+		*r_val = 0;
+
+	val &= ~0xC000;
+
+	val64 = val * 1000000ULL + (0x4000 / 2);
+	do_div(val64, 0x4000);
+
+	if (*r_val == 0)
+		*r_val2 = val64 * sign;
+	else
+		*r_val2 = val64;
+
+	return IIO_VAL_INT_PLUS_MICRO;
+}
 
 static int m2k_dac_ch_read_raw(struct iio_dev *indio_dev,
 	struct iio_chan_spec const *chan, int *val, int *val2, long info)
@@ -81,6 +152,10 @@ static int m2k_dac_ch_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		*val = ioread32(m2k_dac->regs + M2K_DAC_REG_OSR(ch->num)) + 1;
 		ret = IIO_VAL_INT;
+		break;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		reg = ioread32(m2k_dac->regs + M2K_DAC_REG_CORRECTION_COEFFICIENT(ch->num));
+		ret = cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 		break;
 	default:
 		ret = -EINVAL;
@@ -126,6 +201,17 @@ static int m2k_dac_ch_write_raw(struct iio_dev *indio_dev,
 			break;
 		}
 		iowrite32(val - 1, m2k_dac->regs + M2K_DAC_REG_OSR(ch->num));
+		break;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		reg = ioread32(m2k_dac->regs + M2K_DAC_REG_CORRECTION_ENABLE);
+		if (val == 1 && val2 == 0)
+			reg &= ~BIT(ch->num);
+		else
+			reg |= BIT(ch->num);
+		iowrite32(reg, m2k_dac->regs + M2K_DAC_REG_CORRECTION_ENABLE);
+
+		reg = cf_axi_dds_to_signed_mag_fmt(val, val2);
+		iowrite32(reg, m2k_dac->regs + M2K_DAC_REG_CORRECTION_COEFFICIENT(ch->num));
 		break;
 	default:
 		ret = -EINVAL;
@@ -222,7 +308,8 @@ static const struct iio_chan_spec m2k_dac_channel_info = {
 	.indexed = 1,
 	.channel = 0,
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) |
-		BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO) |
+		BIT(IIO_CHAN_INFO_CALIBSCALE),
 	.output = 1,
 	.scan_index = 0,
 	.ext_info = m2k_dac_ext_info,
@@ -368,6 +455,7 @@ static int m2k_dac_probe(struct platform_device *pdev)
 {
 	struct m2k_dac *m2k_dac;
 	struct resource *res;
+	unsigned int reg;
 	int ret;
 
 	m2k_dac = devm_kzalloc(&pdev->dev, sizeof(*m2k_dac), GFP_KERNEL);
@@ -388,6 +476,10 @@ static int m2k_dac_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(m2k_dac->clk);
 	if (ret < 0)
 		return ret;
+
+	reg = cf_axi_dds_to_signed_mag_fmt(1, 0);
+	iowrite32(reg, m2k_dac->regs + M2K_DAC_REG_CORRECTION_COEFFICIENT(0));
+	iowrite32(reg, m2k_dac->regs + M2K_DAC_REG_CORRECTION_COEFFICIENT(1));
 
 	ret = m2k_dac_attach_dds(pdev, m2k_dac);
 	if (ret)
