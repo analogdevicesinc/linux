@@ -2937,7 +2937,7 @@ static int dcss_wait_for_vsync(unsigned long crtc,
 		return -EBUSY;
 	}
 
-	return ret;
+	return 0;
 }
 
 static int dcss_ioctl(struct fb_info *fbi, unsigned int cmd,
