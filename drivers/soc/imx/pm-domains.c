@@ -133,7 +133,8 @@ static int imx8_pd_dev_stop(struct device *dev)
 	struct imx8_pm_domain *pd;
 
 	pd = container_of(genpd, struct imx8_pm_domain, pd);
-	pd->runtime_idle_active = true;
+	if (pm_runtime_enabled(dev))
+		pd->runtime_idle_active = true;
 	return 0;
 }
 
@@ -143,7 +144,8 @@ static int imx8_pm_runtime_idle(struct device *dev)
 	struct imx8_pm_domain *pd;
 
 	pd = container_of(genpd, struct imx8_pm_domain, pd);
-	pd->runtime_idle_active = true;
+	if (pm_runtime_enabled(dev))
+		pd->runtime_idle_active = true;
 	return pm_runtime_autosuspend(dev);
 }
 
