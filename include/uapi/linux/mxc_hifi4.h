@@ -34,6 +34,7 @@
 #define HIFI4_UNLOAD_CODEC		_IOW(HIFI4_IOC_MAGIC, 5, unsigned int)
 #define HIFI4_GET_PCM_PROP		_IOW(HIFI4_IOC_MAGIC, 6, unsigned int)
 #define HIFI4_SET_CONFIG		_IOW(HIFI4_IOC_MAGIC, 7, unsigned int)
+#define HIFI4_RESET_CODEC		_IOW(HIFI4_IOC_MAGIC, 8, unsigned int)
 
 #define CODEC_MP3_DEC		1
 #define CODEC_AAC_DEC		2
