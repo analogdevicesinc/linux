@@ -35,23 +35,9 @@
 #include <linux/mfd/syscon.h>
 
 #include "mxc_dispdrv.h"
-#include "./cdn_hdp/address.h"
-#include "./cdn_hdp/apb_cfg.h"
-#include "./cdn_hdp/API_General.h"
-#include "./cdn_hdp/API_HDMITX.h"
-#include "./cdn_hdp/API_AVI.h"
-#include "./cdn_hdp/API_AFE.h"
-#include "./cdn_hdp/API_AFE_t28hpc_hdmitx.h"
-#include "./cdn_hdp/externs.h"
-#include "./cdn_hdp/source_car.h"
-#include "./cdn_hdp/source_phy.h"
-#include "./cdn_hdp/source_vif.h"
-#include "./cdn_hdp/vic_table.h"
+#include "API_AFE_t28hpc_hdmitx.h"
 
 #define DISPDRV_HDMI		"hdmi_disp"
-
-void __iomem *g_sec_base;
-void __iomem *g_regs_base;
 
 struct pll_divider {
 	unsigned int cm;	/* multiplier */
@@ -63,8 +49,7 @@ struct pll_divider {
 struct imx_hdmi_info {
 	struct platform_device *pdev;
 	void __iomem *regs_base;
-	void __iomem *sec_base;
-	void __iomem *phy_base;
+	void __iomem *ss_base;
 	int power_on;
 	u32 dphy_pll_config;
 	int dev_id;
@@ -76,9 +61,69 @@ struct imx_hdmi_info {
 	struct mxc_dispdrv_handle *disp_hdmi;
 	struct fb_videomode *mode;
 	struct regulator *disp_power_on;
+
+	state_struct state;
+	struct hdp_rw_func *rw;
 };
 
-static int hdmi_init(int vic, int encoding, int color_depth)
+static int mx8mq_hdp_read(struct hdp_mem *mem, unsigned int addr, unsigned int *value)
+{
+	unsigned int temp;
+	void *tmp_addr = mem->regs_base + addr;
+	temp = __raw_readl((volatile unsigned int *)tmp_addr);
+	*value = temp;
+	return 0;
+}
+
+static int mx8mq_hdp_write(struct hdp_mem *mem, unsigned int addr, unsigned int value)
+{
+	void *tmp_addr = mem->regs_base + addr;
+
+	__raw_writel(value, (volatile unsigned int *)tmp_addr);
+	return 0;
+}
+
+static int mx8mq_hdp_sread(struct hdp_mem *mem, unsigned int addr, unsigned int *value)
+{
+	unsigned int temp;
+	void *tmp_addr = mem->ss_base + addr;
+	temp = __raw_readl((volatile unsigned int *)tmp_addr);
+	*value = temp;
+	return 0;
+}
+
+static int mx8mq_hdp_swrite(struct hdp_mem *mem, unsigned int addr, unsigned int value)
+{
+	void *tmp_addr = mem->ss_base + addr;
+	__raw_writel(value, (volatile unsigned int *)tmp_addr);
+	return 0;
+}
+
+static struct hdp_rw_func imx8mq_rw = {
+	.read_reg = mx8mq_hdp_read,
+	.write_reg = mx8mq_hdp_write,
+	.sread_reg = mx8mq_hdp_sread,
+	.swrite_reg = mx8mq_hdp_swrite,
+};
+
+static void imx_hdmi_state_init(struct imx_hdmi_info *imx_hdmi)
+{
+	state_struct *state = &imx_hdmi->state;
+
+	memset(state, 0, sizeof(state_struct));
+	mutex_init(&state->mutex);
+
+	state->mem.regs_base = imx_hdmi->regs_base;
+	state->mem.ss_base = imx_hdmi->ss_base;
+	state->rw = imx_hdmi->rw;
+
+	state->rw->read_reg = mx8mq_hdp_read;
+	state->rw->write_reg = mx8mq_hdp_write;
+	state->rw->sread_reg = mx8mq_hdp_sread;
+	state->rw->swrite_reg = mx8mq_hdp_swrite;
+}
+
+static int hdmi_init(struct imx_hdmi_info *imx_hdmi, int vic, int encoding, int color_depth)
 {
 	int ret;
 	uint32_t character_freq_khz;
@@ -112,17 +157,14 @@ static int hdmi_init(int vic, int encoding, int color_depth)
 
 	/* Parameterization done */
 
-	CDN_API_Init();
-	printk("CDN_API_Init completed\n");
-
-	ret = CDN_API_CheckAlive_blocking();
+	ret = CDN_API_CheckAlive_blocking(&imx_hdmi->state);
 	printk("CDN_API_CheckAlive returned ret = %d\n", ret);
 	if (ret != 0) {
 		printk("NO HDMI FW running\n");
 		return -EINVAL;
 	}
 
-	ret = CDN_API_General_Test_Echo_Ext_blocking(echo_msg, echo_resp,
+	ret = CDN_API_General_Test_Echo_Ext_blocking(&imx_hdmi->state, echo_msg, echo_resp,
 						     sizeof(echo_msg),
 						     CDN_BUS_TYPE_APB);
 	printk
@@ -135,13 +177,13 @@ static int hdmi_init(int vic, int encoding, int color_depth)
 
 	/* Configure PHY */
 	character_freq_khz =
-	    phy_cfg_hdp(4, vic_mode, bps, format, pixel_clk_from_phy);
+	    phy_cfg_hdp_t28hpc(&imx_hdmi->state, 4, vic_mode, bps, format, pixel_clk_from_phy);
 
-	hdmi_tx_kiran_power_configuration_seq(4);
+	hdmi_tx_power_configuration_seq(&imx_hdmi->state, 4);
 
 	/* Set the lane swapping */
 	ret =
-	    CDN_API_General_Write_Register_blocking(ADDR_SOURCD_PHY +
+	    CDN_API_General_Write_Register_blocking(&imx_hdmi->state, ADDR_SOURCD_PHY +
 						    (LANES_CONFIG << 2),
 						    F_SOURCE_PHY_LANE0_SWAP(0) |
 						    F_SOURCE_PHY_LANE1_SWAP(1) |
@@ -153,17 +195,17 @@ static int hdmi_init(int vic, int encoding, int color_depth)
 	    ("CDN_API_General_Write_Register_blocking LANES_CONFIG ret = %d\n",
 	     ret);
 
-	ret = CDN_API_HDMITX_Init_blocking();
+	ret = CDN_API_HDMITX_Init_blocking(&imx_hdmi->state);
 	printk("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
 
 	/* Set HDMI TX Mode */
-	ret = CDN_API_HDMITX_Set_Mode_blocking(ptype, character_freq_khz);
+	ret = CDN_API_HDMITX_Set_Mode_blocking(&imx_hdmi->state, ptype, character_freq_khz);
 	printk("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
 
-	ret = CDN_API_Set_AVI(vic_mode, format, bw_type);
+	ret = CDN_API_Set_AVI(&imx_hdmi->state, vic_mode, format, bw_type);
 	printk("CDN_API_Set_AVI  ret = %d\n", ret);
 
-	ret = CDN_API_HDMITX_SetVic_blocking(vic_mode, bps, format);
+	ret = CDN_API_HDMITX_SetVic_blocking(&imx_hdmi->state, vic_mode, bps, format);
 	printk("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
 
 	udelay(10000);
@@ -253,7 +295,6 @@ static int imx_hdmi_probe(struct platform_device *pdev)
 	if (IS_ERR(imx_hdmi->regs_base))
 		return -ENODEV;
 
-	g_regs_base = imx_hdmi->regs_base;
 
 	/* Get HDMI SEC base register */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
@@ -262,11 +303,9 @@ static int imx_hdmi_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	imx_hdmi->sec_base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(imx_hdmi->sec_base))
+	imx_hdmi->ss_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(imx_hdmi->ss_base))
 		return -ENODEV;
-
-	g_sec_base = imx_hdmi->sec_base;
 
 	/* IRQ */
 	imx_hdmi->irq = platform_get_irq(pdev, 0);
@@ -300,16 +339,21 @@ static int imx_hdmi_probe(struct platform_device *pdev)
 	mxc_dispdrv_setdata(imx_hdmi->disp_hdmi, imx_hdmi);
 	dev_set_drvdata(&pdev->dev, imx_hdmi);
 
+	imx_hdmi->rw = &imx8mq_rw;
+
+	imx_hdmi_state_init(imx_hdmi);
+
+//	CDN_API_Init(&imx_hdmi->state);
 	/* 0-480p, 1-720p, 2-1080p, 3-2160p60, 4-2160p30 */
 	/* Pixel Format - 1 RGB, 2 YCbCr 444, 3 YCbCr 420 */
 	if (vmode_index == 16)
-		ret = hdmi_init(2, 1, 8);
+		ret = hdmi_init(imx_hdmi, 2, 1, 8);
 	else if (vmode_index == 97)
-		ret = hdmi_init(3, 1, 8);
+		ret = hdmi_init(imx_hdmi, 3, 1, 8);
 	else if (vmode_index == 95)
-		ret = hdmi_init(4, 1, 8);
+		ret = hdmi_init(imx_hdmi, 4, 1, 8);
 	else
-		ret = hdmi_init(1, 1, 8);
+		ret = hdmi_init(imx_hdmi, 1, 1, 8);
 
 	if (ret < 0)
 		return -EINVAL;
@@ -339,7 +383,7 @@ static void imx_hdmi_shutdown(struct platform_device *pdev)
 
 
 static const struct of_device_id imx_imx_hdmi_dt_ids[] = {
-	{.compatible = "fsl,imx8mq-hdmi", .data = NULL,},
+	{.compatible = "fsl,imx8mq-fb-hdmi", .data = NULL,},
 	{}
 };
 

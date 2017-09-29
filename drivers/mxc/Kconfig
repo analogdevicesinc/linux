@@ -7,6 +7,7 @@ menu "MXC support drivers"
 # drivers common to MXC and MX8 go here:
 source "drivers/mxc/hantro/Kconfig"
 source "drivers/mxc/mlb/Kconfig"
+source "drivers/mxc/hdp/Kconfig"
 
 if ARCH_MXC
 config MXC_IPU

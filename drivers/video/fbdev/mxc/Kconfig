@@ -83,8 +83,9 @@ config FB_MXC_HDMI
 
 config FB_MX8_HDMI
 	tristate "IMX 8 SOC HDMI"
-	depends on FB_IMX64 && ARCH_FSL_IMX8MQ
+	depends on FB_IMX64
 	depends on FB_MXC_DISP_FRAMEWORK
+	select MX8_HDP_HDMI
 	help
 	  Candece HDMI driver which includes
 	  core and PHY management.

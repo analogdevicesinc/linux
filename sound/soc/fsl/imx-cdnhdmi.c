@@ -21,9 +21,9 @@
 #include <sound/control.h>
 #include <sound/pcm_params.h>
 #include <sound/soc-dapm.h>
-#include "../../../drivers/video/fbdev/mxc/cdn_hdp/API_General.h"
-#include "../../../drivers/video/fbdev/mxc/cdn_hdp/API_Audio.h"
-#include "../../../drivers/video/fbdev/mxc/cdn_hdp/vic_table.h"
+#include "../../../drivers/mxc/hdp/API_General.h"
+#include "../../../drivers/mxc/hdp/API_Audio.h"
+#include "../../../drivers/mxc/hdp/vic_table.h"
 
 #define SUPPORT_RATE_NUM 10
 #define SUPPORT_CHANNEL_NUM 10

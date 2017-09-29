@@ -1,0 +1,10 @@
+config MX8_HDP
+	tristate "IMX8 HDP API "
+
+config MX8_HDP_DP
+	select MX8_HDP
+	tristate "IMX8 HDP DP API "
+
+config MX8_HDP_HDMI
+	select MX8_HDP
+	tristate "IMX8 HDP HDMI API "
