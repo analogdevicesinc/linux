@@ -679,6 +679,7 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9361_rf_phy *phy = conv->phy;
 	bool rx2tx2 = ad9361_uses_rx2tx2(phy);
+	bool half_rate = ad9361_axi_half_dac_rate(phy);
 	unsigned tmp, num_chan, flags;
 	unsigned int skipmode;
 	int i, ret;
@@ -695,13 +696,19 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 
 	if (!rx2tx2) {
 		axiadc_write(st, 0x4048, tmp | BIT(5)); /* R1_MODE */
-		axiadc_write(st, 0x404c,
+		if (!half_rate)
+			axiadc_write(st, 0x404c,
 			     ad9361_uses_lvds_mode(phy) ? 1 : 0); /* RATE */
+		else
+			axiadc_write(st, 0x404c, 0);
 	} else {
 		tmp &= ~BIT(5);
 		axiadc_write(st, 0x4048, tmp);
-		axiadc_write(st, 0x404c,
+		if (!half_rate)
+			axiadc_write(st, 0x404c,
 			     ad9361_uses_lvds_mode(phy) ? 3 : 1); /* RATE */
+		else
+			axiadc_write(st, 0x404c, 1);
 	}
 
 	for (i = 0; i < num_chan; i++) {
