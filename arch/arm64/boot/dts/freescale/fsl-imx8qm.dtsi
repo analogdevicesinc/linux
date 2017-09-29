@@ -1128,7 +1128,8 @@
 		dpu1_disp0: port@0 {
 			reg = <0>;
 
-			dpu1_disp0_mipi_dsi: mipi-dsi-endpoint {
+			dpu1_disp0_hdmi: hdmi-endpoint {
+				remote-endpoint = <&hdmi_disp>;
 			};
 		};
 
@@ -1141,6 +1142,49 @@
 
 			dpu1_disp1_lvds1: lvds1-endpoint {
 				remote-endpoint = <&ldb1_lvds1>;
+			};
+		};
+	};
+
+	hdmi:hdmi@56268000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-dp";
+		reg = <0x0 0x56268000 0x0 0x100000>, /* HDP Controller */
+				<0x0 0x56261000 0x0 0x1000>; /* HDP SubSystem CSR  */
+		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_hdmi>;
+		status = "disabled";
+		clocks = <&clk IMX8QM_HDMI_DIG_PLL_CLK>,
+				<&clk IMX8QM_HDMI_AV_PLL_CLK>,
+				<&clk IMX8QM_HDMI_IPG_CLK>,
+				<&clk IMX8QM_HDMI_HDP_CORE_CLK>,
+				<&clk IMX8QM_HDMI_PXL_CLK>,
+				<&clk IMX8QM_HDMI_PXL_MUX_CLK>,
+				<&clk IMX8QM_HDMI_PXL_LINK_CLK>,
+				<&clk IMX8QM_HDMI_HDP_CLK>,
+				<&clk IMX8QM_HDMI_HDP_PHY_CLK>,
+				<&clk IMX8QM_HDMI_APB_CLK>,
+				<&clk IMX8QM_HDMI_LIS_IPG_CLK>,
+				<&clk IMX8QM_HDMI_MSI_HCLK>,
+				<&clk IMX8QM_HDMI_PXL_LPCG_CLK>,
+				<&clk IMX8QM_HDMI_PXL_EVEN_CLK>,
+				<&clk IMX8QM_HDMI_PXL_DBL_CLK>,
+				<&clk IMX8QM_HDMI_VIF_CLK>,
+				<&clk IMX8QM_HDMI_APB_MUX_CSR_CLK>,
+				<&clk IMX8QM_HDMI_APB_MUX_CTRL_CLK>;
+		clock-names = "dig_pll", "av_pll", "clk_ipg",
+						"clk_core", "clk_pxl", "clk_pxl_mux",
+						"clk_pxl_link", "clk_hdp", "clk_phy",
+						"clk_apb", "clk_lis","clk_msi",
+						"clk_lpcg", "clk_even","clk_dbl",
+						"clk_vif", "clk_apb_csr","clk_apb_ctrl";
+		power-domains = <&pd_hdmi>;
+
+		port@0 {
+			reg = <0>;
+				hdmi_disp: endpoint {
+				remote-endpoint = <&dpu1_disp0_hdmi>;
 			};
 		};
 	};
@@ -1601,12 +1645,11 @@
 		interrupt-controller;
 		interrupt-parent = <&gic>;
 		#interrupt-cells = <2>;
-		clocks = <&clk IMX8QM_HDMI_DIG_PLL_CLK>,
-				<&clk IMX8QM_HDMI_LIS_IPG_CLK>;
-		clock-names = "pll", "ipg";
-		assigned-clocks =  <&clk IMX8QM_HDMI_DIG_PLL_CLK>,
-				<&clk IMX8QM_HDMI_LIS_IPG_CLK>;
-		assigned-clock-rates = <675000000>, <84000000>;
+		clocks = <&clk IMX8QM_HDMI_LIS_IPG_CLK>;
+		clock-names = "ipg";
+		assigned-clocks = <&clk IMX8QM_HDMI_DIG_PLL_CLK>,
+							<&clk IMX8QM_HDMI_LIS_IPG_CLK>;
+		assigned-clock-rates = <1188000000>, <85000000>;
 		power-domains = <&pd_hdmi>;
 	};
 
@@ -1676,7 +1719,7 @@
 		status = "disabled";
 	};
 
-	irqsteer_csi0: irqsteer@582200000 {
+	irqsteer_csi0: irqsteer@58220000 {
 		compatible = "nxp,imx-irqsteer";
 		reg = <0x0 0x58220000 0x0 0x1000>;
 		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
