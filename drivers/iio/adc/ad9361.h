@@ -3175,6 +3175,7 @@ struct ad9361_phy_platform_data {
 	struct gpio_desc			*cal_sw1_gpio;
 	struct gpio_desc			*cal_sw2_gpio;
 
+	bool			axi_half_dac_rate_en;
 };
 
 struct rf_rx_gain {

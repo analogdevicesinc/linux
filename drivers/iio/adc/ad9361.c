@@ -8526,6 +8526,10 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_u32(iodev, np, "adi,txmon-2-lo-cm", 48,
 			&pdata->txmon_ctrl.tx2_mon_lo_cm);
 
+	/* AXI Converter */
+
+	ad9361_of_get_bool(iodev, np, "adi,axi-half-dac-rate-enable",
+			   &pdata->axi_half_dac_rate_en);
 
 	return pdata;
 }
