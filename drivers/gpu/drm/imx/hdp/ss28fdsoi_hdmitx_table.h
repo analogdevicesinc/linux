@@ -1,0 +1,109 @@
+/******************************************************************************
+ *
+ * Copyright (C) 2016-2017 Cadence Design Systems, Inc.
+ * All rights reserved worldwide.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation and/or
+ * other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ * may be used to endorse or promote products derived from this software without
+ * specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ ******************************************************************************
+ *
+ * ss28fdsoi_hdmitx_table.h
+ *
+ ******************************************************************************
+ */
+
+#ifndef SS28FDSOI_HDMITX_TABLE_H_
+#define SS28FDSOI_HDMITX_TABLE_H_
+
+#include <linux/io.h>
+
+# define SS28FDSOI_HDMITX_CLOCK_CONTROL_TABLE_ROWS 19
+# define SS28FDSOI_HDMITX_CLOCK_CONTROL_TABLE_COLS 23
+
+# define SS28FDSOI_HDMITX_PLL_TUNING_TABLE_ROWS 36
+# define SS28FDSOI_HDMITX_PLL_TUNING_TABLE_COLS 19
+
+typedef enum {
+	//PIXEL_CLK_FREQ_MHZ_MIN,
+	PIXEL_CLK_FREQ_KHZ_MIN,
+	//PIXEL_CLK_FREQ_MHZ_MAX,
+	PIXEL_CLK_FREQ_KHZ_MAX,
+	FEEDBACK_FACTOR,
+	DATA_RANGE_MBPS_MIN,
+	DATA_RANGE_MBPS_MAX,
+	CMNDA_PLL0_IP_DIV,
+	CMN_REF_CLK_DIG_DIV,
+	REF_CLK_DIVIDER_SCALER,
+	PLL_FB_DIV_TOTAL,
+	CMNDA_PLL0_FB_DIV_LOW,
+	CMNDA_PLL0_FB_DIV_HIGH,
+	//VCO_FREQ_MHZ_MIN,
+	//VCO_FREQ_MHZ_MAX,
+	VCO_FREQ_KHZ_MIN,
+	VCO_FREQ_KHZ_MAX,
+	VCO_RING_SELECT,
+	CMNDA_HS_CLK_0_SEL,
+	CMNDA_HS_CLK_1_SEL,
+	HSCLK_DIV_AT_XCVR,
+	HSCLK_DIV_TX_SUB_RATE,
+	TX_CLK_KHZ_MIN,
+	TX_CLK_KHZ_MAX,
+	CMNDA_PLL0_HS_SYM_DIV_SEL,
+	CMNDA_PLL0_CLK_FREQ_KHZ_MIN,
+	CMNDA_PLL0_CLK_FREQ_KHZ_MAX
+} CLK_CTRL_PARAM;
+
+typedef enum {
+	VCO_FREQ_BIN,
+	/* PLL_VCO_FREQ_MHZ_MIN, */
+	/* PLL_VCO_FREQ_MHZ_MAX, */
+	PLL_VCO_FREQ_KHZ_MIN,
+	PLL_VCO_FREQ_KHZ_MAX,
+	VOLTAGE_TO_CURRENT_COARSE,
+	VOLTAGE_TO_CURRENT,
+	NDAC_CTRL,
+	PMOS_CTRL,
+	PTAT_NDAC_CTRL,
+	/*PLL_FEEDBACK_DIV_TOTAL,  float to int */
+	PLL_FEEDBACK_DIV_TOTAL,
+	CHARGE_PUMP_GAIN
+} PLL_TUNE_PARAM;
+
+extern const u32
+ss28fdsoi_hdmitx_clock_control_table[SS28FDSOI_HDMITX_CLOCK_CONTROL_TABLE_ROWS]
+    [SS28FDSOI_HDMITX_CLOCK_CONTROL_TABLE_COLS];
+extern const u32
+ss28fdsoi_hdmitx_pll_tuning_table[SS28FDSOI_HDMITX_PLL_TUNING_TABLE_ROWS]
+    [SS28FDSOI_HDMITX_PLL_TUNING_TABLE_COLS];
+
+#endif

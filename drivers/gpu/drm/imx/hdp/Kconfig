@@ -1,0 +1,11 @@
+config DRM_IMX_HDP
+	tristate "IMX8 HD Display Controller"
+	select DRM_IMX
+	select MX8_HDP_DP
+	select DRM_KMS_HELPER
+	select VIDEOMODE_HELPERS
+	select DRM_GEM_CMA_HELPER
+	select DRM_KMS_CMA_HELPER
+	select DRM_PANEL
+	help
+	  Choose this if you want to use DP/HDMI on i.MX8.
