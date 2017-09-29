@@ -444,6 +444,10 @@
 						//adi,aux-dac2-active-in-alert-enable;
 						adi,aux-dac2-rx-delay-us = <0>;
 						adi,aux-dac2-tx-delay-us = <0>;
+
+						/* AXI Converter */
+
+						adi,axi-half-dac-rate-enable;
 					};
 				};
 			};
