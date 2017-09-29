@@ -4161,6 +4161,12 @@ bool ad9361_uses_rx2tx2(struct ad9361_rf_phy *phy)
 }
 EXPORT_SYMBOL(ad9361_uses_rx2tx2);
 
+bool ad9361_axi_half_dac_rate(struct ad9361_rf_phy *phy)
+{
+	return phy && phy->pdata && phy->pdata->axi_half_dac_rate_en;
+}
+EXPORT_SYMBOL(ad9361_axi_half_dac_rate);
+
 int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
 			     struct ad9361_dig_tune_data *data)
 {
@@ -8954,6 +8960,10 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_u32(iodev, np, "adi,txmon-2-lo-cm", 48,
 			&pdata->txmon_ctrl.tx2_mon_lo_cm);
 
+	/* AXI Converter */
+
+	ad9361_of_get_bool(iodev, np, "adi,axi-half-dac-rate-enable",
+			&pdata->axi_half_dac_rate_en);
 
 	return pdata;
 }
