@@ -262,7 +262,7 @@ struct vsync_info {
 
 struct ctxld_commit {
 	struct list_head list;
-	atomic_t refcount;
+	struct kref refcount;
 	struct work_struct work;
 	void *data;
 	uint32_t sb_data_len;
@@ -540,6 +540,8 @@ static int vcount_compare(unsigned long vcount,
 			  struct vsync_info *vinfo);
 static int dcss_wait_for_vsync(unsigned long crtc,
 			       struct dcss_info *info);
+static void flush_cfifo(struct ctxld_fifo *cfifo,
+			struct work_struct *work);
 
 static struct fb_ops dcss_ops = {
 	.owner = THIS_MODULE,
@@ -2351,8 +2353,8 @@ static struct ctxld_commit *alloc_cc(struct dcss_info *info)
 
 	INIT_LIST_HEAD(&cc->list);
 	INIT_WORK(&cc->work, dcss_ctxld_config);
+	kref_init(&cc->refcount);
 	cc->data = info;
-	atomic_set(&cc->refcount, 0);
 
 	return cc;
 }
@@ -2386,7 +2388,7 @@ static struct ctxld_commit *obtain_cc(int ch_id, struct dcss_info *info)
 		cc = list_first_entry(&cfifo->ctxld_list,
 				      struct ctxld_commit,
 				      list);
-		atomic_inc(&cc->refcount);
+		kref_get(&cc->refcount);
 	}
 
 	spin_unlock_irqrestore(&vinfo->vwait.lock, irqflags);
@@ -2406,7 +2408,7 @@ static struct ctxld_commit *obtain_cc(int ch_id, struct dcss_info *info)
 					      struct ctxld_commit,
 					      list);
 		}
-		atomic_inc(&cc->refcount);
+		kref_get(&cc->refcount);
 
 		spin_unlock_irqrestore(&vinfo->vwait.lock, irqflags);
 	}
@@ -2414,11 +2416,42 @@ static struct ctxld_commit *obtain_cc(int ch_id, struct dcss_info *info)
 	return cc;
 }
 
-static void release_cc(struct ctxld_commit *cc)
+static void release_cc(struct kref *kref)
 {
-	WARN_ON(!atomic_read(&cc->refcount));
+	unsigned long irqflags;
+	struct ctxld_commit *cc;
+	struct dcss_info *info;
+	struct vsync_info *vinfo;
+	struct ctxld_fifo *cfifo;
 
-	atomic_dec(&cc->refcount);
+	cc = container_of(kref, struct ctxld_commit, refcount);
+	info  = (struct dcss_info *)cc->data;
+	vinfo = &info->vinfo;
+	cfifo = &info->cfifo;
+
+	spin_lock_irqsave(&vinfo->vwait.lock, irqflags);
+
+	list_del(&cc->list);
+	flush_cfifo(cfifo, &cc->work);
+
+	spin_unlock_irqrestore(&vinfo->vwait.lock, irqflags);
+}
+
+/**
+ * Only be called when 'vwait.lock' is hold
+ */
+static void release_cc_locked(struct kref *kref)
+{
+	struct ctxld_commit *cc;
+	struct dcss_info *info;
+	struct ctxld_fifo *cfifo;
+
+	cc = container_of(kref, struct ctxld_commit, refcount);
+	info  = (struct dcss_info *)cc->data;
+	cfifo = &info->cfifo;
+
+	list_del(&cc->list);
+	flush_cfifo(cfifo, &cc->work);
 }
 
 static void flush_cfifo(struct ctxld_fifo *cfifo,
@@ -2485,7 +2518,7 @@ static int commit_cfifo(uint32_t channel,
 
 	if (unlikely(atomic_read(&info->flush) == 1)) {
 		/* cancel this commit and restart it later */
-		release_cc(cc);
+		kref_put(&cc->refcount, release_cc);
 
 		wait_event_interruptible_exclusive_locked(cfifo->cqueue,
 						atomic_read(&info->flush));
@@ -2502,7 +2535,7 @@ static int commit_cfifo(uint32_t channel,
 		spin_unlock(&cfifo->cqueue.lock);
 
 		/* cancel this commit and restart it later */
-		release_cc(cc);
+		kref_put(&cc->refcount, release_cc);
 
 		/* Wait fifo flush empty to avoid fifo wrap */
 		finish_cfifo(cfifo);
@@ -2765,7 +2798,7 @@ restart:
 	if (ret == -ERESTART)
 		goto restart;
 
-	release_cc(cc);
+	kref_put(&cc->refcount, release_cc);
 #endif
 
 	goto out;
@@ -2849,7 +2882,7 @@ restart:
 	if (ret == -ERESTART)
 		goto restart;
 
-	release_cc(cc);
+	kref_put(&cc->refcount, release_cc);
 #endif
 
 	cinfo->blank = blank;
@@ -2920,7 +2953,7 @@ restart:
 	if (ret == -ERESTART)
 		goto restart;
 
-	release_cc(cc);
+	kref_put(&cc->refcount, release_cc);
 #endif
 
 	goto out;
@@ -3031,6 +3064,7 @@ static void ctxld_irq_clear(struct dcss_info *info)
 
 static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 {
+	int ret;
 	struct irq_desc *desc;
 	uint32_t irq_status;
 	unsigned long irqflags;
@@ -3062,18 +3096,19 @@ static irqreturn_t dcss_irq_handler(int irq, void *dev_id)
 
 		spin_lock_irqsave(&info->vinfo.vwait.lock, irqflags);
 
+		/* unblock new commits */
 		info->vinfo.vcount++;
+
 		if (!list_empty(&cfifo->ctxld_list)) {
 			cc = list_first_entry(&cfifo->ctxld_list,
 					      struct ctxld_commit,
 					      list);
-			/* defer cfifo flush to next frame window */
-			if (atomic_read(&cc->refcount))
+
+			ret = kref_put(&cc->refcount, release_cc_locked);
+
+			/* 'cc' can not be released */
+			if (!ret)
 				defer_flush_cfifo(cfifo);
-			else {
-				list_del(&cc->list);
-				flush_cfifo(cfifo, &cc->work);
-			}
 		}
 
 		spin_unlock_irqrestore(&info->vinfo.vwait.lock, irqflags);
