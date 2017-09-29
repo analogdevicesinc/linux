@@ -68,9 +68,8 @@
 		};
 
 		mmc: dwmmc0@ff704000 {
-			num-slots = <0x1>;
+			status = "okay";
 			supports-highspeed;
-			broken-cd;
 			altr,dw-mshc-ciu-div = <0x3>;
 			altr,dw-mshc-sdr-timing = <0x0 0x3>;
 			slot@0 {
