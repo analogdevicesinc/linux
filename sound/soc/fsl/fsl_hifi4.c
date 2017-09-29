@@ -1467,6 +1467,24 @@ static long fsl_hifi4_compat_ioctl(struct file *file, unsigned int cmd,
 }
 #endif
 
+void resource_release(struct fsl_hifi4 *hifi4_priv)
+{
+	int i;
+
+	hifi4_priv->available_resource = MULTI_CODEC_NUM;
+	for (i = 0; i < MULTI_CODEC_NUM; i++) {
+		hifi4_priv->process_info[i].data_buf_virt =
+				hifi4_priv->data_buf_virt +
+				i * hifi4_priv->data_buf_size / MULTI_CODEC_NUM;
+		hifi4_priv->process_info[i].data_buf_phys =
+				hifi4_priv->data_buf_phys +
+				i * hifi4_priv->data_buf_size / MULTI_CODEC_NUM;
+
+		hifi4_priv->process_info[i].status = 0;
+	}
+	send_dpu_ext_msg_addr(hifi4_priv);
+}
+
 static int fsl_hifi4_open(struct inode *inode, struct file *file)
 {
 	struct fsl_hifi4 *hifi4_priv;
@@ -1506,6 +1524,10 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 			return ret;
 		dev_info(dev, "hifi driver registered\n");
 	}
+
+	/* increase reference counter when opening device */
+	atomic_long_inc(&hifi4_priv->refcnt);
+
 	mutex_unlock(&hifi4_priv->hifi4_mutex);
 
 	return ret;
@@ -1523,6 +1545,14 @@ static int fsl_hifi4_close(struct inode *inode, struct file *file)
 	dev = hifi4_priv->dev;
 	hifi4_engine = file->private_data;
 	devm_kfree(dev, hifi4_engine);
+
+	/* decrease reference counter when closing device */
+	atomic_long_dec(&hifi4_priv->refcnt);
+	/* If device is free, reinitialize the resource of
+	 * hifi4 driver and framework
+	 */
+	if (atomic_long_read(&hifi4_priv->refcnt) <= 0)
+		resource_release(hifi4_priv);
 
 	mutex_unlock(&hifi4_priv->hifi4_mutex);
 
@@ -2099,6 +2129,10 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 		hifi4_priv->process_info[i].status = 0;
 	}
 
+	/* initialize the reference counter for hifi4_priv
+	 * structure
+	 */
+	atomic_long_set(&hifi4_priv->refcnt, 0);
 	mutex_init(&hifi4_priv->hifi4_mutex);
 
 	return 0;
