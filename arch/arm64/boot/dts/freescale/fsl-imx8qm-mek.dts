@@ -39,6 +39,33 @@
 			enable-active-high;
 		};
 	};
+
+	sound: sound {
+		compatible = "fsl,imx7d-evk-wm8960",
+			   "fsl,imx-audio-wm8960";
+		model = "wm8960-audio";
+		cpu-dai = <&sai1>;
+		audio-codec = <&wm8960>;
+		asrc-controller = <&asrc0>;
+		codec-master;
+		audio-routing =
+			"Headphone Jack", "HP_L",
+			"Headphone Jack", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT2", "Mic Jack",
+			"LINPUT3", "Mic Jack",
+			"RINPUT1", "Main MIC",
+			"RINPUT2", "Main MIC",
+			"Mic Jack", "MICB",
+			"Main MIC", "MICB",
+			"CPU-Playback", "ASRC-Playback",
+			"Playback", "CPU-Playback",
+			"ASRC-Capture", "CPU-Capture",
+			"CPU-Capture", "Capture";
+	};
 };
 
 &iomuxc {
@@ -68,6 +95,24 @@
 				SC_P_UART0_TX_DMA_UART0_TX		0x06000020
 				SC_P_UART0_RTS_B_DMA_UART0_RTS_B	0x06000020
 				SC_P_UART0_CTS_B_DMA_UART0_CTS_B	0x06000020
+			>;
+		};
+
+		pinctrl_sai1: sai1grp {
+			fsl,pins = <
+				SC_P_SAI1_RXD_AUD_SAI1_RXD		0x0600004c
+				SC_P_SAI1_RXC_AUD_SAI1_RXC		0x0600004c
+				SC_P_SAI1_RXFS_AUD_SAI1_RXFS		0x0600004c
+				SC_P_SAI1_TXD_AUD_SAI1_TXD		0x0600004c
+				SC_P_SAI1_TXC_AUD_SAI1_TXC		0x0600004c
+				SC_P_MCLK_OUT0_AUD_ACM_MCLK_OUT0	0x0600004c
+			>;
+		};
+
+		pinctrl_i2c1: i2c1grp {
+			fsl,pins = <
+				SC_P_GPT0_CLK_DMA_I2C1_SCL 0x0600004c
+				SC_P_GPT0_CAPTURE_DMA_I2C1_SDA 0x0600004c
 			>;
 		};
 
@@ -168,6 +213,21 @@
 	};
 };
 
+&asrc0 {
+	fsl,asrc-rate  = <48000>;
+	status = "okay";
+};
+
+&sai1 {
+	assigned-clocks = <&clk IMX8QM_AUD_PLL0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QM_AUD_SAI_1_MCLK>;
+	assigned-clock-rates = <786432000>, <49152000>, <49152000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai1>;
+	status = "okay";
+};
+
 &usdhc1 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
@@ -218,6 +278,28 @@
 			at803x,vddio-1p8v;
 			status = "disabled";
 		};
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	status = "okay";
+
+	wm8960: wm8960@1a {
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		clocks = <&clk IMX8QM_AUD_MCLKOUT0>;
+		clock-names = "mclk";
+		wlf,shared-lrclk;
+		power-domains = <&pd_mclk_out0>;
+		assigned-clocks = <&clk IMX8QM_AUD_PLL0_DIV>,
+				<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
+				<&clk IMX8QM_AUD_MCLKOUT0>;
+		assigned-clock-rates = <786432000>, <12288000>, <12288000>;
 	};
 };
 
