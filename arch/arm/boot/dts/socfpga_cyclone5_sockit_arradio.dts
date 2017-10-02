@@ -211,6 +211,8 @@
 &adc0_ad9361 {
 	/delete-property/ spi-cpha;
 
+	adi,lvds-bias-mV = <300>;
+
 	/* GPIO */
 	reset-gpios = <&gpio 4 0>;
 	en_agc-gpios = <&gpio 3 0>;
