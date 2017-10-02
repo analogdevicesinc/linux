@@ -887,9 +887,6 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clk_data.clk_num = ARRAY_SIZE(clks);
 	of_clk_add_provider(ccm_node, of_clk_src_onecell_get, &clk_data);
 
-	clk_prepare_enable(clks[IMX8QM_A53_DIV]);
-	clk_prepare_enable(clks[IMX8QM_A72_DIV]);
-
 	return 0;
 }
 
