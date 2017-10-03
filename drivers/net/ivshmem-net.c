@@ -356,6 +356,7 @@ static void ivshm_net_tx_clean(struct net_device *ndev)
 	last = tx->last_used_idx;
 
 	fdesc = NULL;
+	fhead = 0;
 	num = 0;
 
 	while (last != used_idx) {
