@@ -1,0 +1,55 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2708";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			adc_vref: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <4096000>;
+				regulator-max-microvolt = <4096000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			clocks {
+				ad7768_mclk: clock@0 {
+					     #clock-cells = <0>;
+					     compatible = "fixed-clock";
+					     clock-frequency = <16384000>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad7768@0{
+				compatible = "ad7768-1";
+				reg = <0>;
+				spi-max-frequency = <16000000>;
+				spi-cpol;
+				spi-cpha;
+				#interrupt-cells = <2>;
+				interrupts = <25 0x2>;
+				interrupt-parent = <&gpio>;
+				vref-supply = <&adc_vref>;
+				clocks = <&ad7768_mclk>;
+				clock-names = "mclk";
+			};
+		};
+	};
+};
