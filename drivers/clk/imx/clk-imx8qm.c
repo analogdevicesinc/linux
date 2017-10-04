@@ -545,10 +545,6 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_AUD_ACM_AUD_REC_CLK0_CLK] = imx_clk_gate_scu("aud_acm_aud_rec_clk0_clk", "aud_acm_aud_rec_clk0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC1, (void __iomem *)(AUD_REC_CLK0_LPCG), 0, 0);
 	clks[IMX8QM_AUD_ACM_AUD_REC_CLK1_CLK] = imx_clk_gate_scu("aud_acm_aud_rec_clk1_clk", "aud_acm_aud_rec_clk1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_MISC1, (void __iomem *)(AUD_REC_CLK1_LPCG), 0, 0);
 
-	np_acm = of_find_compatible_node(NULL, NULL, "nxp,imx8qm-acm");
-	base_acm = of_iomap(np_acm, 0);
-	WARN_ON(!base_acm);
-
 	clks[IMX8QM_HDMI_RX_MCLK]	= imx_clk_fixed("hdmi_rx_mclk", 0);
 	clks[IMX8QM_EXT_AUD_MCLK0]	= imx_clk_fixed("ext_aud_mclk0", 0);
 	clks[IMX8QM_EXT_AUD_MCLK1]	= imx_clk_fixed("ext_aud_mclk1", 0);
@@ -571,28 +567,36 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_HDMI_RX_SAI0_RX_BCLK]  = imx_clk_fixed("hdmi_rx_sai0_rx_bclk", 0);
 	clks[IMX8QM_SAI6_RX_BCLK]          = imx_clk_fixed("sai6_rx_bclk", 0);
 	clks[IMX8QM_HDMI_TX_SAI0_TX_BCLK]  = imx_clk_fixed("hdmi_tx_sai0_tx_bclk", 0);
-	clks[IMX8QM_ACM_AUD_CLK0_SEL] = imx_clk_mux_scu("acm_aud_clk0_sel", base_acm + 0x00000, 0, 5, aud_clk_sels, ARRAY_SIZE(aud_clk_sels), FUNCTION_NAME(PD_AUDIO));
-	clks[IMX8QM_ACM_AUD_CLK0_CLK] = imx_clk_gate_scu("acm_aud_clk0_clk", "acm_aud_clk0_sel", SC_R_AUDIO_CLK_0, SC_PM_CLK_SLV_BUS, NULL, 0, 0);
 
-	clks[IMX8QM_ACM_AUD_CLK1_SEL] = imx_clk_mux_scu("acm_aud_clk1_sel", base_acm + 0x10000, 0, 5, aud_clk_sels, ARRAY_SIZE(aud_clk_sels), FUNCTION_NAME(PD_AUDIO));
-	clks[IMX8QM_ACM_AUD_CLK1_CLK] = imx_clk_gate_scu("acm_aud_clk1_clk", "acm_aud_clk1_sel", SC_R_AUDIO_CLK_1, SC_PM_CLK_SLV_BUS, NULL, 0, 0);
-	clks[IMX8QM_ACM_MCLKOUT0_SEL] = imx_clk_mux_scu("acm_mclkout0_sel", base_acm + 0x20000, 0, 3, mclk_out_sels, ARRAY_SIZE(mclk_out_sels), FUNCTION_NAME(PD_AUDIO));
-	clks[IMX8QM_ACM_MCLKOUT1_SEL] = imx_clk_mux_scu("acm_mclkout1_sel", base_acm + 0x30000, 0, 3, mclk_out_sels, ARRAY_SIZE(mclk_out_sels), FUNCTION_NAME(PD_AUDIO));
-	clks[IMX8QM_ACM_SAI0_MCLK_SEL] = imx_clk_mux_scu("acm_sai0_mclk_sel", base_acm + 0xE0000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_0));
-	clks[IMX8QM_ACM_SAI1_MCLK_SEL] = imx_clk_mux_scu("acm_sai1_mclk_sel", base_acm + 0xF0000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_1));
-	clks[IMX8QM_ACM_SAI2_MCLK_SEL] = imx_clk_mux_scu("acm_sai2_mclk_sel", base_acm + 0x100000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_2));
-	clks[IMX8QM_ACM_SAI3_MCLK_SEL] = imx_clk_mux_scu("acm_sai3_mclk_sel", base_acm + 0x110000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_3));
-	clks[IMX8QM_ACM_HDMI_RX_SAI0_MCLK_SEL] = imx_clk_mux_scu("acm_hdmi_rx_sai0_mclk_sel", base_acm + 0x120000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_4));
-	clks[IMX8QM_ACM_HDMI_TX_SAI0_MCLK_SEL] = imx_clk_mux_scu("acm_hdmi_tx_sai0_mclk_sel", base_acm + 0x130000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_5));
-	clks[IMX8QM_ACM_SAI6_MCLK_SEL] = imx_clk_mux_scu("acm_sai6_mclk_sel", base_acm + 0x140000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_6));
-	clks[IMX8QM_ACM_SAI7_MCLK_SEL] = imx_clk_mux_scu("acm_sai7_mclk_sel", base_acm + 0x150000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_7));
-	clks[IMX8QM_ACM_SPDIF0_TX_CLK_SEL] = imx_clk_mux_scu("acm_spdif0_mclk_sel", base_acm + 0x1A0000, 0, 2, spdif_mclk_sels, ARRAY_SIZE(spdif_mclk_sels), FUNCTION_NAME(PD_AUD_SPDIF_0));
-	clks[IMX8QM_ACM_SPDIF1_TX_CLK_SEL] = imx_clk_mux_scu("acm_spdif1_mclk_sel", base_acm + 0x1B0000, 0, 2, spdif_mclk_sels, ARRAY_SIZE(spdif_mclk_sels), FUNCTION_NAME(PD_AUD_SPDIF_1));
-	clks[IMX8QM_ACM_MQS_TX_CLK_SEL] = imx_clk_mux_scu("acm_mqs_mclk_sel", base_acm + 0x1C0000, 0, 2, mqs_mclk_sels, ARRAY_SIZE(mqs_mclk_sels), FUNCTION_NAME(PD_AUD_MQS_0));
-	clks[IMX8QM_ACM_ASRC0_MUX_CLK_SEL] = imx_clk_mux_scu("acm_asrc0_mclk_sel", base_acm + 0x40000, 0, 2, asrc_mux_clk_sels, ARRAY_SIZE(asrc_mux_clk_sels), FUNCTION_NAME(PD_AUD_ASRC_0));
-	clks[IMX8QM_ACM_ASRC1_MUX_CLK_SEL] = imx_clk_mux_scu("acm_asrc1_mclk_sel", base_acm + 0x50000, 0, 2, asrc_mux_clk_sels, ARRAY_SIZE(asrc_mux_clk_sels), FUNCTION_NAME(PD_AUD_ASRC_1));
-	clks[IMX8QM_ACM_ESAI0_MCLK_SEL] = imx_clk_mux_scu("acm_esai0_mclk_sel", base_acm + 0x60000, 0, 2, esai_mclk_sels, ARRAY_SIZE(esai_mclk_sels), FUNCTION_NAME(PD_AUD_ESAI_0));
-	clks[IMX8QM_ACM_ESAI1_MCLK_SEL] = imx_clk_mux_scu("acm_esai1_mclk_sel", base_acm + 0x70000, 0, 2, esai_mclk_sels, ARRAY_SIZE(esai_mclk_sels), FUNCTION_NAME(PD_AUD_ESAI_1));
+	np_acm = of_find_compatible_node(NULL, NULL, "nxp,imx8qm-acm");
+	if (np_acm) {
+		base_acm = of_iomap(np_acm, 0);
+		WARN_ON(!base_acm);
+
+		clks[IMX8QM_ACM_AUD_CLK0_SEL] = imx_clk_mux_scu("acm_aud_clk0_sel", base_acm + 0x00000, 0, 5, aud_clk_sels, ARRAY_SIZE(aud_clk_sels), FUNCTION_NAME(PD_AUDIO));
+		clks[IMX8QM_ACM_AUD_CLK0_CLK] = imx_clk_gate_scu("acm_aud_clk0_clk", "acm_aud_clk0_sel", SC_R_AUDIO_CLK_0, SC_PM_CLK_SLV_BUS, NULL, 0, 0);
+
+		clks[IMX8QM_ACM_AUD_CLK1_SEL] = imx_clk_mux_scu("acm_aud_clk1_sel", base_acm + 0x10000, 0, 5, aud_clk_sels, ARRAY_SIZE(aud_clk_sels), FUNCTION_NAME(PD_AUDIO));
+		clks[IMX8QM_ACM_AUD_CLK1_CLK] = imx_clk_gate_scu("acm_aud_clk1_clk", "acm_aud_clk1_sel", SC_R_AUDIO_CLK_1, SC_PM_CLK_SLV_BUS, NULL, 0, 0);
+		clks[IMX8QM_ACM_MCLKOUT0_SEL] = imx_clk_mux_scu("acm_mclkout0_sel", base_acm + 0x20000, 0, 3, mclk_out_sels, ARRAY_SIZE(mclk_out_sels), FUNCTION_NAME(PD_AUDIO));
+		clks[IMX8QM_ACM_MCLKOUT1_SEL] = imx_clk_mux_scu("acm_mclkout1_sel", base_acm + 0x30000, 0, 3, mclk_out_sels, ARRAY_SIZE(mclk_out_sels), FUNCTION_NAME(PD_AUDIO));
+		clks[IMX8QM_ACM_SAI0_MCLK_SEL] = imx_clk_mux_scu("acm_sai0_mclk_sel", base_acm + 0xE0000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_0));
+		clks[IMX8QM_ACM_SAI1_MCLK_SEL] = imx_clk_mux_scu("acm_sai1_mclk_sel", base_acm + 0xF0000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_1));
+		clks[IMX8QM_ACM_SAI2_MCLK_SEL] = imx_clk_mux_scu("acm_sai2_mclk_sel", base_acm + 0x100000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_2));
+		clks[IMX8QM_ACM_SAI3_MCLK_SEL] = imx_clk_mux_scu("acm_sai3_mclk_sel", base_acm + 0x110000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_3));
+		clks[IMX8QM_ACM_HDMI_RX_SAI0_MCLK_SEL] = imx_clk_mux_scu("acm_hdmi_rx_sai0_mclk_sel", base_acm + 0x120000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_4));
+		clks[IMX8QM_ACM_HDMI_TX_SAI0_MCLK_SEL] = imx_clk_mux_scu("acm_hdmi_tx_sai0_mclk_sel", base_acm + 0x130000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_5));
+		clks[IMX8QM_ACM_SAI6_MCLK_SEL] = imx_clk_mux_scu("acm_sai6_mclk_sel", base_acm + 0x140000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_6));
+		clks[IMX8QM_ACM_SAI7_MCLK_SEL] = imx_clk_mux_scu("acm_sai7_mclk_sel", base_acm + 0x150000, 0, 2, sai_mclk_sels, ARRAY_SIZE(sai_mclk_sels), FUNCTION_NAME(PD_AUD_SAI_7));
+		clks[IMX8QM_ACM_SPDIF0_TX_CLK_SEL] = imx_clk_mux_scu("acm_spdif0_mclk_sel", base_acm + 0x1A0000, 0, 2, spdif_mclk_sels, ARRAY_SIZE(spdif_mclk_sels), FUNCTION_NAME(PD_AUD_SPDIF_0));
+		clks[IMX8QM_ACM_SPDIF1_TX_CLK_SEL] = imx_clk_mux_scu("acm_spdif1_mclk_sel", base_acm + 0x1B0000, 0, 2, spdif_mclk_sels, ARRAY_SIZE(spdif_mclk_sels), FUNCTION_NAME(PD_AUD_SPDIF_1));
+		clks[IMX8QM_ACM_MQS_TX_CLK_SEL] = imx_clk_mux_scu("acm_mqs_mclk_sel", base_acm + 0x1C0000, 0, 2, mqs_mclk_sels, ARRAY_SIZE(mqs_mclk_sels), FUNCTION_NAME(PD_AUD_MQS_0));
+		clks[IMX8QM_ACM_ASRC0_MUX_CLK_SEL] = imx_clk_mux_scu("acm_asrc0_mclk_sel", base_acm + 0x40000, 0, 2, asrc_mux_clk_sels, ARRAY_SIZE(asrc_mux_clk_sels), FUNCTION_NAME(PD_AUD_ASRC_0));
+		clks[IMX8QM_ACM_ASRC1_MUX_CLK_SEL] = imx_clk_mux_scu("acm_asrc1_mclk_sel", base_acm + 0x50000, 0, 2, asrc_mux_clk_sels, ARRAY_SIZE(asrc_mux_clk_sels), FUNCTION_NAME(PD_AUD_ASRC_1));
+		clks[IMX8QM_ACM_ESAI0_MCLK_SEL] = imx_clk_mux_scu("acm_esai0_mclk_sel", base_acm + 0x60000, 0, 2, esai_mclk_sels, ARRAY_SIZE(esai_mclk_sels), FUNCTION_NAME(PD_AUD_ESAI_0));
+		clks[IMX8QM_ACM_ESAI1_MCLK_SEL] = imx_clk_mux_scu("acm_esai1_mclk_sel", base_acm + 0x70000, 0, 2, esai_mclk_sels, ARRAY_SIZE(esai_mclk_sels), FUNCTION_NAME(PD_AUD_ESAI_1));
+	} else
+		printk("clk-imx8qm: missing acm node, skipping\n");
 
 	clks[IMX8QM_AUD_AMIX_IPG] = imx_clk_gate2_scu("aud_amix_ipg_clk", "ipg_aud_clk_root", (void __iomem *)(AUD_AMIX_LPCG), 0, FUNCTION_NAME(PD_AUD_AMIX));
 	clks[IMX8QM_AUD_ESAI_0_IPG] = imx_clk_gate2_scu("aud_esai0_ipg_clk", "ipg_aud_clk_root", (void __iomem *)(AUD_ESAI_0_LPCG), 0, FUNCTION_NAME(PD_AUD_ESAI_0));
