@@ -156,7 +156,7 @@
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00004000 0x00004000>;
 					interrupt-parent = <&intc>;
-					interrupts = <0 42 4>;
+					interrupts = <0 43 4>;
 					#dma-cells = <1>;
 					clocks = <&dma_clk>;
 
@@ -171,7 +171,7 @@
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00000000 0x00004000>;
 					interrupt-parent = <&intc>;
-					interrupts = <0 43 4>;
+					interrupts = <0 42 4>;
 					#dma-cells = <1>;
 					clocks = <&dma_clk>;
 
