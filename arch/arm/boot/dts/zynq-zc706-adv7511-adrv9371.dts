@@ -195,7 +195,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,axi-adxcvr-1.0";
-		reg = <0x44a70000 0x1000>;
+		reg = <0x44a50000 0x1000>;
 
 		clocks = <&clk0_ad9528 1>, <&axi_rx_os_clkgen>;
 		clock-names = "conv", "div40";
