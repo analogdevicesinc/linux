@@ -19,6 +19,7 @@
 /* QBMan portal management command codes */
 #define QBMAN_MC_ACQUIRE       0x30
 #define QBMAN_WQCHAN_CONFIGURE 0x46
+#define QBMAN_MC_ORP           0x63
 
 /* CINH register offsets */
 #define QBMAN_CINH_SWP_EQCR_PI      0x800
@@ -547,6 +548,43 @@ void qbman_eq_desc_set_no_orp(struct qbman_eq_desc *d, int respond_success)
 		d->verb |= enqueue_response_always;
 	else
 		d->verb |= enqueue_rejects_to_fq;
+}
+
+/**
+ * qbman_eq_desc_set_orp() - Set order-restoration in the enqueue descriptor
+ * @d: the enqueue descriptor.
+ * @response_success: 1 = enqueue with response always; 0 = enqueue with
+ * rejections returned on a FQ.
+ * @oprid: the order point record id.
+ * @seqnum: the order restoration sequence number.
+ * @incomplete: indicates whether this is the last fragments using the same
+ * sequence number.
+ */
+void qbman_eq_desc_set_orp(struct qbman_eq_desc *d, int respond_success,
+			   u16 oprid, u16 seqnum, int incomplete)
+{
+	d->verb |= (1 << QB_ENQUEUE_CMD_ORP_ENABLE_SHIFT);
+	if (respond_success)
+		d->verb |= enqueue_response_always;
+	else
+		d->verb |= enqueue_rejects_to_fq;
+	d->orpid = cpu_to_le16(oprid);
+	d->seqnum = cpu_to_le16((!!incomplete << 14) | seqnum);
+}
+
+/**
+ * qbman_eq_desc_set_orp_hole() - fill a hole in the order-restoration sequence
+ * without any enqueue
+ * @d: the enqueue descriptor.
+ * @oprid: the order point record id.
+ * @seqnum: the order restoration sequence number.
+ */
+void qbman_eq_desc_set_orp_hole(struct qbman_eq_desc *d, u16 oprid,
+				u16 seqnum)
+{
+	d->verb |= (1 << QB_ENQUEUE_CMD_ORP_ENABLE_SHIFT) | enqueue_empty;
+	d->orpid = cpu_to_le16(oprid);
+	d->seqnum = cpu_to_le16(seqnum);
 }
 
 /*
@@ -1868,4 +1906,55 @@ void qbman_swp_get_irq_coalescing(struct qbman_swp *p, u32 *irq_threshold,
 		*irq_threshold = p->irq_threshold;
 	if (irq_holdoff)
 		*irq_holdoff = p->irq_holdoff;
+}
+
+struct qbman_orp_cmd_desc {
+	u8 verb;
+	u8 reserved;
+	u8 cid;
+	u8 reserved2;
+	u16 orpid;
+	u16 seqnum;
+	u8 reserved3[56];
+};
+
+struct qbman_orp_cmd_rslt {
+	u8 verb;
+	u8 rslt;
+	u8 cid;
+	u8 reserved1[61];
+};
+
+int qbman_orp_drop(struct qbman_swp *s, u16 orpid, u16 seqnum)
+{
+	struct qbman_orp_cmd_desc *p;
+	struct qbman_orp_cmd_rslt *r;
+	void *resp;
+
+	p = (struct qbman_orp_cmd_desc *)qbman_swp_mc_start(s);
+	if (!p)
+		return -EBUSY;
+
+	p->cid = 0x7;
+	p->orpid = cpu_to_le16(orpid);
+	p->seqnum = cpu_to_le16(seqnum);
+
+	resp = qbman_swp_mc_complete(s, p, QBMAN_MC_ORP);
+	if (!resp) {
+		pr_err("qbman: Drop sequence num %d orpid 0x%x failed, no response\n",
+		       seqnum, orpid);
+		return -EIO;
+	}
+	r = (struct qbman_orp_cmd_rslt *)resp;
+	/* Decode the outcome */
+	WARN_ON((r->verb & QBMAN_RESPONSE_VERB_MASK) != QBMAN_MC_ORP);
+
+	/* Determine success or failure */
+	if (r->rslt != QBMAN_MC_RSLT_OK) {
+		pr_err("Drop seqnum %d of prpid 0x%x failed, code=0x%02x\n",
+		       seqnum, orpid, r->rslt);
+		return -EIO;
+	}
+
+	return 0;
 }
