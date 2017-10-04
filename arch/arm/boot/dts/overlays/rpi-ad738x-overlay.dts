@@ -1,0 +1,38 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2708";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			adc_vref: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <2500000>;
+				regulator-max-microvolt = <2500000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad7380@0 {
+				compatible = "ad7380";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				spi-cpol;
+				interrupts = <25 2>;
+				interrupt-parent = <&gpio>;
+				vref-supply = <&adc_vref>;
+			};
+		};
+	};
+};

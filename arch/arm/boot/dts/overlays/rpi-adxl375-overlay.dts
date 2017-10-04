@@ -1,0 +1,42 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adxl375@053 {
+				compatible = "adi,adxl375";
+				reg = <0x53>;
+				interrupt-parent = <&gpio>;
+				interrupts = <25 2>;
+			};
+		};
+	};
+
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adxl375@0 {
+				compatible = "adi,adxl375";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				spi-cpha;
+				spi-cpol;
+				interrupts = <25 2>;
+				interrupt-parent = <&gpio>;
+			};
+		};
+	};
+};
