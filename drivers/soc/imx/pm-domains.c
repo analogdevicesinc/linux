@@ -211,6 +211,9 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 		struct imx8_pm_domain *imx8_pd;
 		sc_rsrc_t rsrc_id;
 
+		if (!of_device_is_available(np))
+			continue;
+
 		imx8_pd = kzalloc(sizeof(*imx8_pd), GFP_KERNEL);
 		if (!imx8_pd)
 			return -ENOMEM;
@@ -259,6 +262,9 @@ static int __init imx8_init_pm_domains(void)
 
 	for_each_compatible_node(np, NULL, "nxp,imx8-pd") {
 		struct imx8_pm_domain *imx8_pd;
+
+		if (!of_device_is_available(np))
+			continue;
 
 		imx8_pd = kzalloc(sizeof(struct imx8_pm_domain), GFP_KERNEL);
 		if (!imx8_pd) {
