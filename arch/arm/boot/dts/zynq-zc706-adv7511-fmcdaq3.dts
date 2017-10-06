@@ -61,6 +61,8 @@
 		dma-names = "tx";
 
 		spibus-connected = <&dac0_ad9152>;
+		
+		adi,axi-pl-fifo-enable;
 	};
 
 	axi_ad9152_jesd: axi-jesd204-tx@44a90000 {
