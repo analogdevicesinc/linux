@@ -190,6 +190,8 @@
 #define PD_CM40                     cm40_power_domain
 #define PD_CM40_I2C                 cm40_i2c
 #define PD_CM40_INTMUX              cm40_intmux
+#define PD_CM41                     cm41_power_domain
+#define PD_CM41_INTMUX              cm41_intmux
 
 #endif /* __DT_BINDINGS_IMX8_PD_H */
 

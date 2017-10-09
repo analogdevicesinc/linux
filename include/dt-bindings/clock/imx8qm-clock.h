@@ -825,7 +825,8 @@
 
 /* CM40 */
 #define IMX8QM_CM40_IPG_CLK				772
+#define IMX8QM_CM41_IPG_CLK				773
 
-#define IMX8QM_CLK_END					773
+#define IMX8QM_CLK_END					774
 
 #endif /* __DT_BINDINGS_CLOCK_IMX8QM_H */
