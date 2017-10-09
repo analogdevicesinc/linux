@@ -791,7 +791,7 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_DC1_RTRAM1_CLK] = imx_clk_gate2_scu("dc1_rtrm1_clk", "axi_int_dc_clk_root", LPCG_ADDR(DC_1_LPCG + 0x30), 0, FUNCTION_NAME(PD_DC_1));
 
 	/* HDMI SS */
-	clks[IMX8QM_HDMI_IPG_CLK] = imx_clk_gate_scu("ipg_hdmi_clk_root", "ipg_hdmi_div", SC_R_HDMI, SC_PM_CLK_MISC, NULL, 0, 0);
+	clks[IMX8QM_HDMI_IPG_CLK] = imx_clk_gate_scu("ipg_hdmi_clk_root", "hdmi_ipg_div", SC_R_HDMI, SC_PM_CLK_MISC, NULL, 0, 0);
 	clks[IMX8QM_HDMI_I2C0_CLK] = imx_clk_gate_scu("hdmi_i2c0_clk", "hdmi_i2c0_div", SC_R_HDMI_I2C_0, SC_PM_CLK_MISC2, LPCG_ADDR(DI_HDMI_LPCG), 0, 0);
 	clks[IMX8QM_HDMI_PXL_MUX_CLK] = imx_clk_gate_scu("hdmi_pxl_mux_clk", "hdmi_pxl_mux_div", SC_R_HDMI, SC_PM_CLK_MISC0, NULL, 0, 0);
 	clks[IMX8QM_HDMI_PXL_LINK_CLK] = imx_clk_gate_scu("hdmi_pxl_link_clk", "hdmi_pxl_link_div", SC_R_HDMI, SC_PM_CLK_MISC1, NULL, 0, 0);
