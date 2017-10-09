@@ -3,9 +3,13 @@ i.MX RPMSG platform implementations
 Required properties:
 - compatible : "fsl,imx7d-rpmsg", "fsl,imx6sx-rpmsg".
   "fsl,rpmsg-bus", "simple-bus", "fsl,imx8qxp-rpmsg".
+  "fsl,imx8qm-rpmsg".
 - vdev-nums : The number of the remote virtual devices.
 - reg : The reserved DDR phisical memory used to store
   vring descriptors.
+- multi-core-id: The id number of the remote processors.
+  And it is optional for the legacy platforms, since they
+  only have one remote processors.
 
 
 =====================================================================
@@ -13,12 +17,15 @@ message unit module for RPMSG
 
 - mu_rpmsg : The message unit module used to do the communications
   between the asymmetric cores.
-- compatible : "fsl,imx8-mu", "fsl,imx6sx-mu"
+- compatible : "fsl,imx8-mu", "fsl,imx6sx-mu", "fsl,imx-mu-rpmsg1".
+  Different mu module would be used by the different remote processor.
+  The "fsl, imx6sx-mu" is used by the first remote processor.
+  The "fsl,imx-mu-rpmsg1" is used by the second remote process.
 - reg : Should contain MU registers location and length.
 - interrupts : interrupt mapping for RPMSG MU IRQ
 - interrupt-parent : A single value that points to the interrupt
   parent to which the child domain is being mapped.
-  Value must be "&intmux_cm40"
+  Value must be "&intmux_cm40" or "&intmux_cm41"
 
 Example:
 rpmsg: rpmsg{

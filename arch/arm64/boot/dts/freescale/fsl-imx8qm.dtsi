@@ -985,6 +985,26 @@
 				power-domains =<&pd_cm40>;
 			};
 		};
+
+		pd_cm41: PD_CM41 {
+			compatible = "nxp,imx8-pd";
+			reg = <SC_R_LAST>;
+			#power-domain-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pd_cm41_mu0a0: PD_CM41_MU0A0{
+				reg = <SC_R_M4_1_MU_0A0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_cm41>;
+			};
+
+			pd_cm41_intmux: PD_CM41_INTMUX {
+				reg = <SC_R_M4_1_INTMUX>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_cm41>;
+			};
+		};
 	};
 
 	tsens: thermal-sensor {
@@ -2870,6 +2890,26 @@
 		status = "disabled";
 	};
 
+	intmux_cm41: intmux@3b400000 {
+		compatible = "nxp,imx-intmux";
+		reg = <0x0 0x3b400000 0x0 0x1000>;
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_CM41_IPG_CLK>;
+		clock-names = "ipg";
+		power-domains = <&pd_cm41_intmux>;
+		status = "disabled";
+	};
+
 	imx_rpmsg: imx_rpmsg {
 		compatible = "fsl,rpmsg-bus", "simple-bus";
 		#address-cells = <2>;
@@ -2888,7 +2928,24 @@
 		};
 
 		rpmsg: rpmsg {
-			compatible = "fsl,imx8qxp-rpmsg";
+			compatible = "fsl,imx8qm-rpmsg";
+			status = "disabled";
+		};
+
+		mu_rpmsg1: mu_rpmsg1@3b440000 {
+			compatible = "fsl,imx8-mu", "fsl,imx-mu-rpmsg1";
+			reg = <0x0 0x3b440000 0x0 0x10000>;
+			interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&intmux_cm41>;
+			clocks = <&clk IMX8QM_CM41_IPG_CLK>;
+			clock-names = "ipg";
+			power-domains = <&pd_cm41_mu0a0>;
+			status = "okay";
+		};
+
+		rpmsg1: rpmsg1{
+			compatible = "fsl,imx8qm-rpmsg";
+			multi-core-id = <1>;
 			status = "disabled";
 		};
 	};

@@ -425,3 +425,31 @@
 	epdev_on-supply = <&epdev_on>;
 	status = "okay";
 };
+
+&intmux_cm40 {
+	status = "okay";
+};
+
+&rpmsg{
+	/*
+	 * 64K for one rpmsg instance:
+	 * --0xb8000000~0xb800ffff: pingpong
+	 */
+	vdev-nums = <1>;
+	reg = <0x0 0xb8000000 0x0 0x10000>;
+	status = "okay";
+};
+
+&intmux_cm41 {
+	status = "okay";
+};
+
+&rpmsg1{
+	/*
+	 * 64K for one rpmsg instance:
+	 * --0xb8100000~0xb810ffff: pingpong
+	 */
+	vdev-nums = <1>;
+	reg = <0x0 0xb8100000 0x0 0x10000>;
+	status = "okay";
+};
