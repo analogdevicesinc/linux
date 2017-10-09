@@ -226,3 +226,15 @@
 	pinctrl-0 = <&pinctrl_lpuart0>;
 	status = "okay";
 };
+
+&gpu_3d0 {
+        status = "okay";
+};
+
+&gpu_3d1 {
+        status = "okay";
+};
+
+&imx8_gpu_ss {
+        status = "okay";
+};
