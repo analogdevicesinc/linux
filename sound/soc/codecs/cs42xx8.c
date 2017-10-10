@@ -536,11 +536,12 @@ int cs42xx8_probe(struct device *dev, struct regmap *regmap)
 	cs42xx8->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
 	if (gpio_is_valid(cs42xx8->reset_gpio)) {
 		ret = devm_gpio_request_one(dev, cs42xx8->reset_gpio,
-				GPIOF_OUT_INIT_HIGH, "cs42xx8 reset");
+				GPIOF_OUT_INIT_LOW, "cs42xx8 reset");
 		if (ret) {
 			dev_err(dev, "unable to get reset gpio\n");
 			return ret;
 		}
+		gpio_set_value_cansleep(cs42xx8->reset_gpio, 1);
 	}
 
 	cs42xx8->clk = devm_clk_get(dev, "mclk");
@@ -623,8 +624,10 @@ static int cs42xx8_runtime_resume(struct device *dev)
 		return ret;
 	}
 
-	if (gpio_is_valid(cs42xx8->reset_gpio))
+	if (gpio_is_valid(cs42xx8->reset_gpio)) {
+		gpio_set_value_cansleep(cs42xx8->reset_gpio, 0);
 		gpio_set_value_cansleep(cs42xx8->reset_gpio, 1);
+	}
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(cs42xx8->supplies),
 				    cs42xx8->supplies);
