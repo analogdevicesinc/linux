@@ -16,6 +16,11 @@ obj-$(CONFIG_AD7793) += ad7793.o
 obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD799X) += ad799x.o
 obj-$(CONFIG_ASPEED_ADC) += aspeed_adc.o
+
+ad9361_drv-y := ad9361.o ad9361_conv.o
+ad9361_drv-$(CONFIG_AD9361_EXT_BAND_CONTROL) += ad9361_ext_band_ctrl.o
+obj-$(CONFIG_AD9361) += ad9361_drv.o
+
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_AT91_SAMA5D2_ADC) += at91-sama5d2_adc.o
 obj-$(CONFIG_AXP20X_ADC) += axp20x_adc.o
