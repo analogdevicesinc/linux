@@ -33,7 +33,9 @@
 
 struct imx_priv {
 	struct clk *codec_clk;
+	struct clk *esai_clk;
 	unsigned int mclk_freq;
+	unsigned int esai_freq;
 	struct platform_device *pdev;
 	struct platform_device *asrc_pdev;
 	u32 asrc_rate;
@@ -61,6 +63,7 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 
 	priv->mclk_freq = clk_get_rate(priv->codec_clk);
+	priv->esai_freq = clk_get_rate(priv->esai_clk);
 
 	if (priv->is_codec_master) {
 		/* TDM is not supported by codec in master mode */
@@ -118,7 +121,10 @@ static int imx_cs42888_surround_hw_params(struct snd_pcm_substream *substream,
 	/* set i.MX active slot mask */
 	if (enable_tdm) {
 		/* 2 required by ESAI BCLK divisors, 8 slots, 32 width */
-		max_tdm_rate = priv->mclk_freq / (2*8*32);
+		if (priv->is_codec_master)
+			max_tdm_rate = priv->mclk_freq / (8*32);
+		else
+			max_tdm_rate = priv->esai_freq / (2*8*32);
 		if (params_rate(params) > max_tdm_rate) {
 			dev_err(dev,
 				"maximum supported sampling rate for %d channels is %dKHz\n",
@@ -156,7 +162,7 @@ static int imx_cs42888_surround_startup(struct snd_pcm_substream *substream)
 
 	priv->mclk_freq = clk_get_rate(priv->codec_clk);
 
-	if (priv->mclk_freq % 24576000 == 0) {
+	if (priv->mclk_freq % 12288000 == 0) {
 		support_rates[0] = 48000;
 		support_rates[1] = 96000;
 		support_rates[2] = 192000;
@@ -361,6 +367,13 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->codec_clk)) {
 		ret = PTR_ERR(priv->codec_clk);
 		dev_err(&codec_dev->dev, "failed to get codec clk: %d\n", ret);
+		goto fail;
+	}
+
+	priv->esai_clk = devm_clk_get(&esai_pdev->dev, "extal");
+	if (IS_ERR(priv->esai_clk)) {
+		ret = PTR_ERR(priv->esai_clk);
+		dev_err(&esai_pdev->dev, "failed to get cpu clk: %d\n", ret);
 		goto fail;
 	}
 
