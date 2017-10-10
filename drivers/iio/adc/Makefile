@@ -14,6 +14,9 @@ obj-$(CONFIG_AD7793) += ad7793.o
 obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD799X) += ad799x.o
 
+cf_axi_adc-y := cf_axi_adc_core.o cf_axi_adc_ring_stream.o
+obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
+
 ad9361_drv-y := ad9361.o ad9361_conv.o
 ad9361_drv-$(CONFIG_AD9361_EXT_BAND_CONTROL) += ad9361_ext_band_ctrl.o
 obj-$(CONFIG_AD9361) += ad9361_drv.o
