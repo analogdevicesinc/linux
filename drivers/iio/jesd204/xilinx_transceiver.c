@@ -333,7 +333,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 					if (vco_freq > 3300000 || vco_freq < 1600000)
 						continue;
 
-					if (refclk_khz / m == lane_rate_khz / (2 * n1 * n2)) {
+					if (refclk_khz / m / d == lane_rate_khz / (2 * n1 * n2)) {
 						if (conf) {
 							conf->refclk_div = m;
 							conf->fb_div_N1 = n1;
