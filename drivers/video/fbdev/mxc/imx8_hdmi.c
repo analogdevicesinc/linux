@@ -66,6 +66,50 @@ struct imx_hdmi_info {
 	struct hdp_rw_func *rw;
 };
 
+static struct imx_hdmi_info *g_imx_hdmi;
+
+static u32 TMDS_rate_table[7] = {
+25200, 27000, 54000, 74250, 148500, 297000, 594000,
+};
+
+static u32 N_table_32k[8] = {
+/*25200, 27000, 54000, 74250, 148500, 297000, 594000,*/
+4096, 4096, 4096, 4096, 4096, 3072, 3072, 4096,
+};
+
+static u32 N_table_44k[8] = {
+6272, 6272, 6272, 6272, 6272, 4704, 9408, 6272,
+};
+
+static u32 N_table_48k[8] = {
+6144, 6144, 6144, 6144, 6144, 5120, 6144, 6144,
+};
+
+static int select_N_index(int vmode_index)
+{
+
+	int i = 0, j = 0;
+
+	for (i = 0; i < VIC_MODE_COUNT; i++) {
+		if (vic_table[i][23] == vmode_index)
+			break;
+	}
+
+	if (i == VIC_MODE_COUNT) {
+		pr_err("vmode is wrong!\n");
+		j = 7;
+		return j;
+	}
+
+	for (j = 0; j < 7; j++) {
+		if (vic_table[i][13] == TMDS_rate_table[j])
+			break;
+	}
+
+	return j;
+}
+
+
 static int mx8mq_hdp_read(struct hdp_mem *mem, unsigned int addr, unsigned int *value)
 {
 	unsigned int temp;
@@ -261,6 +305,75 @@ static int hdmi_clks_init(struct imx_hdmi_info *hinfo)
 	return true;
 }
 
+u32 imx_hdmi_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width)
+{
+	AUDIO_FREQ  freq;
+	AUDIO_WIDTH bits;
+	int ncts_n;
+	state_struct *state = &g_imx_hdmi->state;
+	int idx_n = select_N_index(g_imx_hdmi->vic);
+
+	switch (sample_rate) {
+	case 32000:
+		freq = AUDIO_FREQ_32;
+		ncts_n = N_table_32k[idx_n];
+		break;
+	case 44100:
+		freq = AUDIO_FREQ_44_1;
+		ncts_n = N_table_44k[idx_n];
+		break;
+	case 48000:
+		freq = AUDIO_FREQ_48;
+		ncts_n = N_table_48k[idx_n];
+		break;
+	case 88200:
+		freq = AUDIO_FREQ_88_2;
+		ncts_n = N_table_44k[idx_n] * 2;
+		break;
+	case 96000:
+		freq = AUDIO_FREQ_96;
+		ncts_n = N_table_48k[idx_n] * 2;
+		break;
+	case 176400:
+		freq = AUDIO_FREQ_176_4;
+		ncts_n = N_table_44k[idx_n] * 4;
+		break;
+	case 192000:
+		freq = AUDIO_FREQ_192;
+		ncts_n = N_table_48k[idx_n] * 4;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	switch (width) {
+	case 16:
+		bits = AUDIO_WIDTH_16;
+		break;
+	case 24:
+		bits = AUDIO_WIDTH_24;
+		break;
+	case 32:
+		bits = AUDIO_WIDTH_32;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+
+	CDN_API_AudioOff_blocking(state, type);
+	CDN_API_AudioAutoConfig_blocking(state,
+				type,
+				channels,
+				freq,
+				0,
+				bits,
+				CDN_HDMITX_KIRAN,
+				ncts_n,
+				AUDIO_MUTE_MODE_UNMUTE);
+	return 0;
+}
+
 /**
  * This function is called by the driver framework to initialize the HDMI
  * device.
@@ -283,6 +396,7 @@ static int imx_hdmi_probe(struct platform_device *pdev)
 	if (!imx_hdmi)
 		return -ENOMEM;
 	imx_hdmi->pdev = pdev;
+	g_imx_hdmi = imx_hdmi;
 
 	/* Get HDMI CTRL base register */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -329,6 +443,7 @@ static int imx_hdmi_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return -EINVAL;
 
+	imx_hdmi->vic = vmode_index;
 	imx_hdmi->disp_hdmi = mxc_dispdrv_register(&imx_hdmi_drv);
 	if (IS_ERR(imx_hdmi->disp_hdmi)) {
 		dev_err(&pdev->dev, "mxc_dispdrv_register error\n");

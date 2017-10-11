@@ -57,5 +57,6 @@
 int phy_cfg_hdp_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bpp,
 		VIC_PXL_ENCODING_FORMAT format, bool pixel_clk_from_phy);
 int hdmi_tx_power_configuration_seq(state_struct *state, int num_lanes);
+u32 imx_hdmi_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width);
 
 #endif
