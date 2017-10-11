@@ -1694,8 +1694,8 @@ static void mxc_hdmi_enable_video_path(struct mxc_hdmi *hdmi)
 	hdmi_writeb(0x16, HDMI_FC_CH1PREAM);
 	hdmi_writeb(0x21, HDMI_FC_CH2PREAM);
 
+	clkdis = hdmi_readb(HDMI_MC_CLKDIS);
 	/* Enable pixel clock and tmds data path */
-	clkdis = 0x7F;
 	clkdis &= ~HDMI_MC_CLKDIS_PIXELCLK_DISABLE;
 	hdmi_writeb(clkdis, HDMI_MC_CLKDIS);
 
@@ -1986,10 +1986,13 @@ static void mxc_hdmi_power_off(struct mxc_dispdrv_handle *disp,
 
 static void mxc_hdmi_cable_disconnected(struct mxc_hdmi *hdmi)
 {
-	dev_dbg(&hdmi->pdev->dev, "%s\n", __func__);
+	u8 clkdis;
 
-	/* Disable All HDMI clock */
-	hdmi_writeb(0xff, HDMI_MC_CLKDIS);
+	dev_dbg(&hdmi->pdev->dev, "%s\n", __func__);
+	/* Disable All HDMI clock and bypass cec */
+	clkdis = hdmi_readb(HDMI_MC_CLKDIS);
+	clkdis |= 0x5f;
+	hdmi_writeb(clkdis, HDMI_MC_CLKDIS);
 
 	mxc_hdmi_phy_disable(hdmi);
 
