@@ -16,6 +16,11 @@
 	model = "NXP i.MX7ULP EVK";
 	compatible = "fsl,imx7ulp-evk", "fsl,imx7ulp", "Generic DT based system";
 
+	aliases {
+		gpio4 = &rpmsg_gpio0;
+		gpio5 = &rpmsg_gpio1;
+	};
+
 	chosen {
 		bootargs = "console=ttyLP0,115200 earlycon=lpuart32,0x402D0000,115200";
 		stdout-path = &lpuart4;
@@ -163,6 +168,22 @@
 		compatible = "fsl,imx7ulp-rpmsg-i2s";
 		/* the audio device index in m4 domain */
 		fsl,audioindex = <0> ;
+		status = "okay";
+	};
+
+	rpmsg_gpio0: rpmsg-gpio0 {
+		compatible = "fsl,imx-rpmsg-gpio";
+		port_idx = <0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		status = "okay";
+	};
+
+	rpmsg_gpio1: rpmsg-gpio1 {
+		compatible = "fsl,imx-rpmsg-gpio";
+		port_idx = <1>;
+		gpio-controller;
+		#gpio-cells = <2>;
 		status = "okay";
 	};
 
@@ -484,15 +505,11 @@
 &rpmsg{
 	/*
 	 * 64K for one rpmsg instance, default using 2 rpmsg instances:
-	 * --0x9FF00000~0x9FF0FFFF: pingpong
-	 * --0x9FF10000~0x9FF1FFFF: pmic
-	 * --0x9FF20000~0x9FF2FFFF: pm
-	 * --0x9FF30000~0x9FF3FFFF: audio
-	 * --0x9FF40000~0x9FF4FFFF: virtual tty
-	 * --0x9FF50000~0x9FF5FFFF: keys
+	 * --0x9FF00000~0x9FF0FFFF: pmic,pm,audio,keys,gpio
+	 * --0x9FF10000~0x9FF1FFFF: pingpong,virtual tty
 	 */
-	vdev-nums = <6>;
-	reg = <0x9FF00000 0x60000>;
+	vdev-nums = <2>;
+	reg = <0x9FF00000 0x20000>;
 	status = "okay";
 };
 
