@@ -1865,10 +1865,11 @@
 		reg = <0x0 0x5a000000 0x0 0x10000>;
 		interrupts = <GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&clk IMX8QM_SPI0_CLK>;
-		clock-names = "ipg";
+		clocks = <&clk IMX8QM_SPI0_CLK>,
+			 <&clk IMX8QM_SPI0_IPG_CLK>;
+		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX8QM_SPI0_CLK>;
-		assigned-clock-rates = <32000000>;
+		assigned-clock-rates = <20000000>;
 		power-domains = <&pd_dma_lpspi0>;
 		status = "disabled";
 	};

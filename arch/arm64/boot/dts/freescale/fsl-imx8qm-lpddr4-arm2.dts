@@ -409,8 +409,13 @@
 				SC_P_SPI0_SCK_DMA_SPI0_SCK		0x0600004c
 				SC_P_SPI0_SDO_DMA_SPI0_SDO		0x0600004c
 				SC_P_SPI0_SDI_DMA_SPI0_SDI		0x0600004c
-				SC_P_SPI0_CS0_DMA_SPI0_CS0		0x0600004c
 				SC_P_SPI0_CS1_DMA_SPI0_CS1		0x0600004c
+			>;
+		};
+
+		pinctrl_lpspi0_cs: lpspi0cs {
+			fsl,pins = <
+				SC_P_SPI0_CS0_LSIO_GPIO3_IO05		0x21
 			>;
 		};
 
@@ -719,15 +724,19 @@
 &lpspi0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	fsl,spi-num-chipselects = <1>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpspi0>;
+	pinctrl-0 = <&pinctrl_lpspi0 &pinctrl_lpspi0_cs>;
+	cs-gpios = <&gpio3 5 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
-	spidev0: spi@0 {
+	flash: at45db041e@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,at45", "atmel,dataflash";
+		spi-max-frequency = <500000>;
 		reg = <0>;
-		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <4000000>;
-	};
+        };
 };
 
 &lpuart0 { /* console */
