@@ -183,11 +183,13 @@ struct imx_hdp {
 	struct hdp_rw_func *rw;
 	struct hdp_clks clks;
 	state_struct state;
+	int vic;
 
 };
 
 int imx_hdpaux_init(struct device *dev,	struct imx_hdp *dp);
 void imx_hdpaux_destroy(struct device *dev, struct imx_hdp *dp);
 void hdp_phy_reset(u8 reset);
+u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width);
 
 #endif
