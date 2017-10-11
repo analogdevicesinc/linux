@@ -1068,7 +1068,8 @@ static void pfe_eth_adjust_link(struct net_device *ndev)
 			new_state = 1;
 			gemac_set_speed(priv->EMAC_baseaddr,
 					pfe_get_phydev_speed(phydev));
-			if (priv->einfo->mii_config == PHY_INTERFACE_MODE_RGMII)
+			if (priv->einfo->mii_config ==
+					PHY_INTERFACE_MODE_RGMII_TXID)
 				pfe_set_rgmii_speed(phydev);
 			priv->oldspeed = phydev->speed;
 		}
