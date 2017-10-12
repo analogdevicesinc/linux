@@ -1330,20 +1330,15 @@ static void ravb_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 {
 	struct ravb_private *priv = netdev_priv(ndev);
 
-	wol->supported = 0;
-	wol->wolopts = 0;
-
-	if (priv->clk) {
-		wol->supported = WAKE_MAGIC;
-		wol->wolopts = priv->wol_enabled ? WAKE_MAGIC : 0;
-	}
+	wol->supported = WAKE_MAGIC;
+	wol->wolopts = priv->wol_enabled ? WAKE_MAGIC : 0;
 }
 
 static int ravb_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 {
 	struct ravb_private *priv = netdev_priv(ndev);
 
-	if (!priv->clk || wol->wolopts & ~WAKE_MAGIC)
+	if (wol->wolopts & ~WAKE_MAGIC)
 		return -EOPNOTSUPP;
 
 	priv->wol_enabled = !!(wol->wolopts & WAKE_MAGIC);
@@ -1938,22 +1933,12 @@ MODULE_DEVICE_TABLE(of, ravb_match_table);
 
 static int ravb_set_gti(struct net_device *ndev)
 {
-
+	struct ravb_private *priv = netdev_priv(ndev);
 	struct device *dev = ndev->dev.parent;
-	struct device_node *np = dev->of_node;
 	unsigned long rate;
-	struct clk *clk;
 	uint64_t inc;
 
-	clk = of_clk_get(np, 0);
-	if (IS_ERR(clk)) {
-		dev_err(dev, "could not get clock\n");
-		return PTR_ERR(clk);
-	}
-
-	rate = clk_get_rate(clk);
-	clk_put(clk);
-
+	rate = clk_get_rate(priv->clk);
 	if (!rate)
 		return -EINVAL;
 
@@ -2102,10 +2087,11 @@ static int ravb_probe(struct platform_device *pdev)
 
 	priv->chip_id = chip_id;
 
-	/* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
 	priv->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(priv->clk))
-		priv->clk = NULL;
+	if (IS_ERR(priv->clk)) {
+		error = PTR_ERR(priv->clk);
+		goto out_release;
+	}
 
 	/* Set function */
 	ndev->netdev_ops = &ravb_netdev_ops;
@@ -2173,8 +2159,7 @@ static int ravb_probe(struct platform_device *pdev)
 	if (error)
 		goto out_napi_del;
 
-	if (priv->clk)
-		device_set_wakeup_capable(&pdev->dev, 1);
+	device_set_wakeup_capable(&pdev->dev, 1);
 
 	/* Print device information */
 	netdev_info(ndev, "Base address at %#x, %pM, IRQ %d.\n",
