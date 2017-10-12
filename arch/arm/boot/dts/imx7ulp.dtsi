@@ -298,8 +298,9 @@
 			compatible = "fsl,imx7ulp-spi";
 			reg = <0x40290000 0x10000>;
 			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks IMX7ULP_CLK_LPSPI2>;
-			clock-names = "ipg";
+			clocks = <&clks IMX7ULP_CLK_LPSPI2>,
+				 <&clks IMX7ULP_CLK_DUMMY>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clks IMX7ULP_CLK_LPSPI2>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC_BUS_CLK>;
 			assigned-clock-rates = <48000000>;
@@ -310,8 +311,9 @@
 			compatible = "fsl,imx7ulp-spi";
 			reg = <0x402A0000 0x10000>;
 			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks IMX7ULP_CLK_LPSPI3>;
-			clock-names = "ipg";
+			clocks = <&clks IMX7ULP_CLK_LPSPI3>,
+				 <&clks IMX7ULP_CLK_DUMMY>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clks IMX7ULP_CLK_LPSPI3>;
 			assigned-clock-parents = <&clks IMX7ULP_CLK_FIRC_BUS_CLK>;
 			assigned-clock-rates = <48000000>;
