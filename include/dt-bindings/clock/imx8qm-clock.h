@@ -825,8 +825,16 @@
 
 /* CM40 */
 #define IMX8QM_CM40_IPG_CLK				772
-#define IMX8QM_CM41_IPG_CLK				773
+#define IMX8QM_CM40_I2C_DIV				773
+#define IMX8QM_CM40_I2C_CLK				774
+#define IMX8QM_CM40_I2C_IPG_CLK				775
 
-#define IMX8QM_CLK_END					774
+/* CM41 */
+#define IMX8QM_CM41_IPG_CLK				776
+#define IMX8QM_CM41_I2C_DIV				777
+#define IMX8QM_CM41_I2C_CLK				778
+#define IMX8QM_CM41_I2C_IPG_CLK				779
+
+#define IMX8QM_CLK_END					780
 
 #endif /* __DT_BINDINGS_CLOCK_IMX8QM_H */
