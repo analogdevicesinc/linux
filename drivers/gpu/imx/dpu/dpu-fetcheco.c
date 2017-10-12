@@ -482,12 +482,17 @@ int dpu_fe_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
 	struct dpu_fetcheco *fe;
+	int i;
 
 	fe = devm_kzalloc(dpu->dev, sizeof(*fe), GFP_KERNEL);
 	if (!fe)
 		return -ENOMEM;
 
-	dpu->fe_priv[id] = fe;
+	for (i = 0; i < ARRAY_SIZE(fe_ids); i++)
+		if (fe_ids[i] == id)
+			break;
+
+	dpu->fe_priv[i] = fe;
 
 	fe->pec_base = devm_ioremap(dpu->dev, pec_base, SZ_16);
 	if (!fe->pec_base)
