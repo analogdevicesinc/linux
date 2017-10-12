@@ -146,6 +146,8 @@ struct hdp_clks {
 	struct clk *clk_apb_ctrl;
 	struct clk *av_pll_div;
 	struct clk *dig_pll_div;
+	struct clk *clk_i2s;
+	struct clk *clk_i2s_bypass;
 };
 
 struct imx_hdp {

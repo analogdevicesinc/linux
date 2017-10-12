@@ -367,7 +367,16 @@ static int dp_clock_init(struct imx_hdp *hdp)
 		dev_err(dev, "failed to get apb ctrl clk\n");
 		return PTR_ERR(hdp->clks.clk_apb_ctrl);
 	}
-
+	hdp->clks.clk_i2s = devm_clk_get(dev, "clk_i2s");
+	if (IS_ERR(hdp->clks.clk_i2s)) {
+		dev_err(dev, "failed to get i2s clk\n");
+		return PTR_ERR(hdp->clks.clk_i2s);
+	}
+	hdp->clks.clk_i2s_bypass = devm_clk_get(dev, "clk_i2s_bypass");
+	if (IS_ERR(hdp->clks.clk_i2s_bypass)) {
+		dev_err(dev, "failed to get i2s bypass clk\n");
+		return PTR_ERR(hdp->clks.clk_i2s_bypass);
+	}
 	return true;
 }
 
@@ -492,6 +501,16 @@ static int dp_ipg_clock_enable(struct imx_hdp *hdp)
 	ret = clk_prepare_enable(hdp->clks.clk_apb_ctrl);
 	if (ret < 0) {
 		dev_err(dev, "%s, pre clk apb ctrl error\n", __func__);
+		return ret;
+	}
+	ret = clk_prepare_enable(hdp->clks.clk_i2s);
+	if (ret < 0) {
+		dev_err(dev, "%s, pre clk i2s error\n", __func__);
+		return ret;
+	}
+	ret = clk_prepare_enable(hdp->clks.clk_i2s_bypass);
+	if (ret < 0) {
+		dev_err(dev, "%s, pre clk i2s bypass error\n", __func__);
 		return ret;
 	}
 	return ret;
