@@ -463,6 +463,13 @@
 		assigned-clock-rates = <786432000>, <12288000>, <12288000>;
 	};
 
+	pca6416: gpio@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
 	cs42888: cs42888@48 {
 		compatible = "cirrus,cs42888";
 		reg = <0x48>;
