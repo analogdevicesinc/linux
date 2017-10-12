@@ -27,6 +27,12 @@
 #define FSL_SAI_TDR1    0x24 /* SAI Transmit Data */
 #define FSL_SAI_TFR0    0x40 /* SAI Transmit FIFO */
 #define FSL_SAI_TFR1    0x44 /* SAI Transmit FIFO */
+#define FSL_SAI_TFR2    0x48 /* SAI Transmit FIFO */
+#define FSL_SAI_TFR3    0x4C /* SAI Transmit FIFO */
+#define FSL_SAI_TFR4    0x50 /* SAI Transmit FIFO */
+#define FSL_SAI_TFR5    0x54 /* SAI Transmit FIFO */
+#define FSL_SAI_TFR6    0x58 /* SAI Transmit FIFO */
+#define FSL_SAI_TFR7    0x5C /* SAI Transmit FIFO */
 #define FSL_SAI_TMR	0x60 /* SAI Transmit Mask */
 #define FSL_SAI_RCSR(offset) (0x80 + offset) /* SAI Receive Control */
 #define FSL_SAI_RCR1(offset) (0x84 + offset) /* SAI Receive Configuration 1 */
@@ -38,6 +44,12 @@
 #define FSL_SAI_RDR1    0xa4 /* SAI Receive Data */
 #define FSL_SAI_RFR0    0xc0 /* SAI Receive FIFO */
 #define FSL_SAI_RFR1    0xc4 /* SAI Receive FIFO */
+#define FSL_SAI_RFR2    0xc8 /* SAI Receive FIFO */
+#define FSL_SAI_RFR3    0xcc /* SAI Receive FIFO */
+#define FSL_SAI_RFR4    0xd0 /* SAI Receive FIFO */
+#define FSL_SAI_RFR5    0xd4 /* SAI Receive FIFO */
+#define FSL_SAI_RFR6    0xd8 /* SAI Receive FIFO */
+#define FSL_SAI_RFR7    0xdc /* SAI Receive FIFO */
 #define FSL_SAI_RFR	0xc0 /* SAI Receive FIFO */
 #define FSL_SAI_RMR	0xe0 /* SAI Receive Mask */
 
