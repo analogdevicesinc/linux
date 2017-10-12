@@ -26,12 +26,17 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_clock.h>
 #include <linux/slab.h>
+#include <linux/syscore_ops.h>
 
 #include <soc/imx8/sc/sci.h>
 
 #include "pm-domain-imx8.h"
 
 static sc_ipc_t pm_ipc_handle;
+static sc_rsrc_t early_power_on_rsrc[] = {
+	SC_R_LAST, SC_R_LAST, SC_R_LAST, SC_R_LAST, SC_R_LAST,
+	SC_R_LAST, SC_R_LAST, SC_R_LAST, SC_R_LAST, SC_R_LAST,
+};
 
 static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 {
@@ -202,10 +207,32 @@ static void imx8_detach_dev(struct generic_pm_domain *genpd, struct device *dev)
 	}
 }
 
+static void imx8_pm_domains_resume(void)
+{
+	sc_err_t sci_err = SC_ERR_NONE;
+	int i;
+
+	for (i = 0; i < (sizeof(early_power_on_rsrc) /
+		sizeof(sc_rsrc_t)); i++) {
+		if (early_power_on_rsrc[i] != SC_R_LAST) {
+			sci_err = sc_pm_set_resource_power_mode(pm_ipc_handle,
+				early_power_on_rsrc[i], SC_PM_PW_MODE_ON);
+			if (sci_err != SC_ERR_NONE)
+				pr_err("fail to power on resource %d\n",
+					early_power_on_rsrc[i]);
+		}
+	}
+}
+
+struct syscore_ops imx8_pm_domains_syscore_ops = {
+	.resume = imx8_pm_domains_resume,
+};
+
 static int __init imx8_add_pm_domains(struct device_node *parent,
 					struct generic_pm_domain *genpd_parent)
 {
 	struct device_node *np;
+	int index = 0;
 
 	for_each_child_of_node(parent, np) {
 		struct imx8_pm_domain *imx8_pd;
@@ -231,6 +258,12 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 			imx8_pd->pd.dev_ops.stop = imx8_pd_dev_stop;
 			imx8_pd->pd.attach_dev = imx8_attach_dev;
 			imx8_pd->pd.detach_dev = imx8_detach_dev;
+
+			if (of_property_read_bool(np, "early_power_on")
+				&& index < (sizeof(early_power_on_rsrc) /
+				sizeof(sc_rsrc_t))) {
+				early_power_on_rsrc[index++] = imx8_pd->rsrc_id;
+			}
 		}
 		INIT_LIST_HEAD(&imx8_pd->clks);
 		pm_genpd_init(&imx8_pd->pd, NULL, true);
@@ -296,6 +329,7 @@ static int __init imx8_init_pm_domains(void)
 	}
 
 	sci_err = sc_ipc_open(&pm_ipc_handle, mu_id);
+	register_syscore_ops(&imx8_pm_domains_syscore_ops);
 
 	return 0;
 }
