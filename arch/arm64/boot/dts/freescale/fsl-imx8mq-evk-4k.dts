@@ -15,12 +15,6 @@
 
 #include "fsl-imx8mq-evk.dts"
 
-/ {
-	sound-hdmi {
-		video-mode = <97>;
-	};
-};
-
 &dcss {
 	disp-mode = <97>;	/* #97: 3840x2160p@60Hz 16:9 */
 };
