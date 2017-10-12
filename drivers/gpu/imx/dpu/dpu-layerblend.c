@@ -52,6 +52,7 @@ static const lb_prim_sel_t prim_sels[] = {
 #define SHDTOKSEL				(0x3 << 3)
 #define SHDTOKSEL_SHIFT				3
 #define SHDLDSEL				(0x3 << 1)
+#define SHDLDSEL_SHIFT				1
 #define CONTROL					0xC
 #define MODE_MASK				BIT(0)
 #define BLENDCONTROL				0x10
@@ -213,7 +214,7 @@ void layerblend_shdldsel(struct dpu_layerblend *lb, lb_shadow_sel_t sel)
 	mutex_lock(&lb->mutex);
 	val = dpu_lb_read(lb, STATICCONTROL);
 	val &= ~SHDLDSEL;
-	val |= sel;
+	val |= (sel << SHDLDSEL_SHIFT);
 	dpu_lb_write(lb, val, STATICCONTROL);
 	mutex_unlock(&lb->mutex);
 }
