@@ -4,7 +4,7 @@ Required properties:
 - compatible : "fsl,imx-audio-cdnhdmi"
 - model : The user-visible name of this sound complex
 - audio-cpu : The phandle of the i.MX SAI controller
-- video-mode : hdmi video mode
+- protocol : 0 is hdmi,  1 is dp.
 
 Example:
 
@@ -12,6 +12,5 @@ sound-hdmi {
 	compatible = "fsl,imx-audio-cdnhdmi";
 	model = "imx-audio-hdmi";
 	audio-cpu = <&sai4>;
-	video-mode = <95>;      /* #16: 1920x1080p@60HZ 16:9 */
-				/* #95: 3840x2160p@30Hz 16:9 */
+	protocol = <0>;
 };
