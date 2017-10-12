@@ -673,6 +673,7 @@
 				reg = <SC_R_M4_0_INTMUX>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_cm40>;
+				early_power_on;
 			};
 
 			pd_cm40_mu0a0: PD_CM40_MU0A0{
