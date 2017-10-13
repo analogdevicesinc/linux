@@ -25,10 +25,27 @@
 		stdout-path = &lpuart0;
 	};
 
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <2000>;
+		reset-post-delay-ms = <40>;
+		#reset-cells = <0>;
+	};
+
 	regulators {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		epdev_on: fixedregulator@100 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "epdev_on";
+			gpio = <&gpio4 9 0>;
+			enable-active-high;
+		};
 
 		reg_usdhc2_vmmc: usdhc2_vmmc {
 			compatible = "regulator-fixed";
@@ -110,10 +127,33 @@
 			fsl,pins = <
 				SC_P_UART0_RX_DMA_UART0_RX		0x06000020
 				SC_P_UART0_TX_DMA_UART0_TX		0x06000020
-				SC_P_UART0_RTS_B_DMA_UART0_RTS_B	0x06000020
-				SC_P_UART0_CTS_B_DMA_UART0_CTS_B	0x06000020
 			>;
 		};
+
+		pinctrl_lpuart1: lpuart1grp {
+			fsl,pins = <
+				SC_P_UART1_RX_DMA_UART1_RX		0x06000020
+				SC_P_UART1_TX_DMA_UART1_TX		0x06000020
+				SC_P_UART1_CTS_B_DMA_UART1_CTS_B	0x06000020
+				SC_P_UART1_RTS_B_DMA_UART1_RTS_B	0x06000020
+				SC_P_QSPI1A_DQS_LSIO_GPIO4_IO22		0x00000021
+			>;
+		};
+
+		pinctrl_lpuart2: lpuart2grp {
+			fsl,pins = <
+				SC_P_UART0_RTS_B_DMA_UART2_RX		0x06000020
+				SC_P_UART0_CTS_B_DMA_UART2_TX		0x06000020
+			>;
+		};
+
+		pinctrl_lpuart3: lpuart3grp {
+			fsl,pins = <
+				SC_P_M41_GPIO0_00_DMA_UART3_RX		0x06000020
+				SC_P_M41_GPIO0_01_DMA_UART3_TX		0x06000020
+			>;
+		};
+
 
 		pinctrl_sai1: sai1grp {
 			fsl,pins = <
@@ -130,6 +170,16 @@
 			fsl,pins = <
 				SC_P_GPT0_CLK_DMA_I2C1_SCL 0x0600004c
 				SC_P_GPT0_CAPTURE_DMA_I2C1_SDA 0x0600004c
+			>;
+		};
+
+		pinctrl_pciea: pcieagrp{
+			fsl,pins = <
+				SC_P_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27	0x00000021
+				SC_P_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x00000021
+				SC_P_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x00000021
+				SC_P_LVDS1_I2C0_SDA_LVDS1_GPIO0_IO03		0x00000021
+				SC_P_USDHC2_RESET_B_LSIO_GPIO4_IO09		0x00000021
 			>;
 		};
 
@@ -335,6 +385,25 @@
 	status = "okay";
 };
 
+&lpuart1 { /* BT */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart1>;
+	resets = <&modem_reset>;
+	status = "okay";
+};
+
+&lpuart2 { /* Dbg console */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart2>;
+	status = "okay";
+};
+
+&lpuart3 { /* MKbus */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart3>;
+	status = "okay";
+};
+
 &gpu_3d0 {
         status = "okay";
 };
@@ -345,4 +414,14 @@
 
 &imx8_gpu_ss {
         status = "okay";
+};
+
+&pciea{
+	ext_osc = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pciea>;
+	disable-gpio = <&gpio0 3 GPIO_ACTIVE_LOW>;
+	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
+	epdev_on-supply = <&epdev_on>;
+	status = "okay";
 };
