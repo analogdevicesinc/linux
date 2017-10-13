@@ -346,6 +346,28 @@ void dpu_lb_put(struct dpu_layerblend *lb)
 }
 EXPORT_SYMBOL_GPL(dpu_lb_put);
 
+void _dpu_lb_init(struct dpu_soc *dpu, unsigned int id)
+{
+	struct dpu_layerblend *lb;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(lb_ids); i++)
+		if (lb_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(lb_ids)))
+		return;
+
+	lb = dpu->lb_priv[i];
+
+	layerblend_pixengcfg_dynamic_prim_sel(lb, LB_PRIM_SEL__DISABLE);
+	layerblend_pixengcfg_dynamic_sec_sel(lb, LB_SEC_SEL__DISABLE);
+	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
+	layerblend_shdldsel(lb, BOTH);
+	layerblend_shdtoksel(lb, BOTH);
+	layerblend_shden(lb, true);
+}
+
 int dpu_lb_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
@@ -374,11 +396,7 @@ int dpu_lb_init(struct dpu_soc *dpu, unsigned int id,
 	if (ret < 0)
 		return ret;
 
-	layerblend_pixengcfg_dynamic_sec_sel(lb, LB_SEC_SEL__DISABLE);
-	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
-	layerblend_shdldsel(lb, BOTH);
-	layerblend_shdtoksel(lb, BOTH);
-	layerblend_shden(lb, true);
+	_dpu_lb_init(dpu, id);
 
 	return 0;
 }

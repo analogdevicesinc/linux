@@ -115,6 +115,10 @@ void dpu_dec_put(struct dpu_disengcfg *dec)
 }
 EXPORT_SYMBOL_GPL(dpu_dec_put);
 
+void _dpu_dec_init(struct dpu_soc *dpu, unsigned int id)
+{
+}
+
 int dpu_dec_init(struct dpu_soc *dpu, unsigned int id,
 			unsigned long unused, unsigned long base)
 {

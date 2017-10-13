@@ -238,6 +238,21 @@ int dpu_format_num_planes(u32 format);
 int dpu_format_plane_width(int width, u32 format, int plane);
 int dpu_format_plane_height(int height, u32 format, int plane);
 
+#define _DECLARE_DPU_UNIT_INIT_FUNC(block)			\
+void _dpu_##block##_init(struct dpu_soc *dpu, unsigned int id)	\
+
+_DECLARE_DPU_UNIT_INIT_FUNC(cf);
+_DECLARE_DPU_UNIT_INIT_FUNC(dec);
+_DECLARE_DPU_UNIT_INIT_FUNC(ed);
+_DECLARE_DPU_UNIT_INIT_FUNC(fd);
+_DECLARE_DPU_UNIT_INIT_FUNC(fe);
+_DECLARE_DPU_UNIT_INIT_FUNC(fg);
+_DECLARE_DPU_UNIT_INIT_FUNC(fl);
+_DECLARE_DPU_UNIT_INIT_FUNC(hs);
+_DECLARE_DPU_UNIT_INIT_FUNC(lb);
+_DECLARE_DPU_UNIT_INIT_FUNC(tcon);
+_DECLARE_DPU_UNIT_INIT_FUNC(vs);
+
 #define DECLARE_DPU_UNIT_INIT_FUNC(block)			\
 int dpu_##block##_init(struct dpu_soc *dpu, unsigned int id,	\
 			 unsigned long pec_base, unsigned long base)

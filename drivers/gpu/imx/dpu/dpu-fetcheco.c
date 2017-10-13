@@ -478,6 +478,28 @@ void dpu_fe_put(struct dpu_fetcheco *fe)
 }
 EXPORT_SYMBOL_GPL(dpu_fe_put);
 
+void _dpu_fe_init(struct dpu_soc *dpu, unsigned int id)
+{
+	struct dpu_fetcheco *fe;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(fe_ids); i++)
+		if (fe_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(fe_ids)))
+		return;
+
+	fe = dpu->fe_priv[i];
+
+	fetcheco_shden(fe, true);
+
+	mutex_lock(&fe->mutex);
+	dpu_fe_write(fe, SETNUMBUFFERS(16) | SETBURSTLENGTH(16),
+			BURSTBUFFERMANAGEMENT);
+	mutex_unlock(&fe->mutex);
+}
+
 int dpu_fe_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
@@ -506,12 +528,7 @@ int dpu_fe_init(struct dpu_soc *dpu, unsigned int id,
 	fe->id = id;
 	mutex_init(&fe->mutex);
 
-	fetcheco_shden(fe, true);
-
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, SETNUMBUFFERS(16) | SETBURSTLENGTH(16),
-			BURSTBUFFERMANAGEMENT);
-	mutex_unlock(&fe->mutex);
+	_dpu_fe_init(dpu, id);
 
 	return 0;
 }

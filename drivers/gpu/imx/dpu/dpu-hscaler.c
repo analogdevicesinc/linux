@@ -338,6 +338,25 @@ void dpu_hs_put(struct dpu_hscaler *hs)
 }
 EXPORT_SYMBOL_GPL(dpu_hs_put);
 
+void _dpu_hs_init(struct dpu_soc *dpu, unsigned int id)
+{
+	struct dpu_hscaler *hs;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(hs_ids); i++)
+		if (hs_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(hs_ids)))
+		return;
+
+	hs = dpu->hs_priv[i];
+
+	hscaler_shden(hs, true);
+	hscaler_setup2(hs, 0);
+	hscaler_pixengcfg_dynamic_src_sel(hs, HS_SRC_SEL__DISABLE);
+}
+
 int dpu_hs_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
@@ -367,8 +386,7 @@ int dpu_hs_init(struct dpu_soc *dpu, unsigned int id,
 
 	mutex_init(&hs->mutex);
 
-	hscaler_shden(hs, true);
-	hscaler_setup2(hs, 0);
+	_dpu_hs_init(dpu, id);
 
 	return 0;
 }

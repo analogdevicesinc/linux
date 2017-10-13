@@ -257,6 +257,10 @@ void dpu_fl_put(struct dpu_fetchlayer *fl)
 }
 EXPORT_SYMBOL_GPL(dpu_fl_put);
 
+void _dpu_fl_init(struct dpu_soc *dpu, unsigned int id)
+{
+}
+
 int dpu_fl_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {

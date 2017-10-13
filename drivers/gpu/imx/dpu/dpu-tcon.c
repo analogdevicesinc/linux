@@ -211,6 +211,10 @@ void dpu_tcon_put(struct dpu_tcon *tcon)
 }
 EXPORT_SYMBOL_GPL(dpu_tcon_put);
 
+void _dpu_tcon_init(struct dpu_soc *dpu, unsigned int id)
+{
+}
+
 int dpu_tcon_init(struct dpu_soc *dpu, unsigned int id,
 			unsigned long unused, unsigned long base)
 {

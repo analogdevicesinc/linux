@@ -714,6 +714,30 @@ void dpu_fd_put(struct dpu_fetchdecode *fd)
 }
 EXPORT_SYMBOL_GPL(dpu_fd_put);
 
+void _dpu_fd_init(struct dpu_soc *dpu, unsigned int id)
+{
+	struct dpu_fetchdecode *fd;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(fd_ids); i++)
+		if (fd_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(fd_ids)))
+		return;
+
+	fd = dpu->fd_priv[i];
+
+	fetchdecode_pixengcfg_dynamic_src_sel(fd, FD_SRC_DISABLE);
+	fetchdecode_baddr_autoupdate(fd, 0x0);
+	fetchdecode_shden(fd, true);
+
+	mutex_lock(&fd->mutex);
+	dpu_fd_write(fd, SETNUMBUFFERS(16) | SETBURSTLENGTH(16),
+			BURSTBUFFERMANAGEMENT);
+	mutex_unlock(&fd->mutex);
+}
+
 int dpu_fd_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
@@ -752,13 +776,7 @@ int dpu_fd_init(struct dpu_soc *dpu, unsigned int id,
 	if (ret < 0)
 		return ret;
 
-	fetchdecode_baddr_autoupdate(fd, 0x0);
-	fetchdecode_shden(fd, true);
-
-	mutex_lock(&fd->mutex);
-	dpu_fd_write(fd, SETNUMBUFFERS(16) | SETBURSTLENGTH(16),
-			BURSTBUFFERMANAGEMENT);
-	mutex_unlock(&fd->mutex);
+	_dpu_fd_init(dpu, id);
 
 	return 0;
 }

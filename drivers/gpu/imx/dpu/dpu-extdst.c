@@ -440,6 +440,31 @@ void dpu_ed_put(struct dpu_extdst *ed)
 }
 EXPORT_SYMBOL_GPL(dpu_ed_put);
 
+void _dpu_ed_init(struct dpu_soc *dpu, unsigned int id)
+{
+	struct dpu_extdst *ed;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ed_ids); i++)
+		if (ed_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(ed_ids)))
+		return;
+
+	ed = dpu->ed_priv[i];
+
+	extdst_pixengcfg_src_sel(ed, ED_SRC_DISABLE);
+	extdst_pixengcfg_shden(ed, true);
+	extdst_pixengcfg_powerdown(ed, false);
+	extdst_pixengcfg_sync_mode(ed, SINGLE);
+	extdst_pixengcfg_reset(ed, false);
+	extdst_pixengcfg_div(ed, DIV_RESET);
+	extdst_shden(ed, true);
+	extdst_perfcountmode(ed, false);
+	extdst_kick_mode(ed, EXTERNAL);
+}
+
 int dpu_ed_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
@@ -472,14 +497,7 @@ int dpu_ed_init(struct dpu_soc *dpu, unsigned int id,
 	if (ret < 0)
 		return ret;
 
-	extdst_pixengcfg_shden(ed, true);
-	extdst_pixengcfg_powerdown(ed, false);
-	extdst_pixengcfg_sync_mode(ed, SINGLE);
-	extdst_pixengcfg_reset(ed, false);
-	extdst_pixengcfg_div(ed, DIV_RESET);
-	extdst_shden(ed, true);
-	extdst_perfcountmode(ed, false);
-	extdst_kick_mode(ed, EXTERNAL);
+	_dpu_ed_init(dpu, id);
 
 	return 0;
 }

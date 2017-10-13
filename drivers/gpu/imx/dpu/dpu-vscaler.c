@@ -378,6 +378,28 @@ void dpu_vs_put(struct dpu_vscaler *vs)
 }
 EXPORT_SYMBOL_GPL(dpu_vs_put);
 
+void _dpu_vs_init(struct dpu_soc *dpu, unsigned int id)
+{
+	struct dpu_vscaler *vs;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vs_ids); i++)
+		if (vs_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(vs_ids)))
+		return;
+
+	vs = dpu->vs_priv[i];
+
+	vscaler_shden(vs, true);
+	vscaler_setup2(vs, 0);
+	vscaler_setup3(vs, 0);
+	vscaler_setup4(vs, 0);
+	vscaler_setup5(vs, 0);
+	vscaler_pixengcfg_dynamic_src_sel(vs, VS_SRC_SEL__DISABLE);
+}
+
 int dpu_vs_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
@@ -407,11 +429,7 @@ int dpu_vs_init(struct dpu_soc *dpu, unsigned int id,
 
 	mutex_init(&vs->mutex);
 
-	vscaler_shden(vs, true);
-	vscaler_setup2(vs, 0);
-	vscaler_setup3(vs, 0);
-	vscaler_setup4(vs, 0);
-	vscaler_setup5(vs, 0);
+	_dpu_vs_init(dpu, id);
 
 	return 0;
 }

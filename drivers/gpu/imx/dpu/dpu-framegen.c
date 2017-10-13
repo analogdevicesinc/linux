@@ -261,6 +261,9 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 	dpu_fg_write(fg, 0, FGCCR);
 	mutex_unlock(&fg->mutex);
 
+	clk_get_rate(fg->clk_pll);
+	clk_get_rate(fg->clk_disp);
+
 	disp_clock_rate = m->clock * 1000;
 
 	if (devtype->version == DPU_V1) {
@@ -412,11 +415,33 @@ void dpu_fg_put(struct dpu_framegen *fg)
 }
 EXPORT_SYMBOL_GPL(dpu_fg_put);
 
+void _dpu_fg_init(struct dpu_soc *dpu, unsigned int id)
+{
+	struct dpu_framegen *fg;
+	u32 val;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(fg_ids); i++)
+		if (fg_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(fg_ids)))
+		return;
+
+	fg = dpu->fg_priv[i];
+
+	mutex_lock(&fg->mutex);
+	val = dpu_fg_read(fg, FGSTCTRL);
+	val &= ~FGSYNCMODE_MASK;
+	val |= FGSYNCMODE__OFF;
+	dpu_fg_write(fg, val, FGSTCTRL);
+	mutex_unlock(&fg->mutex);
+}
+
 int dpu_fg_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long unused, unsigned long base)
 {
 	struct dpu_framegen *fg;
-	u32 val;
 
 	fg = devm_kzalloc(dpu->dev, sizeof(*fg), GFP_KERNEL);
 	if (!fg)
@@ -440,13 +465,7 @@ int dpu_fg_init(struct dpu_soc *dpu, unsigned int id,
 	fg->id = id;
 	mutex_init(&fg->mutex);
 
-	mutex_lock(&fg->mutex);
-	val = dpu_fg_read(fg, FGSTCTRL);
-	val &= ~FGSYNCMODE_MASK;
-	val |= FGSYNCMODE__OFF;
-	dpu_fg_write(fg, val, FGSTCTRL);
-
-	mutex_unlock(&fg->mutex);
+	_dpu_fg_init(dpu, id);
 
 	return 0;
 }

@@ -648,6 +648,39 @@ int dpu_format_plane_height(int height, u32 format, int plane)
 	return height / dpu_format_vert_chroma_subsampling(format);
 }
 
+#define _DPU_UNITS_INIT(unit)						\
+{									\
+	const struct dpu_unit *us = devtype->unit##s;			\
+	int i;								\
+									\
+	/* software check */						\
+	if (WARN_ON(us->num > ARRAY_SIZE(unit##_ids)))			\
+		return -EINVAL;						\
+									\
+	for (i = 0; i < us->num; i++)					\
+		_dpu_##unit##_init(dpu, us->ids[i]);			\
+}
+
+static int
+_dpu_submodules_init(struct dpu_soc *dpu, struct platform_device *pdev)
+{
+	const struct dpu_devtype *devtype = dpu->devtype;
+
+	_DPU_UNITS_INIT(cf);
+	_DPU_UNITS_INIT(dec);
+	_DPU_UNITS_INIT(ed);
+	_DPU_UNITS_INIT(fd);
+	_DPU_UNITS_INIT(fe);
+	_DPU_UNITS_INIT(fg);
+	_DPU_UNITS_INIT(fl);
+	_DPU_UNITS_INIT(hs);
+	_DPU_UNITS_INIT(lb);
+	_DPU_UNITS_INIT(tcon);
+	_DPU_UNITS_INIT(vs);
+
+	return 0;
+}
+
 #define DPU_UNIT_INIT(dpu, base, unit, name, id, pec_ofs, ofs)		\
 {									\
 	int ret;							\
@@ -1509,8 +1542,37 @@ static int dpu_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int dpu_suspend(struct device *dev)
+{
+	/*
+	 * The dpu core driver currently depends on the client drivers
+	 * to do suspend operations to leave dpu a cleaned up state
+	 * machine status before the system enters sleep mode.
+	 */
+	return 0;
+}
+
+static int dpu_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dpu_soc *dpu = platform_get_drvdata(pdev);
+
+	dpu_intsteer_enable_lines(dpu);
+
+	dpu_pixel_link_init(dpu->id);
+
+	_dpu_submodules_init(dpu, pdev);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(dpu_pm_ops, dpu_suspend, dpu_resume);
+
 static struct platform_driver dpu_driver = {
 	.driver = {
+		.pm = &dpu_pm_ops,
 		.name = "dpu-core",
 		.of_match_table = dpu_dt_ids,
 	},

@@ -166,6 +166,20 @@ void dpu_cf_put(struct dpu_constframe *cf)
 }
 EXPORT_SYMBOL_GPL(dpu_cf_put);
 
+void _dpu_cf_init(struct dpu_soc *dpu, unsigned int id)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cf_ids); i++)
+		if (cf_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(cf_ids)))
+		return;
+
+	constframe_shden(dpu->cf_priv[i], true);
+}
+
 int dpu_cf_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
@@ -196,7 +210,7 @@ int dpu_cf_init(struct dpu_soc *dpu, unsigned int id,
 
 	mutex_init(&cf->mutex);
 
-	constframe_shden(cf, true);
+	_dpu_cf_init(dpu, id);
 
 	return 0;
 }
