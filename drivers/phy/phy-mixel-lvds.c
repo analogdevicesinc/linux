@@ -96,6 +96,13 @@ void mixel_phy_lvds_set_phy_speed(struct phy *phy, unsigned long phy_clk_rate)
 	mutex_unlock(&priv->lock);
 	clk_disable_unprepare(priv->phy_clk);
 
+	/*
+	 * To workaround setting clock rate failure issue
+	 * when the system resumes back from PM sleep mode,
+	 * we need to get the clock rate before setting it's
+	 * rate, otherwise, setting the clock rate will fail.
+	 */
+	clk_get_rate(priv->phy_clk);
 	clk_set_rate(priv->phy_clk, phy_clk_rate);
 }
 EXPORT_SYMBOL_GPL(mixel_phy_lvds_set_phy_speed);
