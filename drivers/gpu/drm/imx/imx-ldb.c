@@ -251,6 +251,15 @@ static void imx_ldb_set_clock(struct imx_ldb *ldb, int mux, int chno,
 	int ret;
 
 	if (ldb->is_imx8) {
+		/*
+		 * To workaround setting clock rate failure issue
+		 * when the system resumes back from PM sleep mode,
+		 * we need to get the clock rates before setting
+		 * their rates, otherwise, setting the clock rates
+		 * will fail.
+		 */
+		clk_get_rate(ldb->clk_bypass);
+		clk_get_rate(ldb->clk_pixel);
 		clk_set_rate(ldb->clk_bypass, di_clk);
 		clk_set_rate(ldb->clk_pixel, di_clk);
 		return;
