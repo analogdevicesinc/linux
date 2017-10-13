@@ -1341,6 +1341,8 @@ static int ad9528_probe(struct spi_device *spi)
 			return ret;
 	}
 
+	devm_gpiod_get(&spi->dev, "status0", GPIOD_OUT_LOW);
+
 	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
 	if (!IS_ERR(st->reset_gpio)) {
 		udelay(1);
