@@ -67,20 +67,41 @@
 
 #define imx_hdp_call(hdp, operation, args...)			\
 	(!(hdp) ? -ENODEV : (((hdp)->ops && (hdp)->ops->operation) ?	\
-	 (hdp)->ops->operation(args) : -ENOIOCTLCMD))
+	 (hdp)->ops->operation(args) : ENOIOCTLCMD))
+
+#define clks_to_imx_hdp(env) \
+	container_of(env, struct imx_hdp, clks)
+
+#define state_to_imx_hdp(env) \
+	container_of(env, struct imx_hdp, state)
+
+struct hdp_clks;
 
 struct hdp_ops {
 	void (*fw_load)(state_struct *state);
-	void (*fw_init)(state_struct *state, u32 rate);
-	void (*phy_init)(state_struct *state, int vic, int format, int color_depth);
+	void (*fw_init)(state_struct *state);
+	int (*phy_init)(state_struct *state, int vic, int format, int color_depth);
 	void (*mode_set)(state_struct *state, int vic, int format, int color_depth, int max_link);
 	int (*get_edid_block)(void *data, u8 *buf, u32 block, size_t len);
 	void (*get_hpd_state)(state_struct *state, u8 *hpd);
+
+	void (*phy_reset)(sc_ipc_t ipcHndl, u8 reset);
+	int (*pixel_link_init)(state_struct *state);
+	void (*pixel_link_deinit)(state_struct *state);
+
+	int (*clock_init)(struct hdp_clks *clks);
+	void (*set_clock_root)(sc_ipc_t ipcHndl);
+	int (*ipg_clock_enable)(struct hdp_clks *clks);
+	void (*ipg_clock_disable)(struct hdp_clks *clks);
+	void (*ipg_clock_set_rate)(struct hdp_clks *clks);
+	int (*pixel_clock_enable)(struct hdp_clks *clks);
+	void (*pixel_clock_disable)(struct hdp_clks *clks);
+	void (*pixel_clock_set_rate)(struct hdp_clks *clks);
 };
 
 struct hdp_devtype {
-	u8 load_fw;
-	u8 is_hdmi;
+	u8 is_edid;
+	u8 is_4kp60;
 	struct hdp_ops *ops;
 	struct hdp_rw_func *rw;
 };
@@ -158,13 +179,12 @@ struct imx_hdp {
 
 	struct edid *edid;
 	char cable_state;
-	char fw_running;
 
 	void __iomem *regs_base; /* Controller regs base */
 	void __iomem *ss_base; /* HDP Subsystem regs base */
 
-	u8 load_fw;
-	u8 is_hdmi;
+	u8 is_edid;
+	u8 is_4kp60;
 
 	struct mutex mutex;		/* for state below and previous_mode */
 	enum drm_connector_force force;	/* mutex-protected force state */
@@ -189,9 +209,6 @@ struct imx_hdp {
 
 };
 
-int imx_hdpaux_init(struct device *dev,	struct imx_hdp *dp);
-void imx_hdpaux_destroy(struct device *dev, struct imx_hdp *dp);
-void hdp_phy_reset(u8 reset);
 u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width);
 
 #endif

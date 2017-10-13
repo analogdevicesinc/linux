@@ -20,7 +20,7 @@
 
 void dp_fw_load(state_struct *state)
 {
-	printk("loading hdmi firmware\n");
+	pr_info("loading hdmi firmware\n");
 	CDN_API_LoadFirmware(state,
 		(u8 *)mhdp_iram0_get_ptr(),
 		mhdp_iram0_get_size(),
@@ -28,58 +28,67 @@ void dp_fw_load(state_struct *state)
 		mhdp_dram0_get_size());
 }
 
-void dp_fw_init(state_struct *state, u32 core_rate)
+void dp_fw_init(state_struct *state)
 {
 	u8 echo_msg[] = "echo test";
 	u8 echo_resp[sizeof(echo_msg) + 1];
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
+	u32 core_rate;
 	int ret;
 	u8 resp;
 
+	core_rate = clk_get_rate(hdp->clks.clk_core);
+
 	/* configure the clock */
 	CDN_API_SetClock(state, core_rate/1000000);
-	printk("CDN_API_SetClock completed\n");
+	pr_info("CDN_API_SetClock completed\n");
 
 	cdn_apb_write(state, APB_CTRL << 2, 0);
-	printk("Started firmware!\n");
+	pr_info("Started firmware!\n");
 
 	ret = CDN_API_CheckAlive_blocking(state);
-	printk("CDN_API_CheckAlive returned (ret = %d)\n", ret);
+	pr_info("CDN_API_CheckAlive returned (ret = %d)\n", ret);
 
 	/* turn on IP activity */
 	ret = CDN_API_MainControl_blocking(state, 1, &resp);
-	printk("CDN_API_MainControl_blocking (ret = %d resp = %u)\n",
+	pr_info("CDN_API_MainControl_blocking (ret = %d resp = %u)\n",
 		ret, resp);
 
 	ret = CDN_API_General_Test_Echo_Ext_blocking(state, echo_msg, echo_resp,
 		sizeof(echo_msg), CDN_BUS_TYPE_APB);
-	printk("CDN_API_General_Test_Echo_Ext_blocking (ret = %d echo_resp = %s)\n",
+	pr_info("CDN_API_General_Test_Echo_Ext_blocking (ret = %d echo_resp = %s)\n",
 		ret, echo_resp);
 
 	/* Line swaping */
 	CDN_API_General_Write_Register_blocking(state,
 		ADDR_SOURCD_PHY + (LANES_CONFIG << 2), 0x0040001b);
-	printk("CDN_API_General_Write_Register_blockin ... setting LANES_CONFIG\n");
+	pr_info("CDN_API_General_Write_Register_blockin ... setting LANES_CONFIG\n");
 }
 
-void dp_phy_init(state_struct *state, int num_lanes, int max_link_rate, int tmp)
+int dp_phy_init(state_struct *state, int vic, int format, int color_depth)
 {
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
+	int max_link_rate = hdp->link_rate;
+	int num_lanes = 4;
 	int ret;
 
 	/* PHY initialization while phy reset pin is active */
 	AFE_init(state, num_lanes, (ENUM_AFE_LINK_RATE)max_link_rate);
-	printk("AFE_init\n");
+	pr_info("AFE_init\n");
 
 	/* In this point the phy reset should be deactivated */
-	hdp_phy_reset(1);
-	printk("deasserted reset\n");
+	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 1);
+	pr_info("deasserted reset\n");
 
 	/* PHY power set */
 	AFE_power(state, num_lanes, (ENUM_AFE_LINK_RATE)max_link_rate);
-	printk("AFE_power exit\n");
+	pr_info("AFE_power exit\n");
 
 	/* Video off */
 	ret = CDN_API_DPTX_SetVideo_blocking(state, 0);
-	printk("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
+	pr_info("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
+
+	return true;
 }
 
 /* Max Link Rate: 06h (1.62Gbps), 0Ah (2.7Gbps), 14h (5.4Gbps), 1Eh (8.1Gbps)--N/A */
@@ -126,7 +135,7 @@ void dp_mode_set(state_struct *state, int vic, int format, int color_depth, int 
 		lane_mapping,
 		ext_host_cap
 		);
-	printk("CDN_API_DPTX_SetHostCap_blocking (ret = %d)\n", ret);
+	pr_info("CDN_API_DPTX_SetHostCap_blocking (ret = %d)\n", ret);
 
 	switch (max_link_rate) {
 	case 0x0a:
@@ -149,14 +158,14 @@ void dp_mode_set(state_struct *state, int vic, int format, int color_depth, int 
 		bt_type,
 		transfer_unit
 		);
-	printk("CDN_API_DPTX_Set_VIC_blocking (ret = %d)\n", ret);
+	pr_info("CDN_API_DPTX_Set_VIC_blocking (ret = %d)\n", ret);
 
 	ret = CDN_API_DPTX_TrainingControl_blocking(state, 1);
-	printk("CDN_API_DPTX_TrainingControl_blocking (ret = %d)\n", ret);
+	pr_info("CDN_API_DPTX_TrainingControl_blocking (ret = %d)\n", ret);
 
 	/* Set video on */
 	ret = CDN_API_DPTX_SetVideo_blocking(state, 1);
-	printk("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
+	pr_info("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
 
 	udelay(1000);
 }
