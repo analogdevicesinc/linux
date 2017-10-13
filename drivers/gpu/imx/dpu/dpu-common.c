@@ -1099,6 +1099,19 @@ static void dpu_intsteer_enable_line(struct dpu_soc *dpu, unsigned int line)
 			   BIT(shift), BIT(shift));
 }
 
+static void dpu_intsteer_enable_lines(struct dpu_soc *dpu)
+{
+	const struct dpu_devtype *devtype = dpu->devtype;
+	int i;
+
+	for (i = 0; i < devtype->intsteer_map_size; i++) {
+		if (devtype->intsteer_map[i] == NA)
+			continue;
+
+		dpu_intsteer_enable_line(dpu, devtype->intsteer_map[i]);
+	}
+}
+
 static int dpu_irq_init(struct dpu_soc *dpu)
 {
 	const struct dpu_devtype *devtype = dpu->devtype;
@@ -1107,12 +1120,7 @@ static int dpu_irq_init(struct dpu_soc *dpu)
 	struct irq_chip_type *ct;
 	int ret, i;
 
-	for (i = 0; i < devtype->intsteer_map_size; i++) {
-		if (devtype->intsteer_map[i] == NA)
-			continue;
-
-		dpu_intsteer_enable_line(dpu, devtype->intsteer_map[i]);
-	}
+	dpu_intsteer_enable_lines(dpu);
 
 	dpu->domain = irq_domain_add_linear(dpu->dev->of_node,
 					    devtype->intsteer_map_size,
