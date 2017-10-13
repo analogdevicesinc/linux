@@ -1291,12 +1291,50 @@ static int imx_ldb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int imx_ldb_suspend(struct device *dev)
+{
+	struct imx_ldb *imx_ldb = dev_get_drvdata(dev);
+	struct imx_ldb_channel *channel;
+	int i;
+
+	for (i = 0; i < 2; i++) {
+		channel = &imx_ldb->channel[i];
+
+		if (channel->phy_is_on)
+			phy_power_off(channel->phy);
+
+		phy_exit(channel->phy);
+	}
+
+	return 0;
+}
+
+static int imx_ldb_resume(struct device *dev)
+{
+	struct imx_ldb *imx_ldb = dev_get_drvdata(dev);
+	int i;
+
+	if (imx_ldb->visible_phy)
+		for (i = 0; i < 2; i++)
+			phy_init(imx_ldb->channel[i].phy);
+
+	if (imx_ldb->pixel_link_init_quirks)
+		ldb_pixel_link_init(imx_ldb->id);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(imx_ldb_pm_ops, imx_ldb_suspend, imx_ldb_resume);
+
 static struct platform_driver imx_ldb_driver = {
 	.probe		= imx_ldb_probe,
 	.remove		= imx_ldb_remove,
 	.driver		= {
 		.of_match_table = imx_ldb_dt_ids,
 		.name	= DRIVER_NAME,
+		.pm	= &imx_ldb_pm_ops,
 	},
 };
 
