@@ -279,6 +279,15 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 			pll_clock_rate = disp_clock_rate * 8;
 	}
 
+	/*
+	 * To workaround setting clock rate failure issue
+	 * when the system resumes back from PM sleep mode,
+	 * we need to get the clock rates before setting
+	 * their rates, otherwise, setting the clock rates
+	 * will fail.
+	 */
+	clk_get_rate(fg->clk_pll);
+	clk_get_rate(fg->clk_disp);
 	clk_set_rate(fg->clk_pll, pll_clock_rate);
 	clk_set_rate(fg->clk_disp, disp_clock_rate);
 }
