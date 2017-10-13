@@ -96,6 +96,13 @@ void mixel_phy_combo_lvds_set_phy_speed(struct phy *phy,
 {
 	struct mixel_lvds_phy *lvds_phy = phy_get_drvdata(phy);
 
+	/*
+	 * To workaround setting clock rate failure issue
+	 * when the system resumes back from PM sleep mode,
+	 * we need to get the clock rate before setting it's
+	 * rate, otherwise, setting the clock rate will fail.
+	 */
+	clk_get_rate(lvds_phy->phy_clk);
 	clk_set_rate(lvds_phy->phy_clk, phy_clk_rate);
 }
 EXPORT_SYMBOL_GPL(mixel_phy_combo_lvds_set_phy_speed);
