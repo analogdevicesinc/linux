@@ -27,8 +27,40 @@
 #define IMX8QM_FUSE_MAC0_WORD1		453
 #define IMX8QM_FUSE_MAC1_WORD0		454
 #define IMX8QM_FUSE_MAC1_WORD1		455
+#define IMX8QXP_FUSE_MAC0_WORD0		708
+#define IMX8QXP_FUSE_MAC0_WORD1		709
+#define IMX8QXP_FUSE_MAC1_WORD0		710
+#define IMX8QXP_FUSE_MAC1_WORD1		711
 #define IMX8M_OCOTP_MAC_ADDR0_OFF	0x640
 #define IMX8M_OCOTP_MAC_ADDR1_OFF	0x650
+
+enum imx_soc_type {
+	IMX8QM_FUSE = 0,
+	IMX8QXP_FUSE,
+};
+
+struct imx_fuse_mac_addr {
+	u32 fuse_mac0_word0;
+	u32 fuse_mac0_word1;
+	u32 fuse_mac1_word0;
+	u32 fuse_mac1_word1;
+};
+
+static struct imx_fuse_mac_addr imx8_fuse_mapping[] = {
+	{
+		.fuse_mac0_word0 = IMX8QM_FUSE_MAC0_WORD0,
+		.fuse_mac0_word1 = IMX8QM_FUSE_MAC0_WORD1,
+		.fuse_mac1_word0 = IMX8QM_FUSE_MAC1_WORD0,
+		.fuse_mac1_word1 = IMX8QM_FUSE_MAC1_WORD1,
+	}, {
+		.fuse_mac0_word0 = IMX8QXP_FUSE_MAC0_WORD0,
+		.fuse_mac0_word1 = IMX8QXP_FUSE_MAC0_WORD1,
+		.fuse_mac1_word0 = IMX8QXP_FUSE_MAC1_WORD0,
+		.fuse_mac1_word1 = IMX8QXP_FUSE_MAC1_WORD1,
+	}, {
+		/* sentinel */
+	}
+};
 
 static int ar8031_phy_fixup(struct phy_device *dev)
 {
@@ -117,7 +149,8 @@ put_ocotp_node:
 }
 
 #ifdef CONFIG_ARCH_MXC_ARM64
-static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac)
+static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac,
+				     struct imx_fuse_mac_addr *fuse_mapping)
 {
 	uint32_t mu_id;
 	sc_ipc_t ipc_handle;
@@ -138,11 +171,11 @@ static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac)
 	}
 
 	if (dev_id == 0) {
-		word1 = IMX8QM_FUSE_MAC0_WORD0;
-		word2 = IMX8QM_FUSE_MAC0_WORD1;
+		word1 = fuse_mapping->fuse_mac0_word0;
+		word2 = fuse_mapping->fuse_mac0_word1;
 	} else {
-		word1 = IMX8QM_FUSE_MAC1_WORD0;
-		word2 = IMX8QM_FUSE_MAC1_WORD1;
+		word1 = fuse_mapping->fuse_mac1_word0;
+		word2 = fuse_mapping->fuse_mac1_word1;
 	}
 
 	sc_err = sc_misc_otp_fuse_read(ipc_handle, word1, &val1);
@@ -165,7 +198,8 @@ static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac)
 	mac[5] = val2 >> 8;
 }
 #else
-static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac) {}
+static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac,
+				     struct imx_fuse_mac_addr *fuse_mapping) {}
 #endif
 
 void fec_enet_get_mac_from_fuse(struct device_node *np, unsigned char *mac)
@@ -179,9 +213,12 @@ void fec_enet_get_mac_from_fuse(struct device_node *np, unsigned char *mac)
 	if (idx < 0)
 		idx = 0;
 
-	if (of_machine_is_compatible("fsl,imx8qm") ||
-	    of_machine_is_compatible("fsl,imx8qxp"))
-		imx8qm_get_mac_from_fuse(idx, mac);
+	if (of_machine_is_compatible("fsl,imx8qm"))
+		imx8qm_get_mac_from_fuse(idx, mac,
+					 &imx8_fuse_mapping[IMX8QM_FUSE]);
+	else if (of_machine_is_compatible("fsl,imx8qxp"))
+		imx8qm_get_mac_from_fuse(idx, mac,
+					 &imx8_fuse_mapping[IMX8QXP_FUSE]);
 	else if (of_machine_is_compatible("fsl,imx8mq"))
 		imx8mq_get_mac_from_fuse(idx, mac);
 }
