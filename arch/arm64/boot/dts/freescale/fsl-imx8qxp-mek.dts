@@ -647,7 +647,7 @@
 		op-snk-mw = <9000>;
 		port-type = "drp";
 		default-role = "sink";
-		status = "disabled";
+		status = "okay";
 	};
 };
 
@@ -675,7 +675,7 @@
 &usbotg3 {
 	dr_mode = "otg";
 	extcon = <&typec_ptn5110>;
-	status = "disabled";
+	status = "okay";
 };
 
 &usdhc1 {
