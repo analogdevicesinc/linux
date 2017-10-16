@@ -1417,6 +1417,55 @@ int dpni_clear_mac_filters(struct fsl_mc_io *mc_io,
 }
 
 /**
+ * dpni_set_tx_priorities() - Set transmission TC priority configuration
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPNI object
+ * @cfg:	Transmission selection configuration
+ *
+ * warning:	Allowed only when DPNI is disabled
+ *
+ * Return:	'0' on Success; Error code otherwise.
+ */
+int dpni_set_tx_priorities(struct fsl_mc_io *mc_io,
+			   u32 cmd_flags,
+			   u16 token,
+			   const struct dpni_tx_priorities_cfg *cfg)
+{
+	struct dpni_cmd_set_tx_priorities *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i;
+
+	/* prepare command */
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SET_TX_PRIORITIES,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpni_cmd_set_tx_priorities *)cmd.params;
+	dpni_set_field(cmd_params->flags,
+		       SEPARATE_GRP,
+		       cfg->separate_groups);
+	cmd_params->prio_group_A = cfg->prio_group_A;
+	cmd_params->prio_group_B = cfg->prio_group_B;
+
+	for (i = 0; i + 1 < DPNI_MAX_TC; i += 2) {
+		dpni_set_field(cmd_params->modes[i / 2],
+			       MODE_1,
+			       cfg->tc_sched[i].mode);
+		dpni_set_field(cmd_params->modes[i / 2],
+			       MODE_2,
+			       cfg->tc_sched[i + 1].mode);
+	}
+
+	for (i = 0; i < DPNI_MAX_TC; i++) {
+		cmd_params->delta_bandwidth[i] =
+				cpu_to_le16(cfg->tc_sched[i].delta_bandwidth);
+	}
+
+	/* send command to mc*/
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
  * dpni_set_rx_tc_dist() - Set Rx traffic class distribution configuration
  * @mc_io:	Pointer to MC portal's I/O object
  * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'

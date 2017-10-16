@@ -76,6 +76,7 @@
 #define DPNI_CMDID_REMOVE_FS_ENT			DPNI_CMD(0x245)
 #define DPNI_CMDID_CLR_FS_ENT				DPNI_CMD(0x246)
 
+#define DPNI_CMDID_SET_TX_PRIORITIES			DPNI_CMD_V2(0x250)
 #define DPNI_CMDID_GET_STATISTICS			DPNI_CMD(0x25D)
 #define DPNI_CMDID_RESET_STATISTICS			DPNI_CMD(0x25E)
 #define DPNI_CMDID_GET_QUEUE				DPNI_CMD(0x25F)
@@ -390,6 +391,24 @@ struct dpni_cmd_remove_mac_addr {
 struct dpni_cmd_clear_mac_filters {
 	/* from LSB: unicast:1, multicast:1 */
 	u8 flags;
+};
+
+#define DPNI_SEPARATE_GRP_SHIFT 0
+#define DPNI_SEPARATE_GRP_SIZE  1
+#define DPNI_MODE_1_SHIFT		0
+#define DPNI_MODE_1_SIZE		4
+#define DPNI_MODE_2_SHIFT		4
+#define DPNI_MODE_2_SIZE		4
+
+struct dpni_cmd_set_tx_priorities {
+	__le16 flags;
+	u8 prio_group_A;
+	u8 prio_group_B;
+	__le32 pad0;
+	u8 modes[4];
+	__le32 pad1;
+	__le64 pad2;
+	__le16 delta_bandwidth[8];
 };
 
 #define DPNI_DIST_MODE_SHIFT		0
