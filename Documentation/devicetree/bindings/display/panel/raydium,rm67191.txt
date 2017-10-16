@@ -1,0 +1,55 @@
+Raydium RM67171 OLED LCD panel with MIPI-DSI protocol
+
+Required properties:
+- compatible: 		"raydium,rm67191"
+- reg:			virtual channel for MIPI-DSI protocol
+			must be <0>
+- dsi-lanes:		number of DSI lanes to be used
+			must be <3> or <4>
+- port: 		input port node with endpoint definition as
+			defined in Documentation/devicetree/bindings/graph.txt;
+			the input port should be connected to a MIPI-DSI device
+			driver
+
+Optional properties:
+- reset-gpio:		a GPIO spec for the RST_B GPIO pin
+- display-timings:	timings for the connected panel according to [1]
+- pinctrl-0		phandle to the pin settings for the reset pin
+- panel-width-mm:	physical panel width [mm]
+- panel-height-mm:	physical panel height [mm]
+
+[1]: Documentation/devicetree/bindings/display/display-timing.txt
+
+Example:
+
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_0_1_en>;
+		reset-gpio = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		display-timings {
+			timing {
+				clock-frequency = <132000000>;
+				hactive = <1080>;
+				vactive = <1920>;
+				hback-porch = <11>;
+				hfront-porch = <4>;
+				vback-porch = <48>;
+				vfront-porch = <20>;
+				hsync-len = <5>;
+				vsync-len = <12>;
+				hsync-active = <0>;
+				vsync-active = <0>;
+				de-active = <0>;
+				pixelclk-active = <0>;
+			};
+		};
+		port {
+			panel1_in: endpoint {
+				remote-endpoint = <&mipi1_out>;
+			};
+		};
+	};
