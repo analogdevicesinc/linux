@@ -18,9 +18,7 @@
 #include <linux/rpmsg.h>
 
 #define MSG		"hello world!"
-#define MSG_LIMIT	51
 static unsigned int rpmsg_pingpong;
-static int rx_count;
 
 static int rpmsg_pingpong_cb(struct rpmsg_device *rpdev, void *data, int len,
 						void *priv, u32 src)
@@ -29,12 +27,10 @@ static int rpmsg_pingpong_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 	/* reply */
 	rpmsg_pingpong = *(unsigned int *)data;
-	pr_info("get %d (src: 0x%x)\n",
-			rpmsg_pingpong, src);
-	rx_count++;
+	pr_info("get %d (src: 0x%x)\n", rpmsg_pingpong, src);
 
 	/* pingpongs should not live forever */
-	if (rx_count >= MSG_LIMIT) {
+	if (rpmsg_pingpong > 100) {
 		dev_info(&rpdev->dev, "goodbye!\n");
 		return 0;
 	}
@@ -65,7 +61,6 @@ static int rpmsg_pingpong_probe(struct rpmsg_device *rpdev)
 	}
 
 	rpmsg_pingpong = 0;
-	rx_count = 0;
 	err = rpmsg_sendto(rpdev->ept, (void *)(&rpmsg_pingpong), 4, rpdev->dst);
 	if (err) {
 		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", err);
@@ -82,6 +77,7 @@ static void rpmsg_pingpong_remove(struct rpmsg_device *rpdev)
 
 static struct rpmsg_device_id rpmsg_driver_pingpong_id_table[] = {
 	{ .name	= "rpmsg-openamp-demo-channel" },
+	{ .name	= "rpmsg-openamp-demo-channel-1" },
 	{ },
 };
 MODULE_DEVICE_TABLE(rpmsg, rpmsg_driver_pingpong_id_table);

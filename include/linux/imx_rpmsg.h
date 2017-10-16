@@ -41,6 +41,4 @@ struct imx_rpmsg_head {
 	u8 reserved[5];
 } __attribute__ ((packed));
 
-int imx_mu_rpmsg_register_nb(const char *name, struct notifier_block *nb);
-int imx_mu_rpmsg_unregister_nb(const char *name, struct notifier_block *nb);
 #endif /* __LINUX_IMX_RPMSG_H__ */
