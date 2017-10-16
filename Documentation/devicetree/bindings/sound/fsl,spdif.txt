@@ -8,7 +8,7 @@ Required properties:
 
   - compatible		: Compatible list, must contain "fsl,imx35-spdif",
 			"fsl,vf610-spdif", "fsl,imx8qm-spdif",
-			"fsl,imx8qxp-v1-spdif"
+			"fsl,imx8qxp-v1-spdif", "fsl,imx8mq-spdif"
 
   - reg			: Offset and length of the register set for the device.
 

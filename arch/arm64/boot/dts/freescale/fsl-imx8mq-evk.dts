@@ -76,6 +76,14 @@
 		protocol = <0>;
 	};
 
+	sound-spdif {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-spdif";
+		spdif-controller = <&spdif1>;
+		spdif-out;
+		spdif-in;
+	};
+
 	pwmleds {
 		compatible = "pwm-leds";
 
@@ -284,6 +292,13 @@
 				MX8MQ_IOMUXC_SAI2_MCLK_SAI2_MCLK	0xd6
 				MX8MQ_IOMUXC_SAI2_TXD0_SAI2_TX_DATA0	0xd6
 				MX8MQ_IOMUXC_GPIO1_IO08_GPIO1_IO8	0xd6
+			>;
+		};
+
+		pinctrl_spdif1: spdif1grp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_SPDIF_TX_SPDIF1_OUT	0xd6
+				MX8MQ_IOMUXC_SPDIF_RX_SPDIF1_IN		0xd6
 			>;
 		};
 
@@ -596,6 +611,16 @@
 &sai4 {
 	assigned-clocks = <&clk IMX8MQ_CLK_SAI4_SRC>,
 			<&clk IMX8MQ_CLK_SAI4_DIV>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <0>, <24576000>;
+	status = "okay";
+};
+
+&spdif1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spdif1>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SPDIF1_SRC>,
+			<&clk IMX8MQ_CLK_SPDIF1_DIV>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <0>, <24576000>;
 	status = "okay";
