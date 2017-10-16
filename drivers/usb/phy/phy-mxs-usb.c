@@ -77,6 +77,9 @@
 #define BM_USBPHY_PLL_EN_USB_CLKS		BIT(6)
 
 /* Anatop Registers */
+#define ANADIG_PLL_USB2				0x20
+#define ANADIG_PLL_USB2_SET			0x24
+#define ANADIG_PLL_USB2_CLR			0x28
 #define ANADIG_REG_1P1_SET			0x114
 #define ANADIG_REG_1P1_CLR			0x118
 
@@ -113,6 +116,8 @@
 
 #define BM_ANADIG_REG_1P1_ENABLE_WEAK_LINREG	BIT(18)
 #define BM_ANADIG_REG_1P1_TRACK_VDD_SOC_CAP	BIT(19)
+
+#define BM_ANADIG_PLL_USB2_HOLD_RING_OFF	BIT(11)
 
 #define to_mxs_phy(p) container_of((p), struct mxs_phy, phy)
 
@@ -523,6 +528,22 @@ static int mxs_phy_suspend(struct usb_phy *x, int suspend)
 		} else {
 			writel(0xffffffff, x->io_priv + HW_USBPHY_PWD);
 		}
+
+		/*
+		 * USB2 PLL use ring VCO, when the PLL power up, the ring
+		 * VCO’s supply also ramp up. There is a possibility that
+		 * the ring VCO start oscillation at multi nodes in this
+		 * phase, especially for VCO which has many stages, then
+		 * the multiwave will be kept until PLL power down. the bit
+		 * hold_ring_off can force the VCO in one determined state
+		 * to avoid the multiwave issue when VCO supply start ramp
+		 * up.
+		 */
+		if (mxs_phy->port_id == 1 && mxs_phy->regmap_anatop)
+			regmap_write(mxs_phy->regmap_anatop,
+				     ANADIG_PLL_USB2_SET,
+				     BM_ANADIG_PLL_USB2_HOLD_RING_OFF);
+
 		writel(BM_USBPHY_CTRL_CLKGATE,
 		       x->io_priv + HW_USBPHY_CTRL_SET);
 		if (!(mxs_phy->port_id == 1 &&
@@ -536,6 +557,20 @@ static int mxs_phy_suspend(struct usb_phy *x, int suspend)
 			if (ret)
 				return ret;
 		}
+
+		/*
+		 * Per IC design's requirement, hold_ring_off bit can be
+		 * cleared 25us after PLL power up and 25us before any USB
+		 * TX/RX.
+		 */
+		if (mxs_phy->port_id == 1 && mxs_phy->regmap_anatop) {
+			udelay(25);
+			regmap_write(mxs_phy->regmap_anatop,
+				     ANADIG_PLL_USB2_CLR,
+				     BM_ANADIG_PLL_USB2_HOLD_RING_OFF);
+			udelay(25);
+		}
+
 		writel(BM_USBPHY_CTRL_CLKGATE,
 		       x->io_priv + HW_USBPHY_CTRL_CLR);
 		writel(0, x->io_priv + HW_USBPHY_PWD);
