@@ -256,6 +256,13 @@
 			>;
 		};
 
+		pinctrl_mipi1_lpi2c0: mipi1_lpi2c0grp {
+			fsl,pins = <
+				SC_P_MIPI_DSI1_I2C0_SCL_MIPI_DSI1_I2C0_SCL	0xc600004c
+				SC_P_MIPI_DSI1_I2C0_SDA_MIPI_DSI1_I2C0_SDA	0xc600004c
+			>;
+		};
+
 		pinctrl_lpi2c0: lpi2c0grp {
 			fsl,pins = <
 				SC_P_HDMI_TX0_TS_SCL_DMA_I2C0_SCL   0xc600004c
@@ -600,15 +607,6 @@
 			};
 		};
 	};
-};
-
-&i2c0_mipi_dsi0 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_mipi0_lpi2c0>;
-	clock-frequency = <100000>;
-	status = "okay";
 };
 
 &i2c0_hdmi {
