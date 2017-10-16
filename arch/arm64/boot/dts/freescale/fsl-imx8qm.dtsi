@@ -37,6 +37,10 @@
 		dpu1 = &dpu2;
 		ethernet0 = &fec1;
 		ethernet1 = &fec2;
+		dsi_phy0 = &mipi_dsi_phy1;
+		dsi_phy1 = &mipi_dsi_phy2;
+		mipi_dsi0 = &mipi_dsi1;
+		mipi_dsi1 = &mipi_dsi2;
 		ldb0 = &ldb1;
 		ldb1 = &ldb2;
 		isi0 = &isi_0;
@@ -218,26 +222,26 @@
 			#power-domain-cells = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			pd_mipi1: PD_MIPI1 {
+			pd_mipi1: PD_MIPI_1_DSI {
 				reg = <SC_R_MIPI_1>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_dc1>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				pd_mipi1_i2c0: PD_MIPI1_I2C0 {
+				pd_mipi1_i2c0: PD_MIPI_1_DSI_I2C0 {
 					reg = <SC_R_MIPI_1_I2C_0>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi1>;
 				};
 
-				pd_mipi1_i2c1: PD_MIPI1_I2C1 {
+				pd_mipi1_i2c1: PD_MIPI_1_DSI_I2C1 {
 					reg = <SC_R_MIPI_1_I2C_1>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi1>;
 				};
 
-				pd_mipi1_pwm: PD_MIPI1_PWM {
+				pd_mipi1_pwm: PD_MIPI_1_DSI_PWM {
 					reg = <SC_R_MIPI_1_PWM_0>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi1>;
@@ -1202,6 +1206,10 @@
 			dpu1_disp0_hdmi: hdmi-endpoint {
 				remote-endpoint = <&hdmi_disp>;
 			};
+
+			dpu1_disp0_mipi_dsi: mipi-dsi-endpoint {
+				remote-endpoint = <&mipi_dsi1_in>;
+			};
 		};
 
 		dpu1_disp1: port@1 {
@@ -1259,6 +1267,77 @@
 			reg = <0>;
 				hdmi_disp: endpoint {
 				remote-endpoint = <&dpu1_disp0_hdmi>;
+				};
+		};
+	};
+
+	irqsteer_dsi0: irqsteer@56220000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x56220000 0x0 0x1000>;
+		interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_MIPI0_LIS_IPG_CLK>;
+		clock-names = "ipg";
+		power-domains = <&pd_mipi0>;
+	};
+
+	i2c0_mipi_dsi0: i2c@56226000 {
+		compatible = "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x56226000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_dsi0>;
+		clocks = <&clk IMX8QM_MIPI0_I2C0_CLK>,
+			 <&clk IMX8QM_MIPI0_I2C0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QM_MIPI0_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_mipi0_i2c0>;
+		status = "disabled";
+	};
+
+	mipi_dsi_csr1: csr@56221000 {
+		compatible = "fsl,imx8qm-mipi-dsi-csr", "syscon";
+		reg = <0x0 0x56221000 0x0 0x1000>;
+	};
+
+	mipi_dsi_phy1: dsi_phy@56228300 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "mixel,imx8qm-mipi-dsi-phy";
+		reg = <0x0 0x56228300 0x0 0x100>;
+		power-domains = <&pd_mipi0>;
+		#phy-cells = <0>;
+		status = "disabled";
+	};
+
+	mipi_dsi1: mipi_dsi@56228000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-mipi-dsi";
+		reg = <0x0 0x56228000 0x0 0x300>;
+		interrupts = <16 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_dsi0>;
+		clocks =
+			<&clk IMX8QM_MIPI0_PXL_CLK>,
+			<&clk IMX8QM_MIPI0_BYPASS_CLK>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_MIPI0_DSI_TX_ESC_CLK>,
+			<&clk IMX8QM_MIPI0_DSI_RX_ESC_CLK>;
+		clock-names = "pixel", "bypass", "phy_ref", "tx_esc", "rx_esc";
+		assigned-clocks = <&clk IMX8QM_MIPI0_DSI_TX_ESC_DIV>,
+				  <&clk IMX8QM_MIPI0_DSI_RX_ESC_DIV>;
+		assigned-clock-rates = <18000000>, <72000000>;
+		power-domains = <&pd_mipi0>;
+		csr = <&mipi_dsi_csr1>;
+		phys = <&mipi_dsi_phy1>;
+		phy-names = "dphy";
+		status = "disabled";
+
+		port@0 {
+			mipi_dsi1_in: endpoint {
+				remote-endpoint = <&dpu1_disp0_mipi_dsi>;
 			};
 		};
 	};
@@ -1378,6 +1457,7 @@
 			reg = <0>;
 
 			dpu2_disp0_mipi_dsi: mipi-dsi-endpoint {
+				remote-endpoint = <&mipi_dsi2_in>;
 			};
 		};
 
@@ -1390,6 +1470,77 @@
 
 			dpu2_disp1_lvds1: lvds1-endpoint {
 				remote-endpoint = <&ldb2_lvds1>;
+			};
+		};
+	};
+
+	irqsteer_dsi1: irqsteer@57220000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x57220000 0x0 0x1000>;
+		interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_MIPI1_LIS_IPG_CLK>;
+		clock-names = "ipg";
+		power-domains = <&pd_mipi1>;
+	};
+
+	i2c0_mipi_dsi1: i2c@57226000 {
+		compatible = "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x57226000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_dsi1>;
+		clocks = <&clk IMX8QM_MIPI1_I2C0_CLK>,
+			 <&clk IMX8QM_MIPI1_I2C0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QM_MIPI1_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_mipi1_i2c0>;
+		status = "disabled";
+	};
+
+	mipi_dsi_csr2: csr@57221000 {
+		compatible = "fsl,imx8qm-mipi-dsi-csr", "syscon";
+		reg = <0x0 0x57221000 0x0 0x1000>;
+	};
+
+	mipi_dsi_phy2: mipi_phy@57228300 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "mixel,imx8qm-mipi-dsi-phy";
+		reg = <0x0 0x57228300 0x0 0x100>;
+		power-domains = <&pd_mipi1>;
+		#phy-cells = <0>;
+		status = "disabled";
+	};
+
+	mipi_dsi2: mipi_dsi@57228000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-mipi-dsi";
+		reg = <0x0 0x57228000 0x0 0x300>;
+		interrupts = <16 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_dsi1>;
+		clocks =
+			<&clk IMX8QM_MIPI1_PXL_CLK>,
+			<&clk IMX8QM_MIPI1_BYPASS_CLK>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_MIPI1_DSI_TX_ESC_CLK>,
+			<&clk IMX8QM_MIPI1_DSI_RX_ESC_CLK>;
+		clock-names = "pixel", "bypass", "phy_ref", "tx_esc", "rx_esc";
+		assigned-clocks = <&clk IMX8QM_MIPI1_DSI_TX_ESC_DIV>,
+				  <&clk IMX8QM_MIPI1_DSI_RX_ESC_DIV>;
+		assigned-clock-rates = <18000000>, <72000000>;
+		power-domains = <&pd_mipi1>;
+		csr = <&mipi_dsi_csr2>;
+		phys = <&mipi_dsi_phy2>;
+		phy-names = "dphy";
+		status = "disabled";
+
+		port@0 {
+			mipi_dsi2_in: endpoint {
+				remote-endpoint = <&dpu2_disp0_mipi_dsi>;
 			};
 		};
 	};
@@ -1870,72 +2021,6 @@
 		assigned-clocks = <&clk IMX8QM_CSI1_I2C0_CLK>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd_csi1_i2c0>;
-		status = "disabled";
-	};
-
-	irqsteer_dsi0: irqsteer@56220000 {
-		compatible = "nxp,imx-irqsteer";
-		reg = <0x0 0x56220000 0x0 0x1000>;
-		interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-controller;
-		interrupt-parent = <&gic>;
-		#interrupt-cells = <2>;
-		clocks = <&clk IMX8QM_MIPI0_LIS_IPG_CLK>;
-		clock-names = "ipg";
-		power-domains = <&pd_mipi0>;
-	};
-
-	i2c0_mipi_dsi0: i2c@56226000 {
-		compatible = "fsl,imx8qm-lpi2c";
-		reg = <0x0 0x56226000 0x0 0x1000>;
-		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&irqsteer_dsi0>;
-		clocks = <&clk IMX8QM_MIPI0_I2C0_CLK>,
-			 <&clk IMX8QM_MIPI0_I2C0_IPG_CLK>;
-		clock-names = "per", "ipg";
-		assigned-clocks = <&clk IMX8QM_MIPI0_I2C0_CLK>;
-		assigned-clock-rates = <24000000>;
-		power-domains = <&pd_mipi0_i2c0>;
-		status = "disabled";
-	};
-
-	mipi0: mipi@56220000 {
-		compatible = "fsl,imx8qm-mipi_dsi";
-		reg = <0x0 0x56220000 0x0 0x10000>;
-		interrupts = <0 59 4>;
-		fsl,irq-steer = <0x56220000>;
-		fsl,irq-num = <0x10000>;
-		clocks =
-			<&clk IMX8QM_MIPI0_PXL_CLK>,
-			<&clk IMX8QM_MIPI0_DSI_TX_ESC_CLK>,
-			<&clk IMX8QM_MIPI0_DSI_RX_ESC_CLK>;
-		clock-names =
-			"clk_pixel","clk_tx_esc", "clk_rx_esc";
-		power-domains = <&pd_mipi0>;
-		instance = <0>;
-		data_lanes = <4>;
-		virtual_ch = <0>;
-		dpi_fmt = <5>;
-		status = "disabled";
-	};
-
-	mipi1: mipi@57220000 {
-		compatible = "fsl,imx8qm-mipi_dsi";
-		reg = <0x0 0x57220000 0x0 0x10000>;
-		interrupts = <0 60 4>;
-		fsl,irq-steer = <0x57220000>;
-		fsl,irq-num = <0x10000>;
-		clocks =
-			<&clk IMX8QM_MIPI1_PXL_CLK>,
-			<&clk IMX8QM_MIPI1_DSI_TX_ESC_CLK>,
-			<&clk IMX8QM_MIPI1_DSI_RX_ESC_CLK>;
-		clock-names =
-			"clk_pixel", "clk_tx_esc", "clk_rx_esc";
-		power-domains = <&pd_mipi1>;
-		instance = <1>;
-		data_lanes = <4>;
-		virtual_ch = <0>;
-		dpi_fmt = <5>;
 		status = "disabled";
 	};
 
