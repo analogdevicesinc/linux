@@ -241,6 +241,7 @@ nordic	Nordic Semiconductor
 nuvoton	Nuvoton Technology Corporation
 nvd	New Vision Display
 nvidia	NVIDIA
+nwl	Northwest Logic
 nxp	NXP Semiconductors
 okaya	Okaya Electric America, Inc.
 oki	Oki Electric Industry Co., Ltd.
