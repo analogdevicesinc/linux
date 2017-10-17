@@ -1302,7 +1302,7 @@ static inline bool of_device_is_system_power_controller(const struct device_node
  */
 
 enum of_overlay_notify_action {
-	OF_OVERLAY_PRE_APPLY,
+	OF_OVERLAY_PRE_APPLY = 0,
 	OF_OVERLAY_POST_APPLY,
 	OF_OVERLAY_PRE_REMOVE,
 	OF_OVERLAY_POST_REMOVE,
@@ -1316,8 +1316,8 @@ struct of_overlay_notify_data {
 #ifdef CONFIG_OF_OVERLAY
 
 /* ID based overlays; the API for external users */
-int of_overlay_apply(struct device_node *tree);
-int of_overlay_remove(int id);
+int of_overlay_apply(struct device_node *tree, int *ovcs_id);
+int of_overlay_remove(int *ovcs_id);
 int of_overlay_remove_all(void);
 
 int of_overlay_notifier_register(struct notifier_block *nb);
@@ -1325,12 +1325,12 @@ int of_overlay_notifier_unregister(struct notifier_block *nb);
 
 #else
 
-static inline int of_overlay_apply(struct device_node *tree)
+static inline int of_overlay_apply(struct device_node *tree, int *ovcs_id)
 {
 	return -ENOTSUPP;
 }
 
-static inline int of_overlay_remove(int id)
+static inline int of_overlay_remove(int *ovcs_id)
 {
 	return -ENOTSUPP;
 }
