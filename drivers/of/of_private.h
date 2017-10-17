@@ -59,6 +59,18 @@ static inline int of_property_notify(int action, struct device_node *np,
 }
 #endif /* CONFIG_OF_DYNAMIC */
 
+#if defined(CONFIG_OF_RESOLVE)
+int of_resolve_phandles(struct device_node *tree);
+#endif
+
+#if defined(CONFIG_OF_OVERLAY)
+void of_overlay_mutex_lock(void);
+void of_overlay_mutex_unlock(void);
+#else
+static inline void of_overlay_mutex_lock(void) {};
+static inline void of_overlay_mutex_unlock(void) {};
+#endif
+
 #if defined(CONFIG_OF_UNITTEST) && defined(CONFIG_OF_OVERLAY)
 extern void __init unittest_unflatten_overlay_base(void);
 #else
