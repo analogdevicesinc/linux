@@ -946,7 +946,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	
+
 	vco_freq = div_u64((unsigned long long)pdata->vcxo_freq *
 			   (pdata->pll2_freq_doubler_en ? 2 : 1) * pll2_ndiv,
 			    pdata->pll2_r1_div);
@@ -1322,6 +1322,8 @@ static int ad9528_probe(struct spi_device *spi)
 	struct ad9528_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct ad9528_state *st;
+	struct gpio_desc *status0_gpio;
+	struct gpio_desc *status1_gpio;
 	int ret;
 
 	if (spi->dev.of_node)
@@ -1349,6 +1351,11 @@ static int ad9528_probe(struct spi_device *spi)
 			return ret;
 	}
 
+	status0_gpio = devm_gpiod_get_optional(&spi->dev,
+					"status0", GPIOD_OUT_LOW);
+	status1_gpio = devm_gpiod_get_optional(&spi->dev,
+					"status1", GPIOD_OUT_LOW);
+
 	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
 	if (!IS_ERR(st->reset_gpio)) {
 		udelay(1);
@@ -1356,6 +1363,11 @@ static int ad9528_probe(struct spi_device *spi)
 	}
 
 	mdelay(10);
+
+	if (!PTR_ERR_OR_ZERO(status0_gpio))
+		gpiod_direction_input(status0_gpio);
+	if (!PTR_ERR_OR_ZERO(status1_gpio))
+		gpiod_direction_input(status1_gpio);
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
