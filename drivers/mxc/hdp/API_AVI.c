@@ -69,8 +69,8 @@ CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, VIC_MODES vicMode,
 	u32 packet_R = 0;
 	u32 packet_VIC = 0;
 	u32 packet_PR = 0;
-	u32 packet_buf[18 / sizeof(u32)];
-	u8 *packet = (u8 *) &packet_buf[0];
+	u8 packet[32];
+	u8 len = sizeof(packet)/sizeof(u32);
 	u32 packet_HB0 = 0;
 	u32 packet_HB1 = 0;
 	u32 packet_HB2 = 0;
@@ -181,7 +181,7 @@ CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, VIC_MODES vicMode,
 	packet[16] = packet_PB12;
 	packet[17] = packet_PB13;
 
-	CDN_API_InfoframeSet(state, 0, packet_len, &packet_buf[0], packet_type);
+	CDN_API_InfoframeSet(state, 0, len, (u32 *)&packet[0], packet_type);
 
 	return CDN_OK;
 }
