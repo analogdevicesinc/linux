@@ -705,15 +705,6 @@ static int axi_dmac_parse_chan_dt(struct device_node *of_chan,
 		return ret;
 	chan->dest_width = val / 8;
 
-	ret = of_property_read_u32(of_chan, "adi,length-width", &val);
-	if (ret)
-		return ret;
-
-	if (val >= 32)
-		chan->max_length = UINT_MAX;
-	else
-		chan->max_length = (1ULL << val) - 1;
-
 	chan->align_mask = max(chan->dest_width, chan->src_width) - 1;
 
 	if (axi_dmac_dest_is_mem(chan) && axi_dmac_src_is_mem(chan))
@@ -724,9 +715,6 @@ static int axi_dmac_parse_chan_dt(struct device_node *of_chan,
 		chan->direction = DMA_DEV_TO_MEM;
 	else
 		chan->direction = DMA_DEV_TO_DEV;
-
-	chan->hw_cyclic = of_property_read_bool(of_chan, "adi,cyclic");
-	chan->hw_2d = of_property_read_bool(of_chan, "adi,2d");
 
 	return 0;
 }
@@ -778,20 +766,27 @@ static int axi_dmac_parse_chan_dt_compat(struct device_node *of_node,
 	of_property_read_u32(of_chan, "adi,destination-bus-width", &tmp);
 	chan->dest_width = tmp / 8;
 
-	tmp = 24;
-	of_property_read_u32(of_chan, "adi,length-width", &tmp);
-
-	if (tmp >= 32)
-		chan->max_length = UINT_MAX;
-	else
-		chan->max_length = (1ULL << tmp) - 1;
-
 	chan->align_mask = max(chan->dest_width, chan->src_width) - 1;
 
-	chan->hw_cyclic = of_property_read_bool(of_chan, "adi,cyclic");
-	chan->hw_2d = true;
-
 	return 0;
+}
+
+static void axi_dmac_detect_caps(struct axi_dmac *dmac)
+{
+	struct axi_dmac_chan *chan = &dmac->chan;
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, AXI_DMAC_FLAG_CYCLIC);
+	if (axi_dmac_read(dmac, AXI_DMAC_REG_FLAGS) == AXI_DMAC_FLAG_CYCLIC)
+		chan->hw_cyclic = true;
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_Y_LENGTH, 1);
+	if (axi_dmac_read(dmac, AXI_DMAC_REG_Y_LENGTH) == 1)
+		chan->hw_2d = true;
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_X_LENGTH, 0xffffffff);
+	chan->max_length = axi_dmac_read(dmac, AXI_DMAC_REG_X_LENGTH);
+	if (chan->max_length != UINT_MAX)
+		chan->max_length++;
 }
 
 static int axi_dmac_probe(struct platform_device *pdev)
@@ -868,6 +863,8 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(dmac->clk);
 	if (ret < 0)
 		return ret;
+
+	axi_dmac_detect_caps(dmac);
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_IRQ_MASK, 0x00);
 
