@@ -87,6 +87,13 @@
 
 &iomuxc {
 	imx8qm-mek {
+		pinctrl_cm41_i2c0: cm41i2c0grp {
+			fsl,pins = <
+				SC_P_M41_I2C0_SCL_M41_I2C0_SCL          0x0600004c
+				SC_P_M41_I2C0_SDA_M41_I2C0_SDA          0x0600004c
+			>;
+		};
+
 		pinctrl_fec1: fec1grp {
 			fsl,pins = <
 				SC_P_ENET0_MDC_CONN_ENET0_MDC			0x06000048
@@ -403,6 +410,22 @@
 				<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
 				<&clk IMX8QM_AUD_MCLKOUT0>;
 		assigned-clock-rates = <786432000>, <12288000>, <12288000>;
+	};
+};
+
+&i2c0_cm41 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_cm41_i2c0>;
+	status = "okay";
+
+	pca6416: gpio@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
 	};
 };
 
