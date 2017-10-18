@@ -511,9 +511,9 @@ static void *client_put_rxpacket(struct hif_rx_queue *queue, void *pkt, u32 len,
 			 */
 			smp_wmb();
 			writel(CL_DESC_BUF_LEN(len) | flags, &desc->ctrl);
-			/* queue->write_idx = (queue->write_idx + 1)
-			 *		       & (queue->size - 1);
-			 */
+			queue->write_idx = (queue->write_idx + 1)
+					    & (queue->size - 1);
+
 			free_pkt += pfe_pkt_headroom;
 		}
 	}
@@ -703,7 +703,7 @@ static int client_ack_txpacket(struct pfe_hif *hif, unsigned int client_id,
 
 	if (readl(&desc->ctrl) & CL_DESC_OWN) {
 		writel((readl(&desc->ctrl) & ~CL_DESC_OWN), &desc->ctrl);
-		/* queue->ack_idx = (queue->ack_idx + 1) & (queue->size - 1); */
+		queue->ack_idx = (queue->ack_idx + 1) & (queue->size - 1);
 
 		return 0;
 

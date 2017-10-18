@@ -211,9 +211,6 @@ err:
 	return 1;
 }
 
-#define inc_cl_idx(idxname)					\
-	({ typeof(idxname) idxname_ = (idxname);		\
-	((idxname_) = (idxname_ + 1) & (queue->size - 1)); })
 
 static void hif_lib_client_cleanup_tx_queue(struct hif_client_tx_queue *queue)
 {
@@ -465,7 +462,7 @@ void *hif_lib_receive_pkt(struct hif_client_s *client, int qno, int *len, int
 		smp_wmb();
 
 		desc->ctrl = CL_DESC_BUF_LEN(pfe_pkt_size) | CL_DESC_OWN;
-		inc_cl_idx(queue->read_idx);
+		queue->read_idx = (queue->read_idx + 1) & (queue->size - 1);
 	}
 
 	/*spin_unlock_irqrestore(&client->rx_lock, flags); */
@@ -507,7 +504,7 @@ void __hif_lib_xmit_pkt(struct hif_client_s *client, unsigned int qno, void
 
 	__hif_xmit_pkt(&pfe->hif, client->id, qno, data, len, flags);
 
-	inc_cl_idx(queue->write_idx);
+	queue->write_idx = (queue->write_idx + 1) & (queue->size - 1);
 	queue->tx_pending++;
 	queue->jiffies_last_packet = jiffies;
 }
@@ -544,7 +541,7 @@ void *hif_lib_tx_get_next_complete(struct hif_client_s *client, int qno,
 	if (desc->ctrl & CL_DESC_OWN)
 		return NULL;
 
-	inc_cl_idx(queue->read_idx);
+	queue->read_idx = (queue->read_idx + 1) & (queue->size - 1);
 	queue->tx_pending--;
 
 	*flags = CL_DESC_GET_FLAGS(desc->ctrl);
