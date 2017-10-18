@@ -65,6 +65,13 @@
 		audio-codec = <&wm8960>;
 		asrc-controller = <&asrc0>;
 		codec-master;
+		/*
+		 * hp-det = <hp-det-pin hp-det-polarity>;
+		 * hp-det-pin: JD1 JD2  or JD3
+		 * hp-det-polarity = 0: hp detect high for headphone
+		 * hp-det-polarity = 1: hp detect high for speaker
+		 */
+		hp-det = <2 0>;
 		audio-routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",
