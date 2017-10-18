@@ -59,9 +59,9 @@ struct m2k_fabric {
 	enum m2k_fabric_adc_gain adc_gain[2];
 
 	struct gpio_desc *switch_gpios[M2K_FABRIC_GPIO_MAX];
-	struct gpio_desc *usr_pow_gpio;
+	struct gpio_desc *usr_pow_gpio[2];
 
-	bool user_supply_powerdown;
+	bool user_supply_powerdown[2];
 
 	bool sc_powerdown[2];
 	bool awg_powerdown[2];
@@ -69,6 +69,7 @@ struct m2k_fabric {
 	bool revb;
 	bool revc;
 	bool revd;
+	bool reve;
 };
 
 static int m2k_fabric_switch_values_open[] = {
@@ -144,7 +145,7 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 			values[M2K_FABRIC_GPIO_EN_SC2] = m2k_fabric->sc_powerdown[1];
 			values[M2K_FABRIC_GPIO_EN_AWG1] = m2k_fabric->awg_powerdown[0];
 			values[M2K_FABRIC_GPIO_EN_AWG2] = m2k_fabric->awg_powerdown[1];
-		} else  if (m2k_fabric->revd) {
+		} else  if (m2k_fabric->revd || m2k_fabric->reve) {
 			values[M2K_FABRIC_GPIO_EN_SC1] = m2k_fabric->sc_powerdown[0];
 			values[M2K_FABRIC_GPIO_EN_AWG1] = m2k_fabric->awg_powerdown[0];
 			values[M2K_FABRIC_GPIO_EN_AWG2] = m2k_fabric->awg_powerdown[1];
@@ -168,7 +169,7 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 			values[M2K_FABRIC_GPIO_EN_SC2] = 0;
 			values[M2K_FABRIC_GPIO_EN_AWG1] = 0;
 			values[M2K_FABRIC_GPIO_EN_AWG2] = 0;
-		} else  if (m2k_fabric->revd) {
+		} else  if (m2k_fabric->revd || m2k_fabric->reve) {
 			values[M2K_FABRIC_GPIO_EN_SC1] = 0;
 			values[M2K_FABRIC_GPIO_EN_AWG1] = 0;
 			values[M2K_FABRIC_GPIO_EN_AWG2] = 0;
@@ -178,7 +179,7 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 
 	ngpios = M2K_FABRIC_GPIO_MAX;
 
-	if (m2k_fabric->revd)
+	if (m2k_fabric->revd || m2k_fabric->reve)
 		ngpios = M2K_FABRIC_GPIO_MAX - 1; /* skip [M2K_FABRIC_GPIO_EN_SC2 */
 
 	/* Open up all first to avoid shorts */
@@ -296,7 +297,8 @@ static ssize_t m2k_fabric_user_supply_read(struct iio_dev *indio_dev,
 {
 	struct m2k_fabric *m2k_fabric = iio_priv(indio_dev);
 
-	return sprintf(buf, "%d\n", m2k_fabric->user_supply_powerdown);
+	return sprintf(buf, "%d\n",
+		       m2k_fabric->user_supply_powerdown[chan->channel - 2]);
 }
 
 static ssize_t m2k_fabric_user_supply_write(struct iio_dev *indio_dev,
@@ -311,8 +313,9 @@ static ssize_t m2k_fabric_user_supply_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	gpiod_set_value_cansleep(m2k_fabric->usr_pow_gpio, !state);
-	m2k_fabric->user_supply_powerdown = state;
+	gpiod_set_value_cansleep(m2k_fabric->usr_pow_gpio[chan->channel - 2],
+				 !state);
+	m2k_fabric->user_supply_powerdown[chan->channel - 2] = state;
 
 	return len;
 }
@@ -543,6 +546,31 @@ static const struct iio_chan_spec m2k_fabric_chan_spec_revd[] = {
 	}
 };
 
+static const struct iio_chan_spec m2k_fabric_chan_spec_reve[] = {
+	M2K_FABRIC_RX_CHAN_REVD(0),
+	M2K_FABRIC_RX_CHAN_REVD(1),
+	M2K_FABRIC_TX_CHAN(0),
+	M2K_FABRIC_TX_CHAN(1),
+	{
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = 2,
+		.extend_name = "user_supply",
+		.output = 1,
+		.scan_index = -1,
+		.ext_info = m2k_fabric_user_supply_ext_info,
+	},
+	{
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = 3,
+		.extend_name = "user_supply_neg",
+		.output = 1,
+		.scan_index = -1,
+		.ext_info = m2k_fabric_user_supply_ext_info,
+	}
+};
+
 static const struct iio_info m2k_fabric_iio_info = {
 	.driver_module = THIS_MODULE,
 };
@@ -601,7 +629,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	struct m2k_fabric *m2k_fabric;
 	struct iio_dev *indio_dev;
 	unsigned int i;
-	bool revb, revc, revd, remain_powerdown;
+	bool revb, revc, revd, reve, remain_powerdown;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*m2k_fabric));
 	if (!indio_dev)
@@ -612,8 +640,9 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	revb = of_property_read_bool(pdev->dev.of_node, "adi,revb");
 	revc = of_property_read_bool(pdev->dev.of_node, "adi,revc");
 	revd = of_property_read_bool(pdev->dev.of_node, "adi,revd");
+	reve = of_property_read_bool(pdev->dev.of_node, "adi,reve");
 
-	if (!revb && !revc && !revd) {
+	if (!revb && !revc && !revd  && !reve) {
 		dev_err(&pdev->dev, "Unsupported revision\n");
 		return -EINVAL;
 	}
@@ -621,6 +650,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	m2k_fabric->revb = revb;
 	m2k_fabric->revc = revc;
 	m2k_fabric->revd = revd;
+	m2k_fabric->reve = reve;
 
 	m2k_fabric->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(m2k_fabric->clk))
@@ -635,7 +665,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	} else if (m2k_fabric->revc) {
 		gpio_names = m2k_fabric_gpio_names_revc;
 		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revc);
-	} else if (m2k_fabric->revd) {
+	} else if (m2k_fabric->revd || m2k_fabric->reve) {
 		gpio_names = m2k_fabric_gpio_names_revd;
 		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revd);
 	}
@@ -650,15 +680,25 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 		}
 	}
 
-	m2k_fabric->usr_pow_gpio = devm_gpiod_get(&pdev->dev, "en-usr-pow",
+	m2k_fabric->usr_pow_gpio[0] = devm_gpiod_get(&pdev->dev, "en-usr-pow",
 			GPIOD_OUT_HIGH);
-	if (IS_ERR(m2k_fabric->usr_pow_gpio))
-		return PTR_ERR(m2k_fabric->usr_pow_gpio);
+	if (IS_ERR(m2k_fabric->usr_pow_gpio[0]))
+		return PTR_ERR(m2k_fabric->usr_pow_gpio[0]);
+
+
+	if (reve) {
+		m2k_fabric->usr_pow_gpio[1] = devm_gpiod_get(&pdev->dev, "en-usr-pow-neg",
+							     GPIOD_OUT_HIGH);
+		if (IS_ERR(m2k_fabric->usr_pow_gpio[1]))
+			return PTR_ERR(m2k_fabric->usr_pow_gpio[1]);
+
+	}
 
 	remain_powerdown = of_property_read_bool(pdev->dev.of_node,
 						 "adi,powerdown-enable");
 
-	m2k_fabric->user_supply_powerdown = remain_powerdown;
+	m2k_fabric->user_supply_powerdown[0] = remain_powerdown;
+	m2k_fabric->user_supply_powerdown[1] = remain_powerdown;
 	m2k_fabric->sc_powerdown[0] = remain_powerdown;
 	m2k_fabric->sc_powerdown[1] = remain_powerdown;
 	m2k_fabric->awg_powerdown[0] = remain_powerdown;
@@ -681,6 +721,9 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	} else if (m2k_fabric->revd) {
 		indio_dev->channels = m2k_fabric_chan_spec_revd;
 		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec_revd);
+	} else if (m2k_fabric->reve) {
+		indio_dev->channels = m2k_fabric_chan_spec_reve;
+		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec_reve);
 	}
 
 	platform_set_drvdata(pdev, indio_dev);
