@@ -101,3 +101,7 @@
 		};
 	};
 };
+
+&hdmi {
+	status = "disabled";
+};
