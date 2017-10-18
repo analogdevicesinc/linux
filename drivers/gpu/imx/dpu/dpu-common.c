@@ -1560,7 +1560,8 @@ static int dpu_resume(struct device *dev)
 
 	dpu_intsteer_enable_lines(dpu);
 
-	dpu_pixel_link_init(dpu->id);
+	if (dpu->devtype->pixel_link_quirks)
+		dpu_pixel_link_init(dpu->id);
 
 	_dpu_submodules_init(dpu, pdev);
 
