@@ -512,40 +512,6 @@ void __hif_lib_xmit_pkt(struct hif_client_s *client, unsigned int qno, void
 	queue->jiffies_last_packet = jiffies;
 }
 
-/*This function puts the given packet in the specific client queue */
-int hif_lib_xmit_pkt(struct hif_client_s *client, unsigned int qno, void *data,
-		     unsigned int len, u32 client_ctrl, void *client_data)
-{
-	struct hif_client_tx_queue *queue = &client->tx_q[qno];
-	struct tx_queue_desc *desc = queue->base + queue->write_idx;
-
-	if (queue->tx_pending < queue->size) {
-		/*Construct pkt header */
-
-		data -= sizeof(struct hif_hdr);
-		len += sizeof(struct hif_hdr);
-
-		hif_hdr_write(data, client->id, qno, client_ctrl);
-
-		desc->data = client_data;
-		desc->ctrl = CL_DESC_OWN | CL_DESC_FLAGS(HIF_FIRST_BUFFER |
-				HIF_LAST_BUFFER | HIF_DATA_VALID);
-
-		if (hif_xmit_pkt(&pfe->hif, client->id, qno, data, len))
-			return 1;
-
-		inc_cl_idx(queue->write_idx);
-		queue->tx_pending++;
-		queue->jiffies_last_packet = jiffies;
-
-		return 0;
-	}
-
-	pr_debug("%s Tx client %d qno %d is full\n", __func__, client->id,
-		 qno);
-	return 1;
-}
-
 void *hif_lib_tx_get_next_complete(struct hif_client_s *client, int qno,
 				   unsigned int *flags, int count)
 {

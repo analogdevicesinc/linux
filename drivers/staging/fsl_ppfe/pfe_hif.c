@@ -844,29 +844,6 @@ skip_tx:
 	return;
 }
 
-int hif_xmit_pkt(struct pfe_hif *hif, unsigned int client_id, unsigned int q_no,
-		 void *data, unsigned int len)
-{
-	int rc = 0;
-
-	spin_lock_bh(&hif->tx_lock);
-
-	if (!hif->txavail) {
-		rc = 1;
-	} else {
-		__hif_xmit_pkt(hif, client_id, q_no, data, len,
-			       HIF_FIRST_BUFFER | HIF_LAST_BUFFER);
-		hif_tx_dma_start();
-	}
-
-	if (hif->txavail < (hif->tx_ring_size >> 1))
-		__hif_tx_done_process(hif, TX_FREE_MAX_COUNT);
-
-	spin_unlock_bh(&hif->tx_lock);
-
-	return rc;
-}
-
 static irqreturn_t wol_isr(int irq, void *dev_id)
 {
 	pr_info("WoL\n");
@@ -907,6 +884,7 @@ static irqreturn_t hif_isr(int irq, void *dev_id)
 			__napi_schedule(&hif->napi);
 		}
 	}
+
 	if (int_status & HIF_TXPKT_INT) {
 		int_status &= ~(HIF_TXPKT_INT);
 		int_enable_mask &= ~(HIF_TXPKT_INT);
