@@ -67,26 +67,6 @@ static int imx_amix_fe_startup(struct snd_pcm_substream *substream)
 			SNDRV_PCM_HW_PARAM_FORMAT, FSL_AMIX_FORMATS);
 }
 
-static int imx_amix_fe_prepare(struct snd_pcm_substream *substream)
-{
-	struct snd_soc_pcm_runtime *be_rtd;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-
-	be_rtd = snd_soc_get_pcm_runtime(rtd->card, "HiFi-AMIX-BE");
-
-	return snd_soc_dai_digital_mute(be_rtd->cpu_dai, 0, substream->stream);
-}
-
-static void imx_amix_fe_shutdown(struct snd_pcm_substream *substream)
-{
-	struct snd_soc_pcm_runtime *be_rtd;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-
-	be_rtd = snd_soc_get_pcm_runtime(rtd->card, "HiFi-AMIX-BE");
-
-	snd_soc_dai_digital_mute(be_rtd->cpu_dai, 1, substream->stream);
-}
-
 static int imx_amix_fe_hw_params(struct snd_pcm_substream *substream,
 				     struct snd_pcm_hw_params *params)
 {
@@ -136,6 +116,9 @@ static int imx_amix_be_hw_params(struct snd_pcm_substream *substream,
 	unsigned int fmt = SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_NB_NF;
 	int ret;
 
+	if (!tx)
+		return 0;
+
 	/* For playback the AMIX is slave, and for record is master */
 	fmt |= tx ? SND_SOC_DAIFMT_CBM_CFM : SND_SOC_DAIFMT_CBS_CFS;
 
@@ -149,8 +132,6 @@ static int imx_amix_be_hw_params(struct snd_pcm_substream *substream,
 
 static struct snd_soc_ops imx_amix_fe_ops = {
 	.startup = imx_amix_fe_startup,
-	.prepare = imx_amix_fe_prepare,
-	.shutdown = imx_amix_fe_shutdown,
 	.hw_params = imx_amix_fe_hw_params,
 };
 
@@ -168,7 +149,7 @@ static int imx_amix_probe(struct platform_device *pdev)
 	struct imx_amix *priv;
 	int i, num_dai, ret;
 	const char *fe_name_pref = "HiFi-AMIX-FE-";
-	char *dai_name;
+	char *be_name, *be_pb, *be_cp, *dai_name, *capture_dai_name;
 
 	num_dai = of_count_phandle_with_args(np, "dais", NULL);
 	if (num_dai != FSL_AMIX_MAX_DAIS) {
@@ -195,8 +176,7 @@ static int imx_amix_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 
-	/* the dais + backend */
-	priv->num_dai = num_dai + 1;
+	priv->num_dai = 2 * num_dai;
 	priv->dai = devm_kzalloc(&pdev->dev,
 			priv->num_dai * sizeof(struct snd_soc_dai_link),
 			GFP_KERNEL);
@@ -210,8 +190,7 @@ static int imx_amix_probe(struct platform_device *pdev)
 	if (!priv->dai_conf)
 		return -ENOMEM;
 
-	/* 2 additional routes needed for Capture */
-	priv->num_dapm_routes = num_dai + 2;
+	priv->num_dapm_routes = 3 * num_dai;
 	priv->dapm_routes = devm_kzalloc(&pdev->dev,
 			priv->num_dapm_routes * sizeof(struct snd_soc_dapm_route),
 			GFP_KERNEL);
@@ -226,9 +205,6 @@ static int imx_amix_probe(struct platform_device *pdev)
 			return ret;
 		}
 
-		if (i == 0)
-			out_cpu_np = args.np;
-
 		cpu_pdev = of_find_device_by_node(args.np);
 		if (!cpu_pdev) {
 			dev_err(&pdev->dev, "failed to find SAI platform device\n");
@@ -239,6 +215,13 @@ static int imx_amix_probe(struct platform_device *pdev)
 				fe_name_pref, args.np->full_name + 1);
 
 		dev_info(&pdev->dev, "DAI FE name:%s\n", dai_name);
+
+		if (i == 0) {
+			out_cpu_np = args.np;
+			capture_dai_name =
+				devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s %s",
+					dai_name, "CPU-Capture");
+		}
 
 		priv->dai[i].name = dai_name;
 		priv->dai[i].stream_name = "HiFi-AMIX-FE";
@@ -253,21 +236,33 @@ static int imx_amix_probe(struct platform_device *pdev)
 		priv->dai[i].ignore_pmdown_time = 1;
 		priv->dai[i].ops = &imx_amix_fe_ops;
 
+		/* Add AMIX Backend */
+		be_name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "amix-%d", i);
+		be_pb = devm_kasprintf(&pdev->dev, GFP_KERNEL, "AMIX-Playback-%d", i);
+		be_cp = devm_kasprintf(&pdev->dev, GFP_KERNEL, "AMIX-Capture-%d", i);
+
+		priv->dai[num_dai+i].name = be_name;
+		priv->dai[num_dai+i].codec_dai_name = "snd-soc-dummy-dai";
+		priv->dai[num_dai+i].codec_name = "snd-soc-dummy";
+		priv->dai[num_dai+i].cpu_of_node = amix_np;
+		priv->dai[num_dai+i].cpu_dai_name = be_name;
+		priv->dai[num_dai+i].platform_name = "snd-soc-dummy";
+		priv->dai[num_dai+i].no_pcm = 1;
+		priv->dai[num_dai+i].dpcm_playback = 1;
+		priv->dai[num_dai+i].dpcm_capture  = 1;
+		priv->dai[num_dai+i].ignore_pmdown_time = 1;
+		priv->dai[num_dai+i].ops = &imx_amix_be_ops;
+
 		priv->dai_conf[i].of_node = args.np;
 		priv->dai_conf[i].name_prefix = dai_name;
 
 		priv->dapm_routes[i].source = devm_kasprintf(&pdev->dev,
 			GFP_KERNEL, "%s %s", dai_name, "CPU-Playback");
-		priv->dapm_routes[i].sink = "AMIX-Playback";
-
-		if (i == 0) {
-			priv->dapm_routes[num_dai].source = "AMIX-Capture";
-			priv->dapm_routes[num_dai].sink =
-				devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s %s",
-				dai_name, "CPU-Capture");
-			priv->dapm_routes[num_dai+1].source = "AMIX-Playback";
-			priv->dapm_routes[num_dai+1].sink = "AMIX-Capture";
-		}
+		priv->dapm_routes[i].sink = be_pb;
+		priv->dapm_routes[num_dai+i].source   = be_pb;
+		priv->dapm_routes[num_dai+i].sink     = be_cp;
+		priv->dapm_routes[2*num_dai+i].source = be_cp;
+		priv->dapm_routes[2*num_dai+i].sink   = capture_dai_name;
 	}
 
 	cpu_pdev = of_find_device_by_node(out_cpu_np);
@@ -281,19 +276,6 @@ static int imx_amix_probe(struct platform_device *pdev)
 		dev_err(&cpu_pdev->dev, "failed to get DAI mclk1: %d\n", ret);
 		return -EINVAL;
 	}
-
-	/* Add AMIX Backend */
-	priv->dai[num_dai].name = "HiFi-AMIX-BE";
-	priv->dai[num_dai].stream_name = "HiFi-AMIX-BE";
-	priv->dai[num_dai].codec_dai_name = "snd-soc-dummy-dai";
-	priv->dai[num_dai].codec_name = "snd-soc-dummy";
-	priv->dai[num_dai].cpu_of_node = amix_np;
-	priv->dai[num_dai].platform_name = "snd-soc-dummy";
-	priv->dai[num_dai].no_pcm = 1;
-	priv->dai[num_dai].dpcm_playback = 1;
-	priv->dai[num_dai].dpcm_capture = 1;
-	priv->dai[num_dai].ignore_pmdown_time = 1;
-	priv->dai[num_dai].ops = &imx_amix_be_ops;
 
 	priv->amix_pdev = amix_pdev;
 	priv->out_pdev  = cpu_pdev;
