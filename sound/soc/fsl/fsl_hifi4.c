@@ -1553,6 +1553,7 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 	hifi4_priv = dev_get_drvdata(hifi4_miscdev.parent);
 	dev = hifi4_priv->dev;
 
+	pm_runtime_get_sync(dev);
 	mutex_lock(&hifi4_priv->hifi4_mutex);
 
 	hifi4_engine = devm_kzalloc(dev,
@@ -1613,6 +1614,7 @@ static int fsl_hifi4_close(struct inode *inode, struct file *file)
 		resource_release(hifi4_priv);
 
 	mutex_unlock(&hifi4_priv->hifi4_mutex);
+	pm_runtime_put_sync(dev);
 
 	return 0;
 }
@@ -1905,6 +1907,7 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 	struct device *dev = hifi4_priv->dev;
 	Elf32_Ehdr *ehdr; /* Elf header structure pointer */
 	Elf32_Shdr *shdr; /* Section header structure pointer */
+	Elf32_Addr  sh_addr;
 	unsigned char *strtab = 0; /* String table pointer */
 	unsigned char *image; /* Binary image pointer */
 	int i; /* Loop counter */
@@ -1942,23 +1945,25 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 				(long)shdr->sh_size);
 		}
 
+		sh_addr = shdr->sh_addr;
+
 		if ((!strcmp(&strtab[shdr->sh_name], ".rodata")) ||
 		    (!strcmp(&strtab[shdr->sh_name], ".text"))   ||
 		    (!strcmp(&strtab[shdr->sh_name], ".data"))   ||
 		    (!strcmp(&strtab[shdr->sh_name], ".bss"))
 		   ) {
-			shdr->sh_addr = shdr->sh_addr + MEMORY_REMAP_OFFSET;
+			sh_addr = shdr->sh_addr + MEMORY_REMAP_OFFSET;
 		}
 
 		if (shdr->sh_type == SHT_NOBITS) {
 			memset_hifi((void *)(hifi4_priv->regs +
-					(shdr->sh_addr - hifi4_priv->paddr)),
+					(sh_addr - hifi4_priv->paddr)),
 					0,
 					shdr->sh_size);
 		} else {
 			image = (unsigned char *)addr + shdr->sh_offset;
 			memcpy_hifi((void *)(hifi4_priv->regs +
-					(shdr->sh_addr - hifi4_priv->paddr)),
+					(sh_addr - hifi4_priv->paddr)),
 					(const void *)image,
 					shdr->sh_size);
 		}
@@ -2072,18 +2077,6 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 								mu_id, sciErr);
 		return sciErr;
 	};
-
-	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
-			SC_R_DSP, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
-		dev_err(&pdev->dev, "Error power on HIFI\n");
-		return -EIO;
-	}
-
-	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
-			SC_R_DSP_RAM, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
-		dev_err(&pdev->dev, "Error power on HIFI RAM\n");
-		return -EIO;
-	}
 
 	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
 				SC_C_OFS_SEL, 1);
@@ -2225,11 +2218,27 @@ static int fsl_hifi4_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int fsl_hifi4_runtime_resume(struct device *dev)
 {
+	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
+
+	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
+			SC_R_DSP_RAM, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
+		dev_err(dev, "Error power on HIFI RAM\n");
+		return -EIO;
+	}
+
 	return 0;
 }
 
 static int fsl_hifi4_runtime_suspend(struct device *dev)
 {
+	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
+
+	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
+			SC_R_DSP_RAM, SC_PM_PW_MODE_OFF) != SC_ERR_NONE) {
+		dev_err(dev, "Error power off HIFI RAM\n");
+		return -EIO;
+	}
+	hifi4_priv->is_ready = 0;
 	return 0;
 }
 #endif /* CONFIG_PM */
