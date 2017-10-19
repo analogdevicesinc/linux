@@ -1,3 +1,4 @@
 source drivers/gpu/imx/ipu-v3/Kconfig
 source drivers/gpu/imx/dpu/Kconfig
 source drivers/gpu/imx/dpu-blit/Kconfig
+source drivers/gpu/imx/dcss/Kconfig
