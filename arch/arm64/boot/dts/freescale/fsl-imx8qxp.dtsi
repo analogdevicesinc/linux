@@ -1528,6 +1528,20 @@
 		interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	lpspi0: lpspi@5a000000 {
+		compatible = "fsl,imx7ulp-spi";
+		reg = <0x0 0x5a000000 0x0 0x10000>;
+		interrupts = <GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&clk IMX8QXP_SPI0_CLK>,
+			 <&clk IMX8QXP_SPI0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QXP_SPI0_CLK>;
+		assigned-clock-rates = <20000000>;
+		power-domains = <&pd_dma_lpspi0>;
+		status = "disabled";
+	};
+
 	lpuart0: serial@5a060000 {
 		compatible = "fsl,imx8qm-lpuart";
 		reg = <0x0 0x5a060000 0x0 0x1000>;
