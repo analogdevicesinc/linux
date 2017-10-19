@@ -28,6 +28,7 @@
 #include <drm/drm_of.h>
 #include <video/imx-ipu-v3.h>
 #include <video/dpu.h>
+#include <video/imx-dcss.h>
 
 #include "imx-drm.h"
 #include "ipuv3/ipuv3-plane.h"
@@ -125,6 +126,10 @@ static int compare_of(struct device *dev, void *data)
 		return pdata->of_node == np;
 	} else if (strcmp(dev->driver->name, "imx-dpu-crtc") == 0) {
 		struct dpu_client_platformdata *pdata = dev->platform_data;
+
+		return pdata->of_node == np;
+	}  else if (strcmp(dev->driver->name, "imx-dcss-crtc") == 0) {
+		struct dcss_client_platformdata *pdata = dev->platform_data;
 
 		return pdata->of_node == np;
 	}
