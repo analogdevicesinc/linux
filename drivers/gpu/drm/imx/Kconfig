@@ -5,7 +5,7 @@ config DRM_IMX
 	select DRM_GEM_CMA_HELPER
 	select DRM_KMS_CMA_HELPER
 	depends on DRM
-	depends on IMX_IPUV3_CORE || IMX_DPU_CORE
+	depends on IMX_IPUV3_CORE || IMX_DPU_CORE || IMX_DCSS_CORE
 	help
 	  enable i.MX graphics support
 
@@ -48,3 +48,4 @@ config DRM_IMX_HDMI
 source "drivers/gpu/drm/imx/ipuv3/Kconfig"
 source "drivers/gpu/drm/imx/dpu/Kconfig"
 source "drivers/gpu/drm/imx/hdp/Kconfig"
+source "drivers/gpu/drm/imx/dcss/Kconfig"
