@@ -814,6 +814,18 @@
 				#power-domain-cells = <0>;
 				power-domains =<&pd_isi_ch0>;
 			};
+
+			pd_jpgdec: PD_IMAGING_JPEG_DEC {
+				reg = <SC_R_MJPEG_DEC_S0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+			};
+
+			pd_jpgenc: PD_IMAGING_JPEG_ENC {
+				reg = <SC_R_MJPEG_ENC_S0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+			};
 		};
 	};
 
@@ -1268,6 +1280,32 @@
 			assigned-clock-rates = <360000000>, <72000000>;
 			power-domains = <&pd_mipi_csi>;
 			status = "disabled";
+		};
+
+		jpegdec: jpegdec@58400000 {
+			compatible = "fsl,imx8-jpgdec";
+			reg = <0x0 0x58400000 0x0 0x00040020 >;
+			interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8QXP_IMG_JPEG_DEC_IPG_CLK >,
+					<&clk IMX8QXP_IMG_JPEG_DEC_CLK >;
+			clock-names = "ipg", "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_JPEG_DEC_IPG_CLK >,
+					<&clk IMX8QXP_IMG_JPEG_DEC_CLK >;
+			assigned-clock-rates = <200000000>;
+			power-domains =<&pd_jpgdec>;
+		};
+
+		jpegenc: jpegenc@58450000 {
+			compatible = "fsl,imx8-jpgenc";
+			reg = <0x0 0x58450000 0x0 0x00240020 >;
+			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8QXP_IMG_JPEG_ENC_IPG_CLK >,
+					<&clk IMX8QXP_IMG_JPEG_ENC_CLK >;
+			clock-names = "ipg", "per";
+			assigned-clocks = <&clk IMX8QXP_IMG_JPEG_ENC_IPG_CLK >,
+					<&clk IMX8QXP_IMG_JPEG_ENC_CLK >;
+			assigned-clock-rates = <200000000>;
+			power-domains =<&pd_jpgenc>;
 		};
 	};
 
