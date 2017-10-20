@@ -904,7 +904,7 @@ static int axiadc_remove(struct platform_device *pdev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	if (!st->dp_disable)
+	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID))
 		axiadc_unconfigure_ring_stream(indio_dev);
 	put_device(st->dev_spi);
 	module_put(st->dev_spi->driver->owner);
