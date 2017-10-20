@@ -1,0 +1,20 @@
+#
+# Codec configuration
+#
+
+menu "MXC VPU(Video Processing Unit) MALONE support"
+
+config MXC_VPU_MALONE
+	  tristate "Support for MXC VPU(Video Processing Unit) MALONE"
+	  default y
+	---help---
+	  The VPU codec device provides codec function for H.265/H.264/MPEG4/H.263 etc.
+
+config MXC_VPU_MALONE_DEBUG
+	bool "MXC VPU MALONE debugging"
+	depends on MXC_VPU_MALONE != n
+	help
+	  This is an option for the developers; most people should
+	  say N here.  This enables MXC VPU driver debugging.
+
+endmenu
