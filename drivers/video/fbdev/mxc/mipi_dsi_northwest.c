@@ -984,6 +984,7 @@ static int dsi_clks_init(struct mipi_dsi_info *minfo)
 		dev_err(&pdev->dev, "invalid phy reference clock rate\n");
 		return -EINVAL;
 	}
+	minfo->phy_ref_clkfreq = phy_ref_clkfreq;
 
 	ret = clk_set_rate(minfo->phy_ref_clk, phy_ref_clkfreq);
 	if (ret < 0) {
