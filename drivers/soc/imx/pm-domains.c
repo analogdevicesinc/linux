@@ -234,7 +234,7 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 					struct generic_pm_domain *genpd_parent)
 {
 	struct device_node *np;
-	int index = 0;
+	static int index;
 
 	for_each_child_of_node(parent, np) {
 		struct imx8_pm_domain *imx8_pd;
