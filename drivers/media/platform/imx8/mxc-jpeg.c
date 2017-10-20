@@ -311,7 +311,7 @@ void mxc_jpeg_config_enc(struct vb2_buffer *out_buf,
 				  &jpeg_src_buf->tbl_handle, 0);
 	memcpy(jpeg_src_buf->tbl, &hactbl, sizeof(unsigned char) * 615);
 
-	mxc_jpeg_enc_config(jpeg->base_reg, jpeg->cfg_desc, jpeg->cfg_handle,
+	mxc_jpeg_enc_config(jpeg->base_reg, jpeg_src_buf->desc, jpeg_src_buf->handle,
 			    jpeg_src_buf->tbl_handle, jpg_handle);
 
 }
