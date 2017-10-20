@@ -275,8 +275,6 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 		q_data = &ctx->out_q;
 		desc = jpeg_src_buf->desc;
 		dma_handle = jpeg_src_buf->handle;
-		dma_free_coherent(jpeg->dev, sizeof(unsigned char) * 615,
-				  jpeg_src_buf->tbl, jpeg_src_buf->tbl_handle);
 
 		testaddri = vb2_plane_vaddr(src_buf, 0);
 		testaddro = vb2_plane_vaddr(dst_buf, 0);
@@ -294,8 +292,6 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 		return IRQ_HANDLED;
 	}
 	buf_state = VB2_BUF_STATE_DONE;
-	dma_free_coherent(jpeg->dev, sizeof(struct mxc_jpeg_desc),
-			  jpeg_src_buf->desc, jpeg_src_buf->handle);
 	v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 	v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 	v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf), buf_state);
@@ -549,6 +545,23 @@ static int mxc_jpeg_buf_prepare(struct vb2_buffer *vb)
 	return 0;
 }
 
+static void mxc_jpeg_buf_clean(struct vb2_buffer *vb)
+{
+	struct mxc_jpeg_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct mxc_jpeg_src_buf *jpeg_src_buf;
+
+	jpeg_src_buf = container_of(vbuf, struct mxc_jpeg_src_buf, b);
+
+	if (ctx->mode == MXC_JPEG_ENCODE &&
+		ctx->enc_state == MXC_JPEG_ENC_CONF)
+			dma_free_coherent(ctx->mxc_jpeg->dev, sizeof(hactbl),
+					  jpeg_src_buf->tbl, jpeg_src_buf->tbl_handle);
+
+	dma_free_coherent(ctx->mxc_jpeg->dev, sizeof(struct mxc_jpeg_desc),
+			  jpeg_src_buf->desc, jpeg_src_buf->handle);
+}
+
 static const struct vb2_ops mxc_jpeg_qops = {
 	.queue_setup		= mxc_jpeg_queue_setup,
 
@@ -558,6 +571,7 @@ static const struct vb2_ops mxc_jpeg_qops = {
 	.wait_finish		= vb2_ops_wait_finish,
 	.start_streaming	= mxc_jpeg_start_streaming,
 	.stop_streaming		= mxc_jpeg_stop_streaming,
+	.buf_cleanup		= mxc_jpeg_buf_clean,
 };
 static int mxc_jpeg_queue_init(void *priv, struct vb2_queue *src_vq,
 			       struct vb2_queue *dst_vq)
