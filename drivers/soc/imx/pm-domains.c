@@ -37,6 +37,7 @@ static sc_rsrc_t early_power_on_rsrc[] = {
 	SC_R_LAST, SC_R_LAST, SC_R_LAST, SC_R_LAST, SC_R_LAST,
 	SC_R_LAST, SC_R_LAST, SC_R_LAST, SC_R_LAST, SC_R_LAST,
 };
+static sc_rsrc_t rsrc_debug_console;
 
 static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 {
@@ -46,6 +47,11 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 	pd = container_of(domain, struct imx8_pm_domain, pd);
 
 	if (pd->rsrc_id == SC_R_LAST)
+		return 0;
+
+	/* keep uart console power on for no_console_suspend */
+	if (pd->rsrc_id == rsrc_debug_console &&
+		!console_suspend_enabled && !power_on)
 		return 0;
 
 	sci_err = sc_pm_set_resource_power_mode(pm_ipc_handle, pd->rsrc_id,
@@ -266,6 +272,8 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 				sizeof(sc_rsrc_t))) {
 				early_power_on_rsrc[index++] = imx8_pd->rsrc_id;
 			}
+			if (of_property_read_bool(np, "debug_console"))
+				rsrc_debug_console = imx8_pd->rsrc_id;
 		}
 		INIT_LIST_HEAD(&imx8_pd->clks);
 		pm_genpd_init(&imx8_pd->pd, NULL, true);
