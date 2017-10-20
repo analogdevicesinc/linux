@@ -51,6 +51,9 @@
 #define NS2PS_RATIO			(1000)
 #define	MIPI_LCD_SLEEP_MODE_DELAY	(120)
 #define MIPI_FIFO_TIMEOUT		msecs_to_jiffies(250)
+#define PICOS_PER_SEC			(1000000000UL)
+#define PICOS2KHZ2(a, bpp)		\
+	DIV_ROUND_CLOSEST(PICOS_PER_SEC * (bpp), (a))
 
 static struct mipi_dsi_match_lcd mipi_dsi_lcd_db[] = {
 #ifdef CONFIG_FB_MXC_TRULY_WVGA_SYNC_PANEL
@@ -300,7 +303,8 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 #endif
 
 	bpp = fmt_to_bpp(lcd_config->dpi_fmt);
-	req_bit_clk = PICOS2KHZ(mode->pixclock) * bpp * 1000U;
+	req_bit_clk = PICOS2KHZ2(mode->pixclock, bpp) * 1000U;
+
 	switch (lcd_config->data_lane_num) {
 	case 1:
 		break;
