@@ -434,6 +434,10 @@
 	};
 };
 
+&pd_dma_lpuart0 {
+	debug_console;
+};
+
 &lpuart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart0>;
