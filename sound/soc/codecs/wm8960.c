@@ -18,6 +18,7 @@
 #include <linux/clk.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/pm_runtime.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -1426,6 +1427,8 @@ static int wm8960_i2c_probe(struct i2c_client *i2c,
 	regmap_update_bits(wm8960->regmap, WM8960_ROUT2, 0x100, 0x100);
 
 	i2c_set_clientdata(i2c, wm8960);
+
+	pm_runtime_enable(&i2c->dev);
 
 	ret = snd_soc_register_codec(&i2c->dev,
 			&soc_codec_dev_wm8960, &wm8960_dai, 1);
