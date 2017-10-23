@@ -64,6 +64,11 @@
 		#size-cells = <2>;
 		ranges;
 
+		hifi4_reserved: hifi4@0x8e000000 {
+			no-map;
+			reg = <0 0x8e000000 0 0x1ffffff>;
+		};
+
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
