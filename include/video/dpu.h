@@ -698,6 +698,7 @@ struct dpu_plane_grp {
 	 * index:    0   1   2   3
 	 * source: fd0 fd1 fd2 fd3
 	 */
+	struct mutex		mutex;
 	u32			src_mask;
 	u32			src_use_vproc_mask;
 };

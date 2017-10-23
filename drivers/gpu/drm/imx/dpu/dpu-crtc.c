@@ -41,7 +41,14 @@ struct dpu_crtc {
 	struct dpu_plane	**plane;
 	unsigned int		hw_plane_num;
 	unsigned int		stream_id;
-	int			irq;
+	int			vbl_irq;
+	int			safety_shdld_irq;
+	int			content_shdld_irq;
+	int			dec_shdld_irq;
+
+	struct completion	safety_shdld_done;
+	struct completion	content_shdld_done;
+	struct completion	dec_shdld_done;
 };
 
 struct dpu_crtc_state {
@@ -71,16 +78,56 @@ alloc_dpu_plane_states(struct dpu_crtc *dpu_crtc)
 	return states;
 }
 
+struct dpu_plane_state **
+crtc_state_get_dpu_plane_states(struct drm_crtc_state *state)
+{
+	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(state);
+	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
+
+	return dcstate->dpu_plane_states;
+}
+
 static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 				   struct drm_crtc_state *old_crtc_state)
 {
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
+	unsigned long ret;
+
+	drm_crtc_vblank_on(crtc);
 
 	framegen_enable_clock(dpu_crtc->fg);
 	extdst_pixengcfg_sync_trigger(dpu_crtc->ed);
-	framegen_pkickconfig(dpu_crtc->fg, true);
 	framegen_shdtokgen(dpu_crtc->fg);
 	framegen_enable(dpu_crtc->fg);
+
+	enable_irq(dpu_crtc->safety_shdld_irq);
+	enable_irq(dpu_crtc->content_shdld_irq);
+	enable_irq(dpu_crtc->dec_shdld_irq);
+
+	ret = wait_for_completion_timeout(&dpu_crtc->safety_shdld_done, HZ);
+	if (ret == 0)
+		dev_warn(dpu_crtc->dev,
+			 "enable - wait for safety shdld done timeout\n");
+	ret = wait_for_completion_timeout(&dpu_crtc->content_shdld_done, HZ);
+	if (ret == 0)
+		dev_warn(dpu_crtc->dev,
+			 "enable - wait for content shdld done timeout\n");
+	ret = wait_for_completion_timeout(&dpu_crtc->dec_shdld_done, HZ);
+	if (ret == 0)
+		dev_warn(dpu_crtc->dev,
+			 "enable - wait for DEC shdld done timeout\n");
+
+	disable_irq(dpu_crtc->safety_shdld_irq);
+	disable_irq(dpu_crtc->content_shdld_irq);
+	disable_irq(dpu_crtc->dec_shdld_irq);
+
+	if (crtc->state->event) {
+		spin_lock_irq(&crtc->dev->event_lock);
+		drm_crtc_send_vblank_event(crtc, crtc->state->event);
+		spin_unlock_irq(&crtc->dev->event_lock);
+
+		crtc->state->event = NULL;
+	}
 }
 
 static void dpu_crtc_disable(struct drm_crtc *crtc)
@@ -88,16 +135,18 @@ static void dpu_crtc_disable(struct drm_crtc *crtc)
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
 
 	framegen_disable(dpu_crtc->fg);
-	framegen_pkickconfig(dpu_crtc->fg, false);
 	framegen_wait_done(dpu_crtc->fg);
 	framegen_disable_clock(dpu_crtc->fg);
 
-	spin_lock_irq(&crtc->dev->event_lock);
+	WARN_ON(!crtc->state->event);
+
 	if (crtc->state->event) {
+		spin_lock_irq(&crtc->dev->event_lock);
 		drm_crtc_send_vblank_event(crtc, crtc->state->event);
+		spin_unlock_irq(&crtc->dev->event_lock);
+
 		crtc->state->event = NULL;
 	}
-	spin_unlock_irq(&crtc->dev->event_lock);
 
 	drm_crtc_vblank_off(crtc);
 }
@@ -172,7 +221,7 @@ static int dpu_enable_vblank(struct drm_crtc *crtc)
 {
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
 
-	enable_irq(dpu_crtc->irq);
+	enable_irq(dpu_crtc->vbl_irq);
 
 	return 0;
 }
@@ -181,7 +230,7 @@ static void dpu_disable_vblank(struct drm_crtc *crtc)
 {
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
 
-	disable_irq_nosync(dpu_crtc->irq);
+	disable_irq_nosync(dpu_crtc->vbl_irq);
 }
 
 static const struct drm_crtc_funcs dpu_crtc_funcs = {
@@ -195,11 +244,38 @@ static const struct drm_crtc_funcs dpu_crtc_funcs = {
 	.disable_vblank = dpu_disable_vblank,
 };
 
-static irqreturn_t dpu_irq_handler(int irq, void *dev_id)
+static irqreturn_t dpu_vbl_irq_handler(int irq, void *dev_id)
 {
 	struct dpu_crtc *dpu_crtc = dev_id;
 
 	drm_crtc_handle_vblank(&dpu_crtc->base);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t dpu_safety_shdld_irq_handler(int irq, void *dev_id)
+{
+	struct dpu_crtc *dpu_crtc = dev_id;
+
+	complete(&dpu_crtc->safety_shdld_done);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t dpu_content_shdld_irq_handler(int irq, void *dev_id)
+{
+	struct dpu_crtc *dpu_crtc = dev_id;
+
+	complete(&dpu_crtc->content_shdld_done);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t dpu_dec_shdld_irq_handler(int irq, void *dev_id)
+{
+	struct dpu_crtc *dpu_crtc = dev_id;
+
+	complete(&dpu_crtc->dec_shdld_done);
 
 	return IRQ_HANDLED;
 }
@@ -240,16 +316,6 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 	struct dpu_crtc_state *old_dcstate = to_dpu_crtc_state(imx_crtc_state);
 	int i;
 
-	drm_crtc_vblank_on(crtc);
-
-	spin_lock_irq(&crtc->dev->event_lock);
-	if (crtc->state->event) {
-		WARN_ON(drm_crtc_vblank_get(crtc));
-		drm_crtc_arm_vblank_event(crtc, crtc->state->event);
-		crtc->state->event = NULL;
-	}
-	spin_unlock_irq(&crtc->dev->event_lock);
-
 	/*
 	 * Disable all planes' resources in SHADOW only.
 	 * Whether any of them would be disabled or kept running depends
@@ -266,6 +332,7 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_vscaler *vs;
 		struct dpu_layerblend *lb;
 		struct dpu_extdst *ed;
+		extdst_src_sel_t ed_src;
 		int fd_id, lb_id;
 
 		old_dpstate = old_dcstate->dpu_plane_states[i];
@@ -301,7 +368,9 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		vscaler_mode(vs, SCALER_NEUTRAL);
 		if (old_dpstate->is_top) {
 			ed = res->ed[dplane->stream_id];
-			extdst_pixengcfg_src_sel(ed, ED_SRC_DISABLE);
+			ed_src = dplane->stream_id ?
+				ED_SRC_CONSTFRAME1 : ED_SRC_CONSTFRAME0;
+			extdst_pixengcfg_src_sel(ed, ed_src);
 		}
 	}
 }
@@ -309,15 +378,41 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 				  struct drm_crtc_state *old_crtc_state)
 {
+	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_extdst *ed = res->ed[dplane->stream_id];
+	unsigned long ret;
 	int i;
+	bool need_modeset = drm_atomic_crtc_needs_modeset(crtc->state);
 
-	if (!crtc->state->enable && !old_crtc_state->enable)
+	if (!crtc->state->active && !old_crtc_state->active)
 		return;
 
+	if (!need_modeset)
+		enable_irq(dpu_crtc->content_shdld_irq);
+
 	extdst_pixengcfg_sync_trigger(ed);
+
+	if (!need_modeset) {
+		ret = wait_for_completion_timeout(&dpu_crtc->content_shdld_done,
+						  HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+			      "flush - wait for content shdld done timeout\n");
+
+		disable_irq(dpu_crtc->content_shdld_irq);
+
+		WARN_ON(!crtc->state->event);
+
+		if (crtc->state->event) {
+			spin_lock_irq(&crtc->dev->event_lock);
+			drm_crtc_send_vblank_event(crtc, crtc->state->event);
+			spin_unlock_irq(&crtc->dev->event_lock);
+
+			crtc->state->event = NULL;
+		}
+	}
 
 	for (i = 0; i < ARRAY_SIZE(res->fd); i++) {
 		if (res->fd[i] && !fetchdecode_is_enabled(res->fd[i]))
@@ -349,6 +444,9 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
+	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
+	struct dpu_plane_res *res = &dplane->grp->res;
+	struct dpu_extdst *plane_ed = res->ed[dplane->stream_id];
 	extdst_src_sel_t ed_src;
 
 	dev_dbg(dpu_crtc->dev, "%s: mode->hdisplay: %d\n", __func__,
@@ -357,10 +455,7 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 			mode->vdisplay);
 
 	framegen_cfg_videomode(dpu_crtc->fg, mode);
-	if (crtc->state->plane_mask)
-		framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
-	else
-		framegen_displaymode(dpu_crtc->fg, FGDM__PRIM);
+	framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
 
 	framegen_panic_displaymode(dpu_crtc->fg, FGDM__TEST);
 
@@ -376,6 +471,9 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 
 	ed_src = dpu_crtc->stream_id ? ED_SRC_CONSTFRAME5 : ED_SRC_CONSTFRAME4;
 	extdst_pixengcfg_src_sel(dpu_crtc->ed, ed_src);
+
+	ed_src = dpu_crtc->stream_id ? ED_SRC_CONSTFRAME1 : ED_SRC_CONSTFRAME0;
+	extdst_pixengcfg_src_sel(plane_ed, ed_src);
 }
 
 static const struct drm_crtc_helper_funcs dpu_helper_funcs = {
@@ -454,6 +552,10 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	unsigned int stream_id = pdata->stream_id;
 	int i, ret;
 
+	init_completion(&dpu_crtc->safety_shdld_done);
+	init_completion(&dpu_crtc->content_shdld_done);
+	init_completion(&dpu_crtc->dec_shdld_done);
+
 	dpu_crtc->stream_id = stream_id;
 	dpu_crtc->hw_plane_num = plane_grp->hw_plane_num;
 
@@ -499,16 +601,55 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 		}
 	}
 
-	dpu_crtc->irq = dpu_map_irq(dpu, stream_id ?
+	dpu_crtc->vbl_irq = dpu_map_irq(dpu, stream_id ?
 				IRQ_DISENGCFG_FRAMECOMPLETE1 :
 				IRQ_DISENGCFG_FRAMECOMPLETE0);
-	ret = devm_request_irq(dev, dpu_crtc->irq, dpu_irq_handler, 0,
+	ret = devm_request_irq(dev, dpu_crtc->vbl_irq, dpu_vbl_irq_handler, 0,
 				"imx_drm", dpu_crtc);
 	if (ret < 0) {
-		dev_err(dev, "irq request failed with %d.\n", ret);
+		dev_err(dev, "vblank irq request failed with %d.\n", ret);
 		goto err_put_resources;
 	}
-	disable_irq(dpu_crtc->irq);
+	disable_irq(dpu_crtc->vbl_irq);
+
+	dpu_crtc->safety_shdld_irq = dpu_map_irq(dpu, stream_id ?
+			IRQ_EXTDST5_SHDLOAD : IRQ_EXTDST4_SHDLOAD);
+	ret = devm_request_irq(dev, dpu_crtc->safety_shdld_irq,
+				dpu_safety_shdld_irq_handler, 0, "imx_drm",
+				dpu_crtc);
+	if (ret < 0) {
+		dev_err(dev,
+			"safety shadow load irq request failed with %d.\n",
+			ret);
+		goto err_put_resources;
+	}
+	disable_irq(dpu_crtc->safety_shdld_irq);
+
+	dpu_crtc->content_shdld_irq = dpu_map_irq(dpu, stream_id ?
+			IRQ_EXTDST1_SHDLOAD : IRQ_EXTDST0_SHDLOAD);
+	ret = devm_request_irq(dev, dpu_crtc->content_shdld_irq,
+				dpu_content_shdld_irq_handler, 0, "imx_drm",
+				dpu_crtc);
+	if (ret < 0) {
+		dev_err(dev,
+			"content shadow load irq request failed with %d.\n",
+			ret);
+		goto err_put_resources;
+	}
+	disable_irq(dpu_crtc->content_shdld_irq);
+
+	dpu_crtc->dec_shdld_irq = dpu_map_irq(dpu, stream_id ?
+			IRQ_DISENGCFG_SHDLOAD1 : IRQ_DISENGCFG_SHDLOAD0);
+	ret = devm_request_irq(dev, dpu_crtc->dec_shdld_irq,
+				dpu_dec_shdld_irq_handler, 0, "imx_drm",
+				dpu_crtc);
+	if (ret < 0) {
+		dev_err(dev,
+			"DEC shadow load irq request failed with %d.\n",
+			ret);
+		goto err_put_resources;
+	}
+	disable_irq(dpu_crtc->dec_shdld_irq);
 
 	return 0;
 

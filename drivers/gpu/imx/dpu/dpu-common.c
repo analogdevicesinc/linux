@@ -995,6 +995,8 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 	if (!plane_grp)
 		return -ENODEV;
 
+	mutex_init(&plane_grp->mutex);
+
 	mutex_lock(&dpu_client_id_mutex);
 	id = dpu_client_id;
 	dpu_client_id += client_num;

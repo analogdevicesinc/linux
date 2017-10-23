@@ -242,8 +242,11 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 	dpu_fg_write(fg, VACT(vact) | VTOTAL(vtotal), VTCFG1);
 	dpu_fg_write(fg, VSYNC(vsync) | VSBP(vsbp) | VSEN, VTCFG2);
 
+	/* pkickconfig */
+	dpu_fg_write(fg, COL(hact) | ROW(vact) | EN, PKICKCONFIG);
+
 	/* skikconfig */
-	dpu_fg_write(fg, COL(hact - 40) | ROW(vact - 1) | EN, SKICKCONFIG);
+	dpu_fg_write(fg, COL(hact) | ROW(vact) | EN, SKICKCONFIG);
 
 	/* primary position config */
 	dpu_fg_write(fg, STARTX(0) | STARTY(0), PACFG);

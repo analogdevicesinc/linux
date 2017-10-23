@@ -21,6 +21,7 @@
 #include <linux/reservation.h>
 #include <linux/sort.h>
 #include <video/dpu.h>
+#include "dpu-crtc.h"
 #include "dpu-plane.h"
 #include "imx-drm.h"
 
@@ -150,6 +151,7 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 		sid = dplane->stream_id;
 
 		/* assign source */
+		mutex_lock(&grp->mutex);
 		for (k = 0; k < grp->hw_plane_num; k++) {
 			/* already used by others? */
 			if (grp->src_mask & BIT(k))
@@ -232,6 +234,7 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 			grp->src_mask |= BIT(k);
 			break;
 		}
+		mutex_unlock(&grp->mutex);
 
 		if (k == grp->hw_plane_num)
 			return -EINVAL;
@@ -252,6 +255,119 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 	return 0;
 }
 
+static void
+dpu_atomic_mark_pipe_states_prone_to_put_per_crtc(struct drm_crtc *crtc,
+						u32 crtc_mask,
+						struct drm_atomic_state *state,
+						bool *puts)
+{
+	struct drm_plane *plane;
+	struct drm_plane_state *plane_state;
+	bool found_pstate = false;
+	int i;
+
+	if ((crtc_mask & drm_crtc_mask(crtc)) == 0) {
+		for_each_plane_in_state(state, plane, plane_state, i) {
+			if (plane->possible_crtcs &
+			    drm_crtc_mask(crtc)) {
+				found_pstate = true;
+				break;
+			}
+		}
+
+		if (!found_pstate)
+			puts[drm_crtc_index(crtc)] = true;
+	}
+}
+
+static void
+dpu_atomic_put_plane_state(struct drm_atomic_state *state,
+			   struct drm_plane *plane)
+{
+	int index = drm_plane_index(plane);
+
+	plane->funcs->atomic_destroy_state(plane, state->planes[index].state);
+	state->planes[index].ptr = NULL;
+	state->planes[index].state = NULL;
+
+	drm_modeset_unlock(&plane->mutex);
+}
+
+static void
+dpu_atomic_put_crtc_state(struct drm_atomic_state *state,
+			  struct drm_crtc *crtc)
+{
+	int index = drm_crtc_index(crtc);
+
+	crtc->funcs->atomic_destroy_state(crtc, state->crtcs[index].state);
+	state->crtcs[index].ptr = NULL;
+	state->crtcs[index].state = NULL;
+
+	drm_modeset_unlock(&crtc->mutex);
+}
+
+static void
+dpu_atomic_put_possible_states_per_crtc(struct drm_crtc_state *crtc_state)
+{
+	struct drm_atomic_state *state = crtc_state->state;
+	struct drm_crtc *crtc = crtc_state->crtc;
+	struct drm_crtc_state *old_crtc_state = crtc->state;
+	struct drm_plane *plane;
+	struct drm_plane_state *plane_state;
+	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
+	struct dpu_plane_state **old_dpstates;
+	struct dpu_plane_state *old_dpstate, *new_dpstate;
+	u32 active_mask = 0;
+	int i;
+
+	old_dpstates = crtc_state_get_dpu_plane_states(old_crtc_state);
+	if (WARN_ON(!old_dpstates))
+		return;
+
+	for (i = 0; i < dplane->grp->hw_plane_num; i++) {
+		old_dpstate = old_dpstates[i];
+		if (!old_dpstate)
+			continue;
+
+		active_mask |= BIT(i);
+
+		drm_atomic_crtc_state_for_each_plane(plane, crtc_state) {
+			if (drm_plane_index(plane) !=
+			    drm_plane_index(old_dpstate->base.plane))
+				continue;
+
+			plane_state =
+				drm_atomic_get_existing_plane_state(state,
+									plane);
+			WARN_ON(!plane_state);
+
+			new_dpstate = to_dpu_plane_state(plane_state);
+
+			active_mask &= ~BIT(i);
+
+			/*
+			 * Should be enough to check the below real HW plane
+			 * resources only.
+			 * Vproc resources and things like layer_x/y should
+			 * be fine.
+			 */
+			if (old_dpstate->stage  != new_dpstate->stage ||
+			    old_dpstate->source != new_dpstate->source ||
+			    old_dpstate->blend  != new_dpstate->blend)
+				return;
+		}
+	}
+
+	/* pure software check */
+	if (WARN_ON(active_mask))
+		return;
+
+	drm_atomic_crtc_state_for_each_plane(plane, crtc_state)
+		dpu_atomic_put_plane_state(state, plane);
+
+	dpu_atomic_put_crtc_state(state, crtc);
+}
+
 static int dpu_drm_atomic_check(struct drm_device *dev,
 				struct drm_atomic_state *state)
 {
@@ -266,6 +382,15 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 	int active_plane_fetcheco[MAX_DPU_PLANE_GRP];
 	int active_plane_hscale[MAX_DPU_PLANE_GRP];
 	int active_plane_vscale[MAX_DPU_PLANE_GRP];
+	bool pipe_states_prone_to_put[MAX_CRTC];
+	u32 crtc_mask_in_state = 0;
+
+	ret = drm_atomic_helper_check_modeset(dev, state);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < MAX_CRTC; i++)
+		pipe_states_prone_to_put[i] = false;
 
 	for (i = 0; i < MAX_DPU_PLANE_GRP; i++) {
 		active_plane[i] = 0;
@@ -275,14 +400,20 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 		grp[i] = NULL;
 	}
 
+	for_each_crtc_in_state(state, crtc, crtc_state, i)
+		crtc_mask_in_state |= drm_crtc_mask(crtc);
+
 	drm_for_each_crtc(crtc, dev) {
+		dpu_atomic_mark_pipe_states_prone_to_put_per_crtc(crtc,
+						crtc_mask_in_state, state,
+						pipe_states_prone_to_put);
+
 		crtc_state = drm_atomic_get_crtc_state(state, crtc);
 		if (IS_ERR(crtc_state))
 			return PTR_ERR(crtc_state);
 
-		ret = drm_atomic_add_affected_planes(state, crtc);
-		if (ret)
-			return ret;
+		drm_atomic_crtc_state_for_each_plane(plane, crtc_state)
+			plane_state = drm_atomic_get_plane_state(state, plane);
 
 		drm_atomic_crtc_state_for_each_plane_state(plane, plane_state,
 							   crtc_state) {
@@ -328,14 +459,12 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 	/* clear resource mask */
 	for (i = 0; i < MAX_DPU_PLANE_GRP; i++) {
 		if (grp[i]) {
+			mutex_lock(&grp[i]->mutex);
 			grp[i]->src_mask = 0;
 			grp[i]->src_use_vproc_mask = 0;
+			mutex_unlock(&grp[i]->mutex);
 		}
 	}
-
-	ret = drm_atomic_helper_check_modeset(dev, state);
-	if (ret)
-		return ret;
 
 	ret = drm_atomic_normalize_zpos(dev, state);
 	if (ret)
@@ -382,6 +511,9 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 		}
 
 		kfree(states);
+
+		if (pipe_states_prone_to_put[drm_crtc_index(crtc)])
+			dpu_atomic_put_possible_states_per_crtc(crtc_state);
 	}
 
 	ret = drm_atomic_helper_check_planes(dev, state);
