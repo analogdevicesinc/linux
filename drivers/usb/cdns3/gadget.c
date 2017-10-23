@@ -1357,13 +1357,13 @@ static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep)
 		break;
 
 	case USB_SPEED_FULL:
-		max_packet_size = (usb_ss_ep->is_iso_flag ?
+		max_packet_size = (is_iso_ep ?
 			ENDPOINT_MAX_PACKET_SIZE_1023 :
 			ENDPOINT_MAX_PACKET_SIZE_64);
 		break;
 
 	case USB_SPEED_HIGH:
-		max_packet_size = (usb_ss_ep->is_iso_flag ?
+		max_packet_size = (is_iso_ep ?
 			ENDPOINT_MAX_PACKET_SIZE_1024 :
 			ENDPOINT_MAX_PACKET_SIZE_512);
 		break;
@@ -1976,10 +1976,8 @@ static int usb_ss_init_ep(struct usb_ss_dev *usb_ss)
 			usb_ss_ep->endpoint.caps.dir_out = 1;
 
 		/* check endpoint type */
-		if (iso_ep_reg & (1uL << ep_reg_pos)) {
+		if (iso_ep_reg & (1uL << ep_reg_pos))
 			usb_ss_ep->endpoint.caps.type_iso = 1;
-			usb_ss_ep->is_iso_flag = 1;
-		}
 
 		if (bulk_ep_reg & (1uL << ep_reg_pos)) {
 			usb_ss_ep->endpoint.caps.type_bulk = 1;

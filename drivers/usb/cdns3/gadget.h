@@ -168,7 +168,6 @@ struct usb_ss_endpoint {
 	char name[20];
 	int hw_pending_flag;
 	int stalled_flag;
-	int is_iso_flag;
 	int wedge_flag;
 	void *cpu_addr;
 	dma_addr_t dma_addr;
