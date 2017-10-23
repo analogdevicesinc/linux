@@ -1952,25 +1952,28 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 
 		sh_addr = shdr->sh_addr;
 
-		if ((!strcmp(&strtab[shdr->sh_name], ".rodata")) ||
-		    (!strcmp(&strtab[shdr->sh_name], ".text"))   ||
-		    (!strcmp(&strtab[shdr->sh_name], ".data"))   ||
-		    (!strcmp(&strtab[shdr->sh_name], ".bss"))
-		   ) {
-			sh_addr = shdr->sh_addr + MEMORY_REMAP_OFFSET;
-		}
-
 		if (shdr->sh_type == SHT_NOBITS) {
-			memset_hifi((void *)(hifi4_priv->regs +
-					(sh_addr - hifi4_priv->paddr)),
-					0,
-					shdr->sh_size);
+			memset_hifi((void *)(hifi4_priv->sdram_vir_addr +
+				(sh_addr - hifi4_priv->sdram_phys_addr)),
+				0,
+				shdr->sh_size);
 		} else {
 			image = (unsigned char *)addr + shdr->sh_offset;
-			memcpy_hifi((void *)(hifi4_priv->regs +
-					(sh_addr - hifi4_priv->paddr)),
-					(const void *)image,
-					shdr->sh_size);
+			if ((!strcmp(&strtab[shdr->sh_name], ".rodata")) ||
+				(!strcmp(&strtab[shdr->sh_name], ".text"))   ||
+				(!strcmp(&strtab[shdr->sh_name], ".data"))   ||
+				(!strcmp(&strtab[shdr->sh_name], ".bss"))
+			) {
+				memcpy_hifi((void *)(hifi4_priv->sdram_vir_addr
+				  + (sh_addr - hifi4_priv->sdram_phys_addr)),
+				  (const void *)image,
+				  shdr->sh_size);
+			} else {
+				memcpy_hifi((void *)(hifi4_priv->regs +
+						(sh_addr - hifi4_priv->paddr)),
+						(const void *)image,
+						shdr->sh_size);
+			}
 		}
 	}
 
@@ -2091,7 +2094,7 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	}
 
 	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
-				SC_C_OFS_AUDIO, 0x20);
+				SC_C_OFS_AUDIO, 0x80);
 	if (sciErr != SC_ERR_NONE) {
 		dev_err(&pdev->dev, "Error system address offset of AUDIO\n");
 		return -EIO;
@@ -2129,10 +2132,20 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	hifi4_priv->sdram_phys_addr = SDRAM_BASE_ADDR;
+	hifi4_priv->sdram_vir_addr = ioremap(hifi4_priv->sdram_phys_addr,
+							SDRAM_BASE_SIZE);
+	if (!hifi4_priv->sdram_vir_addr) {
+		dev_err(&pdev->dev, "failed to remap sdram space for hifi4 firmware\n");
+		return -ENXIO;
+	}
+	memset_io(hifi4_priv->sdram_vir_addr, 0, SDRAM_BASE_SIZE);
+
 	/* code buffer */
-	hifi4_priv->code_buf_virt = hifi4_priv->regs  + LIBRARY_CODE_OFFSET;
-	hifi4_priv->code_buf_phys = hifi4_priv->paddr + LIBRARY_CODE_OFFSET -
-							MEMORY_REMAP_OFFSET;
+	hifi4_priv->code_buf_virt = hifi4_priv->sdram_vir_addr
+						+ SDRAM_CODEC_LIB_OFFSET;
+	hifi4_priv->code_buf_phys = hifi4_priv->sdram_phys_addr
+						+ SDRAM_CODEC_LIB_OFFSET;
 	hifi4_priv->code_buf_size = LIBRARY_CODE_SIZE;
 
 	size = MSG_BUF_SIZE + INPUT_BUF_SIZE +
@@ -2216,6 +2229,8 @@ static int fsl_hifi4_remove(struct platform_device *pdev)
 			SCRATCH_DATA_BUF_SIZE;
 	dma_free_coherent(&pdev->dev, size, hifi4_priv->msg_buf_virt,
 				hifi4_priv->msg_buf_phys);
+	if (hifi4_priv->sdram_vir_addr)
+		iounmap(hifi4_priv->sdram_vir_addr);
 
 	return 0;
 }

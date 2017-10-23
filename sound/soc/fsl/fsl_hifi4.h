@@ -206,6 +206,8 @@ struct fsl_hifi4 {
 	unsigned long			dram1;
 	unsigned long			iram;
 	unsigned long			sram;
+	void			        *sdram_vir_addr;
+	unsigned long			sdram_phys_addr;
 	void				*msg_buf_virt;
 	dma_addr_t			 msg_buf_phys;
 	int				 msg_buf_size;
@@ -301,6 +303,14 @@ struct hifi4_mem_msg {
 #define SCRATCH_DATA_BUF_SIZE	(MULTI_CODEC_NUM * 0x80000)
 
 #define MEMORY_REMAP_OFFSET	0x39000000
+
+/* reserved memory for hifi4 firmware and core libs to
+ * save their instruction/data section in SDRAM, the physical
+ * address range is 0x8e000000 ~ 0x8fffffff (32M bytes).
+ */
+#define SDRAM_BASE_ADDR  0x8e000000
+#define SDRAM_BASE_SIZE  0x1ffffff
+#define SDRAM_CODEC_LIB_OFFSET 0x1000000
 
 #define SC_C_OFS_SEL    39
 #define SC_C_OFS_AUDIO  40
