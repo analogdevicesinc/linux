@@ -503,6 +503,7 @@ int dpni_get_statistics(struct fsl_mc_io	*mc_io,
 			u32			cmd_flags,
 			u16			token,
 			u8			page,
+			u8			param,
 			union dpni_statistics	*stat);
 
 int dpni_reset_statistics(struct fsl_mc_io	*mc_io,

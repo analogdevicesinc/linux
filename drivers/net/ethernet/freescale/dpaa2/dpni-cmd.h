@@ -77,7 +77,7 @@
 #define DPNI_CMDID_CLR_FS_ENT				DPNI_CMD(0x246)
 
 #define DPNI_CMDID_SET_TX_PRIORITIES			DPNI_CMD_V2(0x250)
-#define DPNI_CMDID_GET_STATISTICS			DPNI_CMD(0x25D)
+#define DPNI_CMDID_GET_STATISTICS			DPNI_CMD_V2(0x25D)
 #define DPNI_CMDID_RESET_STATISTICS			DPNI_CMD(0x25E)
 #define DPNI_CMDID_GET_QUEUE				DPNI_CMD(0x25F)
 #define DPNI_CMDID_SET_QUEUE				DPNI_CMD(0x260)
@@ -302,6 +302,7 @@ struct dpni_rsp_get_tx_data_offset {
 
 struct dpni_cmd_get_statistics {
 	u8 page_number;
+	u8 param;
 };
 
 struct dpni_rsp_get_statistics {

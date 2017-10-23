@@ -2270,7 +2270,7 @@ static void dpaa2_eth_wait_for_egress_fq_empty(struct dpaa2_eth_priv *priv)
 		goto out;
 
 	do {
-		err = dpni_get_statistics(priv->mc_io, 0, priv->mc_token, 6,
+		err = dpni_get_statistics(priv->mc_io, 0, priv->mc_token, 6, 0,
 					  &stats);
 		if (err)
 			goto out;

@@ -1666,6 +1666,8 @@ int dpni_get_queue(struct fsl_mc_io *mc_io,
  * @token:	Token of DPNI object
  * @page:	Selects the statistics page to retrieve, see
  *		DPNI_GET_STATISTICS output. Pages are numbered 0 to 6.
+ * @param:	Custom parameter for some pages used to select a certain
+ *		statistic source, for example the TC.
  * @stat:	Structure containing the statistics
  *
  * Return:	'0' on Success; Error code otherwise.
@@ -1674,6 +1676,7 @@ int dpni_get_statistics(struct fsl_mc_io *mc_io,
 			u32 cmd_flags,
 			u16 token,
 			u8 page,
+			u8 param,
 			union dpni_statistics *stat)
 {
 	struct fsl_mc_command cmd = { 0 };
@@ -1687,6 +1690,7 @@ int dpni_get_statistics(struct fsl_mc_io *mc_io,
 					  token);
 	cmd_params = (struct dpni_cmd_get_statistics *)cmd.params;
 	cmd_params->page_number = page;
+	cmd_params->param = param;
 
 	/* send command to mc */
 	err = mc_send_command(mc_io, &cmd);

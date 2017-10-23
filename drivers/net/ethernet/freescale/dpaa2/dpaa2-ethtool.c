@@ -280,7 +280,7 @@ static void dpaa2_eth_get_ethtool_stats(struct net_device *net_dev,
 		if (j == 4 || j == 5)
 			continue;
 		err = dpni_get_statistics(priv->mc_io, 0, priv->mc_token,
-					  j, &dpni_stats);
+					  j, 0, &dpni_stats);
 		if (err == -EINVAL)
 			/* Older firmware versions don't support all pages */
 			memset(&dpni_stats, 0, sizeof(dpni_stats));
