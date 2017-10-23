@@ -9,6 +9,10 @@ source "drivers/mxc/hantro/Kconfig"
 source "drivers/mxc/mlb/Kconfig"
 source "drivers/mxc/hdp/Kconfig"
 
+if ARCH_MXC_ARM64
+source "drivers/mxc/vpu-malone/Kconfig"
+endif
+
 if ARCH_MXC
 config MXC_IPU
 	bool "Image Processing Unit Driver"

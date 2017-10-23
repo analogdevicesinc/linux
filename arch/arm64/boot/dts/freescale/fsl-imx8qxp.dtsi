@@ -626,9 +626,13 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_vpu_core: vpu_core {
-				name = "vpu_core";
-				reg = <SC_R_VPUCORE>;
+			pd_vpu_enc: VPU_ENC {
+				reg = <SC_R_VPU_ENC_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_vpu>;
+			};
+			pd_vpu_dec: VPU_DEC {
+				reg = <SC_R_VPU_DEC_0>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_vpu>;
 			};
@@ -2101,6 +2105,24 @@
 		hsio = <&hsio>;
 		ctrl-id = <1>; /* pcieb */
 		cpu-base-addr = <0x80000000>;
+		status = "disabled";
+	};
+
+	vpu: vpu@2c000000 {
+		compatible = "nxp,imx8qm-vpu", "nxp,imx8qxp-vpu";
+		reg = <0x0 0x2c000000 0x0 0x1000000>;
+		reg-names = "vpu_regs";
+		interrupts = <0 464 0x4>, /* encoder irq */
+		<0 465 0x4>, /* encoder fiq */
+		<0 466 0x4>, /* decoder irq */
+		<0 467 0x4>, /* decoder fiq */
+		<0 468 0x4>; /* decoder sif */
+		interrupt-names = "enc_irq", "enc_fiq", "dec_irq", "dec_fiq", "dec_sif";
+		clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
+		clock-names = "vpu_clk";
+		assigned-clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
+		assigned-clock-rates = <600000000>;
+		power-domains = <&pd_vpu_dec>;
 		status = "disabled";
 	};
 
