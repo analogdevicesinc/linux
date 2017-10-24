@@ -575,8 +575,8 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 	regmap_update_bits(sai->regmap, FSL_SAI_xCR5(tx, offset),
 			   FSL_SAI_CR5_WNW_MASK | FSL_SAI_CR5_W0W_MASK |
 			   FSL_SAI_CR5_FBT_MASK, val_cr5);
-	regmap_write(sai->regmap, FSL_SAI_xMR(tx), ~0UL - ((1 << slots) - 1));
-
+	regmap_write(sai->regmap, FSL_SAI_xMR(tx),
+			~0UL - ((1 << min(channels, slots)) - 1));
 	return 0;
 }
 
