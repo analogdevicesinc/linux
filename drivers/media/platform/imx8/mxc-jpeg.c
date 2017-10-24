@@ -225,17 +225,6 @@ static int enum_fmt(struct mxc_jpeg_fmt *mxc_formats, int n,
 	return 0;
 }
 
-static void print_output(void *addr)
-{
-	int i;
-
-	for (i = 0x0; i < 0x200; i += 4) {
-		printk(KERN_DEBUG "%02x %02x %02x %02x\n", ((char *)addr)[i],
-		       ((char *)addr)[i+1], ((char *)addr)[i+2],
-		       ((char *)addr)[i+3]);
-	}
-}
-
 void mxc_jpeg_addrs(struct mxc_jpeg_desc *desc, struct vb2_buffer *b_base0_buf,
 struct vb2_buffer *bufbase_buf, int offset)
 {
@@ -358,9 +347,6 @@ static void mxc_jpeg_device_run(void *priv)
 		mxc_jpeg_set_desc(dma_handle, jpeg->base_reg, slot);
 		mxc_jpeg_go(jpeg->base_reg);
 	}
-	//print_descriptor_info(desc);
-	////print_output(testaddro);
-	//print_cast_decoder_info(jpeg->base_reg);
 	spin_unlock_irqrestore(&ctx->mxc_jpeg->hw_lock, flags);
 }
 static int mxc_jpeg_job_ready(void *priv)
