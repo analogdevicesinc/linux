@@ -1558,8 +1558,10 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 
 	hifi4_engine = devm_kzalloc(dev,
 				sizeof(struct fsl_hifi4_engine), GFP_KERNEL);
-	if (!hifi4_engine)
+	if (!hifi4_engine) {
+		mutex_unlock(&hifi4_priv->hifi4_mutex);
 		return -ENOMEM;
+	}
 
 	hifi4_engine->hifi4_priv = hifi4_priv;
 
@@ -1575,12 +1577,15 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 
 		if (ret) {
 			dev_err(dev, "failed to load firmware\n");
+			mutex_unlock(&hifi4_priv->hifi4_mutex);
 			return ret;
 		}
 
 		ret = icm_ack_wait(hifi4_priv, 0);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&hifi4_priv->hifi4_mutex);
 			return ret;
+		}
 		dev_info(dev, "hifi driver registered\n");
 	}
 
