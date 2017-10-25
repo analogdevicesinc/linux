@@ -27,6 +27,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/bitops.h>
+#include <linux/gcd.h>
 #include <linux/mipi_dsi_northwest.h>
 #include <linux/module.h>
 #include <linux/mxcfb.h>
@@ -360,10 +361,16 @@ static void dphy_calc_dividers(int *cm, int *cn, int *co)
 
 static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 {
+	int i, best_div = -1;
+	int64_t delta;
+	uint64_t least_delta = ~0U;
 	uint32_t bpp, time_out = 100;
 	uint32_t lock;
 	uint32_t req_bit_clk;
-	struct pll_divider div;
+	uint64_t limit;
+	uint64_t denominator, numerator, divisor;
+	uint64_t norm_denom, norm_num, split_denom;
+	struct pll_divider div = { 0 };
 	struct fb_videomode *mode = mipi_dsi->mode;
 	struct mipi_lcd_config *lcd_config = mipi_dsi->lcd_config;
 
@@ -395,39 +402,168 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 			return -EINVAL;
 	}
 
-	if (!mipi_dsi->encoder) {
-		/* PLL out clock = refclk * CM / (CN * CO)
-		 * refclock = 24MHz
-		 * pll vco = 24 * 40 / (3 * 1) = 320MHz
-		 */
-		div.cn = cn_map_table[3 - 1]; /* 3  */
-		div.cm = cm_map_table[40 - 16]; /* 40 */
-		div.co = co_map_table[1 >> 1];  /* 1  */
-	} else {
-#ifdef CONFIG_FB_IMX64
-		switch (mipi_dsi->vmode_index) {
-		case 34:	/* 1920x1080@30Hz */
-			/* pll vco = 27 * 33 / (1 * 2) = 445.5MHz */
-			div.cn = cn_map_table[1 - 1]; /* 1 */
-			div.cm = cm_map_table[33 - 16]; /* 33 */
-			div.co = co_map_table[2 >> 1];  /* 2 */
-			break;
-		case 16:	/* 1920x1080@60Hz */
-			/* pll vco = 27 * 33 / (1 * 1) = 891MHz */
-			div.cn = cn_map_table[1 - 1]; /* 1 */
-			div.cm = cm_map_table[33 - 16]; /* 33 */
-			div.co = co_map_table[1 >> 1];  /* 1 */
-			break;
-		default:
-			/* TODO: not support yet */
-			return -EINVAL;
+	/* calc CM, CN and CO according to PHY PLL formula:
+	 *
+	 * 'PLL out bitclk = refclk * CM / (CN * CO);'
+	 *
+	 * Let:
+	 * 'numerator   = bitclk / divisor';
+	 * 'denominator = refclk / divisor';
+	 * Then:
+	 * 'numerator / denominator = CM / (CN * CO)';
+	 *
+	 * CM is in [16, 255]
+	 * CN is in [1, 32]
+	 * CO is in { 1, 2, 4, 8 };
+	 */
+	divisor = gcd(mipi_dsi->phy_ref_clkfreq, req_bit_clk);
+	WARN_ON(divisor == 1);
+
+	numerator   = req_bit_clk / divisor;
+	denominator = mipi_dsi->phy_ref_clkfreq / divisor;
+
+	/* denominator & numerator out of range check */
+	if (DIV_ROUND_CLOSEST(numerator, denominator) > 255 ||
+	    DIV_ROUND_CLOSEST(denominator, numerator) > 32 * 8)
+		return -EINVAL;
+
+	/* Normalization: reduce or increase
+	 * numerator	to [16, 255]
+	 * denominator	to [1, 32 * 8]
+	 * Reduce normalization result is 'approximiate'
+	 * Increase nomralization result is 'precise'
+	 */
+	if (numerator > 255 || denominator > 32 * 8) {
+		/* approximate */
+		if (likely(numerator > denominator)) {
+			/* 'numerator > 255';
+			 * 'limit' should meet below conditions:
+			 *  a. '(numerator   / limit) >= 16'
+			 *  b. '(denominator / limit) >= 1'
+			 */
+			limit = min(denominator,
+				    DIV_ROUND_CLOSEST(numerator, 16));
+
+			/* Let:
+			 * norm_num   = numerator   / i;
+			 * norm_denom = denominator / i;
+			 *
+			 * So:
+			 * delta = numerator * norm_denom -
+			 * 	   denominator * norm_num
+			 */
+			for (i = 2; i <= limit; i++) {
+				norm_num = DIV_ROUND_CLOSEST(numerator, i);
+				if (norm_num > 255)
+					continue;
+
+				norm_denom = DIV_ROUND_CLOSEST(denominator, i);
+
+				/* 'norm_num <= 255' && 'norm_num > norm_denom'
+				 * so, 'norm_denom < 256'
+				 */
+				delta = numerator * norm_denom -
+					denominator * norm_num;
+				delta = abs(delta);
+				if (delta < least_delta) {
+					least_delta = delta;
+					best_div = i;
+				} else if (delta == least_delta) {
+					/* choose better one IF:
+					 * 'norm_denom' derived from last 'best_div'
+					 * needs later split, i.e, 'norm_denom > 32'.
+					 */
+					if (DIV_ROUND_CLOSEST(denominator, best_div) > 32) {
+						least_delta = delta;
+						best_div = i;
+					}
+				}
+			}
+		} else {
+			/* 'denominator > 32 * 8';
+			 * 'limit' should meet below conditions:
+			 *  a. '(numerator   / limit >= 16'
+			 *  b. '(denominator / limit >= 1': obviously.
+			 */
+			limit = DIV_ROUND_CLOSEST(numerator, 16);
+			if (!limit ||
+			    DIV_ROUND_CLOSEST(denominator, limit) > 32 * 8)
+				return -EINVAL;
+
+			for (i = 2; i <= limit; i++) {
+				norm_denom = DIV_ROUND_CLOSEST(denominator, i);
+				if (norm_denom > 32 * 8)
+					continue;
+
+				norm_num = DIV_ROUND_CLOSEST(numerator, i);
+
+				/* 'norm_denom <= 256' && 'norm_num < norm_denom'
+				 * so, 'norm_num <= 255'
+				 */
+				delta = numerator * norm_denom -
+					denominator * norm_num;
+				delta = abs(delta);
+				if (delta < least_delta) {
+					least_delta = delta;
+					best_div = i;
+				} else if (delta == least_delta) {
+					if (DIV_ROUND_CLOSEST(denominator, best_div) > 32) {
+						least_delta = delta;
+						best_div = i;
+					}
+				}
+			}
 		}
-#else
-		/* pll vco = 24 * 63 / (5 * 1) = 302.4MHz */
-		div.cn = cn_map_table[5 - 1]; /* 5  */
-		div.cm = cm_map_table[63 - 16]; /* 63 */
-		div.co = co_map_table[1 >> 1];  /* 1  */
-#endif
+
+		numerator   = DIV_ROUND_CLOSEST(numerator, best_div);
+		denominator = DIV_ROUND_CLOSEST(denominator, best_div);
+	} else if (numerator < 16) {
+		/* precise */
+
+		/* 'limit' should meet below conditions:
+		 *  a. 'denominator * limit <= 32 * 8'
+		 *  b. '16 <= numerator * limit <= 255'
+		 *  Choose 'limit' to be the least value
+		 *  which makes 'numerator * limit' to be
+		 *  in [16, 255].
+		 */
+		limit = min(256 / denominator, 255 / numerator);
+		if (limit == 1 || limit < DIV_ROUND_UP(16, numerator))
+			return -EINVAL;
+
+		/* choose the least available value for 'limit' */
+		limit = DIV_ROUND_UP(16, numerator);
+		numerator   = numerator * limit;
+		denominator = denominator * limit;
+
+		WARN_ON(numerator < 16 || denominator > 32 * 8);
+	}
+
+	div.cm = cm_map_table[numerator - 16];
+
+	/* split 'denominator' to 'CN' and 'CO' */
+	if (denominator > 32) {
+		/* traverse four possible values of 'CO'
+		 * there must be some value of 'CO' can be used
+		 */
+		least_delta = ~0U;
+		for (i = 0; i < 4; i++) {
+			split_denom = DIV_ROUND_CLOSEST(denominator, 1 << i);
+			if (split_denom > 32)
+				continue;
+
+			/* calc deviation to choose the best one */
+			delta = denominator - split_denom * (1 << i);
+			delta = abs(delta);
+			if (delta < least_delta) {
+				least_delta = delta;
+				div.co = co_map_table[i];
+				div.cn = cn_map_table[split_denom - 1];
+			}
+		}
+	} else {
+		div.co = co_map_table[1 >> 1];
+		div.cn = cn_map_table[denominator - 1];
 	}
 
 	writel(div.cn, mipi_dsi->mmio_base + DPHY_CN);
