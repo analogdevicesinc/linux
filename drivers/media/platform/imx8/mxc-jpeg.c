@@ -633,6 +633,8 @@ static int mxc_jpeg_open(struct file *file)
 		goto free;
 	}
 
+	pm_runtime_get_sync(mxc_jpeg->dev);
+
 	v4l2_fh_init(&ctx->fh, mxc_vfd);
 	file->private_data = &ctx->fh;
 	v4l2_fh_add(&ctx->fh);
@@ -910,6 +912,8 @@ static int mxc_jpeg_release(struct file *file)
 	v4l2_fh_exit(&ctx->fh);
 	kfree(ctx);
 	mutex_unlock(&mxc_jpeg->lock);
+
+	pm_runtime_put_sync(mxc_jpeg->dev);
 	return 0;
 }
 
@@ -971,26 +975,18 @@ static int mxc_jpeg_probe(struct platform_device *pdev)
 	jpeg->mode = mode;
 
 	/* Start clock */
-	jpeg->clk = devm_clk_get(dev, "ipg");
-	if (IS_ERR(jpeg->clk)) {
+	jpeg->clk_ipg = devm_clk_get(dev, "ipg");
+	if (IS_ERR(jpeg->clk_ipg)) {
 		dev_err(dev, "failed to get clock: ipg\n");
 		goto err_clk;
 	}
-	ret = clk_prepare_enable(jpeg->clk);
-	if (ret < 0) {
-		dev_err(dev, "failed to enable clock: ipg\n");
-		goto err_clk;
-	}
-	jpeg->clk = devm_clk_get(dev, "per");
-	if (IS_ERR(jpeg->clk)) {
+
+	jpeg->clk_per = devm_clk_get(dev, "per");
+	if (IS_ERR(jpeg->clk_per)) {
 		dev_err(dev, "failed to get clock: per\n");
 		goto err_clk;
 	}
-	ret = clk_prepare_enable(jpeg->clk);
-	if (ret < 0) {
-		dev_err(dev, "failed to enable clock: per\n");
-		goto err_clk;
-	}
+
 	/* v4l2 */
 	ret = v4l2_device_register(dev, &jpeg->v4l2_dev);
 	if (ret) {
@@ -1063,6 +1059,46 @@ err_clk:
 	return ret;
 }
 
+#ifdef CONFIG_PM
+static int mxc_jpeg_runtime_resume(struct device *dev)
+{
+	struct mxc_jpeg_dev *jpeg = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(jpeg->clk_ipg);
+	if (ret < 0) {
+		dev_err(dev, "failed to enable clock: ipg\n");
+		goto err_clk;
+	}
+
+	ret = clk_prepare_enable(jpeg->clk_per);
+	if (ret < 0) {
+		dev_err(dev, "failed to enable clock: per\n");
+		goto err_clk;
+	}
+
+	return 0;
+
+err_clk:
+	return ret;
+}
+
+static int mxc_jpeg_runtime_suspend(struct device *dev)
+{
+	struct mxc_jpeg_dev *jpeg = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(jpeg->clk_ipg);
+	clk_disable_unprepare(jpeg->clk_per);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops	mxc_jpeg_pm_ops = {
+	SET_RUNTIME_PM_OPS(mxc_jpeg_runtime_suspend,
+			   mxc_jpeg_runtime_resume, NULL)
+};
+
 static int mxc_jpeg_remove(struct platform_device *pdev)
 {
 	struct mxc_jpeg_dev *jpeg = platform_get_drvdata(pdev);
@@ -1083,6 +1119,7 @@ static struct platform_driver mxc_jpeg_driver = {
 	.driver = {
 		.name = "mxc-jpeg",
 		.of_match_table = mxc_jpeg_match,
+		.pm = &mxc_jpeg_pm_ops,
 	},
 };
 module_platform_driver(mxc_jpeg_driver);

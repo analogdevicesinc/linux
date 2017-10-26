@@ -100,7 +100,8 @@ struct mxc_jpeg_dev {
 	//wait_queue_head_t		irq_queue;
 	bool					enc;
 	bool					dec;
-	struct clk				*clk;
+	struct clk				*clk_ipg;
+	struct clk				*clk_per;
 	struct platform_device			*pdev;
 	struct device				*dev;
 	void __iomem				*base_reg;
