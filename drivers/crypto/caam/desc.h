@@ -364,6 +364,7 @@
 #define FIFOLD_TYPE_PK_N	(0x08 << FIFOLD_TYPE_SHIFT)
 #define FIFOLD_TYPE_PK_A	(0x0c << FIFOLD_TYPE_SHIFT)
 #define FIFOLD_TYPE_PK_B	(0x0d << FIFOLD_TYPE_SHIFT)
+#define FIFOLD_TYPE_IFIFO	(0x0f << FIFOLD_TYPE_SHIFT)
 
 /* Other types. Need to OR in last/flush bits as desired */
 #define FIFOLD_TYPE_MSG_MASK	(0x38 << FIFOLD_TYPE_SHIFT)
@@ -1524,6 +1525,7 @@
 #define MATH_SRC1_INFIFO	(0x0a << MATH_SRC1_SHIFT)
 #define MATH_SRC1_OUTFIFO	(0x0b << MATH_SRC1_SHIFT)
 #define MATH_SRC1_ONE		(0x0c << MATH_SRC1_SHIFT)
+#define MATH_SRC1_ZERO		(0x0f << MATH_SRC1_SHIFT)
 
 /* Destination selectors */
 #define MATH_DEST_SHIFT		8
