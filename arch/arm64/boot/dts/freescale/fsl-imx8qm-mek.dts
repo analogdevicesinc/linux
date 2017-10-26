@@ -55,6 +55,15 @@
 			gpio = <&gpio4 7 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
+
+		reg_audio: fixedregulator@2 {
+			compatible = "regulator-fixed";
+			reg = <2>;
+			regulator-name = "cs42888_supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-always-on;
+		};
 	};
 
 	sound: sound {
@@ -89,6 +98,15 @@
 			"Playback", "CPU-Playback",
 			"ASRC-Capture", "CPU-Capture",
 			"CPU-Capture", "Capture";
+	};
+
+	sound-cs42888 {
+		compatible = "fsl,imx8qm-sabreauto-cs42888",
+				 "fsl,imx-audio-cs42888";
+		model = "imx-cs42888";
+		esai-controller = <&esai0>;
+		audio-codec = <&cs42888>;
+		status = "okay";
 	};
 
 	sound-amix-sai {
@@ -134,11 +152,36 @@
 };
 
 &iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog>;
+
 	imx8qm-mek {
+		pinctrl_hog: hoggrp {
+			fsl,pins = <
+				SC_P_MCLK_OUT0_AUD_ACM_MCLK_OUT0	0x0600004c
+				SC_P_QSPI1A_DATA1_LSIO_GPIO4_IO25	0x0600004c
+			>;
+		};
+
 		pinctrl_cm41_i2c0: cm41i2c0grp {
 			fsl,pins = <
 				SC_P_M41_I2C0_SCL_M41_I2C0_SCL          0x0600004c
 				SC_P_M41_I2C0_SDA_M41_I2C0_SDA          0x0600004c
+			>;
+		};
+
+		pinctrl_esai0: esai0grp {
+			fsl,pins = <
+				SC_P_ESAI0_FSR_AUD_ESAI0_FSR            0xc600004c
+				SC_P_ESAI0_FST_AUD_ESAI0_FST            0xc600004c
+				SC_P_ESAI0_SCKR_AUD_ESAI0_SCKR          0xc600004c
+				SC_P_ESAI0_SCKT_AUD_ESAI0_SCKT          0xc600004c
+				SC_P_ESAI0_TX0_AUD_ESAI0_TX0            0xc600004c
+				SC_P_ESAI0_TX1_AUD_ESAI0_TX1            0xc600004c
+				SC_P_ESAI0_TX2_RX3_AUD_ESAI0_TX2_RX3    0xc600004c
+				SC_P_ESAI0_TX3_RX2_AUD_ESAI0_TX3_RX2    0xc600004c
+				SC_P_ESAI0_TX4_RX1_AUD_ESAI0_TX4_RX1    0xc600004c
+				SC_P_ESAI0_TX5_RX0_AUD_ESAI0_TX5_RX0    0xc600004c
 			>;
 		};
 
@@ -238,7 +281,6 @@
 				SC_P_SAI1_RXFS_AUD_SAI1_RXFS		0x0600004c
 				SC_P_SAI1_TXD_AUD_SAI1_TXD		0x0600004c
 				SC_P_SAI1_TXC_AUD_SAI1_TXC		0x0600004c
-				SC_P_MCLK_OUT0_AUD_ACM_MCLK_OUT0	0x0600004c
 			>;
 		};
 
@@ -368,6 +410,20 @@
 	status = "okay";
 };
 
+&esai0 {
+	compatible = "fsl,imx8qm-esai";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_esai0>;
+	assigned-clocks = <&clk IMX8QM_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX8QM_AUD_PLL0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
+			<&clk IMX8QM_AUD_ESAI_0_EXTAL_IPG>;
+	assigned-clock-parents = <&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_CLK>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+	status = "okay";
+};
+
 &sai1 {
 	assigned-clocks = <&clk IMX8QM_AUD_PLL0_DIV>,
 			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
@@ -483,6 +539,25 @@
 		reg = <0x20>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	cs42888: cs42888@48 {
+		compatible = "cirrus,cs42888";
+		reg = <0x48>;
+		clocks = <&clk IMX8QM_AUD_MCLKOUT0>;
+		clock-names = "mclk";
+		VA-supply = <&reg_audio>;
+		VD-supply = <&reg_audio>;
+		VLS-supply = <&reg_audio>;
+		VLC-supply = <&reg_audio>;
+		reset-gpio = <&gpio4 25 1>;
+		power-domains = <&pd_mclk_out0>;
+		assigned-clocks = <&clk IMX8QM_AUD_PLL0_DIV>,
+				<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+				<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
+				<&clk IMX8QM_AUD_MCLKOUT0>;
+		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+		status = "okay";
 	};
 };
 
