@@ -40,6 +40,7 @@ struct tcpci {
 	struct regmap *regmap;
 
 	bool controls_vbus;
+	bool attached;
 	struct gpio_desc *ss_sel_gpio;
 
 	struct tcpc_dev tcpc;
@@ -48,6 +49,7 @@ struct tcpci {
 
 static const unsigned int tcpci_extcon_cable[] = {
 	EXTCON_USB_HOST,
+	EXTCON_USB,
 	EXTCON_NONE,
 };
 
@@ -249,6 +251,11 @@ static int tcpci_get_cc(struct tcpc_dev *tcpc,
 				 TCPC_CC_STATUS_CC2_MASK,
 				 reg & TCPC_CC_STATUS_TERM);
 
+	if ((*cc1 == TYPEC_CC_OPEN) && (*cc2 == TYPEC_CC_OPEN))
+		tcpci->attached = false;
+	else
+		tcpci->attached = true;
+
 	return 0;
 }
 
@@ -310,10 +317,19 @@ static int tcpci_set_roles(struct tcpc_dev *tcpc, bool attached,
 	if (ret < 0)
 		return ret;
 
-	if (data == TYPEC_HOST)
+	if (data == TYPEC_HOST) {
+		extcon_set_state_sync(tcpci->edev, EXTCON_USB, false);
 		extcon_set_state_sync(tcpci->edev, EXTCON_USB_HOST, true);
-	else
+	} else {
 		extcon_set_state_sync(tcpci->edev, EXTCON_USB_HOST, false);
+		/*
+		 * Instead of use 'attached' input, we need
+		 * the real HW connection status to notify
+		 * USB device controller driver the attach
+		 * and dettach event to host.
+		 */
+		extcon_set_state_sync(tcpci->edev, EXTCON_USB, tcpci->attached);
+	}
 
 	return 0;
 }
