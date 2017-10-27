@@ -14,6 +14,7 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/gcd.h>
+#include <linux/of_gpio.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -35,6 +36,7 @@ struct adau1373_dai {
 struct adau1373 {
 	struct regmap *regmap;
 	struct adau1373_dai dais[3];
+	struct gpio_desc *gpio_sd;
 };
 
 #define ADAU1373_INPUT_MODE	0x00
@@ -1483,6 +1485,11 @@ static int adau1373_i2c_probe(struct i2c_client *client,
 	adau1373 = devm_kzalloc(&client->dev, sizeof(*adau1373), GFP_KERNEL);
 	if (!adau1373)
 		return -ENOMEM;
+
+	adau1373->gpio_sd = devm_gpiod_get_optional(&client->dev, "shutdown",
+						    GPIOD_OUT_HIGH);
+	if (IS_ERR(adau1373->gpio_sd))
+		return PTR_ERR(adau1373->gpio_sd);
 
 	adau1373->regmap = devm_regmap_init_i2c(client,
 		&adau1373_regmap_config);
