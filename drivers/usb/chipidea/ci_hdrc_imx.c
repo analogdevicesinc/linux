@@ -26,6 +26,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/busfreq-imx.h>
 #include <linux/pm_qos.h>
+#include <linux/usb/of.h>
 
 #include "ci.h"
 #include "ci_hdrc_imx.h"
@@ -138,32 +139,6 @@ static enum power_supply_property imx_usb_charger_power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,	/* VBUS online */
 	POWER_SUPPLY_PROP_CURRENT_MAX,	/* Maximum current in mA */
 };
-
-static inline bool is_imx6q_con(struct ci_hdrc_imx_data *imx_data)
-{
-	return imx_data->data == &imx6q_usb_data;
-}
-
-static inline bool is_imx6sl_con(struct ci_hdrc_imx_data *imx_data)
-{
-	return imx_data->data == &imx6sl_usb_data;
-}
-
-static inline bool is_imx6sx_con(struct ci_hdrc_imx_data *imx_data)
-{
-	return imx_data->data == &imx6sx_usb_data;
-}
-
-static inline bool is_imx7d_con(struct ci_hdrc_imx_data *imx_data)
-{
-	return imx_data->data == &imx7d_usb_data;
-}
-
-static inline bool imx_has_hsic_con(struct ci_hdrc_imx_data *imx_data)
-{
-	return is_imx6q_con(imx_data) ||  is_imx6sl_con(imx_data)
-		|| is_imx6sx_con(imx_data) || is_imx7d_con(imx_data);
-}
 
 /* Common functions shared by usbmisc drivers */
 
@@ -558,8 +533,7 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
 	if (pdata.flags & CI_HDRC_SUPPORTS_RUNTIME_PM)
 		data->supports_runtime_pm = true;
 
-	if (data->usbmisc_data && data->usbmisc_data->index > 1
-	    && (imx_has_hsic_con(data))) {
+	if (of_usb_get_phy_mode(dev->of_node) == USBPHY_INTERFACE_MODE_HSIC) {
 		pdata.flags |= CI_HDRC_IMX_IS_HSIC;
 		data->hsic_pad_regulator = devm_regulator_get(dev, "pad");
 		if (PTR_ERR(data->hsic_pad_regulator) == -EPROBE_DEFER) {
