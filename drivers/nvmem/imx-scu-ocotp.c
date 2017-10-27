@@ -26,10 +26,30 @@
 #include <linux/slab.h>
 #include <soc/imx8/sc/sci.h>
 
+enum ocotp_devtype {
+	IMX8QM,
+	IMX8QXP,
+};
+
+struct ocotp_devtype_data {
+	int devtype;
+	int nregs;
+};
+
 struct ocotp_priv {
 	struct device *dev;
-	unsigned int nregs;
+	struct ocotp_devtype_data *data;
 	sc_ipc_t nvmem_ipc;
+};
+
+static struct ocotp_devtype_data imx8qm_data = {
+	.devtype = IMX8QM,
+	.nregs = 800,
+};
+
+static struct ocotp_devtype_data imx8qxp_data = {
+	.devtype = IMX8QXP,
+	.nregs = 800,
 };
 
 static int imx_scu_ocotp_read(void *context, unsigned int offset,
@@ -47,8 +67,8 @@ static int imx_scu_ocotp_read(void *context, unsigned int offset,
 	num_bytes = round_up((offset % 4) + bytes, 4);
 	count = num_bytes >> 2;
 
-	if (count > (priv->nregs - index))
-		count = priv->nregs - index;
+	if (count > (priv->data->nregs - index))
+		count = priv->data->nregs - index;
 
 	p = kzalloc(num_bytes, GFP_KERNEL);
 	if (!p)
@@ -57,6 +77,14 @@ static int imx_scu_ocotp_read(void *context, unsigned int offset,
 	buf = p;
 
 	for (i = index; i < (index + count); i++) {
+		if (priv->data->devtype == IMX8QXP) {
+			if ((i > 271) && (i < 544)) {
+				*(u32 *)buf = 0;
+				buf += 4;
+				continue;
+			}
+		}
+
 		sciErr = sc_misc_otp_fuse_read(priv->nvmem_ipc, i, (u32 *)buf);
 		if (sciErr != SC_ERR_NONE) {
 			kfree(p);
@@ -83,7 +111,8 @@ static struct nvmem_config imx_scu_ocotp_nvmem_config = {
 };
 
 static const struct of_device_id imx_scu_ocotp_dt_ids[] = {
-	{ .compatible = "fsl,imx8qm-ocotp", (void *)800 },
+	{ .compatible = "fsl,imx8qm-ocotp", (void *)&imx8qm_data },
+	{ .compatible = "fsl,imx8qxp-ocotp", (void *)&imx8qxp_data },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, imx_scu_ocotp_dt_ids);
@@ -115,9 +144,9 @@ static int imx_scu_ocotp_probe(struct platform_device *pdev)
 	};
 
 	of_id = of_match_device(imx_scu_ocotp_dt_ids, dev);
-	priv->nregs = (unsigned long)of_id->data;
+	priv->data = (struct ocotp_devtype_data *)of_id->data;
 	priv->dev = dev;
-	imx_scu_ocotp_nvmem_config.size = 4 * priv->nregs;
+	imx_scu_ocotp_nvmem_config.size = 4 * priv->data->nregs;
 	imx_scu_ocotp_nvmem_config.dev = dev;
 	imx_scu_ocotp_nvmem_config.priv = priv;
 	nvmem = nvmem_register(&imx_scu_ocotp_nvmem_config);

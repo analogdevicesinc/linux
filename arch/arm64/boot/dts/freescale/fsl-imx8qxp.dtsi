@@ -2120,7 +2120,7 @@
 	ocotp: ocotp {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "fsl,imx8qm-ocotp", "syscon";
+		compatible = "fsl,imx8qxp-ocotp", "syscon";
 	};
 
 	pcieb: pcie@0x5f010000 {
