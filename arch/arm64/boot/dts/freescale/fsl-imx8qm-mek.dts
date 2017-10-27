@@ -467,7 +467,7 @@
 &lpuart2 { /* Dbg console */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart2>;
-	status = "okay";
+	status = "disabled";
 };
 
 &lpuart3 { /* MKbus */
