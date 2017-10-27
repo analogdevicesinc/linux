@@ -22,6 +22,11 @@
 
 #define FSL_SIP_SRTC			0xC2000002
 #define FSL_SIP_SRTC_SET_TIME		0x00
+#define FSL_SIP_SRTC_START_WDOG		0x01
+#define FSL_SIP_SRTC_STOP_WDOG		0x02
+#define FSL_SIP_SRTC_SET_WDOG_ACT	0x03
+#define FSL_SIP_SRTC_PING_WDOG		0x04
+#define FSL_SIP_SRTC_SET_TIMEOUT_WDOG	0x05
 
 #define IMX8MQ_PD_MIPI		0
 #define IMX8MQ_PD_PCIE1		1
@@ -34,5 +39,10 @@
 #define IMX8MQ_PD_MIPI_CSI1	8
 #define IMX8MQ_PD_MIPI_CSI2	9
 #define IMX8MQ_PD_PCIE2		10
+
+#define SC_TIMER_WDOG_ACTION_PARTITION      0   /*!< Reset partition */
+#define SC_TIMER_WDOG_ACTION_WARM           1   /*!< Warm reset system */
+#define SC_TIMER_WDOG_ACTION_COLD           2   /*!< Cold reset system */
+#define SC_TIMER_WDOG_ACTION_BOARD          3   /*!< Reset board */
 
 #endif

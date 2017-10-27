@@ -596,6 +596,17 @@ config IMX7ULP_WDT
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx7ulp_wdt.
 
+config IMX8_WDT
+	tristate "IMX8 Watchdog"
+	depends on OF
+	select WATCHDOG_CORE
+	help
+	  This is the driver for the watchdog on i.mx8QM/QXP
+	  and later processors, this virtual watch dog call
+	  the interfaces which provided by SCFW.
+	  If you have one of these processors and wish to have
+	  watchdog support enabled, say Y, otherwise say N.
+
 config UX500_WATCHDOG
 	tristate "ST-Ericsson Ux500 watchdog"
 	depends on MFD_DB8500_PRCMU

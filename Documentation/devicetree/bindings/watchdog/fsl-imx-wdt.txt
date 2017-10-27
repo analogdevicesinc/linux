@@ -5,6 +5,9 @@ Required properties:
 - reg : Should contain WDT registers location and length
 - interrupts : Should contain WDT interrupt
 
+For imx8-wdt, it's a software watchdog which implemented by timer tick
+in SCFW. In this case, only compatible name required.
+
 Optional properties:
 - big-endian: If present the watchdog device's registers are implemented
   in big endian mode, otherwise in native mode(same with CPU), for more
