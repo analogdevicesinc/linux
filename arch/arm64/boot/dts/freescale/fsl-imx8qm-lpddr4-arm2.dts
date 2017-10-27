@@ -263,6 +263,12 @@
 			>;
 		};
 
+		pinctrl_mipi_dsi_0_1_en: mipi_dsi_0_1_en {
+			fsl,pins = <
+				SC_P_LVDS0_I2C0_SDA_LSIO_GPIO1_IO07		0x00000021
+			>;
+		};
+
 		pinctrl_lpi2c0: lpi2c0grp {
 			fsl,pins = <
 				SC_P_HDMI_TX0_TS_SCL_DMA_I2C0_SCL   0xc600004c
