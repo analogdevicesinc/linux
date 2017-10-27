@@ -555,6 +555,7 @@ EXPORT_SYMBOL(iio_read_mount_matrix);
 static ssize_t __iio_format_value(char *buf, size_t len, unsigned int type,
 				  int size, const int *vals)
 {
+	s64 stmp;
 	unsigned long long tmp;
 	int tmp0, tmp1;
 	bool scale_db = false;
