@@ -2207,6 +2207,10 @@
 			status = "disabled";
 		};
 	};
+
+	wdog: wdog {
+		compatible = "fsl,imx8-wdt";
+	};
 };
 
 &A35_0 {
