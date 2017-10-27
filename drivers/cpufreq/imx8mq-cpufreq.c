@@ -149,7 +149,7 @@ static struct cpufreq_driver imx8mq_cpufreq_driver = {
 static int imx8mq_cpufreq_probe(struct platform_device *pdev)
 {
 	struct device_node *np;
-	int ret;
+	int ret, num;
 
 	cpu_dev = get_cpu_device(0);
 	if (!cpu_dev) {
@@ -178,10 +178,18 @@ static int imx8mq_cpufreq_probe(struct platform_device *pdev)
 
 	dc_reg = regulator_get_optional(cpu_dev, "dc");
 
-	ret = dev_pm_opp_of_add_table(cpu_dev);
-	if (ret < 0) {
-		dev_err(cpu_dev, "failed to init OPP table: %d\n", ret);
-		goto put_clk;
+	/*
+	 * We expect an OPP table supplied by platform.
+	 * Just, incase the platform did not supply the OPP
+	 * table, it will try to get it.
+	 */
+	num = dev_pm_opp_get_opp_count(cpu_dev);
+	if (num < 0) {
+		ret = dev_pm_opp_of_add_table(cpu_dev);
+		if (ret < 0) {
+			dev_err(cpu_dev, "failed to init OPP table: %d\n", ret);
+			goto put_clk;
+		}
 	}
 
 	ret = dev_pm_opp_init_cpufreq_table(cpu_dev, &freq_table);
