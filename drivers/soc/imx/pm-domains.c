@@ -18,6 +18,9 @@
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/irq.h>
+#include <linux/irqchip.h>
+#include <linux/irqchip/arm-gic.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
@@ -39,6 +42,11 @@ static sc_rsrc_t early_power_on_rsrc[] = {
 };
 static sc_rsrc_t rsrc_debug_console;
 
+#define IMX8_WU_MAX_IRQS	512
+static sc_rsrc_t irq2rsrc[IMX8_WU_MAX_IRQS];
+static sc_rsrc_t wakeup_rsrc_id[IMX8_WU_MAX_IRQS / 32];
+static DEFINE_SPINLOCK(imx8_wu_lock);
+
 static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 {
 	struct imx8_pm_domain *pd;
@@ -52,6 +60,11 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 	/* keep uart console power on for no_console_suspend */
 	if (pd->rsrc_id == rsrc_debug_console &&
 		!console_suspend_enabled && !power_on)
+		return 0;
+
+	/* keep resource power on if it is a wakeup source */
+	if (!power_on && ((1 << pd->rsrc_id % 32) &
+		wakeup_rsrc_id[pd->rsrc_id / 32]))
 		return 0;
 
 	sci_err = sc_pm_set_resource_power_mode(pm_ipc_handle, pd->rsrc_id,
@@ -245,6 +258,7 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 	for_each_child_of_node(parent, np) {
 		struct imx8_pm_domain *imx8_pd;
 		sc_rsrc_t rsrc_id;
+		u32 wakeup_irq;
 
 		if (!of_device_is_available(np))
 			continue;
@@ -274,6 +288,9 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 			}
 			if (of_property_read_bool(np, "debug_console"))
 				rsrc_debug_console = imx8_pd->rsrc_id;
+			if (!of_property_read_u32(np, "wakeup-irq",
+				&wakeup_irq))
+				irq2rsrc[wakeup_irq] = imx8_pd->rsrc_id;
 		}
 		INIT_LIST_HEAD(&imx8_pd->clks);
 		pm_genpd_init(&imx8_pd->pd, NULL, true);
@@ -345,3 +362,106 @@ static int __init imx8_init_pm_domains(void)
 }
 
 early_initcall(imx8_init_pm_domains);
+
+static int imx8_wu_irq_set_wake(struct irq_data *d, unsigned int on)
+{
+	unsigned int idx = irq2rsrc[d->hwirq] / 32;
+	u32 mask  = 1 << irq2rsrc[d->hwirq] % 32;
+
+	spin_lock(&imx8_wu_lock);
+	wakeup_rsrc_id[idx] = on ? wakeup_rsrc_id[idx] | mask :
+				wakeup_rsrc_id[idx] & ~mask;
+	spin_unlock(&imx8_wu_lock);
+
+	return 0;
+}
+
+static struct irq_chip imx8_wu_chip = {
+	.name			= "IMX8-WU",
+	.irq_eoi		= irq_chip_eoi_parent,
+	.irq_mask		= irq_chip_mask_parent,
+	.irq_unmask		= irq_chip_unmask_parent,
+	.irq_retrigger		= irq_chip_retrigger_hierarchy,
+	.irq_set_wake		= imx8_wu_irq_set_wake,
+	.irq_set_affinity	= irq_chip_set_affinity_parent,
+};
+
+static int imx8_wu_domain_translate(struct irq_domain *d,
+				    struct irq_fwspec *fwspec,
+				    unsigned long *hwirq,
+				    unsigned int *type)
+{
+	if (is_of_node(fwspec->fwnode)) {
+		if (fwspec->param_count != 3)
+			return -EINVAL;
+		/* No PPI should point to this domain */
+		if (fwspec->param[0] != 0)
+			return -EINVAL;
+		*hwirq = fwspec->param[1];
+		*type = fwspec->param[2];
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static int imx8_wu_domain_alloc(struct irq_domain *domain,
+				  unsigned int irq,
+				  unsigned int nr_irqs, void *data)
+{
+	struct irq_fwspec *fwspec = data;
+	struct irq_fwspec parent_fwspec;
+	irq_hw_number_t hwirq;
+	int i;
+
+	if (fwspec->param_count != 3)
+		return -EINVAL;	/* Not GIC compliant */
+	if (fwspec->param[0] != 0)
+		return -EINVAL;	/* No PPI should point to this domain */
+
+	hwirq = fwspec->param[1];
+	if (hwirq >= IMX8_WU_MAX_IRQS)
+		return -EINVAL;	/* Can't deal with this */
+
+	for (i = 0; i < nr_irqs; i++)
+		irq_domain_set_hwirq_and_chip(domain, irq + i, hwirq + i,
+					      &imx8_wu_chip, NULL);
+
+	parent_fwspec = *fwspec;
+	parent_fwspec.fwnode = domain->parent->fwnode;
+
+	return irq_domain_alloc_irqs_parent(domain, irq, nr_irqs,
+					    &parent_fwspec);
+}
+
+static const struct irq_domain_ops imx8_wu_domain_ops = {
+	.translate = imx8_wu_domain_translate,
+	.alloc	= imx8_wu_domain_alloc,
+	.free	= irq_domain_free_irqs_common,
+};
+
+static int __init imx8_wu_init(struct device_node *node,
+			       struct device_node *parent)
+{
+	struct irq_domain *parent_domain, *domain;
+
+	if (!parent) {
+		pr_err("%s: no parent, giving up\n", node->full_name);
+		return -ENODEV;
+	}
+
+	parent_domain = irq_find_host(parent);
+	if (!parent_domain) {
+		pr_err("%s: unable to obtain parent domain\n", node->full_name);
+		return -ENXIO;
+	}
+
+	domain = irq_domain_add_hierarchy(parent_domain, 0, IMX8_WU_MAX_IRQS,
+					  node, &imx8_wu_domain_ops,
+					  NULL);
+	if (!domain)
+		return -ENOMEM;
+
+	return 0;
+}
+IRQCHIP_DECLARE(imx8_wakeup_unit, "fsl,imx8-wu", imx8_wu_init);
