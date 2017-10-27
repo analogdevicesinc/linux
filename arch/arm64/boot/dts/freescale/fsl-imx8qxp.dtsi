@@ -92,6 +92,7 @@
 		interrupt-controller;
 		interrupts = <GIC_PPI 9
 			(GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_HIGH)>;
+		interrupt-parent = <&gic>;
 	};
 
 	mu: mu@5d1b0000 {
@@ -130,6 +131,7 @@
 			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Virtual */
 			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>; /* Hypervisor */
 		clock-frequency = <8000000>;
+		interrupt-parent = <&gic>;
 	};
 
 	imx8qx-pm {
@@ -509,16 +511,19 @@
 				reg = <SC_R_CAN_0>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				wakeup-irq = <235>;
 			};
 			pd_dma_flexcan1: PD_DMA_CAN_1 {
 				reg = <SC_R_CAN_1>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				wakeup-irq = <236>;
 			};
 			pd_dma_flexcan2: PD_DMA_CAN_2 {
 				reg = <SC_R_CAN_2>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				wakeup-irq = <237>;
 			};
 			pd_dma_ftm0: PD_DMA_FTM_0 {
 				reg = <SC_R_FTM_0>;
@@ -559,21 +564,25 @@
 				reg = <SC_R_UART_0>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				wakeup-irq = <225>;
 			};
 			pd_dma_lpuart1: PD_DMA_UART1 {
 				reg = <SC_R_UART_1>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				wakeup-irq = <226>;
 			};
 			pd_dma_lpuart2: PD_DMA_UART2 {
 				reg = <SC_R_UART_2>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				wakeup-irq = <227>;
 			};
 			pd_dma_lpuart3: PD_DMA_UART3 {
 				reg = <SC_R_UART_3>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				wakeup-irq = <228>;
 			};
 			pd_dma_lpspi0: PD_DMA_SPI_0 {
 				reg = <SC_R_SPI_0>;
@@ -1468,6 +1477,13 @@
 		status = "disabled";
 	};
 
+	wu: wu {
+		compatible = "fsl,imx8-wu";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&gic>;
+	};
+
 	gpio0: gpio@5d080000 {
 		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
 		reg = <0x0 0x5d080000 0x0 0x10000>;
@@ -1593,7 +1609,7 @@
 		compatible = "fsl,imx8qm-lpuart";
 		reg = <0x0 0x5a060000 0x0 0x1000>;
 		interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gic>;
+		interrupt-parent = <&wu>;
 		clocks = <&clk IMX8QXP_UART0_CLK>,
 			 <&clk IMX8QXP_UART0_IPG_CLK>;
 		clock-names = "per", "ipg";
@@ -1607,7 +1623,7 @@
 		compatible = "fsl,imx8qm-lpuart";
 		reg = <0x0 0x5a070000 0x0 0x1000>;
 		interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gic>;
+		interrupt-parent = <&wu>;
 		clocks = <&clk IMX8QXP_UART1_CLK>,
 			<&clk IMX8QXP_UART1_IPG_CLK>;
 		clock-names = "per", "ipg";
@@ -1624,7 +1640,7 @@
 		compatible = "fsl,imx8qm-lpuart";
 		reg = <0x0 0x5a080000 0x0 0x1000>;
 		interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gic>;
+		interrupt-parent = <&wu>;
 		clocks = <&clk IMX8QXP_UART2_CLK>,
 			<&clk IMX8QXP_UART2_IPG_CLK>;
 		clock-names = "per", "ipg";
@@ -1641,7 +1657,7 @@
 		compatible = "fsl,imx8qm-lpuart";
 		reg = <0x0 0x5a090000 0x0 0x1000>;
 		interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gic>;
+		interrupt-parent = <&wu>;
 		clocks = <&clk IMX8QXP_UART3_CLK>,
 			<&clk IMX8QXP_UART3_IPG_CLK>;
 		clock-names = "per", "ipg";
