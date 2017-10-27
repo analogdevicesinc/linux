@@ -577,7 +577,9 @@ static int pfe_eth_get_settings(struct net_device *ndev,
 	if (!phydev)
 		return -ENODEV;
 
-	return phy_ethtool_ksettings_get(phydev, cmd);
+	phy_ethtool_ksettings_get(phydev, cmd);
+
+	return 0;
 }
 
 /*
