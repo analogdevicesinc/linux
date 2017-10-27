@@ -6,12 +6,14 @@
  * Author: Lars-Peter Clausen <lars@metafoo.de>
  */
 
+#include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -1474,11 +1476,17 @@ static const struct snd_soc_component_driver adau1373_component_driver = {
 static int adau1373_i2c_probe(struct i2c_client *client)
 {
 	struct adau1373 *adau1373;
+	struct gpio_desc *gpio;
 	int ret;
 
 	adau1373 = devm_kzalloc(&client->dev, sizeof(*adau1373), GFP_KERNEL);
 	if (!adau1373)
 		return -ENOMEM;
+
+	gpio = devm_gpiod_get_optional(&client->dev, "shutdown",
+				       GPIOD_OUT_HIGH);
+	if (IS_ERR(gpio))
+		return PTR_ERR(gpio);
 
 	adau1373->regmap = devm_regmap_init_i2c(client,
 		&adau1373_regmap_config);
