@@ -1,0 +1,197 @@
+/*
+ * dts file for FMCOMMS2/3 AD9361 on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2016-2017 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+
+&i2c1 {
+	i2cswitch@75 {
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* HPC0_IIC */
+			ad7291@2f {
+				compatible = "adi,ad7291";
+				reg = <0x2f>;
+			};
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x2>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0 0xffffffff>;
+
+		rx_dma: dma@9c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x0 0x9c400000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 109 0>;
+			clocks = <&clkc 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+					adi,length-width = <24>;
+				};
+			};
+		};
+
+		tx_dma: dma@9c420000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x0 0x9c420000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 108 0>;
+			clocks = <&clkc 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <128>;
+					adi,destination-bus-type = <2>;
+					adi,length-width = <24>;
+					adi,cyclic;
+				};
+			};
+		};
+
+		axi_ad9144_core: axi-ad9144-hpc@84a04000{
+			compatible = "adi,axi-ad9144-1.0";
+			reg = <0x0 0x84a04000 0x10000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			spibus-connected = <&dac0_ad9144>;
+			adi,axi-pl-fifo-enable;
+		};
+
+		axi_ad9144_jesd: axi-jesd204-tx@84a90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x0 0x84a90000 0x4000>;
+
+			interrupts = <0 54 0>;
+
+			clocks = <&clkc 16>, <&axi_ad9144_adxcvr 1>, <&axi_ad9144_adxcvr 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <16>;
+			adi,bits-per-sample = <16>;
+			adi,converters-per-device = <2>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_dac_lane_clk";
+		};
+
+		axi_ad9680_core: axi-ad9680-hpc@84a10000 {
+			compatible = "adi,axi-ad9680-1.0";
+			reg = <0x0 0x84a10000 0x10000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_ad9680>;
+		};
+
+		axi_ad9680_jesd: axi-jesd204-rx@84aa0000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x0 0x84aa0000 0x4000>;
+
+			interrupts = <0 55 0>;
+
+			clocks = <&clkc 16>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_adc_lane_clk";
+		};
+
+		axi_ad9680_adxcvr: axi-ad9680-adxcvr@84a50000{
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x0 0x84A50000 0x1000>;
+
+			clocks = <&clk0_ad9523 4>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <0>;
+			adi,out-clk-select = <4>;
+			adi,use-lpm-enable;
+			adi,use-cpll-enable;
+		};
+
+		axi_ad9144_adxcvr: axi-ad9144-adxcvr@84a60000{
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x0 0x84A60000 0x1000>;
+
+			clocks = <&clk0_ad9523 9>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "dac_gt_clk", "tx_out_clk";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <4>;
+			adi,use-lpm-enable;
+		};
+	};
+};
+
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-daq2.dtsi"
+
+&adc0_ad9680 {
+	powerdown-gpios = <&gpio 120 0>; /* 42 + 78 */
+	fastdetect-a-gpios = <&gpio 113 0>; /* 35 */
+	fastdetect-b-gpios = <&gpio 114 0>; /* 36 */
+};
+
+&dac0_ad9144 {
+	txen-gpios = <&gpio 119 0>; /* 41 */
+	reset-gpios = <&gpio 118 0>; /* 40 */
+	irq-gpios = <&gpio 112 0>; /* 34 */
+};
+
+&clk0_ad9523 {
+	sync-gpios = <&gpio 116 0>; /* 38 */
+	status0-gpios = <&gpio 110 0>; /* 32 */
+	status1-gpios = <&gpio 111 0>; /* 33 */
+};
