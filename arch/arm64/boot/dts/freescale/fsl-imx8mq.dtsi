@@ -82,6 +82,21 @@
 		interrupt-parent = <&gic>;
 	};
 
+	busfreq { /* BUSFREQ */
+		compatible = "fsl,imx_busfreq";
+		clocks = <&clk IMX8MQ_DRAM_PLL_OUT>, <&clk IMX8MQ_CLK_DRAM_ALT_SRC>,
+			 <&clk IMX8MQ_CLK_DRAM_APB_SRC>, <&clk IMX8MQ_CLK_DRAM_APB_PRE_DIV>,
+		         <&clk IMX8MQ_CLK_DRAM_CORE>, <&clk IMX8MQ_CLK_DRAM_ALT_ROOT>,
+			 <&clk IMX8MQ_SYS1_PLL_40M>, <&clk IMX8MQ_SYS1_PLL_400M>,
+			 <&clk IMX8MQ_SYS1_PLL_100M>, <&clk IMX8MQ_SYS1_PLL_800M>;
+		clock-names = "dram_pll", "dram_alt_src", "dram_apb_src", "dram_apb_pre_div",
+			      "dram_core", "dram_alt_root", "sys1_pll_40m", "sys1_pll_400m",
+			      "sys1_pll_100m", "sys1_pll_800m";
+		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-name = "irq_busfreq_0", "irq_busfreq_1", "irq_busfreq_2", "irq_busfreq_3";
+	};
+
 	clocks {
 		#address-cells = <1>;
 		#size-cells = <0>;
