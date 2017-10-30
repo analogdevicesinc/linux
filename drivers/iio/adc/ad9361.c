@@ -2604,6 +2604,7 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	unsigned long clktf, clkrf;
 	int txnco_word, rxnco_word, txnco_freq, ret;
 	u8 __rx_phase = 0, reg_inv_bits, val, decim;
+	bool phase_inversion_en;
 
 	/*
 	 * Find NCO frequency that matches this equation:
@@ -2681,9 +2682,10 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 			return ret;
 	}
 
-	if (phy->pdata->rx1rx2_phase_inversion_en ||
-		(phy->pdata->port_ctrl.pp_conf[1] & INVERT_RX2)) {
+	phase_inversion_en = phy->pdata->rx1rx2_phase_inversion_en ||
+			  (phy->pdata->port_ctrl.pp_conf[1] & INVERT_RX2);
 
+	if (phase_inversion_en) {
 		ad9361_spi_writef(spi, REG_PARALLEL_PORT_CONF_2, INVERT_RX2, 0);
 
 		reg_inv_bits = ad9361_spi_read(spi, REG_INVERT_BITS);
@@ -2731,8 +2733,7 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	if (val != (TX1_LO_CONV | TX1_SSB_CONV))
 		ret = ad9361_tx_quad_phase_search(phy, rxnco_word, decim);
 
-	if (phy->pdata->rx1rx2_phase_inversion_en ||
-		(phy->pdata->port_ctrl.pp_conf[1] & INVERT_RX2)) {
+	if (phase_inversion_en) {
 		ad9361_spi_writef(spi, REG_PARALLEL_PORT_CONF_2, INVERT_RX2, 1);
 		ad9361_spi_write(spi, REG_INVERT_BITS, reg_inv_bits);
 	}
@@ -5976,7 +5977,7 @@ static int ad9361_rfpll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	ret = ad9361_calc_rfpll_divder(phy, clk_priv, ad9361_from_clk(rate), parent_rate,
 				&integer, &fract, &vco_div, &vco);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	switch (clk_priv->source) {
@@ -8586,7 +8587,7 @@ static struct gain_table_info * ad9361_parse_gt(struct ad9361_rf_phy *phy,
 {
 	struct gain_table_info *table;
 	bool header_found;
-	int i, ret, table_num = 0;
+	int i = 0, ret, table_num = 0;
 	char *line, *ptr = data;
 	u8 *p;
 
