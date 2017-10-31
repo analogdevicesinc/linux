@@ -31,6 +31,7 @@
 #include "mxc-isi-core.h"
 #include "mxc-isi-hw.h"
 #include "mxc-media-dev.h"
+#include "max9286.h"
 
 struct mxc_isi_fmt mxc_isi_out_formats[] = {
 	{
@@ -903,6 +904,46 @@ static int mxc_isi_cap_s_selection(struct file *file, void *fh,
 	return 0;
 }
 
+static struct v4l2_subdev *mxc_isi_get_subdev_by_name(struct v4l2_device *v4l2,
+			const char *name)
+{
+	struct v4l2_subdev *sd;
+	bool found = false;
+
+	list_for_each_entry(sd, &v4l2->subdevs, list) {
+		if (strstr(sd->name, name) != NULL) {
+			found = true;
+			break;
+		}
+	}
+
+	return (found) ? sd : NULL;
+}
+
+static int mxc_isi_cap_g_chip_ident(struct file *file, void *fb,
+			struct v4l2_dbg_chip_ident *chip)
+{
+	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
+	struct video_device *vdev = video_devdata(file);
+	struct sensor_data *max9286;
+	struct v4l2_subdev *sd;
+
+	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	if (sd == NULL) {
+		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find sub device\n");
+		return -ENODEV;
+	}
+
+	max9286 = container_of(sd, struct sensor_data, subdev);
+	if (max9286->sensor_is_there & (0x1 << vdev->num))
+		sprintf(chip->match.name, "max9286_mipi%d\n", vdev->num);
+	else
+		return -ENODEV;
+
+	return 0;
+}
+
 static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 	.vidioc_querycap		= mxc_isi_cap_querycap,
 
@@ -924,6 +965,7 @@ static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 
 	.vidioc_g_selection		= mxc_isi_cap_g_selection,
 	.vidioc_s_selection		= mxc_isi_cap_s_selection,
+	.vidioc_g_chip_ident	= mxc_isi_cap_g_chip_ident,
 };
 
 /* Capture subdev media entity operations */
