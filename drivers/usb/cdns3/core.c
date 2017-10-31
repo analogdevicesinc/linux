@@ -117,9 +117,6 @@ static void cdns3_usb_phy_init(void __iomem *regs)
 	writel(0x01e0, regs + TB_ADDR_TX_RCVDET_ST_TMR);
 	writel(0x0090, regs + TB_ADDR_XCVR_DIAG_LANE_FCM_EN_MGN_TMR);
 
-	/* Force B Session Valid as 1 */
-	writel(0x0060, regs + 0x380a4);
-
 	udelay(10);
 
 	pr_debug("end of %s\n", __func__);
@@ -384,10 +381,16 @@ static int cdsn3_do_role_switch(struct cdns3 *cdns, enum cdns3_roles role)
 
 	current_role = cdns->role;
 	cdns3_role_stop(cdns);
-	if (role == CDNS3_ROLE_END)
+	if (role == CDNS3_ROLE_END) {
+		/* Force B Session Valid as 0 */
+		writel(0x0040, cdns->phy_regs + 0x380a4);
 		return 0;
+	}
 
 	cdns_set_role(cdns, role);
+	if (role == CDNS3_ROLE_GADGET || role == CDNS3_ROLE_HOST)
+		/* Force B Session Valid as 1 */
+		writel(0x0060, cdns->phy_regs + 0x380a4);
 	ret = cdns3_role_start(cdns, role);
 	if (ret) {
 		/* Back to current role */
