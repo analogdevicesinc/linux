@@ -894,3 +894,47 @@
 	reg = <0x0 0xb8100000 0x0 0x10000>;
 	status = "okay";
 };
+
+&ldb1_phy {
+	status = "okay";
+};
+
+&ldb1 {
+	status = "okay";
+
+	lvds-channel@0 {
+		fsl,data-mapping = "jeida";
+		fsl,data-width = <24>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds0_out: endpoint {
+				remote-endpoint = <&it6263_0_in>;
+			};
+		};
+	};
+};
+
+&i2c1_lvds0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lvds0_lpi2c1>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	lvds-to-hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+
+		port {
+			it6263_0_in: endpoint {
+				clock-lanes = <3>;
+				data-lanes = <0 1 2 4>;
+				remote-endpoint = <&lvds0_out>;
+			};
+		};
+	};
+};
