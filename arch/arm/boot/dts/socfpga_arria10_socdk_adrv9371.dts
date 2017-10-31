@@ -173,7 +173,6 @@
 					adi,source-bus-width = <128>;
 					adi,destination-bus-width = <128>;
 					adi,type = <1>;
-					adi,cyclic;
 				};
 			};
 
@@ -223,6 +222,7 @@
 				clocks = <&trx0_ad9371 2>;
 				clock-names = "sampl_clk";
 				spibus-connected = <&trx0_ad9371>;
+				adi,axi-pl-fifo-enable;
 			};
 
 			xcvr_rx_os_core: axi-ad9371-rx-obs-hpc@58000 {
