@@ -2950,6 +2950,7 @@
 				"phy_pclk0", "phy_pclk1";
 		hsio = <&hsio>;
 		power-domains = <&pd_sata0>;
+		iommus = <&smmu 0x13 0x7f80>;
 		status = "disabled";
 	};
 
