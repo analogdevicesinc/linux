@@ -1340,8 +1340,8 @@ static int mxc_isi_register_cap_device(struct mxc_isi_dev *mxc_isi,
 	int ret = -ENOMEM;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
-	snprintf(vdev->name, sizeof(vdev->name), "mxc_isi.%d.capture", mxc_isi->id);
 	memset(vdev, 0, sizeof(*vdev));
+	snprintf(vdev->name, sizeof(vdev->name), "mxc_isi.%d.capture", mxc_isi->id);
 
 	vdev->fops	= &mxc_isi_capture_fops;
 	vdev->ioctl_ops	= &mxc_isi_capture_ioctl_ops;
