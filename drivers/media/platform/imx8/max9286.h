@@ -16,6 +16,10 @@
 #define MIPI_CSI2_SENS_VC3_PAD_SOURCE	3
 #define MIPI_CSI2_SENS_VCX_PADS_NUM		4
 
+#define MAX_FPS		30
+#define MIN_FPS		15
+#define DEFAULT_FPS		30
+
 /*!
  * Maintains the information on the current state of the sesor.
  */

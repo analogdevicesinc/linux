@@ -944,6 +944,36 @@ static int mxc_isi_cap_g_chip_ident(struct file *file, void *fb,
 	return 0;
 }
 
+static int mxc_isi_cap_g_parm(struct file *file, void *fh,
+			struct v4l2_streamparm *a)
+{
+	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
+	struct v4l2_subdev *sd;
+
+	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	if (sd == NULL) {
+		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find subdev\n");
+		return -ENODEV;
+	}
+	return v4l2_subdev_call(sd, video, g_parm, a);
+}
+
+static int mxc_isi_cap_s_parm(struct file *file, void *fh,
+			struct v4l2_streamparm *a)
+{
+	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
+	struct v4l2_subdev *sd;
+
+	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	if (sd == NULL) {
+		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find subdev\n");
+		return -ENODEV;
+	}
+	return v4l2_subdev_call(sd, video, s_parm, a);
+}
+
 static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 	.vidioc_querycap		= mxc_isi_cap_querycap,
 
@@ -966,6 +996,9 @@ static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 	.vidioc_g_selection		= mxc_isi_cap_g_selection,
 	.vidioc_s_selection		= mxc_isi_cap_s_selection,
 	.vidioc_g_chip_ident	= mxc_isi_cap_g_chip_ident,
+
+	.vidioc_g_parm			= mxc_isi_cap_g_parm,
+	.vidioc_s_parm			= mxc_isi_cap_s_parm,
 };
 
 /* Capture subdev media entity operations */

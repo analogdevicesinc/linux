@@ -49,6 +49,11 @@ struct reg_value {
 	unsigned int delay_ms;
 };
 
+enum ov10635_frame_rate {
+	OV10635_15_FPS,
+	OV10635_30_FPS,
+};
+
 static struct reg_value ov10635_init_data[] = {
 	{ 0x0103, 0x01, 0 },
 	{ 0x300c, 0x61, 0 },
@@ -2467,6 +2472,7 @@ static int max9286_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 	switch (a->type) {
 	/* This is the only case currently handled. */
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		memset(a, 0, sizeof(*a));
 		a->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		cparm->capability = max9286_data->streamcap.capability;
@@ -2504,11 +2510,53 @@ static int max9286_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
  */
 static int max9286_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 {
+	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
+	struct v4l2_fract *timeperframe = &a->parm.capture.timeperframe;
+	enum ov10635_frame_rate frame_rate;
+	u32 tgt_fps;
 	int ret = 0;
 
 	switch (a->type) {
 	/* This is the only case currently handled. */
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		/* Check that the new frame rate is allowed. */
+		if ((timeperframe->numerator == 0) ||
+		    (timeperframe->denominator == 0)) {
+			timeperframe->denominator = DEFAULT_FPS;
+			timeperframe->numerator = 1;
+		}
+
+		tgt_fps = timeperframe->denominator /
+			  timeperframe->numerator;
+
+		if (tgt_fps > MAX_FPS) {
+			timeperframe->denominator = MAX_FPS;
+			timeperframe->numerator = 1;
+		} else if (tgt_fps < MIN_FPS) {
+			timeperframe->denominator = MIN_FPS;
+			timeperframe->numerator = 1;
+		}
+
+		/* Actual frame rate we use */
+		tgt_fps = timeperframe->denominator /
+			  timeperframe->numerator;
+
+		if (tgt_fps == 15)
+			frame_rate = OV10635_15_FPS;
+		else if (tgt_fps == 30)
+			frame_rate = OV10635_30_FPS;
+		else {
+			pr_err(" The camera frame rate is not supported!\n");
+			return -EINVAL;
+		}
+
+		 /* TODO Reserved to extension */
+
+		max9286_data->streamcap.timeperframe = *timeperframe;
+		max9286_data->streamcap.capturemode = a->parm.capture.capturemode;
+
+
 		break;
 
 	/* These are all the possible cases. */
