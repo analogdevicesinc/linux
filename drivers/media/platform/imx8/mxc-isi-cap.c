@@ -137,8 +137,8 @@ struct mxc_isi_fmt *mxc_isi_get_format(unsigned int index)
 /**
  * mxc_isi_find_format - lookup mxc_isi color format by fourcc or media bus format
  */
-struct mxc_isi_fmt *mxc_isi_find_format(const u32 *pixelformat, const u32 *mbus_code,
-				  unsigned int mask, int index)
+struct mxc_isi_fmt *mxc_isi_find_format(const u32 *pixelformat,
+						const u32 *mbus_code, int index)
 {
 	struct mxc_isi_fmt *fmt, *def_fmt = NULL;
 	unsigned int i;
@@ -149,8 +149,6 @@ struct mxc_isi_fmt *mxc_isi_find_format(const u32 *pixelformat, const u32 *mbus_
 
 	for (i = 0; i < ARRAY_SIZE(mxc_isi_out_formats); i++) {
 		fmt = &mxc_isi_out_formats[i];
-		if (!(fmt->flags & mask))
-			continue;
 		if (pixelformat && fmt->fourcc == *pixelformat)
 			return fmt;
 		if (mbus_code && fmt->mbus_code == *mbus_code)
@@ -974,6 +972,89 @@ static int mxc_isi_cap_s_parm(struct file *file, void *fh,
 	return v4l2_subdev_call(sd, video, s_parm, a);
 }
 
+static int mxc_isi_cap_enum_framesizes(struct file *file, void *priv,
+					 struct v4l2_frmsizeenum *fsize)
+{
+	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
+	struct v4l2_subdev *sd;
+	struct mxc_isi_fmt *fmt;
+	struct v4l2_subdev_frame_size_enum fse = {
+		.index = fsize->index,
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+	};
+	int ret;
+
+	fmt = mxc_isi_find_format(&fsize->pixel_format, NULL, 0);
+	if (!fmt || fmt->fourcc != fsize->pixel_format)
+		return -EINVAL;
+	fse.code = fmt->mbus_code;
+
+	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	if (sd == NULL) {
+		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find subdev\n");
+		return -ENODEV;
+	}
+
+	ret = v4l2_subdev_call(sd, pad, enum_frame_size, NULL, &fse);
+	if (ret)
+		return ret;
+
+	if (fse.min_width == fse.max_width &&
+	    fse.min_height == fse.max_height) {
+		fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+		fsize->discrete.width = fse.min_width;
+		fsize->discrete.height = fse.min_height;
+		return 0;
+	}
+
+	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
+	fsize->stepwise.min_width = fse.min_width;
+	fsize->stepwise.max_width = fse.max_width;
+	fsize->stepwise.min_height = fse.min_height;
+	fsize->stepwise.max_height = fse.max_height;
+	fsize->stepwise.step_width = 1;
+	fsize->stepwise.step_height = 1;
+
+	return 0;
+}
+
+static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
+					  struct v4l2_frmivalenum *interval)
+{
+	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
+	struct v4l2_subdev *sd;
+	struct mxc_isi_fmt *fmt;
+	struct v4l2_subdev_frame_interval_enum fie = {
+		.index = interval->index,
+		.width = interval->width,
+		.height = interval->height,
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+	};
+	int ret;
+
+	fmt = mxc_isi_find_format(&interval->pixel_format, NULL, 0);
+	if (!fmt || fmt->fourcc != interval->pixel_format)
+		return -EINVAL;
+	fie.code = fmt->mbus_code;
+
+	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	if (sd == NULL) {
+		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find subdev\n");
+		return -ENODEV;
+	}
+
+	ret = v4l2_subdev_call(sd, pad, enum_frame_interval, NULL, &fie);
+	if (ret)
+		return ret;
+
+	interval->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+	interval->discrete = fie.interval;
+
+	return 0;
+}
+
 static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 	.vidioc_querycap		= mxc_isi_cap_querycap,
 
@@ -999,6 +1080,9 @@ static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 
 	.vidioc_g_parm			= mxc_isi_cap_g_parm,
 	.vidioc_s_parm			= mxc_isi_cap_s_parm,
+
+	.vidioc_enum_framesizes = mxc_isi_cap_enum_framesizes,
+	.vidioc_enum_frameintervals = mxc_isi_cap_enum_frameintervals,
 };
 
 /* Capture subdev media entity operations */

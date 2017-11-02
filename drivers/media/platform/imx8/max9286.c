@@ -2615,6 +2615,26 @@ static int max9286_enum_framesizes(struct v4l2_subdev *sd,
 	fse->min_height = fse->max_height;
 	return 0;
 }
+static int max9286_enum_frame_interval(struct v4l2_subdev *sd,
+				   struct v4l2_subdev_pad_config *cfg,
+				   struct v4l2_subdev_frame_interval_enum *fie)
+{
+	if (fie->index < 0 || fie->index > 8)
+		return -EINVAL;
+
+	if (fie->width == 0 || fie->height == 0 ||
+	    fie->code == 0) {
+		pr_warning("Please assign pixel format, width and height.\n");
+		return -EINVAL;
+	}
+
+	fie->interval.numerator = 1;
+
+	 /* TODO Reserved to extension */
+
+	fie->interval.denominator = 30;
+	return 0;
+}
 
 static int max9286_get_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_pad_config *cfg,
@@ -2694,6 +2714,7 @@ static int max9286_link_setup(struct media_entity *entity,
 static const struct v4l2_subdev_pad_ops max9286_pad_ops = {
 	.enum_mbus_code		= max9286_enum_mbus_code,
 	.enum_frame_size	= max9286_enum_framesizes,
+	.enum_frame_interval	= max9286_enum_frame_interval,
 	.get_fmt		= max9286_get_fmt,
 	.set_fmt		= max9286_set_fmt,
 	.get_frame_desc		= max9286_get_frame_desc,
