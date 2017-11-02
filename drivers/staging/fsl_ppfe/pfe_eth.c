@@ -293,10 +293,10 @@ static int pfe_eth_sysfs_init(struct net_device *ndev)
 	/* Initialize the default values */
 
 	/*
-	 * By default, packets without conntrack will use this default high
+	 * By default, packets without conntrack will use this default low
 	 * priority queue
 	 */
-	priv->default_priority = 15;
+	priv->default_priority = 0;
 
 	/* Create our sysfs files */
 	err = device_create_file(&ndev->dev, &dev_attr_default_priority);
@@ -1566,10 +1566,17 @@ static int pfe_eth_might_stop_tx(struct pfe_eth_priv_s *priv, int queuenum,
 				 unsigned int n_segs)
 {
 	ktime_t kt;
+	int tried = 0;
 
+try_again:
 	if (unlikely((__hif_tx_avail(&pfe->hif) < n_desc) ||
-		     (hif_lib_tx_avail(&priv->client, queuenum) < n_desc) ||
+	(hif_lib_tx_avail(&priv->client, queuenum) < n_desc) ||
 	(hif_lib_tx_credit_avail(pfe, priv->id, queuenum) < n_segs))) {
+		if (!tried) {
+			__hif_lib_update_credit(&priv->client, queuenum);
+			tried = 1;
+			goto try_again;
+		}
 #ifdef PFE_ETH_TX_STATS
 		if (__hif_tx_avail(&pfe->hif) < n_desc) {
 			priv->stop_queue_hif[queuenum]++;
@@ -1692,8 +1699,10 @@ static void pfe_eth_flush_tx(struct pfe_eth_priv_s *priv)
 
 	netif_info(priv, tx_done, priv->ndev, "%s\n", __func__);
 
-	for (ii = 0; ii < emac_txq_cnt; ii++)
+	for (ii = 0; ii < emac_txq_cnt; ii++) {
 		pfe_eth_flush_txQ(priv, ii, 0, 0);
+		__hif_lib_update_credit(&priv->client, ii);
+	}
 }
 
 void pfe_tx_get_req_desc(struct sk_buff *skb, unsigned int *n_desc, unsigned int

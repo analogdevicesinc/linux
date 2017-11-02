@@ -34,7 +34,10 @@
 
 unsigned int lro_mode;
 unsigned int page_mode;
-unsigned int tx_qos;
+unsigned int tx_qos = 1;
+module_param(tx_qos, uint, 0444);
+MODULE_PARM_DESC(tx_qos, "0: disable ,\n"
+			 "1: enable (default), guarantee no packet drop at TMU level\n");
 unsigned int pfe_pkt_size;
 unsigned int pfe_pkt_headroom;
 unsigned int emac_txq_cnt;
@@ -576,7 +579,7 @@ void __hif_lib_update_credit(struct hif_client_s *client, unsigned int queue)
 
 	if (tx_qos) {
 		tmu_tx_packets = be32_to_cpu(pe_dmem_read(TMU0_ID +
-			client->id, TMU_DM_TX_TRANS, 4));
+			client->id, (TMU_DM_TX_TRANS + (queue * 4)), 4));
 
 		/* tx_packets counter overflowed */
 		if (tmu_tx_packets >
