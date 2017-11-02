@@ -36,6 +36,13 @@
 #define CCM_CDHIPR		0x48
 
 #define L2_CACHE_SYNC		0x730
+#define PL310_AUX_CTRL          0x104
+#define PL310_DCACHE_LOCKDOWN_BASE 0x900
+#define PL310_AUX_16WAY_BIT	0x10000
+#define PL310_LOCKDOWN_NBREGS   8
+#define PL310_LOCKDOWN_SZREG    4
+#define PL310_8WAYS_MASK        0x00FF
+#define PL310_16WAYS_UPPERMASK  0xFF00
 
 #define BUSFREQ_INFO_FREQ_OFFSET		0x0
 #define BUSFREQ_INFO_DDR_SETTINGS_OFFSET	0x4
@@ -262,9 +269,19 @@ wait_for_l2_to_idle:
 	mov	r7, #0x0
 	str	r7, [r8, #L2_CACHE_SYNC]
 
-	/* Disable L2. */
-	mov	r7, #0x0
-	str	r7, [r8, #0x100]
+	/* Lock L2. */
+
+	ldr	r9, [r8, #PL310_AUX_CTRL]
+	tst	r9, #PL310_AUX_16WAY_BIT
+	mov	r9, #PL310_8WAYS_MASK
+	orrne	r9, #PL310_16WAYS_UPPERMASK
+	mov	r10, #PL310_LOCKDOWN_NBREGS
+	add	r11, r8, #PL310_DCACHE_LOCKDOWN_BASE
+1:	/* lock Dcache and Icache */
+	str	r9, [r11], #PL310_LOCKDOWN_SZREG
+	str	r9, [r11], #PL310_LOCKDOWN_SZREG
+	subs	r10, r10, #1
+	bne	1b
 
 	/*
 	 * The second dsb might be needed to keep cache sync (device write)
@@ -683,10 +700,20 @@ done:
 	beq	skip_enable_l2
 
 #ifdef CONFIG_CACHE_L2X0
-	/* Enable L2. */
+	/* Unlock L2. */
 	ldr	r8, =IMX_IO_P2V(MX6Q_L2_BASE_ADDR)
-	ldr	r7, =0x1
-	str	r7, [r8, #0x100]
+	ldr	r9, [r8, #PL310_AUX_CTRL]
+	tst	r9, #PL310_AUX_16WAY_BIT
+	mov	r10, #PL310_LOCKDOWN_NBREGS
+	mov	r9, #0x00	/* 8 ways mask */
+	orrne	r9, #0x0000	/* 16 ways mask */
+	add	r11, r8, #PL310_DCACHE_LOCKDOWN_BASE
+1:	/* lock Dcache and Icache */
+	str	r9, [r11], #PL310_LOCKDOWN_SZREG
+	str	r9, [r11], #PL310_LOCKDOWN_SZREG
+	subs	r10, r10, #1
+	bne	1b
+
 #endif
 
 skip_enable_l2:
