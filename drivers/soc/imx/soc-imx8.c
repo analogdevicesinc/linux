@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/cpu.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -26,6 +27,8 @@
 #include <soc/imx8/sc/sci.h>
 #include <soc/imx8/soc.h>
 #include <soc/imx/revision.h>
+#include <soc/imx/src.h>
+#include <soc/imx/fsl_sip.h>
 
 #define ANADIG_DIGPROG		0x6c
 
@@ -346,3 +349,24 @@ static int __init imx8_register_cpufreq(void)
 	return 0;
 }
 late_initcall(imx8_register_cpufreq);
+
+/* To indicate M4 enabled or not on i.MX8MQ */
+static bool m4_is_enabled;
+bool imx_src_is_m4_enabled(void)
+{
+	return m4_is_enabled;
+}
+
+int check_m4_enabled(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(FSL_SIP_SRC, FSL_SIP_SRC_M4_STARTED, 0,
+		      0, 0, 0, 0, 0, &res);
+	m4_is_enabled = !!res.a0;
+
+	if (m4_is_enabled)
+		printk("M4 is started\n");
+
+	return 0;
+}

@@ -12,21 +12,42 @@
  * GNU General Public License for more details.
  */
 
+#include "fsl-imx8mq-evk.dts"
 
-#ifndef __SOC_IMX8_SOC_H__
-#define __SOC_IMX8_SOC_H__
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
 
-#define IMX_SOC_IMX8QM		0x01
-#define IMX_SOC_IMX8QXP		0x02
-#define IMX_SOC_IMX8MQ		0x82
+		m4_reserved: m4@0x80000000 {
+			no-map;
+			reg = <0 0x80000000 0 0x1000000>;
+		};
 
-bool cpu_is_imx8qm(void);
-bool cpu_is_imx8mq(void);
-bool cpu_is_imx8qxp(void);
+	};
+};
 
-extern bool TKT340553_SW_WORKAROUND;
-unsigned int imx8_get_soc_revision(void);
+&gpt1 {
+	status = "disabled";
+};
 
-int check_m4_enabled(void);
+&i2c2 {
+	status = "disabled";
+};
 
-#endif
+&pwm4 {
+	status = "disabled";
+};
+
+&tmu {
+	status = "disabled";
+};
+
+&uart2 {
+	status = "disabled";
+};
+
+&wdog3{
+	status = "disabled";
+};

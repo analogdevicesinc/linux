@@ -47,4 +47,9 @@
 #define SC_TIMER_WDOG_ACTION_COLD           2   /*!< Cold reset system */
 #define SC_TIMER_WDOG_ACTION_BOARD          3   /*!< Reset board */
 
+#define FSL_SIP_DDR_DVFS		0xc2000004
+
+#define FSL_SIP_SRC			0xc2000005
+#define FSL_SIP_SRC_M4_START		0x00
+#define FSL_SIP_SRC_M4_STARTED		0x01
 #endif
