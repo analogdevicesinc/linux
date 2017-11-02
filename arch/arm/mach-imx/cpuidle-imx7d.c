@@ -16,6 +16,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/psci.h>
 #include <asm/cp15.h>
 #include <asm/cpuidle.h>
 #include <asm/fncpy.h>
@@ -23,6 +24,8 @@
 #include <asm/proc-fns.h>
 #include <asm/suspend.h>
 #include <asm/tlb.h>
+
+#include <uapi/linux/psci.h>
 
 #include "common.h"
 #include "cpuidle.h"
@@ -77,10 +80,21 @@ struct imx7_cpuidle_pm_info {
 	struct imx7_pm_base gic_dist_base;
 } __aligned(8);
 
+static atomic_t master_lpi = ATOMIC_INIT(0);
 static atomic_t master_wait = ATOMIC_INIT(0);
 
 static void (*imx7d_wfi_in_iram_fn)(void __iomem *iram_vbase);
 static struct imx7_cpuidle_pm_info *cpuidle_pm_info;
+
+#define MX7D_POWERDWN_IDLE_PARAM	\
+	((1 << PSCI_0_2_POWER_STATE_ID_SHIFT) | \
+	 (1 << PSCI_0_2_POWER_STATE_AFFL_SHIFT) | \
+	 (PSCI_POWER_STATE_TYPE_POWER_DOWN << PSCI_0_2_POWER_STATE_TYPE_SHIFT))
+
+#define MX7D_STANDBY_IDLE_PARAM	\
+	((1 << PSCI_0_2_POWER_STATE_ID_SHIFT) | \
+	 (1 << PSCI_0_2_POWER_STATE_AFFL_SHIFT) | \
+	 (PSCI_POWER_STATE_TYPE_STANDBY << PSCI_0_2_POWER_STATE_TYPE_SHIFT))
 
 /* Mapped for the kernel, unlike cpuidle_pm_info->gic_dist_base.vbase */
 static void __iomem *imx7d_cpuidle_gic_base;
@@ -119,7 +133,11 @@ static void imx_pen_unlock(int cpu)
 
 static int imx7d_idle_finish(unsigned long val)
 {
-	imx7d_wfi_in_iram_fn(wfi_iram_base);
+	if (psci_ops.cpu_suspend)
+		psci_ops.cpu_suspend(MX7D_POWERDWN_IDLE_PARAM, __pa(cpu_resume));
+	else
+		imx7d_wfi_in_iram_fn(wfi_iram_base);
+
 	return 0;
 }
 
@@ -133,6 +151,7 @@ static bool imx7d_gic_sgis_pending(void)
 		readl_relaxed(sgip_base + 0xc));
 }
 
+static DEFINE_SPINLOCK(psci_lock);
 static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 			    struct cpuidle_driver *drv, int index)
 {
@@ -149,42 +168,74 @@ static int imx7d_enter_low_power_idle(struct cpuidle_device *dev,
 		atomic_dec(&master_wait);
 		imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
 	} else {
-		imx_pen_lock(dev->cpu);
-		cpuidle_pm_info->num_online_cpus = num_online_cpus();
-		++cpuidle_pm_info->num_lpi_cpus;
-		cpu_pm_enter();
-		if (cpuidle_pm_info->num_lpi_cpus ==
-				cpuidle_pm_info->num_online_cpus) {
-			/*
-			 * GPC will not wake on SGIs so check for them
-			 * manually here. At this point we know the other cpu
-			 * is in wfi or waiting for the lock and can't send
-			 * any additional IPIs.
-			 */
-			if (imx7d_gic_sgis_pending()) {
-				index = -1;
-				goto skip_lpi_flow;
+		if (psci_ops.cpu_suspend) {
+			cpu_pm_enter();
+			spin_lock(&psci_lock);
+			if (atomic_inc_return(&master_lpi) == num_online_cpus()) {
+				if (imx7d_gic_sgis_pending()) {
+					atomic_dec(&master_lpi);
+					index = -1;
+					goto psci_skip_lpi_flow;
+				}
+
+				imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
+				imx_gpcv2_set_cpu_power_gate_in_idle(true);
+
+				cpu_cluster_pm_enter();
 			}
-			imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
-			imx_gpcv2_set_cpu_power_gate_in_idle(true);
-			cpu_cluster_pm_enter();
+			spin_unlock(&psci_lock);
+
+			cpu_suspend(0, imx7d_idle_finish);
+
+			spin_lock(&psci_lock);
+			if (atomic_read(&master_lpi) == num_online_cpus()) {
+				cpu_cluster_pm_exit();
+				imx_gpcv2_set_cpu_power_gate_in_idle(false);
+				imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
+			}
+
+			atomic_dec(&master_lpi);
+psci_skip_lpi_flow:
+			spin_unlock(&psci_lock);
+			cpu_pm_exit();
 		} else {
-			imx_set_cpu_jump(dev->cpu, ca7_cpu_resume);
-		}
+			imx_pen_lock(dev->cpu);
+			cpuidle_pm_info->num_online_cpus = num_online_cpus();
+			++cpuidle_pm_info->num_lpi_cpus;
+			cpu_pm_enter();
+			if (cpuidle_pm_info->num_lpi_cpus ==
+					cpuidle_pm_info->num_online_cpus) {
+				/*
+				 * GPC will not wake on SGIs so check for them
+				 * manually here. At this point we know the other cpu
+				 * is in wfi or waiting for the lock and can't send
+				 * any additional IPIs.
+				 */
+				if (imx7d_gic_sgis_pending()) {
+					index = -1;
+					goto skip_lpi_flow;
+				}
+				imx_gpcv2_set_lpm_mode(WAIT_UNCLOCKED);
+				imx_gpcv2_set_cpu_power_gate_in_idle(true);
+				cpu_cluster_pm_enter();
+			} else {
+				imx_set_cpu_jump(dev->cpu, ca7_cpu_resume);
+			}
 
-		cpu_suspend(0, imx7d_idle_finish);
+			cpu_suspend(0, imx7d_idle_finish);
 
-		if (cpuidle_pm_info->num_lpi_cpus ==
-				cpuidle_pm_info->num_online_cpus) {
-			cpu_cluster_pm_exit();
-			imx_gpcv2_set_cpu_power_gate_in_idle(false);
-			imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
-		}
+			if (cpuidle_pm_info->num_lpi_cpus ==
+					cpuidle_pm_info->num_online_cpus) {
+				cpu_cluster_pm_exit();
+				imx_gpcv2_set_cpu_power_gate_in_idle(false);
+				imx_gpcv2_set_lpm_mode(WAIT_CLOCKED);
+			}
 
 skip_lpi_flow:
-		cpu_pm_exit();
-		--cpuidle_pm_info->num_lpi_cpus;
-		imx_pen_unlock(dev->cpu);
+			cpu_pm_exit();
+			--cpuidle_pm_info->num_lpi_cpus;
+			imx_pen_unlock(dev->cpu);
+		}
 	}
 
 	return index;
@@ -328,10 +379,12 @@ int __init imx7d_cpuidle_init(void)
 	imx7d_enable_rcosc();
 
 	/* code size should include cpuidle_pm_info size */
-	imx7d_wfi_in_iram_fn = (void *)fncpy(wfi_iram_base +
-		sizeof(*cpuidle_pm_info),
-		&imx7d_low_power_idle,
-		MX7_CPUIDLE_OCRAM_SIZE - sizeof(*cpuidle_pm_info));
+	if (!psci_ops.cpu_suspend) {
+		imx7d_wfi_in_iram_fn = (void *)fncpy(wfi_iram_base +
+			sizeof(*cpuidle_pm_info),
+			&imx7d_low_power_idle,
+			MX7_CPUIDLE_OCRAM_SIZE - sizeof(*cpuidle_pm_info));
+	}
 
 	return cpuidle_register(&imx7d_cpuidle_driver, NULL);
 }
