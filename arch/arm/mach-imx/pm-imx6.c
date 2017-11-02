@@ -21,6 +21,7 @@
 #include <linux/of_address.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
+#include <linux/psci.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/suspend.h>
@@ -30,6 +31,8 @@
 #include <asm/proc-fns.h>
 #include <asm/suspend.h>
 #include <asm/tlb.h>
+
+#include <uapi/linux/psci.h>
 
 #include "common.h"
 #include "hardware.h"
@@ -747,8 +750,18 @@ int imx6_set_lpm(enum mxc_cpu_pwr_mode mode)
 	return 0;
 }
 
+#define MX6Q_SUSPEND_PARAM	\
+	((0 << PSCI_0_2_POWER_STATE_ID_SHIFT) | \
+	 (1 << PSCI_0_2_POWER_STATE_AFFL_SHIFT) | \
+	 (PSCI_POWER_STATE_TYPE_POWER_DOWN << PSCI_0_2_POWER_STATE_TYPE_SHIFT))
+
 static int imx6q_suspend_finish(unsigned long val)
 {
+	if (psci_ops.cpu_suspend) {
+		return psci_ops.cpu_suspend(MX6Q_SUSPEND_PARAM,
+					    __pa(cpu_resume));
+	}
+
 	if (!imx6_suspend_in_ocram_fn) {
 		cpu_do_idle();
 	} else {
@@ -993,6 +1006,11 @@ void __init imx6_pm_map_io(void)
 	 */
 	WARN_ON(of_scan_flat_dt(imx6_dt_find_lpsram, NULL));
 
+	/*
+	 * We moved suspend/resume and lowpower idle to TEE,
+	 * But busfreq now still in Linux, this table is still needed
+	 * If we later decide to move busfreq to TEE, we could drop this.
+	 */
 	/* Return if no IRAM space is allocated for suspend/resume code. */
 	if (!iram_tlb_base_addr) {
 		pr_warn("No IRAM/OCRAM memory allocated for suspend/resume \
@@ -1066,6 +1084,12 @@ static int __init imx6q_suspend_init(const struct imx6_pm_socdata *socdata)
 	if (!socdata) {
 		pr_warn("%s: invalid argument!\n", __func__);
 		return -EINVAL;
+	}
+
+	if (psci_ops.cpu_suspend) {
+		/* TODO: seems not needed */
+		/* of_node_put(node); */
+		return ret;
 	}
 
 	/*

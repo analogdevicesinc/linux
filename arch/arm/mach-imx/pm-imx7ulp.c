@@ -21,6 +21,7 @@
 #include <linux/of_address.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
+#include <linux/psci.h>
 #include <linux/of_platform.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
@@ -31,6 +32,8 @@
 #include <asm/proc-fns.h>
 #include <asm/suspend.h>
 #include <asm/tlb.h>
+
+#include <uapi/linux/psci.h>
 
 #include "common.h"
 #include "hardware.h"
@@ -429,8 +432,29 @@ int imx7ulp_set_lpm(enum imx7ulp_cpu_pwr_mode mode)
 	return 0;
 }
 
+#define MX7ULP_SUSPEND_POWERDWN_PARAM	\
+	((0 << PSCI_0_2_POWER_STATE_ID_SHIFT) | \
+	 (1 << PSCI_0_2_POWER_STATE_AFFL_SHIFT) | \
+	 (PSCI_POWER_STATE_TYPE_POWER_DOWN << PSCI_0_2_POWER_STATE_TYPE_SHIFT))
+
+#define MX7ULP_SUSPEND_STANDBY_PARAM	\
+	((0 << PSCI_0_2_POWER_STATE_ID_SHIFT) | \
+	 (1 << PSCI_0_2_POWER_STATE_AFFL_SHIFT) | \
+	 (PSCI_POWER_STATE_TYPE_STANDBY << PSCI_0_2_POWER_STATE_TYPE_SHIFT))
+
 static int imx7ulp_suspend_finish(unsigned long val)
 {
+	u32 state;
+
+	if (val == 0)
+		state = MX7ULP_SUSPEND_POWERDWN_PARAM;
+	else
+		state = MX7ULP_SUSPEND_STANDBY_PARAM;
+
+	if (psci_ops.cpu_suspend) {
+		return psci_ops.cpu_suspend(state, __pa(cpu_resume));
+	}
+
 	imx7ulp_suspend_in_ocram_fn(suspend_ocram_base);
 
 	return 0;
@@ -440,38 +464,48 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 {
 	switch (state) {
 	case PM_SUSPEND_STANDBY:
-		imx7ulp_set_lpm(VLPS);
-		writel_relaxed(
-			readl_relaxed(pmc1_base + PMC_VLPS) | BM_VLPS_RBBEN,
-			pmc1_base + PMC_VLPS);
+		if (psci_ops.cpu_suspend) {
+			/* Zzz ... */
+			cpu_suspend(1, imx7ulp_suspend_finish);
+		} else {
+			imx7ulp_set_lpm(VLPS);
+			writel_relaxed(
+				readl_relaxed(pmc1_base + PMC_VLPS) | BM_VLPS_RBBEN,
+				pmc1_base + PMC_VLPS);
 
-		/* Zzz ... */
-		cpu_suspend(0, imx7ulp_suspend_finish);
+			/* Zzz ... */
+			cpu_suspend(0, imx7ulp_suspend_finish);
 
-		writel_relaxed(
-			readl_relaxed(pmc1_base + PMC_VLPS) & ~BM_VLPS_RBBEN,
-			pmc1_base + PMC_VLPS);
-		imx7ulp_set_lpm(RUN);
+			writel_relaxed(
+				readl_relaxed(pmc1_base + PMC_VLPS) & ~BM_VLPS_RBBEN,
+				pmc1_base + PMC_VLPS);
+			imx7ulp_set_lpm(RUN);
+		}
 		break;
 	case PM_SUSPEND_MEM:
-		imx7ulp_gpio_save();
-		imx7ulp_scg1_save();
-		imx7ulp_pcc2_save();
-		imx7ulp_pcc3_save();
-		imx7ulp_tpm_save();
-		imx7ulp_lpuart_save();
-		imx7ulp_iomuxc_save();
-		imx7ulp_set_lpm(VLLS);
+		if (psci_ops.cpu_suspend) {
+			/* Zzz ... */
+			cpu_suspend(0, imx7ulp_suspend_finish);
+		} else {
+			imx7ulp_gpio_save();
+			imx7ulp_scg1_save();
+			imx7ulp_pcc2_save();
+			imx7ulp_pcc3_save();
+			imx7ulp_tpm_save();
+			imx7ulp_lpuart_save();
+			imx7ulp_iomuxc_save();
+			imx7ulp_set_lpm(VLLS);
 
-		/* Zzz ... */
-		cpu_suspend(0, imx7ulp_suspend_finish);
+			/* Zzz ... */
+			cpu_suspend(0, imx7ulp_suspend_finish);
 
-		imx7ulp_pcc2_restore();
-		imx7ulp_pcc3_restore();
-		imx7ulp_lpuart_restore();
-		imx7ulp_set_dgo(0);
-		imx7ulp_tpm_restore();
-		imx7ulp_set_lpm(RUN);
+			imx7ulp_pcc2_restore();
+			imx7ulp_pcc3_restore();
+			imx7ulp_lpuart_restore();
+			imx7ulp_set_dgo(0);
+			imx7ulp_tpm_restore();
+			imx7ulp_set_lpm(RUN);
+	}
 		break;
 	default:
 		return -EINVAL;
@@ -531,6 +565,9 @@ static int __init imx7ulp_dt_find_lpsram(unsigned long node, const char *uname,
 
 void __init imx7ulp_pm_map_io(void)
 {
+	if (psci_ops.cpu_suspend) {
+		return;
+	}
 	/*
 	 * Get the address of IRAM or OCRAM to be used by the low
 	 * power code from the device tree.
@@ -557,63 +594,71 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	unsigned long i, j;
 	int ret;
 
-	/*
-	 * Make sure the IRAM virtual address has a mapping in the IRAM
-	 * page table.
-	 *
-	 * Only use the top 12 bits [31-20] when storing the physical
-	 * address in the page table as only these bits are required
-	 * for 1M mapping.
-	 */
-	j = ((iram_tlb_base_addr >> 20) << 2) / 4;
-	*((unsigned long *)iram_tlb_base_addr + j) =
-		(iram_tlb_phys_addr & ADDR_1M_MASK) |
-		TT_ATTRIB_NON_CACHEABLE_1M;
-	/*
-	 * Make sure the AIPS1 virtual address has a mapping in the
-	 * IRAM page table.
-	 */
-	aips1_base = ioremap(MX7ULP_AIPS1_BASE_ADDR, SZ_1M);
-	j = (((u32)aips1_base >> 20) << 2) / 4;
-	*((unsigned long *)iram_tlb_base_addr + j) =
-		((MX7ULP_AIPS1_BASE_ADDR) & ADDR_1M_MASK) |
-		TT_ATTRIB_NON_CACHEABLE_1M;
-	/*
-	 * Make sure the AIPS2 virtual address has a mapping in the
-	 * IRAM page table.
-	 */
-	aips2_base = ioremap(MX7ULP_AIPS2_BASE_ADDR, SZ_1M);
-	j = (((u32)aips2_base >> 20) << 2) / 4;
-	*((unsigned long *)iram_tlb_base_addr + j) =
-		((MX7ULP_AIPS2_BASE_ADDR) & ADDR_1M_MASK) |
-		TT_ATTRIB_NON_CACHEABLE_1M;
-	/*
-	 * Make sure the AIPS3 virtual address has a mapping in the
-	 * IRAM page table.
-	 */
-	aips3_base = ioremap(MX7ULP_AIPS3_BASE_ADDR, SZ_1M);
-	j = (((u32)aips3_base >> 20) << 2) / 4;
-	*((unsigned long *)iram_tlb_base_addr + j) =
-		((MX7ULP_AIPS3_BASE_ADDR) & ADDR_1M_MASK) |
-		TT_ATTRIB_NON_CACHEABLE_1M;
-	/*
-	 * Make sure the AIPS4 virtual address has a mapping in the
-	 * IRAM page table.
-	 */
-	aips4_base = ioremap(MX7ULP_AIPS4_BASE_ADDR, SZ_1M);
-	j = (((u32)aips4_base >> 20) << 2) / 4;
-	*((unsigned long *)iram_tlb_base_addr + j) =
-		((MX7ULP_AIPS4_BASE_ADDR) & ADDR_1M_MASK) |
-		TT_ATTRIB_NON_CACHEABLE_1M;
-	/*
-	 * Make sure the AIPS5 virtual address has a mapping in the
-	 * IRAM page table.
-	 */
-	aips5_base = ioremap(MX7ULP_AIPS5_BASE_ADDR, SZ_1M);
-	j = (((u32)aips5_base >> 20) << 2) / 4;
-	*((unsigned long *)iram_tlb_base_addr + j) =
-		((MX7ULP_AIPS5_BASE_ADDR) & ADDR_1M_MASK) |
-		TT_ATTRIB_NON_CACHEABLE_1M;
+	if (psci_ops.cpu_suspend) {
+		aips1_base = ioremap(MX7ULP_AIPS1_BASE_ADDR, SZ_1M);
+		aips2_base = ioremap(MX7ULP_AIPS2_BASE_ADDR, SZ_1M);
+		aips3_base = ioremap(MX7ULP_AIPS3_BASE_ADDR, SZ_1M);
+		aips4_base = ioremap(MX7ULP_AIPS4_BASE_ADDR, SZ_1M);
+		aips5_base = ioremap(MX7ULP_AIPS5_BASE_ADDR, SZ_1M);
+	} else {
+		/*
+		 * Make sure the IRAM virtual address has a mapping in the IRAM
+		 * page table.
+		 *
+		 * Only use the top 12 bits [31-20] when storing the physical
+		 * address in the page table as only these bits are required
+		 * for 1M mapping.
+		 */
+		j = ((iram_tlb_base_addr >> 20) << 2) / 4;
+		*((unsigned long *)iram_tlb_base_addr + j) =
+			(iram_tlb_phys_addr & ADDR_1M_MASK) |
+			TT_ATTRIB_NON_CACHEABLE_1M;
+		/*
+		 * Make sure the AIPS1 virtual address has a mapping in the
+		 * IRAM page table.
+		 */
+		aips1_base = ioremap(MX7ULP_AIPS1_BASE_ADDR, SZ_1M);
+		j = (((u32)aips1_base >> 20) << 2) / 4;
+		*((unsigned long *)iram_tlb_base_addr + j) =
+			((MX7ULP_AIPS1_BASE_ADDR) & ADDR_1M_MASK) |
+			TT_ATTRIB_NON_CACHEABLE_1M;
+		/*
+		 * Make sure the AIPS2 virtual address has a mapping in the
+		 * IRAM page table.
+		 */
+		aips2_base = ioremap(MX7ULP_AIPS2_BASE_ADDR, SZ_1M);
+		j = (((u32)aips2_base >> 20) << 2) / 4;
+		*((unsigned long *)iram_tlb_base_addr + j) =
+			((MX7ULP_AIPS2_BASE_ADDR) & ADDR_1M_MASK) |
+			TT_ATTRIB_NON_CACHEABLE_1M;
+		/*
+		 * Make sure the AIPS3 virtual address has a mapping in the
+		 * IRAM page table.
+		 */
+		aips3_base = ioremap(MX7ULP_AIPS3_BASE_ADDR, SZ_1M);
+		j = (((u32)aips3_base >> 20) << 2) / 4;
+		*((unsigned long *)iram_tlb_base_addr + j) =
+			((MX7ULP_AIPS3_BASE_ADDR) & ADDR_1M_MASK) |
+			TT_ATTRIB_NON_CACHEABLE_1M;
+		/*
+		 * Make sure the AIPS4 virtual address has a mapping in the
+		 * IRAM page table.
+		 */
+		aips4_base = ioremap(MX7ULP_AIPS4_BASE_ADDR, SZ_1M);
+		j = (((u32)aips4_base >> 20) << 2) / 4;
+		*((unsigned long *)iram_tlb_base_addr + j) =
+			((MX7ULP_AIPS4_BASE_ADDR) & ADDR_1M_MASK) |
+			TT_ATTRIB_NON_CACHEABLE_1M;
+		/*
+		 * Make sure the AIPS5 virtual address has a mapping in the
+		 * IRAM page table.
+		 */
+		aips5_base = ioremap(MX7ULP_AIPS5_BASE_ADDR, SZ_1M);
+		j = (((u32)aips5_base >> 20) << 2) / 4;
+		*((unsigned long *)iram_tlb_base_addr + j) =
+			((MX7ULP_AIPS5_BASE_ADDR) & ADDR_1M_MASK) |
+			TT_ATTRIB_NON_CACHEABLE_1M;
+	}
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-smc1");
 	smc1_base = of_iomap(np, 0);
@@ -658,22 +703,28 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 		WARN_ON(!gpio_base[i]);
 	}
 
-	/*
-	 * 16KB is allocated for IRAM TLB, but only up 8k is for kernel TLB,
-	 * The lower 8K is not used, so use the lower 8K for IRAM code and
-	 * pm_info.
-	 *
-	 */
-	sram_paddr = iram_tlb_phys_addr;
+	if (psci_ops.cpu_suspend) {
+		pm_info = kzalloc(SZ_16K, GFP_KERNEL);
+		if (!pm_info)
+			panic("pm info allocation failed\n");
+	} else {
+		/*
+		 * 16KB is allocated for IRAM TLB, but only up 8k is for kernel TLB,
+		 * The lower 8K is not used, so use the lower 8K for IRAM code and
+		 * pm_info.
+		 *
+		 */
+		sram_paddr = iram_tlb_phys_addr;
 
-	/* Make sure sram_paddr is 8 byte aligned. */
-	if ((uintptr_t)(sram_paddr) & (FNCPY_ALIGN - 1))
-		sram_paddr += FNCPY_ALIGN - sram_paddr % (FNCPY_ALIGN);
+		/* Make sure sram_paddr is 8 byte aligned. */
+		if ((uintptr_t)(sram_paddr) & (FNCPY_ALIGN - 1))
+			sram_paddr += FNCPY_ALIGN - sram_paddr % (FNCPY_ALIGN);
 
-	/* Get the virtual address of the suspend code. */
-	suspend_ocram_base = (void *)IMX_IO_P2V(sram_paddr);
+		/* Get the virtual address of the suspend code. */
+		suspend_ocram_base = (void *)IMX_IO_P2V(sram_paddr);
 
-	pm_info = suspend_ocram_base;
+		pm_info = suspend_ocram_base;
+	}
 	pm_info->pbase = sram_paddr;
 	pm_info->resume_addr = virt_to_phys(imx7ulp_cpu_resume);
 	pm_info->pm_info_size = sizeof(*pm_info);
@@ -710,10 +761,12 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	for (i = 0; i < pm_info->mmdc_num; i++)
 		pm_info->mmdc_val[i][1] = imx7ulp_lpddr3_script[i];
 
-	imx7ulp_suspend_in_ocram_fn = fncpy(
-		suspend_ocram_base + sizeof(*pm_info),
-		&imx7ulp_suspend,
-		MX7ULP_SUSPEND_OCRAM_SIZE - sizeof(*pm_info));
+	if (!psci_ops.cpu_suspend) {
+		imx7ulp_suspend_in_ocram_fn = fncpy(
+			suspend_ocram_base + sizeof(*pm_info),
+			&imx7ulp_suspend,
+			MX7ULP_SUSPEND_OCRAM_SIZE - sizeof(*pm_info));
+	}
 
 	if (IS_ENABLED(CONFIG_SUSPEND)) {
 		ret = imx7ulp_suspend_init();
