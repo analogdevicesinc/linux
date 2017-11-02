@@ -37,4 +37,4 @@ $(obj)/simpleImage.%: vmlinux FORCE
 	$(call if_changed,strip,.strip)
 	@echo 'Kernel: $(UIMAGE_OUT) is ready' ' (#'`cat .version`')'
 
-clean-files += simpleImage.*.unstrip linux.bin.ub dts/*.dtb
+clean-files += simpleImage.*.unstrip linux.bin.ub
