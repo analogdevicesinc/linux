@@ -54,7 +54,7 @@
 #define MIPI_FIFO_TIMEOUT		msecs_to_jiffies(250)
 #define PICOS_PER_SEC			(1000000000UL)
 #define PICOS2KHZ2(a, bpp)		\
-	DIV_ROUND_CLOSEST(PICOS_PER_SEC * (bpp), (a))
+	DIV_ROUND_CLOSEST_ULL(PICOS_PER_SEC * (bpp), (a))
 
 static struct mipi_dsi_match_lcd mipi_dsi_lcd_db[] = {
 #ifdef CONFIG_FB_MXC_TRULY_WVGA_SYNC_PANEL
@@ -367,7 +367,7 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 	uint32_t bpp, time_out = 100;
 	uint32_t lock;
 	uint32_t req_bit_clk;
-	uint64_t limit;
+	uint64_t limit, div_result;
 	uint64_t denominator, numerator, divisor;
 	uint64_t norm_denom, norm_num, split_denom;
 	struct pll_divider div = { 0 };
@@ -419,12 +419,17 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 	divisor = gcd(mipi_dsi->phy_ref_clkfreq, req_bit_clk);
 	WARN_ON(divisor == 1);
 
-	numerator   = req_bit_clk / divisor;
-	denominator = mipi_dsi->phy_ref_clkfreq / divisor;
+	div_result = req_bit_clk;
+	do_div(div_result, divisor);
+	numerator = div_result;
+
+	div_result = mipi_dsi->phy_ref_clkfreq;
+	do_div(div_result, divisor);
+	denominator = div_result;
 
 	/* denominator & numerator out of range check */
-	if (DIV_ROUND_CLOSEST(numerator, denominator) > 255 ||
-	    DIV_ROUND_CLOSEST(denominator, numerator) > 32 * 8)
+	if (DIV_ROUND_CLOSEST_ULL(numerator, denominator) > 255 ||
+	    DIV_ROUND_CLOSEST_ULL(denominator, numerator) > 32 * 8)
 		return -EINVAL;
 
 	/* Normalization: reduce or increase
@@ -442,7 +447,7 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 			 *  b. '(denominator / limit) >= 1'
 			 */
 			limit = min(denominator,
-				    DIV_ROUND_CLOSEST(numerator, 16));
+				    DIV_ROUND_CLOSEST_ULL(numerator, 16));
 
 			/* Let:
 			 * norm_num   = numerator   / i;
@@ -453,11 +458,11 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 			 * 	   denominator * norm_num
 			 */
 			for (i = 2; i <= limit; i++) {
-				norm_num = DIV_ROUND_CLOSEST(numerator, i);
+				norm_num = DIV_ROUND_CLOSEST_ULL(numerator, i);
 				if (norm_num > 255)
 					continue;
 
-				norm_denom = DIV_ROUND_CLOSEST(denominator, i);
+				norm_denom = DIV_ROUND_CLOSEST_ULL(denominator, i);
 
 				/* 'norm_num <= 255' && 'norm_num > norm_denom'
 				 * so, 'norm_denom < 256'
@@ -473,7 +478,7 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 					 * 'norm_denom' derived from last 'best_div'
 					 * needs later split, i.e, 'norm_denom > 32'.
 					 */
-					if (DIV_ROUND_CLOSEST(denominator, best_div) > 32) {
+					if (DIV_ROUND_CLOSEST_ULL(denominator, best_div) > 32) {
 						least_delta = delta;
 						best_div = i;
 					}
@@ -485,17 +490,17 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 			 *  a. '(numerator   / limit >= 16'
 			 *  b. '(denominator / limit >= 1': obviously.
 			 */
-			limit = DIV_ROUND_CLOSEST(numerator, 16);
+			limit = DIV_ROUND_CLOSEST_ULL(numerator, 16);
 			if (!limit ||
-			    DIV_ROUND_CLOSEST(denominator, limit) > 32 * 8)
+			    DIV_ROUND_CLOSEST_ULL(denominator, limit) > 32 * 8)
 				return -EINVAL;
 
 			for (i = 2; i <= limit; i++) {
-				norm_denom = DIV_ROUND_CLOSEST(denominator, i);
+				norm_denom = DIV_ROUND_CLOSEST_ULL(denominator, i);
 				if (norm_denom > 32 * 8)
 					continue;
 
-				norm_num = DIV_ROUND_CLOSEST(numerator, i);
+				norm_num = DIV_ROUND_CLOSEST_ULL(numerator, i);
 
 				/* 'norm_denom <= 256' && 'norm_num < norm_denom'
 				 * so, 'norm_num <= 255'
@@ -507,7 +512,7 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 					least_delta = delta;
 					best_div = i;
 				} else if (delta == least_delta) {
-					if (DIV_ROUND_CLOSEST(denominator, best_div) > 32) {
+					if (DIV_ROUND_CLOSEST_ULL(denominator, best_div) > 32) {
 						least_delta = delta;
 						best_div = i;
 					}
@@ -515,8 +520,8 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 			}
 		}
 
-		numerator   = DIV_ROUND_CLOSEST(numerator, best_div);
-		denominator = DIV_ROUND_CLOSEST(denominator, best_div);
+		numerator   = DIV_ROUND_CLOSEST_ULL(numerator, best_div);
+		denominator = DIV_ROUND_CLOSEST_ULL(denominator, best_div);
 	} else if (numerator < 16) {
 		/* precise */
 
@@ -527,12 +532,13 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 		 *  which makes 'numerator * limit' to be
 		 *  in [16, 255].
 		 */
-		limit = min(256 / denominator, 255 / numerator);
-		if (limit == 1 || limit < DIV_ROUND_UP(16, numerator))
+		limit = min(256 / (uint32_t)denominator,
+			    255 / (uint32_t)numerator);
+		if (limit == 1 || limit < DIV_ROUND_UP_ULL(16, numerator))
 			return -EINVAL;
 
 		/* choose the least available value for 'limit' */
-		limit = DIV_ROUND_UP(16, numerator);
+		limit = DIV_ROUND_UP_ULL(16, numerator);
 		numerator   = numerator * limit;
 		denominator = denominator * limit;
 
@@ -548,7 +554,7 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 		 */
 		least_delta = ~0U;
 		for (i = 0; i < 4; i++) {
-			split_denom = DIV_ROUND_CLOSEST(denominator, 1 << i);
+			split_denom = DIV_ROUND_CLOSEST_ULL(denominator, 1 << i);
 			if (split_denom > 32)
 				continue;
 
