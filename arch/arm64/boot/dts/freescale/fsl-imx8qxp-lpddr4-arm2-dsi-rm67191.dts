@@ -1,0 +1,69 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qxp-lpddr4-arm2.dts"
+
+&mipi_dsi_phy1 {
+	status = "okay";
+};
+
+&mipi_dsi1 {
+	status = "okay";
+
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		port {
+			panel1_in: endpoint {
+				remote-endpoint = <&mipi1_out>;
+			};
+		};
+	};
+
+	port@1 {
+		mipi1_out: endpoint {
+			remote-endpoint = <&panel1_in>;
+		};
+	};
+};
+
+&mipi_dsi_phy2 {
+	status = "okay";
+};
+
+&mipi_dsi2 {
+	status = "okay";
+
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		port {
+			panel2_in: endpoint {
+				remote-endpoint = <&mipi2_out>;
+			};
+		};
+	};
+
+	port@1 {
+		mipi2_out: endpoint {
+			remote-endpoint = <&panel2_in>;
+		};
+	};
+};
