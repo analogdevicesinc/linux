@@ -78,6 +78,8 @@
 #define FEC_R_DES_ACTIVE_2	0x1e8 /* Rx descriptor active for ring 2 */
 #define FEC_X_DES_ACTIVE_2	0x1ec /* Tx descriptor active for ring 2 */
 #define FEC_QOS_SCHEME		0x1f0 /* Set multi queues Qos scheme */
+#define FEC_LPI_SLEEP		0x1f4 /* Set IEEE802.3az LPI Sleep Ts time */
+#define FEC_LPI_WAKE		0x1f8 /* Set IEEE802.3az LPI Wake Tw time */
 #define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
 #define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
 
@@ -469,7 +471,7 @@ struct bufdesc_ex {
 /* PHY fixup flag define */
 #define FEC_QUIRK_AR8031_FIXUP		(1 << 16)
 
-/* i.MX8QM/QXP ENET IP version add new feture to  generate delayed TXC/RXC
+/* i.MX8QM/QXP ENET IP version add new feture to generate delayed TXC/RXC
  * as an alternative option to make sure it can work well with various PHYs.
  * - For the implementation of delayed TXC, ENET will take synchronized 250/125MHz
  *   clocks to generate 2ns delay by registering original TXC with positive edge
@@ -478,6 +480,11 @@ struct bufdesc_ex {
  *   level. The exact length of delay buffers will be decided when closing I/O timing.
  */
 #define FEC_QUIRK_DELAYED_CLKS_SUPPORT	(1 << 17)
+/* i.MX8MQ ENET IP version add new feature to support IEEE 802.3az EEE
+ * standard. For the transmission, MAC supply two user registers to set
+ * Sleep (TS) and Wake (TW) time.
+ */
+#define FEC_QUIRK_HAS_EEE		(1 << 18)
 
 struct bufdesc_prop {
 	int qid;
@@ -610,6 +617,10 @@ struct fec_enet_private {
 	unsigned int tx_pkts_itr;
 	unsigned int tx_time_itr;
 	unsigned int itr_clk_rate;
+
+	/* tx lpi eee mode */
+	struct ethtool_eee eee;
+	unsigned int clk_ref_rate;
 
 	u32 rx_copybreak;
 
