@@ -3343,6 +3343,9 @@ struct ad9361_rf_phy {
 	u8			cached_synth_pd[2];
 	int			tx_quad_lpf_tia_match;
 	int			current_table;
+	int			rx_sampl_freq_avail[3];
+	int			tx_sampl_freq_avail[3];
+	int 			rx_gain_avail[3];
 
 	bool 			ensm_pin_ctl_en;
 
