@@ -6405,8 +6405,11 @@ enum ad9361_iio_dev_attr {
 	AD9361_RFDC_OFFS_ENABLE,
 	AD9361_QUAD_ENABLE,
 	AD9361_DCXO_TUNE_COARSE,
+	AD9361_DCXO_TUNE_COARSE_AVAILABLE,
 	AD9361_DCXO_TUNE_FINE,
+	AD9361_DCXO_TUNE_FINE_AVAILABLE,
 	AD9361_XO_CORRECTION,
+	AD9361_XO_CORRECTION_AVAILABLE,
 	AD9361_MCS_SYNC,
 };
 
@@ -6701,6 +6704,7 @@ static ssize_t ad9361_phy_show(struct device *dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	int ret = 0;
 	unsigned long clk[6];
+	u64 delta;
 
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address) {
@@ -6802,8 +6806,20 @@ static ssize_t ad9361_phy_show(struct device *dev,
 		else
 			ret = sprintf(buf, "%d\n", phy->pdata->dcxo_fine);
 		break;
+	case AD9361_DCXO_TUNE_COARSE_AVAILABLE:
+		ret = sprintf(buf, "%s\n", phy->pdata->use_extclk ? "[0 0 0]" : "[0 1 63]");
+		break;
+	case AD9361_DCXO_TUNE_FINE_AVAILABLE:
+		ret = sprintf(buf, "%s\n", phy->pdata->use_extclk ? "[0 0 0]" : "[0 1 8191]");
+		break;
 	case AD9361_XO_CORRECTION:
 		ret = sprintf(buf, "%lu\n", clk_get_rate(phy->clk_refin));
+		break;
+	case AD9361_XO_CORRECTION_AVAILABLE:
+		clk[0] = clk_get_rate(phy->clk_refin);
+		delta = (u64) clk[0] * (u64) clk_get_accuracy(phy->clk_refin);
+		do_div(delta, 1000000000U);
+		ret = sprintf(buf, "[%llu 1 %llu]\n", clk[0] - delta, clk[0] + delta);
 		break;
 	default:
 		ret = -EINVAL;
@@ -6818,10 +6834,14 @@ static IIO_DEVICE_ATTR(in_voltage_rf_bandwidth, S_IRUGO | S_IWUSR,
 			ad9361_phy_store,
 			AD9361_RF_RX_BANDWIDTH);
 
+static IIO_CONST_ATTR(in_voltage_rf_bandwidth_available, "[200000 1 56000000]");
+
 static IIO_DEVICE_ATTR(out_voltage_rf_bandwidth, S_IRUGO | S_IWUSR,
 			ad9361_phy_show,
 			ad9361_phy_store,
 			AD9361_RF_TX_BANDWIDTH);
+
+static IIO_CONST_ATTR(out_voltage_rf_bandwidth_available, "[200000 1 40000000]");
 
 static IIO_DEVICE_ATTR(ensm_mode, S_IRUGO | S_IWUSR,
 			ad9361_phy_show,
@@ -6903,15 +6923,30 @@ static IIO_DEVICE_ATTR(dcxo_tune_coarse, S_IRUGO | S_IWUSR,
 			ad9361_phy_store,
 			AD9361_DCXO_TUNE_COARSE);
 
+static IIO_DEVICE_ATTR(dcxo_tune_coarse_available, S_IRUGO,
+		       ad9361_phy_show,
+		       NULL,
+		       AD9361_DCXO_TUNE_COARSE_AVAILABLE);
+
 static IIO_DEVICE_ATTR(dcxo_tune_fine, S_IRUGO | S_IWUSR,
 			ad9361_phy_show,
 			ad9361_phy_store,
 			AD9361_DCXO_TUNE_FINE);
 
+static IIO_DEVICE_ATTR(dcxo_tune_fine_available, S_IRUGO,
+		       ad9361_phy_show,
+		       NULL,
+		       AD9361_DCXO_TUNE_FINE_AVAILABLE);
+
 static IIO_DEVICE_ATTR(xo_correction, S_IRUGO | S_IWUSR,
 		       ad9361_phy_show,
 		       ad9361_phy_store,
 		       AD9361_XO_CORRECTION);
+
+static IIO_DEVICE_ATTR(xo_correction_available, S_IRUGO,
+		       ad9361_phy_show,
+		       NULL,
+		       AD9361_XO_CORRECTION_AVAILABLE);
 
 static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
 			NULL,
@@ -6940,6 +6975,11 @@ static struct attribute *ad9361_phy_attributes[] = {
 	&iio_dev_attr_dcxo_tune_fine.dev_attr.attr,
 	&iio_dev_attr_xo_correction.dev_attr.attr,
 	&iio_dev_attr_multichip_sync.dev_attr.attr,
+	&iio_const_attr_in_voltage_rf_bandwidth_available.dev_attr.attr,
+	&iio_const_attr_out_voltage_rf_bandwidth_available.dev_attr.attr,
+	&iio_dev_attr_dcxo_tune_coarse_available.dev_attr.attr,
+	&iio_dev_attr_dcxo_tune_fine_available.dev_attr.attr,
+	&iio_dev_attr_xo_correction_available.dev_attr.attr,
 	NULL,
 };
 
@@ -6969,6 +7009,7 @@ static int ad9361_phy_reg_access(struct iio_dev *indio_dev,
 
 enum lo_ext_info {
 	LOEXT_FREQ,
+	LOEXT_FREQ_AVAILABLE,
 	LOEXT_STORE,
 	LOEXT_RECALL,
 	LOEXT_LOAD,
@@ -7121,6 +7162,7 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	u64 val = 0;
+	size_t len;
 	int ret = 0;
 
 	mutex_lock(&indio_dev->mlock);
@@ -7132,7 +7174,6 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 	case LOEXT_SAVE: {
 		u8 faslock_vals[16];
 		int i;
-		size_t len;
 		ret = ad9361_fastlock_save(phy, chan->channel == 1,
 			phy->fastlock.save_profile, faslock_vals);
 		len = sprintf(buf, "%u ", phy->fastlock.save_profile);
@@ -7166,6 +7207,24 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 	case LOEXT_PD:
 		val = !!(phy->cached_synth_pd[chan->channel ? 0 : 1] & RX_LO_POWER_DOWN);
 		break;
+	case LOEXT_FREQ_AVAILABLE: {
+		u64 min, max;
+
+		switch(spi_get_device_id(phy->spi)->driver_data) {
+		case ID_AD9363A:
+			min = AD9363A_MIN_CARRIER_FREQ_HZ;
+			max = AD9363A_MAX_CARRIER_FREQ_HZ;
+			break;
+		default:
+			min = chan->channel ? MIN_TX_CARRIER_FREQ_HZ : MIN_RX_CARRIER_FREQ_HZ;
+			max = MAX_CARRIER_FREQ_HZ;
+			break;
+		}
+
+		len = sprintf(buf, "[%llu 1 %llu]\n", min, max);
+		mutex_unlock(&indio_dev->mlock);
+		return len;
+		}
 	default:
 		ret = 0;
 
@@ -7182,12 +7241,19 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 	.private = _ident, \
 }
 
+#define _AD9361_EXT_LO_INFO_RO(_name, _ident) { \
+	.name = _name, \
+	.read = ad9361_phy_lo_read, \
+	.private = _ident, \
+}
+
 static const struct iio_chan_spec_ext_info ad9361_phy_ext_info[] = {
 	/* Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
 	_AD9361_EXT_LO_INFO("frequency", LOEXT_FREQ),
+	_AD9361_EXT_LO_INFO_RO("frequency_available", LOEXT_FREQ_AVAILABLE),
 	_AD9361_EXT_LO_INFO("fastlock_store", LOEXT_STORE),
 	_AD9361_EXT_LO_INFO("fastlock_recall", LOEXT_RECALL),
 	_AD9361_EXT_LO_INFO("fastlock_load", LOEXT_LOAD),
@@ -7574,6 +7640,71 @@ out:
 	return ret;
 }
 
+static int ad9361_phy_read_avail(struct iio_dev *indio_dev,
+			      struct iio_chan_spec const *chan,
+			      const int **vals, int *type, int *length,
+			      long mask)
+{
+	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_HARDWAREGAIN:
+		if (chan->output) {
+			static const int tx_hw_gain[3] = {0, 250, 89750};
+			*vals = tx_hw_gain;
+			*type = IIO_VAL_INT;
+			return IIO_AVAIL_RANGE;
+		} else {
+			phy->rx_gain_avail[0] = phy->gt_info[ad9361_gt(phy)].abs_gain_tbl[0];
+			phy->rx_gain_avail[1] = 1;
+			phy->rx_gain_avail[2] = phy->gt_info[ad9361_gt(phy)].abs_gain_tbl[phy->gt_info[ad9361_gt(phy)].max_index - 1];
+			*vals = phy->rx_gain_avail;
+			*type = IIO_VAL_INT;
+			return IIO_AVAIL_RANGE;
+		}
+		break;
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		int int_dec, max;
+
+		if (phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)
+			max = 61440000U;
+		else
+			max = 61440000U / (phy->pdata->rx2tx2 ? 2 : 1);
+
+		if (chan->output) {
+			if (phy->bypass_tx_fir)
+				int_dec = 1;
+			else
+				int_dec = phy->tx_fir_int;
+
+			phy->tx_sampl_freq_avail[0] = MIN_ADC_CLK / (12 * int_dec);
+			phy->tx_sampl_freq_avail[1] = 1;
+			phy->tx_sampl_freq_avail[2] = max;
+
+			*vals = phy->tx_sampl_freq_avail;
+			*type = IIO_VAL_INT;
+			return IIO_AVAIL_RANGE;
+		} else {
+			if (phy->bypass_rx_fir)
+				int_dec = 1;
+			else
+				int_dec = phy->rx_fir_dec;
+
+			phy->rx_sampl_freq_avail[0] = MIN_ADC_CLK / (12 * int_dec);
+			phy->rx_sampl_freq_avail[1] = 1;
+			phy->rx_sampl_freq_avail[2] = max;
+
+			*vals = phy->rx_sampl_freq_avail;
+			*type = IIO_VAL_INT;
+			return IIO_AVAIL_RANGE;
+		}
+		break;
+	}
+	}
+
+	return -EINVAL;
+}
+
 static const struct iio_chan_spec ad9361_phy_chan[] = {
 {
 	.type = IIO_TEMP,
@@ -7600,14 +7731,18 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.output = 1,
 	.channel = 0,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_separate_available = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_tx_ext_info,
 }, {	/* RX1 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
 	.channel = 0,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_separate_available = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
 }, {	/* AUXDAC1 */
 	.type = IIO_VOLTAGE,
@@ -7633,20 +7768,25 @@ static const struct iio_chan_spec ad9361_phy_chan[] = {
 	.output = 1,
 	.channel = 1,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_separate_available = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_tx_ext_info,
 }, {	/* RX2 */
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
 	.channel = 1,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+	.info_mask_separate_available = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.ext_info = ad9361_phy_rx_ext_info,
 }};
 
 static const struct iio_info ad9361_phy_info = {
 	.read_raw = &ad9361_phy_read_raw,
 	.write_raw = &ad9361_phy_write_raw,
+	.read_avail = ad9361_phy_read_avail,
 	.debugfs_reg_access = &ad9361_phy_reg_access,
 	.attrs = &ad9361_phy_attribute_group,
 	.driver_module = THIS_MODULE,
