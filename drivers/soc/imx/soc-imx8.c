@@ -30,8 +30,6 @@
 #include <soc/imx/src.h>
 #include <soc/imx/fsl_sip.h>
 
-#define ANADIG_DIGPROG		0x6c
-
 struct imx8_soc_data {
 	char *name;
 	u32 (*soc_revision)(void);
@@ -72,18 +70,15 @@ inline bool cpu_is_imx8mq(void)
 	return imx8_soc_id == IMX_SOC_IMX8MQ;
 }
 
-static u32 imx_init_revision_from_anatop(void)
+static u32 imx_init_revision_from_atf(void)
 {
-	struct device_node *np;
-	void __iomem *anatop_base;
+	struct arm_smccc_res res;
 	u32 digprog;
 	u32 id, rev;
 
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx8mq-anatop");
-	anatop_base = of_iomap(np, 0);
-	WARN_ON(!anatop_base);
-	digprog = readl_relaxed(anatop_base + ANADIG_DIGPROG);
-	iounmap(anatop_base);
+	arm_smccc_smc(FSL_SIP_GET_SOC_INFO, 0, 0,
+			0, 0, 0, 0, 0, &res);
+	digprog = res.a0;
 
 	/*
 	 * Bit [23:16] is the silicon ID
@@ -158,7 +153,7 @@ static u32 imx8qxp_soc_revision(void)
 
 static u32 imx8mq_soc_revision(void)
 {
-	return imx_init_revision_from_anatop();
+	return imx_init_revision_from_atf();
 }
 
 static struct imx8_soc_data imx8qm_soc_data = {

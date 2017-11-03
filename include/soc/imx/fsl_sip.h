@@ -52,4 +52,7 @@
 #define FSL_SIP_SRC			0xc2000005
 #define FSL_SIP_SRC_M4_START		0x00
 #define FSL_SIP_SRC_M4_STARTED		0x01
+
+#define FSL_SIP_GET_SOC_INFO		0xc2000006
+
 #endif
