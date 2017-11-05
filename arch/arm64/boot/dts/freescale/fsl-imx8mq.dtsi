@@ -592,24 +592,14 @@
 		interrupt-parent = <&gic>;
 	};
 
-	system_counter_rd: system-counter-rd@306a0000 {
-		compatible = "fsl,imx8mq-system-counter-rd";
-		reg = <0x0 0x306a0000 0x0 0x10000>;
-		status = "disabled";
-	};
-
-	system_counter_cmp: system-counter-cmp@306b0000 {
-		compatible = "fsl,imx8mq-system-counter-cmp";
-		reg = <0x0 0x306b0000 0x0 0x10000>;
-		status = "disabled";
-	};
-
-	system_counter_ctrl: system-counter-ctrl@306c0000 {
-		compatible = "fsl,imx8mq-system-counter-ctrl";
-		reg = <0x0 0x306c0000 0x0 0x10000>;
+	system_counter: system-counter@3036a0000 {
+		compatible = "nxp,sysctr-timer";
+		reg = <0x0 0x306a0000 0x0 0x10000>, /* system-counter-rd base */
+		      <0x0 0x306b0000 0x0 0x10000>, /* system-counter-cmp base */
+		      <0x0 0x306c0000 0x0 0x10000>; /* system-counter-ctrl base */
+		clock-frequency = <8333333>;
 		interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
-		status = "disabled";
+			     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	spdif1: spdif@30810000 {

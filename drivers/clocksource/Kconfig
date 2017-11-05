@@ -606,6 +606,10 @@ config CLKSRC_IMX_TPM
 	  Enable this option to use IMX Timer/PWM Module (TPM) timer as
 	  clocksource.
 
+config CLKSRC_IMX_SYS_CNT
+	bool "Clocksource using i.MX system counter timer"
+	depends on ARM_ARCH_TIMER
+
 config CLKSRC_ST_LPC
 	bool "Low power clocksource found in the LPC" if COMPILE_TEST
 	select TIMER_OF if OF
