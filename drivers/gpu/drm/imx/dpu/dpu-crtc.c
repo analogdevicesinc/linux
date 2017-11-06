@@ -467,7 +467,6 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	constframe_framedimensions(dpu_crtc->cf,
 					mode->crtc_hdisplay,
 					mode->crtc_vdisplay);
-	constframe_constantcolor(dpu_crtc->cf, 0, 0, 0, 0);
 
 	ed_src = dpu_crtc->stream_id ? ED_SRC_CONSTFRAME5 : ED_SRC_CONSTFRAME4;
 	extdst_pixengcfg_src_sel(dpu_crtc->ed, ed_src);

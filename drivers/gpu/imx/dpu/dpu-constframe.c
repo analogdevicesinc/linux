@@ -21,6 +21,11 @@
 #include <video/dpu.h>
 #include "dpu-prv.h"
 
+static unsigned int safety_stream_cf_color = 0x0;
+module_param(safety_stream_cf_color, uint, 0444);
+MODULE_PARM_DESC(safety_stream_cf_color,
+"Safety stream constframe color in hex(0xRRGGBBAA) [default=0x00000000]");
+
 #define FRAMEDIMENSIONS		0xC
 #define WIDTH(w)		(((w) - 1) & 0x3FFF)
 #define HEIGHT(h)		((((h) - 1) & 0x3FFF) << 16)
@@ -168,6 +173,7 @@ EXPORT_SYMBOL_GPL(dpu_cf_put);
 
 void _dpu_cf_init(struct dpu_soc *dpu, unsigned int id)
 {
+	struct dpu_constframe *cf;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(cf_ids); i++)
@@ -177,7 +183,15 @@ void _dpu_cf_init(struct dpu_soc *dpu, unsigned int id)
 	if (WARN_ON(i == ARRAY_SIZE(cf_ids)))
 		return;
 
-	constframe_shden(dpu->cf_priv[i], true);
+	cf = dpu->cf_priv[i];
+
+	constframe_shden(cf, true);
+
+	if (id == 4 || id == 5) {
+		mutex_lock(&cf->mutex);
+		dpu_cf_write(cf, safety_stream_cf_color, CONSTANTCOLOR);
+		mutex_unlock(&cf->mutex);
+	}
 }
 
 int dpu_cf_init(struct dpu_soc *dpu, unsigned int id,
