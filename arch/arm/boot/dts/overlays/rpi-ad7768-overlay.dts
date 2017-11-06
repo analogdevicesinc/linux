@@ -18,6 +18,19 @@
 	};
 
 	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			clocks {
+				ad7768_mclk: clock@0 {
+					     #clock-cells = <0>;
+					     compatible = "fixed-clock";
+					     clock-frequency = <16384000>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
 		target = <&spi0>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -27,12 +40,15 @@
 			ad7768@0{
 				compatible = "ad7768-1";
 				reg = <0>;
-				spi-max-frequency = <1000000>;
+				spi-max-frequency = <16000000>;
 				spi-cpol;
 				spi-cpha;
-				interrupts = <25 2>;
+				#interrupt-cells = <2>;
+				interrupts = <25 0x2>;
 				interrupt-parent = <&gpio>;
 				vref-supply = <&adc_vref>;
+				clocks = <&ad7768_mclk>;
+				clock-names = "mclk";
 			};
 		};
 	};
