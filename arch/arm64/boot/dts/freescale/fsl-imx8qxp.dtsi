@@ -2063,7 +2063,7 @@
 	};
 
 	esai0: esai@59010000 {
-		compatible = "fsl,imx6ull-esai";
+		compatible = "fsl,imx8qm-esai";
 		reg = <0x0 0x59010000 0x0 0x10000>;
 		interrupts = <GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8QXP_AUD_ESAI_0_IPG>,
