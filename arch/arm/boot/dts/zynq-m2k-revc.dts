@@ -27,6 +27,6 @@
 
 	en-sc-gpio = <&gpio_exp 5 1>; /* Inverted */
 
-	en-usr-pow-gpio = <&gpio_exp 6 0>;
-	en-usr-pow-neg-gpio = <&gpio_exp 7 0>;
+	en-usr-pow-gpio = <&gpio_exp 7 0>;
+	en-usr-pow-neg-gpio = <&gpio_exp 6 0>;
 };
