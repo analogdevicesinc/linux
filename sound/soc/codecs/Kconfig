@@ -282,7 +282,8 @@ config SND_SOC_ADAU_UTILS
 	tristate
 
 config SND_SOC_ADAU1373
-	tristate
+	tristate "Analog Devices ADAU1373 CODEC"
+	depends on I2C
 	select SND_SOC_ADAU_UTILS
 
 config SND_SOC_ADAU1701
