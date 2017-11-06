@@ -843,8 +843,8 @@ static int axiadc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_put_converter;
 
-	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID)) {
-
+	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID) &&
+		of_find_property(pdev->dev.of_node, "dmas", NULL)) {
 		ret = axiadc_configure_ring_stream(indio_dev, NULL);
 		if (ret < 0)
 			goto err_put_converter;
@@ -904,8 +904,10 @@ static int axiadc_remove(struct platform_device *pdev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID))
+	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID) &&
+		of_find_property(pdev->dev.of_node, "dmas", NULL))
 		axiadc_unconfigure_ring_stream(indio_dev);
+
 	put_device(st->dev_spi);
 	module_put(st->dev_spi->driver->owner);
 
