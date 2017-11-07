@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
+#include <linux/busfreq-imx.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -2667,14 +2668,20 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 	dwc->setup_packet_pending = false;
 	usb_gadget_set_state(&dwc->gadget, USB_STATE_NOTATTACHED);
 
-	dwc->connected = false;
+	if (dwc->connected) {
+		release_bus_freq(BUS_FREQ_HIGH);
+		dwc->connected = false;
+	}
 }
 
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 {
 	u32			reg;
 
-	dwc->connected = true;
+	if (!dwc->connected) {
+		request_bus_freq(BUS_FREQ_HIGH);
+		dwc->connected = true;
+	}
 
 	/*
 	 * WORKAROUND: DWC3 revisions <1.88a have an issue which
