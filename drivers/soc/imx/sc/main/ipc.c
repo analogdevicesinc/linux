@@ -360,6 +360,13 @@ int __init imx8_mu_init(void)
 	if (sciErr)
 		pr_info("Cannot request ALARM_RTC interrupt\n");
 
+	/* Request for the ON/OFF interrupt. */
+	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_0A, SC_IRQ_GROUP_WAKE,
+			       SC_IRQ_BUTTON, true);
+
+	if (sciErr)
+		pr_info("Cannot request ON/OFF interrupt\n");
+
 	pr_info("*****Initialized MU\n");
 	return scu_mu_id;
 }
