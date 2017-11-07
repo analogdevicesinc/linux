@@ -2586,7 +2586,7 @@
 		interrupts = <GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8QM_AUD_ESAI_0_IPG>,
 			<&clk IMX8QM_AUD_ESAI_0_EXTAL_IPG>,
-			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_AUD_ESAI_0_IPG>,
 			<&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "core", "extal", "fsys", "spba";
 		dmas = <&edma2 6 0 1>, <&edma2 7 0 0>;
