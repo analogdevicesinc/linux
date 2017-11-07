@@ -447,6 +447,13 @@ config KEYBOARD_SNVS_PWRKEY
 	  To compile this driver as a module, choose M here; the
 	  module will be called snvs_pwrkey.
 
+config KEYBOARD_IMX_SC_PWRKEY
+	tristate "IMX SC Power Key Driver"
+	depends on (ARCH_FSL_IMX8QM || ARCH_FSL_IMX8QXP)
+	help
+	  This is the virtual snvs powerkey driver for NXP i.mx8Q/QXP family
+	  whose SCU hold snvs inside.
+
 config KEYBOARD_PF1550_ONKEY
 	tristate "PF1550 OnKey Driver"
 	depends on MFD_PF1550

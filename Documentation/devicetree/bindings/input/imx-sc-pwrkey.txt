@@ -1,0 +1,22 @@
+Device-Tree bindings for input/keyboard/imx_sc_pwrkey.c poweron/off driver
+over SCU. On i.mx8QM/QXP poweron/off key is connected on SCU side, so need
+to get key event by MU.
+
+Required properties:
+	- compatible = "fsl,imx8-pwrkey";
+
+Each button/key looked as the sub node:
+Required properties:
+	- linux,code: the key value defined in
+		include/dt-bindings/input/input.h
+Optional property:
+	- wakeup-source: wakeup feature, the keys can wakeup from
+	suspend if the keys with this property pressed.
+
+Example nodes:
+	sc_pwrkey: sc-powerkey {
+		compatible = "fsl,imx8-pwrkey";
+		linux,keycode = <KEY_POWER>;
+		wakeup-source;
+	};
+
