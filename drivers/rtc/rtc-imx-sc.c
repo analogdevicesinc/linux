@@ -21,6 +21,7 @@
 #include <linux/rtc.h>
 #include <soc/imx/fsl_sip.h>
 #include <soc/imx8/sc/sci.h>
+#include <soc/imx8/sc/svc/irq/api.h>
 
 sc_ipc_t timer_ipcHandle;
 
@@ -31,9 +32,15 @@ struct imx_sc_rtc_data {
 
 struct imx_sc_rtc_data *data;
 
-static int imx_sc_rtc_alarm_sc_notify(struct notifier_block *nb, unsigned long event, void *dummy)
+static int imx_sc_rtc_alarm_sc_notify(struct notifier_block *nb,
+					unsigned long event, void *group)
 {
 	u32 events = 0;
+
+	/* ignore non-rtc irq */
+	if (!((event & SC_IRQ_RTC) &&
+		(*(sc_irq_group_t *)group == SC_IRQ_GROUP_RTC)))
+		return 0;
 
 	rtc_update_irq(data->rtc, 1, events);
 
