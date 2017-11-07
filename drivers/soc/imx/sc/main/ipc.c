@@ -243,29 +243,30 @@ int unregister_scu_notifier(struct notifier_block *nb)
 
 EXPORT_SYMBOL(unregister_scu_notifier);
 
-static int SCU_notifier_call_chain(unsigned long val)
+static int SCU_notifier_call_chain(unsigned long status, sc_irq_group_t *group)
 {
-	return (blocking_notifier_call_chain(&SCU_notifier_chain, val, NULL) ==
-		NOTIFY_BAD) ? -EINVAL : 0;
+	return blocking_notifier_call_chain(&SCU_notifier_chain, status,
+						(void *)group);
 }
 
 static void scu_mu_work_handler(struct work_struct *work)
 {
 	uint32_t irq_status;
 	sc_err_t sciErr;
+	sc_irq_group_t i;
 
-	/* Figure out what caused the interrupt. */
-	sciErr = sc_irq_status(mu_ipcHandle, SC_R_MU_0A, SC_IRQ_GROUP_TEMP,
-			       &irq_status);
+	/* Walk all groups interrupt callback, callback will judge if it's
+	 * the right group for itself, return directly if not.
+	 */
+	for (i = 0; i < SC_IRQ_NUM_GROUP; i++) {
+		sciErr = sc_irq_status(mu_ipcHandle, SC_R_MU_0A, i,
+					&irq_status);
+		/* no irq? */
+		if (!irq_status)
+			continue;
 
-	if (irq_status & (SC_IRQ_TEMP_PMIC0_HIGH | SC_IRQ_TEMP_PMIC1_HIGH))
-		SCU_notifier_call_chain(irq_status);
-
-	sciErr = sc_irq_status(mu_ipcHandle, SC_R_MU_0A, SC_IRQ_GROUP_RTC,
-			       &irq_status);
-
-	if (irq_status & SC_IRQ_RTC)
-		SCU_notifier_call_chain(irq_status);
+		SCU_notifier_call_chain(irq_status, &i);
+	}
 }
 
 static irqreturn_t imx8_scu_mu_isr(int irq, void *param)
