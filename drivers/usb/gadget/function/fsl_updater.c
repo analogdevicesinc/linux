@@ -444,6 +444,10 @@ static int utp_exec(struct fsg_dev *fsg,
 		if (uud->data.flags & UTP_FLAG_REPORT_BUSY)
 			pr_info("\tBUSY\n");
 #endif
+	} else {
+		pr_err("UTP write list is empty.\n");
+		mutex_unlock(&ctx->lock);
+		return 0;
 	}
 	mutex_unlock(&ctx->lock);
 
