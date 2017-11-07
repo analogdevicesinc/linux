@@ -213,10 +213,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIN1R", NULL, "Line In Jack"},
 	{"AIN2L", NULL, "Line In Jack"},
 	{"AIN2R", NULL, "Line In Jack"},
-	{"CPU-Playback",  NULL, "ASRC-Playback"},
 	{"Playback",  NULL, "CPU-Playback"},/* dai route for be and fe */
-	{"ASRC-Capture",  NULL, "CPU-Capture"},
 	{"CPU-Capture",  NULL, "Capture"},
+	{"CPU-Playback",  NULL, "ASRC-Playback"},
+	{"ASRC-Capture",  NULL, "CPU-Capture"},
 };
 
 static int be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
@@ -332,6 +332,8 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 		imx_cs42888_dai[0].cpu_dai_name    = dev_name(&esai_pdev->dev);
 		imx_cs42888_dai[0].platform_of_node = esai_np;
 		snd_soc_card_imx_cs42888.num_links = 1;
+		snd_soc_card_imx_cs42888.num_dapm_routes =
+			ARRAY_SIZE(audio_map) - 2;
 	} else {
 		imx_cs42888_dai[0].codec_of_node   = codec_np;
 		imx_cs42888_dai[0].cpu_dai_name    = dev_name(&esai_pdev->dev);
