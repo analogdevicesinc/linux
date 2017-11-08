@@ -7,6 +7,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/dma-map-ops.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
@@ -620,6 +621,11 @@ static void caam_remove_debugfs(void *root)
 	debugfs_remove_recursive(root);
 }
 
+static void caam_dma_dev_unregister(void *data)
+{
+	platform_device_unregister(data);
+}
+
 #ifdef CONFIG_FSL_MC_BUS
 static bool check_version(struct fsl_mc_version *mc_version, u32 major,
 			  u32 minor, u32 revision)
@@ -861,6 +867,11 @@ static int caam_probe(struct platform_device *pdev)
 	int ret, ring;
 	u64 caam_id;
 	const struct soc_device_attribute *imx_soc_match;
+	static struct platform_device_info caam_dma_pdev_info = {
+		.name = "caam-dma",
+		.id = PLATFORM_DEVID_NONE
+	};
+	static struct platform_device *caam_dma_dev;
 	struct device *dev;
 	struct device_node *nprop, *np;
 	struct resource res_regs;
@@ -1150,6 +1161,20 @@ set_dma_mask:
 	if ((!ctrlpriv->qi_present) && (!ctrlpriv->total_jobrs)) {
 		dev_err(dev, "no queues configured, terminating\n");
 		return -ENOMEM;
+	}
+
+	caam_dma_pdev_info.parent = dev;
+	caam_dma_pdev_info.dma_mask = dma_get_mask(dev);
+	caam_dma_dev = platform_device_register_full(&caam_dma_pdev_info);
+	if (IS_ERR(caam_dma_dev)) {
+		dev_err(dev, "Unable to create and register caam-dma dev\n");
+		return PTR_ERR(caam_dma_dev);
+	} else {
+		set_dma_ops(&caam_dma_dev->dev, get_dma_ops(dev));
+		ret = devm_add_action_or_reset(dev, caam_dma_dev_unregister,
+					       caam_dma_dev);
+		if (ret)
+			return ret;
 	}
 
 	comp_params = rd_reg32(&perfmon->comp_parms_ls);
