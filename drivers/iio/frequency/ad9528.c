@@ -927,7 +927,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	if ((ret & 0xFFFFFF) != AD9528_SPI_MAGIC) {
+	if (ret != AD9528_SPI_MAGIC) {
 		dev_err(&indio_dev->dev,
 				"SPI Read Verify failed (0x%X)\n", ret);
 		return -EIO;
