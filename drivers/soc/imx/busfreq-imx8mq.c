@@ -102,14 +102,19 @@ static void reduce_bus_freq(void)
 	clk_prepare_enable(sys1_pll_40m);
 	clk_prepare_enable(dram_alt_root);
 
+	/*
+	 * below piece of code has some redundant part, keep
+	 * it at present, we may need update the audio freq
+	 * in the future if needed.
+	 */
 	if (audio_bus_count) {
-		clk_prepare_enable(sys1_pll_400m);
+		clk_prepare_enable(sys1_pll_100m);
 
-		update_bus_freq(AUDIO_FREQ_400MTS);
+		update_bus_freq(LOW_BUS_FREQ_100MTS);
 
 		/* correct the clock tree info */
-		clk_disable_unprepare(sys1_pll_400m);
-		clk_set_parent(dram_alt_src, sys1_pll_400m);
+		clk_disable_unprepare(sys1_pll_100m);
+		clk_set_parent(dram_alt_src, sys1_pll_100m);
 		clk_set_parent(dram_core_clk, dram_alt_root);
 		clk_set_parent(dram_apb_src, sys1_pll_40m);
 		clk_set_rate(dram_apb_pre_div, 20000000);
@@ -128,6 +133,7 @@ static void reduce_bus_freq(void)
 		clk_set_parent(dram_core_clk, dram_alt_root);
 		clk_set_parent(dram_apb_src, sys1_pll_40m);
 		clk_set_rate(dram_apb_pre_div, 20000000);
+		clk_prepare_enable(sys1_pll_400m);
 
 		low_bus_freq_mode = 1;
 		audio_bus_freq_mode = 0;
@@ -138,7 +144,7 @@ static void reduce_bus_freq(void)
 	clk_disable_unprepare(dram_alt_root);
 
 	if (audio_bus_freq_mode)
-		printk(KERN_DEBUG "ddrc freq set to audio mode: 100MHz\n");
+		printk(KERN_DEBUG "ddrc freq set to audio mode: 25MHz\n");
 	if (low_bus_freq_mode)
 		printk(KERN_DEBUG "ddrc freq set to low bus mode: 25MHz\n");
 }
