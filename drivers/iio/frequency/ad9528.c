@@ -41,7 +41,8 @@
 
 #define AD9528_SERIAL_PORT_CONFIG		AD9528_1B(0x0)
 #define AD9528_SERIAL_PORT_CONFIG_B		AD9528_1B(0x1)
-#define AD9528_CHIP_ID				AD9528_4B(0x3)
+#define AD9528_CHIP_ID				AD9528_3B(0x3)
+#define AD9528_CHIP_REVISION			AD9528_1B(0x6)
 #define AD9528_IO_UPDATE			AD9528_1B(0xF)
 
 #define AD9528_PLL1_REF_A_DIVIDER		AD9528_2B(0x100)
@@ -859,7 +860,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	if ((ret & 0xFFFFFF) != AD9528_SPI_MAGIC) {
+	if (ret != AD9528_SPI_MAGIC) {
 		dev_err(&indio_dev->dev,
 				"SPI Read Verify failed (0x%X)\n", ret);
 		return -EIO;
