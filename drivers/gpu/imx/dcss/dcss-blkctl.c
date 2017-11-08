@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/bitops.h>
 #include <linux/of.h>
+#include <soc/imx8/soc.h>
 
 #include "dcss-prv.h"
 #include <video/imx-dcss.h>
@@ -24,14 +25,16 @@
 #define   B_CLK_RESETN			BIT(0)
 #define   APB_CLK_RESETN		BIT(1)
 #define   P_CLK_RESETN			BIT(2)
-#define   HDMI_RESETN			BIT(3)
-#define   RTR_CLK_RESETN		BIT(4)
+#define   RTR_CLK_RESETN		BIT(3)
+#define   HDMI_RESETN			BIT(4)
 #define DCSS_BLKCTL_CONTROL0		0x10
 #define   HDMI_MIPI_CLK_SEL		BIT(0)
 #define   DISPMIX_REFCLK_SEL_POS	4
 #define   DISPMIX_REFCLK_SEL_MASK	GENMASK(5, 4)
 #define   DISPMIX_PIXCLK_SEL		BIT(8)
 #define   HDMI_SRC_SECURE_EN		BIT(16)
+
+#define B0_SILICON_ID			0x20
 
 static void __iomem *dcss_blkctl_reg;
 static bool hdmi_output;
@@ -50,6 +53,7 @@ int dcss_blkctl_init(struct dcss_soc *dcss, unsigned long blkctl_base)
 	struct device_node *node = dcss->dev->of_node;
 	int len;
 	const char *disp_dev;
+	u32 clk_setting = 0;
 
 	hdmi_output = false;
 
@@ -63,10 +67,15 @@ int dcss_blkctl_init(struct dcss_soc *dcss, unsigned long blkctl_base)
 	if (!disp_dev || !strncmp(disp_dev, "hdmi_disp", 9))
 		hdmi_output = true;
 
+	if (imx8_get_soc_revision() == B0_SILICON_ID)
+		clk_setting = HDMI_MIPI_CLK_SEL;
+
 	if (hdmi_output)
-		dcss_writel(0, dcss_blkctl_reg + DCSS_BLKCTL_CONTROL0);
+		dcss_writel(clk_setting,
+			    dcss_blkctl_reg + DCSS_BLKCTL_CONTROL0);
 	else
-		dcss_writel(HDMI_MIPI_CLK_SEL | DISPMIX_PIXCLK_SEL,
+		dcss_writel((clk_setting ^ HDMI_MIPI_CLK_SEL) |
+			    DISPMIX_PIXCLK_SEL,
 			    dcss_blkctl_reg + DCSS_BLKCTL_CONTROL0);
 
 	/* deassert clock domains resets */
