@@ -60,6 +60,11 @@ static struct clk *dram_alt_root;
 static struct clk *dram_core_clk;
 static struct clk *dram_apb_src;
 static struct clk *dram_apb_pre_div;
+static struct clk *noc_div;
+static struct clk *main_axi_src;
+static struct clk *ahb_div;
+static struct clk *osc_25m;
+static struct clk *sys2_pll_333m;
 
 static struct delayed_work low_bus_freq_handler;
 static struct delayed_work bus_freq_daemon;
@@ -118,6 +123,10 @@ static void reduce_bus_freq(void)
 		clk_set_parent(dram_core_clk, dram_alt_root);
 		clk_set_parent(dram_apb_src, sys1_pll_40m);
 		clk_set_rate(dram_apb_pre_div, 20000000);
+		/* reduce the NOC & bus clock */
+		clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+		clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
+		clk_set_parent(main_axi_src, osc_25m);
 
 		low_bus_freq_mode = 0;
 		audio_bus_freq_mode = 1;
@@ -134,6 +143,10 @@ static void reduce_bus_freq(void)
 		clk_set_parent(dram_apb_src, sys1_pll_40m);
 		clk_set_rate(dram_apb_pre_div, 20000000);
 		clk_prepare_enable(sys1_pll_400m);
+		/* reduce the NOC & bus clock */
+		clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+		clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
+		clk_set_parent(main_axi_src, osc_25m);
 
 		low_bus_freq_mode = 1;
 		audio_bus_freq_mode = 0;
@@ -178,7 +191,7 @@ static int set_low_bus_freq(void)
 		reduce_bus_freq();
 	else
 		schedule_delayed_work(&low_bus_freq_handler,
-					usecs_to_jiffies(3000000));
+					usecs_to_jiffies(1000000));
 
 	return 0;
 }
@@ -216,6 +229,9 @@ static int set_high_bus_freq(int high_bus_freq)
 	clk_set_parent(dram_core_clk, dram_pll_clk);
 	clk_disable_unprepare(sys1_pll_800m);
 	clk_disable_unprepare(dram_pll_clk);
+	clk_set_rate(noc_div, 800000000);
+	clk_set_rate(ahb_div, 133333333);
+	clk_set_parent(main_axi_src, sys2_pll_333m);
 
 	high_bus_freq_mode = 1;
 	audio_bus_freq_mode = 0;
@@ -446,10 +462,17 @@ static int init_busfreq_clk(struct platform_device *pdev)
 	dram_core_clk = devm_clk_get(&pdev->dev, "dram_core");
 	dram_apb_src = devm_clk_get(&pdev->dev, "dram_apb_src");
 	dram_apb_pre_div = devm_clk_get(&pdev->dev, "dram_apb_pre_div");
+	noc_div = devm_clk_get(&pdev->dev, "noc_div");
+	ahb_div = devm_clk_get(&pdev->dev, "ahb_div");
+	main_axi_src = devm_clk_get(&pdev->dev, "main_axi_src");
+	osc_25m = devm_clk_get(&pdev->dev, "osc_25m");
+	sys2_pll_333m = devm_clk_get(&pdev->dev, "sys2_pll_333m");
 
 	if (IS_ERR(dram_pll_clk) || IS_ERR(sys1_pll_400m) || IS_ERR(sys1_pll_100m) ||
 	    IS_ERR(sys1_pll_40m) || IS_ERR(dram_alt_src) || IS_ERR(dram_alt_root) ||
-	    IS_ERR(dram_core_clk) || IS_ERR(dram_apb_src) || IS_ERR(dram_apb_pre_div)) {
+	    IS_ERR(dram_core_clk) || IS_ERR(dram_apb_src) || IS_ERR(dram_apb_pre_div)
+	    || IS_ERR(noc_div) || IS_ERR(main_axi_src) || IS_ERR(ahb_div)
+	    || IS_ERR(osc_25m) || IS_ERR(sys2_pll_333m)) {
 		dev_err(&pdev->dev, "failed to get busfreq clk\n");
 		return -EINVAL;
 	}
