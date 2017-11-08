@@ -70,7 +70,8 @@
 	gic: interrupt-controller@38800000 {
 		compatible = "arm,gic-v3";
 		reg = <0x0 0x38800000 0 0x10000>, /* GIC Dist */
-		      <0x0 0x38880000 0 0xC0000>; /* GICR (RD_base + SGI_base) */
+		      <0x0 0x38880000 0 0xC0000>, /* GICR (RD_base + SGI_base) */
+		      <0x0 0x30340000 0x0 0x10000>; /* IOMUXC_GPR */
 		#interrupt-cells = <3>;
 		interrupt-controller;
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
