@@ -15,6 +15,7 @@
 
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
+#include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/irq.h>
@@ -85,6 +86,23 @@ static int imx_gpc_psci_irq_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
+static int imx_gpc_psci_irq_set_affinity(struct irq_data *d,
+					 const struct cpumask *dest, bool force)
+{
+	/* parse the cpu of irq affinity */
+	struct arm_smccc_res res;
+	unsigned int cpu = cpumask_any_and(dest, cpu_online_mask);
+
+	irq_chip_set_affinity_parent(d, dest, force);
+
+	spin_lock(&gpc_psci_lock);
+	arm_smccc_smc(FSL_SIP_GPC, 0x4, d->hwirq,
+		      cpu, 0, 0, 0, 0, &res);
+	spin_unlock(&gpc_psci_lock);
+
+	return 0;
+}
+
 static struct irq_chip imx_gpc_psci_chip = {
 	.name			= "GPC-PSCI",
 	.irq_eoi		= irq_chip_eoi_parent,
@@ -92,9 +110,7 @@ static struct irq_chip imx_gpc_psci_chip = {
 	.irq_unmask		= imx_gpc_psci_irq_unmask,
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_set_wake		= imx_gpc_psci_irq_set_wake,
-#ifdef CONFIG_SMP
-	.irq_set_affinity	= irq_chip_set_affinity_parent,
-#endif
+	.irq_set_affinity	= imx_gpc_psci_irq_set_affinity,
 };
 
 static int imx_gpc_psci_domain_translate(struct irq_domain *d,
