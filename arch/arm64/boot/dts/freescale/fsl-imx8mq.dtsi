@@ -40,6 +40,8 @@
 		gpio2 = &gpio3;
 		gpio3 = &gpio4;
 		gpio4 = &gpio5;
+		dsi_phy0 = &mipi_dsi_phy_drm;
+		mipi_dsi0 = &mipi_dsi_drm;
 	};
 
 	cpus {
@@ -502,7 +504,7 @@
 
 	mipi_dsi: mipi_dsi@30A00000 {
 		compatible = "fsl,imx8mq-mipi-dsi";
-		reg = <0x0 0x30a00000 0x0 0x10000>;	/* DSI registers */
+		reg = <0x0 0x30a00000 0x0 0x10000>;     /* DSI registers */
 		interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MQ_CLK_DSI_CORE_DIV>,
 			 <&clk IMX8MQ_CLK_DSI_PHY_REF_DIV>,
@@ -571,6 +573,65 @@
 				<0x0 0x32e40000 0x0 0x40000>;   /* HDP SEC register */
 		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
 		status = "disabled";
+	};
+
+	mipi_dsi_phy_drm: dsi_phy_drm@30A00300 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "mixel,imx8mq-mipi-dsi-phy";
+		reg = <0x0 0x30A00300 0x0 0x100>;
+		power-domains = <&mipi_pd>;
+		#phy-cells = <0>;
+		status = "disabled";
+	};
+
+	mipi_dsi_bridge_drm: mipi_dsi_bridge_drm@30A00000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nwl,mipi-dsi";
+		reg = <0x0 0x30A00000 0x0 0x400>;
+		interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_DSI_PHY_REF_DIV>,
+			 <&clk IMX8MQ_CLK_DSI_AHB_DIV>,
+			 <&clk IMX8MQ_CLK_DSI_IPG_DIV>;
+		clock-names = "phy_ref", "rx_esc", "tx_esc";
+		assigned-clocks = <&clk IMX8MQ_CLK_DSI_AHB_SRC>;
+		assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_80M>;
+		assigned-clock-rates = <80000000>;
+		power-domains = <&mipi_pd>;
+		phys = <&mipi_dsi_phy_drm>;
+		phy-names = "dphy";
+		status = "disabled";
+
+		port@0 {
+			mipi_dsi_bridge_in: endpoint {
+				remote-endpoint = <&mipi_dsi_out>;
+			};
+		};
+	};
+
+	mipi_dsi_drm: mipi_dsi_drm@30A00000 {
+		compatible = "fsl,imx8mq-mipi-dsi_drm";
+		clocks = <&clk IMX8MQ_CLK_DSI_CORE_DIV>,
+			 <&clk IMX8MQ_CLK_DSI_PHY_REF_DIV>;
+		clock-names = "core", "phy_ref";
+		assigned-clocks = <&clk IMX8MQ_CLK_DSI_PHY_REF_SRC>,
+				  <&clk IMX8MQ_CLK_DSI_CORE_SRC>;
+		assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
+					 <&clk IMX8MQ_SYS1_PLL_266M>;
+		assigned-clock-rates = <594000000>, <266000000>;
+		power-domains = <&mipi_pd>;
+		src = <&src>;
+		mux-sel = <&gpr>;
+		phys = <&mipi_dsi_phy_drm>;
+		phy-names = "dphy";
+		status = "disabled";
+
+		port@0 {
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge_in>;
+			};
+		};
 	};
 
 	iomuxc: iomuxc@30330000 {
