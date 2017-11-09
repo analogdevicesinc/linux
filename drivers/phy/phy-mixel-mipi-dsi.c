@@ -107,7 +107,8 @@ static inline void phy_write(struct phy *phy, u32 value, unsigned int reg)
  */
 int mixel_phy_mipi_set_phy_speed(struct phy *phy,
 				 unsigned long bit_clk,
-				 unsigned long ref_clk)
+				 unsigned long ref_clk,
+				 bool best_match)
 {
 	struct mixel_mipi_phy_priv *priv = dev_get_drvdata(phy->dev.parent);
 	u32 div_rate;
@@ -132,6 +133,15 @@ int mixel_phy_mipi_set_phy_speed(struct phy *phy,
 	/* CM ranges between 16 and 255 */
 	/* CN ranges between 1 and 32 */
 	/* CO is power of 2: 1, 2, 4, 8 */
+	if (best_match && numerator < 16)
+		numerator = div_rate / 1000;
+
+	if (best_match && numerator > 255) {
+		while (numerator > 255 && denominator > 1) {
+			numerator = DIV_ROUND_UP(numerator, 2);
+			denominator = denominator >> 1;
+		}
+	}
 
 	if (numerator < 16 || numerator > 255)
 		return -EINVAL;
@@ -269,6 +279,15 @@ int mixel_mipi_phy_init(struct phy *phy)
 	return 0;
 }
 
+int mixel_mipi_phy_exit(struct phy *phy)
+{
+	phy_write(phy, 0, DPHY_CM);
+	phy_write(phy, 0, DPHY_CN);
+	phy_write(phy, 0, DPHY_CO);
+
+	return 0;
+}
+
 static int mixel_mipi_phy_power_on(struct phy *phy)
 {
 	struct mixel_mipi_phy_priv *priv = phy_get_drvdata(phy);
@@ -318,6 +337,7 @@ static int mixel_mipi_phy_power_off(struct phy *phy)
 
 static const struct phy_ops mixel_mipi_phy_ops = {
 	.init = mixel_mipi_phy_init,
+	.exit = mixel_mipi_phy_exit,
 	.power_on = mixel_mipi_phy_power_on,
 	.power_off = mixel_mipi_phy_power_off,
 	.owner = THIS_MODULE,

@@ -13,24 +13,24 @@
  * GNU General Public License for more details.
  */
 
-
 #include <drm/bridge/nwl_dsi.h>
+#include <drm/drmP.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_of.h>
-#include <drm/drmP.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/mfd/syscon.h>
+#include <linux/mfd/syscon/imx8mq-iomuxc-gpr.h>
 #include <linux/module.h>
-#include <linux/of_graph.h>
 #include <linux/of.h>
+#include <linux/of_graph.h>
 #include <linux/of_platform.h>
-#include <linux/phy/phy.h>
 #include <linux/phy/phy-mixel-mipi-dsi.h>
+#include <linux/phy/phy.h>
 #include <linux/regmap.h>
 #include <soc/imx8/sc/sci.h>
 #include <video/videomode.h>
@@ -38,6 +38,14 @@
 #include "imx-drm.h"
 
 #define DRIVER_NAME "nwl_dsi-imx"
+
+/* 8MQ SRC specific registers */
+#define SRC_MIPIPHY_RCR				0x28
+#define RESET_BYTE_N				BIT(1)
+#define RESET_N					BIT(2)
+#define DPI_RESET_N				BIT(3)
+#define ESC_RESET_N				BIT(4)
+#define PCLK_RESET_N				BIT(5)
 
 #define DC_ID(x)	SC_R_DC_ ## x
 #define MIPI_ID(x)	SC_R_MIPI_ ## x
@@ -47,23 +55,28 @@
 
 /* Possible clocks */
 #define CLK_PIXEL	"pixel"
+#define CLK_CORE	"core"
 #define CLK_BYPASS	"bypass"
 #define CLK_PHYREF	"phy_ref"
 
 /* Possible valid PHY reference clock rates*/
-u32 phyref_rates[] =
-{
+u32 phyref_rates[] = {
+	24000000,
+	25000000,
 	27000000,
-	24000000
 };
 
 struct imx_mipi_dsi {
 	struct drm_encoder		encoder;
+	struct drm_bridge		bridge;
+	struct drm_bridge		*next_bridge;
 	struct device			*dev;
 	struct phy			*phy;
 
 	/* Optional external regs */
 	struct regmap			*csr;
+	struct regmap			*reset;
+	struct regmap			*mux_sel;
 
 	/* Optional clocks */
 	struct clk_config		*clk_config;
@@ -72,6 +85,7 @@ struct imx_mipi_dsi {
 	u32 tx_ulps_reg;
 	u32 pxl2dpi_reg;
 
+	unsigned long			bit_clk;
 	u32				phyref_rate;
 	u32				instance;
 	bool				enabled;
@@ -81,11 +95,14 @@ struct clk_config {
 	const char *id;
 	struct clk *clk;
 	bool present;
+	bool enabled;
 	u32 rate;
 };
 
 enum imx_ext_regs {
-	IMX_REG_CSR = BIT(0),
+	IMX_REG_CSR = BIT(1),
+	IMX_REG_SRC = BIT(2),
+	IMX_REG_GPR = BIT(3),
 };
 
 struct devtype {
@@ -95,7 +112,7 @@ struct devtype {
 	u32 tx_ulps_reg;
 	u32 pxl2dpi_reg;
 	u8 max_instances;
-	struct clk_config clk_config[3];
+	struct clk_config clk_config[4];
 };
 
 static int imx8qm_dsi_poweron(struct imx_mipi_dsi *dsi);
@@ -104,6 +121,7 @@ static struct devtype imx8qm_dev = {
 	.poweron = &imx8qm_dsi_poweron,
 	.poweroff = &imx8qm_dsi_poweroff,
 	.clk_config = {
+		{ .id = CLK_CORE,   .present = false },
 		{ .id = CLK_PIXEL,  .present = true },
 		{ .id = CLK_BYPASS, .present = true },
 		{ .id = CLK_PHYREF, .present = true },
@@ -120,6 +138,7 @@ static struct devtype imx8qxp_dev = {
 	.poweron = &imx8qxp_dsi_poweron,
 	.poweroff = &imx8qxp_dsi_poweroff,
 	.clk_config = {
+		{ .id = CLK_CORE,   .present = false },
 		{ .id = CLK_PIXEL,  .present = true },
 		{ .id = CLK_BYPASS, .present = true },
 		{ .id = CLK_PHYREF, .present = true },
@@ -130,9 +149,25 @@ static struct devtype imx8qxp_dev = {
 	.max_instances =    2,
 };
 
+static int imx8mq_dsi_poweron(struct imx_mipi_dsi *dsi);
+static int imx8mq_dsi_poweroff(struct imx_mipi_dsi *dsi);
+static struct devtype imx8mq_dev = {
+	.poweron = &imx8mq_dsi_poweron,
+	.poweroff = &imx8mq_dsi_poweroff,
+	.clk_config = {
+		{ .id = CLK_CORE,   .present = true },
+		{ .id = CLK_PIXEL,  .present = false },
+		{ .id = CLK_BYPASS, .present = false },
+		{ .id = CLK_PHYREF, .present = true },
+	},
+	.ext_regs = IMX_REG_SRC | IMX_REG_GPR,
+	.max_instances = 1,
+};
+
 static const struct of_device_id imx_nwl_dsi_dt_ids[] = {
 	{ .compatible = "fsl,imx8qm-mipi-dsi", .data = &imx8qm_dev, },
 	{ .compatible = "fsl,imx8qxp-mipi-dsi", .data = &imx8qxp_dev, },
+	{ .compatible = "fsl,imx8mq-mipi-dsi_drm", .data = &imx8mq_dev, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_nwl_dsi_dt_ids);
@@ -147,7 +182,8 @@ static void imx_nwl_dsi_set_clocks(struct imx_mipi_dsi *dsi, bool enable)
 	struct device *dev = dsi->dev;
 	const char *id;
 	struct clk *clk;
-	unsigned long rate;
+	unsigned long new_rate, cur_rate;
+	bool enabled;
 	size_t i;
 
 	for (i = 0; i < dsi->clk_num; i++) {
@@ -155,21 +191,30 @@ static void imx_nwl_dsi_set_clocks(struct imx_mipi_dsi *dsi, bool enable)
 			continue;
 		id = dsi->clk_config[i].id;
 		clk = dsi->clk_config[i].clk;
-		rate = dsi->clk_config[i].rate;
+		new_rate = dsi->clk_config[i].rate;
+		cur_rate = clk_get_rate(clk);
+		enabled = dsi->clk_config[i].enabled;
 
 		/* BYPASS clk must have the same rate as PHY_REF clk */
-		if (!strcmp(id, CLK_BYPASS))
-			rate = dsi->phyref_rate;
+		if (!strcmp(id, CLK_BYPASS) || !strcmp(id, CLK_PHYREF))
+			new_rate = dsi->phyref_rate;
 
 		if (enable) {
-			if (rate > 0)
-				clk_set_rate(clk, rate);
-			clk_enable(clk);
-			rate = clk_get_rate(clk);
+			if (enabled && new_rate != cur_rate)
+				clk_disable_unprepare(clk);
+			else if (enabled && new_rate == cur_rate)
+				continue;
+			if (new_rate > 0)
+				clk_set_rate(clk, new_rate);
+			clk_prepare_enable(clk);
+			dsi->clk_config[i].enabled = true;
+			cur_rate = clk_get_rate(clk);
 			DRM_DEV_DEBUG_DRIVER(dev,
-				"Enabled %s clk (rate=%lu)\n", id, rate);
-		} else {
-			clk_disable(clk);
+				"Enabled %s clk (rate: req=%lu act=%lu)\n",
+				id, new_rate, cur_rate);
+		} else if (enabled) {
+			clk_disable_unprepare(clk);
+			dsi->clk_config[i].enabled = false;
 			DRM_DEV_DEBUG_DRIVER(dev, "Disabled %s clk\n", id);
 		}
 	}
@@ -384,15 +429,41 @@ static int imx8qxp_dsi_poweroff(struct imx_mipi_dsi *dsi)
 	return imx8q_dsi_poweroff(dsi, true);
 }
 
-static void imx_nwl_dsi_encoder_enable(struct drm_encoder *encoder)
+static int imx8mq_dsi_poweron(struct imx_mipi_dsi *dsi)
 {
-	struct imx_mipi_dsi *dsi = encoder_to_dsi(encoder);
+	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
+			   PCLK_RESET_N, PCLK_RESET_N);
+	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
+			   ESC_RESET_N, ESC_RESET_N);
+	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
+			   RESET_BYTE_N, RESET_BYTE_N);
+	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
+			   DPI_RESET_N, DPI_RESET_N);
+
+	return 0;
+}
+
+static int imx8mq_dsi_poweroff(struct imx_mipi_dsi *dsi)
+{
+	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
+			   PCLK_RESET_N, 0);
+	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
+			   ESC_RESET_N, 0);
+	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
+			   RESET_BYTE_N, 0);
+	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
+			   DPI_RESET_N, 0);
+
+	return 0;
+}
+
+static void imx_nwl_dsi_enable(struct imx_mipi_dsi *dsi)
+{
 	struct device *dev = dsi->dev;
 	const struct of_device_id *of_id = of_match_device(imx_nwl_dsi_dt_ids,
 							   dev);
 	const struct devtype *devtype = of_id->data;
 	int ret;
-
 
 	if (dsi->enabled)
 		return;
@@ -410,9 +481,8 @@ static void imx_nwl_dsi_encoder_enable(struct drm_encoder *encoder)
 	dsi->enabled = true;
 }
 
-static void imx_nwl_dsi_encoder_disable(struct drm_encoder *encoder)
+static void imx_nwl_dsi_disable(struct imx_mipi_dsi *dsi)
 {
-	struct imx_mipi_dsi *dsi = encoder_to_dsi(encoder);
 	struct device *dev = dsi->dev;
 	const struct of_device_id *of_id = of_match_device(imx_nwl_dsi_dt_ids,
 							   dev);
@@ -445,7 +515,15 @@ static int imx_nwl_try_phy_speed(struct imx_mipi_dsi *dsi,
 	int ret = 0;
 
 	pixclock = mode->clock * 1000;
-	bit_clk = nwl_dsi_get_bit_clock(&dsi->encoder, pixclock);
+	/*
+	 * DSI host should know the required bit clock, since it has info
+	 * about bits-per-pixel and number of lanes from DSI device
+	 */
+	bit_clk = nwl_dsi_get_bit_clock(dsi->next_bridge, pixclock);
+
+	/* If bit_clk is the same with current, we're good */
+	if (bit_clk == dsi->bit_clk)
+		return 0;
 
 	for (i = 0; i < num_rates; i++) {
 		dsi->phyref_rate = phyref_rates[i];
@@ -453,22 +531,38 @@ static int imx_nwl_try_phy_speed(struct imx_mipi_dsi *dsi,
 			dsi->phyref_rate);
 		ret = mixel_phy_mipi_set_phy_speed(dsi->phy,
 			bit_clk,
-			dsi->phyref_rate);
+			dsi->phyref_rate,
+			false);
 		/* Pick the first non-failing rate */
 		if (!ret)
 			break;
 	}
 	if (ret < 0) {
-		DRM_DEV_DEBUG_DRIVER(dev,
+		DRM_DEV_ERROR(dev,
 			"Cannot setup PHY for mode: %ux%u @%d kHz\n",
 			mode->hdisplay,
 			mode->vdisplay,
 			mode->clock);
-		DRM_DEV_DEBUG_DRIVER(dev, "PHY_REF clk: %u, bit clk: %lu\n",
+		DRM_DEV_ERROR(dev, "PHY_REF clk: %u, bit clk: %lu\n",
 			dsi->phyref_rate, bit_clk);
-	}
+	} else
+		dsi->bit_clk = bit_clk;
 
 	return ret;
+}
+
+static void imx_nwl_dsi_encoder_enable(struct drm_encoder *encoder)
+{
+	struct imx_mipi_dsi *dsi = encoder_to_dsi(encoder);
+
+	imx_nwl_dsi_enable(dsi);
+}
+
+static void imx_nwl_dsi_encoder_disable(struct drm_encoder *encoder)
+{
+	struct imx_mipi_dsi *dsi = encoder_to_dsi(encoder);
+
+	imx_nwl_dsi_disable(dsi);
 }
 
 static int imx_nwl_dsi_encoder_atomic_check(struct drm_encoder *encoder,
@@ -500,45 +594,95 @@ static const struct drm_encoder_funcs imx_nwl_dsi_encoder_funcs = {
 	.destroy = imx_nwl_dsi_encoder_destroy,
 };
 
-static int imx_nwl_dsi_bind(struct device *dev,
-			struct device *master,
-			void *data)
+
+static void imx_nwl_dsi_bridge_enable(struct drm_bridge *bridge)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct drm_device *drm = data;
-	struct imx_mipi_dsi *dsi;
+	struct imx_mipi_dsi *dsi = bridge->driver_private;
+
+	imx_nwl_dsi_enable(dsi);
+}
+
+static void imx_nwl_dsi_bridge_disable(struct drm_bridge *bridge)
+{
+	struct imx_mipi_dsi *dsi = bridge->driver_private;
+
+	imx_nwl_dsi_disable(dsi);
+}
+
+static bool imx_nwl_dsi_bridge_mode_fixup(struct drm_bridge *bridge,
+			   const struct drm_display_mode *mode,
+			   struct drm_display_mode *adjusted_mode)
+{
+	struct imx_mipi_dsi *dsi = bridge->driver_private;
+
+	return (imx_nwl_try_phy_speed(dsi, adjusted_mode) == 0);
+}
+
+static int imx_nwl_dsi_bridge_attach(struct drm_bridge *bridge)
+{
+	struct imx_mipi_dsi *dsi = bridge->driver_private;
+	struct drm_encoder *encoder = bridge->encoder;
+	int ret = 0;
+
+	DRM_DEV_INFO(dsi->dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	if (!encoder) {
+		DRM_DEV_ERROR(dsi->dev, "Parent encoder object not found\n");
+		return -ENODEV;
+	}
+
+	/* Attach the next bridge in chain */
+	nwl_dsi_add_bridge(encoder, dsi->next_bridge);
+	ret = drm_bridge_attach(encoder, dsi->next_bridge, NULL);
+	if (ret) {
+		DRM_DEV_ERROR(dsi->dev, "Failed to attach bridge! (%d)\n",
+			      ret);
+		nwl_dsi_del_bridge(encoder, dsi->next_bridge);
+	}
+
+	return ret;
+}
+
+static void imx_nwl_dsi_bridge_detach(struct drm_bridge *bridge)
+{
+	struct imx_mipi_dsi *dsi = bridge->driver_private;
+
+	DRM_DEV_INFO(dsi->dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	nwl_dsi_del_bridge(dsi->next_bridge->encoder, dsi->next_bridge);
+}
+
+static const struct drm_bridge_funcs imx_nwl_dsi_bridge_funcs = {
+	.enable = imx_nwl_dsi_bridge_enable,
+	.disable = imx_nwl_dsi_bridge_disable,
+	.mode_fixup = imx_nwl_dsi_bridge_mode_fixup,
+	.attach = imx_nwl_dsi_bridge_attach,
+	.detach = imx_nwl_dsi_bridge_detach,
+};
+
+static int imx_nwl_dsi_parse_of(struct device *dev, bool as_bridge)
+{
 	struct device_node *np = dev->of_node;
 	const struct of_device_id *of_id = of_match_device(imx_nwl_dsi_dt_ids,
 							   dev);
 	const struct devtype *devtype = of_id->data;
-	struct resource *res;
-	int irq;
+	struct imx_mipi_dsi *dsi = dev_get_drvdata(dev);
 	struct clk *clk;
 	const char *clk_id;
 	size_t i, clk_config_sz;
-	int ret;
+	int id;
+	u32 mux_val;
+	int ret = 0;
 
-	if (!np)
-		return -ENODEV;
-
-	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
-	if (!dsi)
-		return -ENOMEM;
-
-	dsi->dev = dev;
-
-	dsi->instance = of_alias_get_id(np, "mipi_dsi");
-	if (dsi->instance < 0) {
+	id = of_alias_get_id(np, "mipi_dsi");
+	if (id < 0) {
 		dev_err(dev, "No mipi_dsi alias found!");
-		return dsi->instance;
+		return id;
 	}
-	if (dsi->instance > devtype->max_instances - 1) {
+	if (id > devtype->max_instances - 1) {
 		dev_err(dev, "Too many instances! (cur: %d, max: %d)\n",
-			dsi->instance, devtype->max_instances);
+			id, devtype->max_instances);
 		return -ENODEV;
 	}
-
-	DRM_DEV_INFO(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	dsi->instance = id;
 
 	dsi->phy = devm_phy_get(dev, "dphy");
 	if (IS_ERR(dsi->phy)) {
@@ -568,10 +712,13 @@ static int imx_nwl_dsi_bind(struct device *dev,
 				clk_id, ret);
 			return ret;
 		}
-		clk_prepare(clk);
-
+		dev_dbg(dev, "Setup clk %s (rate: %lu)\n",
+			clk_id, clk_get_rate(clk));
 		dsi->clk_config[i].clk = clk;
 	}
+
+	dsi->tx_ulps_reg = devtype->tx_ulps_reg;
+	dsi->pxl2dpi_reg = devtype->pxl2dpi_reg;
 
 	/* Look for optional regmaps */
 	dsi->csr = syscon_regmap_lookup_by_phandle(np, "csr");
@@ -580,25 +727,56 @@ static int imx_nwl_dsi_bind(struct device *dev,
 		dev_err(dev, "Failed to get CSR regmap (%d)\n", ret);
 		return ret;
 	}
+	dsi->reset = syscon_regmap_lookup_by_phandle(np, "src");
+	if (IS_ERR(dsi->reset) && (devtype->ext_regs & IMX_REG_SRC)) {
+		ret = PTR_ERR(dsi->reset);
+		dev_err(dev, "Failed to get SRC regmap (%d)\n", ret);
+		return ret;
+	}
+	dsi->mux_sel = syscon_regmap_lookup_by_phandle(np, "mux-sel");
+	if (IS_ERR(dsi->mux_sel) && (devtype->ext_regs & IMX_REG_GPR)) {
+		ret = PTR_ERR(dsi->mux_sel);
+		dev_err(dev, "Failed to get GPR regmap (%d)\n", ret);
+		return ret;
+	}
+	if (IS_ERR(dsi->mux_sel))
+		return 0;
 
-	dsi->tx_ulps_reg = devtype->tx_ulps_reg;
-	dsi->pxl2dpi_reg = devtype->pxl2dpi_reg;
+	mux_val = IMX8MQ_GPR13_MIPI_MUX_SEL;
+	if (as_bridge)
+		mux_val = 0;
+	dev_info(dev, "Using %s as input source\n",
+		(mux_val)?"DCSS":"LCDIF");
+	regmap_update_bits(dsi->mux_sel,
+		   IOMUXC_GPR13,
+		   IMX8MQ_GPR13_MIPI_MUX_SEL,
+		   mux_val);
 
-	platform_set_drvdata(pdev, dsi);
+	return 0;
+}
+
+static int imx_nwl_dsi_bind(struct device *dev,
+			struct device *master,
+			void *data)
+{
+	struct drm_device *drm = data;
+	struct imx_mipi_dsi *dsi = dev_get_drvdata(dev);
+	int ret = 0;
+
+	ret = imx_nwl_dsi_parse_of(dev, false);
+	if (ret)
+		return ret;
+
+	DRM_DEV_INFO(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+
+	if (!dsi->next_bridge) {
+		dev_warn(dev, "No bridge found, skipping encoder creation\n");
+		return ret;
+	}
 
 	ret = imx_drm_encoder_parse_of(drm, &dsi->encoder, dev->of_node);
 	if (ret)
 		return ret;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -EBUSY;
-
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		DRM_DEV_ERROR(dev, "Failed to get device IRQ!\n");
-		return -EINVAL;
-	}
 
 	drm_encoder_helper_add(&dsi->encoder,
 			       &imx_nwl_dsi_encoder_helper_funcs);
@@ -612,13 +790,12 @@ static int imx_nwl_dsi_bind(struct device *dev,
 		return ret;
 	}
 
-	/* Now, bind our NWL MIPI-DSI bridge */
-	ret = nwl_dsi_bind(dev, &dsi->encoder, dsi->phy, res, irq);
-
-	if (ret)
+	dsi->next_bridge->encoder = &dsi->encoder;
+	dsi->encoder.bridge = dsi->next_bridge;
+	if (drm_bridge_attach(&dsi->encoder, dsi->next_bridge, NULL))
 		drm_encoder_cleanup(&dsi->encoder);
 
-	return ret;
+	return 0;
 }
 
 static void imx_nwl_dsi_unbind(struct device *dev,
@@ -632,8 +809,6 @@ static void imx_nwl_dsi_unbind(struct device *dev,
 	imx_nwl_dsi_encoder_disable(&dsi->encoder);
 
 	drm_encoder_cleanup(&dsi->encoder);
-
-	nwl_dsi_unbind(dsi->encoder.bridge);
 }
 
 static const struct component_ops imx_nwl_dsi_component_ops = {
@@ -643,6 +818,60 @@ static const struct component_ops imx_nwl_dsi_component_ops = {
 
 static int imx_nwl_dsi_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	struct device_node *remote_node, *endpoint;
+	struct imx_mipi_dsi *dsi;
+	int ret = 0;
+
+	if (!np)
+		return -ENODEV;
+
+	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
+	if (!dsi)
+		return -ENOMEM;
+
+	/* Search for next bridge (usually the DSI HOST bridge) */
+	endpoint = of_graph_get_next_endpoint(np, NULL);
+	while (endpoint && !dsi->next_bridge) {
+		remote_node = of_graph_get_remote_port_parent(endpoint);
+		if (!remote_node) {
+			dev_err(dev, "No endpoint found!\n");
+			return -ENODEV;
+		}
+
+		dsi->next_bridge = of_drm_find_bridge(remote_node);
+		of_node_put(remote_node);
+		endpoint = of_graph_get_next_endpoint(np, endpoint);
+	};
+
+	if (!dsi->next_bridge) {
+		dev_warn(dev, "Waiting for DSI host bridge\n");
+		return -EPROBE_DEFER;
+	}
+
+	dsi->dev = dev;
+	dev_set_drvdata(dev, dsi);
+
+	if (of_property_read_bool(dev->of_node, "as_bridge")) {
+		ret = imx_nwl_dsi_parse_of(dev, true);
+		if (ret)
+			return ret;
+		/* Create our bridge */
+		dsi->bridge.driver_private = dsi;
+		dsi->bridge.funcs = &imx_nwl_dsi_bridge_funcs;
+		dsi->bridge.of_node = np;
+
+		ret = drm_bridge_add(&dsi->bridge);
+		if (ret) {
+			dev_err(dev, "Failed to add imx-nwl-dsi bridge (%d)\n",
+				ret);
+			return ret;
+		}
+		dev_info(dev, "Added drm bridge!");
+		return 0;
+	}
+
 	return component_add(&pdev->dev, &imx_nwl_dsi_component_ops);
 }
 

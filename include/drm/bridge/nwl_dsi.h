@@ -28,11 +28,17 @@ enum dpi_pixel_format {
 	DPI_24_BIT
 };
 
-unsigned long nwl_dsi_get_bit_clock(struct drm_encoder *encoder,
-	unsigned long pixclock);
+/*
+ * Just some helper functions to add/remove a bridge into/from encoder bridge
+ * chain.
+ */
+bool nwl_dsi_add_bridge(struct drm_encoder *encoder,
+			struct drm_bridge *next_bridge);
 
-int nwl_dsi_bind(struct device *dev, struct drm_encoder *encoder,
-		 struct phy *phy, struct resource *res, int irq);
-void nwl_dsi_unbind(struct drm_bridge *bridge);
+bool nwl_dsi_del_bridge(struct drm_encoder *encoder,
+			struct drm_bridge *bridge);
+
+unsigned long nwl_dsi_get_bit_clock(struct drm_bridge *bridge,
+	unsigned long pixclock);
 
 #endif /* __NWL_DSI_H__ */

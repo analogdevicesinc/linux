@@ -2,9 +2,11 @@ Northwest Logic MIPI-DSI bridge bindings
 
 The MIPI-DSI host controller drives the video signals from
 display controller to video peripherals using DSI protocol.
+This is an un-managed DSI bridge. In order to use this bridge, an encoder
+or bridge must be implemented to manage the platform specific initializations.
 
 Required properties:
-- compatible: 		"<vendor>,<chip>-mipi-dsi"
+- compatible: 		"nwl,mipi-dsi"
 - reg: 			the register range of the MIPI-DSI controller
 - interrupts: 		the interrupt number for this module
 - clock, clock-names: 	phandles to the MIPI-DSI clocks
@@ -17,9 +19,10 @@ Required properties:
 	"tx_esc" and "rx_esc"
 - port: 		input and output port nodes with endpoint definitions as
 			defined in Documentation/devicetree/bindings/graph.txt;
-			the input port should be connected to a display
-			interface and the output port should be connected to a
-			panel or a bridge input port
+			the input port should be connected to an encoder or a
+			bridge that manages this MIPI-DSI host and the output
+			port should be connected to a panel or a bridge input
+			port
 - phys: 		phandle to the phy module representing the DPHY
 			inside MIPI-DSI IP block
 - phy-names: 		should be "dphy"
@@ -37,9 +40,11 @@ Optional properties:
 Documentation/devicetree/bindings/clock/clock-bindings.txt
 
 Example:
-	mipi_dsi1: mipi_dsi@56228000 {
-		compatible = "fsl,imx8qm-mipi-dsi";
-		reg = <0x0 0x56228000 0x0 0x1000>;
+	mipi_dsi_bridge1: mipi_dsi_bridge@56228000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nwl,mipi-dsi";
+		reg = <0x0 0x56228000 0x0 0x300>;
 		interrupts = <16 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&irqsteer_dsi0>;
 		clocks =
@@ -48,15 +53,15 @@ Example:
 			<&clk IMX8QM_MIPI0_DSI_RX_ESC_CLK>;
 		clock-names = "phy_ref", "tx_esc", "rx_esc";
 		assigned-clocks = <&clk IMX8QM_MIPI0_DSI_TX_ESC_DIV>,
-                                  <&clk IMX8QM_MIPI0_DSI_RX_ESC_DIV>;
+				  <&clk IMX8QM_MIPI0_DSI_RX_ESC_DIV>;
 		assigned-clock-rates = <18000000>, <72000000>;
 		power-domains = <&pd_mipi0>;
 		phys = <&mipi_dsi_phy1>;
 		phy-names = "dphy";
 
 		port@0 {
-			mipi_dsi0_in: endpoint {
-				remote-endpoint = <&dpu1_disp0_mipi_dsi>;
+			mipi_dsi_bridge1_in: endpoint {
+				remote-endpoint = <&mipi_dsi1_out>;
 			};
 		};
 
@@ -68,8 +73,10 @@ Example:
 	};
 
 Another example, for a platform with a complex clock tree, like 8QXP:
-	mipi_dsi1: mipi_dsi@56228000 {
-		compatible = "fsl,imx8qxp-mipi-dsi";
+	mipi_dsi_bridge1: mipi_dsi_bridge@56228000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nwl,mipi-dsi";
 		reg = <0x0 0x56228000 0x0 0x300>;
 		interrupts = <16 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&irqsteer_mipi_lvds0>;
@@ -92,8 +99,14 @@ Another example, for a platform with a complex clock tree, like 8QXP:
 		phy-names = "dphy";
 
 		port@0 {
-			mipi_dsi1_in: endpoint {
-				remote-endpoint = <&dpu_disp0_mipi_dsi>;
+			mipi_dsi_bridge1_in: endpoint {
+				remote-endpoint = <&mipi_dsi1_out>;
+			};
+		};
+
+		port@1 {
+			mipi_dsi0_out: endpoint {
+				remote-endpoint = <&adv7535_0_in>;
 			};
 		};
 	};

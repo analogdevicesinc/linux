@@ -177,15 +177,15 @@ struct mipi_dsi_transfer {
 
 struct clk_config {
 	struct clk *clk;
-	u32 rate;
+	unsigned long rate;
 	bool enabled;
 };
 
 struct nwl_mipi_dsi {
-	struct drm_encoder		*encoder;
-	struct device_node		*panel_node;
+	struct device			*dev;
 	struct drm_panel		*panel;
-	struct drm_bridge		*bridge;
+	struct drm_bridge		*next_bridge;
+	struct drm_bridge		bridge;
 	struct drm_connector		connector;
 	struct mipi_dsi_host		host;
 
@@ -236,18 +236,74 @@ static u32 nwl_dsi_get_dpi_pixel_format(enum mipi_dsi_pixel_format format)
 	}
 }
 
-unsigned long nwl_dsi_get_bit_clock(struct drm_encoder *encoder,
+/* Adds a bridge to encoder bridge chain */
+bool nwl_dsi_add_bridge(struct drm_encoder *encoder,
+			struct drm_bridge *next_bridge)
+{
+	struct drm_bridge *bridge = encoder->bridge;
+
+	if (!next_bridge)
+		return false;
+
+	next_bridge->encoder = encoder;
+	if (!bridge) {
+		encoder->bridge = bridge;
+		return true;
+	}
+
+	while (bridge != next_bridge && bridge->next)
+		bridge = bridge->next;
+
+	/* Avoid adding an existing bridge to the chain */
+	if (bridge == next_bridge) {
+		next_bridge->encoder = NULL;
+		return false;
+	}
+
+	bridge->next = next_bridge;
+	return true;
+}
+EXPORT_SYMBOL_GPL(nwl_dsi_add_bridge);
+
+/* Removes last bridge from encoder bridge chain */
+bool nwl_dsi_del_bridge(struct drm_encoder *encoder,
+			struct drm_bridge *bridge)
+{
+	struct drm_bridge *b = encoder->bridge;
+	struct drm_bridge *prev = NULL;
+
+	if (!b || !bridge)
+		return false;
+
+	while (b->next) {
+		prev = b;
+		b = b->next;
+	}
+
+	bridge->encoder = NULL;
+	if (prev)
+		prev->next = NULL;
+	else
+		encoder->bridge = NULL;
+
+	return true;
+}
+EXPORT_SYMBOL_GPL(nwl_dsi_del_bridge);
+
+unsigned long nwl_dsi_get_bit_clock(struct drm_bridge *bridge,
 	unsigned long pixclock)
 {
-	struct nwl_mipi_dsi *dsi = encoder->bridge->driver_private;
+	struct nwl_mipi_dsi *dsi;
 	int bpp;
 
 	/* Make sure the bridge is correctly initialized */
-	if (!encoder->bridge || !encoder->bridge->driver_private ||
-		dsi->lanes < 1 || dsi->lanes > 4)
+	if (!bridge || !bridge->driver_private)
 		return 0;
 
-	dsi = encoder->bridge->driver_private;
+	dsi = bridge->driver_private;
+
+	if (dsi->lanes < 1 || dsi->lanes > 4)
+		return 0;
 
 	bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 
@@ -262,15 +318,17 @@ static void nwl_dsi_config_host(struct nwl_mipi_dsi *dsi)
 
 	nwl_dsi_write(dsi, CFG_NUM_LANES, dsi->lanes - 1);
 
-	if (dsi->dsi_mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS)
+	if (dsi->dsi_mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) {
 		nwl_dsi_write(dsi, CFG_NONCONTINUOUS_CLK, 0x01);
-	else
+		nwl_dsi_write(dsi, CFG_AUTOINSERT_EOTP, 0x01);
+	} else {
 		nwl_dsi_write(dsi, CFG_NONCONTINUOUS_CLK, 0x00);
+		nwl_dsi_write(dsi, CFG_AUTOINSERT_EOTP, 0x00);
+	}
 
 	nwl_dsi_write(dsi, CFG_T_PRE, 0x01);
 	nwl_dsi_write(dsi, CFG_T_POST, 0x34);
 	nwl_dsi_write(dsi, CFG_TX_GAP, 0x0D);
-	nwl_dsi_write(dsi, CFG_AUTOINSERT_EOTP, 0x01);
 	nwl_dsi_write(dsi, CFG_EXTRA_CMDS_AFTER_EOTP, 0x00);
 	nwl_dsi_write(dsi, CFG_HTX_TO_COUNT, 0x00);
 	nwl_dsi_write(dsi, CFG_LRX_H_TO_COUNT, 0x00);
@@ -319,11 +377,11 @@ static void nwl_dsi_config_dpi(struct nwl_mipi_dsi *dsi)
 
 static void nwl_dsi_enable_clocks(struct nwl_mipi_dsi *dsi, u32 clks)
 {
-	struct device *dev = dsi->host.dev;
+	struct device *dev = dsi->dev;
 	unsigned long rate;
 
 	if (clks & CLK_PHY_REF && !dsi->phy_ref.enabled) {
-		clk_enable(dsi->phy_ref.clk);
+		clk_prepare_enable(dsi->phy_ref.clk);
 		dsi->phy_ref.enabled = true;
 		rate = clk_get_rate(dsi->phy_ref.clk);
 		DRM_DEV_DEBUG_DRIVER(dev,
@@ -331,12 +389,15 @@ static void nwl_dsi_enable_clocks(struct nwl_mipi_dsi *dsi, u32 clks)
 	}
 
 	if (clks & CLK_RX_ESC && !dsi->rx_esc.enabled) {
-		clk_enable(dsi->rx_esc.clk);
+		clk_set_rate(dsi->rx_esc.clk, dsi->rx_esc.rate);
+		clk_prepare_enable(dsi->rx_esc.clk);
 		dsi->rx_esc.enabled = true;
+		rate = clk_get_rate(dsi->rx_esc.clk);
 	}
 
 	if (clks & CLK_TX_ESC && !dsi->tx_esc.enabled) {
-		clk_enable(dsi->tx_esc.clk);
+		clk_set_rate(dsi->tx_esc.clk, dsi->tx_esc.rate);
+		clk_prepare_enable(dsi->tx_esc.clk);
 		dsi->tx_esc.enabled = true;
 		rate = clk_get_rate(dsi->tx_esc.clk);
 		DRM_DEV_DEBUG_DRIVER(dev,
@@ -346,21 +407,21 @@ static void nwl_dsi_enable_clocks(struct nwl_mipi_dsi *dsi, u32 clks)
 
 static void nwl_dsi_disable_clocks(struct nwl_mipi_dsi *dsi, u32 clks)
 {
-	struct device *dev = dsi->host.dev;
+	struct device *dev = dsi->dev;
 
 	if (clks & CLK_PHY_REF && dsi->phy_ref.enabled) {
-		clk_disable(dsi->phy_ref.clk);
+		clk_disable_unprepare(dsi->phy_ref.clk);
 		dsi->phy_ref.enabled = false;
 		DRM_DEV_DEBUG_DRIVER(dev, "Disabled phy_ref clk\n");
 	}
 
 	if (clks & CLK_RX_ESC && dsi->rx_esc.enabled) {
-		clk_disable(dsi->rx_esc.clk);
+		clk_disable_unprepare(dsi->rx_esc.clk);
 		dsi->rx_esc.enabled = false;
 	}
 
 	if (clks & CLK_TX_ESC && dsi->tx_esc.enabled) {
-		clk_disable(dsi->tx_esc.clk);
+		clk_disable_unprepare(dsi->tx_esc.clk);
 		dsi->tx_esc.enabled = false;
 		DRM_DEV_DEBUG_DRIVER(dev, "Disabled tx_esc clk\n");
 	}
@@ -383,15 +444,23 @@ static void nwl_dsi_init_interrupts(struct nwl_mipi_dsi *dsi)
 static void nwl_dsi_bridge_enable(struct drm_bridge *bridge)
 {
 	struct nwl_mipi_dsi *dsi = bridge->driver_private;
-	struct device *dev = dsi->host.dev;
+	struct device *dev = dsi->dev;
 	int ret;
+
+	if (dsi->enabled)
+		return;
 
 	if (!dsi->lanes) {
 		DRM_DEV_ERROR(dev, "Bridge not set up properly!\n");
 		return;
 	}
 
-	nwl_dsi_enable_clocks(dsi, CLK_PHY_REF);
+	nwl_dsi_enable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
+
+	nwl_dsi_config_host(dsi);
+	nwl_dsi_config_dpi(dsi);
+
+	phy_init(dsi->phy);
 
 	ret = phy_power_on(dsi->phy);
 	if (ret < 0) {
@@ -421,7 +490,10 @@ static void nwl_dsi_bridge_enable(struct drm_bridge *bridge)
 static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
 {
 	struct nwl_mipi_dsi *dsi = bridge->driver_private;
-	struct device *dev = dsi->host.dev;
+	struct device *dev = dsi->dev;
+
+	if (!dsi->enabled)
+		return;
 
 	if (dsi->panel) {
 		if (drm_panel_disable(dsi->panel)) {
@@ -434,6 +506,7 @@ static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
 	nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
 
 	phy_power_off(dsi->phy);
+	phy_exit(dsi->phy);
 
 	dsi->enabled = false;
 }
@@ -468,99 +541,8 @@ static void nwl_dsi_bridge_mode_set(struct drm_bridge *bridge,
 
 	drm_display_mode_to_videomode(adjusted, &dsi->vm);
 
-	DRM_DEV_DEBUG_DRIVER(dsi->host.dev, "\n");
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "\n");
 	drm_mode_debug_printmodeline(adjusted);
-
-	nwl_dsi_enable_clocks(dsi, CLK_TX_ESC);
-
-	nwl_dsi_config_host(dsi);
-	nwl_dsi_config_dpi(dsi);
-
-	phy_init(dsi->phy);
-}
-
-static const struct drm_bridge_funcs nwl_dsi_bridge_funcs = {
-	.enable = nwl_dsi_bridge_enable,
-	.disable = nwl_dsi_bridge_disable,
-	.mode_fixup = nwl_dsi_bridge_mode_fixup,
-	.mode_set = nwl_dsi_bridge_mode_set,
-};
-
-static enum drm_connector_status nwl_dsi_connector_detect(
-	struct drm_connector *connector, bool force)
-{
-	struct nwl_mipi_dsi *dsi = container_of(connector,
-						struct nwl_mipi_dsi,
-						connector);
-
-	if (dsi->panel)
-		return connector_status_connected;
-
-	return connector_status_unknown;
-}
-
-static int nwl_dsi_connector_get_modes(struct drm_connector *connector)
-{
-	struct nwl_mipi_dsi *dsi = container_of(connector,
-						struct nwl_mipi_dsi,
-						connector);
-
-	if (dsi->panel)
-		return drm_panel_get_modes(dsi->panel);
-
-	return 0;
-}
-
-static const struct drm_connector_funcs nwl_dsi_connector_funcs = {
-	.detect = nwl_dsi_connector_detect,
-	.fill_modes = drm_helper_probe_single_connector_modes,
-	.destroy = drm_connector_cleanup,
-	.reset = drm_atomic_helper_connector_reset,
-	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
-};
-
-static const struct drm_connector_helper_funcs
-	nwl_dsi_connector_helper_funcs = {
-	.get_modes = nwl_dsi_connector_get_modes,
-};
-
-static int nwl_dsi_create_connector(struct drm_device *drm,
-				    struct nwl_mipi_dsi *dsi)
-{
-	struct device *dev = dsi->host.dev;
-	int ret;
-
-	ret = drm_connector_init(drm, &dsi->connector,
-				 &nwl_dsi_connector_funcs,
-				 DRM_MODE_CONNECTOR_DSI);
-	if (ret) {
-		DRM_DEV_ERROR(dev, "Failed to init drm connector: %d\n", ret);
-		return ret;
-	}
-
-	drm_connector_helper_add(&dsi->connector,
-				 &nwl_dsi_connector_helper_funcs);
-
-	dsi->connector.dpms = DRM_MODE_DPMS_OFF;
-	drm_mode_connector_attach_encoder(&dsi->connector, dsi->encoder);
-
-	if (!dsi->panel)
-		dsi->panel = of_drm_find_panel(dsi->panel_node);
-
-	if (dsi->panel) {
-		ret = drm_panel_attach(dsi->panel, &dsi->connector);
-		if (ret) {
-			DRM_DEV_ERROR(dev, "Failed to attach panel: %d\n", ret);
-			goto err_connector;
-		}
-	}
-
-	return 0;
-
-err_connector:
-	drm_connector_cleanup(&dsi->connector);
-	return ret;
 }
 
 static int nwl_dsi_host_attach(struct mipi_dsi_host *host,
@@ -569,7 +551,7 @@ static int nwl_dsi_host_attach(struct mipi_dsi_host *host,
 	struct nwl_mipi_dsi *dsi = container_of(host,
 						struct nwl_mipi_dsi,
 						host);
-	struct device *dev = dsi->host.dev;
+	struct device *dev = dsi->dev;
 
 	DRM_DEV_INFO(dev, "lanes=%u, format=0x%x flags=0x%lx\n",
 		     device->lanes, device->format, device->mode_flags);
@@ -577,10 +559,35 @@ static int nwl_dsi_host_attach(struct mipi_dsi_host *host,
 	if (device->lanes < 1 || device->lanes > 4)
 		return -EINVAL;
 
+	/*
+	 * Someone has attached to us; it could be a panel or another bridge.
+	 * Check to is if this is a panel or not.
+	 */
+	if (!dsi->next_bridge ||
+	    device->dev.of_node != dsi->next_bridge->of_node)
+		dsi->panel = of_drm_find_panel(device->dev.of_node);
+
+	/*
+	 * Bridge has priority in front of panel.
+	 * Since the panel driver cannot tell if there is a physical
+	 * panel connected, we'll asume that there is no physical panel if there
+	 * is a bridge registered.
+	 */
+	if (dsi->next_bridge &&
+	    device->dev.of_node != NULL &&
+	    device->dev.of_node != dsi->next_bridge->of_node) {
+		dsi->panel = NULL;
+		return -EPERM;
+	}
+
+	if (dsi->panel)
+		DRM_DEV_DEBUG_DRIVER(dsi->dev, "Panel attached\n");
+	else
+		DRM_DEV_DEBUG_DRIVER(dsi->dev, "Bridge attached\n");
+
 	dsi->lanes = device->lanes;
 	dsi->format = device->format;
 	dsi->dsi_mode_flags = device->mode_flags;
-	dsi->panel_node = device->dev.of_node;
 
 	if (dsi->connector.dev)
 		drm_helper_hpd_irq_event(dsi->connector.dev);
@@ -594,8 +601,8 @@ static int nwl_dsi_host_detach(struct mipi_dsi_host *host,
 	struct nwl_mipi_dsi *dsi = container_of(host,
 						struct nwl_mipi_dsi,
 						host);
-
-	dsi->panel_node = NULL;
+	if (dsi->panel)
+		dsi->panel = NULL;
 
 	if (dsi->connector.dev)
 		drm_helper_hpd_irq_event(dsi->connector.dev);
@@ -656,7 +663,7 @@ static void nwl_dsi_print_error(struct device *dev, u16 error)
 
 static bool nwl_dsi_read_packet(struct nwl_mipi_dsi *dsi, u32 status)
 {
-	struct device *dev = dsi->host.dev;
+	struct device *dev = dsi->dev;
 	struct mipi_dsi_transfer *xfer = dsi->xfer;
 	u8 *payload = xfer->msg->rx_buf;
 	u32 val;
@@ -918,115 +925,105 @@ static irqreturn_t nwl_dsi_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int nwl_dsi_register(struct drm_device *drm, struct nwl_mipi_dsi *dsi)
+static enum drm_connector_status nwl_dsi_connector_detect(
+	struct drm_connector *connector, bool force)
 {
-	struct drm_encoder *encoder = dsi->encoder;
-	struct drm_bridge *bridge;
-	struct device *dev = dsi->host.dev;
-	int ret = 0;
+	struct nwl_mipi_dsi *dsi = container_of(connector,
+						struct nwl_mipi_dsi,
+						connector);
 
-	bridge = devm_kzalloc(drm->dev, sizeof(*bridge), GFP_KERNEL);
-	if (!bridge) {
-		DRM_DEV_ERROR(dev, "failed to allocate drm bridge\n");
-		return -ENOMEM;
-	}
+	if (dsi->panel)
+		return connector_status_connected;
 
-	dsi->bridge = bridge;
-	bridge->driver_private = dsi;
-	bridge->funcs = &nwl_dsi_bridge_funcs;
+	return connector_status_unknown;
+}
 
-	ret = drm_bridge_attach(encoder, bridge, NULL);
+static int nwl_dsi_connector_get_modes(struct drm_connector *connector)
+{
+	struct nwl_mipi_dsi *dsi = container_of(connector,
+						struct nwl_mipi_dsi,
+						connector);
+
+	if (dsi->panel)
+		return drm_panel_get_modes(dsi->panel);
+
+	return 0;
+}
+
+static const struct drm_connector_funcs nwl_dsi_connector_funcs = {
+	.detect = nwl_dsi_connector_detect,
+	.fill_modes = drm_helper_probe_single_connector_modes,
+	.destroy = drm_connector_cleanup,
+	.reset = drm_atomic_helper_connector_reset,
+	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+};
+
+static const struct drm_connector_helper_funcs
+	nwl_dsi_connector_helper_funcs = {
+	.get_modes = nwl_dsi_connector_get_modes,
+};
+
+static int nwl_dsi_create_connector(struct drm_device *drm,
+				    struct nwl_mipi_dsi *dsi)
+{
+	struct device *dev = dsi->dev;
+	int ret;
+
+	ret = drm_connector_init(drm, &dsi->connector,
+				 &nwl_dsi_connector_funcs,
+				 DRM_MODE_CONNECTOR_DSI);
 	if (ret) {
-		DRM_DEV_ERROR(dev, "Failed to initialize bridge (%d)\n", ret);
+		DRM_DEV_ERROR(dev, "Failed to init drm connector: %d\n", ret);
 		return ret;
 	}
 
-	encoder->bridge = bridge;
-	bridge->encoder = encoder;
+	drm_connector_helper_add(&dsi->connector,
+				 &nwl_dsi_connector_helper_funcs);
+
+	dsi->connector.dpms = DRM_MODE_DPMS_OFF;
+	drm_mode_connector_attach_encoder(&dsi->connector, dsi->bridge.encoder);
+
+	ret = drm_panel_attach(dsi->panel, &dsi->connector);
+	if (ret) {
+		DRM_DEV_ERROR(dev, "Failed to attach panel: %d\n", ret);
+		drm_connector_cleanup(&dsi->connector);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int nwl_dsi_attach_next_bridge(struct drm_encoder *encoder,
+				      struct drm_bridge *bridge)
+{
+	int ret = 0;
+
+	/* Attach the next bridge in chain */
+	if (!nwl_dsi_add_bridge(encoder, bridge))
+		return -EEXIST;
+	ret = drm_bridge_attach(encoder, bridge, NULL);
+	if (ret)
+		nwl_dsi_del_bridge(encoder, bridge);
 
 	return ret;
 }
 
-int nwl_dsi_bind(struct device *dev,
-		struct drm_encoder *encoder,
-		struct phy *phy,
-		struct resource *res,
-		int irq)
+static int nwl_dsi_bridge_attach(struct drm_bridge *bridge)
 {
-	struct drm_device *drm = encoder->dev;
-	struct drm_bridge *next_bridge = NULL;
+	struct nwl_mipi_dsi *dsi = bridge->driver_private;
+	struct device *dev = dsi->dev;
+	struct drm_encoder *encoder = bridge->encoder;
 	struct device_node *np = dev->of_node;
 	struct device_node *remote_node, *endpoint;
-	struct nwl_mipi_dsi *dsi;
-	struct clk *clk;
-	int ret;
 
-	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
-	if (!dsi)
-		return -ENOMEM;
+	int ret = 0;
 
-	dsi->phy = phy;
-
-	clk = devm_clk_get(dev, "phy_ref");
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		dev_err(dev, "Failed to get phy_ref clock: %d\n", ret);
-		return ret;
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "\n");
+	if (!encoder) {
+		DRM_DEV_ERROR(dev, "Parent encoder object not found\n");
+		return -ENODEV;
 	}
-	dsi->phy_ref.clk = clk;
-	dsi->phy_ref.enabled = false;
-	clk_prepare(clk);
-
-	clk = devm_clk_get(dev, "rx_esc");
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		dev_err(dev, "Failed to get rx_esc clock: %d\n", ret);
-		return ret;
-	}
-	dsi->rx_esc.clk = clk;
-	dsi->rx_esc.enabled = false;
-	clk_prepare(clk);
-
-	clk = devm_clk_get(dev, "tx_esc");
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		dev_err(dev, "Failed to get tx_esc clock: %d\n", ret);
-		return ret;
-	}
-	dsi->tx_esc.clk = clk;
-	dsi->tx_esc.enabled = false;
-	clk_prepare(clk);
-
-	dsi->encoder = encoder;
-	dsi->enabled = false;
-
-	dsi->base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(dsi->base))
-		return PTR_ERR(dsi->base);
-
-	ret = devm_request_irq(dev, irq,
-			nwl_dsi_irq_handler, 0, IRQ_NAME, dsi);
-	if (ret < 0) {
-		dev_err(dev, "Failed to request IRQ: %d (%d)\n", dsi->irq, ret);
-		return ret;
-	}
-
-	ret = nwl_dsi_register(drm, dsi);
-	if (ret)
-		return ret;
-
-	endpoint = of_graph_get_next_endpoint(np, NULL);
-	while (endpoint && !next_bridge) {
-		remote_node = of_graph_get_remote_port_parent(endpoint);
-		if (!remote_node) {
-			dev_err(dev, "No endpoint found!\n");
-			return -ENODEV;
-		}
-
-		next_bridge = of_drm_find_bridge(remote_node);
-		of_node_put(remote_node);
-		endpoint = of_graph_get_next_endpoint(np, endpoint);
-	};
 
 	dsi->host.ops = &nwl_dsi_host_ops;
 	dsi->host.dev = dev;
@@ -1036,24 +1033,143 @@ int nwl_dsi_bind(struct device *dev,
 		return ret;
 	}
 
+	endpoint = of_graph_get_next_endpoint(np, NULL);
+	while (endpoint && !dsi->next_bridge) {
+		remote_node = of_graph_get_remote_port_parent(endpoint);
+		if (!remote_node) {
+			DRM_DEV_ERROR(dev, "No endpoint found!\n");
+			return -ENODEV;
+		}
+
+		dsi->next_bridge = of_drm_find_bridge(remote_node);
+		ret = nwl_dsi_attach_next_bridge(encoder, dsi->next_bridge);
+		if (ret)
+			dsi->next_bridge = NULL;
+		of_node_put(remote_node);
+		endpoint = of_graph_get_next_endpoint(np, endpoint);
+	};
+
 	/*
 	 * Create the connector. If we have a bridge, attach it and let the
 	 * bridge create the connector.
 	 */
-	if (next_bridge != NULL) {
-		/* Link bridge with encoder */
-		dsi->bridge->next = next_bridge;
-		next_bridge->encoder = encoder;
-		encoder->bridge->next = next_bridge;
-		if (drm_bridge_attach(encoder, next_bridge, NULL)) {
-			DRM_DEV_ERROR(dev, "Failed to attach bridge to drm!\n");
-			next_bridge->encoder = NULL;
-			encoder->bridge->next = NULL;
-		}
-	} else {
-		ret = nwl_dsi_create_connector(drm, dsi);
-		if (ret)
-			goto err_host;
+	if (dsi->panel)
+		ret = nwl_dsi_create_connector(encoder->dev, dsi);
+	else if (!dsi->next_bridge)
+		ret = -ENODEV;
+
+	return ret;
+}
+
+static void nwl_dsi_bridge_detach(struct drm_bridge *bridge)
+{
+	struct nwl_mipi_dsi *dsi = bridge->driver_private;
+
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "\n");
+	if (dsi->panel) {
+		drm_panel_detach(dsi->panel);
+		drm_connector_cleanup(&dsi->connector);
+	} else if (dsi->next_bridge) {
+		nwl_dsi_del_bridge(dsi->next_bridge->encoder, dsi->next_bridge);
+	}
+}
+
+static const struct drm_bridge_funcs nwl_dsi_bridge_funcs = {
+	.enable = nwl_dsi_bridge_enable,
+	.disable = nwl_dsi_bridge_disable,
+	.mode_fixup = nwl_dsi_bridge_mode_fixup,
+	.mode_set = nwl_dsi_bridge_mode_set,
+	.attach = nwl_dsi_bridge_attach,
+	.detach = nwl_dsi_bridge_detach,
+};
+
+static int nwl_dsi_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct nwl_mipi_dsi *dsi;
+	struct clk *clk;
+	struct resource *res;
+	int irq;
+	int ret;
+
+	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
+	if (!dsi)
+		return -ENOMEM;
+
+	dsi->phy = devm_phy_get(dev, "dphy");
+	if (IS_ERR(dsi->phy)) {
+		ret = PTR_ERR(dsi->phy);
+		dev_err(dev, "Could not get PHY (%d)\n", ret);
+		return ret;
+	}
+
+	clk = devm_clk_get(dev, "phy_ref");
+	if (IS_ERR(clk)) {
+		ret = PTR_ERR(clk);
+		dev_err(dev, "Failed to get phy_ref clock: %d\n", ret);
+		return ret;
+	}
+	dsi->phy_ref.clk = clk;
+	dsi->phy_ref.rate = clk_get_rate(clk);
+	dsi->phy_ref.enabled = false;
+
+	clk = devm_clk_get(dev, "rx_esc");
+	if (IS_ERR(clk)) {
+		ret = PTR_ERR(clk);
+		dev_err(dev, "Failed to get rx_esc clock: %d\n", ret);
+		return ret;
+	}
+	dsi->rx_esc.clk = clk;
+	dsi->rx_esc.rate = clk_get_rate(clk);
+	dsi->rx_esc.enabled = false;
+
+	clk = devm_clk_get(dev, "tx_esc");
+	if (IS_ERR(clk)) {
+		ret = PTR_ERR(clk);
+		dev_err(dev, "Failed to get tx_esc clock: %d\n", ret);
+		return ret;
+	}
+	dsi->tx_esc.clk = clk;
+	dsi->tx_esc.rate = clk_get_rate(clk);
+	dsi->tx_esc.enabled = false;
+	/* TX clk rate must be RX clk rate divided by 4 */
+	if (dsi->tx_esc.rate != (dsi->rx_esc.rate / 4))
+		dsi->tx_esc.rate = dsi->rx_esc.rate / 4;
+
+	dsi->enabled = false;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -EBUSY;
+
+	dsi->base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(dsi->base))
+		return PTR_ERR(dsi->base);
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		DRM_DEV_ERROR(dev, "Failed to get device IRQ!\n");
+		return -EINVAL;
+	}
+
+	ret = devm_request_irq(dev, irq,
+			nwl_dsi_irq_handler, 0, IRQ_NAME, dsi);
+	if (ret < 0) {
+		dev_err(dev, "Failed to request IRQ: %d (%d)\n", dsi->irq, ret);
+		return ret;
+	}
+
+	dsi->dev = dev;
+	platform_set_drvdata(pdev, dsi);
+
+	dsi->bridge.driver_private = dsi;
+	dsi->bridge.funcs = &nwl_dsi_bridge_funcs;
+	dsi->bridge.of_node = dev->of_node;
+
+	ret = drm_bridge_add(&dsi->bridge);
+	if (ret < 0) {
+		dev_err(dev, "Failed to add nwl-dsi bridge (%d)\n", ret);
+		goto err_host;
 	}
 
 	return 0;
@@ -1063,24 +1179,32 @@ err_host:
 	return ret;
 
 }
-EXPORT_SYMBOL_GPL(nwl_dsi_bind);
 
-void nwl_dsi_unbind(struct drm_bridge *bridge)
+static int nwl_dsi_remove(struct platform_device *pdev)
 {
-	struct nwl_mipi_dsi *dsi;
-
-	if (!bridge)
-		return;
-
-	dsi = bridge->driver_private;
-
-	/* Skip connector cleanup if creation was delegated to the bridge */
-	if (dsi->connector.dev)
-		drm_connector_cleanup(&dsi->connector);
+	struct nwl_mipi_dsi *dsi = platform_get_drvdata(pdev);
 
 	mipi_dsi_host_unregister(&dsi->host);
+
+	return 0;
 }
-EXPORT_SYMBOL_GPL(nwl_dsi_unbind);
+
+static const struct of_device_id nwl_dsi_dt_ids[] = {
+	{ .compatible = "nwl,mipi-dsi" },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, nwl_dsi_dt_ids);
+
+static struct platform_driver imx_nwl_dsi_driver = {
+	.probe		= nwl_dsi_probe,
+	.remove		= nwl_dsi_remove,
+	.driver		= {
+		.of_match_table = nwl_dsi_dt_ids,
+		.name	= "nwl-mipi-dsi",
+	},
+};
+
+module_platform_driver(imx_nwl_dsi_driver);
 
 MODULE_AUTHOR("NXP Semiconductor");
 MODULE_DESCRIPTION("NWL MIPI-DSI transmitter driver");

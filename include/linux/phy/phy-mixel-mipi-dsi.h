@@ -20,11 +20,13 @@
 #if IS_ENABLED(CONFIG_PHY_MIXEL_MIPI_DSI)
 int mixel_phy_mipi_set_phy_speed(struct phy *phy,
 		unsigned long bit_clk,
-		unsigned long ref_clk);
+		unsigned long ref_clk,
+		bool best_match);
 #else
 int mixel_phy_mipi_set_phy_speed(struct phy *phy,
 		unsigned long bit_clk,
-		unsigned long ref_clk)
+		unsigned long ref_clk,
+		bool best_match)
 {
 	return -ENODEV;
 }
