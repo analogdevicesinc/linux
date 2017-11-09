@@ -1837,6 +1837,7 @@ struct xhci_hcd {
 #define XHCI_ASMEDIA_MODIFY_FLOWCONTROL	(1 << 28)
 #define XHCI_SKIP_ACCESS_RESERVED_REG	(1 << 29)
 #define XHCI_SUSPEND_DELAY	(1 << 30)
+#define XHCI_CDNS_HOST		(1 << 31)
 
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
