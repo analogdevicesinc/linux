@@ -345,10 +345,12 @@ static const struct phy_ops mixel_mipi_phy_ops = {
 
 static struct devtype imx8qm_dev = { .have_sc = true };
 static struct devtype imx8qxp_dev = { .have_sc = true };
+static struct devtype imx8mq_dev = { .have_sc = false };
 
 static const struct of_device_id mixel_mipi_phy_of_match[] = {
 	{ .compatible = "mixel,imx8qm-mipi-dsi-phy", .data = &imx8qm_dev },
 	{ .compatible = "mixel,imx8qxp-mipi-dsi-phy", .data = &imx8qxp_dev },
+	{ .compatible = "mixel,imx8mq-mipi-dsi-phy", .data = &imx8mq_dev },
 	{}
 };
 MODULE_DEVICE_TABLE(of, mixel_mipi_phy_of_match);
