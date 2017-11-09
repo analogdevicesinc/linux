@@ -37,7 +37,11 @@ struct mxsfb_drm_private {
 	struct drm_simple_display_pipe	pipe;
 	struct drm_connector		connector;
 	struct drm_panel		*panel;
+	struct drm_bridge		*bridge;
 	struct drm_fbdev_cma		*fbdev;
+
+	struct drm_gem_cma_object	*gem;
+	bool				enabled;
 };
 
 int mxsfb_setup_crtc(struct drm_device *dev);

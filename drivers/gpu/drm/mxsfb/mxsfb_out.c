@@ -92,15 +92,15 @@ int mxsfb_create_output(struct drm_device *drm)
 	if (ret)
 		return ret;
 
-	mxsfb->connector.dpms = DRM_MODE_DPMS_OFF;
-	mxsfb->connector.polled = 0;
-	drm_connector_helper_add(&mxsfb->connector,
-			&mxsfb_panel_connector_helper_funcs);
-	ret = drm_connector_init(drm, &mxsfb->connector,
-				 &mxsfb_panel_connector_funcs,
-				 DRM_MODE_CONNECTOR_Unknown);
-	if (!ret)
-		mxsfb->panel = panel;
+	if (mxsfb->panel) {
+		mxsfb->connector.dpms = DRM_MODE_DPMS_OFF;
+		mxsfb->connector.polled = 0;
+		drm_connector_helper_add(&mxsfb->connector,
+				&mxsfb_panel_connector_helper_funcs);
+		ret = drm_connector_init(drm, &mxsfb->connector,
+					 &mxsfb_panel_connector_funcs,
+					 DRM_MODE_CONNECTOR_Unknown);
+	}
 
 	return ret;
 }
