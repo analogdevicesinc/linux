@@ -14,23 +14,11 @@
 
 #include "fsl-imx8qm-lpddr4-arm2.dts"
 
-&hdmi {
-	status = "disabled";
-};
-
 &ldb1_phy {
 	status = "disabled";
 };
 
 &ldb1 {
-	status = "disabled";
-};
-
-&ldb2_phy {
-	status = "disabled";
-};
-
-&ldb2 {
 	status = "disabled";
 };
 
@@ -50,7 +38,7 @@
 
 		port {
 			adv7535_1_in: endpoint {
-				remote-endpoint = <&mipi_dsi1_out>;
+				remote-endpoint = <&mipi_dsi_bridge1_adv>;
 			};
 		};
 	};
@@ -62,9 +50,13 @@
 
 &mipi_dsi1 {
 	status = "okay";
+};
+
+&mipi_dsi_bridge1 {
+	status = "okay";
 
 	port@1 {
-		mipi_dsi1_out: endpoint {
+		mipi_dsi_bridge1_adv: endpoint {
 			remote-endpoint = <&adv7535_1_in>;
 		};
 	};
@@ -86,7 +78,7 @@
 
 		port {
 			adv7535_2_in: endpoint {
-				remote-endpoint = <&mipi_dsi2_out>;
+				remote-endpoint = <&mipi_dsi_bridge2_adv>;
 			};
 		};
 	};
@@ -98,9 +90,13 @@
 
 &mipi_dsi2 {
 	status = "okay";
+};
+
+&mipi_dsi_bridge2 {
+	status = "okay";
 
 	port@1 {
-		mipi_dsi2_out: endpoint {
+		mipi_dsi_bridge2_adv: endpoint {
 			remote-endpoint = <&adv7535_2_in>;
 		};
 	};
