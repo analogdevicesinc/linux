@@ -221,7 +221,7 @@ int xhci_reset(struct xhci_hcd *xhci, u64 timeout_us)
 	 * Without this delay, the subsequent HC register access,
 	 * may result in a system hang very rarely.
 	 */
-	if (xhci->quirks & XHCI_INTEL_HOST)
+	if (xhci->quirks & (XHCI_INTEL_HOST | XHCI_CDNS_HOST))
 		udelay(1000);
 
 	ret = xhci_handshake_check_state(xhci, &xhci->op_regs->command,
