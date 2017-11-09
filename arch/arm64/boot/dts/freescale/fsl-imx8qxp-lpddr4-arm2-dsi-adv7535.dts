@@ -30,7 +30,7 @@
 
 		port {
 			adv7535_1_in: endpoint {
-				remote-endpoint = <&mipi_dsi1_out>;
+				remote-endpoint = <&mipi_dsi_bridge1_out>;
 			};
 		};
 	};
@@ -42,9 +42,13 @@
 
 &mipi_dsi1 {
 	status = "okay";
+};
+
+&mipi_dsi_bridge1 {
+	status = "okay";
 
 	port@1 {
-		mipi_dsi1_out: endpoint {
+		mipi_dsi_bridge1_out: endpoint {
 			remote-endpoint = <&adv7535_1_in>;
 		};
 	};
@@ -66,7 +70,7 @@
 
 		port {
 			adv7535_2_in: endpoint {
-				remote-endpoint = <&mipi_dsi2_out>;
+				remote-endpoint = <&mipi_dsi_bridge2_out>;
 			};
 		};
 	};
@@ -78,9 +82,13 @@
 
 &mipi_dsi2 {
 	status = "okay";
+};
+
+&mipi_dsi_bridge2 {
+	status = "okay";
 
 	port@1 {
-		mipi_dsi2_out: endpoint {
+		mipi_dsi_bridge2_out: endpoint {
 			remote-endpoint = <&adv7535_2_in>;
 		};
 	};
