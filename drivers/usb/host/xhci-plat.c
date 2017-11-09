@@ -20,6 +20,7 @@
 #include <linux/usb/phy.h>
 #include <linux/slab.h>
 #include <linux/acpi.h>
+#include <linux/busfreq-imx.h>
 
 #include "xhci.h"
 #include "xhci-plat.h"
@@ -281,6 +282,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			goto put_usb3_hcd;
 	}
 
+	request_bus_freq(BUS_FREQ_HIGH);
+
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto disable_usb_phy;
@@ -295,12 +298,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	device_enable_async_suspend(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 
-	/*
-	 * Prevent runtime pm from being on as default, users should enable
-	 * runtime pm using power/control in sysfs.
-	 */
-	pm_runtime_forbid(&pdev->dev);
-
 	return 0;
 
 
@@ -309,6 +306,7 @@ dealloc_usb2_hcd:
 
 disable_usb_phy:
 	usb_phy_shutdown(hcd->usb_phy);
+	release_bus_freq(BUS_FREQ_HIGH);
 
 put_usb3_hcd:
 	usb_put_hcd(xhci->shared_hcd);
@@ -347,6 +345,7 @@ static int xhci_plat_remove(struct platform_device *dev)
 
 	pm_runtime_set_suspended(&dev->dev);
 	pm_runtime_disable(&dev->dev);
+	release_bus_freq(BUS_FREQ_HIGH);
 
 	return 0;
 }
@@ -382,18 +381,14 @@ static int __maybe_unused xhci_plat_resume(struct device *dev)
 
 static int __maybe_unused xhci_plat_runtime_suspend(struct device *dev)
 {
-	struct usb_hcd  *hcd = dev_get_drvdata(dev);
-	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
-
-	return xhci_suspend(xhci, true);
+	release_bus_freq(BUS_FREQ_HIGH);
+	return 0;
 }
 
 static int __maybe_unused xhci_plat_runtime_resume(struct device *dev)
 {
-	struct usb_hcd  *hcd = dev_get_drvdata(dev);
-	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
-
-	return xhci_resume(xhci, 0);
+	request_bus_freq(BUS_FREQ_HIGH);
+	return 0;
 }
 
 static const struct dev_pm_ops xhci_plat_pm_ops = {
