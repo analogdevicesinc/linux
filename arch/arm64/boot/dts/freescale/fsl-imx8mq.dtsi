@@ -575,6 +575,20 @@
 		status = "disabled";
 	};
 
+	lcdif_drm: lcdif_drm@30320000 {
+		compatible = "fsl,imx8mq-lcdif", "fsl,imx28-lcdif";
+		reg = <0x0 0x30320000 0x0 0x10000>;
+		clocks = <&clk IMX8MQ_CLK_LCDIF_PIXEL_DIV>,
+			 <&clk IMX8MQ_CLK_DUMMY>,
+			 <&clk IMX8MQ_CLK_DUMMY>;
+		clock-names = "pix", "axi", "disp_axi";
+		assigned-clocks = <&clk IMX8MQ_CLK_LCDIF_PIXEL_SRC>;
+		assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>;
+		assigned-clock-rate = <594000000>;
+		interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+	};
+
 	mipi_dsi_phy_drm: dsi_phy_drm@30A00300 {
 		#address-cells = <1>;
 		#size-cells = <0>;

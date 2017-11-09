@@ -50,7 +50,9 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-dsi-rm67191.dtb
 dtb-$(CONFIG_ARCH_FSL_IMX8MQ) += fsl-imx8mq-evk.dtb \
 				 fsl-imx8mq-evk-m4.dtb \
-				 fsl-imx8mq-evk-pcie1-m2.dtb
+				 fsl-imx8mq-evk-pcie1-m2.dtb \
+				 fsl-imx8mq-evk-lcdif-adv7535.dtb \
+				 fsl-imx8mq-evk-lcdif-rm67191.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
