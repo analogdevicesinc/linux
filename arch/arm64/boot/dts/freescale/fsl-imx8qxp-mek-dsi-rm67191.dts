@@ -20,6 +20,10 @@
 
 &mipi_dsi1 {
 	status = "okay";
+};
+
+&mipi_dsi_bridge1 {
+	status = "okay";
 
 	panel@0 {
 		compatible = "raydium,rm67191";
@@ -29,13 +33,13 @@
 		panel-height-mm = <121>;
 		port {
 			panel1_in: endpoint {
-				remote-endpoint = <&mipi1_out>;
+				remote-endpoint = <&mipi_bridge1_out>;
 			};
 		};
 	};
 
 	port@1 {
-		mipi1_out: endpoint {
+		mipi_bridge1_out: endpoint {
 			remote-endpoint = <&panel1_in>;
 		};
 	};
@@ -47,6 +51,10 @@
 
 &mipi_dsi2 {
 	status = "okay";
+};
+
+&mipi_dsi_bridge2 {
+	status = "okay";
 
 	panel@0 {
 		compatible = "raydium,rm67191";
@@ -56,13 +64,13 @@
 		panel-height-mm = <121>;
 		port {
 			panel2_in: endpoint {
-				remote-endpoint = <&mipi2_out>;
+				remote-endpoint = <&mipi_bridge2_out>;
 			};
 		};
 	};
 
 	port@1 {
-		mipi2_out: endpoint {
+		mipi_bridge2_out: endpoint {
 			remote-endpoint = <&panel2_in>;
 		};
 	};
