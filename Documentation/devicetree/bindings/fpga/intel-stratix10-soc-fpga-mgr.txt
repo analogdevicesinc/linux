@@ -1,0 +1,10 @@
+Intel Stratix10 SoC FPGA Manager
+
+Required properties:
+- compatible : should contain "intel,stratix10-soc-fpga-mgr"
+
+Example:
+
+	fpga_mgr: fpga-mgr@0 {
+		compatible = "intel,stratix10-soc-fpga-mgr";
+	};
