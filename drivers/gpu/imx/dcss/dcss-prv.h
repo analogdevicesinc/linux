@@ -32,6 +32,7 @@ struct dcss_soc {
 	struct device *dev;
 	const struct dcss_devtype *devtype;
 
+	struct dcss_blkctl_priv *blkctl_priv;
 	struct dcss_ctxld_priv *ctxld_priv;
 	struct dcss_dpr_priv *dpr_priv;
 	struct dcss_dtg_priv *dtg_priv;

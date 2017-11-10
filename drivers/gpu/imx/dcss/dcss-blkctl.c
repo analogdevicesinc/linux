@@ -36,16 +36,22 @@
 
 #define B0_SILICON_ID			0x20
 
-static void __iomem *dcss_blkctl_reg;
-static bool hdmi_output;
+struct dcss_blkctl_priv {
+	struct dcss_soc *dcss;
+	void __iomem *base_reg;
 
-static void dcss_blkctl_clk_reset(u32 assert, u32 deassert)
+	bool hdmi_output;
+	u32 clk_setting;
+};
+
+static void dcss_blkctl_clk_reset(struct dcss_blkctl_priv *blkctl,
+				  u32 assert, u32 deassert)
 {
 	if (assert)
-		dcss_clr(assert, dcss_blkctl_reg + DCSS_BLKCTL_RESET_CTRL);
+		dcss_clr(assert, blkctl->base_reg + DCSS_BLKCTL_RESET_CTRL);
 
 	if (deassert)
-		dcss_set(deassert, dcss_blkctl_reg + DCSS_BLKCTL_RESET_CTRL);
+		dcss_set(deassert, blkctl->base_reg + DCSS_BLKCTL_RESET_CTRL);
 }
 
 int dcss_blkctl_init(struct dcss_soc *dcss, unsigned long blkctl_base)
@@ -53,33 +59,38 @@ int dcss_blkctl_init(struct dcss_soc *dcss, unsigned long blkctl_base)
 	struct device_node *node = dcss->dev->of_node;
 	int len;
 	const char *disp_dev;
-	u32 clk_setting = 0;
+	struct dcss_blkctl_priv *blkctl;
 
-	hdmi_output = false;
+	blkctl = devm_kzalloc(dcss->dev, sizeof(*blkctl), GFP_KERNEL);
+	if (!blkctl)
+		return -ENOMEM;
 
-	dcss_blkctl_reg = devm_ioremap(dcss->dev, blkctl_base, SZ_4K);
-	if (!dcss_blkctl_reg) {
+	blkctl->base_reg = devm_ioremap(dcss->dev, blkctl_base, SZ_4K);
+	if (!blkctl->base_reg) {
 		dev_err(dcss->dev, "unable to remap BLK CTRL base\n");
 		return -ENOMEM;
 	}
 
+	blkctl->dcss = dcss;
+	dcss->blkctl_priv = blkctl;
+
 	disp_dev = of_get_property(node, "disp-dev", &len);
 	if (!disp_dev || !strncmp(disp_dev, "hdmi_disp", 9))
-		hdmi_output = true;
+		blkctl->hdmi_output = true;
 
 	if (imx8_get_soc_revision() == B0_SILICON_ID)
-		clk_setting = HDMI_MIPI_CLK_SEL;
+		blkctl->clk_setting = HDMI_MIPI_CLK_SEL;
 
-	if (hdmi_output)
-		dcss_writel(clk_setting,
-			    dcss_blkctl_reg + DCSS_BLKCTL_CONTROL0);
+	if (blkctl->hdmi_output)
+		dcss_writel(blkctl->clk_setting,
+			    blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
 	else
-		dcss_writel((clk_setting ^ HDMI_MIPI_CLK_SEL) |
+		dcss_writel((blkctl->clk_setting ^ HDMI_MIPI_CLK_SEL) |
 			    DISPMIX_PIXCLK_SEL,
-			    dcss_blkctl_reg + DCSS_BLKCTL_CONTROL0);
+			    blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
 
 	/* deassert clock domains resets */
-	dcss_blkctl_clk_reset(0, B_CLK_RESETN | APB_CLK_RESETN |
+	dcss_blkctl_clk_reset(blkctl, 0, B_CLK_RESETN | APB_CLK_RESETN |
 				 P_CLK_RESETN | HDMI_RESETN | RTR_CLK_RESETN);
 
 	return 0;
@@ -88,14 +99,17 @@ int dcss_blkctl_init(struct dcss_soc *dcss, unsigned long blkctl_base)
 void dcss_blkctl_exit(struct dcss_soc *dcss)
 {
 	/* assert clock domains resets */
-	dcss_blkctl_clk_reset(B_CLK_RESETN | APB_CLK_RESETN | P_CLK_RESETN |
+	dcss_blkctl_clk_reset(dcss->blkctl_priv,
+			      B_CLK_RESETN | APB_CLK_RESETN | P_CLK_RESETN |
 			      HDMI_RESETN | RTR_CLK_RESETN, 0);
 }
 
 /* disabled only by cold reset/reboot */
 void dcss_blkctl_hdmi_secure_src_en(struct dcss_soc *dcss)
 {
-	writel(HDMI_SRC_SECURE_EN, dcss_blkctl_reg + SET);
+	struct dcss_blkctl_priv *blkctl = dcss->blkctl_priv;
+
+	dcss_set(HDMI_SRC_SECURE_EN, blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
 }
 EXPORT_SYMBOL(dcss_blkctl_hdmi_secure_src_en);
 
