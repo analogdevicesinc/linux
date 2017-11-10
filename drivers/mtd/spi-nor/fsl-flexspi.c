@@ -30,6 +30,10 @@
 #include <linux/pm_qos.h>
 #include <linux/pci.h>
 #include <soc/imx8/sc/sci.h>
+#include <linux/pm_runtime.h>
+
+/* runtime pm timeout */
+#define FSL_FLEXSPI_RPM_TIMEOUT 50 /* 50ms */
 
 /* The registers */
 #define FLEXSPI_MCR0			0x00
@@ -895,6 +899,7 @@ static int fsl_flexspi_clk_prep_enable(struct fsl_flexspi *flex)
 
 	ret = clk_prepare_enable(flex->clk);
 	if (ret) {
+		dev_err(flex->dev, "failed to enable the clock\n");
 		return ret;
 	}
 
@@ -907,11 +912,29 @@ static void fsl_flexspi_clk_disable_unprep(struct fsl_flexspi *flex)
 	clk_disable_unprepare(flex->clk);
 }
 
+static int fsl_flexspi_init_rpm(struct fsl_flexspi *flex)
+{
+	struct device *dev = flex->dev;
+
+	pm_runtime_enable(dev);
+	pm_runtime_set_autosuspend_delay(dev, FSL_FLEXSPI_RPM_TIMEOUT);
+	pm_runtime_use_autosuspend(dev);
+
+	return 0;
+}
+
 /* We use this function to do some basic init for spi_nor_scan(). */
 static int fsl_flexspi_nor_setup(struct fsl_flexspi *flex)
 {
 	void __iomem *base = flex->iobase;
 	u32 reg;
+	int ret;
+
+	ret = pm_runtime_get_sync(flex->dev);
+	if (ret < 0) {
+		dev_err(flex->dev, "Failed to enable clock %d\n", __LINE__);
+		return ret;
+	}
 
 	/* Reset the module */
 	writel(FLEXSPI_MCR0_SWRST_MASK, base + FLEXSPI_MCR0);
@@ -934,6 +957,10 @@ static int fsl_flexspi_nor_setup(struct fsl_flexspi *flex)
 
 	/* enable the interrupt */
 	writel(FLEXSPI_INTEN_IPCMDDONE_MASK, flex->iobase + FLEXSPI_INTEN);
+
+	pm_runtime_mark_last_busy(flex->dev);
+	pm_runtime_put_autosuspend(flex->dev);
+
 	return 0;
 }
 
@@ -941,6 +968,12 @@ static int fsl_flexspi_nor_setup_last(struct fsl_flexspi *flex)
 {
 	unsigned long rate = flex->clk_rate;
 	int ret;
+
+	ret = pm_runtime_get_sync(flex->dev);
+	if (ret < 0) {
+		dev_err(flex->dev, "Failed to enable clock %d\n", __LINE__);
+		return ret;
+	}
 
 	/* disable and unprepare clock to avoid glitch pass to controller */
 	fsl_flexspi_clk_disable_unprep(flex);
@@ -958,6 +991,9 @@ static int fsl_flexspi_nor_setup_last(struct fsl_flexspi *flex)
 
 	/* Init for AHB read */
 	fsl_flexspi_init_ahb_read(flex);
+
+	pm_runtime_mark_last_busy(flex->dev);
+	pm_runtime_put_autosuspend(flex->dev);
 
 	return 0;
 }
@@ -1098,9 +1134,11 @@ static int fsl_flexspi_prep(struct spi_nor *nor, enum spi_nor_ops ops)
 
 	mutex_lock(&flex->lock);
 
-	ret = fsl_flexspi_clk_prep_enable(flex);
-	if (ret)
+	ret = pm_runtime_get_sync(flex->dev);
+	if (ret < 0) {
+		dev_err(flex->dev, "Failed to enable clock %d\n", __LINE__);
 		goto err_mutex;
+	}
 
 	fsl_flexspi_set_base_addr(flex, nor);
 	return 0;
@@ -1114,7 +1152,8 @@ static void fsl_flexspi_unprep(struct spi_nor *nor, enum spi_nor_ops ops)
 {
 	struct fsl_flexspi *flex = nor->priv;
 
-	fsl_flexspi_clk_disable_unprep(flex);
+	pm_runtime_mark_last_busy(flex->dev);
+	pm_runtime_put_autosuspend(flex->dev);
 	mutex_unlock(&flex->lock);
 }
 
@@ -1152,6 +1191,7 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	flex->dev = dev;
 	flex->devtype_data = (struct fsl_flexspi_devtype_data *)of_id->data;
 	platform_set_drvdata(pdev, flex);
+	dev_set_drvdata(dev, flex);
 
 	/* find the resources */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "FlexSPI");
@@ -1191,7 +1231,8 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	if (ret)
 		flex->ddr_smp = 0;
 
-	ret = fsl_flexspi_clk_prep_enable(flex);
+	/* enable the clock */
+	ret = fsl_flexspi_init_rpm(flex);
 	if (ret) {
 		dev_err(dev, "can not enable the clock\n");
 		goto clk_failed;
@@ -1201,19 +1242,19 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	ret = platform_get_irq(pdev, 0);
 	if (ret < 0) {
 		dev_err(dev, "failed to get the irq: %d\n", ret);
-		goto irq_failed;
+		goto clk_failed;
 	}
 
 	ret = devm_request_irq(dev, ret,
 			fsl_flexspi_irq_handler, 0, pdev->name, flex);
 	if (ret) {
 		dev_err(dev, "failed to request irq: %d\n", ret);
-		goto irq_failed;
+		goto clk_failed;
 	}
 
 	ret = fsl_flexspi_nor_setup(flex);
 	if (ret)
-		goto irq_failed;
+		goto clk_failed;
 
 	if (of_get_property(np, "fsl,qspi-has-second-chip", NULL))
 		flex->has_second_chip = true;
@@ -1298,7 +1339,6 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto last_init_failed;
 
-	fsl_flexspi_clk_disable_unprep(flex);
 	return 0;
 
 last_init_failed:
@@ -1310,8 +1350,6 @@ last_init_failed:
 	}
 mutex_failed:
 	mutex_destroy(&flex->lock);
-irq_failed:
-	fsl_flexspi_clk_disable_unprep(flex);
 clk_failed:
 	dev_err(dev, "Freescale FlexSPI probe failed\n");
 	return ret;
@@ -1332,6 +1370,8 @@ static int fsl_flexspi_remove(struct platform_device *pdev)
 	/* disable the hardware */
 	writel(FLEXSPI_MCR0_MDIS_MASK, flex->iobase + FLEXSPI_MCR0);
 
+	pm_runtime_disable(flex->dev);
+
 	mutex_destroy(&flex->lock);
 
 	if (flex->ahb_addr)
@@ -1340,26 +1380,48 @@ static int fsl_flexspi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int fsl_flexspi_suspend(struct platform_device *pdev, pm_message_t state)
+#ifdef CONFIG_PM_SLEEP
+static int fsl_flexspi_pm_suspend(struct device *dev)
 {
+	return pm_runtime_force_suspend(dev);
+}
+
+static int fsl_flexspi_pm_resume(struct device *dev)
+{
+	return pm_runtime_force_resume(dev);
+}
+#endif
+
+int fsl_flexspi_runtime_suspend(struct device *dev)
+{
+	struct fsl_flexspi *flex = dev_get_drvdata(dev);
+
+	fsl_flexspi_clk_disable_unprep(flex);
+
 	return 0;
 }
 
-static int fsl_flexspi_resume(struct platform_device *pdev)
+int fsl_flexspi_runtime_resume(struct device *dev)
 {
-	return 0;
+	struct fsl_flexspi *flex = dev_get_drvdata(dev);
+
+	return fsl_flexspi_clk_prep_enable(flex);
 }
+
+static const struct dev_pm_ops fsl_flexspi_pm_ops = {
+	SET_RUNTIME_PM_OPS(fsl_flexspi_runtime_suspend, fsl_flexspi_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(fsl_flexspi_pm_suspend, fsl_flexspi_pm_resume)
+};
 
 static struct platform_driver fsl_flexspi_driver = {
 	.driver = {
 		.name	= "fsl-flexspi",
 		.bus	= &platform_bus_type,
+		.pm	= &fsl_flexspi_pm_ops,
 		.of_match_table = fsl_flexspi_dt_ids,
 	},
 	.probe          = fsl_flexspi_probe,
 	.remove		= fsl_flexspi_remove,
-	.suspend	= fsl_flexspi_suspend,
-	.resume		= fsl_flexspi_resume,
 };
 module_platform_driver(fsl_flexspi_driver);
 
