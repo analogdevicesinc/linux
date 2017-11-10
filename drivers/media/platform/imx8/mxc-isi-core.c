@@ -15,6 +15,7 @@
 static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 {
 	struct mxc_isi_dev *mxc_isi = priv;
+	struct device *dev = &mxc_isi->pdev->dev;
 	u32 status;
 
 	spin_lock(&mxc_isi->slock);
@@ -28,19 +29,19 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 	if (status & (CHNL_STS_AXI_WR_ERR_Y_MASK |
 					CHNL_STS_AXI_WR_ERR_U_MASK |
 					CHNL_STS_AXI_WR_ERR_V_MASK))
-		printk("%s, IRQ AXI Error stat=0x%X\n", __func__, status);
+		dev_dbg(dev, "%s, IRQ AXI Error stat=0x%X\n", __func__, status);
 	if (status & (CHNL_STS_OFLW_PANIC_Y_BUF_MASK |
 					CHNL_STS_OFLW_PANIC_U_BUF_MASK |
 					CHNL_STS_OFLW_PANIC_V_BUF_MASK))
-		printk("%s, IRQ Panic OFLW Error stat=0x%X\n", __func__, status);
+		dev_dbg(dev, "%s, IRQ Panic OFLW Error stat=0x%X\n", __func__, status);
 	if (status & (CHNL_STS_OFLW_Y_BUF_MASK |
 					CHNL_STS_OFLW_U_BUF_MASK |
 					CHNL_STS_OFLW_V_BUF_MASK))
-		printk("%s, IRQ OFLW Error stat=0x%X\n", __func__, status);
+		dev_dbg(dev, "%s, IRQ OFLW Error stat=0x%X\n", __func__, status);
 	if (status & (CHNL_STS_EXCS_OFLW_Y_BUF_MASK |
 					CHNL_STS_EXCS_OFLW_U_BUF_MASK |
 					CHNL_STS_EXCS_OFLW_V_BUF_MASK))
-		printk("%s, IRQ EXCS OFLW Error stat=0x%X\n", __func__, status);
+		dev_dbg(dev, "%s, IRQ EXCS OFLW Error stat=0x%X\n", __func__, status);
 
 	spin_unlock(&mxc_isi->slock);
 	return IRQ_HANDLED;

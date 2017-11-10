@@ -285,7 +285,7 @@ static int mxc_csi2_get_sensor_fmt(struct mxc_mipi_csi2_dev *csi2dev)
 	memcpy(mf, &src_fmt.format, sizeof(struct v4l2_mbus_framefmt));
 
 	/* Update input frame size and formate  */
-	dev_info(&csi2dev->pdev->dev, "width=%d, height=%d, fmt.code=0x%x\n", mf->width, mf->height, mf->code);
+	dev_dbg(&csi2dev->pdev->dev, "width=%d, height=%d, fmt.code=0x%x\n", mf->width, mf->height, mf->code);
 	if (src_fmt.format.height * src_fmt.format.width > 1024 * 768)
 		csi2dev->hs_settle = rxhs_settle[2];
 	else if (src_fmt.format.height * src_fmt.format.width < 480 * 320)
