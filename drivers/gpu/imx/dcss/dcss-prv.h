@@ -93,6 +93,7 @@ void dcss_dtrc_exit(struct dcss_soc *dcss);
 int dcss_dec400d_init(struct dcss_soc *dcss, unsigned long dec400d_base);
 void dcss_dec400d_exit(struct dcss_soc *dcss);
 
+void dcss_blkctl_dump_regs(struct seq_file *s, void *data);
 void dcss_dtrc_dump_regs(struct seq_file *s, void *data);
 void dcss_dpr_dump_regs(struct seq_file *s, void *data);
 void dcss_dtg_dump_regs(struct seq_file *s, void *data);

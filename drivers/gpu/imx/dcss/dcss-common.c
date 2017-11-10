@@ -292,6 +292,7 @@ static int dcss_clks_init(struct dcss_soc *dcss)
 
 static int dcss_dump_regs_show(struct seq_file *s, void *data)
 {
+	dcss_blkctl_dump_regs(s, s->private);
 	dcss_dtrc_dump_regs(s, s->private);
 	dcss_dpr_dump_regs(s, s->private);
 	dcss_scaler_dump_regs(s, s->private);

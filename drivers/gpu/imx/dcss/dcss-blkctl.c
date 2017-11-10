@@ -36,6 +36,11 @@
 
 #define B0_SILICON_ID			0x20
 
+static struct dcss_debug_reg blkctl_debug_reg[] = {
+	DCSS_DBG_REG(DCSS_BLKCTL_RESET_CTRL),
+	DCSS_DBG_REG(DCSS_BLKCTL_CONTROL0),
+};
+
 struct dcss_blkctl_priv {
 	struct dcss_soc *dcss;
 	void __iomem *base_reg;
@@ -43,6 +48,22 @@ struct dcss_blkctl_priv {
 	bool hdmi_output;
 	u32 clk_setting;
 };
+
+#ifdef CONFIG_DEBUG_FS
+void dcss_blkctl_dump_regs(struct seq_file *s, void *data)
+{
+	struct dcss_soc *dcss = data;
+	int j;
+
+	seq_puts(s, ">> Dumping BLKCTL:\n");
+	for (j = 0; j < ARRAY_SIZE(blkctl_debug_reg); j++)
+		seq_printf(s, "%-35s(0x%04x) -> 0x%08x\n",
+			   blkctl_debug_reg[j].name,
+			   blkctl_debug_reg[j].ofs,
+			   dcss_readl(dcss->blkctl_priv->base_reg +
+				      blkctl_debug_reg[j].ofs));
+}
+#endif
 
 static void dcss_blkctl_clk_reset(struct dcss_blkctl_priv *blkctl,
 				  u32 assert, u32 deassert)
