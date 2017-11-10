@@ -248,4 +248,9 @@ struct mxc_mipi_csi2_dev {
 	u8 running;
 };
 
+enum mxc_mipi_csi2_pm_state {
+	MXC_MIPI_CSI2_PM_POWERED	= 0x1,
+	MXC_MIPI_CSI2_PM_SUSPENDED	= 0x2,
+};
+
 #endif

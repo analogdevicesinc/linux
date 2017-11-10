@@ -589,6 +589,8 @@ static int mipi_csi2_probe(struct platform_device *pdev)
 		 csi2dev->num_lanes, csi2dev->sd.name);
 
 	csi2dev->running = 0;
+	csi2dev->flags = MXC_MIPI_CSI2_PM_POWERED;
+
 	return 0;
 
 e_clkdis:
@@ -608,6 +610,50 @@ static int mipi_csi2_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int  mipi_csi2_pm_suspend(struct device *dev)
+{
+	struct mxc_mipi_csi2_dev *csi2dev = dev_get_drvdata(dev);
+	struct v4l2_subdev *sd = &csi2dev->sd;
+
+	if (csi2dev->flags & MXC_MIPI_CSI2_PM_SUSPENDED)
+		return 0;
+
+	if (csi2dev->running)
+		mipi_csi2_s_stream(sd, false);
+	mipi_csi2_clk_disable(csi2dev);
+	csi2dev->flags &= ~MXC_MIPI_CSI2_PM_POWERED;
+	csi2dev->flags |= MXC_MIPI_CSI2_PM_SUSPENDED;
+
+	return 0;
+}
+
+static int  mipi_csi2_pm_resume(struct device *dev)
+{
+	struct mxc_mipi_csi2_dev *csi2dev = dev_get_drvdata(dev);
+	struct v4l2_subdev *sd = &csi2dev->sd;
+	int ret;
+
+	if (csi2dev->flags & MXC_MIPI_CSI2_PM_POWERED)
+		return 0;
+
+	ret = mipi_csi2_clk_enable(csi2dev);
+	if (ret < 0) {
+		dev_info(dev, "%s:%d fail\n", __func__, __LINE__);
+		return -EAGAIN;
+	}
+
+	if (csi2dev->running)
+		mipi_csi2_s_stream(sd, true);
+	csi2dev->flags |= MXC_MIPI_CSI2_PM_POWERED;
+	csi2dev->flags &= ~MXC_MIPI_CSI2_PM_SUSPENDED;
+
+	return 0;
+}
+
+static const struct dev_pm_ops mipi_csi_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mipi_csi2_pm_suspend, mipi_csi2_pm_resume)
+};
+
 static const struct of_device_id mipi_csi2_of_match[] = {
 	{	.compatible = "fsl,mxc-mipi-csi2",},
 	{ /* sentinel */ },
@@ -618,7 +664,8 @@ MODULE_DEVICE_TABLE(of, mipi_csi2_of_match);
 static struct platform_driver mipi_csi2_driver = {
 	.driver = {
 		.name = MXC_MIPI_CSI2_DRIVER_NAME,
-		.of_match_table	= mipi_csi2_of_match,
+		.of_match_table = mipi_csi2_of_match,
+		.pm = &mipi_csi_pm_ops,
 	},
 	.probe = mipi_csi2_probe,
 	.remove = mipi_csi2_remove,
