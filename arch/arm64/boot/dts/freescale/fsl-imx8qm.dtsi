@@ -17,6 +17,7 @@
 #include "fsl-imx8-ca53.dtsi"
 #include "fsl-imx8-ca72.dtsi"
 #include <dt-bindings/clock/imx8qm-clock.h>
+#include <dt-bindings/input/input.h>
 #include <dt-bindings/soc/imx_rsrc.h>
 #include <dt-bindings/soc/imx8_hsio.h>
 #include <dt-bindings/soc/imx8_pd.h>
@@ -3119,6 +3120,12 @@
 			multi-core-id = <1>;
 			status = "disabled";
 		};
+	};
+
+	sc_pwrkey: sc-powerkey {
+		compatible = "fsl,imx8-pwrkey";
+		linux,keycode = <KEY_POWER>;
+		wakeup-source;
 	};
 
 	wdog: wdog {
