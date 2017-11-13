@@ -286,8 +286,8 @@ uint32_t TALISE_enableTxNco(taliseDevice_t *device, taliseTxNcoTestToneCfg_t *tx
         IF_ERR_RETURN_U32(retVal);
 
         /* Calculate Tx NCO tuning words. Round the result */
-        tx1NcoTuneWord = (int32_t)(((((int64_t)txNcoTestToneCfg->tx1ToneFreq_kHz << 20) / txInputRateDiv2_kHz) + 1) >> 1);
-        tx2NcoTuneWord = (int32_t)(((((int64_t)txNcoTestToneCfg->tx2ToneFreq_kHz << 20) / txInputRateDiv2_kHz) + 1) >> 1);
+        tx1NcoTuneWord = (int32_t)((DIV_S64(((int64_t)txNcoTestToneCfg->tx1ToneFreq_kHz << 20), txInputRateDiv2_kHz) + 1) >> 1);
+        tx2NcoTuneWord = (int32_t)((DIV_S64(((int64_t)txNcoTestToneCfg->tx2ToneFreq_kHz << 20), txInputRateDiv2_kHz) + 1) >> 1);
 
         /* Write NCO tuning words - Tx1 */
         halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_TX_ABBF_FREQCAL_NCO_I_UPPER_NIBBLE, (uint8_t)((tx1NcoTuneWord >> 16) & 0x0F));
