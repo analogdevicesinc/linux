@@ -2259,8 +2259,9 @@
 		clocks = <&clk IMX8QXP_HSIO_PCIE_MSTR_AXI_CLK>,
 			 <&clk IMX8QXP_HSIO_PCIE_SLV_AXI_CLK>,
 			 <&clk IMX8QXP_HSIO_PHY_X1_PCLK>,
+			 <&clk IMX8QXP_HSIO_PCIE_X1_PER_CLK>,
 			 <&clk IMX8QXP_HSIO_PCIE_DBI_AXI_CLK>;
-		clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_inbound_axi";
+		clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_per", "pcie_inbound_axi";
 
 		interrupt-map-mask = <0 0 0 0x7>;
 		interrupt-map =  <0 0 0 1 &gic 0 105 4>,
