@@ -636,6 +636,7 @@ struct dpaa2_eth_priv {
 	u32 rx_copybreak;
 
 	struct dpaa2_eth_fds __percpu *fd;
+	bool ceetm_en;
 };
 
 struct dpaa2_eth_devlink_priv {
@@ -781,6 +782,11 @@ static inline bool dpaa2_eth_has_mac(struct dpaa2_eth_priv *priv)
 	lockdep_assert_held(&priv->mac_lock);
 
 	return priv->mac ? true : false;
+}
+
+static inline int dpaa2_eth_ch_count(struct dpaa2_eth_priv *priv)
+{
+	return 1;
 }
 
 int dpaa2_eth_set_hash(struct net_device *net_dev, u64 flags);

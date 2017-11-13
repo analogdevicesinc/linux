@@ -20,6 +20,13 @@ config FSL_DPAA2_ETH_DCB
 	help
 	  Enable Priority-Based Flow Control (PFC) support for DPAA2 Ethernet
 	  devices.
+
+config FSL_DPAA2_ETH_CEETM
+	depends on NET_SCHED
+	bool "DPAA2 Ethernet CEETM QoS"
+	default n
+	help
+	  Enable QoS offloading support through the CEETM hardware block.
 endif
 
 config FSL_DPAA2_PTP_CLOCK
