@@ -1120,7 +1120,7 @@ uint32_t TALISE_getRfPllFrequency(taliseDevice_t *device, taliseRfPllName_t pllN
         }
 
         /* calculate PLL clock frequency - round to nearest Hz for fractional word (fractional modulus = 2088960) */
-        *rfPllLoFrequency_Hz = (((refclk_Hz * clkPllIntWord) + (((refclk_Hz * clkPllFracWord / modDiv2) + 1) >> 1)) * vcoDiv * hsDivTimes10 / 10) * hsDigClkDiv2;
+        *rfPllLoFrequency_Hz = DIV_U64(((refclk_Hz * clkPllIntWord) + ((DIV_U64(refclk_Hz * clkPllFracWord, modDiv2) + 1) >> 1)) * vcoDiv * hsDivTimes10, 10) * hsDigClkDiv2;
     }
     /* else get RF PLL LO frequency from ARM memory */
     else
