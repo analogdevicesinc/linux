@@ -590,6 +590,7 @@ MEDIAIP_FW_STATUS pal_qu_receive ( PAL_QUEUE_ID QuId,
 		void         *pMessage )
 {
 	u_int32 retval;
+	long ret;
 
 	ENTER_FUNC();
 	dprintf(LVL_FUNC, "QuId %d\n", QuId);
@@ -597,16 +598,23 @@ MEDIAIP_FW_STATUS pal_qu_receive ( PAL_QUEUE_ID QuId,
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule();
 	}*/
-	if(!wait_event_interruptible_timeout(irq_wq[QuId],
+	ret = wait_event_interruptible_timeout(irq_wq[QuId],
 			kfifo_len(&irq_fifo[QuId])>=4*sizeof(uint_addr)
 			/* || kthread_should_stop() */,
 			//uTimeoutMs
 			msecs_to_jiffies(uTimeoutMs)
-			))
-	{
+			);
+
+	if (ret == 0) {
 		dprintf(LVL_FUNC, "timeout %d ms\n", uTimeoutMs);
 		return MEDIAIP_FW_STATUS_TIMEOUT;
+	}	else if (ret == -ERESTARTSYS) {
+		dprintf(LVL_FUNC, "ERROR interrupted by a signal!!\n");
+		return MEDIAIP_FW_STATUS_FAILURE;
+	}	else {
+		dprintf(LVL_FUNC, "%ld returned from wait event\n", ret);
 	}
+
 	//if(kthread_should_stop())
 	//	return MEDIAIP_FW_STATUS_STOPPED;
 
