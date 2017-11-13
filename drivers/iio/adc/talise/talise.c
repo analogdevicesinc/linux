@@ -1720,11 +1720,11 @@ uint32_t TALISE_calculateDigitalClocks(taliseDevice_t *device, taliseDigClocks_t
                     TAL_ERR_CLKPLL_INV_HSDIV, retVal, TALACT_ERR_CHECK_PARAM );
     }
 
-    localHsDigClkDiv2_Hz = (uint32_t)((((((uint64_t)(digClocks->clkPllVcoFreq_kHz) * 1000) >> 1) / hsDivTimes10) * 10) >> 1);
+    localHsDigClkDiv2_Hz = (uint32_t)((DIV_U64((((uint64_t)(digClocks->clkPllVcoFreq_kHz) * 1000) >> 1), hsDivTimes10) * 10) >> 1);
 
     device->devStateInfo.clocks.hsDigClkDiv2_Hz = localHsDigClkDiv2_Hz;
 
-    localHsDigClk4or5_Hz = (uint32_t)((((uint64_t)(digClocks->clkPllVcoFreq_kHz) * 1000) >> 1) / hsClkDivHsDigClk4or5);
+    localHsDigClk4or5_Hz = (uint32_t)DIV_U64((((uint64_t)(digClocks->clkPllVcoFreq_kHz) * 1000) >> 1), hsClkDivHsDigClk4or5);
 
     device->devStateInfo.clocks.hsDigClkDiv4or5_Hz = localHsDigClk4or5_Hz;
 
@@ -2692,12 +2692,12 @@ uint32_t TALISE_initDigitalClocks(taliseDevice_t *device, taliseDigClocks_t *clo
 
     /* Calculate PLL integer and fractional words with integer math */
     scaledRefClk_Hz = scaledRefClk_kHz * 1000;
-    hsDigClk_Hz_div2 = (uint32_t)((((((uint64_t)(clockSettings->clkPllVcoFreq_kHz) * 1000) >> 1) / hsDivTimes10) * 10) >> 1);
+    hsDigClk_Hz_div2 = (uint32_t)((DIV_U64((((uint64_t)(clockSettings->clkPllVcoFreq_kHz) * 1000) >> 1), hsDivTimes10) * 10) >> 1);
     integerWord = (uint16_t)(hsDigClk_Hz_div2 / scaledRefClk_Hz);
     fractionalRemainder = hsDigClk_Hz_div2 % scaledRefClk_Hz;
 
     /* +1 >>1 is rounding (add .5) */
-    fractionalWord = (uint32_t)(((uint64_t)fractionalRemainder * 4177920 / (uint64_t)scaledRefClk_Hz) + 1 ) >> 1;
+    fractionalWord = (uint32_t)(DIV_U64((uint64_t)fractionalRemainder * 4177920, (uint64_t)scaledRefClk_Hz) + 1 ) >> 1;
 
     /* if fractionalWord rounded up and == PLL modulus, fix it */
     if (fractionalWord == 2088960)
