@@ -1890,10 +1890,10 @@ talRecoveryActions_t talSetDualBandSettings(taliseDevice_t *device, taliseInit_t
     upperBandNco2FreqUnsigned_kHz = (upperBandNco2Freq_kHz > 0) ? upperBandNco2Freq_kHz : (outFs_kHz + upperBandNco2Freq_kHz);
 
     /* Convert positive frequencies to their FTW equivalents */
-    lowerBandNco1Ftw = (((uint64_t)lowerBandNco1FreqUnsigned_kHz) * POW_2_32) / pfirFs_kHz;
-    upperBandNco1Ftw = (((uint64_t)upperBandNco1FreqUnsigned_kHz) * POW_2_32) / pfirFs_kHz;
-    lowerBandNco2Ftw = (((uint64_t)lowerBandNco2FreqUnsigned_kHz) * POW_2_32) / outFs_kHz;
-    upperBandNco2Ftw = (((uint64_t)upperBandNco2FreqUnsigned_kHz) * POW_2_32) / outFs_kHz;
+    lowerBandNco1Ftw = DIV_U64(((uint64_t)lowerBandNco1FreqUnsigned_kHz) * POW_2_32, pfirFs_kHz);
+    upperBandNco1Ftw = DIV_U64(((uint64_t)upperBandNco1FreqUnsigned_kHz) * POW_2_32, pfirFs_kHz);
+    lowerBandNco2Ftw = DIV_U64(((uint64_t)lowerBandNco2FreqUnsigned_kHz) * POW_2_32, outFs_kHz);
+    upperBandNco2Ftw = DIV_U64(((uint64_t)upperBandNco2FreqUnsigned_kHz) * POW_2_32, outFs_kHz);
 
     /* Check FTW is not more than 32 bits */
     if ((lowerBandNco1Ftw >= POW_2_32) || (upperBandNco1Ftw >= POW_2_32) ||
@@ -2193,7 +2193,7 @@ talRecoveryActions_t talSetupNcoShifter(taliseDevice_t *device, taliseInit_t *in
                 : (pfirFs_kHz + init->rx.rxProfile.rxNcoShifterCfg.bandANco1Freq_kHz) ;
 
         /* Convert positive frequencies to their FTW equivalents */
-        nco1Ftw = (((uint64_t)nco1FreqUnsigned_kHz) * POW_2_32) / pfirFs_kHz;
+        nco1Ftw = DIV_U64(((uint64_t)nco1FreqUnsigned_kHz) * POW_2_32, pfirFs_kHz);
 
         /* Check FTW is not more than 32 bits */
         if (nco1Ftw >= POW_2_32)
@@ -2221,7 +2221,7 @@ talRecoveryActions_t talSetupNcoShifter(taliseDevice_t *device, taliseInit_t *in
                 : (outFs_kHz + init->rx.rxProfile.rxNcoShifterCfg.bandANco2Freq_kHz);
 
         /* Convert positive frequencies to their FTW equivalents */
-        nco2Ftw = (((uint64_t)nco2FreqUnsigned_kHz) * POW_2_32) / outFs_kHz;
+        nco2Ftw = DIV_U64(((uint64_t)nco2FreqUnsigned_kHz) * POW_2_32, outFs_kHz);
 
         /* Check FTW is not more than 32 bits */
         if (nco2Ftw >= POW_2_32)
