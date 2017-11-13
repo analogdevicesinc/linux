@@ -13,6 +13,10 @@
 #include <linux/kernel.h>
 #include <linux/math64.h>
 
+#define DIV_U64_REM(x,y,r) div64_u64_rem(x, y, r)
+#define DIV_U64(x,y) div_u64(x, y)
+#define DIV_S64(x,y) div_s64(x, y)
+
 /*========================================
  * Enums and structures
  *=======================================*/
