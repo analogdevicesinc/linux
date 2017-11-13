@@ -15,9 +15,6 @@
 
 /dts-v1/;
 
-/* First 128KB is for PSCI ATF. */
-/memreserve/ 0x40000000 0x00020000;
-
 #include "fsl-imx8mq.dtsi"
 
 / {
