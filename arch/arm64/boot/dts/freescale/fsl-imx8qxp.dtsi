@@ -19,6 +19,7 @@
 #include <dt-bindings/soc/imx8_hsio.h>
 #include <dt-bindings/soc/imx8_pd.h>
 #include <dt-bindings/clock/imx8qxp-clock.h>
+#include <dt-bindings/input/input.h>
 #include <dt-bindings/pinctrl/pads-imx8qxp.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/thermal/thermal.h>
@@ -2316,6 +2317,12 @@
 			compatible = "fsl,imx8qxp-rpmsg";
 			status = "disabled";
 		};
+	};
+
+	sc_pwrkey: sc-powerkey {
+		compatible = "fsl,imx8-pwrkey";
+		linux,keycode = <KEY_POWER>;
+		wakeup-source;
 	};
 
 	wdog: wdog {
