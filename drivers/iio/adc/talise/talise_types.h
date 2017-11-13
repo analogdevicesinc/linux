@@ -15,8 +15,8 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include <stddef.h>
+#include <linux/kernel.h>
+
 #include "talise_rx_types.h"
 #include "talise_jesd204_types.h"
 #include "talise_tx_types.h"

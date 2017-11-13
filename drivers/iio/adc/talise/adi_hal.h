@@ -10,8 +10,8 @@
 #define _ADI_HAL_H_
 
 /* include standard types and definitions */
-#include <stdint.h>
-#include <stddef.h>
+#include <linux/kernel.h>
+#include <linux/math64.h>
 
 /*========================================
  * Enums and structures
