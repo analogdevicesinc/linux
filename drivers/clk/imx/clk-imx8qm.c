@@ -878,7 +878,7 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_HSIO_PCIE_B_SLV_AXI_CLK] = imx_clk_gate2_scu("hsio_pcieB_slv_axi_clk", "axi_hsio_clk_root", LPCG_ADDR(HSIO_PCIE_X1_LPCG), 20, FUNCTION_NAME(PD_HSIO_PCIE_B));
 	clks[IMX8QM_HSIO_PCIE_B_DBI_AXI_CLK] = imx_clk_gate2_scu("hsio_pcieB_dbi_axi_clk", "axi_hsio_clk_root", LPCG_ADDR(HSIO_PCIE_X1_LPCG), 24, FUNCTION_NAME(PD_HSIO_PCIE_B));
 	clks[IMX8QM_HSIO_PCIE_X1_PER_CLK] = imx_clk_gate2_scu("hsio_pcie_x1_per_clk", "per_hsio_clk_root", LPCG_ADDR(HSIO_PCIE_X1_CRR3_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_B));
-	clks[IMX8QM_HSIO_PCIE_X2_PER_CLK] = imx_clk_gate2_scu("hsio_pcie_x2_per_clk", "per_hsio_clk_root", LPCG_ADDR(HSIO_PCIE_X2_CRR2_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_B));
+	clks[IMX8QM_HSIO_PCIE_X2_PER_CLK] = imx_clk_gate2_scu("hsio_pcie_x2_per_clk", "per_hsio_clk_root", LPCG_ADDR(HSIO_PCIE_X2_CRR2_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_A));
 	clks[IMX8QM_HSIO_SATA_PER_CLK] = imx_clk_gate2_scu("hsio_sata_per_clk", "per_hsio_clk_root", LPCG_ADDR(HSIO_SATA_CRR4_LPCG), 16, FUNCTION_NAME(PD_HSIO_SATA_0));
 	clks[IMX8QM_HSIO_PHY_X1_PER_CLK] = imx_clk_gate2_scu("hsio_phy_x1_per_clk", "per_hsio_clk_root", LPCG_ADDR(HSIO_PHY_X1_CRR1_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_B));
 	clks[IMX8QM_HSIO_PHY_X2_PER_CLK] = imx_clk_gate2_scu("hsio_phy_x2_per_clk", "per_hsio_clk_root", LPCG_ADDR(HSIO_PHY_X2_CRR0_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_A));

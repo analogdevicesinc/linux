@@ -74,6 +74,7 @@ struct imx6_pcie {
 	struct clk		*pcie_bus;
 	struct clk		*pcie_phy;
 	struct clk		*pcie_inbound_axi;
+	struct clk		*pcie_per;
 	struct clk		*pcie;
 	struct clk		*pcie_ext_src;
 	struct regmap		*iomuxc_gpr;
@@ -188,10 +189,13 @@ struct imx6_pcie {
 #define IMX8QM_LPCG_PHY_PCG1			BIT(5)
 
 #define IMX8QM_CTRL_LTSSM_ENABLE		BIT(4)
+#define IMX8QM_CTRL_READY_ENTR_L23		BIT(5)
+#define IMX8QM_CTRL_PM_XMT_TURNOFF		BIT(9)
 #define IMX8QM_CTRL_BUTTON_RST_N		BIT(21)
 #define IMX8QM_CTRL_PERST_N			BIT(22)
 #define IMX8QM_CTRL_POWER_UP_RST_N		BIT(23)
 
+#define IMX8QM_CTRL_STTS0_PM_LINKST_IN_L2	BIT(13)
 #define IMX8QM_CTRL_STTS0_PM_REQ_CORE_RST	BIT(19)
 #define IMX8QM_STTS0_LANE0_TX_PLL_LOCK		BIT(4)
 #define IMX8QM_STTS0_LANE1_TX_PLL_LOCK		BIT(12)
@@ -542,6 +546,13 @@ static int imx6_pcie_enable_ref_clk(struct imx6_pcie *imx6_pcie)
 			dev_err(dev, "unable to enable pcie_axi clock\n");
 			break;
 		}
+		ret = clk_prepare_enable(imx6_pcie->pcie_per);
+		if (ret) {
+			dev_err(dev, "unable to enable pcie_per clock\n");
+			clk_disable_unprepare(imx6_pcie->pcie_inbound_axi);
+			break;
+		}
+
 		break;
 	}
 
@@ -1247,6 +1258,7 @@ static void pci_imx_clk_disable(struct device *dev)
 		break;
 	case IMX8QXP:
 	case IMX8QM:
+		clk_disable_unprepare(imx6_pcie->pcie_per);
 		clk_disable_unprepare(imx6_pcie->pcie_inbound_axi);
 		break;
 	}
@@ -1658,7 +1670,8 @@ static void imx6_pcie_setup_ep(struct dw_pcie *pci)
 /* PM_TURN_OFF */
 static void pci_imx_pm_turn_off(struct imx6_pcie *imx6_pcie)
 {
-	u32 val;
+	int i;
+	u32 dst, val;
 	struct device *dev = imx6_pcie->pci->dev;
 
 	/* PM_TURN_OFF */
@@ -1680,19 +1693,45 @@ static void pci_imx_pm_turn_off(struct imx6_pcie *imx6_pcie)
 	case IMX7D:
 	case IMX8MQ:
 		if (imx6_pcie->ctrl_id == 0)
-			val = IMX8MQ_SRC_PCIEPHY_RCR_OFFSET;
+			dst = IMX8MQ_SRC_PCIEPHY_RCR_OFFSET;
 		else
-			val = IMX8MQ_SRC_PCIE2PHY_RCR_OFFSET;
-		regmap_update_bits(imx6_pcie->reg_src, val,
+			dst = IMX8MQ_SRC_PCIE2PHY_RCR_OFFSET;
+		regmap_update_bits(imx6_pcie->reg_src, dst,
 				IMX8MQ_PCIE_CTRL_APPS_TURNOFF,
 				IMX8MQ_PCIE_CTRL_APPS_TURNOFF);
-		regmap_update_bits(imx6_pcie->reg_src, val,
+		regmap_update_bits(imx6_pcie->reg_src, dst,
 				IMX8MQ_PCIE_CTRL_APPS_TURNOFF,
 				0);
 		break;
-	case IMX6Q:
 	case IMX8QXP:
 	case IMX8QM:
+		dst = IMX8QM_CSR_PCIEA_OFFSET + imx6_pcie->ctrl_id * SZ_64K;
+		regmap_update_bits(imx6_pcie->iomuxc_gpr,
+				dst + IMX8QM_CSR_PCIE_CTRL2_OFFSET,
+				IMX8QM_CTRL_PM_XMT_TURNOFF,
+				IMX8QM_CTRL_PM_XMT_TURNOFF);
+		regmap_update_bits(imx6_pcie->iomuxc_gpr,
+				dst + IMX8QM_CSR_PCIE_CTRL2_OFFSET,
+				IMX8QM_CTRL_PM_XMT_TURNOFF,
+				0);
+		regmap_update_bits(imx6_pcie->iomuxc_gpr,
+				dst + IMX8QM_CSR_PCIE_CTRL2_OFFSET,
+				IMX8QM_CTRL_READY_ENTR_L23,
+				IMX8QM_CTRL_READY_ENTR_L23);
+		/* check the L2 is entered or not. */
+		for (i = 0; i < 10000; i++) {
+			regmap_read(imx6_pcie->iomuxc_gpr,
+					dst + IMX8QM_CSR_PCIE_STTS0_OFFSET,
+					&val);
+			if (val & IMX8QM_CTRL_STTS0_PM_LINKST_IN_L2)
+				break;
+			udelay(10);
+		}
+		if ((val & IMX8QM_CTRL_STTS0_PM_LINKST_IN_L2) == 0)
+			dev_err(dev, "PCIE%d can't enter into L2.\n",
+					imx6_pcie->ctrl_id);
+		break;
+	case IMX6Q:
 		dev_info(dev, "Info: don't support pm_turn_off yet.\n");
 		break;
 	}
@@ -1767,6 +1806,9 @@ static void pci_imx_ltssm_disable(struct device *dev)
 		regmap_update_bits(imx6_pcie->iomuxc_gpr,
 				val + IMX8QM_CSR_PCIE_CTRL2_OFFSET,
 				IMX8QM_CTRL_LTSSM_ENABLE, 0);
+		regmap_update_bits(imx6_pcie->iomuxc_gpr,
+				val + IMX8QM_CSR_PCIE_CTRL2_OFFSET,
+				IMX8QM_CTRL_READY_ENTR_L23, 0);
 		break;
 	}
 }
@@ -2039,6 +2081,12 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 			 ("fsl,imx6sx-iomuxc-gpr");
 	} else if (imx6_pcie->variant == IMX8QM
 			|| imx6_pcie->variant == IMX8QXP) {
+		imx6_pcie->pcie_per = devm_clk_get(dev, "pcie_per");
+		if (IS_ERR(imx6_pcie->pcie_per)) {
+			dev_err(dev, "pcie_per clock source missing or invalid\n");
+			return PTR_ERR(imx6_pcie->pcie_per);
+		}
+
 		imx6_pcie->iomuxc_gpr =
 			 syscon_regmap_lookup_by_phandle(node, "hsio");
 		imx6_pcie->pcie_inbound_axi = devm_clk_get(&pdev->dev,
