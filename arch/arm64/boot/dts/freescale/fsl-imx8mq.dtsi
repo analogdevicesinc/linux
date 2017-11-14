@@ -110,6 +110,7 @@
 			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>; /* Hypervisor */
 		clock-frequency = <8333333>;
 		interrupt-parent = <&gic>;
+		arm,no-tick-in-suspend;
 	};
 
 	busfreq { /* BUSFREQ */
