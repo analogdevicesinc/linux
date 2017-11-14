@@ -1273,6 +1273,8 @@ static void imx_ldb_unbind(struct device *dev, struct device *master,
 		kfree(channel->edid);
 		i2c_put_adapter(channel->ddc);
 	}
+
+	dev_set_drvdata(dev, NULL);
 }
 
 static const struct component_ops imx_ldb_ops = {
@@ -1298,6 +1300,9 @@ static int imx_ldb_suspend(struct device *dev)
 	struct imx_ldb_channel *channel;
 	int i;
 
+	if (imx_ldb == NULL)
+		return 0;
+
 	for (i = 0; i < 2; i++) {
 		channel = &imx_ldb->channel[i];
 
@@ -1314,6 +1319,9 @@ static int imx_ldb_resume(struct device *dev)
 {
 	struct imx_ldb *imx_ldb = dev_get_drvdata(dev);
 	int i;
+
+	if (imx_ldb == NULL)
+		return 0;
 
 	if (imx_ldb->visible_phy)
 		for (i = 0; i < 2; i++)
