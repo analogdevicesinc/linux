@@ -16,6 +16,8 @@
 #include <linux/reboot.h>
 #include <linux/watchdog.h>
 #include <soc/imx/fsl_sip.h>
+#include <soc/imx8/sc/sci.h>
+#include <soc/imx8/sc/svc/irq/api.h>
 
 #define DEFAULT_TIMEOUT 10
 /*
@@ -26,6 +28,19 @@
 #define MAX_TIMEOUT 60
 
 static struct watchdog_device imx8_wdd;
+
+static int imx8_wdt_notify(struct notifier_block *nb,
+				      unsigned long event, void *group)
+{
+	/* ignore other irqs */
+	if (!(event & SC_IRQ_WDOG &&
+		(*(sc_irq_group_t *)group == SC_IRQ_GROUP_WDOG)))
+		return 0;
+
+	watchdog_notify_pretimeout(&imx8_wdd);
+
+	return 0;
+}
 
 static int imx8_wdt_ping(struct watchdog_device *wdog)
 {
@@ -73,18 +88,35 @@ static int imx8_wdt_set_timeout(struct watchdog_device *wdog,
 	return res.a0;
 }
 
+static int imx8_wdt_set_pretimeout(struct watchdog_device *wdog,
+				   unsigned int new_pretimeout)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(FSL_SIP_SRTC, FSL_SIP_SRTC_SET_PRETIME_WDOG,
+			new_pretimeout * 1000, 0, 0, 0, 0, 0,
+			&res);
+
+	return res.a0;
+}
+
 static const struct watchdog_ops imx8_wdt_ops = {
 	.owner = THIS_MODULE,
 	.start = imx8_wdt_start,
 	.stop  = imx8_wdt_stop,
 	.ping  = imx8_wdt_ping,
 	.set_timeout = imx8_wdt_set_timeout,
+	.set_pretimeout = imx8_wdt_set_pretimeout,
 };
 
 static const struct watchdog_info imx8_wdt_info = {
 	.identity	= "i.MX8 watchdog timer",
 	.options	= WDIOF_SETTIMEOUT | WDIOF_KEEPALIVEPING |
-			  WDIOF_MAGICCLOSE,
+			  WDIOF_MAGICCLOSE | WDIOF_PRETIMEOUT,
+};
+
+static struct notifier_block imx8_wdt_notifier = {
+	.notifier_call = imx8_wdt_notify,
 };
 
 static int imx8_wdt_probe(struct platform_device *pdev)
@@ -114,7 +146,7 @@ static int imx8_wdt_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	return 0;
+	return register_scu_notifier(&imx8_wdt_notifier);
 }
 
 static int imx8_wdt_remove(struct platform_device *pdev)
