@@ -314,6 +314,7 @@ err_unbind:
 #endif
 	component_unbind_all(drm->dev, drm);
 err_kms:
+	dev_set_drvdata(dev, NULL);
 	drm_mode_config_cleanup(drm);
 err_unref:
 	drm_dev_unref(drm);
