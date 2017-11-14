@@ -1092,4 +1092,15 @@ void axienet_tx_hwtstamp(struct axienet_local *lp,
 			 struct axidma_bd *cur_p);
 #endif
 
+#ifdef CONFIG_XILINX_TSN_QBR
+int axienet_preemption(struct net_device *ndev, void __user *useraddr);
+int axienet_preemption_ctrl(struct net_device *ndev, void __user *useraddr);
+int axienet_preemption_sts(struct net_device *ndev, void __user *useraddr);
+int axienet_preemption_cnt(struct net_device *ndev, void __user *useraddr);
+#ifdef CONFIG_XILINX_TSN_QBV
+int axienet_qbu_user_override(struct net_device *ndev, void __user *useraddr);
+int axienet_qbu_sts(struct net_device *ndev, void __user *useraddr);
+#endif
+#endif
+
 #endif /* XILINX_AXI_ENET_H */
