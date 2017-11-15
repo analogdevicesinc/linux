@@ -184,11 +184,14 @@ static int fpga_region_get_bridges(struct fpga_region *region,
 	int i, ret;
 
 	/* If parent is a bridge, add to list */
-	ret = fpga_bridge_get_to_list(region_np->parent, region->info,
-				      &region->bridge_list);
+	ret = of_fpga_bridge_get_to_list(region_np->parent, region->info,
+					 &region->bridge_list);
+
+	/* -EBUSY means parent is a bridge that is under use. Give up. */
 	if (ret == -EBUSY)
 		return ret;
 
+	/* Zero return code means parent was a bridge and was added to list. */
 	if (!ret)
 		parent_br = region_np->parent;
 
@@ -213,8 +216,8 @@ static int fpga_region_get_bridges(struct fpga_region *region,
 		}
 
 		/* If node is a bridge, get it and add to list */
-		ret = fpga_bridge_get_to_list(br, region->info,
-					      &region->bridge_list);
+		ret = of_fpga_bridge_get_to_list(br, region->info,
+						 &region->bridge_list);
 		of_node_put(br);
 
 		/* If any of the bridges are in use, give up */
