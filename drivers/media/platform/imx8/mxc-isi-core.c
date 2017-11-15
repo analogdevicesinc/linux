@@ -177,6 +177,11 @@ static int mxc_isi_probe(struct platform_device *pdev)
 
 	mxc_isi->flags = MXC_ISI_PM_POWERED;
 
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_get_sync(dev);
+	pm_runtime_put_sync(dev);
+
 	dev_dbg(dev, "mxc_isi.%d registered successfully\n", mxc_isi->id);
 
 	return 0;
@@ -189,14 +194,17 @@ err_sclk:
 static int mxc_isi_remove(struct platform_device *pdev)
 {
 	struct mxc_isi_dev *mxc_isi = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
 
 	mxc_isi_unregister_capture_subdev(mxc_isi);
 
 	clk_disable_unprepare(mxc_isi->clk);
+	pm_runtime_disable(dev);
 
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
 static int mxc_isi_pm_suspend(struct device *dev)
 {
 	struct mxc_isi_dev *mxc_isi = dev_get_drvdata(dev);
@@ -225,9 +233,42 @@ static int mxc_isi_pm_resume(struct device *dev)
 	ret = clk_prepare_enable(mxc_isi->clk);
 	return (ret) ? -EAGAIN : 0;
 }
+#endif
+
+static int mxc_isi_runtime_suspend(struct device *dev)
+{
+	struct mxc_isi_dev *mxc_isi = dev_get_drvdata(dev);
+
+	if (mxc_isi->flags & MXC_ISI_RUNTIME_SUSPEND)
+		return 0;
+
+	if (mxc_isi->flags & MXC_ISI_PM_POWERED) {
+		clk_disable_unprepare(mxc_isi->clk);
+		mxc_isi->flags |= MXC_ISI_RUNTIME_SUSPEND;
+		mxc_isi->flags &= ~MXC_ISI_PM_POWERED;
+	}
+	return 0;
+}
+
+static int mxc_isi_runtime_resume(struct device *dev)
+{
+	struct mxc_isi_dev *mxc_isi = dev_get_drvdata(dev);
+
+	if (mxc_isi->flags & MXC_ISI_PM_POWERED)
+		return 0;
+
+	if (mxc_isi->flags & MXC_ISI_RUNTIME_SUSPEND) {
+		clk_prepare_enable(mxc_isi->clk);
+		mxc_isi->flags |= MXC_ISI_PM_POWERED;
+		mxc_isi->flags &= ~MXC_ISI_RUNTIME_SUSPEND;
+	}
+
+	return 0;
+}
 
 static const struct dev_pm_ops mxc_isi_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mxc_isi_pm_suspend, mxc_isi_pm_resume)
+	SET_RUNTIME_PM_OPS(mxc_isi_runtime_suspend, mxc_isi_runtime_resume, NULL)
 };
 
 static const struct of_device_id mxc_isi_of_match[] = {

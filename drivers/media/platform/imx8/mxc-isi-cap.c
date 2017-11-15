@@ -529,9 +529,12 @@ void mxc_isi_ctrls_delete(struct mxc_isi_dev *mxc_isi)
 static int mxc_isi_capture_open(struct file *file)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct device *dev = &mxc_isi->pdev->dev;
 	int ret = -EBUSY;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s, ISI%d\n", __func__, mxc_isi->id);
+
+	pm_runtime_get_sync(dev);
 
 	mutex_lock(&mxc_isi->lock);
 	ret = v4l2_fh_open(file);
@@ -544,6 +547,7 @@ static int mxc_isi_capture_open(struct file *file)
 static int mxc_isi_capture_release(struct file *file)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct device *dev = &mxc_isi->pdev->dev;
 	int ret;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
@@ -552,6 +556,8 @@ static int mxc_isi_capture_release(struct file *file)
 	ret = _vb2_fop_release(file, NULL);
 	mutex_unlock(&mxc_isi->lock);
 	mxc_isi_channel_deinit(mxc_isi);
+
+	pm_runtime_put_sync(dev);
 
 	return ret;
 }
@@ -814,6 +820,7 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 
 	ret = vb2_ioctl_streamoff(file, priv, type);
 	mxc_isi_channel_disable(mxc_isi);
+
 	return ret;
 }
 
