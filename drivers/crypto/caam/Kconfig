@@ -221,6 +221,17 @@ config CRYPTO_DEV_FSL_CAAM_SM_TEST
 	  stored and recovered secrets can be used for general purpose
 	  encryption/decryption.
 
+config CRYPTO_DEV_FSL_CAAM_JR_UIO
+	tristate "Freescale Job Ring UIO support"
+	depends on UIO
+	default m
+	help
+	  Selecting this will allow job ring UIO support for
+	  Userspace drivers
+
+	  To compile this as a module, choose M here: the module
+	  will be called fsl_jr_uio.
+
 endif # CRYPTO_DEV_FSL_CAAM_JR
 
 endif # CRYPTO_DEV_FSL_CAAM

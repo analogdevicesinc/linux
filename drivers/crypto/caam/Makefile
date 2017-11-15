@@ -13,6 +13,7 @@ obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM) += caam.o
 obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM_JR) += caam_jr.o
 obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM_CRYPTO_API_DESC) += caamalg_desc.o
 obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM_AHASH_API_DESC) += caamhash_desc.o
+obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM_JR_UIO) += fsl_jr_uio.o
 
 caam-y := ctrl.o
 caam-$(CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API) += tag_object.o
