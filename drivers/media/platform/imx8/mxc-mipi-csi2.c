@@ -351,6 +351,7 @@ static int mipi_csi2_clk_enable(struct mxc_mipi_csi2_dev *csi2dev)
 		dev_err(dev, "%s, prepare clk_pxl error\n", __func__);
 		return ret;
 	}
+
 	return ret;
 }
 
@@ -413,12 +414,14 @@ static int mipi_csi2_s_power(struct v4l2_subdev *sd, int on)
 static int mipi_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct mxc_mipi_csi2_dev *csi2dev = sd_to_mxc_mipi_csi2_dev(sd);
+	struct device *dev = &csi2dev->pdev->dev;
 	int ret = 0;
 
 	dev_dbg(&csi2dev->pdev->dev, "%s: %d, csi2dev: 0x%x\n",
 		 __func__, enable, csi2dev->flags);
 
 	if (enable) {
+		pm_runtime_get_sync(dev);
 		if (!csi2dev->running) {
 			mxc_csi2_get_sensor_fmt(csi2dev);
 			mxc_mipi_csi2_hc_config(csi2dev);
@@ -428,12 +431,12 @@ static int mipi_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 			mxc_mipi_csi2_reg_dump(csi2dev);
 		}
 		csi2dev->running++;
-
 	} else {
 
 		if (csi2dev->running)
 			mxc_mipi_csi2_disable(csi2dev);
 		csi2dev->running--;
+		pm_runtime_put(dev);
 	}
 
 	return ret;
@@ -525,6 +528,7 @@ static int mipi_csi2_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	csi2dev->pdev = pdev;
+	mutex_init(&csi2dev->lock);
 
 	ret = mipi_csi2_parse_dt(csi2dev);
 	if (ret < 0)
@@ -581,15 +585,20 @@ static int mipi_csi2_probe(struct platform_device *pdev)
 
 	mipi_sc_fw_init(csi2dev, 1);
 
+	csi2dev->running = 0;
+	csi2dev->flags = MXC_MIPI_CSI2_PM_POWERED;
+
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_get_sync(dev);
+
 	ret = mipi_csi2_clk_enable(csi2dev);
 	if (ret < 0)
 		goto e_clkdis;
 
 	dev_info(&pdev->dev, "lanes: %d, name: %s\n",
 		 csi2dev->num_lanes, csi2dev->sd.name);
-
-	csi2dev->running = 0;
-	csi2dev->flags = MXC_MIPI_CSI2_PM_POWERED;
+	pm_runtime_put_sync(dev);
 
 	return 0;
 
@@ -603,55 +612,95 @@ static int mipi_csi2_remove(struct platform_device *pdev)
 	struct v4l2_subdev *sd = platform_get_drvdata(pdev);
 	struct mxc_mipi_csi2_dev *csi2dev = sd_to_mxc_mipi_csi2_dev(sd);
 
+	pm_runtime_get_sync(&pdev->dev);
 	mipi_sc_fw_init(csi2dev, 0);
 	media_entity_cleanup(&csi2dev->sd.entity);
-	mipi_csi2_clk_disable(csi2dev);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
 
-static int  mipi_csi2_pm_suspend(struct device *dev)
+static int mipi_csi2_suspend(struct device *dev, bool runtime)
 {
 	struct mxc_mipi_csi2_dev *csi2dev = dev_get_drvdata(dev);
 	struct v4l2_subdev *sd = &csi2dev->sd;
 
-	if (csi2dev->flags & MXC_MIPI_CSI2_PM_SUSPENDED)
-		return 0;
+	mutex_lock(&csi2dev->lock);
+	if (csi2dev->flags & MXC_MIPI_CSI2_PM_POWERED) {
+		if (csi2dev->running)
+			mipi_csi2_s_stream(sd, false);
 
-	if (csi2dev->running)
-		mipi_csi2_s_stream(sd, false);
-	mipi_csi2_clk_disable(csi2dev);
-	csi2dev->flags &= ~MXC_MIPI_CSI2_PM_POWERED;
-	csi2dev->flags |= MXC_MIPI_CSI2_PM_SUSPENDED;
+		mipi_csi2_clk_disable(csi2dev);
+		csi2dev->flags &= ~MXC_MIPI_CSI2_PM_POWERED;
 
+		if (runtime)
+			csi2dev->flags |= MXC_MIPI_CSI2_RUNTIME_SUSPENDED;
+		else
+			csi2dev->flags |= MXC_MIPI_CSI2_PM_SUSPENDED;
+	}
+	mutex_unlock(&csi2dev->lock);
 	return 0;
 }
 
-static int  mipi_csi2_pm_resume(struct device *dev)
+static int mipi_csi2_resume(struct device *dev, bool runtime)
 {
 	struct mxc_mipi_csi2_dev *csi2dev = dev_get_drvdata(dev);
 	struct v4l2_subdev *sd = &csi2dev->sd;
 	int ret;
 
-	if (csi2dev->flags & MXC_MIPI_CSI2_PM_POWERED)
+	mutex_lock(&csi2dev->lock);
+	if (!(csi2dev->flags & MXC_MIPI_CSI2_RUNTIME_SUSPENDED) &&
+		!(csi2dev->flags & MXC_MIPI_CSI2_PM_SUSPENDED)) {
+		mutex_unlock(&csi2dev->lock);
 		return 0;
-
-	ret = mipi_csi2_clk_enable(csi2dev);
-	if (ret < 0) {
-		dev_info(dev, "%s:%d fail\n", __func__, __LINE__);
-		return -EAGAIN;
 	}
 
-	if (csi2dev->running)
-		mipi_csi2_s_stream(sd, true);
-	csi2dev->flags |= MXC_MIPI_CSI2_PM_POWERED;
-	csi2dev->flags &= ~MXC_MIPI_CSI2_PM_SUSPENDED;
+	if (!(csi2dev->flags & MXC_MIPI_CSI2_PM_POWERED)) {
+		ret = mipi_csi2_clk_enable(csi2dev);
+		if (ret < 0) {
+			mutex_unlock(&csi2dev->lock);
+			dev_err(dev, "%s:%d fail\n", __func__, __LINE__);
+			return -EAGAIN;
+		}
 
+		if (csi2dev->running)
+			mipi_csi2_s_stream(sd, true);
+
+		csi2dev->flags |= MXC_MIPI_CSI2_PM_POWERED;
+		if (runtime)
+			csi2dev->flags &= ~MXC_MIPI_CSI2_RUNTIME_SUSPENDED;
+		else
+			csi2dev->flags &= ~MXC_MIPI_CSI2_PM_SUSPENDED;
+	}
+	mutex_unlock(&csi2dev->lock);
 	return 0;
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int  mipi_csi2_pm_suspend(struct device *dev)
+{
+	return mipi_csi2_suspend(dev, false);
+}
+
+static int  mipi_csi2_pm_resume(struct device *dev)
+{
+	return mipi_csi2_resume(dev, false);
+}
+#endif
+
+static int  mipi_csi2_runtime_suspend(struct device *dev)
+{
+	return mipi_csi2_suspend(dev, true);
+}
+static int  mipi_csi2_runtime_resume(struct device *dev)
+{
+	return mipi_csi2_resume(dev, true);
 }
 
 static const struct dev_pm_ops mipi_csi_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mipi_csi2_pm_suspend, mipi_csi2_pm_resume)
+	SET_RUNTIME_PM_OPS(mipi_csi2_runtime_suspend, mipi_csi2_runtime_resume, NULL)
 };
 
 static const struct of_device_id mipi_csi2_of_match[] = {
