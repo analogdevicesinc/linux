@@ -185,6 +185,7 @@ void *hif_lib_tx_get_next_complete(struct hif_client_s *client, int qno,
 void *hif_lib_receive_pkt(struct hif_client_s *client, int qno, int *len, int
 				*ofst, unsigned int *rx_ctrl,
 				unsigned int *desc_ctrl, void **priv_data);
+void __hif_lib_update_credit(struct hif_client_s *client, unsigned int queue);
 void hif_lib_set_rx_cpu_affinity(struct hif_client_s *client, int cpu_id);
 void hif_lib_set_tx_queue_nocpy(struct hif_client_s *client, int qno, int
 					enable);
