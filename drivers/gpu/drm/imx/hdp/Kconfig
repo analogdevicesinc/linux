@@ -9,3 +9,11 @@ config DRM_IMX_HDP
 	select DRM_PANEL
 	help
 	  Choose this if you want to use DP/HDMI on i.MX8.
+
+config IMX_HDP_CEC
+	bool "Enable IMX HDP CEC support"
+	depends on DRM_IMX_HDP && MEDIA_CEC_SUPPORT
+	select CEC_CORE
+	---help---
+	  When selected the imx hdmi will support the optional
+	  HDMI CEC feature.
