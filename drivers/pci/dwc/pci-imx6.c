@@ -675,7 +675,6 @@ static int imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 	if (gpio_is_valid(imx6_pcie->power_on_gpio))
 		gpio_set_value_cansleep(imx6_pcie->power_on_gpio, 1);
 
-	request_bus_freq(BUS_FREQ_HIGH);
 	ret = clk_prepare_enable(imx6_pcie->pcie);
 	if (ret) {
 		dev_err(dev, "unable to enable pcie clock\n");
@@ -1265,8 +1264,6 @@ static void pci_imx_clk_disable(struct device *dev)
 		clk_disable_unprepare(imx6_pcie->pcie_inbound_axi);
 		break;
 	}
-
-	release_bus_freq(BUS_FREQ_HIGH);
 }
 
 static void pci_imx_ltssm_enable(struct device *dev)
@@ -1593,13 +1590,34 @@ imx_pcie_memw_size(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+static ssize_t imx_pcie_bus_freq(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	u32 bus_freq;
+
+	ret = sscanf(buf, "%x\n", &bus_freq);
+	if (ret != 1)
+		return -EINVAL;
+	if (bus_freq) {
+		dev_info(dev, "pcie request bus freq high.\n");
+		request_bus_freq(BUS_FREQ_HIGH);
+	} else {
+		dev_info(dev, "pcie release bus freq high.\n");
+		release_bus_freq(BUS_FREQ_HIGH);
+	}
+
+	return count;
+}
+
 static DEVICE_ATTR(memw_info, S_IRUGO, imx_pcie_memw_info, NULL);
 static DEVICE_ATTR(memw_start_set, S_IWUSR, NULL, imx_pcie_memw_start);
 static DEVICE_ATTR(memw_size_set, S_IWUSR, NULL, imx_pcie_memw_size);
 static DEVICE_ATTR(ep_bar0_addr, S_IWUSR | S_IRUGO, imx_pcie_bar0_addr_info,
 		imx_pcie_bar0_addr_start);
+static DEVICE_ATTR(bus_freq, 0200, NULL, imx_pcie_bus_freq);
 
-static struct attribute *imx_pcie_attrs[] = {
+static struct attribute *imx_pcie_ep_attrs[] = {
 	/*
 	 * The start address, and the limitation (64KB ~ (16MB - 1MB))
 	 * of the ddr mem window reserved by RC, and used for EP to access.
@@ -1612,8 +1630,13 @@ static struct attribute *imx_pcie_attrs[] = {
 	NULL
 };
 
+static struct attribute *imx_pcie_rc_attrs[] = {
+	&dev_attr_bus_freq.attr,
+	NULL
+};
+
 static struct attribute_group imx_pcie_attrgroup = {
-	.attrs	= imx_pcie_attrs,
+	.attrs	= imx_pcie_ep_attrs,
 };
 
 static void imx6_pcie_setup_ep(struct dw_pcie *pci)
@@ -2301,6 +2324,12 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 			dev_info(dev, "pcie ep: Data transfer is failed.\n");
 		} /* end of self io test. */
 	} else {
+		/* add attributes for bus freq */
+		imx_pcie_attrgroup.attrs = imx_pcie_rc_attrs;
+		ret = sysfs_create_group(&pdev->dev.kobj, &imx_pcie_attrgroup);
+		if (ret)
+			return -EINVAL;
+
 		ret = imx6_add_pcie_port(imx6_pcie, pdev);
 		if (ret < 0)
 			return ret;
