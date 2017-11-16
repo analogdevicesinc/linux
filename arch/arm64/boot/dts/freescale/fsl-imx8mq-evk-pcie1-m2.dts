@@ -12,41 +12,61 @@
  * GNU General Public License for more details.
  */
 
+/*
+ * NOTE:
+ * 1. The DTS file only support i.MX8MQ EVK RevB1/B2 board PCIe M.2 Murata
+ *    1CQ (Qca6174) WIFI & BT.
+ *    EVK RevB1 rework:
+ *	WIFI rework: fly line from R1436 (near to M.2) to R1459
+ *	BT rework: ensure R1446,R1447,R1448,R1449 installed on board
+ *    EVK RevB2 rework: no rework
+ *
+ * 2. If need to support i.MX8MQ EVK RevA0/A1 board PCIe M.2 Murata 1CQ
+ *    (Qca6174) WIFI & BT, some board rework requirement:
+ *    EVK RevA0 rework:
+ *	WIFI rework: install R1436 for wlreg_on
+ *    EVK RevA0 rework:
+ *	WIFI rework: install R1436 for wlreg_on
+ *	BT rework: fly line from M.2 pin54 to R1437
+ *    Also, below DTS change requirement:
+ *	/ {
+ *		regulators {
+ *			epdev_on: fixedregulator@100 {
+ *				compatible = "regulator-fixed";
+ *				regulator-min-microvolt = <3300000>;
+ *				regulator-max-microvolt = <3300000>;
+ *				regulator-name = "epdev_on";
+ *				gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
+ *				enable-active-high;
+ *			};
+ *		};
+ *	};
+ *
+ *	&iomuxc {
+ *		imx8mq-evk {
+ *			pinctrl_epdev_on: epdevongrp {
+ *				fsl,pins = <
+ *					MX8MQ_IOMUXC_SD2_RESET_B_GPIO2_IO19	0x16
+ *				>;
+ *			};
+ *		};
+ *	};
+ *
+ *	&pcie1{
+ *		pinctrl-names = "default";
+ *		pinctrl-0 = <&pinctrl_pcie1 &pinctrl_epdev_on>;
+ *		epdev_on-supply = <&epdev_on>;
+ *	};
+ *
+ *	&usdhc2 {
+ *		status = "disabled";
+ *	};
+ */
+
 #include "fsl-imx8mq-evk.dts"
 
 / {
 	modem_reset: modem-reset {
 		reset-gpios = <&gpio3 5 GPIO_ACTIVE_HIGH>;
 	};
-
-	regulators {
-		epdev_on: fixedregulator@100 {
-			compatible = "regulator-fixed";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			regulator-name = "epdev_on";
-			gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
-	};
-};
-
-&iomuxc {
-	imx8mq-evk {
-		pinctrl_epdev_on: epdevongrp {
-			fsl,pins = <
-				MX8MQ_IOMUXC_SD2_RESET_B_GPIO2_IO19	0x16
-			>;
-		};
-	};
-};
-
-&pcie1{
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pcie1 &pinctrl_epdev_on>;
-	epdev_on-supply = <&epdev_on>;
-};
-
-&usdhc2 {
-	status = "disabled";
 };
