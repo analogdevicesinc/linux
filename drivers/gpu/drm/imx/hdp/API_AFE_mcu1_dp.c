@@ -320,7 +320,7 @@ void AFE_init(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link_rate)
 	val = val | 0x0008;
 	Afe_write(state, PHY_PMA_CMN_CTRL1, val);
 
-	Afe_write(state, CMN_DIAG_PLL0_TEST_MODE, 0x0020);
+	Afe_write(state, CMN_DIAG_PLL0_TEST_MODE, 0x0022);
 	Afe_write(state, CMN_PSM_CLK_CTRL, 0x0016);
 
 	phy_cfg_24mhz(state, num_lanes);

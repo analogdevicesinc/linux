@@ -205,7 +205,7 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 			Afe_write(state, 0x40E8 | (i << 9), 0x007F);
 	}
 	/* register CMN_DIAG_PLL0_TEST_MODE */
-	Afe_write(state, 0x01C4, 0x0020);
+	Afe_write(state, 0x01C4, 0x0022);
 	/* register CMN_PSM_CLK_CTRL */
 	Afe_write(state, 0x0061, 0x0016);
 
