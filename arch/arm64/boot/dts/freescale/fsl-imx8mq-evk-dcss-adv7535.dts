@@ -1,0 +1,80 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8mq-evk.dts"
+
+&ov5640_mipi {
+	status = "disabled";
+};
+
+&hdmi {
+	status = "disabled";
+};
+
+&hdmi_cec {
+	status = "disabled";
+};
+
+&dcss {
+	status = "okay";
+	disp-dev = "mipi_disp";
+
+	dcss_disp0: port@0 {
+		reg = <0>;
+
+		dcss_disp0_mipi_dsi: mipi_dsi {
+			remote-endpoint = <&mipi_dsi_in>;
+		};
+	};
+};
+
+&i2c1 {
+	adv_bridge: adv7535@3d {
+		compatible = "adi,adv7533";
+		reg = <0x3d>;
+		adi,dsi-lanes = <4>;
+		status = "okay";
+
+		port {
+			adv7535_in: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge_adv>;
+			};
+		};
+	};
+};
+
+&mipi_dsi_phy {
+	status = "okay";
+};
+
+&mipi_dsi {
+	status = "okay";
+
+	port@1 {
+		mipi_dsi_in: endpoint {
+			remote-endpoint = <&dcss_disp0_mipi_dsi>;
+		};
+	};
+
+};
+
+&mipi_dsi_bridge {
+	status = "okay";
+
+	port@1 {
+		mipi_dsi_bridge_adv: endpoint {
+			remote-endpoint = <&adv7535_in>;
+		};
+	};
+};
