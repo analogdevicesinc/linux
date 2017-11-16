@@ -13,6 +13,7 @@
 enum xilinx_xcvr_type {
 	XILINX_XCVR_TYPE_S7_GTX2,
 	XILINX_XCVR_TYPE_US_GTH3,
+	XILINX_XCVR_TYPE_US_GTH4,
 };
 
 enum xilinx_xcvr_refclk_ppm {
