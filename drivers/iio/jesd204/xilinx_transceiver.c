@@ -148,16 +148,16 @@ static int xilinx_xcvr_gth3_configure_cdr(struct xilinx_xcvr *xcvr,
 		cfg3 = 0x0020;
 
 		switch (out_div) {
-		case 0: /* 1 */
+		case 1:
 			cfg2 = 0x2000;
 			break;
-		case 1: /* 2 */
+		case 2:
 			cfg2 = 0x1000;
 			break;
-		case 2: /* 4 */
+		case 4:
 			cfg2 = 0x0800;
 			break;
-		case 3: /* 8 */
+		case 8:
 			cfg2 = 0x0400;
 			break;
 		default:
@@ -168,12 +168,12 @@ static int xilinx_xcvr_gth3_configure_cdr(struct xilinx_xcvr *xcvr,
 		dev_warn(xcvr->dev, "%s: GTH PRBS CDR not implemented\n", __func__);
 		return 0;
 	}
-
+#if 0
 	xilinx_xcvr_drp_write(xcvr, drp_port, RXCDR_CFG0_ADDR, cfg0);
 	xilinx_xcvr_drp_write(xcvr, drp_port, RXCDR_CFG1_ADDR, cfg1);
 	xilinx_xcvr_drp_write(xcvr, drp_port, RXCDR_CFG2_ADDR, cfg2);
 	xilinx_xcvr_drp_write(xcvr, drp_port, RXCDR_CFG3_ADDR, cfg3);
-
+#endif
 	return 0;
 }
 
@@ -281,6 +281,7 @@ int xilinx_xcvr_configure_cdr(struct xilinx_xcvr *xcvr,
 		return xilinx_xcvr_gtx2_configure_cdr(xcvr, drp_port, lane_rate,
 			out_div, lpm_enable);
 	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
 		return xilinx_xcvr_gth3_configure_cdr(xcvr, drp_port, out_div);
 	default:
 		return -EINVAL;
@@ -293,6 +294,8 @@ int xilinx_xcvr_configure_lpm_dfe_mode(struct xilinx_xcvr *xcvr,
 {
 	switch (xcvr->type) {
 	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+#if 0
 		if (lpm) {
 			xilinx_xcvr_drp_write(xcvr, drp_port, 0x036, 0x0032);
 			xilinx_xcvr_drp_write(xcvr, drp_port, 0x039, 0x1000);
@@ -302,6 +305,7 @@ int xilinx_xcvr_configure_lpm_dfe_mode(struct xilinx_xcvr *xcvr,
 			xilinx_xcvr_drp_write(xcvr, drp_port, 0x039, 0x0000);
 			xilinx_xcvr_drp_write(xcvr, drp_port, 0x062, 0x0000);
 		}
+#endif
 		break;
 	case XILINX_XCVR_TYPE_S7_GTX2:
 		if (lpm)
@@ -323,6 +327,22 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 	unsigned int n1, n2, d, m;
 	unsigned int refclk_khz = refclk_hz / 1000;
 	unsigned int vco_freq;
+	unsigned int vco_min;
+	unsigned int vco_max;
+
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		vco_min = 1600000;
+		vco_max = 3300000;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		vco_min = 2000000;
+		vco_max = 6250000;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	for (m = 1; m <= 2; m++) {
 		for (d = 1; d <= 8; d <<= 1) {
@@ -330,7 +350,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 				for (n2 = 5; n2 >= 1; n2--) {
 					vco_freq = refclk_khz * n1 * n2 / m;
 
-					if (vco_freq > 3300000 || vco_freq < 1600000)
+					if (vco_freq > vco_max || vco_freq < vco_min)
 						continue;
 
 					if (refclk_khz / m / d == lane_rate_khz / (2 * n1 * n2)) {
@@ -359,25 +379,52 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	struct xilinx_xcvr_qpll_config *conf,
 	unsigned int *out_div)
 {
+	unsigned int refclk_khz = refclk_hz / 1000;
 	unsigned int n, d, m;
 	unsigned int vco_freq;
 	unsigned int band;
-	unsigned int refclk_khz = refclk_hz / 1000;
+	unsigned int vco0_min;
+	unsigned int vco0_max;
+	unsigned int vco1_min;
+	unsigned int vco1_max;
+	const u8 *N;
 
-	static const u8 N[] = {16, 20, 32, 40, 64, 66, 80, 100};
+	static const u8 N_gtx2[] = {16, 20, 32, 40, 64, 66, 80, 100, 0};
+	static const u8 N_gth34[] = {16, 20, 32, 40, 64, 66, 75, 80, 100,
+			112, 120, 125, 150, 160, 0};
+
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		N = N_gtx2;
+		vco0_min = 5930000;
+		vco0_max = 8000000;
+		vco1_min = 9800000;
+		vco1_max = 12500000;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		N = N_gth34;
+		vco0_min = 9800000;
+		vco0_max = 16375000;
+		vco1_min = vco0_min;
+		vco1_max = vco0_max;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	for (m = 1; m <= 4; m++) {
 		for (d = 1; d <= 16; d <<= 1) {
-			for (n = 0; n < ARRAY_SIZE(N); n++) {
+			for (n = 0; N[n] != 0; n++) {
 				vco_freq = refclk_khz * N[n] / m;
 
 				/*
 				 * high band = 9.8G to 12.5GHz VCO
 				 * low band = 5.93G to 8.0GHz VCO
 				 */
-				if (vco_freq >= 9800000 && vco_freq <= 12500000)
+				if (vco_freq >= vco1_min && vco_freq <= vco1_max)
 					band = 1;
-				else if (vco_freq >= 5930000 && vco_freq <= 8000000)
+				else if (vco_freq >= vco0_min && vco_freq <= vco0_max)
 					band = 0;
 				else
 					continue;
@@ -403,7 +450,54 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_calc_qpll_config);
 
-int xilinx_xcvr_cpll_read_config(struct xilinx_xcvr *xcvr,
+int xilinx_xcvr_gth34_cpll_read_config(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, struct xilinx_xcvr_cpll_config *conf)
+{
+	int val;
+
+	val = xilinx_xcvr_drp_read(xcvr, drp_port, 0x28);
+	if (val < 0)
+		return val;
+
+	if (val & CPLL_FB_DIV_45_N1_MASK)
+		conf->fb_div_N1 = 5;
+	else
+		conf->fb_div_N1 = 4;
+
+	switch ((val >> 8) & 0xff) {
+	case 3:
+		conf->fb_div_N2 = 5;
+		break;
+	case 2:
+		conf->fb_div_N2 = 4;
+		break;
+	case 1:
+		conf->fb_div_N2 = 3;
+		break;
+	case 0:
+		conf->fb_div_N2 = 2;
+		break;
+	default:
+		conf->fb_div_N2 = 1;
+		break;
+	}
+
+	val = xilinx_xcvr_drp_read(xcvr, drp_port, 0x2a);
+	if (val < 0)
+		return val;
+
+	if (val & 0xf800)
+		conf->refclk_div = 1;
+	else
+		conf->refclk_div = 2;
+
+	dev_err(xcvr->dev, "cpll: fb_div_N1=%d\ncpll: fb_div_N2=%d\ncpll: refclk_div=%d\n",
+		conf->fb_div_N1, conf->fb_div_N2, conf->refclk_div);
+
+	return 0;
+}
+
+int xilinx_xcvr_gtx2_cpll_read_config(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, struct xilinx_xcvr_cpll_config *conf)
 {
 	int val;
@@ -442,9 +536,83 @@ int xilinx_xcvr_cpll_read_config(struct xilinx_xcvr *xcvr,
 
 	return 0;
 }
+
+int xilinx_xcvr_cpll_read_config(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, struct xilinx_xcvr_cpll_config *conf)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		return xilinx_xcvr_gtx2_cpll_read_config(xcvr, drp_port, conf);
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		return xilinx_xcvr_gth34_cpll_read_config(xcvr, drp_port, conf);
+	default:
+		return -EINVAL;
+	}
+}
 EXPORT_SYMBOL_GPL(xilinx_xcvr_cpll_read_config);
 
-int xilinx_xcvr_cpll_write_config(struct xilinx_xcvr *xcvr,
+static int xilinx_xcvr_gth34_cpll_write_config(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, const struct xilinx_xcvr_cpll_config *conf)
+{
+	unsigned int val;
+	int ret;
+
+	switch (conf->fb_div_N2) {
+	case 1:
+		val = 0x10;
+		break;
+	case 2:
+		val = 0x00;
+		break;
+	case 3:
+		val = 0x01;
+		break;
+	case 4:
+		val = 0x2;
+		break;
+	case 5:
+		val = 0x3;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	val <<= 8;
+
+	switch (conf->fb_div_N1) {
+	case 4:
+		break;
+	case 5:
+		val |= CPLL_FB_DIV_45_N1_MASK;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = xilinx_xcvr_drp_update(xcvr, drp_port, 0x28,
+		0xff80, val);
+	if (ret)
+		return ret;
+
+	switch (conf->refclk_div) {
+	case 1:
+		val = 16;
+		break;
+	case 2:
+		val = 0;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	val <<= 11;
+
+	return xilinx_xcvr_drp_update(xcvr, drp_port, 0x2a,
+		0xf800, val);
+}
+
+static int xilinx_xcvr_gtx2_cpll_write_config(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, const struct xilinx_xcvr_cpll_config *conf)
 {
 	unsigned int val = 0;
@@ -492,6 +660,20 @@ int xilinx_xcvr_cpll_write_config(struct xilinx_xcvr *xcvr,
 		CPLL_REFCLK_DIV_M_MASK | CPLL_FB_DIV_45_N1_MASK | CPLL_FBDIV_N2_MASK,
 		val);
 }
+
+int xilinx_xcvr_cpll_write_config(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, const struct xilinx_xcvr_cpll_config *conf)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		return xilinx_xcvr_gtx2_cpll_write_config(xcvr, drp_port, conf);
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		return xilinx_xcvr_gth34_cpll_write_config(xcvr, drp_port, conf);
+	default:
+		return -EINVAL;
+	}
+}
 EXPORT_SYMBOL_GPL(xilinx_xcvr_cpll_write_config);
 
 int xilinx_xcvr_cpll_calc_lane_rate(struct xilinx_xcvr *xcvr,
@@ -507,7 +689,58 @@ int xilinx_xcvr_cpll_calc_lane_rate(struct xilinx_xcvr *xcvr,
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_cpll_calc_lane_rate);
 
-int xilinx_xcvr_qpll_read_config(struct xilinx_xcvr *xcvr,
+static int xilinx_xcvr_gth34_qpll_read_config(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, struct xilinx_xcvr_qpll_config *conf)
+{
+	unsigned int qpll = 0;
+	int val;
+
+	#define QPLL0_FBDIV_DIV 0x14
+	#define QPLL0_REFCLK_DIV 0x18
+	#define QPLL1_FBDIV 0x94
+	#define QPLL1_REFCLK_DIV 0x98
+
+	#define QPLL_FBDIV(x) (0x14 + (x) * 0x80)
+	#define QPLL_REFCLK_DIV(x) (0x18 + (x) * 0x80)
+
+	val = xilinx_xcvr_drp_read(xcvr, drp_port, QPLL_REFCLK_DIV(qpll));
+	if (val < 0)
+		return val;
+
+	switch ((val >> 7) & 0x1f) {
+	case 16:
+		conf->refclk_div = 1;
+		break;
+	case 0:
+		conf->refclk_div = 2;
+		break;
+	case 1:
+		conf->refclk_div = 3;
+		break;
+	case 2:
+		conf->refclk_div = 4;
+		break;
+	default:
+		conf->refclk_div = 5;
+		break;
+	}
+
+	val = xilinx_xcvr_drp_read(xcvr, drp_port, QPLL_FBDIV(qpll));
+	if (val < 0)
+		return val;
+
+	conf->fb_div = (val & 0xff) + 2;
+
+	conf->band = 0;
+
+	dev_err(xcvr->dev, "qpll: fb_div=%d, qpll: refclk_div=%d\n",
+		conf->fb_div, conf->refclk_div);
+
+	return 0;
+}
+
+
+static int xilinx_xcvr_gtx2_qpll_read_config(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, struct xilinx_xcvr_qpll_config *conf)
 {
 	int val;
@@ -573,9 +806,59 @@ int xilinx_xcvr_qpll_read_config(struct xilinx_xcvr *xcvr,
 
 	return 0;
 }
+
+int xilinx_xcvr_qpll_read_config(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, struct xilinx_xcvr_qpll_config *conf)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		return xilinx_xcvr_gtx2_qpll_read_config(xcvr, drp_port, conf);
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		return xilinx_xcvr_gth34_qpll_read_config(xcvr, drp_port, conf);
+	default:
+		return -EINVAL;
+	}
+}
 EXPORT_SYMBOL_GPL(xilinx_xcvr_qpll_read_config);
 
-int xilinx_xcvr_qpll_write_config(struct xilinx_xcvr *xcvr,
+static int xilinx_xcvr_gth34_qpll_write_config(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, const struct xilinx_xcvr_qpll_config *conf)
+{
+	unsigned int refclk, fbdiv;
+	int ret;
+
+	fbdiv = conf->fb_div - 2;
+
+	switch (conf->refclk_div) {
+	case 1:
+		refclk = 16;
+		break;
+	case 2:
+		refclk = 0;
+		break;
+	case 3:
+		refclk = 1;
+		break;
+	case 4:
+		refclk = 2;
+		break;
+	default:
+		dev_dbg(xcvr->dev, "Invalid refclk divider: %d\n",
+			conf->refclk_div);
+		return -EINVAL;
+	}
+
+	ret = xilinx_xcvr_drp_update(xcvr, drp_port, QPLL_FBDIV(0),
+		0xff, fbdiv);
+	if (ret < 0)
+		return ret;
+
+	return xilinx_xcvr_drp_update(xcvr, drp_port, QPLL_REFCLK_DIV(0),
+		0xf80, refclk << 7);
+}
+
+static int xilinx_xcvr_gtx2_qpll_write_config(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, const struct xilinx_xcvr_qpll_config *conf)
 {
 	unsigned int cfg0, cfg1, fbdiv, fbdiv_ratio;
@@ -661,6 +944,20 @@ int xilinx_xcvr_qpll_write_config(struct xilinx_xcvr *xcvr,
 
 	return 0;
 }
+
+int xilinx_xcvr_qpll_write_config(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, const struct xilinx_xcvr_qpll_config *conf)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		return xilinx_xcvr_gtx2_qpll_write_config(xcvr, drp_port, conf);
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		return xilinx_xcvr_gth34_qpll_write_config(xcvr, drp_port, conf);
+	default:
+		return -EINVAL;
+	}
+}
 EXPORT_SYMBOL_GPL(xilinx_xcvr_qpll_write_config);
 
 int xilinx_xcvr_qpll_calc_lane_rate(struct xilinx_xcvr *xcvr,
@@ -675,8 +972,32 @@ int xilinx_xcvr_qpll_calc_lane_rate(struct xilinx_xcvr *xcvr,
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_qpll_calc_lane_rate);
 
-int xilinx_xcvr_read_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
-	unsigned int *rx_out_div, unsigned int *tx_out_div)
+static int xilinx_xcvr_gth34_read_out_div(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int *rx_out_div, unsigned int *tx_out_div)
+{
+	int ret;
+
+	if (rx_out_div) {
+		ret = xilinx_xcvr_drp_read(xcvr, drp_port, 0x63);
+		if (ret < 0)
+			return ret;
+
+		*rx_out_div = 1 << (ret & 7);
+	}
+
+	if (tx_out_div) {
+		ret = xilinx_xcvr_drp_read(xcvr, drp_port, 0x7c);
+		if (ret < 0)
+			return ret;
+
+		*tx_out_div = 1 << ((ret >> 8) & 7);
+	}
+
+	return 0;
+}
+
+static int xilinx_xcvr_gtx2_read_out_div(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int *rx_out_div, unsigned int *tx_out_div)
 {
 	int ret;
 
@@ -690,6 +1011,22 @@ int xilinx_xcvr_read_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 		*tx_out_div = 1 << ((ret >> OUT_DIV_TX_OFFSET) & 7);
 
 	return 0;
+}
+
+int xilinx_xcvr_read_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
+	unsigned int *rx_out_div, unsigned int *tx_out_div)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		return xilinx_xcvr_gtx2_read_out_div(xcvr, drp_port,
+			rx_out_div, tx_out_div);
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		return xilinx_xcvr_gth34_read_out_div(xcvr, drp_port,
+			rx_out_div, tx_out_div);
+	default:
+		return -EINVAL;
+	}
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_read_out_div);
 
@@ -709,7 +1046,28 @@ static unsigned int xilinx_xcvr_out_div_to_val(unsigned int out_div)
 	}
 }
 
-int xilinx_xcvr_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
+static int xilinx_xcvr_gth34_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
+	int rx_out_div, int tx_out_div)
+{
+	int ret;
+
+	if (rx_out_div >= 0) {
+		ret = xilinx_xcvr_drp_update(xcvr, drp_port, 0x63, 0x7,
+			xilinx_xcvr_out_div_to_val(rx_out_div));
+		if (ret)
+			return ret;
+	}
+	if (tx_out_div >= 0) {
+		ret = xilinx_xcvr_drp_update(xcvr, drp_port, 0x7c, 0x700,
+			xilinx_xcvr_out_div_to_val(tx_out_div) << 8);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int xilinx_xcvr_gtx2_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 	int rx_out_div, int tx_out_div)
 {
 	unsigned int val = 0;
@@ -726,32 +1084,80 @@ int xilinx_xcvr_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 
 	return xilinx_xcvr_drp_update(xcvr, drp_port, OUT_DIV_ADDR, mask, val);
 }
+
+int xilinx_xcvr_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
+	int rx_out_div, int tx_out_div)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		return xilinx_xcvr_gtx2_write_out_div(xcvr, drp_port,
+			rx_out_div, tx_out_div);
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		return xilinx_xcvr_gth34_write_out_div(xcvr, drp_port,
+			rx_out_div, tx_out_div);
+	default:
+		return -EINVAL;
+	}
+}
 EXPORT_SYMBOL_GPL(xilinx_xcvr_write_out_div);
 
 int xilinx_xcvr_write_rx_clk25_div(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int div)
 {
+	unsigned int reg, mask;
+
 	if (div == 0 || div > 32)
 		return -EINVAL;
 
 	div--;
-	div <<= RX_CLK25_DIV_OFFSET;
 
-	return xilinx_xcvr_drp_update(xcvr, drp_port, RX_CLK25_DIV,
-		RX_CLK25_DIV_MASK, div);
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		div <<= RX_CLK25_DIV_OFFSET;
+		mask = RX_CLK25_DIV_MASK;
+		reg = RX_CLK25_DIV;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		div <<= 3;
+		mask = 0xf8;
+		reg = 0x6d;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return xilinx_xcvr_drp_update(xcvr, drp_port, reg, mask, div);
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_write_rx_clk25_div);
 
 int xilinx_xcvr_write_tx_clk25_div(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int div)
 {
+	unsigned int reg, mask;
+
 	if (div == 0 || div > 32)
 		return -EINVAL;
 
 	div--;
 
-	return xilinx_xcvr_drp_update(xcvr, drp_port, TX_CLK25_DIV,
-		TX_CLK25_DIV_MASK, div);
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		mask = TX_CLK25_DIV_MASK;
+		reg = TX_CLK25_DIV;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		div <<= 11;
+		mask = 0xf800;
+		reg = 0x7a;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return xilinx_xcvr_drp_update(xcvr, drp_port, reg, mask, div);
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_write_tx_clk25_div);
 
