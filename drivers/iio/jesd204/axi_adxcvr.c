@@ -516,6 +516,7 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 static const char *adxcvr_gt_names[] = {
 	[XILINX_XCVR_TYPE_S7_GTX2] = "GTX2",
 	[XILINX_XCVR_TYPE_US_GTH3] = "GTH3",
+	[XILINX_XCVR_TYPE_US_GTH4] = "GTH4",
 };
 
 static int adxcvr_probe(struct platform_device *pdev)
@@ -567,10 +568,18 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->tx_enable = (synth_conf >> 8) & 1;
 	st->num_lanes = synth_conf & 0xff;
 
-	if (synth_conf & 0x1000)
-		st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
-	else
-		st->xcvr.type = XILINX_XCVR_TYPE_S7_GTX2;
+	st->xcvr.type = (synth_conf >> 16) & 0xf;
+
+	switch (st->xcvr.type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		break;
+	default:
+		dev_err(&pdev->dev, "Unknown transceiver type: %d\n",
+			st->xcvr.type);
+		return -EINVAL;
+	}
 	st->xcvr.encoding = ENC_8B10B;
 	st->xcvr.refclk_ppm = PM_200; /* TODO use clock accuracy */
 
