@@ -535,6 +535,7 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
 
 	if (of_usb_get_phy_mode(dev->of_node) == USBPHY_INTERFACE_MODE_HSIC) {
 		pdata.flags |= CI_HDRC_IMX_IS_HSIC;
+		data->usbmisc_data->hsic = 1;
 		data->hsic_pad_regulator = devm_regulator_get(dev, "pad");
 		if (PTR_ERR(data->hsic_pad_regulator) == -EPROBE_DEFER) {
 			ret = -EPROBE_DEFER;

@@ -106,6 +106,7 @@
 #define MX7D_USBNC_USB_CTRL2_OPMODE_OVERRIDE_MASK	(BIT(7) | BIT(6))
 #define MX7D_USBNC_USB_CTRL2_OPMODE(v)			(v << 6)
 #define MX7D_USBNC_USB_CTRL2_OPMODE_NON_DRIVING	MX7D_USBNC_USB_CTRL2_OPMODE(1)
+#define MX7D_USBNC_HSIC_AUTO_RESUME	BIT(2)
 
 #define MX7D_USB_VBUS_WAKEUP_SOURCE_MASK	0x3
 #define MX7D_USB_VBUS_WAKEUP_SOURCE(v)		(v << 0)
@@ -368,41 +369,61 @@ static int usbmisc_imx53_init(struct imx_usbmisc_data *data)
 static int usbmisc_imx6_hsic_set_connect(struct imx_usbmisc_data *data)
 {
 	unsigned long flags;
-	u32 val;
+	u32 val, offset;
 	struct imx_usbmisc *usbmisc = dev_get_drvdata(data->dev);
+	int ret = 0;
 
 	spin_lock_irqsave(&usbmisc->lock, flags);
 	if (data->index == 2 || data->index == 3) {
-		val = readl(usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET
-						+ (data->index - 2) * 4);
-		if (!(val & MX6_BM_HSIC_DEV_CONN))
-			writel(val | MX6_BM_HSIC_DEV_CONN,
-				usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET
-						+ (data->index - 2) * 4);
+		offset = (data->index - 2) * 4;
+	} else if (data->index == 0) {
+		/*
+		 * For controllers later than imx7d (imx7d is included),
+		 * each controller has its own non core register region.
+		 * And the controllers before than imx7d, the 1st controller
+		 * is not HSIC controller.
+		 */
+		offset = 0;
+	} else {
+		dev_err(data->dev, "index is error for usbmisc\n");
+		offset = 0;
+		ret = -EINVAL;
 	}
+
+	val = readl(usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET + offset);
+	if (!(val & MX6_BM_HSIC_DEV_CONN))
+		writel(val | MX6_BM_HSIC_DEV_CONN,
+			usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET + offset);
 	spin_unlock_irqrestore(&usbmisc->lock, flags);
 
-	return 0;
+	return ret;
 }
 
 static int usbmisc_imx6_hsic_set_clk(struct imx_usbmisc_data *data, bool on)
 {
 	unsigned long flags;
-	u32 val;
+	u32 val, offset;
 	struct imx_usbmisc *usbmisc = dev_get_drvdata(data->dev);
+	int ret = 0;
 
 	spin_lock_irqsave(&usbmisc->lock, flags);
 	if (data->index == 2 || data->index == 3) {
-		val = readl(usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET
-						+ (data->index - 2) * 4);
-		val |= MX6_BM_HSIC_EN | MX6_BM_HSIC_CLK_ON;
-		if (on)
-			val |= MX6_BM_HSIC_CLK_ON;
-		else
-			val &= ~MX6_BM_HSIC_CLK_ON;
-		writel(val, usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET
-						+ (data->index - 2) * 4);
+		offset = (data->index - 2) * 4;
+	} else if (data->index == 0) {
+		offset = 0;
+	} else {
+		dev_err(data->dev, "index is error for usbmisc\n");
+		offset = 0;
+		ret = -EINVAL;
 	}
+
+	val = readl(usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET + offset);
+	val |= MX6_BM_HSIC_EN | MX6_BM_HSIC_CLK_ON;
+	if (on)
+		val |= MX6_BM_HSIC_CLK_ON;
+	else
+		val &= ~MX6_BM_HSIC_CLK_ON;
+	writel(val, usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET + offset);
 	spin_unlock_irqrestore(&usbmisc->lock, flags);
 
 	return 0;
@@ -615,6 +636,19 @@ static int usbmisc_imx7d_init(struct imx_usbmisc_data *data)
 	reg &= ~MX7D_USB_VBUS_WAKEUP_SOURCE_MASK;
 	writel(reg | MX7D_USB_VBUS_WAKEUP_SOURCE_BVALID,
 		 usbmisc->base + MX7D_USBNC_USB_CTRL2);
+
+	if (data->hsic) {
+		reg = readl(usbmisc->base);
+		writel(reg | MX6_BM_UTMI_ON_CLOCK, usbmisc->base);
+
+		reg = readl(usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET);
+		reg |= MX6_BM_HSIC_EN | MX6_BM_HSIC_CLK_ON;
+		writel(reg, usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET);
+
+		reg = readl(usbmisc->base + MX7D_USBNC_USB_CTRL2);
+		writel(reg | MX7D_USBNC_HSIC_AUTO_RESUME,
+			usbmisc->base + MX7D_USBNC_USB_CTRL2);
+	}
 	spin_unlock_irqrestore(&usbmisc->lock, flags);
 
 	usbmisc_imx7d_set_wakeup(data, false);
@@ -1034,12 +1068,16 @@ static const struct usbmisc_ops imx7d_usbmisc_ops = {
 	.charger_primary_detection = imx7d_charger_primary_detection,
 	.charger_secondary_detection = imx7d_charger_secondary_detection,
 	.term_select_override = usbmisc_term_select_override,
+	.hsic_set_connect = usbmisc_imx6_hsic_set_connect,
+	.hsic_set_clk   = usbmisc_imx6_hsic_set_clk,
 };
 
 static const struct usbmisc_ops imx7ulp_usbmisc_ops = {
 	.init = usbmisc_imx7d_init,
 	.set_wakeup = usbmisc_imx7d_set_wakeup,
 	.power_lost_check = usbmisc_imx7d_power_lost_check,
+	.hsic_set_connect = usbmisc_imx6_hsic_set_connect,
+	.hsic_set_clk   = usbmisc_imx6_hsic_set_clk,
 };
 
 static inline bool is_imx53_usbmisc(struct imx_usbmisc_data *data)
