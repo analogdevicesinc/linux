@@ -426,6 +426,8 @@ struct sdma_engine {
 	struct sdma_buffer_descriptor	*bd0;
 	bool				suspend_off;
 	int				idx;
+	/* clock ration for AHB:SDMA core. 1:1 is 1, 2:1 is 0*/
+	bool				clk_ratio;
 };
 
 static struct sdma_driver_data sdma_imx31 = {
@@ -2107,7 +2109,10 @@ static int sdma_init(struct sdma_engine *sdma)
 
 	/* Set bits of CONFIG register but with static context switching */
 	/* FIXME: Check whether to set ACR bit depending on clock ratios */
-	writel_relaxed(0, sdma->regs + SDMA_H_CONFIG);
+	if (sdma->clk_ratio)
+		writel_relaxed(SDMA_H_CONFIG_ACR, sdma->regs + SDMA_H_CONFIG);
+	else
+		writel_relaxed(0, sdma->regs + SDMA_H_CONFIG);
 
 	writel_relaxed(ccb_phys, sdma->regs + SDMA_H_C0PTR);
 
@@ -2199,6 +2204,8 @@ static int sdma_probe(struct platform_device *pdev)
 	sdma = devm_kzalloc(&pdev->dev, sizeof(*sdma), GFP_KERNEL);
 	if (!sdma)
 		return -ENOMEM;
+
+	sdma->clk_ratio = of_property_read_bool(np, "fsl,ratio-1-1");
 
 	spin_lock_init(&sdma->channel_0_lock);
 

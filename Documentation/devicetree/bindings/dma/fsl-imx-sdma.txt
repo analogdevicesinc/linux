@@ -69,6 +69,7 @@ Optional properties:
     reg is the GPR register offset.
     shift is the bit position inside the GPR register.
     val is the value of the bit (0 or 1).
+- fsl,ratio-1-1: AHB/SDMA core clock ration 1:1, 2:1 without this.
 
 Examples:
 
