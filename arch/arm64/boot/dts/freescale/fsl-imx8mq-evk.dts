@@ -39,6 +39,18 @@
 			gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
+
+		reg_gpio_dvfs: regulator-gpio {
+			compatible = "regulator-gpio";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_dvfs>;
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1000000>;
+			regulator-name = "gpio_dvfs";
+			regulator-type = "voltage";
+			gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+			states = <900000 0x1 1000000 0x0>;
+		};
 	};
 
 	modem_reset: modem-reset {
@@ -79,16 +91,6 @@
 		spdif-controller = <&spdif1>;
 		spdif-out;
 		spdif-in;
-	};
-
-	pwmleds {
-		compatible = "pwm-leds";
-
-		ledpwm2 {
-			label = "PWM2";
-			pwms = <&pwm2 0 50000>;
-			max-brightness = <255>;
-		};
 	};
 };
 
@@ -149,12 +151,6 @@
 				MX8MQ_IOMUXC_I2C4_SDA_GPIO5_IO21	0x16
 				MX8MQ_IOMUXC_ECSPI2_SCLK_GPIO5_IO10	0x16
 				MX8MQ_IOMUXC_ECSPI2_MISO_GPIO5_IO12	0x16
-			>;
-		};
-
-		pinctrl_pwm2: pwm2grp {
-			fsl,pins = <
-				MX8MQ_IOMUXC_GPIO1_IO13_PWM2_OUT	0x16
 			>;
 		};
 
@@ -481,12 +477,6 @@
 	status = "okay";
 };
 
-&pwm2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pwm2>;
-	status = "okay";
-};
-
 &uart1 { /* console */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
@@ -654,4 +644,15 @@
 	vdev-nums = <1>;
 	reg = <0x0 0xb8000000 0x0 0x10000>;
 	status = "okay";
+};
+
+&A53_0 {
+	operating-points = <
+		/* kHz    uV */
+		1500000 1000000
+		1300000 1000000
+		1000000 900000
+		800000  900000
+	>;
+	dc-supply = <&reg_gpio_dvfs>;
 };
