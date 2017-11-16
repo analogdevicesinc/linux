@@ -153,7 +153,7 @@ static const cmd_set_table manufacturer_cmd_set[] = {
 	{0xC6, 0x00},
 	{0xC7, 0x01},
 	{0xC8, 0x10},
-	{0xFE, 0x0D},
+	{0xFE, 0x06},
 	{0x95, 0xEC},
 	{0x8D, 0xEE},
 	{0x44, 0xEC},
@@ -395,6 +395,9 @@ static int rad_panel_get_modes(struct drm_panel *panel)
 	struct device *dev = &rad->dsi->dev;
 	struct drm_connector *connector = panel->connector;
 	struct drm_display_mode *mode;
+	u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+	u32 *bus_flags = &connector->display_info.bus_flags;
+	int ret;
 
 	mode = drm_mode_create(connector->dev);
 	if (!mode) {
@@ -408,6 +411,20 @@ static int rad_panel_get_modes(struct drm_panel *panel)
 	connector->display_info.width_mm = rad->width_mm;
 	connector->display_info.height_mm = rad->height_mm;
 	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+
+	if (rad->vm.flags & DISPLAY_FLAGS_DE_HIGH)
+		*bus_flags |= DRM_BUS_FLAG_DE_HIGH;
+	if (rad->vm.flags & DISPLAY_FLAGS_DE_LOW)
+		*bus_flags |= DRM_BUS_FLAG_DE_LOW;
+	if (rad->vm.flags & DISPLAY_FLAGS_PIXDATA_NEGEDGE)
+		*bus_flags |= DRM_BUS_FLAG_PIXDATA_NEGEDGE;
+	if (rad->vm.flags & DISPLAY_FLAGS_PIXDATA_POSEDGE)
+		*bus_flags |= DRM_BUS_FLAG_PIXDATA_POSEDGE;
+
+	ret = drm_display_info_set_bus_formats(&connector->display_info,
+					       &bus_format, 1);
+	if (ret)
+		return ret;
 
 	drm_mode_probed_add(panel->connector, mode);
 
@@ -529,6 +546,9 @@ static int rad_panel_probe(struct mipi_dsi_device *dsi)
 
 	if (IS_ERR(panel->reset))
 		panel->reset = NULL;
+	else
+		gpiod_set_value(panel->reset, 0);
+
 
 	memset(&bl_props, 0, sizeof(bl_props));
 	bl_props.type = BACKLIGHT_RAW;
