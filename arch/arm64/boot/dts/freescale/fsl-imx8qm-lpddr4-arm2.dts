@@ -86,13 +86,6 @@
 		amix-controller = <&amix>;
 	};
 
-	sound-hdmi {
-		compatible = "fsl,imx-audio-cdnhdmi";
-		model = "imx-audio-dp";
-		audio-cpu = <&sai_hdmi_tx>;
-		protocol = <1>;
-	};
-
 	lvds_backlight0: lvds_backlight@0 {
 		compatible = "pwm-backlight";
 		pwms = <&lvds0_pwm 0 100000 0>;
