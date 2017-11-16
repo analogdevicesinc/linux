@@ -160,6 +160,49 @@ iMX6UL does only require three clocks
 	};
 
 =====================================================================
+SEC 4 Page 0
+
+Description
+
+    Most of CAAM's configuration registers are accessible in block0
+    of CAAM's register space. These registers are intended to be
+    accessed by specially privileged software (e.g. boot software,
+    hypervisor, secure operating system).
+
+PROPERTIES
+
+   - compatible
+      Usage: required
+      Value type: <string>
+      Definition: Must include "fsl,sec-v4.0-ctrl".
+
+   - reg
+      Usage: required
+      Value type: <prop-encoded-array>
+      Definition: A standard property.  Specifies the physical
+          address and length of the SEC4 configuration registers.
+
+   - secure-status
+      Usage: required
+      Value type: <string>
+      Definition: Must include "okay".
+
+   - status
+      Usage: required
+      Value type: <string>
+      Definition: Must include "disabled".
+
+EXAMPLE
+	sec_ctrl: ctrl@0 {
+		/* CAAM Page 0 only accessible */
+		/*	by secure world */
+		compatible = "fsl,sec-v4.0-ctrl";
+		reg = <0x2100000 0x1000>;
+		secure-status = "okay";
+		status = "disabled";
+	};
+
+=====================================================================
 Job Ring (JR) Node
 
     Child of the crypto node defines data processing interface to SEC 4

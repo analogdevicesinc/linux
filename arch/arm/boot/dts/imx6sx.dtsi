@@ -930,6 +930,15 @@
 					 <&clks IMX6SX_CLK_EIM_SLOW>;
 				clock-names = "mem", "aclk", "ipg", "emi_slow";
 
+				sec_ctrl: ctrl@0 {
+					/* CAAM Page 0 only accessible */
+					/*	by secure world */
+					compatible = "fsl,sec-v4.0-ctrl";
+					reg = <0x2100000 0x1000>;
+					secure-status = "okay";
+					status = "disabled";
+				};
+
 				sec_jr0: jr0@1000 {
 					compatible = "fsl,sec-v4.0-job-ring";
 					reg = <0x1000 0x1000>;
