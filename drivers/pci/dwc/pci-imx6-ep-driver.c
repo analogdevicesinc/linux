@@ -29,6 +29,7 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 
 #define DRV_DESCRIPTION	"i.MX PCIE endpoint device driver"
 #define DRV_VERSION	"version 0.1"
@@ -49,8 +50,10 @@ struct imx_pcie_ep_priv {
 static int imx_pcie_ep_probe(struct pci_dev *pdev,
 		const struct pci_device_id *id)
 {
-	int ret = 0;
-	unsigned int msi_addr = 0;
+	int ret = 0, index = 0, found = 0;
+	unsigned int msi_addr = 0, cpu_base;
+	struct resource cfg_res;
+	const char *name = NULL;
 	struct device_node *np;
 	struct device *dev = &pdev->dev;
 	struct imx_pcie_ep_priv *priv;
@@ -74,7 +77,7 @@ static int imx_pcie_ep_probe(struct pci_dev *pdev,
 	priv->hw_base = pci_iomap(pdev, 0, 0);
 	if (!priv->hw_base) {
 		ret = -ENODEV;
-		goto out;
+		goto err_pci_disable;
 	}
 
 	pr_info("pci_resource_len = 0x%08llx\n",
@@ -84,23 +87,45 @@ static int imx_pcie_ep_probe(struct pci_dev *pdev,
 	ret = pci_enable_msi(priv->pci_dev);
 	if (ret < 0) {
 		dev_err(dev, "can't enable msi\n");
-		return ret;
+		goto err_pci_unmap_mmio;
 	}
 
 	np = of_find_compatible_node(NULL, NULL, "snps,dw-pcie");
+	if (of_property_read_u32(np, "cpu-base-addr", &cpu_base))
+		cpu_base = 0;
 
-	/*
-	 * Force to use the hardcode MSI address to do the MSI demo
-	 */
-	if (of_device_is_compatible(np, "fsl,imx7d-pcie"))
-		msi_addr = 0x4FFC0000;
-	else if (of_device_is_compatible(np, "fsl,imx6sx-pcie"))
-		msi_addr = 0x08FF8000;
-	else
-		msi_addr = 0x01FF8000;
+	while (!of_property_read_string_index(np, "reg-names", index, &name)) {
+		if (strcmp("config", name)) {
+			index++;
+			continue;
+		}
 
-	pr_info("pci_msi_addr = 0x%08x\n", msi_addr);
+		/* We have a match and @index is where it's at */
+		found = 1;
+		break;
+	}
+
+	if (!found) {
+		dev_err(dev, "can't find config reg space.\n");
+		ret = -EINVAL;
+		goto err_pci_disable_msi;
+	}
+
+	ret = of_address_to_resource(np, index, &cfg_res);
+	if (ret) {
+		dev_err(dev, "can't get cfg_res.\n");
+		ret = -EINVAL;
+		goto err_pci_disable_msi;
+	} else {
+		msi_addr = cfg_res.start + resource_size(&cfg_res);
+	}
+
+	pr_info("pci_msi_addr = 0x%08x, cpu_base 0x%08x\n", msi_addr, cpu_base);
 	pci_bus_write_config_dword(pdev->bus, 0, 0x54, msi_addr);
+	if (cpu_base) {
+		msi_addr = msi_addr & 0xFFFFFFF;
+		msi_addr |= (cpu_base & 0xF0000000);
+	}
 	pci_bus_write_config_dword(pdev->bus->parent, 0, 0x820, msi_addr);
 
 	/* configure rc's msi cap */
@@ -112,7 +137,14 @@ static int imx_pcie_ep_probe(struct pci_dev *pdev,
 
 	return 0;
 
+err_pci_disable_msi:
+	pci_disable_msi(pdev);
+err_pci_unmap_mmio:
+	pci_iounmap(pdev, priv->hw_base);
+err_pci_disable:
+	pci_disable_device(pdev);
 out:
+	kfree(priv);
 	return ret;
 }
 

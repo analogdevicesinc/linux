@@ -66,6 +66,7 @@ struct imx6_pcie {
 	u32 			ext_osc;
 	u32			ctrl_id;
 	u32			cpu_base;
+	u32			hard_wired;
 	int			clkreq_gpio;
 	int			dis_gpio;
 	int			power_on_gpio;
@@ -105,7 +106,6 @@ struct imx6_pcie {
 #define PCIE_RC_LCR_MAX_LINK_SPEEDS_GEN1	0x1
 #define PCIE_RC_LCR_MAX_LINK_SPEEDS_GEN2	0x2
 #define PCIE_RC_LCR_MAX_LINK_SPEEDS_MASK	0xf
-
 #define PCIE_RC_LCSR				0x80
 
 /* PCIe Port Logic registers (memory-mapped) */
@@ -113,6 +113,11 @@ struct imx6_pcie {
 #define PCIE_PL_PFLR (PL_OFFSET + 0x08)
 #define PCIE_PL_PFLR_LINK_STATE_MASK		(0x3f << 16)
 #define PCIE_PL_PFLR_FORCE_LINK			(1 << 15)
+#define PCIE_PORT_LINK_CONTROL		0x710
+#define PORT_LINK_MODE_MASK		(0x3f << 16)
+#define PORT_LINK_MODE_1_LANES		(0x1 << 16)
+#define PORT_LINK_MODE_2_LANES		(0x3 << 16)
+
 #define PCIE_PHY_DEBUG_R0 (PL_OFFSET + 0x28)
 #define PCIE_PHY_DEBUG_R1 (PL_OFFSET + 0x2c)
 #define PCIE_PHY_DEBUG_R1_XMLH_LINK_IN_TRAINING	(1 << 29)
@@ -130,9 +135,14 @@ struct imx6_pcie {
 
 #define PCIE_LINK_WIDTH_SPEED_CONTROL	0x80C
 #define PORT_LOGIC_SPEED_CHANGE		(0x1 << 17)
+#define PORT_LOGIC_LINK_WIDTH_MASK	(0x1f << 8)
+#define PORT_LOGIC_LINK_WIDTH_1_LANES	(0x1 << 8)
+#define PORT_LOGIC_LINK_WIDTH_2_LANES	(0x2 << 8)
 
 #define PCIE_MISC_CTRL			(PL_OFFSET + 0x1BC)
 #define PCIE_MISC_DBI_RO_WR_EN		BIT(0)
+
+#define PCIE_ATU_VIEWPORT		0x900
 
 /* PHY registers (not memory-mapped) */
 #define PCIE_PHY_RX_ASIC_OUT 0x100D
@@ -1417,13 +1427,15 @@ static int imx6_pcie_host_init(struct pcie_port *pp)
 	if (ret < 0)
 		return ret;
 
-	dw_pcie_setup_rc(pp);
-	ret = imx6_pcie_establish_link(imx6_pcie);
-	if (ret < 0)
-		return ret;
+	if (!IS_ENABLED(CONFIG_EP_MODE_IN_EP_RC_SYS)) {
+		dw_pcie_setup_rc(pp);
+		ret = imx6_pcie_establish_link(imx6_pcie);
+		if (ret < 0)
+			return ret;
 
-	if (IS_ENABLED(CONFIG_PCI_MSI))
-		dw_pcie_msi_init(pp);
+		if (IS_ENABLED(CONFIG_PCI_MSI))
+			dw_pcie_msi_init(pp);
+	}
 
 	return 0;
 }
@@ -1508,26 +1520,29 @@ static void imx_pcie_regions_setup(struct device *dev)
 	struct dw_pcie *pci = imx6_pcie->pci;
 	struct pcie_port *pp = &pci->pp;
 
-	if (imx6_pcie->variant == IMX7D && ddr_test_region == 0)
+	switch (imx6_pcie->variant) {
+	case IMX8QM:
+	case IMX8QXP:
+	case IMX8MQ:
+		/*
+		 * RPMSG reserved 4Mbytes, but only used up to 2Mbytes.
+		 * The left 2Mbytes can be used here.
+		 */
+		ddr_test_region = 0xb8200000;
+		break;
+	case IMX6SX:
+	case IMX7D:
 		ddr_test_region = 0xb0000000;
-	else if (imx6_pcie->variant == IMX6SX && ddr_test_region == 0)
-		ddr_test_region = 0xb0000000;
-	else if (ddr_test_region == 0)
+		break;
+
+	case IMX6Q:
+	case IMX6QP:
 		ddr_test_region = 0x40000000;
+		break;
+	}
 
-	/*
-	 * region2 outbound used to access rc/ep mem
-	 * in imx6 pcie ep/rc validation system
-	 */
-	writel(2, pci->dbi_base + 0x900);
-	writel((u32)pp->mem_base, pci->dbi_base + 0x90c);
-	writel(0, pci->dbi_base + 0x910);
-	writel((u32)pp->mem_base + test_region_size, pci->dbi_base + 0x914);
-
-	writel(ddr_test_region, pci->dbi_base + 0x918);
-	writel(0, pci->dbi_base + 0x91c);
-	writel(0, pci->dbi_base + 0x904);
-	writel(1 << 31, pci->dbi_base + 0x908);
+	dw_pcie_prog_outbound_atu(pci, 2, 0, pp->mem_base,
+				  ddr_test_region, test_region_size);
 }
 
 static ssize_t imx_pcie_memw_info(struct device *dev,
@@ -1641,6 +1656,51 @@ static struct attribute_group imx_pcie_attrgroup = {
 
 static void imx6_pcie_setup_ep(struct dw_pcie *pci)
 {
+	int ret;
+	u32 val;
+	u32 lanes;
+	struct device_node *np = pci->dev->of_node;
+
+	ret = of_property_read_u32(np, "num-lanes", &lanes);
+	if (ret)
+		lanes = 0;
+
+	/* set the number of lanes */
+	val = dw_pcie_readl_dbi(pci, PCIE_PORT_LINK_CONTROL);
+	val &= ~PORT_LINK_MODE_MASK;
+	switch (lanes) {
+	case 1:
+		val |= PORT_LINK_MODE_1_LANES;
+		break;
+	case 2:
+		val |= PORT_LINK_MODE_2_LANES;
+		break;
+	default:
+		dev_err(pci->dev, "num-lanes %u: invalid value\n", lanes);
+		return;
+	}
+	dw_pcie_writel_dbi(pci, PCIE_PORT_LINK_CONTROL, val);
+
+	/* set link width speed control register */
+	val = dw_pcie_readl_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL);
+	val &= ~PORT_LOGIC_LINK_WIDTH_MASK;
+	switch (lanes) {
+	case 1:
+		val |= PORT_LOGIC_LINK_WIDTH_1_LANES;
+		break;
+	case 2:
+		val |= PORT_LOGIC_LINK_WIDTH_2_LANES;
+		break;
+	}
+	dw_pcie_writel_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL, val);
+
+	/* get iATU unroll support */
+	val = dw_pcie_readl_dbi(pci, PCIE_ATU_VIEWPORT);
+	if (val == 0xffffffff)
+		pci->iatu_unroll_enabled = 1;
+	dev_info(pci->dev, "iATU unroll: %s\n",
+		pci->iatu_unroll_enabled ? "enabled" : "disabled");
+
 	/* CMD reg:I/O space, MEM space, and Bus Master Enable */
 	writel(readl(pci->dbi_base + PCI_COMMAND)
 			| PCI_COMMAND_IO
@@ -1653,7 +1713,7 @@ static void imx6_pcie_setup_ep(struct dw_pcie *pci)
 	 * bar0 and bar1 of ep
 	 */
 	writel(0xdeadbeaf, pci->dbi_base + PCI_VENDOR_ID);
-	writel(readl(pci->dbi_base + PCI_CLASS_REVISION)
+	writel((readl(pci->dbi_base + PCI_CLASS_REVISION) & 0xFFFF)
 			| (PCI_CLASS_MEMORY_RAM	<< 16),
 			pci->dbi_base + PCI_CLASS_REVISION);
 	writel(0xdeadbeaf, pci->dbi_base
@@ -1922,6 +1982,8 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 
 	if (of_property_read_u32(node, "cpu-base-addr", &imx6_pcie->cpu_base))
 		imx6_pcie->cpu_base = 0;
+	if (of_property_read_u32(node, "hard-wired", &imx6_pcie->hard_wired))
+		imx6_pcie->hard_wired = 0;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx-pcie-phy");
 	if (np != NULL) {
@@ -2168,8 +2230,9 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, imx6_pcie);
 
-	if (IS_ENABLED(CONFIG_EP_MODE_IN_EP_RC_SYS)) {
-		int i;
+	if (IS_ENABLED(CONFIG_EP_MODE_IN_EP_RC_SYS)
+			&& (imx6_pcie->hard_wired == 0)) {
+		int i = 0;
 		void *test_reg1, *test_reg2;
 		void __iomem *pcie_arb_base_addr;
 		struct timeval tv1s, tv1e, tv2s, tv2e;
@@ -2178,6 +2241,7 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		struct pcie_port *pp = &pci->pp;
 		LIST_HEAD(res);
 		struct resource_entry *win, *tmp;
+		unsigned long timeout = jiffies + msecs_to_jiffies(300000);
 
 		/* add attributes for device */
 		ret = sysfs_create_group(&pdev->dev.kobj, &imx_pcie_attrgroup);
@@ -2210,17 +2274,16 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 
 		pp->mem_base = pp->mem->start;
 		pp->ops = &imx6_pcie_host_ops;
+		dev_info(dev, " try to initialize pcie ep.\n");
+		ret = imx6_pcie_host_init(pp);
+		if (ret) {
+			dev_info(dev, " fail to initialize pcie ep.\n");
+			return ret;
+		}
 
-		/* enable disp_mix power domain */
-		if ((imx6_pcie->variant == IMX7D)
-				|| (imx6_pcie->variant == IMX8MQ)
-				|| (imx6_pcie->variant == IMX8QM)
-				|| (imx6_pcie->variant == IMX8QXP))
-			pm_runtime_get_sync(dev);
-
-		imx6_pcie_assert_core_reset(imx6_pcie);
-		imx6_pcie_init_phy(imx6_pcie);
-		imx6_pcie_deassert_core_reset(imx6_pcie);
+		imx6_pcie_setup_ep(pci);
+		platform_set_drvdata(pdev, imx6_pcie);
+		imx_pcie_regions_setup(&pdev->dev);
 
 		/*
 		 * iMX6SX PCIe has the stand-alone power domain.
@@ -2240,11 +2303,11 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		/* link is indicated by the bit4 of DB_R1 register */
 		do {
 			usleep_range(10, 20);
+			if (time_after(jiffies, timeout)) {
+				dev_info(&pdev->dev, "PCIe EP: link down.\n");
+				return 0;
+			}
 		} while ((readl(pci->dbi_base + PCIE_PHY_DEBUG_R1) & 0x10) == 0);
-
-		imx6_pcie_setup_ep(pci);
-
-		imx_pcie_regions_setup(&pdev->dev);
 
 		/* self io test */
 		test_reg1 = devm_kzalloc(&pdev->dev,
@@ -2331,10 +2394,18 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 			return -EINVAL;
 
 		ret = imx6_add_pcie_port(imx6_pcie, pdev);
-		if (ret < 0)
+		if (ret < 0) {
+			if (IS_ENABLED(CONFIG_PCI_IMX6_COMPLIANCE_TEST)) {
+				/* The PCIE clocks wouldn't be turned off */
+				dev_info(dev, "To do the compliance tests.\n");
+				ret = 0;
+			} else {
+				dev_err(dev, "unable to add pcie port.\n");
+			}
 			return ret;
-
-		if (IS_ENABLED(CONFIG_RC_MODE_IN_EP_RC_SYS))
+		}
+		if (IS_ENABLED(CONFIG_RC_MODE_IN_EP_RC_SYS)
+				&& (imx6_pcie->hard_wired == 0))
 			imx_pcie_regions_setup(&pdev->dev);
 	}
 	return 0;
