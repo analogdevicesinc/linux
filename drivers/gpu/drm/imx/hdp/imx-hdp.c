@@ -905,7 +905,7 @@ static struct hdp_ops imx8mq_ops = {
 };
 
 static struct hdp_devtype imx8mq_hdmi_devtype = {
-	.is_edid = true,
+	.is_edid = false,
 	.is_4kp60 = true,
 	.ops = &imx8mq_ops,
 	.rw = &imx8mq_rw,
