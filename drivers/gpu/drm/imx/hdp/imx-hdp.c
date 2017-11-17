@@ -145,7 +145,7 @@ u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width)
 				freq,
 				0,
 				bits,
-				CDN_DPTX,
+				g_hdp->audio_type,
 				ncts_n,
 				AUDIO_MUTE_MODE_UNMUTE);
 	return 0;
@@ -880,6 +880,7 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 static struct hdp_devtype imx8qm_dp_devtype = {
 	.is_edid = false,
 	.is_4kp60 = false,
+	.audio_type = CDN_DPTX,
 	.ops = &imx8qm_dp_ops,
 	.rw = &imx8qm_rw,
 };
@@ -887,6 +888,7 @@ static struct hdp_devtype imx8qm_dp_devtype = {
 static struct hdp_devtype imx8qm_hdmi_devtype = {
 	.is_edid = false,
 	.is_4kp60 = false,
+	.audio_type = CDN_HDMITX_TYPHOON,
 	.ops = &imx8qm_hdmi_ops,
 	.rw = &imx8qm_rw,
 };
@@ -907,6 +909,7 @@ static struct hdp_ops imx8mq_ops = {
 static struct hdp_devtype imx8mq_hdmi_devtype = {
 	.is_edid = false,
 	.is_4kp60 = true,
+	.audio_type = CDN_HDMITX_KIRAN,
 	.ops = &imx8mq_ops,
 	.rw = &imx8mq_rw,
 };
@@ -1046,6 +1049,7 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 
 	hdp->is_edid = devtype->is_edid;
 	hdp->is_4kp60 = devtype->is_4kp60;
+	hdp->audio_type = devtype->audio_type;
 	hdp->ops = devtype->ops;
 	hdp->rw = devtype->rw;
 

@@ -102,6 +102,7 @@ struct hdp_ops {
 struct hdp_devtype {
 	u8 is_edid;
 	u8 is_4kp60;
+	u8 audio_type;
 	struct hdp_ops *ops;
 	struct hdp_rw_func *rw;
 };
@@ -185,6 +186,7 @@ struct imx_hdp {
 
 	u8 is_edid;
 	u8 is_4kp60;
+	u8 audio_type;
 
 	struct mutex mutex;		/* for state below and previous_mode */
 	enum drm_connector_force force;	/* mutex-protected force state */
