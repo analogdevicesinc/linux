@@ -82,7 +82,7 @@
 		compatible = "fsl,imx-audio-cdnhdmi";
 		model = "imx-audio-hdmi";
 		audio-cpu = <&sai4>;
-		protocol = <0>;
+		protocol = <1>;
 	};
 
 	sound-spdif {
@@ -90,6 +90,13 @@
 		model = "imx-spdif";
 		spdif-controller = <&spdif1>;
 		spdif-out;
+		spdif-in;
+	};
+
+	sound-hdmi-arc {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-hdmi-arc";
+		spdif-controller = <&spdif2>;
 		spdif-in;
 	};
 };
@@ -608,6 +615,14 @@
 	pinctrl-0 = <&pinctrl_spdif1>;
 	assigned-clocks = <&clk IMX8MQ_CLK_SPDIF1_SRC>,
 			<&clk IMX8MQ_CLK_SPDIF1_DIV>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <0>, <24576000>;
+	status = "okay";
+};
+
+&spdif2 {
+	assigned-clocks = <&clk IMX8MQ_CLK_SPDIF2_SRC>,
+			<&clk IMX8MQ_CLK_SPDIF2_DIV>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <0>, <24576000>;
 	status = "okay";
