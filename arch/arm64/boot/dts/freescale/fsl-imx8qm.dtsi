@@ -3000,7 +3000,7 @@
 
 	usbmisc1: usbmisc@5b0d0200 {
 		#index-cells = <1>;
-		compatible = "fsl,imx7d-usbmisc", "fsl,imx6q-usbmisc";
+		compatible = "fsl,imx7ulp-usbmisc", "fsl,imx6q-usbmisc";
 		reg = <0x0 0x5b0d0200 0x0 0x200>;
 	};
 
@@ -3020,17 +3020,19 @@
 	};
 
 	usbotg1: usb@5b0d0000 {
-		compatible = "fsl,imx7d-usb", "fsl,imx27-usb";
+		compatible = "fsl,imx8qm-usb", "fsl,imx27-usb";
 		reg = <0x0 0x5b0d0000 0x0 0x200>;
 		interrupt-parent = <&wu>;
 		interrupts = <GIC_SPI 267 IRQ_TYPE_LEVEL_HIGH>;
 		fsl,usbphy = <&usbphy1>;
 		fsl,usbmisc = <&usbmisc1 0>;
 		clocks = <&clk IMX8QM_USB2_OH_AHB_CLK>;
-		phy-clkgate-delay-us = <400>;
-		status = "disabled";
+		ahb-burst-config = <0x0>;
+		tx-burst-size-dword = <0x10>;
+		rx-burst-size-dword = <0x10>;
 		#stream-id-cells = <1>;
 		power-domains = <&pd_conn_usbotg0>;
+		status = "disabled";
 	};
 
 	usbotg3: cdns3@5b110000 {
