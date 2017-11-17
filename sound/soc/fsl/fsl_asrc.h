@@ -359,6 +359,7 @@ struct fsl_asrc {
 	struct clk *ipg_clk;
 	struct clk *spba_clk;
 	struct clk *asrck_clk[ASRC_CLK_MAX_NUM];
+	unsigned char *clk_map[2];
 	spinlock_t lock;
 
 	struct snd_pcm_substream *substream[2];
