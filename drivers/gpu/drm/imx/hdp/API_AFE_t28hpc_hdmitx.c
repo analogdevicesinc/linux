@@ -56,6 +56,27 @@ static char inside(u32 value, u32 left_sharp_corner,
 	return true;
 }
 
+void aux_cfg_t28hpc(state_struct *state)
+{
+	Afe_write(state, 0x5025, 0x0001);
+
+	Afe_write(state, 0x5024, 36);
+
+	Afe_write(state, 0x5021, 0x0100);
+	Afe_write(state, 0x5021, 0x0300);
+	Afe_write(state, 0x5026, 0x0000);
+	Afe_write(state, 0x5020, 0x2008);
+	Afe_write(state, 0x5020, 0x2018);
+	Afe_write(state, 0x5020, 0xA018);
+	Afe_write(state, 0x5021, 0x030C);
+	Afe_write(state, 0x5029, 0x0000);
+	Afe_write(state, 0x5027, 0x4001);
+	Afe_write(state, 0x5020, 0xA098);
+	Afe_write(state, 0x5020, 0xA198);
+	Afe_write(state, 0x5021, 0x030D);
+	Afe_write(state, 0x5021, 0x030F);
+}
+
 int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bpp,
 		VIC_PXL_ENCODING_FORMAT format, bool pixel_clk_from_phy)
 {
@@ -1797,6 +1818,8 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 	/* End of task phy_cfg_hdp */
 	/* register PHY_HDP_MODE_CTL */
 	Afe_write(state, 0xC008, 0x0004);
+
+	aux_cfg_t28hpc(state);
 	return character_freq_khz;
 
 }
