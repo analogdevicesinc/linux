@@ -150,24 +150,53 @@ static int compare_of(struct device *dev, void *data)
 	return dev->of_node == np;
 }
 
-static bool has_dpu(struct device *dev)
+static const char *const imx_drm_dpu_comp_parents[] = {
+	"fsl,imx8qm-dpu",
+	"fsl,imx8qxp-dpu",
+};
+
+static const char *const imx_drm_dcss_comp_parents[] = {
+	"nxp,imx8mq-dcss",
+};
+
+static bool imx_drm_parent_is_compatible(struct device *dev,
+					 const char *const comp_parents[],
+					 int comp_parents_size)
 {
 	struct device_node *port, *parent;
 	bool ret = false;
+	int i;
 
 	port = of_parse_phandle(dev->of_node, "ports", 0);
 	if (!port)
 		return ret;
 
 	parent = of_get_parent(port);
-	if (of_device_is_compatible(parent, "fsl,imx8qm-dpu") ||
-	    of_device_is_compatible(parent, "fsl,imx8qxp-dpu"))
-		ret = true;
+
+	for (i = 0; i < comp_parents_size; i++) {
+		if (of_device_is_compatible(parent, comp_parents[i])) {
+			ret = true;
+			break;
+		}
+	}
+
 	of_node_put(parent);
 
 	of_node_put(port);
 
 	return ret;
+}
+
+static inline bool has_dpu(struct device *dev)
+{
+	return imx_drm_parent_is_compatible(dev, imx_drm_dpu_comp_parents,
+					ARRAY_SIZE(imx_drm_dpu_comp_parents));
+}
+
+static inline bool has_dcss(struct device *dev)
+{
+	return imx_drm_parent_is_compatible(dev, imx_drm_dcss_comp_parents,
+					ARRAY_SIZE(imx_drm_dcss_comp_parents));
 }
 
 static void add_dpu_bliteng_components(struct device *dev,
@@ -289,6 +318,10 @@ static int imx_drm_bind(struct device *dev)
 		dev_warn(dev, "Invalid legacyfb_depth.  Defaulting to 16bpp\n");
 		legacyfb_depth = 16;
 	}
+
+	if (legacyfb_depth == 16 && has_dcss(dev))
+		legacyfb_depth = 32;
+
 	imxdrm->fbhelper = drm_fbdev_cma_init(drm, legacyfb_depth, MAX_CRTC);
 	if (IS_ERR(imxdrm->fbhelper)) {
 		ret = PTR_ERR(imxdrm->fbhelper);
