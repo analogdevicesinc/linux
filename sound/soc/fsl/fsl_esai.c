@@ -536,6 +536,7 @@ static int fsl_esai_startup(struct snd_pcm_substream *substream,
 			    struct snd_soc_dai *dai)
 {
 	struct fsl_esai *esai_priv = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	int ret;
 
@@ -591,7 +592,9 @@ static int fsl_esai_startup(struct snd_pcm_substream *substream,
 	if (esai_priv->soc->dma_workaround) {
 		snd_pcm_hw_constraint_minmax(substream->runtime,
 				SNDRV_PCM_HW_PARAM_CHANNELS, 1, 2);
-		snd_pcm_hw_constraint_minmax(substream->runtime,
+
+		if (!rtd->dai_link->be_hw_params_fixup)
+			snd_pcm_hw_constraint_minmax(substream->runtime,
 				SNDRV_PCM_HW_PARAM_RATE, 48000, 48000);
 	}
 
