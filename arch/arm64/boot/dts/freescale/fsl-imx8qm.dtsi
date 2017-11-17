@@ -3019,7 +3019,7 @@
 		fsl,max-link-speed = <3>;
 		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
 		hsio = <&hsio>;
-		ctrl-id = <1>; /* pciea */
+		ctrl-id = <1>; /* pcieb */
 		cpu-base-addr = <0x80000000>;
 		status = "disabled";
 	};

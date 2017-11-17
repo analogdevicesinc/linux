@@ -472,6 +472,8 @@
 	clkreq-gpio = <&gpio5 20 GPIO_ACTIVE_LOW>;
 	disable-gpio = <&gpio5 29 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio5 28 GPIO_ACTIVE_LOW>;
+	ext_osc = <1>;
+	hard-wired = <1>;
 	status = "okay";
 };
 
@@ -481,6 +483,7 @@
 	clkreq-gpio = <&gpio5 21 GPIO_ACTIVE_LOW>;
 	disable-gpio = <&gpio5 10 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio5 12 GPIO_ACTIVE_LOW>;
+	ext_osc = <1>;
 	status = "okay";
 };
 

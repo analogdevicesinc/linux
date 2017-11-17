@@ -20,6 +20,7 @@ Required properties:
 - clock-names: Must include the following additional entries:
 	- "pcie_phy"
 - ext_osc: use the external oscillator or not.
+- hard-wired: the port is hard wired in hw design or not.
 
 Optional properties:
 - fsl,tx-deemph-gen1: Gen1 De-emphasis value. Default: 0
