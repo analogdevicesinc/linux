@@ -28,12 +28,29 @@
 struct imx_hdp *g_hdp;
 struct drm_display_mode *g_mode;
 
-static const struct drm_display_mode edid_cea_modes = {
+static const struct drm_display_mode edid_cea_modes[] = {
+	/* 4 - 1280x720@60Hz */
+	{ DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1390,
+		   1430, 1650, 0, 720, 725, 730, 750, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+	  .vrefresh = 60, .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9, },
 	/* 16 - 1920x1080@60Hz */
-	DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 148500, 1920, 2008,
+	{ DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 148500, 1920, 2008,
 		   2052, 2200, 0, 1080, 1084, 1089, 1125, 0,
 		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
-	  .vrefresh = 60, .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9,
+	  .vrefresh = 60, .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9, },
+	/* 97 - 3840x2160@60Hz */
+	{ DRM_MODE("3840x2160", DRM_MODE_TYPE_DRIVER, 594000,
+		   3840, 4016, 4104, 4400, 0,
+		   2160, 2168, 2178, 2250, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+	  .vrefresh = 60, .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9, },
+	/* 96 - 3840x2160@30Hz */
+	{ DRM_MODE("3840x2160", DRM_MODE_TYPE_DRIVER, 297000,
+		   3840, 4016, 4104, 4400, 0,
+		   2160, 2168, 2178, 2250, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+	  .vrefresh = 30, .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9, },
 };
 
 static inline struct imx_hdp *enc_to_imx_hdp(struct drm_encoder *e)
@@ -573,13 +590,14 @@ static int imx_get_vic_index(struct drm_display_mode *mode)
 			mode->clock == vic_table[i][PIXEL_FREQ_KHZ])
 			return i;
 	}
-	/* Default 1080p60 */
-	return 2;
+	/* vidoe mode not support now  */
+	return -1;
 }
 
 static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mode)
 {
 	int dp_vic;
+	int ret;
 
 	imx_hdp_call(hdp, pixel_clock_set_rate, &hdp->clks);
 
@@ -588,8 +606,18 @@ static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mod
 	imx_hdp_plmux_config(hdp, mode);
 
 	dp_vic = imx_get_vic_index(mode);
+	if (dp_vic < 0) {
+		DRM_ERROR("Unsupport video mode now, %s, clk=%d\n", mode->name, mode->clock);
+		return;
+	}
 
+	ret = imx_hdp_call(hdp, phy_init, &hdp->state, dp_vic, 1, 8);
+	if (ret < 0) {
+		DRM_ERROR("Failed to initialise HDP PHY\n");
+		return;
+	}
 	imx_hdp_call(hdp, mode_set, &hdp->state, dp_vic, 1, 8, hdp->link_rate);
+
 	/* Get vic of CEA-861 */
 	hdp->vic = drm_match_cea_mode(mode);
 }
@@ -641,6 +669,7 @@ static int imx_hdp_connector_get_modes(struct drm_connector *connector)
 	struct drm_display_mode *mode;
 	int num_modes = 0;
 	int ret;
+	int i;
 
 	struct imx_hdp *hdp = container_of(connector, struct imx_hdp,
 					     connector);
@@ -660,13 +689,15 @@ static int imx_hdp_connector_get_modes(struct drm_connector *connector)
 		}
 	} else {
 		dev_dbg(hdp->dev, "failed to get edid\n");
-		mode = drm_mode_create(connector->dev);
-		if (!mode)
-			return -EINVAL;
-		drm_mode_copy(mode, &edid_cea_modes);
-		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-		drm_mode_probed_add(connector, mode);
-		num_modes = 1;
+		for (i = 0; i < ARRAY_SIZE(edid_cea_modes); i++) {
+			mode = drm_mode_create(connector->dev);
+			if (!mode)
+				return -EINVAL;
+			drm_mode_copy(mode, &edid_cea_modes[i]);
+			mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+			drm_mode_probed_add(connector, mode);
+		}
+		num_modes = i;
 	}
 
 	return num_modes;
@@ -680,8 +711,17 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 					     connector);
 	enum drm_mode_status mode_status = MODE_OK;
 
-	if (mode->clock > 150000 && !hdp->is_4kp60)
+	if (hdp->is_4kp60 && mode->clock > 594000)
 		return MODE_CLOCK_HIGH;
+	else if (!hdp->is_4kp60 && mode->clock > 150000)
+		return MODE_CLOCK_HIGH;
+
+	/* 4096x2160 is not supported now */
+	if (mode->hdisplay > 3840)
+		return MODE_BAD_HVALUE;
+
+	if (mode->vdisplay > 2160)
+		return MODE_BAD_VVALUE;
 
 	return mode_status;
 }
