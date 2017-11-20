@@ -430,7 +430,7 @@
 					type = "passive";
 				};
 				cpu_crit0: trip1 {
-					temperature = <125000>;
+					temperature = <95000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
