@@ -656,3 +656,28 @@
 	>;
 	dc-supply = <&reg_gpio_dvfs>;
 };
+
+&dcss_drm {
+	status = "okay";
+
+	disp-dev = "hdmi_disp";
+	dcss_disp0: port@0 {
+		reg = <0>;
+
+		dcss_disp0_hdmi: hdmi-endpoint {
+			remote-endpoint = <&hdmi_disp>;
+		};
+	};
+
+};
+
+&hdmi_drm {
+	status = "okay";
+
+	port@0 {
+		reg = <0>;
+			hdmi_disp: endpoint {
+			remote-endpoint = <&dcss_disp0_hdmi>;
+		};
+	};
+};
