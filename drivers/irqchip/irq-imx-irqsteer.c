@@ -33,6 +33,7 @@ struct irqsteer_irqchip_data {
 	int channum;
 	int endian;	/* 0: littel endian; 1: big endian */
 	struct irq_domain *domain;
+	int *saved_reg;
 	unsigned int irqstat[];
 };
 
@@ -168,6 +169,10 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	if (!irqsteer_data)
 		return -ENOMEM;
 
+	irqsteer_data->saved_reg = devm_kzalloc(&pdev->dev, sizeof(int) *
+						(channum + 1), GFP_KERNEL);
+	if (!irqsteer_data->saved_reg)
+		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irqsteer_data->regs = devm_ioremap_resource(&pdev->dev, res);
@@ -235,6 +240,58 @@ static int imx_irqsteer_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static void imx_irqsteer_save_regs(struct irqsteer_irqchip_data *data)
+{
+	int num;
+
+	data->saved_reg[0] = readl_relaxed(data->regs + CHANCTRL);
+	for (num = 0; num < data->channum; num++)
+		data->saved_reg[num + 1] = readl_relaxed(data->regs + CHANMASK(num));
+}
+
+static void imx_irqsteer_restore_regs(struct irqsteer_irqchip_data *data)
+{
+	int num;
+
+	writel_relaxed(data->saved_reg[0], data->regs + CHANCTRL);
+	for (num = 0; num < data->channum; num++)
+		writel_relaxed(data->saved_reg[num + 1], data->regs + CHANMASK(num));
+}
+
+static int imx_irqsteer_suspend(struct device *dev)
+{
+	struct irqsteer_irqchip_data *irqsteer_data = dev_get_drvdata(dev);
+
+	imx_irqsteer_save_regs(irqsteer_data);
+	clk_disable_unprepare(irqsteer_data->ipg_clk);
+
+	return 0;
+}
+
+static int imx_irqsteer_resume(struct device *dev)
+{
+	struct irqsteer_irqchip_data *irqsteer_data = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(irqsteer_data->ipg_clk);
+	if (ret) {
+		dev_err(dev, "failed to enable ipg clk: %d\n", ret);
+		return ret;
+	}
+	imx_irqsteer_restore_regs(irqsteer_data);
+
+	return 0;
+}
+
+static const struct dev_pm_ops imx_irqsteer_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(imx_irqsteer_suspend, imx_irqsteer_resume)
+};
+#define IMX_IRQSTEER_PM      (&imx_irqsteer_pm_ops)
+#else
+#define IMX_IRQSTEER_PM      NULL
+#endif
+
 static const struct of_device_id imx_irqsteer_id[] = {
 	{ .compatible = "nxp,imx-irqsteer", },
 	{},
@@ -244,6 +301,7 @@ static struct platform_driver imx_irqsteer_driver = {
 	.driver = {
 		.name = "imx-irqsteer",
 		.of_match_table = imx_irqsteer_id,
+		.pm = IMX_IRQSTEER_PM,
 	},
 	.probe = imx_irqsteer_probe,
 	.remove = imx_irqsteer_remove,
