@@ -78,7 +78,6 @@ CDN_API_STATUS CDN_API_HDMITX_DDC_WRITE(state_struct *state,
 					HDMITX_TRANS_DATA *data_in,
 					HDMITX_TRANS_DATA *data_out)
 {
-	printk("foo: %x\n", data_in->buff[0]);
 	internal_macro_command_txrx(state, MB_MODULE_ID_HDMI_TX, HDMI_TX_WRITE,
 				    CDN_BUS_TYPE_APB, 4, 1, data_in->slave, 1,
 				    data_in->offset, 2, data_in->len,
@@ -142,6 +141,7 @@ CDN_API_HDMITX_Set_Mode_blocking(state_struct *state,
 	GENERAL_Read_Register_response resp;
 	HDMITX_TRANS_DATA data_in;
 	HDMITX_TRANS_DATA data_out;
+	u32 clk_reg_0, clk_reg_1;
 	u8 buff = 1;
 
 	/* enable/disable  scrambler; */
@@ -159,15 +159,10 @@ CDN_API_HDMITX_Set_Mode_blocking(state_struct *state,
 	data_in.len = 1;
 	data_in.slave = 0x54;
 	data_in.offset = 0x20;	/* TMDS config */
-	if (protocol == HDMI_TX_MODE_HDMI_2_0)
-		ret =
-		    CDN_API_HDMITX_DDC_WRITE_blocking(state, &data_in,
-						      &data_out);
-	ret =
-	    CDN_API_General_Read_Register_blocking(state,
-						   ADDR_SOURCE_MHL_HD +
-						   (HDTX_CONTROLLER << 2),
-						   &resp);
+	ret = CDN_API_HDMITX_DDC_WRITE_blocking(state, &data_in, &data_out);
+
+	ret = CDN_API_General_Read_Register_blocking(
+				state, ADDR_SOURCE_MHL_HD + (HDTX_CONTROLLER << 2), &resp);
 
 	/* remove data enable */
 	resp.val = resp.val & (~(F_DATA_EN(1)));
@@ -175,23 +170,21 @@ CDN_API_HDMITX_Set_Mode_blocking(state_struct *state,
 	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
 						    (HDTX_CONTROLLER << 2),
 						    resp.val);
+	clk_reg_0 = 0x7c1f;
+	clk_reg_1 = 0x7c1f;
 	if (protocol == HDMI_TX_MODE_HDMI_2_0) {
 		if (character_rate >= 340000) {
-			ret =
-			    CDN_API_General_Write_Register_blocking
-			    (state,
-			     ADDR_SOURCE_MHL_HD + (HDTX_CLOCK_REG_0 << 2),
-			     F_DATA_REGISTER_VAL_0(0x00000));
-			ret =
-			    CDN_API_General_Write_Register_blocking(state,
-								    ADDR_SOURCE_MHL_HD
-								    +
-								    (HDTX_CLOCK_REG_1
-								     << 2),
-								    F_DATA_REGISTER_VAL_1
-								    (0xFFFFF));
+			clk_reg_0 = 0;
+			clk_reg_1 = 0xFFFFF;
 		}
 	}
+	ret = CDN_API_General_Write_Register_blocking(
+			state, ADDR_SOURCE_MHL_HD + (HDTX_CLOCK_REG_0 << 2),
+			     F_DATA_REGISTER_VAL_0(clk_reg_0));
+	ret = CDN_API_General_Write_Register_blocking(
+			state, ADDR_SOURCE_MHL_HD + (HDTX_CLOCK_REG_1 << 2),
+				F_DATA_REGISTER_VAL_1(clk_reg_1));
+
 	/* set hdmi mode and preemble mode */
 	resp.val = resp.val & (~(F_HDMI_MODE(3)));
 	resp.val = resp.val & (~(F_HDMI2_PREAMBLE_EN(1)));
