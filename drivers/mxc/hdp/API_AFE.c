@@ -97,10 +97,8 @@ void set_field_value(reg_field_t *reg_field, u32 value)
 				exceeds field capacity - it will by truncated to\
 				0x%0X (%0d-bit field - max value: %0d dec)\n",
 				value, trunc_val, length, max_value);
-	} else {
-		pr_info("set_field_value() Setting field to 0x%0X\n", value);
+	} else
 		reg_field->value = value;
-	}
 }
 
 int set_reg_value(reg_field_t reg_field)
