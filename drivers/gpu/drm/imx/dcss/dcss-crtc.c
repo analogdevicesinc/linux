@@ -272,8 +272,6 @@ static int dcss_crtc_init(struct dcss_crtc *crtc,
 		return ret;
 	}
 
-	drm->mode_config.allow_fb_modifiers = true;
-
 	disable_irq(crtc->irq);
 
 	return 0;
