@@ -17,6 +17,10 @@ config IMX8_MIPI_CSI2
 	tristate "IMX8 MIPI CSI2 Controller"
 	default y
 
+config IMX8_MIPI_CSI2_YAV
+	tristate "IMX8 MIPI CSI2 Controller Yet Another Version"
+	default y
+
 config GMSL_MAX9286
         tristate "Maxim max9286 GMSL Deserializer Input support"
 	select SENSOR_OV10635

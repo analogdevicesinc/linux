@@ -13,6 +13,8 @@
 #ifndef MXC_MIPI_CSI2_H_
 #define MXC_MIPI_CSI2_H_
 
+#include <media/v4l2-device.h>
+
 #define MXC_MIPI_CSI2_DRIVER_NAME	"mxc-mipi-csi2"
 #define MXC_MIPI_CSI2_SUBDEV_NAME	MXC_MIPI_CSI2_DRIVER_NAME
 #define MXC_MIPI_CSI2_MAX_DEVS		2
@@ -221,8 +223,18 @@
 
 #define CSI2RX_CFG_DISABLE_PAYLOAD_1	(CSI2RX_BASE_OFFSET + 0x30)
 
+struct csis_hw_reset {
+	struct regmap *src;
+	u8 req_src;
+	u8 rst_val;
+};
+struct csis_phy_gpr {
+	struct regmap *gpr;
+	u8 req_src;
+};
+
 struct mxc_mipi_csi2_dev {
-	struct v4l2_device		*v4l2_dev;
+	struct v4l2_device		v4l2_dev;
 	struct v4l2_subdev		sd;
 	struct v4l2_subdev		*sensor_sd;
 
@@ -239,6 +251,13 @@ struct mxc_mipi_csi2_dev {
 	struct clk *clk_core;
 	struct clk *clk_esc;
 	struct clk *clk_pxl;
+
+	struct csis_hw_reset		hw_reset;
+	struct csis_phy_gpr		phy_gpr;
+
+	struct v4l2_async_subdev	asd;
+	struct v4l2_async_notifier	subdev_notifier;
+	struct v4l2_async_subdev	*async_subdevs[2];
 
 	int	 id;
 	u32 hs_settle;
