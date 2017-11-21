@@ -276,6 +276,7 @@
 
 &csi1 {
 	csi-mux-mipi = <&gpr 0x14 4>;
+	fsl,mipi-mode;
 	status = "okay";
 
 	port {
