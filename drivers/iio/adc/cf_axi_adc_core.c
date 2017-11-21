@@ -715,6 +715,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &ad9643_6_00_a_info },
 	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &ad9361_6_00_a_info },
 	{ .compatible = "adi,axi-ad9680-1.0", .data = &ad9680_6_00_a_info },
+	{ .compatible = "adi,axi-ad9694-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9625-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad6676-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
