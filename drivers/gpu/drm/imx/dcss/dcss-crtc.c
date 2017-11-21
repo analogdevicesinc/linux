@@ -16,6 +16,7 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/component.h>
+#include <linux/pm_runtime.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_atomic_helper.h>
@@ -169,9 +170,13 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 						   base);
 	struct dcss_soc *dcss = dev_get_drvdata(dcss_crtc->dev->parent);
 
+	pm_runtime_get_sync(dcss_crtc->dev->parent);
+
 	dcss_ss_enable(dcss, true);
 	dcss_dtg_enable(dcss, true);
 	dcss_ctxld_enable(dcss);
+
+	crtc->enabled = true;
 }
 
 static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -195,6 +200,11 @@ static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
 	dcss_ss_enable(dcss, false);
 	dcss_dtg_enable(dcss, false);
 	dcss_ctxld_enable(dcss);
+
+	crtc->enabled = false;
+
+	pm_runtime_mark_last_busy(dcss_crtc->dev->parent);
+	pm_runtime_put_autosuspend(dcss_crtc->dev->parent);
 }
 
 static const struct drm_crtc_helper_funcs dcss_helper_funcs = {
