@@ -280,6 +280,31 @@ static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return 0;
 }
 
+static int ad9680_select_channel(struct axiadc_converter *conv,
+	int chan)
+{
+	unsigned int val;
+
+	if (chan >= 0)
+		val = BIT(chan & 0x1);
+	else
+		val = 0x3;
+
+	return ad9467_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, val);
+}
+
+static int ad9680_channel_write(struct axiadc_converter *conv,
+	unsigned int chan, unsigned int reg, unsigned int val)
+{
+	int ret;
+
+	ret = ad9680_select_channel(conv, chan);
+	ret |= ad9467_spi_write(conv->spi, reg, val);
+	ret |= ad9680_select_channel(conv, -1);
+
+	return ret;
+}
+
 static int ad9467_outputmode_set(struct spi_device *spi, unsigned mode)
 {
 	int ret;
@@ -357,11 +382,9 @@ static int ad9680_testmode_set(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 
-	ad9467_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, 1 << chan);
-	ad9467_spi_write(conv->spi, AD9680_REG_TEST_MODE, mode);
-	ad9467_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, 0x3);
-
+	ad9680_channel_write(conv, chan, AD9680_REG_TEST_MODE, mode);
 	conv->testmode[chan] = mode;
+
 	return 0;
 }
 
