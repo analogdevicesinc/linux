@@ -27,6 +27,7 @@
 #define AD9680_REG_CHIP_ID_LOW		0x004
 #define AD9680_REG_CHIP_ID_HIGH		0x005
 #define AD9680_REG_DEVICE_INDEX		0x008
+#define AD9680_REG_PAIR_INDEX		0x009
 #define AD9680_REG_INPUT_FS_RANGE	0x025
 #define AD9680_REG_CHIP_PIN_CTRL	0x040
 
@@ -58,12 +59,14 @@
 #define CHIPID_AD9680			0xC5
 #define CHIPID_AD9684			0xD2
 #define CHIPID_AD9234			0xCE
+#define CHIPID_AD9694			0xDB
 
 enum {
 	ID_AD9234,
 	ID_AD9680,
 	ID_AD9680_x2,
 	ID_AD9684,
+	ID_AD9694,
 };
 
 enum ad9680_sysref_mode {
@@ -165,14 +168,21 @@ static int ad9680_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 static int ad9680_select_channel(struct axiadc_converter *conv,
 	int chan)
 {
-	unsigned int val;
+	unsigned int device, pair;
+	int ret;
 
-	if (chan >= 0)
-		val = BIT(chan & 0x1);
-	else
-		val = 0x3;
+	if (chan >= 0) {
+		device = BIT(chan & 0x1);
+		pair = BIT((chan >> 1) & 1);
+	} else {
+		device = 0x3;
+		pair = 0x3;
+	}
 
-	return ad9680_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, val);
+	ret = ad9680_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, device);
+	if (ret < 0)
+		return ret;
+	return ad9680_spi_write(conv->spi, AD9680_REG_PAIR_INDEX, pair);
 }
 
 static int ad9680_channel_write(struct axiadc_converter *conv,
@@ -183,6 +193,18 @@ static int ad9680_channel_write(struct axiadc_converter *conv,
 	ret = ad9680_select_channel(conv, chan);
 	ret |= ad9680_spi_write(conv->spi, reg, val);
 	ret |= ad9680_select_channel(conv, -1);
+
+	return ret;
+}
+
+static int ad9680_channel_read(struct axiadc_converter *conv,
+	unsigned int chan, unsigned int reg)
+{
+	int ret;
+
+	ad9680_select_channel(conv, chan);
+	ret = ad9680_spi_read(conv->spi, reg);
+	ad9680_select_channel(conv, -1);
 
 	return ret;
 }
@@ -393,6 +415,11 @@ static const int ad9680_scale_table[][2] = {
 	{1940, 0x00}, {2060, 0x0C},
 };
 
+static const int ad9694_scale_table[][2] = {
+	{1440, 0xa}, {1560, 0xb}, {1680, 0xc}, {1800, 0xd},
+	{1920, 0xe}, {2040, 0xf}, {2160, 0x0},
+};
+
 static void ad9680_scale(struct axiadc_converter *conv, int index,
 	unsigned int *val, unsigned int *val2)
 {
@@ -428,12 +455,20 @@ static ssize_t ad9680_show_scale_available(struct iio_dev *indio_dev,
 	return len;
 }
 
-static int ad9680_get_scale(struct axiadc_converter *conv, int *val, int *val2)
+static int ad9680_get_scale(struct axiadc_converter *conv,
+	const struct iio_chan_spec *chan, int *val, int *val2)
 {
 	unsigned int vref_val;
 	unsigned int i;
 
-	vref_val = ad9680_spi_read(conv->spi, AD9680_REG_INPUT_FS_RANGE);
+	switch (conv->id) {
+	case CHIPID_AD9694:
+		vref_val = ad9680_channel_read(conv, chan->channel, 0x1910);
+		break;
+	default:
+		vref_val = ad9680_spi_read(conv->spi, AD9680_REG_INPUT_FS_RANGE);
+		break;
+	}
 	vref_val &= 0xf;
 
 	for (i = 0; i < conv->chip_info->num_scales; i++) {
@@ -446,9 +481,11 @@ static int ad9680_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
-static int ad9680_set_scale(struct axiadc_converter *conv, int val, int val2)
+static int ad9680_set_scale(struct axiadc_converter *conv,
+	const struct iio_chan_spec *chan, int val, int val2)
 {
 	unsigned int scale_val[2];
+	unsigned int scale_raw;
 	unsigned int i;
 
 	for (i = 0; i < conv->chip_info->num_scales; i++) {
@@ -456,8 +493,18 @@ static int ad9680_set_scale(struct axiadc_converter *conv, int val, int val2)
 		if (scale_val[0] != val || scale_val[1] != val2)
 			continue;
 
-		ad9680_spi_write(conv->spi, AD9680_REG_INPUT_FS_RANGE,
-				 conv->chip_info->scale_table[i][1]);
+		scale_raw = conv->chip_info->scale_table[i][1];
+
+		switch (conv->id) {
+		case CHIPID_AD9694:
+			ad9680_channel_write(conv, chan->channel, 0x1910,
+					     scale_raw);
+			break;
+		default:
+			ad9680_spi_write(conv->spi, AD9680_REG_INPUT_FS_RANGE,
+					 scale_raw);
+			break;
+		}
 		return 0;
 	}
 
@@ -543,6 +590,24 @@ static const struct iio_event_spec ad9680_events[] = {
 	  .num_event_specs = _nb_ev,					\
 	}
 
+#define AD9694_CHAN(_chan) {						\
+	.type = IIO_VOLTAGE,						\
+	.indexed = 1,							\
+	.channel = _chan,						\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE),			\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.ext_info = axiadc_ext_info,					\
+	.scan_index = _chan,						\
+	.scan_type = {							\
+		.sign = 'S',						\
+		.realbits = 8,						\
+		.storagebits = 8,					\
+		.shift = 0,						\
+	},								\
+	.event_spec = ad9680_events,					\
+	.num_event_specs = ARRAY_SIZE(ad9680_events),			\
+}
+
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD9234] = {
 		.name = "AD9234",
@@ -588,6 +653,17 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.num_channels = 2,
 		.channel[0] = AD9680_CHAN(0, 0, 14, 'S', 0, NULL, 0),
 		.channel[1] = AD9680_CHAN(1, 1, 14, 'S', 0, NULL, 0),
+	},
+	[ID_AD9694] = {
+		.name = "AD9694",
+		.max_rate = 1000000000UL,
+		.scale_table = ad9694_scale_table,
+		.num_scales = ARRAY_SIZE(ad9694_scale_table),
+		.num_channels = 4,
+		.channel[0] = AD9694_CHAN(0),
+		.channel[1] = AD9694_CHAN(1),
+		.channel[2] = AD9694_CHAN(2),
+		.channel[3] = AD9694_CHAN(3),
 	},
 };
 
@@ -815,6 +891,8 @@ static int ad9680_setup_link(struct spi_device *spi,
 	/* Disable SYSREF */
 	ret |= ad9680_spi_write(spi, 0x120, 0x00);
 
+	ret |= ad9680_spi_write(spi, 0x121, 0x0f);
+
 	switch (config->sysref.mode) {
 	case AD9680_SYSREF_CONTINUOUS:
 		val = 0x02;
@@ -948,6 +1026,146 @@ static int ad9684_setup(struct spi_device *spi)
 	return ret;
 }
 
+static int ad9694_setup_jesd204_link(struct axiadc_converter *conv,
+	unsigned int sample_rate)
+{
+	unsigned long lane_rate_kHz;
+	unsigned long sysref_rate;
+	unsigned int val;
+	int ret;
+
+	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
+	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
+
+	if (lane_rate_kHz < 1687500 || lane_rate_kHz > 15000000) {
+		dev_err(&conv->spi->dev, "Lane rate %lu Mbps out of bounds. Must be between 1687.5 and 15000 Mbps",
+			lane_rate_kHz / 1000);
+		return -EINVAL;;
+	}
+
+	if (lane_rate_kHz < 3375000)
+		val = 0x5;
+	else if (lane_rate_kHz < 6750000)
+		val = 0x1;
+	else if(lane_rate_kHz < 13500000)
+		val = 0x0;
+	else
+		val = 0x3;
+
+	ad9680_spi_write(conv->spi, 0x56e, val << 4);
+
+	/* Required sequence after link reset */
+	ad9680_spi_write(conv->spi, 0x1228, 0x0f);
+	ad9680_spi_write(conv->spi, 0x1228, 0x4f);
+	ad9680_spi_write(conv->spi, 0x1222, 0x04);
+	ad9680_spi_write(conv->spi, 0x1222, 0x00);
+	ad9680_spi_write(conv->spi, 0x1262, 0x08);
+	ad9680_spi_write(conv->spi, 0x1262, 0x00);
+
+	ret = clk_set_rate(conv->sysref_clk, sysref_rate);
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to set SYSREF clock to %lu kHz: %d\n",
+			sysref_rate / 1000, ret);
+		return ret;
+	}
+
+	ret = clk_set_rate(conv->lane_clk, lane_rate_kHz);
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+			lane_rate_kHz, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int ad9694_setup(struct spi_device *spi)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	struct ad9680_jesd204_link_config link_config;
+	unsigned int pll_stat;
+	unsigned int val;
+	unsigned int i;
+	int ret;
+
+	ret = ad9680_request_clks(conv);
+	if (ret)
+		return ret;
+
+	ad9680_spi_write(spi, 0x000, 0x81); /* RESET */
+	mdelay(5);
+
+	/* Configure A/B */
+	ret |= ad9680_spi_write(spi, 0x009, 0x03); /* select pair A/B */
+	ret |= ad9680_spi_write(spi, 0x008, 0x03); /* select both channels */
+
+	ret |= ad9680_spi_write(spi, 0x108, 0x00); /* Clock divider = 1 */
+
+	memset(&link_config, sizeof(link_config), 0x00);
+	link_config.did = 0;
+	link_config.bid = 0;
+	link_config.num_lanes = 2;
+	for (i = 0; i < link_config.num_lanes; i++) {
+		link_config.lid[i] = i;
+		link_config.lane_mux[i] = i;
+	}
+	link_config.num_converters = 2;
+	link_config.octets_per_frame = 1;
+	link_config.frames_per_multiframe = 32;
+	link_config.converter_resolution = 8;
+	link_config.bits_per_sample = 8;
+	link_config.scrambling = true;
+
+	if (conv->sysref_clk) {
+		link_config.subclass = 1;
+		link_config.sysref.mode = AD9680_SYSREF_ONESHOT;
+	} else {
+		link_config.subclass = 0;
+		link_config.sysref.mode = AD9680_SYSREF_DISABLED;
+	}
+
+	link_config.sysref.capture_falling_edge = true;
+	link_config.sysref.valid_falling_edge = false;
+
+	ret = ad9680_setup_link(spi, &link_config);
+	if (ret < 0)
+		return ret;
+
+	ret |= ad9680_spi_write(spi, 0x001, 0x02); /* datapath soft reset */
+	mdelay(1);
+
+	ret = ad9694_setup_jesd204_link(conv, conv->adc_clk);
+	if (ret < 0)
+		return ret;
+	mdelay(20);
+	pll_stat = ad9680_spi_read(conv->spi, 0x56f);
+
+	dev_info(&conv->spi->dev, "AD9694 PLL %s\n",
+		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
+
+	/* Re-arm the SYSREF in oneshot mode */
+	if (link_config.sysref.mode == AD9680_SYSREF_ONESHOT) {
+		val = 0x04;
+
+		if (link_config.sysref.capture_falling_edge)
+			val |= 0x08;
+
+		if (link_config.sysref.valid_falling_edge)
+			val |= 0x10;
+		ad9680_spi_write(spi, 0x120, val);
+	}
+
+	ret = clk_prepare_enable(conv->lane_clk);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
+		return ret;
+	}
+
+	conv->sample_rate_read_only = true;
+
+	return ret;
+}
+
 static int ad9680_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
 {
@@ -955,7 +1173,7 @@ static int ad9680_read_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
-		return ad9680_get_scale(conv, val, val2);
+		return ad9680_get_scale(conv, chan, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (!conv->clk)
 			return -ENODEV;
@@ -977,7 +1195,7 @@ static int ad9680_write_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
-		return ad9680_set_scale(conv, val, val2);
+		return ad9680_set_scale(conv, chan, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (!conv->clk)
 			return -ENODEV;
@@ -1108,6 +1326,10 @@ static int ad9680_probe(struct spi_device *spi)
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9684];
 		ret = ad9684_setup(spi);
 		break;
+	case CHIPID_AD9694:
+		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9694];
+		ret = ad9694_setup(spi);
+		break;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
 		return -ENODEV;
@@ -1161,6 +1383,7 @@ static const struct spi_device_id ad9680_id[] = {
 	{ "ad9680", CHIPID_AD9680 },
 	{ "ad9234", CHIPID_AD9234 },
 	{ "ad9684", CHIPID_AD9684 },
+	{ "ad9694", CHIPID_AD9694 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9680_id);
