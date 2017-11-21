@@ -117,6 +117,8 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 {
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *cma_obj;
+	struct drm_crtc_state *crtc_state;
+	int hdisplay, vdisplay;
 
 	if (!fb)
 		return 0;
@@ -127,10 +129,17 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
 	WARN_ON(!cma_obj);
 
-	/*
-	 * TODO: more checks are probably needed here... I'll figure them
-	 * out after I start testing.
-	 */
+	crtc_state = drm_atomic_get_existing_crtc_state(state->state,
+							state->crtc);
+
+	hdisplay = crtc_state->adjusted_mode.hdisplay;
+	vdisplay = crtc_state->adjusted_mode.vdisplay;
+
+	/* We don't support cropping yet */
+	if (state->crtc_x < 0 || state->crtc_y < 0 ||
+	    state->crtc_x + state->crtc_w > hdisplay ||
+	    state->crtc_y + state->crtc_h > vdisplay)
+		return -EINVAL;
 
 	return 0;
 }
