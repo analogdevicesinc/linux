@@ -782,6 +782,23 @@ static const char *const testmodes[] = {
 	[TESTMODE_RAMP] = "ramp",
 };
 
+static bool ad9467_valid_test_mode(struct axiadc_converter *conv,
+    unsigned int mode)
+{
+    if (!testmodes[mode])
+	return false;
+
+    /*
+     * All converters that support the ramp testmode have a gap between USER and
+     * RAMP.
+     */
+    if (conv->chip_info->max_testmode == TESTMODE_RAMP &&
+	mode > TESTMODE_USER && mode < TESTMODE_RAMP)
+	return false;
+
+    return true;
+}
+
 static ssize_t ad9467_show_scale_available(struct iio_dev *indio_dev,
 					   uintptr_t private,
 					   const struct iio_chan_spec *chan,
@@ -808,7 +825,7 @@ static ssize_t ad9467_testmode_mode_available(struct iio_dev *indio_dev,
 	int i;
 
 	for (i = 0; i <= conv->chip_info->max_testmode; ++i) {
-		if (testmodes[i])
+		if (ad9467_valid_test_mode(conv, i))
 			len += sprintf(buf + len, "%s ", testmodes[i]);
 	}
 	len += sprintf(buf + len, "\n");
@@ -836,7 +853,8 @@ static ssize_t axiadc_testmode_write(struct iio_dev *indio_dev,
 	mode = 0;
 
 	for (i = 0; i <= conv->chip_info->max_testmode; ++i) {
-		if (testmodes[i] && sysfs_streq(buf, testmodes[i])) {
+		if (ad9467_valid_test_mode(conv, i) &&
+		    sysfs_streq(buf, testmodes[i])) {
 			mode = i;
 			break;
 		}
