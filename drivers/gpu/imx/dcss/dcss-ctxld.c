@@ -19,6 +19,7 @@
 #include <linux/sizes.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
+#include <linux/delay.h>
 #include <asm/cacheflush.h>
 
 #include "video/imx-dcss.h"
@@ -93,6 +94,7 @@ struct dcss_ctxld_priv {
 	struct dcss_soc *dcss;
 	void __iomem *ctxld_reg;
 	int irq;
+	bool irq_en;
 
 	struct dcss_ctxld_item *db[2];
 	struct dcss_ctxld_item *sb_hp[2];
@@ -203,11 +205,6 @@ static int dcss_ctxld_irq_config(struct dcss_ctxld_priv *ctxld)
 		return ctxld->irq;
 	}
 
-	dcss_set(RD_ERR_EN | DB_COMP_EN | SB_HP_COMP_EN | SB_LP_COMP_EN |
-		 DB_PEND_SB_REC_EN | SB_PEND_DISP_ACTIVE_EN | AHB_ERR_EN |
-		 RD_ERR | AHB_ERR,
-		 ctxld->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
-
 	ret = devm_request_threaded_irq(dcss->dev, ctxld->irq,
 					dcss_ctxld_irq_handler,
 					dcss_ctxld_irq_handler_thread,
@@ -218,7 +215,19 @@ static int dcss_ctxld_irq_config(struct dcss_ctxld_priv *ctxld)
 		return ret;
 	}
 
+	ctxld->irq_en = true;
+
 	return 0;
+}
+
+void dcss_ctxld_hw_cfg(struct dcss_soc *dcss)
+{
+	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
+
+	dcss_writel(RD_ERR_EN | DB_COMP_EN | SB_HP_COMP_EN | SB_LP_COMP_EN |
+		    DB_PEND_SB_REC_EN | SB_PEND_DISP_ACTIVE_EN | AHB_ERR_EN |
+		    RD_ERR | AHB_ERR,
+		    ctxld->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
 }
 
 /**
@@ -288,11 +297,11 @@ int dcss_ctxld_init(struct dcss_soc *dcss, unsigned long ctxld_base)
 		return -ENOMEM;
 	}
 
-	dcss_writel(0, priv->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
-
 	ret = dcss_ctxld_irq_config(priv);
 	if (!ret)
 		return ret;
+
+	dcss_ctxld_hw_cfg(dcss);
 
 	return 0;
 }
@@ -402,6 +411,51 @@ void dcss_ctxld_write(struct dcss_soc *dcss, u32 ctx_id, u32 val, u32 reg_ofs)
 	ctx[ctx_id][item_idx].ofs = reg_ofs;
 	ctxld->ctx_size[curr_ctx][ctx_id] += 1;
 	mutex_unlock(&ctxld->mutex);
+}
+
+int dcss_ctxld_resume(struct dcss_soc *dcss)
+{
+	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
+
+	dcss_ctxld_hw_cfg(dcss);
+
+	if (!ctxld->irq_en) {
+		enable_irq(dcss->ctxld_priv->irq);
+		ctxld->irq_en = true;
+	}
+
+	return 0;
+}
+
+int dcss_ctxld_suspend(struct dcss_soc *dcss)
+{
+	int ret = 0;
+	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
+	int wait_time_ms = 0;
+
+	while (ctxld->in_use && wait_time_ms < 500) {
+		msleep(20);
+		wait_time_ms += 20;
+	}
+
+	if (wait_time_ms > 500)
+		return -ETIMEDOUT;
+
+	mutex_lock(&ctxld->mutex);
+
+	if (ctxld->irq_en) {
+		disable_irq_nosync(dcss->ctxld_priv->irq);
+		ctxld->irq_en = false;
+	}
+
+	/* reset context region and sizes */
+	ctxld->current_ctx = 0;
+	ctxld->ctx_size[0][CTX_DB] = 0;
+	ctxld->ctx_size[0][CTX_SB_HP] = 0;
+	ctxld->ctx_size[0][CTX_SB_LP] = 0;
+
+	mutex_unlock(&ctxld->mutex);
+	return ret;
 }
 
 #ifdef CONFIG_DEBUG_FS

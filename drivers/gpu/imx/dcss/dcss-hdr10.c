@@ -226,13 +226,33 @@ static void dcss_hdr10_lut_fill(struct dcss_soc *dcss, int ch_num,
 	}
 }
 
+void dcss_hdr10_cfg(struct dcss_soc *dcss)
+{
+	struct dcss_hdr10_priv *hdr10 = dcss->hdr10_priv;
+	struct dcss_hdr10_ch *ch;
+	int i;
+	u16 *lut;
+
+	for (i = 0; i < 4; i++) {
+		ch = &hdr10->ch[i];
+
+		lut = i < 3 ? dcss_hdr10_comp_lut : dcss_hdr10_opipe;
+
+		dcss_hdr10_lut_fill(dcss, i, 0, lut);
+		dcss_hdr10_lut_fill(dcss, i, 1, lut);
+		dcss_hdr10_lut_fill(dcss, i, 2, lut);
+
+		ch->old_out_cs = DCSS_COLORSPACE_UNKNOWN;
+		ch->old_in_cs = DCSS_COLORSPACE_UNKNOWN;
+	}
+}
+
 static int dcss_hdr10_ch_init_all(struct dcss_soc *dcss,
 				  unsigned long hdr10_base)
 {
 	struct dcss_hdr10_priv *hdr10 = dcss->hdr10_priv;
 	struct dcss_hdr10_ch *ch;
 	int i;
-	u16 *lut;
 
 	for (i = 0; i < 4; i++) {
 		ch = &hdr10->ch[i];
@@ -248,16 +268,11 @@ static int dcss_hdr10_ch_init_all(struct dcss_soc *dcss,
 #if defined(USE_CTXLD)
 		ch->ctx_id = CTX_SB_HP;
 #endif
-
-		lut = i < 3 ? dcss_hdr10_comp_lut : dcss_hdr10_opipe;
-
-		dcss_hdr10_lut_fill(dcss, i, 0, lut);
-		dcss_hdr10_lut_fill(dcss, i, 1, lut);
-		dcss_hdr10_lut_fill(dcss, i, 2, lut);
-
-		ch->old_out_cs = DCSS_COLORSPACE_UNKNOWN;
-		ch->old_in_cs = DCSS_COLORSPACE_UNKNOWN;
 	}
+
+#ifndef CONFIG_PM
+	dcss_hdr10_cfg(dcss);
+#endif
 
 	return 0;
 }

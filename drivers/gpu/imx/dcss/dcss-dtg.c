@@ -226,6 +226,10 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	dis_lrc_y = vm->vsync_len + vm->vfront_porch + vm->vback_porch +
 		    vm->vactive - 1;
 
+	clk_disable_unprepare(dcss->p_clk);
+	clk_set_rate(dcss->p_clk, vm->pixelclock);
+	clk_prepare_enable(dcss->p_clk);
+
 	dcss_dtg_write(dtg, ((dtg_lrc_y << TC_Y_POS) | dtg_lrc_x),
 		       DCSS_DTG_TC_DTG);
 	dcss_dtg_write(dtg, ((dis_ulc_y << TC_Y_POS) | dis_ulc_x),
@@ -239,8 +243,6 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	dcss_dtg_write(dtg,
 		       ((dis_ulc_y << TC_CTXLD_DB_Y_POS) & TC_CTXLD_DB_Y_MASK),
 		       DCSS_DTG_TC_CTXLD);
-
-	clk_set_rate(dcss->p_clk, vm->pixelclock);
 }
 EXPORT_SYMBOL(dcss_dtg_sync_set);
 

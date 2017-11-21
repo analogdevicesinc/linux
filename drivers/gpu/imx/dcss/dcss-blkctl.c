@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/bitops.h>
 #include <linux/of.h>
+#include <linux/delay.h>
 #include <soc/imx8/soc.h>
 
 #include "dcss-prv.h"
@@ -75,6 +76,22 @@ static void dcss_blkctl_clk_reset(struct dcss_blkctl_priv *blkctl,
 		dcss_set(deassert, blkctl->base_reg + DCSS_BLKCTL_RESET_CTRL);
 }
 
+void dcss_blkctl_cfg(struct dcss_soc *dcss)
+{
+	struct dcss_blkctl_priv *blkctl = dcss->blkctl_priv;
+
+	if (blkctl->hdmi_output)
+		dcss_writel(blkctl->clk_setting,
+			    blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
+	else
+		dcss_writel((blkctl->clk_setting ^ HDMI_MIPI_CLK_SEL) |
+			    DISPMIX_PIXCLK_SEL,
+			    blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
+
+	/* deassert clock domains resets */
+	dcss_blkctl_clk_reset(blkctl, 0, 0xffffff);
+}
+
 int dcss_blkctl_init(struct dcss_soc *dcss, unsigned long blkctl_base)
 {
 	struct device_node *node = dcss->dev->of_node;
@@ -102,17 +119,7 @@ int dcss_blkctl_init(struct dcss_soc *dcss, unsigned long blkctl_base)
 	if (imx8_get_soc_revision() == B0_SILICON_ID)
 		blkctl->clk_setting = HDMI_MIPI_CLK_SEL;
 
-	if (blkctl->hdmi_output)
-		dcss_writel(blkctl->clk_setting,
-			    blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
-	else
-		dcss_writel((blkctl->clk_setting ^ HDMI_MIPI_CLK_SEL) |
-			    DISPMIX_PIXCLK_SEL,
-			    blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
-
-	/* deassert clock domains resets */
-	dcss_blkctl_clk_reset(blkctl, 0, B_CLK_RESETN | APB_CLK_RESETN |
-				 P_CLK_RESETN | HDMI_RESETN | RTR_CLK_RESETN);
+	dcss_blkctl_cfg(dcss);
 
 	return 0;
 }

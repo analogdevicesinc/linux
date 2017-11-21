@@ -32,6 +32,8 @@ struct dcss_soc {
 	struct device *dev;
 	const struct dcss_devtype *devtype;
 
+	u32 start_addr;
+
 	struct dcss_blkctl_priv *blkctl_priv;
 	struct dcss_ctxld_priv *ctxld_priv;
 	struct dcss_dpr_priv *dpr_priv;
@@ -53,15 +55,19 @@ struct dcss_soc {
 
 /* BLKCTL */
 int dcss_blkctl_init(struct dcss_soc *dcss, unsigned long blkctl_base);
+void dcss_blkctl_cfg(struct dcss_soc *dcss);
 void dcss_blkctl_exit(struct dcss_soc *dcss);
 
 /* CTXLD */
 int dcss_ctxld_init(struct dcss_soc *dcss, unsigned long ctxld_base);
+void dcss_ctxld_hw_cfg(struct dcss_soc *dcss);
 void dcss_ctxld_exit(struct dcss_soc *dcss);
 void dcss_ctxld_write(struct dcss_soc *dcss, u32 ctx_id, u32 val, u32 reg_idx);
 void dcss_ctxld_update(struct dcss_soc *dcss, u32 ctx_id, u32 val, u32 mask,
 		       u32 reg_idx);
 void dcss_ctxld_dump(struct seq_file *s, void *data);
+int dcss_ctxld_resume(struct dcss_soc *dcss);
+int dcss_ctxld_suspend(struct dcss_soc *dcss);
 
 /* DPR */
 int dcss_dpr_init(struct dcss_soc *dcss, unsigned long dpr_base);
@@ -80,6 +86,7 @@ void dcss_ss_exit(struct dcss_soc *dcss);
 /* HDR10 */
 int dcss_hdr10_init(struct dcss_soc *dcss, unsigned long hdr10_base);
 void dcss_hdr10_exit(struct dcss_soc *dcss);
+void dcss_hdr10_cfg(struct dcss_soc *dcss);
 
 /* SCALER */
 int dcss_scaler_init(struct dcss_soc *dcss, unsigned long scaler_base);

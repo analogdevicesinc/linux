@@ -17,6 +17,8 @@
 #include <linux/of_device.h>
 #include <linux/of_graph.h>
 #include <linux/clk.h>
+#include <linux/pm_runtime.h>
+#include <linux/busfreq-imx.h>
 #include <video/imx-dcss.h>
 
 #include <drm/drm_fourcc.h>
@@ -122,9 +124,10 @@ void dcss_vblank_irq_clear(struct dcss_soc *dcss)
 }
 EXPORT_SYMBOL(dcss_vblank_irq_clear);
 
-static int dcss_submodules_init(struct dcss_soc *dcss, unsigned long dcss_base)
+static int dcss_submodules_init(struct dcss_soc *dcss)
 {
 	int ret;
+	u32 dcss_base = dcss->start_addr;
 
 	ret = dcss_blkctl_init(dcss, dcss_base + dcss->devtype->blkctl_ofs);
 	if (ret)
@@ -398,13 +401,21 @@ static int dcss_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = dcss_submodules_init(dcss, res->start);
+	dcss->start_addr = res->start;
+
+	ret = dcss_submodules_init(dcss);
 	if (ret) {
 		dev_err(&pdev->dev, "submodules initialization failed\n");
 		return ret;
 	}
 
 	dcss_debugfs_init(dcss);
+
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 3000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
+	request_bus_freq(BUS_FREQ_HIGH);
 
 	return dcss_add_client_devices(dcss);
 }
@@ -413,6 +424,87 @@ static int dcss_remove(struct platform_device *pdev)
 {
 	return 0;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int dcss_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dcss_soc *dcss = platform_get_drvdata(pdev);
+	int ret;
+
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	ret = dcss_ctxld_suspend(dcss);
+	if (ret)
+		return ret;
+
+	clk_disable_unprepare(dcss->p_clk);
+
+	release_bus_freq(BUS_FREQ_HIGH);
+
+	return 0;
+}
+
+static int dcss_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dcss_soc *dcss = platform_get_drvdata(pdev);
+
+	request_bus_freq(BUS_FREQ_HIGH);
+
+	clk_prepare_enable(dcss->p_clk);
+
+	dcss_blkctl_cfg(dcss);
+	dcss_hdr10_cfg(dcss);
+
+	dcss_ctxld_resume(dcss);
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_PM
+static int dcss_runtime_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dcss_soc *dcss = platform_get_drvdata(pdev);
+	int ret;
+
+	ret = dcss_ctxld_suspend(dcss);
+	if (ret)
+		return ret;
+
+	clk_disable_unprepare(dcss->p_clk);
+
+	release_bus_freq(BUS_FREQ_HIGH);
+
+	return 0;
+}
+
+static int dcss_runtime_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dcss_soc *dcss = platform_get_drvdata(pdev);
+
+	request_bus_freq(BUS_FREQ_HIGH);
+
+	clk_prepare_enable(dcss->p_clk);
+
+	dcss_blkctl_cfg(dcss);
+	dcss_hdr10_cfg(dcss);
+
+	dcss_ctxld_resume(dcss);
+
+	return 0;
+}
+#endif /* CONFIG_PM */
+
+static const struct dev_pm_ops dcss_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(dcss_suspend, dcss_resume)
+	SET_RUNTIME_PM_OPS(dcss_runtime_suspend,
+			   dcss_runtime_resume, NULL)
+};
 
 static const struct of_device_id dcss_dt_ids[] = {
 	{ .compatible = "nxp,imx8mq-dcss", .data = &dcss_type_imx8m, },
@@ -424,6 +516,7 @@ static struct platform_driver dcss_driver = {
 	.driver = {
 		.name = "dcss-core",
 		.of_match_table = dcss_dt_ids,
+		.pm = &dcss_pm,
 	},
 	.probe = dcss_probe,
 	.remove = dcss_remove,
