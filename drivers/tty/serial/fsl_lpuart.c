@@ -514,6 +514,8 @@ static int lpuart_dma_tx_request(struct uart_port *port)
 static void lpuart_flush_buffer(struct uart_port *port)
 {
 	struct lpuart_port *sport = container_of(port, struct lpuart_port, port);
+	u32 val;
+
 	if (sport->lpuart_dma_tx_use) {
 		if (sport->dma_tx_in_progress) {
 			dma_unmap_sg(sport->port.dev, &sport->tx_sgl[0],
@@ -521,6 +523,16 @@ static void lpuart_flush_buffer(struct uart_port *port)
 			sport->dma_tx_in_progress = false;
 		}
 		dmaengine_terminate_all(sport->dma_tx_chan);
+	}
+
+	if (lpuart_is_32(sport)) {
+		val = lpuart32_read(&sport->port, UARTFIFO);
+		val |= UARTFIFO_TXFLUSH | UARTFIFO_RXFLUSH;
+		lpuart32_write(&sport->port, val, UARTFIFO);
+	} else {
+		val = readb(sport->port.membase + UARTPFIFO);
+		val |= UARTCFIFO_TXFLUSH | UARTCFIFO_RXFLUSH;
+		writeb(val, sport->port.membase + UARTCFIFO);
 	}
 }
 
