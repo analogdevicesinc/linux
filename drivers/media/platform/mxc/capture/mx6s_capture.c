@@ -337,7 +337,7 @@ struct mx6s_csi_dev {
 	struct v4l2_async_notifier	subdev_notifier;
 	struct v4l2_async_subdev	*async_subdevs[2];
 
-	bool csi_mux_mipi;
+	bool csi_mipi_mode;
 	const bool *rx_fifo_rst;
 	struct mx6s_csi_mux csi_mux;
 };
@@ -745,7 +745,7 @@ static int mx6s_csi_enable(struct mx6s_csi_dev *csi_dev)
 		csi_tvdec_enable(csi_dev, true);
 
 	/* For mipi csi input only */
-	if (csi_dev->csi_mux_mipi == true) {
+	if (csi_dev->csi_mipi_mode == true) {
 		csi_dmareq_rff_enable(csi_dev);
 		csi_enable_int(csi_dev, 1);
 		csi_enable(csi_dev, 1);
@@ -835,7 +835,7 @@ static int mx6s_configure_csi(struct mx6s_csi_dev *csi_dev)
 		break;
 	case V4L2_PIX_FMT_UYVY:
 	case V4L2_PIX_FMT_YUYV:
-		if (csi_dev->csi_mux_mipi == true)
+		if (csi_dev->csi_mipi_mode == true)
 			width = pix->width;
 		else
 			/* For parallel 8-bit sensor input */
@@ -847,7 +847,7 @@ static int mx6s_configure_csi(struct mx6s_csi_dev *csi_dev)
 	}
 	csi_set_imagpara(csi_dev, width, pix->height);
 
-	if (csi_dev->csi_mux_mipi == true) {
+	if (csi_dev->csi_mipi_mode == true) {
 		cr1 = csi_read(csi_dev, CSI_CSICR1);
 		cr1 &= ~BIT_GCLK_MODE;
 		csi_write(csi_dev, cr1, CSI_CSICR1);
@@ -1692,18 +1692,24 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	return 0;
 }
 
-static int mx6s_csi_mux_sel(struct mx6s_csi_dev *csi_dev)
+static int mx6s_csi_mode_sel(struct mx6s_csi_dev *csi_dev)
 {
 	struct device_node *np = csi_dev->dev->of_node;
 	struct device_node *node;
 	phandle phandle;
 	u32 out_val[3];
-	int ret;
+	int ret = 0;
+
+	if (of_get_property(np, "fsl,mipi-mode", NULL))
+		csi_dev->csi_mipi_mode = true;
+	else {
+		csi_dev->csi_mipi_mode = false;
+		return ret;
+	}
 
 	ret = of_property_read_u32_array(np, "csi-mux-mipi", out_val, 3);
 	if (ret) {
 		dev_dbg(csi_dev->dev, "no csi-mux-mipi property found\n");
-		csi_dev->csi_mux_mipi = false;
 	} else {
 		phandle = *out_val;
 
@@ -1726,8 +1732,6 @@ static int mx6s_csi_mux_sel(struct mx6s_csi_dev *csi_dev)
 
 		regmap_update_bits(csi_dev->csi_mux.gpr, csi_dev->csi_mux.req_gpr,
 			1 << csi_dev->csi_mux.req_bit, 1 << csi_dev->csi_mux.req_bit);
-
-		csi_dev->csi_mux_mipi = true;
 	}
 	return ret;
 }
@@ -1833,7 +1837,7 @@ static int mx6s_csi_probe(struct platform_device *pdev)
 
 	csi_dev->dev = dev;
 
-	mx6s_csi_mux_sel(csi_dev);
+	mx6s_csi_mode_sel(csi_dev);
 
 	of_id = of_match_node(mx6s_csi_dt_ids, csi_dev->dev->of_node);
 	if (!of_id)
