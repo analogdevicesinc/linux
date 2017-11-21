@@ -231,20 +231,6 @@
 			 <&clk IMX8MQ_CLK_VPU_DEC_ROOT>;
 	};
 
-	hdmi_pd: gpc_power_domain@6 {
-		compatible = "fsl,imx8mq-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <6>;
-		domain-name = "HDMI_PD";
-	};
-
-	disp_pd: gpc_power_domain@7 {
-		compatible = "fsl,imx8mq-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <7>;
-		domain-name = "DISP_PD";
-	};
-
 	mipi_csi1_pd: gpc_power_domain@8 {
 		compatible = "fsl,imx8mq-pm-domain";
 		#power-domain-cells = <0>;
@@ -497,7 +483,6 @@
 		disp-mode = <16>;			/* <default mode: #16>
 							 * #16: 1920x1080p@60Hz 16:9
 							 */
-		power-domains = <&disp_pd>;
 		status = "disabled";
 	};
 
@@ -1152,7 +1137,6 @@
 					 * #95: 3840x2160p@30Hz 16:9
 					 * #97: 3840x2160p@60Hz 16:9
 					 */
-		power-domains = <&disp_pd>;
 		status = "disabled";
 	};
 
