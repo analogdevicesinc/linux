@@ -58,7 +58,8 @@ void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format);
 void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm);
 void dcss_dtg_plane_pos_set(struct dcss_soc *dcss, int ch_num,
 			    int px, int py, int pw, int ph);
-void dcss_dtg_enable(struct dcss_soc *dcss, bool en);
+void dcss_dtg_enable(struct dcss_soc *dcss, bool en,
+		     struct completion *dis_completion);
 bool dcss_dtg_is_enabled(struct dcss_soc *dcss);
 void dcss_dtg_ch_enable(struct dcss_soc *dcss, int ch_num, bool en);
 void dcss_dtg_plane_alpha_set(struct dcss_soc *dcss, int ch_num,

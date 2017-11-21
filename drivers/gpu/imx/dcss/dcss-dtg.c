@@ -133,6 +133,13 @@ struct dcss_dtg_priv {
 
 	u32 control_status;
 	u32 alpha;
+
+	/*
+	 * This will be passed on by DRM CRTC so that we can signal when DTG has
+	 * been successfully stopped. Otherwise, any modesetting while DTG is
+	 * still on may result in unpredictable behavior.
+	 */
+	struct completion *dis_completion;
 };
 
 static void dcss_dtg_write(struct dcss_dtg_priv *dtg, u32 val, u32 ofs)
@@ -333,18 +340,23 @@ static void dcss_dtg_disable_callback(void *data)
 		    dtg->base_reg + DCSS_DTG_TC_CONTROL_STATUS);
 
 	dtg->in_use = false;
+
+	complete(dtg->dis_completion);
 }
 
-void dcss_dtg_enable(struct dcss_soc *dcss, bool en)
+void dcss_dtg_enable(struct dcss_soc *dcss, bool en,
+		     struct completion *dis_completion)
 {
 	struct dcss_dtg_priv *dtg = dcss->dtg_priv;
 
 	if (!en) {
 		dcss->dcss_disable_callback = dcss_dtg_disable_callback;
+		dtg->dis_completion = dis_completion;
 		return;
 	}
 
 	dcss->dcss_disable_callback = NULL;
+	dtg->dis_completion = NULL;
 
 	dtg->control_status |= DTG_START;
 

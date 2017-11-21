@@ -35,6 +35,8 @@ struct dcss_crtc {
 	int			irq;
 
 	struct drm_property *alpha;
+
+	struct completion disable_completion;
 };
 
 static void dcss_crtc_reset(struct drm_crtc *crtc)
@@ -173,7 +175,7 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 	pm_runtime_get_sync(dcss_crtc->dev->parent);
 
 	dcss_ss_enable(dcss, true);
-	dcss_dtg_enable(dcss, true);
+	dcss_dtg_enable(dcss, true, NULL);
 	dcss_ctxld_enable(dcss);
 
 	crtc->enabled = true;
@@ -198,10 +200,13 @@ static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
 	drm_crtc_vblank_off(crtc);
 
 	dcss_ss_enable(dcss, false);
-	dcss_dtg_enable(dcss, false);
+	dcss_dtg_enable(dcss, false, &dcss_crtc->disable_completion);
 	dcss_ctxld_enable(dcss);
 
 	crtc->enabled = false;
+
+	wait_for_completion_timeout(&dcss_crtc->disable_completion,
+				    msecs_to_jiffies(100));
 
 	pm_runtime_mark_last_busy(dcss_crtc->dev->parent);
 	pm_runtime_put_autosuspend(dcss_crtc->dev->parent);
@@ -274,6 +279,8 @@ static int dcss_crtc_init(struct dcss_crtc *crtc,
 		dev_err(crtc->dev, "unable to get vblank interrupt\n");
 		return crtc->irq;
 	}
+
+	init_completion(&crtc->disable_completion);
 
 	ret = devm_request_irq(crtc->dev, crtc->irq, dcss_crtc_irq_handler,
 			       IRQF_TRIGGER_RISING, "dcss_drm", crtc);
