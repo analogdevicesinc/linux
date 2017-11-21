@@ -1392,57 +1392,96 @@ static const struct attribute_group ad9467_attribute_group = {
 	.attrs = ad9467_attributes,
 };
 
+static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
+{
+	unsigned vref_val, vref_mask;
+	unsigned int i;
+
+	switch (conv->id) {
+	case CHIPID_AD9680:
+	case CHIPID_AD9234:
+		vref_val = ad9467_spi_read(conv->spi, AD9680_REG_INPUT_FS_RANGE);
+		break;
+	default:
+		vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
+
+		switch (conv->id) {
+		case CHIPID_AD9467:
+			vref_mask = AD9467_REG_VREF_MASK;
+			break;
+		case CHIPID_AD9643:
+			vref_mask = AD9643_REG_VREF_MASK;
+			break;
+		case CHIPID_AD9250:
+		case CHIPID_AD9683:
+		case CHIPID_AD9625:
+			vref_mask = AD9250_REG_VREF_MASK;
+			break;
+		case CHIPID_AD9265:
+			vref_mask = AD9265_REG_VREF_MASK;
+			break;
+		case CHIPID_AD9652:
+			vref_mask = AD9652_REG_VREF_MASK;
+			break;
+		default:
+			vref_mask = 0xFFFF;
+			break;
+		}
+
+		vref_val &= vref_mask;
+		break;
+	}
+
+	for (i = 0; i < conv->chip_info->num_scales; i++) {
+		if (vref_val == conv->chip_info->scale_table[i][1])
+			break;
+	}
+
+	*val = 0;
+	*val2 = ad9467_scale(conv, i);
+
+	return IIO_VAL_INT_PLUS_MICRO;
+}
+
+static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
+{
+	unsigned int i;
+
+	if (val != 0)
+		return -EINVAL;
+
+	for (i = 0; i < conv->chip_info->num_scales; i++) {
+		if (val2 != ad9467_scale(conv, i))
+			continue;
+
+		switch (conv->id) {
+		case CHIPID_AD9680:
+		case CHIPID_AD9234:
+			ad9467_spi_write(conv->spi, AD9680_REG_INPUT_FS_RANGE,
+					 conv->chip_info->scale_table[i][1]);
+			break;
+		default:
+			ad9467_spi_write(conv->spi, ADC_REG_VREF,
+					 conv->chip_info->scale_table[i][1]);
+			ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
+					 TRANSFER_SYNC);
+			break;
+		}
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
 static int ad9467_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val, int *val2, long m)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	unsigned vref_val, mask;
-	int i;
 
 	switch (m) {
 	case IIO_CHAN_INFO_SCALE:
-
-		if (conv->id == CHIPID_AD9680 || conv->id == CHIPID_AD9234) {
-			vref_val = ad9467_spi_read(conv->spi, AD9680_REG_INPUT_FS_RANGE);
-		} else {
-			vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
-
-			switch (conv->id) {
-			case CHIPID_AD9467:
-				mask = AD9467_REG_VREF_MASK;
-				break;
-			case CHIPID_AD9643:
-				mask = AD9643_REG_VREF_MASK;
-				break;
-			case CHIPID_AD9250:
-			case CHIPID_AD9683:
-
-			case CHIPID_AD9625:
-				mask = AD9250_REG_VREF_MASK;
-				break;
-			case CHIPID_AD9265:
-				mask = AD9265_REG_VREF_MASK;
-				break;
-			case CHIPID_AD9652:
-				mask = AD9652_REG_VREF_MASK;
-				break;
-			default:
-				mask = 0xFFFF;
-			}
-
-			vref_val &= mask;
-		}
-
-		for (i = 0; i < conv->chip_info->num_scales; i++)
-			if (vref_val == conv->chip_info->scale_table[i][1])
-				break;
-
-		*val = 0;
-		*val2 = ad9467_scale(conv, i);
-
-		return IIO_VAL_INT_PLUS_MICRO;
-
+		return ad9467_get_scale(conv, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (!conv->clk)
 			return -ENODEV;
@@ -1461,34 +1500,11 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned long r_clk;
-	int i, ret;
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
-		if (val != 0)
-			return -EINVAL;
-
-		for (i = 0; i < conv->chip_info->num_scales; i++)
-			if (val2 == ad9467_scale(conv, i)) {
-				if (conv->id == CHIPID_AD9680 ||
-						conv->id == CHIPID_AD9234) {
-					ad9467_spi_write(conv->spi,
-							 AD9680_REG_INPUT_FS_RANGE,
-							 conv->chip_info->
-							 scale_table[i][1]);
-				} else {
-					ad9467_spi_write(conv->spi,
-							 ADC_REG_VREF,
-							 conv->chip_info->
-							 scale_table[i][1]);
-					ad9467_spi_write(conv->spi,
-							 ADC_REG_TRANSFER,
-							 TRANSFER_SYNC);
-				}
-				return 0;
-			}
-
-		return -EINVAL;
+		return ad9467_set_scale(conv, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (!conv->clk)
 			return -ENODEV;
