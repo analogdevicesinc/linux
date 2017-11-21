@@ -1386,7 +1386,7 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 
 		if (conv->id == CHIPID_AD9680 || conv->id == CHIPID_AD9234) {
-			vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
+			vref_val = ad9467_spi_read(conv->spi, AD9680_REG_INPUT_FS_RANGE);
 		} else {
 			vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
 
