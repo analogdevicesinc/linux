@@ -1319,10 +1319,11 @@ static int ad9680_request_clks(struct axiadc_converter *conv)
 	int ret;
 
 	conv->sysref_clk = devm_clk_get(&conv->spi->dev, "adc_sysref");
-	if (IS_ERR(conv->sysref_clk) && PTR_ERR(conv->sysref_clk) != -ENOENT)
-		return PTR_ERR(conv->sysref_clk);
-
-	if (!IS_ERR(conv->sysref_clk)) {
+	if (IS_ERR(conv->sysref_clk)) {
+		if (PTR_ERR(conv->sysref_clk) != -ENOENT)
+			return PTR_ERR(conv->sysref_clk);
+		conv->sysref_clk = NULL;
+	} else {
 		ret = clk_prepare_enable(conv->sysref_clk);
 		if (ret < 0)
 			return ret;
@@ -1490,9 +1491,15 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	link_config.converter_resolution = ad9234 ? 12 : 14;
 	link_config.bits_per_sample = 16;
 	link_config.scrambling = true;
-	link_config.subclass = 1;
 
-	link_config.sysref.mode = AD9680_SYSREF_CONTINUOUS;
+	if (conv->sysref_clk) {
+		link_config.subclass = 1;
+		link_config.sysref.mode = AD9680_SYSREF_CONTINUOUS;
+	} else {
+		link_config.subclass = 0;
+		link_config.sysref.mode = AD9680_SYSREF_DISABLED;
+	}
+
 	link_config.sysref.capture_falling_edge = true;
 	link_config.sysref.valid_falling_edge = false;
 
