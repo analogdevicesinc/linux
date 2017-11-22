@@ -716,6 +716,14 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 	struct imx_hdp *hdp = container_of(connector, struct imx_hdp,
 					     connector);
 	enum drm_mode_status mode_status = MODE_OK;
+	struct drm_cmdline_mode *cmdline_mode;
+	cmdline_mode = &connector->cmdline_mode;
+
+	/* cmdline mode is the max support video mode when edid disabled */
+	if (!hdp->is_edid)
+		if (cmdline_mode->xres != 0 &&
+			cmdline_mode->xres < mode->hdisplay)
+			return MODE_BAD_HVALUE;
 
 	if (hdp->is_4kp60 && mode->clock > 594000)
 		return MODE_CLOCK_HIGH;
