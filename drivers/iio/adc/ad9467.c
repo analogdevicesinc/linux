@@ -1347,10 +1347,104 @@ static int ad9680_request_clks(struct axiadc_converter *conv)
 	return 0;
 }
 
+enum ad9680_sysref_mode {
+	AD9680_SYSREF_DISABLED,
+	AD9680_SYSREF_CONTINUOUS,
+	AD9680_SYSREF_ONESHOT
+};
+
+struct ad9680_sysref_config {
+	enum ad9680_sysref_mode mode;
+	bool capture_falling_edge;
+	bool valid_falling_edge;
+};
+
+struct ad9680_jesd204_link_config {
+	uint8_t did;
+	uint8_t bid;
+
+	uint8_t num_lanes;
+	uint8_t num_converters;
+	uint8_t octets_per_frame;
+	uint8_t frames_per_multiframe;;
+
+	uint8_t bits_per_sample;
+	uint8_t converter_resolution;
+
+	uint8_t lid[4];
+	uint8_t lane_mux[4];
+
+	bool scrambling;
+	uint8_t subclass;
+
+	struct ad9680_sysref_config sysref;
+};
+
+static int ad9680_setup_link(struct spi_device *spi,
+	const struct ad9680_jesd204_link_config *config)
+{
+	unsigned int val;
+	unsigned int i;
+	int ret;
+
+	val = ilog2(config->octets_per_frame);
+	val |= ilog2(config->num_converters) << 3;
+	val |= ilog2(config->num_lanes) << 6;
+
+	ret |= ad9467_spi_write(spi, 0x580, config->did);
+	ret |= ad9467_spi_write(spi, 0x581, config->bid);
+
+	ret = ad9467_spi_write(spi, 0x570, val); // Quick config
+
+	for (i = 0; i < config->num_lanes; i++) {
+		ret |= ad9467_spi_write(spi, 0x583 + i, config->lid[i]);
+
+		val = config->lane_mux[i];
+		val |= val << 4;
+		ret |= ad9467_spi_write(spi, 0x5b2 + i + (i / 2), val);
+	}
+
+	val = config->num_lanes - 1;
+	val |= config->scrambling ? 0x80 : 0x00;
+	ret |= ad9467_spi_write(spi, 0x58b, val);
+
+	ret |= ad9467_spi_write(spi, 0x58d, config->frames_per_multiframe - 1);
+	ret |= ad9467_spi_write(spi, 0x58f, config->converter_resolution - 1);
+
+	val = config->bits_per_sample - 1;
+	val |= config->subclass ? 0x20 : 0x00;
+	ret |= ad9467_spi_write(spi, 0x590, val);
+
+	/* Disable SYSREF */
+	ret |= ad9467_spi_write(spi, 0x120, 0x00);
+
+	switch (config->sysref.mode) {
+	case AD9680_SYSREF_CONTINUOUS:
+		val = 0x02;
+		break;
+	case AD9680_SYSREF_ONESHOT:
+		val = 0x04;
+		break;
+	default:
+		val = 0x00;
+		break;
+	}
+
+	if (config->sysref.capture_falling_edge)
+		val |= 0x08;
+
+	if (config->sysref.valid_falling_edge)
+		val |= 0x10;
+	ret |= ad9467_spi_write(spi, 0x120, val);
+
+	return ret;
+}
 
 static int ad9680_setup(struct spi_device *spi, bool ad9234)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	struct ad9680_jesd204_link_config link_config;
+	unsigned int i;
 	int ret, tmp = 1;
 	unsigned pll_stat;
 	static const u32 sfdr_optim_regs[8] =
@@ -1376,29 +1470,35 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	ret = ad9467_spi_write(spi, 0x008, 0x03);	// select both channels
 	ret |= ad9467_spi_write(spi, 0x201, 0x00);	// full sample rate (decimation = 1)
 
-	ret |= ad9467_spi_write(spi, 0x120, 0x0a);	// SYSREF continuous
-
 	if (tmp == 0) {
 		for (; tmp < ARRAY_SIZE(sfdr_optim_regs); tmp++)
 			ret |= ad9467_spi_write(spi, sfdr_optim_regs[tmp],
 						sfdr_optim_vals[tmp]);
 	}
 
-	ret |= ad9467_spi_write(spi, 0x580, 0x00);	// DID
-	ret |= ad9467_spi_write(spi, 0x581, 0x01);	// BID
+	memset(&link_config, sizeof(link_config), 0x00);
+	link_config.did = 0;
+	link_config.bid = 1;
+	link_config.num_lanes = 4;
+	for (i = 0; i < link_config.num_lanes; i++) {
+		link_config.lid[i] = i;
+		link_config.lane_mux[i] = i;
+	}
+	link_config.num_converters = 2;
+	link_config.octets_per_frame = 1;
+	link_config.frames_per_multiframe = 32;
+	link_config.converter_resolution = ad9234 ? 12 : 14;
+	link_config.bits_per_sample = 16;
+	link_config.scrambling = true;
+	link_config.subclass = 1;
 
-	ret |= ad9467_spi_write(spi, 0x583, 0x00);	// lane 0
-	ret |= ad9467_spi_write(spi, 0x584, 0x01);	// lane 1
-	ret |= ad9467_spi_write(spi, 0x585, 0x02);	// lane 2
-	ret |= ad9467_spi_write(spi, 0x586, 0x03);	// lane 3
+	link_config.sysref.mode = AD9680_SYSREF_CONTINUOUS;
+	link_config.sysref.capture_falling_edge = true;
+	link_config.sysref.valid_falling_edge = false;
 
-
-	ret |= ad9467_spi_write(spi, 0x570, 0x88);	// m=2, l=4, f= 1
-	ret |= ad9467_spi_write(spi, 0x58f, ad9234 ? 0x0b : 0x0d);	// 12-bit / 14-bit
-	ret |= ad9467_spi_write(spi, 0x5b2, 0x00);	// serdes-0 = lane 0
-	ret |= ad9467_spi_write(spi, 0x5b3, 0x11);	// serdes-1 = lane 1
-	ret |= ad9467_spi_write(spi, 0x5b5, 0x22);	// serdes-2 = lane 2
-	ret |= ad9467_spi_write(spi, 0x5b6, 0x33);	// serdes-3 = lane 3
+	ret = ad9680_setup_link(spi, &link_config);
+	if (ret < 0)
+		return ret;
 
 	ret = ad9680_setup_jesd204_link(conv, conv->adc_clk);
 	if (ret < 0)
