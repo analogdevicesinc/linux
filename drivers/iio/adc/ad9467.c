@@ -1017,7 +1017,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		       .max_rate = 500000000UL,
 		       .scale_table = ad9434_scale_table,
 		       .num_scales = ARRAY_SIZE(ad9434_scale_table),
-		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
+		       .max_testmode = TESTMODE_USER,
 		       .num_channels = 1,
 		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S', 0, NULL, 0),
 		       },
