@@ -1314,16 +1314,11 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 	return 0;
 }
 
-static int ad9680_setup(struct spi_device *spi, bool ad9234)
+static int ad9680_request_clks(struct axiadc_converter *conv)
 {
-	struct axiadc_converter *conv = spi_get_drvdata(spi);
-	int ret, tmp = 1;
-	unsigned pll_stat;
-	static const u32 sfdr_optim_regs[8] =
-		{0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935};
-	u32 sfdr_optim_vals[ARRAY_SIZE(sfdr_optim_regs)];
+	int ret;
 
-	conv->sysref_clk = devm_clk_get(&spi->dev, "adc_sysref");
+	conv->sysref_clk = devm_clk_get(&conv->spi->dev, "adc_sysref");
 	if (IS_ERR(conv->sysref_clk) && PTR_ERR(conv->sysref_clk) != -ENOENT)
 		return PTR_ERR(conv->sysref_clk);
 
@@ -1333,7 +1328,7 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 			return ret;
 	}
 
-	conv->clk = devm_clk_get(&spi->dev, "adc_clk");
+	conv->clk = devm_clk_get(&conv->spi->dev, "adc_clk");
 	if (IS_ERR(conv->clk) && PTR_ERR(conv->clk) != -ENOENT)
 		return PTR_ERR(conv->clk);
 
@@ -1345,9 +1340,26 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 		conv->adc_clk = clk_get_rate(conv->clk);
 	}
 
-	conv->lane_clk = devm_clk_get(&spi->dev, "jesd_adc_clk");
+	conv->lane_clk = devm_clk_get(&conv->spi->dev, "jesd_adc_clk");
 	if (IS_ERR(conv->lane_clk) && PTR_ERR(conv->lane_clk) != -ENOENT)
 		return PTR_ERR(conv->lane_clk);
+
+	return 0;
+}
+
+
+static int ad9680_setup(struct spi_device *spi, bool ad9234)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	int ret, tmp = 1;
+	unsigned pll_stat;
+	static const u32 sfdr_optim_regs[8] =
+		{0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935};
+	u32 sfdr_optim_vals[ARRAY_SIZE(sfdr_optim_regs)];
+
+	ret = ad9680_request_clks(conv);
+	if (ret)
+		return ret;
 
 #ifdef CONFIG_OF
 	if (spi->dev.of_node)
