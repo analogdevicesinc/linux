@@ -24,9 +24,11 @@ struct mxsfb_devdata {
 	unsigned int	 hs_wdth_mask;
 	unsigned int	 hs_wdth_shift;
 	unsigned int	 ipversion;
+	unsigned int	 flags;
 };
 
 struct mxsfb_drm_private {
+	struct device			*dev;
 	const struct mxsfb_devdata	*devdata;
 
 	void __iomem			*base;	/* registers */

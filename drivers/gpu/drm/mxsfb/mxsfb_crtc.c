@@ -128,9 +128,6 @@ static void mxsfb_enable_controller(struct mxsfb_drm_private *mxsfb)
 {
 	u32 reg;
 
-	if (mxsfb->enabled)
-		return;
-
 	if (mxsfb->clk_disp_axi)
 		clk_prepare_enable(mxsfb->clk_disp_axi);
 	clk_prepare_enable(mxsfb->clk);
@@ -151,16 +148,11 @@ static void mxsfb_enable_controller(struct mxsfb_drm_private *mxsfb)
 	writel(CTRL_RUN, mxsfb->base + LCDC_CTRL + REG_SET);
 
 	writel(CTRL1_RECOVERY_ON_UNDERFLOW, mxsfb->base + LCDC_CTRL1 + REG_SET);
-
-	mxsfb->enabled = true;
 }
 
 static void mxsfb_disable_controller(struct mxsfb_drm_private *mxsfb)
 {
 	u32 reg;
-
-	if (!mxsfb->enabled)
-		return;
 
 	writel(CTRL_RUN, mxsfb->base + LCDC_CTRL + REG_CLR);
 
@@ -184,8 +176,6 @@ static void mxsfb_disable_controller(struct mxsfb_drm_private *mxsfb)
 	if (mxsfb->clk_disp_axi)
 		clk_disable_unprepare(mxsfb->clk_disp_axi);
 	clk_disable_unprepare(mxsfb->clk);
-
-	mxsfb->enabled = false;
 }
 
 /*
@@ -305,14 +295,24 @@ static void mxsfb_crtc_mode_set_nofb(struct mxsfb_drm_private *mxsfb)
 
 void mxsfb_crtc_enable(struct mxsfb_drm_private *mxsfb)
 {
+	if (mxsfb->enabled)
+		return;
+
 	writel(0, mxsfb->base + LCDC_CTRL);
 	mxsfb_crtc_mode_set_nofb(mxsfb);
 	mxsfb_enable_controller(mxsfb);
+
+	mxsfb->enabled = true;
 }
 
 void mxsfb_crtc_disable(struct mxsfb_drm_private *mxsfb)
 {
+	if (!mxsfb->enabled)
+		return;
+
 	mxsfb_disable_controller(mxsfb);
+
+	mxsfb->enabled = false;
 }
 
 void mxsfb_plane_atomic_update(struct mxsfb_drm_private *mxsfb,
@@ -323,11 +323,9 @@ void mxsfb_plane_atomic_update(struct mxsfb_drm_private *mxsfb,
 	struct drm_framebuffer *fb = pipe->plane.state->fb;
 	struct drm_pending_vblank_event *event;
 	struct drm_gem_cma_object *gem;
-	u32 val;
 
 	if (!crtc)
 		return;
-
 
 	spin_lock_irq(&crtc->dev->event_lock);
 	event = crtc->state->event;
@@ -346,7 +344,6 @@ void mxsfb_plane_atomic_update(struct mxsfb_drm_private *mxsfb,
 		return;
 
 	gem = drm_fb_cma_get_gem_obj(fb, 0);
-	pr_info("GEM paddr=0x%llx\n", gem->paddr);
 
 	if (!mxsfb->enabled) {
 		mxsfb->gem = gem;
@@ -356,9 +353,4 @@ void mxsfb_plane_atomic_update(struct mxsfb_drm_private *mxsfb,
 	mxsfb_enable_axi_clk(mxsfb);
 	writel(gem->paddr, mxsfb->base + mxsfb->devdata->next_buf);
 	mxsfb_disable_axi_clk(mxsfb);
-
-	val = readl(mxsfb->base + mxsfb->devdata->cur_buf);
-	pr_info("REG[%02X]=%08x\n", mxsfb->devdata->cur_buf, val);
-	val = readl(mxsfb->base + mxsfb->devdata->next_buf);
-	pr_info("REG[%02X]=%08x\n", mxsfb->devdata->next_buf, val);
 }

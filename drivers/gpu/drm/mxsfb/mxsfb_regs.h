@@ -127,4 +127,7 @@
 #define MXSFB_SYNC_DATA_ENABLE_HIGH_ACT	(1 << 6)
 #define MXSFB_SYNC_DOTCLK_FALLING_ACT	(1 << 7) /* negative edge sampling */
 
+#define MXSFB_FLAG_NULL BIT(0)
+#define MXSFB_FLAG_BUSFREQ BIT(1)
+
 #endif /* __MXSFB_REGS_H__ */
