@@ -606,13 +606,25 @@ static const int ad9652_scale_table[][2] = {
 	{1250, 0}, {1125, 1}, {1200, 2}, {1250, 3}, {1000, 5},
 };
 
-static int ad9467_scale(struct axiadc_converter *conv, int index)
-{
-	if (index > conv->chip_info->num_scales)
-		return -EINVAL;
+static const int ad9649_scale_table[][2] = {
+	{2000, 0},
+};
 
-	return (conv->chip_info->scale_table[index][0] * 1000000ULL) >>
+static void ad9467_scale(struct axiadc_converter *conv, int index,
+	unsigned int *val, unsigned int *val2)
+{
+	unsigned int tmp;
+
+	if (index > conv->chip_info->num_scales) {
+		*val = 0;
+		*val2 = 0;
+		return;
+	}
+
+	tmp = (conv->chip_info->scale_table[index][0] * 1000000ULL) >>
 		    conv->chip_info->channel[0].scan_type.realbits;
+	*val = tmp / 1000000;
+	*val2 = tmp % 1000000;
 }
 
 static irqreturn_t ad9680_event_handler(
@@ -805,10 +817,13 @@ static ssize_t ad9467_show_scale_available(struct iio_dev *indio_dev,
 					   char *buf)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	unsigned int scale[2];
 	int i, len = 0;
 
-	for (i = 0; i < conv->chip_info->num_scales; i++)
-		len += sprintf(buf + len, "0.%06u ", ad9467_scale(conv, i));
+	for (i = 0; i < conv->chip_info->num_scales; i++) {
+		ad9467_scale(conv, i, &scale[0], &scale[1]);
+		len += sprintf(buf + len, "%u.%06u ", scale[0], scale[1]);
+	}
 
 	len += sprintf(buf + len, "\n");
 
@@ -1437,21 +1452,22 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 			break;
 	}
 
-	*val = 0;
-	*val2 = ad9467_scale(conv, i);
+	ad9467_scale(conv, i, val, val2);
 
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
 static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
 {
+	unsigned int scale_val[2];
 	unsigned int i;
 
 	if (val != 0)
 		return -EINVAL;
 
 	for (i = 0; i < conv->chip_info->num_scales; i++) {
-		if (val2 != ad9467_scale(conv, i))
+		ad9467_scale(conv, i, &scale_val[0], &scale_val[1]);
+		if (scale_val[0] != val || scale_val[1] != val2)
 			continue;
 
 		switch (conv->id) {
