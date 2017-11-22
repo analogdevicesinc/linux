@@ -825,7 +825,8 @@ static ssize_t ad9467_show_scale_available(struct iio_dev *indio_dev,
 		len += sprintf(buf + len, "%u.%06u ", scale[0], scale[1]);
 	}
 
-	len += sprintf(buf + len, "\n");
+	/* replace last space with a newline */
+	buf[len - 1] = '\n';
 
 	return len;
 }
@@ -843,7 +844,10 @@ static ssize_t ad9467_testmode_mode_available(struct iio_dev *indio_dev,
 		if (ad9467_valid_test_mode(conv, i))
 			len += sprintf(buf + len, "%s ", testmodes[i]);
 	}
-	len += sprintf(buf + len, "\n");
+
+	/* replace last space with a newline */
+	buf[len - 1] = '\n';
+
 	return len;
 }
 
