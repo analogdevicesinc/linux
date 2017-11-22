@@ -105,5 +105,9 @@
 &sai0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai0>;
+	assigned-clocks = <&clk IMX8QXP_AUD_PLL0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>;
+	assigned-clock-rates = <786432000>, <49152000>, <24576000>;
 	status = "okay";
 };
