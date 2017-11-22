@@ -285,11 +285,8 @@ static int imx_cec_probe(struct platform_device *pdev)
 	if (IS_ERR(cec->reg_base))
 		return PTR_ERR(cec->reg_base);
 
-	/* hdmi core clock is 125MHz in B0 */
-	if (imx8_get_soc_revision() == B0_SILICON_ID)
-		cec->clk_div = 1250;
-	else
-		cec->clk_div = 1330;
+	/* hdmi core clock is 133MHz */
+	cec->clk_div = 1330;
 
 	cec->adap = cec_allocate_adapter(&imx_cec_adap_ops, cec,
 					 CEC_NAME,
