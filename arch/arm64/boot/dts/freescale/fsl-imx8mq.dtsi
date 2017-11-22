@@ -594,7 +594,6 @@
 		#size-cells = <0>;
 		compatible = "mixel,imx8mq-mipi-dsi-phy";
 		reg = <0x0 0x30A00300 0x0 0x100>;
-		power-domains = <&mipi_pd>;
 		#phy-cells = <0>;
 		status = "disabled";
 	};
@@ -612,7 +611,6 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_DSI_AHB_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_80M>;
 		assigned-clock-rates = <80000000>;
-		power-domains = <&mipi_pd>;
 		phys = <&mipi_dsi_phy_drm>;
 		phy-names = "dphy";
 		status = "disabled";

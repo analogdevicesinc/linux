@@ -18,6 +18,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_of.h>
+#include <linux/busfreq-imx.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/err.h>
@@ -555,6 +556,7 @@ static void imx_nwl_dsi_encoder_enable(struct drm_encoder *encoder)
 {
 	struct imx_mipi_dsi *dsi = encoder_to_dsi(encoder);
 
+	pm_runtime_get_sync(dsi->dev);
 	imx_nwl_dsi_enable(dsi);
 }
 
@@ -563,6 +565,7 @@ static void imx_nwl_dsi_encoder_disable(struct drm_encoder *encoder)
 	struct imx_mipi_dsi *dsi = encoder_to_dsi(encoder);
 
 	imx_nwl_dsi_disable(dsi);
+	pm_runtime_put_sync(dsi->dev);
 }
 
 static int imx_nwl_dsi_encoder_atomic_check(struct drm_encoder *encoder,
@@ -600,6 +603,7 @@ static void imx_nwl_dsi_bridge_enable(struct drm_bridge *bridge)
 	struct imx_mipi_dsi *dsi = bridge->driver_private;
 
 	imx_nwl_dsi_enable(dsi);
+	pm_runtime_get_sync(dsi->dev);
 }
 
 static void imx_nwl_dsi_bridge_disable(struct drm_bridge *bridge)
@@ -607,6 +611,7 @@ static void imx_nwl_dsi_bridge_disable(struct drm_bridge *bridge)
 	struct imx_mipi_dsi *dsi = bridge->driver_private;
 
 	imx_nwl_dsi_disable(dsi);
+	pm_runtime_put_sync(dsi->dev);
 }
 
 static bool imx_nwl_dsi_bridge_mode_fixup(struct drm_bridge *bridge,
@@ -853,6 +858,8 @@ static int imx_nwl_dsi_probe(struct platform_device *pdev)
 	dsi->dev = dev;
 	dev_set_drvdata(dev, dsi);
 
+	pm_runtime_enable(dev);
+
 	if (of_property_read_bool(dev->of_node, "as_bridge")) {
 		ret = imx_nwl_dsi_parse_of(dev, true);
 		if (ret)
@@ -882,12 +889,47 @@ static int imx_nwl_dsi_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int imx_nwl_suspend(struct device *dev)
+{
+	struct imx_mipi_dsi *dsi = dev_get_drvdata(dev);
+	bool enabled = dsi->enabled;
+
+	if (enabled && dsi->next_bridge)
+		drm_bridge_disable(dsi->next_bridge);
+	imx_nwl_dsi_disable(dsi);
+	release_bus_freq(BUS_FREQ_HIGH);
+
+	return 0;
+}
+
+static int imx_nwl_resume(struct device *dev)
+{
+	struct imx_mipi_dsi *dsi = dev_get_drvdata(dev);
+	bool enabled = dsi->enabled;
+
+	request_bus_freq(BUS_FREQ_HIGH);
+	imx_nwl_dsi_enable(dsi);
+	if (!enabled && dsi->next_bridge)
+		drm_bridge_enable(dsi->next_bridge);
+
+	return 0;
+}
+
+#endif
+
+static const struct dev_pm_ops imx_nwl_pm_ops = {
+	SET_RUNTIME_PM_OPS(imx_nwl_suspend, imx_nwl_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(imx_nwl_suspend, imx_nwl_resume)
+};
+
 static struct platform_driver imx_nwl_dsi_driver = {
 	.probe		= imx_nwl_dsi_probe,
 	.remove		= imx_nwl_dsi_remove,
 	.driver		= {
 		.of_match_table = imx_nwl_dsi_dt_ids,
 		.name	= DRIVER_NAME,
+		.pm	= &imx_nwl_pm_ops,
 	},
 };
 
