@@ -316,6 +316,7 @@ static int mipi_csi2_s_power(struct v4l2_subdev *sd, int on)
 static int mipi_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct mxc_mipi_csi2_dev *csi2dev = sd_to_mxc_mipi_csi2_dev(sd);
+	struct device *dev = &csi2dev->pdev->dev;
 	struct v4l2_subdev *sensor_sd = csi2dev->sensor_sd;
 	int ret = 0;
 
@@ -324,21 +325,23 @@ static int mipi_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 
 	if (enable) {
 		if (!csi2dev->running) {
+			pm_runtime_get_sync(dev);
 			mxc_mipi_csi2_phy_reset(csi2dev);
 			mxc_mipi_csi2_hc_config(csi2dev);
 			mxc_mipi_csi2_enable(csi2dev);
 			mxc_mipi_csi2_reg_dump(csi2dev);
-			v4l2_subdev_call(sensor_sd, video, s_stream, true);
 		}
+		v4l2_subdev_call(sensor_sd, video, s_stream, true);
 		csi2dev->running++;
 
 	} else {
 
-		if (csi2dev->running) {
-			v4l2_subdev_call(sensor_sd, video, s_stream, false);
+		v4l2_subdev_call(sensor_sd, video, s_stream, false);
+		csi2dev->running--;
+		if (!csi2dev->running) {
+			pm_runtime_put(dev);
 			mxc_mipi_csi2_disable(csi2dev);
 		}
-		csi2dev->running--;
 	}
 
 	return ret;
@@ -615,6 +618,7 @@ static int mipi_csi2_probe(struct platform_device *pdev)
 
 	csi2dev->running = 0;
 	csi2dev->flags = MXC_MIPI_CSI2_PM_POWERED;
+	pm_runtime_enable(&pdev->dev);
 
 	return 0;
 
@@ -629,6 +633,30 @@ static int mipi_csi2_remove(struct platform_device *pdev)
 {
 	struct v4l2_subdev *sd = platform_get_drvdata(pdev);
 	struct mxc_mipi_csi2_dev *csi2dev = sd_to_mxc_mipi_csi2_dev(sd);
+
+	mipi_csi2_clk_disable(csi2dev);
+	pm_runtime_disable(&pdev->dev);
+
+	return 0;
+}
+
+static int mipi_csi2_pm_runtime_resume(struct device *dev)
+{
+	struct mxc_mipi_csi2_dev *csi2dev = dev_get_drvdata(dev);
+	int ret;
+
+	ret = mipi_csi2_clk_enable(csi2dev);
+	if (ret < 0) {
+		dev_info(dev, "%s:%d fail\n", __func__, __LINE__);
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
+static int mipi_csi2_runtime_pm_suspend(struct device *dev)
+{
+	struct mxc_mipi_csi2_dev *csi2dev = dev_get_drvdata(dev);
 
 	mipi_csi2_clk_disable(csi2dev);
 
@@ -677,6 +705,9 @@ static int mipi_csi2_pm_resume(struct device *dev)
 
 static const struct dev_pm_ops mipi_csi_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mipi_csi2_pm_suspend, mipi_csi2_pm_resume)
+	SET_RUNTIME_PM_OPS(mipi_csi2_runtime_pm_suspend,
+				mipi_csi2_pm_runtime_resume,
+				NULL)
 };
 
 static const struct of_device_id mipi_csi2_of_match[] = {
