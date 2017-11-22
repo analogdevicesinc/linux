@@ -17,7 +17,7 @@ message unit module for RPMSG
 
 - mu_rpmsg : The message unit module used to do the communications
   between the asymmetric cores.
-- compatible : "fsl,imx8-mu", "fsl,imx6sx-mu", "fsl,imx-mu-rpmsg1".
+- compatible : "fsl,imx6sx-mu", "fsl,imx-mu-rpmsg1".
   Different mu module would be used by the different remote processor.
   The "fsl, imx6sx-mu" is used by the first remote processor.
   The "fsl,imx-mu-rpmsg1" is used by the second remote process.
@@ -46,7 +46,7 @@ imx_rpmsg: imx_rpmsg {
 	ranges;
 
 	mu_rpmsg: mu_rpmsg@37440000 {
-		compatible = "fsl,imx8-mu", "fsl,imx6sx-mu";
+		compatible = "fsl,imx6sx-mu";
 		reg = <0x0 0x37440000 0x0 0x10000>;
 		interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&intmux_cm40>;

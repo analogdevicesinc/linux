@@ -3135,7 +3135,7 @@
 		ranges;
 
 		mu_rpmsg: mu_rpmsg@37440000 {
-			compatible = "fsl,imx8-mu", "fsl,imx6sx-mu";
+			compatible = "fsl,imx6sx-mu";
 			reg = <0x0 0x37440000 0x0 0x10000>;
 			interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&intmux_cm40>;
@@ -3151,7 +3151,7 @@
 		};
 
 		mu_rpmsg1: mu_rpmsg1@3b440000 {
-			compatible = "fsl,imx8-mu", "fsl,imx-mu-rpmsg1";
+			compatible = "fsl,imx-mu-rpmsg1";
 			reg = <0x0 0x3b440000 0x0 0x10000>;
 			interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&intmux_cm41>;

@@ -633,6 +633,7 @@
 	pinctrl-0 = <&pinctrl_pciea>;
 	disable-gpio = <&gpio0 3 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
+	clkreq-gpio = <&gpio4 27 GPIO_ACTIVE_LOW>;
 	epdev_on-supply = <&epdev_on>;
 	status = "okay";
 };

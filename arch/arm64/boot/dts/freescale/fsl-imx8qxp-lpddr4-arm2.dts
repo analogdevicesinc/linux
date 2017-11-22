@@ -366,7 +366,7 @@
 			>;
 		};
 
-		pinctrl_pcieb: pcieagrp{
+		pinctrl_pcieb: pciebgrp{
 			fsl,pins = <
 				SC_P_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO00		0x06000021
 				SC_P_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO01	0x06000021
@@ -603,6 +603,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	reset-gpio = <&gpio4 0 GPIO_ACTIVE_LOW>;
+	clkreq-gpio = <&gpio4 1 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 

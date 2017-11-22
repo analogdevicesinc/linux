@@ -827,6 +827,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea>;
 	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
+	clkreq-gpio = <&gpio4 27 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 
@@ -835,6 +836,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	reset-gpio = <&gpio5 0 GPIO_ACTIVE_LOW>;
+	clkreq-gpio = <&gpio4 1 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 
