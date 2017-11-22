@@ -29,6 +29,11 @@ struct imx_hdp *g_hdp;
 struct drm_display_mode *g_mode;
 
 static const struct drm_display_mode edid_cea_modes[] = {
+	/* 3 - 720x480@60Hz */
+	{ DRM_MODE("720x480", DRM_MODE_TYPE_DRIVER, 27000, 720, 736,
+		   798, 858, 0, 480, 489, 495, 525, 0,
+		   DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC),
+	  .vrefresh = 60, .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9, },
 	/* 4 - 1280x720@60Hz */
 	{ DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1390,
 		   1430, 1650, 0, 720, 725, 730, 750, 0,
