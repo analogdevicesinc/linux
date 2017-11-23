@@ -41,6 +41,7 @@ struct tcpci {
 
 	bool controls_vbus;
 	bool drive_vbus;
+	bool sink_disable;
 	struct gpio_desc *ss_sel_gpio;
 
 	struct tcpc_dev tcpc;
@@ -408,7 +409,7 @@ static int tcpci_set_vbus(struct tcpc_dev *tcpc, bool source, bool sink)
 		tcpci->drive_vbus = true;
 	}
 
-	if (sink) {
+	if (sink && !tcpci->sink_disable) {
 		ret = regmap_write(tcpci->regmap, TCPC_COMMAND,
 				   TCPC_CMD_SINK_VBUS);
 		if (ret < 0)
@@ -703,6 +704,13 @@ static int tcpci_parse_config(struct tcpci *tcpci)
 		device_property_read_u32(tcpci->dev, "op-snk-mw",
 						&tcfg->operating_snk_mw))
 		goto snk_setting_wrong;
+
+	/*
+	 * In case DRP only for data role, power role is source only
+	 * we can use this property to disable power sink.
+	 */
+	if (device_property_read_bool(tcpci->dev, "sink-disable"))
+		tcpci->sink_disable = true;
 
 	return 0;
 
