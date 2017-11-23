@@ -239,10 +239,13 @@ static int fsl_sai_set_dai_sysclk_tr(struct snd_soc_dai *cpu_dai,
 static int fsl_sai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 		int clk_id, unsigned int freq, int dir)
 {
+	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
 	int ret;
 
 	if (dir == SND_SOC_CLOCK_IN)
 		return 0;
+
+	sai->bitclk_freq = freq;
 
 	ret = fsl_sai_set_dai_sysclk_tr(cpu_dai, clk_id, freq,
 					FSL_FMT_TRANSMITTER);
@@ -503,7 +506,11 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 		slot_width = sai->slot_width;
 
 	if (!sai->slave_mode[tx]) {
-		ret = fsl_sai_set_bclk(cpu_dai, tx,
+		if (sai->bitclk_freq)
+			ret = fsl_sai_set_bclk(cpu_dai, tx,
+					sai->bitclk_freq);
+		else
+			ret = fsl_sai_set_bclk(cpu_dai, tx,
 				slots * slot_width * params_rate(params));
 		if (ret)
 			return ret;
