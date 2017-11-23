@@ -168,7 +168,7 @@ typedef struct {
  * \brief expands to blocking function body
  * \param x - function call
  */
-#define MAILBOX_FILL_TIMEOUT	15000
+#define MAILBOX_FILL_TIMEOUT	1500
 #define internal_block_function(x)               \
 do {                                                              \
 	unsigned long end_jiffies = jiffies + 				\
