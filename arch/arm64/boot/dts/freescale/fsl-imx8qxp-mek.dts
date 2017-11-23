@@ -654,7 +654,8 @@
 		max-snk-mv = <9000>;
 		max-snk-ma = <1000>;
 		op-snk-mw = <9000>;
-		port-type = "dfp";
+		port-type = "drp";
+		sink-disable;
 		default-role = "source";
 		status = "okay";
 	};
