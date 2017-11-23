@@ -20,6 +20,14 @@
 	};
 };
 
+&irqsteer_dcss {
+	status = "disabled";
+};
+
+&ov5640_mipi {
+	status = "disabled";
+};
+
 &dcss_drm {
 	status = "disabled";
 };

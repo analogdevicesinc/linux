@@ -20,6 +20,10 @@
 	};
 };
 
+&irqsteer_dcss {
+	status = "disabled";
+};
+
 &dcss_drm {
 	status = "disabled";
 };
