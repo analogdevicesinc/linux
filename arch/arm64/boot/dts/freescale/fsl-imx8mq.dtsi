@@ -574,7 +574,10 @@
 		compatible = "fsl,imx8mq-hdmi";
 		reg = <0x0 0x32c00000 0x0 0x33800>,	/* HDP registers */
 				<0x0 0x32e40000 0x0 0x40000>;   /* HDP SEC register */
-		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "plug_in", "plug_out";
+		interrupt-parent = <&gpc>;
 		status = "disabled";
 
 		port@0 {
