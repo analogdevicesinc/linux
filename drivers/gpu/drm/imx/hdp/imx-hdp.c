@@ -18,6 +18,7 @@
 #include <linux/component.h>
 #include <linux/mfd/syscon.h>
 #include <linux/of.h>
+#include <linux/irq.h>
 #include <linux/of_device.h>
 
 #include "imx-hdp.h"
@@ -566,25 +567,6 @@ void imx8qm_dp_ipg_clock_set_rate(struct hdp_clks *clks)
 	}
 }
 
-static int imx_hdp_deinit(struct imx_hdp *hdp)
-{
-	u8 bresp;
-	u32 ret;
-
-	/* Stop link training */
-	CDN_API_DPTX_TrainingControl_blocking(&hdp->state, 0);
-
-	/* Disable HPD event and training */
-	CDN_API_DPTX_EnableEvent_blocking(&hdp->state, 0, 0);
-
-	/* turn off hdp controller IP activity 0-standby */
-	ret = CDN_API_MainControl_blocking(&hdp->state, 0, &bresp);
-	if (ret != CDN_OK)
-		return -1;
-
-	return ret;
-}
-
 static int imx_get_vic_index(struct drm_display_mode *mode)
 {
 	int i;
@@ -627,19 +609,6 @@ static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mod
 	hdp->vic = drm_match_cea_mode(mode);
 }
 
-#if 0
-static int imx_hdp_cable_plugin(struct imx_hdp *hdp)
-{
-	return 0;
-}
-
-static int imx_hdp_cable_plugout(struct imx_hdp *hdp)
-{
-	imx_hdp_call(hdp, pixel_clock_disable, &hdp->clks);
-	return 0;
-}
-#endif
-
 static void imx_hdp_bridge_mode_set(struct drm_bridge *bridge,
 				    struct drm_display_mode *orig_mode,
 				    struct drm_display_mode *mode)
@@ -667,7 +636,21 @@ static void imx_hdp_bridge_enable(struct drm_bridge *bridge)
 static enum drm_connector_status
 imx_hdp_connector_detect(struct drm_connector *connector, bool force)
 {
-	return connector_status_connected;
+	struct imx_hdp *hdp = container_of(connector,
+						struct imx_hdp, connector);
+	int ret;
+	u8 hpd;
+
+	ret = imx_hdp_call(hdp, get_hpd_state, &hdp->state, &hpd);
+	if (ret > 0)
+		return connector_status_unknown;
+
+	if (hpd == 1)
+		/* Cable Connected */
+		return connector_status_connected;
+	else
+		/* Cable Disconnedted  */
+		return connector_status_disconnected;
 }
 
 static int imx_hdp_connector_get_modes(struct drm_connector *connector)
@@ -895,6 +878,7 @@ static struct hdp_ops imx8qm_dp_ops = {
 	.phy_init = dp_phy_init,
 	.mode_set = dp_mode_set,
 	.get_edid_block = dp_get_edid_block,
+	.get_hpd_state = dp_get_hpd_state,
 
 	.phy_reset = imx8qm_phy_reset,
 	.pixel_link_init = imx8qm_pixel_link_init,
@@ -916,6 +900,7 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 	.phy_init = hdmi_phy_init,
 	.mode_set = hdmi_mode_set,
 	.get_edid_block = hdmi_get_edid_block,
+	.get_hpd_state = hdmi_get_hpd_state,
 
 	.phy_reset = imx8qm_phy_reset,
 	.pixel_link_init = imx8qm_pixel_link_init,
@@ -958,6 +943,7 @@ static struct hdp_ops imx8mq_ops = {
 	.phy_init = hdmi_phy_init_t28hpc,
 	.mode_set = hdmi_mode_set_t28hpc,
 	.get_edid_block = hdmi_get_edid_block,
+	.get_hpd_state = hdmi_get_hpd_state,
 };
 
 static struct hdp_devtype imx8mq_hdmi_devtype = {
@@ -976,79 +962,36 @@ static const struct of_device_id imx_hdp_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, imx_hdp_dt_ids);
 
-#if 0
-#ifdef hdp_irq
-static irqreturn_t imx_hdp_irq_handler(int irq, void *data)
+static void hotplug_work_func(struct work_struct *work)
+{
+	struct imx_hdp *hdp = container_of(work, struct imx_hdp,
+								hotplug_work.work);
+	struct drm_connector *connector = &hdp->connector;
+
+	drm_helper_hpd_irq_event(connector->dev);
+
+	if (connector->status == connector_status_connected) {
+		/* Cable Connected */
+		DRM_INFO("HDMI/DP Cable Plug In\n");
+		enable_irq(hdp->irq[HPD_IRQ_OUT]);
+	} else {
+		/* Cable Disconnedted  */
+		DRM_INFO("HDMI/DP Cable Plug Out\n");
+		enable_irq(hdp->irq[HPD_IRQ_IN]);
+	}
+}
+
+static irqreturn_t imx_hdp_irq_thread(int irq, void *data)
 {
 	struct imx_hdp *hdp = data;
-	u8 eventId;
-	u8 HPDevents;
-	u8 aux_sts;
-	u8 aux_hpd;
-	u32 evt;
-	u8 hpdevent;
 
-	CDN_API_Get_Event(&hdp->state, &evt);
+	disable_irq_nosync(irq);
 
-	if (evt & 0x1) {
-		/* HPD event */
-		pr_info("\nevt=%d\n", evt);
-		drm_helper_hpd_irq_event(hdp->connector.dev);
-		CDN_API_DPTX_ReadEvent_blocking(&hdp->state, &eventId, &HPDevents);
-		pr_info("ReadEvent  ID = %d HPD = %d\n", eventId, HPDevents);
-		CDN_API_DPTX_GetHpdStatus_blocking(&hdp->state, &aux_hpd);
-		pr_info("aux_hpd = 0xx\n", aux_hpd);
-	} else if (evt & 0x2) {
-		/* Link training event */
-	} else
-		pr_info(".\r");
+	mod_delayed_work(system_wq, &hdp->hotplug_work,
+			msecs_to_jiffies(HOTPLUG_DEBOUNCE_MS));
 
 	return IRQ_HANDLED;
 }
-#else
-static int hpd_det_worker(void *_dp)
-{
-	struct imx_hdp *hdp = (struct imx_hdp *) _dp;
-	u8 eventId;
-	u8 HPDevents;
-	u8 aux_hpd;
-	u32 evt;
-
-	for (;;) {
-		CDN_API_Get_Event(&hdp->state, &evt);
-		if (evt & 0x1) {
-			/* HPD event */
-			CDN_API_DPTX_ReadEvent_blocking(&hdp->state, &eventId, &HPDevents);
-			pr_info("ReadEvent  ID = %d HPD = %d\n", eventId, HPDevents);
-			CDN_API_DPTX_GetHpdStatus_blocking(&hdp->state, &aux_hpd);
-			if (HPDevents & 0x1) {
-				pr_info("cable plugin\n");
-				imx_hdp_cable_plugin(hdp);
-				hdp->cable_state = true;
-				drm_kms_helper_hotplug_event(hdp->connector.dev);
-				imx_hdp_mode_setup(hdp, &hdp->video.cur_mode);
-			} else if (HPDevents & 0x2) {
-				pr_info("cable plugout\n");
-				hdp->cable_state = false;
-				imx_hdp_cable_plugout(hdp);
-				drm_kms_helper_hotplug_event(hdp->connector.dev);
-			} else
-				pr_info("HPDevent=0x%x\n", HPDevents);
-		} else if (evt & 0x2) {
-			/* Link training event */
-			pr_info("evt=0x%x\n", evt);
-			CDN_API_DPTX_ReadEvent_blocking(&hdp->state, &eventId, &HPDevents);
-			pr_info("ReadEvent  ID = %d HPD = %d\n", eventId, HPDevents);
-		} else if (evt & 0xf)
-			pr_info("evt=0x%x\n", evt);
-
-		schedule_timeout_idle(200);
-	}
-
-	return 0;
-}
-#endif
-#endif
 
 static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 			    void *data)
@@ -1063,10 +1006,7 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	struct drm_bridge *bridge;
 	struct drm_connector *connector;
 	struct resource *res;
-#if 0
-	struct task_struct *hpd_worker;
-#endif
-	int irq;
+	u8 hpd;
 	int ret;
 
 	if (!pdev->dev.of_node)
@@ -1084,11 +1024,13 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	g_hdp = hdp;
 	mutex_init(&hdp->mutex);
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "can't get irq number\n");
-		return irq;
-	}
+	hdp->irq[HPD_IRQ_IN] = platform_get_irq_byname(pdev, "plug_in");
+	if (hdp->irq[HPD_IRQ_IN] < 0)
+		dev_info(&pdev->dev, "No plug_in irq number\n");
+
+	hdp->irq[HPD_IRQ_OUT] = platform_get_irq_byname(pdev, "plug_out");
+	if (hdp->irq[HPD_IRQ_OUT] < 0)
+		dev_info(&pdev->dev, "No plug_out irq number\n");
 
 	/* register map */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1111,46 +1053,7 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	hdp->ops = devtype->ops;
 	hdp->rw = devtype->rw;
 
-	/* encoder */
-	encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, dev->of_node);
-	/*
-	 * If we failed to find the CRTC(s) which this encoder is
-	 * supposed to be connected to, it's because the CRTC has
-	 * not been registered yet.  Defer probing, and hope that
-	 * the required CRTC is added later.
-	 */
-	if (encoder->possible_crtcs == 0) {
-		return -EPROBE_DEFER;
-	}
-
-	/* encoder */
-	drm_encoder_helper_add(encoder, &imx_hdp_imx_encoder_helper_funcs);
-	drm_encoder_init(drm, encoder, &imx_hdp_imx_encoder_funcs,
-			 DRM_MODE_ENCODER_TMDS, NULL);
-
-	/* bridge */
-	bridge->driver_private = hdp;
-	bridge->funcs = &imx_hdp_bridge_funcs;
-	ret = drm_bridge_attach(encoder, bridge, NULL);
-	if (ret) {
-		DRM_ERROR("Failed to initialize bridge with drm\n");
-		return -EINVAL;
-	}
-
-	encoder->bridge = bridge;
-
-	/* connector */
-	drm_connector_helper_add(connector,
-				 &imx_hdp_connector_helper_funcs);
-
-	drm_connector_init(drm, connector,
-			   &imx_hdp_connector_funcs,
-			   DRM_MODE_CONNECTOR_HDMIA);
-
-	drm_mode_connector_attach_encoder(connector, encoder);
-
-	dev_set_drvdata(dev, hdp);
-
+	/* HDP controller init */
 	imx_hdp_state_init(hdp);
 
 	hdp->link_rate = AFE_LINK_RATE_1_6;
@@ -1192,39 +1095,91 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 		return ret;
 	}
 
-#if 0
-#ifdef hdp_irq
-	ret = devm_request_threaded_irq(dev, irq,
-					NULL, imx_hdp_irq_handler,
-					IRQF_IRQPOLL, dev_name(dev), dp);
+	/* encoder */
+	encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, dev->of_node);
+	/*
+	 * If we failed to find the CRTC(s) which this encoder is
+	 * supposed to be connected to, it's because the CRTC has
+	 * not been registered yet.  Defer probing, and hope that
+	 * the required CRTC is added later.
+	 */
+	if (encoder->possible_crtcs == 0)
+		return -EPROBE_DEFER;
+
+	/* encoder */
+	drm_encoder_helper_add(encoder, &imx_hdp_imx_encoder_helper_funcs);
+	drm_encoder_init(drm, encoder, &imx_hdp_imx_encoder_funcs,
+			 DRM_MODE_ENCODER_TMDS, NULL);
+
+	/* bridge */
+	bridge->driver_private = hdp;
+	bridge->funcs = &imx_hdp_bridge_funcs;
+	ret = drm_bridge_attach(encoder, bridge, NULL);
 	if (ret) {
-		dev_err(&pdev->dev, "can't claim irq %d\n", irq);
-		goto err_irq;
-	}
-#else
-	hpd_worker = kthread_create(hpd_det_worker, hdp, "hdp-hpd");
-	if (IS_ERR(hpd_worker)) {
-		dev_err(&pdev->dev, "failed  create hpd thread\n");
+		DRM_ERROR("Failed to initialize bridge with drm\n");
+		return -EINVAL;
 	}
 
-	wake_up_process(hpd_worker);	/* avoid contributing to loadavg */
-#endif
-#endif
+	encoder->bridge = bridge;
+	hdp->connector.polled = DRM_CONNECTOR_POLL_HPD;
+
+	/* connector */
+	drm_connector_helper_add(connector,
+				 &imx_hdp_connector_helper_funcs);
+
+	drm_connector_init(drm, connector,
+			   &imx_hdp_connector_funcs,
+			   DRM_MODE_CONNECTOR_HDMIA);
+
+	drm_mode_connector_attach_encoder(connector, encoder);
+
+	dev_set_drvdata(dev, hdp);
+
+	INIT_DELAYED_WORK(&hdp->hotplug_work, hotplug_work_func);
+
+	/* Check cable states before enable irq */
+	imx_hdp_call(hdp, get_hpd_state, &hdp->state, &hpd);
+
+	/* Enable Hotplug Detect IRQ thread */
+	if (hdp->irq[HPD_IRQ_IN] > 0) {
+		irq_set_status_flags(hdp->irq[HPD_IRQ_IN], IRQ_NOAUTOEN);
+		ret = devm_request_threaded_irq(dev, hdp->irq[HPD_IRQ_IN],
+						NULL, imx_hdp_irq_thread,
+						IRQF_ONESHOT, dev_name(dev), hdp);
+		if (ret) {
+			dev_err(&pdev->dev, "can't claim irq %d\n",
+							hdp->irq[HPD_IRQ_IN]);
+			goto err_irq;
+		}
+		/* Cable Disconnedted, enable Plug in IRQ */
+		if (hpd == 0)
+			enable_irq(hdp->irq[HPD_IRQ_IN]);
+	}
+	if (hdp->irq[HPD_IRQ_OUT] > 0) {
+		irq_set_status_flags(hdp->irq[HPD_IRQ_OUT], IRQ_NOAUTOEN);
+		ret = devm_request_threaded_irq(dev, hdp->irq[HPD_IRQ_OUT],
+						NULL, imx_hdp_irq_thread,
+						IRQF_ONESHOT, dev_name(dev), hdp);
+		if (ret) {
+			dev_err(&pdev->dev, "can't claim irq %d\n",
+							hdp->irq[HPD_IRQ_OUT]);
+			goto err_irq;
+		}
+		/* Cable Connected, enable Plug out IRQ */
+		if (hpd == 1)
+			enable_irq(hdp->irq[HPD_IRQ_OUT]);
+	}
 
 	return 0;
-#ifdef hdp_irq
 err_irq:
 	drm_encoder_cleanup(encoder);
 	return ret;
-#endif
 }
 
 static void imx_hdp_imx_unbind(struct device *dev, struct device *master,
 			       void *data)
 {
 	struct imx_hdp *hdp = dev_get_drvdata(dev);
-
-	imx_hdp_deinit(hdp);
 
 	imx_hdp_call(hdp, pixel_link_deinit, &hdp->state);
 }

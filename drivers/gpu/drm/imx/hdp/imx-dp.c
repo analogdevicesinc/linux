@@ -199,7 +199,10 @@ int dp_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
 	return ret;
 }
 
-void dp_get_hpd_state(state_struct *state, u8 *hpd)
+int dp_get_hpd_state(state_struct *state, u8 *hpd)
 {
-	CDN_API_DPTX_GetHpdStatus_blocking(state, hpd);
+	int ret;
+
+	ret = CDN_API_DPTX_GetHpdStatus_blocking(state, hpd);
+	return ret;
 }

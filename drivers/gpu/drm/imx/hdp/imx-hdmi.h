@@ -19,7 +19,7 @@ void hdmi_fw_init(state_struct *state);
 int hdmi_phy_init(state_struct *state, int vic, int format, int color_depth);
 void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, int temp);
 int hdmi_get_edid_block(void *data, u8 *buf, u32 block, size_t len);
-void hdmi_get_hpd_state(state_struct *state, u8 *hpd);
+int hdmi_get_hpd_state(state_struct *state, u8 *hpd);
 int hdmi_phy_init_t28hpc(state_struct *state, int vic, int format, int color_depth);
 void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_depth, int temp);
 

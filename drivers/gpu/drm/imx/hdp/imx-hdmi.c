@@ -229,8 +229,10 @@ int hdmi_get_edid_block(void *data, u8 *buf, u32 block, size_t len)
 	return ret;
 }
 
-void hdmi_get_hpd_state(state_struct *state, u8 *hpd)
+int hdmi_get_hpd_state(state_struct *state, u8 *hpd)
 {
-	printk("%s\n", __func__);
-	CDN_API_HDMITX_GetHpdStatus_blocking(state, hpd);
+	int ret;
+
+	ret = CDN_API_HDMITX_GetHpdStatus_blocking(state, hpd);
+	return ret;
 }

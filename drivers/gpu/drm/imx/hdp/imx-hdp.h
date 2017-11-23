@@ -53,6 +53,8 @@
 #define CSR_HDP_TX_CTRL_CTRL0		0x08
 #define CSR_HDP_TX_CTRL_CTRL1		0x0c
 
+#define HOTPLUG_DEBOUNCE_MS		200
+
 /**
  * imx_hdp_call - Calls a struct imx hdp_operations operation on
  *	an entity
@@ -83,7 +85,7 @@ struct hdp_ops {
 	int (*phy_init)(state_struct *state, int vic, int format, int color_depth);
 	void (*mode_set)(state_struct *state, int vic, int format, int color_depth, int max_link);
 	int (*get_edid_block)(void *data, u8 *buf, u32 block, size_t len);
-	void (*get_hpd_state)(state_struct *state, u8 *hpd);
+	int (*get_hpd_state)(state_struct *state, u8 *hpd);
 
 	void (*phy_reset)(sc_ipc_t ipcHndl, u8 reset);
 	int (*pixel_link_init)(state_struct *state);
@@ -172,6 +174,12 @@ struct hdp_clks {
 	struct clk *clk_i2s_bypass;
 };
 
+enum hdp_tx_irq {
+	HPD_IRQ_IN,
+	HPD_IRQ_OUT,
+	HPD_IRQ_NUM,
+};
+
 struct imx_hdp {
 	struct device *dev;
 	struct drm_connector connector;
@@ -208,6 +216,8 @@ struct imx_hdp {
 	struct hdp_clks clks;
 	state_struct state;
 	int vic;
+	int irq[HPD_IRQ_NUM];
+	struct delayed_work hotplug_work;
 
 };
 
