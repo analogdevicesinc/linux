@@ -247,9 +247,13 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	dtg->dis_ulc_x = dis_ulc_x;
 	dtg->dis_ulc_y = dis_ulc_y;
 
-	dcss_dtg_write(dtg,
-		       ((dis_ulc_y << TC_CTXLD_DB_Y_POS) & TC_CTXLD_DB_Y_MASK),
-		       DCSS_DTG_TC_CTXLD);
+	/*
+	 * FIXME: the context loader trigger values should not be hard-coded,
+	 * but these values proved to provide the best user experience. Planes
+	 * that use RGB pixel formats (more bandwidth) will not disappear
+	 * anymore.
+	 */
+	dcss_dtg_write(dtg, 0x0008000a, DCSS_DTG_TC_CTXLD);
 }
 EXPORT_SYMBOL(dcss_dtg_sync_set);
 
