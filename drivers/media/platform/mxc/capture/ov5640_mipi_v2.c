@@ -472,16 +472,14 @@ static void ov5640_reset(void)
 	gpio_set_value(pwn_gpio, 1);
 	msleep(5);
 
-	gpio_set_value(pwn_gpio, 0);
-	msleep(5);
-
 	gpio_set_value(rst_gpio, 0);
 	msleep(1);
 
-	gpio_set_value(rst_gpio, 1);
+	gpio_set_value(pwn_gpio, 0);
 	msleep(5);
 
-	gpio_set_value(pwn_gpio, 1);
+	gpio_set_value(rst_gpio, 1);
+	msleep(5);
 }
 
 static int ov5640_regulator_enable(struct device *dev)
