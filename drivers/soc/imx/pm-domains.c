@@ -279,6 +279,13 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 			imx8_pd->pd.attach_dev = imx8_attach_dev;
 			imx8_pd->pd.detach_dev = imx8_detach_dev;
 
+			imx8_pd->pd.states[0].power_off_latency_ns = 25000;
+			imx8_pd->pd.states[0].power_on_latency_ns =  25000;
+			imx8_pd->pd.states[1].power_off_latency_ns = 2500000;
+			imx8_pd->pd.states[1].power_on_latency_ns =  2500000;
+
+			imx8_pd->pd.state_count = 2;
+
 			if (of_property_read_bool(np, "early_power_on")
 				&& index < (sizeof(early_power_on_rsrc) /
 				sizeof(sc_rsrc_t))) {
