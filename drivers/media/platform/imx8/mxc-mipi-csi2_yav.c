@@ -671,13 +671,14 @@ static int mipi_csi2_runtime_pm_suspend(struct device *dev)
 static int mipi_csi2_pm_suspend(struct device *dev)
 {
 	struct mxc_mipi_csi2_dev *csi2dev = dev_get_drvdata(dev);
-	struct v4l2_subdev *sd = &csi2dev->sd;
 
 	if (csi2dev->flags & MXC_MIPI_CSI2_PM_SUSPENDED)
 		return 0;
 
-	if (csi2dev->running)
-		mipi_csi2_s_stream(sd, false);
+	if (csi2dev->running) {
+		dev_warn(dev, "running, prevent entering suspend.\n");
+		return -EAGAIN;
+	}
 	mipi_csi2_clk_disable(csi2dev);
 	csi2dev->flags &= ~MXC_MIPI_CSI2_PM_POWERED;
 	csi2dev->flags |= MXC_MIPI_CSI2_PM_SUSPENDED;
@@ -688,7 +689,6 @@ static int mipi_csi2_pm_suspend(struct device *dev)
 static int mipi_csi2_pm_resume(struct device *dev)
 {
 	struct mxc_mipi_csi2_dev *csi2dev = dev_get_drvdata(dev);
-	struct v4l2_subdev *sd = &csi2dev->sd;
 	int ret;
 
 	if (csi2dev->flags & MXC_MIPI_CSI2_PM_POWERED)
@@ -700,8 +700,6 @@ static int mipi_csi2_pm_resume(struct device *dev)
 		return -EAGAIN;
 	}
 
-	if (csi2dev->running)
-		mipi_csi2_s_stream(sd, true);
 	csi2dev->flags |= MXC_MIPI_CSI2_PM_POWERED;
 	csi2dev->flags &= ~MXC_MIPI_CSI2_PM_SUSPENDED;
 
