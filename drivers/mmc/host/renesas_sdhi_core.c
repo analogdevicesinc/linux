@@ -498,7 +498,7 @@ int renesas_sdhi_probe(struct platform_device *pdev,
 	if (IS_ERR(priv->clk)) {
 		ret = PTR_ERR(priv->clk);
 		dev_err(&pdev->dev, "cannot get clock: %d\n", ret);
-		goto eprobe;
+		return ret;
 	}
 
 	/*
@@ -525,10 +525,8 @@ int renesas_sdhi_probe(struct platform_device *pdev,
 	}
 
 	host = tmio_mmc_host_alloc(pdev);
-	if (!host) {
-		ret = -ENOMEM;
-		goto eprobe;
-	}
+	if (!host)
+		return -ENOMEM;
 
 	if (of_data) {
 		mmc_data->flags |= of_data->tmio_flags;
@@ -653,7 +651,7 @@ eirq:
 	tmio_mmc_host_remove(host);
 efree:
 	tmio_mmc_host_free(host);
-eprobe:
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(renesas_sdhi_probe);
