@@ -90,6 +90,7 @@ struct generic_pm_domain {
 		};
 	};
 
+	unsigned int state_idx_saved; /* saved power state for recovery after system suspend/resume */
 };
 
 static inline struct generic_pm_domain *pd_to_genpd(struct dev_pm_domain *pd)
