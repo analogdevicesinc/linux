@@ -86,8 +86,7 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 
 	ret = imx8_pd_power(domain, true);
 
-	if (!list_empty(&pd->clks) && domain->status == GPD_STATE_POWER_OFF
-		&& !pd->runtime_idle_active) {
+	if (!list_empty(&pd->clks) && !pd->runtime_idle_active) {
 		/*
 		 * The SS is powered on restore the clock rates that
 		 * may be lost.
@@ -122,8 +121,7 @@ static int imx8_pd_power_off(struct generic_pm_domain *domain)
 
 	pd = container_of(domain, struct imx8_pm_domain, pd);
 
-	if (!list_empty(&pd->clks) && (domain->status != GPD_STATE_POWER_OFF)
-		&& (!pd->runtime_idle_active)) {
+	if (!list_empty(&pd->clks) && (!pd->runtime_idle_active)) {
 		/*
 		 * The SS is going to be powered off, store the clock rates
 		 * that may be lost.
