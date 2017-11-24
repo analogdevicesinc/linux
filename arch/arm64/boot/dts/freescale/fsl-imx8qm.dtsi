@@ -1438,6 +1438,19 @@
 		};
 	};
 
+	lvds0_pwm: pwm@56244000 {
+		compatible = "fsl,imx8qm-pwm", "fsl,imx27-pwm";
+		reg = <0x0 0x56244000 0 0x1000>;
+		clocks = <&clk IMX8QM_LVDS0_PWM0_IPG_CLK>,
+			 <&clk IMX8QM_LVDS0_PWM0_CLK>;
+		clock-names = "ipg", "per";
+		assigned-clocks = <&clk IMX8QM_LVDS0_PWM0_CLK>;
+		assigned-clock-rates = <24000000>;
+		#pwm-cells = <2>;
+		power-domains = <&pd_lvds0_pwm>;
+		status = "disabled";
+	};
+
 	dpu2_intsteer: dpu_intsteer@57000000 {
 		compatible = "fsl,imx8qm-dpu-intsteer", "syscon";
 		reg = <0x0 0x57000000 0x0 0x10000>;
@@ -1662,6 +1675,19 @@
 				};
 			};
 		};
+	};
+
+	lvds1_pwm: pwm@57244000 {
+		compatible = "fsl,imx8qm-pwm", "fsl,imx27-pwm";
+		reg = <0x0 0x57244000 0 0x1000>;
+		clocks = <&clk IMX8QM_LVDS1_PWM0_IPG_CLK>,
+			 <&clk IMX8QM_LVDS1_PWM0_CLK>;
+		clock-names = "ipg", "per";
+		assigned-clocks = <&clk IMX8QM_LVDS1_PWM0_CLK>;
+		assigned-clock-rates = <24000000>;
+		#pwm-cells = <2>;
+		power-domains = <&pd_lvds1_pwm>;
+		status = "disabled";
 	};
 
 	camera {
