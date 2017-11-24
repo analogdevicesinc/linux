@@ -69,7 +69,7 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 
 	sci_err = sc_pm_set_resource_power_mode(pm_ipc_handle, pd->rsrc_id,
 		(power_on) ? SC_PM_PW_MODE_ON :
-		(pd->runtime_idle_active) ? SC_PM_PW_MODE_LP : SC_PM_PW_MODE_OFF);
+		pd->pd.state_idx ? SC_PM_PW_MODE_OFF : SC_PM_PW_MODE_LP);
 	if (sci_err)
 		pr_err("Failed power operation on resource %d\n", pd->rsrc_id);
 
