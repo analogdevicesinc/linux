@@ -395,8 +395,13 @@ static int mipi_csi2_set_fmt(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_pad_config *cfg,
 			     struct v4l2_subdev_format *fmt)
 {
-	/* TODO */
-	return 0;
+	struct mxc_mipi_csi2_dev *csi2dev = sd_to_mxc_mipi_csi2_dev(sd);
+	struct v4l2_subdev *sensor_sd = csi2dev->sensor_sd;
+
+	if (fmt->pad)
+		return -EINVAL;
+
+	return v4l2_subdev_call(sensor_sd, pad, set_fmt, NULL, fmt);
 }
 
 static int mipi_csis_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)

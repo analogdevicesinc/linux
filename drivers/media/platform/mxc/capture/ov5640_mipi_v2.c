@@ -116,11 +116,25 @@ struct ov5640 {
 
 	void (*io_init)(void);
 };
+
+struct ov5640_res {
+	int width;
+	int height;
+};
+
 /*!
  * Maintains the information on the current state of the sesor.
  */
 static struct ov5640 ov5640_data;
 static int pwn_gpio, rst_gpio;
+
+struct ov5640_res ov5640_valid_res[] = {
+	[0] = {640, 480},
+	[1] = {720, 480},
+	[2] = {1280, 720},
+	[3] = {1920, 1080},
+	[4] = {2592, 1944},
+};
 
 static struct reg_value ov5640_init_setting_30fps_VGA[] = {
 
@@ -401,6 +415,19 @@ static struct i2c_driver ov5640_i2c_driver = {
 static const struct ov5640_datafmt ov5640_colour_fmts[] = {
 	{MEDIA_BUS_FMT_YUYV8_2X8, V4L2_COLORSPACE_JPEG},
 };
+
+static int get_capturemode(int width, int height)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ov5640_valid_res); i++) {
+		if ((ov5640_valid_res[i].width == width) &&
+		     (ov5640_valid_res[i].height == height))
+			return i;
+	}
+
+	return -1;
+}
 
 static struct ov5640 *to_ov5640(const struct i2c_client *client)
 {
@@ -1297,6 +1324,7 @@ static int ov5640_set_fmt(struct v4l2_subdev *sd,
 	const struct ov5640_datafmt *fmt = ov5640_find_datafmt(mf->code);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov5640 *sensor = to_ov5640(client);
+	int capturemode;
 
 	if (!fmt) {
 		mf->code	= ov5640_colour_fmts[0].code;
@@ -1310,7 +1338,16 @@ static int ov5640_set_fmt(struct v4l2_subdev *sd,
 
 	sensor->fmt = fmt;
 
-	return 0;
+	capturemode = get_capturemode(mf->width, mf->height);
+	if (capturemode >= 0) {
+		ov5640_data.streamcap.capturemode = capturemode;
+		ov5640_data.pix.width = mf->width;
+		ov5640_data.pix.height = mf->height;
+		return 0;
+	}
+
+	dev_err(&client->dev, "%s set fail\n", __func__);
+	return -EINVAL;
 }
 
 
@@ -1329,6 +1366,9 @@ static int ov5640_get_fmt(struct v4l2_subdev *sd,
 	mf->code	= fmt->code;
 	mf->colorspace	= fmt->colorspace;
 	mf->field	= V4L2_FIELD_NONE;
+
+	mf->width	= ov5640_data.pix.width;
+	mf->height	= ov5640_data.pix.height;
 
 	return 0;
 }
