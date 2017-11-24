@@ -71,7 +71,7 @@ CDN_API_STATUS CDN_API_HDCP_TX_CONFIGURATION_blocking(state_struct *state,
 						      u8 val,
 						      CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP_TX_CONFIGURATION
+	internal_block_function(&state->mutex, CDN_API_HDCP_TX_CONFIGURATION
 				(state, val, bus_type));
 }
 
@@ -101,7 +101,7 @@ CDN_API_HDCP2_TX_SET_PUBLIC_KEY_PARAMS_blocking(state_struct *state,
 							S_HDCP_TRANS_PUBLIC_KEY_PARAMS *val,
 							CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP2_TX_SET_PUBLIC_KEY_PARAMS
+	internal_block_function(&state->mutex, CDN_API_HDCP2_TX_SET_PUBLIC_KEY_PARAMS
 				(state, val, bus_type));
 }
 
@@ -134,7 +134,7 @@ CDN_API_HDCP2_TX_SET_KM_KEY_PARAMS_blocking(state_struct *state,
 					    S_HDCP_TRANS_KM_KEY_PARAMS *val,
 					    CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP2_TX_SET_KM_KEY_PARAMS
+	internal_block_function(&state->mutex, CDN_API_HDCP2_TX_SET_KM_KEY_PARAMS
 				(state, val, bus_type));
 }
 
@@ -167,7 +167,7 @@ CDN_API_STATUS CDN_API_HDCP2_TX_SET_DEBUG_RANDOM_NUMBERS_blocking(
 				S_HDCP_TRANS_DEBUG_RANDOM_NUMBERS *val,
 				CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP2_TX_SET_DEBUG_RANDOM_NUMBERS
+	internal_block_function(&state->mutex, CDN_API_HDCP2_TX_SET_DEBUG_RANDOM_NUMBERS
 				(state, val, bus_type));
 }
 
@@ -204,7 +204,7 @@ CDN_API_STATUS CDN_API_HDCP2_TX_RESPOND_KM_blocking(state_struct *state,
 						    S_HDCP_TRANS_PAIRING_DATA *val,
 							CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP2_TX_RESPOND_KM
+	internal_block_function(&state->mutex, CDN_API_HDCP2_TX_RESPOND_KM
 				(state, val, bus_type));
 }
 
@@ -233,7 +233,7 @@ CDN_API_HDCP1_TX_SEND_KEYS_blocking(state_struct *state,
 				    S_HDCP_TX_MAIL_BOX_CMD_HDCP1_TX_SEND_KEYS *val,
 					CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP1_TX_SEND_KEYS
+	internal_block_function(&state->mutex, CDN_API_HDCP1_TX_SEND_KEYS
 				(state, val, bus_type));
 }
 
@@ -257,7 +257,7 @@ CDN_API_STATUS CDN_API_HDCP1_TX_SEND_RANDOM_AN(state_struct *state, u8 An[8],
 CDN_API_STATUS CDN_API_HDCP1_TX_SEND_RANDOM_AN_blocking(state_struct *state,
 							u8 An[8], CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP1_TX_SEND_RANDOM_AN
+	internal_block_function(&state->mutex, CDN_API_HDCP1_TX_SEND_RANDOM_AN
 				(state, An, bus_type));
 }
 
@@ -283,7 +283,7 @@ CDN_API_STATUS CDN_API_HDCP_TX_STATUS_REQ_blocking(state_struct *state,
 						   u8 resp[5],
 						   CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP_TX_STATUS_REQ
+	internal_block_function(&state->mutex, CDN_API_HDCP_TX_STATUS_REQ
 				(state, resp, bus_type));
 }
 
@@ -317,7 +317,7 @@ CDN_API_STATUS CDN_API_HDCP2_TX_IS_KM_STORED_REQ_blocking(state_struct *state,
 							  u8 resp[5],
 							  CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP2_TX_IS_KM_STORED_REQ
+	internal_block_function(&state->mutex, CDN_API_HDCP2_TX_IS_KM_STORED_REQ
 				(state, resp, bus_type));
 }
 
@@ -349,7 +349,7 @@ CDN_API_STATUS CDN_API_HDCP2_TX_STORE_KM_REQ_blocking(state_struct *state,
 						      *resp,
 						      CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP2_TX_STORE_KM_REQ
+	internal_block_function(&state->mutex, CDN_API_HDCP2_TX_STORE_KM_REQ
 				(state, resp, bus_type));
 }
 
@@ -380,7 +380,7 @@ CDN_API_STATUS CDN_API_HDCP_TX_IS_RECEIVER_ID_VALID_REQ_blocking(
 								 CDN_BUS_TYPE
 								 bus_type)
 {
-	internal_block_function(CDN_API_HDCP_TX_IS_RECEIVER_ID_VALID_REQ
+	internal_block_function(&state->mutex, CDN_API_HDCP_TX_IS_RECEIVER_ID_VALID_REQ
 				(state, num, id, bus_type));
 }
 
@@ -408,7 +408,7 @@ CDN_API_STATUS CDN_API_HDCP_TX_RESPOND_RECEIVER_ID_VALID_blocking(
 								CDN_BUS_TYPE
 								bus_type)
 {
-	internal_block_function(CDN_API_HDCP_TX_RESPOND_RECEIVER_ID_VALID
+	internal_block_function(&state->mutex, CDN_API_HDCP_TX_RESPOND_RECEIVER_ID_VALID
 				(state, valid, bus_type));
 }
 
@@ -424,7 +424,7 @@ CDN_API_STATUS CDN_API_HDCP_GENERAL_2_SET_LC_blocking(state_struct *state,
 						      u8 *lc,
 						      CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_HDCP_GENERAL_2_SET_LC
+	internal_block_function(&state->mutex, CDN_API_HDCP_GENERAL_2_SET_LC
 				(state, lc, bus_type));
 }
 
@@ -449,6 +449,6 @@ CDN_API_STATUS CDN_API_TEST_KEYS(state_struct *state, u8 test_type, u8 resp[1],
 CDN_API_STATUS CDN_API_TEST_KEYS_blocking(state_struct *state, u8 test_type,
 					  u8 resp[1], CDN_BUS_TYPE bus_type)
 {
-	internal_block_function(CDN_API_TEST_KEYS
+	internal_block_function(&state->mutex, CDN_API_TEST_KEYS
 				(state, test_type, resp, bus_type));
 }

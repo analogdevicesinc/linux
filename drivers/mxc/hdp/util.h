@@ -169,16 +169,18 @@ typedef struct {
  * \param x - function call
  */
 #define MAILBOX_FILL_TIMEOUT	1500
-#define internal_block_function(x)               \
+#define internal_block_function(y, x)               \
 do {                                                              \
 	unsigned long end_jiffies = jiffies + 				\
 			msecs_to_jiffies(MAILBOX_FILL_TIMEOUT);           \
     CDN_API_STATUS ret;                                        \
+	mutex_lock(y);                                             \
 	do {                                                       \
 		ret = x;                                               \
 		cpu_relax();                                           \
 	} while (time_after(end_jiffies, jiffies) &&               \
 			(ret == CDN_BSY || ret == CDN_STARTED));           \
+	mutex_unlock(y);                                             \
 	return ret;                                                \
 } while (0)
 
