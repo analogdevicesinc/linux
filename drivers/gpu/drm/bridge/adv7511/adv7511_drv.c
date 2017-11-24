@@ -8,6 +8,7 @@
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
+#include <linux/media-bus-format.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/slab.h>
@@ -662,6 +663,8 @@ static int adv7511_get_modes(struct adv7511 *adv7511,
 {
 	const struct drm_edid *drm_edid;
 	unsigned int count;
+	u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+	int ret;
 
 	drm_edid = adv7511_edid_read(adv7511, connector);
 
@@ -669,6 +672,14 @@ static int adv7511_get_modes(struct adv7511 *adv7511,
 	count = drm_edid_connector_add_modes(connector);
 
 	drm_edid_free(drm_edid);
+
+	connector->display_info.bus_flags = DRM_BUS_FLAG_DE_LOW |
+					    DRM_BUS_FLAG_PIXDATA_NEGEDGE;
+
+	ret = drm_display_info_set_bus_formats(&connector->display_info,
+					       &bus_format, 1);
+	if (ret)
+		return ret;
 
 	return count;
 }
