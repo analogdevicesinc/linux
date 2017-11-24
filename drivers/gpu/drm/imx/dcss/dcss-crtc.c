@@ -35,6 +35,7 @@ struct dcss_crtc {
 	int			irq;
 
 	struct drm_property *alpha;
+	struct drm_property *use_global;
 
 	struct completion disable_completion;
 };
@@ -269,10 +270,21 @@ static int dcss_crtc_init(struct dcss_crtc *crtc,
 		return -ENOMEM;
 	}
 
+	crtc->use_global = drm_property_create_range(drm, 0,
+						     "use_global_alpha", 0, 1);
+	if (!crtc->use_global) {
+		dev_err(crtc->dev, "cannot create use_global property\n");
+		return -ENOMEM;
+	}
+
 	/* attach alpha property to channel 0 */
 	drm_object_attach_property(&crtc->plane[0]->base.base,
 				   crtc->alpha, 255);
 	crtc->plane[0]->alpha_prop = crtc->alpha;
+
+	drm_object_attach_property(&crtc->plane[0]->base.base,
+				   crtc->use_global, 0);
+	crtc->plane[0]->use_global_prop = crtc->use_global;
 
 	crtc->irq = dcss_vblank_irq_get(dcss);
 	if (crtc->irq < 0) {

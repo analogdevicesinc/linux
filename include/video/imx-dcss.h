@@ -63,9 +63,10 @@ void dcss_dtg_enable(struct dcss_soc *dcss, bool en,
 bool dcss_dtg_is_enabled(struct dcss_soc *dcss);
 void dcss_dtg_ch_enable(struct dcss_soc *dcss, int ch_num, bool en);
 void dcss_dtg_plane_alpha_set(struct dcss_soc *dcss, int ch_num,
-			      u32 pix_format, int alpha);
+			      u32 pix_format, int alpha, bool use_global_alpha);
 bool dcss_dtg_global_alpha_changed(struct dcss_soc *dcss, int ch_num,
-				   u32 pix_format, int alpha);
+				   u32 pix_format, int alpha,
+				   int use_global_alpha);
 
 /* SUBSAM */
 void dcss_ss_sync_set(struct dcss_soc *dcss, struct videomode *vm,

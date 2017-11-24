@@ -133,6 +133,7 @@ struct dcss_dtg_priv {
 
 	u32 control_status;
 	u32 alpha;
+	u32 use_global;
 
 	/*
 	 * This will be passed on by DRM CRTC so that we can signal when DTG has
@@ -191,6 +192,7 @@ int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base)
 #endif
 
 	dtg->alpha = 255;
+	dtg->use_global = 0;
 
 	dtg->control_status |= OVL_DATA_MODE | BLENDER_VIDEO_ALPHA_SEL |
 		((0x5 << CSS_PIX_COMP_SWAP_POS) & CSS_PIX_COMP_SWAP_MASK) |
@@ -300,19 +302,21 @@ static bool dcss_dtg_global_alpha_needed(u32 pix_format)
 }
 
 bool dcss_dtg_global_alpha_changed(struct dcss_soc *dcss, int ch_num,
-				   u32 pix_format, int alpha)
+				   u32 pix_format, int alpha,
+				   int use_global_alpha)
 {
 	struct dcss_dtg_priv *dtg = dcss->dtg_priv;
 
 	if (ch_num)
 		return false;
 
-	return dcss_dtg_global_alpha_needed(pix_format) && alpha != dtg->alpha;
+	return dcss_dtg_global_alpha_needed(pix_format) &&
+	       (alpha != dtg->alpha || use_global_alpha != dtg->use_global);
 }
 EXPORT_SYMBOL(dcss_dtg_global_alpha_changed);
 
 void dcss_dtg_plane_alpha_set(struct dcss_soc *dcss, int ch_num,
-			      u32 pix_format, int alpha)
+			      u32 pix_format, int alpha, bool use_global_alpha)
 {
 	struct dcss_dtg_priv *dtg = dcss->dtg_priv;
 	u32 alpha_val;
@@ -323,7 +327,11 @@ void dcss_dtg_plane_alpha_set(struct dcss_soc *dcss, int ch_num,
 
 	alpha_val = (alpha << DEFAULT_FG_ALPHA_POS) & DEFAULT_FG_ALPHA_MASK;
 
-	if (dcss_dtg_global_alpha_needed(pix_format)) {
+	/*
+	 * Use global alpha if pixel format does not have alpha channel or the
+	 * user explicitly chose to use global alpha.
+	 */
+	if (dcss_dtg_global_alpha_needed(pix_format) || use_global_alpha) {
 		dtg->control_status &= ~(CH1_ALPHA_SEL | DEFAULT_FG_ALPHA_MASK);
 		dtg->control_status |= alpha_val;
 	} else {
@@ -331,6 +339,7 @@ void dcss_dtg_plane_alpha_set(struct dcss_soc *dcss, int ch_num,
 	}
 
 	dtg->alpha = alpha;
+	dtg->use_global = use_global_alpha;
 }
 EXPORT_SYMBOL(dcss_dtg_plane_alpha_set);
 
