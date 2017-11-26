@@ -1336,7 +1336,6 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	ret = ad9467_spi_write(spi, 0x008, 0x03);	// select both channels
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);	// write enable
 	ret |= ad9467_spi_write(spi, 0x201, 0x00);	// full sample rate (decimation = 1)
-	ret |= ad9467_spi_write(spi, 0x561, 0x00);	// offset binary
 
 	ret |= ad9467_spi_write(spi, 0x120, 0x0a);	// SYSREF continuous
 
