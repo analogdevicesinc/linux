@@ -219,6 +219,24 @@ struct syscore_ops imx8_pm_domains_syscore_ops = {
 	.resume = imx8_pm_domains_resume,
 };
 
+static void imx8_pd_setup(struct imx8_pm_domain *pd)
+{
+	pd->pd.states = kzalloc(2 * sizeof(struct genpd_power_state), GFP_KERNEL);
+	BUG_ON(!pd->pd.states);
+
+	pd->pd.power_off = imx8_pd_power_off;
+	pd->pd.power_on = imx8_pd_power_on;
+	pd->pd.attach_dev = imx8_attach_dev;
+	pd->pd.detach_dev = imx8_detach_dev;
+
+	pd->pd.states[0].power_off_latency_ns = 25000;
+	pd->pd.states[0].power_on_latency_ns =  25000;
+	pd->pd.states[1].power_off_latency_ns = 2500000;
+	pd->pd.states[1].power_on_latency_ns =  2500000;
+
+	pd->pd.state_count = 2;
+}
+
 static int __init imx8_add_pm_domains(struct device_node *parent,
 					struct generic_pm_domain *genpd_parent)
 {
@@ -244,17 +262,7 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 			imx8_pd->rsrc_id = rsrc_id;
 
 		if (imx8_pd->rsrc_id != SC_R_LAST) {
-			imx8_pd->pd.power_off = imx8_pd_power_off;
-			imx8_pd->pd.power_on = imx8_pd_power_on;
-			imx8_pd->pd.attach_dev = imx8_attach_dev;
-			imx8_pd->pd.detach_dev = imx8_detach_dev;
-
-			imx8_pd->pd.states[0].power_off_latency_ns = 25000;
-			imx8_pd->pd.states[0].power_on_latency_ns =  25000;
-			imx8_pd->pd.states[1].power_off_latency_ns = 2500000;
-			imx8_pd->pd.states[1].power_on_latency_ns =  2500000;
-
-			imx8_pd->pd.state_count = 2;
+			imx8_pd_setup(imx8_pd);
 
 			if (of_property_read_bool(np, "early_power_on")
 				&& index < (sizeof(early_power_on_rsrc) /
@@ -311,10 +319,9 @@ static int __init imx8_init_pm_domains(void)
 		if (!of_property_read_u32(np, "reg", &rsrc_id))
 			imx8_pd->rsrc_id = rsrc_id;
 
-		if (imx8_pd->rsrc_id != SC_R_LAST) {
-			imx8_pd->pd.power_off = imx8_pd_power_off;
-			imx8_pd->pd.power_on = imx8_pd_power_on;
-		}
+		if (imx8_pd->rsrc_id != SC_R_LAST)
+			imx8_pd_setup(imx8_pd);
+
 		INIT_LIST_HEAD(&imx8_pd->clks);
 
 		pm_genpd_init(&imx8_pd->pd, NULL, true);
