@@ -56,7 +56,11 @@
 	nand-on-flash-bbt;
 };
 
-/* Disabled the usdhc2 since pin conflict */
+/* Disabled the usdhc1/usdhc2 since pin conflict */
+&usdhc1 {
+	status = "disabled";
+};
+
 &usdhc2 {
 	status = "disabled";
 };
