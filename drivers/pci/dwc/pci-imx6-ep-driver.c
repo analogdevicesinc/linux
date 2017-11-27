@@ -51,10 +51,10 @@ static int imx_pcie_ep_probe(struct pci_dev *pdev,
 		const struct pci_device_id *id)
 {
 	int ret = 0, index = 0, found = 0;
-	unsigned int msi_addr = 0, cpu_base;
+	unsigned int hard_wired = 0, msi_addr = 0, cpu_base;
 	struct resource cfg_res;
 	const char *name = NULL;
-	struct device_node *np;
+	struct device_node *np = NULL;
 	struct device *dev = &pdev->dev;
 	struct imx_pcie_ep_priv *priv;
 
@@ -90,7 +90,13 @@ static int imx_pcie_ep_probe(struct pci_dev *pdev,
 		goto err_pci_unmap_mmio;
 	}
 
-	np = of_find_compatible_node(NULL, NULL, "snps,dw-pcie");
+	/* Use the first none-hard-wired port as ep */
+	while ((np = of_find_node_by_type(np, "pci"))) {
+		if (of_property_read_u32(np, "hard-wired", &hard_wired)) {
+			hard_wired = 0;
+			break;
+		}
+	}
 	if (of_property_read_u32(np, "cpu-base-addr", &cpu_base))
 		cpu_base = 0;
 
