@@ -367,6 +367,17 @@ static void dcss_debugfs_init(struct dcss_soc *dcss)
 }
 #endif
 
+static void dcss_bus_freq(struct dcss_soc *dcss, bool en)
+{
+	if (en && !dcss->bus_freq_req)
+		request_bus_freq(BUS_FREQ_HIGH);
+
+	if (!en && dcss->bus_freq_req)
+		release_bus_freq(BUS_FREQ_HIGH);
+
+	dcss->bus_freq_req = en;
+}
+
 static int dcss_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -415,13 +426,19 @@ static int dcss_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
-	request_bus_freq(BUS_FREQ_HIGH);
+	dcss_bus_freq(dcss, true);
 
 	return dcss_add_client_devices(dcss);
 }
 
 static int dcss_remove(struct platform_device *pdev)
 {
+	struct dcss_soc *dcss = platform_get_drvdata(pdev);
+
+	dcss_bus_freq(dcss, false);
+
+	pm_runtime_disable(&pdev->dev);
+
 	return 0;
 }
 
@@ -441,7 +458,7 @@ static int dcss_suspend(struct device *dev)
 
 	clk_disable_unprepare(dcss->p_clk);
 
-	release_bus_freq(BUS_FREQ_HIGH);
+	dcss_bus_freq(dcss, false);
 
 	return 0;
 }
@@ -451,7 +468,7 @@ static int dcss_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dcss_soc *dcss = platform_get_drvdata(pdev);
 
-	request_bus_freq(BUS_FREQ_HIGH);
+	dcss_bus_freq(dcss, true);
 
 	clk_prepare_enable(dcss->p_clk);
 
@@ -477,7 +494,7 @@ static int dcss_runtime_suspend(struct device *dev)
 
 	clk_disable_unprepare(dcss->p_clk);
 
-	release_bus_freq(BUS_FREQ_HIGH);
+	dcss_bus_freq(dcss, false);
 
 	return 0;
 }
@@ -487,7 +504,7 @@ static int dcss_runtime_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dcss_soc *dcss = platform_get_drvdata(pdev);
 
-	request_bus_freq(BUS_FREQ_HIGH);
+	dcss_bus_freq(dcss, true);
 
 	clk_prepare_enable(dcss->p_clk);
 
