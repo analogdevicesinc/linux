@@ -1474,8 +1474,9 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 	unsigned int i;
 
 	switch (conv->id) {
-	case CHIPID_AD9680:
 	case CHIPID_AD9234:
+	case CHIPID_AD9680:
+	case CHIPID_AD9684:
 		vref_val = ad9467_spi_read(conv->spi, AD9680_REG_INPUT_FS_RANGE);
 		break;
 	default:
@@ -1532,8 +1533,9 @@ static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
 			continue;
 
 		switch (conv->id) {
-		case CHIPID_AD9680:
 		case CHIPID_AD9234:
+		case CHIPID_AD9680:
+		case CHIPID_AD9684:
 			ad9467_spi_write(conv->spi, AD9680_REG_INPUT_FS_RANGE,
 					 conv->chip_info->scale_table[i][1]);
 			break;
