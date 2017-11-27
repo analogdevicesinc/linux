@@ -1291,7 +1291,7 @@ static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	int ret, tmp = 1;
 	unsigned pll_stat;
-	const u32 sfdr_optim_regs[8] =
+	static const u32 sfdr_optim_regs[8] =
 		{0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935};
 	u32 sfdr_optim_vals[ARRAY_SIZE(sfdr_optim_regs)];
 
