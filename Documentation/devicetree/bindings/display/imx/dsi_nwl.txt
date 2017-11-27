@@ -42,6 +42,10 @@ Optional properties:
 			and i.MX8qxp for the reset functions)
 - assigned-clock-parents phandles to parent clocks that needs to be assigned as
 			parents to clocks defined in assigned-clocks
+- sync-pol		horizontal and vertical sync polarity of the input
+			signal; can be <0> for LOW (negative) or <1> for HIGH
+			(positive) polarity; default value is <0>, when this
+			property is ommited
 
 Example:
 	mipi_dsi1: mipi_dsi {

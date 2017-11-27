@@ -89,6 +89,7 @@ struct imx_mipi_dsi {
 	unsigned long			bit_clk;
 	u32				phyref_rate;
 	u32				instance;
+	u32				sync_pol;
 	bool				enabled;
 };
 
@@ -501,6 +502,22 @@ static void imx_nwl_dsi_disable(struct imx_mipi_dsi *dsi)
 	dsi->enabled = false;
 }
 
+static void imx_nwl_update_sync_polarity(unsigned int *flags, u32 sync_pol)
+{
+	/* Make sure all flags are set-up accordingly */
+	if (sync_pol) {
+		*flags |= DRM_MODE_FLAG_PHSYNC;
+		*flags |= DRM_MODE_FLAG_PVSYNC;
+		*flags &= ~DRM_MODE_FLAG_NHSYNC;
+		*flags &= ~DRM_MODE_FLAG_NVSYNC;
+	} else {
+		*flags &= ~DRM_MODE_FLAG_PHSYNC;
+		*flags &= ~DRM_MODE_FLAG_PVSYNC;
+		*flags |= DRM_MODE_FLAG_NHSYNC;
+		*flags |= DRM_MODE_FLAG_NVSYNC;
+	}
+}
+
 /*
  * This function will try the required phy speed for current mode
  * If the phy speed can be achieved, the phy will save the speed
@@ -574,8 +591,10 @@ static int imx_nwl_dsi_encoder_atomic_check(struct drm_encoder *encoder,
 {
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 	struct imx_mipi_dsi *dsi = encoder_to_dsi(encoder);
+	unsigned int *flags = &crtc_state->adjusted_mode.flags;
 
 	imx_crtc_state->bus_format = MEDIA_BUS_FMT_RGB101010_1X30;
+	imx_nwl_update_sync_polarity(flags, dsi->sync_pol);
 
 	/* Try to see if the phy can satisfy the current mode */
 	return imx_nwl_try_phy_speed(dsi, &crtc_state->adjusted_mode);
@@ -619,6 +638,9 @@ static bool imx_nwl_dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			   struct drm_display_mode *adjusted_mode)
 {
 	struct imx_mipi_dsi *dsi = bridge->driver_private;
+	unsigned int *flags = &adjusted_mode->flags;
+
+	imx_nwl_update_sync_polarity(flags, dsi->sync_pol);
 
 	return (imx_nwl_try_phy_speed(dsi, adjusted_mode) == 0);
 }
@@ -724,6 +746,8 @@ static int imx_nwl_dsi_parse_of(struct device *dev, bool as_bridge)
 
 	dsi->tx_ulps_reg = devtype->tx_ulps_reg;
 	dsi->pxl2dpi_reg = devtype->pxl2dpi_reg;
+
+	of_property_read_u32(np, "sync-pol", &dsi->sync_pol);
 
 	/* Look for optional regmaps */
 	dsi->csr = syscon_regmap_lookup_by_phandle(np, "csr");
