@@ -62,6 +62,7 @@
 &mipi_dsi {
 	status = "okay";
 	as_bridge;
+	sync-pol = <1>;
 	assigned-clocks = <&clk IMX8MQ_CLK_DSI_PHY_REF_SRC>,
 			  <&clk IMX8MQ_CLK_DSI_CORE_SRC>,
 			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
