@@ -717,6 +717,65 @@ static int ad9680_update_sysref(struct axiadc_converter *conv,
 	return clk_set_rate(conv->sysref_clk, rate);
 }
 
+static ssize_t ad9680_status_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct axiadc_converter *conv = dev_get_drvdata(dev);
+	const char *hold_setup_desc;
+	unsigned int hold, setup;
+	int val;
+	int ret;
+
+	switch (conv->id) {
+	case CHIPID_AD9694:
+		val = ad9680_spi_read(conv->spi, 0x11b);
+		break;
+	default:
+		val = ad9680_spi_read(conv->spi, 0x11c);
+		break;
+	}
+
+	ret = scnprintf(buf, PAGE_SIZE, "Input clock %sdetected\n",
+		(val & 0x01) ? "" : "not ");
+
+	if (conv->id == CHIPID_AD9684)
+		return ret;
+
+	val = ad9680_spi_read(conv->spi, 0x56f);
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+		"JESD204 PLL is %slocked\n",
+		(val & 0x80) ? "" : "not ");
+
+	val = ad9680_spi_read(conv->spi, 0x12a);
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+		"SYSREF counter: %d\n", val);
+
+	val = ad9680_spi_read(conv->spi, 0x128);
+	hold = (val >> 4) & 0xf;
+	setup = val & 0xf;
+
+	if (hold == 0x0 && setup <= 0x7)
+		hold_setup_desc = "Possible setup error";
+	else if (hold <= 0x8 && setup == 0x8)
+		hold_setup_desc = "No setup or hold error (best hold margin)";
+	else if (hold == 0x8 && setup >= 0x9)
+		hold_setup_desc = "No setup or hold error (best setup and hold margin)";
+	else if (hold == 0x8 && setup == 0x0)
+		hold_setup_desc = "No setup or hold error (best setup margin)";
+	else if (hold >= 0x9 && setup == 0x0)
+		hold_setup_desc = "Possible hold error";
+	else
+		hold_setup_desc = "Possible setup or hold error";
+
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+		"SYSREF hold/setup status: %s (%x/%x)\n",
+		hold_setup_desc, hold, setup);
+
+	return ret;
+}
+
+static DEVICE_ATTR(status, 0444, ad9680_status_read, NULL);
+
 static int ad9680_setup_jesd204_link(struct axiadc_converter *conv,
 	unsigned int sample_rate)
 {
@@ -1355,6 +1414,8 @@ static int ad9680_probe(struct spi_device *spi)
 	conv->write_event_config = ad9680_write_thresh_en,
 	conv->post_setup = ad9680_post_setup;
 	conv->set_pnsel = ad9680_set_pnsel;
+
+	device_create_file(&spi->dev, &dev_attr_status);
 
 	if (conv->id == CHIPID_AD9680) {
 		ret = ad9680_request_fd_irqs(conv);
