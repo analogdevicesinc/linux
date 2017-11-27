@@ -378,5 +378,7 @@ struct fsl_asrc {
 
 extern struct snd_soc_platform_driver fsl_asrc_platform;
 struct dma_chan *fsl_asrc_get_dma_channel(struct fsl_asrc_pair *pair, bool dir);
+int fsl_asrc_request_pair(int channels, struct fsl_asrc_pair *pair);
+void fsl_asrc_release_pair(struct fsl_asrc_pair *pair);
 
 #endif /* _FSL_ASRC_H */
