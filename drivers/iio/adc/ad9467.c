@@ -1342,8 +1342,7 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 	return 0;
 }
 
-static int ad9680_setup(struct spi_device *spi, unsigned m, unsigned l,
-		bool ad9234)
+static int ad9680_setup(struct spi_device *spi, bool ad9234)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	int ret, tmp = 1;
@@ -1787,7 +1786,7 @@ static int ad9467_probe(struct spi_device *spi)
 		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
 		break;
 	case CHIPID_AD9234:
-		ret = ad9680_setup(spi, 1, 1, true);
+		ret = ad9680_setup(spi, true);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
 			goto out;
@@ -1803,7 +1802,7 @@ static int ad9467_probe(struct spi_device *spi)
 			master_slave_2x_quirk = of_property_read_bool(
 				spi->dev.of_node, "adi,master-slave-2x-quirk");
 #endif
-		ret = ad9680_setup(spi, 1, 1, false);
+		ret = ad9680_setup(spi, false);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
 			goto out;
