@@ -119,6 +119,36 @@ static struct notifier_block imx8_wdt_notifier = {
 	.notifier_call = imx8_wdt_notify,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int imx8_wdt_suspend(struct device *dev)
+{
+	if (test_bit(WDOG_ACTIVE, &imx8_wdd.status))
+		imx8_wdt_stop(&imx8_wdd);
+
+	return 0;
+}
+
+static int imx8_wdt_resume(struct device *dev)
+{
+	if (test_bit(WDOG_ACTIVE, &imx8_wdd.status))
+		imx8_wdt_start(&imx8_wdd);
+
+	return 0;
+}
+
+static const struct dev_pm_ops imx8_wdt_pm_ops = {
+	.suspend = imx8_wdt_suspend,
+	.resume = imx8_wdt_resume,
+};
+
+#define IMX8_WDT_PM_OPS	(&imx8_wdt_pm_ops)
+
+#else
+
+#define IMX8_WDT_PM_OPS	NULL
+
+#endif
+
 static int imx8_wdt_probe(struct platform_device *pdev)
 {
 	struct watchdog_device *wdt = &imx8_wdd;
@@ -181,6 +211,7 @@ static struct platform_driver imx8_wdt_driver = {
 	.driver		= {
 		.name	= "imx8-wdt",
 		.of_match_table = imx8_wdt_dt_ids,
+		.pm	= IMX8_WDT_PM_OPS,
 	},
 };
 
