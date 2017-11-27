@@ -53,6 +53,7 @@ struct dcss_soc {
 	void (*dcss_disable_callback)(void *data);
 
 	bool bus_freq_req;
+	bool clks_on;
 };
 
 /* BLKCTL */

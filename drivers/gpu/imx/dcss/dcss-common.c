@@ -247,23 +247,18 @@ err_register:
 	return ret;
 }
 
-/*
- * TODO: Hardcode the clock rates for now. If they need to be changed,
- * based on platform, they should end up in DT. For now, it'll do.
- */
 static int dcss_clks_init(struct dcss_soc *dcss)
 {
-	int ret, i;
+	int ret, i, j;
 	struct {
 		const char *id;
 		struct clk **clk;
-		u32 rate;
 	} clks[] = {
-		{"apb",   &dcss->apb_clk, 133000000},
-		{"axi",   &dcss->axi_clk, 800000000},
-		{"pixel", &dcss->p_clk,   0},
-		{"rtrm",  &dcss->apb_clk, 400000000},
-		{"dtrc",  &dcss->dtrc_clk, 25000000},
+		{"apb",   &dcss->apb_clk},
+		{"axi",   &dcss->axi_clk},
+		{"pixel", &dcss->p_clk},
+		{"rtrm",  &dcss->apb_clk},
+		{"dtrc",  &dcss->dtrc_clk},
 	};
 
 	for (i = 0; i < ARRAY_SIZE(clks); i++) {
@@ -271,23 +266,43 @@ static int dcss_clks_init(struct dcss_soc *dcss)
 		if (IS_ERR(*clks[i].clk)) {
 			dev_err(dcss->dev, "failed to get %s clock\n",
 				clks[i].id);
-			return PTR_ERR(*clks[i].clk);
-		}
-
-		if (!clks[i].rate)
-			continue;
-
-		ret = clk_set_rate(*clks[i].clk, clks[i].rate);
-		if (ret < 0) {
-			dev_err(dcss->dev, "setting %s clk rate failed\n",
-				clks[i].id);
-			return ret;
+			ret = PTR_ERR(*clks[i].clk);
+			goto err;
 		}
 
 		clk_prepare_enable(*clks[i].clk);
 	}
 
+	dcss->clks_on = true;
+
 	return 0;
+
+err:
+	for (j = 0; j < i; j++)
+		clk_disable_unprepare(*clks[j].clk);
+
+	return ret;
+}
+
+static void dcss_clocks_enable(struct dcss_soc *dcss, bool en)
+{
+	if (en && !dcss->clks_on) {
+		clk_prepare_enable(dcss->axi_clk);
+		clk_prepare_enable(dcss->apb_clk);
+		clk_prepare_enable(dcss->rtrm_clk);
+		clk_prepare_enable(dcss->dtrc_clk);
+		clk_prepare_enable(dcss->p_clk);
+	}
+
+	if (!en && dcss->clks_on) {
+		clk_disable_unprepare(dcss->p_clk);
+		clk_disable_unprepare(dcss->dtrc_clk);
+		clk_disable_unprepare(dcss->rtrm_clk);
+		clk_disable_unprepare(dcss->apb_clk);
+		clk_disable_unprepare(dcss->axi_clk);
+	}
+
+	dcss->clks_on = en;
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -456,7 +471,7 @@ static int dcss_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	clk_disable_unprepare(dcss->p_clk);
+	dcss_clocks_enable(dcss, false);
 
 	dcss_bus_freq(dcss, false);
 
@@ -470,7 +485,7 @@ static int dcss_resume(struct device *dev)
 
 	dcss_bus_freq(dcss, true);
 
-	clk_prepare_enable(dcss->p_clk);
+	dcss_clocks_enable(dcss, true);
 
 	dcss_blkctl_cfg(dcss);
 	dcss_hdr10_cfg(dcss);
@@ -492,7 +507,7 @@ static int dcss_runtime_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	clk_disable_unprepare(dcss->p_clk);
+	dcss_clocks_enable(dcss, false);
 
 	dcss_bus_freq(dcss, false);
 
@@ -506,7 +521,7 @@ static int dcss_runtime_resume(struct device *dev)
 
 	dcss_bus_freq(dcss, true);
 
-	clk_prepare_enable(dcss->p_clk);
+	dcss_clocks_enable(dcss, true);
 
 	dcss_blkctl_cfg(dcss);
 	dcss_hdr10_cfg(dcss);
