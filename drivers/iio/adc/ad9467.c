@@ -260,7 +260,15 @@ static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 
 	if (readval == NULL) {
 		ret = ad9467_spi_write(spi, reg, writeval);
-		ad9467_spi_write(spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		switch (conv->id) {
+		case CHIPID_AD9234:
+		case CHIPID_AD9680:
+		case CHIPID_AD9684:
+			break;
+		default:
+			ad9467_spi_write(spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+			break;
+		}
 		return ret;
 	} else {
 		ret = ad9467_spi_read(spi, reg);
@@ -1333,7 +1341,6 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	mdelay(1);
 
 	ret = ad9467_spi_write(spi, 0x008, 0x03);	// select both channels
-	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);	// write enable
 	ret |= ad9467_spi_write(spi, 0x201, 0x00);	// full sample rate (decimation = 1)
 
 	ret |= ad9467_spi_write(spi, 0x120, 0x0a);	// SYSREF continuous
@@ -1363,7 +1370,6 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	ret = ad9680_setup_jesd204_link(conv, conv->adc_clk);
 	if (ret < 0)
 		return ret;
-	ad9467_spi_write(conv->spi, 0x0ff, 0x01);	// write enable
 	mdelay(20);
 	pll_stat = ad9467_spi_read(conv->spi, 0x56f);
 
