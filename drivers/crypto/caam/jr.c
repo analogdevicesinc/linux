@@ -29,6 +29,7 @@ static int caam_reset_hw_jr(struct device *dev)
 {
 	struct caam_drv_private_jr *jrp = dev_get_drvdata(dev);
 	unsigned int timeout = 100000;
+	unsigned int reg_value;
 
 	/*
 	 * mask interrupts since we are going to poll
@@ -38,9 +39,11 @@ static int caam_reset_hw_jr(struct device *dev)
 
 	/* initiate flush (required prior to reset) */
 	wr_reg32(&jrp->rregs->jrcommand, JRCR_RESET);
-	while (((rd_reg32(&jrp->rregs->jrintstatus) & JRINT_ERR_HALT_MASK) ==
-		JRINT_ERR_HALT_INPROGRESS) && --timeout)
+	do {
 		cpu_relax();
+		reg_value = rd_reg32(&jrp->rregs->jrintstatus);
+	} while (((reg_value & JRINT_ERR_HALT_MASK) ==
+		JRINT_ERR_HALT_INPROGRESS) && --timeout);
 
 	if ((rd_reg32(&jrp->rregs->jrintstatus) & JRINT_ERR_HALT_MASK) !=
 	    JRINT_ERR_HALT_COMPLETE || timeout == 0) {
@@ -51,8 +54,10 @@ static int caam_reset_hw_jr(struct device *dev)
 	/* initiate reset */
 	timeout = 100000;
 	wr_reg32(&jrp->rregs->jrcommand, JRCR_RESET);
-	while ((rd_reg32(&jrp->rregs->jrcommand) & JRCR_RESET) && --timeout)
+	do {
 		cpu_relax();
+		reg_value = rd_reg32(&jrp->rregs->jrcommand);
+	} while ((reg_value & JRCR_RESET) && --timeout);
 
 	if (timeout == 0) {
 		dev_err(dev, "failed to reset job ring %d\n", jrp->ridx);
@@ -402,6 +407,10 @@ static int caam_jr_init(struct device *dev)
 
 	jrp = dev_get_drvdata(dev);
 
+	error = caam_reset_hw_jr(dev);
+	if (error)
+		goto out_kill_deq;
+
 	tasklet_init(&jrp->irqtask, caam_jr_dequeue, (unsigned long)dev);
 
 	/* Connect job ring interrupt handler. */
@@ -412,10 +421,6 @@ static int caam_jr_init(struct device *dev)
 			jrp->ridx, jrp->irq);
 		goto out_kill_deq;
 	}
-
-	error = caam_reset_hw_jr(dev);
-	if (error)
-		goto out_free_irq;
 
 	error = -ENOMEM;
 	jrp->inpring = dma_alloc_coherent(dev, sizeof(*jrp->inpring) *
