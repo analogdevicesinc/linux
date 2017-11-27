@@ -1272,6 +1272,9 @@ static void lpuart32_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	temp = lpuart32_read(port, UARTCTRL);
 	if (mctrl & TIOCM_LOOP)
 		temp |= UARTCTRL_LOOPS;
+	else
+		temp &= ~UARTCTRL_LOOPS;
+
 	lpuart32_write(port, temp, UARTCTRL);
 }
 
