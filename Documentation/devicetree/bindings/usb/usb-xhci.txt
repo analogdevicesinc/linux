@@ -29,6 +29,8 @@ Optional properties:
   - clocks: reference to a clock
   - usb3-lpm-capable: determines if platform is USB3 LPM capable
   - quirk-broken-port-ped: set if the controller has broken port disable mechanism
+  - usb3-resume-missing-cas: set if the CAS(Cold Attach Status) may lose in case
+    device plugged in while system sleep.
 
 Example:
 	usb@f0931000 {
