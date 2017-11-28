@@ -803,20 +803,20 @@ static const char *const testmodes[] = {
 };
 
 static bool ad9467_valid_test_mode(struct axiadc_converter *conv,
-    unsigned int mode)
+	unsigned int mode)
 {
-    if (!testmodes[mode])
-	return false;
+	if (!testmodes[mode])
+		return false;
 
-    /*
-     * All converters that support the ramp testmode have a gap between USER and
-     * RAMP.
-     */
-    if (conv->chip_info->max_testmode == TESTMODE_RAMP &&
-	mode > TESTMODE_USER && mode < TESTMODE_RAMP)
-	return false;
+	/*
+	 * All converters that support the ramp testmode have a gap between USER and
+	 * RAMP.
+	 */
+	if (conv->chip_info->max_testmode == TESTMODE_RAMP &&
+	    mode > TESTMODE_USER && mode < TESTMODE_RAMP)
+		return false;
 
-    return true;
+	return true;
 }
 
 static ssize_t ad9467_show_scale_available(struct iio_dev *indio_dev,
