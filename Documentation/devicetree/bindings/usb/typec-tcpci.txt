@@ -1,0 +1,40 @@
+TCPCI(Typec port cotroller interface) binding
+---------------------------------------------
+
+Required properties:
+- compatible:       should be "usb,tcpci".
+- reg:              the i2c slave address of typec port controller device.
+- interrupt-parent: the phandle to the interrupt controller which provides
+                    the interrupt.
+- interrupts:       interrupt specification for tcpci alert.
+- port-type:        typec port type.
+- default-role:     preferred power role if port type is "drp".
+
+Required properties only for power source or drp:
+- src-pdos
+
+Required properties only for power sink or drp:
+- snk-pdos
+- max-snk-mv
+- max-snk-ma
+- op-snk-mw
+
+Optional properties:
+- sink-disable:     disable vbus sink in sink role in case we only can be source
+                    for power but need dual data role.
+
+Example:
+
+ptn5110@50 {
+	compatible = "usb,tcpci";
+	reg = <0x50>;
+	interrupt-parent = <&gpio3>;
+	interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+	port-type = "drp";
+	default-role = "sink";
+	src-pdos = <0x380190c8>;
+	snk-pdos = <0x380190c8 0x3802d0c8>;
+	max-snk-mv = <9000>;
+	max-snk-ma = <1000>;
+	op-snk-mw = <9000>;
+};
