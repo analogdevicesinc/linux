@@ -28,11 +28,11 @@
 	status = "disabled";
 };
 
-&dcss_drm {
+&dcss {
 	status = "disabled";
 };
 
-&hdmi_drm {
+&hdmi {
 	status = "disabled";
 };
 
@@ -40,7 +40,7 @@
 	status = "disabled";
 };
 
-&lcdif_drm {
+&lcdif {
 	status = "okay";
 
 	port@0 {
@@ -65,11 +65,11 @@
 	};
 };
 
-&mipi_dsi_phy_drm {
+&mipi_dsi_phy {
 	status = "okay";
 };
 
-&mipi_dsi_drm {
+&mipi_dsi {
 	status = "okay";
 	as_bridge;
 
@@ -80,7 +80,7 @@
 	};
 };
 
-&mipi_dsi_bridge_drm {
+&mipi_dsi_bridge {
 	status = "okay";
 
 	port@1 {

@@ -669,7 +669,7 @@
 	dc-supply = <&reg_gpio_dvfs>;
 };
 
-&dcss_drm {
+&dcss {
 	status = "okay";
 
 	disp-dev = "hdmi_disp";
@@ -683,7 +683,7 @@
 
 };
 
-&hdmi_drm {
+&hdmi {
 	status = "okay";
 
 	port@0 {

@@ -42,8 +42,8 @@
 		gpio2 = &gpio3;
 		gpio3 = &gpio4;
 		gpio4 = &gpio5;
-		dsi_phy0 = &mipi_dsi_phy_drm;
-		mipi_dsi0 = &mipi_dsi_drm;
+		dsi_phy0 = &mipi_dsi_phy;
+		mipi_dsi0 = &mipi_dsi;
 	};
 
 	cpus {
@@ -519,7 +519,7 @@
 		status = "disabled";
 	};
 
-	dcss_drm: dcss@0x32e00000 {
+	dcss: dcss@0x32e00000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "nxp,imx8mq-dcss";
@@ -555,7 +555,7 @@
 		status = "disabled";
 	};
 
-	hdmi_drm: hdmi_drm@32c00000 {
+	hdmi: hdmi@32c00000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "fsl,imx8mq-hdmi";
@@ -565,7 +565,7 @@
 		status = "disabled";
 	};
 
-	lcdif_drm: lcdif_drm@30320000 {
+	lcdif: lcdif@30320000 {
 		compatible = "fsl,imx8mq-lcdif", "fsl,imx28-lcdif";
 		reg = <0x0 0x30320000 0x0 0x10000>;
 		clocks = <&clk IMX8MQ_CLK_LCDIF_PIXEL_DIV>,
@@ -579,7 +579,7 @@
 		status = "disabled";
 	};
 
-	mipi_dsi_phy_drm: dsi_phy_drm@30A00300 {
+	mipi_dsi_phy: dsi_phy@30A00300 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "mixel,imx8mq-mipi-dsi-phy";
@@ -588,7 +588,7 @@
 		status = "disabled";
 	};
 
-	mipi_dsi_bridge_drm: mipi_dsi_bridge_drm@30A00000 {
+	mipi_dsi_bridge: mipi_dsi_bridge@30A00000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "nwl,mipi-dsi";
@@ -601,7 +601,7 @@
 		assigned-clocks = <&clk IMX8MQ_CLK_DSI_AHB_SRC>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_80M>;
 		assigned-clock-rates = <80000000>;
-		phys = <&mipi_dsi_phy_drm>;
+		phys = <&mipi_dsi_phy>;
 		phy-names = "dphy";
 		status = "disabled";
 
@@ -612,7 +612,7 @@
 		};
 	};
 
-	mipi_dsi_drm: mipi_dsi_drm@30A00000 {
+	mipi_dsi: mipi_dsi@30A00000 {
 		compatible = "fsl,imx8mq-mipi-dsi_drm";
 		clocks = <&clk IMX8MQ_CLK_DSI_CORE_DIV>,
 			 <&clk IMX8MQ_CLK_DSI_PHY_REF_DIV>;
@@ -625,7 +625,7 @@
 		power-domains = <&mipi_pd>;
 		src = <&src>;
 		mux-sel = <&gpr>;
-		phys = <&mipi_dsi_phy_drm>;
+		phys = <&mipi_dsi_phy>;
 		phy-names = "dphy";
 		status = "disabled";
 
