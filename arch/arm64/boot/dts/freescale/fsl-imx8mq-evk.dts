@@ -677,13 +677,6 @@
 
 &hdmi {
 	status = "okay";
-
-	port@0 {
-		reg = <0>;
-			hdmi_disp: endpoint {
-			remote-endpoint = <&dcss_disp0_hdmi>;
-		};
-	};
 };
 
 &csi1_bridge {
