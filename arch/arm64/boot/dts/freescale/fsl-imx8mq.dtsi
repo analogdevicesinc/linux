@@ -446,6 +446,11 @@
 		clock-names = "ipg", "per", "osc_per";
 	};
 
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dcss_disp0>;
+	};
+
 	irqsteer_dcss: irqsteer@32e2d000 {
 		compatible = "nxp,imx-irqsteer";
 		reg = <0x0 0x32e2d000 0x0 0x1000>;
