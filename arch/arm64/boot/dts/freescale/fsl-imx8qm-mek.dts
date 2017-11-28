@@ -457,6 +457,26 @@
 				SC_P_LVDS1_GPIO00_LVDS1_PWM0_OUT	0x00000020
 			>;
 		};
+
+		pinctrl_mipi0_lpi2c0: mipi0_lpi2c0grp {
+			fsl,pins = <
+				SC_P_MIPI_DSI0_I2C0_SCL_MIPI_DSI0_I2C0_SCL	0xc600004c
+				SC_P_MIPI_DSI0_I2C0_SDA_MIPI_DSI0_I2C0_SDA	0xc600004c
+			>;
+		};
+
+		pinctrl_mipi1_lpi2c0: mipi1_lpi2c0grp {
+			fsl,pins = <
+				SC_P_MIPI_DSI1_I2C0_SCL_MIPI_DSI1_I2C0_SCL	0xc600004c
+				SC_P_MIPI_DSI1_I2C0_SDA_MIPI_DSI1_I2C0_SDA	0xc600004c
+			>;
+		};
+
+		pinctrl_mipi_dsi_0_1_en: mipi_dsi_0_1_en {
+			fsl,pins = <
+				SC_P_LVDS0_I2C0_SDA_LSIO_GPIO1_IO07		0x00000021
+			>;
+		};
 	};
 };
 

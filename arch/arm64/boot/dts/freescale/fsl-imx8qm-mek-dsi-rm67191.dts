@@ -1,0 +1,93 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qm-mek.dts"
+
+&hdmi {
+	status = "disabled";
+};
+
+&ldb1_phy {
+	status = "disabled";
+};
+
+&ldb1 {
+	status = "disabled";
+};
+
+&mipi_dsi_phy1 {
+	status = "okay";
+};
+
+&mipi_dsi1 {
+	status = "okay";
+};
+
+&mipi_dsi_bridge1 {
+	status = "okay";
+
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_0_1_en>;
+		reset-gpio = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		port {
+			panel1_in: endpoint {
+				remote-endpoint = <&mipi_bridge1_out>;
+			};
+		};
+	};
+
+	port@1 {
+		mipi_bridge1_out: endpoint {
+			remote-endpoint = <&panel1_in>;
+		};
+	};
+};
+
+&mipi_dsi_phy2 {
+	status = "okay";
+};
+
+&mipi_dsi2 {
+	status = "okay";
+};
+
+&mipi_dsi_bridge2 {
+	status = "okay";
+
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_0_1_en>;
+		reset-gpio = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		port {
+			panel2_in: endpoint {
+				remote-endpoint = <&mipi_bridge2_out>;
+			};
+		};
+	};
+
+	port@1 {
+		mipi_bridge2_out: endpoint {
+			remote-endpoint = <&panel2_in>;
+		};
+	};
+};
