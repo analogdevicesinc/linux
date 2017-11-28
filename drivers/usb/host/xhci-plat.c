@@ -267,6 +267,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (device_property_read_bool(sysdev, "usb3-lpm-capable"))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
+	if (device_property_read_bool(sysdev, "usb3-resume-missing-cas"))
+		xhci->quirks |= XHCI_MISSING_CAS;
+
 	if (device_property_read_bool(&pdev->dev, "quirk-broken-port-ped"))
 		xhci->quirks |= XHCI_BROKEN_PORT_PED;
 
