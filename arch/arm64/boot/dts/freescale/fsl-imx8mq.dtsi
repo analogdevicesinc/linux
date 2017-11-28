@@ -553,6 +553,14 @@
 				       <400000000>,
 				       <400000000>;
 		status = "disabled";
+
+		dcss_disp0: port@0 {
+			reg = <0>;
+
+			dcss_disp0_hdmi: hdmi-endpoint {
+				remote-endpoint = <&hdmi_disp>;
+			};
+		};
 	};
 
 	hdmi: hdmi@32c00000 {
