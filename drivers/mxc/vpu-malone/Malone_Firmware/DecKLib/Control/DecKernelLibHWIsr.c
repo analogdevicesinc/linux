@@ -83,7 +83,7 @@ void  mvd_kernel_hw_isr_event ( u_int32   uMaloneIdx,
 MEDIAIP_IRQ_RETCODE mvd_kernel_hw_primary_isr ( u_int32 irq_val )
 {
   u_int32        sif_irq_status[0x3] = { 0x0 };
-  u_int32        uActMaloneID, uData;
+  u_int32        uActMaloneID;
 #if ( TARGET_APP == GTB_DEC ) || ( TARGET_APP == MEDIA_DEC ) || ( TARGET_APP == VIDEO_TRANS ) || ( TARGET_APP == GTB_TRANS )
   u_int32        uIrqTarget0, uIrqTarget1;
 #endif
