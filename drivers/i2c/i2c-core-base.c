@@ -28,6 +28,7 @@
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/idr.h>
 #include <linux/init.h>
