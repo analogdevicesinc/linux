@@ -358,6 +358,20 @@
 			>;
 		};
 
+		pinctrl_typec: typecgrp {
+			fsl,pins = <
+				SC_P_QSPI1A_SS0_B_LSIO_GPIO4_IO19	0x60
+				SC_P_USB_SS3_TC3_LSIO_GPIO4_IO06	0x60
+				SC_P_QSPI1A_DATA0_LSIO_GPIO4_IO26	0x00000021
+			>;
+		};
+
+		pinctrl_usbotg1: usbotg1 {
+			fsl,pins = <
+				SC_P_USB_SS3_TC0_CONN_USB_OTG1_PWR		0x00000021
+			>;
+		};
+
 		pinctrl_usdhc1: usdhc1grp {
 			fsl,pins = <
 				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000041
@@ -523,6 +537,23 @@
 	status = "okay";
 };
 
+&usbotg1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usbotg1>;
+	srp-disable;
+	hnp-disable;
+	adp-disable;
+	power-polarity-active-high;
+	disable-over-current;
+	status = "okay";
+};
+
+&usbotg3 {
+	dr_mode = "otg";
+	extcon = <&typec_ptn5110>;
+	status = "okay";
+};
+
 &usdhc1 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
@@ -625,6 +656,26 @@
 		compatible = "fsl,mpl3115";
 		reg = <0x60>;
 		interrupt-open-drain;
+	};
+
+	typec_ptn5110: typec@50 {
+		compatible = "usb,tcpci";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_typec>;
+		reg = <0x51>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+		ss-sel-gpios = <&gpio4 6 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;
+		src-pdos = <0x380190c8 0x3803c0c8>;
+		snk-pdos = <0x380190c8>;
+		max-snk-mv = <9000>;
+		max-snk-ma = <1000>;
+		op-snk-mw = <9000>;
+		port-type = "drp";
+		sink-disable;
+		default-role = "source";
+		status = "okay";
 	};
 };
 
