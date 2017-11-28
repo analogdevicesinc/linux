@@ -1301,7 +1301,6 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 
 	/* Disable link */
 	ad9467_spi_write(conv->spi, 0x571, 0x15);
-	ad9467_spi_write(conv->spi, 0x0ff, 0x01);	// write enable
 
 	clk_disable_unprepare(conv->lane_clk);
 	clk_disable_unprepare(conv->sysref_clk);
@@ -1331,7 +1330,6 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 
 	// Enable link
 	ad9467_spi_write(conv->spi, 0x571, 0x14);
-	ad9467_spi_write(conv->spi, 0x0ff, 0x01);	// write enable
 
 	mdelay(20);
 	pll_stat = ad9467_spi_read(conv->spi, 0x56f);
