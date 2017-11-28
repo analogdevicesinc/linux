@@ -43,7 +43,6 @@ extern DEC_KERNEL_LIB            gDecKernelLib;
 //  Global Macros                                                            
 /////////////////////////////////////////////////////////////////////////////////
 
-
 /////////////////////////////////////////////////////////////////////////////////
 //  Private Prototypes
 /////////////////////////////////////////////////////////////////////////////////
@@ -89,6 +88,7 @@ MEDIAIP_IRQ_RETCODE mvd_kernel_hw_primary_isr ( u_int32 irq_val )
   u_int32        uIrqTarget0, uIrqTarget1;
 #endif
   u_int32        uForceFIQ = 0, uForceDFEFIQ = 0; 
+  u_int32 uHEVCActive;
 
   /* Future Proof... */
   /* If we have two levels of interrupt or we process interrupts in thread context */
@@ -119,13 +119,38 @@ MEDIAIP_IRQ_RETCODE mvd_kernel_hw_primary_isr ( u_int32 irq_val )
 #endif
 
   mvd_kernel_hw_set_focus ( uActMaloneID, &pgMVDKernelHw );
+
+  /* work out if HEVC active, as if not we don't care about irq_status3 DBE*/
+  MVD_REG_READ( pgMVDKernelHw, DECLIB_DBG_REG_CTX, pgMVDKernelHw->ctx_regp->ctx_status, uHEVCActive );
   
+  if(uHEVCActive&0x400)
+    uHEVCActive = 1;
+  else
+    uHEVCActive = 0;
+  
+
+  
+#if 1  
+  MVD_REG_READ( pgMVDKernelHw, DECLIB_DBG_REG_SIF, pgMVDKernelHw->sif_regp->msd_data0_reg, uForceFIQ    );
+  MVD_REG_READ( pgMVDKernelHw, DECLIB_DBG_REG_SIF, pgMVDKernelHw->sif_regp->msd_data1_reg, uForceDFEFIQ );
+  
+  if ( uForceFIQ )
+  {
+    MVD_REG_WRITE( pgMVDKernelHw, DECLIB_DBG_REG_SIF, pgMVDKernelHw->sif_regp->msd_data0_reg, 0 );
+  }
+  
+  if ( uForceDFEFIQ )
+  {
+    MVD_REG_WRITE( pgMVDKernelHw, DECLIB_DBG_REG_SIF, pgMVDKernelHw->sif_regp->msd_data1_reg, 0 );
+  }
+#else  
   MVD_REG_READ( pgMVDKernelHw, DECLIB_DBG_REG_SIF, pgMVDKernelHw->sif_regp->msd_data0_reg, uData );
   
   MVD_REG_WRITE( pgMVDKernelHw, DECLIB_DBG_REG_SIF, pgMVDKernelHw->sif_regp->msd_data0_reg, 0 );
   
   uForceFIQ    = ( uData & 0x1 ) ? 1 : 0;
   uForceDFEFIQ = ( uData & 0x2 ) ? 1 : 0;
+#endif
   
   if ( uActMaloneID != MALONE_SW )
   {  
@@ -250,17 +275,38 @@ MEDIAIP_IRQ_RETCODE mvd_kernel_hw_primary_isr ( u_int32 irq_val )
     }
 
     if ( sif_irq_status[0x2] & 
-         ( MSD_SIF_INTR3_DBE0_DONE_BIT | MSD_SIF_INTR3_DBE1_DONE_BIT | MSD_SIF_INTR3_DBE0_SLC_DONE_BIT | MSD_SIF_INTR3_DBE1_SLC_DONE_BIT )
+           ( MSD_SIF_INTR3_DBE0_DONE_BIT | MSD_SIF_INTR3_DBE1_DONE_BIT )
        )
     {
       u_int32 uMask = ( MSD_SIF_INTR3_DBE0_DONE_BIT | 
-                        MSD_SIF_INTR3_DBE1_DONE_BIT | 
-                        MSD_SIF_INTR3_DBE0_SLC_DONE_BIT | 
-                        MSD_SIF_INTR3_DBE1_SLC_DONE_BIT 
-                      );
+                        MSD_SIF_INTR3_DBE1_DONE_BIT   );
       
-      MVD_REG_WRITE( pgMVDKernelHw, 0x0 /*DECLIB_DBG_REG_SIF*/, pgMVDKernelHw->sif_regp->intr3_status, sif_irq_status[0x2] & uMask );
-    }
+      if (( sif_irq_status[0x0] & MSD_SIF_INTR_IMAGE_DONE_BIT )||(uHEVCActive==0))
+      {
+        MVD_REG_WRITE( pgMVDKernelHw, 0x0 /*DECLIB_DBG_REG_SIF*/, pgMVDKernelHw->sif_regp->intr3_status, sif_irq_status[0x2] & uMask );
+      }
+      else
+      {
+        sif_irq_status[0x2] &= ~uMask;
+      }
+    } 
+      
+    if ( sif_irq_status[0x2] & 
+           ( MSD_SIF_INTR3_DBE0_SLC_DONE_BIT | MSD_SIF_INTR3_DBE1_SLC_DONE_BIT )
+       )
+    {
+      u_int32 uMask = ( MSD_SIF_INTR3_DBE0_SLC_DONE_BIT | 
+                        MSD_SIF_INTR3_DBE1_SLC_DONE_BIT   );
+    
+      if (( sif_irq_status[0x0] & MSD_SIF_INTR_SLICE_DONE_BIT )|| (uHEVCActive==0))
+      {
+        MVD_REG_WRITE( pgMVDKernelHw, 0x0 /*DECLIB_DBG_REG_SIF*/, pgMVDKernelHw->sif_regp->intr3_status, sif_irq_status[0x2] & uMask );
+      }
+      else
+      {
+        sif_irq_status[0x2] &= ~uMask;
+      }
+    }       
   }
   else /* We wish to process a command without accessing HW */
   {
@@ -285,7 +331,7 @@ MEDIAIP_IRQ_RETCODE mvd_kernel_hw_primary_isr ( u_int32 irq_val )
                 sif_irq_status[0x2], 
                 uForceFIQ
               );
-
+              
     /* Only pass events not serviced inline in this isr */
             
     sif_irq_status[0x0] &= ( MSD_SIF_INTR_IMAGE_DONE_BIT | MSD_SIF_INTR_SLICE_DONE_BIT | MSD_SIF_INTR_SCODE_FOUND_BIT | MSD_SIF_INTR_FORCE_ENTRY_BIT | MSD_SIF_INTR_BSDMA_BIT );
@@ -464,4 +510,5 @@ void  mvd_kernel_hw_isr_event ( u_int32            uMaloneIdx,
   gDecKernelLib.pfCallback[uMaloneIdx] ( &sData );
   
 }
+
 /* End of file */
