@@ -128,9 +128,14 @@ static void dcss_crtc_mode_set_nofb(struct drm_crtc *crtc)
 
 	drm_display_mode_to_videomode(mode, &vm);
 
+	pm_runtime_get_sync(dcss_crtc->dev->parent);
+
 	dcss_dtg_sync_set(dcss, &vm);
 	dcss_ss_sync_set(dcss, &vm, mode->flags & DRM_MODE_FLAG_PHSYNC,
 			 mode->flags & DRM_MODE_FLAG_PVSYNC);
+
+	pm_runtime_mark_last_busy(dcss_crtc->dev->parent);
+	pm_runtime_put_autosuspend(dcss_crtc->dev->parent);
 }
 
 static int dcss_crtc_atomic_check(struct drm_crtc *crtc,
