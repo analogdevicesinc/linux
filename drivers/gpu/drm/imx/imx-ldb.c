@@ -522,13 +522,13 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	if (imx_ldb_ch == &ldb->channel[0] || dual) {
 		if (mode->flags & DRM_MODE_FLAG_NVSYNC)
 			ldb->ldb_ctrl |= LDB_DI0_VS_POL_ACT_LOW;
-		else if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+		else
 			ldb->ldb_ctrl &= ~LDB_DI0_VS_POL_ACT_LOW;
 	}
 	if (imx_ldb_ch == &ldb->channel[1] || dual) {
 		if (mode->flags & DRM_MODE_FLAG_NVSYNC)
 			ldb->ldb_ctrl |= LDB_DI1_VS_POL_ACT_LOW;
-		else if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+		else
 			ldb->ldb_ctrl &= ~LDB_DI1_VS_POL_ACT_LOW;
 	}
 
@@ -540,7 +540,7 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 					ldb->channel[0].phy, false);
 				mixel_phy_lvds_set_vsync_pol(
 					ldb->channel[1].phy, false);
-			} else if (mode->flags & DRM_MODE_FLAG_PVSYNC) {
+			} else {
 				mixel_phy_lvds_set_vsync_pol(
 					ldb->channel[0].phy, true);
 				mixel_phy_lvds_set_vsync_pol(
@@ -552,7 +552,7 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 					ldb->channel[0].phy, false);
 				mixel_phy_lvds_set_hsync_pol(
 					ldb->channel[1].phy, false);
-			} else if (mode->flags & DRM_MODE_FLAG_PHSYNC) {
+			} else {
 				mixel_phy_lvds_set_hsync_pol(
 					ldb->channel[0].phy, true);
 				mixel_phy_lvds_set_hsync_pol(
@@ -563,14 +563,14 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 			if (mode->flags & DRM_MODE_FLAG_NVSYNC)
 				mixel_phy_combo_lvds_set_vsync_pol(
 					ldb->channel[0].phy, false);
-			else if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+			else
 				mixel_phy_combo_lvds_set_vsync_pol(
 					ldb->channel[0].phy, true);
 			/* HSYNC */
 			if (mode->flags & DRM_MODE_FLAG_NHSYNC)
 				mixel_phy_combo_lvds_set_hsync_pol(
 					ldb->channel[0].phy, false);
-			else if (mode->flags & DRM_MODE_FLAG_PHSYNC)
+			else
 				mixel_phy_combo_lvds_set_hsync_pol(
 					ldb->channel[0].phy, true);
 		}
@@ -580,14 +580,14 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 			if (mode->flags & DRM_MODE_FLAG_NVSYNC)
 				mixel_phy_lvds_set_vsync_pol(imx_ldb_ch->phy,
 								false);
-			else if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+			else
 				mixel_phy_lvds_set_vsync_pol(imx_ldb_ch->phy,
 								true);
 			/* HSYNC */
 			if (mode->flags & DRM_MODE_FLAG_NHSYNC)
 				mixel_phy_lvds_set_hsync_pol(imx_ldb_ch->phy,
 								false);
-			else if (mode->flags & DRM_MODE_FLAG_PHSYNC)
+			else
 				mixel_phy_lvds_set_hsync_pol(imx_ldb_ch->phy,
 								true);
 		} else if (ldb->use_mixel_combo_phy) {
@@ -596,7 +596,7 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 				mixel_phy_combo_lvds_set_vsync_pol(
 								imx_ldb_ch->phy,
 								false);
-			else if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+			else
 				mixel_phy_combo_lvds_set_vsync_pol(
 								imx_ldb_ch->phy,
 								true);
@@ -605,7 +605,7 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 				mixel_phy_combo_lvds_set_hsync_pol(
 								imx_ldb_ch->phy,
 								false);
-			else if (mode->flags & DRM_MODE_FLAG_PHSYNC)
+			else
 				mixel_phy_combo_lvds_set_hsync_pol(
 								imx_ldb_ch->phy,
 								true);
