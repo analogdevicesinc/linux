@@ -1174,6 +1174,7 @@ static void ls1012a_configure_serdes(struct net_device *ndev)
 	struct pfe_eth_priv_s *priv = pfe->eth.eth_priv[0];
 	int sgmii_2500 = 0;
 	struct mii_bus *bus = priv->mii_bus;
+	u16 value = 0;
 
 	if (priv->einfo->mii_config == PHY_INTERFACE_MODE_2500SGMII)
 		sgmii_2500 = 1;
@@ -1191,14 +1192,16 @@ static void ls1012a_configure_serdes(struct net_device *ndev)
 		pfe_eth_mdio_write(bus, 0, 0x4, 0x4001);
 		pfe_eth_mdio_write(bus, 0, 0x12, 0xa120);
 		pfe_eth_mdio_write(bus, 0, 0x13, 0x7);
+		/* Autonegotiation need to be disabled for 2.5G SGMII mode*/
+		value = 0x0140;
+		pfe_eth_mdio_write(bus, 0, 0x0, value);
 	} else {
 		pfe_eth_mdio_write(bus, 0, 0x14, 0xb);
 		pfe_eth_mdio_write(bus, 0, 0x4, 0x1a1);
 		pfe_eth_mdio_write(bus, 0, 0x12, 0x400);
 		pfe_eth_mdio_write(bus, 0, 0x13, 0x0);
+		pfe_eth_mdio_write(bus, 0, 0x0, 0x1140);
 	}
-
-	pfe_eth_mdio_write(bus, 0, 0x0, 0x1140);
 }
 
 /*
