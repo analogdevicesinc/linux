@@ -1,8 +1,8 @@
 /*
  * caam - Freescale FSL CAAM support for crypto API
  *
- * Copyright 2008-2011 Freescale Semiconductor, Inc.
- * Copyright 2016 NXP
+ * Copyright 2008-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * Based on talitos crypto API driver.
  *

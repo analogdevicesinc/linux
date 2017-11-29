@@ -2,7 +2,8 @@
 /*
  * CAAM hardware register-level view
  *
- * Copyright 2008-2017 Freescale Semiconductor, Inc.
+ * Copyright 2008-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  */
 
 #ifndef REGS_H

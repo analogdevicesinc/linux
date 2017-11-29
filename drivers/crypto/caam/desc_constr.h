@@ -2,7 +2,8 @@
 /*
  * caam descriptor construction helper functions
  *
- * Copyright 2008-2017 Freescale Semiconductor, Inc.
+ * Copyright 2008-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  */
 
 #ifndef DESC_CONSTR_H
