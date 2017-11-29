@@ -397,6 +397,8 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	host->max_blk_size = 512;
 	host->max_blk_count = PAGE_SIZE / 512;
 
+	host->use_blk_mq = mmc_use_blk_mq;
+
 	return host;
 }
 
