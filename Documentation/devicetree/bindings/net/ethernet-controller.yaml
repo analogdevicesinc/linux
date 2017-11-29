@@ -65,6 +65,7 @@ properties:
       - mii
       - gmii
       - sgmii
+      - sgmii-2500
       - psgmii
       - qsgmii
       - qusgmii
