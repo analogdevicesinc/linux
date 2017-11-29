@@ -459,12 +459,16 @@
 		status = "okay";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_csi1>;
-		clocks = <&clk IMX8MQ_CLK_DUMMY>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2_DIV>;
 		clock-names = "csi_mclk";
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2_SRC>,
+				  <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
+		assigned-clock-rates = <0>, <20000000>;
 		csi_id = <0>;
 		pwn-gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
 		rst-gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
-		mclk = <24000000>;
+		mclk = <20000000>;
 		mclk_source = <0>;
 		port {
 			ov5640_mipi1_ep: endpoint {
@@ -479,13 +483,16 @@
 		status = "disabled";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_csi2>;
-		clocks = <&clk IMX8MQ_CLK_DUMMY>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2_DIV>;
 		clock-names = "csi_mclk";
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2_SRC>,
+				  <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
+		assigned-clock-rates = <0>, <20000000>;
 		csi_id = <0>;
 		pwn-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 		rst-gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
-		/*AVDD-supply = <&vgen6_reg>;*/
-		mclk = <24000000>;
+		mclk = <20000000>;
 		mclk_source = <0>;
 		port {
 			ov5640_mipi2_ep: endpoint {
