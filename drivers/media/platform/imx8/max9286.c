@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2017 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
