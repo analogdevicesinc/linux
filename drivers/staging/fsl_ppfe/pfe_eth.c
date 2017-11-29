@@ -923,7 +923,8 @@ static int pfe_eth_mdio_init(struct pfe_eth_priv_s *priv,
 			     struct ls1012a_mdio_platform_data *minfo)
 {
 	struct mii_bus *bus;
-	int rc;
+	int rc, ii;
+	struct phy_device *phydev;
 
 	netif_info(priv, drv, priv->ndev, "%s\n", __func__);
 	pr_info("%s\n", __func__);
@@ -962,6 +963,31 @@ static int pfe_eth_mdio_init(struct pfe_eth_priv_s *priv,
 	}
 
 	priv->mii_bus = bus;
+
+	/* For clause 45 we need to call get_phy_device() with it's
+	 * 3rd argument as true and then register the phy device
+	 * via phy_device_register()
+	 */
+
+	if (priv->einfo->mii_config == PHY_INTERFACE_MODE_2500SGMII) {
+		for (ii = 0; ii < NUM_GEMAC_SUPPORT; ii++) {
+			phydev = get_phy_device(priv->mii_bus,
+					priv->einfo->phy_id + ii, true);
+			if (!phydev || IS_ERR(phydev)) {
+				rc = -EIO;
+				netdev_err(priv->ndev, "fail to get device\n");
+				goto err1;
+			}
+			rc = phy_device_register(phydev);
+			if (rc) {
+				phy_device_free(phydev);
+				netdev_err(priv->ndev,
+					"phy_device_register() failed\n");
+				goto err1;
+			}
+		}
+	}
+
 	pfe_eth_mdio_reset(bus);
 
 	return 0;
@@ -1149,7 +1175,7 @@ static void ls1012a_configure_serdes(struct net_device *ndev)
 	int sgmii_2500 = 0;
 	struct mii_bus *bus = priv->mii_bus;
 
-	if (priv->einfo->mii_config == PHY_INTERFACE_MODE_SGMII_2500)
+	if (priv->einfo->mii_config == PHY_INTERFACE_MODE_2500SGMII)
 		sgmii_2500 = 1;
 
 	netif_info(priv, drv, ndev, "%s\n", __func__);
@@ -1198,7 +1224,7 @@ static int pfe_phy_init(struct net_device *ndev)
 	netif_info(priv, drv, ndev, "%s: %s\n", __func__, phy_id);
 	interface = priv->einfo->mii_config;
 	if ((interface == PHY_INTERFACE_MODE_SGMII) ||
-	    (interface == PHY_INTERFACE_MODE_SGMII_2500)) {
+	    (interface == PHY_INTERFACE_MODE_2500SGMII)) {
 		/*Configure SGMII PCS */
 		if (pfe->scfg) {
 			/*Config MDIO from serdes */
