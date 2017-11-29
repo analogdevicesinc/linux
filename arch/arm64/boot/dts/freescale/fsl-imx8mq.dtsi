@@ -446,11 +446,6 @@
 		clock-names = "ipg", "per", "osc_per";
 	};
 
-	display-subsystem {
-		compatible = "fsl,imx-display-subsystem";
-		ports = <&dcss_disp0>;
-	};
-
 	irqsteer_dcss: irqsteer@32e2d000 {
 		compatible = "nxp,imx-irqsteer";
 		reg = <0x0 0x32e2d000 0x0 0x1000>;
@@ -600,6 +595,11 @@
 		assigned-clock-rate = <594000000>;
 		interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
 		status = "disabled";
+	};
+
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dcss_disp0>;
 	};
 
 	mipi_dsi_phy: dsi_phy@30A00300 {
