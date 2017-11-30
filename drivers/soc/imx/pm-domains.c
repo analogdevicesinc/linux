@@ -47,6 +47,11 @@ static sc_rsrc_t irq2rsrc[IMX8_WU_MAX_IRQS];
 static sc_rsrc_t wakeup_rsrc_id[IMX8_WU_MAX_IRQS / 32];
 static DEFINE_SPINLOCK(imx8_wu_lock);
 
+enum imx_pd_state {
+	PD_LP,
+	PD_OFF,
+};
+
 static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 {
 	struct imx8_pm_domain *pd;
@@ -86,7 +91,7 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 
 	ret = imx8_pd_power(domain, true);
 
-	if (!list_empty(&pd->clks) && !pd->runtime_idle_active) {
+	if (!list_empty(&pd->clks) && (pd->pd.state_idx == PD_OFF)) {
 		/*
 		 * The SS is powered on restore the clock rates that
 		 * may be lost.
@@ -109,7 +114,6 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 			}
 		}
 	}
-	pd->runtime_idle_active = false;
 
 	return ret;
 }
@@ -121,7 +125,7 @@ static int imx8_pd_power_off(struct generic_pm_domain *domain)
 
 	pd = container_of(domain, struct imx8_pm_domain, pd);
 
-	if (!list_empty(&pd->clks) && (!pd->runtime_idle_active)) {
+	if (!list_empty(&pd->clks) && (pd->pd.state_idx == PD_OFF)) {
 		/*
 		 * The SS is going to be powered off, store the clock rates
 		 * that may be lost.
@@ -132,38 +136,6 @@ static int imx8_pd_power_off(struct generic_pm_domain *domain)
 		}
 	}
 	return imx8_pd_power(domain, false);
-}
-
-static int imx8_pd_dev_start(struct device *dev)
-{
-	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
-	struct imx8_pm_domain *pd;
-
-	pd = container_of(genpd, struct imx8_pm_domain, pd);
-	pd->runtime_idle_active = false;
-	return 0;
-}
-
-static int imx8_pd_dev_stop(struct device *dev)
-{
-	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
-	struct imx8_pm_domain *pd;
-
-	pd = container_of(genpd, struct imx8_pm_domain, pd);
-	if (pm_runtime_enabled(dev))
-		pd->runtime_idle_active = true;
-	return 0;
-}
-
-static int imx8_pm_runtime_idle(struct device *dev)
-{
-	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
-	struct imx8_pm_domain *pd;
-
-	pd = container_of(genpd, struct imx8_pm_domain, pd);
-	if (pm_runtime_enabled(dev))
-		pd->runtime_idle_active = true;
-	return pm_runtime_autosuspend(dev);
 }
 
 static int imx8_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
@@ -274,8 +246,6 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 		if (imx8_pd->rsrc_id != SC_R_LAST) {
 			imx8_pd->pd.power_off = imx8_pd_power_off;
 			imx8_pd->pd.power_on = imx8_pd_power_on;
-			imx8_pd->pd.dev_ops.start = imx8_pd_dev_start;
-			imx8_pd->pd.dev_ops.stop = imx8_pd_dev_stop;
 			imx8_pd->pd.attach_dev = imx8_attach_dev;
 			imx8_pd->pd.detach_dev = imx8_detach_dev;
 
@@ -299,8 +269,6 @@ static int __init imx8_add_pm_domains(struct device_node *parent,
 		}
 		INIT_LIST_HEAD(&imx8_pd->clks);
 		pm_genpd_init(&imx8_pd->pd, NULL, true);
-
-		imx8_pd->pd.domain.ops.runtime_idle = imx8_pm_runtime_idle;
 
 		if (genpd_parent)
 			pm_genpd_add_subdomain(genpd_parent, &imx8_pd->pd);
