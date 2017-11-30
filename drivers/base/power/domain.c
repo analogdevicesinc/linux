@@ -373,6 +373,13 @@ static int genpd_power_off(struct generic_pm_domain *genpd, bool one_dev_on,
 	if (genpd->gov && genpd->gov->power_down_ok) {
 		if (!genpd->gov->power_down_ok(&genpd->domain))
 			return -EAGAIN;
+	} else {
+		/*
+		 * if no valid state idx specified by governor, we use
+		 * the default state_idx 0 to enter in case the domain
+		 * has multi low power states.
+		 */
+		genpd->state_idx = 0;
 	}
 
 	if (genpd->power_off) {
