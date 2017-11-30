@@ -426,12 +426,12 @@ static long mwadma_rx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
             if (NULL == tmp) {
                 return -ENOMEM;
             }
-            if(copy_to_user((unsigned long *) arg, &next_index, sizeof(unsigned long))) {
+            if(copy_to_user((unsigned int *) arg, &next_index, sizeof(next_index))) {
                 return -EACCES;
             }
             break;
         case MWADMA_RX_GET_ERROR:
-            if(copy_from_user(&done_index, (unsigned long *)arg, sizeof(unsigned long))) {
+            if(copy_from_user(&done_index, (unsigned int *)arg, sizeof(done_index))) {
                 return -EACCES;
             }
             spin_lock_irqsave(&mwchan->slock, flags);
@@ -441,7 +441,7 @@ static long mwadma_rx_ctl(struct mwadma_dev *mwdev, unsigned int cmd, unsigned l
             mwchan->blocks[done_index]->state = MWDMA_READY;
             spin_unlock_irqrestore(&mwchan->slock, flags);
             atomic64_dec_if_positive(&rxcount);
-            if(copy_to_user((unsigned long *) arg, &error, sizeof(unsigned long))) {
+            if(copy_to_user((unsigned int *) arg, &error, sizeof(error))) {
                 return -EACCES;
             }
             break;
