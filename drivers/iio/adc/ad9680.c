@@ -464,6 +464,26 @@ static int ad9680_set_scale(struct axiadc_converter *conv, int val, int val2)
 	return -EINVAL;
 }
 
+static ssize_t ad9680_testmode_read(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+
+	return conv->testmode[chan->channel];
+}
+
+static ssize_t ad9680_testmode_write(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int item)
+{
+	int ret;
+
+	mutex_lock(&indio_dev->mlock);
+	ret = ad9680_testmode_set(indio_dev, chan->channel, item);
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
 static const char * const ad9680_testmodes[] = {
 	[AD9680_TESTMODE_OFF] = "off",
 	[AD9680_TESTMODE_MIDSCALE_SHORT] = "midscale_short",
@@ -477,66 +497,16 @@ static const char * const ad9680_testmodes[] = {
 	[AD9680_TESTMODE_RAMP] = "ramp",
 };
 
-static ssize_t ad9680_testmode_mode_available(struct iio_dev *indio_dev,
-	uintptr_t private, const struct iio_chan_spec *chan, char *buf)
-{
-	size_t len = 0;
-	int i;
-
-	for (i = 0; i <= AD9680_TESTMODE_RAMP; ++i) {
-		if (ad9680_testmodes[i])
-			len += sprintf(buf + len, "%s ", ad9680_testmodes[i]);
-	}
-
-	/* replace last space with a newline */
-	buf[len - 1] = '\n';
-
-	return len;
-}
-
-static ssize_t ad9680_testmode_read(struct iio_dev *indio_dev,
-	uintptr_t private, const struct iio_chan_spec *chan, char *buf)
-{
-	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-
-	return sprintf(buf, "%s\n", ad9680_testmodes[conv->testmode[chan->channel]]);
-}
-
-static ssize_t ad9680_testmode_write(struct iio_dev *indio_dev,
-	uintptr_t private, const struct iio_chan_spec *chan, const char *buf,
-	size_t len)
-{
-	unsigned int mode, i;
-	int ret;
-
-	mode = 0;
-
-	for (i = 0; i <= AD9680_TESTMODE_RAMP; ++i) {
-		if (ad9680_testmodes[i] &&
-		    sysfs_streq(buf, ad9680_testmodes[i])) {
-			mode = i;
-			break;
-		}
-	}
-
-	mutex_lock(&indio_dev->mlock);
-	ret = ad9680_testmode_set(indio_dev, chan->channel, mode);
-	mutex_unlock(&indio_dev->mlock);
-
-	return ret ? ret : len;
-}
+static const struct iio_enum ad9680_testmode_enum = {
+	.items = ad9680_testmodes,
+	.num_items = ARRAY_SIZE(ad9680_testmodes),
+	.set = ad9680_testmode_write,
+	.get = ad9680_testmode_read,
+};
 
 static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
-	{
-		.name = "test_mode",
-		.read = ad9680_testmode_read,
-		.write = ad9680_testmode_write,
-	},
-	{
-		.name = "test_mode_available",
-		.read = ad9680_testmode_mode_available,
-		.shared = true,
-	},
+	IIO_ENUM("test_mode", IIO_SEPARATE, &ad9680_testmode_enum),
+	IIO_ENUM_AVAILABLE("test_mode", &ad9680_testmode_enum),
 	{
 		.name = "scale_available",
 		.read = ad9680_show_scale_available,
