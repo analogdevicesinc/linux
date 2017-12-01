@@ -1,0 +1,16 @@
+Freescale i.MX audio complex PDM microphone
+
+Required properties:
+- compatible: "fsl,imx-pdm-mic"
+- model: The user-visible name of this sound complex
+- audio-cpu : The phandle of the i.MX SAI controller
+- decimation : The PDM decimation factor <64>
+
+Example:
+
+sound-pdm {
+	compatible = "fsl,imx-pdm-mic";
+	model = "imx-pdm-audio";
+	audio-cpu = <&sai3>;
+	decimation = <64>;
+};
