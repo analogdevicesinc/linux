@@ -35,6 +35,7 @@
 /* Register bits definition */
 
 /* USB3_CORE_CTRL1 */
+#define SW_RESET_MASK	(0x3f << 26)
 #define PWR_SW_RESET	(1 << 31)
 #define APB_SW_RESET	(1 << 30)
 #define AXI_SW_RESET	(1 << 29)
@@ -44,18 +45,27 @@
 #define ALL_SW_RESET	(PWR_SW_RESET | APB_SW_RESET | AXI_SW_RESET | \
 		RW_SW_RESET | PHY_SW_RESET | PHYAHB_SW_RESET)
 #define OC_DISABLE	(1 << 9)
+#define MDCTRL_CLK_SEL	(1 << 7)
 #define MODE_STRAP_MASK	(0x7)
 #define DEV_MODE	(1 << 2)
 #define HOST_MODE	(1 << 1)
 #define OTG_MODE	(1 << 0)
 
 /* USB3_INT_REG */
-#define HOST_INT1_EN (1 << 0) /* HOST INT b7:0 */
+#define CLK_125_REQ	(1 << 29)
+#define LPM_CLK_REQ	(1 << 28)
+#define DEVU3_WAEKUP_EN	(1 << 14)
+#define OTG_WAKEUP_EN	(1 << 12)
 #define DEV_INT_EN (3 << 8) /* DEV INT b9:8 */
+#define HOST_INT1_EN (1 << 0) /* HOST INT b7:0 */
 
 /* USB3_CORE_STATUS */
+#define MDCTRL_CLK_STATUS	(1 << 15)
 #define DEV_POWER_ON_READY	(1 << 13)
 #define HOST_POWER_ON_READY	(1 << 12)
+
+/* USB3_SSPHY_STATUS */
+#define PHY_REFCLK_REQ		(1 << 0)
 
 
 /* PHY register definition */
@@ -128,5 +138,35 @@
 #define TB_ADDR_TX_RCVDET_EN_TMR	        (0x4122 * 4)
 #define TB_ADDR_TX_RCVDET_ST_TMR	        (0x4123 * 4)
 #define TB_ADDR_XCVR_DIAG_LANE_FCM_EN_MGN_TMR	(0x40f2 * 4)
+#define TB_ADDR_TX_RCVDETSC_CTRL	        (0x4124 * 4)
 
+/* Register bits definition */
+
+/* TB_ADDR_TX_RCVDETSC_CTRL */
+#define RXDET_IN_P3_32KHZ			(1 << 0)
+
+/* OTG registers definition */
+#define OTGSTS		0x4
+#define OTGREFCLK	0xc
+
+/* Register bits definition */
+/* OTGSTS */
+#define OTG_NRDY	(1 << 11)
+/* OTGREFCLK */
+#define OTG_STB_CLK_SWITCH_EN	(1 << 31)
+
+/* xHCI registers definition  */
+#define XECP_PORT_CAP_REG	0x8000
+#define XECP_PM_PMCSR		0x8018
+#define XECP_AUX_CTRL_REG1	0x8120
+
+/* Register bits definition */
+/* XECP_PORT_CAP_REG */
+#define LPM_2_STB_SWITCH_EN	(1 << 25)
+
+/* XECP_AUX_CTRL_REG1 */
+#define CFG_RXDET_P3_EN		(1 << 15)
+
+/* XECP_PM_PMCSR */
+#define PS_D0			(1 << 0)
 #endif /* __DRIVERS_USB_CDNS3_NXP_H */

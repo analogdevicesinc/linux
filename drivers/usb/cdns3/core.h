@@ -32,12 +32,16 @@ enum cdns3_roles {
  * struct cdns3_role_driver - host/gadget role driver
  * @start: start this role
  * @stop: stop this role
+ * @suspend: suspend callback for this role
+ * @resume: resume callback for this role
  * @irq: irq handler for this role
  * @name: role name string (host/gadget)
  */
 struct cdns3_role_driver {
 	int (*start)(struct cdns3 *);
 	void (*stop)(struct cdns3 *);
+	int (*suspend)(struct cdns3 *, bool do_wakeup);
+	int (*resume)(struct cdns3 *, bool hibernated);
 	irqreturn_t (*irq)(struct cdns3 *);
 	const char *name;
 };
@@ -51,6 +55,7 @@ struct cdns3_role_driver {
  * @dev_regs: pointer to base of dev registers
  * @none_core_regs: pointer to base of nxp wrapper registers
  * @phy_regs: pointer to base of phy registers
+ * @otg_regs: pointer to base of otg registers
  * @irq: irq number for controller
  * @roles: array of supported roles for this controller
  * @role: current role
@@ -61,6 +66,8 @@ struct cdns3_role_driver {
  * @extcon: Type-C extern connector
  * @extcon_nb: notifier block for Type-C extern connector
  * @role_switch_wq: work queue item for role switch
+ * @in_lpm: the controller in low power mode
+ * @wakeup_int: the wakeup interrupt
  */
 struct cdns3 {
 	struct device *dev;
@@ -68,17 +75,20 @@ struct cdns3 {
 	struct resource *xhci_res;
 	struct usbss_dev_register_block_type __iomem *dev_regs;
 	void __iomem *none_core_regs;
+	void __iomem *phy_regs;
+	void __iomem *otg_regs;
 	int irq;
 	struct cdns3_role_driver *roles[CDNS3_ROLE_END];
 	enum cdns3_roles role;
 	struct device *host_dev;
 	struct device *gadget_dev;
-	void __iomem *phy_regs;
 	struct usb_phy *usbphy;
 	struct clk *cdns3_clks[CDNS3_NUM_OF_CLKS];
 	struct extcon_dev *extcon;
 	struct notifier_block extcon_nb;
 	struct work_struct role_switch_wq;
+	bool in_lpm;
+	bool wakeup_int;
 };
 
 static inline struct cdns3_role_driver *cdns3_role(struct cdns3 *cdns)

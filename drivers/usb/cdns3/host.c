@@ -19,6 +19,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
+#include <linux/pm_runtime.h>
 
 #include "../host/xhci.h"
 
@@ -39,7 +40,19 @@ static void xhci_cdns3_quirks(struct device *dev, struct xhci_hcd *xhci)
 
 static int xhci_cdns3_setup(struct usb_hcd *hcd)
 {
-	return xhci_gen_setup(hcd, xhci_cdns3_quirks);
+	int ret;
+	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
+	u32 command;
+
+	ret = xhci_gen_setup(hcd, xhci_cdns3_quirks);
+	if (ret)
+		return ret;
+	/* set usbcmd.EU3S */
+	command = readl(&xhci->op_regs->command);
+	command |= CMD_PM_INDEX;
+	writel(command, &xhci->op_regs->command);
+
+	return 0;
 }
 
 static const struct xhci_driver_overrides xhci_cdns3_overrides __initconst = {
@@ -112,7 +125,9 @@ static int cdns3_host_start(struct cdns3 *cdns)
 		if (ret)
 			return ret;
 	}
-	dev_info(dev, "%s begins create hcd\n", __func__);
+	pm_runtime_set_active(dev);
+	pm_runtime_no_callbacks(dev);
+	pm_runtime_enable(dev);
 
 	host->hcd = __usb_create_hcd(&xhci_cdns3_hc_driver, sysdev, dev,
 			       dev_name(dev), NULL);
@@ -146,7 +161,9 @@ static int cdns3_host_start(struct cdns3 *cdns)
 	if (ret)
 		goto err5;
 
+	device_set_wakeup_capable(dev, true);
 	dev_dbg(dev, "%s ends\n", __func__);
+
 	return 0;
 
 err5:
@@ -178,9 +195,35 @@ static void cdns3_host_stop(struct cdns3 *cdns)
 		usb_put_hcd(xhci->shared_hcd);
 		usb_put_hcd(hcd);
 		cdns->host_dev = NULL;
+		pm_runtime_set_suspended(dev);
+		pm_runtime_disable(dev);
 		device_del(dev);
 		put_device(dev);
 	}
+}
+
+static int cdns3_host_suspend(struct cdns3 *cdns, bool do_wakeup)
+{
+	struct device *dev = cdns->host_dev;
+	struct xhci_hcd	*xhci;
+
+	if (!dev)
+		return 0;
+
+	xhci = hcd_to_xhci(dev_get_drvdata(dev));
+	return xhci_suspend(xhci, do_wakeup);
+}
+
+static int cdns3_host_resume(struct cdns3 *cdns, bool hibernated)
+{
+	struct device *dev = cdns->host_dev;
+	struct xhci_hcd	*xhci;
+
+	if (!dev)
+		return 0;
+
+	xhci = hcd_to_xhci(dev_get_drvdata(dev));
+	return xhci_resume(xhci, hibernated);
 }
 
 int cdns3_host_init(struct cdns3 *cdns)
@@ -194,6 +237,8 @@ int cdns3_host_init(struct cdns3 *cdns)
 	rdrv->start	= cdns3_host_start;
 	rdrv->stop	= cdns3_host_stop;
 	rdrv->irq	= cdns3_host_irq;
+	rdrv->suspend	= cdns3_host_suspend;
+	rdrv->resume	= cdns3_host_resume;
 	rdrv->name	= "host";
 	cdns->roles[CDNS3_ROLE_HOST] = rdrv;
 

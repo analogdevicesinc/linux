@@ -21,6 +21,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
 #include <linux/usb/composite.h>
 #include <linux/of_platform.h>
 #include <linux/usb/gadget.h>
@@ -98,6 +99,7 @@ static int usb_ss_gadget_udc_start(struct usb_gadget *gadget,
 static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget);
 static int usb_ss_init_ep(struct usb_ss_dev *usb_ss);
 static int usb_ss_init_ep0(struct usb_ss_dev *usb_ss);
+static void __cdns3_gadget_start(struct usb_ss_dev *usb_ss);
 
 static struct usb_endpoint_descriptor cdns3_gadget_ep0_desc = {
 	.bLength	= USB_DT_ENDPOINT_SIZE,
@@ -1501,6 +1503,12 @@ static int usb_ss_gadget_ep_disable(struct usb_ep *ep)
 	usb_ss = usb_ss_ep->usb_ss;
 
 	spin_lock_irqsave(&usb_ss->lock, flags);
+	if (!usb_ss->start_gadget) {
+		dev_dbg(&usb_ss->dev,
+			"Disabling endpoint at disconnection: %s\n", ep->name);
+		spin_unlock_irqrestore(&usb_ss->lock, flags);
+		return 0;
+	}
 	dev_dbg(&usb_ss->dev,
 		"Disabling endpoint: %s\n", ep->name);
 	select_ep(usb_ss, ep->desc->bEndpointAddress);
@@ -1630,6 +1638,12 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 	unsigned long flags;
 
 	spin_lock_irqsave(&usb_ss->lock, flags);
+	if (!usb_ss->start_gadget) {
+		dev_dbg(&usb_ss->dev,
+			"DEQUEUE at disconnection: %s\n", ep->name);
+		spin_unlock_irqrestore(&usb_ss->lock, flags);
+		return 0;
+	}
 	dev_dbg(&usb_ss->dev, "DEQUEUE(%02X) %d\n",
 		ep->address, request->length);
 	usb_gadget_unmap_request_by_dev(usb_ss->sysdev, request,
@@ -1820,54 +1834,7 @@ static int usb_ss_gadget_udc_start(struct usb_gadget *gadget,
 		return 0;
 	}
 
-	/* configure endpoint 0 hardware */
-	cdns_ep0_config(usb_ss);
-
-	/* enable interrupts for endpoint 0 (in and out) */
-	gadget_writel(usb_ss, &usb_ss->regs->ep_ien,
-	EP_IEN__EOUTEN0__MASK | EP_IEN__EINEN0__MASK);
-
-	/* enable interrupt for device */
-	gadget_writel(usb_ss, &usb_ss->regs->usb_ien,
-			USB_IEN__U2RESIEN__MASK
-			| USB_ISTS__DIS2I__MASK
-			| USB_IEN__CON2IEN__MASK
-			| USB_IEN__UHRESIEN__MASK
-			| USB_IEN__UWRESIEN__MASK
-			| USB_IEN__DISIEN__MASK
-			| USB_IEN__CONIEN__MASK
-			| USB_IEN__U3EXTIEN__MASK
-			| USB_IEN__L2ENTIEN__MASK
-			| USB_IEN__L2EXTIEN__MASK);
-
-	gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
-		    USB_CONF__CLK2OFFDS__MASK
-	/*	    | USB_CONF__USB3DIS__MASK */
-		    | USB_CONF__L1DS__MASK);
-
-	gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
-			USB_CONF__DEVEN__MASK
-			| USB_CONF__U1DS__MASK
-			| USB_CONF__U2DS__MASK
-			/*
-			 * TODO:
-			 * | USB_CONF__L1EN__MASK
-			 */
-			);
-
-	gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
-			USB_CONF__DEVEN__MASK
-			| USB_CONF__U1DS__MASK
-			| USB_CONF__U2DS__MASK
-			/*
-			 * TODO:
-			 * | USB_CONF__L1EN__MASK
-			 */
-			);
-
-	gadget_writel(usb_ss, &usb_ss->regs->dbg_link1,
-		DBG_LINK1__LFPS_MIN_GEN_U1_EXIT_SET__MASK |
-		DBG_LINK1__LFPS_MIN_GEN_U1_EXIT__WRITE(0x3C));
+	__cdns3_gadget_start(usb_ss);
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 	dev_dbg(&usb_ss->dev, "%s ends\n", __func__);
 
@@ -2153,20 +2120,8 @@ void cdns3_gadget_remove(struct cdns3 *cdns)
 	cdns->gadget_dev = NULL;
 }
 
-static int cdns3_gadget_start(struct cdns3 *cdns)
+static void __cdns3_gadget_start(struct usb_ss_dev *usb_ss)
 {
-	struct usb_ss_dev *usb_ss = container_of(cdns->gadget_dev,
-			struct usb_ss_dev, dev);
-	unsigned long flags;
-
-	dev_dbg(&usb_ss->dev, "%s begins\n", __func__);
-
-	spin_lock_irqsave(&usb_ss->lock, flags);
-	usb_ss->start_gadget = 1;
-	if (!usb_ss->gadget_driver) {
-		spin_unlock_irqrestore(&usb_ss->lock, flags);
-		return 0;
-	}
 
 	/* configure endpoint 0 hardware */
 	cdns_ep0_config(usb_ss);
@@ -2207,6 +2162,25 @@ static int cdns3_gadget_start(struct cdns3 *cdns)
 	gadget_writel(usb_ss, &usb_ss->regs->dbg_link1,
 		DBG_LINK1__LFPS_MIN_GEN_U1_EXIT_SET__MASK |
 		DBG_LINK1__LFPS_MIN_GEN_U1_EXIT__WRITE(0x3C));
+}
+
+static int cdns3_gadget_start(struct cdns3 *cdns)
+{
+	struct usb_ss_dev *usb_ss = container_of(cdns->gadget_dev,
+			struct usb_ss_dev, dev);
+	unsigned long flags;
+
+	dev_dbg(&usb_ss->dev, "%s begins\n", __func__);
+
+	pm_runtime_get_sync(cdns->dev);
+	spin_lock_irqsave(&usb_ss->lock, flags);
+	usb_ss->start_gadget = 1;
+	if (!usb_ss->gadget_driver) {
+		spin_unlock_irqrestore(&usb_ss->lock, flags);
+		return 0;
+	}
+
+	__cdns3_gadget_start(usb_ss);
 	usb_ss->in_standby_mode = 0;
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 	dev_dbg(&usb_ss->dev, "%s ends\n", __func__);
@@ -2214,7 +2188,7 @@ static int cdns3_gadget_start(struct cdns3 *cdns)
 	return 0;
 }
 
-static void cdns3_gadget_stop(struct cdns3 *cdns)
+static void __cdns3_gadget_stop(struct cdns3 *cdns)
 {
 	struct usb_ss_dev *usb_ss;
 	unsigned long flags;
@@ -2225,8 +2199,44 @@ static void cdns3_gadget_stop(struct cdns3 *cdns)
 	/* disable interrupt for device */
 	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVDS__MASK);
+	if (usb_ss->gadget_driver)
+		usb_ss->gadget_driver->disconnect(&usb_ss->gadget);
+	usb_gadget_disconnect(&usb_ss->gadget);
 	usb_ss->start_gadget = 0;
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
+}
+
+static void cdns3_gadget_stop(struct cdns3 *cdns)
+{
+	if (cdns->role == CDNS3_ROLE_GADGET)
+		__cdns3_gadget_stop(cdns);
+	pm_runtime_mark_last_busy(cdns->dev);
+	pm_runtime_put_autosuspend(cdns->dev);
+}
+
+static int cdns3_gadget_suspend(struct cdns3 *cdns, bool do_wakeup)
+{
+	__cdns3_gadget_stop(cdns);
+	return 0;
+}
+
+static int cdns3_gadget_resume(struct cdns3 *cdns, bool hibernated)
+{
+	struct usb_ss_dev *usb_ss = container_of(cdns->gadget_dev,
+			struct usb_ss_dev, dev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&usb_ss->lock, flags);
+	usb_ss->start_gadget = 1;
+	if (!usb_ss->gadget_driver) {
+		spin_unlock_irqrestore(&usb_ss->lock, flags);
+		return 0;
+	}
+
+	__cdns3_gadget_start(usb_ss);
+	usb_ss->in_standby_mode = 0;
+	spin_unlock_irqrestore(&usb_ss->lock, flags);
+	return 0;
 }
 
 /**
@@ -2246,6 +2256,8 @@ int cdns3_gadget_init(struct cdns3 *cdns)
 
 	rdrv->start	= cdns3_gadget_start;
 	rdrv->stop	= cdns3_gadget_stop;
+	rdrv->suspend	= cdns3_gadget_suspend;
+	rdrv->resume	= cdns3_gadget_resume;
 	rdrv->irq	= cdns_irq_handler_thread;
 	rdrv->name	= "gadget";
 	cdns->roles[CDNS3_ROLE_GADGET] = rdrv;
