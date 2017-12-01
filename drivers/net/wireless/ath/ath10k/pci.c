@@ -1788,6 +1788,8 @@ static void ath10k_pci_hif_stop(struct ath10k *ar)
 	ath10k_pci_irq_disable(ar);
 	ath10k_pci_irq_sync(ar);
 	ath10k_pci_flush(ar);
+	ath10k_pci_sleep_sync(ar);
+
 	napi_synchronize(&ar->napi);
 	napi_disable(&ar->napi);
 
