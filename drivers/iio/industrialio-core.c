@@ -448,8 +448,10 @@ ssize_t iio_enum_available_read(struct iio_dev *indio_dev,
 	if (!e->num_items)
 		return 0;
 
-	for (i = 0; i < e->num_items; ++i)
-		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ", e->items[i]);
+	for (i = 0; i < e->num_items; ++i) {
+		if (e->items[i])
+			len += scnprintf(buf + len, PAGE_SIZE - len, "%s ", e->items[i]);
+	}
 
 	/* replace last space with a newline */
 	buf[len - 1] = '\n';
@@ -470,7 +472,7 @@ ssize_t iio_enum_read(struct iio_dev *indio_dev,
 	i = e->get(indio_dev, chan);
 	if (i < 0)
 		return i;
-	else if (i >= e->num_items)
+	else if (i >= e->num_items || !e->items[i])
 		return -EINVAL;
 
 	return snprintf(buf, PAGE_SIZE, "%s\n", e->items[i]);
@@ -489,7 +491,7 @@ ssize_t iio_enum_write(struct iio_dev *indio_dev,
 		return -EINVAL;
 
 	for (i = 0; i < e->num_items; i++) {
-		if (sysfs_streq(buf, e->items[i]))
+		if (e->items[i] && sysfs_streq(buf, e->items[i]))
 			break;
 	}
 
