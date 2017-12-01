@@ -379,6 +379,9 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 				  struct drm_crtc_state *old_crtc_state)
 {
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
+	struct imx_crtc_state *imx_crtc_state =
+					to_imx_crtc_state(old_crtc_state);
+	struct dpu_crtc_state *old_dcstate = to_dpu_crtc_state(imx_crtc_state);
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_extdst *ed = res->ed[dplane->stream_id];
@@ -414,28 +417,44 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 		}
 	}
 
-	for (i = 0; i < ARRAY_SIZE(res->fd); i++) {
-		if (res->fd[i] && !fetchdecode_is_enabled(res->fd[i]))
-			fetchdecode_set_stream_id(res->fd[i],
-							DPU_PLANE_SRC_DISABLED);
-	}
+	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
+		struct dpu_plane_state *old_dpstate;
+		struct drm_plane_state *plane_state;
+		struct dpu_plane *dplane;
+		struct dpu_plane_res *res;
+		struct dpu_fetchdecode *fd;
+		struct dpu_fetcheco *fe;
+		struct dpu_hscaler *hs;
+		struct dpu_vscaler *vs;
+		int fd_id;
 
-	for (i = 0; i < ARRAY_SIZE(res->fe); i++) {
-		if (res->fe[i] && !fetcheco_is_enabled(res->fe[i]))
-			fetcheco_set_stream_id(res->fe[i],
-							DPU_PLANE_SRC_DISABLED);
-	}
+		old_dpstate = old_dcstate->dpu_plane_states[i];
+		if (!old_dpstate)
+			continue;
 
-	for (i = 0; i < ARRAY_SIZE(res->hs); i++) {
-		if (res->hs[i] && !hscaler_is_enabled(res->hs[i]))
-			hscaler_set_stream_id(res->hs[i],
-							DPU_PLANE_SRC_DISABLED);
-	}
+		plane_state = &old_dpstate->base;
+		dplane = to_dpu_plane(plane_state->plane);
+		res = &dplane->grp->res;
 
-	for (i = 0; i < ARRAY_SIZE(res->vs); i++) {
-		if (res->vs[i] && !vscaler_is_enabled(res->vs[i]))
-			vscaler_set_stream_id(res->vs[i],
-							DPU_PLANE_SRC_DISABLED);
+		fd_id = source_to_id(old_dpstate->source);
+		if (fd_id < 0)
+			return;
+
+		fd = res->fd[fd_id];
+		if (!fetchdecode_is_enabled(fd))
+			fetchdecode_set_stream_id(fd, DPU_PLANE_SRC_DISABLED);
+
+		fe = fetchdecode_get_fetcheco(fd);
+		if (!fetcheco_is_enabled(fe))
+			fetcheco_set_stream_id(fe, DPU_PLANE_SRC_DISABLED);
+
+		hs = fetchdecode_get_hscaler(fd);
+		if (!hscaler_is_enabled(hs))
+			hscaler_set_stream_id(hs, DPU_PLANE_SRC_DISABLED);
+
+		vs = fetchdecode_get_vscaler(fd);
+		if (!vscaler_is_enabled(vs))
+			vscaler_set_stream_id(vs, DPU_PLANE_SRC_DISABLED);
 	}
 }
 
