@@ -2301,7 +2301,7 @@ static int ath10k_core_probe_fw(struct ath10k *ar)
 
 	ret = ath10k_core_fetch_firmware_files(ar);
 	if (ret) {
-		ath10k_err(ar, "could not fetch firmware files (%d)\n", ret);
+		ath10k_dbg(ar, ATH10K_DBG_BOOT, "could not fetch firmware files (%d)\n", ret);
 		goto err_power_down;
 	}
 
