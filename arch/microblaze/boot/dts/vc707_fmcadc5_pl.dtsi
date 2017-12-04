@@ -345,7 +345,7 @@
 			xlnx,kind-of-intr = <0x410>;
 			xlnx,num-intr-inputs = <0x10>;
 		};
-		axi_linear_flash: flash@60000000 {
+		axi_linear_flash: flash@0x60000000 {
 			bank-width = <2>;
 			compatible = "cfi-flash";
 			reg = <0x60000000 0x2000000>;
