@@ -62,7 +62,7 @@
 		reg = <0>;
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9625_0_jesd>, <&ad9625_clkin>;
-		clock-names = "jesd0_clk", "adc_clk";
+		clock-names = "jesd_adc_clk", "adc_clk";
 		powerdown-gpios = <&axi_gpio 35 8>;
 		reset-gpios = <&axi_gpio 34 8>;
 
@@ -74,7 +74,7 @@
 		reg = <1>;
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9625_1_jesd>, <&ad9625_clkin>;
-		clock-names = "jesd1_clk", "adc_clk";
+		clock-names = "jesd_adc_clk", "adc_clk";
 		powerdown-gpios = <&axi_gpio 39 8>;
 		reset-gpios = <&axi_gpio 38 8>;
 	};
@@ -106,8 +106,58 @@
 	spibus-connected = <&adc0_ad9625>;
 };
 
+&axi_ad9625_0_jesd {
+	clocks = <&clk_bus_0>, <&axi_ad9625_0_adxcvr 1>, <&axi_ad9625_0_adxcvr 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+	adi,octets-per-frame = <1>;
+	adi,frames-per-multiframe = <32>;
+	adi,high-density = <1>;
+
+	#clock-cells = <0>;
+	clock-output-names = "jesd_adc_lane_clk_0";
+};
+
+&axi_ad9625_0_adxcvr {
+	clocks = <&ad9625_clkin>;
+	clock-names = "conv";
+
+	#clock-cells = <1>;
+	clock-output-names = "ad50_gt_clk", "rx_out0_clk";
+
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
+	adi,use-cpll-enable;
+	adi,use-lpm-enable;
+};
+
 &axi_ad9625_1_core {
 	spibus-connected = <&adc1_ad9625>;
+};
+
+&axi_ad9625_1_jesd {
+	clocks = <&clk_bus_0>, <&axi_ad9625_1_adxcvr 1>, <&axi_ad9625_1_adxcvr 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+	adi,octets-per-frame = <1>;
+	adi,frames-per-multiframe = <32>;
+	adi,high-density = <1>;
+
+	#clock-cells = <0>;
+	clock-output-names = "jesd_adc_lane_clk_1";
+};
+
+&axi_ad9625_1_adxcvr {
+	clocks = <&ad9625_clkin>;
+	clock-names = "conv";
+
+	#clock-cells = <1>;
+	clock-output-names = "adc1_gt_clk", "rx_out1_clk";
+
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
+	adi,use-cpll-enable;
+	adi,use-lpm-enable;
 };
 
 &axi_ad9625_dma {
@@ -118,54 +168,6 @@
 		adi,destination-bus-width = <64>;
 		adi,type = <0>;
 	};
-};
-
-&axi_ad9625_0_gt {
-	#clock-cells = <1>;
-	clocks = <&ad9625_clkin>;
-	clock-names = "conv";
-	clock-output-names = "adc0_gt_clk";
-
-	adi,sys-clk-select = <0>;
-	adi,out-clk-select = <2>;
-	adi,use-cpll-enable;
-};
-
-&axi_ad9625_1_gt {
-	#clock-cells = <1>;
-	clocks = <&ad9625_clkin>;
-	clock-names = "conv";
-	clock-output-names = "adc1_gt_clk";
-
-	adi,sys-clk-select = <0>;
-	adi,out-clk-select = <2>;
-	adi,use-cpll-enable;
-};
-
-&axi_ad9625_0_jesd {
-	#clock-cells = <0>;
-	clocks = <&axi_ad9625_0_gt 0>;
-	clock-names = "adc0_gt_clk";
-	clock-output-names = "jesd0_clk";
-
-	xlnx,frames-per-multiframe = <32>;
-	xlnx,bytes-per-frame = <1>;
-	xlnx,subclass = <1>;
-	xlnx,lanesync-enable;
-	xlnx,scramble-enable;
-};
-
-&axi_ad9625_1_jesd {
-	#clock-cells = <0>;
-	clocks = <&axi_ad9625_1_gt 0>;
-	clock-names = "adc1_gt_clk";
-	clock-output-names = "jesd1_clk";
-
-	xlnx,frames-per-multiframe = <32>;
-	xlnx,bytes-per-frame = <1>;
-	xlnx,subclass = <1>;
-	xlnx,lanesync-enable;
-	xlnx,scramble-enable;
 };
 
 &axi_iic_main {
@@ -218,14 +220,5 @@
 	partition@1440000 {
 		label = "image";
 		reg = <0x01440000 0xBC0000>;
-	};
-};
-
-&axi_gpio {
-	sysref_enable {
-		gpio-hog;
-		gpios = <32 8>;
-		output-high;
-		line-name = "sysref-enable";
 	};
 };
