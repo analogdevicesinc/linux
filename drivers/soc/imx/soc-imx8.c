@@ -37,6 +37,7 @@ struct imx8_soc_data {
 
 static u32 imx8_soc_id;
 static u32 imx8_soc_rev = IMX_CHIP_REVISION_UNKNOWN;
+static u64 imx8_soc_uid;
 
 static const struct imx8_soc_data *soc_data;
 
@@ -151,8 +152,42 @@ static u32 imx8qxp_soc_revision(void)
 	return imx_init_revision_from_scu();
 }
 
+#define OCOTP_UID_LOW	0x410
+#define OCOTP_UID_HIGH	0x420
+
+static u64 imx8mq_soc_get_soc_uid(void)
+{
+	struct device_node *np;
+	void __iomem *base;
+
+	u64 val = 0;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx8mq-ocotp");
+	if (!np) {
+		pr_warn("failed to find ocotp node\n");
+		return val;
+	}
+
+	base = of_iomap(np, 0);
+	if (!base) {
+		pr_warn("failed to map ocotp\n");
+		goto put_node;
+	}
+
+	val = readl_relaxed(base + OCOTP_UID_HIGH);
+	val <<= 32;
+	val |=  readl_relaxed(base + OCOTP_UID_LOW);
+
+	iounmap(base);
+
+put_node:
+	of_node_put(np);
+	return val;
+}
+
 static u32 imx8mq_soc_revision(void)
 {
+	imx8_soc_uid = imx8mq_soc_get_soc_uid();
 	return imx_init_revision_from_atf();
 }
 
@@ -212,6 +247,16 @@ static int __init imx8_revision_init(void)
 }
 early_initcall(imx8_revision_init);
 
+static ssize_t imx8_get_soc_uid(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	return sprintf(buf, "%016llx\n", imx8_soc_uid);
+}
+
+static struct device_attribute imx8_uid =
+	__ATTR(soc_uid, S_IRUGO, imx8_get_soc_uid, NULL);
+
 static int __init imx8_soc_init(void)
 {
 	struct soc_device_attribute *soc_dev_attr;
@@ -239,6 +284,8 @@ static int __init imx8_soc_init(void)
 	soc_dev = soc_device_register(soc_dev_attr);
 	if (IS_ERR(soc_dev))
 		goto free_rev;
+
+	device_create_file(soc_device_to_device(soc_dev), &imx8_uid);
 
 	return 0;
 
