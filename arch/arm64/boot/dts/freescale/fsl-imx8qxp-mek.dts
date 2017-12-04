@@ -596,16 +596,19 @@
 			fxos8700@1e {
 				compatible = "fsl,fxos8700";
 				reg = <0x1e>;
+				interrupt-open-drain;
 			};
 
 			fxas2100x@21 {
 				compatible = "fsl,fxas2100x";
 				reg = <0x21>;
+				interrupt-open-drain;
 			};
 
 			mpl3115@60 {
 				compatible = "fsl,mpl3115";
 				reg = <0x60>;
+				interrupt-open-drain;
 			};
 		};
 
