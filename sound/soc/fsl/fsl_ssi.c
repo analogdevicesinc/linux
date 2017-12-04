@@ -722,23 +722,17 @@ static int fsl_ssi_set_bclk(struct snd_pcm_substream *substream,
 	u64 sub, savesub = 100000;
 	unsigned int freq;
 	bool baudclk_is_used;
-	snd_pcm_format_t sample_format = params_format(hw_params);
 
 	/* Prefer the explicitly set bitclock frequency */
 	if (ssi_private->bitclk_freq)
 		freq = ssi_private->bitclk_freq;
 	else {
-		if (params_channels(hw_params) == 1) {
+		if (params_channels(hw_params) == 1)
 			freq = 2 * params_width(hw_params) *
 					params_rate(hw_params);
-
-			if (sample_format == SNDRV_PCM_FORMAT_S20_3LE)
-				freq = 2 * params_physical_width(hw_params) *
-						params_rate(hw_params);
-		} else {
+		else
 			freq = params_channels(hw_params) * 32 *
 					params_rate(hw_params);
-		}
 	}
 
 	/* Don't apply it to any non-baudclk circumstance */
