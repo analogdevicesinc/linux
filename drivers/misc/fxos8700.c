@@ -283,7 +283,15 @@ static int fxos8700_set_odr(struct i2c_client *client, int type, int delay)
 static int fxos8700_device_init(struct i2c_client *client)
 {
 	int result;
+	struct device_node *np = client->dev.of_node;
 	struct fxos8700_data *pdata =  i2c_get_clientdata(client);
+
+	/* set interrupt pin as open-drain */
+	if (of_get_property(np, "interrupt-open-drain", NULL)) {
+		result = i2c_smbus_write_byte_data(client, FXOS8700_CTRL_REG3, 0x01);
+		if (result < 0)
+			goto out;
+	}
 
 	/* standby mode */
 	result = i2c_smbus_write_byte_data(client, FXOS8700_CTRL_REG1, 0x00);

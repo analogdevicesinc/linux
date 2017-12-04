@@ -147,6 +147,8 @@ static int fxas2100x_device_init(struct i2c_client *client)
 {
 	int result;
 	u8 val;
+	struct device_node *np = client->dev.of_node;
+
 	struct fxas2100x_data *pdata = i2c_get_clientdata(client);
 	if (pdata->chip_id == FXAS21000_CHIP_ID)
 		val = (0x01 << 2); /* fxas21000 dr 200HZ */
@@ -155,6 +157,14 @@ static int fxas2100x_device_init(struct i2c_client *client)
 	result = i2c_smbus_write_byte_data(client, FXAS2100X_CTRL_REG1, val);
 	if (result < 0)
 		goto out;
+
+	/* set interrupt pin as open-drain */
+	if (of_get_property(np, "interrupt-open-drain", NULL)) {
+		result = i2c_smbus_write_byte_data(client, FXAS2100X_CTRL_REG2, 0x01);
+		if (result < 0)
+			goto out;
+	}
+
 	atomic_set(&pdata->active, STANDBY);
 	return 0;
 out:

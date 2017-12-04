@@ -157,6 +157,13 @@ static const struct attribute_group mpl3115_attr_group = {
 static void mpl3115_device_init(struct i2c_client *client)
 {
 	u8 val[8];
+	struct device_node *np = client->dev.of_node;
+
+	/* set interrupt pin as open-drain */
+	if (of_get_property(np, "interrupt-open-drain", NULL)) {
+		val[0] = 0x11;
+		mpl3115_i2c_write(client, MPL3115_CTRL_REG3, val, 1);
+	}
 
 	val[0] = 0x28;
 	mpl3115_i2c_write(client, MPL3115_CTRL_REG1, val, 1);
@@ -204,6 +211,7 @@ static int mpl3115_probe(struct i2c_client *client,
 	struct input_dev *idev;
 	struct i2c_adapter *adapter;
 	struct mpl3115_data *pdata;
+
 	adapter = to_i2c_adapter(client->dev.parent);
 	result = i2c_check_functionality(adapter,
 					 I2C_FUNC_SMBUS_BYTE |
