@@ -11,6 +11,11 @@
 
 #include "imx6sx-sdb.dts"
 / {
+
+	sound {
+		status = "disabled";
+	};
+
 	sound-mqs {
 		compatible = "fsl,imx6sx-sdb-mqs",
 				"fsl,imx-audio-mqs";
@@ -37,6 +42,10 @@
 &sai1 {
 	pinctrl-0 = <>;
 	status = "okay";
+};
+
+&ssi2 {
+	status = "disabled";
 };
 
 &sdma {
