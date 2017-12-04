@@ -62,6 +62,8 @@
 
 /* macros for field SET_ADDR */
 #define USB_CMD__SET_ADDR__MASK                                     0x00000001U
+#define USB_CMD__STMODE						0x00000200U
+#define USB_CMD__TMODE_SEL(x)                                    (x << 10)
 #define USB_CMD__FADDR__WRITE(src)       (((uint32_t)(src) << 1) & 0x000000feU)
 #endif /* __USB_CMD_MACRO__ */
 

@@ -516,6 +516,7 @@ static int cdns_req_ep0_handle_feature(struct usb_ss_dev *usb_ss,
 	u32 recip = ctrl_req->bRequestType & USB_RECIP_MASK;
 	struct usb_ss_endpoint *usb_ss_ep;
 	u32 reg;
+	u8 tmode = 0;
 
 	switch (recip) {
 
@@ -568,6 +569,38 @@ static int cdns_req_ep0_handle_feature(struct usb_ss_dev *usb_ss,
 
 		case USB_DEVICE_REMOTE_WAKEUP:
 			usb_ss->wake_up_flag = !!set;
+			break;
+
+		case USB_DEVICE_TEST_MODE:
+			if (usb_ss->gadget.state != USB_STATE_CONFIGURED)
+				return -EINVAL;
+			if (usb_ss->gadget.speed != USB_SPEED_HIGH &&
+				usb_ss->gadget.speed !=	USB_SPEED_FULL)
+				return -EINVAL;
+			if (ctrl_req->wLength != 0 ||
+				ctrl_req->bRequestType & USB_DIR_IN) {
+				dev_err(&usb_ss->dev, "req is error\n");
+				return -EINVAL;
+			}
+			tmode = le16_to_cpu(ctrl_req->wIndex) >> 8;
+			switch (tmode) {
+			case TEST_J:
+			case TEST_K:
+			case TEST_SE0_NAK:
+			case TEST_PACKET:
+				reg = gadget_readl(usb_ss,
+					&usb_ss->regs->usb_cmd);
+				tmode -= 1;
+				reg |= USB_CMD__STMODE |
+					USB_CMD__TMODE_SEL(tmode);
+				gadget_writel(usb_ss, &usb_ss->regs->usb_cmd,
+						reg);
+				dev_info(&usb_ss->dev,
+					"set test mode, val=0x%x", reg);
+				break;
+			default:
+				return -EINVAL;
+			}
 			break;
 
 		default:
