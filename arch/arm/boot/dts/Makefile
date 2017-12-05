@@ -509,6 +509,7 @@ dtb-$(CONFIG_SOC_IMX6SL) += \
 	imx6sl-evk-ldo.dtb \
 	imx6sl-evk-csi.dtb \
 	imx6sl-evk-uart.dtb \
+	imx6sl-evk-optee.dtb \
 	imx6sl-warp.dtb
 dtb-$(CONFIG_SOC_IMX6SX) += \
 	imx6sx-nitrogen6sx.dtb \
@@ -611,6 +612,7 @@ dtb-$(CONFIG_SOC_IMX6SLL) += \
 	imx6sll-lpddr3-arm2-spdif.dtb \
 	imx6sll-evk.dtb \
 	imx6sll-evk-reva.dtb \
+	imx6sll-evk-optee.dtb \
 	imx6sll-evk-btwifi.dtb
 dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-cl-som-imx7.dtb \
