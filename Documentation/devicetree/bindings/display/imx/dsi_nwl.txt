@@ -46,6 +46,9 @@ Optional properties:
 			signal; can be <0> for LOW (negative) or <1> for HIGH
 			(positive) polarity; default value is <0>, when this
 			property is ommited
+- pwr-delay		delay used in enable, before enabling the clocks; this is
+			useful when the PLL needs some time to become stable;
+			this value represents milliseconds
 
 Example:
 	mipi_dsi1: mipi_dsi {

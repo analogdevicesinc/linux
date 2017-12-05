@@ -73,6 +73,7 @@
 	status = "okay";
 	as_bridge;
 	sync-pol = <1>;
+	pwr-delay = <10>;
 
 	port@1 {
 		mipi_dsi_in: endpoint {

@@ -91,6 +91,7 @@ struct imx_mipi_dsi {
 	u32				phyref_rate;
 	u32				instance;
 	u32				sync_pol;
+	u32				power_on_delay;
 	bool				enabled;
 };
 
@@ -466,7 +467,7 @@ static void imx_nwl_dsi_enable(struct imx_mipi_dsi *dsi)
 	const struct of_device_id *of_id = of_match_device(imx_nwl_dsi_dt_ids,
 							   dev);
 	const struct devtype *devtype = of_id->data;
-	unsigned long bit_clk;
+	unsigned long bit_clk, min_sleep, max_sleep;
 	int ret;
 
 	if (dsi->enabled)
@@ -491,6 +492,20 @@ static void imx_nwl_dsi_enable(struct imx_mipi_dsi *dsi)
 			dsi->phyref_rate,
 			false);
 		dsi->bit_clk = bit_clk;
+	}
+
+	/*
+	 * On some systems we need to wait some time before enabling the
+	 * phy_ref clock, in order to allow the parent PLL to become stable
+	 */
+	if (dsi->power_on_delay > 20) {
+		msleep(dsi->power_on_delay);
+	} else if (dsi->power_on_delay > 0) {
+		max_sleep = dsi->power_on_delay * 1000;
+		min_sleep = 1000;
+		if (max_sleep > 6000)
+			min_sleep = max_sleep - 5000;
+		usleep_range(min_sleep, max_sleep);
 	}
 
 	imx_nwl_dsi_set_clocks(dsi, true);
@@ -771,6 +786,7 @@ static int imx_nwl_dsi_parse_of(struct device *dev, bool as_bridge)
 	dsi->pxl2dpi_reg = devtype->pxl2dpi_reg;
 
 	of_property_read_u32(np, "sync-pol", &dsi->sync_pol);
+	of_property_read_u32(np, "pwr-delay", &dsi->power_on_delay);
 
 	/* Look for optional regmaps */
 	dsi->csr = syscon_regmap_lookup_by_phandle(np, "csr");
