@@ -87,6 +87,7 @@ struct imx_mipi_dsi {
 	u32 pxl2dpi_reg;
 
 	unsigned long			bit_clk;
+	unsigned long			pix_clk;
 	u32				phyref_rate;
 	u32				instance;
 	u32				sync_pol;
@@ -465,12 +466,32 @@ static void imx_nwl_dsi_enable(struct imx_mipi_dsi *dsi)
 	const struct of_device_id *of_id = of_match_device(imx_nwl_dsi_dt_ids,
 							   dev);
 	const struct devtype *devtype = of_id->data;
+	unsigned long bit_clk;
 	int ret;
 
 	if (dsi->enabled)
 		return;
 
 	DRM_DEV_INFO(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+
+	/*
+	 * TODO: we are doing this here, because the ADV7535 which is a drm
+	 * bridge, may change the DSI parameters in mode_set. One of the
+	 * changed parameter is DSI lanes, which affects the PHY settings.
+	 * This is why, we need run this function again, here, in order
+	 * to correctly set-up the PHY. Since we can't do anything here, we
+	 * will ignore it's status.
+	 * In the future, maybe it will be best to move the PHY handling
+	 * into the DSI host driver.
+	 */
+	bit_clk = nwl_dsi_get_bit_clock(dsi->next_bridge, dsi->pix_clk);
+	if (bit_clk != dsi->bit_clk) {
+		mixel_phy_mipi_set_phy_speed(dsi->phy,
+			bit_clk,
+			dsi->phyref_rate,
+			false);
+		dsi->bit_clk = bit_clk;
+	}
 
 	imx_nwl_dsi_set_clocks(dsi, true);
 
@@ -563,8 +584,10 @@ static int imx_nwl_try_phy_speed(struct imx_mipi_dsi *dsi,
 			mode->clock);
 		DRM_DEV_ERROR(dev, "PHY_REF clk: %u, bit clk: %lu\n",
 			dsi->phyref_rate, bit_clk);
-	} else
+	} else {
 		dsi->bit_clk = bit_clk;
+		dsi->pix_clk = pixclock;
+	}
 
 	return ret;
 }
