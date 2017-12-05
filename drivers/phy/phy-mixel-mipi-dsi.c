@@ -146,7 +146,8 @@ int mixel_phy_mipi_set_phy_speed(struct phy *phy,
 	if (numerator < 16 || numerator > 255)
 		return -EINVAL;
 
-	numerator = DIV_ROUND_UP(numerator, denominator) * denominator;
+	if (best_match)
+		numerator = DIV_ROUND_UP(numerator, denominator) * denominator;
 
 	priv->divider.cn = 1;
 	if (denominator > 8) {
