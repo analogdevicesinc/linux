@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014-2015 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -10,12 +11,15 @@
 #include <linux/cpuidle.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/psci.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <asm/cpuidle.h>
 #include <asm/fncpy.h>
 #include <asm/proc-fns.h>
+
+#include <uapi/linux/psci.h>
 
 #include "common.h"
 #include "cpuidle.h"
@@ -63,15 +67,30 @@ static int ldo2p5_dummy_enable;
 static void (*imx6sl_wfi_in_iram_fn)(void __iomem *iram_vbase,
 		int audio_mode, bool vbus_ldo);
 
+#define MX6SL_POWERDWN_IDLE_PARAM	\
+	((1 << PSCI_0_2_POWER_STATE_ID_SHIFT) | \
+	 (1 << PSCI_0_2_POWER_STATE_AFFL_SHIFT) | \
+	 (PSCI_POWER_STATE_TYPE_POWER_DOWN << PSCI_0_2_POWER_STATE_TYPE_SHIFT))
+
 static int imx6sl_enter_wait(struct cpuidle_device *dev,
 			    struct cpuidle_driver *drv, int index)
 {
 	int mode = get_bus_freq_mode();
 
 	imx6_set_lpm(WAIT_UNCLOCKED);
+
 	if ((mode == BUS_FREQ_AUDIO) || (mode == BUS_FREQ_ULTRA_LOW)) {
-		imx6sl_wfi_in_iram_fn(wfi_iram_base, (mode == BUS_FREQ_AUDIO) ? 1 : 0 ,
-			ldo2p5_dummy_enable);
+		/*
+		 * bit 1 used for low power mode;
+		 * bit 2 used for the ldo2p5_dummmy enable
+		 */
+		if (psci_ops.cpu_suspend) {
+			psci_ops.cpu_suspend((MX6SL_POWERDWN_IDLE_PARAM | ((BUS_FREQ_AUDIO ? 1 : 0) << 2) |
+				(ldo2p5_dummy_enable ? 1 : 0) << 1), __pa(cpu_resume));
+		} else {
+			imx6sl_wfi_in_iram_fn(wfi_iram_base, (mode == BUS_FREQ_AUDIO) ? 1 : 0,
+				ldo2p5_dummy_enable);
+		}
 	} else {
 		/*
 		 * Software workaround for ERR005311, see function

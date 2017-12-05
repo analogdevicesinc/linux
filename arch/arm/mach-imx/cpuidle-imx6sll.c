@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -12,6 +13,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/psci.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -19,6 +21,8 @@
 #include <asm/fncpy.h>
 #include <asm/proc-fns.h>
 #include <asm/suspend.h>
+
+#include <uapi/linux/psci.h>
 
 #include "common.h"
 #include "cpuidle.h"
@@ -83,9 +87,18 @@ static const u32 imx6sll_mmdc_io_offset[] __initconst = {
 
 static void (*imx6sll_wfi_in_iram_fn)(void __iomem *iram_vbase);
 
+#define MX6SLL_POWERDWN_IDLE_PARAM	\
+	((1 << PSCI_0_2_POWER_STATE_ID_SHIFT) | \
+	 (1 << PSCI_0_2_POWER_STATE_AFFL_SHIFT) | \
+	 (PSCI_POWER_STATE_TYPE_POWER_DOWN << PSCI_0_2_POWER_STATE_TYPE_SHIFT))
+
 static int imx6sll_idle_finish(unsigned long val)
 {
-	imx6sll_wfi_in_iram_fn(wfi_iram_base);
+	if (psci_ops.cpu_suspend)
+		psci_ops.cpu_suspend(MX6SLL_POWERDWN_IDLE_PARAM,
+					__pa(cpu_resume));
+	else
+		imx6sll_wfi_in_iram_fn(wfi_iram_base);
 
 	return 0;
 }
