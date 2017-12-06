@@ -57,4 +57,7 @@
 
 #define FSL_SIP_GET_SOC_INFO		0xc2000006
 
+#define FSL_SIP_NOC			0xc2000008
+#define FSL_SIP_NOC_LCDIF		0x0
+
 #endif
