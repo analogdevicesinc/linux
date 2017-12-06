@@ -1472,31 +1472,6 @@ static int fsl_spdif_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int fsl_spdif_suspend(struct device *dev)
-{
-	struct fsl_spdif_priv *spdif_priv = dev_get_drvdata(dev);
-
-	regmap_read(spdif_priv->regmap, REG_SPDIF_SRPC,
-			&spdif_priv->regcache_srpc);
-
-	regcache_mark_dirty(spdif_priv->regmap);
-
-	return 0;
-}
-
-static int fsl_spdif_resume(struct device *dev)
-{
-	struct fsl_spdif_priv *spdif_priv = dev_get_drvdata(dev);
-
-	regmap_update_bits(spdif_priv->regmap, REG_SPDIF_SRPC,
-			SRPC_CLKSRC_SEL_MASK | SRPC_GAINSEL_MASK,
-			spdif_priv->regcache_srpc);
-
-	return regcache_sync(spdif_priv->regmap);
-}
-#endif /* CONFIG_PM_SLEEP */
-
 #ifdef CONFIG_PM
 static int fsl_spdif_runtime_resume(struct device *dev)
 {
@@ -1581,7 +1556,7 @@ static int fsl_spdif_runtime_suspend(struct device *dev)
 #endif
 
 static const struct dev_pm_ops fsl_spdif_pm = {
-	SET_SYSTEM_SLEEP_PM_OPS(fsl_spdif_suspend, fsl_spdif_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
 	SET_RUNTIME_PM_OPS(fsl_spdif_runtime_suspend, fsl_spdif_runtime_resume,
 			   NULL)
 };
