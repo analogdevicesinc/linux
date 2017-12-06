@@ -547,6 +547,9 @@ static irqreturn_t tcpci_irq(int irq, void *dev_id)
 		tcpm_cc_change(tcpci->port);
 
 	if (status & TCPC_ALERT_POWER_STATUS) {
+		/* Read power status to clear the event */
+		regmap_read(tcpci->regmap, TCPC_POWER_STATUS, &reg);
+
 		regmap_read(tcpci->regmap, TCPC_POWER_STATUS_MASK, &reg);
 
 		/*
