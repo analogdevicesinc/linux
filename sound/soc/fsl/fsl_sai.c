@@ -1239,37 +1239,11 @@ static int fsl_sai_runtime_suspend(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_PM_SLEEP
-static int fsl_sai_suspend(struct device *dev)
-{
-	struct fsl_sai *sai = dev_get_drvdata(dev);
-
-	regcache_cache_only(sai->regmap, true);
-	regcache_mark_dirty(sai->regmap);
-
-	return 0;
-}
-
-static int fsl_sai_resume(struct device *dev)
-{
-	struct fsl_sai *sai = dev_get_drvdata(dev);
-	unsigned char offset = sai->soc->reg_offset;
-
-	regcache_cache_only(sai->regmap, false);
-	regmap_write(sai->regmap, FSL_SAI_TCSR(offset), FSL_SAI_CSR_SR);
-	regmap_write(sai->regmap, FSL_SAI_RCSR(offset), FSL_SAI_CSR_SR);
-	usleep_range(1000, 2000);
-	regmap_write(sai->regmap, FSL_SAI_TCSR(offset), 0);
-	regmap_write(sai->regmap, FSL_SAI_RCSR(offset), 0);
-	return regcache_sync(sai->regmap);
-}
-#endif /* CONFIG_PM_SLEEP */
-
 static const struct dev_pm_ops fsl_sai_pm_ops = {
 	SET_RUNTIME_PM_OPS(fsl_sai_runtime_suspend,
 			   fsl_sai_runtime_resume,
 			   NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(fsl_sai_suspend, fsl_sai_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
 };
 
 static struct platform_driver fsl_sai_driver = {
