@@ -77,6 +77,9 @@ void dcss_ss_enable(struct dcss_soc *dcss, bool en);
 void dcss_scaler_enable(struct dcss_soc *dcss, int ch_num, bool en);
 void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 		       int src_xres, int src_yres, int dst_xres, int dst_yres);
+bool dcss_scaler_can_scale(struct dcss_soc *dcss, int ch_num,
+			   int src_xres, int src_yres,
+			   int dst_xres, int dst_yres);
 
 /* CTXLD */
 int dcss_ctxld_enable(struct dcss_soc *dcss);

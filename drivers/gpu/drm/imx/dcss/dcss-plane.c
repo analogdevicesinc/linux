@@ -119,6 +119,7 @@ static const struct drm_plane_funcs dcss_plane_funcs = {
 static int dcss_plane_atomic_check(struct drm_plane *plane,
 				   struct drm_plane_state *state)
 {
+	struct dcss_plane *dcss_plane = to_dcss_plane(plane);
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *cma_obj;
 	struct drm_crtc_state *crtc_state;
@@ -144,6 +145,13 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	    state->crtc_x + state->crtc_w > hdisplay ||
 	    state->crtc_y + state->crtc_h > vdisplay)
 		return -EINVAL;
+
+	if (!dcss_scaler_can_scale(dcss_plane->dcss, dcss_plane->ch_num,
+				   state->src_w >> 16, state->src_h >> 16,
+				   state->crtc_w, state->crtc_h)) {
+		DRM_DEBUG_KMS("Invalid upscale/downscale ratio.");
+		return -EINVAL;
+	}
 
 	return 0;
 }

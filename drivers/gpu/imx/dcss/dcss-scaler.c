@@ -338,6 +338,48 @@ static void dcss_scaler_fractions_set(struct dcss_soc *dcss, int ch_num,
 			  DCSS_SCALER_H_CHR_INC);
 }
 
+/*
+ * The values below are without RD_SRC/WR_SCL support. When support will be
+ * added, these need to be changed accordingly.
+ */
+#define DCSS_SCALER_VIDEO_RATIO			3 /* 7 with RD_SRC/WR_SCL */
+#define DCSS_SCALER_GRAPHICS_RATIO		3 /* 5 with RD_SRC/WR_SCL */
+
+/* convert to fixed point (###.# #### #### ####), easier to work with */
+#define DCSS_SCALER_VIDEO_DOWN_RATIO_FP (DCSS_SCALER_VIDEO_RATIO << 13)
+#define DCSS_SCALER_VIDEO_UP_RATIO_FP \
+		((1 << 13) / DCSS_SCALER_VIDEO_RATIO)
+
+#define DCSS_SCALER_GRAPHICS_DOWN_RATIO_FP (DCSS_SCALER_GRAPHICS_RATIO << 13)
+#define DCSS_SCALER_GRAPHICS_UP_RATIO_FP \
+		((1 << 13) / DCSS_SCALER_GRAPHICS_RATIO)
+
+static const struct dcss_scaler_ratios {
+	u16 downscale_ratio;
+	u16 upscale_ratio;
+} dcss_scaler_ratios_map[] = {
+	{DCSS_SCALER_GRAPHICS_DOWN_RATIO_FP, DCSS_SCALER_GRAPHICS_UP_RATIO_FP},
+	{DCSS_SCALER_VIDEO_DOWN_RATIO_FP,    DCSS_SCALER_VIDEO_UP_RATIO_FP},
+	{DCSS_SCALER_VIDEO_DOWN_RATIO_FP,    DCSS_SCALER_VIDEO_UP_RATIO_FP},
+};
+
+bool dcss_scaler_can_scale(struct dcss_soc *dcss, int ch_num,
+			   int src_xres, int src_yres,
+			   int dst_xres, int dst_yres)
+{
+	u32 vscale_fp, hscale_fp;
+
+	/* Convert to fixed point. Easier to work with. */
+	vscale_fp = (src_yres << 13) / dst_yres;
+	hscale_fp = (src_xres << 13) / dst_xres;
+
+	return vscale_fp <= dcss_scaler_ratios_map[ch_num].downscale_ratio &&
+	       vscale_fp >= dcss_scaler_ratios_map[ch_num].upscale_ratio   &&
+	       hscale_fp <= dcss_scaler_ratios_map[ch_num].downscale_ratio &&
+	       hscale_fp >= dcss_scaler_ratios_map[ch_num].upscale_ratio;
+}
+EXPORT_SYMBOL(dcss_scaler_can_scale);
+
 static void dcss_scaler_coef_clr(struct dcss_soc *dcss, int ch_num)
 {
 	int i;
