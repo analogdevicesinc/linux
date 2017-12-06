@@ -49,6 +49,22 @@ enum mxsfb_devtype {
 	MXSFB_V4,
 };
 
+/*
+ * When adding new formats, make sure to update the num_formats from
+ * mxsfb_devdata below.
+ */
+static const uint32_t mxsfb_formats[] = {
+	/* MXSFB_V3 */
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_RGB565,
+	/* MXSFB_V4 */
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_RGBX8888,
+	DRM_FORMAT_RGBA8888,
+};
+
 static const struct mxsfb_devdata mxsfb_devdata[] = {
 	[MXSFB_V3] = {
 		.transfer_count	= LCDC_V3_TRANSFER_COUNT,
@@ -59,6 +75,7 @@ static const struct mxsfb_devdata mxsfb_devdata[] = {
 		.hs_wdth_shift	= 24,
 		.ipversion	= 3,
 		.flags		= MXSFB_FLAG_NULL,
+		.num_formats	= 3,
 	},
 	[MXSFB_V4] = {
 		.transfer_count	= LCDC_V4_TRANSFER_COUNT,
@@ -69,12 +86,8 @@ static const struct mxsfb_devdata mxsfb_devdata[] = {
 		.hs_wdth_shift	= 18,
 		.ipversion	= 4,
 		.flags		= MXSFB_FLAG_BUSFREQ,
+		.num_formats	= ARRAY_SIZE(mxsfb_formats),
 	},
-};
-
-static const uint32_t mxsfb_formats[] = {
-	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_RGB565
 };
 
 static struct mxsfb_drm_private *
@@ -225,7 +238,7 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 	}
 
 	ret = drm_simple_display_pipe_init(drm, &mxsfb->pipe, &mxsfb_funcs,
-			mxsfb_formats, ARRAY_SIZE(mxsfb_formats), NULL,
+			mxsfb_formats, mxsfb->devdata->num_formats, NULL,
 			mxsfb->connector);
 	if (ret < 0) {
 		dev_err(drm->dev, "Cannot setup simple display pipe\n");
