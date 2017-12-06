@@ -296,12 +296,25 @@ static int fsl_mqs_runtime_resume(struct device *dev)
 	if (mqs_priv->mclk)
 		clk_prepare_enable(mqs_priv->mclk);
 
+	if (mqs_priv->use_gpr)
+		regmap_write(mqs_priv->gpr, IOMUXC_GPR2,
+			    mqs_priv->reg_iomuxc_gpr2);
+	else
+		regmap_write(mqs_priv->regmap, REG_MQS_CTRL,
+			     mqs_priv->reg_mqs_ctrl);
 	return 0;
 }
 
 static int fsl_mqs_runtime_suspend(struct device *dev)
 {
 	struct fsl_mqs *mqs_priv = dev_get_drvdata(dev);
+
+	if (mqs_priv->use_gpr)
+		regmap_read(mqs_priv->gpr, IOMUXC_GPR2,
+			    &mqs_priv->reg_iomuxc_gpr2);
+	else
+		regmap_read(mqs_priv->regmap, REG_MQS_CTRL,
+			    &mqs_priv->reg_mqs_ctrl);
 
 	if (mqs_priv->mclk)
 		clk_disable_unprepare(mqs_priv->mclk);
@@ -313,41 +326,11 @@ static int fsl_mqs_runtime_suspend(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_PM_SLEEP
-static int fsl_mqs_resume(struct device *dev)
-{
-	struct fsl_mqs *mqs_priv = dev_get_drvdata(dev);
-
-	if (mqs_priv->use_gpr)
-		regmap_write(mqs_priv->gpr, IOMUXC_GPR2,
-			    mqs_priv->reg_iomuxc_gpr2);
-	else
-		regmap_write(mqs_priv->regmap, REG_MQS_CTRL,
-			     mqs_priv->reg_mqs_ctrl);
-
-	return 0;
-}
-
-static int fsl_mqs_suspend(struct device *dev)
-{
-	struct fsl_mqs *mqs_priv = dev_get_drvdata(dev);
-
-	if (mqs_priv->use_gpr)
-		regmap_read(mqs_priv->gpr, IOMUXC_GPR2,
-			    &mqs_priv->reg_iomuxc_gpr2);
-	else
-		regmap_read(mqs_priv->regmap, REG_MQS_CTRL,
-			    &mqs_priv->reg_mqs_ctrl);
-
-	return 0;
-}
-#endif
-
 static const struct dev_pm_ops fsl_mqs_pm_ops = {
 	SET_RUNTIME_PM_OPS(fsl_mqs_runtime_suspend,
 			   fsl_mqs_runtime_resume,
 			   NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(fsl_mqs_suspend, fsl_mqs_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
 };
 
 static const struct of_device_id fsl_mqs_dt_ids[] = {
