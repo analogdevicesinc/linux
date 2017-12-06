@@ -1467,6 +1467,7 @@ static int wm8960_runtime_suspend(struct device *dev)
 #endif
 
 static const struct dev_pm_ops wm8960_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
 	SET_RUNTIME_PM_OPS(wm8960_runtime_suspend, wm8960_runtime_resume, NULL)
 };
 
