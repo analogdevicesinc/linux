@@ -516,6 +516,11 @@ static int tcpci_init(struct tcpc_dev *tcpc)
 	if (ret < 0)
 		return ret;
 
+	/* Enable Voltage Alarms Power status reporting */
+	regmap_read(tcpci->regmap, TCPC_POWER_CTRL, &reg);
+	reg &= ~TCPC_POWER_CTRL_DIS_VOL_ALARM;
+	ret = regmap_write(tcpci->regmap, TCPC_POWER_CTRL, reg);
+
 	reg = TCPC_ALERT_TX_SUCCESS | TCPC_ALERT_TX_FAILED |
 		TCPC_ALERT_TX_DISCARDED | TCPC_ALERT_RX_STATUS |
 		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS |
