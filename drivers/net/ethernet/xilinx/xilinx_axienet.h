@@ -636,7 +636,7 @@ struct axienet_local {
 	struct device *dev;
 
 	/* Connection to PHY device */
-	struct phy_device *phy_dev, *phy_dev_int;/* Pointer to PHY device */
+	struct phy_device *phy_dev_int; /* Pointer to internal PHY device */
 	struct device_node *phy_node, *phy_node_int;
 
 	/* MDIO bus data */
