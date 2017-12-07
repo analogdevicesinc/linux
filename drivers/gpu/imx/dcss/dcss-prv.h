@@ -1,6 +1,8 @@
 #ifndef __DCSS_PRV_H__
 #define __DCSS_PRV_H__
 
+#include <linux/pm_qos.h>
+
 #define SET 0x04
 #define CLR 0x08
 #define TGL 0x0C
@@ -54,6 +56,8 @@ struct dcss_soc {
 
 	bool bus_freq_req;
 	bool clks_on;
+
+	struct pm_qos_request pm_qos_req;
 };
 
 /* BLKCTL */
