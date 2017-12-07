@@ -469,6 +469,9 @@ struct fsl_flexspi {
 	u32 ddr_smp;
 	struct mutex lock;
 	struct pm_qos_request pm_qos_req;
+
+#define FLEXSPI_INITILIZED	(1 << 0)
+	int flags;
 };
 
 static inline int fsl_flexspi_quad_only(struct fsl_flexspi *flex)
@@ -1355,6 +1358,9 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto last_init_failed;
 
+	/* indicate the controller has been initialized */
+	flex->flags |= FLEXSPI_INITILIZED;
+
 	return 0;
 
 last_init_failed:
@@ -1396,17 +1402,19 @@ static int fsl_flexspi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int fsl_flexspi_pm_suspend(struct device *dev)
+static int fsl_flexspi_initialized(struct fsl_flexspi *flex)
 {
-	return pm_runtime_force_suspend(dev);
+	return flex->flags & FLEXSPI_INITILIZED;
 }
 
-static int fsl_flexspi_pm_resume(struct device *dev)
+static int fsl_flexspi_need_reinit(struct fsl_flexspi *flex)
 {
-	return pm_runtime_force_resume(dev);
+	/* we always use the controller in combination mode, so we check this */
+	/* register bit to determine if the controller once lost power, such as */
+	/* suspend/resume, and need to be re-init */
+
+	return !(readl(flex->iobase + FLEXSPI_MCR0) & FLEXSPI_MCR0_OCTCOMB_EN_MASK);
 }
-#endif
 
 int fsl_flexspi_runtime_suspend(struct device *dev)
 {
@@ -1421,12 +1429,21 @@ int fsl_flexspi_runtime_resume(struct device *dev)
 {
 	struct fsl_flexspi *flex = dev_get_drvdata(dev);
 
-	return fsl_flexspi_clk_prep_enable(flex);
+	fsl_flexspi_clk_prep_enable(flex);
+
+	if (fsl_flexspi_initialized(flex) &&
+			fsl_flexspi_need_reinit(flex)) {
+		fsl_flexspi_nor_setup(flex);
+		fsl_flexspi_set_map_addr(flex);
+		fsl_flexspi_nor_setup_last(flex);
+	}
+
+	return 0;
 }
 
 static const struct dev_pm_ops fsl_flexspi_pm_ops = {
 	SET_RUNTIME_PM_OPS(fsl_flexspi_runtime_suspend, fsl_flexspi_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(fsl_flexspi_pm_suspend, fsl_flexspi_pm_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
 };
 
 static struct platform_driver fsl_flexspi_driver = {
