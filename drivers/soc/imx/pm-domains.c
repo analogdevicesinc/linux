@@ -52,6 +52,11 @@ enum imx_pd_state {
 	PD_OFF,
 };
 
+struct clk_stat {
+	struct clk *clk;
+	unsigned long rate;
+};
+
 static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 {
 	struct imx8_pm_domain *pd;
@@ -92,26 +97,67 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 	ret = imx8_pd_power(domain, true);
 
 	if (!list_empty(&pd->clks) && (pd->pd.state_idx == PD_OFF)) {
-		/*
-		 * The SS is powered on restore the clock rates that
-		 * may be lost.
-		 */
-		list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
 
-			if (imx8_rsrc_clk->parent)
-				clk_set_parent(imx8_rsrc_clk->clk,
-					imx8_rsrc_clk->parent);
+		if (pd->clk_state_saved) {
+			/*
+			 * The SS is powered on restore the clock rates that
+			 * may be lost.
+			 */
+			list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
 
-			if (imx8_rsrc_clk->rate) {
-				/*
-				 * Need to read the clock so that rate in
-				 * Linux is reset.
-				 */
-				clk_get_rate(imx8_rsrc_clk->clk);
-				/* Restore the clock rate. */
-				clk_set_rate(imx8_rsrc_clk->clk,
-					imx8_rsrc_clk->rate);
+				if (imx8_rsrc_clk->parent)
+					clk_set_parent(imx8_rsrc_clk->clk,
+						imx8_rsrc_clk->parent);
+
+				if (imx8_rsrc_clk->rate) {
+					/*
+					 * Need to read the clock so that rate in
+					 * Linux is reset.
+					 */
+					clk_get_rate(imx8_rsrc_clk->clk);
+					/* Restore the clock rate. */
+					clk_set_rate(imx8_rsrc_clk->clk,
+						imx8_rsrc_clk->rate);
+				}
 			}
+		} else if (pd->clk_state_may_lost) {
+			struct clk_stat *clk_stats;
+			int count = 0;
+			int i = 0;
+			/*
+			 * The SS is powered down before without saving clk rates,
+			 * try to restore the lost clock rates if any
+			 *
+			 * As a parent clk rate restore will cause the clk recalc
+			 * to all possible child clks which may result in child clk
+			 * previous state lost due to power domain lost before,  we
+			 * have to first walk through all child clks to retrieve the
+			 * state via clk_hw_get_rate which bypassed the clk recalc,
+			 * then we can restore them one by one.
+			 */
+			list_for_each_entry(imx8_rsrc_clk, &pd->clks, node)
+				count++;
+
+			clk_stats = kzalloc(count * sizeof(*clk_stats), GFP_KERNEL);
+			if (!clk_stats) {
+				pr_warn("%s: failed to alloc mem for clk state recovery\n", pd->name);
+				return -ENOMEM;
+			}
+
+			list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
+				clk_stats[i].clk = imx8_rsrc_clk->clk;
+				clk_stats[i].rate = clk_hw_get_rate(__clk_get_hw(imx8_rsrc_clk->clk));
+				i++;
+			}
+
+			for (i = 0; i <= count; i++) {
+				/* invalid cached rate first by get rate once */
+				clk_get_rate(clk_stats[i].clk);
+				/* restore the lost rate */
+				clk_set_rate(clk_stats[i].clk, clk_stats[i].rate);
+			}
+
+			kfree(clk_stats);
 		}
 	}
 
@@ -134,6 +180,14 @@ static int imx8_pd_power_off(struct generic_pm_domain *domain)
 			imx8_rsrc_clk->parent = clk_get_parent(imx8_rsrc_clk->clk);
 			imx8_rsrc_clk->rate = clk_hw_get_rate(__clk_get_hw(imx8_rsrc_clk->clk));
 		}
+		pd->clk_state_saved = true;
+		pd->clk_state_may_lost = false;
+	} else if (pd->pd.state_idx == PD_OFF) {
+		pd->clk_state_saved = false;
+		pd->clk_state_may_lost = true;
+	} else {
+		pd->clk_state_saved = false;
+		pd->clk_state_may_lost = false;
 	}
 	return imx8_pd_power(domain, false);
 }

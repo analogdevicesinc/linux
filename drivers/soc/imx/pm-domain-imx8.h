@@ -39,6 +39,10 @@ struct imx8_pm_domain {
 	sc_rsrc_t rsrc_id;
 	bool runtime_idle_active;
 	struct list_head clks;
+
+	/* indicate the possible clk state lost */
+	bool clk_state_saved;
+	bool clk_state_may_lost;
 };
 
 static inline
