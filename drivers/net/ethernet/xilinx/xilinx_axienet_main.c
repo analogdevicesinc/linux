@@ -2200,7 +2200,7 @@ static int axienet_open(struct net_device *ndev)
 		} else if ((lp->axienet_config->mactype == XAXIENET_1G) ||
 			     (lp->axienet_config->mactype == XAXIENET_2_5G)) {
 			/**
-			 * No need to start the internal PHY, applying the fixup
+			 * No need to start the internal PHY, initializing the internal PHY,
 			 * is enough for SGMII operation. `lp->phy_node_int` should
 			 * be non-NULL only for SGMII mode.
 			 */
@@ -3753,18 +3753,6 @@ static const struct attribute_group mcdma_attributes = {
 #endif
 
 /**
- * axienet_pma_phy_fixup - PCS/PMA Internal PHY fixup.
- * @phy: the pointer to the phy device
- *
- * The internal PHY powers up with BMCR_ISOLATE beeing set, clear it.
- */
-
-static int axienet_pma_phy_fixup(struct phy_device *phy)
-{
-	return phy_write(phy, MII_BMCR, BMCR_ANENABLE | BMCR_FULLDPLX);
-}
-
-/**
  * axienet_probe - Axi Ethernet probe function.
  * @pdev:	Pointer to platform device structure.
  *
@@ -4048,9 +4036,6 @@ static int axienet_probe(struct platform_device *pdev)
 	if (lp->phy_type == XAE_PHY_TYPE_SGMII) {
 		lp->phy_node_int = of_parse_phandle(pdev->dev.of_node,
 						    "phy-handle", 1);
-		if (lp->phy_node_int)
-			phy_register_fixup_for_uid(0, 0xffffffff,
-						   axienet_pma_phy_fixup);
 	}
 
 #ifdef CONFIG_AXIENET_HAS_MCDMA
