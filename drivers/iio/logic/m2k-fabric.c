@@ -118,16 +118,10 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 		values[M2K_FABRIC_GPIO_EN_SC2_CAL2] = 1;
 		values[M2K_FABRIC_GPIO_EN_SC2_CAL2] = 1;
 
-		if (m2k_fabric->revc) {
-			values[M2K_FABRIC_GPIO_EN_SC1] = m2k_fabric->sc_powerdown[0];
-			values[M2K_FABRIC_GPIO_EN_SC2] = m2k_fabric->sc_powerdown[1];
-			values[M2K_FABRIC_GPIO_EN_AWG1] = m2k_fabric->awg_powerdown[0];
-			values[M2K_FABRIC_GPIO_EN_AWG2] = m2k_fabric->awg_powerdown[1];
-		} else  if (m2k_fabric->revd || m2k_fabric->reve) {
-			values[M2K_FABRIC_GPIO_EN_SC1] = m2k_fabric->sc_powerdown[0];
-			values[M2K_FABRIC_GPIO_EN_AWG1] = m2k_fabric->awg_powerdown[0];
-			values[M2K_FABRIC_GPIO_EN_AWG2] = m2k_fabric->awg_powerdown[1];
-		}
+		values[M2K_FABRIC_GPIO_EN_SC1] = m2k_fabric->sc_powerdown[0];
+		values[M2K_FABRIC_GPIO_EN_SC2] = m2k_fabric->sc_powerdown[1];
+		values[M2K_FABRIC_GPIO_EN_AWG1] = m2k_fabric->awg_powerdown[0];
+		values[M2K_FABRIC_GPIO_EN_AWG2] = m2k_fabric->awg_powerdown[1];
 		break;
 	default:
 		values[M2K_FABRIC_GPIO_EN_SC1_LG] = 0;
@@ -137,16 +131,10 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 		values[M2K_FABRIC_GPIO_EN_SC_CAL1] = 0;
 		values[M2K_FABRIC_GPIO_EN_SC1_CAL2] = 0;
 		values[M2K_FABRIC_GPIO_EN_SC2_CAL2] = 0;
-		if (m2k_fabric->revc) {
-			values[M2K_FABRIC_GPIO_EN_SC1] = 0;
-			values[M2K_FABRIC_GPIO_EN_SC2] = 0;
-			values[M2K_FABRIC_GPIO_EN_AWG1] = 0;
-			values[M2K_FABRIC_GPIO_EN_AWG2] = 0;
-		} else if (m2k_fabric->revd || m2k_fabric->reve) {
-			values[M2K_FABRIC_GPIO_EN_SC1] = 0;
-			values[M2K_FABRIC_GPIO_EN_AWG1] = 0;
-			values[M2K_FABRIC_GPIO_EN_AWG2] = 0;
-		}
+		values[M2K_FABRIC_GPIO_EN_SC1] = 0;
+		values[M2K_FABRIC_GPIO_EN_SC2] = 0;
+		values[M2K_FABRIC_GPIO_EN_AWG1] = 0;
+		values[M2K_FABRIC_GPIO_EN_AWG2] = 0;
 		break;
 	}
 
