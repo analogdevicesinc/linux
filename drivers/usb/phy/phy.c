@@ -327,6 +327,14 @@ static int devm_usb_phy_match(struct device *dev, void *res, void *match_data)
 	return *phy == match_data;
 }
 
+static void usb_charger_init(struct usb_phy *usb_phy)
+{
+	usb_phy->chg_type = UNKNOWN_TYPE;
+	usb_phy->chg_state = USB_CHARGER_DEFAULT;
+	usb_phy_set_default_current(usb_phy);
+	INIT_WORK(&usb_phy->chg_work, usb_phy_notify_charger_work);
+}
+
 static int usb_add_extcon(struct usb_phy *x)
 {
 	int ret;
@@ -410,10 +418,6 @@ static int usb_add_extcon(struct usb_phy *x)
 		}
 	}
 
-	usb_phy_set_default_current(x);
-	INIT_WORK(&x->chg_work, usb_phy_notify_charger_work);
-	x->chg_type = UNKNOWN_TYPE;
-	x->chg_state = USB_CHARGER_DEFAULT;
 	if (x->type_nb.notifier_call)
 		__usb_phy_get_charger_type(x);
 
@@ -708,6 +712,7 @@ int usb_add_phy(struct usb_phy *x, enum usb_phy_type type)
 		return -EINVAL;
 	}
 
+	usb_charger_init(x);
 	ret = usb_add_extcon(x);
 	if (ret)
 		return ret;
@@ -753,6 +758,7 @@ int usb_add_phy_dev(struct usb_phy *x)
 		return -EINVAL;
 	}
 
+	usb_charger_init(x);
 	ret = usb_add_extcon(x);
 	if (ret)
 		return ret;
