@@ -1530,39 +1530,16 @@ static struct v4l2_subdev_ops ov5640_subdev_ops = {
 
 static void ov5640_adjust_setting_20mhz(void)
 {
-	struct ov5640_mode_info *modeinfo;
 	struct reg_value *regsetting;
-	int i, j, k, array_size;
+	int i, array_size;
 
 	/* adjust for INIT mode */
 	regsetting = ov5640_init_setting_30fps_VGA;
 	array_size = ARRAY_SIZE(ov5640_init_setting_30fps_VGA);
 
-	for (k = 0; k < array_size; k++, regsetting++)
-		if (regsetting->u16RegAddr == 0x3036)
-			regsetting->u8Val = 0x44;
-
-	/* adjust for other modes */
-	for (i = 0; i < ARRAY_SIZE(ov5640_mode_info_data); i++) {
-		for (j = 0; j < ov5640_mode_MAX; j++) {
-			modeinfo = &ov5640_mode_info_data[i][j];
-			regsetting = modeinfo->init_data_ptr;
-			array_size = modeinfo->init_data_size;
-			if (regsetting == NULL || array_size == 0)
-				continue;
-
-			for (k = 0; k < array_size; k++, regsetting++) {
-				if (regsetting->u16RegAddr == 0x3036) {
-					if (modeinfo->width == 640)
-						regsetting->u8Val = 0x44;
-					else if (modeinfo->width == 720)
-						regsetting->u8Val = 0x87;
-					else
-						regsetting->u8Val = 0x65;
-				}
-			}
-		}
-	}
+	for (i = 0; i < array_size; i++, regsetting++)
+		if (regsetting->u16RegAddr == 0x3037)
+			regsetting->u8Val = 0x17;
 }
 
 /*!
