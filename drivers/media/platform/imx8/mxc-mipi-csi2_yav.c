@@ -52,6 +52,8 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define	GPR_CSI2_1_S_PRG_RXHS_SETTLE(x)	(((x) & 0x3F) << 2)
 #define	GPR_CSI2_1_RX_RCAL		(3)
 
+static u8 rxhs_settle[2] = { 0x14, 0x9 };
+
 static struct mxc_mipi_csi2_dev *sd_to_mxc_mipi_csi2_dev(struct v4l2_subdev
 							 *sdev)
 {
@@ -190,7 +192,8 @@ static int mxc_mipi_csi2_phy_gpr(struct mxc_mipi_csi2_dev *csi2dev)
 				   GPR_CSI2_1_VID_INTFC_ENB |
 				   GPR_CSI2_1_HSEL |
 				   GPR_CSI2_1_CONT_CLK_MODE |
-				   GPR_CSI2_1_S_PRG_RXHS_SETTLE(9));
+				   GPR_CSI2_1_S_PRG_RXHS_SETTLE(csi2dev->
+								hs_settle));
 	}
 
 	return ret;
@@ -230,7 +233,7 @@ static void mxc_mipi_csi2_hc_config(struct mxc_mipi_csi2_dev *csi2dev)
 	writel(1, csi2dev->base_regs + 0x180);
 	/* vid_vc */
 	writel(1, csi2dev->base_regs + 0x184);
-	writel(0x300, csi2dev->base_regs + 0x188);
+	writel(csi2dev->send_level, csi2dev->base_regs + 0x188);
 }
 
 static int mipi_csi2_clk_init(struct mxc_mipi_csi2_dev *csi2dev)
@@ -400,6 +403,14 @@ static int mipi_csi2_set_fmt(struct v4l2_subdev *sd,
 
 	if (fmt->pad)
 		return -EINVAL;
+
+	if (fmt->format.width * fmt->format.height > 720 * 480) {
+		csi2dev->hs_settle = rxhs_settle[1];
+		csi2dev->send_level = 0x300;
+	} else {
+		csi2dev->hs_settle = rxhs_settle[0];
+		csi2dev->send_level = 0x240;
+	}
 
 	return v4l2_subdev_call(sensor_sd, pad, set_fmt, NULL, fmt);
 }

@@ -263,6 +263,7 @@ struct mxc_mipi_csi2_dev {
 
 	int	 id;
 	u32 hs_settle;
+	u32 send_level;
 	u32 num_lanes;
 	u8 data_lanes[4];
 	u8 vchannel;
