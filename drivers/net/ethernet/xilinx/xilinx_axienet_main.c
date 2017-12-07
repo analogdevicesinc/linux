@@ -2322,7 +2322,10 @@ err_ptp_rx_irq:
 #endif
 	if (phydev)
 		phy_disconnect(phydev);
+	if (lp->phy_dev_int)
+		phy_disconnect(lp->phy_dev_int);
 	phydev = NULL;
+	lp->phy_dev_int = NULL;
 	for_each_dma_queue(lp, i)
 		tasklet_kill(&lp->dma_err_tasklet[i]);
 	dev_err(lp->dev, "request_irq() failed\n");
@@ -2381,6 +2384,11 @@ static int axienet_stop(struct net_device *ndev)
 
 	if (ndev->phydev)
 		phy_disconnect(ndev->phydev);
+
+	if (lp->phy_dev_int)
+		phy_disconnect(lp->phy_dev_int);
+
+	lp->phy_dev_int = NULL;
 
 	if (lp->temac_no != XAE_TEMAC2)
 		axienet_dma_bd_release(ndev);
