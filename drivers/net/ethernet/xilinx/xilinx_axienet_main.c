@@ -2199,23 +2199,20 @@ static int axienet_open(struct net_device *ndev)
 						PHY_INTERFACE_MODE_RGMII_ID);
 		} else if ((lp->axienet_config->mactype == XAXIENET_1G) ||
 			     (lp->axienet_config->mactype == XAXIENET_2_5G)) {
-			phydev = of_phy_connect(lp->ndev, lp->phy_node,
-						axienet_adjust_link,
-						lp->phy_flags,
-						lp->phy_interface);
-		} else {
 			/**
 			 * No need to start the internal PHY, applying the fixup
-			 * is enough for SGMII operation
+			 * is enough for SGMII operation. `lp->phy_node_int` should
+			 * be non-NULL only for SGMII mode.
 			 */
 			if (lp->phy_node_int)
 				lp->phy_dev_int = of_phy_connect(lp->ndev,
 					lp->phy_node_int, NULL, 0,
 					PHY_INTERFACE_MODE_GMII);
 
-			lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
-					     axienet_adjust_link, 0,
-					     PHY_INTERFACE_MODE_SGMII);
+			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+						axienet_adjust_link,
+						lp->phy_flags,
+						lp->phy_interface);
 		}
 
 		if (!phydev)
