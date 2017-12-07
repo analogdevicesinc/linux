@@ -102,7 +102,7 @@ static int xilinx_xcvr_drp_write(struct xilinx_xcvr *xcvr,
 
 	read_val = xilinx_xcvr_drp_read(xcvr, drp_port, reg);
 	if (read_val != val)
-	    dev_err(xcvr->dev,
+		dev_err(xcvr->dev,
 			"%s: read-write mismatch: reg 0x%X, val 0x%4X, expected val 0x%4X\n",
 			__func__, reg, val, read_val);
 
