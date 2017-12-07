@@ -1603,6 +1603,8 @@
 		dmas = <&dma_apbh 0>;
 		dma-names = "rx-tx";
 		power-domains = <&pd_conn_nand>;
+		assigned-clocks = <&clk IMX8QXP_GPMI_BCH_IO_CLK>;
+		assigned-clock-rates = <50000000>;
 		status = "disabled";
 	};
 
