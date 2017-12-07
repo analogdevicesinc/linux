@@ -10,21 +10,24 @@
 #include <linux/iio/sysfs.h>
 
 enum {
-	M2K_FABRIC_GPIO_EN_SC1_LG,
+	/* Output */
+	M2K_FABRIC_GPIO_EN_AWG1,
+	M2K_FABRIC_GPIO_EN_AWG2,
+	M2K_FABRIC_GPIO_OUTPUT_MAX,
+
+	/* Input */
+	M2K_FABRIC_GPIO_EN_SC1_LG = M2K_FABRIC_GPIO_OUTPUT_MAX,
 	M2K_FABRIC_GPIO_EN_SC1_HG,
 	M2K_FABRIC_GPIO_EN_SC2_LG,
 	M2K_FABRIC_GPIO_EN_SC2_HG,
 	M2K_FABRIC_GPIO_EN_SC_CAL1,
 	M2K_FABRIC_GPIO_EN_SC1_CAL2,
+	M2K_FABRIC_GPIO_EN_SC2_CAL2,
 	M2K_FABRIC_GPIO_SC_CAL_MUX0,
 	M2K_FABRIC_GPIO_SC_CAL_MUX1,
-	M2K_FABRIC_GPIO_EN_AWG1,
 	M2K_FABRIC_GPIO_EN_SC1,
-
-	/* RevB */
-	M2K_FABRIC_GPIO_EN_SC2_CAL2,
-	M2K_FABRIC_GPIO_EN_AWG2,
 	M2K_FABRIC_GPIO_EN_SC2,
+
 	M2K_FABRIC_GPIO_MAX,
 };
 
@@ -62,6 +65,11 @@ struct m2k_fabric {
 };
 
 static int m2k_fabric_switch_values_open[] = {
+	/* Output */
+	[M2K_FABRIC_GPIO_EN_AWG1] = 1,
+	[M2K_FABRIC_GPIO_EN_AWG2] = 1,
+
+	/* Input */
 	[M2K_FABRIC_GPIO_EN_SC1_LG] = 0,
 	[M2K_FABRIC_GPIO_EN_SC1_HG] = 0,
 	[M2K_FABRIC_GPIO_EN_SC2_LG] = 0,
@@ -71,16 +79,16 @@ static int m2k_fabric_switch_values_open[] = {
 	[M2K_FABRIC_GPIO_EN_SC2_CAL2] = 1,
 	[M2K_FABRIC_GPIO_SC_CAL_MUX0] = 0,
 	[M2K_FABRIC_GPIO_SC_CAL_MUX1] = 0,
-	[M2K_FABRIC_GPIO_EN_AWG1] = 1,
-	[M2K_FABRIC_GPIO_EN_AWG2] = 1,
 	[M2K_FABRIC_GPIO_EN_SC1] = 1,
 	[M2K_FABRIC_GPIO_EN_SC2] = 1,
 };
 
-static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
+static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric,
+	bool update_input, bool update_output)
 {
-	unsigned int ngpios;
 	int values[M2K_FABRIC_GPIO_MAX];
+	unsigned int ngpios;
+	unsigned int gpio_base;
 
 	switch (m2k_fabric->calibration_mode) {
 	case M2K_FABRIC_CALIBRATION_MODE_ADC_VREF1:
@@ -138,17 +146,29 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric)
 		break;
 	}
 
-	ngpios = M2K_FABRIC_GPIO_MAX;
+	if (update_output) {
+	    gpio_base = 0;
+	    ngpios = M2K_FABRIC_GPIO_OUTPUT_MAX;
+	} else {
+	    gpio_base = M2K_FABRIC_GPIO_OUTPUT_MAX;
+	    ngpios = 0;
+	}
 
-	if (m2k_fabric->revd || m2k_fabric->reve)
-		ngpios = M2K_FABRIC_GPIO_MAX - 1; /* skip [M2K_FABRIC_GPIO_EN_SC2 */
+	if (update_input) {
+	    ngpios += M2K_FABRIC_GPIO_MAX - M2K_FABRIC_GPIO_OUTPUT_MAX;
+
+	    if (m2k_fabric->revd || m2k_fabric->reve)
+		    ngpios--; /* skip M2K_FABRIC_GPIO_EN_SC2 */
+	}
 
 	/* Open up all first to avoid shorts */
 	gpiod_set_array_value_cansleep(ngpios,
-		m2k_fabric->switch_gpios, m2k_fabric_switch_values_open);
+		&m2k_fabric->switch_gpios[gpio_base],
+		&m2k_fabric_switch_values_open[gpio_base]);
 
 	gpiod_set_array_value_cansleep(ngpios,
-		m2k_fabric->switch_gpios, values);
+		&m2k_fabric->switch_gpios[gpio_base],
+		&values[gpio_base]);
 }
 
 static int m2k_fabric_set_calibration_mode(struct iio_dev *indio_dev,
@@ -158,7 +178,7 @@ static int m2k_fabric_set_calibration_mode(struct iio_dev *indio_dev,
 
 	mutex_lock(&m2k_fabric->lock);
 	m2k_fabric->calibration_mode = val;
-	m2k_fabric_update_switch_settings(m2k_fabric);
+	m2k_fabric_update_switch_settings(m2k_fabric, true, true);
 	mutex_unlock(&m2k_fabric->lock);
 
 	return 0;
@@ -194,7 +214,7 @@ static int m2k_fabric_set_adc_gain(struct iio_dev *indio_dev,
 
 	mutex_lock(&m2k_fabric->lock);
 	m2k_fabric->adc_gain[chan->address] = val;
-	m2k_fabric_update_switch_settings(m2k_fabric);
+	m2k_fabric_update_switch_settings(m2k_fabric, true, false);
 	mutex_unlock(&m2k_fabric->lock);
 
 	return 0;
@@ -288,7 +308,8 @@ static ssize_t m2k_fabric_powerdown_write(struct iio_dev *indio_dev,
 			m2k_fabric->awg_powerdown[chan->channel] = state;
 		else
 			m2k_fabric->sc_powerdown[chan->channel] = state;
-		m2k_fabric_update_switch_settings(m2k_fabric);
+		m2k_fabric_update_switch_settings(m2k_fabric, !chan->output,
+			chan->output);
 	}
 	mutex_unlock(&m2k_fabric->lock);
 
@@ -558,7 +579,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 
 	mutex_init(&m2k_fabric->lock);
 
-	m2k_fabric_update_switch_settings(m2k_fabric);
+	m2k_fabric_update_switch_settings(m2k_fabric, true, true);
 
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = "m2k-fabric";
