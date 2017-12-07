@@ -672,6 +672,13 @@
 	status = "okay";
 };
 
+&usb3_peri0 {
+	phys = <&usb3_phy0>;
+	phy-names = "usb";
+
+	status = "okay";
+};
+
 &usb3_phy0 {
 	status = "okay";
 };
