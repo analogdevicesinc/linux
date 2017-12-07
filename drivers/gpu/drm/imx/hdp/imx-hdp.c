@@ -247,16 +247,16 @@ void imx8qm_phy_reset(sc_ipc_t ipcHndl, u8 reset)
 		pr_err("SC_R_HDMI PHY reset failed %d!\n", sciErr);
 }
 
-void imx8qm_set_clock_root(sc_ipc_t ipcHndl)
+void imx8qm_hdmi_set_clock_root(sc_ipc_t ipcHndl)
 {
-	/* set clock to bypass mode, source from av pll */
+	/* set clock source from av pll */
 	/* those clock default source from dig pll */
 	/* HDMI DI Pixel Link Mux Clock  */
-	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC0, 4);
+	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC0, 2);
 	/* HDMI DI Pixel Link Clock  */
-	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC1, 4);
+	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC1, 2);
 	/* HDMI DI Pixel Clock  */
-	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC3, 4);
+	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC3, 2);
 }
 
 int imx8qm_clock_init(struct hdp_clks *clks)
@@ -403,32 +403,56 @@ int imx8qm_pixel_clock_enable(struct hdp_clks *clks)
 		dev_err(dev, "%s, pre clk pxl link error\n", __func__);
 		return ret;
 	}
+	ret = clk_prepare_enable(clks->clk_vif);
+	if (ret < 0) {
+		dev_err(dev, "%s, pre clk vif error\n", __func__);
+		return ret;
+	}
 	return ret;
 
 }
 
 void imx8qm_pixel_clock_disable(struct hdp_clks *clks)
 {
+	clk_disable_unprepare(clks->clk_vif);
 	clk_disable_unprepare(clks->clk_pxl);
 	clk_disable_unprepare(clks->clk_pxl_link);
 	clk_disable_unprepare(clks->clk_pxl_mux);
+	clk_disable_unprepare(clks->av_pll);
 }
 
-void imx8qm_pixel_clock_set_rate(struct hdp_clks *clks)
+void imx8qm_dp_pixel_clock_set_rate(struct hdp_clks *clks)
 {
 	struct imx_hdp *hdp = clks_to_imx_hdp(clks);
 	unsigned int pclock = hdp->video.cur_mode.clock * 1000;
-	u32 ret;
 
-	/* 24MHz for DP and pixel clock for HDMI */
+	/* 24MHz for DP */
+	clk_set_rate(clks->av_pll, 24000000);
+
 	if (hdp->dual_mode == true) {
 		clk_set_rate(clks->clk_pxl, pclock/2);
 		clk_set_rate(clks->clk_pxl_link, pclock/2);
 	} else {
-		ret = clk_set_rate(clks->clk_pxl, pclock);
-		if (ret < 0)
-			dev_err(hdp->dev, "clk_pxl set failed T %u,A %lu", pclock, clk_get_rate(clks->clk_pxl));
+		clk_set_rate(clks->clk_pxl, pclock);
 		clk_set_rate(clks->clk_pxl_link, pclock);
+	}
+	clk_set_rate(clks->clk_pxl_mux, pclock);
+}
+
+void imx8qm_hdmi_pixel_clock_set_rate(struct hdp_clks *clks)
+{
+	struct imx_hdp *hdp = clks_to_imx_hdp(clks);
+	unsigned int pclock = hdp->video.cur_mode.clock * 1000;
+
+	/* pixel clock for HDMI */
+	clk_set_rate(clks->av_pll, pclock);
+
+	if (hdp->dual_mode == true) {
+		clk_set_rate(clks->clk_pxl, pclock/2);
+		clk_set_rate(clks->clk_pxl_link, pclock/2);
+	} else {
+		clk_set_rate(clks->clk_pxl_link, pclock);
+		clk_set_rate(clks->clk_pxl, pclock);
 	}
 	clk_set_rate(clks->clk_pxl_mux, pclock);
 }
@@ -439,11 +463,6 @@ int imx8qm_ipg_clock_enable(struct hdp_clks *clks)
 	struct imx_hdp *hdp = clks_to_imx_hdp(clks);
 	struct device *dev = hdp->dev;
 
-	ret = clk_prepare_enable(clks->av_pll);
-	if (ret < 0) {
-		dev_err(dev, "%s, pre av pll error\n", __func__);
-		return ret;
-	}
 	ret = clk_prepare_enable(clks->dig_pll);
 	if (ret < 0) {
 		dev_err(dev, "%s, pre dig pll error\n", __func__);
@@ -504,11 +523,6 @@ int imx8qm_ipg_clock_enable(struct hdp_clks *clks)
 		dev_err(dev, "%s, pre clk dbl error\n", __func__);
 		return ret;
 	}
-	ret = clk_prepare_enable(clks->clk_vif);
-	if (ret < 0) {
-		dev_err(dev, "%s, pre clk vif error\n", __func__);
-		return ret;
-	}
 	ret = clk_prepare_enable(clks->clk_apb_csr);
 	if (ret < 0) {
 		dev_err(dev, "%s, pre clk apb csr error\n", __func__);
@@ -536,25 +550,11 @@ void imx8qm_ipg_clock_disable(struct hdp_clks *clks)
 {
 }
 
-void imx8qm_hdmi_ipg_clock_set_rate(struct hdp_clks *clks)
-{
-	struct imx_hdp *hdp = clks_to_imx_hdp(clks);
-
-	/* HDMI */
-	imx_hdp_call(hdp, set_clock_root, hdp->ipcHndl);
-	clk_set_rate(clks->dig_pll, PLL_675MHZ);
-	clk_set_rate(clks->clk_core, PLL_675MHZ/5);
-	clk_set_rate(clks->clk_ipg, PLL_675MHZ/8);
-	/* Default pixel clock for HDMI */
-	clk_set_rate(clks->av_pll, 148500000);
-}
-
-void imx8qm_dp_ipg_clock_set_rate(struct hdp_clks *clks)
+void imx8qm_ipg_clock_set_rate(struct hdp_clks *clks)
 {
 	u32 clk_rate;
 
-	/* DP */
-	clk_set_rate(clks->av_pll, 24000000);
+	/* hdmi/dp ipg/core clock */
 	clk_rate = clk_get_rate(clks->dig_pll);
 	if (clk_rate == PLL_1188MHZ) {
 		clk_set_rate(clks->dig_pll, PLL_1188MHZ);
@@ -565,6 +565,8 @@ void imx8qm_dp_ipg_clock_set_rate(struct hdp_clks *clks)
 		clk_set_rate(clks->clk_core, PLL_675MHZ/5);
 		clk_set_rate(clks->clk_ipg, PLL_675MHZ/8);
 	}
+	/* Set Default av pll clock */
+	clk_set_rate(clks->av_pll, 24000000);
 }
 
 static int imx_get_vic_index(struct drm_display_mode *mode)
@@ -586,17 +588,21 @@ static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mod
 	int dp_vic;
 	int ret;
 
-	imx_hdp_call(hdp, pixel_clock_set_rate, &hdp->clks);
-
-	imx_hdp_call(hdp, pixel_clock_enable, &hdp->clks);
-
-	imx_hdp_plmux_config(hdp, mode);
-
+	/* Check video mode supported by hdmi/dp phy */
 	dp_vic = imx_get_vic_index(mode);
 	if (dp_vic < 0) {
 		DRM_ERROR("Unsupport video mode now, %s, clk=%d\n", mode->name, mode->clock);
 		return;
 	}
+
+	/* set pixel clock before video mode setup */
+	imx_hdp_call(hdp, pixel_clock_disable, &hdp->clks);
+
+	imx_hdp_call(hdp, pixel_clock_set_rate, &hdp->clks);
+
+	imx_hdp_call(hdp, pixel_clock_enable, &hdp->clks);
+
+	imx_hdp_plmux_config(hdp, mode);
 
 	ret = imx_hdp_call(hdp, phy_init, &hdp->state, dp_vic, 1, 8);
 	if (ret < 0) {
@@ -885,11 +891,10 @@ static struct hdp_ops imx8qm_dp_ops = {
 	.pixel_link_deinit = imx8qm_pixel_link_deinit,
 
 	.clock_init = imx8qm_clock_init,
-	.set_clock_root = imx8qm_set_clock_root,
-	.ipg_clock_set_rate = imx8qm_dp_ipg_clock_set_rate,
+	.ipg_clock_set_rate = imx8qm_ipg_clock_set_rate,
 	.ipg_clock_enable = imx8qm_ipg_clock_enable,
 	.ipg_clock_disable = imx8qm_ipg_clock_disable,
-	.pixel_clock_set_rate = imx8qm_pixel_clock_set_rate,
+	.pixel_clock_set_rate = imx8qm_dp_pixel_clock_set_rate,
 	.pixel_clock_enable = imx8qm_pixel_clock_enable,
 	.pixel_clock_disable = imx8qm_pixel_clock_disable,
 };
@@ -907,11 +912,11 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 	.pixel_link_deinit = imx8qm_pixel_link_deinit,
 
 	.clock_init = imx8qm_clock_init,
-	.set_clock_root = imx8qm_set_clock_root,
-	.ipg_clock_set_rate = imx8qm_hdmi_ipg_clock_set_rate,
+	.set_clock_root = imx8qm_hdmi_set_clock_root,
+	.ipg_clock_set_rate = imx8qm_ipg_clock_set_rate,
 	.ipg_clock_enable = imx8qm_ipg_clock_enable,
 	.ipg_clock_disable = imx8qm_ipg_clock_disable,
-	.pixel_clock_set_rate = imx8qm_pixel_clock_set_rate,
+	.pixel_clock_set_rate = imx8qm_hdmi_pixel_clock_set_rate,
 	.pixel_clock_enable = imx8qm_pixel_clock_enable,
 	.pixel_clock_disable = imx8qm_pixel_clock_disable,
 };
@@ -1065,6 +1070,7 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 		DRM_ERROR("Failed to initialize clock %d\n", ret);
 		return ret;
 	}
+	imx_hdp_call(hdp, set_clock_root, hdp->ipcHndl);
 
 	ret = imx_hdp_call(hdp, clock_init, &hdp->clks);
 	if (ret < 0) {
@@ -1079,15 +1085,16 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 		DRM_ERROR("Failed to initialize IPG clock\n");
 		return ret;
 	}
+	imx_hdp_call(hdp, pixel_clock_enable, &hdp->clks);
 
-	/* Pixel Format - 1 RGB, 2 YCbCr 444, 3 YCbCr 420 */
-	/* bpp (bits per subpixel) - 8 24bpp, 10 30bpp, 12 36bpp, 16 48bpp */
 	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 0);
 
 	imx_hdp_call(hdp, fw_load, &hdp->state);
 
 	imx_hdp_call(hdp, fw_init, &hdp->state);
 
+	/* Pixel Format - 1 RGB, 2 YCbCr 444, 3 YCbCr 420 */
+	/* bpp (bits per subpixel) - 8 24bpp, 10 30bpp, 12 36bpp, 16 48bpp */
 	/* default set hdmi to 1080p60 mode */
 	ret = imx_hdp_call(hdp, phy_init, &hdp->state, 2, 1, 8);
 	if (ret < 0) {
@@ -1181,6 +1188,7 @@ static void imx_hdp_imx_unbind(struct device *dev, struct device *master,
 {
 	struct imx_hdp *hdp = dev_get_drvdata(dev);
 
+	imx_hdp_call(hdp, pixel_clock_disable, &hdp->clks);
 	imx_hdp_call(hdp, pixel_link_deinit, &hdp->state);
 }
 

@@ -72,6 +72,9 @@ int dp_phy_init(state_struct *state, int vic, int format, int color_depth)
 	int num_lanes = 4;
 	int ret;
 
+	/* reset phy */
+	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 0);
+
 	/* PHY initialization while phy reset pin is active */
 	AFE_init(state, num_lanes, (ENUM_AFE_LINK_RATE)max_link_rate);
 	pr_info("AFE_init\n");

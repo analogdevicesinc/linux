@@ -68,6 +68,9 @@ int hdmi_phy_init(state_struct *state, int vic, int format, int color_depth)
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
 	int ret;
 
+	/* reset phy */
+	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 0);
+
 	/* Configure PHY */
 	character_freq_khz = phy_cfg_hdp_ss28fdsoi(state, 4, vic, color_depth, format);
 
