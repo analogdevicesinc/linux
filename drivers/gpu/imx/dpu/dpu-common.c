@@ -1571,7 +1571,9 @@ static int dpu_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(dpu_pm_ops, dpu_suspend, dpu_resume);
+static const struct dev_pm_ops dpu_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(dpu_suspend, dpu_resume)
+};
 
 static struct platform_driver dpu_driver = {
 	.driver = {
