@@ -631,13 +631,25 @@ static int fsl_amix_probe(struct platform_device *pdev)
 static int fsl_amix_runtime_resume(struct device *dev)
 {
 	struct fsl_amix *priv = dev_get_drvdata(dev);
+	int ret;
 
-	return clk_prepare_enable(priv->ipg_clk);
+	ret = clk_prepare_enable(priv->ipg_clk);
+	if (ret) {
+		dev_err(dev, "Failed to enable IPG clock: %d\n", ret);
+		return ret;
+	}
+
+	regcache_cache_only(priv->regmap, false);
+	regcache_mark_dirty(priv->regmap);
+
+	return regcache_sync(priv->regmap);
 }
 
 static int fsl_amix_runtime_suspend(struct device *dev)
 {
 	struct fsl_amix *priv = dev_get_drvdata(dev);
+
+	regcache_cache_only(priv->regmap, true);
 
 	clk_disable_unprepare(priv->ipg_clk);
 
@@ -645,31 +657,9 @@ static int fsl_amix_runtime_suspend(struct device *dev)
 }
 #endif /* CONFIG_PM */
 
-#ifdef CONFIG_PM_SLEEP
-static int fsl_amix_suspend(struct device *dev)
-{
-	struct fsl_amix *priv = dev_get_drvdata(dev);
-
-	regcache_cache_only(priv->regmap, true);
-	regcache_mark_dirty(priv->regmap);
-
-	return 0;
-}
-
-static int fsl_amix_resume(struct device *dev)
-{
-	struct fsl_amix *priv = dev_get_drvdata(dev);
-
-	regcache_cache_only(priv->regmap, false);
-	regcache_sync(priv->regmap);
-
-	return 0;
-}
-#endif /* CONFIG_PM_SLEEP */
-
 static const struct dev_pm_ops fsl_amix_pm = {
 	SET_RUNTIME_PM_OPS(fsl_amix_runtime_suspend, fsl_amix_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(fsl_amix_suspend, fsl_amix_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
 };
 
 static const struct of_device_id fsl_amix_ids[] = {
