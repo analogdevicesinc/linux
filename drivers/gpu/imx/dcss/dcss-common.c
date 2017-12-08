@@ -486,6 +486,9 @@ static int dcss_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dcss_soc *dcss = platform_get_drvdata(pdev);
 
+	if (pm_runtime_suspended(dev))
+		return 0;
+
 	dcss_bus_freq(dcss, true);
 
 	pm_qos_add_request(&dcss->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 0);
