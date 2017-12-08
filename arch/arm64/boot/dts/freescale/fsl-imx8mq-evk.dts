@@ -447,8 +447,9 @@
 		src-pdos = <0x380190c8>;
 		snk-pdos = <0x380190c8 0x3802d0c8>;
 		max-snk-mv = <9000>;
-		max-snk-ma = <1000>;
+		max-snk-ma = <2000>;
 		op-snk-mw = <9000>;
+		max-snk-mw = <18000>;
 		port-type = "drp";
 		default-role = "sink";
 	};
