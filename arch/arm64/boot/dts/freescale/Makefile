@@ -20,6 +20,7 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-mek.dtb \
 				 fsl-imx8qm-mek_ca53.dtb \
 				 fsl-imx8qm-mek_ca72.dtb \
+				 fsl-imx8qm-mek-hdmi.dtb \
 				 fsl-imx8qm-mek-it6263.dtb \
 				 fsl-imx8qm-mek-dsi-adv7535.dtb \
 				 fsl-imx8qm-mek-dsi-rm67191.dtb \
