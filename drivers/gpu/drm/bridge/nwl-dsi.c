@@ -447,7 +447,7 @@ static void nwl_dsi_bridge_enable(struct drm_bridge *bridge)
 	struct device *dev = dsi->dev;
 	int ret;
 
-	if (dsi->enabled)
+	if (dsi->enabled || (!dsi->panel && !dsi->next_bridge))
 		return;
 
 	if (!dsi->lanes) {
@@ -1072,6 +1072,7 @@ static void nwl_dsi_bridge_detach(struct drm_bridge *bridge)
 	} else if (dsi->next_bridge) {
 		nwl_dsi_del_bridge(dsi->next_bridge->encoder, dsi->next_bridge);
 	}
+	mipi_dsi_host_unregister(&dsi->host);
 }
 
 static const struct drm_bridge_funcs nwl_dsi_bridge_funcs = {
