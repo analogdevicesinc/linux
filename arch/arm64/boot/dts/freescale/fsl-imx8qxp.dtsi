@@ -1909,6 +1909,15 @@
 		#interrupt-cells = <2>;
 	};
 
+	gpio0_mipi_csi0: gpio@58222000 {
+		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
+		reg = <0x0 0x58222000 0x0 0x1000>;
+		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_csi>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
 	gpu_3d0: gpu@53100000 {
 		compatible = "fsl,imx8-gpu";
 		reg = <0x0 0x53100000 0 0x40000>;

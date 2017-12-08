@@ -379,6 +379,13 @@
 				SC_P_USB_SS3_TC0_CONN_USB_OTG1_PWR		0x00000021
 			>;
 		};
+
+		pinctrl_mipi_csi0_gpio: mipicsi0gpiogrp{
+			fsl,pins = <
+				SC_P_MIPI_CSI0_GPIO0_00_MIPI_CSI0_GPIO0_IO00	0x00000021
+				SC_P_MIPI_CSI0_GPIO0_01_MIPI_CSI0_GPIO0_IO01	0x00000021
+			>;
+		};
 	};
 };
 
@@ -434,6 +441,11 @@
 			data-lanes = <1 2 3 4>;
 		};
 	};
+};
+
+&gpio0_mipi_csi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_mipi_csi0_gpio>;
 };
 
 &isi_0 {
