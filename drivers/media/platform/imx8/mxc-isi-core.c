@@ -209,7 +209,8 @@ static int mxc_isi_pm_suspend(struct device *dev)
 {
 	struct mxc_isi_dev *mxc_isi = dev_get_drvdata(dev);
 
-	if (mxc_isi->flags & MXC_ISI_PM_SUSPENDED)
+	if ((mxc_isi->flags & MXC_ISI_PM_SUSPENDED) ||
+		(mxc_isi->flags & MXC_ISI_RUNTIME_SUSPEND))
 		return 0;
 
 	clk_disable_unprepare(mxc_isi->clk);
