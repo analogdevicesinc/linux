@@ -1568,12 +1568,8 @@ static void lpuart_shutdown(struct uart_port *port)
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	if (sport->lpuart_dma_rx_use) {
-		ret = wait_event_interruptible_timeout(sport->dma_wait,
-			!sport->dma_rx_in_progress, msecs_to_jiffies(1));
-		if (ret <= 0) {
-			sport->dma_rx_in_progress = false;
-			dmaengine_terminate_all(sport->dma_rx_chan);
-		}
+		sport->dma_rx_in_progress = false;
+		dmaengine_terminate_all(sport->dma_rx_chan);
 		del_timer_sync(&sport->lpuart_timer);
 		lpuart_dma_rx_free(&sport->port);
 	}
@@ -1617,12 +1613,8 @@ static void lpuart32_shutdown(struct uart_port *port)
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	if (sport->lpuart_dma_rx_use) {
-		ret = wait_event_interruptible_timeout(sport->dma_wait,
-			!sport->dma_rx_in_progress, msecs_to_jiffies(1));
-		if (ret <= 0) {
-			sport->dma_rx_in_progress = false;
-			dmaengine_terminate_all(sport->dma_rx_chan);
-		}
+		sport->dma_rx_in_progress = false;
+		dmaengine_terminate_all(sport->dma_rx_chan);
 		if (!sport->dma_eeop)
 			del_timer_sync(&sport->lpuart_timer);
 		lpuart_dma_rx_free(&sport->port);
