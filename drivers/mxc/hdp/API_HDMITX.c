@@ -287,7 +287,7 @@ CDN_API_STATUS CDN_API_HDMITX_SetVic_blocking(state_struct *state,
 	u32 hsync = hblank - hfront - hback;
 	u32 vsync = vsync_lines;
 	u32 vback = sof_lines;
-	u32 v_h_polarity = ((vic_table[vicMode][HSYNC_POL] == ACTIVE_LOW) ? F_HPOL(0) : F_HPOL(1)) + ((vic_table[vicMode][VSYNC_POL] == ACTIVE_LOW) ? F_VPOL(0) : F_VPOL(1));	//bit invert ??? Sandor
+	u32 v_h_polarity = ((vic_table[vicMode][HSYNC_POL] == ACTIVE_LOW) ? 0 : 1) + ((vic_table[vicMode][VSYNC_POL] == ACTIVE_LOW) ? 0 : 2);
 
 	ret =
 	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
