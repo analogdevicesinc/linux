@@ -90,7 +90,6 @@ int hdmi_phy_init(state_struct *state, int vic, int format, int color_depth)
 
 void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, int temp)
 {
-	GENERAL_Read_Register_response regresp;
 	int ret;
 
 	/* B/W Balance Type: 0 no data, 1 IT601, 2 ITU709 */
@@ -114,13 +113,6 @@ void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, in
 	ret =  CDN_API_HDMITX_SetVic_blocking(state, vic, color_depth, format);
 	pr_info("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
 
-	/* adjust the vsync/hsync polarity */
-	CDN_API_General_Read_Register_blocking(
-					state, ADDR_SOURCE_VIF + (HSYNC2VSYNC_POL_CTRL << 2), &regresp);
-	pr_info("Initial HSYNC2VSYNC_POL_CTRL: 0x%x\n", regresp.val);
-	if ((regresp.val & 0x6) != 0) {
-		__raw_writel(0x4, state->mem.ss_base);
-	}
 	msleep(50);
 }
 

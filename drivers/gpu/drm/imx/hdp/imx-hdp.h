@@ -90,6 +90,7 @@ struct hdp_ops {
 	void (*phy_reset)(sc_ipc_t ipcHndl, u8 reset);
 	int (*pixel_link_init)(state_struct *state);
 	void (*pixel_link_deinit)(state_struct *state);
+	void (*pixel_link_mux)(state_struct *state, struct drm_display_mode *mode);
 
 	int (*clock_init)(struct hdp_clks *clks);
 	void (*set_clock_root)(sc_ipc_t ipcHndl);

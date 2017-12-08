@@ -174,8 +174,21 @@ u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width)
 	return 0;
 }
 
-static void imx_hdp_plmux_config(struct imx_hdp *hdp, struct drm_display_mode *mode)
+static void imx_hdp_state_init(struct imx_hdp *hdp)
 {
+	state_struct *state = &hdp->state;
+
+	memset(state, 0, sizeof(state_struct));
+	mutex_init(&state->mutex);
+
+	state->mem.regs_base = hdp->regs_base;
+	state->mem.ss_base = hdp->ss_base;
+	state->rw = hdp->rw;
+}
+
+static void imx8qm_pixel_link_mux(state_struct *state, struct drm_display_mode *mode)
+{
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
 	u32 val;
 
 	val = 4; /* RGB */
@@ -187,18 +200,6 @@ static void imx_hdp_plmux_config(struct imx_hdp *hdp, struct drm_display_mode *m
 		val |= 0x2;
 
 	writel(val, hdp->ss_base + CSR_PIXEL_LINK_MUX_CTL);
-}
-
-static void imx_hdp_state_init(struct imx_hdp *hdp)
-{
-	state_struct *state = &hdp->state;
-
-	memset(state, 0, sizeof(state_struct));
-	mutex_init(&state->mutex);
-
-	state->mem.regs_base = hdp->regs_base;
-	state->mem.ss_base = hdp->ss_base;
-	state->rw = hdp->rw;
 }
 
 int imx8qm_pixel_link_init(state_struct *state)
@@ -602,8 +603,10 @@ static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mod
 
 	imx_hdp_call(hdp, pixel_clock_enable, &hdp->clks);
 
-	imx_hdp_plmux_config(hdp, mode);
+	/* Config pixel link mux */
+	imx_hdp_call(hdp, pixel_link_mux, &hdp->state, mode);
 
+	/* mode set */
 	ret = imx_hdp_call(hdp, phy_init, &hdp->state, dp_vic, 1, 8);
 	if (ret < 0) {
 		DRM_ERROR("Failed to initialise HDP PHY\n");
@@ -889,6 +892,7 @@ static struct hdp_ops imx8qm_dp_ops = {
 	.phy_reset = imx8qm_phy_reset,
 	.pixel_link_init = imx8qm_pixel_link_init,
 	.pixel_link_deinit = imx8qm_pixel_link_deinit,
+	.pixel_link_mux = imx8qm_pixel_link_mux,
 
 	.clock_init = imx8qm_clock_init,
 	.ipg_clock_set_rate = imx8qm_ipg_clock_set_rate,
@@ -910,6 +914,7 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 	.phy_reset = imx8qm_phy_reset,
 	.pixel_link_init = imx8qm_pixel_link_init,
 	.pixel_link_deinit = imx8qm_pixel_link_deinit,
+	.pixel_link_mux = imx8qm_pixel_link_mux,
 
 	.clock_init = imx8qm_clock_init,
 	.set_clock_root = imx8qm_hdmi_set_clock_root,
