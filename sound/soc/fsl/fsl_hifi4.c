@@ -1567,28 +1567,6 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 
 	file->private_data = hifi4_engine;
 
-	if (!hifi4_priv->is_ready) {
-		init_completion(&hifi4_priv->cmd_complete);
-
-		ret = request_firmware_nowait(THIS_MODULE,
-				FW_ACTION_HOTPLUG, hifi4_priv->fw_name,
-				dev,
-				GFP_KERNEL, hifi4_priv, hifi4_load_firmware);
-
-		if (ret) {
-			dev_err(dev, "failed to load firmware\n");
-			mutex_unlock(&hifi4_priv->hifi4_mutex);
-			return ret;
-		}
-
-		ret = icm_ack_wait(hifi4_priv, 0);
-		if (ret) {
-			mutex_unlock(&hifi4_priv->hifi4_mutex);
-			return ret;
-		}
-		dev_info(dev, "hifi driver registered\n");
-	}
-
 	/* increase reference counter when opening device */
 	atomic_long_inc(&hifi4_priv->refcnt);
 
@@ -1696,7 +1674,7 @@ long icm_ack_wait(struct fsl_hifi4 *hifi4_priv, u32 msg)
 	err = wait_for_completion_timeout(&hifi4_priv->cmd_complete,
 				msecs_to_jiffies(1000));
 	if (!err) {
-		dev_err(dev, "icm ack timeout!\n");
+		dev_err(dev, "icm ack timeout! %x\n", msg);
 		return -ETIMEDOUT;
 	}
 
@@ -1818,7 +1796,18 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 			complete(&hifi4_priv->cmd_complete);
 		}
 		break;
-
+	case ICM_CORE_EXIT:
+		hifi4_priv->is_done = 1;
+		complete(&hifi4_priv->cmd_complete);
+		break;
+	case ICM_SUSPEND:
+		hifi4_priv->is_done = 1;
+		complete(&hifi4_priv->cmd_complete);
+		break;
+	case ICM_RESUME:
+		hifi4_priv->is_done = 1;
+		complete(&hifi4_priv->cmd_complete);
+		break;
 	default:
 		ret_val = -1;
 		break;
@@ -2239,12 +2228,39 @@ static int fsl_hifi4_remove(struct platform_device *pdev)
 static int fsl_hifi4_runtime_resume(struct device *dev)
 {
 	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
+	int ret;
 
 	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
 			SC_R_DSP_RAM, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
 		dev_err(dev, "Error power on HIFI RAM\n");
 		return -EIO;
 	}
+
+	mutex_lock(&hifi4_priv->hifi4_mutex);
+
+	if (!hifi4_priv->is_ready) {
+		init_completion(&hifi4_priv->cmd_complete);
+
+		ret = request_firmware_nowait(THIS_MODULE,
+				FW_ACTION_HOTPLUG, hifi4_priv->fw_name,
+				dev,
+				GFP_KERNEL, hifi4_priv, hifi4_load_firmware);
+
+		if (ret) {
+			dev_err(dev, "failed to load firmware\n");
+			mutex_unlock(&hifi4_priv->hifi4_mutex);
+			return ret;
+		}
+
+		ret = icm_ack_wait(hifi4_priv, 0);
+		if (ret) {
+			mutex_unlock(&hifi4_priv->hifi4_mutex);
+			return ret;
+		}
+		dev_info(dev, "hifi driver registered\n");
+	}
+
+	mutex_unlock(&hifi4_priv->hifi4_mutex);
 
 	return 0;
 }
@@ -2263,14 +2279,74 @@ static int fsl_hifi4_runtime_suspend(struct device *dev)
 }
 #endif /* CONFIG_PM */
 
+
 #ifdef CONFIG_PM_SLEEP
 static int fsl_hifi4_suspend(struct device *dev)
 {
-	return 0;
+	union icm_header_t apu_icm;
+	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	mutex_lock(&hifi4_priv->hifi4_mutex);
+
+	if (hifi4_priv->is_ready) {
+		init_completion(&hifi4_priv->cmd_complete);
+		hifi4_priv->is_done = 0;
+
+		apu_icm.allbits = 0;	/* clear all bits;*/
+		apu_icm.ack = 0;
+		apu_icm.intr = 1;
+		apu_icm.msg = ICM_SUSPEND;
+		apu_icm.size = 0;
+		icm_intr_send(hifi4_priv, apu_icm.allbits);
+
+		/* wait for response here */
+		ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
+		if (ret) {
+			mutex_unlock(&hifi4_priv->hifi4_mutex);
+			return ret;
+		}
+	}
+
+	mutex_unlock(&hifi4_priv->hifi4_mutex);
+
+	ret = pm_runtime_force_suspend(dev);
+
+	return ret;
 }
 
 static int fsl_hifi4_resume(struct device *dev)
 {
+	union icm_header_t apu_icm;
+	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	ret = pm_runtime_force_resume(dev);
+	if (ret)
+		return ret;
+
+	mutex_lock(&hifi4_priv->hifi4_mutex);
+
+	if (hifi4_priv->is_ready) {
+		init_completion(&hifi4_priv->cmd_complete);
+		hifi4_priv->is_done = 0;
+
+		apu_icm.allbits = 0;	/* clear all bits;*/
+		apu_icm.ack = 0;
+		apu_icm.intr = 1;
+		apu_icm.msg = ICM_RESUME;
+		apu_icm.size = 0;
+		icm_intr_send(hifi4_priv, apu_icm.allbits);
+
+		/* wait for response here */
+		ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
+		if (ret) {
+			mutex_unlock(&hifi4_priv->hifi4_mutex);
+			return ret;
+		}
+	}
+	mutex_unlock(&hifi4_priv->hifi4_mutex);
+
 	return 0;
 }
 #endif /* CONFIG_PM_SLEEP */

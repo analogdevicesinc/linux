@@ -137,6 +137,8 @@ enum icm_action_t {
 
 	ICM_SWITCH_CODEC,
 	ICM_RESET,
+	ICM_SUSPEND,
+	ICM_RESUME,
 };
 
 enum aud_status_t {
@@ -300,7 +302,39 @@ struct hifi4_mem_msg {
 #define INPUT_BUF_SIZE		4096
 #define OUTPUT_BUF_SIZE		16384
 #define FIRMWARE_DATA_BUF_SIZE	(MULTI_CODEC_NUM * 0x80000)
-#define SCRATCH_DATA_BUF_SIZE	(MULTI_CODEC_NUM * 0x80000)
+
+
+/*scratch buf structure
+ *  ----------------------------------------------------------------------
+ *  |  name             |   size     |    description                    |
+ * -----------------------------------------------------------------------
+ *  |  CODEC 0          |   0x80000  |  Total support 5 instance.
+ * -----------------------------------  Each instance has 0x80000 size
+ *  |  CODEC 1          |   0x80000  |  buffer for store the code section
+ * -----------------------------------  and input/output buffer.
+ *  |  CODEC 2          |   0x80000  |
+ * -----------------------------------
+ *  |  CODEC 3          |   0x80000  |
+ * -----------------------------------
+ *  |  CODEC 4          |   0x80000  |
+ * ------------------------------------------------------------------------
+ *  |  codec info buf   |   4096     |  For alloc the codec info structure
+ * ------------------------------------------------------------------------
+ *  |  global structure |   4096     |  For store hifi config structure
+ * ------------------------------------------------------------------------
+ *  |  DRAM             |   64k      |  For store DRAM buffer in suspend
+ * ------------------------------------------------------------------------
+ */
+
+#define EACH_CODEC_BUF_SIZE         0x80000
+#define CODEC_INFO_BUF_OFF         (MULTI_CODEC_NUM * EACH_CODEC_BUF_SIZE)
+#define CODEC_INFO_BUF_SIZE         4096
+#define SUSPEND_GLOBAL_BUF_OFF      (CODEC_INFO_BUF_OFF + CODEC_INFO_BUF_SIZE)
+#define SUSPEND_GLOBAL_BUF_SIZE     4096
+#define SUSPEND_DRAM_BUF_OFF        (SUSPEND_GLOBAL_BUF_OFF + SUSPEND_GLOBAL_BUF_SIZE)
+#define SUSPEND_DRAM_BUF_SIZE       65536
+
+#define SCRATCH_DATA_BUF_SIZE	(SUSPEND_DRAM_BUF_OFF + SUSPEND_DRAM_BUF_SIZE)
 
 #define MEMORY_REMAP_OFFSET	0x39000000
 
