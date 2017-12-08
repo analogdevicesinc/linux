@@ -709,6 +709,8 @@ static int tcpci_parse_config(struct tcpci *tcpci)
 						&tcfg->max_snk_mv) ||
 		device_property_read_u32(tcpci->dev, "max-snk-ma",
 						&tcfg->max_snk_ma) ||
+		device_property_read_u32(tcpci->dev, "max-snk-mw",
+						&tcfg->max_snk_mw) ||
 		device_property_read_u32(tcpci->dev, "op-snk-mw",
 						&tcfg->operating_snk_mw))
 		goto snk_setting_wrong;
