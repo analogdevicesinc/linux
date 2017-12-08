@@ -46,6 +46,7 @@ struct mxsfb_drm_private {
 
 	struct drm_gem_cma_object	*gem;
 	bool				enabled;
+	bool				suspended;
 };
 
 int mxsfb_setup_crtc(struct drm_device *dev);

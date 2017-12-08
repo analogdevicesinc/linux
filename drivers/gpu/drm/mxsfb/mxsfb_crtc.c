@@ -26,6 +26,7 @@
 #include <drm/drm_of.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_simple_kms_helper.h>
+#include <linux/busfreq-imx.h>
 #include <linux/clk.h>
 #include <linux/iopoll.h>
 #include <linux/of_graph.h>
@@ -362,6 +363,9 @@ void mxsfb_crtc_enable(struct mxsfb_drm_private *mxsfb)
 	if (mxsfb->enabled)
 		return;
 
+	if (mxsfb->devdata->flags & MXSFB_FLAG_BUSFREQ)
+		request_bus_freq(BUS_FREQ_HIGH);
+
 	writel(0, mxsfb->base + LCDC_CTRL);
 	mxsfb_crtc_mode_set_nofb(mxsfb);
 	mxsfb_enable_controller(mxsfb);
@@ -375,6 +379,9 @@ void mxsfb_crtc_disable(struct mxsfb_drm_private *mxsfb)
 		return;
 
 	mxsfb_disable_controller(mxsfb);
+
+	if (mxsfb->devdata->flags & MXSFB_FLAG_BUSFREQ)
+		release_bus_freq(BUS_FREQ_HIGH);
 
 	mxsfb->enabled = false;
 }
