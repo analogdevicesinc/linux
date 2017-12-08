@@ -473,6 +473,13 @@
 			>;
 		};
 
+		pinctrl_lvds1_lpi2c1: lvds1lpi2c1grp {
+			fsl,pins = <
+				SC_P_LVDS1_I2C1_SCL_LVDS1_I2C1_SCL	0xc600004c
+				SC_P_LVDS1_I2C1_SDA_LVDS1_I2C1_SDA	0xc600004c
+			>;
+		};
+
 		pinctrl_lvds0_pwm0: lvds0pwm0grp {
 			fsl,pins = <
 				SC_P_LVDS0_GPIO00_LVDS0_PWM0_OUT	0x00000020

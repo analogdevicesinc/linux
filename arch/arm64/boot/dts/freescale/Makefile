@@ -25,6 +25,8 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-mek-dsi-adv7535.dtb \
 				 fsl-imx8qm-mek-dsi-rm67191.dtb \
 				 fsl-imx8qm-mek-jdi-wuxga-lvds1-panel.dtb \
+				 fsl-imx8qm-mek-it6263-adv7535.dtb \
+				 fsl-imx8qm-mek-it6263-rm67191.dtb \
 				 fsl-imx8qm-lpddr4-arm2-dp.dtb \
 				 fsl-imx8qm-lpddr4-arm2-it6263.dtb \
 				 fsl-imx8qm-lpddr4-arm2-it6263-dual-channel.dtb \
@@ -35,7 +37,8 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-lpddr4-arm2-usb3.dtb \
 				 fsl-imx8qm-lpddr4-arm2-dsi-adv7535.dtb \
 				 fsl-imx8qm-lpddr4-arm2-dsi-rm67191.dtb \
-				 fsl-imx8qm-lpddr4-arm2-it6263-adv7535.dtb
+				 fsl-imx8qm-lpddr4-arm2-it6263-adv7535.dtb \
+				 fsl-imx8qm-lpddr4-arm2-it6263-rm67191.dtb
 dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-mek.dtb \
 				  fsl-imx8qxp-mek-enet2.dtb \

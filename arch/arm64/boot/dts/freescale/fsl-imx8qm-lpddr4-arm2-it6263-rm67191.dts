@@ -106,28 +106,6 @@
 	};
 };
 
-&i2c0_mipi_dsi0 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_mipi0_lpi2c0>;
-	clock-frequency = <100000>;
-	status = "okay";
-
-	adv_bridge1: adv7535@3d {
-		compatible = "adi,adv7535", "adi,adv7533";
-		reg = <0x3d>;
-		adi,dsi-lanes = <4>;
-		status = "okay";
-
-		port {
-			adv7535_1_in: endpoint {
-				remote-endpoint = <&mipi_dsi_bridge1_adv>;
-			};
-		};
-	};
-};
-
 &mipi_dsi_phy1 {
 	status = "okay";
 };
@@ -139,31 +117,24 @@
 &mipi_dsi_bridge1 {
 	status = "okay";
 
-	port@1 {
-		mipi_dsi_bridge1_adv: endpoint {
-			remote-endpoint = <&adv7535_1_in>;
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_0_1_en>;
+		reset-gpio = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		port {
+			panel1_in: endpoint {
+				remote-endpoint = <&mipi_bridge1_out>;
+			};
 		};
 	};
-};
 
-&i2c0_mipi_dsi1 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_mipi1_lpi2c0>;
-	clock-frequency = <100000>;
-	status = "okay";
-
-	adv_bridge2: adv7535@3d {
-		compatible = "adi,adv7535", "adi,adv7533";
-		reg = <0x3d>;
-		adi,dsi-lanes = <4>;
-		status = "okay";
-
-		port {
-			adv7535_2_in: endpoint {
-				remote-endpoint = <&mipi_dsi_bridge2_adv>;
-			};
+	port@1 {
+		mipi_bridge1_out: endpoint {
+			remote-endpoint = <&panel1_in>;
 		};
 	};
 };
@@ -179,9 +150,24 @@
 &mipi_dsi_bridge2 {
 	status = "okay";
 
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_0_1_en>;
+		reset-gpio = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		port {
+			panel2_in: endpoint {
+				remote-endpoint = <&mipi_bridge2_out>;
+			};
+		};
+	};
+
 	port@1 {
-		mipi_dsi_bridge2_adv: endpoint {
-			remote-endpoint = <&adv7535_2_in>;
+		mipi_bridge2_out: endpoint {
+			remote-endpoint = <&panel2_in>;
 		};
 	};
 };

@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  */
 
-#include "fsl-imx8qm-lpddr4-arm2.dts"
+#include "fsl-imx8qm-mek.dts"
 
 &hdmi {
 	status = "disabled";

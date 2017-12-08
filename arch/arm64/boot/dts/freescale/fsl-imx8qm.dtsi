@@ -1492,6 +1492,33 @@
 		status = "disabled";
 	};
 
+	mipi_dsi1: mipi_dsi@56228000 {
+		compatible = "fsl,imx8qm-mipi-dsi";
+		clocks =
+			<&clk IMX8QM_MIPI0_PXL_CLK>,
+			<&clk IMX8QM_MIPI0_BYPASS_CLK>,
+			<&clk IMX8QM_CLK_DUMMY>;
+		clock-names = "pixel", "bypass", "phy_ref";
+		power-domains = <&pd_mipi0>;
+		csr = <&mipi_dsi_csr1>;
+		phys = <&mipi_dsi_phy1>;
+		phy-names = "dphy";
+		pwr-delay = <100>;
+		status = "disabled";
+
+		port@0 {
+			mipi_dsi1_in: endpoint {
+				remote-endpoint = <&dpu1_disp0_mipi_dsi>;
+			};
+		};
+
+		port@1 {
+			mipi_dsi1_out: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge1_in>;
+			};
+		};
+	};
+
 	mipi_dsi_bridge1: mipi_dsi_bridge@56228000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -1515,32 +1542,6 @@
 		port@0 {
 			mipi_dsi_bridge1_in: endpoint {
 				remote-endpoint = <&mipi_dsi1_out>;
-			};
-		};
-	};
-
-	mipi_dsi1: mipi_dsi@56228000 {
-		compatible = "fsl,imx8qm-mipi-dsi";
-		clocks =
-			<&clk IMX8QM_MIPI0_PXL_CLK>,
-			<&clk IMX8QM_MIPI0_BYPASS_CLK>,
-			<&clk IMX8QM_CLK_DUMMY>;
-		clock-names = "pixel", "bypass", "phy_ref";
-		power-domains = <&pd_mipi0>;
-		csr = <&mipi_dsi_csr1>;
-		phys = <&mipi_dsi_phy1>;
-		phy-names = "dphy";
-		status = "disabled";
-
-		port@0 {
-			mipi_dsi1_in: endpoint {
-				remote-endpoint = <&dpu1_disp0_mipi_dsi>;
-			};
-		};
-
-		port@1 {
-			mipi_dsi1_out: endpoint {
-				remote-endpoint = <&mipi_dsi_bridge1_in>;
 			};
 		};
 	};
@@ -1906,6 +1907,33 @@
 		status = "disabled";
 	};
 
+	mipi_dsi2: mipi_dsi@57228000 {
+		compatible = "fsl,imx8qm-mipi-dsi";
+		clocks =
+			<&clk IMX8QM_MIPI1_PXL_CLK>,
+			<&clk IMX8QM_MIPI1_BYPASS_CLK>,
+			<&clk IMX8QM_CLK_DUMMY>;
+		clock-names = "pixel", "bypass", "phy_ref";
+		power-domains = <&pd_mipi1>;
+		csr = <&mipi_dsi_csr2>;
+		phys = <&mipi_dsi_phy2>;
+		phy-names = "dphy";
+		pwr-delay = <100>;
+		status = "disabled";
+
+		port@0 {
+			mipi_dsi2_in: endpoint {
+				remote-endpoint = <&dpu2_disp0_mipi_dsi>;
+			};
+		};
+
+		port@1 {
+			mipi_dsi2_out: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge2_in>;
+			};
+		};
+	};
+
 	mipi_dsi_bridge2: mipi_dsi_bridge@57228000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -1929,32 +1957,6 @@
 		port@0 {
 			mipi_dsi_bridge2_in: endpoint {
 				remote-endpoint = <&mipi_dsi2_out>;
-			};
-		};
-	};
-
-	mipi_dsi2: mipi_dsi@57228000 {
-		compatible = "fsl,imx8qm-mipi-dsi";
-		clocks =
-			<&clk IMX8QM_MIPI1_PXL_CLK>,
-			<&clk IMX8QM_MIPI1_BYPASS_CLK>,
-			<&clk IMX8QM_CLK_DUMMY>;
-		clock-names = "pixel", "bypass", "phy_ref";
-		power-domains = <&pd_mipi1>;
-		csr = <&mipi_dsi_csr2>;
-		phys = <&mipi_dsi_phy2>;
-		phy-names = "dphy";
-		status = "disabled";
-
-		port@0 {
-			mipi_dsi2_in: endpoint {
-				remote-endpoint = <&dpu2_disp0_mipi_dsi>;
-			};
-		};
-
-		port@1 {
-			mipi_dsi2_out: endpoint {
-				remote-endpoint = <&mipi_dsi_bridge2_in>;
 			};
 		};
 	};
