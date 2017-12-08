@@ -20,6 +20,7 @@
 
 static DECLARE_WAIT_QUEUE_HEAD(wq_desc);
 static int desc_completed;
+static int desc_status;
 
 /*
  * Descriptor to instantiate RNG State Handle 0 in normal mode and
@@ -74,11 +75,12 @@ static void build_deinstantiation_desc(u32 *desc, int handle)
 
 void cbk_jr_rng_inst(struct device *jrdev, u32 *desc,  u32 status, void *areq)
 {
-	if ((status & JRSTA_SSRC_JUMP_HALT_CC) == JRSTA_SSRC_JUMP_HALT_CC)
+	if ((status & JRSTA_SSRC_JUMP_HALT_CC) == JRSTA_SSRC_JUMP_HALT_CC) {
 		dev_info(jrdev, "Instantiated RNG4 SH%d.\n", *((int *)areq));
-	else
-		dev_err(jrdev, "Failed to instantiate RNG4 SH%d (0x%X) !\n",
-			*((int *)areq), status);
+		desc_status = 0;
+	} else {
+		desc_status = -EAGAIN;
+	}
 	desc_completed = 1;
 	wake_up(&wq_desc);
 }
@@ -102,14 +104,15 @@ static int run_descriptor_jr(u32 *desc, int sh_idx)
 		return -ENODEV;
 	}
 	ret = caam_jr_enqueue(jrdev, desc, cbk_jr_rng_inst, &sh_idx);
-	if (ret)
+	if (ret) {
 		dev_err(jrdev, "caam_jr_enqueue() failed\n");
-
+		return ret;
+	}
 	/* wait for job descriptor completion */
 	wait_event(wq_desc, desc_completed != 0);
 	desc_completed = 0;
 	caam_jr_free(jrdev);
-	return ret;
+	return desc_status;
 }
 
 /*
