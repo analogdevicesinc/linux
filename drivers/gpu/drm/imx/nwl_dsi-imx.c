@@ -93,6 +93,7 @@ struct imx_mipi_dsi {
 	u32				sync_pol;
 	u32				power_on_delay;
 	bool				enabled;
+	bool				suspended;
 };
 
 struct clk_config {
@@ -508,6 +509,8 @@ static void imx_nwl_dsi_enable(struct imx_mipi_dsi *dsi)
 		usleep_range(min_sleep, max_sleep);
 	}
 
+	request_bus_freq(BUS_FREQ_HIGH);
+
 	imx_nwl_dsi_set_clocks(dsi, true);
 
 	ret = devtype->poweron(dsi);
@@ -534,6 +537,8 @@ static void imx_nwl_dsi_disable(struct imx_mipi_dsi *dsi)
 	devtype->poweroff(dsi);
 
 	imx_nwl_dsi_set_clocks(dsi, false);
+
+	release_bus_freq(BUS_FREQ_HIGH);
 
 	dsi->enabled = false;
 }
@@ -956,12 +961,14 @@ static int imx_nwl_dsi_remove(struct platform_device *pdev)
 static int imx_nwl_suspend(struct device *dev)
 {
 	struct imx_mipi_dsi *dsi = dev_get_drvdata(dev);
-	bool enabled = dsi->enabled;
 
-	if (enabled && dsi->next_bridge)
+	if (!dsi->enabled)
+		return 0;
+
+	if (dsi->next_bridge)
 		drm_bridge_disable(dsi->next_bridge);
 	imx_nwl_dsi_disable(dsi);
-	release_bus_freq(BUS_FREQ_HIGH);
+	dsi->suspended = true;
 
 	return 0;
 }
@@ -969,12 +976,14 @@ static int imx_nwl_suspend(struct device *dev)
 static int imx_nwl_resume(struct device *dev)
 {
 	struct imx_mipi_dsi *dsi = dev_get_drvdata(dev);
-	bool enabled = dsi->enabled;
 
-	request_bus_freq(BUS_FREQ_HIGH);
+	if (!dsi->suspended)
+		return 0;
+
 	imx_nwl_dsi_enable(dsi);
-	if (!enabled && dsi->next_bridge)
+	if (dsi->next_bridge)
 		drm_bridge_enable(dsi->next_bridge);
+	dsi->suspended = false;
 
 	return 0;
 }
