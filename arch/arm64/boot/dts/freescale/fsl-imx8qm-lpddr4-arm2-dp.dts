@@ -39,5 +39,6 @@
 };
 
 &hdmi {
+	compatible = "fsl,imx8qm-dp";
 	status = "okay";
 };

@@ -1234,7 +1234,6 @@
 	hdmi:hdmi@56268000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "fsl,imx8qm-dp";
 		reg = <0x0 0x56268000 0x0 0x100000>, /* HDP Controller */
 				<0x0 0x56261000 0x0 0x1000>; /* HDP SubSystem CSR  */
 		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
