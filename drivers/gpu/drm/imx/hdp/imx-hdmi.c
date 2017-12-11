@@ -101,17 +101,29 @@ void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, in
 		ptype = 2;
 
 	ret = CDN_API_HDMITX_Init_blocking(state);
-	pr_info("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
+	if (ret != CDN_OK) {
+		pr_info("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
+		return;
+	}
 
 	/* Set HDMI TX Mode */
 	ret = CDN_API_HDMITX_Set_Mode_blocking(state, ptype, character_freq_khz);
-	pr_info("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
+	if (ret != CDN_OK) {
+		pr_info("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
+		return;
+	}
 
 	ret = CDN_API_Set_AVI(state, vic, format, bw_type);
-	pr_info("CDN_API_Set_AVI  ret = %d\n", ret);
+	if (ret != CDN_OK) {
+		pr_info("CDN_API_Set_AVI  ret = %d\n", ret);
+		return;
+	}
 
 	ret =  CDN_API_HDMITX_SetVic_blocking(state, vic, color_depth, format);
-	pr_info("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
+	if (ret != CDN_OK) {
+		pr_info("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
+		return;
+	}
 
 	msleep(50);
 }
@@ -178,17 +190,29 @@ void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_de
 		ptype = 2;
 
 	ret = CDN_API_HDMITX_Init_blocking(state);
-	pr_info("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
+	if (ret != CDN_OK) {
+		pr_info("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
+		return;
+	}
 
 	/* Set HDMI TX Mode */
 	ret = CDN_API_HDMITX_Set_Mode_blocking(state, ptype, character_freq_khz);
-	pr_info("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
+	if (ret != CDN_OK) {
+		pr_info("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
+		return;
+	}
 
 	ret = CDN_API_Set_AVI(state, vic, format, bw_type);
-	pr_info("CDN_API_Set_AVI  ret = %d\n", ret);
+	if (ret != CDN_OK) {
+		pr_info("CDN_API_Set_AVI  ret = %d\n", ret);
+		return;
+	}
 
 	ret = CDN_API_HDMITX_SetVic_blocking(state, vic, color_depth, format);
-	pr_info("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
+	if (ret != CDN_OK) {
+		pr_info("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
+		return;
+	}
 
 	msleep(200);
 }
