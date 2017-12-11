@@ -1,0 +1,75 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* This dts is only for verify USB HSIC function at i.MX8 Debug Board */
+
+#include "fsl-imx8qm-lpddr4-arm2.dts"
+
+/ {
+	imx8qm-pm {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pd_usbh1: PD_USBH1 {
+			compatible = "nxp,imx8-pd";
+			reg = <SC_R_LAST>;
+			#power-domain-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pd_usbh1_io: usbh1_io {
+				reg = <SC_R_BOARD_R2>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_usbh1>;
+			};
+		};
+	};
+};
+
+&iomuxc {
+	imx8qm-arm2 {
+		pinctrl_usb_hsic_idle: usbh1_1 {
+			fsl,pins = <
+				SC_P_USB_HSIC0_DATA_CONN_USB_HSIC0_DATA		0xc60000c5
+				SC_P_USB_HSIC0_STROBE_CONN_USB_HSIC0_STROBE	0xc60000c5
+			>;
+		};
+
+		pinctrl_usb_hsic_active: usbh1_2 {
+			fsl,pins = <
+				SC_P_USB_HSIC0_STROBE_CONN_USB_HSIC0_STROBE	0xc60000d5
+			>;
+		};
+	};
+};
+
+&usbotg1 {
+	ci-disable-lpm;
+};
+
+/*
+ * Due to USB HSIC uses the same AHB and 480M with USBOTG1,
+ * the usbotg1 must be enabled for usbh1 usage.
+ */
+&usbh1 {
+	pinctrl-names = "idle", "active";
+	pinctrl-0 = <&pinctrl_usb_hsic_idle>;
+	pinctrl-1 = <&pinctrl_usb_hsic_active>;
+	power-domains = <&pd_usbh1_io>;
+	srp-disable;
+	hnp-disable;
+	adp-disable;
+	disable-over-current;
+	status = "okay";
+};
