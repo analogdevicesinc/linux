@@ -648,7 +648,7 @@ imx_hdp_connector_detect(struct drm_connector *connector, bool force)
 	struct imx_hdp *hdp = container_of(connector,
 						struct imx_hdp, connector);
 	int ret;
-	u8 hpd;
+	u8 hpd = 0xf;
 
 	ret = imx_hdp_call(hdp, get_hpd_state, &hdp->state, &hpd);
 	if (ret > 0)
@@ -657,9 +657,14 @@ imx_hdp_connector_detect(struct drm_connector *connector, bool force)
 	if (hpd == 1)
 		/* Cable Connected */
 		return connector_status_connected;
-	else
-		/* Cable Disconnedted  */
+	else if (hpd == 0)
+		/* Cable Disconnedted */
 		return connector_status_disconnected;
+	else {
+		/* Cable status unknown */
+		DRM_INFO("Unknow cable status, hdp=%u\n", hpd);
+		return connector_status_unknown;
+	}
 }
 
 static int imx_hdp_connector_get_modes(struct drm_connector *connector)
@@ -984,7 +989,7 @@ static void hotplug_work_func(struct work_struct *work)
 		/* Cable Connected */
 		DRM_INFO("HDMI/DP Cable Plug In\n");
 		enable_irq(hdp->irq[HPD_IRQ_OUT]);
-	} else {
+	} else if (connector->status == connector_status_disconnected) {
 		/* Cable Disconnedted  */
 		DRM_INFO("HDMI/DP Cable Plug Out\n");
 		enable_irq(hdp->irq[HPD_IRQ_IN]);
