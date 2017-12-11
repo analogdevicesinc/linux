@@ -50,6 +50,7 @@ enum imx_gpc_pm_domain_state {
 #define to_imx_gpc_pm_domain(_genpd) container_of(_genpd, struct imx_gpc_pm_domain, pd)
 
 static DEFINE_SPINLOCK(gpc_psci_lock);
+static DEFINE_MUTEX(gpc_pd_mutex);
 
 static void imx_gpc_psci_irq_unmask(struct irq_data *d)
 {
@@ -216,10 +217,10 @@ static int imx_gpc_pd_power_on(struct generic_pm_domain *domain)
 			clk_prepare_enable(pd->clks[index]);
 	}
 
-	spin_lock(&gpc_psci_lock);
+	mutex_lock(&gpc_pd_mutex);
 	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_PM_DOMAIN, pd->gpc_domain_id,
 		      GPC_PD_STATE_ON, 0, 0, 0, 0, &res);
-	spin_unlock(&gpc_psci_lock);
+	mutex_unlock(&gpc_pd_mutex);
 
 	return 0;
 }
@@ -230,10 +231,10 @@ static int imx_gpc_pd_power_off(struct generic_pm_domain *domain)
 	struct arm_smccc_res res;
 	int index, ret = 0;
 
-	spin_lock(&gpc_psci_lock);
+	mutex_lock(&gpc_pd_mutex);
 	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_PM_DOMAIN, pd->gpc_domain_id,
 		      GPC_PD_STATE_OFF, 0, 0, 0, 0, &res);
-	spin_unlock(&gpc_psci_lock);
+	mutex_unlock(&gpc_pd_mutex);
 
 	/* power off the external supply */
 	if (!IS_ERR(pd->reg)) {
