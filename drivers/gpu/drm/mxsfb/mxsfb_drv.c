@@ -121,17 +121,16 @@ static void mxsfb_pipe_enable(struct drm_simple_display_pipe *pipe,
 {
 	struct drm_device *drm = pipe->encoder.dev;
 	struct drm_connector *connector;
-	struct drm_connector_list_iter conn_iter;
 	struct mxsfb_drm_private *mxsfb = drm_pipe_to_mxsfb_drm_private(pipe);
 
 	if (!mxsfb->connector) {
-		drm_connector_list_iter_begin(drm, &conn_iter);
-		drm_for_each_connector_iter(connector, &conn_iter)
+		list_for_each_entry(connector,
+				    &drm->mode_config.connector_list,
+				    head)
 			if (connector->encoder == &(mxsfb->pipe.encoder)) {
 				mxsfb->connector = connector;
 				break;
 			}
-		drm_connector_list_iter_end(&conn_iter);
 	}
 
 	if (!mxsfb->connector) {
