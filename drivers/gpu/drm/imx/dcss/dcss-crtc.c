@@ -118,26 +118,6 @@ static const struct drm_crtc_funcs dcss_crtc_funcs = {
 	.disable_vblank = dcss_disable_vblank,
 };
 
-static void dcss_crtc_mode_set_nofb(struct drm_crtc *crtc)
-{
-	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
-						   base);
-	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
-	struct dcss_soc *dcss = dev_get_drvdata(dcss_crtc->dev->parent);
-	struct videomode vm;
-
-	drm_display_mode_to_videomode(mode, &vm);
-
-	pm_runtime_get_sync(dcss_crtc->dev->parent);
-
-	dcss_dtg_sync_set(dcss, &vm);
-	dcss_ss_sync_set(dcss, &vm, mode->flags & DRM_MODE_FLAG_PHSYNC,
-			 mode->flags & DRM_MODE_FLAG_PVSYNC);
-
-	pm_runtime_mark_last_busy(dcss_crtc->dev->parent);
-	pm_runtime_put_autosuspend(dcss_crtc->dev->parent);
-}
-
 static int dcss_crtc_atomic_check(struct drm_crtc *crtc,
 				  struct drm_crtc_state *state)
 {
@@ -177,8 +157,16 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
 						   base);
 	struct dcss_soc *dcss = dev_get_drvdata(dcss_crtc->dev->parent);
+	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
+	struct videomode vm;
+
+	drm_display_mode_to_videomode(mode, &vm);
 
 	pm_runtime_get_sync(dcss_crtc->dev->parent);
+
+	dcss_dtg_sync_set(dcss, &vm);
+	dcss_ss_sync_set(dcss, &vm, mode->flags & DRM_MODE_FLAG_PHSYNC,
+			 mode->flags & DRM_MODE_FLAG_PVSYNC);
 
 	dcss_ss_enable(dcss, true);
 	dcss_dtg_enable(dcss, true, NULL);
@@ -219,7 +207,6 @@ static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
 }
 
 static const struct drm_crtc_helper_funcs dcss_helper_funcs = {
-	.mode_set_nofb = dcss_crtc_mode_set_nofb,
 	.atomic_check = dcss_crtc_atomic_check,
 	.atomic_begin = dcss_crtc_atomic_begin,
 	.atomic_flush = dcss_crtc_atomic_flush,
