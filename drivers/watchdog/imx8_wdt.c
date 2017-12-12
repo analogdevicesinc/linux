@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
 #include <linux/watchdog.h>
@@ -19,13 +20,23 @@
 #include <soc/imx8/sc/sci.h>
 #include <soc/imx8/sc/svc/irq/api.h>
 
-#define DEFAULT_TIMEOUT 10
+#define DEFAULT_TIMEOUT 60
 /*
  * Software timer tick implemented in scfw side, support 10ms to 0xffffffff ms
- * in theory, but for normal case, 1s~60s is enough, you can change this max
+ * in theory, but for normal case, 1s~128s is enough, you can change this max
  * value in case it's not enough.
  */
-#define MAX_TIMEOUT 60
+#define MAX_TIMEOUT 128
+
+static bool nowayout = WATCHDOG_NOWAYOUT;
+module_param(nowayout, bool, 0000);
+MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
+				__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+
+static unsigned int timeout = DEFAULT_TIMEOUT;
+module_param(timeout, uint, 0000);
+MODULE_PARM_DESC(timeout, "Watchdog timeout in seconds (default="
+				__MODULE_STRING(DEFAULT_TIMEOUT) ")");
 
 static struct watchdog_device imx8_wdd;
 
@@ -81,6 +92,8 @@ static int imx8_wdt_set_timeout(struct watchdog_device *wdog,
 				unsigned int timeout)
 {
 	struct arm_smccc_res res;
+
+	wdog->timeout = timeout;
 
 	arm_smccc_smc(FSL_SIP_SRTC, FSL_SIP_SRTC_SET_TIMEOUT_WDOG,
 			timeout * 1000, 0, 0, 0, 0, 0, &res);
