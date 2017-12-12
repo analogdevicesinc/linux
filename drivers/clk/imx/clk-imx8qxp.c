@@ -106,6 +106,31 @@ static const char *mipi1_sels[] = {
 	"dummy",
 	"mipi1_lvds_bypass_clk",
 };
+
+static const char *sdhc0_sels[] = {
+	"dummy",
+	"conn_pll0_clk",
+	"conn_pll1_clk",
+	"dummy",
+	"dummy",
+};
+
+static const char *sdhc1_sels[] = {
+	"dummy",
+	"conn_pll0_clk",
+	"conn_pll1_clk",
+	"dummy",
+	"dummy",
+};
+
+static const char *sdhc2_sels[] = {
+	"dummy",
+	"conn_pll0_clk",
+	"conn_pll1_clk",
+	"dummy",
+	"dummy",
+};
+
 static struct clk *clks[IMX8QXP_CLK_END];
 static struct clk_onecell_data clk_data;
 
@@ -162,6 +187,8 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_MIPI0_DSI_PLL_DIV2_CLK]	= imx_clk_fixed("mipi0_pll_div2_clk", SC_432MHZ);
 	clks[IMX8QXP_MIPI1_DSI_PLL_CLK]		= imx_clk_fixed("mipi1_pll_clk", SC_864MHZ);
 	clks[IMX8QXP_MIPI1_DSI_PLL_DIV2_CLK]	= imx_clk_fixed("mipi1_pll_div2_clk", SC_432MHZ);
+	clks[IMX8QXP_CONN_PLL0_CLK]	= imx_clk_fixed("conn_pll0_clk", SC_792MHZ);
+	clks[IMX8QXP_CONN_PLL1_CLK]	= imx_clk_fixed("conn_pll1_clk", SC_1000MHZ);
 
 	clks[IMX8QXP_UART0_DIV] = imx_clk_divider_scu("uart0_div", SC_R_UART_0, SC_PM_CLK_PER);
 	clks[IMX8QXP_UART0_IPG_CLK] = imx_clk_gate2_scu("uart0_ipg_clk", "ipg_dma_clk_root", (void __iomem *)(LPUART_0_LPCG), 16, FUNCTION_NAME(PD_DMA_UART0));
@@ -344,9 +371,12 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_SDHC0_IPG_CLK] = imx_clk_gate2_scu("sdhc0_ipg_clk", "ipg_conn_clk_root", (void __iomem *)(USDHC_0_LPCG), 16, FUNCTION_NAME(PD_CONN_SDHC_0));
 	clks[IMX8QXP_SDHC1_IPG_CLK] = imx_clk_gate2_scu("sdhc1_ipg_clk", "ipg_conn_clk_root", (void __iomem *)(USDHC_1_LPCG), 16, FUNCTION_NAME(PD_CONN_SDHC_1));
 	clks[IMX8QXP_SDHC2_IPG_CLK] = imx_clk_gate2_scu("sdhc2_ipg_clk", "ipg_conn_clk_root", (void __iomem *)(USDHC_2_LPCG), 16, FUNCTION_NAME(PD_CONN_SDHC_2));
-	clks[IMX8QXP_SDHC0_DIV] = imx_clk_divider_scu("sdhc0_div", SC_R_SDHC_0, SC_PM_CLK_PER);
-	clks[IMX8QXP_SDHC1_DIV] = imx_clk_divider_scu("sdhc1_div", SC_R_SDHC_1, SC_PM_CLK_PER);
-	clks[IMX8QXP_SDHC2_DIV] = imx_clk_divider_scu("sdhc2_div", SC_R_SDHC_2, SC_PM_CLK_PER);
+	clks[IMX8QXP_SDHC0_SEL] = imx_clk_mux2_scu("sdhc0_sel", sdhc0_sels, ARRAY_SIZE(sdhc0_sels), SC_R_SDHC_0, SC_PM_CLK_PER);
+	clks[IMX8QXP_SDHC1_SEL] = imx_clk_mux2_scu("sdhc1_sel", sdhc1_sels, ARRAY_SIZE(sdhc1_sels), SC_R_SDHC_1, SC_PM_CLK_PER);
+	clks[IMX8QXP_SDHC2_SEL] = imx_clk_mux2_scu("sdhc2_sel", sdhc2_sels, ARRAY_SIZE(sdhc2_sels), SC_R_SDHC_2, SC_PM_CLK_PER);
+	clks[IMX8QXP_SDHC0_DIV] = imx_clk_divider2_scu("sdhc0_div", "sdhc0_sel", SC_R_SDHC_0, SC_PM_CLK_PER);
+	clks[IMX8QXP_SDHC1_DIV] = imx_clk_divider2_scu("sdhc1_div", "sdhc1_sel", SC_R_SDHC_1, SC_PM_CLK_PER);
+	clks[IMX8QXP_SDHC2_DIV] = imx_clk_divider2_scu("sdhc2_div", "sdhc2_sel", SC_R_SDHC_2, SC_PM_CLK_PER);
 	clks[IMX8QXP_SDHC0_CLK] = imx_clk_gate_scu("sdhc0_clk", "sdhc0_div", SC_R_SDHC_0, SC_PM_CLK_PER, (void __iomem *)(USDHC_0_LPCG), 0, 0);
 	clks[IMX8QXP_SDHC1_CLK] = imx_clk_gate_scu("sdhc1_clk", "sdhc1_div", SC_R_SDHC_1, SC_PM_CLK_PER, (void __iomem *)(USDHC_1_LPCG), 0, 0);
 	clks[IMX8QXP_SDHC2_CLK] = imx_clk_gate_scu("sdhc2_clk", "sdhc2_div", SC_R_SDHC_2, SC_PM_CLK_PER, (void __iomem *)(USDHC_2_LPCG), 0, 0);
