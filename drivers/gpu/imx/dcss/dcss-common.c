@@ -438,8 +438,6 @@ static int dcss_probe(struct platform_device *pdev)
 
 	dcss_debugfs_init(dcss);
 
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 3000);
-	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
 	dcss_bus_freq(dcss, true);

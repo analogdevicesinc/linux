@@ -202,8 +202,7 @@ static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
 	wait_for_completion_timeout(&dcss_crtc->disable_completion,
 				    msecs_to_jiffies(100));
 
-	pm_runtime_mark_last_busy(dcss_crtc->dev->parent);
-	pm_runtime_put_autosuspend(dcss_crtc->dev->parent);
+	pm_runtime_put_sync(dcss_crtc->dev->parent);
 }
 
 static const struct drm_crtc_helper_funcs dcss_helper_funcs = {
