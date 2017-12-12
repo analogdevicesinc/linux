@@ -77,9 +77,31 @@ static int dcss_drm_atomic_commit(struct drm_device *drm,
 	return drm_atomic_helper_commit(drm, state, nonblock);
 }
 
+static void dcss_drm_atomic_commit_tail(struct drm_atomic_state *state)
+{
+	struct drm_device *dev = state->dev;
+
+	drm_atomic_helper_commit_modeset_disables(dev, state);
+
+	drm_atomic_helper_commit_modeset_enables(dev, state);
+
+	drm_atomic_helper_commit_planes(dev, state,
+					DRM_PLANE_COMMIT_ACTIVE_ONLY);
+
+	drm_atomic_helper_commit_hw_done(state);
+
+	drm_atomic_helper_wait_for_vblanks(dev, state);
+
+	drm_atomic_helper_cleanup_planes(dev, state);
+}
+
 const struct drm_mode_config_funcs dcss_drm_mode_config_funcs = {
 	.fb_create = drm_fb_cma_create,
 	.output_poll_changed = dcss_drm_output_poll_changed,
 	.atomic_check = dcss_drm_atomic_check,
 	.atomic_commit = dcss_drm_atomic_commit,
+};
+
+struct drm_mode_config_helper_funcs dcss_drm_mode_config_helpers = {
+	.atomic_commit_tail = dcss_drm_atomic_commit_tail,
 };

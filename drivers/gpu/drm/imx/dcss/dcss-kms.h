@@ -16,5 +16,6 @@
 #define _DCSS_KMS_H_
 
 extern const struct drm_mode_config_funcs dcss_drm_mode_config_funcs;
+extern struct drm_mode_config_helper_funcs dcss_drm_mode_config_helpers;
 
 #endif
