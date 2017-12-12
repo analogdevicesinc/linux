@@ -1198,7 +1198,7 @@ static int ath10k_core_fetch_board_data_api_n(struct ath10k *ar,
 
 out:
 	if (!ar->normal_mode_fw.board_data || !ar->normal_mode_fw.board_len) {
-		ath10k_err(ar,
+		ath10k_dbg(ar, ATH10K_DBG_BOOT,
 			   "failed to fetch board data for %s from %s/%s\n",
 			   boardname, ar->hw_params.fw.dir, filename);
 		ret = -ENODATA;
