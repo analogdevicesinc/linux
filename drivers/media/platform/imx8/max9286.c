@@ -2153,7 +2153,7 @@ static int ov10635_check_device(struct sensor_data *max9286_data, int index)
 	return 0;
 }
 
-static int ov10635_initialize(struct sensor_data *max9286_data, int index, int sensor_num)
+static int ov10635_initialize(struct sensor_data *max9286_data, int index)
 {
 	int i, array_size;
 	int retval;
@@ -2376,6 +2376,70 @@ static int max9286_hardware_preinit(struct sensor_data *max9286_data)
 	return 0;
 
 }
+
+static void max9286_camera_reorder(struct sensor_data *max9286_data)
+{
+	u8 reg;
+
+	reg = 0xE4;
+	if (max9286_data->sensor_num == 1) {
+		switch (max9286_data->sensor_is_there) {
+		case 0x8:
+			reg = 0x27;
+			break;
+		case 0x4:
+			reg = 0xC6;
+			break;
+		case 0x2:
+			reg = 0xE1;
+			break;
+		case 0x1:
+		default:
+			reg = 0xE4;
+			break;
+		}
+	} else if (max9286_data->sensor_num == 2) {
+		switch (max9286_data->sensor_is_there) {
+		case 0xC:
+			reg = 0x4E;
+			break;
+		case 0xA:
+			reg = 0x72;
+			break;
+		case 0x9:
+			reg = 0x78;
+			break;
+		case 0x6:
+			reg = 0xD2;
+			break;
+		case 0x5:
+			reg = 0xD8;
+			break;
+		case 0x3:
+		default:
+			reg = 0xE4;
+			break;
+		}
+	} else if (max9286_data->sensor_num == 3) {
+		switch (max9286_data->sensor_is_there) {
+		case 0xE:
+			reg = 0x93;
+			break;
+		case 0xD:
+			reg = 0x9C;
+			break;
+		case 0xB:
+			reg = 0xB4;
+			break;
+		case 0x7:
+		default:
+			reg = 0xE4;
+			break;
+		}
+	}
+	max9286_write_reg(max9286_data, 0x0B, reg);
+}
+
 static int max9286_hardware_init(struct sensor_data *max9286_data)
 {
 	int retval = 0;
@@ -2386,6 +2450,9 @@ static int max9286_hardware_init(struct sensor_data *max9286_data)
 
 	/* Disable PRBS test */
 	max9286_write_reg(max9286_data, 0x0E, 0x50);
+
+	/* reorder camera */
+	max9286_camera_reorder(max9286_data);
 
 	/* Enable all links */
 	reg = 0xE0 | max9286_data->sensor_is_there;
@@ -2432,21 +2499,33 @@ static int max9286_hardware_init(struct sensor_data *max9286_data)
 	/* Initialize Camera Sensor */
 	/* STEP 49 */
 #ifdef CONFIG_SENSOR_OV10635
-	if (max9286_data->sensor_is_there & (0x1 << 0) &&
-			ov10635_check_device(max9286_data, 1) == 0)
-		ov10635_initialize(max9286_data, 0, max9286_data->sensor_num);
+	if (max9286_data->sensor_is_there & (0x1 << 0)) {
+		retval = ov10635_check_device(max9286_data, 1);
+		if (retval < 0)
+			return retval;
+		ov10635_initialize(max9286_data, 0);
+	}
 
-	if (max9286_data->sensor_is_there & (0x1 << 1) &&
-			ov10635_check_device(max9286_data, 2) == 0)
-		ov10635_initialize(max9286_data, 1, max9286_data->sensor_num);
+	if (max9286_data->sensor_is_there & (0x1 << 1)) {
+		retval = ov10635_check_device(max9286_data, 2);
+		if (retval < 0)
+			return retval;
+		ov10635_initialize(max9286_data, 1);
+	}
 
-	if (max9286_data->sensor_is_there & (0x1 << 2) &&
-			ov10635_check_device(max9286_data, 3) == 0)
-		ov10635_initialize(max9286_data, 2, max9286_data->sensor_num);
+	if (max9286_data->sensor_is_there & (0x1 << 2)) {
+		ov10635_check_device(max9286_data, 3);
+		if (retval < 0)
+			return retval;
+		ov10635_initialize(max9286_data, 2);
+	}
 
-	if (max9286_data->sensor_is_there & (0x1 << 3) &&
-			ov10635_check_device(max9286_data, 4) == 0)
-		ov10635_initialize(max9286_data, 3, max9286_data->sensor_num);
+	if (max9286_data->sensor_is_there & (0x1 << 3)) {
+		retval = ov10635_check_device(max9286_data, 4);
+		if (retval < 0)
+			return retval;
+		ov10635_initialize(max9286_data, 3);
+	}
 #endif
 
 	/* Enable Local Auto I2C ACK */
@@ -2857,7 +2936,14 @@ static int max9286_probe(struct i2c_client *client,
 		media_entity_cleanup(&sd->entity);
 	}
 
-	max9286_hardware_init(max9286_data);
+	retval = max9286_hardware_init(max9286_data);
+	if (retval < 0) {
+		dev_err(&client->dev, "camera init failed\n");
+		clk_disable_unprepare(max9286_data->sensor_clk);
+		media_entity_cleanup(&sd->entity);
+		v4l2_async_unregister_subdev(sd);
+		return retval;
+	}
 
 	max9286_data->running = 0;
 
