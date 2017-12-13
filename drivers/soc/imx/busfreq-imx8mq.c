@@ -113,40 +113,44 @@ static void reduce_bus_freq(void)
 	 * in the future if needed.
 	 */
 	if (audio_bus_count) {
-		clk_prepare_enable(sys1_pll_100m);
+		if (cur_bus_freq_mode == BUS_FREQ_HIGH) {
+			clk_prepare_enable(sys1_pll_100m);
 
-		update_bus_freq(LOW_BUS_FREQ_100MTS);
+			update_bus_freq(LOW_BUS_FREQ_100MTS);
 
-		/* correct the clock tree info */
-		clk_disable_unprepare(sys1_pll_100m);
-		clk_set_parent(dram_alt_src, sys1_pll_100m);
-		clk_set_parent(dram_core_clk, dram_alt_root);
-		clk_set_parent(dram_apb_src, sys1_pll_40m);
-		clk_set_rate(dram_apb_pre_div, 20000000);
-		/* reduce the NOC & bus clock */
-		clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
-		clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
-		clk_set_parent(main_axi_src, osc_25m);
+			/* correct the clock tree info */
+			clk_disable_unprepare(sys1_pll_100m);
+			clk_set_parent(dram_alt_src, sys1_pll_100m);
+			clk_set_parent(dram_core_clk, dram_alt_root);
+			clk_set_parent(dram_apb_src, sys1_pll_40m);
+			clk_set_rate(dram_apb_pre_div, 20000000);
+			/* reduce the NOC & bus clock */
+			clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+			clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
+			clk_set_parent(main_axi_src, osc_25m);
+		}
 
 		low_bus_freq_mode = 0;
 		audio_bus_freq_mode = 1;
 		cur_bus_freq_mode = BUS_FREQ_AUDIO;
 	} else {
-		clk_prepare_enable(sys1_pll_100m);
+		if (cur_bus_freq_mode == BUS_FREQ_HIGH) {
+			clk_prepare_enable(sys1_pll_100m);
 
-		update_bus_freq(LOW_BUS_FREQ_100MTS);
+			update_bus_freq(LOW_BUS_FREQ_100MTS);
 
-		/* correct the clock tree info */
-		clk_disable_unprepare(sys1_pll_100m);
-		clk_set_parent(dram_alt_src, sys1_pll_100m);
-		clk_set_parent(dram_core_clk, dram_alt_root);
-		clk_set_parent(dram_apb_src, sys1_pll_40m);
-		clk_set_rate(dram_apb_pre_div, 20000000);
-		clk_prepare_enable(sys1_pll_400m);
-		/* reduce the NOC & bus clock */
-		clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
-		clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
-		clk_set_parent(main_axi_src, osc_25m);
+			/* correct the clock tree info */
+			clk_disable_unprepare(sys1_pll_100m);
+			clk_set_parent(dram_alt_src, sys1_pll_100m);
+			clk_set_parent(dram_core_clk, dram_alt_root);
+			clk_set_parent(dram_apb_src, sys1_pll_40m);
+			clk_set_rate(dram_apb_pre_div, 20000000);
+			clk_prepare_enable(sys1_pll_400m);
+			/* reduce the NOC & bus clock */
+			clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+			clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
+			clk_set_parent(main_axi_src, osc_25m);
+		}
 
 		low_bus_freq_mode = 1;
 		audio_bus_freq_mode = 0;
