@@ -256,9 +256,43 @@ static int dpu_bliteng_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int dpu_bliteng_suspend(struct device *dev)
+{
+	struct dpu_bliteng *dpu_bliteng = dev_get_drvdata(dev);
+	int ret;
+
+retry:
+	ret = dpu_be_get(dpu_bliteng);
+	if (ret == -EBUSY)
+		goto retry;
+
+	dpu_be_wait(dpu_bliteng);
+
+	dpu_be_put(dpu_bliteng);
+
+	dpu_bliteng_fini(dpu_bliteng);
+
+	return 0;
+}
+
+static int dpu_bliteng_resume(struct device *dev)
+{
+	struct dpu_bliteng *dpu_bliteng = dev_get_drvdata(dev);
+
+	dpu_bliteng_init(dpu_bliteng);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(dpu_bliteng_pm_ops,
+			 dpu_bliteng_suspend, dpu_bliteng_resume);
+
 struct platform_driver dpu_bliteng_driver = {
 	.driver = {
 		.name = "imx-drm-dpu-bliteng",
+		.pm = &dpu_bliteng_pm_ops,
 	},
 	.probe = dpu_bliteng_probe,
 	.remove = dpu_bliteng_remove,
