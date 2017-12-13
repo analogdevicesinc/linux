@@ -652,11 +652,17 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 
 	for (i = 0; i < ARRAY_SIZE(mxc_isi_out_formats); i++) {
 		fmt = &mxc_isi_out_formats[i];
-		if (fmt->fourcc == pix->pixelformat && fmt->memplanes == pix->num_planes)
+		if (fmt->fourcc == pix->pixelformat)
 			break;
 	}
 	if (i >= ARRAY_SIZE(mxc_isi_out_formats)) {
 		v4l2_err(mxc_isi->v4l2_dev, "%s, format is not support!\n", __func__);
+		return -EINVAL;
+	}
+
+	if (pix->width <= 0 || pix->height <= 0) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, width %d, height %d is not valid\n",
+				__func__, pix->width, pix->height);
 		return -EINVAL;
 	}
 
@@ -738,6 +744,7 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct mxc_isi_frame *dst_f = &mxc_isi->isi_cap.dst_f;
 	struct mxc_isi_fmt *fmt;
+	int bpl;
 	int i;
 
 	/* Step1: Check format with output support format list.
@@ -757,9 +764,10 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	/* Check out put format */
 	for (i = 0; i < ARRAY_SIZE(mxc_isi_out_formats); i++) {
 		fmt = &mxc_isi_out_formats[i];
-		if (fmt->fourcc == pix->pixelformat && fmt->memplanes == pix->num_planes)
+		if (pix && fmt->fourcc == pix->pixelformat)
 			break;
 	}
+
 	if (i >= ARRAY_SIZE(mxc_isi_out_formats)) {
 		dev_dbg(&mxc_isi->pdev->dev, "%s, format is not support!\n", __func__);
 		return -EINVAL;
@@ -772,6 +780,18 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	dst_f->fmt = fmt;
 	dst_f->height = pix->height;
 	dst_f->width = pix->width;
+
+	pix->num_planes = fmt->memplanes;
+
+	for (i = 0; i < pix->num_planes; i++) {
+		bpl = pix->plane_fmt[i].bytesperline;
+		if ((bpl == 0) || (bpl / (fmt->depth[i] >> 3)) < pix->width)
+			pix->plane_fmt[i].bytesperline =
+						(pix->width * fmt->depth[i]) >> 3;
+		if (pix->plane_fmt[i].sizeimage == 0)
+			pix->plane_fmt[i].sizeimage = (pix->width * pix->height *
+						fmt->depth[i] >> 3);
+	}
 
 	if (pix->num_planes > 1) {
 		for (i = 0; i < pix->num_planes; i++) {
