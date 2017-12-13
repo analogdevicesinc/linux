@@ -346,9 +346,11 @@ static int xhci_plat_remove(struct platform_device *dev)
 		clk_disable_unprepare(clk);
 	usb_put_hcd(hcd);
 
+	if (!pm_runtime_suspended(&dev->dev))
+		release_bus_freq(BUS_FREQ_HIGH);
+
 	pm_runtime_set_suspended(&dev->dev);
 	pm_runtime_disable(&dev->dev);
-	release_bus_freq(BUS_FREQ_HIGH);
 
 	return 0;
 }
