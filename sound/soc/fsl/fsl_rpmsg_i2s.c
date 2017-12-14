@@ -35,14 +35,14 @@ static int i2s_send_message(struct i2s_rpmsg_s *msg,
 {
 	int err;
 
+	mutex_lock(&info->tx_lock);
 	if (!info->rpdev) {
 		dev_dbg(info->dev, "rpmsg channel not ready, m4 image ready?\n");
+		mutex_unlock(&info->tx_lock);
 		return -EINVAL;
 	}
 
 	dev_dbg(&info->rpdev->dev, "send cmd %d\n", msg->header.cmd);
-
-	mutex_lock(&info->tx_lock);
 
 	reinit_completion(&info->cmd_complete);
 	err = rpmsg_send(info->rpdev->ept, (void *)msg,
