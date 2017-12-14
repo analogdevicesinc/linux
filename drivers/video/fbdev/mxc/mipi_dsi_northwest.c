@@ -1166,7 +1166,6 @@ static irqreturn_t mipi_dsi_irq_handler(int irq, void *data)
 static int dsi_clks_init(struct mipi_dsi_info *minfo)
 {
 	int ret = 0;
-	uint32_t phy_ref_clkfreq;
 	struct platform_device *pdev = minfo->pdev;
 	struct device_node *np = pdev->dev.of_node;
 
@@ -1185,20 +1184,8 @@ static int dsi_clks_init(struct mipi_dsi_info *minfo)
 	minfo->dbi_clk = devm_clk_get(&pdev->dev, "dbi");
 	BUG_ON(IS_ERR(minfo->dbi_clk));
 
-	ret = of_property_read_u32(np, "phy-ref-clkfreq",
-				   &phy_ref_clkfreq);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to get phy reference clock rate\n");
-		return -EINVAL;
-	}
 
-	if (phy_ref_clkfreq < 24000000 || phy_ref_clkfreq > 200000000) {
-		dev_err(&pdev->dev, "invalid phy reference clock rate\n");
-		return -EINVAL;
-	}
-	minfo->phy_ref_clkfreq = phy_ref_clkfreq;
-
-	ret = clk_set_rate(minfo->phy_ref_clk, phy_ref_clkfreq);
+	ret = clk_set_rate(minfo->phy_ref_clk, minfo->phy_ref_clkfreq);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "set phy_ref clock rate failed\n");
 		goto out;
@@ -1245,6 +1232,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	const char *lcd_panel;
 	int ret = 0;
 	u32 vmode_index;
+	uint32_t phy_ref_clkfreq;
 
 	mipi_dsi = devm_kzalloc(&pdev->dev, sizeof(*mipi_dsi), GFP_KERNEL);
 	if (!mipi_dsi)
@@ -1274,6 +1262,19 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to request mipi dsi irq\n");
 		return ret;
 	}
+
+	ret = of_property_read_u32(np, "phy-ref-clkfreq",
+				   &phy_ref_clkfreq);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to get phy reference clock rate\n");
+		return -EINVAL;
+	}
+
+	if (phy_ref_clkfreq < 24000000 || phy_ref_clkfreq > 200000000) {
+		dev_err(&pdev->dev, "invalid phy reference clock rate\n");
+		return -EINVAL;
+	}
+	mipi_dsi->phy_ref_clkfreq = phy_ref_clkfreq;
 
 #ifdef CONFIG_FB_IMX64
 	dsi_clks_init(mipi_dsi);
