@@ -2868,6 +2868,12 @@ static int max9286_probe(struct i2c_client *client,
 	max9286_data->format.width = g_max9286_width;
 	max9286_data->format.height = g_max9286_height;
 	max9286_data->format.colorspace = V4L2_COLORSPACE_JPEG;
+	/*****************************************
+	 * Pass mipi phy clock rate Mbps
+	 * fcsi2 = PCLk * WIDTH * CHANNELS / LANES
+	 * fsci2 = 72MPCLK * 8 bit * 4 channels / 4 lanes
+	 ****************************************/
+	max9286_data->format.reserved[0] = 72 * 8;
 	max9286_data->format.field = V4L2_FIELD_NONE;
 	max9286_data->streamcap.capturemode = 0;
 	max9286_data->streamcap.timeperframe.denominator = 30;
