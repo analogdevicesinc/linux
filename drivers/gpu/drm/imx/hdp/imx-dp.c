@@ -13,11 +13,14 @@
  */
 
 #include <linux/clk.h>
+#ifdef DEBUG_FW_LOAD
 #include "mhdp_firmware.h"
+#endif
 #include "imx-hdp.h"
 #include "imx-hdmi.h"
 #include "imx-dp.h"
 
+#ifdef DEBUG_FW_LOAD
 void dp_fw_load(state_struct *state)
 {
 	pr_info("loading hdmi firmware\n");
@@ -27,8 +30,8 @@ void dp_fw_load(state_struct *state)
 		(u8 *)mhdp_dram0_get_ptr(),
 		mhdp_dram0_get_size());
 }
-
-void dp_fw_init(state_struct *state)
+#endif
+int dp_fw_init(state_struct *state)
 {
 	u8 echo_msg[] = "echo test";
 	u8 echo_resp[sizeof(echo_msg) + 1];
@@ -47,7 +50,11 @@ void dp_fw_init(state_struct *state)
 	pr_info("Started firmware!\n");
 
 	ret = CDN_API_CheckAlive_blocking(state);
-	pr_info("CDN_API_CheckAlive returned (ret = %d)\n", ret);
+	if (ret != 0) {
+		pr_err("CDN_API_CheckAlive failed - check firmware!\n");
+		return -ENXIO;
+	} else
+		pr_info("CDN_API_CheckAlive returned ret = %d\n", ret);
 
 	/* turn on IP activity */
 	ret = CDN_API_MainControl_blocking(state, 1, &resp);
@@ -56,6 +63,10 @@ void dp_fw_init(state_struct *state)
 
 	ret = CDN_API_General_Test_Echo_Ext_blocking(state, echo_msg, echo_resp,
 		sizeof(echo_msg), CDN_BUS_TYPE_APB);
+	if (0 != strncmp(echo_msg, echo_resp, sizeof(echo_msg))) {
+		pr_err("CDN_API_General_Test_Echo_Ext_blocking - echo test failed, check firmware!");
+		return -ENXIO;
+	}
 	pr_info("CDN_API_General_Test_Echo_Ext_blocking (ret = %d echo_resp = %s)\n",
 		ret, echo_resp);
 
@@ -63,6 +74,8 @@ void dp_fw_init(state_struct *state)
 	CDN_API_General_Write_Register_blocking(state,
 		ADDR_SOURCD_PHY + (LANES_CONFIG << 2), 0x0040001b);
 	pr_info("CDN_API_General_Write_Register_blockin ... setting LANES_CONFIG\n");
+
+	return 0;
 }
 
 int dp_phy_init(state_struct *state, int vic, int format, int color_depth)

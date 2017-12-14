@@ -27,6 +27,8 @@
 #include <drm/drm_dp_helper.h>
 #include "../../../../mxc/hdp/all.h"
 
+/* For testing hdp firmware define DEBUG_FW_LOAD */
+#undef DEBUG_FW_LOAD
 #define PLL_1188MHZ (1188000000)
 #define PLL_675MHZ (675000000)
 
@@ -81,7 +83,7 @@ struct hdp_clks;
 
 struct hdp_ops {
 	void (*fw_load)(state_struct *state);
-	void (*fw_init)(state_struct *state);
+	int (*fw_init)(state_struct *state);
 	int (*phy_init)(state_struct *state, int vic, int format, int color_depth);
 	void (*mode_set)(state_struct *state, int vic, int format, int color_depth, int max_link);
 	int (*get_edid_block)(void *data, u8 *buf, u32 block, size_t len);
