@@ -52,7 +52,7 @@
 #define NS2PS_RATIO			(1000)
 #define	MIPI_LCD_SLEEP_MODE_DELAY	(120)
 #define MIPI_FIFO_TIMEOUT		msecs_to_jiffies(250)
-#define PICOS_PER_SEC			(1000000000UL)
+#define PICOS_PER_SEC			(1000000000ULL)
 #define PICOS2KHZ2(a, bpp)		\
 	DIV_ROUND_CLOSEST_ULL(PICOS_PER_SEC * (bpp), (a))
 
