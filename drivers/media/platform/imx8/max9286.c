@@ -35,11 +35,9 @@
 #define ADDR_OV_SENSOR	0x30
 #define ADDR_AP_SENSOR	0x5D
 
-#define CONFIG_SENSOR_OV10635
 static unsigned int g_max9286_width = 1280;
 static unsigned int g_max9286_height = 800;
 
-#ifdef CONFIG_SENSOR_OV10635
 #define OV10635_REG_PID		0x300A
 #define OV10635_REG_VER		0x300B
 
@@ -104,10 +102,10 @@ static struct reg_value ov10635_init_data[] = {
 	{ 0x371d, 0x01, 0 },
 	{ 0x4300, 0x38, 0},
 	{ 0x3007, 0x01, 0 },
-	{ 0x3024, 0x01, 0 },  //YUV
+	{ 0x3024, 0x01, 0 },  /* YUV */
 	{ 0x3020, 0x0b, 0 },
-	{ 0x3702, 0x10, 0 },  //0x20 for 96MHz
-	{ 0x3703, 0x24, 0 },  //0x48 for 96MHz
+	{ 0x3702, 0x10, 0 },  /* 0x20 for 96MHz */
+	{ 0x3703, 0x24, 0 },  /* 0x48 for 96MHz */
 	{ 0x3704, 0x19, 0 },
 	{ 0x3709, 0xa8, 0 },
 	{ 0x3709, 0xa8, 0 },
@@ -336,7 +334,6 @@ static struct reg_value ov10635_init_data[] = {
 	{ 0x4700, 0x04, 0 },
 	{ 0x4701, 0x00, 0 },
 	{ 0x4702, 0x01, 0 },
-	//                  0x04, 0x47, 0x03, 0xF1,
 	{ 0x4004, 0x04, 0 },
 	{ 0x4005, 0x18, 0 },
 	{ 0x4001, 0x06, 0 },
@@ -2036,23 +2033,13 @@ static struct reg_value ov10635_init_data[] = {
 	{ 0x3815, 0x8C, 0 },
 	{ 0x301b, 0xf0, 0 },
 
-	{ 0x4709, 0x10, 0 },//dvp swap
-	{ 0x4300, 0x3a, 0 }, //YUV order UYVY
-	{ 0x3832, 0x01, 0 },//fsin
+	{ 0x4709, 0x10, 0 },/* dvp swap */
+	{ 0x4300, 0x3a, 0 },/* YUV order UYVY */
+	{ 0x3832, 0x01, 0 },/* fsin */
 	{ 0x3833, 0x1A, 0 },
 	{ 0x3834, 0x03, 0 },
 	{ 0x3835, 0x48, 0 },
 	{ 0x302E, 0x01, 0 },
-#if 0
-	{ 0x4709, 0x10, 0 },  //Flip Bits MSB do DOUT0
-	{ 0x4605, 0x08, 0 },  //8-bit YUV
-	{ 0x4300, 0x3a, 5 },  //YUYV  check with validation code
-	{ 0x3832, 0x01, 0 },
-	{ 0x3833, 0x1A, 0 },
-	{ 0x3834, 0x03, 60 },
-	{ 0x3835, 0x48, 60 },
-	{ 0x302E, 0x01, 0 },
-#endif
 };
 
 static inline struct sensor_data *subdev_to_sensor_data(struct v4l2_subdev *sd)
@@ -2171,7 +2158,6 @@ static int ov10635_initialize(struct sensor_data *max9286_data, int index)
 
 	return 0;
 }
-#endif
 
 static inline int max9271_read_reg(struct sensor_data *max9286_data, int index, u8 reg)
 {
@@ -2317,13 +2303,7 @@ static int max9286_hardware_preinit(struct sensor_data *max9286_data)
 	msleep(2);  /* STEP 6 */
 
 	/* Increase serializer reverse channel input thresholds */
-#ifdef CONFIG_SENSOR_OV10635
 	max9271_write_reg(max9286_data, 0, 0x08, 0x01);  /* STEP 7 */
-#endif
-#ifdef CONFIG_SENSOR_AP0101
-	/* Invert VSYNC */
-	max9271_write_reg(max9286_data, 0, 0x08, 0x81);
-#endif
 	msleep(2);  /* STEP 8 */
 
 	/* Reverse Channel Amplitude level */
@@ -2338,21 +2318,8 @@ static int max9286_hardware_preinit(struct sensor_data *max9286_data)
 	max9286_write_reg(max9286_data, 0x00, 0xef); /* STEP 14 */
 
 	/* Frame Sync */
-#ifdef CONFIG_SENSOR_OV10635
 	/* Automatic Mode */
 	max9286_write_reg(max9286_data, 0x01, 0x02);/* STEP 13 */
-#endif
-#ifdef CONFIG_SENSOR_AP0101
-	/* Manual Mode */
-	max9286_write_reg(max9286_data, 0x01, 0x00);
-
-	max9286_write_reg(max9286_data, 0x63, 0x00);
-	max9286_write_reg(max9286_data, 0x64, 0x00);
-
-	max9286_write_reg(max9286_data, 0x06, 0x00);
-	max9286_write_reg(max9286_data, 0x07, 0x00);
-	max9286_write_reg(max9286_data, 0x08, 0x26);
-#endif
 	msleep(200);
 	/* Detect link */
 	max9286_data->sensor_num = 0;
@@ -2459,12 +2426,7 @@ static int max9286_hardware_init(struct sensor_data *max9286_data)
 	max9286_write_reg(max9286_data, 0x00, reg);
 
 	/* Set up links */
-#ifdef CONFIG_SENSOR_OV10635
 	sensor_addr = ADDR_OV_SENSOR;
-#endif
-#ifdef CONFIG_SENSOR_AP0101
-	sensor_addr = ADDR_AP_SENSOR;
-#endif
 	max9271_write_reg(max9286_data, 0, 0x07, 0x84);
 	/* STEP 15-46 */
 	reg = 0;
@@ -2498,7 +2460,6 @@ static int max9286_hardware_init(struct sensor_data *max9286_data)
 
 	/* Initialize Camera Sensor */
 	/* STEP 49 */
-#ifdef CONFIG_SENSOR_OV10635
 	if (max9286_data->sensor_is_there & (0x1 << 0)) {
 		retval = ov10635_check_device(max9286_data, 1);
 		if (retval < 0)
@@ -2526,7 +2487,6 @@ static int max9286_hardware_init(struct sensor_data *max9286_data)
 			return retval;
 		ov10635_initialize(max9286_data, 3);
 	}
-#endif
 
 	/* Enable Local Auto I2C ACK */
 	max9286_write_reg(max9286_data, 0x34, 0xB6); /* STEP 50 */
