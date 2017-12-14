@@ -824,6 +824,8 @@ static int tcpci_probe(struct i2c_client *client,
 	if (err < 0)
 		goto err1;
 
+	device_set_wakeup_capable(tcpci->dev, true);
+
 	return 0;
 err1:
 	tcpm_unregister_port(tcpci->port);
@@ -838,6 +840,30 @@ static int tcpci_remove(struct i2c_client *client)
 
 	return 0;
 }
+
+static int tcpci_suspend(struct device *dev)
+{
+	struct tcpci *tcpci = dev_get_drvdata(dev);
+
+	if (device_may_wakeup(dev))
+		enable_irq_wake(tcpci->client->irq);
+
+	return 0;
+}
+
+static int tcpci_resume(struct device *dev)
+{
+	struct tcpci *tcpci = dev_get_drvdata(dev);
+
+	if (device_may_wakeup(dev))
+		disable_irq_wake(tcpci->client->irq);
+
+	return 0;
+}
+
+static const struct dev_pm_ops tcpci_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(tcpci_suspend, tcpci_resume)
+};
 
 static const struct i2c_device_id tcpci_id[] = {
 	{ "tcpci", 0 },
@@ -856,6 +882,7 @@ MODULE_DEVICE_TABLE(of, tcpci_of_match);
 static struct i2c_driver tcpci_i2c_driver = {
 	.driver = {
 		.name = "tcpci",
+		.pm = &tcpci_pm_ops,
 		.of_match_table = of_match_ptr(tcpci_of_match),
 	},
 	.probe = tcpci_probe,
