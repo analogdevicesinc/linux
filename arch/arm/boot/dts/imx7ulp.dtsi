@@ -493,6 +493,7 @@
 			clocks = <&clks IMX7ULP_CLK_DSI>;
 			clock-names = "mipi_dsi_clk";
 			data-lanes-num = <2>;
+			phy-ref-clkfreq = <24000000>;
 			max-data-rate  = <800000000>;
 			sim = <&sim>;
 			status = "disabled";
