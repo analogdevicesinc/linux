@@ -28,6 +28,10 @@ Required properties:
                 power is less then it, Capability Mismatch is set, required
                 only for power sink and power dual role with power delivery
                 support.
+- max-snk-mw:   The max power the sink can support in milliwatts, required
+                for power sink and power dual role with power delivery support,
+                power sink needs this property to get the max current based on
+                the selected PDO.
 
 Example:
 
