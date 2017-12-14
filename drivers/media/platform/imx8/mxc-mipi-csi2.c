@@ -47,6 +47,25 @@ static struct mxc_mipi_csi2_dev *sd_to_mxc_mipi_csi2_dev(struct v4l2_subdev *sde
 	return container_of(sdev, struct mxc_mipi_csi2_dev, sd);
 }
 
+/****************************************
+ * rxhs-settle calculate
+ * UI = 1000 / mipi csi phy clock
+ * THS-SETTLE_mim = 85ns + 6 * UI
+ * THS-SETTLE_max = 145ns +10 * UI
+ * PRG_RXHS_SETTLE =  THS-SETTLE / (Tperiod of RxClk_ESC) + 1
+ ****************************************/
+static int calc_hs_settle(struct mxc_mipi_csi2_dev *csi2dev, u32 dphy_clk)
+{
+	u32 esc_rate;
+	u32 hs_settle;
+	u32 rxhs_settle;
+
+	esc_rate = clk_get_rate(csi2dev->clk_esc) / 1000000;
+	hs_settle = 115 + 8 * 1000 / dphy_clk;
+	rxhs_settle = hs_settle / (1000 / esc_rate) - 1;
+	return rxhs_settle;
+}
+
 #ifdef debug
 static void mxc_mipi_csi2_reg_dump(struct mxc_mipi_csi2_dev *csi2dev)
 {
@@ -282,16 +301,23 @@ static int mxc_csi2_get_sensor_fmt(struct mxc_mipi_csi2_dev *csi2dev)
 	if (ret < 0 && ret != -ENOIOCTLCMD)
 		return -EINVAL;
 
+	/* Update input frame size and formate  */
 	memcpy(mf, &src_fmt.format, sizeof(struct v4l2_mbus_framefmt));
 
-	/* Update input frame size and formate  */
 	dev_dbg(&csi2dev->pdev->dev, "width=%d, height=%d, fmt.code=0x%x\n", mf->width, mf->height, mf->code);
-	if (src_fmt.format.height * src_fmt.format.width > 1024 * 768)
-		csi2dev->hs_settle = rxhs_settle[2];
-	else if (src_fmt.format.height * src_fmt.format.width < 480 * 320)
-		csi2dev->hs_settle = rxhs_settle[0];
-	else
-		csi2dev->hs_settle = rxhs_settle[1];
+
+	/* Get rxhs settle */
+	if (src_fmt.format.reserved[0] != 0)
+		csi2dev->hs_settle = calc_hs_settle(csi2dev, src_fmt.format.reserved[0]);
+	else {
+		if (src_fmt.format.height * src_fmt.format.width > 1024 * 768)
+			csi2dev->hs_settle = rxhs_settle[2];
+		else if (src_fmt.format.height * src_fmt.format.width < 480 * 320)
+			csi2dev->hs_settle = rxhs_settle[0];
+		else
+			csi2dev->hs_settle = rxhs_settle[1];
+	}
+
 	return 0;
 }
 
