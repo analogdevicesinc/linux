@@ -411,23 +411,18 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	val &= ~(PIX_COMP_SEL_MASK | PIX_SIZE);
 	switch (format) {
 	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_RGBX8888:
+	case DRM_FORMAT_BGRX8888:
+		/*
+		 * It turns out pixel components are mapped directly
+		 * without position change via DPR processing with
+		 * the following color component configurations.
+		 * Leave the pixel format to be handled by the
+		 * display controllers.
+		 */
 		val |= A_COMP_SEL(3) | R_COMP_SEL(2) |
 		       G_COMP_SEL(1) | B_COMP_SEL(0);
-		val |= PIX_SIZE_32BIT;
-		break;
-	case DRM_FORMAT_XBGR8888:
-		val |= A_COMP_SEL(3) | R_COMP_SEL(0) |
-		       G_COMP_SEL(1) | B_COMP_SEL(2);
-		val |= PIX_SIZE_32BIT;
-		break;
-	case DRM_FORMAT_RGBX8888:
-		val |= A_COMP_SEL(0) | R_COMP_SEL(3) |
-		       G_COMP_SEL(2) | B_COMP_SEL(1);
-		val |= PIX_SIZE_32BIT;
-		break;
-	case DRM_FORMAT_BGRX8888:
-		val |= A_COMP_SEL(0) | R_COMP_SEL(1) |
-		       G_COMP_SEL(2) | B_COMP_SEL(3);
 		val |= PIX_SIZE_32BIT;
 		break;
 	case DRM_FORMAT_YUYV:
