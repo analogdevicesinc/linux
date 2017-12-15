@@ -977,6 +977,22 @@
 	};
 };
 
+&mipi_csi_1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	virtual-channel;
+	status = "disabled";
+
+	/* Camera 0 MIPI CSI-2 (CSIS1) */
+	port@1 {
+		reg = <1>;
+		mipi_csi1_ep: endpoint {
+			remote-endpoint = <&max9286_1_ep>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+};
+
 &mlb {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_mlb>;
@@ -1001,6 +1017,30 @@
 		port {
 			max9286_0_ep: endpoint {
 			remote-endpoint = <&mipi_csi0_ep>;
+			data-lanes = <1 2 3 4>;
+			};
+		};
+	};
+};
+
+&i2c0_mipi_csi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+	status = "disabled";
+
+	max9286_mipi@6A	 {
+		compatible = "maxim,max9286_mipi";
+		reg = <0x6A>;
+		clocks = <&clk IMX8QM_CLK_DUMMY>;
+		clock-names = "capture_mclk";
+		mclk = <27000000>;
+		mclk_source = <0>;
+		virtual-channel;
+		port {
+			max9286_1_ep: endpoint {
+			remote-endpoint = <&mipi_csi1_ep>;
 			data-lanes = <1 2 3 4>;
 			};
 		};
