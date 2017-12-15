@@ -827,22 +827,6 @@
 	status = "okay";
 };
 
-&isi_4 {
-	status = "okay";
-};
-
-&isi_5 {
-	status = "okay";
-};
-
-&isi_6 {
-	status = "okay";
-};
-
-&isi_7 {
-	status = "okay";
-};
-
 &gpu_3d0 {
 	status = "okay";
 };

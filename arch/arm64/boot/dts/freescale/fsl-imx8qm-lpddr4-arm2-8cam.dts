@@ -1,0 +1,45 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/*
+ * MIPI CSI-2 eight cameras dts,
+ * One MIPI CSI-2 controller connected four cameras
+ * The first four cameras have enabled in mipi_csi_0.
+ * Enable the last four cameras in mipi_csi_1 here.
+ */
+
+#include "fsl-imx8qm-lpddr4-arm2.dts"
+
+&mipi_csi_1 {
+	status = "okay";
+};
+
+&i2c0_mipi_csi1 {
+	status = "okay";
+};
+
+&isi_4 {
+	status = "okay";
+};
+
+&isi_5 {
+	status = "okay";
+};
+
+&isi_6 {
+	status = "okay";
+};
+
+&isi_7 {
+	status = "okay";
+};
