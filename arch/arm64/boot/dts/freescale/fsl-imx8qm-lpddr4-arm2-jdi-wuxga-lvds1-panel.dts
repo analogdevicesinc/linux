@@ -27,6 +27,14 @@
 	};
 };
 
+&ldb1_phy {
+       status = "disabled";
+};
+
+&ldb1 {
+       status = "disabled";
+};
+
 &ldb2_phy {
 	status = "okay";
 };
