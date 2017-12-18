@@ -486,7 +486,7 @@ static int caam_jr_probe(struct platform_device *pdev)
 	struct device *jrdev;
 	struct device_node *nprop;
 	struct caam_job_ring __iomem *ctrl;
-	struct caam_drv_private_jr *jrpriv;
+	struct caam_drv_private_jr *jrpriv, *jrppriv;
 	static int total_jobrs;
 	int error;
 
@@ -563,7 +563,20 @@ static int caam_jr_probe(struct platform_device *pdev)
 	/*
 	 * Instantiate RNG by JR rather than DECO
 	 */
-	if (jrpriv->ridx == 0) {
+	spin_lock(&driver_data.jr_alloc_lock);
+	if (list_empty(&driver_data.jr_list)) {
+		spin_unlock(&driver_data.jr_alloc_lock);
+		dev_err(jrdev, "jr_list is empty\n");
+		return -ENODEV;
+	}
+	jrppriv = list_first_entry(&driver_data.jr_list,
+		struct caam_drv_private_jr, list_node);
+	spin_unlock(&driver_data.jr_alloc_lock);
+	/*
+	 * If this is the first available JR
+	 * then try to instantiate RNG
+	 */
+	if (jrppriv->ridx == jrpriv->ridx) {
 		if (of_machine_is_compatible("fsl,imx8qm") ||
 			of_machine_is_compatible("fsl,imx8qxp")) {
 			/*
@@ -583,6 +596,17 @@ static int caam_jr_probe(struct platform_device *pdev)
 			 */
 			error = inst_rng_imx6(pdev);
 		}
+	}
+	if (error != 0) {
+#ifdef CONFIG_HAVE_IMX8_SOC
+		if (imx8_get_soc_revision() == IMX_CHIP_REVISION_1_0)
+			dev_err(jrdev,
+				"This is a known limitation on A0 SOC revision\n"
+				"RNG instantiation failed, CAAM needs a reboot\n");
+#endif /* CONFIG_HAVE_IMX8_SOC */
+		spin_lock(&driver_data.jr_alloc_lock);
+		list_del(&jrpriv->list_node);
+		spin_unlock(&driver_data.jr_alloc_lock);
 	}
 	return error;
 }
