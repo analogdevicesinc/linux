@@ -69,7 +69,7 @@
 		#size-cells = <1>;
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <4>;
-		compatible = "n25q256a"; /* same as S25FL256 */
+		compatible = "n25q256a", "n25q512a", "jedec,spi-nor"; /* same as S25FL256 */
 		reg = <0x0>;
 		spi-max-frequency = <50000000>;
 		partition@qspi-fsbl-uboot {
