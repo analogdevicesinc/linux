@@ -632,7 +632,7 @@ static const struct tcpc_config tcpci_tcpc_config = {
 static int tcpci_parse_config(struct tcpci *tcpci)
 {
 	struct tcpc_config *tcfg;
-	int ret = 0;
+	int ret = -EINVAL;
 
 	tcpci->controls_vbus = true; /* XXX */
 
@@ -745,8 +745,10 @@ static int tcpci_parse_config(struct tcpci *tcpci)
 		device_property_read_u32(tcpci->dev, "max-snk-mw",
 						&tcfg->max_snk_mw) ||
 		device_property_read_u32(tcpci->dev, "op-snk-mw",
-						&tcfg->operating_snk_mw))
+						&tcfg->operating_snk_mw)) {
+		ret = -EINVAL;
 		goto snk_setting_wrong;
+	}
 
 	return 0;
 
