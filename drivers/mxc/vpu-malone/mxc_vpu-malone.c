@@ -925,14 +925,101 @@ static int vpu_mmap(struct file *fp, struct vm_area_struct *vm)
 	u64 offset;
 
 	offset = (u64)((s64)vshare_mem.cpu_addr >> PAGE_SHIFT);
-
-	if (vm->vm_pgoff && (vm->vm_pgoff == offset))
+    if (vm->vm_pgoff && (vm->vm_pgoff == offset || vm->vm_pgoff == (offset & 0xFFFFFFFF))){
+        if(vm->vm_pgoff == (offset & 0xFFFFFFFF))
+            vm->vm_pgoff = offset;
 		return vpu_map_vshare_mem(fp, vm);
-	else if (vm->vm_pgoff)
+	}else if (vm->vm_pgoff)
 		return vpu_map_dma_mem(fp, vm);
 	else
 		return vpu_map_hwregs(fp, vm);
 }
+
+#ifdef CONFIG_COMPAT
+struct core_desc_32 {
+	__u32 id; /* id of the Core */
+	compat_caddr_t regs; /* pointer to user registers */
+	__u32 size; /* size of register space */
+};
+struct core_desc {
+  __u32 id; /* id of the Core */
+  __u32 *regs; /* pointer to user registers */
+  __u32 size; /* size of register space */
+};
+static int get_vpu_core_desc32(struct core_desc *kp, struct core_desc_32 __user *up)
+{
+	u32 tmp;
+
+	if (!access_ok(VERIFY_READ, up, sizeof(struct core_desc_32)) ||
+				get_user(kp->id, &up->id) ||
+				get_user(kp->size, &up->size) ||
+				get_user(tmp, &up->regs)) {
+		return -EFAULT;
+	}
+	kp->regs = (__force u32 *)compat_ptr(tmp);
+	return 0;
+}
+
+static int put_vpu_core_desc32(struct core_desc *kp, struct core_desc_32 __user *up)
+{
+	u32 tmp = (u32)((unsigned long)kp->regs);
+
+	if (!access_ok(VERIFY_WRITE, up, sizeof(struct core_desc_32)) ||
+				put_user(kp->id, &up->id) ||
+				put_user(kp->size, &up->size) ||
+				put_user(tmp, &up->regs)) {
+		return -EFAULT;
+	}
+	return 0;
+}
+static long vpu_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+#define VPU_IOCTL32(err, filp, cmd, arg) { \
+		mm_segment_t old_fs = get_fs(); \
+		set_fs(KERNEL_DS); \
+		err = vpu_ioctl(filp, cmd, arg); \
+		if (err) \
+			return err; \
+		set_fs(old_fs); \
+	}
+
+	union {
+		struct core_desc kcore;
+		unsigned long kux;
+		unsigned int kui;
+	} karg;
+	void __user *up = compat_ptr(arg);
+	long err = 0;
+
+	switch (_IOC_NR(cmd)) {
+	case _IOC_NR(VPU_IOC_CLKGATE_SETTING):
+	case _IOC_NR(VPU_IOC_LOCK_DEV):
+		err = get_user(karg.kui, (s32 __user *)up);
+		if (err)
+			return err;
+		VPU_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kui), (s32 __user *)up);
+		break;
+	case _IOC_NR(VPU_IOC_PHYMEM_ALLOC):
+	case _IOC_NR(VPU_IOC_PHYMEM_FREE):
+	case _IOC_NR(VPU_IOC_WAIT4INT):
+	case _IOC_NR(VPU_IOC_GET_SHARE_MEM):
+	case _IOC_NR(VPU_IOC_REQ_VSHARE_MEM):
+		err = get_vpu_core_desc32(&karg.kcore, up);
+		if (err)
+			return err;
+		VPU_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_vpu_core_desc32(&karg.kcore, up);
+		break;
+	default:
+		err = vpu_ioctl(filp, cmd, (unsigned long)up);
+		break;
+	}
+
+	return err;
+}
+
+#endif //ifdef CONFIG_COMPAT
 
 const struct file_operations vpu_fops = {
 	.owner = THIS_MODULE,
@@ -941,6 +1028,9 @@ const struct file_operations vpu_fops = {
 	.release = vpu_release,
 	.fasync = vpu_fasync,
 	.mmap = vpu_mmap,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = vpu_ioctl32,
+#endif
 };
 
 /*!
