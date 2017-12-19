@@ -441,76 +441,6 @@ static void nwl_dsi_init_interrupts(struct nwl_mipi_dsi *dsi)
 	nwl_dsi_write(dsi, IRQ_MASK, irq_enable);
 }
 
-static void nwl_dsi_bridge_enable(struct drm_bridge *bridge)
-{
-	struct nwl_mipi_dsi *dsi = bridge->driver_private;
-	struct device *dev = dsi->dev;
-	int ret;
-
-	if (dsi->enabled || (!dsi->panel && !dsi->next_bridge))
-		return;
-
-	if (!dsi->lanes) {
-		DRM_DEV_ERROR(dev, "Bridge not set up properly!\n");
-		return;
-	}
-
-	nwl_dsi_enable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
-
-	nwl_dsi_config_host(dsi);
-	nwl_dsi_config_dpi(dsi);
-
-	phy_init(dsi->phy);
-
-	ret = phy_power_on(dsi->phy);
-	if (ret < 0) {
-		DRM_DEV_ERROR(dev, "Failed to power on DPHY (%d)\n", ret);
-		return;
-	}
-
-	nwl_dsi_init_interrupts(dsi);
-
-	if (dsi->panel && drm_panel_prepare(dsi->panel)) {
-		DRM_DEV_ERROR(dev, "Failed to setup panel\n");
-		return;
-	}
-
-	if (dsi->dsi_mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS)
-		nwl_dsi_write(dsi, CFG_NONCONTINUOUS_CLK, 0x00);
-
-	if (dsi->panel && drm_panel_enable(dsi->panel)) {
-		DRM_DEV_ERROR(dev, "Failed to enable panel\n");
-		drm_panel_unprepare(dsi->panel);
-		return;
-	}
-
-	dsi->enabled = true;
-}
-
-static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
-{
-	struct nwl_mipi_dsi *dsi = bridge->driver_private;
-	struct device *dev = dsi->dev;
-
-	if (!dsi->enabled)
-		return;
-
-	if (dsi->panel) {
-		if (drm_panel_disable(dsi->panel)) {
-			DRM_DEV_ERROR(dev, "failed to disable panel\n");
-			return;
-		}
-		drm_panel_unprepare(dsi->panel);
-	}
-
-	nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
-
-	phy_power_off(dsi->phy);
-	phy_exit(dsi->phy);
-
-	dsi->enabled = false;
-}
-
 static bool nwl_dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			   const struct drm_display_mode *mode,
 			   struct drm_display_mode *adjusted_mode)
@@ -1075,6 +1005,85 @@ static void nwl_dsi_bridge_detach(struct drm_bridge *bridge)
 	mipi_dsi_host_unregister(&dsi->host);
 }
 
+static void nwl_dsi_bridge_enable(struct drm_bridge *bridge)
+{
+	struct nwl_mipi_dsi *dsi = bridge->driver_private;
+	struct device *dev = dsi->dev;
+	int ret;
+
+	if (dsi->enabled || (!dsi->panel && !dsi->next_bridge))
+		return;
+
+	if (!dsi->lanes) {
+		DRM_DEV_ERROR(dev, "Bridge not set up properly!\n");
+		return;
+	}
+
+	ret = devm_request_irq(dev, dsi->irq,
+			       nwl_dsi_irq_handler, 0, IRQ_NAME, dsi);
+	if (ret < 0) {
+		DRM_DEV_ERROR(dev, "Failed to request IRQ: %d (%d)\n",
+			      dsi->irq, ret);
+		return;
+	}
+
+	nwl_dsi_enable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
+
+	nwl_dsi_config_host(dsi);
+	nwl_dsi_config_dpi(dsi);
+
+	phy_init(dsi->phy);
+
+	ret = phy_power_on(dsi->phy);
+	if (ret < 0) {
+		DRM_DEV_ERROR(dev, "Failed to power on DPHY (%d)\n", ret);
+		return;
+	}
+
+	nwl_dsi_init_interrupts(dsi);
+
+	if (dsi->panel && drm_panel_prepare(dsi->panel)) {
+		DRM_DEV_ERROR(dev, "Failed to setup panel\n");
+		return;
+	}
+
+	if (dsi->dsi_mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS)
+		nwl_dsi_write(dsi, CFG_NONCONTINUOUS_CLK, 0x00);
+
+	if (dsi->panel && drm_panel_enable(dsi->panel)) {
+		DRM_DEV_ERROR(dev, "Failed to enable panel\n");
+		drm_panel_unprepare(dsi->panel);
+		return;
+	}
+
+	dsi->enabled = true;
+}
+
+static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
+{
+	struct nwl_mipi_dsi *dsi = bridge->driver_private;
+	struct device *dev = dsi->dev;
+
+	if (!dsi->enabled)
+		return;
+
+	if (dsi->panel) {
+		if (drm_panel_disable(dsi->panel)) {
+			DRM_DEV_ERROR(dev, "failed to disable panel\n");
+			return;
+		}
+		drm_panel_unprepare(dsi->panel);
+	}
+
+	nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
+	devm_free_irq(dev, dsi->irq, dsi);
+
+	phy_power_off(dsi->phy);
+	phy_exit(dsi->phy);
+
+	dsi->enabled = false;
+}
+
 static const struct drm_bridge_funcs nwl_dsi_bridge_funcs = {
 	.enable = nwl_dsi_bridge_enable,
 	.disable = nwl_dsi_bridge_disable,
@@ -1090,7 +1099,6 @@ static int nwl_dsi_probe(struct platform_device *pdev)
 	struct nwl_mipi_dsi *dsi;
 	struct clk *clk;
 	struct resource *res;
-	int irq;
 	int ret;
 
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
@@ -1147,17 +1155,10 @@ static int nwl_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->base))
 		return PTR_ERR(dsi->base);
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
+	dsi->irq = platform_get_irq(pdev, 0);
+	if (dsi->irq < 0) {
 		DRM_DEV_ERROR(dev, "Failed to get device IRQ!\n");
 		return -EINVAL;
-	}
-
-	ret = devm_request_irq(dev, irq,
-			nwl_dsi_irq_handler, 0, IRQ_NAME, dsi);
-	if (ret < 0) {
-		dev_err(dev, "Failed to request IRQ: %d (%d)\n", dsi->irq, ret);
-		return ret;
 	}
 
 	dsi->dev = dev;
