@@ -166,7 +166,21 @@ static int dcss_submodules_init(struct dcss_soc *dcss)
 	if (ret)
 		goto hdr10_err;
 
+	ret = dcss_wrscl_init(dcss, dcss_base + dcss->devtype->wrscl_ofs);
+	if (ret)
+		goto wrscl_err;
+
+	ret = dcss_rdsrc_init(dcss, dcss_base + dcss->devtype->rdsrc_ofs);
+	if (ret)
+		goto rdsrc_err;
+
 	return 0;
+
+rdsrc_err:
+	dcss_rdsrc_exit(dcss);
+
+wrscl_err:
+	dcss_wrscl_exit(dcss);
 
 hdr10_err:
 	dcss_hdr10_exit(dcss);
@@ -315,6 +329,8 @@ static int dcss_dump_regs_show(struct seq_file *s, void *data)
 	dcss_dtrc_dump_regs(s, s->private);
 	dcss_dpr_dump_regs(s, s->private);
 	dcss_scaler_dump_regs(s, s->private);
+	dcss_wrscl_dump_regs(s, s->private);
+	dcss_rdsrc_dump_regs(s, s->private);
 	dcss_dtg_dump_regs(s, s->private);
 	dcss_ss_dump_regs(s, s->private);
 	dcss_hdr10_dump_regs(s, s->private);

@@ -232,7 +232,8 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 
 	dcss_scaler_setup(dcss_plane->dcss, dcss_plane->ch_num,
 			  pixel_format, state->src_w >> 16,
-			  state->src_h >> 16, state->crtc_w, state->crtc_h);
+			  state->src_h >> 16, state->crtc_w, state->crtc_h,
+			  drm_mode_vrefresh(&crtc_state->mode));
 
 	/*
 	 * TODO: retrieve the output colorspace format from somewhere... For

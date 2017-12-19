@@ -110,6 +110,8 @@ struct dcss_scaler_ch {
 struct dcss_scaler_priv {
 	struct dcss_soc *dcss;
 	struct dcss_scaler_ch ch[3];
+
+	int ch_using_wrscl;
 };
 
 static void dcss_scaler_write(struct dcss_scaler_priv *scl, int ch_num,
@@ -179,6 +181,8 @@ int dcss_scaler_init(struct dcss_soc *dcss, unsigned long scaler_base)
 	dcss->scaler_priv = scaler;
 	scaler->dcss = dcss;
 
+	scaler->ch_using_wrscl = -1;
+
 	return dcss_scaler_ch_init_all(dcss, scaler_base);
 }
 
@@ -196,10 +200,22 @@ void dcss_scaler_exit(struct dcss_soc *dcss)
 
 void dcss_scaler_enable(struct dcss_soc *dcss, int ch_num, bool en)
 {
-	struct dcss_scaler_ch *ch = &dcss->scaler_priv->ch[ch_num];
+	struct dcss_scaler_priv *scaler = dcss->scaler_priv;
+	struct dcss_scaler_ch *ch = &scaler->ch[ch_num];
 	u32 scaler_ctrl;
 
-	scaler_ctrl = SCALER_EN | REPEAT_EN;
+	if (scaler->ch_using_wrscl == ch_num) {
+		if (en) {
+			scaler_ctrl = SCALE2MEM_EN | MEM2OFIFO_EN | REPEAT_EN;
+		} else {
+			dcss_wrscl_enable(dcss, false);
+			dcss_rdsrc_enable(dcss, false);
+
+			scaler->ch_using_wrscl = -1;
+		}
+	} else {
+		scaler_ctrl = SCALER_EN | REPEAT_EN;
+	}
 
 	if (en)
 		dcss_scaler_write(dcss->scaler_priv, ch_num, ch->sdata_ctrl,
@@ -296,7 +312,27 @@ static void dcss_scaler_res_set(struct dcss_soc *dcss, int ch_num,
 			  DCSS_SCALER_DST_CHR_RES);
 }
 
-static void dcss_scaler_fractions_set(struct dcss_soc *dcss, int ch_num,
+#define max_downscale(ratio)		((ratio) << 13)
+#define max_upscale(ratio)		((1 << 13) / (ratio))
+
+struct dcss_scaler_ratios {
+	u16 downscale;
+	u16 upscale;
+};
+
+static const struct dcss_scaler_ratios dcss_scaler_ratios[] = {
+	{max_downscale(3), max_upscale(5)},
+	{max_downscale(3), max_upscale(7)},
+	{max_downscale(3), max_upscale(7)},
+};
+
+static const struct dcss_scaler_ratios dcss_scaler_wrscl_ratios[] = {
+	{max_downscale(5), max_upscale(5)},
+	{max_downscale(7), max_upscale(7)},
+	{max_downscale(7), max_upscale(7)},
+};
+
+static bool dcss_scaler_fractions_set(struct dcss_soc *dcss, int ch_num,
 				      int src_xres, int src_yres,
 				      int dst_xres, int dst_yres,
 				      u32 pix_format)
@@ -336,47 +372,33 @@ static void dcss_scaler_fractions_set(struct dcss_soc *dcss, int ch_num,
 			  DCSS_SCALER_H_CHR_START);
 	dcss_scaler_write(dcss->scaler_priv, ch_num, c_hinc,
 			  DCSS_SCALER_H_CHR_INC);
+
+	/* return if WR_SCL is needed to scale */
+	return l_vinc > dcss_scaler_ratios[ch_num].downscale ||
+	       l_vinc < dcss_scaler_ratios[ch_num].upscale   ||
+	       l_hinc > dcss_scaler_ratios[ch_num].downscale ||
+	       l_hinc < dcss_scaler_ratios[ch_num].upscale;
 }
-
-/*
- * The values below are without RD_SRC/WR_SCL support. When support will be
- * added, these need to be changed accordingly.
- */
-#define DCSS_SCALER_VIDEO_RATIO			3 /* 7 with RD_SRC/WR_SCL */
-#define DCSS_SCALER_GRAPHICS_RATIO		3 /* 5 with RD_SRC/WR_SCL */
-
-/* convert to fixed point (###.# #### #### ####), easier to work with */
-#define DCSS_SCALER_VIDEO_DOWN_RATIO_FP (DCSS_SCALER_VIDEO_RATIO << 13)
-#define DCSS_SCALER_VIDEO_UP_RATIO_FP \
-		((1 << 13) / DCSS_SCALER_VIDEO_RATIO)
-
-#define DCSS_SCALER_GRAPHICS_DOWN_RATIO_FP (DCSS_SCALER_GRAPHICS_RATIO << 13)
-#define DCSS_SCALER_GRAPHICS_UP_RATIO_FP \
-		((1 << 13) / DCSS_SCALER_GRAPHICS_RATIO)
-
-static const struct dcss_scaler_ratios {
-	u16 downscale_ratio;
-	u16 upscale_ratio;
-} dcss_scaler_ratios_map[] = {
-	{DCSS_SCALER_GRAPHICS_DOWN_RATIO_FP, DCSS_SCALER_GRAPHICS_UP_RATIO_FP},
-	{DCSS_SCALER_VIDEO_DOWN_RATIO_FP,    DCSS_SCALER_VIDEO_UP_RATIO_FP},
-	{DCSS_SCALER_VIDEO_DOWN_RATIO_FP,    DCSS_SCALER_VIDEO_UP_RATIO_FP},
-};
 
 bool dcss_scaler_can_scale(struct dcss_soc *dcss, int ch_num,
 			   int src_xres, int src_yres,
 			   int dst_xres, int dst_yres)
 {
+	struct dcss_scaler_priv *scaler = dcss->scaler_priv;
 	u32 vscale_fp, hscale_fp;
+	const struct dcss_scaler_ratios *ratios_map = dcss_scaler_ratios;
 
 	/* Convert to fixed point. Easier to work with. */
 	vscale_fp = (src_yres << 13) / dst_yres;
 	hscale_fp = (src_xres << 13) / dst_xres;
 
-	return vscale_fp <= dcss_scaler_ratios_map[ch_num].downscale_ratio &&
-	       vscale_fp >= dcss_scaler_ratios_map[ch_num].upscale_ratio   &&
-	       hscale_fp <= dcss_scaler_ratios_map[ch_num].downscale_ratio &&
-	       hscale_fp >= dcss_scaler_ratios_map[ch_num].upscale_ratio;
+	if (scaler->ch_using_wrscl == -1 || scaler->ch_using_wrscl == ch_num)
+		ratios_map = dcss_scaler_wrscl_ratios;
+
+	return vscale_fp <= ratios_map[ch_num].downscale &&
+	       vscale_fp >= ratios_map[ch_num].upscale &&
+	       hscale_fp <= ratios_map[ch_num].downscale &&
+	       hscale_fp >= ratios_map[ch_num].upscale;
 }
 EXPORT_SYMBOL(dcss_scaler_can_scale);
 
@@ -522,8 +544,46 @@ static void dcss_scaler_set_rgb10_order(struct dcss_soc *dcss, int ch_num,
 	ch->sdata_ctrl |= a2r10g10b10_format << A2R10G10B10_FORMAT_POS;
 }
 
+static void dcss_scaler_setup_path(struct dcss_soc *dcss, int ch_num,
+				   u32 pix_format, int dst_xres,
+				   int dst_yres, u32 vrefresh_hz,
+				   bool wrscl_needed)
+{
+	struct dcss_scaler_priv *scaler = dcss->scaler_priv;
+	u32 base_addr;
+
+	/* nothing to do if WRSCL path is needed but it's already used */
+	if (wrscl_needed && scaler->ch_using_wrscl != -1 &&
+	    scaler->ch_using_wrscl != ch_num)
+		return;
+
+	if (!wrscl_needed) {
+		/* Channel has finished using WRSCL. Release WRSCL/RDSRC. */
+		if (scaler->ch_using_wrscl == ch_num) {
+			dcss_wrscl_enable(dcss, false);
+			dcss_rdsrc_enable(dcss, false);
+
+			scaler->ch_using_wrscl = -1;
+		}
+
+		return;
+	}
+
+	base_addr = dcss_wrscl_setup(dcss, pix_format, vrefresh_hz,
+				     dst_xres, dst_yres);
+
+	dcss_rdsrc_setup(dcss, pix_format, dst_xres, dst_yres,
+			 base_addr);
+
+	dcss_wrscl_enable(dcss, true);
+	dcss_rdsrc_enable(dcss, true);
+
+	scaler->ch_using_wrscl = ch_num;
+}
+
 void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
-		       int src_xres, int src_yres, int dst_xres, int dst_yres)
+		       int src_xres, int src_yres, int dst_xres, int dst_yres,
+		       u32 vrefresh_hz)
 {
 	enum dcss_color_space dcss_cs;
 	int planes;
@@ -532,6 +592,7 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 	bool rtr_8line_en = false;
 	enum buffer_format src_format = BUF_FMT_ARGB8888_YUV444;
 	enum buffer_format dst_format = BUF_FMT_ARGB8888_YUV444;
+	bool wrscl_needed = false;
 
 	dcss_cs = dcss_drm_fourcc_to_colorspace(pix_format);
 	planes = drm_format_num_planes(pix_format);
@@ -569,7 +630,11 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 	dcss_scaler_format_set(dcss, ch_num, src_format, dst_format);
 	dcss_scaler_res_set(dcss, ch_num, src_xres, src_yres,
 			    dst_xres, dst_yres, pix_format);
-	dcss_scaler_fractions_set(dcss, ch_num, src_xres, src_yres,
-				  dst_xres, dst_yres, pix_format);
+	wrscl_needed = dcss_scaler_fractions_set(dcss, ch_num, src_xres,
+						 src_yres, dst_xres,
+						 dst_yres, pix_format);
+
+	dcss_scaler_setup_path(dcss, ch_num, pix_format, dst_xres,
+			       dst_yres, vrefresh_hz, wrscl_needed);
 }
 EXPORT_SYMBOL(dcss_scaler_setup);

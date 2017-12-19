@@ -480,12 +480,12 @@ void dcss_ctxld_dump(struct seq_file *s, void *data)
 	for (i = 0; i < ctx_db_size; i++)
 		seq_printf(s, "\t0x%16llx -> 0x%08x : 0x%08x\n",
 			   (u64)&ctx_db[i], ctx_db[i].ofs, ctx_db[i].val);
-	seq_puts(s, "\t>>Dumping CTX_DB_HP:\n");
+	seq_puts(s, "\t>>Dumping CTX_SB_HP:\n");
 	for (i = 0; i < ctx_sb_hp_size; i++)
 		seq_printf(s, "\t0x%16llx -> 0x%08x : 0x%08x\n",
 			   (u64)&ctx_sb_hp[i], ctx_sb_hp[i].ofs,
 			   ctx_sb_hp[i].val);
-	seq_puts(s, "\t>>Dumping CTX_DB_LP:\n");
+	seq_puts(s, "\t>>Dumping CTX_SB_LP:\n");
 	for (i = 0; i < ctx_sb_lp_size; i++)
 		seq_printf(s, "\t0x%16llx -> 0x%08x : 0x%08x\n",
 			   (u64)&ctx_sb_lp[i], ctx_sb_lp[i].ofs,
