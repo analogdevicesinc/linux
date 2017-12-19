@@ -675,10 +675,6 @@
 		ss-sel-gpios = <&gpio4 6 GPIO_ACTIVE_LOW>;
 		reset-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;
 		src-pdos = <0x380190c8 0x3803c0c8>;
-		snk-pdos = <0x380190c8>;
-		max-snk-mv = <9000>;
-		max-snk-ma = <1000>;
-		op-snk-mw = <9000>;
 		port-type = "drp";
 		sink-disable;
 		default-role = "source";
