@@ -681,6 +681,39 @@ static int tcpci_parse_config(struct tcpci *tcpci)
 		return -EINVAL;
 	}
 
+	/*
+	 * In case DRP only for data role, power role is source only
+	 * we can use this property to disable power sink.
+	 */
+	if (device_property_read_bool(tcpci->dev, "sink-disable")) {
+		tcpci->sink_disable = true;
+
+		/* Provide a sink PDO to setup a PD session */
+		tcfg->nr_snk_pdo = 1;
+		tcfg->snk_pdo = devm_kzalloc(tcpci->dev,
+				sizeof(*tcfg->snk_pdo), GFP_KERNEL);
+		if (!tcfg->snk_pdo)
+			return -ENOMEM;
+
+		/*
+		 * Sink PDO setting:
+		 * - Voltage in 50mV units: 5V
+		 * - Operational Current in 10mA units: 100mA
+		 */
+		*tcfg->snk_pdo = PDO_FIXED(5000,
+					100,
+					PDO_FIXED_DUAL_ROLE |
+					PDO_FIXED_EXTPOWER |
+					PDO_FIXED_USB_COMM |
+					PDO_FIXED_DATA_SWAP);
+		tcfg->max_snk_mv = 5000;
+		tcfg->max_snk_ma = 2000;
+		tcfg->max_snk_mw = 10000;
+		tcfg->operating_snk_mw = 500;
+
+		return 0;
+	}
+
 	/* Check the num of snk pdo */
 	tcfg->nr_snk_pdo = device_property_read_u32_array(tcpci->dev,
 						"snk-pdos", NULL, 0);
@@ -714,13 +747,6 @@ static int tcpci_parse_config(struct tcpci *tcpci)
 		device_property_read_u32(tcpci->dev, "op-snk-mw",
 						&tcfg->operating_snk_mw))
 		goto snk_setting_wrong;
-
-	/*
-	 * In case DRP only for data role, power role is source only
-	 * we can use this property to disable power sink.
-	 */
-	if (device_property_read_bool(tcpci->dev, "sink-disable"))
-		tcpci->sink_disable = true;
 
 	return 0;
 
