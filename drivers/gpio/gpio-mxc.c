@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -28,6 +29,7 @@
 #include <linux/irqdomain.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/gpio/driver.h>
 /* FIXME: for gpio_get_value() replace this with direct register read */
@@ -61,6 +63,7 @@ struct mxc_gpio_hwdata {
 
 struct mxc_gpio_port {
 	struct list_head node;
+	struct clk *clk;
 	void __iomem *base;
 	int irq;
 	int irq_high;
@@ -68,6 +71,7 @@ struct mxc_gpio_port {
 	struct gpio_chip gc;
 	struct device *dev;
 	u32 both_edges;
+	bool gpio_ranges;
 };
 
 static struct mxc_gpio_hwdata imx1_imx21_gpio_hwdata = {
@@ -342,7 +346,32 @@ static int gpio_set_wake_irq(struct irq_data *d, u32 enable)
 	return ret;
 }
 
-static int mxc_gpio_init_gc(struct mxc_gpio_port *port, int irq_base)
+static int mxc_gpio_irq_reqres(struct irq_data *d)
+{
+	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
+	struct mxc_gpio_port *port = gc->private;
+
+	if (gpiochip_lock_as_irq(&port->gc, d->hwirq)) {
+		dev_err(port->gc.parent,
+			"unable to lock HW IRQ %lu for IRQ\n",
+			d->hwirq);
+		return -EINVAL;
+	}
+
+	return irq_chip_pm_get(d);
+}
+
+static void mxc_gpio_irq_relres(struct irq_data *d)
+{
+	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
+	struct mxc_gpio_port *port = gc->private;
+
+	gpiochip_unlock_as_irq(&port->gc, d->hwirq);
+	irq_chip_pm_put(d);
+}
+
+static int mxc_gpio_init_gc(struct mxc_gpio_port *port, int irq_base,
+			    struct device *dev)
 {
 	struct irq_chip_generic *gc;
 	struct irq_chip_type *ct;
@@ -355,11 +384,14 @@ static int mxc_gpio_init_gc(struct mxc_gpio_port *port, int irq_base)
 	gc->private = port;
 
 	ct = gc->chip_types;
+	ct->chip.parent_device = dev;
 	ct->chip.irq_ack = irq_gc_ack_set_bit;
 	ct->chip.irq_mask = irq_gc_mask_clr_bit;
 	ct->chip.irq_unmask = irq_gc_mask_set_bit;
 	ct->chip.irq_set_type = gpio_set_irq_type;
 	ct->chip.irq_set_wake = gpio_set_wake_irq;
+	ct->chip.irq_request_resources = mxc_gpio_irq_reqres;
+	ct->chip.irq_release_resources = mxc_gpio_irq_relres,
 	ct->chip.flags = IRQCHIP_MASK_ON_SUSPEND;
 	ct->regs.ack = GPIO_ISR;
 	ct->regs.mask = GPIO_IMR;
@@ -408,12 +440,36 @@ static int mxc_gpio_to_irq(struct gpio_chip *gc, unsigned offset)
 	return irq_find_mapping(port->domain, offset);
 }
 
+static int mxc_gpio_request(struct gpio_chip *chip, unsigned offset)
+{
+	struct mxc_gpio_port *port = gpiochip_get_data(chip);
+	int ret;
+
+	if (port->gpio_ranges) {
+		ret = gpiochip_generic_request(chip, offset);
+		if (ret)
+			return ret;
+	}
+
+	ret = pm_runtime_get_sync(chip->parent);
+	return ret < 0 ? ret : 0;
+}
+
+static void mxc_gpio_free(struct gpio_chip *chip, unsigned offset)
+{
+	struct mxc_gpio_port *port = gpiochip_get_data(chip);
+
+	if (port->gpio_ranges)
+		gpiochip_generic_free(chip, offset);
+	pm_runtime_put(chip->parent);
+}
+
 static int mxc_gpio_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct mxc_gpio_port *port;
 	struct resource *iores;
-	int irq_base;
+	int irq_base = 0;
 	int err;
 
 	mxc_gpio_get_hw(pdev);
@@ -436,6 +492,23 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 	port->irq = platform_get_irq(pdev, 0);
 	if (port->irq < 0)
 		return port->irq;
+
+	/* the controller clock is optional */
+	port->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(port->clk))
+		port->clk = NULL;
+
+	err = clk_prepare_enable(port->clk);
+	if (err) {
+		dev_err(&pdev->dev, "Unable to enable clock.\n");
+		return err;
+	}
+
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	err = pm_runtime_get_sync(&pdev->dev);
+	if (err < 0)
+		goto out_pm_dis;
 
 	/* disable the interrupt and clear the status */
 	writel(0, port->base + GPIO_IMR);
@@ -467,11 +540,14 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 	if (err)
 		goto out_bgio;
 
-	if (of_property_read_bool(np, "gpio-ranges")) {
-		port->gc.request = gpiochip_generic_request;
-		port->gc.free = gpiochip_generic_free;
-	}
+	if (of_property_read_bool(np, "gpio_ranges"))
+		port->gpio_ranges = true;
+	else
+		port->gpio_ranges = false;
 
+	port->gc.request = mxc_gpio_request;
+	port->gc.free = mxc_gpio_free;
+	port->gc.parent = &pdev->dev;
 	port->gc.to_irq = mxc_gpio_to_irq;
 	port->gc.base = (pdev->id < 0) ? of_alias_get_id(np, "gpio") * 32 :
 					     pdev->id * 32;
@@ -494,14 +570,20 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 	}
 
 	/* gpio-mxc can be a generic irq chip */
-	err = mxc_gpio_init_gc(port, irq_base);
+	err = mxc_gpio_init_gc(port, irq_base, &pdev->dev);
 	if (err < 0)
 		goto out_irqdomain_remove;
 
 	list_add_tail(&port->node, &mxc_gpio_ports);
 
+	platform_set_drvdata(pdev, port);
+	pm_runtime_put(&pdev->dev);
+
 	return 0;
 
+out_pm_dis:
+	pm_runtime_disable(&pdev->dev);
+	clk_disable_unprepare(port->clk);
 out_irqdomain_remove:
 	irq_domain_remove(port->domain);
 out_bgio:
@@ -509,9 +591,58 @@ out_bgio:
 	return err;
 }
 
+static int __maybe_unused mxc_gpio_runtime_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mxc_gpio_port *port = platform_get_drvdata(pdev);
+
+	clk_disable_unprepare(port->clk);
+
+	return 0;
+}
+
+static int __maybe_unused mxc_gpio_runtime_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mxc_gpio_port *port = platform_get_drvdata(pdev);
+
+	return clk_prepare_enable(port->clk);
+}
+
+static int __maybe_unused mxc_gpio_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	int irq = platform_get_irq(pdev, 0);
+	struct irq_data *data = irq_get_irq_data(irq);
+
+	if (!irqd_is_wakeup_set(data))
+		return pm_runtime_force_suspend(dev);
+
+	return 0;
+}
+
+static int __maybe_unused mxc_gpio_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	int irq = platform_get_irq(pdev, 0);
+	struct irq_data *data = irq_get_irq_data(irq);
+
+	if (!irqd_is_wakeup_set(data))
+		return pm_runtime_force_resume(dev);
+
+	return 0;
+}
+
+static const struct dev_pm_ops mxc_gpio_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mxc_gpio_suspend, mxc_gpio_resume)
+	SET_RUNTIME_PM_OPS(mxc_gpio_runtime_suspend,
+			mxc_gpio_runtime_resume, NULL)
+};
+
 static struct platform_driver mxc_gpio_driver = {
 	.driver		= {
 		.name	= "gpio-mxc",
+		.pm = &mxc_gpio_dev_pm_ops,
 		.of_match_table = mxc_gpio_dt_ids,
 		.suppress_bind_attrs = true,
 	},
