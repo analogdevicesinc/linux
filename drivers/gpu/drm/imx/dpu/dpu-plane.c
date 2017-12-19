@@ -49,6 +49,14 @@ static const uint32_t dpu_common_formats[] = {
 	DRM_FORMAT_NV42,
 };
 
+static const uint64_t dpu_format_modifiers[] = {
+	DRM_FORMAT_MOD_VIVANTE_TILED,
+	DRM_FORMAT_MOD_VIVANTE_SUPER_TILED,
+	DRM_FORMAT_MOD_AMPHION_TILED,
+	DRM_FORMAT_MOD_LINEAR,
+	DRM_FORMAT_MOD_INVALID,
+};
+
 static void dpu_plane_destroy(struct drm_plane *plane)
 {
 	struct dpu_plane *dpu_plane = to_dpu_plane(plane);
@@ -114,6 +122,40 @@ static void dpu_drm_atomic_plane_destroy_state(struct drm_plane *plane,
 	kfree(to_dpu_plane_state(state));
 }
 
+static bool dpu_drm_plane_format_mod_supported(struct drm_plane *plane,
+					       uint32_t format,
+					       uint64_t modifier)
+{
+	if (WARN_ON(modifier == DRM_FORMAT_MOD_INVALID))
+		return false;
+
+	switch (format) {
+	case DRM_FORMAT_RGB888:
+	case DRM_FORMAT_BGR888:
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV61:
+	case DRM_FORMAT_NV24:
+	case DRM_FORMAT_NV42:
+		return modifier == DRM_FORMAT_MOD_LINEAR;
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_RGBX8888:
+	case DRM_FORMAT_BGRX8888:
+	case DRM_FORMAT_RGB565:
+		return modifier == DRM_FORMAT_MOD_LINEAR ||
+		       modifier == DRM_FORMAT_MOD_VIVANTE_TILED ||
+		       modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED;
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+		return modifier == DRM_FORMAT_MOD_LINEAR ||
+		       modifier == DRM_FORMAT_MOD_AMPHION_TILED;
+	default:
+		return false;
+	}
+}
+
 static const struct drm_plane_funcs dpu_plane_funcs = {
 	.update_plane	= drm_atomic_helper_update_plane,
 	.disable_plane	= drm_atomic_helper_disable_plane,
@@ -121,6 +163,7 @@ static const struct drm_plane_funcs dpu_plane_funcs = {
 	.reset		= dpu_plane_reset,
 	.atomic_duplicate_state	= dpu_drm_atomic_plane_duplicate_state,
 	.atomic_destroy_state	= dpu_drm_atomic_plane_destroy_state,
+	.format_mod_supported	= dpu_drm_plane_format_mod_supported,
 };
 
 static inline dma_addr_t
@@ -639,8 +682,8 @@ struct dpu_plane *dpu_plane_init(struct drm_device *drm,
 
 	ret = drm_universal_plane_init(drm, plane, possible_crtcs,
 				       &dpu_plane_funcs, dpu_common_formats,
-				       ARRAY_SIZE(dpu_common_formats), NULL,
-				       type, NULL);
+				       ARRAY_SIZE(dpu_common_formats),
+				       dpu_format_modifiers, type, NULL);
 	if (ret) {
 		kfree(dpu_plane);
 		return ERR_PTR(ret);
