@@ -226,6 +226,7 @@ static void dpu_bliteng_unbind(struct device *dev, struct device *master,
 	list_del(&bliteng->list);
 
 	dpu_bliteng_fini(dpu_bliteng);
+	dev_set_drvdata(dev, NULL);
 
 	imx_dpu_num--;
 
@@ -262,6 +263,9 @@ static int dpu_bliteng_suspend(struct device *dev)
 	struct dpu_bliteng *dpu_bliteng = dev_get_drvdata(dev);
 	int ret;
 
+	if (dpu_bliteng == NULL)
+		return 0;
+
 retry:
 	ret = dpu_be_get(dpu_bliteng);
 	if (ret == -EBUSY)
@@ -280,7 +284,8 @@ static int dpu_bliteng_resume(struct device *dev)
 {
 	struct dpu_bliteng *dpu_bliteng = dev_get_drvdata(dev);
 
-	dpu_bliteng_init(dpu_bliteng);
+	if (dpu_bliteng != NULL)
+		dpu_bliteng_init(dpu_bliteng);
 
 	return 0;
 }
