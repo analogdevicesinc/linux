@@ -309,8 +309,7 @@ bool dcss_dtg_global_alpha_changed(struct dcss_soc *dcss, int ch_num,
 	if (ch_num)
 		return false;
 
-	return dcss_dtg_global_alpha_needed(pix_format) &&
-	       (alpha != dtg->alpha || use_global_alpha != dtg->use_global);
+	return alpha != dtg->alpha || use_global_alpha != dtg->use_global;
 }
 EXPORT_SYMBOL(dcss_dtg_global_alpha_changed);
 
