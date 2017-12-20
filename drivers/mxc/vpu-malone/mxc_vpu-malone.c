@@ -659,9 +659,9 @@ static long vpu_ioctl(struct file *filp, u_int cmd,
       guDbgIsrArrayWrtIdx++;
       guDbgIsrArrayWrtIdx = (guDbgIsrArrayWrtIdx==1024) ? 0 : guDbgIsrArrayWrtIdx;
 #endif
-        
+
 			ret = copy_to_user((void __user *)arg, &IsrEventData, sizeof(DECODER_KERNEL_LIB_ISR_EVENT_DATA));
-      
+
 			if (ret)
 				ret = -EFAULT;
 #if 0
@@ -936,38 +936,78 @@ static int vpu_mmap(struct file *fp, struct vm_area_struct *vm)
 }
 
 #ifdef CONFIG_COMPAT
-struct core_desc_32 {
-	__u32 id; /* id of the Core */
-	compat_caddr_t regs; /* pointer to user registers */
-	__u32 size; /* size of register space */
+struct vpu_mem_desc_32 {
+	u32 size;
+	u32 phy_addr;
+	u32 cpu_addr;		/* cpu address to free the dma mem */
+	u32 virt_uaddr;		/* virtual user space address */
 };
-struct core_desc {
-  __u32 id; /* id of the Core */
-  __u32 *regs; /* pointer to user registers */
-  __u32 size; /* size of register space */
-};
-static int get_vpu_core_desc32(struct core_desc *kp, struct core_desc_32 __user *up)
+static int get_vpu_mem_desc_32(struct vpu_mem_desc *kp, struct vpu_mem_desc_32 __user *up)
 {
-	u32 tmp;
-
-	if (!access_ok(VERIFY_READ, up, sizeof(struct core_desc_32)) ||
-				get_user(kp->id, &up->id) ||
+	u32 tmp_phy;
+	u32 tmp_cpu;
+	u32 tmp_virt;
+    
+	if (!access_ok(VERIFY_READ, up, sizeof(struct vpu_mem_desc_32)) ||
 				get_user(kp->size, &up->size) ||
-				get_user(tmp, &up->regs)) {
+				get_user(tmp_phy, &up->phy_addr) ||
+				get_user(tmp_cpu, &up->cpu_addr) ||
+				get_user(tmp_virt, &up->virt_uaddr)) {
 		return -EFAULT;
 	}
-	kp->regs = (__force u32 *)compat_ptr(tmp);
+	kp->phy_addr = (__force dma_addr_t)compat_ptr(tmp_phy);
+	kp->cpu_addr = (__force void *)compat_ptr(tmp_cpu);
+	kp->virt_uaddr = (__force u64)compat_ptr(tmp_virt);
+
 	return 0;
 }
 
-static int put_vpu_core_desc32(struct core_desc *kp, struct core_desc_32 __user *up)
+static int put_vpu_mem_desc_32(struct vpu_mem_desc *kp, struct vpu_mem_desc_32 __user *up)
 {
-	u32 tmp = (u32)((unsigned long)kp->regs);
+	u32 tmp_phy = (u32)((unsigned long)kp->phy_addr);
+	u32 tmp_cpu = (u32)((unsigned long)kp->cpu_addr);
+	u32 tmp_virt = (u32)((unsigned long)kp->virt_uaddr);
 
-	if (!access_ok(VERIFY_WRITE, up, sizeof(struct core_desc_32)) ||
-				put_user(kp->id, &up->id) ||
+	if (!access_ok(VERIFY_WRITE, up, sizeof(struct vpu_mem_desc_32)) ||
 				put_user(kp->size, &up->size) ||
-				put_user(tmp, &up->regs)) {
+				put_user(tmp_phy, &up->phy_addr) ||
+				put_user(tmp_cpu, &up->cpu_addr) ||
+				put_user(tmp_virt, &up->virt_uaddr)) {
+		return -EFAULT;
+	}
+	return 0;
+}
+struct ISR_EVENT_DATA
+{
+  u_int32 uMalIdx;
+  u_int32 uIrqStatus[0x3];
+};
+struct ISR_EVENT_DATA_32
+{
+  u_int32 uMalIdx;
+  u_int32 uIrqStatus[0x3];
+};
+
+static int get_isr_event_32(struct ISR_EVENT_DATA *kp, struct ISR_EVENT_DATA_32 __user *up)
+{ 
+	if (!access_ok(VERIFY_READ, up, sizeof(struct ISR_EVENT_DATA_32)) ||
+				get_user(kp->uMalIdx, &up->uMalIdx) ||
+				get_user(kp->uIrqStatus[0], &up->uIrqStatus[0]) ||
+				get_user(kp->uIrqStatus[1], &up->uIrqStatus[1]) ||
+				get_user(kp->uIrqStatus[2], &up->uIrqStatus[2])) {
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+static int put_isr_event_32(struct ISR_EVENT_DATA *kp, struct ISR_EVENT_DATA_32 __user *up)
+{
+	if (!access_ok(VERIFY_WRITE, up, sizeof(struct ISR_EVENT_DATA_32)) ||
+				put_user(kp->uMalIdx, &up->uMalIdx) ||
+				put_user(kp->uIrqStatus[0], &up->uIrqStatus[0]) ||
+				put_user(kp->uIrqStatus[1], &up->uIrqStatus[1]) ||
+				put_user(kp->uIrqStatus[2], &up->uIrqStatus[2])) {
 		return -EFAULT;
 	}
 	return 0;
@@ -984,7 +1024,8 @@ static long vpu_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 
 	union {
-		struct core_desc kcore;
+		struct vpu_mem_desc kcore;
+		struct ISR_EVENT_DATA kevent;
 		unsigned long kux;
 		unsigned int kui;
 	} karg;
@@ -1002,14 +1043,20 @@ static long vpu_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	case _IOC_NR(VPU_IOC_PHYMEM_ALLOC):
 	case _IOC_NR(VPU_IOC_PHYMEM_FREE):
-	case _IOC_NR(VPU_IOC_WAIT4INT):
 	case _IOC_NR(VPU_IOC_GET_SHARE_MEM):
 	case _IOC_NR(VPU_IOC_REQ_VSHARE_MEM):
-		err = get_vpu_core_desc32(&karg.kcore, up);
+		err = get_vpu_mem_desc_32(&karg.kcore, up);
 		if (err)
 			return err;
 		VPU_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_vpu_core_desc32(&karg.kcore, up);
+		err = put_vpu_mem_desc_32(&karg.kcore, up);
+		break;
+	case _IOC_NR(VPU_IOC_WAIT4INT):
+		err = get_isr_event_32(&karg.kevent, up);
+		if (err)
+			return err;
+		VPU_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_isr_event_32(&karg.kevent, up);
 		break;
 	default:
 		err = vpu_ioctl(filp, cmd, (unsigned long)up);
