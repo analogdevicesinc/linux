@@ -1918,6 +1918,11 @@
 		interrupt-parent = <&irqsteer_csi>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		power-domains = <&pd_mipi_csi>;
+		clocks = <&clk IMX8QXP_CSI0_IPG_CLK_S>;
+		clock-names = "ipg";
 	};
 
 	gpu_3d0: gpu@53100000 {
