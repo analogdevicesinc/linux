@@ -19,6 +19,8 @@
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_graph.h>
 #include <linux/regmap.h>
 
 #define REG_VENDOR_ID(n)	(0x00 + (n))	/* n: 0/1 */
@@ -797,6 +799,11 @@ static int it6263_probe(struct i2c_client *client,
 {
 	struct device *dev = &client->dev;
 	struct device_node *np = dev->of_node;
+#if IS_ENABLED(CONFIG_OF_DYNAMIC)
+	struct device_node *remote_node = NULL, *endpoint = NULL;
+	struct of_changeset ocs;
+	struct property *prop;
+#endif
 	struct it6263 *it6263;
 	int ret;
 
@@ -808,8 +815,10 @@ static int it6263_probe(struct i2c_client *client,
 
 	it6263->hdmi_i2c = client;
 	it6263->lvds_i2c = i2c_new_device(client->adapter, &it6263_lvds_i2c);
-	if (!it6263->lvds_i2c)
-		return -ENODEV;
+	if (!it6263->lvds_i2c) {
+		ret = -ENODEV;
+		goto of_reconfig;
+	}
 
 	it6263->hdmi_regmap = devm_regmap_init_i2c(client,
 						&it6263_hdmi_regmap_config);
@@ -878,8 +887,53 @@ static int it6263_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, it6263);
 
+	return ret;
+
 unregister_lvds_i2c:
 	i2c_unregister_device(it6263->lvds_i2c);
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+of_reconfig:
+#if IS_ENABLED(CONFIG_OF_DYNAMIC)
+	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
+	if (endpoint)
+		remote_node = of_graph_get_remote_port_parent(endpoint);
+
+	if (remote_node) {
+		int num_endpoints = 0;
+
+		/*
+		 * Remote node should have two endpoints (input and output: us)
+		 * If remote node has more than two endpoints, probably that it
+		 * has more outputs, so there is no need to disable it.
+		 */
+		endpoint = NULL;
+		while ((endpoint = of_graph_get_next_endpoint(remote_node,
+							      endpoint)))
+			num_endpoints++;
+
+		if (num_endpoints > 2) {
+			of_node_put(remote_node);
+			return ret;
+		}
+
+		prop = devm_kzalloc(dev, sizeof(*prop), GFP_KERNEL);
+		prop->name = devm_kstrdup(dev, "status", GFP_KERNEL);
+		prop->value = devm_kstrdup(dev, "disabled", GFP_KERNEL);
+		prop->length = 9;
+		of_changeset_init(&ocs);
+		of_changeset_update_property(&ocs, remote_node, prop);
+		ret = of_changeset_apply(&ocs);
+		if (!ret)
+			dev_warn(dev,
+				"Probe failed. Remote port '%s' disabled\n",
+				remote_node->full_name);
+
+		of_node_put(remote_node);
+	};
+#endif
+
 	return ret;
 }
 
