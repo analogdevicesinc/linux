@@ -15,6 +15,7 @@
 #include <linux/irqdomain.h>
 #include <linux/of_platform.h>
 #include <linux/spinlock.h>
+#include <linux/pm_runtime.h>
 
 #define CHANREG_OFF	(irqsteer_data->channum * 4)
 #define CHANCTRL	0x0
@@ -25,6 +26,7 @@
 #define CHAN_MASTRSTAT	(CHAN_MINTDIS + 0x4)
 
 struct irqsteer_irqchip_data {
+	struct irq_chip chip;
 	spinlock_t lock;
 	struct platform_device	*pdev;
 	void __iomem *regs;
@@ -34,6 +36,7 @@ struct irqsteer_irqchip_data {
 	int endian;	/* 0: littel endian; 1: big endian */
 	struct irq_domain *domain;
 	int *saved_reg;
+	bool inited;
 	unsigned int irqstat[];
 };
 
@@ -84,8 +87,10 @@ static struct irq_chip imx_irqsteer_irq_chip = {
 static int imx_irqsteer_irq_map(struct irq_domain *h, unsigned int irq,
 				irq_hw_number_t hwirq)
 {
+	struct irqsteer_irqchip_data *irqsteer_data = h->host_data;
+
 	irq_set_chip_data(irq, h->host_data);
-	irq_set_chip_and_handler(irq, &imx_irqsteer_irq_chip, handle_level_irq);
+	irq_set_chip_and_handler(irq, &irqsteer_data->chip, handle_level_irq);
 
 	return 0;
 }
@@ -99,6 +104,11 @@ static void imx_irqsteer_init(struct irqsteer_irqchip_data *irqsteer_data)
 {
 	/* enable channel 1 in default */
 	writel_relaxed(1, irqsteer_data->regs + CHANCTRL);
+
+	/* read back CHANCTRL register cannot reflact on HW register
+	 * real value due to the HW action, so add one flag here.
+	 */
+	irqsteer_data->inited = true;
 }
 
 static void imx_irqsteer_update_irqstat(struct irqsteer_irqchip_data *irqsteer_data)
@@ -174,6 +184,9 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	if (!irqsteer_data->saved_reg)
 		return -ENOMEM;
 
+	irqsteer_data->chip = imx_irqsteer_irq_chip;
+	irqsteer_data->chip.parent_device = &pdev->dev;
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irqsteer_data->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(irqsteer_data->regs)) {
@@ -197,15 +210,8 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	irqsteer_data->channum = channum;
 	irqsteer_data->endian  = endian;
 	irqsteer_data->pdev = pdev;
+	irqsteer_data->inited = false;
 	spin_lock_init(&irqsteer_data->lock);
-
-	ret = clk_prepare_enable(irqsteer_data->ipg_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable ipg clk: %d\n", ret);
-		return ret;
-	}
-
-	imx_irqsteer_init(irqsteer_data);
 
 	irqsteer_data->domain = irq_domain_add_linear(np,
 						 irqsteer_data->channum * 32,
@@ -223,6 +229,7 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, irqsteer_data);
 
+	pm_runtime_enable(&pdev->dev);
 	return 0;
 }
 
@@ -234,10 +241,7 @@ static int imx_irqsteer_remove(struct platform_device *pdev)
 
 	irq_domain_remove(irqsteer_data->domain);
 
-	platform_set_drvdata(pdev, NULL);
-	clk_disable_unprepare(irqsteer_data->ipg_clk);
-
-	return 0;
+	return pm_runtime_force_suspend(&pdev->dev);
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -259,17 +263,23 @@ static void imx_irqsteer_restore_regs(struct irqsteer_irqchip_data *data)
 		writel_relaxed(data->saved_reg[num + 1], data->regs + CHANMASK(num));
 }
 
-static int imx_irqsteer_suspend(struct device *dev)
+static int imx_irqsteer_runtime_suspend(struct device *dev)
 {
 	struct irqsteer_irqchip_data *irqsteer_data = dev_get_drvdata(dev);
 
+	/* After device's runtime suspended, device's power domain maybe off,
+	 * if some sub_irqs resouces are not freed, it needs to save registers
+	 * when device's suspend force runtime suspend. And even if all sub_irqs
+	 * are freed, it also needs to save CHANCTRL register.
+	 */
 	imx_irqsteer_save_regs(irqsteer_data);
+
 	clk_disable_unprepare(irqsteer_data->ipg_clk);
 
 	return 0;
 }
 
-static int imx_irqsteer_resume(struct device *dev)
+static int imx_irqsteer_runtime_resume(struct device *dev)
 {
 	struct irqsteer_irqchip_data *irqsteer_data = dev_get_drvdata(dev);
 	int ret;
@@ -279,13 +289,21 @@ static int imx_irqsteer_resume(struct device *dev)
 		dev_err(dev, "failed to enable ipg clk: %d\n", ret);
 		return ret;
 	}
-	imx_irqsteer_restore_regs(irqsteer_data);
+
+	/* don't need restore registers when first sub_irq requested */
+	if (!irqsteer_data->inited)
+		imx_irqsteer_init(irqsteer_data);
+	else
+		imx_irqsteer_restore_regs(irqsteer_data);
 
 	return 0;
 }
 
 static const struct dev_pm_ops imx_irqsteer_pm_ops = {
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(imx_irqsteer_suspend, imx_irqsteer_resume)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				      pm_runtime_force_resume)
+	SET_RUNTIME_PM_OPS(imx_irqsteer_runtime_suspend,
+			   imx_irqsteer_runtime_resume, NULL)
 };
 #define IMX_IRQSTEER_PM      (&imx_irqsteer_pm_ops)
 #else
