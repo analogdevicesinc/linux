@@ -2227,14 +2227,13 @@ static void __cdns3_gadget_stop(struct cdns3 *cdns)
 	unsigned long flags;
 
 	usb_ss = container_of(cdns->gadget_dev, struct usb_ss_dev, dev);
-	spin_lock_irqsave(&usb_ss->lock, flags);
-
-	/* disable interrupt for device */
-	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
-	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVDS__MASK);
 	if (usb_ss->gadget_driver)
 		usb_ss->gadget_driver->disconnect(&usb_ss->gadget);
 	usb_gadget_disconnect(&usb_ss->gadget);
+	spin_lock_irqsave(&usb_ss->lock, flags);
+	/* disable interrupt for device */
+	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
+	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVDS__MASK);
 	usb_ss->start_gadget = 0;
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 }
