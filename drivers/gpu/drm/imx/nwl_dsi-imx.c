@@ -474,7 +474,7 @@ static void imx_nwl_dsi_enable(struct imx_mipi_dsi *dsi)
 	if (dsi->enabled)
 		return;
 
-	DRM_DEV_INFO(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	DRM_DEV_DEBUG_DRIVER(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
 
 	/*
 	 * TODO: we are doing this here, because the ADV7535 which is a drm
@@ -532,7 +532,7 @@ static void imx_nwl_dsi_disable(struct imx_mipi_dsi *dsi)
 	if (!dsi->enabled)
 		return;
 
-	DRM_DEV_INFO(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	DRM_DEV_DEBUG_DRIVER(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
 
 	devtype->poweroff(dsi);
 
@@ -694,7 +694,8 @@ static int imx_nwl_dsi_bridge_attach(struct drm_bridge *bridge)
 	struct drm_encoder *encoder = bridge->encoder;
 	int ret = 0;
 
-	DRM_DEV_INFO(dsi->dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "id = %s\n",
+			     (dsi->instance)?"DSI1":"DSI0");
 	if (!encoder) {
 		DRM_DEV_ERROR(dsi->dev, "Parent encoder object not found\n");
 		return -ENODEV;
@@ -716,7 +717,8 @@ static void imx_nwl_dsi_bridge_detach(struct drm_bridge *bridge)
 {
 	struct imx_mipi_dsi *dsi = bridge->driver_private;
 
-	DRM_DEV_INFO(dsi->dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "id = %s\n",
+			     (dsi->instance)?"DSI1":"DSI0");
 	nwl_dsi_del_bridge(dsi->next_bridge->encoder, dsi->next_bridge);
 }
 
@@ -833,6 +835,7 @@ static int imx_nwl_dsi_bind(struct device *dev,
 			void *data)
 {
 	struct drm_device *drm = data;
+	struct drm_bridge *next_bridge = NULL;
 	struct imx_mipi_dsi *dsi = dev_get_drvdata(dev);
 	int ret = 0;
 
@@ -840,7 +843,12 @@ static int imx_nwl_dsi_bind(struct device *dev,
 	if (ret)
 		return ret;
 
-	DRM_DEV_INFO(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	DRM_DEV_DEBUG_DRIVER(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+
+	/* Re-validate the bridge */
+	if (dsi->next_bridge)
+		next_bridge = of_drm_find_bridge(dsi->next_bridge->of_node);
+	dsi->next_bridge = next_bridge;
 
 	if (!dsi->next_bridge) {
 		dev_warn(dev, "No bridge found, skipping encoder creation\n");
@@ -865,10 +873,11 @@ static int imx_nwl_dsi_bind(struct device *dev,
 
 	dsi->next_bridge->encoder = &dsi->encoder;
 	dsi->encoder.bridge = dsi->next_bridge;
-	if (drm_bridge_attach(&dsi->encoder, dsi->next_bridge, NULL))
+	ret = drm_bridge_attach(&dsi->encoder, dsi->next_bridge, NULL);
+	if (ret)
 		drm_encoder_cleanup(&dsi->encoder);
 
-	return 0;
+	return ret;
 }
 
 static void imx_nwl_dsi_unbind(struct device *dev,
@@ -876,12 +885,23 @@ static void imx_nwl_dsi_unbind(struct device *dev,
 			   void *data)
 {
 	struct imx_mipi_dsi *dsi = dev_get_drvdata(dev);
+	struct drm_bridge *next_bridge = NULL;
 
-	DRM_DEV_INFO(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
+	DRM_DEV_DEBUG_DRIVER(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
 
-	imx_nwl_dsi_encoder_disable(&dsi->encoder);
+	/*
+	 * At this point, our next bridge in chain might be already removed,
+	 * so update it's status.
+	 */
+	if (dsi->next_bridge)
+		next_bridge = of_drm_find_bridge(dsi->next_bridge->of_node);
+	dsi->next_bridge = next_bridge;
 
-	drm_encoder_cleanup(&dsi->encoder);
+	if (dsi->enabled)
+		imx_nwl_dsi_encoder_disable(&dsi->encoder);
+
+	if (dsi->encoder.dev)
+		drm_encoder_cleanup(&dsi->encoder);
 }
 
 static const struct component_ops imx_nwl_dsi_component_ops = {
@@ -894,6 +914,7 @@ static int imx_nwl_dsi_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct device_node *remote_node, *endpoint;
+	int remote_ports = 0;
 	struct imx_mipi_dsi *dsi;
 	int ret = 0;
 
@@ -916,9 +937,19 @@ static int imx_nwl_dsi_probe(struct platform_device *pdev)
 		dsi->next_bridge = of_drm_find_bridge(remote_node);
 		of_node_put(remote_node);
 		endpoint = of_graph_get_next_endpoint(np, endpoint);
+		if (!of_device_is_available(remote_node))
+			continue;
+		remote_ports++;
 	};
 
-	if (!dsi->next_bridge) {
+	/*
+	 * Normally, we should have two remote ports: one is our input source,
+	 * while the second is the NWL host bridge. This bridge can be disabled
+	 * if the connector fails to find a physical device. In this case, we
+	 * should continue and do nothing, so that DRM master can bind all the
+	 * components.
+	 */
+	if (!dsi->next_bridge && remote_ports == 2) {
 		dev_warn(dev, "Waiting for DSI host bridge\n");
 		return -EPROBE_DEFER;
 	}
