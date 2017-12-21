@@ -3597,8 +3597,6 @@ static void xhci_free_dev(struct usb_hcd *hcd, struct usb_device *udev)
 	struct xhci_slot_ctx *slot_ctx;
 	int i, ret;
 
-	xhci_debugfs_remove_slot(xhci, udev->slot_id);
-
 #ifndef CONFIG_USB_DEFAULT_PERSIST
 	/*
 	 * We called pm_runtime_get_noresume when the device was attached.
@@ -3628,8 +3626,10 @@ static void xhci_free_dev(struct usb_hcd *hcd, struct usb_device *udev)
 
 	virt_dev->udev = NULL;
 	ret = xhci_disable_slot(xhci, udev->slot_id);
-	if (ret)
+	if (ret) {
+		xhci_debugfs_remove_slot(xhci, udev->slot_id);
 		xhci_free_virt_device(xhci, udev->slot_id);
+	}
 }
 
 int xhci_disable_slot(struct xhci_hcd *xhci, u32 slot_id)
