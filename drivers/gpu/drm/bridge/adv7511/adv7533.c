@@ -185,7 +185,7 @@ int adv7533_attach_dsi(struct adv7511 *adv)
 	struct mipi_dsi_device *dsi;
 	int ret = 0;
 	const struct mipi_dsi_device_info info = { .type = "adv7533",
-						   .channel = 0,
+						   .channel = adv->channel_id,
 						   .node = NULL,
 						 };
 
@@ -231,14 +231,24 @@ void adv7533_detach_dsi(struct adv7511 *adv)
 
 int adv7533_parse_dt(struct device_node *np, struct adv7511 *adv)
 {
-	u32 num_lanes;
+	struct device *dev = &adv->i2c_main->dev;
+	u32 num_lanes = 0, channel_id = 0;
 
+	of_property_read_u32(np, "adi,dsi-channel", &channel_id);
 	of_property_read_u32(np, "adi,dsi-lanes", &num_lanes);
 
-	if (num_lanes < 1 || num_lanes > 4)
+	if (num_lanes < 1 || num_lanes > 4) {
+		dev_err(dev, "Invalid dsi-lanes: %d\n", num_lanes);
 		return -EINVAL;
+	}
+
+	if (channel_id > 3) {
+		dev_err(dev, "Invalid dsi-channel: %d\n", channel_id);
+		return -EINVAL;
+	}
 
 	adv->num_dsi_lanes = num_lanes;
+	adv->channel_id = channel_id;
 
 	adv->host_node = of_graph_get_remote_node(np, 0, 0);
 	if (!adv->host_node)

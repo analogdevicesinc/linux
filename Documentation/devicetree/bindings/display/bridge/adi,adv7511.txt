@@ -69,6 +69,8 @@ Optional properties:
 - adi,disable-timing-generator: Only for ADV7533 and ADV7535. Disables the
   internal timing generator. The chip will rely on the sync signals in the DSI
   data lanes, rather than generate its own timings for HDMI output.
+- adi,dsi-channel: Only for ADV7533 and ADV7535. DSI channel number to be used
+  when communicating with the DSI peripheral. It should be one of 0, 1, 2 or 3.
 
 Required nodes:
 
