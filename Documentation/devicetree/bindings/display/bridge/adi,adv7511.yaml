@@ -45,6 +45,13 @@ properties:
       - const: cec
       - const: packet
 
+  adi,dsi-channel:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Only for ADV7533 and ADV7535. DSI channel number to be used
+      when communicating with the DSI peripheral.
+      It should be one of 0, 1, 2 or 3.
+
   clocks:
     description: Reference to the CEC clock.
     maxItems: 1
