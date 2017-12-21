@@ -1203,7 +1203,7 @@ int imx_usbmisc_hsic_set_connect(struct imx_usbmisc_data *data)
 		return 0;
 
 	usbmisc = dev_get_drvdata(data->dev);
-	if (!usbmisc->ops->hsic_set_connect)
+	if (!usbmisc->ops->hsic_set_connect || !data->hsic)
 		return 0;
 	return usbmisc->ops->hsic_set_connect(data);
 }
@@ -1217,7 +1217,7 @@ int imx_usbmisc_hsic_set_clk(struct imx_usbmisc_data *data, bool on)
 		return 0;
 
 	usbmisc = dev_get_drvdata(data->dev);
-	if (!usbmisc->ops->hsic_set_clk)
+	if (!usbmisc->ops->hsic_set_clk || !data->hsic)
 		return 0;
 	return usbmisc->ops->hsic_set_clk(data, on);
 }
