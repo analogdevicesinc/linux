@@ -26,6 +26,7 @@
 
 #include <drm/drm_dp_helper.h>
 #include "../../../../mxc/hdp/all.h"
+#include "imx-cec.h"
 
 /* For testing hdp firmware define DEBUG_FW_LOAD */
 #undef DEBUG_FW_LOAD
@@ -195,6 +196,7 @@ struct imx_hdp {
 
 	u8 is_edid;
 	u8 is_4kp60;
+	u8 is_cec;
 	u8 audio_type;
 
 	struct mutex mutex;		/* for state below and previous_mode */
@@ -219,6 +221,8 @@ struct imx_hdp {
 	int vic;
 	int irq[HPD_IRQ_NUM];
 	struct delayed_work hotplug_work;
+
+	struct imx_cec_dev cec;
 };
 
 u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width);

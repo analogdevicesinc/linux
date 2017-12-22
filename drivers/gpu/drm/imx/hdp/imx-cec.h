@@ -15,6 +15,8 @@
 #ifndef _IMX_CEC_H_
 #define _IMX_CEC_H_
 
+#include <linux/cec.h>
+
 /* regsiter define */
 /* register TX_MSG_HEADER */
 #define TX_MSG_HEADER 0
@@ -333,4 +335,6 @@ struct imx_cec_dev {
 	struct task_struct *cec_worker;
 };
 
+int imx_cec_register(struct imx_cec_dev *cec);
+int imx_cec_unregister(struct imx_cec_dev *cec);
 #endif

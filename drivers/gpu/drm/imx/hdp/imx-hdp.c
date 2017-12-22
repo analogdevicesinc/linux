@@ -1069,6 +1069,7 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 		return -EINVAL;
 	}
 
+	hdp->is_cec = of_property_read_bool(pdev->dev.of_node, "fsl,cec");
 	hdp->is_edid = devtype->is_edid;
 	hdp->is_4kp60 = devtype->is_4kp60;
 	hdp->audio_type = devtype->audio_type;
@@ -1197,6 +1198,10 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 		if (hpd == 1)
 			enable_irq(hdp->irq[HPD_IRQ_OUT]);
 	}
+#ifdef CONFIG_IMX_HDP_CEC
+	if (hdp->is_cec)
+		imx_cec_register(&hdp->cec);
+#endif
 
 	return 0;
 err_irq:
@@ -1209,6 +1214,10 @@ static void imx_hdp_imx_unbind(struct device *dev, struct device *master,
 {
 	struct imx_hdp *hdp = dev_get_drvdata(dev);
 
+#ifdef CONFIG_IMX_HDP_CEC
+	if (hdp->is_cec)
+		imx_cec_unregister(&hdp->cec);
+#endif
 	imx_hdp_call(hdp, pixel_clock_disable, &hdp->clks);
 	imx_hdp_call(hdp, pixel_link_deinit, &hdp->state);
 }
