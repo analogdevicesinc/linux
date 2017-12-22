@@ -157,8 +157,8 @@ static void imx_hdmi_state_init(struct imx_hdmi_info *imx_hdmi)
 	memset(state, 0, sizeof(state_struct));
 	mutex_init(&state->mutex);
 
-	state->mem.regs_base = imx_hdmi->regs_base;
-	state->mem.ss_base = imx_hdmi->ss_base;
+	state->mem->regs_base = imx_hdmi->regs_base;
+	state->mem->ss_base = imx_hdmi->ss_base;
 	state->rw = imx_hdmi->rw;
 
 	state->rw->read_reg = mx8mq_hdp_read;
