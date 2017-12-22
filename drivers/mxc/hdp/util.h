@@ -132,8 +132,8 @@ typedef struct {
 } INTERNAL_MBOX_STATUS;
 
 struct hdp_mem {
-	void __iomem *regs_base;
-	void __iomem *ss_base;
+	void __iomem *regs_base; /* Controller regs base */
+	void __iomem *ss_base; /* HDP Subsystem regs base */
 };
 
 struct hdp_rw_func {
@@ -155,7 +155,7 @@ typedef struct {
 	u32 tmp;
 
 	struct mutex mutex;	//mutex may replace running
-	struct hdp_mem mem;
+	struct hdp_mem *mem;
 	struct hdp_rw_func *rw;
 } state_struct;
 /**
