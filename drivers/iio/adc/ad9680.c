@@ -464,7 +464,7 @@ static int ad9680_set_scale(struct axiadc_converter *conv, int val, int val2)
 	return -EINVAL;
 }
 
-static ssize_t ad9680_testmode_read(struct iio_dev *indio_dev,
+static int ad9680_testmode_read(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
@@ -472,7 +472,7 @@ static ssize_t ad9680_testmode_read(struct iio_dev *indio_dev,
 	return conv->testmode[chan->channel];
 }
 
-static ssize_t ad9680_testmode_write(struct iio_dev *indio_dev,
+static int ad9680_testmode_write(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, unsigned int item)
 {
 	int ret;
