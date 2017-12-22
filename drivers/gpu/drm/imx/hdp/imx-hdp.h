@@ -191,8 +191,7 @@ struct imx_hdp {
 	struct edid *edid;
 	char cable_state;
 
-	void __iomem *regs_base; /* Controller regs base */
-	void __iomem *ss_base; /* HDP Subsystem regs base */
+	struct hdp_mem mem;
 
 	u8 is_edid;
 	u8 is_4kp60;
@@ -220,7 +219,6 @@ struct imx_hdp {
 	int vic;
 	int irq[HPD_IRQ_NUM];
 	struct delayed_work hotplug_work;
-
 };
 
 u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width);
