@@ -824,7 +824,7 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 						sfdr_optim_vals[tmp]);
 	}
 
-	memset(&link_config, sizeof(link_config), 0x00);
+	memset(&link_config, 0x00, sizeof(link_config));
 	link_config.did = 0;
 	link_config.bid = 1;
 	link_config.num_lanes = 4;
