@@ -36,10 +36,6 @@
 	status = "disabled";
 };
 
-&hdmi_cec {
-	status = "disabled";
-};
-
 &lcdif {
 	status = "okay";
 

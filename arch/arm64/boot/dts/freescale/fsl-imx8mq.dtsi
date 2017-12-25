@@ -567,7 +567,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "fsl,imx8mq-hdmi";
-		reg = <0x0 0x32c00000 0x0 0x33800>,	/* HDP registers */
+		reg = <0x0 0x32c00000 0x0 0x100000>,	/* HDP registers */
 				<0x0 0x32e40000 0x0 0x40000>;   /* HDP SEC register */
 		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
@@ -1226,12 +1226,6 @@
 	dma_cap: dma_cap {
 		compatible = "dma-capability";
 		only-dma-mask32 = <1>;
-	};
-
-	hdmi_cec: hdmi_cec@32c33800 {
-		compatible = "fsl,imx8-hdp-cec";
-		reg = <0x0 0x32c33800 0x0 0x200>;
-		status = "disabled";
 	};
 
 	pcie0: pcie@0x33800000 {
