@@ -342,6 +342,10 @@ EXPORT_SYMBOL_GPL(dpu_bliteng_init);
 void dpu_bliteng_fini(struct dpu_bliteng *dpu_bliteng)
 {
 	kfree(dpu_bliteng->cmd_list);
+
+	if (dpu_bliteng->buffer_addr_virt)
+		free_pages_exact(dpu_bliteng->buffer_addr_virt,
+				 COMMAND_BUFFER_SIZE);
 }
 EXPORT_SYMBOL_GPL(dpu_bliteng_fini);
 
