@@ -573,6 +573,7 @@
 					<GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "plug_in", "plug_out";
 		interrupt-parent = <&gpc>;
+		fsl,cec;
 		status = "disabled";
 
 		port@0 {
