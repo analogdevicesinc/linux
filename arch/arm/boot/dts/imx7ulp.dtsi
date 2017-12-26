@@ -167,11 +167,6 @@
 			status = "disabled";
 		};
 
-		snvs: snvs@40230000 {
-			compatible = "fsl,sec-v4.0-mon","syscon", "simple-mfd";
-			reg = <0x40230000 0x10000>;
-		};
-
 		tpm5: tpm@40260000 {
 			compatible = "fsl,imx7ulp-tpm";
 			reg = <0x40260000 0x1000>;
