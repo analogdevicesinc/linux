@@ -20,8 +20,6 @@
 #include <linux/suspend.h>
 
 #define MAX_RUN_FREQ	528000
-#define SMC_PMPROT	0x8
-#define SMC_PMCTRL	0x10
 
 static struct clk *arm_clk;
 static struct clk *core_div;
@@ -31,11 +29,9 @@ static struct clk *hsrun_core;
 static struct clk *spll_pfd0;
 static struct clk *spll_sel;
 static struct clk *firc_clk;
+static struct clk *spll;
 
 static struct pm_qos_request pm_qos_hsrun;
-
-static void __iomem *smc_base;
-
 static struct regulator *arm_reg;
 static struct device *cpu_dev;
 static struct cpufreq_frequency_table *freq_table;
@@ -47,7 +43,6 @@ static int imx7ulp_set_target(struct cpufreq_policy *policy, unsigned int index)
 	struct dev_pm_opp *opp;
 	unsigned long freq_hz, volt, volt_old;
 	unsigned int old_freq, new_freq;
-	u32 val;
 	int ret;
 
 	mutex_lock(&set_cpufreq_lock);
@@ -88,23 +83,18 @@ static int imx7ulp_set_target(struct cpufreq_policy *policy, unsigned int index)
 	 */
 	if (new_freq > MAX_RUN_FREQ) {
 		pm_qos_add_request(&pm_qos_hsrun, PM_QOS_CPU_DMA_LATENCY, 0);
+		/* change the RUN clock to firc */
 		clk_set_parent(sys_sel, firc_clk);
-		/* switch to HSRUN mode */
-		val = readl_relaxed(smc_base + SMC_PMCTRL);
-		val |= (0x3 << 8);
-		writel_relaxed(val, smc_base + SMC_PMCTRL);
 		/* change the clock rate in HSRUN */
+		clk_set_rate(spll, 480000000);
 		clk_set_rate(spll_pfd0, new_freq * 1000);
 		clk_set_parent(hsrun_sys_sel, spll_sel);
 		clk_set_parent(arm_clk, hsrun_core);
 	} else {
 		/* change the HSRUN clock to firc */
 		clk_set_parent(hsrun_sys_sel, firc_clk);
-		/* switch to RUN mode */
-		val = readl_relaxed(smc_base + SMC_PMCTRL);
-		val &= ~(0x3 << 8);
-		writel_relaxed(val, smc_base + SMC_PMCTRL);
-
+		/* change the clock rate in RUN */
+		clk_set_rate(spll, 528000000);
 		clk_set_rate(spll_pfd0, new_freq * 1000);
 		clk_set_parent(sys_sel, spll_sel);
 		clk_set_parent(arm_clk, core_div);
@@ -166,12 +156,6 @@ static int imx7ulp_cpufreq_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-smc1");
-	smc_base = of_iomap(np, 0);
-	of_node_put(np);
-	if (!smc_base)
-		return -ENOMEM;
-
 	np = of_node_get(cpu_dev->of_node);
 	if (!np) {
 		dev_err(cpu_dev, "failed to find the cpu0 node\n");
@@ -186,10 +170,11 @@ static int imx7ulp_cpufreq_probe(struct platform_device *pdev)
 	spll_pfd0 = clk_get(cpu_dev, "spll_pfd0");
 	spll_sel = clk_get(cpu_dev, "spll_sel");
 	firc_clk = clk_get(cpu_dev, "firc");
+	spll = clk_get(cpu_dev, "spll");
 
 	if (IS_ERR(arm_clk) || IS_ERR(sys_sel) || IS_ERR(spll_sel) ||
 	    IS_ERR(spll_sel) || IS_ERR(firc_clk) || IS_ERR(hsrun_sys_sel) ||
-	    IS_ERR(hsrun_core)) {
+	    IS_ERR(hsrun_core) || IS_ERR(spll)) {
 		dev_err(cpu_dev, "failed to get cpu clock\n");
 		ret = -ENOENT;
 		goto put_clk;
@@ -247,6 +232,8 @@ put_clk:
 		clk_put(spll_sel);
 	if (!IS_ERR(firc_clk))
 		clk_put(firc_clk);
+	if (!IS_ERR(spll))
+		clk_put(spll);
 
 	return ret;
 }
@@ -265,6 +252,7 @@ static int imx7ulp_cpufreq_remove(struct platform_device *pdev)
 	clk_put(spll_pfd0);
 	clk_put(spll_sel);
 	clk_put(firc_clk);
+	clk_put(spll);
 
 	return 0;
 }
