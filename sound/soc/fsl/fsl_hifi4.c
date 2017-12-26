@@ -147,56 +147,102 @@ static int put_decode_info_compat32(struct decode_info *kp,
 }
 #endif
 
-long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv,
-				struct icm_process_info *process_info)
+long hifi4_buf_alloc(struct fsl_hifi4 *hifi4_priv,
+						unsigned int size)
 {
-	struct file *fpInfile;
-	unsigned char *srambuf = NULL;
-	struct lib_dnld_info_t dpulib;
-	int filesize = 0;
-	long ret_val = 0;
+	union icm_header_t apu_icm;
+	struct hifi4_ext_msg ext_msg;
+	struct icm_pilib_size_t icm_pilib_size_t;
+	struct icm_pilib_size_t *pilib_buffer_info =
+				&hifi4_priv->pilib_buffer_info;
+	long ret = 0;
 
-	/* Load DPU's main program to System memory */
-	fpInfile = file_open_name(process_info->objfile, O_RDONLY, 0);
-	if (IS_ERR(fpInfile))
-		return PTR_ERR(fpInfile);
+	if (size <= 0)
+		return 0;
 
-	vfs_llseek(fpInfile, 0, SEEK_END);
-	filesize = (int)fpInfile->f_pos;
+	/* For shared memory between hifi driver and framework,
+	 * it is managed by hifi framework, so when hifi driver
+	 * wants to get shard memory, it should send
+	 * ICM_PI_LIB_MEM_ALLOC command to hifi framework to request
+	 * memory. If memory request is ok, hifi framework will send
+	 * a message which includes the physical address of memory to
+	 * hifi driver. If not, the physical address will be zero.
+	 */
+	init_completion(&hifi4_priv->cmd_complete);
+	hifi4_priv->is_done = 0;
 
-	srambuf = kmalloc(filesize, GFP_KERNEL);
-	vfs_llseek(fpInfile, 0, SEEK_SET);
+	apu_icm.allbits = 0;	/* clear all bits;*/
+	apu_icm.ack = 0;
+	apu_icm.intr = 1;
+	apu_icm.msg = ICM_PI_LIB_MEM_ALLOC;
+	apu_icm.size = 8;
 
-	kernel_read(fpInfile, srambuf, filesize, NULL);
-	filp_close(fpInfile, NULL);
+	ext_msg.phys = hifi4_priv->msg_buf_phys;
+	ext_msg.size = sizeof(struct icm_pilib_size_t);
 
-	ret_val = xtlib_split_pi_library_size(
-			(struct xtlib_packaged_library *)(srambuf),
-			(unsigned int *)&(dpulib.size_code),
-			(unsigned int *)&(dpulib.size_data),
-			process_info);
-	if (ret_val != XTLIB_NO_ERR)
-		return ret_val;
+	icm_pilib_size_t.buffer_addr = 0;
+	icm_pilib_size_t.buffer_size = size;
+	icm_pilib_size_t.ret = 0;
 
-	process_info->code_buf_size = dpulib.size_code;
-	process_info->data_buf_size = dpulib.size_data;
+	memcpy(hifi4_priv->msg_buf_virt, &icm_pilib_size_t,
+			sizeof(struct icm_pilib_size_t));
+	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
-	dpulib.pbuf_code = (unsigned long)process_info->code_buf_phys;
-	dpulib.pbuf_data = (unsigned long)process_info->data_buf_phys;
+	/* wait for response here */
+	ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
+	if (ret)
+		return 0;
 
-	dpulib.ppil_inf = &process_info->pil_info;
-	xtlib_host_load_split_pi_library(
-			(struct xtlib_packaged_library *) (srambuf),
-			(xt_ptr) (dpulib.pbuf_code),
-			(xt_ptr) (dpulib.pbuf_data),
-			(struct xtlib_pil_info *)dpulib.ppil_inf,
-			(memcpy_func)&memcpy_hifi,
-			(memset_func)&memset_hifi,
-			(void *)process_info);
+	if (pilib_buffer_info->buffer_addr)
+		return (long)pilib_buffer_info->buffer_addr;
 
-	kfree(srambuf);
+	return 0;
+}
 
-	return ret_val;
+long hifi4_buf_free(struct fsl_hifi4 *hifi4_priv, long ptr)
+{
+	union icm_header_t apu_icm;
+	struct hifi4_ext_msg ext_msg;
+	struct icm_pilib_size_t icm_pilib_size_t;
+	long ret = 0;
+
+	if (ptr == 0)
+		return 0;
+
+	/* If hifi driver wants to release the shared memory which
+	 * has been allocated by hifi4_buf_alloc(), it should send
+	 * ICM_PI_LIB_MEM_FREE command to hifi framework. The message
+	 * in this command should include the physical address of
+	 * current memory.
+	 */
+	init_completion(&hifi4_priv->cmd_complete);
+	hifi4_priv->is_done = 0;
+
+	apu_icm.allbits = 0;	/* clear all bits;*/
+	apu_icm.ack = 0;
+	apu_icm.intr = 1;
+	apu_icm.msg = ICM_PI_LIB_MEM_FREE;
+	apu_icm.size = 8;
+
+	ext_msg.phys = hifi4_priv->msg_buf_phys;
+	ext_msg.size = sizeof(struct icm_pilib_size_t);
+
+	icm_pilib_size_t.buffer_addr = (u32)ptr;
+	icm_pilib_size_t.buffer_size = 0;
+	icm_pilib_size_t.ret = 0;
+
+	memcpy(hifi4_priv->msg_buf_virt, &icm_pilib_size_t,
+			sizeof(struct icm_pilib_size_t));
+	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
+
+	/* wait for response here */
+	ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
+	if (ret)
+		return ret;
+
+	ret = hifi4_priv->ret_status;
+
+	return ret;
 }
 
 Elf32_Half xtlib_host_half(Elf32_Half v, int byteswap)
@@ -643,6 +689,94 @@ xt_ptr xtlib_host_load_split_pi_library(struct xtlib_packaged_library *library,
 }
 
 
+long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv,
+				struct icm_process_info *process_info)
+{
+	struct device *dev = hifi4_priv->dev;
+	struct file *fpInfile;
+	unsigned char *srambuf = NULL;
+	struct lib_dnld_info_t dpulib;
+	Elf32_Phdr *pheader;
+	Elf32_Ehdr *header;
+	unsigned int align;
+	int filesize = 0;
+	long ret_val = 0;
+
+	/* Load DPU's main program to System memory */
+	fpInfile = file_open_name(process_info->objfile, O_RDONLY, 0);
+	if (IS_ERR(fpInfile))
+		return PTR_ERR(fpInfile);
+
+	vfs_llseek(fpInfile, 0, SEEK_END);
+	filesize = (int)fpInfile->f_pos;
+
+	srambuf = kmalloc(filesize, GFP_KERNEL);
+	vfs_llseek(fpInfile, 0, SEEK_SET);
+
+	kernel_read(fpInfile, srambuf, filesize, NULL);
+	filp_close(fpInfile, NULL);
+
+	ret_val = xtlib_split_pi_library_size(
+			(struct xtlib_packaged_library *)(srambuf),
+			(unsigned int *)&(dpulib.size_code),
+			(unsigned int *)&(dpulib.size_data),
+			process_info);
+	if (ret_val != XTLIB_NO_ERR)
+		return ret_val;
+
+	process_info->code_buf_size = dpulib.size_code;
+	process_info->data_buf_size = dpulib.size_data;
+
+	header = (Elf32_Ehdr *)srambuf;
+	pheader = (Elf32_Phdr *) ((char *)srambuf +
+				xtlib_host_word(header->e_phoff,
+				process_info->xtlib_globals.byteswap));
+
+	align = find_align(header, process_info);
+
+	process_info->code_buf_phys = hifi4_buf_alloc(hifi4_priv,
+				dpulib.size_code + align);
+	if (!process_info->code_buf_phys) {
+		kfree(srambuf);
+		dev_err(dev, "not enough buffer when loading codec lib\n");
+		return -ENOMEM;
+	}
+	process_info->array_alloc_mem[process_info->alloc_count++] =
+				process_info->code_buf_phys;
+
+	process_info->data_buf_phys = hifi4_buf_alloc(hifi4_priv,
+				dpulib.size_data + pheader[1].p_paddr + align);
+	if (!process_info->data_buf_phys) {
+		kfree(srambuf);
+		dev_err(dev, "not enough buffer when loading codec lib\n");
+		return -ENOMEM;
+	}
+	process_info->array_alloc_mem[process_info->alloc_count++] =
+				process_info->data_buf_phys;
+
+	dpulib.pbuf_code = (unsigned long)process_info->code_buf_phys;
+	dpulib.pbuf_data = (unsigned long)process_info->data_buf_phys;
+
+	process_info->code_buf_virt = hifi4_priv->sdram_vir_addr +
+		(process_info->code_buf_phys - hifi4_priv->sdram_phys_addr);
+	process_info->data_buf_virt = hifi4_priv->sdram_vir_addr +
+		(process_info->data_buf_phys - hifi4_priv->sdram_phys_addr);
+
+	dpulib.ppil_inf = &process_info->pil_info;
+	xtlib_host_load_split_pi_library(
+			(struct xtlib_packaged_library *) (srambuf),
+			(xt_ptr) (dpulib.pbuf_code),
+			(xt_ptr) (dpulib.pbuf_data),
+			(struct xtlib_pil_info *)dpulib.ppil_inf,
+			(memcpy_func)&memcpy_hifi,
+			(memset_func)&memset_hifi,
+			(void *)process_info);
+
+	kfree(srambuf);
+
+	return ret_val;
+}
+
 static long fsl_hifi4_init_codec(struct fsl_hifi4 *hifi4_priv,
 							void __user *user)
 {
@@ -685,6 +819,31 @@ static long fsl_hifi4_init_codec(struct fsl_hifi4 *hifi4_priv,
 	ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
 	if (ret)
 		return ret;
+
+	/* allocate input and output buffer from dsp framework */
+	process_info->in_buf_phys = hifi4_buf_alloc(hifi4_priv,
+							INPUT_BUF_SIZE);
+	if (!process_info->in_buf_phys) {
+		dev_err(dev, "Fail to alloc input buffer\n");
+		return -ENOMEM;
+	}
+	process_info->array_alloc_mem[process_info->alloc_count++] =
+					process_info->in_buf_phys;
+
+	process_info->out_buf_phys = hifi4_buf_alloc(hifi4_priv,
+							OUTPUT_BUF_SIZE);
+	if (!process_info->out_buf_phys) {
+		dev_err(dev, "Fail to alloc output buffer\n");
+		return -ENOMEM;
+	}
+	process_info->array_alloc_mem[process_info->alloc_count++] =
+					process_info->out_buf_phys;
+
+	/* caculate the virtual address based on physical address */
+	process_info->in_buf_virt = hifi4_priv->sdram_vir_addr +
+		  (process_info->in_buf_phys - hifi4_priv->sdram_phys_addr);
+	process_info->out_buf_virt = hifi4_priv->sdram_vir_addr +
+		  (process_info->out_buf_phys - hifi4_priv->sdram_phys_addr);
 
 	return hifi4_priv->ret_status;
 }
@@ -1070,6 +1229,7 @@ static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
 
 	hifi4_priv->process_info[id].objfile = fpInfile;
 	hifi4_priv->process_info[id].objtype = binary_info.type;
+	hifi4_priv->process_info[id].codec_id = binary_info.type;
 	ret = load_dpu_with_library(hifi4_priv, &hifi4_priv->process_info[id]);
 	if (ret) {
 		dev_err(dev, "failed to load code binary, err = %ld\n", ret);
@@ -1288,7 +1448,8 @@ static int fsl_hifi4_client_unregister(struct fsl_hifi4 *hifi4_priv,
 							void __user *user)
 {
 	struct device *dev = hifi4_priv->dev;
-	int id;
+	struct icm_process_info *process_info;
+	int id, i;
 	unsigned long ret = 0;
 
 	ret = copy_from_user(&id, user, sizeof(int));
@@ -1302,8 +1463,16 @@ static int fsl_hifi4_client_unregister(struct fsl_hifi4 *hifi4_priv,
 		return -EINVAL;
 	}
 
-	memset(&hifi4_priv->process_info[id], 0,
-					sizeof(struct icm_process_info));
+	process_info = &hifi4_priv->process_info[id];
+
+	/* free buffers which are occupied by this process */
+	for (i = 0; i < process_info->alloc_count; i++) {
+		hifi4_buf_free(hifi4_priv,
+					process_info->array_alloc_mem[i]);
+		process_info->array_alloc_mem[i] = 0;
+	}
+
+	memset(process_info, 0, sizeof(struct icm_process_info));
 
 	return 0;
 }
@@ -1602,6 +1771,8 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 	struct icm_cdc_iobuf_t *codec_iobuf_info =
 					&hifi4_priv->codec_iobuf_info;
 	struct icm_pcm_prop_t *pcm_prop_info = &hifi4_priv->pcm_prop_info;
+	struct icm_pilib_size_t *pilib_buffer_info =
+					&hifi4_priv->pilib_buffer_info;
 	int ret_val = 0;
 
 	recd_msg.allbits = msg;
@@ -1614,6 +1785,21 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 	switch (recd_msg.sub_msg) {
 	case ICM_PI_LIB_MEM_ALLOC:
 		{
+			struct icm_pilib_size_t *pext_msg =
+				(struct icm_pilib_size_t *)pmsg_apu;
+			pilib_buffer_info->buffer_addr = pext_msg->buffer_addr;
+			pilib_buffer_info->buffer_size = pext_msg->buffer_size;
+			hifi4_priv->ret_status = pext_msg->ret;
+			hifi4_priv->is_done = 1;
+			complete(&hifi4_priv->cmd_complete);
+		}
+		break;
+
+	case ICM_PI_LIB_MEM_FREE:
+		{
+			struct icm_pilib_size_t *pext_msg =
+				(struct icm_pilib_size_t *)pmsg_apu;
+			hifi4_priv->ret_status = pext_msg->ret;
 			hifi4_priv->is_done = 1;
 			complete(&hifi4_priv->cmd_complete);
 		}

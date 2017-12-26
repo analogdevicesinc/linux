@@ -22,6 +22,7 @@ typedef void (*memset_func) (void *s, int c, size_t n);
 struct xtlib_packaged_library;
 
 #define MULTI_CODEC_NUM		5
+#define MAX_MEM_ALLOCS      50
 
 enum {
 	XTLIB_NO_ERR = 0,
@@ -124,6 +125,7 @@ union icm_header_t {
 enum icm_action_t {
 	ICM_CORE_READY = 1,
 	ICM_PI_LIB_MEM_ALLOC,
+	ICM_PI_LIB_MEM_FREE,
 	ICM_PI_LIB_INIT,
 	ICM_PI_LIB_LOAD,
 	ICM_PI_LIB_UNLOAD,
@@ -164,6 +166,12 @@ struct lib_dnld_info_t {
 	unsigned int lib_on_dpu;	/* 0: not loaded, 1: loaded. */
 };
 
+struct icm_pilib_size_t {
+	u32 buffer_addr;
+	u32 buffer_size;
+	s32 ret;
+};
+
 struct icm_process_info {
 	unsigned int process_id;
 	unsigned int codec_id;
@@ -184,6 +192,9 @@ struct icm_process_info {
 	void				*data_buf_virt;
 	dma_addr_t			 data_buf_phys;
 	int				 data_buf_size;
+
+	dma_addr_t       array_alloc_mem[MAX_MEM_ALLOCS];
+	int              alloc_count;
 
 	struct filename			*objfile;
 	char				objtype;
@@ -224,6 +235,7 @@ struct fsl_hifi4 {
 
 	struct icm_cdc_iobuf_t		codec_iobuf_info;
 	struct icm_pcm_prop_t		pcm_prop_info;
+	struct icm_pilib_size_t     pilib_buffer_info;
 
 	struct completion	cmd_complete;
 	struct mutex hifi4_mutex;
