@@ -619,6 +619,10 @@
 		compatible = "fsl,heartbeat-rpmsg";
 	};
 
+	rtc-rpmsg {
+		compatible = "fsl,imx-rpmsg-rtc";
+	};
+
   imx_ion {
     compatible = "fsl,mxc-ion";
     fsl,heap-id = <0>;
