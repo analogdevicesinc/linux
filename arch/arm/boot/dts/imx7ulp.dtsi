@@ -43,8 +43,8 @@
 
 		operating-points = <
 			/* KHz	uV */
-			531648	1125000
-			416072	1025000
+			720000	1125000
+			500210	1025000
 		>;
 		clocks = <&clks IMX7ULP_CLK_ARM>,
 			 <&clks IMX7ULP_CLK_CORE_DIV>,
@@ -53,9 +53,11 @@
 			 <&clks IMX7ULP_CLK_HSRUN_CORE>,
 			 <&clks IMX7ULP_CLK_SPLL_PFD0>,
 			 <&clks IMX7ULP_CLK_SPLL_SEL>,
-			 <&clks IMX7ULP_CLK_FIRC>;
+			 <&clks IMX7ULP_CLK_FIRC>,
+			 <&clks IMX7ULP_CLK_SPLL>;
 		clock-names = "arm", "core_div", "sys_sel", "hsrun_sys_sel",
-			      "hsrun_core", "spll_pfd0", "spll_sel", "firc";
+			      "hsrun_core", "spll_pfd0", "spll_sel", "firc",
+			      "spll";
 		};
 	};
 
