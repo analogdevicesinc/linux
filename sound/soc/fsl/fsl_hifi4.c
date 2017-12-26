@@ -611,6 +611,8 @@ static xt_ptr xtlib_load_split_pi_library_common(
 	Elf32_Phdr *pheader;
 	unsigned int align;
 	int err = validate_dynamic_splitload(header, process_info);
+	xt_ptr destination_code_address_back;
+	xt_ptr destination_data_address_back;
 
 	if (err != XTLIB_NO_ERR) {
 		xtlib_globals->err = err;
@@ -619,8 +621,15 @@ static xt_ptr xtlib_load_split_pi_library_common(
 
 	align = find_align(header, process_info);
 
+	destination_code_address_back = destination_code_address;
+	destination_data_address_back = destination_data_address;
+
 	destination_code_address = align_ptr(destination_code_address, align);
 	destination_data_address = align_ptr(destination_data_address, align);
+	process_info->code_buf_virt += (destination_code_address -
+				destination_code_address_back);
+	process_info->data_buf_virt += (destination_data_address -
+				destination_data_address_back);
 
 	pheader = (Elf32_Phdr *) ((char *)library +
 			xtlib_host_word(header->e_phoff,
@@ -1683,16 +1692,45 @@ static int fsl_hifi4_close(struct inode *inode, struct file *file)
 
 void *memset_hifi(void *dest, int c, size_t count)
 {
-	unsigned int *dl = (unsigned int *)dest;
-	size_t n = round_up(count, 4) / 4;
+	uint *dl = (uint *)dest;
+	void *dl_1, *dl_2;
+	size_t align = 4;
+	size_t n, n1, n2;
 
 	/* while all data is aligned (common case), copy a word at a time */
-	if ((((ulong)dest) & (sizeof(*dl) - 1)) != 0)
-		pr_info("dest %p not 4 bytes aligned\n", dest);
+	if ((((ulong)dest) & (sizeof(*dl) - 1)) != 0) {
+		dl = (unsigned int *)(((ulong)dest + align - 1) &
+								(~(align - 1)));
+		dl_1 = dest;
+		dl_2 = (void *)(((ulong)dest + count) & (~(align - 1)));
+		n1 = (ulong)dl - (ulong)dl_1;
+		n2 = (ulong)dest + count - (ulong)dl_2;
+		n = (count - n1 - n2) / align;
 
-	while (n--) {
-		writel_relaxed(0,  dl);
-		dl++;
+		while (n--) {
+			writel_relaxed(0,  dl);
+			dl++;
+		}
+		while (n1--) {
+			writeb_relaxed(0, dl_1);
+			dl_1++;
+		}
+		while (n2--) {
+			writeb_relaxed(0, dl_2);
+			dl_2++;
+		}
+	} else {
+		n = count / align;
+		n1 = count - n * align;
+		dl_1 = dest + n * align;
+		while (n--) {
+			writel_relaxed(0,  dl);
+			dl++;
+		}
+		while (n1--) {
+			writeb_relaxed(0, dl_1);
+			dl_1++;
+		}
 	}
 
 	return dest;
