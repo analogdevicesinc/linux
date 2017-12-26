@@ -26,7 +26,7 @@ static const char *spll_sels[]		= { "spll", "spll_pfd_sel", };
 static const char *apll_pfd_sels[]	= { "apll_pfd0", "apll_pfd1", "apll_pfd2", "apll_pfd3", };
 static const char *apll_sels[]		= { "apll", "apll_pfd_sel", };
 static const char *sys_sels[]		= { "dummy", "osc", "sirc", "firc", "ckil", "apll_sel", "spll_sel", "upll", };
-static const char *arm_sels[]		= { "core_div", "hsrun_core", };
+static const char *arm_sels[]		= { "core_div", "dummy", "dummy", "hsrun_core", };
 static const char *ddr_sels[]		= { "apll_pfd_sel", "upll", };
 static const char *nic_sels[]		= { "firc", "ddr_div", };
 static const char *periph_plat_sels[]	= { "dummy", "nic1_bus", "nic1_div", "ddr_div", "apll_pfd2", "apll_pfd1", "apll_pfd0", "upll", };
@@ -65,6 +65,7 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 {
 	struct device_node *np;
 	void __iomem *base;
+	void __iomem *smc_base;
 	int i;
 
 	clks[IMX7ULP_CLK_DUMMY]		= imx_clk_fixed("dummy", 0);
@@ -75,6 +76,10 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_FIRC]		= of_clk_get_by_name(scg_node, "firc");
 	clks[IMX7ULP_CLK_MIPI_PLL]	= of_clk_get_by_name(scg_node, "mpll");
 	clks[IMX7ULP_CLK_UPLL]		= of_clk_get_by_name(scg_node, "upll");
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-smc1");
+	smc_base = of_iomap(np, 0);
+	WARN_ON(!smc_base);
 
 	np = scg_node;
 	base = of_iomap(np, 0);
@@ -115,7 +120,7 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_HSRUN_CORE] = imx_clk_divider_flags("hsrun_core", "hsrun_sys_sel", base + 0x1c, 16, 4, CLK_SET_RATE_PARENT);
 	clks[IMX7ULP_CLK_PLAT_DIV] = imx_clk_divider("plat_div", "core_div", base + 0x14, 12, 4);
 	/* Fake mux */
-	clks[IMX7ULP_CLK_ARM] = imx_clk_mux_glitchless("arm", base + 0x14, 5, 1, arm_sels, ARRAY_SIZE(arm_sels));
+	clks[IMX7ULP_CLK_ARM] = imx_clk_mux_glitchless("arm", smc_base + 0x10, 8, 2, arm_sels, ARRAY_SIZE(arm_sels));
 
 	clks[IMX7ULP_CLK_DDR_DIV] = clk_register_divider(NULL, "ddr_div", "ddr_sel", CLK_SET_RATE_PARENT | CLK_SET_RATE_GATE, base + 0x30, 0, 3, CLK_DIVIDER_ONE_BASED, &imx_ccm_lock);
 	clks[IMX7ULP_CLK_NIC0_DIV] = imx_clk_divider("nic0_div", "nic_sel",  base + 0x40, 24, 4);
@@ -131,7 +136,6 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_DMA1]		= imx_clk_gate("dma1", "nic1_bus", base + 0x20, 30);
 	clks[IMX7ULP_CLK_RGPIO2P1]	= imx_clk_gate("gpio", "nic1_bus", base + 0x3c, 30);
 	clks[IMX7ULP_CLK_DMA_MUX1]	= imx_clk_gate("dma_mux1", "nic1_bus",	base + 0x84, 30);
-	clks[IMX7ULP_CLK_SNVS]		= imx_clk_gate("snvs", "nic1_bus",	base + 0x8c, 30);
 	clks[IMX7ULP_CLK_CAAM]		= imx_clk_gate("caam", "nic1_div",	base + 0x90, 30);
 	clks[IMX7ULP_CLK_LPTPM4]	= imx_clk_composite("lptpm4",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x94);
 	clks[IMX7ULP_CLK_LPTPM5]	= imx_clk_composite("lptmp5",  periph_slow_sels, ARRAY_SIZE(periph_slow_sels), true, false, true, base + 0x98);
