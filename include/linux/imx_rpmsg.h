@@ -28,6 +28,7 @@
 #define IMX_RPMSG_AUDIO		3
 #define IMX_RPMSG_KEY		4
 #define IMX_RPMSG_GPIO		5
+#define IMX_RPMSG_RTC		6
 /* rpmsg version */
 #define IMX_RMPSG_MAJOR		1
 #define IMX_RMPSG_MINOR		0
