@@ -2,7 +2,7 @@
  * Freescale HIFI 4 driver
  *
  * Copyright (c) 2012-2013 by Tensilica Inc. ALL RIGHTS RESERVED.
- * Copyright 2017 NXP.
+ * Copyright 2018 NXP
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -72,7 +72,6 @@ struct decode_info_compat32 {
 	compat_long_t out_buf_addr;
 	__s32 out_buf_size;
 	__s32 out_buf_off;
-	__u32 cycles;
 	__u32 input_over;
 	__u32 process_id;
 };
@@ -81,6 +80,7 @@ struct binary_info_compat32 {
 	__s32 type;
 	compat_long_t file;
 	__u32 process_id;
+	__u32 lib_type;
 };
 
 static int get_binary_info_compat32(struct binary_info *kp,
@@ -91,25 +91,14 @@ static int get_binary_info_compat32(struct binary_info *kp,
 	if (!access_ok(VERIFY_READ, up, sizeof(struct binary_info_compat32)) ||
 		get_user(kp->type, &up->type) ||
 		get_user(p, &up->file) ||
-		get_user(kp->process_id, &up->process_id)
+		get_user(kp->process_id, &up->process_id) ||
+		get_user(kp->lib_type, &up->lib_type)
 	   ) {
 		return -EFAULT;
 	}
 
 	up_ptr = compat_ptr(p);
 	kp->file = (char *)up_ptr;
-
-	return 0;
-}
-
-static int put_binary_info_compat32(struct binary_info *kp,
-				struct binary_info_compat32 *up) {
-
-	if (!access_ok(VERIFY_WRITE, up, sizeof(struct binary_info_compat32)) ||
-		put_user(kp->process_id, &up->process_id)
-	   ) {
-		return -EFAULT;
-	}
 
 	return 0;
 }
@@ -128,7 +117,6 @@ static int get_decode_info_compat32(struct decode_info *kp,
 		get_user(p2, &up->out_buf_addr) ||
 		get_user(kp->out_buf_size, &up->out_buf_size) ||
 		get_user(kp->out_buf_off, &up->out_buf_off) ||
-		get_user(kp->cycles, &up->cycles) ||
 		get_user(kp->input_over, &up->input_over) ||
 		get_user(kp->process_id, &up->process_id)
 	   ) {
@@ -150,7 +138,6 @@ static int put_decode_info_compat32(struct decode_info *kp,
 	if (!access_ok(VERIFY_WRITE, up, sizeof(struct decode_info_compat32)) ||
 		put_user(kp->in_buf_off, &up->in_buf_off) ||
 		put_user(kp->out_buf_off, &up->out_buf_off) ||
-		put_user(kp->cycles, &up->cycles) ||
 		put_user(kp->input_over, &up->input_over)
 	   ) {
 		return -EFAULT;
@@ -160,80 +147,17 @@ static int put_decode_info_compat32(struct decode_info *kp,
 }
 #endif
 
-long switch_codec(struct fsl_hifi4 *hifi4_priv, int id)
-{
-	union icm_header_t apu_icm;
-	struct hifi4_ext_msg ext_msg;
-	struct icm_switch_info_t switch_info;
-	int i;
-	long ret = 0;
-
-	switch_info.proc_id = id;
-	switch_info.status  = 0;
-
-	init_completion(&hifi4_priv->cmd_complete);
-	hifi4_priv->is_done = 0;
-
-	apu_icm.allbits = 0;	/* clear all bits; */
-
-	apu_icm.ack = 0;
-	apu_icm.intr = 1;
-	apu_icm.msg = ICM_SWITCH_CODEC;
-	apu_icm.size = 8;
-
-	ext_msg.phys = hifi4_priv->msg_buf_phys;
-	ext_msg.size = sizeof(struct icm_switch_info_t);
-	memcpy(hifi4_priv->msg_buf_virt, &switch_info,
-				sizeof(struct icm_switch_info_t));
-
-	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
-
-	/* wait for response here */
-	ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
-	if (ret)
-		return ret;
-
-	/* check whether the dsp framework switches successfully or not */
-	ret = hifi4_priv->ret_status;
-	if (ret)
-		return ret;
-
-	/* Because this variables are shared for every codec, so when
-	 * switching, need to recover it value for current codec.
-	 */
-	for (i = 0; i < MULTI_CODEC_NUM; i++) {
-		if (hifi4_priv->process_info[i].process_id == id) {
-			if (hifi4_priv->process_info[i].status) {
-				hifi4_priv->cur_res_id = i;
-				hifi4_priv->pil_info =
-				  hifi4_priv->process_info[i].pil_info_info;
-				hifi4_priv->objtype =
-				  hifi4_priv->process_info[i].codec_id;
-				hifi4_priv->codec_iobuf_info.proc_id =
-				  hifi4_priv->process_info[i].proc_id;
-				break;
-			}
-		}
-	}
-	/* update the current process id to the new process id */
-	hifi4_priv->process_id = id;
-
-	return ret;
-}
-
-long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv)
+long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv,
+				struct icm_process_info *process_info)
 {
 	struct file *fpInfile;
 	unsigned char *srambuf = NULL;
 	struct lib_dnld_info_t dpulib;
 	int filesize = 0;
-	unsigned int id;
 	long ret_val = 0;
 
-	id = hifi4_priv->cur_res_id;
-
 	/* Load DPU's main program to System memory */
-	fpInfile = file_open_name(hifi4_priv->objfile, O_RDONLY, 0);
+	fpInfile = file_open_name(process_info->objfile, O_RDONLY, 0);
 	if (IS_ERR(fpInfile))
 		return PTR_ERR(fpInfile);
 
@@ -250,18 +174,17 @@ long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv)
 			(struct xtlib_packaged_library *)(srambuf),
 			(unsigned int *)&(dpulib.size_code),
 			(unsigned int *)&(dpulib.size_data),
-			hifi4_priv);
+			process_info);
 	if (ret_val != XTLIB_NO_ERR)
 		return ret_val;
 
-	hifi4_priv->size_code = dpulib.size_code;
-	hifi4_priv->size_data = dpulib.size_data;
+	process_info->code_buf_size = dpulib.size_code;
+	process_info->data_buf_size = dpulib.size_data;
 
-	dpulib.pbuf_code =  (unsigned long)hifi4_priv->code_buf_phys;
-	dpulib.pbuf_data =
-		(unsigned long)hifi4_priv->process_info[id].data_buf_phys;
+	dpulib.pbuf_code = (unsigned long)process_info->code_buf_phys;
+	dpulib.pbuf_data = (unsigned long)process_info->data_buf_phys;
 
-	dpulib.ppil_inf = &hifi4_priv->pil_info;
+	dpulib.ppil_inf = &process_info->pil_info;
 	xtlib_host_load_split_pi_library(
 			(struct xtlib_packaged_library *) (srambuf),
 			(xt_ptr) (dpulib.pbuf_code),
@@ -269,7 +192,7 @@ long load_dpu_with_library(struct fsl_hifi4 *hifi4_priv)
 			(struct xtlib_pil_info *)dpulib.ppil_inf,
 			(memcpy_func)&memcpy_hifi,
 			(memset_func)&memset_hifi,
-			(void *)hifi4_priv);
+			(void *)process_info);
 
 	kfree(srambuf);
 
@@ -291,9 +214,10 @@ Elf32_Word xtlib_host_word(Elf32_Word v, int byteswap)
 }
 
 int xtlib_verify_magic(Elf32_Ehdr *header,
-				    struct fsl_hifi4 *hifi4_priv)
+				    struct icm_process_info *process_info)
 {
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 	Elf32_Byte magic_no;
 
 	magic_no =  header->e_ident[EI_MAG0];
@@ -337,9 +261,10 @@ int xtlib_verify_magic(Elf32_Ehdr *header,
 
 void xtlib_load_seg(Elf32_Phdr *pheader, void *src_addr, xt_ptr dst_addr,
 			memcpy_func mcpy, memset_func mset,
-			struct fsl_hifi4 *hifi4_priv)
+			struct icm_process_info *process_info)
 {
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 	Elf32_Word bytes_to_copy = xtlib_host_word(pheader->p_filesz,
 						xtlib_globals->byteswap);
 	Elf32_Word bytes_to_zero = xtlib_host_word(pheader->p_memsz,
@@ -364,9 +289,10 @@ static xt_ptr align_ptr(xt_ptr ptr, xt_uint align)
 }
 
 static xt_ptr xt_ptr_offs(xt_ptr base, Elf32_Word offs,
-				    struct fsl_hifi4 *hifi4_priv)
+				    struct icm_process_info *process_info)
 {
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 
 	return (xt_ptr) xtlib_xt_word((xt_uint)base +
 		xtlib_host_word(offs, xtlib_globals->byteswap),
@@ -374,10 +300,11 @@ static xt_ptr xt_ptr_offs(xt_ptr base, Elf32_Word offs,
 }
 
 static Elf32_Dyn *find_dynamic_info(Elf32_Ehdr *eheader,
-				    struct fsl_hifi4 *hifi4_priv)
+				    struct icm_process_info *process_info)
 {
 	char *base_addr = (char *)eheader;
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 	Elf32_Phdr *pheader = (Elf32_Phdr *)(base_addr +
 			xtlib_host_word(eheader->e_phoff,
 					xtlib_globals->byteswap));
@@ -398,9 +325,10 @@ static Elf32_Dyn *find_dynamic_info(Elf32_Ehdr *eheader,
 }
 
 static int find_align(Elf32_Ehdr *header,
-				    struct fsl_hifi4 *hifi4_priv)
+				    struct icm_process_info *process_info)
 {
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 	Elf32_Shdr *sheader = (Elf32_Shdr *) (((char *)header) +
 		xtlib_host_word(header->e_shoff, xtlib_globals->byteswap));
 
@@ -425,13 +353,13 @@ static int find_align(Elf32_Ehdr *header,
 	return align;
 }
 
-
 static int validate_dynamic(Elf32_Ehdr *header,
-				    struct fsl_hifi4 *hifi4_priv)
+				    struct icm_process_info *process_info)
 {
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 
-	if (xtlib_verify_magic(header, hifi4_priv) != 0)
+	if (xtlib_verify_magic(header, process_info) != 0)
 		return XTLIB_NOT_ELF;
 
 	if (xtlib_host_half(header->e_type,
@@ -442,11 +370,12 @@ static int validate_dynamic(Elf32_Ehdr *header,
 }
 
 static int validate_dynamic_splitload(Elf32_Ehdr *header,
-				    struct fsl_hifi4 *hifi4_priv)
+				    struct icm_process_info *process_info)
 {
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 	Elf32_Phdr *pheader;
-	int err = validate_dynamic(header, hifi4_priv);
+	int err = validate_dynamic(header, process_info);
 
 	if (err != XTLIB_NO_ERR)
 		return err;
@@ -500,20 +429,21 @@ unsigned int xtlib_split_pi_library_size(
 				struct xtlib_packaged_library *library,
 				unsigned int *code_size,
 				unsigned int *data_size,
-				struct fsl_hifi4 *hifi4_priv)
+				struct icm_process_info *process_info)
 {
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 	Elf32_Phdr *pheader;
 	Elf32_Ehdr *header = (Elf32_Ehdr *) library;
 	int align;
-	int err = validate_dynamic_splitload(header, hifi4_priv);
+	int err = validate_dynamic_splitload(header, process_info);
 
 	if (err != XTLIB_NO_ERR) {
 		xtlib_globals->err = err;
 		return err;
 	}
 
-	align = find_align(header, hifi4_priv);
+	align = find_align(header, process_info);
 
 	pheader = (Elf32_Phdr *) ((char *)library +
 		xtlib_host_word(header->e_phoff, xtlib_globals->byteswap));
@@ -534,12 +464,13 @@ static int get_dyn_info(Elf32_Ehdr *eheader,
 				xt_ptr dst_data_addr,
 				xt_uint src_data_offs,
 				struct xtlib_pil_info *info,
-				struct fsl_hifi4 *hifi4_priv)
+				struct icm_process_info *process_info)
 {
 	unsigned int jmprel = 0;
 	unsigned int pltrelsz = 0;
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
-	Elf32_Dyn *dyn_entry = find_dynamic_info(eheader, hifi4_priv);
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
+	Elf32_Dyn *dyn_entry = find_dynamic_info(eheader, process_info);
 
 	if (dyn_entry == 0)
 		return XTLIB_NO_DYNAMIC_SEGMENT;
@@ -556,9 +487,9 @@ static int get_dyn_info(Elf32_Ehdr *eheader,
 	dst_addr -= src_offs;
 	dst_data_addr = dst_data_addr + src_data_offs - src_data_offs;
 
-	info->start_sym = xt_ptr_offs(dst_addr, eheader->e_entry, hifi4_priv);
+	info->start_sym = xt_ptr_offs(dst_addr, eheader->e_entry, process_info);
 
-	info->align = xtlib_xt_word(find_align(eheader, hifi4_priv),
+	info->align = xtlib_xt_word(find_align(eheader, process_info),
 					xtlib_globals->byteswap);
 
 	info->text_addr = 0;
@@ -569,7 +500,7 @@ static int get_dyn_info(Elf32_Ehdr *eheader,
 			xtlib_globals->byteswap)) {
 		case DT_RELA:
 			info->rel = xt_ptr_offs(dst_data_addr,
-					dyn_entry->d_un.d_ptr, hifi4_priv);
+					dyn_entry->d_un.d_ptr, process_info);
 			break;
 		case DT_RELASZ:
 			info->rela_count = xtlib_xt_word(
@@ -579,23 +510,23 @@ static int get_dyn_info(Elf32_Ehdr *eheader,
 			break;
 		case DT_INIT:
 			info->init = xt_ptr_offs(dst_addr,
-					dyn_entry->d_un.d_ptr, hifi4_priv);
+					dyn_entry->d_un.d_ptr, process_info);
 			break;
 		case DT_FINI:
 			info->fini = xt_ptr_offs(dst_addr,
-					dyn_entry->d_un.d_ptr, hifi4_priv);
+					dyn_entry->d_un.d_ptr, process_info);
 			break;
 		case DT_HASH:
 			info->hash = xt_ptr_offs(dst_data_addr,
-					dyn_entry->d_un.d_ptr, hifi4_priv);
+					dyn_entry->d_un.d_ptr, process_info);
 			break;
 		case DT_SYMTAB:
 			info->symtab = xt_ptr_offs(dst_data_addr,
-					dyn_entry->d_un.d_ptr, hifi4_priv);
+					dyn_entry->d_un.d_ptr, process_info);
 			break;
 		case DT_STRTAB:
 			info->strtab = xt_ptr_offs(dst_data_addr,
-					dyn_entry->d_un.d_ptr, hifi4_priv);
+					dyn_entry->d_un.d_ptr, process_info);
 			break;
 		case DT_JMPREL:
 			jmprel = dyn_entry->d_un.d_val;
@@ -605,7 +536,7 @@ static int get_dyn_info(Elf32_Ehdr *eheader,
 			break;
 		case DT_LOPROC + 2:
 			info->text_addr = xt_ptr_offs(dst_addr,
-					dyn_entry->d_un.d_ptr, hifi4_priv);
+					dyn_entry->d_un.d_ptr, process_info);
 			break;
 
 		default:
@@ -626,21 +557,21 @@ static xt_ptr xtlib_load_split_pi_library_common(
 				struct xtlib_pil_info *lib_info,
 				memcpy_func mcpy_fn,
 				memset_func mset_fn,
-				struct fsl_hifi4 *hifi4_priv)
+				struct icm_process_info *process_info)
 {
-	struct xtlib_loader_globals *xtlib_globals = &hifi4_priv->xtlib_globals;
+	struct xtlib_loader_globals *xtlib_globals =
+					&process_info->xtlib_globals;
 	Elf32_Ehdr *header = (Elf32_Ehdr *) library;
 	Elf32_Phdr *pheader;
-	unsigned int align, id;
-	int err = validate_dynamic_splitload(header, hifi4_priv);
+	unsigned int align;
+	int err = validate_dynamic_splitload(header, process_info);
 
 	if (err != XTLIB_NO_ERR) {
 		xtlib_globals->err = err;
 		return 0;
 	}
-	id = hifi4_priv->cur_res_id;
 
-	align = find_align(header, hifi4_priv);
+	align = find_align(header, process_info);
 
 	destination_code_address = align_ptr(destination_code_address, align);
 	destination_data_address = align_ptr(destination_data_address, align);
@@ -657,7 +588,7 @@ static xt_ptr xtlib_load_split_pi_library_common(
 			xtlib_host_word(pheader[1].p_paddr,
 					xtlib_globals->byteswap),
 			lib_info,
-			hifi4_priv);
+			process_info);
 
 	if (err != XTLIB_NO_ERR) {
 		xtlib_globals->err = err;
@@ -668,8 +599,8 @@ static xt_ptr xtlib_load_split_pi_library_common(
 	xtlib_load_seg(&pheader[0],
 		(char *)library + xtlib_host_word(pheader[0].p_offset,
 			xtlib_globals->byteswap),
-			(xt_ptr)hifi4_priv->code_buf_virt,
-			mcpy_fn, mset_fn, hifi4_priv);
+			(xt_ptr)process_info->code_buf_virt,
+			mcpy_fn, mset_fn, process_info);
 
 	if (lib_info->text_addr == 0)
 		lib_info->text_addr =
@@ -680,11 +611,10 @@ static xt_ptr xtlib_load_split_pi_library_common(
 	xtlib_load_seg(&pheader[1],
 		  (char *)library + xtlib_host_word(pheader[1].p_offset,
 						xtlib_globals->byteswap),
-		  (xt_ptr)hifi4_priv->process_info[id].data_buf_virt +
+		  (xt_ptr)process_info->data_buf_virt +
 		  xtlib_host_word(pheader[1].p_paddr,
 						xtlib_globals->byteswap),
-		  mcpy_fn, mset_fn, hifi4_priv);
-
+		  mcpy_fn, mset_fn, process_info);
 
 	if (err != XTLIB_NO_ERR) {
 		xtlib_globals->err = err;
@@ -701,7 +631,7 @@ xt_ptr xtlib_host_load_split_pi_library(struct xtlib_packaged_library *library,
 				  struct xtlib_pil_info *lib_info,
 				  memcpy_func mcpy_fn,
 				  memset_func mset_fn,
-				  struct fsl_hifi4 *hifi4_priv)
+				  struct icm_process_info *process_info)
 {
 	return  xtlib_load_split_pi_library_common(library,
 					      destination_code_address,
@@ -709,7 +639,7 @@ xt_ptr xtlib_host_load_split_pi_library(struct xtlib_packaged_library *library,
 					      lib_info,
 					      mcpy_fn,
 					      mset_fn,
-					      hifi4_priv);
+					      process_info);
 }
 
 
@@ -719,6 +649,8 @@ static long fsl_hifi4_init_codec(struct fsl_hifi4 *hifi4_priv,
 	struct device *dev = hifi4_priv->dev;
 	union icm_header_t apu_icm;
 	struct hifi4_ext_msg ext_msg;
+	struct icm_base_info_t icm_base_info_t;
+	struct icm_process_info *process_info;
 	int id;
 	long ret = 0;
 
@@ -728,13 +660,7 @@ static long fsl_hifi4_init_codec(struct fsl_hifi4 *hifi4_priv,
 		return -EFAULT;
 	}
 
-	if (hifi4_priv->process_id != id) {
-		ret = switch_codec(hifi4_priv, id);
-		if (ret) {
-			dev_err(dev, "failed to switch codec in codec init\n");
-			return ret;
-		}
-	}
+	process_info = &hifi4_priv->process_info[id];
 
 	init_completion(&hifi4_priv->cmd_complete);
 	hifi4_priv->is_done = 0;
@@ -746,10 +672,13 @@ static long fsl_hifi4_init_codec(struct fsl_hifi4 *hifi4_priv,
 	apu_icm.size = 8;
 
 	ext_msg.phys = hifi4_priv->msg_buf_phys;
-	ext_msg.size = sizeof(struct xtlib_pil_info);
+	ext_msg.size = sizeof(struct icm_base_info_t);
 
-	memcpy(hifi4_priv->msg_buf_virt, &hifi4_priv->pil_info,
-						sizeof(struct xtlib_pil_info));
+	icm_base_info_t.process_id = id;
+	icm_base_info_t.codec_id = process_info->codec_id;
+
+	memcpy(hifi4_priv->msg_buf_virt, &icm_base_info_t,
+						sizeof(struct icm_base_info_t));
 	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
 	/* wait for response here */
@@ -757,7 +686,7 @@ static long fsl_hifi4_init_codec(struct fsl_hifi4 *hifi4_priv,
 	if (ret)
 		return ret;
 
-	return 0;
+	return hifi4_priv->ret_status;
 }
 
 static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
@@ -767,8 +696,10 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 	union icm_header_t apu_icm;
 	struct hifi4_ext_msg ext_msg;
 	struct decode_info decode_info;
+	struct icm_process_info *process_info;
 	struct icm_cdc_iobuf_t *codec_iobuf_info =
 				&hifi4_priv->codec_iobuf_info;
+	int id;
 	long ret;
 
 	ret = copy_from_user(&decode_info, user, sizeof(decode_info));
@@ -777,13 +708,8 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 		return -EFAULT;
 	}
 
-	if (hifi4_priv->process_id != decode_info.process_id) {
-		ret = switch_codec(hifi4_priv, decode_info.process_id);
-		if (ret) {
-			dev_err(dev, "failed to switch codec in codec decode frame\n");
-			return ret;
-		}
-	}
+	id = decode_info.process_id;
+	process_info = &hifi4_priv->process_info[id];
 
 	if (decode_info.in_buf_size > INPUT_BUF_SIZE ||
 		decode_info.out_buf_size != OUTPUT_BUF_SIZE) {
@@ -792,7 +718,7 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 	}
 
 	if (decode_info.in_buf_off == 0) {
-		ret = copy_from_user(hifi4_priv->in_buf_virt,
+		ret = copy_from_user(process_info->in_buf_virt,
 					(void __user *)decode_info.in_buf_addr,
 					decode_info.in_buf_size);
 		if (ret) {
@@ -802,15 +728,16 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 		codec_iobuf_info->inp_cur_offset   = 0;
 	}
 
-	codec_iobuf_info->inp_addr_sysram  = hifi4_priv->in_buf_phys;
+	codec_iobuf_info->inp_addr_sysram  = process_info->in_buf_phys;
 	codec_iobuf_info->inp_buf_size_max = decode_info.in_buf_size;
 	codec_iobuf_info->inp_cur_offset = decode_info.in_buf_off;
 
-	codec_iobuf_info->out_addr_sysram  = hifi4_priv->out_buf_phys;
-	codec_iobuf_info->out_buf_size_max = hifi4_priv->out_buf_size;
+	codec_iobuf_info->out_addr_sysram  = process_info->out_buf_phys;
+	codec_iobuf_info->out_buf_size_max = process_info->out_buf_size;
 	codec_iobuf_info->out_cur_offset   = 0;
 
 	codec_iobuf_info->input_over   = decode_info.input_over;
+	codec_iobuf_info->base_info.process_id = decode_info.process_id;
 
 	init_completion(&hifi4_priv->cmd_complete);
 	hifi4_priv->is_done = 0;
@@ -833,7 +760,7 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 		return ret;
 
 	ret = copy_to_user((void __user *)decode_info.out_buf_addr,
-				hifi4_priv->out_buf_virt,
+				process_info->out_buf_virt,
 				codec_iobuf_info->out_cur_offset);
 	if (ret) {
 		dev_err(dev, "failed to copy to user\n");
@@ -842,7 +769,6 @@ static long fsl_hifi4_decode_frame(struct fsl_hifi4 *hifi4_priv,
 
 	decode_info.in_buf_off = codec_iobuf_info->inp_cur_offset;
 	decode_info.out_buf_off = codec_iobuf_info->out_cur_offset;
-	decode_info.cycles = codec_iobuf_info->cycles;
 
 	ret = copy_to_user(user, &decode_info, sizeof(decode_info));
 	if (ret) {
@@ -862,8 +788,10 @@ static long fsl_hifi4_decode_frame_compat32(struct fsl_hifi4 *hifi4_priv,
 	union icm_header_t apu_icm;
 	struct hifi4_ext_msg ext_msg;
 	struct decode_info decode_info;
+	struct icm_process_info *process_info;
 	struct icm_cdc_iobuf_t *codec_iobuf_info =
 				&hifi4_priv->codec_iobuf_info;
+	int id;
 	long ret;
 
 	ret = get_decode_info_compat32(&decode_info, user);
@@ -872,13 +800,8 @@ static long fsl_hifi4_decode_frame_compat32(struct fsl_hifi4 *hifi4_priv,
 		return ret;
 	}
 
-	if (hifi4_priv->process_id != decode_info.process_id) {
-		ret = switch_codec(hifi4_priv, decode_info.process_id);
-		if (ret) {
-			dev_err(dev, "failed to switch codec in codec decode frame in compat32 mode\n");
-			return ret;
-		}
-	}
+	id = decode_info.process_id;
+	process_info = &hifi4_priv->process_info[id];
 
 	if (decode_info.in_buf_size > INPUT_BUF_SIZE ||
 		decode_info.out_buf_size != OUTPUT_BUF_SIZE) {
@@ -887,7 +810,7 @@ static long fsl_hifi4_decode_frame_compat32(struct fsl_hifi4 *hifi4_priv,
 	}
 
 	if (decode_info.in_buf_off == 0) {
-		ret = copy_from_user(hifi4_priv->in_buf_virt,
+		ret = copy_from_user(process_info->in_buf_virt,
 					(void __user *)decode_info.in_buf_addr,
 					decode_info.in_buf_size);
 		if (ret) {
@@ -897,15 +820,16 @@ static long fsl_hifi4_decode_frame_compat32(struct fsl_hifi4 *hifi4_priv,
 		codec_iobuf_info->inp_cur_offset   = 0;
 	}
 
-	codec_iobuf_info->inp_addr_sysram  = hifi4_priv->in_buf_phys;
+	codec_iobuf_info->inp_addr_sysram  = process_info->in_buf_phys;
 	codec_iobuf_info->inp_buf_size_max = decode_info.in_buf_size;
 	codec_iobuf_info->inp_cur_offset = decode_info.in_buf_off;
 
-	codec_iobuf_info->out_addr_sysram  = hifi4_priv->out_buf_phys;
-	codec_iobuf_info->out_buf_size_max = hifi4_priv->out_buf_size;
+	codec_iobuf_info->out_addr_sysram  = process_info->out_buf_phys;
+	codec_iobuf_info->out_buf_size_max = process_info->out_buf_size;
 	codec_iobuf_info->out_cur_offset   = 0;
 
 	codec_iobuf_info->input_over   = decode_info.input_over;
+	codec_iobuf_info->base_info.process_id = decode_info.process_id;
 
 	init_completion(&hifi4_priv->cmd_complete);
 	hifi4_priv->is_done = 0;
@@ -928,7 +852,7 @@ static long fsl_hifi4_decode_frame_compat32(struct fsl_hifi4 *hifi4_priv,
 		return ret;
 
 	ret = copy_to_user((void __user *)decode_info.out_buf_addr,
-				hifi4_priv->out_buf_virt,
+				process_info->out_buf_virt,
 				codec_iobuf_info->out_cur_offset);
 	if (ret) {
 		dev_err(dev, "failed to copy to user\n");
@@ -937,7 +861,6 @@ static long fsl_hifi4_decode_frame_compat32(struct fsl_hifi4 *hifi4_priv,
 
 	decode_info.in_buf_off = codec_iobuf_info->inp_cur_offset;
 	decode_info.out_buf_off = codec_iobuf_info->out_cur_offset;
-	decode_info.cycles = codec_iobuf_info->cycles;
 
 	ret = put_decode_info_compat32(&decode_info, user);
 	if (ret) {
@@ -955,6 +878,7 @@ static long fsl_hifi4_get_pcm_prop(struct fsl_hifi4 *hifi4_priv,
 {
 	struct device *dev = hifi4_priv->dev;
 	union icm_header_t apu_icm;
+	struct hifi4_ext_msg ext_msg;
 	struct icm_pcm_prop_t *pcm_prop_info = &hifi4_priv->pcm_prop_info;
 	struct prop_info prop_info;
 	long ret = 0;
@@ -965,14 +889,6 @@ static long fsl_hifi4_get_pcm_prop(struct fsl_hifi4 *hifi4_priv,
 		return -EFAULT;
 	}
 
-	if (hifi4_priv->process_id != prop_info.process_id) {
-		ret = switch_codec(hifi4_priv, prop_info.process_id);
-		if (ret) {
-			dev_err(dev, "failed to switch codec in codec get param\n");
-			return ret;
-		}
-	}
-
 	init_completion(&hifi4_priv->cmd_complete);
 	hifi4_priv->is_done = 0;
 
@@ -980,9 +896,16 @@ static long fsl_hifi4_get_pcm_prop(struct fsl_hifi4 *hifi4_priv,
 	apu_icm.ack = 0;
 	apu_icm.intr = 1;
 	apu_icm.msg = ICM_GET_PCM_PROP;
-	apu_icm.size = 0;
+	apu_icm.size = 8;
 
-	icm_intr_send(hifi4_priv, apu_icm.allbits);
+	ext_msg.phys = hifi4_priv->msg_buf_phys;
+	ext_msg.size = sizeof(struct icm_pcm_prop_t);
+
+	pcm_prop_info->base_info.process_id = prop_info.process_id;
+
+	memcpy(hifi4_priv->msg_buf_virt, pcm_prop_info,
+					sizeof(struct icm_pcm_prop_t));
+	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
 	/* wait for response here */
 	ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
@@ -993,6 +916,7 @@ static long fsl_hifi4_get_pcm_prop(struct fsl_hifi4 *hifi4_priv,
 	prop_info.channels = pcm_prop_info->channels;
 	prop_info.bits = pcm_prop_info->bits;
 	prop_info.consumed_bytes = pcm_prop_info->consumed_bytes;
+	prop_info.cycles = pcm_prop_info->cycles;
 
 	ret = copy_to_user(user, &prop_info, sizeof(prop_info));
 	if (ret) {
@@ -1010,20 +934,13 @@ static int fsl_hifi4_set_config(struct fsl_hifi4 *hifi4_priv, void __user *user)
 	union icm_header_t apu_icm;
 	struct hifi4_ext_msg ext_msg;
 	struct prop_config prop_config;
+	struct icm_prop_config icm_prop_config;
 	int ret;
 
 	ret = copy_from_user(&prop_config, user, sizeof(prop_config));
 	if (ret) {
 		dev_err(dev, "failed to get para from user space: %d\n", ret);
 		return -EFAULT;
-	}
-
-	if (hifi4_priv->process_id != prop_config.process_id) {
-		ret = switch_codec(hifi4_priv, prop_config.process_id);
-		if (ret) {
-			dev_err(dev, "failed to switch codec in codec set param\n");
-			return ret;
-		}
 	}
 
 	init_completion(&hifi4_priv->cmd_complete);
@@ -1036,9 +953,14 @@ static int fsl_hifi4_set_config(struct fsl_hifi4 *hifi4_priv, void __user *user)
 	apu_icm.size = 8;
 
 	ext_msg.phys = hifi4_priv->msg_buf_phys;
-	ext_msg.size = sizeof(prop_config);
+	ext_msg.size = sizeof(struct icm_prop_config);
 
-	memcpy(hifi4_priv->msg_buf_virt, &prop_config, sizeof(prop_config));
+	icm_prop_config.base_info.process_id = prop_config.process_id;
+	icm_prop_config.cmd = prop_config.cmd;
+	icm_prop_config.val = prop_config.val;
+
+	memcpy(hifi4_priv->msg_buf_virt, &icm_prop_config,
+					sizeof(struct icm_prop_config));
 	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
 	icm_ack_wait(hifi4_priv, apu_icm.allbits);
@@ -1057,10 +979,10 @@ static long fsl_hifi4_load_codec(struct fsl_hifi4 *hifi4_priv,
 	struct filename *fpInfile;
 	union icm_header_t apu_icm;
 	struct binary_info binary_info;
-	struct icm_pilib_size_t lib_alloc_mem;
 	struct hifi4_ext_msg ext_msg;
+	struct icm_xtlib_pil_info icm_xtlib_pil_info;
 	long ret = 0;
-	long i;
+	long id;
 
 	ret = copy_from_user(&binary_info, user, sizeof(binary_info));
 	if (ret) {
@@ -1074,58 +996,37 @@ static long fsl_hifi4_load_codec(struct fsl_hifi4 *hifi4_priv,
 					PTR_ERR(fpInfile));
 		return PTR_ERR(fpInfile);
 	}
+	id = binary_info.process_id;
 
-	/* check whether the dsp driver has available resource or not */
-	for (i = 0; i < MULTI_CODEC_NUM; i++) {
-		if (!(hifi4_priv->process_info[i].status)) {
-			hifi4_priv->process_info[i].status = 1;
-			hifi4_priv->available_resource--;
-			break;
-		}
-	}
-	if (i >= MULTI_CODEC_NUM) {
-		dev_err(dev, "out of range of multi codec max number\n");
-		return -EINVAL;
-	}
-
-	/* If dsp driver has available resource, produce a new process
-	 * for the new codec.
-	 */
-	hifi4_priv->process_id_count++;
-
-	ret = switch_codec(hifi4_priv, hifi4_priv->process_id_count);
-	if (ret) {
-		dev_err(dev, "failed to switch codec in codec load\n");
-		return ret;
-	}
-
-	hifi4_priv->objfile = fpInfile;
-	hifi4_priv->objtype = binary_info.type;
-
-	hifi4_priv->cur_res_id = i;
-	ret = load_dpu_with_library(hifi4_priv);
+	hifi4_priv->process_info[id].objfile = fpInfile;
+	hifi4_priv->process_info[id].objtype = binary_info.type;
+	hifi4_priv->process_info[id].codec_id = binary_info.type;
+	ret = load_dpu_with_library(hifi4_priv, &hifi4_priv->process_info[id]);
 	if (ret) {
 		dev_err(dev, "failed to load code binary, err = %ld\n", ret);
+		return ret;
 	}
 
 	init_completion(&hifi4_priv->cmd_complete);
 	hifi4_priv->is_done = 0;
 
-	apu_icm.allbits = 0;	/* clear all bits; */
+	apu_icm.allbits = 0;	/* clear all bits;*/
 	apu_icm.ack = 0;
 	apu_icm.intr = 1;
-	apu_icm.msg = ICM_PI_LIB_MEM_ALLOC;
+	apu_icm.msg = ICM_PI_LIB_LOAD;
 	apu_icm.size = 8;
 
 	ext_msg.phys = hifi4_priv->msg_buf_phys;
-	ext_msg.size = sizeof(struct icm_pilib_size_t);
+	ext_msg.size = sizeof(struct icm_xtlib_pil_info);
 
-	lib_alloc_mem.codec_type = hifi4_priv->objtype;
-	lib_alloc_mem.text_size = hifi4_priv->size_code;
-	lib_alloc_mem.data_size = hifi4_priv->size_data;
+	memcpy(&icm_xtlib_pil_info.pil_info,
+					&hifi4_priv->process_info[id].pil_info,
+					sizeof(struct xtlib_pil_info));
+	icm_xtlib_pil_info.process_id = id;
+	icm_xtlib_pil_info.lib_type = binary_info.lib_type;
 
-	memcpy(hifi4_priv->msg_buf_virt, &lib_alloc_mem,
-					sizeof(struct icm_pilib_size_t));
+	memcpy(hifi4_priv->msg_buf_virt, &icm_xtlib_pil_info,
+					sizeof(struct icm_xtlib_pil_info));
 	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
 	/* wait for response here */
@@ -1133,20 +1034,7 @@ static long fsl_hifi4_load_codec(struct fsl_hifi4 *hifi4_priv,
 	if (ret)
 		return ret;
 
-	/* save current codec information */
-	hifi4_priv->process_info[i].process_id = hifi4_priv->process_id;
-	hifi4_priv->process_info[i].codec_id = hifi4_priv->objtype;
-	hifi4_priv->process_info[i].pil_info_info = hifi4_priv->pil_info;
-
-	/* return process id of this codec to user space */
-	binary_info.process_id = hifi4_priv->process_id;
-	ret = copy_to_user(user, &binary_info, sizeof(struct binary_info));
-	if (ret) {
-		dev_err(dev, "failed to send para to user space\n");
-		return -EFAULT;
-	}
-
-	hifi4_priv->ret_status = 0;
+	ret = hifi4_priv->ret_status;
 
 	dev_dbg(dev, "code binary is loaded\n");
 
@@ -1161,10 +1049,10 @@ static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
 	struct filename *fpInfile;
 	union icm_header_t apu_icm;
 	struct binary_info binary_info;
-	struct icm_pilib_size_t lib_alloc_mem;
 	struct hifi4_ext_msg ext_msg;
+	struct icm_xtlib_pil_info icm_xtlib_pil_info;
 	long ret = 0;
-	long i;
+	long id;
 
 	ret = get_binary_info_compat32(&binary_info, user);
 	if (ret) {
@@ -1178,36 +1066,11 @@ static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
 					PTR_ERR(fpInfile));
 		return PTR_ERR(fpInfile);
 	}
+	id = binary_info.process_id;
 
-	/* check whether the dsp driver has available resource or not */
-	for (i = 0; i < MULTI_CODEC_NUM; i++) {
-		if (!(hifi4_priv->process_info[i].status)) {
-			hifi4_priv->process_info[i].status = 1;
-			hifi4_priv->available_resource--;
-			break;
-		}
-	}
-	if (i >= MULTI_CODEC_NUM) {
-		dev_err(dev, "out of range of multi codec max number\n");
-		return -EINVAL;
-	}
-
-	/* If dsp driver has available resource, produce a new process
-	 * for the new codec.
-	 */
-	hifi4_priv->process_id_count++;
-
-	ret = switch_codec(hifi4_priv, hifi4_priv->process_id_count);
-	if (ret) {
-		dev_err(dev, "failed to switch codec in codec load\n");
-		return ret;
-	}
-
-	hifi4_priv->objfile = fpInfile;
-	hifi4_priv->objtype = binary_info.type;
-
-	hifi4_priv->cur_res_id = i;
-	ret = load_dpu_with_library(hifi4_priv);
+	hifi4_priv->process_info[id].objfile = fpInfile;
+	hifi4_priv->process_info[id].objtype = binary_info.type;
+	ret = load_dpu_with_library(hifi4_priv, &hifi4_priv->process_info[id]);
 	if (ret) {
 		dev_err(dev, "failed to load code binary, err = %ld\n", ret);
 		return ret;
@@ -1219,18 +1082,20 @@ static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
 	apu_icm.allbits = 0;	/* clear all bits; */
 	apu_icm.ack = 0;
 	apu_icm.intr = 1;
-	apu_icm.msg = ICM_PI_LIB_MEM_ALLOC;
+	apu_icm.msg = ICM_PI_LIB_LOAD;
 	apu_icm.size = 8;
 
 	ext_msg.phys = hifi4_priv->msg_buf_phys;
-	ext_msg.size = sizeof(struct icm_pilib_size_t);
+	ext_msg.size = sizeof(struct icm_xtlib_pil_info);
 
-	lib_alloc_mem.codec_type = hifi4_priv->objtype;
-	lib_alloc_mem.text_size = hifi4_priv->size_code;
-	lib_alloc_mem.data_size = hifi4_priv->size_data;
+	memcpy(&icm_xtlib_pil_info.pil_info,
+					&hifi4_priv->process_info[id].pil_info,
+					sizeof(struct xtlib_pil_info));
+	icm_xtlib_pil_info.process_id = id;
+	icm_xtlib_pil_info.lib_type = binary_info.lib_type;
 
-	memcpy(hifi4_priv->msg_buf_virt, &lib_alloc_mem,
-					sizeof(struct icm_pilib_size_t));
+	memcpy(hifi4_priv->msg_buf_virt, &icm_xtlib_pil_info,
+					sizeof(struct icm_xtlib_pil_info));
 	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
 	/* wait for response here */
@@ -1238,20 +1103,7 @@ static long fsl_hifi4_load_codec_compat32(struct fsl_hifi4 *hifi4_priv,
 	if (ret)
 		return ret;
 
-	/* save current codec information */
-	hifi4_priv->process_info[i].process_id = hifi4_priv->process_id;
-	hifi4_priv->process_info[i].codec_id = hifi4_priv->objtype;
-	hifi4_priv->process_info[i].pil_info_info = hifi4_priv->pil_info;
-
-	/* return process id of this codec to user space */
-	binary_info.process_id = hifi4_priv->process_id;
-	ret = put_binary_info_compat32(&binary_info, user);
-	if (ret) {
-		dev_err(dev, "failed to send para to user space\n");
-		return ret;
-	}
-
-	hifi4_priv->ret_status = 0;
+	ret = hifi4_priv->ret_status;
 
 	dev_dbg(dev, "code binary is loaded\n");
 
@@ -1264,8 +1116,9 @@ static long fsl_hifi4_codec_open(struct fsl_hifi4 *hifi4_priv,
 {
 	struct device *dev = hifi4_priv->dev;
 	union icm_header_t apu_icm;
-	struct icm_cdc_uinp_t cdc_user_inp;
 	struct hifi4_ext_msg ext_msg;
+	struct icm_base_info_t icm_base_info_t;
+	struct icm_process_info *process_info;
 	int id;
 	long ret = 0;
 
@@ -1275,32 +1128,24 @@ static long fsl_hifi4_codec_open(struct fsl_hifi4 *hifi4_priv,
 		return -EFAULT;
 	}
 
-	if (hifi4_priv->process_id != id) {
-		ret = switch_codec(hifi4_priv, id);
-		if (ret) {
-			dev_err(dev, "failed to switch codec in codec open\n");
-			return ret;
-		}
-	}
-
-	cdc_user_inp.proc_id   = 0;
-	cdc_user_inp.codec_id  = hifi4_priv->objtype;
+	process_info = &hifi4_priv->process_info[id];
 
 	init_completion(&hifi4_priv->cmd_complete);
 	hifi4_priv->is_done = 0;
 
-	apu_icm.allbits = 0;	/* clear all bits; */
-
+	apu_icm.allbits = 0;	/* clear all bits;*/
 	apu_icm.ack = 0;
 	apu_icm.intr = 1;
 	apu_icm.msg = ICM_OPEN;
 	apu_icm.size = 8;
 
 	ext_msg.phys = hifi4_priv->msg_buf_phys;
-	ext_msg.size = sizeof(struct icm_cdc_uinp_t);
-	memcpy(hifi4_priv->msg_buf_virt, &cdc_user_inp,
-					sizeof(struct icm_cdc_uinp_t));
+	ext_msg.size = sizeof(struct icm_base_info_t);
 
+	icm_base_info_t.process_id = id;
+
+	memcpy(hifi4_priv->msg_buf_virt, &icm_base_info_t,
+						sizeof(struct icm_base_info_t));
 	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
 	/* wait for response here */
@@ -1308,11 +1153,8 @@ static long fsl_hifi4_codec_open(struct fsl_hifi4 *hifi4_priv,
 	if (ret)
 		return ret;
 
-	/* save current codec information */
-	hifi4_priv->process_info[hifi4_priv->cur_res_id].proc_id =
-					hifi4_priv->codec_iobuf_info.proc_id;
-
 	ret = hifi4_priv->ret_status;
+
 	return ret;
 }
 
@@ -1321,6 +1163,8 @@ static int fsl_hifi4_codec_close(struct fsl_hifi4 *hifi4_priv,
 {
 	struct device *dev = hifi4_priv->dev;
 	union icm_header_t apu_icm;
+	struct hifi4_ext_msg ext_msg;
+	struct icm_base_info_t icm_base_info_t;
 	int id;
 	long ret = 0;
 
@@ -1328,14 +1172,6 @@ static int fsl_hifi4_codec_close(struct fsl_hifi4 *hifi4_priv,
 	if (ret) {
 		dev_err(dev, "failed to get para from user space\n");
 		return -EFAULT;
-	}
-
-	if (hifi4_priv->process_id != id) {
-		ret = switch_codec(hifi4_priv, id);
-		if (ret) {
-			dev_err(dev, "failed to switch codec in codec close\n");
-			return ret;
-		}
 	}
 
 	init_completion(&hifi4_priv->cmd_complete);
@@ -1345,23 +1181,23 @@ static int fsl_hifi4_codec_close(struct fsl_hifi4 *hifi4_priv,
 	apu_icm.ack = 0;
 	apu_icm.intr = 1;
 	apu_icm.msg = ICM_CLOSE;
-	apu_icm.size = 0;
-	icm_intr_send(hifi4_priv, apu_icm.allbits);
+	apu_icm.size = 8;
+
+	ext_msg.phys = hifi4_priv->msg_buf_phys;
+	ext_msg.size = sizeof(struct icm_base_info_t);
+
+	icm_base_info_t.process_id = id;
+
+	memcpy(hifi4_priv->msg_buf_virt, &icm_base_info_t,
+					sizeof(struct icm_base_info_t));
+	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
 	/* wait for response here */
 	ret = icm_ack_wait(hifi4_priv, apu_icm.allbits);
 	if (ret)
 		return ret;
 
-	/* Making status to 0 means releasing the resource that
-	 * current codec occupies.
-	 */
-	hifi4_priv->process_info[hifi4_priv->cur_res_id].status = 0;
-	hifi4_priv->available_resource++;
-
-	/* If no codec occupies the resource, zero the process id count */
-	if (hifi4_priv->available_resource >= MULTI_CODEC_NUM)
-		hifi4_priv->process_id_count = 0;
+	ret = hifi4_priv->ret_status;
 
 	return ret;
 }
@@ -1371,8 +1207,10 @@ static int fsl_hifi4_codec_reset(struct fsl_hifi4 *hifi4_priv,
 {
 	struct device *dev = hifi4_priv->dev;
 	union icm_header_t apu_icm;
+	struct hifi4_ext_msg ext_msg;
 	struct icm_cdc_iobuf_t *codec_iobuf_info =
 				&hifi4_priv->codec_iobuf_info;
+	struct icm_base_info_t icm_base_info_t;
 	int id;
 	long err = 0;
 	unsigned long ret = 0;
@@ -1383,14 +1221,6 @@ static int fsl_hifi4_codec_reset(struct fsl_hifi4 *hifi4_priv,
 		return -EFAULT;
 	}
 
-	if (hifi4_priv->process_id != id) {
-		err = switch_codec(hifi4_priv, id);
-		if (err) {
-			dev_err(dev, "failed to switch codec in codec reset\n");
-			return err;
-		}
-	}
-
 	init_completion(&hifi4_priv->cmd_complete);
 	hifi4_priv->is_done = 0;
 
@@ -1398,8 +1228,16 @@ static int fsl_hifi4_codec_reset(struct fsl_hifi4 *hifi4_priv,
 	apu_icm.ack = 0;
 	apu_icm.intr = 1;
 	apu_icm.msg = ICM_RESET;
-	apu_icm.size = 0;
-	icm_intr_send(hifi4_priv, apu_icm.allbits);
+	apu_icm.size = 8;
+
+	ext_msg.phys = hifi4_priv->msg_buf_phys;
+	ext_msg.size = sizeof(struct icm_base_info_t);
+
+	icm_base_info_t.process_id = id;
+
+	memcpy(hifi4_priv->msg_buf_virt, &icm_base_info_t,
+					sizeof(struct icm_base_info_t));
+	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
 	/* wait for response here */
 	err = icm_ack_wait(hifi4_priv, apu_icm.allbits);
@@ -1418,6 +1256,58 @@ static int fsl_hifi4_codec_reset(struct fsl_hifi4 *hifi4_priv,
 	return err;
 }
 
+static int fsl_hifi4_client_register(struct fsl_hifi4 *hifi4_priv,
+							void __user *user)
+{
+	struct device *dev = hifi4_priv->dev;
+	int id, i;
+	unsigned long ret = 0;
+
+	for (i = 0; i < MULTI_CODEC_NUM; i++) {
+		if (hifi4_priv->process_info[i].used == 0) {
+			hifi4_priv->process_info[i].used = 1;
+			id = i;
+			break;
+		}
+	}
+	if (i >= MULTI_CODEC_NUM) {
+		dev_err(dev, "out of range of multi codec max number\n");
+		return -EINVAL;
+	}
+
+	ret = copy_to_user(user, &id, sizeof(int));
+	if (ret) {
+		dev_err(dev, "failed to send para to user space\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+static int fsl_hifi4_client_unregister(struct fsl_hifi4 *hifi4_priv,
+							void __user *user)
+{
+	struct device *dev = hifi4_priv->dev;
+	int id;
+	unsigned long ret = 0;
+
+	ret = copy_from_user(&id, user, sizeof(int));
+	if (ret) {
+		dev_err(dev, "failed to get para from user space\n");
+		return -EFAULT;
+	}
+
+	if (id >= MULTI_CODEC_NUM) {
+		dev_err(dev, "invalid process id from user space\n");
+		return -EINVAL;
+	}
+
+	memset(&hifi4_priv->process_info[id], 0,
+					sizeof(struct icm_process_info));
+
+	return 0;
+}
+
 static struct miscdevice hifi4_miscdev = {
 	.name	= "mxc_hifi4",
 	.minor	= MISC_DYNAMIC_MINOR,
@@ -1428,16 +1318,29 @@ static long fsl_hifi4_ioctl(struct file *file, unsigned int cmd,
 {
 	struct fsl_hifi4_engine *hifi4_engine;
 	struct fsl_hifi4 *hifi4_priv;
+	struct device *dev;
 	void __user *user;
 	long ret = 0;
 
 	hifi4_engine = file->private_data;
 	hifi4_priv = hifi4_engine->hifi4_priv;
+	dev = hifi4_priv->dev;
 	user = (void __user *)arg;
+
+	if (!hifi4_priv->is_ready) {
+		dev_err(dev, "hifi firmware is not ready\n");
+		return -EFAULT;
+	}
 
 	mutex_lock(&hifi4_priv->hifi4_mutex);
 
 	switch (cmd) {
+	case HIFI4_CLIENT_REGISTER:
+		ret = fsl_hifi4_client_register(hifi4_priv, user);
+		break;
+	case HIFI4_CLIENT_UNREGISTER:
+		ret = fsl_hifi4_client_unregister(hifi4_priv, user);
+		break;
 	case HIFI4_LOAD_CODEC:
 		ret = fsl_hifi4_load_codec(hifi4_priv, user);
 		break;
@@ -1479,16 +1382,29 @@ static long fsl_hifi4_compat_ioctl(struct file *file, unsigned int cmd,
 {
 	struct fsl_hifi4_engine *hifi4_engine;
 	struct fsl_hifi4 *hifi4_priv;
+	struct device *dev;
 	void __user *user;
 	long ret = 0;
 
 	hifi4_engine = file->private_data;
 	hifi4_priv = hifi4_engine->hifi4_priv;
+	dev = hifi4_priv->dev;
 	user = compat_ptr(arg);
+
+	if (!hifi4_priv->is_ready) {
+		dev_err(dev, "hifi firmware is not ready\n");
+		return -EFAULT;
+	}
 
 	mutex_lock(&hifi4_priv->hifi4_mutex);
 
 	switch (cmd) {
+	case HIFI4_CLIENT_REGISTER:
+		ret = fsl_hifi4_client_register(hifi4_priv, user);
+		break;
+	case HIFI4_CLIENT_UNREGISTER:
+		ret = fsl_hifi4_client_unregister(hifi4_priv, user);
+		break;
 	case HIFI4_LOAD_CODEC:
 		ret = fsl_hifi4_load_codec_compat32(hifi4_priv, user);
 		break;
@@ -1529,18 +1445,12 @@ void resource_release(struct fsl_hifi4 *hifi4_priv)
 {
 	int i;
 
-	hifi4_priv->available_resource = MULTI_CODEC_NUM;
-	for (i = 0; i < MULTI_CODEC_NUM; i++) {
-		hifi4_priv->process_info[i].data_buf_virt =
-				hifi4_priv->data_buf_virt +
-				i * hifi4_priv->data_buf_size / MULTI_CODEC_NUM;
-		hifi4_priv->process_info[i].data_buf_phys =
-				hifi4_priv->data_buf_phys +
-				i * hifi4_priv->data_buf_size / MULTI_CODEC_NUM;
+	for (i = 0; i < MULTI_CODEC_NUM; i++)
+		memset(&hifi4_priv->process_info[i], 0,
+					sizeof(struct icm_process_info));
 
-		hifi4_priv->process_info[i].status = 0;
-	}
-	send_dpu_ext_msg_addr(hifi4_priv);
+	if (hifi4_priv->is_ready)
+		send_dpu_ext_msg_addr(hifi4_priv);
 }
 
 static int fsl_hifi4_open(struct inode *inode, struct file *file)
@@ -1711,29 +1621,23 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 
 	case ICM_OPEN:
 		{
-			struct icm_open_resp_info_t *pext_msg =
-			    (struct icm_open_resp_info_t *)pmsg_apu;
-			codec_iobuf_info->proc_id = pext_msg->proc_id;
-			hifi4_priv->dpu_tstamp =
-			  (struct timestamp_info_t *)((long)pext_msg->dtstamp);
-			hifi4_priv->ret_status = pext_msg->ret;
+			struct icm_base_info_t *ext_msg =
+				(struct icm_base_info_t *)pmsg_apu;
+			hifi4_priv->ret_status = ext_msg->ret;
 			hifi4_priv->is_done = 1;
 			complete(&hifi4_priv->cmd_complete);
 		}
 		break;
+
 	case ICM_EMPTY_THIS_BUFFER:
 		{
 			struct icm_cdc_iobuf_t *ext_msg =
 					(struct icm_cdc_iobuf_t *)pmsg_apu;
-			if (codec_iobuf_info->proc_id == ext_msg->proc_id) {
-				codec_iobuf_info->inp_cur_offset =
-						ext_msg->inp_cur_offset;
-				codec_iobuf_info->out_cur_offset =
-						ext_msg->out_cur_offset;
-				codec_iobuf_info->cycles =
-						ext_msg->cycles;
-			}
-			hifi4_priv->ret_status = ext_msg->ret;
+			codec_iobuf_info->inp_cur_offset =
+					ext_msg->inp_cur_offset;
+			codec_iobuf_info->out_cur_offset =
+					ext_msg->out_cur_offset;
+			hifi4_priv->ret_status = ext_msg->base_info.ret;
 			hifi4_priv->is_done = 1;
 			complete(&hifi4_priv->cmd_complete);
 		}
@@ -1743,14 +1647,13 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 		{
 			struct icm_pcm_prop_t *ext_msg =
 					(struct icm_pcm_prop_t *)pmsg_apu;
-			pcm_prop_info->proc_id  = ext_msg->proc_id;
 			pcm_prop_info->pcmbytes = ext_msg->pcmbytes;
 			pcm_prop_info->sfreq    = ext_msg->sfreq;
 			pcm_prop_info->channels = ext_msg->channels;
 			pcm_prop_info->bits     = ext_msg->bits;
 			pcm_prop_info->consumed_bytes =
 					ext_msg->consumed_bytes;
-			hifi4_priv->ret_status = ext_msg->ret;
+			hifi4_priv->ret_status = ext_msg->base_info.ret;
 
 			hifi4_priv->is_done = 1;
 			complete(&hifi4_priv->cmd_complete);
@@ -1759,29 +1662,39 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 
 	case ICM_SET_PARA_CONFIG:
 		{
-			struct prop_config *ext_msg =
-				(struct prop_config *)pmsg_apu;
-			hifi4_priv->ret_status = ext_msg->ret;
+			struct icm_prop_config *ext_msg =
+				(struct icm_prop_config *)pmsg_apu;
+			hifi4_priv->ret_status = ext_msg->base_info.ret;
 			hifi4_priv->is_done = 1;
 			complete(&hifi4_priv->cmd_complete);
 		}
 		break;
 
 	case ICM_PI_LIB_INIT:
-		hifi4_priv->is_done = 1;
-		complete(&hifi4_priv->cmd_complete);
+		{
+			struct icm_base_info_t *ext_msg =
+				(struct icm_base_info_t *)pmsg_apu;
+			hifi4_priv->ret_status = ext_msg->ret;
+			hifi4_priv->is_done = 1;
+			complete(&hifi4_priv->cmd_complete);
+		}
 		break;
 
 	case ICM_CLOSE:
-		hifi4_priv->is_done = 1;
-		complete(&hifi4_priv->cmd_complete);
+		{
+			struct icm_base_info_t *ext_msg =
+				(struct icm_base_info_t *)pmsg_apu;
+			hifi4_priv->ret_status = ext_msg->ret;
+			hifi4_priv->is_done = 1;
+			complete(&hifi4_priv->cmd_complete);
+		}
 		break;
 
-	case ICM_SWITCH_CODEC:
+	case ICM_PI_LIB_LOAD:
 		{
-			struct icm_switch_info_t *ext_msg =
-				(struct icm_switch_info_t *)pmsg_apu;
-			hifi4_priv->ret_status = ext_msg->status;
+			struct icm_base_info_t *ext_msg =
+				(struct icm_base_info_t *)pmsg_apu;
+			hifi4_priv->ret_status = ext_msg->ret;
 			hifi4_priv->is_done = 1;
 			complete(&hifi4_priv->cmd_complete);
 		}
@@ -1789,8 +1702,8 @@ int process_act_complete(struct fsl_hifi4 *hifi4_priv, u32 msg)
 
 	case ICM_RESET:
 		{
-			struct icm_reset_info_t *ext_msg =
-				(struct icm_reset_info_t *)pmsg_apu;
+			struct icm_base_info_t *ext_msg =
+				(struct icm_base_info_t *)pmsg_apu;
 			hifi4_priv->ret_status = ext_msg->ret;
 			hifi4_priv->is_done = 1;
 			complete(&hifi4_priv->cmd_complete);
@@ -1829,18 +1742,16 @@ int send_dpu_ext_msg_addr(struct fsl_hifi4 *hifi4_priv)
 	apu_icm.msg  = ICM_EXT_MSG_ADDR;
 	apu_icm.size = 8;
 	ext_msg.phys = hifi4_priv->msg_buf_phys;
-	/* 10 means variable numbers that need to be transferred */
-	ext_msg.size = 10*4;	/* 10 * sizeof(int) */
+	/* 6 means element numbers that need to be transferred
+	 * in struct hifi4_mem_msg
+	 */
+	ext_msg.size = 6*4;	/* 6 * sizeof(int) */
 	dpu_ext_msg->ext_msg_phys = hifi4_priv->msg_buf_phys + 2048;
 	dpu_ext_msg->ext_msg_size = 2048;
-	dpu_ext_msg->code_phys =  hifi4_priv->code_buf_phys;
-	dpu_ext_msg->code_size =  hifi4_priv->code_buf_size;
-	dpu_ext_msg->data_phys =  hifi4_priv->data_buf_phys;
-	dpu_ext_msg->data_size =  hifi4_priv->data_buf_size;
 	dpu_ext_msg->scratch_phys =  hifi4_priv->scratch_buf_phys;
 	dpu_ext_msg->scratch_size =  hifi4_priv->scratch_buf_size;
-	dpu_ext_msg->system_input_buf_phys =  hifi4_priv->in_buf_phys;
-	dpu_ext_msg->system_input_buf_size =  hifi4_priv->in_buf_size;
+	dpu_ext_msg->hifi_config_phys =  hifi4_priv->hifi_config_phys;
+	dpu_ext_msg->hifi_config_size =  hifi4_priv->hifi_config_size;
 
 	icm_intr_extended_send(hifi4_priv, apu_icm.allbits, &ext_msg);
 
@@ -1871,7 +1782,6 @@ static irqreturn_t fsl_hifi4_mu_isr(int irq, void *dev_id)
 		case ICM_EXT_MSG_ADDR:
 			break;
 
-		case ICM_OPEN:
 		case ICM_EMPTY_THIS_BUFFER:
 		case ICM_CLOSE:
 			break;
@@ -2130,16 +2040,7 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	}
 	memset_io(hifi4_priv->sdram_vir_addr, 0, SDRAM_BASE_SIZE);
 
-	/* code buffer */
-	hifi4_priv->code_buf_virt = hifi4_priv->sdram_vir_addr
-						+ SDRAM_CODEC_LIB_OFFSET;
-	hifi4_priv->code_buf_phys = hifi4_priv->sdram_phys_addr
-						+ SDRAM_CODEC_LIB_OFFSET;
-	hifi4_priv->code_buf_size = LIBRARY_CODE_SIZE;
-
-	size = MSG_BUF_SIZE + INPUT_BUF_SIZE +
-			OUTPUT_BUF_SIZE + FIRMWARE_DATA_BUF_SIZE +
-			SCRATCH_DATA_BUF_SIZE;
+	size = MSG_BUF_SIZE + HIFI_CONFIG_SIZE;
 
 	buf_virt = dma_alloc_coherent(&pdev->dev, size, &buf_phys, GFP_KERNEL);
 	if (!buf_virt) {
@@ -2153,49 +2054,23 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	hifi4_priv->msg_buf_size = MSG_BUF_SIZE;
 	offset = MSG_BUF_SIZE;
 
-	/* input buffer */
-	hifi4_priv->in_buf_virt = buf_virt + offset;
-	hifi4_priv->in_buf_phys = buf_phys + offset;
-	hifi4_priv->in_buf_size = INPUT_BUF_SIZE;
-	offset += INPUT_BUF_SIZE;
+	hifi4_priv->hifi_config_virt = buf_virt + offset;
+	hifi4_priv->hifi_config_phys = buf_phys + offset;
+	hifi4_priv->hifi_config_size = HIFI_CONFIG_SIZE;
 
-	/* output buffer */
-	hifi4_priv->out_buf_virt = buf_virt + offset;
-	hifi4_priv->out_buf_phys = buf_phys + offset;
-	hifi4_priv->out_buf_size = OUTPUT_BUF_SIZE;
-	offset += OUTPUT_BUF_SIZE;
-
-	/* codec library data section */
-	hifi4_priv->data_buf_virt = buf_virt + offset;
-	hifi4_priv->data_buf_phys = buf_phys + offset;
-	hifi4_priv->data_buf_size = FIRMWARE_DATA_BUF_SIZE;
-	offset += FIRMWARE_DATA_BUF_SIZE;
-
-	hifi4_priv->scratch_buf_virt = buf_virt + offset;
-	hifi4_priv->scratch_buf_phys = buf_phys + offset;
-	hifi4_priv->scratch_buf_size = SCRATCH_DATA_BUF_SIZE;
-
-	/* process_id_count is a counter to produce new id
-	 * process_id is current codec's id
-	 */
-	hifi4_priv->process_id_count = 0;
-	hifi4_priv->process_id = 0;
+	hifi4_priv->scratch_buf_virt = hifi4_priv->sdram_vir_addr +
+						SDRAM_CODEC_LIB_OFFSET;
+	hifi4_priv->scratch_buf_phys = hifi4_priv->sdram_phys_addr +
+						SDRAM_CODEC_LIB_OFFSET;
+	hifi4_priv->scratch_buf_size = SDRAM_BASE_SIZE - SDRAM_CODEC_LIB_OFFSET;
 
 	/* initialize the resources of multi codec
 	 * MULTI_CODEC_NUM is the max codec number that dsp
 	 * driver and framework can support.
 	 */
-	hifi4_priv->available_resource = MULTI_CODEC_NUM;
-	for (i = 0; i < MULTI_CODEC_NUM; i++) {
-		hifi4_priv->process_info[i].data_buf_virt =
-				hifi4_priv->data_buf_virt +
-				i * hifi4_priv->data_buf_size / MULTI_CODEC_NUM;
-		hifi4_priv->process_info[i].data_buf_phys =
-				hifi4_priv->data_buf_phys +
-				i * hifi4_priv->data_buf_size / MULTI_CODEC_NUM;
-
-		hifi4_priv->process_info[i].status = 0;
-	}
+	for (i = 0; i < MULTI_CODEC_NUM; i++)
+		memset(&hifi4_priv->process_info[i], 0,
+					sizeof(struct icm_process_info));
 
 	/* initialize the reference counter for hifi4_priv
 	 * structure
@@ -2213,9 +2088,7 @@ static int fsl_hifi4_remove(struct platform_device *pdev)
 
 	misc_deregister(&hifi4_miscdev);
 
-	size = MSG_BUF_SIZE + INPUT_BUF_SIZE +
-			OUTPUT_BUF_SIZE + FIRMWARE_DATA_BUF_SIZE +
-			SCRATCH_DATA_BUF_SIZE;
+	size = MSG_BUF_SIZE + HIFI_CONFIG_SIZE;
 	dma_free_coherent(&pdev->dev, size, hifi4_priv->msg_buf_virt,
 				hifi4_priv->msg_buf_phys);
 	if (hifi4_priv->sdram_vir_addr)

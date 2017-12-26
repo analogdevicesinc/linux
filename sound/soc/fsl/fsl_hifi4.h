@@ -1,7 +1,7 @@
 /*
  * Freescale HIFI 4 driver
  *
- * Copyright 2017 NXP.
+ * Copyright 2018 NXP
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2. This program is licensed "as is" without any warranty of any
@@ -40,39 +40,39 @@ struct xtlib_loader_globals {
 	int byteswap;
 };
 
-struct timestamp_info_t {
-	u32 offset_last_inp_byt_read_frm_sysram;
-	u32 offset_last_inp_byt_decoded;
-	u32 samples_produced;
-	u32 sample_rate;
+struct icm_base_info_t {
+	u32 process_id;			/* process id of current task */
+	u32 codec_id;			/* codec id */
+	s32 ret;                /* executed status of function */
 };
 
 struct icm_cdc_iobuf_t {
-	u32 proc_id;			/* non-zero indicates success; */
+	struct icm_base_info_t base_info;
+
 	u32 inp_addr_sysram;		/* init by APU */
 	u32 inp_buf_size_max;		/* init by APU */
 	u32 inp_cur_offset;		/* init by APU, updated by DPU */
 	u32 out_addr_sysram;		/* init by APU */
 	u32 out_buf_size_max;		/* init by APU */
 	u32 out_cur_offset;		/* init by APU, updated by DPU */
-	s32 ret;
-	u32 cycles;		        /* consumed cycles during executing */
 	u32 input_over;			/* indicate external stream is over*/
 };
 
-struct icm_cdc_uinp_t {
-	u32 proc_id;			/* audio id */
-	u32 codec_id;			/* codec identifier */
+struct icm_prop_config {
+	struct icm_base_info_t base_info;
+	u32 cmd;        /*set parameter command value*/
+	u32 val;        /*set parameter value*/
 };
 
 struct icm_pcm_prop_t {
-	u32 proc_id;			/* audio id */
+	struct icm_base_info_t base_info;
+
 	u32 pcmbytes;			/* total bytes in the wav file */
 	u32 sfreq;			/* sample rate */
 	u32 channels;			/* output channels */
 	u32 bits;			/* bits per sample */
 	u32 consumed_bytes;
-	s32 ret;
+	u32 cycles;
 };
 
 struct xtlib_overlay_info {
@@ -97,6 +97,13 @@ struct xtlib_pil_info {
 	xt_int  align;
 };
 
+struct icm_xtlib_pil_info {
+	struct xtlib_pil_info pil_info;
+
+	u32 process_id;
+	u32 lib_type;
+};
+
 union icm_header_t {
 	struct {
 		u32 msg:6;
@@ -118,6 +125,7 @@ enum icm_action_t {
 	ICM_CORE_READY = 1,
 	ICM_PI_LIB_MEM_ALLOC,
 	ICM_PI_LIB_INIT,
+	ICM_PI_LIB_LOAD,
 	ICM_PI_LIB_UNLOAD,
 
 	ICM_DPU_ACTION_COMPLETE,
@@ -135,7 +143,6 @@ enum icm_action_t {
 	ICM_CORE_EXIT,
 	ICM_EXT_MSG_ADDR,
 
-	ICM_SWITCH_CODEC,
 	ICM_RESET,
 	ICM_SUSPEND,
 	ICM_RESUME,
@@ -148,23 +155,6 @@ enum aud_status_t {
 	AUD_PAUSED
 };
 
-struct icm_open_resp_info_t {
-	u32 proc_id;
-	u32 dtstamp;                /* address value of timestamp_info_t */
-
-	s32 ret;
-};
-
-struct icm_reset_info_t {
-	u32 codec_id;
-	s32 ret;                   /* executed status of reset function */
-};
-
-struct icm_switch_info_t {
-	u32 proc_id;    /* audio id */
-	u32 status;     /* codec status */
-};
-
 struct lib_dnld_info_t {
 	unsigned long pbuf_code;
 	unsigned long pbuf_data;
@@ -174,23 +164,31 @@ struct lib_dnld_info_t {
 	unsigned int lib_on_dpu;	/* 0: not loaded, 1: loaded. */
 };
 
-
-struct icm_pilib_size_t {
-	u32 codec_type;
-	u32 text_size;
-	u32 data_size;
-};
-
 struct icm_process_info {
 	unsigned int process_id;
 	unsigned int codec_id;
-	unsigned int proc_id;
 
-	void *data_buf_virt;
-	dma_addr_t data_buf_phys;
+	struct xtlib_pil_info  pil_info;
+	struct xtlib_loader_globals	xtlib_globals;
 
-	struct xtlib_pil_info pil_info_info;
-	unsigned int status;
+	void				*in_buf_virt;
+	dma_addr_t			 in_buf_phys;
+	int				 in_buf_size;
+	void				*out_buf_virt;
+	dma_addr_t			 out_buf_phys;
+	int				 out_buf_size;
+
+	void				*code_buf_virt;
+	dma_addr_t			 code_buf_phys;
+	int				 code_buf_size;
+	void				*data_buf_virt;
+	dma_addr_t			 data_buf_phys;
+	int				 data_buf_size;
+
+	struct filename			*objfile;
+	char				objtype;
+
+	unsigned int used;
 };
 
 struct fsl_hifi4 {
@@ -213,49 +211,24 @@ struct fsl_hifi4 {
 	void				*msg_buf_virt;
 	dma_addr_t			 msg_buf_phys;
 	int				 msg_buf_size;
-	void				*in_buf_virt;
-	dma_addr_t			 in_buf_phys;
-	int				 in_buf_size;
-	void				*out_buf_virt;
-	dma_addr_t			 out_buf_phys;
-	int				 out_buf_size;
-
-	void				*code_buf_virt;
-	dma_addr_t			 code_buf_phys;
-	int				 code_buf_size;
-	void				*data_buf_virt;
-	dma_addr_t			 data_buf_phys;
-	int				 data_buf_size;
 	void				*scratch_buf_virt;
 	dma_addr_t			 scratch_buf_phys;
 	int				 scratch_buf_size;
+	void				*hifi_config_virt;
+	dma_addr_t			 hifi_config_phys;
+	int				 hifi_config_size;
 
 	int				is_ready;
 	int				is_done;
-
-	struct completion		cmd_complete;
-	char				*objmem;
-	struct filename			*objfile;
-	char				objtype;
-	unsigned int			start_addr;
 	int				ret_status;
+
 	struct icm_cdc_iobuf_t		codec_iobuf_info;
 	struct icm_pcm_prop_t		pcm_prop_info;
-	struct xtlib_pil_info		pil_info;
-	struct xtlib_loader_globals	xtlib_globals;
-	struct timestamp_info_t		*dpu_tstamp;
 
+	struct completion	cmd_complete;
 	struct mutex hifi4_mutex;
 
-	unsigned int process_id;
-	unsigned int process_id_count;
-
-	unsigned int size_code;
-	unsigned int size_data;
-
 	struct icm_process_info process_info[MULTI_CODEC_NUM];
-	unsigned int available_resource;
-	unsigned int cur_res_id;
 };
 
 struct fsl_hifi4_engine {
@@ -270,14 +243,10 @@ struct hifi4_ext_msg {
 struct hifi4_mem_msg {
 	u32	ext_msg_phys;
 	u32	ext_msg_size;
-	u32	code_phys;
-	u32	code_size;
-	u32	data_phys;
-	u32	data_size;
 	u32	scratch_phys;
 	u32	scratch_size;
-	u32	system_input_buf_phys;
-	u32	system_input_buf_size;
+	u32 hifi_config_phys;
+	u32 hifi_config_size;
 };
 
 #define IRAM_OFFSET		0x10000
@@ -295,46 +264,20 @@ struct hifi4_mem_msg {
 #define SYSROM_OFFSET		0x58000
 #define SYSROM_SIZE		0x30000
 
-#define LIBRARY_CODE_OFFSET	0x38000
-#define LIBRARY_CODE_SIZE	0x50000
-
 #define MSG_BUF_SIZE		4096
 #define INPUT_BUF_SIZE		4096
 #define OUTPUT_BUF_SIZE		16384
-#define FIRMWARE_DATA_BUF_SIZE	(MULTI_CODEC_NUM * 0x80000)
+#define HIFI_CONFIG_SIZE    4096
 
-
-/*scratch buf structure
+/*external buffer
  *  ----------------------------------------------------------------------
- *  |  name             |   size     |    description                    |
+ *  |  name                      | size     |   description     |
  * -----------------------------------------------------------------------
- *  |  CODEC 0          |   0x80000  |  Total support 5 instance.
- * -----------------------------------  Each instance has 0x80000 size
- *  |  CODEC 1          |   0x80000  |  buffer for store the code section
- * -----------------------------------  and input/output buffer.
- *  |  CODEC 2          |   0x80000  |
- * -----------------------------------
- *  |  CODEC 3          |   0x80000  |
- * -----------------------------------
- *  |  CODEC 4          |   0x80000  |
+ *  |  scratch buffer for malloc | 0xffffff | For MEM_scratch_malloc()
  * ------------------------------------------------------------------------
- *  |  codec info buf   |   4096     |  For alloc the codec info structure
- * ------------------------------------------------------------------------
- *  |  global structure |   4096     |  For store hifi config structure
- * ------------------------------------------------------------------------
- *  |  DRAM             |   64k      |  For store DRAM buffer in suspend
+ *  |  global structure          | 4096     | For store hifi config structure
  * ------------------------------------------------------------------------
  */
-
-#define EACH_CODEC_BUF_SIZE         0x80000
-#define CODEC_INFO_BUF_OFF         (MULTI_CODEC_NUM * EACH_CODEC_BUF_SIZE)
-#define CODEC_INFO_BUF_SIZE         4096
-#define SUSPEND_GLOBAL_BUF_OFF      (CODEC_INFO_BUF_OFF + CODEC_INFO_BUF_SIZE)
-#define SUSPEND_GLOBAL_BUF_SIZE     4096
-#define SUSPEND_DRAM_BUF_OFF        (SUSPEND_GLOBAL_BUF_OFF + SUSPEND_GLOBAL_BUF_SIZE)
-#define SUSPEND_DRAM_BUF_SIZE       65536
-
-#define SCRATCH_DATA_BUF_SIZE	(SUSPEND_DRAM_BUF_OFF + SUSPEND_DRAM_BUF_SIZE)
 
 #define MEMORY_REMAP_OFFSET	0x39000000
 
@@ -362,7 +305,7 @@ unsigned int xtlib_split_pi_library_size(
 				struct xtlib_packaged_library *library,
 				unsigned int *code_size,
 				unsigned int *data_size,
-				struct fsl_hifi4 *hifi4_priv);
+				struct icm_process_info *process_info);
 
 xt_ptr xtlib_host_load_split_pi_library(
 				struct xtlib_packaged_library *library,
@@ -371,7 +314,7 @@ xt_ptr xtlib_host_load_split_pi_library(
 				  struct xtlib_pil_info *lib_info,
 				  memcpy_func mcpy_fn,
 				  memset_func mset_fn,
-				  struct fsl_hifi4 *hifi4_priv);
+				  struct icm_process_info *process_info);
 
 void *memcpy_hifi(void *dest, const void *src, size_t count);
 void *memset_hifi(void *dest, int c, size_t count);
