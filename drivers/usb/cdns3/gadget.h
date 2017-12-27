@@ -160,6 +160,7 @@ struct usb_ss_dev;
 struct usb_ss_endpoint {
 	struct usb_ep endpoint;
 	struct list_head request_list;
+	struct list_head ep_match_pending_list;
 
 	struct usb_ss_trb *trb_pool;
 	dma_addr_t trb_pool_dma;
@@ -174,6 +175,7 @@ struct usb_ss_endpoint {
 	u8					dir;
 	u8					num;
 	u8					type;
+	bool					used;
 };
 
 struct usb_ss_dev {
@@ -205,6 +207,7 @@ struct usb_ss_dev {
 	int setup_pending;
 	struct device *sysdev;
 	bool start_gadget; /* The device mode is enabled */
+	struct list_head ep_match_list;
 };
 
 #endif /* __DRIVERS_CDNS3_GADGET */
