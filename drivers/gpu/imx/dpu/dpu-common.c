@@ -1399,6 +1399,11 @@ static void dpu_pixel_link_init(int id)
 	}
 
 	if (id == 0) {
+		/* SC_C_KACHUNK_CNT is for blit */
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0, SC_C_KACHUNK_CNT, 32);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_0:SC_C_KACHUNK_CNT sc_misc_set_control failed! (sciError = %d)\n", sciErr);
+
 		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0, SC_C_PXL_LINK_MST1_ADDR, 0);
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_DC_0:SC_C_PXL_LINK_MST1_ADDR sc_misc_set_control failed! (sciError = %d)\n", sciErr);
@@ -1431,6 +1436,10 @@ static void dpu_pixel_link_init(int id)
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_DC_0:SC_C_SYNC_CTRL1 sc_misc_set_control failed! (sciError = %d)\n", sciErr);
 	} else if (id == 1) {
+		/* SC_C_KACHUNK_CNT is for blit */
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1, SC_C_KACHUNK_CNT, 32);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_1:SC_C_KACHUNK_CNT sc_misc_set_control failed! (sciError = %d)\n", sciErr);
 		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1, SC_C_PXL_LINK_MST1_ADDR, 0);
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_DC_1:SC_C_PXL_LINK_MST1_ADDR sc_misc_set_control failed! (sciError = %d)\n", sciErr);
