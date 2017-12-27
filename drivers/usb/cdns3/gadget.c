@@ -123,7 +123,7 @@ static void gadget_writel(struct usb_ss_dev *usb_ss,
  * next_request - returns next request from list
  * @list: list containing requests
  *
- * Retuns request or NULL if no requests in list
+ * Returns request or NULL if no requests in list
  */
 static struct usb_request *next_request(struct list_head *list)
 {
@@ -148,7 +148,7 @@ static void select_ep(struct usb_ss_dev *usb_ss, u32 ep)
 }
 
 /**
- *usb_ss_allocate_trb_pool - Allocates TRB's pool for selected endpoint
+ * usb_ss_allocate_trb_pool - Allocates TRB's pool for selected endpoint
  * @usb_ss_ep: extended endpoint object
  *
  * Function will return 0 on success or -ENOMEM on allocation error
@@ -322,7 +322,9 @@ static void cdns_ep0_run_transfer(struct usb_ss_dev *usb_ss,
 
 /**
  * cdns_ep_run_transfer - Do transfer on no-default endpoint hardware
- * @usb_ss: extended gadget object
+ * @usb_ss_ep: extended endpoint object
+ *
+ * Returns zero on success or negative value on failure
  */
 static int cdns_ep_run_transfer(struct usb_ss_endpoint *usb_ss_ep)
 {
@@ -387,6 +389,8 @@ static int cdns_ep_run_transfer(struct usb_ss_endpoint *usb_ss_ep)
  * Setup is handled by gadget driver
  * @usb_ss: extended gadget object
  * @ctrl_req: pointer to received setup packet
+ *
+ * Returns zero on success or negative value on failure
  */
 static int cdns_get_setup_ret(struct usb_ss_dev *usb_ss,
 		struct usb_ctrlrequest *ctrl_req)
@@ -452,7 +456,7 @@ static int cdns_req_ep0_set_address(struct usb_ss_dev *usb_ss,
 }
 
 /**
- * cdns_req_ep0_set_address - Handling of GET_STATUS standard USB request
+ * cdns_req_ep0_get_status - Handling of GET_STATUS standard USB request
  * @usb_ss: extended gadget object
  * @ctrl_req: pointer to received setup packet
  *
@@ -514,7 +518,9 @@ static int cdns_req_ep0_get_status(struct usb_ss_dev *usb_ss,
 }
 
 /**
- * cdns_req_ep0_set_address - Handling of GET/SET_FEATURE standard USB request
+ * cdns_req_ep0_handle_feature -
+ * Handling of GET/SET_FEATURE standard USB request
+ *
  * @usb_ss: extended gadget object
  * @ctrl_req: pointer to received setup packet
  * @set: must be set to 1 for SET_FEATURE request
@@ -815,6 +821,8 @@ static int cdns_req_ep0_set_configuration(struct usb_ss_dev *usb_ss,
  * cdns_ep0_standard_request - Handling standard USB requests
  * @usb_ss: extended gadget object
  * @ctrl_req: pointer to received setup packet
+ *
+ * Returns 0 if success, error code on error
  */
 static int cdns_ep0_standard_request(struct usb_ss_dev *usb_ss,
 		struct usb_ctrlrequest *ctrl_req)
@@ -870,6 +878,8 @@ static void cdns_ep0_setup_phase(struct usb_ss_dev *usb_ss)
 /**
  * cdns_check_ep_interrupt_proceed - Processes interrupt related to endpoint
  * @usb_ss_ep: extended endpoint object
+ *
+ * Returns 0
  */
 static int cdns_check_ep_interrupt_proceed(struct usb_ss_endpoint *usb_ss_ep)
 {
@@ -1188,8 +1198,7 @@ static irqreturn_t cdns_irq_handler(int irq, void *_usb_ss)
 
 /**
  * cdns_irq_handler - irq line interrupt handler
- * @irq: interrupt line number
- * @_usb_ss: pointer to extended gadget object
+ * @cdns: cdns3 instance
  *
  * Returns IRQ_HANDLED when interrupt raised by USBSS_DEV,
  * IRQ_NONE when interrupt raised by other device connected
@@ -1765,7 +1774,7 @@ static int usb_ss_gadget_ep_set_halt(struct usb_ep *ep, int value)
  * usb_ss_gadget_ep_set_wedge Set wedge on selected endpoint
  * @ep: endpoint object
  *
- * Returns 0 on success, error code elsewhere
+ * Returns 0
  */
 static int usb_ss_gadget_ep_set_wedge(struct usb_ep *ep)
 {
@@ -1930,7 +1939,7 @@ static const struct usb_gadget_ops usb_ss_gadget_ops = {
 
 /**
  * usb_ss_init_ep Initializes software endpoints of gadget
- * @gadget: gadget object
+ * @usb_ss: extended gadget object
  *
  * Returns 0 on success, error code elsewhere
  */
@@ -2008,7 +2017,7 @@ static int usb_ss_init_ep(struct usb_ss_dev *usb_ss)
 
 /**
  * usb_ss_init_ep0 Initializes software endpoint 0 of gadget
- * @gadget: gadget object
+ * @usb_ss: extended gadget object
  *
  * Returns 0 on success, error code elsewhere
  */
@@ -2145,7 +2154,7 @@ err1:
 }
 
 /**
- * cdns3_gadget_remove: parent remove must call this to remove UDC
+ * cdns3_gadget_remove: parent must call this to remove UDC
  *
  * cdns: cdns3 instance
  *

@@ -376,7 +376,7 @@ static void cdns3_remove_roles(struct cdns3 *cdns)
 	cdns3_host_remove(cdns);
 }
 
-static int cdsn3_do_role_switch(struct cdns3 *cdns, enum cdns3_roles role)
+static int cdns3_do_role_switch(struct cdns3 *cdns, enum cdns3_roles role)
 {
 	int ret = 0;
 	enum cdns3_roles current_role;
@@ -431,11 +431,11 @@ static void cdns3_role_switch(struct work_struct *work)
 	device = extcon_get_state(cdns->extcon, EXTCON_USB);
 
 	if (host)
-		cdsn3_do_role_switch(cdns, CDNS3_ROLE_HOST);
+		cdns3_do_role_switch(cdns, CDNS3_ROLE_HOST);
 	else if (device)
-		cdsn3_do_role_switch(cdns, CDNS3_ROLE_GADGET);
+		cdns3_do_role_switch(cdns, CDNS3_ROLE_GADGET);
 	else
-		cdsn3_do_role_switch(cdns, CDNS3_ROLE_END);
+		cdns3_do_role_switch(cdns, CDNS3_ROLE_END);
 }
 
 static int cdns3_extcon_notifier(struct notifier_block *nb, unsigned long event,
