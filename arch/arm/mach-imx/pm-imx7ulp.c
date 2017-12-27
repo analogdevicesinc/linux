@@ -139,14 +139,13 @@ static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_base);
 
 static u32 tpm5_regs[4];
 static u32 lpuart4_regs[4];
-static u32 pcc2_regs[25][2] = {
+static u32 pcc2_regs[24][2] = {
 	{0x20, 0}, {0x3c, 0}, {0x40, 0}, {0x6c, 0},
-	{0x84, 0}, {0x8c, 0}, {0x90, 0}, {0x94, 0},
-	{0x98, 0}, {0x9c, 0}, {0xa4, 0}, {0xa8, 0},
-	{0xac, 0}, {0xb0, 0}, {0xb4, 0}, {0xb8, 0},
-	{0xc4, 0}, {0xcc, 0}, {0xd0, 0}, {0xd4, 0},
-	{0xd8, 0}, {0xdc, 0}, {0xe0, 0}, {0xf4, 0},
-	{0x10c, 0},
+	{0x84, 0}, {0x90, 0}, {0x94, 0}, {0x98, 0},
+	{0x9c, 0}, {0xa4, 0}, {0xa8, 0}, {0xac, 0},
+	{0xb0, 0}, {0xb4, 0}, {0xb8, 0}, {0xc4, 0},
+	{0xcc, 0}, {0xd0, 0}, {0xd4, 0}, {0xd8, 0},
+	{0xdc, 0}, {0xe0, 0}, {0xf4, 0}, {0x10c, 0},
 };
 
 static u32 pcc3_regs[16][2] = {
@@ -315,7 +314,7 @@ static void imx7ulp_pcc2_save(void)
 {
 	int i;
 
-	for (i = 0; i < 25; i++)
+	for (i = 0; i < 24; i++)
 		pcc2_regs[i][1] = readl_relaxed(pcc2_base + pcc2_regs[i][0]);
 }
 
@@ -323,7 +322,7 @@ static void imx7ulp_pcc2_restore(void)
 {
 	int i;
 
-	for (i = 0; i < 25; i++)
+	for (i = 0; i < 24; i++)
 		writel_relaxed(pcc2_regs[i][1], pcc2_base + pcc2_regs[i][0]);
 }
 
