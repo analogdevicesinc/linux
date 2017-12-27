@@ -353,7 +353,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 			p1_w = round_up(width, info->cpp[0] == 2 ? 32 : 16);
 			break;
 		}
-		p1_h = round_up(height, modifier ? 64 : 4);
+		p1_h = round_up(height, 4);
 	}
 
 	dprc_write(dprc, PITCH(stride), FRAME_CTRL0);
