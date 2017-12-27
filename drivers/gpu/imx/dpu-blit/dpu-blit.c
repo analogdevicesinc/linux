@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <video/dpu.h>
+#include <video/imx8-prefetch.h>
 
 #include "dpu-blit.h"
 #include "dpu-blit-registers.h"
@@ -87,6 +88,65 @@ static void dpu_cs_static_setup(struct dpu_bliteng *dpu_be)
 	dpu_be_write(dpu_be, COMMAND_BUFFER_SIZE / WORD_SIZE,
 		CMDSEQ_BUFFERSIZE);
 }
+
+static struct dprc *
+dpu_be_dprc_get(struct dpu_soc *dpu, int dprc_id)
+{
+	struct dprc *dprc;
+
+	dprc = dprc_lookup_by_phandle(dpu->dev,
+				      "fsl,dpr-channels",
+				      dprc_id);
+
+	return dprc;
+}
+
+void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
+			       u32 width, u32 height,
+			       u32 x_offset, u32 y_offset,
+			       u32 stride, u32 format, u64 modifier,
+			       u64 baddr, u64 uv_addr)
+{
+	static bool start = true;
+	static bool need_handle_start;
+	struct dprc *dprc;
+
+	/* Enable DPR, dprc1 is connected to plane0 */
+	dprc = dpu_be->dprc[1];
+
+	if (baddr == 0x0) {
+		dprc_disable(dprc);
+		start = true;
+		return;
+	}
+
+	dpu_be_wait(dpu_be);
+
+	if (need_handle_start) {
+		dprc_irq_handle(dprc);
+		need_handle_start = false;
+	}
+
+	dprc_configure(dprc, 0,
+		       width, height,
+		       x_offset, y_offset,
+		       stride, format, modifier,
+		       baddr, uv_addr,
+		       start, start);
+
+	if (start)
+		dprc_enable(dprc);
+
+	dprc_reg_update(dprc);
+
+	if (start) {
+		dprc_enable_ctrl_done_irq(dprc);
+		need_handle_start = true;
+	}
+
+	start = false;
+}
+EXPORT_SYMBOL(dpu_be_configure_prefetch);
 
 int dpu_bliteng_get_empty_instance(struct dpu_bliteng **dpu_be,
 	struct device *dev)
@@ -334,6 +394,10 @@ int dpu_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 		return ret;
 
 	dpu_cs_static_setup(dpu_bliteng);
+
+	/* DPR, each blit engine has two dprc, 0 & 1 */
+	dpu_bliteng->dprc[0] = dpu_be_dprc_get(dpu, 0);
+	dpu_bliteng->dprc[1] = dpu_be_dprc_get(dpu, 1);
 
 	return 0;
 }

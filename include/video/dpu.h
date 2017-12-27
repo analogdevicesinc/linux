@@ -708,6 +708,12 @@ s32 dpu_bliteng_get_id(struct dpu_bliteng *dpu_be);
 void dpu_bliteng_set_id(struct dpu_bliteng *dpu_be, int id);
 void dpu_bliteng_set_dev(struct dpu_bliteng *dpu_be, struct device *dev);
 
+void  dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
+				u32 width, u32 height,
+				u32 x_offset, u32 y_offset,
+				u32 stride, u32 format, u64 modifier,
+				u64 baddr, u64 uv_addr);
+
 /*
  * to avoid on-the-fly/hot plane resource migration
  * between two display interfaces

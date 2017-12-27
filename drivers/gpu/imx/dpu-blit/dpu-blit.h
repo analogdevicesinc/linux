@@ -36,6 +36,8 @@ struct dpu_bliteng {
 	u32 *cmd_list;
 
 	struct dpu_soc *dpu;
+
+	struct dprc *dprc[2];
 };
 
 #endif
