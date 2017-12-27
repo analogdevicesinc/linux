@@ -11,6 +11,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/console.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
@@ -155,11 +156,12 @@ static u32 pcc3_regs[16][2] = {
 	{0xc0, 0}, {0xc4, 0}, {0x140, 0}, {0x144, 0},
 };
 
-static u32 scg1_offset[16] = {
+static u32 scg1_offset[17] = {
 	0x14, 0x30, 0x40, 0x304,
 	0x500, 0x504, 0x508, 0x50c,
 	0x510, 0x514, 0x600, 0x604,
 	0x608, 0x60c, 0x610, 0x614,
+	0x104,
 };
 
 extern unsigned long iram_tlb_base_addr;
@@ -251,7 +253,7 @@ struct imx7ulp_cpu_pm_info {
 	void __iomem *mmdc_base;
 	void __iomem *mmdc_io_base;
 	void __iomem *smc1_base;
-	u32 scg1[16];
+	u32 scg1[17];
 	u32 ttbr1; /* Store TTBR1 */
 	u32 gpio[4][2];
 	u32 iomux_num; /* Number of IOs which need saved/restored. */
@@ -290,7 +292,7 @@ static void imx7ulp_scg1_save(void)
 {
 	int i;
 
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < 17; i++)
 		pm_info->scg1[i] = readl_relaxed(scg1_base + scg1_offset[i]);
 }
 
@@ -353,7 +355,6 @@ static void imx7ulp_lpuart_save(void)
 
 static void imx7ulp_lpuart_restore(void)
 {
-	writel_relaxed(0x10101, scg1_base + 0x104);
 	writel_relaxed(LPUART4_MUX_VALUE,
 		iomuxc1_base + PTC2_LPUART4_TX_OFFSET);
 	writel_relaxed(LPUART4_MUX_VALUE,
@@ -491,7 +492,8 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 			imx7ulp_pcc2_save();
 			imx7ulp_pcc3_save();
 			imx7ulp_tpm_save();
-			imx7ulp_lpuart_save();
+			if (!console_suspend_enabled)
+				imx7ulp_lpuart_save();
 			imx7ulp_iomuxc_save();
 			imx7ulp_set_lpm(VLLS);
 
@@ -500,7 +502,8 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 
 			imx7ulp_pcc2_restore();
 			imx7ulp_pcc3_restore();
-			imx7ulp_lpuart_restore();
+			if (!console_suspend_enabled)
+				imx7ulp_lpuart_restore();
 			imx7ulp_set_dgo(0);
 			imx7ulp_tpm_restore();
 			imx7ulp_set_lpm(RUN);
