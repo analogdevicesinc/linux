@@ -100,6 +100,7 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget);
 static int usb_ss_init_ep(struct usb_ss_dev *usb_ss);
 static int usb_ss_init_ep0(struct usb_ss_dev *usb_ss);
 static void __cdns3_gadget_start(struct usb_ss_dev *usb_ss);
+static void cdns_prepare_setup_packet(struct usb_ss_dev *usb_ss);
 
 static struct usb_endpoint_descriptor cdns3_gadget_ep0_desc = {
 	.bLength	= USB_DT_ENDPOINT_SIZE,
@@ -270,6 +271,8 @@ static void cdns_ep0_config(struct usb_ss_dev *usb_ss)
 	gadget_writel(usb_ss, &usb_ss->regs->ep_sts_en,
 		EP_STS_EN__SETUPEN__MASK |
 		EP_STS_EN__TRBERREN__MASK);
+
+	cdns_prepare_setup_packet(usb_ss);
 }
 
 /**
@@ -398,6 +401,12 @@ static int cdns_get_setup_ret(struct usb_ss_dev *usb_ss,
 	return ret;
 }
 
+static void cdns_prepare_setup_packet(struct usb_ss_dev *usb_ss)
+{
+	usb_ss->ep0_data_dir = 0;
+	cdns_ep0_run_transfer(usb_ss, usb_ss->setup_dma, 8, 0);
+}
+
 /**
  * cdns_req_ep0_set_address - Handling of SET_ADDRESS standard USB request
  * @usb_ss: extended gadget object
@@ -434,6 +443,8 @@ static int cdns_req_ep0_set_address(struct usb_ss_dev *usb_ss,
 
 	usb_gadget_set_state(&usb_ss->gadget,
 		(addr ? USB_STATE_ADDRESS : USB_STATE_DEFAULT));
+
+	cdns_prepare_setup_packet(usb_ss);
 
 	gadget_writel(usb_ss, &usb_ss->regs->ep_cmd,
 		EP_CMD__ERDY__MASK | EP_CMD__REQ_CMPL__MASK);
@@ -1013,9 +1024,6 @@ static void cdns_check_ep0_interrupt_proceed(struct usb_ss_dev *usb_ss, int dir)
 			|| (ep_sts_reg & EP_STS__ISP__MASK)) {
 		gadget_writel(usb_ss,
 			&usb_ss->regs->ep_sts, EP_STS__IOC__MASK);
-		gadget_writel(usb_ss,
-			&usb_ss->regs->ep_cmd, EP_CMD__REQ_CMPL__MASK);
-
 		if (usb_ss->actual_ep0_request) {
 			usb_gadget_unmap_request_by_dev(usb_ss->sysdev,
 					usb_ss->actual_ep0_request,
@@ -1037,6 +1045,10 @@ static void cdns_check_ep0_interrupt_proceed(struct usb_ss_dev *usb_ss, int dir)
 					usb_ss->actual_ep0_request);
 			spin_lock(&usb_ss->lock);
 		}
+		cdns_prepare_setup_packet(usb_ss);
+		gadget_writel(usb_ss,
+			&usb_ss->regs->ep_cmd, EP_CMD__REQ_CMPL__MASK);
+
 	}
 }
 
@@ -1318,6 +1330,7 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 
 			gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
 			USB_CONF__CFGSET__MASK); /* SET CONFIGURATION */
+			cdns_prepare_setup_packet(usb_ss);
 			gadget_writel(usb_ss, &usb_ss->regs->ep_cmd,
 				EP_CMD__ERDY__MASK | EP_CMD__REQ_CMPL__MASK);
 			/* wait until configuration set */
