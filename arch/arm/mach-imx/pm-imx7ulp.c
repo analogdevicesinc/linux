@@ -587,7 +587,7 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 				*socdata)
 {
 	struct device_node *np;
-	unsigned long sram_paddr;
+	unsigned long sram_paddr = 0;
 	const u32 *mmdc_offset_array;
 	const u32 *mmdc_io_offset_array;
 	unsigned long i, j;
