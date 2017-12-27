@@ -29,6 +29,13 @@
 	sound-amix-sai {
 		status = "disabled";
 	};
+
+	sound-hdmi-arc {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-hdmi-arc";
+		spdif-controller = <&spdif1>;
+		spdif-in;
+	};
 };
 
 &dpu1 {
@@ -83,5 +90,13 @@
 	assigned-clock-parents = <&clk IMX8QM_AUD_ACM_AUD_PLL_CLK1_CLK>;
 	assigned-clock-rates = <0>, <768000000>, <768000000>, <768000000>, <768000000>;
 	fsl,sai-asynchronous;
+	status = "okay";
+};
+
+&spdif1 {
+	assigned-clocks =<&clk IMX8QM_AUD_PLL0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>;
+	assigned-clock-rates = <786432000>, <49152000>, <12288000>;
 	status = "okay";
 };

@@ -2617,6 +2617,8 @@
 			<0x0 0x59270000 0x0 0x10000>, /* esai0 tx */
 			<0x0 0x59280000 0x0 0x10000>, /* spdif0 rx */
 			<0x0 0x59290000 0x0 0x10000>, /* spdif0 tx */
+			<0x0 0x592A0000 0x0 0x10000>, /* spdif1 rx */
+			<0x0 0x592B0000 0x0 0x10000>, /* spdif1 tx */
 			<0x0 0x592c0000 0x0 0x10000>, /* sai0 rx */
 			<0x0 0x592d0000 0x0 0x10000>, /* sai0 tx */
 			<0x0 0x592e0000 0x0 0x10000>, /* sai1 rx */
@@ -2625,7 +2627,7 @@
 			<0x0 0x59330000 0x0 0x10000>; /* sai5 tx */
 		#dma-cells = <3>;
 		shared-interrupt;
-		dma-channels = <16>;
+		dma-channels = <18>;
 		interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc0 */
 				<GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH>,
@@ -2636,6 +2638,8 @@
 				<GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
 				<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 461 IRQ_TYPE_LEVEL_HIGH>, /* spdif1 */
+				<GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
 				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>, /* sai1 */
@@ -2647,6 +2651,7 @@
 				"edma2-chan4-tx", "edma2-chan5-tx",
 				"edma2-chan6-rx", "edma2-chan7-tx", /* esai0 */
 				"edma2-chan8-rx", "edma2-chan9-tx", /* spdif0 */
+				"edma2-chan10-rx", "edma2-chan11-tx", /* spdif1 */
 				"edma2-chan12-rx", "edma2-chan13-tx", /* sai0 */
 				"edma2-chan14-rx", "edma2-chan15-tx", /* sai1 */
 				"edma2-chan18-rx", "edma2-chan19-tx"; /* sai4, sai5 */
@@ -3220,6 +3225,32 @@
 		dmas = <&edma2 8 0 5>, <&edma2 9 0 4>;
 		dma-names = "rx", "tx";
 		power-domains = <&pd_spdif0>;
+		status = "disabled";
+	};
+
+	spdif1: spdif@59030000 {
+		compatible = "fsl,imx8qm-spdif";
+		reg = <0x0 0x59030000 0x0 0x10000>;
+		interrupts =  <GIC_SPI 460 IRQ_TYPE_LEVEL_HIGH>, /* rx */
+			     <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>; /* tx */
+		clocks = <&clk IMX8QM_AUD_SPDIF_1_GCLKW>, /* core */
+			<&clk IMX8QM_CLK_DUMMY>, /* rxtx0 */
+			<&clk IMX8QM_AUD_SPDIF_1_TX_CLK>, /* rxtx1 */
+			<&clk IMX8QM_CLK_DUMMY>, /* rxtx2 */
+			<&clk IMX8QM_CLK_DUMMY>, /* rxtx3 */
+			<&clk IMX8QM_CLK_DUMMY>, /* rxtx4 */
+			<&clk IMX8QM_IPG_AUD_CLK_ROOT>, /* rxtx5 */
+			<&clk IMX8QM_CLK_DUMMY>, /* rxtx6 */
+			<&clk IMX8QM_CLK_DUMMY>, /* rxtx7 */
+			<&clk IMX8QM_CLK_DUMMY>; /* spba */
+		clock-names = "core", "rxtx0",
+			      "rxtx1", "rxtx2",
+			      "rxtx3", "rxtx4",
+			      "rxtx5", "rxtx6",
+			      "rxtx7", "spba";
+		dmas = <&edma2 10 0 5>, <&edma2 11 0 4>;
+		dma-names = "rx", "tx";
+		power-domains = <&pd_spdif1>;
 		status = "disabled";
 	};
 
