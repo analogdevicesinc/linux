@@ -61,6 +61,7 @@ static int imx_drm_dpu_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 	u32 cmd_nr, *cmd, *cmd_list;
 	void *user_data;
 	s32 id = 0;
+	struct drm_imx_dpu_frame_info frame_info;
 	int ret;
 
 	req = data;
@@ -72,6 +73,12 @@ static int imx_drm_dpu_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 
 	if (id != 0 && id != 1)
 		return -EINVAL;
+
+	user_data += sizeof(id);
+	if (copy_from_user(&frame_info, (void __user *)user_data,
+		sizeof(frame_info))) {
+		return -EFAULT;
+	}
 
 	bliteng = imx_drm_dpu_bliteng_find_by_id(id);
 	if (!bliteng) {
@@ -95,6 +102,12 @@ retry:
 		ret = -EFAULT;
 		goto err;
 	}
+
+	dpu_be_configure_prefetch(dpu_be, frame_info.width, frame_info.height,
+				  frame_info.x_offset, frame_info.y_offset,
+				  frame_info.stride, frame_info.format,
+				  frame_info.modifier, frame_info.baddr,
+				  frame_info.uv_addr);
 
 	ret = dpu_be_blit(dpu_be, cmd_list, cmd_nr);
 
