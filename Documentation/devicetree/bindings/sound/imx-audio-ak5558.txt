@@ -1,0 +1,30 @@
+Freescale i.MX audio complex with AK5558 ADC
+
+Required properties:
+
+- compatible	: "fsl,imx-audio-ak5558"
+- model		: The user-visible name of this sound complex
+- audio-cpu	: The phandle of CPU DAI
+- audio-codec	: The phandle of the AK5558 audio ADC
+- audio-routing : A list of the connections between audio components. Each entry
+  is a pair of strings, the first being the connection's sink, the second being
+  the connection's source. Valid names could be power supplies, AK5558 pins,
+  and the jacks on the board.
+
+Example:
+
+sound {
+       compatible = "fsl,imx-audio-ak5558";
+       model = "ak5558-audio";
+       audio-cpu = <&sai1>;
+       audio-codec = <&codec>;
+       audio-routing =
+               "AIN1", "Capture",
+               "AIN2", "Capture",
+               "AIN3", "Capture",
+               "AIN4", "Capture",
+               "AIN5", "Capture",
+               "AIN6", "Capture",
+               "AIN7", "Capture",
+               "AIN8", "Capture";
+};
