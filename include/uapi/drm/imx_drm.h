@@ -24,6 +24,22 @@
 extern "C" {
 #endif
 
+/**
+ * Dpu frame info.
+ *
+ */
+struct drm_imx_dpu_frame_info {
+	__u32   width;
+	__u32   height;
+	__u32	x_offset;
+	__u32	y_offset;
+	__u32	stride;
+	__u32	format;
+	__u64   modifier;
+	__u64	baddr;
+	__u64	uv_addr;
+};
+
 #define DRM_IMX_DPU_SET_CMDLIST                 0x00
 #define DRM_IMX_DPU_WAIT                        0x01
 #define DRM_IMX_DPU_GET_PARAM                   0x02
