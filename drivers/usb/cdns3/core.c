@@ -159,6 +159,8 @@ static void cdns_set_role(struct cdns3 *cdns, enum cdns3_roles role)
 		writel(value, cdns->none_core_regs + USB3_CORE_CTRL1);
 		mdelay(1);
 		cdns3_usb_phy_init(cdns->phy_regs);
+		/* Force B Session Valid as 1 */
+		writel(0x0060, cdns->phy_regs + 0x380a4);
 		mdelay(1);
 
 		value = readl(cdns->none_core_regs + USB3_INT_REG);
@@ -192,6 +194,8 @@ static void cdns_set_role(struct cdns3 *cdns, enum cdns3_roles role)
 		writel(value, cdns->none_core_regs + USB3_CORE_CTRL1);
 
 		cdns3_usb_phy_init(cdns->phy_regs);
+		/* Force B Session Valid as 1 */
+		writel(0x0060, cdns->phy_regs + 0x380a4);
 		value = readl(cdns->none_core_regs + USB3_INT_REG);
 		value |= DEV_INT_EN;
 		writel(value, cdns->none_core_regs + USB3_INT_REG);
@@ -398,10 +402,6 @@ static int cdns3_do_role_switch(struct cdns3 *cdns, enum cdns3_roles role)
 	}
 
 	cdns_set_role(cdns, role);
-	if (role == CDNS3_ROLE_GADGET || role == CDNS3_ROLE_HOST)
-		/* Force B Session Valid as 1 */
-		writel(0x0060, cdns->phy_regs + 0x380a4);
-
 	ret = cdns3_role_start(cdns, role);
 	if (ret) {
 		/* Back to current role */
