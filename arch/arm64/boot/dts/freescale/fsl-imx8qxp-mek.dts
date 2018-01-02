@@ -38,6 +38,15 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
+		reg_fec2_supply: fec2_nvcc {
+			compatible = "regulator-fixed";
+			regulator-name = "fec2_nvcc";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&max7322 0 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+
 		reg_usdhc2_vmmc: usdhc2_vmmc {
 			compatible = "regulator-fixed";
 			regulator-name = "SD1_SPWR";
@@ -512,6 +521,7 @@
 	pinctrl-0 = <&pinctrl_fec2>;
 	phy-mode = "rgmii-id";
 	phy-handle = <&ethphy1>;
+	phy-supply = <&reg_fec2_supply>;
 	fsl,magic-packet;
 	status = "disabled";
 };
@@ -588,6 +598,13 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0>;
+
+			max7322: gpio@68 {
+				compatible = "maxim,max7322";
+				reg = <0x68>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
 		};
 
 		i2c@1 {

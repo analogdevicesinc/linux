@@ -38,6 +38,15 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
+		reg_fec2_supply: fec2_nvcc {
+			compatible = "regulator-fixed";
+			regulator-name = "fec2_nvcc";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&max7322 0 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+
 		epdev_on: fixedregulator@100 {
 			compatible = "regulator-fixed";
 			regulator-min-microvolt = <3300000>;
@@ -690,6 +699,13 @@
 		interrupt-open-drain;
 	};
 
+	max7322: gpio@68 {
+		compatible = "maxim,max7322";
+		reg = <0x68>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
 	mpl3115@60 {
 		compatible = "fsl,mpl3115";
 		reg = <0x60>;
@@ -776,6 +792,7 @@
 	pinctrl-0 = <&pinctrl_fec2>;
 	phy-mode = "rgmii-id";
 	phy-handle = <&ethphy1>;
+	phy-supply = <&reg_fec2_supply>;
 	fsl,magic-packet;
 	status = "okay";
 };
