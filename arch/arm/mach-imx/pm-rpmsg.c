@@ -230,8 +230,7 @@ static int pm_rpmsg_probe(struct rpmsg_device *rpdev)
 		pm_heart_beat_work_handler);
 
 	pm_rpmsg.first_flag = true;
-	schedule_delayed_work(&heart_beat_work,
-			msecs_to_jiffies(100));
+	schedule_delayed_work(&heart_beat_work, 0);
 
 	pm_rpmsg.restart_handler.notifier_call = pm_restart_handler;
 	pm_rpmsg.restart_handler.priority = 128;
