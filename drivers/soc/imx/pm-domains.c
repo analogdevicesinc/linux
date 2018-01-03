@@ -42,7 +42,7 @@ static sc_rsrc_t early_power_on_rsrc[] = {
 };
 static sc_rsrc_t rsrc_debug_console;
 
-#define IMX8_WU_MAX_IRQS	512
+#define IMX8_WU_MAX_IRQS	(((SC_R_LAST + 31) / 32 ) * 32 )
 static sc_rsrc_t irq2rsrc[IMX8_WU_MAX_IRQS];
 static sc_rsrc_t wakeup_rsrc_id[IMX8_WU_MAX_IRQS / 32];
 static DEFINE_SPINLOCK(imx8_wu_lock);
