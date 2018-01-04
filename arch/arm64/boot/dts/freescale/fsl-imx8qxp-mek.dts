@@ -878,3 +878,160 @@
 &vpu {
 	status = "okay";
 };
+
+/* DSI/LVDS port 0 */
+&i2c0_mipi_lvds0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0_mipi_lvds0>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	lvds-to-hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+		reset-gpios = <&pca9557_a 6 GPIO_ACTIVE_LOW>;
+
+		port {
+			it6263_0_in: endpoint {
+				clock-lanes = <4>;
+				data-lanes = <0 1 2 3>;
+				remote-endpoint = <&lvds0_out>;
+			};
+		};
+	};
+
+	adv_bridge1: adv7535@3d {
+		compatible = "adi,adv7535", "adi,adv7533";
+		reg = <0x3d>;
+		adi,dsi-lanes = <4>;
+		adi,dsi-channel = <1>;
+		status = "okay";
+
+		port {
+			adv7535_1_in: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge1_out>;
+			};
+		};
+	};
+
+};
+
+&ldb1_phy {
+	status = "okay";
+};
+
+&ldb1 {
+	status = "okay";
+
+	lvds-channel@0 {
+		fsl,data-mapping = "jeida";
+		fsl,data-width = <24>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds0_out: endpoint {
+				remote-endpoint = <&it6263_0_in>;
+			};
+		};
+	};
+};
+
+&mipi_dsi_phy1 {
+	status = "okay";
+};
+
+&mipi_dsi1 {
+	status = "okay";
+};
+
+&mipi_dsi_bridge1 {
+	status = "okay";
+
+	port@1 {
+		mipi_dsi_bridge1_out: endpoint {
+			remote-endpoint = <&adv7535_1_in>;
+		};
+	};
+};
+
+/* DSI/LVDS port 1 */
+&i2c0_mipi_lvds1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0_mipi_lvds1>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	lvds-to-hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+		reset-gpios = <&pca9557_b 7 GPIO_ACTIVE_LOW>;
+
+		port {
+			it6263_1_in: endpoint {
+				clock-lanes = <4>;
+				data-lanes = <0 1 2 3>;
+				remote-endpoint = <&lvds1_out>;
+			};
+		};
+	};
+
+	adv_bridge2: adv7535@3d {
+		compatible = "adi,adv7535", "adi,adv7533";
+		reg = <0x3d>;
+		adi,dsi-lanes = <4>;
+		adi,dsi-channel = <1>;
+		status = "okay";
+
+		port {
+			adv7535_2_in: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge2_out>;
+			};
+		};
+	};
+};
+
+&ldb2_phy {
+	status = "okay";
+};
+
+&ldb2 {
+	status = "okay";
+
+	lvds-channel@0 {
+		fsl,data-mapping = "jeida";
+		fsl,data-width = <24>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds1_out: endpoint {
+				remote-endpoint = <&it6263_1_in>;
+			};
+		};
+	};
+};
+
+&mipi_dsi_phy2 {
+	status = "okay";
+};
+
+&mipi_dsi2 {
+	status = "okay";
+};
+
+&mipi_dsi_bridge2 {
+	status = "okay";
+
+	port@1 {
+		mipi_dsi_bridge2_out: endpoint {
+			remote-endpoint = <&adv7535_2_in>;
+		};
+	};
+};
