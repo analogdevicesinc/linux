@@ -2749,6 +2749,36 @@
 		#interrupt-cells = <2>;
 	};
 
+	gpio0_mipi_csi0: gpio@58222000 {
+		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
+		reg = <0x0 0x58222000 0x0 0x1000>;
+		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_csi0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		power-domains = <&pd_csi0>;
+		clocks = <&clk IMX8QM_CSI0_IPG_CLK_S>;
+		clock-names = "ipg";
+		status = "disabled";
+	};
+
+	gpio0_mipi_csi1: gpio@58242000 {
+		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
+		reg = <0x0 0x58242000 0x0 0x1000>;
+		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_csi1>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		power-domains = <&pd_csi1>;
+		clocks = <&clk IMX8QM_CSI1_IPG_CLK_S>;
+		clock-names = "ipg";
+		status = "disabled";
+	};
+
 	gpt0: gpt0@5d140000 {
 		compatible = "fsl,imx8qm-gpt";
 		reg = <0x0 0x5d140000 0x0 0x4000>;
