@@ -2821,6 +2821,17 @@ static int max9286_probe(struct i2c_client *client,
 		return retval;
 	}
 
+	/* request power down pin */
+	max9286_data->pwn_gpio = of_get_named_gpio(dev->of_node, "pwn-gpios", 0);
+	if (!gpio_is_valid(max9286_data->pwn_gpio)) {
+		dev_err(dev, "no sensor pwdn pin available\n");
+		return -ENODEV;
+	}
+	retval = devm_gpio_request_one(dev, max9286_data->pwn_gpio, GPIOF_OUT_INIT_HIGH,
+					"max9286_pwd");
+	if (retval < 0)
+		return retval;
+
 	clk_prepare_enable(max9286_data->sensor_clk);
 
 	max9286_data->i2c_client = client;
@@ -2844,6 +2855,7 @@ static int max9286_probe(struct i2c_client *client,
 	if (retval != 0x40) {
 		pr_warning("max9286 is not found, chip id reg 0x1e = 0x%x.\n", retval);
 		clk_disable_unprepare(max9286_data->sensor_clk);
+		devm_gpio_free(dev, max9286_data->pwn_gpio);
 		return -ENODEV;
 	}
 
@@ -2852,6 +2864,7 @@ static int max9286_probe(struct i2c_client *client,
 	if  (max9286_data->sensor_num == 0) {
 		pr_warning("cameras are not found,\n");
 		clk_disable_unprepare(max9286_data->sensor_clk);
+		devm_gpio_free(dev, max9286_data->pwn_gpio);
 		return -ENODEV;
 	}
 

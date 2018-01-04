@@ -84,5 +84,6 @@ struct sensor_data {
 
 	unsigned int sensor_num;       /* sensor num connect max9271 */
 	unsigned char sensor_is_there; /* Bit 0~3 for 4 cameras, 0b1= is there; 0b0 = is not there */
+	int pwn_gpio;
 };
 #endif
