@@ -184,6 +184,7 @@ extern "C" {
 #define DRM_FORMAT_MOD_VENDOR_VIVANTE 0x06
 #define DRM_FORMAT_MOD_VENDOR_BROADCOM 0x07
 #define DRM_FORMAT_MOD_VENDOR_AMPHION  0x08
+#define DRM_FORMAT_MOD_VENDOR_VSI      0x09
 /* add more to the end as needed */
 
 #define DRM_FORMAT_RESERVED	      ((1ULL << 56) - 1)
@@ -413,6 +414,32 @@ extern "C" {
  * contains 1x16 groups of 8x8 pixels in a row-major layout.
  */
 #define DRM_FORMAT_MOD_AMPHION_TILED fourcc_mod_code(AMPHION, 1)
+
+/* Verisilicon framebuffer modifiers */
+
+/*
+ * Verisilicon 8x4 tiling layout
+ *
+ * This is G1 VPU tiled layout using tiles of 8x4 pixels in a row-major
+ * layout.
+ */
+#define DRM_FORMAT_MOD_VSI_G1_TILED fourcc_mod_code(VSI, 1)
+
+/*
+ * Verisilicon 4x4 tiling layout
+ *
+ * This is G2 VPU tiled layout using tiles of 4x4 pixels in a row-major
+ * layout.
+ */
+#define DRM_FORMAT_MOD_VSI_G2_TILED fourcc_mod_code(VSI, 2)
+
+/*
+ * Verisilicon 4x4 tiling with compression layout
+ *
+ * This is G2 VPU tiled layout using tiles of 4x4 pixels in a row-major
+ * layout with compression.
+ */
+#define DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED fourcc_mod_code(VSI, 3)
 
 #if defined(__cplusplus)
 }
