@@ -296,15 +296,11 @@ static int rad_panel_prepare(struct drm_panel *panel)
 		goto fail;
 	}
 
-	msleep(120);
-
 	ret = mipi_dsi_dcs_set_display_on(dsi);
 	if (ret < 0) {
 		DRM_DEV_ERROR(dev, "Failed to set display ON (%d)\n", ret);
 		goto fail;
 	}
-
-	msleep(100);
 
 	rad->prepared = true;
 
