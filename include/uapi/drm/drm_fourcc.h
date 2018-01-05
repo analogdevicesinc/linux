@@ -422,6 +422,7 @@ extern "C" {
 #define DRM_FORMAT_MOD_VENDOR_ALLWINNER 0x09
 #define DRM_FORMAT_MOD_VENDOR_AMLOGIC 0x0a
 #define DRM_FORMAT_MOD_VENDOR_AMPHION 0xf0
+#define DRM_FORMAT_MOD_VENDOR_VSI     0xf1
 
 /* add more to the end as needed */
 
@@ -1617,6 +1618,32 @@ drm_fourcc_canonicalize_nvidia_format_mod(__u64 modifier)
  * contains 1x16 groups of 8x8 pixels in a row-major layout.
  */
 #define DRM_FORMAT_MOD_AMPHION_TILED fourcc_mod_code(AMPHION, 1)
+
+/* Verisilicon framebuffer modifiers */
+
+/*
+ * Verisilicon 8x4 tiling layout
+ *
+ * This is G1 VPU tiled layout using tiles of 8x4 pixels in a row-major
+ * layout.
+ */
+#define DRM_FORMAT_MOD_VSI_G1_TILED fourcc_mod_code(VSI, 1)
+
+/*
+ * Verisilicon 4x4 tiling layout
+ *
+ * This is G2 VPU tiled layout using tiles of 4x4 pixels in a row-major
+ * layout.
+ */
+#define DRM_FORMAT_MOD_VSI_G2_TILED fourcc_mod_code(VSI, 2)
+
+/*
+ * Verisilicon 4x4 tiling with compression layout
+ *
+ * This is G2 VPU tiled layout using tiles of 4x4 pixels in a row-major
+ * layout with compression.
+ */
+#define DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED fourcc_mod_code(VSI, 3)
 
 #if defined(__cplusplus)
 }
