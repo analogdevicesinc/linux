@@ -32,23 +32,23 @@ struct imx_cdnhdmi_data {
 	struct snd_soc_dai_link dai;
 	struct snd_soc_card card;
 	int protocol;
+	u32 support_rates[SUPPORT_RATE_NUM];
+	u32 support_rates_num;
 };
 
 static int imx_cdnhdmi_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct imx_cdnhdmi_data *data = snd_soc_card_get_drvdata(card);
 	static struct snd_pcm_hw_constraint_list constraint_rates;
 	static struct snd_pcm_hw_constraint_list constraint_channels;
-	static u32 support_rates[SUPPORT_RATE_NUM];
 	static u32 support_channels[SUPPORT_CHANNEL_NUM];
 	int ret;
 
-	support_rates[0] = 48000;
-	support_rates[1] = 96000;
-	support_rates[2] = 32000;
-	support_rates[3] = 192000;
-	constraint_rates.list = support_rates;
-	constraint_rates.count = 4;
+	constraint_rates.list = data->support_rates;
+	constraint_rates.count = data->support_rates_num;
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
 						&constraint_rates);
@@ -123,6 +123,7 @@ static int imx_cdnhdmi_probe(struct platform_device *pdev)
 	struct platform_device *cpu_pdev;
 	struct imx_cdnhdmi_data *data;
 	int ret;
+	int i;
 
 	cpu_np = of_parse_phandle(pdev->dev.of_node, "audio-cpu", 0);
 	if (!cpu_np) {
@@ -142,6 +143,24 @@ static int imx_cdnhdmi_probe(struct platform_device *pdev)
 	if (!data) {
 		ret = -ENOMEM;
 		goto fail;
+	}
+
+	for (i = 0; i < SUPPORT_RATE_NUM; i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+						"constraint-rate",
+						i, &data->support_rates[i]);
+		if (!ret)
+			data->support_rates_num = i + 1;
+		else
+			break;
+	}
+
+	if (data->support_rates_num == 0) {
+		data->support_rates[0] = 48000;
+		data->support_rates[1] = 96000;
+		data->support_rates[2] = 32000;
+		data->support_rates[3] = 192000;
+		data->support_rates_num = 4;
 	}
 
 	of_property_read_u32(pdev->dev.of_node, "protocol",
