@@ -28,6 +28,7 @@
 	panel@0 {
 		compatible = "raydium,rm67191";
 		reg = <0>;
+		reset-gpio = <&pca9557_a 6 GPIO_ACTIVE_HIGH>;
 		dsi-lanes = <4>;
 		panel-width-mm = <68>;
 		panel-height-mm = <121>;
@@ -59,6 +60,7 @@
 	panel@0 {
 		compatible = "raydium,rm67191";
 		reg = <0>;
+		reset-gpio = <&pca9557_b 7 GPIO_ACTIVE_HIGH>;
 		dsi-lanes = <4>;
 		panel-width-mm = <68>;
 		panel-height-mm = <121>;
