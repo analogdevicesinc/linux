@@ -893,7 +893,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				pd_csi0_i2c0: PD_MIPI_CSI0_I2C {
+				pd_csi0_i2c0: PD_MIPI_CSI0_I2C0 {
 					reg = <SC_R_CSI_0_I2C_0>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_csi0>;

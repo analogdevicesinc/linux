@@ -782,8 +782,7 @@
 				#size-cells = <0>;
 				power-domains =<&pd_isi_ch0>;
 
-				pd_mipi_csi_i2c0: PD_MIPI_CSI0_I2C {
-					name = "mipi_csi0_i2c";
+				pd_mipi_csi_i2c0: PD_MIPI_CSI0_I2C0 {
 					reg = <SC_R_CSI_0_I2C_0>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi_csi>;
