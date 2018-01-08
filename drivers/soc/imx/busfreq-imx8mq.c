@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -330,6 +330,7 @@ void release_bus_freq(enum bus_freq_mode mode)
 		(audio_bus_count == 0)) {
 		set_low_bus_freq();
 		mutex_unlock(&bus_freq_mutex);
+		return;
 	}
 
 	mutex_unlock(&bus_freq_mutex);
