@@ -359,6 +359,16 @@
 			>;
 		};
 
+		pinctrl_sim0: sim0grp {
+			fsl,pins = <
+				SC_P_SIM0_CLK_DMA_SIM0_CLK		0x21
+				SC_P_SIM0_IO_DMA_SIM0_IO		0x21
+				SC_P_SIM0_PD_DMA_SIM0_PD		0x21
+				SC_P_SIM0_POWER_EN_DMA_SIM0_POWER_EN	0x21
+				SC_P_SIM0_RST_DMA_SIM0_RST		0x21
+			>;
+		};
+
 		pinctrl_typec: typecgrp {
 			fsl,pins = <
 				SC_P_QSPI1A_SS0_B_LSIO_GPIO4_IO19	0x60
@@ -548,6 +558,12 @@
 	status = "okay";
 };
 
+&emvsim0 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_sim0>;
+	pinctrl-1 = <&pinctrl_sim0>;
+	status = "okay";
+};
 &sai1 {
 	assigned-clocks = <&clk IMX8QM_AUD_PLL0_DIV>,
 			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
