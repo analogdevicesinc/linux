@@ -14,34 +14,6 @@
 
 #include "fsl-imx8qm-lpddr4-arm2.dts"
 
-&hdmi {
-	status = "disabled";
-};
-
-&ldb1_phy {
-	status = "disabled";
-};
-
-&ldb1 {
-	status = "disabled";
-};
-
-&ldb2_phy {
-	status = "disabled";
-};
-
-&ldb2 {
-	status = "disabled";
-};
-
-&mipi_dsi_phy1 {
-	status = "okay";
-};
-
-&mipi_dsi1 {
-	status = "okay";
-};
-
 &mipi_dsi_bridge1 {
 	status = "okay";
 
@@ -60,19 +32,11 @@
 		};
 	};
 
-	port@1 {
+	port@2 {
 		mipi_bridge1_out: endpoint {
 			remote-endpoint = <&panel1_in>;
 		};
 	};
-};
-
-&mipi_dsi_phy2 {
-	status = "okay";
-};
-
-&mipi_dsi2 {
-	status = "okay";
 };
 
 &mipi_dsi_bridge2 {
@@ -93,7 +57,7 @@
 		};
 	};
 
-	port@1 {
+	port@2 {
 		mipi_bridge2_out: endpoint {
 			remote-endpoint = <&panel2_in>;
 		};
