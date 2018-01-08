@@ -9,6 +9,14 @@ source "drivers/mxc/hantro/Kconfig"
 source "drivers/mxc/mlb/Kconfig"
 source "drivers/mxc/hdp/Kconfig"
 
+config MXC_SIM
+        tristate "MXC SIM support"
+        default n
+        ---help---
+        Say Y to get MXC SIM support.
+
+source "drivers/mxc/sim/Kconfig"
+
 if ARCH_MXC_ARM64
 source "drivers/mxc/vpu-malone/Kconfig"
 endif
@@ -22,7 +30,6 @@ config MXC_IPU
 	  Y here. IPU is needed by Framebuffer and V4L2 drivers.
 
 source "drivers/mxc/ipu3/Kconfig"
-source "drivers/mxc/sim/Kconfig"
 source "drivers/mxc/mipi/Kconfig"
 source "drivers/mxc/vpu/Kconfig"
 source "drivers/mxc/hdmi-cec/Kconfig"
