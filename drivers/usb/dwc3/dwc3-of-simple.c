@@ -297,9 +297,7 @@ static int dwc3_of_simple_probe(struct platform_device *pdev)
 	}
 
 	/* Set phy data for future use */
-	ret = dwc3_simple_set_phydata(simple);
-	if (ret)
-		return ret;
+	dwc3_simple_set_phydata(simple);
 
 	ret = dwc3_of_simple_clk_init(simple, of_count_phandle_with_args(np,
 						"clocks", "#clock-cells"));
@@ -365,6 +363,27 @@ static void dwc3_simple_vbus(struct dwc3 *dwc, bool vbus_off)
 	writel(reg, dwc->regs + addr);
 }
 
+void dwc3_usb2phycfg(struct dwc3 *dwc, bool suspend)
+{
+	u32 addr, reg;
+
+	addr = DWC3_OF_ADDRESS(DWC3_GUSB2PHYCFG(0));
+
+	if (suspend) {
+		reg = readl(dwc->regs + addr);
+		if (!(reg & DWC3_GUSB2PHYCFG_SUSPHY)) {
+			reg |= DWC3_GUSB2PHYCFG_SUSPHY;
+			writel(reg, (dwc->regs + addr));
+		}
+	} else {
+		reg = readl(dwc->regs + addr);
+		if ((reg & DWC3_GUSB2PHYCFG_SUSPHY)) {
+			reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
+			writel(reg, (dwc->regs + addr));
+		}
+	}
+}
+
 int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
 {
 	u32 reg, retries;
@@ -385,6 +404,9 @@ int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
 	if ((simple->soc_rev < ZYNQMP_SILICON_V4) || !simple->enable_d3_suspend)
 		return 0;
 
+	if (!simple->phy)
+		return 0;
+
 	if (on) {
 		dev_dbg(dwc->dev, "trying to set power state to D0....\n");
 
@@ -403,15 +425,28 @@ int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
 			     XLNX_CUR_PWR_STATE_D0)
 				break;
 
-			usleep_range(DWC3_PWR_TIMEOUT, DWC3_PWR_TIMEOUT * 2);
+			udelay(DWC3_PWR_TIMEOUT);
 		} while (--retries);
 
 		if (!retries) {
 			dev_err(dwc->dev, "Failed to set power state to D0\n");
 			return -EIO;
 		}
+
+		dwc->is_d3 = false;
+
+		/* Clear Suspend PHY bit if dis_u2_susphy_quirk is set */
+		if (dwc->dis_u2_susphy_quirk)
+			dwc3_usb2phycfg(dwc, false);
 	} else {
 		dev_dbg(dwc->dev, "Trying to set power state to D3...\n");
+
+		/*
+		 * Set Suspend PHY bit before entering D3 if
+		 * dis_u2_susphy_quirk is set
+		 */
+		if (dwc->dis_u2_susphy_quirk)
+			dwc3_usb2phycfg(dwc, true);
 
 		/* enable PME to wakeup from hibernation */
 		writel(XLNX_PME_ENABLE_SIG_GEN, reg_base + XLNX_USB_PME_ENABLE);
@@ -428,7 +463,7 @@ int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
 					XLNX_CUR_PWR_STATE_D3)
 				break;
 
-			usleep_range(DWC3_PWR_TIMEOUT, DWC3_PWR_TIMEOUT * 2);
+			udelay(DWC3_PWR_TIMEOUT);
 		} while (--retries);
 
 		if (!retries) {
@@ -438,6 +473,8 @@ int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
 
 		/* Assert USB core reset after entering D3 state */
 		xpsgtr_usb_crst_assert(simple->phy);
+
+		dwc->is_d3 = true;
 	}
 
 	return 0;
@@ -449,7 +486,7 @@ static int dwc3_of_simple_suspend(struct device *dev)
 	struct dwc3_of_simple	*simple = dev_get_drvdata(dev);
 	int			i;
 
-	if (!simple->wakeup_capable) {
+	if (!simple->wakeup_capable && !simple->dwc->is_d3) {
 		/* Ask ULPI to turn OFF Vbus */
 		dwc3_simple_vbus(simple->dwc, true);
 
@@ -467,7 +504,7 @@ static int dwc3_of_simple_resume(struct device *dev)
 	int			ret;
 	int			i;
 
-	if (simple->wakeup_capable)
+	if (simple->wakeup_capable || simple->dwc->is_d3)
 		return 0;
 
 	for (i = 0; i < simple->num_clocks; i++) {
