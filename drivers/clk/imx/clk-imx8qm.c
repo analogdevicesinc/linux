@@ -672,7 +672,7 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_CSI0_IPG_CLK_S] = imx_clk_gate2_scu("mipi_csi0_ipg_s", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_0_LPCG + 0x8), 16, FUNCTION_NAME(PD_MIPI_CSI0));
 	clks[IMX8QM_CSI0_LIS_IPG_CLK] = imx_clk_gate2_scu("mipi_csi0_ipg", "mipi_csi0_ipg_s", LPCG_ADDR(MIPI_CSI_0_LPCG), 16, FUNCTION_NAME(PD_MIPI_CSI0));
 	clks[IMX8QM_CSI0_APB_CLK] = imx_clk_gate2_scu("mipi_csi0_apb_clk", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_0_LPCG + 0x4), 16,  FUNCTION_NAME(PD_MIPI_CSI0));
-	clks[IMX8QM_CSI0_I2C0_IPG_CLK] = imx_clk_gate2_scu("mipi_csi0_i2c0_ipg_s", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_0_LPCG + 0x14), 16, FUNCTION_NAME(PD_MIPI_CSI0_I2C));
+	clks[IMX8QM_CSI0_I2C0_IPG_CLK] = imx_clk_gate2_scu("mipi_csi0_i2c0_ipg_s", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_0_LPCG + 0x14), 16, FUNCTION_NAME(PD_MIPI_CSI0_I2C0));
 	clks[IMX8QM_CSI0_I2C0_CLK] = imx_clk_gate_scu("mipi_csi0_i2c0_clk", "mipi_csi0_i2c0_div", SC_R_CSI_0_I2C_0, SC_PM_CLK_PER, LPCG_ADDR(MIPI_CSI_0_LPCG + 0x14), 0, 0);
 	clks[IMX8QM_CSI0_PWM0_IPG_CLK] = imx_clk_gate2_scu("mipi_csi0_pwm0_ipg_s", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_0_LPCG + 0x10), 16, FUNCTION_NAME(PD_MIPI_CSI0_PWM));
 	clks[IMX8QM_CSI0_PWM0_CLK] = imx_clk_gate_scu("mipi_csi0_pwm0_clk", "mipi_csi0_pwm0_div", SC_R_CSI_0_PWM_0, SC_PM_CLK_PER, LPCG_ADDR(MIPI_CSI_0_LPCG + 0x10), 0, 0);
@@ -681,7 +681,7 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_CSI1_IPG_CLK_S] = imx_clk_gate2_scu("mipi_csi1_ipg_s", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_1_LPCG + 0x8), 16, FUNCTION_NAME(PD_MIPI_CSI1));
 	clks[IMX8QM_CSI1_LIS_IPG_CLK] = imx_clk_gate2_scu("mipi_csi1_ipg", "mipi_csi1_ipg_s", LPCG_ADDR(MIPI_CSI_1_LPCG), 16, FUNCTION_NAME(PD_MIPI_CSI1));
 	clks[IMX8QM_CSI1_APB_CLK] = imx_clk_gate2_scu("mipi_csi1_apb_clk", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_1_LPCG + 0x4), 16, FUNCTION_NAME(PD_MIPI_CSI1));
-	clks[IMX8QM_CSI1_I2C0_IPG_CLK] = imx_clk_gate2_scu("mipi_csi1_i2c0_ipg_s", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_1_LPCG + 0x14), 16, FUNCTION_NAME(PD_MIPI_CSI0_I2C));
+	clks[IMX8QM_CSI1_I2C0_IPG_CLK] = imx_clk_gate2_scu("mipi_csi1_i2c0_ipg_s", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_1_LPCG + 0x14), 16, FUNCTION_NAME(PD_MIPI_CSI1_I2C0));
 	clks[IMX8QM_CSI1_I2C0_CLK] = imx_clk_gate_scu("mipi_csi1_i2c0_clk", "mipi_csi1_i2c0_div", SC_R_CSI_1_I2C_0, SC_PM_CLK_PER, LPCG_ADDR(MIPI_CSI_1_LPCG + 0x14), 0, 0);
 	clks[IMX8QM_CSI1_PWM0_IPG_CLK] = imx_clk_gate2_scu("mipi_csi1_pwm0_ipg_s", "ipg_mipi_csi_clk_root", LPCG_ADDR(MIPI_CSI_1_LPCG + 0x10), 16, FUNCTION_NAME(PD_MIPI_CSI0_PWM));
 	clks[IMX8QM_CSI1_PWM0_CLK] = imx_clk_gate_scu("mipi_csi1_pwm0_clk", "mipi_csi1_pwm0_div", SC_R_CSI_1_PWM_0, SC_PM_CLK_PER, LPCG_ADDR(MIPI_CSI_1_LPCG + 0x10), 0, 0);
