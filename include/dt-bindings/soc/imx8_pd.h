@@ -173,10 +173,10 @@
 
 #define PD_MIPI_CSI0                mipi_csi0_power_domain
 #define PD_MIPI_CSI0_PWM            mipi_csi0_pwm
-#define PD_MIPI_CSI0_I2C            mipi_csi0_i2c
+#define PD_MIPI_CSI0_I2C0           mipi_csi0_i2c0
 #define PD_MIPI_CSI1                mipi_csi1_power_domain
 #define PD_MIPI_CSI1_PWM_0          mipi_csi1_pwm
-#define PD_MIPI_CSI1_I2C_0          mipi_csi1_i2c
+#define PD_MIPI_CSI1_I2C0           mipi_csi1_i2c0
 
 #define PD_HDMI                     hdmi_power_domain
 #define PD_HDMI_I2C_0               hdmi_i2c
