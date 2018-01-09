@@ -204,7 +204,7 @@ static const struct regmap_config fsl_mqs_regmap_config = {
 static int fsl_mqs_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct device_node *gpr_np;
+	struct device_node *gpr_np = 0;
 	struct fsl_mqs *mqs_priv;
 	struct resource *res;
 	void __iomem *regs;
