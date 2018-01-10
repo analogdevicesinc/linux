@@ -205,7 +205,6 @@ static int imx8_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
 	int rc, index, num_clks;
 
 	pd = container_of(genpd, struct imx8_pm_domain, pd);
-	INIT_LIST_HEAD(&pd->clks);
 
 	num_clks = of_count_phandle_with_args(node, "assigned-clocks",
 						"#clock-cells");
