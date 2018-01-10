@@ -222,8 +222,8 @@ static u32 ad6676_get_fif(struct axiadc_converter *conv)
 	mix1 = mix1 * pdata->base.f_adc_hz;
 	mix2 = mix2 * pdata->base.f_adc_hz;
 
-	div_s64(mix1, 64);
-	div_s64(mix2, phy->m);
+	mix1 = div_s64(mix1, 64);
+	mix2 = div_s64(mix2, phy->m);
 
 	return mix1 + mix2;
 }
