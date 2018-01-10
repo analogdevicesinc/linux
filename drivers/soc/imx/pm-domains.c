@@ -54,6 +54,7 @@ enum imx_pd_state {
 
 struct clk_stat {
 	struct clk *clk;
+	struct clk *parent;
 	unsigned long rate;
 };
 
@@ -146,11 +147,15 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 
 			list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
 				clk_stats[i].clk = imx8_rsrc_clk->clk;
+				clk_stats[i].parent = imx8_rsrc_clk->parent;
 				clk_stats[i].rate = clk_hw_get_rate(__clk_get_hw(imx8_rsrc_clk->clk));
 				i++;
 			}
 
 			for (i = 0; i <= count; i++) {
+				/* restore parent first */
+				clk_set_parent(clk_stats[i].clk, clk_stats[i].parent);
+
 				/* invalid cached rate first by get rate once */
 				clk_get_rate(clk_stats[i].clk);
 				/* restore the lost rate */

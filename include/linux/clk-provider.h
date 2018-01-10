@@ -35,6 +35,7 @@
 #define CLK_IS_CRITICAL		BIT(11) /* do not gate, ever */
 /* parents need enable during gate/ungate, set rate and re-parent */
 #define CLK_OPS_PARENT_ENABLE	BIT(12)
+#define CLK_SET_PARENT_NOCACHE	BIT(13) /* do not use the cached clk parent */
 
 struct clk;
 struct clk_hw;

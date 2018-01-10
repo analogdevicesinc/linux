@@ -354,7 +354,7 @@ struct clk *clk_register_mux_gpr_scu(struct device *dev, const char *name,
 	init.ops = &clk_mux_gpr_scu_ops;
 	init.parent_names = parents;
 	init.num_parents = num_parents;
-	init.flags = 0;
+	init.flags |= CLK_SET_PARENT_NOCACHE;
 
 	gpr_scu_mux->hw.init = &init;
 	gpr_scu_mux->rsrc_id = rsrc_id;
@@ -431,7 +431,7 @@ struct clk *clk_register_mux2_scu(struct device *dev, const char *name,
 	init.ops = &clk_mux2_scu_ops;
 	init.parent_names = parents;
 	init.num_parents = num_parents;
-	init.flags = flags;
+	init.flags = flags |= CLK_SET_PARENT_NOCACHE;
 
 	mux->hw.init = &init;
 	mux->rsrc_id = rsrc_id;

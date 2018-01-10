@@ -1800,7 +1800,8 @@ static int clk_core_set_parent(struct clk_core *core, struct clk_core *parent)
 	/* prevent racing with updates to the clock topology */
 	clk_prepare_lock();
 
-	if (core->parent == parent)
+	if ((core->parent == parent) &&
+		!(core->flags & CLK_SET_PARENT_NOCACHE))
 		goto out;
 
 	/* verify ops for for multi-parent clks */
