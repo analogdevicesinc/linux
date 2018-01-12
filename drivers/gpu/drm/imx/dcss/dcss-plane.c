@@ -55,6 +55,17 @@ static const u32 dcss_common_formats[] = {
 	DRM_FORMAT_NV21,
 };
 
+static const u64 dcss_video_format_modifiers[] = {
+	DRM_FORMAT_MOD_VSI_G1_TILED,
+	DRM_FORMAT_MOD_VSI_G2_TILED,
+	DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED,
+	DRM_FORMAT_MOD_INVALID,
+};
+
+static const u64 dcss_graphics_format_modifiers[] = {
+	DRM_FORMAT_MOD_INVALID,
+};
+
 static inline struct dcss_plane *to_dcss_plane(struct drm_plane *p)
 {
 	return container_of(p, struct dcss_plane, base);
@@ -109,6 +120,21 @@ static int dcss_plane_atomic_get_property(struct drm_plane *plane,
 	return 0;
 }
 
+static bool dcss_plane_format_mod_supported(struct drm_plane *plane,
+					    uint32_t format,
+					    uint64_t modifier)
+{
+	/* DTRC only supports NV12/NV32 tiled formats */
+	if (plane->type == DRM_PLANE_TYPE_OVERLAY &&
+	    (format == DRM_FORMAT_NV12 ||
+	     format == DRM_FORMAT_NV21))
+		return modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
+		       modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
+		       modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED;
+
+	return false;
+}
+
 static const struct drm_plane_funcs dcss_plane_funcs = {
 	.update_plane	= drm_atomic_helper_update_plane,
 	.disable_plane	= drm_atomic_helper_disable_plane,
@@ -118,7 +144,18 @@ static const struct drm_plane_funcs dcss_plane_funcs = {
 	.atomic_destroy_state	= drm_atomic_helper_plane_destroy_state,
 	.atomic_set_property = dcss_plane_atomic_set_property,
 	.atomic_get_property = dcss_plane_atomic_get_property,
+	.format_mod_supported = dcss_plane_format_mod_supported,
 };
+
+static bool dcss_plane_mod_supported(int type, uint64_t mod)
+{
+	if (type == DRM_PLANE_TYPE_OVERLAY)
+		return mod == DRM_FORMAT_MOD_VSI_G1_TILED ||
+		       mod == DRM_FORMAT_MOD_VSI_G2_TILED ||
+		       mod == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED;
+
+	return false;
+}
 
 static int dcss_plane_atomic_check(struct drm_plane *plane,
 				   struct drm_plane_state *state)
@@ -154,6 +191,12 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 				   state->src_w >> 16, state->src_h >> 16,
 				   state->crtc_w, state->crtc_h)) {
 		DRM_DEBUG_KMS("Invalid upscale/downscale ratio.");
+		return -EINVAL;
+	}
+
+	if ((fb->flags & DRM_MODE_FB_MODIFIERS) &&
+	    !dcss_plane_mod_supported(plane->type, fb->modifier)) {
+		DRM_DEBUG_KMS("Invalid modifier: %llx", fb->modifier);
 		return -EINVAL;
 	}
 
@@ -289,6 +332,7 @@ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
 				   unsigned int zpos)
 {
 	struct dcss_plane *dcss_plane;
+	const u64 *format_modifiers = dcss_video_format_modifiers;
 	int ret;
 
 	if (zpos > 2)
@@ -302,10 +346,13 @@ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
 
 	dcss_plane->dcss = dcss;
 
+	if (type == DRM_PLANE_TYPE_PRIMARY)
+		format_modifiers = dcss_graphics_format_modifiers;
+
 	ret = drm_universal_plane_init(drm, &dcss_plane->base, possible_crtcs,
 				       &dcss_plane_funcs, dcss_common_formats,
 				       ARRAY_SIZE(dcss_common_formats),
-				       NULL, type, NULL);
+				       format_modifiers, type, NULL);
 	if (ret) {
 		DRM_ERROR("failed to initialize plane\n");
 		kfree(dcss_plane);
