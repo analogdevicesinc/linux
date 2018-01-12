@@ -147,19 +147,22 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 
 			list_for_each_entry(imx8_rsrc_clk, &pd->clks, node) {
 				clk_stats[i].clk = imx8_rsrc_clk->clk;
-				clk_stats[i].parent = imx8_rsrc_clk->parent;
+				clk_stats[i].parent = clk_get_parent(imx8_rsrc_clk->clk);
 				clk_stats[i].rate = clk_hw_get_rate(__clk_get_hw(imx8_rsrc_clk->clk));
 				i++;
 			}
 
-			for (i = 0; i <= count; i++) {
+			for (i = 0; i < count; i++) {
 				/* restore parent first */
-				clk_set_parent(clk_stats[i].clk, clk_stats[i].parent);
+				if (clk_stats[i].parent)
+					clk_set_parent(clk_stats[i].clk, clk_stats[i].parent);
 
-				/* invalid cached rate first by get rate once */
-				clk_get_rate(clk_stats[i].clk);
-				/* restore the lost rate */
-				clk_set_rate(clk_stats[i].clk, clk_stats[i].rate);
+				if (clk_stats[i].rate) {
+					/* invalid cached rate first by get rate once */
+					clk_get_rate(clk_stats[i].clk);
+					/* restore the lost rate */
+					clk_set_rate(clk_stats[i].clk, clk_stats[i].rate);
+				}
 			}
 
 			kfree(clk_stats);
