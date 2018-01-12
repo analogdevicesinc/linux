@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -602,7 +602,7 @@ void framegen_pkickconfig(struct dpu_framegen *fg, bool enable);
 void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y);
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_panic_displaymode(struct dpu_framegen *fg, fgdm_t mode);
-void framegen_wait_done(struct dpu_framegen *fg);
+void framegen_wait_done(struct dpu_framegen *fg, struct drm_display_mode *m);
 void framegen_read_timestamp(struct dpu_framegen *fg,
 			     u32 *frame_index, u32 *line_index);
 void framegen_wait_for_frame_counter_moving(struct dpu_framegen *fg);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -138,12 +138,13 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 	tcon_set_operation_mode(dpu_crtc->tcon);
 }
 
-static void dpu_crtc_disable(struct drm_crtc *crtc)
+static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
+				    struct drm_crtc_state *old_crtc_state)
 {
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
 
 	framegen_disable(dpu_crtc->fg);
-	framegen_wait_done(dpu_crtc->fg);
+	framegen_wait_done(dpu_crtc->fg, &old_crtc_state->adjusted_mode);
 	framegen_disable_clock(dpu_crtc->fg);
 
 	WARN_ON(!crtc->state->event);
@@ -526,7 +527,7 @@ static const struct drm_crtc_helper_funcs dpu_helper_funcs = {
 	.atomic_begin = dpu_crtc_atomic_begin,
 	.atomic_flush = dpu_crtc_atomic_flush,
 	.atomic_enable = dpu_crtc_atomic_enable,
-	.disable = dpu_crtc_disable,
+	.atomic_disable = dpu_crtc_atomic_disable,
 };
 
 static void dpu_crtc_put_resources(struct dpu_crtc *dpu_crtc)
