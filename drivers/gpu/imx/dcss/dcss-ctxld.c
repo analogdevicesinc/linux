@@ -391,7 +391,8 @@ int dcss_ctxld_enable(struct dcss_soc *dcss)
 }
 EXPORT_SYMBOL(dcss_ctxld_enable);
 
-void dcss_ctxld_write(struct dcss_soc *dcss, u32 ctx_id, u32 val, u32 reg_ofs)
+void dcss_ctxld_write_irqsafe(struct dcss_soc *dcss, u32 ctx_id, u32 val,
+			      u32 reg_ofs)
 {
 	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
 	int curr_ctx = ctxld->current_ctx;
@@ -405,10 +406,17 @@ void dcss_ctxld_write(struct dcss_soc *dcss, u32 ctx_id, u32 val, u32 reg_ofs)
 	/* if we hit this, we've got to increase the maximum context size */
 	BUG_ON(dcss_ctxld_ctx_size[ctx_id] - 1 < item_idx);
 
-	mutex_lock(&ctxld->mutex);
 	ctx[ctx_id][item_idx].val = val;
 	ctx[ctx_id][item_idx].ofs = reg_ofs;
 	ctxld->ctx_size[curr_ctx][ctx_id] += 1;
+}
+
+void dcss_ctxld_write(struct dcss_soc *dcss, u32 ctx_id, u32 val, u32 reg_ofs)
+{
+	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
+
+	mutex_lock(&ctxld->mutex);
+	dcss_ctxld_write_irqsafe(dcss, ctx_id, val, reg_ofs);
 	mutex_unlock(&ctxld->mutex);
 }
 
