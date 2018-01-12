@@ -38,6 +38,8 @@
 
 static void cdns3_usb_phy_init(void __iomem *regs)
 {
+	u32 value;
+
 	pr_debug("begin of %s\n", __func__);
 
 	writel(0x0830, regs + PHY_PMA_CMN_CTRL1);
@@ -65,7 +67,7 @@ static void cdns3_usb_phy_init(void __iomem *regs)
 	writel(0x7798, regs + TB_ADDR_TX_PSC_A1);
 	writel(0x509b, regs + TB_ADDR_TX_PSC_A2);
 	writel(0x3, regs + TB_ADDR_TX_DIAG_ECTRL_OVRD);
-	writel(0x5098, regs + TB_ADDR_TX_PSC_A3);
+	writel(0x509b, regs + TB_ADDR_TX_PSC_A3);
 	writel(0x2090, regs + TB_ADDR_TX_PSC_CAL);
 	writel(0x2090, regs + TB_ADDR_TX_PSC_RDY);
 
@@ -117,6 +119,11 @@ static void cdns3_usb_phy_init(void __iomem *regs)
 	writel(0x960, regs + TB_ADDR_TX_RCVDET_EN_TMR);
 	writel(0x01e0, regs + TB_ADDR_TX_RCVDET_ST_TMR);
 	writel(0x0090, regs + TB_ADDR_XCVR_DIAG_LANE_FCM_EN_MGN_TMR);
+
+	/* RXDET_IN_P3_32KHZ, Receiver detect slow clock enable */
+	value = readl(regs + TB_ADDR_TX_RCVDETSC_CTRL);
+	value |= RXDET_IN_P3_32KHZ;
+	writel(value, regs + TB_ADDR_TX_RCVDETSC_CTRL);
 
 	udelay(10);
 
@@ -682,7 +689,6 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 {
 	void __iomem *otg_regs = cdns->otg_regs;
 	void __iomem *xhci_regs = cdns->xhci_regs;
-	void __iomem *phy_regs = cdns->phy_regs;
 	void __iomem *none_core_regs = cdns->none_core_regs;
 	u32 value;
 	int timeout_us = 100000;
@@ -701,10 +707,6 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 		if (cdns3_role(cdns)->suspend)
 			cdns3_role(cdns)->suspend(cdns, wakeup);
 
-		/* RXDET_IN_P3_32KHZ, Receiver detect slow clock enable */
-		value = readl(phy_regs + TB_ADDR_TX_RCVDETSC_CTRL);
-		value |= RXDET_IN_P3_32KHZ;
-		writel(value, phy_regs + TB_ADDR_TX_RCVDETSC_CTRL);
 		/*
 		 * SW should ensure LPM_2_STB_SWITCH_EN and RXDET_IN_P3_32KHZ
 		 * are aligned before setting CFG_RXDET_P3_EN
@@ -760,9 +762,6 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 
 		dev_dbg(cdns->dev, "phy_refclk_req cleared\n");
 
-		/* rxdet fix in P3, default is 0x5098 */
-		writel(0x509b, phy_regs + TB_ADDR_TX_PSC_A3);
-
 		cdns3_set_wakeup(none_core_regs, true);
 	} else {
 		value = readl(none_core_regs + USB3_INT_REG);
@@ -785,11 +784,6 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 		value &= ~CFG_RXDET_P3_EN;
 		writel(value, xhci_regs + XECP_AUX_CTRL_REG1);
 
-		/* clear RXDET_IN_P3_32KHZ */
-		value = readl(phy_regs + TB_ADDR_TX_RCVDETSC_CTRL);
-		value &= ~RXDET_IN_P3_32KHZ;
-		writel(value, phy_regs + TB_ADDR_TX_RCVDETSC_CTRL);
-
 		/* clear mdctrl_clk_sel */
 		value = readl(none_core_regs + USB3_CORE_CTRL1);
 		value &= ~MDCTRL_CLK_SEL;
@@ -807,8 +801,6 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 			dev_err(cdns->dev, "wait mdctrl_clk_status timeout\n");
 
 		dev_dbg(cdns->dev, "mdctrl_clk_status cleared\n");
-
-		writel(0x5098, phy_regs + TB_ADDR_TX_PSC_A3);
 
 		/* Wait until OTG_NRDY is 0 */
 		value = readl(otg_regs + OTGSTS);
