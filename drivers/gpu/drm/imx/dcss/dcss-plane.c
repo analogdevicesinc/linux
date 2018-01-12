@@ -82,6 +82,8 @@ static int dcss_plane_atomic_set_property(struct drm_plane *plane,
 		dcss_plane->alpha_val = val;
 	else if (property == dcss_plane->use_global_prop)
 		dcss_plane->use_global_val = val;
+	else if (property == dcss_plane->dtrc_table_ofs_prop)
+		dcss_plane->dtrc_table_ofs_val = val;
 	else
 		return -EINVAL;
 
@@ -99,6 +101,8 @@ static int dcss_plane_atomic_get_property(struct drm_plane *plane,
 		*val = dcss_plane->alpha_val;
 	else if (property == dcss_plane->use_global_prop)
 		*val = dcss_plane->use_global_val;
+	else if (property == dcss_plane->dtrc_table_ofs_prop)
+		*val = dcss_plane->dtrc_table_ofs_val;
 	else
 		return -EINVAL;
 
@@ -185,7 +189,10 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 		return;
 	}
 
-	dcss_dtrc_addr_set(dcss_plane->dcss, dcss_plane->ch_num, p1_ba, p2_ba);
+	dcss_dtrc_set_format_mod(dcss_plane->dcss, dcss_plane->ch_num,
+				 fb->modifier);
+	dcss_dtrc_addr_set(dcss_plane->dcss, dcss_plane->ch_num,
+			   p1_ba, p2_ba, dcss_plane->dtrc_table_ofs_val);
 }
 
 static bool dcss_plane_needs_setup(struct drm_plane_state *state,
@@ -250,6 +257,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 				 pixel_format, dcss_plane->alpha_val,
 				 dcss_plane->use_global_val);
 
+	dcss_dtrc_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
 	dcss_dpr_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
 	dcss_scaler_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
 	dcss_dtg_ch_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
@@ -260,6 +268,7 @@ static void dcss_plane_atomic_disable(struct drm_plane *plane,
 {
 	struct dcss_plane *dcss_plane = to_dcss_plane(plane);
 
+	dcss_dtrc_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
 	dcss_dpr_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
 	dcss_scaler_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
 	dcss_dtg_plane_pos_set(dcss_plane->dcss, dcss_plane->ch_num,

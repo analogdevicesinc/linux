@@ -13,6 +13,9 @@ struct dcss_plane {
 	int use_global_val;
 	struct drm_property *use_global_prop;
 
+	uint64_t dtrc_table_ofs_val;
+	struct drm_property *dtrc_table_ofs_prop;
+
 	int ch_num;
 };
 

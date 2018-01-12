@@ -286,11 +286,13 @@ void dcss_dpr_addr_set(struct dcss_soc *dcss, int ch_num, u32 luma_base_addr,
 {
 	struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[ch_num];
 
-	dcss_dpr_write(dcss->dpr_priv, ch_num, luma_base_addr,
-		       DCSS_DPR_FRAME_1P_BASE_ADDR);
+	if (!dcss_dtrc_is_running(dcss, ch_num)) {
+		dcss_dpr_write(dcss->dpr_priv, ch_num, luma_base_addr,
+			       DCSS_DPR_FRAME_1P_BASE_ADDR);
 
-	dcss_dpr_write(dcss->dpr_priv, ch_num, chroma_base_addr,
-		       DCSS_DPR_FRAME_2P_BASE_ADDR);
+		dcss_dpr_write(dcss->dpr_priv, ch_num, chroma_base_addr,
+			       DCSS_DPR_FRAME_2P_BASE_ADDR);
+	}
 
 	ch->frame_ctrl &= ~PITCH_MASK;
 	ch->frame_ctrl |= ((pitch << PITCH_POS) & PITCH_MASK);

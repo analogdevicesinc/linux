@@ -106,6 +106,8 @@ void dcss_scaler_exit(struct dcss_soc *dcss);
 /* DTRC */
 int dcss_dtrc_init(struct dcss_soc *dcss, unsigned long dtrc_base);
 void dcss_dtrc_exit(struct dcss_soc *dcss);
+void dcss_dtrc_switch_banks(struct dcss_soc *dcss);
+bool dcss_dtrc_is_running(struct dcss_soc *dcss, int ch_num);
 
 /* DEC400d */
 int dcss_dec400d_init(struct dcss_soc *dcss, unsigned long dec400d_base);

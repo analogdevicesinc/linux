@@ -143,8 +143,8 @@ static irqreturn_t dcss_ctxld_irq_handler_thread(int irq, void *data)
 		ctxld->in_use = false;
 
 		if (ctxld->run_again) {
-			__dcss_ctxld_enable(ctxld);
 			ctxld->run_again = false;
+			__dcss_ctxld_enable(ctxld);
 			goto exit;
 		}
 
@@ -314,6 +314,12 @@ static int __dcss_ctxld_enable(struct dcss_ctxld_priv *ctxld)
 	int curr_ctx = ctxld->current_ctx;
 	u32 db_base, sb_base, sb_count;
 	u32 sb_hp_cnt, sb_lp_cnt, db_cnt;
+
+	if (dcss_dtrc_is_running(ctxld->dcss, 1) ||
+	    dcss_dtrc_is_running(ctxld->dcss, 2)) {
+		dcss_dtrc_switch_banks(ctxld->dcss);
+		ctxld->run_again = true;
+	}
 
 	sb_hp_cnt = ctxld->ctx_size[curr_ctx][CTX_SB_HP];
 	sb_lp_cnt = ctxld->ctx_size[curr_ctx][CTX_SB_LP];

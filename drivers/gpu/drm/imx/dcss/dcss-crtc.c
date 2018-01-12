@@ -36,6 +36,7 @@ struct dcss_crtc {
 
 	struct drm_property *alpha;
 	struct drm_property *use_global;
+	struct drm_property *dtrc_table_ofs;
 
 	struct completion disable_completion;
 };
@@ -268,6 +269,14 @@ static int dcss_crtc_init(struct dcss_crtc *crtc,
 		return -ENOMEM;
 	}
 
+	crtc->dtrc_table_ofs = drm_property_create_range(drm, 0,
+							 "dtrc_table_ofs", 0,
+							 ULLONG_MAX);
+	if (!crtc->dtrc_table_ofs) {
+		dev_err(crtc->dev, "cannot create dtrc_table_ofs property\n");
+		return -ENOMEM;
+	}
+
 	/* attach alpha property to channel 0 */
 	drm_object_attach_property(&crtc->plane[0]->base.base,
 				   crtc->alpha, 255);
@@ -276,6 +285,15 @@ static int dcss_crtc_init(struct dcss_crtc *crtc,
 	drm_object_attach_property(&crtc->plane[0]->base.base,
 				   crtc->use_global, 0);
 	crtc->plane[0]->use_global_prop = crtc->use_global;
+
+	/* attach DTRC table offsets property to overlay planes */
+	drm_object_attach_property(&crtc->plane[1]->base.base,
+				   crtc->dtrc_table_ofs, 0);
+	crtc->plane[1]->dtrc_table_ofs_prop = crtc->dtrc_table_ofs;
+
+	drm_object_attach_property(&crtc->plane[2]->base.base,
+				   crtc->dtrc_table_ofs, 0);
+	crtc->plane[2]->dtrc_table_ofs_prop = crtc->dtrc_table_ofs;
 
 	crtc->irq = dcss_vblank_irq_get(dcss);
 	if (crtc->irq < 0) {

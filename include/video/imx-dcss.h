@@ -93,7 +93,10 @@ void dcss_hdr10_pipe_csc_setup(struct dcss_soc *dcss, int ch_num,
 /* DTRC */
 void dcss_dtrc_bypass(struct dcss_soc *dcss, int ch_num);
 void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres);
-void dcss_dtrc_addr_set(struct dcss_soc *dcss, int ch_num, u32 p1_ba, u32 p2_ba);
+void dcss_dtrc_addr_set(struct dcss_soc *dcss, int ch_num, u32 p1_ba, u32 p2_ba,
+			uint64_t dec_table_ofs);
+void dcss_dtrc_enable(struct dcss_soc *dcss, int ch_num, bool enable);
+void dcss_dtrc_set_format_mod(struct dcss_soc *dcss, int ch_num, u64 modifier);
 
 enum dcss_color_space {
 	DCSS_COLORSPACE_RGB,
