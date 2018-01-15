@@ -701,6 +701,7 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 	if (cdns->role != CDNS3_ROLE_HOST)
 		return;
 
+	disable_irq(cdns->irq);
 	if (suspend) {
 		value = readl(otg_regs + OTGREFCLK);
 		value |= OTG_STB_CLK_SWITCH_EN;
@@ -828,6 +829,7 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 		if (timeout_us <= 0)
 			dev_err(cdns->dev, "wait xhci_power_on_ready timeout\n");
 	}
+	enable_irq(cdns->irq);
 }
 
 #ifdef CONFIG_PM_SLEEP
