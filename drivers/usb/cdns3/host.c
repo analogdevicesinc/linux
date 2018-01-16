@@ -20,6 +20,7 @@
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <linux/pm_runtime.h>
+#include <linux/usb/of.h>
 
 #include "../host/xhci.h"
 
@@ -152,6 +153,8 @@ static int cdns3_host_start(struct cdns3 *cdns)
 		ret = -ENOMEM;
 		goto err3;
 	}
+	host->hcd->tpl_support = of_usb_host_tpl_support(sysdev->of_node);
+	xhci->shared_hcd->tpl_support = host->hcd->tpl_support;
 
 	ret = usb_add_hcd(host->hcd, 0, IRQF_SHARED);
 	if (ret)
