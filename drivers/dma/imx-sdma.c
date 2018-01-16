@@ -193,11 +193,12 @@
 #define SDMA_WATERMARK_LEVEL_OFF_FIFOS  GENMASK(19, 16)
 #define SDMA_WATERMARK_LEVEL_WORDS_PER_FIFO   GENMASK(31, 28)
 #define SDMA_WATERMARK_LEVEL_SW_DONE	BIT(23)
+#define SDMA_WATERMARK_LEVEL_SW_DONE_SEL_OFF 24
 
-#define SDMA_DONE0_CONFIG_DONE_SEL	BIT(7)
-#define SDMA_DONE0_CONFIG_DONE_DIS	BIT(6)
+#define SDMA_DONE0_CONFIG_DONE_SEL	0x7
+#define SDMA_DONE0_CONFIG_DONE_DIS	0x6
 
-/*
+/**
  * struct sdma_script_start_addrs - SDMA script start pointers
  *
  * start addresses of the different functions in the physical
@@ -438,18 +439,19 @@ struct sdma_desc {
  * @is_ram_script:	flag for script in ram
  * @n_fifos_src:	number of source device fifos
  * @n_fifos_dst:	number of destination device fifos
- * @sw_done:		software done flag
  * @stride_fifos_src:	stride for source device FIFOs
  * @stride_fifos_dst:	stride for destination device FIFOs
  * @words_per_fifo:	copy number of words one time for one FIFO
+ * @sw_done:		software done flag
  */
 struct sdma_channel {
 	struct virt_dma_chan		vc;
 	struct sdma_desc		*desc;
 	struct sdma_engine		*sdma;
 	unsigned int			channel;
-	enum dma_transfer_direction		direction;
+	enum dma_transfer_direction	direction;
 	struct dma_slave_config		slave_config;
+	struct sdma_peripheral_config	*audio_config;
 	enum sdma_peripheral_type	peripheral_type;
 	unsigned int			event_id0;
 	unsigned int			event_id1;
@@ -467,12 +469,12 @@ struct sdma_channel {
 	struct work_struct		terminate_worker;
 	struct list_head                terminated;
 	bool				is_ram_script;
-	unsigned int			n_fifos_src;
-	unsigned int			n_fifos_dst;
-	unsigned int			stride_fifos_src;
-	unsigned int			stride_fifos_dst;
-	unsigned int			words_per_fifo;
-	bool				sw_done;
+	unsigned int                    n_fifos_src;
+	unsigned int                    n_fifos_dst;
+	unsigned int                    stride_fifos_src;
+	unsigned int                    stride_fifos_dst;
+	unsigned int                    words_per_fifo;
+	bool                            sw_done;
 };
 
 #define IMX_DMA_SG_LOOP		BIT(0)
@@ -812,12 +814,21 @@ static void sdma_event_enable(struct sdma_channel *sdmac, unsigned int event)
 	writel_relaxed(val, sdma->regs + chnenbl);
 
 	/* Set SDMA_DONEx_CONFIG is sw_done enabled */
-	if (sdmac->sw_done) {
-		val = readl_relaxed(sdma->regs + SDMA_DONE0_CONFIG);
-		val |= SDMA_DONE0_CONFIG_DONE_SEL;
-		val &= ~SDMA_DONE0_CONFIG_DONE_DIS;
-		writel_relaxed(val, sdma->regs + SDMA_DONE0_CONFIG);
+	if (sdmac->audio_config && (sdmac->audio_config->sw_done_sel & BIT(31) ||
+					sdmac->sw_done)) {
+		u32 sw_done_sel = sdmac->audio_config->sw_done_sel & 0xff;
+		u32 offset = SDMA_DONE0_CONFIG + sw_done_sel / 4;
+		u32 done_sel = SDMA_DONE0_CONFIG_DONE_SEL +
+				((sw_done_sel % 4) << 3);
+		u32 sw_done_dis = SDMA_DONE0_CONFIG_DONE_DIS +
+				((sw_done_sel % 4) << 3);
+
+		val = readl_relaxed(sdma->regs + offset);
+		__set_bit(done_sel, &val);
+		__clear_bit(sw_done_dis, &val);
+		writel_relaxed(val, sdma->regs + offset);
 	}
+
 }
 
 static void sdma_event_disable(struct sdma_channel *sdmac, unsigned int event)
@@ -884,9 +895,16 @@ static void sdma_update_channel_loop(struct sdma_channel *sdmac)
 	       /*
 		* We use bd->mode.count to calculate the residue, since contains
 		* the number of bytes present in the current buffer descriptor.
+		* Note: in IMX_DMATYPE_MULTI_SAI case, bd->mode.count used as
+		* remaining bytes instead so that one register could be saved.
+		* so chn_real_count = desc->period_len - bd->mode.count.
 		*/
+		if (sdmac->peripheral_type == IMX_DMATYPE_MULTI_SAI)
+			desc->chn_real_count = desc->period_len - bd->mode.count;
+		else
+			desc->chn_real_count = bd->mode.count;
 
-		desc->chn_real_count = bd->mode.count;
+		bd->mode.status |= BD_DONE;
 		bd->mode.count = desc->period_len;
 		desc->buf_ptail = desc->buf_tail;
 		desc->buf_tail = (desc->buf_tail + 1) % desc->num_bd;
@@ -1084,6 +1102,7 @@ static int sdma_get_pc(struct sdma_channel *sdmac,
 	case IMX_DMATYPE_MULTI_SAI:
 		per_2_emi = sdma->script_addrs->sai_2_mcu_addr;
 		emi_2_per = sdma->script_addrs->mcu_2_sai_addr;
+		sdmac->is_ram_script = true;
 		break;
 	case IMX_DMATYPE_I2C:
 		per_2_emi = sdma->script_addrs->i2c_2_mcu_addr;
@@ -1291,8 +1310,11 @@ static void sdma_set_watermarklevel_for_sais(struct sdma_channel *sdmac)
 	unsigned int stride_fifos;
 	unsigned int words_per_fifo;
 
-	if (sdmac->sw_done)
-		sdmac->watermark_level |= SDMA_WATERMARK_LEVEL_SW_DONE;
+	if (sdmac->audio_config && (sdmac->audio_config->sw_done_sel & BIT(31) ||
+					sdmac->sw_done))
+		sdmac->watermark_level |= SDMA_WATERMARK_LEVEL_SW_DONE |
+				(sdmac->audio_config->sw_done_sel & 0xff) <<
+				SDMA_WATERMARK_LEVEL_SW_DONE_SEL_OFF;
 
 	if (sdmac->direction == DMA_DEV_TO_MEM) {
 		n_fifos = sdmac->n_fifos_src;
@@ -1306,8 +1328,10 @@ static void sdma_set_watermarklevel_for_sais(struct sdma_channel *sdmac)
 
 	sdmac->watermark_level |=
 			FIELD_PREP(SDMA_WATERMARK_LEVEL_N_FIFOS, n_fifos);
+
 	sdmac->watermark_level |=
 			FIELD_PREP(SDMA_WATERMARK_LEVEL_OFF_FIFOS, stride_fifos);
+
 	if (words_per_fifo)
 		sdmac->watermark_level |=
 			FIELD_PREP(SDMA_WATERMARK_LEVEL_WORDS_PER_FIFO, (words_per_fifo - 1));
@@ -1349,8 +1373,7 @@ static int sdma_config_channel(struct dma_chan *chan)
 			    sdmac->peripheral_type == IMX_DMATYPE_ASRC)
 				sdma_set_watermarklevel_for_p2p(sdmac);
 		} else {
-			if (sdmac->peripheral_type ==
-					IMX_DMATYPE_MULTI_SAI)
+			if (sdmac->peripheral_type == IMX_DMATYPE_MULTI_SAI)
 				sdma_set_watermarklevel_for_sais(sdmac);
 
 			__set_bit(sdmac->event_id0, sdmac->event_mask);
@@ -1807,6 +1830,8 @@ static int sdma_config_write(struct dma_chan *chan,
 {
 	struct sdma_channel *sdmac = to_sdma_chan(chan);
 
+	sdmac->watermark_level = 0;
+
 	if (direction == DMA_DEV_TO_MEM) {
 		sdmac->per_address = dmaengine_cfg->src_addr;
 		sdmac->watermark_level = dmaengine_cfg->src_maxburst *
@@ -1839,6 +1864,7 @@ static int sdma_config(struct dma_chan *chan,
 {
 	struct sdma_channel *sdmac = to_sdma_chan(chan);
 	struct sdma_engine *sdma = sdmac->sdma;
+	void *tmp;
 
 	memcpy(&sdmac->slave_config, dmaengine_cfg, sizeof(*dmaengine_cfg));
 
@@ -1850,6 +1876,14 @@ static int sdma_config(struct dma_chan *chan,
 				sizeof(struct sdma_peripheral_config));
 			return -EINVAL;
 		}
+
+		tmp = krealloc(sdmac->audio_config, dmaengine_cfg->peripheral_size, GFP_NOWAIT);
+		if (!tmp)
+			return -ENOMEM;
+
+		sdmac->audio_config = (struct sdma_peripheral_config *)tmp;
+		memcpy(tmp, sdmacfg, dmaengine_cfg->peripheral_size);
+
 		sdmac->n_fifos_src = sdmacfg->n_fifos_src;
 		sdmac->n_fifos_dst = sdmacfg->n_fifos_dst;
 		sdmac->stride_fifos_src = sdmacfg->stride_fifos_src;
@@ -2216,9 +2250,11 @@ static struct dma_chan *sdma_xlate(struct of_phandle_args *dma_spec,
 	if (dma_spec->args_count != 3)
 		return NULL;
 
+	memset(&data, 0, sizeof(data));
+
 	data.dma_request = dma_spec->args[0];
 	data.peripheral_type = dma_spec->args[1];
-	data.priority = dma_spec->args[2];
+	data.priority = dma_spec->args[2] & 0xff;
 	/*
 	 * init dma_request2 to zero, which is not used by the dts.
 	 * For P2P, dma_request2 is init from dma_request_channel(),
