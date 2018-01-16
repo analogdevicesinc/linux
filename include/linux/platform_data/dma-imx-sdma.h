@@ -54,6 +54,8 @@ struct sdma_script_start_addrs {
 	s32 mcu_2_ecspi_addr;
 	/* End of v3 array */
 	s32 mcu_2_zqspi_addr;
+	s32 mcu_2_sai_addr;
+	s32 sai_2_mcu_addr;
 	/* End of v4 array */
 };
 

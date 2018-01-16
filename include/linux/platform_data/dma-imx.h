@@ -1,5 +1,6 @@
 /*
  * Copyright 2004-2015 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2018 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -43,6 +44,7 @@ enum sdma_peripheral_type {
 	IMX_DMATYPE_ASRC_SP,	/* Shared ASRC */
 	IMX_DMATYPE_SAI,	/* SAI */
 	IMX_DMATYPE_HDMI,	/* HDMI Audio */
+	IMX_DMATYPE_MULTI_SAI,	/* MULTI FIFOs For Audio */
 };
 
 enum imx_dma_prio {
