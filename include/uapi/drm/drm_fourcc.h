@@ -340,6 +340,15 @@ extern "C" {
  */
 #define DRM_FORMAT_MOD_VIVANTE_SPLIT_SUPER_TILED fourcc_mod_code(VIVANTE, 4)
 
+/*
+ * Vivante 64x64 super-tiling with compression layout
+ *
+ * This is a tiled layout using 64x64 pixel super-tiles, where each super-tile
+ * contains 8x4 groups of 2x4 tiles of 4x4 pixels each, all in row-major layout
+ * with compression.
+ */
+#define DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC	fourcc_mod_code(VIVANTE, 5)
+
 /* NVIDIA Tegra frame buffer modifiers */
 
 /*
