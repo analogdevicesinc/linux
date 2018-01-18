@@ -11,6 +11,13 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+
+/* The driver is matched with node caam_snvs to get regmap
+ * It will then retrieve interruption and tamper alarm configuration from
+ * node caam-secvio searching for the compat string "fsl,imx6q-caam-secvio"
+ */
+#define DRIVER_NAME "caam-snvs"
+
 /*
  * These names are associated with each violation handler.
  * The source names were taken from MX6, and are based on recommendations
@@ -219,12 +226,13 @@ static int snvs_secvio_probe(struct platform_device *pdev)
 
 	npirq = of_find_compatible_node(NULL, NULL, "fsl,imx6q-caam-secvio");
 	if (!npirq) {
-		dev_err(svdev, "can't identify secvio interrupt\n");
+		dev_err(svdev, "can't find secvio node\n");
 		kfree(svpriv);
 		return -EINVAL;
 	}
 	svpriv->irq = irq_of_parse_and_map(npirq, 0);
 	if (svpriv->irq <= 0) {
+		dev_err(svdev, "can't identify secvio interrupt\n");
 		kfree(svpriv);
 		return -EINVAL;
 	}
@@ -234,7 +242,7 @@ static int snvs_secvio_probe(struct platform_device *pdev)
 	itd = of_get_property(npirq, "internal-boot-tamper", NULL);
 	etd = of_get_property(npirq, "external-pin-tamper", NULL);
 	if (!jtd | !wtd | !itd | !etd ) {
-		dev_err(svdev, "can't identify tamper alarm configuration\n");
+		dev_err(svdev, "can't identify all tamper alarm configuration\n");
 		kfree(svpriv);
 		return -EINVAL;
 	}
@@ -285,7 +293,7 @@ static int snvs_secvio_probe(struct platform_device *pdev)
 			     (unsigned long)svdev);
 
 	error = request_irq(svpriv->irq, snvs_secvio_interrupt,
-			    IRQF_SHARED, "snvs-secvio", svdev);
+			    IRQF_SHARED, DRIVER_NAME, svdev);
 	if (error) {
 		dev_err(svdev, "can't connect secvio interrupt\n");
 		irq_dispose_mapping(svpriv->irq);
@@ -317,7 +325,7 @@ MODULE_DEVICE_TABLE(of, snvs_secvio_match);
 
 static struct platform_driver snvs_secvio_driver = {
 	.driver = {
-		.name = "snvs-secvio",
+		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = snvs_secvio_match,
 	},
