@@ -2078,7 +2078,9 @@ static void tcpm_reset_port(struct tcpm_port *port)
 
 	tcpm_bist_handle(port, false);
 	port->tcpc->set_pd_rx(port->tcpc, false);
-	tcpm_init_vbus(port);	/* also disables charging */
+	/* Don't disable charging if boot from dead battery */
+	if (!port->vbus_never_low)
+		tcpm_init_vbus(port);
 	tcpm_init_vconn(port);
 	tcpm_set_current_limit(port, 0, 0);
 	tcpm_set_polarity(port, TYPEC_POLARITY_CC1);
@@ -3517,21 +3519,26 @@ static void tcpm_init(struct tcpm_port *port)
 {
 	enum typec_cc_status cc1, cc2;
 
-	tcpm_reset_port(port);
-
 	/*
-	 * XXX
-	 * Should possibly wait for VBUS to settle if it was enabled locally
-	 * since tcpm_reset_port() will disable VBUS.
+	 * Possibly the vbus was enabled locally which is wrong, we can
+	 * firstly disable power sink then start tcpm state transition
+	 * to fix it, this is different from dead battery case which can
+	 * detect RP on cc , in case of dead battery boot, we don't disable
+	 * vbus sink for charging.
 	 */
+	if (port->tcpc->get_cc(port->tcpc, &cc1, &cc2))
+		return;
+
 	port->vbus_present = port->tcpc->get_vbus(port->tcpc);
-	if (port->vbus_present)
+	if ((cc1 >= TYPEC_CC_RP_DEF || cc2 >= TYPEC_CC_RP_DEF) &&
+	    port->vbus_present)
 		port->vbus_never_low = true;
+
+	tcpm_reset_port(port);
 
 	tcpm_set_state(port, tcpm_default_state(port), 0);
 
-	if (port->tcpc->get_cc(port->tcpc, &cc1, &cc2) == 0)
-		_tcpm_cc_change(port, cc1, cc2);
+	_tcpm_cc_change(port, cc1, cc2);
 
 	/*
 	 * Some adapters need a clean slate at startup, and won't recover
