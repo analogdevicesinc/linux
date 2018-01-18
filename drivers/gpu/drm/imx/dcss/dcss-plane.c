@@ -63,6 +63,10 @@ static const u64 dcss_video_format_modifiers[] = {
 };
 
 static const u64 dcss_graphics_format_modifiers[] = {
+	DRM_FORMAT_MOD_VIVANTE_TILED,
+	DRM_FORMAT_MOD_VIVANTE_SUPER_TILED,
+	DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC,
+	DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID,
 };
 
@@ -124,15 +128,34 @@ static bool dcss_plane_format_mod_supported(struct drm_plane *plane,
 					    uint32_t format,
 					    uint64_t modifier)
 {
-	/* DTRC only supports NV12/NV32 tiled formats */
-	if (plane->type == DRM_PLANE_TYPE_OVERLAY &&
-	    (format == DRM_FORMAT_NV12 ||
-	     format == DRM_FORMAT_NV21))
-		return modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
-		       modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
-		       modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED;
-
-	return false;
+	switch (plane->type) {
+	case DRM_PLANE_TYPE_PRIMARY:
+		switch (format) {
+		case DRM_FORMAT_ARGB8888:
+		case DRM_FORMAT_XRGB8888:
+		case DRM_FORMAT_ARGB2101010:
+			return modifier == DRM_FORMAT_MOD_LINEAR ||
+			       modifier == DRM_FORMAT_MOD_VIVANTE_TILED ||
+			       modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED ||
+			       modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC;
+		default:
+			return modifier == DRM_FORMAT_MOD_LINEAR;
+		}
+		break;
+	case DRM_PLANE_TYPE_OVERLAY:
+		switch (format) {
+		case DRM_FORMAT_NV12:
+		case DRM_FORMAT_NV21:
+			return modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
+			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
+			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED;
+		default:
+			return false;
+		}
+		break;
+	default:
+		return false;
+	}
 }
 
 static const struct drm_plane_funcs dcss_plane_funcs = {
