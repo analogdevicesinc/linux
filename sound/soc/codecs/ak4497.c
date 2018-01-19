@@ -21,6 +21,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
+#include <sound/pcm_params.h>
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
 
@@ -37,6 +38,7 @@ struct ak4497_priv {
 	int nTdmSds;
 	int pdn_gpio;
 	int mute_gpio;
+	int fmt;
 };
 
 /* ak4497 register cache & default register settings */
@@ -477,6 +479,7 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
 
+	u8 format;
 	u8 dfs;
 	u8 dfs2;
 	int nfs1;
@@ -491,6 +494,10 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 	dfs2 &= ~AK4497_DFS2;
 
 	switch (nfs1) {
+	case 8000:
+	case 11025:
+	case 16000:
+	case 22050:
 	case 32000:
 	case 44100:
 	case 48000:
@@ -522,6 +529,33 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 
 	snd_soc_write(codec, AK4497_01_CONTROL2, dfs);
 	snd_soc_write(codec, AK4497_05_CONTROL4, dfs2);
+
+	format = snd_soc_read(codec, AK4497_00_CONTROL1);
+	format &= ~AK4497_DIF;
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		if (ak4497->fmt == SND_SOC_DAIFMT_I2S)
+			format |= AK4497_DIF_24BIT_I2S;
+		else
+			format |= AK4497_DIF_16BIT_LSB;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S32_LE:
+		if (ak4497->fmt == SND_SOC_DAIFMT_I2S)
+			format |= AK4497_DIF_32BIT_I2S;
+		else if (ak4497->fmt == SND_SOC_DAIFMT_LEFT_J)
+			format |= AK4497_DIF_32BIT_MSB;
+		else if (ak4497->fmt == SND_SOC_DAIFMT_RIGHT_J)
+			format |= AK4497_DIF_32BIT_LSB;
+		else
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	snd_soc_write(codec, AK4497_00_CONTROL1, format);
 
 	return 0;
 }
@@ -561,14 +595,13 @@ static int ak4497_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
-		format |= AK4497_DIF_I2S_MODE;
-		if (ak4497->nBickFreq == 1)
-			format |= AK4497_DIF_32BIT_MODE;
+		ak4497->fmt = SND_SOC_DAIFMT_I2S;
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
-		format |= AK4497_DIF_MSB_MODE;
-		if (ak4497->nBickFreq == 1)
-			format |= AK4497_DIF_32BIT_MODE;
+		ak4497->fmt = SND_SOC_DAIFMT_LEFT_J;
+		break;
+	case SND_SOC_DAIFMT_RIGHT_J:
+		ak4497->fmt = SND_SOC_DAIFMT_RIGHT_J;
 		break;
 	case SND_SOC_DAIFMT_DSD:
 		format2 |= AK4497_DIF_DSD_MODE;
@@ -659,8 +692,31 @@ static int ak4497_set_dai_mute(struct snd_soc_dai *dai, int mute)
 #define AK4497_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |\
 			SNDRV_PCM_FMTBIT_S32_LE)
 
+static const unsigned int ak4497_rates[] = {
+	8000, 11025,  16000, 22050,
+	32000, 44100, 48000, 88200,
+	96000, 176400, 192000, 352800,
+	384000, 705600, 768000, 1411200,
+	2822400,
+};
+
+static const struct snd_pcm_hw_constraint_list ak4497_rate_constraints = {
+	.count = ARRAY_SIZE(ak4497_rates),
+	.list = ak4497_rates,
+};
+
+static int ak4497_startup(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai) {
+		int ret;
+
+	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
+		SNDRV_PCM_HW_PARAM_RATE, &ak4497_rate_constraints);
+
+	return ret;
+}
 
 static struct snd_soc_dai_ops ak4497_dai_ops = {
+	.startup        = ak4497_startup,
 	.hw_params	= ak4497_hw_params,
 	.set_sysclk	= ak4497_set_dai_sysclk,
 	.set_fmt	= ak4497_set_dai_fmt,
@@ -674,7 +730,7 @@ struct snd_soc_dai_driver ak4497_dai[] = {
 		       .stream_name = "Playback",
 		       .channels_min = 1,
 		       .channels_max = 2,
-		       .rates = AK4497_RATES,
+		       .rates = SNDRV_PCM_RATE_KNOT,
 		       .formats = AK4497_FORMATS,
 		},
 		.ops = &ak4497_dai_ops,

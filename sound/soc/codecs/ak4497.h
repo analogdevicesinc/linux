@@ -51,6 +51,15 @@
 #define AK4497_DIF_I2S_MODE     (3 << 1)
 #define AK4497_DIF_32BIT_MODE	(4 << 1)
 
+#define AK4497_DIF_16BIT_LSB	(0 << 1)
+#define AK4497_DIF_20BIT_LSB	(1 << 1)
+#define AK4497_DIF_24BIT_MSB	(2 << 1)
+#define AK4497_DIF_24BIT_I2S	(3 << 1)
+#define AK4497_DIF_24BIT_LSB	(4 << 1)
+#define AK4497_DIF_32BIT_LSB	(5 << 1)
+#define AK4497_DIF_32BIT_MSB	(6 << 1)
+#define AK4497_DIF_32BIT_I2S	(7 << 1)
+
 /* AK4497_02_CONTROL3 (0x02) Fields */
 #define AK4497_DIF_DSD				0x80
 #define AK4497_DIF_DSD_MODE	    (1 << 7)
