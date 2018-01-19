@@ -528,12 +528,35 @@ static int ak5558_set_bias_level(struct snd_soc_codec *codec,
 			 SNDRV_PCM_FMTBIT_S24_LE |\
 			 SNDRV_PCM_FMTBIT_S32_LE)
 
+static const unsigned int ak5558_rates[] = {
+	8000, 11025,  16000, 22050,
+	32000, 44100, 48000, 88200,
+	96000, 176400, 192000, 352800,
+	384000, 705600, 768000, 1411200,
+	2822400,
+};
+
+static const struct snd_pcm_hw_constraint_list ak5558_rate_constraints = {
+	.count = ARRAY_SIZE(ak5558_rates),
+	.list = ak5558_rates,
+};
+
+static int ak5558_startup(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai) {
+		int ret;
+
+	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
+		SNDRV_PCM_HW_PARAM_RATE, &ak5558_rate_constraints);
+
+	return ret;
+}
+
 static struct snd_soc_dai_ops ak5558_dai_ops = {
+	.startup        = ak5558_startup,
 	.hw_params	= ak5558_hw_params,
 	.set_sysclk	= ak5558_set_dai_sysclk,
 	.set_fmt	= ak5558_set_dai_fmt,
 	.digital_mute	= ak5558_set_dai_mute,
-
 };
 
 static struct snd_soc_dai_driver ak5558_dai = {
@@ -542,7 +565,7 @@ static struct snd_soc_dai_driver ak5558_dai = {
 		.stream_name = "Capture",
 		.channels_min = 1,
 		.channels_max = 8,
-		.rates = AK5558_RATES,
+		.rates = SNDRV_PCM_RATE_KNOT,
 		.formats = AK5558_FORMATS,
 	},
 	.ops = &ak5558_dai_ops,
