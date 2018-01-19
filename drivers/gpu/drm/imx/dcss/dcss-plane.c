@@ -531,6 +531,9 @@ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
 		return ERR_PTR(ret);
 	}
 
+	if (type == DRM_PLANE_TYPE_OVERLAY)
+		dcss_plane->base.hdr_supported = true;
+
 	drm_plane_helper_add(&dcss_plane->base, &dcss_plane_helper_funcs);
 
 	ret = drm_plane_create_zpos_immutable_property(&dcss_plane->base, zpos);
