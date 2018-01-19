@@ -209,6 +209,9 @@
 /* Definitions for if_ether.h */
 #define __UAPI_DEF_ETHHDR 		1
 
+/* Definitions for if_ether.h */
+#define __UAPI_DEF_ETHHDR 		1
+
 /* Definitions for in.h */
 #ifndef __UAPI_DEF_IN_ADDR
 #define __UAPI_DEF_IN_ADDR		1
