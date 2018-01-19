@@ -3758,6 +3758,62 @@ static void fixup_detailed_cea_mode_clock(struct drm_display_mode *mode)
 	mode->clock = clock;
 }
 
+static bool cea_db_is_hdmi_hdr_metadata_block(const u8 *db)
+{
+	if (cea_db_tag(db) != DATA_BLOCK_EXTENDED_TAG)
+		return false;
+
+	if (db[1] != HDR_STATIC_METADATA_BLOCK)
+		return false;
+
+	return true;
+}
+
+static uint16_t eotf_supported(const u8 *edid_ext)
+{
+	uint16_t val = 0;
+
+	if (edid_ext[2] & TRADITIONAL_GAMMA_SDR)
+		val |= TRADITIONAL_GAMMA_SDR;
+	if (edid_ext[2] & TRADITIONAL_GAMMA_HDR)
+		val |= TRADITIONAL_GAMMA_HDR;
+	if (edid_ext[2] & SMPTE_ST2084)
+		val |= SMPTE_ST2084;
+
+	return val;
+}
+
+static uint16_t hdr_metadata_type(const u8 *edid_ext)
+{
+	uint16_t val = 0;
+
+	if (edid_ext[3] & STATIC_METADATA_TYPE1)
+		val |= STATIC_METADATA_TYPE1;
+
+	return val;
+}
+
+static void
+drm_parse_hdr_metadata_block(struct drm_connector *connector, const u8 *db)
+{
+	uint16_t len;
+
+	len = cea_db_payload_len(db);
+	connector->hdr_panel_metadata->eotf = eotf_supported(db);
+	connector->hdr_panel_metadata->type = hdr_metadata_type(db);
+
+	if (len == 6) {
+		connector->hdr_panel_metadata->max_cll = db[4];
+		connector->hdr_panel_metadata->max_fall = db[5];
+		connector->hdr_panel_metadata->min_cll = db[6];
+	} else if (len == 5) {
+		connector->hdr_panel_metadata->max_cll = db[4];
+		connector->hdr_panel_metadata->max_fall = db[5];
+	} else if (len == 4)
+		connector->hdr_panel_metadata->max_cll = db[4];
+
+}
+
 static void
 drm_parse_hdmi_vsdb_audio(struct drm_connector *connector, const u8 *db)
 {
@@ -4401,6 +4457,8 @@ static void drm_parse_cea_ext(struct drm_connector *connector,
 			drm_parse_hdmi_forum_vsdb(connector, db);
 		if (cea_db_is_y420cmdb(db))
 			drm_parse_y420cmdb_bitmap(connector, db);
+		if (cea_db_is_hdmi_hdr_metadata_block(db))
+			drm_parse_hdr_metadata_block(connector, db);
 	}
 }
 
