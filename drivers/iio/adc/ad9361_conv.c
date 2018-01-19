@@ -401,21 +401,21 @@ static void ad9361_dig_tune_verbose_print(struct ad9361_rf_phy *phy,
 {
 	int i, j;
 
-	printk("SAMPL CLK: %lu tuning: %s\n",
+	printk(KERN_INFO "SAMPL CLK: %lu tuning: %s\n",
 	       clk_get_rate(phy->clks[RX_SAMPL_CLK]), tx ? "TX" : "RX");
-	printk("  ");
+	printk(KERN_CONT "  ");
 	for (i = 0; i < 16; i++)
-		printk("%x:", i);
-	printk("\n");
+		printk(KERN_CONT "%x:", i);
+	printk(KERN_CONT "\n");
 
 	for (i = 0; i < 2; i++) {
-		printk("%x:", i);
+		printk(KERN_INFO "%x:", i);
 		for (j = 0; j < 16; j++) {
-			printk("%c ", (field[i][j] ? '#' : 'o'));
+			printk(KERN_CONT "%c ", (field[i][j] ? '#' : 'o'));
 		}
-		printk("\n");
+		printk(KERN_CONT "\n");
 	}
-	printk("\n");
+	printk(KERN_CONT "\n");
 }
 
 int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
