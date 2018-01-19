@@ -59,7 +59,7 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 
 	ret = snd_soc_dai_set_tdm_slot(cpu_dai,
 				       BIT(channels) - 1, BIT(channels) - 1,
-				       2, 32);
+				       2, params_physical_width(params));
 	if (ret) {
 		dev_err(dev, "failed to set cpu dai tdm slot: %d\n", ret);
 		return ret;
