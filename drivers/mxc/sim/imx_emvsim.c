@@ -751,6 +751,7 @@ static void emvsim_start(struct emvsim_t *emvsim)
 	clk_div = (clk_rate + emvsim->clk_rate - 1) / emvsim->clk_rate;
 	__raw_writel(clk_div, emvsim->ioaddr + EMV_SIM_CLKCFG);
 
+	usleep_range(90, 100);
 	/* SPDP=0: SIM Presence Detect pin is low, default PRESENT status */
 	if (__raw_readl(emvsim->ioaddr + EMV_SIM_PCSR) & SPDP) {
 		emvsim->present = SIM_PRESENT_REMOVED;
