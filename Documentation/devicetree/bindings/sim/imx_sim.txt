@@ -1,0 +1,20 @@
+* NXP SIMv2 for i.MX6ul and i.MX7d
+
+Required properties:
+- compatible :
+  - "fsl,imx7d-sim" for SIMv2 compatible with the one integrated on i.MX7d soc
+  - "fsl,imx6ul-sim" for SIMv2 compatible with the one integrated on i.MX6ul soc
+- reg : address and length of SIMv2 registers
+- interrupt : core interrupt controller
+- clocks : SIMv2 clock specifier
+
+Examples:
+
+sim2: sim@021b4000 {
+	compatible = "fsl,imx6ul-sim";
+	reg = <0x021b4000 0x4000>;
+	interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&clks IMX6UL_CLK_SIM2>;
+	clock-names = "sim";
+	status = "disabled";
+};
