@@ -339,10 +339,10 @@ static bool dcss_scaler_fractions_set(struct dcss_soc *dcss, int ch_num,
 {
 	u32 l_vinc, l_hinc, c_vinc, c_hinc;
 
-	l_vinc = (src_yres << 13) / dst_yres;
-	c_vinc = (src_yres << 13) / dst_yres;
-	l_hinc = (src_xres << 13) / dst_xres;
-	c_hinc = (src_xres << 13) / dst_xres;
+	l_vinc = ((src_yres << 13) + (dst_yres >> 1)) / dst_yres;
+	c_vinc = ((src_yres << 13) + (dst_yres >> 1)) / dst_yres;
+	l_hinc = ((src_xres << 13) + (dst_xres >> 1)) / dst_xres;
+	c_hinc = ((src_xres << 13) + (dst_xres >> 1)) / dst_xres;
 
 	if (pix_format == DRM_FORMAT_UYVY || pix_format == DRM_FORMAT_VYUY ||
 	    pix_format == DRM_FORMAT_YUYV || pix_format == DRM_FORMAT_YVYU) {
@@ -389,8 +389,8 @@ bool dcss_scaler_can_scale(struct dcss_soc *dcss, int ch_num,
 	const struct dcss_scaler_ratios *ratios_map = dcss_scaler_ratios;
 
 	/* Convert to fixed point. Easier to work with. */
-	vscale_fp = (src_yres << 13) / dst_yres;
-	hscale_fp = (src_xres << 13) / dst_xres;
+	vscale_fp = ((src_yres << 13) + (dst_yres >> 1)) / dst_yres;
+	hscale_fp = ((src_xres << 13) + (dst_xres >> 1)) / dst_xres;
 
 	if (scaler->ch_using_wrscl == -1 || scaler->ch_using_wrscl == ch_num)
 		ratios_map = dcss_scaler_wrscl_ratios;
