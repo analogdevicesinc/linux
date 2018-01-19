@@ -79,9 +79,19 @@
 //DIF2 1 0
 //  x  1 0 MSB justified  Figure 3 (default)
 //  x  1 1 I2S Compliment  Figure 4
-#define AK4458_DIF_MASK			0x06
+#define AK4458_DIF_MASK			0x0E
 #define AK4458_DIF_MSB_LOW_FS_MODE	(2 << 1)
 #define AK4458_DIF_I2S_LOW_FS_MODE	(3 << 1)
+
+#define AK4458_DIF_16BIT_LSB	(0 << 1)
+#define AK4458_DIF_20BIT_LSB	(1 << 1)
+#define AK4458_DIF_24BIT_MSB	(2 << 1)
+#define AK4458_DIF_24BIT_I2S	(3 << 1)
+#define AK4458_DIF_24BIT_LSB	(4 << 1)
+#define AK4458_DIF_32BIT_LSB	(5 << 1)
+#define AK4458_DIF_32BIT_MSB	(6 << 1)
+#define AK4458_DIF_32BIT_I2S	(7 << 1)
+
 
 // ACKS is Auto mode so disable the Manual feature
 //#define AK4458_ACKS_USE_MANUAL_MODE

@@ -30,6 +30,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
+#include <sound/pcm_params.h>
 
 #include "ak4458.h"
 
@@ -43,6 +44,7 @@ struct ak4458_priv {
 	int digfil;	/* SSLOW, SD, SLOW bits */
 	int fs;		/* sampling rate */
 	int lr[4];	/* (MONO, INVL, INVR, SELLR) x4ch */
+	int fmt;
 };
 
 static const struct reg_default ak4458_reg_defaults[] = {
@@ -627,6 +629,7 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
+	u8 format;
 
 #ifdef AK4458_ACKS_USE_MANUAL_MODE
 	u8 dfs1, dfs2;
@@ -634,6 +637,9 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 	int nfs1;
 
 	dev_dbg(dai->dev, "%s(%d)\n", __func__, __LINE__);
+
+	format = snd_soc_read(codec, AK4458_00_CONTROL1);
+	format &= ~AK4458_DIF_MASK;
 
 	nfs1 = params_rate(params);
 	ak4458->fs = nfs1;
@@ -646,6 +652,10 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 	dfs2 &= ~AK4458_DFS2__MASK;
 
 	switch (nfs1) {
+	case 8000:
+	case 11025:
+	case 16000:
+	case 22050:
 	case 32000:
 	case 44100:
 	case 48000:
@@ -684,6 +694,33 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 	snd_soc_update_bits(codec, AK4458_00_CONTROL1, 0x80, 0x80);
 #endif
 
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		if (ak4458->fmt == SND_SOC_DAIFMT_I2S)
+			format |= AK4458_DIF_24BIT_I2S;
+		else
+			format |= AK4458_DIF_16BIT_LSB;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S32_LE:
+		if (ak4458->fmt == SND_SOC_DAIFMT_I2S)
+			format |= AK4458_DIF_32BIT_I2S;
+		else if (ak4458->fmt == SND_SOC_DAIFMT_LEFT_J)
+			format |= AK4458_DIF_32BIT_MSB;
+		else if (ak4458->fmt == SND_SOC_DAIFMT_RIGHT_J)
+			format |= AK4458_DIF_32BIT_LSB;
+		else
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	snd_soc_write(codec, AK4458_00_CONTROL1, format);
+
+	ak4458_rstn_control(codec, 0);
+	ak4458_rstn_control(codec, 1);
+
 	return 0;
 }
 
@@ -698,6 +735,7 @@ static int ak4458_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 static int ak4458_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct snd_soc_codec *codec = dai->codec;
+	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
 	u8 format;
 
 	/* set master/slave audio interface */
@@ -721,10 +759,9 @@ static int ak4458_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
-		format |= AK4458_DIF_I2S_LOW_FS_MODE;
-		break;
 	case SND_SOC_DAIFMT_LEFT_J:
-		format |= AK4458_DIF_MSB_LOW_FS_MODE;
+	case SND_SOC_DAIFMT_RIGHT_J:
+		ak4458->fmt = fmt & SND_SOC_DAIFMT_FORMAT_MASK;
 		break;
 	default:
 		dev_err(codec->dev, "Audio format 0x%02X unsupported\n",
@@ -826,8 +863,31 @@ static int ak4458_set_dai_mute(struct snd_soc_dai *dai, int mute)
 			 SNDRV_PCM_FMTBIT_S24_LE |\
 			 SNDRV_PCM_FMTBIT_S32_LE)
 
+static const unsigned int ak4458_rates[] = {
+	8000, 11025,  16000, 22050,
+	32000, 44100, 48000, 88200,
+	96000, 176400, 192000, 352800,
+	384000, 705600, 768000, 1411200,
+	2822400,
+};
+
+static const struct snd_pcm_hw_constraint_list ak4458_rate_constraints = {
+	.count = ARRAY_SIZE(ak4458_rates),
+	.list = ak4458_rates,
+};
+
+static int ak4458_startup(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai) {
+		int ret;
+
+	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
+		SNDRV_PCM_HW_PARAM_RATE, &ak4458_rate_constraints);
+
+	return ret;
+}
 
 static struct snd_soc_dai_ops ak4458_dai_ops = {
+	.startup        = ak4458_startup,
 	.hw_params	= ak4458_hw_params,
 	.set_sysclk	= ak4458_set_dai_sysclk,
 	.set_fmt	= ak4458_set_dai_fmt,
@@ -841,7 +901,7 @@ static struct snd_soc_dai_driver ak4458_dai = {
 		.stream_name = "Playback",
 		.channels_min = 1,
 		.channels_max = 8,
-		.rates = AK4458_RATES,
+		.rates = SNDRV_PCM_RATE_KNOT,
 		.formats = AK4458_FORMATS,
 	},
 	.ops = &ak4458_dai_ops,
