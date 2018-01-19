@@ -699,7 +699,7 @@
 	assigned-clocks = <&clk IMX8MQ_CLK_SAI1_SRC>,
 			<&clk IMX8MQ_CLK_SAI1_DIV>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <0>, <49152000>;
 	status = "okay";
 };
 
@@ -727,7 +727,7 @@
 	assigned-clocks = <&clk IMX8MQ_CLK_SAI5_SRC>,
 			<&clk IMX8MQ_CLK_SAI5_DIV>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <0>, <49152000>;
 	fsl,sai-asynchronous;
 	status = "okay";
 };
