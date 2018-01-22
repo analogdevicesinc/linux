@@ -229,11 +229,11 @@ static int rad_panel_prepare(struct drm_panel *panel)
 
 	if (rad->reset != NULL) {
 		gpiod_set_value(rad->reset, 1);
-		msleep(100);
+		usleep_range(10000, 15000);
 		gpiod_set_value(rad->reset, 0);
-		msleep(100);
+		usleep_range(5000, 10000);
 		gpiod_set_value(rad->reset, 1);
-		msleep(100);
+		usleep_range(20000, 25000);
 	}
 
 	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
@@ -256,7 +256,7 @@ static int rad_panel_prepare(struct drm_panel *panel)
 		goto fail;
 	}
 
-	msleep(100);
+	usleep_range(10000, 15000);
 
 	/* Set DSI mode */
 	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xC2, 0x0B }, 2);
@@ -295,6 +295,8 @@ static int rad_panel_prepare(struct drm_panel *panel)
 		DRM_DEV_ERROR(dev, "Failed to exit sleep mode (%d)\n", ret);
 		goto fail;
 	}
+
+	usleep_range(5000, 10000);
 
 	ret = mipi_dsi_dcs_set_display_on(dsi);
 	if (ret < 0) {
@@ -509,6 +511,7 @@ static int rad_panel_probe(struct mipi_dsi_device *dsi)
 {
 	struct device *dev = &dsi->dev;
 	struct device_node *np = dev->of_node;
+	struct device_node *timings;
 	struct rad_panel *panel;
 	struct backlight_properties bl_props;
 	int ret;
@@ -531,9 +534,20 @@ static int rad_panel_probe(struct mipi_dsi_device *dsi)
 		return ret;
 	}
 
-	ret = of_get_videomode(np, &panel->vm, 0);
-	if (ret < 0)
+	/*
+	 * 'display-timings' is optional, so verify if the node is present
+	 * before calling of_get_videomode so we won't get console error
+	 * messages
+	 */
+	timings = of_get_child_by_name(np, "display-timings");
+	if (timings) {
+		of_node_put(timings);
+		ret = of_get_videomode(np, &panel->vm, 0);
+	} else {
 		videomode_from_timing(&rad_default_timing, &panel->vm);
+	}
+	if (ret < 0)
+		return ret;
 
 	of_property_read_u32(np, "panel-width-mm", &panel->width_mm);
 	of_property_read_u32(np, "panel-height-mm", &panel->height_mm);
@@ -583,7 +597,8 @@ static int rad_panel_remove(struct mipi_dsi_device *dsi)
 	struct device *dev = &dsi->dev;
 	int ret;
 
-	ret = rad_panel_disable(&rad->base);
+	ret = rad_panel_unprepare(&rad->base);
+	ret |= rad_panel_disable(&rad->base);
 	if (ret < 0)
 		DRM_DEV_ERROR(dev, "Failed to disable panel (%d)\n", ret);
 
@@ -604,6 +619,7 @@ static void rad_panel_shutdown(struct mipi_dsi_device *dsi)
 {
 	struct rad_panel *rad = mipi_dsi_get_drvdata(dsi);
 
+	rad_panel_unprepare(&rad->base);
 	rad_panel_disable(&rad->base);
 }
 
