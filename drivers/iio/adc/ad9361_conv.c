@@ -43,6 +43,13 @@ static void ad9361_set_intf_delay(struct ad9361_rf_phy *phy, bool tx,
 		ad9361_ensm_force_state(phy, ENSM_STATE_FDD);
 }
 
+static unsigned int ad9361_num_phy_chan(struct axiadc_converter *conv)
+{
+	if (conv->chip_info->num_channels > 4)
+		return 4;
+	return conv->chip_info->num_channels;
+}
+
 ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 						   char *buf, unsigned buflen)
 {
@@ -63,8 +70,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 	ensm_state = ad9361_ensm_get_state(phy);
 	rx = ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
 
-	num_chan = (conv->chip_info->num_channels > 4) ? 4 :
-		conv->chip_info->num_channels;
+	num_chan = ad9361_num_phy_chan(conv);
 
 	ad9361_bist_prbs(phy, BIST_INJ_RX);
 
@@ -383,7 +389,7 @@ static int ad9361_dig_tune_iodelay(struct ad9361_rf_phy *phy, bool tx)
 	u32 s0, c0;
 	u8 field[32];
 
-	num_chan = (conv->chip_info->num_channels > 4) ? 4 : conv->chip_info->num_channels;
+	num_chan = ad9361_num_phy_chan(conv);
 
 	for (i = 0; i < 7; i++) {
 		for (j = 0; j < 32; j++) {
@@ -481,9 +487,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	if (!phy->pdata->fdd)
 		ad9361_set_ensm_mode(phy, true, false);
 
-	num_chan = (conv->chip_info->num_channels > 4) ? 4 :
-		conv->chip_info->num_channels;
-
+	num_chan = ad9361_num_phy_chan(conv);
 	ensm_state = ad9361_ensm_get_state(phy);
 	loopback = phy->bist_loopback_mode;
 	bist = phy->bist_config;
@@ -668,7 +672,7 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	unsigned tmp, num_chan, flags;
 	int i, ret;
 
-	num_chan = (conv->chip_info->num_channels > 4) ? 4 : conv->chip_info->num_channels;
+	num_chan = ad9361_num_phy_chan(conv);
 
 	conv->indio_dev = indio_dev;
 	axiadc_write(st, ADI_REG_CNTRL, rx2tx2 ? 0 : ADI_R1_MODE);
