@@ -1270,41 +1270,22 @@ static int fsl_asrc_runtime_suspend(struct device *dev)
 static int fsl_asrc_suspend(struct device *dev)
 {
 	struct fsl_asrc *asrc_priv = dev_get_drvdata(dev);
+	int ret;
 
 	fsl_asrc_m2m_suspend(asrc_priv);
 
-	regmap_read(asrc_priv->regmap, REG_ASRCFG,
-		    &asrc_priv->regcache_cfg);
+	ret = pm_runtime_force_suspend(dev);
 
-	regcache_cache_only(asrc_priv->regmap, true);
-	regcache_mark_dirty(asrc_priv->regmap);
-
-	return 0;
+	return ret;
 }
 
 static int fsl_asrc_resume(struct device *dev)
 {
-	struct fsl_asrc *asrc_priv = dev_get_drvdata(dev);
-	u32 asrctr;
+	int ret;
 
-	/* Stop all pairs provisionally */
-	regmap_read(asrc_priv->regmap, REG_ASRCTR, &asrctr);
-	regmap_update_bits(asrc_priv->regmap, REG_ASRCTR,
-			   ASRCTR_ASRCEi_ALL_MASK, 0);
+	ret = pm_runtime_force_resume(dev);
 
-	/* Restore all registers */
-	regcache_cache_only(asrc_priv->regmap, false);
-	regcache_sync(asrc_priv->regmap);
-
-	regmap_update_bits(asrc_priv->regmap, REG_ASRCFG,
-			   ASRCFG_NDPRi_ALL_MASK | ASRCFG_POSTMODi_ALL_MASK |
-			   ASRCFG_PREMODi_ALL_MASK, asrc_priv->regcache_cfg);
-
-	/* Restart enabled pairs */
-	regmap_update_bits(asrc_priv->regmap, REG_ASRCTR,
-			   ASRCTR_ASRCEi_ALL_MASK, asrctr);
-
-	return 0;
+	return ret;
 }
 #endif /* CONFIG_PM_SLEEP */
 
