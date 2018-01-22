@@ -29,6 +29,20 @@
 #if IS_ENABLED(CONFIG_CF_AXI_ADC)
 #include "cf_axi_adc.h"
 
+static void ad9361_set_intf_delay(struct ad9361_rf_phy *phy, bool tx,
+				  unsigned int clock_delay,
+				  unsigned int data_delay, bool clock_changed)
+{
+	if (clock_changed)
+		ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
+	ad9361_spi_write(phy->spi,
+			REG_RX_CLOCK_DATA_DELAY + (tx ? 1 : 0),
+			RX_DATA_DELAY(data_delay) |
+			DATA_CLK_DELAY(clock_delay));
+	if (clock_changed)
+		ad9361_ensm_force_state(phy, ENSM_STATE_FDD);
+}
+
 ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 						   char *buf, unsigned buflen)
 {
@@ -36,6 +50,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 	struct axiadc_state *st;
 	int ret, i, j, chan, num_chan, len = 0;
 	u8 field[16][16];
+	u8 ensm_state;
 	u8 rx;
 
 	if (!conv)
@@ -45,6 +60,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 
 	st = iio_priv(conv->indio_dev);
 
+	ensm_state = ad9361_ensm_get_state(phy);
 	rx = ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
 
 	num_chan = (conv->chip_info->num_channels > 4) ? 4 :
@@ -54,8 +70,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 
 	for (i = 0; i < 16; i++) {
 		for (j = 0; j < 16; j++) {
-			ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY,
-					DATA_CLK_DELAY(j) | RX_DATA_DELAY(i));
+			ad9361_set_intf_delay(phy, false, i, j, j == 0);
 			for (chan = 0; chan < num_chan; chan++)
 				axiadc_write(st, ADI_REG_CHAN_STATUS(chan),
 					ADI_PN_ERR | ADI_PN_OOS);
@@ -69,11 +84,13 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 				ret = 1;
 			}
 
-			field[i][j] = ret;
+			field[j][i] = ret;
 		}
 	}
 
+	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 	ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY, rx);
+	ad9361_ensm_restore_state(phy, ensm_state);
 
 	ad9361_bist_prbs(phy, BIST_DISABLE);
 
@@ -424,7 +441,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	struct axiadc_state *st;
 	int ret, i, j, k, chan, t, num_chan, err = 0;
 	u32 s0, s1, c0, c1, tmp, saved = 0;
-	u8 field[2][16], loopback, bist;
+	u8 field[2][16], loopback, bist, ensm_state;
 	u32 saved_dsel[4], saved_chan_ctrl6[4], saved_chan_ctrl0[4];
 	u32 rates[3] = {25000000U, 40000000U, 61440000U};
 	unsigned hdl_dac_version;
@@ -440,13 +457,14 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 
 	if ((phy->pdata->dig_interface_tune_skipmode == 2) ||
 		(flags & RESTORE_DEFAULT)) {
-	/* skip completely and use defaults */
+		/* skip completely and use defaults */
+		ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 		ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY,
 				phy->pdata->port_ctrl.rx_clk_data_delay);
 
 		ad9361_spi_write(phy->spi, REG_TX_CLOCK_DATA_DELAY,
 				phy->pdata->port_ctrl.tx_clk_data_delay);
-
+		ad9361_ensm_restore_prev_state(phy);
 		return 0;
 	}
 
@@ -460,17 +478,13 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 		ad9361_midscale_iodelay(phy, 1);
 
 
-	if (!phy->pdata->fdd) {
+	if (!phy->pdata->fdd)
 		ad9361_set_ensm_mode(phy, true, false);
-		ad9361_ensm_force_state(phy, ENSM_STATE_FDD);
-	} else {
-		ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
-		ad9361_ensm_restore_prev_state(phy);
-	}
 
 	num_chan = (conv->chip_info->num_channels > 4) ? 4 :
 		conv->chip_info->num_channels;
 
+	ensm_state = ad9361_ensm_get_state(phy);
 	loopback = phy->bist_loopback_mode;
 	bist = phy->bist_config;
 
@@ -480,17 +494,17 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	for (t = 0; t < 2; t++) {
 		memset(field, 0, 32);
 		for (k = 0; k < (max_freq ? ARRAY_SIZE(rates) : 1); k++) {
-			if (max_freq)
+			if (max_freq) {
+				ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 				ad9361_set_trx_clock_chain_freq(phy,
 					((phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE) || !phy->pdata->rx2tx2) ?
 					rates[k] : rates[k] / 2);
+			}
 
 		for (i = 0; i < 2; i++) {
 			for (j = 0; j < 16; j++) {
-				ad9361_spi_write(phy->spi,
-						REG_RX_CLOCK_DATA_DELAY + t,
-						RX_DATA_DELAY(i == 0 ? j : 0) |
-						DATA_CLK_DELAY(i ? j : 0));
+				ad9361_set_intf_delay(phy, t == 1, i ? j : 0,
+						      i ? 0 : j, i || j == 0);
 				for (chan = 0; chan < num_chan; chan++)
 					axiadc_write(st, ADI_REG_CHAN_STATUS(chan),
 						ADI_PN_ERR | ADI_PN_OOS);
@@ -526,13 +540,9 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 		}
 
 		if (c1 > c0)
-			ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY + t,
-					DATA_CLK_DELAY(s1 + c1 / 2) |
-					RX_DATA_DELAY(0));
+			ad9361_set_intf_delay(phy, (bool)t, s1 + c1 / 2, 0, true);
 		else
-			ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY + t,
-					DATA_CLK_DELAY(0) |
-					RX_DATA_DELAY(s0 + c0 / 2));
+			ad9361_set_intf_delay(phy, (bool)t, 0, s0 + c0 / 2, true);
 
 		if (t == 0) {
 			if (flags & DO_IDELAY)
@@ -552,12 +562,11 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 					phy->pdata->port_ctrl.rx_clk_data_delay =
 						ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
 
-				if (!phy->pdata->fdd) {
+				if (!phy->pdata->fdd)
 					ad9361_set_ensm_mode(phy, phy->pdata->fdd,
 							     phy->pdata->ensm_pin_ctrl);
-					ad9361_ensm_restore_prev_state(phy);
-				}
 
+				ad9361_ensm_restore_state(phy, ensm_state);
 				ad9361_tx_mute(phy, 0);
 
 				return 0;
@@ -613,6 +622,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			}
 
 			if (err == -EIO) {
+				ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 				ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY,
 						phy->pdata->port_ctrl.rx_clk_data_delay);
 
@@ -628,10 +638,9 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			}
 
 
-			if (!phy->pdata->fdd) {
+			if (!phy->pdata->fdd)
 				ad9361_set_ensm_mode(phy, phy->pdata->fdd, phy->pdata->ensm_pin_ctrl);
-				ad9361_ensm_restore_prev_state(phy);
-			}
+			ad9361_ensm_restore_state(phy, ensm_state);
 
 			axiadc_write(st, ADI_REG_RSTN, ADI_MMCM_RSTN);
 			axiadc_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
