@@ -98,6 +98,7 @@ enum dcss_color_space dcss_drm_fourcc_to_colorspace(u32 drm_fourcc)
 	case DRM_FORMAT_NV21:
 	case DRM_FORMAT_NV16:
 	case DRM_FORMAT_NV61:
+	case DRM_FORMAT_P010:
 		return DCSS_COLORSPACE_YUV;
 	default:
 		return DCSS_COLORSPACE_UNKNOWN;
@@ -510,7 +511,6 @@ static int dcss_resume(struct device *dev)
 	dcss_clocks_enable(dcss, true);
 
 	dcss_blkctl_cfg(dcss);
-	dcss_hdr10_cfg(dcss);
 
 	dcss_ctxld_resume(dcss);
 
@@ -550,7 +550,6 @@ static int dcss_runtime_resume(struct device *dev)
 	dcss_clocks_enable(dcss, true);
 
 	dcss_blkctl_cfg(dcss);
-	dcss_hdr10_cfg(dcss);
 
 	dcss_ctxld_resume(dcss);
 

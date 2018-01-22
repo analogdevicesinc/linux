@@ -15,10 +15,11 @@
 #include <linux/device.h>
 #include <linux/bitops.h>
 #include <linux/io.h>
+#include <linux/firmware.h>
+#include <drm/drm_fourcc.h>
 
 #include <video/imx-dcss.h>
 #include "dcss-prv.h"
-#include "dcss-tables.h"
 
 #define USE_CTXLD
 
@@ -35,6 +36,7 @@
 #define DCSS_HDR10_LUT_CONTROL		(DCSS_HDR10_CSCA_BASE + 0x80)
 #define   LUT_ENABLE			BIT(0)
 #define   LUT_EN_FOR_ALL_PELS		BIT(1)
+#define   LUT_BYPASS			BIT(15)
 #define DCSS_HDR10_FL2FX		(DCSS_HDR10_CSCB_BASE + 0x74)
 #define DCSS_HDR10_LTNL			(DCSS_HDR10_CSCO_BASE + 0x74)
 #define   LTNL_PASS_THRU		BIT(0)
@@ -82,14 +84,67 @@
 #define DCSS_HDR10_CSC_OMAX2		0x70
 #define   POST_CLIP_MASK		GENMASK(9, 0)
 
-#define HDR10_LUT_MAX_ENTRIES		1024
-#define HDR10_CSC_MAX_REGS		28
+#define HDR10_IPIPE_LUT_MAX_ENTRIES	1024
+#define HDR10_OPIPE_LUT_MAX_ENTRIES	1023
+#define HDR10_CSC_MAX_REGS		29
 
 #define OPIPE_CH_NO			3
+
+/* Pipe config descriptor */
+
+/* bits per component */
+#define HDR10_BPC_POS			0
+#define HDR10_BPC_MASK			GENMASK(1, 0)
+/* colorspace */
+#define HDR10_CS_POS			2
+#define HDR10_CS_MASK			GENMASK(3, 2)
+/* nonlinearity type */
+#define HDR10_NL_POS			4
+#define HDR10_NL_MASK			GENMASK(8, 4)
+/* pixel range */
+#define HDR10_PR_POS			9
+#define HDR10_PR_MASK			GENMASK(10, 9)
+/* gamut type */
+#define HDR10_G_POS			11
+#define HDR10_G_MASK			GENMASK(15, 11)
+
+/* FW Table Descriptor */
+#define HDR10_TT_LUT			BIT(0)
+#define HDR10_TT_CSCA			BIT(1)
+#define HDR10_TT_CSCB			BIT(2)
+/* Pipe type */
+#define HDR10_PT_OUTPUT			BIT(3)
+/* Output pipe config descriptor */
+#define HDR10_OPIPE_DESC_POS		4
+#define HDR10_OPIPE_DESC_MASK		GENMASK(19, 4)
+/* Input pipe config descriptor */
+#define HDR10_IPIPE_DESC_POS		20
+#define HDR10_IPIPE_DESC_MASK		GENMASK(35, 20)
+
+/* config invalid */
+#define HDR10_DESC_INVALID		BIT(63)
 
 enum dcss_hdr10_csc {
 	HDR10_CSCA,
 	HDR10_CSCB,
+};
+
+struct dcss_hdr10_tbl_node {
+	u64 tbl_descriptor;
+	u32 *tbl_data;
+
+	struct list_head node;
+};
+
+struct dcss_hdr10_opipe_tbls {
+	struct list_head lut;
+	struct list_head csc;
+};
+
+struct dcss_hdr10_ipipe_tbls {
+	struct list_head lut;
+	struct list_head csca;
+	struct list_head cscb;
 };
 
 struct dcss_hdr10_ch {
@@ -98,14 +153,19 @@ struct dcss_hdr10_ch {
 
 	u32 ctx_id;
 
-	u32 old_in_cs;
-	u32 old_out_cs;
+	u64 old_cfg_desc;
 };
 
 struct dcss_hdr10_priv {
 	struct dcss_soc *dcss;
 
 	struct dcss_hdr10_ch ch[4]; /* 4th channel is, actually, OPIPE */
+
+	struct dcss_hdr10_ipipe_tbls *ipipe_tbls;
+	struct dcss_hdr10_opipe_tbls *opipe_tbls;
+
+	u8 *fw_data;
+	u32 fw_size;
 };
 
 static struct dcss_debug_reg hdr10_debug_reg[] = {
@@ -187,6 +247,17 @@ void dcss_hdr10_dump_regs(struct seq_file *s, void *data)
 					   hdr10_debug_reg[r].ofs,
 					   dcss_readl(csc_base +
 						      hdr10_debug_reg[r].ofs));
+
+			if (csc == 0 && ch != 3)
+				seq_printf(s, "\t%-35s(0x%04x) -> 0x%08x\n",
+					   "DCSS_HDR10_LUT_CONTROL",
+					   0x80, dcss_readl(csc_base + 0x80));
+
+			if (csc == 1 || ch == 3)
+				seq_printf(s, "\t%-35s(0x%04x) -> 0x%08x\n",
+					   ch == 3 ? "DCSS_HDR10_LTNL" :
+						     "DCSS_HDR10_FL2FX",
+					   0x74, dcss_readl(csc_base + 0x74));
 		}
 	}
 }
@@ -198,8 +269,8 @@ static void dcss_hdr10_csc_fill(struct dcss_soc *dcss, int ch_num,
 {
 	int i;
 	u32 csc_base_ofs[] = {
-		DCSS_HDR10_CSCA_BASE + DCSS_HDR10_CSC_H00,
-		DCSS_HDR10_CSCB_BASE + DCSS_HDR10_CSC_H00,
+		DCSS_HDR10_CSCA_BASE + DCSS_HDR10_CSC_CONTROL,
+		DCSS_HDR10_CSCB_BASE + DCSS_HDR10_CSC_CONTROL,
 	};
 
 	for (i = 0; i < HDR10_CSC_MAX_REGS; i++) {
@@ -209,40 +280,43 @@ static void dcss_hdr10_csc_fill(struct dcss_soc *dcss, int ch_num,
 	}
 }
 
-static void dcss_hdr10_lut_fill(struct dcss_soc *dcss, int ch_num,
-				int comp, u16 *map)
+static void dcss_hdr10_lut_fill(struct dcss_soc *dcss, int ch_num, u32 *map)
 {
-	int i;
-	u32 lut_base_ofs;
+	int i, comp;
+	u32 lut_base_ofs, ctrl_ofs, lut_entries;
 
-	lut_base_ofs = DCSS_HDR10_A0_LUT + comp * 0x1000;
-
-	for (i = 0; i < HDR10_LUT_MAX_ENTRIES; i++) {
-		u32 reg_ofs = lut_base_ofs + i * sizeof(u32);
-
-		dcss_hdr10_write(dcss, ch_num, map[i], reg_ofs);
+	if (ch_num == OPIPE_CH_NO) {
+		ctrl_ofs = DCSS_HDR10_LTNL;
+		lut_entries = HDR10_OPIPE_LUT_MAX_ENTRIES;
+	} else {
+		ctrl_ofs = DCSS_HDR10_LUT_CONTROL;
+		lut_entries = HDR10_IPIPE_LUT_MAX_ENTRIES;
 	}
-}
 
-void dcss_hdr10_cfg(struct dcss_soc *dcss)
-{
-	struct dcss_hdr10_priv *hdr10 = dcss->hdr10_priv;
-	struct dcss_hdr10_ch *ch;
-	int i;
-	u16 *lut;
+	if (ch_num != OPIPE_CH_NO)
+		dcss_hdr10_write(dcss, ch_num, *map++, ctrl_ofs);
 
-	for (i = 0; i < 4; i++) {
-		ch = &hdr10->ch[i];
+	for (comp = 0; comp < 3; comp++) {
+		lut_base_ofs = DCSS_HDR10_A0_LUT + comp * 0x1000;
 
-		lut = i < 3 ? dcss_hdr10_comp_lut : dcss_hdr10_opipe;
+		if (ch_num == OPIPE_CH_NO) {
+			dcss_hdr10_write(dcss, ch_num, map[0], lut_base_ofs);
+			lut_base_ofs += 4;
+		}
 
-		dcss_hdr10_lut_fill(dcss, i, 0, lut);
-		dcss_hdr10_lut_fill(dcss, i, 1, lut);
-		dcss_hdr10_lut_fill(dcss, i, 2, lut);
+		for (i = 0; i < lut_entries; i++) {
+			u32 reg_ofs = lut_base_ofs + i * sizeof(u32);
 
-		ch->old_out_cs = DCSS_COLORSPACE_UNKNOWN;
-		ch->old_in_cs = DCSS_COLORSPACE_UNKNOWN;
+			dcss_hdr10_write(dcss, ch_num, map[i], reg_ofs);
+		}
 	}
+
+	map += lut_entries;
+
+	if (ch_num != OPIPE_CH_NO)
+		dcss_hdr10_write(dcss, ch_num, *map, DCSS_HDR10_FL2FX);
+	else
+		dcss_hdr10_write(dcss, ch_num, *map, ctrl_ofs);
 }
 
 static int dcss_hdr10_ch_init_all(struct dcss_soc *dcss,
@@ -263,20 +337,184 @@ static int dcss_hdr10_ch_init_all(struct dcss_soc *dcss,
 			return -ENOMEM;
 		}
 
+		ch->old_cfg_desc = HDR10_DESC_INVALID;
+
 #if defined(USE_CTXLD)
 		ch->ctx_id = CTX_SB_HP;
 #endif
 	}
 
-#ifndef CONFIG_PM
-	dcss_hdr10_cfg(dcss);
-#endif
+	return 0;
+}
+
+static u32 *dcss_hdr10_find_tbl(u64 desc, struct list_head *head)
+{
+	struct list_head *node;
+	struct dcss_hdr10_tbl_node *tbl_node;
+	u32 *tbl = NULL;
+
+	list_for_each(node, head) {
+		tbl_node = container_of(node, struct dcss_hdr10_tbl_node, node);
+
+		if ((tbl_node->tbl_descriptor & desc) == desc)
+			tbl = tbl_node->tbl_data;
+	}
+
+	return tbl;
+}
+
+static int dcss_hdr10_get_tbls(struct dcss_hdr10_priv *hdr10, bool input,
+			       u64 desc, u32 **lut, u32 **csca, u32 **cscb)
+{
+	struct list_head *lut_list, *csca_list, *cscb_list;
+
+	lut_list = input ? &hdr10->ipipe_tbls->lut : &hdr10->opipe_tbls->lut;
+	csca_list = input ? &hdr10->ipipe_tbls->csca : &hdr10->opipe_tbls->csc;
+	cscb_list = input ? &hdr10->ipipe_tbls->cscb : NULL;
+
+	*lut = dcss_hdr10_find_tbl(desc, lut_list);
+	*csca = dcss_hdr10_find_tbl(desc, csca_list);
+
+	*cscb = NULL;
+	if (cscb_list)
+		*cscb = dcss_hdr10_find_tbl(desc, cscb_list);
+
+	return 0;
+}
+
+static void dcss_hdr10_write_pipe_tbls(struct dcss_soc *dcss, int ch_num,
+				       u32 *lut, u32 *csca, u32 *cscb)
+{
+	if (csca)
+		dcss_hdr10_csc_fill(dcss, ch_num, HDR10_CSCA, csca);
+
+	if (ch_num != OPIPE_CH_NO && cscb)
+		dcss_hdr10_csc_fill(dcss, ch_num, HDR10_CSCB, cscb);
+
+	if (lut)
+		dcss_hdr10_lut_fill(dcss, ch_num, lut);
+}
+
+static void dcss_hdr10_tbl_add(struct dcss_hdr10_priv *hdr10, u64 desc, u32 sz,
+			       u32 *data)
+{
+	struct device *dev = hdr10->dcss->dev;
+	struct dcss_hdr10_tbl_node *node;
+
+	node = devm_kzalloc(dev, sizeof(*node), GFP_KERNEL);
+	if (!node) {
+		dev_err(dev, "hdr10: cannot alloc memory for table node.\n");
+		return;
+	}
+
+	/* we don't need to store the table type and pipe type */
+	node->tbl_descriptor = desc >> 4;
+	node->tbl_data = data;
+
+	if (!(desc & HDR10_PT_OUTPUT)) {
+		if (desc & HDR10_TT_LUT)
+			list_add(&node->node, &hdr10->ipipe_tbls->lut);
+		else if (desc & HDR10_TT_CSCA)
+			list_add(&node->node, &hdr10->ipipe_tbls->csca);
+		else if (desc & HDR10_TT_CSCB)
+			list_add(&node->node, &hdr10->ipipe_tbls->cscb);
+
+		return;
+	}
+
+	if (desc & HDR10_TT_LUT)
+		list_add(&node->node, &hdr10->opipe_tbls->lut);
+	else if (desc & HDR10_TT_CSCA)
+		list_add(&node->node, &hdr10->opipe_tbls->csc);
+}
+
+static void dcss_hdr10_parse_fw_data(struct dcss_hdr10_priv *hdr10)
+{
+	u32 *data = (u32 *)hdr10->fw_data;
+	u32 remaining = hdr10->fw_size / sizeof(u32);
+	u64 tbl_desc;
+	u32 tbl_size;
+
+	while (remaining) {
+		tbl_desc = *((u64 *)data);
+		data += 2;
+		tbl_size = *data++;
+
+		dcss_hdr10_tbl_add(hdr10, tbl_desc, tbl_size, data);
+
+		data += tbl_size;
+		remaining -= tbl_size + 2;
+	}
+}
+
+static void dcss_hdr10_fw_handler(const struct firmware *fw, void *context)
+{
+	struct dcss_hdr10_priv *hdr10 = context;
+	int i;
+
+	if (!fw) {
+		dev_err(hdr10->dcss->dev, "hdr10: DCSS FW load failed.\n");
+		return;
+	}
+
+	/* we need to keep the tables for the entire life of the driver */
+	hdr10->fw_data = devm_kzalloc(hdr10->dcss->dev, fw->size, GFP_KERNEL);
+	if (!hdr10->fw_data) {
+		dev_err(hdr10->dcss->dev, "hdr10: cannot alloc FW memory.\n");
+		return;
+	}
+
+	memcpy(hdr10->fw_data, fw->data, fw->size);
+	hdr10->fw_size = fw->size;
+
+	release_firmware(fw);
+
+	dcss_hdr10_parse_fw_data(hdr10);
+
+	for (i = 0; i < 4; i++) {
+		u32 *lut, *csca, *cscb;
+		struct dcss_hdr10_ch *ch = &hdr10->ch[i];
+		bool is_input_pipe = i != OPIPE_CH_NO ? true : false;
+
+		if (ch->old_cfg_desc != HDR10_DESC_INVALID) {
+			dcss_hdr10_get_tbls(hdr10, is_input_pipe,
+					    ch->old_cfg_desc, &lut,
+					    &csca, &cscb);
+			dcss_hdr10_write_pipe_tbls(hdr10->dcss, i, lut,
+						   csca, cscb);
+		}
+	}
+
+	dev_info(hdr10->dcss->dev, "hdr10: DCSS FW loaded successfully\n");
+}
+
+static int dcss_hdr10_tbls_init(struct dcss_hdr10_priv *hdr10)
+{
+	struct device *dev = hdr10->dcss->dev;
+
+	hdr10->ipipe_tbls = devm_kzalloc(dev, sizeof(*hdr10->ipipe_tbls),
+					 GFP_KERNEL);
+	if (!hdr10->ipipe_tbls)
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(&hdr10->ipipe_tbls->lut);
+	INIT_LIST_HEAD(&hdr10->ipipe_tbls->csca);
+	INIT_LIST_HEAD(&hdr10->ipipe_tbls->cscb);
+
+	hdr10->opipe_tbls = devm_kzalloc(dev, sizeof(*hdr10->opipe_tbls),
+					 GFP_KERNEL);
+	if (!hdr10->opipe_tbls)
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(&hdr10->opipe_tbls->lut);
+	INIT_LIST_HEAD(&hdr10->opipe_tbls->csc);
 
 	return 0;
 }
 
 int dcss_hdr10_init(struct dcss_soc *dcss, unsigned long hdr10_base)
 {
+	int ret;
 	struct dcss_hdr10_priv *hdr10;
 
 	hdr10 = devm_kzalloc(dcss->dev, sizeof(*hdr10), GFP_KERNEL);
@@ -286,6 +524,20 @@ int dcss_hdr10_init(struct dcss_soc *dcss, unsigned long hdr10_base)
 	dcss->hdr10_priv = hdr10;
 	hdr10->dcss = dcss;
 
+	ret = dcss_hdr10_tbls_init(hdr10);
+	if (ret < 0) {
+		dev_err(dcss->dev, "hdr10: Cannot init table lists.\n");
+		return ret;
+	}
+
+	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG, "dcss.fw",
+				      dcss->dev, GFP_KERNEL, hdr10,
+				      dcss_hdr10_fw_handler);
+	if (ret < 0) {
+		dev_err(dcss->dev, "hdr10: Cannot async load DCSS FW.\n");
+		return ret;
+	}
+
 	return dcss_hdr10_ch_init_all(dcss, hdr10_base);
 }
 
@@ -293,56 +545,91 @@ void dcss_hdr10_exit(struct dcss_soc *dcss)
 {
 }
 
-static void dcss_hdr10_csc_en(struct dcss_soc *dcss, int ch_num,
-			      enum dcss_hdr10_csc csc_to_en, bool en)
+static u32 dcss_hdr10_get_bpc(u32 pix_format)
 {
-	u32 ctrl_reg[] = {
-		DCSS_HDR10_CSCA_BASE + DCSS_HDR10_CSC_CONTROL,
-		DCSS_HDR10_CSCB_BASE + DCSS_HDR10_CSC_CONTROL,
-	};
+	u32 depth, bpc;
 
-	dcss_hdr10_write(dcss, ch_num, en ? CSC_EN | CSC_ALL_PIX_EN : 0,
-			 ctrl_reg[csc_to_en]);
-}
+	switch (pix_format) {
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+		bpc = 8;
+		break;
 
-static void dcss_hdr10_cs2rgb_setup(struct dcss_soc *dcss, int ch_num,
-				    enum dcss_color_space in_cs)
-{
-	if (in_cs == DCSS_COLORSPACE_YUV) {
-		dcss_hdr10_csc_fill(dcss, ch_num, HDR10_CSCA,
-				    dcss_hdr10_yuv2rgb_csca);
-		dcss_hdr10_csc_en(dcss, ch_num, HDR10_CSCA, true);
-		dcss_hdr10_csc_fill(dcss, ch_num, HDR10_CSCB,
-				    dcss_hdr10_yuv2rgb_cscb);
-		dcss_hdr10_csc_en(dcss, ch_num, HDR10_CSCB, true);
-	} else {
-		dcss_hdr10_csc_fill(dcss, ch_num, HDR10_CSCA,
-				    dcss_hdr10_rgb2rgb_csca);
-		dcss_hdr10_csc_en(dcss, ch_num, HDR10_CSCA, true);
-		dcss_hdr10_csc_fill(dcss, ch_num, HDR10_CSCB,
-				    dcss_hdr10_rgb2rgb_cscb);
-		dcss_hdr10_csc_en(dcss, ch_num, HDR10_CSCB, true);
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_VYUY:
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_YVYU:
+		bpc = 8;
+		break;
+
+	case DRM_FORMAT_P010:
+		bpc = 10;
+		break;
+
+	default:
+		depth = drm_format_info(pix_format)->depth;
+		bpc = depth == 30 ? 10 : 8;
+		break;
 	}
 
-	dcss_hdr10_write(dcss, ch_num, LUT_ENABLE | LUT_EN_FOR_ALL_PELS,
-			 DCSS_HDR10_LUT_CONTROL);
-	dcss_hdr10_write(dcss, OPIPE_CH_NO,
-			 LTNL_EN_FOR_ALL_PELS | FIX2FLT_EN_FOR_ALL_PELS,
-			 DCSS_HDR10_LTNL);
+	return bpc;
 }
 
-void dcss_hdr10_pipe_csc_setup(struct dcss_soc *dcss, int ch_num,
-			       enum dcss_color_space in_cs,
-			       enum dcss_color_space out_cs)
+static u32 dcss_hdr10_pipe_desc(struct dcss_hdr10_pipe_cfg *pipe_cfg)
+{
+	u32 bpc, cs, desc;
+
+	bpc = dcss_hdr10_get_bpc(pipe_cfg->pixel_format);
+	cs = dcss_drm_fourcc_to_colorspace(pipe_cfg->pixel_format);
+
+	desc = bpc == 10 ? 2 << HDR10_BPC_POS : 1 << HDR10_BPC_POS;
+	desc |= cs == DCSS_COLORSPACE_YUV ? 2 << HDR10_CS_POS :
+					    1 << HDR10_CS_POS;
+	desc |= ((1 << pipe_cfg->nl) << HDR10_NL_POS) & HDR10_NL_MASK;
+	desc |= ((1 << pipe_cfg->pr) << HDR10_PR_POS) & HDR10_PR_MASK;
+	desc |= ((1 << pipe_cfg->g) << HDR10_G_POS) & HDR10_G_MASK;
+
+	return desc;
+}
+
+static u64 dcss_hdr10_get_desc(struct dcss_hdr10_pipe_cfg *ipipe_cfg,
+			       struct dcss_hdr10_pipe_cfg *opipe_cfg)
+{
+	u32 ipipe_desc, opipe_desc;
+
+	ipipe_desc = dcss_hdr10_pipe_desc(ipipe_cfg);
+	opipe_desc = dcss_hdr10_pipe_desc(opipe_cfg);
+
+	return (ipipe_desc & 0xFFFF) |
+	       (opipe_desc & 0xFFFF) << 16;
+}
+
+static void dcss_hdr10_pipe_setup(struct dcss_soc *dcss, int ch_num,
+				  u64 desc)
 {
 	struct dcss_hdr10_ch *ch = &dcss->hdr10_priv->ch[ch_num];
-	bool cs_chgd = (in_cs != ch->old_in_cs) || (out_cs != ch->old_out_cs);
+	bool pipe_cfg_chgd;
+	u32 *csca, *cscb, *lut;
 
-	if (out_cs == DCSS_COLORSPACE_RGB && cs_chgd)
-		dcss_hdr10_cs2rgb_setup(dcss, ch_num, in_cs);
+	pipe_cfg_chgd = ch->old_cfg_desc != desc;
 
-	ch->old_in_cs = in_cs;
-	ch->old_out_cs = out_cs;
+	if (!pipe_cfg_chgd)
+		return;
+
+	dcss_hdr10_get_tbls(dcss->hdr10_priv, ch_num != OPIPE_CH_NO,
+			    desc, &lut, &csca, &cscb);
+	dcss_hdr10_write_pipe_tbls(dcss, ch_num, lut, csca, cscb);
+
+	ch->old_cfg_desc = desc;
 }
-EXPORT_SYMBOL(dcss_hdr10_pipe_csc_setup);
 
+void dcss_hdr10_setup(struct dcss_soc *dcss, int ch_num,
+		      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
+		      struct dcss_hdr10_pipe_cfg *opipe_cfg)
+{
+	u64 desc = dcss_hdr10_get_desc(ipipe_cfg, opipe_cfg);
+
+	dcss_hdr10_pipe_setup(dcss, ch_num, desc);
+	dcss_hdr10_pipe_setup(dcss, OPIPE_CH_NO, desc);
+}
+EXPORT_SYMBOL(dcss_hdr10_setup);

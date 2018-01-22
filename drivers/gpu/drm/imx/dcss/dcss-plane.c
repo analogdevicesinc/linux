@@ -303,7 +303,7 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 		}
 
 		dcss_dtrc_set_format_mod(dcss_plane->dcss, dcss_plane->ch_num,
-					 fb->modifier);
+					 pix_format, fb->modifier);
 		dcss_dtrc_addr_set(dcss_plane->dcss, dcss_plane->ch_num,
 				   p1_ba, p2_ba, dcss_plane->dtrc_table_ofs_val);
 		break;
@@ -364,6 +364,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	u32 src_w, src_h, adj_w, adj_h;
 	struct drm_rect disp, crtc, src, old_src;
 	u32 scaler_w, scaler_h;
+	struct dcss_hdr10_pipe_cfg ipipe_cfg, opipe_cfg;
 
 	if (!state->fb)
 		return;
@@ -446,13 +447,20 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 			  crtc.y2 - crtc.y1,
 			  drm_mode_vrefresh(&crtc_state->mode));
 
-	/*
-	 * TODO: retrieve the output colorspace format from somewhere... For
-	 * now, assume RGB.
-	 */
-	dcss_hdr10_pipe_csc_setup(dcss_plane->dcss, dcss_plane->ch_num,
-				  dcss_drm_fourcc_to_colorspace(pixel_format),
-				  DCSS_COLORSPACE_RGB);
+	ipipe_cfg.pixel_format = pixel_format;
+	ipipe_cfg.nl = NL_REC709;
+	ipipe_cfg.pr = PR_LIMITED;
+	ipipe_cfg.g = G_REC709;
+
+	/* FIXME: where do I get the output pipe pixel format? */
+
+	opipe_cfg.pixel_format = DRM_FORMAT_ARGB8888;
+	opipe_cfg.nl = NL_REC709;
+	opipe_cfg.pr = PR_LIMITED;
+	opipe_cfg.g = G_REC2020;
+
+	dcss_hdr10_setup(dcss_plane->dcss, dcss_plane->ch_num,
+			 &ipipe_cfg, &opipe_cfg);
 
 	dcss_dtg_plane_pos_set(dcss_plane->dcss, dcss_plane->ch_num,
 			       crtc.x1, crtc.y1,

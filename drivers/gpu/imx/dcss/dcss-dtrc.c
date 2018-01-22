@@ -297,6 +297,7 @@ void dcss_dtrc_addr_set(struct dcss_soc *dcss, int ch_num, u32 p1_ba, u32 p2_ba,
 
 	ch = &dtrc->ch[ch_num];
 
+
 	dcss_dtrc_write(dtrc, ch_num, p1_ba, DCSS_DTRC_DYDSADDR);
 	dcss_dtrc_write(dtrc, ch_num, p2_ba, DCSS_DTRC_DCDSADDR);
 
@@ -328,6 +329,7 @@ void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, struct drm_rect *src,
 	u32 crop_w, crop_h, crop_orig_w, crop_orig_h;
 	int bank;
 	u32 old_xres, old_yres, xres, yres;
+	u32 pix_depth;
 
 	if (ch_num == 0)
 		return;
@@ -338,6 +340,7 @@ void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, struct drm_rect *src,
 
 	bank = dcss_readl(ch->base_reg + DCSS_DTRC_DTCTRL) >> 31;
 
+	pix_depth = ch->pix_format == DRM_FORMAT_P010 ? 10 : 8;
 	old_xres = old_src->x2 - old_src->x1;
 	old_yres = old_src->y2 - old_src->y1;
 	xres = src->x2 - src->x1;
@@ -396,14 +399,14 @@ void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, struct drm_rect *src,
 	ch->dctl |= CROPPING_EN;
 
 exit:
-	dcss_dtrc_write(dtrc, ch_num, xres * yres,
+	dcss_dtrc_write(dtrc, ch_num, xres * yres * pix_depth / 8,
 			DCSS_DTRC_SYSEA);
-	dcss_dtrc_write(dtrc, ch_num, xres * yres,
+	dcss_dtrc_write(dtrc, ch_num, xres * yres * pix_depth / 8,
 			DTRC_F1_OFS + DCSS_DTRC_SYSEA);
 
-	dcss_dtrc_write(dtrc, ch_num, 0x10000000 + xres * yres / 2,
+	dcss_dtrc_write(dtrc, ch_num, 0x10000000 + xres * yres * pix_depth / 8 / 2,
 			DCSS_DTRC_SUVSEA);
-	dcss_dtrc_write(dtrc, ch_num, 0x10000000 + xres * yres / 2,
+	dcss_dtrc_write(dtrc, ch_num, 0x10000000 + xres * yres * pix_depth / 8 / 2,
 			DTRC_F1_OFS + DCSS_DTRC_SUVSEA);
 
 	src->x2 = src->x1 + xres;
@@ -469,7 +472,7 @@ void dcss_dtrc_enable(struct dcss_soc *dcss, int ch_num, bool enable)
 
 	fdctl = ch->dctl & ~(PIX_DEPTH_8BIT_EN | COMPRESSION_DIS);
 
-	fdctl |= PIX_DEPTH_8BIT_EN;
+	fdctl |= ch->pix_format == DRM_FORMAT_P010 ? 0 : PIX_DEPTH_8BIT_EN;
 
 	if (ch->format_modifier != DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED)
 		fdctl |= COMPRESSION_DIS;
@@ -500,7 +503,8 @@ bool dcss_dtrc_is_running(struct dcss_soc *dcss, int ch_num)
 	return ch->running;
 }
 
-void dcss_dtrc_set_format_mod(struct dcss_soc *dcss, int ch_num, u64 modifier)
+void dcss_dtrc_set_format_mod(struct dcss_soc *dcss, int ch_num,
+			      u32 pix_format, u64 modifier)
 {
 	struct dcss_dtrc_priv *dtrc = dcss->dtrc_priv;
 	struct dcss_dtrc_ch *ch;
@@ -512,6 +516,7 @@ void dcss_dtrc_set_format_mod(struct dcss_soc *dcss, int ch_num, u64 modifier)
 
 	ch = &dtrc->ch[ch_num];
 
+	ch->pix_format = pix_format;
 	ch->format_modifier = modifier;
 }
 EXPORT_SYMBOL(dcss_dtrc_set_format_mod);
