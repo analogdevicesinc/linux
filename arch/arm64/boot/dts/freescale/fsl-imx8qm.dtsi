@@ -1416,17 +1416,6 @@
 		};
 	};
 
-	emvsim0: sim0@5a0d0000 {
-		compatible = "fsl,imx8-emvsim";
-		reg = <0x0 0x5a0d0000 0x0 0x10000>;
-		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8QM_EMVSIM0_CLK>,
-			 <&clk IMX8QM_EMVSIM0_IPG_CLK>;
-		clock-names = "sim", "ipg";
-		power-domains = <&pd_ldo1_sim>;
-		status = "disabled";
-	};
-
 	hdmi:hdmi@56268000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -2567,6 +2556,17 @@
 		dma-names = "tx","rx";
 		dmas = <&edma0 21 0 0>,
 			<&edma0 20 0 1>;
+		status = "disabled";
+	};
+
+	emvsim0: sim0@5a0d0000 {
+		compatible = "fsl,imx8-emvsim";
+		reg = <0x0 0x5a0d0000 0x0 0x10000>;
+		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QM_EMVSIM0_CLK>,
+			 <&clk IMX8QM_EMVSIM0_IPG_CLK>;
+		clock-names = "sim", "ipg";
+		power-domains = <&pd_ldo1_sim>;
 		status = "disabled";
 	};
 
