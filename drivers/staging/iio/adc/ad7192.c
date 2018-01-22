@@ -142,6 +142,8 @@
 #define AD7192_GPOCON_P1DAT	BIT(1) /* P1 state */
 #define AD7192_GPOCON_P0DAT	BIT(0) /* P0 state */
 
+#define AD7192_EXT_FREQ_MHZ_MIN	2457600
+#define AD7192_EXT_FREQ_MHZ_MAX	5120000
 #define AD7192_INT_FREQ_MHZ	4915200
 
 /* NOTE:
@@ -217,6 +219,12 @@ static int ad7192_calibrate_all(struct ad7192_state *st)
 {
 		return ad_sd_calibrate_all(&st->sd, ad7192_calib_arr,
 				ARRAY_SIZE(ad7192_calib_arr));
+}
+
+static inline bool ad7192_valid_external_frequency(u32 freq)
+{
+	return (freq >= AD7192_EXT_FREQ_MHZ_MIN &&
+		freq <= AD7192_EXT_FREQ_MHZ_MAX);
 }
 
 static int ad7192_setup(struct ad7192_state *st,
