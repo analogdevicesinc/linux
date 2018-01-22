@@ -3398,6 +3398,8 @@ int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode);
 int ad9361_find_opt(u8 *field, u32 size, u32 *ret_start);
 int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctrl);
 void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state);
+u8 ad9361_ensm_get_state(struct ad9361_rf_phy *phy);
+void ad9361_ensm_restore_state(struct ad9361_rf_phy *phy, u8 ensm_state);
 void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy);
 int ad9361_set_trx_clock_chain_freq(struct ad9361_rf_phy *phy,
 					  unsigned long freq);
