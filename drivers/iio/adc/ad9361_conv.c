@@ -50,12 +50,34 @@ static unsigned int ad9361_num_phy_chan(struct axiadc_converter *conv)
 	return conv->chip_info->num_channels;
 }
 
+static int ad9361_check_pn(struct axiadc_converter *conv, bool tx,
+			   unsigned int delay)
+{
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	unsigned int num_chan = ad9361_num_phy_chan(conv);
+	unsigned int chan;
+
+	for (chan = 0; chan < num_chan; chan++)
+		axiadc_write(st, ADI_REG_CHAN_STATUS(chan),
+			     ADI_PN_ERR | ADI_PN_OOS);
+	mdelay(delay);
+
+	if (!tx && !(axiadc_read(st, ADI_REG_STATUS) & ADI_STATUS))
+		return 1;
+
+	for (chan = 0; chan < num_chan; chan++) {
+		if (axiadc_read(st, ADI_REG_CHAN_STATUS(chan)))
+			return 1;
+	}
+
+	return 0;
+}
+
 ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 						   char *buf, unsigned buflen)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	struct axiadc_state *st;
-	int ret, i, j, chan, num_chan, len = 0;
+	int i, j, len = 0;
 	u8 field[16][16];
 	u8 ensm_state;
 	u8 rx;
@@ -65,32 +87,15 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 
 	dev_dbg(&phy->spi->dev, "%s:\n", __func__);
 
-	st = iio_priv(conv->indio_dev);
-
 	ensm_state = ad9361_ensm_get_state(phy);
 	rx = ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
-
-	num_chan = ad9361_num_phy_chan(conv);
 
 	ad9361_bist_prbs(phy, BIST_INJ_RX);
 
 	for (i = 0; i < 16; i++) {
 		for (j = 0; j < 16; j++) {
 			ad9361_set_intf_delay(phy, false, i, j, j == 0);
-			for (chan = 0; chan < num_chan; chan++)
-				axiadc_write(st, ADI_REG_CHAN_STATUS(chan),
-					ADI_PN_ERR | ADI_PN_OOS);
-
-			mdelay(1);
-
-			if (axiadc_read(st, ADI_REG_STATUS) & ADI_STATUS) {
-				for (chan = 0, ret = 0; chan < num_chan; chan++)
-					ret |= axiadc_read(st, ADI_REG_CHAN_STATUS(chan));
-			} else {
-				ret = 1;
-			}
-
-			field[j][i] = ret;
+			field[j][i] = ad9361_check_pn(conv, false, 1);
 		}
 	}
 
@@ -385,26 +390,15 @@ static int ad9361_dig_tune_iodelay(struct ad9361_rf_phy *phy, bool tx)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	int ret, i, j, chan, num_chan;
+	int i, j;
 	u32 s0, c0;
 	u8 field[32];
-
-	num_chan = ad9361_num_phy_chan(conv);
 
 	for (i = 0; i < 7; i++) {
 		for (j = 0; j < 32; j++) {
 			ad9361_iodelay_set(st, i, j, tx);
 			mdelay(1);
-
-			for (chan = 0; chan < num_chan; chan++)
-				axiadc_write(st, ADI_REG_CHAN_STATUS(chan),
-					ADI_PN_ERR | ADI_PN_OOS);
-			mdelay(10);
-
-			for (chan = 0, ret = 0; chan < num_chan; chan++)
-				ret |= axiadc_read(st, ADI_REG_CHAN_STATUS(chan));
-
-			field[j] = ret;
+			field[j] = ad9361_check_pn(conv, tx, 10);
 		}
 
 		c0 = ad9361_find_opt(&field[0], 32, &s0);
@@ -445,7 +439,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st;
-	int ret, i, j, k, chan, t, num_chan, err = 0;
+	int i, j, k, chan, t, num_chan, err = 0;
 	u32 s0, s1, c0, c1, tmp, saved = 0;
 	u8 field[2][16], loopback, bist, ensm_state;
 	u32 saved_dsel[4], saved_chan_ctrl6[4], saved_chan_ctrl0[4];
@@ -513,20 +507,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 				 */
 				ad9361_set_intf_delay(phy, t == 1, i ? 15 : 0,
 						      i ? 15 - j : j, j == 0);
-				for (chan = 0; chan < num_chan; chan++)
-					axiadc_write(st, ADI_REG_CHAN_STATUS(chan),
-						ADI_PN_ERR | ADI_PN_OOS);
-				mdelay(4);
-
-				if ((t == 1) || (axiadc_read(st, ADI_REG_STATUS) & ADI_STATUS)) {
-					for (chan = 0, ret = 0; chan < num_chan; chan++) {
-						ret |= axiadc_read(st, ADI_REG_CHAN_STATUS(chan));
-					}
-				} else {
-					ret = 1;
-				}
-
-				field[i][j] |= ret;
+				field[i][j] |= ad9361_check_pn(conv, (bool)t, 4);
 			}
 		}
 
