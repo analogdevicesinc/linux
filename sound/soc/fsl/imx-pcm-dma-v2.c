@@ -80,6 +80,11 @@ static int imx_pcm_hw_params(struct snd_pcm_substream *substream,
 					dma_data,
 					&config);
 
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		config.dst_fifo_num = dma_data->fifo_num;
+	else
+		config.src_fifo_num = dma_data->fifo_num;
+
 	return dmaengine_slave_config(chan, &config);
 }
 
