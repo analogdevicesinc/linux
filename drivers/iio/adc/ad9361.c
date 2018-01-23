@@ -1813,6 +1813,7 @@ static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
 
 	if (val != RX_GAIN_CTL_MGC) {
 		dev_dbg(dev, "Rx gain can be set in MGC mode only\n");
+		rc = -EOPNOTSUPP;
 		goto out;
 	}
 
