@@ -25,6 +25,7 @@
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
 #include <sound/pcm_params.h>
+#include <linux/pm_runtime.h>
 
 #include "ak4497.h"
 
@@ -33,6 +34,7 @@
 /* AK4497 Codec Private Data */
 struct ak4497_priv {
 	struct i2c_client *i2c;
+	struct regmap *regmap;
 	int fs1;	/* Sampling Frequency */
 	int nBickFreq;	/* 0: 48fs for 24bit,  1: 64fs or more for 32bit */
 	int nDSDSel;
@@ -856,14 +858,16 @@ static int ak4497_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int ak4497_suspend(struct snd_soc_codec *codec)
+#ifdef CONFIG_PM
+static int ak4497_runtime_suspend(struct device *dev)
 {
-	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
+	struct ak4497_priv *ak4497 = dev_get_drvdata(dev);
 
-	ak4497_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	regcache_cache_only(ak4497->regmap, true);
 
-	if (ak4497->pdn_gpio > 0)
+	if (ak4497->pdn_gpio > 0) {
 		gpio_set_value(ak4497->pdn_gpio, 0);
+	}
 
 	if (ak4497->mute_gpio > 0)
 		gpio_free(ak4497->mute_gpio);
@@ -871,18 +875,31 @@ static int ak4497_suspend(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int ak4497_resume(struct snd_soc_codec *codec)
+static int ak4497_runtime_resume(struct device *dev)
 {
-	ak4497_init_reg(codec);
+	struct ak4497_priv *ak4497 = dev_get_drvdata(dev);
 
-	return 0;
+	if (ak4497->mute_gpio > 0)
+		gpio_set_value(ak4497->mute_gpio, 1); /* External Mute ON */
+
+	if (ak4497->pdn_gpio > 0)
+		gpio_set_value(ak4497->pdn_gpio, 1);
+
+	regcache_cache_only(ak4497->regmap, false);
+	regcache_mark_dirty(ak4497->regmap);
+
+	return regcache_sync(ak4497->regmap);
 }
+#endif /* CONFIG_PM */
+
+static const struct dev_pm_ops ak4497_pm = {
+	SET_RUNTIME_PM_OPS(ak4497_runtime_suspend, ak4497_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
+};
 
 struct snd_soc_codec_driver soc_codec_dev_ak4497 = {
 	.probe = ak4497_probe,
 	.remove = ak4497_remove,
-	.suspend = ak4497_suspend,
-	.resume = ak4497_resume,
 
 	.idle_bias_off = true,
 	.set_bias_level = ak4497_set_bias_level,
@@ -913,7 +930,6 @@ static int ak4497_i2c_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
 	struct ak4497_priv *ak4497;
-	struct regmap *regmap;
 	int ret = 0;
 
 	ak4497 = devm_kzalloc(&i2c->dev,
@@ -921,24 +937,29 @@ static int ak4497_i2c_probe(struct i2c_client *i2c,
 	if (ak4497 == NULL)
 		return -ENOMEM;
 
-	regmap = devm_regmap_init_i2c(i2c, &ak4497_regmap);
-	if (IS_ERR(regmap))
-		return PTR_ERR(regmap);
+	ak4497->regmap = devm_regmap_init_i2c(i2c, &ak4497_regmap);
+	if (IS_ERR(ak4497->regmap))
+		return PTR_ERR(ak4497->regmap);
 
 	i2c_set_clientdata(i2c, ak4497);
 	ak4497->i2c = i2c;
 
 	ret = snd_soc_register_codec(&i2c->dev, &soc_codec_dev_ak4497,
 				     &ak4497_dai[0], ARRAY_SIZE(ak4497_dai));
-	if (ret < 0)
+	if (ret < 0) {
 		kfree(ak4497);
+		return ret;
+	}
 
-	return ret;
+	pm_runtime_enable(&i2c->dev);
+
+	return 0;
 }
 
 static int ak4497_i2c_remove(struct i2c_client *client)
 {
 	snd_soc_unregister_codec(&client->dev);
+	pm_runtime_disable(&client->dev);
 
 	return 0;
 }
@@ -958,6 +979,7 @@ static struct i2c_driver ak4497_i2c_driver = {
 	.driver = {
 		.name = "ak4497",
 		.of_match_table = of_match_ptr(ak4497_i2c_dt_ids),
+		.pm = &ak4497_pm,
 	},
 	.probe = ak4497_i2c_probe,
 	.remove = ak4497_i2c_remove,
