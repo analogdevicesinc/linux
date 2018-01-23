@@ -109,7 +109,7 @@ struct dcss_ctxld_priv {
 	bool in_use;
 	bool run_again;
 
-	struct mutex mutex; /* protects concurent access to private data */
+	spinlock_t lock; /* protects concurent access to private data */
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -131,36 +131,6 @@ void dcss_ctxld_dump_regs(struct seq_file *s, void *data)
 
 static int __dcss_ctxld_enable(struct dcss_ctxld_priv *ctxld);
 
-static irqreturn_t dcss_ctxld_irq_handler_thread(int irq, void *data)
-{
-	struct dcss_ctxld_priv *ctxld = data;
-	u32 status;
-
-	status = dcss_readl(ctxld->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
-
-	mutex_lock(&ctxld->mutex);
-	if (!(status & CTXLD_ENABLE) && ctxld->in_use) {
-		ctxld->in_use = false;
-
-		if (ctxld->run_again) {
-			ctxld->run_again = false;
-			__dcss_ctxld_enable(ctxld);
-			goto exit;
-		}
-
-		if (ctxld->dcss->dcss_disable_callback) {
-			struct dcss_dtg_priv *dtg = ctxld->dcss->dtg_priv;
-
-			ctxld->dcss->dcss_disable_callback(dtg);
-		}
-	}
-
-exit:
-	mutex_unlock(&ctxld->mutex);
-
-	return IRQ_HANDLED;
-}
-
 static irqreturn_t dcss_ctxld_irq_handler(int irq, void *data)
 {
 	struct dcss_ctxld_priv *priv = data;
@@ -168,11 +138,21 @@ static irqreturn_t dcss_ctxld_irq_handler(int irq, void *data)
 
 	irq_status = dcss_readl(priv->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
 
-	if (irq_status & CTXLD_IRQ_COMPLETION) {
-		dcss_clr(irq_status & CTXLD_IRQ_COMPLETION,
-			 priv->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
+	if (irq_status & CTXLD_IRQ_COMPLETION &&
+	    !(irq_status & CTXLD_ENABLE) && priv->in_use) {
+		priv->in_use = false;
 
-		return IRQ_WAKE_THREAD;
+		if (priv->run_again) {
+			priv->run_again = false;
+			__dcss_ctxld_enable(priv);
+			goto exit;
+		}
+
+		if (priv->dcss->dcss_disable_callback) {
+			struct dcss_dtg_priv *dtg = priv->dcss->dtg_priv;
+
+			priv->dcss->dcss_disable_callback(dtg);
+		}
 	} else if (irq_status & CTXLD_IRQ_ERROR) {
 		/*
 		 * Except for throwing an error message and clearing the status
@@ -184,11 +164,11 @@ static irqreturn_t dcss_ctxld_irq_handler(int irq, void *data)
 			priv->ctx_size[priv->current_ctx ^ 1][CTX_DB],
 			priv->ctx_size[priv->current_ctx ^ 1][CTX_SB_HP],
 			priv->ctx_size[priv->current_ctx ^ 1][CTX_SB_LP]);
-
-		/* clear the interrupts */
-		dcss_clr((irq_status & CTXLD_IRQ_ERROR),
-			 priv->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
 	}
+
+exit:
+	dcss_clr(irq_status & (CTXLD_IRQ_ERROR | CTXLD_IRQ_COMPLETION),
+		priv->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
 
 	return IRQ_HANDLED;
 }
@@ -205,11 +185,10 @@ static int dcss_ctxld_irq_config(struct dcss_ctxld_priv *ctxld)
 		return ctxld->irq;
 	}
 
-	ret = devm_request_threaded_irq(dcss->dev, ctxld->irq,
-					dcss_ctxld_irq_handler,
-					dcss_ctxld_irq_handler_thread,
-					IRQF_ONESHOT | IRQF_TRIGGER_RISING,
-					DCSS_CTXLD_DEVNAME, ctxld);
+	ret = devm_request_irq(dcss->dev, ctxld->irq,
+			       dcss_ctxld_irq_handler,
+			       IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+			       DCSS_CTXLD_DEVNAME, ctxld);
 	if (ret) {
 		dev_err(dcss->dev, "ctxld: irq request failed.\n");
 		return ret;
@@ -287,8 +266,6 @@ int dcss_ctxld_init(struct dcss_soc *dcss, unsigned long ctxld_base)
 		dev_err(dcss->dev, "ctxld: cannot allocate context memory.\n");
 		return ret;
 	}
-
-	mutex_init(&priv->mutex);
 
 	priv->ctxld_reg = devm_ioremap(dcss->dev, ctxld_base, SZ_4K);
 	if (!priv->ctxld_reg) {
@@ -381,17 +358,18 @@ static int __dcss_ctxld_enable(struct dcss_ctxld_priv *ctxld)
 int dcss_ctxld_enable(struct dcss_soc *dcss)
 {
 	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
+	unsigned long flags;
 
-	mutex_lock(&ctxld->mutex);
+	spin_lock_irqsave(&ctxld->lock, flags);
 	if (ctxld->in_use) {
 		ctxld->run_again = true;
-		mutex_unlock(&ctxld->mutex);
+		spin_unlock_irqrestore(&ctxld->lock, flags);
 		return 0;
 	}
 
 	__dcss_ctxld_enable(ctxld);
 
-	mutex_unlock(&ctxld->mutex);
+	spin_unlock_irqrestore(&ctxld->lock, flags);
 
 	return 0;
 }
@@ -420,10 +398,11 @@ void dcss_ctxld_write_irqsafe(struct dcss_soc *dcss, u32 ctx_id, u32 val,
 void dcss_ctxld_write(struct dcss_soc *dcss, u32 ctx_id, u32 val, u32 reg_ofs)
 {
 	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
+	unsigned long flags;
 
-	mutex_lock(&ctxld->mutex);
+	spin_lock_irqsave(&ctxld->lock, flags);
 	dcss_ctxld_write_irqsafe(dcss, ctx_id, val, reg_ofs);
-	mutex_unlock(&ctxld->mutex);
+	spin_unlock_irqrestore(&ctxld->lock, flags);
 }
 
 int dcss_ctxld_resume(struct dcss_soc *dcss)
@@ -445,6 +424,7 @@ int dcss_ctxld_suspend(struct dcss_soc *dcss)
 	int ret = 0;
 	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
 	int wait_time_ms = 0;
+	unsigned long flags;
 
 	while (ctxld->in_use && wait_time_ms < 500) {
 		msleep(20);
@@ -454,7 +434,7 @@ int dcss_ctxld_suspend(struct dcss_soc *dcss)
 	if (wait_time_ms > 500)
 		return -ETIMEDOUT;
 
-	mutex_lock(&ctxld->mutex);
+	spin_lock_irqsave(&ctxld->lock, flags);
 
 	if (ctxld->irq_en) {
 		disable_irq_nosync(dcss->ctxld_priv->irq);
@@ -467,7 +447,7 @@ int dcss_ctxld_suspend(struct dcss_soc *dcss)
 	ctxld->ctx_size[0][CTX_SB_HP] = 0;
 	ctxld->ctx_size[0][CTX_SB_LP] = 0;
 
-	mutex_unlock(&ctxld->mutex);
+	spin_unlock_irqrestore(&ctxld->lock, flags);
 	return ret;
 }
 
