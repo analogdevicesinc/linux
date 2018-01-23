@@ -345,6 +345,8 @@ enum dma_slave_buswidth {
  * loops in this area in order to transfer the data.
  * @dst_port_window_size: same as src_port_window_size but for the destination
  * port.
+ * @src_fifo_num: bit 0-7 is the fifo number, bit:8-11 is the fifo offset;
+ * @dst_fifo_num: same as src_fifo_num
  * @device_fc: Flow Controller Settings. Only valid for slave channels. Fill
  * with 'true' if peripheral should be flow controller. Direction will be
  * selected at Runtime.
@@ -374,6 +376,8 @@ struct dma_slave_config {
 	u32 dst_maxburst;
 	u32 src_port_window_size;
 	u32 dst_port_window_size;
+	u32 src_fifo_num;
+	u32 dst_fifo_num;
 	bool device_fc;
 	unsigned int slave_id;
 };
