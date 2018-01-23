@@ -39,11 +39,24 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_card *card = rtd->card;
 	struct device *dev = card->dev;
 	unsigned int channels = params_channels(params);
+	snd_pcm_format_t format = params_format(params);
 	unsigned int fmt;
+	bool is_dsd = false;
 	int ret;
 
-	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-		SND_SOC_DAIFMT_CBS_CFS;
+	if (format == SNDRV_PCM_FORMAT_DSD_U8 ||
+		format == SNDRV_PCM_FORMAT_DSD_U16_LE ||
+		format == SNDRV_PCM_FORMAT_DSD_U16_BE ||
+		format == SNDRV_PCM_FORMAT_DSD_U32_LE ||
+		format == SNDRV_PCM_FORMAT_DSD_U32_BE)
+		is_dsd = true;
+
+	if (is_dsd)
+		fmt = SND_SOC_DAIFMT_PDM | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS;
+	else
+		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS;
 
 	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
 	if (ret) {
@@ -51,13 +64,25 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+	if (is_dsd)
+		fmt = SND_SOC_DAIFMT_PDM | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS;
+	else
+		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS;
+
 	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
 	if (ret) {
 		dev_err(dev, "failed to set codec dai fmt: %d\n", ret);
 		return ret;
 	}
 
-	ret = snd_soc_dai_set_tdm_slot(cpu_dai,
+	if (is_dsd)
+		ret = snd_soc_dai_set_tdm_slot(cpu_dai,
+				       0x1, 0x1,
+				       1, params_width(params));
+	else
+		ret = snd_soc_dai_set_tdm_slot(cpu_dai,
 				       BIT(channels) - 1, BIT(channels) - 1,
 				       2, params_physical_width(params));
 	if (ret) {
@@ -68,7 +93,31 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+static const u32 support_rates[] = {
+	11025, 22050, 44100,
+	88200, 176400, 352800,
+	705600, 1411200, 2822400,
+};
+
+static int imx_aif_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	int ret = 0;
+	static struct snd_pcm_hw_constraint_list constraint_rates;
+
+	constraint_rates.list = support_rates;
+	constraint_rates.count = ARRAY_SIZE(support_rates);
+
+	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
+						&constraint_rates);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
 static struct snd_soc_ops imx_aif_ops = {
+	.startup   = imx_aif_startup,
 	.hw_params = imx_aif_hw_params,
 };
 
