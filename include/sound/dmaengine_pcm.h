@@ -86,6 +86,7 @@ struct snd_dmaengine_dai_dma_data {
 	const char *chan_name;
 	unsigned int fifo_size;
 	unsigned int flags;
+	unsigned int fifo_num;
 	bool (*check_xrun)(struct snd_pcm_substream *substream);
 	void (*device_reset)(struct snd_pcm_substream *substream, bool stop);
 };
