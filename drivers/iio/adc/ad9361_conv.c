@@ -414,9 +414,11 @@ static int ad9361_dig_tune_iodelay(struct ad9361_rf_phy *phy, bool tx)
 }
 
 static void ad9361_dig_tune_verbose_print(struct ad9361_rf_phy *phy,
-					  u8 field[][16], bool tx)
+					  u8 field[][16], bool tx,
+					  int sel_clk, int sel_data)
 {
 	int i, j;
+	char c;
 
 	printk(KERN_INFO "SAMPL CLK: %lu tuning: %s\n",
 	       clk_get_rate(phy->clks[RX_SAMPL_CLK]), tx ? "TX" : "RX");
@@ -428,7 +430,14 @@ static void ad9361_dig_tune_verbose_print(struct ad9361_rf_phy *phy,
 	for (i = 0; i < 2; i++) {
 		printk(KERN_INFO "%x:", i);
 		for (j = 0; j < 16; j++) {
-			printk(KERN_CONT "%c ", (field[i][j] ? '#' : 'o'));
+			if (field[i][j])
+			    c = '#';
+			else if ((i == 0 && j == sel_data) ||
+				 (i == 1 && j == sel_clk))
+			    c = 'O';
+			else
+			    c = 'o';
+			printk(KERN_CONT "%c ", c);
 		}
 		printk(KERN_CONT "\n");
 	}
@@ -471,7 +480,7 @@ static int ad9361_dig_tune_delay(struct ad9361_rf_phy *phy,
 		}
 
 		if ((flags & BE_MOREVERBOSE) && max_freq) {
-			ad9361_dig_tune_verbose_print(phy, field, tx);
+			ad9361_dig_tune_verbose_print(phy, field, tx, -1, -1);
 		}
 	}
 
@@ -479,12 +488,14 @@ static int ad9361_dig_tune_delay(struct ad9361_rf_phy *phy,
 	c1 = ad9361_find_opt(&field[1][0], 16, &s1);
 
 	if (!c0 && !c1) {
-		ad9361_dig_tune_verbose_print(phy, field, tx);
+		ad9361_dig_tune_verbose_print(phy, field, tx, -1, -1);
 		dev_err(&phy->spi->dev, "%s: Tuning %s FAILED!", __func__,
 			tx ? "TX" : "RX");
 		return -EIO;
 	} else if (flags & BE_VERBOSE) {
-		ad9361_dig_tune_verbose_print(phy, field, tx);
+		ad9361_dig_tune_verbose_print(phy, field, tx,
+					      c1 > c0 ? (s1 + c1 / 2) : -1,
+					      c1 > c0 ? -1 : (s0 + c0 / 2));
 	}
 
 	if (c1 > c0)
