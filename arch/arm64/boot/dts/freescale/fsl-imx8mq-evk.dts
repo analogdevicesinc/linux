@@ -124,8 +124,8 @@
 };
 
 &clk {
-	assigned-clocks = <&clk IMX8MQ_AUDIO_PLL1>;
-	assigned-clock-rates = <786432000>;
+	assigned-clocks = <&clk IMX8MQ_AUDIO_PLL1>, <&clk IMX8MQ_AUDIO_PLL2>;
+	assigned-clock-rates = <786432000>, <722534400>;
 };
 
 &iomuxc {
