@@ -18,6 +18,7 @@
 #include <linux/i2c.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
+#include <sound/pcm.h>
 #include <sound/soc-dapm.h>
 
 struct imx_ak4458_data {
@@ -28,6 +29,15 @@ struct imx_ak4458_data {
 
 static struct snd_soc_dapm_widget imx_ak4458_dapm_widgets[] = {
 	SND_SOC_DAPM_LINE("Line Out", NULL),
+};
+
+static const u32 ak4458_rates[] = {
+	8000, 16000, 32000,
+	48000, 96000, 192000,
+};
+
+static const u32 ak4458_channels[] = {
+	1, 2, 4, 6, 8, 10, 12, 14, 16,
 };
 
 static int imx_aif_hw_params(struct snd_pcm_substream *substream,
@@ -72,8 +82,35 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+static int imx_aif_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	static struct snd_pcm_hw_constraint_list constraint_rates;
+	static struct snd_pcm_hw_constraint_list constraint_channels;
+	int ret;
+
+	constraint_rates.list = ak4458_rates;
+	constraint_rates.count = ARRAY_SIZE(ak4458_rates);
+
+	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
+						&constraint_rates);
+	if (ret)
+		return ret;
+
+	constraint_channels.list = ak4458_channels;
+	constraint_channels.count = ARRAY_SIZE(ak4458_channels);
+
+	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
+						&constraint_channels);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static struct snd_soc_ops imx_aif_ops = {
 	.hw_params = imx_aif_hw_params,
+	.startup = imx_aif_startup,
 };
 
 static struct snd_soc_dai_link_component ak4458_codecs[] = {
