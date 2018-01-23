@@ -274,8 +274,8 @@ void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres)
 		dcss_dpr_write(dpr, ch_num, pix_y_high,
 			       DCSS_DPR_FRAME_1P_PIX_Y_CTRL + plane * gap);
 
-		dcss_dpr_write(dpr,
-			       ch_num, xres < 1920 ? 2 : xres > 1920 ? 6 : 5,
+		dcss_dpr_write(dpr, ch_num, xres < 640 ? 3 :
+			       xres < 1280 ? 4 : xres < 3840 ? 5 : 6,
 			       DCSS_DPR_FRAME_1P_CTRL0 + plane * gap);
 	}
 }
