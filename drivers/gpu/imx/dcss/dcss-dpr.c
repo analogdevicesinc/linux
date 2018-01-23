@@ -547,6 +547,45 @@ static int dcss_dpr_get_bpp(u32 pix_format)
 	return bpp;
 }
 
+void dcss_dpr_tile_derive(struct dcss_soc *dcss,
+			  int ch_num,
+			  uint64_t modifier)
+{
+	struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[ch_num];
+
+	switch (ch_num) {
+	case 0:
+		switch (modifier) {
+		case DRM_FORMAT_MOD_LINEAR:
+			dcss_dpr_tile_set(dcss, ch_num, TILE_LINEAR);
+			ch->tile = TILE_LINEAR;
+			break;
+		case DRM_FORMAT_MOD_VIVANTE_TILED:
+			dcss_dpr_tile_set(dcss, ch_num, TILE_GPU_STANDARD);
+			ch->tile = TILE_GPU_STANDARD;
+			break;
+		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
+		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC:
+			dcss_dpr_tile_set(dcss, ch_num, TILE_GPU_SUPER);
+			ch->tile = TILE_GPU_SUPER;
+			break;
+		default:
+			WARN_ON(1);
+			break;
+		}
+		break;
+	case 1:
+	case 2:
+		dcss_dpr_tile_set(dcss, ch_num, TILE_LINEAR);
+		ch->tile = TILE_LINEAR;
+		break;
+	default:
+		WARN_ON(1);
+		return;
+	}
+}
+EXPORT_SYMBOL(dcss_dpr_tile_set);
+
 void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format)
 {
 	struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[ch_num];
@@ -572,9 +611,5 @@ void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format)
 	dcss_dpr_2plane_en(dcss, ch_num, ch->planes == 2 ? true : false);
 
 	dcss_dpr_rtram_set(dcss, ch_num, pix_format);
-
-	/* TODO: do not hardcode tile type */
-	dcss_dpr_tile_set(dcss, ch_num, TILE_LINEAR);
-	ch->tile = TILE_LINEAR;
 }
 EXPORT_SYMBOL(dcss_dpr_format_set);

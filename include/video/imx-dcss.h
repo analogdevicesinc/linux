@@ -53,7 +53,9 @@ void dcss_dpr_addr_set(struct dcss_soc *dcss, int ch_num, u32 luma_base_addr,
 		       u32 chroma_base_addr, u16 pitch);
 void dcss_dpr_enable(struct dcss_soc *dcss, int ch_num, bool en);
 void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format);
-
+void dcss_dpr_tile_derive(struct dcss_soc *dcss,
+			  int ch_num,
+			  uint64_t modifier);
 /* DTG */
 void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm);
 void dcss_dtg_plane_pos_set(struct dcss_soc *dcss, int ch_num,
@@ -103,4 +105,19 @@ enum dcss_color_space {
 	DCSS_COLORSPACE_YUV,
 	DCSS_COLORSPACE_UNKNOWN,
 };
+
+/* DEC400D */
+void dcss_dec400d_set_format_mod(struct dcss_soc *dcss,
+				 uint32_t fourcc,
+				 uint32_t mod_idx,
+				 uint64_t modifier);
+void dcss_dec400d_bypass(struct dcss_soc *dcss);
+void dcss_dec400d_shadow_trig(struct dcss_soc *dcss);
+void dcss_dec400d_addr_set(struct dcss_soc *dcss,
+			   uint32_t baddr,
+			   uint32_t caddr);
+void dcss_dec400d_read_config(struct dcss_soc *dcss,
+			      uint32_t read_id,
+			      bool compress_en);
+void dcss_dec400d_enable(struct dcss_soc *dcss);
 #endif /* __IMX_DCSS_H__ */

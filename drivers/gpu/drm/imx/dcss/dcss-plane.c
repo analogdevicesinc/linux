@@ -220,11 +220,13 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 
 static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 {
+	int mod_idx;
 	struct drm_plane *plane = &dcss_plane->base;
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
 	unsigned long p1_ba, p2_ba;
+	dma_addr_t caddr;
 	bool modifiers_present = !!(fb->flags & DRM_MODE_FB_MODIFIERS);
 	u32 pix_format = state->fb->format->format;
 
@@ -241,21 +243,59 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 	dcss_dpr_addr_set(dcss_plane->dcss, dcss_plane->ch_num,
 			  p1_ba, p2_ba, fb->pitches[0]);
 
-	if (!modifiers_present || (pix_format != DRM_FORMAT_NV12 &&
-				   pix_format != DRM_FORMAT_NV21)) {
-		dcss_dtrc_bypass(dcss_plane->dcss, dcss_plane->ch_num);
+	switch (plane->type) {
+	case DRM_PLANE_TYPE_PRIMARY:
+		if (modifiers_present) {
+			for (mod_idx = 0; mod_idx < 4; mod_idx++)
+				dcss_dec400d_set_format_mod(dcss_plane->dcss,
+						pix_format,
+						mod_idx,
+						fb->modifier);
+		}
+
+		switch (fb->modifier) {
+		case DRM_FORMAT_MOD_LINEAR:
+		case DRM_FORMAT_MOD_VIVANTE_TILED:
+		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
+			/* Bypass dec400d */
+			dcss_dec400d_bypass(dcss_plane->dcss);
+			return;
+		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC:
+			caddr = cma_obj->paddr + ALIGN(fb->height, 64) * fb->pitches[0];
+			dcss_dec400d_read_config(dcss_plane->dcss, 0, true);
+			dcss_dec400d_addr_set(dcss_plane->dcss, p1_ba, caddr);
+			break;
+		default:
+			WARN_ON(1);
+			return;
+		}
+
+		break;
+	case DRM_PLANE_TYPE_OVERLAY:
+		if (!modifiers_present ||
+		    (pix_format != DRM_FORMAT_NV12 &&
+		     pix_format != DRM_FORMAT_NV21)) {
+			dcss_dtrc_bypass(dcss_plane->dcss, dcss_plane->ch_num);
+			return;
+		}
+
+		dcss_dtrc_set_format_mod(dcss_plane->dcss, dcss_plane->ch_num,
+					 fb->modifier);
+		dcss_dtrc_addr_set(dcss_plane->dcss, dcss_plane->ch_num,
+				   p1_ba, p2_ba, dcss_plane->dtrc_table_ofs_val);
+		break;
+	default:
+		WARN_ON(1);
 		return;
 	}
-
-	dcss_dtrc_set_format_mod(dcss_plane->dcss, dcss_plane->ch_num,
-				 fb->modifier);
-	dcss_dtrc_addr_set(dcss_plane->dcss, dcss_plane->ch_num,
-			   p1_ba, p2_ba, dcss_plane->dtrc_table_ofs_val);
 }
 
 static bool dcss_plane_needs_setup(struct drm_plane_state *state,
 				   struct drm_plane_state *old_state)
 {
+	struct drm_framebuffer *fb = state->fb;
+	struct drm_framebuffer *old_fb = old_state->fb;
+
 	return state->crtc_x != old_state->crtc_x ||
 	       state->crtc_y != old_state->crtc_y ||
 	       state->crtc_w != old_state->crtc_w ||
@@ -264,7 +304,8 @@ static bool dcss_plane_needs_setup(struct drm_plane_state *state,
 	       state->src_y  != old_state->src_y  ||
 	       state->src_w  != old_state->src_w  ||
 	       state->src_h  != old_state->src_h  ||
-	       state->fb->format->format != old_state->fb->format->format;
+	       fb->format->format != old_fb->format->format ||
+	       fb->modifier  != old_fb->modifier;
 }
 
 static void dcss_plane_atomic_update(struct drm_plane *plane,
@@ -272,8 +313,10 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 {
 	struct drm_plane_state *state = plane->state;
 	struct dcss_plane *dcss_plane = to_dcss_plane(plane);
+	struct drm_framebuffer *fb = state->fb;
 	u32 pixel_format = state->fb->format->format;
 	struct drm_crtc_state *crtc_state = state->crtc->state;
+	bool modifiers_present = !!(fb->flags & DRM_MODE_FB_MODIFIERS);
 
 	if (!state->fb)
 		return;
@@ -284,13 +327,24 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 					   pixel_format, dcss_plane->alpha_val,
 					   dcss_plane->use_global_val)) {
 		dcss_plane_atomic_set_base(dcss_plane);
+		dcss_dec400d_shadow_trig(dcss_plane->dcss);
 		return;
 	}
 
-	dcss_dtrc_set_res(dcss_plane->dcss, dcss_plane->ch_num,
-			  state->src_w >> 16, state->src_h >> 16);
+	if (plane->type == DRM_PLANE_TYPE_OVERLAY)
+		dcss_dtrc_set_res(dcss_plane->dcss, dcss_plane->ch_num,
+				  state->src_w >> 16, state->src_h >> 16);
 
 	dcss_dpr_format_set(dcss_plane->dcss, dcss_plane->ch_num, pixel_format);
+	if (!modifiers_present)
+		dcss_dpr_tile_derive(dcss_plane->dcss,
+				     dcss_plane->ch_num,
+				     DRM_FORMAT_MOD_LINEAR);
+	else
+		dcss_dpr_tile_derive(dcss_plane->dcss,
+				     dcss_plane->ch_num,
+				     fb->modifier);
+
 	dcss_dpr_set_res(dcss_plane->dcss, dcss_plane->ch_num,
 			 state->src_w >> 16, state->src_h >> 16);
 	dcss_plane_atomic_set_base(dcss_plane);
@@ -315,7 +369,17 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 				 pixel_format, dcss_plane->alpha_val,
 				 dcss_plane->use_global_val);
 
-	dcss_dtrc_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
+	switch (plane->type) {
+	case DRM_PLANE_TYPE_PRIMARY:
+		dcss_dec400d_enable(dcss_plane->dcss);
+		break;
+	case DRM_PLANE_TYPE_OVERLAY:
+		dcss_dtrc_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
+		break;
+	default:
+		WARN_ON(1);
+		break;
+	}
 	dcss_dpr_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
 	dcss_scaler_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
 	dcss_dtg_ch_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
