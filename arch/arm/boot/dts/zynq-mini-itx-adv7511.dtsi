@@ -98,7 +98,6 @@
 			dmas = <&axi_vdma_0 0>;
 			dma-names = "video";
 			clocks = <&hdmi_clock>;
-			adi,is-rgb;
 
 			port {
 				axi_hdmi_out: endpoint {

@@ -513,6 +513,11 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 	adxcvr_clk_set_rate(&st->lane_clk_hw, lane_rate, parent_rate);
 }
 
+static const char *adxcvr_gt_names[] = {
+	[XILINX_XCVR_TYPE_S7_GTX2] = "GTX2",
+	[XILINX_XCVR_TYPE_US_GTH3] = "GTH3",
+};
+
 static int adxcvr_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -586,11 +591,12 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
+	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
 		PCORE_VER_MAJOR(version),
 		PCORE_VER_MINOR(version),
 		PCORE_VER_LETTER(version),
+		adxcvr_gt_names[st->xcvr.type],
 		(unsigned long long)mem->start, st->regs,
 		st->num_lanes);
 

@@ -2199,23 +2199,20 @@ static int axienet_open(struct net_device *ndev)
 						PHY_INTERFACE_MODE_RGMII_ID);
 		} else if ((lp->axienet_config->mactype == XAXIENET_1G) ||
 			     (lp->axienet_config->mactype == XAXIENET_2_5G)) {
-			phydev = of_phy_connect(lp->ndev, lp->phy_node,
-						axienet_adjust_link,
-						lp->phy_flags,
-						lp->phy_interface);
-		} else {
 			/**
-			 * No need to start the internal PHY, applying the fixup
-			 * is enough for SGMII operation
+			 * No need to start the internal PHY, initializing the internal PHY,
+			 * is enough for SGMII operation. `lp->phy_node_int` should
+			 * be non-NULL only for SGMII mode.
 			 */
 			if (lp->phy_node_int)
 				lp->phy_dev_int = of_phy_connect(lp->ndev,
 					lp->phy_node_int, NULL, 0,
 					PHY_INTERFACE_MODE_GMII);
 
-			lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
-					     axienet_adjust_link, 0,
-					     PHY_INTERFACE_MODE_SGMII);
+			phydev = of_phy_connect(lp->ndev, lp->phy_node,
+						axienet_adjust_link,
+						lp->phy_flags,
+						lp->phy_interface);
 		}
 
 		if (!phydev)
@@ -2325,7 +2322,10 @@ err_ptp_rx_irq:
 #endif
 	if (phydev)
 		phy_disconnect(phydev);
+	if (lp->phy_dev_int)
+		phy_disconnect(lp->phy_dev_int);
 	phydev = NULL;
+	lp->phy_dev_int = NULL;
 	for_each_dma_queue(lp, i)
 		tasklet_kill(&lp->dma_err_tasklet[i]);
 	dev_err(lp->dev, "request_irq() failed\n");
@@ -2384,6 +2384,11 @@ static int axienet_stop(struct net_device *ndev)
 
 	if (ndev->phydev)
 		phy_disconnect(ndev->phydev);
+
+	if (lp->phy_dev_int)
+		phy_disconnect(lp->phy_dev_int);
+
+	lp->phy_dev_int = NULL;
 
 	if (lp->temac_no != XAE_TEMAC2)
 		axienet_dma_bd_release(ndev);
@@ -3756,18 +3761,6 @@ static const struct attribute_group mcdma_attributes = {
 #endif
 
 /**
- * axienet_pma_phy_fixup - PCS/PMA Internal PHY fixup.
- * @phy: the pointer to the phy device
- *
- * The internal PHY powers up with BMCR_ISOLATE beeing set, clear it.
- */
-
-static int axienet_pma_phy_fixup(struct phy_device *phy)
-{
-	return phy_write(phy, MII_BMCR, BMCR_ANENABLE | BMCR_FULLDPLX);
-}
-
-/**
  * axienet_probe - Axi Ethernet probe function.
  * @pdev:	Pointer to platform device structure.
  *
@@ -4051,9 +4044,6 @@ static int axienet_probe(struct platform_device *pdev)
 	if (lp->phy_type == XAE_PHY_TYPE_SGMII) {
 		lp->phy_node_int = of_parse_phandle(pdev->dev.of_node,
 						    "phy-handle", 1);
-		if (lp->phy_node_int)
-			phy_register_fixup_for_uid(0, 0xffffffff,
-						   axienet_pma_phy_fixup);
 	}
 
 #ifdef CONFIG_AXIENET_HAS_MCDMA

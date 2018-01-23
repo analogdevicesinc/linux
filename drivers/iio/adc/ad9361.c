@@ -1571,6 +1571,12 @@ out:
 	return rc;
 }
 
+u8 ad9361_ensm_get_state(struct ad9361_rf_phy *phy)
+{
+	return ad9361_spi_readf(phy->spi, REG_STATE, ENSM_STATE(~0));
+}
+EXPORT_SYMBOL(ad9361_ensm_get_state);
+
 void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 {
 	struct spi_device *spi = phy->spi;
@@ -1638,7 +1644,7 @@ out:
 }
 EXPORT_SYMBOL(ad9361_ensm_force_state);
 
-void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
+void ad9361_ensm_restore_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 {
 	struct spi_device *spi = phy->spi;
 	struct device *dev = &phy->spi->dev;
@@ -1650,11 +1656,10 @@ void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 	/* We are restoring state only, so clear State bits first
 	 * which might have set while forcing a particular state
 	 */
-	val &= ~(FORCE_TX_ON | FORCE_RX_ON |
-			TO_ALERT | FORCE_ALERT_STATE);
+	val &= ~(FORCE_TX_ON | FORCE_RX_ON | FORCE_ALERT_STATE);
+	val |= TO_ALERT;
 
-	switch (phy->prev_ensm_state) {
-
+	switch (ensm_state) {
 	case ENSM_STATE_TX:
 	case ENSM_STATE_FDD:
 		val |= FORCE_TX_ON;
@@ -1667,11 +1672,11 @@ void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 		break;
 	case ENSM_STATE_INVALID:
 		dev_dbg(dev, "No need to restore, ENSM state wasn't saved\n");
-		goto out;
+		return;
 	default:
 		dev_dbg(dev, "Could not restore to %d ENSM state\n",
-		phy->prev_ensm_state);
-		goto out;
+			ensm_state);
+		return;
 	}
 
 	ad9361_spi_write(spi, REG_ENSM_CONFIG_1, TO_ALERT | FORCE_ALERT_STATE);
@@ -1679,7 +1684,7 @@ void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
 	if (rc) {
 		dev_err(dev, "Failed to write ENSM_CONFIG_1");
-		goto out;
+		return;
 	}
 
 	if (phy->ensm_pin_ctl_en) {
@@ -1688,8 +1693,12 @@ void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
 		if (rc)
 			dev_err(dev, "Failed to write ENSM_CONFIG_1");
 	}
-out:
-	return;
+}
+EXPORT_SYMBOL(ad9361_ensm_restore_state);
+
+void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy)
+{
+	return ad9361_ensm_restore_state(phy, phy->prev_ensm_state);
 }
 EXPORT_SYMBOL(ad9361_ensm_restore_prev_state);
 
@@ -1813,6 +1822,7 @@ static int ad9361_set_rx_gain(struct ad9361_rf_phy *phy,
 
 	if (val != RX_GAIN_CTL_MGC) {
 		dev_dbg(dev, "Rx gain can be set in MGC mode only\n");
+		rc = -EOPNOTSUPP;
 		goto out;
 	}
 
