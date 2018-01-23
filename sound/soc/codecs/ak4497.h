@@ -10,10 +10,6 @@
  *  option) any later version.
  *
  */
-
-
-#define SND_SOC_DAIFMT_DSD		   0x101
-
 #ifndef _AK4497_H
 #define _AK4497_H
 
