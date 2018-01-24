@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP.
+ * Copyright 2017-2018 NXP.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -126,7 +126,7 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_NIC0_DIV] = imx_clk_divider("nic0_div", "nic_sel",  base + 0x40, 24, 4);
 	clks[IMX7ULP_CLK_GPU_DIV]  = imx_clk_divider("gpu_div",  "nic0_div", base + 0x40, 20, 4);
 	clks[IMX7ULP_CLK_NIC1_DIV] = imx_clk_divider("nic1_div", "nic0_div", base + 0x40, 16, 4);
-	clks[IMX7ULP_CLK_NIC1_BUS_DIV] = imx_clk_divider("nic1_bus", "nic1_div", base + 0x40, 4, 4);
+	clks[IMX7ULP_CLK_NIC1_BUS_DIV] = imx_clk_divider("nic1_bus", "nic0_div", base + 0x40, 4, 4);
 
 	/* PCC2 */
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-pcc2");
