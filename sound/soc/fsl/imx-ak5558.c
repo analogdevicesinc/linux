@@ -17,6 +17,7 @@
 #include <linux/of_device.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
+#include <sound/pcm.h>
 #include <sound/soc-dapm.h>
 
 #include "../codecs/ak5558.h"
@@ -28,6 +29,15 @@ struct imx_ak5558_data {
 
 static struct snd_soc_dapm_widget imx_ak5558_dapm_widgets[] = {
 	SND_SOC_DAPM_LINE("Line In", NULL),
+};
+
+static const u32 ak5558_rates[] = {
+	8000, 16000, 32000,
+	48000, 96000, 192000,
+};
+
+static const u32 ak5558_channels[] = {
+	1, 2, 4, 6, 8,
 };
 
 static int imx_aif_hw_params(struct snd_pcm_substream *substream,
@@ -68,8 +78,34 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+static int imx_aif_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	static struct snd_pcm_hw_constraint_list constraint_rates;
+	static struct snd_pcm_hw_constraint_list constraint_channels;
+	int ret;
+
+	constraint_rates.list = ak5558_rates;
+	constraint_rates.count = ARRAY_SIZE(ak5558_rates);
+
+	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
+						&constraint_rates);
+	if (ret)
+		return ret;
+
+	constraint_channels.list = ak5558_channels;
+	constraint_channels.count = ARRAY_SIZE(ak5558_channels);
+	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
+							&constraint_channels);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static struct snd_soc_ops imx_aif_ops = {
 	.hw_params = imx_aif_hw_params,
+	.startup = imx_aif_startup,
 };
 
 static struct snd_soc_dai_link imx_ak5558_dai = {
