@@ -1195,6 +1195,7 @@
 		assigned-clock-parents = <&clk IMX8MQ_VPU_PLL_OUT>, <&clk IMX8MQ_VPU_PLL_OUT>, <&clk IMX8MQ_SYS1_PLL_800M>;
 		assigned-clock-rates = <600000000>, <600000000>, <800000000>;
 		power-domains = <&vpu_pd>;
+		regulator-supply = <&sw1c_reg>;
 		status = "disabled";
 	};
 

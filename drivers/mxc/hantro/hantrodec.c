@@ -118,6 +118,7 @@ MODULE_PARM_DESC(hantro_dynamic_clock, "enable or disable dynamic clock rate");
 #define HANTRO_G1_DEF_CLK		(600000000)
 #define HANTRO_G2_DEF_CLK		(600000000)
 #define HANTRO_BUS_DEF_CLK	(800000000)
+#define HANTRO_CLK_VOL_THR	(600000000)
 /***********************************************************************/
 
 #define IS_G1(hw_id)    ((hw_id == 0x6731) ? 1:0)
@@ -144,7 +145,7 @@ static struct device *hantro_dev;
 static struct clk *hantro_clk_g1;
 static struct clk *hantro_clk_g2;
 static struct clk *hantro_clk_bus;
-
+static struct regulator *hantro_regulator;
 
 static int hantro_dbg = -1;
 module_param(hantro_dbg, int, 0644);
@@ -223,6 +224,34 @@ DECLARE_WAIT_QUEUE_HEAD(hw_queue);
 static u32 cfg[HXDEC_MAX_CORES];
 static u32 timeout;
 
+static int hantro_update_voltage(struct device *dev)
+{
+	unsigned long new_vol, old_vol;
+	int ret;
+	unsigned long clk1, clk2;
+
+	clk1 = clk_get_rate(hantro_clk_g1);
+	clk2 = clk_get_rate(hantro_clk_g2);
+
+	if (!clk1 || !clk2)
+		return -1;
+
+	old_vol = regulator_get_voltage(hantro_regulator);
+	if ((clk1 >= HANTRO_CLK_VOL_THR) || (clk2 >= HANTRO_CLK_VOL_THR))
+		new_vol = 1000000; // 1.0v
+	else
+		new_vol = 900000; // 0.9v
+
+	if (old_vol != new_vol)	{
+		ret = regulator_set_voltage_tol(hantro_regulator, new_vol, 0);
+		if (ret)
+			pr_err("failed to set hantro voltage: %ld mV\n", new_vol/1000);
+		else
+			pr_info("update hantro voltage from %ld mV to %ld mV\n", old_vol/1000, new_vol/1000);
+	}
+	return 0;
+}
+
 static int hantro_clk_enable(struct device *dev)
 {
 	clk_prepare(hantro_clk_g1);
@@ -298,6 +327,7 @@ static int hantro_thermal_check(struct device *dev)
 	}
 	pr_info("hantro: event(%d), g1, g2, bus clock: %ld, %ld, %ld\n", thermal_cur,
 		clk_get_rate(hantro_clk_g1),	clk_get_rate(hantro_clk_g2), clk_get_rate(hantro_clk_bus));
+	hantro_update_voltage(dev);
 	return 0;
 }
 
@@ -1725,8 +1755,7 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	reg_base = res->start;
 	if ((ulong)reg_base != multicorebase[0]) {
 		pr_err("hantrodec: regbase(0x%lX) not equal to expected value(0x%lX)\n", reg_base, multicorebase[0]);
-		err = -ENODEV;
-		goto error;
+		return -ENODEV;
 	}
 
 	hantro_clk_g1 = clk_get(&pdev->dev, "clk_hantro_g1");
@@ -1734,11 +1763,17 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	hantro_clk_bus = clk_get(&pdev->dev, "clk_hantro_bus");
 	if (IS_ERR(hantro_clk_g1) || IS_ERR(hantro_clk_g2) || IS_ERR(hantro_clk_bus)) {
 		pr_err("hantro: get clock failed\n");
-		err = -ENXIO;
-		goto error;
+		return -ENODEV;
 	}
 	pr_debug("hantro: g1, g2, bus clock: 0x%lX, 0x%lX, 0x%lX\n", clk_get_rate(hantro_clk_g1),
 				clk_get_rate(hantro_clk_g2), clk_get_rate(hantro_clk_bus));
+
+	hantro_regulator = regulator_get(&pdev->dev, "regulator");
+	if (IS_ERR(hantro_regulator)) {
+		pr_err("hantro: get regulator failed\n");
+		return -ENODEV;
+	}
+	hantro_update_voltage(&pdev->dev);
 
 	hantro_clk_enable(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -1862,7 +1897,14 @@ static int __init hantro_init(void)
 
 static void __exit hantro_exit(void)
 {
-	//clk_put(hantro_clk);
+	if (!IS_ERR(hantro_clk_g1))
+		clk_put(hantro_clk_g1);
+	if (!IS_ERR(hantro_clk_g2))
+		clk_put(hantro_clk_g2);
+	if (!IS_ERR(hantro_clk_bus))
+		clk_put(hantro_clk_bus);
+	if (!IS_ERR(hantro_regulator))
+		regulator_put(hantro_regulator);
 	platform_driver_unregister(&mxchantro_driver);
 }
 
