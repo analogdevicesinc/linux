@@ -694,7 +694,7 @@ int phy_cfg_hdp_t28hpc(state_struct *state,
 	 * on the cmn_ref_clk_int pin: PHY_PMA_CMN_CTRL1[6:4]=3'b011 */
 	/* for differential clock on the refclk_p and
 	 * refclk_m off chip pins: PHY_PMA_CMN_CTRL1[6:4]=3'b000 */
-	reg_val |= 0x0000;
+	reg_val |= 0x0030;
 	Afe_write(state, 0xC800, reg_val);
 
 	/*register CMN_DIAG_ACYA */
