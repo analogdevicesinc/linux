@@ -60,7 +60,7 @@ struct custom_font {
 	u8 font[LCD_BYTES_PER_FONT];
 };
 
-struct custom_font custom_fonts[] = {
+static struct custom_font custom_fonts[] = {
 	{ CUSTOM_BACKSLASH, { 0x00, 0x10, 0x08, 0x04, 0x02, 0x01, 0x00, 0x00, }, },
 	{ CUSTOM_TILDE,     { 0x00, 0x00, 0x00, 0x08, 0x15, 0x02, 0x00, 0x00, }, },
 };
