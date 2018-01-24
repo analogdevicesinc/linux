@@ -236,7 +236,6 @@ int hdmi_get_edid_block(void *data, u8 *buf, u32 block, size_t len)
 	state_struct *state = data;
 	CDN_API_STATUS ret = 0;
 
-	printk("%s\n", __func__);
 	memset(&edidResp, 0, sizeof(edidResp));
 	switch (block) {
 	case 0:
