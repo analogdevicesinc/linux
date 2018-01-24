@@ -670,13 +670,11 @@ imx_hdp_connector_detect(struct drm_connector *connector, bool force)
 static int imx_hdp_connector_get_modes(struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
+	struct imx_hdp *hdp = container_of(connector, struct imx_hdp, connector);
+	struct edid *edid;
 	int num_modes = 0;
 	int ret;
 	int i;
-
-	struct imx_hdp *hdp = container_of(connector, struct imx_hdp,
-					     connector);
-	struct edid *edid;
 
 	if (hdp->is_edid == true) {
 		edid = drm_do_get_edid(connector, hdp->ops->get_edid_block, &hdp->state);
@@ -714,13 +712,21 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 					     connector);
 	enum drm_mode_status mode_status = MODE_OK;
 	struct drm_cmdline_mode *cmdline_mode;
+	u32 hdp_vic;
+
 	cmdline_mode = &connector->cmdline_mode;
 
 	/* cmdline mode is the max support video mode when edid disabled */
-	if (!hdp->is_edid)
+	if (!hdp->is_edid) {
 		if (cmdline_mode->xres != 0 &&
 			cmdline_mode->xres < mode->hdisplay)
 			return MODE_BAD_HVALUE;
+	} else {
+		/* Check mode in hdp vic table */
+		hdp_vic = imx_get_vic_index(mode);
+		if (hdp_vic < 0)
+			return MODE_NOMODE;
+	}
 
 	if (hdp->is_4kp60 && mode->clock > 594000)
 		return MODE_CLOCK_HIGH;
@@ -966,7 +972,7 @@ static struct hdp_ops imx8mq_ops = {
 };
 
 static struct hdp_devtype imx8mq_hdmi_devtype = {
-	.is_edid = false,
+	.is_edid = true,
 	.is_4kp60 = true,
 	.audio_type = CDN_HDMITX_KIRAN,
 	.ops = &imx8mq_ops,
