@@ -407,7 +407,6 @@
 #define IMX8QM_DRC1_DIV						372
 #define IMX8QM_DRC1_CLK						373
 
-
 /* HDMI */
 #define IMX8QM_HDMI_AV_PLL_DIV				374
 #define IMX8QM_HDMI_AV_PLL_CLK				375
@@ -835,6 +834,11 @@
 #define IMX8QM_CM41_I2C_CLK				778
 #define IMX8QM_CM41_I2C_IPG_CLK				779
 
-#define IMX8QM_CLK_END					780
+#define IMX8QM_HDMI_PXL_SEL					780
+#define IMX8QM_HDMI_PXL_LINK_SEL			781
+#define IMX8QM_HDMI_PXL_MUX_SEL 			782
+#define IMX8QM_HDMI_AV_PLL_BYPASS_CLK       783
+
+#define IMX8QM_CLK_END					784
 
 #endif /* __DT_BINDINGS_CLOCK_IMX8QM_H */
