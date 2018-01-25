@@ -31,6 +31,13 @@
 	};
 };
 
+&dpu1 {
+		assigned-clocks = <&clk IMX8QM_DC0_DISP0_SEL>,
+						<&clk IMX8QM_DC0_DISP1_SEL>;
+		assigned-clock-parents = <&clk IMX8QM_DC0_BYPASS_0_DIV>,
+						<&clk IMX8QM_DC0_PLL1_CLK>;
+};
+
 &ldb1_phy {
 	status = "disabled";
 };
@@ -45,6 +52,12 @@
 
 &hdmi {
 	compatible = "fsl,imx8qm-hdmi";
+	assigned-clocks = <&clk IMX8QM_HDMI_PXL_SEL>,
+					<&clk IMX8QM_HDMI_PXL_LINK_SEL>,
+					<&clk IMX8QM_HDMI_PXL_MUX_SEL>;
+	assigned-clock-parents = <&clk IMX8QM_HDMI_AV_PLL_BYPASS_CLK>,
+							<&clk IMX8QM_HDMI_AV_PLL_BYPASS_CLK>,
+							<&clk IMX8QM_HDMI_AV_PLL_BYPASS_CLK>;
 	status = "okay";
 };
 
