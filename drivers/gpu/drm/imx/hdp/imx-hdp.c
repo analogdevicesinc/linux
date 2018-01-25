@@ -1048,6 +1048,9 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 			   &imx_hdp_connector_funcs,
 			   DRM_MODE_CONNECTOR_HDMIA);
 
+	drm_object_attach_property(&connector->base,
+		connector->dev->mode_config.hdr_source_metadata_property, 0);
+
 	drm_mode_connector_attach_encoder(connector, encoder);
 
 	dev_set_drvdata(dev, hdp);

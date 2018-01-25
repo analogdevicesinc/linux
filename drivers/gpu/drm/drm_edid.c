@@ -3821,22 +3821,23 @@ static uint16_t hdr_metadata_type(const u8 *edid_ext)
 static void
 drm_parse_hdr_metadata_block(struct drm_connector *connector, const u8 *db)
 {
+	struct drm_hdmi_info *info = &connector->display_info.hdmi;
 	uint16_t len;
 
 	len = cea_db_payload_len(db);
-	connector->hdr_panel_metadata->eotf = eotf_supported(db);
-	connector->hdr_panel_metadata->type = hdr_metadata_type(db);
+	info->hdr_panel_metadata.eotf = eotf_supported(db);
+	info->hdr_panel_metadata.type = hdr_metadata_type(db);
 
 	if (len == 6) {
-		connector->hdr_panel_metadata->max_cll = db[4];
-		connector->hdr_panel_metadata->max_fall = db[5];
-		connector->hdr_panel_metadata->min_cll = db[6];
+		info->hdr_panel_metadata.max_cll = db[4];
+		info->hdr_panel_metadata.max_fall = db[5];
+		info->hdr_panel_metadata.min_cll = db[6];
 	} else if (len == 5) {
-		connector->hdr_panel_metadata->max_cll = db[4];
-		connector->hdr_panel_metadata->max_fall = db[5];
-	} else if (len == 4)
-		connector->hdr_panel_metadata->max_cll = db[4];
-
+		info->hdr_panel_metadata.max_cll = db[4];
+		info->hdr_panel_metadata.max_fall = db[5];
+	} else if (len == 4) {
+		info->hdr_panel_metadata.max_cll = db[4];
+	}
 }
 
 static void
