@@ -248,18 +248,6 @@ void imx8qm_phy_reset(sc_ipc_t ipcHndl, u8 reset)
 		pr_err("SC_R_HDMI PHY reset failed %d!\n", sciErr);
 }
 
-void imx8qm_hdmi_set_clock_root(sc_ipc_t ipcHndl)
-{
-	/* set clock source from av pll */
-	/* those clock default source from dig pll */
-	/* HDMI DI Pixel Link Mux Clock  */
-	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC0, 2);
-	/* HDMI DI Pixel Link Clock  */
-	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC1, 2);
-	/* HDMI DI Pixel Clock  */
-	sc_pm_set_clock_parent(ipcHndl, SC_R_HDMI, SC_PM_CLK_MISC3, 2);
-}
-
 int imx8qm_clock_init(struct hdp_clks *clks)
 {
 	struct imx_hdp *hdp = clks_to_imx_hdp(clks);
@@ -932,7 +920,6 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 	.pixel_link_mux = imx8qm_pixel_link_mux,
 
 	.clock_init = imx8qm_clock_init,
-	.set_clock_root = imx8qm_hdmi_set_clock_root,
 	.ipg_clock_set_rate = imx8qm_ipg_clock_set_rate,
 	.ipg_clock_enable = imx8qm_ipg_clock_enable,
 	.ipg_clock_disable = imx8qm_ipg_clock_disable,
@@ -1090,7 +1077,6 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 		DRM_ERROR("Failed to initialize clock %d\n", ret);
 		return ret;
 	}
-	imx_hdp_call(hdp, set_clock_root, hdp->ipcHndl);
 
 	ret = imx_hdp_call(hdp, clock_init, &hdp->clks);
 	if (ret < 0) {

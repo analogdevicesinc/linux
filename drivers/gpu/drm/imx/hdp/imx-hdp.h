@@ -95,7 +95,6 @@ struct hdp_ops {
 	void (*pixel_link_mux)(state_struct *state, struct drm_display_mode *mode);
 
 	int (*clock_init)(struct hdp_clks *clks);
-	void (*set_clock_root)(sc_ipc_t ipcHndl);
 	int (*ipg_clock_enable)(struct hdp_clks *clks);
 	void (*ipg_clock_disable)(struct hdp_clks *clks);
 	void (*ipg_clock_set_rate)(struct hdp_clks *clks);
