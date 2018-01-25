@@ -293,7 +293,7 @@ static int imx_drm_bind(struct device *dev)
 	drm->mode_config.max_width = 4096;
 	drm->mode_config.max_height = 4096;
 
-	if (has_dpu(dev)) {
+	if (has_dpu(dev) || has_dcss(dev)) {
 		drm->mode_config.allow_fb_modifiers = true;
 		dev_dbg(dev, "allow fb modifiers\n");
 	}
