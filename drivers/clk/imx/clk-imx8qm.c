@@ -123,6 +123,14 @@ static const char *dc1_sels[] = {
 	"dc1_bypass0_div",
 };
 
+static const char *hdmi_sels[] = {
+	"dummy",
+	"hdmi_dig_pll_clk",
+	"hdmi_av_pll_clk",
+	"dummy",
+	"hdmi_av_pll_bypass_clk",
+};
+
 
 static struct clk *clks[IMX8QM_CLK_END];
 static struct clk_onecell_data clk_data;
@@ -313,9 +321,13 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_HDMI_IPG_DIV] = imx_clk_divider_scu("hdmi_ipg_div", SC_R_HDMI, SC_PM_CLK_MISC);
 	clks[IMX8QM_HDMI_I2S_BYPASS_CLK] = imx_clk_divider_scu("hdmi_i2s_bypass_clk", SC_R_HDMI_I2S, SC_PM_CLK_BYPASS);
 	clks[IMX8QM_HDMI_I2C0_DIV] = imx_clk_divider_scu("hdmi_i2c0_div", SC_R_HDMI_I2C_0, SC_PM_CLK_MISC2);
-	clks[IMX8QM_HDMI_PXL_DIV] = imx_clk_divider_scu("hdmi_pxl_div", SC_R_HDMI, SC_PM_CLK_MISC3);
-	clks[IMX8QM_HDMI_PXL_LINK_DIV] = imx_clk_divider_scu("hdmi_pxl_link_div", SC_R_HDMI, SC_PM_CLK_MISC1);
-	clks[IMX8QM_HDMI_PXL_MUX_DIV] = imx_clk_divider_scu("hdmi_pxl_mux_div", SC_R_HDMI, SC_PM_CLK_MISC0);
+	clks[IMX8QM_HDMI_AV_PLL_BYPASS_CLK] = imx_clk_divider_scu("hdmi_av_pll_bypass_clk", SC_R_HDMI, SC_PM_CLK_BYPASS);
+	clks[IMX8QM_HDMI_PXL_SEL] = imx_clk_mux2_scu("hdmi_pxl_sel", hdmi_sels, ARRAY_SIZE(hdmi_sels), SC_R_HDMI, SC_PM_CLK_MISC3);
+	clks[IMX8QM_HDMI_PXL_DIV] = imx_clk_divider2_scu("hdmi_pxl_div", "hdmi_pxl_sel", SC_R_HDMI, SC_PM_CLK_MISC3);
+	clks[IMX8QM_HDMI_PXL_LINK_SEL] = imx_clk_mux2_scu("hdmi_pxl_link_sel", hdmi_sels, ARRAY_SIZE(hdmi_sels), SC_R_HDMI, SC_PM_CLK_MISC1);
+	clks[IMX8QM_HDMI_PXL_LINK_DIV] = imx_clk_divider2_scu("hdmi_pxl_link_div", "hdmi_pxl_link_sel", SC_R_HDMI, SC_PM_CLK_MISC1);
+	clks[IMX8QM_HDMI_PXL_MUX_SEL] = imx_clk_mux2_scu("hdmi_pxl_mux_sel", hdmi_sels, ARRAY_SIZE(hdmi_sels), SC_R_HDMI, SC_PM_CLK_MISC0);
+	clks[IMX8QM_HDMI_PXL_MUX_DIV] = imx_clk_divider2_scu("hdmi_pxl_mux_div", "hdmi_pxl_mux_sel", SC_R_HDMI, SC_PM_CLK_MISC0);
 	clks[IMX8QM_HDMI_I2S_DIV] = imx_clk_divider_scu("hdmi_i2s_div", SC_R_HDMI_I2S, SC_PM_CLK_MISC0);
 	clks[IMX8QM_HDMI_HDP_CORE_DIV] = imx_clk_divider_scu("hdmi_core_div", SC_R_HDMI, SC_PM_CLK_MISC2);
 
