@@ -18,6 +18,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
+#include <linux/pm_runtime.h>
 
 #include "ak4458.h"
 
@@ -25,17 +26,26 @@ static int ak4458_i2c_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
 	struct regmap *regmap;
+	int ret;
 
 	regmap = devm_regmap_init_i2c(i2c, &ak4458_i2c_regmap_config);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	return ak4458_probe(&i2c->dev, regmap);
+	ret = ak4458_probe(&i2c->dev, regmap);
+	if (ret)
+		return ret;
+
+	pm_runtime_enable(&i2c->dev);
+
+	return 0;
 }
 
 static int ak4458_i2c_remove(struct i2c_client *i2c)
 {
 	ak4458_remove(&i2c->dev);
+	pm_runtime_disable(&i2c->dev);
+
 	return 0;
 }
 

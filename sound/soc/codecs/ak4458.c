@@ -31,6 +31,7 @@
 #include <sound/initval.h>
 #include <sound/tlv.h>
 #include <sound/pcm_params.h>
+#include <linux/pm_runtime.h>
 
 #include "ak4458.h"
 
@@ -958,32 +959,48 @@ static int ak4458_codec_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int ak4458_suspend(struct snd_soc_codec *codec)
+#ifdef CONFIG_PM
+static int ak4458_runtime_suspend(struct device *dev)
 {
-	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
+	struct ak4458_priv *ak4458 = dev_get_drvdata(dev);
 
-	dev_dbg(codec->dev, "%s(%d)\n", __func__, __LINE__);
+	regcache_cache_only(ak4458->regmap, true);
 
-	ak4458_set_bias_level(codec, SND_SOC_BIAS_OFF);
-
-	if (gpio_is_valid(ak4458->pdn_gpio))
+	if (gpio_is_valid(ak4458->pdn_gpio)) {
 		gpio_set_value_cansleep(ak4458->pdn_gpio, 0);
+		usleep_range(1000, 2000);
+	}
+
+	if (gpio_is_valid(ak4458->mute_gpio))
+		gpio_set_value_cansleep(ak4458->mute_gpio, 0);
 
 	return 0;
 }
 
-static int ak4458_resume(struct snd_soc_codec *codec)
+static int ak4458_runtime_resume(struct device *dev)
 {
-	ak4458_init_reg(codec);
+	struct ak4458_priv *ak4458 = dev_get_drvdata(dev);
 
-	return 0;
+	if (gpio_is_valid(ak4458->mute_gpio))
+		gpio_set_value_cansleep(ak4458->mute_gpio, 1);
+
+	if (gpio_is_valid(ak4458->pdn_gpio)) {
+		gpio_set_value_cansleep(ak4458->pdn_gpio, 0);
+		usleep_range(1000, 2000);
+		gpio_set_value_cansleep(ak4458->pdn_gpio, 1);
+		usleep_range(1000, 2000);
+	}
+
+	regcache_cache_only(ak4458->regmap, false);
+	regcache_mark_dirty(ak4458->regmap);
+
+	return regcache_sync(ak4458->regmap);
 }
+#endif /* CONFIG_PM */
 
 struct snd_soc_codec_driver soc_codec_dev_ak4458 = {
 	.probe = ak4458_codec_probe,
 	.remove = ak4458_codec_remove,
-	.suspend =	ak4458_suspend,
-	.resume =	ak4458_resume,
 	.set_bias_level = ak4458_set_bias_level,
 
 	.component_driver = {
@@ -1072,28 +1089,9 @@ void ak4458_remove(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(ak4458_remove);
 
-#if IS_ENABLED(CONFIG_PM)
-static int ak4458_runtime_resume(struct device *dev)
-{
-	struct ak4458_priv *ak4458 = dev_get_drvdata(dev);
-
-	regcache_sync(ak4458->regmap);
-
-	/* TODO Power up*/
-
-	return 0;
-}
-
-static int ak4458_runtime_suspend(struct device *dev)
-{
-	/* TODO Power down */
-
-	return 0;
-}
-#endif
-
 const struct dev_pm_ops ak4458_pm = {
 	SET_RUNTIME_PM_OPS(ak4458_runtime_suspend, ak4458_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
 };
 EXPORT_SYMBOL_GPL(ak4458_pm);
 
