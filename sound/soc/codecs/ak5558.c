@@ -261,8 +261,6 @@ static const struct snd_soc_dapm_widget ak5558_dapm_widgets[] = {
 
 };
 
-static int ak5558_init_reg(struct snd_soc_codec *codec);
-
 static const struct snd_soc_dapm_route ak5558_intercon[] = {
 
 	{"AK5558 Ch1 Enable", "On", "AIN1"},
@@ -520,7 +518,7 @@ static int ak5558_set_bias_level(struct snd_soc_codec *codec,
 	case SND_SOC_BIAS_STANDBY:
 		break;
 	case SND_SOC_BIAS_OFF:
-		ak5558_init_reg(codec);
+		snd_soc_write(codec, AK5558_00_POWER_MANAGEMENT1, 0x00);
 		break;
 	}
 	return 0;
