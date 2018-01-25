@@ -1582,7 +1582,7 @@ void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	struct spi_device *spi = phy->spi;
 	struct device *dev = &phy->spi->dev;
 	u8 dev_ensm_state;
-	int rc;
+	int rc, timeout = 10;
 	u32 val;
 
 	dev_ensm_state = ad9361_spi_readf(spi, REG_STATE, ENSM_STATE(~0));
@@ -1635,7 +1635,16 @@ void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 	ad9361_spi_write(spi, REG_ENSM_CONFIG_1, TO_ALERT | FORCE_ALERT_STATE);
 
 	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
-	if (rc)
+	if (rc) {
+		dev_err(dev, "Failed to write ENSM_CONFIG_1\n");
+		goto out;
+	}
+
+	while (ad9361_ensm_get_state(phy) != ensm_state && --timeout) {
+		mdelay(1);
+	}
+
+	if (timeout == 0)
 		dev_err(dev, "Failed to restore state\n");
 
 out:
