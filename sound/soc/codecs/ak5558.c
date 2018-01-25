@@ -28,6 +28,7 @@
 #include <sound/tlv.h>
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
+#include <linux/pm_runtime.h>
 
 #include "ak5558.h"
 
@@ -39,6 +40,7 @@
 /* AK5558 Codec Private Data */
 struct ak5558_priv {
 	struct snd_soc_codec codec;
+	struct regmap *regmap;
 	struct i2c_client *i2c;
 	int fs;		/* Sampling Frequency */
 	int rclk;	/* Master Clock */
@@ -629,11 +631,12 @@ static int ak5558_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int ak5558_suspend(struct snd_soc_codec *codec)
+#ifdef CONFIG_PM
+static int ak5558_runtime_suspend(struct device *dev)
 {
-	struct ak5558_priv *ak5558 = snd_soc_codec_get_drvdata(codec);
+	struct ak5558_priv *ak5558 = dev_get_drvdata(dev);
 
-	ak5558_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	regcache_cache_only(ak5558->regmap, true);
 
 	if (gpio_is_valid(ak5558->pdn_gpio)) {
 		gpio_set_value_cansleep(ak5558->pdn_gpio, 0);
@@ -643,19 +646,34 @@ static int ak5558_suspend(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int ak5558_resume(struct snd_soc_codec *codec)
+static int ak5558_runtime_resume(struct device *dev)
 {
+	struct ak5558_priv *ak5558 = dev_get_drvdata(dev);
 
-	ak5558_init_reg(codec);
+	if (gpio_is_valid(ak5558->pdn_gpio)) {
+		gpio_set_value_cansleep(ak5558->pdn_gpio, 0);
+		usleep_range(1000, 2000);
+		gpio_set_value_cansleep(ak5558->pdn_gpio, 1);
+		usleep_range(1000, 2000);
 
-	return 0;
+	}
+
+	regcache_cache_only(ak5558->regmap, false);
+	regcache_mark_dirty(ak5558->regmap);
+
+	return regcache_sync(ak5558->regmap);
 }
+#endif
+
+const struct dev_pm_ops ak5558_pm = {
+	SET_RUNTIME_PM_OPS(ak5558_runtime_suspend, ak5558_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				pm_runtime_force_resume)
+};
 
 struct snd_soc_codec_driver soc_codec_dev_ak5558 = {
 	.probe = ak5558_probe,
 	.remove = ak5558_remove,
-	.suspend =	ak5558_suspend,
-	.resume =	ak5558_resume,
 	.idle_bias_off = true,
 	.set_bias_level = ak5558_set_bias_level,
 
@@ -684,7 +702,6 @@ static int ak5558_i2c_probe(struct i2c_client *i2c,
 {
 	struct device_node *np = i2c->dev.of_node;
 	struct ak5558_priv *ak5558;
-	struct regmap *regmap;
 	int ret = 0;
 
 	dev_err(&i2c->dev, "%s(%d)\n", __func__, __LINE__);
@@ -694,9 +711,9 @@ static int ak5558_i2c_probe(struct i2c_client *i2c,
 	if (ak5558 == NULL)
 		return -ENOMEM;
 
-	regmap = devm_regmap_init_i2c(i2c, &ak5558_regmap);
-	if (IS_ERR(regmap))
-		return PTR_ERR(regmap);
+	ak5558->regmap = devm_regmap_init_i2c(i2c, &ak5558_regmap);
+	if (IS_ERR(ak5558->regmap))
+		return PTR_ERR(ak5558->regmap);
 
 	i2c_set_clientdata(i2c, ak5558);
 	ak5558->i2c = i2c;
@@ -713,13 +730,19 @@ static int ak5558_i2c_probe(struct i2c_client *i2c,
 
 	ret = snd_soc_register_codec(&i2c->dev, &soc_codec_dev_ak5558,
 				     &ak5558_dai, 1);
+	if (ret)
+		return ret;
 
-	return ret;
+	pm_runtime_enable(&i2c->dev);
+
+	return 0;
 }
 
 static int ak5558_i2c_remove(struct i2c_client *client)
 {
 	snd_soc_unregister_codec(&client->dev);
+	pm_runtime_disable(&client->dev);
+
 
 	return 0;
 }
@@ -739,6 +762,7 @@ static struct i2c_driver ak5558_i2c_driver = {
 	.driver = {
 		.name = "ak5558",
 		.of_match_table = of_match_ptr(ak5558_i2c_dt_ids),
+		.pm = &ak5558_pm,
 	},
 	.probe = ak5558_i2c_probe,
 	.remove = ak5558_i2c_remove,
