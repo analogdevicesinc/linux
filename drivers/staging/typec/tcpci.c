@@ -581,6 +581,12 @@ static irqreturn_t tcpci_irq(int irq, void *dev_id)
 		tcpci_read16(tcpci, TCPC_RX_HDR, &reg);
 		msg.header = reg;
 
+		/*
+		 * TCPC_RX_BYTE_CNT is the number of bytes in the
+		 * RX_BUFFER_DATA_OBJECTS plus three (for the RX_BUF_FRAME_TYPE
+		 * and RX_BUF_HEADER).
+		 */
+		cnt -= 3;
 		if (WARN_ON(cnt > sizeof(msg.payload)))
 			cnt = sizeof(msg.payload);
 
