@@ -245,7 +245,7 @@ static struct its_ite *find_ite(struct vgic_its *its, u32 device_id,
 
 #define VITS_TYPER_IDBITS		16
 #define VITS_MAX_EVENTID		(BIT(VITS_TYPER_IDBITS) - 1)
-#define VITS_TYPER_DEVBITS		16
+#define VITS_TYPER_DEVBITS		17
 #define VITS_MAX_DEVID			(BIT(VITS_TYPER_DEVBITS) - 1)
 #define VITS_DTE_MAX_DEVID_OFFSET	(BIT(14) - 1)
 #define VITS_ITE_MAX_EVENTID_OFFSET	(BIT(16) - 1)
