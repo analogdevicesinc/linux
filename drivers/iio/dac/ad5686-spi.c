@@ -1,5 +1,6 @@
 /*
- * AD5672R, AD5676, AD5676R, AD5684, AD5684R, AD5684R, AD5685R, AD5686, AD5686R
+ * AD5672R, AD5676, AD5676R, AD5681R, AD5682R, AD5683, AD5683R,
+ * AD5684, AD5684R, AD5685R, AD5686, AD5686R
  * Digital to analog converters driver
  *
  * Copyright 2018 Analog Devices Inc.
@@ -38,9 +39,15 @@ static int ad5686_spi_read(struct ad5686_state *st, u8 addr)
 		},
 	};
 	struct spi_device *spi = to_spi_device(st->dev);
+	u8 cmd;
 	int ret;
 
-	st->data[0].d32 = cpu_to_be32(AD5686_CMD(AD5686_CMD_READBACK_ENABLE) |
+	if (st->chip_info->regmap_type == AD5686_REGMAP)
+		cmd = AD5686_CMD_READBACK_ENABLE;
+	else if (st->chip_info->regmap_type == AD5683_REGMAP)
+		cmd = AD5686_CMD_READBACK_ENABLE_V2;
+
+	st->data[0].d32 = cpu_to_be32(AD5686_CMD(cmd) |
 				      AD5686_ADDR(addr));
 	st->data[1].d32 = cpu_to_be32(AD5686_CMD(AD5686_CMD_NOOP));
 
@@ -68,6 +75,10 @@ static const struct spi_device_id ad5686_spi_id[] = {
 	{"ad5672r", ID_AD5672R},
 	{"ad5676", ID_AD5676},
 	{"ad5676r", ID_AD5676R},
+	{"ad5681r", ID_AD5681R},
+	{"ad5682r", ID_AD5682R},
+	{"ad5683", ID_AD5683},
+	{"ad5683r", ID_AD5683R},
 	{"ad5684", ID_AD5684},
 	{"ad5684r", ID_AD5684R},
 	{"ad5685r", ID_AD5685R},
