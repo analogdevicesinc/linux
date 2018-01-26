@@ -1,0 +1,51 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8mq-evk.dts"
+
+/ {
+	sound-ak4458 {
+		status = "okay";
+	};
+
+	sound-ak5558 {
+		fsl,tdm;
+		status = "okay";
+	};
+
+	sound-ak4497 {
+		status = "disabled";
+	};
+};
+
+&sai1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai1>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI1_SRC>,
+			<&clk IMX8MQ_CLK_SAI1_DIV>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <0>, <49152000>;
+	status = "okay";
+};
+
+&sai5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai5>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI5_SRC>,
+			<&clk IMX8MQ_CLK_SAI5_DIV>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <0>, <49152000>;
+	fsl,sai-asynchronous;
+	status = "okay";
+};
