@@ -45,6 +45,8 @@ struct ak5558_priv {
 	int fs;		/* Sampling Frequency */
 	int rclk;	/* Master Clock */
 	int pdn_gpio;	/* Power on / Reset GPIO */
+	int slots;
+	int slot_width;
 };
 
 /* ak5558 register cache & default register settings */
@@ -402,6 +404,7 @@ static int ak5558_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak5558_priv *ak5558 = snd_soc_codec_get_drvdata(codec);
 	u8 bits;
+	int pcm_width = max(params_physical_width(params), ak5558->slot_width);
 
 	dev_dbg(dai->dev, "%s(%d)\n", __func__, __LINE__);
 
@@ -409,12 +412,11 @@ static int ak5558_hw_params(struct snd_pcm_substream *substream,
 	bits = snd_soc_read(codec, AK5558_02_CONTROL1);
 	bits &= ~AK5558_BITS;
 
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
-	case SNDRV_PCM_FORMAT_S24_LE:
+	switch (pcm_width) {
+	case 16:
 		bits |= AK5558_DIF_24BIT_MODE;
 		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
+	case 32:
 		bits |= AK5558_DIF_32BIT_MODE;
 		break;
 	default:
@@ -478,6 +480,9 @@ static int ak5558_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	case SND_SOC_DAIFMT_LEFT_J:
 		format |= AK5558_DIF_MSB_MODE;
 		break;
+	case SND_SOC_DAIFMT_DSP_B:
+		format |= AK5558_DIF_MSB_MODE;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -524,6 +529,43 @@ static int ak5558_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
+static int ak5558_set_tdm_slot(struct snd_soc_dai *dai, unsigned int tx_mask,
+					unsigned int rx_mask, int slots,
+					int slot_width)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct ak5558_priv *ak5558 = snd_soc_codec_get_drvdata(codec);
+	int tdm_mode = 0;
+	int reg;
+
+	ak5558->slots = slots;
+	ak5558->slot_width = slot_width;
+
+	switch (slots * slot_width) {
+	case 128:
+		tdm_mode = 1;
+		break;
+	case 256:
+		tdm_mode = 2;
+		break;
+	case 512:
+		tdm_mode = 3;
+		break;
+	default:
+		tdm_mode = 0;
+		break;
+	}
+
+	reg = snd_soc_read(codec, AK5558_03_CONTROL2);
+	reg &= ~(0x3 << 5);
+	reg |= tdm_mode << 5;
+	snd_soc_write(codec, AK5558_03_CONTROL2, reg);
+
+	return 0;
+}
+
+
+
 #define AK5558_RATES SNDRV_PCM_RATE_8000_192000
 
 #define AK5558_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE |\
@@ -559,6 +601,7 @@ static struct snd_soc_dai_ops ak5558_dai_ops = {
 	.set_sysclk	= ak5558_set_dai_sysclk,
 	.set_fmt	= ak5558_set_dai_fmt,
 	.digital_mute	= ak5558_set_dai_mute,
+	.set_tdm_slot   = ak5558_set_tdm_slot,
 };
 
 static struct snd_soc_dai_driver ak5558_dai = {
