@@ -322,8 +322,8 @@ struct dcss_scaler_ratios {
 
 static const struct dcss_scaler_ratios dcss_scaler_ratios[] = {
 	{max_downscale(3), max_upscale(5)},
-	{max_downscale(3), max_upscale(7)},
-	{max_downscale(3), max_upscale(7)},
+	{max_downscale(5), max_upscale(7)},
+	{max_downscale(5), max_upscale(7)},
 };
 
 static const struct dcss_scaler_ratios dcss_scaler_wrscl_ratios[] = {
