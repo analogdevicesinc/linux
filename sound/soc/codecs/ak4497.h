@@ -74,4 +74,17 @@
 #define AK4497_DFS2_48KHZ		(0x0 << 1)  // 30kHz to 216kHz
 #define AK4497_DFS2_384KHZ		(0x1 << 1)  // 384kHz, 768kHz to 108kHz
 
+
+#define AK4497_DSDSEL0			0x1
+#define AK4497_DSDSEL0_2MHZ		0x0
+#define AK4497_DSDSEL0_5MHZ		0x1
+#define AK4497_DSDSEL0_11MHZ		0x0
+#define AK4497_DSDSEL0_22MHZ		0x1
+
+#define AK4497_DSDSEL1			0x1
+#define AK4497_DSDSEL1_2MHZ		0x0
+#define AK4497_DSDSEL1_5MHZ		0x0
+#define AK4497_DSDSEL1_11MHZ		0x1
+#define AK4497_DSDSEL1_22MHZ		0x1
+
 #endif

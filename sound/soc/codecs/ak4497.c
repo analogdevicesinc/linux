@@ -488,6 +488,8 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 	u8 dfs2;
 	int nfs1;
 	bool is_dsd = false;
+	int dsd_bclk;
+	u8 dsdsel0, dsdsel1;
 
 	if (pcm_format == SNDRV_PCM_FORMAT_DSD_U8 ||
 		pcm_format == SNDRV_PCM_FORMAT_DSD_U16_LE ||
@@ -504,6 +506,13 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 
 	dfs2 = snd_soc_read(codec, AK4497_05_CONTROL4);
 	dfs2 &= ~AK4497_DFS2;
+
+
+	dsdsel0 = snd_soc_read(codec, AK4497_06_DSD1);
+	dsdsel0 &= ~AK4497_DSDSEL0;
+
+	dsdsel1 = snd_soc_read(codec, AK4497_09_DSD2);
+	dsdsel1 &= ~AK4497_DSDSEL1;
 
 	if (!is_dsd) {
 		switch (nfs1) {
@@ -539,6 +548,33 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 		default:
 			return -EINVAL;
 		}
+	} else {
+		dsd_bclk = params_rate(params) *
+			params_physical_width(params);
+
+		switch (dsd_bclk) {
+		case 2822400:
+			dsdsel0 |= AK4497_DSDSEL0_2MHZ;
+			dsdsel1 |= AK4497_DSDSEL1_2MHZ;
+			break;
+		case 5644800:
+			dsdsel0 |= AK4497_DSDSEL0_5MHZ;
+			dsdsel1 |= AK4497_DSDSEL1_5MHZ;
+			break;
+		case 11289600:
+			dsdsel0 |= AK4497_DSDSEL0_11MHZ;
+			dsdsel1 |= AK4497_DSDSEL1_11MHZ;
+			break;
+		case 22579200:
+			dsdsel0 |= AK4497_DSDSEL0_22MHZ;
+			dsdsel1 |= AK4497_DSDSEL1_22MHZ;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		snd_soc_write(codec, AK4497_06_DSD1, dsdsel0);
+		snd_soc_write(codec, AK4497_09_DSD2, dsdsel1);
 	}
 
 	snd_soc_write(codec, AK4497_01_CONTROL2, dfs);
