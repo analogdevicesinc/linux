@@ -732,9 +732,8 @@ static int fsl_sai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 
-		for (i = 0; tx && i < channels; i++) {
-		while (tx && i < channels)
-			if (sai->dataline[tx] & (1 << j)) {
+		while (tx && i < channels) {
+			if ((sai->is_dsd ? sai->dataline_dsd[tx] : sai->dataline[tx]) & (1 << j)) {
 				regmap_write(sai->regmap, FSL_SAI_TDR0 + j * 0x4, 0x0);
 				i++;
 				k++;
