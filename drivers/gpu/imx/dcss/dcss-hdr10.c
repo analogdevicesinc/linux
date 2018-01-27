@@ -106,8 +106,6 @@ struct dcss_hdr10_priv {
 	struct dcss_soc *dcss;
 
 	struct dcss_hdr10_ch ch[4]; /* 4th channel is, actually, OPIPE */
-
-	u32 opipe_ctx_id;
 };
 
 static struct dcss_debug_reg hdr10_debug_reg[] = {
