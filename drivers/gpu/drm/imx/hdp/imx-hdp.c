@@ -572,6 +572,16 @@ static int imx_get_vic_index(struct drm_display_mode *mode)
 	return -1;
 }
 
+static u8 imx_hdp_link_rate(struct drm_display_mode *mode)
+{
+	if (mode->clock < 297000)
+		return AFE_LINK_RATE_1_6;
+	else if (mode->clock > 297000)
+		return AFE_LINK_RATE_5_4;
+	else
+		return AFE_LINK_RATE_2_7;
+}
+
 static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mode)
 {
 	int dp_vic;
@@ -594,6 +604,7 @@ static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mod
 	/* Config pixel link mux */
 	imx_hdp_call(hdp, pixel_link_mux, &hdp->state, mode);
 
+	hdp->link_rate = imx_hdp_link_rate(mode);
 	/* mode set */
 	ret = imx_hdp_call(hdp, phy_init, &hdp->state, dp_vic, 1, 8);
 	if (ret < 0) {
@@ -718,7 +729,7 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 
 	if (hdp->is_4kp60 && mode->clock > 594000)
 		return MODE_CLOCK_HIGH;
-	else if (!hdp->is_4kp60 && mode->clock > 150000)
+	else if (!hdp->is_4kp60 && mode->clock > 297000)
 		return MODE_CLOCK_HIGH;
 
 	/* 4096x2160 is not supported now */
