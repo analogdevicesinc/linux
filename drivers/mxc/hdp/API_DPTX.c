@@ -378,55 +378,6 @@ CDN_API_STATUS CDN_API_DPTX_ReadEvent_blocking(state_struct *state,
 				(state, LinkeventId, HPDevents));
 }
 
-#define NUM_OF_SUPPORTED_PIXEL_FREQ 25
-
-u32 CDN_API_Get_PIXEL_FREQ_KHZ_ClosetVal(u32 val, CDN_PROTOCOL_TYPE protocol)
-{
-	u32 supportedVals[NUM_OF_SUPPORTED_PIXEL_FREQ];
-	int i;
-	int minI;
-
-	u32 minVal;
-
-	supportedVals[0] = 24719;
-	supportedVals[1] = 25000;
-	supportedVals[2] = 25175;
-	supportedVals[3] = 25200;
-	supportedVals[4] = 27000;
-	supportedVals[5] = 32358;
-	supportedVals[6] = 33750;
-	supportedVals[7] = 38250;
-	supportedVals[8] = 54000;
-	supportedVals[9] = 74250;
-	supportedVals[10] = 108000;
-	supportedVals[11] = 148500;
-	supportedVals[12] = 138750;
-	supportedVals[13] = 104750;
-	supportedVals[14] = 102500;
-	supportedVals[15] = 82000;
-	supportedVals[16] = 78500;
-	supportedVals[17] = 63500;
-	supportedVals[18] = 40000;
-	supportedVals[19] = 59340;
-	supportedVals[20] = 35000;
-	supportedVals[21] = 72000;
-	supportedVals[22] = 47000;
-	supportedVals[23] = 22250;
-	supportedVals[24] = 30750;
-
-	minVal = abs(val - supportedVals[0]);
-	minI = 0;
-	for (i = 1; i < NUM_OF_SUPPORTED_PIXEL_FREQ; i++) {
-		if (abs(val - supportedVals[i]) < minVal) {
-
-			minVal = abs(val - supportedVals[i]);
-			minI = i;
-		}
-	}
-
-	return supportedVals[minI];
-}
-
 CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
 				    int bitsPerPixel,
 				    VIC_NUM_OF_LANES NumOfLanes,
@@ -469,9 +420,7 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
 		bitsPerPixelCalc = bitsPerPixel * 3;
 
 	/* KHz */
-	pixelClockFreq =
-	    CDN_API_Get_PIXEL_FREQ_KHZ_ClosetVal(vic_table[vicMode]
-						 [PIXEL_FREQ_KHZ], CDN_DPTX);
+	pixelClockFreq = vic_table[vicMode][PIXEL_FREQ_KHZ];
 
 	/* KHz */
 	min_link_rate = rate * 995;
