@@ -889,6 +889,23 @@ static int fsl_sai_dai_probe(struct snd_soc_dai *cpu_dai)
 	return 0;
 }
 
+static int fsl_sai_dai_resume(struct snd_soc_dai *cpu_dai)
+{
+	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
+	int ret;
+
+	if (sai->is_dsd && !IS_ERR_OR_NULL(sai->pins_dsd)) {
+		ret = pinctrl_select_state(sai->pinctrl, sai->pins_dsd);
+		if (ret) {
+			dev_err(cpu_dai->dev,
+				"failed to set proper pins state: %d\n", ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static struct snd_soc_dai_driver fsl_sai_dai = {
 	.probe = fsl_sai_dai_probe,
 	.playback = {
@@ -905,6 +922,7 @@ static struct snd_soc_dai_driver fsl_sai_dai = {
 		.rates = SNDRV_PCM_RATE_KNOT,
 		.formats = FSL_SAI_FORMATS,
 	},
+	.resume  = fsl_sai_dai_resume,
 	.ops = &fsl_sai_pcm_dai_ops,
 };
 
