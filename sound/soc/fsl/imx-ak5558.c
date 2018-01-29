@@ -35,6 +35,12 @@ static struct snd_soc_dapm_widget imx_ak5558_dapm_widgets[] = {
 static const u32 ak5558_rates[] = {
 	8000, 16000, 32000,
 	48000, 96000, 192000,
+	384000, 768000,
+};
+
+static const u32 ak5558_tdm_rates[] = {
+	8000, 16000, 32000,
+	48000, 96000, 192000,
 };
 
 static const u32 ak5558_channels[] = {
@@ -105,12 +111,21 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 static int imx_aif_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct imx_ak5558_data *data = snd_soc_card_get_drvdata(card);
+
 	static struct snd_pcm_hw_constraint_list constraint_rates;
 	static struct snd_pcm_hw_constraint_list constraint_channels;
 	int ret;
 
-	constraint_rates.list = ak5558_rates;
-	constraint_rates.count = ARRAY_SIZE(ak5558_rates);
+	if (data->tdm_mode) {
+		constraint_rates.list = ak5558_tdm_rates;
+		constraint_rates.count = ARRAY_SIZE(ak5558_tdm_rates);
+	} else {
+		constraint_rates.list = ak5558_rates;
+		constraint_rates.count = ARRAY_SIZE(ak5558_rates);
+	}
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
 						&constraint_rates);
