@@ -867,6 +867,7 @@ static int ak4497_runtime_suspend(struct device *dev)
 
 	if (ak4497->pdn_gpio > 0) {
 		gpio_set_value(ak4497->pdn_gpio, 0);
+		usleep_range(1000, 2000);
 	}
 
 	if (ak4497->mute_gpio > 0)
@@ -882,8 +883,10 @@ static int ak4497_runtime_resume(struct device *dev)
 	if (ak4497->mute_gpio > 0)
 		gpio_set_value(ak4497->mute_gpio, 1); /* External Mute ON */
 
-	if (ak4497->pdn_gpio > 0)
+	if (ak4497->pdn_gpio > 0) {
 		gpio_set_value(ak4497->pdn_gpio, 1);
+		usleep_range(1000, 2000);
+	}
 
 	regcache_cache_only(ak4497->regmap, false);
 	regcache_mark_dirty(ak4497->regmap);
