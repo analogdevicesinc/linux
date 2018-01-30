@@ -915,7 +915,7 @@ phy_configure_error:
 /* power mode transition to standby */
 static int nxp_suspend(struct phy_device *phydev)
 {
-	int err;
+	int err = 0;
 
 	if (verbosity > 0)
 		dev_alert(&phydev->mdio.dev, "suspending PHY %x\n", phydev->mdio.addr);
@@ -923,16 +923,13 @@ static int nxp_suspend(struct phy_device *phydev)
 	if (!managed_mode)
 		goto phy_auto_op_error;
 
+	mutex_lock(&phydev->lock);
 	/* set BMCR_PDOWN bit in MII_BMCR register */
 	err = phy_configure_bit(phydev, MII_BMCR, BMCR_PDOWN, 1);
 	if (err < 0)
-		goto phy_configure_error;
+		dev_err(&phydev->mdio.dev, "phy r/w error: resume failed\n");
+	mutex_unlock(&phydev->lock);
 
-	return 0;
-
-/* error handling */
-phy_configure_error:
-	dev_err(&phydev->mdio.dev, "phy r/w error: resume failed\n");
 	return err;
 
 phy_auto_op_error:
@@ -949,6 +946,7 @@ static int nxp_resume(struct phy_device *phydev)
 	if (verbosity > 0)
 		dev_alert(&phydev->mdio.dev, "resuming PHY %x\n", phydev->mdio.addr);
 
+	mutex_lock(&phydev->lock);
 	/* clear BMCR_PDOWN bit in MII_BMCR register */
 	err = phy_configure_bit(phydev, MII_BMCR, BMCR_PDOWN, 0);
 	if (err < 0)
@@ -976,19 +974,23 @@ static int nxp_resume(struct phy_device *phydev)
 
 	/* reenable link control */
 	set_link_control(phydev, 1);
+	mutex_unlock(&phydev->lock);
 
 	return 0;
 
 /* error handling */
 phy_configure_error:
+	mutex_unlock(&phydev->lock);
 	dev_err(&phydev->mdio.dev, "phy r/w error: resume failed\n");
 	return err;
 
 phy_transition_error:
+	mutex_unlock(&phydev->lock);
 	dev_err(&phydev->mdio.dev, "power mode transition failed\n");
 	return err;
 
 phy_pll_error:
+	mutex_unlock(&phydev->lock);
 	dev_err(&phydev->mdio.dev, "Error: PLL is unstable and not locked\n");
 	return err;
 }
