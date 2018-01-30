@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -68,6 +68,7 @@
 #define GENERAL_WRITE_REGISTER          0x05
 #define GENERAL_WRITE_FIELD             0x06
 #define GENERAL_READ_REGISTER           0x07
+#define GENERAL_GET_HPD_STATE           0x11
 
 #define GENERAL_TEST_TRNG_SIMPLE        0xF0
 

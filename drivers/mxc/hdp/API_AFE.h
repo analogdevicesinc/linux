@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -50,11 +50,24 @@
 #include "util.h"
 
 typedef enum {
-	AFE_LINK_RATE_1_6 = 0x6,
-	AFE_LINK_RATE_2_7 = 0xA,
-	AFE_LINK_RATE_5_4 = 0x14,
-	AFE_LINK_RATE_8_1 = 0x1A,
+	AFE_LINK_RATE_1_6 = 0x6,  /* 1.62 Gb/s */
+	AFE_LINK_RATE_2_1 = 0x8,  /* 2.16 Gb/s */
+	AFE_LINK_RATE_2_4 = 0x9,  /* 2.43 Gb/s */
+	AFE_LINK_RATE_2_7 = 0xA,  /* 2.70 Gb/s */
+	AFE_LINK_RATE_3_2 = 0xC,  /* 3.24 Gb/s */
+	AFE_LINK_RATE_4_3 = 0x10, /* 4.32 Gb/s */
+	AFE_LINK_RATE_5_4 = 0x14, /* 5.40 Gb/s */
+	AFE_LINK_RATE_8_1 = 0x1E, /* 8.10 Gb/s */
 } ENUM_AFE_LINK_RATE;
+
+/* Some of the PHY programming sequences
+ * depend on the reference clock frequency.
+ * Variable of this type is used to control
+ * the programming flow. */
+typedef enum {
+	REFCLK_24MHZ,
+	REFCLK_27MHZ
+} REFCLK_FREQ;
 
 typedef enum {
 	CLK_RATIO_1_1,
@@ -72,6 +85,7 @@ typedef struct {
 	u8 msb;
 } reg_field_t;
 
+u8 AFE_check_rate_supported(ENUM_AFE_LINK_RATE rate);
 void Afe_write(state_struct *state, u32 offset, u16 val);
 u16 Afe_read(state_struct *state, u32 offset);
 void AFE_init(state_struct *state, int num_lanes,

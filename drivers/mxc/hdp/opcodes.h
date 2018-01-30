@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -71,6 +71,7 @@
 #define DPTX_SET_LINK_BREAK_POINT        0x0F
 #define DPTX_FORCE_LANES                0x10
 #define DPTX_HPD_STATE                             0x11
+#define DPTX_EDP_RATE_TRAINING          0x12
 #define DPTX_DBG_SET                               0xF0
 #define DP_TX_OPCODE_READ_I2C_REQUEST              0xA5
 #define DP_TX_OPCODE_WRITE_I2C_REQUEST             0xA6

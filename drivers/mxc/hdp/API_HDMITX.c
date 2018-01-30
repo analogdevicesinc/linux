@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -52,6 +52,7 @@
 #include "address.h"
 #include "source_car.h"
 #include "source_vif.h"
+#include "general_handler.h"
 #include <soc/imx8/soc.h>
 
 CDN_API_STATUS CDN_API_HDMITX_DDC_READ(state_struct *state,
@@ -489,16 +490,14 @@ CDN_API_STATUS CDN_API_HDMITX_GetHpdStatus(state_struct *state, u8 *hpd_sts)
 	if (!state->running) {
 		if (!internal_apb_available(state))
 			return CDN_BSY;
-		internal_tx_mkfullmsg(state, MB_MODULE_ID_HDMI_TX,
-				      HDMI_TX_HPD_STATUS, 0);
+		internal_tx_mkfullmsg(state, MB_MODULE_ID_GENERAL, GENERAL_GET_HPD_STATE, 0);
 		state->rxEnable = 1;
 		state->bus_type = CDN_BUS_TYPE_APB;
 		return CDN_STARTED;
 	}
 	internal_process_messages(state);
 	ret =
-	    internal_test_rx_head(state, MB_MODULE_ID_HDMI_TX,
-				  HDMI_TX_HPD_STATUS);
+	    internal_test_rx_head(state, MB_MODULE_ID_GENERAL, GENERAL_GET_HPD_STATE);
 	if (ret != CDN_OK)
 		return ret;
 	internal_readmsg(state, 1, 1, hpd_sts);

@@ -91,6 +91,8 @@ typedef enum {
 	CDN_CEC_ERR_RX_FAILED,
     /** Operation aborted. */
 	CDN_CEC_ERR_ABORT,
+    /** All Logical Addresses are in use. */
+	CDN_CEC_ERR_ALL_LA_IN_USE,
 } CDN_API_STATUS;
 
 typedef enum {
@@ -153,6 +155,7 @@ typedef struct {
 	u8 running;
 	CDN_BUS_TYPE bus_type;
 	u32 tmp;
+	u32 edp; /* use eDP */
 
 	struct mutex mutex;	//mutex may replace running
 	struct hdp_mem *mem;

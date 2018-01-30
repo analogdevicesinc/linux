@@ -35,6 +35,8 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
+ * Copyright 2017-2018 NXP
+ *
  ******************************************************************************
  *
  * API_DPTX.c
@@ -126,6 +128,8 @@ CDN_API_STATUS CDN_API_DPTX_SetHostCap(state_struct *state, u8 maxLinkRate,
 				       u8 fastLinkTraining,
 				       u8 laneMapping, u8 enchanced)
 {
+	/* fifth bit of lanesCount_SSC is used to declare eDP. */
+	state->edp = ((lanesCount_SSC >> 5) & 1);
 	if (!state->running) {
 		if (!internal_apb_available(state))
 			return CDN_BSY;
@@ -199,10 +203,39 @@ CDN_API_STATUS CDN_API_DPTX_Control_blocking(state_struct *state, u32 mode)
 	internal_block_function(&state->mutex, CDN_API_DPTX_Control(state, mode));
 }
 
+CDN_API_STATUS CDN_API_DPTX_EDP_Training(state_struct *state,
+						u8 mode, ENUM_AFE_LINK_RATE linkRate,
+						u8 rateId)
+{
+	if (AFE_check_rate_supported(linkRate) == 0)
+		return CDN_ERROR_NOT_SUPPORTED;
+
+	if (!state->running) {
+		if (!internal_apb_available(state))
+			return CDN_BSY;
+	    internal_tx_mkfullmsg(state, MB_MODULE_ID_DP_TX, DPTX_EDP_RATE_TRAINING, 3,
+								1, mode,
+								1, (u8)linkRate,
+								1, rateId);
+		state->bus_type = CDN_BUS_TYPE_APB;
+		return CDN_STARTED;
+	}
+	internal_process_messages(state);
+	return CDN_OK;
+}
+
+CDN_API_STATUS CDN_API_DPTX_EDP_Training_blocking(state_struct *state,
+									u8 mode,
+									ENUM_AFE_LINK_RATE linkRate,
+									u8 rateId)
+{
+	internal_block_function(&state->mutex, CDN_API_DPTX_EDP_Training(state, mode, linkRate, rateId));
+}
+
 CDN_API_STATUS CDN_API_DPTX_Write_DPCD(state_struct *state, u32 numOfBytes,
-				       u32 addr, u8 *buff,
-				       DPTX_Write_DPCD_response *resp,
-				       CDN_BUS_TYPE bus_type)
+									u32 addr, u8 *buff,
+									DPTX_Write_DPCD_response *resp,
+									CDN_BUS_TYPE bus_type)
 {
 	CDN_API_STATUS ret;
 	if (!state->running) {

@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -95,7 +95,11 @@ typedef enum {
 
 typedef enum {
 	RATE_1_6 = 162,
+	RATE_2_1 = 216,
+	RATE_2_4 = 243,
 	RATE_2_7 = 270,
+	RATE_3_2 = 324,
+	RATE_4_3 = 432,
 	RATE_5_4 = 540,
 	RATE_8_1 = 810,
 } VIC_SYMBOL_RATE;
