@@ -86,6 +86,7 @@
 #define CFG1_REMWUPHY             BIT(11)
 #define CFG1_LOCWUPHY             BIT(10)
 #define CFG1_MII_MODE             (0x00000300U)
+#define TJA1100_CFG1_MII_MODE_REFCLK_IN	0x100
 #define CFG1_MII_DRIVER           BIT(7)
 #define CFG1_SLEEP_CONFIRM        BIT(6)
 #define TJA1100_CFG1_LED_MODE     (0x00000030U)
@@ -235,6 +236,8 @@ struct nxp_specific_data {
 	int is_master;
 	int is_poll_setup;
 	int is_polling;
+
+	u32 quirks;
 };
 
 /* register values of the different led modes */

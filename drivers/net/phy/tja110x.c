@@ -45,6 +45,8 @@
 #define MII_BUS_NAME "fec_enet_mii_bus"
 #endif
 
+#define TJA110X_REFCLK_IN	(1 << 0)
+
 /* Variable can be modified via parameter passed at load time
  * A nonzero value indicates that we should operate in managed mode
  */
@@ -70,6 +72,7 @@ MODULE_PARM_DESC(verbosity, "Set verbosity level");
  */
 static int nxp_config_init(struct phy_device *phydev)
 {
+	struct nxp_specific_data *nxp_specific = phydev->priv;
 	int reg_val;
 	int reg_name, reg_value = -1, reg_mask;
 	int err;
@@ -112,6 +115,11 @@ static int nxp_config_init(struct phy_device *phydev)
 			reg_value |= TJA1100_CFG1_AUTO_OP;
 		reg_mask = TJA1100_CFG1_AUTO_OP |
 		    TJA1100_CFG1_LED_EN | TJA1100_CFG1_LED_MODE;
+
+		if (nxp_specific->quirks & TJA110X_REFCLK_IN) {
+			reg_value |= TJA1100_CFG1_MII_MODE_REFCLK_IN;
+			reg_mask |= CFG1_MII_MODE;
+		}
 		break;
 	case NXP_PHY_ID_TJA1101:
 		/* fall through */
@@ -213,6 +221,7 @@ unsupported_phy_error:
 static int nxp_probe(struct phy_device *phydev)
 {
 	int err;
+	struct device *dev = &phydev->mdio.dev;
 	struct nxp_specific_data *nxp_specific;
 
 	if (verbosity > 0)
@@ -221,6 +230,9 @@ static int nxp_probe(struct phy_device *phydev)
 	nxp_specific = kzalloc(sizeof(*nxp_specific), GFP_KERNEL);
 	if (!nxp_specific)
 		goto phy_allocation_error;
+
+	if (of_property_read_bool(dev->of_node, "tja110x,refclk_in"))
+		nxp_specific->quirks |= TJA110X_REFCLK_IN;
 
 	nxp_specific->is_master = get_master_cfg(phydev);
 	nxp_specific->is_polling = 0;
@@ -731,6 +743,7 @@ static int wakeup_from_sleep(struct phy_device *phydev)
 {
 	int err;
 	unsigned long wakeup_delay;
+	struct nxp_specific_data *nxp_specific = phydev->priv;
 
 	if (verbosity > 0)
 		dev_alert(&phydev->mdio.dev, "PHY %x waking up from sleep\n",
@@ -757,11 +770,14 @@ static int wakeup_from_sleep(struct phy_device *phydev)
 	if (err < 0)
 		goto phy_configure_error;
 
-	/* wait until the PLL is locked, indicating a completed transition */
-	err = wait_on_condition(phydev, MII_GENSTAT, GENSTAT_PLL_LOCKED,
-				GENSTAT_PLL_LOCKED, POWER_MODE_TIMEOUT);
-	if (err < 0)
-		goto phy_transition_error;
+	if (!(nxp_specific->quirks & TJA110X_REFCLK_IN)) {
+		/* wait until the PLL is locked, indicating a completed transition */
+		err = wait_on_condition(phydev, MII_GENSTAT, GENSTAT_PLL_LOCKED,
+					GENSTAT_PLL_LOCKED, POWER_MODE_TIMEOUT);
+		if (err < 0)
+			goto phy_transition_error;
+	}
+
 	/* if phy is configured as slave, also send a wakeup request
 	 * to master
 	 */
@@ -928,6 +944,7 @@ phy_auto_op_error:
 static int nxp_resume(struct phy_device *phydev)
 {
 	int err;
+	struct nxp_specific_data *nxp_specific = phydev->priv;
 
 	if (verbosity > 0)
 		dev_alert(&phydev->mdio.dev, "resuming PHY %x\n", phydev->mdio.addr);
@@ -949,11 +966,13 @@ static int nxp_resume(struct phy_device *phydev)
 	if (err < 0)
 		goto phy_transition_error;
 
-	/* wait until the PLL is locked, indicating a completed transition */
-	err = wait_on_condition(phydev, MII_GENSTAT, GENSTAT_PLL_LOCKED,
-				GENSTAT_PLL_LOCKED, POWER_MODE_TIMEOUT);
-	if (err < 0)
-		goto phy_pll_error;
+	if (!(nxp_specific->quirks & TJA110X_REFCLK_IN)) {
+		/* wait until the PLL is locked, indicating a completed transition */
+		err = wait_on_condition(phydev, MII_GENSTAT, GENSTAT_PLL_LOCKED,
+					GENSTAT_PLL_LOCKED, POWER_MODE_TIMEOUT);
+		if (err < 0)
+			goto phy_pll_error;
+	}
 
 	/* reenable link control */
 	set_link_control(phydev, 1);
