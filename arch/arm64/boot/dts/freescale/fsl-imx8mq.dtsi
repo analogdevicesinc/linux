@@ -1239,7 +1239,8 @@
 		ranges =  <0x81000000 0 0x00000000 0x0 0x1ff80000 0 0x00010000 /* downstream I/O 64KB */
 			   0x82000000 0 0x18000000 0x0 0x18000000 0 0x07f00000>; /* non-prefetchable memory */
 		num-lanes = <1>;
-		interrupts = <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
 		interrupt-names = "msi";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0x7>;
@@ -1267,7 +1268,8 @@
 		ranges =  <0x81000000 0 0x00000000 0x0 0x27f80000 0 0x00010000 /* downstream I/O 64KB */
 			   0x82000000 0 0x20000000 0x0 0x20000000 0 0x07f00000>; /* non-prefetchable memory */
 		num-lanes = <1>;
-		interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
 		interrupt-names = "msi";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0x7>;
