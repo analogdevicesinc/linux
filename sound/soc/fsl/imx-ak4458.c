@@ -25,6 +25,7 @@ struct imx_ak4458_data {
 	struct snd_soc_card card;
 	int num_codec_conf;
 	struct snd_soc_codec_conf *codec_conf;
+	bool tdm_mode;
 };
 
 static struct snd_soc_dapm_widget imx_ak4458_dapm_widgets[] = {
@@ -46,13 +47,19 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct device *dev = card->dev;
+	struct imx_ak4458_data *data = snd_soc_card_get_drvdata(card);
 	unsigned int channels = params_channels(params);
 	unsigned int fmt;
 	int ret;
 	int i;
 
-	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+	if (data->tdm_mode)
+		fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS;
+	else
+		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 			SND_SOC_DAIFMT_CBS_CFS;
 
 	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
@@ -71,12 +78,30 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
-	ret = snd_soc_dai_set_tdm_slot(cpu_dai,
+	if (data->tdm_mode) {
+		ret = snd_soc_dai_set_tdm_slot(cpu_dai,
+				       BIT(channels) - 1, BIT(channels) - 1,
+				       8, 32);
+		if (ret) {
+			dev_err(dev, "failed to set cpu dai tdm slot: %d\n", ret);
+			return ret;
+		}
+
+		ret = snd_soc_dai_set_tdm_slot(codec_dai,
+				       BIT(channels) - 1, BIT(channels) - 1,
+				       8, 32);
+		if (ret) {
+			dev_err(dev, "failed to set codec dai tdm slot: %d\n", ret);
+			return ret;
+		}
+	} else {
+		ret = snd_soc_dai_set_tdm_slot(cpu_dai,
 				       BIT(channels) - 1, BIT(channels) - 1,
 				       2, params_physical_width(params));
-	if (ret) {
-		dev_err(dev, "failed to set cpu dai tdm slot: %d\n", ret);
-		return ret;
+		if (ret) {
+			dev_err(dev, "failed to set cpu dai tdm slot: %d\n", ret);
+			return ret;
+		}
 	}
 
 	return ret;
@@ -173,6 +198,9 @@ static int imx_ak4458_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto fail;
 	}
+
+	if (of_find_property(pdev->dev.of_node, "fsl,tdm", NULL))
+		priv->tdm_mode = true;
 
 	priv->num_codec_conf = 2;
 	priv->codec_conf = devm_kzalloc(&pdev->dev,
