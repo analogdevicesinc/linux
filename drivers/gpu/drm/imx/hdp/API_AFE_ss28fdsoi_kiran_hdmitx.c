@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -48,8 +48,7 @@
 #include "API_AFE_ss28fdsoi_kiran_hdmitx.h"
 #include "ss28fdsoi_hdmitx_table.h"
 
-static int inside(u32 value, u32 left_sharp_corner,
-		  u32 right_sharp_corner)
+static int inside(u32 value, u32 left_sharp_corner, u32 right_sharp_corner)
 {
 	if (value < left_sharp_corner)
 		return 0;
@@ -67,8 +66,6 @@ int get_table_row_match_column(const u32 *array, u32 table_rows,
 	u32 value;
 	for (idx_rows = start_row; idx_rows < table_rows; idx_rows++) {
 		for (idx_cols = 0; idx_cols < table_cols; idx_cols++) {
-		/*	pr_info("get_table_row_match_column: TAG row: %0d, col: %0d, value: %0d\n",
-			     idx_rows, idx_cols, *((array + idx_rows * table_cols) + idx_cols)); */
 			if (idx_cols == column_to_search) {
 				value =
 				    *((array + idx_rows * table_cols) +
@@ -93,8 +90,10 @@ int get_table_row(const u32 *array, u32 table_rows,
 					       column_to_search, column_value);
 		if (i + 1) {
 			if (inside(variable_in_range,
-			     *((array + i * table_cols) + range_min_column),
-			     *((array + i * table_cols) + range_max_column))) {
+				   *((array + i * table_cols) +
+				     range_min_column),
+				   *((array + i * table_cols) +
+				     range_max_column))) {
 				break;
 			}
 			i++;
@@ -105,8 +104,9 @@ int get_table_row(const u32 *array, u32 table_rows,
 	return i;
 }
 
-int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode, int bpp,
-		VIC_PXL_ENCODING_FORMAT format)
+int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
+			  VIC_MODES vicMode, int bpp,
+			  VIC_PXL_ENCODING_FORMAT format)
 {
 	const int phy_reset_workaround = 0;
 	u32 vco_freq_khz;
@@ -180,14 +180,14 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 	     num_lanes, vicMode, bpp, format);
 
 	/* register PHY_PMA_ISOLATION_CTRL
-	enable PHY isolation mode only for CMN */
+	 * enable PHY isolation mode only for CMN */
 	if (phy_reset_workaround) {
 		Afe_write(state, 0xC81F, 0xD000);
 		reg_val = Afe_read(state, 0xC812);
-	    reg_val &= 0xFF00;
-	    reg_val |= 0x0012;
+		reg_val &= 0xFF00;
+		reg_val |= 0x0012;
 		/* set cmn_pll0_clk_datart1_div/cmn_pll0_clk_datart0_div dividers */
-	    Afe_write(state, 0xC812, reg_val);
+		Afe_write(state, 0xC812, reg_val);
 		/* register PHY_ISO_CMN_CTRL */
 		Afe_write(state, 0xC010, 0x0000);	/* assert PHY reset from isolation register */
 		/* register PHY_PMA_ISO_CMN_CTRL */
@@ -201,7 +201,7 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 		 * Describing Task phy_cfg_hdp
 		 * ------------------------------------------------------------*/
 		/* register PHY_PMA_CMN_CTRL1 */
-	    for (i = 0; i < num_lanes; i++)
+		for (i = 0; i < num_lanes; i++)
 			Afe_write(state, 0x40E8 | (i << 9), 0x007F);
 	}
 	/* register CMN_DIAG_PLL0_TEST_MODE */
@@ -316,7 +316,9 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 		    ("Pixel clock frequency (%u kHz) not supported for this color depth (%0d-bit), row=%d\n",
 		     ftemp, bpp, row);
 	}
-	character_freq_khz = pixel_freq_khz * character_clock_ratio_num / character_clock_ratio_den;
+	character_freq_khz =
+	    pixel_freq_khz * character_clock_ratio_num /
+	    character_clock_ratio_den;
 	ftemp = character_freq_khz;
 	pr_info("Character clock frequency: %u kHz.\n", ftemp);
 
@@ -345,8 +347,7 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 	set_field_value(&cmnda_hs_clk_1_sel,
 			ss28fdsoi_hdmitx_clock_control_table[row]
 			[CMNDA_HS_CLK_1_SEL]);
-	set_field_value(&tx_subrate,
-			ss28fdsoi_hdmitx_clock_control_table[row]
+	set_field_value(&tx_subrate, ss28fdsoi_hdmitx_clock_control_table[row]
 			[HSCLK_DIV_TX_SUB_RATE]);
 	set_field_value(&vco_ring_select,
 			ss28fdsoi_hdmitx_clock_control_table[row]
@@ -357,27 +358,27 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 
 	/* Display parameters (informative message) */
 	pr_info("set_field_value() cmnda_pll0_hs_sym_div_sel : 0x%X\n",
-	       cmnda_pll0_hs_sym_div_sel.value);
+		cmnda_pll0_hs_sym_div_sel.value);
 	pr_info("set_field_value() cmnda_pll0_ip_div         : 0x%02X\n",
-	       cmnda_pll0_ip_div.value);
+		cmnda_pll0_ip_div.value);
 	pr_info("set_field_value() cmnda_pll0_fb_div_low     : 0x%03X\n",
-	       cmnda_pll0_fb_div_low.value);
+		cmnda_pll0_fb_div_low.value);
 	pr_info("set_field_value() cmnda_pll0_fb_div_high    : 0x%03X\n",
-	       cmnda_pll0_fb_div_high.value);
+		cmnda_pll0_fb_div_high.value);
 	pr_info("set_field_value() cmn_ref_clk_dig_div       : 0x%X\n",
-	       cmn_ref_clk_dig_div.value);
+		cmn_ref_clk_dig_div.value);
 	pr_info("set_field_value() divider_scaler            : 0x%X\n",
-	       divider_scaler.value);
+		divider_scaler.value);
 	pr_info("set_field_value() cmnda_hs_clk_0_sel        : %0d\n",
-	       cmnda_hs_clk_0_sel.value);
+		cmnda_hs_clk_0_sel.value);
 	pr_info("set_field_value() cmnda_hs_clk_1_sel        : %0d\n",
-	       cmnda_hs_clk_1_sel.value);
+		cmnda_hs_clk_1_sel.value);
 	pr_info("set_field_value() tx_subrate                : %0d\n",
-	       tx_subrate.value);
+		tx_subrate.value);
 	pr_info("set_field_value() vco_ring_select           : %0d\n",
-	       vco_ring_select.value);
+		vco_ring_select.value);
 	pr_info("set_field_value() pll_feedback_divider_total: %0d\n",
-	       pll_feedback_divider_total.value);
+		pll_feedback_divider_total.value);
 
 	vco_freq_khz =
 	    pixel_freq_khz * pll_feedback_divider_total.value /
@@ -423,17 +424,17 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 
 	/* Display parameters (informative message) */
 	pr_info("set_field_value() voltage_to_current_coarse : 0x%X\n",
-	       voltage_to_current_coarse.value);
+		voltage_to_current_coarse.value);
 	pr_info("set_field_value() voltage_to_current        : 0x%X\n",
-	       voltage_to_current.value);
+		voltage_to_current.value);
 	pr_info("set_field_value() ndac_ctrl                 : 0x%X\n",
-	       ndac_ctrl.value);
+		ndac_ctrl.value);
 	pr_info("set_field_value() pmos_ctrl                 : 0x%02X\n",
-	       pmos_ctrl.value);
+		pmos_ctrl.value);
 	pr_info("set_field_value() ptat_ndac_ctrl            : 0x%02X\n",
-	       ptat_ndac_ctrl.value);
+		ptat_ndac_ctrl.value);
 	pr_info("set_field_value() charge_pump_gain          : 0x%03X\n",
-	       charge_pump_gain.value);
+		charge_pump_gain.value);
 
 	/* ---------------------------------------------------------------
 	 * Describing Task phy_cfg_hdmi_pll0_0pt5736
@@ -560,14 +561,14 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 		}
 	}
 	for (i = 0; i < num_lanes; i++) {
-			/* register TX_PSC_A0 */
-			Afe_write(state, 0x4100 | (i << 9), 0x6791);
-			/* register TX_PSC_A1 */
-			Afe_write(state, 0x4101 | (i << 9), 0x6790);
-			/* register TX_PSC_A2 */
-			Afe_write(state, 0x4102 | (i << 9), 0x0090);
-			/* register TX_PSC_A3 */
-			Afe_write(state, 0x4103 | (i << 9), 0x0090);
+		/* register TX_PSC_A0 */
+		Afe_write(state, 0x4100 | (i << 9), 0x6791);
+		/* register TX_PSC_A1 */
+		Afe_write(state, 0x4101 | (i << 9), 0x6790);
+		/* register TX_PSC_A2 */
+		Afe_write(state, 0x4102 | (i << 9), 0x0090);
+		/* register TX_PSC_A3 */
+		Afe_write(state, 0x4103 | (i << 9), 0x0090);
 	}
 
 	/* register PHY_HDP_MODE_CTL */
@@ -576,12 +577,105 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, VIC_MODES vicMode,
 
 }
 
+static void arc_power_up(state_struct *state)
+{
+	pr_info("arc_power_up()\n");
+
+	/* register CMN_RXCAL_OVRD */
+	Afe_write(state, 0x5025, 0x0001);
+}
+
+static void arc_calibrate(state_struct *state)
+{
+	uint16_t txpu_calib_code;
+	uint16_t txpd_calib_code;
+	uint16_t txpu_adj_calib_code;
+	uint16_t txpd_adj_calib_code;
+	uint16_t prev_calib_code;
+	uint16_t new_calib_code;
+	uint16_t rdata;
+
+	pr_info("aux_cal_cfg() ARC programming\n");
+	/* register TX_DIG_CTRL_REG_2 */
+	prev_calib_code = Afe_read(state, 0x5024);
+	/* register CMN_TXPUCAL_CTRL */
+	txpu_calib_code = Afe_read(state, 0x00E0);
+	/* register CMN_TXPDCAL_CTRL */
+	txpd_calib_code = Afe_read(state, 0x00F0);
+	/* register CMN_TXPU_ADJ_CTRL */
+	txpu_adj_calib_code = Afe_read(state, 0x0108);
+	/* register CMN_TXPD_ADJ_CTRL */
+	txpd_adj_calib_code = Afe_read(state, 0x010c);
+
+	new_calib_code = ((txpu_calib_code + txpd_calib_code) / 2)
+	    + txpu_adj_calib_code + txpd_adj_calib_code;
+
+	if (new_calib_code != prev_calib_code) {
+		/* register TX_ANA_CTRL_REG_1 */
+		rdata = Afe_read(state, 0x5020);
+		rdata &= 0xDFFF;
+		/* register TX_ANA_CTRL_REG_1 */
+		Afe_write(state, 0x5020, rdata);
+		/* register TX_DIG_CTRL_REG_2 */
+		Afe_write(state, 0x5024, new_calib_code);
+		mdelay(10);
+		rdata |= 0x2000;
+		/* register TX_ANA_CTRL_REG_1 */
+		Afe_write(state, 0x5020, rdata);
+		udelay(150);
+	}
+}
+
+static void arc_config(state_struct *state)
+{
+	pr_info("arc_config() ARC programming\n");
+
+	/* register TX_ANA_CTRL_REG_2 */
+	Afe_write(state, 0x5021, 0x0100);
+	udelay(100);
+	/* register TX_ANA_CTRL_REG_2 */
+	Afe_write(state, 0x5021, 0x0300);
+	udelay(100);
+	/* register TX_ANA_CTRL_REG_3 */
+	Afe_write(state, 0x5026, 0x0000);
+	udelay(100);
+	/* register TX_ANA_CTRL_REG_1 */
+	Afe_write(state, 0x5020, 0x2008);
+	udelay(100);
+	/* register TX_ANA_CTRL_REG_1 */
+	Afe_write(state, 0x5020, 0x2018);
+	udelay(100);
+	/* register TX_ANA_CTRL_REG_1 */
+	Afe_write(state, 0x5020, 0x2098);
+	/* register TX_ANA_CTRL_REG_2 */
+	Afe_write(state, 0x5021, 0x030C);
+	/* register TX_ANA_CTRL_REG_5 */
+	Afe_write(state, 0x5029, 0x0000);
+	udelay(100);
+	/* register TX_ANA_CTRL_REG_4 */
+	Afe_write(state, 0x5027, 0x4001);
+	mdelay(5);
+	/* register TX_ANA_CTRL_REG_1 */
+	Afe_write(state, 0x5020, 0x2198);
+	mdelay(5);
+	/* register TX_ANA_CTRL_REG_2 */
+	Afe_write(state, 0x5021, 0x030D);
+	udelay(100);
+	Afe_write(state, 0x5021, 0x030F);
+}
+
 int hdmi_tx_kiran_power_configuration_seq(state_struct *state, int num_lanes)
 {
 	/* Configure the power state. */
 
 	/* PHY_DP_MODE_CTL */
 	while (!(Afe_read(state, 0xC008) & (1 << 6))) ;
+
+#ifdef __ARC_CONFIG__
+	arc_power_up();
+	arc_calibrate();
+	arc_config();
+#endif
 
 	/* PHY_DP_MODE_CTL */
 	Afe_write(state, 0xC008, (((0x0F << num_lanes) & 0x0F) << 12) | 0x0001);

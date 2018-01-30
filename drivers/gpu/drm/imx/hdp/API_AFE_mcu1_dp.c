@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -48,22 +48,54 @@
 #include "API_AFE_mcu1_dp.h"
 #include "../../../../mxc/hdp/all.h"
 
+u8 AFE_check_rate_supported(ENUM_AFE_LINK_RATE rate)
+{
+	switch (rate) {
+	case AFE_LINK_RATE_1_6:
+	case AFE_LINK_RATE_2_1:
+	case AFE_LINK_RATE_2_4:
+	case AFE_LINK_RATE_2_7:
+	case AFE_LINK_RATE_3_2:
+	case AFE_LINK_RATE_4_3:
+	case AFE_LINK_RATE_5_4:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 static void AFE_WriteReg(state_struct *state, ENUM_AFE_LINK_RATE link_rate,
-				u32 addr, u32 val1_6, u32 val2_7, u32 val5_4)
+			 unsigned int addr,
+			 unsigned int val1_6,
+			 unsigned int val2_1,
+			 unsigned int val2_4,
+			 unsigned int val2_7,
+			 unsigned int val3_2,
+			 unsigned int val4_3,
+			 unsigned int val5_4)
 {
 	switch (link_rate) {
 	case AFE_LINK_RATE_1_6:
 		Afe_write(state, addr, val1_6);
 		break;
-
+	case AFE_LINK_RATE_2_1:
+		Afe_write(state, addr, val2_1);
+		break;
+	case AFE_LINK_RATE_2_4:
+		Afe_write(state, addr, val2_4);
+		break;
 	case AFE_LINK_RATE_2_7:
 		Afe_write(state, addr, val2_7);
 		break;
-
+	case AFE_LINK_RATE_3_2:
+		Afe_write(state, addr, val3_2);
+		break;
+	case AFE_LINK_RATE_4_3:
+		Afe_write(state, addr, val4_3);
+		break;
 	case AFE_LINK_RATE_5_4:
 		Afe_write(state, addr, val5_4);
 		break;
-
 	case AFE_LINK_RATE_8_1:	/* Not used in MCU1 */
 	default:
 		pr_err("Warning. Unsupported Link Rate!\n");
@@ -83,43 +115,6 @@ void phy_cfg_24mhz(state_struct *state, int num_lanes)
 }
 
 /* Valid for 24 MHz only */
-void phy_cfg_dp_cmn_pll0(state_struct *state, int num_lanes)
-{
-	int k;
-	volatile u16 rdata;
-
-	Afe_write(state, PHY_HDP_CLK_CTL, 0x2405);
-	Afe_write(state, CMN_PLL0_INTDIV, 0x0086);
-	Afe_write(state, CMN_PLL0_FRACDIV, 0xF915);
-	Afe_write(state, CMN_PLL0_HIGH_THR, 0x0022);
-	Afe_write(state, CMN_PLL0_SS_CTRL1, 0x0140);
-	rdata = Afe_read(state, CMN_DIAG_HSCLK_SEL);
-	rdata = rdata & 0xFFFC;
-	rdata = rdata | 0x0001;
-	Afe_write(state, CMN_DIAG_HSCLK_SEL, rdata);
-	for (k = 0; k < num_lanes; k = k + 1) {
-		rdata = Afe_read(state, (XCVR_DIAG_HSCLK_SEL | (k << 9)));
-		rdata = rdata & 0xCFFF;
-		rdata = rdata | 0x1000;
-		Afe_write(state, (XCVR_DIAG_HSCLK_SEL | (k << 9)), rdata);
-	}
-	Afe_write(state, CMN_PLL0_VCOCAL_START, 0x3061);
-	Afe_write(state, CMN_PLLSM0_USER_DEF_CTRL, 0x0000);
-	Afe_write(state, CMN_DIAG_PLL0_V2I_TUNE, 0x0006);
-	Afe_write(state, CMN_DIAG_PLL0_PTATIS_TUNE1, 0x008c);
-	Afe_write(state, CMN_DIAG_PLL0_PTATIS_TUNE2, 0x002e);
-	Afe_write(state, CMN_DIAG_PLL0_CP_TUNE, 0x0026);
-	Afe_write(state, CMN_DIAG_PLL0_LF_PROG, 0x0008);
-	Afe_write(state, CMN_PLL0_VCOCAL_INIT_TMR, 0x00F0);
-	Afe_write(state, CMN_PLL0_VCOCAL_ITER_TMR, 0x0018);
-	Afe_write(state, CMN_PLL0_SS_CTRL2, 0x7F03);
-	Afe_write(state, CMN_PLL0_DSM_DIAG, 0x0020);
-	Afe_write(state, CMN_DIAG_PLL0_OVRD, 0x0000);
-	Afe_write(state, CMN_DIAG_PLL0_FBH_OVRD, 0x0000);
-	Afe_write(state, CMN_DIAG_PLL0_FBL_OVRD, 0x0000);
-}
-
-/* Valid for 24 MHz only */
 void phy_cfg_dp_pll0(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link_rate)
 {
 	int k;
@@ -130,10 +125,14 @@ void phy_cfg_dp_pll0(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link
 
 	switch (link_rate) {
 	case AFE_LINK_RATE_1_6:
+	case AFE_LINK_RATE_2_1:
+	case AFE_LINK_RATE_2_4:
 	case AFE_LINK_RATE_2_7:
 		rdata = rdata | 0x2400;
 		break;
 
+	case AFE_LINK_RATE_3_2:
+	case AFE_LINK_RATE_4_3:
 	case AFE_LINK_RATE_5_4:
 		rdata = rdata | 0x1200;
 		break;
@@ -149,10 +148,14 @@ void phy_cfg_dp_pll0(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link
 	rdata = rdata & 0xFFCC;
 	switch (link_rate) {
 	case AFE_LINK_RATE_1_6:
+	case AFE_LINK_RATE_2_1:
+	case AFE_LINK_RATE_2_4:
 	case AFE_LINK_RATE_2_7:
 		rdata = rdata | 0x0011;
 		break;
 
+	case AFE_LINK_RATE_3_2:
+	case AFE_LINK_RATE_4_3:
 	case AFE_LINK_RATE_5_4:
 		rdata = rdata | 0x0000;
 		break;
@@ -168,10 +171,14 @@ void phy_cfg_dp_pll0(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link
 		rdata = rdata & 0xCFFF;
 		switch (link_rate) {
 		case AFE_LINK_RATE_1_6:
+		case AFE_LINK_RATE_2_1:
+		case AFE_LINK_RATE_2_4:
 		case AFE_LINK_RATE_2_7:
 			rdata = rdata | 0x1000;
 			break;
 
+		case AFE_LINK_RATE_3_2:
+		case AFE_LINK_RATE_4_3:
 		case AFE_LINK_RATE_5_4:
 			rdata = rdata | 0x0000;
 			break;
@@ -183,34 +190,39 @@ void phy_cfg_dp_pll0(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link
 		}
 		Afe_write(state, (XCVR_DIAG_HSCLK_SEL | (k << 9)), rdata);
 	}
-	AFE_WriteReg(state, link_rate, CMN_PLL0_VCOCAL_START, 0x3061, 0x30D0, 0x30D0);
-	AFE_WriteReg(state, link_rate, CMN_PLLSM0_USER_DEF_CTRL, 0x0000, 0x1000,
-		     0x1000);
-	AFE_WriteReg(state, link_rate, CMN_DIAG_PLL0_V2I_TUNE, 0x0006, 0x0007, 0x0007);
-	Afe_write(state, CMN_DIAG_PLL0_PTATIS_TUNE1, 0x008C);
-	Afe_write(state, CMN_DIAG_PLL0_PTATIS_TUNE2, 0x002E);
-	AFE_WriteReg(state, link_rate, CMN_DIAG_PLL0_CP_TUNE, 0x0026, 0x0029, 0x0029);
-	Afe_write(state, CMN_DIAG_PLL0_LF_PROG, 0x0008);
 	Afe_write(state, CMN_PLL0_VCOCAL_INIT_TMR, 0x00F0);
 	Afe_write(state, CMN_PLL0_VCOCAL_ITER_TMR, 0x0018);
-	AFE_WriteReg(state, link_rate, CMN_PLL0_INTDIV, 0x0086, 0x00E0, 0x00E0);
-	AFE_WriteReg(state, link_rate, CMN_PLL0_FRACDIV, 0xF915, 0xF479, 0xF479);
-	AFE_WriteReg(state, link_rate, CMN_PLL0_HIGH_THR, 0x0022, 0x0038, 0x0038);
-	AFE_WriteReg(state, link_rate, CMN_PLL0_SS_CTRL1, 0x0140, 0x0204, 0x0204);
+	AFE_WriteReg(state, link_rate, CMN_PLL0_VCOCAL_START, 0x3061, 0x3092, 0x30B3, 0x30D0, 0x3061, 0x3092, 0x30D0);
+	AFE_WriteReg(state, link_rate, CMN_PLL0_INTDIV, 0x0086, 0x00B3, 0x00CA, 0x00E0, 0x0086, 0x00B3, 0x00E0);
+	AFE_WriteReg(state, link_rate, CMN_PLL0_FRACDIV, 0xF917, 0xF6C7, 0x75A1, 0xF479, 0xF917, 0xF6C7, 0xF479);
+	AFE_WriteReg(state, link_rate, CMN_PLL0_HIGH_THR, 0x0022, 0x002D, 0x0033, 0x0038, 0x0022, 0x002D, 0x0038);
+#ifdef SSC_ON_INIT
+	AFE_WriteReg(state, link_rate, CMN_PLL0_SS_CTRL1, 0x0140, 0x01AB, 0x01E0, 0x0204, 0x0140, 0x01AB, 0x0204);
 	Afe_write(state, CMN_PLL0_SS_CTRL2, 0x7F03);
+#endif
 	Afe_write(state, CMN_PLL0_DSM_DIAG, 0x0020);
+	AFE_WriteReg(state, link_rate, CMN_PLLSM0_USER_DEF_CTRL, 0x0000, 0x1000, 0x1000, 0x1000, 0x0000, 0x1000, 0x1000);
 	Afe_write(state, CMN_DIAG_PLL0_OVRD, 0x0000);
 	Afe_write(state, CMN_DIAG_PLL0_FBH_OVRD, 0x0000);
 	Afe_write(state, CMN_DIAG_PLL0_FBL_OVRD, 0x0000);
+	AFE_WriteReg(state, link_rate, CMN_DIAG_PLL0_V2I_TUNE, 0x0006, 0x0007, 0x0007, 0x0007, 0x0006, 0x0007, 0x0007);
+	AFE_WriteReg(state, link_rate, CMN_DIAG_PLL0_CP_TUNE, 0x0026, 0x0029, 0x0029, 0x0029, 0x0026, 0x0029, 0x0029);
+	Afe_write(state, CMN_DIAG_PLL0_LF_PROG, 0x0008);
+	Afe_write(state, CMN_DIAG_PLL0_PTATIS_TUNE1, 0x008C);
+	Afe_write(state, CMN_DIAG_PLL0_PTATIS_TUNE2, 0x002E);
 	for (k = 0; k < num_lanes; k = k + 1) {
 		rdata = Afe_read(state, (XCVR_DIAG_PLLDRC_CTRL | (k << 9)));
 		rdata = rdata & 0x8FFF;
 		switch (link_rate) {
 		case AFE_LINK_RATE_1_6:
+		case AFE_LINK_RATE_2_1:
+		case AFE_LINK_RATE_2_4:
 		case AFE_LINK_RATE_2_7:
 			rdata = rdata | 0x2000;
 			break;
 
+		case AFE_LINK_RATE_3_2:
+		case AFE_LINK_RATE_4_3:
 		case AFE_LINK_RATE_5_4:
 			rdata = rdata | 0x1000;
 			break;
@@ -227,12 +239,25 @@ void phy_cfg_dp_pll0(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link
 void phy_cfg_dp_ln(state_struct *state, int num_lanes)
 {
 	int k;
+	u16 rdata;
+
 	for (k = 0; k < num_lanes; k = k + 1) {
 		Afe_write(state, (XCVR_PSM_RCTRL | (k << 9)), 0xBEFC);
-		Afe_write(state, (TX_PSC_A0 | (k << 9)), 0x6799);
-		Afe_write(state, (TX_PSC_A1 | (k << 9)), 0x6798);
-		Afe_write(state, (TX_PSC_A2 | (k << 9)), 0x0098);
-		Afe_write(state, (TX_PSC_A3 | (k << 9)), 0x0098);
+		if (state->edp == 0) {
+			Afe_write(state, (TX_PSC_A0 | (k << 9)), 0x6799);
+			Afe_write(state, (TX_PSC_A1 | (k << 9)), 0x6798);
+			Afe_write(state, (TX_PSC_A2 | (k << 9)), 0x0098);
+			Afe_write(state, (TX_PSC_A3 | (k << 9)), 0x0098);
+		} else {
+			Afe_write(state, (TX_PSC_A0 | (k << 9)), 0x279B);
+			Afe_write(state, (TX_PSC_A1 | (k << 9)), 0x2798);
+			Afe_write(state, (TX_PSC_A2 | (k << 9)), 0x0098);
+			Afe_write(state, (TX_PSC_A3 | (k << 9)), 0x0098);
+			rdata = Afe_read(state, TX_DIAG_TX_DRV | (k << 9));
+			rdata &= 0x0600;	/* keep bits related to programmable boost */
+			rdata |= 0x00C0;
+			Afe_write(state, (TX_DIAG_TX_DRV | (k << 9)), rdata);
+		}
 	}
 }
 
@@ -315,6 +340,12 @@ void AFE_init(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link_rate)
 {
 	volatile u16 val;
 
+	if (AFE_check_rate_supported(link_rate) == 0) {
+		pr_info
+		    ("AFE_init() *E: Selected link rate not supported: 0x%x\n",
+		     link_rate);
+		return;
+	}
 	val = Afe_read(state, PHY_PMA_CMN_CTRL1);
 	val = val & 0xFFF7;
 	val = val | 0x0008;
@@ -332,18 +363,27 @@ void AFE_init(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link_rate)
 	val = val | 0x0030;
 	Afe_write(state, PHY_PMA_CMN_CTRL1, val);
 
+	if (state->edp != 0)
+		Afe_write(state, CMN_DIAG_CAL_CTRL, 0x0001);
+
 	phy_cfg_dp_ln(state, num_lanes);
 
 	/* Configure PHY in A2 Mode */
 	Afe_write(state, PHY_HDP_MODE_CTRL, 0x0004);
-
 }
 
-void AFE_power(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link_rate)
+void AFE_power(state_struct *state, int num_lanes,
+	       ENUM_AFE_LINK_RATE link_rate)
 {
 	static u16 prev_calib_code;
 
 	volatile u16 val;
+	if (AFE_check_rate_supported(link_rate) == 0) {
+		pr_info
+		    ("AFE_power() *E: Selected link rate not supported: 0x%x\n",
+		     link_rate);
+		return;
+	}
 
 	Afe_write(state, TX_DIAG_ACYA_0, 1);
 	Afe_write(state, TX_DIAG_ACYA_1, 1);

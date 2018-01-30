@@ -35,6 +35,8 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
+ * Copyright 2017-2018 NXP
+ *
  ******************************************************************************
  *
  * API_AFE_mcu1_dp.h
@@ -76,6 +78,7 @@
 #define CMN_DIAG_PLL0_PTATIS_TUNE2 0x01C9
 #define CMN_DIAG_PLL0_CP_TUNE 0x01C6
 #define CMN_DIAG_PER_CAL_ADJ 0x01EC
+#define CMN_DIAG_CAL_CTRL 0x01ED
 #define CMN_DIAG_PLL0_LF_PROG 0x01C7
 #define CMN_PLL0_VCOCAL_INIT_TMR 0x0084
 #define CMN_PLL0_VCOCAL_ITER_TMR 0x0085
