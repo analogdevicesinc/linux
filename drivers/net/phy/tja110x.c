@@ -726,7 +726,7 @@ static int nxp_sleep(struct phy_device *phydev)
 
 /* error handling */
 phy_auto_op_error:
-	dev_err(&phydev->mdio.dev, "phy is in auto mode: sleep not possible\n");
+	dev_info(&phydev->mdio.dev, "phy is in auto mode: sleep not possible\n");
 	return 0;
 
 phy_configure_error:
@@ -826,7 +826,7 @@ static int wakeup_from_sleep(struct phy_device *phydev)
 
 /* error handling */
 phy_auto_op_error:
-	dev_err(&phydev->mdio.dev, "phy is in auto mode: wakeup not possible\n");
+	dev_dbg(&phydev->mdio.dev, "phy is in auto mode: wakeup not possible\n");
 	return 0;
 
 phy_configure_error:
@@ -936,7 +936,7 @@ phy_configure_error:
 	return err;
 
 phy_auto_op_error:
-	dev_err(&phydev->mdio.dev, "phy is in auto mode: suspend not possible\n");
+	dev_dbg(&phydev->mdio.dev, "phy is in auto mode: suspend not possible\n");
 	return 0;
 }
 
@@ -1485,7 +1485,7 @@ static ssize_t sysfs_set_loopback_cfg(struct device *dev,
 
 /* error handling */
 phy_auto_op_error:
-	dev_err(&phydev->mdio.dev, "phy is in auto mode: loopback not available\n");
+	dev_info(&phydev->mdio.dev, "phy is in auto mode: loopback not available\n");
 	return count;
 
 phy_parse_error:
@@ -1549,7 +1549,7 @@ static ssize_t sysfs_get_cable_test(struct device *dev,
 
 /* error handling */
 phy_auto_op_error:
-	dev_err(&phydev->mdio.dev, "phy is in auto mode: cabletest not available\n");
+	dev_info(&phydev->mdio.dev, "phy is in auto mode: cabletest not available\n");
 	return 0;
 
 phy_read_error:
@@ -1686,7 +1686,7 @@ static ssize_t sysfs_set_test_mode(struct device *dev,
 
 /* error handling */
 phy_auto_op_error:
-	dev_err(&phydev->mdio.dev, "phy is in auto mode: testmodes not available\n");
+	dev_info(&phydev->mdio.dev, "phy is in auto mode: testmodes not available\n");
 	return count;
 
 phy_parse_error:
