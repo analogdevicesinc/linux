@@ -567,7 +567,7 @@ static int be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 static int imx_wm8962_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct device_node *cpu_np, *codec_np = NULL;
+	struct device_node *cpu_np = NULL, *codec_np = NULL;
 	struct platform_device *cpu_pdev;
 	struct imx_priv *priv = &card_priv;
 	struct i2c_client *codec_dev;
