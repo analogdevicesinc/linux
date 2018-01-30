@@ -1,0 +1,59 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&fec1 {
+	status = "disabled";
+};
+
+&fec2 {
+	pinctrl-0 = <&pinctrl_fec2_rmii>;
+	clocks = <&clk IMX8QXP_ENET1_IPG_CLK>,
+		 <&clk IMX8QXP_ENET1_AHB_CLK>,
+		 <&clk IMX8QXP_ENET1_REF_50MHZ_CLK>,
+		 <&clk IMX8QXP_ENET1_PTP_CLK>,
+		 <&clk IMX8QXP_ENET1_TX_CLK>;
+	phy-mode = "rmii";
+	phy-handle = <&ethphy2>;
+	/delete-property/ phy-supply;
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethphy2: ethernet-phy@5 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <5>;
+			tja110x,refclk_in;
+		};
+	};
+};
+
+&iomuxc {
+	imx8qxp-mek {
+		pinctrl_fec2_rmii: fec2rmiigrp {
+			fsl,pins = <
+				SC_P_ENET0_MDC_CONN_ENET1_MDC			0x06000020
+				SC_P_ENET0_MDIO_CONN_ENET1_MDIO			0x06000020
+				SC_P_ESAI0_FSR_CONN_ENET1_RCLK50M_OUT		0x06000020
+				SC_P_SPDIF0_RX_CONN_ENET1_RGMII_RXD0            0x06000020
+				SC_P_ESAI0_TX3_RX2_CONN_ENET1_RGMII_RXD1        0x06000020
+				SC_P_ESAI0_TX2_RX3_CONN_ENET1_RMII_RX_ER        0x06000020
+				SC_P_SPDIF0_TX_CONN_ENET1_RGMII_RX_CTL          0x06000020
+				SC_P_ESAI0_TX4_RX1_CONN_ENET1_RGMII_TXD0        0x06000020
+				SC_P_ESAI0_TX5_RX0_CONN_ENET1_RGMII_TXD1        0x06000020
+				SC_P_ESAI0_SCKR_CONN_ENET1_RGMII_TX_CTL         0x06000020
+			>;
+		};
+	};
+};

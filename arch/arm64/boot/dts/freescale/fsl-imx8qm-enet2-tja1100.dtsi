@@ -1,0 +1,72 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* fec1 cannot attach to ethphy0 since the PHY address
+ * conflict with ethphy2. So eth0 should not work.
+ * There still enable fec1 to share the MDIO bus for fec2 due
+ * to board limitation.
+ */
+&fec1 {
+	/* PHY address should rework to 2 */
+	phy-handle = <&ethphy2>;
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethphy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <0>;
+			tja110x,refclk_in;
+			/delete-property/ at803x,eee-disabled;
+			/delete-property/ at803x,vddio-1p8v;
+		};
+
+		ethphy2: ethernet-phy@2 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <2>;
+			at803x,eee-disabled;
+			at803x,vddio-1p8v;
+		};
+	};
+};
+
+&fec2 {
+	pinctrl-0 = <&pinctrl_fec2_rmii>;
+	clocks = <&clk IMX8QM_ENET1_IPG_CLK>,
+		 <&clk IMX8QM_ENET1_AHB_CLK>,
+		 <&clk IMX8QM_ENET1_REF_50MHZ_CLK>,
+		 <&clk IMX8QM_ENET1_PTP_CLK>,
+		 <&clk IMX8QM_ENET1_TX_CLK>;
+	phy-mode = "rmii";
+	phy-handle = <&ethphy0>;
+	/delete-property/ phy-supply;
+};
+
+&iomuxc {
+	imx8qm-mek {
+		pinctrl_fec2_rmii: fec2rmiigrp {
+			fsl,pins = <
+				SC_P_ENET1_RGMII_TXC_CONN_ENET1_RCLK50M_OUT	0x06000020
+				SC_P_ENET1_RGMII_RXD0_CONN_ENET1_RGMII_RXD0	0x06000020
+				SC_P_ENET1_RGMII_RXD1_CONN_ENET1_RGMII_RXD1	0x06000020
+				SC_P_ENET1_RGMII_RXD2_CONN_ENET1_RMII_RX_ER	0x06000020
+				SC_P_ENET1_RGMII_RX_CTL_CONN_ENET1_RGMII_RX_CTL	0x06000020
+				SC_P_ENET1_RGMII_TXD0_CONN_ENET1_RGMII_TXD0	0x06000020
+				SC_P_ENET1_RGMII_TXD1_CONN_ENET1_RGMII_TXD1	0x06000020
+				SC_P_ENET1_RGMII_TX_CTL_CONN_ENET1_RGMII_TX_CTL	0x06000020
+			>;
+		};
+	};
+};
