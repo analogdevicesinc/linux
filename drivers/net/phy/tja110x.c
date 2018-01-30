@@ -228,11 +228,6 @@ static int nxp_probe(struct phy_device *phydev)
 
 	phydev->priv = nxp_specific;
 
-	/* init the phy. Should be called from phy framework but is not ? */
-	err = phydev->drv->config_init(phydev);
-	if (err < 0)
-		return err;
-
 	/* register sysfs files */
 	err = sysfs_create_group(&phydev->mdio.dev.kobj, &nxp_attribute_group);
 	if (err)
