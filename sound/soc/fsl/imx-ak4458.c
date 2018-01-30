@@ -35,10 +35,15 @@ static struct snd_soc_dapm_widget imx_ak4458_dapm_widgets[] = {
 static const u32 ak4458_rates[] = {
 	8000, 16000, 32000,
 	48000, 96000, 192000,
+	384000, 768000,
 };
 
 static const u32 ak4458_channels[] = {
 	1, 2, 4, 6, 8, 10, 12, 14, 16,
+};
+
+static const u32 ak4458_channels_tdm[] = {
+	1, 2, 3, 4, 5, 6, 7, 8,
 };
 
 static int imx_aif_hw_params(struct snd_pcm_substream *substream,
@@ -110,6 +115,9 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 static int imx_aif_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct imx_ak4458_data *data = snd_soc_card_get_drvdata(card);
 	static struct snd_pcm_hw_constraint_list constraint_rates;
 	static struct snd_pcm_hw_constraint_list constraint_channels;
 	int ret;
@@ -122,8 +130,14 @@ static int imx_aif_startup(struct snd_pcm_substream *substream)
 	if (ret)
 		return ret;
 
-	constraint_channels.list = ak4458_channels;
-	constraint_channels.count = ARRAY_SIZE(ak4458_channels);
+
+	if (data->tdm_mode) {
+		constraint_channels.list = ak4458_channels_tdm;
+		constraint_channels.count = ARRAY_SIZE(ak4458_channels_tdm);
+	} else {
+		constraint_channels.list = ak4458_channels;
+		constraint_channels.count = ARRAY_SIZE(ak4458_channels);
+	}
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
 						&constraint_channels);
