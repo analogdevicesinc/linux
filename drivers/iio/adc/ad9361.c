@@ -1173,7 +1173,7 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
 {
 	struct spi_device *spi = phy->spi;
 	u8 (*tab)[3];
-	u32 band, index_max, i, lna, lpf_tia_mask;
+	u32 band, index_max, i, lna, lpf_tia_mask, set_gain;
 
 	dev_dbg(&phy->spi->dev, "%s: frequency %llu", __func__, freq);
 
@@ -1192,10 +1192,19 @@ static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
 	ad9361_spi_writef(spi, REG_AGC_CONFIG_2,
 			  AGC_USE_FULL_GAIN_TABLE, !phy->pdata->split_gt);
 
-	ad9361_spi_write(spi, REG_MAX_LMT_FULL_GAIN, index_max - 1); // Max Full/LMT Gain Table Index
-	ad9361_spi_writef(spi, REG_RX1_MANUAL_LMT_FULL_GAIN,
-			  RX_FULL_TBL_IDX_MASK,  index_max - 1); // Rx1 Full/LMT Gain Index
-	ad9361_spi_write(spi, REG_RX2_MANUAL_LMT_FULL_GAIN, index_max - 1); // Rx2 Full/LMT Gain Index
+	ad9361_spi_write(spi, REG_MAX_LMT_FULL_GAIN, index_max - 1); /* Max Full/LMT Gain Table Index */
+
+	set_gain = ad9361_spi_readf(spi, REG_RX1_MANUAL_LMT_FULL_GAIN,
+				    RX_FULL_TBL_IDX_MASK);
+	if (set_gain > (index_max - 1))
+		ad9361_spi_writef(spi, REG_RX1_MANUAL_LMT_FULL_GAIN,
+				  RX_FULL_TBL_IDX_MASK,  index_max - 1); /* Rx1 Full/LMT Gain Index */
+
+	set_gain = ad9361_spi_readf(spi, REG_RX2_MANUAL_LMT_FULL_GAIN,
+				    RX_FULL_TBL_IDX_MASK);
+	if (set_gain > (index_max - 1))
+		ad9361_spi_write(spi, REG_RX2_MANUAL_LMT_FULL_GAIN,
+				 index_max - 1); /* Rx2 Full/LMT Gain Index */
 
 	lna = phy->pdata->elna_ctrl.elna_in_gaintable_all_index_en ?
 		EXT_LNA_CTRL : 0;
