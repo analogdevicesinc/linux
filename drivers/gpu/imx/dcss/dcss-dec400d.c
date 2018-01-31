@@ -134,6 +134,10 @@ void dcss_dec400d_shadow_trig(struct dcss_soc *dcss)
 	uint32_t control;
 	struct dcss_dec400d_priv *dec400d = dcss->dec400d_priv;
 
+	/* do nothing */
+	if (dec400d->bypass == true)
+		return;
+
 	control = dcss_readl(dec400d->dec400d_reg + DEC400D_CONTROL);
 
 	/* Trigger shadow registers */
