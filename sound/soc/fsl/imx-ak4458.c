@@ -38,6 +38,11 @@ static const u32 ak4458_rates[] = {
 	384000, 768000,
 };
 
+static const u32 ak4458_rates_tdm[] = {
+	8000, 16000, 32000,
+	48000, 96000,
+};
+
 static const u32 ak4458_channels[] = {
 	1, 2, 4, 6, 8, 10, 12, 14, 16,
 };
@@ -122,25 +127,25 @@ static int imx_aif_startup(struct snd_pcm_substream *substream)
 	static struct snd_pcm_hw_constraint_list constraint_channels;
 	int ret;
 
-	constraint_rates.list = ak4458_rates;
-	constraint_rates.count = ARRAY_SIZE(ak4458_rates);
-
-	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
-						&constraint_rates);
-	if (ret)
-		return ret;
-
-
 	if (data->tdm_mode) {
 		constraint_channels.list = ak4458_channels_tdm;
 		constraint_channels.count = ARRAY_SIZE(ak4458_channels_tdm);
+		constraint_rates.list = ak4458_rates_tdm;
+		constraint_rates.count = ARRAY_SIZE(ak4458_rates_tdm);
 	} else {
 		constraint_channels.list = ak4458_channels;
 		constraint_channels.count = ARRAY_SIZE(ak4458_channels);
+		constraint_rates.list = ak4458_rates;
+		constraint_rates.count = ARRAY_SIZE(ak4458_rates);
 	}
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
 						&constraint_channels);
+	if (ret)
+		return ret;
+
+	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
+						&constraint_rates);
 	if (ret)
 		return ret;
 
