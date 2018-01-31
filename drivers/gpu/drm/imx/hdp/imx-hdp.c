@@ -710,7 +710,7 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 					     connector);
 	enum drm_mode_status mode_status = MODE_OK;
 	struct drm_cmdline_mode *cmdline_mode;
-	u32 hdp_vic;
+	int hdp_vic;
 
 	cmdline_mode = &connector->cmdline_mode;
 
