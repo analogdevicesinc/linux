@@ -35,8 +35,8 @@
 
 		pinctrl_spdif0: spdif0grp {
 			fsl,pins = <
-				SC_P_SPDIF0_TX_ADMA_SPDIF0_TX	0xc600004c
-				SC_P_SPDIF0_RX_ADMA_SPDIF0_RX	0xc600004c
+				SC_P_SPDIF0_TX_ADMA_SPDIF0_TX	0xc6000040
+				SC_P_SPDIF0_RX_ADMA_SPDIF0_RX	0xc6000040
 			>;
 		};
 
