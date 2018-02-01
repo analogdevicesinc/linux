@@ -1931,9 +1931,16 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
 	int ret;
 
 	if (enable) {
-		ret = clk_prepare_enable(fep->clk_enet_out);
-		if (ret)
-			return ret;
+		if (fep->clk_enet_out) {
+			ret = clk_prepare_enable(fep->clk_enet_out);
+			if (ret)
+				return ret;
+		}
+		if (fep->clk_enet_phy_out) {
+			ret = clk_prepare_enable(fep->clk_enet_phy_out);
+			if (ret)
+				return ret;
+		}
 		if (fep->clk_ptp) {
 			mutex_lock(&fep->ptp_clk_mutex);
 			ret = clk_prepare_enable(fep->clk_ptp);
@@ -3734,6 +3741,11 @@ fec_probe(struct platform_device *pdev)
 	if (IS_ERR(fep->clk_ref))
 		fep->clk_ref = NULL;
 	fep->clk_ref_rate = clk_get_rate(fep->clk_ref);
+
+	/* clk_enet_phy_out is optional, depends on board */
+	fep->clk_enet_phy_out = devm_clk_get(&pdev->dev, "enet_phy_out");
+	if (IS_ERR(fep->clk_enet_phy_out))
+		fep->clk_enet_phy_out = NULL;
 
 	/* clk_2x_txclk is optional, depends on board */
 	fep->clk_2x_txclk = devm_clk_get(&pdev->dev, "enet_2x_txclk");
