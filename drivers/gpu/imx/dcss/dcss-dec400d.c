@@ -118,6 +118,8 @@ void dcss_dec400d_bypass(struct dcss_soc *dcss)
 	uint32_t control;
 	struct dcss_dec400d_priv *dec400d = dcss->dec400d_priv;
 
+	dcss_dec400d_read_config(dcss, 0, false);
+
 	control = dcss_readl(dec400d->dec400d_reg + DEC400D_CONTROL);
 	pr_debug("%s: dec400d control = %#x\n", __func__, control);
 
