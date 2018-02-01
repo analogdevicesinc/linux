@@ -10,6 +10,13 @@ Required properties:
   the second cell is used to specify the gpio polarity:
       0 = active high
       1 = active low
+- interrupt-controller: Marks the device node as an interrupt controller.
+- #interrupt-cells : Should be 2.  The first cell is the GPIO number.
+  The second cell bits[3:0] is used to specify trigger type and level flags:
+      1 = low-to-high edge triggered.
+      2 = high-to-low edge triggered.
+      4 = active high level-sensitive.
+      8 = active low level-sensitive.
 
 Note: Each GPIO port should have an alias correctly numbered in "aliases"
 node.
@@ -26,6 +33,9 @@ rpmsg_gpio0: rpmsg-gpio0 {
 	port_idx = <0>;
 	gpio-controller;
 	#gpio-cells = <2>;
+	#interrupt-cells = <2>;
+	interrupt-controller;
+	interrupt-parent = <&rpmsg_gpio0>;
 	status = "okay";
 };
 
@@ -34,5 +44,14 @@ rpmsg_gpio1: rpmsg-gpio1 {
 	port_idx = <1>;
 	gpio-controller;
 	#gpio-cells = <2>;
+	#interrupt-cells = <2>;
+	interrupt-controller;
+	interrupt-parent = <&rpmsg_gpio1>;
 	status = "okay";
+};
+
+&skeleton_node {
+	interrupt-parent = <&rpmsg_gpio1>;
+	interrupts = <7 2>;
+	wakeup-gpios = <&rpmsg_gpio1 7 GPIO_ACTIVE_LOW>;
 };
