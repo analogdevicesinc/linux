@@ -50,7 +50,7 @@ static void dcss_dec400d_write(struct dcss_dec400d_priv *dec400d,
 			       uint32_t value,
 			       uint32_t offset)
 {
-#if USE_CTXLD
+#if !USE_CTXLD
 	dcss_writel(value, dec400d->dec400d_reg + offset);
 #else
 	dcss_ctxld_write(dec400d->dcss, dec400d->ctx_id,
