@@ -37,7 +37,6 @@ struct ak4497_priv {
 	struct regmap *regmap;
 	int fs1;	/* Sampling Frequency */
 	int nBickFreq;	/* 0: 48fs for 24bit,  1: 64fs or more for 32bit */
-	int nDSDSel;
 	int nTdmSds;
 	int pdn_gpio;
 	int mute_gpio;
@@ -170,9 +169,15 @@ static int ak4497_get_dsdsel(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value  *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
+	u8 dsdsel0, dsdsel1;
 
-	ucontrol->value.enumerated.item[0] = ak4497->nDSDSel;
+	dsdsel0 = snd_soc_read(codec, AK4497_06_DSD1);
+	dsdsel0 &= AK4497_DSDSEL0;
+
+	dsdsel1 = snd_soc_read(codec, AK4497_09_DSD2);
+	dsdsel1 &= AK4497_DSDSEL1;
+
+	ucontrol->value.enumerated.item[0] = ((dsdsel1 << 1) | dsdsel0);
 
 	return 0;
 }
@@ -181,19 +186,27 @@ static int ak4497_set_dsdsel(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value  *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
+	unsigned int dsdsel = ucontrol->value.enumerated.item[0];
 
-	ak4497->nDSDSel = ucontrol->value.enumerated.item[0];
-
-	if (ak4497->nDSDSel == 0) { /* 2.8224MHz */
+	switch (dsdsel) {
+	case 0: /* 2.8224MHz */
 		snd_soc_update_bits(codec, AK4497_06_DSD1, 0x01, 0x00);
 		snd_soc_update_bits(codec, AK4497_09_DSD2, 0x01, 0x00);
-	} else if (ak4497->nDSDSel == 1) { /* 5.6448MHz */
+		break;
+	case 1:  /* 5.6448MHz */
 		snd_soc_update_bits(codec, AK4497_06_DSD1, 0x01, 0x01);
 		snd_soc_update_bits(codec, AK4497_09_DSD2, 0x01, 0x00);
-	} else { /* 11.2896MHz */
+		break;
+	case 2: /* 11.2896MHz */
 		snd_soc_update_bits(codec, AK4497_06_DSD1, 0x01, 0x00);
 		snd_soc_update_bits(codec, AK4497_09_DSD2, 0x01, 0x01);
+		break;
+	case 3: /* 22.5792MHz */
+		snd_soc_update_bits(codec, AK4497_06_DSD1, 0x01, 0x01);
+		snd_soc_update_bits(codec, AK4497_09_DSD2, 0x01, 0x01);
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	return 0;
@@ -873,7 +886,6 @@ static int ak4497_probe(struct snd_soc_codec *codec)
 
 	ak4497->fs1 = 48000;
 	ak4497->nBickFreq = 1;
-	ak4497->nDSDSel = 0;
 	ak4497->nTdmSds = 0;
 
 	return ret;
