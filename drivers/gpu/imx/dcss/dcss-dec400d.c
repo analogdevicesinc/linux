@@ -39,6 +39,7 @@
 struct dcss_dec400d_priv {
 	struct dcss_soc *dcss;
 	void __iomem *dec400d_reg;
+	uint32_t dec400d_reg_base;
 	uint64_t modifier[4];
 	uint32_t pixel_format;
 	uint32_t ctx_id;
@@ -53,7 +54,7 @@ static void dcss_dec400d_write(struct dcss_dec400d_priv *dec400d,
 	dcss_writel(value, dec400d->dec400d_reg + offset);
 #else
 	dcss_ctxld_write(dec400d->dcss, dec400d->ctx_id,
-			 value, dec400d->dec400d_reg + offset);
+			 value, dec400d->dec400d_reg_base + offset);
 #endif
 }
 
@@ -73,6 +74,8 @@ int dcss_dec400d_init(struct dcss_soc *dcss, unsigned long dec400d_base)
 		dev_err(dcss->dev, "dec400d: unable to remap dec400d base\n");
 		return -ENOMEM;
 	}
+
+	dec400d->dec400d_reg_base = dec400d_base;
 
 #if USE_CTXLD
 	dec400d->ctx_id = CTX_SB_HP;
