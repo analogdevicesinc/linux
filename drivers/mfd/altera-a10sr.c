@@ -30,6 +30,10 @@
 
 static const struct mfd_cell altr_a10sr_subdev_info[] = {
 	{
+		.name = "altr_a10sr_hwmon",
+		.of_compatible = "altr,a10sr-hwmon",
+	},
+	{
 		.name = "altr_a10sr_gpio",
 		.of_compatible = "altr,a10sr-gpio",
 	},
