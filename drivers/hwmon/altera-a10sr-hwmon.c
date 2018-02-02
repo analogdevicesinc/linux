@@ -1,4 +1,5 @@
 /*
+ *  Copyright Intel Corporation (C) 2017-2018. All Rights Reserved
  *  Copyright Altera Corporation (C) 2014-2016. All Rights Reserved
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -97,7 +98,6 @@
  * @regmap: the regmap from the parent device.
  */
 struct altr_a10sr_hwmon {
-	struct device		*class_device;
 	struct regmap		*regmap;
 };
 
@@ -127,13 +127,6 @@ static ssize_t altr_a10sr_read_status(struct device *dev,
 		val = !!(val & mask);
 
 	return sprintf(buf, "%d\n", val);
-}
-
-static ssize_t altr_a10sr_hwmon_show_name(struct device *dev,
-					  struct device_attribute *devattr,
-					  char *buf)
-{
-	return sprintf(buf, "altr_a10sr\n");
 }
 
 static ssize_t set_enable(struct device *dev,
@@ -305,10 +298,7 @@ static SENSOR_DEVICE_ATTR(max5_pmbus, S_IRUGO | S_IWUSR,
 			  altr_a10sr_read_status, set_enable,
 			  ALTR_A10SR_PMBUS);
 
-static DEVICE_ATTR(name, S_IRUGO, altr_a10sr_hwmon_show_name, NULL);
-
-static struct attribute *altr_a10sr_attr[] = {
-	&dev_attr_name.attr,
+static struct attribute *altr_a10sr_attrs[] = {
 	/* First Power Good Register */
 	&sensor_dev_attr_opflag_alarm.dev_attr.attr,
 	&sensor_dev_attr_1v8_alarm.dev_attr.attr,
@@ -375,14 +365,12 @@ static struct attribute *altr_a10sr_attr[] = {
 	NULL
 };
 
-static const struct attribute_group altr_a10sr_attr_group = {
-	.attrs = altr_a10sr_attr
-};
+ATTRIBUTE_GROUPS(altr_a10sr);
 
 static int altr_a10sr_hwmon_probe(struct platform_device *pdev)
 {
 	struct altr_a10sr_hwmon *hwmon;
-	int ret;
+	struct device *hwmon_dev;
 	struct altr_a10sr *a10sr = dev_get_drvdata(pdev->dev.parent);
 
 	hwmon = devm_kzalloc(&pdev->dev, sizeof(*hwmon), GFP_KERNEL);
@@ -391,34 +379,10 @@ static int altr_a10sr_hwmon_probe(struct platform_device *pdev)
 
 	hwmon->regmap = a10sr->regmap;
 
-	platform_set_drvdata(pdev, hwmon);
-
-	ret = sysfs_create_group(&pdev->dev.kobj, &altr_a10sr_attr_group);
-	if (ret)
-		goto err_mem;
-
-	hwmon->class_device = hwmon_device_register(&pdev->dev);
-	if (IS_ERR(hwmon->class_device)) {
-		ret = PTR_ERR(hwmon->class_device);
-		goto err_sysfs;
-	}
-
-	return 0;
-
-err_sysfs:
-	sysfs_remove_group(&pdev->dev.kobj, &altr_a10sr_attr_group);
-err_mem:
-	return ret;
-}
-
-static int altr_a10sr_hwmon_remove(struct platform_device *pdev)
-{
-	struct altr_a10sr_hwmon *hwmon = platform_get_drvdata(pdev);
-
-	hwmon_device_unregister(hwmon->class_device);
-	sysfs_remove_group(&pdev->dev.kobj, &altr_a10sr_attr_group);
-
-	return 0;
+	hwmon_dev = devm_hwmon_device_register_with_groups(&pdev->dev,
+							   "a10sr_hwmon", hwmon,
+							   altr_a10sr_groups);
+	return PTR_ERR_OR_ZERO(hwmon_dev);
 }
 
 static const struct of_device_id altr_a10sr_hwmon_of_match[] = {
@@ -429,7 +393,6 @@ MODULE_DEVICE_TABLE(of, altr_a10sr_hwmon_of_match);
 
 static struct platform_driver altr_a10sr_hwmon_driver = {
 	.probe = altr_a10sr_hwmon_probe,
-	.remove = altr_a10sr_hwmon_remove,
 	.driver = {
 		.name = "altr_a10sr_hwmon",
 		.of_match_table = of_match_ptr(altr_a10sr_hwmon_of_match),
