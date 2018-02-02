@@ -226,5 +226,8 @@ struct imx_hdp {
 };
 
 u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width);
+void imx_arc_power_up(state_struct *state);
+void imx_arc_calibrate(state_struct *state);
+void imx_arc_config(state_struct *state);
 
 #endif
