@@ -23,7 +23,7 @@
 #ifdef DEBUG_FW_LOAD
 void dp_fw_load(state_struct *state)
 {
-	pr_info("loading hdmi firmware\n");
+	DRM_INFO("loading hdmi firmware\n");
 	CDN_API_LoadFirmware(state,
 		(u8 *)mhdp_iram0_get_ptr(),
 		mhdp_iram0_get_size(),
@@ -47,33 +47,33 @@ int dp_fw_init(state_struct *state)
 	pr_info("CDN_API_SetClock completed\n");
 
 	cdn_apb_write(state, APB_CTRL << 2, 0);
-	pr_info("Started firmware!\n");
+	DRM_INFO("Started firmware!\n");
 
 	ret = CDN_API_CheckAlive_blocking(state);
 	if (ret != 0) {
-		pr_err("CDN_API_CheckAlive failed - check firmware!\n");
+		DRM_ERROR("CDN_API_CheckAlive failed - check firmware!\n");
 		return -ENXIO;
 	} else
-		pr_info("CDN_API_CheckAlive returned ret = %d\n", ret);
+		DRM_INFO("CDN_API_CheckAlive returned ret = %d\n", ret);
 
 	/* turn on IP activity */
 	ret = CDN_API_MainControl_blocking(state, 1, &resp);
-	pr_info("CDN_API_MainControl_blocking (ret = %d resp = %u)\n",
+	DRM_INFO("CDN_API_MainControl_blocking (ret = %d resp = %u)\n",
 		ret, resp);
 
 	ret = CDN_API_General_Test_Echo_Ext_blocking(state, echo_msg, echo_resp,
 		sizeof(echo_msg), CDN_BUS_TYPE_APB);
 	if (0 != strncmp(echo_msg, echo_resp, sizeof(echo_msg))) {
-		pr_err("CDN_API_General_Test_Echo_Ext_blocking - echo test failed, check firmware!");
+		DRM_ERROR("CDN_API_General_Test_Echo_Ext_blocking - echo test failed, check firmware!");
 		return -ENXIO;
 	}
-	pr_info("CDN_API_General_Test_Echo_Ext_blocking (ret = %d echo_resp = %s)\n",
+	DRM_INFO("CDN_API_General_Test_Echo_Ext_blocking (ret = %d echo_resp = %s)\n",
 		ret, echo_resp);
 
 	/* Line swaping */
 	CDN_API_General_Write_Register_blocking(state,
 		ADDR_SOURCD_PHY + (LANES_CONFIG << 2), 0x0040001b);
-	pr_info("CDN_API_General_Write_Register_blockin ... setting LANES_CONFIG\n");
+	DRM_INFO("CDN_API_General_Write_Register_blockin ... setting LANES_CONFIG\n");
 
 	return 0;
 }
@@ -90,19 +90,19 @@ int dp_phy_init(state_struct *state, int vic, int format, int color_depth)
 
 	/* PHY initialization while phy reset pin is active */
 	AFE_init(state, num_lanes, (ENUM_AFE_LINK_RATE)max_link_rate);
-	pr_info("AFE_init\n");
+	DRM_INFO("AFE_init\n");
 
 	/* In this point the phy reset should be deactivated */
 	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 1);
-	pr_info("deasserted reset\n");
+	DRM_INFO("deasserted reset\n");
 
 	/* PHY power set */
 	AFE_power(state, num_lanes, (ENUM_AFE_LINK_RATE)max_link_rate);
-	pr_info("AFE_power exit\n");
+	DRM_INFO("AFE_power exit\n");
 
 	/* Video off */
 	ret = CDN_API_DPTX_SetVideo_blocking(state, 0);
-	pr_info("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
+	DRM_INFO("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
 
 	return true;
 }
@@ -151,7 +151,7 @@ void dp_mode_set(state_struct *state, int vic, int format, int color_depth, int 
 		lane_mapping,
 		ext_host_cap
 		);
-	pr_info("CDN_API_DPTX_SetHostCap_blocking (ret = %d)\n", ret);
+	DRM_INFO("CDN_API_DPTX_SetHostCap_blocking (ret = %d)\n", ret);
 
 	switch (max_link_rate) {
 	case 0x0a:
@@ -174,14 +174,14 @@ void dp_mode_set(state_struct *state, int vic, int format, int color_depth, int 
 		bt_type,
 		transfer_unit
 		);
-	pr_info("CDN_API_DPTX_Set_VIC_blocking (ret = %d)\n", ret);
+	DRM_INFO("CDN_API_DPTX_Set_VIC_blocking (ret = %d)\n", ret);
 
 	ret = CDN_API_DPTX_TrainingControl_blocking(state, 1);
-	pr_info("CDN_API_DPTX_TrainingControl_blocking (ret = %d)\n", ret);
+	DRM_INFO("CDN_API_DPTX_TrainingControl_blocking (ret = %d)\n", ret);
 
 	/* Set video on */
 	ret = CDN_API_DPTX_SetVideo_blocking(state, 1);
-	pr_info("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
+	DRM_INFO("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
 
 	udelay(1000);
 }
@@ -207,7 +207,7 @@ int dp_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
 		ret = CDN_API_DPTX_Read_EDID_blocking(state, 1, 1, &edidResp);
 		break;
 	default:
-		pr_warn("EDID block %x read not support\n", block);
+		DRM_WARN("EDID block %x read not support\n", block);
 	}
 
 	memcpy(buf, edidResp.buff, 128);

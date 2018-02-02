@@ -25,7 +25,7 @@ static int character_freq_khz;
 #ifdef DEBUG_FW_LOAD
 void hdmi_fw_load(state_struct *state)
 {
-	pr_info("loading hdmi firmware\n");
+	DRM_INFO("loading hdmi firmware\n");
 	CDN_API_LoadFirmware(state,
 		(u8 *)hdmitx_iram0_get_ptr(),
 		hdmitx_iram0_get_size(),
@@ -50,27 +50,27 @@ int hdmi_fw_init(state_struct *state)
 
 	/* moved from CDN_API_LoadFirmware */
 	cdn_apb_write(state, APB_CTRL << 2, 0);
-	pr_info("Started firmware!\n");
+	DRM_INFO("Started firmware!\n");
 
 	ret = CDN_API_CheckAlive_blocking(state);
 	if (ret != 0) {
-		pr_err("CDN_API_CheckAlive failed - check firmware!\n");
+		DRM_ERROR("CDN_API_CheckAlive failed - check firmware!\n");
 		return -ENXIO;
 	} else
-		pr_info("CDN_API_CheckAlive returned ret = %d\n", ret);
+		DRM_INFO("CDN_API_CheckAlive returned ret = %d\n", ret);
 
 	/* turn on IP activity */
 	ret = CDN_API_MainControl_blocking(state, 1, &sts);
-	pr_info("CDN_API_MainControl_blocking ret = %d sts = %u\n", ret, sts);
+	DRM_INFO("CDN_API_MainControl_blocking ret = %d sts = %u\n", ret, sts);
 
 	ret = CDN_API_General_Test_Echo_Ext_blocking(state, echo_msg, echo_resp,
 		 sizeof(echo_msg), CDN_BUS_TYPE_APB);
 
 	if (0 != strncmp(echo_msg, echo_resp, sizeof(echo_msg))) {
-		pr_err("CDN_API_General_Test_Echo_Ext_blocking - echo test failed, check firmware!");
+		DRM_ERROR("CDN_API_General_Test_Echo_Ext_blocking - echo test failed, check firmware!");
 		return -ENXIO;
 	}
-	pr_info("CDN_API_General_Test_Echo_Ext_blocking - APB(ret = %d echo_resp = %s)\n",
+	DRM_INFO("CDN_API_General_Test_Echo_Ext_blocking - APB(ret = %d echo_resp = %s)\n",
 		  ret, echo_resp);
 
 	return 0;
@@ -96,7 +96,7 @@ int hdmi_phy_init(state_struct *state, int vic, int format, int color_depth)
 		F_SOURCE_PHY_LANE0_SWAP(3) | F_SOURCE_PHY_LANE1_SWAP(0) |
 		F_SOURCE_PHY_LANE2_SWAP(1) | F_SOURCE_PHY_LANE3_SWAP(2) |
 		F_SOURCE_PHY_COMB_BYPASS(0) | F_SOURCE_PHY_20_10(1));
-	pr_info("CDN_API_General_Write_Register_blocking LANES_CONFIG ret = %d\n", ret);
+	DRM_INFO("CDN_API_General_Write_Register_blocking LANES_CONFIG ret = %d\n", ret);
 
 	return true;
 }
@@ -115,26 +115,26 @@ void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, in
 
 	ret = CDN_API_HDMITX_Init_blocking(state);
 	if (ret != CDN_OK) {
-		pr_info("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
+		DRM_INFO("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
 		return;
 	}
 
 	/* Set HDMI TX Mode */
 	ret = CDN_API_HDMITX_Set_Mode_blocking(state, ptype, character_freq_khz);
 	if (ret != CDN_OK) {
-		pr_info("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
+		DRM_INFO("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
 		return;
 	}
 
 	ret = CDN_API_Set_AVI(state, vic, format, bw_type);
 	if (ret != CDN_OK) {
-		pr_info("CDN_API_Set_AVI  ret = %d\n", ret);
+		DRM_INFO("CDN_API_Set_AVI  ret = %d\n", ret);
 		return;
 	}
 
 	ret =  CDN_API_HDMITX_SetVic_blocking(state, vic, color_depth, format);
 	if (ret != CDN_OK) {
-		pr_info("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
+		DRM_INFO("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
 		return;
 	}
 
@@ -153,7 +153,7 @@ int hdmi_phy_init_t28hpc(state_struct *state, int vic, int format, int color_dep
 
 	ret = CDN_API_CheckAlive_blocking(state);
 	if (ret != 0) {
-		pr_err("NO HDMI FW running\n");
+		DRM_ERROR("NO HDMI FW running\n");
 		return -ENXIO;
 	}
 
@@ -161,7 +161,7 @@ int hdmi_phy_init_t28hpc(state_struct *state, int vic, int format, int color_dep
 						     sizeof(echo_msg),
 						     CDN_BUS_TYPE_APB);
 	if (ret != 0) {
-		pr_err("HDMI mailbox access failed\n");
+		DRM_ERROR("HDMI mailbox access failed\n");
 		return -ENXIO;
 	}
 
@@ -181,7 +181,7 @@ int hdmi_phy_init_t28hpc(state_struct *state, int vic, int format, int color_dep
 						    F_SOURCE_PHY_LANE3_SWAP(3) |
 						    F_SOURCE_PHY_COMB_BYPASS(0)
 						    | F_SOURCE_PHY_20_10(1));
-	pr_info
+	DRM_INFO
 	    ("CDN_API_General_Write_Register_blocking LANES_CONFIG ret = %d\n",
 	     ret);
 
@@ -204,26 +204,26 @@ void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_de
 
 	ret = CDN_API_HDMITX_Init_blocking(state);
 	if (ret != CDN_OK) {
-		pr_info("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
+		DRM_ERROR("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
 		return;
 	}
 
 	/* Set HDMI TX Mode */
 	ret = CDN_API_HDMITX_Set_Mode_blocking(state, ptype, character_freq_khz);
 	if (ret != CDN_OK) {
-		pr_info("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
+		DRM_ERROR("CDN_API_HDMITX_Set_Mode_blocking ret = %d\n", ret);
 		return;
 	}
 
 	ret = CDN_API_Set_AVI(state, vic, format, bw_type);
 	if (ret != CDN_OK) {
-		pr_info("CDN_API_Set_AVI  ret = %d\n", ret);
+		DRM_ERROR("CDN_API_Set_AVI  ret = %d\n", ret);
 		return;
 	}
 
 	ret = CDN_API_HDMITX_SetVic_blocking(state, vic, color_depth, format);
 	if (ret != CDN_OK) {
-		pr_info("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
+		DRM_ERROR("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
 		return;
 	}
 

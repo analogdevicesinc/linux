@@ -44,6 +44,7 @@
  ******************************************************************************
  */
 
+#include <drm/drmP.h>
 #include <linux/io.h>
 #include "API_AFE_ss28fdsoi_kiran_hdmitx.h"
 #include "ss28fdsoi_hdmitx_table.h"
@@ -175,7 +176,7 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
 	charge_pump_gain.msb = 8;
 	charge_pump_gain.lsb = 0;
 
-	pr_info
+	DRM_INFO
 	    ("phy_cfg_hdp() num_lanes: %0d, vicMode: %0d, color depth: %0d-bit, encoding: %0d\n",
 	     num_lanes, vicMode, bpp, format);
 
@@ -308,11 +309,11 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
 	/* Check if row was found */
 	ftemp = pixel_freq_khz;
 	if (row + 1) {
-		pr_info
+		DRM_INFO
 		    ("Pixel clock frequency (%u kHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
 		     ftemp, bpp, row);
 	} else {
-		pr_info
+		DRM_INFO
 		    ("Pixel clock frequency (%u kHz) not supported for this color depth (%0d-bit), row=%d\n",
 		     ftemp, bpp, row);
 	}
@@ -320,7 +321,7 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
 	    pixel_freq_khz * character_clock_ratio_num /
 	    character_clock_ratio_den;
 	ftemp = character_freq_khz;
-	pr_info("Character clock frequency: %u kHz.\n", ftemp);
+	DRM_INFO("Character clock frequency: %u kHz.\n", ftemp);
 
 	/* Extract particular values from the ss28fdsoi_hdmitx_clock_control_table table */
 	set_field_value(&cmnda_pll0_hs_sym_div_sel,
@@ -357,27 +358,27 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
 			[PLL_FB_DIV_TOTAL]);
 
 	/* Display parameters (informative message) */
-	pr_info("set_field_value() cmnda_pll0_hs_sym_div_sel : 0x%X\n",
+	DRM_DEBUG("set_field_value() cmnda_pll0_hs_sym_div_sel : 0x%X\n",
 		cmnda_pll0_hs_sym_div_sel.value);
-	pr_info("set_field_value() cmnda_pll0_ip_div         : 0x%02X\n",
+	DRM_DEBUG("set_field_value() cmnda_pll0_ip_div         : 0x%02X\n",
 		cmnda_pll0_ip_div.value);
-	pr_info("set_field_value() cmnda_pll0_fb_div_low     : 0x%03X\n",
+	DRM_DEBUG("set_field_value() cmnda_pll0_fb_div_low     : 0x%03X\n",
 		cmnda_pll0_fb_div_low.value);
-	pr_info("set_field_value() cmnda_pll0_fb_div_high    : 0x%03X\n",
+	DRM_DEBUG("set_field_value() cmnda_pll0_fb_div_high    : 0x%03X\n",
 		cmnda_pll0_fb_div_high.value);
-	pr_info("set_field_value() cmn_ref_clk_dig_div       : 0x%X\n",
+	DRM_DEBUG("set_field_value() cmn_ref_clk_dig_div       : 0x%X\n",
 		cmn_ref_clk_dig_div.value);
-	pr_info("set_field_value() divider_scaler            : 0x%X\n",
+	DRM_DEBUG("set_field_value() divider_scaler            : 0x%X\n",
 		divider_scaler.value);
-	pr_info("set_field_value() cmnda_hs_clk_0_sel        : %0d\n",
+	DRM_DEBUG("set_field_value() cmnda_hs_clk_0_sel        : %0d\n",
 		cmnda_hs_clk_0_sel.value);
-	pr_info("set_field_value() cmnda_hs_clk_1_sel        : %0d\n",
+	DRM_DEBUG("set_field_value() cmnda_hs_clk_1_sel        : %0d\n",
 		cmnda_hs_clk_1_sel.value);
-	pr_info("set_field_value() tx_subrate                : %0d\n",
+	DRM_DEBUG("set_field_value() tx_subrate                : %0d\n",
 		tx_subrate.value);
-	pr_info("set_field_value() vco_ring_select           : %0d\n",
+	DRM_DEBUG("set_field_value() vco_ring_select           : %0d\n",
 		vco_ring_select.value);
-	pr_info("set_field_value() pll_feedback_divider_total: %0d\n",
+	DRM_DEBUG("set_field_value() pll_feedback_divider_total: %0d\n",
 		pll_feedback_divider_total.value);
 
 	vco_freq_khz =
@@ -398,11 +399,11 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
 			  pll_feedback_divider_total.value);
 	ftemp = vco_freq_khz;
 	if (row + 1) {
-		pr_info
+		DRM_INFO
 		    ("VCO frequency (%u kHz) is supported. Settings found in row %0d\n",
 		     ftemp, row);
 	} else {
-		pr_info("VCO frequency (%u kHz) not supported\n", ftemp);
+		DRM_INFO("VCO frequency (%u kHz) not supported\n", ftemp);
 	}
 
 	/* Extract particular values from the ss28fdsoi_hdmitx_pll_tuning_table table */
@@ -423,17 +424,17 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
 			[CHARGE_PUMP_GAIN]);
 
 	/* Display parameters (informative message) */
-	pr_info("set_field_value() voltage_to_current_coarse : 0x%X\n",
+	DRM_DEBUG("set_field_value() voltage_to_current_coarse : 0x%X\n",
 		voltage_to_current_coarse.value);
-	pr_info("set_field_value() voltage_to_current        : 0x%X\n",
+	DRM_DEBUG("set_field_value() voltage_to_current        : 0x%X\n",
 		voltage_to_current.value);
-	pr_info("set_field_value() ndac_ctrl                 : 0x%X\n",
+	DRM_DEBUG("set_field_value() ndac_ctrl                 : 0x%X\n",
 		ndac_ctrl.value);
-	pr_info("set_field_value() pmos_ctrl                 : 0x%02X\n",
+	DRM_DEBUG("set_field_value() pmos_ctrl                 : 0x%02X\n",
 		pmos_ctrl.value);
-	pr_info("set_field_value() ptat_ndac_ctrl            : 0x%02X\n",
+	DRM_DEBUG("set_field_value() ptat_ndac_ctrl            : 0x%02X\n",
 		ptat_ndac_ctrl.value);
-	pr_info("set_field_value() charge_pump_gain          : 0x%03X\n",
+	DRM_DEBUG("set_field_value() charge_pump_gain          : 0x%03X\n",
 		charge_pump_gain.value);
 
 	/* ---------------------------------------------------------------
@@ -579,7 +580,7 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
 
 static void arc_power_up(state_struct *state)
 {
-	pr_info("arc_power_up()\n");
+	DRM_DEBUG("arc_power_up()\n");
 
 	/* register CMN_RXCAL_OVRD */
 	Afe_write(state, 0x5025, 0x0001);
@@ -595,7 +596,7 @@ static void arc_calibrate(state_struct *state)
 	uint16_t new_calib_code;
 	uint16_t rdata;
 
-	pr_info("aux_cal_cfg() ARC programming\n");
+	DRM_DEBUG("aux_cal_cfg() ARC programming\n");
 	/* register TX_DIG_CTRL_REG_2 */
 	prev_calib_code = Afe_read(state, 0x5024);
 	/* register CMN_TXPUCAL_CTRL */
@@ -628,7 +629,7 @@ static void arc_calibrate(state_struct *state)
 
 static void arc_config(state_struct *state)
 {
-	pr_info("arc_config() ARC programming\n");
+	DRM_DEBUG("arc_config() ARC programming\n");
 
 	/* register TX_ANA_CTRL_REG_2 */
 	Afe_write(state, 0x5021, 0x0100);
@@ -672,9 +673,9 @@ int hdmi_tx_kiran_power_configuration_seq(state_struct *state, int num_lanes)
 	while (!(Afe_read(state, 0xC008) & (1 << 6))) ;
 
 #ifdef __ARC_CONFIG__
-	arc_power_up();
-	arc_calibrate();
-	arc_config();
+	arc_power_up(state);
+	arc_calibrate(state);
+	arc_config(state);
 #endif
 
 	/* PHY_DP_MODE_CTL */

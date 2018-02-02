@@ -44,6 +44,7 @@
  ******************************************************************************
  */
 
+#include <drm/drmP.h>
 #include "API_AFE_t28hpc_hdmitx.h"
 
 static char inside(u32 value, u32 left_sharp_corner,
@@ -119,7 +120,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 	cmnda_pll0_fb_div_high.value = 0x00A;
 	ftemp = pixel_freq_khz;
 
-	pr_info(" VIC %d, pixel clock %u kHz\n", vicMode, ftemp);
+	DRM_INFO(" VIC %d, pixel clock %u kHz\n", vicMode, ftemp);
 
 	/* Set field position */
 	cmnda_pll0_hs_sym_div_sel.msb = 9;
@@ -227,7 +228,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 			character_clock_ratio_den = 1;
 			break;
 		default:
-			pr_warn("Invalid ColorDepth\n");
+			DRM_WARN("Invalid ColorDepth\n");
 		}
 		break;
 
@@ -260,7 +261,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 	    character_clock_ratio_num / character_clock_ratio_den;
 	ftemp = pixel_freq_khz;
 	ftemp2 = character_freq_khz;
-	pr_info
+	DRM_INFO
 	    ("Pixel clock frequency: %u kHz, character clock frequency: %u, color depth is %0d-bit.\n",
 	     ftemp, ftemp2, bpp);
 	if (pixel_clk_from_phy == 0) {
@@ -348,7 +349,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 						400);
 			} else {
 				ftemp = pixel_freq_khz;
-				pr_warn
+				DRM_WARN
 				    ("Pixel clock frequency (%u) is outside of the supported range\n",
 				     ftemp);
 			}
@@ -422,7 +423,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 						400);
 			} else {
 				ftemp = pixel_freq_khz;
-				pr_info
+				DRM_ERROR
 				    ("Pixel clock frequency (%u) is outside of the supported range\n",
 				     ftemp);
 			}
@@ -495,7 +496,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 						360);
 			} else {
 				ftemp = pixel_freq_khz;
-				pr_info
+				DRM_ERROR
 				    ("Pixel clock frequency (%u) is outside of the supported range\n",
 				     ftemp);
 			}
@@ -555,7 +556,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 						400);
 			} else {
 				ftemp = pixel_freq_khz;
-				pr_info
+				DRM_ERROR
 				    ("Pixel clock frequency (%u) is outside of the supported range\n",
 				     ftemp);
 			}
@@ -563,7 +564,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 		case CLK_RATIO_1_2:
 			if (!(inside(pixel_freq_khz, 594000, 594000))) {
 				ftemp = pixel_freq_khz;
-				pr_info
+				DRM_ERROR
 				    ("Pixel clock frequency (%u) is outside of the supported range\n",
 				     ftemp);
 			} else {
@@ -584,7 +585,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 		case CLK_RATIO_5_8:
 			if (!(inside(pixel_freq_khz, 594000, 594000))) {
 				ftemp = pixel_freq_khz;
-				pr_info
+				DRM_ERROR
 				    ("Pixel clock frequency (%u) is outside of the supported range\n",
 				     ftemp);
 			} else {
@@ -605,7 +606,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 		case CLK_RATIO_3_4:
 			if (!(inside(pixel_freq_khz, 594000, 594000))) {
 				ftemp = pixel_freq_khz;
-				pr_info
+				DRM_ERROR
 				    ("Pixel clock frequency (%u) is outside of the supported range\n",
 				     ftemp);
 			} else {
@@ -628,7 +629,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 		    pixel_freq_khz * pll_feedback_divider_total.value /
 		    cmnda_pll0_ip_div.value;
 		ftemp = vco_freq;
-		pr_info("VCO frequency is %u kHz\n", ftemp);
+		DRM_INFO("VCO frequency is %u kHz\n", ftemp);
 
 		if (inside(vco_freq, 1700000, 2000000)) {
 			set_field_value(&voltage_to_current_coarse, 0x04);
@@ -659,7 +660,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				set_field_value(&charge_pump_gain, 0xA2);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
 				     pll_feedback_divider_total.value, ftemp);
 			}
@@ -692,7 +693,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				set_field_value(&charge_pump_gain, 0x84);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
 				     pll_feedback_divider_total.value, ftemp);
 			}
@@ -725,7 +726,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				set_field_value(&charge_pump_gain, 0x81);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
 				     pll_feedback_divider_total.value, ftemp);
 			}
@@ -758,7 +759,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				set_field_value(&charge_pump_gain, 0x46);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
 				     pll_feedback_divider_total.value, ftemp);
 			}
@@ -779,7 +780,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				set_field_value(&charge_pump_gain, 0x85);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
 				     pll_feedback_divider_total.value, ftemp);
 			}
@@ -800,7 +801,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				set_field_value(&charge_pump_gain, 0x82);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
 				     pll_feedback_divider_total.value, ftemp);
 			}
@@ -818,7 +819,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				set_field_value(&charge_pump_gain, 0x4A);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
 				     pll_feedback_divider_total.value, ftemp);
 			}
@@ -836,12 +837,12 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				set_field_value(&charge_pump_gain, 0x45);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
 				     pll_feedback_divider_total.value, ftemp);
 			}
 		} else
-			pr_warn
+			DRM_WARN
 			    ("VCO frequency %u kHz is outside of the supported range\n",
 			     ftemp);
 
@@ -1415,7 +1416,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 				break;
 			default:
 				ftemp = pixel_freq_khz;
-				pr_warn
+				DRM_WARN
 				    ("This pixel clock frequency (%u kHz) is not supported with this (%0d-bit) color depth.\n",
 				     ftemp, bpp);
 			}
@@ -1494,13 +1495,13 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 						0x00);
 				break;
 			default:
-				pr_warn
+				DRM_WARN
 				    ("This pixel clock frequency (%d KHz) is not supported with this (%0d-bit) color depth.\n",
 				     pixel_freq_khz, bpp);
 			}
 		} else {
 			ftemp = pixel_freq_khz;
-			pr_warn
+			DRM_WARN
 			    ("This pixel clock frequency (%u kHz) is not supported.\n",
 			     ftemp);
 		}
@@ -1509,7 +1510,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 		    refclk_freq_khz * pll_feedback_divider_total.value /
 		    cmnda_pll0_ip_div.value;
 		ftemp = vco_freq;
-		pr_info("VCO frequency is %u kHz\n", ftemp);
+		DRM_INFO("VCO frequency is %u kHz\n", ftemp);
 
 		if (inside(vco_freq, 1980000, 1980000)) {
 			set_field_value(&voltage_to_current_coarse, 0x04);
@@ -1654,7 +1655,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 			set_field_value(&vco_cal_code, 292);
 		} else {
 			ftemp = vco_freq;
-			pr_warn("Current vco_freq (%u kHz) is not supported.\n",
+			DRM_WARN("Current vco_freq (%u kHz) is not supported.\n",
 			       ftemp);
 		}
 
@@ -1826,7 +1827,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 
 static void arc_power_up(state_struct *state)
 {
-	pr_info("arc_power_up()\n");
+	DRM_DEBUG("arc_power_up()\n");
 
 	/* register CMN_RXCAL_OVRD */
 	Afe_write(state, 0x5025, 0x0001);
@@ -1842,7 +1843,7 @@ static void arc_calibrate(state_struct *state)
 	uint16_t new_calib_code;
 	uint16_t rdata;
 
-	pr_info("aux_cal_cfg() ARC programming\n");
+	DRM_DEBUG("aux_cal_cfg() ARC programming\n");
 	/* register TX_DIG_CTRL_REG_2 */
 	prev_calib_code = Afe_read(state, 0x5024);
 	/* register CMN_TXPUCAL_CTRL */
@@ -1875,7 +1876,7 @@ static void arc_calibrate(state_struct *state)
 
 static void arc_config(state_struct *state)
 {
-	pr_info("arc_config() ARC programming\n");
+	DRM_DEBUG("arc_config() ARC programming\n");
 
 	/* register TX_ANA_CTRL_REG_2 */
 	Afe_write(state, 0x5021, 0x0100);

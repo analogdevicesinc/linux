@@ -92,7 +92,7 @@ static int select_N_index(int vmode_index)
 	}
 
 	if (i == VIC_MODE_COUNT) {
-		pr_err("vmode is wrong!\n");
+		DRM_ERROR("vmode is wrong!\n");
 		j = 7;
 		return j;
 	}
@@ -208,13 +208,13 @@ int imx8qm_pixel_link_init(state_struct *state)
 
 	sciErr = sc_ipc_getMuID(&hdp->mu_id);
 	if (sciErr != SC_ERR_NONE) {
-		pr_err("Cannot obtain MU ID\n");
+		DRM_ERROR("Cannot obtain MU ID\n");
 		return -EINVAL;
 	}
 
 	sciErr = sc_ipc_open(&hdp->ipcHndl, hdp->mu_id);
 	if (sciErr != SC_ERR_NONE) {
-		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		DRM_ERROR("sc_ipc_open failed! (sciError = %d)\n", sciErr);
 		return -EINVAL;
 	}
 
@@ -244,7 +244,7 @@ void imx8qm_phy_reset(sc_ipc_t ipcHndl, u8 reset)
 	/* set the pixel link mode and pixel type */
 	sciErr = sc_misc_set_control(ipcHndl, SC_R_HDMI, SC_C_PHY_RESET, reset);
 	if (sciErr != SC_ERR_NONE)
-		pr_err("SC_R_HDMI PHY reset failed %d!\n", sciErr);
+		DRM_ERROR("SC_R_HDMI PHY reset failed %d!\n", sciErr);
 }
 
 int imx8qm_clock_init(struct hdp_clks *clks)
@@ -1110,7 +1110,6 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 
 	ret = imx_hdp_call(hdp, fw_init, &hdp->state);
 	if (ret < 0) {
-		pr_err("Failed to initialise HDP firmware\n");
 		DRM_ERROR("Failed to initialise HDP firmware\n");
 		return ret;
 	}
