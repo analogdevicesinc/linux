@@ -245,13 +245,17 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 
 	switch (plane->type) {
 	case DRM_PLANE_TYPE_PRIMARY:
-		if (modifiers_present) {
-			for (mod_idx = 0; mod_idx < 4; mod_idx++)
-				dcss_dec400d_set_format_mod(dcss_plane->dcss,
-						pix_format,
-						mod_idx,
-						fb->modifier);
+		if (!modifiers_present) {
+			/* No modifier: bypass dec400d */
+			dcss_dec400d_bypass(dcss_plane->dcss);
+			return;
 		}
+
+		for (mod_idx = 0; mod_idx < 4; mod_idx++)
+			dcss_dec400d_set_format_mod(dcss_plane->dcss,
+					pix_format,
+					mod_idx,
+					fb->modifier);
 
 		switch (fb->modifier) {
 		case DRM_FORMAT_MOD_LINEAR:
