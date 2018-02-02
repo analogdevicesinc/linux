@@ -126,7 +126,7 @@ static ssize_t altr_a10sr_read_status(struct device *dev,
 	else
 		val = !!(val & mask);
 
-	return sprintf(buf, "%d\n", val);
+	return scnprintf(buf, 5, "%d\n", val);
 }
 
 static ssize_t set_enable(struct device *dev,
