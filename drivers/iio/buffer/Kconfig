@@ -52,3 +52,8 @@ config IIO_TRIGGERED_BUFFER
 	select IIO_KFIFO_BUF
 	help
 	  Provides helper functions for setting up triggered buffers.
+
+config IIO_HW_CONSUMER
+	tristate
+	help
+	  Hardware consumer buffer
