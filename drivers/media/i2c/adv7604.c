@@ -3436,13 +3436,6 @@ static int adv76xx_probe(struct i2c_client *client,
 
 	adv76xx_reset(state);
 
-	state->reset_gpio = devm_gpiod_get_optional(&client->dev, "reset",
-								GPIOD_OUT_HIGH);
-	if (IS_ERR(state->reset_gpio))
-		return PTR_ERR(state->reset_gpio);
-
-	adv76xx_reset(state);
-
 	state->timings = cea640x480;
 	state->format = adv76xx_format_info(state, MEDIA_BUS_FMT_YUYV8_2X8);
 
