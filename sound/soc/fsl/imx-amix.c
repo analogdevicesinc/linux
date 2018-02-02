@@ -53,14 +53,14 @@ static int imx_amix_fe_startup(struct snd_pcm_substream *substream)
 	if (clk_rate % 24576000 == 0) {
 		ret = snd_pcm_hw_constraint_list(runtime, 0,
 			SNDRV_PCM_HW_PARAM_RATE, &imx_amix_rate_constraints);
-		if (ret)
+		if (ret < 0)
 			return ret;
 	} else
 		dev_warn(dev, "mclk may be not supported %lu\n", clk_rate);
 
 	ret = snd_pcm_hw_constraint_minmax(runtime,
 			SNDRV_PCM_HW_PARAM_CHANNELS, 1, 8);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	return snd_pcm_hw_constraint_mask64(runtime,
