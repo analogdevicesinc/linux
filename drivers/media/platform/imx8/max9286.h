@@ -17,7 +17,7 @@
 #define MIPI_CSI2_SENS_VCX_PADS_NUM		4
 
 #define MAX_FPS		30
-#define MIN_FPS		15
+#define MIN_FPS		30
 #define DEFAULT_FPS		30
 
 /*!
