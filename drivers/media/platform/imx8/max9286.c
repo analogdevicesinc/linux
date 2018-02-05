@@ -48,7 +48,6 @@ struct reg_value {
 };
 
 enum ov10635_frame_rate {
-	OV10635_15_FPS,
 	OV10635_30_FPS,
 };
 
@@ -2581,12 +2580,11 @@ static int max9286_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 		tgt_fps = timeperframe->denominator /
 			  timeperframe->numerator;
 
-		if (tgt_fps == 15)
-			frame_rate = OV10635_15_FPS;
-		else if (tgt_fps == 30)
+		if (tgt_fps ==  30)
 			frame_rate = OV10635_30_FPS;
-		else {
-			pr_err(" The camera frame rate is not supported!\n");
+
+		if (frame_rate != OV10635_30_FPS) {
+			pr_err(" The camera %d frame rate is not supported!\n", frame_rate);
 			return -EINVAL;
 		}
 
