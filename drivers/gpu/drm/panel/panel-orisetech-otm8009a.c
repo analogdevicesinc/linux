@@ -67,7 +67,11 @@ struct otm8009a {
 };
 
 static const struct drm_display_mode default_mode = {
+#ifdef CONFIG_ARCH_FSL_IMX8MQ
+	.clock = 27000,
+#else
 	.clock = 32729,
+#endif
 	.hdisplay = 480,
 	.hsync_start = 480 + 120,
 	.hsync_end = 480 + 120 + 63,
