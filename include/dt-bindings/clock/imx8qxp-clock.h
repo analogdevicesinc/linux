@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -572,5 +572,14 @@
 #define IMX8QXP_SDHC1_SEL					515
 #define IMX8QXP_SDHC2_SEL					516
 
-#define IMX8QXP_CLK_END						517
+/* PARALLER CSI */
+#define IMX8QXP_PARALLEL_CSI_CLK_DPLL		517
+#define IMX8QXP_PARALLEL_CSI_CLK_SEL		518
+#define IMX8QXP_PARALLEL_CSI_PER_CLK_DIV	519
+#define IMX8QXP_PARALLEL_CSI_PIXEL_CLK		520
+#define IMX8QXP_PARALLEL_CSI_IPG_CLK		521
+#define IMX8QXP_PARALLEL_CSI_MCLK_DIV		522
+#define IMX8QXP_PARALLEL_CSI_MISC0_CLK		523
+
+#define IMX8QXP_CLK_END						524
 #endif /* __DT_BINDINGS_CLOCK_IMX8QXP_H */

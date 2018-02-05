@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -127,6 +127,14 @@ static const char *sdhc2_sels[] = {
 	"dummy",
 	"conn_pll0_clk",
 	"conn_pll1_clk",
+	"dummy",
+	"dummy",
+};
+
+static const char *pll0_sels[] = {
+	"dummy",
+	"parallel_pll_clk",
+	"dummy",
 	"dummy",
 	"dummy",
 };
@@ -567,6 +575,15 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_CSI0_PWM0_CLK] = imx_clk_gate_scu("mipi_csi0_pwm0_clk", "mipi_csi0_pwm0_div", SC_R_CSI_0_PWM_0, SC_PM_CLK_PER, (void __iomem *)(MIPI_CSI_0_LPCG + 0x10), 0, 0);
 	clks[IMX8QXP_CSI0_CORE_CLK] = imx_clk_gate_scu("mipi_csi0_core_clk", "mipi_csi0_core_div", SC_R_CSI_0, SC_PM_CLK_PER, (void __iomem *)(MIPI_CSI_0_LPCG + 0x18), 16, 0);
 	clks[IMX8QXP_CSI0_ESC_CLK] = imx_clk_gate_scu("mipi_csi0_esc_clk", "mipi_csi0_esc_div", SC_R_CSI_0, SC_PM_CLK_MISC, (void __iomem *)(MIPI_CSI_0_LPCG + 0x1C), 16, 0);
+
+	/* Parallel CSI */
+	clks[IMX8QXP_PARALLEL_CSI_CLK_DPLL] = imx_clk_divider_scu("parallel_pll_clk", SC_R_PI_0_PLL, SC_PM_CLK_PLL);
+	clks[IMX8QXP_PARALLEL_CSI_CLK_SEL] = imx_clk_mux2_scu("pll0_sel", pll0_sels, ARRAY_SIZE(pll0_sels), SC_R_PI_0, SC_PM_CLK_PER);
+	clks[IMX8QXP_PARALLEL_CSI_PER_CLK_DIV] = imx_clk_divider2_scu("parallel_per_clk", "pll0_sel", SC_R_PI_0, SC_PM_CLK_PER);
+	clks[IMX8QXP_PARALLEL_CSI_MCLK_DIV] = imx_clk_divider_scu("parallel_csi_mclk_div", SC_R_PI_0, SC_PM_CLK_MISC0);
+	clks[IMX8QXP_PARALLEL_CSI_PIXEL_CLK] = imx_clk_gate_scu("parallel_pixel_clk", "parallel_per_clk", SC_R_PI_0, SC_PM_CLK_PER, (void __iomem *)(PARALLEL_CSI_LPCG + 0x18), 0, 0);
+	clks[IMX8QXP_PARALLEL_CSI_IPG_CLK] = imx_clk_gate_scu("parallel_ipg_clk", "parallel_per_clk", SC_R_PI_0, SC_PM_CLK_PER, (void __iomem *)(PARALLEL_CSI_LPCG + 0x4), 16, 0);
+	clks[IMX8QXP_PARALLEL_CSI_MISC0_CLK] = imx_clk_gate_scu("parallel_csi_mclk", "parallel_csi_mclk_div", SC_R_PI_0, SC_PM_CLK_MISC0, (void __iomem *)(PARALLEL_CSI_LPCG + 0x1C), 0, 0);
 
 	/* HSIO SS */
 	clks[IMX8QXP_HSIO_PCIE_MSTR_AXI_CLK] = imx_clk_gate2_scu("hsio_pcie_mstr_axi_clk", "axi_hsio_clk_root", (void __iomem *)(HSIO_PCIE_X1_LPCG), 16, FUNCTION_NAME(PD_HSIO_PCIE_B));

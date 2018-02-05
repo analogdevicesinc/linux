@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * SPDX-License-Identifier:     GPL-2.0+
  */
@@ -88,6 +88,9 @@
 /* MIPI CSI SS */
 #define		MIPI_CSI_0_LPCG		0x58223000
 #define		MIPI_CSI_1_LPCG		0x58243000
+
+/* PARALLEL CSI SS */
+#define		PARALLEL_CSI_LPCG	0x58263000
 
 /* Display MIPI SS */
 #define		DI_MIPI0_LPCG		0x56223000
