@@ -331,7 +331,8 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 					   pixel_format, dcss_plane->alpha_val,
 					   dcss_plane->use_global_val)) {
 		dcss_plane_atomic_set_base(dcss_plane);
-		dcss_dec400d_shadow_trig(dcss_plane->dcss);
+		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
+			dcss_dec400d_shadow_trig(dcss_plane->dcss);
 		return;
 	}
 
