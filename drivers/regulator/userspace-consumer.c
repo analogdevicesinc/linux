@@ -22,6 +22,8 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/userspace-consumer.h>
+#include <linux/of.h>
+#include <linux/regulator/of_regulator.h>
 #include <linux/slab.h>
 
 struct userspace_consumer_data {
@@ -105,6 +107,39 @@ static const struct attribute_group attr_group = {
 	.attrs	= attributes,
 };
 
+#if defined(CONFIG_OF)
+static struct regulator_userspace_consumer_data*
+	of_get_uc_config(struct device *dev, struct device_node *np)
+{
+	struct regulator_userspace_consumer_data *ucd;
+	int r;
+
+	ucd = devm_kzalloc(dev, sizeof(struct regulator_userspace_consumer_data)
+				+ sizeof(struct regulator_bulk_data),
+				GFP_KERNEL);
+	if (ucd == NULL)
+		return NULL;
+
+	r = of_property_read_string(np, "uc-name", &ucd->name);
+	if (r) {
+		goto err;
+	}
+
+	ucd->num_supplies = 1;
+	ucd->supplies = (struct regulator_bulk_data *)&ucd[1];
+
+	r = of_property_read_string(np, "suck-supply", &ucd->supplies->supply);
+	if (r) {
+		goto err;
+	}
+	return ucd;
+
+err:
+	devm_kfree(dev, ucd);
+	return NULL;
+}
+#endif
+
 static int regulator_userspace_consumer_probe(struct platform_device *pdev)
 {
 	struct regulator_userspace_consumer_data *pdata;
@@ -112,6 +147,11 @@ static int regulator_userspace_consumer_probe(struct platform_device *pdev)
 	int ret;
 
 	pdata = dev_get_platdata(&pdev->dev);
+#if defined(CONFIG_OF)
+	if (!pdata && pdev->dev.of_node) {
+		pdata = of_get_uc_config(&pdev->dev, pdev->dev.of_node);
+	}
+#endif
 	if (!pdata)
 		return -EINVAL;
 
@@ -151,6 +191,8 @@ static int regulator_userspace_consumer_probe(struct platform_device *pdev)
 	drvdata->enabled = pdata->init_on;
 	platform_set_drvdata(pdev, drvdata);
 
+	dev_info(&pdev->dev, "attached: %s\n", drvdata->name);
+
 	return 0;
 
 err_enable:
@@ -171,11 +213,22 @@ static int regulator_userspace_consumer_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#if defined(CONFIG_OF)
+static const struct of_device_id uc_of_match[] = {
+	{ .compatible = "userspace_consumer", },
+	{},
+};
+#endif
+
 static struct platform_driver regulator_userspace_consumer_driver = {
 	.probe		= regulator_userspace_consumer_probe,
 	.remove		= regulator_userspace_consumer_remove,
 	.driver		= {
 		.name		= "reg-userspace-consumer",
+		.owner		= THIS_MODULE,
+#if defined(CONFIG_OF)
+		.of_match_table = of_match_ptr(uc_of_match),
+#endif
 	},
 };
 
