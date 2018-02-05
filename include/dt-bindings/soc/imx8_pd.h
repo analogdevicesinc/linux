@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -181,6 +181,11 @@
 #define PD_MIPI_CSI1                mipi_csi1_power_domain
 #define PD_MIPI_CSI1_PWM_0          mipi_csi1_pwm
 #define PD_MIPI_CSI1_I2C0           mipi_csi1_i2c0
+
+#define PD_PARALLEL_CSI             parallel_csi_power_domain
+#define PD_PARALLEL_CSI_I2C         parallel_csi_i2c
+#define PD_PARALLEL_CSI_PWM         parallel_csi_pwm
+#define PD_PARALLEL_CSI_PLL         parallel_csi_pll
 
 #define PD_HDMI                     hdmi_power_domain
 #define PD_HDMI_I2C_0               hdmi_i2c
