@@ -17,6 +17,10 @@ config IMX8_MIPI_CSI2
 	tristate "IMX8 MIPI CSI2 Controller"
 	default y
 
+config IMX8_PARALLEL_CSI
+	tristate "IMX8 PARALLEL CSI Controller"
+	default y
+
 config IMX8_MIPI_CSI2_YAV
 	tristate "IMX8 MIPI CSI2 Controller Yet Another Version"
 	default y
