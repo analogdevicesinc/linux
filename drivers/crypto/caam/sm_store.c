@@ -502,7 +502,7 @@ int slot_dealloc(struct device *dev, u32 unit, u32 slot)
 
 	if (ksdata->slot[slot].allocated == 1) {
 		/* Forcibly overwrite the data from the keystore */
-		memset(ksdata->base_address + slot * smpriv->slot_size, 0,
+		memset_io(ksdata->base_address + slot * smpriv->slot_size, 0,
 		       smpriv->slot_size);
 
 		ksdata->slot[slot].allocated = 0;
@@ -799,8 +799,7 @@ int sm_keystore_slot_load(struct device *dev, u32 unit, u32 slot,
 
 	slot_location = smpriv->slot_get_address(dev, unit, slot);
 
-	for (i = 0; i < key_length; i++)
-		slot_location[i] = key_data[i];
+	memcpy_toio(slot_location, key_data, key_length);
 
 	retval = 0;
 
@@ -828,7 +827,7 @@ int sm_keystore_slot_read(struct device *dev, u32 unit, u32 slot,
 		goto out;
 	}
 
-	memcpy(key_data, slot_addr, key_length);
+	memcpy_fromio(key_data, slot_addr, key_length);
 	retval = 0;
 
 out:
