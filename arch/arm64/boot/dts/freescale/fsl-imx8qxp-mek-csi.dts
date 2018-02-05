@@ -39,6 +39,14 @@
 	};
 };
 
+&jpegdec {
+	status = "disabled";
+};
+
+&jpegenc {
+	status = "disabled";
+};
+
 &i2c0_csi0 {
 	status = "disabled";
 };
