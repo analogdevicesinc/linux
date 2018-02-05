@@ -1108,11 +1108,11 @@ int caam_sm_startup(struct platform_device *pdev)
 				(pgstat & SMCS_PAGE_MASK) >> SMCS_PAGE_SHIFT;
 			lpagedesc[page].own_part =
 				(pgstat & SMCS_PART_SHIFT) >> SMCS_PART_MASK;
-			lpagedesc[page].pg_base = ctrlpriv->sm_base +
-				((smpriv->page_size * page) / sizeof(u32));
+			lpagedesc[page].pg_base = (u8 *)ctrlpriv->sm_base +
+				(smpriv->page_size * page);
 			/* FIXME: get base address from platform property... */
-			lpagedesc[page].pg_phys = (u32 *)0x00100000 +
-				((smpriv->page_size * page) / sizeof(u32));
+			lpagedesc[page].pg_phys = (u8 *)0x00100000 +
+				(smpriv->page_size * page);
 			lpagect++;
 #ifdef SM_DEBUG
 			dev_info(smdev,
