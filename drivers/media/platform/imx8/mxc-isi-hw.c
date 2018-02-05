@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -9,56 +9,59 @@
  * http://www.opensource.org/licenses/gpl-license.html
  * http://www.gnu.org/copyleft/gpl.html
  */
+#include <soc/imx8/sc/sci.h>
+#include <dt-bindings/pinctrl/pads-imx8qxp.h>
 
 #include "mxc-isi-hw.h"
-
 #define	ISI_DOWNSCALE_THRESHOLD		0x4000
 
-#ifdef debug
-static void dump_isi_regs(struct mxc_isi_dev *mxc_isi)
+#ifdef DEBUG
+void dump_isi_regs(struct mxc_isi_dev *mxc_isi)
 {
-	printk("ISI CHNLC register dump, isi%d\n", mxc_isi->id);
-	printk("CHNL_CTRL              0x0h  = 0x%x\n", readl(mxc_isi->regs + 0x0));
-	printk("CHNL_IMG_CTRL          0x4h  = 0x%x\n", readl(mxc_isi->regs + 0x4));
-	printk("CHNL_OUT_BUF_CTRL      0x8h  = 0x%x\n", readl(mxc_isi->regs + 0x8));
-	printk("CHNL_IMG_CFG           0xCh  = 0x%x\n", readl(mxc_isi->regs + 0xC));
-	printk("CHNL_IER               0x10h = 0x%x\n", readl(mxc_isi->regs + 0x10));
-	printk("CHNL_STS               0x14h = 0x%x\n", readl(mxc_isi->regs + 0x14));
-	printk("CHNL_SCALE_FACTOR      0x18h = 0x%x\n", readl(mxc_isi->regs + 0x18));
-	printk("CHNL_SCALE_OFFSET      0x1Ch = 0x%x\n", readl(mxc_isi->regs + 0x1C));
-	printk("CHNL_CROP_ULC          0x20h = 0x%x\n", readl(mxc_isi->regs + 0x20));
-	printk("CHNL_CROP_LRC          0x24h = 0x%x\n", readl(mxc_isi->regs + 0x24));
-	printk("CHNL_CSC_COEFF0        0x28h = 0x%x\n", readl(mxc_isi->regs + 0x28));
-	printk("CHNL_CSC_COEFF1        0x2Ch = 0x%x\n", readl(mxc_isi->regs + 0x2C));
-	printk("CHNL_CSC_COEFF2        0x30h = 0x%x\n", readl(mxc_isi->regs + 0x30));
-	printk("CHNL_CSC_COEFF3        0x34h = 0x%x\n", readl(mxc_isi->regs + 0x34));
-	printk("CHNL_CSC_COEFF4        0x38h = 0x%x\n", readl(mxc_isi->regs + 0x38));
-	printk("CHNL_CSC_COEFF5        0x3Ch = 0x%x\n", readl(mxc_isi->regs + 0x3C));
-	printk("CHNL_ROI_0_ALPHA       0x40h = 0x%x\n", readl(mxc_isi->regs + 0x40));
-	printk("CHNL_ROI_0_ULC         0x44h = 0x%x\n", readl(mxc_isi->regs + 0x44));
-	printk("CHNL_ROI_0_LRC         0x48h = 0x%x\n", readl(mxc_isi->regs + 0x48));
-	printk("CHNL_ROI_1_ALPHA       0x4Ch = 0x%x\n", readl(mxc_isi->regs + 0x4C));
-	printk("CHNL_ROI_1_ULC         0x50h = 0x%x\n", readl(mxc_isi->regs + 0x50));
-	printk("CHNL_ROI_1_LRC         0x54h = 0x%x\n", readl(mxc_isi->regs + 0x54));
-	printk("CHNL_ROI_2_ALPHA       0x58h = 0x%x\n", readl(mxc_isi->regs + 0x58));
-	printk("CHNL_ROI_2_ULC         0x5Ch = 0x%x\n", readl(mxc_isi->regs + 0x5C));
-	printk("CHNL_ROI_2_LRC         0x60h = 0x%x\n", readl(mxc_isi->regs + 0x60));
-	printk("CHNL_ROI_3_ALPHA       0x64h = 0x%x\n", readl(mxc_isi->regs + 0x64));
-	printk("CHNL_ROI_3_ULC         0x68h = 0x%x\n", readl(mxc_isi->regs + 0x68));
-	printk("CHNL_ROI_3_LRC         0x6Ch = 0x%x\n", readl(mxc_isi->regs + 0x6C));
-	printk("CHNL_OUT_BUF1_ADDR_Y   0x70h = 0x%x\n", readl(mxc_isi->regs + 0x70));
-	printk("CHNL_OUT_BUF1_ADDR_U   0x74h = 0x%x\n", readl(mxc_isi->regs + 0x74));
-	printk("CHNL_OUT_BUF1_ADDR_V   0x78h = 0x%x\n", readl(mxc_isi->regs + 0x78));
-	printk("CHNL_OUT_BUF_PITCH     0x7Ch = 0x%x\n", readl(mxc_isi->regs + 0x7C));
-	printk("CHNL_IN_BUF_ADDR       0x80h = 0x%x\n", readl(mxc_isi->regs + 0x80));
-	printk("CHNL_IN_BUF_PITCH      0x84h = 0x%x\n", readl(mxc_isi->regs + 0x84));
-	printk("CHNL_MEM_RD_CTRL       0x88h = 0x%x\n", readl(mxc_isi->regs + 0x88));
-	printk("CHNL_OUT_BUF2_ADDR_Y   0x8Ch = 0x%x\n", readl(mxc_isi->regs + 0x8C));
-	printk("CHNL_OUT_BUF2_ADDR_U   0x90h = 0x%x\n", readl(mxc_isi->regs + 0x90));
-	printk("CHNL_OUT_BUF2_ADDR_V   0x94h = 0x%x\n", readl(mxc_isi->regs + 0x94));
+	struct device *dev = &mxc_isi->pdev->dev;
+
+	dev_dbg(dev, "ISI CHNLC register dump, isi%d\n", mxc_isi->id);
+	dev_dbg(dev, "CHNL_CTRL              0x0h  = 0x%x\n", readl(mxc_isi->regs + 0x0));
+	dev_dbg(dev, "CHNL_IMG_CTRL          0x4h  = 0x%x\n", readl(mxc_isi->regs + 0x4));
+	dev_dbg(dev, "CHNL_OUT_BUF_CTRL      0x8h  = 0x%x\n", readl(mxc_isi->regs + 0x8));
+	dev_dbg(dev, "CHNL_IMG_CFG           0xCh  = 0x%x\n", readl(mxc_isi->regs + 0xC));
+	dev_dbg(dev, "CHNL_IER               0x10h = 0x%x\n", readl(mxc_isi->regs + 0x10));
+	dev_dbg(dev, "CHNL_STS               0x14h = 0x%x\n", readl(mxc_isi->regs + 0x14));
+	dev_dbg(dev, "CHNL_SCALE_FACTOR      0x18h = 0x%x\n", readl(mxc_isi->regs + 0x18));
+	dev_dbg(dev, "CHNL_SCALE_OFFSET      0x1Ch = 0x%x\n", readl(mxc_isi->regs + 0x1C));
+	dev_dbg(dev, "CHNL_CROP_ULC          0x20h = 0x%x\n", readl(mxc_isi->regs + 0x20));
+	dev_dbg(dev, "CHNL_CROP_LRC          0x24h = 0x%x\n", readl(mxc_isi->regs + 0x24));
+	dev_dbg(dev, "CHNL_CSC_COEFF0        0x28h = 0x%x\n", readl(mxc_isi->regs + 0x28));
+	dev_dbg(dev, "CHNL_CSC_COEFF1        0x2Ch = 0x%x\n", readl(mxc_isi->regs + 0x2C));
+	dev_dbg(dev, "CHNL_CSC_COEFF2        0x30h = 0x%x\n", readl(mxc_isi->regs + 0x30));
+	dev_dbg(dev, "CHNL_CSC_COEFF3        0x34h = 0x%x\n", readl(mxc_isi->regs + 0x34));
+	dev_dbg(dev, "CHNL_CSC_COEFF4        0x38h = 0x%x\n", readl(mxc_isi->regs + 0x38));
+	dev_dbg(dev, "CHNL_CSC_COEFF5        0x3Ch = 0x%x\n", readl(mxc_isi->regs + 0x3C));
+	dev_dbg(dev, "CHNL_ROI_0_ALPHA       0x40h = 0x%x\n", readl(mxc_isi->regs + 0x40));
+	dev_dbg(dev, "CHNL_ROI_0_ULC         0x44h = 0x%x\n", readl(mxc_isi->regs + 0x44));
+	dev_dbg(dev, "CHNL_ROI_0_LRC         0x48h = 0x%x\n", readl(mxc_isi->regs + 0x48));
+	dev_dbg(dev, "CHNL_ROI_1_ALPHA       0x4Ch = 0x%x\n", readl(mxc_isi->regs + 0x4C));
+	dev_dbg(dev, "CHNL_ROI_1_ULC         0x50h = 0x%x\n", readl(mxc_isi->regs + 0x50));
+	dev_dbg(dev, "CHNL_ROI_1_LRC         0x54h = 0x%x\n", readl(mxc_isi->regs + 0x54));
+	dev_dbg(dev, "CHNL_ROI_2_ALPHA       0x58h = 0x%x\n", readl(mxc_isi->regs + 0x58));
+	dev_dbg(dev, "CHNL_ROI_2_ULC         0x5Ch = 0x%x\n", readl(mxc_isi->regs + 0x5C));
+	dev_dbg(dev, "CHNL_ROI_2_LRC         0x60h = 0x%x\n", readl(mxc_isi->regs + 0x60));
+	dev_dbg(dev, "CHNL_ROI_3_ALPHA       0x64h = 0x%x\n", readl(mxc_isi->regs + 0x64));
+	dev_dbg(dev, "CHNL_ROI_3_ULC         0x68h = 0x%x\n", readl(mxc_isi->regs + 0x68));
+	dev_dbg(dev, "CHNL_ROI_3_LRC         0x6Ch = 0x%x\n", readl(mxc_isi->regs + 0x6C));
+	dev_dbg(dev, "CHNL_OUT_BUF1_ADDR_Y   0x70h = 0x%x\n", readl(mxc_isi->regs + 0x70));
+	dev_dbg(dev, "CHNL_OUT_BUF1_ADDR_U   0x74h = 0x%x\n", readl(mxc_isi->regs + 0x74));
+	dev_dbg(dev, "CHNL_OUT_BUF1_ADDR_V   0x78h = 0x%x\n", readl(mxc_isi->regs + 0x78));
+	dev_dbg(dev, "CHNL_OUT_BUF_PITCH     0x7Ch = 0x%x\n", readl(mxc_isi->regs + 0x7C));
+	dev_dbg(dev, "CHNL_IN_BUF_ADDR       0x80h = 0x%x\n", readl(mxc_isi->regs + 0x80));
+	dev_dbg(dev, "CHNL_IN_BUF_PITCH      0x84h = 0x%x\n", readl(mxc_isi->regs + 0x84));
+	dev_dbg(dev, "CHNL_MEM_RD_CTRL       0x88h = 0x%x\n", readl(mxc_isi->regs + 0x88));
+	dev_dbg(dev, "CHNL_OUT_BUF2_ADDR_Y   0x8Ch = 0x%x\n", readl(mxc_isi->regs + 0x8C));
+	dev_dbg(dev, "CHNL_OUT_BUF2_ADDR_U   0x90h = 0x%x\n", readl(mxc_isi->regs + 0x90));
+	dev_dbg(dev, "CHNL_OUT_BUF2_ADDR_V   0x94h = 0x%x\n", readl(mxc_isi->regs + 0x94));
 }
 #else
-static void dump_isi_regs(struct mxc_isi_dev *mxc_isi)
+void dump_isi_regs(struct mxc_isi_dev *mxc_isi)
 {
 }
 #endif
@@ -131,6 +134,36 @@ void mxc_isi_channel_set_outbuf(struct mxc_isi_dev *mxc_isi, struct mxc_isi_buff
 	writel(val,	mxc_isi->regs + CHNL_OUT_BUF_CTRL);
 }
 
+void mxc_isi_channel_hw_reset(struct mxc_isi_dev *mxc_isi)
+{
+	sc_ipc_t ipcHndl;
+	sc_err_t sciErr;
+	uint32_t mu_id;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("Cannot obtain MU ID\n");
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return;
+	}
+
+	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_ISI_CH0, SC_PM_PW_MODE_OFF);
+	if (sciErr != SC_ERR_NONE)
+		pr_err("sc_misc_MIPI reset failed! (sciError = %d)\n", sciErr);
+
+	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_ISI_CH0, SC_PM_PW_MODE_ON);
+	if (sciErr != SC_ERR_NONE)
+		pr_err("sc_misc_MIPI reset failed! (sciError = %d)\n", sciErr);
+
+	msleep(10);
+
+	sc_ipc_close(mu_id);
+}
 
 void mxc_isi_channel_sw_reset(struct mxc_isi_dev *mxc_isi)
 {
@@ -173,6 +206,9 @@ void mxc_isi_channel_source_config(struct mxc_isi_dev *mxc_isi)
 		break;
 	case ISI_INPUT_INTERFACE_HDMI:
 		val |= CHNL_CTRL_SRC_INPUT_HDMI;
+		break;
+	case ISI_INPUT_INTERFACE_PARALLEL_CSI:
+		val |= CHNL_CTRL_SRC_INPUT_CSI;
 		break;
 	case ISI_INPUT_INTERFACE_MEM:
 		val |= CHNL_CTRL_SRC_INPUT_MEMORY;
@@ -362,11 +398,12 @@ void mxc_isi_channel_set_scaling(struct mxc_isi_dev *mxc_isi)
 	if (dst_f->height == src_f->height ||
 			dst_f->width == src_f->width) {
 		mxc_isi->scale = 0;
+		dev_dbg(&mxc_isi->pdev->dev, "%s: no scale\n", __func__);
 		return;
 	}
 
 	dev_info(&mxc_isi->pdev->dev, "input_size(%d,%d), output_size(%d,%d)\n",
-			src_f->height, src_f->width, dst_f->height, dst_f->width);
+			src_f->width, src_f->height, dst_f->width, dst_f->height);
 
 	mxc_isi->scale = 1;
 
@@ -429,13 +466,16 @@ void mxc_isi_channel_init(struct mxc_isi_dev *mxc_isi)
 {
 	u32 val;
 
+	/* hw reset */
+	mxc_isi_channel_hw_reset(mxc_isi);
+
+	/* sw reset */
+	mxc_isi_channel_sw_reset(mxc_isi);
+
 	/* Init channel clk first */
 	val = readl(mxc_isi->regs + CHNL_CTRL);
 	val |= (CHNL_CTRL_CLK_EN_ENABLE << CHNL_CTRL_CLK_EN_OFFSET);
 	writel(val, mxc_isi->regs + CHNL_CTRL);
-
-	/* sw reset */
-	mxc_isi_channel_sw_reset(mxc_isi);
 }
 
 void mxc_isi_channel_deinit(struct mxc_isi_dev *mxc_isi)
@@ -503,6 +543,7 @@ void mxc_isi_channel_enable(struct mxc_isi_dev *mxc_isi)
 	writel(val, mxc_isi->regs + CHNL_CTRL);
 
 	mxc_isi_enable_irq(mxc_isi);
+	msleep(300);
 	dump_isi_regs(mxc_isi);
 }
 

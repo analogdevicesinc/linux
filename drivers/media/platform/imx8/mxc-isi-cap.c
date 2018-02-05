@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -165,7 +165,8 @@ struct mxc_isi_fmt *mxc_isi_get_src_fmt(struct v4l2_subdev_format *sd_fmt)
 	u32 index;
 
 	/* two fmt RGB32 and YUV444 from pixellink */
-	if (sd_fmt->format.code == MEDIA_BUS_FMT_YUYV8_1X16)
+	if (sd_fmt->format.code == MEDIA_BUS_FMT_YUYV8_1X16 ||
+		sd_fmt->format.code == MEDIA_BUS_FMT_YVYU8_2X8)
 		index = 1;
 	else
 		index = 0;
@@ -526,13 +527,57 @@ void mxc_isi_ctrls_delete(struct mxc_isi_dev *mxc_isi)
 	}
 }
 
+static struct media_pad *mxc_isi_get_remote_source_pad(struct mxc_isi_dev *mxc_isi)
+{
+	struct mxc_isi_cap_dev *isi_cap = &mxc_isi->isi_cap;
+	struct v4l2_subdev *subdev = &isi_cap->sd;
+	struct media_pad *sink_pad, *source_pad;
+	int i;
+
+	while (1) {
+		source_pad = NULL;
+		for (i = 0; i < subdev->entity.num_pads; i++) {
+			sink_pad = &subdev->entity.pads[i];
+
+			if (sink_pad->flags & MEDIA_PAD_FL_SINK) {
+				source_pad = media_entity_remote_pad(sink_pad);
+				if (source_pad)
+					break;
+			}
+		}
+		/* return first pad point in the loop  */
+		return source_pad;
+	}
+
+	if (i == subdev->entity.num_pads)
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
+
+	return NULL;
+}
+
 static int mxc_isi_capture_open(struct file *file)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct media_pad *source_pad;
+	struct v4l2_subdev *sd;
 	struct device *dev = &mxc_isi->pdev->dev;
 	int ret = -EBUSY;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s, ISI%d\n", __func__, mxc_isi->id);
+
+	/* Get remote source pad */
+	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
+	if (source_pad == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sd = media_entity_to_v4l2_subdev(source_pad->entity);
+	if (sd == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
+	}
 
 	pm_runtime_get_sync(dev);
 
@@ -541,21 +586,43 @@ static int mxc_isi_capture_open(struct file *file)
 	mutex_unlock(&mxc_isi->lock);
 
 	mxc_isi_channel_init(mxc_isi);
-	return 0;
+	return v4l2_subdev_call(sd, core, s_power, 1);
 }
 
 static int mxc_isi_capture_release(struct file *file)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct media_pad *source_pad;
+	struct v4l2_subdev *sd;
 	struct device *dev = &mxc_isi->pdev->dev;
 	int ret;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
 
+	/* Get remote source pad */
+	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
+	if (source_pad == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sd = media_entity_to_v4l2_subdev(source_pad->entity);
+	if (sd == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
+	}
+
 	mutex_lock(&mxc_isi->lock);
 	ret = _vb2_fop_release(file, NULL);
 	mutex_unlock(&mxc_isi->lock);
 	mxc_isi_channel_deinit(mxc_isi);
+
+	ret = v4l2_subdev_call(sd, core, s_power, 0);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s s_power fail\n", __func__);
+		return -EINVAL;
+	}
 
 	pm_runtime_put_sync(dev);
 
@@ -667,35 +734,6 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 	}
 
 	return 0;
-}
-
-
-static struct media_pad *mxc_isi_get_remote_source_pad(struct mxc_isi_dev *mxc_isi)
-{
-	struct mxc_isi_cap_dev *isi_cap = &mxc_isi->isi_cap;
-	struct v4l2_subdev *subdev = &isi_cap->sd;
-	struct media_pad *sink_pad, *source_pad;
-	int i;
-
-	while (1) {
-		source_pad = NULL;
-		for (i = 0; i < subdev->entity.num_pads; i++) {
-			sink_pad = &subdev->entity.pads[i];
-
-			if (sink_pad->flags & MEDIA_PAD_FL_SINK) {
-				source_pad = media_entity_remote_pad(sink_pad);
-				if (source_pad)
-					break;
-			}
-		}
-		/* return first pad point in the loop  */
-		return source_pad;
-	}
-
-	if (i == subdev->entity.num_pads)
-		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
-
-	return NULL;
 }
 
 /* Update input frame size and formate  */
@@ -973,13 +1011,20 @@ static int mxc_isi_cap_g_parm(struct file *file, void *fh,
 			struct v4l2_streamparm *a)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
-	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
 	struct v4l2_subdev *sd;
+	struct media_pad *source_pad;
 
-	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
+	if (source_pad == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sd = media_entity_to_v4l2_subdev(source_pad->entity);
 	if (sd == NULL) {
-		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find subdev\n");
-		return -ENODEV;
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
 	}
 	return v4l2_subdev_call(sd, video, g_parm, a);
 }
@@ -988,13 +1033,20 @@ static int mxc_isi_cap_s_parm(struct file *file, void *fh,
 			struct v4l2_streamparm *a)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
-	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
 	struct v4l2_subdev *sd;
+	struct media_pad *source_pad;
 
-	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
+	if (source_pad == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sd = media_entity_to_v4l2_subdev(source_pad->entity);
 	if (sd == NULL) {
-		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find subdev\n");
-		return -ENODEV;
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
 	}
 	return v4l2_subdev_call(sd, video, s_parm, a);
 }
@@ -1003,9 +1055,9 @@ static int mxc_isi_cap_enum_framesizes(struct file *file, void *priv,
 					 struct v4l2_frmsizeenum *fsize)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
-	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
 	struct v4l2_subdev *sd;
 	struct mxc_isi_fmt *fmt;
+	struct media_pad *source_pad;
 	struct v4l2_subdev_frame_size_enum fse = {
 		.index = fsize->index,
 		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
@@ -1017,7 +1069,19 @@ static int mxc_isi_cap_enum_framesizes(struct file *file, void *priv,
 		return -EINVAL;
 	fse.code = fmt->mbus_code;
 
-	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
+	if (source_pad == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sd = media_entity_to_v4l2_subdev(source_pad->entity);
+	if (sd == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
+	}
+
 	if (sd == NULL) {
 		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find subdev\n");
 		return -ENODEV;
@@ -1050,9 +1114,9 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 					  struct v4l2_frmivalenum *interval)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
-	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
 	struct v4l2_subdev *sd;
 	struct mxc_isi_fmt *fmt;
+	struct media_pad *source_pad;
 	struct v4l2_subdev_frame_interval_enum fie = {
 		.index = interval->index,
 		.width = interval->width,
@@ -1066,10 +1130,17 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 		return -EINVAL;
 	fie.code = fmt->mbus_code;
 
-	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
+	if (source_pad == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sd = media_entity_to_v4l2_subdev(source_pad->entity);
 	if (sd == NULL) {
-		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find subdev\n");
-		return -ENODEV;
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
 	}
 
 	ret = v4l2_subdev_call(sd, pad, enum_frame_interval, NULL, &fie);
@@ -1134,8 +1205,10 @@ static int mxc_isi_link_setup(struct media_entity *entity,
 		case MXC_ISI_SD_PAD_SOURCE_DC1:
 			break;
 		case MXC_ISI_SD_PAD_SOURCE_MEM:
+			break;
 		default:
-			return 0;
+			dev_err(&mxc_isi->pdev->dev, "%s invalid source pad\n", __func__);
+			return -EINVAL;
 		}
 	} else if (local->flags & MEDIA_PAD_FL_SINK) {
 		switch (local->index) {
@@ -1151,7 +1224,11 @@ static int mxc_isi_link_setup(struct media_entity *entity,
 		case MXC_ISI_SD_PAD_SINK_DC0:
 		case MXC_ISI_SD_PAD_SINK_DC1:
 		case MXC_ISI_SD_PAD_SINK_MEM:
+		case MXC_ISI_SD_PAD_SINK_PARALLEL_CSI:
 			break;
+		default:
+			dev_err(&mxc_isi->pdev->dev, "%s invalid sink pad\n", __func__);
+			return -EINVAL;
 		}
 	}
 
@@ -1506,6 +1583,7 @@ int mxc_isi_initialize_capture_subdev(struct mxc_isi_dev *mxc_isi)
 	mxc_isi->isi_cap.sd_pads[MXC_ISI_SD_PAD_SINK_DC1].flags = MEDIA_PAD_FL_SINK;
 	mxc_isi->isi_cap.sd_pads[MXC_ISI_SD_PAD_SINK_HDMI].flags = MEDIA_PAD_FL_SINK;
 	mxc_isi->isi_cap.sd_pads[MXC_ISI_SD_PAD_SINK_MEM].flags = MEDIA_PAD_FL_SINK;
+	mxc_isi->isi_cap.sd_pads[MXC_ISI_SD_PAD_SINK_PARALLEL_CSI].flags = MEDIA_PAD_FL_SINK;
 
 	/* ISI source pads */
 	mxc_isi->isi_cap.sd_pads[MXC_ISI_SD_PAD_SOURCE_MEM].flags = MEDIA_PAD_FL_SOURCE;

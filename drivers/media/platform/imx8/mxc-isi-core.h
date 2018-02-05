@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -24,26 +24,27 @@
 
 #define ISI_OF_NODE_NAME	"isi"
 
-#define MXC_ISI_SD_PAD_SINK_MIPI0_VC0	0
-#define MXC_ISI_SD_PAD_SINK_MIPI0_VC1	1
-#define MXC_ISI_SD_PAD_SINK_MIPI0_VC2	2
-#define MXC_ISI_SD_PAD_SINK_MIPI0_VC3	3
-#define MXC_ISI_SD_PAD_SINK_MIPI1_VC0	4
-#define MXC_ISI_SD_PAD_SINK_MIPI1_VC1	5
-#define MXC_ISI_SD_PAD_SINK_MIPI1_VC2	6
-#define MXC_ISI_SD_PAD_SINK_MIPI1_VC3	7
+#define MXC_ISI_SD_PAD_SINK_MIPI0_VC0		0
+#define MXC_ISI_SD_PAD_SINK_MIPI0_VC1		1
+#define MXC_ISI_SD_PAD_SINK_MIPI0_VC2		2
+#define MXC_ISI_SD_PAD_SINK_MIPI0_VC3		3
+#define MXC_ISI_SD_PAD_SINK_MIPI1_VC0		4
+#define MXC_ISI_SD_PAD_SINK_MIPI1_VC1		5
+#define MXC_ISI_SD_PAD_SINK_MIPI1_VC2		6
+#define MXC_ISI_SD_PAD_SINK_MIPI1_VC3		7
 #if 0
 #define MXC_ISI_SD_PAD_SINK_MIPI_CSI0	0
 #define MXC_ISI_SD_PAD_SINK_MIPI_CSI1	1
 #endif
-#define MXC_ISI_SD_PAD_SINK_DC0			8
-#define MXC_ISI_SD_PAD_SINK_DC1			9
-#define MXC_ISI_SD_PAD_SINK_HDMI		10
-#define MXC_ISI_SD_PAD_SINK_MEM			11
-#define MXC_ISI_SD_PAD_SOURCE_MEM		12
-#define MXC_ISI_SD_PAD_SOURCE_DC0		13
-#define MXC_ISI_SD_PAD_SOURCE_DC1		14
-#define MXC_ISI_SD_PADS_NUM				15
+#define MXC_ISI_SD_PAD_SINK_DC0				8
+#define MXC_ISI_SD_PAD_SINK_DC1				9
+#define MXC_ISI_SD_PAD_SINK_HDMI			10
+#define MXC_ISI_SD_PAD_SINK_MEM				11
+#define MXC_ISI_SD_PAD_SOURCE_MEM			12
+#define MXC_ISI_SD_PAD_SOURCE_DC0			13
+#define MXC_ISI_SD_PAD_SOURCE_DC1			14
+#define MXC_ISI_SD_PAD_SINK_PARALLEL_CSI	15
+#define MXC_ISI_SD_PADS_NUM					16
 
 #define MXC_MAX_PLANES		3
 
@@ -54,6 +55,7 @@ enum isi_input_interface {
 	ISI_INPUT_INTERFACE_MIPI1_CSI2,
 	ISI_INPUT_INTERFACE_HDMI,
 	ISI_INPUT_INTERFACE_MEM,
+	ISI_INPUT_INTERFACE_PARALLEL_CSI,
 	ISI_INPUT_INTERFACE_MAX,
 };
 
@@ -290,6 +292,7 @@ struct mxc_isi_dev {
 	unsigned int		alphaen:1;
 	unsigned int		crop:1;
 	unsigned int		deinterlace:1;
+	unsigned int		parallel_csi:1;
 
 	struct mxc_isi_ctrls ctrls;
 	u8			alpha;		/* goable alpha */

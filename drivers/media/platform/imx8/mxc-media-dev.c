@@ -35,6 +35,7 @@
 #include "mxc-media-dev.h"
 #include "mxc-isi-core.h"
 #include "mxc-mipi-csi2.h"
+#include "mxc-parallel-csi.h"
 
 /*create default links between registered entities  */
 static int mxc_md_create_links(struct mxc_md *mxc_md)
@@ -43,6 +44,7 @@ static int mxc_md_create_links(struct mxc_md *mxc_md)
 	struct mxc_isi_dev *mxc_isi;
 	struct mxc_sensor_info *sensor;
 	struct mxc_mipi_csi2_dev *mipi_csi2;
+	struct mxc_parallel_csi_dev *pcsidev;
 	int i, j, ret = 0;
 	u16  source_pad, sink_pad;
 	u32 flags;
@@ -150,6 +152,13 @@ static int mxc_md_create_links(struct mxc_md *mxc_md)
 				break;
 			}
 			break;
+		case ISI_INPUT_INTERFACE_PARALLEL_CSI:
+			if (mxc_md->pcsidev == NULL)
+				continue;
+			source = &mxc_md->pcsidev->sd.entity;
+			source_pad = MXC_PARALLEL_CSI_PAD_SOURCE;
+			sink_pad = MXC_ISI_SD_PAD_SINK_PARALLEL_CSI;
+			break;
 
 		case ISI_INPUT_INTERFACE_HDMI:
 		case ISI_INPUT_INTERFACE_DC0:
@@ -163,7 +172,7 @@ static int mxc_md_create_links(struct mxc_md *mxc_md)
 		/* Create link MIPI/HDMI to ISI */
 		ret = media_create_pad_link(source, source_pad, sink, sink_pad, flags);
 		if (ret) {
-			v4l2_err(&mxc_md->v4l2_dev, "created link [%s] %c> [%s]\n",
+			v4l2_err(&mxc_md->v4l2_dev, "created link [%s] %c> [%s] fail\n",
 			  source->name, flags ? '=' : '-', sink->name);
 			break;
 		}
@@ -190,46 +199,72 @@ static int mxc_md_create_links(struct mxc_md *mxc_md)
 		if (sensor == NULL || sensor->sd == NULL)
 			continue;
 
-		mipi_csi2 = mxc_md->mipi_csi2[sensor->id];
-		if (mipi_csi2 ==  NULL)
-			continue;
+		if (mxc_md->parallel_csi) {
+			pcsidev = mxc_md->pcsidev;
+			if (pcsidev == NULL)
+				continue;
+			source = &sensor->sd->entity;
+			sink = &pcsidev->sd.entity;
 
-		source = &sensor->sd->entity;
-		sink = &mipi_csi2->sd.entity;
+			source_pad = 0;
+			sink_pad = MXC_PARALLEL_CSI_PAD_SINK;
 
-		source_pad = 0;  //sensor source pad: MIPI_CSI2_SENS_VC0_PAD_SOURCE
-		sink_pad = source_pad;  //mipi sink pad: MXC_MIPI_CSI2_VC0_PAD_SINK;
-
-		if (mipi_csi2->vchannel == true)
-			mipi_vc = 4;
-		else
-			mipi_vc = 0;
-
-		for (j = 0; j < mipi_vc; j++) {
-			ret = media_create_pad_link(source, source_pad + j, sink, sink_pad + j,
-				      MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED);
+			ret = media_create_pad_link(source, source_pad, sink, sink_pad,
+						  MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED);
 			if (ret)
 				return ret;
 
 			/* Notify MIPI subdev entity */
-			ret = media_entity_call(sink, link_setup, &sink->pads[sink_pad + j],
-						&source->pads[source_pad + j], 0);
+			ret = media_entity_call(sink, link_setup, &sink->pads[sink_pad],
+						&source->pads[source_pad], 0);
 			if (ret)
 				return ret;
 
 			/* Notify MIPI sensor subdev entity */
-			ret = media_entity_call(source, link_setup, &source->pads[source_pad + j],
-						&sink->pads[sink_pad + j], 0);
+			ret = media_entity_call(source, link_setup, &source->pads[source_pad],
+						&sink->pads[sink_pad], 0);
 			if (ret)
 				return ret;
+			v4l2_info(&mxc_md->v4l2_dev, "created link [%s] => [%s]\n",
+						sensor->sd->entity.name, pcsidev->sd.entity.name);
+		} else {
+			mipi_csi2 = mxc_md->mipi_csi2[sensor->id];
+			if (mipi_csi2 ==  NULL)
+				continue;
+			source = &sensor->sd->entity;
+			sink = &mipi_csi2->sd.entity;
+
+			source_pad = 0;  //sensor source pad: MIPI_CSI2_SENS_VC0_PAD_SOURCE
+			sink_pad = source_pad;  //mipi sink pad: MXC_MIPI_CSI2_VC0_PAD_SINK;
+
+			if (mipi_csi2->vchannel == true)
+				mipi_vc = 4;
+			else
+				mipi_vc = 0;
+
+			for (j = 0; j < mipi_vc; j++) {
+				ret = media_create_pad_link(source, source_pad + j, sink, sink_pad + j,
+						  MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED);
+				if (ret)
+					return ret;
+
+				/* Notify MIPI subdev entity */
+				ret = media_entity_call(sink, link_setup, &sink->pads[sink_pad + j],
+							&source->pads[source_pad + j], 0);
+				if (ret)
+					return ret;
+
+				/* Notify MIPI sensor subdev entity */
+				ret = media_entity_call(source, link_setup, &source->pads[source_pad + j],
+							&sink->pads[sink_pad + j], 0);
+				if (ret)
+					return ret;
+			}
+			v4l2_info(&mxc_md->v4l2_dev, "created link [%s] => [%s]\n",
+				  sensor->sd->entity.name, mipi_csi2->sd.entity.name);
 		}
-
-		v4l2_info(&mxc_md->v4l2_dev, "created link [%s] => [%s]\n",
-			  sensor->sd->entity.name, mipi_csi2->sd.entity.name);
 	}
-
-	/* TODO */
-	/* Notify HDMI IN / DC0 / DC1 subdev entity */
+	dev_info(&mxc_md->pdev->dev, "%s\n", __func__);
 	return 0;
 }
 
@@ -309,7 +344,11 @@ static int register_sensor_entities(struct mxc_md *mxc_md)
 	for_each_available_child_of_node(parent, node) {
 		struct device_node *port;
 
-		if (of_node_cmp(node->name, "csi"))
+		if (of_node_cmp(node->name, "csi") &&
+			of_node_cmp(node->name, "pcsi")) {
+			continue;
+		}
+		if (!of_device_is_available(node))
 			continue;
 		/* csi2 node have only port */
 		port = of_get_next_child(node, NULL);
@@ -388,6 +427,22 @@ static int register_mipi_csi2_entity(struct mxc_md *mxc_md,
 	return ret;
 }
 
+static int register_parallel_csi_entity(struct mxc_md *mxc_md,
+				struct mxc_parallel_csi_dev *pcsidev)
+{
+	struct v4l2_subdev *sd = &pcsidev->sd;
+	int ret;
+
+	sd->grp_id = GRP_ID_MXC_PARALLEL_CSI;
+	ret = v4l2_device_register_subdev(&mxc_md->v4l2_dev, sd);
+	if (!ret)
+		mxc_md->pcsidev = pcsidev;
+	else
+		v4l2_err(&mxc_md->v4l2_dev,
+			 "Failed to register PARALLEL CSI ret=(%d)\n", ret);
+	return ret;
+}
+
 static int mxc_md_register_platform_entity(struct mxc_md *mxc_md,
 					    struct platform_device *pdev,
 					    int plat_entity)
@@ -411,6 +466,9 @@ static int mxc_md_register_platform_entity(struct mxc_md *mxc_md,
 			break;
 		case IDX_MIPI_CSI2:
 			ret = register_mipi_csi2_entity(mxc_md, drvdata);
+			break;
+		case IDX_PARALLEL_CSI:
+			ret = register_parallel_csi_entity(mxc_md, drvdata);
 			break;
 		default:
 			ret = -ENODEV;
@@ -450,6 +508,8 @@ static int mxc_md_register_platform_entities(struct mxc_md *mxc_md,
 			plat_entity = IDX_ISI;
 		else if (!strcmp(node->name, MIPI_CSI2_OF_NODE_NAME))
 			plat_entity = IDX_MIPI_CSI2;
+		else if (!strcmp(node->name, PARALLEL_CSI_OF_NODE_NAME))
+			plat_entity = IDX_PARALLEL_CSI;
 
 		if (plat_entity >= 0)
 			ret = mxc_md_register_platform_entity(mxc_md, pdev,
@@ -480,6 +540,11 @@ static void mxc_md_unregister_entities(struct mxc_md *mxc_md)
 		mxc_md->mipi_csi2[i] = NULL;
 	}
 
+	if (mxc_md->pcsidev) {
+		v4l2_device_unregister_subdev(&mxc_md->pcsidev->sd);
+		mxc_md->pcsidev = NULL;
+	}
+
 	v4l2_info(&mxc_md->v4l2_dev, "Unregistered all entities\n");
 }
 
@@ -507,6 +572,8 @@ static int mxc_md_probe(struct platform_device *pdev)
 
 	mxc_md->pdev = pdev;
 	platform_set_drvdata(pdev, mxc_md);
+
+	mxc_md->parallel_csi = of_property_read_bool(dev->of_node, "parallel_csi");
 
 	/* register media device  */
 	strlcpy(mxc_md->media_dev.model, "FSL Capture Media Deivce",

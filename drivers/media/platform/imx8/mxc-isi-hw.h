@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -41,8 +41,8 @@
 #define  CHNL_CTRL_CHAIN_BUF_NO_CHAIN	0
 #define  CHNL_CTRL_CHAIN_BUF_2_CHAIN	1
 #define  CHNL_CTRL_SW_RST_OFFSET		24
-#define  CHNL_CTRL_SW_RST_MASK			0x100000
-#define  CHNL_CTRL_SW_RST				0x100000
+#define  CHNL_CTRL_SW_RST_MASK			0x1000000
+#define  CHNL_CTRL_SW_RST				0x1000000
 #define  CHNL_CTRL_BLANK_PXL_OFFSET		16
 #define  CHNL_CTRL_MIPI_VC_ID_OFFSET	6
 #define  CHNL_CTRL_MIPI_VC_ID_MASK		0xc0
@@ -61,6 +61,7 @@
 #define  CHNL_CTRL_SRC_INPUT_MIPI0		2
 #define  CHNL_CTRL_SRC_INPUT_MIPI1		3
 #define  CHNL_CTRL_SRC_INPUT_HDMI		4
+#define  CHNL_CTRL_SRC_INPUT_CSI		4
 #define  CHNL_CTRL_SRC_INPUT_MEMORY		5
 
 /* Channel Image Control Register */
@@ -451,6 +452,7 @@ enum isi_csi_coeff {
 	RGB2YUV,
 };
 
+
 void mxc_isi_channel_init(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_deinit(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_config(struct mxc_isi_dev *mxc_isi);
@@ -461,6 +463,7 @@ void mxc_isi_frame_write_done(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_frame_read_done(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_set_deinterlace(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_sw_reset(struct mxc_isi_dev *mxc_isi);
+void mxc_isi_channel_hw_reset(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_source_config(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_set_flip(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_set_csc(struct mxc_isi_dev *mxc_isi);
@@ -477,4 +480,5 @@ u32 mxc_isi_get_irq_status(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_enable_irq(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_disable_irq(struct mxc_isi_dev *mxc_isi);
 
+void dump_isi_regs(struct mxc_isi_dev *mxc_isi);
 #endif /* MXC_ISI_HW_H_ */

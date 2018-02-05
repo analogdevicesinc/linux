@@ -55,6 +55,7 @@
 #define GRP_ID_MXC_HDMI_IN		(1 << 12)
 #define GRP_ID_MXC_MJPEG_DEC	(1 << 13)
 #define GRP_ID_MXC_MJPEG_ENC	(1 << 14)
+#define GRP_ID_MXC_PARALLEL_CSI (1 << 15)
 
 enum mxc_subdev_index {
 	IDX_SENSOR,
@@ -63,6 +64,7 @@ enum mxc_subdev_index {
 	IDX_HDMI_IN,
 	IDX_MJPEG_ENC,
 	IDX_MJPEG_DEC,
+	IDX_PARALLEL_CSI,
 	IDX_MAX,
 };
 
@@ -86,12 +88,14 @@ struct mxc_mjpeg_enc{
 struct mxc_md {
 	struct mxc_isi_dev *mxc_isi[MXC_ISI_MAX_DEVS];
 	struct mxc_hdmi_in_dev *hdmi_in;
+	struct mxc_parallel_csi_dev *pcsidev;
 	struct mxc_mipi_csi2_dev *mipi_csi2[MXC_MIPI_CSI2_MAX_DEVS];
 	struct mxc_sensor_info sensor[MXC_MAX_MIPI_SENSORS];
 	struct mxc_mjpeg_dec  *mjpeg_dec;
 	struct mxc_mjpeg_enc  *mjpeg_enc;
 
 	int num_sensors;
+	bool parallel_csi;
 
 	struct media_device media_dev;
 	struct v4l2_device v4l2_dev;

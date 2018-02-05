@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -97,6 +97,8 @@ static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
 			mxc_isi->interface, 3);
 	if (ret < 0)
 		return ret;
+
+	mxc_isi->parallel_csi = of_property_read_bool(node, "parallel_csi");
 
 	dev_dbg(dev, "%s, isi_%d,interface(%d, %d, %d)\n", __func__, mxc_isi->id,
 			mxc_isi->interface[0], mxc_isi->interface[1], mxc_isi->interface[2]);
