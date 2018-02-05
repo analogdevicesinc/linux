@@ -610,7 +610,6 @@ static const struct snd_soc_dapm_route ak4458_intercon[] = {
 
 static int ak4458_rstn_control(struct snd_soc_codec *codec, int bit)
 {
-
 	u8 rstn;
 
 	dev_dbg(codec->dev, "%s(%d)\n", __func__, __LINE__);
@@ -621,9 +620,7 @@ static int ak4458_rstn_control(struct snd_soc_codec *codec, int bit)
 	if (bit)
 		rstn |= AK4458_RSTN;
 
-	snd_soc_write(codec, AK4458_00_CONTROL1, rstn);
-
-	return 0;
+	return snd_soc_write(codec, AK4458_00_CONTROL1, rstn);
 }
 
 static int ak4458_hw_params(struct snd_pcm_substream *substream,
@@ -634,6 +631,7 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
 	u8 format;
 	int pcm_width = max(params_physical_width(params), ak4458->slot_width);
+	int ret;
 
 #ifdef AK4458_ACKS_USE_MANUAL_MODE
 	u8 dfs1, dfs2;
@@ -691,9 +689,13 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 	snd_soc_write(codec, AK4458_01_CONTROL2, dfs1);
 	snd_soc_write(codec, AK4458_05_CONTROL4, dfs2);
 
-	ak4458_rstn_control(codec, 0);
-	ak4458_rstn_control(codec, 1);
+	ret = ak4458_rstn_control(codec, 0);
+	if (ret)
+		return ret;
 
+	ak4458_rstn_control(codec, 1);
+	if (ret)
+		return ret;
 #else
 	snd_soc_update_bits(codec, AK4458_00_CONTROL1, 0x80, 0x80);
 #endif
@@ -723,8 +725,13 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 
 	snd_soc_write(codec, AK4458_00_CONTROL1, format);
 
-	ak4458_rstn_control(codec, 0);
-	ak4458_rstn_control(codec, 1);
+	ret = ak4458_rstn_control(codec, 0);
+	if (ret)
+		return ret;
+
+	ret = ak4458_rstn_control(codec, 1);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -742,6 +749,7 @@ static int ak4458_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
 	u8 format;
+	int ret;
 
 	/* set master/slave audio interface */
 	format = snd_soc_read(codec, AK4458_00_CONTROL1);
@@ -782,8 +790,13 @@ static int ak4458_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		__func__, __LINE__, format);
 	snd_soc_write(codec, AK4458_00_CONTROL1, format);
 
-	ak4458_rstn_control(codec, 0);
-	ak4458_rstn_control(codec, 1);
+	ret = ak4458_rstn_control(codec, 0);
+	if (ret)
+		return ret;
+
+	ret = ak4458_rstn_control(codec, 1);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -953,9 +966,10 @@ static struct snd_soc_dai_driver ak4458_dai = {
 	.ops = &ak4458_dai_ops,
 };
 
-static void ak4458_init_reg(struct snd_soc_codec *codec)
+static int ak4458_init_reg(struct snd_soc_codec *codec)
 {
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
+	int ret;
 
 	dev_dbg(codec->dev, "%s(%d)\n", __func__, __LINE__);
 
@@ -978,21 +992,29 @@ static void ak4458_init_reg(struct snd_soc_codec *codec)
 	dev_dbg(codec->dev, "%s ACKS bit = 1\n", __func__);
 #endif
 
-	ak4458_rstn_control(codec, 0);
-	ak4458_rstn_control(codec, 1);
+	ret = ak4458_rstn_control(codec, 0);
+	if (ret)
+		return ret;
+
+	ret = ak4458_rstn_control(codec, 1);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 static int ak4458_codec_probe(struct snd_soc_codec *codec)
 {
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
+	int ret;
 
 	dev_dbg(codec->dev, "%s(%d)\n", __func__, __LINE__);
 
-	ak4458_init_reg(codec);
+	ret = ak4458_init_reg(codec);
 
 	ak4458->fs = 48000;
 
-	return 0;
+	return ret;
 }
 
 static int ak4458_codec_remove(struct snd_soc_codec *codec)
