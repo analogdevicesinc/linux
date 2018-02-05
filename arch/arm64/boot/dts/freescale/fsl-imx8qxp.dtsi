@@ -834,6 +834,35 @@
 				};
 			};
 
+			pd_parallel_csi: PD_PARALLEL_CSI {
+				reg = <SC_R_PI_0>;
+				#power-domain-cells = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				power-domains =<&pd_isi_ch0>;
+
+				pd_parallel_csi_i2c0: PD_PARALLEL_CSI_I2C {
+					name = "parallel_csi_i2c";
+					reg = <SC_R_PI_0_I2C_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_parallel_csi>;
+				};
+
+				pd_parallel_csi_pwm0: PD_PARALLEL_CSI_PWM {
+					name = "parallel_csi_pwm";
+					reg = <SC_R_PI_0_PWM_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_parallel_csi>;
+				};
+
+				pd_parallel_csi_pll: PD_PARALLEL_CSI_PLL {
+					name = "parallel_csi_pll";
+					reg = <SC_R_PI_0_PLL>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_parallel_csi>;
+				};
+			};
+
 			pd_isi_ch1: PD_IMAGING_PDMA1 {
 				reg = <SC_R_ISI_CH1>;
 				#power-domain-cells = <0>;
@@ -1561,7 +1590,7 @@
 		};
 	};
 
-	camera {
+	cameradev: camera {
 		compatible = "fsl,mxc-md", "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1689,6 +1718,20 @@
 							<&clk IMX8QXP_CSI0_ESC_CLK>;
 			assigned-clock-rates = <360000000>, <72000000>;
 			power-domains = <&pd_mipi_csi>;
+			status = "disabled";
+		};
+
+		parallel_csi: pcsi@58261000 {
+			compatible = "fsl,mxc-parallel-csi";
+			reg = <0x0 0x58261000 0x0 0x1000>;
+			clocks = <&clk IMX8QXP_PARALLEL_CSI_PIXEL_CLK>,
+				   <&clk IMX8QXP_PARALLEL_CSI_IPG_CLK>;
+			clock-names = "pixel", "ipg";
+			assigned-clocks = <&clk IMX8QXP_PARALLEL_CSI_CLK_SEL>,
+							<&clk IMX8QXP_PARALLEL_CSI_PER_CLK_DIV>;
+			assigned-clock-parents = <&clk IMX8QXP_PARALLEL_CSI_CLK_DPLL>;
+			assigned-clock-rates = <0>, <160000000>;  /* 160MHz */
+			power-domains = <&pd_parallel_csi>;
 			status = "disabled";
 		};
 
