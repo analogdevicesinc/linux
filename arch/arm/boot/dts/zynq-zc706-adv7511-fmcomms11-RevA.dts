@@ -47,6 +47,7 @@
 				adi,length-width = <24>;
 			};
 		};
+
 	};
 
 	tx_dma: tx-dmac@7c420000 {
@@ -78,7 +79,6 @@
 		dmas = <&tx_dma 0>;
 		dma-names = "tx";
 		spibus-connected = <&dac0_ad9162>;
-		//adi,axi-pl-fifo-enable;
 	};
 
 	axi_ad9162_jesd: axi-jesd204-tx@44a90000 {
@@ -95,7 +95,6 @@
 		adi,converter-resolution = <16>;
 		adi,bits-per-sample = <16>;
 		adi,converters-per-device = <2>;
-		adi,subclass = <0>;
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_dac_lane_clk";
@@ -120,7 +119,6 @@
 
 		adi,octets-per-frame = <1>;
 		adi,frames-per-multiframe = <32>;
-		adi,subclass = <0>;
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_adc_lane_clk";
@@ -130,7 +128,7 @@
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = <0x44a50000 0x1000>;
 
-		clocks = <&adc_divclk>;
+		clocks = <&clk0_ad9508 2>;
 		clock-names = "conv";
 
 		#clock-cells = <1>;
@@ -139,13 +137,13 @@
 		adi,sys-clk-select = <0>;
 		adi,out-clk-select = <2>;
 		adi,use-cpll-enable;
-		adi,use-lpm-enable;
+		//adi,use-lpm-enable;
 	};
 
 	tx_adxcvr: tx-adxcvr@44a60000 {
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = <0x44a60000 0x1000>;
-		clocks = <&adc_divclk>;
+		clocks = <&clk0_ad9508 2>;
 		clock-names = "conv";
 
 		#clock-cells = <1>;
@@ -164,7 +162,7 @@
 
 #define fmc_spi spi0
 
-#include "adi-fmcomms11.dtsi"
+#include "adi-fmcomms11-RevA.dtsi"
 
 &adc0_ad9625 {
 	irq-gpios = <&gpio0 87 0>;
@@ -173,4 +171,12 @@
 &dac0_ad9162 {
 	txen-gpios = <&gpio0 88 0>;
 	irq-gpios = <&gpio0 86 0>;
+};
+
+&clk0_ad9508 {
+	powerdown-gpios = <&gpio0 93 0>;
+	sync-gpios = <&gpio0 92 0>;
+	reset-gpios = <&gpio0 91 0>;
+	status0-gpios = <&gpio0 86 0>;
+	status1-gpios = <&gpio0 87 0>;
 };
