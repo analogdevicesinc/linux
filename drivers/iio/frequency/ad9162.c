@@ -104,7 +104,8 @@ static int ad9162_setup(struct ad9162_state *st)
 // 		EVENT_JESD_ILAS_ERR};
 
 	int ret;
-	u64 jesdLaneRate;
+	u64 jesdLaneRate, dac_rate_Hz;
+	unsigned long lane_rate_kHz;
 	ad916x_jesd_link_stat_t link_status;
 
 	ad916x_handle_t *ad916x_h = &st->dac_h;
@@ -130,9 +131,10 @@ static int ad9162_setup(struct ad9162_state *st)
 
 	ad916x_dac_set_full_scale_current(ad916x_h, 20);
 
-	ad916x_dac_set_clk_frequency(ad916x_h,
-				     clk_get_rate_scaled(st->conv.clk[CLK_DAC],
-				     &st->conv.clkscale[CLK_DAC]));
+	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
+					  &st->conv.clkscale[CLK_DAC]);
+
+	ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
 	if (ret != 0)
 		return ret;
 
@@ -163,7 +165,17 @@ static int ad9162_setup(struct ad9162_state *st)
 	if (ret != 0)
 		return ret;
 
-	ret = clk_prepare_enable(st->conv.clk[0]);
+	lane_rate_kHz = div_u64(dac_rate_Hz * 20 * appJesdConfig.jesd_M,
+				appJesdConfig.jesd_L * st->interpolation * 1000);
+
+	ret = clk_set_rate(st->conv.clk[CLK_DATA], lane_rate_kHz);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set lane rate to %lu kHz: %d\n",
+			lane_rate_kHz, ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(st->conv.clk[CLK_DATA]);
 	if (ret) {
 		dev_err(dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
