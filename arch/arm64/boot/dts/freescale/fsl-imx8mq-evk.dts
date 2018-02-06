@@ -105,6 +105,7 @@
 		model = "ak4458-audio";
 		audio-cpu = <&sai1>;
 		audio-codec = <&ak4458_1>, <&ak4458_2>;
+		ak4458,pdn-gpio = <&gpio3 18 GPIO_ACTIVE_HIGH>;
 	};
 
 	sound-ak5558 {
@@ -585,7 +586,6 @@
 	ak4458_1: ak4458@10 {
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x10>;
-		ak4458,pdn-gpio = <&gpio3 18 GPIO_ACTIVE_HIGH>;
 	};
 
 	ak4458_2: ak4458@12 {
