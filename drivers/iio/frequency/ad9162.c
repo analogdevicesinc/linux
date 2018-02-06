@@ -85,24 +85,8 @@ static int ad9162_setup(struct ad9162_state *st)
 	struct device *dev = regmap_get_device(map);
 	uint8_t revision[3] = {0,0,0};
 	ad916x_chip_id_t dac_chip_id;
-
-	jesd_param_t appJesdConfig = { 8, 1, 2, 4, 1,32,16,16,0,0, 0,0,0,0};
+	jesd_param_t appJesdConfig = {8, 1, 2, 4, 1, 32, 16, 16, 0, 0, 0, 0, 0, 0};
 	uint8_t pll_lock_status = 0x0;
-// 	ad916x_event_t jesd_event_list[EVENT_NOF_EVENTS] = {
-// 		EVENT_SYSREF_JITTER,
-// 		EVENT_DATA_RDY,
-// 		EVENT_JESD_LANE_FIFO_ERR,
-// 		EVENT_JESD_PRBS_IMG_ERR,
-// 		EVENT_JESD_PRBS_REAL_ERR,
-// 		EVENT_JESD_NOT_IN_TBL_ERR,
-// 		EVENT_JESD_K_ERR,
-// 		EVENT_JESD_ILD_ERR,
-// 		EVENT_JESD_ILS_ERR,
-// 		EVENT_JESD_CKSUM_ERR,
-// 		EVENT_JESD_FS_ERR,
-// 		EVENT_JESD_CGS_ERR,
-// 		EVENT_JESD_ILAS_ERR};
-
 	int ret;
 	u64 jesdLaneRate, dac_rate_Hz;
 	unsigned long lane_rate_kHz;
@@ -160,7 +144,9 @@ static int ad9162_setup(struct ad9162_state *st)
 	msleep(100);
 
 	ret = ad916x_jesd_get_pll_status(ad916x_h, &pll_lock_status);
-	dev_info(dev, "Serdes PLL %s (stat: %x)\n", ((pll_lock_status & 0x39) == 0x9) ? "Locked" : "Unlocked",  pll_lock_status);
+	dev_info(dev, "Serdes PLL %s (stat: %x)\n",
+		 ((pll_lock_status & 0x39) == 0x9) ?
+		 "Locked" : "Unlocked",  pll_lock_status);
 
 	if (ret != 0)
 		return ret;
