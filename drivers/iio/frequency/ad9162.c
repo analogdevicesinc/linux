@@ -199,21 +199,27 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 	struct clk *clk;
 	int i, ret;
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < ARRAY_SIZE(clk_names); i++) {
 		clk = devm_clk_get(&conv->spi->dev, clk_names[i]);
-		if (IS_ERR(clk))
+		if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
 			return PTR_ERR(clk);
 
-		if (i > 0) {
+		if (PTR_ERR(clk) == -ENOENT) {
+			/* sysref might be optional */
+			conv->clk[i] = NULL;
+			continue;
+		}
+
+		if (i > CLK_DATA) {
 			ret = clk_prepare_enable(clk);
 			if (ret < 0)
 				return ret;
 		}
 
 		of_clk_get_scale(conv->spi->dev.of_node, clk_names[i], &conv->clkscale[i]);
-
 		conv->clk[i] = clk;
 	}
+
 	return 0;
 }
 
@@ -461,6 +467,13 @@ out:
 
 static int ad9162_remove(struct spi_device *spi)
 {
+	struct cf_axi_converter *conv = spi_get_drvdata(spi);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(clk_names); i++)
+		if (conv->clk[i])
+			clk_disable_unprepare(conv->clk[i]);
+
 	spi_set_drvdata(spi, NULL);
 	return 0;
 }
