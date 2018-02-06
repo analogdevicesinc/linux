@@ -16,6 +16,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/of_device.h>
 #include <linux/i2c.h>
+#include <linux/of_gpio.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 #include <sound/pcm.h>
@@ -26,6 +27,7 @@ struct imx_ak4458_data {
 	int num_codec_conf;
 	struct snd_soc_codec_conf *codec_conf;
 	bool tdm_mode;
+	int pdn_gpio;
 };
 
 static struct snd_soc_dapm_widget imx_ak4458_dapm_widgets[] = {
@@ -225,9 +227,10 @@ static int imx_ak4458_probe(struct platform_device *pdev)
 	priv->codec_conf = devm_kzalloc(&pdev->dev,
 		priv->num_codec_conf * sizeof(struct snd_soc_codec_conf),
 		GFP_KERNEL);
-	if (!priv->codec_conf)
-		return -ENOMEM;
-
+	if (!priv->codec_conf) {
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	priv->codec_conf[0].name_prefix = "0";
 	priv->codec_conf[0].of_node = codec_np_0;
@@ -248,6 +251,21 @@ static int imx_ak4458_probe(struct platform_device *pdev)
 	priv->card.num_dapm_widgets = ARRAY_SIZE(imx_ak4458_dapm_widgets);
 	priv->card.codec_conf = priv->codec_conf;
 	priv->card.num_configs = priv->num_codec_conf;
+
+	priv->pdn_gpio = of_get_named_gpio(pdev->dev.of_node, "ak4458,pdn-gpio", 0);
+	if (gpio_is_valid(priv->pdn_gpio)) {
+		ret = devm_gpio_request_one(&pdev->dev, priv->pdn_gpio,
+				GPIOF_OUT_INIT_LOW, "ak4458,pdn");
+		if (ret) {
+			dev_err(&pdev->dev, "unable to get pdn gpio\n");
+			goto fail;
+		}
+
+		gpio_set_value_cansleep(priv->pdn_gpio, 0);
+		usleep_range(1000, 2000);
+		gpio_set_value_cansleep(priv->pdn_gpio, 1);
+		usleep_range(1000, 2000);
+	}
 
 	ret = snd_soc_of_parse_card_name(&priv->card, "model");
 	if (ret)
