@@ -876,12 +876,24 @@ static int ad9625_setup(struct spi_device *spi)
 
 	mdelay(10);
 
-	ret = clk_prepare_enable(conv->clk);
+	/* 16bits * 10bits / 8bits / 8lanes / 1000Hz = 1 / 400 */
+	lane_rate_kHz = DIV_ROUND_CLOSEST(conv->adc_clk, 400);
+
+	ret = clk_set_rate(conv->lane_clk, lane_rate_kHz);
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+			lane_rate_kHz, ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret == -EIO) /* Sync issue on the dual FMCADC5 */
 		ret = 0;
 
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
+	}
 
 	mdelay(10);
 
