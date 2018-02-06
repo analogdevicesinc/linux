@@ -132,6 +132,9 @@ static int ad9162_setup(struct ad9162_state *st)
 	appJesdConfig.jesd_S = 2;
 	appJesdConfig.jesd_HD = ((appJesdConfig.jesd_F == 1) ? 1 : 0);
 
+	if (appJesdConfig.jesd_M == 2)
+		st->conv.id = ID_AD9162_COMPLEX;
+
 	ad916x_jesd_config_datapath(ad916x_h, appJesdConfig,
 				    st->interpolation, &jesdLaneRate);
 	if (ret != 0)
