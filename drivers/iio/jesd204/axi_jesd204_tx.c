@@ -58,6 +58,9 @@
 
 #define JESD204_TX_MAGIC (('2' << 24) | ('0' << 16) | ('4' << 8) | ('T'))
 
+/* JESD204_TX_REG_SYSREF_CONF */
+#define JESD204_TX_REG_SYSREF_CONF_SYSREF_DISABLE	BIT(0)
+
 struct jesd204_tx_config {
 	uint8_t device_id;
 	uint8_t bank_id;
@@ -266,6 +269,10 @@ static int axi_jesd204_tx_apply_config(struct axi_jesd204_tx *jesd,
 	val = (octets_per_multiframe - 1);
 	val |= (config->octets_per_frame - 1) << 16;
 
+	if (config->jesd_version == 0)
+		writel_relaxed(JESD204_TX_REG_SYSREF_CONF_SYSREF_DISABLE,
+			       jesd->base + JESD204_TX_REG_SYSREF_CONF);
+
 	writel_relaxed(val, jesd->base + JESD204_TX_REG_CONF0);
 
 	for (lane = 0; lane < jesd->num_lanes; lane++)
@@ -324,6 +331,10 @@ static int axi_jesd204_tx_parse_dt_config(struct device_node *np,
 	ret = of_property_read_u32(np, "adi,control-bits-per-sample", &val);
 	if (ret == 0)
 		config->control_bits_per_sample = val;
+
+	ret = of_property_read_u32(np, "adi,subclass", &val);
+	if (ret == 0)
+		config->jesd_version = val;
 
 	return 0;
 }
