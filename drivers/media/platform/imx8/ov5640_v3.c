@@ -1146,7 +1146,7 @@ static int ov5640_enum_frameintervals(struct v4l2_subdev *sd,
 		struct v4l2_subdev_pad_config *cfg,
 		struct v4l2_subdev_frame_interval_enum *fie)
 {
-	int j, count;
+	int i, j, count;
 
 	if (fie->index < 0 || fie->index > ov5640_mode_MAX)
 		return -EINVAL;
@@ -1160,15 +1160,20 @@ static int ov5640_enum_frameintervals(struct v4l2_subdev *sd,
 	fie->interval.numerator = 1;
 
 	count = 0;
-	for (j = 0; j < (ov5640_mode_MAX + 1); j++) {
-		if (fie->width == ov5640_mode_info_data[j].width
-		 && fie->height == ov5640_mode_info_data[j].height
-		 && ov5640_mode_info_data[j].init_data_ptr != NULL) {
-			count++;
-		}
-		if (fie->index == (count - 1)) {
-			fie->interval.denominator = ov5640_framerates[0];
-			return 0;
+	for (i = 0; i < ARRAY_SIZE(ov5640_framerates); i++) {
+		for (j = 0; j < (ov5640_mode_MAX + 1); j++) {
+			if (fie->width == ov5640_mode_info_data[j].width
+			 && fie->height == ov5640_mode_info_data[j].height
+			 && ov5640_mode_info_data[j].init_data_ptr != NULL) {
+				count++;
+			}
+			if (fie->index == (count - 1)) {
+				fie->interval.denominator = ov5640_framerates[i];
+				if (ov5640_mode_info_data[j].mode ==
+						ov5640_mode_1080P_1920_1080)
+					fie->interval.denominator = ov5640_framerates[0];
+				return 0;
+			}
 		}
 	}
 

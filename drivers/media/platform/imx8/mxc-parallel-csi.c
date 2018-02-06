@@ -331,7 +331,7 @@ static int mxc_pcsi_enum_frame_interval(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	return v4l2_subdev_call(sd, pad, enum_frame_interval, NULL, fie);
+	return v4l2_subdev_call(sen_sd, pad, enum_frame_interval, NULL, fie);
 }
 
 static int mxc_pcsi_get_fmt(struct v4l2_subdev *sd,
