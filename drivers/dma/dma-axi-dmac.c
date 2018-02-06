@@ -771,7 +771,7 @@ static int axi_dmac_parse_chan_dt_compat(struct device_node *of_node,
 	return 0;
 }
 
-static void axi_dmac_detect_caps(struct axi_dmac *dmac)
+static int axi_dmac_detect_caps(struct axi_dmac *dmac)
 {
 	struct axi_dmac_chan *chan = &dmac->chan;
 
@@ -787,6 +787,24 @@ static void axi_dmac_detect_caps(struct axi_dmac *dmac)
 	chan->max_length = axi_dmac_read(dmac, AXI_DMAC_REG_X_LENGTH);
 	if (chan->max_length != UINT_MAX)
 		chan->max_length++;
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_DEST_ADDRESS, 0xffffffff);
+	if (axi_dmac_read(dmac, AXI_DMAC_REG_DEST_ADDRESS) == 0 &&
+	    chan->dest_type == AXI_DMAC_BUS_TYPE_AXI_MM) {
+		dev_err(dmac->dma_dev.dev,
+			"Destination memory-mapped interface not supported.");
+		return -ENODEV;
+	}
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_SRC_ADDRESS, 0xffffffff);
+	if (axi_dmac_read(dmac, AXI_DMAC_REG_SRC_ADDRESS) == 0 &&
+	    chan->src_type == AXI_DMAC_BUS_TYPE_AXI_MM) {
+		dev_err(dmac->dma_dev.dev,
+			"Source memory-mapped interface not supported.");
+		return -ENODEV;
+	}
+
+	return 0;
 }
 
 static int axi_dmac_probe(struct platform_device *pdev)
@@ -864,7 +882,9 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	axi_dmac_detect_caps(dmac);
+	ret = axi_dmac_detect_caps(dmac);
+	if (ret)
+		goto err_clk_disable;
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_IRQ_MASK, 0x00);
 
