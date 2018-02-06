@@ -852,30 +852,33 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 static int ad9625_setup(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
-	struct clk *clk;
+	unsigned long lane_rate_kHz;
 	unsigned pll_stat;
 	int ret;
 
-	clk = devm_clk_get(&spi->dev, "adc_sysref");
-	if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
-		return PTR_ERR(clk);
+	conv->sysref_clk = devm_clk_get(&spi->dev, "adc_sysref");
+	if (IS_ERR(conv->sysref_clk) && PTR_ERR(conv->sysref_clk) != -ENOENT)
+		return PTR_ERR(conv->sysref_clk);
 
-	if (!IS_ERR(clk)) {
-		ret = clk_prepare_enable(clk);
+	if (!IS_ERR(conv->sysref_clk)) {
+		ret = clk_prepare_enable(conv->sysref_clk);
 		if (ret < 0)
 			return ret;
 	}
 
-	clk = devm_clk_get(&spi->dev, "adc_clk");
-	if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
-		return PTR_ERR(clk);
+	/* for JESD converters conv->clk is JESD/Data clock */
+	conv->lane_clk = conv->clk;
 
-	if (!IS_ERR(clk)) {
-		ret = clk_prepare_enable(clk);
+	conv->clk = devm_clk_get(&spi->dev, "adc_clk");
+	if (IS_ERR(conv->clk) && PTR_ERR(conv->clk) != -ENOENT)
+		return PTR_ERR(conv->clk);
+
+	if (!IS_ERR(conv->clk)) {
+		ret = clk_prepare_enable(conv->clk);
 		if (ret < 0)
 			return ret;
 		of_clk_get_scale(spi->dev.of_node, "adc_clk", &conv->adc_clkscale);
-		conv->adc_clk = clk_get_rate_scaled(clk, &conv->adc_clkscale);
+		conv->adc_clk = clk_get_rate_scaled(conv->clk, &conv->adc_clkscale);
 	}
 
 	ret = ad9467_spi_write(spi, 0x000, 0x24);
@@ -894,15 +897,25 @@ static int ad9625_setup(struct spi_device *spi)
 
 	mdelay(10);
 
-	ret = clk_prepare_enable(conv->clk);
+	/* 16bits * 10bits / 8bits / 8lanes / 1000Hz = 1 / 400 */
+	lane_rate_kHz = DIV_ROUND_CLOSEST(conv->adc_clk, 400);
+
+	ret = clk_set_rate(conv->lane_clk, lane_rate_kHz);
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+			lane_rate_kHz, ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret == -EIO) /* Sync issue on the dual FMCADC5 */
 		ret = 0;
 
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&conv->spi->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
+	}
 
-
-	conv->clk = clk;
 	mdelay(10);
 
 	pll_stat = ad9467_spi_read(spi, 0x0A);
