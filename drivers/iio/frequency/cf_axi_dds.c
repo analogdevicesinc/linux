@@ -977,9 +977,19 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_channels = 3,
 		.num_dds_channels = 2,
 		.num_buf_channels = 1,
-
 	},
-
+	[ID_AD9162_COMPLEX] = {
+		.name = "AD9162",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF(0),
+			CF_AXI_DDS_CHAN_BUF(1),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+		},
+		.num_channels = 4,
+		.num_dds_channels = 2,
+		.num_buf_channels = 2,
+	},
 };
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
