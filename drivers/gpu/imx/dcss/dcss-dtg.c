@@ -235,9 +235,11 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	dis_lrc_y = vm->vsync_len + vm->vfront_porch + vm->vback_porch +
 		    vm->vactive - 1;
 
-	clk_disable_unprepare(dcss->p_clk);
-	clk_set_rate(dcss->p_clk, vm->pixelclock);
-	clk_prepare_enable(dcss->p_clk);
+	clk_disable_unprepare(dcss->pout_clk);
+	clk_disable_unprepare(dcss->pdiv_clk);
+	clk_set_rate(dcss->pdiv_clk, vm->pixelclock);
+	clk_prepare_enable(dcss->pdiv_clk);
+	clk_prepare_enable(dcss->pout_clk);
 
 	dcss_dtg_write(dtg, ((dtg_lrc_y << TC_Y_POS) | dtg_lrc_x),
 		       DCSS_DTG_TC_DTG);

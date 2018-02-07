@@ -50,7 +50,8 @@ struct dcss_soc {
 
 	struct clk *apb_clk;
 	struct clk *axi_clk;
-	struct clk *p_clk;
+	struct clk *pdiv_clk;
+	struct clk *pout_clk;
 	struct clk *rtrm_clk;
 	struct clk *dtrc_clk;
 

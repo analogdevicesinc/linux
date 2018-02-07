@@ -272,7 +272,8 @@ static int dcss_clks_init(struct dcss_soc *dcss)
 	} clks[] = {
 		{"apb",   &dcss->apb_clk},
 		{"axi",   &dcss->axi_clk},
-		{"pixel", &dcss->p_clk},
+		{"pix_div", &dcss->pdiv_clk},
+		{"pix_out", &dcss->pout_clk},
 		{"rtrm",  &dcss->apb_clk},
 		{"dtrc",  &dcss->dtrc_clk},
 	};
@@ -307,11 +308,13 @@ static void dcss_clocks_enable(struct dcss_soc *dcss, bool en)
 		clk_prepare_enable(dcss->apb_clk);
 		clk_prepare_enable(dcss->rtrm_clk);
 		clk_prepare_enable(dcss->dtrc_clk);
-		clk_prepare_enable(dcss->p_clk);
+		clk_prepare_enable(dcss->pdiv_clk);
+		clk_prepare_enable(dcss->pout_clk);
 	}
 
 	if (!en && dcss->clks_on) {
-		clk_disable_unprepare(dcss->p_clk);
+		clk_disable_unprepare(dcss->pout_clk);
+		clk_disable_unprepare(dcss->pdiv_clk);
 		clk_disable_unprepare(dcss->dtrc_clk);
 		clk_disable_unprepare(dcss->rtrm_clk);
 		clk_disable_unprepare(dcss->apb_clk);
