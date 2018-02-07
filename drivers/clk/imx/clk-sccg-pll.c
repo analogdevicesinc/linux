@@ -30,6 +30,9 @@
 #define PLL_DIVR2_MASK	0x3f
 #define PLL_REF_SHIFT	0
 #define PLL_REF_MASK	0x3
+#define PLL_REF_OSC_25M	0
+#define PLL_REF_OSC_27M	1
+#define PLL_REF_PHY_27M	2
 
 #define PLL_LOCK	31
 #define PLL_PD		7
@@ -127,10 +130,11 @@ static unsigned long clk_pll2_recalc_rate(struct clk_hw *hw,
 
 	val = readl_relaxed(pll->base + PLL_CFG0);
 	switch ((val >> PLL_REF_SHIFT) & PLL_REF_MASK) {
-	case 0:
+	case PLL_REF_OSC_25M:
 		ref = OSC_25M;
 		break;
-	case 1:
+	case PLL_REF_OSC_27M:
+	case PLL_REF_PHY_27M:
 		ref = OSC_27M;
 		break;
 	default:
@@ -159,9 +163,9 @@ static long clk_pll2_round_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long parent_rate = *prate;
 
 	/* FIXME */
-	div = rate / (parent_rate);
+	div = rate / (parent_rate * 2);
 
-	return parent_rate * div;
+	return parent_rate * div * 2;
 }
 
 static int clk_pll2_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -171,7 +175,7 @@ static int clk_pll2_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 divf;
 	struct clk_sccg_pll *pll = to_clk_sccg_pll(hw);
 
-	divf = rate / (parent_rate);
+	divf = rate / (parent_rate * 2);
 
 	val = readl_relaxed(pll->base + PLL_CFG2);
 	val &= ~(PLL_DIVF_MASK << PLL_DIVF2_SHIFT);
