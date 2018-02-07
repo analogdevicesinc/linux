@@ -287,7 +287,7 @@ static irqreturn_t imx8_scu_mu_isr(int irq, void *param)
 int __init imx8_mu_init(void)
 {
 	struct device_node *np;
-	u32 irq;
+	int irq;
 	int err;
 	sc_err_t sciErr;
 
@@ -308,18 +308,23 @@ int __init imx8_mu_init(void)
 
 	irq = of_irq_get(np, 0);
 
-	err = request_irq(irq, imx8_scu_mu_isr,
-			  IRQF_EARLY_RESUME, "imx8_mu_isr", NULL);
+	if (irq <= 0) {
+		/* SCU works just fine without irq */
+		pr_warn("imx8_mu_init: no irq: %d\n", irq);
+	} else {
+		err = request_irq(irq, imx8_scu_mu_isr,
+				  IRQF_EARLY_RESUME, "imx8_mu_isr", NULL);
+		if (err) {
+			pr_err("imx8_mu_init: request_irq %d failed: %d\n",
+					irq, err);
+			return err;
+		}
 
-	if (err) {
-		pr_info("imx8_mu_init :request_irq failed %d, err = %d\n", irq,
-			err);
-	}
-
-	err = irq_set_irq_wake(irq, 1);
-	if (err) {
-		pr_info("set mu irq wake up error %d.\n", err);
-		return err;
+		err = irq_set_irq_wake(irq, 1);
+		if (err) {
+			pr_err("imx8mu_init: set_irq_wake failed: %d\n", err);
+			return err;
+		}
 	}
 
 	if (!scu_mu_init) {
