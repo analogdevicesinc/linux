@@ -10,6 +10,7 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
+#include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -20,15 +21,70 @@
 #include <sound/soc-dapm.h>
 
 #include "../codecs/ak4497.h"
-
+#include "fsl_sai.h"
 
 struct imx_ak4497_data {
 	struct snd_soc_card card;
+	unsigned long freq;
 };
 
 static struct snd_soc_dapm_widget imx_ak4497_dapm_widgets[] = {
 	SND_SOC_DAPM_LINE("Line Out", NULL),
 };
+
+static const struct imx_ak4497_fs_mul {
+	unsigned int min;
+	unsigned int max;
+	unsigned int mul;
+} fs_mul[] = {
+	/**
+	 * Table 7      - mapping multiplier and speed mode
+	 * Tables 8 & 9 - mapping speed mode and LRCK fs
+	 */
+	{ .min = 8000,   .max = 32000,  .mul = 1024 }, /* Normal, <= 32kHz */
+	{ .min = 44100,  .max = 48000,  .mul = 512  }, /* Normal */
+	{ .min = 88200,  .max = 96000,  .mul = 256  }, /* Double */
+	{ .min = 176400, .max = 192000, .mul = 128  }, /* Quad */
+	{ .min = 384000, .max = 384000, .mul = 64   }, /* Oct */
+	{ .min = 768000, .max = 768000, .mul = 32   }, /* Hex */
+};
+
+static bool imx_ak4497_is_dsd(struct snd_pcm_hw_params *params)
+{
+	snd_pcm_format_t format = params_format(params);
+
+	switch (format) {
+	case SNDRV_PCM_FORMAT_DSD_U8:
+	case SNDRV_PCM_FORMAT_DSD_U16_LE:
+	case SNDRV_PCM_FORMAT_DSD_U16_BE:
+	case SNDRV_PCM_FORMAT_DSD_U32_LE:
+	case SNDRV_PCM_FORMAT_DSD_U32_BE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static unsigned long imx_ak4497_compute_freq(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct imx_ak4497_data *priv = snd_soc_card_get_drvdata(rtd->card);
+	unsigned int rate = params_rate(params);
+	int i;
+
+	if (imx_ak4497_is_dsd(params))
+		return priv->freq;
+
+	/* Find the appropriate MCLK freq */
+	for (i = 0; i < ARRAY_SIZE(fs_mul); i++) {
+		if (rate >= fs_mul[i].min && rate <= fs_mul[i].max)
+			return params_rate(params) * fs_mul[i].mul;
+	}
+
+	/* Return default MCLK frequency */
+	return priv->freq;
+}
 
 static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
@@ -39,37 +95,26 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_card *card = rtd->card;
 	struct device *dev = card->dev;
 	unsigned int channels = params_channels(params);
-	snd_pcm_format_t format = params_format(params);
-	unsigned int fmt;
-	bool is_dsd = false;
+	unsigned int fmt = SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS;
+	unsigned long freq = imx_ak4497_compute_freq(substream, params);
+	bool is_dsd = imx_ak4497_is_dsd(params);
 	int ret;
 
-	if (format == SNDRV_PCM_FORMAT_DSD_U8 ||
-		format == SNDRV_PCM_FORMAT_DSD_U16_LE ||
-		format == SNDRV_PCM_FORMAT_DSD_U16_BE ||
-		format == SNDRV_PCM_FORMAT_DSD_U32_LE ||
-		format == SNDRV_PCM_FORMAT_DSD_U32_BE)
-		is_dsd = true;
+	fmt |= (is_dsd ? SND_SOC_DAIFMT_PDM : SND_SOC_DAIFMT_I2S);
 
-	if (is_dsd)
-		fmt = SND_SOC_DAIFMT_PDM | SND_SOC_DAIFMT_NB_NF |
-			SND_SOC_DAIFMT_CBS_CFS;
-	else
-		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-			SND_SOC_DAIFMT_CBS_CFS;
+	ret = snd_soc_dai_set_sysclk(cpu_dai, FSL_SAI_CLK_MAST1, freq,
+					SND_SOC_CLOCK_OUT);
+	if (ret < 0) {
+		dev_err(dev, "failed to set cpu dai mclk1 rate(%lu): %d\n",
+			freq, ret);
+		return ret;
+	}
 
 	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
 	if (ret) {
 		dev_err(dev, "failed to set cpu dai fmt: %d\n", ret);
 		return ret;
 	}
-
-	if (is_dsd)
-		fmt = SND_SOC_DAIFMT_PDM | SND_SOC_DAIFMT_NB_NF |
-			SND_SOC_DAIFMT_CBS_CFS;
-	else
-		fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-			SND_SOC_DAIFMT_CBS_CFS;
 
 	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
 	if (ret) {
@@ -134,6 +179,7 @@ static int imx_ak4497_probe(struct platform_device *pdev)
 	struct imx_ak4497_data *priv;
 	struct device_node *cpu_np, *codec_np = NULL;
 	struct platform_device *cpu_pdev;
+	struct clk *mclk;
 	int ret;
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
@@ -172,6 +218,15 @@ static int imx_ak4497_probe(struct platform_device *pdev)
 	priv->card.owner = THIS_MODULE;
 	priv->card.dapm_widgets = imx_ak4497_dapm_widgets;
 	priv->card.num_dapm_widgets = ARRAY_SIZE(imx_ak4497_dapm_widgets);
+
+	mclk = devm_clk_get(&cpu_pdev->dev, "mclk1");
+	if (IS_ERR_OR_NULL(mclk)) {
+		dev_err(&pdev->dev, "failed to get DAI mclk1\n");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	priv->freq = clk_get_rate(mclk);
 
 	ret = snd_soc_of_parse_card_name(&priv->card, "model");
 	if (ret)
