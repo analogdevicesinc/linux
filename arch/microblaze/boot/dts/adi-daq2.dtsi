@@ -22,7 +22,7 @@
 		adi,pll2-ndiv-b-cnt = <6>;
 
 		adi,pll2-r2-div = <1>;
-		adi,pll2-vco-diff-m1 = <3>;
+		adi,pll2-vco-div-m1 = <3>;
 
 		adi,rpole2 = <0>;
 		adi,rzero = <7>;
