@@ -1,0 +1,206 @@
+/dts-v1/;
+/include/ "kcu105_adrv9371x_pl.dtsi"
+
+/ {
+	chosen {
+		bootargs = "console=ttyUL0,115200";
+		linux,stdout-path = &axi_uart;
+		stdout-path = &axi_uart;
+	};
+	aliases {
+		ethernet0 = &axi_ethernet;
+		i2c0 = &axi_iic_main;
+		serial0 = &axi_uart;
+		serial1 = &sys_mb_debug;
+		fmc_spi = &axi_spi;
+	};
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x80000000>;
+	};
+};
+
+&axi_ethernet {
+	local-mac-address = [00 0a 35 00 00 01];
+	phy-handle = <&phy0 &phy1>;
+	phy-mode = "sgmii";
+};
+
+&axi_ethernet_mdio {
+	phy0: phy@7 {
+		device_type = "ethernet-phy";
+		reg = <7>;
+	};
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <1>;
+	};
+};
+
+&axi_ad9371_core_rx {
+	dmas = <&rx_dma 0>;
+	dma-names = "rx";
+	spibus-connected = <&trx0_ad9371>;
+};
+&axi_ad9371_core_rx_obs {
+	dmas = <&rx_obs_dma 0>;
+	dma-names = "rx";
+	clocks = <&trx0_ad9371 1>;
+	clock-names = "sampl_clk";
+};
+&axi_ad9371_core_tx {
+	dmas = <&tx_dma 0>;
+	dma-names = "tx";
+	clocks = <&trx0_ad9371 2>;
+	clock-names = "sampl_clk";
+	spibus-connected = <&trx0_ad9371>;
+	adi,axi-pl-fifo-enable;
+};
+&rx_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+	dma-channel {
+		adi,buswidth = <64>;
+		adi,type = <0>;
+	};
+};
+&rx_obs_dma  {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+	dma-channel {
+		adi,buswidth = <64>;
+		adi,type = <0>;
+	};
+};
+&tx_dma {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+	dma-channel {
+		adi,buswidth = <128>;
+		adi,type = <1>;
+		adi,cyclic;
+	};
+};
+&axi_rx_clkgen {
+	#clock-cells = <0>;
+	clocks = <&clk0_ad9528 1>;
+	clock-output-names = "axi_rx_clkgen";
+};
+&axi_rx_os_clkgen {
+	#clock-cells = <0>;
+	clocks = <&clk0_ad9528 1>;
+	clock-output-names = "axi_rx_os_clkgen";
+};
+&axi_tx_clkgen {
+	#clock-cells = <0>;
+	clocks = <&clk0_ad9528 1>;
+	clock-output-names = "axi_tx_clkgen";
+};
+&axi_ad9371_adxcvr_rx {
+	clocks = <&clk0_ad9528 1>, <&axi_rx_clkgen 0>;
+	clock-names = "conv", "div40";
+	#clock-cells = <1>;
+	clock-output-names = "rx_gt_clk", "rx_out_clk";
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <3>;
+	adi,use-lpm-enable;
+	adi,use-cpll-enable;
+};
+&axi_ad9371_adxcvr_rx_os {
+	clocks = <&clk0_ad9528 1>, <&axi_rx_os_clkgen>;
+	clock-names = "conv", "div40";
+	#clock-cells = <1>;
+	clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <3>;
+	adi,use-lpm-enable;
+	adi,use-cpll-enable;
+};
+&axi_ad9371_adxcvr_tx {
+	clocks = <&clk0_ad9528 1>, <&axi_tx_clkgen>;
+	clock-names = "conv", "div40";
+	#clock-cells = <1>;
+	clock-output-names = "tx_gt_clk", "tx_out_clk";
+	adi,sys-clk-select = <3>;
+	adi,out-clk-select = <3>;
+};
+&axi_ad9371_rx_jesd {
+	clocks = <&clk_bus_0>, <&axi_rx_clkgen>, <&axi_ad9371_adxcvr_rx 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+	#clock-cells = <0>;
+	clock-output-names = "jesd_rx_lane_clk";
+	adi,octets-per-frame = <4>;
+	adi,frames-per-multiframe = <32>;
+};
+&axi_ad9371_rx_os_jesd {
+	clocks = <&clk_bus_0>, <&axi_rx_os_clkgen>, <&axi_ad9371_adxcvr_rx_os 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+	#clock-cells = <0>;
+	clock-output-names = "jesd_rx_os_lane_clk";
+	adi,octets-per-frame = <2>;
+	adi,frames-per-multiframe = <32>;
+};
+&axi_ad9371_tx_jesd {
+	clocks = <&clk_bus_0>, <&axi_tx_clkgen>, <&axi_ad9371_adxcvr_tx 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+	#clock-cells = <0>;
+	clock-output-names = "jesd_tx_lane_clk";
+	adi,octets-per-frame = <2>;
+	adi,frames-per-multiframe = <32>;
+	adi,converter-resolution = <14>;
+	adi,bits-per-sample = <16>;
+	adi,converters-per-device = <4>;
+	adi,control-bits-per-sample = <2>;
+};
+
+#define fmc_spi axi_spi
+#include "adi-adrv9371.dtsi"
+
+// ad9371_dac_fifo_bypass_s 60
+// ad9528_reset_b,       // 59
+// ad9528_sysref_req,    // 58
+// ad9371_tx1_enable,    // 57
+// ad9371_tx2_enable,    // 56
+// ad9371_rx1_enable,    // 55
+// ad9371_rx2_enable,    // 54
+// ad9371_test,          // 53
+// ad9371_reset_b,       // 52
+// ad9371_gpint,         // 51
+// ad9371_gpio_00,       // 50
+// ad9371_gpio_01,       // 49
+// ad9371_gpio_02,       // 48
+// ad9371_gpio_03,       // 47
+// ad9371_gpio_04,       // 46
+// ad9371_gpio_05,       // 45
+// ad9371_gpio_06,       // 44
+// ad9371_gpio_07,       // 43
+// ad9371_gpio_15,       // 42
+// ad9371_gpio_08,       // 41
+// ad9371_gpio_09,       // 40
+// ad9371_gpio_10,       // 39
+// ad9371_gpio_11,       // 38
+// ad9371_gpio_12,       // 37
+// ad9371_gpio_14,       // 36
+// ad9371_gpio_13,       // 35
+// ad9371_gpio_17,       // 34
+// ad9371_gpio_16,       // 33
+// ad9371_gpio_18}));    // 32
+
+&trx0_ad9371 {
+	reset-gpios = <&axi_gpio 52 0>;
+	test-gpios = <&axi_gpio 53 0>;
+	sysref_req-gpios = <&axi_gpio 58 0>;
+	rx2_enable-gpios = <&axi_gpio 54 0>;
+	rx1_enable-gpios = <&axi_gpio 55 0>;
+	tx2_enable-gpios = <&axi_gpio 56 0>;
+	tx1_enable-gpios = <&axi_gpio 57 0>;
+};
+
+&clk0_ad9528 {
+	reset-gpios = <&axi_gpio 59 0>;
+};
+
+&axi_ad9371_core_tx {
+	plddrbypass-gpios = <&axi_gpio 60 0>;
+};
+
