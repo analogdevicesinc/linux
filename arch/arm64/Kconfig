@@ -800,7 +800,7 @@ config FORCE_MAX_ZONEORDER
 	int
 	default "14" if (ARM64_64K_PAGES && TRANSPARENT_HUGEPAGE)
 	default "12" if (ARM64_16K_PAGES && TRANSPARENT_HUGEPAGE)
-	default "14" if (ARCH_FSL_IMX8QM || ARCH_FSL_IMX8QXP || ARCH_FSL_IMX8MQ)
+	default "14" if (ARCH_FSL_IMX8QM || ARCH_FSL_IMX8QXP || ARCH_FSL_IMX8MQ || ARCH_FSL_IMX8QP)
 	default "11"
 	help
 	  The kernel memory allocator divides physically contiguous memory

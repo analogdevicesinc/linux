@@ -276,6 +276,17 @@ config ARCH_FSL_IMX8QM
 	help
 	  This enables support for Freescale i.MX8QM SOC.
 
+config ARCH_FSL_IMX8QP
+	bool "Freescale i.MX8QP SOC"
+	select PINCTRL
+	select PINCTRL_IMX
+	select PINCTRL_IMX8QM
+	select PM
+	select SOC_BUS
+	help
+	  This enables support for Freescale i.MX8QP SOC.
+
+
 config ARCH_FSL_IMX8QXP
 	bool "Freescale i.MX8QXP SOC"
 	select PINCTRL
