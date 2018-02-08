@@ -68,7 +68,7 @@ struct otm8009a {
 
 static const struct drm_display_mode default_mode = {
 #ifdef CONFIG_ARCH_FSL_IMX8MQ
-	.clock = 27000,
+	.clock = 24000,
 #else
 	.clock = 32729,
 #endif
@@ -221,6 +221,11 @@ static int otm8009a_init_sequence(struct otm8009a *ctx)
 	/* See otm8009a driver documentation for pixel format descriptions */
 	ret = mipi_dsi_dcs_set_pixel_format(dsi, MIPI_DCS_PIXEL_FMT_24BIT |
 					    MIPI_DCS_PIXEL_FMT_24BIT << 4);
+	if (ret)
+		return ret;
+
+	/* Tearing mode */
+	ret = mipi_dsi_dcs_set_tear_on(dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
 	if (ret)
 		return ret;
 
@@ -381,7 +386,9 @@ static int otm8009a_backlight_update_status(struct backlight_device *bd)
 		 */
 		data[0] = MIPI_DCS_SET_DISPLAY_BRIGHTNESS;
 		data[1] = bd->props.brightness;
+#if 0
 		otm8009a_dcs_write_buf(ctx, data, ARRAY_SIZE(data));
+#endif
 
 		/* set Brightness Control & Backlight on */
 		data[1] = 0x24;
@@ -393,7 +400,9 @@ static int otm8009a_backlight_update_status(struct backlight_device *bd)
 
 	/* Update Brightness Control & Backlight */
 	data[0] = MIPI_DCS_WRITE_CONTROL_DISPLAY;
+#if 0
 	otm8009a_dcs_write_buf(ctx, data, ARRAY_SIZE(data));
+#endif
 
 	return 0;
 }
@@ -424,8 +433,13 @@ static int otm8009a_probe(struct mipi_dsi_device *dsi)
 
 	dsi->lanes = 2;
 	dsi->format = MIPI_DSI_FMT_RGB888;
+#if 0
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
 			  MIPI_DSI_MODE_LPM;
+#else
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM |
+			  MIPI_DSI_CLOCK_NON_CONTINUOUS;
+#endif
 
 	drm_panel_init(&ctx->panel);
 	ctx->panel.dev = dev;

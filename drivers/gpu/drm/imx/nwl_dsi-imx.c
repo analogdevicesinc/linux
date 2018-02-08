@@ -35,6 +35,7 @@
 #include <linux/regmap.h>
 #include <soc/imx8/sc/sci.h>
 #include <video/videomode.h>
+#include <linux/gpio/consumer.h>
 
 #include "imx-drm.h"
 
@@ -921,6 +922,7 @@ static int imx_nwl_dsi_probe(struct platform_device *pdev)
 	struct device_node *remote_node, *endpoint;
 	int remote_ports = 0;
 	struct imx_mipi_dsi *dsi;
+	struct gpio_desc *reset_gpio;
 	int ret = 0;
 
 	if (!np)
@@ -963,6 +965,15 @@ static int imx_nwl_dsi_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, dsi);
 
 	pm_runtime_enable(dev);
+
+	reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	if (reset_gpio) {
+		dev_info(dev, "Reset the panel\n");
+		gpiod_set_value_cansleep(reset_gpio, 1);
+		msleep(20);
+		gpiod_set_value_cansleep(reset_gpio, 0);
+		msleep(300);
+	}
 
 	if (of_property_read_bool(dev->of_node, "as_bridge")) {
 		ret = imx_nwl_dsi_parse_of(dev, true);
