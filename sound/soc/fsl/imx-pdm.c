@@ -80,7 +80,7 @@ static int imx_pdm_mic_hw_params(struct snd_pcm_substream *substream,
 	/* set tdm slots only one for now */
 	snd_soc_dai_set_tdm_slot(cpu_dai, 0, 0, 1, 32);
 	/* Set clock out */
-	ret = snd_soc_dai_set_sysclk(cpu_dai, FSL_SAI_CLK_MAST1,
+	ret = snd_soc_dai_set_sysclk(cpu_dai, FSL_SAI_CLK_BIT,
 			bitclk, SND_SOC_CLOCK_OUT);
 	if (ret) {
 		dev_err(card->dev, "fail to set cpu sysclk: %d\n", ret);
