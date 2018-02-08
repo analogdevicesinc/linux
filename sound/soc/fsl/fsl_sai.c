@@ -246,7 +246,10 @@ static int fsl_sai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 	if (dir == SND_SOC_CLOCK_IN)
 		return 0;
 
-	sai->bitclk_freq = freq;
+	if (clk_id == FSL_SAI_CLK_BIT) {
+		sai->bitclk_freq = freq;
+		return 0;
+	}
 
 	ret = fsl_sai_set_dai_sysclk_tr(cpu_dai, clk_id, freq,
 					FSL_FMT_TRANSMITTER);
