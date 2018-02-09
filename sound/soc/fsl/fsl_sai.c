@@ -251,6 +251,25 @@ static int fsl_sai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 		return 0;
 	}
 
+	if (freq > 0) {
+		if (clk_id < 0 || clk_id >= FSL_SAI_MCLK_MAX) {
+			dev_err(cpu_dai->dev, "Unknown clock id: %d\n", clk_id);
+			return -EINVAL;
+		}
+
+		if (IS_ERR_OR_NULL(sai->mclk_clk[clk_id])) {
+			dev_err(cpu_dai->dev, "Unassigned clock: %d\n", clk_id);
+			return -EINVAL;
+		}
+
+		ret = clk_set_rate(sai->mclk_clk[clk_id], freq);
+		if (ret < 0) {
+			dev_err(cpu_dai->dev, "failed to set clock rate (%u): %d\n",
+					freq, ret);
+			return ret;
+		}
+	}
+
 	ret = fsl_sai_set_dai_sysclk_tr(cpu_dai, clk_id, freq,
 					FSL_FMT_TRANSMITTER);
 	if (ret) {
