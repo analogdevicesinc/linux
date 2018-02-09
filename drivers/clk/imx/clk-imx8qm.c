@@ -245,9 +245,9 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_LVDS1_PHY_DIV] = imx_clk_divider_scu("lvds1_phy_div", SC_R_LVDS_1, SC_PM_CLK_PHY);
 
 	/* vpu/zpu subsystem */
-	clks[IMX8QM_VPU_DDR_DIV] = imx_clk_divider_scu("vpu_ddr_div", SC_R_VPU_PID0, SC_PM_CLK_SLV_BUS);
-	clks[IMX8QM_VPU_SYS_DIV] = imx_clk_divider_scu("vpu_sys_div", SC_R_VPU_PID0, SC_PM_CLK_MST_BUS);
-	clks[IMX8QM_VPU_XUVI_DIV] = imx_clk_divider_scu("vpu_xuvi_div", SC_R_VPU_PID0, SC_PM_CLK_PER);
+	clks[IMX8QM_VPU_DDR_DIV] = imx_clk_divider_scu("vpu_ddr_div", SC_R_VPU, SC_PM_CLK_SLV_BUS);
+	clks[IMX8QM_VPU_SYS_DIV] = imx_clk_divider_scu("vpu_sys_div", SC_R_VPU, SC_PM_CLK_MST_BUS);
+	clks[IMX8QM_VPU_XUVI_DIV] = imx_clk_divider_scu("vpu_xuvi_div", SC_R_VPU, SC_PM_CLK_PER);
 	clks[IMX8QM_VPU_UART_DIV] = imx_clk_divider_scu("vpu_uart_div", SC_R_VPU_UART, SC_PM_CLK_PER);
 	clks[IMX8QM_VPU_CORE_DIV] = imx_clk_divider_scu("vpu_core_div", SC_R_VPUCORE, SC_PM_CLK_PER);
 
@@ -851,9 +851,9 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_LVDS1_LIS_IPG_CLK] = imx_clk_gate2_scu("lvds1_lis_ipg_clk", "ipg_lvds_clk_root", LPCG_ADDR(DI_LVDS_1_LPCG + 0x0), 16, FUNCTION_NAME(PD_LVDS1));
 
 	/* vpu/zpu subsystem */
-	clks[IMX8QM_VPU_DDR_CLK] = imx_clk_gate_scu("vpu_ddr_clk", "vpu_ddr_div", SC_R_VPU_PID0, SC_PM_CLK_SLV_BUS, NULL, 0, 0);
-	clks[IMX8QM_VPU_SYS_CLK] = imx_clk_gate_scu("vpu_sys_clk", "vpu_sys_div", SC_R_VPU_PID0, SC_PM_CLK_MST_BUS, NULL, 0, 0);
-	clks[IMX8QM_VPU_XUVI_CLK] = imx_clk_gate_scu("vpu_xuvi_clk", "vpu_xuvi_div", SC_R_VPU_PID0, SC_PM_CLK_PER, NULL, 0, 0);
+	clks[IMX8QM_VPU_DDR_CLK] = imx_clk_gate_scu("vpu_ddr_clk", "vpu_ddr_div", SC_R_VPU, SC_PM_CLK_SLV_BUS, NULL, 0, 0);
+	clks[IMX8QM_VPU_SYS_CLK] = imx_clk_gate_scu("vpu_sys_clk", "vpu_sys_div", SC_R_VPU, SC_PM_CLK_MST_BUS, NULL, 0, 0);
+	clks[IMX8QM_VPU_XUVI_CLK] = imx_clk_gate_scu("vpu_xuvi_clk", "vpu_xuvi_div", SC_R_VPU, SC_PM_CLK_PER, NULL, 0, 0);
 	clks[IMX8QM_VPU_UART_CLK] = imx_clk_gate_scu("vpu_uart_clk", "vpu_uart_div", SC_R_VPU_UART, SC_PM_CLK_PER, NULL, 0, 0);
 	clks[IMX8QM_VPU_CORE_CLK] = imx_clk_gate_scu("vpu_core_clk", "vpu_core_div", SC_R_VPUCORE, SC_PM_CLK_PER, NULL, 0, 0);
 
