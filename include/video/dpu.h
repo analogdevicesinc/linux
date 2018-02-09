@@ -383,8 +383,8 @@ typedef enum {
 } scaler_filter_mode_t;
 
 typedef enum {
-	SCLAER_DOWNSCALE = 0x0,
-	SCLAER_UPSCALE = 0x10,
+	SCALER_DOWNSCALE = 0x0,
+	SCALER_UPSCALE = 0x10,
 } scaler_scale_mode_t;
 
 typedef enum {

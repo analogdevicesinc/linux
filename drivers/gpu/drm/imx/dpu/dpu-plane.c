@@ -568,7 +568,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 		vscaler_output_size(vs, state->crtc_h);
 		vscaler_field_mode(vs, SCALER_INPUT);
 		vscaler_filter_mode(vs, SCALER_LINEAR);
-		vscaler_scale_mode(vs, SCLAER_UPSCALE);
+		vscaler_scale_mode(vs, SCALER_UPSCALE);
 		vscaler_mode(vs, SCALER_ACTIVE);
 		vscaler_set_stream_id(vs, dplane->stream_id ?
 					DPU_PLANE_SRC_TO_DISP_STREAM1 :
@@ -593,7 +593,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 		hscaler_setup1(hs, src_w, state->crtc_w);
 		hscaler_output_size(hs, state->crtc_w);
 		hscaler_filter_mode(hs, SCALER_LINEAR);
-		hscaler_scale_mode(hs, SCLAER_UPSCALE);
+		hscaler_scale_mode(hs, SCALER_UPSCALE);
 		hscaler_mode(hs, SCALER_ACTIVE);
 		hscaler_set_stream_id(hs, dplane->stream_id ?
 					DPU_PLANE_SRC_TO_DISP_STREAM1 :
