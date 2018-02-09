@@ -645,7 +645,7 @@
 
 		pd_vpu: vpu-power-domain {
 			compatible = "nxp,imx8-pd";
-			reg = <SC_R_VPU_PID0>;
+			reg = <SC_R_VPU>;
 			#power-domain-cells = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
