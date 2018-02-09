@@ -887,6 +887,9 @@ static int imx_ldb_panel_ddc(struct device *dev,
 	return 0;
 }
 
+#ifndef CONFIG_HAVE_IMX8_SOC
+static void ldb_pixel_link_config(int id) {}
+#else
 static void ldb_pixel_link_config(int id)
 {
 	sc_err_t sciErr;
@@ -929,6 +932,7 @@ static void ldb_pixel_link_config(int id)
 
 	sc_ipc_close(mu_id);
 }
+#endif
 
 static int imx_ldb_bind(struct device *dev, struct device *master, void *data)
 {
