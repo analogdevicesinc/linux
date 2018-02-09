@@ -143,12 +143,13 @@ static int setVPUPwr(sc_ipc_t ipcHndl,
 	}
 
 	/* Power on or off PID0, DEC, ENC */
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID0, pm);
+	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU, pm);
 	if (sciErr != SC_ERR_NONE)
 	{
-		dev_err(vpu_dev, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID0,%d) SCI error! (%d)\n", pm, sciErr);
+		dev_err(vpu_dev, "--- sc_pm_set_resource_power_mode(SC_R_VPU,%d) SCI error! (%d)\n", pm, sciErr);
 		goto setVPUPwrExit;
 	}
+#if 0
 	/* FIXME: no need of PID1-7? */
 	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID1, pm);
 	if (sciErr != SC_ERR_NONE)
@@ -192,16 +193,17 @@ static int setVPUPwr(sc_ipc_t ipcHndl,
 		dev_err(vpu_dev, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID7,%d) SCI error! (%d)\n", pm, sciErr);
 		goto setVPUPwrExit;
 	}
+#endif
 	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_DEC_0, pm);
 	if (sciErr != SC_ERR_NONE)
 	{
-		dev_err(vpu_dev, "--- sc_pm_set_resource_power_mode(SC_R_VPU_DEC,%d) SCI error! (%d)\n", pm, sciErr);
+		dev_err(vpu_dev, "--- sc_pm_set_resource_power_mode(SC_R_VPU_DEC_0,%d) SCI error! (%d)\n", pm, sciErr);
 		goto setVPUPwrExit;
 	}
 	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_ENC_0, pm);
 	if (sciErr != SC_ERR_NONE)
 	{
-		dev_err(vpu_dev, "--- sc_pm_set_resource_power_mode(SC_R_VPU_ENC,%d) SCI error! (%d)\n", pm, sciErr);
+		dev_err(vpu_dev, "--- sc_pm_set_resource_power_mode(SC_R_VPU_ENC_0,%d) SCI error! (%d)\n", pm, sciErr);
 		goto setVPUPwrExit;
 	}
 
@@ -227,10 +229,10 @@ static sc_pm_power_mode_t getVPUPwr(sc_ipc_t ipcHndl)
 		return (rv);
 	}
 
-	sciErr = sc_pm_get_resource_power_mode(ipcHndl, SC_R_VPU_PID0, &rv);
+	sciErr = sc_pm_get_resource_power_mode(ipcHndl, SC_R_VPU, &rv);
 	if (sciErr != SC_ERR_NONE)
 	{
-		dev_err(vpu_dev, "--- sc_pm_get_resource_power_mode(SC_R_VPU_PID0) SCI error! (%d)\n", sciErr);
+		dev_err(vpu_dev, "--- sc_pm_get_resource_power_mode(SC_R_VPU) SCI error! (%d)\n", sciErr);
 		rv = -1;
 	}
 
