@@ -341,6 +341,9 @@
 				 <&clks IMX7ULP_CLK_USDHC0>;
 			clock-names ="ipg", "ahb", "per";
 			bus-width = <4>;
+			assigned-clocks = <&clks IMX7ULP_CLK_APLL_PFD1>, <&clks IMX7ULP_CLK_USDHC0>;
+			assigned-clock-parents = <0>, <&clks IMX7ULP_CLK_APLL_PFD1>;
+			assigned-clock-rates = <0>, <352800000>;
 			fsl,tuning-start-tap = <20>;
 			fsl,tuning-step= <2>;
 			status = "disabled";
@@ -355,6 +358,9 @@
 				 <&clks IMX7ULP_CLK_USDHC1>;
 			clock-names ="ipg", "ahb", "per";
 			bus-width = <4>;
+			assigned-clocks = <&clks IMX7ULP_CLK_APLL_PFD1>, <&clks IMX7ULP_CLK_USDHC1>;
+			assigned-clock-parents = <0>, <&clks IMX7ULP_CLK_APLL_PFD1>;
+			assigned-clock-rates = <0>, <176400000>;
 			fsl,tuning-start-tap = <20>;
 			fsl,tuning-step= <2>;
 			status = "disabled";
@@ -393,10 +399,8 @@
 			clock-names = "rosc", "sosc", "sirc",
 				"firc", "upll", "mpll";
 			#clock-cells = <1>;
-			assigned-clocks = <&clks IMX7ULP_CLK_LPTPM5>,
-					  <&clks IMX7ULP_CLK_USDHC1>;
-			assigned-clock-parents = <&clks IMX7ULP_CLK_SOSC_BUS_CLK>,
-						 <&clks IMX7ULP_CLK_NIC1_DIV>;
+			assigned-clocks = <&clks IMX7ULP_CLK_LPTPM5>;
+			assigned-clock-parents = <&clks IMX7ULP_CLK_SOSC_BUS_CLK>;
 		};
 
 		pcc2: pcc2@403F0000 {

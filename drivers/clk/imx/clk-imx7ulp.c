@@ -208,10 +208,10 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
         imx_clk_set_parent(clks[IMX7ULP_CLK_GPU2D], clks[IMX7ULP_CLK_APLL_PFD2]);
         imx_clk_set_parent(clks[IMX7ULP_CLK_GPU3D], clks[IMX7ULP_CLK_APLL_PFD2]);
 
-	/* make sure PFD is gated before setting its rate */
-	clk_prepare_enable(clks[IMX7ULP_CLK_APLL_PFD2]);
-	clk_disable_unprepare(clks[IMX7ULP_CLK_APLL_PFD2]);
 	imx_clk_set_rate(clks[IMX7ULP_CLK_APLL_PFD2], 350000000);
+
+	/* setting the rate for emmc/sd usage */
+	imx_clk_set_rate(clks[IMX7ULP_CLK_APLL_PFD1], 352800000);
 
 	pr_info("i.MX7ULP clock tree init done.\n");
 }
