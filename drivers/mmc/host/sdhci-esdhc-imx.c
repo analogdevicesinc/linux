@@ -75,6 +75,7 @@
 #define ESDHC_STROBE_DLL_CTRL_RESET	(1 << 1)
 #define ESDHC_STROBE_DLL_CTRL_SLV_DLY_TARGET_DEFAULT	0x7
 #define ESDHC_STROBE_DLL_CTRL_SLV_DLY_TARGET_SHIFT	3
+#define ESDHC_STROBE_DLL_CTRL_SLV_UPDATE_INT_DEFAULT	(4 << 20)
 
 #define ESDHC_STROBE_DLL_STATUS		0x74
 #define ESDHC_STROBE_DLL_STS_REF_LOCK	(1 << 1)
@@ -239,6 +240,7 @@ static struct esdhc_soc_data usdhc_imx7d_data = {
 static struct esdhc_soc_data usdhc_imx7ulp_data = {
 	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_STD_TUNING
 			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200
+			| ESDHC_FLAG_HS400
 			| ESDHC_FLAG_STATE_LOST_IN_LPMODE
 			| ESDHC_FLAG_PMQOS,
 };
@@ -1007,6 +1009,9 @@ static void esdhc_set_strobe_dll(struct sdhci_host *host)
 		/* force a reset on strobe dll */
 		writel(ESDHC_STROBE_DLL_CTRL_RESET,
 			host->ioaddr + ESDHC_STROBE_DLL_CTRL);
+		/* clear the reset bit on strobe dll before any setting */
+		writel(0, host->ioaddr + ESDHC_STROBE_DLL_CTRL);
+
 		/*
 		 * enable strobe dll ctrl and adjust the delay target
 		 * for the uSDHC loopback read clock
@@ -1016,10 +1021,11 @@ static void esdhc_set_strobe_dll(struct sdhci_host *host)
 		else
 			strobe_delay = ESDHC_STROBE_DLL_CTRL_SLV_DLY_TARGET_DEFAULT;
 		v = ESDHC_STROBE_DLL_CTRL_ENABLE |
+			ESDHC_STROBE_DLL_CTRL_SLV_UPDATE_INT_DEFAULT |
 			(strobe_delay << ESDHC_STROBE_DLL_CTRL_SLV_DLY_TARGET_SHIFT);
 		writel(v, host->ioaddr + ESDHC_STROBE_DLL_CTRL);
-		/* wait 1us to make sure strobe dll status register stable */
-		udelay(1);
+		/* wait 5us to make sure strobe dll status register stable */
+		udelay(5);
 		v = readl(host->ioaddr + ESDHC_STROBE_DLL_STATUS);
 		if (!(v & ESDHC_STROBE_DLL_STS_REF_LOCK))
 			dev_warn(mmc_dev(host->mmc),
