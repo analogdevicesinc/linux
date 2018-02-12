@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP.
+ * Copyright 2017-2018 NXP.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -219,7 +219,7 @@ struct clk *imx_clk_sccg_pll(const char *name, const char *parent_name,
 		break;
 	}
 
-	init.flags = 0;
+	init.flags = CLK_SET_RATE_GATE | CLK_GET_RATE_NOCACHE;
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
 
