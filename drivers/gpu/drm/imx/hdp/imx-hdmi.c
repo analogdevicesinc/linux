@@ -267,3 +267,26 @@ int hdmi_get_hpd_state(state_struct *state, u8 *hpd)
 	ret = CDN_API_HDMITX_GetHpdStatus_blocking(state, hpd);
 	return ret;
 }
+
+int hdmi_write_hdr_metadata(state_struct *state,
+			    union hdmi_infoframe *hdr_infoframe)
+{
+	struct imx_hdp *hdp = container_of(state, struct imx_hdp, state);
+	u8 buffer[40];
+	int infoframe_size;
+
+	infoframe_size = hdmi_infoframe_pack(hdr_infoframe,
+					     buffer + 1, sizeof(buffer) - 1);
+	if (infoframe_size < 0) {
+		dev_err(hdp->dev, "Wrong metadata infoframe: %d\n",
+			infoframe_size);
+		return infoframe_size;
+	}
+
+	buffer[0] = 0;
+	infoframe_size++;
+
+	return CDN_API_InfoframeSet(state, 1, infoframe_size,
+				    (u32 *)buffer,
+				    HDMI_INFOFRAME_TYPE_DRM);
+}

@@ -22,6 +22,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_encoder_slave.h>
+#include <drm/drm_atomic.h>
 #include <soc/imx8/sc/sci.h>
 
 #include <drm/drm_dp_helper.h>
@@ -89,6 +90,8 @@ struct hdp_ops {
 	void (*mode_set)(state_struct *state, int vic, int format, int color_depth, int max_link);
 	int (*get_edid_block)(void *data, u8 *buf, u32 block, size_t len);
 	int (*get_hpd_state)(state_struct *state, u8 *hpd);
+	int (*write_hdr_metadata)(state_struct *state,
+				  union hdmi_infoframe *hdr_infoframe);
 
 	void (*phy_reset)(sc_ipc_t ipcHndl, u8 reset);
 	int (*pixel_link_init)(state_struct *state);

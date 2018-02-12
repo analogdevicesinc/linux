@@ -677,13 +677,49 @@ static int imx_hdp_imx_encoder_atomic_check(struct drm_encoder *encoder,
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 
 	imx_crtc_state->bus_format = MEDIA_BUS_FMT_RGB101010_1X30;
+
+	if (conn_state->hdr_metadata_changed)
+		crtc_state->mode_changed = true;
+
 	return 0;
+}
+
+static void imx_hdp_imx_encoder_atomic_modeset(struct drm_encoder *encoder,
+					     struct drm_crtc_state *crtc_state,
+					struct drm_connector_state *conn_state)
+{
+	struct imx_hdp *hdp = container_of(encoder, struct imx_hdp, encoder);
+	union hdmi_infoframe frame;
+	struct hdr_static_metadata *hdr_metadata;
+	int ret;
+
+	if (!hdp->ops->write_hdr_metadata)
+		return;
+
+	if (!conn_state->hdr_source_metadata_blob_ptr ||
+	    conn_state->hdr_source_metadata_blob_ptr->length == 0)
+		return;
+
+	if (!conn_state->hdr_metadata_changed)
+		return;
+
+	hdr_metadata = (struct hdr_static_metadata *)
+			conn_state->hdr_source_metadata_blob_ptr->data;
+
+	ret = drm_hdmi_infoframe_set_hdr_metadata(&frame.drm, hdr_metadata);
+	if (ret < 0) {
+		DRM_ERROR("could not set HDR metadata in infoframe\n");
+		return;
+	}
+
+	hdp->ops->write_hdr_metadata(&hdp->state, &frame);
 }
 
 static const struct drm_encoder_helper_funcs imx_hdp_imx_encoder_helper_funcs = {
 	.enable     = imx_hdp_imx_encoder_enable,
 	.disable    = imx_hdp_imx_encoder_disable,
 	.atomic_check = imx_hdp_imx_encoder_atomic_check,
+	.atomic_mode_set = imx_hdp_imx_encoder_atomic_modeset,
 };
 
 static const struct drm_encoder_funcs imx_hdp_imx_encoder_funcs = {
@@ -855,6 +891,7 @@ static struct hdp_ops imx8mq_ops = {
 	.mode_set = hdmi_mode_set_t28hpc,
 	.get_edid_block = hdmi_get_edid_block,
 	.get_hpd_state = hdmi_get_hpd_state,
+	.write_hdr_metadata = hdmi_write_hdr_metadata,
 };
 
 static struct hdp_devtype imx8mq_hdmi_devtype = {
