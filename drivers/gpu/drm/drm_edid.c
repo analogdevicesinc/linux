@@ -4865,9 +4865,8 @@ drm_hdmi_infoframe_set_hdr_metadata(struct hdmi_drm_infoframe *frame,
 
 	frame->length = sizeof(struct hdr_static_metadata);
 
-
 	frame->eotf = hdr_source_metadata->eotf;
-	frame->type = hdr_source_metadata->type;
+	frame->metadata_type = hdr_source_metadata->type;
 
 	for (i = 0; i < 3; i++) {
 		frame->display_primaries_x[i] =
