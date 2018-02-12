@@ -649,6 +649,14 @@
 #define WM8985_PLLK_8_0_WIDTH                        9  /* PLLK(8:0) - [8:0] */
 
 /*
+ * R40 (0x28) - NAU8820 Microphone Bias Mode
+ */
+#define NAU8820_MICBIASM                        0x0001   /* MICBIASM */
+#define NAU8820_MICBIASM_MASK                   0x0001   /* MICBIASM */
+#define NAU8820_MICBIASM_SHIFT                       0   /* MICBIASM */
+#define NAU8820_MICBIASM_WIDTH                       1   /* MICBIASM */
+
+/*
  * R41 (0x29) - 3D control
  */
 #define WM8985_DEPTH3D_MASK                     0x000F  /* DEPTH3D - [3:0] */
@@ -721,6 +729,10 @@
 #define WM8985_MBVSEL_MASK                      0x0100  /* MBVSEL */
 #define WM8985_MBVSEL_SHIFT                          8  /* MBVSEL */
 #define WM8985_MBVSEL_WIDTH                          1  /* MBVSEL */
+#define NAU8820_MICBIASV                        0x0180  /* NAU8820 MICBIASV */
+#define NAU8820_MICBIASV_MASK                   0x0180  /* NAU8820 MICBIASV */
+#define NAU8820_MICBIASV_SHIFT                       7  /* NAU8820 MICBIASV */
+#define NAU8820_MICBIASV_WIDTH                       2  /* NAU8820 MICBIASV */
 #define WM8985_R2_2INPPGA                       0x0040  /* R2_2INPPGA */
 #define WM8985_R2_2INPPGA_MASK                  0x0040  /* R2_2INPPGA */
 #define WM8985_R2_2INPPGA_SHIFT                      6  /* R2_2INPPGA */

@@ -1166,9 +1166,11 @@ static int wm8985_set_bias_level(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec, WM8985_OUTPUT_CTRL0,
 					    WM8985_TSOPCTRL_MASK,
 					    WM8985_TSOPCTRL);
-			/* enable BIASEN */
+			/* enable BIASEN and MICBEN */
 			snd_soc_update_bits(codec, WM8985_POWER_MANAGEMENT_1,
-					    WM8985_BIASEN_MASK, WM8985_BIASEN);
+					    WM8985_BIASEN_MASK | WM8985_MICBEN_MASK,
+					    WM8985_BIASEN | WM8985_MICBEN);
+
 			/* VMID at 75k */
 			snd_soc_update_bits(codec, WM8985_POWER_MANAGEMENT_1,
 					    WM8985_VMIDSEL_MASK,
@@ -1190,9 +1192,9 @@ static int wm8985_set_bias_level(struct snd_soc_codec *codec,
 				    WM8985_TSOPCTRL_MASK, 0);
 		snd_soc_update_bits(codec, WM8985_OUTPUT_CTRL0,
 				    WM8985_TSDEN_MASK, 0);
-		/* disable VMIDSEL and BIASEN */
+		/* disable VMIDSEL, BIASEN and MICBEN */
 		snd_soc_update_bits(codec, WM8985_POWER_MANAGEMENT_1,
-				    WM8985_VMIDSEL_MASK | WM8985_BIASEN_MASK,
+				    WM8985_VMIDSEL_MASK | WM8985_BIASEN_MASK | WM8985_MICBEN_MASK,
 				    0);
 		snd_soc_write(codec, WM8985_POWER_MANAGEMENT_1, 0);
 		snd_soc_write(codec, WM8985_POWER_MANAGEMENT_2, 0);
@@ -1248,6 +1250,13 @@ static int wm8985_probe(struct snd_soc_codec *codec)
 		/* enable BIASCUT */
 		snd_soc_update_bits(codec, WM8985_BIAS_CTRL, WM8985_BIASCUT,
 			    WM8985_BIASCUT);
+	} else {
+		/* configure low noise mode for the microphone bias */
+		snd_soc_update_bits(codec, NAU8820_MIC_BIAS_MODE,
+				    NAU8820_MICBIASM_MASK, NAU8820_MICBIASM);
+
+		snd_soc_update_bits(codec, WM8985_INPUT_CTRL,
+				    NAU8820_MICBIASV_MASK, 0x3 << NAU8820_MICBIASV_SHIFT);
 	}
 
 	wm8985_add_widgets(codec);
