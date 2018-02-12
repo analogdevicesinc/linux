@@ -50,6 +50,7 @@
 #define WM8985_PLL_K_1                          0x25
 #define WM8985_PLL_K_2                          0x26
 #define WM8985_PLL_K_3                          0x27
+#define NAU8820_MIC_BIAS_MODE                   0x28
 #define WM8985_3D_CONTROL                       0x29
 #define WM8985_OUT4_TO_ADC                      0x2A
 #define WM8985_BEEP_CONTROL                     0x2B
@@ -67,10 +68,15 @@
 #define WM8985_ROUT2_SPK_VOLUME_CTRL            0x37
 #define WM8985_OUT3_MIXER_CTRL                  0x38
 #define WM8985_OUT4_MONO_MIX_CTRL               0x39
-#define WM8985_OUTPUT_CTRL1                     0x3C
+#define NAU8820_POWER_MANAGEMENT_4		0x3A
+#define NAU8820_LEFT_TIME_SLOT			0x3B
+#define NAU8820_MISC				0x3C
 #define WM8985_BIAS_CTRL                        0x3D
+#define NAU8820_RIGHT_TIME_SLOT			0x3D
+#define NAU8820_DEVICE_REVISION			0x3E
+#define NAU8820_DEVICE_ID			0x3F
 
-#define WM8985_REGISTER_COUNT                   59
+#define WM8985_REGISTER_COUNT                   60
 #define WM8985_MAX_REGISTER                     0x3F
 
 /*
