@@ -544,16 +544,17 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 			dfs |= AK4497_DFS_96KHZ;
 			dfs2 |= AK4497_DFS2_48KHZ;
 			break;
-
 		case 176400:
 		case 192000:
 			dfs |= AK4497_DFS_192KHZ;
 			dfs2 |= AK4497_DFS2_48KHZ;
 			break;
+		case 352800:
 		case 384000:
 			dfs |= AK4497_DFS_384KHZ;
 			dfs2 |= AK4497_DFS2_384KHZ;
 			break;
+		case 705600:
 		case 768000:
 			dfs |= AK4497_DFS_768KHZ;
 			dfs2 |= AK4497_DFS2_384KHZ;

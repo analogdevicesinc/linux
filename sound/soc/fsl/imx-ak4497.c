@@ -45,8 +45,8 @@ static const struct imx_ak4497_fs_mul {
 	{ .min = 44100,  .max = 48000,  .mul = 512  }, /* Normal */
 	{ .min = 88200,  .max = 96000,  .mul = 256  }, /* Double */
 	{ .min = 176400, .max = 192000, .mul = 128  }, /* Quad */
-	{ .min = 384000, .max = 384000, .mul = 64   }, /* Oct */
-	{ .min = 768000, .max = 768000, .mul = 32   }, /* Hex */
+	{ .min = 352800, .max = 384000, .mul = 2*64 }, /* Oct */
+	{ .min = 705600, .max = 768000, .mul = 2*32 }, /* Hex */
 };
 
 static bool imx_ak4497_is_dsd(struct snd_pcm_hw_params *params)
