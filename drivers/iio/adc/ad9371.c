@@ -1844,7 +1844,7 @@ static int find_table_index(struct ad9371_rf_phy *phy, mykonosGainTable_t table,
 	u32 i, nm1, n;
 
 	for (i = 0; i < phy->gt_info[table].max_index; i++) {
-		if (phy->gt_info[table].abs_gain_tbl[i] > gain) {
+		if (phy->gt_info[table].abs_gain_tbl[i] <= gain) {
 			nm1 = abs(phy->gt_info[table].abs_gain_tbl[
 				(i > 0) ? i - 1 : i] - gain);
 			n = abs(phy->gt_info[table].abs_gain_tbl[i]
@@ -1869,7 +1869,7 @@ static int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
 		if (phy->gt_info[RX1_RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, RX1_RX2_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = phy->mykDevice->rx->rxGainCtrl->rx1MaxGainIndex - ret;
 				break;
 			}
 		}
@@ -1877,7 +1877,7 @@ static int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
 		if (phy->gt_info[RX1_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, RX1_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = phy->mykDevice->rx->rxGainCtrl->rx1MaxGainIndex - ret;
 				break;
 			}
 		}
@@ -1891,7 +1891,7 @@ static int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
 		if (phy->gt_info[RX1_RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, RX1_RX2_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = phy->mykDevice->rx->rxGainCtrl->rx2MaxGainIndex - ret;
 				break;
 			}
 		}
@@ -1899,7 +1899,7 @@ static int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
 		if (phy->gt_info[RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, RX1_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = phy->mykDevice->rx->rxGainCtrl->rx2MaxGainIndex - ret;
 				break;
 			}
 		}
@@ -1913,7 +1913,7 @@ static int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
 			if (phy->gt_info[SNRX_GT].abs_gain_tbl) {
 				ret = find_table_index(phy, SNRX_GT, gain);
 				if (ret >= 0) {
-					*index = ret;
+					*index = phy->mykDevice->obsRx->snifferGainCtrl->maxGainIndex - ret;
 					break;
 				}
 			}
@@ -1927,7 +1927,7 @@ static int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
 		if (phy->gt_info[ORX_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, ORX_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = phy->mykDevice->obsRx->orxGainCtrl->maxGainIndex - ret;
 				break;
 			}
 		}
